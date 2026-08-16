@@ -270,11 +270,15 @@ function LiveTopicStep({ topic, onChange, onConfirm }: { readonly topic: string;
 }
 
 function LiveExpertStep({ expertIds, candidates, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly onChange: (expertIds: readonly string[]) => void; readonly onConfirm: () => void }) {
-  const addExpert = () => {
-    const candidate = candidates.find((expert) => !expertIds.includes(expert.expertId));
-    if (candidate) onChange([...expertIds, candidate.expertId]);
-  };
-  return <div data-testid="itv-expert-step"><h2 className="text-xl font-semibold">确认访谈专家</h2><p className="mt-2 text-sm text-muted-foreground">调整仅保存在本地草稿，确认后才生成下一步问题。</p><div className="mt-5 grid gap-3">{expertIds.map((expertId) => { const expert = candidates.find((candidate) => candidate.expertId === expertId); return <article key={expertId} className="flex items-center justify-between rounded-lg border border-border p-4"><div><strong>{expert?.displayName ?? expertId}</strong>{expert && <p className="mt-1 text-xs text-muted-foreground">{expert.role} · {expert.materialBoundary}</p>}</div><button type="button" disabled={expertIds.length <= 1} aria-label={`删除专家 ${expert?.displayName ?? expertId}`} onClick={() => onChange(expertIds.filter((id) => id !== expertId))} className="rounded-md p-2 text-muted-foreground disabled:cursor-not-allowed disabled:text-disabled-foreground"><Trash2 className="size-4" /></button></article>; })}</div><div className="mt-5 flex flex-wrap gap-3"><Button type="button" variant="outline" disabled={candidates.every((candidate) => expertIds.includes(candidate.expertId))} onClick={addExpert}><Plus className="size-4" />添加专家</Button><Button data-testid="itv-confirm-experts" type="button" variant="primary" disabled={!expertIds.length} onClick={onConfirm}>确认并生成问题</Button></div></div>;
+  const [pickerOpen, setPickerOpen] = React.useState(false);
+  const pickerExperts = candidates.map((expert) => ({
+    expertId: expert.expertId,
+    displayName: expert.displayName,
+    role: expert.role,
+    category: expert.domains[0] ?? "未分类",
+    bio: expert.materialBoundary,
+  }));
+  return <div data-testid="itv-expert-step"><h2 className="text-xl font-semibold">确认访谈专家</h2><p className="mt-2 text-sm text-muted-foreground">调整仅保存在本地草稿，确认后才生成下一步问题。</p><div className="mt-5 grid gap-3">{expertIds.map((expertId) => { const expert = candidates.find((candidate) => candidate.expertId === expertId); return <article key={expertId} className="flex items-center justify-between rounded-lg border border-border p-4"><div><strong>{expert?.displayName ?? expertId}</strong>{expert && <p className="mt-1 text-xs text-muted-foreground">{expert.role} · {expert.materialBoundary}</p>}</div><button type="button" disabled={expertIds.length <= 1} aria-label={`删除专家 ${expert?.displayName ?? expertId}`} onClick={() => onChange(expertIds.filter((id) => id !== expertId))} className="rounded-md p-2 text-muted-foreground disabled:cursor-not-allowed disabled:text-disabled-foreground"><Trash2 className="size-4" /></button></article>; })}</div><div className="mt-5 flex flex-wrap gap-3"><Button data-testid="itv-add-expert" type="button" variant="outline" onClick={() => setPickerOpen(true)}><Plus className="size-4" />添加专家</Button><Button data-testid="itv-confirm-experts" type="button" variant="primary" disabled={!expertIds.length} onClick={onConfirm}>确认并生成问题</Button></div><ExpertPickerDialog open={pickerOpen} selectedExpertIds={expertIds} onOpenChange={setPickerOpen} onConfirm={onChange} experts={pickerExperts} description="从当前组织可用的数字专家中选择，本次选择会追加到访谈。" /></div>;
 }
 
 function LiveQuestionStep({ expertIds, candidates, questions, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly questions: readonly DigitalInterviewQuestion[]; readonly onChange: (questions: readonly DigitalInterviewQuestion[]) => void; readonly onConfirm: () => void }) {

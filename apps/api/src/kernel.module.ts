@@ -187,6 +187,7 @@ import {
 } from "./application/interview/workflow/digital-interview-runtime.port";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
 import { PgDigitalInterviewEffects } from "./infrastructure/interview/workflow/pg-digital-interview-effects";
+import { readDigitalInterviewModelConfig } from "./infrastructure/interview/workflow/digital-interview-model-config";
 import {
   createDigitalInterviewCheckpointer,
   LangGraphDigitalInterviewRuntime,
@@ -267,6 +268,7 @@ import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor"
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
+import { SkillTrialRunController, SKILL_TRIALRUN_MODEL_ID } from "./interface/controllers/skill-trial-run.controller";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
 import { AGENT_PUBLISH_REPOSITORY, AGENT_REVIEWER_FUNCTION_PORT } from "./application/agent/agent-publish";
@@ -294,6 +296,9 @@ import {
 // ⚠ 归因由 `MessageAttributionPort` 从 agent_runs 查出来，路由不接受任何外部归因输入。
 import { PgMessageRatingRepository } from "./infrastructure/skill/pg-message-rating-repository";
 import { MessageRatingController } from "./interface/controllers/message-rating.controller";
+import { PgProductFeedbackRepository } from "./infrastructure/feedback/pg-product-feedback-repository";
+import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
+import { FeedbackController } from "./interface/controllers/feedback.controller";
 import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
 import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
@@ -403,6 +408,7 @@ import {
   PROJECT_LIST_REPOSITORY,
   PROJECT_OVERVIEW_REPOSITORY,
   PROJECT_REPOSITORY,
+  PROJECT_TAGS_REPOSITORY,
 } from "./application/project/ports";
 // F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
 // 独立 provider，见 `application/project/member-ports.ts` 与
@@ -417,6 +423,7 @@ import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-
 // 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
 // `pg-blueprint-reference-repository.ts` 的注释。
 import { PgBlueprintReferenceRepository } from "./infrastructure/project/pg-blueprint-reference-repository";
+import { PgProjectTagsRepository } from "./infrastructure/project/pg-project-tags-repository";
 import { PgProjectMembershipRepository } from "./infrastructure/project/pg-project-membership-repository";
 import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-token-member-resolver";
 // F127（本次新增）：`TEMPORARY_GRANT_REPOSITORY`——F05 交付了判定逻辑但故意不建的存储层，
@@ -570,10 +577,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentRunController,
     CopilotkitAguiController,
     AgentTrialRunController,
+    SkillTrialRunController,
     AgentController,
     AgentPublishController,
     SkillController,
     MessageRatingController,
+    FeedbackController,
     SkillReviewController,
     SkillMountController,
     ModelController,
@@ -970,6 +979,21 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       },
     },
     {
+      /**
+       * 模型 A skill 试跑（`SkillTrialRunController`）要一个 modelId——skill 本身没有
+       * `model_provider`/`model_id` 列（那是 agent 才有的字段），trial-run-skill.ts
+       * 头注解释了为什么。provider 复用**同一个**已配置的 chat provider（不新开
+       * 第二条模型接入面），modelId 是一个独立、可选的部署配置——空串 = 这个
+       * 部署没打开这条能力，`trial-run-skill.ts` 在调用时诚实报 `MODEL_UNAVAILABLE`，
+       * 不在这里让整个进程启动失败（那会把「一个能力没配」变成「全组织 API 起不来」）。
+       */
+      provide: SKILL_TRIALRUN_MODEL_ID,
+      useFactory: () => ({
+        provider: readModelProviderConfig().provider,
+        modelId: process.env.KERNEL_SKILL_TRIALRUN_MODEL_ID ?? "",
+      }),
+    },
+    {
       provide: AGENT_RUN_EXECUTOR,
       // #741: `KERNEL_TOOL_CALLING_ENABLED` retired along with the TS tool loop it gated
       // (see `execute-run.ts`'s own header) -- `AgentRunExecutor` no longer takes that
@@ -1038,8 +1062,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         db: DatabasePort,
         ids: import("./application/artifact/ports").IdFactory,
         repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
-      ) => new PgDigitalInterviewEffects(db, ids, repo),
-      inject: [DATABASE_PORT, ID_FACTORY, DIGITAL_INTERVIEW_REPOSITORY],
+        model: ModelCallPort,
+      ) => {
+        const config = readDigitalInterviewModelConfig();
+        return new PgDigitalInterviewEffects(db, ids, repo, model, config.provider, config.modelId);
+      },
+      inject: [DATABASE_PORT, ID_FACTORY, DIGITAL_INTERVIEW_REPOSITORY, MODEL_CALL_PORT],
     },
     {
       provide: DIGITAL_INTERVIEW_RUNTIME,
@@ -1058,8 +1086,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         decisions,
         ids,
         model,
-        skillModelProvider: (process.env.KERNEL_MODEL_PROVIDER ?? "").trim(),
-        skillModelId: (process.env.KERNEL_DIGITAL_INTERVIEW_SKILL_MODEL_ID ?? process.env.KERNEL_MODEL_ID ?? "").trim(),
+        skillModelProvider: readDigitalInterviewModelConfig().provider,
+        skillModelId: readDigitalInterviewModelConfig().modelId,
       }),
       inject: [
         DIGITAL_INTERVIEW_EFFECTS,
@@ -1226,6 +1254,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgProjectArchiveRepository(db),
       inject: [DATABASE_PORT],
     },
+    // F185（2026-08-16 delta）：独立 provider，见 `pg-project-tags-repository.ts` 文件头。
+    {
+      provide: PROJECT_TAGS_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProjectTagsRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F125：独立 provider，见 `pg-project-membership-repository.ts` 文件头。
     {
       provide: PROJECT_MEMBERSHIP_REPOSITORY,
@@ -1321,6 +1355,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: MESSAGE_RATING_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgMessageRatingRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // FB-2: same factory shape and same reason as the three above -- `submitFeedback.in` has
+    // no `orgId` (it comes from the principal), so a feedback repository not bound to a
+    // tenant would be a thing that can write feedback into somebody else's organization.
+    {
+      provide: PRODUCT_FEEDBACK_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProductFeedbackRepository(db),
       inject: [DATABASE_PORT],
     },
     {

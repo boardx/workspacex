@@ -191,14 +191,19 @@ const PROBE_TOKEN = "__verification_gate_probe_absent__";
 export function classify(cmd) {
   const c = cmd.trim();
 
-  // vitest：pnpm --filter <pkg> exec vitest run <path>
-  let m = /^pnpm\s+--filter\s+(\S+)\s+exec\s+vitest\s+run\s+(\S+)\s*$/.exec(c);
+  // vitest：pnpm --filter <pkg> exec vitest run <path> [<path> …]
+  // ⚠ 2026-08-16（F188 复核发现）：原正则只认单一路径，多文件形式
+  //   （`vitest run a.test.ts b.test.ts c.test.ts`——本仓真实、常见的写法，
+  //   一条 verification 覆盖同一 feature 的多个测试文件）落进「未登记形态」。
+  //   失败传导路径与单文件逐字相同（vitest 收集不到匹配文件 exit 非 0），
+  //   所以复用同一个形态键 `vitest-file:<pkg>` 与同一条探针，不新开一种形态。
+  let m = /^pnpm\s+--filter\s+(\S+)\s+exec\s+vitest\s+run\s+(\S+(?:\s+\S+)*)\s*$/.exec(c);
   if (m) {
-    const [, pkg, path] = m;
+    const [, pkg, paths] = m;
     return {
       shape: `vitest-file:${pkg}`,
       probe: `pnpm --filter ${pkg} exec vitest run tests/${PROBE_TOKEN}.test.ts`,
-      checks: [{ type: "package", pkg }, { type: "test-file", pkg, path }],
+      checks: [{ type: "package", pkg }, { type: "test-file", pkg, path: paths }],
     };
   }
 

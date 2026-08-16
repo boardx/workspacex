@@ -1,0 +1,338 @@
+$ pnpm --filter web run typecheck
+[exit 0]
+
+> web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5acdc57ca19f2b5f/apps/web
+> tsc --noEmit
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/canvas-template-live.test.tsx tests/session/canvas-template-routes-no-mock.test.ts tests/ui/blueprint-list-screen-live.test.tsx tests/ui/tpl-list-admin-nav.test.tsx
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5acdc57ca19f2b5f/apps/web
+
+ ✓ tests/session/canvas-template-routes-no-mock.test.ts (11 tests) 109ms
+ ✓ tests/ui/tpl-list-admin-nav.test.tsx (3 tests) 75ms
+ ✓ tests/ui/blueprint-list-screen-live.test.tsx (8 tests) 246ms
+ ✓ tests/ui/canvas-template-live.test.tsx (17 tests) 422ms
+
+ Test Files  4 passed (4)
+      Tests  39 passed (39)
+   Start at  23:49:29
+   Duration  4.13s (transform 1.32s, setup 1.01s, collect 3.47s, tests 853ms, environment 4.79s, prepare 1.39s)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5acdc57ca19f2b5f
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=af0b7d2040345d845170f3488edc208e8d7edd3f（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_d700aa8504815f725339 inner_db=wsx_d700aa8504815f725339 outer_compose=wsx-d700aa8504815f725339 inner_compose=wsx-d700aa8504815f725339 status=matched
+[stack-admission] load1=22.54 cores=10 perCore=2.25 running=0/2
+[test-isolation] id=run-msujx5yx-360d2bcd-d700aa850481 db=wsx_d700aa8504815f725339 compose=wsx-d700aa8504815f725339 pg=20093 redis=25093
+
+   • Packages in scope: //, web
+   • Running typecheck, lint, test in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs 40576d20e95572f7
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyanbin/Documents/workspacex/.worktrees/ca-1333/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+web:test: cache miss, executing 431d95e4e14b41bb
+web:typecheck: cache miss, executing f6715d863848784d
+web:lint: cache miss, executing 099b1911763e6687
+web:test: 
+web:test: > web@0.1.0 test /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5acdc57ca19f2b5f/apps/web
+web:test: > vitest run
+web:test: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5acdc57ca19f2b5f/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5acdc57ca19f2b5f/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+web:lint: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+web:test: 
+web:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5acdc57ca19f2b5f/apps/web
+web:test: 
+web:test:  ✓ tests/ui/personal-chat-screen.test.tsx (18 tests) 876ms
+web:test:  ✓ tests/ui/canvas-template-live.test.tsx (17 tests) 1697ms
+web:test:  ✓ tests/ui/skill-catalog-live.test.tsx (17 tests) 2060ms
+web:test:    ✓ #520 Skill 库屏接真实 API > 提交打的是 POST /skills，请求体是契约的形状，且**不含** source 326ms
+web:test:  ✓ tests/ui/capability-catalog-mutate.test.tsx (10 tests) 1740ms
+web:test:    ✓ #458 Agent 目录写路径接到 POST /capabilities/mutate > 新增：按契约发 op=add，并且列表来自服务端的第二次 GET 而不是本地插入 628ms
+web:test:  ✓ tests/ui/interview-studio-home.test.tsx (13 tests) 3951ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 默认显示历史卡，一级标签只有历史访谈与专家列表，新建按钮完整单行 703ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 从全部历史记录动态派生 Tag 并在客户端单选过滤 347ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 通过弹窗填写名称和最多五个标签后直接进入访谈流程 372ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 仅本地 Mock 历史卡可编辑名称和标签 601ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 删除本地 Mock 历史卡前需要确认 645ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 切到专家列表后显示 persona mock、分类和快捷访谈入口 540ms
+web:test:  ✓ tests/ui/guided-research-flow.test.tsx (24 tests) 4507ms
+web:test:    ✓ Issue #1073 · guided deep research UI-first flow > AI directions and outline remain editable before search 395ms
+web:test:    ✓ Issue #1073 · guided deep research UI-first flow > clamps a requested future checkpoint to the session maximum 632ms
+web:test:    ✓ Issue #1073 · guided deep research UI-first flow > completes the persisted demo search and report journey 649ms
+web:test:    ✓ Issue #1073 · guided deep research UI-first flow > retains search on lifecycle failure and offers retry without navigation 373ms
+web:test:  ✓ tests/session/session-provider.test.tsx (13 tests) 578ms
+web:test:    ✓ SessionProvider > starts a real identity session, switches with the signed API, and logs out locally 332ms
+web:test:  ✓ tests/ui/chat-roster-mutate.test.tsx (11 tests) 1936ms
+web:test:    ✓ #467 会话内 agent 编制的增删接线 > 加一个 agent：打真实端口，并在返回后重读服务端编制（不做乐观更新） 501ms
+web:test:  ✓ tests/ui/realtime-transcription-history.test.tsx (17 tests) 5063ms
+web:test:    ✓ 实时转录历史工作台 > 历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗 902ms
+web:test:    ✓ 实时转录历史工作台 > 提交新建转录走真实 API，保留自定义标签并立即进入该场工作台 372ms
+web:test:    ✓ 实时转录历史工作台 > 停止后等待个人 ASR 完成并重新读取持久化正文 329ms
+web:test:    ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 436ms
+web:test:    ✓ 实时转录历史工作台 > 修改后按当前标签重新读取列表，不保留已不匹配的卡片 347ms
+web:test:    ✓ 实时转录历史工作台 > 永久删除前二次确认，成功后移除卡片并刷新标签 336ms
+web:test:    ✓ 实时转录历史工作台 > 遗留的转录中卡片可以结束状态，也可以直接永久删除 338ms
+web:test:  ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 2401ms
+web:test:    ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 1602ms
+web:test:    ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 五个分组标题都在，空组也出现（「本组没有项」与「不分这一组」必须可分辨） 364ms
+web:test:  ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 1507ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 771ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 541ms
+web:test:  ✓ tests/ui/chat-live-message-panel-mic.test.tsx (9 tests) 721ms
+web:test:  ✓ tests/ui/projects-screen-live.test.tsx (8 tests) 1085ms
+web:test:  ✓ tests/ui/survey-workflow-shell.test.tsx (25 tests) 3966ms
+web:test:    ✓ SurveyWorkflowShell > 新建问卷使用草稿身份进入问题设计 402ms
+web:test:    ✓ SurveyWorkflowShell > 从模块创建的是带五步流程的新问卷 369ms
+web:test:    ✓ SurveyWorkflowShell > 现有问卷忽略来源模块并保留完整题目集 465ms
+web:test:    ✓ SurveyWorkflowShell > 只呈现新的五步导航并用 URL 切步 307ms
+web:test:  ✓ tests/ui/chat-thread-crud.test.tsx (8 tests) 1116ms
+web:test:    ✓ #460 会话增删改接入正式 /chat > 服务端没下发 thread.mutate 时，写入口整块不渲染 355ms
+web:test:  ✓ tests/ui/chat-composer-attachments.test.tsx (13 tests) 1219ms
+web:test:  ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 1085ms
+web:test:    ✓ F168 guided research home live data > asks for a name and optional tags before entering the research brief 551ms
+web:test:  ✓ tests/ui/files-browser.test.tsx (13 tests) 248ms
+web:test:  ✓ tests/ui/org-switcher-real-names.test.tsx (3 tests) 392ms
+web:test:  ✓ tests/ui/new-project-wizard.test.tsx (7 tests) 630ms
+web:test:  ✓ tests/ui/skill-starter-import.test.tsx (5 tests) 683ms
+web:test:  ✓ tests/ui/admin-members-quota-live.test.tsx (8 tests) 661ms
+web:test:  ✓ tests/ui/blueprint-duration-form.test.tsx (19 tests) 1506ms
+web:test:    ✓ 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 1104ms
+web:test:  ✓ tests/ui/chat-read-screen.test.tsx (34 tests) 12779ms
+web:test:    ✓ formal Chat read path > reads list, detail, roster and the contract message page with the provider bearer 1502ms
+web:test:    ✓ formal Chat read path > 最新一条消息来自 agent 时显示两条规则驱动的追问建议，点击后填充输入框但不发送 509ms
+web:test:    ✓ formal Chat read path > 消息内联「落地为产物」调用真实 landAsArtifact 并在成功后重读右栏产物列表 575ms
+web:test:    ✓ formal Chat read path > 落地为产物失败时如实报错，不假装成功 425ms
+web:test:    ✓ formal Chat read path > posts a client UUID to the selected Agent, then refreshes from GET without an inline reply 679ms
+web:test:    ✓ formal Chat read path > 推进到终态前持续轮询 AgentRun，状态取自服务端而不是本地推断 1148ms
+web:test:    ✓ formal Chat read path > run 失败时如实显示 failed 与错误码，不合成回复 651ms
+web:test:    ✓ formal Chat read path > 渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要 1095ms
+web:test:    ✓ formal Chat read path > 工具调用失败：如实显示失败状态与失败原因，不假装成功 957ms
+web:test:    ✓ formal Chat read path > 没有任何 tool_call 步骤时不渲染步骤区域——不是黑盒，是没发生 494ms
+web:test:    ✓ formal Chat read path > 默认（没有任何 delta 事件）从不渲染流式草稿气泡——退化到阶段2d之前的样子 630ms
+web:test:    ✓ formal Chat read path > 读不到 run 时报读取失败，而不是渲染一个猜出来的状态 675ms
+web:test:    ✓ formal Chat read path > keeps the same clientMessageId when a dependency failure is retried 732ms
+web:test:    ✓ formal Chat read path > renders a conflict explicitly and never fabricates a successful message 399ms
+web:test:  ✓ tests/ui/files-preview.test.tsx (12 tests) 475ms
+web:lint: ✔ No ESLint warnings or errors
+web:test:  ✓ tests/ui/files-ingestion-ladder.test.tsx (10 tests) 943ms
+web:test:    ✓ 九态阶梯：抽屉里的图例逐态渲染 label + exits（V2，DOM 断言） > 九态（含 REVIEW_PENDING）图例行数与 INGEST_PIPELINE 长度一致，每行都有非空文案 312ms
+web:test:  ✓ tests/ui/files-version-derived.test.tsx (9 tests) 721ms
+web:test:  ✓ tests/ui/skill-url-import.test.tsx (5 tests) 913ms
+web:test:    ✓ F2 · 真的能从 URL 导入 > 确认后：打真实端口、带 Bearer、body 形状与契约一致，导入结果如实显示 446ms
+web:test:  ✓ tests/ui/survey-resource-library.test.tsx (16 tests) 4318ms
+web:test:    ✓ SurveyResourceLibrary > 只呈现右侧问卷列表内容，不重复全局和二级导航 302ms
+web:test:    ✓ SurveyResourceLibrary > 新建问卷先填写名称和标签再进入新的设计页 915ms
+web:test:    ✓ SurveyResourceLibrary > 显示问卷标签并以 OR 逻辑组合多个标签筛选 481ms
+web:test:    ✓ SurveyResourceLibrary > 名称搜索与标签筛选同时生效并可清空标签 397ms
+web:test:    ✓ SurveyResourceLibrary > 切换资源入口时清空上一入口的搜索条件 492ms
+web:test:    ✓ SurveyResourceLibrary > 从问卷模块新建填写元数据并选择一个模块后创建完整问卷 988ms
+web:test:  ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 2374ms
+web:test:    ✓ F180 signed guided-research visual contract > removes the secondary menu from guided research while retaining it for legacy Studio 886ms
+web:test:    ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 807ms
+web:test:    ✓ F180 signed guided-research visual contract > keeps future checkpoints disabled and labels every demo output 394ms
+web:test:  ✓ tests/ui/research-detail-four-sections.test.tsx (15 tests) 622ms
+web:test:  ✓ tests/ui/agent-self-publish-panel.test.tsx (5 tests) 340ms
+web:test:  ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 227ms
+web:test:  ✓ tests/ui/blueprint-list-screen-live.test.tsx (8 tests) 523ms
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+web:test:  ✓ tests/ui/local-org-live.test.tsx (6 tests) 293ms
+web:test:  ✓ tests/ui/join-accidents-mic.test.tsx (9 tests) 263ms
+web:test:  ✓ tests/ui/skill-single-screen-nav.test.tsx (7 tests) 257ms
+web:test:  ✓ tests/ui/admin-limit-policy-live.test.tsx (8 tests) 355ms
+web:test:  ✓ tests/ui/research-list-target-dash.test.tsx (13 tests) 195ms
+web:test:  ✓ tests/ui/admin-nav-count-unavailable.test.tsx (11 tests) 319ms
+web:test:  ✓ tests/ui/asset-file-edit-save.test.tsx (5 tests) 426ms
+web:test:  ✓ tests/ui/capability-catalog-live.test.tsx (5 tests) 645ms
+web:test:  ✓ tests/ui/capability-skill-content-editor.test.tsx (4 tests) 492ms
+web:test:  ✓ tests/ui/project-overview-live-overview.test.tsx (9 tests) 512ms
+web:test:  ✓ tests/ui/research-new-config-defaults.test.tsx (11 tests) 345ms
+web:test:  ✓ tests/ui/admin-nav-live-counts.test.tsx (7 tests) 431ms
+web:test:  ✓ tests/ui/files-review-drawer.test.tsx (5 tests) 287ms
+web:test:  ✓ tests/ui/chat-message-rating.test.tsx (7 tests) 139ms
+web:test:  ✓ tests/ui/files-trash-queue.test.tsx (10 tests) 352ms
+web:test:  ✓ tests/ui/admin-usage-monitor-live.test.tsx (6 tests) 374ms
+web:test:  ✓ tests/ui/admin-members-usage-limits-tabs.test.tsx (5 tests) 617ms
+web:test:    ✓ ①默认态：成员配额仍是默认打开的 tab > 不切 tab 就能看到既有的 admin-members-list（不因加 tab 而回退） 373ms
+web:test:  ✓ tests/ui/interview-setup-workflow.test.tsx (5 tests) 1258ms
+web:test:    ✓ F04 可点击 Mock 访谈流程 > 从专家目录弹窗搜索并多选添加专家 424ms
+web:test:    ✓ F04 可点击 Mock 访谈流程 > 往返专家步骤时保留编辑，只为新增专家补齐三问 341ms
+web:test:  ✓ tests/ui/admin-members-boundary-live.test.tsx (6 tests) 342ms
+web:test:  ✓ tests/ui/admin-menu-dedup.test.tsx (9 tests) 192ms
+web:test:  ✓ tests/ui/password-reset-request.test.tsx (5 tests) 299ms
+web:test:  ✓ tests/ui/shell-personal-menu.test.tsx (9 tests) 251ms
+web:test:  ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 348ms
+web:test:  ✓ tests/ui/email-verification-public.test.tsx (4 tests) 326ms
+web:test:  ✓ tests/ui/rec-fidelity-gaps.test.tsx (11 tests) 69ms
+web:test:  ✓ tests/ui/project-live-page.test.tsx (2 tests) 237ms
+web:test:  ✓ tests/ui/admin-members-boundary.test.tsx (4 tests) 266ms
+web:test:  ✓ tests/ui/research-entry-observer-absent.test.tsx (7 tests) 164ms
+web:test:  ✓ tests/ui/org-admin-members-reviewer-function.test.tsx (4 tests) 329ms
+web:test:  ✓ tests/ui/research-live-empty-conflict-block.test.tsx (10 tests) 329ms
+web:test:  ✓ tests/ui/admin-members-list.test.tsx (6 tests) 1040ms
+web:test:    ✓ 成员表：待激活行 —— 入场即带组织角色 + 团队 > ① 每一条待激活行都渲染了它被指派的角色与团队，并标着（待激活） 577ms
+web:test:  ✓ tests/ui/research-live-conflicts-no-preselect.test.tsx (8 tests) 402ms
+web:test:  ✓ tests/ui/research-preview-sentence.test.tsx (9 tests) 323ms
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > blank invite means first admin: create, login immediately, and persist the real session
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > recovers login when bootstrap committed but its HTTP response was lost
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 244ms
+web:test:  ✓ tests/ui/entity-view-toggle.test.tsx (4 tests) 180ms
+web:test:  ✓ tests/ui/blueprint-designer-page-live.test.tsx (4 tests) 207ms
+web:test:  ✓ tests/ui/overview-mixed-state.test.tsx (6 tests) 285ms
+web:test:  ✓ tests/ui/research-exit-actions-observer-absent.test.tsx (7 tests) 168ms
+web:test:  ✓ tests/ui/asset-directory-browse.test.tsx (7 tests) 241ms
+web:test:  ✓ tests/ui/overview-live.test.tsx (4 tests) 210ms
+web:test:  ✓ tests/ui/registration-field-errors.test.tsx (4 tests) 237ms
+web:test:  ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 401ms
+web:test:  ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 375ms
+web:test:  ✓ tests/ui/admin-agent-card-view.test.tsx (3 tests) 1540ms
+web:test:    ✓ Agent 目录：默认卡片视图，可切换为列表 > 首次渲染就是卡片网格容器（默认视图 = 卡片），且能看到这一行 Agent 802ms
+web:test:    ✓ Agent 目录：默认卡片视图，可切换为列表 > 点击列表切换按钮后：容器 class 从网格变成纵向 flex，行内容与编辑入口原样保留 669ms
+web:test:  ✓ tests/ui/admin-model-view-toggle.test.tsx (5 tests) 2344ms
+web:test:    ✓ admin-model-view-toggle · 卡片/列表切换 > 默认是卡片视图：卡片网格在场，列表容器不在场 395ms
+web:test:    ✓ admin-model-view-toggle · 卡片/列表切换 > 点击列表切换按钮 ⇒ 卡片消失、列表出现（真实切换，不是文本空转） 340ms
+web:test:    ✓ admin-model-view-toggle · 卡片/列表切换 > 切回卡片视图 ⇒ 列表消失、卡片重新出现（双向切换都真实生效） 561ms
+web:test:    ✓ admin-model-view-toggle · 卡片/列表切换 > 卡片视图不丢字段：供应商/能力标签/上下文/单价/可选范围都在场 798ms
+web:test:  ✓ tests/ui/org-menu-avatar-identity.test.tsx (3 tests) 112ms
+web:test:  ✓ tests/ui/thread-card-button.test.tsx (7 tests) 495ms
+web:test:    ✓ ThreadCardButton > 选中且可写 ⇒ 渲染「…」菜单入口；点开显示改名/删除两个菜单项 307ms
+web:test:  ✓ tests/ui/consent-form.test.tsx (4 tests) 369ms
+web:test:  ✓ tests/ui/chat-diagram-save-gate.test.tsx (2 tests) 388ms
+web:test:    ✓ mermaid 图最大化保存 —— 跟 canLandArtifacts 同一道门 > canLandArtifacts=false（个人线程）：ChatDiagramFabric 收不到 threadId/messageId/bearer —— 退回本地演示，不会调 landAsArtifact 撞 403 334ms
+web:test:  ✓ tests/ui/asset-preflight-blocking.test.tsx (6 tests) 349ms
+web:test:  ✓ tests/ui/capability-catalog-edit-deeplink.test.tsx (3 tests) 576ms
+web:test:    ✓ G6：?edit=<skillId> 深链自动展开那一行的编辑表单 > 地址栏带 ?edit=skill-2 时，数据到位后自动展开 skill-2 这一行的编辑表单 327ms
+web:test:  ✓ tests/ui/agent-tool-chain.test.tsx (7 tests) 290ms
+web:test:  ✓ tests/ui/org-admin-role-scope.test.tsx (4 tests) 1018ms
+web:test:    ✓ org-admin 组织级屏不再挂项目角色视角切换器 > ① members / activate / boundary 三屏隐藏「视角」行，改显组织级说明 516ms
+web:test:    ✓ org-admin 组织级屏不再挂项目角色视角切换器 > ② invites / roster / roles / grant 四个项目级屏仍然渲染项目角色「视角」行 438ms
+web:test:  ✓ tests/ui/survey-app-shell.test.tsx (7 tests) 474ms
+web:test:  ✓ tests/ui/admin-screen-notice.test.tsx (5 tests) 625ms
+web:test:  ✓ tests/ui/survey-create-dialog.test.tsx (3 tests) 1313ms
+web:test:    ✓ SurveyCreateDialog > 空白问卷要求名称并提交规范化的多个标签 632ms
+web:test:    ✓ SurveyCreateDialog > 模块创建保留元数据并且只能选择一个模块 522ms
+web:test:  ✓ tests/ui/skill-library-prototype-fidelity.test.tsx (3 tests) 507ms
+web:test:    ✓ skill-library 原型保真度 > ①「新建 Skill」面板展示原型逐字的三市场网格，且遵守 D-06 置灰规则 320ms
+web:test:  ✓ tests/ui/chat-live-message-panel-markdown.test.tsx (2 tests) 319ms
+web:test:  ✓ tests/ui/quick-digital-interview.test.tsx (3 tests) 588ms
+web:test:    ✓ F03 快捷访谈独立页 > 是完整页面，返回专家列表并可发送问题 461ms
+web:test:  ✓ tests/ui/admin-mcp-card-view.test.tsx (4 tests) 620ms
+web:test:  ✓ tests/ui/tasks-today-fidelity.test.tsx (4 tests) 360ms
+web:test:  ✓ tests/ui/join-verify-form.test.tsx (5 tests) 452ms
+web:test:  ✓ tests/ui/use-audio-input-devices.test.ts (4 tests) 368ms
+web:test:  ✓ tests/ui/realtime-transcription-workspace.test.tsx (5 tests) 475ms
+web:test:  ✓ tests/ui/state-shell-reserved-testid.test.tsx (4 tests) 92ms
+web:test:  ✓ tests/ui/tpl-list-admin-nav.test.tsx (3 tests) 140ms
+web:test:  ✓ tests/ui/admin-feedback-view-toggle.test.tsx (2 tests) 274ms
+web:test:  ✓ tests/ui/skill-catalog-view-toggle.test.tsx (2 tests) 168ms
+web:test:  ✓ tests/ui/profile-mobile-actions.test.tsx (3 tests) 174ms
+web:test:  ✓ tests/ui/project-overview-live-info.test.tsx (4 tests) 185ms
+web:test:  ✓ tests/ui/login-signup-paths.test.tsx (4 tests) 182ms
+web:test: stderr | tests/ui/markdown-message.test.tsx > MarkdownMessage > 白名单内的 mermaid 围栏 → 走 fabric 渲染路径（validating→valid，挂 fabric 容器），不落错误态
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5acdc57ca19f2b5f/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5acdc57ca19f2b5f/packages/fabric-markdown/src/index.ts:73:13)
+web:test: 
+web:test:  ✓ tests/ui/markdown-message.test.tsx (3 tests) 606ms
+web:test:    ✓ MarkdownMessage > 白名单内的 mermaid 围栏 → 走 fabric 渲染路径（validating→valid，挂 fabric 容器），不落错误态 471ms
+web:test:  ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 161ms
+web:test:  ✓ tests/single-source-of-truth.test.ts (22 tests) 129ms
+web:test:  ✓ tests/ui/interview-skill-assistant.test.tsx (1 test) 270ms
+web:test:  ✓ tests/ui/login-real-error.test.tsx (2 tests) 356ms
+web:test:  ✓ tests/session/canvas-template-routes-no-mock.test.ts (11 tests) 181ms
+web:test:  ✓ tests/session/login-session-gate.test.tsx (3 tests) 104ms
+web:test:  ✓ tests/capability/mcp/three-orthogonal-fields.test.ts (24 tests) 16ms
+web:test:  ✓ tests/ui/survey-route-layout.test.tsx (3 tests) 1111ms
+web:test:    ✓ Survey route layout > 现有问卷路由忽略创建草稿参数 540ms
+web:test:    ✓ Survey route layout > 新问卷路由解码单一创建草稿并进入完整设计 378ms
+web:test:  ✓ tests/lint-no-backend-badge.test.ts (11 tests) 62ms
+web:test:  ✓ tests/capability/mcp/credential-endpoint-hidden.test.ts (135 tests) 94ms
+web:test:  ✓ tests/capability/mcp/tool-namespace.test.ts (21 tests) 43ms
+web:test:  ✓ tests/recording/live-recording-capture.test.ts (22 tests) 23ms
+web:test:  ✓ tests/session/skill-create-route-no-mock.test.ts (5 tests) 74ms
+web:test:  ✓ tests/digital-interview-drafts.test.ts (11 tests) 15ms
+web:test:  ✓ tests/session/agent-admin-route-no-mock.test.ts (4 tests) 38ms
+web:test:  ✓ tests/guided-research-skill-state.test.ts (8 tests) 11ms
+web:test:  ✓ tests/session/chat-dead-mock-cluster.test.ts (8 tests) 1443ms
+web:test:    ✓ #462 /chat 路由闭包禁 mock + chat 死 mock 簇台账 > 如实钉住：chat 下路由走不到、却仍吃 mock 的文件正好是这六个 701ms
+web:test:    ✓ #462 /chat 路由闭包禁 mock + chat 死 mock 簇台账 > chat-composer-input 位于路由走不到的文件里；真实发消息锚点在 /chat 闭包内 489ms
+web:test:  ✓ tests/ui/survey-template-editor-shell.test.tsx (2 tests) 830ms
+web:test:    ✓ SurveyTemplateEditorShell > 呈现独立报告模块编辑器并返回报告模块列表 388ms
+web:test:    ✓ SurveyTemplateEditorShell > 按报告模块 ID 加载对应标题和章节数量 441ms
+web:test:  ✓ tests/lib/boardx-realtime-asr-client.test.ts (7 tests) 20ms
+web:test:  ✓ tests/api-client-ws-handshake-timeout.test.ts (4 tests) 10ms
+web:test:  ✓ tests/survey/survey-mock-structure.test.ts (10 tests) 45ms
+web:test:  ✓ tests/session/chat-roster-route-no-mock.test.ts (6 tests) 83ms
+web:test:  ✓ tests/session/copilotkit-agui-httpagent.test.ts (2 tests) 124ms
+web:test:  ✓ tests/ui/survey-workflow-model.test.ts (10 tests) 56ms
+web:test:  ✓ tests/chat-roster-api.test.ts (2 tests) 22ms
+web:test:  ✓ tests/upload-attachment-xhr.test.ts (3 tests) 8ms
+web:test:  ✓ tests/chat-read-api.test.ts (1 test) 9ms
+web:test:  ✓ tests/api-client-url-join.test.ts (3 tests) 11ms
+web:test:  ✓ tests/e2e/personal-realtime-transcription-smoke.test.ts (1 test) 6ms
+web:test:  ✓ tests/session/covered-routes-no-mock.test.ts (11 tests) 11ms
+web:test:  ✓ tests/lib/pcm-audio-worklet.test.ts (4 tests) 12ms
+web:test:  ✓ tests/lib/pick-default-agent-id.test.ts (7 tests) 13ms
+web:test:  ✓ tests/guided-research-demo-state.test.ts (4 tests) 3ms
+web:test:  ✓ tests/lib/live-personal-transcriptions.test.ts (2 tests) 26ms
+web:test:  ✓ tests/session/session-api.test.ts (1 test) 8ms
+web:test:  ✓ tests/api-client-error-envelope.test.ts (2 tests) 10ms
+web:test:  ✓ tests/ui/decode-mermaid-entities.test.ts (4 tests) 17ms
+web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 290ms
+web:test:  ✓ tests/ui/mermaid-diagram-type.test.ts (4 tests) 4ms
+web:test:  ✓ tests/lib/live-consent.test.ts (1 test) 42ms
+web:test:  ✓ tests/research-rewrite.test.ts (1 test) 3ms
+web:test:  ✓ tests/guided-research-stage.test.ts (2 tests) 7ms
+web:test:  ✓ tests/ui/survey-creation-draft.test.ts (3 tests) 5ms
+web:test:  ✓ tests/ui/provenance-labels.test.ts (2 tests) 5ms
+web:test:  ✓ tests/ui/personal-transcription-history.test.tsx (17 tests) 3908ms
+web:test:    ✓ 实时转录历史工作台 > 历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗 656ms
+web:test:    ✓ 实时转录历史工作台 > 提交新建转录走真实 API，保留自定义标签并立即进入该场工作台 403ms
+web:test:    ✓ 实时转录历史工作台 > 编辑完整正文调用持久化 API 并显示服务端结果 428ms
+web:test:    ✓ 实时转录历史工作台 > 刷新后仍从 API 读回已创建转录，不依赖组件内存 480ms
+web:test: 
+web:test:  Test Files  151 passed (151)
+web:test:       Tests  1254 passed (1254)
+web:test:    Start at  23:49:36
+web:test:    Duration  65.80s (transform 13.05s, setup 66.09s, collect 89.17s, tests 104.01s, environment 255.29s, prepare 24.30s)
+web:test: 
+
+ Tasks:    4 successful, 4 total
+Cached:    1 cached, 4 total
+  Time:    1m6.889s 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m7s
+  清理：0s
+  总计：1m7s
+• turbo 2.10.5
+
+[harness-verify v1 sha256=bcdd728727c5cd0de42929dc779f7e791a75c894cc05bc20c81f590609e5add8 commit=9946194ed0318780525801a92faabcbebadbf933 at=2026-08-15T15:50:43.097Z]

@@ -82,8 +82,13 @@ beforeAll(async () => {
       const body = JSON.parse(Buffer.concat(chunks).toString()) as {
         messages: Array<{ role: string; content: string }>;
       };
-      const context = JSON.parse(body.messages.at(-1)?.content ?? "{}") as { currentStep?: string };
-      const patch = context.currentStep === "topic"
+      const context = JSON.parse(body.messages.at(-1)?.content ?? "{}") as {
+        currentStep?: string;
+        operation?: string;
+      };
+      const patch = context.operation === "recommend_interview_experts"
+        ? { expertIds: [EXPERT] }
+        : context.currentStep === "topic"
         ? { topic: "建议聚焦最终否决权" }
         : context.currentStep === "experts"
           ? { expertIds: [EXPERT] }

@@ -3559,17 +3559,17 @@
         "F155"
       ],
       "points": 2,
-      "status": "passing",
+      "status": "not_started",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/chat/agent-run-context-snapshot.test.ts"
       ],
-      "evidence": "evidence/F157.verify.log @ 2026-08-15T09:43:23.179Z",
+      "evidence": "",
       "notes": "依据等级：[已签核] 可审计快照 agent_run_context（design-signoff.md）。新表/step jsonb 列 → migration → 已在束级签核。解决 G5（每次 run 重读全史现拼、无会话级快照）。属 chat-context-engine 束。",
       "priority": 1,
       "area": "chat",
       "capability": "CAP-API",
-      "sprint": "09"
+      "sprint": null
     },
     {
       "id": "F158",
@@ -4199,25 +4199,38 @@
     },
     {
       "id": "F185",
-      "title": "工具调用轨迹跨 run 回喂上下文（agent_run_steps 的 tool_call 摘要作为第四类历史来源注入，ModelCallPort 不动）",
-      "user_visible_behavior": "多轮 agentic 任务里，后续轮次能『记得』前面轮次做过的工具调用：某一轮 run 记录的 tool_call step（toolName/toolArgsSummary/toolResultSummary/planningNote）会作为一类新的上下文来源，被后续轮次的历史组装读到并以伪历史消息（role+content）注入 ModelCallInput.history——即使工具结果没有逐字复述进最终回复文字，下一轮 run 也不再对上一轮的工具调用轨迹失明；读取失败时按既有降级策略跳过该来源、不阻断 run。",
-      "spec_ref": "08-chat/uc-8-10-工具调用轨迹跨run回喂上下文.md#R3",
+      "title": "listProjects 扁平化返回（推翻 Q-6①B 两段式）+ 项目标签（tags）+ 列表页卡片/列表视图切换",
+      "user_visible_behavior": "打开 /projects：不再看到「我在里面」「我管着它」两个分区，所有当前组织可见的项目（我持有项目角色的 + 我作为 lead/admin 可管理的，按 id 去重）平铺展示在一个列表里；每张卡片可以打标签（tags），列表页顶部有标签筛选入口，选中一个或多个标签后列表只显示带那些标签的项目；列表可在卡片视图与列表视图之间切换，切换状态记住在本地不需要每次重选；已归档/组织已停用的项目仍显示且标注只读，平铺不折叠这些既有语义不变。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R3",
       "depends_on": [
-        "F154",
-        "F157"
+        "F122"
       ],
-      "points": 2,
-      "status": "not_started",
-      "owner": null,
+      "points": 5,
+      "status": "passing",
+      "sprint": "11",
+      "owner": "dev-project",
       "verification": [
-        "pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts"
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/project/list-projects-flat.test.ts",
+        "pnpm --filter api exec vitest run tests/project/list-projects-repo-shape.test.ts",
+        "pnpm --filter api exec vitest run tests/project/update-project-tags.test.ts",
+        "pnpm --filter api exec vitest run tests/project/tags-repo-guard.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts",
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web run lint",
+        "pnpm --filter web exec vitest run tests/ui/projects-screen-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/project-live-page.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/project-overview-live-info.test.tsx",
+        "pnpm --filter @repo/contracts run test",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check"
       ],
-      "evidence": "",
-      "notes": "依据等级：[Backlog]+[待设计]。来源：差距分析 G-A（跨 run 的工具调用轨迹不进上下文），人类 2026-08-15 原话『同意 继续执行』。底层数据已在采集/持久化（agent_run_steps 表 kind='tool_call' 行的 tool_name/tool_args_summary/tool_result_summary/planning_note，契约 packages/contracts/src/wave2-runtime.ts:276-288），readThreadHistory 只读 chat_messages 从未读该表——本 feature 是把已有信息接进已有组装管线，不新建表/不新建列。⚠ 不可直接开工：改动 apps/api/src/.../execute-run.ts 的历史组装逻辑（chat-context-engine 束明确要求『动 execute-run.ts 需取 coord-main 串行窗口』，见 F154 notes），且引入 L1/L2/L3 之外的第四类上下文来源，超出该束已签参数字面范围，不能援引 F154/F155/F157 既有签核直接开工——须走 design-delta 追加签核（预计与 context-engine-l3-file-based delta 同等重量级，需人类直接看，不适合 coord-main 代裁）。留给签核裁定的参数（UC R4）：①范围窗口（最近 N 轮 run / 最近 N 条 tool_call / 只读上一轮）②与 L1/L2/L3 的预算相对优先级与 L1 重叠去重 ③与 F156 delta『个人对话零跨范围召回』的边界共存（本线程自产、非跨范围检索，需签核时写死一句不留活口）④是否在 F157 的 agent_run_context 快照追加来源类别留痕（复用不另建，同一事实不得声明在两处）⑤读取失败的降级模式。depends_on F154（历史组装分层落点）+ F157（快照复用来源，R4.4）。UC 头部未声明估点，按『接线已有数据入已有管线、无新采集机制』估 2 点。属 chat-context-engine 束；sprint 留 null：design-delta 追加签核未完成前不分配。",
-      "priority": 1,
-      "area": "chat",
-      "capability": "CAP-API",
-      "sprint": null
+      "evidence": "evidence/F185.verify.log @ 2026-08-15T19:02:07.738Z",
+      "notes": "推翻 2026-07-30 已签核的 Q-6① B（两段式返回），改为 Q-6① D（扁平数组）——裁决记录见 requirements/00-project/OPEN-QUESTIONS.md 「🔁 2026-08-16 delta」，contracts/project/usecases.md UC-P2 已同步改写，design-signoff.md covers 已追加本 feature 号（addendum 已如实标注这是 delta 不是「无新设计面」的接线追加）。\n范围：① 契约 packages/contracts/src/project.ts 的 listProjects.out 从 {member,managed} 改为扁平数组，ProjectListItem 新增 tags 字段，新增 updateProjectTags 操作；② 后端 application/project/list-projects.ts 按 id 去重合并 member/managed 两个来源；③ ⚠ 实现期间发现 projects 表列集合是 I-P33 封闭清单（恰好 5 列，apps/api/tests/project/projects-column-set.test.ts 三道门控住），不能直接加 tags 列——改为新建独立表 project_tags（1:N，复合外键钉 (project_id, org_id) REFERENCES projects(id, org_id)，与三张 1:1 子类型表同一形状），迁移 20260816000000_f185_project_tags.sql；④ 新增仓储 pg-project-tags-repository.ts + lint-permission-paths.mjs 白名单条目（第 57 条，tests/kernel/permission-propagation-six-paths.test.ts 上限同步 56→57）+ 更新 pg-project-list-repository.ts 既有豁免条目文案（三表→四表、五键→六键）+ 新增/改写两条 repo-shape 强制前提测试；⑤ 前端 apps/web/components/projects/projects-screen.tsx 去掉 ProjectSection 两段渲染改单一列表 + 标签筛选 + 卡片/列表视图切换（视图偏好存 localStorage，非契约字段，不写回后端）+ 标签增删（整体替换语义）；⑥ apps/web/lib/live-projects.ts、apps/web/app/project/live/page.tsx（F122 历史证明页同步改扁平）、apps/web/components/canvas/template-apply-dialog.tsx（原先手动合并 member+managed 去重的代码随扁平化简化掉）同步。\n不在本次范围：contracts/project/ui.md A 节 9 张两段式截图的重拍（过期，留痕已加提示，未来 delta 重签材料时一并处理）；「编辑项目」多 tab 页换真实数据源与新建项目套用已发布蓝本版本（PJ-12，依赖蓝本发布版本端点，见 new-project-flow.tsx 头注 #991）——这两块是后续独立 feature，不塞进本次单一 PR。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
     },
     {
       "id": "F186",
@@ -4291,6 +4304,70 @@
       ],
       "evidence": "evidence/F191.verify.log @ 2026-08-16T02:59:25.681Z",
       "notes": "① #991 backlog 第八件（BP-08），依人类两轮裁决收紧到最小闭环 B：权限口径不整体调用 templates 束的 applyBlueprintUseCase()（带自己的 lead-only 判断，与 createProject 现有 lead-or-admin 不一致），只复用其纯函数 planSixCategoryInit + 仓储层直接读写；档位读活表当前 duration_tier，不是版本快照（快照从未冻结过档位，登记为 KNOWN_CONTRACT_GAPS.T15）；六类真实写入本轮只有 blueprint_bindings 一行（表/列 BP-04/F179 已就绪，零新增存储），议程环节等五类暂不落地真实行（逐段时长无出处，登记为 P10）。\n② 契约先行：五个新错误码（BLUEPRINT_NOT_FOUND/BLUEPRINT_NOT_VISIBLE/BLUEPRINT_NOT_PUBLISHED/BLUEPRINT_VERSION_ARCHIVED/INITIALIZATION_FAILED）走独立 delta 签核（design-deltas/createproject-blueprint-error-codes/，人类 2026-08-16 签核 commit e28aa660），与 templates.TemplateError 同码同义（project.ts 新增 _sharedWithTemplates 编译期钉住）。\n③ 范围边界——做：BlueprintReferenceRepository 只读端口（解析版本存在性/归档态/活表档位，经 guard()/disclose() 走真实可见性判定）+ PgProjectRepository.create() 扩展一个可选的 blueprint_bindings INSERT（同一事务，故障注入反证整体回滚）+ 五个码的 HTTP 状态映射。不做：真实 agenda_segments 写入、版本快照冻结档位（两者均已登记为已知缺口，不在本轮范围）。\n④ 权限口径反证：admin（非 lead）套用一个有效已发布蓝本必须成功——测试文件专门钉住这条边，防止未来有人把 applyBlueprintUseCase() 整体接进来又悄悄改掉它。\n⑤ 验证新增 10 条真库测试（不存在/已归档/不可见三种拒绝、成功写入 blueprint_bindings、六类摘要与 planner 同源核对、空白新建不受影响、档位读活表的行为化反证、admin 权限反证、六类写入失败整体回滚的故障注入反证 + 反证注入器不是全失败），既有 39 条 project 真库测试无回归。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-DATA"
+    },
+    {
+      "id": "F190",
+      "title": "工具调用轨迹跨 run 回喂上下文（agent_run_steps 的 tool_call 摘要作为第四类历史来源注入，ModelCallPort 不动）",
+      "user_visible_behavior": "多轮 agentic 任务里，后续轮次能『记得』前面轮次做过的工具调用：某一轮 run 记录的 tool_call step（toolName/toolArgsSummary/toolResultSummary/planningNote）会作为一类新的上下文来源，被后续轮次的历史组装读到并以伪历史消息（role+content）注入 ModelCallInput.history——即使工具结果没有逐字复述进最终回复文字，下一轮 run 也不再对上一轮的工具调用轨迹失明；读取失败时按既有降级策略跳过该来源、不阻断 run。",
+      "spec_ref": "08-chat/uc-8-10-工具调用轨迹跨run回喂上下文.md#R3",
+      "depends_on": [
+        "F154",
+        "F157"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts"
+      ],
+      "evidence": "",
+      "notes": "重编号自 F185：requirement-author 最初把这条注册为 F185（PR #1321），但另一支并行分支（project 域，PR #1405，listProjects 扁平化）独立使用了同一个 ID 并先合并，覆盖了这条登记——本条数据本身未丢（design-delta 材料、需求文档都还在），只是权威功能清单里的 ID槽位被占用。重编号为 F190，不改动 project 域已 passing 的 F185（已有 issue #1392、迁移文件名、测试文件名等大量外部引用，重编号成本远高于这条尚未开工的 feature）。design-delta（design-deltas/tool-trace-cross-run-context/，已签核，PR #1409）的 covers 字段同步改为 [F190]。\n\n依据等级：[已签核]（design-delta tool-trace-cross-run-context，PR #1409，人类 2026-08-16对收窄后的选项作答）。①范围窗口=最近3轮run ②预算优先级=L1>L2>工具轨迹>L3，与L1重叠去重③个人线程一视同仁适用，不破F156边界 ④复用F157 agent_run_context快照追加来源字段 ⑤读取失败降级跳过、不阻断run。⚠ 仍需协调execute-run.ts的coord-main串行窗口再开工——签核解除的是design-delta关卡，不是文件级并发协调。",
+      "priority": 1,
+      "area": "chat",
+      "capability": "CAP-API",
+      "sprint": null
+    },
+    {
+      "id": "F188",
+      "title": "「项目模板」与「画布模板」后台卡片网格样式统一",
+      "user_visible_behavior": "组织成员分别打开后台「项目模板」（/tpl/list）与「画布模板」（/canvas?screen=template-admin）两个资产管理页的卡片视图：两处卡片外层容器现在都用同一个共享 Card/CardContent 组件渲染（画布模板此前是独立手写的 div + className，与 Card 组件的圆角/描边/阴影规则各画一份，以后 Card 改样式这边不会跟着变——现在统一之后会跟着变），且两处三列切换的响应式断点都在 xl（≥1280px）触发（此前项目模板在 lg 断点、画布模板在 xl 断点，同样宽度的窗口两个页面看到的列数不一致）。画布模板卡片内部原有的所有信息（displayName、状态徽标、分区描述、key+版本号、underlyingType、使用次数）与发布/归档/恢复/使用四个操作按钮（RowActions）保持不变，testid（tpladmin-card-<key>-<version> 等）全部保留。",
+      "spec_ref": "02-tpl/uc-2-4-蓝本版本与锁定.md#R8",
+      "depends_on": [],
+      "points": 1,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/canvas-template-live.test.tsx tests/session/canvas-template-routes-no-mock.test.ts tests/ui/blueprint-list-screen-live.test.tsx tests/ui/tpl-list-admin-nav.test.tsx"
+      ],
+      "evidence": "evidence/F188.verify.log @ 2026-08-15T15:50:43.098Z",
+      "notes": "纯前端一致性重构，不新增/不改变任何契约操作、不新增错误码、不新增界面元素——只让两个既有后台资产管理页的卡片视觉趋同，因此不需要走 design-signoff 的 covers 追加。方案取舍：查了 apps/web/components/admin/ 下的卡片网格（model-screen.tsx、feedback-screen.tsx、member-quota-tab.tsx、limit-rules-live.tsx、mcp-screen.tsx、entity-view-toggle.tsx，共 6 处）与 canvas/template-admin.tsx 本身，全部已经是 xl:grid-cols-3 断点 + 共享 Card/CardContent 组件；反而是 tpl/blueprint-list-screen-live.tsx（连同签核材料 blueprint-list-screen.tsx）用的是 lg:grid-cols-3，是断点上的少数派。据此判定：画布模板改用共享 Card/CardContent（组件层对齐多数约定，也是本仓几乎唯一还在手写卡片 div 的地方）；断点统一为 xl:grid-cols-3（对齐 admin/ 目录内 6 个同类后台页 + canvas 自身的既有约定），因此把 blueprint-list-screen-live.tsx 的断点从 lg 改成 xl。只改了两处的卡片外层容器 className 与画布模板的卡片包装元素，未触碰列表视图、状态机、弹窗（CreateDialog/TemplateApplyDialog/ArchiveDialog）或任何后端调用逻辑。",
+      "priority": 3,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F189",
+      "title": "「套用后会初始化什么」六类一览接真（BP-07：GET initialization-preview）",
+      "user_visible_behavior": "任意本组织成员（不限管理员）对一个自己可见的蓝本请求 GET /blueprints/:id/initialization-preview，真实收到恒 6 类的初始化一览（每类下具体会写入什么条目），一览内容随蓝本当前已填的设计环节实时变化——不是任何写死或猜测的清单。蓝本不存在收到 BLUEPRINT_NOT_FOUND；team-only 蓝本对非该 team 成员收到 BLUEPRINT_NOT_VISIBLE，不返回任何数据。这条端点本身不改变任何界面，是 BP-08（createProject 真执行六类初始化）与 BP-09（/project/new 撤禁用）共同依赖的只读前置——两者都需要在真正套用蓝本之前，把「将会初始化什么」先展示给用户确认。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R3",
+      "depends_on": [
+        "F174"
+      ],
+      "points": 1,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/templates/initialization-preview-persistence.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "evidence/F189.verify.log @ 2026-08-15T17:36:58.487Z",
+      "notes": "① #991 backlog 第七件（BP-07），当量 1，依赖 BP-02（F174，已 passing）。契约操作 `getInitializationPreview` 与用例 `get-initialization-preview.ts`（`planInitializationPreview` 纯函数）此前均已存在，本 feature 只补控制器接线，不新增契约面、不需要新设计签核。\n② 范围边界——做：控制器 `GET /blueprints/:id/initialization-preview`，读 `BlueprintPersistencePort.getBlueprintDesignFacets()` 派生 `filledFacetKeys`（未填 facet 无行，出现的每一行即已填，判据见仓储层写入侧对空串的过滤 + CHECK 约束，不新增 port 方法），可见性判定复用 `decideCapabilityVisibility`（同 F132 六类 AssetKind 单一事实源，不新造判定）。不做：`versionId`/`tier` 参与派生（用例头注已注明这是当前范围之外，走当前草稿即可覆盖 AC5「随配置实时变化」）；BP-08/BP-09 的前端消费（本条只解除它们的阻塞）。\n③ 门槛按契约 err 枚举（`BLUEPRINT_NOT_FOUND`/`BLUEPRINT_NOT_VISIBLE`/`DEPENDENCY_UNAVAILABLE`，无 `ROLE_INSUFFICIENT`）——本端点是可见性门不是管理员门，与 F186（`requireCapabilityAdmin`）门槛不同，因为契约本身对这两个端点声明的错误集合不同。",
       "priority": 1,
       "area": "project",
       "capability": "CAP-DATA"

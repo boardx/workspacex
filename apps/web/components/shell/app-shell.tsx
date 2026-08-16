@@ -10,6 +10,7 @@ import { organizationLabel } from "@/lib/org-display";
 import { cn } from "@/lib/utils";
 import { useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
+import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 
 /**
  * 三栏骨架 —— 尺寸来自原型实测：
@@ -171,7 +172,13 @@ function ShellChrome({
     window.location.assign(url.toString());
   }, [onSwitchOrganization]);
 
+  /*
+   * FB-2：反馈弹层的唯一实例挂在壳层，因为它的三个入口分属三处
+   * （图标栏 / <md 顶栏 / chat 里每个 agent·skill 一个按钮），而弹层只该有一个。
+   * 见 `components/feedback/feedback-provider.tsx` 头注。
+   */
   return (
+    <FeedbackProvider>
     <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
       <div className="hidden md:flex">
         <IconRail
@@ -218,5 +225,6 @@ function ShellChrome({
         <MobileTabs />
       </div>
     </div>
+    </FeedbackProvider>
   );
 }

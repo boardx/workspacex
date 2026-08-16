@@ -48,7 +48,8 @@ const OVERLAY_SCREENS: FilesScreen[] = ["upload", "ingestion", "versions", "dele
 export function FilesApp({
   identity, previewRole, uiState, screen, qs, projectId,
 }: {
-  identity: Identity;
+  /** issue #1316：省略时 `AppShell` 落到 `SessionProvider` 的真实会话身份,不再默认 mock。 */
+  identity?: Identity;
   previewRole: ProjectRole | null;
   uiState: UiState;
   screen: FilesScreen;

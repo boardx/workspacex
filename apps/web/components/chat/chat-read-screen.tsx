@@ -732,6 +732,14 @@ function ThreadDetail({
   onRetry: () => void;
   onArtifactLanded: () => void;
 }) {
+  /**
+   * composer 里敲 `#` → `ChatSkillMountPanel` 开面板/过滤/真挂载 → 挂载成功后
+   * composer 把 `#query` 从正文删掉——两个兄弟组件之间**唯一**的新状态，
+   * 由这里（它们共同的父组件）转发，不在任何一边私自维护第二份。
+   */
+  const [mentionQuery, setMentionQuery] = React.useState<string | null>(null);
+  const [mentionResolvedNonce, setMentionResolvedNonce] = React.useState(0);
+
   if (loading && detail === null) return <CenteredState>正在读取线程详情…</CenteredState>;
   if (error) return <ErrorState testId="chat-thread-detail-error" message={error} retryTestId="chat-thread-detail-retry" onRetry={onRetry} />;
   if (!detail) return <CenteredState>从左侧选择一条真实线程查看。</CenteredState>;
@@ -799,6 +807,8 @@ function ThreadDetail({
           projectId={projectId}
           orgId={currentOrgId}
           bearer={bearer}
+          mentionQuery={mentionQuery}
+          onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
         />
       ) : null}
       {bearer ? (
@@ -807,6 +817,8 @@ function ThreadDetail({
           bearer={bearer}
           agents={roster?.agents ?? null}
           archived={detail.thread.archived}
+          onMentionQueryChange={setMentionQuery}
+          mentionResolvedNonce={mentionResolvedNonce}
           /*
             #728 round 16 P10 —— 落地按钮的渲染依据是服务端下发的能力
             （`capabilitiesFor`：写角色含 `artifact.land`，观察者不含），

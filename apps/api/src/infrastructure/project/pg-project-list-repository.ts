@@ -37,11 +37,16 @@ interface ProjectListSqlRow {
   kind: ProjectKind;
   status: "active" | "archived";
   org_status: "active" | "disabled";
+  tags: string[];
 }
 
 function toListRow(r: ProjectListSqlRow): ProjectListRow {
-  return { id: r.id, name: r.name, kind: r.kind, status: r.status, orgStatus: r.org_status };
+  return { id: r.id, name: r.name, kind: r.kind, status: r.status, orgStatus: r.org_status, tags: r.tags };
 }
+
+/** 每个容器的标签，作为相关子查询挂在两段 SELECT 上——不改动既有的 DISTINCT/JOIN 形状。 */
+const TAGS_SUBSELECT =
+  "COALESCE((SELECT array_agg(pt.tag ORDER BY pt.tag) FROM project_tags pt WHERE pt.project_id = p.id), '{}') AS tags";
 
 export class PgProjectListRepository implements ProjectListRepository {
   constructor(private readonly db: DatabasePort) {}
@@ -63,7 +68,7 @@ export class PgProjectListRepository implements ProjectListRepository {
   ): Promise<{ member: readonly ProjectListRow[]; managed: readonly ProjectListRow[] }> {
     return this.db.withTenant(query.orgId, async (s) => {
       const memberResult = await s.query<ProjectListSqlRow>(
-        `SELECT DISTINCT p.id, p.name, p.kind, p.status, o.status AS org_status
+        `SELECT DISTINCT p.id, p.name, p.kind, p.status, o.status AS org_status, ${TAGS_SUBSELECT}
            FROM projects p
            JOIN project_memberships pm ON pm.project_id = p.id
            JOIN organizations o ON o.id = p.org_id
@@ -75,7 +80,7 @@ export class PgProjectListRepository implements ProjectListRepository {
       let managedRows: ProjectListSqlRow[] = [];
       if (query.isManager) {
         const managedResult = await s.query<ProjectListSqlRow>(
-          `SELECT p.id, p.name, p.kind, p.status, o.status AS org_status
+          `SELECT p.id, p.name, p.kind, p.status, o.status AS org_status, ${TAGS_SUBSELECT}
              FROM projects p
              JOIN organizations o ON o.id = p.org_id
             WHERE p.org_id = $1

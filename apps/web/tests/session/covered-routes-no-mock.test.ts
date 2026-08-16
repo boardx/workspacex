@@ -11,6 +11,15 @@ const COVERED_ROUTES = [
   "app/skill/page.tsx",
   "app/admin/page.tsx",
   "app/admin/[module]/page.tsx",
+  // #1316: /projects/[projectId] and its two real-data sub-routes silently substituted
+  // any non-built-in org with MOCK_ORGS[0] ("远洋新能源") and downgraded the caller's
+  // orgRole to "consultant" — a real logged-in user of a real org saw somebody else's
+  // org name/role, not an honest empty state. These three share one real projectId
+  // family (project-workbench.tsx's own header comment groups files/canvas with the
+  // main workbench as "同型"), so they move to real identity together.
+  "app/projects/[projectId]/page.tsx",
+  "app/projects/[projectId]/files/page.tsx",
+  "app/projects/[projectId]/canvas/page.tsx",
 ];
 
 describe("authenticated routes", () => {

@@ -82,7 +82,26 @@ export interface ObjectRef {
    * 没有绑定行的对象找不到绑定、退回宽松默认 scope，让**观察者也能读对象表**——
    * 这正是 R5「观察者不可读对象表」被作废的样子。
    */
-  readonly kind: AclObjectRef["kind"] | "capability" | "organization" | "interview" | "subject" | "research";
+  /**
+   * ⚠ `feedback` 由 FB-2 加入，理由与 `interview` / `subject` **完全同型**：
+   * 一条反馈的**正文**是租户内容（它经常逐字包含客户名、内部流程、未发布的判断），
+   * 所以它必须走 `permission-filter` 这道唯一的门；但它同样**没有 `acl_bindings` 行**
+   * ——可见性规则是 D3（2026-08-15 人类裁决）「正文仅管理员与提交人」，
+   * 落在 `domain/feedback/product-feedback.ts` 的 `canReadDetail`。
+   *
+   * 把它排除在 `AclObjectRef` 之外，就是把「顺手交给 authorizeBatch 判一下」变成
+   * **编译错误**而不是一次找不到绑定、于是退回宽松默认 scope 的静默放行——
+   * 对反馈正文，那种放行等于 D3 被彻底作废（全组织都读到了别人的正文，
+   * 而界面看起来一切正常）。
+   */
+  readonly kind:
+    | AclObjectRef["kind"]
+    | "capability"
+    | "organization"
+    | "interview"
+    | "subject"
+    | "research"
+    | "feedback";
   readonly id: string;
 }
 

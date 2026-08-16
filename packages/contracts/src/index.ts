@@ -33,3 +33,6 @@ export * as templates from "./templates";
 export * as research from "./research";
 export * as survey from "./survey";
 export * as personalRealtimeTranscription from "./personal-realtime-transcription";
+
+/* ── phase-03 契约束 ───────────────────────────────────────────────── */
+export * as feedbackLoop from "./feedback-loop";

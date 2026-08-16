@@ -7,6 +7,7 @@ import { useSession } from "@/components/session/session-provider";
 import type { ProjectRole } from "@/lib/identity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { ApiError } from "@/lib/api-client";
 import {
   archiveCanvasTemplate,
@@ -405,21 +406,23 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpladmin-cards">
               {rows.map((t) => (
-                <div
+                <Card
                   key={`${t.key}-${t.version}`}
-                  className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm transition-shadow duration-200 hover:shadow-md"
+                  className="transition-shadow duration-200 hover:shadow-md"
                   data-testid={`tpladmin-card-${t.key}-${t.version}`}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="text-13 font-medium">{t.displayName}</span>
-                    <Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge>
-                  </div>
-                  <span className="text-11 text-muted-foreground">{describeSections(t)}</span>
-                  <span className="font-mono text-10 text-muted-foreground">
-                    {t.key} v{t.version} · {t.underlyingType} · 被 {t.usageCount} 场
-                  </span>
-                  <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} />
-                </div>
+                  <CardContent className="flex flex-col gap-2 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-13 font-medium">{t.displayName}</span>
+                      <Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge>
+                    </div>
+                    <span className="text-11 text-muted-foreground">{describeSections(t)}</span>
+                    <span className="font-mono text-10 text-muted-foreground">
+                      {t.key} v{t.version} · {t.underlyingType} · 被 {t.usageCount} 场
+                    </span>
+                    <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} />
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )

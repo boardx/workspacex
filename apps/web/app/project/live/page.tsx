@@ -67,9 +67,8 @@ export default function ProjectLivePage() {
   const [loginError, setLoginError] = React.useState<string | null>(null);
   const [loginBusy, setLoginBusy] = React.useState(false);
 
-  const [segments, setSegments] = React.useState<{ member: ProjectListItem[]; managed: ProjectListItem[] } | null>(
-    null,
-  );
+  // F185（2026-08-16 delta）：`listProjects` 不再是两段式，这里跟着契约改成扁平数组。
+  const [projects, setProjects] = React.useState<ProjectListItem[] | null>(null);
   const [listError, setListError] = React.useState<string | null>(null);
   const [listBusy, setListBusy] = React.useState(false);
 
@@ -91,10 +90,10 @@ export default function ProjectLivePage() {
       setListError(null);
       try {
         const out = await listProjects(org);
-        setSegments({ member: [...out.member], managed: [...out.managed] });
+        setProjects([...out]);
       } catch (e) {
         setListError(describeError(e));
-        setSegments(null);
+        setProjects(null);
       } finally {
         setListBusy(false);
       }
@@ -125,7 +124,7 @@ export default function ProjectLivePage() {
   function handleLogout() {
     clearStoredSessionToken();
     setSessionToken(null);
-    setSegments(null);
+    setProjects(null);
   }
 
   async function handleCreate(ev: React.FormEvent) {
@@ -203,11 +202,8 @@ export default function ProjectLivePage() {
             </p>
           ) : null}
 
-          {segments !== null ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SegmentList title="我在里面" testId="live-member-list" items={segments.member} />
-              <SegmentList title="我管着它" testId="live-managed-list" items={segments.managed} />
-            </div>
+          {projects !== null ? (
+            <SegmentList title="全部项目" testId="live-list" items={projects} />
           ) : (
             <p data-testid="live-list-empty-state" className="text-12 text-muted-foreground">
               还没有加载列表——填组织 id 后点「刷新列表」。

@@ -1065,6 +1065,52 @@
       ],
       "evidence": "",
       "notes": "P1。needs_ui_signoff(模板编辑器/单场复盘子标签未探明+界面未建)。R11要求去个体化PII闸门独立验收(模板跨项目复用,残留受访者原话即跨项目隐私泄露)。PII最小集五类(邮箱/手机号/身份证号/银行卡号/详细住址,O-39)。两个计数字段与06-itv模板对象一并实现不复制模板表。⚠素材不足阈值[待确认]→不写死。本UC只提名不自行晋升。"
+    },
+    {
+      "id": "F48",
+      "priority": 2,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "反馈采集端落地：导航栏「反馈」入口 + chat 里每个 agent/skill 一个反馈按钮 + 投票 + 分诊状态机",
+      "user_visible_behavior": "任何页面点左侧图标栏最下方的「反馈」图标（<md 在顶栏）弹出反馈层：选类型（缺陷/需求）、写标题与正文、屏上明写会附带当前页面与版本；提交后自动切到「我提过的」，刚提交那条排第一行、状态「待处理」，刷新后仍在（不是本地状态）。在 /chat 里，AI 消息的身份行上有一个按钮可对**这个 agent**提反馈、已挂载的每个 skill chip 旁有一个按钮可对**这个 skill**提反馈，两者传的是真实 id。别人提的反馈能看到标题、类型、票数与状态并可投票（同一人重复投只算一次、可撤票），但正文只有组织管理员与提交人看得到。",
+      "spec_ref": "contracts/feedback-loop/usecases.md#UC-F1",
+      "depends_on": [
+        "p1:uc-8-1"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/feedback/feedback-state-machine.test.ts",
+        "pnpm --filter api exec vitest run tests/feedback/product-feedback-persistence.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/feedback-dialog.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "PROP-FEEDBACK-LOOP-E2E-001 的 FB-2。FB-1（消息级 👍/👎 归因落库）= phase-01 F176，已 passing 并在 main 上。\n\n⚠ 依据等级：[待签核] 契约束 `feedback-loop`（phases/phase-03-*/contracts/feedback-loop/design-signoff.md，status: proposed）。**签核未完成前不得标 passing**——实现先于签核落地是人类 2026-08-15 直接要求的时间顺序，不是实现方跳过关卡；签核文件里如实记了这一点，并列出三件待人类确认（`不做` 终态 / 反馈类型只有两类 / 状态流水无查看界面）。\n\n⚠ 第 ① 件（UI 截图 + ui.md + ui-material-map 声明）尚未产出，是签核前唯一挡着的东西。\n\n⚠ 本条**不含**「消息级评价聚合成含具体改动的改进建议」那一半——那是 F12 的另一半，依赖 skills.listSuggestions 的落库面，全仓今天零实现。两者不要混为一条。\n\n三条不变量（反证要守的边界）：① 提交人/状态/创建时间服务端定，契约 in 里根本没有这三个字段；② 票数是 COUNT(*)，没有计数列；③ 正文经 Guarded 出门，忘了判 D3 就投影出去是编译不过的东西。"
+    },
+    {
+      "id": "F49",
+      "priority": 2,
+      "area": "gov",
+      "capability": "CAP-API",
+      "title": "后台「反馈与迭代」真栈化：两列真实数据 + 真实分诊 + 状态分布一次查询派生",
+      "user_visible_behavior": "/admin/feedback 不再是示例数据：顶部一条状态分布（总数与四个状态，四个分状态之和恒等于总数），左列「软件反馈」（对产品提的）、右列「Agent / Skill 反馈」（在对话里对某个 agent/skill 提的），零反馈时是空态而不是示例条目。组织管理员能就地分诊：按钮只出现当前状态出得去的那几条边，转「不做」必须先写理由，改完刷新后状态是新的。读取失败时屏上说的是「数据没有丢，只是这次没取到」而不是空列表。`[打开迭代看板]`/`[导出]` 两个点了没有目标屏的按钮已删除。",
+      "spec_ref": "contracts/feedback-loop/usecases.md#UC-F4",
+      "depends_on": [
+        "p3:F48"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/admin-feedback-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/admin-feedback-transitions-match-domain.test.ts",
+        "node apps/web/scripts/lint-no-backend-badge.mjs"
+      ],
+      "evidence": "",
+      "notes": "PROP-FEEDBACK-LOOP-E2E-001 的 FB-3。同 F48，签核未完成前不得标 passing。\n\n⚠ D1（人类 2026-08-15）：后台屏是唯一入口，`components/skill/skill-feedback.tsx` 已降级为指向它的链接——两块画同一件事的 mock 屏收敛成一处，同 F160 对「组织成员」屏的处置。\n\n⚠ 右列**不是**「从消息级评价聚合出来的改进建议」。那需要 skills.listSuggestions 的落库面（今天零实现），屏内有一句话如实说它还没接地，不用 mock 顶替。\n\n⚠ 后台屏那张分诊转移表是 domain 状态机的第二份副本，由 tests/ui/admin-feedback-transitions-match-domain.test.ts 逐条对账（解析源码文本，因为 apps/web 不依赖 apps/api）。没有那条对账就不许留第二份副本。\n\n⚠ 左栏计数 ADMIN_NAV_COUNT_SOURCES.feedback 现在抛错让它显示「—」：待处理数只能异步查，同步计数源给不出，而一个永远不动的 mock 数字摆在真数据旁边是最难发现的一种谎。"
     }
   ]
 }

@@ -151,6 +151,8 @@ export interface ProjectListRow {
   readonly status: "active" | "archived";
   /** 供 `domain/project/readonly-reason.ts` 判只读原因；响应体本身不暴露组织状态。 */
   readonly orgStatus: "active" | "disabled";
+  /** 2026-08-16（F185，delta）：项目自由文本标签，默认 `[]`。 */
+  readonly tags: readonly string[];
 }
 
 export interface ListProjectsForActorQuery {
@@ -358,3 +360,25 @@ export interface ProjectArchiveRepository {
 }
 
 export const PROJECT_ARCHIVE_REPOSITORY = Symbol("ProjectArchiveRepository");
+
+/* ═══════════════════════ F185：`updateProjectTags` 的独立端口（2026-08-16，delta） ═══════════════════════ */
+
+/**
+ * ⚠ 同 F122/F123/F124 那几条端口分裂的理由：`pg-project-repository.ts` 只许一条
+ * `INSERT INTO projects`，这里是 `UPDATE ... SET tags`，各自的 `lint-permission-paths`
+ * 豁免各自成立，不合并进同一个文件。
+ */
+export type UpdateProjectTagsOutcome =
+  | { readonly kind: "updated"; readonly projectId: string; readonly tags: readonly string[] }
+  /** 容器不存在（含跨组织误传的 id）。契约里**有** `PROJECT_NOT_FOUND`——与 `archiveProject`
+   *  故意折进 `ORG_ROLE_INSUFFICIENT` 不同：能调到这里的调用者已经是这个组织的
+   *  `lead`/`admin`，对组织内全部容器本就有「管理」入列理由（`managed` 段的同一条依据），
+   *  暴露「这个 id 在本组织不存在」不越过任何可见性边界。 */
+  | { readonly kind: "not-found" };
+
+export interface ProjectTagsRepository {
+  /** 整体替换（不是增量 patch），同一次 `UPDATE ... RETURNING` 完成写入与回显。 */
+  updateTags(orgId: OrgId, projectId: string, tags: readonly string[]): Promise<UpdateProjectTagsOutcome>;
+}
+
+export const PROJECT_TAGS_REPOSITORY = Symbol("ProjectTagsRepository");
