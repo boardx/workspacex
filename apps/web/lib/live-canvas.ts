@@ -23,15 +23,21 @@
  * ⚠ 新建出来的是**草稿**，不是「建完就能用」。要能用还得走 `publishCanvasTemplate`——
  *   前端不代替服务端做这一步，也不在界面上把两者画成一个动作。
  *
+ * ## 「编辑 = 开新版」已由 #988 补上
+ *
+ * `mintTemplateVersion`（`mintCanvasTemplateVersion`，下方）是本束「编辑」的真实语义——
+ * 分区结构改不了的是**已存在的那个版本**，不是这个 key 从此定型。人类已在
+ * `design-signoff.md` 签核确认（2026-08-17）。`template-editor` 那一屏（mermaid 图、
+ * 设计对话、版本历史、回滚）**仍是 mock 原型**——那部分对应的是签核材料第二节
+ * （`MermaidDiagramType` / `diagramSkeleton`），人类裁定为后续独立 feature，不在本次范围。
+ *
  * ## 后端**仍然没有**给的东西（缺口，已报出，不在这里发明）
  *
- * · **编辑模板 / 开新版**：契约里仍然没有 update，也没有「基于既有模板开 v2」，
- *   所以 `createTemplate.out.version` 是 `z.literal(1)`。`template-editor` 那一屏
- *   （分区结构、设计对话、版本历史、回滚）因此**仍是 mock 原型**——它要的是改，不是建。
- *   登记在 `canvas.KNOWN_CONTRACT_GAPS.C_CANVAS_8`。
- * · **`ownerTeamId`**：`visibility: "team-only"` 需要「归哪个团队」，契约没有这一栏。
+ * · **`createTemplate` 的 `ownerTeamId`**：`visibility: "team-only"` 需要「归哪个团队」，
+ *   `createTemplate.in` 没有这一栏（人类签核时**明确保留**这个现状，不是遗漏）。
  *   服务端取创建者自己的团队；创建者无团队时那一行对**所有人不可见**（fail-closed）。
- *   前端**不**替它挑一个团队，也不把这个后果藏起来——界面上如实提示。
+ *   ⚠ `mintTemplateVersion.in` **不是**这个缺口——它有 `ownerTeamId` 且是显式拒绝语义，
+ *     两个操作在这一栏上**故意不同**，见 `canvas.KNOWN_CONTRACT_GAPS.C_CANVAS_8`。
  * · **mermaid 白名单**：契约里有 `setMermaidWhitelist`，但 #463 的 controller
  *   没有挂这条路由。原先模板库屏底部那块白名单开关是纯 mock（点了不落库），
  *   已随本次去 mock 一并撤下，而不是留一块「点了像是生效了」的假开关。
@@ -50,6 +56,8 @@ export type ListTemplatesFilter = NonNullable<
 export type CreateTemplateIn = z.infer<typeof canvas.operations.createTemplate.in>;
 export type CreateTemplateOut = z.infer<typeof canvas.operations.createTemplate.out>;
 export type TemplateSection = CreateTemplateOut["sections"][number];
+export type MintTemplateVersionIn = z.infer<typeof canvas.operations.mintTemplateVersion.in>;
+export type MintTemplateVersionOut = z.infer<typeof canvas.operations.mintTemplateVersion.out>;
 export type ArchiveTemplateOut = z.infer<typeof canvas.operations.archiveTemplate.out>;
 export type RestoreTemplateOut = z.infer<typeof canvas.operations.restoreTemplate.out>;
 export type PublishTemplateOut = z.infer<typeof canvas.operations.publishTemplate.out>;
@@ -123,6 +131,32 @@ export async function createCanvasTemplate(input: CreateTemplateIn): Promise<Cre
       visibility: input.visibility,
     },
   });
+}
+
+/**
+ * 「基于既有模板开新版」——本束「编辑」的真实语义（#988，人类已签核）。
+ *
+ * ⚠ `key` 不可改（那是同一条谱系的下一个版本，不是另建一行），`version` 由服务端
+ *   算（`max(version)+1`），不接受入参——同 `createTemplate` 恒回 `version: 1` 的理由，
+ *   服务端说了算的事不该有一个前端也能填的入参。
+ */
+export async function mintCanvasTemplateVersion(
+  input: MintTemplateVersionIn,
+): Promise<MintTemplateVersionOut> {
+  return apiRequest<MintTemplateVersionOut>(
+    templatePath(canvas.operations.mintTemplateVersion, input.key),
+    {
+      method: "POST",
+      body: {
+        key: input.key,
+        displayName: input.displayName,
+        underlyingType: input.underlyingType,
+        sections: input.sections,
+        visibility: input.visibility,
+        ownerTeamId: input.ownerTeamId,
+      },
+    },
+  );
 }
 
 export async function publishCanvasTemplate(input: {
