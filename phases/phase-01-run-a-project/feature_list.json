@@ -4318,17 +4318,18 @@
         "F157"
       ],
       "points": 2,
-      "status": "not_started",
-      "owner": null,
+      "status": "passing",
+      "owner": "dev-chat-e2e",
       "verification": [
-        "pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts"
+        "pnpm --filter api exec vitest run tests/chat/tool-trace-cross-run-context.test.ts",
+        "pnpm --filter api exec vitest run tests/chat/tool-trace-context-repo-guard.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F190.verify.log @ 2026-08-16T09:32:25.666Z",
       "notes": "重编号自 F185：requirement-author 最初把这条注册为 F185（PR #1321），但另一支并行分支（project 域，PR #1405，listProjects 扁平化）独立使用了同一个 ID 并先合并，覆盖了这条登记——本条数据本身未丢（design-delta 材料、需求文档都还在），只是权威功能清单里的 ID槽位被占用。重编号为 F190，不改动 project 域已 passing 的 F185（已有 issue #1392、迁移文件名、测试文件名等大量外部引用，重编号成本远高于这条尚未开工的 feature）。design-delta（design-deltas/tool-trace-cross-run-context/，已签核，PR #1409）的 covers 字段同步改为 [F190]。\n\n依据等级：[已签核]（design-delta tool-trace-cross-run-context，PR #1409，人类 2026-08-16对收窄后的选项作答）。①范围窗口=最近3轮run ②预算优先级=L1>L2>工具轨迹>L3，与L1重叠去重③个人线程一视同仁适用，不破F156边界 ④复用F157 agent_run_context快照追加来源字段 ⑤读取失败降级跳过、不阻断run。⚠ 仍需协调execute-run.ts的coord-main串行窗口再开工——签核解除的是design-delta关卡，不是文件级并发协调。",
       "priority": 1,
       "area": "chat",
       "capability": "CAP-API",
-      "sprint": null
+      "sprint": "12"
     },
     {
       "id": "F188",
