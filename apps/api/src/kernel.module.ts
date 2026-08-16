@@ -96,6 +96,9 @@ import { SkillStarterImportController } from "./interface/controllers/skill-star
 import { SkillUrlImportController } from "./interface/controllers/skill-url-import.controller";
 import { composeImportSkillFromUrlDeps } from "./infrastructure/skill/url-import-composition";
 import { IMPORT_SKILL_FROM_URL_DEPS_FACTORY } from "./application/skill-import/import-skill-from-url";
+import { AgentUrlImportController } from "./interface/controllers/agent-url-import.controller";
+import { composeImportAgentFromUrlDeps } from "./infrastructure/agent-import/import-agent-from-url-composition";
+import { IMPORT_AGENT_FROM_URL_DEPS_FACTORY } from "./application/agent-import/import-agent-from-url";
 import {
   AGENT_STARTER_IMPORT_REPOSITORY,
   AGENT_STARTER_PACK_SOURCE,
@@ -542,6 +545,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     CapabilityController,
     SkillStarterImportController,
     SkillUrlImportController,
+    AgentUrlImportController,
     AgentStarterImportController,
     AgentSkillPinsController,
     SkillVersionEditController,
@@ -681,6 +685,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, identities: IdentityRepository) =>
         (input: { readonly localOnlyOrg: boolean }) =>
           composeImportSkillFromUrlDeps({ db, identities, localOnlyOrg: input.localOnlyOrg }),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
+    },
+    /**
+     * #1415 —— agent 版的上一条，同一条纪律（工厂而不是现成 deps，`localOnlyOrg`
+     * 逐请求推导）。装配本身只发生在 `infrastructure/agent-import/import-agent-from-url-composition.ts` 里。
+     */
+    {
+      provide: IMPORT_AGENT_FROM_URL_DEPS_FACTORY,
+      useFactory: (db: DatabasePort, identities: IdentityRepository) =>
+        (input: { readonly localOnlyOrg: boolean }) =>
+          composeImportAgentFromUrlDeps({ db, identities, localOnlyOrg: input.localOnlyOrg }),
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
     },
     {

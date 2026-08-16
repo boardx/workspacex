@@ -5,6 +5,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { CapabilityCatalogScreen } from "./capability-catalog-screen";
 import { AgentDefinitionCreatePanel } from "./agent-definition-create-panel";
+import { AgentUrlImportPanel } from "./agent-url-import-panel";
 import { Card, CardContent } from "@/components/ui/card";
 import type { UiState } from "@/lib/ui-state";
 
@@ -28,8 +29,9 @@ export function AgentScreen({ state }: { state: UiState }) {
   return (
     <div className="flex flex-col gap-5">
       {canMutate ? (
-        <div className="px-6 pt-6">
+        <div className="px-6 pt-6 flex flex-col gap-3">
           <AgentDefinitionCreatePanel prefix="admin-agent-definition" />
+          <AgentUrlImportPanel />
         </div>
       ) : null}
       <div className="px-6">

@@ -29,7 +29,14 @@ import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 const GITHUB_SKILL_DIR_URL = "https://github.com/anthropics/skills/tree/main/skills/skill-creator";
-const GITHUB_AGENT_URL = "https://github.com/anthropics/skills/tree/main/template";
+/**
+ * agent 导入是**单文件**（见 `import-agent-from-url.ts` 头注：agent 唯一的"内容"
+ * 是 `agents.instructions`，一段文本，不是文件树）——用 raw.githubusercontent.com
+ * 而不是 `github.com/.../blob/...`：后者是 GitHub 的网页查看器，返回一整页 HTML，
+ * 不是文件的原始字节；这正是 #595 的 G1 在 `tree/` 目录 URL 上踩过的同一个坑，
+ * 单文件导入这里从一开始就不允许它发生。
+ */
+const GITHUB_AGENT_URL = "https://raw.githubusercontent.com/anthropics/skills/main/template/SKILL.md";
 
 async function loginAsAdmin(page: Page): Promise<void> {
   await page.goto("/login");
@@ -145,23 +152,76 @@ test("② 文件浏览器 + code editor：能看到 GitHub 导入的完整目录
 });
 
 /**
- * ① 的另一半——**agent** 的 GitHub URL 导入。目前预期红：
- * `/admin/agent`（`CapabilityCatalogScreen kind="agent"`）没有挂
- * `SkillUrlImportPanel` 的姊妹组件，全仓搜索 `AgentUrlImportPanel` 零命中。
+ * ①②③ 的 agent 版——#1415 补上的那条链：GitHub 单文件导入 → 编辑指令 →
+ * 发布 → 试跑，全部在同一块 `AgentUrlImportPanel` 里完成（agent 这一阶段没有
+ * `listAgents` 读路径，导入完不把用户扔回一个找不到刚建好那个 agent 的列表页，
+ * 见该组件头注）。
+ *
+ * 与 skill 侧的关键差异，写在这里而不是散落在断言里：
+ *   · agent 导入是**单文件**（`raw.githubusercontent.com` 直取字节），不是目录——
+ *     `agents.instructions` 是一段文本，没有文件树的概念。
+ *   · 编辑发生在**发布之前**（`agent_versions` 是不可变快照，发布之后再改
+ *     `agents.instructions` 不会反映到已发布版本），所以本用例的顺序是
+ *     导入 → 编辑 → 发布 → 试跑，不是 skill 那种"导入 → 试跑 → 也能编辑"。
+ *   · 试跑读的是**已发布**版本（`PublishedAgentReader`），发布前点试跑没有意义，
+ *     面板本身也按钮置灰到发布成功为止——这里断言的是"发布前确实不可点"。
  */
-test.fail("① [已知缺口] agent 也能从 GitHub URL 导入，与 skill 同一心智", async ({ page }) => {
+test("① agent 也能从 GitHub URL 导入，导入完可编辑指令、发布、试跑", async ({ page }) => {
+  test.slow();
   await loginAsAdmin(page);
   await page.goto("/admin/agent");
   await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
-  await expect(
-    page.getByTestId("agent-url-import-open"),
-    "预期存在但目前不存在：agent 目录页应该有与 skill 对等的「从 URL 导入」入口",
-  ).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId("agent-url-import-open")).toBeVisible();
   await page.getByTestId("agent-url-import-open").click();
   await page.getByTestId("agent-url-import-url").fill(GITHUB_AGENT_URL);
-  await page.getByTestId("agent-url-import-name").fill("GITHUB_IMPORTED_AGENT");
+  const importedName = FULLSTACK_E2E.agentName + "_GITHUB_IMPORT";
+  await page.getByTestId("agent-url-import-name").fill(importedName);
+
+  const importResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && response.url().includes("/admin/agents/url-imports")
+  ));
   await page.getByTestId("agent-url-import-confirm").click();
-  await expect(page.getByTestId("agent-url-import-result")).toContainText("已导入");
+  const response = await importResponse;
+  expect(response.status(), "真实 GitHub 单文件导入应当 2xx——若这里超时/4xx/5xx，先看是不是被 SSRF 门或 admin 门拦了").toBeLessThan(300);
+  await expect(page.getByTestId("agent-url-import-result")).toContainText("已建成草稿 agent");
+
+  // 导入响应回显了取回的指令全文（没有单独的 GET /agents/:id 读接口）——
+  // 文本框不该是空的，这才证明"导入了"和"能看到导入了什么"是同一件事。
+  const postPanel = page.getByTestId("agent-url-import-post-panel");
+  await expect(postPanel).toBeVisible();
+  const instructions = postPanel.getByTestId("agent-url-import-instructions");
+  await expect(instructions).not.toHaveValue("");
+
+  // ① 编辑：追加一句话，保存，断言真的调用了 PATCH /agents/:agentId。
+  await instructions.fill(`${await instructions.inputValue()}\n\n(经后台编辑追加)`);
+  const saveResponse = page.waitForResponse((response) => (
+    response.request().method() === "PATCH" && response.url().includes("/agents/")
+  ));
+  await postPanel.getByTestId("agent-url-import-save-instructions").click();
+  expect((await saveResponse).ok(), "编辑指令应当真的发出一次 PATCH /agents/:agentId 且服务端接受").toBe(true);
+
+  // 发布前试跑按钮应当不可点——试跑读的是已发布版本，发布前点没有意义。
+  await expect(postPanel.getByTestId("agent-url-import-trialrun-run")).toBeDisabled();
+
+  // ② 发布：真调用既有的 selfPublishToollessAgent。
+  const publishResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST" && response.url().includes("/self-publish")
+  ));
+  await postPanel.getByTestId("agent-url-import-publish").click();
+  expect((await publishResponse).ok(), "发布应当真的调用 selfPublishToollessAgent 且服务端接受").toBe(true);
+  await expect(postPanel.getByTestId("agent-url-import-publish")).toContainText("已发布");
+
+  // ③ 试跑：发布后按钮可点，真调用 POST /agents/:agentId/trial-run，产出真实输出。
+  await postPanel.getByTestId("agent-url-import-trialrun-scenario").fill("请给我一句自我介绍");
+  const trialRunResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST" && response.url().includes("/trial-run")
+  ));
+  await postPanel.getByTestId("agent-url-import-trialrun-run").click();
+  const trialRun = await trialRunResponse;
+  expect(trialRun.ok(), "试跑请求应当被服务端接受（若这里失败，先看 KERNEL_DEEP_AGENT_BASE_URL 有没有配）").toBe(true);
+  await expect(postPanel.getByTestId("agent-url-import-trialrun-result")).toBeVisible({ timeout: 15_000 });
+  await expect(postPanel.getByTestId("agent-url-import-trialrun-error")).toHaveCount(0);
 });
 
 /**

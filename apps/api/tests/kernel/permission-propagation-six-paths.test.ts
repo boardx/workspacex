@@ -878,7 +878,15 @@ describe("lint-permission-paths: counter-proof", () => {
     // ① 名到的表恰好是 `agent_runs`/`agent_run_steps`/`chat_messages`；② `src/interface/`
     // 下没有任何 controller 直接调用它或 import 这个仓储/端口（按源码字符串扫描断言，不是
     // 「文件里有这两个词」）。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(58);
+    //
+    // ⚠ Raised 58 -> 59 by #1415（agent 版 GitHub URL 导入）：新条目是
+    // `infrastructure/agent-import/pg-agent-url-import-repository.ts`——与
+    // `pg-skill-url-import-repository.ts` 逐字同一条豁免理由（授权在
+    // `import-agent-from-url.ts` 里、且在 `deps.fetch` 之前，同一层先后顺序）。
+    // 它的**被强制的前提**：`tests/agent-runtime/agent-url-import-repo-guard.test.ts`
+    // 断言三件——(a) 只命名 `agent_url_imports`/`agents` 两张租户表；(b) 无
+    // `withoutTenant`；(c) 授权判定排在 `deps.fetch` 调用之前。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(59);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

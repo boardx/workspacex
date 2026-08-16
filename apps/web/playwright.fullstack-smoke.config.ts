@@ -31,6 +31,15 @@ const modelProviderPort = String(Number(webPort) + 5_000);
  * 同样**不去动** `.harness/scripts/lib/test-isolation.ts`：那是全队共用的隔离事实源。
  */
 const asrProviderPort = String(Number(webPort) + 10_000);
+/**
+ * #1415 —— `apps/deep-agent-service` 的确定性替身端口，同一套单射逻辑再往后挪一段
+ * （`+15000`，落在 60000–65000，不撞 pg/redis/minio/api/web/model-provider/asr-provider
+ * 任何一段）。`skill-agent-import-usecase-audit.spec.ts` 的自助发布 agent 走的是
+ * `resolveDeepAgentModel()`（`DEEP_AGENT_PROVIDER_NAME`），不是主 chat provider——
+ * 不配 `KERNEL_DEEP_AGENT_BASE_URL`，试跑会以 `MODEL_PROVIDER_NOT_CONFIGURED` 诚实
+ * 失败（同 `playwright.chat-read.config.ts` 已经踩过、已经修好的同一件事，P6/P7）。
+ */
+const deepAgentProviderPort = String(Number(webPort) + 15_000);
 const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
   ? "http://127.0.0.1:1"
   : `http://127.0.0.1:${apiPort}`;
@@ -315,6 +324,22 @@ export default defineConfig({
         LOOPBACK_MODEL_REPLY_PREFIX: FULLSTACK_E2E.agentReplyPrefix,
       },
     },
+    /**
+     * #1415 —— `apps/deep-agent-service` 的确定性替身，逐字抄
+     * `playwright.chat-read.config.ts` 的同一段（`scripts/loopback-deep-agent-provider.ts`
+     * 自己的头注：不是起真的 Python/LangGraph 服务，是在真实 `DeepAgentModelProvider`
+     * 代码路径上换一个可预测的 HTTP 上游）。
+     */
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-deep-agent-provider.ts",
+      url: `http://127.0.0.1:${deepAgentProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_DEEP_AGENT_PROVIDER_PORT: deepAgentProviderPort,
+      },
+    },
     {
       command: [
         `${compose} up -d --wait postgres redis minio`,
@@ -344,6 +369,10 @@ export default defineConfig({
         ...(process.env.WORKSPACEX_COUNTERPROOF_SKILL_REVIEW
           ? { WORKSPACEX_COUNTERPROOF_SKILL_REVIEW: process.env.WORKSPACEX_COUNTERPROOF_SKILL_REVIEW }
           : {}),
+        // #1415 —— 不供这一条，`DeepAgentModelProvider` 会以 `MODEL_PROVIDER_NOT_CONFIGURED`
+        // 诚实失败（该 provider 自己的 config 头注），自助发布的 agent 试跑会打不通。
+        // 逐字同一条纪律见 `playwright.chat-read.config.ts` 的同一变量。
+        KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
         PORT: apiPort,
       },
     },
