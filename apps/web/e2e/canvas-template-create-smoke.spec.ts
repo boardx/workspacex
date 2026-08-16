@@ -69,6 +69,22 @@ async function fillCreateForm(page: Page, key: string, name: string) {
   await page.getByTestId("tpladmin-create-submit").click();
 }
 
+/**
+ * #952：publish / archive / restore 在组件里都是「mutation 落库 → `setNotice`
+ * → 再 `await load()` 刷新当前筛选」。点完动作按钮到 `tpladmin-notice` 出现
+ * 这句话之间，mutation 才真正落了库；notice 的文案在 mutation 的 fetch resolve
+ * 之后才会 set，因此它是唯一能在浏览器里观察到的「后端已提交」信号。
+ *
+ * 之前的写法是点完 publish/archive/restore 按钮就立刻切过滤器 tab——那一次点击
+ * 触发的是它自己独立的一次 GET，如果这次 GET 跟尚未落库的 mutation 赛跑赢了，
+ * 切换后的筛选列表里就不会带上新状态，行断言会在默认超时后 element not found。
+ * 这里不是加个固定 sleep，而是等一个真实会变化的状态信号：等 mutation 自己回填的
+ * `tpladmin-notice` 文案出现，再去切筛选器/断言行状态。
+ */
+async function waitForNotice(page: Page, substring: string) {
+  await expect(page.getByTestId("tpladmin-notice")).toContainText(substring);
+}
+
 test("admin creates a canvas template in the browser; PostgreSQL keeps it across reloads, and publishing makes it usable", async ({ page }) => {
   const failures: string[] = [];
   const creates = recordCreates(page);
@@ -110,6 +126,9 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
 
   // ── ④ 发布 → 可被使用 ───────────────────────────────────────────────────
   await page.getByTestId(`tpladmin-publish-${KEY}-1`).click();
+  // #952：先等 publish 的 mutation 真正落库（notice 是它落库后才回填的信号），
+  // 再切筛选器——否则切筛选器发出的 GET 可能赢过还没落库的 publish。
+  await waitForNotice(page, "已发布");
   await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText("已发布");
 
   await page.getByTestId("tpladmin-filter-published").click();
@@ -127,11 +146,16 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
   // 影响面那个数来自服务端 `confirmed:false` 的真实预检。
   await expect(page.getByTestId("tpladmin-archive-impact")).toContainText("0");
   await page.getByTestId("tpladmin-archive-confirm").click();
+  // #952：同上，等归档 mutation 落库的 notice 信号，再切到「已归档」筛选。
+  await waitForNotice(page, "已归档");
 
   await page.getByTestId("tpladmin-filter-archived").click();
   // 归档后它**还在**——查得到、能恢复。删除的话这里会是空的。
   await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText("已归档");
   await page.getByTestId(`tpladmin-restore-${KEY}-1`).click();
+  // #952：restore 也是同一形状的竞态——等它自己的 notice 落库信号，
+  // 再切到「已发布」筛选断言，而不是打完 restore 立刻切。
+  await waitForNotice(page, "已恢复");
   await page.getByTestId("tpladmin-filter-published").click();
   await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText("已发布");
 
