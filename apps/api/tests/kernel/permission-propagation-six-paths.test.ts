@@ -894,7 +894,29 @@ describe("lint-permission-paths: counter-proof", () => {
     // `tests/skill/org-agent-model-reader-repo-guard.test.ts` 断言三件——
     // (a) 只命名 `agents`/`agent_versions` 两张租户表；(b) 无 `withoutTenant`；
     // (c) 授权判定排在这次读之前。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(60);
+    //
+    // ⚠ Raised 60 -> 63 by F950（2026-08-16 delta，templates 束定题/分组读侧 + 组员字段——
+    // 第一次给 F24/F25 已签核的契约接上真实 Postgres，此前只有内存假仓储撑单元测试）：
+    // 三个新条目——
+    //   `infrastructure/templates/pg-project-topic-repository.ts`：写路径（`project_topics`
+    //   upsert）+ 读同一行，同 F117/F124/F185 那批「actor 写自己刚提交的东西」形状。
+    //   `infrastructure/templates/pg-grouping-repository.ts`：写 `groups`/
+    //   `project_grouping_revision`，**并且**改 `project_memberships.group_id`/
+    //   `project_role`——这是三个里最接近 `pg-identity-repository.ts` 那条线的一个，
+    //   但它只 UPDATE 已存在的成员行，从不 INSERT，不能把任何人拉进一个他们本不在的
+    //   项目（那是 F125 `addProjectMember` 的职责范围）。
+    //   `infrastructure/templates/pg-project-prep-repository.ts`：纯只读三张表，只回
+    //   四个裸整数（`ProjectPrepCounts`），不含任何成员身份或内容。
+    // 三处角色门槛（`canSaveTopic`/`canUpdateGrouping`/`getProjectPrep` 的
+    // `actorProjectRole`）都在各自用例里、仓储被调用之前完成，同一层顺序。
+    //
+    // 它们的**被强制的前提**：`tests/tpl/project-prep-repo-guard.test.ts`（topic + prep
+    // 两个仓储共用，断言各自只命名它声明的那些表）与
+    // `tests/tpl/grouping-repo-guard.test.ts`（分组仓储专属，额外断言 (a) 只命名
+    // `groups`/`project_grouping_revision`/`project_memberships` 三张表，(b) 对
+    // `project_memberships` 的每一条语句都是 `UPDATE`，从不出现 `INSERT`）。删测试则
+    // 对应条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(63);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

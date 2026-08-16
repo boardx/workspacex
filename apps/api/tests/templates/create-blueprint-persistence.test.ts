@@ -156,7 +156,7 @@ describe("F175 蓝本真实落库", () => {
       await import("../../src/infrastructure/identity/pg-identity-repository")
     ).PgIdentityRepository(db);
     const ids = { next: (prefix: string) => `${prefix}-test-${Math.random().toString(36).slice(2)}` };
-    const controller = new BlueprintController(repo, identity, ids as never);
+    const controller = new BlueprintController(repo, identity, ids as never, {} as never, {} as never, {} as never);
 
     const out = await controller.list(ORG, undefined, { userId: ACTOR, orgId: ORG } as never);
     // `.strict()` schema：多一个字段、少一个字段、字段名拼错，`.parse()` 全部会抛。

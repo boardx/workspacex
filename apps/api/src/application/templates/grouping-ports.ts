@@ -6,8 +6,12 @@
  * 契约码 `VERSION_CHANGED`，不在用例里先查一次 revision 再比较。
  */
 import type { GroupPatch } from "../../domain/templates/grouping";
+import type { OrgId } from "../../domain/org-id";
 
 export interface UpdateGroupingCommand {
+  /** 2026-08-16（F950，delta）：同 `save-and-sync-topic-ports.ts` 那条注释，接真 Postgres
+   *  需要租户范围，此前的内存假仓储不需要它。 */
+  readonly orgId: OrgId;
   readonly projectId: string;
   readonly groupCount: number | null;
   readonly groups: readonly GroupPatch[];
@@ -29,4 +33,13 @@ export class GroupingRevisionConflictError extends Error {
 
 export interface GroupingRepository {
   updateGrouping(cmd: UpdateGroupingCommand): Promise<UpdatedGrouping>;
+
+  /**
+   * 2026-08-16（F950，delta）：读当前分组。空数组 = 真实空态（还没分组，同
+   * `getProjectPrep`「不套蓝本的空项目四子标签真实空态」那条纪律），不是失败。
+   * `revision` 恒有值——项目一建好 `project_grouping_revision` 就有一行（见仓储实现）。
+   */
+  getGrouping(orgId: OrgId, projectId: string): Promise<UpdatedGrouping>;
 }
+
+export const GROUPING_REPOSITORY = Symbol("GroupingRepository");

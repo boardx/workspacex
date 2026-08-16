@@ -489,6 +489,17 @@ import {
   type BlueprintPersistencePort,
 } from "./application/templates/blueprint-persistence-ports";
 import { PgBlueprintRepository } from "./infrastructure/templates/pg-blueprint-repository";
+// F950（2026-08-16 delta）：定题/分组/筹备计数三条端点第一次接上真实 Postgres——
+// F24/F25 签的契约此前只有内存假仓储撑单元测试，controller 从未挂过路由。
+import { PROJECT_PREP_REPOSITORY, type ProjectPrepRepository } from "./application/templates/project-prep-ports";
+import { PgProjectPrepRepository } from "./infrastructure/templates/pg-project-prep-repository";
+import {
+  PROJECT_TOPIC_REPOSITORY,
+  type ProjectTopicRepository,
+} from "./application/templates/save-and-sync-topic-ports";
+import { PgProjectTopicRepository } from "./infrastructure/templates/pg-project-topic-repository";
+import { GROUPING_REPOSITORY, type GroupingRepository } from "./application/templates/grouping-ports";
+import { PgGroupingRepository } from "./infrastructure/templates/pg-grouping-repository";
 // #548（模型池 A 组）：契约十条早已签核、domain + application 十四个文件都在，但
 // `infrastructure` 一个实现都没有（只有 F49 的 `PgAdmissionTestRepository` 现成），
 // 于是 interface 无从接线 —— 后果是**外部模型凭据没有任何合法入口**。
@@ -1324,6 +1335,23 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: BLUEPRINT_PERSISTENCE_PORT,
       useFactory: (db: DatabasePort): BlueprintPersistencePort =>
         new PgBlueprintRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F950（2026-08-16 delta）：三个独立 provider，各自的 `lint-permission-paths` 豁免
+    // 各自成立，见各自 `pg-*.ts` 文件头。
+    {
+      provide: PROJECT_PREP_REPOSITORY,
+      useFactory: (db: DatabasePort): ProjectPrepRepository => new PgProjectPrepRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: PROJECT_TOPIC_REPOSITORY,
+      useFactory: (db: DatabasePort): ProjectTopicRepository => new PgProjectTopicRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: GROUPING_REPOSITORY,
+      useFactory: (db: DatabasePort): GroupingRepository => new PgGroupingRepository(db),
       inject: [DATABASE_PORT],
     },
     // #465: recording session lifecycle.

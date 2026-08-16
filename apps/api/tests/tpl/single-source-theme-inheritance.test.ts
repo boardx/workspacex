@@ -7,9 +7,13 @@ import {
 import {
   TopicRevisionConflictError,
   type ProjectTopicRepository,
+  type ProjectTopicRow,
   type SaveAndSyncTopicCommand,
   type SavedTopic,
 } from "../../src/application/templates/save-and-sync-topic-ports";
+import { toOrgId } from "../../src/domain/org-id";
+
+const ORG = toOrgId("org-f24-topic");
 
 /**
  * F24 —— **定题单点继承**（`uc-2-2` R7 I-13 V5/V8）。
@@ -33,9 +37,16 @@ class FakeProjectTopicRepository implements ProjectTopicRepository {
     this.rows.set(cmd.projectId, { topicId, revision: nextRevision });
     return { topicId, revision: nextRevision };
   }
+
+  async getTopic(_orgId: unknown, projectId: string): Promise<ProjectTopicRow | null> {
+    const row = this.rows.get(projectId);
+    if (row === undefined) return null;
+    return { ...row, title: "", background: "" };
+  }
 }
 
 const baseInput = {
+  orgId: ORG,
   projectId: "p-1",
   actorProjectRole: "facilitator" as const,
   title: "如何提升续费率",
