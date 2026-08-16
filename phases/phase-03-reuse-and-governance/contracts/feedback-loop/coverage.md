@@ -7,7 +7,7 @@
 > ⚠ **这一行是派生视图，不是权威。** 束↔feature 映射的权威是 `design-signoff.md`
 > frontmatter 的 `covers:`（ADR-023 决策三）。
 >
-> 验收线索来源：`usecases.md` 的 **R1–R12**（12 条）。
+> 验收线索来源：`usecases.md` 的 **V1–V12**（12 条）。
 
 ## 怎么读这些表
 
@@ -24,22 +24,22 @@
 
 ---
 
-## 一、UC → API
+## 一、UC → API（R12 验收线索 V1–V12）
 
-| R | 一句话 | API 操作 | 前端消费点 | 状态 |
+| V | 一句话 | API 操作 | 前端消费点 | 状态 |
 |---|---|---|---|---|
-| R1 | 提交人 / 状态 / 创建时间由服务端定，不入参 | `submitFeedback.in` 无这三个字段（`.strict()`）；`FeedbackController.submit` 取 `principal.userId` | `feedback-submit`（请求体六字段，`feedback-dialog.test.tsx` ① 按实际请求断言） | ✅ |
-| R2 | 复现上下文分列存，客户端给 | `submitFeedback.in.occurredRoute` / `.appVersion` | `feedback-context-notice`（屏上明写收集了什么） | ✅ |
-| R3 | 提交失败明说没保存，不切标签页 | —（错误信封 `DEPENDENCY_UNAVAILABLE`） | `feedback-submit-error` | ✅ |
-| R4 | 目标传真实 id 不是显示名 | `FeedbackTarget`（判别联合） | `chat-agent-feedback` / `chat-skill-feedback-{skillId}` | ✅ |
-| R5 | skill 目标不带版本 | `FeedbackTarget` 的 `skill` 分支只有 `skillId` | 同上 | ✅ |
-| R6 | 文字反馈不进满意度 | **结构性**：本束五条操作没有任何一条读写 `message_ratings` | —（API 层验收：`product-feedback-persistence.test.ts` 只触本束三张表） | ✅ |
-| R7 | 标题+票数全组织可见，正文仅管理员与提交人 | `FeedbackItem.detail: nullable`；`decideFeedbackDetailVisibility` + `discloseDecided` | `admin-feedback-detail-withheld-{id}` | ✅ |
-| R8 | 票数 `COUNT(*)`、幂等、可撤 | `voteFeedback` | `admin-feedback-vote-{id}` | ✅ |
-| R9 | 提交人可投自己那条 | `voteFeedback`（无自投禁止） | 同上 | ✅ |
-| R10 | 状态机四态；`已修复 → 不做` 不是边 | `triageFeedback` → `ILLEGAL_TRANSITION`（422） | `admin-feedback-to-{status}-{id}`（只出得去的边才有按钮） | ✅ |
-| R11 | 状态变更 append-only 留痕 | `triageFeedback` 落 `product_feedback_status_events` | **未建**：流水本身尚无查看界面 | ⚠ **缺口 1** |
-| R12 | 本体除状态两列外不可改 | **结构性**：本束没有任何「编辑反馈」操作 | —（API 层验收：`fb2_product_feedback_immutable_columns` 触发器） | ✅ |
+| V1 | 提交人 / 状态 / 创建时间由服务端定，不入参 | `submitFeedback.in` 无这三个字段（`.strict()`）；`FeedbackController.submit` 取 `principal.userId` | `feedback-submit`（请求体六字段，`feedback-dialog.test.tsx` ① 按实际请求断言） | ✅ |
+| V2 | 复现上下文分列存，客户端给 | `submitFeedback.in.occurredRoute` / `.appVersion` | `feedback-context-notice`（屏上明写收集了什么） | ✅ |
+| V3 | 提交失败明说没保存，不切标签页 | —（错误信封 `DEPENDENCY_UNAVAILABLE`） | `feedback-submit-error` | ✅ |
+| V4 | 目标传真实 id 不是显示名 | `FeedbackTarget`（判别联合） | `chat-agent-feedback` / `chat-skill-feedback-{skillId}` | ✅ |
+| V5 | skill 目标不带版本 | `FeedbackTarget` 的 `skill` 分支只有 `skillId` | 同上 | ✅ |
+| V6 | 文字反馈不进满意度 | **结构性**：本束五条操作没有任何一条读写 `message_ratings` | —（API 层验收：`product-feedback-persistence.test.ts` 只触本束三张表） | ✅ |
+| V7 | 标题+票数全组织可见，正文仅管理员与提交人 | `FeedbackItem.detail: nullable`；`decideFeedbackDetailVisibility` + `discloseDecided` | `admin-feedback-detail-withheld-{id}` | ✅ |
+| V8 | 票数 `COUNT(*)`、幂等、可撤 | `voteFeedback` | `admin-feedback-vote-{id}` | ✅ |
+| V9 | 提交人可投自己那条 | `voteFeedback`（无自投禁止） | 同上 | ✅ |
+| V10 | 状态机四态；`已修复 → 不做` 不是边 | `triageFeedback` → `ILLEGAL_TRANSITION`（422） | `admin-feedback-to-{status}-{id}`（只出得去的边才有按钮） | ✅ |
+| V11 | 状态变更 append-only 留痕 | `triageFeedback` 落 `product_feedback_status_events` | **未建**：流水本身尚无查看界面 | ⚠ **缺口 1** |
+| V12 | 本体除状态两列外不可改 | **结构性**：本束没有任何「编辑反馈」操作 | —（API 层验收：`fb2_product_feedback_immutable_columns` 触发器） | ✅ |
 
 ### 缺口 1 · 状态流水没有查看界面
 
@@ -54,12 +54,12 @@
 
 ## 二、API → UC（反向：有没有多余的接口）
 
-| API 操作 | 被哪条 R 要求 | 结论 |
+| API 操作 | 被哪条 V 要求 | 结论 |
 |---|---|---|
-| `submitFeedback` | R1 R2 R3 R4 R5 | 必需 |
-| `listFeedback` | R7 R8（`votedByMe`）；UC-F1 步骤 6「我提过的」 | 必需 |
-| `voteFeedback` | R8 R9 | 必需 |
-| `triageFeedback` | R10 R11 | 必需 |
+| `submitFeedback` | V1 V2 V3 V4 V5 | 必需 |
+| `listFeedback` | V7 V8（`votedByMe`）；UC-F1 步骤 6「我提过的」 | 必需 |
+| `voteFeedback` | V8 V9 | 必需 |
+| `triageFeedback` | V10 V11 | 必需 |
 | `getFeedbackCounts` | UC-F4 步骤 2（一次查询派生的状态分布） | 必需 |
 
 **没有多余的操作。** 五条操作各自被至少一条验收线索要求。
