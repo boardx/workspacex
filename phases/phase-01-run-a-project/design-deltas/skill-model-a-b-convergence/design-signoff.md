@@ -3,7 +3,11 @@ status: confirmed
 bundle: skill-model-a-b-convergence
 base_bundle: skills
 scope: converge-skill-declarative-contract-model-b-and-file-based-model-a
-covers: []
+# covers 追加（2026-08-16，requirement-author 生成 F190 后回填）：签核时（08:42）尚无
+# F-number，人类已确认的是选项②这个技术方向本身（不是某个具体 F 编号），F190 是
+# 该方向唯一对应的 feature（UC-3.7），回填是账本记录，不是新的设计决定——不改
+# status/confirmed_by/confirmed_at/confirmed_via 一字。
+covers: [F190]
 confirmed_by: yanbin shen
 confirmed_at: 2026-08-16T08:42:00+08:00
 confirmed_via: >-
