@@ -1,10 +1,10 @@
 ---
-status: pending              # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+status: confirmed              # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: project
 scope: createProject-blueprint-error-codes
-confirmed_by: null
-confirmed_at: null
-confirmed_via: null
+confirmed_by: usam.shen@gmail.com
+confirmed_at: "2026-08-16"
+confirmed_via: "对话签核（coord-main 转述提案，人类经封闭二选一批准 A：给 createProject 补齐蓝本错误码，明确报错不静默降级）——project.createProject.err 新增 BLUEPRINT_NOT_FOUND / BLUEPRINT_NOT_VISIBLE / BLUEPRINT_NOT_PUBLISHED / BLUEPRINT_VERSION_ARCHIVED / INITIALIZATION_FAILED 五个码，复用 templates.TemplateError 既有语义，不新增语义，不需要新表/迁移，解锁 BP-08 createProject 真执行六类初始化写入。"
 ---
 
 # project 束 delta —— `createProject` 补齐蓝本相关错误码
