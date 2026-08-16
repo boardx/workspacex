@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { DesignFacetCatalog } from "@/lib/generated/design-facet-catalog";
 import { FacetTextEditor, PermissionMatrixEditor, type FacetSaveFn } from "./facet-content-editor";
 import { TopicPanelEditor } from "./topic-panel-editor";
+import { GroupingPanelEditor } from "./grouping-panel-editor";
 
 /**
  * 蓝本设计器**外壳**（F18 / `uc-2-1` R3 §3.0 + R8）。
@@ -256,6 +257,13 @@ function FacetPanel({
         />
       ) : selectedKey === "topic-and-background" ? (
         <TopicPanelEditor
+          designFacetKey={selectedKey}
+          content={content}
+          itemRevision={itemRevision}
+          onSave={onSaveFacet}
+        />
+      ) : selectedKey === "grouping-rule" ? (
+        <GroupingPanelEditor
           designFacetKey={selectedKey}
           content={content}
           itemRevision={itemRevision}

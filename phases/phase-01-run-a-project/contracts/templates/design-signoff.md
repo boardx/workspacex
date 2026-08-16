@@ -116,7 +116,13 @@ phase: "01"
 #   `getBlueprintDesignFacets`，`content: string` 形状不变（JSON 序列化在前端做）；
 #   ③ 零新增设计面——不新增契约操作/错误码/迁移，同 F193 的先例。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-17（追加 **F196**，dev-chat-e2e agent）——分组一第二个结构化面板增量
+#   （「分组规则」，同 F194 的先例）。三条件核对：① UI 已签——`GroupingRuleContent`
+#   字段提议已在 delta 里签核，未新增字段之外的界面元素；② 契约已签——仍只消费
+#   `updateDesignFacet`/`getBlueprintDesignFacets`，`content: string` 不变；
+#   ③ 零新增设计面——不新增契约操作/错误码/迁移。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F196]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
