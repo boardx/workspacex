@@ -334,16 +334,19 @@ interface ResearchNodeCommand<TNode extends ResearchNode> {
 1. 由 Principal 获取 `orgId` 和 `actorId`，验证会话可见性。
 2. 读取同一 `thread_id` 的最新 checkpoint。
 3. 按 `ResearchNodeInputMap[node]` 校验完整 `nodeState`，拒绝未知字段和非法下游 ID。
-4. 计算 payload 指纹并先查询 `(sessionId, requestId)` receipt：同指纹回放直接返回首次成功响应所记录的
-   checkpoint/version/projection 身份，不再执行版本校验、模型调用或业务 Effect；不同指纹返回 409。
-5. 对首次请求校验 `node === currentNode`；若 action 为 `reconfirm`，则 node 必须是允许回看的已完成节点。
+4. 计算 payload 指纹并先查询 `(sessionId, requestId)` command receipt：不同指纹无论 receipt 状态如何都
+   返回 409；同指纹且 `finalized` 才直接返回首次成功响应；同指纹且 `pending` 则恢复 Graph 完成剩余步骤，
+   由 effect receipt 保证不重复调用模型、搜索或业务写入。
+5. 对首次请求执行互斥校验：普通 action 要求 `node === currentNode`；`reconfirm` 不要求相等，但 node
+   必须是 `availableNodes` 中允许回看的已完成上游节点。
 6. 对首次请求校验 `expectedGraphVersion`。
 7. NestJS Graph Client 把已授权 command 发送给内部 Graph 服务；Graph 服务用
    `Command({ resume: command })` 恢复当前 interrupt。
 8. Graph 节点先 checkpoint 输入，再调用 `qwen3.7-plus` 或独立检索工具链。
-9. 结构化结果通过共享 schema 后，节点通过幂等 Effect 写业务内容与 receipt。
+9. 结构化结果通过共享 schema 后，节点通过幂等 Effect 写业务内容与 effect receipt。
 10. Checkpointer 保存输出 checkpoint，并返回 checkpoint/thread/version 身份。
-11. NestJS 幂等更新 BoardX 查询投影并返回重新水合的 Workflow Projection。
+11. NestJS 幂等更新 BoardX 查询投影，并在同一业务事务中把 command receipt 从 `pending` 改为
+    `finalized`、保存稳定响应身份，然后返回重新水合的 Workflow Projection。
 
 禁止客户端直接提交或覆盖：`orgId`、`ownerUserId`、`graphVersion`、`revision`、服务端时间、错误码、
 来源正文、报告正文和任意其它组织的数据 ID。
@@ -441,6 +444,7 @@ stateDiagram-v2
 在现有 `guided_research_sessions` 和版本表基础上演进，建议增加：
 
 - `guided_research_node_receipts`
+- `guided_research_effect_receipts`
 - `guided_research_revisions`
 - `guided_research_runs`
 - `guided_research_tasks`
@@ -459,15 +463,24 @@ revision，不依赖应用层约定。
 
 ### 9.3 一致性与重放
 
-业务事务与跨进程 LangGraph checkpoint 不假定原子双写。节点先执行幂等业务 Effect：
+业务事务与跨进程 LangGraph checkpoint 不假定原子双写，因此明确分开两类 receipt：
+
+- **command receipt**：`pending | finalized`。绑定 requestId 与 payload fingerprint；只有 finalized
+  可以短路返回，并保存 checkpointId、graphVersion 与可重建响应的投影版本。
+- **effect receipt**：绑定 operationId，保存模型结构化输出、搜索批次结果或业务写入的稳定结果 ID；
+  pending command 重放时可以继续 Graph，但不能重复产生外部副作用。
+
+节点执行幂等业务 Effect：
 
 1. 事务内锁定会话或 revision。
 2. 校验 graphVersion、revision 和 operationId。
-3. 写业务数据与 `guided_research_node_receipts`。
+3. 写业务数据与 `guided_research_effect_receipts`。
 4. 返回稳定业务 ID。
 5. 节点把 ID 写入 Graph State，由 checkpointer 保存。
 
-若进程在步骤 4 和 5 之间退出，节点重放命中 receipt 并返回首次结果，不重复搜索、调用模型或写报告。
+若进程在 Effect 完成后、输出 checkpoint 前退出，command receipt 仍为 pending；重放会继续 Graph，
+命中 effect receipt 取回首次模型/搜索/业务结果，再补 checkpoint、投影并 finalize command receipt。
+若 checkpoint 已写但投影未写，重放直接从 thread state 补投影，不重新运行已完成 handler。
 
 ## 10. 单页前端状态
 
@@ -559,6 +572,7 @@ F188 已被项目模板占用，禁止复用。完整交付由六个串行垂直
 - Graph 服务进程重启后从 PostgreSQL 恢复，不能依赖 NestJS 内存或 Python in-memory saver。
 - 同 requestId 同 payload 返回首次结果；不同 payload 返回 409。
 - 首次响应丢失后用旧 expectedGraphVersion 重放同 requestId/payload，仍返回首次 checkpoint，不报版本冲突。
+- pending command 在 effect 后崩溃时会补完 checkpoint/projection/finalize，且模型与搜索端口各只调用一次。
 - checkpoint 前后进程退出不会重复写业务内容或重复启动外部调用。
 - 上游重确认只使规定的下游节点 stale。
 - 从 Report interrupt 重确认 Brief 会经 `route_command` 执行 Brief handler，并把 Directions 之后置 stale。
