@@ -4431,7 +4431,7 @@
         "F193"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "dev-chat-e2e",
       "verification": [
@@ -4439,7 +4439,7 @@
         "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F194.verify.log @ 2026-08-16T23:34:34.028Z",
       "notes": "① F193（面板真实可编辑接线）落地后的第一个结构化面板增量，把 design-deltas/blueprint-design-facet-panels/contract.md 的 ThemeContent 字段提议从设计描述落成真实表单，取代该项此前使用的通用 FacetTextEditor。\n② 存储形状不变：仍写进 updateDesignFacet 的 content: string 字段，只是这次装的是 JSON.stringify(TopicContentValue)——契约一字未改，同 PermissionMatrixEditor（F193 已落地的「角色与权限」例外）的先例。全空时序列化成空串，保持与既有「未填=无行」语义一致（不因为存了一份全空 JSON 骨架而被误判成已配）。\n③ 范围边界——做：主题陈述文本框（对着固定句式填写）+ 5 行背景要素各自的 content/citedFrom 两个输入框（citedFrom 对应草稿「未挂来源标灰」的来源引用，本轮只做输入，参与者视图的标灰渲染不在范围内）。不做：AI 生成候选主题（草稿提到「3 个候选主题」，属另一增量，本轮无 AI 调用）；背景要素表的结构以外的生成与校验规则展示（沿用原有的静态说明文案，未做成交互）。\n④ 反序列化对坏数据/字段缺失容错（try/catch 回退全空值，不因一条解析失败打崩整个面板）——因为 BP-02/F174 时代写入的历史数据可能是任意自由文本，不是这份 JSON 形状，本 feature 上线后首次打开一个「旧格式」内容的蓝本，会看到全空表单而不是报错，这是刻意的（旧内容仍完整地保留在 content 字符串里未被覆盖，直到用户主动编辑并保存新表单）。\n⑤ 验证：新增 2 条组件测试（真实解析已存 JSON 内容渲染进对应字段/编辑单个字段失焦后保存成结构化 JSON 而非拼接文本），既有测试改用 grouping-rule 验证通用编辑器行为（原先绑在 topic-and-background 上，本 feature 把该 key 换成专属编辑器后迁移，未删减任何既有断言的覆盖面）。",
       "priority": 2,
       "area": "project",
