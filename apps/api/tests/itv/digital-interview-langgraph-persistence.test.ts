@@ -26,15 +26,15 @@ const ids = { next: (prefix: string) => `${prefix}-persistence-${++sequence}` };
 let modelCalls: Array<Parameters<ModelCallPort["complete"]>[0]> = [];
 const model: ModelCallPort = { complete: async (input) => {
   modelCalls.push(input);
-  const context = JSON.parse(input.user) as { currentStep: string };
-  return { text: JSON.stringify(context.currentStep === "topic"
-    ? { topic: "更聚焦的主题" }
-    : { expertIds: [EXPERT] }) };
+  const context = JSON.parse(input.user) as { currentStep?: string; operation?: string };
+  return { text: JSON.stringify(context.operation === "recommend_interview_experts"
+    ? { expertIds: [EXPERT] }
+    : context.currentStep === "topic" ? { topic: "更聚焦的主题" } : { expertIds: [EXPERT] }) };
 } };
 
 function createRuntime() {
   const repo = new PgDigitalInterviewRepository(db);
-  const effects = new PgDigitalInterviewEffects(db, ids, repo);
+  const effects = new PgDigitalInterviewEffects(db, ids, repo, model, "test-provider", "test-model");
   const checkpointer = createDigitalInterviewCheckpointer(appConfig());
   return {
     effects,
@@ -113,6 +113,8 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       topic: "谁拥有否决权", expectedVersion: 1, requestId: "topic-1",
     });
     expect(confirmed).toMatchObject({ version: 2, currentStep: "experts", topicVersionId: expect.any(String) });
+    expect(confirmed.selectedExpertIds).toEqual([EXPERT]);
+    expect(modelCalls.some((call) => JSON.parse(call.user).operation === "recommend_interview_experts")).toBe(true);
 
     const replay = await first.runtime.confirmTopic({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
@@ -412,7 +414,11 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       text: "建议专家", draftContext: { step: "experts", expertIds: [EXPERT] },
       expectedVersion: confirmed.version, requestId: "skill-context-experts",
     });
-    expect(modelCalls[1]?.history).toEqual([
+    const expertStepSkillCall = modelCalls.find((call) => {
+      const context = JSON.parse(call.user) as { currentStep?: string; request?: string };
+      return context.currentStep === "experts" && context.request === "建议专家";
+    });
+    expect(expertStepSkillCall?.history).toEqual([
       expect.objectContaining({ role: "user", content: "聚焦主题" }),
       expect.objectContaining({ role: "assistant" }),
     ]);
