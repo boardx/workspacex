@@ -112,9 +112,9 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     session.abort();
   });
 
-  // PROP-CHAT-ASR-LATENCY-001 —— turn_detection 是待真实端点验证的实验开关：
-  // 默认必须与之前逐字节相同（连字段都不出现），设了才多发这一个字段。
-  it("does NOT send `turn_detection` at all when turnDetectionSilenceMs is unset (byte-compat default)", async () => {
+  // PROP-CHAT-ASR-LATENCY-001 —— 未配置静音阈值时也使用经 devapp 验证的 400ms 默认值，
+  // 避免部署漏配后退回上游更慢的默认断句行为。
+  it("defaults `turn_detection.silence_duration_ms` to 400 when unset", async () => {
     upstream = await startFakeUpstream(() => {});
     const provider = new ConfiguredRealtimeAsrProvider({
       provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
@@ -122,7 +122,9 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     const session = await provider.open(recordingHandlers(), AUDIO);
     await new Promise((r) => setTimeout(r, 20));
     const update = upstream.seenFrames.find((f) => f.type === "session.update");
-    expect(JSON.stringify(update?.session)).not.toContain("turn_detection");
+    expect(update?.session).toMatchObject({
+      turn_detection: { type: "server_vad", silence_duration_ms: 400 },
+    });
     session.abort();
   });
 
@@ -141,11 +143,15 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     session.abort();
   });
 
-  it("forwards real partial/final transcripts once the upstream sends them", async () => {
+  it("forwards the official text plus stash interim event before the final transcript", async () => {
     upstream = await startFakeUpstream((frame, ws) => {
       if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
       if (frame.type === "input_audio_buffer.commit") {
-        ws.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.delta", delta: "你" }));
+        ws.send(JSON.stringify({
+          type: "conversation.item.input_audio_transcription.text",
+          text: "你",
+          stash: "好",
+        }));
         ws.send(JSON.stringify({
           type: "conversation.item.input_audio_transcription.completed", transcript: "你好", confidence: 0.9,
         }));
@@ -158,7 +164,7 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     const session = await provider.open(handlers, AUDIO);
     session.commit();
     await new Promise((r) => setTimeout(r, 30));
-    expect(handlers.partials).toEqual(["你"]);
+    expect(handlers.partials).toEqual(["你好"]);
     expect(handlers.finals).toEqual(["你好"]);
     session.abort();
   });

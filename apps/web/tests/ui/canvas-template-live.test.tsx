@@ -360,6 +360,75 @@ describe("#496 新建画布模板（待补签的契约面）", () => {
     expect(posts[0]!.sections).toEqual([]);
   });
 
+  it("加错的分区能删掉，不用清空重填", async () => {
+    const posts: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return jsonResponse({
+          key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false,
+          visibility: "org-wide", underlyingType: "canvas",
+          sections: [{ sectionId: "s1", name: "优势", order: 0, required: false, capacity: null }],
+        }, 201);
+      }
+      return jsonResponse({ templates: [] });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    fireEvent.click(screen.getByTestId("tpladmin-create-add-section")); // 现在有两行：分区 1、分区 2
+    fireEvent.change(screen.getByTestId("tpladmin-create-section-0"), { target: { value: "劣势（加错了）" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-section-1"), { target: { value: "优势" } });
+
+    fireEvent.click(screen.getByTestId("tpladmin-create-section-0-remove"));
+    expect(screen.queryByDisplayValue("劣势（加错了）")).toBeNull();
+    expect(screen.getByDisplayValue("优势")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("tpladmin-create-key"), { target: { value: "swot" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-name"), { target: { value: "SWOT" } });
+    fireEvent.click(screen.getByTestId("tpladmin-create-submit"));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    // 删掉的那行没有一起提交上去——不是「先加错再让服务端也存一条错的」。
+    expect(posts[0]!.sections).toEqual([
+      { sectionId: "s1", name: "优势", order: 0, required: false, capacity: null },
+    ]);
+  });
+
+  it("key / 显示名留空并失焦才提示必填——刚打开对话框时不是一片红", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    // 刚打开：还没碰过任何字段，不该有提示。
+    expect(screen.queryByTestId("tpladmin-create-key-hint")).toBeNull();
+    expect(screen.queryByTestId("tpladmin-create-name-hint")).toBeNull();
+
+    // 碰过 key（focus 再 blur）且留空 ⇒ 提示出现；displayName 没碰过 ⇒ 仍不提示。
+    fireEvent.blur(screen.getByTestId("tpladmin-create-key"));
+    expect(screen.getByTestId("tpladmin-create-key-hint")).toBeInTheDocument();
+    expect(screen.queryByTestId("tpladmin-create-name-hint")).toBeNull();
+
+    // 填上内容后提示消失。
+    fireEvent.change(screen.getByTestId("tpladmin-create-key"), { target: { value: "swot" } });
+    expect(screen.queryByTestId("tpladmin-create-key-hint")).toBeNull();
+  });
+
+  it("底层类型收进「高级选项」，默认不展开，主表单里看不到那行黑话文案", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+
+    expect(screen.queryByText("底层类型（契约未约束取值，如实开放）")).toBeNull();
+    // 字段还在（收进 <details>），默认值仍是 canvas，不需要用户填。
+    const underlyingType = screen.getByTestId("tpladmin-create-underlying-type") as HTMLInputElement;
+    expect(underlyingType.value).toBe("canvas");
+  });
+
   it("key 冲突回显成一件用户能自己解决的事，且对话框不关", async () => {
     vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.method === "POST") return jsonResponse({ reasonCode: "TEMPLATE_KEY_CONFLICT" }, 409);
@@ -420,5 +489,111 @@ describe("#496 新建画布模板（待补签的契约面）", () => {
     render(<TemplateAdmin previewRole="observer" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
     expect(screen.queryByTestId("tpladmin-create")).toBeNull();
+  });
+});
+
+/**
+ * #988 —— 「基于此开新版」是本束「编辑」的真实入口，之前是永久占位符
+ * 「编辑入口待补（契约无更新操作，分区只能在新建时定）」。人类已在 `design-signoff.md`
+ * 签核确认（2026-08-17）。
+ */
+describe("#988 「基于此开新版」——本束「编辑」的真实入口", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-988";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-988");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("draft 行没有「基于此开新版」按钮——draft 本身还没定稿", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({ key: "swot", version: 1, status: "draft", builtin: false, usageCount: 0 })],
+    })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    expect(screen.queryByTestId("tpladmin-mint-version-swot-1")).toBeNull();
+  });
+
+  it("published 行有「基于此开新版」按钮，点击打开对话框且 key 被锁定、字段预填来源版本的值", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-mint-version-persona-3")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-mint-version-persona-3"));
+
+    const dialog = await screen.findByTestId("tpladmin-mint-dialog");
+    const keyInput = within(dialog).getByTestId("tpladmin-create-key") as HTMLInputElement;
+    expect(keyInput.value).toBe("persona");
+    expect(keyInput).toBeDisabled();
+    const nameInput = within(dialog).getByTestId("tpladmin-create-name") as HTMLInputElement;
+    expect(nameInput.value).toBe("用户画像");
+  });
+
+  it("提交打的是 POST /canvas/templates/:key/versions，key 锁定为来源版本的 key，不是新建端点", async () => {
+    const posts: { path: string; body: Record<string, unknown> }[] = [];
+    let listCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST") {
+        posts.push({ path: url.pathname, body: JSON.parse(String(init.body)) as Record<string, unknown> });
+        return jsonResponse({
+          key: "persona", displayName: "用户画像 v4", version: 4, status: "draft",
+          builtin: false, visibility: "org-wide", underlyingType: "canvas",
+          sections: [{ sectionId: "s1", name: "基本信息", order: 0, required: true, capacity: null }],
+        }, 201);
+      }
+      listCalls += 1;
+      return jsonResponse({
+        templates: listCalls === 1
+          ? [template()]
+          : [
+              template(),
+              template({
+                key: "persona", displayName: "用户画像 v4", version: 4, status: "draft",
+                builtin: false, usageCount: 0,
+              }),
+            ],
+      });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-mint-version-persona-3")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-mint-version-persona-3"));
+
+    const dialog = await screen.findByTestId("tpladmin-mint-dialog");
+    fireEvent.change(within(dialog).getByTestId("tpladmin-create-name"), { target: { value: "用户画像 v4" } });
+    fireEvent.click(within(dialog).getByTestId("tpladmin-mint-submit"));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    // 打的是 :key/versions，不是 createTemplate 的 /canvas/templates。
+    expect(posts[0]!.path).toBe("/canvas/templates/persona/versions");
+    // key 就是来源版本的 key（对话框里被锁定，不受用户输入影响）。
+    expect(posts[0]!.body["key"]).toBe("persona");
+    expect(posts[0]!.body["displayName"]).toBe("用户画像 v4");
+
+    // 重新拉了表，且新版本以草稿出现在列表里，不是本地拼出来的。
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-4")).toBeInTheDocument());
+    expect(within(screen.getByTestId("tpladmin-row-persona-4")).getByText("草稿")).toBeInTheDocument();
+    expect(listCalls).toBeGreaterThan(1);
+  });
+
+  it("TEAM_REQUIRED_FOR_TEAM_ONLY 原样回显，不是「保存失败」", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "POST") return jsonResponse({ reasonCode: "TEAM_REQUIRED_FOR_TEAM_ONLY" }, 400);
+      return jsonResponse({ templates: [template()] });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-mint-version-persona-3")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-mint-version-persona-3"));
+    const dialog = await screen.findByTestId("tpladmin-mint-dialog");
+    fireEvent.click(within(dialog).getByTestId("tpladmin-mint-submit"));
+
+    const error = await screen.findByTestId("tpladmin-create-error");
+    expect(error.textContent).toContain("TEAM_REQUIRED_FOR_TEAM_ONLY");
   });
 });

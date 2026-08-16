@@ -1,30 +1,41 @@
 # 提案：麦克风实时转录延迟优化
 
-> **状态：未执行。** 本文档只是调查结论 + 待验证的改动方案，不代表任何代码已经改动。
+> **状态：已落地。** 2026-08-16 已修复 Qwen 高频中间结果解析，并将默认 VAD 静音阈值设为 400ms。
 > 人类在 devapp 实测反馈：「目前实时转录的效果不好，有很大的延迟，需要优化转录的效果需要更加的实时」。
 
-## 一、先排除的可能性：我们自己的代码没有引入延迟
+## 一、2026-08-16 根因修正：适配器曾忽略高频中间结果
+
+此前调查只验证了音频上传路径没有攒批，却没有用阿里云官方下行事件做契约测试，因而错误地
+把全部可感知延迟归因于 VAD。真实 Qwen Realtime 协议的高频中间结果是
+`conversation.item.input_audio_transcription.text`，其中 `text` 为已确认前缀、`stash`
+为可修订尾部；旧适配器却等待不存在的 `.delta` 事件，因此页面通常只能等到
+`.completed` 才更新，表现为“返回很慢”。
+
+现已把 `text + stash` 转为 BoardX interim 快照，并用纯协议单测和 loopback 上游锁定真实
+事件形状。浏览器仍按 80ms 聚合 16kHz PCM16LE，即每帧 2560B、每秒 12.5 帧；这个粒度在
+交互延迟与消息数量之间合理，不再继续放大帧长。
+
+## 二、已经排除的可能性：音频上传链路没有额外攒批
 
 逐层读过真实采音→上传→转发→上游这条链路（不是猜的，每一层都读了源码）：
 
-1. **浏览器采音**（`apps/web/lib/live-recording.ts`）：`AudioContext.createScriptProcessor(4096, 1, 1)`，
-   在典型 44.1kHz/48kHz 采样率下每 ~85-93ms 触发一次回调，`onaudioprocess` 里直接把这一帧
-   转 PCM16 后同步调用 `listener(frame)`——**没有内部缓冲或攒批**。
-2. **草稿转录客户端**（`apps/web/lib/live-asr-draft.ts`）：`capture.onFrame` 回调里直接
-   `socket.send(...)`，收到一帧就发一帧，**没有 debounce/节流**。
+1. **浏览器采音**（`apps/web/lib/PcmAudioWorklet.ts`）：AudioWorklet 显式下混、重采样为
+   16kHz PCM16LE，再由 `PcmFrameBatcher` 聚合成 2560B（80ms）一帧；不足一帧的尾部在停止时
+   flush，**不存在秒级攒批**。
+2. **实时转录客户端**（`apps/web/lib/BoardxRealtimeAsrClient.ts`）：每拿到一帧就
+   `socket.send(...)`，**没有额外 debounce/节流**。
 3. **服务端网关**（`apps/api/src/interface/ws/asr-draft.gateway.ts`）：`ws.on("message", ...)`
    收到二进制帧直接 `upstream.pushAudio(raw)` 转发，**没有排队等待攒批**。
 4. **上游适配器**（`apps/api/src/infrastructure/recording/configured-realtime-asr-provider.ts`）：
    `pushAudio()` 把帧 base64 编码后立即 `socket.send({type:"input_audio_buffer.append",...})`，
    **没有本地缓冲**。
 
-⇒ **音频从麦克风到打上游的每一跳都是即时转发，链路里没有我们自己加的延迟。**
-可感知的延迟来自上游（DashScope 实时 ASR 端点）自己何时决定"这一段可以出转录结果了"——
-这是典型的语音活动检测（VAD）/断句判定延迟，不是我们代码里的 bug。
+⇒ 音频上传本身没有额外攒批；修复中间事件后，剩余的“最终句”延迟才主要由上游 VAD 与
+断句判定决定。
 
-## 二、当前配置：完全没有配置断句参数
+## 三、当前配置：默认使用 400ms 断句参数
 
-`session.update` 目前只发三个字段（`configured-realtime-asr-provider.ts:133-140`）：
+`session.update` 当前会发送：
 
 ```json
 {
@@ -32,13 +43,16 @@
   "session": {
     "input_audio_format": "pcm",
     "sample_rate": 16000,
-    "input_audio_transcription": { "model": "<配置的模型名>" }
+    "input_audio_transcription": { "model": "<配置的模型名>" },
+    "turn_detection": {
+      "type": "server_vad",
+      "silence_duration_ms": 400
+    }
   }
 }
 ```
 
-**没有 `turn_detection` 相关字段。** 该文件遵循的协议形状是 OpenAI Realtime API 的镜像
-（文件头注逐字："OpenAI realtime 形状"），那份协议里控制断句灵敏度/延迟的标准字段是：
+该文件遵循 DashScope Qwen Realtime 的 OpenAI-compatible 协议形状；控制断句延迟的字段是：
 
 ```json
 "turn_detection": {
@@ -49,9 +63,10 @@
 }
 ```
 
-**DashScope 的端点是否认这些字段名、认哪些取值范围——我们不知道，也没有验证过。**
+devapp 已验证 DashScope 接受该字段。`KERNEL_ASR_TURN_SILENCE_MS` 可用正整数覆盖默认值；
+未配置、空值或非法值均回退到 400ms。
 
-## 三、为什么不能直接猜一个值改上去
+## 四、为什么不能直接猜一个值改上去
 
 `configured-realtime-asr-provider.ts` 自己的历史就是最好的反面教材（`#802` hotfix，
 文件头注原话）：
@@ -70,7 +85,7 @@ ASR 相关验证都是通过 `apps/api/scripts/loopback-asr-provider.ts`（确�
 这支替身可以模拟任何我们想要的时序（包括"立刻出结果，没有延迟"），**验证不了真实
 DashScope 端点在收到 `turn_detection` 参数后到底会不会认、认了会不会真的更快**。
 
-## 四、两条路径
+## 五、两条路径
 
 ### 路径 A：由能访问真实 devapp/DashScope 凭据的人验证后落地
 
@@ -93,18 +108,18 @@ DashScope 端点在收到 `turn_detection` 参数后到底会不会认、认了�
 - 如果延迟是"从一开始说话到任何文字出现都很慢"（不是断句慢，是完全没反应很久），
   那可能是网络本身的问题（RTT、上游负载），不是参数能解的，需要抓包/日志定位
 
-## 五、我现在能做、且已经在做的
+## 六、我现在能做、且已经在做的
 
 **麦克风按钮闪烁问题已经独立修复**（不依赖这份延迟提案，纯前端 CSS class 改动，
 已验证：typecheck/lint/761 单测干净，commit `31c8596f`）——这是两个独立问题，
 延迟这条卡在"需要真实环境验证"不影响闪烁那条先提交。
 
-## 五点五、2026-08-11 更新：两个开关都已备好，等真实环境各试一次
+## 六点五、2026-08-11 更新：两个开关都已备好，等真实环境各试一次
 
 ### 开关 1（新代码，PR 已备）：`KERNEL_ASR_TURN_SILENCE_MS`
-`configured-realtime-asr-provider.ts` 现在支持这个环境变量：设成正整数（建议先试 `300`）
-才会在 `session.update` 里多发 `turn_detection: { type: "server_vad", silence_duration_ms: N }`
-一个字段；**不设 = 与之前逐字节相同**（有单测把这条默认锁死）。非法值忽略并留日志。
+`configured-realtime-asr-provider.ts` 现在支持这个环境变量：设成正整数时会覆盖默认值；
+未配置或为空时默认使用 `400`，并在 `session.update` 里发送
+`turn_detection: { type: "server_vad", silence_duration_ms: 400 }`。非法值回退 400ms 并留日志。
 上游若不认这个字段，会走既有 error→close 链路映射成清晰的界面降级提示，不会静默。
 
 ### 开关 2（零代码，改环境变量就行）：换模型 `KERNEL_ASR_MODEL`
@@ -124,7 +139,7 @@ DashScope 端点在收到 `turn_detection` 参数后到底会不会认、认了�
 
 ⚠ 两个开关是否真的有效、协议是否兼容，都**只能在真实 devapp/DashScope 凭据下验证**（#802 前科）。
 
-## 六、需要人类决定的
+## 七、需要人类决定的
 
 - 是否有人能在 devapp 环境里手动验证一次 `turn_detection` 参数是否被 DashScope 接受、
   是否真的降延迟——如果可以，我可以先把改动写好（分支/PR 都准备好），由人类在真实环境

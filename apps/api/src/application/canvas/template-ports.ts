@@ -20,13 +20,17 @@
  *
  * ⚠ 人类若推翻 #496，`create()` 与它的实现一并回退——它不是一个「反正已经有了」的既成事实。
  *
+ * ## `mintVersion()` 于 #988 补上，人类已签核
+ *
+ * 契约的 `mintTemplateVersion`（「基于既有模板开新版」，C_CANVAS_8②）已由人类在
+ * `design-signoff.md` 签核确认（2026-08-17）。`create()` 仍然只铸 v1（`createTemplate`
+ * 本身未改动），铸 v2 及以后走这个新端口。
+ *
  * ## 这里仍然没有什么
  *
- * **没有 `update()` / `createVersion()`。** 契约里仍然没有「改模板」或「基于既有模板开新版」
- * 的操作，所以 `create()` 只铸 v1（契约 `createTemplate.out.version` 是 `z.literal(1)`）。
- * 给一个契约里不存在的能力先留个端口，下一个人会以为它只是还没被调用（同
- * `application/project/ports.ts` 里不留 `grantProjectRole` 的理由）。缺口登记在
- * `KNOWN_CONTRACT_GAPS.C_CANVAS_8`。
+ * **没有 `update()`。** 契约里仍然没有「原地改模板」的操作——「编辑」在这个束的语义
+ * 是开新版（`mintTemplateVersion`），不是改写已存在的行。已发布/已归档版本永远是
+ * 不可变快照。
  *
  * **没有 `delete()`。** 归档是置位（O-10），迁移也没有 GRANT DELETE。
  */
@@ -97,6 +101,25 @@ export type CreateTemplateOutcome =
   | { readonly created: true; readonly template: CreatedCanvasTemplate }
   | { readonly created: false; readonly reason: "key-taken" };
 
+/**
+ * `mintTemplateVersion.out` 逐字派生 —— 不在这里重述一遍字段。
+ *
+ * ⚠ 与 `CreatedCanvasTemplate` 不是同一个类型（虽然字段集合目前相同）：`version` 的
+ *   契约类型不同（`z.number().int().positive()` vs `z.literal(1)`），两者复用同一个
+ *   TS 类型会掩盖这处差异——哪天其中一个 `out` 长出专属字段，这里就会显出来是哪一个。
+ */
+export type MintedCanvasTemplateVersion = z.infer<
+  typeof canvas.operations.mintTemplateVersion.out
+>;
+
+/**
+ * `mintVersion()` 的结果。`{minted: false}` 覆盖两种「不能铸」的前置条件——调用方
+ * （用例层）按 `reason` 翻成对应的 `CanvasError`，仓储只报事实。
+ */
+export type MintTemplateVersionOutcome =
+  | { readonly minted: true; readonly template: MintedCanvasTemplateVersion }
+  | { readonly minted: false; readonly reason: "key-not-found" };
+
 export interface PublishOutcome {
   /** 本次发布顺带归档掉的同 key 旧版（I-4 前半）。 */
   readonly archivedVersions: readonly { readonly key: string; readonly version: number }[];
@@ -131,6 +154,27 @@ export interface CanvasTemplateRepository {
      */
     readonly ownerTeamId: string | null;
   }): Promise<CreateTemplateOutcome>;
+
+  /**
+   * 铸「基于既有模板开新版」的下一个版本（#988，C_CANVAS_8②）。key 在本组织**不存在
+   * 任何版本**时不写、回 `{minted: false, reason: "key-not-found"}`。
+   *
+   * ⚠ **版本号分配与写入必须在同一条语句里**，不是用例先 `SELECT max(version)` 再
+   *   `INSERT`——理由与 `create()` 的占用判定同型：查完到写入之间的窗口在并发下会让
+   *   两个请求算出同一个 `max+1`，同 key 撞出重复版本号。用
+   *   `INSERT ... SELECT max(version)+1 FROM canvas_templates WHERE ...` 把这两步
+   *   收进一条语句，由 `(org_id, key, version)` 主键的唯一性兜底并发下的第二次冲突。
+   */
+  mintVersion(cmd: {
+    readonly orgId: OrgId;
+    readonly key: string;
+    readonly displayName: string;
+    readonly underlyingType: string;
+    readonly sections: CreatedCanvasTemplate["sections"];
+    readonly visibility: VisibilityScope;
+    /** `team-only` 时非空——契约层 `.refine` 已经挡过一次，这里是第二道防线。 */
+    readonly ownerTeamId: string | null;
+  }): Promise<MintTemplateVersionOutcome>;
 
   findVersion(
     orgId: OrgId,

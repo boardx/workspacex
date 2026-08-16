@@ -2,26 +2,29 @@
  * canvas 模板注册表的七条路由（#463 五条 + #493 一条 + #496 一条）。
  * 协议适配，判断全在 `application`。
  *
- *   POST /canvas/templates                     🟡 造一行（#496，**该契约面待人类补签**）
+ *   POST /canvas/templates                     造一行（#496 → #988，已签核）
  *   GET  /canvas/templates                     后台模板库 / 绑定选择器（共用一个端口，I-5）
  *   POST /canvas/templates/:key/publish        三段发布流程第三段（I-4）
  *   POST /canvas/templates/:key/trial          第二段
  *   POST /canvas/templates/:key/archive        O-10 归档（confirmed=false 为预检）
  *   POST /canvas/templates/:key/restore        恢复
+ *   POST /canvas/templates/:key/versions       基于既有模板开新版（#988，本束「编辑」的语义）
  *   POST /canvas/agenda-segments/:id/template-bindings   环节绑定（#493，F102）
  *
  * ⚠ 上面这张表是**手写**的，会与真实路由漂移：#493 加了第六条却没更新它，本次 merge 时
  *   补上（那不是 #496 的改动，是顺手修一处会误导下一个人的注释）。
  *
- * ## 🟡 `POST /canvas/templates` 是 #496 的 design-delta，尚未签核
+ * ## `POST /canvas/templates` 与 `POST /canvas/templates/:key/versions` 已由人类签核
  *
  * #463 时这段注释逐字写着「这里**没有**创建模板的路由，而那不是遗漏」——当时属实：签核过的
  * 契约里没有创建操作，于是核心闭环「新增可视化模板」这一步交付不出来。#496 由 coord-main
- * 在人类不在场时代裁「先做」并登记**待补签**，契约与本路由随之落地。人类回来后要么补签、
- * 要么推翻并回退。理由与边界见 `packages/contracts/src/canvas.ts` 的 `createTemplate` 文件头。
+ * 在人类不在场时代裁「先做」并登记**待补签**，契约与本路由随之落地；2026-08-17 人类在 #988
+ * 补签确认，两条路由均已是签核过的契约面（见 `packages/contracts/src/canvas.ts` 对应操作
+ * 的文件头）。
  *
- * ⚠ 这条路由**不是** upsert：它只造 `draft`，发布仍然只能走 `/publish`。把 publish 改成
- *   「不存在就创建」会让 `TEMPLATE_NOT_FOUND` 不可达，是契约自己点名要避免的形状。
+ * ⚠ 这两条路由**都不是** upsert：`createTemplate` 只造 `draft` v1，`mintTemplateVersion`
+ *   只造 `draft` vN（N = 该 key 当前最大版本 + 1）。发布仍然只能走 `/publish`。把 publish
+ *   改成「不存在就创建」会让 `TEMPLATE_NOT_FOUND` 不可达，是契约自己点名要避免的形状。
  *
  * ## GET 也过契约校验
  *
@@ -58,6 +61,7 @@ import type { z } from "zod";
 import { archiveTemplate } from "../../application/canvas/archive-template";
 import { bindTemplateToSegment } from "../../application/canvas/bind-template-to-segment";
 import { createTemplate } from "../../application/canvas/create-template";
+import { mintTemplateVersion } from "../../application/canvas/mint-template-version";
 import {
   CanvasSegmentBindingExistsError,
   CanvasSegmentNotFoundError,
@@ -96,6 +100,7 @@ export const TRIAL_CANVAS_TEMPLATE_SCHEMA = C.operations.trialTemplate.in;
 export const ARCHIVE_CANVAS_TEMPLATE_SCHEMA = C.operations.archiveTemplate.in;
 export const RESTORE_CANVAS_TEMPLATE_SCHEMA = C.operations.restoreTemplate.in;
 export const BIND_CANVAS_TEMPLATE_SCHEMA = C.operations.bindTemplateToSegment.in;
+export const MINT_CANVAS_TEMPLATE_VERSION_SCHEMA = C.operations.mintTemplateVersion.in;
 
 type CreateBody = z.infer<typeof C.operations.createTemplate.in>;
 type PublishBody = z.infer<typeof C.operations.publishTemplate.in>;
@@ -103,6 +108,7 @@ type TrialBody = z.infer<typeof C.operations.trialTemplate.in>;
 type ArchiveBody = z.infer<typeof C.operations.archiveTemplate.in>;
 type RestoreBody = z.infer<typeof C.operations.restoreTemplate.in>;
 type BindBody = z.infer<typeof C.operations.bindTemplateToSegment.in>;
+type MintVersionBody = z.infer<typeof C.operations.mintTemplateVersion.in>;
 
 /** 只认两个字面量，其余原样下传给 zod 拒绝 —— 见文件头。 */
 function queryBoolean(raw: string | undefined): unknown {
@@ -153,6 +159,42 @@ export class CanvasTemplateController {
             underlyingType: body.underlyingType,
             sections: body.sections,
             visibility: body.visibility,
+          },
+        ),
+      ),
+    );
+  }
+
+  /**
+   * 「基于既有模板开新版」（#988，本束「编辑」的语义）。**201**，同 `create()` 的理由：
+   * 这条真的造出一行新纪录（一个新 `draft` 版本），不是状态转移。
+   *
+   * ⚠ `ownerTeamId` 的「team-only 需要归属团队」判定**不在**这层，也不在 `ZodBodyPipe`：
+   *   请求体几乎总不带这个字段（没有前端团队选择器），真正的值要等 `mintTemplateVersion`
+   *   用例里解出调用者自己的团队后才知道。`run()` 把用例抛出的
+   *   `TEAM_REQUIRED_FOR_TEAM_ONLY` 映射成 400（见下方）。
+   */
+  @Post("/canvas/templates/:key/versions")
+  async mintVersion(
+    @Param("key") key: string,
+    @Body(new ZodBodyPipe(MINT_CANVAS_TEMPLATE_VERSION_SCHEMA)) body: MintVersionBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    this.assertKeyMatches(key, body.key);
+    return this.run(async () =>
+      C.operations.mintTemplateVersion.out.parse(
+        await mintTemplateVersion(
+          { identity: this.identity, templates: this.templates },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            key: body.key,
+            displayName: body.displayName,
+            underlyingType: body.underlyingType,
+            sections: body.sections,
+            visibility: body.visibility,
+            ownerTeamId: body.ownerTeamId,
           },
         ),
       ),
@@ -370,6 +412,11 @@ export class CanvasTemplateController {
         if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") {
           // 503 而不是 403：判定服务不可用不是一个裁定。
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        if (e.reasonCode === "TEAM_REQUIRED_FOR_TEAM_ONLY") {
+          // 400 而不是 403：这是请求本身缺了一个必要条件（归属团队），不是权限裁定——
+          // 与 `TEMPLATE_KEY_CONFLICT` 用 409 而不是 403 的理由同型（见 `errors.ts`）。
+          throw new BadRequestException({ reasonCode: e.reasonCode });
         }
         throw new ForbiddenException({ reasonCode: e.reasonCode });
       }

@@ -30,6 +30,7 @@ import type {
   CreatedCanvasTemplate,
   GuardedCanvasTemplate,
   ListCanvasTemplatesQuery,
+  MintTemplateVersionOutcome,
   PublishOutcome,
   SegmentBindingRow,
 } from "../../application/canvas/template-ports";
@@ -172,6 +173,85 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           visibility: row.visibility,
           underlyingType: row.underlying_type,
           // jsonb 回来的是已解析的 JS 值；形状由契约在控制器出门时二次校验（`.strict()`）。
+          sections: row.sections as CreatedCanvasTemplate["sections"],
+        },
+      };
+    });
+  }
+
+  /**
+   * 铸「基于既有模板开新版」的下一版本（#988）。
+   *
+   * `INSERT ... SELECT ... , coalesce(max(version), 0) + 1, ... WHERE EXISTS(同 key
+   * 至少一个版本)`：版本号的计算与「这个 key 存在吗」的判定、以及写入，收在**同一条
+   * 语句**里——同 `create()` 的「占用判定必须与写入同一条语句」纪律，理由对称：
+   * 这里怕的不是「重复」而是「用同一个 max+1 撞号」，同一形状的并发窗口问题。
+   * `ON CONFLICT (org_id, key, version) DO NOTHING` 是并发下真的算出同一个 `max+1`
+   * 时的第二道防线（先提交的那个让后者撞主键，回退到零行）。
+   */
+  async mintVersion(cmd: {
+    readonly orgId: OrgId;
+    readonly key: string;
+    readonly displayName: string;
+    readonly underlyingType: string;
+    readonly sections: CreatedCanvasTemplate["sections"];
+    readonly visibility: VisibilityScope;
+    readonly ownerTeamId: string | null;
+  }): Promise<MintTemplateVersionOutcome> {
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      const r = await s.query<{
+        key: string;
+        version: number;
+        display_name: string;
+        status: string;
+        builtin: boolean;
+        visibility: VisibilityScope;
+        underlying_type: string;
+        sections: unknown;
+      }>(
+        `INSERT INTO canvas_templates
+           (org_id, key, version, display_name, status, archived_from, builtin,
+            visibility, owner_team_id, underlying_type, sections)
+         SELECT $1, $2,
+                (SELECT coalesce(max(version), 0) + 1
+                   FROM canvas_templates WHERE org_id = $1 AND key = $2),
+                $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb
+          WHERE EXISTS (
+            SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
+          )
+         ON CONFLICT (org_id, key, version) DO NOTHING
+         RETURNING key, version, display_name, status, builtin, visibility,
+                   underlying_type, sections`,
+        [
+          cmd.orgId,
+          cmd.key,
+          cmd.displayName,
+          cmd.visibility,
+          cmd.ownerTeamId,
+          cmd.underlyingType,
+          JSON.stringify(cmd.sections),
+        ],
+      );
+      const row = r.rows[0];
+      // ⚠ 零行有两种成因：① key 真的不存在（`WHERE EXISTS` 为假）；② 并发下两个请求
+      //   算出了同一个 `max+1`，`ON CONFLICT DO NOTHING` 吞掉了后到的那个。两者都归为
+      //   `key-not-found` 是一处已知的粗粒度——签核材料未要求区分并发冲突与真不存在
+      //   （`mintTemplateVersion.err` 闭集里没有专属的重试码），且触发②需要同一 key
+      //   在同一毫秒级窗口内被两次「开新版」，管理台单人操作下概率可忽略。
+      //   真出现时用户看到 `TEMPLATE_NOT_FOUND` 重试一次即可自愈（第二次请求会看到
+      //   已提交的版本，`max+1` 算出新号）。
+      if (row === undefined) return { minted: false, reason: "key-not-found" };
+      return {
+        minted: true,
+        template: {
+          key: row.key,
+          displayName: row.display_name,
+          // ⚠ 断言而不是转型，同 `create()`：`status`/`builtin` 是这条 SQL 写死的字面量。
+          version: row.version,
+          status: assertLiteral(row.status, "draft", "status"),
+          builtin: assertLiteral(row.builtin, false, "builtin"),
+          visibility: row.visibility,
+          underlyingType: row.underlying_type,
           sections: row.sections as CreatedCanvasTemplate["sections"],
         },
       };

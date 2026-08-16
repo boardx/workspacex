@@ -154,6 +154,14 @@ export const CanvasError = z.enum([
   "ROLE_INSUFFICIENT",
   "TEMPLATE_NOT_FOUND",
   "TEMPLATE_KEY_CONFLICT",
+  /**
+   * `mintTemplateVersion`：`visibility: "team-only"` 却解析不出归属团队（#988）。
+   * ⚠ 判定点在**应用层**（`mint-template-version.ts`），不是契约边界的 `.refine`——
+   *   本操作没有前端团队选择器，`in.ownerTeamId` 几乎总是省略，真正的值取自调用者
+   *   自己的团队成员关系，而契约层看不见 principal，判不出「解析后」的结果。
+   *   见 `mintTemplateVersion` 操作文件头「不在契约边界判」。
+   */
+  "TEAM_REQUIRED_FOR_TEAM_ONLY",
   /** ⚠ O-10：**只挡新增绑定，不挡存量实例化** */
   "TEMPLATE_ARCHIVED",
   "BUILTIN_TEMPLATE_UNDELETABLE",
@@ -251,16 +259,17 @@ export const operations = {
   /* ── 一、模板注册表与发布（F100 F101）───────────────────────────── */
 
   /**
-   * ## 🟡 本操作**尚未经人类签核**（#496），状态：**待补签**
+   * ## ✅ 本操作已由人类补签（#496 → #988）
    *
    * 2026-08-04，人类不在场，coord-main 依其授权原文「我离开的情况下你不要等我的决定」
-   * 代为裁决**先做**，并同时把本操作**登记为待补签**：issue #496 就是这条 design-delta
-   * 的记录。人类回来后要么在束级 `design-signoff.md` 第 ③ 节补签，要么**推翻并回退**
-   * 本操作及其全部实现。
+   * 代为裁决**先做**，并登记为待补签（issue #496）。2026-08-17，人类在 #988 的签核包里
+   * 补签确认（`design-deltas/canvas-mermaid-templates/design-signoff.md`，
+   * `status: confirmed`，`confirmed_at: 2026-08-17`，「人类决定」①：「按现状签
+   * （`z.string().min(1)` 的 `underlyingType`，无 `ownerTeamId`，只铸 v1）」）——
+   * 本操作的形状**原样**保留，未随补签改动。
    *
-   * ⚠ 在补签之前，**不得**把它当作已签核事实去继续扩展（例如据此再造 updateTemplate /
-   *   newVersion）。签核状态只由人类在 `design-signoff.md` 里改，**agent 不动那个文件**
-   *   （授权宪章层级 3）。这段注释是那个状态在代码里的**可见形态**，不是签核本身。
+   * 「基于既有模板开新版」（当时被点名的扩展方向）已由同一次签核批准，落地为新操作
+   * `mintTemplateVersion`（见下方，紧邻本操作），不是原地改本操作。
    *
    * ---
    *
@@ -293,12 +302,11 @@ export const operations = {
    *
    * ## `out.version` 是 `z.literal(1)`，而不是一个正整数
    *
-   * 本操作只会铸出 v1。铸 v2 需要的是「基于既有模板开新版」——那是另一个操作，
-   * 契约里**没有**，本次也**不发明**（缺口如实报在 #496，不用一个宽类型把它盖住）。
+   * 本操作只会铸出 v1。铸 v2 是「基于既有模板开新版」——已由 `mintTemplateVersion`
+   * 落地（#988），是**另一个操作**，本操作的 `out.version` 不因它改动。
    * 写成 `z.number().int().positive()` 会让「这个端口能造任意版本」看起来成立，
-   * 而实现永远只回 1，这正是响应体与契约悄悄分家的方式。
-   * ⇒ 哪天真要支持开新版，`z.literal(1)` 会当场逼出一次契约改动，而那**本来就该**
-   *   是一次契约改动。
+   * 而实现永远只回 1，这正是响应体与契约悄悄分家的方式——`mintTemplateVersion.out.version`
+   * 才是那个「支持开新版」的端口，两者的 `out` 形状本来就该不同。
    *
    * ## `in` 里为什么没有 `orgId`
    *
@@ -336,6 +344,91 @@ export const operations = {
       sections: z.array(SectionDef),
     }).strict(),
     err: ["TEMPLATE_KEY_CONFLICT", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * mintTemplateVersion —— 「基于既有模板开新版」（#988，C_CANVAS_8②，人类已签核，
+   * `design-signoff.md` `status: confirmed`，`confirmed_at: 2026-08-17`）。
+   *
+   * ## 这是「编辑」在本束的真实语义
+   *
+   * `template-admin.tsx` 后台没有「编辑」这个动作——模板一旦造出来，`sections` 想改，
+   * 走的是**开一个新 `draft` 版本**，不是原地改一行已发布/已归档的历史。这与
+   * `publishTemplate`「发布新版本时旧版自动归档」的既有不变量（I-4）是同一个模型：
+   * 版本是不可变的快照，「编辑」永远产生下一个版本，不改上一个。
+   *
+   * ## 加一段，不改 `createTemplate`
+   *
+   * 沿用 `createTemplate` 自己文件头那条「加一段不替一段」的原则：本操作是**新增**，
+   * `createTemplate.out.version` 仍然是 `z.literal(1)`，「只铸 v1」这条不变量不受影响。
+   *
+   * ## `MermaidDiagramType` / `diagramSkeleton` 不在本操作范围内
+   *
+   * 签核材料（`design-deltas/canvas-mermaid-templates/contract.md` 第二节）里的
+   * mermaid 图模板类型扩展，人类签核时明确裁为「作为后续独立 feature 迭代，不绑定在
+   * 同一次实现里」（`design-signoff.md`「人类决定」①）。本操作因此复用现状的
+   * `underlyingType: z.string().min(1)` / `sections: SectionDef[]`，**不**引入
+   * `MermaidDiagramType` 判别联合——那是下一个 feature 的范围，届时「新版本是否允许
+   * 跨分支切换 `underlyingType`」也一并裁（签核已定调「不允许」，但落地判断需要先有
+   * 分支这个概念本身，本操作还只有一个分支）。
+   *
+   * ## `version` 是正整数，不是 `z.literal(1)`——这正是本操作存在的理由
+   *
+   * 由仓储在写入时算 `max(version) + 1`（同 key 下），并发下用同 `create()` 一样的
+   * 「判定与写入同一条语句」纪律，不先查后写。
+   *
+   * ## `ownerTeamId`（C_CANVAS_8①，签核已定「显式拒绝」）——**不在契约边界判**
+   *
+   * 与 `createTemplate` 一样，这个字段今天**没有前端选择器**：调用方不选团队，
+   * 服务端取调用者自己的团队（`requireTemplateAdmin` 返回的 `membership.teamId`）。
+   * 正因为如此，「团队缺失」这件事在契约边界是**判不出来**的——`in.ownerTeamId` 几乎
+   * 总是 `undefined`（前端不填它），若在这里照抄 `identity.CapabilityAddPayload` 的
+   * `.refine` 校验*这个字段本身*，会让**所有** `team-only` 的开新版请求当场 400，
+   * 不管调用者其实有没有团队。
+   *
+   * ⚠ 这与 5.2 节草案的字面写法不同，是本实现基于「没有团队选择器」这个既有 UX
+   *   事实做出的必要修正：`.refine` 判的应该是**解析后**（client 传入优先，否则取
+   *   调用者自己团队）的结果，而解析动作在契约层做不到（契约看不见 principal）。
+   *   「显式拒绝」因此落在应用层 `mint-template-version.ts`：解析出最终 `ownerTeamId`
+   *   后，`team-only` 且解析结果为空 ⇒ 抛 `TEAM_REQUIRED_FOR_TEAM_ONLY`——语义与
+   *   `CapabilityAddPayload` 的 `.refine` 完全一致（同一个失败条件），只是判定的
+   *   位置从「契约边界」挪到「应用层，解析之后」，因为本操作没有 identity 束那样的
+   *   团队选择器可以在契约边界之前把值填齐。
+   *
+   * `createTemplate` 本身**不**跟着改——它的「隐性不可见」现状是签核①明确保留的既有
+   * 行为，只有本操作（新引入的能力）升级为显式拒绝。
+   */
+  mintTemplateVersion: {
+    method: "POST", path: "/canvas/templates/:key/versions",
+    in: z.object({
+      /** 路径参数，与 body 一致性由控制器沿用 `assertKeyMatches` 既有规则校验。 */
+      key: z.string().min(1),
+      displayName: z.string().min(1),
+      underlyingType: z.string().min(1),
+      sections: z.array(SectionDef),
+      visibility: TemplateVisibility,
+      /**
+       * 可选覆盖值；今天没有前端选择器会填它，留空时应用层取调用者自己的团队。
+       * `team-only` 且**解析后**仍为空 ⇒ `TEAM_REQUIRED_FOR_TEAM_ONLY`（应用层判定，
+       * 见上方「不在契约边界判」）。
+       */
+      ownerTeamId: z.string().nullable().optional(),
+    }).strict(),
+    out: z.object({
+      key: z.string(),
+      displayName: z.string(),
+      /** 不是 `z.literal(1)`——本操作正是为了铸出 1 以外的版本而存在。 */
+      version: z.number().int().positive(),
+      status: z.literal("draft"),
+      builtin: z.literal(false),
+      visibility: TemplateVisibility,
+      underlyingType: z.string(),
+      sections: z.array(SectionDef),
+    }).strict(),
+    err: [
+      "TEMPLATE_NOT_FOUND", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE",
+      "TEAM_REQUIRED_FOR_TEAM_ONLY",
+    ] as const,
   },
 
   /**
@@ -1079,20 +1172,26 @@ export const KNOWN_CONTRACT_GAPS = {
   C_CANVAS_7: "mid-flight authorization revocation is named AUTHORIZATION_REVOKED here but PERMISSION_REVOKED_MIDWAY in context-pack/recording; same meaning, two names, no compile-time tie",
 
   /**
-   * 🟡 **`createTemplate` 本身待人类补签（#496），且它带出两个次级缺口。**
+   * ✅ **`createTemplate` 已由人类补签（#496 → #988，`design-signoff.md` `status:
+   *    confirmed`，`confirmed_at: 2026-08-17`）。** 两个次级缺口分别裁决如下：
    *
-   * ① **没有 `ownerTeamId`。** `visibility: "team-only"` 要求「归哪个团队」，而本束的
-   *    `listTemplates.out` / `publishTemplate.in` / `createTemplate.in` 三处都没有这一栏
-   *    （与 `identity` 束 `CapabilityListing` 的同一处缺口逐字同型）。实现取创建者自己的
-   *    团队；**创建者无团队时该行对所有人不可见**（fail-closed，见 canvas 模板注册表迁移
-   *    的文件头）。这是缺口的后果，不是一个可以靠默认值糊过去的实现细节。
+   * ① **`createTemplate` 本身仍然没有 `ownerTeamId`。** 这是签核时**明确保留**的现状
+   *    （`design-signoff.md`「人类决定」①：「按现状签…第二、三节的扩展作为后续独立
+   *    feature 迭代，不绑定在同一次实现里」），不是遗漏。`listTemplates.out` /
+   *    `publishTemplate.in` / `createTemplate.in` 三处仍然没有这一栏，实现仍取创建者
+   *    自己的团队；创建者无团队时该行对所有人不可见（fail-closed，见 canvas 模板注册表
+   *    迁移的文件头）。这条缺口**依然存在**，只是产品已经看过并选择暂不动 `createTemplate`
+   *    本身——`ownerTeamId` 的显式拒绝语义（下方②）只用在新引入的 `mintTemplateVersion`。
    *
-   * ② **没有「基于既有模板开新版」。** 因此 `createTemplate.out.version` 是
-   *    `z.literal(1)`——本操作只铸 v1。v2 只能由一个本契约尚不存在的操作产生，
-   *    在它被签核之前，「改模板」这件事在产品上做不出来。
+   * ② **「基于既有模板开新版」已由 `mintTemplateVersion` 补上**（#988）。
+   *    `createTemplate.out.version` 仍然是 `z.literal(1)`（「加一段不替一段」，本操作
+   *    只铸 v1 这条不变量不受影响），v2 及以后由 `mintTemplateVersion` 产生，`ownerTeamId`
+   *    在这个新操作里采用「显式拒绝」（`TEAM_REQUIRED_FOR_TEAM_ONLY`），不是静默
+   *    fail-closed——两种颗粒度并存于同一个束，是签核材料明确允许的（「人类可以逐件
+   *    独立勾选签核」）。
    *
-   * ⚠ 补签时这两条要一起裁：签了 `createTemplate` 却不裁 ①，会得到一个
-   *   「建完就看不见」的 team-only 模板。
+   * mermaid 图模板类型扩展（签核材料第二节，`MermaidDiagramType` / `diagramSkeleton`）
+   * **未落地**，人类签核时裁定其为「后续独立 feature」，不在本次范围。
    */
-  C_CANVAS_8: "createTemplate is pending human sign-off (#496); it also exposes two sub-gaps: no ownerTeamId for team-only visibility (fail-closed to invisible), and no operation to mint a version beyond v1",
+  C_CANVAS_8: "createTemplate is signed off (#496 -> #988, confirmed 2026-08-17); sub-gap 1 (createTemplate itself has no ownerTeamId, stays fail-closed) is intentionally kept as-is per signoff; sub-gap 2 (minting a version beyond v1) is resolved by mintTemplateVersion, which uses explicit-reject ownerTeamId semantics instead. The mermaid diagram type extension from the same signoff package is deferred to a future feature.",
 } as const;
