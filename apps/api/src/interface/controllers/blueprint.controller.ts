@@ -46,6 +46,7 @@ import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { toOrgId, type OrgId } from "../../domain/org-id";
 import { createBlueprint } from "../../application/templates/create-blueprint";
+import { getInitializationPreview } from "../../application/templates/get-initialization-preview";
 import {
   BLUEPRINT_PERSISTENCE_PORT,
   type BlueprintPersistencePort,
@@ -410,6 +411,65 @@ export class BlueprintController {
       throw new NotFoundException({ reasonCode: "BLUEPRINT_NOT_FOUND" });
     }
     return { revision: outcome.revision, designFacets: outcome.designFacets };
+  }
+
+  /**
+   * F189（BP-07）—— 「套用后会初始化什么」六类一览接真（`getInitializationPreview`，
+   * uc-2-2 R3 / AC2 / AC5）。契约操作与应用层纯函数（`get-initialization-preview.ts` /
+   * `planInitializationPreview`）在本束原始签核范围内早已存在，本端点只补控制器接线，
+   * 未新增任何字段/错误码/交互语义（`design-signoff.md` covers 追加自查记录见该文件）。
+   *
+   * ⚠ 门槛与 `getDesignFacets` 不同：契约声明的 `err` 是 `BLUEPRINT_NOT_FOUND` /
+   *   `BLUEPRINT_NOT_VISIBLE` / `DEPENDENCY_UNAVAILABLE`，**没有** `ROLE_INSUFFICIENT`——
+   *   这是一条可见性门（同「谁能看见这个蓝本」），不是管理员门，所以不能复用
+   *   `requireCapabilityAdmin`。判定复用与画布模板/蓝本列表同一份 `decideCapabilityVisibility`
+   *   （#991 裁决 ③ 同款单一事实源纪律），非该组织成员与「蓝本对你不可见」都落在
+   *   `BLUEPRINT_NOT_VISIBLE` 一个码上——不额外区分「你根本不是这个组织的人」，
+   *   同 `permission-decision.ts` 头注「不可分辨」的既有立场一致，本端点没有另造判断。
+   *
+   * ⚠ `filledFacetKeys` 从 `getBlueprintDesignFacets` 的输出派生（`designFacets` 里
+   *   出现的每一行即已填——未填的 facet 根本没有行，见该端点仓储层的写入侧过滤 +
+   *   CHECK 约束），不新开一次仓储查询、不新增 port 方法。
+   *
+   * ⚠ `versionId`/`tier` 入参按用例现有实现范围**不参与派生**（应用层文件头注已注明，
+   *   本 feature 未做新裁决，只是让已有的「按当前草稿生成」路径首次接上真实存储）。
+   */
+  @Get("/blueprints/:blueprintId/initialization-preview")
+  async getInitializationPreview(
+    @Param("blueprintId") blueprintId: string,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+
+    let membership;
+    try {
+      membership = await this.identity.findOrgMembership(principal.userId, orgId);
+    } catch {
+      throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+    }
+
+    const decision = decideCapabilityVisibility({
+      decisionId: this.ids.next("dec"),
+      orgRole: membership?.orgRole ?? null,
+      requesterTeamId: membership?.teamId ?? null,
+      // BP-01 尚未有可见性写入路径（同 `list()` 的既有说明），此刻蓝本恒 org-wide、
+      // 无归属团队——这是当前的真实值，不是本端点新做的裁决。
+      scope: "org-wide",
+      ownerTeamId: null,
+    });
+    if (!decision.allowed) {
+      throw new ForbiddenException({ reasonCode: "BLUEPRINT_NOT_VISIBLE" });
+    }
+
+    const outcome = await this.repo.getBlueprintDesignFacets(orgId, blueprintId);
+    if (outcome.kind === "blueprint-not-found") {
+      throw new NotFoundException({ reasonCode: "BLUEPRINT_NOT_FOUND" });
+    }
+
+    return getInitializationPreview({
+      filledFacetKeys: outcome.designFacets.map((f) => f.designFacetKey),
+    });
   }
 
   private async requireCapabilityAdmin(orgId: OrgId, userId: string): Promise<void> {
