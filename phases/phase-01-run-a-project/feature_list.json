@@ -4334,8 +4334,8 @@
         "F180"
       ],
       "points": 8,
-      "status": "not_started",
-      "owner": null,
+      "status": "in_progress",
+      "owner": "coord-deep-research",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
         "cd apps/deep-agent-service && pytest tests/test_guided_research_graph.py tests/test_guided_research_postgres_recovery.py",
@@ -4350,7 +4350,7 @@
       "priority": 1,
       "area": "deep-research",
       "capability": "CAP-WEB",
-      "sprint": null
+      "sprint": "12"
     },
     {
       "id": "F196",
