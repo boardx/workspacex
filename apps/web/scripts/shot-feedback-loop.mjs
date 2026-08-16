@@ -86,16 +86,37 @@ async function clickUntil(page, selector, expect, tries = 25) {
   throw new Error(`clickUntil: ${expect} never appeared after clicking ${selector}`);
 }
 
-async function gotoUntilReady(page, url, tries = 60) {
+/**
+ * 每个场景**必须出现**的内容锚点。
+ *
+ * ⚠ 只等 `ROOT` 是不够的，这不是保险起见——第一次跑就栽了：dev server 冷启动那一轮，
+ *   `ROOT` 早就 attached，而屏上还是「正在读取反馈…」，于是 `fb-admin-two-columns-*.png`
+ *   拍成了两张**加载态**。截图脚本静默拍到加载态是最坏的一种失败：它不报错，
+ *   而产出的签核材料看起来像是这块屏坏了。
+ *
+ * ⚠ 锚点选**内容**而不是容器：`admin-feedback-counts` 这类外壳在加载态也在，
+ *   等它等于没等。要等的是「数据到了才会出现」的那个节点。
+ */
+const READY_ANCHOR = {
+  entries: '[data-testid="rail-feedback"]',
+  "dialog-product": '[data-testid="feedback-form"]',
+  "dialog-skill": '[data-testid="feedback-form"]',
+  admin: '[data-testid="admin-feedback-sw-cards"]',
+};
+
+async function gotoUntilReady(page, url, scene, tries = 60) {
+  const anchor = READY_ANCHOR[scene];
+  if (!anchor) throw new Error(`场景 ${scene} 没有声明内容锚点——加一条，别让它默认放行`);
   for (let i = 0; i < tries; i++) {
     try {
       const resp = await page.goto(BASE + url, { waitUntil: "domcontentloaded", timeout: 20000 });
       if (resp && resp.status() === 404) { await page.waitForTimeout(700); continue; }
       await page.waitForSelector(ROOT, { state: "attached", timeout: 8000 });
+      await page.waitForSelector(anchor, { state: "visible", timeout: 8000 });
       return;
     } catch { await page.waitForTimeout(700); }
   }
-  throw new Error(`root ${ROOT} never rendered for ${url}`);
+  throw new Error(`场景 ${scene} 的内容锚点 ${anchor} 一直没出现（${url}）——不拍加载态`);
 }
 
 const browser = await chromium.launch();
@@ -128,7 +149,7 @@ for (const [file, scene, theme, prepare] of SHOTS) {
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items }) });
   });
 
-  await gotoUntilReady(page, `/preview/feedback-loop?scene=${scene}`);
+  await gotoUntilReady(page, `/preview/feedback-loop?scene=${scene}`, scene);
   if (prepare) await prepare(page);
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${OUT}/${file}`, fullPage: scene === "admin" });

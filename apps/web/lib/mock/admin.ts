@@ -621,20 +621,20 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   blueprint: () => AG_BLUEPRINTS.length,
   overview: () => OVERVIEW_ANOMALIES.length,
   members: () => MEMBERS.length,
-  /**
-   * FB-3：反馈屏已接真实后端，「待处理」条数只能由 `GET /feedback/counts` 异步给出，
-   * 而这个计数源的签名是同步的（`() => number`）。
+  /*
+   * FB-3 注（2026-08-15）：反馈屏已接真实后端，而这个表**不是**生产里左栏计数的来源——
+   * #881 起 `AdminNav` 的缺省来源是 `live-admin-nav-counts.ts`，那里只有 `agent`/`skill`
+   * 两项口径明确，`feedback` 落在「其余一律『—』」里。所以生产左栏的反馈计数**已经是「—」**，
+   * 不是这个 mock 数字。
    *
-   * ⚠ 所以这里**抛错**，让左栏显示「—」——而不是继续返回 `SW_FEEDBACK_SUMMARY.pending`
-   *   那个 mock 数字。一个 mock 计数摆在一块真数据的屏旁边，是最难发现的一种谎：
-   *   它看起来完全正常，只是永远不动。门控（`admin-nav`）本来就有「取不到显示—、
-   *   单类失败不传染」这条不变量，这里用的正是它。
+   * ⚠ 本条一度被改成 `throw`（想让它显示「—」），那是**改错了地方**：本表今天的职责是
+   *   `admin-nav-count-unavailable.test.tsx` 里的 `HEALTHY` 夹具——一个「全都健康」的
+   *   来源集合，用来验「健康路径下不出现『—』」。让夹具里有一项恒抛错，等于把那条断言
+   *   变成永远不可能成立。改回原值，并把这段话留下，免得下一个人重犯。
    *
-   *   要让它变成真数字，需要把计数源改成异步（会动到全部十个来源的签名），
-   *   不在本次改动范围内。
+   * 真要让左栏显示反馈的待处理数，改的是 `live-admin-nav-counts.ts`（加一条
+   * `GET /feedback/counts`），不是这里。
    */
-  feedback: () => {
-    throw new Error("反馈待处理数需异步查询 GET /feedback/counts；同步计数源给不出，显示「—」而不是 mock 数字");
-  },
+  feedback: () => SW_FEEDBACK_SUMMARY.pending,
   local: () => 1,
 };

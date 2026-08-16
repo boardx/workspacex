@@ -5,6 +5,7 @@ import { AdminScreen } from "./admin-screen";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ViewModeToggle, type EntityViewMode } from "./view-mode-toggle";
 import { ApiError } from "@/lib/api-client";
 import {
   getFeedbackCounts,
@@ -83,6 +84,18 @@ export function FeedbackScreen({ state }: { state: UiState }) {
   const [load, setLoad] = React.useState<Load>({ kind: "loading" });
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  /**
+   * 卡片 / 列表切换（人类 2026-08-15 原话：「卡片也可以切换为列表，需要有这个切换的功能」）。
+   *
+   * ⚠ **一个开关管两列**，不是每列一个。两列是同一种 entity（一条反馈）的两个分组，
+   *   让它们各自有视图态，会出现「左列卡片、右列列表」这种没人想要、也没人会去对齐的状态。
+   *   testid 因此是 `admin-feedback-view-toggle-*`（模块级），不是列级。
+   *
+   * ⚠ 这段在 FB-3 真栈化时**一度被我整块丢掉**——重写屏幕时只想着换数据源，
+   *   把一条已经裁过的交互规则连带删了，`admin-feedback-view-toggle.test.tsx` 当场变红。
+   *   记在这里：接后端不是重写界面的许可证。
+   */
+  const [viewMode, setViewMode] = React.useState<EntityViewMode>("card");
 
   const reload = React.useCallback(async () => {
     setLoad({ kind: "loading" });
@@ -152,7 +165,10 @@ export function FeedbackScreen({ state }: { state: UiState }) {
           <>
             {/* 状态分布。⚠ 五个数来自一次查询（契约 getFeedbackCounts），不是前端 filter 出来的 */}
             <section className="flex flex-col gap-2" data-testid="admin-feedback-counts">
-              <h2 className="text-14 font-semibold">状态分布</h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-14 font-semibold">状态分布</h2>
+                <ViewModeToggle module="feedback" mode={viewMode} onChange={setViewMode} />
+              </div>
               <Card>
                 <CardContent className="flex flex-wrap items-center gap-4 pt-4 text-13">
                   {load.counts === null ? (
@@ -181,6 +197,8 @@ export function FeedbackScreen({ state }: { state: UiState }) {
             <div className="grid gap-5 lg:grid-cols-2">
               <FeedbackColumn
                 testid="admin-feedback-software"
+                containerPrefix="admin-feedback-sw"
+                viewMode={viewMode}
                 heading="软件反馈"
                 subheading="对产品本身提的"
                 emptyText="还没有人对产品本身提过反馈。"
@@ -191,6 +209,8 @@ export function FeedbackScreen({ state }: { state: UiState }) {
               />
               <FeedbackColumn
                 testid="admin-feedback-capability"
+                containerPrefix="admin-feedback-agent"
+                viewMode={viewMode}
                 heading="Agent / Skill 反馈"
                 subheading="在对话里对着某个 Agent / Skill 提的"
                 emptyText="还没有人在对话里对某个 Agent 或 Skill 提过反馈。"
@@ -218,9 +238,17 @@ export function FeedbackScreen({ state }: { state: UiState }) {
 }
 
 function FeedbackColumn({
-  testid, heading, subheading, emptyText, items, busyId, onVote, onTriage,
+  testid, containerPrefix, viewMode, heading, subheading, emptyText, items, busyId, onVote, onTriage,
 }: {
   testid: string;
+  /**
+   * 内容容器 testid 的前缀（`admin-feedback-sw` / `admin-feedback-agent`）。
+   * ⚠ 与 `testid`（section 级）**不同名**，且这两个前缀是**既有测试锚定的旧名**——
+   *   FB-3 换数据源不是给 testid 改名的机会，改名会让一批与本次改动无关的断言变红，
+   *   而那批红看起来像是功能坏了。
+   */
+  containerPrefix: string;
+  viewMode: EntityViewMode;
   heading: string;
   subheading: string;
   emptyText: string;
@@ -237,7 +265,14 @@ function FeedbackColumn({
       {items.length === 0 ? (
         <p className="text-12 text-muted-foreground" data-testid={`${testid}-empty`}>{emptyText}</p>
       ) : (
-        <div className="flex flex-col gap-1.5">
+        <div
+          className={
+            viewMode === "card"
+              ? "grid grid-cols-1 items-start gap-3 xl:grid-cols-2"
+              : "flex flex-col gap-1.5"
+          }
+          data-testid={viewMode === "card" ? `${containerPrefix}-cards` : `${containerPrefix}-list`}
+        >
           {items.map((item) => (
             <FeedbackCard
               key={item.id}
