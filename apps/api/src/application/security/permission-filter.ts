@@ -112,6 +112,21 @@ function toAclRef(ref: ObjectRef): AclObjectRef {
         `acl_bindings row. Use decideGuidedResearchVisibility and discloseDecided().`,
     );
   }
+  /*
+   * FB-2. Same shape as `subject` / `research` above: a feedback row has no `acl_bindings`
+   * row, so `authorize` would find no binding, fall back to the permissive default scope,
+   * and hand every member of the organization somebody else's feedback body -- which is
+   * exactly what D3 forbids. Throwing here forces the caller onto
+   * `decideFeedbackDetailVisibility` + `discloseDecided()`.
+   */
+  if (ref.kind === "feedback") {
+    throw new Error(
+      `feedback "${ref.id}" cannot be judged by authorize -- feedback has no acl_bindings ` +
+        `row, so authorize would allow every member of the organization to read the body. ` +
+        `Use decideFeedbackDetailVisibility (application/feedback/feedback-detail-decision) ` +
+        `and discloseDecided().`,
+    );
+  }
   return { kind: ref.kind, id: ref.id };
 }
 

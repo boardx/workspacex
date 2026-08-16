@@ -295,6 +295,9 @@ import {
 // ⚠ 归因由 `MessageAttributionPort` 从 agent_runs 查出来，路由不接受任何外部归因输入。
 import { PgMessageRatingRepository } from "./infrastructure/skill/pg-message-rating-repository";
 import { MessageRatingController } from "./interface/controllers/message-rating.controller";
+import { PgProductFeedbackRepository } from "./infrastructure/feedback/pg-product-feedback-repository";
+import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
+import { FeedbackController } from "./interface/controllers/feedback.controller";
 import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
 import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
@@ -572,6 +575,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentPublishController,
     SkillController,
     MessageRatingController,
+    FeedbackController,
     SkillReviewController,
     SkillMountController,
     ModelController,
@@ -1323,6 +1327,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: MESSAGE_RATING_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgMessageRatingRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // FB-2: same factory shape and same reason as the three above -- `submitFeedback.in` has
+    // no `orgId` (it comes from the principal), so a feedback repository not bound to a
+    // tenant would be a thing that can write feedback into somebody else's organization.
+    {
+      provide: PRODUCT_FEEDBACK_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgProductFeedbackRepository(db),
       inject: [DATABASE_PORT],
     },
     {

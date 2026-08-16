@@ -6,6 +6,7 @@ import type { Identity } from "@/lib/identity";
 import { OrgMenu } from "./org-menu";
 import { PersonalMenu } from "./personal-menu";
 import { cn } from "@/lib/utils";
+import { FeedbackButton } from "@/components/feedback/feedback-button";
 
 /**
  * 图标栏 —— 实测宽度 76px，底色 --rail，右侧一道 --border 分隔。
@@ -78,6 +79,22 @@ export function IconRail({
           })}
         </div>
       ))}
+
+      {/*
+        FB-2 反馈入口（D2，2026-08-15 人类裁决：图标栏常驻图标，不是顶栏下拉里的一项）。
+
+        ⚠ 它「不是 `NAV_SEGMENTS` 的一项」，所以不在上面那个循环里——它是一个「动作」
+          （打开弹层）而不是一个「目的地」（一条路由）。混进 NAV_SEGMENTS 会有两个后果：
+          ① `lint-nav-reachability` 会要求它对应一个契约束的现行路由，而它没有路由；
+          ② 它会拿到 `aria-current="page"` 的高亮逻辑，而一个动作永远不是当前页。
+
+        ⚠ 位置在个人菜单「上方」、分组之外：反馈不属于「编排/STUDIO/能力/治理」任何一段，
+          它是对整个产品说话。D2 的原话是「反馈这件事一旦要多点两下就没人提了」——
+          所以它常驻，而不是折进某个菜单。
+      */}
+      <div className="mt-auto flex w-full flex-col items-center">
+        <FeedbackButton target={{ kind: "product" }} targetLabel={null} variant="rail" />
+      </div>
 
       {/*
         个人菜单入口（#638 delta 迭代 1 建、2026-08-09 改成下拉）—— 固定在左下角，
