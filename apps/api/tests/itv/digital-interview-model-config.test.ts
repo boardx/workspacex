@@ -23,4 +23,14 @@ describe("digital interview model config", () => {
       modelId: "gpt-interview",
     });
   });
+
+  it("reuses the deployment's required deep-agent model when no interview model is configured", () => {
+    expect(readDigitalInterviewModelConfig({
+      KERNEL_MODEL_PROVIDER: "openai-compatible",
+      KERNEL_DEEP_AGENT_MODEL_ID: "qwen-max",
+    })).toEqual({
+      provider: "openai-compatible",
+      modelId: "qwen-max",
+    });
+  });
 });
