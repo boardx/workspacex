@@ -229,10 +229,12 @@ export default defineConfig({
         // ⚠ #853 同理排在 `seeded`：它要用种子里的 sentinel 工作坊（`FULLSTACK_E2E.projectId`）
         //   与该工作坊的 facilitator（`FULLSTACK_E2E.email`，agendaSegment.create 只属这个角色）。
         "agenda-segment-create-smoke.spec.ts",
-        // ⚠ 「蓝本到项目」主流程同理排在 `seeded`：它要用种子里的组织管理员
-        //   （`FULLSTACK_E2E.adminEmail`，唯一能写蓝本的角色）与 sentinel 项目
-        //   （`FULLSTACK_E2E.projectId`，F29 边界证明那条用它做 404 归因排除）。
-        "blueprint-to-project-journey.spec.ts",
+        // ⚠ 蓝本管理闭环 + 契约缺口审计（2026-08-15 由 blueprint-to-project-journey.spec.ts
+        //   重命名，见 issue #1323——旧名暗示测试走到了「建项目」，实际没有，见文件头注）
+        //   同理排在 `seeded`：它要用种子里的组织管理员（`FULLSTACK_E2E.adminEmail`，
+        //   唯一能写蓝本的角色）与 sentinel 项目（`FULLSTACK_E2E.projectId`，F29
+        //   缺口门控那条用它做 404 归因排除）。
+        "blueprint-contract-gap-audit.spec.ts",
         // ⚠ 「agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat `#` 调用」
         // 这条用户旅程的验收线，同理排在 `seeded` 里：它要用种子里的组织管理员
         // （`FULLSTACK_E2E.adminEmail`，唯一能写 skill/agent 目录的角色）与
