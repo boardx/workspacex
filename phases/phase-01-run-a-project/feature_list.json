@@ -4278,7 +4278,7 @@
         "F179"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "dev-chat-e2e",
       "verification": [
@@ -4289,7 +4289,7 @@
         "pnpm --filter api run lint",
         "pnpm --filter @repo/contracts run typecheck"
       ],
-      "evidence": "",
+      "evidence": "evidence/F191.verify.log @ 2026-08-16T02:59:25.681Z",
       "notes": "① #991 backlog 第八件（BP-08），依人类两轮裁决收紧到最小闭环 B：权限口径不整体调用 templates 束的 applyBlueprintUseCase()（带自己的 lead-only 判断，与 createProject 现有 lead-or-admin 不一致），只复用其纯函数 planSixCategoryInit + 仓储层直接读写；档位读活表当前 duration_tier，不是版本快照（快照从未冻结过档位，登记为 KNOWN_CONTRACT_GAPS.T15）；六类真实写入本轮只有 blueprint_bindings 一行（表/列 BP-04/F179 已就绪，零新增存储），议程环节等五类暂不落地真实行（逐段时长无出处，登记为 P10）。\n② 契约先行：五个新错误码（BLUEPRINT_NOT_FOUND/BLUEPRINT_NOT_VISIBLE/BLUEPRINT_NOT_PUBLISHED/BLUEPRINT_VERSION_ARCHIVED/INITIALIZATION_FAILED）走独立 delta 签核（design-deltas/createproject-blueprint-error-codes/，人类 2026-08-16 签核 commit e28aa660），与 templates.TemplateError 同码同义（project.ts 新增 _sharedWithTemplates 编译期钉住）。\n③ 范围边界——做：BlueprintReferenceRepository 只读端口（解析版本存在性/归档态/活表档位，经 guard()/disclose() 走真实可见性判定）+ PgProjectRepository.create() 扩展一个可选的 blueprint_bindings INSERT（同一事务，故障注入反证整体回滚）+ 五个码的 HTTP 状态映射。不做：真实 agenda_segments 写入、版本快照冻结档位（两者均已登记为已知缺口，不在本轮范围）。\n④ 权限口径反证：admin（非 lead）套用一个有效已发布蓝本必须成功——测试文件专门钉住这条边，防止未来有人把 applyBlueprintUseCase() 整体接进来又悄悄改掉它。\n⑤ 验证新增 10 条真库测试（不存在/已归档/不可见三种拒绝、成功写入 blueprint_bindings、六类摘要与 planner 同源核对、空白新建不受影响、档位读活表的行为化反证、admin 权限反证、六类写入失败整体回滚的故障注入反证 + 反证注入器不是全失败），既有 39 条 project 真库测试无回归。",
       "priority": 1,
       "area": "project",
