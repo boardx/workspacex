@@ -6,16 +6,20 @@
 主题、方向和大纲已有部分业务表持久化，但步骤推进仍由仓储中的 SQL 状态更新控制；检索任务、
 来源决策、报告内容和部分 Skill 状态仍依赖前端 Mock 或 localStorage。
 
-用户于 2026-08-15 确认以下目标：
+用户于 2026-08-15 至 2026-08-16 确认以下目标：
 
 1. 五个研究步骤分别成为 LangGraph 节点。
 2. 每一步的数据都属于 LangGraph 的逻辑状态。
 3. 前端调用任一步骤时，都必须提交当前前端节点的完整状态内容，而不是只提交步骤名或按钮动作。
 4. 刷新、离开、API 重启和节点失败后，都能从同一研究会话恢复。
 5. 页面保持单路由；步骤切换不得依赖路由跳转或整页刷新。
+6. 只有点击当前步骤的确认/生成按钮才触发模型；查看、编辑和步骤切换不自动调用。
+7. 所有研究节点统一使用阿里云百炼 `qwen3.7-plus`，输出必须是结构化 JSON。
+8. Web Search 沿用独立检索工具链；模型负责查询规划、来源判断和结构化证据提取。
 
-本设计采用 TypeScript LangGraph，运行在 `apps/api`，生产 checkpointer 使用 PostgreSQL。
-现有 Python `apps/deep-agent-service` 可以继续提供模型或检索能力，但不拥有 BoardX 研究流程状态。
+本设计扩展现有 Python `apps/deep-agent-service`，由它持有专用 Guided Research StateGraph；
+生产 checkpointer 使用 PostgreSQL。`apps/api` 不再实现第二套 TypeScript 状态图，只负责 BoardX
+租户授权、共享契约校验、调用内部 Graph 服务和维护列表/查询投影。
 
 ## 2. 目标与非目标
 
@@ -25,6 +29,7 @@
 - 用五个可恢复节点表达 Brief、Directions、Outline、Research 和 Report。
 - 用统一 Node Command 契约接收前端当前节点的完整状态。
 - 用 checkpoint、幂等 receipt 和业务内容表保证重放安全。
+- 每个确认动作都先保存完整前端 nodeState，再由 `qwen3.7-plus` 生成下一步骤结构化数据。
 - 用服务端投影恢复页面，不再把 localStorage 当作正式事实源。
 - 保留历史 checkpoint，使上游重确认、失败重试和问题审计可追踪。
 
@@ -42,13 +47,16 @@
 flowchart LR
     UI["单页 Research UI"] -->|"NodeCommand + 完整 nodeState"| API["Research Workflow API"]
     API --> AUTH["租户授权 + 版本校验"]
-    AUTH --> GRAPH["Guided Research StateGraph"]
+    AUTH --> CLIENT["Guided Research Graph Client"]
+    CLIENT --> GRAPH["apps/deep-agent-service<br/>Guided Research StateGraph"]
     GRAPH --> B["Brief"]
     B --> D["Directions"]
     D --> O["Outline"]
     O --> S["Research"]
     S --> R["Report"]
     GRAPH --> CP["PostgreSQL Checkpointer"]
+    GRAPH --> MODEL["qwen3.7-plus<br/>结构化输出"]
+    GRAPH --> TOOLS["独立 Web Search 工具链"]
     GRAPH --> EFFECTS["幂等业务 Effects"]
     EFFECTS --> DB["步骤内容 / 来源 / 报告业务表"]
     GRAPH --> PROJ["Workflow Projection"]
@@ -58,9 +66,23 @@ flowchart LR
 边界原则：
 
 - LangGraph 是步骤、节点版本、恢复位置、失败和重试状态的权威控制平面。
+- Python Graph 服务是唯一编排运行时；NestJS 不复制节点转移规则。
 - Graph State 拥有每一步的逻辑状态；大内容以稳定 ID 和版本进入 Graph State，由读投影补齐正文。
 - 业务表是来源、报告正文等产品数据的可查询持久层，不自行决定下一步。
 - Web 只理解 BoardX 契约，不解析 LangGraph 内部 checkpoint 或上游检索事件。
+- `qwen3.7-plus` 由服务端配置和模型准入控制，浏览器不能选择或覆盖 model ID。
+
+### 3.1 模型与检索边界
+
+- Graph 服务复用现有 `KERNEL_MODEL_BASE_URL` / `KERNEL_MODEL_API_KEY`，新增
+  `KERNEL_GUIDED_RESEARCH_MODEL_ID=qwen3.7-plus`；缺少凭据或模型未准入时 fail closed。
+- 所有生成调用启用 `response_format: { "type": "json_object" }`，prompt 明确要求 JSON，随后再以
+  BoardX 共享 schema 校验；可解析 JSON 但不符合 schema 仍视为节点失败。
+- Brief 确认调用模型生成 Directions；Directions 确认生成 Outline；Outline 确认生成结构化
+  Research Plan 与查询任务；Research 确认已采纳来源后生成 Report。
+- Web Search 不使用模型内置联网搜索作为证据源。查询执行、URL、抓取状态和重试来自独立工具链，
+  `qwen3.7-plus` 只承担查询拆分、来源判读、证据抽取和综合。
+- 测试可注入 fake model/search port，但生产不得回退到 deterministic generator、Mock 或 localStorage。
 
 ## 4. 稳定身份与版本
 
@@ -108,6 +130,9 @@ interface NodeMeta {
   version: number;
   confirmedVersion: number | null;
   contentVersionId: string | null;
+  modelId: "qwen3.7-plus" | null;
+  modelInvocationId: string | null;
+  modelOutputSchemaVersion: string | null;
   confirmedAt: string | null;
   updatedAt: string;
   errorCode: string | null;
@@ -277,17 +302,20 @@ interface ResearchNodeCommand<TNodeState> {
 4. 校验 `expectedGraphVersion`。
 5. 按节点 schema 校验完整 `nodeState`，拒绝未知字段和非法下游 ID。
 6. 计算 payload 指纹；同一 `requestId` 不同 payload 返回 409。
-7. 用 `Command({ resume: command })` 恢复当前 interrupt。
-8. 节点通过幂等 Effect 写业务内容与 receipt，再返回 Graph State update。
-9. Checkpointer 保存新 checkpoint。
-10. 返回重新水合的 Workflow Projection。
+7. NestJS Graph Client 把已授权 command 发送给内部 Graph 服务；Graph 服务用
+   `Command({ resume: command })` 恢复当前 interrupt。
+8. Graph 节点先 checkpoint 输入，再调用 `qwen3.7-plus` 或独立检索工具链。
+9. 结构化结果通过共享 schema 后，节点通过幂等 Effect 写业务内容与 receipt。
+10. Checkpointer 保存输出 checkpoint，并返回 checkpoint/thread/version 身份。
+11. NestJS 幂等更新 BoardX 查询投影并返回重新水合的 Workflow Projection。
 
 禁止客户端直接提交或覆盖：`orgId`、`ownerUserId`、`graphVersion`、`revision`、服务端时间、错误码、
 来源正文、报告正文和任意其它组织的数据 ID。
 
 ## 7. API 契约
 
-建议在 `packages/contracts/src/research.ts` 增加统一操作，保留旧操作作为迁移期兼容层：
+在 `packages/contracts/src/research.ts` 增加统一外部操作；Python Graph 输入/输出 JSON Schema 由该
+契约构建产物生成并由 CI 做漂移检查，禁止 Python 手写一份形似但独立的公开契约。旧操作仅作为迁移期兼容层：
 
 | 操作 | HTTP | 作用 |
 |---|---|---|
@@ -348,14 +376,15 @@ stateDiagram-v2
 `Command({ resume: ResearchNodeCommand })`。因为恢复会从包含 interrupt 的节点开头重新运行，
 所有 Effect 必须放在 interrupt 之后，并通过 receipt 幂等。
 
-运行型节点 Research 和 Report 使用子图或 task 拆分长任务。每个章节检索、报告章节生成分别拥有
+运行型节点 Research 和 Report 使用 Python 子图或 task 拆分长任务。每个章节检索、报告章节生成分别拥有
 稳定 operation ID；失败恢复不得重放已完成章节。
 
 ## 9. 双层持久化
 
 ### 9.1 Checkpointer
 
-- 使用 `@langchain/langgraph-checkpoint-postgres`。
+- `apps/deep-agent-service` 使用 LangGraph PostgreSQL checkpointer（Python 包），不使用当前开发期
+  in-memory saver，也不复用旧 BoardX Backend 的 24 小时 Mongo TTL saver。
 - 独立 schema：`langgraph_research`。
 - schema 初始化由 migration/setup 完成，应用启动不动态建表。
 - 运行账号只获得所需 DML 权限。
@@ -384,7 +413,7 @@ revision，不依赖应用层约定。
 
 ### 9.3 一致性与重放
 
-业务事务与 LangGraph checkpoint 不假定原子双写。节点先执行幂等业务 Effect：
+业务事务与跨进程 LangGraph checkpoint 不假定原子双写。节点先执行幂等业务 Effect：
 
 1. 事务内锁定会话或 revision。
 2. 校验 graphVersion、revision 和 operationId。
@@ -448,29 +477,37 @@ revision，不依赖应用层约定。
 
 ## 15. 串行 Feature 切片
 
-现有 F170、F171 保留其用户可见目标；Graph 基础和前三步迁移不能偷并进一个超大 PR。规格确认后，
-由 requirement-author 在权威 `feature_list.json` 中登记缺失切片并经束级签核，建议顺序：
+现有 F170、F171 保留其用户可见目标；新增编号必须从最新 `main` 的 F190 之后分配，旧草案中的
+F188 已被项目模板占用，禁止复用。完整交付由六个串行垂直切片组成：
 
-1. **Graph 基础 + Brief 垂直切片**：PostgresSaver、统一 Command、Brief 前后端持久化、单页恢复。
-2. **Directions 垂直切片**：完整方向 nodeState、生成/编辑/确认、回退失效。
-3. **Outline 垂直切片**：完整大纲 nodeState、生成/编辑/确认、回退失效。
-4. **F170 Research 垂直切片**：真实检索任务、来源、进度、事件恢复和失败章节重试。
-5. **F171 Report 垂直切片**：结构化报告、引用、水合、失败重试和完成态。
+1. **F191 Graph 基础与单页投影**：Python Guided Research StateGraph、Postgres checkpointer、统一
+   Node Command、NestJS Graph Client、旧会话 backfill 和 canonical 单页恢复。
+2. **F192 Brief → Directions**：提交完整 Brief nodeState，`qwen3.7-plus` 返回结构化研究方向，
+   刷新恢复输入与输出。
+3. **F193 Directions → Outline**：提交完整方向列表/选择/排序/人工编辑，模型返回结构化报告大纲，
+   支持上游重确认和下游失效。
+4. **F194 Outline → Research Plan**：提交完整大纲，模型生成章节检索计划和查询任务，确认后启动
+   后台检索而不重复运行已完成任务。
+5. **F170 Research**：按 Graph Research 节点执行真实独立 Web Search、来源判读、进度事件、失败章节
+   重试和人工来源取舍；更新依赖指向 F194。
+6. **F171 Report**：Research 确认后由 `qwen3.7-plus` 生成结构化报告、引用与质量检查，持久化完成态。
 
-五个切片共享 `packages/contracts/src/research.ts`、Research Graph State、Web 单页工作区和 migration，
-必须串行；每一项单独 issue、分支、验证和 PR。
+六个切片共享 Research 契约、Graph State、内部 Graph Client、单页工作区和 migration，必须串行；
+每一项单独 issue、分支、验证和 PR。
 
 ## 16. 验证策略
 
 ### 16.1 契约
 
 - 五种 Node Command 都要求完整 nodeState。
+- 四个生成边界断言实际选择 `qwen3.7-plus`，并验证生产配置无 deterministic fallback。
 - 未知字段、非法引用、缺少 requestId、缺少 expectedGraphVersion 均失败。
 - 成功和错误响应封闭，Web 与 API 使用同一 schema。
 
 ### 16.2 真实 PostgreSQL / LangGraph
 
 - 每个节点确认后产生 checkpoint，API 重启后从相同 thread 恢复。
+- Graph 服务进程重启后从 PostgreSQL 恢复，不能依赖 NestJS 内存或 Python in-memory saver。
 - 同 requestId 同 payload 返回首次结果；不同 payload 返回 409。
 - checkpoint 前后进程退出不会重复写业务内容或重复启动外部调用。
 - 上游重确认只使规定的下游节点 stale。
@@ -499,14 +536,17 @@ revision，不依赖应用层约定。
 3. **双写不一致**：Effect receipt + operationId 幂等，禁止在 interrupt 前产生副作用。
 4. **并发覆盖**：graphVersion 与 payload fingerprint 双重校验。
 5. **旧路由回退**：保留旧 URL 解析测试，但只由服务端 currentNode 决定实际步骤。
-6. **范围失控**：五个垂直切片串行，一项一 PR；不在基础切片中实现真实 Web Search 或报告。
+6. **范围失控**：六个垂直切片串行，一项一 PR；不在基础切片中实现真实 Web Search 或报告。
+7. **跨语言契约漂移**：TypeScript 契约生成 JSON Schema，Python 运行时只消费生成物；CI 对生成物做
+   clean-diff 检查。
 
 ## 18. 完成判据
 
-当五个切片全部合入后：
+当六个切片全部合入后：
 
 - 一项研究对应一个持久 LangGraph thread。
 - 五个步骤都有明确 Graph Node 和可检查 checkpoint。
+- 所有生成节点均真实调用 `qwen3.7-plus` 并返回通过 schema 的结构化结果。
 - 每次前端节点调用均提交完整 nodeState。
 - 前端刷新、API 重启、任务失败和离开返回均能恢复。
 - 步骤切换不再依赖 `flow=` 路由或整页刷新。
@@ -519,11 +559,9 @@ revision，不依赖应用层约定。
 
 1. 在 UC-24.6 增加可解析的 LangGraph 节点持久化需求锚点，记录“完整 nodeState + 单路由 +
    checkpoint 恢复”这一新决策，不用 F170 的旧 R4 暗示它已经覆盖全部 Graph 基础。
-2. 为 Graph 基础、Brief、Directions、Outline 三个缺失垂直切片生成新的 feature 四元组；F170 和
-   F171 继续只承担真实 Search 与真实 Report。
+2. 新增 F191–F194 四个垂直切片；F170 和 F171 分别承担真实 Search 与真实 Report，共六个串行切片。
 3. 更新 `contracts/research` 的 UI、用例、API 契约与 coverage，把新 feature 纳入 `covers`；
    `design-signoff.md` 的确认状态只能由人类修改。
 4. 重新执行阶段一致性复核，重点核对 Agent Runtime、Skill、Files/Artifact 和 Research 的跨束约束。
-5. 收口当前 F180 “代码和 issue 已合入/关闭，但 feature_list 仍为 in_progress”的状态漂移；在此之前
-   不 claim F170，不并行修改共享 Research 热点。
-6. F170 已建立公开 issue #1357；后续每个新增 feature 仍需各自 issue、分支、验证和 PR。
+5. F180 已在最新 `main` 机械转为 passing；开工前仍需确认没有其它 owner 正在修改共享 Research 热点。
+6. F170 已建立公开 issue #1357；F191–F194 仍需分别建立 issue、分支、验证和 PR。
