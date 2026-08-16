@@ -17,6 +17,8 @@
  *   - L3 失败 ⇒ 同样降级为「本次未召回」，`l3Status` 记 `"degraded"`；`deps.files` 干脆没配置时
  *     记 `"not_configured"`（这是「没打开」，与「打开了但这次失败了」是两个不同的事实，
  *     不应该被同一个值糊在一起）。
+ *   - F190（工具调用轨迹）失败 ⇒ 同 L3 的三态写法：`deps.toolTrace` 没配 = `"not_configured"`，
+ *     配了但抛错 = `"degraded"`，`toolTraceRunCount`/`toolTraceStepCount` 保持 0。
  *
  * ## token 估值不是真实 token 数
  *
@@ -70,6 +72,17 @@ export interface AgentRunContextSnapshotInput {
    * L3 查询（`l3Status === "not_configured"`）。与 `l3Status`/`l3HitCount` 同级的标量字段。
    */
   readonly l3RetrievalScope: L3RetrievalScope | null;
+  /**
+   * F190 —— 工具调用轨迹跨 run 回喂上下文（design-delta `tool-trace-cross-run-context` §1④）。
+   * 与 L2/L3 同一套三态语义：`not_configured` = 这次执行根本没接这一层（`deps.toolTrace`
+   * 缺省）；`degraded` = 接了但这次抛过异常；`ok` = 查询本身成功（零候选/全部被 L1 去重
+   * 跳过也是 `ok`，同 L3 端口纪律）。
+   */
+  readonly toolTraceStatus: ContextLayerStatus;
+  /** F190：实际被回喂进 history 的历史 run 数（被 L1 去重跳过的不计入）。未配置/降级恒为 0。 */
+  readonly toolTraceRunCount: number;
+  /** F190：实际回喂的 tool_call step 总数（跨 `toolTraceRunCount` 条 run 累加）。 */
+  readonly toolTraceStepCount: number;
   /** 保守字符预算换算出的估值，不是真实 token 数——见本文件头注。 */
   readonly estimatedTokens: number;
 }

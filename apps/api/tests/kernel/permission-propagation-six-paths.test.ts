@@ -867,7 +867,18 @@ describe("lint-permission-paths: counter-proof", () => {
     // ① 名到的表恰好是 `projects`/`project_tags`；② `canCreateProject` 判定在第一次
     // `deps.repo.updateTags` 之前，且未通过必须抛出（按字符下标断言，不是「文件里有这两
     // 个词」）。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(57);
+    //
+    // ⚠ Raised 57 -> 58 by F190（design-delta `tool-trace-cross-run-context`，PR #1409 已
+    // 签核）：新条目是 `infrastructure/agent-run/pg-tool-trace-context.ts`。与上面 F157
+    // `pg-agent-run-context-snapshot.ts` 的 `record()` 同一个「系统内部读」形状——`recent()`
+    // 只被 `execute-run.ts` 的组装管线调用，读回的是拼进 `ModelCallInput.history` 给模型看
+    // 的伪消息素材，从未作为任何一个面向请求者的用例的返回值存在。
+    //
+    // 它的**被强制的前提**：`tests/chat/tool-trace-context-repo-guard.test.ts` 断言两件——
+    // ① 名到的表恰好是 `agent_runs`/`agent_run_steps`/`chat_messages`；② `src/interface/`
+    // 下没有任何 controller 直接调用它或 import 这个仓储/端口（按源码字符串扫描断言，不是
+    // 「文件里有这两个词」）。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(58);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

@@ -58,6 +58,9 @@ import {
   buildFileContextMessage, FILE_RETRIEVAL_MAX_HITS, type FileRetrievalPort,
 } from "./file-retrieval";
 import type { AgentRunContextSnapshotPort, ContextLayerStatus } from "./context-snapshot";
+import {
+  buildToolTraceMessage, TOOL_TRACE_RUN_LIMIT, type ToolTraceContextPort,
+} from "./tool-trace-context";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -297,6 +300,14 @@ export interface ExecuteAgentRunDeps {
    * F157 之前逐字节相同（不影响 history/model 调用本身）。
    */
   readonly contextSnapshots?: AgentRunContextSnapshotPort;
+  /**
+   * F190 —— 工具调用轨迹跨 run 回喂上下文（design-delta `tool-trace-cross-run-context`，
+   * 已签核）。**可选**，与 `files`/`contextSnapshots` 同一条既有理由：既有测试与不需要
+   * 这一层的执行路径（`trial-run-agent` 一类）不必都改，生产合成（`kernel.module.ts` →
+   * `AgentRunExecutor`）必定注入。缺省不注入 ⇒ 行为与 F190 之前逐字节相同（history 不多
+   * 一条伪消息）。
+   */
+  readonly toolTrace?: ToolTraceContextPort;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -492,6 +503,11 @@ async function executeClaimed(
   // 上才翻成 `"ok"`——这样"外层 try 整体失败"与"内层 L2 try 自己抛错"两条路径**不必各写一次
   // 赋值**，天然都停在悲观默认值上，不会有遗漏某条 catch 分支忘记标记降级的风险。
   let l1MessageCount = 0;
+  // F190 §1②：L1 已保留消息的 id 集合，供工具轨迹去重判定用（该 run 的写回消息若仍在这个
+  // 集合里，说明 L1 原文已经覆盖了它，工具轨迹伪消息要跳过这一轮，见下方 L3 之前那段）。
+  // 读取失败时保持空集——空集下 `buildToolTraceMessage` 里"找不到证据说它已被 L1 覆盖"这条
+  // 保守规则不会误伤：宁可多算一轮（不跳过），不猜一个可能是错的"已覆盖"结论。
+  let l1MessageIds: ReadonlySet<string> = new Set();
   let l2Status: Exclude<ContextLayerStatus, "not_configured"> = "degraded";
   let l2CoveredThroughId: string | null = null;
   try {
@@ -502,6 +518,7 @@ async function executeClaimed(
     );
     const l1 = trimHistoryToBudget(candidates, HISTORY_MAX_CHARS);
     l1MessageCount = l1.length; // F157：这是本轮真正进模型的 L1 条数，读取失败时保持默认 0。
+    l1MessageIds = new Set(l1.map((m) => m.id).filter((id): id is string => id !== undefined));
 
     // L2：直读已有持久摘要，只对「L1 边界之前、尚未纳入摘要」的新增轮增量摘要并写回。
     // 这一段整体不 fail run（E1，见 spec R4）——任何一步失败都退回「只有 L1，没有 L2 摘要」，
@@ -572,6 +589,55 @@ async function executeClaimed(
       runId: run.runId,
       detail: e instanceof Error ? e.message : "unexpected thread history read failure",
     });
+  }
+
+  /*
+   * ── 工具调用轨迹跨 run 回喂上下文（F190，design-delta `tool-trace-cross-run-context`）──
+   *
+   * L1/L2/L3 之外的第四类来源：本线程最近 `TOOL_TRACE_RUN_LIMIT` 轮**记录过 tool_call 的**
+   * 历史 run，作为一条伪消息回喂——多轮 agentic 任务里，下一轮不再对上一轮做过的工具调用
+   * 完全失明。失败**降级**，不 fail run（同 L2/L3 既有纪律）。
+   *
+   * 预算优先级 L1 > L2 > 工具轨迹 > L3（delta §1②）体现在下面的**注入位置**：先插入工具轨迹
+   * （离当前轮更远），随后 L3 的既有代码把文件上下文插到最前面（离当前轮最远）——
+   * 最终顺序 [L3, 工具轨迹, L2摘要, ...L1]，越靠后越贴近当前轮、这份代码库里"近几轮永远优先"
+   * 的同一条取舍。
+   */
+  // F190 —— 三态默认值，同 L3 的既有写法：没配 `deps.toolTrace` 就是 "not_configured"；
+  // 配了就悲观从 "degraded" 起步，只有真正查询成功才翻 "ok"。
+  let toolTraceStatus: ContextLayerStatus = deps.toolTrace ? "degraded" : "not_configured";
+  let toolTraceRunCount = 0;
+  let toolTraceStepCount = 0;
+  if (deps.toolTrace) {
+    try {
+      const traceRuns = await deps.toolTrace.recent(
+        orgId, run.threadId, run.runId, TOOL_TRACE_RUN_LIMIT,
+      );
+      const traceMessage = buildToolTraceMessage(traceRuns, l1MessageIds);
+      toolTraceStatus = "ok"; // 查询本身成功——零候选/全部被去重也是 "ok"，同 L3 端口纪律。
+      if (traceMessage !== null) {
+        history = [traceMessage, ...history];
+        // F190 §④ 可审计：记录"这次实际回喂了几轮、几条 step"——只统计真正被
+        // `buildToolTraceMessage` 采纳进伪消息的那部分（被 L1 去重跳过的、或因预算被整条
+        // 丢弃的轮不计入），与快照"实际喂入了什么"的既有哲学一致（同 F157 头注）。
+        const eligibleRunIds = new Set(
+          traceRuns
+            .filter((r) => r.outputMessageId === null || !l1MessageIds.has(r.outputMessageId))
+            .map((r) => r.runId),
+        );
+        toolTraceRunCount = eligibleRunIds.size;
+        toolTraceStepCount = traceRuns
+          .filter((r) => eligibleRunIds.has(r.runId))
+          .reduce((sum, r) => sum + r.steps.length, 0);
+      }
+    } catch (e) {
+      deps.log("agent run tool-call trace read failed, continuing without it", {
+        runId: run.runId,
+        detail: e instanceof Error ? e.message : "unexpected tool-call trace read failure",
+      });
+      // F190：toolTraceStatus 保持悲观默认 "degraded"，run/step 计数保持 0——降级为空是
+      // 诚实的答案，同 L2/L3 既有纪律。
+    }
   }
 
   /*
@@ -665,6 +731,9 @@ async function executeClaimed(
         l3HitCount,
         l3Sources,
         l3RetrievalScope,
+        toolTraceStatus,
+        toolTraceRunCount,
+        toolTraceStepCount,
         estimatedTokens,
       });
     } catch (e) {
