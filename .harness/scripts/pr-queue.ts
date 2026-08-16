@@ -112,6 +112,7 @@ function render(results: Array<{ facts: PrFacts; result: PrClassification }>, ar
   for (const { facts, result } of results) {
     log.step(`PR #${result.number} → ${result.state}（head ${facts.headSha.slice(0, 12)}，作者 ${facts.author}）`);
     for (const reason of result.reasons) log.info(`   · ${reason}`);
+    for (const advisory of result.advisories) log.info(`   · ${advisory}`);
     const auth = mergeAuthorization(result.state, mode);
     log.info(`   合并授权：${auth.allowed ? "允许" : "拒绝"} — ${auth.reason}`);
     if (auth.allowed) log.info(`   人类执行：gh pr merge ${result.number} --squash --delete-branch`);

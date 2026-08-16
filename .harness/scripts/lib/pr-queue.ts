@@ -68,6 +68,9 @@ export interface PrClassification {
   reasons: string[];
   /** 阻断合并的理由子集（reasons 里导致 state ≠ READY_TO_MERGE 的那些） */
   blockers: string[];
+  /** APPROVE_CHECK_SUSPENDED=true 时，本该拦人的独立 approve 理由挪到这里——
+   *  仍然算出、仍然可见，只是不影响 state。见该常量定义处的说明。 */
+  advisories: string[];
 }
 
 const OK_VERDICT = "review:feature-ok";
@@ -129,6 +132,27 @@ const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS
  */
 export const REQUIRED_CHECKS = ["verify-control-plane", "verify-affected", "verify-full-compile"] as const;
 
+/**
+ * 2026-08-16（人类第二次裁决，同一天）：独立 approve 检查（"verdict label 必须
+ * 锚定当前 head 的正式 review 背书"这条）**暂停，只记录、不拦人**。
+ *
+ * 起因：merge-gate.ts 第一次修正（PR #1442）把条件放宽成"原生 APPROVE 或
+ * review:*-ok 标签，二者取一"后，进一步核实发现全仓 300 个 PR（不限状态）里
+ * review:feature-ok / review:e2e-ok 标签出现次数同样是 0——不只是没人提交原生
+ * review，标签机制本身在可观测历史里似乎也没被真正打过。task_3e1337b9 正在
+ * 核实这套 review 裁决机制到底有没有在实际运转。
+ *
+ * 这个常量**同时**门控 pr-queue.ts（本文件）与 merge-gate.ts（从本文件导入，
+ * 不在那边另定义一份——同一件事只能有一个开关，不能各改各的），两个模块此后
+ * 对同一个 PR 会给出一致结论，不会出现"一个放行、另一个拦"的窗口期。
+ *
+ * ⚠ 这**削弱了 #956/#451 本身要堵的洞**（admin bypass 绕过 review 直接合并）：
+ * 人类已经知情并选择这个权衡，不是 agent 自己拍板。恢复方式：task_3e1337b9
+ * 有结论后，把这个常量改回 false（如果标签机制确实在用）或重新设计整条检查
+ * （如果确认根本没在用）——改这一行，两个模块同时恢复，不用分别改。
+ */
+export const APPROVE_CHECK_SUSPENDED = true;
+
 export function isOkVerdict(label: string): boolean {
   return label === OK_VERDICT || label === E2E_OK_VERDICT;
 }
@@ -152,6 +176,7 @@ export function classifyPr(facts: PrFacts): PrClassification {
   const changes: string[] = [];
   const waitingCi: string[] = [];
   const waitingReview: string[] = [];
+  const advisories: string[] = [];
 
   // ── 1. 关联 issue ────────────────────────────────────────────────────────
   if (facts.closesIssues.length === 0) {
@@ -229,16 +254,19 @@ export function classifyPr(facts: PrFacts): PrClassification {
     changes.push(`带 ${CHANGES_VERDICT} label——等 worker 返工`);
   }
   if (okLabels.length > 0 && currentShaApprovals.length === 0) {
-    blocked.push(
+    const reason =
       `verdict label ${okLabels.join("/")} 没有锚定当前 head \`${facts.headSha}\` 的独立 approve 背书` +
-        (staleApprovals.length > 0
-          ? `（只有锚在 ${staleApprovals.map((r) => r.commit).join("/")} 的旧 review，head 已漂移，旧结论失效，铁律 9）`
-          : "（根本查不到对应的正式 review——来路不明的 verdict 应摘除后重判，铁律 1）"),
+      (staleApprovals.length > 0
+        ? `（只有锚在 ${staleApprovals.map((r) => r.commit).join("/")} 的旧 review，head 已漂移，旧结论失效，铁律 9）`
+        : "（根本查不到对应的正式 review——来路不明的 verdict 应摘除后重判，铁律 1）");
+    // APPROVE_CHECK_SUSPENDED 时降级为 advisory，不再进 blocked（见该常量定义处）。
+    (APPROVE_CHECK_SUSPENDED ? advisories : blocked).push(
+      APPROVE_CHECK_SUSPENDED ? `[已暂停，仅记录] ${reason}` : reason,
     );
   }
   if (okLabels.length === 0) {
     waitingReview.push("还没有 `review:*-ok` verdict——按 SOP §3 路由调起必需 reviewer");
-  } else if (currentShaApprovals.length === 0) {
+  } else if (!APPROVE_CHECK_SUSPENDED && currentShaApprovals.length === 0) {
     waitingReview.push(`需要针对当前 head \`${facts.headSha}\` 重新派 exact-SHA review`);
   }
 
@@ -264,7 +292,13 @@ export function classifyPr(facts: PrFacts): PrClassification {
               ? "WAITING_REVIEW"
               : "READY_TO_MERGE";
 
-  return { number: facts.number, state, reasons, blockers: state === "READY_TO_MERGE" ? [] : reasons };
+  return {
+    number: facts.number,
+    state,
+    reasons,
+    blockers: state === "READY_TO_MERGE" ? [] : reasons,
+    advisories,
+  };
 }
 
 /** 从 PR 正文解析 `Closes #N` / `closes #N`（GitHub 支持的闭合关键字取常用子集）。 */

@@ -63,15 +63,21 @@ export function mergeGate(args: Args): void {
 
   if (args.flags["json"] === true) {
     console.log(JSON.stringify({ number: facts.number, head_sha: facts.headSha, ...result }, null, 2));
-  } else if (result.passed) {
-    log.ok(`PR #${num}（head ${facts.headSha.slice(0, 12)}）满足机械合并门禁：独立 APPROVE + 唯一 verdict label + Closes 关联`);
   } else {
-    log.err(`PR #${num}（head ${facts.headSha.slice(0, 12)}）不满足机械合并门禁：`);
-    for (const reason of result.reasons) log.info(`   · ${reason}`);
-    log.warn(
-      "本 job 只能挡住 CI 状态与自动化流程——它不能阻止 repo admin 在 GitHub 网页端直接点合并（bypass）。" +
-        "把它变成真正拦人的门，需要人类在 Settings → Branches 把这个 check 加进 required status checks 并勾选 Include administrators。",
-    );
+    if (result.passed) {
+      log.ok(`PR #${num}（head ${facts.headSha.slice(0, 12)}）满足机械合并门禁：唯一 verdict label + Closes 关联`);
+    } else {
+      log.err(`PR #${num}（head ${facts.headSha.slice(0, 12)}）不满足机械合并门禁：`);
+      for (const reason of result.reasons) log.info(`   · ${reason}`);
+      log.warn(
+        "本 job 只能挡住 CI 状态与自动化流程——它不能阻止 repo admin 在 GitHub 网页端直接点合并（bypass）。" +
+          "把它变成真正拦人的门，需要人类在 Settings → Branches 把这个 check 加进 required status checks 并勾选 Include administrators。",
+      );
+    }
+    if (result.advisories.length > 0) {
+      log.warn("以下检查已暂停（不影响本次判定，仅记录，见 lib/merge-gate.ts 头部 2026-08-16 说明）：");
+      for (const advisory of result.advisories) log.info(`   · ${advisory}`);
+    }
   }
   if (!result.passed) process.exitCode = 1;
 }
