@@ -1,10 +1,10 @@
 ---
-status: pending              # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+status: confirmed              # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: templates
 scope: blueprint-design-facet-panels-d05-tier2
-confirmed_by: null
-confirmed_at: null
-confirmed_via: null
+confirmed_by: usam.shen@gmail.com
+confirmed_at: "2026-08-17"
+confirmed_via: "对话签核（coord-main 转述提案，人类逐项批准）——解开 D-05 二级 sign-off：16 项设计配置面板（含新确认的第16项「基本配置」）按 R10 草稿采纳字段/交互设计；面板 4 定名「角色与权限」（不用原型内部标题「角色与分组」）；权限矩阵灰格只读（产品硬约束，界面禁用不可点击）、其余格可勾选；G1（分组规则/角色与权限内容重叠）、G2（空间要求输入形态未确认）、G3（问卷 Studio 模块指代不明）三项登记为已知缺口，不阻塞本轮签核，留待后续确认。"
 ---
 
 # templates 束 delta —— 蓝本设计器 16 项面板内容（解开 D-05 二级 sign-off）
