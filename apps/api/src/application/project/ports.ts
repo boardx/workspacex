@@ -18,6 +18,8 @@
 import type { z } from "zod";
 import { project } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
+import type { OrgRole } from "../../domain/identity/roles";
+import type { DurationTier, CategoryInitCount } from "../../domain/templates/apply-blueprint-init";
 import type { ProjectKind } from "../../domain/project/create-project-rules";
 
 export interface CreateProjectCommand {
@@ -29,6 +31,15 @@ export interface CreateProjectCommand {
   readonly blueprintVersionId: string | null;
   /** `domain/project/create-project-rules.ts` 算出来的指纹。仓储不自己算——两处算就是两份判据。 */
   readonly fingerprint: string;
+  /**
+   * BP-08（人类 2026-08-16 裁：最小闭环 B）——非 null 时同一事务里额外写一行
+   * `blueprint_bindings`（`kind='project'`），记录"这个蓝本被套用了"的事实。
+   * ⚠ 本轮**不写**任何 `agenda_segments`（六类初始化的"议程环节"一类）：
+   * 逐段时长无出处（`KNOWN_CONTRACT_GAPS.P10`），本轮不发明。表/列已就绪
+   * （`blueprint_bindings.kind` 的 CHECK 早已包含 `'project'`，BP-04/F179 迁移），
+   * 零新增存储。
+   */
+  readonly blueprintBinding: { readonly blueprintId: string } | null;
 }
 
 export interface CreatedProject {
@@ -44,11 +55,74 @@ export interface CreatedProject {
    *   实现也会全绿，而它其实建了两行。
    */
   readonly created: boolean;
+  /**
+   * BP-08：`blueprintVersionId` 非 null 时的六类初始化摘要，与 `getInitializationPreview`
+   * 同一个 planner（`planSixCategoryInit`）产出，六类计数逐项对得上（AC2）。
+   * ⚠ **不进契约响应体**——`createProject.out` 是 `.strict()` 四字段，本轮未走新的
+   * 契约 delta 加字段（范围收紧到最小闭环）；只在应用层返回值里给内部消费方/测试
+   * 核对用。空白新建（`blueprintVersionId === null`）时为 `undefined`。
+   */
+  readonly initialized?: readonly CategoryInitCount[];
+}
+
+/**
+ * BP-08 的只读解析端口——由 `createProject` 在写入前调用，判"这个 blueprintVersionId
+ * 能不能用来建项目"。**故意不是** `ProjectRepository` 的一部分：这是一次跨束读
+ * （读 `templates` 束的 `blueprint_versions`/`blueprints` 表），与「项目容器怎么原子写」
+ * 是两件不相关的事，混进同一个接口会让两边的 `lint-permission-paths` 豁免绑在一起。
+ */
+export type ResolveBlueprintReferenceOutcome =
+  | {
+      readonly kind: "ok";
+      readonly blueprintId: string;
+      /** 该版本冻结快照里已填的设计配置项 key（不是当前草稿——快照不漂移，I-1）。 */
+      readonly filledFacetKeys: readonly string[];
+      /**
+       * ⚠ 活表 `blueprints.duration_tier` 当前值，**不是**版本快照里的档位——版本快照
+       * 从未冻结过档位（`KNOWN_CONTRACT_GAPS.T15`，人类 2026-08-16 裁：本轮按活表走，
+       * 登记为已知缺口，不假装快照里有）。
+       */
+      readonly tier: DurationTier;
+    }
+  /** 不存在或越权可见，两者不可区分，不泄露资源存在性（同 `templates` 束同一条纪律）。 */
+  | { readonly kind: "not-found" }
+  /**
+   * team-only 且调用者不在该 team。⚠ 当前系统蓝本 `scope` 恒 `org-wide`（BP-01 尚无
+   * 可见性写入路径），这一支**今天不可达**——实现仍然判它，是为了可见性写入路径
+   * 落地那天不必回头改这段编排（同 `blueprint.controller.ts` 的 `list()` 先例）。
+   */
+  | { readonly kind: "not-visible" }
+  /** 传入版本已归档，本次是**新增绑定**（I-7 只允许存量绑定继续实例化）。 */
+  | { readonly kind: "version-archived" };
+
+export interface BlueprintReferenceRepository {
+  resolve(
+    orgId: OrgId,
+    blueprintVersionId: string,
+    actorOrgRole: OrgRole | null,
+    actorTeamId: string | null,
+  ): Promise<ResolveBlueprintReferenceOutcome>;
+}
+
+export const BLUEPRINT_REFERENCE_REPOSITORY = Symbol("BlueprintReferenceRepository");
+
+/**
+ * 六类写入部分失败（本轮范围内实际只可能是 `blueprint_bindings` 那一行写入失败，
+ * 例如蓝本在解析后、写入前被并发删除——`23503` 外键违反）。整个 `create()` 事务
+ * 已回滚（不留半成品项目行），仓储抛这个类，`create-project.ts` 翻译成
+ * `INITIALIZATION_FAILED`。
+ */
+export class BlueprintBindingFailedError extends Error {
+  constructor() {
+    super("blueprint binding insert failed; transaction rolled back as a whole");
+    this.name = "BlueprintBindingFailedError";
+  }
 }
 
 export interface ProjectRepository {
   /**
-   * **一个事务，两行**：`projects` 一行 + 对应子类型表一行 + 重放表一行。
+   * **一个事务，两行**（BP-08 起，`blueprintVersionId` 非 null 时是三行）：
+   * `projects` 一行 + 对应子类型表一行 + 重放表一行 + （可选）`blueprint_bindings` 一行。
    *
    * 幂等由重放表的**主键冲突**保证，不是先查后写：先查后写在并发下两路都会
    * 读到「没有」，然后都写（`ProjectReason.SEGMENT_ALREADY_ACTIVE` 那条注释里的同一个坑）。

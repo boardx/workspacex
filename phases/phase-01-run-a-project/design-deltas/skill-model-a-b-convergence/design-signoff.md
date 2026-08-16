@@ -6,9 +6,14 @@ scope: converge-skill-declarative-contract-model-b-and-file-based-model-a
 # covers 追加（2026-08-16，requirement-author 生成 F191 后回填）：签核时（08:42）尚无
 # F-number，人类已确认的是选项②这个技术方向本身（不是某个具体 F 编号）。回填时
 # 原定的 F190 已被另一支并行分支（chat 域，PR #1421，工具调用轨迹跨run回喂上下文）
-# 独立占用并先合并，本条改用下一个真正空闲的号 F191（coord-main 合并前核对时发现，
-# 机械修正，不是新的设计决定）——不改 status/confirmed_by/confirmed_at/confirmed_via 一字。
-covers: [F191]
+# 独立占用并先合并，本条当时改用下一个真正空闲的号 F191（机械修正，不是新的设计决定）。
+# ⚠ 2026-08-16（第二次机械修正，本次由 dev-project agent 在解决 PR #1443 合并冲突时发现）：
+#   F191 又被**另一支**并行分支（project 域，PR #1443，createProject 真执行蓝本套用/BP-08）
+#   独立占用并先合并——本文档落地时该 feature 尚未实现，只是这份 delta 文档本身抢先占了
+#   F191 这个号，而 createProject 那条已经带着真实代码/测试/evidence 落库 passing。
+#   本条改用下一个真正空闲的号 **F192**（同上一次的性质，机械重编号，不是新的设计决定）——
+#   不改 status/confirmed_by/confirmed_at/confirmed_via 一字。
+covers: [F192]
 confirmed_by: yanbin shen
 confirmed_at: 2026-08-16T08:42:00+08:00
 confirmed_via: >-

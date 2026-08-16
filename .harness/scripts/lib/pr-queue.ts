@@ -129,7 +129,7 @@ const BLOCKING_MERGE_STATES = new Set(["DIRTY", "BLOCKED", "UNKNOWN", "HAS_HOOKS
  */
 export const REQUIRED_CHECKS = ["verify-control-plane", "verify-affected", "verify-full-compile"] as const;
 
-function isOkVerdict(label: string): boolean {
+export function isOkVerdict(label: string): boolean {
   return label === OK_VERDICT || label === E2E_OK_VERDICT;
 }
 

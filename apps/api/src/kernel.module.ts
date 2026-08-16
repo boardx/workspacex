@@ -269,6 +269,7 @@ import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor"
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
+import { SkillTrialRunController, SKILL_TRIALRUN_MODEL_ID } from "./interface/controllers/skill-trial-run.controller";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
 import { AGENT_PUBLISH_REPOSITORY, AGENT_REVIEWER_FUNCTION_PORT } from "./application/agent/agent-publish";
@@ -403,6 +404,7 @@ import { DeviceSessionController } from "./interface/controllers/device-session.
 // `pg-project-overview-repository.ts` / `pg-project-archive-repository.ts` 的注释。
 import {
   AGENDA_SEGMENT_REPOSITORY,
+  BLUEPRINT_REFERENCE_REPOSITORY,
   PROJECT_ARCHIVE_REPOSITORY,
   PROJECT_LIST_REPOSITORY,
   PROJECT_OVERVIEW_REPOSITORY,
@@ -418,6 +420,10 @@ import { PgProjectListRepository } from "./infrastructure/project/pg-project-lis
 import { PgAgendaSegmentRepository } from "./infrastructure/project/pg-agenda-segment-repository";
 import { PgProjectOverviewRepository } from "./infrastructure/project/pg-project-overview-repository";
 import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-archive-repository";
+// BP-08（本次新增）：`BLUEPRINT_REFERENCE_REPOSITORY`——只读，独立 provider（`createProject`
+// 判 blueprintVersionId 合不合法时用）；见 `application/project/ports.ts` 与
+// `pg-blueprint-reference-repository.ts` 的注释。
+import { PgBlueprintReferenceRepository } from "./infrastructure/project/pg-blueprint-reference-repository";
 import { PgProjectTagsRepository } from "./infrastructure/project/pg-project-tags-repository";
 import { PgProjectMembershipRepository } from "./infrastructure/project/pg-project-membership-repository";
 import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-token-member-resolver";
@@ -572,6 +578,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AgentRunController,
     CopilotkitAguiController,
     AgentTrialRunController,
+    SkillTrialRunController,
     AgentController,
     AgentPublishController,
     SkillController,
@@ -973,6 +980,21 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       },
     },
     {
+      /**
+       * 模型 A skill 试跑（`SkillTrialRunController`）要一个 modelId——skill 本身没有
+       * `model_provider`/`model_id` 列（那是 agent 才有的字段），trial-run-skill.ts
+       * 头注解释了为什么。provider 复用**同一个**已配置的 chat provider（不新开
+       * 第二条模型接入面），modelId 是一个独立、可选的部署配置——空串 = 这个
+       * 部署没打开这条能力，`trial-run-skill.ts` 在调用时诚实报 `MODEL_UNAVAILABLE`，
+       * 不在这里让整个进程启动失败（那会把「一个能力没配」变成「全组织 API 起不来」）。
+       */
+      provide: SKILL_TRIALRUN_MODEL_ID,
+      useFactory: () => ({
+        provider: readModelProviderConfig().provider,
+        modelId: process.env.KERNEL_SKILL_TRIALRUN_MODEL_ID ?? "",
+      }),
+    },
+    {
       provide: AGENT_RUN_EXECUTOR,
       // #741: `KERNEL_TOOL_CALLING_ENABLED` retired along with the TS tool loop it gated
       // (see `execute-run.ts`'s own header) -- `AgentRunExecutor` no longer takes that
@@ -1171,6 +1193,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: PROJECT_REPOSITORY,
       useFactory: (db: DatabasePort, ids: UuidIdFactory) => new PgProjectRepository(db, ids),
       inject: [DATABASE_PORT, ID_FACTORY],
+    },
+    // BP-08：只读，独立 provider，见 `pg-blueprint-reference-repository.ts` 文件头。
+    {
+      provide: BLUEPRINT_REFERENCE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgBlueprintReferenceRepository(db),
+      inject: [DATABASE_PORT],
     },
     // F122：独立 provider，见 `pg-project-list-repository.ts` 文件头。
     {

@@ -93,6 +93,17 @@ export default {
       // 操作命中，仍然写出来 —— 这正是 `/threads` 那条留下的教训。
       { source: `${prefix}/skill-versions`, destination: `${apiOrigin}/skill-versions` },
       { source: `${prefix}/skill-versions/:path*`, destination: `${apiOrigin}/skill-versions/:path*` },
+      // 实测（真栈 e2e，`skill-agent-import-usecase-audit.spec.ts` ②）——**这是同一个坑
+      // 的第 N 次，且这次没有任何一条注释提前警告过**：`asset-directory.controller.ts`
+      // 的五个端口（`GetAssetDirectory`/`ReadAssetFile`/`WriteAssetFile`/`DeleteAssetFile`/
+      // `RenameAssetFile`，全部挂在 `/assets/:assetKind/:assetId/files...` 下）此前
+      // 没有任何一条 rewrite。在这套「同源代理前缀」的浏览器门控下，`AgSkillEditor`
+      // 打出去的每一次真实数据读写都被 Next 自己接住返回 404 HTML，`apiRequest` 的
+      // `JSON.parse` 崩在 `<!DOCTYPE`，界面表现为「接口错误……已回退 mock」——
+      // 症状与上面五次一模一样，只是这次连累的是 #848/#881 那条"文件浏览器 +
+      // code editor"链路：它在任何走这套代理的环境里（包括这条 e2e 本身）从未真的
+      // 读到过一次真实文件。不存在裸 `/assets` 路径，一条 `:path*` 够。
+      { source: `${prefix}/assets/:path*`, destination: `${apiOrigin}/assets/:path*` },
       // #548：模型池。`/models` 裸路径是 POST 接入（**凭据进入系统的唯一入口**），
       // `/models/:id/admission-tests` 走 `:path*` —— **同一个坑的第七次**（含上面
       // `/skill-versions` 那条，这两条是同一天先后撞上的），前五次的注释就在本文件

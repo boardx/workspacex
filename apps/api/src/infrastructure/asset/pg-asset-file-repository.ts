@@ -123,9 +123,21 @@ export class PgAssetFileRepository implements AssetFileRepository {
     if (assetKind !== "skill") return this.fallback.getDirectory(orgId, assetKind, assetId);
     const files = await this.readCurrentSnapshot(orgId, assetId);
     if (files === null) return null;
+    /**
+     * 试跑（`SkillTrialRunController`）要的是 `skill_versions.id`（`readPinnedSkills`
+     * 按它查），而不是这里的 `assetId`（`skills.id`）——两者不是同一个 id 空间。
+     * `AgSkillEditor` 只知道 `assetId`，所以目录响应得把当前发布版本的 id 带出去；
+     * 不带的话前端除了猜没有别的办法拿到它。多查一次是这条读路径本来就要做的事
+     * （`readCurrentSnapshot` 内部第一步就是它），这里只是把结果也返回给调用方。
+     */
+    const currentVersionId = await this.db.withTenant(
+      orgId,
+      (session) => this.currentPublishedVersionId(orgId, assetId, session),
+    );
     return {
       rootFile: SKILL_ROOT_FILE,
       entries: [...files.entries()].map(([path, f]) => ({ path, sizeBytes: Buffer.byteLength(f.body, "utf8") })),
+      currentVersionId,
     };
   }
 

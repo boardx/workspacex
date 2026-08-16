@@ -1535,4 +1535,23 @@ export const KNOWN_CONTRACT_GAPS = {
    * 是新增/删减契约面，需走 delta）。
    */
   T14: "copying a blueprint has two entry points: createBlueprint with origin='copy' (implemented, F175/BP-01, real-DB tested) and this bundle's standalone copyBlueprint (POST /blueprints/:id/copy, contracted at signoff time, still unimplemented); same shape of issue as T9",
+  /**
+   * **发布的版本快照不冻结时长档位**。`publishBlueprintVersion` 的落库实现
+   * （BP-04/F179，`pg-blueprint-repository.ts`）把 `blueprint_versions.content` 只
+   * 建成 `{ [designFacetKey]: content }`——`duration_tier` 只活在 `blueprints` 表的
+   * 一个可变列上，从未被写进任一版本的冻结快照。
+   *
+   * ⚠ 这与 #991 裁①的文字（「项目继承蓝本版本快照里的档位」）**不完全对得上**：
+   * 快照里其实没有档位可继承。BP-08（createProject 真执行六类初始化）经人类
+   * 2026-08-16 裁决，明确按**活表当前 `duration_tier`**（而不是假装快照里有）
+   * 计算议程环节数——即：蓝本发布 v1 之后若有人改了活表的时长档位，套用 v1
+   * 建的项目拿到的是**改动后的档位**，不是 v1 发布时刻的档位。这是「快照不漂移」
+   * （I-1）在时长档位这一个维度上的已知缺口，不是 BP-08 新引入的行为，
+   * 是本缺口第一次被真实代码路径触达（此前 `blueprintVersionId` 只原样落库，
+   * 不产生任何读档位的分支）。
+   * ⇒ 真正冻结档位需要给 `blueprint_versions.content` 加一列或把 `duration_tier`
+   * 塞进 `content` JSON——两者都是存储结构变更，需要新迁移，按 BP-08「不新建迁移，
+   * 不扩大范围」的裁决，本版不做，登记等后续需要时再补。
+   */
+  T15: "published blueprint version snapshots do not freeze duration_tier -- blueprint_versions.content only carries design-facet contents (BP-04/F179's storage), tier lives solely on the mutable blueprints row; BP-08 (createProject real six-category init) therefore computes agenda segments from the LIVE tier at creation time, not a frozen one, per human decision 2026-08-16 -- a real (if narrow) crack in I-1 'snapshot does not drift', not newly introduced by BP-08 but first reachable through it",
 } as const;

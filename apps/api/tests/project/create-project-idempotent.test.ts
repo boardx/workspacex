@@ -28,6 +28,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { createProject } from "../../src/application/project/create-project";
 import { creationFingerprint } from "../../src/domain/project/create-project-rules";
+import type { BlueprintReferenceRepository } from "../../src/application/project/ports";
 import { PgProjectRepository } from "../../src/infrastructure/project/pg-project-repository";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
@@ -53,9 +54,27 @@ const BASE = {
   blueprintVersionId: null as string | null,
 };
 
+/**
+ * 本文件测的是「同一次请求」的指纹判据（含 `blueprintVersionId` 分量），不是 BP-08
+ * 真正的蓝本合法性校验（那部分见 `tests/project/create-project-blueprint-init.test.ts`）。
+ * ⇒ 任何非 null 的 id 都判"ok"，不查真实存不存在——这里只需要区分「传了不同的
+ * blueprintVersionId 是不是产生不同的指纹」，不需要它对应一条真实的 `blueprint_versions` 行。
+ */
+const stubBlueprintReference: BlueprintReferenceRepository = {
+  resolve: async (orgId) => ({
+    // 每个组织的固定蓝本行（见 beforeEach 的 `bp-fixture-<org>`），与传入的
+    // blueprintVersionId 字面量无关——本文件的指纹分量用的是 createProject 的
+    // *输入* blueprintVersionId，不是这里解析出的 blueprintId。
+    kind: "ok",
+    blueprintId: `bp-fixture-${orgId}`,
+    filledFacetKeys: [],
+    tier: "custom",
+  }),
+};
+
 function submit(over: Partial<typeof BASE> & { orgId?: string } = {}) {
   return createProject(
-    { repo, identity },
+    { repo, identity, blueprintReference: stubBlueprintReference },
     {
       orgId: toOrgId(over.orgId ?? ORG),
       actorId: over.actorId ?? BASE.actorId,
@@ -104,6 +123,15 @@ beforeEach(async () => {
       c.query("INSERT INTO organizations (id, name, kind) VALUES ($1,$2,'organization')", [org, `org ${org}`]),
     );
     await addOrgMember(org, lead, "lead", null);
+    // BP-08：stub 解析出的 blueprintId 必须对应一条真实 `blueprints` 行——
+    // `blueprint_bindings.blueprint_id` 有外键，否则 submit() 会在写绑定这一步
+    // 因 23503 被翻译成 INITIALIZATION_FAILED，而本文件测的是指纹判据，不是这个。
+    await asApp(org, (c) =>
+      c.query(
+        `INSERT INTO blueprints (id, org_id, name, origin, created_by) VALUES ($1,$2,$3,'blank',$4)`,
+        [`bp-fixture-${org}`, org, "指纹测试用蓝本", lead],
+      ),
+    );
   }
   // 同一个人也是 ORG_B 的 lead —— 「换组织」那条边界要能单独动一个分量。
   await addOrgMember(ORG_B, LEAD, "lead", null);
