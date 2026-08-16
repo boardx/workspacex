@@ -163,6 +163,13 @@ const modelProviderEnv = {
    * 因此**每一个起 API 进程的地方**都得供一个，本文件是其中之一。
    */
   MODEL_CREDENTIAL_KEY: "fullstack-smoke-credential-key-not-a-secret",
+  /**
+   * `skill-agent-import-usecase-audit.spec.ts` ③ —— 模型 A skill 试跑要一个 modelId
+   * （skill 本身没有 `model_provider`/`model_id` 列，见 `trial-run-skill.ts` 头注）。
+   * 复用同一个 loopback provider/modelId：不给它配 ⇒ `MODEL_UNAVAILABLE`，
+   * 那条用例会诚实地红在"没配置"而不是"接线错了"，两种红不该混在一起排查。
+   */
+  KERNEL_SKILL_TRIALRUN_MODEL_ID: FULLSTACK_E2E.agentModelId,
 };
 
 export default defineConfig({
@@ -222,12 +229,15 @@ export default defineConfig({
         // ⚠ #853 同理排在 `seeded`：它要用种子里的 sentinel 工作坊（`FULLSTACK_E2E.projectId`）
         //   与该工作坊的 facilitator（`FULLSTACK_E2E.email`，agendaSegment.create 只属这个角色）。
         "agenda-segment-create-smoke.spec.ts",
-        // ⚠ 蓝本管理闭环 + 契约缺口审计（2026-08-15 由 blueprint-to-project-journey.spec.ts
-        //   重命名，见 issue #1323——旧名暗示测试走到了「建项目」，实际没有，见文件头注）
-        //   同理排在 `seeded`：它要用种子里的组织管理员（`FULLSTACK_E2E.adminEmail`，
-        //   唯一能写蓝本的角色）与 sentinel 项目（`FULLSTACK_E2E.projectId`，F29
-        //   缺口门控那条用它做 404 归因排除）。
-        "blueprint-contract-gap-audit.spec.ts",
+        // ⚠ 「蓝本到项目」主流程同理排在 `seeded`：它要用种子里的组织管理员
+        //   （`FULLSTACK_E2E.adminEmail`，唯一能写蓝本的角色）与 sentinel 项目
+        //   （`FULLSTACK_E2E.projectId`，F29 边界证明那条用它做 404 归因排除）。
+        "blueprint-to-project-journey.spec.ts",
+        // ⚠ 「agent/skill 从 GitHub 导入 → 文件浏览+编辑 → 后台测试 → chat `#` 调用」
+        // 这条用户旅程的验收线，同理排在 `seeded` 里：它要用种子里的组织管理员
+        // （`FULLSTACK_E2E.adminEmail`，唯一能写 skill/agent 目录的角色）与
+        // sentinel 项目（`FULLSTACK_E2E.projectId`）。真实访问公网 GitHub。
+        "skill-agent-import-usecase-audit.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },

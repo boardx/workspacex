@@ -164,6 +164,30 @@ interface GithubContentEntry {
 }
 
 /**
+ * 单个目录里并发下载文件的上限。
+ *
+ * ⚠ 实测（真栈 e2e，`skill-agent-import-usecase-audit.spec.ts` ①，2026-08-16）：
+ *   逐个 `await` 下载 `anthropics/skills` 的 `skill-creator` 目录（18 个文件，
+ *   分散在 6 层目录里）在系统负载下总耗时越过了 **Next.js 同源代理写死的 30 秒
+ *   `proxyTimeout`**（`next/dist/server/lib/router-utils/proxy-request.js`：
+ *   `proxyTimeout: proxyTimeout || 30000`，框架默认值，本仓没有配置它）。
+ *   浏览器侧看到的是一个没有 `traceId` 的裸 500——因为连接是被 **Next 的代理**
+ *   掐断的，请求根本没走到 NestJS 的异常过滤器；单独跑（同样的 18 个文件）只要
+ *   10-15 秒，说明这不是「GitHub 变慢了」，是「串行等待把总时长堆到了框架超时线附近，
+ *   一旦本机同时在跑 docker/构建/浏览器就会越过去」——任何比这更大、层级更深的
+ *   skill 目录，经这条同源代理路径导入，**必然**在某个负载水平下复现同一个 500，
+ *   不是偶发。⇒ 修法是缩短总耗时，不是加大超时——加大超时改不动 Next 的默认值，
+ *   除非自定义 server（那是另一件更大的事）。
+ *
+ * 目录列表本身（`walk` 的递归调用）仍然逐层顺序进行——目录数远少于文件数，
+ * 且子目录列表必须先于其中的文件被发现。真正拖时长的是**文件下载**，这里只
+ * 并发这一段。上限选 6：GitHub 未认证请求 60/小时的配额下，过高的并发只会
+ * 更快触顶配额而不会让单次导入明显更快（下载本身不是这条链路的瓶颈，
+ * 排队等待才是）。
+ */
+const DIRECTORY_DOWNLOAD_CONCURRENCY = 6;
+
+/**
  * 递归走 GitHub Contents API 把一个目录取成 `{ 相对路径 → 字节 }` 的扁平文件集合。
  *
  * ⚠ 每一次 HTTP 调用（目录列表、单个文件）都走 `deps.fetch`——与单文件导入
@@ -177,6 +201,53 @@ async function fetchGithubDirectoryFiles(
   policy: ImportUrlPolicy,
 ): Promise<readonly { path: string; content: Buffer; mediaType: string; digest: string }[]> {
   const files: { path: string; content: Buffer; mediaType: string; digest: string }[] = [];
+
+  /**
+   * 一个文件条目取回并落进 `files`——被 `walk` 的并发下载池复用。
+   * 抛出的错误与此前逐个 `await` 时逐字相同（`IMPORT_CONTENT_INVALID`），
+   * 只是现在多个条目的这段代码可能并发在跑。
+   */
+  async function fetchOneFile(raw: GithubContentEntry): Promise<void> {
+    if (raw.download_url === null) return; // 符号链接/submodule 等，跳过
+    const fetched = await fetchFn(raw.download_url, policy);
+    /**
+     * 实测（真栈 e2e，走 `anthropics/skills` 的 `skill-creator` 目录）：
+     * `scripts/__init__.py` 是仓库里一个真实存在、合法的 0 字节文件——GitHub
+     * Contents API 的 `download_url` 已经告诉我们「这确实是一个文件」，空字节数组
+     * 就是它诚实的内容，不是取回失败的信号。⚠ 这里不能照抄单文件导入分支
+     * （`filePathFor` 那条，第 292 行附近）的「空字节 ⇒ 判定失败」——那条判据成立
+     * 的前提是「一个 URL 到底有没有指向东西」是不确定的，而目录列表已经消除了
+     * 这个不确定性。照抄会让任何含空文件的真实仓库目录**必然**导入失败。
+     */
+    if (fetched.body.length > MAX_SINGLE_FILE_BYTES) {
+      throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+    }
+    const relative = raw.path.startsWith(`${root.dirPath}/`)
+      ? raw.path.slice(root.dirPath.length + 1)
+      : raw.path;
+    let path: string;
+    try {
+      path = normalizedPath(relative);
+    } catch {
+      throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+    }
+    files.push({ path, content: fetched.body, mediaType: fetched.mediaType, digest: sha256(fetched.body) });
+  }
+
+  /** 有界并发跑一批文件条目——池子里最多 `DIRECTORY_DOWNLOAD_CONCURRENCY` 个同时在飞。 */
+  async function downloadFilesBounded(entries: readonly GithubContentEntry[]): Promise<void> {
+    let cursor = 0;
+    async function worker(): Promise<void> {
+      for (;;) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= entries.length) return;
+        await fetchOneFile(entries[index]!);
+      }
+    }
+    const workerCount = Math.min(DIRECTORY_DOWNLOAD_CONCURRENCY, entries.length);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  }
 
   async function walk(dirPath: string, depth: number): Promise<void> {
     if (depth > MAX_DIRECTORY_DEPTH) {
@@ -199,29 +270,28 @@ async function fetchGithubDirectoryFiles(
       throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
     }
 
+    const dirs: GithubContentEntry[] = [];
+    const fileEntries: GithubContentEntry[] = [];
     for (const raw of entries as readonly GithubContentEntry[]) {
+      if (raw.type === "dir") dirs.push(raw);
+      else if (raw.type === "file") fileEntries.push(raw);
+      // 其余类型（符号链接/submodule）两边都不进，在 `fetchOneFile`/这里静默跳过。
+    }
+
+    // 上限判在下载之前——与此前逐个判的效果一致（超限必拒），但现在是对这一层
+    // 整批一次判完，不给并发下载一个「先跑起来再半路撞上限」的窗口。
+    if (files.length + fileEntries.length > MAX_DIRECTORY_FILES) {
+      throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
+    }
+    await downloadFilesBounded(fileEntries);
+
+    // 子目录仍然顺序递归——目录数量远小于文件数量，真正拖时长的是文件下载
+    // （见 `DIRECTORY_DOWNLOAD_CONCURRENCY` 头注），这里不值得再上并发的复杂度。
+    for (const dir of dirs) {
       if (files.length >= MAX_DIRECTORY_FILES) {
         throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
       }
-      if (raw.type === "dir") {
-        await walk(raw.path, depth + 1);
-        continue;
-      }
-      if (raw.type !== "file" || raw.download_url === null) continue; // 符号链接/submodule 等，跳过
-      const fetched = await fetchFn(raw.download_url, policy);
-      if (fetched.body.length === 0 || fetched.body.length > MAX_SINGLE_FILE_BYTES) {
-        throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
-      }
-      const relative = raw.path.startsWith(`${root.dirPath}/`)
-        ? raw.path.slice(root.dirPath.length + 1)
-        : raw.path;
-      let path: string;
-      try {
-        path = normalizedPath(relative);
-      } catch {
-        throw new ImportSkillFromUrlError("IMPORT_CONTENT_INVALID");
-      }
-      files.push({ path, content: fetched.body, mediaType: fetched.mediaType, digest: sha256(fetched.body) });
+      await walk(dir.path, depth + 1);
     }
   }
 

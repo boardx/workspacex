@@ -40,17 +40,35 @@ import { describeMessageFailure } from "./chat-live-message-panel";
  * 「谁能挂载」由服务端裁决（组员/组长一律 `MEMBER_CANNOT_SELF_MOUNT` + 写安全审计）。
  * 这里**不**按角色隐藏按钮：隐藏会让「界面没显示」被误读成「权限生效了」，
  * 而真正的越权是直调接口——那条路必须、且只能由服务端挡。被拒时如实显示原因。
+ *
+ * ## `mentionQuery` —— composer 里敲 `#` 的第二个入口，复用同一套状态
+ *
+ * 不给 `#` 单独写一条挂载逻辑（第二份 `version`/`mount()` 会和这里的互相踩，
+ * 见 `one-serialization-layer-is-never-enough` 那类教训的镜像版：两份状态
+ * 才是真正的风险源）。`chat-live-message-panel.tsx` 只负责**检测** `#query`
+ * 并把它经由 `ChatReadScreen` 转发到这里；本组件把它当成「+」按钮的另一个
+ * 触发源——打开同一个 `picking` 面板、按 `mentionQuery` 过滤同一个 `pool`、
+ * 点的是同一个 `mount()`。`mentionQuery` 变回 `null`（用户删掉了 `#`/移开了光标）
+ * 时若这次打开是由 mention 触发的，面板跟着关闭；`mount()` 成功且这次是
+ * mention 触发时，额外调 `onMentionMounted`，让 composer 把 `#query` 从
+ * 输入框正文里删掉——这是**唯一**跨组件的新增耦合面。
  */
 export function ChatSkillMountPanel({
   threadId,
   projectId,
   orgId,
   bearer,
+  mentionQuery,
+  onMentionMounted,
 }: {
   threadId: string;
   projectId: string;
   orgId: string;
   bearer: string;
+  /** `null`/`undefined` = composer 里没有活跃的 `#` mention。 */
+  mentionQuery?: string | null;
+  /** 由一次 mention 触发的挂载成功后调用——composer 借此清掉输入框里的 `#query`。 */
+  onMentionMounted?: () => void;
 }) {
   const [mounts, setMounts] = React.useState<readonly ThreadSkillMount[]>([]);
   /**
@@ -65,6 +83,8 @@ export function ChatSkillMountPanel({
   const [pending, setPending] = React.useState(false);
   const [failure, setFailure] = React.useState<string | null>(null);
   const generation = React.useRef(0);
+  /** 这一次打开是不是由 composer 的 `#` 触发的——决定 `mentionQuery` 归 null 时要不要自动关面板。 */
+  const mentionOpenedRef = React.useRef(false);
 
   const reload = React.useCallback(async () => {
     const requestGeneration = ++generation.current;
@@ -87,7 +107,8 @@ export function ChatSkillMountPanel({
     void reload();
   }, [reload]);
 
-  const openPicker = async () => {
+  const openPicker = async (openedByMention: boolean) => {
+    mentionOpenedRef.current = openedByMention;
     setPicking(true);
     setFailure(null);
     try {
@@ -98,16 +119,40 @@ export function ChatSkillMountPanel({
     }
   };
 
+  /**
+   * `#` 触发：一旦 composer 报来一个非 null 的 query，就把它当成「+」被点了一次
+   * ——只在**从 null 变成非 null**那一刻打开，避免每敲一个字符都重新 `openPicker`
+   * （`pool` 只需要读一次，过滤是纯前端字符串匹配）。
+   */
+  React.useEffect(() => {
+    if (mentionQuery === undefined || mentionQuery === null) {
+      if (mentionOpenedRef.current) {
+        // 用户删掉了 `#` 或把光标移开——这次面板是 mention 开的，跟着关掉；
+        // 手动点「+」开的面板不受 mentionQuery 变化影响。
+        mentionOpenedRef.current = false;
+        setPicking(false);
+      }
+      return;
+    }
+    if (!picking) void openPicker(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mentionQuery]);
+
+  const visiblePool = mentionQuery ? pool.filter((item) => item.name.includes(mentionQuery)) : pool;
+
   const mount = async (skillId: string) => {
     if (version === null || pending) return;
+    const viaMention = mentionOpenedRef.current;
     setPending(true);
     setFailure(null);
     try {
       await mountSkills(threadId, projectId, { skillIds: [skillId], expectedVersion: version }, bearer);
       setPicking(false);
+      mentionOpenedRef.current = false;
       // 重读而不是把 POST 的回包拼进本地列表：版本号必须跟着一起更新，
       // 否则下一次挂载会拿着旧指纹去撞 409。
       await reload();
+      if (viaMention) onMentionMounted?.();
     } catch (error) {
       setFailure(describeMessageFailure(error, "挂载 skill"));
     } finally {
@@ -187,7 +232,7 @@ export function ChatSkillMountPanel({
           /** ⚠ 版本号读不到就不给提交入口——不是禁用「挂载」这个能力，是拒绝盲写。 */
           disabled={pending || version === null}
           data-testid="chat-skill-mount"
-          onClick={() => void openPicker()}
+          onClick={() => void openPicker(false)}
         >
           <Plus aria-hidden className="h-3 w-3" />加 skill
         </Button>
@@ -198,12 +243,21 @@ export function ChatSkillMountPanel({
           className="flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
           data-testid="chat-skill-mount-picker"
         >
+          {mentionQuery ? (
+            <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
+              # {mentionQuery}
+            </span>
+          ) : null}
           {pool.length === 0 ? (
             <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
               本组织没有「已启用」的 skill 可挂载。
             </span>
+          ) : visiblePool.length === 0 ? (
+            <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
+              没有名字含「{mentionQuery}」的已启用 skill。
+            </span>
           ) : (
-            pool.map((item) => (
+            visiblePool.map((item) => (
               <Button
                 key={item.skillId}
                 size="xs"

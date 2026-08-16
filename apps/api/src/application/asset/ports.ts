@@ -24,6 +24,12 @@ export interface AssetFileEntryRecord {
 export interface AssetDirectoryRecord {
   readonly rootFile: string;
   readonly entries: readonly AssetFileEntryRecord[];
+  /**
+   * 模型 A skill 的当前发布版本 id（`skill_versions.id`）——`SkillTrialRunController`
+   * 唯一认的 id 空间，与 `assetId`（`skills.id`）不是同一个。`agent` 这一档目前仍走
+   * `FixtureAssetFileRepository`，没有版本概念，恒为 `null`。
+   */
+  readonly currentVersionId: string | null;
 }
 
 export interface AssetFileContentRecord {
