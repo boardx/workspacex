@@ -96,7 +96,20 @@ phase: "01"
 #        不新增交互语义；`versionId`/`tier` 入参按用例现有文档保持不参与派生
 #        （不是本 feature 新做的裁决，是延续已有实现范围）。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-17（追加 **F193**，dev-chat-e2e agent）——解开 uc-2-1 D-05 二级 sign-off
+#   （`design-deltas/blueprint-design-facet-panels/`，人类 2026-08-16 签核 commit
+#   f2a91d07）后的第一个实现增量：16 项设计配置面板从占位文案换成真实可编辑接线。
+#   三条件核对：
+#     1. **UI 已签**：该 delta 已把二级 sign-off 的界面材料（16 项面板字段/交互提议）
+#        走过独立签核，本 feature 只是把已签核的读写路径接上真实数据，未新增任何
+#        界面元素之外的东西（16 项统一走自由文本编辑，第 4 项额外的权限矩阵交互
+#        是 delta 里人类已明确裁决的形状，不是本 feature 自己发明的设计）。
+#     2. **契约已签**：只消费本束已签核的 `updateDesignFacet`/`getBlueprintDesignFacets`
+#        两条 operation，`content: string` 字段形状一字未改，未新增任何错误码。
+#     3. **零新增设计面**：不新增契约操作、不新增字段、不新迁移——纯前端接线
+#        （同 F187/BP-06「读半边」的先例，这次补的是「写半边 + 路由框架」）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

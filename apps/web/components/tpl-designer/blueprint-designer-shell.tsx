@@ -3,6 +3,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { DesignFacetCatalog } from "@/lib/generated/design-facet-catalog";
+import { FacetTextEditor, PermissionMatrixEditor, type FacetSaveFn } from "./facet-content-editor";
 
 /**
  * 蓝本设计器**外壳**（F18 / `uc-2-1` R3 §3.0 + R8）。
@@ -51,6 +52,13 @@ export interface DesignerAutosaveView {
   readonly failure: string | null;
 }
 
+/** 一项已填/未填内容的真实来源——`getBlueprintDesignFacets` 的输出行，未填的 key 不在数组里。 */
+export interface DesignerFacetRow {
+  readonly designFacetKey: string;
+  readonly content: string;
+  readonly itemRevision: string;
+}
+
 export interface BlueprintDesignerShellProps {
   readonly blueprintName: string;
   readonly versionBar: DesignerVersionBar;
@@ -62,6 +70,10 @@ export interface BlueprintDesignerShellProps {
   /** 完成度点击的落点；null ⇒ 没有未完成的必填项（今天恒 null，数据缺口 D-2） */
   readonly firstIncompleteRequiredKey: string | null;
   readonly autosave: DesignerAutosaveView;
+  /** 已填项的真实内容 + 逐项并发令牌（`getBlueprintDesignFacets`）。 */
+  readonly designFacets: readonly DesignerFacetRow[];
+  /** 保存一项内容——真实调用 `updateDesignFacet`，由调用方（page-live）负责乐观并发与错误处理。 */
+  readonly onSaveFacet: FacetSaveFn;
 }
 
 /**
@@ -84,12 +96,15 @@ export function BlueprintDesignerShell({
   completedKeys,
   firstIncompleteRequiredKey,
   autosave,
+  designFacets,
+  onSaveFacet,
 }: BlueprintDesignerShellProps) {
   const allItems = catalog.groups.flatMap((g) => g.items);
   const [selectedKey, setSelectedKey] = React.useState<string | null>(
     allItems[0]?.designFacetKey ?? null,
   );
   const done = new Set(completedKeys);
+  const facetByKey = new Map(designFacets.map((f) => [f.designFacetKey, f]));
 
   return (
     <section className="flex min-h-0 flex-1 flex-col" data-testid="bp-designer-shell">
@@ -183,18 +198,70 @@ export function BlueprintDesignerShell({
           )}
         </nav>
 
-        <div className="min-h-0 flex-1 p-4" data-testid="bp-designer-panel-slot">
-          <p className="text-12 text-muted-foreground">
-            {selectedKey === null
-              ? "没有可打开的配置项。"
-              : `已选中「${allItems.find((i) => i.designFacetKey === selectedKey)?.label ?? selectedKey}」。`}
-          </p>
-          <p className="mt-1 text-11 text-muted-foreground">
-            各配置项打开后的面板属二级 sign-off（D-05「待补抽取后再签」），本外壳不自行设计其内部交互。
-          </p>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4" data-testid="bp-designer-panel-slot">
+          {selectedKey === null ? (
+            <p className="text-12 text-muted-foreground">没有可打开的配置项。</p>
+          ) : (
+            <FacetPanel
+              selectedKey={selectedKey}
+              item={allItems.find((i) => i.designFacetKey === selectedKey) ?? null}
+              facet={facetByKey.get(selectedKey) ?? null}
+              onSaveFacet={onSaveFacet}
+            />
+          )}
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * 一个配置项打开后的真实面板（解开 D-05 二级 sign-off，`design-deltas/
+ * blueprint-design-facet-panels/` 已签核）。
+ *
+ * ⚠ `content: string` 是今天已签核的存储形状（BP-02/F174），16 项目前统一走
+ * `FacetTextEditor`（自由文本，写回同一个字符串字段）；「角色与权限」额外有
+ * 人类已裁决的矩阵交互，用 `PermissionMatrixEditor`（把矩阵值 JSON 序列化后
+ * 存进同一个字符串字段，不需要新的契约面）。`contract.md` 给出的其余 15 项
+ * 结构化字段提议是后续把 `content` 升级为结构化存储时的参考，本增量暂不落地。
+ */
+function FacetPanel({
+  selectedKey,
+  item,
+  facet,
+  onSaveFacet,
+}: {
+  selectedKey: string;
+  item: DesignFacetCatalog["groups"][number]["items"][number] | null;
+  facet: DesignerFacetRow | null;
+  onSaveFacet: FacetSaveFn;
+}) {
+  const content = facet?.content ?? "";
+  // 哨兵 `''`：还没人填过这一项时，`expectedItemRevision` 传空串，同后端约定。
+  const itemRevision = facet?.itemRevision ?? "";
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-2" data-testid="bp-facet-panel-header">
+        <h2 className="text-16 font-semibold">{item?.label ?? selectedKey}</h2>
+        {item?.required ? <span className="text-11 text-destructive">必填</span> : null}
+      </div>
+      {selectedKey === "roles-and-perms" ? (
+        <PermissionMatrixEditor
+          designFacetKey={selectedKey}
+          content={content}
+          itemRevision={itemRevision}
+          onSave={onSaveFacet}
+        />
+      ) : (
+        <FacetTextEditor
+          designFacetKey={selectedKey}
+          content={content}
+          itemRevision={itemRevision}
+          onSave={onSaveFacet}
+        />
+      )}
+    </div>
   );
 }
 

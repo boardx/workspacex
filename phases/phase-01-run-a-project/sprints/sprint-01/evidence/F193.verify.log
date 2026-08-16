@@ -1,0 +1,371 @@
+$ pnpm --filter web run typecheck
+[exit 0]
+
+> web@0.1.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels/apps/web
+> tsc --noEmit
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels/apps/web
+
+ ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 333ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  03:14:44
+   Duration  1.29s (transform 46ms, setup 97ms, collect 62ms, tests 333ms, environment 510ms, prepare 25ms)
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels/apps/web
+
+ ✓ tests/ui/blueprint-designer-page-live.test.tsx (8 tests) 81ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  03:14:46
+   Duration  846ms (transform 189ms, setup 49ms, collect 254ms, tests 81ms, environment 241ms, prepare 21ms)
+
+
+
+$ pnpm run verify:fullstack-smoke
+[exit 0]
+
+> agentic-harness-template@ verify:fullstack-smoke /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels
+> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:fullstack-smoke:raw
+
+[harness-isolation] outer_db=wsx_ba01347111cbc815a9d4 inner_db=wsx_ba01347111cbc815a9d4 outer_compose=wsx-ba01347111cbc815a9d4 inner_compose=wsx-ba01347111cbc815a9d4 status=matched
+[stack-admission] load1=3.27 cores=10 perCore=0.33 running=0/2
+[test-isolation] id=run-msw6p3ku-de8b02fa-ba01347111cb db=wsx_ba01347111cbc815a9d4 compose=wsx-ba01347111cbc815a9d4 pg=21137 redis=26137
+
+> agentic-harness-template@ verify:fullstack-smoke:raw /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels
+> pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import
+
+[WebServer]  Network wsx-ba01347111cbc815a9d4_default Creating 
+[WebServer]  Network wsx-ba01347111cbc815a9d4_default Created 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-redis-1 Creating 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-minio-1 Creating 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-postgres-1 Creating 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-minio-1 Created 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-postgres-1 Created 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-redis-1 Created 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-postgres-1 Starting 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-redis-1 Starting 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-minio-1 Starting 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-redis-1 Started 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-postgres-1 Started 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-minio-1 Started 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-minio-1 Waiting 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-redis-1 Waiting 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-postgres-1 Waiting 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-redis-1 Healthy 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-minio-1 Healthy 
+[WebServer]  Container wsx-ba01347111cbc815a9d4-postgres-1 Healthy 
+
+Running 30 tests using 5 workers
+
+[WebServer] (node:63262) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+[WebServer] (Use `node --trace-deprecation ...` to show where the warning was created)
+  ✓   4 [seeded] › e2e/fullstack-smoke.spec.ts:4:5 › anonymous root fails closed in production HTML, RSC, and no-JS navigation (749ms)
+  ✓   5 [seeded] › e2e/blueprint-contract-gap-audit.spec.ts:107:7 › 蓝本管理闭环 + 契约缺口审计（非「蓝本到项目」主流程——套用蓝本建项目今天不可达，见文件头注②） › F175: 组织后台在真实浏览器里新建蓝本，刷新后仍在（真实 POST/GET /blueprints） (2.7s)
+  ✓   1 [seeded] › e2e/agenda-segment-create-smoke.spec.ts:42:5 › facilitator creates an agenda segment in the browser; PostgreSQL keeps it across a reload (2.7s)
+[capability-mutate-smoke] agent=FULLSTACK_AGENT_ku-de8b02fa-ba01347111cb mutations=200,200
+  ✓   3 [seeded] › e2e/capability-mutate-smoke.spec.ts:35:5 › admin creates and disables an Agent through the browser, and PostgreSQL keeps it across reloads (3.9s)
+[fullstack-smoke] responses=artifact-tree,artifacts,identity,login,overview,projects sentinel=FULLSTACK_SENTINEL_ku-de8b02fa-ba01347111cb.md failures=0
+  ✓   6 [seeded] › e2e/fullstack-smoke.spec.ts:37:5 › real login reaches the PG-seeded sentinel through project and Files product entries (3.2s)
+  ✓   7 [seeded] › e2e/blueprint-contract-gap-audit.spec.ts:146:7 › 蓝本管理闭环 + 契约缺口审计（非「蓝本到项目」主流程——套用蓝本建项目今天不可达，见文件头注②） › F193: /tpl/designer 真实 UI 打开一项设计配置面板，编辑并保存，刷新后改动仍在（真落库） (1.7s)
+  ✓  11 [seeded] › e2e/blueprint-contract-gap-audit.spec.ts:190:7 › 蓝本管理闭环 + 契约缺口审计（非「蓝本到项目」主流程——套用蓝本建项目今天不可达，见文件头注②） › F174: 填一项设计环节内容并真实 PUT 保存，刷新后完成度真的变化（不是前端 state） (1.1s)
+  ✓   8 [seeded] › e2e/project-create-smoke.spec.ts:51:5 › org lead creates a project through the wizard, and PostgreSQL keeps it across a reload (2.9s)
+  ✓   9 [seeded] › e2e/capability-mutate-smoke.spec.ts:117:5 › a non-admin session is refused by the SERVER, not by a hidden button (2.7s)
+  ✓  12 [seeded] › e2e/blueprint-contract-gap-audit.spec.ts:229:7 › 蓝本管理闭环 + 契约缺口审计（非「蓝本到项目」主流程——套用蓝本建项目今天不可达，见文件头注②） › F177 边界证明：换时长档位端点真实存在且乐观并发闸门有效（不是假装完成了一次被契约允许的写入） (1.2s)
+  ✓   2 [seeded] › e2e/canvas-template-create-smoke.spec.ts:88:5 › admin creates a canvas template in the browser; PostgreSQL keeps it across reloads, and publishing makes it usable (6.7s)
+  ✓  10 [seeded] › e2e/skill-create-smoke.spec.ts:81:5 › admin creates a declarative-contract skill in the browser; PostgreSQL keeps it across reloads (4.0s)
+  ✓  13 [seeded] › e2e/project-create-smoke.spec.ts:138:5 › a non-lead walking the same wizard is refused by the server, and the refusal is shown (2.3s)
+  ✓  14 [seeded] › e2e/blueprint-contract-gap-audit.spec.ts:263:7 › 蓝本管理闭环 + 契约缺口审计（非「蓝本到项目」主流程——套用蓝本建项目今天不可达，见文件头注②） › F179: 试跑 → 发布蓝本版本（真实 POST /trial-runs + POST /versions），刷新后 /tpl/list 显示已发布 v1 (2.6s)
+  ✓  17 [seeded] › e2e/skill-create-smoke.spec.ts:144:5 › a rejected create shows the backend's real failure envelope (reasonCode + HTTP status) (1.5s)
+  ✓  18 [seeded] › e2e/project-create-smoke.spec.ts:158:5 › counterproof: with the create request stubbed out in the browser, the project does not survive a reload (1.5s)
+  ✓  16 [seeded] › e2e/canvas-template-create-smoke.spec.ts:177:5 › counterproof: with the create request stubbed out in the browser, the row does not survive a reload (3.7s)
+  ✓  19 [seeded] › e2e/blueprint-contract-gap-audit.spec.ts:334:7 › 蓝本管理闭环 + 契约缺口审计（非「蓝本到项目」主流程——套用蓝本建项目今天不可达，见文件头注②） › F23 边界证明：套用蓝本新建项目——生产入口整体禁用 + 契约路径 404（不是猜的 URL，是 operations.applyBlueprint.path 字面量） (1.2s)
+  ✓  15 [seeded] › e2e/skill-review-gate.spec.ts:145:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 提交人建出草稿，过安全扫描，提交进人工门禁（刷新后仍是「待审核」） (4.4s)
+  ✓  20 [seeded] › e2e/skill-create-smoke.spec.ts:182:5 › counterproof: with the create request stubbed out in the browser, the skill does not survive a reload (1.6s)
+  ✓  21 [seeded] › e2e/blueprint-contract-gap-audit.spec.ts:371:7 › 蓝本管理闭环 + 契约缺口审计（非「蓝本到项目」主流程——套用蓝本建项目今天不可达，见文件头注②） › F29 边界证明：提回蓝本——契约路径 404（submitBlueprintChangeRequest 未挂任何控制器） (1.0s)
+  ✓  22 [seeded] › e2e/skill-review-gate.spec.ts:196:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 反证 A-1：同一个身份走完评审 ⇒ SELF_REVIEW_FORBIDDEN，且库内状态未变 (804ms)
+  ✓  23 [seeded] › e2e/skill-review-gate.spec.ts:217:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 反证 A-2：安全评审人按下批准 ⇒ REVIEWER_FUNCTION_MISMATCH，且库内状态未变 (797ms)
+  ✓  24 [seeded] › e2e/skill-review-gate.spec.ts:247:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 第二位方法论审核人批准 ⇒ 已启用，且刷新后仍是已启用 (779ms)
+  ✓  25 [seeded] › e2e/skill-review-gate.spec.ts:278:7 › #552 双重门禁：用户自己造出一个「已启用」skill 并在会话里用上它 › 提交人在会话内挂上自己刚造出来的那个 skill；草稿状态的那个被服务端拒绝（反证 C） (1.3s)
+  ✓  26 [seeded-github-import] › e2e/skill-agent-import-usecase-audit.spec.ts:70:5 › ① skill 从 GitHub 目录 URL 导入：落进目录，内容确实来自 GitHub (6.9s)
+  ✓  27 [seeded-github-import] › e2e/skill-agent-import-usecase-audit.spec.ts:115:5 › ② 文件浏览器 + code editor：能看到 GitHub 导入的完整目录，非根文件不是占位符 (763ms)
+  ✓  28 [seeded-github-import] › e2e/skill-agent-import-usecase-audit.spec.ts:169:5 › ① agent 也能从 GitHub URL 导入，导入完可编辑指令、发布、试跑 (3.1s)
+  ✓  29 [seeded-github-import] › e2e/skill-agent-import-usecase-audit.spec.ts:236:5 › ③ 在后台对刚导入的 skill 发起一次真实试跑，产出真实输出 (894ms)
+  ✓  30 [seeded-github-import] › e2e/skill-agent-import-usecase-audit.spec.ts:271:5 › ④ 在 chat 输入框敲 `#` 弹出 skill 候选并可选中挂载 (775ms)
+
+  30 passed (59.3s)
+[timing] pnpm run verify:fullstack-smoke:raw
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m0s
+  清理：1s
+  总计：1m1s
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=15b3a5e8c2a21fbd0bfc55d44e120922568b19a4（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_ba01347111cbc815a9d4 inner_db=wsx_ba01347111cbc815a9d4 outer_compose=wsx-ba01347111cbc815a9d4 inner_compose=wsx-ba01347111cbc815a9d4 status=matched
+[stack-admission] load1=3.94 cores=10 perCore=0.39 running=0/2
+[test-isolation] id=run-msw6p3ku-de8b02fa-ba01347111cb db=wsx_ba01347111cbc815a9d4 compose=wsx-ba01347111cbc815a9d4 pg=21137 redis=26137
+• turbo 2.10.5
+
+   • Packages in scope: //, web
+   • Running typecheck, lint, test in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs 88ef6b4b6ea5b9d3
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/1a20b80d-cbef-4f62-b137-4b3b25f9b86d/scratchpad/wt-mindmap-keyboard/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+web:lint: cache miss, executing c8a578e47e77f580
+web:test: cache miss, executing dc4945b983be9c91
+web:typecheck: cache miss, executing f3f0cdec73f86b19
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:lint: 
+web:lint: > web@0.1.0 lint /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+web:lint: 
+web:test: 
+web:test: > web@0.1.0 test /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels/apps/web
+web:test: > vitest run
+web:test: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+web:test: 
+web:test:  RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels/apps/web
+web:test: 
+web:test:  ✓ tests/ui/personal-chat-screen.test.tsx (18 tests) 359ms
+web:test:  ✓ tests/ui/canvas-template-live.test.tsx (17 tests) 697ms
+web:test:  ✓ tests/ui/skill-catalog-live.test.tsx (17 tests) 844ms
+web:test:  ✓ tests/ui/interview-studio-home.test.tsx (15 tests) 1567ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 仅本地 Mock 历史卡可编辑名称和标签 336ms
+web:test:  ✓ tests/ui/interview-setup-workflow.test.tsx (15 tests) 1598ms
+web:test:    ✓ F04 可点击 Mock 访谈流程 > 从专家目录弹窗搜索并多选添加专家 493ms
+web:test:    ✓ F04 可点击 Mock 访谈流程 > 往返专家步骤时保留编辑，只为新增专家补齐三问 345ms
+web:test:  ✓ tests/ui/guided-research-flow.test.tsx (24 tests) 1737ms
+web:test:  ✓ tests/ui/chat-roster-mutate.test.tsx (11 tests) 1018ms
+web:test:  ✓ tests/ui/projects-screen-live.test.tsx (12 tests) 1021ms
+web:test:    ✓ F353/F185 /projects：登录 → 真实扁平列表（无编造字段） > 按 provider 的 current-org 自动拉取真实列表，只渲染契约有的字段，没有分组标题 318ms
+web:test:  ✓ tests/session/session-provider.test.tsx (13 tests) 212ms
+web:test:  ✓ tests/ui/realtime-transcription-history.test.tsx (17 tests) 2399ms
+web:test:    ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 313ms
+web:test:  ✓ tests/ui/capability-catalog-mutate.test.tsx (10 tests) 631ms
+web:test:  ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 928ms
+web:test:    ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 619ms
+web:test:  ✓ tests/ui/chat-live-message-panel-mic.test.tsx (9 tests) 534ms
+web:test:  ✓ tests/ui/blueprint-designer-page-live.test.tsx (8 tests) 355ms
+web:test:  ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 1061ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 547ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 434ms
+web:test:  ✓ tests/ui/survey-workflow-shell.test.tsx (25 tests) 2049ms
+web:test:    ✓ SurveyWorkflowShell > 空白模块可以复制已有模块题目后独立修改 344ms
+web:test:  ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 509ms
+web:test:  ✓ tests/ui/chat-composer-attachments.test.tsx (13 tests) 532ms
+web:test:  ✓ tests/ui/canvas-stage-mindmap-keyboard.test.tsx (4 tests) 658ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个非根节点后 Tab 加子节点，挂在被选中节点下 352ms
+web:test:  ✓ tests/ui/chat-thread-crud.test.tsx (8 tests) 682ms
+web:test:  ✓ tests/ui/new-project-wizard.test.tsx (7 tests) 373ms
+web:test:  ✓ tests/ui/files-browser.test.tsx (13 tests) 136ms
+web:test:  ✓ tests/ui/org-switcher-real-names.test.tsx (3 tests) 186ms
+web:lint: ✔ No ESLint warnings or errors
+web:test:  ✓ tests/ui/skill-starter-import.test.tsx (5 tests) 266ms
+web:test:  ✓ tests/ui/chat-read-screen.test.tsx (34 tests) 6128ms
+web:test:    ✓ formal Chat read path > reads list, detail, roster and the contract message page with the provider bearer 823ms
+web:test:    ✓ formal Chat read path > 消息内联「落地为产物」调用真实 landAsArtifact 并在成功后重读右栏产物列表 359ms
+web:test:    ✓ formal Chat read path > posts a client UUID to the selected Agent, then refreshes from GET without an inline reply 308ms
+web:test:    ✓ formal Chat read path > 推进到终态前持续轮询 AgentRun，状态取自服务端而不是本地推断 879ms
+web:test:    ✓ formal Chat read path > 渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要 537ms
+web:test:    ✓ formal Chat read path > 工具调用失败：如实显示失败状态与失败原因，不假装成功 433ms
+web:test:    ✓ formal Chat read path > 没有任何 tool_call 步骤时不渲染步骤区域——不是黑盒，是没发生 334ms
+web:test:  ✓ tests/ui/files-preview.test.tsx (12 tests) 152ms
+web:test:  ✓ tests/ui/blueprint-duration-form.test.tsx (19 tests) 763ms
+web:test:    ✓ 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 596ms
+web:test:  ✓ tests/ui/files-ingestion-ladder.test.tsx (10 tests) 281ms
+web:test:  ✓ tests/ui/admin-members-quota-live.test.tsx (8 tests) 262ms
+web:test:  ✓ tests/ui/skill-url-import.test.tsx (5 tests) 227ms
+web:test:  ✓ tests/ui/files-version-derived.test.tsx (9 tests) 354ms
+web:test:  ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 991ms
+web:test:    ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 349ms
+web:test:  ✓ tests/ui/survey-resource-library.test.tsx (16 tests) 1438ms
+web:test:    ✓ SurveyResourceLibrary > 新建问卷先填写名称和标签再进入新的设计页 302ms
+web:test:    ✓ SurveyResourceLibrary > 显示问卷标签并以 OR 逻辑组合多个标签筛选 350ms
+web:test:    ✓ SurveyResourceLibrary > 从问卷模块新建填写元数据并选择一个模块后创建完整问卷 307ms
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+web:test:  ✓ tests/ui/research-detail-four-sections.test.tsx (15 tests) 327ms
+web:test:  ✓ tests/ui/agent-self-publish-panel.test.tsx (5 tests) 121ms
+web:test:  ✓ tests/ui/blueprint-list-screen-live.test.tsx (8 tests) 194ms
+web:test:  ✓ tests/ui/local-org-live.test.tsx (6 tests) 119ms
+web:test:  ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 68ms
+web:test:  ✓ tests/ui/feedback-dialog.test.tsx (10 tests) 165ms
+web:test:  ✓ tests/ui/join-accidents-mic.test.tsx (9 tests) 166ms
+web:test:  ✓ tests/ui/skill-single-screen-nav.test.tsx (7 tests) 279ms
+web:test:  ✓ tests/ui/admin-feedback-live.test.tsx (10 tests) 425ms
+web:test:  ✓ tests/ui/admin-limit-policy-live.test.tsx (8 tests) 272ms
+web:test:  ✓ tests/ui/research-list-target-dash.test.tsx (13 tests) 163ms
+web:test:  ✓ tests/ui/admin-nav-count-unavailable.test.tsx (11 tests) 141ms
+web:test:  ✓ tests/ui/asset-file-edit-save.test.tsx (5 tests) 182ms
+web:test:  ✓ tests/ui/capability-catalog-live.test.tsx (5 tests) 288ms
+web:test:  ✓ tests/ui/capability-skill-content-editor.test.tsx (4 tests) 344ms
+web:test:  ✓ tests/ui/project-overview-live-overview.test.tsx (9 tests) 282ms
+web:test:  ✓ tests/ui/admin-nav-live-counts.test.tsx (7 tests) 190ms
+web:test:  ✓ tests/ui/research-new-config-defaults.test.tsx (11 tests) 139ms
+web:test:  ✓ tests/ui/chat-message-rating.test.tsx (7 tests) 69ms
+web:test:  ✓ tests/ui/files-review-drawer.test.tsx (5 tests) 176ms
+web:test:  ✓ tests/ui/files-trash-queue.test.tsx (10 tests) 261ms
+web:test:  ✓ tests/ui/admin-usage-monitor-live.test.tsx (6 tests) 136ms
+web:test:  ✓ tests/ui/admin-menu-dedup.test.tsx (9 tests) 101ms
+web:test:  ✓ tests/ui/admin-members-boundary-live.test.tsx (6 tests) 145ms
+web:test:  ✓ tests/ui/admin-members-usage-limits-tabs.test.tsx (5 tests) 349ms
+web:test:  ✓ tests/ui/password-reset-request.test.tsx (5 tests) 173ms
+web:test:  ✓ tests/ui/shell-personal-menu.test.tsx (9 tests) 153ms
+web:test:  ✓ tests/ui/admin-model-view-toggle.test.tsx (5 tests) 225ms
+web:test:  ✓ tests/ui/admin-feedback-view-toggle.test.tsx (4 tests) 221ms
+web:test:  ✓ tests/ui/email-verification-public.test.tsx (4 tests) 250ms
+web:test:  ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 314ms
+web:test:  ✓ tests/ui/rec-fidelity-gaps.test.tsx (11 tests) 38ms
+web:test:  ✓ tests/ui/project-live-page.test.tsx (2 tests) 110ms
+web:test:  ✓ tests/ui/admin-members-boundary.test.tsx (4 tests) 89ms
+web:test:  ✓ tests/ui/org-admin-members-reviewer-function.test.tsx (4 tests) 113ms
+web:test:  ✓ tests/ui/admin-members-list.test.tsx (6 tests) 314ms
+web:test:  ✓ tests/ui/research-entry-observer-absent.test.tsx (7 tests) 61ms
+web:test:  ✓ tests/ui/research-live-empty-conflict-block.test.tsx (10 tests) 93ms
+web:test:  ✓ tests/ui/research-preview-sentence.test.tsx (9 tests) 170ms
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > blank invite means first admin: create, login immediately, and persist the real session
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > recovers login when bootstrap committed but its HTTP response was lost
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/ui/entity-view-toggle.test.tsx (4 tests) 59ms
+web:test:  ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 172ms
+web:test:  ✓ tests/ui/research-live-conflicts-no-preselect.test.tsx (8 tests) 251ms
+web:test:  ✓ tests/ui/overview-live.test.tsx (4 tests) 90ms
+web:test:  ✓ tests/ui/overview-mixed-state.test.tsx (6 tests) 196ms
+web:test:  ✓ tests/ui/asset-directory-browse.test.tsx (7 tests) 131ms
+web:test:  ✓ tests/ui/research-exit-actions-observer-absent.test.tsx (7 tests) 135ms
+web:test:  ✓ tests/ui/chat-live-message-panel-actions-position.test.tsx (2 tests) 151ms
+web:test:  ✓ tests/ui/registration-field-errors.test.tsx (4 tests) 102ms
+web:test:  ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 145ms
+web:test:  ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 161ms
+web:test:  ✓ tests/ui/admin-agent-card-view.test.tsx (3 tests) 138ms
+web:test:  ✓ tests/ui/org-menu-avatar-identity.test.tsx (3 tests) 40ms
+web:test:  ✓ tests/ui/thread-card-button.test.tsx (7 tests) 191ms
+web:test:  ✓ tests/ui/consent-form.test.tsx (4 tests) 162ms
+web:test:  ✓ tests/ui/chat-diagram-save-gate.test.tsx (2 tests) 89ms
+web:test:  ✓ tests/ui/asset-preflight-blocking.test.tsx (6 tests) 102ms
+web:test:  ✓ tests/ui/agent-tool-chain.test.tsx (7 tests) 75ms
+web:test:  ✓ tests/ui/capability-catalog-edit-deeplink.test.tsx (3 tests) 150ms
+web:test:  ✓ tests/ui/org-admin-role-scope.test.tsx (4 tests) 281ms
+web:test:  ✓ tests/ui/survey-create-dialog.test.tsx (3 tests) 487ms
+web:test:  ✓ tests/ui/survey-app-shell.test.tsx (7 tests) 241ms
+web:test:  ✓ tests/ui/admin-screen-notice.test.tsx (5 tests) 356ms
+web:test:  ✓ tests/ui/skill-library-prototype-fidelity.test.tsx (3 tests) 245ms
+web:test:  ✓ tests/ui/quick-digital-interview.test.tsx (3 tests) 280ms
+web:test:  ✓ tests/ui/tasks-today-fidelity.test.tsx (4 tests) 137ms
+web:test:  ✓ tests/ui/chat-live-message-panel-markdown.test.tsx (2 tests) 161ms
+web:test:  ✓ tests/ui/admin-mcp-card-view.test.tsx (4 tests) 314ms
+web:test:  ✓ tests/ui/join-verify-form.test.tsx (5 tests) 119ms
+web:test:  ✓ tests/ui/use-audio-input-devices.test.ts (4 tests) 302ms
+web:test:  ✓ tests/ui/realtime-transcription-workspace.test.tsx (5 tests) 309ms
+web:test:  ✓ tests/ui/tpl-list-admin-nav.test.tsx (3 tests) 73ms
+web:test:  ✓ tests/ui/project-overview-live-info.test.tsx (5 tests) 122ms
+web:test:  ✓ tests/ui/state-shell-reserved-testid.test.tsx (4 tests) 58ms
+web:test:  ✓ tests/ui/profile-mobile-actions.test.tsx (3 tests) 132ms
+web:test:  ✓ tests/ui/skill-catalog-view-toggle.test.tsx (2 tests) 147ms
+web:test:  ✓ tests/ui/login-signup-paths.test.tsx (4 tests) 106ms
+web:test:  ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 56ms
+web:test: stderr | tests/ui/markdown-message.test.tsx > MarkdownMessage > 白名单内的 mermaid 围栏 → 走 fabric 渲染路径（validating→valid，挂 fabric 容器），不落错误态
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panels/packages/fabric-markdown/src/index.ts:75:13)
+web:test: 
+web:test:  ✓ tests/ui/markdown-message.test.tsx (3 tests) 314ms
+web:test:  ✓ tests/session/login-session-gate.test.tsx (3 tests) 31ms
+web:test:  ✓ tests/session/canvas-template-routes-no-mock.test.ts (11 tests) 43ms
+web:test:  ✓ tests/single-source-of-truth.test.ts (22 tests) 137ms
+web:test:  ✓ tests/capability/mcp/credential-endpoint-hidden.test.ts (138 tests) 31ms
+web:test:  ✓ tests/ui/interview-skill-assistant.test.tsx (1 test) 149ms
+web:test:  ✓ tests/lint-no-backend-badge.test.ts (11 tests) 23ms
+web:test:  ✓ tests/capability/mcp/three-orthogonal-fields.test.ts (24 tests) 11ms
+web:test:  ✓ tests/ui/login-real-error.test.tsx (2 tests) 139ms
+web:test:  ✓ tests/capability/mcp/tool-namespace.test.ts (21 tests) 10ms
+web:test:  ✓ tests/ui/survey-route-layout.test.tsx (3 tests) 466ms
+web:test:  ✓ tests/recording/live-recording-capture.test.ts (22 tests) 23ms
+web:test:  ✓ tests/session/skill-create-route-no-mock.test.ts (5 tests) 41ms
+web:test:  ✓ tests/session/chat-dead-mock-cluster.test.ts (8 tests) 444ms
+web:test:  ✓ tests/guided-research-skill-state.test.ts (8 tests) 5ms
+web:test:  ✓ tests/ui/survey-template-editor-shell.test.tsx (2 tests) 331ms
+web:test:  ✓ tests/digital-interview-drafts.test.ts (11 tests) 9ms
+web:test:  ✓ tests/session/agent-admin-route-no-mock.test.ts (4 tests) 42ms
+web:test:  ✓ tests/session/copilotkit-agui-httpagent.test.ts (2 tests) 114ms
+web:test:  ✓ tests/session/chat-roster-route-no-mock.test.ts (6 tests) 49ms
+web:test:  ✓ tests/survey/survey-mock-structure.test.ts (10 tests) 5ms
+web:test:  ✓ tests/lib/boardx-realtime-asr-client.test.ts (7 tests) 14ms
+web:test:  ✓ tests/api-client-ws-handshake-timeout.test.ts (4 tests) 10ms
+web:test:  ✓ tests/chat-roster-api.test.ts (2 tests) 8ms
+web:test:  ✓ tests/upload-attachment-xhr.test.ts (3 tests) 5ms
+web:test:  ✓ tests/ui/survey-workflow-model.test.ts (10 tests) 49ms
+web:test:  ✓ tests/session/covered-routes-no-mock.test.ts (14 tests) 5ms
+web:test:  ✓ tests/api-client-url-join.test.ts (3 tests) 8ms
+web:test:  ✓ tests/chat-read-api.test.ts (1 test) 5ms
+web:test:  ✓ tests/e2e/personal-realtime-transcription-smoke.test.ts (1 test) 7ms
+web:test:  ✓ tests/lib/pcm-audio-worklet.test.ts (4 tests) 6ms
+web:test:  ✓ tests/guided-research-demo-state.test.ts (4 tests) 7ms
+web:test:  ✓ tests/ui/admin-feedback-transitions-match-domain.test.ts (3 tests) 5ms
+web:test:  ✓ tests/lib/pick-default-agent-id.test.ts (7 tests) 3ms
+web:test:  ✓ tests/lib/live-personal-transcriptions.test.ts (2 tests) 13ms
+web:test:  ✓ tests/session/session-api.test.ts (1 test) 5ms
+web:test:  ✓ tests/ui/decode-mermaid-entities.test.ts (4 tests) 4ms
+web:test:  ✓ tests/api-client-error-envelope.test.ts (2 tests) 5ms
+web:test:  ✓ tests/lib/live-consent.test.ts (1 test) 4ms
+web:test:  ✓ tests/research-rewrite.test.ts (1 test) 2ms
+web:test:  ✓ tests/ui/mermaid-diagram-type.test.ts (4 tests) 3ms
+web:test:  ✓ tests/ui/personal-transcription-history.test.tsx (17 tests) 1933ms
+web:test:    ✓ 实时转录历史工作台 > 历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗 375ms
+web:test:  ✓ tests/guided-research-stage.test.ts (2 tests) 2ms
+web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 177ms
+web:test:  ✓ tests/ui/provenance-labels.test.ts (2 tests) 3ms
+web:test:  ✓ tests/ui/survey-creation-draft.test.ts (3 tests) 2ms
+web:test: 
+web:test:  Test Files  156 passed (156)
+web:test:       Tests  1312 passed (1312)
+web:test:    Start at  03:15:49
+web:test:    Duration  28.73s (transform 7.85s, setup 24.40s, collect 52.91s, tests 49.54s, environment 96.47s, prepare 9.08s)
+web:test: 
+
+ Tasks:    4 successful, 4 total
+Cached:    1 cached, 4 total
+  Time:    29.247s 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：0s
+  命令执行：29s
+  清理：0s
+  总计：30s
+
+[harness-verify v1 sha256=490eedd85cee9e4163254997bbd66c541dc4362d4a149712691469d2bab94fce commit=d0bb5fe6782f52a0c06e066fba2e04962fbc3150 at=2026-08-16T19:16:18.439Z]

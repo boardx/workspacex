@@ -9,7 +9,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 vi.mock("@/components/session/session-provider", () => ({
@@ -116,5 +116,150 @@ describe("BP-06 /tpl/designer：按 blueprintId 真实读（无编造字段）",
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
 
     await waitFor(() => expect(screen.getByTestId("bp-designer-load-error")).toBeInTheDocument());
+  });
+});
+
+describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas/blueprint-design-facet-panels/）", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-e2e-bp06");
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("打开一项：真实文本编辑器显示真实已存内容（不是占位文案）", async () => {
+    fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "topic-and-background", content: "真实主题内容", itemRevision: "ir-1" }],
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    // 第一项目录默认选中——目录顺序来自 DESIGN_FACET_CATALOG，第一项是 topic-and-background。
+    const editor = await screen.findByTestId("bp-facet-content-topic-and-background");
+    expect((editor as HTMLTextAreaElement).value).toBe("真实主题内容");
+    // 不再是占位文案。
+    expect(screen.queryByText(/本外壳不自行设计其内部交互/)).not.toBeInTheDocument();
+  });
+
+  it("编辑并失焦：真实调用 PUT updateDesignFacet（乐观并发 itemRevision），完成度按响应更新", async () => {
+    let putBody: unknown = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "topic-and-background", content: "旧内容", itemRevision: "ir-1" }],
+        });
+      }
+      if (
+        url.pathname === `/blueprints/${BP_ID}/design-facets/topic-and-background` &&
+        init?.method === "PUT"
+      ) {
+        putBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: "ir-2",
+          completed: true,
+          completeness: { done: 3, denominator: 15 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    const editor = await screen.findByTestId("bp-facet-content-topic-and-background");
+    fireEvent.change(editor, { target: { value: "新内容" } });
+    fireEvent.blur(editor);
+
+    await waitFor(() => expect(putBody).toEqual({ value: "新内容", expectedItemRevision: "ir-1" }));
+    // 完成度是 PUT 响应里的 3/15，不是前端本地 +1 猜出来的。
+    await waitFor(() => expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("3/15"));
+  });
+
+  it("并发冲突（VERSION_CHANGED）：如实提示，不静默覆盖", async () => {
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "topic-and-background", content: "旧内容", itemRevision: "ir-1" }],
+        });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/topic-and-background` && init?.method === "PUT") {
+        return jsonResponse({ reasonCode: "VERSION_CHANGED" }, 409);
+      }
+      throw new Error(`unexpected fetch: ${url.pathname}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    const editor = await screen.findByTestId("bp-facet-content-topic-and-background");
+    fireEvent.change(editor, { target: { value: "并发改动" } });
+    fireEvent.blur(editor);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("bp-facet-error-topic-and-background").textContent).toContain("刷新页面"),
+    );
+  });
+
+  it("角色与权限：灰色格禁用点击不发请求，可勾选格点击真实保存", async () => {
+    let putCount = 0;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({ revision: "rev-1", designFacets: [] });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/roles-and-perms` && init?.method === "PUT") {
+        putCount += 1;
+        return jsonResponse({
+          itemRevision: "ir-roles-1",
+          completed: true,
+          completeness: { done: 1, denominator: 15 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-roles-and-perms"));
+    await screen.findByTestId("bp-permission-matrix");
+
+    // 灰格：已裁决只读，点击不触发保存。
+    const lockedCell = screen.getByTestId("bp-permission-cell-看已发布结论-引导");
+    expect(lockedCell).toBeDisabled();
+    fireEvent.click(lockedCell);
+    expect(putCount).toBe(0);
+
+    // 可勾选格：点击真实保存。
+    const openCell = screen.getByTestId("bp-permission-cell-写本组画布-组员");
+    expect(openCell).not.toBeDisabled();
+    fireEvent.click(openCell);
+    await waitFor(() => expect(putCount).toBe(1));
   });
 });
