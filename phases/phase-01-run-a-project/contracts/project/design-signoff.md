@@ -57,7 +57,7 @@ phase: "01"
 #     即便这次是 delta 也不通过改这三个字段来表达——它们记的是 2026-07-30 那次原始签核事实）。
 #   ⚠ 若 coord-main 认为「delta 需要人类走一次正式的重签表单」而不是对话记录留痕即可，
 #     把 F185 从本行删掉，代码与测试不受影响。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185]
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
