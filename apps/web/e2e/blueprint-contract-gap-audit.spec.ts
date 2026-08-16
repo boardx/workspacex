@@ -143,18 +143,60 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到�
     expect(failures).toEqual([]);
   });
 
+  test("F193: /tpl/designer 真实 UI 打开一项设计配置面板，编辑并保存，刷新后改动仍在（真落库）", async ({ page }) => {
+    test.skip(blueprintId === "", "上一条用例没能建出蓝本，跳过（不是本条用例本身的失败）");
+
+    await loginAsAdmin(page);
+
+    // ── 这条用例证明的是：D-05 二级 sign-off 签核后，`/tpl/designer` 不再是
+    //    「后端真、前端未接线」——面板本身现在可以从真实 UI 编辑并真实持久化。
+    //    与紧接着的 F174 用例（走 API 直连）互补：那条测的是端点本身，
+    //    这条测的是"用户真的能点这个页面把内容改掉"。
+    await page.goto(`/tpl/designer?blueprintId=${blueprintId}`);
+    await expect(page.getByTestId("bp-designer-shell")).toBeVisible();
+
+    // ⚠ 用 flow-agenda（catalog ordinal 2），不用 topic-and-background——
+    //   下一条 F174 用例走 API 直连时假定 topic-and-background 的
+    //   `expectedItemRevision` 仍是初始哨兵 `""`，两条用例不能撞同一个 key。
+    await page.getByTestId("bp-designer-facet-flow-agenda").click();
+    const editor = page.getByTestId("bp-facet-content-flow-agenda");
+    await expect(editor).toBeVisible();
+    const content = `真实 UI 端到端写入 ${scope}`;
+    await editor.fill(content);
+
+    const [putResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          new URL(r.url()).pathname === `${API}/blueprints/${blueprintId}/design-facets/flow-agenda` &&
+          r.request().method() === "PUT",
+      ),
+      editor.blur(),
+    ]);
+    expect(putResponse.status()).toBe(200);
+
+    // 完成度徽标必须来自这次 PUT 的响应（服务端算的），不是前端猜的——直接核对页面上显示的数字。
+    const putBody = await putResponse.json();
+    await expect(page.getByTestId("bp-designer-completeness")).toContainText(
+      `${putBody.completeness.done}/${putBody.completeness.denominator}`,
+    );
+
+    // ── 刷新后仍在 = 真落库，不是内存态 ──────────────────────────────────
+    await page.reload();
+    await expect(page.getByTestId("bp-designer-shell")).toBeVisible();
+    await page.getByTestId("bp-designer-facet-flow-agenda").click();
+    await expect(page.getByTestId("bp-facet-content-flow-agenda")).toHaveValue(content);
+  });
+
   test("F174: 填一项设计环节内容并真实 PUT 保存，刷新后完成度真的变化（不是前端 state）", async ({ page }) => {
     test.skip(blueprintId === "", "上一条用例没能建出蓝本，跳过（不是本条用例本身的失败）");
 
     await loginAsAdmin(page);
 
-    // ── 为什么这里走 API 不走 UI ──────────────────────────────────────────
-    // 不是图省事抄近道：设计器（/tpl/designer）今天仍是纯 mock 挂载点，接受不了
-    // 真实 blueprintId（见该页面文件头注：「templates 束的 listDesignFacetDefinitions /
-    // updateDesignFacet 路由今天还不存在」——那句话现在已经不准了，路由是真的，只是
-    // 没有真实设计器 UI 消费它）。也就是说，**现在真的没有一个可点的表单字段能让这条
-    // 用例走 UI**，不是我们选择跳过它。本条用例因此走 `updateDesignFacet` 真实端点
-    // 直连（同 skill-review-gate.spec.ts 处理「后端真、前端未接线」的既有做法）。
+    // ── 为什么这里仍然也走 API 不走 UI ──────────────────────────────────
+    // 上一条用例（F193）已经证明设计器面板本身可以从真实 UI 编辑并持久化。
+    // 本条继续走 API 直连是为了独立覆盖端点本身的契约行为（乐观并发的初始哨兵值
+    // `expectedItemRevision: ""`），不依赖 UI 组件内部状态如何初始化这个值——
+    // 两条用例覆盖的是同一条能力的两个不同断言面，不是重复。
     const headers = await authHeaders(page);
     const designFacetKey = "topic-and-background"; // 真实存在于 design-facet-table.ts 定义表
     const putResponse = await page.request.put(
