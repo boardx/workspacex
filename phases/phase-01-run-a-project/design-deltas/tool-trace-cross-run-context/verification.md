@@ -2,6 +2,7 @@
 
 规范以 [`contract.md`](./contract.md) 为准。以下是本 delta 对应 feature 的验收改写口径（真栈反证，不伪造）。
 
+
 ## V1（跨 run 可见）——上一轮的工具调用对下一轮可见
 - 构造：同一线程内，第一轮 run 触发至少一次 `tool_call` step（有 `tool_name`/
   `tool_args_summary`/`tool_result_summary`）；第二轮 run 就该结果发问，且不在第二轮的

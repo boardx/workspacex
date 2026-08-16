@@ -3,7 +3,11 @@ status: confirmed
 bundle: tool-trace-cross-run-context
 base_bundle: chat-context-engine
 scope: tool-call-trace-fed-back-as-fourth-context-source-across-runs
-covers: []
+
+covers: [F190]  # 原 F185（PR #1321 注册）；被 project 域另一支并行分支（PR #1405）
+  # 独立占用同一 ID 并先合并覆盖，重编号为 F190，不改动 status/confirmed_by/confirmed_at
+  # 三字段（ADR-023，本次只是 ID 层面的机械修正，不是重新裁决）——见 F190 feature_list.json
+  # notes 完整说明。
 confirmed_by: yanbin shen
 confirmed_at: 2026-08-16T00:00:00+08:00
 confirmed_via: >-
@@ -26,6 +30,7 @@ confirmed_via: >-
 
 已签的 `chat-context-engine` 束把上下文来源定为 L1（近端原文）+ L2（持久摘要）+ L3（文件
 检索）三层。本 delta 追加**第四类**来源——本线程近期轮次的工具调用轨迹——这是已签束字面参数
+
 之外的新增，且实现会碰 `execute-run.ts`（F154 notes 明确写着"动这个文件需取 coord-main
 串行窗口"），按 ADR-023 的路径需要 design-delta 追加签核，不能援引既有签核直接开工。
 
@@ -48,3 +53,4 @@ confirmed_via: >-
 - 签核后 requirement-author 把对应 feature 的 `verification`/`spec_ref` 按本 delta 口径落
   `feature_list.json`，并把新编号补回本文件 `covers:`；实现前须先协调 `execute-run.ts`
   的 coord-main 串行窗口。
+

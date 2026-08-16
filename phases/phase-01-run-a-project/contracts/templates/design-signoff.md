@@ -74,7 +74,15 @@ phase: "01"
 #   `listBlueprints`/`getBlueprintDesignFacets`（后者即 F186）两条 operation，
 #   未新增字段。③ 零新增设计面——未新造错误码，未改变外壳组件本身。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# ⚠ 2026-08-16（F188）：追加 **F188**，由 coord-main 依「covers 追加规则」代 review 追加。
+#   三条件核对：① UI 已签——两个页面（/tpl/list、/canvas?screen=template-admin）的卡片视图
+#   均已是签核材料的一部分，本次只统一了卡片外层容器的组件实现与响应式断点，未新增/删除
+#   任何界面元素、状态徽标或操作按钮，testid 全部保留。② 契约已签——不涉及任何契约操作，
+#   纯前端组件层重构。③ 零新增设计面——不新增错误码、不新增字段、不新增交互语义，
+#   feature 自己的 notes 字段已逐条列出改动范围核对依据（对齐 admin/ 目录内 6 个同类
+#   后台页 + canvas 自身既有的 xl:grid-cols-3 + Card/CardContent 约定，非发明新规则）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

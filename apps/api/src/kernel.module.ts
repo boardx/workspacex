@@ -187,6 +187,7 @@ import {
 } from "./application/interview/workflow/digital-interview-runtime.port";
 import { PgDigitalInterviewRepository } from "./infrastructure/interview/pg-digital-interview-repository";
 import { PgDigitalInterviewEffects } from "./infrastructure/interview/workflow/pg-digital-interview-effects";
+import { readDigitalInterviewModelConfig } from "./infrastructure/interview/workflow/digital-interview-model-config";
 import {
   createDigitalInterviewCheckpointer,
   LangGraphDigitalInterviewRuntime,
@@ -1035,8 +1036,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         db: DatabasePort,
         ids: import("./application/artifact/ports").IdFactory,
         repo: import("./application/interview/digital-interview-ports").DigitalInterviewRepository,
-      ) => new PgDigitalInterviewEffects(db, ids, repo),
-      inject: [DATABASE_PORT, ID_FACTORY, DIGITAL_INTERVIEW_REPOSITORY],
+        model: ModelCallPort,
+      ) => {
+        const config = readDigitalInterviewModelConfig();
+        return new PgDigitalInterviewEffects(db, ids, repo, model, config.provider, config.modelId);
+      },
+      inject: [DATABASE_PORT, ID_FACTORY, DIGITAL_INTERVIEW_REPOSITORY, MODEL_CALL_PORT],
     },
     {
       provide: DIGITAL_INTERVIEW_RUNTIME,
@@ -1055,8 +1060,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         decisions,
         ids,
         model,
-        skillModelProvider: (process.env.KERNEL_MODEL_PROVIDER ?? "").trim(),
-        skillModelId: (process.env.KERNEL_DIGITAL_INTERVIEW_SKILL_MODEL_ID ?? process.env.KERNEL_MODEL_ID ?? "").trim(),
+        skillModelProvider: readDigitalInterviewModelConfig().provider,
+        skillModelId: readDigitalInterviewModelConfig().modelId,
       }),
       inject: [
         DIGITAL_INTERVIEW_EFFECTS,
