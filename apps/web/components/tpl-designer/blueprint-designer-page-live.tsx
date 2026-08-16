@@ -4,7 +4,8 @@ import { useSession } from "@/components/session/session-provider";
 import { BlueprintDesignerShell } from "./blueprint-designer-shell";
 import { DESIGN_FACET_CATALOG } from "@/lib/generated/design-facet-catalog";
 import { ApiError } from "@/lib/api-client";
-import { listBlueprints, getBlueprintDesignFacets, type BlueprintRow } from "@/lib/live-blueprints";
+import { listBlueprints, getBlueprintDesignFacets, updateDesignFacet, type BlueprintRow } from "@/lib/live-blueprints";
+import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
  * BP-06（F1xx）—— 蓝本设计器 `/tpl/designer` 真实接线的读半边。
@@ -17,17 +18,22 @@ import { listBlueprints, getBlueprintDesignFacets, type BlueprintRow } from "@/l
  * `GET /blueprints/:id/design-facets`（F186，读已填内容），拼出
  * `BlueprintDesignerShellProps` 喂给外壳——外壳本身是纯投影，不用改。
  *
- * ## 这次接了什么、没接什么
+ * ## 这次接了什么、没接什么（2026-08-17 更新：D-05 二级 sign-off 已签核，补上编辑面板）
  *
  * 接：蓝本名称、版本条（真实 state/versionNumber/appliedProjectCount）、
- *   完成度（真实 done/denominator）、已填 key 高亮（真实 designFacets）。
+ *   完成度（真实 done/denominator，且编辑后从 `updateDesignFacet` 的响应即时刷新，
+ *   不是前端本地拍的）、已填 key 高亮（真实 designFacets）、**16 项配置的真实可编辑
+ *   面板**（`design-deltas/blueprint-design-facet-panels/` 已签核，解开 D-05 二级
+ *   sign-off；见 `facet-content-editor.tsx` 与 `blueprint-designer-shell.tsx` 的
+ *   `FacetPanel`）。
  * 没接：
- *   · 设计环节内容的编辑面板——外壳自己的头注写着「二级 sign-off（D-05 待补抽取）」，
- *     没有签核过的界面设计，不能自己发明一个填。
  *   · 试跑/发布/预览三个按钮——外壳组件本身没有 onClick 落点（原型与真栈都一样，
  *     不是本次退化），接它们要先给外壳加事件回调 props，属于下一个增量。
  *   · 换时长档位——设计器页面没有对应交互入口，`live-blueprints.ts` 也还没封装
  *     `setDurationTier`（T13 契约缺口已被 F186 解决，纯粹是前端还没做这块交互）。
+ *   · 16 项面板目前统一走自由文本编辑（「角色与权限」例外，见下方），`contract.md`
+ *     给出的结构化字段提议是后续把 `content` 升级为结构化存储时的参考，本增量暂不落地
+ *     （`content: z.string()` 的契约形状本轮不改）。
  *
  * ## `nextVersionNumber` 的算法说明（不是编的数）
  *
@@ -44,7 +50,12 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
   const orgId = session.currentOrgId;
 
   const [row, setRow] = React.useState<BlueprintRow | null>(null);
-  const [facets, setFacets] = React.useState<{ designFacetKey: string; content: string }[] | null>(null);
+  const [facets, setFacets] = React.useState<
+    { designFacetKey: string; content: string; itemRevision: string }[] | null
+  >(null);
+  /** 独立于 `row.completeness`——保存一项后从 `updateDesignFacet` 的响应即时更新，
+   *  不必等一次全量 `load()` 才刷新数字（但数字仍然是后端算出来的，不是前端本地拍的）。 */
+  const [completeness, setCompleteness] = React.useState<{ done: number; denominator: number } | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
@@ -58,18 +69,42 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
         setError("这个蓝本不在你的组织里，或已被删除");
         setRow(null);
         setFacets(null);
+        setCompleteness(null);
         return;
       }
       setRow(found);
       setFacets([...facetsOut.designFacets]);
+      setCompleteness(found.completeness);
     } catch (e) {
       setError(describeError(e));
       setRow(null);
       setFacets(null);
+      setCompleteness(null);
     } finally {
       setBusy(false);
     }
   }, []);
+
+  /**
+   * 真实调用 `updateDesignFacet`——乐观并发用调用方（`FacetTextEditor`/
+   * `PermissionMatrixEditor`）传入的 `expectedItemRevision`；成功后本地更新
+   * `facets`（下次进这个面板/切到别的面板再切回来看到的是刚保存的内容）与
+   * `completeness`（响应自带，服务端算的，不是本地数出来的）。
+   */
+  const handleSaveFacet: FacetSaveFn = React.useCallback(
+    async (designFacetKey, value, expectedItemRevision) => {
+      if (blueprintId === null) throw new Error("no blueprintId");
+      const out = await updateDesignFacet({ blueprintId, designFacetKey, value, expectedItemRevision });
+      setFacets((prev) => {
+        const others = (prev ?? []).filter((f) => f.designFacetKey !== designFacetKey);
+        if (value.trim() === "") return others; // 清空内容 = 这一项重新变为"未填"，不留一条空内容的行
+        return [...others, { designFacetKey, content: value, itemRevision: out.itemRevision }];
+      });
+      setCompleteness(out.completeness);
+      return { itemRevision: out.itemRevision, completeness: out.completeness };
+    },
+    [blueprintId],
+  );
 
   React.useEffect(() => {
     if (blueprintId === null) return;
@@ -88,7 +123,7 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
     return <p className="p-6 text-12 text-muted-foreground" data-testid="bp-designer-loading">加载中…</p>;
   }
 
-  if (error !== null || row === null || facets === null) {
+  if (error !== null || row === null || facets === null || completeness === null) {
     return <p className="p-6 text-12 text-destructive" data-testid="bp-designer-load-error">{error ?? "加载失败"}</p>;
   }
 
@@ -109,10 +144,12 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
         { id: "publish", versionNumber: row.versionNumber + 1 },
       ]}
       catalog={DESIGN_FACET_CATALOG}
-      completeness={row.completeness}
+      completeness={completeness}
       completedKeys={completedKeys}
       firstIncompleteRequiredKey={null}
       autosave={{ status: "never-saved", lastSavedAt: null, failure: null }}
+      designFacets={facets}
+      onSaveFacet={handleSaveFacet}
     />
   );
 }

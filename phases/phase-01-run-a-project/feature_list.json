@@ -4372,6 +4372,32 @@
       "priority": 1,
       "area": "project",
       "capability": "CAP-DATA"
+    },
+    {
+      "id": "F193",
+      "title": "蓝本设计器 16 项面板真实可编辑接线（解开 D-05 二级 sign-off：读路径 + 通用文本编辑 + 角色与权限矩阵）",
+      "user_visible_behavior": "组织管理员在 /tpl/designer 真实页面点开任意一项设计配置（16 项目录任意一项），看到的不再是「已选中「X」」占位文案，而是真实可编辑的内容框，预填该项当前真实保存的内容（getBlueprintDesignFacets）。编辑后失焦即真实调用 updateDesignFacet 落库，顶部完成度徽标（n/16）随保存响应即时更新（服务端算的，不是前端本地拍的），刷新页面后改动仍在。第 4 项「角色与权限」额外渲染人类已裁决的权限矩阵交互：灰色格子禁用不可点击，其余格子可勾选并真实保存，命名统一为「角色与权限」。并发冲突（VERSION_CHANGED）时如实提示刷新，不静默覆盖。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R8",
+      "depends_on": [
+        "F186",
+        "F187",
+        "F191"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm run verify:fullstack-smoke"
+      ],
+      "evidence": "evidence/F193.verify.log @ 2026-08-16T19:16:18.439Z",
+      "notes": "① 解开 uc-2-1 D-05 二级 sign-off（design-deltas/blueprint-design-facet-panels/，人类 2026-08-16 签核 commit f2a91d07）——该 delta 明确「不改动任何已签核契约操作的形状」，本 feature 遵守：updateDesignFacet 的 content: string 字段不变，16 项统一走自由文本编辑（FacetTextEditor），contract.md 给出的结构化字段提议是后续升级参考，本轮不落地。\n② 按 covers 追加规则自查三条件后追加进 templates 束 design-signoff.md：零新增契约面（只消费已签核的 updateDesignFacet/getBlueprintDesignFacets）、零新增错误码、零新迁移——纯前端接线，同 F187/BP-06 读半边的先例，这次是写半边 + 路由框架。\n③ 范围边界——做：`facet-content-editor.tsx` 新组件（FacetTextEditor 通用文本编辑 + PermissionMatrixEditor 结构化矩阵）；`blueprint-designer-shell.tsx` 的面板槽位从占位文案换成真实路由；`blueprint-designer-page-live.tsx` 补 `handleSaveFacet`（真实调用 + 乐观并发 + 完成度即时刷新）。不做：16 项按 contract.md 逐项拆成结构化表单（留给后续按分组的增量，本 feature 只做统一文本编辑 + 角色与权限矩阵这一个例外）；权限矩阵灰色格子的具体产品清单（`contract.md` 已登记为待人类原型走查确认的缺口，本 feature 用一份注释清楚标注为临时默认值的保守占位集，不是签核过的产品数据）；试跑/发布/预览按钮的交互（外壳仍无 onClick 落点，属另一个增量）。\n④ 验证：新增前端组件测试 8 条（读真实内容/真实保存并联动完成度/并发冲突提示/权限矩阵灰格禁用与可勾选格真实保存），既有 24 条设计器测试无回归；真实全栈 e2e 新增一条（`blueprint-contract-gap-audit.spec.ts` F193 用例，真实浏览器打开 /tpl/designer、编辑保存、刷新后确认内容仍在，7/7 通过）。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-WEB"
     }
   ]
 }
