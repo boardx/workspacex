@@ -19,6 +19,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { orgAdmin as OA, skills as C } from "@repo/contracts";
 import { addCredential, addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { seedSkillDraft } from "../support/skill-draft-fixture";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -72,21 +73,21 @@ const CONTRACT = {
   fallbackDeclaration: "模型不可用时返回空结论并提示人工整理",
 };
 
-const createBody = (name: string) => ({
-  orgId: ORG,
-  name,
-  duty: "访谈纪要 → 结论",
-  contract: CONTRACT,
-  visibility: "org-wide",
-  modelRef: "model-default",
-});
-
 const versionPath = (path: string, versionId: string) => path.replace(":versionId", versionId);
 
+/**
+ * ⚠ F192（design-delta `skill-model-a-b-convergence` 选项②）之后 `POST /skills`
+ *   已冻结为 410——本文件要证的是审核人指派链路，不是写入口本身，所以种子改走
+ *   `seedSkillDraft`（应用层直调，绕过已冻结的 HTTP 写路由）。
+ */
 async function createDraft(name: string, user: string): Promise<{ skillId: string; versionId: string }> {
-  const response = await post(C.operations.createSkillDraft.path, createBody(name), user);
-  expect(response.status).toBe(201);
-  return (await response.json()) as { skillId: string; versionId: string };
+  return seedSkillDraft(app, {
+    orgId: ORG,
+    submitterId: user,
+    name,
+    contract: CONTRACT,
+    visibility: "org-wide",
+  });
 }
 
 const scan = (versionId: string, user: string) =>

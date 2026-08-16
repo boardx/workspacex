@@ -88,28 +88,20 @@ async function openCatalog(page: Page) {
 }
 
 /**
- * 建一份**干净**的声明式契约。
+ * **F192**（issue #598，2026-08-16 签核）之后：「完全新建」面板与 `POST /skills`
+ * 已冻结（恒 410），本条**不再**由用例现场经 UI 建草稿。
  *
- * ⚠ `dataScope` 留空、`readsRawTranscript` 不勾：`FailClosedSubmitterGrants` 恒返回空集，
- *   任何非空范围都会被判 `DATA_SCOPE_EXCEEDS_SUBMITTER`（同 `skill-create-smoke.spec.ts`
- *   里逐字同一段理由）。#552 还多一层：那两项非空时**安全扫描**也会判
- *   `scope-elevation` / 待确认，于是本条会红在门禁一而不是走到门禁二。
- * ⚠ 提示词里不许出现「忽略以上指令」这类措辞 —— `declarative-scan.ts` 会判
- *   `prompt-injection` 并直接 `reject`。
+ * 这两份「干净」的声明式契约（`dataScope` 空、`readsRawTranscript=false`，理由同旧注：
+ * `FailClosedSubmitterGrants` 恒返回空集，非空范围会先红在
+ * `DATA_SCOPE_EXCEEDS_SUBMITTER` / 安全扫描的 `scope-elevation`，走不到 #552 真正要
+ * 考验的双重门禁）改由 `apps/api/scripts/seed-fullstack-smoke.ts` 种到「草稿」——
+ * `created_by` 钉死为本条测试登录用的提交人账号，所以「自己审自己 ⇒
+ * `SELF_REVIEW_FORBIDDEN`」等断言不受影响；扫描/提交/审核仍然一步都没有被种子代劳，
+ * 全部走真实的 `SkillReviewController` HTTP 路径（见本文件下方各条用例）。
+ * 这里只负责确认它在目录里真实可见（不是种子悄悄没生效，断言在一个空列表上空转）。
  */
-async function createTeamOnlySkill(page: Page, name: string) {
-  await page.getByTestId("skill-create-open").click();
-  await expect(page.getByTestId("skill-create-panel")).toBeVisible();
-  await page.getByTestId("skill-create-name").fill(name);
-  await page.getByTestId("skill-create-duty").fill("把一组假设按给定标准排序并给出理由");
-  await page.getByTestId("skill-create-prompt").fill("对 {{hypotheses}} 按 {{criteria}} 排序");
-  await page.getByTestId("skill-create-input-schema").fill('{"type":"object","properties":{"hypotheses":{"type":"array"}}}');
-  await page.getByTestId("skill-create-output-schema").fill('{"type":"object","properties":{"ranked":{"type":"array"}}}');
-  await page.getByTestId("skill-create-fallback").fill("信息不足时明确说明缺什么，不臆造");
-  // ⚠ `team-only`，不是默认的 `org-wide`。理由见文件头最后一段。
-  await page.getByTestId("skill-create-visibility-team-only").click();
-  await page.getByTestId("skill-create-submit").click();
-  await expect(page.getByTestId("skill-catalog-notice")).toContainText(name);
+async function assertTeamOnlySkillSeeded(page: Page, name: string) {
+  await expect(page.getByTestId("skill-catalog-list")).toContainText(name);
 }
 
 /** 打开某一行的契约详情（门禁面板在里面）。 */
@@ -149,12 +141,12 @@ test.describe.serial("#552 双重门禁：用户自己造出一个「已启用�
     await loginAsSubmitter(page);
     await openCatalog(page);
 
-    await createTeamOnlySkill(page, NAME);
-    // 反证 C 要用的那一个：建出来就一直停在草稿，从不提交、从不审核。
-    await createTeamOnlySkill(page, DRAFT_ONLY);
+    await assertTeamOnlySkillSeeded(page, NAME);
+    // 反证 C 要用的那一个：一直停在草稿，从不提交、从不审核。
+    await assertTeamOnlySkillSeeded(page, DRAFT_ONLY);
 
-    // 新建出来只能是**草稿** —— 契约禁止 `POST /skills/:id/enable`，创建这条路径
-    // 结构上造不出别的状态。少了这条，创建可以被实现成绕开双门禁。
+    // 种出来的只能是**草稿** —— 契约禁止 `POST /skills/:id/enable`，本条走的种子路径
+    // 与产品创建路径同形，结构上也造不出别的状态。少了这条，实现可以被换成绕开双门禁。
     await expect(page.getByTestId("skill-catalog-list")).toContainText("草稿");
 
     await openGatePanelOf(page, NAME);

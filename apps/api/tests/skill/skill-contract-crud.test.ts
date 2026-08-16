@@ -1,8 +1,16 @@
 /**
  * #459 —— 声明式契约 skill 的最小切片，**打真实 PostgreSQL**。
  *
- * 断言四件事：
- *   ① 建草稿 → 库里真有行（不是「接口返回 200」）
+ * ⚠ **F192（design-delta `skill-model-a-b-convergence` 选项②，issue #598，
+ * 2026-08-16 已签核）之后**：`POST /skills`（`createSkillDraft`）已冻结为恒 410
+ * ——本文件原本靠它建草稿再测列表/详情/停用，现在种子改走 `seedSkillDraft`
+ * （应用层直调，绕过已冻结的 HTTP 写路由，见 `tests/support/skill-draft-fixture.ts`）。
+ * 原来断言「建草稿会 201」的用例改为断言新语义：**新写入路径已关闭，存量数据仍可读**。
+ *
+ * 断言五件事：
+ *   ① 写入口已关闭：`POST /skills` 对任何请求恒 410，不入库（专用反证见
+ *      `tests/skill/post-skills-gone-410.test.ts`，这里只保留与本文件既有种子
+ *      写法一一对应的那几条，不重复整套矩阵）
  *   ② 列表可见，且**出参过契约 `out` 的 strict 校验**
  *      （zod 默认剥未知键——#19 记过这个坑，不 strict 等于没校验）
  *   ③ 详情可读
@@ -18,6 +26,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { skills as C } from "@repo/contracts";
 import { addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { seedSkillDraft } from "../support/skill-draft-fixture";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -41,7 +50,8 @@ const principal = (user: string, org: string) => ({
  * ⚠ `dataScope: []` / `readsRawTranscript: false` 不是图省事：`SubmitterGrantsPort`
  *   今天恒返回空集（`FailClosedSubmitterGrants`，因为「某人持有哪些数据范围」
  *   在全仓没有事实源），所以任何非空声明都会被正确地判成
- *   `DATA_SCOPE_EXCEEDS_SUBMITTER`。下面 `拒绝越权声明` 那条用例就断言这件事。
+ *   `DATA_SCOPE_EXCEEDS_SUBMITTER`——**F192 之前**如此；F192 之后，写入口
+ *   本身已冻结，这条校验永远到达不了（见下方「越权数据范围声明」那条用例的新断言）。
  */
 const CONTRACT = {
   promptTemplate: "把访谈纪要压成三条结论",
@@ -78,6 +88,10 @@ const statusInDb = (skillId: string, org = ORG) =>
     return r.rows[0]?.status ?? null;
   });
 
+/** 种一份草稿——绕过已冻结的 `POST /skills`（F192），走应用层同一套校验/落库逻辑。 */
+const seedDraft = (name: string) =>
+  seedSkillDraft(app, { orgId: ORG, submitterId: ACTOR, name, contract: CONTRACT, visibility: "org-wide" });
+
 beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
@@ -100,62 +114,58 @@ beforeEach(async () => {
   await addOrgMember(OTHER_ORG, STRANGER, "admin", null);
 });
 
-describe("#459 建草稿 → 列表 → 详情", () => {
-  it("建草稿落 `草稿` 态，库里真有行，出参过契约 strict 校验", async () => {
+describe("F192 · POST /skills 新写入路径已关闭，存量数据仍可读", () => {
+  it("建草稿曾经落 `草稿` 态、201——现在恒 410，且不入库（新写入路径已关闭）", async () => {
     const response = await post(C.operations.createSkillDraft.path, createBody("纪要压缩器"));
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(410);
+    const raw = (await response.json()) as { reasonCode?: string };
+    expect(raw.reasonCode).toBe("SKILL_DRAFT_WRITE_PATH_FROZEN");
 
-    const raw = (await response.json()) as unknown;
-    const parsed = C.operations.createSkillDraft.out.safeParse(raw);
-    expect(parsed.success ? null : parsed.error.issues, JSON.stringify(raw)).toBeNull();
-    const created = parsed.success ? parsed.data : null!;
-
-    expect(created.status).toBe("草稿");
-    // `source` 由系统按入口打标（I-11），调用方没传过这个字段。
-    expect(created.source).toBe("自建");
-    // 库里真的有，且状态就是接口说的那个。
-    expect(await statusInDb(created.skillId)).toBe("草稿");
-  });
-
-  it("`source` 由系统打标：调用方写它 ⇒ SOURCE_TAG_IMMUTABLE，且不入库", async () => {
-    const response = await post(
-      C.operations.createSkillDraft.path,
-      createBody("试图自定来源", { source: "CC" }),
-    );
-    // `createSkillDraft.in` 是 `.strict()` 的，多一个键先被 ZodBodyPipe 判 400；
-    // 无论走哪一道，**都不入库**才是要断言的行为。
-    expect([400, 403, 422]).toContain(response.status);
-    const listed = await get(`${C.operations.listSkills.path}?orgId=${ORG}&entry=library`);
-    const body = (await listed.json()) as { items: unknown[] };
-    expect(body.items).toEqual([]);
-  });
-
-  it("越权数据范围声明被拒，且**不入库、不进待审核队列**", async () => {
-    const response = await post(
-      C.operations.createSkillDraft.path,
-      createBody("越权的 skill", {
-        contract: { ...CONTRACT, dataScope: ["crm:customer:read"] },
-      }),
-    );
-    // 403 而非 422：越权不是「正文写错了」，是**提交人没有这项权限**（I-12 的上界）。
-    // 状态码与 reasonCode 两条都断——只断状态码的话，一个把所有失败都折成 403
-    // 的实现照样绿，而界面正是靠 reasonCode 决定要不要给「申请授权」入口。
-    expect(response.status).toBe(403);
-    expect(((await response.json()) as { reasonCode: string }).reasonCode).toBe(
-      "DATA_SCOPE_EXCEEDS_SUBMITTER",
-    );
-
-    // E1 逐字：失败**不入库**。断言的是「一行都没有」，不是返回码。
+    // 库里没有多出一行——「拒绝了但还是写了」在这里会红。
     const rows = await asApp(ORG, (c) =>
       c.query("SELECT id FROM skill_contracts WHERE org_id = $1", [ORG]),
     );
     expect(rows.rows).toEqual([]);
   });
 
-  it("列表能看见刚建的草稿，出参过契约 strict 校验", async () => {
-    const created = await (await post(C.operations.createSkillDraft.path, createBody("纪要压缩器"))).json() as {
-      skillId: string;
-    };
+  it("试图写 source（曾经 ⇒ SOURCE_TAG_IMMUTABLE）——现在写入口本身已冻结，同样是 410 且不入库", async () => {
+    const response = await post(
+      C.operations.createSkillDraft.path,
+      createBody("试图自定来源", { source: "CC" }),
+    );
+    // ⚠ 新语义：不再是「校验层挡住了越权字段」（400/403/422 那三种），是写入口本身
+    //   已经无条件关闭——`source` 字段合不合法根本没有机会被检查。
+    expect(response.status).toBe(410);
+    const listed = await get(`${C.operations.listSkills.path}?orgId=${ORG}&entry=library`);
+    const body = (await listed.json()) as { items: unknown[] };
+    expect(body.items).toEqual([]);
+  });
+
+  it("越权数据范围声明（曾经 ⇒ DATA_SCOPE_EXCEEDS_SUBMITTER）——现在写入口本身已冻结，同样是 410 且不入库", async () => {
+    const response = await post(
+      C.operations.createSkillDraft.path,
+      createBody("越权的 skill", {
+        contract: { ...CONTRACT, dataScope: ["crm:customer:read"] },
+      }),
+    );
+    // ⚠ 新语义：不再是「数据范围越权检查」拒绝（那条校验逻辑仍在
+    //   `application/skill/create-skill-draft.ts` 里，未删除，只是没有 HTTP 路由
+    //   能到达它）——是写入口本身已经无条件关闭。
+    expect(response.status).toBe(410);
+    const raw = (await response.json()) as { reasonCode?: string };
+    expect(raw.reasonCode).toBe("SKILL_DRAFT_WRITE_PATH_FROZEN");
+
+    // E1 的性质依然成立，只是理由变了：失败**不入库**。
+    const rows = await asApp(ORG, (c) =>
+      c.query("SELECT id FROM skill_contracts WHERE org_id = $1", [ORG]),
+    );
+    expect(rows.rows).toEqual([]);
+  });
+});
+
+describe("F192 · 存量数据（经应用层直调种下的草稿）仍可读", () => {
+  it("列表能看见种下的草稿，出参过契约 strict 校验", async () => {
+    const created = await seedDraft("纪要压缩器");
 
     const response = await get(`${C.operations.listSkills.path}?orgId=${ORG}&entry=library`);
     expect(response.status).toBe(200);
@@ -182,9 +192,7 @@ describe("#459 建草稿 → 列表 → 详情", () => {
   });
 
   it("详情可读，出参过契约 strict 校验，且门禁结果如实是「都没过」", async () => {
-    const created = (await (
-      await post(C.operations.createSkillDraft.path, createBody("纪要压缩器"))
-    ).json()) as { skillId: string };
+    const created = await seedDraft("纪要压缩器");
 
     const response = await get(`/skills/${created.skillId}`);
     expect(response.status).toBe(200);
@@ -202,9 +210,7 @@ describe("#459 建草稿 → 列表 → 详情", () => {
   });
 
   it("跨租户按 id 直取读不到，且是 404 而非 403（I-14：范围外不返回其存在性）", async () => {
-    const created = (await (
-      await post(C.operations.createSkillDraft.path, createBody("纪要压缩器"))
-    ).json()) as { skillId: string };
+    const created = await seedDraft("纪要压缩器");
 
     const response = await get(`/skills/${created.skillId}`, STRANGER, OTHER_ORG);
     expect(response.status).toBe(404);
@@ -225,9 +231,7 @@ describe("#459 停用被正确拒绝，且库内状态未变", () => {
    * 只断错误码的话，一个「返回错误码但已经把状态写进去了」的实现照样绿。
    */
   it("没有引用清单 ⇒ REFERENCES_NOT_ENUMERATED，且库里仍是 `草稿`", async () => {
-    const created = (await (
-      await post(C.operations.createSkillDraft.path, createBody("纪要压缩器"))
-    ).json()) as { skillId: string };
+    const created = await seedDraft("纪要压缩器");
 
     const response = await post(`/skills/${created.skillId}/disable`, {
       skillId: created.skillId,
@@ -246,9 +250,7 @@ describe("#459 停用被正确拒绝，且库内状态未变", () => {
   });
 
   it("契约禁止的启用路由不存在（SKILLS_FORBIDDEN_ROUTES）", async () => {
-    const created = (await (
-      await post(C.operations.createSkillDraft.path, createBody("纪要压缩器"))
-    ).json()) as { skillId: string };
+    const created = await seedDraft("纪要压缩器");
 
     // 契约 :336 逐字：「一条直达的启用路由**就是那条绕过路径本身**」。
     // 交付物是一条断言它不存在的测试，不是一个接口。
