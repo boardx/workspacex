@@ -17,12 +17,29 @@
  *
  * 1. **不给创建者授予任何项目角色**（Q-4②）。若创建即授角色，
  *    「lead 对自建未加入的项目持管理权、不持内容读取权」那条边的两端就不存在了。
- * 2. **不为「蓝本无效」造码**。U-5 裁 B 定的是**补套**那一侧，创建时蓝本不合法的判据
- *    仍无出处；一个不会被抛出的码读起来像覆盖，而它什么都没覆盖。
- *    ⇒ `blueprintVersionId` 在本 feature 里**只被原样落库到重放指纹与容器行之外的地方为止**：
- *    六类初始化是 F23 的交付物，本函数**跳过而不是写空值**（Q-1 C 逐字）。
- * 3. **不写应用层的「组织已停用」码**。那是 PG RESTRICTIVE 策略拒写（I-P28），
+ * 2. **不写应用层的「组织已停用」码**。那是 PG RESTRICTIVE 策略拒写（I-P28），
  *    断言在数据库层；在这里补一个 `if` 就是同一条规则的第二处声明。
+ * 3. **不发明每段议程环节的时长**。见下方「BP-08」一节。
+ *
+ * ## BP-08（人类 2026-08-16 裁：最小闭环 B）—— `blueprintVersionId` 从"原样落库"
+ * 换成"真的用它做点什么"
+ *
+ * U-5 裁 B（可补套、只填空缺）定的是**补套**那一侧；创建时"蓝本不合法该怎么报错"
+ * 此前确实无出处（`create-project.ts` 旧版头注原话），BP-08 补上了：契约 delta
+ * （`design-deltas/createproject-blueprint-error-codes/`，人类 2026-08-16 确认）给
+ * `createProject.err` 加了五个与 `templates.TemplateError` 同码同义的码，本函数在
+ * `blueprintVersionId` 非 null 时真正校验并抛出。
+ *
+ * **范围收得比"六类初始化"字面意思窄**（人类两轮裁决明确的最小闭环）：
+ *   · 权限口径**不变**——仍是 `canCreateProject`（lead-or-admin，#608），不整体调用
+ *     `templates` 束的 `applyBlueprintUseCase()`（那条用例带着自己的 `canApplyBlueprint`
+ *     lead-only 判断，与这里不是同一条边——只复用它的纯函数/仓储层，不复用它的编排）。
+ *   · 档位读**活表**当前 `duration_tier`，不是版本快照（快照从未冻结过档位，
+ *     `KNOWN_CONTRACT_GAPS.T15`）。
+ *   · 六类初始化摘要（`initialized`）仍用 `planSixCategoryInit` 计算、六类计数与
+ *     `getInitializationPreview` 同源，但**真实写入本轮只有 `blueprint_bindings`
+ *     一行**（记录"套用过"这一事实，表/列已就绪，零新增存储）——议程环节等五类
+ *     暂不落地真实行，逐段时长无出处，见 `KNOWN_CONTRACT_GAPS.P10`。
  *
  * ## 🔴 `provenanceEventId` 没有被返回，这是一个**未解决的契约矛盾**，不是省略
  *
@@ -47,13 +64,21 @@ import {
   creationFingerprint,
   isProjectKind,
 } from "../../domain/project/create-project-rules";
+import { planSixCategoryInit } from "../../domain/templates/apply-blueprint-init";
 import type { IdentityRepository } from "../identity/ports";
 import { ProjectError } from "./errors";
-import type { CreatedProject, ProjectRepository } from "./ports";
+import type { BlueprintReferenceRepository, CreatedProject, ProjectRepository } from "./ports";
+import { BlueprintBindingFailedError } from "./ports";
 
 export interface CreateProjectDeps {
   readonly repo: ProjectRepository;
   readonly identity: IdentityRepository;
+  /**
+   * BP-08：`blueprintVersionId` 非 null 时必须提供——解析该端口是本函数唯一读
+   * `templates` 束数据的地方。留空且 `blueprintVersionId` 非 null 时抛错（不是
+   * 静默跳过校验），见函数体。可选是为了不动空白新建路径的既有调用方/测试。
+   */
+  readonly blueprintReference?: BlueprintReferenceRepository;
 }
 
 /** ⚠ `kind` 收的是 `string` 不是 `ProjectKind`：收窄成联合类型，INVALID_KIND 就永远等不到一个非法值。 */
@@ -94,18 +119,61 @@ export async function createProject(
     throw new ProjectError("ORG_ROLE_INSUFFICIENT");
   }
 
-  return deps.repo.create({
-    orgId: input.orgId,
-    actorId: input.actorId,
-    name: input.name,
-    kind: input.kind,
-    blueprintVersionId: input.blueprintVersionId,
-    fingerprint: creationFingerprint({
+  // BP-08：blueprintVersionId 非 null 时，在写入前解析它。放在 canCreateProject 之后——
+  // 「谁能建」与「传的蓝本合不合法」是两条独立的门，前者判完才值得花一次跨束查询去判后者
+  // （同本函数一贯的顺序理由：与调用者是谁无关的判断不该抢在角色判断前面消耗资源，
+  //  这里反过来是因为角色判断更便宜、更早能挡掉大多数非法请求）。
+  let blueprintBinding: { readonly blueprintId: string } | null = null;
+  let initialized: ReturnType<typeof planSixCategoryInit>["initialized"] | undefined;
+
+  if (input.blueprintVersionId !== null) {
+    if (deps.blueprintReference === undefined) {
+      // 装配错误，不是用户输入错误——真实部署里 kernel.module.ts 必须注入这个端口。
+      throw new Error("createProject: blueprintVersionId given but no BlueprintReferenceRepository wired");
+    }
+    const resolved = await deps.blueprintReference.resolve(
+      input.orgId,
+      input.blueprintVersionId,
+      orgRole?.orgRole ?? null,
+      orgRole?.teamId ?? null,
+    );
+    switch (resolved.kind) {
+      case "not-found":
+        throw new ProjectError("BLUEPRINT_NOT_FOUND");
+      case "not-visible":
+        throw new ProjectError("BLUEPRINT_NOT_VISIBLE");
+      case "version-archived":
+        throw new ProjectError("BLUEPRINT_VERSION_ARCHIVED");
+      case "ok": {
+        const plan = planSixCategoryInit(resolved.filledFacetKeys, resolved.tier);
+        initialized = plan.initialized;
+        blueprintBinding = { blueprintId: resolved.blueprintId };
+        break;
+      }
+    }
+  }
+
+  let created: CreatedProject;
+  try {
+    created = await deps.repo.create({
       orgId: input.orgId,
       actorId: input.actorId,
-      kind: input.kind,
       name: input.name,
+      kind: input.kind,
       blueprintVersionId: input.blueprintVersionId,
-    }),
-  });
+      fingerprint: creationFingerprint({
+        orgId: input.orgId,
+        actorId: input.actorId,
+        kind: input.kind,
+        name: input.name,
+        blueprintVersionId: input.blueprintVersionId,
+      }),
+      blueprintBinding,
+    });
+  } catch (e) {
+    if (e instanceof BlueprintBindingFailedError) throw new ProjectError("INITIALIZATION_FAILED");
+    throw e;
+  }
+
+  return initialized === undefined ? created : { ...created, initialized };
 }
