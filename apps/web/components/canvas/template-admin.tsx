@@ -13,6 +13,7 @@ import {
   archiveCanvasTemplate,
   createCanvasTemplate,
   listCanvasTemplates,
+  mintCanvasTemplateVersion,
   publishCanvasTemplate,
   restoreCanvasTemplate,
   TEMPLATE_FILTERS,
@@ -72,11 +73,13 @@ import { TemplateApplyDialog } from "./template-apply-dialog";
  *     `COUNT(*)` 重新算出来；**不**在本地把它加一（同下面 `create` 的理由）。
  *   对话框在 `template-apply-dialog.tsx`，环节的来源与缺口都写在它的文件头。
  *
- * ## 仍然没有「编辑」
+ * ## 🟢 #988 补上的第四个入口：「基于此开新版」
  *
- * 契约里没有 update，也没有「开新版」，所以 `createTemplate.out.version` 是 `z.literal(1)`。
- * 分区结构只能在**新建时**定，之后改不了。这是缺口（C_CANVAS_8 ②）的后果，如实写在界面上，
- * 不用一个「保存」按钮假装它能改。
+ * 「编辑」在本束的语义**不是**原地改一行——已发布/已归档的版本是不可变快照。点「基于此
+ * 开新版」打开与「新建」同一个对话框，但 `key` 锁定不可改、其余字段预填自选中版本，
+ * 提交调 `mintCanvasTemplateVersion`，产出 `version: N+1` 的新 `draft` 行。
+ * 仅在该行 `status !== "draft"` 时出现（`draft` 本身还没定稿，「新版本」对它没有意义，
+ * 见 `design-signoff.md`「人类决定」①）。
  *
  * ⚠ `previewRole === "observer"` 时不挂写入口，那是**降噪不是权限**：
  *   真正的拒绝在服务端（`ROLE_INSUFFICIENT` → 403），失败信封原样回显。
@@ -122,6 +125,8 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
   const [state, setState] = React.useState<LoadState>({ sourceKey, status: "loading" });
   const [archiving, setArchiving] = React.useState<ArchivePreflight | null>(null);
   const [creating, setCreating] = React.useState(false);
+  /** #988：正在被「基于此开新版」的那一行。null = 对话框没开。 */
+  const [minting, setMinting] = React.useState<CanvasTemplate | null>(null);
   /** #493：正在被「使用」的那一行。null = 对话框没开。 */
   const [applying, setApplying] = React.useState<CanvasTemplate | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
@@ -145,6 +150,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
   React.useEffect(() => {
     setArchiving(null);
     setCreating(false);
+    setMinting(null);
     setApplying(null);
     setActionError(null);
     setNotice(null);
@@ -204,6 +210,28 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
     });
     setCreating(false);
     setNotice(`已新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
+    await load();
+  }
+
+  /**
+   * #988。「基于此开新版」——本束「编辑」的真实语义。`key` 锁定为来源版本的 key，
+   * 服务端算出 `version = max(该 key 当前版本) + 1`，其余字段来自这次对话框提交的值
+   * （预填自来源版本，可编辑）。
+   *
+   * ⚠ 同 `create`：成功后 `await load()` 重读列表，不把新行拼进本地 state。
+   */
+  async function mintVersion(sourceKey: string, draft: NewTemplateDraft) {
+    setActionError(null);
+    setNotice(null);
+    const out = await mintCanvasTemplateVersion({
+      key: sourceKey,
+      displayName: draft.displayName.trim(),
+      underlyingType: draft.underlyingType.trim(),
+      sections: draft.sections,
+      visibility: draft.visibility,
+    });
+    setMinting(null);
+    setNotice(`已基于 v${minting?.version ?? "?"} 新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
     await load();
   }
 
@@ -396,7 +424,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
                       */}
                       <td className="px-3 py-2 text-11 tabular-nums" data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</td>
                       <td className="px-3 py-2">
-                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} />
+                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} />
                       </td>
                     </tr>
                   ))}
@@ -420,7 +448,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
                     <span className="font-mono text-10 text-muted-foreground">
                       {t.key} v{t.version} · {t.underlyingType} · 被 {t.usageCount} 场
                     </span>
-                    <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} />
+                    <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} />
                   </CardContent>
                 </Card>
               ))}
@@ -431,6 +459,14 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
 
       {creating && (
         <CreateDialog onClose={() => setCreating(false)} onSubmit={create} />
+      )}
+
+      {minting && (
+        <CreateDialog
+          mintFrom={minting}
+          onClose={() => setMinting(null)}
+          onSubmit={(draft) => mintVersion(minting.key, draft)}
+        />
       )}
 
       {applying && (
@@ -458,7 +494,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
  * `projectId` 的真实来源，见文件头。
  */
 function RowActions({
-  row, readOnly, onArchive, onRestore, onPublish, onApply,
+  row, readOnly, onArchive, onRestore, onPublish, onApply, onMintVersion,
 }: {
   row: CanvasTemplate;
   readOnly: boolean;
@@ -466,6 +502,7 @@ function RowActions({
   onRestore: () => void;
   onPublish: () => void;
   onApply: () => void;
+  onMintVersion: () => void;
 }) {
   if (readOnly) return <span className="text-10 text-muted-foreground">只读</span>;
   return (
@@ -503,9 +540,16 @@ function RowActions({
           试跑入口待补（缺试跑项目的真实来源）
         </span>
       )}
-      <span className="flex items-center gap-1 text-10 text-muted-foreground">
-        <Pencil aria-hidden className="h-3 w-3" /> 编辑入口待补（契约无更新操作，分区只能在新建时定）
-      </span>
+      {/*
+        #988：仅非 draft 才挂「基于此开新版」——draft 本身还没定稿，「新版本」对它没有
+        意义（同 `design-signoff.md`「人类决定」①）。这是「编辑」在本束的真实入口：
+        没有原地改，只有开新版。
+      */}
+      {row.status !== "draft" && (
+        <Button size="xs" variant="outline" data-testid={`tpladmin-mint-version-${row.key}-${row.version}`} onClick={onMintVersion}>
+          <Pencil aria-hidden className="h-3 w-3" /> 基于此开新版
+        </Button>
+      )}
     </div>
   );
 }
@@ -521,27 +565,38 @@ interface NewTemplateDraft {
 }
 
 /**
- * 🟡 #496 新建模板对话框。
+ * 🟡 #496 新建模板对话框 / #988「基于此开新版」对话框——**同一个组件**。
+ *
+ * ## 新建 vs 开新版：只有 `key` 是否锁定、初始值来自哪里不同
+ *
+ * `mintFrom` 存在时是「开新版」模式：`key` 预填自来源版本且**禁用**（新版本必须是同一条
+ * 谱系），其余字段预填自来源版本的当前值、可编辑。两条路径共用同一份表单与校验，
+ * 不重写一遍——同 `CreateDialog` 自己一贯的「不变量只写一遍」纪律。
  *
  * ## 分区**只能在这里定**
  *
- * 契约里没有 update，也没有「开新版」（C_CANVAS_8 ②），所以一个模板的分区结构此后改不了。
- * 这句话直接写在表单上，而不是等用户建完去找那个不存在的编辑按钮。
+ * 新建时，分区结构此后改不了，只能靠「基于此开新版」产出下一个版本再改——本对话框
+ * 同时是这两件事唯一的落点。
  *
  * ## 失败原样回显
  *
- * key 被占用是 409 + `TEMPLATE_KEY_CONFLICT`，界面把它显示成「这个 key 已被占用」——
- * 一件用户改一下就能解决的事，不是「保存失败」。⚠ 不在前端预先查一遍 key 是否可用：
- * 那是第二份判据，且它与真实写入之间永远有一个窗口。
+ * key 被占用是 409 + `TEMPLATE_KEY_CONFLICT`（仅新建路径会遇到，`key` 被锁定的开新版
+ * 路径不会撞它，但仍复用同一段回显逻辑，多出的分支就是没有）。
  */
 function CreateDialog({
-  onClose, onSubmit,
-}: { onClose: () => void; onSubmit: (draft: NewTemplateDraft) => Promise<void> }) {
-  const [key, setKey] = React.useState("");
-  const [displayName, setDisplayName] = React.useState("");
-  const [underlyingType, setUnderlyingType] = React.useState("canvas");
-  const [visibility, setVisibility] = React.useState<TemplateVisibility>("org-wide");
-  const [sectionNames, setSectionNames] = React.useState<readonly string[]>([""]);
+  mintFrom, onClose, onSubmit,
+}: {
+  mintFrom?: CanvasTemplate;
+  onClose: () => void;
+  onSubmit: (draft: NewTemplateDraft) => Promise<void>;
+}) {
+  const [key, setKey] = React.useState(mintFrom?.key ?? "");
+  const [displayName, setDisplayName] = React.useState(mintFrom?.displayName ?? "");
+  const [underlyingType, setUnderlyingType] = React.useState(mintFrom?.underlyingType ?? "canvas");
+  const [visibility, setVisibility] = React.useState<TemplateVisibility>(mintFrom?.visibility ?? "org-wide");
+  const [sectionNames, setSectionNames] = React.useState<readonly string[]>(
+    mintFrom && mintFrom.sections.length > 0 ? mintFrom.sections.map((s) => s.name) : [""],
+  );
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -579,33 +634,49 @@ function CreateDialog({
     }
   }
 
+  const dialogTestId = mintFrom ? "tpladmin-mint-dialog" : "tpladmin-create-dialog";
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-title"
-      data-testid="tpladmin-create-dialog"
+      data-testid={dialogTestId}
     >
       <div className="flex w-full max-w-lg flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-lg">
         <div className="flex items-start justify-between gap-2">
-          <h2 id="create-title" className="text-14 font-semibold">新建画布模板</h2>
+          <h2 id="create-title" className="text-14 font-semibold">
+            {mintFrom ? `基于「${mintFrom.displayName} v${mintFrom.version}」开新版` : "新建画布模板"}
+          </h2>
           <Button size="icon" variant="ghost" aria-label="关闭" onClick={onClose} data-testid="tpladmin-create-close">
             <X aria-hidden className="h-3.5 w-3.5" />
           </Button>
         </div>
 
         <p className="rounded-md border border-warning/40 bg-warning/5 px-2.5 py-1.5 text-11 text-muted-foreground" data-testid="tpladmin-create-draft-note">
-          建出来的是 <strong className="text-background-foreground">草稿</strong>，要被议程环节使用还得再点一次「发布」。
-          分区结构<strong className="text-background-foreground">只能在这里定</strong> —— 契约里还没有修改模板的操作。
+          {mintFrom ? (
+            <>
+              产出的是同一个 key 下的<strong className="text-background-foreground">下一个版本（草稿）</strong>，
+              来源版本 v{mintFrom.version} <strong className="text-background-foreground">不受影响</strong>，
+              要被议程环节使用还得再点一次「发布」。
+            </>
+          ) : (
+            <>
+              建出来的是 <strong className="text-background-foreground">草稿</strong>，要被议程环节使用还得再点一次「发布」。
+              分区结构<strong className="text-background-foreground">只能在这里定</strong> —— 之后只能靠「基于此开新版」改。
+            </>
+          )}
         </p>
 
         <label className="flex flex-col gap-1 text-11">
-          <span className="text-muted-foreground">模板 key（组织内唯一，之后不可改）</span>
+          <span className="text-muted-foreground">
+            模板 key（{mintFrom ? "开新版锁定为来源版本的 key，不可改" : "组织内唯一，之后不可改"}）
+          </span>
           <input
-            className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12"
+            className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12 disabled:bg-disabled disabled:text-disabled-foreground"
             value={key}
             onChange={(e) => setKey(e.target.value)}
+            disabled={mintFrom !== undefined}
             data-testid="tpladmin-create-key"
           />
         </label>
@@ -682,8 +753,16 @@ function CreateDialog({
 
         <div className="flex items-center justify-end gap-2">
           <Button size="sm" variant="ghost" onClick={onClose} data-testid="tpladmin-create-cancel">取消</Button>
-          <Button size="sm" variant="primary" disabled={!canSubmit} onClick={() => void submit()} data-testid="tpladmin-create-submit">
-            {submitting ? "正在新建…" : "新建草稿"}
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={!canSubmit}
+            onClick={() => void submit()}
+            data-testid={mintFrom ? "tpladmin-mint-submit" : "tpladmin-create-submit"}
+          >
+            {mintFrom
+              ? (submitting ? "正在新建版本…" : "新建版本")
+              : (submitting ? "正在新建…" : "新建草稿")}
           </Button>
         </div>
       </div>

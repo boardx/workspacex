@@ -126,10 +126,11 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
 
   it("真实端点路径从契约取，不手抄；全仓只有一个 canvas 模板出口", () => {
     const client = readFileSync(resolve(ROOT, "lib/live-canvas.ts"), "utf8");
-    // `createTemplate` 是 #496 补上的第六个（该契约面待人类补签）。
+    // `createTemplate` 是 #496 补上的第六个，`mintTemplateVersion` 是 #988 补上的第七个
+    // （两者均已由人类签核，见 `design-signoff.md`）。
     for (const op of [
       "createTemplate", "listTemplates", "publishTemplate", "trialTemplate",
-      "archiveTemplate", "restoreTemplate",
+      "archiveTemplate", "restoreTemplate", "mintTemplateVersion",
     ]) {
       expect(client).toContain(`canvas.operations.${op}`);
     }
@@ -161,10 +162,11 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
       "components/canvas/knowledge-backflow.tsx -> lib/mock/canvas.ts",
       // UC-7.1 F102 环节绑定：后端无 bindTemplateToSegment 路由
       "components/canvas/segment-binding.tsx -> lib/mock/canvas.ts",
-      // UC-7.1 F100 模板编辑器：**契约里仍然没有更新模板 / 开新版的操作**（C_CANVAS_8 ②）。
-      // #496 补的是「建」，这一屏要的是「改」——它的设计对话、分区重排、版本历史与回滚
-      // 一条后端路由都没有，所以仍是 mock 原型。新建入口在 template-admin 那一屏，
-      // 它已经打真实端点（见上面第二条断言：那棵树里零 mock 边）。
+      // UC-7.1 F100 模板编辑器：C_CANVAS_8 ②「开新版」已由 #988 的 `mintTemplateVersion`
+      // 补上（真实端点在 template-admin 那一屏的「基于此开新版」按钮，见上面第二条断言：
+      // 那棵树里零 mock 边）。这一屏（template-editor）要的是**签核材料第二节**那部分——
+      // mermaid 图分支的设计对话、分区重排、版本历史与回滚——人类签核时明确裁定该扩展
+      // 「作为后续独立 feature 迭代」，不在 #988 范围内，所以仍是 mock 原型。
       "components/canvas/template-editor.tsx -> lib/mock/canvas.ts",
     ]);
   });
@@ -186,6 +188,24 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
     // 模板库屏确实调到了那个出口——否则上面两条可能只是在描述一个没人用的函数。
     const admin = readFileSync(resolve(ROOT, TEMPLATE_ADMIN), "utf8");
     expect(admin).toContain("createCanvasTemplate(");
+  });
+
+  /**
+   * 🟢 #988：「基于此开新版」——本束「编辑」的真实入口——同样必须落在契约声明的端点上。
+   * 与「没有 mock 边」是两件事，理由同上一条。
+   */
+  it("#988 基于此开新版走的是契约声明的 mintTemplateVersion 端点，且全仓只有一个出口", () => {
+    const client = readFileSync(resolve(ROOT, "lib/live-canvas.ts"), "utf8");
+    // 走的是 `templatePath(canvas.operations.mintTemplateVersion, ...)`，同 publish/trial/
+    // archive/restore 那几条共用的路径拼接器，不是一个独立的 `.path` 字面量引用。
+    expect(client).toContain("canvas.operations.mintTemplateVersion");
+
+    const callers = walk(TEMPLATE_ADMIN).visited
+      .filter((f) => readFileSync(resolve(ROOT, f), "utf8").includes("mintTemplateVersion"));
+    expect(callers).toEqual(["lib/live-canvas.ts"]);
+
+    const admin = readFileSync(resolve(ROOT, TEMPLATE_ADMIN), "utf8");
+    expect(admin).toContain("mintCanvasTemplateVersion(");
   });
 
   /**
