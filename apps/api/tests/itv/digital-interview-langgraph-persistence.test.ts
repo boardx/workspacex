@@ -414,7 +414,11 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       text: "建议专家", draftContext: { step: "experts", expertIds: [EXPERT] },
       expectedVersion: confirmed.version, requestId: "skill-context-experts",
     });
-    expect(modelCalls[1]?.history).toEqual([
+    const expertStepSkillCall = modelCalls.find((call) => {
+      const context = JSON.parse(call.user) as { currentStep?: string; request?: string };
+      return context.currentStep === "experts" && context.request === "建议专家";
+    });
+    expect(expertStepSkillCall?.history).toEqual([
       expect.objectContaining({ role: "user", content: "聚焦主题" }),
       expect.objectContaining({ role: "assistant" }),
     ]);
