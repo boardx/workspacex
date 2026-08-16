@@ -159,6 +159,18 @@ describe("④ 未登记形态不得被静默放过", () => {
     expect(c.shape).toBe("turbo-task:typecheck");
     expect(c.probe).toContain(`--filter=@repo/${"__verification_gate_probe_absent__"}`);
   });
+
+  it("多文件 vitest（同一条命令跑好几个测试文件）复用同一个形态键，不是未登记形态（F188 复核实测发现）", () => {
+    const multi =
+      "pnpm --filter web exec vitest run tests/ui/a.test.tsx tests/ui/b.test.ts tests/session/c.test.ts";
+    const c = classify(multi);
+    expect(c).not.toBeNull();
+    expect(c.shape).toBe("vitest-file:web"); // 与单文件同一个形态键——失败传导路径逐字相同
+    expect(c.probe).toContain("--filter web exec vitest run");
+    expect(c.probe).not.toBe(multi);
+    const { errors } = run([multi]);
+    expect(errors.join("\n")).not.toContain("未登记形态");
+  });
 });
 
 describe("⑤ 空集不得平凡为真", () => {
