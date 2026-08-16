@@ -99,7 +99,24 @@ function once(url: URL, seams: ImportFetchSeams): Promise<{
   return new Promise((resolve, reject) => {
     const request = https.request(
       url,
-      { method: "GET", lookup: guardedLookup(seams), timeout: TIMEOUT_MS },
+      {
+        method: "GET",
+        lookup: guardedLookup(seams),
+        timeout: TIMEOUT_MS,
+        /**
+         * 实测（真栈 e2e，`skill-agent-import-usecase-audit.spec.ts` ①）：不带任何请求头
+         * 打 `api.github.com` 一律 403 `Request forbidden by administrative rules ...
+         * make sure your request has a User-Agent header`——这条路径此前只被 loopback
+         * 测试替身验证过（替身不强制 UA），从未真的打过 GitHub，所以 `tree/` 目录导入
+         * 落地以来一次都没有真的成功过。`Accept` 一并给上是 GitHub 官方文档对 REST API
+         * 的推荐值，避免协商到非 JSON 的表示。两者都是**只读取回层加的请求头**，
+         * 不影响两道 SSRF 门（校验发生在 `lookup`，与请求头无关）。
+         */
+        headers: {
+          "user-agent": "workspacex-skill-import/1.0",
+          accept: "application/vnd.github+json",
+        },
+      },
       (response) => {
         const chunks: Buffer[] = [];
         let total = 0;

@@ -23,6 +23,7 @@ import {
 } from "./ag-shared";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { getAssetDirectory, readAssetFile, writeAssetFile, type AssetDirectory } from "@/lib/asset-directory";
+import { runSkillTrialRun } from "@/lib/skill-trial-run";
 import type { FileNode } from "@/lib/mock/asset-governance";
 
 type ScreenProps = { state: UiState; view: AgView };
@@ -601,6 +602,48 @@ function Editor({
 
   const [liveBody, setLiveBody] = React.useState<string | null>(null);
   const [fileBusy, setFileBusy] = React.useState(false);
+
+  /**
+   * 试跑（`POST /skill-versions/:versionId/trial-run`，见 `lib/skill-trial-run.ts`）。
+   * ⚠ 只在 `isLive && kind === "skill"` 时可点——mock 态没有真实 `versionId`，
+   *   `agent` 这一档仍是 fixture（#787 未解决），两者点了都只会打到假数据或 404，
+   *   按本仓「宁可显式禁用并说明，不放一个点了没反应/报假错的按钮」的纪律禁用。
+   */
+  const [trialRunOpen, setTrialRunOpen] = React.useState(false);
+  const [trialRunInput, setTrialRunInput] = React.useState("");
+  const [trialRunPending, setTrialRunPending] = React.useState(false);
+  const [trialRunOutput, setTrialRunOutput] = React.useState<{ output: string; durationMs: number; tokens: number } | null>(null);
+  const [trialRunError, setTrialRunError] = React.useState<string | null>(null);
+  const trialRunAvailable = isLive && kind === "skill";
+
+  const runTrialRun = async () => {
+    if (!trialRunAvailable || trialRunPending) return;
+    const versionId = liveDir?.currentVersionId ?? null;
+    if (versionId === null) {
+      setTrialRunError("这个 skill 还没有已发布的版本，无法试跑。");
+      return;
+    }
+    setTrialRunPending(true);
+    setTrialRunError(null);
+    try {
+      const result = await runSkillTrialRun(versionId, trialRunInput);
+      if (result.trialRun === null) {
+        // 契约允许转后台任务（R9），本次实现恒不转（见后端文件头），
+        // 这个分支理论上到不了，但按类型诚实处理而不是断言非空。
+        setTrialRunError("试跑已转后台任务，本次界面暂不支持查看后台任务结果。");
+        return;
+      }
+      setTrialRunOutput({
+        output: result.trialRun.output,
+        durationMs: result.trialRun.durationMs,
+        tokens: result.trialRun.tokens,
+      });
+    } catch (error) {
+      setTrialRunError(describeAssetError(error));
+    } finally {
+      setTrialRunPending(false);
+    }
+  };
   /**
    * #881：编辑缓冲区。`liveBody` 是**服务端那一版**，`draft` 是用户正在改的那一版，
    * 两者不等 ⇒ 真的有未保存改动。
@@ -650,7 +693,15 @@ function Editor({
             ) : null}
           </div>
           <div className="flex items-center gap-1.5">
-            <Button size="xs" variant="outline" className="gap-1" data-testid={`ag-${kind}-tryrun`}>
+            <Button
+              size="xs"
+              variant="outline"
+              className="gap-1"
+              data-testid={`ag-${kind}-tryrun`}
+              disabled={!trialRunAvailable}
+              title={trialRunAvailable ? undefined : "试跑需要真实数据态下的 skill（agent 与预览态 mock 暂不支持）"}
+              onClick={() => setTrialRunOpen((v) => !v)}
+            >
               <Play aria-hidden className="h-3 w-3" /> 试跑
             </Button>
             <DangerConfirm
@@ -678,6 +729,43 @@ function Editor({
             />
           </div>
         </div>
+
+        {trialRunOpen && trialRunAvailable ? (
+          <Panel testid={`ag-${kind}-trialrun-panel`} className="flex flex-col gap-2">
+            <p className="text-11 text-muted-foreground">
+              用一句样例输入真实调一次模型——system 是当前发布版本的 SKILL.md
+              正文（不是你还没保存的草稿），输出不入库。
+            </p>
+            <textarea
+              data-testid={`ag-${kind}-trialrun-input`}
+              className="min-h-[72px] w-full rounded-md border border-border bg-card p-2 font-mono text-11 leading-relaxed text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="试一条样例输入…"
+              value={trialRunInput}
+              onChange={(e) => setTrialRunInput(e.target.value)}
+              disabled={trialRunPending}
+            />
+            <div className="flex items-center gap-2">
+              <Button
+                size="xs"
+                variant="primary"
+                data-testid={`ag-${kind}-trialrun-run`}
+                disabled={trialRunPending}
+                onClick={() => void runTrialRun()}
+              >
+                {trialRunPending ? "运行中…" : "运行一次"}
+              </Button>
+            </div>
+            {trialRunError ? (
+              <p className="text-11 text-destructive" data-testid={`ag-${kind}-trialrun-error`}>{trialRunError}</p>
+            ) : null}
+            {trialRunOutput ? (
+              <div className="flex flex-col gap-1 rounded-md border border-border-subtle bg-muted/30 p-2" data-testid={`ag-${kind}-trialrun-output`}>
+                <p className="whitespace-pre-wrap font-mono text-11 text-card-foreground">{trialRunOutput.output}</p>
+                <p className="text-9 text-muted-foreground">{trialRunOutput.durationMs}ms · {trialRunOutput.tokens} tokens</p>
+              </div>
+            ) : null}
+          </Panel>
+        ) : null}
 
         <ScreenHead title={`${label} 编辑器`} uc={uc}>
           左侧文件树就是发布出去的目录结构；右侧编辑 {sel}。
