@@ -4549,6 +4549,36 @@
       "priority": 2,
       "area": "project",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F199",
+      "title": "createProject 创建者自动获得容器最高权限角色（推翻 Q-4②：facilitator/owner）",
+      "user_visible_behavior": "任意通过 createProject 成功建出容器（工作坊/研究项目/用户洞察）的人，建完立刻就能进入并使用自己建的这个容器——不再出现「建了项目却读不到内容」（ADMIN_NOT_SUPERUSER/NO_PROJECT_ROLE）。工作坊容器：创建者获得 facilitator（引导师）角色，is_host=true。研究项目/用户洞察容器：创建者获得 owner（所有者）角色。全部与容器同一个事务写入，不存在“容器建成、角色没跟上”的中间态。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F117"
+      ],
+      "points": 2,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/project/create-project-org-role-gate.test.ts",
+        "pnpm --filter api exec vitest run tests/project/bootstrap-admin-can-create-project.test.ts",
+        "pnpm --filter api exec vitest run tests/project/create-project-blueprint-init.test.ts",
+        "pnpm --filter api exec vitest run tests/project/create-project-atomic-two-rows.test.ts",
+        "pnpm --filter api exec vitest run tests/project/create-project-idempotent.test.ts",
+        "pnpm --filter api exec vitest run tests/project/manage-members-admin-org-role.test.ts",
+        "pnpm --filter api exec vitest run tests/project/cross-layer-fourth-cell.test.ts",
+        "pnpm --filter api exec vitest run tests/project/list-projects-flat.test.ts",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint"
+      ],
+      "evidence": "",
+      "notes": "① 人类在本会话里直接答复 Q-4②（原裁「创建者不自动获角色」）：「自动获得最高权限，owner，是的」——裁决记录见 `requirements/00-project/OPEN-QUESTIONS.md` 「🔁 2026-08-17 delta：Q-4② 推翻重裁」一节。\n② 这不是一次凭空的模型改动：它直接根治了本会话早些时候用 rev-uiux 审查真实产品截图发现的可复现缺口——组织管理员建了一个工作坊项目（真实截图里的「ceshi」），建完立刻访问自己的项目却拿到 ADMIN_NOT_SUPERUSER，因为原判据下创建者永远不会获得任何 project_memberships 行。追溯确认判定层本身没有 bug（D-18 按设计工作），缺口在于产品从未给创建者一条获得角色的路径。\n③ 三类容器的“最高权限”按已有的角色词汇分流，不是发明新角色：workshop → `project_memberships`（`facilitator`+`is_host=true`）；research_project/user_insight → 各自的 F128 `*_members` 表（`role='owner'`）——这两张表本来就只有 `owner`/`collaborator` 两档，人类原话「owner」字面对应的正是这个既有枚举值。\n④ 范围边界——做：`PgProjectRepository.create()` 在建容器的**同一个事务**里按 `cmd.kind` 多写一行成员/所有者记录；同步更新 `create-project.ts`/`ports.ts`/`create-project-rules.ts`/`member-authorization.ts` 里所有断言/记录旧行为「创建者不自动获角色」的头注（`member-authorization.ts` 的 #614 组织层 override 本身不删——它覆盖的是更宽的「lead/admin 管理任意项目成员」场景，不只是自建未加入这一种）。不做：F191（BP-08）负责的 `blueprint_bindings` 事实写入不受影响，两者是独立的事，顺序上本 feature 的成员写入在前；前端 `tab-overview.tsx` 的「读取失败误显示为诚实空态」与「项目头硬编码 mock 身份」两处已知前端 bug 不在本次范围（rev-uiux 报告已点名，留给后续 feature）。\n⑤ 验证覆盖：正向断言（建完立刻判权放行、project_memberships/owner 表真的多一行）+ 反证（换一个未参与创建的人后补角色仍然独立成立，不依赖创建者自动获权那条路径）+ 三类容器 kind 分流不撞 FK（`project_memberships_project_kind_fkey` 只接受 workshop）+ 故障注入点位随新增语句顺移一位（BP-08 的 INITIALIZATION_FAILED 反证）。既有 234 条 project 域测试全部保持通过，无回归。",
+      "priority": 1,
+      "area": "project",
+      "capability": "CAP-API"
     }
   ]
 }

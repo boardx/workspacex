@@ -5,13 +5,20 @@
  * `apps/api/src`，要求这句 SQL 恰好出现在**一个**文件里。那条断言就是「一条创建路径」
  * 的机械判据：第二个写点一出现，它当场变红，而没有它，「唯一」只是一句注释。
  *
- * ## 一个事务里的三条语句（BP-08 起，`blueprintVersionId` 非 null 时是四条），顺序不可交换
+ * ## 一个事务里的四条语句（BP-08 起，`blueprintVersionId` 非 null 时是五条），顺序不可交换
  *
  *   ① `project_creation_requests` 占指纹（`ON CONFLICT DO NOTHING`）
  *        └ 命中冲突 ⇒ 这次是**重放**，读出先前那个容器返回，一行都不写
  *   ② `projects`      —— 超类型行
  *   ③ 子类型表        —— 1:1 子行
- *   ④（可选）`blueprint_bindings` —— 记录"套用过"的事实（BP-08，见方法体内注释）
+ *   ④ 创建者的"所有者"行——**按 `cmd.kind` 分流到不同表**（F128 已把工作坊机件表
+ *      钉死只接受 `kind='workshop'`，见方法体内注释）：workshop → `project_memberships`
+ *      （`facilitator` + `is_host=true`）；research_project/user_insight → 各自的
+ *      `*_members` 表（`role='owner'`）。
+ *      （2026-08-16 人类裁决，推翻 Q-4②：「创建者不自动获角色」不再成立，
+ *      改判「自动获得最高权限」。见 `create-project.ts` 头注。
+ *      本行只在**新建**分支写；重放分支不重复写，因为首次创建时已经写过一次。）
+ *   ⑤（可选）`blueprint_bindings` —— 记录"套用过"的事实（BP-08，见方法体内注释）
  *
  * ① 必须在最前：让**数据库**裁决「新建还是重放」，并发下两路才被主键序列化。
  * 先 `SELECT` 再决定的写法在并发下两路都读到「没有」，然后都去建——那正是
@@ -19,10 +26,11 @@
  * ①指向的容器行此刻还不存在，所以那条复合外键在迁移 0026 里是 `DEFERRABLE
  * INITIALLY DEFERRED` 的（理由写在迁移里）。
  *
- * ②③ 必须在**同一个** `withTenant`：`withTenant` 一次调用 = 一个事务
+ * ②③④ 必须在**同一个** `withTenant`：`withTenant` 一次调用 = 一个事务
  * （见 `application/ports/database.port.ts`）。拆成两次调用就是两次提交，
  * 于是「有容器没子类型」这个 I-P34 想排除的中间态**在两次提交之间真实存在**，
  * 而且崩溃在那一刻的话它会永久留下。反证见测试文件里那条 `FaultAfterQuery`。
+ * 同一条纪律现在也覆盖④：不存在"项目建成功、但创建者没有角色"的中间态。
  */
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { IdFactory } from "../../application/artifact/ports";
@@ -103,6 +111,32 @@ export class PgProjectRepository implements ProjectRepository {
         id,
         cmd.orgId,
       ]);
+
+      // 2026-08-16 人类裁决（推翻 Q-4②）：创建者自动获得该容器最高权限的角色。
+      //
+      // ⚠ 三类容器的"最高权限"字面上不是同一张表、同一个角色名——F128（U-7 裁 A）
+      //   已经把这两类判据钉死在数据库层：`project_memberships` 的 `(project_id, kind)`
+      //   复合外键**只**接受 `kind='workshop'` 的容器；`research_project`/`user_insight`
+      //   走各自专属的 `research_project_members`/`user_insight_members`（`role` 只有
+      //   `owner`/`collaborator` 两档，不复用工作坊四角色，F128 头注逐字）。这里按
+      //   `cmd.kind` 分流，不是发明第三种写法，是分别调用两套已存在的成员表：
+      //     · workshop           → `project_memberships`（facilitator + is_host=true）
+      //     · research_project /
+      //       user_insight       → 各自的成员表（role='owner'，人类原话「owner」
+      //       字面对应的正是这两张表已有的枚举值，不是巧合）
+      if (cmd.kind === "workshop") {
+        await s.query(
+          `INSERT INTO project_memberships (user_id, project_id, org_id, project_role, group_id, is_host)
+           VALUES ($1, $2, $3, 'facilitator', NULL, true)`,
+          [cmd.actorId, id, cmd.orgId],
+        );
+      } else {
+        const table = cmd.kind === "research_project" ? "research_project_members" : "user_insight_members";
+        await s.query(
+          `INSERT INTO ${table} (user_id, project_id, org_id, role) VALUES ($1, $2, $3, 'owner')`,
+          [cmd.actorId, id, cmd.orgId],
+        );
+      }
 
       // ⚠ `blueprintVersionId` 本身到此为止：**没有任何一列存得下它**。
       //   `projects` 的列集合是封闭清单（I-P33），蓝本引用属工作坊机件、应当落在

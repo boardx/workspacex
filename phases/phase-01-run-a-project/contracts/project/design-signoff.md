@@ -68,7 +68,21 @@ phase: "01"
 #   新增第④节、`_sharedWithTemplates` 编译期钉住同码同义），未偏离批准范围一字
 #   （同 F186 落地 `blueprint-read-path` delta 时的先例，性质与做法都相同）。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191]
+# 2026-08-17（追加 **F199**，dev-project agent）——与 F191 同一性质，**不是**零新增
+#   设计面的自查追加：本条推翻了一处已签设计（Q-4②：「创建者不自动获角色」→「自动获得
+#   最高权限」）。授权来源：人类在本会话里直接答复「自动获得最高权限，owner，是的」——
+#   裁决记录见 `requirements/00-project/OPEN-QUESTIONS.md`「🔁 2026-08-17 delta：
+#   Q-4② 推翻重裁」一节，同 F185（Q-6① 推翻）的先例，走的是对话记录留痕，不是表单勾选。
+#   三条件对照：① UI 已签——零新增界面落点（本条纯后端，创建路径同一事务多写一行）；
+#   ② 契约已签——不新增任何契约字段/操作/错误码，`project_memberships`/F128 两张
+#   `*_members` 表的列与角色枚举早已存在（F116/F128），本条只是让 `createProject`
+#   的写路径多用一次已签核的形状；③ 相对推翻前的范围零新增设计面——D-18 判定逻辑
+#   本身未改一字，`member-authorization.ts` 的 #614 组织层 override 原样保留。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023
+#     纪律不变，即便这次是 delta 也不通过改这三个字段来表达）。
+#   ⚠ 若 coord-main 认为「delta 需要人类走一次正式的重签表单」而不是对话记录留痕即可，
+#     把 F199 从本行删掉，代码与测试不受影响。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191, F199]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
