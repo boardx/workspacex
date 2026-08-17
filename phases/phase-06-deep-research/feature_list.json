@@ -86,9 +86,9 @@
       "priority": 1,
       "area": "deep-research",
       "capability": "CAP-WEB",
-      "title": "完整报告与 citations：结构化章节、目录、来源可追溯",
+      "title": "完整报告与导出：citations、PDF 和 Word",
       "spec_ref": "00-overview.md#R5",
-      "user_visible_behavior": "研究完成后展示完整报告，包含目录、结构化章节和 citations；每条引用可回到来源，缺少来源的段落标为待补证据且不能冒充已验证结论。",
+      "user_visible_behavior": "研究完成后展示完整报告查看页，包含目录、结构化章节和 citations；每条引用可回到来源，缺少来源的段落标为待补证据且不能冒充已验证结论。用户可从报告页导出 PDF 和 Word/DOCX，导出内容保留报告结构、来源引用和待补证据标记。",
       "status": "not_started",
       "sprint": null,
       "owner": null,
@@ -96,10 +96,10 @@
       "points": 5,
       "verification": [
         "cd apps/deep-agent-service && uv run pytest tests/test_guided_research_report.py",
-        "pnpm --filter web exec vitest run tests/ui/deep-research-report-citations.test.tsx"
+        "pnpm --filter web exec vitest run tests/ui/deep-research-report-citations.test.tsx tests/ui/deep-research-report-export.test.tsx"
       ],
       "evidence": "",
-      "notes": "迁入来源：phase-01 F171 未完成链路。"
+      "notes": "迁入来源：phase-01 F171 未完成链路。查看报告页需支持 PDF 与 Word/DOCX 导出；流程实现参考 /Users/shenyangjun/boardx/boardx-backend 的 deep-research session/start。"
     },
     {
       "id": "F06",
