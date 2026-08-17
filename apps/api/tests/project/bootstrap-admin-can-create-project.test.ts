@@ -23,12 +23,13 @@
  * ⚠ 干净机器上也成立：本文件 CREATE DATABASE + migrate，不依赖任何磁盘残留或
  *   别的套件留下的行（#600/#603 那次「绿来自机器状态而非仓库内容」的教训）。
  *
- * ## 🔴 Q-4② **没有**被这次裁决推翻，本文件必须钉住它
+ * ## 🔴 Q-4② 已于 2026-08-16 被人类裁决推翻——本文件现在钉住**新**行为
  *
- * 人类只裁了「admin 也能建」，**没有**裁「建完就给角色」。让 admin「能用起来」的
- * 最短路径恰恰是顺手发一个项目角色——那会同时废掉 Q-4②（「lead 对自建未加入的项目
- * 持管理权、不持内容读取权」）与 D-18（「管理员不是超级用户」）。
- * ⇒ 下面第二、三条断言是这次改动的**护栏**，不是锦上添花。
+ * 原判据（存档）：人类只裁了「admin 也能建」，没有裁「建完就给角色」。
+ * **人类随后直接裁决推翻了这一条**：创建者自动获得该项目最高权限的角色
+ * （facilitator + is_host）——这正是下面「admin 建完立刻判权」那条断言会拿到
+ * `ADMIN_NOT_SUPERUSER` 这个真实产品缺口（建了项目却进不去）的根治。
+ * ⇒ 下面第二、三条断言是这次改动的**正向验证**，不是历史护栏。
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import pg from "pg";
@@ -174,8 +175,8 @@ describe("🔴 #608 裁决：admin 也能建项目", () => {
   });
 });
 
-describe("🔴 护栏：Q-4② 没有被这次裁决推翻", () => {
-  it("admin 建完项目后，`project_memberships` 里一行都没有（没顺手发角色）", async () => {
+describe("🔴 正向：Q-4② 已推翻，创建者自动获得 facilitator", () => {
+  it("admin 建完项目后，`project_memberships` 里多了一行 facilitator（自己，is_host=true）", async () => {
     const created = await createProject(
       { repo: new PgProjectRepository(db, new UuidIdFactory()), identity: new PgIdentityRepository(db) },
       {
@@ -187,12 +188,15 @@ describe("🔴 护栏：Q-4② 没有被这次裁决推翻", () => {
       },
     );
     const rows = await db.withTenant(toOrgId(firstOrgId), async (s) =>
-      (await s.query("SELECT user_id, project_role FROM project_memberships WHERE project_id = $1", [created.id])).rows,
+      (await s.query<{ user_id: string; project_role: string; is_host: boolean }>(
+        "SELECT user_id, project_role, is_host FROM project_memberships WHERE project_id = $1",
+        [created.id],
+      )).rows,
     );
-    expect(rows).toEqual([]);
+    expect(rows).toEqual([{ user_id: firstUserId, project_role: "facilitator", is_host: true }]);
   });
 
-  it("admin 建完立刻以自己身份判权 ⇒ 仍拿到 NO_PROJECT_ROLE（不是被放行）", async () => {
+  it("admin 建完立刻以自己身份判权 ⇒ 放行（不再是 ADMIN_NOT_SUPERUSER）", async () => {
     const created = await createProject(
       { repo: new PgProjectRepository(db, new UuidIdFactory()), identity: new PgIdentityRepository(db) },
       {
@@ -213,20 +217,14 @@ describe("🔴 护栏：Q-4② 没有被这次裁决推翻", () => {
         action: "read.allHands",
       },
     );
-    expect(decision.allowed).toBe(false);
     /**
-     * 点名码，不只断言 `allowed === false` ——后者在「判定服务挂了」时也为假。
-     *
-     * ⚠ 这里是 `ADMIN_NOT_SUPERUSER` 而**不是** `NO_PROJECT_ROLE`，两者都不是 bug：
-     *   `permission-decision.ts` 的 `decide()` 本来就把「组织层的人越过项目层」与
-     *   「压根没有组织身份」分成两个码。创建者是 `lead` 时（既有的
-     *   `create-project-org-role-gate.test.ts`）拿到 `NO_PROJECT_ROLE`；
-     *   创建者是 `admin` 时拿到的是 **D-18 自己那个码**。
-     * ⇒ 也就是说：admin 建完项目后被挡住的这一下，用的正是「管理员不是超级用户」
-     *   这条规则本身。#608 放宽「谁能建」之后，D-18 这条边不但还在，而且**点名可见**。
-     *   本断言第一版写的是 `NO_PROJECT_ROLE`（照抄 lead 那条），当场红——
-     *   照抄一条相邻断言而不验证，正是写出「方向对但对象错」的绿灯的老路。
+     * 这正是 D-18（`ADMIN_NOT_SUPERUSER`）在真实产品里造成的可用性问题的根治：
+     * 不是绕开 D-18 判定本身（`permission-decision.ts` 的 `decide()` 一字未改），
+     * 是创建者从一开始就不再落在它判定的那个"组织层越过项目层、无项目角色"的格子里
+     * ——他现在有真实的 `facilitator` 项目角色，走的是项目层放行，不是组织层旁路。
      */
-    expect(decision.reasonCode).toBe("ADMIN_NOT_SUPERUSER");
+    expect(decision.allowed).toBe(true);
+    expect(decision.reasonCode).toBeNull();
+    expect(decision.projectLayer?.passed).toBe(true);
   });
 });

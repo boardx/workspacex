@@ -12,8 +12,11 @@
  *  「我建了吗」的布尔，因为分支到「只在首次创建时做某事」的调用方一定会出现，
  *  而首次创建在重放下不可观测。）
  *
- * ⚠ 这里**没有** `grantProjectRole`：Q-4② 裁「创建者不自动获角色」。
- *   给一个不该发生的动作留个端口，下一个人会以为它只是还没被调用。
+ * ⚠ 2026-08-16 人类裁决，推翻 Q-4②：创建者**自动获得**该项目最高权限的角色
+ *   （facilitator + is_host）。原文「这里没有 grantProjectRole」不再成立——不是
+ *   加一个独立端口，是 `create()` 自己在同一个事务里多写一行 `project_memberships`
+ *   （见 `PgProjectRepository.create()` 方法体），沿用「一个方法=一个事务边界」
+ *   的既有理由：调用方不该有机会把「建了项目」和「创建者拿到角色」拆成两步。
  */
 import type { z } from "zod";
 import { project } from "@repo/contracts";
