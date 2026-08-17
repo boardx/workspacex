@@ -36,7 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   ChatAttachmentBanner,
   ChatAttachmentButton,
-  ChatAttachmentDropzone,
+  ChatFullSurfaceDropOverlay,
   ChatAttachmentList,
   MessageAttachments,
   useChatAttachments,
@@ -726,7 +726,17 @@ export function ChatLiveMessagePanel({
     && !(runObservation?.view != null && isTerminalRunStatus(runObservation.view.status));
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col" data-testid="chat-live-message-panel">
+    <div
+      className="relative flex min-h-0 flex-1 flex-col"
+      data-testid="chat-live-message-panel"
+      {...(archived ? {} : attach.dragHandlers)}
+    >
+      {/*
+        #1492 —— 拖文件到 chat 主界面任意处（消息列表 + composer 整个可视区）都触发，
+        对标 Codex；「文件上传按钮」的简化/加速版本，不新增上传机制——松手仍走
+        `pickFiles`，文件仍落在下方 composer 的附件列表。归档线程不接（沿用既有门控）。
+      */}
+      {archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
       <div
         ref={scrollAreaRef}
         onScroll={handleScrollAreaScroll}
@@ -1071,14 +1081,12 @@ export function ChatLiveMessagePanel({
         ) : null}
         {/* #946 · V9-a F152：就地报错横幅（超大小 / 非白名单 / 超数量），不静默丢弃。 */}
         {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
-        <div
-          className={`relative rounded-2xl border bg-card p-1.5 shadow-sm transition-all duration-200 ${
-            attach.dragActive ? "border-primary ring-2 ring-primary" : "border-border-subtle"
-          }`}
-          {...(archived ? {} : attach.dragHandlers)}
-        >
-          {/* 拖拽落区 + 附件预览条（活路由，接真实上传端点）。 */}
-          {archived ? null : <ChatAttachmentDropzone active={attach.dragActive} />}
+        {/*
+          #1492 —— 拖拽落区不再局限于这个小盒子：drag 状态/事件已经挂到整个面板根容器
+          （对标 Codex，拖到消息列表区域也生效），这里只保留附件预览条本身。
+          border 不再随 dragActive 变化——高亮反馈交给面板级的 ChatFullSurfaceDropOverlay。
+        */}
+        <div className="relative rounded-2xl border border-border-subtle bg-card p-1.5 shadow-sm">
           {archived ? null : <ChatAttachmentList ctl={attach} disabled={submitting} />}
           <Textarea
             ref={composerRef}

@@ -146,20 +146,22 @@ test.describe("核心闭环八步", () => {
   // ✅ #520 交付后**翻正成真断言**。原文是 `test.fail("[#459] …")`：当时属实——31 个
   // application 用例存在，但没有任何一张表能存下声明式契约 skill，也没有 SkillController。
   // #518 补上后端（建草稿 / 列表 / 详情），#520 把 `/skill` 的默认屏接上去，这一步才真的通。
-  test("步骤 3：新增 Skill 草稿 → 列表可见 → 详情可读", async ({ page }) => {
+  test("步骤 3：新增 Skill 入口 → 默认导入路径可见", async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto("/skill");
-    // 与步骤 2 同一个分寸：这里只断言「这条路径是活的」——建草稿 / 刷新仍在 / 详情可读 /
+    // 与步骤 2 同一个分寸：这里只断言「这条路径是活的」——导入 / 刷新仍在 /
     // 真实空态 / 失败信封 / 反证，六件由 `skill-create-smoke.spec.ts` 覆盖，不在这里重复。
     //
     // ⚠ testid **实测得来的，不是凭印象写的**：
     //   `components/skill/skill-catalog-live.tsx` 的 `data-testid="skill-catalog-live"`（根）
-    //   与 `data-testid="skill-create-open"`（新建入口）；提交按钮 `skill-create-submit`
-    //   在同文件的 `CreatePanel` 里，**只有展开面板后才存在** —— 所以要先点开。
-    //   本条原文直接断言 `skill-create-submit` 可见，那在任何实现下都red：面板是收起的。
+    //   与 `data-testid="skill-create-open"`（新建入口）。F192（issue #598，已签核）
+    //   之后「完全新建（契约表单）」下线，默认路径改为 URL 导入；旧的
+    //   `skill-create-submit` 不应再出现，否则等于把已下线的模型 B 写路径带回来了。
     await expect(page.getByTestId("skill-catalog-live")).toBeVisible();
     await page.getByTestId("skill-create-open").click();
-    await expect(page.getByTestId("skill-create-submit")).toBeVisible();
+    await expect(page.getByTestId("skill-create-mode-import")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("skill-url-import-panel")).toBeVisible();
+    await expect(page.getByTestId("skill-create-submit")).toHaveCount(0);
   });
 
   /* ── 步骤 4：新增可视化模板 ───────────────────────────────────────────── */

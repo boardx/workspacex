@@ -18,6 +18,7 @@
  */
 import { roleAllows } from "../../domain/identity/project-role-matrix";
 import type { ProjectRole } from "../../domain/identity/roles";
+import type { OrgId } from "../../domain/org-id";
 import type { InterviewSubjectRow } from "../../domain/templates/interview-subject";
 import {
   InterviewSubjectsRevisionConflictError,
@@ -47,6 +48,7 @@ export function canUpdateInterviewSubjects(role: ProjectRole | null): boolean {
 }
 
 export interface UpdateInterviewSubjectsInput {
+  readonly orgId: OrgId;
   readonly projectId: string;
   readonly groupId: string;
   readonly actorProjectRole: ProjectRole | null;
@@ -71,6 +73,7 @@ export async function updateInterviewSubjectsUseCase(
 
   try {
     return await deps.repo.updateSubjects({
+      orgId: input.orgId,
       projectId: input.projectId,
       groupId: input.groupId,
       subjects: input.subjects,

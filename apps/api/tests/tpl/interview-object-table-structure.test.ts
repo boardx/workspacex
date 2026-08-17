@@ -10,6 +10,7 @@ import type {
   UpdatedInterviewSubjects,
 } from "../../src/application/templates/interview-subjects-ports";
 import { InterviewSubjectsRevisionConflictError } from "../../src/application/templates/interview-subjects-ports";
+import { toOrgId } from "../../src/domain/org-id";
 import {
   INTERVIEW_SUBJECT_COLUMNS,
   findRowMissingColumns,
@@ -39,6 +40,10 @@ class FakeInterviewSubjectsRepository implements InterviewSubjectsRepository {
     if (this.shouldConflict) throw new InterviewSubjectsRevisionConflictError();
     this.revision = `rev-${this.calls.length}`;
     return { subjects: cmd.subjects, revision: this.revision };
+  }
+
+  async getSubjects() {
+    return { subjects: [], revision: this.revision };
   }
 }
 
@@ -98,6 +103,7 @@ describe("F25 · updateInterviewSubjects 用例", () => {
     const out = await updateInterviewSubjectsUseCase(
       { repo },
       {
+        orgId: toOrgId("org-1"),
         projectId: "p-1",
         groupId: "g-1",
         actorProjectRole: "facilitator",
@@ -117,6 +123,7 @@ describe("F25 · updateInterviewSubjects 用例", () => {
     await updateInterviewSubjectsUseCase(
       { repo },
       {
+        orgId: toOrgId("org-1"),
         projectId: "p-1",
         groupId: "g-1",
         actorProjectRole: "groupLead",
@@ -135,7 +142,8 @@ describe("F25 · updateInterviewSubjects 用例", () => {
         updateInterviewSubjectsUseCase(
           { repo },
           {
-            projectId: "p-1",
+            orgId: toOrgId("org-1"),
+        projectId: "p-1",
             groupId: "g-1",
             actorProjectRole: role,
             subjects: [subjectRow()],
@@ -153,7 +161,8 @@ describe("F25 · updateInterviewSubjects 用例", () => {
       updateInterviewSubjectsUseCase(
         { repo },
         {
-          projectId: "p-1",
+          orgId: toOrgId("org-1"),
+        projectId: "p-1",
           groupId: "g-1",
           actorProjectRole: null,
           subjects: [subjectRow()],
@@ -170,7 +179,8 @@ describe("F25 · updateInterviewSubjects 用例", () => {
       updateInterviewSubjectsUseCase(
         { repo },
         {
-          projectId: "p-1",
+          orgId: toOrgId("org-1"),
+        projectId: "p-1",
           groupId: "g-1",
           actorProjectRole: "facilitator",
           subjects: [subjectRow()],
@@ -185,12 +195,14 @@ describe("F25 · updateInterviewSubjects 用例", () => {
       updateSubjects: async () => {
         throw new Error("db down");
       },
+      getSubjects: async () => ({ subjects: [], revision: "0" }),
     };
     await expect(
       updateInterviewSubjectsUseCase(
         { repo },
         {
-          projectId: "p-1",
+          orgId: toOrgId("org-1"),
+        projectId: "p-1",
           groupId: "g-1",
           actorProjectRole: "facilitator",
           subjects: [subjectRow()],

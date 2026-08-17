@@ -21,6 +21,15 @@ import { ROOT } from "../session/import-closure";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-464", orgRole: "admin" }));
 
+// 只有下方 D-43 那组测试会真的挂 `CanvasHub`（经由 `AppShell` → `SessionAppShell`，
+// 后者用 `useRouter`）——其余测试直接渲染 `TemplateAdmin` 本体，用不上这个 mock，
+// 但 `vi.mock` 是模块级提升的，放这里不影响它们。
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
+  usePathname: () => "/canvas",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({
     session: { currentOrgId: sessionState.currentOrgId },
@@ -29,9 +38,36 @@ vi.mock("@/components/session/session-provider", () => ({
       orgRole: sessionState.orgRole,
     },
   }),
+  // `AdminNav`（现在挂在 `CanvasHub` 的 template-admin 屏左栏）用这一个而不是 `useSession`——
+  // 它设计上允许无 Provider 裸渲染，但 `CanvasHub` 是经 `AppShell` → `SessionAppShell`
+  // 挂载的，后者要一份完整的 `SessionContextValue`（`status`/`organizations` 等），
+  // 不是上面 `useSession` 那份只给 `TemplateAdmin` 用的精简版。
+  useOptionalSession: () => ({
+    status: "authenticated",
+    session: { currentOrgId: sessionState.currentOrgId },
+    identity: {
+      displayName: "测试用户",
+      avatarUrl: null,
+      orgRole: sessionState.orgRole,
+      org: {
+        id: sessionState.currentOrgId, name: "真实组织", kind: "organization",
+        team: null, modelPolicy: "any", avatarUrl: null,
+      },
+      projectRole: null,
+      projectName: null,
+      groupName: null,
+    },
+    organizations: [{ id: sessionState.currentOrgId, name: "真实组织" }],
+    error: null,
+    startSession: async () => {},
+    switchOrganization: async () => {},
+    retry: async () => {},
+    logout: () => {},
+  }),
 }));
 
 import { TemplateAdmin } from "@/components/canvas/template-admin";
+import { CanvasHub } from "@/components/canvas/canvas-hub";
 
 function adminItem(key: AdminModuleKey) {
   const item = ADMIN_NAV.flatMap((g) => g.items).find((i) => i.key === key);
@@ -595,5 +631,45 @@ describe("#988 「基于此开新版」——本束「编辑」的真实入口",
 
     const error = await screen.findByTestId("tpladmin-create-error");
     expect(error.textContent).toContain("TEAM_REQUIRED_FOR_TEAM_ONLY");
+  });
+});
+
+/**
+ * D-43 被推翻（2026-08-17）：后台「画布模板」菜单点进来之后，侧栏不该消失。
+ * 人类看真实部署截图后要求把左侧后台菜单加回来——见 `canvas-hub.tsx` 文件头。
+ *
+ * ⚠ 这条必须渲染 `CanvasHub` 本体（不是直接渲染 `TemplateAdmin`）：侧栏是
+ *   `CanvasHub` 按 `screen` 参数决定要不要挂的，渲染子组件本身证明不了这件事。
+ */
+describe("D-43 已推翻：template-admin 屏重新挂上后台侧栏 AdminNav", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-d43";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-d43");
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("screen=template-admin 时，AdminNav 真的渲染了，且「画布模板」项高亮为当前项", async () => {
+    render(
+      <CanvasHub previewRole="facilitator" uiState="default" screen="template-admin" initialConflict={false} />,
+    );
+    const nav = await screen.findByTestId("admin-nav");
+    expect(nav).toBeInTheDocument();
+    // 高亮的是「画布模板」这一项，不是随便某一项——`active="canvasadmin"` 真的传下去了。
+    expect(within(nav).getByTestId("admin-nav-canvasadmin")).toHaveAttribute("aria-current", "page");
+    // 模板库屏本身照常渲染，不是被 AdminNav 顶替掉了。
+    await waitFor(() => expect(screen.getByTestId("tpladmin-root")).toBeInTheDocument());
+  });
+
+  it("其它屏（如 editor）不挂 AdminNav——只有 template-admin 这一屏需要它", () => {
+    render(
+      <CanvasHub previewRole="facilitator" uiState="default" screen="editor" initialConflict={false} />,
+    );
+    expect(screen.queryByTestId("admin-nav")).toBeNull();
   });
 });

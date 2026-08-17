@@ -4573,6 +4573,27 @@
       "priority": 2,
       "area": "project",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F960",
+      "title": "观察/访谈对象表读写接线（后端：补 getInterviewSubjects GET 端点 + 真实 Postgres）",
+      "user_visible_behavior": "`PUT/GET /projects/:projectId/groups/:groupId/interview-subjects` 从零 controller、零仓储接上真实 Postgres：facilitator/groupLead 可整体提交对象表（六列：对象/部门角色/联系方式/背景与要问什么/方式/状态），提交后立即可读回同一批数据；同一组被并发提交时，后提交者收到 VERSION_CHANGED 而不是被静默覆盖；member/observer 只能读不能写。⚠ 本 feature 是纯后端接线，前端 `tab-prep.tsx` 的分组卡片仍在用 mock groupId（真实 groupId 要等分组读写接线——F950 同批的 `getProjectGrouping`——先合入 main，访谈对象表嵌在组卡内、没有真实 groupId 就无法真实接线，同 F175/BP-01「纯后端、界面留待后续」的先例），留给下一个 feature 补前端。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R8",
+      "depends_on": [
+        "F25"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "14",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter api exec vitest run tests/tpl/interview-subjects-repo-guard.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/interview-subjects-live.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/interview-object-table-structure.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts"
+      ],
+      "evidence": "evidence/F960.verify.log @ 2026-08-17T13:22:43.757Z",
+      "notes": "F25（分组编排 + 观察/访谈对象表结构）当年只落了应用层编排 + 契约 `updateInterviewSubjects`，同 F950（定题/分组接线）发现的同一种「静态痕迹 ≠ 动态事实」缺口——零 controller、零 Postgres 仓储，`grep` 全仓找不到任何实现，从数据库到浏览器这条真实路径完全不存在。\n① 表名刻意不叫 `interview_subjects`——`20260801000000_f97_interview_subjects.sql` 已经用这个名字装了完全不同的东西（06-itv 束真实访谈预约/转写实体），本表是 templates 束筹备页组卡内的一张表格，同名会造成「同一个名字两个意思」（本仓已因此栽过跟头），故加 `project_group_` 前缀区分，见迁移文件头注详述。\n② 契约 delta：新增 `getInterviewSubjects`（GET /projects/:projectId/groups/:groupId/interview-subjects），补 `updateInterviewSubjects` 只有 PUT 没有 GET 的缺口——同 F950/2026-08-16 对 `saveAndSyncTopic`/`updateGrouping` 已获授权的同一条裁决类别的延伸，不是新征询，见契约头注与 `templates` 束 design-signoff.md 的 covers 追加记录。\n③ 组长/组员复用既有的 `project_memberships.group_id`/`project_role` 关联边（同 F950 分组仓储的先例），未新造列。整批替换语义（同 `updateInterviewSubjects` 契约「传整个 subjects 数组」的形状），不是逐条 PATCH；并发用按 group_id 维度的独立 revision 表 + `pg_advisory_xact_lock` 序列化「首次写入」这个 `FOR UPDATE` 锁不住的特例。\n④ **范围边界（明确排除，留给后续）**：本 feature 只做后端接线，不碰 `tab-prep.tsx`——分组卡片本身仍用 mock groupId（真实 groupId 要靠 F950 的 `getProjectGrouping` 落地才有），访谈对象表嵌在组卡内、没有真实 groupId 就没法做出真实（非伪造）的前端接线；等 F950 合入 main 后，前端接线（含组件测试）作为独立后续 feature 一次做完两块。"
     }
   ]
 }

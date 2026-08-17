@@ -2,18 +2,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from jsonschema import Draft7Validator
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
-from .guided_research_state import (
+from deep_agent_service.guided_research_state import (
     RESEARCH_NODES,
     GuidedResearchGraphState,
     ResearchNode,
@@ -129,7 +127,7 @@ def _validate_command(state: Mapping[str, Any], command: Mapping[str, Any]) -> N
 
 
 def create_guided_research_graph(
-    checkpointer: BaseCheckpointSaver,
+    checkpointer: BaseCheckpointSaver | None = None,
     *,
     effect_observer: Callable[[str], None] | None = None,
 ) -> Any:
@@ -225,7 +223,15 @@ def create_guided_research_graph(
     builder.add_conditional_edges("route_command", route_target, {node: node for node in RESEARCH_NODES})
     for node in RESEARCH_NODES:
         builder.add_edge(node, "await_command")
-    return builder.compile(checkpointer=checkpointer)
+    # ⚠ 只在真的传了 checkpointer 时才带上它——LangGraph Platform（`langgraph dev`
+    # 本地 CLI 与部署到 devapp 走的是同一套 langgraph_api）自己接管持久化，编译时若带
+    # 自定义 checkpointer 会被判 GraphLoadError（"persistence is handled automatically
+    # by the platform"，2026-08-17 生产实测：devapp 首次真部署时炸在这里，见 issue
+    # 追踪）。单测（`create_guided_research_graph(MemorySaver())`）需要显式内存态
+    # 隔离，继续传 checkpointer 就还是原来的行为，不受影响。
+    if checkpointer is not None:
+        return builder.compile(checkpointer=checkpointer)
+    return builder.compile()
 
 
 def start_guided_research_thread(
@@ -271,15 +277,13 @@ def invoke_guided_research_command(
     return _snapshot_projection(graph, config)
 
 
-def _runtime_graph() -> Any:
-    environment = os.environ.get("APP_ENV", "development")
-    if environment == "production":
-        raise RuntimeError(
-            "Guided Research production graph must be constructed by the service bootstrap "
-            "with a PostgreSQL checkpointer"
-        )
-    return create_guided_research_graph(MemorySaver())
-
-
-# LangGraph CLI development export. Production bootstrap must supply PostgresSaver.
-graph = _runtime_graph()
+# LangGraph Platform export（`langgraph.json` 里 "Guided Research" 指的就是这个
+# 模块级 `graph`）——`langgraph dev` 本地 CLI 与部署到 devapp 走的是**同一套**
+# langgraph_api 加载器，两边都由平台自己接管持久化，不接受编译时带自定义
+# checkpointer（2026-08-17 生产实测：之前这里挂了 MemorySaver，devapp 首次真部署
+# 直接 GraphLoadError）。之前设想的「production 分支该抛错、由服务自举另外传
+# PostgresSaver」在这套加载机制下根本走不到——`langgraph.json` 声明的路径式加载
+# 不区分 APP_ENV，一律走这个模块级导出，所以不再区分 dev/production 两条路。
+# 单测要的显式内存隔离走 `create_guided_research_graph(MemorySaver())`，不经过
+# 这个导出，不受影响。
+graph = create_guided_research_graph()
