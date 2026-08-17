@@ -1,59 +1,11 @@
 # UI — Deep Research
 
-> 自检：本文件引用 49 张截图，目录下实际 49 张。
+> 自检：本文件引用 1 张截图，目录下实际 1 张。
 
-深度研究 UI 以报告生产为中心，复用既有研究 Studio 截图材料作为本 phase 的签核基线。
+深度研究 UI 以当前研究列表首页为基线，后续本 phase 只维护这一套深度研究入口与会话材料。
 
 截图目录：`ui-preview/deep-research/`.
 
 ## 截图索引
 
-1. [uc-24-1-new-default.png](../../ui-preview/deep-research/uc-24-1-new-default.png)
-2. [uc-24-1-new-denied.png](../../ui-preview/deep-research/uc-24-1-new-denied.png)
-3. [uc-24-1-new-dep-failed.png](../../ui-preview/deep-research/uc-24-1-new-dep-failed.png)
-4. [uc-24-1-new-empty.png](../../ui-preview/deep-research/uc-24-1-new-empty.png)
-5. [uc-24-1-new-group-prefill.png](../../ui-preview/deep-research/uc-24-1-new-group-prefill.png)
-6. [uc-24-1-new-invalid.png](../../ui-preview/deep-research/uc-24-1-new-invalid.png)
-7. [uc-24-1-new-loading.png](../../ui-preview/deep-research/uc-24-1-new-loading.png)
-8. [uc-24-1-new-preview-alt.png](../../ui-preview/deep-research/uc-24-1-new-preview-alt.png)
-9. [uc-24-1-new-success.png](../../ui-preview/deep-research/uc-24-1-new-success.png)
-10. [uc-24-1-new-view-collaborator.png](../../ui-preview/deep-research/uc-24-1-new-view-collaborator.png)
-11. [uc-24-2-detail-default.png](../../ui-preview/deep-research/uc-24-2-detail-default.png)
-12. [uc-24-2-detail-denied.png](../../ui-preview/deep-research/uc-24-2-detail-denied.png)
-13. [uc-24-2-detail-dep-failed.png](../../ui-preview/deep-research/uc-24-2-detail-dep-failed.png)
-14. [uc-24-2-detail-empty.png](../../ui-preview/deep-research/uc-24-2-detail-empty.png)
-15. [uc-24-2-detail-invalid.png](../../ui-preview/deep-research/uc-24-2-detail-invalid.png)
-16. [uc-24-2-detail-loading.png](../../ui-preview/deep-research/uc-24-2-detail-loading.png)
-17. [uc-24-2-detail-success.png](../../ui-preview/deep-research/uc-24-2-detail-success.png)
-18. [uc-24-2-detail-view-collaborator.png](../../ui-preview/deep-research/uc-24-2-detail-view-collaborator.png)
-19. [uc-24-3-list-default.png](../../ui-preview/deep-research/uc-24-3-list-default.png)
-20. [uc-24-3-list-denied.png](../../ui-preview/deep-research/uc-24-3-list-denied.png)
-21. [uc-24-3-list-dep-failed.png](../../ui-preview/deep-research/uc-24-3-list-dep-failed.png)
-22. [uc-24-3-list-empty.png](../../ui-preview/deep-research/uc-24-3-list-empty.png)
-23. [uc-24-3-list-invalid.png](../../ui-preview/deep-research/uc-24-3-list-invalid.png)
-24. [uc-24-3-list-loading.png](../../ui-preview/deep-research/uc-24-3-list-loading.png)
-25. [uc-24-3-list-success.png](../../ui-preview/deep-research/uc-24-3-list-success.png)
-26. [uc-24-3-list-view-collaborator.png](../../ui-preview/deep-research/uc-24-3-list-view-collaborator.png)
-27. [uc-24-3-plan-default.png](../../ui-preview/deep-research/uc-24-3-plan-default.png)
-28. [uc-24-3-plan-denied.png](../../ui-preview/deep-research/uc-24-3-plan-denied.png)
-29. [uc-24-3-plan-dep-failed.png](../../ui-preview/deep-research/uc-24-3-plan-dep-failed.png)
-30. [uc-24-3-plan-empty.png](../../ui-preview/deep-research/uc-24-3-plan-empty.png)
-31. [uc-24-3-plan-invalid.png](../../ui-preview/deep-research/uc-24-3-plan-invalid.png)
-32. [uc-24-3-plan-loading.png](../../ui-preview/deep-research/uc-24-3-plan-loading.png)
-33. [uc-24-3-plan-success.png](../../ui-preview/deep-research/uc-24-3-plan-success.png)
-34. [uc-24-3-plan-target-missing.png](../../ui-preview/deep-research/uc-24-3-plan-target-missing.png)
-35. [uc-24-3-plan-view-collaborator.png](../../ui-preview/deep-research/uc-24-3-plan-view-collaborator.png)
-36. [uc-24-4-detail-block-conflict.png](../../ui-preview/deep-research/uc-24-4-detail-block-conflict.png)
-37. [uc-24-4-detail-block-disputed.png](../../ui-preview/deep-research/uc-24-4-detail-block-disputed.png)
-38. [uc-24-4-detail-block-no-source.png](../../ui-preview/deep-research/uc-24-4-detail-block-no-source.png)
-39. [uc-24-4-detail-promote-partial.png](../../ui-preview/deep-research/uc-24-4-detail-promote-partial.png)
-40. [uc-24-5-live-conflict-empty.png](../../ui-preview/deep-research/uc-24-5-live-conflict-empty.png)
-41. [uc-24-5-live-conflict-filter.png](../../ui-preview/deep-research/uc-24-5-live-conflict-filter.png)
-42. [uc-24-5-live-default.png](../../ui-preview/deep-research/uc-24-5-live-default.png)
-43. [uc-24-5-live-denied.png](../../ui-preview/deep-research/uc-24-5-live-denied.png)
-44. [uc-24-5-live-dep-failed.png](../../ui-preview/deep-research/uc-24-5-live-dep-failed.png)
-45. [uc-24-5-live-empty.png](../../ui-preview/deep-research/uc-24-5-live-empty.png)
-46. [uc-24-5-live-invalid.png](../../ui-preview/deep-research/uc-24-5-live-invalid.png)
-47. [uc-24-5-live-loading.png](../../ui-preview/deep-research/uc-24-5-live-loading.png)
-48. [uc-24-5-live-success.png](../../ui-preview/deep-research/uc-24-5-live-success.png)
-49. [uc-24-5-live-view-collaborator.png](../../ui-preview/deep-research/uc-24-5-live-view-collaborator.png)
+1. [uc-24-3-list-default.png](../../ui-preview/deep-research/uc-24-3-list-default.png)
