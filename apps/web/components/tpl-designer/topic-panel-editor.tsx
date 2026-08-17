@@ -19,15 +19,23 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * 内容 + 挂的来源说明（`citedFrom`，可选，未填时草稿"未挂来源标灰"）。
  */
 
-const THEME_TEMPLATE = "以什么{方式}在{时间约束}内{达成什么可验证的结果}";
+const THEME_TEMPLATE = "「以什么〔时间约束〕达成什么〔可验证的结果〕」";
+const THEME_NOTE = "AI 按这个句式从洞察里生成候选";
 const THEME_RULES = ["必须含时间约束", "必须可证伪", "≤ 30 字", "不写解决方案"] as const;
 
 const BACKGROUND_ELEMENTS = [
-  { element: "为什么现在", source: "客户输入 / 会前访谈" },
-  { element: "已知结论", source: "洞察库自动带入" },
-  { element: "硬约束", source: "客户输入" },
-  { element: "要拍板的事", source: "引导师填写" },
-  { element: "不讨论的事", source: "引导师填写" },
+  { element: "为什么现在", hint: "触发这场讨论的事件或截止日", source: "客户输入 / 会前访谈" },
+  { element: "已知结论", hint: "调研已经能确定的 2–3 条", source: "洞察库（自动带入）" },
+  { element: "硬约束", hint: "预算、合规、时间、资质", source: "客户输入" },
+  { element: "要拍板的事", hint: "这一场必须出的决定", source: "引导师填写" },
+  { element: "不讨论的事", hint: "明确移出本场的议题", source: "引导师填写" },
+] as const;
+
+const GEN_RULES = [
+  "套用时 AI 先出草稿，引导师改完才算定题",
+  "从 12 条洞察/访谈里生成 3 个候选主题，标注支持它的强洞察条数",
+  "背景草稿必须逐句挂来源，未挂来源的句子标灰",
+  "没定主题前，议程与分组页只读",
 ] as const;
 
 export interface TopicBackgroundRow {
@@ -148,7 +156,8 @@ export function TopicPanelEditor({
             </span>
           )}
         </div>
-        <p className="mb-1 text-12 font-medium text-muted-foreground">{THEME_TEMPLATE}</p>
+        <p className="mb-1 text-13 font-medium">{THEME_TEMPLATE}</p>
+        <p className="mb-2 text-11 text-muted-foreground">{THEME_NOTE}</p>
         <div className="mb-2 flex flex-wrap gap-1.5">
           {THEME_RULES.map((r) => (
             <span key={r} className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">
@@ -175,7 +184,8 @@ export function TopicPanelEditor({
               <li key={b.element} className="flex flex-col gap-1 p-2.5" data-testid="bp-topic-bg-row">
                 <div className="flex items-center gap-2">
                   <span className="w-24 shrink-0 text-12 font-medium">{b.element}</span>
-                  <span className="text-11 text-muted-foreground">{b.source}</span>
+                  <span className="flex-1 text-11 text-muted-foreground">{b.hint}</span>
+                  <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">{b.source}</span>
                 </div>
                 <input
                   type="text"
@@ -198,6 +208,18 @@ export function TopicPanelEditor({
               </li>
             );
           })}
+        </ul>
+      </div>
+
+      <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-topic-genrules">
+        <h3 className="mb-2 text-13 font-semibold">生成与校验</h3>
+        <ul className="flex flex-col gap-1.5">
+          {GEN_RULES.map((r) => (
+            <li key={r} className="flex items-start gap-2 text-12 text-muted-foreground" data-testid="bp-topic-genrule">
+              <span aria-hidden className="mt-0.5">✨</span>
+              {r}
+            </li>
+          ))}
         </ul>
       </div>
 

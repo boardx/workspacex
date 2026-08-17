@@ -260,6 +260,10 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     expect((screen.getByTestId("bp-topic-bg-content-为什么现在") as HTMLInputElement).value).toBe("市场窗口收窄");
     expect((screen.getByTestId("bp-topic-bg-cited-为什么现在") as HTMLInputElement).value).toBe("客户访谈#3");
     expect((screen.getByTestId("bp-topic-bg-content-硬约束") as HTMLInputElement).value).toBe("预算 50 万");
+    // 固定参考内容：生成与校验规则原样展示，不是可编辑项（原型 TOPIC_PANEL.genRules）。
+    expect(screen.getByTestId("bp-topic-genrules").textContent).toContain(
+      "套用时 AI 先出草稿，引导师改完才算定题",
+    );
   });
 
   it("主题与背景：编辑一行背景要素并失焦，真实保存成结构化 JSON（不是拼接成自由文本）", async () => {
@@ -461,8 +465,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     fireEvent.click(screen.getByTestId("bp-designer-facet-roles-and-perms"));
     await screen.findByTestId("bp-permission-matrix");
 
-    // 灰格：已裁决只读，点击不触发保存。
-    const lockedCell = screen.getByTestId("bp-permission-cell-看已发布结论-引导");
+    // 灰格：已裁决只读（原型 `ROLES_PANEL.permRows[].lockedFor`），点击不触发保存。
+    const lockedCell = screen.getByTestId("bp-permission-cell-改议程-组长");
     expect(lockedCell).toBeDisabled();
     fireEvent.click(lockedCell);
     expect(putCount).toBe(0);
@@ -472,5 +476,9 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     expect(openCell).not.toBeDisabled();
     fireEvent.click(openCell);
     await waitFor(() => expect(putCount).toBe(1));
+
+    // 分组方式单选与邀请与进场静态参考（原型 ROLES_PANEL.groupingMode/invite）也真实渲染。
+    expect(screen.getByTestId("bp-roles-modeopt-职能混编")).toBeInTheDocument();
+    expect(screen.getByTestId("bp-roles-invite").textContent).toContain("SSO 免登直接进组");
   });
 });
