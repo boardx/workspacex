@@ -64,7 +64,6 @@ function stubFetch(onPublish: () => Response) {
 
 async function createDraft() {
   render(<AgentDefinitionCreatePanel prefix={PREFIX} />);
-  fireEvent.click(screen.getByTestId(`${PREFIX}-add`));
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-name`), { target: { value: "我的助手" } });
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-initials`), { target: { value: "WD" } });
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-role`), { target: { value: "帮我整理会议纪要" } });
@@ -141,7 +140,6 @@ describe("#660 后台面板：草稿建成后有一条发布入口", () => {
   it("⑤ 没填可执行定义 ⇒ 前端当场拦下，且**不发任何请求**（不建一个发不出去的 agent）", async () => {
     const calls = stubFetch(() => jsonResponse({}, 500));
     render(<AgentDefinitionCreatePanel prefix={PREFIX} />);
-    fireEvent.click(screen.getByTestId(`${PREFIX}-add`));
     fireEvent.change(screen.getByTestId(`${PREFIX}-add-name`), { target: { value: "我的助手" } });
     fireEvent.change(screen.getByTestId(`${PREFIX}-add-initials`), { target: { value: "WD" } });
     fireEvent.change(screen.getByTestId(`${PREFIX}-add-role`), { target: { value: "帮我整理会议纪要" } });

@@ -172,8 +172,10 @@ test("① agent 也能从 GitHub URL 导入，导入完可编辑指令、发布�
   await loginAsAdmin(page);
   await page.goto("/admin/agent");
   await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
-  await expect(page.getByTestId("agent-url-import-open")).toBeVisible();
-  await page.getByTestId("agent-url-import-open").click();
+  await page.getByTestId("agent-create-open").click();
+  await expect(page.getByTestId("agent-create-modal")).toBeVisible();
+  await page.getByTestId("agent-create-mode-import").click();
+  await expect(page.getByTestId("agent-url-import-url")).toBeVisible();
   await page.getByTestId("agent-url-import-url").fill(GITHUB_AGENT_URL);
   const importedName = FULLSTACK_E2E.agentName + "_GITHUB_IMPORT";
   await page.getByTestId("agent-url-import-name").fill(importedName);
