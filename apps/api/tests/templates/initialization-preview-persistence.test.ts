@@ -42,7 +42,9 @@ beforeAll(async () => {
     await import("../../src/infrastructure/identity/pg-identity-repository")
   ).PgIdentityRepository(db);
   const ids = { next: (prefix: string) => `${prefix}-test-${Math.random().toString(36).slice(2)}` };
-  controller = new BlueprintController(repo, identity, ids as never, {} as never, {} as never, {} as never);
+  controller = new BlueprintController(
+    repo, identity, ids as never, {} as never, {} as never, {} as never, {} as never,
+  );
 }, HOOK_TIMEOUT_MS);
 
 afterAll(async () => {

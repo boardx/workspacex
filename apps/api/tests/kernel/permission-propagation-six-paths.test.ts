@@ -916,7 +916,17 @@ describe("lint-permission-paths: counter-proof", () => {
     // `groups`/`project_grouping_revision`/`project_memberships` 三张表，(b) 对
     // `project_memberships` 的每一条语句都是 `UPDATE`，从不出现 `INSERT`）。删测试则
     // 对应条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(63);
+    //
+    // ⚠ Raised 63 -> 64 by F960（2026-08-17 delta）：一个新条目——
+    //   `infrastructure/templates/pg-interview-subjects-repository.ts`：写 `project_group_
+    //   interview_subjects`（DELETE+INSERT 整体替换）+ `..._revision` 乐观锁 upsert，读同一
+    //   张表，同 F185 project-tags 那批「actor 写/读自己项目数据」形状。角色门槛
+    //   （`actorProjectRole === null` ⇒ NO_PROJECT_ROLE，写侧另加 `canUpdateInterviewSubjects`）
+    //   在 `update-interview-subjects.ts`/`get-interview-subjects.ts` 用例里、仓储被调用
+    //   之前完成，同一层顺序。它的**被强制的前提**：
+    //   `tests/tpl/interview-subjects-repo-guard.test.ts` 断言只命名这两张表。删测试则
+    //   本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(64);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
