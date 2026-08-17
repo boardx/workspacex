@@ -39,7 +39,18 @@
 // 标签机制确实在用）或重新设计条件 3（如果确认根本没在用）。pr-queue.ts 的
 // 同款检查同批次一起暂停，避免两个模块对同一个 PR 给出矛盾结论（见该文件同名
 // 常量——APPROVE_CHECK_SUSPENDED 定义在那边，本文件只 import，不重复声明）。
-import { APPROVE_CHECK_SUSPENDED, isOkVerdict, parseClosesIssues } from "./pr-queue";
+//
+// ⚠⚠⚠ 2026-08-16（同一天，人类第三次裁决）：真实 PR #1467 因为条件 2"零个
+// verdict label"被 merge-gate 判 FAIL，人类要求这条也放宽。同款暂停模式，见
+// pr-queue.ts 的 VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED 定义处的完整说明——
+// 只暂停"零个"这个子分支，"不唯一/矛盾"继续拦。累计效果：merge-gate.ts 现在
+// 实际只剩条件 1（Closes #N）在拦人，这是当前对 #956 保留的唯一防线。
+import {
+  APPROVE_CHECK_SUSPENDED,
+  VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED,
+  isOkVerdict,
+  parseClosesIssues,
+} from "./pr-queue";
 
 /** 一次正式 review（GitHub review，不是普通评论）。与 pr-queue.ts 的 FormalReview 同形状。 */
 export interface FormalReview {
@@ -86,9 +97,15 @@ export function evaluateMergeGate(facts: MergeGateFacts): MergeGateResult {
   }
 
   // ── 2. 唯一 verdict label ────────────────────────────────────────────────
+  // "零个"这个子分支可暂停（VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED，2026-08-16
+  // 人类第三次裁决）；"不唯一/自相矛盾"不受影响，继续拦人——那是数据本身矛盾，
+  // 不是"还没被 review"，两者不是同一类问题。
   const verdictLabels = facts.labels.filter((l) => l.startsWith(VERDICT_PREFIX));
   if (verdictLabels.length === 0) {
-    reasons.push("没有任何 `review:*` verdict label——还没有人正式裁决过这个 PR");
+    const reason = "没有任何 `review:*` verdict label——还没有人正式裁决过这个 PR";
+    (VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED ? advisories : reasons).push(
+      VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED ? `[已暂停，仅记录] ${reason}` : reason,
+    );
   } else if (verdictLabels.length > 1) {
     reasons.push(
       `verdict label 不唯一：同时存在 ${verdictLabels.join("/")}——必须先摘除过期的那个再重判（ADR-023 铁律 1），不能选一个凑合`,

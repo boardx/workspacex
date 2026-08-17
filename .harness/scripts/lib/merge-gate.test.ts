@@ -76,10 +76,11 @@ describe("#956 机械合并门禁", () => {
   });
 
   // ── 补充反证：覆盖 evaluateMergeGate 的其余分支，避免只测 issue 举的三例 ──
-  it("反证 4：没有任何 verdict label → 仍然拒绝（条件 2 未受暂停影响）", () => {
+  it("反证 4：没有任何 verdict label——暂停期 passed=true，advisories 仍报出（2026-08-16 第三次裁决）", () => {
     const got = evaluateMergeGate({ ...greenFacts(), labels: [] });
-    expect(got.passed).toBe(false);
-    expect(got.reasons.join("\n")).toContain("没有任何 `review:*` verdict label");
+    expect(got.passed).toBe(true);
+    expect(got.reasons).toEqual([]);
+    expect(got.advisories.join("\n")).toContain("没有任何 `review:*` verdict label");
   });
 
   it("反证 5：verdict label 不唯一 → 仍然拒绝（条件 2 未受暂停影响）", () => {
@@ -108,18 +109,39 @@ describe("#956 机械合并门禁", () => {
     expect(got.advisories.length).toBeGreaterThan(0);
   });
 
-  it("reasons 收集全部命中项（条件 3 暂停后只剩条件 1+2，不是只报第一条）", () => {
+  it("reasons 收集全部命中项（条件 2「不唯一」这个子分支没被暂停，配合条件 1 一起触发）", () => {
+    // 条件 2「零个 label」和条件 3 都暂停了之后，能同时触发多条 reasons 的场景
+    // 变窄了——用「不唯一」这个仍在拦人的子分支 + 条件 1 缺失，凑出两条真实
+    // reasons，继续验证"不是只报第一条"这个行为没有跟着退化。
     const got = evaluateMergeGate({
       number: 1,
       author: "worker-agent",
       headSha: HEAD,
       body: "没有关联 issue",
-      labels: [],
+      labels: ["review:changes", "review:feature-ok"], // 不唯一，仍然拦人
       reviews: [{ author: "worker-agent", state: "APPROVED", commit: HEAD }],
     });
     expect(got.passed).toBe(false);
-    expect(got.reasons.length).toBe(2); // Closes 缺失 + 没有 verdict label（条件 3 挪进 advisories，不算这里）
-    expect(got.advisories.length).toBe(1); // 作者自审——仍然算出来了，只是不拦
+    expect(got.reasons.length).toBe(2); // Closes 缺失 + label 不唯一
+    // 条件 3 这里完全不触发（不是暂停、是压根没走到）：labels 里含
+    // review:feature-ok，hasOkVerdictLabel=true，条件 3 的判断直接短路满足，
+    // 连"作者自审"这个分支都不会进——自审检查是条件 3 内部的，条件 3 本身
+    // 已经被标签满足时不会再往下判。
+    expect(got.advisories).toEqual([]);
+  });
+
+  it("advisories 也收集全部命中项，不是只报第一条", () => {
+    const got = evaluateMergeGate({
+      number: 1,
+      author: "worker-agent",
+      headSha: HEAD,
+      body: "没有关联 issue",
+      labels: [], // 触发条件 2 的"零个"分支（已暂停）
+      reviews: [{ author: "worker-agent", state: "APPROVED", commit: HEAD }], // 触发条件 3 的"作者自审"分支（已暂停）
+    });
+    expect(got.passed).toBe(false); // 条件 1（Closes）仍然拦
+    expect(got.reasons.length).toBe(1);
+    expect(got.advisories.length).toBe(2); // 条件 2 + 条件 3 都算出来了，都在 advisories 里
   });
 
   // ── 2026-08-16 第一次修正：review:*-ok 标签可以单独满足条件 3（暂停前的行为，
