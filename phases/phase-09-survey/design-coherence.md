@@ -1,8 +1,8 @@
 ---
-status: pending_human
+status: confirmed
 covers_bundles: [survey]
-confirmed_by: null
-confirmed_at: null
+confirmed_by: shenyangjun
+confirmed_at: 2026-08-13T02:43:32+08:00
 ---
 
 # Design Coherence — Survey

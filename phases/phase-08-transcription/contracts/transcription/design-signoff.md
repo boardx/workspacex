@@ -2,9 +2,9 @@
 bundle: transcription
 phase: "08"
 covers: [F01, F02, F03, F04]
-status: pending_human
-confirmed_by: null
-confirmed_at: null
+status: confirmed
+confirmed_by: shenyangjun
+confirmed_at: 2026-08-13T02:43:32+08:00
 ---
 
 # Design Signoff — Transcription

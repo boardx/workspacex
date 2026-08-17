@@ -1,8 +1,8 @@
 ---
-status: pending_human
 covers_bundles: [user-research]
-confirmed_by: null
-confirmed_at: null
+status: confirmed
+confirmed_by: shenyangjun
+confirmed_at: 2026-08-13T02:43:32+08:00
 ---
 
 # Design Coherence — User Research
