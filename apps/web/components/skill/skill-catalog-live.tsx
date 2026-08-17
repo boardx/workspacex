@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FileCode2, Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/lib/api-client";
 import { currentOrganizationLabel } from "@/lib/org-display";
 import { SkillUrlImportPanel } from "@/components/admin/skill-url-import-panel";
@@ -23,13 +22,11 @@ import { SkillUrlImportPanel } from "@/components/admin/skill-url-import-panel";
 import { Modal } from "@/components/files/overlay";
 import { EntityViewToggle } from "@/components/admin/entity-view-toggle";
 import {
-  createSkillDraft,
   getSkillDetail,
   listSkills,
   reviewSkillVersion,
   runSecurityScan,
   submitSkillForReview,
-  type CreateSkillDraftIn,
   type RunSecurityScanOut,
   type SkillDetail,
   type SkillListItem,
@@ -141,23 +138,18 @@ function isSourceFileBacked(row: SkillListItem): boolean {
  * ## 三处刻意的设计，都会被门控盯着
  *
  * ① **空态是真实空态**。`listSkills` 返回 `[]` 时这里显示「还没有」，**不生成示例 skill**
- *    （契约 A1/V10 逐字）。`skill-create-smoke.spec.ts` 第一条断言就是它。
+ *    （契约 A1/V10 逐字）。
  *
  * ② **失败态回显后端真实错误信封**：`reasonCode（HTTP <status>）`，不糊成「加载失败」。
  *    糊成一句话之后，权限、校验、重名三种失败在界面上就再也分不开了。
  *
- * ③ **创建成功后乐观地把这一行插进本地列表，不立刻重读服务端**。
- *    这不是偷懒，是为了让 e2e 的反证打在**刷新**这个接缝上：把创建请求换成一个
- *    形状合法但没落库的 201 之后，界面照样显示那一行，**只有刷新才露馅**。
- *    若这里改成「创建后立刻重读」，反证会红在刷新之前 —— 那样它考验的是
- *    「请求有没有到服务端」，根本没考验到持久化。理由同样写在那个 spec 的文件头。
- *    ⚠ 乐观插进去的内容不是编的：名称/职责/可见性是使用者刚填的，
- *      `skillId`/`status`/`source` 来自服务端 201 的响应体。
- *    ⚠ #861：乐观行**单独存一处**（`pending`），不直接塞进 `state.rows`。原来那句
- *      `prev.status === "ready" ? 插入 : prev` 在「首屏列表还在飞」的窗口里会把这一行
- *      **静默丢掉**，随后到达的 GET 再把 state 覆盖成纯服务端结果 —— 使用者看到的是
- *      「提示说建好了，列表里没有」。它在 CI 上表现成 `skill-create-smoke.spec.ts:212`
- *      的间歇失败（stub 出来的 201 零延迟，最容易撞进这个窗口）。清除规则见 `pending`。
+ * ③ **F192（design-delta `skill-model-a-b-convergence` 选项②）之后**：「完全新建
+ *    （契约表单）」入口已下线，`POST /skills` 对任何请求都返回 `410 Gone`——本屏不再
+ *    有走这条路径的乐观插入。`pending`/`PendingRow` 这套「乐观行单独存一处、按
+ *    `afterRequest` 世代号清除」的机制原是为它准备的（#861），现在只被门禁审核
+ *    （`GatePanel` 的 `onStatusChanged`）复用，为**已存在**的行做乐观状态更新——
+ *    机制本身未变，只是新增行的来源变成了「导入」（`SkillUrlImportPanel` 的
+ *    `onImported` 接的是真实 `load()`，走的是重读服务端而不是乐观插入）。
  *
  * ## 本屏**没有**的入口
  *
@@ -170,41 +162,6 @@ type LoadState =
   | { readonly orgId: string; readonly status: "loading" }
   | { readonly orgId: string; readonly status: "error"; readonly message: string }
   | { readonly orgId: string; readonly status: "ready"; readonly rows: readonly SkillListItem[] };
-
-/** 契约 `DeclarativeContract` 的六个字段，一一对应表单项。⚠ 不多不少。 */
-interface DraftForm {
-  name: string;
-  duty: string;
-  promptTemplate: string;
-  inputSchema: string;
-  outputSchema: string;
-  dataScope: string;
-  readsRawTranscript: boolean;
-  fallbackDeclaration: string;
-  visibility: "org-wide" | "team-only";
-  modelRef: string;
-  /** G5——逗号分隔文本框，最简单可用的 tag 输入，仓库里没有现成的 chip-input 组件可复用。 */
-  tags: string;
-}
-
-const EMPTY_FORM: DraftForm = {
-  name: "",
-  duty: "",
-  promptTemplate: "",
-  inputSchema: "",
-  outputSchema: "",
-  dataScope: "",
-  readsRawTranscript: false,
-  fallbackDeclaration: "",
-  visibility: "org-wide",
-  tags: "",
-  /**
-   * ⚠ 服务端目前不校验 `modelRef` 的取值（`MODEL_UNAVAILABLE` 那条路径还没有生产者），
-   *   但契约要求它非空。给一个可改的缺省值，而不是在提交时偷偷补一个 —— 后者会让
-   *   使用者以为自己选过模型。
-   */
-  modelRef: "model-default",
-};
 
 export function SkillCatalogLive() {
   const { session, identity } = useSession();
@@ -268,7 +225,9 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   const [state, setState] = React.useState<LoadState>({ orgId, status: "loading" });
   const [pending, setPending] = React.useState<readonly PendingRow[]>([]);
   const [creating, setCreating] = React.useState(false);
-  const [createMode, setCreateMode] = React.useState<CreateMode>("form");
+  // F192（design-delta `skill-model-a-b-convergence` 选项②）：默认 tab 从「完全新建
+  // （契约表单）」改成「从 GitHub 导入」——`form` 这条路径已经不存在了。
+  const [createMode, setCreateMode] = React.useState<CreateMode>("import");
   const [notice, setNotice] = React.useState<string | null>(null);
   const [detail, setDetail] = React.useState<SkillDetail | null>(null);
   const [detailError, setDetailError] = React.useState<string | null>(null);
@@ -297,7 +256,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   React.useEffect(() => {
     // 换组织 = 上一组织的提示与详情全部作废：它们说的是另一个组织发生过的事。
     setCreating(false);
-    setCreateMode("form");
+    setCreateMode("import");
     setNotice(null);
     setDetail(null);
     setDetailError(null);
@@ -466,26 +425,13 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       {creating ? (
         <Modal
           title="新建 Skill"
-          subtitle="三条路径：完全新建（契约表单）／从 GitHub 导入／从市场挑一个改"
+          subtitle="两条路径：从 GitHub 导入／从市场挑一个改"
           onClose={() => setCreating(false)}
           testid="skill-create-modal"
           width="lg"
         >
         <div className="flex flex-col gap-3" data-testid="skill-create-launcher">
           <CreateModeTabs mode={createMode} onChange={setCreateMode} />
-          {createMode === "form" ? (
-            <CreatePanel
-              orgId={orgId}
-              onCancel={() => setCreating(false)}
-              onCreated={(row, message) => {
-                // ⚠ 乐观插入，**不重读**。理由见文件头第 ③ 条。
-                // ⚠ 不看当前是不是 `ready`：首屏还在加载时也照样插得进去（#861）。
-                setPending((prev) => [{ afterRequest: generation.current, row }, ...prev]);
-                setNotice(message);
-                setCreating(false);
-              }}
-            />
-          ) : null}
           {createMode === "import" ? (
             <SkillUrlImportPanel key={orgId} onImported={load} />
           ) : null}
@@ -700,22 +646,23 @@ function TagFilterGroup<V extends string>({
   );
 }
 
-/* ── 新建 Skill 三条路径 ───────────────────────────────────────────────
+/* ── 新建 Skill 两条路径（F192 之后）────────────────────────────────────
  *
- * 2026-08-13 —— 人类给了两张后台原型截图核对，「新建 Skill」应长出三条路径
- * （完全新建 / 导入 / 从市场挑一个改）。逐条核实过后端能给什么，**只接已经真实
- * 存在的后端**，没有的如实标注，不假装、不摆一个会自己抛错的按钮：
+ * 2026-08-13 —— 人类给了两张后台原型截图核对，「新建 Skill」曾长出三条路径
+ * （完全新建 / 导入 / 从市场挑一个改）。F192（design-delta
+ * `skill-model-a-b-convergence` 选项②，issue #598）之后，**「完全新建」这条
+ * 路径已下线**：它写的是模型 B（`skill_contracts`，声明式契约），而模型 B 建出来的
+ * skill 运行时读不到、chat 里挂不上（`execute-run.ts` 只读模型 A）——是一条
+ * "功能性死路"。`POST /skills`（原 `createSkillDraft` 的路由）现在对任何请求都返回
+ * `410 Gone`（`skill.controller.ts`），前端不再摆一个必然被拒的表单。
  *
- *   · **完全新建** —— 契约 `createSkillDraft`（`POST /skills`）真实存在，
- *     但它要求一次性交齐「提示词模板 ＋ 输入输出 schema ＋ 数据范围声明」这份
- *     完整声明式契约，**不是**「先建一个只有 SKILL.md 的空目录，再用文件浏览器
- *     + 代码编辑器逐个文件补」这条路径。下面的 `CreatePanel`（本文件原有组件，
- *     未改动）就是这条真实路径，标签如实叫「完全新建（契约表单）」。
- *   · **导入** —— `POST /admin/skills/url-imports`（#595）真实存在，`apps/web`
- *     里已经有对应组件 `SkillUrlImportPanel`（`components/admin/skill-
- *     url-import-panel.tsx`，#881 F2），此前只接在 `catalog` 屏
- *     （`CapabilityCatalogScreen`），本轮把它接到这里——同一个组件，同一条
- *     真实调用链，只是多了一个入口。
+ * 剩下两条路径，逐条核实过后端能给什么，**只接已经真实存在的后端**：
+ *
+ *   · **导入** —— `POST /admin/skills/url-imports`（#595，模型 A）真实存在，
+ *     `apps/web` 里已经有对应组件 `SkillUrlImportPanel`
+ *     （`components/admin/skill-url-import-panel.tsx`，#881 F2）。这是 F192
+ *     之后**默认**的 tab——声明式录入并入模型 A 的编辑器工作流（可以先用
+ *     starter-pack / URL 导入起步，再用文件编辑器补内容）。
  *   · **从市场挑一个改** —— 没有对应后端。`packages/contracts/src/*.ts` 里
  *     不存在任何 market/marketplace 相关操作；「Claude Code 社区 1,842 个 ·
  *     已同步 34」这类数字只存在于 `components/asset-governance/ag-screens.tsx`
@@ -723,22 +670,19 @@ function TagFilterGroup<V extends string>({
  *     `AG_MARKET_CARDS` 纯 mock）。这里**不**把那份 mock 数字搬过来冒充真实——
  *     `MarketPickUnavailable` 如实说「未接后端」，并指向登记这个缺口的 issue。
  *
- * ⚠ 「空白骨架 + 文件浏览器 + 代码编辑器从头写」这条路径（人类原话第③点）在
- *   `asset-governance` 契约里也找不到对应操作：`getAssetDirectory` /
- *   `readAssetFile` / `writeAssetFile` / `createAssetFile` 全部要求一个
- *   **已经存在**的 `assetId`（见 `packages/contracts/src/asset-governance.ts`
- *   `getAssetDirectory` 的 `in: { assetKind, assetId }`）——`AgSkillEditor`
- *   （`asset-governance` 束，#933）编辑的是**已建好**的 skill，不能拿它开一个
- *   还不存在的新 skill。缺的是一个「创建只带 SKILL.md 骨架的空白 skill 记录」
- *   的后端操作（可能是 `skills` 束新增 `createSkillSkeleton`，或
- *   `asset-governance` 束新增「先建空 asset 记录再进文件编辑器」）。这不是这次
+ * ⚠ 「空白骨架 + 文件浏览器 + 代码编辑器从头写」这条路径在 `asset-governance`
+ *   契约里也找不到对应操作：`getAssetDirectory` / `readAssetFile` /
+ *   `writeAssetFile` / `createAssetFile` 全部要求一个**已经存在**的 `assetId`
+ *   （见 `packages/contracts/src/asset-governance.ts` `getAssetDirectory` 的
+ *   `in: { assetKind, assetId }`）——`AgSkillEditor`（`asset-governance` 束，
+ *   #933）编辑的是**已建好**的 skill，不能拿它开一个还不存在的新 skill。
+ *   缺的是一个「创建只带 SKILL.md 骨架的空白 skill 记录」的后端操作，不是这次
  *   改动能顺手补的契约面（新契约需要单独走 ADR-023 签核），已记录为独立 issue。
  */
 
-type CreateMode = "form" | "import" | "market";
+type CreateMode = "import" | "market";
 
 const CREATE_MODE_TABS: readonly { id: CreateMode; label: string }[] = [
-  { id: "form", label: "完全新建（契约表单）" },
   { id: "import", label: "从 GitHub 导入" },
   { id: "market", label: "从市场挑一个改" },
 ];
@@ -784,215 +728,6 @@ function MarketPickUnavailable() {
           UI 先行阶段的 mock，不代表真实可拉取的市场目录。这里不搬那份 mock 数字冒充真实——
           需要先补市场浏览的后端契约（另开 ADR-023 签核），已记录为独立 issue。
         </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-/* ── 新建面板：契约三件套，字段与 `createSkillDraft.in` 一一对应 ─────────── */
-
-function CreatePanel({
-  orgId,
-  onCancel,
-  onCreated,
-}: {
-  orgId: string;
-  onCancel: () => void;
-  onCreated: (row: SkillListItem, message: string) => void;
-}) {
-  const [form, setForm] = React.useState<DraftForm>(EMPTY_FORM);
-  const [error, setError] = React.useState<string | null>(null);
-  const [submitting, setSubmitting] = React.useState(false);
-
-  function set<K extends keyof DraftForm>(key: K, value: DraftForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function submit() {
-    setError(null);
-    setSubmitting(true);
-    // G5：逗号分隔 → 数组；同 `dataScope` 那行的纪律——空串是空 tags，不是 `[""]`。
-    const tags = form.tags.split(",").map((t) => t.trim()).filter((t) => t !== "");
-    const input: CreateSkillDraftIn = {
-      orgId,
-      name: form.name,
-      duty: form.duty,
-      contract: {
-        promptTemplate: form.promptTemplate,
-        inputSchema: form.inputSchema,
-        outputSchema: form.outputSchema,
-        // 逗号分隔 → 数组；空串就是**空范围**，不是 `[""]`。
-        dataScope: form.dataScope.split(",").map((s) => s.trim()).filter((s) => s !== ""),
-        readsRawTranscript: form.readsRawTranscript,
-        fallbackDeclaration: form.fallbackDeclaration,
-      },
-      visibility: form.visibility,
-      modelRef: form.modelRef,
-      tags,
-      // ⚠ 这里**没有** `source`：它由服务端按入口打标；写它 ⇒ `SOURCE_TAG_IMMUTABLE`。
-    };
-    try {
-      const created = await createSkillDraft(input);
-      onCreated(
-        {
-          skillId: created.skillId,
-          name: form.name,
-          duty: form.duty,
-          // 服务端分配的三个字段，来自 201 的响应体，不是这里编的。
-          source: created.source,
-          status: created.status,
-          visibility: form.visibility,
-          currentVersionId: created.versionId,
-          // 契约：null ⟺ 样本不足。新建的 skill 一次调用都没有过。
-          satisfaction: null,
-          // G5：乐观插入这一行时回填使用者刚填的 tags——不是编的，是这次提交本身的入参。
-          tags,
-        },
-        `已创建草稿「${form.name}」（skillId ${created.skillId}）`,
-      );
-    } catch (caught) {
-      setError(describeError(caught));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Card className="border-primary/30" data-testid="skill-create-panel">
-      <CardContent className="flex flex-col gap-3 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-1.5 text-13 font-semibold">
-            <FileCode2 aria-hidden className="h-4 w-4" /> 新建 skill · 声明式契约
-          </h2>
-          <span className="text-9 text-muted-foreground">
-            来源标记由服务端按入口自动打标（自建），提交人不可改写
-          </span>
-        </div>
-
-        <Field id="skill-create-name" label="名称">
-          <Input
-            id="skill-create-name"
-            data-testid="skill-create-name"
-            value={form.name}
-            onChange={(e) => set("name", e.target.value)}
-          />
-        </Field>
-        <Field id="skill-create-duty" label="职责（这个 skill 负责什么）">
-          <Input
-            id="skill-create-duty"
-            data-testid="skill-create-duty"
-            value={form.duty}
-            onChange={(e) => set("duty", e.target.value)}
-          />
-        </Field>
-        <Field id="skill-create-prompt" label="提示词模板（可带变量）">
-          <Textarea
-            id="skill-create-prompt"
-            data-testid="skill-create-prompt"
-            rows={3}
-            value={form.promptTemplate}
-            onChange={(e) => set("promptTemplate", e.target.value)}
-          />
-        </Field>
-        <Field id="skill-create-input-schema" label="输入 schema（JSON Schema 文本）">
-          <Textarea
-            id="skill-create-input-schema"
-            data-testid="skill-create-input-schema"
-            rows={2}
-            value={form.inputSchema}
-            onChange={(e) => set("inputSchema", e.target.value)}
-          />
-        </Field>
-        <Field id="skill-create-output-schema" label="输出 schema（JSON Schema 文本）">
-          <Textarea
-            id="skill-create-output-schema"
-            data-testid="skill-create-output-schema"
-            rows={2}
-            value={form.outputSchema}
-            onChange={(e) => set("outputSchema", e.target.value)}
-          />
-        </Field>
-        <Field
-          id="skill-create-data-scope"
-          label="数据范围声明（逗号分隔；上界＝提交人自身权限，服务端判定）"
-        >
-          <Input
-            id="skill-create-data-scope"
-            data-testid="skill-create-data-scope"
-            value={form.dataScope}
-            onChange={(e) => set("dataScope", e.target.value)}
-          />
-        </Field>
-        <Checkbox
-          data-testid="skill-create-reads-raw-transcript"
-          label="声明读取原始转写"
-          description="需单独授权；未授权时服务端直接判校验失败，不进待审核队列"
-          checked={form.readsRawTranscript}
-          onChange={(e) => set("readsRawTranscript", e.target.checked)}
-        />
-        <Field id="skill-create-fallback" label="兜底声明（拿不到东西时怎么办）">
-          <Input
-            id="skill-create-fallback"
-            data-testid="skill-create-fallback"
-            value={form.fallbackDeclaration}
-            onChange={(e) => set("fallbackDeclaration", e.target.value)}
-          />
-        </Field>
-        <Field id="skill-create-model" label="模型引用">
-          <Input
-            id="skill-create-model"
-            data-testid="skill-create-model"
-            value={form.modelRef}
-            onChange={(e) => set("modelRef", e.target.value)}
-          />
-        </Field>
-        {/* G5（2026-08-14，人类原话：「新建的时候要支持添加tags」）——最简单可用的输入：
-            逗号分隔文本框，与上面 `dataScope` 同一种输入方式，不引入新的 chip-input 组件。 */}
-        <Field id="skill-create-tags" label="标签（可选，逗号分隔）">
-          <Input
-            id="skill-create-tags"
-            data-testid="skill-create-tags"
-            placeholder="例如：客服, 数据分析"
-            value={form.tags}
-            onChange={(e) => set("tags", e.target.value)}
-          />
-        </Field>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-11 text-muted-foreground">可见性</span>
-          {(["org-wide", "team-only"] as const).map((v) => (
-            <Button
-              key={v}
-              size="xs"
-              variant={form.visibility === v ? "primary" : "outline"}
-              onClick={() => set("visibility", v)}
-              data-testid={`skill-create-visibility-${v}`}
-            >
-              {v === "org-wide" ? "组织可见" : "仅本团队"}
-            </Button>
-          ))}
-        </div>
-
-        {error ? (
-          <p role="alert" data-testid="skill-create-error" className="text-11 text-destructive">
-            提交被拒绝：{error}
-          </p>
-        ) : null}
-
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={submitting}
-            onClick={() => void submit()}
-            data-testid="skill-create-submit"
-          >
-            {submitting ? "提交中…" : "提交"}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onCancel} data-testid="skill-create-cancel">
-            取消
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );

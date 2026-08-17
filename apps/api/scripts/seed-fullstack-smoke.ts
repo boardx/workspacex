@@ -42,6 +42,13 @@ const leadUserId = required("FULLSTACK_E2E_LEAD_USER_ID");
 const securityReviewerEmail = required("FULLSTACK_E2E_SECURITY_REVIEWER_EMAIL");
 const securityReviewerPassword = required("FULLSTACK_E2E_SECURITY_REVIEWER_PASSWORD");
 const securityReviewerUserId = required("FULLSTACK_E2E_SECURITY_REVIEWER_USER_ID");
+/**
+ * F192（#598）之后：`skill-review-gate.spec.ts` 走完整条门禁的那一个，与反证 C 用的
+ * 「一直停在草稿」那一个。原来由用例现场经「完全新建」面板建出来，那条入口已被
+ * F192 冻结（`POST /skills` 恒 410）——理由见下面 #552 种子块与 fixture 里的说明。
+ */
+const reviewedSkillName = required("FULLSTACK_E2E_REVIEWED_SKILL_NAME");
+const draftOnlySkillName = required("FULLSTACK_E2E_DRAFT_ONLY_SKILL_NAME");
 /** #435: the one agent core-loop step 8b actually RUNS. See the fixture for the two-worlds note. */
 const agentId = required("FULLSTACK_E2E_AGENT_ID");
 const agentDisplayName = required("FULLSTACK_E2E_AGENT_NAME");
@@ -115,8 +122,8 @@ await asOwner(async (client) => {
  * ## 这里种的是前置条件，不是被断言的东西
  *
  * 与 #467 种一条**已启用的 skill** 恰好相反：那条当年必须种，因为不存在任何产品路径能
- * 启用一个 skill；#552 补的就是那条路径，所以 `skill_contracts` 这里**一行都不种** ——
- * 走完扫描 → 提交 → 批准是用例现场的事，种了就等于把结论预置掉。
+ * 启用一个 skill；#552 补的就是那条路径，所以扫描 → 提交 → 批准仍然是用例现场的事，
+ * 种了就等于把结论预置掉（见下面 skill_contracts 那个种子块头注：只种到「草稿」）。
  *
  * 「职能由组织管理员指派」（契约 `ReviewerFunction` 逐字：**不是自助申领**），而指派动作
  * 属 identity/auth 域、本束不建那个操作。⇒ 在系统里它只能来自组织管理，用例造不出来，
@@ -141,6 +148,84 @@ await asApp(orgId, async (client) => {
     [orgId, userId, memberUserId, securityReviewerUserId, adminUserId],
   );
 });
+
+/**
+ * 🟡 #552 / **F192**（issue #598，2026-08-16 签核）—— `skill-review-gate.spec.ts` 要用的
+ * 两份 team-only **草稿**。
+ *
+ * ## 为什么现在要种，此前不种
+ *
+ * 这两行原来由用例现场经 `/skill` 的「完全新建」面板建出来，一行都不预置——种到「已启用」
+ * 才会把被断言的结论预置掉，但种到「草稿」不会：草稿只是扫描/提交/审核这条链路的起点，
+ * 链路本身（`SkillReviewController` 的 scan/submit/review）一步都不在这里代劳。
+ *
+ * F192 冻结了「完全新建」面板与 `POST /skills`（恒 410，`SkillDraftWritePathFrozen`）之后，
+ * 「用例现场经 UI 建草稿」这条路走不通了——不是这条 spec 的断言错了，是它依赖的创建入口
+ * 被另一条 feature 关掉了。改为在这里直接写与 `saveDraft`
+ * （`infrastructure/skill/pg-skill-contract-repository.ts`）落库同形的两行：
+ * `status='草稿'`、`current_version_id=NULL`（草稿版本不是生效版本）、
+ * `skill_contract_versions.state='草稿'`。
+ *
+ * ⚠ `created_by`／版本的 `created_by` 都钉死为 `userId`（下面第一条测试登录用的提交人
+ *   账号）——这是「自己审自己 ⇒ `SELF_REVIEW_FORBIDDEN`」等断言成立的前提，换成种子写
+ *   不能换掉这一点。
+ * ⚠ `team-only` 归 `fullstack` 团队，与 `mountableSkillId`（#467）同一个理由：
+ *   `skill-create-smoke.spec.ts` 断言**管理员**打开目录看到真实空态，管理员不属于任何
+ *   团队 ⇒ 这两行对他都不可见，那条断言原样成立。
+ * ⚠ 两个契约都是「干净」的（`dataScope` 空、`readsRawTranscript=false`）——与
+ *   `createTeamOnlySkill` 此前直接在 UI 里填的值同型，理由见该 helper 旧注：非空范围会
+ *   在扫描/越权检查上先红，走不到 #552 真正要考验的双重门禁。
+ */
+{
+  const reviewedSkillId = `skill-contract-reviewed-${orgId}`;
+  const reviewedVersionId = `${reviewedSkillId}-v1`;
+  const draftOnlySkillId = `skill-contract-draft-only-${orgId}`;
+  const draftOnlyVersionId = `${draftOnlySkillId}-v1`;
+  const reviewGateTeamId = fixture.teams.fullstack;
+  if (!reviewGateTeamId) throw new Error("fixture.teams.fullstack is required for #552 draft seed");
+  const { createHash } = await import("node:crypto");
+  const promptTemplate = "对 {{hypotheses}} 按 {{criteria}} 排序";
+  const inputSchema = '{"type":"object","properties":{"hypotheses":{"type":"array"}}}';
+  const outputSchema = '{"type":"object","properties":{"ranked":{"type":"array"}}}';
+  const fallbackDeclaration = "信息不足时明确说明缺什么，不臆造";
+  const contentHash = createHash("sha256")
+    .update(promptTemplate + inputSchema + outputSchema)
+    .digest("hex");
+  await asApp(orgId, async (client) => {
+    for (const [skillId, versionId, name] of [
+      [reviewedSkillId, reviewedVersionId, reviewedSkillName],
+      [draftOnlySkillId, draftOnlyVersionId, draftOnlySkillName],
+    ] as const) {
+      await client.query(
+        `INSERT INTO skill_contracts
+           (id, org_id, name, duty, source, status, visibility, owner_team_id,
+            current_version_id, archived, created_by)
+         VALUES ($1,$2,$3,'把一组假设按给定标准排序并给出理由','自建','草稿','team-only',$4,
+                 NULL,false,$5)
+         ON CONFLICT (id) DO NOTHING`,
+        [skillId, orgId, name, reviewGateTeamId, userId],
+      );
+      await client.query(
+        `INSERT INTO skill_contract_versions
+           (id, org_id, skill_id, version_number, state, prompt_template, input_schema,
+            output_schema, data_scope, reads_raw_transcript, fallback_declaration,
+            model_ref, content_hash, created_by)
+         VALUES ($1,$2,$3,1,'草稿',$4,$5,$6,'[]'::jsonb,false,$7,'model-default',$8,$9)
+         ON CONFLICT (id) DO NOTHING`,
+        [versionId, orgId, skillId, promptTemplate, inputSchema, outputSchema,
+          fallbackDeclaration, contentHash, userId],
+      );
+      // 草稿不进可绑定池 ⇒ 与 `saveDraft` 同形：`enabled=false`。
+      await client.query(
+        `INSERT INTO capability_listings
+           (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
+         VALUES ($1,$2,'skill',$3,'team-only',$4,false,NULL)
+         ON CONFLICT (id) DO NOTHING`,
+        [skillId, orgId, name, reviewGateTeamId],
+      );
+    }
+  });
+}
 
 /**
  * #435 —— 核心闭环第 8b 步要用的**可运行 Agent**。

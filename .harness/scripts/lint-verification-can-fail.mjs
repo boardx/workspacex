@@ -249,6 +249,23 @@ export function classify(cmd) {
     };
   }
 
+  // 根级 pnpm run：pnpm run <script>（没有 --filter，跑的是根 package.json 的脚本别名，
+  // 常见于 verify:fullstack-smoke 这类需要 with-test-isolation.ts 包一层的组合命令）。
+  // ⚠ 2026-08-17（F193 复核发现）：与上面 `--filter` 版本看起来同形，但失败机制不同——
+  //   `pnpm --filter <pkg> run <不存在脚本>` 在 monorepo 场景下 exit 0（这正是 V-1 的成因，
+  //   靠 ② 静态检查兜底、故意不给探针）；根级 `pnpm run <不存在脚本>` 反而会
+  //   `ERR_PNPM_NO_SCRIPT` **exit 1**（实测验证过），所以这一类可以且应当有动态探针，
+  //   不能直接套用上面那条「没有探针」的结论。
+  m = /^pnpm\s+run\s+([\w:.-]+)\s*$/.exec(c);
+  if (m) {
+    const [, script] = m;
+    return {
+      shape: "root-pnpm-script",
+      probe: `pnpm run ${PROBE_TOKEN}`,
+      checks: [{ type: "root-script", script }],
+    };
+  }
+
   // pnpm run + 位置参数（如 `pnpm --filter web run e2e tests/e2e/x.spec.ts`）：
   // 与上一条的区别是它**有指向物**（那个路径），所以这一类可以也必须有动态探针。
   m = /^pnpm\s+--filter\s+(\S+)\s+run\s+([\w:.-]+)\s+(\S+)\s*$/.exec(c);
@@ -309,6 +326,13 @@ export function lintVerificationCanFail({
 } = {}) {
   const errors = [];
   const pkgs = workspacePackages(root);
+  const rootScripts = (() => {
+    try {
+      return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts ?? {};
+    } catch {
+      return {}; // 坏 package.json 由别的门控管
+    }
+  })();
 
   const lists =
     featureLists ??
@@ -380,6 +404,14 @@ export function lintVerificationCanFail({
                   `    pnpm 在无匹配脚本时退出 0 —— 这条会永远绿。这正是 V-1 的机制。`,
               );
             }
+          }
+          if (chk.type === "root-script" && !(chk.script in rootScripts)) {
+            errors.push(
+              `[脚本不存在] ${at}：根 package.json 里没有 \`${chk.script}\` 脚本。\n` +
+                `    $ ${cmd}\n` +
+                `    根级 pnpm run 在无匹配脚本时会 ERR_PNPM_NO_SCRIPT exit 1（与 --filter 版本不同），\n` +
+                `    但脚本名写错仍然指向一个不存在的验证目标，同样要拦。`,
+            );
           }
           if (chk.type === "path" && !existsSync(join(root, chk.path))) {
             errors.push(

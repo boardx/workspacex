@@ -116,6 +116,11 @@ export default {
       // （见 `model.controller.ts` 文件头），但前缀在这里缺位正是上面那个坑的复现条件，
       // 而 rewrite 指向一条不存在的后端路由只会得到后端自己的 404 JSON —— 那是**正确**
       // 的失败形态，比 Next 的 404 HTML 好查。
+      // fb2（产品反馈闭环）：`feedback-loop.ts` 挂了 5 条 operation，裸路径 `/feedback`
+      // 与 `/feedback/counts` 缺位是同一个坑的复现——见上面 `/models` 那条注释的完整
+      // 论证，这里不重复：缺了裸路径不会失败在网络层，会被 Next 接住返回 404 HTML。
+      { source: `${prefix}/feedback`, destination: `${apiOrigin}/feedback` },
+      { source: `${prefix}/feedback/:path*`, destination: `${apiOrigin}/feedback/:path*` },
       { source: `${prefix}/model-calls`, destination: `${apiOrigin}/model-calls` },
       { source: `${prefix}/model-calls/:path*`, destination: `${apiOrigin}/model-calls/:path*` },
       // #466：recording controller（#465 暴露）。**这是同一个坑的第五次** ——

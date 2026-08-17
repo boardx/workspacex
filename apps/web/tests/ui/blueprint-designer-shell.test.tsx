@@ -63,6 +63,11 @@ const baseProps: BlueprintDesignerShellProps = {
   completedKeys: [],
   firstIncompleteRequiredKey: null,
   autosave: { status: "saved", lastSavedAt: "14:52", failure: null },
+  designFacets: [],
+  onSaveFacet: async (designFacetKey, value) => ({
+    itemRevision: `rev-${designFacetKey}-${value.length}`,
+    completeness: { done: 0, denominator: DESIGN_FACET_CATALOG.denominator },
+  }),
 };
 
 const renderShell = (patch: Partial<BlueprintDesignerShellProps> = {}) => {

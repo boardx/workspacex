@@ -4,7 +4,7 @@
  * 暴露本波次收窄后的四条路径，**全部**取自 `packages/contracts/src/skills.ts`
  * 的 `operations`，路径与方法不手写字符串（ADR-020）：
  *
- *   · `createSkillDraft`  POST /skills
+ *   · `createSkillDraft`  POST /skills                 ⚠ F192 起冻结，恒 410（见下方 `create`）
  *   · `listSkills`        GET  /skills
  *   · `getSkillDetail`    GET  /skills/:skillId
  *   · `disableSkill`      POST /skills/:skillId/disable
@@ -29,18 +29,15 @@ import {
   Controller,
   ForbiddenException,
   Get,
-  HttpStatus,
+  GoneException,
   Inject,
   NotFoundException,
   Param,
   Post,
   Query,
-  Res,
   UnprocessableEntityException,
 } from "@nestjs/common";
-import type { Response } from "express";
 import { skills as C } from "@repo/contracts";
-import { createSkillDraft } from "../../application/skill/create-skill-draft";
 import { listSkills } from "../../application/skill/list-skills";
 import { disableSkill } from "../../application/skill/disable-skill";
 import { decideCapabilityVisibility } from "../../domain/identity/capability-listing";
@@ -51,12 +48,9 @@ import { DECISION_ID_FACTORY, type DecisionIdFactory } from "../../application/i
 import {
   SKILL_CONTRACT_REPOSITORY,
   SKILL_SECURITY_AUDIT,
-  SKILL_SUBMITTER_GRANTS,
-  SkillNameConflictError,
   type SecurityAuditPort,
   type SkillContractRepositoryFactory,
   type SkillContractRow,
-  type SubmitterGrantsPort,
 } from "../../application/skill/ports";
 import {
   IDENTITY_REPOSITORY,
@@ -67,24 +61,6 @@ import { assertPrincipal } from "../../domain/principal";
 import { toOrgId } from "../../domain/org-id";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
-
-type CreateBody = {
-  readonly orgId: string;
-  readonly name: string;
-  readonly duty: string;
-  readonly contract: {
-    readonly promptTemplate: string;
-    readonly inputSchema: string;
-    readonly outputSchema: string;
-    readonly dataScope: string[];
-    readonly readsRawTranscript: boolean;
-    readonly fallbackDeclaration: string;
-  };
-  readonly visibility: "org-wide" | "team-only";
-  readonly modelRef: string;
-  /** G5（2026-08-14）——可选，契约 `.optional()`。 */
-  readonly tags?: readonly string[];
-};
 
 type DisableBody = {
   readonly skillId: string;
@@ -119,13 +95,13 @@ function toListItem(row: SkillContractRow) {
 }
 
 /**
- * 两条写路由被判定时记录的 action 串。
+ * 唯一还在的写路由被判定时记录的 action 串（`disable`——`create` 已冻结为无条件
+ * 410，不再走成员资格判定，见下方 `SKILL_CREATE_ACTION` 移除说明）。
  *
  * skill 是组织级资产，没有项目上下文 ⇒ `decide()` 的项目层整层不适用（I-11），
- * 于是它**不会**去查这两个串。传它们是为了让判定记录下「当时在试图做什么」——
+ * 于是它**不会**去查这个串。传它是为了让判定记录下「当时在试图做什么」——
  * 一条 action 为空的判定，事后没人解释得了。同 `CAPABILITY_READ_ACTION` 的理由。
  */
-const SKILL_CREATE_ACTION = "skill.create";
 const SKILL_DISABLE_ACTION = "skill.disable";
 
 @Controller()
@@ -133,64 +109,34 @@ export class SkillController {
   constructor(
     @Inject(SKILL_CONTRACT_REPOSITORY) private readonly repositories: SkillContractRepositoryFactory,
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
-    @Inject(SKILL_SUBMITTER_GRANTS) private readonly grants: SubmitterGrantsPort,
     @Inject(SKILL_SECURITY_AUDIT) private readonly audit: SecurityAuditPort,
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
   ) {}
 
-  /* ─────────────────────── POST /skills ─────────────────────── */
+  /* ─────────────────────── POST /skills（冻结，F192）─────────────────── */
 
+  /**
+   * F192（design-delta `skill-model-a-b-convergence` 选项②，issue #598，已签核）——
+   * 写入口冻结：对**任何**请求都返回 `410 Gone`，不再落库、不再判成员资格/数据范围。
+   *
+   * ⚠ 不接 `@Body(new ZodBodyPipe(...))`：那道校验会先对畸形请求体判 400，
+   *   与「唯一入口被摘」这个性质不符——冻结必须是**无条件**的，不是「先校验、
+   *   合法的那些才 410」。任何请求，无论 body 长什么样，都恒 410。
+   * ⚠ 不是裸 404/500，也不静默 200：响应体带 `reasonCode` 与指向模型 A 编辑器
+   *   工作流的引导信息，见 `SKILLS_FROZEN_ROUTES`（契约）与
+   *   `tests/skill/post-skills-gone-410.test.ts`（真栈反证）。
+   */
   @Post("/skills")
-  async create(
-    @CurrentPrincipal() principal: Principal,
-    @Body(new ZodBodyPipe(C.operations.createSkillDraft.in)) body: CreateBody,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    assertPrincipal(principal);
-    this.assertOwnTenant(principal, body.orgId);
-
-    const repository = this.repositories.forOrg(principal.orgId);
-    const membership = await this.identities.findOrgMembership(
-      principal.userId,
-      toOrgId(principal.orgId),
-    );
-    // ⚠ 必须排在 `createSkillDraft` **之前**：这道门的性质是「不入库」，
-    //   一个先建后拒的实现返回码看起来一样，库里却多了一行。
-    this.assertOrgMembership(membership, SKILL_CREATE_ACTION);
-
-    const created = await this.rejectNameConflict(() =>
-      createSkillDraft(
-      {
-        orgId: body.orgId,
-        submitterId: principal.userId,
-        name: body.name,
-        duty: body.duty,
-        contract: body.contract,
-        // ⚠ 入口，不是「调用方声称的来源」。本路由就是「自建」那个入口，
-        //   `source` 由 `assignSourceByEntry` 打标；调用方写它 ⇒ `SOURCE_TAG_IMMUTABLE`。
-        entry: "admin-new",
-        visibility: body.visibility,
-        // `team-only` 归属发起人当前所在团队。契约的入参里没有 `ownerTeamId`，
-        // 而 `SkillListItem.visibility = team-only` 必须有归属团队才有意义。
-        ownerTeamId: body.visibility === "team-only" ? (membership?.teamId ?? null) : null,
-        modelRef: body.modelRef,
-        tags: body.tags,
-        // ⚠ 未经契约解析的原始请求体：`createSkillDraft.in` 是 `.strict()` 的，
-        //   解析后永远看不到 `source`，所以「有人试图写 source」只在这一层可见。
-        rawBody: body as unknown,
-      },
-      { grants: this.grants, store: repository, audit: this.audit },
-      ),
-    );
-
-    if (!created.ok) throw this.toHttpError(created.code);
-
-    response.status(HttpStatus.CREATED);
-    return C.operations.createSkillDraft.out.parse({
-      skillId: created.skillId,
-      versionId: created.versionId,
-      source: created.source,
-      status: created.status,
+  create(): never {
+    throw new GoneException({
+      reasonCode: "SKILL_DRAFT_WRITE_PATH_FROZEN",
+      message:
+        "模型 B（声明式契约）的新建入口已冻结（F192：design-delta " +
+        "skill-model-a-b-convergence 选项②）。模型 B 建出来的 skill 运行时读不到、" +
+        "chat 里挂不上，是一条功能性死路。新建 skill 请改走模型 A 的编辑器工作流：" +
+        "从 GitHub URL 导入（POST /admin/skills/url-imports）、上传文件，或从 " +
+        "starter-pack 起步后用文件编辑器补内容。存量模型 B 数据不受影响，仍可经 " +
+        "GET /skills 与 GET /skills/:skillId 只读查看。",
     });
   }
 
@@ -389,18 +335,21 @@ export class SkillController {
   }
 
   /**
-   * 组织**成员资格**门 —— 两条写路由（`POST /skills`、`POST /skills/:id/disable`）的准入。
+   * 组织**成员资格**门 —— 唯一还在的写路由（`POST /skills/:id/disable`）的准入。
+   *
+   * ⚠ F192 之前这道门同时守着 `create`（`POST /skills`）与 `disable`；`create`
+   *   现在无条件 410（见上方 `create` 方法的长注），不再走这道门——本注释保留
+   *   #532 反证的历史事实（当年 `create` 缺这道门时的真实测出结果），但**今天**
+   *   只有 `disable` 会调用 `assertOrgMembership`。
    *
    * ## 为什么它必须单独存在（#532）
    *
    * `assertOwnTenant` 只比 `body.orgId === principal.orgId`——那是**租户**校验：
    * 它答的是「你在说哪个组织」，不是「你还在不在这个组织里」。一个被移出组织、
    * 但会话还在手上的人，两者是一致的，于是一路畅通。实测（#532 反证，PR 正文有输出）：
-   * 删掉 `org_memberships` 那行之后 `POST /skills` 返回 **201 + 真实 skillId**。
+   * 删掉 `org_memberships` 那行之后（F192 之前的）`POST /skills` 返回 **201 + 真实 skillId**。
    *
-   * `SubmitterGrantsPort` 也不是准入：它是**数据范围的上界**，`dataScope: []` 时恒过。
-   * `create` 里那次 `findOrgMembership` 此前只喂给 `ownerTeamId`——取到了 `null`
-   * 也只是让归属团队为空，从不导致拒绝。`disable` 则连取都没取。
+   * `disable` 此前连成员资格都没取。
    *
    * ## 为什么走 `decide()` 而不是在这里写 `membership === null`
    *
@@ -414,9 +363,9 @@ export class SkillController {
    * 由各自的用例负责——把它们混进来会让这道门在 `team-only` 上悄悄放宽或收紧。
    *
    * ⚠ 对外统一 `PERMISSION_REVOKED`（403）。`NO_ORG_MEMBERSHIP` 是**内部**判定码，
-   *   两条路由的契约 `err` 闭集里都只有 `PERMISSION_REVOKED`
-   *   （`packages/contracts/src/skills.ts` createSkillDraft / disableSkill），
-   *   `all-exceptions.filter.ts` 的白名单也会把闭集外的码剥掉。
+   *   `disableSkill` 的契约 `err` 闭集里只有 `PERMISSION_REVOKED`
+   *   （`packages/contracts/src/skills.ts`），`all-exceptions.filter.ts` 的白名单
+   *   也会把闭集外的码剥掉。
    */
   private assertOrgMembership(membership: OrgMembershipRow | null, action: string): void {
     const decision = decide({
@@ -427,26 +376,6 @@ export class SkillController {
       scope: { scope: "org-wide", ownerTeamId: null },
     });
     if (!decision.allowed) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
-  }
-
-  /**
-   * 重名 ⇒ 409。
-   *
-   * ⚠ 这个 `reasonCode` **不在契约的 `SkillError` 闭集里**（那是已上报的缺口），
-   *   所以 `all-exceptions.filter.ts` 的白名单会把它剥掉，前端只看到 409。
-   *   这是**对的**：那道 `safeParse` 就是防枚举探测的门，为了让一个自造的码穿过去
-   *   而放宽它，等于为一个缺口拆掉一道安全设施。409 + 服务端日志足够定位，
-   *   等契约补码后这里换成那个码即可。
-   */
-  private async rejectNameConflict<T>(run: () => Promise<T>): Promise<T> {
-    try {
-      return await run();
-    } catch (error) {
-      if (error instanceof SkillNameConflictError) {
-        throw new ConflictException({ reasonCode: "SKILL_NAME_CONFLICT" });
-      }
-      throw error;
-    }
   }
 
   private toHttpError(code: string): Error {

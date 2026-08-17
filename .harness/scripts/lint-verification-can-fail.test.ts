@@ -171,6 +171,26 @@ describe("④ 未登记形态不得被静默放过", () => {
     const { errors } = run([multi]);
     expect(errors.join("\n")).not.toContain("未登记形态");
   });
+
+  it("根级 pnpm run（没有 --filter，跑根 package.json 脚本别名）不是未登记形态（F193 复核实测发现）", () => {
+    // ⚠ 与 `pnpm --filter <pkg> run <script>` 看起来同形，但缺脚本时的退出码不同——
+    //   --filter 版本 exit 0（V-1 的成因，靠静态存在性检查兜底、故意不给探针）；
+    //   根级版本 exit 1（`ERR_PNPM_NO_SCRIPT`，实测），所以它能且必须有动态探针。
+    const cmd = "pnpm run verify:fullstack-smoke"; // 根 package.json 里真实存在的脚本
+    const c = classify(cmd);
+    expect(c).not.toBeNull();
+    expect(c.shape).toBe("root-pnpm-script");
+    expect(c.probe).not.toBeNull(); // 与 --filter 版本不同，这一类必须有探针
+    expect(c.probe).toContain("__verification_gate_probe_absent__");
+    const { errors } = run([cmd]);
+    expect(errors.join("\n")).not.toContain("未登记形态");
+    expect(errors.join("\n")).not.toContain("脚本不存在");
+  });
+
+  it("根级 pnpm run 脚本名写错 → 静态存在性拦住，不是等它跑起来才发现", () => {
+    const { errors } = run(["pnpm run this-script-does-not-exist-in-root-package-json"]);
+    expect(errors.join("\n")).toContain("脚本不存在");
+  });
 });
 
 describe("⑤ 空集不得平凡为真", () => {

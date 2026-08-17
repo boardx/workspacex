@@ -92,6 +92,11 @@ const fixtureEnv = {
   FULLSTACK_E2E_SECURITY_REVIEWER_EMAIL: FULLSTACK_E2E.securityReviewerEmail,
   FULLSTACK_E2E_SECURITY_REVIEWER_PASSWORD: FULLSTACK_E2E.securityReviewerPassword,
   FULLSTACK_E2E_SECURITY_REVIEWER_USER_ID: FULLSTACK_E2E.securityReviewerUserId,
+  // F192（#598）之后：`skill-review-gate.spec.ts` 的两条 team-only 草稿改由种子建
+  // （原来走「完全新建」面板现场建，那条入口已被 F192 冻结）——理由见 fixture 里
+  // `reviewedSkillName` 上方的说明。只种到「草稿」，扫描/提交/批准仍是用例现场的事。
+  FULLSTACK_E2E_REVIEWED_SKILL_NAME: FULLSTACK_E2E.reviewedSkillName,
+  FULLSTACK_E2E_DRAFT_ONLY_SKILL_NAME: FULLSTACK_E2E.draftOnlySkillName,
   // #435：种一个**真的跑得起来**的 Agent。provider/model 只有这一份字面量（见 fixture）。
   FULLSTACK_E2E_AGENT_ID: FULLSTACK_E2E.agentId,
   FULLSTACK_E2E_AGENT_NAME: FULLSTACK_E2E.agentDisplayName,

@@ -1,17 +1,23 @@
 /**
  * #520 —— `/skill` 的 Skill 库屏接真实 API 的**组件测试**。
  *
- * ## ⚠ 这**不能**替代 `e2e/skill-create-smoke.spec.ts`，一条也不能
+ * ⚠ **F192（design-delta `skill-model-a-b-convergence` 选项②，issue #598，
+ * 2026-08-16 已签核）之后**：「完全新建（契约表单）」入口已下线，`POST /skills`
+ * 恒 410——本文件里所有原来打 `POST /skills` 的创建流程测试已随之移除或改写。
+ * 「入口不可达」这条本身的反证锚在专门的 `skill-catalog-no-create-panel.test.tsx`，
+ * 本文件此后只保留**未受本次收敛影响**的既有覆盖（空态 / 失败态 / tag 过滤 /
+ * 导入路径 / G3 弹窗 / G2/G6 A-B 分流）。
  *
  * 这里的 `fetch` 是假的。组件测试里的「刷新」只是再调一次这个假 `fetch`，它**永远**
- * 分不出「写进了库」和「写进了 React state」——那正是本 issue 唯一要证的东西。
- * 持久化那一条只有真实浏览器 + 真实 PostgreSQL 证得了，那条在 e2e spec 里。
+ * 分不出「写进了库」和「写进了 React state」。持久化那一条只有真实浏览器 +
+ * 真实 PostgreSQL 证得了——真实写路径已经没有了，所以本文件不再需要那条持久化证明；
+ * 唯一仍然真实存在的写路径（URL 导入）由下方「从 GitHub 导入」那条测试覆盖。
  *
- * 那这里还证什么？证**请求与渲染的形状**，也就是 e2e 跑起来之前就能钉死的部分：
- *   ① 打的是契约的路径与方法，`orgId` 来自会话而不是别处；
- *   ② 请求体里**没有** `source`（它由服务端按入口打标，写它 ⇒ `SOURCE_TAG_IMMUTABLE`）；
- *   ③ 空结果渲染**真实空态**，不生成任何示例 skill；
- *   ④ 失败态回显后端**真实错误信封**：reasonCode ＋ HTTP 状态，不糊成「加载失败」。
+ * 这里证的是**请求与渲染的形状**：
+ *   ① 空结果渲染**真实空态**，不生成任何示例 skill；
+ *   ② 列表读取失败态回显后端**真实错误信封**：reasonCode ＋ HTTP 状态，不糊成「加载失败」；
+ *   ③ tag 过滤真的生效；
+ *   ④ 「从 GitHub 导入」打的是契约的路径与方法，成功后真的刷新列表。
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -88,156 +94,6 @@ describe("#520 Skill 库屏接真实 API", () => {
     expect(list!.search.get("orgId")).toBe(ORG);
     // 契约 I-14：四入口共用同一份可见性过滤，入口选择器不能漏。
     expect(list!.search.get("entry")).toBe("library");
-  });
-
-  it("提交打的是 POST /skills，请求体是契约的形状，且**不含** source", async () => {
-    install((call) => {
-      if (call.method === "GET") return jsonResponse({ items: [], total: 0 });
-      return jsonResponse(
-        { skillId: "sk-1", versionId: "sv-1", source: "自建", status: "草稿" },
-        201,
-      );
-    });
-    render(<SkillCatalogLive />);
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
-
-    fireEvent.click(screen.getByTestId("skill-create-open"));
-    fireEvent.change(screen.getByTestId("skill-create-name"), { target: { value: "排序器" } });
-    fireEvent.change(screen.getByTestId("skill-create-duty"), { target: { value: "排序" } });
-    fireEvent.change(screen.getByTestId("skill-create-prompt"), { target: { value: "排 {{x}}" } });
-    fireEvent.change(screen.getByTestId("skill-create-input-schema"), { target: { value: "{}" } });
-    fireEvent.change(screen.getByTestId("skill-create-output-schema"), { target: { value: "{}" } });
-    fireEvent.change(screen.getByTestId("skill-create-fallback"), { target: { value: "如实说" } });
-    fireEvent.click(screen.getByTestId("skill-create-submit"));
-
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-notice")).toBeTruthy());
-
-    const post = calls.find((c) => c.method === "POST");
-    expect(post?.pathname).toBe("/skills");
-    const body = post!.body as Record<string, unknown>;
-    expect(body.orgId).toBe(ORG);
-    expect(body.visibility).toBe("org-wide");
-    // ⚠ 服务端按入口打标；请求体里出现 source ⇒ `SOURCE_TAG_IMMUTABLE`。
-    expect("source" in body).toBe(false);
-    const contract = body.contract as Record<string, unknown>;
-    // 空输入折成**空数组**，不是 `[""]`——后者会被 fail-closed 的授权判成越权。
-    expect(contract.dataScope).toEqual([]);
-    expect(contract.readsRawTranscript).toBe(false);
-
-    // 服务端分配的字段进了列表（状态只能是草稿：没有第二个评审人就没有已启用）。
-    expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
-    expect(screen.getByTestId("skill-catalog-list").textContent).toContain("草稿");
-  });
-
-  /**
-   * 🔴 #861 —— 这条钉的是 CI 上那个间歇失败的**根因**，不是它的症状。
-   *
-   * `skill-create-smoke.spec.ts` 的反证用例（「stub 掉创建请求后刷新就没了」）在 CI 上
-   * 偶发红在它**自检**那一步（`toContainText(NAME)`，断言那一行一度出现过）：
-   * notice 出来了，列表里却没有那一行。
-   * 症状看着像 e2e 抖动，实际是本屏一个**真实的时序缺陷**：
-   *
-   *   `onCreated` 原来写成 `prev.status === "ready" ? 插入 : prev` ——
-   *   于是「首屏列表还没读回来」这段窗口里提交成功的话，那一行被**静默丢掉**，
-   *   随后到达的 GET 响应再把 state 覆盖成纯服务端结果。使用者看到的是
-   *   「提示说建好了，列表里没有」。反证用例的 201 是浏览器里 stub 出来的（零网络延迟），
-   *   最容易撞进这个窗口 —— 所以它是 CI 上第一个红的，但红的不是它自己的毛病。
-   *
-   * ⚠ 断言的是**行为**（提交在加载窗口里发生时，那一行照样看得见），不是实现细节。
-   *   这里不能靠加 timeout / 重试掩盖：多等一会儿那一行也永远不会自己回来。
-   */
-  it("首屏列表还在飞的时候提交成功，那一行照样进列表（不被随后到达的响应吞掉）", async () => {
-    let releaseList: (() => void) | null = null;
-    const listArrived = new Promise<void>((resolve) => {
-      releaseList = resolve;
-    });
-
-    install((call) => {
-      if (call.method === "GET") {
-        // 首屏 GET 一直挂着，直到本用例放行——这就是 CI 上那个窗口，只是这里是确定性的。
-        return listArrived.then(() => jsonResponse({ items: [], total: 0 }));
-      }
-      return jsonResponse(
-        { skillId: "sk-race", versionId: "sv-race", source: "自建", status: "草稿" },
-        201,
-      );
-    });
-
-    render(<SkillCatalogLive />);
-    // 列表还在加载：这正是使用者能点到「新建」的那段时间。
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-loading")).toBeTruthy());
-
-    fireEvent.click(screen.getByTestId("skill-create-open"));
-    fireEvent.change(screen.getByTestId("skill-create-name"), { target: { value: "抢跑建的" } });
-    fireEvent.change(screen.getByTestId("skill-create-duty"), { target: { value: "排序" } });
-    fireEvent.click(screen.getByTestId("skill-create-submit"));
-
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-notice")).toBeTruthy());
-    // ① 提交返回的当下就看得见——不是「等列表读回来才补上」。
-    expect(screen.getByTestId("skill-catalog-list").textContent).toContain("抢跑建的");
-
-    releaseList!();
-    // ② 随后到达的**服务端空列表**不许把它吞掉：这次 GET 是在创建**之前**发出的，
-    //    它根本不可能包含这一行；用它覆盖，等于用一份过期的事实否定一件刚发生的事。
-    await waitFor(() => expect(screen.queryByTestId("skill-catalog-loading")).toBeNull());
-    expect(screen.getByTestId("skill-catalog-list").textContent).toContain("抢跑建的");
-    // 反空转：确实是「读成功了」，不是卡在加载态让上面那条恒真。
-    expect(screen.queryByTestId("skill-catalog-error")).toBeNull();
-  });
-
-  /**
-   * 与上一条成对：创建**之后**才发起的读取（刷新按钮 / `page.reload()`）是**新的事实**，
-   * 它有权把乐观插入的那一行抹掉 —— 反证用例「刷新后就没了」靠的正是这一条。
-   * 少了它，上一条的修法会滑成「乐观行永久钉在界面上」，反证再也红不了。
-   */
-  it("创建之后发起的读取会抹掉没落库的那一行（反证「刷新后就没了」靠这条）", async () => {
-    install((call) => {
-      if (call.method === "GET") return jsonResponse({ items: [], total: 0 });
-      return jsonResponse(
-        { skillId: "sk-ghost", versionId: "sv-ghost", source: "自建", status: "草稿" },
-        201,
-      );
-    });
-    render(<SkillCatalogLive />);
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
-
-    fireEvent.click(screen.getByTestId("skill-create-open"));
-    fireEvent.change(screen.getByTestId("skill-create-name"), { target: { value: "没落库的" } });
-    fireEvent.click(screen.getByTestId("skill-create-submit"));
-    await waitFor(() =>
-      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("没落库的"),
-    );
-
-    // 服务端从来没有过这一行（假 fetch 恒返回空列表）——重新读一次，它就该消失。
-    fireEvent.click(screen.getByTestId("skill-catalog-refresh"));
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
-    expect(screen.queryByTestId("skill-catalog-list")).toBeNull();
-  });
-
-  it("被拒绝时回显后端真实错误信封：reasonCode ＋ HTTP 状态", async () => {
-    install((call) => {
-      if (call.method === "GET") return jsonResponse({ items: [], total: 0 });
-      return jsonResponse(
-        { error: "forbidden", traceId: "t-1", reasonCode: "DATA_SCOPE_EXCEEDS_SUBMITTER" },
-        403,
-      );
-    });
-    render(<SkillCatalogLive />);
-    await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
-
-    fireEvent.click(screen.getByTestId("skill-create-open"));
-    fireEvent.change(screen.getByTestId("skill-create-name"), { target: { value: "越权的" } });
-    fireEvent.change(screen.getByTestId("skill-create-data-scope"), {
-      target: { value: "crm:customer:read" },
-    });
-    fireEvent.click(screen.getByTestId("skill-create-submit"));
-
-    const error = await screen.findByTestId("skill-create-error");
-    expect(error.textContent).toContain("DATA_SCOPE_EXCEEDS_SUBMITTER");
-    expect(error.textContent).toContain("403");
-    // 被拒绝的东西没有混进列表——失败态不留乐观插入的残影。
-    expect(screen.queryByTestId("skill-catalog-list")).toBeNull();
-    expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy();
   });
 
   it("列表读取失败也回显真实信封，并给出重试", async () => {
@@ -329,28 +185,28 @@ describe("#520 Skill 库屏接真实 API", () => {
   });
 
   /**
-   * 2026-08-13 —— 「新建 Skill」三条路径（人类拿两张后台原型截图核对）。
+   * 2026-08-13 —— 「新建 Skill」曾有三条路径（人类拿两张后台原型截图核对）。
    *
-   * 断言的是**接线关系**，不是「面板渲染出来了」这种空转断言：
+   * ⚠ **F192（design-delta `skill-model-a-b-convergence` 选项②）之后只剩两条**：
+   * 「完全新建（契约表单）」已下线（`POST /skills` 恒 410），默认 tab 从它改成
+   * 「从 GitHub 导入」——「入口彻底不可达」这条本身的反证锚在专门的
+   * `skill-catalog-no-create-panel.test.tsx`，这里保留的两条仍然真实有效：
    *   · 「从 GitHub 导入」tab 打开的就是真实组件 `SkillUrlImportPanel`，
    *     点「确认导入」真的打 `POST /admin/skills/url-imports`，请求体形状对，
    *     导入成功后真的触发一次 `GET /skills` 刷新（`onImported` 接的是真实 `load`）。
    *   · 「从市场挑一个改」tab 只显示「未接后端」的如实说明，**不发任何网络请求**——
    *     防止有人为了让界面看起来完整而悄悄塞进 mock 数字或死按钮。
-   *   · 默认 tab 仍是「完全新建（契约表单）」——上面那一整组既有用例
-   *     （点 `skill-create-open` 直接操作 `skill-create-name` 等）不需要改，
-   *     这条本身就是这份新增测试要保护的回归面。
    */
-  describe("2026-08-13 新建 Skill 三条路径", () => {
-    it("默认 tab 是「完全新建」：点 skill-create-open 后契约表单立即可见，不需要先选 tab", async () => {
+  describe("新建 Skill 两条路径（F192 之后）", () => {
+    it("默认 tab 是「从 GitHub 导入」：点 skill-create-open 后 SkillUrlImportPanel 立即可见，不需要先选 tab", async () => {
       install(() => jsonResponse({ items: [], total: 0 }));
       render(<SkillCatalogLive />);
       await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
 
       fireEvent.click(screen.getByTestId("skill-create-open"));
-      expect(screen.getByTestId("skill-create-mode-form").getAttribute("aria-pressed")).toBe("true");
-      expect(screen.getByTestId("skill-create-panel")).toBeTruthy();
-      expect(screen.queryByTestId("skill-url-import-panel")).toBeNull();
+      expect(screen.getByTestId("skill-create-mode-import").getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByTestId("skill-url-import-panel")).toBeTruthy();
+      expect(screen.queryByTestId("skill-create-panel")).toBeNull();
     });
 
     it("切到「从 GitHub 导入」：渲染的是真实 SkillUrlImportPanel，确认导入打 POST /admin/skills/url-imports 且参数正确，成功后刷新列表", async () => {
@@ -449,49 +305,16 @@ describe("#520 Skill 库屏接真实 API", () => {
   });
 
   /**
-   * G5（2026-08-14，人类原话：「新建的时候要支持添加tags」）—— 契约新增字段
+   * G5（2026-08-14，人类原话：「新建的时候要支持添加tags」）—— 契约字段
    * `tags?: string[]`（design delta：`phases/phase-01-run-a-project/design-deltas/
    * skill-tags/`）。
+   *
+   * ⚠ **F192 之后**：「提交时 tags 输入框随请求体一起发出」那条用例随「完全新建」
+   *   表单一起下线了（`skill-create-tags` 输入框只存在于那个已移除的面板里，
+   *   本轮任何真实入口都不再提供填 tags 的表单）。保留渲染那一半——`tags` 仍是
+   *   `SkillListItem` 的既有字段，列表渲染逻辑本身没有变化，仍需要覆盖。
    */
-  describe("G5：新建时可以填 tags，请求体带上它，卡片上能看见", () => {
-    it("提交时 tags 输入框的逗号分隔文本被拆成数组，随请求体一起发出", async () => {
-      install((call) => {
-        if (call.method === "GET") return jsonResponse({ items: [], total: 0 });
-        return jsonResponse(
-          { skillId: "sk-tagged", versionId: "sv-tagged", source: "自建", status: "草稿" },
-          201,
-        );
-      });
-      render(<SkillCatalogLive />);
-      await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
-
-      fireEvent.click(screen.getByTestId("skill-create-open"));
-      fireEvent.change(screen.getByTestId("skill-create-name"), { target: { value: "打标签的" } });
-      fireEvent.change(screen.getByTestId("skill-create-duty"), { target: { value: "职责" } });
-      fireEvent.change(screen.getByTestId("skill-create-prompt"), { target: { value: "p" } });
-      fireEvent.change(screen.getByTestId("skill-create-input-schema"), { target: { value: "{}" } });
-      fireEvent.change(screen.getByTestId("skill-create-output-schema"), { target: { value: "{}" } });
-      fireEvent.change(screen.getByTestId("skill-create-fallback"), { target: { value: "如实说" } });
-      fireEvent.change(screen.getByTestId("skill-create-tags"), {
-        target: { value: "客服, 数据分析 ,客服" },
-      });
-      fireEvent.click(screen.getByTestId("skill-create-submit"));
-
-      await waitFor(() =>
-        expect(calls.some((c) => c.method === "POST" && c.pathname === "/skills")).toBe(true),
-      );
-      const createCall = calls.find((c) => c.method === "POST" && c.pathname === "/skills")!;
-      const body = createCall.body as Record<string, unknown>;
-      // ⚠ 逐字段拆分即可——本层不去重（"客服" 出现两次原样两次），去重不是这个输入框的职责。
-      expect(body.tags).toEqual(["客服", "数据分析", "客服"]);
-
-      // 乐观插入那一行也带着刚填的 tags——不是编的，是这次提交本身的入参（同名义务见文件头③条）。
-      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
-      const tagsBlock = screen.getByTestId("skill-catalog-tags");
-      expect(tagsBlock.textContent).toContain("客服");
-      expect(tagsBlock.textContent).toContain("数据分析");
-    });
-
+  describe("G5：卡片上能看见 tags", () => {
     it("没有 tags 的行不渲染 skill-catalog-tags 这个区块", async () => {
       install(() =>
         jsonResponse({
