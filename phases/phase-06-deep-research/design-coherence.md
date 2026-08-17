@@ -1,3 +1,10 @@
+---
+status: pending_human
+covers_bundles: [deep-research]
+confirmed_by: null
+confirmed_at: null
+---
+
 # Design Coherence — Deep Research
 
 status: draft

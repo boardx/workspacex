@@ -1,3 +1,12 @@
+---
+bundle: transcription
+phase: "08"
+covers: [F01, F02, F03, F04]
+status: pending_human
+confirmed_by: null
+confirmed_at: null
+---
+
 # Design Signoff — Transcription
 
 ## ① UI

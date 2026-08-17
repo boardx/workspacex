@@ -1,3 +1,10 @@
+---
+status: pending_human
+covers_bundles: [user-research]
+confirmed_by: null
+confirmed_at: null
+---
+
 # Design Coherence — User Research
 
 status: draft

@@ -1,3 +1,10 @@
+---
+status: pending_human
+covers_bundles: [survey]
+confirmed_by: null
+confirmed_at: null
+---
+
 # Design Coherence — Survey
 
 status: draft
