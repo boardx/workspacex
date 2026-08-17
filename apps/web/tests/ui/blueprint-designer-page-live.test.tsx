@@ -298,9 +298,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
 
   it("分组规则：结构化编辑器显示真实已存场景清单（JSON 解析）", async () => {
     const saved = {
-      scenarios: [{ scenario: "业主首次评估", whatToAnswer: "投资意愿", defaultLeaderProfile: "业主代表" }],
-      autoMatchByProfile: false,
-      balanceByBackground: true,
+      scenarios: [{ name: "业主首次评估", ask: "投资意愿", leadProfile: "业主代表" }],
     };
     fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
@@ -322,8 +320,13 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     expect((await screen.findByTestId("bp-grouping-scenario-name-0") as HTMLInputElement).value).toBe(
       "业主首次评估",
     );
-    expect((screen.getByTestId("bp-grouping-auto-match") as HTMLInputElement).checked).toBe(false);
-    expect((screen.getByTestId("bp-grouping-balance-background") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByTestId("bp-grouping-scenario-question-0") as HTMLInputElement).value).toBe("投资意愿");
+    expect((screen.getByTestId("bp-grouping-scenario-leader-0") as HTMLInputElement).value).toBe("业主代表");
+    // 固定参考清单：规模档位与分配规则原样展示，不是可编辑项。
+    expect(screen.getByTestId("bp-grouping-sizing").textContent).toContain("12–16 人");
+    expect(screen.getByTestId("bp-grouping-assign-rules").textContent).toContain(
+      "套用时 AI 先给一版，引导师拖拽调整",
+    );
   });
 
   it("分组规则：加一个场景并失焦，真实保存成结构化 JSON", async () => {
@@ -358,8 +361,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     fireEvent.blur(nameInput);
 
     await waitFor(() => expect(putBody).not.toBeNull());
-    const parsed = JSON.parse(putBody!.value) as { scenarios: { scenario: string }[] };
-    expect(parsed.scenarios[0]?.scenario).toBe("采购比选");
+    const parsed = JSON.parse(putBody!.value) as { scenarios: { name: string }[] };
+    expect(parsed.scenarios[0]?.name).toBe("采购比选");
   });
 
   it("角色与权限：灰色格禁用点击不发请求，可勾选格点击真实保存", async () => {
