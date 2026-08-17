@@ -1025,14 +1025,20 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       }),
     },
     /**
-     * 人类反馈（2026-08-17）：devapp 上试跑报 `MODEL_UNAVAILABLE`——见
-     * `application/skill/trial-run-skill.ts` 里 `OrgAgentModelReader` 的头注。
+     * 人类反馈（2026-08-17，两次）：devapp 上试跑报 `MODEL_UNAVAILABLE`——见
+     * `application/skill/trial-run-skill.ts` 与 `PgOrgAgentModelReader` 的头注。
      * 自愈式回退：`SkillTrialRunController` 优先用这个组织已发布 agent 正在用的模型，
      * 没有已发布 agent 才退回上面那条 `SKILL_TRIALRUN_MODEL_ID` 静态配置。
+     *
+     * ⚠ 第二个构造参数是"借用"的边界——只信任 `RoutingModelCallPort` 那个通用
+     *   provider（与上面 `MODEL_CALL_PORT` 注册表里 `chatConfig.provider` **同一次**
+     *   `readModelProviderConfig()` 调用，不重新读一次造成两次读值可能不同步），
+     *   `deep-agent`/`deep-research`/`bailian-image` 都不在这条回退的借用范围内。
      */
     {
       provide: ORG_AGENT_MODEL_READER,
-      useFactory: (db: DatabasePort) => new PgOrgAgentModelReader(db),
+      useFactory: (db: DatabasePort) =>
+        new PgOrgAgentModelReader(db, readModelProviderConfig().provider),
       inject: [DATABASE_PORT],
     },
     {
