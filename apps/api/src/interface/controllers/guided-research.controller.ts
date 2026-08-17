@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Put } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Put, ServiceUnavailableException } from "@nestjs/common";
 import { research as C } from "@repo/contracts";
 import {
   GUIDED_RESEARCH_SESSION_REPOSITORY,
@@ -13,6 +13,11 @@ import { decideGuidedResearchVisibility } from "../../domain/research/guided-res
 import { GuidedResearchCreateReplayMismatchError, InvalidGuidedResearchCollaboratorError, type GuardedGuidedResearchSession } from "../../application/research/guided-session-ports";
 import { GuidedResearchCheckpointConflictError, GuidedResearchDirectionsNotConfirmedError, GuidedResearchStageConflictError } from "../../application/research/guided-session-ports";
 import { GUIDED_RESEARCH_CHECKPOINT_GENERATOR, type GuidedResearchCheckpointGenerator } from "../../domain/research/guided-research-checkpoint-generator";
+import {
+  GUIDED_RESEARCH_WORKFLOW_SERVICE,
+  GuidedResearchWorkflowError,
+  type GuidedResearchWorkflowService,
+} from "../../application/research/guided-workflow-service";
 
 @Controller()
 export class GuidedResearchController {
@@ -21,6 +26,7 @@ export class GuidedResearchController {
     private readonly sessions: GuidedResearchSessionRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(GUIDED_RESEARCH_CHECKPOINT_GENERATOR) private readonly generator: GuidedResearchCheckpointGenerator,
+    @Inject(GUIDED_RESEARCH_WORKFLOW_SERVICE) private readonly workflow: GuidedResearchWorkflowService,
   ) {}
 
   private disclose(row: GuardedGuidedResearchSession, viewerUserId: string) {
@@ -88,6 +94,49 @@ export class GuidedResearchController {
       throw new ConflictException({ reasonCode: error.reasonCode });
     }
     throw error;
+  }
+
+  private workflowError(error: unknown): never {
+    if (error instanceof GuidedResearchWorkflowError) {
+      if (error.reasonCode === "RESEARCH_NOT_FOUND") {
+        throw new NotFoundException({ reasonCode: error.reasonCode });
+      }
+      if (error.reasonCode === "RESEARCH_WORKFLOW_UNAVAILABLE") {
+        throw new ServiceUnavailableException({ reasonCode: error.reasonCode });
+      }
+      throw new ConflictException({
+        reasonCode: error.reasonCode,
+        ...(error.latestProjection ? { latestProjection: error.latestProjection } : {}),
+      });
+    }
+    throw error;
+  }
+
+  @Get(C.operations.getGuidedResearchWorkflow.path)
+  async getWorkflow(@CurrentPrincipal() principal: Principal, @Param("sessionId") sessionId: string) {
+    assertPrincipal(principal);
+    const input = C.operations.getGuidedResearchWorkflow.in.safeParse({ sessionId });
+    if (!input.success) throw new BadRequestException();
+    const session = await this.current(principal, input.data.sessionId);
+    try {
+      return await this.workflow.getWorkflow(session);
+    } catch (error) { this.workflowError(error); }
+  }
+
+  @Post(C.operations.executeGuidedResearchNode.path)
+  async executeNode(
+    @CurrentPrincipal() principal: Principal,
+    @Param("sessionId") sessionId: string,
+    @Param("node") node: string,
+    @Body() raw: unknown,
+  ) {
+    assertPrincipal(principal);
+    const input = C.operations.executeGuidedResearchNode.in.safeParse({ ...(raw as object), sessionId, node });
+    if (!input.success) throw new BadRequestException();
+    const session = await this.current(principal, input.data.sessionId);
+    try {
+      return await this.workflow.execute({ orgId: principal.orgId, session, command: input.data });
+    } catch (error) { this.workflowError(error); }
   }
 
   @Put(C.operations.confirmResearchBrief.path)

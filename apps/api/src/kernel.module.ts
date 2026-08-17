@@ -178,6 +178,19 @@ import { InterviewScopeController } from "./interface/controllers/interview-scop
 import { DigitalInterviewController } from "./interface/controllers/digital-interview.controller";
 import { GuidedResearchController } from "./interface/controllers/guided-research.controller";
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
+import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
+import { GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY, type GuidedResearchNodeReceiptRepository } from "./application/research/guided-workflow-receipt-ports";
+import { PgGuidedResearchNodeReceiptRepository } from "./infrastructure/research/pg-guided-research-node-receipt-repository";
+import {
+  GUIDED_RESEARCH_DIRECTION_GENERATOR,
+  ModelGuidedResearchDirectionGenerator,
+  type GuidedResearchDirectionGenerator,
+} from "./application/research/guided-direction-generator";
+import {
+  GUIDED_RESEARCH_OUTLINE_GENERATOR,
+  ModelGuidedResearchOutlineGenerator,
+  type GuidedResearchOutlineGenerator,
+} from "./application/research/guided-outline-generator";
 import { PgGuidedResearchSessionRepository } from "./infrastructure/research/pg-guided-research-session-repository";
 import { DeterministicGuidedResearchCheckpointGenerator, GUIDED_RESEARCH_CHECKPOINT_GENERATOR } from "./domain/research/guided-research-checkpoint-generator";
 import { DIGITAL_EXPERT_CONTEXT_API, DIGITAL_INTERVIEW_REPOSITORY } from "./application/interview/digital-interview-ports";
@@ -1138,6 +1151,34 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgGuidedResearchSessionRepository(db),
       inject: [DATABASE_PORT],
+    },
+    {
+      provide: GUIDED_RESEARCH_WORKFLOW_SERVICE,
+      useFactory: (
+        receipts: GuidedResearchNodeReceiptRepository,
+        directions: GuidedResearchDirectionGenerator,
+        outlines: GuidedResearchOutlineGenerator,
+      ) => new GuidedResearchWorkflowService(receipts, process.env.GUIDED_RESEARCH_GRAPH_URL, directions, outlines),
+      inject: [
+        GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
+        GUIDED_RESEARCH_DIRECTION_GENERATOR,
+        GUIDED_RESEARCH_OUTLINE_GENERATOR,
+      ],
+    },
+    {
+      provide: GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgGuidedResearchNodeReceiptRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: GUIDED_RESEARCH_DIRECTION_GENERATOR,
+      useFactory: (model: ModelCallPort) => new ModelGuidedResearchDirectionGenerator(model),
+      inject: [MODEL_CALL_PORT],
+    },
+    {
+      provide: GUIDED_RESEARCH_OUTLINE_GENERATOR,
+      useFactory: (model: ModelCallPort) => new ModelGuidedResearchOutlineGenerator(model),
+      inject: [MODEL_CALL_PORT],
     },
     {
       provide: GUIDED_RESEARCH_CHECKPOINT_GENERATOR,

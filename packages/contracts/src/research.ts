@@ -227,6 +227,22 @@ export const ResearchError = z.enum([
   "RESEARCH_STAGE_CONFLICT",
   /** 报告大纲只能基于已经由人确认的研究方向生成。 */
   "RESEARCH_DIRECTIONS_NOT_CONFIRMED",
+  /** Guided Research Graph 服务暂时不可用。 */
+  "RESEARCH_WORKFLOW_UNAVAILABLE",
+  /** 节点尚未由服务端工作流解锁。 */
+  "RESEARCH_NODE_LOCKED",
+  /** 命令节点与服务端当前节点不一致。 */
+  "RESEARCH_NODE_MISMATCH",
+  /** 命令基于的 Graph 版本已过期。 */
+  "RESEARCH_GRAPH_VERSION_CONFLICT",
+  /** 当前节点提交的完整前端状态未通过严格校验。 */
+  "RESEARCH_NODE_STATE_INVALID",
+  /** 同一个 requestId 被用于不同的命令载荷。 */
+  "RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH",
+  /** 命令引用了当前 revision 不可用的下游内容。 */
+  "RESEARCH_CONTENT_REFERENCE_INVALID",
+  /** 当前研究任务没有可重试的失败项。 */
+  "RESEARCH_TASK_NOT_RETRYABLE",
   /**
    * 证据所依赖的访谈引述已被撤回（X-C）。
    * ⚠ `usecases.md` 声称来自 `interview`（已签核）——**那束里没有这个字面量**；
@@ -582,6 +598,10 @@ export const GuidedResearchDirection = z.object({
   order: z.number().int().nonnegative(),
 }).strict();
 
+export const GuidedResearchDirectionGenerationResponse = z.object({
+  directions: z.array(GuidedResearchDirection).min(1),
+}).strict();
+
 export const GuidedResearchOutlineSection = z.object({
   id: z.string().trim().min(1),
   title: z.string().trim().min(1).max(200),
@@ -601,6 +621,154 @@ const versionedCheckpoint = <T extends z.ZodTypeAny>(item: T) => z.object({
 
 export const GuidedResearchDirectionsCheckpoint = versionedCheckpoint(GuidedResearchDirection);
 export const GuidedResearchOutlineCheckpoint = versionedCheckpoint(GuidedResearchOutlineSection);
+
+export const ResearchNode = z.enum(["brief", "directions", "outline", "research", "report"]);
+export const ResearchNodeAction = z.enum([
+  "save", "generate", "confirm", "start", "retry", "reconfirm", "complete",
+]);
+
+export const BriefNodeInputState = z.object({
+  name: z.string().trim().min(1).max(100),
+  tags: z.array(z.string().trim().min(1).max(20)).max(5)
+    .refine((tags) => new Set(tags).size === tags.length, "research tags must be unique"),
+  topic: z.string().trim().min(1).max(200),
+  objective: z.string().trim().min(1).max(2000),
+  timeRange: z.string().trim().max(200),
+  geography: z.string().trim().max(200),
+  focus: z.string().trim().max(2000),
+}).strict();
+
+const uniqueIds = (ids: string[]) => new Set(ids).size === ids.length;
+const hasContiguousOrder = (items: readonly { order: number }[]) =>
+  items.map((item) => item.order).sort((left, right) => left - right)
+    .every((order, index) => order === index);
+
+export const DirectionsNodeInputState = z.object({
+  directions: z.array(GuidedResearchDirection).min(1),
+}).strict()
+  .refine((state) => state.directions.some((direction) => direction.enabled), "at least one direction must be enabled")
+  .refine((state) => uniqueIds(state.directions.map((direction) => direction.id)), "direction ids must be unique")
+  .refine((state) => hasContiguousOrder(state.directions), "direction order must be contiguous from zero");
+
+export const GuidedResearchWorkflowOutlineSection = z.object({
+  id: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().min(1).max(2000),
+  researchQuestions: z.array(z.string().trim().min(1).max(1000)).min(1),
+  order: z.number().int().nonnegative(),
+}).strict();
+
+export const GuidedResearchOutlineGenerationResponse = z.object({
+  sections: z.array(GuidedResearchWorkflowOutlineSection).min(1),
+}).strict();
+
+export const OutlineNodeInputState = z.object({
+  sections: z.array(GuidedResearchWorkflowOutlineSection).min(1),
+}).strict()
+  .refine((state) => uniqueIds(state.sections.map((section) => section.id)), "outline section ids must be unique")
+  .refine((state) => hasContiguousOrder(state.sections), "outline section order must be contiguous from zero");
+
+export const ResearchNodeInputState = z.object({
+  acceptedSourceIds: z.array(z.string().trim().min(1)).refine(uniqueIds, "accepted source ids must be unique"),
+  excludedSourceIds: z.array(z.string().trim().min(1)).refine(uniqueIds, "excluded source ids must be unique"),
+}).strict().refine(
+  (state) => !state.acceptedSourceIds.some((id) => state.excludedSourceIds.includes(id)),
+  "accepted and excluded source ids must not overlap",
+);
+
+export const ReportNodeInputState = z.object({
+  title: z.string().trim().min(1).max(200),
+  revisionInstruction: z.string().trim().max(2000),
+}).strict();
+
+const nodeCommandBase = {
+  sessionId: z.string().trim().min(1),
+  action: ResearchNodeAction,
+  requestId: z.string().trim().min(1).max(200),
+  expectedGraphVersion: z.number().int().nonnegative(),
+};
+
+export const GuidedResearchNodeCommand = z.discriminatedUnion("node", [
+  z.object({ ...nodeCommandBase, node: z.literal("brief"), nodeState: BriefNodeInputState }).strict(),
+  z.object({ ...nodeCommandBase, node: z.literal("directions"), nodeState: DirectionsNodeInputState }).strict(),
+  z.object({ ...nodeCommandBase, node: z.literal("outline"), nodeState: OutlineNodeInputState }).strict(),
+  z.object({ ...nodeCommandBase, node: z.literal("research"), nodeState: ResearchNodeInputState }).strict(),
+  z.object({ ...nodeCommandBase, node: z.literal("report"), nodeState: ReportNodeInputState }).strict(),
+]);
+
+export const GuidedResearchNodeStatus = z.enum([
+  "locked", "draft", "running", "ready", "confirmed", "failed", "stale", "completed",
+]);
+
+export const GuidedResearchNodeMeta = z.object({
+  status: GuidedResearchNodeStatus,
+  version: z.number().int().nonnegative(),
+  confirmedVersion: z.number().int().nonnegative().nullable(),
+  contentVersionId: z.string().nullable(),
+  modelId: z.literal("qwen3.7-plus").nullable(),
+  modelInvocationId: z.string().nullable(),
+  modelOutputSchemaVersion: z.string().nullable(),
+  confirmedAt: z.string().nullable(),
+  updatedAt: z.string(),
+  errorCode: z.string().nullable(),
+}).strict();
+
+export const GuidedResearchSkillProjection = z.object({
+  threadId: z.string(),
+  activeNode: ResearchNode,
+  summaryId: z.string().nullable(),
+  recentMessageIds: z.array(z.string()),
+  activeProposalId: z.string().nullable(),
+  proposalStatus: z.enum(["none", "proposed", "applied_to_draft", "rejected", "committed", "stale"]),
+}).strict();
+
+const GuidedResearchNodeSummaries = z.object({
+  brief: GuidedResearchNodeMeta,
+  directions: GuidedResearchNodeMeta,
+  outline: GuidedResearchNodeMeta,
+  research: GuidedResearchNodeMeta,
+  report: GuidedResearchNodeMeta,
+}).strict();
+
+export const GuidedResearchWorkflowProjection = z.object({
+  sessionId: z.string(),
+  graphVersion: z.number().int().nonnegative(),
+  revision: z.number().int().positive(),
+  currentNode: ResearchNode,
+  availableNodes: z.array(ResearchNode),
+  nodeSummaries: GuidedResearchNodeSummaries,
+  activeNodeState: z.union([
+    BriefNodeInputState,
+    DirectionsNodeInputState,
+    OutlineNodeInputState,
+    ResearchNodeInputState,
+    ReportNodeInputState,
+  ]),
+  nodeStateVersions: z.object({
+    brief: z.number().int().nonnegative().optional(),
+    directions: z.number().int().nonnegative().optional(),
+    outline: z.number().int().nonnegative().optional(),
+    research: z.number().int().nonnegative().optional(),
+    report: z.number().int().nonnegative().optional(),
+  }).strict(),
+  skill: GuidedResearchSkillProjection,
+  interrupt: z.object({
+    node: ResearchNode,
+    allowedActions: z.array(ResearchNodeAction),
+  }).strict().nullable(),
+}).strict();
+
+const guidedWorkflowErrors = [
+  "RESEARCH_NOT_FOUND",
+  "RESEARCH_WORKFLOW_UNAVAILABLE",
+  "RESEARCH_NODE_LOCKED",
+  "RESEARCH_NODE_MISMATCH",
+  "RESEARCH_GRAPH_VERSION_CONFLICT",
+  "RESEARCH_NODE_STATE_INVALID",
+  "RESEARCH_IDEMPOTENCY_REPLAY_MISMATCH",
+  "RESEARCH_CONTENT_REFERENCE_INVALID",
+  "RESEARCH_TASK_NOT_RETRYABLE",
+] as const;
 
 export const GuidedResearchSession = z.object({
   sessionId: z.string(),
@@ -624,6 +792,73 @@ export const GuidedResearchSession = z.object({
 }).strict();
 
 export const operations = {
+  getGuidedResearchWorkflow: {
+    method: "GET",
+    path: "/research/guided-sessions/:sessionId/workflow",
+    in: z.object({ sessionId: z.string().min(1) }).strict(),
+    out: GuidedResearchWorkflowProjection,
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
+  },
+  getGuidedResearchNode: {
+    method: "GET",
+    path: "/research/guided-sessions/:sessionId/workflow/nodes/:node",
+    in: z.object({ sessionId: z.string().min(1), node: ResearchNode }).strict(),
+    out: z.object({
+      sessionId: z.string(),
+      node: ResearchNode,
+      graphVersion: z.number().int().nonnegative(),
+      revision: z.number().int().positive(),
+      nodeState: z.union([
+        BriefNodeInputState,
+        DirectionsNodeInputState,
+        OutlineNodeInputState,
+        ResearchNodeInputState,
+        ReportNodeInputState,
+      ]),
+      nodeMeta: GuidedResearchNodeMeta,
+    }).strict(),
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_NODE_LOCKED", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
+  },
+  executeGuidedResearchNode: {
+    method: "POST",
+    path: "/research/guided-sessions/:sessionId/workflow/nodes/:node",
+    in: GuidedResearchNodeCommand,
+    out: GuidedResearchWorkflowProjection,
+    err: guidedWorkflowErrors,
+  },
+  listGuidedResearchEvents: {
+    method: "GET",
+    path: "/research/guided-sessions/:sessionId/workflow/events",
+    in: z.object({
+      sessionId: z.string().min(1),
+      after: z.number().int().nonnegative().default(0),
+    }).strict(),
+    out: z.object({
+      events: z.array(z.object({
+        cursor: z.number().int().positive(),
+        node: ResearchNode,
+        type: z.string().min(1),
+        createdAt: z.string(),
+      }).strict()),
+      nextCursor: z.number().int().nonnegative(),
+    }).strict(),
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE"] as const,
+  },
+  appendGuidedResearchSkillMessage: {
+    method: "POST",
+    path: "/research/guided-sessions/:sessionId/skill/messages",
+    in: z.object({
+      sessionId: z.string().min(1),
+      node: ResearchNode,
+      requestId: z.string().trim().min(1).max(200),
+      message: z.string().trim().min(1).max(10_000),
+    }).strict(),
+    out: z.object({
+      messageId: z.string(),
+      skill: GuidedResearchSkillProjection,
+    }).strict(),
+    err: ["RESEARCH_NOT_FOUND", "RESEARCH_WORKFLOW_UNAVAILABLE", "RESEARCH_NODE_MISMATCH"] as const,
+  },
   createGuidedResearchSession: {
     method: "POST",
     path: "/research/guided-sessions",

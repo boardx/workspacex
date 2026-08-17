@@ -3,6 +3,8 @@ import { apiRequest } from "./api-client";
 import type { z } from "zod";
 
 export type GuidedResearchSession = z.infer<typeof research.GuidedResearchSession>;
+export type GuidedResearchWorkflowProjection = z.infer<typeof research.GuidedResearchWorkflowProjection>;
+export type GuidedResearchNodeCommand = z.infer<typeof research.GuidedResearchNodeCommand>;
 export type GuidedResearchDirection = z.infer<typeof research.GuidedResearchDirection>;
 export type GuidedResearchOutlineSection = z.infer<typeof research.GuidedResearchOutlineSection>;
 export type CreateGuidedResearchSessionInput = z.infer<typeof research.operations.createGuidedResearchSession.in>;
@@ -28,6 +30,28 @@ export async function getGuidedResearchSession(sessionId: string): Promise<Guide
   const path = research.operations.getGuidedResearchSession.path.replace(":sessionId", encodeURIComponent(input.sessionId));
   const raw = await apiRequest<unknown>(path);
   return research.operations.getGuidedResearchSession.out.parse(raw);
+}
+
+export async function getGuidedResearchWorkflow(sessionId: string): Promise<GuidedResearchWorkflowProjection> {
+  const input = research.operations.getGuidedResearchWorkflow.in.parse({ sessionId });
+  const path = research.operations.getGuidedResearchWorkflow.path.replace(":sessionId", encodeURIComponent(input.sessionId));
+  const raw = await apiRequest<unknown>(path);
+  return research.operations.getGuidedResearchWorkflow.out.parse(raw);
+}
+
+export async function executeGuidedResearchNodeCommand(
+  sessionId: string,
+  command: Omit<GuidedResearchNodeCommand, "sessionId">,
+): Promise<GuidedResearchWorkflowProjection> {
+  const validated = research.operations.executeGuidedResearchNode.in.parse({ ...command, sessionId });
+  const path = research.operations.executeGuidedResearchNode.path
+    .replace(":sessionId", encodeURIComponent(validated.sessionId))
+    .replace(":node", encodeURIComponent(validated.node));
+  const raw = await apiRequest<unknown>(path, {
+    method: research.operations.executeGuidedResearchNode.method,
+    body: validated,
+  });
+  return research.operations.executeGuidedResearchNode.out.parse(raw);
 }
 
 async function checkpointRequest(

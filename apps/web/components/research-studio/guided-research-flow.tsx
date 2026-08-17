@@ -22,12 +22,15 @@ import {
   generateResearchDirections,
   generateResearchOutline,
   getGuidedResearchSession,
+  getGuidedResearchWorkflow,
+  executeGuidedResearchNodeCommand,
   listGuidedResearchSessions,
   finishGuidedResearchCollection,
   completeGuidedResearchSession,
   type GuidedResearchDirection,
   type GuidedResearchOutlineSection,
   type GuidedResearchSession,
+  type GuidedResearchWorkflowProjection,
 } from "@/lib/guided-research-api";
 import {
   GUIDED_REPORT_CITATIONS,
@@ -51,9 +54,75 @@ import { GuidedResearchSkillAssistant } from "./guided-research-skill-assistant"
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 
 const SESSION_REQUIRED_STEPS: readonly GuidedResearchStep[] = ["directions", "outline", "search", "report"];
+const WORKFLOW_STEP_INDEX: Record<Exclude<GuidedResearchStep, "home">, number> = {
+  brief: 1,
+  directions: 2,
+  outline: 3,
+  search: 4,
+  report: 5,
+};
 
 function clampSessionlessStep(step: GuidedResearchStep, sessionId?: string): GuidedResearchStep {
   return !sessionId && SESSION_REQUIRED_STEPS.includes(step) ? "home" : step;
+}
+
+function progressLabel(step: Exclude<GuidedResearchStep, "home">): string {
+  return `${WORKFLOW_STEP_INDEX[step]}/5`;
+}
+
+function stageToStep(stage: GuidedResearchSession["resumeStage"]): GuidedResearchStep {
+  return stage === "researching" ? "search" : stage;
+}
+
+function requestId(prefix: string): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return `${prefix}-${crypto.randomUUID()}`;
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function workflowGraphVersion(workflow: GuidedResearchWorkflowProjection | null): number | null {
+  return typeof workflow?.graphVersion === "number" ? workflow.graphVersion : null;
+}
+
+function briefNodeState(session: GuidedResearchSession | null, brief: typeof GUIDED_RESEARCH_BRIEF) {
+  return {
+    name: session?.title ?? brief.topic,
+    tags: session?.tags ?? [],
+    topic: brief.topic,
+    objective: brief.goal,
+    timeRange: brief.timeRange,
+    geography: brief.region,
+    focus: brief.focus,
+  };
+}
+
+function outlineNodeState(sections: GuidedResearchOutlineSection[]) {
+  return {
+    sections: sections.map((item, order) => ({
+      id: item.id,
+      title: item.title,
+      description: "",
+      researchQuestions: [...item.questions],
+      order,
+    })),
+  };
+}
+
+function researchNodeState(demoState: GuidedResearchDemoState) {
+  const acceptedSourceIds: string[] = [];
+  const excludedSourceIds: string[] = [];
+  for (const [sourceId, decision] of Object.entries(demoState.sourceDecisions)) {
+    if (decision === "accepted") acceptedSourceIds.push(sourceId);
+    if (decision === "excluded") excludedSourceIds.push(sourceId);
+  }
+  return { acceptedSourceIds, excludedSourceIds };
+}
+
+async function restoreWorkflow(sessionId: string): Promise<GuidedResearchWorkflowProjection | null> {
+  try {
+    return await getGuidedResearchWorkflow(sessionId);
+  } catch {
+    return null;
+  }
 }
 
 export function GuidedResearchFlow({
@@ -69,20 +138,24 @@ export function GuidedResearchFlow({
   const [activeSessionId, setActiveSessionId] = React.useState(sessionId);
   const [restoreFailed, setRestoreFailed] = React.useState(false);
   const [sessionSnapshot, setSessionSnapshot] = React.useState<GuidedResearchSession | null>(null);
+  const [workflowSnapshot, setWorkflowSnapshot] = React.useState<GuidedResearchWorkflowProjection | null>(null);
   React.useEffect(() => {
     setRestoredStep(clampSessionlessStep(step, sessionId));
     setActiveSessionId(sessionId);
     setRestoreFailed(false);
     setSessionSnapshot(null);
+    setWorkflowSnapshot(null);
     if (!sessionId) return;
     let active = true;
-    getGuidedResearchSession(sessionId)
-      .then((session) => {
+    Promise.all([getGuidedResearchSession(sessionId), restoreWorkflow(sessionId)])
+      .then(([session, workflow]) => {
         if (!active) return;
-        const allowedStep = clampGuidedResearchStep(step, session);
+        const requestedStep = step === "home" ? stageToStep(session.resumeStage) : step;
+        const allowedStep = clampGuidedResearchStep(requestedStep, session);
         setRestoredStep(allowedStep);
         setActiveSessionId(session.sessionId);
         setSessionSnapshot(session);
+        setWorkflowSnapshot(workflow);
       })
       .catch(() => { if (active) setRestoreFailed(true); });
     return () => { active = false; };
@@ -93,7 +166,7 @@ export function GuidedResearchFlow({
     if (onStepChange) return onStepChange(next, targetSessionId);
     setRestoredStep(next);
     setActiveSessionId(targetSessionId);
-    window.history.replaceState({}, "", "/research");
+    window.history.replaceState({}, "", targetSessionId ? `/research?session=${encodeURIComponent(targetSessionId)}` : "/research");
   };
 
   const hasCurrentSessionSnapshot = sessionSnapshot?.sessionId === sessionId;
@@ -123,11 +196,11 @@ export function GuidedResearchFlow({
             </div>
           )}
           {restoredStep === "home" && <ResearchHome onNavigate={navigate} />}
-          {restoredStep === "brief" && <BriefScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
-          {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
-          {restoredStep === "outline" && <OutlineScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
-          {restoredStep === "search" && <SearchScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
-          {restoredStep === "report" && <ReportScreen sessionId={activeSessionId} session={sessionSnapshot} onSession={setSessionSnapshot} onNavigate={navigate} />}
+          {restoredStep === "brief" && <BriefScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
+          {restoredStep === "directions" && <DirectionsScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
+          {restoredStep === "outline" && <OutlineScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
+          {restoredStep === "search" && <SearchScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
+          {restoredStep === "report" && <ReportScreen sessionId={activeSessionId} session={sessionSnapshot} workflow={workflowSnapshot} onSession={setSessionSnapshot} onWorkflow={setWorkflowSnapshot} onNavigate={navigate} />}
         </>
       )}
     </div>
@@ -194,9 +267,6 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow: string;
     </div>
   );
 }
-
-const stageToStep = (stage: GuidedResearchSession["resumeStage"]): GuidedResearchStep =>
-  stage === "researching" ? "search" : stage;
 
 function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, sessionId?: string) => void }) {
   const [history, setHistory] = React.useState<GuidedResearchSession[] | null>(null);
@@ -308,10 +378,12 @@ function pendingCreateIdempotencyKey(intent: GuidedResearchCreateDraft & { brief
   return { key: generated, storageKey };
 }
 
-function BriefScreen({ sessionId, session, onSession, onNavigate }: {
+function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNavigate }: {
   sessionId?: string;
   session: GuidedResearchSession | null;
+  workflow: GuidedResearchWorkflowProjection | null;
   onSession: (session: GuidedResearchSession) => void;
+  onWorkflow: (workflow: GuidedResearchWorkflowProjection | null) => void;
   onNavigate: (step: GuidedResearchStep, sessionId?: string) => void;
 }) {
   const [brief, setBrief] = React.useState(GUIDED_RESEARCH_BRIEF);
@@ -339,7 +411,19 @@ function BriefScreen({ sessionId, session, onSession, onNavigate }: {
     setSubmitFailed(false);
     try {
       if (sessionId && session) {
-        const updated = await confirmResearchBrief(sessionId, { briefVersion: session.briefVersion, brief });
+        const graphVersion = workflowGraphVersion(workflow);
+        const updated = graphVersion === null
+          ? await confirmResearchBrief(sessionId, { briefVersion: session.briefVersion, brief })
+          : await executeGuidedResearchNodeCommand(sessionId, {
+            node: "brief",
+            action: "confirm",
+            requestId: requestId("brief-confirm"),
+            expectedGraphVersion: graphVersion,
+            nodeState: briefNodeState(session, brief),
+          }).then(async (projection) => {
+            onWorkflow(projection);
+            return getGuidedResearchSession(sessionId);
+          });
         clearGuidedResearchDemoState(sessionId);
         onSession(updated);
         onNavigate("directions", sessionId);
@@ -363,6 +447,7 @@ function BriefScreen({ sessionId, session, onSession, onNavigate }: {
       assistant={
         <GuidedResearchSkillAssistant
           step="brief"
+          progressLabel={progressLabel("brief")}
           sessionKey={sessionId ? `${sessionId}:brief` : "pending-brief"}
           snapshot={{ step: "brief", value: brief }}
           onSnapshotChange={(next) => {
@@ -394,8 +479,8 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   return <label className="flex flex-col gap-1.5 text-12 font-medium text-foreground">{label}{hint && <span className="font-normal text-muted-foreground">{hint}</span>}{children}</label>;
 }
 
-function DirectionsScreen({ sessionId, session, onSession, onNavigate }: {
-  sessionId?: string; session: GuidedResearchSession | null; onSession: (session: GuidedResearchSession) => void;
+function DirectionsScreen({ sessionId, session, workflow, onSession, onWorkflow, onNavigate }: {
+  sessionId?: string; session: GuidedResearchSession | null; workflow: GuidedResearchWorkflowProjection | null; onSession: (session: GuidedResearchSession) => void; onWorkflow: (workflow: GuidedResearchWorkflowProjection | null) => void;
   onNavigate?: (step: GuidedResearchStep, sessionId?: string) => void;
 }) {
   const [directions, setDirections] = React.useState<GuidedResearchDirection[]>([]);
@@ -416,18 +501,62 @@ function DirectionsScreen({ sessionId, session, onSession, onNavigate }: {
       return;
     }
     if (candidateVersion === null && directions.length === 0) {
-      void generateResearchDirections(sessionId).then(apply).catch(() => undefined);
+      void (async () => {
+        const graphVersion = workflowGraphVersion(workflow);
+        if (graphVersion === null || directions.length === 0) return generateResearchDirections(sessionId);
+        const projection = await executeGuidedResearchNodeCommand(sessionId, {
+          node: "directions",
+          action: "generate",
+          requestId: requestId("directions-generate"),
+          expectedGraphVersion: graphVersion,
+          nodeState: { directions: [] },
+        });
+        onWorkflow(projection);
+        return getGuidedResearchSession(sessionId);
+      })().then(apply).catch(() => undefined);
     }
-  }, [apply, candidateVersion, directions.length, session, sessionId]);
+  }, [apply, candidateVersion, directions.length, onWorkflow, session, sessionId, workflow]);
   const patch = (id: string, update: Partial<GuidedResearchDirection>) => setDirections((items) => items.map((item) => item.id === id ? { ...item, ...update } : item));
   const add = () => setDirections((items) => [...items, { id: `d${items.length + 1}`, title: "新的研究方向", description: "补充这个方向需要回答的核心问题。", enabled: true, order: items.length }]);
-  const regenerate = async () => { if (!sessionId) return; setSubmitting(true); try { apply(await generateResearchDirections(sessionId)); } finally { setSubmitting(false); } };
+  const regenerate = async () => {
+    if (!sessionId) return;
+    setSubmitting(true);
+    try {
+      const graphVersion = workflowGraphVersion(workflow);
+      if (graphVersion === null) {
+        apply(await generateResearchDirections(sessionId));
+      } else {
+        const projection = await executeGuidedResearchNodeCommand(sessionId, {
+          node: "directions",
+          action: "generate",
+          requestId: requestId("directions-generate"),
+          expectedGraphVersion: graphVersion,
+          nodeState: { directions: directions.map((item, order) => ({ ...item, order })) },
+        });
+        onWorkflow(projection);
+        apply(await getGuidedResearchSession(sessionId));
+      }
+    } finally { setSubmitting(false); }
+  };
   const confirm = async () => {
     if (!sessionId || candidateVersion === null) return;
     setSubmitting(true);
     setSaveFailed(false);
     try {
-      const updated = await confirmResearchDirections(sessionId, { candidateVersion, directions: directions.map((item, order) => ({ ...item, order })) });
+      const nodeState = { directions: directions.map((item, order) => ({ ...item, order })) };
+      const graphVersion = workflowGraphVersion(workflow);
+      const updated = graphVersion === null
+        ? await confirmResearchDirections(sessionId, { candidateVersion, directions: nodeState.directions })
+        : await executeGuidedResearchNodeCommand(sessionId, {
+          node: "directions",
+          action: "confirm",
+          requestId: requestId("directions-confirm"),
+          expectedGraphVersion: graphVersion,
+          nodeState,
+        }).then(async (projection) => {
+          onWorkflow(projection);
+          return getGuidedResearchSession(sessionId);
+        });
       apply(updated);
       clearGuidedResearchDemoState(sessionId);
       onNavigate?.("outline", sessionId);
@@ -440,6 +569,7 @@ function DirectionsScreen({ sessionId, session, onSession, onNavigate }: {
       assistant={
         <GuidedResearchSkillAssistant
           step="directions"
+          progressLabel={progressLabel("directions")}
           sessionKey={`${sessionId ?? "pending"}:directions`}
           snapshot={{ step: "directions", value: directions }}
           onSnapshotChange={(next) => {
@@ -462,8 +592,8 @@ function DirectionsScreen({ sessionId, session, onSession, onNavigate }: {
   );
 }
 
-function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
-  sessionId?: string; session: GuidedResearchSession | null; onSession: (session: GuidedResearchSession) => void;
+function OutlineScreen({ sessionId, session, workflow, onSession, onWorkflow, onNavigate }: {
+  sessionId?: string; session: GuidedResearchSession | null; workflow: GuidedResearchWorkflowProjection | null; onSession: (session: GuidedResearchSession) => void; onWorkflow: (workflow: GuidedResearchWorkflowProjection | null) => void;
   onNavigate?: (step: GuidedResearchStep, sessionId?: string) => void;
 }) {
   const [sections, setSections] = React.useState<GuidedResearchOutlineSection[]>([]);
@@ -484,18 +614,62 @@ function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
       return;
     }
     if (candidateVersion === null && sections.length === 0) {
-      void generateResearchOutline(sessionId).then(apply).catch(() => undefined);
+      void (async () => {
+        const graphVersion = workflowGraphVersion(workflow);
+        if (graphVersion === null || sections.length === 0) return generateResearchOutline(sessionId);
+        const projection = await executeGuidedResearchNodeCommand(sessionId, {
+          node: "outline",
+          action: "generate",
+          requestId: requestId("outline-generate"),
+          expectedGraphVersion: graphVersion,
+          nodeState: outlineNodeState(sections),
+        });
+        onWorkflow(projection);
+        return getGuidedResearchSession(sessionId);
+      })().then(apply).catch(() => undefined);
     }
-  }, [apply, candidateVersion, sections.length, session, sessionId]);
+  }, [apply, candidateVersion, onWorkflow, sections, sections.length, session, sessionId, workflow]);
   const patchTitle = (id: string, title: string) => setSections((items) => items.map((item) => item.id === id ? { ...item, title } : item));
   const add = () => setSections((items) => [...items, { id: `o${items.length + 1}`, title: "新增章节", questions: ["这一章需要回答什么？"], enabled: true, order: items.length }]);
-  const regenerate = async () => { if (!sessionId) return; setSubmitting(true); try { apply(await generateResearchOutline(sessionId)); } finally { setSubmitting(false); } };
+  const regenerate = async () => {
+    if (!sessionId) return;
+    setSubmitting(true);
+    try {
+      const graphVersion = workflowGraphVersion(workflow);
+      if (graphVersion === null || sections.length === 0) {
+        apply(await generateResearchOutline(sessionId));
+      } else {
+        const projection = await executeGuidedResearchNodeCommand(sessionId, {
+          node: "outline",
+          action: "generate",
+          requestId: requestId("outline-generate"),
+          expectedGraphVersion: graphVersion,
+          nodeState: outlineNodeState(sections),
+        });
+        onWorkflow(projection);
+        apply(await getGuidedResearchSession(sessionId));
+      }
+    } finally { setSubmitting(false); }
+  };
   const confirm = async () => {
     if (!sessionId || candidateVersion === null) return;
     setSubmitting(true);
     setSaveFailed(false);
     try {
-      const updated = await confirmResearchOutline(sessionId, { candidateVersion, outline: sections.map((item, order) => ({ ...item, order })) });
+      const legacyOutline = sections.map((item, order) => ({ ...item, order }));
+      const graphVersion = workflowGraphVersion(workflow);
+      const updated = graphVersion === null
+        ? await confirmResearchOutline(sessionId, { candidateVersion, outline: legacyOutline })
+        : await executeGuidedResearchNodeCommand(sessionId, {
+          node: "outline",
+          action: "confirm",
+          requestId: requestId("outline-confirm"),
+          expectedGraphVersion: graphVersion,
+          nodeState: outlineNodeState(legacyOutline),
+        }).then(async (projection) => {
+          onWorkflow(projection);
+          return getGuidedResearchSession(sessionId);
+        });
       apply(updated);
       clearGuidedResearchDemoState(sessionId);
       onNavigate?.("search", sessionId);
@@ -508,6 +682,7 @@ function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
       assistant={
         <GuidedResearchSkillAssistant
           step="outline"
+          progressLabel={progressLabel("outline")}
           sessionKey={`${sessionId ?? "pending"}:outline`}
           snapshot={{ step: "outline", value: sections }}
           onSnapshotChange={(next) => {
@@ -536,12 +711,16 @@ function OutlineScreen({ sessionId, session, onSession, onNavigate }: {
 function SearchScreen({
   sessionId,
   session,
+  workflow,
   onSession,
+  onWorkflow,
   onNavigate,
 }: {
   sessionId?: string;
   session: GuidedResearchSession | null;
+  workflow: GuidedResearchWorkflowProjection | null;
   onSession: (session: GuidedResearchSession) => void;
+  onWorkflow: (workflow: GuidedResearchWorkflowProjection | null) => void;
   onNavigate: (step: GuidedResearchStep, sessionId?: string) => void;
 }) {
   const sessionKey = sessionId ?? "demo-search";
@@ -567,7 +746,19 @@ function SearchScreen({
     setSubmitting(true);
     setError(null);
     try {
-      const nextSession = await finishGuidedResearchCollection(sessionId, { sourceCount: acceptedSourceCount });
+      const graphVersion = workflowGraphVersion(workflow);
+      const nextSession = graphVersion === null
+        ? await finishGuidedResearchCollection(sessionId, { sourceCount: acceptedSourceCount })
+        : await executeGuidedResearchNodeCommand(sessionId, {
+          node: "research",
+          action: "complete",
+          requestId: requestId("research-complete"),
+          expectedGraphVersion: graphVersion,
+          nodeState: researchNodeState(demoState),
+        }).then(async (projection) => {
+          onWorkflow(projection);
+          return getGuidedResearchSession(sessionId);
+        });
       onSession(nextSession);
       onNavigate("report", sessionId);
     } catch {
@@ -581,6 +772,7 @@ function SearchScreen({
       assistant={
         <GuidedResearchSkillAssistant
           step="search"
+          progressLabel={progressLabel("search")}
           sessionKey={`${sessionKey}:search`}
           snapshot={{ step: "search", value: demoState }}
           onSnapshotChange={(next) => { if (next.step === "search") persist(next.value); }}
@@ -610,12 +802,16 @@ function latestConfirmedOutline(session: GuidedResearchSession | null): GuidedRe
 function ReportScreen({
   sessionId,
   session,
+  workflow,
   onSession,
+  onWorkflow,
   onNavigate,
 }: {
   sessionId?: string;
   session: GuidedResearchSession | null;
+  workflow: GuidedResearchWorkflowProjection | null;
   onSession: (session: GuidedResearchSession) => void;
+  onWorkflow: (workflow: GuidedResearchWorkflowProjection | null) => void;
   onNavigate: (step: GuidedResearchStep, sessionId?: string) => void;
 }) {
   const sessionKey = sessionId ?? "demo-report";
@@ -634,7 +830,20 @@ function ReportScreen({
     setSubmitting(true);
     setError(null);
     try {
-      const nextSession = await completeGuidedResearchSession(sessionId);
+      const title = `${session?.brief.topic ?? GUIDED_RESEARCH_BRIEF.topic}研究报告`;
+      const graphVersion = workflowGraphVersion(workflow);
+      const nextSession = graphVersion === null
+        ? await completeGuidedResearchSession(sessionId)
+        : await executeGuidedResearchNodeCommand(sessionId, {
+          node: "report",
+          action: "complete",
+          requestId: requestId("report-complete"),
+          expectedGraphVersion: graphVersion,
+          nodeState: { title, revisionInstruction: demoState.reportSummary },
+        }).then(async (projection) => {
+          onWorkflow(projection);
+          return getGuidedResearchSession(sessionId);
+        });
       onSession(nextSession);
       setCompleted(true);
     } catch {
@@ -650,9 +859,11 @@ function ReportScreen({
   const title = `${session?.brief.topic ?? GUIDED_RESEARCH_BRIEF.topic}研究报告`;
   return (
     <GuidedResearchStepLayout
+      wideMain
       assistant={
         <GuidedResearchSkillAssistant
           step="report"
+          progressLabel={progressLabel("report")}
           sessionKey={`${sessionId ?? "pending"}:report`}
           snapshot={{ step: "report", value: { reportSummary: demoState.reportSummary } }}
           onSnapshotChange={(next) => {
@@ -669,7 +880,7 @@ function ReportScreen({
           <CardHeader className="pb-2"><CardTitle className="text-13">目录</CardTitle></CardHeader>
           <CardContent className="flex flex-wrap gap-2">{outline.map((item, index) => <a key={item.id} href={`#report-${index}`} className="rounded-md border border-border px-3 py-2 text-11 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">{index + 1}. {item.title}</a>)}</CardContent>
         </Card>
-        <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="grid min-w-0 gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem]">
           <article className="min-w-0 space-y-6 rounded-lg border border-border bg-card p-6">
             <header className="space-y-3 border-b border-border pb-5"><Badge tone={completed ? "primary" : "warning"}>{completed ? "研究已完成" : "待完成"}</Badge><h2 className="text-24 font-semibold leading-tight">{title}</h2><div className="flex flex-wrap gap-3 text-10 text-muted-foreground"><span>演示报告</span><span>{session?.sourceCount ?? 0} 个已记录来源</span></div></header>
             {outline.map((section, index) => <ReportSection key={section.id} id={`report-${index}`} title={section.title}><p>{index === 0 ? `本演示报告围绕“${session?.brief.goal ?? GUIDED_RESEARCH_BRIEF.goal}”整理了固定演示资料与结论结构。` : "此章节基于确认后的报告大纲保留为演示内容，不代表真实检索或研究判断。"}</p>{index === 0 && <div className="rounded-md border-l-4 border-primary bg-accent p-4"><p className="text-12 font-semibold">演示摘要</p><p className="mt-1 text-12 leading-relaxed">{demoState.reportSummary || "演示摘要会根据资料研究阶段已保留的来源生成。"}</p></div>}</ReportSection>)}

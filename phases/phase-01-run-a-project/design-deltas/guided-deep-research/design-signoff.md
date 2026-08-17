@@ -3,7 +3,7 @@ status: confirmed
 bundle: guided-deep-research
 base_bundle: research
 scope: guided-brief-directions-outline-web-search-report
-covers: [F168, F169, F170, F171, F180]
+covers: [F168, F169, F180]
 confirmed_by: shenyangjun
 confirmed_at: 2026-08-12T17:05:00+08:00
 ---
@@ -14,6 +14,10 @@ confirmed_at: 2026-08-12T17:05:00+08:00
 
 本 delta 挂靠已经确认的 `research` 束，只新增 UC-24.6 的六屏引导流程，不静默修改
 既有 UC-24.1…24.5 的研究配置、候选洞察、冲突判定或结论出口。
+
+> 2026-08-16 归属收窄：仍未开工的 F170/F171 已迁入新的
+> `guided-deep-research-langgraph` 增量，与 F195–F198 一起接受五节点持久化、结构化模型和真实检索边界的
+> 新一轮三件签核。本文件继续只覆盖已交付的 F168/F169/F180，避免同一 feature 出现两个签核权威。
 
 ## ① UI
 
