@@ -64,6 +64,12 @@ import { discloseDecided, isDisclosed } from "../../application/security/permiss
 import { Put, Param } from "@nestjs/common";
 import { ConflictException } from "@nestjs/common";
 import { designFacetKeys as designFacetKeySet } from "../../domain/templates/design-facet-table";
+import {
+  updateInterviewSubjectsUseCase,
+  UpdateInterviewSubjectsError,
+} from "../../application/templates/update-interview-subjects";
+import { getInterviewSubjectsUseCase, GetInterviewSubjectsError } from "../../application/templates/get-interview-subjects";
+import { INTERVIEW_SUBJECTS_REPOSITORY, type InterviewSubjectsRepository } from "../../application/templates/interview-subjects-ports";
 
 const CREATE_SCHEMA = C.operations.createBlueprint.in;
 type CreateBody = z.infer<typeof CREATE_SCHEMA>;
@@ -76,6 +82,11 @@ const START_TRIAL_RUN_BODY_SCHEMA = C.operations.startTrialRun.in.omit({ bluepri
 type StartTrialRunBody = z.infer<typeof START_TRIAL_RUN_BODY_SCHEMA>;
 const PUBLISH_VERSION_BODY_SCHEMA = C.operations.publishBlueprintVersion.in.omit({ blueprintId: true });
 type PublishVersionBody = z.infer<typeof PUBLISH_VERSION_BODY_SCHEMA>;
+const UPDATE_INTERVIEW_SUBJECTS_BODY_SCHEMA = C.operations.updateInterviewSubjects.in.omit({
+  projectId: true,
+  groupId: true,
+});
+type UpdateInterviewSubjectsBody = z.infer<typeof UPDATE_INTERVIEW_SUBJECTS_BODY_SCHEMA>;
 
 @Controller()
 export class BlueprintController {
@@ -83,6 +94,7 @@ export class BlueprintController {
     @Inject(BLUEPRINT_PERSISTENCE_PORT) private readonly repo: BlueprintPersistencePort,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(ID_FACTORY) private readonly ids: IdFactory,
+    @Inject(INTERVIEW_SUBJECTS_REPOSITORY) private readonly interviewSubjects: InterviewSubjectsRepository,
   ) {}
 
   @Post("/blueprints")
@@ -470,6 +482,80 @@ export class BlueprintController {
     return getInitializationPreview({
       filledFacetKeys: outcome.designFacets.map((f) => f.designFacetKey),
     });
+  }
+
+  /**
+   * F960（2026-08-17 delta）—— 观察/访谈对象表读写接线。同 F950/`getProjectGrouping` 的
+   * 先例：门槛读 `project_memberships` 拿角色，不新造第二套判定（见
+   * `identity.findProjectMembership` 既有方法，本端点不新增仓储查询）。
+   */
+  @Put("/projects/:projectId/groups/:groupId/interview-subjects")
+  async updateInterviewSubjects(
+    @Param("projectId") projectId: string,
+    @Param("groupId") groupId: string,
+    @Body(new ZodBodyPipe(UPDATE_INTERVIEW_SUBJECTS_BODY_SCHEMA)) body: UpdateInterviewSubjectsBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const actorProjectRole = await this.getActorProjectRole(orgId, principal.userId, projectId);
+
+    try {
+      const out = await updateInterviewSubjectsUseCase(
+        { repo: this.interviewSubjects },
+        { orgId, projectId, groupId, actorProjectRole, subjects: body.subjects, expectedRevision: body.expectedRevision },
+      );
+      return out.subjects;
+    } catch (err) {
+      if (err instanceof UpdateInterviewSubjectsError) throw this.mapInterviewSubjectsError(err.reasonCode);
+      throw err;
+    }
+  }
+
+  @Get("/projects/:projectId/groups/:groupId/interview-subjects")
+  async getInterviewSubjects(
+    @Param("projectId") projectId: string,
+    @Param("groupId") groupId: string,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const actorProjectRole = await this.getActorProjectRole(orgId, principal.userId, projectId);
+
+    try {
+      return await getInterviewSubjectsUseCase(
+        { repo: this.interviewSubjects },
+        { orgId, projectId, groupId, actorProjectRole },
+      );
+    } catch (err) {
+      if (err instanceof GetInterviewSubjectsError) throw this.mapInterviewSubjectsError(err.reasonCode);
+      throw err;
+    }
+  }
+
+  /** 同 F950 `getActorProjectRole`/`mapPrepFamilyError` 的先例——本端点重用同一种形状。 */
+  private async getActorProjectRole(orgId: OrgId, userId: string, projectId: string) {
+    try {
+      const membership = await this.identity.findProjectMembership(userId, projectId, orgId);
+      return membership?.projectRole ?? null;
+    } catch {
+      throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+    }
+  }
+
+  private mapInterviewSubjectsError(
+    reasonCode: "NO_PROJECT_ROLE" | "ROLE_INSUFFICIENT" | "VERSION_CHANGED" | "DEPENDENCY_UNAVAILABLE",
+  ) {
+    switch (reasonCode) {
+      case "NO_PROJECT_ROLE":
+        return new ForbiddenException({ reasonCode: "NO_PROJECT_ROLE" });
+      case "ROLE_INSUFFICIENT":
+        return new ForbiddenException({ reasonCode: "ROLE_INSUFFICIENT" });
+      case "VERSION_CHANGED":
+        return new ConflictException({ reasonCode: "VERSION_CHANGED" });
+      case "DEPENDENCY_UNAVAILABLE":
+        return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+    }
   }
 
   private async requireCapabilityAdmin(orgId: OrgId, userId: string): Promise<void> {
