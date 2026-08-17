@@ -13,7 +13,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 
-from .guided_research_state import (
+from deep_agent_service.guided_research_state import (
     RESEARCH_NODES,
     GuidedResearchGraphState,
     ResearchNode,
