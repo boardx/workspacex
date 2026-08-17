@@ -1,5 +1,5 @@
 import type { GuidedResearchDirection, GuidedResearchOutlineSection } from "@/lib/guided-research-api";
-import { GUIDED_SEARCH_TASKS, type GuidedResearchBrief } from "@/lib/mock/guided-research";
+import type { GuidedResearchBrief } from "@/lib/mock/guided-research";
 import type { GuidedResearchDemoState } from "@/lib/mock/guided-research-demo-state";
 
 export type ResearchEditableSnapshot =
@@ -208,16 +208,13 @@ export function suggestionForResearchPrompt(
     };
   }
   if (snapshot.step === "search") {
-    const nextTask = GUIDED_SEARCH_TASKS.find((task) => !snapshot.value.completedTaskIds.includes(task.id));
     return {
       step: "search",
       prompt,
-      text: nextTask ? `建议完成下一项检索任务：${nextTask.label}` : "全部演示检索任务已完成。",
+      text: "建议检查当前检索任务的来源可信度，并排除与研究问题无关的来源。",
       value: {
         ...snapshot.value,
-        completedTaskIds: nextTask
-          ? [...snapshot.value.completedTaskIds, nextTask.id]
-          : [...snapshot.value.completedTaskIds],
+        completedTaskIds: [...snapshot.value.completedTaskIds],
         sourceDecisions: { ...snapshot.value.sourceDecisions },
       },
     };

@@ -7,6 +7,10 @@ export type GuidedResearchWorkflowProjection = z.infer<typeof research.GuidedRes
 export type GuidedResearchNodeCommand = z.infer<typeof research.GuidedResearchNodeCommand>;
 export type GuidedResearchDirection = z.infer<typeof research.GuidedResearchDirection>;
 export type GuidedResearchOutlineSection = z.infer<typeof research.GuidedResearchOutlineSection>;
+export type GuidedResearchSource = z.infer<typeof research.GuidedResearchSource>;
+export type GuidedResearchTask = z.infer<typeof research.GuidedResearchTask>;
+export type ResearchNodeInputState = z.infer<typeof research.ResearchNodeInputState>;
+export type ReportNodeInputState = z.infer<typeof research.ReportNodeInputState>;
 export type CreateGuidedResearchSessionInput = z.infer<typeof research.operations.createGuidedResearchSession.in>;
 
 export async function listGuidedResearchSessions(): Promise<{ items: GuidedResearchSession[] }> {

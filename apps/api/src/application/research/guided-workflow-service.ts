@@ -21,6 +21,16 @@ import {
   type GuidedResearchOutlineGeneration,
   type GuidedResearchOutlineGenerator,
 } from "./guided-outline-generator";
+import {
+  GuidedResearchCollectionGenerationError,
+  type GuidedResearchCollectionGeneration,
+  type GuidedResearchCollectionGenerator,
+} from "./guided-research-collection-generator";
+import {
+  GuidedResearchReportGenerationError,
+  type GuidedResearchReportGeneration,
+  type GuidedResearchReportGenerator,
+} from "./guided-research-report-generator";
 
 type WorkflowProjection = z.infer<typeof C.GuidedResearchWorkflowProjection>;
 type NodeCommand = z.infer<typeof C.GuidedResearchNodeCommand>;
@@ -97,6 +107,8 @@ export class GuidedResearchWorkflowService {
     private readonly checkpointer: BaseCheckpointSaver,
     private readonly directions?: GuidedResearchDirectionGenerator,
     private readonly outlines?: GuidedResearchOutlineGenerator,
+    private readonly collections?: GuidedResearchCollectionGenerator,
+    private readonly reports?: GuidedResearchReportGenerator,
   ) {
     this.graph = createGuidedResearchWorkflowGraph({ checkpointer });
   }
@@ -160,8 +172,11 @@ export class GuidedResearchWorkflowService {
     if (current.graphVersion !== input.command.expectedGraphVersion) {
       throw new GuidedResearchWorkflowError("RESEARCH_GRAPH_VERSION_CONFLICT", current);
     }
+    const graphState = await this.readGraphState(input.session.sessionId);
     const generatedDirections = await this.generateDirectionsAfterBrief(input.command);
     const generatedOutline = await this.generateOutlineAfterDirections(input.command);
+    const generatedCollection = await this.generateCollectionAfterOutline(input.command, graphState.values);
+    const generatedReport = await this.generateReportAfterResearch(input.command, graphState.values);
 
     await this.receipts.begin({
       orgId: input.orgId,
@@ -183,6 +198,18 @@ export class GuidedResearchWorkflowService {
       await this.runCommand(
         input.session.sessionId,
         this.generatedOutlineCommand(input.command, current.graphVersion + 1, generatedOutline),
+      );
+    }
+    if (generatedCollection && input.command.node === "outline") {
+      await this.runCommand(
+        input.session.sessionId,
+        this.generatedCollectionCommand(input.command, current.graphVersion + 1, generatedCollection),
+      );
+    }
+    if (generatedReport && input.command.node === "research") {
+      await this.runCommand(
+        input.session.sessionId,
+        this.generatedReportCommand(input.command, current.graphVersion + 1, generatedReport),
       );
     }
     const projection = await this.readGraph(input.session.sessionId);
@@ -236,6 +263,51 @@ export class GuidedResearchWorkflowService {
     }
   }
 
+  private async generateCollectionAfterOutline(
+    command: NodeCommand,
+    state: GuidedResearchGraphState,
+  ): Promise<GuidedResearchCollectionGeneration | null> {
+    if (command.node !== "outline" || !["confirm", "reconfirm"].includes(command.action)) return null;
+    if (!this.collections) throw new GuidedResearchWorkflowError("RESEARCH_WORKFLOW_UNAVAILABLE");
+    try {
+      return await this.collections.generate({
+        sessionId: command.sessionId,
+        requestId: command.requestId,
+        brief: C.BriefNodeInputState.parse(state.nodeStates.brief),
+        directions: C.DirectionsNodeInputState.parse(state.nodeStates.directions),
+        outline: command.nodeState,
+      });
+    } catch (error) {
+      if (error instanceof GuidedResearchCollectionGenerationError) {
+        throw new GuidedResearchWorkflowError(error.reasonCode);
+      }
+      throw error;
+    }
+  }
+
+  private async generateReportAfterResearch(
+    command: NodeCommand,
+    state: GuidedResearchGraphState,
+  ): Promise<GuidedResearchReportGeneration | null> {
+    if (command.node !== "research" || command.action !== "complete") return null;
+    if (!this.reports) throw new GuidedResearchWorkflowError("RESEARCH_WORKFLOW_UNAVAILABLE");
+    try {
+      return await this.reports.generate({
+        sessionId: command.sessionId,
+        requestId: command.requestId,
+        brief: C.BriefNodeInputState.parse(state.nodeStates.brief),
+        outline: C.OutlineNodeInputState.parse(state.nodeStates.outline),
+        research: command.nodeState,
+        revisionInstruction: "",
+      });
+    } catch (error) {
+      if (error instanceof GuidedResearchReportGenerationError) {
+        throw new GuidedResearchWorkflowError(error.reasonCode);
+      }
+      throw error;
+    }
+  }
+
   private generatedDirectionsCommand(
     source: Extract<NodeCommand, { node: "brief" }>,
     expectedGraphVersion: number,
@@ -273,6 +345,42 @@ export class GuidedResearchWorkflowService {
       nodeState: {
         sections: generation.sections,
       },
+    });
+  }
+
+  private generatedCollectionCommand(
+    source: Extract<NodeCommand, { node: "outline" }>,
+    expectedGraphVersion: number,
+    generation: GuidedResearchCollectionGeneration,
+  ): NodeCommand {
+    const generatedRequestId = `${source.requestId}:generated-research`;
+    return C.GuidedResearchNodeCommand.parse({
+      sessionId: source.sessionId,
+      node: "research",
+      action: "generate",
+      requestId: generatedRequestId.length <= 200
+        ? generatedRequestId
+        : `generated-research-${fingerprint({ sessionId: source.sessionId, requestId: source.requestId }).slice(0, 32)}`,
+      expectedGraphVersion,
+      nodeState: generation.state,
+    });
+  }
+
+  private generatedReportCommand(
+    source: Extract<NodeCommand, { node: "research" }>,
+    expectedGraphVersion: number,
+    generation: GuidedResearchReportGeneration,
+  ): NodeCommand {
+    const generatedRequestId = `${source.requestId}:generated-report`;
+    return C.GuidedResearchNodeCommand.parse({
+      sessionId: source.sessionId,
+      node: "report",
+      action: "generate",
+      requestId: generatedRequestId.length <= 200
+        ? generatedRequestId
+        : `generated-report-${fingerprint({ sessionId: source.sessionId, requestId: source.requestId }).slice(0, 32)}`,
+      expectedGraphVersion,
+      nodeState: generation.state,
     });
   }
 }

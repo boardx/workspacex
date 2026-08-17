@@ -129,7 +129,7 @@ export function GuidedResearchSkillAssistant({
         />
         <Button data-testid="research-skill-send" type="button" variant="primary" size="icon" aria-label="发送建议" disabled={!input.trim()} onClick={() => send()}><Send aria-hidden className="size-4" /></Button>
       </div>
-      <p className="mt-3 text-11 text-muted-foreground">演示 Skill · 不作为真实研究证据</p>
+      <p className="mt-3 text-11 text-muted-foreground">Skill 建议需点击应用后才会修改当前步骤。</p>
     </section>
   );
 }

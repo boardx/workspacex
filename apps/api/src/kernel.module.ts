@@ -192,6 +192,16 @@ import {
   ModelGuidedResearchOutlineGenerator,
   type GuidedResearchOutlineGenerator,
 } from "./application/research/guided-outline-generator";
+import {
+  GUIDED_RESEARCH_COLLECTION_GENERATOR,
+  ModelGuidedResearchCollectionGenerator,
+  type GuidedResearchCollectionGenerator,
+} from "./application/research/guided-research-collection-generator";
+import {
+  GUIDED_RESEARCH_REPORT_GENERATOR,
+  ModelGuidedResearchReportGenerator,
+  type GuidedResearchReportGenerator,
+} from "./application/research/guided-research-report-generator";
 import { PgGuidedResearchSessionRepository } from "./infrastructure/research/pg-guided-research-session-repository";
 import { DeterministicGuidedResearchCheckpointGenerator, GUIDED_RESEARCH_CHECKPOINT_GENERATOR } from "./domain/research/guided-research-checkpoint-generator";
 import { DIGITAL_EXPERT_CONTEXT_API, DIGITAL_INTERVIEW_REPOSITORY } from "./application/interview/digital-interview-ports";
@@ -1159,11 +1169,22 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         receipts: GuidedResearchNodeReceiptRepository,
         directions: GuidedResearchDirectionGenerator,
         outlines: GuidedResearchOutlineGenerator,
-      ) => new GuidedResearchWorkflowService(receipts, createGuidedResearchCheckpointer(appConfig()), directions, outlines),
+        collections: GuidedResearchCollectionGenerator,
+        reports: GuidedResearchReportGenerator,
+      ) => new GuidedResearchWorkflowService(
+        receipts,
+        createGuidedResearchCheckpointer(appConfig()),
+        directions,
+        outlines,
+        collections,
+        reports,
+      ),
       inject: [
         GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
         GUIDED_RESEARCH_DIRECTION_GENERATOR,
         GUIDED_RESEARCH_OUTLINE_GENERATOR,
+        GUIDED_RESEARCH_COLLECTION_GENERATOR,
+        GUIDED_RESEARCH_REPORT_GENERATOR,
       ],
     },
     {
@@ -1179,6 +1200,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: GUIDED_RESEARCH_OUTLINE_GENERATOR,
       useFactory: (model: ModelCallPort) => new ModelGuidedResearchOutlineGenerator(model),
+      inject: [MODEL_CALL_PORT],
+    },
+    {
+      provide: GUIDED_RESEARCH_COLLECTION_GENERATOR,
+      useFactory: (model: ModelCallPort) => new ModelGuidedResearchCollectionGenerator(model),
+      inject: [MODEL_CALL_PORT],
+    },
+    {
+      provide: GUIDED_RESEARCH_REPORT_GENERATOR,
+      useFactory: (model: ModelCallPort) => new ModelGuidedResearchReportGenerator(model),
       inject: [MODEL_CALL_PORT],
     },
     {

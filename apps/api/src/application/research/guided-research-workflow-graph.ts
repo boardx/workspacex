@@ -117,15 +117,19 @@ function nextNodeMeta(state: GuidedResearchGraphState, command: NodeCommand, gra
       updatedAt: timestamp,
       errorCode: null,
       contentVersionId: `content-${graphVersion}`,
-      modelId: command.node === "directions" || command.node === "outline" ? "qwen3.7-plus" : previous.modelId,
-      modelInvocationId: command.node === "directions" || command.node === "outline"
+      modelId: ["directions", "outline", "research", "report"].includes(command.node) ? "qwen3.7-plus" : previous.modelId,
+      modelInvocationId: ["directions", "outline", "research", "report"].includes(command.node)
         ? `${state.sessionId}:${command.requestId}:${command.node}:generate`
         : previous.modelInvocationId,
       modelOutputSchemaVersion: command.node === "directions"
         ? "guided-research-directions:v1"
         : command.node === "outline"
           ? "guided-research-outline:v1"
-          : previous.modelOutputSchemaVersion,
+          : command.node === "research"
+            ? "guided-research-collection:v1"
+            : command.node === "report"
+              ? "guided-research-report:v1"
+              : previous.modelOutputSchemaVersion,
     };
   }
   if (command.action === "confirm" || command.action === "reconfirm") {

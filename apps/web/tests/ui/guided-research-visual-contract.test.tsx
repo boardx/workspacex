@@ -9,7 +9,10 @@ import { GUIDED_RESEARCH_BRIEF, type GuidedResearchStep } from "@/lib/mock/guide
 
 const api = vi.hoisted(() => ({
   listGuidedResearchSessions: vi.fn(), createGuidedResearchSession: vi.fn(), getGuidedResearchSession: vi.fn(),
+  getGuidedResearchWorkflow: vi.fn(), executeGuidedResearchNodeCommand: vi.fn(),
+  confirmResearchBrief: vi.fn(),
   generateResearchDirections: vi.fn(), confirmResearchDirections: vi.fn(), generateResearchOutline: vi.fn(), confirmResearchOutline: vi.fn(),
+  finishGuidedResearchCollection: vi.fn(), completeGuidedResearchSession: vi.fn(),
 }));
 
 vi.mock("@/lib/guided-research-api", () => api);
@@ -38,9 +41,64 @@ function sessionAt(step: Exclude<GuidedResearchStep, "home" | "brief">) {
   };
 }
 
+const visualSources = [
+  {
+    id: "s1",
+    domain: "ec.europa.eu",
+    title: "Energy storage recommendations and market design",
+    url: "https://ec.europa.eu/energy-storage",
+    kind: "官方政策",
+    confidence: "高",
+    summary: "欧盟政策来源。",
+  },
+] as const;
+
+function workflowAt(node: "research" | "report") {
+  const meta = {
+    status: "ready",
+    version: 1,
+    confirmedVersion: null,
+    contentVersionId: null,
+    modelId: "qwen3.7-plus",
+    modelInvocationId: "model-call-visual",
+    modelOutputSchemaVersion: node === "research" ? "guided-research-collection:v1" : "guided-research-report:v1",
+    confirmedAt: null,
+    updatedAt: "2026-08-13T00:00:00.000Z",
+    errorCode: null,
+  };
+  return {
+    sessionId: "grs-visual",
+    graphVersion: 8,
+    revision: 1,
+    currentNode: node,
+    availableNodes: ["brief", "directions", "outline", "research", "report"],
+    nodeSummaries: { brief: meta, directions: meta, outline: meta, research: meta, report: meta },
+    activeNodeState: node === "research" ? {
+      currentQuery: "Germany utility-scale battery storage market 2025",
+      tasks: [{ id: "t1", sectionId: "o1", label: "市场规模与商业模式", query: "Germany storage market", status: "completed", sourceIds: ["s1"] }],
+      sources: visualSources,
+      acceptedSourceIds: ["s1"],
+      excludedSourceIds: [],
+    } : {
+      title: "欧洲储能市场进入策略研究报告",
+      revisionInstruction: "",
+      summary: "模型生成摘要。",
+      sections: [{ id: "r1", title: "市场规模与增长动能", body: "模型生成正文。", citationSourceIds: ["s1"], order: 0 }],
+      citations: visualSources,
+    },
+    nodeStateVersions: { [node]: 1 },
+    skill: { threadId: "skill-grs-visual", activeNode: node, summaryId: null, recentMessageIds: [], activeProposalId: null, proposalStatus: "none" },
+    interrupt: { node, allowedActions: ["confirm", "generate", "complete"] },
+  };
+}
+
 beforeEach(() => {
   Object.values(api).forEach((mock) => mock.mockReset());
   api.listGuidedResearchSessions.mockResolvedValue({ items: [] });
+  api.getGuidedResearchWorkflow.mockImplementation((sessionId: string) => {
+    if (sessionId === "grs-visual") return Promise.resolve(workflowAt("research"));
+    return Promise.resolve(null);
+  });
 });
 
 describe("F180 signed guided-research visual contract", () => {
@@ -140,7 +198,7 @@ describe("F180 signed guided-research visual contract", () => {
     expect(screen.getByTestId("research-report")).toBeInTheDocument();
   });
 
-  it("keeps future checkpoints disabled and labels every demo output", async () => {
+  it("keeps future checkpoints disabled and removes demo-only output labels", async () => {
     api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("directions"));
     const directions = render(<GuidedResearchFlow step="directions" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-directions");
@@ -150,19 +208,24 @@ describe("F180 signed guided-research visual contract", () => {
     directions.unmount();
 
     api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("search"));
+    api.getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("research"));
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
-    expect(search.container).toHaveTextContent("演示检索结果，不代表真实 Web Search");
+    expect(search.container).not.toHaveTextContent("演示检索结果");
+    expect(search.container).toHaveTextContent("来源");
     search.unmount();
 
     api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("report"));
+    api.getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("report"));
     const report = render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-report");
-    expect(report.container).toHaveTextContent("演示报告，不作为真实研究结论");
+    expect(report.container).not.toHaveTextContent("演示报告");
+    expect(report.container).toHaveTextContent("模型生成摘要。");
   });
 
   it("keeps the signed search and report information hierarchy", async () => {
     api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("search"));
+    api.getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("research"));
     const search = render(<GuidedResearchFlow step="search" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-search");
     expect(screen.getByRole("heading", { name: "正在检索与交叉验证" })).toBeInTheDocument();
@@ -170,6 +233,7 @@ describe("F180 signed guided-research visual contract", () => {
 
     search.unmount();
     api.getGuidedResearchSession.mockResolvedValueOnce(sessionAt("report"));
+    api.getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("report"));
     render(<GuidedResearchFlow step="report" sessionId="grs-visual" />);
     await screen.findByTestId("research-flow-report");
     const report = screen.getByTestId("research-report");

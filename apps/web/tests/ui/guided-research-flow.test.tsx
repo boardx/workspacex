@@ -104,6 +104,59 @@ function reportCheckpointSession() {
   };
 }
 
+const researchSources = [
+  {
+    id: "s1",
+    domain: "ec.europa.eu",
+    title: "Energy storage recommendations and market design",
+    url: "https://ec.europa.eu/energy-storage",
+    kind: "官方政策",
+    confidence: "高",
+    summary: "欧盟储能市场与政策建议。",
+  },
+  {
+    id: "s2",
+    domain: "iea.org",
+    title: "Batteries and Secure Energy Transitions",
+    url: "https://iea.org/batteries",
+    kind: "国际机构",
+    confidence: "高",
+    summary: "国际能源署电池与能源转型报告。",
+  },
+  {
+    id: "s3",
+    domain: "solarpowereurope.org",
+    title: "European Market Outlook for Battery Storage 2025-2029",
+    url: "https://solarpowereurope.org/storage-outlook",
+    kind: "行业报告",
+    confidence: "中",
+    summary: "欧洲电池储能市场展望。",
+  },
+] as const;
+
+const researchNodeState = {
+  currentQuery: "Germany utility-scale battery storage market 2025",
+  tasks: [
+    { id: "t1", sectionId: "o1", label: "市场规模与商业模式", query: "Germany storage market", status: "completed", sourceIds: ["s1"] },
+    { id: "t2", sectionId: "o2", label: "政策与收入机制", query: "Germany battery policy", status: "completed", sourceIds: ["s2"] },
+    { id: "t3", sectionId: "o3", label: "并网周期与约束", query: "battery storage grid connection Germany", status: "completed", sourceIds: ["s3"] },
+  ],
+  sources: researchSources,
+  acceptedSourceIds: ["s1", "s2", "s3"],
+  excludedSourceIds: [],
+};
+
+const reportNodeState = {
+  title: "欧洲储能市场进入策略研究报告",
+  revisionInstruction: "",
+  summary: "模型根据已保留来源生成的研究摘要。",
+  sections: [
+    { id: "r1", title: "市场规模与商业模式", body: "德国和欧盟市场具备增长潜力。", citationSourceIds: ["s1"], order: 0 },
+    { id: "r2", title: "政策与收入机制", body: "政策确定性和收入机制是进入节奏的关键。", citationSourceIds: ["s2"], order: 1 },
+  ],
+  citations: [researchSources[0]],
+};
+
 function workflowAt(node: "brief" | "directions" | "outline" | "research" | "report", graphVersion = 7) {
   const meta = {
     status: "ready",
@@ -124,7 +177,11 @@ function workflowAt(node: "brief" | "directions" | "outline" | "research" | "rep
     currentNode: node,
     availableNodes: ["brief", "directions", "outline", "research", "report"],
     nodeSummaries: { brief: meta, directions: meta, outline: meta, research: meta, report: meta },
-    activeNodeState: { directions: [{ id: "d1", title: "候选方向", description: "候选描述", enabled: true, order: 0 }] },
+    activeNodeState: node === "research"
+      ? researchNodeState
+      : node === "report"
+        ? reportNodeState
+        : { directions: [{ id: "d1", title: "候选方向", description: "候选描述", enabled: true, order: 0 }] },
     nodeStateVersions: { [node]: 1 },
     skill: { threadId: "skill-grs-edit", activeNode: node, summaryId: null, recentMessageIds: [], activeProposalId: null, proposalStatus: "none" },
     interrupt: { node, allowedActions: ["confirm", "generate", "complete"] },
@@ -324,7 +381,7 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     replaceState.mockRestore();
   });
 
-  it("reconfirms a persisted brief on the same session and warns that downstream demo results regenerate", async () => {
+  it("reconfirms a persisted brief on the same session and warns that downstream research results regenerate", async () => {
     const reportSession = reportCheckpointSession();
     getGuidedResearchSession.mockResolvedValue(reportSession);
     confirmResearchBrief.mockResolvedValue({
@@ -340,7 +397,7 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     render(<GuidedResearchFlow step="brief" sessionId="grs-edit" onStepChange={onStepChange} />);
 
     expect(await screen.findByDisplayValue(GUIDED_RESEARCH_BRIEF.topic)).toBeInTheDocument();
-    expect(screen.getByText("重新确认后，后续演示结果将重新生成。")).toBeInTheDocument();
+    expect(screen.getByText("重新确认后，后续研究结果将重新生成。")).toBeInTheDocument();
     fireEvent.change(screen.getByTestId("research-brief-topic"), { target: { value: "更新后的主题" } });
     fireEvent.click(screen.getByTestId("research-confirm-brief"));
 
@@ -367,7 +424,7 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     render(<GuidedResearchFlow step="directions" sessionId="grs-edit" onStepChange={onStepChange} />);
 
     expect(await screen.findByDisplayValue("已确认方向")).toBeInTheDocument();
-    expect(screen.getByText("重新确认后，后续演示结果将重新生成。")).toBeInTheDocument();
+    expect(screen.getByText("重新确认后，后续研究结果将重新生成。")).toBeInTheDocument();
     fireEvent.change(screen.getByTestId("research-direction-title-d1"), { target: { value: "更新后的方向" } });
     fireEvent.click(screen.getByTestId("research-confirm-directions"));
 
@@ -430,7 +487,7 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     render(<GuidedResearchFlow step="outline" sessionId="grs-edit" onStepChange={onStepChange} />);
 
     expect(await screen.findByDisplayValue("已确认大纲")).toBeInTheDocument();
-    expect(screen.getByText("重新确认后，后续演示结果将重新生成。")).toBeInTheDocument();
+    expect(screen.getByText("重新确认后，后续研究结果将重新生成。")).toBeInTheDocument();
     fireEvent.change(screen.getByTestId("research-outline-title-o1"), { target: { value: "更新后的大纲" } });
     fireEvent.click(screen.getByTestId("research-start-search"));
 
@@ -463,26 +520,41 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(screen.getAllByTestId(/^research-direction-title-/)).toHaveLength(2);
   });
 
-  it("completes the persisted demo search and report journey", async () => {
+  it("completes the persisted model-backed search and report journey", async () => {
     const onStepChange = vi.fn();
+    getGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1" });
     getGuidedResearchSession
       .mockResolvedValueOnce({ ...sessionAt("researching"), sessionId: "grs-1" })
       .mockResolvedValueOnce({ ...sessionAt("report"), sessionId: "grs-1" });
+    getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("research", 8));
+    executeGuidedResearchNodeCommand
+      .mockResolvedValueOnce(workflowAt("report", 9))
+      .mockResolvedValueOnce(workflowAt("report", 10));
     const { rerender } = render(<GuidedResearchFlow step="search" sessionId="grs-1" onStepChange={onStepChange} />);
 
     await screen.findByTestId("research-search-summary");
-    for (const task of screen.getAllByRole("button", { name: /完成演示检索/ })) fireEvent.click(task);
     fireEvent.click(within(screen.getByTestId("research-source-s1")).getByRole("button", { name: "保留" }));
     fireEvent.click(within(screen.getByTestId("research-source-s2")).getByRole("button", { name: "排除" }));
     fireEvent.click(within(screen.getByTestId("research-source-s3")).getByRole("button", { name: "排除" }));
-    expect(screen.getByRole("button", { name: "生成演示研究报告" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "生成演示研究报告" }));
+    expect(screen.getByRole("button", { name: "生成研究报告" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "生成研究报告" }));
 
-    await waitFor(() => expect(finishGuidedResearchCollection).toHaveBeenCalledWith("grs-1", {
-      sourceCount: 1,
-    }));
+    await waitFor(() => expect(executeGuidedResearchNodeCommand).toHaveBeenCalledWith("grs-1", expect.objectContaining({
+      node: "research",
+      action: "complete",
+      expectedGraphVersion: 8,
+      nodeState: expect.objectContaining({
+        currentQuery: researchNodeState.currentQuery,
+        tasks: researchNodeState.tasks,
+        sources: researchNodeState.sources,
+        acceptedSourceIds: ["s1"],
+        excludedSourceIds: ["s2", "s3"],
+      }),
+    })));
+    expect(finishGuidedResearchCollection).not.toHaveBeenCalled();
     expect(onStepChange).toHaveBeenCalledWith("report", "grs-1");
 
+    getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("report", 9));
     rerender(<GuidedResearchFlow step="report" sessionId="grs-1" onStepChange={onStepChange} />);
     await screen.findByTestId("research-report");
     expect(screen.getByTestId("research-citation-s1")).toBeInTheDocument();
@@ -490,21 +562,27 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(screen.queryByTestId("research-citation-s3")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "完成研究" }));
 
-    await waitFor(() => expect(completeGuidedResearchSession).toHaveBeenCalledWith("grs-1"));
+    await waitFor(() => expect(executeGuidedResearchNodeCommand).toHaveBeenCalledWith("grs-1", expect.objectContaining({
+      node: "report",
+      action: "complete",
+      expectedGraphVersion: 9,
+      nodeState: reportNodeState,
+    })));
+    expect(completeGuidedResearchSession).not.toHaveBeenCalled();
     expect(await screen.findByRole("heading", { name: "研究已完成" })).toBeInTheDocument();
   });
 
   it("retains search on lifecycle failure and offers retry without navigation", async () => {
     const onStepChange = vi.fn();
     getGuidedResearchSession.mockResolvedValue({ ...sessionAt("researching"), sessionId: "grs-1" });
-    finishGuidedResearchCollection.mockRejectedValue(new Error("offline"));
+    getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("research", 8));
+    executeGuidedResearchNodeCommand.mockRejectedValue(new Error("offline"));
     render(<GuidedResearchFlow step="search" sessionId="grs-1" onStepChange={onStepChange} />);
 
     await screen.findByTestId("research-search-summary");
-    for (const task of screen.getAllByRole("button", { name: /完成演示检索/ })) fireEvent.click(task);
-    fireEvent.click(screen.getByRole("button", { name: "生成演示研究报告" }));
+    fireEvent.click(screen.getByRole("button", { name: "生成研究报告" }));
 
-    expect(await screen.findByText("生成演示研究报告失败，请重试。")) .toBeInTheDocument();
+    expect(await screen.findByText("生成研究报告失败，请重试。")) .toBeInTheDocument();
     expect(screen.getByTestId("research-flow-search")).toBeInTheDocument();
     expect(onStepChange).not.toHaveBeenCalled();
   });
@@ -512,7 +590,8 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
   it("retains report on completion failure and offers retry without navigation", async () => {
     const onStepChange = vi.fn();
     getGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1" });
-    completeGuidedResearchSession.mockRejectedValue(new Error("offline"));
+    getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("report", 9));
+    executeGuidedResearchNodeCommand.mockRejectedValue(new Error("offline"));
     render(<GuidedResearchFlow step="report" sessionId="grs-1" onStepChange={onStepChange} />);
 
     await screen.findByTestId("research-report");
@@ -552,6 +631,7 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectURL });
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     getGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1", sourceCount: 3 });
+    getGuidedResearchWorkflow.mockResolvedValueOnce(workflowAt("report", 9));
 
     render(<GuidedResearchFlow step="report" sessionId="grs-1" />);
 
@@ -574,15 +654,12 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:guided-report");
   });
 
-  it("shows zero report citations when every source was excluded", async () => {
-    window.localStorage.setItem("wsx.guidedResearch.demo.v1.grs-1", JSON.stringify({
-      version: 1,
-      sessionId: "grs-1",
-      completedTaskIds: ["t1", "t2", "t3", "t4"],
-      sourceDecisions: { s1: "excluded", s2: "excluded", s3: "excluded" },
-      reportSummary: "",
-    }));
+  it("shows zero report citations when the generated report has no retained source", async () => {
     getGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1", sourceCount: 0 });
+    getGuidedResearchWorkflow.mockResolvedValueOnce({
+      ...workflowAt("report", 9),
+      activeNodeState: { ...reportNodeState, citations: [] },
+    });
 
     render(<GuidedResearchFlow step="report" sessionId="grs-1" />);
 

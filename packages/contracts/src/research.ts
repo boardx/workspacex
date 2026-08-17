@@ -668,17 +668,69 @@ export const OutlineNodeInputState = z.object({
   .refine((state) => uniqueIds(state.sections.map((section) => section.id)), "outline section ids must be unique")
   .refine((state) => hasContiguousOrder(state.sections), "outline section order must be contiguous from zero");
 
+export const GuidedResearchSource = z.object({
+  id: z.string().trim().min(1),
+  domain: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(500),
+  url: z.string().trim().min(1).max(2000),
+  kind: z.string().trim().min(1).max(100),
+  confidence: z.enum(["高", "中", "低"]),
+  summary: z.string().trim().min(1).max(2000),
+}).strict();
+
+export const GuidedResearchTask = z.object({
+  id: z.string().trim().min(1),
+  sectionId: z.string().trim().min(1),
+  label: z.string().trim().min(1).max(200),
+  query: z.string().trim().min(1).max(500),
+  status: z.enum(["queued", "running", "completed", "failed"]),
+  sourceIds: z.array(z.string().trim().min(1)).refine(uniqueIds, "task source ids must be unique"),
+}).strict();
+
+export const GuidedResearchCollectionGenerationResponse = z.object({
+  currentQuery: z.string().trim().min(1).max(500),
+  tasks: z.array(GuidedResearchTask).min(1),
+  sources: z.array(GuidedResearchSource).min(1),
+}).strict()
+  .refine((state) => uniqueIds(state.tasks.map((task) => task.id)), "research task ids must be unique")
+  .refine((state) => uniqueIds(state.sources.map((source) => source.id)), "research source ids must be unique");
+
 export const ResearchNodeInputState = z.object({
+  currentQuery: z.string().trim().min(1).max(500),
+  tasks: z.array(GuidedResearchTask).min(1),
+  sources: z.array(GuidedResearchSource).min(1),
   acceptedSourceIds: z.array(z.string().trim().min(1)).refine(uniqueIds, "accepted source ids must be unique"),
   excludedSourceIds: z.array(z.string().trim().min(1)).refine(uniqueIds, "excluded source ids must be unique"),
-}).strict().refine(
+}).strict()
+  .refine((state) => uniqueIds(state.tasks.map((task) => task.id)), "research task ids must be unique")
+  .refine((state) => uniqueIds(state.sources.map((source) => source.id)), "research source ids must be unique")
+  .refine(
   (state) => !state.acceptedSourceIds.some((id) => state.excludedSourceIds.includes(id)),
   "accepted and excluded source ids must not overlap",
 );
 
+export const GuidedResearchReportSection = z.object({
+  id: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(10000),
+  citationSourceIds: z.array(z.string().trim().min(1)).refine(uniqueIds, "section citation ids must be unique"),
+  order: z.number().int().nonnegative(),
+}).strict();
+
+export const GuidedResearchReportGenerationResponse = z.object({
+  title: z.string().trim().min(1).max(200),
+  summary: z.string().trim().min(1).max(4000),
+  sections: z.array(GuidedResearchReportSection).min(1),
+}).strict()
+  .refine((state) => uniqueIds(state.sections.map((section) => section.id)), "report section ids must be unique")
+  .refine((state) => hasContiguousOrder(state.sections), "report section order must be contiguous from zero");
+
 export const ReportNodeInputState = z.object({
   title: z.string().trim().min(1).max(200),
   revisionInstruction: z.string().trim().max(2000),
+  summary: z.string().trim().min(1).max(4000),
+  sections: z.array(GuidedResearchReportSection).min(1),
+  citations: z.array(GuidedResearchSource),
 }).strict();
 
 const nodeCommandBase = {

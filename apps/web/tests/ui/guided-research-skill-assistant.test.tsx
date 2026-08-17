@@ -51,7 +51,7 @@ describe("guided research skill assistant", () => {
     fireEvent.keyDown(input, { key: "Enter" });
     expect(screen.getByTestId("research-skill-suggestion")).toBeInTheDocument();
     expect(input).toHaveValue("");
-    expect(screen.getByText("演示 Skill · 不作为真实研究证据")).toBeInTheDocument();
+    expect(screen.getByText("Skill 建议需点击应用后才会修改当前步骤。")).toBeInTheDocument();
   });
 
   it("does not render or apply another step's saved suggestion or undo", () => {

@@ -81,21 +81,49 @@ beforeAll(async () => {
             nextSummaries.outline.modelOutputSchemaVersion = "guided-research-outline:v1";
             nextSummaries.outline.contentVersionId = `content-${nextGraphVersion}`;
           }
+          if (command.node === "research") {
+            nextSummaries.research.modelId = "qwen3.7-plus";
+            nextSummaries.research.modelInvocationId = `${sessionId}:${command.requestId}:research:generate`;
+            nextSummaries.research.modelOutputSchemaVersion = "guided-research-collection:v1";
+            nextSummaries.research.contentVersionId = `content-${nextGraphVersion}`;
+          }
+          if (command.node === "report") {
+            nextSummaries.report.modelId = "qwen3.7-plus";
+            nextSummaries.report.modelInvocationId = `${sessionId}:${command.requestId}:report:generate`;
+            nextSummaries.report.modelOutputSchemaVersion = "guided-research-report:v1";
+            nextSummaries.report.contentVersionId = `content-${nextGraphVersion}`;
+          }
         }
         if (command.action === "confirm" || command.action === "reconfirm") {
           nextSummaries[command.node].status = "confirmed";
           nextSummaries[command.node].confirmedVersion = nextSummaries[command.node].version;
         }
+        const nextNode = command.action === "generate"
+          ? command.node
+          : command.node === "brief"
+            ? "directions"
+            : command.node === "directions"
+              ? "outline"
+              : command.node === "outline"
+                ? "research"
+                : command.node === "research"
+                  ? "report"
+                  : command.node;
+        const availableNodes = nextNode === "directions"
+          ? ["brief", "directions"]
+          : nextNode === "outline"
+            ? ["brief", "directions", "outline"]
+            : nextNode === "research"
+              ? ["brief", "directions", "outline", "research"]
+              : nextNode === "report"
+                ? ["brief", "directions", "outline", "research", "report"]
+                : previous.availableNodes;
         graphStates.set(sessionId, {
           ...previous,
           graphVersion: nextGraphVersion,
           revision: command.action === "reconfirm" ? Number(previous.revision) + 1 : previous.revision,
-          currentNode: command.node === "brief"
-            ? "directions"
-            : command.node === "directions" && command.action !== "generate" ? "outline" : previous.currentNode,
-          availableNodes: command.node === "directions" && command.action !== "generate"
-            ? ["brief", "directions", "outline"]
-            : command.node === "brief" ? ["brief", "directions"] : previous.availableNodes,
+          currentNode: nextNode,
+          availableNodes,
           nodeStates: { ...(previous.nodeStates as object), [command.node]: command.nodeState },
           nodeSummaries: nextSummaries,
         });
@@ -157,7 +185,8 @@ beforeAll(async () => {
             },
           ],
         }
-      : {
+      : modelCalls === 2
+      ? {
           sections: [
             {
               id: "section-model-market",
@@ -171,6 +200,68 @@ beforeAll(async () => {
               title: "进入路径取舍",
               description: "比较自建、渠道合作和生态伙伴三种路径的速度、风险与资源要求。",
               researchQuestions: ["哪种进入路径风险最低？", "哪些伙伴类型能缩短落地周期？"],
+              order: 1,
+            },
+          ],
+        }
+      : modelCalls === 3
+      ? {
+          currentQuery: "Germany utility-scale battery storage market 2025",
+          tasks: [
+            {
+              id: "task-model-market",
+              sectionId: "section-model-market",
+              label: "市场优先级判断",
+              query: "Germany utility-scale battery storage market 2025",
+              status: "completed",
+              sourceIds: ["source-model-eu"],
+            },
+            {
+              id: "task-model-entry",
+              sectionId: "section-model-entry",
+              label: "进入路径取舍",
+              query: "Germany battery storage entry strategy 2025",
+              status: "completed",
+              sourceIds: ["source-model-iea"],
+            },
+          ],
+          sources: [
+            {
+              id: "source-model-eu",
+              domain: "ec.europa.eu",
+              title: "Energy storage recommendations and market design",
+              url: "https://ec.europa.eu/energy-storage",
+              kind: "官方政策",
+              confidence: "高",
+              summary: "欧盟储能政策和市场设计建议。",
+            },
+            {
+              id: "source-model-iea",
+              domain: "iea.org",
+              title: "Batteries and Secure Energy Transitions",
+              url: "https://iea.org/batteries",
+              kind: "国际机构",
+              confidence: "高",
+              summary: "国际能源署电池与能源转型报告。",
+            },
+          ],
+        }
+      : {
+          title: "欧洲储能市场进入策略研究报告",
+          summary: "模型根据保留来源生成的执行摘要。",
+          sections: [
+            {
+              id: "report-section-market",
+              title: "市场优先级判断",
+              body: "德国和欧盟储能市场具备进入窗口。",
+              citationSourceIds: ["source-model-eu"],
+              order: 0,
+            },
+            {
+              id: "report-section-entry",
+              title: "进入路径取舍",
+              body: "渠道合作与生态伙伴路径更适合快速验证。",
+              citationSourceIds: ["source-model-iea"],
               order: 1,
             },
           ],
@@ -440,6 +531,122 @@ describe("F195 Guided Research workflow API", () => {
     });
     expect(modelCalls).toBe(2);
     expect(graphCommandCalls).toBe(0);
+  });
+
+  it("generates model-backed research collection and final report after human checkpoints", async () => {
+    const session = await createSession();
+    await fetch(`${base}/research/guided-sessions/${session.sessionId}/workflow`, { headers: auth(OWNER) });
+
+    const brief = await fetch(`${base}/research/guided-sessions/${session.sessionId}/workflow/nodes/brief`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({
+        sessionId: session.sessionId,
+        node: "brief",
+        action: "confirm",
+        requestId: "request-live-brief",
+        expectedGraphVersion: 0,
+        nodeState: briefNodeState,
+      }),
+    });
+    expect(brief.status).toBe(201);
+    const directionsReady = C.operations.executeGuidedResearchNode.out.parse(await brief.json());
+
+    const directions = await fetch(`${base}/research/guided-sessions/${session.sessionId}/workflow/nodes/directions`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({
+        sessionId: session.sessionId,
+        node: "directions",
+        action: "confirm",
+        requestId: "request-live-directions",
+        expectedGraphVersion: 2,
+        nodeState: directionsReady.activeNodeState,
+      }),
+    });
+    expect(directions.status).toBe(201);
+    const outlineReady = C.operations.executeGuidedResearchNode.out.parse(await directions.json());
+
+    const outline = await fetch(`${base}/research/guided-sessions/${session.sessionId}/workflow/nodes/outline`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({
+        sessionId: session.sessionId,
+        node: "outline",
+        action: "confirm",
+        requestId: "request-live-outline",
+        expectedGraphVersion: 4,
+        nodeState: outlineReady.activeNodeState,
+      }),
+    });
+    expect(outline.status).toBe(201);
+    const researchReady = C.operations.executeGuidedResearchNode.out.parse(await outline.json());
+    expect(researchReady).toMatchObject({
+      graphVersion: 6,
+      currentNode: "research",
+      activeNodeState: {
+        currentQuery: "Germany utility-scale battery storage market 2025",
+        tasks: [
+          { id: "task-model-market", status: "completed", sourceIds: ["source-model-eu"] },
+          { id: "task-model-entry", status: "completed", sourceIds: ["source-model-iea"] },
+        ],
+        sources: [
+          { id: "source-model-eu", domain: "ec.europa.eu" },
+          { id: "source-model-iea", domain: "iea.org" },
+        ],
+        acceptedSourceIds: ["source-model-eu", "source-model-iea"],
+        excludedSourceIds: [],
+      },
+      nodeSummaries: {
+        research: {
+          status: "ready",
+          version: 1,
+          modelId: "qwen3.7-plus",
+          modelOutputSchemaVersion: "guided-research-collection:v1",
+        },
+      },
+    });
+    expect(modelCalls).toBe(3);
+
+    const research = await fetch(`${base}/research/guided-sessions/${session.sessionId}/workflow/nodes/research`, {
+      method: "POST",
+      headers: auth(OWNER),
+      body: JSON.stringify({
+        sessionId: session.sessionId,
+        node: "research",
+        action: "complete",
+        requestId: "request-live-research",
+        expectedGraphVersion: 6,
+        nodeState: researchReady.activeNodeState,
+      }),
+    });
+    expect(research.status).toBe(201);
+    const reportReady = C.operations.executeGuidedResearchNode.out.parse(await research.json());
+    expect(reportReady).toMatchObject({
+      graphVersion: 8,
+      currentNode: "report",
+      activeNodeState: {
+        title: "欧洲储能市场进入策略研究报告",
+        summary: "模型根据保留来源生成的执行摘要。",
+        sections: [
+          { id: "report-section-market", citationSourceIds: ["source-model-eu"] },
+          { id: "report-section-entry", citationSourceIds: ["source-model-iea"] },
+        ],
+        citations: [
+          { id: "source-model-eu", domain: "ec.europa.eu" },
+          { id: "source-model-iea", domain: "iea.org" },
+        ],
+      },
+      nodeSummaries: {
+        report: {
+          status: "ready",
+          version: 1,
+          modelId: "qwen3.7-plus",
+          modelOutputSchemaVersion: "guided-research-report:v1",
+        },
+      },
+    });
+    expect(modelCalls).toBe(4);
   });
 
   it("does not advance or fabricate outline state when the model returns no valid outline", async () => {

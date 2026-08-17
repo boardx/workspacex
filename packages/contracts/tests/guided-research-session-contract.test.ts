@@ -188,12 +188,47 @@ describe("F195 guided research workflow command contract", () => {
       }],
     },
     research: {
+      currentQuery: "Germany utility-scale battery storage market 2025",
+      tasks: [{
+        id: "task-1",
+        sectionId: "section-1",
+        label: "市场规模与增长动能",
+        query: "Germany utility-scale battery storage market 2025",
+        status: "completed",
+        sourceIds: ["source-1"],
+      }],
+      sources: [{
+        id: "source-1",
+        domain: "ec.europa.eu",
+        title: "Energy storage recommendations and market design",
+        url: "https://ec.europa.eu/energy-storage",
+        kind: "官方政策",
+        confidence: "高",
+        summary: "欧盟储能政策来源。",
+      }],
       acceptedSourceIds: ["source-1"],
       excludedSourceIds: ["source-2"],
     },
     report: {
       title: "欧洲储能市场进入策略研究报告",
       revisionInstruction: "补充执行摘要",
+      summary: "模型生成的执行摘要。",
+      sections: [{
+        id: "report-section-1",
+        title: "市场规模与增长动能",
+        body: "德国和欧盟储能市场具备增长空间。",
+        citationSourceIds: ["source-1"],
+        order: 0,
+      }],
+      citations: [{
+        id: "source-1",
+        domain: "ec.europa.eu",
+        title: "Energy storage recommendations and market design",
+        url: "https://ec.europa.eu/energy-storage",
+        kind: "官方政策",
+        confidence: "高",
+        summary: "欧盟储能政策来源。",
+      }],
     },
   } as const;
 
@@ -267,6 +302,36 @@ describe("F195 guided research workflow command contract", () => {
       sections: completeNodeStates.outline.sections,
     })).toEqual(completeNodeStates.outline);
     expect(research.GuidedResearchOutlineGenerationResponse.safeParse({
+      sections: [],
+    }).success).toBe(false);
+
+    expect(research.GuidedResearchCollectionGenerationResponse.parse({
+      currentQuery: completeNodeStates.research.currentQuery,
+      tasks: completeNodeStates.research.tasks,
+      sources: completeNodeStates.research.sources,
+    })).toMatchObject({
+      currentQuery: completeNodeStates.research.currentQuery,
+      tasks: completeNodeStates.research.tasks,
+      sources: completeNodeStates.research.sources,
+    });
+    expect(research.GuidedResearchCollectionGenerationResponse.safeParse({
+      currentQuery: "",
+      tasks: [],
+      sources: [],
+    }).success).toBe(false);
+
+    expect(research.GuidedResearchReportGenerationResponse.parse({
+      title: completeNodeStates.report.title,
+      summary: completeNodeStates.report.summary,
+      sections: completeNodeStates.report.sections,
+    })).toMatchObject({
+      title: completeNodeStates.report.title,
+      summary: completeNodeStates.report.summary,
+      sections: completeNodeStates.report.sections,
+    });
+    expect(research.GuidedResearchReportGenerationResponse.safeParse({
+      title: "缺少章节",
+      summary: "摘要",
       sections: [],
     }).success).toBe(false);
   });
