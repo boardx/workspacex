@@ -43,5 +43,17 @@
   },
   "phase-05-studio-style-unification": {
     "studio-style": "ui-preview/studio-style"
+  },
+  "phase-06-deep-research": {
+    "deep-research": "ui-preview/deep-research"
+  },
+  "phase-07-user-research": {
+    "user-research": "ui-preview/user-research"
+  },
+  "phase-08-transcription": {
+    "transcription": "ui-preview/transcription"
+  },
+  "phase-09-survey": {
+    "survey": "ui-preview/survey"
   }
 }
