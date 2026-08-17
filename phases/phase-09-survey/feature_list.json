@@ -1,0 +1,151 @@
+{
+  "phase": "09",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "survey",
+      "capability": "CAP-WEB",
+      "title": "问卷与模板资源库：两入口、卡片、筛选、返回路径",
+      "spec_ref": "00-overview.md#R3",
+      "user_visible_behavior": "用户访问 /studio/survey 时停留在资源库，左侧只有问卷列表和模板列表；问卷卡进入 /studio/survey/:surveyId?step=design，模板卡进入 /studio/survey/templates/:templateId；返回列表时 URL 与当前资源类型一致。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 3,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/survey-resource-library.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/survey-template-editor-shell.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "参考 boardx-dev-template 问卷系统方向；本仓可追溯依据为 survey-resource-library design delta。"
+    },
+    {
+      "id": "F02",
+      "priority": 1,
+      "area": "survey",
+      "capability": "CAP-WEB",
+      "title": "问卷/模板创建：名称标签、模板分类、从模板新建",
+      "spec_ref": "00-overview.md#R4",
+      "user_visible_behavior": "用户可新建空白问卷、从模板新建问卷、新建模板和编辑模板；名称与标签在创建入口可见且必填，模板卡显示分类、题目数、报告章节数和使用次数。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F01"],
+      "points": 5,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/survey-create-dialog.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/survey-creation-draft.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/survey-template-editor-shell.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "创建模型不得把 mock 形状当服务端契约；接真实数据时复用 survey contract。"
+    },
+    {
+      "id": "F03",
+      "priority": 1,
+      "area": "survey",
+      "capability": "CAP-WEB",
+      "title": "五步工作台：design/template/publish/responses/report 与连续文档",
+      "spec_ref": "00-overview.md#R5",
+      "user_visible_behavior": "问卷工作台包含 design、template、publish、responses、report 五步；设计页连续渲染全部问题，报告页连续渲染全部章节；非法 step 回落 design，URL 可直接进入任一步。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F02"],
+      "points": 5,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/survey-workflow-shell.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/survey-route-layout.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/survey-continuous-document.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "参考 survey-continuous-document design delta；不引入虚拟列表。"
+    },
+    {
+      "id": "F04",
+      "priority": 1,
+      "area": "survey",
+      "capability": "CAP-API",
+      "title": "问卷状态机与发布门禁：draft/ready/collecting/closed",
+      "spec_ref": "00-overview.md#R6",
+      "user_visible_behavior": "问卷从 draft 经质量门禁进入 ready/collecting，closed 后不可逆；发布接口一次返回全部未清项，绕过前端直接请求结果一致；匿名/实名属性创建后不可变。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F03"],
+      "points": 5,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/survey/state-machine-four.test.ts",
+        "pnpm --filter api exec vitest run tests/survey/anonymity-immutable.test.ts",
+        "pnpm --filter api exec vitest run tests/survey/publish-gate-server-enforced.test.ts"
+      ],
+      "evidence": "",
+      "notes": "迁入来源：phase-02 F31/F33 未完成 survey 链路。"
+    },
+    {
+      "id": "F05",
+      "priority": 1,
+      "area": "survey",
+      "capability": "CAP-API",
+      "title": "发放回收：链接、催填、进度、responses.csv+schema.json",
+      "spec_ref": "00-overview.md#R6",
+      "user_visible_behavior": "发布后生成发放链接并进入回收；回收进度等于应收/已收/未收，催填只发给未交名单；每次回收物化 responses.csv 与 schema.json 一对文件，保留题号与选项 ID。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F04"],
+      "points": 5,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/survey/nudge-roster-two-entries-same-service.test.ts",
+        "pnpm --filter api exec vitest run tests/survey/file-first-responses-schema-pair.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/survey-publish-responses.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "迁入来源：phase-02 F34 未完成链路。"
+    },
+    {
+      "id": "F06",
+      "priority": 1,
+      "area": "survey",
+      "capability": "CAP-WEB",
+      "title": "分析报告：章节输出、图表类型、样本量和来源",
+      "spec_ref": "00-overview.md#R7",
+      "user_visible_behavior": "报告章节可配置 text/chart/image；chart 必选 gap-matrix/capability-table/grouped-bar/line/radar 之一；报告输出保留样本量、题目来源和图表类型，切换章节不会互相覆盖设置。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F05"],
+      "points": 5,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/survey.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/survey-report-template-chart-type.test.tsx",
+        "pnpm --filter api exec vitest run tests/survey/strong-evidence-5-distinct-respondent.test.ts"
+      ],
+      "evidence": "",
+      "notes": "参考 packages/contracts/src/survey.ts 的 SurveyChartTypeSchema 与 phase-02 F35/F36。"
+    },
+    {
+      "id": "F07",
+      "priority": 2,
+      "area": "survey",
+      "capability": "CAP-WEB",
+      "title": "现场快速投票：倒计时、匿名口径、回流报告证据",
+      "spec_ref": "00-overview.md#R7",
+      "user_visible_behavior": "用户可从问卷模块发起现场快速投票，显示倒计时、参与计数和匿名口径；投票结果回流为报告证据并保留题目、选项、样本量和来源角标。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F04"],
+      "points": 5,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/survey/vote-anonymous-timer.test.ts",
+        "pnpm --filter api exec vitest run tests/survey/vote-flow-back-node-report.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/survey-vote-flow.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "迁入来源：phase-02 F37 未完成链路。"
+    }
+  ]
+}
