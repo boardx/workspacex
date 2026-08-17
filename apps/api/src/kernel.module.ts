@@ -181,6 +181,7 @@ import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guide
 import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
 import { GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY, type GuidedResearchNodeReceiptRepository } from "./application/research/guided-workflow-receipt-ports";
 import { PgGuidedResearchNodeReceiptRepository } from "./infrastructure/research/pg-guided-research-node-receipt-repository";
+import { createGuidedResearchCheckpointer } from "./infrastructure/research/langgraph-guided-research-runtime";
 import {
   GUIDED_RESEARCH_DIRECTION_GENERATOR,
   ModelGuidedResearchDirectionGenerator,
@@ -1169,7 +1170,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         receipts: GuidedResearchNodeReceiptRepository,
         directions: GuidedResearchDirectionGenerator,
         outlines: GuidedResearchOutlineGenerator,
-      ) => new GuidedResearchWorkflowService(receipts, process.env.GUIDED_RESEARCH_GRAPH_URL, directions, outlines),
+      ) => new GuidedResearchWorkflowService(receipts, createGuidedResearchCheckpointer(appConfig()), directions, outlines),
       inject: [
         GUIDED_RESEARCH_NODE_RECEIPT_REPOSITORY,
         GUIDED_RESEARCH_DIRECTION_GENERATOR,

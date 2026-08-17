@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import {
-  ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, Circle,
+  ArrowLeft, ArrowRight, BookOpen, Check, CheckCircle2, Circle, Download,
   Clock3, FileSearch, FileText, Globe2, GripVertical, ListTree, Loader2, Pencil,
   LockKeyhole, Plus, RotateCcw, Search, Sparkles, Target, Trash2,
 } from "lucide-react";
@@ -115,6 +115,49 @@ function researchNodeState(demoState: GuidedResearchDemoState) {
     if (decision === "excluded") excludedSourceIds.push(sourceId);
   }
   return { acceptedSourceIds, excludedSourceIds };
+}
+
+function downloadResearchReport(input: {
+  title: string;
+  sections: readonly GuidedResearchOutlineSection[];
+  summary: string;
+  citations: readonly (typeof GUIDED_REPORT_CITATIONS)[number][];
+  format: "pdf" | "word";
+}) {
+  const lines = [
+    input.title,
+    "",
+    "目录",
+    ...input.sections.map((section, index) => `${index + 1}. ${section.title}`),
+    "",
+    "摘要",
+    input.summary || "演示摘要会根据资料研究阶段已保留的来源生成。",
+    "",
+    "章节",
+    ...input.sections.flatMap((section, index) => [
+      `${index + 1}. ${section.title}`,
+      index === 0 ? input.summary || "演示摘要会根据资料研究阶段已保留的来源生成。" : "此章节基于确认后的报告大纲保留为演示内容，不代表真实检索或研究判断。",
+    ]),
+    "",
+    "来源与引用",
+    ...(input.citations.length === 0
+      ? ["没有已保留的演示来源"]
+      : input.citations.map((citation, index) => `[${index + 1}] ${citation.label} ${citation.url}`)),
+  ];
+  const body = lines.join("\n");
+  const blob = input.format === "pdf"
+    ? new Blob([`%PDF-1.4\n% BoardX guided research export\n${body}\n%%EOF`], { type: "application/pdf" })
+    : new Blob([
+      `<!doctype html><html><head><meta charset="utf-8"><title>${input.title}</title></head><body><pre>${body}</pre></body></html>`,
+    ], { type: "application/msword" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${input.title}.${input.format === "pdf" ? "pdf" : "doc"}`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
 }
 
 async function restoreWorkflow(sessionId: string): Promise<GuidedResearchWorkflowProjection | null> {
@@ -857,6 +900,13 @@ function ReportScreen({
     (citation) => demoState.sourceDecisions[citation.id] === "accepted",
   );
   const title = `${session?.brief.topic ?? GUIDED_RESEARCH_BRIEF.topic}研究报告`;
+  const exportReport = (format: "pdf" | "word") => downloadResearchReport({
+    title,
+    sections: outline,
+    summary: demoState.reportSummary,
+    citations: acceptedCitations,
+    format,
+  });
   return (
     <GuidedResearchStepLayout
       wideMain
@@ -873,7 +923,7 @@ function ReportScreen({
       }
     >
       <div className="flex min-w-0 flex-col gap-4" data-density="compact-report">
-      <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<div className="flex gap-2"><Button variant="outline" onClick={() => onNavigate("search", sessionId)}>返回资料研究</Button><Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button></div>} />
+      <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => exportReport("pdf")} data-testid="research-report-export-pdf"><Download className="h-4 w-4" />导出 PDF</Button><Button variant="outline" onClick={() => exportReport("word")} data-testid="research-report-export-word"><FileText className="h-4 w-4" />导出 Word</Button><Button variant="outline" onClick={() => onNavigate("search", sessionId)}>返回资料研究</Button><Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button></div>} />
       <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">演示报告，不作为真实研究结论</p>
       <div className="space-y-4" data-testid="research-report" data-layout="full-width-report">
         <Card className="h-fit">
