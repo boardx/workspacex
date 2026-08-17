@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Ban, Building2, Pencil, RefreshCw } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +18,6 @@ import {
 import {
   CapabilityCreatePanel,
   CapabilityDisableDialog,
-  CapabilityEditForm,
   type MutateContext,
 } from "./capability-mutate";
 import { SkillStarterImportPanel } from "./skill-starter-import-panel";
@@ -46,21 +46,9 @@ const COPY: Record<CatalogKind, { label: string; title: string; singular: string
  *   见 `capability-mutate.tsx` 头部与 `apps/api/tests/kernel/capability-mutate-authorization.test.ts`。
  */
 export function CapabilityCatalogScreen({
-  kind, renderEditExtra,
+  kind,
 }: {
   kind: CatalogKind;
-  /**
-   * #848 —— 编辑表单下方按 kind 定制的额外区块（目前只有 `skill-screen.tsx` 传，
-   * 挂内容编辑面板）。刻意做成**调用方注入**而不是在本文件里按 `kind === "skill"`
-   * 分支直接 `import` 那个面板：本文件同时被 `/admin/agent` 与 `/admin/skill` 复用，
-   * `agent-admin-route-no-mock.test.ts`（#458）机械断言 `/admin/agent` 的整棵依赖树
-   * 不含任何 `lib/mock/**` 边——skill 内容编辑面板复用的 `AgSkillEditor`
-   * （`asset-governance/ag-screens.tsx`）为保留 `/asset-governance` 原型路由的七态
-   * 演示，传递性依赖 `lib/mock/asset-governance.ts`；在这里静态 `import` 一次，
-   * 哪怕只在 `kind === "skill"` 时才渲染，那条边在**依赖图**里已经存在，会把
-   * `/admin/agent` 一起拖下水（`walk()` 走的是 import 语句，不是运行时分支）。
-   */
-  renderEditExtra?: (row: CapabilityListing) => React.ReactNode;
 }) {
   const { session, identity } = useSession();
   if (!session) throw new Error("CapabilityCatalogScreen requires an authenticated session");
@@ -73,21 +61,6 @@ export function CapabilityCatalogScreen({
   currentSourceKey.current = sourceKey;
   const [page, setPage] = React.useState(0);
   const [state, setState] = React.useState<LoadState>({ sourceKey, status: "loading" });
-  const [editingId, setEditingId] = React.useState<string | null>(null);
-  /**
-   * G6（2026-08-14）—— 深链自动展开编辑。`skill-catalog-live.tsx`（`/skill?screen=library`
-   * 的真实卡片网格）上「编辑源码」按钮跳过来时带 `?...&edit=<skillId>`，这里接住它：
-   * 数据到位后若这个 id 在当前这批行里，直接展开它的编辑表单，不需要使用者再从
-   * 分页列表里翻出同一行点一次「编辑」。
-   *
-   * ⚠ 只读一次（`consumedInitialEdit`）：使用者手动 `onCloseEdit` 之后，`edit` 这个
-   *   query 参数还留在地址栏里，不能让它在下一次 `rows` 变化时把编辑框重新弹出来。
-   */
-  const initialEditId = React.useMemo(
-    () => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("edit")),
-    [],
-  );
-  const consumedInitialEdit = React.useRef(false);
   const [disablingId, setDisablingId] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [mutateError, setMutateError] = React.useState<string | null>(null);
@@ -114,7 +87,6 @@ export function CapabilityCatalogScreen({
   React.useEffect(() => {
     // 换组织 = 上一组织的写入口状态全部作废，包括那条「N 个调用被中断」的提示：
     // 它说的是另一个组织发生过的事，留在屏幕上就是一句张冠李戴的事实。
-    setEditingId(null);
     setDisablingId(null);
     setNotice(null);
     setMutateError(null);
@@ -156,41 +128,26 @@ export function CapabilityCatalogScreen({
    * 差别只在外层是网格排列（卡片态）还是单列纵向排列（列表态，即改动前的原始布局）。
    * 这样切换视图不改变任何一行内部的结构与 testid，编辑 / 停用逻辑原样复用。
    */
+  /**
+   * 人类反馈（2026-08-17）：点击「编辑」应该打开一个新的界面，而不是在当前列表页里
+   * 内联展开——`CapabilityRow` 因此不再自己维护 `editing` 状态，「编辑」按钮直接是
+   * 一条指向 `/admin/[kind]/[id]` 的链接（`CapabilityEditPage`，见该文件头注）。
+   */
   function renderCapabilityRow(row: CapabilityListing) {
     return (
       <CapabilityRow
         row={row}
         prefix={prefix}
-        ctx={ctx}
+        kind={kind}
         canMutate={canMutate}
-        editing={editingId === row.id}
-        onEdit={() => setEditingId(row.id)}
-        onCloseEdit={() => setEditingId(null)}
         onDisable={() => {
           setNotice(null);
           setMutateError(null);
           setDisablingId(row.id);
         }}
-        renderEditExtra={renderEditExtra}
       />
     );
   }
-
-  React.useEffect(() => {
-    if (consumedInitialEdit.current) return;
-    if (initialEditId === null) return;
-    // ⚠ 依赖 `state`（`useState` 本身管理的引用，只在真正 setState 时才变）而不是
-    //   上面渲染期派生出的 `visibleState`/`rows`——那两个在 `sourceKey` 不匹配时
-    //   是每次渲染都新建的对象/数组字面量，会让这个 effect 被判定成「依赖每次都变」
-    //   而重跑（react-hooks/exhaustive-deps）。这里在 effect 内部重新做一次同样的
-    //   「source 是否匹配」判断，逻辑与渲染期的 `visibleState` 计算一致。
-    if (state.sourceKey !== sourceKey || state.status !== "ready") return;
-    const index = state.rows.findIndex((r) => r.id === initialEditId);
-    if (index === -1) return; // 这个 id 不在当前组织/这个 kind 的目录里——如实什么都不做
-    consumedInitialEdit.current = true;
-    setEditingId(initialEditId);
-    setPage(Math.floor(index / PAGE_SIZE));
-  }, [initialEditId, state, sourceKey]);
 
   return (
     <div className="flex flex-col gap-5 p-6" data-testid={`${prefix}-catalog`}>
@@ -351,17 +308,13 @@ export function CapabilityCatalogScreen({
 }
 
 function CapabilityRow({
-  row, prefix, ctx, canMutate, editing, onEdit, onCloseEdit, onDisable, renderEditExtra,
+  row, prefix, kind, canMutate, onDisable,
 }: {
   row: CapabilityListing;
   prefix: string;
-  ctx: MutateContext;
+  kind: CatalogKind;
   canMutate: boolean;
-  editing: boolean;
-  onEdit(): void;
-  onCloseEdit(): void;
   onDisable(): void;
-  renderEditExtra?: (row: CapabilityListing) => React.ReactNode;
 }) {
   return (
     <Card data-testid={`${prefix}-row-${row.id}`}>
@@ -376,16 +329,13 @@ function CapabilityRow({
           <span className="w-full text-11 text-muted-foreground sm:w-auto">{row.disabledReason}</span>
         ) : null}
         {row.endpoint ? <span className="w-full truncate font-mono text-10 text-muted-foreground">{row.endpoint}</span> : null}
-        {canMutate && !editing ? (
+        {canMutate ? (
           <div className="flex shrink-0 gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onEdit}
-              data-testid={`${prefix}-row-${row.id}-edit`}
-            >
-              <Pencil aria-hidden className="h-3.5 w-3.5" />
-              编辑
+            <Button asChild size="sm" variant="outline" data-testid={`${prefix}-row-${row.id}-edit`}>
+              <Link href={`/admin/${kind}/${row.id}`}>
+                <Pencil aria-hidden className="h-3.5 w-3.5" />
+                编辑
+              </Link>
             </Button>
             {/* 已停用的记录没有「再停用一次」——那会写出一条什么都没改变的 provenance 记录。 */}
             {row.enabled ? (
@@ -400,14 +350,6 @@ function CapabilityRow({
               </Button>
             ) : null}
           </div>
-        ) : null}
-        {canMutate && editing ? (
-          <CapabilityEditForm
-            ctx={ctx}
-            row={row}
-            onClose={onCloseEdit}
-            extra={renderEditExtra ? renderEditExtra(row) : undefined}
-          />
         ) : null}
       </CardContent>
     </Card>

@@ -886,7 +886,15 @@ describe("lint-permission-paths: counter-proof", () => {
     // 它的**被强制的前提**：`tests/agent-runtime/agent-url-import-repo-guard.test.ts`
     // 断言三件——(a) 只命名 `agent_url_imports`/`agents` 两张租户表；(b) 无
     // `withoutTenant`；(c) 授权判定排在 `deps.fetch` 调用之前。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(59);
+    //
+    // ⚠ Raised 59 -> 60 by 2026-08-17（skill 试跑自愈式模型回退）：新条目是
+    // `infrastructure/skill/pg-org-agent-model-reader.ts`——授权在
+    // `trial-run-skill.ts` 里、且在 `deps.orgAgentModel?.findAnyPublished` 之前，
+    // 同一层先后顺序。它的**被强制的前提**：
+    // `tests/skill/org-agent-model-reader-repo-guard.test.ts` 断言三件——
+    // (a) 只命名 `agents`/`agent_versions` 两张租户表；(b) 无 `withoutTenant`；
+    // (c) 授权判定排在这次读之前。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(60);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

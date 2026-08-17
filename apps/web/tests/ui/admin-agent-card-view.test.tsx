@@ -112,10 +112,9 @@ describe("Agent 目录：默认卡片视图，可切换为列表", () => {
     const container = await screen.findByTestId("admin-agent-list");
 
     const row = within(container).getByTestId("admin-agent-row-agent-vt-1");
-    fireEvent.click(within(row).getByTestId("admin-agent-row-agent-vt-1-edit"));
-
-    // 复用的是既有 `CapabilityEditForm`：字段与保存按钮 testid 与列表视图完全一致。
-    expect(screen.getByTestId("admin-agent-row-agent-vt-1-name")).toBeInTheDocument();
-    expect(screen.getByTestId("admin-agent-row-agent-vt-1-save")).toBeInTheDocument();
+    // 人类反馈（2026-08-17）：「编辑」现在是一条指向独立页面的链接，不再是
+    // 内联展开——断言的是 href，不是点击后本页出现表单字段。
+    const link = within(row).getByTestId("admin-agent-row-agent-vt-1-edit");
+    expect(link.getAttribute("href")).toBe("/admin/agent/agent-vt-1");
   });
 });

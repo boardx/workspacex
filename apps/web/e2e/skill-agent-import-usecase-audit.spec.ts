@@ -121,11 +121,12 @@ test("② 文件浏览器 + code editor：能看到 GitHub 导入的完整目录
   const importedName = FULLSTACK_E2E.skillName + "_GITHUB_IMPORT";
   await expect(page.getByText(importedName).first()).toBeVisible({ timeout: 15_000 });
   const row = page.locator('[data-testid^="admin-skill-row-"]').filter({ hasText: importedName });
-  await row.getByRole("button", { name: "编辑" }).click();
-
-  const toggle = row.locator('[data-testid$="-content-toggle"]');
-  await toggle.click();
-  const editor = row.locator('[data-testid$="-content-editor"]');
+  // 人类反馈（2026-08-17）：「编辑」现在打开独立页面，不再是本页内联展开——
+  // 点击后等新页面加载完，内容面板直接可见（不再需要"查看/编辑源码"这一次额外点击，
+  // 那个折叠开关随整页跳转一起删掉了）。
+  await row.getByRole("link", { name: "编辑" }).click();
+  await expect(page.getByTestId("admin-skill-edit-page")).toBeVisible();
+  const editor = page.locator('[data-testid$="-content-editor"]');
   await expect(editor).toBeVisible();
 
   // 真实数据态徽标——不是"预览态 mock"。
@@ -239,13 +240,16 @@ test("③ 在后台对刚导入的 skill 发起一次真实试跑，产出真实
   const importedName = FULLSTACK_E2E.skillName + "_GITHUB_IMPORT";
   await expect(page.getByText(importedName).first()).toBeVisible({ timeout: 15_000 });
   const row = page.locator('[data-testid^="admin-skill-row-"]').filter({ hasText: importedName });
-  await row.getByRole("button", { name: "编辑" }).click();
-  await row.locator('[data-testid$="-content-toggle"]').click();
-  const editor = row.locator('[data-testid$="-content-editor"]');
+  // 人类反馈（2026-08-17）：「编辑」现在打开独立页面；试跑此前是一个"展开/收起"
+  // 开关，现在改成与"代码"互斥的 tab（`-editortab-trialrun`），点它就切过去，
+  // 不再需要先点开内容面板的折叠开关（那个开关已随整页跳转删掉）。
+  await row.getByRole("link", { name: "编辑" }).click();
+  await expect(page.getByTestId("admin-skill-edit-page")).toBeVisible();
+  const editor = page.locator('[data-testid$="-content-editor"]');
 
-  const tryRunButton = editor.locator('[data-testid$="-tryrun"]');
-  await expect(tryRunButton).toBeEnabled();
-  await tryRunButton.click();
+  const tryRunTab = editor.locator('[data-testid$="-editortab-trialrun"]');
+  await expect(tryRunTab).toBeEnabled();
+  await tryRunTab.click();
 
   const panel = editor.locator('[data-testid$="-trialrun-panel"]');
   await expect(panel).toBeVisible();

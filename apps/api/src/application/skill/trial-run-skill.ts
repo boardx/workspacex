@@ -50,6 +50,26 @@ import { ModelCallError } from "../agent-run/ports";
 
 export type TrialRunSkillFailureCode = "MODEL_UNAVAILABLE" | "DEPENDENCY_UNAVAILABLE";
 
+/**
+ * 人类反馈（2026-08-17）：devapp 上试跑报 `MODEL_UNAVAILABLE`——三个改进方案里选的是
+ * 「自愈式回退」而不是「再要求一个新的部署配置」，见
+ * `infrastructure/skill/pg-org-agent-model-reader.ts` 头注的完整推理。
+ * 端口放在这里（不是那个 infra 文件里）是洋葱依赖方向的硬约束：
+ * `interface/` 不许直接 import `infrastructure/`（`lint-arch-deps`），
+ * controller 只认这个应用层类型，DI 由 `kernel.module.ts` 接上具体实现。
+ */
+export interface OrgAgentModel {
+  readonly provider: string;
+  readonly modelId: string;
+}
+
+export interface OrgAgentModelReader {
+  /** 该组织任意一个已发布 agent 的模型，取最近发布的那个；没有已发布 agent 则 `null`。 */
+  findAnyPublished(orgId: string): Promise<OrgAgentModel | null>;
+}
+
+export const ORG_AGENT_MODEL_READER = Symbol("OrgAgentModelReader");
+
 export class TrialRunSkillError extends Error {
   constructor(readonly code: TrialRunSkillFailureCode) {
     super(code);
@@ -79,8 +99,15 @@ export interface TrialRunSkillDeps {
   readonly identities: IdentityRepository;
   readonly runs: Pick<AgentRunStore, "readPinnedSkills">;
   readonly model: ModelCallPort;
+  /** 静态兜底（`KERNEL_SKILL_TRIALRUN_MODEL_ID`）——只在 `orgAgentModel` 查不到时才用。 */
   readonly modelProvider: string;
   readonly modelId: string;
+  /**
+   * 自愈式回退的读口：该组织任意一个已发布 agent 正在用的模型。**可选**——不传
+   * 时行为与这条回退加入之前逐字节相同（只用 `modelProvider`/`modelId` 静态配置）。
+   * 见本文件下方 `OrgAgentModelReader` 头注的完整推理。
+   */
+  readonly orgAgentModel?: OrgAgentModelReader;
   readonly log: (message: string, detail: Record<string, unknown>) => void;
   readonly now?: () => number;
   /** 测试注入可预期的 id；生产由调用方接 uuid。 */
@@ -100,12 +127,20 @@ export async function trialRunSkill(
   if (!membership) throw new TrialRunSkillError("DEPENDENCY_UNAVAILABLE");
 
   /**
-   * 没配 `KERNEL_SKILL_TRIALRUN_MODEL_ID` 时诚实报 `MODEL_UNAVAILABLE`，不是让
-   * 进程启动失败——与 `ConfiguredModelProvider` 对未配置 provider 的处理同一条
-   * 纪律（call-time 失败，不是 boot-time 崩溃）。这条部署没配这个变量 ⇒ 试跑这一个
-   * 能力不可用，其余所有既有能力（含模型 A 的导入/编辑/挂载）一个字节都不受影响。
+   * 人类反馈（2026-08-17）：devapp 上试跑报 `MODEL_UNAVAILABLE`——不是代码 bug，
+   * 是这条部署没配 `KERNEL_SKILL_TRIALRUN_MODEL_ID`。自愈式回退：先问这个组织
+   * **已经证明能打通**的模型（`orgAgentModel`，见其头注），查不到（没有已发布
+   * agent，或没注入这个可选依赖）才退回静态配置；两者都没有才诚实报
+   * `MODEL_UNAVAILABLE`——不是让进程启动失败，与 `ConfiguredModelProvider`
+   * 对未配置 provider 的处理同一条纪律（call-time 失败，不是 boot-time 崩溃）。
+   *
+   * ⚠ 这次读发生在授权判定**之后**——`orgAgentModel` 读的是 `input.orgId`
+   *   这个已经通过成员资格校验的组织，不是调用方随便声称的值。
    */
-  if (deps.modelId === "") throw new TrialRunSkillError("MODEL_UNAVAILABLE");
+  const orgModel = await deps.orgAgentModel?.findAnyPublished(input.orgId) ?? null;
+  const modelProvider = orgModel?.provider ?? deps.modelProvider;
+  const modelId = orgModel?.modelId ?? deps.modelId;
+  if (modelId === "") throw new TrialRunSkillError("MODEL_UNAVAILABLE");
 
   const skills = await deps.runs.readPinnedSkills(input.orgId, [input.versionId]);
   if (skills.length !== 1) {
@@ -118,8 +153,8 @@ export async function trialRunSkill(
   let completion: { readonly text: string; readonly tokens?: number };
   try {
     completion = await deps.model.complete({
-      modelProvider: deps.modelProvider,
-      modelId: deps.modelId,
+      modelProvider,
+      modelId,
       system,
       user: input.sampleInput,
       // 试跑没有线程（同 `trialRunAgent`：「试跑 ≠ 私聊」），没有历史可拼。
@@ -129,8 +164,8 @@ export async function trialRunSkill(
     const detail = e instanceof ModelCallError ? e.detail : "unexpected model call failure";
     deps.log("skill trial run model call failed", {
       versionId: input.versionId,
-      modelProvider: deps.modelProvider,
-      modelId: deps.modelId,
+      modelProvider,
+      modelId,
       code: e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED",
       detail,
     });
