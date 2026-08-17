@@ -1125,6 +1125,29 @@ export const operations = {
     ] as const,
   },
 
+  /**
+   * 读观察/访谈对象表当前值（F960，2026-08-17 delta，同 T13 一类缺口的收口）。
+   *
+   * `updateInterviewSubjects` 此前只有 PUT、没有配套的 GET——调用方拿不到合法的首个
+   * `expectedRevision`，同 T13 描述的「只签了写入端点、没签配套读端点」是同一种缺口形状
+   * （F950/2026-08-16 delta 对 `saveAndSyncTopic`/`updateGrouping` 已经补过一次，本次是
+   * 同一条已获人类授权的裁决类别在 `updateInterviewSubjects` 上的延伸，不是新征询）。
+   *
+   * `subjects` 为空数组 = 这一组还没有人填过访谈对象，是真实空态，不是失败。
+   */
+  getInterviewSubjects: {
+    method: "GET",
+    path: "/projects/:projectId/groups/:groupId/interview-subjects",
+    in: z.object({ projectId: z.string(), groupId: z.string() }).strict(),
+    out: z
+      .object({
+        subjects: z.array(InterviewSubject),
+        revision: z.string(),
+      })
+      .strict(),
+    err: ["NO_PROJECT_ROLE", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
   /** 读工作流编排（环节链 + 矩阵） */
   getWorkflowOrchestration: {
     method: "GET",

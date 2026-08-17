@@ -6,6 +6,7 @@ import { PROJECT_ROLE_LABEL, PROJECT_ROLES } from "@/lib/identity";
 import { UI_STATES, UI_STATE_LABEL, type UiState } from "@/lib/ui-state";
 import { Button } from "@/components/ui/button";
 import { CANVAS_SCREENS, type CanvasScreen } from "@/lib/canvas-screens";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { TemplateAdmin } from "./template-admin";
 import { TemplateEditor } from "./template-editor";
 import { SegmentBinding } from "./segment-binding";
@@ -23,6 +24,16 @@ import { CanvasRightPanel } from "./canvas-right-panel";
  * 都用既有 AppShell / 既有画布组件，不另起一套。
  *
  * ⚠ 视角切换是**预览手段，不是权限实现**：真实权限在服务端（NestJS Guard + RLS）。
+ *
+ * ## `template-admin` 屏的左栏：D-43 已被人类推翻（2026-08-17）
+ *
+ * D-43（2026-08-15）当时把这一屏从「后台通用外壳 + `AdminNav` 侧栏」摘出来做成
+ * 独立整页，人类原话「画布模板……右边的列表，应该和打开模板和编辑器的界面整合，
+ * 合并成一个」。2026-08-17 人类看到部署后的真实截图后明确要求把左侧后台菜单
+ * 加回来——这条裁决因此被**推翻**，不是当年的判断有误，是产品要求变了。
+ * `AdminNav` 只挂在 `template-admin` 屏（后台「画布模板」菜单项唯一指向这里），
+ * 其余五屏不挂，理由与当年 `isEditor` 判断同型：不同屏各自的导航需求不同，
+ * 不该共用同一份「有没有左栏」的开关。
  */
 export function CanvasHub({
   previewRole, uiState, screen, initialConflict,
@@ -32,13 +43,18 @@ export function CanvasHub({
   screen: CanvasScreen;
   initialConflict: boolean;
 }) {
-  // 编辑器屏用画布三区左右栏；其余屏是全宽单栏（各自内部布局）
+  // 编辑器屏用画布三区左右栏；模板库屏用后台通用侧栏；其余屏是全宽单栏（各自内部布局）
   const isEditor = screen === "editor";
+  const isTemplateAdmin = screen === "template-admin";
 
   return (
     <AppShell
       previewRole={previewRole}
-      left={isEditor ? <CanvasLeftPanel /> : undefined}
+      left={
+        isEditor ? <CanvasLeftPanel />
+        : isTemplateAdmin ? <AdminNav active="canvasadmin" />
+        : undefined
+      }
       right={isEditor ? <CanvasRightPanel /> : undefined}
     >
       <div className="flex h-full flex-col">

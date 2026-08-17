@@ -92,3 +92,7 @@ test-results/
 *.p12
 *.pfx
 .harness/state/DASHBOARD.md
+apps/deep-agent-service/__pycache__/
+apps/deep-agent-service/**/__pycache__/
+apps/deep-agent-service/.venv/
+apps/deep-agent-service/uv.lock.bak

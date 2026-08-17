@@ -131,7 +131,22 @@ phase: "01"
 #   notes②），未新增字段之外的界面元素；② 契约已签——仍只消费
 #   `updateDesignFacet`/`getBlueprintDesignFacets`；③ 零新增设计面。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-17（追加 **F960**，dev-project agent）——观察/访谈对象表（F25 已签的应用层
+#   编排）从「零 controller、零仓储」接上真实 Postgres，同 F950（2026-08-16，定题/分组
+#   接线）发现的同一种「静态痕迹 ≠ 动态事实」缺口。这一条**不是**零新增设计面的追加——
+#   如实记录为一条真实 delta：
+#     1. **UI 已签**：观察/访谈对象表六列的呈现早已在 `ui-preview/project-v2/
+#        uc-2-2-prep-*` 签过（proto-05，见 F25 原 notes），本次只是把已签 UI 需要的
+#        读写接上真实数据，未新增任何界面元素/交互语义。
+#     2. **契约已签的部分**：`updateInterviewSubjects`（PUT）逐字沿用已签形状，
+#        六列字段一个没多一个没少。
+#     3. **新增的部分**：契约新增 `getInterviewSubjects`（GET，读当前值 + revision）——
+#        同 F950 对 `saveAndSyncTopic`/`updateGrouping` 已获人类授权的同一条裁决类别
+#        （「只签了写入端点、没有配套读端点」是同一种缺口形状，`KNOWN_CONTRACT_GAPS.T13`
+#        早已点名过这类缺口）；这次是该已授权裁决类别在 `updateInterviewSubjects` 上的
+#        延伸应用，不是本次重新征询产生的新裁决，也不新增错误码/交互语义/界面。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F960]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
