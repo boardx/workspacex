@@ -1,0 +1,155 @@
+$ pnpm --filter web run typecheck
+[exit 0]
+
+> web@0.1.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panel-agenda/apps/web
+> tsc --noEmit
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panel-agenda/apps/web
+
+ ✓ tests/ui/blueprint-designer-page-live.test.tsx (14 tests) 159ms
+
+ Test Files  1 passed (1)
+      Tests  14 passed (14)
+   Start at  08:07:00
+   Duration  1.18s (transform 211ms, setup 80ms, collect 278ms, tests 159ms, environment 381ms, prepare 38ms)
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panel-agenda/apps/web
+
+ ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 351ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  08:07:01
+   Duration  938ms (transform 54ms, setup 49ms, collect 67ms, tests 351ms, environment 240ms, prepare 22ms)
+
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 1]
+
+> agentic-harness-template@ verify:quick /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panel-agenda
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=a83ff375230034a9b55ac4c24515e2a22acacd40（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_800f05c9b90bc21b5e90 inner_db=wsx_800f05c9b90bc21b5e90 outer_compose=wsx-800f05c9b90bc21b5e90 inner_compose=wsx-800f05c9b90bc21b5e90 status=matched
+[stack-admission] load1=2.25 cores=10 perCore=0.22 running=0/2
+[test-isolation] id=run-mswh4ywi-6e9b5497-800f05c9b90b db=wsx_800f05c9b90bc21b5e90 compose=wsx-800f05c9b90bc21b5e90 pg=23169 redis=28169
+• turbo 2.10.5
+
+   • Packages in scope: //, web
+   • Running typecheck, lint, test in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs 88ef6b4b6ea5b9d3
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/1a20b80d-cbef-4f62-b137-4b3b25f9b86d/scratchpad/wt-mindmap-keyboard/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+web:lint: cache miss, executing 7b4e029ff3c4ad22
+web:typecheck: cache miss, executing 3afffd0b781e75a8
+web:test: cache miss, executing dffc6b8ee70233bb
+web:lint: 
+web:lint: > web@0.1.0 lint /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panel-agenda/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+web:lint: 
+web:test: 
+web:test: > web@0.1.0 test /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panel-agenda/apps/web
+web:test: > vitest run
+web:test: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panel-agenda/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+web:test: 
+web:test:  RUN  v2.1.9 /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panel-agenda/apps/web
+web:test: 
+web:test:  ✓ tests/ui/personal-chat-screen.test.tsx (18 tests) 356ms
+web:test:  ✓ tests/ui/skill-catalog-live.test.tsx (12 tests) 374ms
+web:test:  ✓ tests/ui/blueprint-designer-page-live.test.tsx (14 tests) 501ms
+web:test:  ✓ tests/ui/canvas-template-live.test.tsx (24 tests) 808ms
+web:test:  ✓ tests/ui/interview-studio-home.test.tsx (15 tests) 1329ms
+web:test:  ✓ tests/ui/interview-setup-workflow.test.tsx (15 tests) 1339ms
+web:test:  ✓ tests/ui/guided-research-flow.test.tsx (24 tests) 1615ms
+web:test:  ✓ tests/session/session-provider.test.tsx (13 tests) 233ms
+web:test:  ✓ tests/ui/realtime-transcription-history.test.tsx (17 tests) 2200ms
+web:test:  ✓ tests/ui/capability-catalog-mutate.test.tsx (10 tests) 672ms
+web:test:  ✓ tests/ui/projects-screen-live.test.tsx (12 tests) 780ms
+web:test:  ✓ tests/ui/chat-roster-mutate.test.tsx (11 tests) 832ms
+web:test:  ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 840ms
+web:test:    ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 495ms
+web:test:  ✓ tests/ui/chat-live-message-panel-mic.test.tsx (9 tests) 365ms
+web:test:  ✓ tests/ui/survey-workflow-shell.test.tsx (25 tests) 1766ms
+web:test:  ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 737ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 306ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 364ms
+web:test:  ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 484ms
+web:test:  ✓ tests/ui/new-project-wizard.test.tsx (7 tests) 271ms
+web:test:  ✓ tests/ui/canvas-stage-mindmap-keyboard.test.tsx (4 tests) 710ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个非根节点后 Tab 加子节点，挂在被选中节点下 434ms
+web:test:  ✓ tests/ui/chat-composer-attachments.test.tsx (13 tests) 517ms
+web:test:  ✓ tests/ui/chat-thread-crud.test.tsx (8 tests) 476ms
+web:test:  ✓ tests/ui/org-switcher-real-names.test.tsx (3 tests) 272ms
+web:test:  ✓ tests/ui/files-browser.test.tsx (13 tests) 155ms
+web:test:  ✓ tests/ui/skill-starter-import.test.tsx (5 tests) 227ms
+web:test:  ✓ tests/ui/chat-read-screen.test.tsx (34 tests) 5248ms
+web:test:    ✓ formal Chat read path > reads list, detail, roster and the contract message page with the provider bearer 478ms
+web:test:    ✓ formal Chat read path > 推进到终态前持续轮询 AgentRun，状态取自服务端而不是本地推断 649ms
+web:test:    ✓ formal Chat read path > 渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要 371ms
+web:test:    ✓ formal Chat read path > 工具调用失败：如实显示失败状态与失败原因，不假装成功 430ms
+web:test:    ✓ formal Chat read path > 读不到 run 时报读取失败，而不是渲染一个猜出来的状态 319ms
+web:test:  ✓ tests/ui/admin-members-quota-live.test.tsx (8 tests) 262ms
+web:test:  ✓ tests/ui/blueprint-duration-form.test.tsx (19 tests) 566ms
+web:test:    ✓ 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 433ms
+web:test:  ✓ tests/ui/files-preview.test.tsx (12 tests) 87ms
+web:test:  ✓ tests/ui/files-ingestion-ladder.test.tsx (10 tests) 231ms
+web:lint: ✔ No ESLint warnings or errors
+web:test:  ✓ tests/ui/skill-url-import.test.tsx (5 tests) 183ms
+web:test:  ✓ tests/ui/files-version-derived.test.tsx (9 tests) 158ms
+web:test:  ✓ tests/ui/survey-resource-library.test.tsx (16 tests) 1080ms
+web:test:  ✓ tests/ui/research-detail-four-sections.test.tsx (15 tests) 328ms
+web:test:  ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 778ms
+web:test:  ✓ tests/ui/blueprint-list-screen-live.test.tsx (8 tests) 225ms
+web:test:  ✓ tests/ui/agent-self-publish-panel.test.tsx (5 tests) 178ms
+web:test:  ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 83ms
+web:test:  ✓ tests/ui/local-org-live.test.tsx (6 tests) 134ms
+web:test:  ✓ tests/ui/feedback-dialog.test.tsx (10 tests) 171ms
+web:lint: ✗ [U1.1] disabled:opacity-*（禁用态必须用 disabled:bg-disabled + disabled:text-disabled-foreground）
+web:lint:     components/tpl-designer/agenda-panel-editor.tsx:311:                          className="rounded border border-border px-1 text-11 disabled:opacity-30"
+web:lint:     components/tpl-designer/agenda-panel-editor.tsx:321:                          className="rounded border border-border px-1 text-11 disabled:opacity-30"
+web:test:  ✓ tests/ui/join-accidents-mic.test.tsx (9 tests) 101ms
+web:test:  ✓ tests/ui/skill-single-screen-nav.test.tsx (7 tests) 185ms
+web:lint: 
+web:lint: ❌ lint-design：2 处违规
+web:lint:    规范见 .harness/instructions/uiux-standards.md；对比度问题请改 app/globals.css 的 token。
+web:lint:  ELIFECYCLE  Command failed with exit code 1.
+web#lint:  ERROR  command (/private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/9f743ad9-88e5-47c5-8727-b57f25492d58/scratchpad/wt-panel-agenda/apps/web) /Users/shenyanbin/.nvm/versions/node/v22.23.1/bin/pnpm run lint exited (1)
+
+ Tasks:    2 successful, 4 total
+Cached:    1 cached, 4 total
+  Time:    12.242s 
+Failed:    web#lint
+
+ ERROR  run failed: command  exited (1)
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：0s
+  命令执行：12s
+  清理：0s
+  总计：13s
+ ELIFECYCLE  Command failed with exit code 1.
+
+[harness-verify v1 sha256=2572b1da607535e7b9f31ee23fb9a840a84e3af10e26cb831548f73d094c82e1 commit=826392e098374369692cdb295afebb5251e7be00 at=2026-08-17T00:07:16.142Z]

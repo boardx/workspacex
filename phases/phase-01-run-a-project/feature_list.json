@@ -4573,6 +4573,31 @@
       "priority": 2,
       "area": "project",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F202",
+      "title": "「流程 Agenda」结构化编辑面板（分组一第 2 项，取代通用自由文本框，收官分组一）",
+      "user_visible_behavior": "组织管理员点开蓝本设计器「流程 Agenda」项，看到真实可编辑的半场/环节结构：可增删半场，每个半场内可增删环节，每个环节可编辑名称/时长（分钟）/引导师职责/组长组员职责/是否可选，并可用上移下移按钮调整环节顺序。顶部显示真实的环节合计时长。编辑后即真实保存，刷新后半场/环节结构仍在。全部半场删空时视为「未填」，不占完成度。至此分组一（基本配置组的 4 项：主题与背景/流程Agenda/分组规则/角色与权限）全部拥有真实结构化面板。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F193",
+        "F194",
+        "F196"
+      ],
+      "points": 3,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "① 分组一收官增量，落地 design-deltas/blueprint-design-facet-panels/contract.md 的 AgendaContent 字段提议。存储形状不变（content: string 装 JSON），全空时序列化成空串，反序列化对坏数据容错——同 F194/F196 的做法。\n② 范围比 contract.md 完整提议窄，如实收紧：不做 canvasBinding/skillBinding 字段（需要从已存在的画布模板/Skill 清单选，接它们要先有选择器组件，留给 Agent 编排/Skill 绑定两项面板落地时一并考虑，不在本增量重复造一份）；不做 aiPacingSuggestions（AI 节奏校对建议，需要真实 AI 调用，contract.md 本身标注可选）；不做像素级拖拽手势（原型的拖拽排序用上移/下移按钮达到同等可排序效果，交互精修留后续增量）。\n③ 验证：新增 2 条组件测试（真实解析已存半场/环节结构渲染，含合计时长计算/新增半场+环节+编辑标题后保存成结构化 JSON），既有测试不受影响（flow-agenda 此前未被任何专属编辑器占用，e2e F193 用例改用 pre-tasks 作为通用编辑器验证 key）。共 34 条设计器测试全绿，无回归。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
     }
   ]
 }

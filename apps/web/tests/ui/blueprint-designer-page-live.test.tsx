@@ -362,6 +362,80 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     expect(parsed.scenarios[0]?.scenario).toBe("采购比选");
   });
 
+  it("流程 Agenda：结构化编辑器显示真实已存半场/环节结构（JSON 解析）", async () => {
+    const saved = {
+      halfDays: [
+        {
+          segments: [
+            { title: "开场破冰", duration: 20, facilitatorRole: "带领", groupRole: "参与", optional: false },
+            { title: "商业模式草稿", duration: 45, facilitatorRole: "", groupRole: "", optional: true },
+          ],
+        },
+      ],
+    };
+    fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "flow-agenda", content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    expect((await screen.findByTestId("bp-agenda-segment-title-0-0") as HTMLInputElement).value).toBe("开场破冰");
+    expect((screen.getByTestId("bp-agenda-segment-duration-0-0") as HTMLInputElement).value).toBe("20");
+    expect((screen.getByTestId("bp-agenda-segment-optional-0-1") as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByTestId("bp-agenda-total-minutes").textContent).toContain("65");
+  });
+
+  it("流程 Agenda：加半场加环节并编辑标题失焦，真实保存成结构化 JSON", async () => {
+    let putBody: { value: string; expectedItemRevision: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({ revision: "rev-1", designFacets: [] });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/flow-agenda` && init?.method === "PUT") {
+        putBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: `ir-${(putBody as { value: string }).value.length}`,
+          completed: true,
+          completeness: { done: 1, denominator: 15 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    await screen.findByTestId("bp-agenda-empty");
+    fireEvent.click(screen.getByTestId("bp-agenda-add-halfday"));
+    await waitFor(() => expect(putBody).not.toBeNull());
+
+    fireEvent.click(screen.getByTestId("bp-agenda-add-segment-0"));
+    const titleInput = await screen.findByTestId("bp-agenda-segment-title-0-0");
+    fireEvent.change(titleInput, { target: { value: "收敛环节" } });
+    fireEvent.blur(titleInput);
+
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { halfDays: { segments: { title: string }[] }[] };
+      expect(parsed.halfDays[0]?.segments[0]?.title).toBe("收敛环节");
+    });
+  });
+
   it("角色与权限：灰色格禁用点击不发请求，可勾选格点击真实保存", async () => {
     let putCount = 0;
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
