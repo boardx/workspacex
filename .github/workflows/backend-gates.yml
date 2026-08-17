@@ -100,12 +100,35 @@ jobs:
           node .harness/scripts/lint-contract-source.mjs
           node .harness/scripts/lint-arch-deps.mjs apps/api/src
 
+  # 2026-08-17：实测这个 job 中位数 17.2min（12 个真实 run 样本，min=13.8/max=18.5），
+  # 占 backend-gates 总时长（22m19s 那次实测）的 79%——是整条流水线唯一的瓶颈。
+  #
+  # 根因：apps/api/vitest.config.ts 的 maxWorkers=1（2026-08-12，#1068/#1090 续作）
+  # 强制 584 个测试文件在**同一个 job 里单进程串行**，是当时唯一能立刻堵住"同一
+  # postgres 实例被同一进程池打爆连接数"的办法。不能简单调大 maxWorkers 复现那次
+  # 事故——那个根因（ADR-106 批次二，卡在"先解决 DB 测试隔离粒度"前置条件）还没解。
+  #
+  # 这次拆的是 job 级并行，不是进程级：用 vitest 原生的 `--shard <i>/<n>` 把 584
+  # 个文件切成 4 份，每份进独立的 GitHub 托管 runner、起自己的 docker-compose
+  # postgres 容器（本来就是这么起的，只是现在 4 份各自起一份）。每个 job 内部
+  # 仍然是 maxWorkers=1——#1068/#1090 的根因（同一进程池打同一个库）在跨 job 的
+  # 独立容器场景里根本不存在，不需要先解决它。
+  #
+  # 分片探针（本地实测，`vitest list --shard=1/4` vs 不带 --shard）：1/4 分片拿到
+  # 1534/5362 条测试用例（约 28.6%，文件测试数不均匀，不是精确四等分，量级对得上）。
+  # 理论收益：17.2min → 约 4-5min，整条流水线大概率降到 10 分钟以内。
   gates-test:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 20
+    strategy:
+      fail-fast: false # 一片红不该掩盖其它片的结果——都跑完，一次性看全部真实失败
+      matrix:
+        shard: [1, 2, 3, 4]
     env:
-      WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_test
+      # 分片间必须各自独立的库名，同一 run_id 下 4 个 job 并发起，不加 shard 索引
+      # 会撞库名——`WORKSPACEX_DB` 是隔离边界，见 #538。
+      WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_test_${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -118,12 +141,13 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      # 先把容器拉起来，让镜像拉取有自己的一步、日志好读。
+      # 先把容器拉起来，让镜像拉取有自己的一步、日志好读。每个 shard 是独立
+      # runner，天然有自己的 docker daemon，容器之间不会互相干扰。
       - name: 起 postgres
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
 
-      - name: 单元与集成测试（含 RLS、两层交集、契约响应校验）
-        run: pnpm --filter api exec vitest run
+      - name: "单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard ${{ matrix.shard }}/4"
+        run: pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/4
 
       - name: 清掉本次运行的数据库
         if: always()
