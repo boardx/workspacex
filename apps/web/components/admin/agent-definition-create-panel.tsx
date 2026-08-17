@@ -17,7 +17,6 @@
  * 留给后续把两者一起接的人。
  */
 import * as React from "react";
-import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -48,8 +47,13 @@ function describeError(error: unknown): string {
   return "未知错误";
 }
 
+/**
+ * 人类反馈（2026-08-17）：Agent 的新建/导入不能摆在主界面顶部——要跟 Skill 一样
+ * 收进一个弹层。本组件因此不再自己维护"折叠/展开"状态（`open`），那由外层的
+ * `Modal`（`agent-screen.tsx`）负责；本组件只管"表单 → 提交 → 建成后发布"这条
+ * 内容本身，与是否可见无关。
+ */
 export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
-  const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [initials, setInitials] = React.useState("");
   const [role, setRole] = React.useState("");
@@ -108,7 +112,6 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
       setCreated(result);
       setPublished(false);
       setPublishError(null);
-      setOpen(false);
       reset();
     } catch (e) {
       setError(describeError(e));
@@ -141,62 +144,51 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
     }
   };
 
-  if (!open) {
-    return (
-      <div className="flex flex-col items-end gap-2">
+  /*
+   * 建成之后：不再收进"折叠态"，而是就地展示"已建成/已发布"通知——外层 Modal
+   * 仍然开着（由 `agent-screen.tsx` 控制关闭），用户看得到结果、也能立刻点发布，
+   * 或者接着往下滚看到表单再建一个。
+   */
+  const createdNotice = created ? (
+    <div className="flex flex-col items-start gap-1.5 rounded-md border border-border bg-muted/40 p-3">
+      <p data-testid={`${prefix}-add-notice`} className="text-12 text-muted-foreground">
+        {published
+          ? `已发布 agent ${created.agentId}（运行中）。现在可以在会话的 agent 下拉里选中它并发消息。`
+          : `已建成草稿 agent ${created.agentId}（${created.publishState}）。草稿发不出消息——需要发布之后才能在会话里选用。`}
+        {" "}
+        本屏当前没有把它列出来的读路径——`listAgents` 尚未挂线（#617 范围之外）。
+      </p>
+      {published ? null : (
         <Button
           size="sm"
-          variant="outline"
-          onClick={() => {
-            setCreated(null);
-            setOpen(true);
-          }}
-          data-testid={`${prefix}-add`}
+          onClick={() => void publish(created.agentId)}
+          disabled={publishing}
+          data-testid={`${prefix}-publish`}
         >
-          <Plus aria-hidden className="h-3.5 w-3.5" />
-          新建 Agent
+          {publishing ? "发布中…" : "发布"}
         </Button>
-        {created ? (
-          <div className="flex flex-col items-end gap-1.5">
-            <p data-testid={`${prefix}-add-notice`} className="text-12 text-muted-foreground">
-              {published
-                ? `已发布 agent ${created.agentId}（运行中）。现在可以在会话的 agent 下拉里选中它并发消息。`
-                : `已建成草稿 agent ${created.agentId}（${created.publishState}）。草稿发不出消息——需要发布之后才能在会话里选用。`}
-              {" "}
-              本屏当前没有把它列出来的读路径——`listAgents` 尚未挂线（#617 范围之外）。
-            </p>
-            {published ? null : (
-              <Button
-                size="sm"
-                onClick={() => void publish(created.agentId)}
-                disabled={publishing}
-                data-testid={`${prefix}-publish`}
-              >
-                {publishing ? "发布中…" : "发布"}
-              </Button>
-            )}
-            {publishError ? (
-              <p data-testid={`${prefix}-publish-error`} className="text-12 text-destructive">
-                {publishError}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    );
-  }
+      )}
+      {publishError ? (
+        <p data-testid={`${prefix}-publish-error`} className="text-12 text-destructive">
+          {publishError}
+        </p>
+      ) : null}
+    </div>
+  ) : null;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>新建 Agent</CardTitle>
-        <CardDescription>
-          从零新建一个 agent 定义，落草稿态。工具白名单恒为空（复制不继承权限的同一条规则也适用于&ldquo;从零新建&rdquo;）。
-          填好&ldquo;执行什么&rdquo;后可直接&ldquo;发布&rdquo;——一个不带任何工具的 agent 没有可被评审的权限面；
-          之后若要给它配工具，就必须走完整的双人评审。
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
+      {createdNotice}
+      <Card>
+        <CardHeader>
+          <CardTitle>新建 Agent</CardTitle>
+          <CardDescription>
+            从零新建一个 agent 定义，落草稿态。工具白名单恒为空（复制不继承权限的同一条规则也适用于&ldquo;从零新建&rdquo;）。
+            填好&ldquo;执行什么&rdquo;后可直接&ldquo;发布&rdquo;——一个不带任何工具的 agent 没有可被评审的权限面；
+            之后若要给它配工具，就必须走完整的双人评审。
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-12">
             <span>名称</span>
@@ -267,20 +259,18 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => {
-              setOpen(false);
-              reset();
-            }}
+            onClick={() => reset()}
             disabled={busy}
             data-testid={`${prefix}-add-cancel`}
           >
-            取消
+            重置
           </Button>
           <Button size="sm" onClick={() => void submit()} disabled={busy} data-testid={`${prefix}-add-submit`}>
             {busy ? "创建中…" : "创建"}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
