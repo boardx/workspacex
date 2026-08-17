@@ -506,24 +506,77 @@ export function ChatLiveMessagePanel({
    */
   const [mention, setMention] = React.useState<{ start: number; query: string } | null>(null);
 
-  const recomputeMention = (value: string, caret: number | null) => {
+  /**
+   * `@` mention（引用本线程已上传过的文件）的检测状态，形状与 `#` 那套完全对称，
+   * 但**不需要任何后端调用**——不像 `#` 要真的调 `mountSkills`，`@` 选中后只是把
+   * 文件名当纯文本插进正文。之所以这样就够：F155 file-retrieval 的
+   * `search_tsv`（`chat_message_attachments` 表，见
+   * `20260814120000_f155_file_retrieval_fts.sql:36-38`）本来就是
+   * `to_tsvector(filename || ' ' || extracted_excerpt)`——文件名已经是被检索的
+   * 一部分。正文里出现文件名，run 时的 L3 检索自然会把这份文件的内容召回进
+   * 上下文，不需要新的 `attachmentIds` 语义或新契约面（`attachmentIds` 现有的
+   * `ATTACHMENT_NOT_PENDING` 校验本就不允许一个附件被两条消息共享/重复引用，
+   * 见 `packages/contracts/src/chat.ts:224-226`——`@` 刻意不碰这条路径）。
+   *
+   * 候选列表来自**当前已加载**的历史消息（`messages` state 里每条的
+   * `attachments`），按文件名去重；不是全线程的权威清单——足够早的附件如果
+   * 还没翻页加载到，暂时搜不到，这是已知的第一版边界，不是 bug。
+   */
+  const [attachmentMention, setAttachmentMention] = React.useState<{ start: number; query: string } | null>(null);
+
+  const threadAttachmentOptions = React.useMemo(() => {
+    const byFilename = new Map<string, { id: string; filename: string }>();
+    for (const m of messages) {
+      for (const att of m.attachments ?? []) {
+        if (!byFilename.has(att.filename)) byFilename.set(att.filename, { id: att.id, filename: att.filename });
+      }
+    }
+    return Array.from(byFilename.values());
+  }, [messages]);
+
+  const visibleAttachmentOptions = attachmentMention
+    ? threadAttachmentOptions.filter((a) => a.filename.toLowerCase().includes(attachmentMention.query.toLowerCase()))
+    : [];
+
+  /**
+   * `#` 与 `@` 共用同一段正文、同一个光标，一次只能有一个处于「活跃」——
+   * 取光标前**更靠近**的那个触发字符（下标更大的那个）。互不冲突：正文里
+   * 同时存在 `#foo` 和 `@bar` 时，只有离光标更近的那一个会被认成当前 mention。
+   */
+  const recomputeMentions = (value: string, caret: number | null) => {
     if (caret === null) {
       setMention(null);
+      setAttachmentMention(null);
       return;
     }
     const upToCaret = value.slice(0, caret);
     const hashIndex = upToCaret.lastIndexOf("#");
-    if (hashIndex === -1) {
+    const atIndex = upToCaret.lastIndexOf("@");
+    if (hashIndex === -1 && atIndex === -1) {
       setMention(null);
+      setAttachmentMention(null);
       return;
     }
-    const between = upToCaret.slice(hashIndex + 1);
-    // `#` 后面一旦出现空白/换行，这次 mention 就结束了（比如打完 `#foo 然后` 那句话）。
-    if (/\s/.test(between)) {
+    if (hashIndex > atIndex) {
+      const between = upToCaret.slice(hashIndex + 1);
+      // 触发字符后面一旦出现空白/换行，这次 mention 就结束了（比如打完 `#foo 然后` 那句话）。
+      setMention(/\s/.test(between) ? null : { start: hashIndex, query: between });
+      setAttachmentMention(null);
+    } else {
+      const between = upToCaret.slice(atIndex + 1);
+      setAttachmentMention(/\s/.test(between) ? null : { start: atIndex, query: between });
       setMention(null);
-      return;
     }
-    setMention({ start: hashIndex, query: between });
+  };
+
+  const insertAttachmentMention = (filename: string) => {
+    if (!attachmentMention) return;
+    const nextText =
+      text.slice(0, attachmentMention.start) +
+      `@${filename} ` +
+      text.slice(attachmentMention.start + 1 + attachmentMention.query.length);
+    setAttachmentMention(null);
+    updateDraft({ text: nextText });
   };
 
   React.useEffect(() => {
@@ -1036,13 +1089,49 @@ export function ChatLiveMessagePanel({
             disabled={archived || submitting}
             onChange={(event) => {
               updateDraft({ text: event.target.value });
-              recomputeMention(event.target.value, event.target.selectionStart);
+              recomputeMentions(event.target.value, event.target.selectionStart);
             }}
             onKeyDown={handleComposerKeyDown}
-            onKeyUp={(event) => recomputeMention(event.currentTarget.value, event.currentTarget.selectionStart)}
-            onClick={(event) => recomputeMention(event.currentTarget.value, event.currentTarget.selectionStart)}
+            onKeyUp={(event) => recomputeMentions(event.currentTarget.value, event.currentTarget.selectionStart)}
+            onClick={(event) => recomputeMentions(event.currentTarget.value, event.currentTarget.selectionStart)}
             className="min-h-16 resize-none border-0 bg-transparent px-2.5 py-2 shadow-none focus-visible:ring-0"
           />
+          {/*
+            `@` 引用本线程已上传过的文件——纯前端下拉，选中即把文件名插进正文
+            （见上方状态注释）。没有匹配项时如实显示空态，不隐藏整个下拉——
+            用户需要知道"@ 打对了但这个词没匹配到"和"@ 还没打完"的区别。
+          */}
+          {attachmentMention ? (
+            <div
+              className="mx-1.5 mb-1 flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-card p-2"
+              data-testid="chat-attachment-mention-picker"
+            >
+              <span className="text-9 text-muted-foreground" data-testid="chat-attachment-mention-query">
+                @ {attachmentMention.query}
+              </span>
+              {threadAttachmentOptions.length === 0 ? (
+                <span className="text-11 text-muted-foreground" data-testid="chat-attachment-mention-pool-empty">
+                  这条线程还没有可引用的附件。
+                </span>
+              ) : visibleAttachmentOptions.length === 0 ? (
+                <span className="text-11 text-muted-foreground" data-testid="chat-attachment-mention-no-match">
+                  没有文件名含「{attachmentMention.query}」的附件。
+                </span>
+              ) : (
+                visibleAttachmentOptions.map((att) => (
+                  <button
+                    key={att.id}
+                    type="button"
+                    data-testid={`chat-attachment-mention-option-${att.id}`}
+                    onClick={() => insertAttachmentMention(att.filename)}
+                    className="rounded-full border border-border px-2 py-0.5 text-11 text-card-foreground transition-colors hover:bg-muted"
+                  >
+                    {att.filename}
+                  </button>
+                ))
+              )}
+            </div>
+          ) : null}
           {/*
             #728 —— 人类指示（Claude Code 参照）：加 skill / 选 Agent 都收进和麦克风
             同一行、靠左；发送按钮只留图标。默认要有一个 agent，不需要用户手动选——

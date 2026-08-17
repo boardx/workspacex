@@ -468,6 +468,15 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
   return agentRuntimeError.success ? { reasonCode: agentRuntimeError.data } : {};
 }
 
+function researchConflictDetailOf(exception: HttpException): { latestProjection?: unknown } {
+  const body = exception.getResponse();
+  if (typeof body !== "object" || body === null) return {};
+  const raw = body as { latestProjection?: unknown; reasonCode?: unknown };
+  if (raw.reasonCode !== "RESEARCH_GRAPH_VERSION_CONFLICT") return {};
+  const projection = research.GuidedResearchWorkflowProjection.safeParse(raw.latestProjection);
+  return projection.success ? { latestProjection: projection.data } : {};
+}
+
 /**
  * The SECOND and last piece of exception detail allowed through: an `ArtifactError` code and
  * the artifact it is about (F07 / E1).
@@ -556,6 +565,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
         ...permissionReasonOf(exception),
+        ...researchConflictDetailOf(exception),
         ...artifactErrorOf(exception),
         ...teamOccupancyOf(exception),
       });

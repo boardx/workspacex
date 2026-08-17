@@ -31,6 +31,7 @@
  *   形态 = 命令去掉**指向物**之后剩下的骨架。指向物 = 会随 feature 变化、
  *   且「不存在时应当让命令变红」的那个操作数：
  *     · vitest 命令 → 测试文件路径      形态键 `vitest-file:<pkg>`
+ *     · pytest 命令 → 测试文件路径      形态键 `pytest-file:<runner>`
  *     · grep 命令   → 被搜的模式        形态键 `grep`
  *     · 脚本类命令  → 脚本文件路径      形态键 `script-file:<解释器>`
  *     · pnpm run    → 脚本名            形态键 `pnpm-script`（见下方「为什么它没有动态探针」）
@@ -204,6 +205,23 @@ export function classify(cmd) {
       shape: `vitest-file:${pkg}`,
       probe: `pnpm --filter ${pkg} exec vitest run tests/${PROBE_TOKEN}.test.ts`,
       checks: [{ type: "package", pkg }, { type: "test-file", pkg, path: paths }],
+    };
+  }
+
+  // pytest：cd <python app> && pytest <path> [<path> …]
+  //      或 cd <python app> && uv run pytest <path> [<path> …]
+  // Python service 不在 pnpm workspace package 内，不能借 `--filter ... exec` 形态；
+  // 但它的失败传导路径同样可以实证：把测试文件路径换成一个必然不存在的文件，
+  // pytest/uv-run-pytest 必须非 0。登记这个形态是为了让 deep-agent-service 的
+  // completion contract 也接受「会红证明」，而不是被迫写一个假 wrapper。
+  m = /^cd\s+((?:apps|packages)\/\S+)\s+&&\s+((?:uv\s+run\s+)?pytest)\s+(\S+(?:\s+\S+)*)\s*$/.exec(c);
+  if (m) {
+    const [, cwd, runner, paths] = m;
+    const normalizedRunner = runner.replace(/\s+/g, "-");
+    return {
+      shape: `pytest-file:${normalizedRunner}`,
+      probe: `cd ${cwd} && ${runner} tests/${PROBE_TOKEN}.py`,
+      checks: [{ type: "path", path: cwd }, { type: "test-file", path: paths }],
     };
   }
 
