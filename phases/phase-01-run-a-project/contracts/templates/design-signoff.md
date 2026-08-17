@@ -109,7 +109,14 @@ phase: "01"
 #     3. **零新增设计面**：不新增契约操作、不新增字段、不新迁移——纯前端接线
 #        （同 F187/BP-06「读半边」的先例，这次补的是「写半边 + 路由框架」）。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-17（追加 **F194**，dev-chat-e2e agent）——F193 之后的第一个结构化面板增量，
+#   把「主题与背景」从通用自由文本框换成 `contract.md` 的 `ThemeContent` 结构化表单。
+#   三条件核对：① UI 已签——delta 已签核的 `ThemeContent` 字段提议本身就是这次表单
+#   的依据，未新增字段之外的界面元素；② 契约已签——仍只消费 `updateDesignFacet`/
+#   `getBlueprintDesignFacets`，`content: string` 形状不变（JSON 序列化在前端做）；
+#   ③ 零新增设计面——不新增契约操作/错误码/迁移，同 F193 的先例。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

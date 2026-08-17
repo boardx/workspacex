@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { DesignFacetCatalog } from "@/lib/generated/design-facet-catalog";
 import { FacetTextEditor, PermissionMatrixEditor, type FacetSaveFn } from "./facet-content-editor";
+import { TopicPanelEditor } from "./topic-panel-editor";
 
 /**
  * 蓝本设计器**外壳**（F18 / `uc-2-1` R3 §3.0 + R8）。
@@ -248,6 +249,13 @@ function FacetPanel({
       </div>
       {selectedKey === "roles-and-perms" ? (
         <PermissionMatrixEditor
+          designFacetKey={selectedKey}
+          content={content}
+          itemRevision={itemRevision}
+          onSave={onSaveFacet}
+        />
+      ) : selectedKey === "topic-and-background" ? (
+        <TopicPanelEditor
           designFacetKey={selectedKey}
           content={content}
           itemRevision={itemRevision}
