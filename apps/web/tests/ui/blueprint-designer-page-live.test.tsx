@@ -362,15 +362,11 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     expect(parsed.scenarios[0]?.scenario).toBe("采购比选");
   });
 
-  it("流程 Agenda：结构化编辑器显示真实已存半场/环节结构（JSON 解析）", async () => {
+  it("流程 Agenda：结构化编辑器显示真实已存环节清单（JSON 解析）", async () => {
     const saved = {
-      halfDays: [
-        {
-          segments: [
-            { title: "开场破冰", duration: 20, facilitatorRole: "带领", groupRole: "参与", optional: false },
-            { title: "商业模式草稿", duration: 45, facilitatorRole: "", groupRole: "", optional: true },
-          ],
-        },
+      segments: [
+        { no: "01", title: "开场破冰", min: 20, boardSkill: "—", optional: false },
+        { no: "02", title: "商业模式草稿", min: 45, boardSkill: "画布 business-model", optional: true },
       ],
     };
     fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -390,13 +386,15 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
     await screen.getByTestId("bp-designer-facet-flow-agenda").click();
-    expect((await screen.findByTestId("bp-agenda-segment-title-0-0") as HTMLInputElement).value).toBe("开场破冰");
-    expect((screen.getByTestId("bp-agenda-segment-duration-0-0") as HTMLInputElement).value).toBe("20");
-    expect((screen.getByTestId("bp-agenda-segment-optional-0-1") as HTMLInputElement).checked).toBe(true);
-    expect(screen.getByTestId("bp-agenda-total-minutes").textContent).toContain("65");
+    expect((await screen.findByTestId("bp-agenda-segment-title-0") as HTMLInputElement).value).toBe("开场破冰");
+    expect((screen.getByTestId("bp-agenda-segment-min-0") as HTMLInputElement).value).toBe("20");
+    expect((screen.getByTestId("bp-agenda-segment-optional-1") as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByTestId("bp-agenda-list").textContent).toContain("2");
+    expect(screen.getByTestId("bp-agenda-list").textContent).toContain("65");
+    expect(screen.getByTestId("bp-agenda-ai-rhythm").textContent).toContain("AI 已核对过节奏");
   });
 
-  it("流程 Agenda：加半场加环节并编辑标题失焦，真实保存成结构化 JSON", async () => {
+  it("流程 Agenda：加环节并编辑标题失焦，真实保存成结构化 JSON", async () => {
     let putBody: { value: string; expectedItemRevision: string } | null = null;
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
@@ -422,17 +420,14 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
 
     await screen.getByTestId("bp-designer-facet-flow-agenda").click();
     await screen.findByTestId("bp-agenda-empty");
-    fireEvent.click(screen.getByTestId("bp-agenda-add-halfday"));
-    await waitFor(() => expect(putBody).not.toBeNull());
-
-    fireEvent.click(screen.getByTestId("bp-agenda-add-segment-0"));
-    const titleInput = await screen.findByTestId("bp-agenda-segment-title-0-0");
+    fireEvent.click(screen.getByTestId("bp-agenda-add-segment"));
+    const titleInput = await screen.findByTestId("bp-agenda-segment-title-0");
     fireEvent.change(titleInput, { target: { value: "收敛环节" } });
     fireEvent.blur(titleInput);
 
     await waitFor(() => {
-      const parsed = JSON.parse(putBody!.value) as { halfDays: { segments: { title: string }[] }[] };
-      expect(parsed.halfDays[0]?.segments[0]?.title).toBe("收敛环节");
+      const parsed = JSON.parse(putBody!.value) as { segments: { title: string }[] };
+      expect(parsed.segments[0]?.title).toBe("收敛环节");
     });
   });
 
