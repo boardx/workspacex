@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -208,8 +207,11 @@ function ImportedAgentPanel({
   );
 }
 
+/**
+ * 人类反馈（2026-08-17）：与 `AgentDefinitionCreatePanel` 同一条纪律——本组件
+ * 不再自己维护"折叠/展开"状态，可见性交给外层 `Modal`（`agent-screen.tsx`）。
+ */
 export function AgentUrlImportPanel() {
-  const [open, setOpen] = React.useState(false);
   const [sourceUrl, setSourceUrl] = React.useState("");
   const [name, setName] = React.useState("");
   const [idempotencyKey, setIdempotencyKey] = React.useState<string | null>(null);
@@ -264,78 +266,64 @@ export function AgentUrlImportPanel() {
   return (
     <Card data-testid="agent-url-import-panel">
       <CardHeader className="pb-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            <CardTitle className="text-13">从 URL 导入 Agent</CardTitle>
-            <CardDescription className="text-11">
-              服务端会抓取该地址的内容作为这个 agent 的指令，落一个新草稿 agent；
-              出站地址受 SSRF 门限制，失败会如实告诉你原因。导入后可编辑指令、发布、试跑。
-            </CardDescription>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            data-testid="agent-url-import-open"
-            aria-expanded={open}
-            onClick={() => setOpen((v) => !v)}
-          >
-            <Link2 aria-hidden className="h-3.5 w-3.5" />
-            从 URL 导入
-          </Button>
+        <div className="flex flex-col gap-1">
+          <CardTitle className="text-13">从 URL 导入 Agent</CardTitle>
+          <CardDescription className="text-11">
+            服务端会抓取该地址的内容作为这个 agent 的指令，落一个新草稿 agent；
+            出站地址受 SSRF 门限制，失败会如实告诉你原因。导入后可编辑指令、发布、试跑。
+          </CardDescription>
         </div>
       </CardHeader>
-      {open ? (
-        <CardContent className="flex flex-col gap-2 pt-0">
-          <label className="text-10 text-muted-foreground" htmlFor="agent-url-import-url">
-            来源 URL（https，单个文件——不是目录）
-          </label>
-          <Input
-            id="agent-url-import-url"
-            data-testid="agent-url-import-url"
-            value={sourceUrl}
-            placeholder="https://example.com/some-agent.md"
-            onChange={(e) => changeField(setSourceUrl, e.target.value)}
-          />
-          <label className="text-10 text-muted-foreground" htmlFor="agent-url-import-name">
-            导入后的显示名
-          </label>
-          <Input
-            id="agent-url-import-name"
-            data-testid="agent-url-import-name"
-            value={name}
-            onChange={(e) => changeField(setName, e.target.value)}
-          />
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              data-testid="agent-url-import-confirm"
-              disabled={!canSubmit}
-              onClick={() => void submit()}
-            >
-              {submitting ? "导入中…" : "确认导入"}
-            </Button>
-          </div>
-          {result.status === "success" ? (
-            <>
-              <p data-testid="agent-url-import-result" className="text-12 text-success">
-                {result.replayed
-                  ? `这次是重放：该 idempotencyKey 之前已导入过，未重复落库（${result.agentId}）`
-                  : `已建成草稿 agent（${result.agentId}）`}
-              </p>
-              <ImportedAgentPanel
-                key={result.agentId}
-                agentId={result.agentId}
-                initialInstructions={result.instructions}
-              />
-            </>
-          ) : null}
-          {result.status === "error" ? (
-            <p data-testid="agent-url-import-result" className="text-12 text-destructive">
-              导入失败：{result.message}
+      <CardContent className="flex flex-col gap-2 pt-0">
+        <label className="text-10 text-muted-foreground" htmlFor="agent-url-import-url">
+          来源 URL（https，单个文件——不是目录）
+        </label>
+        <Input
+          id="agent-url-import-url"
+          data-testid="agent-url-import-url"
+          value={sourceUrl}
+          placeholder="https://example.com/some-agent.md"
+          onChange={(e) => changeField(setSourceUrl, e.target.value)}
+        />
+        <label className="text-10 text-muted-foreground" htmlFor="agent-url-import-name">
+          导入后的显示名
+        </label>
+        <Input
+          id="agent-url-import-name"
+          data-testid="agent-url-import-name"
+          value={name}
+          onChange={(e) => changeField(setName, e.target.value)}
+        />
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            data-testid="agent-url-import-confirm"
+            disabled={!canSubmit}
+            onClick={() => void submit()}
+          >
+            {submitting ? "导入中…" : "确认导入"}
+          </Button>
+        </div>
+        {result.status === "success" ? (
+          <>
+            <p data-testid="agent-url-import-result" className="text-12 text-success">
+              {result.replayed
+                ? `这次是重放：该 idempotencyKey 之前已导入过，未重复落库（${result.agentId}）`
+                : `已建成草稿 agent（${result.agentId}）`}
             </p>
-          ) : null}
-        </CardContent>
-      ) : null}
+            <ImportedAgentPanel
+              key={result.agentId}
+              agentId={result.agentId}
+              initialInstructions={result.instructions}
+            />
+          </>
+        ) : null}
+        {result.status === "error" ? (
+          <p data-testid="agent-url-import-result" className="text-12 text-destructive">
+            导入失败：{result.message}
+          </p>
+        ) : null}
+      </CardContent>
     </Card>
   );
 }
