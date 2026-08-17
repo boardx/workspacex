@@ -89,6 +89,12 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
   const [attachments, setAttachments] = React.useState<LiveAttachment[]>([]);
   const [banner, setBanner] = React.useState<BannerState | null>(null);
   const [dragActive, setDragActive] = React.useState(false);
+  // #1492：dragEnter/dragLeave 在挂到大面积容器（消息列表 + composer 整个面板）后，
+  // 鼠标每跨过一层子元素边界都会各触发一次 leave+enter——只用 dragOver/dragLeave
+  // 判断进出会在这些边界上频繁闪烁（active 撤销又立刻恢复）。标准解法是计数器：
+  // 每次 enter 计数 +1、leave 计数 -1，只有计数真正归零才算「离开了整个容器」，
+  // 因为对同一层级，enter/leave 总是成对出现，跨子元素的中间态会相互抵消。
+  const dragCounter = React.useRef(0);
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -178,9 +184,25 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
   }, []);
 
   const dragHandlers = React.useMemo(() => ({
-    onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragActive(true); },
-    onDragLeave: (e: React.DragEvent) => { e.preventDefault(); setDragActive(false); },
-    onDrop: (e: React.DragEvent) => { e.preventDefault(); setDragActive(false); pickFiles(e.dataTransfer.files); },
+    // dragOver 仍要 preventDefault——浏览器默认不让 drop，这是允许落区生效的必要条件
+    // （不用它来切 active，只用来"保持允许 drop"，避免每次 mousemove 都触发 setState）。
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); },
+    onDragEnter: (e: React.DragEvent) => {
+      e.preventDefault();
+      dragCounter.current += 1;
+      setDragActive(true);
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      e.preventDefault();
+      dragCounter.current = Math.max(0, dragCounter.current - 1);
+      if (dragCounter.current === 0) setDragActive(false);
+    },
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      dragCounter.current = 0;
+      setDragActive(false);
+      pickFiles(e.dataTransfer.files);
+    },
   }), [pickFiles]);
 
   /** 已上传附件的 serverId（发送时作为 attachmentIds）。 */
@@ -233,6 +255,31 @@ export function ChatAttachmentDropzone({ active }: { active: boolean }) {
         <UploadCloud aria-hidden className="h-6 w-6" />
         <span className="text-12 font-medium">松开即上传到这条消息</span>
         <span className="text-10 text-muted-foreground">
+          单个不超过 {formatBytes(MAX_FILE_BYTES)} · 最多 {MAX_ATTACHMENTS} 个 · 支持 {WHITELIST_LABELS}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * #1492 —— chat 主界面（消息列表 + composer 整个可视区）拖文件时的全屏悬浮层，
+ * 对标 Codex：不再局限于 composer 那个小盒子，是「文件上传按钮」的简化/加速版本，
+ * 不新增上传机制——松手仍走 `pickFiles`，文件仍落在 composer 下方的附件列表。
+ * `pointer-events-none`：悬浮层只是视觉提示，真正接住 dragOver/dragLeave/drop 的
+ * 是挂了 `dragHandlers` 的父容器，盖在上面的这层不能挡住那些事件继续冒泡。
+ */
+export function ChatFullSurfaceDropOverlay({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-2xl border-2 border-dashed border-primary bg-card/90 backdrop-blur-sm"
+      data-testid="chat-fullsurface-drop-overlay"
+    >
+      <div className="flex flex-col items-center gap-2 text-primary">
+        <UploadCloud aria-hidden className="h-8 w-8" />
+        <span className="text-14 font-medium">松开上传文件到这条消息</span>
+        <span className="text-11 text-muted-foreground">
           单个不超过 {formatBytes(MAX_FILE_BYTES)} · 最多 {MAX_ATTACHMENTS} 个 · 支持 {WHITELIST_LABELS}
         </span>
       </div>
