@@ -502,6 +502,11 @@ import {
   type BlueprintPersistencePort,
 } from "./application/templates/blueprint-persistence-ports";
 import { PgBlueprintRepository } from "./infrastructure/templates/pg-blueprint-repository";
+import {
+  INTERVIEW_SUBJECTS_REPOSITORY,
+  type InterviewSubjectsRepository,
+} from "./application/templates/interview-subjects-ports";
+import { PgInterviewSubjectsRepository } from "./infrastructure/templates/pg-interview-subjects-repository";
 // #548（模型池 A 组）：契约十条早已签核、domain + application 十四个文件都在，但
 // `infrastructure` 一个实现都没有（只有 F49 的 `PgAdmissionTestRepository` 现成），
 // 于是 interface 无从接线 —— 后果是**外部模型凭据没有任何合法入口**。
@@ -1371,6 +1376,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: BLUEPRINT_PERSISTENCE_PORT,
       useFactory: (db: DatabasePort): BlueprintPersistencePort =>
         new PgBlueprintRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F960（2026-08-17 delta）：观察/访谈对象表读写。同 F950 一批新仓储的先例，
+    // 与既有仓储没有共享读写路径。
+    {
+      provide: INTERVIEW_SUBJECTS_REPOSITORY,
+      useFactory: (db: DatabasePort): InterviewSubjectsRepository => new PgInterviewSubjectsRepository(db),
       inject: [DATABASE_PORT],
     },
     // #465: recording session lifecycle.

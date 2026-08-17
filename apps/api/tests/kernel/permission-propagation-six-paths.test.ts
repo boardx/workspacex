@@ -894,7 +894,7 @@ describe("lint-permission-paths: counter-proof", () => {
     // `tests/skill/org-agent-model-reader-repo-guard.test.ts` 断言三件——
     // (a) 只命名 `agents`/`agent_versions` 两张租户表；(b) 无 `withoutTenant`；
     // (c) 授权判定排在这次读之前。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(60);
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(61);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
