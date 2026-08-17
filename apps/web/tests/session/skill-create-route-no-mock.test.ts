@@ -53,15 +53,11 @@ const RESIDUAL_MOCK_EDGES: readonly string[] = [
   "components/skill/skill-temp-mount.tsx -> lib/mock/skill.ts",
   "components/skill/skill-tryrun.tsx -> lib/mock/skill.ts",
   "components/skill/skill-versioning.tsx -> lib/mock/skill.ts",
-  // 2026-08-11（菜单去重复查，人类直接裁决真合并）：`/skill` 新增 `catalog` 屏
-  // （原 `/admin/skill` 折进来的组织后台目录：名称/可见范围/归属团队编辑）经
-  // `skill-content-editor.tsx` → `ag-screens.tsx` 拉入了这条既存的边——`ag-screens.tsx`
-  // 本身早就靠一大批 `AG_*` 常量吃 `lib/mock/asset-governance.ts`（asset-governance 束
-  // 自己的既存债，不是本轮制造的），只是此前没有任何从 `skill-app.tsx` 出发的路径会走到它；
-  // 这次真合并让它进了这棵闭包。走的是**真实数据编辑**（`CapabilityCatalogScreen` 接
-  // `GET/POST /capabilities`），这条边纯属 `AgSkillEditor` 编辑器 UI 复用带来的传递依赖。
-  "components/asset-governance/ag-screens.tsx -> lib/mock/asset-governance.ts",
-  "components/asset-governance/ag-shared.tsx -> lib/mock/asset-governance.ts",
+  // 人类反馈（2026-08-17）：点击「编辑」现在打开独立页面（`/admin/skill/[id]`），
+  // `skill-content-editor.tsx`（挂 `AgSkillEditor`）随之搬出 `skill-app.tsx`，
+  // 这条边（曾经的 `ag-screens.tsx`/`ag-shared.tsx -> lib/mock/asset-governance.ts`）
+  // 因此从这棵闭包里消失——不是本轮刻意清理 `asset-governance` 束自己的债，只是
+  // `skill-app.tsx` 不再有路径走到它。清理一条边也要红一次，这条注释是那次清理的记录。
   // 2026-08-13（后台侧栏核对，人类拿两张后台原型截图核对）：`/skill` 加回后台
   // `AdminNav` 侧栏（与 `/admin/[module]` 那批屏一致），带进这三条既存的传递依赖。
   // `AdminNav` 本身接的是**真实**计数（`useLiveAdminNavCounts` → `GET /capabilities`

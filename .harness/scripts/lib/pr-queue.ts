@@ -153,6 +153,26 @@ export const REQUIRED_CHECKS = ["verify-control-plane", "verify-affected", "veri
  */
 export const APPROVE_CHECK_SUSPENDED = true;
 
+/**
+ * 2026-08-16（人类第三次裁决，同一天）：连"至少要有一个 review:* verdict
+ * label"这条也暂停——真实 PR #1467 因为这条被 merge-gate 判 FAIL，人类要求
+ * 放宽。同样是"只记录、不拦人"，不是删掉判断。
+ *
+ * ⚠ **只暂停"零个 label"这个子分支**，"label 不唯一/自相矛盾"（同时存在
+ * review:changes 与 review:feature-ok 一类）**继续拦人**——那不是"还没被
+ * review"，是数据本身自相矛盾，跟"暂停 approve 门槛"不是同一类问题，不能
+ * 顺带一起放过。
+ *
+ * 累计效果说明清楚：APPROVE_CHECK_SUSPENDED + 本常量都为 true 时，
+ * merge-gate.ts 实际只剩条件 1（body 必须含 `Closes #N`）在拦人——这是当前
+ * 对 #956 保留的唯一防线。pr-queue.ts 这边"没有 verdict label"原本只是
+ * WAITING_REVIEW（不是 MERGE_BLOCKED），暂停后变成不产生任何阻塞信号，
+ * 仅在 advisories 里如实记录。
+ *
+ * 恢复方式同 APPROVE_CHECK_SUSPENDED：task_3e1337b9 有结论后改这一行。
+ */
+export const VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED = true;
+
 export function isOkVerdict(label: string): boolean {
   return label === OK_VERDICT || label === E2E_OK_VERDICT;
 }
@@ -265,7 +285,12 @@ export function classifyPr(facts: PrFacts): PrClassification {
     );
   }
   if (okLabels.length === 0) {
-    waitingReview.push("还没有 `review:*-ok` verdict——按 SOP §3 路由调起必需 reviewer");
+    // VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED 时降级为 advisory，不再进
+    // waitingReview（见该常量定义处，2026-08-16 人类第三次裁决）。
+    const reason = "还没有 `review:*-ok` verdict——按 SOP §3 路由调起必需 reviewer";
+    (VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED ? advisories : waitingReview).push(
+      VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED ? `[已暂停，仅记录] ${reason}` : reason,
+    );
   } else if (!APPROVE_CHECK_SUSPENDED && currentShaApprovals.length === 0) {
     waitingReview.push(`需要针对当前 head \`${facts.headSha}\` 重新派 exact-SHA review`);
   }

@@ -609,7 +609,11 @@ function Editor({
    *   `agent` 这一档仍是 fixture（#787 未解决），两者点了都只会打到假数据或 404，
    *   按本仓「宁可显式禁用并说明，不放一个点了没反应/报假错的按钮」的纪律禁用。
    */
-  const [trialRunOpen, setTrialRunOpen] = React.useState(false);
+  /**
+   * 人类反馈（2026-08-17）：试跑面板与代码编辑区堆叠在一起，界面太挤——改成
+   * 「代码 / 试跑」两个互斥的 tab，同一屏只显示一个，不再上下堆叠滚动。
+   */
+  const [editorTab, setEditorTab] = React.useState<"code" | "trialrun">("code");
   const [trialRunInput, setTrialRunInput] = React.useState("");
   const [trialRunPending, setTrialRunPending] = React.useState(false);
   const [trialRunOutput, setTrialRunOutput] = React.useState<{ output: string; durationMs: number; tokens: number } | null>(null);
@@ -693,17 +697,6 @@ function Editor({
             ) : null}
           </div>
           <div className="flex items-center gap-1.5">
-            <Button
-              size="xs"
-              variant="outline"
-              className="gap-1"
-              data-testid={`ag-${kind}-tryrun`}
-              disabled={!trialRunAvailable}
-              title={trialRunAvailable ? undefined : "试跑需要真实数据态下的 skill（agent 与预览态 mock 暂不支持）"}
-              onClick={() => setTrialRunOpen((v) => !v)}
-            >
-              <Play aria-hidden className="h-3 w-3" /> 试跑
-            </Button>
             <DangerConfirm
               testid={`ag-${kind}-publish`}
               trigger="保存并发布"
@@ -730,7 +723,37 @@ function Editor({
           </div>
         </div>
 
-        {trialRunOpen && trialRunAvailable ? (
+        {/*
+          人类反馈（2026-08-17）：试跑面板与代码编辑区此前上下堆叠，界面太挤——
+          改成互斥的「代码 / 试跑」tab，同一屏只显示一个区块，不再靠滚动切换。
+        */}
+        <div className="flex items-center gap-1 border-b border-border" data-testid={`ag-${kind}-editor-tabs`}>
+          <Button
+            size="sm"
+            variant={editorTab === "code" ? "primary" : "ghost"}
+            onClick={() => setEditorTab("code")}
+            // ⚠ 不能叫 `ag-${kind}-editortab-code`——会撞上既有的 `[data-testid$="-code"]`
+            //   后缀选择器（那个选择器要找的是代码文本框本身，不是这颗 tab 按钮），
+            //   实测（真栈 e2e ②）：两者都以 "-code" 结尾时 Playwright 判定 strict mode
+            //   violation（同一个后缀选择器命中 2 个元素）。
+            data-testid={`ag-${kind}-editortab-content`}
+          >
+            代码
+          </Button>
+          <Button
+            size="sm"
+            variant={editorTab === "trialrun" ? "primary" : "ghost"}
+            className="gap-1"
+            disabled={!trialRunAvailable}
+            title={trialRunAvailable ? undefined : "试跑需要真实数据态下的 skill（agent 与预览态 mock 暂不支持）"}
+            onClick={() => setEditorTab("trialrun")}
+            data-testid={`ag-${kind}-editortab-trialrun`}
+          >
+            <Play aria-hidden className="h-3 w-3" /> 试跑
+          </Button>
+        </div>
+
+        {editorTab === "trialrun" && trialRunAvailable ? (
           <Panel testid={`ag-${kind}-trialrun-panel`} className="flex flex-col gap-2">
             <p className="text-11 text-muted-foreground">
               用一句样例输入真实调一次模型——system 是当前发布版本的 SKILL.md
@@ -767,67 +790,71 @@ function Editor({
           </Panel>
         ) : null}
 
-        <ScreenHead title={`${label} 编辑器`} uc={uc}>
-          左侧文件树就是发布出去的目录结构；右侧编辑 {sel}。
-        </ScreenHead>
+        {editorTab === "code" ? (
+          <>
+            <ScreenHead title={`${label} 编辑器`} uc={uc}>
+              左侧文件树就是发布出去的目录结构；右侧编辑 {sel}。
+            </ScreenHead>
 
-        <div className="flex items-center gap-2" data-testid={`ag-${kind}-data-source`}>
-          {isLive ? (
-            <Badge tone="primary" className="font-mono text-9">真实数据 · GetAssetDirectory</Badge>
-          ) : (
-            <Badge tone="outline" className="font-mono text-9">
-              {getStoredSessionToken() === null ? "预览态 mock · 未登录（/project/live 登录后自动切换真实接口）" : "预览态 mock"}
-            </Badge>
-          )}
-          {liveError && (
-            <span className="text-9 text-destructive" data-testid={`ag-${kind}-live-error`}>接口错误：{liveError}（已回退 mock）</span>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[200px_1fr]">
-          <Panel testid={`ag-${kind}-filepane`} className="h-fit">
-            <FileTree files={tree} selected={sel} onSelect={setSel} testidPrefix={`ag-${kind}`} />
-          </Panel>
-          <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex items-center gap-1">
-              <Button size="xs" variant={tab === "edit" ? "primary" : "ghost"} onClick={() => setTab("edit")} data-testid={`ag-${kind}-tab-edit`}>编辑</Button>
-              <Button size="xs" variant={tab === "preview" ? "primary" : "ghost"} onClick={() => setTab("preview")} data-testid={`ag-${kind}-tab-preview`}>预览</Button>
-              <span className="ml-auto font-mono text-9 text-muted-foreground">{main.footer}</span>
-            </div>
-            {isLive ? (
-              fileBusy ? (
-                <Panel testid={`ag-${kind}-code-loading`}>
-                  <p className="text-10 text-muted-foreground">读取中…</p>
-                </Panel>
+            <div className="flex items-center gap-2" data-testid={`ag-${kind}-data-source`}>
+              {isLive ? (
+                <Badge tone="primary" className="font-mono text-9">真实数据 · GetAssetDirectory</Badge>
               ) : (
-                tab === "edit" ? (
-                  /**
-                   * #881：真实数据态下这里是**可编辑**的。此前是只读 `CodeView`，
-                   * 配一个不接任何写路径的「保存并发布」按钮——按钮在说谎。
-                   */
-                  <textarea
-                    data-testid={`ag-${kind}-code`}
-                    className="min-h-[320px] w-full rounded-lg border border-border bg-card p-3 font-mono text-11 leading-relaxed text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={draft}
-                    spellCheck={false}
-                    onChange={(e) => setDraft(e.target.value)}
-                  />
-                ) : (
-                  <CodeView body={draft} testid={`ag-${kind}-code`} />
-                )
-              )
-            ) : sel === mockTree[0]!.path ? (
-              <CodeView body={main.body} testid={`ag-${kind}-code`} />
-            ) : (
-              <Panel testid={`ag-${kind}-otherfile`}>
-                <p className="font-mono text-11 text-muted-foreground">{sel}</p>
-                <p className="mt-1 text-10 text-muted-foreground">
-                  （原型态：仅根文件展示完整内容，其余文件在此以占位呈现，用于验证文件树导航与「目录即发布结构」的心智。）
-                </p>
+                <Badge tone="outline" className="font-mono text-9">
+                  {getStoredSessionToken() === null ? "预览态 mock · 未登录（/project/live 登录后自动切换真实接口）" : "预览态 mock"}
+                </Badge>
+              )}
+              {liveError && (
+                <span className="text-9 text-destructive" data-testid={`ag-${kind}-live-error`}>接口错误：{liveError}（已回退 mock）</span>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[200px_1fr]">
+              <Panel testid={`ag-${kind}-filepane`} className="h-fit">
+                <FileTree files={tree} selected={sel} onSelect={setSel} testidPrefix={`ag-${kind}`} />
               </Panel>
-            )}
-          </div>
-        </div>
+              <div className="flex min-w-0 flex-col gap-2">
+                <div className="flex items-center gap-1">
+                  <Button size="xs" variant={tab === "edit" ? "primary" : "ghost"} onClick={() => setTab("edit")} data-testid={`ag-${kind}-tab-edit`}>编辑</Button>
+                  <Button size="xs" variant={tab === "preview" ? "primary" : "ghost"} onClick={() => setTab("preview")} data-testid={`ag-${kind}-tab-preview`}>预览</Button>
+                  <span className="ml-auto font-mono text-9 text-muted-foreground">{main.footer}</span>
+                </div>
+                {isLive ? (
+                  fileBusy ? (
+                    <Panel testid={`ag-${kind}-code-loading`}>
+                      <p className="text-10 text-muted-foreground">读取中…</p>
+                    </Panel>
+                  ) : (
+                    tab === "edit" ? (
+                      /**
+                       * #881：真实数据态下这里是**可编辑**的。此前是只读 `CodeView`，
+                       * 配一个不接任何写路径的「保存并发布」按钮——按钮在说谎。
+                       */
+                      <textarea
+                        data-testid={`ag-${kind}-code`}
+                        className="min-h-[320px] w-full rounded-lg border border-border bg-card p-3 font-mono text-11 leading-relaxed text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        value={draft}
+                        spellCheck={false}
+                        onChange={(e) => setDraft(e.target.value)}
+                      />
+                    ) : (
+                      <CodeView body={draft} testid={`ag-${kind}-code`} />
+                    )
+                  )
+                ) : sel === mockTree[0]!.path ? (
+                  <CodeView body={main.body} testid={`ag-${kind}-code`} />
+                ) : (
+                  <Panel testid={`ag-${kind}-otherfile`}>
+                    <p className="font-mono text-11 text-muted-foreground">{sel}</p>
+                    <p className="mt-1 text-10 text-muted-foreground">
+                      （原型态：仅根文件展示完整内容，其余文件在此以占位呈现，用于验证文件树导航与「目录即发布结构」的心智。）
+                    </p>
+                  </Panel>
+                )}
+              </div>
+            </div>
+          </>
+        ) : null}
       </div>
     </Wrap>
   );

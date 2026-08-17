@@ -286,6 +286,8 @@ import { AgentRunController } from "./interface/controllers/agent-run.controller
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 import { SkillTrialRunController, SKILL_TRIALRUN_MODEL_ID } from "./interface/controllers/skill-trial-run.controller";
+import { ORG_AGENT_MODEL_READER } from "./application/skill/trial-run-skill";
+import { PgOrgAgentModelReader } from "./infrastructure/skill/pg-org-agent-model-reader";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
 import { AGENT_PUBLISH_REPOSITORY, AGENT_REVIEWER_FUNCTION_PORT } from "./application/agent/agent-publish";
@@ -1021,6 +1023,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         provider: readModelProviderConfig().provider,
         modelId: process.env.KERNEL_SKILL_TRIALRUN_MODEL_ID ?? "",
       }),
+    },
+    /**
+     * 人类反馈（2026-08-17）：devapp 上试跑报 `MODEL_UNAVAILABLE`——见
+     * `application/skill/trial-run-skill.ts` 里 `OrgAgentModelReader` 的头注。
+     * 自愈式回退：`SkillTrialRunController` 优先用这个组织已发布 agent 正在用的模型，
+     * 没有已发布 agent 才退回上面那条 `SKILL_TRIALRUN_MODEL_ID` 静态配置。
+     */
+    {
+      provide: ORG_AGENT_MODEL_READER,
+      useFactory: (db: DatabasePort) => new PgOrgAgentModelReader(db),
+      inject: [DATABASE_PORT],
     },
     {
       provide: AGENT_RUN_EXECUTOR,

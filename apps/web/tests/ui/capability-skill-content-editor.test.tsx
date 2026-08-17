@@ -1,25 +1,27 @@
 /**
- * #848 —— `/admin/skill` 的编辑入口原来只有「名称/可见范围/归属团队」三个字段，
- * 没有文件树 / 代码编辑。两栏「左文件树 + 右代码」的 `AgSkillEditor` 早就写好了
- * （`asset-governance/ag-screens.tsx`），但只挂在孤立的 `/asset-governance` 原型
- * 路由下，且一直用写死的示例 skill（`AG_SKILL_MAIN.slug`），不接调用方传入的
- * `assetId`。
+ * #848 —— skill 的编辑页面要有「左文件树 + 右代码」的内容面板，不能只有
+ * 「名称/可见范围/归属团队」三个字段。`AgSkillEditor`（`asset-governance/ag-screens.tsx`）
+ * 早就写好了，但只挂在孤立的 `/asset-governance` 原型路由下，一直用写死的示例 skill
+ * （`AG_SKILL_MAIN.slug`），不接调用方传入的 `assetId`。
+ *
+ * 人类反馈（2026-08-17）：点击「编辑」现在打开独立页面（`CapabilityEditPage`），
+ * 不再是列表页里内联展开——本文件因此改成直接渲染 `CapabilityEditPage`，
+ * 而不是经由 `SkillScreen`/`AgentScreen` 点一次「编辑」再点一次面板开关
+ * （那个开关已经随整页跳转一起删掉：一整页本来就是为了编辑这一个 skill，
+ * 没有理由默认收起它）。
  *
  * 本文件断言的是**接线**本身，不是 `AgSkillEditor` 内部的读写逻辑——那部分已经在
  * `apps/web/tests/ui/asset-file-edit-save.test.tsx` 覆盖过。这里要证明的是：
  *
- * ① `/admin/skill` 点「编辑」后能展开出内容面板，且面板对真实后端发起的是
- *    **这一行 skill 自己的** `assetId`（`row.id`），不是 `AgSkillEditor` 内部那个
- *    写死的示例 slug——这是本次改动唯一的行为变化点，也是最容易假成功的地方
+ * ① 编辑页对真实后端发起的是**这一行 skill 自己的** `assetId`（`row.id`），不是
+ *    `AgSkillEditor` 内部那个写死的示例 slug——这是最容易假成功的地方
  *    （如果没接对，`getAssetDirectory` 会打成 `"mece-decomposition"`）。
- * ② 面板默认收起，不在挂载时就发起网络请求——避免对着「用户可能根本不点开」的
- *    面板打真实接口。
- * ③ `kind === "agent"` 的编辑表单不出现这个面板——后端对 `agent` 仍是
+ * ② `kind === "agent"` 的编辑页不出现这个面板——后端对 `agent` 仍是
  *    `FixtureAssetFileRepository`（#787 未解决），接了会显示假数据。
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, cleanup, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, cleanup, waitFor } from "@testing-library/react";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-848", orgRole: "admin" }));
 
@@ -51,8 +53,8 @@ vi.mock("@/lib/api-client", async (importOriginal) => ({
   getStoredSessionToken,
 }));
 
-import { SkillScreen } from "@/components/admin/skill-screen";
-import { AgentScreen } from "@/components/admin/agent-screen";
+import { CapabilityEditPage } from "@/components/admin/capability-edit-page";
+import { SkillContentEditorSection } from "@/components/admin/skill-content-editor";
 
 const SKILL_ROW = {
   id: "sk_real_848",
@@ -90,27 +92,16 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
-describe("F848 · /admin/skill 编辑入口能展开出接真实后端的内容面板", () => {
-  it("点编辑 → 点「查看/编辑源码」之前：不发起任何目录请求（面板默认收起）", async () => {
+describe("F848 · 独立编辑页面接真实后端的内容面板", () => {
+  it("编辑页加载后：getAssetDirectory / readAssetFile 打的是这一行真实的 assetId（row.id），不是写死的示例 slug", async () => {
     listCapabilities.mockResolvedValue([SKILL_ROW]);
-    render(<SkillScreen state="default" />);
-
-    const row = await screen.findByTestId(`admin-skill-row-${SKILL_ROW.id}`);
-    fireEvent.click(within(row).getByTestId(`admin-skill-row-${SKILL_ROW.id}-edit`));
-
-    const toggle = await screen.findByTestId(`admin-skill-row-${SKILL_ROW.id}-content-toggle`);
-    expect(toggle.textContent).toContain("查看 / 编辑源码");
-    // 装置自检：面板还没展开，getAssetDirectory 一次都不该被调用。
-    expect(getAssetDirectory).toHaveBeenCalledTimes(0);
-  });
-
-  it("展开面板：getAssetDirectory / readAssetFile 打的是这一行真实的 assetId（row.id），不是写死的示例 slug", async () => {
-    listCapabilities.mockResolvedValue([SKILL_ROW]);
-    render(<SkillScreen state="default" />);
-
-    const row = await screen.findByTestId(`admin-skill-row-${SKILL_ROW.id}`);
-    fireEvent.click(within(row).getByTestId(`admin-skill-row-${SKILL_ROW.id}-edit`));
-    fireEvent.click(await screen.findByTestId(`admin-skill-row-${SKILL_ROW.id}-content-toggle`));
+    render(
+      <CapabilityEditPage
+        kind="skill"
+        id={SKILL_ROW.id}
+        renderEditExtra={(row) => <SkillContentEditorSection id={`admin-skill-row-${row.id}`} row={row} />}
+      />,
+    );
 
     await waitFor(() => expect(getAssetDirectory).toHaveBeenCalledTimes(1));
     expect(getAssetDirectory).toHaveBeenCalledWith("skill", SKILL_ROW.id);
@@ -124,11 +115,13 @@ describe("F848 · /admin/skill 编辑入口能展开出接真实后端的内容�
 
   it("改动内容并保存：writeAssetFile 带的是这一行真实的 assetId 与改后的正文", async () => {
     listCapabilities.mockResolvedValue([SKILL_ROW]);
-    render(<SkillScreen state="default" />);
-
-    const row = await screen.findByTestId(`admin-skill-row-${SKILL_ROW.id}`);
-    fireEvent.click(within(row).getByTestId(`admin-skill-row-${SKILL_ROW.id}-edit`));
-    fireEvent.click(await screen.findByTestId(`admin-skill-row-${SKILL_ROW.id}-content-toggle`));
+    render(
+      <CapabilityEditPage
+        kind="skill"
+        id={SKILL_ROW.id}
+        renderEditExtra={(row) => <SkillContentEditorSection id={`admin-skill-row-${row.id}`} row={row} />}
+      />,
+    );
 
     await waitFor(() => {
       const el = screen.getByTestId("ag-skill-code");
@@ -146,16 +139,13 @@ describe("F848 · /admin/skill 编辑入口能展开出接真实后端的内容�
     expect(writeAssetFile).toHaveBeenCalledWith("skill", SKILL_ROW.id, "SKILL.md", EDITED);
   });
 
-  it("kind === agent 的编辑表单不出现内容面板——后端对 agent 仍是 fixture，接了会显示假数据", async () => {
+  it("kind === agent 的编辑页不出现内容面板——后端对 agent 仍是 fixture，接了会显示假数据", async () => {
     listCapabilities.mockResolvedValue([AGENT_ROW]);
-    render(<AgentScreen state="default" />);
+    render(<CapabilityEditPage kind="agent" id={AGENT_ROW.id} />);
 
-    const row = await screen.findByTestId(`admin-agent-row-${AGENT_ROW.id}`);
-    fireEvent.click(within(row).getByTestId(`admin-agent-row-${AGENT_ROW.id}-edit`));
-
-    // 三字段表单本身还在（保存按钮存在），但没有内容面板的开关。
+    // 三字段表单本身还在（保存按钮存在），但没有内容面板。
     expect(await screen.findByTestId(`admin-agent-row-${AGENT_ROW.id}-save`)).toBeInTheDocument();
-    expect(screen.queryByTestId(`admin-agent-row-${AGENT_ROW.id}-content-toggle`)).toBeNull();
+    expect(screen.queryByTestId(`admin-agent-row-${AGENT_ROW.id}-content-editor`)).toBeNull();
     expect(getAssetDirectory).toHaveBeenCalledTimes(0);
   });
 });

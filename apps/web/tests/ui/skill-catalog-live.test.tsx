@@ -340,7 +340,7 @@ describe("#520 Skill 库屏接真实 API", () => {
    * `skill-catalog-live.tsx` 文件头长注。
    */
   describe("G2/G6：wave2（skills 表来源）行不再摆一个必 404 的「查看契约」", () => {
-    it("duty 命中标记的行显示「编辑源码」链接，目标是 ?screen=catalog&edit=<skillId>；普通行仍是「查看契约」", async () => {
+    it("duty 命中标记的行显示「编辑源码」链接，目标是独立编辑页 /admin/skill/<skillId>；普通行仍是「查看契约」", async () => {
       install(() =>
         jsonResponse({
           items: [
@@ -362,8 +362,8 @@ describe("#520 Skill 库屏接真实 API", () => {
       await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
 
       const editLink = screen.getByTestId("skill-catalog-edit-source") as HTMLAnchorElement;
-      expect(editLink.getAttribute("href")).toContain("screen=catalog");
-      expect(editLink.getAttribute("href")).toContain("edit=sk-wave2");
+      // 人类反馈（2026-08-17）：「编辑」现在打开独立页面，不再是同页 query 参数深链。
+      expect(editLink.getAttribute("href")).toBe("/admin/skill/sk-wave2");
 
       // 普通行（未命中标记）仍然是原来的「查看契约」按钮，两者只能各出现一次。
       expect(screen.getAllByTestId("skill-catalog-detail")).toHaveLength(1);
