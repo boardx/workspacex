@@ -53,6 +53,13 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const SOURCE_REL = "apps/api/src/domain/templates/design-facet-table.ts";
+// F201：`blueprint-designer-shell.tsx` 原本按 `selectedKey` 分派编辑器的 `? :` 链
+// 本身就是这个门控眼里的「第二张表」，把它收进一个 `Record` 后门控改盯着这一个新文件。
+// 这不是第二个「配置项定义表」（key/分组/分母的事实源仍只有 `SOURCE_REL` 一处）——
+// 这里存的是「哪个 designFacetKey 用哪个 React 组件渲染」，UI 路由决定，与领域层无关，
+// 两张表回答的是不同问题，是本仓「同一事实不得声明在两处」以外的一类合法并存。
+const REGISTRY_REL = "apps/web/components/tpl-designer/facet-editor-registry.ts";
+const SOURCE_RELS = [SOURCE_REL, REGISTRY_REL];
 
 /* -- 唯一事实源：从领域表里解析，不内嵌 ------------------------------------- */
 
@@ -160,7 +167,7 @@ for (const root of roots) {
      * 这件事——单源文件里最容易发生、后果最直接的那一种硬编码——门控完全看不见。
      * 反证时发现的：单元测试红了 2 条，门控 `violations=0`。
      */
-    const isSingleSource = rel === SOURCE_REL;
+    const isSingleSource = SOURCE_RELS.includes(rel);
     scanned++;
     const lines = readFileSync(file, "utf8").split("\n");
 

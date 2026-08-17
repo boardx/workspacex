@@ -3,9 +3,8 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { DesignFacetCatalog } from "@/lib/generated/design-facet-catalog";
-import { FacetTextEditor, PermissionMatrixEditor, type FacetSaveFn } from "./facet-content-editor";
-import { TopicPanelEditor } from "./topic-panel-editor";
-import { GroupingPanelEditor } from "./grouping-panel-editor";
+import type { FacetSaveFn } from "./facet-content-editor";
+import { getFacetEditor } from "./facet-editor-registry";
 
 /**
  * 蓝本设计器**外壳**（F18 / `uc-2-1` R3 §3.0 + R8）。
@@ -241,6 +240,7 @@ function FacetPanel({
   const content = facet?.content ?? "";
   // 哨兵 `''`：还没人填过这一项时，`expectedItemRevision` 传空串，同后端约定。
   const itemRevision = facet?.itemRevision ?? "";
+  const Editor = getFacetEditor(selectedKey);
 
   return (
     <div>
@@ -248,35 +248,7 @@ function FacetPanel({
         <h2 className="text-16 font-semibold">{item?.label ?? selectedKey}</h2>
         {item?.required ? <span className="text-11 text-destructive">必填</span> : null}
       </div>
-      {selectedKey === "roles-and-perms" ? (
-        <PermissionMatrixEditor
-          designFacetKey={selectedKey}
-          content={content}
-          itemRevision={itemRevision}
-          onSave={onSaveFacet}
-        />
-      ) : selectedKey === "topic-and-background" ? (
-        <TopicPanelEditor
-          designFacetKey={selectedKey}
-          content={content}
-          itemRevision={itemRevision}
-          onSave={onSaveFacet}
-        />
-      ) : selectedKey === "grouping-rule" ? (
-        <GroupingPanelEditor
-          designFacetKey={selectedKey}
-          content={content}
-          itemRevision={itemRevision}
-          onSave={onSaveFacet}
-        />
-      ) : (
-        <FacetTextEditor
-          designFacetKey={selectedKey}
-          content={content}
-          itemRevision={itemRevision}
-          onSave={onSaveFacet}
-        />
-      )}
+      <Editor designFacetKey={selectedKey} content={content} itemRevision={itemRevision} onSave={onSaveFacet} />
     </div>
   );
 }
