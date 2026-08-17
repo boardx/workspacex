@@ -327,7 +327,7 @@ describe("F195 Guided Research workflow API", () => {
     const replay = await fetch(url, { method: "POST", headers: auth(OWNER), body: JSON.stringify(payload) });
     expect(replay.status).toBe(201);
     expect(await replay.json()).toEqual(firstProjection);
-    expect(graphCommandCalls).toBe(2);
+    expect(graphCommandCalls).toBe(0);
     expect(modelCalls).toBe(1);
 
     const mismatch = await fetch(url, {
@@ -348,7 +348,7 @@ describe("F195 Guided Research workflow API", () => {
       reasonCode: "RESEARCH_GRAPH_VERSION_CONFLICT",
       latestProjection: { graphVersion: 2 },
     });
-    expect(graphCommandCalls).toBe(2);
+    expect(graphCommandCalls).toBe(0);
   });
 
   it("generates a structured outline after directions confirmation without replaying the model", async () => {
@@ -426,7 +426,7 @@ describe("F195 Guided Research workflow API", () => {
     expect(replay.status).toBe(201);
     expect(await replay.json()).toEqual(firstProjection);
     expect(modelCalls).toBe(2);
-    expect(graphCommandCalls).toBe(4);
+    expect(graphCommandCalls).toBe(0);
 
     const stale = await fetch(`${base}/research/guided-sessions/${session.sessionId}/workflow/nodes/directions`, {
       method: "POST",
@@ -439,7 +439,7 @@ describe("F195 Guided Research workflow API", () => {
       latestProjection: { graphVersion: 4 },
     });
     expect(modelCalls).toBe(2);
-    expect(graphCommandCalls).toBe(4);
+    expect(graphCommandCalls).toBe(0);
   });
 
   it("does not advance or fabricate outline state when the model returns no valid outline", async () => {
@@ -477,7 +477,7 @@ describe("F195 Guided Research workflow API", () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({ reasonCode: "RESEARCH_NODE_STATE_INVALID" });
     expect(modelCalls).toBe(2);
-    expect(graphCommandCalls).toBe(2);
+    expect(graphCommandCalls).toBe(0);
 
     const workflow = await fetch(`${base}/research/guided-sessions/${session.sessionId}/workflow`, {
       headers: auth(OWNER),

@@ -1,9 +1,16 @@
 import { createHash } from "node:crypto";
+import type { RunnableConfig } from "@langchain/core/runnables";
+import { type BaseCheckpointSaver } from "@langchain/langgraph";
 import { research as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { GuidedResearchSession } from "./guided-session-ports";
 import type { GuidedResearchNodeReceiptRepository } from "./guided-workflow-receipt-ports";
+import {
+  createGuidedResearchWorkflowGraph,
+  initialGuidedResearchGraphState,
+  type GuidedResearchGraphState,
+} from "./guided-research-workflow-graph";
 import {
   GuidedResearchDirectionGenerationError,
   type GuidedResearchDirectionGeneration,
@@ -41,55 +48,6 @@ function fingerprint(value: unknown): string {
   return createHash("sha256").update(stableJson(value)).digest("hex");
 }
 
-function nodeMeta(status: NodeMeta["status"], version = 0): NodeMeta {
-  return {
-    status,
-    version,
-    confirmedVersion: status === "confirmed" || status === "completed" ? version : null,
-    contentVersionId: null,
-    modelId: null,
-    modelInvocationId: null,
-    modelOutputSchemaVersion: null,
-    confirmedAt: null,
-    updatedAt: new Date().toISOString(),
-    errorCode: null,
-  };
-}
-
-function briefNodeState(session: GuidedResearchSession): z.infer<typeof C.BriefNodeInputState> {
-  return {
-    name: session.title,
-    tags: session.tags,
-    topic: session.brief.topic,
-    objective: session.brief.goal,
-    timeRange: session.brief.timeRange,
-    geography: session.brief.region,
-    focus: session.brief.focus,
-  };
-}
-
-function initialGraphState(session: GuidedResearchSession): Record<string, unknown> {
-  return {
-    sessionId: session.sessionId,
-    graphVersion: 0,
-    revision: 1,
-    currentNode: "directions",
-    availableNodes: ["brief", "directions"],
-    nodeStates: { brief: briefNodeState(session) },
-    nodeSummaries: {
-      brief: nodeMeta("confirmed", 1),
-      directions: nodeMeta("draft", 0),
-      outline: nodeMeta("locked", 0),
-      research: nodeMeta("locked", 0),
-      report: nodeMeta("locked", 0),
-    },
-    processedRequests: {},
-    pendingCommand: null,
-    routedNode: null,
-    lastRequestId: null,
-  };
-}
-
 function allowedActions(node: ResearchNode): z.infer<typeof C.ResearchNodeAction>[] {
   if (node === "brief") return ["save", "confirm"];
   if (node === "directions" || node === "outline") return ["save", "generate", "confirm", "reconfirm"];
@@ -97,11 +55,13 @@ function allowedActions(node: ResearchNode): z.infer<typeof C.ResearchNodeAction
   return ["save", "retry", "complete", "reconfirm"];
 }
 
-function project(values: Record<string, unknown>, _checkpointId: string | null): WorkflowProjection {
+function checkpointConfig(sessionId: string): RunnableConfig {
+  return { configurable: { thread_id: sessionId } };
+}
+
+function project(values: GuidedResearchGraphState, _checkpointId: string | null): WorkflowProjection {
   const currentNode = C.ResearchNode.parse(values.currentNode);
-  const nodeStates = values.nodeStates && typeof values.nodeStates === "object"
-    ? values.nodeStates as Record<string, unknown>
-    : {};
+  const nodeStates = values.nodeStates;
   const fallbackState = nodeStates[currentNode] ?? nodeStates.brief ?? {};
   return C.GuidedResearchWorkflowProjection.parse({
     sessionId: values.sessionId,
@@ -130,44 +90,36 @@ function project(values: Record<string, unknown>, _checkpointId: string | null):
 }
 
 export class GuidedResearchWorkflowService {
+  private readonly graph;
+
   constructor(
     private readonly receipts: GuidedResearchNodeReceiptRepository,
-    private readonly graphUrl = process.env.GUIDED_RESEARCH_GRAPH_URL,
+    private readonly checkpointer: BaseCheckpointSaver,
     private readonly directions?: GuidedResearchDirectionGenerator,
     private readonly outlines?: GuidedResearchOutlineGenerator,
-  ) {}
-
-  private requireGraphUrl(): string {
-    if (!this.graphUrl) throw new GuidedResearchWorkflowError("RESEARCH_WORKFLOW_UNAVAILABLE");
-    return this.graphUrl.replace(/\/+$/, "");
+  ) {
+    this.graph = createGuidedResearchWorkflowGraph({ checkpointer });
   }
 
-  private async graphJson(path: string, init?: RequestInit): Promise<unknown> {
-    const response = await fetch(`${this.requireGraphUrl()}${path}`, {
-      ...init,
-      headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
-    });
-    if (response.status === 404) throw new GuidedResearchWorkflowError("RESEARCH_NOT_FOUND");
-    if (!response.ok) throw new GuidedResearchWorkflowError("RESEARCH_WORKFLOW_UNAVAILABLE");
-    return response.json();
+  async onModuleDestroy(): Promise<void> {
+    const checkpointer = this.checkpointer as BaseCheckpointSaver & { end?: () => Promise<void> };
+    await checkpointer.end?.();
   }
 
   private async readGraph(sessionId: string): Promise<WorkflowProjection> {
-    const raw = await this.graphJson(`/threads/${encodeURIComponent(sessionId)}/state`);
-    const parsed = raw as { values?: Record<string, unknown>; checkpoint?: { checkpoint_id?: string } };
-    if (!parsed.values) throw new GuidedResearchWorkflowError("RESEARCH_NOT_FOUND");
-    return project(parsed.values, parsed.checkpoint?.checkpoint_id ?? null);
+    const state = await this.readGraphState(sessionId);
+    return project(state.values, state.checkpointId);
+  }
+
+  private async readGraphState(sessionId: string): Promise<{ values: GuidedResearchGraphState; checkpointId: string | null }> {
+    const tuple = await this.checkpointer.getTuple(checkpointConfig(sessionId));
+    const values = tuple?.checkpoint.channel_values as GuidedResearchGraphState | undefined;
+    if (!values?.sessionId) throw new GuidedResearchWorkflowError("RESEARCH_NOT_FOUND");
+    return { values, checkpointId: tuple?.checkpoint.id ?? null };
   }
 
   private async startGraph(session: GuidedResearchSession): Promise<WorkflowProjection> {
-    await this.graphJson("/threads", {
-      method: "POST",
-      body: JSON.stringify({ thread_id: session.sessionId }),
-    });
-    await this.graphJson(`/threads/${encodeURIComponent(session.sessionId)}/runs/wait`, {
-      method: "POST",
-      body: JSON.stringify({ input: initialGraphState(session) }),
-    });
+    await this.graph.invoke(initialGuidedResearchGraphState(session), checkpointConfig(session.sessionId));
     return this.readGraph(session.sessionId);
   }
 
@@ -220,37 +172,18 @@ export class GuidedResearchWorkflowService {
       payloadFingerprint,
     });
 
-    await this.graphJson(`/threads/${encodeURIComponent(input.session.sessionId)}/runs/wait`, {
-      method: "POST",
-      body: JSON.stringify({ command: { resume: input.command } }),
-    });
+    await this.runCommand(input.session.sessionId, input.command);
     if (generatedDirections && input.command.node === "brief") {
-      await this.graphJson(`/threads/${encodeURIComponent(input.session.sessionId)}/runs/wait`, {
-        method: "POST",
-        body: JSON.stringify({
-          command: {
-            resume: this.generatedDirectionsCommand(
-              input.command,
-              current.graphVersion + 1,
-              generatedDirections,
-            ),
-          },
-        }),
-      });
+      await this.runCommand(
+        input.session.sessionId,
+        this.generatedDirectionsCommand(input.command, current.graphVersion + 1, generatedDirections),
+      );
     }
     if (generatedOutline && input.command.node === "directions") {
-      await this.graphJson(`/threads/${encodeURIComponent(input.session.sessionId)}/runs/wait`, {
-        method: "POST",
-        body: JSON.stringify({
-          command: {
-            resume: this.generatedOutlineCommand(
-              input.command,
-              current.graphVersion + 1,
-              generatedOutline,
-            ),
-          },
-        }),
-      });
+      await this.runCommand(
+        input.session.sessionId,
+        this.generatedOutlineCommand(input.command, current.graphVersion + 1, generatedOutline),
+      );
     }
     const projection = await this.readGraph(input.session.sessionId);
     await this.receipts.finalize({
@@ -262,6 +195,11 @@ export class GuidedResearchWorkflowService {
       stableResponse: projection,
     });
     return projection;
+  }
+
+  private async runCommand(sessionId: string, command: NodeCommand): Promise<void> {
+    const state = await this.readGraphState(sessionId);
+    await this.graph.invoke({ ...state.values, pendingCommand: command }, checkpointConfig(sessionId));
   }
 
   private async generateDirectionsAfterBrief(command: NodeCommand): Promise<GuidedResearchDirectionGeneration | null> {
