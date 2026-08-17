@@ -4,7 +4,7 @@
  * ⚠ 不要在别处（比如 `blueprint-designer-shell.tsx`）再写一份
  *   `selectedKey === "..."` 判断链——`lint-design-facet-single-source.mjs` 的
  *   规则 2b 专门抓这种「跨行第二份表」（同一文件里出现 ≥3 个不同 facet key
- *   字面量），加第 4 个结构化编辑器时曾真实撞过（F197 复核发现）。
+ *   字面量），加第 4 个结构化编辑器时曾真实撞过（F202 复核发现）。
  *   新增结构化编辑器只改这一个文件：往 `STRUCTURED_FACET_EDITORS` 加一行。
  *
  * 这张表回答的是「哪个 key 对应哪个 React 组件」，跟
