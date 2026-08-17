@@ -255,6 +255,22 @@ describe("F195 guided research workflow command contract", () => {
     }).success).toBe(false);
   });
 
+  it("keeps model generation response shapes in the shared contract", () => {
+    expect(research.GuidedResearchDirectionGenerationResponse.parse({
+      directions: completeNodeStates.directions.directions,
+    })).toEqual(completeNodeStates.directions);
+    expect(research.GuidedResearchDirectionGenerationResponse.safeParse({
+      directions: [],
+    }).success).toBe(false);
+
+    expect(research.GuidedResearchOutlineGenerationResponse.parse({
+      sections: completeNodeStates.outline.sections,
+    })).toEqual(completeNodeStates.outline);
+    expect(research.GuidedResearchOutlineGenerationResponse.safeParse({
+      sections: [],
+    }).success).toBe(false);
+  });
+
   it("rejects server-authored graph metadata and unknown fields", () => {
     expect(research.GuidedResearchNodeCommand.safeParse({
       ...commandBase,

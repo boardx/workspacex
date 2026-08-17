@@ -598,6 +598,10 @@ export const GuidedResearchDirection = z.object({
   order: z.number().int().nonnegative(),
 }).strict();
 
+export const GuidedResearchDirectionGenerationResponse = z.object({
+  directions: z.array(GuidedResearchDirection).min(1),
+}).strict();
+
 export const GuidedResearchOutlineSection = z.object({
   id: z.string().trim().min(1),
   title: z.string().trim().min(1).max(200),
@@ -652,6 +656,10 @@ export const GuidedResearchWorkflowOutlineSection = z.object({
   description: z.string().trim().min(1).max(2000),
   researchQuestions: z.array(z.string().trim().min(1).max(1000)).min(1),
   order: z.number().int().nonnegative(),
+}).strict();
+
+export const GuidedResearchOutlineGenerationResponse = z.object({
+  sections: z.array(GuidedResearchWorkflowOutlineSection).min(1),
 }).strict();
 
 export const OutlineNodeInputState = z.object({

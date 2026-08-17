@@ -33,10 +33,6 @@ export interface GuidedResearchDirectionGenerator {
   }): Promise<GuidedResearchDirectionGeneration>;
 }
 
-const DirectionGenerationResponse = z.object({
-  directions: z.array(C.GuidedResearchDirection).min(1),
-}).strict();
-
 export class ModelGuidedResearchDirectionGenerator implements GuidedResearchDirectionGenerator {
   constructor(
     private readonly model: ModelCallPort,
@@ -73,9 +69,9 @@ export class ModelGuidedResearchDirectionGenerator implements GuidedResearchDire
       throw error;
     }
 
-    let parsed: z.infer<typeof DirectionGenerationResponse>;
+    let parsed: z.infer<typeof C.GuidedResearchDirectionGenerationResponse>;
     try {
-      parsed = DirectionGenerationResponse.parse(extractJson(completion.text));
+      parsed = C.GuidedResearchDirectionGenerationResponse.parse(extractJson(completion.text));
     } catch {
       throw new GuidedResearchDirectionGenerationError("RESEARCH_NODE_STATE_INVALID");
     }

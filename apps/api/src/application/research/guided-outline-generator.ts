@@ -33,10 +33,6 @@ export interface GuidedResearchOutlineGenerator {
   }): Promise<GuidedResearchOutlineGeneration>;
 }
 
-const OutlineGenerationResponse = z.object({
-  sections: z.array(C.GuidedResearchWorkflowOutlineSection).min(1),
-}).strict();
-
 export class ModelGuidedResearchOutlineGenerator implements GuidedResearchOutlineGenerator {
   constructor(
     private readonly model: ModelCallPort,
@@ -73,9 +69,9 @@ export class ModelGuidedResearchOutlineGenerator implements GuidedResearchOutlin
       throw error;
     }
 
-    let parsed: z.infer<typeof OutlineGenerationResponse>;
+    let parsed: z.infer<typeof C.GuidedResearchOutlineGenerationResponse>;
     try {
-      parsed = OutlineGenerationResponse.parse(extractJson(completion.text));
+      parsed = C.GuidedResearchOutlineGenerationResponse.parse(extractJson(completion.text));
     } catch {
       throw new GuidedResearchOutlineGenerationError("RESEARCH_NODE_STATE_INVALID");
     }
