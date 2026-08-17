@@ -127,19 +127,26 @@ export async function trialRunSkill(
   if (!membership) throw new TrialRunSkillError("DEPENDENCY_UNAVAILABLE");
 
   /**
-   * 人类反馈（2026-08-17）：devapp 上试跑报 `MODEL_UNAVAILABLE`——不是代码 bug，
+   * 人类反馈（2026-08-17，两次）：devapp 上试跑报 `MODEL_UNAVAILABLE`——不是代码 bug，
    * 是这条部署没配 `KERNEL_SKILL_TRIALRUN_MODEL_ID`。自愈式回退：先问这个组织
-   * **已经证明能打通**的模型（`orgAgentModel`，见其头注），查不到（没有已发布
-   * agent，或没注入这个可选依赖）才退回静态配置；两者都没有才诚实报
-   * `MODEL_UNAVAILABLE`——不是让进程启动失败，与 `ConfiguredModelProvider`
-   * 对未配置 provider 的处理同一条纪律（call-time 失败，不是 boot-time 崩溃）。
+   * **已经证明能打通**的模型（`orgAgentModel`，见其头注——第二版起只借用
+   * `RoutingModelCallPort` 那个通用 provider，`deep-agent` 等专用 provider 一律
+   * 排除，不会再"查到一个必然打不通的模型"），查不到（没有可借的已发布 agent，
+   * 或没注入这个可选依赖）才退回静态配置；两者都没有才诚实报 `MODEL_UNAVAILABLE`——
+   * 不是让进程启动失败，与 `ConfiguredModelProvider` 对未配置 provider 的处理同一条
+   * 纪律（call-time 失败，不是 boot-time 崩溃）。
    *
    * ⚠ 这次读发生在授权判定**之后**——`orgAgentModel` 读的是 `input.orgId`
    *   这个已经通过成员资格校验的组织，不是调用方随便声称的值。
+   *
+   * ⚠ `orgModel` 非 null 但 `modelId` 恰好是空串时**不采信它**——落到静态配置，
+   *   而不是让一个空 modelId 顶替静态配置本该有的机会。`??` 只在 null/undefined
+   *   时才回退，对空串不生效，这里改成显式判断，不靠 `??` 的这个边界隐式生效。
    */
   const orgModel = await deps.orgAgentModel?.findAnyPublished(input.orgId) ?? null;
-  const modelProvider = orgModel?.provider ?? deps.modelProvider;
-  const modelId = orgModel?.modelId ?? deps.modelId;
+  const orgModelUsable = orgModel !== null && orgModel.modelId !== "";
+  const modelProvider = orgModelUsable ? orgModel!.provider : deps.modelProvider;
+  const modelId = orgModelUsable ? orgModel!.modelId : deps.modelId;
   if (modelId === "") throw new TrialRunSkillError("MODEL_UNAVAILABLE");
 
   const skills = await deps.runs.readPinnedSkills(input.orgId, [input.versionId]);
