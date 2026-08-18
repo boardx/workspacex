@@ -155,11 +155,11 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到�
     await page.goto(`/tpl/designer?blueprintId=${blueprintId}`);
     await expect(page.getByTestId("bp-designer-shell")).toBeVisible();
 
-    // ⚠ 用 flow-agenda（catalog ordinal 2），不用 topic-and-background——
+    // ⚠ 用 pre-tasks（还未被拆成结构化面板的通用编辑 key），不用 topic-and-background——
     //   下一条 F174 用例走 API 直连时假定 topic-and-background 的
     //   `expectedItemRevision` 仍是初始哨兵 `""`，两条用例不能撞同一个 key。
-    await page.getByTestId("bp-designer-facet-flow-agenda").click();
-    const editor = page.getByTestId("bp-facet-content-flow-agenda");
+    await page.getByTestId("bp-designer-facet-pre-tasks").click();
+    const editor = page.getByTestId("bp-facet-content-pre-tasks");
     await expect(editor).toBeVisible();
     const content = `真实 UI 端到端写入 ${scope}`;
     await editor.fill(content);
@@ -167,7 +167,7 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到�
     const [putResponse] = await Promise.all([
       page.waitForResponse(
         (r) =>
-          new URL(r.url()).pathname === `${API}/blueprints/${blueprintId}/design-facets/flow-agenda` &&
+          new URL(r.url()).pathname === `${API}/blueprints/${blueprintId}/design-facets/pre-tasks` &&
           r.request().method() === "PUT",
       ),
       editor.blur(),
@@ -183,8 +183,8 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到�
     // ── 刷新后仍在 = 真落库，不是内存态 ──────────────────────────────────
     await page.reload();
     await expect(page.getByTestId("bp-designer-shell")).toBeVisible();
-    await page.getByTestId("bp-designer-facet-flow-agenda").click();
-    await expect(page.getByTestId("bp-facet-content-flow-agenda")).toHaveValue(content);
+    await page.getByTestId("bp-designer-facet-pre-tasks").click();
+    await expect(page.getByTestId("bp-facet-content-pre-tasks")).toHaveValue(content);
   });
 
   test("F174: 填一项设计环节内容并真实 PUT 保存，刷新后完成度真的变化（不是前端 state）", async ({ page }) => {

@@ -4551,6 +4551,55 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F201",
+      "title": "「分组规则」结构化编辑面板（分组一第 3 项，取代通用自由文本框）",
+      "user_visible_behavior": "组织管理员点开蓝本设计器「分组规则」项，看到 3 个固定规模预设卡片与 4 条固定规则标签作为只读参考，下方是真实可编辑的场景清单（场景名/这组要回答什么/默认组长画像，可增删）与组长产生方式的两个勾选开关（组长默认取场景画像匹配度最高的人 / 按背景均衡）。编辑后失焦（文本字段）或点击（勾选/删除）即真实保存，刷新后仍在。全部场景删空时视为「未填」，不占完成度。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F193",
+        "F194"
+      ],
+      "points": 2,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
+      ],
+      "evidence": "evidence/F201.verify.log @ 2026-08-16T23:52:17.801Z",
+      "notes": "① F194（主题与背景结构化面板）之后分组一的第二个结构化增量，落地 design-deltas/blueprint-design-facet-panels/contract.md 的 GroupingRuleContent 字段提议。存储形状不变（仍是 updateDesignFacet 的 content: string，装 JSON.stringify），全空时序列化成空串保持「未填=无行」语义，反序列化对坏数据容错——同 F194 的做法。\n② ⚠ 与「角色与权限」的内容重叠是草稿登记的已知缺口 G1（是否应合并未裁决）——本 feature 按 contract.md 现有字段提议原样实现，不预判合并结果、不擅自砍掉任何一侧字段，两项各自独立可编辑。\n③ 范围边界——做：场景清单增删改（可变长度列表）+ 组长产生方式两个勾选开关；规模预设与固定规则标签展示为只读参考（结构性事实，不可编辑，同主题与背景面板的固定句式/规则处理方式）。不做：规模预设本身的编辑（草稿未提示这是可配置项）。\n④ 验证：新增 2 条组件测试（真实解析已存场景清单渲染/新增场景失焦后保存成结构化 JSON），既有 3 条原绑在 grouping-rule 上的通用编辑器测试迁移到 survey（该 key 仍走通用 FacetTextEditor），覆盖面不变。共 32 条设计器测试全绿，无回归。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F202",
+      "title": "「流程 Agenda」结构化编辑面板（分组一第 2 项，取代通用自由文本框，收官分组一）",
+      "user_visible_behavior": "组织管理员点开蓝本设计器「流程 Agenda」项，看到真实可编辑的半场/环节结构：可增删半场，每个半场内可增删环节，每个环节可编辑名称/时长（分钟）/引导师职责/组长组员职责/是否可选，并可用上移下移按钮调整环节顺序。顶部显示真实的环节合计时长。编辑后即真实保存，刷新后半场/环节结构仍在。全部半场删空时视为「未填」，不占完成度。至此分组一（基本配置组的 4 项：主题与背景/流程Agenda/分组规则/角色与权限）全部拥有真实结构化面板。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F193",
+        "F194",
+        "F196"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
+      ],
+      "evidence": "evidence/F202.verify.log @ 2026-08-17T00:09:58.137Z",
+      "notes": "① 分组一收官增量，落地 design-deltas/blueprint-design-facet-panels/contract.md 的 AgendaContent 字段提议。存储形状不变（content: string 装 JSON），全空时序列化成空串，反序列化对坏数据容错——同 F194/F196 的做法。\n② 范围比 contract.md 完整提议窄，如实收紧：不做 canvasBinding/skillBinding 字段（需要从已存在的画布模板/Skill 清单选，接它们要先有选择器组件，留给 Agent 编排/Skill 绑定两项面板落地时一并考虑，不在本增量重复造一份）；不做 aiPacingSuggestions（AI 节奏校对建议，需要真实 AI 调用，contract.md 本身标注可选）；不做像素级拖拽手势（原型的拖拽排序用上移/下移按钮达到同等可排序效果，交互精修留后续增量）。\n③ 验证：新增 2 条组件测试（真实解析已存半场/环节结构渲染，含合计时长计算/新增半场+环节+编辑标题后保存成结构化 JSON），既有测试不受影响（flow-agenda 此前未被任何专属编辑器占用，e2e F193 用例改用 pre-tasks 作为通用编辑器验证 key）。共 34 条设计器测试全绿，无回归。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
       "id": "F199",
       "title": "createProject 创建者自动获得容器最高权限角色（推翻 Q-4②：facilitator/owner）",
       "user_visible_behavior": "任意通过 createProject 成功建出容器（工作坊/研究项目/用户洞察）的人，建完立刻就能进入并使用自己建的这个容器——不再出现「建了项目却读不到内容」（ADMIN_NOT_SUPERUSER/NO_PROJECT_ROLE）。工作坊容器：创建者获得 facilitator（引导师）角色，is_host=true。研究项目/用户洞察容器：创建者获得 owner（所有者）角色。全部与容器同一个事务写入，不存在“容器建成、角色没跟上”的中间态。",
