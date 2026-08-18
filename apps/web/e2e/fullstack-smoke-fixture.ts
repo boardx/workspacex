@@ -82,6 +82,24 @@ export const FULLSTACK_E2E = {
    *   `skill.controller.ts:353 rejectNameConflict` 判 409，于是反证那条会红——
    *   红了，但**不是因为对的原因**（#496 在同一处踩过，原文见上面那段）。
    */
+  /**
+   * #988 / #1493：「基于此开新版」（mintTemplateVersion）的浏览器级门控用的那一条谱系。
+   *
+   * ⚠ **不用 #493 的 `boundTemplateKey`**：那条种子是 `team-only`（归 fullstack 团队），
+   *   而这条门控用组织管理员登录——管理员不属于任何团队，看不见它（这正是
+   *   `canvas-template-create-smoke.spec.ts` 管理员空态断言成立的原因）。也**不在种子里
+   *   加一条 org-wide published 模板**：那会把同一条空态反空转断言当场打红。
+   *   ⇒ 来源模板由用例自己在浏览器里建出来再发布（走的都是 #496 已门控的路径），
+   *   然后对它开新版——链路一节不省，也不动种子。
+   *
+   * ⚠ key 只用 `[a-z0-9-]`（进 URL `/canvas/templates/:key/versions`）；与 #496 的
+   *   两个 key 都不同——撞 key 会红在 `TEMPLATE_KEY_CONFLICT` 上，不是因为对的原因。
+   */
+  mintSourceKey: `tpl-988-${scope}`.toLowerCase(),
+  mintSourceName: `FULLSTACK_MINT_SOURCE_${scope}`,
+  /** 开新版时改掉的显示名——带 MINTED 前缀，断言「改过的名字」不会误配来源行。 */
+  mintedDisplayName: `FULLSTACK_MINTED_V2_${scope}`,
+
   skillName: `FULLSTACK_SKILL_${scope}`,
   skillCounterproofName: `FULLSTACK_SKILL_CP_${scope}`,
 
