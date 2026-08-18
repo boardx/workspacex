@@ -5,15 +5,17 @@ import { cn } from "@/lib/utils";
 /**
  * 蓝本设计器**真实**可编辑面板（解开 D-05 二级 sign-off 之后的第一个实现增量）。
  *
- * ## 为什么是一个通用文本编辑器，不是 16 份各自的结构化表单
+ * ## 本文件今天装的是什么
  *
- * `updateDesignFacet` 契约今天的 `content` 字段是**不透明字符串**（BP-02/F174 签核形状，
- * `design-deltas/blueprint-design-facet-panels/` 明确"本变更不改动任何已签核契约操作的形状"）。
- * `contract.md` 给出的 16 份结构化提议是**未来**把这个字符串升级成结构化 JSON 时的参考，
- * 不是这一轮的交付物——先把"能不能真编辑、真保存、真联动完成度"这条主链路做对，
- * 比一次性造 16 份结构化表单更快落地、风险更小（单一组件，测试面窄，行为一致）。
- * 第 4 项"角色与权限"的权限矩阵是**例外**：人类已明确裁决其交互形状（灰格只读/其余可勾选），
- * 属于签核过的具体交互，因此单独给它一个结构化组件（见下方 `PermissionMatrixEditor`）。
+ * 两样东西：① `FacetTextEditor`——通用自由文本编辑器，现在**只作兜底**
+ * （见 `facet-editor-registry.ts`：15 个 designFacetKey 一个都不会落到它）；
+ * ② `PermissionMatrixEditor`——「角色与权限」的权限矩阵。
+ *
+ * ⚠ 别把下面的历史读成现状：F193 落地时 16 项确实统一走 `FacetTextEditor`
+ * （只有权限矩阵是例外），但 F204–F207 已把 15 项**全部**换成专属结构化编辑器。
+ * `updateDesignFacet` 的 `content` 字段仍是**不透明字符串**（BP-02/F174 签核形状，
+ * `design-deltas/blueprint-design-facet-panels/` 明确"本变更不改动任何已签核契约操作的形状"）
+ * ——变的只是前端往这个字符串里写什么（现在写的是各面板的结构化 JSON），契约一字未改。
  *
  * ## 乐观并发
  *

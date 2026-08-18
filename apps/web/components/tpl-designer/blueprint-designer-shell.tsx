@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { DesignFacetCatalog } from "@/lib/generated/design-facet-catalog";
 import type { FacetSaveFn } from "./facet-content-editor";
 import { getFacetEditor } from "./facet-editor-registry";
+import { getFacetIntro } from "./facet-intro-table";
 import { BasicOverviewPanel, type BasicOverviewPanelProps } from "./basic-overview-panel";
 
 /**
@@ -260,11 +261,15 @@ export function BlueprintDesignerShell({
  * 一个配置项打开后的真实面板（解开 D-05 二级 sign-off，`design-deltas/
  * blueprint-design-facet-panels/` 已签核）。
  *
- * ⚠ `content: string` 是今天已签核的存储形状（BP-02/F174），16 项目前统一走
- * `FacetTextEditor`（自由文本，写回同一个字符串字段）；「角色与权限」额外有
- * 人类已裁决的矩阵交互，用 `PermissionMatrixEditor`（把矩阵值 JSON 序列化后
- * 存进同一个字符串字段，不需要新的契约面）。`contract.md` 给出的其余 15 项
- * 结构化字段提议是后续把 `content` 升级为结构化存储时的参考，本增量暂不落地。
+ * ⚠ `content: string` 仍是今天已签核的存储形状（BP-02/F174）——**没有变**。变的是
+ * 前端：15 个 designFacetKey 现在**各有专属结构化编辑器**（F204–F207 补齐，路由表见
+ * `facet-editor-registry.ts`），各自把结构化值 JSON 序列化后写回同一个字符串字段，
+ * 不需要新的契约面。`FacetTextEditor` 退化为**仅兜底**：只有未登记的 key 才会落到它，
+ * 而 15 项一个都不会——这一点由 `blueprint-designer-page-live.test.tsx` 里那条
+ * 「全部落在专属结构化编辑器上」的机械门控钉住（漂回去会红并指名是哪个 key）。
+ *
+ * 面板顶部的 intro 解释段（原型 `designer-panels.tsx` 的 `<Intro>`）在这里统一渲染，
+ * 单一事实源是 `facet-intro-table.ts`，编辑器组件里不再各抄一份。
  */
 function FacetPanel({
   selectedKey,
@@ -284,6 +289,9 @@ function FacetPanel({
   // 不再重复写 `selectedKey === "..."` 判断链——F202 复核发现原来的三元链撞上了
   // lint-design-facet-single-source 的「跨行第二份表」规则）。
   const Editor = getFacetEditor(selectedKey);
+  // 原型每个面板顶部都有的「这一项是干什么的」解释段（`designer-panels.tsx` 的
+  // `<Intro>`）。在这里统一渲染，15 项一次对齐；编辑器组件里不再各抄一份。
+  const intro = getFacetIntro(selectedKey);
 
   return (
     <div>
@@ -291,6 +299,14 @@ function FacetPanel({
         <h2 className="text-16 font-semibold">{item?.label ?? selectedKey}</h2>
         {item?.required ? <span className="text-11 text-destructive">必填</span> : null}
       </div>
+      {intro === null ? null : (
+        <p
+          className="mb-3 rounded-md bg-panel px-2.5 py-1.5 text-12 leading-relaxed text-muted-foreground"
+          data-testid={`bp-facet-intro-${selectedKey}`}
+        >
+          {intro}
+        </p>
+      )}
       <Editor designFacetKey={selectedKey} content={content} itemRevision={itemRevision} onSave={onSaveFacet} />
     </div>
   );

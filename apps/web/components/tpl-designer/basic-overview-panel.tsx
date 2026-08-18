@@ -5,6 +5,8 @@ import type { templates } from "@repo/contracts";
 
 type DurationTier = z.infer<typeof templates.operations.setDurationTier.in>["tier"];
 import type { GetInitializationPreviewOut, SetDurationTierOut } from "@/lib/live-blueprints";
+import { BlueprintDurationForm, type PendingTierChange } from "./blueprint-duration-form";
+import { AGENDA_TIER_CATALOG, type AgendaTierKey } from "@/lib/generated/agenda-tier-catalog";
 
 /**
  * 第 16 项「基本配置」聚合页 —— 蓝本设计器目录 16 项里唯一**不是 designFacetKey** 的一项。
@@ -26,6 +28,18 @@ import type { GetInitializationPreviewOut, SetDurationTierOut } from "@/lib/live
  *      见 F159/F160/F161），不是蓝本字段；原型把它们画在这里是示意，真接线要走
  *      组织设置的既有屏，不在蓝本设计器里再开一个写入口。
  *
+ * ## 时长档位一节复用 `BlueprintDurationForm`（F19），不是再写一份
+ *
+ * 那个组件在 main 上是**孤儿**（只有它自己的测试 import 它），本轮是决定「复用还是删」
+ * 的时机。判断结果是**复用**，因为它在两件事上严格更好：
+ *   · 四档的环节数取自 `@/lib/generated/agenda-tier-catalog`——机械生成自后端
+ *     `agenda-segment-table.ts`，前端没有 7/11/14/19 的第二份硬编码；本组件原先
+ *     手写的那份 `TIERS` 正是「同一事实声明在两处」。
+ *   · 换档确认框逐条列出**将增删的环节名**，而不是只报个数字——契约的
+ *     `AgendaSegmentRef` 本来就带 `title`，报数字是白白扔掉已有信息。
+ * 它的「形式 / 语言」两节改成可选（不传就不渲染），因为蓝本本体没有这两个字段，
+ * 传了就是造存不进去的假 UI；F19 的既有用法照旧传，那 19 条测试一条没动。
+ *
  * ## 换档是两步，不是一步
  *
  * `setDurationTier` 的 `confirmed: false` 是**预检**：后端回 `CONFIRMATION_REQUIRED`
@@ -34,13 +48,6 @@ import type { GetInitializationPreviewOut, SetDurationTierOut } from "@/lib/live
  * 这一点在确认弹层里如实写出来，否则用户会以为环节被永久删掉。
  */
 
-const TIERS: readonly { readonly tier: DurationTier; readonly label: string; readonly note: string }[] = [
-  { tier: "half-day", label: "半天", note: "只到收敛，不做原型" },
-  { tier: "one-day", label: "一天", note: "加商业模式草稿" },
-  { tier: "two-day", label: "两天", note: "加原型与用户测试" },
-  { tier: "three-day", label: "三天", note: "加迭代与落地计划" },
-  { tier: "custom", label: "自定义", note: "规则未定义——后端会明确拒绝，不猜推导式" },
-];
 
 const TIER_INTRO =
   "决定这个蓝本能被套用到什么场合。时长档位最关键——同一套骨架按档位伸缩：可选环节自动增删，必留环节只压缩时间。";
@@ -57,6 +64,7 @@ const INIT_CATEGORIES = ["议程环节", "分组", "角色分工", "材料清单
 export type SetTierFn = (tier: DurationTier, confirmed: boolean) => Promise<SetDurationTierOut>;
 
 export interface BasicOverviewPanelProps {
+  /** ⚠ 契约的 DurationTier 含 `custom`（规则未定义），档位选择器只列可排序的四档。 */
   readonly currentTier: DurationTier;
   readonly agendaSegmentCount: number;
   readonly preview: GetInitializationPreviewOut | null;
@@ -65,7 +73,7 @@ export interface BasicOverviewPanelProps {
 }
 
 interface PendingChange {
-  readonly tier: DurationTier;
+  readonly tier: AgendaTierKey;
   readonly added: SetDurationTierOut["added"];
   readonly removed: SetDurationTierOut["removed"];
   readonly recoverable: SetDurationTierOut["recoverable"];
@@ -79,6 +87,15 @@ export function BasicOverviewPanel({
   onSetTier,
 }: BasicOverviewPanelProps) {
   const [pending, setPending] = React.useState<PendingChange | null>(null);
+  // 契约的 AgendaSegmentRef 本来就带 title——直接喂给表单，用户看到的是环节名而不是个数字。
+  const pendingForForm: PendingTierChange | null =
+    pending === null
+      ? null
+      : {
+          targetTier: pending.tier,
+          added: pending.added.map((a) => ({ agendaSegmentId: a.agendaSegmentId, title: a.title })),
+          removed: pending.removed.map((r) => ({ agendaSegmentId: r.agendaSegmentId, title: r.title })),
+        };
   const [status, setStatus] = React.useState<"idle" | "checking" | "saving" | "saved" | "error">("idle");
   const [error, setError] = React.useState<string | null>(null);
 
@@ -94,7 +111,7 @@ export function BasicOverviewPanel({
   }
 
   /** 第一步：预检。不落库，只把将被增删的环节拿回来给人看。 */
-  async function precheck(tier: DurationTier): Promise<void> {
+  async function precheck(tier: AgendaTierKey): Promise<void> {
     if (tier === currentTier) return;
     setStatus("checking");
     setError(null);
@@ -158,65 +175,27 @@ export function BasicOverviewPanel({
       </p>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-basic-tier">
-        <h3 className="mb-2 text-13 font-semibold">时长档位（套用时先选档，环节表随之变化）</h3>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {TIERS.map((t) => (
-            <button
-              key={t.tier}
-              type="button"
-              onClick={() => void precheck(t.tier)}
-              aria-current={t.tier === currentTier}
-              className={
-                t.tier === currentTier
-                  ? "flex flex-col items-start gap-0.5 rounded-md border border-primary bg-accent px-3 py-2 text-left transition-colors"
-                  : "flex flex-col items-start gap-0.5 rounded-md border border-border px-3 py-2 text-left transition-colors hover:bg-muted"
-              }
-              data-testid={`bp-basic-tier-${t.tier}`}
-            >
-              <span className="text-12 font-medium">
-                {t.label}
-                {t.tier === currentTier ? "（当前）" : ""}
-              </span>
-              <span className="text-10 text-muted-foreground">{t.note}</span>
-            </button>
-          ))}
-        </div>
-        <p className="mt-2 text-11" data-testid="bp-basic-agenda-count">
-          当前档位 → 议程环节 <b>{agendaSegmentCount}</b> 个
-        </p>
+        <BlueprintDurationForm
+          durationTier={
+            // 契约的 DurationTier 含 `custom`（其伸缩规则未定义，见 CUSTOM_TIER_RULE_UNDEFINED），
+            // 而档位表只有可排序的四档；custom 时不高亮任何一档，如实反映"当前不是这四档之一"。
+            AGENDA_TIER_CATALOG.some((r) => r.tier === currentTier)
+              ? (currentTier as AgendaTierKey)
+              : ("" as AgendaTierKey)
+          }
+          agendaSegmentCount={agendaSegmentCount}
+          pendingTierChange={pendingForForm}
+          onlineAutoSegments={[]}
+          onSelectTier={(tier) => void precheck(tier)}
+          onConfirmTierChange={() => void confirm()}
+          onCancelTierChange={() => setPending(null)}
+        />
         <p className="mt-2 text-11 leading-relaxed text-muted-foreground">{HALF_SESSION_NOTE}</p>
 
-        {pending !== null && (
-          <div className="mt-3 rounded-md border border-warning/40 bg-warning/5 p-2.5" data-testid="bp-basic-confirm">
-            <p className="text-12 font-medium">切到「{TIERS.find((t) => t.tier === pending.tier)?.label}」会改动议程环节：</p>
-            <ul className="mt-1 flex flex-col gap-0.5 text-11 text-muted-foreground">
-              <li data-testid="bp-basic-added">新增 {pending.added.length} 个环节</li>
-              <li data-testid="bp-basic-removed">移除 {pending.removed.length} 个可选环节</li>
-              {pending.recoverable.length > 0 && (
-                <li data-testid="bp-basic-recoverable">
-                  其中 {pending.recoverable.length} 个是可恢复的——切回该档位它们会回来，不是永久删除
-                </li>
-              )}
-            </ul>
-            <div className="mt-2 flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => void confirm()}
-                className="rounded-md border border-primary px-2 py-1 text-11 text-primary transition-colors hover:bg-muted"
-                data-testid="bp-basic-confirm-yes"
-              >
-                确认切换
-              </button>
-              <button
-                type="button"
-                onClick={() => setPending(null)}
-                className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
-                data-testid="bp-basic-confirm-no"
-              >
-                取消
-              </button>
-            </div>
-          </div>
+        {pending !== null && pending.recoverable.length > 0 && (
+          <p className="mt-2 text-11 text-muted-foreground" data-testid="bp-basic-recoverable">
+            上面「将移除」的 {pending.recoverable.length} 个环节是可恢复的——切回该档位它们会回来，不是永久删除。
+          </p>
         )}
 
         {error !== null && (

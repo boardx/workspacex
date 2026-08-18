@@ -147,17 +147,16 @@ export function SurveyPanelEditor({
 
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
-      <p className="mb-3 text-11 text-muted-foreground">
-        蓝本预置问卷骨架和发放时机，不是具体题目。套用时 AI 按这次的议题把占位题目补成具体问法。
+      <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
           <span
-            className={status === "error" ? "ml-2 text-destructive" : "ml-2"}
+            className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"}
             data-testid="bp-facet-save-status"
           >
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
-      </p>
+      </div>
 
       {value.surveys.length === 0 ? (
         <p className="mb-3 text-11 text-muted-foreground" data-testid="bp-survey-empty">

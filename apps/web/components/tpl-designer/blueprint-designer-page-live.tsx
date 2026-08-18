@@ -32,9 +32,10 @@ import type { FacetSaveFn } from "./facet-content-editor";
  *   · ~~换时长档位~~ —— **已于 F207 接线**（第 16 项「基本配置」聚合页）：
  *     `live-blueprints.ts` 已封装 `setDurationTier`，`expectedVersion` 取自
  *     `listBlueprints` 那一行的 `versionNumber`（BlueprintRow 一直含这个字段）。
- *   · 16 项面板目前统一走自由文本编辑（「角色与权限」例外，见下方），`contract.md`
- *     给出的结构化字段提议是后续把 `content` 升级为结构化存储时的参考，本增量暂不落地
- *     （`content: z.string()` 的契约形状本轮不改）。
+ *   · ~~16 项面板统一走自由文本编辑~~ —— **已于 F204–F207 补齐**：15 个 designFacetKey
+ *     各有专属结构化编辑器（路由表见 `facet-editor-registry.ts`），第 16 项「基本配置」
+ *     是聚合页。`FacetTextEditor` 退化为仅兜底。契约形状仍是 `content: z.string()`
+ *     （一字未改），变的只是往这个字符串里写结构化 JSON 而不是任意文本。
  *
  * ## `nextVersionNumber` 的算法说明（不是编的数）
  *

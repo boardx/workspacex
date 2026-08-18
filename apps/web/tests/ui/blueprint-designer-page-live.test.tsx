@@ -1001,8 +1001,14 @@ describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getIn
                 detail: {
                   agendaSegmentCount: 7,
                   added: [],
-                  removed: [{ segmentId: "s-4" }, { segmentId: "s-7" }],
-                  recoverable: [{ segmentId: "s-4" }, { segmentId: "s-7" }],
+                  removed: [
+                    { agendaSegmentId: "s-4", title: "组间互评", addedBy: null, optional: true },
+                    { agendaSegmentId: "s-7", title: "原型搭建", addedBy: null, optional: true },
+                  ],
+                  recoverable: [
+                    { agendaSegmentId: "s-4", title: "组间互评", addedBy: null, optional: true },
+                    { agendaSegmentId: "s-7", title: "原型搭建", addedBy: null, optional: true },
+                  ],
                 },
               }),
               { status: 409, headers: { "Content-Type": "application/json" } },
@@ -1015,22 +1021,30 @@ describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getIn
 
     fireEvent.click(screen.getByTestId("bp-designer-basic-overview-entry"));
     await screen.findByTestId("bp-basic-overview");
-    // 当前档来自服务端那一行，不是前端默认值。
-    expect(screen.getByTestId("bp-basic-tier-custom").getAttribute("aria-current")).toBe("true");
+    // 档位一节复用 F19 的 BlueprintDurationForm——四档的环节数来自生成的
+    // agenda-tier-catalog（前端没有 7/11/14/19 的第二份硬编码）。
+    // REAL_ROW 的 durationTier 是 custom（不在可排序四档里），因此没有任何一档被高亮，
+    // 如实反映「当前不是这四档之一」而不是随便挑一个亮起来。
+    expect(screen.getByTestId("bp-duration-tier-half-day").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByTestId("bp-duration-tier-two-day").getAttribute("aria-pressed")).toBe("false");
 
-    fireEvent.click(screen.getByTestId("bp-basic-tier-half-day"));
+    fireEvent.click(screen.getByTestId("bp-duration-tier-half-day"));
 
     // 第一次一定是预检：confirmed=false，且带上真实 expectedVersion（乐观并发）。
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0]).toEqual({ tier: "half-day", confirmed: false, expectedVersion: "0" });
 
-    // 预检结果如实展示：移除几个、其中几个可恢复（不是永久删除）。
-    const confirmBox = await screen.findByTestId("bp-basic-confirm");
-    expect(confirmBox.textContent).toContain("移除 2 个可选环节");
+    // 预检结果如实展示：逐条列出**将被移除的环节名**（不是只报个数字——
+    // 契约的 AgendaSegmentRef 本来就带 title，报数字等于白扔已有信息），
+    // 并写明其中可恢复的那些切回该档会回来。
+    const confirmBox = await screen.findByTestId("bp-duration-tier-confirm");
+    expect(confirmBox.textContent).toContain("会移除 2 个议程环节");
+    expect(screen.getByTestId("bp-duration-tier-confirm-removed-s-4").textContent).toContain("组间互评");
+    expect(screen.getByTestId("bp-duration-tier-confirm-removed-s-7").textContent).toContain("原型搭建");
     expect(screen.getByTestId("bp-basic-recoverable").textContent).toContain("切回该档位它们会回来");
 
     // 确认后才是 confirmed=true 的落库请求。
-    fireEvent.click(screen.getByTestId("bp-basic-confirm-yes"));
+    fireEvent.click(screen.getByTestId("bp-duration-tier-confirm-confirm"));
     await waitFor(() => expect(puts).toHaveLength(2));
     expect(puts[1]!.confirmed).toBe(true);
   });
@@ -1043,7 +1057,12 @@ describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getIn
         new Response(
           JSON.stringify({
             reasonCode: "CONFIRMATION_REQUIRED",
-            detail: { agendaSegmentCount: 7, added: [], removed: [{ segmentId: "s-4" }], recoverable: [] },
+            detail: {
+              agendaSegmentCount: 7,
+              added: [],
+              removed: [{ agendaSegmentId: "s-4", title: "组间互评", addedBy: null, optional: true }],
+              recoverable: [],
+            },
           }),
           { status: 409, headers: { "Content-Type": "application/json" } },
         ),
@@ -1054,11 +1073,11 @@ describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getIn
 
     fireEvent.click(screen.getByTestId("bp-designer-basic-overview-entry"));
     await screen.findByTestId("bp-basic-overview");
-    fireEvent.click(screen.getByTestId("bp-basic-tier-one-day"));
-    await screen.findByTestId("bp-basic-confirm");
+    fireEvent.click(screen.getByTestId("bp-duration-tier-one-day"));
+    await screen.findByTestId("bp-duration-tier-confirm");
 
-    fireEvent.click(screen.getByTestId("bp-basic-confirm-no"));
-    await waitFor(() => expect(screen.queryByTestId("bp-basic-confirm")).toBeNull());
+    fireEvent.click(screen.getByTestId("bp-duration-tier-confirm-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("bp-duration-tier-confirm")).toBeNull());
     // 只有那一次预检，没有第二次落库请求。
     expect(puts).toHaveLength(1);
   });

@@ -51,8 +51,14 @@ export interface BlueprintDurationFormProps {
   readonly durationTier: AgendaTierKey;
   /** ⚠ 服务端给的总数（含「全线上」自动追加的两个），前端不用档位表反推 */
   readonly agendaSegmentCount: number;
-  readonly format: SessionFormatView;
-  readonly language: SessionLanguageView;
+  /**
+   * ⚠ 可选：蓝本本体今天**没有**「形式」「语言」这两个字段，契约里也没有对应的写操作。
+   * 第 16 项「基本配置」聚合页因此只复用本组件的时长档位一节，不传这两个——
+   * 传了就是造一个存不进去的选择器（假 UI）。F19 的既有用法照旧传，两节照常渲染。
+   * 「形式」真正可配的地方是第 9 项 `venue-and-format` facet（F205），不在这里开第二个入口。
+   */
+  readonly format?: SessionFormatView;
+  readonly language?: SessionLanguageView;
   /** 非 null ⇒ 有一次换档位正在等待确认（因为会移除内容） */
   readonly pendingTierChange: PendingTierChange | null;
   /** 「全线上」形式下当前生效的自动追加环节；非「全线上」时应为空数组 */
@@ -60,8 +66,8 @@ export interface BlueprintDurationFormProps {
   readonly onSelectTier: (tier: AgendaTierKey) => void;
   readonly onConfirmTierChange: () => void;
   readonly onCancelTierChange: () => void;
-  readonly onSelectFormat: (format: SessionFormatView) => void;
-  readonly onSelectLanguage: (language: SessionLanguageView) => void;
+  readonly onSelectFormat?: (format: SessionFormatView) => void;
+  readonly onSelectLanguage?: (language: SessionLanguageView) => void;
 }
 
 const TIER_LABEL: Record<AgendaTierKey, string> = {
@@ -190,6 +196,7 @@ export function BlueprintDurationForm({
         ) : null}
       </div>
 
+      {format === undefined || onSelectFormat === undefined ? null : (
       <div className="flex flex-col gap-2">
         <h2 className="text-14 font-medium">形式</h2>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="形式">
@@ -235,7 +242,9 @@ export function BlueprintDurationForm({
           </div>
         ) : null}
       </div>
+      )}
 
+      {language === undefined || onSelectLanguage === undefined ? null : (
       <div className="flex flex-col gap-2">
         <h2 className="text-14 font-medium">语言</h2>
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="语言">
@@ -257,6 +266,7 @@ export function BlueprintDurationForm({
           语言影响产出物与报告模板的生成语言。
         </p>
       </div>
+      )}
     </section>
   );
 }
