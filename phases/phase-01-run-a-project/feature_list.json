@@ -4659,6 +4659,29 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F204",
+      "title": "分组二三项配置面板结构化编辑（问卷 / 访谈与对象 / 会前任务，取代通用自由文本框）",
+      "user_visible_behavior": "组织管理员在 /tpl/designer 点开「问卷」，看到的是按问卷分卡片的结构化表单（问卷名 / 发放时机 / 用途说明 / 可增删改的占位题目骨架清单），不再是一个自由文本框；点开「访谈与对象」，看到可增删改的访谈角色清单（角色 / 配额场次 / 要问出什么 / 提纲）+ 两个可配置授权默认值勾选框（录音转录、AI 分析）+ 一条不可关闭的硬约束说明（未收到受访者本人确认前「开始访谈」保持禁用）+ 固定证据规则说明；点开「会前任务」，看到可增删改的任务卡（标题 / 挂到哪个环节 / 适用对象「全体」或「仅组长」单选 / 不做会怎样 / 截止）+ 固定的 AI 催办规则卡。三项任意字段失焦或增删/切换操作后即真实调用 updateDesignFacet 落库，完成度徽标按服务端响应更新，刷新页面后内容仍在原位。全部为空时视为「未填」，不占完成度。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F193"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
+      ],
+      "evidence": "evidence/F204.verify.log @ 2026-08-18T07:09:26.293Z",
+      "notes": "① 人类 2026-08-18 复核指出：facet-editor-registry 上此前只有 4 个结构化编辑器，其余 11 项仍落回通用 FacetTextEditor——也就是「每个配置菜单都是一个 textbox」这个最初批评的问题只解决了 4/15。本 feature 是补齐的第一批（分组二三项）。\n② 逐项对照 apps/web/components/tpl/designer-panels.tsx 的 SurveyPanel/InterviewPanel/HomeworkPanel 与 apps/web/lib/mock/tpl.ts 的 SURVEY_PANEL/INTERVIEW_PLAN_PANEL/HOMEWORK_PANEL（人类第二次强化指令的纪律：UI 具体形态以原型和已有富组件为准，不照 contract.md 字段列表自行设计）。三处刻意与 contract.md 不同、以原型为准的地方，都在各编辑器文件头注里逐条说明：\n   · 问卷：原型的 timing 是一段自由文本（阻断阈值写在文本里），不拆成 contract.md 提议的 kind 枚举 + blockingThreshold/estimatedMinutes 三个字段——拆分没有对应原型控件可以对照。\n   · 访谈与对象：原型 authDefaults 三条里，第三条「未收到受访者本人确认前开始访谈保持禁用」被原型明确标为硬约束（渲染成 warning 而不是 ✓），不是可关的开关——本编辑器渲染成固定说明文字不给勾选框，只有前两条做成布尔开关。\n   · 会前任务：forWhom 原型只有「全体」「仅组长」两种，做成单选而不是自由文本；「挂环节」「不做会怎样」是原型 intro 明确的硬约束字段，界面上给必填提示但不做前端阻断（该层校验属于套用/发布门控，不是编辑器职责，同 F193 起的既有边界）。\n③ 存储形状不变：三项都仍写进 updateDesignFacet 的 content: string 字段（JSON 序列化），零新增契约面。\n④ 既有的三条「通用文本编辑器」组件测试原先绑在 survey 上，本 feature 把该 key 换成专属编辑器后迁移到仍是通用编辑器的 venue-and-format，未删减任何既有断言的覆盖面。\n⑤ 验证：新增 6 条组件测试（三项各 2 条：真实解析已存 JSON 渲染进对应字段含反证「不再落回 bp-facet-content-* 通用文本框」/ 真实增删改后保存成结构化 JSON），既有设计器测试无回归。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
       "id": "F199",
       "title": "createProject 创建者自动获得容器最高权限角色（推翻 Q-4②：facilitator/owner）",
       "user_visible_behavior": "任意通过 createProject 成功建出容器（工作坊/研究项目/用户洞察）的人，建完立刻就能进入并使用自己建的这个容器——不再出现「建了项目却读不到内容」（ADMIN_NOT_SUPERUSER/NO_PROJECT_ROLE）。工作坊容器：创建者获得 facilitator（引导师）角色，is_host=true。研究项目/用户洞察容器：创建者获得 owner（所有者）角色。全部与容器同一个事务写入，不存在“容器建成、角色没跟上”的中间态。",

@@ -17,6 +17,9 @@ import { FacetTextEditor, PermissionMatrixEditor, type FacetSaveFn } from "./fac
 import { TopicPanelEditor } from "./topic-panel-editor";
 import { GroupingPanelEditor } from "./grouping-panel-editor";
 import { AgendaPanelEditor } from "./agenda-panel-editor";
+import { SurveyPanelEditor } from "./survey-panel-editor";
+import { InterviewPanelEditor } from "./interview-panel-editor";
+import { PreTasksPanelEditor } from "./pre-tasks-panel-editor";
 
 export interface FacetEditorProps {
   readonly designFacetKey: string;
@@ -30,6 +33,9 @@ const STRUCTURED_FACET_EDITORS: Record<string, ComponentType<FacetEditorProps>> 
   "topic-and-background": TopicPanelEditor,
   "grouping-rule": GroupingPanelEditor,
   "flow-agenda": AgendaPanelEditor,
+  survey: SurveyPanelEditor,
+  "interview-and-subjects": InterviewPanelEditor,
+  "pre-tasks": PreTasksPanelEditor,
 };
 
 /** 未登记的 key（大多数 16 项目前仍是自由文本）落回通用编辑器。 */
