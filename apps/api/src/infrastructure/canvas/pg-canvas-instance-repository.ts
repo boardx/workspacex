@@ -45,11 +45,20 @@ export class PgCanvasInstanceRepository implements CanvasInstanceRepository {
       );
       const row = r.rows[0];
       if (row === undefined) return null;
-      // jsonb 回来的是已解析的 JS 值；写入方（createTemplate/mintVersion）保证形状。
-      const sections = row.sections as ReadonlyArray<{ name: string; order: number }>;
+      // jsonb 回来的是已解析的 JS 值；写入方（createTemplate/mintVersion）保证形状
+      // 就是契约 `SectionDef`——这里完整透传，不丢字段（renderCanvas 需要全形状）。
+      const sections = row.sections as ReadonlyArray<{
+        sectionId: string; name: string; order: number; required: boolean; capacity: number | null;
+      }>;
       return {
         displayName: row.display_name,
-        sections: sections.map((sec) => ({ name: sec.name, order: sec.order })),
+        sections: sections.map((sec) => ({
+          sectionId: sec.sectionId,
+          name: sec.name,
+          order: sec.order,
+          required: sec.required,
+          capacity: sec.capacity,
+        })),
       };
     });
   }
@@ -140,8 +149,12 @@ export class PgCanvasInstanceRepository implements CanvasInstanceRepository {
         workshop_id: string;
         group_id: string;
         head_version: number;
+        template_key: string;
+        template_version: number;
       }>(
-        `SELECT id, workshop_id, group_id, head_version
+        // template_key/template_version 是冻结的模板身份（路由事实，不是内容）——
+        // render/export 用它取分区定义与几何；本 SELECT 仍然不含 markdown（豁免前提 c）。
+        `SELECT id, workshop_id, group_id, head_version, template_key, template_version
            FROM canvas_instances WHERE org_id = $1 AND id = $2`,
         [orgId, instanceId],
       );
@@ -152,6 +165,8 @@ export class PgCanvasInstanceRepository implements CanvasInstanceRepository {
         workshopId: row.workshop_id,
         groupId: row.group_id,
         headVersion: row.head_version,
+        templateKey: row.template_key,
+        templateVersion: row.template_version,
       };
     });
   }

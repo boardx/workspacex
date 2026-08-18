@@ -24,12 +24,18 @@ export interface CanvasInstanceRow {
   readonly sourceArtifactId: string;
 }
 
-/** 实例头 + 归属，`getSource`/`updateSource` 的判定输入。 */
+/**
+ * 实例头 + 归属，`getSource`/`updateSource` 的判定输入；第二块（render/export）
+ * 追加 `templateKey`/`templateVersion`——冻结的模板身份是分区投影与几何归区的寻址键，
+ * 仍然只是路由事实，不含内容（`instance-repo-guard.test.ts` 断言 findInstance 无 markdown）。
+ */
 export interface CanvasInstanceFacts {
   readonly instanceId: string;
   readonly workshopId: string;
   readonly groupId: string;
   readonly headVersion: number;
+  readonly templateKey: string;
+  readonly templateVersion: number;
 }
 
 /** 一行版本（`getSource.out` 的存储投影）。 */
@@ -40,10 +46,23 @@ export interface CanvasInstanceVersionRow {
   readonly contentHash: string;
 }
 
-/** 实例化时生成初始 markdown 所需的模板内容。 */
+/**
+ * 模板版本行的内容投影。第一块只用 name/order 合成初始 markdown；第二块的
+ * `renderCanvas` 需要完整 `SectionDef` 形状（sectionId/required/capacity）——
+ * `canvas_templates.sections` jsonb 本来就按契约 `SectionDef` 写入（createTemplate
+ * 的 `z.array(SectionDef)`），这里只是不再丢字段，不发明第二种形状。
+ */
+export interface TemplateSectionFacts {
+  readonly sectionId: string;
+  readonly name: string;
+  readonly order: number;
+  readonly required: boolean;
+  readonly capacity: number | null;
+}
+
 export interface TemplateContentFacts {
   readonly displayName: string;
-  readonly sections: ReadonlyArray<{ readonly name: string; readonly order: number }>;
+  readonly sections: readonly TemplateSectionFacts[];
 }
 
 export interface CreateInstanceCmd {

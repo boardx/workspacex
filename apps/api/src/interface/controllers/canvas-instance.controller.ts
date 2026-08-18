@@ -1,9 +1,11 @@
 /**
- * 画布实例源码链的三条路由（#1493 / UC-7.3 第一块）。协议适配，判定全在 `application`。
+ * 画布实例的五条路由（#1493 / UC-7.3 第一、二块）。协议适配，判定全在 `application`。
  *
  *   POST /canvas/agenda-segments/:agendaSegmentId/instances   现场实例化（幂等重放）
  *   GET  /canvas/instances/:instanceId/source                 [源码] 读取
  *   PUT  /canvas/instances/:instanceId/source                 源码手改（乐观并发）
+ *   GET  /canvas/instances/:instanceId/render                 渲染面（第二块，I-8）
+ *   POST /canvas/instances/:instanceId/export-source          几何归区导出（第二块，I-9）
  *
  * ## 状态码映射（`run()` 一处，不各写 catch）
  *
@@ -35,7 +37,9 @@ import { canvas as C } from "@repo/contracts";
 import type { z } from "zod";
 import { ID_FACTORY, type IdFactory } from "../../application/artifact/ports";
 import { CanvasError } from "../../application/canvas/errors";
+import { exportCanvasSource } from "../../application/canvas/export-canvas-source";
 import { getCanvasSource } from "../../application/canvas/get-canvas-source";
+import { renderCanvas } from "../../application/canvas/render-canvas";
 import {
   CANVAS_INSTANCE_REPOSITORY,
   type CanvasInstanceRepository,
@@ -62,9 +66,12 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 export const INSTANTIATE_FOR_SEGMENT_SCHEMA = C.operations.instantiateForSegment.in;
 export const GET_CANVAS_SOURCE_SCHEMA = C.operations.getSource.in;
 export const UPDATE_CANVAS_SOURCE_SCHEMA = C.operations.updateSource.in;
+export const RENDER_CANVAS_SCHEMA = C.operations.renderCanvas.in;
+export const EXPORT_CANVAS_SOURCE_SCHEMA = C.operations.exportSource.in;
 
 type InstantiateBody = z.infer<typeof C.operations.instantiateForSegment.in>;
 type UpdateSourceBody = z.infer<typeof C.operations.updateSource.in>;
+type ExportSourceBody = z.infer<typeof C.operations.exportSource.in>;
 
 @Controller()
 export class CanvasInstanceController {
@@ -170,6 +177,70 @@ export class CanvasInstanceController {
             instanceId: body.instanceId,
             markdown: body.markdown,
             expectedHeadVersion: body.expectedHeadVersion,
+          },
+        ),
+      ),
+    );
+  }
+
+  @Get("/canvas/instances/:instanceId/render")
+  async render(
+    @Param("instanceId") instanceId: string,
+    @Query("versionId") versionId: string | undefined,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    // GET 也过契约校验（同 getSource）。
+    const input = new ZodBodyPipe(RENDER_CANVAS_SCHEMA).transform({
+      instanceId,
+      ...(versionId === undefined ? {} : { versionId }),
+    }) as z.infer<typeof C.operations.renderCanvas.in>;
+
+    return this.run(async () =>
+      C.operations.renderCanvas.out.parse(
+        await renderCanvas(
+          {
+            auth: { repo: this.identity, ids: this.decisions },
+            instances: this.instances,
+          },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            instanceId: input.instanceId,
+            ...(input.versionId === undefined ? {} : { versionId: input.versionId }),
+          },
+        ),
+      ),
+    );
+  }
+
+  /**
+   * ⚠ 200 而不是 POST 缺省 201：导出不创建任何资源（out 里没有版本推进，
+   *   写回是调用方拿着结果再走 updateSource）——同 instantiate 回 200 的理由。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/canvas/instances/:instanceId/export-source")
+  async exportSource(
+    @Param("instanceId") instanceId: string,
+    @Body(new ZodBodyPipe(EXPORT_CANVAS_SOURCE_SCHEMA)) body: ExportSourceBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    if (instanceId !== body.instanceId) {
+      throw new BadRequestException("instance_id_mismatch");
+    }
+    return this.run(async () =>
+      C.operations.exportSource.out.parse(
+        await exportCanvasSource(
+          {
+            identity: this.identity,
+            instances: this.instances,
+          },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            instanceId: body.instanceId,
+            stickyPositions: body.stickyPositions,
           },
         ),
       ),
