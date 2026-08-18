@@ -23,6 +23,8 @@ const stripped = (path: string) =>
 const REPO = at("../../src/infrastructure/canvas/pg-canvas-instance-repository.ts");
 const GET_UC = at("../../src/application/canvas/get-canvas-source.ts");
 const UPDATE_UC = at("../../src/application/canvas/update-canvas-source.ts");
+const RENDER_UC = at("../../src/application/canvas/render-canvas.ts");
+const EXPORT_UC = at("../../src/application/canvas/export-canvas-source.ts");
 
 describe("#1493 · 豁免前提 (a)(b)(c)：仓储只碰三张表、不越租户、findInstance 不带内容", () => {
   it("全部 FROM/JOIN/INTO/UPDATE 只命名 canvas_instances / canvas_instance_versions / canvas_templates", () => {
@@ -72,5 +74,24 @@ describe("#1493 · 豁免前提 (d)：判定先于内容披露", () => {
     expect(check, "组归属判定消失了——豁免条目随之失效").toBeGreaterThan(-1);
     expect(write).toBeGreaterThan(-1);
     expect(check).toBeLessThan(write);
+  });
+
+  // 第二块（render/export）沿用同一豁免——同样把顺序钉成断言。
+  it("render-canvas.ts：authorize 在 findVersion 之前", () => {
+    const code = stripped(RENDER_UC);
+    const auth = code.indexOf("authorize(");
+    const read = code.indexOf(".findVersion(");
+    expect(auth, "authorize 调用消失了——豁免条目随之失效").toBeGreaterThan(-1);
+    expect(read).toBeGreaterThan(-1);
+    expect(auth).toBeLessThan(read);
+  });
+
+  it("export-canvas-source.ts：NOT_IN_GROUP 判定在 findVersion 之前", () => {
+    const code = stripped(EXPORT_UC);
+    const check = code.indexOf('"NOT_IN_GROUP"');
+    const read = code.indexOf(".findVersion(");
+    expect(check, "组归属判定消失了——豁免条目随之失效").toBeGreaterThan(-1);
+    expect(read).toBeGreaterThan(-1);
+    expect(check).toBeLessThan(read);
   });
 });
