@@ -545,6 +545,35 @@ describe("Issue #1073 · guided deep research UI-first flow", () => {
     expect(onStepChange).toHaveBeenCalledWith("search", "grs-1");
   });
 
+  it("exports the report as PDF and Word from the report screen", async () => {
+    const createObjectURL = vi.fn((_: Blob | MediaSource) => "blob:guided-report");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectURL });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    getGuidedResearchSession.mockResolvedValue({ ...sessionAt("report"), sessionId: "grs-1", sourceCount: 3 });
+
+    render(<GuidedResearchFlow step="report" sessionId="grs-1" />);
+
+    await screen.findByTestId("research-report");
+    fireEvent.click(screen.getByTestId("research-report-export-pdf"));
+    fireEvent.click(screen.getByTestId("research-report-export-word"));
+
+    expect(createObjectURL).toHaveBeenCalledTimes(2);
+    const firstCall = createObjectURL.mock.calls[0];
+    const secondCall = createObjectURL.mock.calls[1];
+    expect(firstCall).toBeDefined();
+    expect(secondCall).toBeDefined();
+    const [pdfBlob] = firstCall as [Blob | MediaSource];
+    const [wordBlob] = secondCall as [Blob | MediaSource];
+    expect(pdfBlob).toBeInstanceOf(Blob);
+    expect(wordBlob).toBeInstanceOf(Blob);
+    expect((pdfBlob as Blob).type).toBe("application/pdf");
+    expect((wordBlob as Blob).type).toBe("application/msword");
+    expect(click).toHaveBeenCalledTimes(2);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:guided-report");
+  });
+
   it("shows zero report citations when every source was excluded", async () => {
     window.localStorage.setItem("wsx.guidedResearch.demo.v1.grs-1", JSON.stringify({
       version: 1,

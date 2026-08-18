@@ -1,0 +1,125 @@
+{
+  "phase": "06",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-API",
+      "title": "session/start 契约：workflowType=deep_research 启动与恢复",
+      "spec_ref": "00-overview.md#R2",
+      "user_visible_behavior": "前端以 topic、goals、language、files、workflowType=deep_research、teamId、chatThreadId、userMessage、sessionId 调用 /api/v1/ai-agent/deep-research/session/start 时，服务端创建或恢复同一深度研究会话；重复提交同一 sessionId 不生成第二条会话，缺少关键字段或 workflowType 错误返回可解释错误。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 3,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/guided-research-session-contract.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/deep-research-session-start.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Backend 参考请求固定覆盖 workflowType=deep_research。共享热点 packages/contracts/src/research.ts、apps/api/src/**/research。"
+    },
+    {
+      "id": "F02",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-API",
+      "title": "Brief 与研究方向节点：生成、编辑确认、版本不被覆盖",
+      "spec_ref": "00-overview.md#R3",
+      "user_visible_behavior": "深度研究会话启动后生成 brief 与研究方向候选；用户编辑并确认后，后续节点读取确认版本而不是重新生成覆盖；刷新后确认态和编辑内容保持一致。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F01"],
+      "points": 5,
+      "verification": [
+        "cd apps/deep-agent-service && uv run pytest tests/test_guided_research_brief.py tests/test_guided_research_directions.py",
+        "pnpm --filter web exec vitest run tests/ui/deep-research-brief-directions.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "迁入来源：phase-01 F196/F197 未完成链路。"
+    },
+    {
+      "id": "F03",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-API",
+      "title": "报告大纲与 Research Plan：确认后驱动章节搜索",
+      "spec_ref": "00-overview.md#R3",
+      "user_visible_behavior": "用户确认研究方向后系统生成结构化报告大纲和 Research Plan；用户可编辑章节、目标和检索计划，确认后搜索执行严格按确认大纲推进。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F02"],
+      "points": 5,
+      "verification": [
+        "cd apps/deep-agent-service && uv run pytest tests/test_guided_research_outline.py",
+        "pnpm --filter web exec vitest run tests/ui/deep-research-outline-plan.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "迁入来源：phase-01 F198/F170 未完成链路。"
+    },
+    {
+      "id": "F04",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-API",
+      "title": "章节搜索执行：来源、部分失败与可恢复进度",
+      "spec_ref": "00-overview.md#R3",
+      "user_visible_behavior": "搜索执行按章节显示进度、来源和失败状态；单章节失败不隐藏其他章节结果，用户可重试失败章节，已完成章节不会重复扣费或重复写入来源。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F03"],
+      "points": 5,
+      "verification": [
+        "cd apps/deep-agent-service && uv run pytest tests/test_guided_research_search.py",
+        "pnpm --filter web exec vitest run tests/ui/deep-research-search-progress.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "覆盖部分失败恢复，不把失败报告成成功。"
+    },
+    {
+      "id": "F05",
+      "priority": 1,
+      "area": "deep-research",
+      "capability": "CAP-WEB",
+      "title": "完整报告与导出：citations、PDF 和 Word",
+      "spec_ref": "00-overview.md#R5",
+      "user_visible_behavior": "研究完成后展示完整报告查看页，包含目录、结构化章节和 citations；每条引用可回到来源，缺少来源的段落标为待补证据且不能冒充已验证结论。用户可从报告页导出 PDF 和 Word/DOCX，导出内容保留报告结构、来源引用和待补证据标记。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F04"],
+      "points": 5,
+      "verification": [
+        "cd apps/deep-agent-service && uv run pytest tests/test_guided_research_report.py",
+        "pnpm --filter web exec vitest run tests/ui/deep-research-report-citations.test.tsx tests/ui/deep-research-report-export.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "迁入来源：phase-01 F171 未完成链路。查看报告页需支持 PDF 与 Word/DOCX 导出；流程实现参考 /Users/shenyangjun/boardx/boardx-backend 的 deep-research session/start。"
+    },
+    {
+      "id": "F06",
+      "priority": 2,
+      "area": "deep-research",
+      "capability": "CAP-WEB",
+      "title": "历史列表与恢复：深度研究会话可继续、归档、查看全部",
+      "spec_ref": "00-overview.md#R4",
+      "user_visible_behavior": "用户访问深度研究首页可看到历史研究，继续未完成会话、查看已完成报告或归档条目；恢复同一 sessionId 时节点状态、确认内容、来源和错误状态保持一致。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F01"],
+      "points": 3,
+      "verification": [
+        "bash apps/deep-agent-service/scripts/verify-guided-research-postgres-recovery.sh",
+        "pnpm --filter web exec vitest run tests/ui/deep-research-history-recovery.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "已 passing 的 phase-01 F168 可作历史参考，但后续维护归本 phase。"
+    }
+  ]
+}

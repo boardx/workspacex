@@ -1,6 +1,6 @@
 /**
  * F117 ②⑤ —— **谁能建**（U-4 裁 A → **2026-08-06 人类裁决 / #608 覆盖**）与
- * **创建者不自动获角色**（Q-4②，**未被覆盖**）。
+ * **创建者自动获角色**（Q-4②，**2026-08-16 人类裁决推翻**）。
  *
  * ## 🔴 #608：这两条**不再**是同一条裁决的两端
  *
@@ -8,16 +8,18 @@
  * 那半句今天**已经不成立**——`admin` 也能建了（#608：组织里的第一个人永远是 `admin`，
  * 且没有任何 `UPDATE org_memberships` 能把他变成 `lead`，否则第一个项目永远建不出来）。
  *
- * ⚠ 但 **D-18 并没有被放弃，它换了一条边来守**：`admin`（和 `lead`）建完之后
- *   **依旧不会**获得任何项目角色。「能创建」与「创建后拥有角色」是两件事，#608 只动前者。
- * ⇒ 本文件最后一个 describe（Q-4②）因此**比改动前更重要**，不是历史包袱。
+ * ⚠ **D-18 本身没有被放弃**（`decide()` 一字未改），但它守的那条边挪了：
+ *   `admin`（和 `lead`）建完之后**现在会**获得项目角色（facilitator），
+ *   不再落在 D-18 判定的"组织层越过项目层、无项目角色"那个格子里。
+ * ⇒ 本文件最后一个 describe（Q-4②）因此从"护栏"变成"正向验证"，同样重要。
  *
- * 创建者建完之后**不会**自动获得项目角色，是因为 Q-4② 裁的正是
+ * ⚠ 2026-08-16 之前：创建者建完之后不会自动获得项目角色，理由是 Q-4② 裁的
  * 「`lead` 对自建未加入的项目**持管理权、不持内容读取权**」——若创建即授角色，
- * 那条边的两端就不存在了，「管理员不是超级用户」随之破掉。
+ * 那条边的两端就不存在了。**人类直接裁决推翻了这条**：创建者自动获得最高权限
+ * （facilitator + is_host），这正是"建了项目却进不去自己项目"这个真实产品缺口的根治。
  *
- * ⇒ 所以本文件里「建完之后创建者读不到内容」是**正向断言**，
- *   而不是一条描述缺陷的注释。
+ * ⇒ 所以本文件里「建完之后创建者读得到内容」现在是**正向断言**，
+ *   不是"建完之后创建者读不到内容"（那是推翻前的旧行为）。
  *
  * ## 每条都要有反向的那一半
  *
@@ -115,8 +117,8 @@ describe("#608（覆盖 U-4 裁 A）：`lead` 与 `admin` 能创建，另两种�
       //    U-4 裁 A 原本的理由（管理员的权是治理不是参与，D-18 同向）没有被否定，
       //    被否定的是它的**代价**：`bootstrapFirstUser` 只产 `admin`，且全仓没有任何
       //    `UPDATE org_memberships`，于是第一个用户永远建不了第一个项目。
-      //    ⚠ D-18 由**另一条边**继续守：建完仍不授予项目角色（Q-4②，见本文件最后一个
-      //      describe，以及 `bootstrap-admin-can-create-project.test.ts` 的护栏）。
+      //    ⚠ D-18 本身没有被否定：建完**现在会**授予项目角色（Q-4② 已推翻，见本文件
+      //      最后一个 describe，以及 `bootstrap-admin-can-create-project.test.ts` 的正向验证）。
       admin: "NO_ERROR",
       // 反向的一半：不许退化成「谁都能建」。这两格红了，说明放宽放过头了。
       consultant: "ORG_ROLE_INSUFFICIENT",
@@ -202,17 +204,19 @@ describe("AUTH_SERVICE_UNAVAILABLE：判定服务不可用一律拒绝，不得�
   });
 });
 
-describe("🔴 Q-4②：创建者**不会**被自动授予任何项目角色", () => {
-  it("建完之后 `project_memberships` 里一行都没有", async () => {
+describe("🔴 Q-4②（2026-08-16 人类裁决推翻）：创建者**自动**获得项目最高权限角色", () => {
+  it("建完之后 `project_memberships` 里多了一行 facilitator（is_host=true）", async () => {
     const out = await submit(userFor("lead"));
     const rows = await asApp(ORG, async (c) =>
-      (await c.query("SELECT user_id, project_role FROM project_memberships WHERE project_id = $1", [out.id]))
-        .rows,
+      (await c.query<{ user_id: string; project_role: string; is_host: boolean }>(
+        "SELECT user_id, project_role, is_host FROM project_memberships WHERE project_id = $1",
+        [out.id],
+      )).rows,
     );
-    expect(rows).toEqual([]);
+    expect(rows).toEqual([{ user_id: userFor("lead"), project_role: "facilitator", is_host: true }]);
   });
 
-  it("反向断言：创建者立刻以自己的身份判权，拿到 NO_PROJECT_ROLE", async () => {
+  it("正向断言：创建者立刻以自己的身份判权，走项目层放行", async () => {
     const out = await submit(userFor("lead"));
     const d = await authorize(
       { repo: identity, ids },
@@ -224,23 +228,31 @@ describe("🔴 Q-4②：创建者**不会**被自动授予任何项目角色", (
         action: "read.allHands",
       },
     );
-    expect(d.allowed).toBe(false);
-    // 组织层是**过**的——挡住的是项目层。这两者必须可分辨，
-    // 否则「我建的项目我进不去」会被读成「我不在这个组织里」。
+    expect(d.allowed).toBe(true);
+    // 组织层照样过——现在项目层**也**过了，不再需要区分。
     expect(d.orgLayer.passed).toBe(true);
     expect(d.orgLayer.role).toBe("lead");
-    expect(d.projectLayer?.passed).toBe(false);
-    expect(d.reasonCode).toBe("NO_PROJECT_ROLE");
+    expect(d.projectLayer?.passed).toBe(true);
+    expect(d.reasonCode).toBeNull();
   });
 
-  it("反向的反向：给同一个人补一个项目角色，同一次判权立刻放行", async () => {
+  it("反向的反向：给**另一个**人补一个项目角色，同一次判权立刻放行", async () => {
     // 少了这一条，一个「对任何项目都拒绝」的判权实现会让上一条白绿。
+    // ⚠ 创建者本人现在已经自动拿到 facilitator（上一条断言钉住的行为），这里必须换
+    //   一个**没有**参与创建的人来验证「后补的角色」这条路径，否则 `addProjectMember`
+    //   会撞上创建时已写的那一行，报 `project_memberships_pkey` 唯一约束冲突——
+    //   那是实现细节的巧合撞车，不是这条测试想验证的东西。
     const out = await submit(userFor("lead"));
-    await addProjectMember(ORG, out.id, userFor("lead"), "facilitator", null, true);
+    const other = "u-f117-added-facilitator";
+    // `decide()` 的组织层要求 `org.role !== null`（I-11 之前那一关）——这个人必须先
+    // 在组织里有一行，才轮到项目层的 facilitator 角色说话。用 `consultant`（本文件
+    // 放宽未涉及的角色）保持「是项目角色而不是组织角色在放行」这条测试意图不失真。
+    await addOrgMember(ORG, other, "consultant", null);
+    await addProjectMember(ORG, out.id, other, "facilitator", null, false);
     const d = await authorize(
       { repo: identity, ids },
       {
-        userId: userFor("lead"),
+        userId: other,
         orgId: toOrgId(ORG),
         projectId: out.id,
         object: { kind: "project", id: out.id },

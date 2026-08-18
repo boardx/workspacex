@@ -1,0 +1,105 @@
+{
+  "phase": "07",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-API",
+      "title": "session/start 契约：workflowType=user_research 启动与恢复",
+      "spec_ref": "00-overview.md#R2",
+      "user_visible_behavior": "前端以 topic、goals、language、files、workflowType=user_research、teamId、chatThreadId、userMessage、sessionId 调用 /api/v1/ai-agent/deep-research/session/start 时，服务端创建或恢复同一用户访谈研究会话；deep_research 会话不能被读取成 user_research，反向同理。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 3,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/user-research-session-contract.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/research/user-research-session-start.test.ts"
+      ],
+      "evidence": "",
+      "notes": "Backend 参考请求固定覆盖 workflowType=user_research；与 deep_research 共用启动底座但投影不同。"
+    },
+    {
+      "id": "F02",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-WEB",
+      "title": "访谈对象与研究问题投影",
+      "spec_ref": "00-overview.md#R3",
+      "user_visible_behavior": "用户访谈会话启动后展示访谈对象、研究问题和材料需求；用户可编辑问题与对象说明，确认后的版本驱动后续材料组织和报告生成。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F01"],
+      "points": 5,
+      "verification": [
+        "cd apps/deep-agent-service && uv run pytest tests/test_user_research_subjects_questions.py",
+        "pnpm --filter web exec vitest run tests/ui/user-research-subjects-questions.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "显示方式与深度研究不同：以对象和问题为中心。"
+    },
+    {
+      "id": "F03",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-WEB",
+      "title": "访谈材料进度与发现聚类",
+      "spec_ref": "00-overview.md#R3",
+      "user_visible_behavior": "用户访谈执行中按对象和问题展示材料进度、缺口和发现聚类；部分材料失败时保留已完成发现并允许重试缺口，不把缺口隐藏成完成态。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F02"],
+      "points": 5,
+      "verification": [
+        "cd apps/deep-agent-service && uv run pytest tests/test_user_research_materials_findings.py",
+        "pnpm --filter web exec vitest run tests/ui/user-research-materials-findings.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "材料状态必须可追溯，缺口不能静默成功。"
+    },
+    {
+      "id": "F04",
+      "priority": 1,
+      "area": "user-research",
+      "capability": "CAP-WEB",
+      "title": "用户研究报告：发现、证据、来源回跳",
+      "spec_ref": "00-overview.md#R5",
+      "user_visible_behavior": "用户研究完成后展示访谈发现报告，按研究问题组织发现、证据和来源；每条发现可回跳材料来源，来源不足的发现标为待补证据。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F03"],
+      "points": 5,
+      "verification": [
+        "cd apps/deep-agent-service && uv run pytest tests/test_user_research_report.py",
+        "pnpm --filter web exec vitest run tests/ui/user-research-report.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "不改变 phase-04 数字专家访谈既有契约；本 phase 是 user_research workflow。"
+    },
+    {
+      "id": "F05",
+      "priority": 2,
+      "area": "user-research",
+      "capability": "CAP-WEB",
+      "title": "历史列表与跨 workflow 防串读",
+      "spec_ref": "00-overview.md#R4",
+      "user_visible_behavior": "用户访谈首页只列出 user_research 会话；继续或查看会话时不会混入 deep_research 的报告大纲投影，跨 workflow 按 ID 请求返回可解释拒绝。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F01"],
+      "points": 3,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/research/user-research-workflow-isolation.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/user-research-history-isolation.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "workflowType 是隔离边界，不能只做前端过滤。"
+    }
+  ]
+}

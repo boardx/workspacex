@@ -43,3 +43,31 @@ phases:
     status: not_started
     depends_on: []
     has_ui: true
+  - id: "06"
+    slug: deep-research
+    name: 深度研究
+    goal: "独立维护深度研究模块；参考 backend session/start 调用流程，以 workflowType=deep_research 启动和恢复研究会话，并细化研究方向、大纲、搜索执行、引用和报告 feature_list。"
+    status: not_started
+    depends_on: ["00"]
+    has_ui: true
+  - id: "07"
+    slug: user-research
+    name: 用户访谈
+    goal: "独立维护用户访谈模块；参考同一个 backend session/start 调用流程，以 workflowType=user_research 区分访谈研究，并细化访谈对象、问题、执行、发现和报告 feature_list。"
+    status: not_started
+    depends_on: ["00"]
+    has_ui: true
+  - id: "08"
+    slug: transcription
+    name: 转录
+    goal: "独立维护转录模块；复用现有 ASR Provider、recording document、recording_segments 与 file-first 物化，细化实时采集、历史管理、导出回流和权限保留期 feature_list。"
+    status: not_started
+    depends_on: ["00"]
+    has_ui: true
+  - id: "09"
+    slug: survey
+    name: 问卷
+    goal: "独立维护问卷模块；参考 boardx-dev-template 的问卷系统与现有 /studio/survey 契约，细化资源库、模板、五步工作台、发布回收、分析报告和现场投票 feature_list。"
+    status: not_started
+    depends_on: ["00"]
+    has_ui: true

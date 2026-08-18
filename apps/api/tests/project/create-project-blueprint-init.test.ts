@@ -286,8 +286,9 @@ describe("BP-08 反证：六类写入失败整体回滚", () => {
       facetKeys: [FACET_1],
       tier: "half-day",
     });
-    // 语句序：① 占指纹 ② INSERT projects ③ INSERT 子类型表 ④ INSERT blueprint_bindings。卡在 4。
-    const faulty = new PgProjectRepository(new FaultyDatabase(db, 4), new UuidIdFactory());
+    // 语句序：① 占指纹 ② INSERT projects ③ INSERT 子类型表 ④ INSERT project_memberships
+    // （2026-08-16 人类裁决新增，Q-4② 推翻）⑤ INSERT blueprint_bindings。卡在 5。
+    const faulty = new PgProjectRepository(new FaultyDatabase(db, 5), new UuidIdFactory());
     const before = await countRows("projects", "org_id = $1", [ORG]);
 
     await expect(

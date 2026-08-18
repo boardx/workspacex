@@ -650,6 +650,57 @@ uc-0-3 `:71`（A3）、uc-1-4 `:106`（A4）都写「立即生效，不等会话
 
 ---
 
+## 🔁 2026-08-17 delta：Q-4② 推翻重裁（原「不持内容读取权」→ 新「创建者自动获最高权限」）
+
+> ⚠ 不改上面 Q-4 的原始记录——留痕规则同 Q-6① 那条 delta。原文本保持 2026-07-30 那天的原样，
+> 推翻用新的一条裁决覆盖，附时间戳与理由。
+
+**触发**：本会话直接问人类「createProject 后创建者要不要自动获得项目角色」（即 Q-4 待答②，
+与「Q-1 连带 3」是同一条边的两端，二者必须给同一个答案）。
+
+**原裁决（2026-07-30，本文件正文，Q-4 待答②那一行）**：「`lead` 对其创建的项目持有**管理权**
+（成员/设置/生命周期）但**不持内容读取权**」——创建者建完之后不自动获得任何 `project_memberships`
+行，立刻判权拿 `NO_PROJECT_ROLE`/`ADMIN_NOT_SUPERUSER`（D-18 同向）。
+
+**新裁决**：人类原话——「自动获得最高权限，owner，是的」。创建者**自动**获得该容器最高权限的
+所有者角色：
+- **workshop** 容器 → `project_memberships` 一行，`project_role='facilitator'`、`is_host=true`
+  （四种项目角色里字面语义最接近"对内容负最终责任"的一档，同 `project-role-matrix.ts`
+  既有的 facilitator 定性延伸）。
+- **research_project / user_insight** 容器 → 各自的 `research_project_members`/
+  `user_insight_members`（F128），`role='owner'`——人类原话里的「owner」字面对应的正是这两张表
+  已有的枚举值，不是巧合，也不是本次新造的角色名。
+
+**为什么推翻**：原裁决在真实产品里造成了一个具体的可用性缺口——创建者建完项目却进不去
+自己建的项目（`ADMIN_NOT_SUPERUSER`/`NO_PROJECT_ROLE`），且没有任何产品内路径能让创建者
+补上这个角色（`addProjectMember` 的授予者判定同样要求先有一个已在场的 facilitator 或
+组织 lead/admin 走 #614 那条 override——第一次建项目时这条 override 只能放行"调用"，
+不放行"内容"）。这是「建了项目却打不开」这个具体、可复现的产品缺口，不是抽象的模型洁癖。
+
+**D-18 本身没有被推翻**：`decide()` 的判定逻辑（组织层越过项目层拿 `ADMIN_NOT_SUPERUSER`）
+一字未改。创建者只是从一开始就不再落在这个判定的格子里——他现在有真实的项目层角色，
+走的是项目层放行，不是组织层旁路。`member-authorization.ts` 的 #614 override（Q-4② 原本
+专为"创建者自建未加入"设的那条组织层旁路）**不需要删**：它覆盖的是"lead/admin 管理**任意**
+项目成员"这条更宽的边（不限于自建项目），仍然是别人未加入某个项目时的合法路径。
+
+**受影响的下游**：
+- `apps/api/src/infrastructure/project/pg-project-repository.ts`（`create()` 同一事务多写一行）、
+  `apps/api/src/application/project/{create-project,ports}.ts`、
+  `apps/api/src/domain/project/create-project-rules.ts`、
+  `apps/api/src/application/project/member-authorization.ts`（仅文档修正，无逻辑改动）。
+- 测试：`create-project-org-role-gate.test.ts`、`bootstrap-admin-can-create-project.test.ts`、
+  `create-project-blueprint-init.test.ts`（故障注入点位偏移一位）——原先钉住"创建者无角色"
+  的护栏断言全部翻成正向验证。
+- F191（BP-08，createProject 真执行蓝本套用）不受影响：它写的 `blueprint_bindings` 一行与
+  本次新增的成员行是两件独立的事，顺序上后者先写（见仓储文件头注对语句序的更新）。
+- 前端：这正是此前 rev-uiux 审查报告点名的「`ADMIN_NOT_SUPERUSER` 判定是对的，产品闭环缺一环」
+  那条真实缺口的根治，`tab-overview.tsx` 的读取失败态与创建者身份显示两处前端 bug 修法不受
+  本次影响（仍需单独处理）。
+
+裁决人：yanbin shen（经会话记录，非表单勾选）　日期（ISO）：2026-08-17T00:00:00+08:00
+
+---
+
 <a id="q7"></a>
 # 🟡 Q-7 一个人能同时在多少项目里？项目能不能跨组织？
 
