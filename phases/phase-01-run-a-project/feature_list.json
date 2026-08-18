@@ -4736,14 +4736,14 @@
         "F207"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "dev-chat-e2e",
       "verification": [
         "pnpm --filter web run typecheck",
         "pnpm run verify:fullstack-smoke"
       ],
-      "evidence": "",
+      "evidence": "evidence/F208.verify.log @ 2026-08-18T08:48:26.184Z",
       "notes": "① 为什么需要这一条、它与组件测试不重复：F204–F207 的组件测试都是在 jsdom 里对着 mock fetch 断言，registry 覆盖门控也只是断言 getFacetEditor 的返回值。人类 2026-08-18 的批评原话是「后台项目的每个项目配置菜单，现在都是一个 textbox」——要回答的是「一个真人打开这个页面逐个点过去，看到的是不是 16 个结构化面板」，这只能在真栈里断。本用例专盯三件 mock 下测不出来的事：逐项点开后 DOM 里不存在通用文本框锚点；真实编辑→真实 PUT→刷新后值仍在原来那一格；完成度数字来自服务端响应。\n② 15 个 key 取自生成的 DESIGN_FACET_CATALOG 而不是本文件手抄一份（抄一份就会漂移），并额外钉住「正好 15 项」，避免定义表少一项时用例照样全绿。\n③ 自检真的抓到了问题，不是写完就绿：第一版断言「改议程 × 组长」是锁定格，真栈里红了——原因是该格只在 F203（把占位锁定数据换成原型真实 permRows[].lockedFor）之后才是锁的，而 F203 走的是另一条分支（PR #1529），与本分支血统上还没汇合。据实改成「改议程 × 组员」（占位版与 F203 版**两边都锁**），并在用例里写明缘由——不是挑软柿子让测试变绿，是红的原因属于血统而非行为。\n④ 同批修掉一条被本轮改动打红的既有真栈用例（blueprint-contract-gap-audit 的 F193）：它找 bp-facet-content-pre-tasks 那个 textarea，而 F204 已把 pre-tasks 换成结构化面板。用例里那句「用 pre-tasks（还未被拆成结构化面板的通用编辑 key）」的假设随 15 项全结构化而彻底失效，改成走结构化面板的真实交互；至此没有任何 key 还是自由文本框，这条用例不能再靠「换一个还没结构化的 key」绕开。\n⑤ 同批修掉一条与本轮无关、但会持续卡 pre-push 的既有测试竞态（admin-members-boundary）：它 waitFor 的是容器，而容器在「读取中…」loading 态就已渲染，紧接着的裸 getByTestId 要求 fetch 已 resolve，turbo 多 worker 并发时就红。改成 findByTestId 那一行。反证：把 mock fetch 人为延迟 20ms，旧写法复现 CI 上一模一样的报错、新写法 4 passed。",
       "priority": 2,
       "area": "project",
