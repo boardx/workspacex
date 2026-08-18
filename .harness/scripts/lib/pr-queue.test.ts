@@ -15,6 +15,7 @@ import {
   classifyPr,
   mergeAuthorization,
   parseClosesIssues,
+  parseRefsIssues,
   postMergeGaps,
   resolveCoordMode,
   type PrFacts,
@@ -31,6 +32,7 @@ function greenFacts(): PrFacts {
     isDraft: false,
     headSha: HEAD,
     closesIssues: [451],
+    refsIssues: [],
     mergeStateStatus: "CLEAN",
     checks: REQUIRED_CHECKS.map((name) => ({ name, status: "COMPLETED", conclusion: "SUCCESS" })),
     verdictLabels: ["review:feature-ok"],
@@ -96,10 +98,18 @@ describe("#451 PR 队列状态机", () => {
     expect(got.state).toBe("MERGE_BLOCKED");
   });
 
-  it("反证 6：PR 正文缺少 Closes #N", () => {
-    const got = classifyPr({ ...greenFacts(), closesIssues: [] });
+  it("反证 6：PR 正文既没有 Closes #N 也没有 Refs #N → 追溯不到 issue，拦", () => {
+    const got = classifyPr({ ...greenFacts(), closesIssues: [], refsIssues: [] });
     expect(got.state).toBe("MERGE_BLOCKED");
-    expect(got.reasons.join("\n")).toContain("Closes");
+    expect(got.reasons.join("\n")).toContain("追溯不到任何 issue");
+  });
+
+  // ── 2026-08-18（实测 PR #1540 反证）：大 issue 拆多个连续 PR 交付时，中间几块
+  //    只 Refs 不 Closes 是合法模式，不该被拦。#1493 就是这么拆的（#1537/#1540/…）。
+  it("只有 Refs #N 没有 Closes #N（拆块交付的中间块）→ 放行，不再误判", () => {
+    const got = classifyPr({ ...greenFacts(), closesIssues: [], refsIssues: [1493] });
+    expect(got.state).toBe("READY_TO_MERGE");
+    expect(got.reasons.join("\n")).not.toContain("追溯不到任何 issue");
   });
 
   it("反证 7：作者自审——approve 者与 PR 作者是同一人", () => {
@@ -213,6 +223,17 @@ describe("#451 PR 队列状态机", () => {
     expect(parseClosesIssues("Closes #451\nrefs #999")).toEqual([451]);
     expect(parseClosesIssues("fixes #12 and resolves #7")).toEqual([7, 12]);
     expect(parseClosesIssues("见 #451 的讨论")).toEqual([]);
+  });
+
+  it("解析 Refs 关键字：与 Closes 各管各的，互不吞并", () => {
+    // 同一段正文里两种关键字并存时，各自只认自己那一半——上面那条已经断言过
+    // parseClosesIssues 不会把 `refs #999` 当成闭合；这里断言反方向也成立。
+    expect(parseRefsIssues("Closes #451\nrefs #999")).toEqual([999]);
+    expect(parseRefsIssues("Refs #1493（拆解的第二块）")).toEqual([1493]);
+    expect(parseRefsIssues("Ref #7")).toEqual([7]);
+    // 不能把裸 #号或 Closes 误当成 Refs
+    expect(parseRefsIssues("见 #451 的讨论")).toEqual([]);
+    expect(parseRefsIssues("Closes #451")).toEqual([]);
   });
 });
 
