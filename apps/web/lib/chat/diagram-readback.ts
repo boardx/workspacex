@@ -23,7 +23,11 @@ export async function fetchLatestSavedDiagramSource(input: {
 }): Promise<SavedDiagramSource | null> {
   try {
     const list = await listThreadArtifacts(input.threadId, input.projectId, input.bearer);
-    const candidates = list.items.filter((i) => i.messageId === input.messageId && i.hasSource);
+    // ⚠ 只按 messageId 过滤，**不看 `hasSource`**：那个字段是「有出处引用」（I-33 的
+    // citations 判定投影），不是「对象存储里有源字节」——modal 保存的 draft 恒无
+    // citations ⇒ hasSource 恒 false，拿它过滤会把每一条保存版都滤掉（e2e 首轮实测
+    // 就是这么红的）。字节本体每次落地都有（materializeArtifact 的 content.md）。
+    const candidates = list.items.filter((i) => i.messageId === input.messageId);
     const latest = candidates[candidates.length - 1];
     if (!latest) return null;
     const source = await getThreadArtifactSource(

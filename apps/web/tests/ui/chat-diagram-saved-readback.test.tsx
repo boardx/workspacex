@@ -37,9 +37,12 @@ vi.mock("@/components/canvas/canvas-stage", () => ({
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 import { ChatDiagramCanvasModal } from "@/components/chat/chat-diagram-canvas-modal";
 
+// ⚠ hasSource 恒 false 是**有意的**：modal 保存的 draft 无 citations ⇒ 契约的
+// hasSource（「有出处引用」）恒 false。读回逻辑不得拿它当「有源字节」过滤——
+// e2e 首轮实测就因为这个误用把每条保存版都滤掉了，此处钉死回归。
 const item = (over: Record<string, unknown>) => ({
   artifactId: "a", title: "t", mode: "draft", version: null,
-  pinnedBy: null, pinnedAt: null, hasSource: true, messageId: "m-1", ...over,
+  pinnedBy: null, pinnedAt: null, hasSource: false, messageId: "m-1", ...over,
 });
 
 describe("A · fetchLatestSavedDiagramSource 请求序列", () => {

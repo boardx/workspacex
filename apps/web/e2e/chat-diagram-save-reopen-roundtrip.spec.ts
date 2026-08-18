@@ -35,6 +35,17 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   await page.getByTestId("chat-message-submit").click();
   expect((await accepted).status()).toBe(202);
 
+  // 等这条消息触发的 AgentRun 到终态再往下走：run 落定时面板会软刷新消息流并把
+  // 分页重置回第一页——不等它，后面定位到的图会在刷新那一刻从 DOM 上被拆下
+  // （首轮实测：element was detached from the DOM，点「最大化」卡到超时）。
+  await page.waitForResponse(async (r) => {
+    if (r.request().method() !== "GET" || !/\/agent-runs\/[^/]+$/.test(r.url())) return false;
+    try {
+      const body = await r.json() as { status?: string };
+      return body.status === "succeeded" || body.status === "failed";
+    } catch { return false; }
+  }, { timeout: 120_000 });
+
   // ── G2：触发「生成用户画像」，assistant mindmap 消息进入线程并渲染 ──────
   const personaResponse = page.waitForResponse((r) =>
     r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/persona-summary`));
