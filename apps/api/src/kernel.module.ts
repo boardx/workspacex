@@ -495,6 +495,13 @@ import {
 } from "./application/canvas/template-ports";
 import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
 import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+// #1493（UC-7.3 第一块）：画布实例源码链（instantiateForSegment / getSource / updateSource）。
+import {
+  CANVAS_INSTANCE_REPOSITORY,
+  type CanvasInstanceRepository,
+} from "./application/canvas/instance-ports";
+import { PgCanvasInstanceRepository } from "./infrastructure/canvas/pg-canvas-instance-repository";
+import { CanvasInstanceController } from "./interface/controllers/canvas-instance.controller";
 // F173（BP-01）：templates 束**第一条**接上电的路由。此前该束是「34 个契约 operation
 // + 32 个纯用例，零控制器零表零仓储」（#991 勘探），应用层写好了却没人调得到。
 import { BlueprintController } from "./interface/controllers/blueprint.controller";
@@ -598,6 +605,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
+    CanvasInstanceController,
     BlueprintController,
     RecordingController,
     AgentRunController,
@@ -1369,6 +1377,14 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: CANVAS_TEMPLATE_REPOSITORY,
       useFactory: (db: DatabasePort): CanvasTemplateRepository =>
         new PgCanvasTemplateRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #1493：画布实例 + immutable 版本链。读写 `canvas_instances` 与
+    // `canvas_instance_versions` 两张新表，与任何既有仓储没有共享的读写路径。
+    {
+      provide: CANVAS_INSTANCE_REPOSITORY,
+      useFactory: (db: DatabasePort): CanvasInstanceRepository =>
+        new PgCanvasInstanceRepository(db),
       inject: [DATABASE_PORT],
     },
     // F173（BP-01）：蓝本落库。读写 `blueprints` 与 `blueprint_design_facets` 两张新表，
