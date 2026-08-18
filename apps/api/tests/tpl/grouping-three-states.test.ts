@@ -18,6 +18,9 @@ import {
   isValidGroupStatus,
   type GroupPatch,
 } from "../../src/domain/templates/grouping";
+import { toOrgId } from "../../src/domain/org-id";
+
+const ORG = toOrgId("org-f25-grouping");
 
 /**
  * F25 —— **分组编排：组状态三值封闭 + 组长必填**（`uc-2-2` R8 V7）。
@@ -38,7 +41,14 @@ class FakeGroupingRepository implements GroupingRepository {
     this.calls.push(cmd);
     if (this.shouldConflict) throw new GroupingRevisionConflictError();
     this.revision = `rev-${this.calls.length}`;
+    this.lastGroups = cmd.groups;
     return { groups: cmd.groups, revision: this.revision };
+  }
+
+  private lastGroups: readonly GroupPatch[] = [];
+
+  async getGrouping(): Promise<UpdatedGrouping> {
+    return { groups: this.lastGroups, revision: this.revision };
   }
 }
 
@@ -49,6 +59,7 @@ function group(overrides: Partial<GroupPatch> = {}): GroupPatch {
     scenario: "德国工商业主的采购决策链",
     leaderUserId: "u-lead",
     status: "recording-ready",
+    memberUserIds: [],
     ...overrides,
   };
 }
@@ -107,7 +118,7 @@ describe("F25 · updateGrouping 用例", () => {
     const out = await updateGroupingUseCase(
       { repo },
       {
-        projectId: "p-1",
+        orgId: ORG, projectId: "p-1",
         actorProjectRole: "facilitator",
         groupCount: 3,
         groups,
@@ -132,7 +143,7 @@ describe("F25 · updateGrouping 用例", () => {
         updateGroupingUseCase(
           { repo },
           {
-            projectId: "p-1",
+            orgId: ORG, projectId: "p-1",
             actorProjectRole: role,
             groupCount: 1,
             groups: [group()],
@@ -150,7 +161,7 @@ describe("F25 · updateGrouping 用例", () => {
       updateGroupingUseCase(
         { repo },
         {
-          projectId: "p-1",
+          orgId: ORG, projectId: "p-1",
           actorProjectRole: null,
           groupCount: 1,
           groups: [group()],
@@ -166,7 +177,7 @@ describe("F25 · updateGrouping 用例", () => {
       updateGroupingUseCase(
         { repo },
         {
-          projectId: "p-1",
+          orgId: ORG, projectId: "p-1",
           actorProjectRole: "facilitator",
           groupCount: 1,
           groups: [group({ status: "已完成" })],
@@ -183,7 +194,7 @@ describe("F25 · updateGrouping 用例", () => {
       updateGroupingUseCase(
         { repo },
         {
-          projectId: "p-1",
+          orgId: ORG, projectId: "p-1",
           actorProjectRole: "facilitator",
           groupCount: 1,
           groups: [group({ leaderUserId: null })],
@@ -201,7 +212,7 @@ describe("F25 · updateGrouping 用例", () => {
       updateGroupingUseCase(
         { repo },
         {
-          projectId: "p-1",
+          orgId: ORG, projectId: "p-1",
           actorProjectRole: "facilitator",
           groupCount: 1,
           groups: [group()],
@@ -216,12 +227,15 @@ describe("F25 · updateGrouping 用例", () => {
       updateGrouping: async () => {
         throw new Error("db down");
       },
+      getGrouping: async () => {
+        throw new Error("db down");
+      },
     };
     await expect(
       updateGroupingUseCase(
         { repo },
         {
-          projectId: "p-1",
+          orgId: ORG, projectId: "p-1",
           actorProjectRole: "facilitator",
           groupCount: 1,
           groups: [group()],

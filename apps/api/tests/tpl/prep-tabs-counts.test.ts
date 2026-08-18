@@ -9,6 +9,9 @@ import {
   planProjectPrepTabs,
   type ProjectPrepCounts,
 } from "../../src/domain/templates/project-prep";
+import { toOrgId } from "../../src/domain/org-id";
+
+const ORG = toOrgId("org-f24-prep");
 
 /**
  * F24 —— **项目筹备页外壳：四子标签 + 计数**（`uc-2-2` R6/R8 V6/V15）。
@@ -28,7 +31,7 @@ class FakeProjectPrepRepository implements ProjectPrepRepository {
     this.counts = counts;
   }
 
-  async loadCounts(_projectId: string): Promise<ProjectPrepCounts | null> {
+  async loadCounts(_orgId: unknown, _projectId: string): Promise<ProjectPrepCounts | null> {
     return this.counts;
   }
 }
@@ -72,7 +75,7 @@ describe("F24 · 项目筹备页四子标签计数", () => {
 
     const before = await getProjectPrepUseCase(
       { repo },
-      { projectId: "p-1", actorProjectRole: "member" },
+      { orgId: ORG, projectId: "p-1", actorProjectRole: "member" },
     );
     expect(before.tabs.find((t) => t.key === "materials")?.count).toBe(0);
 
@@ -87,7 +90,7 @@ describe("F24 · 项目筹备页四子标签计数", () => {
 
     const after = await getProjectPrepUseCase(
       { repo },
-      { projectId: "p-1", actorProjectRole: "member" },
+      { orgId: ORG, projectId: "p-1", actorProjectRole: "member" },
     );
     expect(after.tabs.find((t) => t.key === "materials")?.label).toBe("材料准备 9 份");
     expect(after.tabs.find((t) => t.key === "materials")?.count).toBe(9);
@@ -98,7 +101,7 @@ describe("F24 · 项目筹备页四子标签计数", () => {
     const repo = new FakeProjectPrepRepository(EMPTY_PROJECT_PREP_COUNTS);
     const out = await getProjectPrepUseCase(
       { repo },
-      { projectId: "p-1", actorProjectRole: "observer" },
+      { orgId: ORG, projectId: "p-1", actorProjectRole: "observer" },
     );
     expect(out.tabs).toHaveLength(4);
   });
@@ -106,14 +109,14 @@ describe("F24 · 项目筹备页四子标签计数", () => {
   it("无项目角色 ⇒ NO_PROJECT_ROLE", async () => {
     const repo = new FakeProjectPrepRepository(EMPTY_PROJECT_PREP_COUNTS);
     await expect(
-      getProjectPrepUseCase({ repo }, { projectId: "p-1", actorProjectRole: null }),
+      getProjectPrepUseCase({ repo }, { orgId: ORG, projectId: "p-1", actorProjectRole: null }),
     ).rejects.toMatchObject(new GetProjectPrepError("NO_PROJECT_ROLE"));
   });
 
   it("项目不存在或越权可见 ⇒ 同一个 NO_PROJECT_ROLE,两者外部不可分辨", async () => {
     const repo = new FakeProjectPrepRepository(null);
     await expect(
-      getProjectPrepUseCase({ repo }, { projectId: "p-ghost", actorProjectRole: "facilitator" }),
+      getProjectPrepUseCase({ repo }, { orgId: ORG, projectId: "p-ghost", actorProjectRole: "facilitator" }),
     ).rejects.toMatchObject(new GetProjectPrepError("NO_PROJECT_ROLE"));
   });
 
@@ -124,7 +127,7 @@ describe("F24 · 项目筹备页四子标签计数", () => {
       },
     };
     await expect(
-      getProjectPrepUseCase({ repo }, { projectId: "p-1", actorProjectRole: "facilitator" }),
+      getProjectPrepUseCase({ repo }, { orgId: ORG, projectId: "p-1", actorProjectRole: "facilitator" }),
     ).rejects.toMatchObject(new GetProjectPrepError("DEPENDENCY_UNAVAILABLE"));
   });
 });

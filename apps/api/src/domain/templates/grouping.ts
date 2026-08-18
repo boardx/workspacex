@@ -31,6 +31,8 @@ export interface GroupPatch {
   /** null ⇒ 尚未指派组长——`GROUP_LEADER_REQUIRED`，不是「稍后再说」。 */
   readonly leaderUserId: string | null;
   readonly status: string;
+  /** 2026-08-16（F950，delta）：组员名单，不含 `leaderUserId` 本人。 */
+  readonly memberUserIds: readonly string[];
 }
 
 /** 第一个不在三值封闭集里的状态值；没有就是 `undefined`（V7）。 */

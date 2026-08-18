@@ -4551,6 +4551,42 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F950",
+      "title": "项目筹备定题/分组接上真实 Postgres（F24/F25 契约首次落库）+ 组员字段 + 读侧端点",
+      "user_visible_behavior": "打开某个工作坊项目的「项目筹备」标签页：定题区显示真实保存过的主题与背景（未定题时是空态，不是编造文案）；引导师修改主题/背景后点保存，刷新页面仍能看到刚保存的内容；分组区显示真实的组卡（场景/状态/组长/组员），引导师编辑分组、指派组长与组员后保存，刷新页面分组仍在；两处编辑都在被别人并发修改后收到「有更新，请重新加载」提示而不是静默覆盖；四子标签的计数（定题与分组/议程/材料/会前任务）里，定题分组数与议程环节数是真实条目数，材料与会前任务两类如实显示为 0（因为对应子系统尚未实现，不是漏做）。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R3",
+      "depends_on": [
+        "F24",
+        "F25"
+      ],
+      "points": 8,
+      "status": "passing",
+      "sprint": "14",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter api run lint",
+        "pnpm --filter api exec vitest run tests/tpl/grouping-three-states.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/single-source-theme-inheritance.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/prep-tabs-counts.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/project-prep-repo-guard.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/grouping-repo-guard.test.ts",
+        "pnpm --filter api exec vitest run tests/tpl/project-prep-live.test.ts",
+        "pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts",
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web run lint",
+        "pnpm --filter web exec vitest run tests/ui/project-prep-live.test.tsx",
+        "pnpm --filter @repo/contracts run test",
+        "apps/api/scripts/verify-rls.sh",
+        "pnpm --filter api run migrate:check"
+      ],
+      "evidence": "evidence/F950.verify.log @ 2026-08-17T03:15:15.182Z",
+      "notes": "F24/F25 签的契约（getProjectPrep/saveAndSyncTopic/updateGrouping）此前只有内存假仓储撑单元测试，全仓零 controller、零 Postgres 实现——这是它们第一次真正接上电。裁决记录（补 GET 读端点 + Group.memberUserIds 字段，均为 2026-08-16 delta，非推翻）见 requirements/02-tpl/uc-2-2-套用蓝本新建项目.md 该条 delta，contracts/templates/design-signoff.md covers 已追加 F950（如实标注不是「零新增设计面」的接线追加）。\n范围：① 契约新增 getProjectTopic/getProjectGrouping 两条 GET，Group 加 memberUserIds；② 数据库新迁移 20260816130000_f950_project_prep_topic_grouping.sql：project_topics 表（1:1 定题）、groups 加 scenario/status 两列、project_grouping_revision 表（整批分组的乐观锁版本，不挂在 groups/projects 上）+ 补装项目归档冻结策略（issue #342 的 kernel_apply_project_archive_policies()，project_topics/project_grouping_revision 都是单列 FK 到 projects(id) 的 candidate 表）；③ 三个新仓储（pg-project-topic-repository.ts / pg-grouping-repository.ts / pg-project-prep-repository.ts）+ 两个新用例（get-project-topic.ts / get-project-grouping.ts）+ 五条路由挂在 blueprint.controller.ts；④ 组长/组员通过既有的 project_memberships.group_id + project_role='groupLead' 关联边落库，不新造列去重复这份事实；⑤ 已知限制：分组写入只更新已存在 project_memberships 行的用户，不会把从未加入项目的用户静默拉进项目（那是 F125 addProjectMember 的职责），见 pg-grouping-repository.ts 文件头详细说明；⑥ lint-permission-paths.mjs 白名单 60→63（三个新仓储各自一条豁免论证；60 是 rebase 到 main 后的实际起点，不是本 feature 开发时的 59——中间被另一条并行分支的 skill 试跑自愈式模型回退先占了 59→60，机械核对非新设计决定）。\n不在本次范围：访谈对象（InterviewSubject）读写接线；议程三角色分工表（契约无出处，同 tab-overview.tsx F172 的既有处置）；AI 生成定题/背景。前端接线（tab-prep.tsx + live-project-prep.ts + project-workbench.tsx 传参）随本 feature 一并完成。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
       "id": "F201",
       "title": "「分组规则」结构化编辑面板（分组一第 3 项，取代通用自由文本框）",
       "user_visible_behavior": "组织管理员点开蓝本设计器「分组规则」项，看到 3 个固定规模预设卡片与 4 条固定规则标签作为只读参考，下方是真实可编辑的场景清单（场景名/这组要回答什么/默认组长画像，可增删）与组长产生方式的两个勾选开关（组长默认取场景画像匹配度最高的人 / 按背景均衡）。编辑后失焦（文本字段）或点击（勾选/删除）即真实保存，刷新后仍在。全部场景删空时视为「未填」，不占完成度。",
@@ -4648,7 +4684,10 @@
         "pnpm --filter api exec vitest run tests/kernel/permission-propagation-six-paths.test.ts"
       ],
       "evidence": "evidence/F960.verify.log @ 2026-08-17T13:22:43.757Z",
-      "notes": "F25（分组编排 + 观察/访谈对象表结构）当年只落了应用层编排 + 契约 `updateInterviewSubjects`，同 F950（定题/分组接线）发现的同一种「静态痕迹 ≠ 动态事实」缺口——零 controller、零 Postgres 仓储，`grep` 全仓找不到任何实现，从数据库到浏览器这条真实路径完全不存在。\n① 表名刻意不叫 `interview_subjects`——`20260801000000_f97_interview_subjects.sql` 已经用这个名字装了完全不同的东西（06-itv 束真实访谈预约/转写实体），本表是 templates 束筹备页组卡内的一张表格，同名会造成「同一个名字两个意思」（本仓已因此栽过跟头），故加 `project_group_` 前缀区分，见迁移文件头注详述。\n② 契约 delta：新增 `getInterviewSubjects`（GET /projects/:projectId/groups/:groupId/interview-subjects），补 `updateInterviewSubjects` 只有 PUT 没有 GET 的缺口——同 F950/2026-08-16 对 `saveAndSyncTopic`/`updateGrouping` 已获授权的同一条裁决类别的延伸，不是新征询，见契约头注与 `templates` 束 design-signoff.md 的 covers 追加记录。\n③ 组长/组员复用既有的 `project_memberships.group_id`/`project_role` 关联边（同 F950 分组仓储的先例），未新造列。整批替换语义（同 `updateInterviewSubjects` 契约「传整个 subjects 数组」的形状），不是逐条 PATCH；并发用按 group_id 维度的独立 revision 表 + `pg_advisory_xact_lock` 序列化「首次写入」这个 `FOR UPDATE` 锁不住的特例。\n④ **范围边界（明确排除，留给后续）**：本 feature 只做后端接线，不碰 `tab-prep.tsx`——分组卡片本身仍用 mock groupId（真实 groupId 要靠 F950 的 `getProjectGrouping` 落地才有），访谈对象表嵌在组卡内、没有真实 groupId 就没法做出真实（非伪造）的前端接线；等 F950 合入 main 后，前端接线（含组件测试）作为独立后续 feature 一次做完两块。"
+      "notes": "F25（分组编排 + 观察/访谈对象表结构）当年只落了应用层编排 + 契约 `updateInterviewSubjects`，同 F950（定题/分组接线）发现的同一种「静态痕迹 ≠ 动态事实」缺口——零 controller、零 Postgres 仓储，`grep` 全仓找不到任何实现，从数据库到浏览器这条真实路径完全不存在。\n① 表名刻意不叫 `interview_subjects`——`20260801000000_f97_interview_subjects.sql` 已经用这个名字装了完全不同的东西（06-itv 束真实访谈预约/转写实体），本表是 templates 束筹备页组卡内的一张表格，同名会造成「同一个名字两个意思」（本仓已因此栽过跟头），故加 `project_group_` 前缀区分，见迁移文件头注详述。\n② 契约 delta：新增 `getInterviewSubjects`（GET /projects/:projectId/groups/:groupId/interview-subjects），补 `updateInterviewSubjects` 只有 PUT 没有 GET 的缺口——同 F950/2026-08-16 对 `saveAndSyncTopic`/`updateGrouping` 已获授权的同一条裁决类别的延伸，不是新征询，见契约头注与 `templates` 束 design-signoff.md 的 covers 追加记录。\n③ 组长/组员复用既有的 `project_memberships.group_id`/`project_role` 关联边（同 F950 分组仓储的先例），未新造列。整批替换语义（同 `updateInterviewSubjects` 契约「传整个 subjects 数组」的形状），不是逐条 PATCH；并发用按 group_id 维度的独立 revision 表 + `pg_advisory_xact_lock` 序列化「首次写入」这个 `FOR UPDATE` 锁不住的特例。\n④ **范围边界（明确排除，留给后续）**：本 feature 只做后端接线，不碰 `tab-prep.tsx`——分组卡片本身仍用 mock groupId（真实 groupId 要靠 F950 的 `getProjectGrouping` 落地才有），访谈对象表嵌在组卡内、没有真实 groupId 就没法做出真实（非伪造）的前端接线；等 F950 合入 main 后，前端接线（含组件测试）作为独立后续 feature 一次做完两块。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
     }
   ]
 }

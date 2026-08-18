@@ -336,6 +336,12 @@ export const Group = z
     /** ⚠ null ⇒ `GROUP_LEADER_REQUIRED`，不是「稍后再说」 */
     leaderUserId: z.string().nullable(),
     status: GroupStatus,
+    /**
+     * 2026-08-16（F950，delta）：组员名单。原型 `uc-2-2` 第 5 步「组卡展开：…组员 N 人
+     * [加人][换组长]…」逐字要求，schema 落地时漏签了这个字段——不是新设计的能力。
+     * ⚠ 不含 `leaderUserId` 本人（组长与组员在这里是互斥集合，不是「组长也算组员」）。
+     */
+    memberUserIds: z.array(z.string()),
   })
   .strict();
 
@@ -1073,6 +1079,28 @@ export const operations = {
   },
 
   /**
+   * 2026-08-16（F950，delta）：定题的读侧。`saveAndSyncTopic` 此前只有 PUT，页面刷新后
+   * 无法加载已保存的主题/背景——同一个漏签补的读端点。
+   * ⚠ `title`/`background` 均为空串 = 尚未定题的**真实空态**，不是失败（同 `getProjectPrep`
+   * 「不套蓝本的空项目四子标签真实空态」那条纪律）。
+   */
+  getProjectTopic: {
+    method: "GET",
+    path: "/projects/:projectId/topic",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z
+      .object({
+        topicId: z.string(),
+        title: z.string(),
+        background: z.string(),
+        /** 与 `saveAndSyncTopic.in.expectedTopicRevision` 是同一个值域，读了就能拿去写。 */
+        revision: z.string(),
+      })
+      .strict(),
+    err: ["NO_PROJECT_ROLE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
    * 分组编排。
    * ⚠ `GroupStatus` **三值封闭**，第四态一律 `INVALID_GROUP_STATUS`（I-14 / V7）。
    * ⚠ 每组必须有一个场景与一位组长（`GROUP_LEADER_REQUIRED`）。
@@ -1099,6 +1127,25 @@ export const operations = {
       "GROUP_LEADER_REQUIRED",
       "DEPENDENCY_UNAVAILABLE",
     ] as const,
+  },
+
+  /**
+   * 2026-08-16（F950，delta）：分组的读侧。`updateGrouping` 此前只有 PUT，页面刷新后
+   * 无法加载已保存的分组——同一个漏签补的读端点。
+   * ⚠ 未分组（`groups: []`）是**真实空态**，不是失败（同 `getProjectPrep` 的空态纪律）。
+   */
+  getProjectGrouping: {
+    method: "GET",
+    path: "/projects/:projectId/grouping",
+    in: z.object({ projectId: z.string() }).strict(),
+    out: z
+      .object({
+        groups: z.array(Group),
+        /** 与 `updateGrouping.in.expectedRevision` 同一个值域，读了就能拿去写。 */
+        revision: z.string(),
+      })
+      .strict(),
+    err: ["NO_PROJECT_ROLE", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /**

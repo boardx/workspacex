@@ -115,7 +115,20 @@ phase: "01"
 #   的依据，未新增字段之外的界面元素；② 契约已签——仍只消费 `updateDesignFacet`/
 #   `getBlueprintDesignFacets`，`content: string` 形状不变（JSON 序列化在前端做）；
 #   ③ 零新增设计面——不新增契约操作/错误码/迁移，同 F193 的先例。
+# ⚠ 2026-08-16：追加 **F950**，由 agent `dev-project` 追加。**如实标注：不是「零新增设计面」
+#   那一类追加**（与紧邻上面那批的性质不同）：
+#     · 新增两条**读**操作 `getProjectTopic`（`GET /projects/:projectId/topic`）、
+#       `getProjectGrouping`（`GET /projects/:projectId/grouping`）——原契约 `saveAndSyncTopic`/
+#       `updateGrouping` 只有 PUT，刷新页面无法加载已保存的定题/分组，是**签核时漏掉的
+#       读侧**，不是故意设计成只写不读。
+#     · `Group` schema 新增 `memberUserIds: string[]`——原型 `uc-2-2` 第 5 步逐字写着
+#       「组卡展开：…组员 N 人 [加人][换组长]…」，UI 早就要这个字段，schema 落地时漏签了。
+#   三条改动都**不新增错误码、不改变已签交互语义、只补已签 UI 需要而契约没给的读/写字段**，
+#   授权来源：人类在会话中确认「补一个 GET 端点」+「一次性把组员字段也补上」两项裁决，
+#   记录见 `requirements/02-tpl/uc-2-2-套用蓝本新建项目.md` 该条 delta。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+#   ⚠ 若 coord-main 认为这类「补漏签的读端点/字段」也需要人类走一次正式重签，把 F950
+#   从本行删掉，代码与测试不受影响。
 # 2026-08-17（追加 **F201**，dev-chat-e2e agent，原编号 F196 与 Guided Research 一支
 #   撞车后改号——分支落后于 main 时占用的号后来被另一条线正式抢注，纯编号事故，
 #   与本条自查内容无关）——分组一第二个结构化面板增量（「分组规则」，同 F194 的
@@ -146,7 +159,7 @@ phase: "01"
 #        早已点名过这类缺口）；这次是该已授权裁决类别在 `updateInterviewSubjects` 上的
 #        延伸应用，不是本次重新征询产生的新裁决，也不新增错误码/交互语义/界面。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F960]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

@@ -895,7 +895,39 @@ describe("lint-permission-paths: counter-proof", () => {
     // (a) 只命名 `agents`/`agent_versions` 两张租户表；(b) 无 `withoutTenant`；
     // (c) 授权判定排在这次读之前。删测试则本条须一并删。
     //
-    // ⚠ Raised 61 -> 62 by #1493（UC-7.3 第一块 · 画布实例源码链）：新条目是
+    // ⚠ Raised 60 -> 63 by F950（2026-08-16 delta，templates 束定题/分组读侧 + 组员字段——
+    // 第一次给 F24/F25 已签核的契约接上真实 Postgres，此前只有内存假仓储撑单元测试）：
+    // 三个新条目——
+    //   `infrastructure/templates/pg-project-topic-repository.ts`：写路径（`project_topics`
+    //   upsert）+ 读同一行，同 F117/F124/F185 那批「actor 写自己刚提交的东西」形状。
+    //   `infrastructure/templates/pg-grouping-repository.ts`：写 `groups`/
+    //   `project_grouping_revision`，**并且**改 `project_memberships.group_id`/
+    //   `project_role`——这是三个里最接近 `pg-identity-repository.ts` 那条线的一个，
+    //   但它只 UPDATE 已存在的成员行，从不 INSERT，不能把任何人拉进一个他们本不在的
+    //   项目（那是 F125 `addProjectMember` 的职责范围）。
+    //   `infrastructure/templates/pg-project-prep-repository.ts`：纯只读三张表，只回
+    //   四个裸整数（`ProjectPrepCounts`），不含任何成员身份或内容。
+    // 三处角色门槛（`canSaveTopic`/`canUpdateGrouping`/`getProjectPrep` 的
+    // `actorProjectRole`）都在各自用例里、仓储被调用之前完成，同一层顺序。
+    //
+    // 它们的**被强制的前提**：`tests/tpl/project-prep-repo-guard.test.ts`（topic + prep
+    // 两个仓储共用，断言各自只命名它声明的那些表）与
+    // `tests/tpl/grouping-repo-guard.test.ts`（分组仓储专属，额外断言 (a) 只命名
+    // `groups`/`project_grouping_revision`/`project_memberships` 三张表，(b) 对
+    // `project_memberships` 的每一条语句都是 `UPDATE`，从不出现 `INSERT`）。删测试则
+    // 对应条目须一并删。
+    //
+    // ⚠ Raised 63 -> 64 by F960（2026-08-17 delta）：一个新条目——
+    //   `infrastructure/templates/pg-interview-subjects-repository.ts`：写 `project_group_
+    //   interview_subjects`（DELETE+INSERT 整体替换）+ `..._revision` 乐观锁 upsert，读同一
+    //   张表，同 F185 project-tags 那批「actor 写/读自己项目数据」形状。角色门槛
+    //   （`actorProjectRole === null` ⇒ NO_PROJECT_ROLE，写侧另加 `canUpdateInterviewSubjects`）
+    //   在 `update-interview-subjects.ts`/`get-interview-subjects.ts` 用例里、仓储被调用
+    //   之前完成，同一层顺序。它的**被强制的前提**：
+    //   `tests/tpl/interview-subjects-repo-guard.test.ts` 断言只命名这两张表。删测试则
+    //   本条须一并删。
+    //
+    // ⚠ Raised 64 -> 65 by #1493（UC-7.3 第一块 · 画布实例源码链）：新条目是
     // `infrastructure/canvas/pg-canvas-instance-repository.ts`——与 F119
     // `pg-agenda-segment-repository.ts` 同一个「判定一层之上、先于内容披露」形状：
     // `get-canvas-source.ts` 先 `authorize(read.ownGroup)` 再 `findVersion`（唯一返回
@@ -905,7 +937,7 @@ describe("lint-permission-paths: counter-proof", () => {
     // (a) 只命名 `canvas_instances`/`canvas_instance_versions`/`canvas_templates`
     // 三张租户表；(b) 无 `withoutTenant`；(c) `findInstance` 的 SELECT 不含 markdown 列；
     // (d) 两个源码用例的判定排在 `findVersion`/`appendVersion` 之前。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(62);
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(65);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
