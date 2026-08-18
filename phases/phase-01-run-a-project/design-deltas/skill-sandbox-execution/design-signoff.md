@@ -1,12 +1,11 @@
 ---
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: skill-sandbox-execution
 base_bundle: skill-trial-run
 scope: trial-run-executes-model-written-scripts-in-a-network-isolated-container-and-produces-real-artifacts
 covers: [F204]
-confirmed_by:
-confirmed_at:
-confirmed_via:
+confirmed_by: usamshen
+confirmed_at: 2026-8-19
 ---
 
 # design delta 签核 · 试跑接真执行（沙箱化脚本执行 + 真实产物）
