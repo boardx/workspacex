@@ -4667,7 +4667,7 @@
         "F204"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "dev-chat-e2e",
       "verification": [
@@ -4675,7 +4675,7 @@
         "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F205.verify.log @ 2026-08-18T07:25:24.213Z",
       "notes": "① 承接 F204，把「每个配置菜单都是一个 textbox」的剩余项继续补齐：本 feature 后 facet-editor-registry 上共 11 项结构化编辑器，仅剩 agent-orchestration / skill-binding / outputs / report-template 四项 + 基本配置聚合页待做。\n② 逐项对照 designer-panels.tsx 的 VenuePanel/MaterialsPanel/PrintPanel/CapsPanel 与 lib/mock/tpl.ts 的 VENUE_PANEL/MATERIALS_PANEL/PRINT_PANEL/CAPS_PANEL。刻意以原型为准而非照 contract.md 自行设计的地方，各编辑器文件头注逐条说明：\n   · 场地与形式：contract.md 把 SpaceRequirement.value 标为 unknown（G2 输入形态未确认，不假设控件）——原型渲染的是纯文本规格串，故落成单行文本输入，不发明下拉/数值控件；5 行字段名恒定不可增删。形式三卡的 detail 文案沿用原型固定说明，只有「选哪种作为本蓝本默认」是真实可选的；布置图按原型与 contract.md 的示意性质做成只读。\n   · 项目材料：owner 原型只出现「场地方/我方/我方打印」三种，做成单选；qty 保持自由文本（原型是 \"16 叠\"/\"4 ＋ 2 备\" 这类带单位与备用量的串，拆成数值+单位没有对应原型控件）。「导出清单」按钮原型无真实落点，不造假按钮。\n   · 分组打印素材：size 原型只出现 A0/A3/A4/A5 四种做成单选；qty 同上保持自由文本；ocrNote 是固定说明。「导出全部 PDF」按钮同样不造假按钮。\n   · 组内能力：caps 是产品真实能力集（7 项恒定），不是用户可增删的自由列表，只有开关与用途说明可配；「与 AI 的对话」原型标为「开 · 必留」，本编辑器把它的开关禁用并恒开，与原型语义一致。reflow 与 visibility 两节是权限硬约束的投影，原型即静态说明，不做成可编辑字段。\n③ 契约面零新增：四项都仍写进 updateDesignFacet 的 content: string 字段（JSON 序列化）。\n④ 既有三条「通用文本编辑器」组件测试原绑在 venue-and-format（F204 时从 survey 迁来），本 feature 把该 key 换成专属编辑器后再迁到仍是通用编辑器的 outputs，覆盖面未删减。\n⑤ 验证：新增 4 条组件测试（每项 1 条，各自覆盖真实回显 + 恒定项/必留项/固定说明的原型语义 + 真实保存结构化 JSON + 「不再落回 bp-facet-content-* 通用文本框」反证），既有设计器测试无回归。",
       "priority": 2,
       "area": "project",
