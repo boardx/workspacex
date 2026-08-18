@@ -1,11 +1,11 @@
 ---
-status: pending
+status: confirmed
 bundle: chat-persona-roundtrip
 base_bundle: chat
 scope: persona-summary-signoff-plus-trigger-plus-diagram-save-readback
 covers: []
-confirmed_by: null
-confirmed_at: null
+confirmed_by: usamshen
+confirmed_at: 2026-08-18
 ---
 
 # Design delta 签核 · chat 用户画像生成与图表保存读回闭环（G1+G2）
