@@ -937,7 +937,31 @@ describe("lint-permission-paths: counter-proof", () => {
     // (a) 只命名 `canvas_instances`/`canvas_instance_versions`/`canvas_templates`
     // 三张租户表；(b) 无 `withoutTenant`；(c) `findInstance` 的 SELECT 不含 markdown 列；
     // (d) 两个源码用例的判定排在 `findVersion`/`appendVersion` 之前。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(65);
+    //
+    // ⚠ Raised 65 -> 66 by #1561（P2 推理侧图像通道，缺口背景 #1558）：新条目是
+    // `infrastructure/agent-run/pg-run-image-input.ts`——与 `pg-file-retrieval.ts`（F155）
+    // 同一个「`ObjectRef` 没有这一种，判权只能是查询的 WHERE 子句」形状，而且更窄。
+    // 「聊天消息的图片附件」不是 project|artifact|segment|capability|organization|interview
+    // 中的任何一个；把它当 `project` ref 推进 `authorize` 对**个人线程**
+    //（`chat_threads.project_id IS NULL`）会找不到绑定、退回 org-wide `DEFAULT_SCOPE`、
+    // 看见非空组织角色而对全组织每个成员放行——`pg-file-retrieval.ts` 那条逐字记着这个
+    // 失败形状，为它加第七种 ref kind 是在制造这个失败，不是在避免它。
+    //
+    // 它比 L3 那条还窄一档，这是本条能成立的核心：范围只到**触发本次 run 的那一条消息**
+    //（`a.thread_id = $2 ∧ a.message_id = $3 ∧ m.author_id = $4`）。这批行的元数据 run
+    // 早就合法持有——`ClaimedAgentRun.inputAttachments` 由 `pg-agent-run-repository.ts`
+    // 从同一张表、按同一个 `message_id`、在同一次 claim 里聚合出来——本文件只是把同一批
+    // 行的字节取出来交给模型，**没有新增任何一个可见面**。跨消息/跨线程的图像今天取不到
+    //（具名缺口 `GAP-VISION-CROSS-TURN-IMAGES`），方向是 fail closed。
+    //
+    // 它的**被强制的前提**：`tests/chat/run-image-input-repo-guard.test.ts` 断言五件——
+    // (a) 只命名 `chat_message_attachments`/`chat_messages` 两张租户表；(b) 无
+    // `withoutTenant`；(c) 两条 SQL **各自**都带 `a.message_id = $3` 与 `m.author_id = $4`
+    //（少任何一条，这条读路径就从「run 自己那条消息的附件」扩大成一个新的可见面，
+    // 而那时本条论证的每一句都不再成立）；(d) SQL 里没有 `LIMIT`——加了就是 #1561 明文
+    // 禁止的静默截断；(e) `src/interface/` 下没有任何 controller 触达它或它的端口，
+    // 所以它今天是「组装用的内部素材」而不是披露面。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(66);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
