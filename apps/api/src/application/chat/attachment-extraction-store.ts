@@ -7,6 +7,13 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import type { ConvertErrorCode } from "./attachment-to-markdown.port";
+import type { VisionErrorCode } from "./attachment-vision.port";
+
+/**
+ * 落进 `chat_message_attachments.extraction_error` 的封闭失败码：文档转换侧（anydoc）与图片视觉
+ * 侧（VLM，#1560）各自的枚举之并。列名只有一个，码集合也只有这一处定义。
+ */
+export type ExtractionErrorCode = ConvertErrorCode | VisionErrorCode;
 
 /** 认领到的一条抽取待办。 */
 export interface AttachmentExtractionJob {
@@ -50,8 +57,11 @@ export interface AttachmentExtractionStore {
   /** 记「抽不出文本」（图片等）：extraction_status='unsupported'，非错误，extracted_ref 保持 NULL。 */
   recordUnsupported(orgId: OrgId, attachmentId: string): Promise<void>;
 
-  /** 记「抽取失败」（确定性 convert 错误）：extraction_status='failed'，extraction_error=code。 */
-  recordFailed(orgId: OrgId, attachmentId: string, code: ConvertErrorCode): Promise<void>;
+  /**
+   * 记「抽取失败」（确定性错误）：extraction_status='failed'，extraction_error=code。
+   * 码来自 `ExtractionErrorCode`——convert 侧的 anydoc 码，或 vision 侧的 VLM 码（#1560）。
+   */
+  recordFailed(orgId: OrgId, attachmentId: string, code: ExtractionErrorCode): Promise<void>;
 }
 
 export const ATTACHMENT_EXTRACTION_STORE = Symbol("AttachmentExtractionStore");

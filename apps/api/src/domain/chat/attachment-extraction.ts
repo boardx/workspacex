@@ -6,7 +6,12 @@
  *   - `convert`   → 交给 `AttachmentToMarkdownPort`（anydoc）转 markdown，附带要显式传的 `format`。
  *                   （CSV 等无签名格式必须显式给 format，anydoc 不靠嗅字节，见 PROP-CHAT-ANYDOC-INTEGRATION-001。）
  *   - `passthrough` → 本身就是文本（txt/md），字节即内容，不进 anydoc（也省一次原生调用与内存峰值）。
- *   - `unsupported` → 抽不出文本（图片没有文字层；扫描件/图片 PDF 由 anydoc 侧报 unsupported，OCR 归 CE-014）。
+ *   - `vision`    → 图片（png/jpeg/webp）交给 `AttachmentVisionPort`（VLM）做「图中文字转录 + 视觉内容
+ *                   描述」，产物是 markdown，走与 convert **完全同一条**落库路径（#1560 / P1）。
+ *                   ⚠ 2026-08-18 前这里写的是「图片没有文字层，OCR 归 CE-014」——那条注释连同它描述
+ *                   的行为一起作废：图片不再是 `unsupported`，CE-014 的 tesseract 方向由 VLM 取代
+ *                   （同一格 `derived_representations` 不许两个实现，见 #1560）。
+ *   - `unsupported` → 抽不出文本（白名单外的 MIME；扫描件/图片 PDF 由 anydoc 侧报 unsupported）。
  *                     结果是「无法提取」，不是失败——附件仍在，只是内容进不了上下文。
  *
  * ⚠ MIME 白名单的唯一事实源是契约 `chat-file-upload.ts` 的 `ATTACHMENT_MIME_ALLOWLIST`。
@@ -41,7 +46,12 @@ export function boundedExcerpt(markdown: string): string {
 export type ExtractionPlan =
   | { readonly kind: "convert"; readonly format: AnydocFormat }
   | { readonly kind: "passthrough" }
-  | { readonly kind: "unsupported"; readonly reason: "image" };
+  /** 图片：没有文字层可解析，但有**可看**的内容——交 VLM 转录文字 + 描述画面（#1560 P1）。 */
+  | { readonly kind: "vision"; readonly mime: ImageMime }
+  | { readonly kind: "unsupported"; readonly reason: "unknown-type" };
+
+/** 走 vision 路径的图片 MIME（白名单子集；上传侧白名单的单源仍是契约常量）。 */
+export type ImageMime = "image/png" | "image/jpeg" | "image/webp";
 
 /**
  * MIME → 抽取计划。白名单外的 MIME 不该走到这里（上传时已被 `checkAttachmentBytesAndType`
@@ -65,9 +75,9 @@ export function planExtraction(mime: string): ExtractionPlan {
     case "image/png":
     case "image/jpeg":
     case "image/webp":
-      return { kind: "unsupported", reason: "image" };
+      return { kind: "vision", mime };
     default:
-      // 白名单外——保守当抽不出文本，不臆造 format。
-      return { kind: "unsupported", reason: "image" };
+      // 白名单外——保守当抽不出文本，不臆造 format，也不喂给 VLM（没核验过的字节不发外部模型）。
+      return { kind: "unsupported", reason: "unknown-type" };
   }
 }
