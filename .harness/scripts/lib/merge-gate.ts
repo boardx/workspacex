@@ -49,8 +49,8 @@ import {
   APPROVE_CHECK_SUSPENDED,
   VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED,
   isOkVerdict,
-  parseClosesIssues,
-  parseRefsIssues,
+  classifyApprovals,
+  issueTraceabilityFailure,
 } from "./pr-queue";
 
 /** 一次正式 review（GitHub review，不是普通评论）。与 pr-queue.ts 的 FormalReview 同形状。 */
@@ -97,11 +97,8 @@ export function evaluateMergeGate(facts: MergeGateFacts): MergeGateResult {
   // issue 拆多个连续 PR 交付时，中间几块用 Refs 是合法模式（#1493 就是这么拆的）。
   // 这条门本意是"能追溯到 issue"（#956 事故是完全没有关联），不是"必须由这个 PR
   // 关闭"。判定与 pr-queue.ts 条件 1 保持一致，见那边的同款注释。
-  if (parseClosesIssues(facts.body).length === 0 && parseRefsIssues(facts.body).length === 0) {
-    reasons.push(
-      "PR 正文既没有 `Closes #N` 也没有 `Refs #N`——追溯不到任何 issue（AGENTS.md 完成定义第 5 条）",
-    );
-  }
+  const traceFailure = issueTraceabilityFailure(facts.body);
+  if (traceFailure) reasons.push(traceFailure);
 
   // ── 2. 唯一 verdict label ────────────────────────────────────────────────
   // "零个"这个子分支可暂停（VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED，2026-08-16
@@ -129,14 +126,10 @@ export function evaluateMergeGate(facts: MergeGateFacts): MergeGateResult {
   // 有原生 APPROVE。标签本身没有"是否锚定当前 head"这个概念（GitHub label 不
   // 记快照 SHA），所以标签路径**不做 head 漂移检查**——这是已知的、比原生 review
   // 路径更弱的地方，不是疏漏。
-  const approvals = facts.reviews.filter((r) => r.state.toUpperCase() === "APPROVED");
-  const independentCurrentShaApprovals = approvals.filter(
-    (r) => r.author !== facts.author && r.commit === facts.headSha,
-  );
+  const { independentCurrentSha: independentCurrentShaApprovals, selfApprovals, staleApprovals } =
+    classifyApprovals(facts.reviews, facts.author, facts.headSha);
   const hasOkVerdictLabel = facts.labels.some(isOkVerdict);
   if (independentCurrentShaApprovals.length === 0 && !hasOkVerdictLabel) {
-    const selfApprovals = approvals.filter((r) => r.author === facts.author);
-    const staleApprovals = approvals.filter((r) => r.author !== facts.author && r.commit !== facts.headSha);
     let reason: string;
     if (selfApprovals.length > 0) {
       reason = `作者自审：${facts.author} 自己 approve 了自己的 PR——独立性是 review 的全部意义`;
