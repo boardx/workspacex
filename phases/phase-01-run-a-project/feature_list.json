@@ -4705,6 +4705,29 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F207",
+      "title": "第 16 项「基本配置」聚合页接线（时长档位预检/确认两步 + 六类初始化预览）",
+      "user_visible_behavior": "组织管理员在 /tpl/designer 侧栏顶部点「基本配置」，打开 16 项里唯一不是 designFacetKey 的聚合页：① 时长档位——五档卡片，当前档来自服务端那一行（不是前端默认值），点另一档先发预检请求（confirmed:false，带真实 expectedVersion），后端要求确认时界面如实列出「新增 N 个环节 / 移除 N 个可选环节 / 其中 N 个可恢复（切回该档位它们会回来，不是永久删除）」，点「确认切换」才发落库请求（confirmed:true）并重读蓝本；点「取消」不发任何落库请求、档位不变。② 套用后会初始化什么——六类恒定展示（议程环节/分组/角色分工/材料清单/会前任务/画布与产出物），服务端只返回其中一类时其余五类也出现并写明「这一类这次不会初始化任何东西」，「这次没有分组」与「我们不初始化分组」可分辨。初始化预览读失败时只有那一节报错，其余 15 项面板照常能打开。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F206"
+      ],
+      "points": 3,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "① 收尾 F204/F205/F206：15 个 designFacetKey 面板已全部结构化，本 feature 补上第 16 项。它是 16 项里唯一**不是 designFacetKey** 的一项——聚合的是蓝本本体字段（时长档位）与服务端派生的只读视图（初始化预览），因此不走 facet 读写，直接调 setDurationTier / getInitializationPreview 两个已签核契约操作。\n② 新增两个前端 wrapper（`live-blueprints.ts`）。getInitializationPreview 契约的 versionId/tier 两个入参**不参与派生**（后端应用层文件头注已注明：预览按当前草稿的已填 facet key 生成），因此不发送它们——发一个不被消费的参数会让人以为「换个 tier 能预览另一种结果」。\n③ **修正一条过期注释（静态痕迹 ≠ 动态事实）**：`blueprint-designer-page-live.tsx` 头注原写着「换时长档位——设计器页面没有对应交互入口，live-blueprints.ts 也还没封装 setDurationTier」；实测契约里 BlueprintRow 一直含 versionNumber，设计器外壳本来就加载了这一行，expectedVersion 的来源从来不缺。本 feature 接线后已把该注释改成如实描述。\n④ 逐项对照 designer-panels.tsx 的 BasicOverviewPanel。原型有五节，本组件**如实收窄到真实有后端的两节**，其余三节不做假 UI（组件头注逐条说明）：形式与语言——蓝本本体没有这两个字段，「形式」已在第 9 项 venue-and-format facet 里真实可配（F205），不在这里重复造第二个入口（同一事实不得声明在两处），「语言」没有任何存储落点，造一个存不进去的选择器就是假 UI；模型策略三车道与配额降级——是组织层设置（见 F159/F160/F161）不是蓝本字段，原型画在这里是示意，真接线要走组织设置既有屏。\n⑤ 换档刻意做成两步：confirmed:false 预检 → 人看清增删 → confirmed:true 落库。前端不得跳过预检直接提交（那等于替用户拍板删环节）；被移除的可选环节是 recoverable，确认框里如实写出「切回该档位它们会回来，不是永久删除」，否则用户会以为环节被永久删掉。\n⑥ **测试逼出一个真实 bug**：第一版从 `e.detail` 读预检返回的增删清单，但 `api-client.ts` 的 ApiError 把完整失败信封挂在 `.raw` 上、只把 reasonCode 提到顶层——结果界面把「移除 2 个」显示成「移除 0 个」，用户会以为切档不删环节。测试红了才发现，已改为读 `raw.detail` 并在代码里注明这一条。\n⑦ 侧栏入口刻意**不用** `bp-designer-facet-*` 前缀（用 `bp-designer-basic-overview-entry`）：第 16 项不是 designFacetKey，而「侧栏项集合 ＝ 定义表 key 集合」那条零漂移门控按该前缀扫侧栏，用了会被误判成「侧栏多了一项」。这条门控是对的，不该为它让路——实测过：先用 facet 前缀时该门控立刻变红并指名 basic-overview。\n⑧ 验证：新增 4 条组件测试（六类恒定含空类可分辨 / 换档两步且预检带真实 expectedVersion / 取消不发落库请求 / 预览读失败只影响那一节且其余面板照常打开），既有 50 条设计器测试无回归。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
       "id": "F199",
       "title": "createProject 创建者自动获得容器最高权限角色（推翻 Q-4②：facilitator/owner）",
       "user_visible_behavior": "任意通过 createProject 成功建出容器（工作坊/研究项目/用户洞察）的人，建完立刻就能进入并使用自己建的这个容器——不再出现「建了项目却读不到内容」（ADMIN_NOT_SUPERUSER/NO_PROJECT_ROLE）。工作坊容器：创建者获得 facilitator（引导师）角色，is_host=true。研究项目/用户洞察容器：创建者获得 owner（所有者）角色。全部与容器同一个事务写入，不存在“容器建成、角色没跟上”的中间态。",

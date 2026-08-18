@@ -68,6 +68,14 @@ const baseProps: BlueprintDesignerShellProps = {
     itemRevision: `rev-${designFacetKey}-${value.length}`,
     completeness: { done: 0, denominator: DESIGN_FACET_CATALOG.denominator },
   }),
+  // 第 16 项「基本配置」——它不是 designFacetKey，数据与落点单独一组 props。
+  basicOverview: {
+    currentTier: "two-day",
+    agendaSegmentCount: 11,
+    preview: { categories: [], items: [] },
+    previewError: null,
+    onSetTier: async () => ({ agendaSegmentCount: 11, added: [], removed: [], recoverable: [] }),
+  },
 };
 
 const renderShell = (patch: Partial<BlueprintDesignerShellProps> = {}) => {

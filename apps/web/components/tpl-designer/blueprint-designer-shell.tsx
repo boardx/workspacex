@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import type { DesignFacetCatalog } from "@/lib/generated/design-facet-catalog";
 import type { FacetSaveFn } from "./facet-content-editor";
 import { getFacetEditor } from "./facet-editor-registry";
+import { BasicOverviewPanel, type BasicOverviewPanelProps } from "./basic-overview-panel";
 
 /**
  * 蓝本设计器**外壳**（F18 / `uc-2-1` R3 §3.0 + R8）。
@@ -60,6 +61,9 @@ export interface DesignerFacetRow {
   readonly itemRevision: string;
 }
 
+/** 第 16 项的哨兵——刻意用 designFacetKey 不可能取到的形状，见 shell 内注释。 */
+const BASIC_OVERVIEW_KEY = "__basic-overview__";
+
 export interface BlueprintDesignerShellProps {
   readonly blueprintName: string;
   readonly versionBar: DesignerVersionBar;
@@ -75,6 +79,12 @@ export interface BlueprintDesignerShellProps {
   readonly designFacets: readonly DesignerFacetRow[];
   /** 保存一项内容——真实调用 `updateDesignFacet`，由调用方（page-live）负责乐观并发与错误处理。 */
   readonly onSaveFacet: FacetSaveFn;
+  /**
+   * 第 16 项「基本配置」聚合页的数据与落点。它是 16 项里唯一**不是 designFacetKey**
+   * 的一项——聚合的是蓝本本体字段（时长档位）与服务端派生的只读视图（初始化预览），
+   * 不走 facet 读写，因此单独一组 props，不混进 `designFacets`。
+   */
+  readonly basicOverview: BasicOverviewPanelProps;
 }
 
 /**
@@ -99,10 +109,13 @@ export function BlueprintDesignerShell({
   autosave,
   designFacets,
   onSaveFacet,
+  basicOverview,
 }: BlueprintDesignerShellProps) {
   const allItems = catalog.groups.flatMap((g) => g.items);
+  // 第 16 项用一个不可能与真实 designFacetKey 相撞的哨兵值——它不是 facet，没有
+  // 自己的 key；把它塞进 catalog 会让「目录与后端定义表零漂移」那条门控误报。
   const [selectedKey, setSelectedKey] = React.useState<string | null>(
-    allItems[0]?.designFacetKey ?? null,
+    allItems[0]?.designFacetKey ?? BASIC_OVERVIEW_KEY,
   );
   const done = new Set(completedKeys);
   const facetByKey = new Map(designFacets.map((f) => [f.designFacetKey, f]));
@@ -152,6 +165,26 @@ export function BlueprintDesignerShell({
             onJump={setSelectedKey}
           />
 
+          <button
+            type="button"
+            onClick={() => setSelectedKey(BASIC_OVERVIEW_KEY)}
+            aria-current={selectedKey === BASIC_OVERVIEW_KEY}
+            // ⚠ 刻意**不用** `bp-designer-facet-*` 前缀：第 16 项不是 designFacetKey，
+            //    「侧栏项集合 ＝ 定义表 key 集合」那条零漂移门控按该前缀扫侧栏，
+            //    用了就会被误判成「侧栏多了一项」。这条门控是对的，不该为它让路。
+            data-testid="bp-designer-basic-overview-entry"
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-12 transition-colors",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              selectedKey === BASIC_OVERVIEW_KEY
+                ? "bg-muted text-background-foreground"
+                : "text-muted-foreground hover:bg-muted",
+            )}
+          >
+            <span aria-hidden>◎</span>
+            <span className="flex-1">基本配置</span>
+          </button>
+
           {allItems.length === 0 ? (
             <p className="rounded-md bg-panel px-2.5 py-2 text-12 text-muted-foreground" data-testid="empty">
               配置项定义表是空的 —— 设计器没有任何可填的格子。这不是「都填完了」。
@@ -200,7 +233,14 @@ export function BlueprintDesignerShell({
         </nav>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4" data-testid="bp-designer-panel-slot">
-          {selectedKey === null ? (
+          {selectedKey === BASIC_OVERVIEW_KEY ? (
+            <div>
+              <div className="mb-3 flex items-center gap-2" data-testid="bp-facet-panel-header">
+                <h2 className="text-16 font-semibold">基本配置</h2>
+              </div>
+              <BasicOverviewPanel {...basicOverview} />
+            </div>
+          ) : selectedKey === null ? (
             <p className="text-12 text-muted-foreground">没有可打开的配置项。</p>
           ) : (
             <FacetPanel

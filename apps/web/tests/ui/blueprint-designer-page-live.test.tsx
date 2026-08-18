@@ -925,3 +925,158 @@ describe("16 项配置面板：全部落在专属结构化编辑器上（无一�
     expect(getFacetEditor("definitely-not-a-real-facet-key")).toBe(FacetTextEditor);
   });
 });
+
+/*
+ * 第 16 项「基本配置」聚合页 —— 16 项里唯一不是 designFacetKey 的一项，
+ * 走 setDurationTier / getInitializationPreview 两个契约操作而不是 facet 读写。
+ */
+describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getInitializationPreview", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-e2e-bp06");
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  function stubBasic(opts: {
+    preview?: unknown;
+    previewStatus?: number;
+    onTierPut?: (body: unknown) => void;
+    tierResponse?: () => Response;
+  }) {
+    return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({ revision: "rev-1", designFacets: [] });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/initialization-preview`) {
+        return jsonResponse(opts.preview ?? { categories: [], items: [] }, opts.previewStatus ?? 200);
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/duration-tier` && init?.method === "PUT") {
+        opts.onTierPut?.(JSON.parse(init.body as string));
+        return opts.tierResponse
+          ? opts.tierResponse()
+          : jsonResponse({ agendaSegmentCount: 11, added: [], removed: [], recoverable: [] });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+  }
+
+  it("初始化预览六类恒定：空类也渲染，「没有」与「不初始化」可分辨", async () => {
+    fetchMock = stubBasic({
+      preview: {
+        categories: ["议程环节"],
+        items: [{ category: "议程环节", key: "seg-1", label: "对齐目标" }],
+      },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-basic-overview-entry"));
+    await screen.findByTestId("bp-basic-overview");
+
+    // 六类恒定——只回了一类数据，其余五类也必须出现，且明确写出「这一类不会初始化」。
+    for (const c of ["议程环节", "分组", "角色分工", "材料清单", "会前任务", "画布与产出物"]) {
+      expect(screen.getByTestId(`bp-basic-init-category-${c}`)).toBeInTheDocument();
+    }
+    expect(screen.getByTestId("bp-basic-init-category-议程环节").textContent).toContain("对齐目标");
+    expect(screen.getByTestId("bp-basic-init-empty-分组")).toBeInTheDocument();
+    expect(screen.queryByTestId("bp-basic-init-empty-议程环节")).toBeNull();
+    expect(screen.getByTestId("bp-basic-init-footnote").textContent).toContain("不会回写蓝本");
+  });
+
+  it("换档是两步：先预检（confirmed:false）看清增删，确认后才真正落库（confirmed:true）", async () => {
+    const puts: { tier: string; confirmed: boolean; expectedVersion: string }[] = [];
+    fetchMock = stubBasic({
+      onTierPut: (b) => puts.push(b as (typeof puts)[number]),
+      tierResponse: () =>
+        puts.length === 1
+          ? // 预检：后端要求确认，并附上将被增删的环节。
+            new Response(
+              JSON.stringify({
+                reasonCode: "CONFIRMATION_REQUIRED",
+                detail: {
+                  agendaSegmentCount: 7,
+                  added: [],
+                  removed: [{ segmentId: "s-4" }, { segmentId: "s-7" }],
+                  recoverable: [{ segmentId: "s-4" }, { segmentId: "s-7" }],
+                },
+              }),
+              { status: 409, headers: { "Content-Type": "application/json" } },
+            )
+          : jsonResponse({ agendaSegmentCount: 7, added: [], removed: [], recoverable: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-basic-overview-entry"));
+    await screen.findByTestId("bp-basic-overview");
+    // 当前档来自服务端那一行，不是前端默认值。
+    expect(screen.getByTestId("bp-basic-tier-custom").getAttribute("aria-current")).toBe("true");
+
+    fireEvent.click(screen.getByTestId("bp-basic-tier-half-day"));
+
+    // 第一次一定是预检：confirmed=false，且带上真实 expectedVersion（乐观并发）。
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({ tier: "half-day", confirmed: false, expectedVersion: "0" });
+
+    // 预检结果如实展示：移除几个、其中几个可恢复（不是永久删除）。
+    const confirmBox = await screen.findByTestId("bp-basic-confirm");
+    expect(confirmBox.textContent).toContain("移除 2 个可选环节");
+    expect(screen.getByTestId("bp-basic-recoverable").textContent).toContain("切回该档位它们会回来");
+
+    // 确认后才是 confirmed=true 的落库请求。
+    fireEvent.click(screen.getByTestId("bp-basic-confirm-yes"));
+    await waitFor(() => expect(puts).toHaveLength(2));
+    expect(puts[1]!.confirmed).toBe(true);
+  });
+
+  it("取消预检：不发落库请求，档位不变（不替用户拍板删环节）", async () => {
+    const puts: unknown[] = [];
+    fetchMock = stubBasic({
+      onTierPut: (b) => puts.push(b),
+      tierResponse: () =>
+        new Response(
+          JSON.stringify({
+            reasonCode: "CONFIRMATION_REQUIRED",
+            detail: { agendaSegmentCount: 7, added: [], removed: [{ segmentId: "s-4" }], recoverable: [] },
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        ),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-basic-overview-entry"));
+    await screen.findByTestId("bp-basic-overview");
+    fireEvent.click(screen.getByTestId("bp-basic-tier-one-day"));
+    await screen.findByTestId("bp-basic-confirm");
+
+    fireEvent.click(screen.getByTestId("bp-basic-confirm-no"));
+    await waitFor(() => expect(screen.queryByTestId("bp-basic-confirm")).toBeNull());
+    // 只有那一次预检，没有第二次落库请求。
+    expect(puts).toHaveLength(1);
+  });
+
+  it("预览读失败：只有那一节如实报错，其余 15 项照常能打开（不让整个设计器打不开）", async () => {
+    fetchMock = stubBasic({ preview: { reasonCode: "DEPENDENCY_UNAVAILABLE" }, previewStatus: 503 });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    // 反证：整个设计器没有被这一次失败打掉。
+    expect(screen.queryByTestId("bp-designer-load-error")).toBeNull();
+    fireEvent.click(screen.getByTestId("bp-designer-facet-topic-and-background"));
+    expect(await screen.findByTestId("bp-topic-statement-input")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("bp-designer-basic-overview-entry"));
+    expect(await screen.findByTestId("bp-basic-preview-error")).toBeInTheDocument();
+    // 档位那一节仍然可用。
+    expect(screen.getByTestId("bp-basic-tier")).toBeInTheDocument();
+  });
+});
