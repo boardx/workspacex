@@ -50,6 +50,7 @@ import {
   VERDICT_LABEL_EXISTENCE_CHECK_SUSPENDED,
   isOkVerdict,
   parseClosesIssues,
+  parseRefsIssues,
 } from "./pr-queue";
 
 /** 一次正式 review（GitHub review，不是普通评论）。与 pr-queue.ts 的 FormalReview 同形状。 */
@@ -92,8 +93,14 @@ export function evaluateMergeGate(facts: MergeGateFacts): MergeGateResult {
   const advisories: string[] = [];
 
   // ── 1. Closes #N ─────────────────────────────────────────────────────────
-  if (parseClosesIssues(facts.body).length === 0) {
-    reasons.push("PR 正文没有 `Closes #N`——合并后 issue 不会关闭，审计链断在这里（AGENTS.md 完成定义第 5 条）");
+  // 2026-08-18（实测 PR #1540 反证）：Closes 或 Refs 任一即算"可追溯"——一个大
+  // issue 拆多个连续 PR 交付时，中间几块用 Refs 是合法模式（#1493 就是这么拆的）。
+  // 这条门本意是"能追溯到 issue"（#956 事故是完全没有关联），不是"必须由这个 PR
+  // 关闭"。判定与 pr-queue.ts 条件 1 保持一致，见那边的同款注释。
+  if (parseClosesIssues(facts.body).length === 0 && parseRefsIssues(facts.body).length === 0) {
+    reasons.push(
+      "PR 正文既没有 `Closes #N` 也没有 `Refs #N`——追溯不到任何 issue（AGENTS.md 完成定义第 5 条）",
+    );
   }
 
   // ── 2. 唯一 verdict label ────────────────────────────────────────────────

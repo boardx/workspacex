@@ -52,6 +52,9 @@ export interface PrFacts {
   headSha: string;
   /** PR 正文里 `Closes #N` 解析出的 issue 号 */
   closesIssues: number[];
+  /** PR 正文里 `Refs #N`（`Refs`/`Ref` 关键字）解析出的 issue 号——2026-08-18
+   *  加的：见 parseRefsIssues 定义处的完整说明。 */
+  refsIssues: number[];
   /** GitHub `mergeStateStatus`：CLEAN / DIRTY / BLOCKED / BEHIND / UNSTABLE / UNKNOWN / HAS_HOOKS */
   mergeStateStatus: string;
   /** 该 PR 上报出的**全部** check（必需与否见 REQUIRED_CHECKS）。缺席不等于通过。 */
@@ -199,8 +202,16 @@ export function classifyPr(facts: PrFacts): PrClassification {
   const advisories: string[] = [];
 
   // ── 1. 关联 issue ────────────────────────────────────────────────────────
-  if (facts.closesIssues.length === 0) {
-    blocked.push("PR 正文没有 `Closes #N`——合并后 issue 不会关闭，审计链断在这里（AGENTS.md 完成定义第 5 条）");
+  // 2026-08-18 修正（实测 PR #1540 反证）：原来只认 Closes #N，会把"一个大 issue
+  // 拆多个连续 PR 交付、中间几块用 Refs 不用 Closes（只有最后一块该关闭 issue）"
+  // 这类**合法模式**误判——#1493 这个 issue 就是这么拆的（#1537/#1540/…）。
+  // 这条检查的本意是"能追溯到 issue"（#956 事故是完全没有任何 issue 关联），
+  // 不是"必须由这个 PR 关闭"——两件事之前混成了一条规则，现在拆开：Closes 或
+  // Refs 任一存在都算满足"可追溯"，不再要求必须是 Closes。
+  if (facts.closesIssues.length === 0 && facts.refsIssues.length === 0) {
+    blocked.push(
+      "PR 正文既没有 `Closes #N` 也没有 `Refs #N`——追溯不到任何 issue（AGENTS.md 完成定义第 5 条）",
+    );
   }
 
   // ── 2. verdict label 自洽性 ──────────────────────────────────────────────
@@ -330,6 +341,22 @@ export function classifyPr(facts: PrFacts): PrClassification {
 export function parseClosesIssues(body: string): number[] {
   const out = new Set<number>();
   const re = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi;
+  for (const m of body.matchAll(re)) out.add(Number(m[1]));
+  return [...out].sort((a, b) => a - b);
+}
+
+/**
+ * 从 PR 正文解析 `Refs #N` / `Ref #N`（大小写不敏感）——GitHub 不会因为这个
+ * 关键字自动关闭 issue，纯粹是"这个 PR 跟那个 issue 有关"的声明。
+ *
+ * 用途：一个大 issue 拆成多个连续 PR 交付时，中间几块只 `Refs`，只有最后一块
+ * `Closes`。见 pr-queue.ts classifyPr 条件 1 与 merge-gate.ts 条件 1 的说明——
+ * "能追溯到 issue"（Closes 或 Refs 任一）和"这个 PR 该不该关闭 issue"（只看
+ * Closes）是两件事，本函数只负责前者的"Refs"那一半。
+ */
+export function parseRefsIssues(body: string): number[] {
+  const out = new Set<number>();
+  const re = /\bref[s]?\s+#(\d+)\b/gi;
   for (const m of body.matchAll(re)) out.add(Number(m[1]));
   return [...out].sort((a, b) => a - b);
 }
