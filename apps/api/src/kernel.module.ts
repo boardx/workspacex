@@ -55,6 +55,7 @@ import {
   DECISION_ID_FACTORY,
   IDENTITY_REPOSITORY,
   SESSION_STORE,
+  type DecisionIdFactory,
   type IdentityRepository,
 } from "./application/identity/ports";
 import { PgIdentityRepository } from "./infrastructure/identity/pg-identity-repository";
@@ -273,6 +274,7 @@ import { PgFileRetrieval } from "./infrastructure/agent-run/pg-file-retrieval";
 import { PgAgentRunContextSnapshot } from "./infrastructure/agent-run/pg-agent-run-context-snapshot";
 import { PgRunImageInput } from "./infrastructure/agent-run/pg-run-image-input";
 import { PgToolTraceContext } from "./infrastructure/agent-run/pg-tool-trace-context";
+import { createCanvasTemplateGuidancePort } from "./application/agent-run/canvas-template-guidance";
 import { PgTokenUsageRepository } from "./infrastructure/auth/pg-token-usage-repository";
 import {
   ConfiguredModelProvider, readModelProviderConfig,
@@ -1084,21 +1086,27 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       // 「生产 run 到底有没有 L3」由这一行、而不是由某个运行期开关决定（同 `usage` 的先例）。
       // F157：可审计上下文快照同一条先例——生产合成必定注入 `PgAgentRunContextSnapshot`。
       // F190：工具调用轨迹跨 run 回喂上下文同一条先例——生产合成必定注入 `PgToolTraceContext`。
+      // issue #1493：canvas 模板指引同一条先例——`createCanvasTemplateGuidancePort` 用与
+      // `CanvasTemplateController` 完全相同的三个依赖（identity/templates/ids）组装，不新开
+      // 第二条查询路径（见 `canvas-template-guidance.ts` 文件头）。没有独立缓存 provider：
+      // 每次 run 都现查一次这张表，见该文件对「为什么不加缓存」的解释。
       // P2（#1561）：推理侧图像通道同一条先例——生产合成必定注入 `PgRunImageInput`，
       // 所以「这个部署的模型能不能看到用户传的图」由这一行决定，不是运行期的偶然。
       // 它复用既有的 OBJECT_STORE（附件字节本来就存在那里），不新起一套存储绑定。
       useFactory: (
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
-        db: DatabasePort, store: ObjectStore,
+        db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
+        decisions: DecisionIdFactory, store: ObjectStore,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
           new PgFileRetrieval(db), new PgAgentRunContextSnapshot(db), new PgToolTraceContext(db),
+          createCanvasTemplateGuidancePort({ identity, templates, ids: decisions }),
           new PgRunImageInput(db, store),
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
-        OBJECT_STORE,
+        IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
