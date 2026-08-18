@@ -61,6 +61,7 @@ import type { AgentRunContextSnapshotPort, ContextLayerStatus } from "./context-
 import {
   buildToolTraceMessage, TOOL_TRACE_RUN_LIMIT, type ToolTraceContextPort,
 } from "./tool-trace-context";
+import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./canvas-template-guidance";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -308,6 +309,14 @@ export interface ExecuteAgentRunDeps {
    * 一条伪消息）。
    */
   readonly toolTrace?: ToolTraceContextPort;
+  /**
+   * issue #1493（「chat 用上后台画布模板」后端块）—— 本组织已发布的画布模板清单，读出来拼进
+   * system prompt（`canvas-template-guidance.ts`）。**可选**，与 `files`/`toolTrace` 同一条
+   * 既有理由：既有测试与不需要这段指引的执行路径（`trial-run-agent`/`quick-digital-interview`
+   * 一类）不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。缺省不注入
+   * ⇒ system prompt 与本次改动之前逐字节相同（不多出 canvas 指引这一段）。
+   */
+  readonly canvasTemplates?: CanvasTemplateGuidancePort;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -356,11 +365,21 @@ export const VISUALIZATION_GUIDANCE = [
   "- 先给一个**能渲染**的简洁图，更多细节放到图后面的文字里补充。",
 ].join("\n");
 
+/**
+ * `canvasGuidance` 是**可选、追加**参数（issue #1493）—— `trial-run-agent.ts` 与
+ * `quick-digital-interview.ts` 两个既有调用点不传它，行为与本次改动之前逐字节相同；只有
+ * `execute-run.ts` 自己的生产路径会算出这段动态指引再传进来。拼接顺序与 `VISUALIZATION_GUIDANCE`
+ * 同级、紧随其后：两者都是「除了纯文字，你还可以用某种围栏产出结构化内容」这一类附加指引，
+ * canvas 指引依赖 mermaid 指引已经建立的「围栏语法」认知，放在它后面顺理成章。
+ */
 export function buildSystemPrompt(
   instructions: string,
   skills: readonly { readonly versionId: string; readonly content: string }[],
+  canvasGuidance?: string | null,
 ): string {
-  return [instructions, ...skills.map((s) => s.content), VISUALIZATION_GUIDANCE].join("\n\n");
+  const parts = [instructions, ...skills.map((s) => s.content), VISUALIZATION_GUIDANCE];
+  if (canvasGuidance) parts.push(canvasGuidance);
+  return parts.join("\n\n");
 }
 
 /**
@@ -462,7 +481,25 @@ async function executeClaimed(
     // assistant's own Skill-execution behaviour lives in `DeepAgentModelProvider`'s remote
     // service now (#740), not as a second branch here.
     toolSkills = skills;
-    system = buildSystemPrompt(run.instructions, skills);
+    // issue #1493 -- own try/catch, INSIDE the outer one but never rethrown: a canvas
+    // template read failure is not "the pinned context couldn't be assembled" (that is what
+    // `SKILL_VERSION_UNAVAILABLE` above means), it is the same "this layer degraded to
+    // absent" story L2/L3/tool-trace already tell elsewhere in this file. Read every run --
+    // there is no honest cache here, see the port's own doc comment for why not: a template
+    // republished a moment ago must show up in the very next run, not after some TTL.
+    let canvasGuidance: string | null = null;
+    if (deps.canvasTemplates) {
+      try {
+        const templates = await deps.canvasTemplates.listPublished(orgId, run.requesterUserId);
+        canvasGuidance = buildCanvasTemplateGuidance(templates);
+      } catch (e) {
+        deps.log("agent run canvas template guidance read failed, continuing without it", {
+          runId: run.runId,
+          detail: e instanceof Error ? e.message : "unexpected canvas template read failure",
+        });
+      }
+    }
+    system = buildSystemPrompt(run.instructions, skills, canvasGuidance);
   } catch (e) {
     // Every way of not getting the pinned context is the same fact for a client: the run
     // could not be assembled from what was pinned. The distinguishing detail is logged.

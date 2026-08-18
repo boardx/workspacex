@@ -27,6 +27,7 @@ import type {
 import type { FileRetrievalPort } from "../../application/agent-run/file-retrieval";
 import type { AgentRunContextSnapshotPort } from "../../application/agent-run/context-snapshot";
 import type { ToolTraceContextPort } from "../../application/agent-run/tool-trace-context";
+import type { CanvasTemplateGuidancePort } from "../../application/agent-run/canvas-template-guidance";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
 
@@ -68,6 +69,12 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * F190 之前逐字节相同。
      */
     private readonly toolTrace?: ToolTraceContextPort,
+    /**
+     * issue #1493 —— 本组织已发布画布模板清单，读出来拼进 system prompt。可选，与
+     * `usage`/`files`/`contextSnapshots`/`toolTrace` 同一条既有理由：既有构造点不必都改，
+     * 生产合成必定注入。不注入 ⇒ system prompt 与本次改动之前逐字节相同。
+     */
+    private readonly canvasTemplates?: CanvasTemplateGuidancePort,
   ) {}
 
   /**
@@ -93,6 +100,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     const executed = await executeQueuedRuns({
       runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage,
       files: this.files, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,
+      canvasTemplates: this.canvasTemplates,
     }, { orgId });
     await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
     return executed;
