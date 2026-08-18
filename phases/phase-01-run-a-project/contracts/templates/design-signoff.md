@@ -167,13 +167,20 @@ phase: "01"
 #        早已点名过这类缺口）；这次是该已授权裁决类别在 `updateInterviewSubjects` 上的
 #        延伸应用，不是本次重新征询产生的新裁决，也不新增错误码/交互语义/界面。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+# 2026-08-17（F203，dev-chat-e2e）：「主题与背景」「角色与权限」面板逐项对照原型补齐保真度——
+#   零新增契约面自查：仍是 updateDesignFacet 的 content: string 字段（F193/F194 已签核形状，
+#   一字未改）；PermissionMatrixValue 从 flat Record<string, boolean> 升级为
+#   { groupingMode, leadFrom, cells } 是该已签核字段内部承载的 JSON 形状调整，不是新增
+#   updateDesignFacet 操作或新字段；主题与背景新增的 AI 提示语/生成校验清单是原型
+#   TOPIC_PANEL 本就给定的静态参考内容展示，不是新交互。按 covers 追加规则「零新增设计面」
+#   条件自查后追加，不是新裁决。
 # 2026-08-18（F204，dev-chat-e2e）：分组二三项（问卷 / 访谈与对象 / 会前任务）结构化编辑面板，
 #   把 contract.md 的 SurveyContent/InterviewContent/PreTaskContent 字段提议落成真实表单，
 #   取代此前的通用 FacetTextEditor——同 F194/F201/F202 的先例，零新增契约面（仍是
 #   updateDesignFacet 的 content: string 字段，不新增契约操作/错误码/迁移），
 #   按 covers 追加规则「零新增设计面」三条件自查后追加。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F203, F204]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

@@ -65,7 +65,7 @@ export function mergeGate(args: Args): void {
     console.log(JSON.stringify({ number: facts.number, head_sha: facts.headSha, ...result }, null, 2));
   } else {
     if (result.passed) {
-      log.ok(`PR #${num}（head ${facts.headSha.slice(0, 12)}）满足机械合并门禁：唯一 verdict label + Closes 关联`);
+      log.ok(`PR #${num}（head ${facts.headSha.slice(0, 12)}）满足机械合并门禁：唯一 verdict label + issue 关联（Closes 或 Refs）`);
     } else {
       log.err(`PR #${num}（head ${facts.headSha.slice(0, 12)}）不满足机械合并门禁：`);
       for (const reason of result.reasons) log.info(`   · ${reason}`);
