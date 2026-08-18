@@ -68,11 +68,11 @@ const SOURCE_REL = "apps/api/src/domain/templates/design-facet-table.ts";
  * 覆盖规则 2b（跨行 key 字面量计数），因为路由表天然要逐行提到多个 key。
  */
 const REGISTRY_REL = "apps/web/components/tpl-designer/facet-editor-registry.ts";
-// F206：`facet-intro-table.ts` 是第三个合法的单一事实源，回答的是「这个 key 的面板顶部
-// 说明文案是什么」——UI 文案，不是 key/分组/分母的领域定义，跟 REGISTRY_REL 是同一类
-// 豁免（回答不同问题、恰好都要逐行提到 key，同样收敛到单一文件）。
-const INTRO_REL = "apps/web/components/tpl-designer/facet-intro-table.ts";
-const SOURCE_RELS = [SOURCE_REL, REGISTRY_REL, INTRO_REL];
+// 2026-08-18（复核裁决）：曾短暂存在过第三个豁免 `facet-intro-table.ts`（F206 合并时
+// 引入），已撤掉——面板 intro 解释段折进了 REGISTRY_REL 本身（key → 渲染什么组件、
+// key → 解释段是同一张前端投影表的两列，不该拆成两个文件各列一遍 15 个 key）。
+// 别再加第三个豁免：会真正冲突的是「第三张也想叫路由表」，那种情况就该被规则 2b 抓到。
+const SOURCE_RELS = [SOURCE_REL, REGISTRY_REL];
 
 /* -- 唯一事实源：从领域表里解析，不内嵌 ------------------------------------- */
 

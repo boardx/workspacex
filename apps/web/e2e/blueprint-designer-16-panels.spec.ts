@@ -20,7 +20,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { DESIGN_FACET_CATALOG } from "../lib/generated/design-facet-catalog";
-import { FACET_INTRO } from "../components/tpl-designer/facet-intro-table";
+import { FACET_INTRO } from "../components/tpl-designer/facet-editor-registry";
 
 const API = "/__fullstack_api";
 
@@ -91,7 +91,7 @@ test.describe.serial("端到端自检：蓝本设计器 16 项全部结构化，
         `「${key}」不应再落回通用自由文本框`,
       ).toHaveCount(0);
       // ……并且原型 <Intro> 那段「这一项是干什么的」解释在真栈里逐字渲染出来了
-      // （改造时前 4 项整段丢过、后 11 项各抄一份，见 facet-intro-table.ts 头注）。
+      // （改造时前 4 项整段丢过、后 11 项各抄一份，见 facet-editor-registry.ts 头注）。
       await expect(
         page.getByTestId(`bp-facet-intro-${key}`),
         `「${key}」应当渲染原型的 intro 解释段`,

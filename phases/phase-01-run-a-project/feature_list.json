@@ -4750,6 +4750,29 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F209",
+      "title": "撤掉 lint-design-facet-single-source 的第三个豁免——intro 表折进 facet-editor-registry.ts（复核裁决）",
+      "user_visible_behavior": "无用户可见行为变化——纯内部重构。蓝本设计器 15 项面板顶部的 intro 解释段渲染结果与 F206 之后完全一致；变的是它的单一事实源从独立文件 facet-intro-table.ts 折进已有的 facet-editor-registry.ts，且 lint-design-facet-single-source.mjs 的 SOURCE_RELS 从三个豁免收回两个。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F206"
+      ],
+      "points": 1,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-prototype-fidelity.test.tsx",
+        "pnpm turbo run typecheck lint --continue"
+      ],
+      "evidence": "",
+      "notes": "① 背景：#1556（F206/F207/F208）合并到 main 的树，与我最后 push 的版本不一致——GitHub 上的冲突解决走了另一条路：给 lint-design-facet-single-source.mjs 加了第三个豁免 `INTRO_REL`，让 facet-intro-table.ts 作为独立的第三张表存在。这与我在 #1556 里明确记录的判断相反：该门控自己的头注写着「会真正冲突的是『第三张也想叫路由表』」——预判并拒绝了这种做法。人类复核后裁决改回我原来的方案。\n② 修法：把 facet-editor-registry.ts（已豁免的第二张表——key→React 组件）和 facet-intro-table.ts（key→intro 文案）合并成一张——本来就是同一张前端投影表的两列，不是两件事。SOURCE_RELS 收回到只有 design-facet-table.ts（领域表）与 facet-editor-registry.ts（前端路由/文案表）两个豁免，贴合 I-5「一张表一个文件」。\n③ 顺手修复 PROGRESS.md 派生视图漂移（passing=185 vs feature_list 实际=188）——由本 feature 的 verify 一并重新聚合。\n④ 验证：本地用 CI 原命令复核（`gh run view --log` 挖出 verify-full-compile 那一步的确切命令 `pnpm turbo run typecheck lint --continue`）跑通 28/28；单测 164 files / 1392 tests 全过；真栈 fullstack-smoke 复跑确认渲染结果与 F206 时一致，intro 逐条 toHaveText 断言不变。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
       "id": "F199",
       "title": "createProject 创建者自动获得容器最高权限角色（推翻 Q-4②：facilitator/owner）",
       "user_visible_behavior": "任意通过 createProject 成功建出容器（工作坊/研究项目/用户洞察）的人，建完立刻就能进入并使用自己建的这个容器——不再出现「建了项目却读不到内容」（ADMIN_NOT_SUPERUSER/NO_PROJECT_ROLE）。工作坊容器：创建者获得 facilitator（引导师）角色，is_host=true。研究项目/用户洞察容器：创建者获得 owner（所有者）角色。全部与容器同一个事务写入，不存在“容器建成、角色没跟上”的中间态。",

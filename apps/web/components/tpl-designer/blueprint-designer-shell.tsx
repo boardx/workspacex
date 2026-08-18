@@ -4,8 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { DesignFacetCatalog } from "@/lib/generated/design-facet-catalog";
 import type { FacetSaveFn } from "./facet-content-editor";
-import { getFacetEditor } from "./facet-editor-registry";
-import { getFacetIntro } from "./facet-intro-table";
+import { getFacetEditor, getFacetIntro } from "./facet-editor-registry";
 import { BasicOverviewPanel, type BasicOverviewPanelProps } from "./basic-overview-panel";
 
 /**
@@ -269,7 +268,7 @@ export function BlueprintDesignerShell({
  * 「全部落在专属结构化编辑器上」的机械门控钉住（漂回去会红并指名是哪个 key）。
  *
  * 面板顶部的 intro 解释段（原型 `designer-panels.tsx` 的 `<Intro>`）在这里统一渲染，
- * 单一事实源是 `facet-intro-table.ts`，编辑器组件里不再各抄一份。
+ * 单一事实源折进了 `facet-editor-registry.ts`（同 I-5 一张表一个文件），编辑器组件里不再各抄一份。
  */
 function FacetPanel({
   selectedKey,
