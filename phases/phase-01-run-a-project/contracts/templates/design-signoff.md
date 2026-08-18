@@ -129,6 +129,21 @@ phase: "01"
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
 #   ⚠ 若 coord-main 认为这类「补漏签的读端点/字段」也需要人类走一次正式重签，把 F950
 #   从本行删掉，代码与测试不受影响。
+# 2026-08-17（追加 **F201**，dev-chat-e2e agent，原编号 F196 与 Guided Research 一支
+#   撞车后改号——分支落后于 main 时占用的号后来被另一条线正式抢注，纯编号事故，
+#   与本条自查内容无关）——分组一第二个结构化面板增量（「分组规则」，同 F194 的
+#   先例）。三条件核对：① UI 已签——`GroupingRuleContent` 字段提议已在 delta 里
+#   签核，未新增字段之外的界面元素；② 契约已签——仍只消费
+#   `updateDesignFacet`/`getBlueprintDesignFacets`，`content: string` 不变；
+#   ③ 零新增设计面——不新增契约操作/错误码/迁移。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+# 2026-08-17（追加 **F202**，dev-chat-e2e agent，原编号 F197 与 Guided Research 一支
+#   撞车后改号，同 F201 的编号事故说明）——分组一收官（「流程 Agenda」结构化面板），
+#   同 F194/F201 的先例。三条件核对：① UI 已签——`AgendaContent` 字段提议已在 delta
+#   里签核，本次范围比提议窄（不含 canvasBinding/skillBinding/AI 建议，见 F202
+#   notes②），未新增字段之外的界面元素；② 契约已签——仍只消费
+#   `updateDesignFacet`/`getBlueprintDesignFacets`；③ 零新增设计面。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
 # 2026-08-17（追加 **F960**，dev-project agent）——观察/访谈对象表（F25 已签的应用层
 #   编排）从「零 controller、零仓储」接上真实 Postgres，同 F950（2026-08-16，定题/分组
 #   接线）发现的同一种「静态痕迹 ≠ 动态事实」缺口。这一条**不是**零新增设计面的追加——
@@ -144,7 +159,7 @@ phase: "01"
 #        早已点名过这类缺口）；这次是该已授权裁决类别在 `updateInterviewSubjects` 上的
 #        延伸应用，不是本次重新征询产生的新裁决，也不新增错误码/交互语义/界面。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F950, F960]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
