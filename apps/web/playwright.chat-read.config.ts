@@ -36,6 +36,18 @@ const deepAgentProviderPort = String(Number(webPort) + 6_000);
  * `+10000` 抄那份 config 自己的偏移量，同一套单射逻辑。
  */
 const asrProviderPort = String(Number(webPort) + 10_000);
+/**
+ * #1560 P1 e2e —— 确定性视觉理解上游的端口（`loopback-vision-provider.ts`）。同一套
+ * 单射逻辑再往后挪一段（`+14000`），不会撞上 pg/redis/api/web/model/deep-agent/asr
+ * 任何一段。见该脚本自己的头注：不接它，`BailianVisionExtractor` 会把这条链路共用的
+ * 占位 `KERNEL_MODEL_API_KEY` 真的发去 `https://dashscope.aliyuncs.com`。
+ *
+ * ⚠ 上限踩过一次坑：`webPort` 落在 45000–49999，`+20000` 在 `webPort` 取到高位时
+ *   会算出 65000–69999，超出合法 TCP 端口上限（65535），`new URL()` 直接
+ *   `TypeError: Invalid URL`（实测：单独跑通过，跑整个 chat-read 套件时另一个哈希值
+ *   踩中才红）。`+14000` 的上限是 49999+14000=63999，稳稳落在合法端口内。
+ */
+const visionProviderPort = String(Number(webPort) + 14_000);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -54,7 +66,12 @@ export default defineConfig({
    * 线程 + facilitator 账号；verification.md 点名的 fullstack-smoke seeded 链没有任何
    * chat 线程种子，要挂那边得把整套 chat 夹具复制一份）。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip)\.spec\.ts$/,
+  /**
+   * #1560 P1 e2e —— 新增 `chat-attachment-image-vision-extraction.spec.ts` 同样由本 config
+   * 接住（理由与上面两条逐字相同）：这里已经起好了真登录 + 真线程 + 确定性 provider 全套
+   * 编排，单自建 runner 是硬瓶颈；新增的是视觉理解这一条上游替身，其余全部复用。
+   */
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
@@ -125,6 +142,21 @@ export default defineConfig({
         // fullstack-smoke.config.ts 没有下发这个变量，不受影响，见那个脚本自己的
         // 头注）。只有这个 config 需要证明「转录过程中文字实时更新」。
         LOOPBACK_ASR_EMIT_DELTA: "1",
+      },
+    },
+    /**
+     * #1560 P1 e2e —— 确定性视觉理解上游，排在 API 之前：同理只要在 API 之前 ready 即可。
+     * 见 `scripts/loopback-vision-provider.ts` 自己的头注（不是新写的第二套上游哲学，
+     * 是同一套「显式选中的确定性替身」延伸到视觉这一条端口）。
+     */
+    {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-vision-provider.ts",
+      url: `http://127.0.0.1:${visionProviderPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_VISION_PROVIDER_PORT: visionProviderPort,
       },
     },
     /**
@@ -206,6 +238,8 @@ export default defineConfig({
         CHAT_E2E_SKILL_MOUNT_THREAD_ID: CHAT_READ_E2E.skillMountThreadId,
         CHAT_E2E_CAUSAL_CHECK_THREAD_ID: CHAT_READ_E2E.causalCheckThreadId,
         CHAT_E2E_CONTEXT_CHECK_THREAD_ID: CHAT_READ_E2E.contextCheckThreadId,
+        // #1560 P1 e2e —— 图片视觉理解诚实降级路径的专属线程。
+        CHAT_E2E_IMAGE_VISION_THREAD_ID: CHAT_READ_E2E.imageVisionThreadId,
         // The catalog schema override is intentionally test-only; production always resolves
         // the public Agent catalog. Authentication in this journey still uses a signed login.
         KERNEL_ALLOW_TEST_PRINCIPAL: "1",
@@ -225,6 +259,14 @@ export default defineConfig({
         KERNEL_MODEL_BASE_URL: `http://127.0.0.1:${modelProviderPort}`,
         // 仅供本地回环进程校验存在性；`ConfiguredModelProvider` 要求 apiKey 非空才认为「已配置」。
         KERNEL_MODEL_API_KEY: "chat-read-loopback-key-not-a-secret",
+        /**
+         * #1560 P1 e2e —— `BailianVisionExtractor` 复用上面那把聊天占位 key（非空），若不覆盖
+         * `KERNEL_VISION_BASE_URL`，它会把这把假 key 真的发去 `https://dashscope.aliyuncs.com`。
+         * 指到本地确定性替身（`loopback-vision-provider.ts`，见其头注），对任何请求都如实回
+         * 401 `InvalidApiKey`——与真实无 key 时的降级判定同一条代码路径
+         * （`classifyHttpFailure` 只认状态码），只是不依赖真实外网。
+         */
+        KERNEL_VISION_BASE_URL: `http://127.0.0.1:${visionProviderPort}`,
         // #728 P6 —— 打开 `ConfiguredModelProvider.completeStream`（默认关闭，见该文件
         // 自己的头注）。`execute-run.ts` 用它的**存在性**决定走流式分支，`loopback-model-
         // provider.ts` 现在会照实读请求体里的 `stream` 字段回 SSE（见那支脚本自己的
