@@ -54,10 +54,20 @@ describe("#956 机械合并门禁", () => {
     expect(got.advisories.join("\n")).toContain("作者自审");
   });
 
-  it("反证 2：body 没有 Closes #N → 仍然拒绝（条件 1 未受暂停影响）", () => {
+  it("反证 2：body 既没有 Closes #N 也没有 Refs #N → 仍然拒绝（条件 1 未受暂停影响）", () => {
     const got = evaluateMergeGate({ ...greenFacts(), body: "修复合并门禁，没有关联 issue" });
     expect(got.passed).toBe(false);
-    expect(got.reasons.join("\n")).toContain("Closes #N");
+    expect(got.reasons.join("\n")).toContain("追溯不到任何 issue");
+  });
+
+  // ── 2026-08-18（实测 PR #1540 反证）：拆块交付的中间块只 Refs 不 Closes ─────
+  it("只有 Refs #N 没有 Closes #N（拆块交付的中间块）→ 通过，不再误判", () => {
+    const got = evaluateMergeGate({
+      ...greenFacts(),
+      body: "Refs #1493（UC-7.3 拆解的第二块：render/export 面。第一块 #1537 已合入）",
+    });
+    expect(got.passed).toBe(true);
+    expect(got.reasons).toEqual([]);
   });
 
   it("反证 3：只有 COMMENT 类型的 review——暂停期 passed=true，但 advisories 仍报出", () => {
