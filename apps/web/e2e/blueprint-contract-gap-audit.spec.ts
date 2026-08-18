@@ -155,11 +155,32 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到�
     await page.goto(`/tpl/designer?blueprintId=${blueprintId}`);
     await expect(page.getByTestId("bp-designer-shell")).toBeVisible();
 
-    // ⚠ 用 pre-tasks（还未被拆成结构化面板的通用编辑 key），不用 topic-and-background——
-    //   下一条 F174 用例走 API 直连时假定 topic-and-background 的
-    //   `expectedItemRevision` 仍是初始哨兵 `""`，两条用例不能撞同一个 key。
+    // ⚠ 用 pre-tasks，不用 topic-and-background——下一条 F174 用例走 API 直连时假定
+    //   topic-and-background 的 `expectedItemRevision` 仍是初始哨兵 `""`，
+    //   两条用例不能撞同一个 key。
+    //
+    // ⚠ 2026-08-18（F204）：pre-tasks 已从通用自由文本框换成结构化面板，
+    //   `bp-facet-content-pre-tasks` 那个 textarea **不再存在**——本用例原先找它，
+    //   随 F204 一起真实红过一次（fullstack-smoke FAIL），不是 flaky。
+    //   现在改成走结构化面板的真实交互：加一条任务 → 填标题 → 失焦保存。
+    //   至此 15 项全部结构化，**没有任何 key 还是自由文本框**，这条用例不能再
+    //   「换一个还没结构化的 key」来绕开，只能按真实交互写。
     await page.getByTestId("bp-designer-facet-pre-tasks").click();
-    const editor = page.getByTestId("bp-facet-content-pre-tasks");
+    await expect(page.getByTestId("bp-facet-editor-pre-tasks")).toBeVisible();
+
+    // 新增任务本身就是一次真实保存（离散动作，不等失焦）——先等它落定，
+    // 避免和下面那次 PUT 抢同一个 itemRevision。
+    const [addResponse] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          new URL(r.url()).pathname === `${API}/blueprints/${blueprintId}/design-facets/pre-tasks` &&
+          r.request().method() === "PUT",
+      ),
+      page.getByTestId("bp-hw-add").click(),
+    ]);
+    expect(addResponse.status()).toBe(200);
+
+    const editor = page.getByTestId("bp-hw-title-0");
     await expect(editor).toBeVisible();
     const content = `真实 UI 端到端写入 ${scope}`;
     await editor.fill(content);
@@ -184,7 +205,9 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到�
     await page.reload();
     await expect(page.getByTestId("bp-designer-shell")).toBeVisible();
     await page.getByTestId("bp-designer-facet-pre-tasks").click();
-    await expect(page.getByTestId("bp-facet-content-pre-tasks")).toHaveValue(content);
+    // 刷新后结构化面板把存进 content 字符串的 JSON 解析回各自的格子——
+    // 标题回到它原来那一格，不是被拼成一段文本又拆不开。
+    await expect(page.getByTestId("bp-hw-title-0")).toHaveValue(content);
   });
 
   test("F174: 填一项设计环节内容并真实 PUT 保存，刷新后完成度真的变化（不是前端 state）", async ({ page }) => {
