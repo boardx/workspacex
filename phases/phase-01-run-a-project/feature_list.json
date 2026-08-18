@@ -4644,7 +4644,7 @@
         "F193"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "dev-chat-e2e",
       "verification": [
@@ -4652,7 +4652,7 @@
         "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F204.verify.log @ 2026-08-18T07:09:26.293Z",
       "notes": "① 人类 2026-08-18 复核指出：facet-editor-registry 上此前只有 4 个结构化编辑器，其余 11 项仍落回通用 FacetTextEditor——也就是「每个配置菜单都是一个 textbox」这个最初批评的问题只解决了 4/15。本 feature 是补齐的第一批（分组二三项）。\n② 逐项对照 apps/web/components/tpl/designer-panels.tsx 的 SurveyPanel/InterviewPanel/HomeworkPanel 与 apps/web/lib/mock/tpl.ts 的 SURVEY_PANEL/INTERVIEW_PLAN_PANEL/HOMEWORK_PANEL（人类第二次强化指令的纪律：UI 具体形态以原型和已有富组件为准，不照 contract.md 字段列表自行设计）。三处刻意与 contract.md 不同、以原型为准的地方，都在各编辑器文件头注里逐条说明：\n   · 问卷：原型的 timing 是一段自由文本（阻断阈值写在文本里），不拆成 contract.md 提议的 kind 枚举 + blockingThreshold/estimatedMinutes 三个字段——拆分没有对应原型控件可以对照。\n   · 访谈与对象：原型 authDefaults 三条里，第三条「未收到受访者本人确认前开始访谈保持禁用」被原型明确标为硬约束（渲染成 warning 而不是 ✓），不是可关的开关——本编辑器渲染成固定说明文字不给勾选框，只有前两条做成布尔开关。\n   · 会前任务：forWhom 原型只有「全体」「仅组长」两种，做成单选而不是自由文本；「挂环节」「不做会怎样」是原型 intro 明确的硬约束字段，界面上给必填提示但不做前端阻断（该层校验属于套用/发布门控，不是编辑器职责，同 F193 起的既有边界）。\n③ 存储形状不变：三项都仍写进 updateDesignFacet 的 content: string 字段（JSON 序列化），零新增契约面。\n④ 既有的三条「通用文本编辑器」组件测试原先绑在 survey 上，本 feature 把该 key 换成专属编辑器后迁移到仍是通用编辑器的 venue-and-format，未删减任何既有断言的覆盖面。\n⑤ 验证：新增 6 条组件测试（三项各 2 条：真实解析已存 JSON 渲染进对应字段含反证「不再落回 bp-facet-content-* 通用文本框」/ 真实增删改后保存成结构化 JSON），既有设计器测试无回归。",
       "priority": 2,
       "area": "project",
