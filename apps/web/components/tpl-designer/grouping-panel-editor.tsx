@@ -8,38 +8,47 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * 落地成真实可编辑表单，替换该项此前统一使用的 `FacetTextEditor` 自由文本框（同
  * `topic-panel-editor.tsx`/F194 的先例）。
  *
- * ⚠ 与「角色与权限」（G1，草稿问题 2）的已知内容重叠**未裁决**——本编辑器只按
- * `contract.md` 现有的字段提议实现，不预判合并结果、不擅自去掉任何一侧的字段。
+ * ⚠ 逐项对照 `apps/web/components/tpl/designer-panels.tsx` 的 `GroupingPanel`
+ * 与 `apps/web/lib/mock/tpl.ts` 的 `GROUPING_PANEL`（2026-08-17 人类第二次强化
+ * 指令后重做）——布局、字段名、固定 vs 可填的边界都以这两处为准，不是照
+ * `contract.md` 的字段列表自行设计。
  *
  * ## 固定 vs 可填
  *
- * `sizePresets`（3 个预设规模卡片）与 `rules`（4 条固定规则标签）是**结构性事实**
- * （草稿逐字抽取自原型），本编辑器展示为只读参考。真正可编辑的是**场景清单**
- * （长度不固定，用户增删）与**组长产生方式**两个布尔开关。
+ * `sizingRules`（3 档规模卡片 + `sizingNote`）与 `assignRules`（5 条固定分配
+ * 规则的静态参考清单）是**结构性事实**（原型逐字抽取，不是可配置项）。真正可
+ * 编辑的只有**场景清单**（长度不固定，用户增删）——每行 `name`/`ask`/`leadProfile`
+ * 三个字段，对应原型「场景名 / 这组要回答什么 / 组长画像」。
  */
 
-const SIZE_PRESETS = [
-  { groupCount: "4 组", membersPerGroup: "每组 3 人", usageHint: "12–16 人时用（默认）" },
-  { groupCount: "3 组", membersPerGroup: "每组 3–4 人", usageHint: "9–11 人时用" },
-  { groupCount: "6 组", membersPerGroup: "每组 3 人", usageHint: "18 人以上，加一名协同引导师" },
+const SIZING_RULES = [
+  { range: "12–16 人", groups: "4 组 · 默认", per: "每组 3 人" },
+  { range: "≤ 11 人", groups: "3 组", per: "每组 2–4 人" },
+  { range: "≥ 18 人", groups: "6 组", per: "加一名协同引导师" },
 ] as const;
 
-const GROUPING_RULES = ["每组 2–4 人", "低于 2 人合并", "每组一路录音", "缺人现场可调"] as const;
+const SIZING_NOTE = "低于 2 人合并；每组一路录音；缺人现场可调";
+
+const ASSIGN_RULES = [
+  "套用时 AI 先给一版，引导师拖拽调整",
+  "组长默认取该场景画像匹配度最高的人，可一键换",
+  "按背景均衡：同部门的人尽量不在同一组",
+  "每组带一张观察/访谈对象表（对象、部门、联系方式、背景、方式）",
+  "缺人时在分组卡片上标红，并给出需要什么背景的人",
+] as const;
 
 export interface GroupScenario {
-  readonly scenario: string;
-  readonly whatToAnswer: string;
-  readonly defaultLeaderProfile: string;
+  readonly name: string;
+  readonly ask: string;
+  readonly leadProfile: string;
 }
 
 export interface GroupingContentValue {
   readonly scenarios: readonly GroupScenario[];
-  readonly autoMatchByProfile: boolean;
-  readonly balanceByBackground: boolean;
 }
 
 function emptyValue(): GroupingContentValue {
-  return { scenarios: [], autoMatchByProfile: true, balanceByBackground: true };
+  return { scenarios: [] };
 }
 
 export function parseGroupingContent(content: string): GroupingContentValue {
@@ -52,11 +61,9 @@ export function parseGroupingContent(content: string): GroupingContentValue {
       scenarios: Array.isArray(p.scenarios)
         ? p.scenarios.filter(
             (s): s is GroupScenario =>
-              typeof s === "object" && s !== null && typeof (s as GroupScenario).scenario === "string",
+              typeof s === "object" && s !== null && typeof (s as GroupScenario).name === "string",
           )
         : [],
-      autoMatchByProfile: typeof p.autoMatchByProfile === "boolean" ? p.autoMatchByProfile : true,
-      balanceByBackground: typeof p.balanceByBackground === "boolean" ? p.balanceByBackground : true,
     };
   } catch {
     return emptyValue();
@@ -114,7 +121,7 @@ export function GroupingPanelEditor({
   function addScenario(): void {
     setValue((v) => ({
       ...v,
-      scenarios: [...v.scenarios, { scenario: "", whatToAnswer: "", defaultLeaderProfile: "" }],
+      scenarios: [...v.scenarios, { name: "", ask: "", leadProfile: "" }],
     }));
   }
 
@@ -131,17 +138,11 @@ export function GroupingPanelEditor({
     void persist(next); // 删除立即保存——不像文本输入等 blur，删除是一次离散动作
   }
 
-  function toggle(key: "autoMatchByProfile" | "balanceByBackground"): void {
-    const next = { ...value, [key]: !value[key] };
-    setValue(next);
-    void persist(next);
-  }
-
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
-      <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-grouping-presets">
+      <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-grouping-sizing">
         <div className="mb-2 flex items-center gap-1.5">
-          <h3 className="text-13 font-semibold">规模</h3>
+          <h3 className="text-13 font-semibold">按人数自动落到组数</h3>
           {status !== "idle" && (
             <span
               className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"}
@@ -151,51 +152,41 @@ export function GroupingPanelEditor({
             </span>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {SIZE_PRESETS.map((p) => (
-            <div key={p.groupCount} className="rounded-md border border-border p-2 text-12">
-              <p className="font-medium">
-                {p.groupCount} · {p.membersPerGroup}
+        <div className="grid gap-2 sm:grid-cols-3">
+          {SIZING_RULES.map((r) => (
+            <div key={r.range} className="rounded-md border border-border p-2.5" data-testid="bp-grouping-sizing-row">
+              <p className="text-12 font-medium">{r.range}</p>
+              <p className="text-11 text-muted-foreground">
+                {r.groups} · {r.per}
               </p>
-              <p className="text-11 text-muted-foreground">{p.usageHint}</p>
             </div>
           ))}
         </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {GROUPING_RULES.map((r) => (
-            <span key={r} className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">
-              {r}
-            </span>
-          ))}
-        </div>
+        <p className="mt-1.5 text-11 text-muted-foreground">{SIZING_NOTE}</p>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-grouping-scenarios">
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-13 font-semibold">场景清单</h3>
-          <button
-            type="button"
-            onClick={addScenario}
-            className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
-            data-testid="bp-grouping-add-scenario"
-          >
-            ＋ 加场景
-          </button>
+          <h3 className="text-13 font-semibold">场景清单（每组认领一个，套用时可增删改）</h3>
+          <span className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">最值钱的部分</span>
         </div>
         {value.scenarios.length === 0 ? (
           <p className="text-11 text-muted-foreground" data-testid="bp-grouping-scenarios-empty">
-            还没有场景——点「＋ 加场景」新增。
+            还没有场景——点「＋ 场景」新增。
           </p>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
             {value.scenarios.map((s, i) => (
-              <li key={i} className="flex flex-col gap-1 rounded-md border border-border p-2" data-testid="bp-grouping-scenario-row">
+              <li key={i} className="flex flex-col gap-1 p-2.5" data-testid="bp-grouping-scenario-row">
                 <div className="flex items-center gap-1.5">
+                  <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">
+                    第 {i + 1} 组
+                  </span>
                   <input
                     type="text"
-                    className="flex-1 rounded-md border border-border bg-background p-1.5 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={s.scenario}
-                    onChange={(e) => updateScenario(i, { scenario: e.target.value })}
+                    className="flex-1 rounded-md border border-border bg-background p-1.5 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={s.name}
+                    onChange={(e) => updateScenario(i, { name: e.target.value })}
                     onBlur={() => void persist(value)}
                     placeholder="场景名（如「业主首次评估」）"
                     data-testid={`bp-grouping-scenario-name-${i}`}
@@ -212,8 +203,8 @@ export function GroupingPanelEditor({
                 <input
                   type="text"
                   className="w-full rounded-md border border-border bg-background p-1.5 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={s.whatToAnswer}
-                  onChange={(e) => updateScenario(i, { whatToAnswer: e.target.value })}
+                  value={s.ask}
+                  onChange={(e) => updateScenario(i, { ask: e.target.value })}
                   onBlur={() => void persist(value)}
                   placeholder="这组要回答什么"
                   data-testid={`bp-grouping-scenario-question-${i}`}
@@ -221,38 +212,36 @@ export function GroupingPanelEditor({
                 <input
                   type="text"
                   className="w-full rounded-md border border-dashed border-border bg-background p-1.5 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={s.defaultLeaderProfile}
-                  onChange={(e) => updateScenario(i, { defaultLeaderProfile: e.target.value })}
+                  value={s.leadProfile}
+                  onChange={(e) => updateScenario(i, { leadProfile: e.target.value })}
                   onBlur={() => void persist(value)}
-                  placeholder="默认组长画像（可选）"
+                  placeholder="组长画像（可选）"
                   data-testid={`bp-grouping-scenario-leader-${i}`}
                 />
               </li>
             ))}
           </ul>
         )}
+        <button
+          type="button"
+          onClick={addScenario}
+          className="mt-2 rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
+          data-testid="bp-grouping-add-scenario"
+        >
+          ＋ 场景
+        </button>
       </div>
 
-      <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-grouping-leader-assignment">
-        <h3 className="mb-2 text-13 font-semibold">组长与成员分配</h3>
-        <label className="mb-1.5 flex items-center gap-2 text-12">
-          <input
-            type="checkbox"
-            checked={value.autoMatchByProfile}
-            onChange={() => toggle("autoMatchByProfile")}
-            data-testid="bp-grouping-auto-match"
-          />
-          组长默认取场景画像匹配度最高的人（可一键换）
-        </label>
-        <label className="flex items-center gap-2 text-12">
-          <input
-            type="checkbox"
-            checked={value.balanceByBackground}
-            onChange={() => toggle("balanceByBackground")}
-            data-testid="bp-grouping-balance-background"
-          />
-          按背景均衡（同部门不同组）
-        </label>
+      <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-grouping-assign-rules">
+        <h3 className="mb-2 text-13 font-semibold">组长与成员分配（套用时 AI 先给一版，引导师拖拽调整）</h3>
+        <ul className="flex flex-col gap-1.5">
+          {ASSIGN_RULES.map((r) => (
+            <li key={r} className="flex items-start gap-2 text-12 text-muted-foreground" data-testid="bp-grouping-assign-rule">
+              <span aria-hidden className="mt-0.5">✓</span>
+              {r}
+            </li>
+          ))}
+        </ul>
       </div>
 
       {error !== null && (

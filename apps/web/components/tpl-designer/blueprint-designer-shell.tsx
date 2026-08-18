@@ -240,7 +240,6 @@ function FacetPanel({
   const content = facet?.content ?? "";
   // 哨兵 `''`：还没人填过这一项时，`expectedItemRevision` 传空串，同后端约定。
   const itemRevision = facet?.itemRevision ?? "";
-
   // key → 结构化编辑器组件 的唯一定义处是 facet-editor-registry.ts（I-5，本文件
   // 不再重复写 `selectedKey === "..."` 判断链——F202 复核发现原来的三元链撞上了
   // lint-design-facet-single-source 的「跨行第二份表」规则）。
@@ -252,12 +251,7 @@ function FacetPanel({
         <h2 className="text-16 font-semibold">{item?.label ?? selectedKey}</h2>
         {item?.required ? <span className="text-11 text-destructive">必填</span> : null}
       </div>
-      <Editor
-        designFacetKey={selectedKey}
-        content={content}
-        itemRevision={itemRevision}
-        onSave={onSaveFacet}
-      />
+      <Editor designFacetKey={selectedKey} content={content} itemRevision={itemRevision} onSave={onSaveFacet} />
     </div>
   );
 }
