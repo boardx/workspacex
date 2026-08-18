@@ -6,16 +6,23 @@
  *   - 同步内联（≤3MB，见 upload 用例）：直接 extractAttachment，无 job。
  *
  * 抽取路径由领域 `planExtraction(mime)` 决定：convert（anydoc）/ passthrough（txt/md 字节即文本）/
- * unsupported（图片无文字层）。重放幂等靠 putOnce→ObjectExistsError=已落跳过。
+ * vision（图片交 VLM 转录+描述，#1560 P1）/ unsupported（白名单外）。
+ * 重放幂等靠 putOnce→ObjectExistsError=已落跳过。
  *
- * 失败语义**分两类**：convert 的 `ConvertErrorCode`（确定性，重试无用）→ 记附件 failed（终态）；
- * I/O 类（读字节/putOnce/DB 抖动）→ 返回 "retry"，由 job 侧 markJobFailed 靠 staleness 重试。
+ * 三条产文本的路径（convert / passthrough / vision）**汇到同一条落库路径**：putOnce 全文 markdown →
+ * recordExtracted(extracted_ref + 有界 excerpt)。图片没有第二套字段，也没有第二套状态机。
+ *
+ * 失败语义**分两类**：确定性错误（convert 的 `ConvertErrorCode`、vision 的 `visionNotConfigured` /
+ * `visionModelUnavailable` / `visionRejected`）→ 记附件 failed（终态，如实写码）；
+ * I/O 类（读字节/putOnce/DB 抖动、vision 的 `visionTransport`）→ 返回 "retry"，由 job 侧
+ * markJobFailed 靠 staleness 重试。**没有第三类**：绝不在失败时落一条空的 extracted 冒充成功。
  */
 import type { OrgId } from "../../domain/org-id";
 import { planExtraction, boundedExcerpt } from "../../domain/chat/attachment-extraction";
 import type { ObjectStore } from "../artifact/ports";
 import { ObjectExistsError } from "../artifact/ports";
 import type { AttachmentToMarkdownPort } from "./attachment-to-markdown.port";
+import { isRetryableVisionError, type AttachmentVisionPort } from "./attachment-vision.port";
 import type { AttachmentExtractionJob, AttachmentExtractionStore } from "./attachment-extraction-store";
 
 /** 认领到但 attempts 已越上限：不再无限重试。 */
@@ -28,6 +35,11 @@ export interface ExtractionCoreDeps {
   readonly store: ObjectStore;
   readonly extraction: AttachmentExtractionStore;
   readonly converter: AttachmentToMarkdownPort;
+  /**
+   * #1560 P1：图片视觉抽取端口。**可选**——没接（老测试、未配置视觉能力的部署）时图片如实落
+   * `failed` + `visionNotConfigured`，不静默留空、不回落成 `unsupported` 假装「这类文件本来就抽不出」。
+   */
+  readonly vision?: AttachmentVisionPort;
 }
 
 export interface AttachmentExtractionDeps extends ExtractionCoreDeps {
@@ -80,6 +92,19 @@ export async function extractAttachment(
   let markdown: string;
   if (plan.kind === "passthrough") {
     markdown = new TextDecoder().decode(bytes);
+  } else if (plan.kind === "vision") {
+    if (deps.vision === undefined) {
+      // 本部署没有视觉能力——如实记 failed + 原因，绝不假装抽到了内容。
+      await deps.extraction.recordFailed(orgId, attachmentId, "visionNotConfigured");
+      return "failed";
+    }
+    const v = await deps.vision.describeImage(bytes, plan.mime);
+    if (!v.ok) {
+      if (isRetryableVisionError(v.code)) return "retry"; // 网络/5xx——未记终态，交 outbox 重试
+      await deps.extraction.recordFailed(orgId, attachmentId, v.code);
+      return "failed";
+    }
+    markdown = v.markdown;
   } else {
     const r = await deps.converter.convert(bytes, plan.format);
     if (!r.ok) {

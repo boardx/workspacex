@@ -10,6 +10,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { LoggerPort } from "../../application/ports/logger.port";
 import type { ObjectStore } from "../../application/artifact/ports";
 import type { AttachmentToMarkdownPort } from "../../application/chat/attachment-to-markdown.port";
+import type { AttachmentVisionPort } from "../../application/chat/attachment-vision.port";
 import type { AttachmentExtractionStore } from "../../application/chat/attachment-extraction-store";
 import type { AttachmentExtractionExecutorPort } from "../../application/chat/attachment-extraction-executor.port";
 import {
@@ -26,6 +27,8 @@ export class AttachmentExtractionExecutor implements AttachmentExtractionExecuto
     store: ObjectStore,
     extraction: AttachmentExtractionStore,
     converter: AttachmentToMarkdownPort,
+    /** #1560 P1：图片视觉抽取端口（与 converter 并列的第二条产文本路径）。 */
+    vision: AttachmentVisionPort,
     private readonly logger: LoggerPort,
     private readonly autostart: boolean,
     private readonly concurrency = 2,
@@ -34,6 +37,7 @@ export class AttachmentExtractionExecutor implements AttachmentExtractionExecuto
       store,
       extraction,
       converter,
+      vision,
       log: (message, ctx) => this.logger.error(message, { traceId: randomUUID(), err: message, ...ctx }),
     };
   }

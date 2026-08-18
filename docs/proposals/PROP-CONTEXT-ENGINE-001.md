@@ -127,8 +127,11 @@ NO agent_runs context_pack_id wiring
    second implementation of the SAME port and nothing above this layer changes"）。
    生产环境如果将来要换真实云端 S3，只需再加第三个实现（同 endpoint 协议，MinIO 本身
    就是 S3 兼容 API），不是重新设计。
-2. **OCR：本地 tesseract.js**。零外部 API/凭据依赖、MIT 协议、Node 生态原生可用，
-   现在就能接真。
+2. ~~**OCR：本地 tesseract.js**。零外部 API/凭据依赖、MIT 协议、Node 生态原生可用，
+   现在就能接真。~~ **2026-08-18 / #1560 改写为 VLM 视觉理解**（阿里云百炼 Qwen-VL，复用
+   已有的 `KERNEL_MODEL_API_KEY`，不新增凭据）：VLM 对中文截图的文字转录优于 tesseract，
+   且同一次调用顺带产出视觉描述——填的是 `derived_representations` 同一格，不该有两个实现。
+   落地范围与未落部分见 checklist 的 CE-014 行。
 3. **ASR：FunASR**（`https://github.com/modelscope/FunASR`，ModelScope 开源，
    人类指定）。这是一个真实、成熟、对中文效果好的开源 ASR 工具包，不是云端付费 API——
    跟 MinIO/tesseract 一样是"本地起服务、零凭据"的路线，但它是 Python 生态、需要独立

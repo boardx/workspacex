@@ -11,7 +11,7 @@ describe("planExtraction", () => {
   it("契约白名单每一个 MIME 都有计划（全覆盖，防漏）", () => {
     for (const mime of CFU.ATTACHMENT_MIME_ALLOWLIST) {
       const plan = planExtraction(mime);
-      expect(plan.kind, `${mime} 应有抽取计划`).toMatch(/^(convert|passthrough|unsupported)$/);
+      expect(plan.kind, `${mime} 应有抽取计划`).toMatch(/^(convert|passthrough|vision|unsupported)$/);
     }
   });
 
@@ -31,13 +31,23 @@ describe("planExtraction", () => {
     expect(planExtraction("text/markdown")).toEqual({ kind: "passthrough" });
   });
 
-  it("图片 → unsupported（没有文字层；OCR 归 CE-014，不在此）", () => {
-    expect(planExtraction("image/png")).toEqual({ kind: "unsupported", reason: "image" });
-    expect(planExtraction("image/jpeg")).toEqual({ kind: "unsupported", reason: "image" });
-    expect(planExtraction("image/webp")).toEqual({ kind: "unsupported", reason: "image" });
+  // #1560 P1：图片**不再**是 unsupported。旧断言（image → {kind:"unsupported",reason:"image"}）
+  // 随行为一起改写，不是删掉——它现在守的是相反方向的同一件事：图片必须被送去视觉理解。
+  it("图片 → vision（交 VLM 转录+描述，不再当成抽不出文本）", () => {
+    expect(planExtraction("image/png")).toEqual({ kind: "vision", mime: "image/png" });
+    expect(planExtraction("image/jpeg")).toEqual({ kind: "vision", mime: "image/jpeg" });
+    expect(planExtraction("image/webp")).toEqual({ kind: "vision", mime: "image/webp" });
   });
 
-  it("白名单外的 MIME → 保守 unsupported，不臆造 format", () => {
-    expect(planExtraction("application/x-msdownload").kind).toBe("unsupported");
+  it("反证：白名单里没有任何一个 MIME 还落在 unsupported/image 这条老语义上", () => {
+    for (const mime of CFU.ATTACHMENT_MIME_ALLOWLIST) {
+      const plan = planExtraction(mime);
+      if (mime.startsWith("image/")) expect(plan.kind).toBe("vision");
+      else expect(plan.kind).not.toBe("vision"); // 非图片不许被误送去视觉模型
+    }
+  });
+
+  it("白名单外的 MIME → 保守 unsupported，不臆造 format、也不喂给 VLM", () => {
+    expect(planExtraction("application/x-msdownload")).toEqual({ kind: "unsupported", reason: "unknown-type" });
   });
 });

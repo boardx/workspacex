@@ -26,6 +26,7 @@ import { ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES } from "../../domain/chat/attachme
 import { extractAttachment } from "./attachment-extraction-worker";
 import type { AttachmentExtractionStore } from "./attachment-extraction-store";
 import type { AttachmentToMarkdownPort } from "./attachment-to-markdown.port";
+import type { AttachmentVisionPort } from "./attachment-vision.port";
 import type { AttachmentExtractionExecutorPort } from "./attachment-extraction-executor.port";
 
 /** 上传失败——携带契约 `ChatAttachmentError` 的具体码，控制器映射成 HTTP 错误响应。 */
@@ -77,6 +78,8 @@ export interface UploadAttachmentDeps extends ResolveVisibilityDeps {
    */
   readonly extraction?: AttachmentExtractionStore;
   readonly converter?: AttachmentToMarkdownPort;
+  /** #1560 P1：图片视觉抽取端口。缺省 ⇒ 图片如实落 failed + `visionNotConfigured`（不假装抽到）。 */
+  readonly vision?: AttachmentVisionPort;
   readonly executor?: AttachmentExtractionExecutorPort;
 }
 
@@ -152,12 +155,12 @@ async function triggerExtraction(
   attachmentId: string,
   byteLen: number,
 ): Promise<void> {
-  const { extraction, converter, executor, store } = deps;
+  const { extraction, converter, vision, executor, store } = deps;
   if (!extraction || !converter || !executor) return; // 未接抽取子系统（部分单测）——跳过。
   try {
     if (byteLen <= ATTACHMENT_SYNC_EXTRACTION_MAX_BYTES) {
       // 内联：小文件当场抽，内容上传返回时即就绪。
-      const outcome = await extractAttachment({ store, extraction, converter }, orgId, attachmentId);
+      const outcome = await extractAttachment({ store, extraction, converter, vision }, orgId, attachmentId);
       if (outcome !== "retry") return; // 终态（extracted/unsupported/failed/gone）
       // retry（可重试 I/O 故障）→ 回落异步兜底。
     }

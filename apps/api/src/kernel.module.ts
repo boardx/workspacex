@@ -246,10 +246,14 @@ import {
   ATTACHMENT_TO_MARKDOWN, type AttachmentToMarkdownPort,
 } from "./application/chat/attachment-to-markdown.port";
 import {
+  ATTACHMENT_VISION, type AttachmentVisionPort,
+} from "./application/chat/attachment-vision.port";
+import {
   ATTACHMENT_EXTRACTION_STORE, type AttachmentExtractionStore,
 } from "./application/chat/attachment-extraction-store";
 import { ATTACHMENT_EXTRACTION_EXECUTOR } from "./application/chat/attachment-extraction-executor.port";
 import { AnydocAttachmentToMarkdown } from "./infrastructure/chat/anydoc-attachment-to-markdown";
+import { BailianVisionExtractor } from "./infrastructure/chat/bailian-vision-extractor";
 import { PgAttachmentExtractionRepository } from "./infrastructure/chat/pg-attachment-extraction-repository";
 import { AttachmentExtractionExecutor } from "./infrastructure/chat/attachment-extraction-executor";
 import { ChatAttachmentController } from "./interface/controllers/chat-attachment.controller";
@@ -983,6 +987,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // #946 · F153/W1（V9-b）：附件内容抽取（anydoc）。三件：转换端口实现、outbox+结果仓储、
     // 执行器（kick 排空，autostart 同 agent-run 由 env 关）。复用 OBJECT_STORE / LOGGER_PORT。
     { provide: ATTACHMENT_TO_MARKDOWN, useClass: AnydocAttachmentToMarkdown },
+    // #1560 P1：图片走 VLM 视觉理解（百炼 Qwen-VL，复用 KERNEL_MODEL_API_KEY）。key 缺失时它
+    // 如实回 visionNotConfigured → 附件落 failed + 该原因，不静默留空、不假装抽到内容。
+    { provide: ATTACHMENT_VISION, useClass: BailianVisionExtractor },
     {
       provide: ATTACHMENT_EXTRACTION_STORE,
       useFactory: (db: DatabasePort) => new PgAttachmentExtractionRepository(db),
@@ -992,11 +999,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: ATTACHMENT_EXTRACTION_EXECUTOR,
       useFactory: (
         store: ObjectStore, extraction: AttachmentExtractionStore,
-        converter: AttachmentToMarkdownPort, logger: LoggerPort,
+        converter: AttachmentToMarkdownPort, vision: AttachmentVisionPort, logger: LoggerPort,
       ) => new AttachmentExtractionExecutor(
-        store, extraction, converter, logger, process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",
+        store, extraction, converter, vision, logger,
+        process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",
       ),
-      inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, LOGGER_PORT],
+      inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, ATTACHMENT_VISION, LOGGER_PORT],
     },
     {
       provide: PUBLISHED_AGENT_READER,

@@ -5,9 +5,8 @@
  */
 import type { DatabasePort } from "../../application/ports/database.port";
 import type { OrgId } from "../../domain/org-id";
-import type { ConvertErrorCode } from "../../application/chat/attachment-to-markdown.port";
 import type {
-  AttachmentExtractionJob, AttachmentExtractionStore, AttachmentForExtraction,
+  AttachmentExtractionJob, AttachmentExtractionStore, AttachmentForExtraction, ExtractionErrorCode,
 } from "../../application/chat/attachment-extraction-store";
 
 export class PgAttachmentExtractionRepository implements AttachmentExtractionStore {
@@ -98,7 +97,7 @@ export class PgAttachmentExtractionRepository implements AttachmentExtractionSto
     );
   }
 
-  async recordFailed(orgId: OrgId, attachmentId: string, code: ConvertErrorCode): Promise<void> {
+  async recordFailed(orgId: OrgId, attachmentId: string, code: ExtractionErrorCode): Promise<void> {
     await this.db.withTenant(orgId, (s) =>
       s.query(
         `UPDATE chat_message_attachments
