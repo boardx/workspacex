@@ -68,7 +68,11 @@ const SOURCE_REL = "apps/api/src/domain/templates/design-facet-table.ts";
  * 覆盖规则 2b（跨行 key 字面量计数），因为路由表天然要逐行提到多个 key。
  */
 const REGISTRY_REL = "apps/web/components/tpl-designer/facet-editor-registry.ts";
-const SOURCE_RELS = [SOURCE_REL, REGISTRY_REL];
+// F206：`facet-intro-table.ts` 是第三个合法的单一事实源，回答的是「这个 key 的面板顶部
+// 说明文案是什么」——UI 文案，不是 key/分组/分母的领域定义，跟 REGISTRY_REL 是同一类
+// 豁免（回答不同问题、恰好都要逐行提到 key，同样收敛到单一文件）。
+const INTRO_REL = "apps/web/components/tpl-designer/facet-intro-table.ts";
+const SOURCE_RELS = [SOURCE_REL, REGISTRY_REL, INTRO_REL];
 
 /* -- 唯一事实源：从领域表里解析，不内嵌 ------------------------------------- */
 

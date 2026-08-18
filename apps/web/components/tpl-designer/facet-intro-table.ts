@@ -15,7 +15,7 @@
  *
  * ## 防漂移是机械的，不是靠人记得
  *
- * `blueprint-designer-intro-fidelity.test.tsx` 直接 import `lib/mock/tpl.ts` 的
+ * `blueprint-designer-prototype-fidelity.test.tsx` 直接 import `lib/mock/tpl.ts` 的
  * `*_PANEL.intro` 逐条 `toEqual` 本表——原型文案一改，这里不跟着改就会红，
  * 并指名是哪个 key 漂了。
  */
