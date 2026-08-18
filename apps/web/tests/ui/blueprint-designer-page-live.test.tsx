@@ -138,7 +138,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "survey", content: "真实分组内容", itemRevision: "ir-1" }],
+          designFacets: [{ designFacetKey: "venue-and-format", content: "真实分组内容", itemRevision: "ir-1" }],
         });
       }
       throw new Error(`unexpected fetch: ${url.pathname}`);
@@ -148,8 +148,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    await screen.getByTestId("bp-designer-facet-survey").click();
-    const editor = await screen.findByTestId("bp-facet-content-survey");
+    await screen.getByTestId("bp-designer-facet-venue-and-format").click();
+    const editor = await screen.findByTestId("bp-facet-content-venue-and-format");
     expect((editor as HTMLTextAreaElement).value).toBe("真实分组内容");
     // 不再是占位文案。
     expect(screen.queryByText(/本外壳不自行设计其内部交互/)).not.toBeInTheDocument();
@@ -163,11 +163,11 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "survey", content: "旧内容", itemRevision: "ir-1" }],
+          designFacets: [{ designFacetKey: "venue-and-format", content: "旧内容", itemRevision: "ir-1" }],
         });
       }
       if (
-        url.pathname === `/blueprints/${BP_ID}/design-facets/survey` &&
+        url.pathname === `/blueprints/${BP_ID}/design-facets/venue-and-format` &&
         init?.method === "PUT"
       ) {
         putBody = JSON.parse(init.body as string);
@@ -185,8 +185,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    await screen.getByTestId("bp-designer-facet-survey").click();
-    const editor = await screen.findByTestId("bp-facet-content-survey");
+    await screen.getByTestId("bp-designer-facet-venue-and-format").click();
+    const editor = await screen.findByTestId("bp-facet-content-venue-and-format");
     fireEvent.change(editor, { target: { value: "新内容" } });
     fireEvent.blur(editor);
 
@@ -202,10 +202,10 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "survey", content: "旧内容", itemRevision: "ir-1" }],
+          designFacets: [{ designFacetKey: "venue-and-format", content: "旧内容", itemRevision: "ir-1" }],
         });
       }
-      if (url.pathname === `/blueprints/${BP_ID}/design-facets/survey` && init?.method === "PUT") {
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/venue-and-format` && init?.method === "PUT") {
         return jsonResponse({ reasonCode: "VERSION_CHANGED" }, 409);
       }
       throw new Error(`unexpected fetch: ${url.pathname}`);
@@ -215,13 +215,13 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    await screen.getByTestId("bp-designer-facet-survey").click();
-    const editor = await screen.findByTestId("bp-facet-content-survey");
+    await screen.getByTestId("bp-designer-facet-venue-and-format").click();
+    const editor = await screen.findByTestId("bp-facet-content-venue-and-format");
     fireEvent.change(editor, { target: { value: "并发改动" } });
     fireEvent.blur(editor);
 
     await waitFor(() =>
-      expect(screen.getByTestId("bp-facet-error-survey").textContent).toContain("刷新页面"),
+      expect(screen.getByTestId("bp-facet-error-venue-and-format").textContent).toContain("刷新页面"),
     );
   });
 
@@ -472,5 +472,178 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     expect(openCell).not.toBeDisabled();
     fireEvent.click(openCell);
     await waitFor(() => expect(putCount).toBe(1));
+  });
+
+  /* ── 分组二（问卷 / 访谈与对象 / 会前任务）── */
+
+  function stubFacet(facetKey: string, saved: unknown, onPut?: (body: unknown) => void) {
+    return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets:
+            saved === null
+              ? []
+              : [{ designFacetKey: facetKey, content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/${facetKey}` && init?.method === "PUT") {
+        onPut?.(JSON.parse(init.body as string));
+        return jsonResponse({
+          itemRevision: "ir-new-1",
+          completed: true,
+          completeness: { done: 1, denominator: 15 },
+          autosavedAt: "2026-08-18T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+  }
+
+  it("问卷：结构化编辑器渲染真实已存问卷卡片，不是一个自由文本框", async () => {
+    fetchMock = stubFacet("survey", {
+      surveys: [
+        {
+          name: "会前预习问卷",
+          timing: "开始前 5 天发 · 60% 阻断开始",
+          purpose: "让现场不用花时间对齐背景。8 题、约 6 分钟。",
+          skeleton: ["你认为〔…〕最大的障碍是什么 → 生成 HMW 候选方向"],
+        },
+      ],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-survey"));
+    expect((await screen.findByTestId("bp-survey-name-0")) as HTMLInputElement).toHaveValue("会前预习问卷");
+    expect(screen.getByTestId("bp-survey-timing-0")).toHaveValue("开始前 5 天发 · 60% 阻断开始");
+    expect(screen.getByTestId("bp-survey-question-0-0")).toHaveValue(
+      "你认为〔…〕最大的障碍是什么 → 生成 HMW 候选方向",
+    );
+    // 反证：这一项不再落回通用自由文本编辑器。
+    expect(screen.queryByTestId("bp-facet-content-survey")).toBeNull();
+  });
+
+  it("问卷：新增一份问卷并编辑名称失焦，真实保存成结构化 JSON", async () => {
+    let putBody: { value: string; expectedItemRevision: string } | null = null;
+    fetchMock = stubFacet("survey", null, (b) => {
+      putBody = b as typeof putBody;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-survey"));
+    await screen.findByTestId("bp-survey-empty");
+    fireEvent.click(screen.getByTestId("bp-survey-add"));
+    const nameInput = await screen.findByTestId("bp-survey-name-0");
+    fireEvent.change(nameInput, { target: { value: "会后满意度问卷" } });
+    fireEvent.blur(nameInput);
+
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { surveys: { name: string }[] };
+      expect(parsed.surveys[0]?.name).toBe("会后满意度问卷");
+    });
+  });
+
+  it("访谈与对象：渲染真实角色配额与授权默认值，硬约束那条不是可关的开关", async () => {
+    fetchMock = stubFacet("interview-and-subjects", {
+      roles: [{ role: "客户方决策人", ask: "真实约束与不可谈判项", guide: "决策人访谈 v2", quota: 2 }],
+      auth: { recordAndTranscribeByDefault: true, requestAiAnalysisByDefault: false },
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-interview-and-subjects"));
+    expect((await screen.findByTestId("bp-itv-role-name-0")) as HTMLInputElement).toHaveValue("客户方决策人");
+    expect(screen.getByTestId("bp-itv-role-quota-0")).toHaveValue(2);
+    expect(screen.getByTestId("bp-itv-plan").textContent).toContain("2 场");
+    // 原型给的两个可配置默认值，按存的值回显。
+    expect(screen.getByTestId("bp-itv-auth-record")).toBeChecked();
+    expect(screen.getByTestId("bp-itv-auth-ai")).not.toBeChecked();
+    // 硬约束那条：原型标为不可放开，界面里没有勾选框，只有说明文字。
+    const hardLimit = screen.getByTestId("bp-itv-auth-hardlimit");
+    expect(hardLimit.textContent).toContain("硬约束");
+    expect(hardLimit.querySelector("input")).toBeNull();
+    // 证据规则是固定说明，不是可编辑字段。
+    expect(screen.getByTestId("bp-itv-evidence").textContent).toContain("2 个独立来源");
+  });
+
+  it("访谈与对象：勾选 AI 分析默认值，真实保存结构化 JSON", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet(
+      "interview-and-subjects",
+      { roles: [{ role: "一线执行者", ask: "现状卡点", guide: "JTBD", quota: 2 }], auth: {} },
+      (b) => {
+        putBody = b as typeof putBody;
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-interview-and-subjects"));
+    fireEvent.click(await screen.findByTestId("bp-itv-auth-ai"));
+
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { auth: { requestAiAnalysisByDefault: boolean } };
+      expect(parsed.auth.requestAiAnalysisByDefault).toBe(true);
+    });
+  });
+
+  it("会前任务：渲染真实任务卡（含挂环节/不做会怎样），催办规则是固定说明卡", async () => {
+    fetchMock = stubFacet("pre-tasks", {
+      tasks: [
+        {
+          title: "带 2 个你亲历的失败案例",
+          seg: "环节 03",
+          forWhom: "全体",
+          ifNot: "HMW 发散会停留在抽象层面，产出无法验证。",
+          due: "开始前 2 天",
+        },
+      ],
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-pre-tasks"));
+    expect((await screen.findByTestId("bp-hw-title-0")) as HTMLInputElement).toHaveValue("带 2 个你亲历的失败案例");
+    expect(screen.getByTestId("bp-hw-seg-0")).toHaveValue("环节 03");
+    expect(screen.getByTestId("bp-hw-ifnot-0")).toHaveValue("HMW 发散会停留在抽象层面，产出无法验证。");
+    expect(screen.getByTestId("bp-hw-reminder").textContent).toContain("催办由 AI 做");
+    expect(screen.queryByTestId("bp-facet-content-pre-tasks")).toBeNull();
+  });
+
+  it("会前任务：切换适用对象为「仅组长」，真实保存结构化 JSON", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet(
+      "pre-tasks",
+      { tasks: [{ title: "准备本组 3 分钟背景陈述", seg: "环节 01", forWhom: "全体", ifNot: "开场拖时", due: "" }] },
+      (b) => {
+        putBody = b as typeof putBody;
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-pre-tasks"));
+    fireEvent.click(await screen.findByTestId("bp-hw-audience-0-仅组长"));
+
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { tasks: { forWhom: string }[] };
+      expect(parsed.tasks[0]?.forWhom).toBe("仅组长");
+    });
   });
 });
