@@ -132,14 +132,13 @@ export function PrintPanelEditor({
 
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
-      <p className="mb-3 text-11 text-muted-foreground">
-        打印件和线上画布必须同构，否则贴完纸没法数字化，白干一遍。
+      <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
-          <span className={status === "error" ? "ml-2 text-destructive" : "ml-2"} data-testid="bp-facet-save-status">
+          <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
-      </p>
+      </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-print-list">
         <h3 className="mb-2 text-13 font-semibold">打印件（{value.items.length} 件）</h3>

@@ -4,7 +4,7 @@ import { useSession } from "@/components/session/session-provider";
 import { BlueprintDesignerShell } from "./blueprint-designer-shell";
 import { DESIGN_FACET_CATALOG } from "@/lib/generated/design-facet-catalog";
 import { ApiError } from "@/lib/api-client";
-import { listBlueprints, getBlueprintDesignFacets, updateDesignFacet, type BlueprintRow } from "@/lib/live-blueprints";
+import { listBlueprints, getBlueprintDesignFacets, updateDesignFacet, type BlueprintRow, getInitializationPreview, setDurationTier, type GetInitializationPreviewOut } from "@/lib/live-blueprints";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -29,11 +29,13 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * 没接：
  *   · 试跑/发布/预览三个按钮——外壳组件本身没有 onClick 落点（原型与真栈都一样，
  *     不是本次退化），接它们要先给外壳加事件回调 props，属于下一个增量。
- *   · 换时长档位——设计器页面没有对应交互入口，`live-blueprints.ts` 也还没封装
- *     `setDurationTier`（T13 契约缺口已被 F186 解决，纯粹是前端还没做这块交互）。
- *   · 16 项面板目前统一走自由文本编辑（「角色与权限」例外，见下方），`contract.md`
- *     给出的结构化字段提议是后续把 `content` 升级为结构化存储时的参考，本增量暂不落地
- *     （`content: z.string()` 的契约形状本轮不改）。
+ *   · ~~换时长档位~~ —— **已于 F207 接线**（第 16 项「基本配置」聚合页）：
+ *     `live-blueprints.ts` 已封装 `setDurationTier`，`expectedVersion` 取自
+ *     `listBlueprints` 那一行的 `versionNumber`（BlueprintRow 一直含这个字段）。
+ *   · ~~16 项面板统一走自由文本编辑~~ —— **已于 F204–F207 补齐**：15 个 designFacetKey
+ *     各有专属结构化编辑器（路由表见 `facet-editor-registry.ts`），第 16 项「基本配置」
+ *     是聚合页。`FacetTextEditor` 退化为仅兜底。契约形状仍是 `content: z.string()`
+ *     （一字未改），变的只是往这个字符串里写结构化 JSON 而不是任意文本。
  *
  * ## `nextVersionNumber` 的算法说明（不是编的数）
  *
@@ -58,6 +60,9 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
   const [completeness, setCompleteness] = React.useState<{ done: number; denominator: number } | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  /** 第 16 项「基本配置」的初始化预览——服务端派生的只读视图，与 facet 读写无关。 */
+  const [preview, setPreview] = React.useState<GetInitializationPreviewOut | null>(null);
+  const [previewError, setPreviewError] = React.useState<string | null>(null);
 
   const load = React.useCallback(async (id: string, org: string) => {
     setBusy(true);
@@ -75,6 +80,16 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
       setRow(found);
       setFacets([...facetsOut.designFacets]);
       setCompleteness(found.completeness);
+
+      // 初始化预览单独取、单独报错：它是第 16 项里的一节，读不到时那一节如实报错，
+      // 不能让整个设计器打不开（其余 15 项的读写与它无关）。
+      try {
+        setPreviewError(null);
+        setPreview(await getInitializationPreview(id));
+      } catch (e) {
+        setPreview(null);
+        setPreviewError(describeError(e));
+      }
     } catch (e) {
       setError(describeError(e));
       setRow(null);
@@ -104,6 +119,26 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
       return { itemRevision: out.itemRevision, completeness: out.completeness };
     },
     [blueprintId],
+  );
+
+  /**
+   * 第 16 项换时长档位。`confirmed:false` 是预检（后端回 CONFIRMATION_REQUIRED 并附上
+   * 将增删的环节），`confirmed:true` 才落库——两步都由面板发起，这里只负责真实调用与
+   * 成功后重读（环节数与完成度都会变，必须以服务端重读为准，不本地推算）。
+   */
+  const handleSetTier = React.useCallback(
+    async (tier: Parameters<typeof setDurationTier>[0]["tier"], confirmed: boolean) => {
+      if (blueprintId === null || row === null) throw new Error("no blueprint loaded");
+      const out = await setDurationTier({
+        blueprintId,
+        tier,
+        confirmed,
+        expectedVersion: String(row.versionNumber),
+      });
+      if (confirmed) await load(blueprintId, orgId);
+      return out;
+    },
+    [blueprintId, orgId, row, load],
   );
 
   React.useEffect(() => {
@@ -150,6 +185,13 @@ export function BlueprintDesignerPageLive({ blueprintId }: { blueprintId: string
       autosave={{ status: "never-saved", lastSavedAt: null, failure: null }}
       designFacets={facets}
       onSaveFacet={handleSaveFacet}
+      basicOverview={{
+        currentTier: row.durationTier,
+        agendaSegmentCount: row.agendaSegmentCount,
+        preview,
+        previewError,
+        onSetTier: handleSetTier,
+      }}
     />
   );
 }
