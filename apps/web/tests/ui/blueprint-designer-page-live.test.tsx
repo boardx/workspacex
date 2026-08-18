@@ -138,7 +138,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "venue-and-format", content: "真实分组内容", itemRevision: "ir-1" }],
+          designFacets: [{ designFacetKey: "outputs", content: "真实分组内容", itemRevision: "ir-1" }],
         });
       }
       throw new Error(`unexpected fetch: ${url.pathname}`);
@@ -148,8 +148,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    await screen.getByTestId("bp-designer-facet-venue-and-format").click();
-    const editor = await screen.findByTestId("bp-facet-content-venue-and-format");
+    await screen.getByTestId("bp-designer-facet-outputs").click();
+    const editor = await screen.findByTestId("bp-facet-content-outputs");
     expect((editor as HTMLTextAreaElement).value).toBe("真实分组内容");
     // 不再是占位文案。
     expect(screen.queryByText(/本外壳不自行设计其内部交互/)).not.toBeInTheDocument();
@@ -163,11 +163,11 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "venue-and-format", content: "旧内容", itemRevision: "ir-1" }],
+          designFacets: [{ designFacetKey: "outputs", content: "旧内容", itemRevision: "ir-1" }],
         });
       }
       if (
-        url.pathname === `/blueprints/${BP_ID}/design-facets/venue-and-format` &&
+        url.pathname === `/blueprints/${BP_ID}/design-facets/outputs` &&
         init?.method === "PUT"
       ) {
         putBody = JSON.parse(init.body as string);
@@ -185,8 +185,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    await screen.getByTestId("bp-designer-facet-venue-and-format").click();
-    const editor = await screen.findByTestId("bp-facet-content-venue-and-format");
+    await screen.getByTestId("bp-designer-facet-outputs").click();
+    const editor = await screen.findByTestId("bp-facet-content-outputs");
     fireEvent.change(editor, { target: { value: "新内容" } });
     fireEvent.blur(editor);
 
@@ -202,10 +202,10 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "venue-and-format", content: "旧内容", itemRevision: "ir-1" }],
+          designFacets: [{ designFacetKey: "outputs", content: "旧内容", itemRevision: "ir-1" }],
         });
       }
-      if (url.pathname === `/blueprints/${BP_ID}/design-facets/venue-and-format` && init?.method === "PUT") {
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/outputs` && init?.method === "PUT") {
         return jsonResponse({ reasonCode: "VERSION_CHANGED" }, 409);
       }
       throw new Error(`unexpected fetch: ${url.pathname}`);
@@ -215,13 +215,13 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    await screen.getByTestId("bp-designer-facet-venue-and-format").click();
-    const editor = await screen.findByTestId("bp-facet-content-venue-and-format");
+    await screen.getByTestId("bp-designer-facet-outputs").click();
+    const editor = await screen.findByTestId("bp-facet-content-outputs");
     fireEvent.change(editor, { target: { value: "并发改动" } });
     fireEvent.blur(editor);
 
     await waitFor(() =>
-      expect(screen.getByTestId("bp-facet-error-venue-and-format").textContent).toContain("刷新页面"),
+      expect(screen.getByTestId("bp-facet-error-outputs").textContent).toContain("刷新页面"),
     );
   });
 
@@ -652,6 +652,117 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     await waitFor(() => {
       const parsed = JSON.parse(putBody!.value) as { tasks: { forWhom: string }[] };
       expect(parsed.tasks[0]?.forWhom).toBe("仅组长");
+    });
+  });
+
+  /* ── 分组三（场地与形式 / 项目材料 / 分组打印素材 / 组内能力）── */
+
+  it("场地与形式：5 行固定空间字段真实回显，形式单选可切换并保存", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet(
+      "venue-and-format",
+      { space: { "主场地": "可容 16 人 · 桌椅可移动", "网络": "≥ 5Mbps" }, format: "hybrid" },
+      (b) => { putBody = b as typeof putBody; },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-venue-and-format"));
+    expect(await screen.findByTestId("bp-venue-space-主场地")).toHaveValue("可容 16 人 · 桌椅可移动");
+    expect(screen.getByTestId("bp-venue-space-网络")).toHaveValue("≥ 5Mbps");
+    // 5 行字段名恒定，不是用户可增删的自由列表。
+    expect(screen.getAllByTestId(/^bp-venue-space-row-/)).toHaveLength(5);
+    expect(screen.queryByTestId("bp-facet-content-venue-and-format")).toBeNull();
+    // 布置图是只读示意（原型语义），4 个分组圈。
+    expect(screen.getAllByTestId("bp-venue-layout-group")).toHaveLength(4);
+
+    fireEvent.click(screen.getByTestId("bp-venue-format-online"));
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { format: string };
+      expect(parsed.format).toBe("online");
+    });
+  });
+
+  it("项目材料：四列表格真实回显，切换「谁准备」保存结构化 JSON", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet(
+      "project-materials",
+      { rows: [{ name: "便签（4 色，76mm）", qty: "16 叠", forSeg: "03 / 04", owner: "场地方" }] },
+      (b) => { putBody = b as typeof putBody; },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-project-materials"));
+    expect(await screen.findByTestId("bp-mat-name-0")).toHaveValue("便签（4 色，76mm）");
+    expect(screen.getByTestId("bp-mat-qty-0")).toHaveValue("16 叠");
+    expect(screen.getByTestId("bp-mat-seg-0")).toHaveValue("03 / 04");
+    expect(screen.getByTestId("bp-mat-footnote").textContent).toContain("按实际人数重算");
+    expect(screen.queryByTestId("bp-facet-content-project-materials")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("bp-mat-owner-0-我方打印"));
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { rows: { owner: string }[] };
+      expect(parsed.rows[0]?.owner).toBe("我方打印");
+    });
+  });
+
+  it("分组打印素材：尺寸单选与 AI 标记真实回显并可保存，OCR 回流是固定说明", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet(
+      "print-materials",
+      { items: [{ size: "A0", name: "HMW 画布", qty: "4 张 ＋ 2 备", ai: false, detail: "与 hmw 模板同构" }] },
+      (b) => { putBody = b as typeof putBody; },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-print-materials"));
+    expect(await screen.findByTestId("bp-print-name-0")).toHaveValue("HMW 画布");
+    expect(screen.getByTestId("bp-print-qty-0")).toHaveValue("4 张 ＋ 2 备");
+    expect(screen.getByTestId("bp-print-ai-0")).not.toBeChecked();
+    expect(screen.getByTestId("bp-print-ocr").textContent).toContain("二维码");
+    expect(screen.queryByTestId("bp-facet-content-print-materials")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("bp-print-ai-0"));
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { items: { ai: boolean }[] };
+      expect(parsed.items[0]?.ai).toBe(true);
+    });
+  });
+
+  it("组内能力：7 项恒定能力，「与 AI 的对话」必留不可关，其余可开关并保存", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet("group-capabilities", { enabled: { "用户研究": false }, uses: {} }, (b) => {
+      putBody = b as typeof putBody;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-group-capabilities"));
+    // 能力集恒定 7 项（产品真实能力集，不是用户可增删的自由列表）。
+    expect(await screen.findByTestId("bp-caps-toggle-与 AI 的对话")).toBeInTheDocument();
+    expect(screen.getAllByTestId(/^bp-caps-item-/)).toHaveLength(7);
+    // 必留项：禁用且恒开，与原型「开 · 必留」一致。
+    const mustKeep = screen.getByTestId("bp-caps-toggle-与 AI 的对话");
+    expect(mustKeep).toBeDisabled();
+    expect(mustKeep).toBeChecked();
+    expect(screen.getByTestId("bp-caps-state-与 AI 的对话").textContent).toContain("必留");
+    // 存的关闭态真实回显。
+    expect(screen.getByTestId("bp-caps-toggle-用户研究")).not.toBeChecked();
+    // 回流与可见性是固定说明，不是可编辑字段。
+    expect(screen.getByTestId("bp-caps-reflow").textContent).toContain("洞察库");
+    expect(screen.getByTestId("bp-caps-visibility").textContent).toContain("组员私聊");
+    expect(screen.queryByTestId("bp-facet-content-group-capabilities")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("bp-caps-toggle-组内投票"));
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { enabled: Record<string, boolean> };
+      expect(parsed.enabled["组内投票"]).toBe(false);
     });
   });
 });
