@@ -19,6 +19,7 @@ import {
   classifyPr,
   mergeAuthorization,
   parseClosesIssues,
+  parseRefsIssues,
   postMergeGaps,
   resolveCoordMode,
   type FormalReview,
@@ -80,6 +81,7 @@ function toFacts(pr: GhPr): PrFacts {
     isDraft: pr.isDraft,
     headSha: pr.headRefOid ?? "",
     closesIssues: parseClosesIssues(pr.body ?? ""),
+    refsIssues: parseRefsIssues(pr.body ?? ""),
     // 拿不到合并状态按 UNKNOWN 处理（fail-closed），不按"大概能合"
     mergeStateStatus: pr.mergeStateStatus ?? "UNKNOWN",
     checks: toRequiredChecks(pr.statusCheckRollup),
