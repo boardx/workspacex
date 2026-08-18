@@ -5,6 +5,7 @@ import type { ResolveVisibilityDeps } from "./resolve-visibility";
 import { resolveVisibility } from "./resolve-visibility";
 import type {
   AcceptedHumanMessage, ChatMessageCommandRepository, MessagePageRow, PublishedAgentReader,
+  PublishedAgentSnapshot, ThreadMountedSkillReader,
 } from "./message-command-ports";
 import { AttachmentNotPendingError } from "./message-command-ports";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
@@ -21,6 +22,51 @@ export class MessageAttachmentNotPendingError extends Error {}
 interface Deps extends ResolveVisibilityDeps {
   readonly commands: ChatMessageCommandRepository;
   readonly publishedAgents: PublishedAgentReader;
+  /**
+   * #1559 —— 线程级临时挂载（F65）进入 run 快照的读口。
+   *
+   * ⚠ **必填，不是可选**。本仓给「既有合成点不必都改」的横切依赖开过可选的口子
+   *   （`execute-run.ts` 的 `files` / `contextSnapshots` / `toolTrace`），这一条
+   *   刻意不走那条路：可选意味着「某个合成点忘了注入 ⇒ 挂载静默不生效」，
+   *   而那**逐字就是 #1559 本身**（挂载被记录、被展示、从不进入任何一次 run，
+   *   全仓没有一条测试会红）。做成必填，漏注入的合成点连编译都过不去。
+   */
+  readonly threadMounts: ThreadMountedSkillReader;
+}
+
+/**
+ * #1559 —— run 要跑的 skill 版本 ＝ **agent 版本自带 ∪ 本线程当前生效的临时挂载**。
+ *
+ * · **并集，不是覆盖**：UC-3.3 是「会话内临时**加减**」，`unmountSkillFromThread`
+ *   只撤销自己加过的那一条（打 `removedAt`），从来不减 agent 自带的。覆盖语义会让
+ *   「临时加一个 skill」顺带把 agent 的全部能力摘掉。
+ * · **去重，先出现的留在原位**：同一个版本既被 agent 钉过、又被人挂了一次时，不去重
+ *   会让同一份 `SKILL.md` 正文在 system prompt 里出现两遍（`buildSystemPrompt` 按快照
+ *   顺序逐条拼，它不去重，那是刻意的：顺序与重复都是快照说了算）。去重放在这里，
+ *   因为「并集」本来就是集合语义；放到 `buildSystemPrompt` 里去重则会连带把
+ *   agent 版本自己钉重了的情况一起改掉，那是另一件事。
+ * · **顺序：agent 自带在前、线程挂载追加在后**。ordering 是 `skillVersionIds` 的
+ *   语义属性（`execute-run.ts` 的 `buildSystemPrompt` 头注：按快照顺序拼 system
+ *   prompt，排序/去重/按库序回读都会悄悄丢掉被钉住的一部分）。临时挂载是「在既有
+ *   能力之后再加一条」，所以追加在后。
+ * · **快照进 run，不在执行时实时读**：D-30「引用必须指向不可变快照」。挂载行本身
+ *   已经钉死了 `version_id`（迁移 `20260805170000` :27-29），这里只是把「这次 run
+ *   当时挂了哪些」同样钉进 `agent_runs`——否则一次在途 run 会被中途的挂载/摘除改掉，
+ *   而事后没有任何记录说得清它到底跑了什么。
+ *
+ * ⚠ 导出**只为单元测试**（`tests/chat/thread-mount-run-snapshot-union.test.ts`）。
+ *   上面四条语义（并集/去重/顺序/快照）是这个 feature 的全部内容，而端到端那条
+ *   反证跑的夹具里 agent 自带 skill 恰好为空 —— 顺序与去重两条在那条链上**证不到**。
+ *   把它们留给「读代码看得出来」正是本仓反复出事的形状，所以单独钉住。
+ */
+export function withThreadMounts(
+  snapshot: PublishedAgentSnapshot,
+  mountedVersionIds: readonly string[],
+): PublishedAgentSnapshot {
+  return {
+    ...snapshot,
+    skillVersionIds: [...new Set([...snapshot.skillVersionIds, ...mountedVersionIds])],
+  };
 }
 
 async function authorize(deps: Deps, input: { userId: string; orgId: OrgId; threadId: string }) {
@@ -66,8 +112,16 @@ export async function acceptHumanMessage(
     return existing;
   }
 
-  const snapshot = await deps.publishedAgents.resolvePublished(input.orgId, input.agentId);
-  if (snapshot === null) throw new AgentNotPublishedError();
+  const agentSnapshot = await deps.publishedAgents.resolvePublished(input.orgId, input.agentId);
+  if (agentSnapshot === null) throw new AgentNotPublishedError();
+  // #1559：挂载读在**判权之后、写 run 之前**——判权已在上面 `authorize` 做完，
+  // 这里读的是同一条线程的挂载，不构成第二条取数越权面。
+  const guardedMounts = await deps.threadMounts.activeMountedSkillVersionIds(input.orgId, {
+    projectId: visibility.thread.projectId, threadId: input.threadId,
+  });
+  const disclosedMounts = discloseDecided(guardedMounts, visibility.base);
+  if (!isDisclosed(disclosedMounts)) throw new MessageThreadNotVisibleError();
+  const snapshot = withThreadMounts(agentSnapshot, disclosedMounts.payload);
   // 去重后传给仓储：仓储在同一事务内 set message_id，更新数须等于去重后数量，否则回滚。
   const attachmentIds = input.attachmentIds && input.attachmentIds.length > 0
     ? [...new Set(input.attachmentIds)]

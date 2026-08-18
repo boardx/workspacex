@@ -58,7 +58,9 @@ import {
   AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError,
 } from "../chat/message-roundtrip";
-import type { ChatMessageCommandRepository, PublishedAgentReader } from "../chat/message-command-ports";
+import type {
+  ChatMessageCommandRepository, PublishedAgentReader, ThreadMountedSkillReader,
+} from "../chat/message-command-ports";
 import { mutateThread, TitleInvalidError } from "../chat/mutate-thread";
 import { readAgentRun, AgentRunNotVisibleError } from "./read-run";
 import type { AgentRunStore, AgentRunExecutorPort } from "./ports";
@@ -78,6 +80,8 @@ export interface AguiBridgeDeps {
   readonly artifactIds: IdFactory;
   readonly commands: ChatMessageCommandRepository;
   readonly publishedAgents: PublishedAgentReader;
+  /** #1559：`acceptHumanMessage` 的必填依赖——线程级临时挂载进入 run 快照的读口。 */
+  readonly threadMounts: ThreadMountedSkillReader;
   readonly runs: AgentRunStore;
   readonly executor: AgentRunExecutorPort;
 }

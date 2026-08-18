@@ -149,8 +149,10 @@ import type { LandingModeName } from "../../domain/chat/artifact-landing";
 import {
   CHAT_MESSAGE_COMMAND_REPOSITORY,
   PUBLISHED_AGENT_READER,
+  THREAD_MOUNTED_SKILL_READER,
   type ChatMessageCommandRepository,
   type PublishedAgentReader,
+  type ThreadMountedSkillReader,
 } from "../../application/chat/message-command-ports";
 import {
   acceptHumanMessage,
@@ -261,6 +263,8 @@ export class ChatController {
     @Inject(ARTIFACT_LANDING_REPOSITORY) private readonly landings: ArtifactLandingRepository,
     @Inject(CHAT_MESSAGE_COMMAND_REPOSITORY) private readonly messageCommands: ChatMessageCommandRepository,
     @Inject(PUBLISHED_AGENT_READER) private readonly publishedAgents: PublishedAgentReader,
+    // #1559：线程级临时挂载进入 run 快照的读口（F65 真正生效的那一半）。
+    @Inject(THREAD_MOUNTED_SKILL_READER) private readonly threadMounts: ThreadMountedSkillReader,
     // #414. 受理之后触发这个租户的执行；**不等待**——见 `agent-run-executor.ts` 文件头：
     // §2 规定本请求返回 202 + `runStatus: "queued"`，绝不内联回复，所以模型慢或挂
     // 都不许把这条写入拖慢或拖挂。
@@ -272,7 +276,10 @@ export class ChatController {
   }
 
   private get messageDeps() {
-    return { ...this.deps, commands: this.messageCommands, publishedAgents: this.publishedAgents };
+    return {
+      ...this.deps, commands: this.messageCommands, publishedAgents: this.publishedAgents,
+      threadMounts: this.threadMounts,
+    };
   }
 
   /**

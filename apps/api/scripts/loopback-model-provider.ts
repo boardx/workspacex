@@ -125,6 +125,37 @@ function retrievedSourceKinds(messages: CompletionRequest["messages"]): readonly
   return FILE_RETRIEVAL_SOURCE_KINDS.filter((kind) => seen.has(kind));
 }
 
+/**
+ * #1559 —— **默认关闭**的第二个回显开关：把「本进程收到的 **system prompt** 里确实
+ * 含有挂载 skill 的正文」这件事回显进回复。两个变量必须同时给：一个是要找的哨兵串，
+ * 一个是回显前缀。任一缺失 ⇒ 下面的分支不执行，回复逐字节等同改动前
+ * （`fullstack-smoke` / `core-loop` 两条链路不下发它们，行为不变）。
+ *
+ * ## 这不是「为了让测试变绿而伪造内容」
+ *
+ * 回显的是**它真的收到的东西**——与本脚本既有的「回显用户原文」「回显 L3 检索来源
+ * 标记」是同一条取证纪律。没有它，「挂载的 skill 是否真的进了模型输入」在浏览器侧
+ * 没有任何可观察信号：system prompt 不落表，`GET /agent-runs/:id` 的
+ * `context_built.output_digest` 只是它的哈希（一个哈希证明不了里面有什么），
+ * 只能写一条恒绿的断言——那正是 #1559 藏了这么久的原因。
+ *
+ * ## 为什么只扫 `system`，不扫全部消息
+ *
+ * 用户消息会被原样回显（见下面 `echoed`），而回显本身随后成为下一轮的 history。
+ * 扫全部消息 ⇒ 「上一轮说过这个词」会被误判成「这一轮挂载生效了」，反向对照假绿。
+ * 挂载 skill 的正文只可能出现在 system prompt 里（`buildSystemPrompt`：instructions
+ * 然后 skill 正文），扫这一条就够，且不可能被别的来源污染。
+ */
+const SKILL_SENTINEL = process.env.LOOPBACK_MODEL_SKILL_SENTINEL || null;
+const SKILL_ECHO_PREFIX = process.env.LOOPBACK_MODEL_SKILL_ECHO_PREFIX || null;
+
+/** system prompt 里真的含有那个哨兵吗。开关未给全时恒 `false`（短路）。 */
+function mountedSkillReachedModel(messages: CompletionRequest["messages"]): boolean {
+  if (SKILL_SENTINEL === null || SKILL_ECHO_PREFIX === null) return false;
+  const system = (messages ?? []).find((message) => message.role === "system")?.content;
+  return typeof system === "string" && system.includes(SKILL_SENTINEL);
+}
+
 function readBody(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
     let text = "";
@@ -192,7 +223,11 @@ const server = createServer((req, res) => {
     // #1310 —— 开关未设置时 `kinds` 恒为空数组（短路），拼出来的字符串与改动前逐字节相同。
     const kinds = RETRIEVAL_ECHO_PREFIX === null ? [] : retrievedSourceKinds(parsed.messages);
     const retrievalEcho = kinds.length === 0 ? "" : `${RETRIEVAL_ECHO_PREFIX}${kinds.join(",")} `;
-    const fullText = `${REPLY_PREFIX} ${retrievalEcho}${echoed}`;
+    // #1559 —— 开关未给全时恒 `""`（短路），拼出来的字符串与改动前逐字节相同。
+    const skillEcho = mountedSkillReachedModel(parsed.messages)
+      ? `${SKILL_ECHO_PREFIX}${SKILL_SENTINEL} `
+      : "";
+    const fullText = `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${echoed}`;
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);
       return;

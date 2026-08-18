@@ -26,6 +26,53 @@ export interface PublishedAgentReader {
 
 export const PUBLISHED_AGENT_READER = Symbol("PublishedAgentReader");
 
+/**
+ * #1559 —— **会话内临时挂载（F65）在 run 构建路径上的读口。**
+ *
+ * ## 为什么它在这里，而不是复用 `ThreadMountStorePort`
+ *
+ * `ThreadMountStorePort`（`application/skill/ports.ts`）的形状是「读出整份列表 →
+ * 用例算 → 写回」，服务的是挂载/摘除这两个写用例。run 构建要的是另一个问题的答案：
+ * **这条线程此刻生效、且运行时读得到的那些 skill 版本 id**。用前者会把「哪些行
+ * 运行时读得到」这个判定散到调用方去（见下条），而那正是 #1559 的形状。
+ *
+ * ## 返回值只含**模型 A**（`skills` / `skill_versions`）的版本 id
+ *
+ * `readPinnedSkills`（`pg-agent-run-repository.ts`）只读模型 A。把一条模型 B 的存量
+ * 挂载塞进 `agent_runs.skill_version_ids`，`execute-run.ts` 会因为「钉了 N 个、读回
+ * M < N 个」以 `SKILL_VERSION_UNAVAILABLE` 让整次 run 失败——把一个存量数据问题
+ * 变成一次用户可见故障。判别发生在适配器的那条 SQL 里（JOIN 得上 `skill_versions`
+ * + `skills` 就是模型 A），与运行时自己的可达性条件同源，不是第二份规则。
+ * 为什么不是一个库级外键 / 判别列：见适配器
+ * `pg-thread-mounted-skill-reader.ts` 头注——#1534（已合入）已把那件事裁给应用层。
+ *
+ * ⚠ 这**不是**静默 fallback：被排除的只有运行时**结构上**读不到的存量模型 B 行
+ *   （F190 之后不可能新增），它们在挂载列表里照常显示。模型 A 的挂载不筛
+ *   `published`：版本被取消发布时那次 run 应该明确失败，不该被悄悄过滤掉。
+ *
+ * 顺序：`mounted_at, mount_id` 升序（先挂的在前）——`skillVersionIds` 的顺序是语义
+ * 属性（`execute-run.ts` 的 `buildSystemPrompt` 头注），所以它必须是确定的。
+ */
+export interface ThreadMountedSkillReader {
+  /**
+   * ⚠ 返回 `Guarded`，与本文件其余读口（`findAccepted` / `page`）同一条纪律：
+   *   调用方必须先 `discloseDecided` 才拿得到值。判权其实已经在
+   *   `acceptHumanMessage` 的 `authorize()` 里做完了，但「已经判过了」是一句
+   *   **约定**——`lint-permission-paths.mjs` 只认结构（仓储 import 了
+   *   `permission-filter` 才算走在受判读路径上），而它是对的：一个返回裸数组的
+   *   租户读口，下一个调用方就能在没判权的地方用上它。
+   *
+   * `projectId` 与本文件其余读口一样只是 `Guarded` 的描述性元数据；个人线程
+   *   （`projectId === null`）用合成 id，同 `findAccepted` 的先例。
+   */
+  activeMountedSkillVersionIds(
+    orgId: OrgId,
+    input: { projectId: string | null; threadId: string },
+  ): Promise<Guarded<readonly string[]>>;
+}
+
+export const THREAD_MOUNTED_SKILL_READER = Symbol("ThreadMountedSkillReader");
+
 export interface AcceptedHumanMessage {
   readonly id: string;
   readonly threadId: string;
