@@ -90,6 +90,11 @@ const SKILL_MOUNT_THREAD_ID = required("CHAT_E2E_SKILL_MOUNT_THREAD_ID");
 const CAUSAL_CHECK_THREAD_ID = required("CHAT_E2E_CAUSAL_CHECK_THREAD_ID");
 const CONTEXT_CHECK_THREAD_ID = required("CHAT_E2E_CONTEXT_CHECK_THREAD_ID");
 const RESTRUCTURE_PROJECT_ID = required("CHAT_E2E_RESTRUCTURE_PROJECT_ID");
+/**
+ * #1560 P1 e2e —— 图片附件走 VLM、无 key 诚实降级的专属线程。零预置消息，同一套理由
+ * 见上面三条 #1324 线程的头注：发出去的第一条消息天然落在第一页，不需要翻页。
+ */
+const IMAGE_VISION_THREAD_ID = required("CHAT_E2E_IMAGE_VISION_THREAD_ID");
 
 await resetOrgs(ORG_ID);
 await asOwner(async (client) => {
@@ -167,6 +172,7 @@ for (const [id, title] of [
   [SKILL_MOUNT_THREAD_ID, "Skill mount check fixture thread"],
   [CAUSAL_CHECK_THREAD_ID, "Causal check fixture thread"],
   [CONTEXT_CHECK_THREAD_ID, "Context check fixture thread"],
+  [IMAGE_VISION_THREAD_ID, "Image vision extraction fixture thread"],
 ] as const) {
   await addChatThread({
     orgId: ORG_ID,
@@ -267,7 +273,9 @@ await asApp(ORG_ID, async (client) => {
   );
   // #1324 —— 三条专属线程也各自把同一个可运行 agent 种进编制：用例发消息时不需要
   // 先走「加进编制」那一步，`chat-live-message-panel.tsx` 默认选中唯一在场的 agent。
-  for (const threadId of [SKILL_MOUNT_THREAD_ID, CAUSAL_CHECK_THREAD_ID, CONTEXT_CHECK_THREAD_ID]) {
+  for (const threadId of [
+    SKILL_MOUNT_THREAD_ID, CAUSAL_CHECK_THREAD_ID, CONTEXT_CHECK_THREAD_ID, IMAGE_VISION_THREAD_ID,
+  ]) {
     await client.query(
       "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
       [threadId, ORG_ID, AGENT_ID],
@@ -480,5 +488,5 @@ process.stdout.write(
   `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 `
   + `roster=1 publishedAgent=1 catalogOnlyAgent=1 deepAgent=1 mountableSkill=1 retrievableAttachment=1 `
   + `skillMountThread=${SKILL_MOUNT_THREAD_ID} causalCheckThread=${CAUSAL_CHECK_THREAD_ID} `
-  + `contextCheckThread=${CONTEXT_CHECK_THREAD_ID}\n`,
+  + `contextCheckThread=${CONTEXT_CHECK_THREAD_ID} imageVisionThread=${IMAGE_VISION_THREAD_ID}\n`,
 );
