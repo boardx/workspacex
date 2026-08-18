@@ -1,0 +1,218 @@
+"use client";
+import * as React from "react";
+import { Canvas as FabricCanvas } from "fabric";
+import { markdownToCanvas, fitToContent, wrapAsMermaidBlock } from "@repo/fabric-markdown";
+import { checkCanvasFence, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
+import { ensureCanvasFenceTemplate, type CanvasFenceTemplateSource } from "@/lib/canvas/fence-template-resolver";
+import { useOptionalSession } from "@/components/session/session-provider";
+import { Badge } from "@/components/ui/badge";
+
+/**
+ * 单个 ```canvas / ```persona 围栏在 AI 气泡内的 **fabric 渲染**。
+ *
+ * ── 先分清两套东西（人类 2026-08-18 明确澄清）─────────────────────────────────
+ * · **mermaid 图表**（flowchart / 类图 / 状态图 / 时序图 / mindmap / gantt … 13 种）：
+ *   标准图表类型，一次性画出来给人看的**示意图**，没有分区、不能贴便签。
+ *   它们走 `ChatDiagramFabric`，闸门是 `MermaidDiagramType` 白名单 + `mermaid.parse`。
+ * · **工作坊画布模板**（用户画像 / 用户旅程图 / 同理心地图 / 商业模式画布 …，
+ *   内置 19 个 + 组织自建）：**便签协作模板** —— 分区框 + 可贴便签 + 多人一起贴。
+ *   它们走本组件，闸门是 `checkCanvasFence` + `ensureCanvasFenceTemplate`。
+ *
+ * 两套系统**完全独立**：没有共用的类型判断、没有共用的校验函数、没有一条
+ * 既判 mermaid 类型又判画布模板 key 的分支链。本文件里出现的「画布」一律指后者，
+ * 不要读成 mermaid 图表。
+ *
+ * 在此之前 `markdown-message.tsx` 用 `.filter(b => b.lang === "mermaid")` 把这两种围栏
+ * **主动丢掉**，于是它们落回 ReactMarkdown 渲成一块灰底代码块 —— 后台辛苦建的工作坊
+ * 画布模板在 chat 里一次都没被用上。本组件是那条链路的最后一段。
+ *
+ * ── 为什么不复用 `ChatDiagramFabric` ────────────────────────────────────────
+ * 它的两道闸门都是 mermaid 专用：`resolveDiagramType` 的 12 型白名单、`mermaid.parse`。
+ * 工作坊画布围栏喂进去必然判失败（它压根不是 mermaid 语法）。所以这里**另起一个
+ * 独立校验器**（`checkCanvasFence` + `ensureCanvasFenceTemplate`），但**沿用同一条纪律**：
+ *
+ * ⚠ **先判后挂**：fabric 会把 `<canvas>` 包进它自己造的 `.canvas-container` div。
+ *   若先挂 canvas、渲染失败再换成错误框，React 的 reconciler 会撞上 fabric 塞进来的
+ *   包裹节点抛 `removeChild ... not a child of this node`，**整页崩塌**（这是
+ *   `chat-diagram-fabric.tsx` 注释里记录的实测事故）。因此错误内容从头到尾不碰 fabric。
+ *
+ * ── 状态机 ────────────────────────────────────────────────────────────────
+ * validating → resolving（拉组织模板）→ valid | error。
+ * 失败态**沿用** `chat-ai-mermaid-error` 那套视觉形状（原因 + 原始围栏源码），
+ * 因为对用户而言「这块渲不出来」是同一件事，没必要在同一条消息里有两种错误框长相。
+ * 但 **testid 是独立的 `chat-canvas-error`** —— 工作坊画布模板不是 mermaid 图表，
+ * 让断言、埋点、e2e 选择器共用一个叫「mermaid-error」的钩子，等于在最容易被
+ * 复制粘贴的地方把两套系统混读。形状可以共用，身份不行。
+ *
+ * ── 个人对话 ──────────────────────────────────────────────────────────────
+ * 本路径**不读 `projectId`**，也不依赖 `artifact.land` 能力位（那是「保存产物」才需要的）。
+ * 组织模板只需要会话里的 `currentOrgId`，个人对话跑在个人组织里，一样有。
+ *
+ * ── 没有「最大化」按钮 ─────────────────────────────────────────────────────
+ * `ChatDiagramCanvasModal` 目前是 mermaid 专用（`wrapAsMermaidBlock(code)` 默认 lang、
+ * 保存时 `extractMermaidBlocks(...).find(b => b.lang === "mermaid")`），把 canvas 围栏塞进去
+ * 会保存出一份 lang 错误、内容被 mermaid 序列化器改写过的源。**宁可暂时没有这个入口，
+ * 也不给一枚会静默损坏用户内容的按钮。** 让 modal 支持画布模板是下一个 feature。
+ */
+type Status =
+  | { phase: "validating" }
+  | { phase: "valid"; source: CanvasFenceTemplateSource }
+  | { phase: "error"; reason: "syntax" | "template" | "org" | "fetch"; detail: string };
+
+const ERROR_TITLE: Record<Extract<Status, { phase: "error" }>["reason"], string> = {
+  syntax: "围栏格式有误",
+  template: "找不到这个工作坊画布模板",
+  org: "还没有组织上下文",
+  fetch: "读取组织的工作坊画布模板失败",
+};
+
+export function ChatCanvasFabric({ code, lang }: { code: string; lang: CanvasFenceLang }) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const canvasElRef = React.useRef<HTMLCanvasElement>(null);
+  const [status, setStatus] = React.useState<Status>({ phase: "validating" });
+  const [ready, setReady] = React.useState(false);
+  const [inView, setInView] = React.useState(false);
+  // `useOptionalSession`：组件可能被渲染在没有 SessionProvider 的上下文里（预览页、
+  // 组件测试）。那时 orgId 为 null，内置模板照样渲染，组织模板给诚实错误态。
+  const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
+
+  // 惰性化：进入视口才校验+渲染（与 mermaid 那条同样的理由——一张画布一个 fabric 实例是重对象）。
+  React.useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, []);
+
+  // 阶段一：校验（**不挂 canvas**）。纯函数闸门 → 模板解析闸门（可能发一次 GET）。
+  React.useEffect(() => {
+    if (!inView) return;
+    const check = checkCanvasFence(code, lang);
+    if (!check.ok) {
+      setStatus({ phase: "error", reason: "syntax", detail: check.detail });
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const outcome = await ensureCanvasFenceTemplate({ key: check.key, orgId });
+      if (cancelled) return;
+      if (outcome.ok) {
+        setStatus({ phase: "valid", source: outcome.source });
+        return;
+      }
+      setStatus({
+        phase: "error",
+        reason: outcome.reason === "no-org" ? "org" : outcome.reason === "fetch-failed" ? "fetch" : "template",
+        detail:
+          outcome.reason === "not-found"
+            ? `模板 key「${outcome.detail}」既不是内置模板，当前组织的模板库里也没有它。`
+            : outcome.reason === "no-org"
+              ? `模板「${outcome.detail}」不是内置模板，需要登录后才能读到组织的模板库。`
+              : outcome.detail,
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, lang, orgId, inView]);
+
+  // 阶段二：仅当 valid（<canvas> 已挂）时建 FabricCanvas 并渲染（只读）。
+  React.useEffect(() => {
+    if (status.phase !== "valid") return;
+    const el = canvasElRef.current;
+    const container = containerRef.current;
+    if (!el || !container) return;
+    const width = Math.max(320, Math.floor(container.getBoundingClientRect().width) - 2);
+    const canvas = new FabricCanvas(el, { width, height: 360, selection: false, skipTargetFind: true });
+    let cancelled = false;
+    // 复用唯一入口 `markdownToCanvas`（它按围栏 lang 分派到 templateToModel），
+    // 不在这里另写一份 templateToModel + renderToCanvas 的组合。
+    markdownToCanvas(wrapAsMermaidBlock(code, lang), canvas)
+      .then(() => {
+        if (cancelled) return;
+        canvas.forEachObject((obj) => {
+          obj.selectable = false;
+          obj.evented = false;
+        });
+        fitToContent(canvas, { padding: 24 });
+        canvas.requestRenderAll();
+        setReady(true);
+      })
+      .catch(() => {
+        // 校验已过却仍渲染失败：不切错误框（避免卸载 fabric 包裹节点崩页），只标未就绪。
+        if (!cancelled) setReady(false);
+      });
+    return () => {
+      cancelled = true;
+      canvas.dispose();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status.phase, code, lang]);
+
+  if (status.phase === "error") {
+    // 诚实错误态：与 mermaid 那条同样的结构与文案节奏（「原因 + 原始源码」），
+    // 但独立 testid（见文件头「状态机」一节）。
+    return (
+      <div
+        data-testid="chat-canvas-error"
+        data-error-reason={status.reason}
+        data-fence-lang={lang}
+        className="my-2 overflow-hidden rounded-md border border-destructive/40 bg-destructive/5"
+      >
+        <div className="flex items-center gap-1.5 border-b border-destructive/30 px-2.5 py-1.5 text-11 font-medium text-destructive">
+          无法渲染此工作坊画布模板（{ERROR_TITLE[status.reason]}：{status.detail}）
+        </div>
+        <pre className="overflow-x-auto px-2.5 py-2 font-mono text-11 leading-relaxed text-muted-foreground">
+          <code>{code}</code>
+        </pre>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      data-testid="chat-canvas-fabric"
+      data-fence-lang={lang}
+      data-template-source={status.phase === "valid" ? status.source : undefined}
+      data-ready={ready}
+      className="group relative my-2 overflow-hidden rounded-md border border-border-subtle bg-card"
+    >
+      <div className="pointer-events-none absolute left-2 top-2 z-10">
+        <Badge tone="outline">工作坊画布模板 · 只读预览</Badge>
+      </div>
+      {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
+      {status.phase === "valid" ? (
+        <canvas ref={canvasElRef} data-testid="chat-canvas-fabric-surface" />
+      ) : (
+        <div
+          data-testid="chat-canvas-loading"
+          className="flex h-40 items-center justify-center text-11 text-muted-foreground"
+        >
+          {inView ? "解析工作坊画布模板中…" : "滚动到此处即渲染"}
+        </div>
+      )}
+      {status.phase === "valid" && !ready && (
+        <div
+          data-testid="chat-canvas-loading"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"
+        >
+          渲染画布中…
+        </div>
+      )}
+    </div>
+  );
+}
