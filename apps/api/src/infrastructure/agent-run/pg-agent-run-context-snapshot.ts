@@ -9,7 +9,7 @@ import type { OrgId } from "../../domain/org-id";
 import type { DatabasePort } from "../../application/ports/database.port";
 import type {
   AgentRunContextSnapshot, AgentRunContextSnapshotInput, AgentRunContextSnapshotPort,
-  ContextLayerStatus, L3RetrievalScope,
+  ContextLayerStatus, L3RetrievalScope, VisionInputStatus,
 } from "../../application/agent-run/context-snapshot";
 
 interface SnapshotRow {
@@ -23,6 +23,9 @@ interface SnapshotRow {
   tool_trace_status: string | null;
   tool_trace_run_count: number | null;
   tool_trace_step_count: number | null;
+  vision_status: string | null;
+  vision_image_count: number | null;
+  vision_omitted_count: number | null;
   estimated_tokens: number;
   created_at: Date | string;
 }
@@ -42,6 +45,14 @@ function toToolTraceStatus(raw: string | null): ContextLayerStatus {
   return raw === "ok" || raw === "degraded" ? raw : "not_configured";
 }
 
+/** P2（#1561）：历史行（迁移前写入）这一列是 `NULL`——那些 run 确实没有图像输入这一层
+ *  （落地前 `ModelCallInput` 根本没有图像位），读侧按 `"none"` 处理，不编造一个值。 */
+function toVisionStatus(raw: string | null): VisionInputStatus {
+  return raw === "ok" || raw === "degraded" || raw === "not_supported" || raw === "not_configured"
+    ? raw
+    : "none";
+}
+
 export class PgAgentRunContextSnapshot implements AgentRunContextSnapshotPort {
   constructor(private readonly db: DatabasePort) {}
 
@@ -51,14 +62,16 @@ export class PgAgentRunContextSnapshot implements AgentRunContextSnapshotPort {
         `INSERT INTO agent_run_context_snapshots
            (run_id, org_id, l1_message_count, l2_status, l2_covered_through_id,
             l3_status, l3_hit_count, l3_sources, l3_retrieval_scope,
-            tool_trace_status, tool_trace_run_count, tool_trace_step_count, estimated_tokens)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+            tool_trace_status, tool_trace_run_count, tool_trace_step_count,
+            vision_status, vision_image_count, vision_omitted_count, estimated_tokens)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
          ON CONFLICT (run_id) DO NOTHING`,
         [
           snapshot.runId, orgId, snapshot.l1MessageCount, snapshot.l2Status,
           snapshot.l2CoveredThroughId, snapshot.l3Status, snapshot.l3HitCount,
           JSON.stringify(snapshot.l3Sources), snapshot.l3RetrievalScope,
           snapshot.toolTraceStatus, snapshot.toolTraceRunCount, snapshot.toolTraceStepCount,
+          snapshot.visionStatus, snapshot.visionImageCount, snapshot.visionOmittedCount,
           snapshot.estimatedTokens,
         ],
       );
@@ -71,6 +84,7 @@ export class PgAgentRunContextSnapshot implements AgentRunContextSnapshotPort {
         `SELECT l1_message_count, l2_status, l2_covered_through_id, l3_status,
                 l3_hit_count, l3_sources, l3_retrieval_scope,
                 tool_trace_status, tool_trace_run_count, tool_trace_step_count,
+                vision_status, vision_image_count, vision_omitted_count,
                 estimated_tokens, created_at
            FROM agent_run_context_snapshots
           WHERE org_id=$1 AND run_id=$2`,
@@ -92,6 +106,9 @@ export class PgAgentRunContextSnapshot implements AgentRunContextSnapshotPort {
         toolTraceStatus: toToolTraceStatus(row.tool_trace_status),
         toolTraceRunCount: row.tool_trace_run_count ?? 0,
         toolTraceStepCount: row.tool_trace_step_count ?? 0,
+        visionStatus: toVisionStatus(row.vision_status),
+        visionImageCount: row.vision_image_count ?? 0,
+        visionOmittedCount: row.vision_omitted_count ?? 0,
         estimatedTokens: row.estimated_tokens,
         createdAt: new Date(row.created_at).toISOString(),
       };

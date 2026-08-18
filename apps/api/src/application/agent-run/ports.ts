@@ -422,6 +422,48 @@ export interface ModelCallProgressEvent {
   readonly planningNote: string | null;
 }
 
+/**
+ * P2（#1561）—— 推理侧图像输入的三个封闭事实：允许的 mime、单张体积上限、单轮张数上限。
+ *
+ * ## 为什么上限在这里，而不在 provider 里
+ *
+ * 它是**端口的**约束，不是某一个 provider 的实现细节：`execute-run.ts` 要在调用之前就
+ * 决定哪几张图送、哪几张不送、并把不送的原因如实写给模型（#1561 硬性纪律「超限时如实
+ * 报错，不静默截断」）。把上限藏在 provider 里，调用点就只能事后从一个失败里猜发生了
+ * 什么，而那时候用户已经拿到一个看起来正常、其实少看了两张图的回答。
+ *
+ * 数值取舍：单张 8 MiB 与上传侧既有的附件体积门（`chat-file-upload` 契约）同量级但更严，
+ * 因为这里的字节还要 base64 展开进一个 JSON 请求体（约 4/3 膨胀）；张数 4 是保守起步值——
+ * 它不是任何上游文档里的硬限制，是本部署为「一次请求体不至于失控」定的自有边界。
+ */
+export const MODEL_CALL_IMAGE_MIMES = ["image/png", "image/jpeg", "image/webp"] as const;
+
+export type ModelCallImageMime = (typeof MODEL_CALL_IMAGE_MIMES)[number];
+
+export function isModelCallImageMime(mime: string): mime is ModelCallImageMime {
+  return (MODEL_CALL_IMAGE_MIMES as readonly string[]).includes(mime);
+}
+
+/** 单张图送进模型的原始字节上限（base64 之前）。 */
+export const MODEL_CALL_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+/** 单轮送进模型的图片张数上限。 */
+export const MODEL_CALL_MAX_IMAGES = 4;
+
+/**
+ * 一张真的要交给模型去看的图。
+ *
+ * `bytes` 是**原始字节**，不是 data URL 也不是 base64 字符串——编码是线上协议形态，
+ * 属于各 provider 自己的事（DashScope 的 OpenAI 兼容端点吃 `data:<mime>;base64,`，
+ * 别家可能吃别的）。在端口这一层就固化成某一种编码，等于把一个 provider 的线上形态
+ * 写进了所有 provider 共用的类型。
+ */
+export interface ModelCallImage {
+  readonly filename: string;
+  readonly mime: ModelCallImageMime;
+  readonly bytes: Uint8Array;
+}
+
 export interface ModelCallInput {
   readonly modelProvider: string;
   readonly modelId: string;
@@ -451,6 +493,25 @@ export interface ModelCallInput {
    * reads this field, same "absent/unused is not a regression" discipline `history` uses.
    */
   readonly skills?: readonly PinnedSkillContent[];
+  /**
+   * P2（#1561）—— 本轮真的要让模型**看到像素**的图片。
+   *
+   * **必须是可选的**，理由与上面 `history` / `skills` 逐字同一条，不是新纪律：缺席表示
+   * 「调用方这次没有提供图像」，一个没有视觉能力的实现（`BailianImageProvider` 的单条
+   * 文生图 prompt、`DeepResearchModelProvider` 的远端研究流程）完全忽略这个字段是**允许
+   * 的形态**——接受但忽略一个用不上的输入，与静默丢掉一个被要求使用的输入，是两件不同
+   * 的事。所以本字段落地时**没有一个既有 provider 实现被迫修改**。
+   *
+   * ⚠ 但「调用方到底该不该填」这件事本身有一道门：`execute-run.ts` 只在
+   * `supportsVision` 明确报 true 时才填它。一个看不到图的 provider 因此永远收不到
+   * `images`，也就不存在「它忽略了一批调用方以为它看过的图」这种含糊状态——那正是
+   * #1558 的 bug 形态（产品允许传图、全链路没人告诉用户模型看不到）。降级要被**说出来**，
+   * 由调用点写进模型可读的文本，不是靠这个字段的沉默来表达。
+   *
+   * 数量与单张体积的上界见 `MODEL_CALL_MAX_IMAGES` / `MODEL_CALL_MAX_IMAGE_BYTES`；
+   * 定界与「没送的那几张为什么没送」的渲染在 `run-image-input.ts`。
+   */
+  readonly images?: readonly ModelCallImage[];
 }
 
 /**
@@ -560,6 +621,24 @@ export interface ModelCallPort {
    * two would silently break token streaming for providers that don't support progress.
    */
   supportsProgress?(modelProvider: string): boolean;
+
+  /**
+   * P2（#1561）—— OPTIONAL 能力查询：这个 provider 用**这个 modelId** 调用时，能不能真的
+   * 看到 `ModelCallInput.images` 的像素。
+   *
+   * ⚠ **缺席 ⇒ false（看不到）**，与上面 `supportsProgress` 的「缺席 ⇒ 由方法是否存在
+   * 决定」刻意相反。原因是这两个能力的默认方向不同：progress 有一个 `completeWithProgress`
+   * 方法可以作为「它自己就是答案」的存在性证据，vision 没有对应方法——视觉输入复用的是
+   * 同一个 `complete`，一个 provider 收到 `images` 却什么都不做，在类型上与真的看到了
+   * 完全一样。所以这里必须 fail closed：没有人明确声称能看见，就当作看不见，`execute-run.ts`
+   * 走诚实降级（把图留在原地 + 明确告诉模型它这轮没有收到图像），而不是把字节丢出去
+   * 赌一个没人验证过的能力。这条默认值是 #1558「静默丢弃让用户以为模型看过了」那个
+   * 缺口在类型层面的反面。
+   *
+   * `modelId` 是参数而不只是 `modelProvider`：同一个 provider（DashScope）下只有 VL 系列
+   * 模型有视觉输入，一次 run 绑定的是**具体模型**，能力是模型的属性不是厂商的属性。
+   */
+  supportsVision?(modelProvider: string, modelId: string): boolean;
 }
 
 export interface AgentRunClock {
