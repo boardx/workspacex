@@ -73,8 +73,9 @@ import { AuthzUnavailableError } from "../../application/chat/resolve-visibility
 import { PROVENANCE_WRITER, type ProvenanceWriter } from "../../application/provenance/ports";
 import { ID_FACTORY, type IdFactory } from "../../application/artifact/ports";
 import {
-  CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER,
+  CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
   type ChatMessageCommandRepository, type PublishedAgentReader,
+  type ThreadMountedSkillReader,
 } from "../../application/chat/message-command-ports";
 import {
   AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, type AgentRunStore, type AgentRunExecutorPort,
@@ -186,6 +187,8 @@ export class CopilotkitAguiController {
     @Inject(ID_FACTORY) private readonly artifactIds: IdFactory,
     @Inject(CHAT_MESSAGE_COMMAND_REPOSITORY) private readonly messageCommands: ChatMessageCommandRepository,
     @Inject(PUBLISHED_AGENT_READER) private readonly publishedAgents: PublishedAgentReader,
+    // #1559：`acceptHumanMessage` 的必填依赖，见该函数 Deps 上的说明。
+    @Inject(THREAD_MOUNTED_SKILL_READER) private readonly threadMounts: ThreadMountedSkillReader,
     @Inject(AGENT_RUN_STORE) private readonly runs: AgentRunStore,
     @Inject(AGENT_RUN_EXECUTOR) private readonly executor: AgentRunExecutorPort,
   ) {}
@@ -194,7 +197,8 @@ export class CopilotkitAguiController {
     return {
       repo: this.repo, ids: this.ids, chat: this.chat, provenance: this.provenance,
       artifactIds: this.artifactIds, commands: this.messageCommands,
-      publishedAgents: this.publishedAgents, runs: this.runs, executor: this.executor,
+      publishedAgents: this.publishedAgents, threadMounts: this.threadMounts,
+      runs: this.runs, executor: this.executor,
     };
   }
 

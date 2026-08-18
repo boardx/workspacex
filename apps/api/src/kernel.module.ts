@@ -233,11 +233,13 @@ import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
 import {
   CHAT_MESSAGE_COMMAND_REPOSITORY,
   PUBLISHED_AGENT_READER,
+  THREAD_MOUNTED_SKILL_READER,
 } from "./application/chat/message-command-ports";
 import {
   PgChatMessageCommandRepository,
   PgPublishedAgentReader,
 } from "./infrastructure/chat/pg-chat-message-command-repository";
+import { PgThreadMountedSkillReader } from "./infrastructure/chat/pg-thread-mounted-skill-reader";
 import { PgChatPresetRepository } from "./infrastructure/chat/pg-chat-preset-repository";
 import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-landing-repository";
 // #946 · V9-a F150：对话附件上传——独立仓储 + 独立控制器（不塞进 1130 行的 ChatController）。
@@ -1008,6 +1010,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",
       ),
       inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, ATTACHMENT_VISION, LOGGER_PORT],
+    },
+    {
+      // #1559：会话内临时挂载（F65）进入 run 快照的读口。没有它，挂载被记录、被展示，
+      // 却从不进入任何一次 run——那是 #1559 逐字记录的形态。
+      provide: THREAD_MOUNTED_SKILL_READER,
+      useFactory: (db: DatabasePort) => new PgThreadMountedSkillReader(db),
+      inject: [DATABASE_PORT],
     },
     {
       provide: PUBLISHED_AGENT_READER,

@@ -152,6 +152,15 @@ export default defineConfig({
          * 只能写一条恒绿的假断言。
          */
         LOOPBACK_MODEL_RETRIEVAL_ECHO_PREFIX: CHAT_READ_E2E.retrievalEchoPrefix,
+        /**
+         * #1559 —— 打开替身进程「回显它在 **system prompt** 里确实收到的挂载 skill
+         * 哨兵」这个**默认关闭**的开关（见 `loopback-model-provider.ts` 自己的头注）。
+         * `fullstack-smoke.config.ts` / `core-loop` 不下发这两个变量，那两条链路行为
+         * 逐字节不变。不打开它，「挂载的 skill 是否真的进了模型输入」在浏览器侧没有
+         * 任何可观察信号（system prompt 不落表，run 投影里只有它的哈希）。
+         */
+        LOOPBACK_MODEL_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
+        LOOPBACK_MODEL_SKILL_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillEchoPrefix,
       },
     },
     /**
@@ -198,6 +207,9 @@ export default defineConfig({
         // 与上面那些一样：唯一事实源在 `chat-read-fixture.ts`，种子脚本与断言方共用同一份。
         CHAT_E2E_MOUNTABLE_SKILL_ID: CHAT_READ_E2E.mountableSkillId,
         CHAT_E2E_MOUNTABLE_SKILL_NAME: CHAT_READ_E2E.mountableSkillName,
+        // #1559 —— 哨兵串的唯一事实源在 `chat-read-fixture.ts`：种子把它写进
+        // `SKILL.md` 正文，上游替身在 system prompt 里找它，断言方断言它出现。
+        CHAT_E2E_MOUNTABLE_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
         CHAT_E2E_RETRIEVAL_ATTACHMENT_FILENAME: CHAT_READ_E2E.retrievalAttachmentFilename,
         CHAT_E2E_RETRIEVAL_EXCERPT: CHAT_READ_E2E.retrievalExcerpt,
         // #1324 —— 三条专属线程（挂载持久化 / 因果对照 / 检索命中对照），见

@@ -339,7 +339,11 @@ export class SkillMountController {
       case "SKILL_VERSION_CHANGED":
         return new ConflictException({ reasonCode: code });
       default:
-        // `SKILL_NOT_ENABLED` / `CONTEXT_BUDGET_EXCEEDED` / …
+        // `SKILL_NOT_ENABLED` / …
+        // ⚠ `CONTEXT_BUDGET_EXCEEDED` 曾经列在这里，像是「已经在挡什么」。它从未被
+        //   任何代码路径抛出过，#1559 起如实登记为 `KNOWN_CONTRACT_GAPS.S9`
+        //   （缺的是签核过的预算阈值与它的评估点，不是一行接线）——这条 default
+        //   分支照样会把它映射成 422，只是本仓不再拿它当一条生效中的保护。
         return new UnprocessableEntityException({ reasonCode: code });
     }
   }

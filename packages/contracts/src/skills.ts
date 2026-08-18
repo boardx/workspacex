@@ -1394,4 +1394,32 @@ export const KNOWN_CONTRACT_GAPS = {
    * ⚠ 本文件**没有**把它改名对齐：改错误码字面量属修订已写就的 UC，不是实现动作。
    */
   S8: "MODEL_UNAVAILABLE here and MODEL_DEPENDENCY_FAILED in agent-runtime encode the same failure; not renamed here because changing an error literal amends an already-written UC",
+  /**
+   * **`CONTEXT_BUDGET_EXCEEDED` 全仓零实现，且今天无法实现——缺的是那个预算数字本身。**
+   *
+   * 契约在 `mountSkillToThread.err` 里列着它，E2 逐字要求「超预算时**明确要求取舍**、
+   * **不静默丢弃某个 skill 的注入**」。截至 #1559（2026-08-18）它在实现侧只出现在
+   * `skill-mount.controller.ts` 的一句注释里，从未被任何代码路径抛出过。
+   *
+   * ⚠ 为什么本轮**不顺手实现它**（#1559 让注入真的生效，上下文确实会变大）：
+   *   判据的两个必要输入，本仓一个都拿不到。
+   *   ① **预算上限没有签核值**。`agent-runtime` 那侧唯一存在的数字是
+   *      `HISTORY_MAX_CHARS`（近端历史的字符上限），它是**另一件事**的阈值；
+   *      skill 注入没有任何签核过的预算数。在这里编一个常量，就是本仓
+   *      `pg-recording-repository.ts` 的 `retentionResolver` 点名拒绝过的
+   *      「不发明常量」——一个编出来的阈值会在某天以「你挂太多了」拒绝一次
+   *      完全正常的挂载，而没有人能说出那个数字凭什么。
+   *   ② **判定发生的时机与契约给的位置不一致**。这个错误码挂在 `mountSkillToThread`
+   *      （挂载那一刻）上，而「本轮上下文有多大」要到 run 创建、system prompt 拼好
+   *      才算得出来（`buildSystemPrompt`，`execute-run.ts`）——挂载时算出来的任何数字
+   *      都不是「本轮」的。要么契约把它挪到 run 侧，要么明确定义「挂载时按什么估」，
+   *      两者都是签核动作，不是实现动作。
+   *
+   * ⇒ 如实登记为缺口，**不**保留一个永不触发的错误码假装它在保护什么。
+   *   今天的真实行为（#1559 之后）：并集去重后的 `skillVersionIds` **整份**钉进
+   *   `agent_runs`，一个都不丢——E2 的「不得静默丢弃」这一半是满足的；缺的是
+   *   「超了就明确要求取舍」那一半，因为「超了」目前不可判定。上下文真的过大时，
+   *   失败来自模型上游并以 `MODEL_CALL_FAILED` 如实暴露，不会静默截断。
+   */
+  S9: "CONTEXT_BUDGET_EXCEEDED is declared in mountSkillToThread.err but has zero implementation and cannot be implemented yet: no signed-off budget threshold exists for skill injection (inventing one is forbidden), and the size of a turn is only knowable at run assembly, not at mount time; as of #1559 the full deduplicated skillVersionIds set is pinned with nothing dropped, so the 'never silently drop an injection' half of E2 holds while the 'demand an explicit tradeoff' half is unimplementable until the signer rules on the threshold and its evaluation point",
 } as const;

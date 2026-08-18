@@ -60,19 +60,36 @@ export const CHAT_READ_E2E = {
   /* ══════════ #1310 —— agent / skill / context 主流程 e2e 的种子与取证约定 ══════════ */
 
   /**
-   * F65 要挂载的那个**已启用** skill。种在 `skill_contracts`（不是 wave2 的 `skills` 表）：
-   * 挂载走 `SkillVisibilityPort` → `PgSkillContractRepository.loadDetail`，那条读路径**只**
-   * 读 `skill_contracts`。种进 wave2 表的话，它会出现在选择器池子里（`listAll` 合并了两张表）
-   * 却挂不上（`loadDetail` 返回 null ⇒ `SKILL_NOT_FOUND`）——那是一个真实的产品缺口，
-   * 但不是这条测试要证的东西，所以这里避开它，不在测试里把它掩盖成「挂载坏了」。
+   * F65 要挂载的那个**已启用** skill。
    *
-   * `org-wide` 而不是 `fullstack-smoke` 那份种子用的 `team-only`：本夹具的用户
-   * （`addOrgMember(..., "lead", null)`）**不属于任何团队**，`decide()` 对 `team-only`
-   * 要求 `org.teamId === scope.ownerTeamId`，种成 team-only 它对自己不可见、挂不上。
-   * 本夹具也没有 `skill-create-smoke.spec.ts` 那条「目录空态」断言要保护。
+   * ⚠ #1559 起种在 **wave2 的 `skills`/`skill_versions`/`skill_version_files`（模型 A）**，
+   *   不再是 `skill_contracts`（模型 B）。这里原来写着「种进 wave2 表会出现在选择器里
+   *   却挂不上」——那句话在 #1534（挂载判据改走两套都查的 `loadMountableRow`，
+   *   并把只认模型 B 的那个外键整个删掉）之后已经不成立。而**运行时只读模型 A**，
+   *   所以只有种成模型 A，「挂了个 skill 对模型有没有影响」这条反证才可能成立。
+   *   理由全文见 `seed-chat-read-e2e.ts` 里这块种子的头注。
+   *
+   * `org-wide`：`loadMountableRow`/`listAll` 对 wave2 行恒按 org-wide 判定（那两张表里
+   * 没有可见范围列），本夹具用户 `addOrgMember(..., "lead", null)` 不属于任何团队，
+   * 正好可见；本夹具也没有 `skill-create-smoke.spec.ts` 那条「目录空态」断言要保护。
    */
   mountableSkillId: "skill-chat-read-e2e-mountable",
   mountableSkillName: "假设拆解（E2E）",
+  /**
+   * #1559 —— 只出现在上面那个 skill 的 `SKILL.md` 正文里的哨兵串，全仓别处零命中。
+   *
+   * 「挂载的 skill 真的进了模型输入」这条反证的**全部**依据：确定性上游
+   * (`loopback-model-provider.ts`) 只在自己收到的 **system prompt** 里真的看到它时，
+   * 才把 `mountedSkillEchoPrefix + 哨兵` 写进回复。链上任何一环断掉——挂载没进 run 快照、
+   * `readPinnedSkills` 读不回正文、`buildSystemPrompt` 没拼进去——哨兵都不会出现，
+   * 断言如实红。
+   *
+   * ⚠ 刻意与 `retrievalTerm` / `retrievalDecoyQuery` / 本夹具其余用例发送的文本零重叠：
+   *   任何重叠都会让它在别的用例的回显里冒出来，把这条反证变成恒绿。
+   */
+  mountedSkillSentinel: "MOUNTPROOF-9317",
+  /** 上游把哨兵回显进回复时用的前缀，惯例同 `agentReplyPrefix` / `retrievalEchoPrefix`。 */
+  mountedSkillEchoPrefix: "[skill:]",
 
   /**
    * F155 的检索素材：一份 `extraction_status='extracted'` 的聊天附件。
