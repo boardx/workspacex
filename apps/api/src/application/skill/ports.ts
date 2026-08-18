@@ -135,6 +135,26 @@ export interface SkillContractReadPort {
    *   状态机的 `from` 必须来自库，不能来自调用方的假设。
    */
   statusOf(skillId: string): Promise<SkillLifecycleStatus | null>;
+
+  /**
+   * #1534 —— 单行等价于 `listAll()` 的一行（合并模型 A `skill_contracts` 与模型 B
+   * `skills`/`skill_versions`），供 `SkillVisibilityPort.visibleTo()`（#467 挂载）
+   * 与其它「按 id 直取一行、只关心它能不能被挂载」的判定使用。
+   *
+   * ⚠ **不是** `loadDetail` 的别名，两者结构上回答不同的问题：`loadDetail` 连同
+   *   契约正文（`prompt_template` 等）一起取，而 wave2（`skills` 表）行**从不产出**
+   *   声明式契约正文——`loadDetail` 对它们恒返回 `null` 是正确行为，不是这次要修的
+   *   问题（`skill-catalog-live.tsx` 的 `WAVE2_BACKED_DUTY_MARKER` 注释已经把「查看
+   *   契约」换成了「编辑源码」正是因为这一点）。挂载判定只需要 `status` /
+   *   `currentVersionId` / 可见范围三样，`loadMountableRow` 是给这三样单开的取数口，
+   *   不途经契约正文那部分从来取不到的东西。
+   *
+   * ⚠ 挂载判定原先直接复用 `loadDetail`，于是一个通过「从 GitHub 导入」落地的
+   *   wave2 skill 在 chat 里 `#` 挂载必然 `SKILL_NOT_FOUND`（#1534 实测复现）——
+   *   `loadDetail` 对它必然返回 `null`，而调用方（`skill-mount.controller.ts`）把
+   *   「不存在」与「查不到详情」当成了同一件事。两件事在这里被分开成两个方法。
+   */
+  loadMountableRow(skillId: string): Promise<GuardedSkillContract | null>;
 }
 
 /** `SkillContractReadPort.listAll` 的行。字段与契约 `SkillListItem` 一一对应。 */

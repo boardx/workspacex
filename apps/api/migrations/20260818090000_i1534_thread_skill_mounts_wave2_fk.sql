@@ -1,0 +1,32 @@
+-- #1534 -- `thread_skill_mounts.skill_id` can no longer be constrained to a single
+-- source table.
+--
+-- `thread_skill_mounts_skill_fk` (migration 20260805170000_i467_thread_skill_mounts.sql)
+-- was written when the only "skill" table with a real id space was `skill_contracts`
+-- (model B). Since then `mountSkillToThread` (via `SkillVisibilityPort.visibleTo` /
+-- `SkillContractReadPort.loadMountableRow`, `pg-skill-contract-repository.ts`) has been
+-- fixed to also accept skills that live in `skills`/`skill_versions` (model A / wave2 --
+-- everything imported from a GitHub/URL source). Real-world reproduction (issue #1534):
+-- an admin imports a skill from GitHub, opens a chat thread, picks that skill from the
+-- `#` mount panel -- the visibility check now says yes, and the INSERT into
+-- `thread_skill_mounts` immediately fails `thread_skill_mounts_skill_fk` because that
+-- skill's row lives in `skills`, not `skill_contracts`.
+--
+-- A single FK cannot point at two tables. The two documented ways around that --
+-- (a) a CHECK-driven "OR" across two FKs is not expressible in Postgres for a single
+-- column pair, and (b) a trigger re-implementing the same existence check the
+-- application layer already runs -- both amount to a second copy of the same rule the
+-- application already enforces authoritatively immediately before this INSERT
+-- (`mountSkillToThread` refuses to reach the `mounts.save()` call unless
+-- `SkillVisibilityPort.visibleTo()` returned a row with `status = 已启用` and a non-null
+-- `currentVersionId`, checking both `skill_contracts` and `skills` first). Keeping a
+-- narrower DB-level FK here would re-litigate that same fact in a second place --
+-- exactly the drift AGENTS.md's "同一事实不得声明在两处" rule warns about -- and this one
+-- would silently reject the *correct* half of the merged model. `agent_versions
+-- .skill_version_ids` (`text[]`, no FK -- see 20260804031000_wave2_skill_starter_import)
+-- is the existing precedent for "the source of truth for skill identity spans two
+-- tables, so referential integrity for it lives in application code, not a DB FK".
+--
+-- Dropping, not narrowing: there is no third table to point the FK at that would cover
+-- both models, and a FK against only `skills` would just move the same bug onto model B.
+ALTER TABLE thread_skill_mounts DROP CONSTRAINT IF EXISTS thread_skill_mounts_skill_fk;

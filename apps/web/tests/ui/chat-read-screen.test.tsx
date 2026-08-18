@@ -242,6 +242,9 @@ describe("formal Chat read path", () => {
     [401, "SESSION_EXPIRED", "登录已失效（HTTP 401）"],
     [403, "NO_WRITE_ROLE", "没有写入权限（HTTP 403）"],
     [404, "NOT_FOUND", "不存在或当前身份不可见（HTTP 404）"],
+    // #1534：`SKILL_NOT_FOUND` 的裸 404 不该显示「对话不存在」——那句话把使用者导向
+    // 错误的排查方向（真根因在 skill 那一侧，不是对话）。
+    [404, "SKILL_NOT_FOUND", "该 skill 不存在或当前身份不可见（HTTP 404）"],
     [409, "THREAD_ARCHIVED_READONLY", "状态冲突或已归档（HTTP 409）"],
     [422, "AGENT_NOT_FOUND", "没有可用的已发布版本（HTTP 422）"],
     [503, "AUTHZ_UNAVAILABLE", "没有降级到 mock"],

@@ -289,6 +289,15 @@ export class SkillMountController {
    *     原来那条顾虑（编一个空串会让「当时挂的是哪一版」永久不可回答）仍然成立，
    *     而它现在由用例里的 `SKILL_NOT_ENABLED` 早退分支保证：走到取 `versionId`
    *     那一步时 `status` 必已是 `已启用`，而那蕴含版本非空。
+   *
+   * ⚠ #1534：取数走 `loadMountableRow`，**不是** `loadDetail`。`loadDetail` 只读
+   *   `skill_contracts`（模型 A），对通过 GitHub/URL 导入落地的 skill（模型 B，
+   *   `skills`/`skill_versions`，wave2）恒返回 `null`——于是这批 skill 在 chat 里
+   *   `#` 挂载必然 `SKILL_NOT_FOUND`（issue #1534 实测复现，候选面板正确列出、点击必 404）。
+   *   `loadMountableRow` 两边都查（同 `listAll()` 的既有口径），`loadDetail` 仍然只读
+   *   模型 A——`getSkillDetail`（查看契约）与「挂载判定」是两个不同的问题，
+   *   前者需要契约正文（wave2 行从来没有），后者只需要 `status`/`currentVersionId`/
+   *   可见范围三样，混用会把「查不到详情」误当成「不存在」。
    */
   private async visibilityPort(principal: Principal): Promise<SkillVisibilityPort> {
     const repository = this.repositories.forOrg(principal.orgId);
@@ -299,10 +308,10 @@ export class SkillMountController {
     const ids = this.ids;
     return {
       async visibleTo({ skillId }) {
-        const guarded = await repository.loadDetail(skillId);
+        const guarded = await repository.loadMountableRow(skillId);
         if (guarded === null) return null;
         const disclosed = discloseDecided(
-          guarded.detail,
+          guarded.row,
           decideCapabilityVisibility({
             decisionId: ids.next(),
             orgRole: membership?.orgRole ?? null,
@@ -312,7 +321,7 @@ export class SkillMountController {
           }),
         );
         if (!isDisclosed(disclosed)) return null;
-        const row = disclosed.payload.row;
+        const row = disclosed.payload;
         // ⚠ 版本为 null 时**不**返回 null：那会把「还没获批」说成「不存在」。见上方注释。
         return { status: row.status, currentVersionId: row.currentVersionId };
       },
