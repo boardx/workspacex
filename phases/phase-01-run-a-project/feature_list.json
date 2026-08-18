@@ -4728,6 +4728,28 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F208",
+      "title": "端到端自检：蓝本设计器 16 项全部结构化，真栈里真读真写真落库（真实浏览器验收线）",
+      "user_visible_behavior": "真栈 e2e（真 Next.js + 真 Nest + 真 Postgres + 真实浏览器）里：登录组织管理员 → 新建蓝本 → 打开 /tpl/designer → 逐个点开定义表里的 15 个 designFacetKey，每一项都断言专属结构化编辑器根节点可见、且通用自由文本框锚点 bp-facet-content-* 计数为 0 → 再点开第 16 项「基本配置」聚合页，断言时长档位区、初始化预览区、六类恒定分类都在 → 挑三种不同形态的面板（多字段型的主题与背景 / 增删型的问卷 / 矩阵型的角色与权限）做真实编辑，各自等到真实 PUT 200 → 刷新页面，断言每个值都回到它原来那一格（证明存的是结构化 JSON 而不是拼接文本）→ 断言锁定格在真栈里也是禁用的 → 最后断言完成度徽标的数字来自服务端响应且分母为 15。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F207"
+      ],
+      "points": 2,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm run verify:fullstack-smoke"
+      ],
+      "evidence": "",
+      "notes": "① 为什么需要这一条、它与组件测试不重复：F204–F207 的组件测试都是在 jsdom 里对着 mock fetch 断言，registry 覆盖门控也只是断言 getFacetEditor 的返回值。人类 2026-08-18 的批评原话是「后台项目的每个项目配置菜单，现在都是一个 textbox」——要回答的是「一个真人打开这个页面逐个点过去，看到的是不是 16 个结构化面板」，这只能在真栈里断。本用例专盯三件 mock 下测不出来的事：逐项点开后 DOM 里不存在通用文本框锚点；真实编辑→真实 PUT→刷新后值仍在原来那一格；完成度数字来自服务端响应。\n② 15 个 key 取自生成的 DESIGN_FACET_CATALOG 而不是本文件手抄一份（抄一份就会漂移），并额外钉住「正好 15 项」，避免定义表少一项时用例照样全绿。\n③ 自检真的抓到了问题，不是写完就绿：第一版断言「改议程 × 组长」是锁定格，真栈里红了——原因是该格只在 F203（把占位锁定数据换成原型真实 permRows[].lockedFor）之后才是锁的，而 F203 走的是另一条分支（PR #1529），与本分支血统上还没汇合。据实改成「改议程 × 组员」（占位版与 F203 版**两边都锁**），并在用例里写明缘由——不是挑软柿子让测试变绿，是红的原因属于血统而非行为。\n④ 同批修掉一条被本轮改动打红的既有真栈用例（blueprint-contract-gap-audit 的 F193）：它找 bp-facet-content-pre-tasks 那个 textarea，而 F204 已把 pre-tasks 换成结构化面板。用例里那句「用 pre-tasks（还未被拆成结构化面板的通用编辑 key）」的假设随 15 项全结构化而彻底失效，改成走结构化面板的真实交互；至此没有任何 key 还是自由文本框，这条用例不能再靠「换一个还没结构化的 key」绕开。\n⑤ 同批修掉一条与本轮无关、但会持续卡 pre-push 的既有测试竞态（admin-members-boundary）：它 waitFor 的是容器，而容器在「读取中…」loading 态就已渲染，紧接着的裸 getByTestId 要求 fetch 已 resolve，turbo 多 worker 并发时就红。改成 findByTestId 那一行。反证：把 mock fetch 人为延迟 20ms，旧写法复现 CI 上一模一样的报错、新写法 4 passed。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
       "id": "F199",
       "title": "createProject 创建者自动获得容器最高权限角色（推翻 Q-4②：facilitator/owner）",
       "user_visible_behavior": "任意通过 createProject 成功建出容器（工作坊/研究项目/用户洞察）的人，建完立刻就能进入并使用自己建的这个容器——不再出现「建了项目却读不到内容」（ADMIN_NOT_SUPERUSER/NO_PROJECT_ROLE）。工作坊容器：创建者获得 facilitator（引导师）角色，is_host=true。研究项目/用户洞察容器：创建者获得 owner（所有者）角色。全部与容器同一个事务写入，不存在“容器建成、角色没跟上”的中间态。",

@@ -251,6 +251,11 @@ export default defineConfig({
         //   唯一能写蓝本的角色）与 sentinel 项目（`FULLSTACK_E2E.projectId`，F29
         //   缺口门控那条用它做 404 归因排除）。
         "blueprint-contract-gap-audit.spec.ts",
+        // ⚠ F208 同理排在 `seeded`：它同样要用种子里的组织管理员（唯一能写蓝本的角色）。
+        //   它与上面那条互补——上面测的是蓝本管理闭环与契约缺口，这条专测
+        //   「16 项配置全部是结构化面板」在真栈里成立（人类 2026-08-18 批评的正是
+        //   「每个配置菜单都是一个 textbox」，组件测试是对着 mock 断的，这条对着真栈断）。
+        "blueprint-designer-16-panels.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },

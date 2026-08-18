@@ -187,7 +187,11 @@ phase: "01"
 #   时已签形状，一字未改），前端此前只是没有 wrapper。零新增契约操作/错误码/迁移；
 #   UI 侧如实收窄到真实有后端的两节，不为原型示意造假入口。按 covers 追加规则三条件自查后追加。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-18（F208，dev-chat-e2e）：真栈端到端自检用例（16 项全部结构化、真读真写真落库）——
+#   纯测试增量，零新增契约面/界面元素/交互语义（只断言 F204–F207 已交付的行为在真栈里成立），
+#   按 covers 追加规则三条件自查后追加。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207, F208]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
