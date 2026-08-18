@@ -24,6 +24,10 @@ import { VenuePanelEditor } from "./venue-panel-editor";
 import { MaterialsPanelEditor } from "./materials-panel-editor";
 import { PrintPanelEditor } from "./print-panel-editor";
 import { CapsPanelEditor } from "./caps-panel-editor";
+import { AgentPanelEditor } from "./agent-panel-editor";
+import { SkillPanelEditor } from "./skill-panel-editor";
+import { OutputsPanelEditor } from "./outputs-panel-editor";
+import { ReportPanelEditor } from "./report-panel-editor";
 
 export interface FacetEditorProps {
   readonly designFacetKey: string;
@@ -44,9 +48,20 @@ const STRUCTURED_FACET_EDITORS: Record<string, ComponentType<FacetEditorProps>> 
   "project-materials": MaterialsPanelEditor,
   "print-materials": PrintPanelEditor,
   "group-capabilities": CapsPanelEditor,
+  "agent-orchestration": AgentPanelEditor,
+  "skill-binding": SkillPanelEditor,
+  outputs: OutputsPanelEditor,
+  "report-template": ReportPanelEditor,
 };
 
-/** 未登记的 key（大多数 16 项目前仍是自由文本）落回通用编辑器。 */
+/**
+ * 未登记的 key 落回通用编辑器——**纯兜底**。
+ *
+ * ⚠ 定义表里的 15 个 designFacetKey 现在**一个都不会**走到这里（F204–F207 补齐）。
+ * 这个分支保留是为了「表里新增了一项、但还没写它的编辑器」时不至于白屏；
+ * 真发生了会被那条机械门控抓住（遍历 DESIGN_FACET_CATALOG 断言无一落回 FacetTextEditor），
+ * 而不是靠人发现。别把它读成「大多数项还是自由文本」——那是 F204 之前的状态。
+ */
 export function getFacetEditor(designFacetKey: string): ComponentType<FacetEditorProps> {
   return STRUCTURED_FACET_EDITORS[designFacetKey] ?? FacetTextEditor;
 }

@@ -86,6 +86,46 @@ export interface AppendVersionCmd {
   readonly createdBy: string;
 }
 
+/** 契约 `applyStickyChange.in.patch` 原形（jsonb 列的 TS 视图）。 */
+export interface StickyPatchFacts {
+  readonly text?: string;
+  readonly color?: string;
+  readonly size?: string;
+  readonly position?: { readonly x: number; readonly y: number };
+  readonly sectionId?: string;
+}
+
+/** 一行便签修订（`canvas_sticky_revisions` 的投影）。 */
+export interface StickyRevisionRow {
+  readonly revisionId: string;
+  readonly clientTs: string;
+  readonly patch: StickyPatchFacts;
+}
+
+/**
+ * `applyStickyChange`（第三块）的写命令：修订行 + （生效且改了文本时）版本行，
+ * **同一个事务**。`newVersion` 缺省 = 本次修订不动 markdown（position/size 走旁路，
+ * 见 apply-sticky-change.ts 文件头）或输掉 LWW（仅落历史行）。
+ */
+export interface ApplyStickyRevisionCmd {
+  readonly orgId: OrgId;
+  readonly instanceId: string;
+  readonly stickyId: string;
+  readonly revisionId: string;
+  readonly patch: StickyPatchFacts;
+  readonly clientTs: string;
+  /** true = 本次修订赢了 LWW，成为 current（旧 current 同事务置 false）。 */
+  readonly winning: boolean;
+  readonly createdBy: string;
+  readonly newVersion?: {
+    /** 应用层计算新 markdown 时读到的 head——不等 ⇒ 整个事务回滚 ⇒ `"head_moved"`。 */
+    readonly expectedHeadVersion: number;
+    readonly versionId: string;
+    readonly markdown: string;
+    readonly contentHash: string;
+  };
+}
+
 export interface CanvasInstanceRepository {
   /** 模板展示名 + 分区（初始 markdown 的原料）。`null` = 模板版本不存在。 */
   findTemplateContent(
@@ -131,4 +171,18 @@ export interface CanvasInstanceRepository {
    * 零行 ⇒ `expectedHeadVersion` 已不是当前 head ⇒ 调用方抛 `VERSION_CHANGED`。
    */
   appendVersion(cmd: AppendVersionCmd): Promise<CanvasInstanceVersionRow | null>;
+
+  /** 这张便签当前生效的修订（LWW 的比较基准）。`null` = 还没有任何一次落地。 */
+  findCurrentStickyRevision(
+    orgId: OrgId,
+    instanceId: string,
+    stickyId: string,
+  ): Promise<StickyRevisionRow | null>;
+
+  /**
+   * 修订行 + 可选的版本行，同一个事务（见 `ApplyStickyRevisionCmd`）。
+   * `"head_moved"` = `newVersion.expectedHeadVersion` 已不是 head，整个事务已回滚
+   * （修订行也没落）——调用方基于新 head 重算后重试，不把半状态留在库里。
+   */
+  applyStickyRevision(cmd: ApplyStickyRevisionCmd): Promise<"applied" | "head_moved">;
 }

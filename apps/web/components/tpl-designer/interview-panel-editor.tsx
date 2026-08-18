@@ -153,14 +153,13 @@ export function InterviewPanelEditor({
 
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
-      <p className="mb-3 text-11 text-muted-foreground">
-        蓝本规定要访谁、访多少场、提纲骨架。访谈是会前最贵的一步，写进蓝本能避免每次重新设计。
+      <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
-          <span className={status === "error" ? "ml-2 text-destructive" : "ml-2"} data-testid="bp-facet-save-status">
+          <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
-      </p>
+      </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-itv-plan">
         <h3 className="mb-2 text-13 font-semibold">

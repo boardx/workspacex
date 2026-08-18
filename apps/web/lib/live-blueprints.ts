@@ -92,3 +92,45 @@ export async function getBlueprintDesignFacets(blueprintId: string): Promise<Get
     { method: "GET" },
   );
 }
+
+export type GetInitializationPreviewOut = z.infer<typeof templates.operations.getInitializationPreview.out>;
+
+/**
+ * 第 16 项「基本配置」聚合页用：套用后会初始化什么（六类恒定，空类也出现）。
+ *
+ * ⚠ 契约的 `versionId`/`tier` 两个入参**不参与派生**（后端 `getInitializationPreview`
+ * 应用层文件头注已注明：预览按当前草稿的已填 facet key 生成），因此这里不发送它们——
+ * 发一个不被消费的参数只会让人以为"换个 tier 能预览另一种结果"。
+ */
+export async function getInitializationPreview(blueprintId: string): Promise<GetInitializationPreviewOut> {
+  return apiRequest<GetInitializationPreviewOut>(
+    templates.operations.getInitializationPreview.path.replace(":blueprintId", encodeURIComponent(blueprintId)),
+    { method: "GET" },
+  );
+}
+
+export type SetDurationTierOut = z.infer<typeof templates.operations.setDurationTier.out>;
+export interface SetDurationTierInput {
+  readonly blueprintId: string;
+  readonly tier: z.infer<typeof templates.operations.setDurationTier.in>["tier"];
+  readonly confirmed: boolean;
+  /** 乐观并发：取自 `listBlueprints` 那一行的 `versionNumber`。 */
+  readonly expectedVersion: string;
+}
+
+/**
+ * 第 16 项「基本配置」聚合页用：换时长档位（会增删可选环节）。
+ *
+ * ⚠ `confirmed: false` 是**预检**——后端返回 `CONFIRMATION_REQUIRED` 并附带将被增删的
+ * 环节，界面据此让人先看清再决定；`confirmed: true` 才真正落库。前端不得跳过预检直接
+ * 提交（那等于替用户拍板删环节）。
+ */
+export async function setDurationTier(input: SetDurationTierInput): Promise<SetDurationTierOut> {
+  return apiRequest<SetDurationTierOut>(
+    templates.operations.setDurationTier.path.replace(":blueprintId", encodeURIComponent(input.blueprintId)),
+    {
+      method: "PUT",
+      body: { tier: input.tier, confirmed: input.confirmed, expectedVersion: input.expectedVersion },
+    },
+  );
+}

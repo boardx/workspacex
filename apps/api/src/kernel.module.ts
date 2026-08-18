@@ -247,10 +247,14 @@ import {
   ATTACHMENT_TO_MARKDOWN, type AttachmentToMarkdownPort,
 } from "./application/chat/attachment-to-markdown.port";
 import {
+  ATTACHMENT_VISION, type AttachmentVisionPort,
+} from "./application/chat/attachment-vision.port";
+import {
   ATTACHMENT_EXTRACTION_STORE, type AttachmentExtractionStore,
 } from "./application/chat/attachment-extraction-store";
 import { ATTACHMENT_EXTRACTION_EXECUTOR } from "./application/chat/attachment-extraction-executor.port";
 import { AnydocAttachmentToMarkdown } from "./infrastructure/chat/anydoc-attachment-to-markdown";
+import { BailianVisionExtractor } from "./infrastructure/chat/bailian-vision-extractor";
 import { PgAttachmentExtractionRepository } from "./infrastructure/chat/pg-attachment-extraction-repository";
 import { AttachmentExtractionExecutor } from "./infrastructure/chat/attachment-extraction-executor";
 import { ChatAttachmentController } from "./interface/controllers/chat-attachment.controller";
@@ -268,6 +272,7 @@ import {
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
 import { PgFileRetrieval } from "./infrastructure/agent-run/pg-file-retrieval";
 import { PgAgentRunContextSnapshot } from "./infrastructure/agent-run/pg-agent-run-context-snapshot";
+import { PgRunImageInput } from "./infrastructure/agent-run/pg-run-image-input";
 import { PgToolTraceContext } from "./infrastructure/agent-run/pg-tool-trace-context";
 import { createCanvasTemplateGuidancePort } from "./application/agent-run/canvas-template-guidance";
 import { PgTokenUsageRepository } from "./infrastructure/auth/pg-token-usage-repository";
@@ -985,6 +990,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // #946 · F153/W1（V9-b）：附件内容抽取（anydoc）。三件：转换端口实现、outbox+结果仓储、
     // 执行器（kick 排空，autostart 同 agent-run 由 env 关）。复用 OBJECT_STORE / LOGGER_PORT。
     { provide: ATTACHMENT_TO_MARKDOWN, useClass: AnydocAttachmentToMarkdown },
+    // #1560 P1：图片走 VLM 视觉理解（百炼 Qwen-VL，复用 KERNEL_MODEL_API_KEY）。key 缺失时它
+    // 如实回 visionNotConfigured → 附件落 failed + 该原因，不静默留空、不假装抽到内容。
+    { provide: ATTACHMENT_VISION, useClass: BailianVisionExtractor },
     {
       provide: ATTACHMENT_EXTRACTION_STORE,
       useFactory: (db: DatabasePort) => new PgAttachmentExtractionRepository(db),
@@ -994,11 +1002,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: ATTACHMENT_EXTRACTION_EXECUTOR,
       useFactory: (
         store: ObjectStore, extraction: AttachmentExtractionStore,
-        converter: AttachmentToMarkdownPort, logger: LoggerPort,
+        converter: AttachmentToMarkdownPort, vision: AttachmentVisionPort, logger: LoggerPort,
       ) => new AttachmentExtractionExecutor(
-        store, extraction, converter, logger, process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",
+        store, extraction, converter, vision, logger,
+        process.env.KERNEL_ATTACHMENT_EXTRACTION_AUTOSTART !== "0",
       ),
-      inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, LOGGER_PORT],
+      inject: [OBJECT_STORE, ATTACHMENT_EXTRACTION_STORE, ATTACHMENT_TO_MARKDOWN, ATTACHMENT_VISION, LOGGER_PORT],
     },
     {
       provide: PUBLISHED_AGENT_READER,
@@ -1081,19 +1090,23 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       // `CanvasTemplateController` 完全相同的三个依赖（identity/templates/ids）组装，不新开
       // 第二条查询路径（见 `canvas-template-guidance.ts` 文件头）。没有独立缓存 provider：
       // 每次 run 都现查一次这张表，见该文件对「为什么不加缓存」的解释。
+      // P2（#1561）：推理侧图像通道同一条先例——生产合成必定注入 `PgRunImageInput`，
+      // 所以「这个部署的模型能不能看到用户传的图」由这一行决定，不是运行期的偶然。
+      // 它复用既有的 OBJECT_STORE（附件字节本来就存在那里），不新起一套存储绑定。
       useFactory: (
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
         db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
-        decisions: DecisionIdFactory,
+        decisions: DecisionIdFactory, store: ObjectStore,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
           new PgFileRetrieval(db), new PgAgentRunContextSnapshot(db), new PgToolTraceContext(db),
           createCanvasTemplateGuidancePort({ identity, templates, ids: decisions }),
+          new PgRunImageInput(db, store),
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
-        IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY,
+        IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道

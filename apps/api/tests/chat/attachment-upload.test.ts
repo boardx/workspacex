@@ -141,15 +141,29 @@ describe("POST /chat/threads/:threadId/attachments", () => {
     expect(r.extracted_excerpt).toContain("|");
   });
 
-  it("F153 端到端：上传图片 → 内联抽取判 unsupported（非失败），extracted_ref 保持 NULL", async () => {
+  /**
+   * #1560 P1 —— 旧断言是「图片 → unsupported」；图片现在走 VLM，语义随之改写（不是删掉）。
+   * 本测试进程**没有** `KERNEL_MODEL_API_KEY`，所以这条走的正是**真实降级路径**：真实的
+   * `BailianVisionExtractor` 自己判 key 缺失 → failed + `visionNotConfigured`。
+   * 这是本 issue 最要证的反证——没有视觉能力时**看得见地失败**，而不是留一个空的 extracted。
+   */
+  it("F153/#1560 端到端：上传图片 + 无视觉 key → 上传仍 201，抽取如实 failed(visionNotConfigured)", async () => {
+    expect(process.env.KERNEL_MODEL_API_KEY ?? "").toBe(""); // 前提：本进程确实没有 key
     const res = await upload({ filename: "pic.png", mime: "image/png", bytes: PNG });
-    expect(res.status).toBe(201);
+    expect(res.status).toBe(201); // 抽取失败不得影响上传本身
     const { id } = await res.json() as { id: string };
-    const row = await asApp(ORG, (c) => c.query<{ extraction_status: string; extracted_ref: string | null }>(
-      `SELECT extraction_status, extracted_ref FROM chat_message_attachments WHERE id=$1`, [id],
+    const row = await asApp(ORG, (c) => c.query<{
+      extraction_status: string; extracted_ref: string | null;
+      extracted_excerpt: string | null; extraction_error: string | null;
+    }>(
+      `SELECT extraction_status, extracted_ref, extracted_excerpt, extraction_error
+         FROM chat_message_attachments WHERE id=$1`, [id],
     ));
-    expect(row.rows[0]!.extraction_status).toBe("unsupported");
-    expect(row.rows[0]!.extracted_ref).toBeNull();
+    const r = row.rows[0]!;
+    expect(r.extraction_status).toBe("failed");
+    expect(r.extraction_error).toBe("visionNotConfigured"); // 原因如实可读，不是笼统失败
+    expect(r.extracted_ref).toBeNull();
+    expect(r.extracted_excerpt).toBeNull(); // 无幽灵成功：没有空摘录冒充抽到了内容
   });
 
   it("404: 不存在/不可见的线程 —— 裸 404，不写行", async () => {

@@ -21,16 +21,23 @@ interface CapDef {
   readonly defaultOn: boolean;
   readonly mustKeep: boolean;
   readonly usePlaceholder: string;
+  /**
+   * 原型 `CAPS_PANEL.caps[].state` 里跟在「开/关」后面的那半句限定语
+   * （「· 必留」「· 两天档才开」）。它不是装饰：「关」和「关 · 两天档才开」
+   * 对方法负责人是两件事——后者是在说"这一档不开、换个档位会开"，
+   * 丢了它就变成一个没有理由的关闭开关。
+   */
+  readonly stateQualifier: string | null;
 }
 
 export const GROUP_CAPABILITIES: readonly CapDef[] = [
-  { name: "与 AI 的对话", defaultOn: true, mustKeep: true, usePlaceholder: "本组共享推演，组员私聊汇总在这" },
-  { name: "用户访谈", defaultOn: true, mustKeep: false, usePlaceholder: "访谈 AI 代跑并回流转写" },
-  { name: "深度研究", defaultOn: true, mustKeep: false, usePlaceholder: "带出处的分路检索" },
-  { name: "用户研究", defaultOn: false, mustKeep: false, usePlaceholder: "概念测试与可用性回合" },
-  { name: "画布便签", defaultOn: true, mustKeep: false, usePlaceholder: "本组假设树与证据卡" },
-  { name: "组内投票", defaultOn: true, mustKeep: false, usePlaceholder: "收敛用，结果回主持台" },
-  { name: "证据检索", defaultOn: true, mustKeep: false, usePlaceholder: "从洞察库与转写里取证" },
+  { name: "与 AI 的对话", defaultOn: true, mustKeep: true, usePlaceholder: "本组共享推演，组员私聊汇总在这", stateQualifier: "必留" },
+  { name: "用户访谈", defaultOn: true, mustKeep: false, usePlaceholder: "访谈 AI 代跑并回流转写", stateQualifier: null },
+  { name: "深度研究", defaultOn: true, mustKeep: false, usePlaceholder: "带出处的分路检索", stateQualifier: null },
+  { name: "用户研究", defaultOn: false, mustKeep: false, usePlaceholder: "概念测试与可用性回合", stateQualifier: "两天档才开" },
+  { name: "画布便签", defaultOn: true, mustKeep: false, usePlaceholder: "本组假设树与证据卡", stateQualifier: null },
+  { name: "组内投票", defaultOn: true, mustKeep: false, usePlaceholder: "收敛用，结果回主持台", stateQualifier: null },
+  { name: "证据检索", defaultOn: true, mustKeep: false, usePlaceholder: "从洞察库与转写里取证", stateQualifier: null },
 ];
 
 const REFLOW = [
@@ -143,14 +150,13 @@ export function CapsPanelEditor({
 
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
-      <p className="mb-3 text-11 text-muted-foreground">
-        现场每个小组能直接调用的东西。开得越多越散——蓝本的作用是替引导师先关掉不需要的。
+      <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
-          <span className={status === "error" ? "ml-2 text-destructive" : "ml-2"} data-testid="bp-facet-save-status">
+          <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
-      </p>
+      </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-caps-list">
         <h3 className="mb-2 text-13 font-semibold">组员用它做什么（套用后每组左栏就是这一列）</h3>
@@ -184,7 +190,7 @@ export function CapsPanelEditor({
                   className="shrink-0 rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground"
                   data-testid={`bp-caps-state-${c.name}`}
                 >
-                  {on ? (c.mustKeep ? "开 · 必留" : "开") : "关"}
+                  {`${on ? "开" : "关"}${c.stateQualifier === null ? "" : ` · ${c.stateQualifier}`}`}
                 </span>
               </li>
             );

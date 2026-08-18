@@ -41,6 +41,13 @@ import type { OrgId } from "../../domain/org-id";
 export type ContextLayerStatus = "ok" | "degraded" | "not_configured";
 
 /**
+ * P2（#1561）—— 本轮图像输入的四态。语义逐字见 `AgentRunContextSnapshotInput.visionStatus`
+ * 的文档（唯一事实源在那里，这里不复述）。
+ */
+export type VisionInputStatus =
+  | "none" | "not_configured" | "not_supported" | "degraded" | "ok";
+
+/**
  * L3 查询这一次 run 走的是哪条**范围分支**（F156 delta §2 点 2）——与 `l3Sources`
  * （命中的**内容类型**，`chat-attachment`/`canvas-artifact`）是正交的两个维度，不能合并：
  * 一次 `own-attachment` 范围的查询命中的一样是 `chat-attachment` 这个 kind。
@@ -83,6 +90,35 @@ export interface AgentRunContextSnapshotInput {
   readonly toolTraceRunCount: number;
   /** F190：实际回喂的 tool_call step 总数（跨 `toolTraceRunCount` 条 run 累加）。 */
   readonly toolTraceStepCount: number;
+  /**
+   * P2（#1561）—— 本轮图像输入这一层发生了什么。四态，刻意**不**复用 `ContextLayerStatus`：
+   * 那个三态里没有「这一轮根本没有图」与「有图但这个模型看不到」的区别，而这两件事在
+   * 审计上必须分得开——前者是常态，后者是 #1558 那个用户实际撞上的缺口，把它们糊成
+   * 同一个 `not_configured` 就等于让审计链在最需要看清的那一格上失明。
+   *
+   *   - `none`          —— 本轮触发消息没有挂任何图片附件（绝大多数 run）。
+   *   - `not_configured`—— 挂了图，但这次执行根本没接图像通道（`deps.runImages` 缺省，
+   *                        例如 `trial-run-agent` 一类路径）。与 L3 的同名值同一语义
+   *                        （「没打开」≠「打开了但这次失败了」）。这一态**不额外写提示**：
+   *                        F153 的附件提示（`withAttachmentNotice`）已经如实告诉模型
+   *                        「这个附件读不到内容」，再加一句是重复而不是更诚实。
+   *   - `not_supported` —— 挂了图，但本次 run 绑定的模型不具备视觉输入能力
+   *                        （`ModelCallPort.supportsVision` 不为 true）。**图没有被送出去，
+   *                        且模型被明确告知它看不到**——不是静默丢弃。
+   *   - `degraded`      —— 模型有视觉能力、也确实有图，但这一轮取字节失败/取不到
+   *                        （DB 抖动、对象存储里没有这个 key），一张都没送成。同样如实告知。
+   *   - `ok`            —— 至少送成了一张。送了几张看 `visionImageCount`，
+   *                        有没有因上界被挡下的看 `visionOmittedCount`。
+   */
+  readonly visionStatus: VisionInputStatus;
+  /** P2：本轮**真的送进模型**的图片张数。`ok` 之外的三态恒为 0。 */
+  readonly visionImageCount: number;
+  /**
+   * P2：本轮挂了、但没能送进模型的图片张数（不支持视觉 / 超单张体积上限 / 超张数上限 /
+   * 取字节失败）。它与 `visionImageCount` 相加 = 本轮触发消息上的图片附件总数——审计链
+   * 上「用户传了几张 vs 模型看到了几张」这个差额，是 #1561 要求快照必须能回答的那件事。
+   */
+  readonly visionOmittedCount: number;
   /** 保守字符预算换算出的估值，不是真实 token 数——见本文件头注。 */
   readonly estimatedTokens: number;
 }

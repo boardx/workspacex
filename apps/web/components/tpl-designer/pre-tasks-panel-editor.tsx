@@ -137,14 +137,13 @@ export function PreTasksPanelEditor({
 
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
-      <p className="mb-3 text-11 text-muted-foreground">
-        每项任务必须挂到具体环节，并写清「不做会怎样」。挂不上环节的任务就是无意义的作业，参与者能感觉到。
+      <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
-          <span className={status === "error" ? "ml-2 text-destructive" : "ml-2"} data-testid="bp-facet-save-status">
+          <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
-      </p>
+      </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-hw-list">
         <h3 className="mb-2 text-13 font-semibold">任务清单</h3>

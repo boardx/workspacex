@@ -143,14 +143,13 @@ export function VenuePanelEditor({
 
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
-      <p className="mb-3 text-11 text-muted-foreground">
-        场地不是后勤细节，它决定分组能不能真的分开讨论。写成清单，套用时直接变成待办。
+      <div className="mb-2 flex items-center gap-1.5">
         {status !== "idle" && (
-          <span className={status === "error" ? "ml-2 text-destructive" : "ml-2"} data-testid="bp-facet-save-status">
+          <span className={status === "error" ? "text-11 text-destructive" : "text-11 text-muted-foreground"} data-testid="bp-facet-save-status">
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
-      </p>
+      </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-venue-space">
         <h3 className="mb-2 text-13 font-semibold">空间要求（套用时直接变成待办）</h3>

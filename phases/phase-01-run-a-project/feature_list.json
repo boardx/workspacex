@@ -4682,6 +4682,74 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F206",
+      "title": "分组四/五四项配置面板结构化编辑 + 15 项全覆盖机械门控（Agent 编排 / Skill 绑定 / 输出物 / 报告模板）",
+      "user_visible_behavior": "组织管理员在 /tpl/designer 点开「Agent 编排」，看到可增删改的在场 agent 清单（名称 / 做什么 / 在场环节 / 是否可主动发言 / 默认开还是按需召唤单选）+ 可改的介入阈值数值 + 只读的阈值史 AI 卡、三条介入规则、四条不可放开的硬约束；点开「Skill 绑定」，看到按环节绑定的 Skill 清单（环节号 / Skill 名 / 说明，可增删），组织层已降级的 Skill 显示只读「已降级 · 待替换」徽标并在顶部出现阻断发布的警告条；点开「输出物」，看到产出清单（名称 / 必须项勾选 / 生成方式 / 去向）+ 只读的回流规则与四条结项检查；点开「报告模板」，看到带编号的客户交付版章节骨架（标题 / 由谁写 / 必须人写勾选，可增删）+ 只读的内部复盘版说明、四条写作硬约束与历史数据卡。至此 16 项配置目录里的 15 个 designFacetKey 全部落在专属结构化编辑器上，不再有任何一项是通用自由文本框；这一点由一条机械门控测试钉住（任何一项退回通用编辑器都会让测试变红并指名是哪个 key）。四项任意编辑后即真实调用 updateDesignFacet 落库，完成度按服务端响应更新，刷新后仍在。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F205"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
+      ],
+      "evidence": "evidence/F206.verify.log @ 2026-08-18T07:54:05.918Z",
+      "notes": "① 收尾 F204/F205 起的补齐工作：人类 2026-08-18 批评「11/15 项仍然是通用 textbox」，本 feature 后 15/15 全部结构化。\n② 逐项对照 designer-panels.tsx 的 AgentPanel/SkillPanel/OutputsPanel/ReportPanel 与 lib/mock/tpl.ts 的对应 *_PANEL。刻意以原型为准、把「不是蓝本可配置项」的内容保持只读的地方，各编辑器文件头注逐条说明：\n   · Agent 编排：intervention.rules 三条与 hardLimits 四条是产品级约束（原型用 ✓/Lock 渲染成静态清单），保持只读不给任何开关；阈值史是 AiNote 只读卡；只有 agent 行与 repeatThreshold 可编辑。state 原型只有「默认开」「按需召唤」两类语义，做成单选。\n   · Skill 绑定：degraded 是组织层 Skill 治理的投影（某 Skill 满意度跌破阈值被组织降级），蓝本侧不能「改成没降级」——渲染成只读徽标 + 阻断发布警告条，用户能做的是解绑或换一个。原型的 degradeWarning 是硬编码一条文案，这里改成按实际数据条件渲染（把静态示意接上真实数据，不是自行设计新交互）。\n   · 输出物：reflowRule 与 closeChecks 是产品级约束，原型即静态说明，保持只读；gen/to 原型是自由文本徽标（\"AI 提取 · 人确认\"/\"决策台账\"），不发明枚举。\n   · 报告模板：internal.note、writingRules 四条、historyNote 都是只读；by 原型出现「AI 起草」「AI 生成」「必须保留」「必须人写」等多种值不是闭集，保持自由文本，只把「必须人写」抽成布尔（原型正是按 by 是否含「必须」二字切换 danger/ai 徽标）。\n③ 契约面零新增：四项都仍写进 updateDesignFacet 的 content: string 字段。\n④ **机械门控 + 反证**（本 feature 的关键交付）：新增 describe「16 项配置面板：全部落在专属结构化编辑器上」两条——(a) 遍历 DESIGN_FACET_CATALOG 的每个 designFacetKey，断言 getFacetEditor 返回的都不是 FacetTextEditor，失败时直接列出仍是 textbox 的 key；(b) 反证条：未登记的假 key 仍落回通用编辑器，保证兜底没被误删。已实测反证：临时从 registry 摘掉 report-template，门控立刻变红并指名 [\"report-template\"]，恢复后转绿——不是写完就绿的空门控。\n⑤ 此前那三条「通用文本编辑器」读写链路测试（真实内容回显 / PUT 带 itemRevision / 完成度按响应更新 / VERSION_CHANGED 如实提示）原绑在还是自由文本的 key 上，15 项全结构化后已无此类 key，改绑到 outputs 的结构化编辑器，断言的是同一条链路，覆盖面未删减。\n⑥ 范围边界——不做：第 16 项「基本配置」聚合页（复用 getInitializationPreview/setDurationTier 的聚合视图，属另一个 feature，本 feature 只覆盖 15 个 designFacetKey 面板）。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F207",
+      "title": "第 16 项「基本配置」聚合页接线（时长档位预检/确认两步 + 六类初始化预览）",
+      "user_visible_behavior": "组织管理员在 /tpl/designer 侧栏顶部点「基本配置」，打开 16 项里唯一不是 designFacetKey 的聚合页：① 时长档位——五档卡片，当前档来自服务端那一行（不是前端默认值），点另一档先发预检请求（confirmed:false，带真实 expectedVersion），后端要求确认时界面如实列出「新增 N 个环节 / 移除 N 个可选环节 / 其中 N 个可恢复（切回该档位它们会回来，不是永久删除）」，点「确认切换」才发落库请求（confirmed:true）并重读蓝本；点「取消」不发任何落库请求、档位不变。② 套用后会初始化什么——六类恒定展示（议程环节/分组/角色分工/材料清单/会前任务/画布与产出物），服务端只返回其中一类时其余五类也出现并写明「这一类这次不会初始化任何东西」，「这次没有分组」与「我们不初始化分组」可分辨。初始化预览读失败时只有那一节报错，其余 15 项面板照常能打开。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F206"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-shell.test.tsx"
+      ],
+      "evidence": "evidence/F207.verify.log @ 2026-08-18T08:09:36.198Z",
+      "notes": "① 收尾 F204/F205/F206：15 个 designFacetKey 面板已全部结构化，本 feature 补上第 16 项。它是 16 项里唯一**不是 designFacetKey** 的一项——聚合的是蓝本本体字段（时长档位）与服务端派生的只读视图（初始化预览），因此不走 facet 读写，直接调 setDurationTier / getInitializationPreview 两个已签核契约操作。\n② 新增两个前端 wrapper（`live-blueprints.ts`）。getInitializationPreview 契约的 versionId/tier 两个入参**不参与派生**（后端应用层文件头注已注明：预览按当前草稿的已填 facet key 生成），因此不发送它们——发一个不被消费的参数会让人以为「换个 tier 能预览另一种结果」。\n③ **修正一条过期注释（静态痕迹 ≠ 动态事实）**：`blueprint-designer-page-live.tsx` 头注原写着「换时长档位——设计器页面没有对应交互入口，live-blueprints.ts 也还没封装 setDurationTier」；实测契约里 BlueprintRow 一直含 versionNumber，设计器外壳本来就加载了这一行，expectedVersion 的来源从来不缺。本 feature 接线后已把该注释改成如实描述。\n④ 逐项对照 designer-panels.tsx 的 BasicOverviewPanel。原型有五节，本组件**如实收窄到真实有后端的两节**，其余三节不做假 UI（组件头注逐条说明）：形式与语言——蓝本本体没有这两个字段，「形式」已在第 9 项 venue-and-format facet 里真实可配（F205），不在这里重复造第二个入口（同一事实不得声明在两处），「语言」没有任何存储落点，造一个存不进去的选择器就是假 UI；模型策略三车道与配额降级——是组织层设置（见 F159/F160/F161）不是蓝本字段，原型画在这里是示意，真接线要走组织设置既有屏。\n⑤ 换档刻意做成两步：confirmed:false 预检 → 人看清增删 → confirmed:true 落库。前端不得跳过预检直接提交（那等于替用户拍板删环节）；被移除的可选环节是 recoverable，确认框里如实写出「切回该档位它们会回来，不是永久删除」，否则用户会以为环节被永久删掉。\n⑥ **测试逼出一个真实 bug**：第一版从 `e.detail` 读预检返回的增删清单，但 `api-client.ts` 的 ApiError 把完整失败信封挂在 `.raw` 上、只把 reasonCode 提到顶层——结果界面把「移除 2 个」显示成「移除 0 个」，用户会以为切档不删环节。测试红了才发现，已改为读 `raw.detail` 并在代码里注明这一条。\n⑦ 侧栏入口刻意**不用** `bp-designer-facet-*` 前缀（用 `bp-designer-basic-overview-entry`）：第 16 项不是 designFacetKey，而「侧栏项集合 ＝ 定义表 key 集合」那条零漂移门控按该前缀扫侧栏，用了会被误判成「侧栏多了一项」。这条门控是对的，不该为它让路——实测过：先用 facet 前缀时该门控立刻变红并指名 basic-overview。\n⑧ 验证：新增 4 条组件测试（六类恒定含空类可分辨 / 换档两步且预检带真实 expectedVersion / 取消不发落库请求 / 预览读失败只影响那一节且其余面板照常打开），既有 50 条设计器测试无回归。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F208",
+      "title": "端到端自检：蓝本设计器 16 项全部结构化，真栈里真读真写真落库（真实浏览器验收线）",
+      "user_visible_behavior": "真栈 e2e（真 Next.js + 真 Nest + 真 Postgres + 真实浏览器）里：登录组织管理员 → 新建蓝本 → 打开 /tpl/designer → 逐个点开定义表里的 15 个 designFacetKey，每一项都断言专属结构化编辑器根节点可见、且通用自由文本框锚点 bp-facet-content-* 计数为 0 → 再点开第 16 项「基本配置」聚合页，断言时长档位区、初始化预览区、六类恒定分类都在 → 挑三种不同形态的面板（多字段型的主题与背景 / 增删型的问卷 / 矩阵型的角色与权限）做真实编辑，各自等到真实 PUT 200 → 刷新页面，断言每个值都回到它原来那一格（证明存的是结构化 JSON 而不是拼接文本）→ 断言锁定格在真栈里也是禁用的 → 最后断言完成度徽标的数字来自服务端响应且分母为 15。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F207"
+      ],
+      "points": 2,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm run verify:fullstack-smoke"
+      ],
+      "evidence": "evidence/F208.verify.log @ 2026-08-18T08:48:26.184Z",
+      "notes": "① 为什么需要这一条、它与组件测试不重复：F204–F207 的组件测试都是在 jsdom 里对着 mock fetch 断言，registry 覆盖门控也只是断言 getFacetEditor 的返回值。人类 2026-08-18 的批评原话是「后台项目的每个项目配置菜单，现在都是一个 textbox」——要回答的是「一个真人打开这个页面逐个点过去，看到的是不是 16 个结构化面板」，这只能在真栈里断。本用例专盯三件 mock 下测不出来的事：逐项点开后 DOM 里不存在通用文本框锚点；真实编辑→真实 PUT→刷新后值仍在原来那一格；完成度数字来自服务端响应。\n② 15 个 key 取自生成的 DESIGN_FACET_CATALOG 而不是本文件手抄一份（抄一份就会漂移），并额外钉住「正好 15 项」，避免定义表少一项时用例照样全绿。\n③ 自检真的抓到了问题，不是写完就绿：第一版断言「改议程 × 组长」是锁定格，真栈里红了——原因是该格只在 F203（把占位锁定数据换成原型真实 permRows[].lockedFor）之后才是锁的，而 F203 走的是另一条分支（PR #1529），与本分支血统上还没汇合。据实改成「改议程 × 组员」（占位版与 F203 版**两边都锁**），并在用例里写明缘由——不是挑软柿子让测试变绿，是红的原因属于血统而非行为。\n④ 同批修掉一条被本轮改动打红的既有真栈用例（blueprint-contract-gap-audit 的 F193）：它找 bp-facet-content-pre-tasks 那个 textarea，而 F204 已把 pre-tasks 换成结构化面板。用例里那句「用 pre-tasks（还未被拆成结构化面板的通用编辑 key）」的假设随 15 项全结构化而彻底失效，改成走结构化面板的真实交互；至此没有任何 key 还是自由文本框，这条用例不能再靠「换一个还没结构化的 key」绕开。\n⑤ 同批修掉一条与本轮无关、但会持续卡 pre-push 的既有测试竞态（admin-members-boundary）：它 waitFor 的是容器，而容器在「读取中…」loading 态就已渲染，紧接着的裸 getByTestId 要求 fetch 已 resolve，turbo 多 worker 并发时就红。改成 findByTestId 那一行。反证：把 mock fetch 人为延迟 20ms，旧写法复现 CI 上一模一样的报错、新写法 4 passed。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
       "id": "F199",
       "title": "createProject 创建者自动获得容器最高权限角色（推翻 Q-4②：facilitator/owner）",
       "user_visible_behavior": "任意通过 createProject 成功建出容器（工作坊/研究项目/用户洞察）的人，建完立刻就能进入并使用自己建的这个容器——不再出现「建了项目却读不到内容」（ADMIN_NOT_SUPERUSER/NO_PROJECT_ROLE）。工作坊容器：创建者获得 facilitator（引导师）角色，is_host=true。研究项目/用户洞察容器：创建者获得 owner（所有者）角色。全部与容器同一个事务写入，不存在“容器建成、角色没跟上”的中间态。",

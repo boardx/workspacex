@@ -20,11 +20,14 @@
 import type { DatabasePort } from "../../application/ports/database.port";
 import type {
   AppendVersionCmd,
+  ApplyStickyRevisionCmd,
   CanvasInstanceFacts,
   CanvasInstanceRepository,
   CanvasInstanceRow,
   CanvasInstanceVersionRow,
   CreateInstanceCmd,
+  StickyPatchFacts,
+  StickyRevisionRow,
   TemplateContentFacts,
 } from "../../application/canvas/instance-ports";
 import type { OrgId } from "../../domain/org-id";
@@ -232,6 +235,86 @@ export class PgCanvasInstanceRepository implements CanvasInstanceRepository {
         contentHash: row.content_hash,
       };
     });
+  }
+
+  async findCurrentStickyRevision(
+    orgId: OrgId,
+    instanceId: string,
+    stickyId: string,
+  ): Promise<StickyRevisionRow | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ id: string; client_ts: string; patch: unknown }>(
+        `SELECT id, client_ts, patch FROM canvas_sticky_revisions
+          WHERE org_id = $1 AND instance_id = $2 AND sticky_id = $3 AND is_current`,
+        [orgId, instanceId, stickyId],
+      );
+      const row = r.rows[0];
+      if (row === undefined) return null;
+      return {
+        revisionId: row.id,
+        clientTs: row.client_ts,
+        patch: row.patch as StickyPatchFacts,
+      };
+    });
+  }
+
+  async applyStickyRevision(cmd: ApplyStickyRevisionCmd): Promise<"applied" | "head_moved"> {
+    // `withTenant` 一次调用 = 一个事务：修订行、current 指针翻转、版本行三件事
+    // 要么全落要么全不落——「只成功一半」会造出没有版本对应的修订（或反之）。
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      if (cmd.newVersion !== undefined) {
+        // 同 `appendVersion` 的 CTE（判定与写入同一条语句）；零行 ⇒ 应用层计算新
+        // markdown 所基于的 head 已被并发推进 ⇒ 抛错回滚整个事务，翻译成 "head_moved"。
+        const v = await s.query<{ id: string }>(
+          `WITH bump AS (
+             UPDATE canvas_instances
+                SET head_version = head_version + 1
+              WHERE org_id = $1 AND id = $2 AND head_version = $3
+              RETURNING id, head_version
+           )
+           INSERT INTO canvas_instance_versions
+             (id, org_id, instance_id, version, markdown, content_hash, created_by)
+           SELECT $4, $1, bump.id, bump.head_version, $5, $6, $7 FROM bump
+           RETURNING id`,
+          [
+            cmd.orgId, cmd.instanceId, cmd.newVersion.expectedHeadVersion,
+            cmd.newVersion.versionId, cmd.newVersion.markdown,
+            cmd.newVersion.contentHash, cmd.createdBy,
+          ],
+        );
+        if (v.rows.length === 0) throw new StickyHeadMoved();
+      }
+      if (cmd.winning) {
+        // 旧 current → 历史。部分唯一索引 canvas_sticky_revisions_current_uniq
+        // 是这条 UPDATE 写漏时的最后防线（两个 current 直接撞索引）。
+        await s.query(
+          `UPDATE canvas_sticky_revisions SET is_current = false
+            WHERE org_id = $1 AND instance_id = $2 AND sticky_id = $3 AND is_current`,
+          [cmd.orgId, cmd.instanceId, cmd.stickyId],
+        );
+      }
+      await s.query(
+        `INSERT INTO canvas_sticky_revisions
+           (id, org_id, instance_id, sticky_id, patch, client_ts, is_current, created_by)
+         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8)`,
+        [
+          cmd.revisionId, cmd.orgId, cmd.instanceId, cmd.stickyId,
+          JSON.stringify(cmd.patch), cmd.clientTs, cmd.winning, cmd.createdBy,
+        ],
+      );
+      return "applied" as const;
+    }).catch((e) => {
+      if (e instanceof StickyHeadMoved) return "head_moved" as const;
+      throw e;
+    });
+  }
+}
+
+/** 仅在 `applyStickyRevision` 的事务里流通：head 已被并发推进 ⇒ 回滚并翻译成 "head_moved"。 */
+class StickyHeadMoved extends Error {
+  constructor() {
+    super("canvas head moved during sticky revision");
+    this.name = "StickyHeadMoved";
   }
 }
 

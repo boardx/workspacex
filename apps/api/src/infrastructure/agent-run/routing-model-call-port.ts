@@ -69,6 +69,19 @@ export class RoutingModelCallPort implements ModelCallPort {
   }
 
   /**
+   * P2（#1561）—— 同 `supportsProgress` 的 per-run 能力查询，但**默认方向相反**：路由到的
+   * port 自己没有实现 `supportsVision` 时，这里回 `false`（看不到），而不是"存在即支持"。
+   * 理由逐字见 `ModelCallPort.supportsVision` 的文档——视觉输入没有一个专属方法可以当作
+   * 存在性证据，一个 provider 收下 `images` 却什么都不做，在类型上与真的看到了完全一样，
+   * 所以只能 fail closed。注册表里没有这个 provider 时同样回 `false`：那次调用本来就会
+   * 在 `complete` 里以 `MODEL_PROVIDER_NOT_CONFIGURED` 失败，能力查询不该先替它抛。
+   */
+  supportsVision(modelProvider: string, modelId: string): boolean {
+    const port = this.ports.get(modelProvider);
+    return port?.supportsVision?.(modelProvider, modelId) ?? false;
+  }
+
+  /**
    * #654 阶段2a — ALWAYS defined on the router itself (unlike an individual port, where
    * absence means "cannot stream"). The router's job is dispatch, and dispatch always
    * succeeds; whether the ROUTED-TO port can stream is decided per-call, by checking that

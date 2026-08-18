@@ -16,6 +16,8 @@ import {
   mergeAuthorization,
   parseClosesIssues,
   parseRefsIssues,
+  issueTraceabilityFailure,
+  classifyApprovals,
   postMergeGaps,
   resolveCoordMode,
   type PrFacts,
@@ -234,6 +236,43 @@ describe("#451 PR 队列状态机", () => {
     // 不能把裸 #号或 Closes 误当成 Refs
     expect(parseRefsIssues("见 #451 的讨论")).toEqual([]);
     expect(parseRefsIssues("Closes #451")).toEqual([]);
+  });
+});
+
+describe("ADR-107 阶段二 a：与 merge-gate 共享的判据（防两处分叉）", () => {
+  it("issueTraceabilityFailure 与 classifyPr 条件 1 结论一致——防哪天单独改一处又分叉", () => {
+    const cases = [
+      { body: "Closes #451", expectFail: false },
+      { body: "Refs #1493", expectFail: false },
+      { body: "既无关联也无引用", expectFail: true },
+    ];
+    for (const c of cases) {
+      const shared = issueTraceabilityFailure(c.body);
+      const viaClassify = classifyPr({
+        ...greenFacts(),
+        closesIssues: parseClosesIssues(c.body),
+        refsIssues: parseRefsIssues(c.body),
+      });
+      const classifyBlocked = viaClassify.reasons.join("\n").includes("追溯不到任何 issue");
+      expect(Boolean(shared), c.body).toBe(c.expectFail);
+      expect(classifyBlocked, c.body).toBe(c.expectFail);
+    }
+  });
+
+  it("classifyApprovals 三分类互斥且完备（独立当前 / 自审 / 陈旧）", () => {
+    const facts = classifyApprovals(
+      [
+        { author: "rev-a", state: "APPROVED", commit: HEAD },   // 独立 + 当前
+        { author: "worker-agent", state: "APPROVED", commit: HEAD }, // 自审
+        { author: "rev-b", state: "APPROVED", commit: OLD },    // 独立 + 陈旧
+        { author: "rev-c", state: "COMMENTED", commit: HEAD },  // 不是 APPROVE，全部不计
+      ],
+      "worker-agent",
+      HEAD,
+    );
+    expect(facts.independentCurrentSha.map((r) => r.author)).toEqual(["rev-a"]);
+    expect(facts.selfApprovals.map((r) => r.author)).toEqual(["worker-agent"]);
+    expect(facts.staleApprovals.map((r) => r.author)).toEqual(["rev-b"]);
   });
 });
 

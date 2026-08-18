@@ -208,6 +208,9 @@ export function classifyPr(facts: PrFacts): PrClassification {
   // 这条检查的本意是"能追溯到 issue"（#956 事故是完全没有任何 issue 关联），
   // 不是"必须由这个 PR 关闭"——两件事之前混成了一条规则，现在拆开：Closes 或
   // Refs 任一存在都算满足"可追溯"，不再要求必须是 Closes。
+  // 判据本体在 issueTraceabilityFailure（与 merge-gate.ts 共享，见其定义处）。
+  // 这里 facts 已经是解析好的 issue 号数组，直接用长度判断，语义与共享判据一致；
+  // pr-queue.test.ts 有一条用例机械比对两者结论，防止哪天单独改一处又分叉。
   if (facts.closesIssues.length === 0 && facts.refsIssues.length === 0) {
     blocked.push(
       "PR 正文既没有 `Closes #N` 也没有 `Refs #N`——追溯不到任何 issue（AGENTS.md 完成定义第 5 条）",
@@ -269,14 +272,13 @@ export function classifyPr(facts: PrFacts): PrClassification {
   }
 
   // ── 5. review 锚定 SHA + 禁止自审 ────────────────────────────────────────
-  const approvals = facts.formalReviews.filter((r) => r.state.toUpperCase() === "APPROVED");
-  const selfApprovals = approvals.filter((r) => r.author === facts.author);
+  // 事实分类走共享的 classifyApprovals（与 merge-gate.ts 同一份算法，见其定义处）；
+  // 但**怎么用**这些事实两边不同，那是各自的规则，不共享。
+  const { independentCurrentSha: currentShaApprovals, selfApprovals, staleApprovals } =
+    classifyApprovals(facts.formalReviews, facts.author, facts.headSha);
   if (selfApprovals.length > 0) {
     blocked.push(`作者自审：${facts.author} 自己 approve 了自己的 PR——独立性是 review 的全部意义（铁律 1）`);
   }
-  const independentApprovals = approvals.filter((r) => r.author !== facts.author);
-  const currentShaApprovals = independentApprovals.filter((r) => r.commit === facts.headSha);
-  const staleApprovals = independentApprovals.filter((r) => r.commit !== facts.headSha);
 
   if (facts.formalReviews.some((r) => r.state.toUpperCase() === "CHANGES_REQUESTED" && r.commit === facts.headSha)) {
     changes.push("当前 head SHA 上有 CHANGES_REQUESTED 的正式 review");
@@ -359,6 +361,58 @@ export function parseRefsIssues(body: string): number[] {
   const re = /\bref[s]?\s+#(\d+)\b/gi;
   for (const m of body.matchAll(re)) out.add(Number(m[1]));
   return [...out].sort((a, b) => a - b);
+}
+
+// ── 与 merge-gate.ts 共享的判据（ADR-107 阶段二 a，2026-08-18）─────────────
+//
+// ⚠ 范围说明（实测修正 ADR-107 的原始设想，别照 ADR 正文直接理解）：
+//
+// ADR-107 阶段二 a 原本写的是"merge-gate 变成对 pr-queue 判定结果的薄包装"。
+// 实测两条否决它：
+//   ① `merge-gate` job 在 harness-verify.yml 里**没有 needs**，与 verify-* 并发
+//      跑；而 classifyPr 要求全部 REQUIRED_CHECKS 存在且为绿，否则判 WAITING_CI。
+//      薄包装会让 merge-gate 在那些 check 还在跑时永远看到 pending ⇒ 恒失败。
+//   ② 两个模块的条件 2/3 **不是重复，是不同的规则**：
+//      · 条件 2：pr-queue 判"ok 与 changes 标签自相矛盾"；merge-gate 判"恰好
+//        一个 review:* 标签"（零个/多个都失败）——不同判据。
+//      · 条件 3：pr-queue 判"**有** ok 标签**但**缺 approve 背书"（来路不明的
+//        verdict）；merge-gate 判"approve 与 ok 标签**都没有**"——触发条件相反。
+//   ⇒ 强行合并会把两套真实存在的不同规则揉成一套，那是引入 bug，不是消除重复。
+//
+// 真正逐字重复的只有**条件 1（issue 可追溯）**，抽在下面。approve 相关的事实
+// 计算（哪些是独立的/锚定当前 head 的/陈旧的）两边算法一样、用途不同，也抽出来
+// 共享，避免再出现 #1547 那种"改了一处忘另一处"。
+
+/** 条件 1 共享判据：PR 能否追溯到 issue。返回失败理由；null = 通过。 */
+export function issueTraceabilityFailure(body: string): string | null {
+  if (parseClosesIssues(body).length === 0 && parseRefsIssues(body).length === 0) {
+    return "PR 正文既没有 `Closes #N` 也没有 `Refs #N`——追溯不到任何 issue（AGENTS.md 完成定义第 5 条）";
+  }
+  return null;
+}
+
+/** approve 事实的分类结果——两个模块算法相同，但下游怎么用各不相同。 */
+export interface ApprovalFacts {
+  /** 非作者本人 + 锚定当前 head 的 APPROVE */
+  independentCurrentSha: FormalReview[];
+  /** 作者自己 approve 自己 */
+  selfApprovals: FormalReview[];
+  /** 非作者本人但锚在旧 SHA（head 已漂移，结论失效） */
+  staleApprovals: FormalReview[];
+}
+
+/** 把 review 列表按"独立性 + 是否锚定当前 head"分类。纯函数，无 IO。 */
+export function classifyApprovals(
+  reviews: FormalReview[],
+  author: string,
+  headSha: string,
+): ApprovalFacts {
+  const approvals = reviews.filter((r) => r.state.toUpperCase() === "APPROVED");
+  return {
+    independentCurrentSha: approvals.filter((r) => r.author !== author && r.commit === headSha),
+    selfApprovals: approvals.filter((r) => r.author === author),
+    staleApprovals: approvals.filter((r) => r.author !== author && r.commit !== headSha),
+  };
 }
 
 export interface MergeAuthorization {

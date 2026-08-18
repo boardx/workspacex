@@ -9,7 +9,8 @@
 > 本清单由 coord-architecture 代拟，等 coord-main 分派。
 >
 > **技术决策已锁定**（详见 `PROP-CONTEXT-ENGINE-001.md`）：对象存储 = 本地 MinIO
-> （`apps/api/docker-compose.dev.yml` 已配置）；OCR = tesseract.js；ASR = FunASR
+> （`apps/api/docker-compose.dev.yml` 已配置）；OCR = ~~tesseract.js~~ → **VLM 视觉理解**
+> （2026-08-18 / #1560 改写方向，见下方 CE-014 行）；ASR = FunASR
 > （独立 Python 服务，同 `apps/deep-agent-service` 的部署模式）。
 
 ## Epic CE-E0 — 决策与签核
@@ -28,7 +29,7 @@
 | CE-011 | P0 | ⬜ 未开始 | 生产环境对象存储配置切换（fs → MinIO） | CE-010 | 一个环境变量/配置开关切换实现，不改上层代码；现有 `fs-object-store.test.ts` 的契约测试对 MinIO 实现重跑一遍全绿 |
 | CE-012 | P0 | ⬜ 未开始 | 真实 PDF 解析（替换"字节当 UTF-8 文本"的 stub） | 无 | 解析统一用 `@firecrawl/anydoc`（人类 2026-08-11 裁决「解析统一用 anydoc」；W1/#934 已过依赖评审），提取真实文本+**heading 级锚点**；反证：喂真实多章节文档，anchor 对应真实 heading（非 PDF 走 `toDocument` 的 heading id；PDF 无 document-model 直出 markdown，锚到输出的 heading 行）。⚠ **具名缺口 GAP-CE-012-PAGE**：anydoc 类型面无任何 page 字段、PDF 无 `toDocument`，「页码锚点」anydoc 不支撑（F153 实测 2026-08-11，coord-main 据人类「解析统一用 anydoc」授权将反证降为 heading 级；页码维度待上游支持或另立专项，人类可推翻） |
 | CE-013 | P0 | ⬜ 未开始 | 真实 Office 解析（docx/pptx，替换 stub） | 无 | 解析统一用 `@firecrawl/anydoc`（同 CE-012 的人类裁决，docx/pptx 同库），提取真实文本；`generatorModel` 字段如实写真实库名+版本，不再是 `"deterministic-document-parser"` |
-| CE-014 | P0 | ⬜ 未开始 | tesseract.js OCR 真实接入 | 无 | 真实识别一张含文字的真实图片，`derived_representations` 落真实识别文本 + 置信度；`generatorModel` 如实写 `tesseract.js@<version>`，不再是 `"stub-ocr-engine"` |
+| CE-014 | P0 | 🟨 方向改写，chat 侧已落 / files 侧未动 | ~~tesseract.js OCR~~ → **VLM 视觉理解**（图中文字转录 + 视觉描述） | 无 | **2026-08-18 / #1560 改写**：图片理解统一走 VLM（百炼 Qwen-VL），不再接 tesseract——VLM 对中文截图的文字转录优于 tesseract，且顺带产出视觉描述，填的是同一格；同一格不许两个实现（AGENTS.md 单一事实源）。**已落**：chat 附件路径（`domain/chat/attachment-vision.ts` + `AttachmentVisionPort` + `BailianVisionExtractor`，产物走 `extracted_ref`/`extracted_excerpt`）。**未落**：files 摄取路径的 `derived_representations` 仍是 `"stub-ocr-engine"`（`domain/files/extraction-adapters.ts`），另需一轮。⚠ 生产模型名待实测（`scripts/probe-vision-model.mjs`，见 #1560） |
 | CE-015 | P0 | ⬜ 未开始 | FunASR 独立服务骨架（同 `apps/deep-agent-service` 部署模式） | CE-002 | `apps/asr-service`（Python，FunASR 官方 FastAPI 范式）；`apps/api` 摄取 adapter 通过 HTTP 调用；反证：喂一段真实音频，返回真实转录文本 + 时间码，`generatorModel` 如实写 FunASR 模型名+版本 |
 | CE-016 | P1 | ⬜ 未开始 | 摄取幂等性在真实解析器下重新验证 | CE-012~015 | 既有 `idempotent-no-duplicate-segment.test.ts` 换真实解析器后重跑，确认幂等键（`content_hash+pipeline_version+parser_version`）在真实解析场景下仍然成立 |
 

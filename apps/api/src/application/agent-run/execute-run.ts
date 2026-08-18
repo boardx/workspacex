@@ -53,7 +53,8 @@ import type {
   PinnedSkillContent, ReportedUsage, RunFailureCode, RunStepKind, ThreadHistoryMessage,
   TokenUsageMeterPort,
 } from "./ports";
-import { ModelCallError } from "./ports";
+import { ModelCallError, isModelCallImageMime } from "./ports";
+import type { ModelCallImage } from "./ports";
 import {
   buildFileContextMessage, FILE_RETRIEVAL_MAX_HITS, type FileRetrievalPort,
 } from "./file-retrieval";
@@ -62,6 +63,9 @@ import {
   buildToolTraceMessage, TOOL_TRACE_RUN_LIMIT, type ToolTraceContextPort,
 } from "./tool-trace-context";
 import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./canvas-template-guidance";
+import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
+import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
+import type { VisionInputStatus } from "./context-snapshot";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -194,6 +198,116 @@ function renderAttachmentForModel(a: HistoryAttachmentMeta): string {
   }
 }
 
+/**
+ * P2（#1561）—— 本轮图像输入的全部决策，一处做完：**送不送、送几张、没送的怎么如实交代**。
+ *
+ * ## 这个函数的存在理由，就是不要复刻 #1558
+ *
+ * #1558 里用户上传了一张有内容的 PNG、看到了附件卡片、合理预期模型能看到，问了才发现
+ * 看不到——「产品允许传图，却在任何地方都没告诉用户『图我看不了』」。所以这里**每一条
+ * 不送的路径都必须留下一句模型能读到的话**，没有任何一条分支是"悄悄地什么都不做"。
+ *
+ * ## 分支与它们对应的快照态（唯一事实源在 `VisionInputStatus` 的文档）
+ *
+ *   本轮没挂图                        → `none`，不加任何文本（保持既有 run 逐字节不变）。
+ *   挂了图但没接 `deps.runImages`      → `not_configured`，也不额外加文本：F153 的附件提示
+ *                                       已经如实说过「这个附件读不到内容」。
+ *   挂了图但模型没有视觉能力           → `not_supported` + 明确告知（#1561 交付契约第 4 条）。
+ *   有能力、但取字节这一步没成         → `degraded` + 明确告知（"这次没取到"，不是"本来没图"）。
+ *   送成了至少一张                     → `ok`；被上界挡下的那几张逐条写清原因（不静默截断）。
+ */
+async function gatherVisionImages(
+  deps: ExecuteAgentRunDeps,
+  orgId: OrgId,
+  run: ClaimedAgentRun,
+): Promise<{
+  readonly images: readonly ModelCallImage[];
+  readonly notice: string | null;
+  readonly status: VisionInputStatus;
+  readonly omittedCount: number;
+}> {
+  const attachedImageCount = run.inputAttachments.filter((a) => isModelCallImageMime(a.mime)).length;
+  const nothing = { images: [] as readonly ModelCallImage[], notice: null } as const;
+  if (attachedImageCount === 0) return { ...nothing, status: "none", omittedCount: 0 };
+  if (!deps.runImages) {
+    return { ...nothing, status: "not_configured", omittedCount: attachedImageCount };
+  }
+
+  const degraded = (reason: string, status: VisionInputStatus) => ({
+    ...nothing,
+    status,
+    omittedCount: attachedImageCount,
+    notice: renderVisionNotice(0, [], { imageCount: attachedImageCount, reason } satisfies VisionDegradation),
+  });
+
+  // 能力查询缺席 ⇒ false（fail closed），理由逐字见 `ModelCallPort.supportsVision` 的文档。
+  const canSee = deps.model.supportsVision?.(run.modelProvider, run.modelId) ?? false;
+  if (!canSee) {
+    // ⚠ 这条分支就是 #1561 交付契约第 4 条：诚实降级，绝不静默丢弃。图**没有**被送出去，
+    // 而模型被明确告知它这轮看不到图——用户问起时它答得出真话，不会假装看过。
+    return degraded(
+      `本次运行绑定的模型（${run.modelProvider} / ${run.modelId}）不具备视觉输入能力`,
+      "not_supported",
+    );
+  }
+
+  let refs;
+  try {
+    refs = await deps.runImages.list(orgId, {
+      threadId: run.threadId,
+      messageId: run.inputMessageId,
+      actorUserId: run.requesterUserId,
+    });
+  } catch (e) {
+    deps.log("agent run vision image listing failed, continuing without images", {
+      runId: run.runId, detail: e instanceof Error ? e.message : "unexpected vision list failure",
+    });
+    return degraded("读取这些图片时出错（本轮未能取到图像内容）", "degraded");
+  }
+
+  const { accepted, omitted } = selectImagesWithinBounds(refs);
+  const images: ModelCallImage[] = [];
+  const allOmitted: OmittedRunImage[] = [...omitted];
+  for (const ref of accepted) {
+    let bytes: Uint8Array | null;
+    try {
+      bytes = await deps.runImages.read(orgId, {
+        threadId: run.threadId,
+        messageId: run.inputMessageId,
+        actorUserId: run.requesterUserId,
+      }, ref.attachmentId);
+    } catch (e) {
+      deps.log("agent run vision image read failed", {
+        runId: run.runId, detail: e instanceof Error ? e.message : "unexpected vision read failure",
+      });
+      allOmitted.push({ filename: ref.filename, reason: "读取图像字节时出错" });
+      continue;
+    }
+    if (bytes === null) {
+      // 元数据在、字节没了——一个确定的「这张取不到」，与上面的抛错在日志里分得开。
+      allOmitted.push({ filename: ref.filename, reason: "图像内容在存储中不存在" });
+      continue;
+    }
+    if (!isModelCallImageMime(ref.mime)) continue; // `selectImagesWithinBounds` 已挡；类型收窄用。
+    images.push({ filename: ref.filename, mime: ref.mime, bytes });
+  }
+
+  if (images.length === 0) {
+    // 有能力、也确实有图，但一张都没送成。这不是 `ok` 的零张——如实记 `degraded`。
+    const detail = allOmitted.length > 0
+      ? `这些图都未能送入模型（${allOmitted.map((o) => `${o.filename}：${o.reason}`).join("；")}）`
+      : "本轮未能取到任何图像内容";
+    return degraded(detail, "degraded");
+  }
+  return {
+    images,
+    notice: renderVisionNotice(images.length, allOmitted, null),
+    status: "ok",
+    // 「用户传了几张 vs 模型看到了几张」的差额——审计链上 #1561 要求快照必须能回答的那件事。
+    omittedCount: Math.max(0, attachedImageCount - images.length),
+  };
+}
+
 export async function assembleHistory(
   recent: readonly ThreadHistoryMessage[],
   maxChars: number,
@@ -317,6 +431,15 @@ export interface ExecuteAgentRunDeps {
    * ⇒ system prompt 与本次改动之前逐字节相同（不多出 canvas 指引这一段）。
    */
   readonly canvasTemplates?: CanvasTemplateGuidancePort;
+  /**
+   * P2（#1561）—— 推理侧图像通道的取字节端口。**可选**，与 `files`/`contextSnapshots`/
+   * `toolTrace` 同一条既有理由：既有测试与不需要这一层的执行路径（`trial-run-agent` 一类）
+   * 不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。
+   *
+   * ⚠ 缺省不注入 ⇒ 与 P2 之前**逐字节相同**：不取图、不改 userText、快照记 `"none"`。
+   * 这是刻意的——「这次部署有没有图像通道」是合成期的一个明确选择，不是运行期的偶然。
+   */
+  readonly runImages?: RunImagePort;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -744,7 +867,19 @@ async function executeClaimed(
   // 触发消息（run.inputText）的附件走 run.inputAttachments（它不在 history 里，单独带，
   // 见 ClaimedAgentRun 注释），否则「刚传完就问」这条最常见路径恰好看不到附件。
   history = history.map((m) => ({ role: m.role, content: withAttachmentNotice(m.content, m.attachments) }));
-  const userText = withAttachmentNotice(run.inputText, run.inputAttachments);
+  let userText = withAttachmentNotice(run.inputText, run.inputAttachments);
+
+  /*
+   * P2（#1561）—— 图像通道：把本轮触发消息挂的图片按可见性规则取出、定界，交给支持视觉的
+   * provider；不支持 / 取不到 / 超上界的部分**逐条写进模型能读到的文本**。
+   *
+   * 位置在快照之前、模型调用之前：`visionNotice` 是 `userText` 的一部分，快照的
+   * `estimatedTokens` 必须把它算进去，否则"这次到底喂了什么"这句话在这一格上就是错的。
+   */
+  const vision = await gatherVisionImages(deps, orgId, run);
+  if (vision.notice !== null) {
+    userText = userText.length > 0 ? `${userText}\n\n${vision.notice}` : vision.notice;
+  }
 
   /*
    * F157 —— 可审计上下文快照：在三层组装完成、system+history+userText 就是即将真正喂给模型
@@ -771,6 +906,9 @@ async function executeClaimed(
         toolTraceStatus,
         toolTraceRunCount,
         toolTraceStepCount,
+        visionStatus: vision.status,
+        visionImageCount: vision.images.length,
+        visionOmittedCount: vision.omittedCount,
         estimatedTokens,
       });
     } catch (e) {
@@ -820,6 +958,9 @@ async function executeClaimed(
         {
           modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
           history,
+          // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
+          // （`gatherVisionImages` 的门），所以空数组恒等于"这轮没有图要给你看"。
+          ...(vision.images.length > 0 ? { images: vision.images } : {}),
         },
         async (event) => {
           const stepStartedAt = deps.clock.now();
@@ -855,6 +996,7 @@ async function executeClaimed(
           {
             modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
             history, skills: toolSkills,
+            ...(vision.images.length > 0 ? { images: vision.images } : {}),
           },
           async (delta) => {
             if (delta === "") return; // Nothing to persist; not every provider fragment carries text.
@@ -872,6 +1014,7 @@ async function executeClaimed(
           // #740: forwarded so `DeepAgentModelProvider` can hand the run's pinned Skills to
           // its remote `call_skill` tool -- see `ModelCallInput.skills`'s own doc comment.
           skills: toolSkills,
+          ...(vision.images.length > 0 ? { images: vision.images } : {}),
         });
       if (completion.text.trim() === "") {
         throw new ModelCallError("MODEL_CALL_FAILED", "provider returned empty content");
