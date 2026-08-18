@@ -24,6 +24,10 @@ import { VenuePanelEditor } from "./venue-panel-editor";
 import { MaterialsPanelEditor } from "./materials-panel-editor";
 import { PrintPanelEditor } from "./print-panel-editor";
 import { CapsPanelEditor } from "./caps-panel-editor";
+import { AgentPanelEditor } from "./agent-panel-editor";
+import { SkillPanelEditor } from "./skill-panel-editor";
+import { OutputsPanelEditor } from "./outputs-panel-editor";
+import { ReportPanelEditor } from "./report-panel-editor";
 
 export interface FacetEditorProps {
   readonly designFacetKey: string;
@@ -44,6 +48,10 @@ const STRUCTURED_FACET_EDITORS: Record<string, ComponentType<FacetEditorProps>> 
   "project-materials": MaterialsPanelEditor,
   "print-materials": PrintPanelEditor,
   "group-capabilities": CapsPanelEditor,
+  "agent-orchestration": AgentPanelEditor,
+  "skill-binding": SkillPanelEditor,
+  outputs: OutputsPanelEditor,
+  "report-template": ReportPanelEditor,
 };
 
 /** 未登记的 key（大多数 16 项目前仍是自由文本）落回通用编辑器。 */

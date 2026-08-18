@@ -131,14 +131,26 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     vi.restoreAllMocks();
   });
 
-  it("打开一项：真实文本编辑器显示真实已存内容（不是占位文案）", async () => {
+  /*
+   * 通用读写链路（真实已存内容回显 / PUT 带乐观并发 itemRevision / 完成度按响应更新 /
+   * VERSION_CHANGED 如实提示）—— 此前这三条绑在还落回 FacetTextEditor 的某个 key 上，
+   * 随着 15 项全部结构化，已无「仍是自由文本」的 key 可绑，改绑到 outputs 的结构化
+   * 编辑器上。断言的是同一条链路，覆盖面未删减。
+   */
+  it("打开一项：真实结构化编辑器显示真实已存内容（不是占位文案）", async () => {
     fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "outputs", content: "真实分组内容", itemRevision: "ir-1" }],
+          designFacets: [
+            {
+              designFacetKey: "outputs",
+              content: JSON.stringify({ rows: [{ name: "行动项清单", gen: "AI 提取 · 人确认", to: "任务看板", required: true }] }),
+              itemRevision: "ir-1",
+            },
+          ],
         });
       }
       throw new Error(`unexpected fetch: ${url.pathname}`);
@@ -148,28 +160,30 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    await screen.getByTestId("bp-designer-facet-outputs").click();
-    const editor = await screen.findByTestId("bp-facet-content-outputs");
-    expect((editor as HTMLTextAreaElement).value).toBe("真实分组内容");
+    fireEvent.click(screen.getByTestId("bp-designer-facet-outputs"));
+    expect(await screen.findByTestId("bp-out-name-0")).toHaveValue("行动项清单");
     // 不再是占位文案。
     expect(screen.queryByText(/本外壳不自行设计其内部交互/)).not.toBeInTheDocument();
   });
 
   it("编辑并失焦：真实调用 PUT updateDesignFacet（乐观并发 itemRevision），完成度按响应更新", async () => {
-    let putBody: unknown = null;
+    let putBody: { value: string; expectedItemRevision: string } | null = null;
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "outputs", content: "旧内容", itemRevision: "ir-1" }],
+          designFacets: [
+            {
+              designFacetKey: "outputs",
+              content: JSON.stringify({ rows: [{ name: "旧产出", gen: "", to: "", required: false }] }),
+              itemRevision: "ir-1",
+            },
+          ],
         });
       }
-      if (
-        url.pathname === `/blueprints/${BP_ID}/design-facets/outputs` &&
-        init?.method === "PUT"
-      ) {
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/outputs` && init?.method === "PUT") {
         putBody = JSON.parse(init.body as string);
         return jsonResponse({
           itemRevision: "ir-2",
@@ -185,12 +199,14 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    await screen.getByTestId("bp-designer-facet-outputs").click();
-    const editor = await screen.findByTestId("bp-facet-content-outputs");
-    fireEvent.change(editor, { target: { value: "新内容" } });
-    fireEvent.blur(editor);
+    fireEvent.click(screen.getByTestId("bp-designer-facet-outputs"));
+    const nameInput = await screen.findByTestId("bp-out-name-0");
+    fireEvent.change(nameInput, { target: { value: "新产出" } });
+    fireEvent.blur(nameInput);
 
-    await waitFor(() => expect(putBody).toEqual({ value: "新内容", expectedItemRevision: "ir-1" }));
+    // 乐观并发：带上读到的 itemRevision，不是 0 也不是写端口的回声。
+    await waitFor(() => expect(putBody!.expectedItemRevision).toBe("ir-1"));
+    expect((JSON.parse(putBody!.value) as { rows: { name: string }[] }).rows[0]?.name).toBe("新产出");
     // 完成度是 PUT 响应里的 3/15，不是前端本地 +1 猜出来的。
     await waitFor(() => expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("3/15"));
   });
@@ -202,7 +218,13 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
         return jsonResponse({
           revision: "rev-1",
-          designFacets: [{ designFacetKey: "outputs", content: "旧内容", itemRevision: "ir-1" }],
+          designFacets: [
+            {
+              designFacetKey: "outputs",
+              content: JSON.stringify({ rows: [{ name: "旧产出", gen: "", to: "", required: false }] }),
+              itemRevision: "ir-1",
+            },
+          ],
         });
       }
       if (url.pathname === `/blueprints/${BP_ID}/design-facets/outputs` && init?.method === "PUT") {
@@ -215,10 +237,10 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
 
-    await screen.getByTestId("bp-designer-facet-outputs").click();
-    const editor = await screen.findByTestId("bp-facet-content-outputs");
-    fireEvent.change(editor, { target: { value: "并发改动" } });
-    fireEvent.blur(editor);
+    fireEvent.click(screen.getByTestId("bp-designer-facet-outputs"));
+    const nameInput = await screen.findByTestId("bp-out-name-0");
+    fireEvent.change(nameInput, { target: { value: "并发改动" } });
+    fireEvent.blur(nameInput);
 
     await waitFor(() =>
       expect(screen.getByTestId("bp-facet-error-outputs").textContent).toContain("刷新页面"),
@@ -756,5 +778,150 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
       const parsed = JSON.parse(putBody!.value) as { enabled: Record<string, boolean> };
       expect(parsed.enabled["组内投票"]).toBe(false);
     });
+  });
+
+  /* ── 分组四 / 分组五（Agent 编排 / Skill 绑定 / 输出物 / 报告模板）── */
+
+  it("Agent 编排：agent 行真实回显，介入阈值可改，硬约束是只读清单", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet(
+      "agent-orchestration",
+      {
+        agents: [{ name: "Facilitator", segs: "全程", does: "推进议程", canSpeak: true, state: "默认开" }],
+        repeatThreshold: 5,
+      },
+      (b) => { putBody = b as typeof putBody; },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-agent-orchestration"));
+    expect(await screen.findByTestId("bp-agent-name-0")).toHaveValue("Facilitator");
+    expect(screen.getByTestId("bp-agent-canspeak-0")).toBeChecked();
+    expect(screen.getByTestId("bp-agent-threshold")).toHaveValue(5);
+    // 阈值史与三条介入规则是只读说明，硬约束四条不给任何开关。
+    expect(screen.getByTestId("bp-agent-threshold-history").textContent).toContain("打断太早");
+    expect(screen.getAllByTestId("bp-agent-rule")).toHaveLength(3);
+    const hardLimits = screen.getAllByTestId("bp-agent-hardlimit");
+    expect(hardLimits).toHaveLength(4);
+    hardLimits.forEach((li) => expect(li.querySelector("input")).toBeNull());
+    expect(screen.queryByTestId("bp-facet-content-agent-orchestration")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("bp-agent-state-0-按需召唤"));
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { agents: { state: string }[] };
+      expect(parsed.agents[0]?.state).toBe("按需召唤");
+    });
+  });
+
+  it("Skill 绑定：降级绑定显示阻断发布警告，解绑后真实保存", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet(
+      "skill-binding",
+      {
+        skills: [
+          { seg: "03", name: "语音转便签", desc: "说出来即成便签", degraded: false },
+          { seg: "03", name: "亲和图自动聚类 v2", desc: "便签自动分堆", degraded: true },
+        ],
+      },
+      (b) => { putBody = b as typeof putBody; },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-skill-binding"));
+    expect(await screen.findByTestId("bp-skill-name-0")).toHaveValue("语音转便签");
+    expect(screen.getByTestId("bp-skill-seg-0")).toHaveValue("03");
+    // 降级是组织层治理的投影：只读徽标 + 阻断发布警告，不是可在蓝本里关掉的开关。
+    expect(screen.getByTestId("bp-skill-degraded-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("bp-skill-degraded-0")).toBeNull();
+    expect(screen.getByTestId("bp-skill-degrade-warning").textContent).toContain("亲和图自动聚类 v2");
+    expect(screen.queryByTestId("bp-facet-content-skill-binding")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("bp-skill-remove-1"));
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { skills: { name: string }[] };
+      expect(parsed.skills).toHaveLength(1);
+      expect(parsed.skills[0]?.name).toBe("语音转便签");
+    });
+  });
+
+  it("输出物：必须项可勾选并保存，回流规则与结项检查是只读清单", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet(
+      "outputs",
+      { rows: [{ name: "4 张 HMW 画布快照", gen: "组长提交后锁版本", to: "项目图谱", required: false }] },
+      (b) => { putBody = b as typeof putBody; },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-outputs"));
+    expect(await screen.findByTestId("bp-out-name-0")).toHaveValue("4 张 HMW 画布快照");
+    expect(screen.getByTestId("bp-out-gen-0")).toHaveValue("组长提交后锁版本");
+    expect(screen.getByTestId("bp-out-to-0")).toHaveValue("项目图谱");
+    expect(screen.getByTestId("bp-out-required-0")).not.toBeChecked();
+    expect(screen.getByTestId("bp-out-reflow").textContent).toContain("固定快照");
+    expect(screen.getAllByTestId("bp-out-check")).toHaveLength(4);
+
+    fireEvent.click(screen.getByTestId("bp-out-required-0"));
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { rows: { required: boolean }[] };
+      expect(parsed.rows[0]?.required).toBe(true);
+    });
+  });
+
+  it("报告模板：章节骨架带编号，「必须人写」可勾选并保存，写作硬约束只读", async () => {
+    let putBody: { value: string } | null = null;
+    fetchMock = stubFacet(
+      "report-template",
+      { chapters: [{ title: "一页纸结论：3 个题目与推进顺序", by: "必须人写", humanRequired: false }] },
+      (b) => { putBody = b as typeof putBody; },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("bp-designer-facet-report-template"));
+    expect(await screen.findByTestId("bp-report-title-0")).toHaveValue("一页纸结论：3 个题目与推进顺序");
+    expect(screen.getByTestId("bp-report-chapter-0").textContent).toContain("01");
+    expect(screen.getByTestId("bp-report-internal").textContent).toContain("不给客户");
+    expect(screen.getAllByTestId("bp-report-rule")).toHaveLength(4);
+    expect(screen.getByTestId("bp-report-history").textContent).toContain("平均改 22 分钟");
+    expect(screen.queryByTestId("bp-facet-content-report-template")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("bp-report-human-0"));
+    await waitFor(() => {
+      const parsed = JSON.parse(putBody!.value) as { chapters: { humanRequired: boolean }[] };
+      expect(parsed.chapters[0]?.humanRequired).toBe(true);
+    });
+  });
+});
+
+/*
+ * 机械门控：不是靠人记得「还有几项是 textbox」——把「15 项配置全部有专属结构化
+ * 编辑器」钉成一条会红的断言。人类 2026-08-18 的批评正是「11/15 项仍然是通用
+ * textbox」，这条测试保证它不会再悄悄退回去。
+ */
+describe("16 项配置面板：全部落在专属结构化编辑器上（无一落回通用自由文本框）", () => {
+  it("design-facet-table 里的每一个 designFacetKey 都在 registry 上有专属编辑器", async () => {
+    const { getFacetEditor } = await import("@/components/tpl-designer/facet-editor-registry");
+    const { FacetTextEditor } = await import("@/components/tpl-designer/facet-content-editor");
+    const { DESIGN_FACET_CATALOG } = await import("@/lib/generated/design-facet-catalog");
+
+    const allKeys = DESIGN_FACET_CATALOG.groups.flatMap((g) => g.items.map((i) => i.designFacetKey));
+    expect(allKeys.length).toBeGreaterThanOrEqual(15);
+
+    const stillGeneric = allKeys.filter((k) => getFacetEditor(k) === FacetTextEditor);
+    expect(stillGeneric).toEqual([]);
+  });
+
+  it("反证：registry 上没登记的 key 仍然落回通用编辑器（兜底没被误删）", async () => {
+    const { getFacetEditor } = await import("@/components/tpl-designer/facet-editor-registry");
+    const { FacetTextEditor } = await import("@/components/tpl-designer/facet-content-editor");
+    expect(getFacetEditor("definitely-not-a-real-facet-key")).toBe(FacetTextEditor);
   });
 });
