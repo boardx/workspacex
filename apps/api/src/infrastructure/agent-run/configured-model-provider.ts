@@ -47,7 +47,7 @@
  * shape, not a shape that merely stopped being exercised.
  */
 import type {
-  ModelCallInput, ModelCallPort,
+  ModelCallImage, ModelCallInput, ModelCallPort,
 } from "../../application/agent-run/ports";
 import { ModelCallError } from "../../application/agent-run/ports";
 import type { ReportedUsage } from "../../application/agent-run/ports";
@@ -60,6 +60,14 @@ export interface ConfiguredModelProviderConfig {
   readonly timeoutMs: number;
   /** #654 阶段2a. Default `false` -- see this file's own header for why. */
   readonly streamEnabled: boolean;
+  /**
+   * P2（#1561）—— 这个部署认为**哪些 modelId 真的能看图**。
+   *
+   * ⚠ **默认值未经实测确认，见本文件「视觉输入」那节头注。** 一个 modelId 不在这个集合里，
+   * `supportsVision` 就回 false，`execute-run.ts` 走诚实降级（告诉模型它看不到图），
+   * 而不是把字节丢给一个可能不认识它的端点。集合为空 = 这个部署没有任何视觉模型。
+   */
+  readonly visionModelIds: ReadonlySet<string>;
 }
 
 /** Read once at composition time, so a mid-flight env change cannot swap a run's provider. */
@@ -79,7 +87,25 @@ export function readModelProviderConfig(
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 180_000,
     streamEnabled: env.KERNEL_MODEL_STREAM_ENABLED === "1",
+    visionModelIds: readVisionModelIds(env),
   };
+}
+
+/**
+ * P2（#1561）—— `KERNEL_MODEL_VISION_IDS`（逗号分隔）→ 允许走多模态请求体的 modelId 集合。
+ *
+ * ⚠ 默认值 `qwen-vl-max,qwen-vl-plus` **没有在本次开发环境实测过**（本机没有
+ * `KERNEL_MODEL_API_KEY`，探测不了）。`bailian-image-provider.ts:14-15` 记着这件事上
+ * 栽过的跟头：`wanx2.2-t2i-plus` 报 "Model not exist"、`wanx2.1-t2i-plus` 才可用，
+ * 「不要被"2.2 应该比 2.1 新"这种直觉带偏」。同样的直觉在这里也不作数——这两个名字是
+ * 待验证的候选，不是已验证的事实。有 key 的环境跑
+ * `node apps/api/scripts/probe-bailian-vision.mjs` 一条命令即可确认，把实测通过的名字
+ * 写进 env（或改这里的默认值并把实测记录写进注释）。在那之前，如果默认值是错的，
+ * 表现是**诚实的失败**（模型名不存在 → `MODEL_CALL_FAILED`），不是一个假装看过图的回答。
+ */
+function readVisionModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
+  const raw = env.KERNEL_MODEL_VISION_IDS ?? "qwen-vl-max,qwen-vl-plus";
+  return new Set(raw.split(",").map((v) => v.trim()).filter((v) => v !== ""));
 }
 
 /**
@@ -91,19 +117,50 @@ export function readModelProviderConfig(
  * request shape, and a second inlined copy is exactly the kind of duplication this
  * repository's own discipline (AGENTS.md: "同一事实不得声明在两处") calls out by name.
  */
-/** One OpenAI-compatible `messages[]` entry. */
+/**
+ * One OpenAI-compatible `messages[]` entry.
+ *
+ * P2（#1561）：`content` 从 `string` 放宽成「string 或 part 数组」——OpenAI 兼容的多模态
+ * 形态。⚠ **只有带图的那一条 user 消息会变成数组**，其余每一条逐字节保持 `string`：
+ * 一个不带图的请求体因此与 P2 之前**完全相同**，不需要任何部署去验证"我们的上游认不认
+ * 数组形态"。
+ */
+type WireContent = string | readonly WireContentPart[];
+
+type WireContentPart =
+  | { readonly type: "text"; readonly text: string }
+  | { readonly type: "image_url"; readonly image_url: { readonly url: string } };
+
 interface WireMessage {
   readonly role: string;
-  readonly content: string;
+  readonly content: WireContent;
+}
+
+/**
+ * P2（#1561）—— 一张图 → 一个 `image_url` part。
+ *
+ * 编码成 data URL（`data:<mime>;base64,<...>`）而不是传一个可访问的 URL：附件字节住在本
+ * 部署的对象存储里，没有对外可达的签名 URL 通路，造一条出来等于给用户上传的图开一个
+ * 公网可读面——那是一个需要单独评审的隐私决定，不是这个 PR 顺手能做的事。data URL 的
+ * 代价是请求体按 4/3 膨胀，这正是 `MODEL_CALL_MAX_IMAGE_BYTES` 存在的原因。
+ */
+function toImagePart(image: ModelCallImage): WireContentPart {
+  const base64 = Buffer.from(image.bytes).toString("base64");
+  return { type: "image_url", image_url: { url: `data:${image.mime};base64,${base64}` } };
 }
 
 /** #709's system/history/user shape -- shared by `complete()` and `streamImpl()` so the two
  * request bodies cannot drift on how history gets spliced in. */
 function buildMessages(input: ModelCallInput): readonly WireMessage[] {
+  const images = input.images ?? [];
+  // 没有图 ⇒ 走与 P2 之前逐字节相同的纯字符串形态（见 `WireMessage` 头注）。
+  const userContent: WireContent = images.length === 0
+    ? input.user
+    : [{ type: "text", text: input.user } as const, ...images.map(toImagePart)];
   return [
     { role: "system", content: input.system },
     ...(input.history ?? []).map((m) => ({ role: m.role, content: m.content })),
-    { role: "user", content: input.user },
+    { role: "user", content: userContent },
   ];
 }
 
@@ -166,6 +223,19 @@ export class ConfiguredModelProvider implements ModelCallPort {
     this.completeStream = config.streamEnabled
       ? (input, onDelta) => this.streamImpl(input, onDelta)
       : undefined;
+  }
+
+  /**
+   * P2（#1561）—— 本 provider 下**这个 modelId** 能不能真的看到图。
+   *
+   * 判据是部署期配置的 `visionModelIds`（`KERNEL_MODEL_VISION_IDS`），不是"我是 dashscope
+   * 所以我能看图"：同一个 DashScope key 下绝大多数模型是纯文本的，只有 VL 系列有视觉输入。
+   * 能力是**模型**的属性，不是厂商的属性——把它当成厂商属性，结果就是给一个纯文本模型发
+   * 多模态请求体，运气好报错、运气不好它把图 part 忽略掉正常回一段话，而那正是 #1558
+   * 那种"用户以为模型看过了"的形态。
+   */
+  supportsVision(modelProvider: string, modelId: string): boolean {
+    return modelProvider === this.config.provider && this.config.visionModelIds.has(modelId);
   }
 
   async complete(input: ModelCallInput): Promise<
