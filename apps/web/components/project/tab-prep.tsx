@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { SectionTitle, StatChip, ObserverNotice } from "./parts";
 import {
   AGENDA, BLUEPRINT_CATALOG, PROJECT_ROLE_LABEL,
-  ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, observerHidden, type ProjectRole,
+  ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, ROLE_GROUP_SUBMIT, observerHidden, type ProjectRole,
 } from "@/lib/mock/project";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -16,7 +16,9 @@ import {
 } from "@/lib/live-projects";
 import {
   saveProjectTopic, saveProjectGrouping, GROUP_STATUS_LABEL,
+  getInterviewSubjects, saveInterviewSubjects, INTERVIEW_SUBJECT_COLUMNS,
   type ProjectTopicOut, type ProjectGroupingOut, type Group,
+  type InterviewSubject, type InterviewSubjectsOut,
 } from "@/lib/live-project-prep";
 import { listOrgMembers, type ListOrgMembersOut } from "@/lib/live-org-admin";
 import { useSession } from "@/components/session/session-provider";
@@ -41,7 +43,12 @@ type OrgMemberRow = ListOrgMembersOut["members"][number];
  *   `PREP_GROUPS`）换成真实 `getProjectTopic`/`getProjectGrouping`/`saveAndSyncTopic`/
  *   `updateGrouping`——F24/F25 签的契约第一次真正落库。组长/组员的姓名解析复用既有的
  *   `listOrgMembers`（org-admin 束，任何组织成员可读），不新造一个身份端点。
- *   访谈对象（`InterviewSubject`）本次不接，契约有出处但仍零 controller，留给后续 feature。
+ *
+ * ⚠ F961（2026-08-18）：组卡按**已签原型**（`ui-preview/project-v2/uc-2-2-prep-default.png`
+ *   与 `uc-2-2` R3 第 5/6 步）补齐三处——① 组员一行改回显示**人数**（F950 写成姓名拼接
+ *   是自由发挥，原型逐字是「3 人」）；② 新增**访谈对象**摘要行；③ 组卡可展开出第 6 步的
+ *   **六列对象表**，读写 F960 落地的 `getInterviewSubjects`/`updateInterviewSubjects`。
+ *   `[AI 建议人选]` 原型有、能力全仓没有实现 ⇒ 禁用 + 如实说明，不做假入口。
  */
 export function TabPrep({
   view, readOnly = false, projectId, liveProject = null,
@@ -80,6 +87,10 @@ export function TabPrep({
   // 各自新造一份角色判据：后端 `canSaveTopic`/`canUpdateGrouping` 恰好也都是
   // facilitator-only，前端与后端判据一致，不会出现「前端显示可编辑，后端拒绝」的落差。
   const canCreateSegment = ROLE_STAGE_CONTROL[view] && !readOnly;
+  // ⚠ 访谈对象表**不是** facilitator-only：它嵌在组卡内、属「本组产出」，后端
+  //   `canUpdateInterviewSubjects` 复用 `group.submitOutput`（引导师 + 组长）。
+  //   用 `canCreateSegment` 会让组长看不到自己有权限用的入口，见 `ROLE_GROUP_SUBMIT` 头注。
+  const canWriteSubjects = ROLE_GROUP_SUBMIT[view] && !readOnly;
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-5 p-6" data-testid="project-prep">
@@ -109,6 +120,7 @@ export function TabPrep({
           loading={liveGroupingLoading}
           error={liveGroupingError}
           canWrite={canCreateSegment}
+          canWriteSubjects={canWriteSubjects}
           onSaved={onGroupingSaved}
         />
       )}
@@ -271,19 +283,237 @@ function describeTopicError(e: unknown): string {
   return "未知错误";
 }
 
+/** 一个组的访谈对象读取结果——`undefined` = 还在读，`error` = 这一组读失败（别组不受影响）。 */
+type SubjectsCell = { kind: "ok"; data: InterviewSubjectsOut } | { kind: "error" };
+
+/**
+ * F961 —— 组卡里的「访谈对象」摘要行 + 可展开的六列对象表。
+ *
+ * 原型（`uc-2-2` R3 第 5 步）逐字：「组卡展开：…**观察/访谈对象表**（见第 6 步）」，
+ * 第 6 步逐字给了六列表头（对象 / 部门角色 / 联系方式 / 背景与要问什么 / 方式 / 状态）
+ * 与 `[AI 建议人选]` `[＋ 加对象]` 两个操作。折叠态只显示一行摘要（原型逐字
+ * 「业主侧投资经理」）。
+ *
+ * ⚠ `[AI 建议人选]` **不接**：AI 选人能力全仓没有实现。按 F950（AI 生成定题）/ F185
+ *   （未接线菜单项）已确立的纪律渲染为 `disabled` + 如实说明，不做一个点了没反应的
+ *   按钮——那比没有更糟，用户会以为是坏了。
+ *
+ * ⚠ 提交是**整批替换**（契约 `updateInterviewSubjects` 传整个 `subjects` 数组），
+ *   保存成功后不本地乐观拼接，而是重新打一次真实 GET（`onSaved`）——同 F185
+ *   `TagsEditor` 与 F950 两个 Block 已确立的纪律。
+ */
+function InterviewSubjectsRow({
+  projectId, groupId, canWrite, state, onSaved,
+}: {
+  projectId: string;
+  groupId: string;
+  canWrite: boolean;
+  state: SubjectsCell | undefined;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState<InterviewSubject[]>([]);
+  const [busy, setBusy] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState<string | null>(null);
+
+  const subjects = state?.kind === "ok" ? state.data.subjects : [];
+  const summary =
+    state === undefined ? "读取中…"
+      : state.kind === "error" ? "读取失败"
+        : subjects.length === 0 ? "未填"
+          : subjects.map((s) => s.name.trim() || "（未命名）").join("、");
+
+  const startEdit = () => {
+    setDraft(subjects.map((s) => ({ ...s })));
+    setSubmitError(null);
+    setEditing(true);
+    setOpen(true);
+  };
+
+  const addRow = () =>
+    setDraft((prev) => [
+      ...prev,
+      // 六列齐全（哪怕值是空串）——契约 `InterviewSubject` 的 `.strict()` 要求字段存在，
+      // V9 允许「先加一行留空待填」，但字段本身不能缺。
+      { subjectId: `s-${Date.now()}-${prev.length}`, name: "", role: "", contact: "", focus: "", method: "", status: "" },
+    ]);
+  const removeRow = (subjectId: string) => setDraft((prev) => prev.filter((s) => s.subjectId !== subjectId));
+  const patchRow = (subjectId: string, patch: Partial<InterviewSubject>) =>
+    setDraft((prev) => prev.map((s) => (s.subjectId === subjectId ? { ...s, ...patch } : s)));
+
+  async function submit() {
+    if (state?.kind !== "ok") return;
+    setBusy(true);
+    setSubmitError(null);
+    try {
+      await saveInterviewSubjects({
+        projectId, groupId, subjects: draft, expectedRevision: state.data.revision,
+      });
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      setSubmitError(describeSubjectsError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const rows = editing ? draft : subjects;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline gap-2">
+        <span className="w-16 shrink-0 text-muted-foreground">访谈对象</span>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          data-testid={`project-prep-subjects-${groupId}-toggle`}
+          className="flex-1 truncate text-left transition-colors duration-200 hover:text-primary"
+        >
+          <span data-testid={`project-prep-subjects-${groupId}-summary`}>{summary}</span>
+          <span aria-hidden className="ml-1 text-muted-foreground">{open ? "▾" : "▸"}</span>
+        </button>
+      </div>
+
+      {open && (
+        <div className="rounded-md border border-border/60 p-2" data-testid={`project-prep-subjects-${groupId}-panel`}>
+          {state?.kind === "error" ? (
+            <p className="text-10 text-destructive">读取失败，展开也看不到内容——刷新页面重试。</p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] border-collapse text-10">
+                  <thead>
+                    <tr className="text-muted-foreground">
+                      {INTERVIEW_SUBJECT_COLUMNS.map((c) => (
+                        <th key={c.key} className="border-b border-border/60 px-1 py-1 text-left font-normal">{c.label}</th>
+                      ))}
+                      {editing && <th className="border-b border-border/60 px-1 py-1" aria-label="删除" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={INTERVIEW_SUBJECT_COLUMNS.length} className="px-1 py-2 text-muted-foreground">
+                          还没有访谈对象——{canWrite ? "点「＋ 加对象」加第一个。" : "等引导师或组长填。"}
+                        </td>
+                      </tr>
+                    )}
+                    {rows.map((s) => (
+                      <tr key={s.subjectId} data-testid={`project-prep-subject-${s.subjectId}`}>
+                        {INTERVIEW_SUBJECT_COLUMNS.map((c) => (
+                          <td key={c.key} className="border-b border-border/40 px-1 py-1 align-top">
+                            {editing ? (
+                              <Input
+                                value={s[c.key]}
+                                onChange={(e) => patchRow(s.subjectId, { [c.key]: e.target.value })}
+                                aria-label={c.label}
+                                className="h-6 text-10"
+                                data-testid={`project-prep-subject-${s.subjectId}-${c.key}`}
+                              />
+                            ) : (
+                              <span>{s[c.key].trim() === "" ? "—" : s[c.key]}</span>
+                            )}
+                          </td>
+                        ))}
+                        {editing && (
+                          <td className="border-b border-border/40 px-1 py-1 align-top">
+                            <button
+                              type="button"
+                              aria-label={`删除 ${s.name.trim() || "这一行"}`}
+                              onClick={() => removeRow(s.subjectId)}
+                              data-testid={`project-prep-subject-${s.subjectId}-remove`}
+                              className="rounded-full p-0.5 text-muted-foreground transition-colors duration-200 hover:bg-muted"
+                            >
+                              <X aria-hidden className="h-3 w-3" />
+                            </button>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="mt-1.5 text-10 text-muted-foreground">
+                访谈 AI 会按这张表提前预约并生成提纲；现场访谈转写自动回流到本组。
+              </p>
+
+              {canWrite && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {!editing ? (
+                    <Button size="xs" variant="outline" onClick={startEdit} data-testid={`project-prep-subjects-${groupId}-edit`}>
+                      编辑
+                    </Button>
+                  ) : (
+                    <>
+                      <Button size="xs" variant="outline" onClick={addRow} data-testid={`project-prep-subjects-${groupId}-add`}>
+                        <Plus aria-hidden className="mr-0.5 h-3 w-3" />加对象
+                      </Button>
+                      <Button size="xs" onClick={submit} disabled={busy} data-testid={`project-prep-subjects-${groupId}-save`}>
+                        {busy ? "保存中…" : "保存"}
+                      </Button>
+                      <Button
+                        size="xs" variant="ghost" disabled={busy}
+                        onClick={() => { setEditing(false); setSubmitError(null); }}
+                        data-testid={`project-prep-subjects-${groupId}-cancel`}
+                      >
+                        取消
+                      </Button>
+                    </>
+                  )}
+                  {/* 原型有这个按钮，但 AI 选人能力全仓没有实现——禁用 + 说明，不做假入口。 */}
+                  <Button
+                    size="xs" variant="ghost" disabled
+                    title="AI 选人本版未接入，请手工填写"
+                    data-testid={`project-prep-subjects-${groupId}-ai`}
+                  >
+                    AI 建议人选（未接入）
+                  </Button>
+                </div>
+              )}
+
+              {submitError !== null && (
+                <p className="mt-1 text-10 text-destructive" data-testid={`project-prep-subjects-${groupId}-error`}>
+                  {submitError}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function describeSubjectsError(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.reasonCode === "VERSION_CHANGED") return "有人刚改过这张表，请刷新后重填（你的改动没有覆盖对方的）";
+    if (e.reasonCode === "ROLE_INSUFFICIENT") return "只有引导师和组长能填本组的访谈对象";
+    if (e.reasonCode === "NO_PROJECT_ROLE") return "你不在这个项目里";
+    if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") return "服务暂时不可用，稍后重试";
+  }
+  if (e instanceof Error) return e.message;
+  return "未知错误";
+}
+
 /**
  * F950 —— 分组区块。读 `getProjectGrouping`（空数组 = 真实空态）。组长/组员的
  * `userId` 需要解析成显示名——复用既有的 `listOrgMembers`（org-admin 束），不新造
  * 一个身份端点；只在本区块挂载时拉一次，不是全局 store。
  */
 function GroupingBlock({
-  projectId, grouping, loading, error, canWrite, onSaved,
+  projectId, grouping, loading, error, canWrite, canWriteSubjects, onSaved,
 }: {
   projectId: string;
   grouping: ProjectGroupingOut | null;
   loading: boolean;
   error: string | null;
   canWrite: boolean;
+  /** 访谈对象表的写权限——**与 `canWrite` 不同**：组长也能写（见 `ROLE_GROUP_SUBMIT`）。 */
+  canWriteSubjects: boolean;
   onSaved?: () => void;
 }) {
   const { session } = useSession();
@@ -306,6 +536,53 @@ function GroupingBlock({
     (userId: string) => members?.find((m) => m.userId === userId)?.displayName ?? userId,
     [members],
   );
+
+  /**
+   * F961 —— 每组的观察/访谈对象表。折叠态的摘要行就要显示内容（原型逐字「业主侧投资
+   * 经理」），所以挂载时按组并发拉一次，**不是**等展开才拉：那样折叠态的摘要只能靠
+   * 假数据填，正是本仓反复栽跟头的「静态痕迹」。原型是 4 组，量级可接受。
+   *
+   * ⚠ 依赖 `groupIdsKey`（拼好的字符串）而不是 `grouping.groups` 数组——数组每次渲染
+   *   都是新引用，依赖它会让这个 effect 无限重触发（同上面 `orgId` 那条注释里
+   *   F950 真实踩到过的 OOM 循环）。
+   *
+   * 单个组读失败不影响别组：失败的那一组摘要显示「读取失败」，不是整块塌掉。
+   */
+  const [subjects, setSubjects] = React.useState<Record<string, SubjectsCell>>({});
+  const groupIdsKey = (grouping?.groups ?? []).map((g) => g.groupId).join(",");
+
+  const loadSubjects = React.useCallback(
+    async (groupId: string) => {
+      try {
+        const out = await getInterviewSubjects(projectId, groupId);
+        setSubjects((prev) => ({ ...prev, [groupId]: { kind: "ok", data: out } }));
+      } catch {
+        setSubjects((prev) => ({ ...prev, [groupId]: { kind: "error" } }));
+      }
+    },
+    [projectId],
+  );
+
+  React.useEffect(() => {
+    if (groupIdsKey === "") return;
+    let live = true;
+    const ids = groupIdsKey.split(",");
+    void Promise.all(
+      ids.map(async (groupId) => {
+        try {
+          return [groupId, { kind: "ok", data: await getInterviewSubjects(projectId, groupId) }] as const;
+        } catch {
+          return [groupId, { kind: "error" }] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (!live) return;
+      setSubjects(Object.fromEntries(entries) as Record<string, SubjectsCell>);
+    });
+    return () => { live = false; };
+  }, [projectId, groupIdsKey]);
+
+  const refreshSubjects = loadSubjects;
 
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState<Group[]>([]);
@@ -402,7 +679,17 @@ function GroupingBlock({
                     </StatChip>
                   </div>
                   <Row k="组长" v={g.leaderUserId !== null ? nameOf(g.leaderUserId) : "未指派"} />
-                  <Row k="组员" v={g.memberUserIds.length > 0 ? g.memberUserIds.map(nameOf).join("、") : "无"} />
+                  {/* ⚠ 原型（`uc-2-2-prep-default.png` / `mock/project.ts` 的 `members: "3 人"`）
+                      这一行是人数，不是姓名清单——F950 当时写成姓名拼接是自由发挥，
+                      F961 按已签原型收回。姓名在编辑态的勾选框里仍逐个可见，信息没丢。 */}
+                  <Row k="组员" v={`${g.memberUserIds.length} 人`} />
+                  <InterviewSubjectsRow
+                    projectId={projectId}
+                    groupId={g.groupId}
+                    canWrite={canWriteSubjects}
+                    state={subjects[g.groupId]}
+                    onSaved={() => refreshSubjects(g.groupId)}
+                  />
                 </>
               ) : (
                 <>

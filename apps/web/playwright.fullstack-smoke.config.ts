@@ -256,6 +256,12 @@ export default defineConfig({
         //   「16 项配置全部是结构化面板」在真栈里成立（人类 2026-08-18 批评的正是
         //   「每个配置菜单都是一个 textbox」，组件测试是对着 mock 断的，这条对着真栈断）。
         "blueprint-designer-16-panels.spec.ts",
+        // ⚠ F961 同理排在 `seeded`：它要用种子里的 sentinel 工作坊
+        //   （`FULLSTACK_E2E.projectId`）与该工作坊的 facilitator——分组编排
+        //   （`updateGrouping`）只属这个角色，而访谈对象表嵌在组卡内，没有组就无处可填。
+        //   它会往 sentinel 工作坊里真实建一个分组：全仓 `grep project-prep-groups`
+        //   确认没有任何别的 spec 断言「分组为空」，不会像 #520/#496 那样把别人写脏。
+        "interview-subjects-smoke.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },

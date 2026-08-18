@@ -4825,6 +4825,27 @@
       "priority": 2,
       "area": "project",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F961",
+      "title": "项目筹备组卡按原型补齐：组员计数 + 访谈对象摘要 + 展开填六列对象表",
+      "user_visible_behavior": "项目筹备 →「定题与分组」的组卡按原型（`ui-preview/project-v2/uc-2-2-prep-default.png`，`uc-2-2` R3 第 5/6 步）补齐三处：① 组员一行显示**人数**（原型逐字「3 人」），不再把姓名全列出来；② 新增**访谈对象**摘要行（原型逐字「业主侧投资经理」），读 F960 落地的真实 `getInterviewSubjects`，没填过时显示「未填」而不是空白；③ 组卡可**展开**，展开后是原型第 6 步的**六列观察/访谈对象表**（对象 / 部门角色 / 联系方式 / 背景与要问什么 / 方式 / 状态），facilitator/groupLead 可 `[＋ 加对象]`、逐格填写、删除行并提交，提交后刷新页面数据仍在；并发提交时后提交者看到「有人改过了」提示而不是静默覆盖；member/observer 只能看不能改。⚠ `[AI 建议人选]` 本版**不接**——AI 选人能力全仓没有实现，按既有纪律显示为禁用并如实说明，不做一个点了没反应的按钮。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R3",
+      "depends_on": [
+        "F950",
+        "F960"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "15",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/project-prep-interview-subjects.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/project-prep-live.test.tsx",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded -g \"interview-subject|F950 regression\""
+      ],
+      "evidence": "evidence/F961.verify.log @ 2026-08-18T07:33:12.220Z",
+      "notes": "本 feature 是 F960 notes ④ 里写明「留给下一个 feature」的那半边：F960 只做了后端，当时前端接不了是因为组卡还没有真实 groupId（依赖 F950 的 `getProjectGrouping`）。F950（#1482）与 F960（#1510）现均已合入 main，前置条件成立，本次补前端。\n① **零契约改动、零迁移**——只消费 F960 已签并落地的 `getInterviewSubjects` / `updateInterviewSubjects` 两条端点，`next.config.mjs` 的 `/projects/:path*` 已覆盖该路径，不需要新 rewrite、不需要动棘轮名单。\n② **组员从姓名列表改为人数**是**向原型靠拢的修正**，不是功能删减：原型 `uc-2-2-prep-default.png` 与 `lib/mock/project.ts` 的 `members: \"3 人\"` 都是计数，F950 当时写成姓名拼接是实现时的自由发挥，本次按签核过的原型收回。姓名仍可在编辑态的组员勾选框里逐个看到，信息没有丢。\n③ **每组一次 GET**：摘要行在折叠态就要显示，所以挂载时按组并发拉取（原型是 4 组，量级可接受），不是等展开才拉——那样折叠态的摘要就得靠假数据填，正是本仓反复栽跟头的「静态痕迹」。\n④ `[AI 建议人选]` 禁用 + 如实说明，同 F950 对「AI 生成定题」、F185 对未接线菜单项的既有处置纪律，不新造一个假入口。\n⑤ **真栈 e2e 第一次跑就抓到一个真 bug（见 issue 评论）**：`lib/live-project-prep.ts` 三个 save 函数都把路径参数（`projectId`，对象表还多一个 `groupId`）塞进了 PUT body，而 controller 的 body schema 是 `.omit({projectId:true})` 且契约 object 是 `.strict()`（`.omit()` 保留 strict）⇒ 未知字段 ⇒ **整条请求 400**。也就是说 **F950 的「定题保存」「分组保存」自合入起在真实浏览器里一次都没成功过**，而所有测试全绿——因为组件测试的 `fetch` 是 mock 的，只记录 body 不校验，F950 的断言甚至明确要求 body 里有 `projectId`，把 bug 钉成了期望行为。本 feature 一并修三处 + 把两个组件测试里的断言纠正成 `not.toHaveProperty(\"projectId\")` 机械门 + e2e 里加一条 F950 回归用例（定题保存→刷新仍在），让修复本身有真栈证据。"
     }
   ]
 }

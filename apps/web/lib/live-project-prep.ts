@@ -34,7 +34,18 @@ export interface SaveTopicInput {
   readonly expectedTopicRevision: string;
 }
 
-/** ⚠ AI 生成入口本版未接（同 `new-project-flow.tsx` 对未接能力的处置纪律），恒传 `aiGenerated: null`。 */
+/**
+ * ⚠ AI 生成入口本版未接（同 `new-project-flow.tsx` 对未接能力的处置纪律），恒传 `aiGenerated: null`。
+ *
+ * ⚠ **body 里不带 `projectId`**（F961 修，2026-08-18）：`projectId` 是**路径参数**，
+ *   controller 的 body schema 是 `saveAndSyncTopic.in.omit({ projectId: true })`——
+ *   而契约那个 object 是 `.strict()`，`.omit()` 保留 strict，所以 body 里多带一个
+ *   `projectId` 会被 zod 判成未知字段，整个请求 **400**。
+ *   F950 当初这么写并且全绿，是因为组件测试里 `fetch` 是 mock 的——它只记录 body，
+ *   不会像真的 zod 那样拒绝。这个 bug 由 F961 的真栈 e2e
+ *   （`e2e/interview-subjects-smoke.spec.ts`）第一次跑出来，见该文件头注。
+ *   下方 `saveProjectGrouping` / `saveInterviewSubjects` 同理，三处是同一个 bug。
+ */
 export async function saveProjectTopic(
   input: SaveTopicInput,
 ): Promise<z.infer<typeof templates.operations.saveAndSyncTopic.out>> {
@@ -43,7 +54,6 @@ export async function saveProjectTopic(
     {
       method: "PUT",
       body: {
-        projectId: input.projectId,
         title: input.title,
         background: input.background,
         expectedTopicRevision: input.expectedTopicRevision,
@@ -72,8 +82,8 @@ export async function saveProjectGrouping(input: SaveGroupingInput): Promise<Gro
     templates.operations.updateGrouping.path.replace(":projectId", encodeURIComponent(input.projectId)),
     {
       method: "PUT",
+      // ⚠ 同 `saveProjectTopic` 头注：`projectId` 是路径参数，不进 body（strict 会 400）。
       body: {
-        projectId: input.projectId,
         groupCount: input.groupCount,
         groups: input.groups,
         expectedRevision: input.expectedRevision,
@@ -81,6 +91,54 @@ export async function saveProjectGrouping(input: SaveGroupingInput): Promise<Gro
     },
   );
 }
+
+/* ─────────────── F961：观察/访谈对象表（后端由 F960 落地，本次接前端） ─────────────── */
+
+export type InterviewSubject = z.infer<typeof templates.InterviewSubject>;
+export type InterviewSubjectsOut = z.infer<typeof templates.operations.getInterviewSubjects.out>;
+
+function subjectsPath(projectId: string, groupId: string): string {
+  return templates.operations.getInterviewSubjects.path
+    .replace(":projectId", encodeURIComponent(projectId))
+    .replace(":groupId", encodeURIComponent(groupId));
+}
+
+export async function getInterviewSubjects(projectId: string, groupId: string): Promise<InterviewSubjectsOut> {
+  return apiRequest<InterviewSubjectsOut>(subjectsPath(projectId, groupId), { method: "GET" });
+}
+
+export interface SaveInterviewSubjectsInput {
+  readonly projectId: string;
+  readonly groupId: string;
+  readonly subjects: readonly InterviewSubject[];
+  readonly expectedRevision: string;
+}
+
+export async function saveInterviewSubjects(
+  input: SaveInterviewSubjectsInput,
+): Promise<InterviewSubject[]> {
+  return apiRequest<InterviewSubject[]>(subjectsPath(input.projectId, input.groupId), {
+    method: "PUT",
+    // ⚠ 同 `saveProjectTopic` 头注：`projectId`/`groupId` 都是路径参数，不进 body。
+    body: {
+      subjects: input.subjects,
+      expectedRevision: input.expectedRevision,
+    },
+  });
+}
+
+/** 六列表头——逐字照 `uc-2-2` R3 第 6 步与契约 `InterviewSubject` 的字段顺序，不另起一套叫法。 */
+export const INTERVIEW_SUBJECT_COLUMNS: ReadonlyArray<{
+  key: keyof Omit<InterviewSubject, "subjectId">;
+  label: string;
+}> = [
+  { key: "name", label: "对象" },
+  { key: "role", label: "部门角色" },
+  { key: "contact", label: "联系方式" },
+  { key: "focus", label: "背景与要问什么" },
+  { key: "method", label: "方式" },
+  { key: "status", label: "状态" },
+];
 
 export const GROUP_STATUS_LABEL: Record<z.infer<typeof templates.GroupStatus>, string> = {
   "recording-ready": "录音就绪",
