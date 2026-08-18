@@ -11,11 +11,13 @@
  *   ② kind 闭集   契约 `ProjectKind` 三值，与 DB CHECK 成员逐个相等
  *   ③ 幂等指纹    uc-00-1 E5 的字面意思：「同一次创建请求」= 同样的五元组
  *
- * ⚠ 这里**没有**「给创建者授予项目角色」这一步，缺了是结论不是遗漏：
- *   Q-4② 裁「`lead` 对自建未加入的项目持管理权、不持内容读取权」。
- *   若创建即授角色，那条边的两端就不存在了，「管理员不是超级用户」（D-18）随之破掉。
- *   ⇒ 反向断言写在 `tests/project/create-project-org-role-gate.test.ts`：
- *     建完立刻以创建者身份判权，必须拿到 `NO_PROJECT_ROLE`。
+ * ⚠ 2026-08-16 人类裁决，推翻 Q-4②：**创建者自动获得该项目最高权限的角色**
+ *   （facilitator + is_host）。原判据（本条以下保留存档）：「不给创建者授予项目角色，
+ *   因为若创建即授角色，『lead 对自建未加入的项目持管理权、不持内容读取权』那条边的
+ *   两端就不存在了」——人类直接推翻了这个结论。「给创建者授予项目角色」这一步不在
+ *   本文件（三条纯判断没有变化），落在 `PgProjectRepository.create()`，同一事务多写
+ *   一行 `project_memberships`。反向断言（建完立刻以创建者身份判权，必须**放行**）
+ *   写在 `tests/project/create-project-org-role-gate.test.ts`。
  */
 import { createHash } from "node:crypto";
 import { project } from "@repo/contracts";
@@ -50,12 +52,13 @@ export type ProjectKind = z.infer<typeof project.ProjectKind>;
  *   八步核心流程第 1 步产生的用户，在第 2 步就走不下去。
  * 人类据此裁定：**admin 也能建项目**。
  *
- * ## ⚠ 这条裁决**只**覆盖「谁能建」，**没有**覆盖 Q-4②
+ * ## ⚠ 这条裁决**只**覆盖「谁能建」，Q-4② 是**另一条独立裁决**（已于 2026-08-16 推翻）
  *
- * 建项目**依旧不授予创建者任何项目角色**——admin 建完之后与 lead 建完之后行为完全一致：
- * `project_memberships` 里一行都没有，立刻判权拿到 `NO_PROJECT_ROLE`。
- * 「让它能用起来」的最短路径恰恰是顺手发一个角色，那会同时废掉 Q-4② 与 D-18。
- * ⇒ 护栏断言在 `tests/project/bootstrap-admin-can-create-project.test.ts` 的第三个 describe。
+ * 建项目现在**会**授予创建者项目角色（facilitator）——admin 建完之后与 lead 建完之后
+ * 行为仍然一致：`project_memberships` 里都多一行 facilitator，立刻判权放行。
+ * 「让它能用起来」曾经的顾虑（顺手发角色会废掉 D-18）被人类裁决直接否决：
+ * D-18 本身没有被推翻，只是创建者不再落在它判定的那个格子里。
+ * ⇒ 正向断言在 `tests/project/bootstrap-admin-can-create-project.test.ts` 的第三个 describe。
  *
  * ⚠ 仍然**不写成排除式**（`role !== "consultant"` 之类）：那样将来枚举加第五种角色时，
  *   新角色会静默地被放进来，而所有正向断言依旧全绿。两个取值就逐个列两个。

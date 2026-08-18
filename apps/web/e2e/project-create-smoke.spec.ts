@@ -91,8 +91,9 @@ test("org lead creates a project through the wizard, and PostgreSQL keeps it acr
   // ── 第 ① 件：真的落库了，不是 React state ─────────────────────────────
   // 一次全新的页面加载 + 全新的 `GET /projects`；React 里的任何东西都不会活过来。
   //
-  // ⚠ 它出现在 **managed** 段而不是 member 段，这是对的：「创建不自动授予项目角色」
-  //   是已裁不变量（Q-4②），lead 看得见它是因为他**管着**它，不是因为他在里面。
+  // ⚠ 2026-08-17：Q-4② 推翻后创建者也有 `project_memberships` 行了（见下方第 ③ 件），
+  //   所以这里不再断言「只出现在 managed 段、不在 member 段」——lead 现在两边都够格，
+  //   这条卡片存在即可，具体落在哪个分段不是本用例要守的性质。
   await page.goto("/projects");
   await expect(page.getByTestId(`projects-card-${createdId}-name`))
     .toHaveText(FULLSTACK_E2E.createdProjectName);
@@ -102,36 +103,23 @@ test("org lead creates a project through the wizard, and PostgreSQL keeps it acr
   await expect(page.getByTestId("project-title")).toHaveText(FULLSTACK_E2E.createdProjectName);
 
   /**
-   * ── 第 ③ 件：「创建不自动授予项目角色」在真实后端上是活的 ─────────────────
+   * ── 第 ③ 件：创建者能读自己刚建的项目 ─────────────────────────────────
    *
-   * 这一条是实测撞出来的，不是设计出来的：工作台打开时 `GET /projects/:id/overview`
-   * 被服务端判 **403**。它**不是缺陷** —— 恰恰是 Q-4② 那条已裁不变量在真栈上生效：
-   * 建项目的人不会因为建了它就获得项目角色，而 overview 读的是项目内容，要项目角色。
-   * 所以他能在列表的 **managed** 段看见它（他管着它），却读不到里面的内容。
+   * ⚠ 2026-08-17：Q-4② 被推翻（原裁「创建者不自动获角色」，人类会话中直接改判
+   *   「自动获得最高权限，owner，是的」，见 F199 / requirements/00-project/
+   *   OPEN-QUESTIONS.md「Q-4② 推翻重裁」一节）。本条曾经断言 `GET
+   *   /projects/:id/overview` 被服务端判 403——那不是缺陷，是旧不变量在真栈上生效；
+   *   F199 落地后 `PgProjectRepository.create()` 在同一事务里给创建者写一行
+   *   `project_memberships`（workshop 容器：`project_role='facilitator'`，
+   *   `is_host=true`），overview 现在读得到，403 不应该再出现。
    *
-   * 断言写成「403 只出现在 overview 这一条路径上」，而不是把 403 一律放过：
-   * 后者会让**任何**新出现的越权拒绝从此静默，包括真的坏掉的那种。
-   *
-   * ⚠ 2026-08-13：这里去重后再比较（`Set` 而不是数组 `toEqual`）——
-   *   CI 的 fullstack-smoke job 上先后两次（PR #1135、#1139，均与本文件无关的改动）
-   *   实测到同一条 overview 请求被记录**两次**（数组里两项内容完全相同），
-   *   重跑同一 job 即过，说明是真实的偶发重复请求，不是断言要守的性质本身出了问题——
-   *   要守的性质是「越权确实被拒绝了，且没有其它路径被意外拒绝」，不是「请求恰好发生一次」，
-   *   后者是实现细节，不该绑进这条断言。`Set` 比较同时保住两头：出现 0 次（没被拒绝，
-   *   真缺陷）或出现在别的路径上（意外越权拒绝，真缺陷）都仍然会红。
-   *
-   *   排查过根因但没有直接改代码：`ProjectWorkbench` 里 `getProjectOverview` 那个
-   *   effect（`project-workbench.tsx`）只用 `cancelled` 标志挡 `setState`，没有用
-   *   `AbortController` 真正取消已发出的请求，重跑时能留下一次悬空的重复请求——
-   *   这是相符的一个诱因。但实测把它接上 `AbortController` 后本地反而更容易复现失败
-   *   （5 次里 2 次 `forbidden` 变成空集：第二次挂载的请求被 abort 打断的时机比断言
-   *   检查的时机更慢，403 还没落地断言已经跑到这里），说明真正的重复挂载/重复请求
-   *   在生产构建（`next build && next start`，本文件用的正是这个而非 `next dev`，
-   *   所以不能简单归因于 React StrictMode 的开发态双跑）下另有诱因，没有确证，
-   *   贸然改会把「重复 403」的偶发红变成「零 403」的偶发红，反而更差。
-   *   保留现状，只放宽断言。
+   *   断言写成「没有任何路径被 403」，而不是只删掉旧断言：删掉等于把这条路径的
+   *   越权拒绝检查整个摘掉，任何新出现的意外拒绝都会从此静默——那正是这份文件
+   *   一直以来要守住的性质（见本文件其它用例的同款反证纪律）。
    */
-  expect(new Set(forbidden)).toEqual(new Set([`/projects/${createdId}/overview`]));
+  await page.goto(`/projects/${createdId}?org=${FULLSTACK_E2E.orgId}`);
+  await expect(page.getByTestId("project-title")).toHaveText(FULLSTACK_E2E.createdProjectName);
+  expect(forbidden).toEqual([]);
   expect(failures).toEqual([]);
 });
 
