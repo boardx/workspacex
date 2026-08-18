@@ -33,6 +33,7 @@ import { taskAssignmentDoctor } from "./task-assignment-doctor";
 import { workflowEventDoctor } from "./workflow-event-doctor";
 import { reviewDecisionDoctor } from "./review-decision-doctor";
 import { skillsDoctor } from "./skills-doctor";
+import { gateMutationProbe } from "./gate-mutation-probe";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 import { graphCommand } from "./graph-command";
@@ -67,6 +68,7 @@ async function main(): Promise<void> {
     case "readiness":      coreLoopReadiness(args); break;
     case "scorecard":      roleScorecard(args); break;
     case "pr-queue":       prQueue(args); break;
+    case "gate-probe":     gateMutationProbe(args); break;
     case "merge-gate":     mergeGate(args); break;
     case "templates": {
       // PROP-HARNESS-MODEL-001 §12 的 UX 是 `pnpm harness templates <sub>`（两词），
