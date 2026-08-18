@@ -224,3 +224,106 @@ test("counterproof: with the create request stubbed out in the browser, the row 
   await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toHaveCount(0);
   await expect(page.getByText(NAME)).toHaveCount(0);
 });
+
+/**
+ * 🟡 #988 / #1493 —— 「基于此开新版」（`mintTemplateVersion`）的**真实浏览器**门控。
+ *
+ * 端到端验收链「后台开新版 → chat 生成画像 → 编辑保存 → 重开」的后三步已由
+ * `chat-diagram-save-reopen-roundtrip.spec.ts` 门控（#1541）；第一步此前只有 API 层
+ * http 测试与组件测试——组件测试里的「列表刷新」只是再调一次 fetch mock，证不了
+ * 「v2 写进了 PostgreSQL」。这条把最后一节补上：Chromium → Next 同源代理 → NestJS
+ * `POST /canvas/templates/:key/versions` → `mintTemplateVersion` 用例 → PostgreSQL。
+ *
+ * ## 为什么来源模板现场建，而不是用种子里 #493 那条 published 模板
+ *
+ * `boundTemplateKey` 是 **team-only（归 fullstack 团队）**，本条用组织管理员登录，
+ * 管理员不属于任何团队 ⇒ 那一行对他不可见（上面第一条 test 的空态断言正建立在
+ * 这件事上）。往种子里塞一条 org-wide published 模板则会把那条反空转断言当场打红。
+ * ⇒ 现场走 #496 已门控的「新建 → 发布」把来源造出来，再对它开新版——多走的两步
+ * 都是本文件上面已经单独验过的路径，失败时归因不混。
+ *
+ * ## 断言清单
+ * ① 草稿行**没有**「基于此开新版」按钮（签核裁决：仅非 draft 挂）——这是常驻反证；
+ * ② 发布后按钮出现；对话框里 key 锁定（disabled 且值=来源 key）、显示名/分区名预填自来源；
+ * ③ 改显示名与分区名提交 → 服务端真的回了 201（记录真实 POST，不信 UI）；
+ * ④ 成功通知出现，且「草稿」筛选里有 v2 行、显示名与分区名是改过的，来源 v1 仍是已发布；
+ * ⑤ **reload 后 v2 草稿行仍在**（写进了库，不是 React state）；
+ * ⑥ v2 自己是 draft ⇒ 它同样没有「基于此开新版」按钮（反证在新行上再验一次）。
+ */
+test("admin mints a new draft version from a published template; the v2 draft survives a reload and draft rows expose no mint entry", async ({ page }) => {
+  const { mintSourceKey: KEY, mintSourceName: SOURCE, mintedDisplayName: MINTED } = FULLSTACK_E2E;
+  const MINT_PATH = `${API}/canvas/templates/${KEY}/versions`;
+
+  // 只记「开新版」那条 POST 的状态码；创建/发布/GET 都不进这个数组。
+  const mints: number[] = [];
+  page.on("response", (response) => {
+    const url = new URL(response.url());
+    if (url.pathname === MINT_PATH && response.request().method() === "POST") {
+      mints.push(response.status());
+    }
+  });
+
+  await loginAsAdmin(page);
+  await openTemplateAdmin(page);
+
+  // ── 前置：现场建出来源 v1 并发布（#496 已门控的两步，这里只当脚手架用）────────
+  await fillCreateForm(page, KEY, SOURCE);
+  const sourceRow = page.getByTestId(`tpladmin-row-${KEY}-1`);
+  await expect(sourceRow).toBeVisible();
+  await expect(sourceRow).toContainText("草稿");
+
+  // ── ① 常驻反证：draft 行没有「基于此开新版」（签核裁决：仅非 draft 挂）─────────
+  //    先证行操作区真的渲染了（draft 行有「试跑入口待补」占位），再说按钮不在——
+  //    否则一次渲染失败会让「不在」恒成立。
+  await expect(page.getByTestId(`tpladmin-notrial-${KEY}-1`)).toBeVisible();
+  await expect(page.getByTestId(`tpladmin-mint-version-${KEY}-1`)).toHaveCount(0);
+
+  await page.getByTestId(`tpladmin-publish-${KEY}-1`).click();
+  await waitForNotice(page, "已发布");
+  await expect(sourceRow).toContainText("已发布");
+
+  // ── ② 发布后按钮出现；对话框 key 锁定 + 字段预填自来源 ─────────────────────────
+  await page.getByTestId(`tpladmin-mint-version-${KEY}-1`).click();
+  await expect(page.getByTestId("tpladmin-mint-dialog")).toBeVisible();
+  const keyInput = page.getByTestId("tpladmin-create-key");
+  await expect(keyInput).toBeDisabled();
+  await expect(keyInput).toHaveValue(KEY);
+  await expect(page.getByTestId("tpladmin-create-name")).toHaveValue(SOURCE);
+  await expect(page.getByTestId("tpladmin-create-section-0")).toHaveValue("优势");
+
+  // ── ③ 改显示名与一个分区名，提交 ──────────────────────────────────────────────
+  await page.getByTestId("tpladmin-create-name").fill(MINTED);
+  await page.getByTestId("tpladmin-create-section-0").fill("劣势");
+  await page.getByTestId("tpladmin-mint-submit").click();
+
+  // ── ④ 成功通知 + 「草稿」筛选里的 v2 行是改过的；来源 v1 不受影响 ─────────────
+  await waitForNotice(page, "已基于 v1 新建草稿");
+  await expect(page.getByTestId("tpladmin-notice")).toContainText(`${MINTED} v2`);
+  // 201，不是 200：这条路由真的造出了一行新资源，且只被调了一次。
+  expect(mints).toEqual([201]);
+
+  await page.getByTestId("tpladmin-filter-draft").click();
+  const mintedRow = page.getByTestId(`tpladmin-row-${KEY}-2`);
+  await expect(mintedRow).toBeVisible();
+  await expect(mintedRow).toContainText(MINTED);
+  await expect(mintedRow).toContainText("草稿");
+  // 分区名那一栏（lg 视口可见）显示的是这次改过的名字，不是来源的「优势」。
+  await expect(mintedRow).toContainText("劣势");
+
+  await page.getByTestId("tpladmin-filter-all").click();
+  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText("已发布");
+  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText(SOURCE);
+
+  // ── ⑤ reload 后 v2 草稿行仍在 = 在库里，不在 React state 里 ───────────────────
+  await page.reload();
+  await expect(page.getByTestId("tpladmin-root")).toBeVisible();
+  await page.getByTestId("tpladmin-filter-draft").click();
+  await expect(page.getByTestId(`tpladmin-row-${KEY}-2`)).toContainText(MINTED);
+  await expect(page.getByTestId(`tpladmin-row-${KEY}-2`)).toContainText("劣势");
+  // reload 没有重放开新版请求——那一行来自 GET。
+  expect(mints).toEqual([201]);
+
+  // ── ⑥ 反证在新行上再验一次：v2 是 draft ⇒ 同样没有开新版入口 ──────────────────
+  await expect(page.getByTestId(`tpladmin-notrial-${KEY}-2`)).toBeVisible();
+  await expect(page.getByTestId(`tpladmin-mint-version-${KEY}-2`)).toHaveCount(0);
+});
