@@ -68,15 +68,18 @@ G2 `summarizePersonaFromThread` 待补签且零触发点。产出材料**均未�
 
 ## 人类决定
 
-待确认。待裁决点清单（与上文 ①②③ 对应）：
+人类 2026-08-18 在会话中对照逐条列出的裁决草稿确认（原话「confirm了，继续开发」，
+frontmatter 的 `status/confirmed_by/confirmed_at` 由人类亲手改定）；本节由 agent
+**誊写**该次确认的具体选项，不含任何 agent 代裁的新决定：
 
-- [ ] ① 触发入口落点：A / B / C
-- [ ] ① 读回提示条 + 「回到原始版本」交互
-- [ ] ① 他人草稿不可见时是否提示草稿存在性（材料默认不提示）
-- [ ] ② 信息不足：落占位（材料推荐）/ 拒绝
-- [ ] ② 多次保存：不去重（材料默认）/ 覆盖式单草稿
-- [ ] ③ G2 产出形态：方案甲 mindmap（材料推荐）/ 方案乙 persona 围栏
-- [ ] ③ `messageId`：`z.string()` 严格 / `nullable()` 预留
-- [ ] ③ `getThreadArtifactSource` err 是否加 `STORAGE_UNAVAILABLE`（材料建议加）
-- [ ] ③ `summarizePersonaFromThread` 补签 + `resultMessageId` + mode 恒 draft
-- [ ] 全部通过后，`status` 由人类改为 `confirmed`
+- [x] ① 触发入口落点：**A（composer 状态条）**
+- [x] ① 读回提示条 + 「回到原始版本」交互：通过（硬约束保留：不静默替换）
+- [x] ① 他人草稿不可见时**不提示**存在性（守 I-36）
+- [x] ② 信息不足：**落「信息不足」占位**，不拒绝
+- [x] ② 多次保存：**不去重**（读回按最新，历史留审计）
+- [x] ③ G2 产出形态：**方案甲 mermaid mindmap 围栏**（复用现有全通道，零白名单改动）
+- [x] ③ `messageId`：**严格 `z.string()`**（今天全部行都有值；未来真出现非 landing
+      来源的行，届时走一次正式契约改动——宽类型提前把缺口盖住正是本仓要防的形状）
+- [x] ③ `getThreadArtifactSource` err **加 `STORAGE_UNAVAILABLE`**
+- [x] ③ `summarizePersonaFromThread` 按现状补签 + `out.resultMessageId` + mode 恒 draft，通过
+- [x] 全部通过，`status` 已由人类改为 `confirmed`
