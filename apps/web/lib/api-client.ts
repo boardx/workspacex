@@ -109,12 +109,24 @@ export function clearStoredSessionToken(): void {
   window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
 }
 
+/**
+ * 非 JSON 错误正文在 `ApiError.rawBody` 里保留的最大字符数——见 `apiRequest` 里
+ * 解析失败分支的说明：上游可能吐一整页 HTML，原样保留只会淹没有用信息。
+ */
+const RAW_BODY_PREVIEW_CHARS = 512;
+
 /** 后端统一失败信封的客户端投影：`{ error, traceId, reasonCode? }`。 */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly reasonCode: string | null,
     readonly raw: unknown,
+    /**
+     * 响应正文**不是 JSON** 时保留的原始片段（截断到 `RAW_BODY_PREVIEW_CHARS`）。
+     * 正常的失败信封走 `raw`，这个字段恒为 `undefined`——它只在"上游根本没按契约
+     * 回 JSON"这条路径上有值，是排查网关/代理故障时唯一的线索。
+     */
+    readonly rawBody?: string,
   ) {
     super(reasonCode ?? `http_${status}`);
     this.name = "ApiError";
@@ -190,7 +202,40 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
   });
 
   const text = await res.text();
-  const json: unknown = text.length > 0 ? JSON.parse(text) : undefined;
+  /**
+   * ⚠ 2026-08-18 实测（真栈 + 真实百炼模型跑 pptx skill 试跑）：这里**曾经是裸的
+   * `JSON.parse(text)`**，于是任何**非 JSON 的错误响应**都会让它抛一个原始
+   * `SyntaxError`，且这个 SyntaxError 会一路冒到界面上。用户看到的是
+   * `Unexpected token 'I', "Internal S"... is not valid JSON`——
+   * 真实原因（上游 500 / 网关超时 / 代理断连）被一句 JSON 解析报错完全盖住。
+   *
+   * ⚠ 这不是一个理论缺口：**本文件与 `next.config.mjs` 里已经有七处以上注释**把
+   * `Unexpected token '<'`（解析到 `<!DOCTYPE`）当成"rewrite 少配了"的诊断线索来用。
+   * 也就是说这个症状被反复观测、反复写进注释当路标，却**从来没有人修解析本身**——
+   * 它一直在把"后端/网关出错"翻译成"前端 JSON 解析 bug"，每一次都要人肉重新推理。
+   *
+   * 修法：解析失败**不再抛 SyntaxError**。
+   * · 响应本身就是失败（`!res.ok`）⇒ 抛 `ApiError`，带上真实 status 与截断后的原始
+   *   正文（`rawBody`）。界面于是显示"HTTP 500"这类可理解的错误，排查时还能看到
+   *   上游到底吐了什么。
+   * · 响应是 2xx 却不是 JSON ⇒ 这是真正的协议违约（rewrite 打到了 Next 自己的
+   *   404 HTML 是最常见的一种），照样抛 `ApiError`，不静默返回一个假的 `undefined`。
+   *
+   * ⚠ 正文截断到 512 字：错误信封可能是一整页 HTML，原样塞进 Error message 只会
+   *   淹没真正有用的那一行。
+   */
+  let json: unknown;
+  let parsed = true;
+  try {
+    json = text.length > 0 ? JSON.parse(text) : undefined;
+  } catch {
+    parsed = false;
+    json = undefined;
+  }
+
+  if (!parsed) {
+    throw new ApiError(res.status, null, undefined, text.slice(0, RAW_BODY_PREVIEW_CHARS));
+  }
 
   if (!res.ok) {
     const reasonCode = extractReasonCode(json);
