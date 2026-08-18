@@ -79,8 +79,12 @@ describe("管理员权力边界：个人层只见计数", () => {
   it("① 每个有私有条目的人只显示计数与「内容不可见」徽标，不显示任何内容文本", async () => {
     render(<AdminBoundaryLive />);
 
-    const boundary = await waitFor(() => screen.getByTestId("admin-members-private-counts"));
-    const row = within(boundary).getByTestId("admin-member-private-u-linke");
+    // ⚠ 等的必须是**行**，不是容器：容器在「读取中…」这个 loading 态就已经渲染出来了，
+    //   只 waitFor 容器等于没等——高并发下（turbo 多 worker 同时跑）fetch 还没 resolve
+    //   就往下断言，报「找不到 admin-member-private-u-linke」而 DOM 里明晃晃写着「读取中…」。
+    //   2026-08-18 在一次 pre-push 全量里真实红过一次，与被测行为无关，是这条等待写错了对象。
+    const row = await screen.findByTestId("admin-member-private-u-linke");
+    const boundary = screen.getByTestId("admin-members-private-counts");
     expect(row.textContent).toContain("林可");
     expect(row.textContent).toContain("34");
     expect(row.textContent).toContain("内容不可见");
