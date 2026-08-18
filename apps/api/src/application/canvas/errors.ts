@@ -52,3 +52,41 @@ export class CanvasPublishedVersionConflictError extends Error {
     this.name = "CanvasPublishedVersionConflictError";
   }
 }
+
+/**
+ * `applyStickyChange`：`stickyId` 在 head 版本的 markdown 里不存在（客户端状态陈旧
+ * ——stickyId 是文档序派生的，head 推进后可能重排，见 source-projection.ts 文件头）。
+ * 契约 `applyStickyChange.err` 闭集里**没有码**给它（只有 NOT_IN_GROUP /
+ * INSTANCE_NOT_FOUND / AUTHORIZATION_REVOKED / DEPENDENCY_UNAVAILABLE）——硬借
+ * `INSTANCE_NOT_FOUND` 会让前端把「便签过期」当成「画布没了」。裸 404，缺口在 PR 里报出。
+ */
+export class CanvasStickyNotFoundError extends Error {
+  constructor(readonly stickyId: string) {
+    super(`sticky ${stickyId} not found in head markdown`);
+    this.name = "CanvasStickyNotFoundError";
+  }
+}
+
+/**
+ * `applyStickyChange`：`patch.color` 不是已注册颜色（引擎 `STICKY_COLORS` 的名字或
+ * hex 值）。契约 `patch.color` 是开放 `z.string()`，闭集校验只能落在这里；err 闭集
+ * 同样没有码 ⇒ 裸 400（同 `CanvasIllegalTransitionError` 的处置）。
+ */
+export class CanvasUnknownStickyColorError extends Error {
+  constructor(readonly color: string) {
+    super(`unknown sticky color: ${color}`);
+    this.name = "CanvasUnknownStickyColorError";
+  }
+}
+
+/**
+ * `applyStickyChange`：`patch.sectionId` 指向的分区在 head 版本的 markdown 里没有
+ * 对应的 `## 段落`（既不匹配冻结模板分区名，也不匹配派生 `md:<名字>`）。
+ * err 闭集没有码 ⇒ 裸 400。
+ */
+export class CanvasUnknownSectionError extends Error {
+  constructor(readonly sectionId: string) {
+    super(`unknown target section: ${sectionId}`);
+    this.name = "CanvasUnknownSectionError";
+  }
+}

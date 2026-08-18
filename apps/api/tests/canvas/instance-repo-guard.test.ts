@@ -25,9 +25,13 @@ const GET_UC = at("../../src/application/canvas/get-canvas-source.ts");
 const UPDATE_UC = at("../../src/application/canvas/update-canvas-source.ts");
 const RENDER_UC = at("../../src/application/canvas/render-canvas.ts");
 const EXPORT_UC = at("../../src/application/canvas/export-canvas-source.ts");
+const STICKY_UC = at("../../src/application/canvas/apply-sticky-change.ts");
 
 describe("#1493 · 豁免前提 (a)(b)(c)：仓储只碰三张表、不越租户、findInstance 不带内容", () => {
-  it("全部 FROM/JOIN/INTO/UPDATE 只命名 canvas_instances / canvas_instance_versions / canvas_templates", () => {
+  // 第三块（applyStickyChange）把修订链表 canvas_sticky_revisions 纳入同一豁免：
+  // 它存的是 patch/clientTs/指针，读它的 findCurrentStickyRevision 只在组归属判定
+  // 之后被调用（下方 STICKY_UC 顺序断言），写它的 applyStickyRevision 同理。
+  it("全部 FROM/JOIN/INTO/UPDATE 只命名 canvas_instances / canvas_instance_versions / canvas_templates / canvas_sticky_revisions", () => {
     const code = stripped(REPO);
     // `appendVersion` 的 CTE 名（`WITH bump AS ...`）不是表——先收集所有 WITH 定义名再剔除。
     const cteNames = new Set(
@@ -38,7 +42,12 @@ describe("#1493 · 豁免前提 (a)(b)(c)：仓储只碰三张表、不越租户
       .filter((name) => !cteNames.has(name));
     expect(refs.length, "一条表引用都没扫到——本断言在空转").toBeGreaterThan(0);
     expect(new Set(refs)).toEqual(
-      new Set(["canvas_instances", "canvas_instance_versions", "canvas_templates"]),
+      new Set([
+        "canvas_instances",
+        "canvas_instance_versions",
+        "canvas_templates",
+        "canvas_sticky_revisions",
+      ]),
     );
   });
 
@@ -93,5 +102,18 @@ describe("#1493 · 豁免前提 (d)：判定先于内容披露", () => {
     expect(check, "组归属判定消失了——豁免条目随之失效").toBeGreaterThan(-1);
     expect(read).toBeGreaterThan(-1);
     expect(check).toBeLessThan(read);
+  });
+
+  // 第三块（applyStickyChange）沿用同一豁免——组归属判定先于任何内容读与任何写。
+  it("apply-sticky-change.ts：NOT_IN_GROUP 判定在 findVersion / applyStickyRevision 之前", () => {
+    const code = stripped(STICKY_UC);
+    const check = code.indexOf('"NOT_IN_GROUP"');
+    const read = code.indexOf(".findVersion(");
+    const write = code.indexOf(".applyStickyRevision(");
+    expect(check, "组归属判定消失了——豁免条目随之失效").toBeGreaterThan(-1);
+    expect(read).toBeGreaterThan(-1);
+    expect(write).toBeGreaterThan(-1);
+    expect(check).toBeLessThan(read);
+    expect(check).toBeLessThan(write);
   });
 });
