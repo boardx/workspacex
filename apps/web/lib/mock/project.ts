@@ -165,6 +165,21 @@ export const ROLE_STAGE_CONTROL: Record<ProjectRole, boolean> = {
 };
 
 /**
+ * 「提交本组产出」——引导师**与组长**，组员/观察者不可（F961）。
+ *
+ * ⚠ 这是后端 `domain/identity/project-role-matrix.ts` 里 `group.submitOutput` 那一条的
+ *   前端投影，**不是**一份平行判据：观察/访谈对象表嵌在组卡内、属「本组产出」，后端
+ *   `canUpdateInterviewSubjects` 复用的就是这一条。这里单列一个常量而不是复用
+ *   `ROLE_STAGE_CONTROL`（引导师 only）的原因是两者取值本来就不同——用错会造成
+ *   「组长看得见按钮、点了被后端拒」或「组长有权限却看不到入口」。
+ *   ⚠ 同一事实两处声明的漂移风险由 `apps/web/tests/ui/project-prep-interview-subjects.test.tsx`
+ *   的角色断言兜住；后端矩阵改了这一条而这里没跟，那个测试会红。
+ */
+export const ROLE_GROUP_SUBMIT: Record<ProjectRole, boolean> = {
+  facilitator: true, groupLead: true, member: false, observer: false,
+};
+
+/**
  * 「我的组」—— 组长/组员对本组（第 2 组 = g2）有完整可见；引导师看全部（null=不限）；
  * 观察者无归属（只看脱敏聚合）。别组对组长/组员**只显示进度，不显示原始引述**。
  */

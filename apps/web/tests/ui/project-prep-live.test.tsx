@@ -80,9 +80,15 @@ describe("F950 TabPrep：定题——真实空态 / 编辑保存 / 并发冲突"
 
     await waitFor(() => expect(putCalls).toHaveLength(1));
     expect(putCalls[0]?.body).toMatchObject({
-      projectId: PROJECT, title: "欧洲市场进入策略", background: "Q3 要结果",
+      title: "欧洲市场进入策略", background: "Q3 要结果",
       expectedTopicRevision: "0", aiGenerated: null,
     });
+    // ⚠ F961 修正：这里原本断言 body 里**有** `projectId`——那条断言把一个真实 bug 钉成了
+    //   「期望行为」。`projectId` 是路径参数，controller 的 body schema 是
+    //   `saveAndSyncTopic.in.omit({projectId:true})` 且契约是 `.strict()`，body 里多带它
+    //   会被 zod 判成未知字段直接 400。组件测试的 fetch 是 mock 的、只记录不校验，
+    //   所以这个 bug 从 F950 起一直全绿，直到 F961 的真栈 e2e 打出 `http_400`。
+    expect(putCalls[0]?.body).not.toHaveProperty("projectId");
     await waitFor(() => expect(onTopicSaved).toHaveBeenCalledTimes(1));
   });
 
@@ -194,6 +200,8 @@ describe("F950 TabPrep：分组——真实空态 / 加组 / 指派组长组员"
     const body = putCalls[0]?.body as { groups: { name: string; leaderUserId: string }[] };
     expect(body.groups).toHaveLength(1);
     expect(body.groups[0]).toMatchObject({ name: "第 1 组", leaderUserId: "u-1" });
+    // 同上：路径参数不进 body，否则 strict schema 直接 400（F961 修）。
+    expect(body).not.toHaveProperty("projectId");
     await waitFor(() => expect(onGroupingSaved).toHaveBeenCalledTimes(1));
   });
 
