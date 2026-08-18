@@ -1,6 +1,27 @@
 /** @type {import('next').NextConfig} */
 export default {
   reactStrictMode: true,
+  /**
+   * ⚠ 2026-08-18 实测（真栈 + 真实百炼 `qwen3.8-max` 跑 pptx skill 试跑）：
+   * Next 的 rewrite 代理**默认 30s 就掐断连接**（`proxyTimeout` 未配时的内建默认），
+   * 而一次把 20KB 的 `SKILL.md` 当 system prompt 的真实模型调用，实测
+   * 开思考 200-300s、关思考也要 33.5s——**两种都超过 30s**。
+   *
+   * 掐断之后的症状极具误导性：不是超时报错，而是 `socket hang up` →
+   * 代理回一个**纯文本** `Internal Server Error` → 前端 `JSON.parse` 崩掉，
+   * 界面上显示 `Unexpected token 'I', "Internal S"... is not valid JSON`。
+   * 看起来像前端解析 bug，实际是代理超时。（解析那一半已在
+   * `lib/api-client.ts` 一并修掉，见那里的长注释；但**根因是这条超时**。）
+   *
+   * ⚠ 这条 rewrite 代理只在 e2e / 同源代理部署里生效（`FULLSTACK_E2E_API_ORIGIN` /
+   *   `CHAT_READ_E2E_API_ORIGIN`），生产里浏览器直连 API。所以这条改动修的是
+   *   **门控与本地验证够不够得着长模型调用**，不是生产超时——生产那一半的正解是
+   *   把长调用转异步（同 `AgentRun` 已有的提交→轮询形态，R9「>10s 转异步任务」），
+   *   不是把每一层网关超时都往上调。
+   *
+   * 300s 取自实测上界（开思考的最坏情况）再留一点余量，不是拍脑袋。
+   */
+  experimental: { proxyTimeout: 300_000 },
   eslint: { dirs: ["app", "components", "lib"] },
   // 生产门控校验用独立的 dist 目录：否则 `next dev` 与 `next build` 争抢 .next，
   // 会出现 "Cannot find module ./vendor-chunks/..." 这类假故障。

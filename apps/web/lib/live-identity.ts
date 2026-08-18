@@ -58,7 +58,14 @@ export async function uploadOwnAvatar(file: File): Promise<UploadOwnAvatarOut> {
     body: form,
   });
   const text = await res.text();
-  const json: unknown = text.length > 0 ? JSON.parse(text) : undefined;
+  /* 与 `api-client.ts` 的 `apiRequest` 同一条纪律（见那里的长注释）：非 JSON 的
+     错误正文不得抛原始 SyntaxError，否则真实原因会被一句 JSON 解析报错盖住。 */
+  let json: unknown;
+  try {
+    json = text.length > 0 ? JSON.parse(text) : undefined;
+  } catch {
+    throw new ApiError(res.status, null, undefined, text.slice(0, 512));
+  }
   if (!res.ok) {
     const reasonCode =
       typeof json === "object" && json !== null && "reasonCode" in json
