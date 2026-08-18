@@ -251,6 +251,11 @@ export default defineConfig({
         //   唯一能写蓝本的角色）与 sentinel 项目（`FULLSTACK_E2E.projectId`，F29
         //   缺口门控那条用它做 404 归因排除）。
         "blueprint-contract-gap-audit.spec.ts",
+        // ⚠ P2（#1561）图像通道诚实降级：同理排在 `seeded`——它要用种子里可运行的
+        //   agent（`FULLSTACK_E2E.agentId`）与确定性上游 `loopback-model-provider.ts`
+        //   （回显真实收到的 userText，是本用例证明"图像通道真的组装进 ModelCallInput"
+        //   的关键取证点）。
+        "chat-vision-honest-degrade.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
