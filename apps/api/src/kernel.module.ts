@@ -495,6 +495,13 @@ import {
 } from "./application/canvas/template-ports";
 import { PgCanvasTemplateRepository } from "./infrastructure/canvas/pg-canvas-template-repository";
 import { CanvasTemplateController } from "./interface/controllers/canvas-template.controller";
+// #1493（UC-7.3 第一块）：画布实例源码链（instantiateForSegment / getSource / updateSource）。
+import {
+  CANVAS_INSTANCE_REPOSITORY,
+  type CanvasInstanceRepository,
+} from "./application/canvas/instance-ports";
+import { PgCanvasInstanceRepository } from "./infrastructure/canvas/pg-canvas-instance-repository";
+import { CanvasInstanceController } from "./interface/controllers/canvas-instance.controller";
 // F173（BP-01）：templates 束**第一条**接上电的路由。此前该束是「34 个契约 operation
 // + 32 个纯用例，零控制器零表零仓储」（#991 勘探），应用层写好了却没人调得到。
 import { BlueprintController } from "./interface/controllers/blueprint.controller";
@@ -503,6 +510,17 @@ import {
   type BlueprintPersistencePort,
 } from "./application/templates/blueprint-persistence-ports";
 import { PgBlueprintRepository } from "./infrastructure/templates/pg-blueprint-repository";
+// F950（2026-08-16 delta）：定题/分组/筹备计数三条端点第一次接上真实 Postgres——
+// F24/F25 签的契约此前只有内存假仓储撑单元测试，controller 从未挂过路由。
+import { PROJECT_PREP_REPOSITORY, type ProjectPrepRepository } from "./application/templates/project-prep-ports";
+import { PgProjectPrepRepository } from "./infrastructure/templates/pg-project-prep-repository";
+import {
+  PROJECT_TOPIC_REPOSITORY,
+  type ProjectTopicRepository,
+} from "./application/templates/save-and-sync-topic-ports";
+import { PgProjectTopicRepository } from "./infrastructure/templates/pg-project-topic-repository";
+import { GROUPING_REPOSITORY, type GroupingRepository } from "./application/templates/grouping-ports";
+import { PgGroupingRepository } from "./infrastructure/templates/pg-grouping-repository";
 import {
   INTERVIEW_SUBJECTS_REPOSITORY,
   type InterviewSubjectsRepository,
@@ -598,6 +616,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     AssetDirectoryController,
     AssetGovernanceController,
     CanvasTemplateController,
+    CanvasInstanceController,
     BlueprintController,
     RecordingController,
     AgentRunController,
@@ -1371,12 +1390,37 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         new PgCanvasTemplateRepository(db),
       inject: [DATABASE_PORT],
     },
+    // #1493：画布实例 + immutable 版本链。读写 `canvas_instances` 与
+    // `canvas_instance_versions` 两张新表，与任何既有仓储没有共享的读写路径。
+    {
+      provide: CANVAS_INSTANCE_REPOSITORY,
+      useFactory: (db: DatabasePort): CanvasInstanceRepository =>
+        new PgCanvasInstanceRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F173（BP-01）：蓝本落库。读写 `blueprints` 与 `blueprint_design_facets` 两张新表，
     // 与既有仓储没有共享读写路径。
     {
       provide: BLUEPRINT_PERSISTENCE_PORT,
       useFactory: (db: DatabasePort): BlueprintPersistencePort =>
         new PgBlueprintRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F950（2026-08-16 delta）：三个独立 provider，各自的 `lint-permission-paths` 豁免
+    // 各自成立，见各自 `pg-*.ts` 文件头。
+    {
+      provide: PROJECT_PREP_REPOSITORY,
+      useFactory: (db: DatabasePort): ProjectPrepRepository => new PgProjectPrepRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: PROJECT_TOPIC_REPOSITORY,
+      useFactory: (db: DatabasePort): ProjectTopicRepository => new PgProjectTopicRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: GROUPING_REPOSITORY,
+      useFactory: (db: DatabasePort): GroupingRepository => new PgGroupingRepository(db),
       inject: [DATABASE_PORT],
     },
     // F960（2026-08-17 delta）：观察/访谈对象表读写。同 F950 一批新仓储的先例，

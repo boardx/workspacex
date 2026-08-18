@@ -8,6 +8,7 @@
 import { planProjectPrepTabs, type ProjectPrepTab } from "../../domain/templates/project-prep";
 import type { ProjectPrepRepository } from "./project-prep-ports";
 import type { ProjectRole } from "../../domain/identity/roles";
+import type { OrgId } from "../../domain/org-id";
 
 export type GetProjectPrepErrorCode = "NO_PROJECT_ROLE" | "DEPENDENCY_UNAVAILABLE";
 
@@ -22,6 +23,7 @@ export class GetProjectPrepError extends Error {
 }
 
 export interface GetProjectPrepInput {
+  readonly orgId: OrgId;
   readonly projectId: string;
   /** null = 调用者在这个项目没有任何角色——观察者（`observer`）也能读，只是不能写 R8。 */
   readonly actorProjectRole: ProjectRole | null;
@@ -43,7 +45,7 @@ export async function getProjectPrepUseCase(
 
   let counts;
   try {
-    counts = await deps.repo.loadCounts(input.projectId);
+    counts = await deps.repo.loadCounts(input.orgId, input.projectId);
   } catch {
     throw new GetProjectPrepError("DEPENDENCY_UNAVAILABLE");
   }

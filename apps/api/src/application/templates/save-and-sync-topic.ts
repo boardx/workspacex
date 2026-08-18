@@ -14,6 +14,7 @@ import {
   type SavedTopic,
 } from "./save-and-sync-topic-ports";
 import type { ProjectRole } from "../../domain/identity/roles";
+import type { OrgId } from "../../domain/org-id";
 
 export type SaveAndSyncTopicErrorCode =
   | "NO_PROJECT_ROLE"
@@ -38,6 +39,7 @@ export function canSaveTopic(role: ProjectRole | null): boolean {
 }
 
 export interface SaveAndSyncTopicInput {
+  readonly orgId: OrgId;
   readonly projectId: string;
   readonly actorProjectRole: ProjectRole | null;
   readonly title: string;
@@ -72,6 +74,7 @@ export async function saveAndSyncTopicUseCase(
   let saved: SavedTopic;
   try {
     saved = await deps.repo.saveAndSync({
+      orgId: input.orgId,
       projectId: input.projectId,
       title: input.title,
       background: input.background,

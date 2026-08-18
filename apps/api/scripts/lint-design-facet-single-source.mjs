@@ -31,6 +31,15 @@
  * `apps/api/src/domain/templates/design-facet-table.ts` 里解析出 key 与分组，
  * 解析不到 ⇒ 直接失败（而不是「零违规」地绿掉）。
  *
+ * ⚠ 2026-08-17（F197 复核发现）：`SOURCE_RELS` 有**两个**豁免文件，不是笔误——
+ *   它们回答的是两件不同的事，都各自只有一份：
+ *   · `design-facet-table.ts`（上面那份）：这些 key 分别叫什么/属于哪组/是否必填。
+ *   · `facet-editor-registry.ts`：某个 key 该渲染哪个 React 组件——前端专属的事实，
+ *     领域表不可能知道（它不认识 React），也不该知道（洋葱架构单向依赖）。
+ *   两张表**不冲突**：豁免第二张不是给「第二份定义表」开口子，是承认它压根不是
+ *   同一件事的第二份拷贝。会真正冲突的是「第三张也想叫路由表」——那种情况仍然
+ *   会被规则 2b 抓到，因为它不在 SOURCE_RELS 里。
+ *
  * ## 已知的第二份副本：原型 mock（DEBT，计数被钉住）
  *
  * `apps/web/lib/mock/tpl.ts` 里已经有一张 **16 行**的 `CONFIG_ITEMS`，
@@ -53,11 +62,11 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const SOURCE_REL = "apps/api/src/domain/templates/design-facet-table.ts";
-// F201：`blueprint-designer-shell.tsx` 原本按 `selectedKey` 分派编辑器的 `? :` 链
-// 本身就是这个门控眼里的「第二张表」，把它收进一个 `Record` 后门控改盯着这一个新文件。
-// 这不是第二个「配置项定义表」（key/分组/分母的事实源仍只有 `SOURCE_REL` 一处）——
-// 这里存的是「哪个 designFacetKey 用哪个 React 组件渲染」，UI 路由决定，与领域层无关，
-// 两张表回答的是不同问题，是本仓「同一事实不得声明在两处」以外的一类合法并存。
+/**
+ * 第二个豁免文件：key → React 组件 的路由表，前端专属，不是 key 定义的第二份拷贝
+ * （见上方文件头「唯一事实源来自哪里」一节）。规则 1/3 仍然全文件适用——豁免只
+ * 覆盖规则 2b（跨行 key 字面量计数），因为路由表天然要逐行提到多个 key。
+ */
 const REGISTRY_REL = "apps/web/components/tpl-designer/facet-editor-registry.ts";
 const SOURCE_RELS = [SOURCE_REL, REGISTRY_REL];
 

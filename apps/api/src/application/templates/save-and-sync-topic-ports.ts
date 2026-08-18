@@ -16,8 +16,15 @@
  * 应用层只负责把它翻译成契约码 `VERSION_CHANGED`。
  */
 import type { AiGeneratedProvenance } from "../../domain/templates/project-topic";
+import type { OrgId } from "../../domain/org-id";
 
 export interface SaveAndSyncTopicCommand {
+  /**
+   * 2026-08-16（F950，delta）：此前这个端口只有内存假仓储实现，从未真正落库，
+   * 因此从未需要过租户范围——现在接真 Postgres（RLS 靠 `SET LOCAL app.current_org`），
+   * 补上 `orgId` 是把它从「能编译」变成「能安全跑在多租户库上」，不是新设计的能力。
+   */
+  readonly orgId: OrgId;
   readonly projectId: string;
   readonly title: string;
   readonly background: string;
@@ -27,6 +34,14 @@ export interface SaveAndSyncTopicCommand {
 
 export interface SavedTopic {
   readonly topicId: string;
+  readonly revision: string;
+}
+
+/** 2026-08-16（F950，delta）：`getProjectTopic` 的读侧行。 */
+export interface ProjectTopicRow {
+  readonly topicId: string;
+  readonly title: string;
+  readonly background: string;
   readonly revision: string;
 }
 
@@ -44,4 +59,12 @@ export interface ProjectTopicRepository {
    * 不存在「已经有一行,又插入第二行」这种路径（V5）。
    */
   saveAndSync(cmd: SaveAndSyncTopicCommand): Promise<SavedTopic>;
+
+  /**
+   * 2026-08-16（F950，delta）：读当前定题。`null` = 尚未定题（真实空态，不是失败）——
+   * 与 `saveAndSync` 是同一张表的两侧，不是两份事实。
+   */
+  getTopic(orgId: OrgId, projectId: string): Promise<ProjectTopicRow | null>;
 }
+
+export const PROJECT_TOPIC_REPOSITORY = Symbol("ProjectTopicRepository");

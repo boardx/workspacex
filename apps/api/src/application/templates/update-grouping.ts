@@ -12,6 +12,7 @@
  */
 import { roleAllows } from "../../domain/identity/project-role-matrix";
 import type { ProjectRole } from "../../domain/identity/roles";
+import type { OrgId } from "../../domain/org-id";
 import {
   findGroupMissingLeader,
   findInvalidStatus,
@@ -47,6 +48,7 @@ export function canUpdateGrouping(role: ProjectRole | null): boolean {
 }
 
 export interface UpdateGroupingInput {
+  readonly orgId: OrgId;
   readonly projectId: string;
   readonly actorProjectRole: ProjectRole | null;
   readonly groupCount: number | null;
@@ -76,6 +78,7 @@ export async function updateGroupingUseCase(
 
   try {
     return await deps.repo.updateGrouping({
+      orgId: input.orgId,
       projectId: input.projectId,
       groupCount: input.groupCount,
       groups: input.groups,

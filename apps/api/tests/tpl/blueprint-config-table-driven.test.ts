@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { templates } from "@repo/contracts";
@@ -163,6 +164,22 @@ describe("没有第二份定义表（机械门控）", () => {
     // 所以这里钉的是「不许再多」，不是「已经解决」。数字变大 ⇒ 有人又抄了一份。
     const r = runGate();
     expect(num(r.out, "debt")).toBe(8);
+    expect(num(r.out, "violations")).toBe(0);
+  });
+
+  it("第二个豁免文件（facet-editor-registry.ts）不是白名单，是真的不同事实（F197 复核发现）", () => {
+    // 反证的关键：这个文件**确实**满足规则 2b 的开火条件（≥3 个不同 facet key
+    // 字面量，跨行）——如果它不满足，豁免就是在测一句空话。
+    const registryAbs = join(ROOT, "apps/web/components/tpl-designer/facet-editor-registry.ts");
+    const body = readFileSync(registryAbs, "utf8");
+    const distinctKeys = new Set(
+      DESIGN_FACET_DEFINITIONS.filter((d) => body.includes(`"${d.designFacetKey}"`)).map((d) => d.designFacetKey),
+    );
+    expect(distinctKeys.size, "这条反证本身要求真的有 ≥3 个 key，否则豁免测的是空话").toBeGreaterThanOrEqual(3);
+
+    // 满足开火条件、仍然全仓 0 violations，证明豁免真的生效（不是巧合地没扫到）。
+    const r = runGate();
+    expect(r.code, r.out).toBe(0);
     expect(num(r.out, "violations")).toBe(0);
   });
 });

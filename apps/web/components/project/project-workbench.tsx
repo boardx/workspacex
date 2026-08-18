@@ -18,6 +18,10 @@ import {
   findProject, getProjectOverview, listAgendaSegments,
   type ProjectListItem, type ProjectOverview, type ListAgendaSegmentsOut,
 } from "@/lib/live-projects";
+import {
+  getProjectTopic, getProjectGrouping,
+  type ProjectTopicOut, type ProjectGroupingOut,
+} from "@/lib/live-project-prep";
 import { TabOverview } from "./tab-overview";
 import { TabLive } from "./tab-live";
 import { TabResults } from "./tab-results";
@@ -206,6 +210,58 @@ export function ProjectWorkbench({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refreshSegments 只依赖 projectId，随它一起重建
   }, [projectId, tab]);
 
+  /**
+   * F950（2026-08-16 delta）—— 项目筹备 tab 的定题/分组，与上面 `liveSegments` 同一套
+   * 取法：只在「筹备」tab 激活时拉取；`refreshTopic`/`refreshGrouping` 单独导出给
+   * `TabPrep`，保存成功后重新打一次真实 GET，不在本地拼接乐观更新的值。
+   */
+  const [liveTopic, setLiveTopic] = React.useState<ProjectTopicOut | null>(null);
+  const [liveTopicLoading, setLiveTopicLoading] = React.useState(false);
+  const [liveTopicError, setLiveTopicError] = React.useState<string | null>(null);
+
+  const refreshTopic = React.useCallback(() => {
+    if (!projectId) return;
+    if (!getStoredSessionToken()) return;
+    setLiveTopicLoading(true);
+    setLiveTopicError(null);
+    getProjectTopic(projectId)
+      .then((row) => setLiveTopic(row))
+      .catch((e: unknown) => {
+        setLiveTopicError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+      })
+      .finally(() => setLiveTopicLoading(false));
+  }, [projectId]);
+
+  const [liveGrouping, setLiveGrouping] = React.useState<ProjectGroupingOut | null>(null);
+  const [liveGroupingLoading, setLiveGroupingLoading] = React.useState(false);
+  const [liveGroupingError, setLiveGroupingError] = React.useState<string | null>(null);
+
+  const refreshGrouping = React.useCallback(() => {
+    if (!projectId) return;
+    if (!getStoredSessionToken()) return;
+    setLiveGroupingLoading(true);
+    setLiveGroupingError(null);
+    getProjectGrouping(projectId)
+      .then((row) => setLiveGrouping(row))
+      .catch((e: unknown) => {
+        setLiveGroupingError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+      })
+      .finally(() => setLiveGroupingLoading(false));
+  }, [projectId]);
+
+  React.useEffect(() => {
+    if (!projectId || tab !== "prep" || !getStoredSessionToken()) {
+      setLiveTopic(null);
+      setLiveTopicError(null);
+      setLiveGrouping(null);
+      setLiveGroupingError(null);
+      return;
+    }
+    refreshTopic();
+    refreshGrouping();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 两者只依赖 projectId，随它一起重建
+  }, [projectId, tab]);
+
   const href = (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => {
     const p = new URLSearchParams();
     if (qs.org) p.set("org", qs.org);
@@ -366,6 +422,8 @@ export function ProjectWorkbench({
                 liveProject, liveLoading, liveError,
                 liveOverview, liveOverviewLoading, liveOverviewError,
                 liveSegments, liveSegmentsLoading, liveSegmentsError, refreshSegments,
+                liveTopic, liveTopicLoading, liveTopicError, refreshTopic,
+                liveGrouping, liveGroupingLoading, liveGroupingError, refreshGrouping,
               )}
             </StateShell>
           </main>
@@ -391,6 +449,14 @@ function renderTab(
   liveSegmentsLoading: boolean,
   liveSegmentsError: string | null,
   refreshSegments: () => void,
+  liveTopic: ProjectTopicOut | null,
+  liveTopicLoading: boolean,
+  liveTopicError: string | null,
+  refreshTopic: () => void,
+  liveGrouping: ProjectGroupingOut | null,
+  liveGroupingLoading: boolean,
+  liveGroupingError: string | null,
+  refreshGrouping: () => void,
 ) {
   switch (tab) {
     case "overview":
@@ -419,6 +485,14 @@ function renderTab(
           liveSegmentsLoading={liveSegmentsLoading}
           liveSegmentsError={liveSegmentsError}
           onSegmentCreated={refreshSegments}
+          liveTopic={liveTopic}
+          liveTopicLoading={liveTopicLoading}
+          liveTopicError={liveTopicError}
+          onTopicSaved={refreshTopic}
+          liveGrouping={liveGrouping}
+          liveGroupingLoading={liveGroupingLoading}
+          liveGroupingError={liveGroupingError}
+          onGroupingSaved={refreshGrouping}
         />
       );
     case "live": return <TabLive view={view} readOnly={orgDisabled} />;

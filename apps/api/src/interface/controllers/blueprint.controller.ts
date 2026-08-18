@@ -64,6 +64,19 @@ import { discloseDecided, isDisclosed } from "../../application/security/permiss
 import { Put, Param } from "@nestjs/common";
 import { ConflictException } from "@nestjs/common";
 import { designFacetKeys as designFacetKeySet } from "../../domain/templates/design-facet-table";
+// F950（2026-08-16 delta）：定题/分组/筹备计数——F24/F25 签的契约第一次接上真实 Postgres。
+import { getProjectPrepUseCase, GetProjectPrepError } from "../../application/templates/get-project-prep";
+import { PROJECT_PREP_REPOSITORY, type ProjectPrepRepository } from "../../application/templates/project-prep-ports";
+import { getProjectTopicUseCase, GetProjectTopicError } from "../../application/templates/get-project-topic";
+import { saveAndSyncTopicUseCase, SaveAndSyncTopicError } from "../../application/templates/save-and-sync-topic";
+import {
+  PROJECT_TOPIC_REPOSITORY,
+  type ProjectTopicRepository,
+} from "../../application/templates/save-and-sync-topic-ports";
+import { getProjectGroupingUseCase, GetProjectGroupingError } from "../../application/templates/get-project-grouping";
+import { updateGroupingUseCase, UpdateGroupingError } from "../../application/templates/update-grouping";
+import { GROUPING_REPOSITORY, type GroupingRepository } from "../../application/templates/grouping-ports";
+import type { ProjectRole } from "../../domain/identity/roles";
 import {
   updateInterviewSubjectsUseCase,
   UpdateInterviewSubjectsError,
@@ -94,6 +107,9 @@ export class BlueprintController {
     @Inject(BLUEPRINT_PERSISTENCE_PORT) private readonly repo: BlueprintPersistencePort,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(ID_FACTORY) private readonly ids: IdFactory,
+    @Inject(PROJECT_PREP_REPOSITORY) private readonly prepRepo: ProjectPrepRepository,
+    @Inject(PROJECT_TOPIC_REPOSITORY) private readonly topicRepo: ProjectTopicRepository,
+    @Inject(GROUPING_REPOSITORY) private readonly groupingRepo: GroupingRepository,
     @Inject(INTERVIEW_SUBJECTS_REPOSITORY) private readonly interviewSubjects: InterviewSubjectsRepository,
   ) {}
 
@@ -485,6 +501,123 @@ export class BlueprintController {
   }
 
   /**
+   * F950（2026-08-16 delta）：定题/分组/筹备计数的五条路由。`orgId` 取自
+   * `principal.orgId`——同 `project.controller.ts` 里 `getProjectOverview`/`archiveProject`
+   * 那批路由的形状，五个契约的 `in` 都只有 `projectId`（或 `projectId + tags` 那种混合
+   * body），没有 `orgId` 字段。角色门槛统一走 `getActorProjectRole`。
+   */
+  @Get("/projects/:projectId/prep")
+  async getPrep(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const role = await this.getActorProjectRole(orgId, projectId, principal.userId);
+    try {
+      return await getProjectPrepUseCase({ repo: this.prepRepo }, { orgId, projectId, actorProjectRole: role });
+    } catch (e) {
+      if (e instanceof GetProjectPrepError) throw this.mapPrepFamilyError(e.reasonCode);
+      throw e;
+    }
+  }
+
+  @Get("/projects/:projectId/topic")
+  async getTopic(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const role = await this.getActorProjectRole(orgId, projectId, principal.userId);
+    try {
+      return await getProjectTopicUseCase({ repo: this.topicRepo }, { orgId, projectId, actorProjectRole: role });
+    } catch (e) {
+      if (e instanceof GetProjectTopicError) throw this.mapPrepFamilyError(e.reasonCode);
+      throw e;
+    }
+  }
+
+  @Put("/projects/:projectId/topic")
+  async putTopic(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(C.operations.saveAndSyncTopic.in.omit({ projectId: true })))
+    body: Omit<z.infer<typeof C.operations.saveAndSyncTopic.in>, "projectId">,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const role = await this.getActorProjectRole(orgId, projectId, principal.userId);
+    try {
+      return await saveAndSyncTopicUseCase(
+        { repo: this.topicRepo },
+        { orgId, projectId, actorProjectRole: role, ...body },
+      );
+    } catch (e) {
+      if (e instanceof SaveAndSyncTopicError) {
+        if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        if (e.reasonCode === "VERSION_CHANGED") throw new ConflictException({ reasonCode: e.reasonCode });
+        if (e.reasonCode === "AI_SOURCES_INSUFFICIENT") {
+          throw new BadRequestException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  @Get("/projects/:projectId/grouping")
+  async getGrouping(@CurrentPrincipal() principal: Principal, @Param("projectId") projectId: string) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const role = await this.getActorProjectRole(orgId, projectId, principal.userId);
+    try {
+      return await getProjectGroupingUseCase(
+        { repo: this.groupingRepo },
+        { orgId, projectId, actorProjectRole: role },
+      );
+    } catch (e) {
+      if (e instanceof GetProjectGroupingError) throw this.mapPrepFamilyError(e.reasonCode);
+      throw e;
+    }
+  }
+
+  @Put("/projects/:projectId/grouping")
+  async putGrouping(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(C.operations.updateGrouping.in.omit({ projectId: true })))
+    body: Omit<z.infer<typeof C.operations.updateGrouping.in>, "projectId">,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const role = await this.getActorProjectRole(orgId, projectId, principal.userId);
+    try {
+      return await updateGroupingUseCase(
+        { repo: this.groupingRepo },
+        { orgId, projectId, actorProjectRole: role, ...body },
+      );
+    } catch (e) {
+      if (e instanceof UpdateGroupingError) {
+        if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        if (e.reasonCode === "VERSION_CHANGED") throw new ConflictException({ reasonCode: e.reasonCode });
+        if (e.reasonCode === "NO_PROJECT_ROLE" || e.reasonCode === "ROLE_INSUFFICIENT") {
+          throw new ForbiddenException({ reasonCode: e.reasonCode });
+        }
+        throw new BadRequestException({ reasonCode: e.reasonCode });
+      }
+      throw e;
+    }
+  }
+
+  /** `getProjectPrep`/`getProjectTopic`/`getProjectGrouping` 三条读路由共用的失败面映射
+   *  ——三者的 `err` 都只有 `["NO_PROJECT_ROLE", "DEPENDENCY_UNAVAILABLE"]` 这两个码。 */
+  private mapPrepFamilyError(reasonCode: "NO_PROJECT_ROLE" | "DEPENDENCY_UNAVAILABLE"): Error {
+    if (reasonCode === "DEPENDENCY_UNAVAILABLE") {
+      return new ServiceUnavailableException({ reasonCode });
+    }
+    return new ForbiddenException({ reasonCode });
+  }
+
+  /**
    * F960（2026-08-17 delta）—— 观察/访谈对象表读写接线。同 F950/`getProjectGrouping` 的
    * 先例：门槛读 `project_memberships` 拿角色，不新造第二套判定（见
    * `identity.findProjectMembership` 既有方法，本端点不新增仓储查询）。
@@ -498,7 +631,7 @@ export class BlueprintController {
   ) {
     assertPrincipal(principal);
     const orgId = toOrgId(principal.orgId);
-    const actorProjectRole = await this.getActorProjectRole(orgId, principal.userId, projectId);
+    const actorProjectRole = await this.getActorProjectRole(orgId, projectId, principal.userId);
 
     try {
       const out = await updateInterviewSubjectsUseCase(
@@ -520,7 +653,7 @@ export class BlueprintController {
   ) {
     assertPrincipal(principal);
     const orgId = toOrgId(principal.orgId);
-    const actorProjectRole = await this.getActorProjectRole(orgId, principal.userId, projectId);
+    const actorProjectRole = await this.getActorProjectRole(orgId, projectId, principal.userId);
 
     try {
       return await getInterviewSubjectsUseCase(
@@ -530,16 +663,6 @@ export class BlueprintController {
     } catch (err) {
       if (err instanceof GetInterviewSubjectsError) throw this.mapInterviewSubjectsError(err.reasonCode);
       throw err;
-    }
-  }
-
-  /** 同 F950 `getActorProjectRole`/`mapPrepFamilyError` 的先例——本端点重用同一种形状。 */
-  private async getActorProjectRole(orgId: OrgId, userId: string, projectId: string) {
-    try {
-      const membership = await this.identity.findProjectMembership(userId, projectId, orgId);
-      return membership?.projectRole ?? null;
-    } catch {
-      throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
     }
   }
 
@@ -556,6 +679,12 @@ export class BlueprintController {
       case "DEPENDENCY_UNAVAILABLE":
         return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
     }
+  }
+
+  /** `null` = 调用者在这个项目没有任何角色——同 `skill-mount.controller.ts` 的既有形状。 */
+  private async getActorProjectRole(orgId: OrgId, projectId: string, userId: string): Promise<ProjectRole | null> {
+    const membership = await this.identity.findProjectMembership(userId, projectId, orgId);
+    return (membership?.projectRole as ProjectRole | undefined) ?? null;
   }
 
   private async requireCapabilityAdmin(orgId: OrgId, userId: string): Promise<void> {

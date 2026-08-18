@@ -1,13 +1,14 @@
-# Sprint 01/14 — F960 观察/访谈对象表读写接线
+# Sprint 01/14 — F950 项目筹备定题/分组接上真实 Postgres + F960 观察/访谈对象表读写接线
 
 - **所属阶段**: Phase 01 (run-a-project)
-- **创建于**: 2026-08-17 12:51:08
+- **创建于**: 2026-08-16 19:27:13
 
 ## 本 sprint 目标
-F960 观察/访谈对象表读写接线
+F950 项目筹备定题/分组接上真实 Postgres；F960（后续追加）观察/访谈对象表读写接线
 
 ## 领取的 feature(引用自阶段权威清单,按 id)
-- F960 (Pundefined, undefined) — 观察/访谈对象表读写接线（补 getInterviewSubjects GET 端点）
+- F950 (P2, project) — 项目筹备定题/分组接上真实 Postgres（F24/F25 契约首次落库）+ 组员字段 + 读侧端点
+- F960 (P2, project) — 观察/访谈对象表读写接线（补 getInterviewSubjects GET 端点）
 
 > 实际工作集见同目录 `active-features.json`(脚本派生,只读,勿手改)。
 > 修改功能归属:改阶段 `feature_list.json` 里对应 feature 的 `sprint` 字段,再重跑
