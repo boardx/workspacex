@@ -2,7 +2,9 @@
  * `summarizePersonaFromThread` —— 把内置 canvas 模板 `persona` 接到 chat 里：
  * 扫描线程里已经真实写出的画像信息，落地成一份 Artifact（复用 F114 的落地机制，
  * 见 `land-as-artifact.ts` 文件头「机制委托」）。契约面见 `packages/contracts/src/chat.ts`
- * 的 `summarizePersonaFromThread`（`KNOWN_CONTRACT_GAPS.C_CHAT_11`，待人类补签）。
+ * 的 `summarizePersonaFromThread`（`KNOWN_CONTRACT_GAPS.C_CHAT_11`，已由 design-delta
+ * chat-persona-roundtrip 补签，confirmed 2026-08-18：恒 draft、信息不足落占位、
+ * 产出同时以 assistant 消息（mindmap 围栏）进线程并返回 `resultMessageId`）。
  *
  * ## 这个函数自己只做一件事：把线程正文交给 `landAsArtifact`
  *
@@ -22,7 +24,7 @@
  *   近到没有空间在中间夹带一个没判过的值）。
  */
 import type { OrgId } from "../../domain/org-id";
-import { buildPersonaLanding } from "../../domain/canvas/persona-summary";
+import { buildPersonaLanding, buildPersonaMindmapBody } from "../../domain/canvas/persona-summary";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import type { ChatRepository } from "./ports";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
@@ -45,9 +47,18 @@ export interface SummarizePersonaFromThreadInput {
   readonly messageId: string;
 }
 
+/**
+ * G2 assistant 消息的 `author_id`（design-delta chat-persona-roundtrip，confirmed
+ * 2026-08-18）。这不是某个已发布 Agent 的回复（`agent_id` 恒 NULL），是 persona
+ * 汇总端口自己的产出——一个稳定的端口标识，测试与前端识别用同一份。
+ */
+export const PERSONA_SUMMARY_AUTHOR_ID = "persona-summary";
+
 export type SummarizePersonaFromThreadResult = LandAsArtifactResult & {
   /** false ⇒ 线程正文里没有找到任何可辨认的画像信息；落地内容是「信息不足」占位。 */
   readonly sufficient: boolean;
+  /** 画像 mindmap 落成的那条 assistant 消息 id（契约 `out.resultMessageId`）。 */
+  readonly resultMessageId: string;
 };
 
 export async function summarizePersonaFromThread(
@@ -90,5 +101,22 @@ export async function summarizePersonaFromThread(
     payloadRef: draft.payloadRef,
   });
 
-  return { ...landing, sufficient: draft.sufficient };
+  // G2 行为约定（签核 confirmed 2026-08-18）：产出同时以 assistant 消息进入线程，
+  // 正文为 mermaid mindmap 围栏（根节点=画像名、六分支=PERSONA_SECTIONS；
+  // `sufficient: false` 时六分支各挂「信息不足」占位）。落 artifact 的既有行为
+  // 保留（契约用例表逐字：「同时落一份 draft Artifact（现有行为保留）」）。
+  const resultMessageId = deps.artifactIds.next("pmsg");
+  await deps.chat.insertAssistantMessage(input.orgId, {
+    id: resultMessageId,
+    threadId: input.threadId,
+    authorId: PERSONA_SUMMARY_AUTHOR_ID,
+    body: buildPersonaMindmapBody({
+      rawText,
+      title: draft.title,
+      sufficient: draft.sufficient,
+    }),
+    replyToMessageId: input.messageId,
+  });
+
+  return { ...landing, sufficient: draft.sufficient, resultMessageId };
 }

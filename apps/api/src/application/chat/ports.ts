@@ -218,6 +218,26 @@ export interface ChatRepository {
   findMessageLocation(orgId: OrgId, messageId: string): Promise<MessageLocation | null>;
 
   /**
+   * 落一条 assistant 消息进线程（design-delta chat-persona-roundtrip G2，confirmed
+   * 2026-08-18）：`summarizePersonaFromThread` 把画像 mindmap 围栏以 assistant 消息
+   * 写进消息流。列语义与 `commitWriteback`（agent 回复写回）同一张表同一批列：
+   * `author_kind='agent'`；`agent_id` 为 null——这不是某个已发布 Agent 的回复，
+   * 是 persona 汇总端口自己的产出，`authorId` 用调用方传入的稳定端口标识。
+   * `replyToMessageId` = 触发汇总的锚点消息（同一条出处回链事实的消息侧投影）。
+   * 判权**不在这里**（与本仓储其余写方法同一条纪律）——调用方已过 `resolveVisibility`。
+   */
+  insertAssistantMessage(
+    orgId: OrgId,
+    input: {
+      readonly id: string;
+      readonly threadId: string;
+      readonly authorId: string;
+      readonly body: string;
+      readonly replyToMessageId: string | null;
+    },
+  ): Promise<void>;
+
+  /**
    * 引用锚点 kind 为 `message` 时，被指的那条消息**是否存在于本组织**（同租户即可，
    * 不额外判可见性——I-24 问的是"能不能定位到原件"，不是"当前请求者能不能读"）。
    */

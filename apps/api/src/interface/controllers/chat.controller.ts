@@ -141,6 +141,10 @@ import {
   type ChatDownstreamPurposeName,
 } from "../../application/chat/check-downstream-eligibility";
 import { listThreadArtifacts } from "../../application/chat/list-thread-artifacts";
+import {
+  getThreadArtifactSource,
+  ArtifactSourceStorageUnavailableError,
+} from "../../application/chat/get-thread-artifact-source";
 import type { LandingModeName } from "../../domain/chat/artifact-landing";
 import {
   CHAT_MESSAGE_COMMAND_REPOSITORY,
@@ -1038,10 +1042,11 @@ export class ChatController {
 
   /**
    * 把内置 canvas 模板 `persona` 接到 chat 里：扫描线程正文里已经真实写出的画像信息，
-   * 落地成一份 Artifact（`summarizePersonaFromThread`，🟡 待人类补签，见
-   * `KNOWN_CONTRACT_GAPS.C_CHAT_11`）。状态码同 `landAsArtifactRoute`——本操作只是
-   * `landAsArtifact` 前面多一段「从线程正文里如实收敛出 title/payloadRef」，错误
-   * 出口是同一批。
+   * 落地成一份 Artifact **并以 assistant 消息（mindmap 围栏）写进线程**
+   * （`summarizePersonaFromThread`，已由 design-delta chat-persona-roundtrip 补签，
+   * confirmed 2026-08-18，见 `KNOWN_CONTRACT_GAPS.C_CHAT_11`）。状态码同
+   * `landAsArtifactRoute`——本操作只是 `landAsArtifact` 前面多一段「从线程正文里
+   * 如实收敛出 title/payloadRef」+ 后面一条消息写入，错误出口是同一批。
    */
   @HttpCode(HttpStatus.OK)
   @Post("/chat/threads/:threadId/persona-summary")
@@ -1126,6 +1131,41 @@ export class ChatController {
       );
     } catch (e) {
       if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * 取回一次落地的源 markdown（design-delta chat-persona-roundtrip G1b，confirmed
+   * 2026-08-18）。状态码：
+   *   404  不可见或不存在（I-36/I-3：他人草稿与不存在的 artifactId 同一个出口）
+   *   503  `STORAGE_UNAVAILABLE`——landing 行存在但字节从对象存储读不回来
+   */
+  @Get("/chat/threads/:threadId/artifacts/:artifactId/source")
+  async threadArtifactSource(
+    @CurrentPrincipal() principal: Principal,
+    @Param("threadId") threadId: string,
+    @Param("artifactId") artifactId: string,
+    @Query("projectId") projectId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await getThreadArtifactSource(
+        { ...this.deps, landings: this.landings, artifacts: this.artifacts, store: this.store },
+        {
+          userId: principal.userId,
+          orgId: toOrgId(principal.orgId),
+          projectId,
+          threadId,
+          artifactId,
+        },
+      );
+    } catch (e) {
+      if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
+      if (e instanceof ArtifactSourceStorageUnavailableError) {
+        throw new ServiceUnavailableException({ reasonCode: "STORAGE_UNAVAILABLE" });
+      }
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }

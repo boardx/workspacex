@@ -44,7 +44,7 @@ function segment(text: string): Segment[] {
 }
 
 export function MarkdownMessage({
-  text, threadId, messageId, bearer,
+  text, threadId, messageId, bearer, projectId,
 }: {
   text: string;
   /**
@@ -57,6 +57,8 @@ export function MarkdownMessage({
   threadId?: string;
   messageId?: string;
   bearer?: string;
+  /** G1 读回（design-delta chat-persona-roundtrip）判权用；个人线程缺省即不读回。 */
+  projectId?: string;
 }) {
   const segments = React.useMemo(() => segment(text), [text]);
   return (
@@ -72,6 +74,7 @@ export function MarkdownMessage({
             threadId={threadId}
             messageId={messageId}
             bearer={bearer}
+            projectId={projectId}
           />
         ) : (
           <ReactMarkdown

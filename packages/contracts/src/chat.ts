@@ -929,9 +929,9 @@ export const operations = {
   },
 
   /**
-   * summarizePersonaFromThread —— 🟡 **design-delta，待人类补签**（同 canvas 束
-   * `createTemplate` #496 的先例：coord-main 代裁「先做、登记待补签」，见
-   * `KNOWN_CONTRACT_GAPS.C_CHAT_11`）。
+   * summarizePersonaFromThread —— ✅ **已人类签核**（design-delta
+   * `chat-persona-roundtrip`，confirmed 2026-08-18；原 🟡 待补签状态与两个开放
+   * 问题的裁决见 `KNOWN_CONTRACT_GAPS.C_CHAT_11`）。
    *
    * 把内置 canvas 模板 `persona`（`canvas.BUILTIN_CANVAS_TEMPLATES.persona`）「在 chat
    * 里用起来」——扫描线程里已经真实写出的画像信息，落地成一份 Artifact。**机制委托**
@@ -944,7 +944,14 @@ export const operations = {
    *   且落地内容是明说「信息不足」的占位模板，不是虚构的画像。
    * ⚠ mode 恒为 `draft`（`landAsArtifact.in` 的 `LandingMode` 三选一里最不需要
    *   前置条件的一档）——这个操作产出的是「AI 从对话里读出来的草稿」，不是人已经
-   *   确认过的定论，定版留给使用者之后手动走 `landAsArtifact`。
+   *   确认过的定论，定版留给使用者之后手动走 `landAsArtifact`。签核裁决：**恒 draft，
+   *   不开放 live/pinned**（design-delta chat-persona-roundtrip，confirmed 2026-08-18）。
+   * ⚠ **产出同时以 assistant 消息进入线程**（同一次签核的行为约定）：正文为一个
+   *   ```mermaid mindmap 围栏——根节点 = 画像名，六个一级分支 = persona 模板
+   *   `PERSONA_SECTIONS` 六分区（权威源 `@repo/fabric-markdown`），分支下挂线程里
+   *   真实收敛出的要点；`sufficient: false` 时六分支下各挂一个「信息不足」占位节点，
+   *   不编造。`out.resultMessageId` 即那条消息的 id（命名沿用 `getBackgroundTask.out.
+   *   resultMessageId` 的既有先例），供前端定位渲染，不必整线程重拉。
    */
   summarizePersonaFromThread: {
     method: "POST", path: "/chat/threads/:threadId/persona-summary",
@@ -960,6 +967,11 @@ export const operations = {
       hasSource: z.boolean(),
       /** 线程里有没有找到任何可辨认的画像信息——false 时落地内容是「信息不足」占位。 */
       sufficient: z.boolean(),
+      /**
+       * 画像以 assistant 消息进入线程（正文为 ```mermaid mindmap 围栏，见操作头注）。
+       * 本字段是那条消息的 id，供前端定位渲染，不必整线程重拉。
+       */
+      resultMessageId: z.string(),
       provenanceBacklink: z.object({
         conversationId: z.string(),
         messageId: z.string(),
@@ -1005,9 +1017,45 @@ export const operations = {
         pinnedBy: z.string().nullable(),
         pinnedAt: z.string().nullable(),
         hasSource: z.boolean(),
+        /**
+         * 该产物落地时的来源消息（`chat_artifact_landings.message_id`，列本身
+         * NOT NULL）。签核裁决：**严格 `z.string()`，不留 nullable 预留**——未来
+         * 真出现非 landing 来源的行，届时走一次正式契约改动（design-delta
+         * chat-persona-roundtrip，confirmed 2026-08-18）。与 `landAsArtifact.out.
+         * provenanceBacklink.messageId` 是同一事实的两个读投影，权威源同一单列。
+         */
+        messageId: z.string(),
       }).strict()),
     }).strict(),
     err: ["NOT_VISIBLE"] as const,
+  },
+
+  /**
+   * getThreadArtifactSource —— 取回一次落地的源 markdown，供图表 modal 重开时用
+   * 最新保存版初始化（design-delta chat-persona-roundtrip G1b，confirmed 2026-08-18）。
+   * ⚠ 草稿仅创建者可见 → 其余 NOT_VISIBLE（I-36 的同一形状，与 `listThreadArtifacts`
+   *   同码同语义：同一条草稿在 list 里不可见 ∧ source 读不到，不发明新码，也不
+   *   区分「不存在」与「不可见」）。
+   * ⚠ 只读端口，不新起版本机制（D-38 延续）：markdown 从 phase-00 `materializeArtifact`
+   *   已写下的字节读回，本操作不写任何东西。同一 `(threadId, artifactId)` 若有多条
+   *   landing 行，取 `created_at` 最新一条（签核：多次保存不去重、读回按最新，不在
+   *   契约层暴露版本选择）。
+   * ⚠ `STORAGE_UNAVAILABLE`：字节从对象存储读回，存储不可用是真实失败面（503）——
+   *   签核裁决明确加上这个码。
+   */
+  getThreadArtifactSource: {
+    method: "GET", path: "/chat/threads/:threadId/artifacts/:artifactId/source",
+    in: z.object({ threadId: z.string(), artifactId: z.string() }).strict(),
+    out: z.object({
+      markdown: z.string(),
+      /** 与 `listThreadArtifacts` 同义：draft 无冻结版本 ⇒ null。 */
+      version: z.number().int().positive().nullable(),
+      /** ISO 时间戳，读回提示条「X 时间前」的数据源（landing 行的 created_at）。 */
+      savedAt: z.string(),
+      /** `chat_artifact_landings.created_by`。 */
+      savedBy: z.string(),
+    }).strict(),
+    err: ["NOT_VISIBLE", "STORAGE_UNAVAILABLE"] as const,
   },
 
   /* ── 六、预设对话（F115 · uc-8-4）─────────────────────────────── */
@@ -1399,16 +1447,17 @@ export const KNOWN_CONTRACT_GAPS = {
   C_CHAT_10: "landAsArtifact.in carries no agendaSegmentId, so UC-20/21 do not route through phase-00 bindToProjectStep/referenceForDownstream; mode-gating is reimplemented on chat's own landing table instead",
 
   /**
-   * **`summarizePersonaFromThread` 本身待人类补签**（同 `createTemplate` #496 的先例）。
+   * **`summarizePersonaFromThread` 已由人类补签**（design-delta `chat-persona-roundtrip`，
+   * confirmed 2026-08-18；同 canvas 束 C_CANVAS_8 被 #988 解决后的登记方式——条目不删，
+   * 改写为已裁决）。
    *
-   * 这是「canvas 模板要能在 chat 里被使用」这句人类原话落地时新起的一个操作，签核前
-   * 由 coord-main 代裁「先做」。人类回来后要么补签，要么推翻并回退本操作与它的实现
-   * （`apps/api/src/application/chat/summarize-persona-from-thread.ts`）。
-   *
-   * ⚠ 补签时一并裁：mode 是否应该开放 `live`/`pinned`（本操作目前恒 `draft`，理由见
-   *   操作自身注释）；`sufficient: false` 时是否应该改为直接拒绝（`err`）而不是落地
-   *   一份占位产物——当前选择「如实落地占位」是为了让「AI 尝试过、但线程里没有材料」
-   *   这件事本身留痕（同一份「不编造」的证据，比一个静默的 4xx 更看得见）。
+   * 当年 coord-main 代裁「先做、登记待补签」的两个开放问题，签核裁决为：
+   *   ① mode **恒 `draft`，不开放 `live`/`pinned`**；
+   *   ② `sufficient: false` 时**维持落「信息不足」占位**，不改为拒绝——让「AI 尝试过、
+   *     但线程里没有材料」这件事本身留痕。
+   * 同一次签核追加了 `out.resultMessageId` 与「产出以 assistant 消息进入线程、正文为
+   * mermaid mindmap 围栏」的行为约定（见操作自身注释），并落地 G1 读回闭环
+   * （`listThreadArtifacts.out.items[].messageId` + `getThreadArtifactSource`）。
    */
-  C_CHAT_11: "summarizePersonaFromThread is pending human sign-off, following the createTemplate (#496) precedent; open questions are whether mode should ever be live/pinned and whether the insufficient-data case should reject instead of landing a placeholder",
+  C_CHAT_11: "summarizePersonaFromThread is signed off (design-delta chat-persona-roundtrip, confirmed 2026-08-18): mode stays draft-only, insufficient data keeps landing a placeholder instead of rejecting, and the same signoff added out.resultMessageId plus the assistant-message mindmap-fence behavior and the G1 readback loop (items[].messageId + getThreadArtifactSource)",
 } as const;

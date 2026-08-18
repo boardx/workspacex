@@ -31,6 +31,9 @@ import {
   serializeTemplate,
   templateToModel,
 } from "@repo/fabric-markdown/templates";
+// 六分区清单的唯一权威（同一模块也被 templates-entry 激活注册，Node 安全，
+// 不触碰 fabric / mermaid）——不在本文件手抄第二份分区名。
+import { PERSONA_SECTIONS } from "@repo/fabric-markdown/diagrams/persona";
 
 export interface PersonaLandingDraft {
   readonly title: string;
@@ -87,4 +90,59 @@ export function buildPersonaLanding(rawText: string): PersonaLandingDraft {
     payloadRef: sufficient ? personaFence : INSUFFICIENT_NOTICE + personaFence,
     sufficient,
   };
+}
+
+/* ── mindmap 消息体（design-delta chat-persona-roundtrip G2，confirmed 2026-08-18）── */
+
+/**
+ * `sufficient: false` 时六分支下各挂的占位节点文案。固定字符串，测试可逐字比对
+ * （「不编造」断言的锚点：占位不含任何未在线程正文出现过的实体词）。
+ */
+export const PERSONA_MINDMAP_INSUFFICIENT_NODE = "信息不足";
+
+/**
+ * mermaid mindmap 节点文本消毒：mindmap 语法用 `()[]{}` 表达节点形状、按行分节点，
+ * 正文里逐字出现这些字符会被 mermaid 当结构解析（轻则漂移重则 parse 失败，前端
+ * 的诚实错误态会把整张图打成错误框）。替换为全角同形字符——语义可读性不变，
+ * 不再是结构字符。换行折叠成空格，超长截断（mindmap 是概览，不是全文搬运）。
+ */
+function mindmapNodeText(raw: string): string {
+  const swapped = raw
+    .replace(/\(/g, "（").replace(/\)/g, "）")
+    .replace(/\[/g, "【").replace(/\]/g, "】")
+    .replace(/\{/g, "｛").replace(/\}/g, "｝")
+    .replace(/"/g, "”").replace(/`/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return swapped.length > 80 ? `${swapped.slice(0, 79)}…` : swapped;
+}
+
+/**
+ * 把线程正文收敛成一条 assistant 消息的正文：一个 ```mermaid mindmap 围栏。
+ * 根节点 = 画像名（调用方传 `buildPersonaLanding` 算出的 title，同一事实源不重算）、
+ * 六个一级分支 = `PERSONA_SECTIONS` 六分区、分支下挂 `parseTemplateText` 从正文里
+ * **逐字识别**出的要点（与 `buildPersonaLanding` 同一个解析器，不另立抽取规则）。
+ * `sufficient: false` 时六分支下各挂一个「信息不足」占位节点——不编造。
+ *
+ * 纯函数，不做 I/O；`sufficient` 由调用方从 `buildPersonaLanding` 拿（同一次判定，
+ * 不在这里第二次实现「什么算信息足够」）。
+ */
+export function buildPersonaMindmapBody(input: {
+  readonly rawText: string;
+  readonly title: string;
+  readonly sufficient: boolean;
+}): string {
+  const parsed = parseTemplateText(input.rawText);
+  const lines: string[] = ["mindmap", `  root((${mindmapNodeText(input.title)}))`];
+  for (const section of PERSONA_SECTIONS) {
+    lines.push(`    ${mindmapNodeText(section)}`);
+    const bullets = input.sufficient
+      ? (parsed.sections.get(section) ?? [])
+      : [PERSONA_MINDMAP_INSUFFICIENT_NODE];
+    for (const bullet of bullets) {
+      const text = mindmapNodeText(bullet);
+      if (text.length > 0) lines.push(`      ${text}`);
+    }
+  }
+  return "```mermaid\n" + lines.join("\n") + "\n```\n";
 }
