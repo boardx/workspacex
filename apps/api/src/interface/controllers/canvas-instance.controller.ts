@@ -6,6 +6,8 @@
  *   PUT  /canvas/instances/:instanceId/source                 源码手改（乐观并发）
  *   GET  /canvas/instances/:instanceId/render                 渲染面（第二块，I-8）
  *   POST /canvas/instances/:instanceId/export-source          几何归区导出（第二块，I-9）
+ *   POST /canvas/instances/:instanceId/classify-change        判定表暴露（第三块，I-15/O-32）
+ *   POST /canvas/instances/:instanceId/sticky-changes         便签级 LWW（第三块，D-09/I-19）
  *
  * ## 状态码映射（`run()` 一处，不各写 catch）
  *
@@ -36,7 +38,14 @@ import {
 import { canvas as C } from "@repo/contracts";
 import type { z } from "zod";
 import { ID_FACTORY, type IdFactory } from "../../application/artifact/ports";
-import { CanvasError } from "../../application/canvas/errors";
+import { applyStickyChange } from "../../application/canvas/apply-sticky-change";
+import { classifyCanvasChange } from "../../application/canvas/classify-canvas-change";
+import {
+  CanvasError,
+  CanvasStickyNotFoundError,
+  CanvasUnknownSectionError,
+  CanvasUnknownStickyColorError,
+} from "../../application/canvas/errors";
 import { exportCanvasSource } from "../../application/canvas/export-canvas-source";
 import { getCanvasSource } from "../../application/canvas/get-canvas-source";
 import { renderCanvas } from "../../application/canvas/render-canvas";
@@ -68,10 +77,14 @@ export const GET_CANVAS_SOURCE_SCHEMA = C.operations.getSource.in;
 export const UPDATE_CANVAS_SOURCE_SCHEMA = C.operations.updateSource.in;
 export const RENDER_CANVAS_SCHEMA = C.operations.renderCanvas.in;
 export const EXPORT_CANVAS_SOURCE_SCHEMA = C.operations.exportSource.in;
+export const CLASSIFY_CHANGE_SCHEMA = C.operations.classifyChange.in;
+export const APPLY_STICKY_CHANGE_SCHEMA = C.operations.applyStickyChange.in;
 
 type InstantiateBody = z.infer<typeof C.operations.instantiateForSegment.in>;
 type UpdateSourceBody = z.infer<typeof C.operations.updateSource.in>;
 type ExportSourceBody = z.infer<typeof C.operations.exportSource.in>;
+type ClassifyChangeBody = z.infer<typeof C.operations.classifyChange.in>;
+type ApplyStickyChangeBody = z.infer<typeof C.operations.applyStickyChange.in>;
 
 @Controller()
 export class CanvasInstanceController {
@@ -247,6 +260,71 @@ export class CanvasInstanceController {
     );
   }
 
+  /**
+   * ⚠ 200 而不是 POST 缺省 201：归类是纯判定，不创建任何资源（同 exportSource 的理由）。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/canvas/instances/:instanceId/classify-change")
+  async classifyChange(
+    @Param("instanceId") instanceId: string,
+    @Body(new ZodBodyPipe(CLASSIFY_CHANGE_SCHEMA)) body: ClassifyChangeBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    if (instanceId !== body.instanceId) {
+      throw new BadRequestException("instance_id_mismatch");
+    }
+    return this.run(async () =>
+      C.operations.classifyChange.out.parse(
+        await classifyCanvasChange(
+          { instances: this.instances },
+          {
+            orgId: principal.orgId,
+            instanceId: body.instanceId,
+            changeKind: body.change.kind,
+          },
+        ),
+      ),
+    );
+  }
+
+  /**
+   * ⚠ 200 而不是 POST 缺省 201：LWW 覆盖语义下同一张便签被反复写，out 里没有可寻址的
+   *   新资源自描述（修订 id 只在 `supersededRevisionId` 回查链里出现）——同上理由。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/canvas/instances/:instanceId/sticky-changes")
+  async applyStickyChange(
+    @Param("instanceId") instanceId: string,
+    @Body(new ZodBodyPipe(APPLY_STICKY_CHANGE_SCHEMA)) body: ApplyStickyChangeBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    if (instanceId !== body.instanceId) {
+      throw new BadRequestException("instance_id_mismatch");
+    }
+    return this.run(async () =>
+      C.operations.applyStickyChange.out.parse(
+        await applyStickyChange(
+          {
+            identity: this.identity,
+            instances: this.instances,
+            newVersionId: () => this.ids.next("cvver"),
+            newRevisionId: () => this.ids.next("cvrev"),
+          },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            instanceId: body.instanceId,
+            stickyId: body.stickyId,
+            patch: body.patch,
+            clientTs: body.clientTs,
+          },
+        ),
+      ),
+    );
+  }
+
   /** 应用层错误 → HTTP，一处（见文件头映射表）。 */
   private async run<T>(fn: () => Promise<T>): Promise<T> {
     try {
@@ -267,6 +345,16 @@ export class CanvasInstanceController {
       }
       if (e instanceof CanvasSegmentNotFoundError) {
         throw new NotFoundException("agenda_segment_not_found");
+      }
+      // ── 第三块的三个契约缺口出口（errors.ts 各类文件注释里论证）：裸码，不借契约码 ──
+      if (e instanceof CanvasStickyNotFoundError) {
+        throw new NotFoundException("sticky_not_found");
+      }
+      if (e instanceof CanvasUnknownStickyColorError) {
+        throw new BadRequestException("unknown_sticky_color");
+      }
+      if (e instanceof CanvasUnknownSectionError) {
+        throw new BadRequestException("unknown_target_section");
       }
       throw e;
     }
