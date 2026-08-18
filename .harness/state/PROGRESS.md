@@ -10,5 +10,9 @@
 | 03 | 跨项目复用与治理 | not_started | 49 | 0 | 0 | 0 |
 | 04 | 数字专家访谈 Studio | in_progress | 3 | 1 | 0 | 3 |
 | 05 | Studio style unification | not_started | 0 | 1 | 0 | 0 |
+| 06 | 深度研究 | not_started | 6 | 0 | 0 | 0 |
+| 07 | 用户访谈 | not_started | 5 | 0 | 0 | 0 |
+| 08 | 转录 | not_started | 4 | 0 | 0 | 0 |
+| 09 | 问卷 | not_started | 7 | 0 | 0 | 0 |
 
-_最近聚合:2026-08-17T16:26:55.061Z_
+_最近聚合:2026-08-18T00:44:33.614Z_
