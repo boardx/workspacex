@@ -1,0 +1,85 @@
+{
+  "phase": "08",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "transcription",
+      "capability": "CAP-API",
+      "title": "转录文档与历史落库：名称、标签、capture 聚合",
+      "spec_ref": "00-overview.md#R2",
+      "user_visible_behavior": "用户创建转录文档时保存名称和标签，多个 capture 聚合到同一文档；历史列表显示名称、标签、更新时间和状态，正文唯一来自 recording_segments。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": [],
+      "points": 3,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/recording/personal-transcription-document.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/personal-transcription-history.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "phase-01 F165 已 passing 可作底座；后续维护迁入本 phase。"
+    },
+    {
+      "id": "F02",
+      "priority": 1,
+      "area": "transcription",
+      "capability": "CAP-API",
+      "title": "ASR ticket 与实时采集：interim/final 去重、断线恢复",
+      "spec_ref": "00-overview.md#R2",
+      "user_visible_behavior": "用户开始录音后系统创建一次性 ASR ticket；interim 只作为中间态显示，final 持久化且不重复；ASR 断线后可恢复同一文档继续写入。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F01"],
+      "points": 5,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/recording/asr-ticket-state-machine.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/personal-transcription-live.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "复用 KERNEL_ASR 与既有 Provider，不另建 ASR 配置。"
+    },
+    {
+      "id": "F03",
+      "priority": 1,
+      "area": "transcription",
+      "capability": "CAP-API",
+      "title": "转录 file-first 回流：音频与 transcript.jsonl 可下载",
+      "spec_ref": "00-overview.md#R3",
+      "user_visible_behavior": "转录结束后音频与 transcript.jsonl 物化为 Artifact；transcript.jsonl 每行包含稳定字段、时间码和 speaker/channel，derived_from 指回原音频版本。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F02"],
+      "points": 5,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/recording/file-first-transcript-artifact.test.ts",
+        "pnpm --filter api exec vitest run tests/recording/transcript-jsonl-schema.test.ts"
+      ],
+      "evidence": "",
+      "notes": "复用 Phase 00 Artifact/Version/Segment/Anchor。"
+    },
+    {
+      "id": "F04",
+      "priority": 2,
+      "area": "transcription",
+      "capability": "CAP-WEB",
+      "title": "历史管理：标签筛选、重命名、删除确认与审计",
+      "spec_ref": "00-overview.md#R4",
+      "user_visible_behavior": "用户可按标签筛选历史转录，修改名称和标签；删除必须二次确认并写审计，删除后列表和直接访问均不可见。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "depends_on": ["F01"],
+      "points": 3,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/recording/personal-transcription-management.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/personal-transcription-management.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "phase-01 F178 已 passing 可作底座；后续维护迁入本 phase。"
+    }
+  ]
+}

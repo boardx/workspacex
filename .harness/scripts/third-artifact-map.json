@@ -5,5 +5,14 @@
   },
   "phase-04-digital-expert-interview-studio": {
     "digital-expert-interview": "interview"
+  },
+  "phase-06-deep-research": {
+    "deep-research": "research"
+  },
+  "phase-07-user-research": {
+    "user-research": "research"
+  },
+  "phase-08-transcription": {
+    "transcription": "recording"
   }
 }
