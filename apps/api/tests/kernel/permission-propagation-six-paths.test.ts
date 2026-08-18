@@ -926,7 +926,18 @@ describe("lint-permission-paths: counter-proof", () => {
     //   之前完成，同一层顺序。它的**被强制的前提**：
     //   `tests/tpl/interview-subjects-repo-guard.test.ts` 断言只命名这两张表。删测试则
     //   本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(64);
+    //
+    // ⚠ Raised 64 -> 65 by #1493（UC-7.3 第一块 · 画布实例源码链）：新条目是
+    // `infrastructure/canvas/pg-canvas-instance-repository.ts`——与 F119
+    // `pg-agenda-segment-repository.ts` 同一个「判定一层之上、先于内容披露」形状：
+    // `get-canvas-source.ts` 先 `authorize(read.ownGroup)` 再 `findVersion`（唯一返回
+    // markdown 的读法），`update-canvas-source.ts` 先比对 `group_id`（NOT_IN_GROUP）再
+    // `appendVersion`；先于判定的 `findInstance` 只回 routing facts，不回 markdown。
+    // 它的**被强制的前提**：`tests/canvas/instance-repo-guard.test.ts` 断言四件——
+    // (a) 只命名 `canvas_instances`/`canvas_instance_versions`/`canvas_templates`
+    // 三张租户表；(b) 无 `withoutTenant`；(c) `findInstance` 的 SELECT 不含 markdown 列；
+    // (d) 两个源码用例的判定排在 `findVersion`/`appendVersion` 之前。删测试则本条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(65);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
