@@ -120,6 +120,18 @@ function toRow(row: SkillContractDbRow): SkillContractRow {
 const ROW_COLUMNS = "id, name, duty, source, status, visibility, owner_team_id, current_version_id, tags";
 
 /**
+ * wave2（`skills` 表来源）行映射进 `SkillContractRow` 时的 `duty` 占位文案——**单源**，
+ * `listAll()` 与 `loadMountableRow()` 都用这一个常量，不各写一份字面量（AGENTS.md
+ * 「同一事实不得声明在两处」）。
+ *
+ * ⚠ 前端 `skill-catalog-live.tsx` 的 `WAVE2_BACKED_DUTY_MARKER` 靠这句文案的子串判定
+ *   一行是不是 wave2 来源——改这里**必须连同**改那个常量，两处没有互相 import 的通路，
+ *   只能靠字面量一致维持（该文件顶部注释已写明）。
+ */
+const WAVE2_ROW_DUTY =
+  "这个 skill 的内容是文件形式（导入 / 由文件浏览器维护），不是声明式契约表单——查看/编辑源码请点卡片上的「编辑源码」。";
+
+/**
  * 把一行包成 `Guarded`，`ref.kind` 恒为 `"capability"`。
  *
  * ⚠ **不是** `"project"` / `"artifact"` / `"segment"`：那三种走 `acl_bindings`，
@@ -311,7 +323,7 @@ export class ScopedPgSkillContractRepository
         //   的 `getSkillDetail`——那条 404 正是本轮 G2 修的问题，见 `get-skill-detail.ts`
         //   与 #598「模型 A/B 不收敛」）。改这句文案时**连同**改
         //   `apps/web/components/skill/skill-catalog-live.tsx` 的同名常量，两处必须一致。
-        duty: "这个 skill 的内容是文件形式（导入 / 由文件浏览器维护），不是声明式契约表单——查看/编辑源码请点卡片上的「编辑源码」。",
+        duty: WAVE2_ROW_DUTY,
         source: "自建",
         status: "已启用",
         visibility: "org-wide",
@@ -398,6 +410,58 @@ export class ScopedPgSkillContractRepository
         throw new Error(`skill_contracts.status 存了本域状态机不认识的值：${status}（skillId=${skillId}）`);
       }
       return status;
+    });
+  }
+
+  /**
+   * #1534 —— `SkillVisibilityPort.visibleTo()`（挂载判定，`skill-mount.controller.ts`）
+   * 原先直接借用 `loadDetail`，而 `loadDetail` **只读 `skill_contracts`**（模型 A）。
+   * 一个通过 GitHub / URL 导入落地的 skill 只在 `skills`/`skill_versions`（模型 B，
+   * wave2）里有行，`loadDetail` 对它必然返回 `null` ⇒ 挂载判定把「查不到详情」误当成
+   * 「不存在」⇒ chat 里 `#` 挂载这批 skill 100% 报 `SKILL_NOT_FOUND`（issue #1534 实测）。
+   *
+   * 这里同 `listAll()` 一样两边都查：`skill_contracts` 命中就用那一行；没有再查
+   * `skills`（要求 `status = 'enabled'`，否则「已停用」的 wave2 skill 会被判成可挂载）。
+   * 字段映射与 `listAll()` 的 wave2 分支同一套口径（`WAVE2_ROW_DUTY` / `source: "自建"` /
+   * `visibility: "org-wide"`）——不重新发明一套，理由同处。
+   *
+   * ⚠ 与 `loadDetail` 不同，这里**不**取契约正文——wave2 行从来没有 `skill_contract_versions`
+   *   那一份数据，勉强拼一个假正文出来才是真正的说谎；挂载判定本来就只用得到
+   *   `status` / `currentVersionId` / 可见范围三样，`GuardedSkillContract`（`listAll()`
+   *   同一个返回形状）恰好只装这三样，不多不少。
+   */
+  async loadMountableRow(skillId: string): Promise<GuardedSkillContract | null> {
+    const { orgId } = this;
+    return this.db.withTenant(toOrgId(orgId), async (s) => {
+      const contract = await s.query<SkillContractDbRow>(
+        `SELECT ${ROW_COLUMNS} FROM skill_contracts WHERE org_id = $1 AND id = $2`,
+        [orgId, skillId],
+      );
+      const row = contract.rows[0];
+      if (row !== undefined) return toGuarded(toRow(row));
+
+      const wave2 = await s.query<{ id: string; name: string; current_version_id: string | null }>(
+        `SELECT sk.id, sk.name,
+                (SELECT sv.id FROM skill_versions sv
+                  WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
+                  ORDER BY sv.created_at DESC LIMIT 1) AS current_version_id
+           FROM skills sk
+          WHERE sk.org_id = $1 AND sk.id = $2 AND sk.status = 'enabled'`,
+        [orgId, skillId],
+      );
+      const w = wave2.rows[0];
+      if (w === undefined) return null;
+      return toGuarded(toRow({
+        id: w.id,
+        name: w.name,
+        duty: WAVE2_ROW_DUTY,
+        source: "自建",
+        status: "已启用",
+        visibility: "org-wide",
+        owner_team_id: null,
+        current_version_id: w.current_version_id,
+        tags: [],
+      }));
     });
   }
 
