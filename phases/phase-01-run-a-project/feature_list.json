@@ -4758,7 +4758,7 @@
         "F206"
       ],
       "points": 1,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "dev-chat-e2e",
       "verification": [
@@ -4766,7 +4766,7 @@
         "pnpm --filter web exec vitest run tests/ui/blueprint-designer-prototype-fidelity.test.tsx",
         "pnpm turbo run typecheck lint --continue"
       ],
-      "evidence": "",
+      "evidence": "evidence/F209.verify.log @ 2026-08-18T16:11:50.387Z",
       "notes": "① 背景：#1556（F206/F207/F208）合并到 main 的树，与我最后 push 的版本不一致——GitHub 上的冲突解决走了另一条路：给 lint-design-facet-single-source.mjs 加了第三个豁免 `INTRO_REL`，让 facet-intro-table.ts 作为独立的第三张表存在。这与我在 #1556 里明确记录的判断相反：该门控自己的头注写着「会真正冲突的是『第三张也想叫路由表』」——预判并拒绝了这种做法。人类复核后裁决改回我原来的方案。\n② 修法：把 facet-editor-registry.ts（已豁免的第二张表——key→React 组件）和 facet-intro-table.ts（key→intro 文案）合并成一张——本来就是同一张前端投影表的两列，不是两件事。SOURCE_RELS 收回到只有 design-facet-table.ts（领域表）与 facet-editor-registry.ts（前端路由/文案表）两个豁免，贴合 I-5「一张表一个文件」。\n③ 顺手修复 PROGRESS.md 派生视图漂移（passing=185 vs feature_list 实际=188）——由本 feature 的 verify 一并重新聚合。\n④ 验证：本地用 CI 原命令复核（`gh run view --log` 挖出 verify-full-compile 那一步的确切命令 `pnpm turbo run typecheck lint --continue`）跑通 28/28；单测 164 files / 1392 tests 全过；真栈 fullstack-smoke 复跑确认渲染结果与 F206 时一致，intro 逐条 toHaveText 断言不变。",
       "priority": 2,
       "area": "project",
