@@ -10,7 +10,8 @@ import {
 import { resolveDiagramType } from "@/lib/mermaid-diagram-type";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChatDiagramCanvasModal } from "./chat-diagram-canvas-modal";
+import { ChatDiagramCanvasModal, type DiagramSavedSource } from "./chat-diagram-canvas-modal";
+import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 
 /**
  * 单个 ```mermaid 围栏在 AI 气泡内的 **fabric 渲染**（VZ-02，替换 VZ-01 的静态 SVG）。
@@ -44,7 +45,7 @@ type Status =
   | { phase: "error"; reason: "whitelist" | "syntax"; detail: string };
 
 export function ChatDiagramFabric({
-  code, threadId, messageId, bearer,
+  code, threadId, messageId, bearer, projectId,
 }: {
   code: string;
   /** 「最大化」后真实持久化保存所需——三者俱全才接 `landAsArtifact`，见
@@ -52,6 +53,12 @@ export function ChatDiagramFabric({
   threadId?: string;
   messageId?: string;
   bearer?: string;
+  /**
+   * G1 读回（design-delta chat-persona-roundtrip）所需：`listThreadArtifacts` /
+   * `getThreadArtifactSource` 都要 projectId 判权。个人线程（无 projectId）维持
+   * 现状本地行为，不做读回——缺省即关闭，与 threadId/messageId/bearer 同一态度。
+   */
+  projectId?: string;
 }) {
   const { rawToken, inWhitelist } = React.useMemo(() => resolveDiagramType(code), [code]);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -61,6 +68,31 @@ export function ChatDiagramFabric({
   const [ready, setReady] = React.useState(false);
   const [inView, setInView] = React.useState(false);
   const [maximized, setMaximized] = React.useState(false);
+  const [savedSource, setSavedSource] = React.useState<DiagramSavedSource | null>(null);
+  const [openingReadback, setOpeningReadback] = React.useState(false);
+
+  /**
+   * G1 读回（design-delta chat-persona-roundtrip，confirmed 2026-08-18）：点「最大化」
+   * 先查该 (threadId, messageId) 是否有本人可见的保存版——有则取回最新一次的 markdown
+   * 交给 modal 初始化（modal 里的提示条保证不静默替换）。查不到 / NOT_VISIBLE（他人
+   * 草稿，签核：不提示存在性）/ 任何读回失败 ⇒ 与今天完全一致地用原始消息文本打开。
+   * 个人线程（无 projectId/bearer 三件套）不发请求，维持现状本地演示。
+   */
+  const openMaximized = React.useCallback(async () => {
+    if (openingReadback) return;
+    if (!threadId || !messageId || !projectId || bearer === undefined) {
+      setSavedSource(null);
+      setMaximized(true);
+      return;
+    }
+    setOpeningReadback(true);
+    // 取数序列（list → 过滤 messageId → 最新 → source）与「失败静默退回原始版」
+    // 都在 `fetchLatestSavedDiagramSource` 一处（组件级测试钉住那份逻辑）。
+    const saved = await fetchLatestSavedDiagramSource({ threadId, messageId, projectId, bearer });
+    setSavedSource(saved);
+    setOpeningReadback(false);
+    setMaximized(true);
+  }, [openingReadback, threadId, messageId, projectId, bearer]);
 
   // 惰性化：进入视口才校验+渲染（性能——一张图一张 fabric 画布）。
   React.useEffect(() => {
@@ -188,14 +220,14 @@ export function ChatDiagramFabric({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => setMaximized(true)}
+          onClick={() => void openMaximized()}
           data-testid="chat-diagram-maximize"
           className="absolute right-2 top-2 z-10"
           aria-label="最大化并编辑此图"
-          disabled={status.phase !== "valid"}
+          disabled={status.phase !== "valid" || openingReadback}
         >
           <Maximize2 aria-hidden className="h-3.5 w-3.5" />
-          最大化
+          {openingReadback ? "读取保存版…" : "最大化"}
         </Button>
 
         {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
@@ -226,6 +258,7 @@ export function ChatDiagramFabric({
           threadId={threadId}
           messageId={messageId}
           bearer={bearer}
+          savedSource={savedSource}
         />
       )}
     </>

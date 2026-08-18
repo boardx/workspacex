@@ -16,6 +16,7 @@ import {
   landAsArtifact,
   listMessages,
   pickDefaultAgentId,
+  summarizePersonaFromThread,
   type CreateMessageInput,
   type DurableMessage,
   type GetAgentPanelOut,
@@ -27,6 +28,7 @@ import {
   type AgentRunView,
 } from "@/lib/agent-run";
 import { openAgentRunStream } from "@/lib/agent-run-stream";
+import { ApiError } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { Avatar } from "@/components/ui/avatar";
@@ -77,6 +79,7 @@ export function ChatLiveMessagePanel({
   bearer,
   agents,
   archived,
+  projectId,
   canLandArtifacts,
   onArtifactLanded,
   onRunSettled,
@@ -88,6 +91,11 @@ export function ChatLiveMessagePanel({
   bearer: string;
   agents: GetAgentPanelOut["agents"] | null;
   archived: boolean;
+  /**
+   * G1 读回（design-delta chat-persona-roundtrip）：图表 modal 重开时查保存版要按
+   * projectId 判权。个人线程不传（缺省），读回关闭、维持现状本地行为。
+   */
+  projectId?: string;
   /**
    * #728 round 16 P10 —— 「落地为产物」按钮的渲染依据：服务端下发的
    * `artifact.land` 能力（`thread-visibility.ts` 的 `CHAT_WRITE_CAPABILITIES`）。
@@ -663,6 +671,40 @@ export function ChatLiveMessagePanel({
     }
   };
 
+  /**
+   * G2「生成用户画像」（design-delta chat-persona-roundtrip，签核选 A：composer 状态条）。
+   * 锚点消息 = 当前线程最新一条（契约 `in.messageId` 是出处回链的锚，画像扫的是全线程）。
+   * 成功后软刷新消息流——新 assistant 消息里的 mindmap 围栏走既有
+   * `MarkdownMessage → ChatDiagramFabric` 通道自动渲染。失败原样回显 reasonCode，
+   * 不糊一句「生成失败」。
+   */
+  const [personaRunning, setPersonaRunning] = React.useState(false);
+  const [personaFailure, setPersonaFailure] = React.useState<string | null>(null);
+  const runPersonaSummary = async () => {
+    const anchor = messages[messages.length - 1];
+    if (!anchor || personaRunning) return;
+    setPersonaRunning(true);
+    setPersonaFailure(null);
+    try {
+      await summarizePersonaFromThread(threadId, anchor.id, bearer);
+      await loadPage(null, "soft");
+      atBottomRef.current = true;
+      setShowJumpToLatest(false);
+      requestAnimationFrame(() => {
+        const el = scrollAreaRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    } catch (failure) {
+      setPersonaFailure(
+        failure instanceof ApiError
+          ? `生成用户画像失败：${failure.reasonCode ?? `HTTP ${failure.status}`}`
+          : describeMessageFailure(failure, "生成用户画像"),
+      );
+    } finally {
+      setPersonaRunning(false);
+    }
+  };
+
   const openLandForm = (message: DurableMessage) => {
     setLandingState((current) => ({
       ...current,
@@ -858,6 +900,7 @@ export function ChatLiveMessagePanel({
                           threadId={canLandArtifacts ? threadId : undefined}
                           messageId={canLandArtifacts ? message.id : undefined}
                           bearer={canLandArtifacts ? bearer : undefined}
+                          projectId={canLandArtifacts ? projectId : undefined}
                         />
                       ) : (
                         <p className="whitespace-pre-wrap">{message.text}</p>
@@ -1160,6 +1203,32 @@ export function ChatLiveMessagePanel({
               />
               {/* #946 · V9-a F152：📎 附件按钮 + 计数（接真实上传端点）。 */}
               <ChatAttachmentButton ctl={attach} disabled={archived || submitting} />
+              {/*
+                G2「生成用户画像」（design-delta chat-persona-roundtrip，签核选 A：
+                composer 状态条动作）。渲染门与「落地为产物」同一个能力事实
+                （canLandArtifacts）：persona-summary 内部走同一条 landAsArtifact
+                写权门，观察者/个人线程摆这个按钮就是一枚必 403 的假按钮。
+                空线程没有锚点消息可传（契约 in.messageId 必传），禁用而不是隐藏——
+                用户能看见入口存在，也能看懂为什么现在点不了（title 说明）。
+              */}
+              {canLandArtifacts ? (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  data-testid="chat-persona-summary-trigger"
+                  disabled={archived || personaRunning || messages.length === 0}
+                  title={messages.length === 0 ? "线程里还没有消息，无法生成画像" : "扫描整个线程，生成用户画像"}
+                  onClick={() => void runPersonaSummary()}
+                >
+                  {personaRunning ? "生成画像中…" : "生成用户画像"}
+                </Button>
+              ) : null}
+              {personaFailure ? (
+                <span className="text-11 text-destructive" data-testid="chat-persona-summary-error">
+                  {personaFailure}
+                </span>
+              ) : null}
             </div>
             <div className="flex items-center gap-1.5">
               {/*

@@ -227,6 +227,47 @@ export async function landAsArtifact(
   );
 }
 
+/**
+ * 取回一次落地的源 markdown（design-delta chat-persona-roundtrip G1b）——
+ * `GET /chat/threads/:threadId/artifacts/:artifactId/source`。图表 modal 重开时用
+ * 最新保存版初始化。他人草稿与不存在同一个 404 出口（I-36/I-3，服务端判定）；
+ * 存储读不回 503 `STORAGE_UNAVAILABLE`。
+ */
+export type GetThreadArtifactSourceOut = z.infer<typeof chat.operations.getThreadArtifactSource.out>;
+
+export async function getThreadArtifactSource(
+  threadId: string,
+  artifactId: string,
+  projectId: string,
+  sessionToken?: string,
+): Promise<GetThreadArtifactSourceOut> {
+  return apiRequest<GetThreadArtifactSourceOut>(
+    chat.operations.getThreadArtifactSource.path
+      .replace(":threadId", encodeURIComponent(threadId))
+      .replace(":artifactId", encodeURIComponent(artifactId)),
+    { method: "GET", query: { projectId }, sessionToken },
+  );
+}
+
+/**
+ * 生成用户画像（design-delta chat-persona-roundtrip G2）——
+ * `POST /chat/threads/:threadId/persona-summary`。产出以 assistant 消息（mermaid
+ * mindmap 围栏）进入线程（`resultMessageId`），同时落一份 draft Artifact。
+ * `messageId` 是画像扫描的锚点消息（出处回链），按契约必传。
+ */
+export type SummarizePersonaOut = z.infer<typeof chat.operations.summarizePersonaFromThread.out>;
+
+export async function summarizePersonaFromThread(
+  threadId: string,
+  messageId: string,
+  sessionToken?: string,
+): Promise<SummarizePersonaOut> {
+  return apiRequest<SummarizePersonaOut>(
+    chat.operations.summarizePersonaFromThread.path.replace(":threadId", encodeURIComponent(threadId)),
+    { method: "POST", body: { threadId, messageId }, sessionToken },
+  );
+}
+
 export async function listMessages(
   threadId: string,
   opts: { cursor?: string; limit?: number } = {},

@@ -825,6 +825,8 @@ function ThreadDetail({
             与 `thread.mutate`（#460）同一条「按钮不渲染 且 接口拒绝」规矩。
           */
           canLandArtifacts={detail.capabilities.includes("artifact.land")}
+          /* G1 读回 + G2 画像判权用；个人线程 projectId 为 null ⇒ 缺省，读回关闭。 */
+          projectId={projectId ?? undefined}
           onArtifactLanded={onArtifactLanded}
           /*
             #728 D10 —— 会话录音（#466 步骤 7）从「消息面板之上」挪到

@@ -76,6 +76,24 @@ export class PgArtifactLandingRepository implements ArtifactLandingRepository {
     });
   }
 
+  async findLatestByThreadAndArtifact(
+    orgId: OrgId,
+    threadId: string,
+    artifactId: string,
+  ): Promise<ArtifactLandingRow | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<LandingDbRow>(
+        `SELECT ${SELECT_COLUMNS} FROM chat_artifact_landings
+          WHERE thread_id = $1 AND artifact_id = $2 AND org_id = $3
+          ORDER BY created_at DESC
+          LIMIT 1`,
+        [threadId, artifactId, orgId],
+      );
+      const row = r.rows[0];
+      return row ? toRow(row) : null;
+    });
+  }
+
   async listByThread(orgId: OrgId, threadId: string): Promise<readonly ArtifactLandingRow[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<LandingDbRow>(

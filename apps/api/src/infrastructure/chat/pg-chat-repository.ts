@@ -522,6 +522,27 @@ export class PgChatRepository implements ChatRepository {
 
   /* ── F111：工具调用链与引用 ───────────────────────────────────────── */
 
+  /** 见 `ports.ts` 上的注释：persona 汇总的 assistant 消息写入（G2）。 */
+  async insertAssistantMessage(
+    orgId: OrgId,
+    input: {
+      readonly id: string;
+      readonly threadId: string;
+      readonly authorId: string;
+      readonly body: string;
+      readonly replyToMessageId: string | null;
+    },
+  ): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      await s.query(
+        `INSERT INTO chat_messages
+           (id, org_id, thread_id, author_kind, author_id, agent_id, body, reply_to_message_id)
+         VALUES ($1,$2,$3,'agent',$4,NULL,$5,$6)`,
+        [input.id, orgId, input.threadId, input.authorId, input.body, input.replyToMessageId],
+      );
+    });
+  }
+
   /** 见 `ports.ts` 上的注释：判权与查询的起点都是它。 */
   async findMessageLocation(orgId: OrgId, messageId: string): Promise<MessageLocation | null> {
     return this.db.withTenant(orgId, async (s) => {

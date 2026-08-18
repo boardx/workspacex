@@ -47,7 +47,14 @@ export default defineConfig({
    * ⇒ 新 spec 自动落在 harness-verify.yml 的 `e2e-full` job 里，
    * `.harness/scripts/lint-spec-gate-coverage.mjs` 那道「不存在没人跑的 spec」门控随之满足。
    */
-  testMatch: /(chat-read|chat-agent-skill-context)\.spec\.ts$/,
+  /**
+   * chat-persona-roundtrip（confirmed 2026-08-18）—— 新增
+   * `chat-diagram-save-reopen-roundtrip.spec.ts` 同样由本 config 接住（理由与 #1310
+   * 逐字相同：这里已经起好了这条链路需要的全部编排——确定性 provider + 种好的 chat
+   * 线程 + facilitator 账号；verification.md 点名的 fullstack-smoke seeded 链没有任何
+   * chat 线程种子，要挂那边得把整套 chat 夹具复制一份）。
+   */
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*

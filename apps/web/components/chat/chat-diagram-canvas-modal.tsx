@@ -28,12 +28,37 @@ import { Badge } from "@/components/ui/badge";
  * `messageId`）都会走这条退路，不是 bug，是刻意的降级——没有真实身份/消息可挂，
  * 硬发请求只会 100% 撞 401/404。
  */
+/**
+ * G1 读回（design-delta chat-persona-roundtrip，confirmed 2026-08-18）：调用方
+ * （`ChatDiagramFabric`）在打开 modal 前查回的「本消息最新保存版」。有值 ⇒ modal 用
+ * 保存版初始化，并显示「已加载你 X 前保存的版本」提示条 + 「回到原始版本」出口——
+ * **不静默替换**，用户任何时刻能分辨在看哪个版本。无值 ⇒ 行为与从前完全一致。
+ */
+export interface DiagramSavedSource {
+  /** 保存时落库的 mermaid 源（不带围栏，`getThreadArtifactSource.out.markdown`）。 */
+  readonly markdown: string;
+  /** ISO 时间戳（landing 行 created_at），提示条「X 前」的数据源。 */
+  readonly savedAt: string;
+}
+
+/** 「X 前」相对时间。保存时间在未来/解析失败时如实退回绝对时间，不编一个「刚刚」。 */
+export function formatRelativeTime(iso: string, now = Date.now()): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t) || t > now) return iso;
+  const s = Math.floor((now - t) / 1000);
+  if (s < 60) return `${Math.max(s, 1)} 秒`;
+  if (s < 3600) return `${Math.floor(s / 60)} 分钟`;
+  if (s < 86400) return `${Math.floor(s / 3600)} 小时`;
+  return `${Math.floor(s / 86400)} 天`;
+}
+
 export function ChatDiagramCanvasModal({
   code,
   onClose,
   threadId,
   messageId,
   bearer,
+  savedSource,
 }: {
   code: string;
   onClose: () => void;
@@ -41,9 +66,20 @@ export function ChatDiagramCanvasModal({
   threadId?: string;
   messageId?: string;
   bearer?: string;
+  /** ⚠ 命名避开本组件既有的 `saved` 本地 state（「本次会话里刚点过保存」）。 */
+  savedSource?: DiagramSavedSource | null;
 }) {
   const initialMarkdown = React.useMemo(() => wrapAsMermaidBlock(code), [code]);
-  const [markdown, setMarkdown] = React.useState(initialMarkdown);
+  const savedMarkdown = React.useMemo(
+    () => (savedSource ? wrapAsMermaidBlock(savedSource.markdown) : null),
+    [savedSource],
+  );
+  // 有保存版 ⇒ 用保存版初始化（签核 G1：读回按最新）；viewing 记录当前看的是哪个版本，
+  // 提示条 + 切换按钮让这件事对用户始终可见（硬约束：不静默替换）。
+  const [viewing, setViewing] = React.useState<"saved" | "original">(
+    savedMarkdown !== null ? "saved" : "original",
+  );
+  const [markdown, setMarkdown] = React.useState(savedMarkdown ?? initialMarkdown);
   const [tool, setTool] = React.useState<CanvasTool>("select");
   const [zoom, setZoom] = React.useState(1);
   const [saved, setSaved] = React.useState<
@@ -54,7 +90,25 @@ export function ChatDiagramCanvasModal({
 
   const canPersist = threadId !== undefined && messageId !== undefined;
 
-  const dirty = markdown !== initialMarkdown;
+  // 「未保存改动」的基线跟着当前查看的版本走：看保存版时相对保存版比对，
+  // 否则刚加载完保存版就会被误标成「有未保存的改动」。
+  const baseline = viewing === "saved" && savedMarkdown !== null ? savedMarkdown : initialMarkdown;
+  const dirty = markdown !== baseline;
+
+  const revertToOriginal = React.useCallback(() => {
+    setViewing("original");
+    setMarkdown(initialMarkdown);
+    setSaved(null);
+    setSaveError(null);
+  }, [initialMarkdown]);
+
+  const backToSavedVersion = React.useCallback(() => {
+    if (savedMarkdown === null) return;
+    setViewing("saved");
+    setMarkdown(savedMarkdown);
+    setSaved(null);
+    setSaveError(null);
+  }, [savedMarkdown]);
 
   const handleMarkdownChange = React.useCallback((next: string) => {
     setMarkdown(next);
@@ -198,6 +252,42 @@ export function ChatDiagramCanvasModal({
           </Button>
         </div>
       </header>
+
+      {/* G1 读回提示条（签核硬约束：不静默替换——始终能分辨在看保存版还是原始版）。 */}
+      {savedSource && viewing === "saved" ? (
+        <div
+          data-testid="chat-diagram-loaded-saved"
+          className="flex items-center gap-2 border-b border-border bg-panel-alt px-3 py-1.5 text-11 text-muted-foreground"
+        >
+          <span>已加载你 {formatRelativeTime(savedSource.savedAt)}前保存的版本</span>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            data-testid="chat-diagram-revert-original"
+            onClick={revertToOriginal}
+          >
+            回到原始版本
+          </Button>
+        </div>
+      ) : null}
+      {savedSource && viewing === "original" ? (
+        <div
+          data-testid="chat-diagram-viewing-original"
+          className="flex items-center gap-2 border-b border-border bg-panel-alt px-3 py-1.5 text-11 text-muted-foreground"
+        >
+          <span>正在查看原始版本</span>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            data-testid="chat-diagram-back-to-saved"
+            onClick={backToSavedVersion}
+          >
+            回到保存版
+          </Button>
+        </div>
+      ) : null}
 
       {/* 主体：可编辑画布 + 保存回环侧栏 */}
       <div className="flex min-h-0 flex-1">

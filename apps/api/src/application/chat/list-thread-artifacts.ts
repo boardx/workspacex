@@ -20,6 +20,12 @@ export interface ThreadArtifactItem {
   readonly pinnedBy: string | null;
   readonly pinnedAt: string | null;
   readonly hasSource: boolean;
+  /**
+   * 落地来源消息（`chat_artifact_landings.message_id`，NOT NULL 列的直读投影）。
+   * design-delta chat-persona-roundtrip G1a（confirmed 2026-08-18）：前端靠它把
+   * 「本消息的最新保存版」关联起来，签核裁严格 string，不留 nullable 预留。
+   */
+  readonly messageId: string;
 }
 
 export interface ListThreadArtifactsDeps extends ResolveVisibilityDeps {
@@ -61,6 +67,7 @@ export async function listThreadArtifacts(
       pinnedBy: r.mode === "pinned" ? r.createdBy : null,
       pinnedAt: r.mode === "pinned" ? r.createdAt : null,
       hasSource: r.hasSource,
+      messageId: r.messageId,
     }));
 
   return { items };

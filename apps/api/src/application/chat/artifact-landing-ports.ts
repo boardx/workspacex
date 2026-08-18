@@ -55,6 +55,18 @@ export interface ArtifactLandingRepository {
 
   /** `listThreadArtifacts`（uc-8-3 UC-22）：右栏「产物」列表的全部候选行，未经 I-36 的草稿过滤。 */
   listByThread(orgId: OrgId, threadId: string): Promise<readonly ArtifactLandingRow[]>;
+
+  /**
+   * `getThreadArtifactSource`（design-delta chat-persona-roundtrip G1b）：某次落地的
+   * landing 行。签核：同一 `(threadId, artifactId)` 理论上只有一行（每次落地都是新
+   * artifact），但契约层防御性地约定「若有多行取 `created_at` 最新一条」——排序落在
+   * SQL 里，不在调用方。未经 I-36 的草稿过滤（那是 application 层的事）。
+   */
+  findLatestByThreadAndArtifact(
+    orgId: OrgId,
+    threadId: string,
+    artifactId: string,
+  ): Promise<ArtifactLandingRow | null>;
 }
 
 export const ARTIFACT_LANDING_REPOSITORY = Symbol("ArtifactLandingRepository");
