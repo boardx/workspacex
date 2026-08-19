@@ -13,7 +13,12 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/guided-research-api", () => api);
-vi.mock("next/navigation", () => ({ usePathname: () => "/research", useRouter: () => ({ replace: vi.fn() }) }));
+// #728：TopBar 新增读 useSearchParams 解析 /chat?projectId=…（本屏是 /research，不需要
+// 真的解析，但 TopBar 无条件调用这个 hook，缺席会在挂载阶段直接抛错）。
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/research", useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 const identity = mockIdentity("org-yuanyang", null);
 

@@ -15,6 +15,11 @@ import type { FacetSaveFn } from "./facet-content-editor";
  *   与原型的 `degradeWarning` 语义一致；用户能做的是解绑或换一个 Skill。
  * - 顶部警告条只在真的存在降级绑定时出现——原型是硬编码一条文案，这里改成按
  *   实际数据条件渲染，这不是"自行设计"，而是把原型的静态示意接上真实数据。
+ *
+ * ⚠ 2026-08-19（完整差距审计发现）：`SKILL_PANEL.genericNote`（"其余 4 个为全程
+ * 可用的通用 skill"）此前整句没有渲染——原型把它放在列表下方、"＋ 绑定 Skill"
+ * 按钮上方，作为固定说明；本编辑器现在原样渲染在同一位置。它是静态说明文字，
+ * 不是可编辑字段（原型也没给它配控件）。
  */
 
 export interface SkillBindingDraft {
@@ -28,6 +33,8 @@ export interface SkillBindingDraft {
 export interface SkillContentValue {
   readonly skills: readonly SkillBindingDraft[];
 }
+
+export const GENERIC_NOTE = "其余 4 个为全程可用的通用 skill";
 
 function emptyBinding(): SkillBindingDraft {
   return { seg: "", name: "", desc: "", degraded: false };
@@ -219,6 +226,9 @@ export function SkillPanelEditor({
             ))}
           </ul>
         )}
+        <p className="mt-2 text-11 text-muted-foreground" data-testid="bp-skill-generic-note">
+          {GENERIC_NOTE}
+        </p>
         <button
           type="button"
           onClick={addBinding}

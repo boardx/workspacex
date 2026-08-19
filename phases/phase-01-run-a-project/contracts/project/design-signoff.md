@@ -82,7 +82,16 @@ phase: "01"
 #     纪律不变，即便这次是 delta 也不通过改这三个字段来表达）。
 #   ⚠ 若 coord-main 认为「delta 需要人类走一次正式的重签表单」而不是对话记录留痕即可，
 #     把 F199 从本行删掉，代码与测试不受影响。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191, F199]
+# 2026-08-19（追加 **F963**，dev-project agent）——**零新增设计面**的自查追加，与
+#   F158/F164/F172 同一性质（coord-main 曾要求「第三次之后人类定规前不再自行追加」，
+#   本次不是绕过那条限制，而是人类在本会话里当场就这条追加**逐条对照三条件后现场授权**：
+#   ① UI 已签——`ui-preview/project-v2/` 的 `uc-5-1-live-*`（四视角、10 张截图），本条
+#      不新增屏、不改交互语义；② 契约已签——`listAgendaSegments`（#853 已接线）与
+#      `advanceAgendaSegment`（F119，controller 早已挂好），本条只是把已签核操作接上
+#      前端，未新增字段/操作/错误码；③ **零新增设计面**——「四组并行」卡片因数据源
+#      在契约里不存在，整块降级为如实空态（同 F172 对待办块的处置，是删减不是新增）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191, F199, F963]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

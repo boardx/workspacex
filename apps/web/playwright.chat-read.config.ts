@@ -193,6 +193,15 @@ export default defineConfig({
          */
         LOOPBACK_MODEL_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
         LOOPBACK_MODEL_SKILL_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillEchoPrefix,
+        /**
+         * context-engine 浏览器 e2e —— 同一套「默认关闭的回显开关」，打开替身进程
+         * 「在 history 里确实收到了 L2 摘要伪消息 / F190 工具轨迹回喂伪消息」这两件事
+         * 的回显（见 `loopback-model-provider.ts` 自己的头注）。`fullstack-smoke` /
+         * `core-loop` 不下发这些变量，那两条链路行为逐字节不变。
+         */
+        LOOPBACK_MODEL_L2_SUMMARY_ECHO_PREFIX: CHAT_READ_E2E.l2SummaryEchoPrefix,
+        LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX: CHAT_READ_E2E.toolTraceEchoPrefix,
+        LOOPBACK_MODEL_TOOL_TRACE_SENTINEL: CHAT_READ_E2E.toolTraceHistoricalResultCode,
       },
     },
     /**
@@ -255,6 +264,13 @@ export default defineConfig({
         // #1584 e2e —— 附件预览/下载弹窗的专属线程，不与上面那条共写（曾经共写过，
         // `verify:chat-read` 整套跑时互相污染，见 `chat-read-fixture.ts` 同名字段头注）。
         CHAT_E2E_ATTACHMENT_PREVIEW_THREAD_ID: CHAT_READ_E2E.attachmentPreviewThreadId,
+        // context-engine 浏览器 e2e —— L2 滚动摘要 / F190 工具轨迹回喂的两条专属线程，
+        // 见 `chat-read-fixture.ts` 同名字段与 `seed-chat-read-e2e.ts` 的头注。
+        CHAT_E2E_L2_CHECK_THREAD_ID: CHAT_READ_E2E.l2CheckThreadId,
+        CHAT_E2E_L2_EARLY_FACT_CODE_WORD: CHAT_READ_E2E.l2EarlyFactCodeWord,
+        CHAT_E2E_TOOL_TRACE_CHECK_THREAD_ID: CHAT_READ_E2E.toolTraceCheckThreadId,
+        CHAT_E2E_TOOL_TRACE_TOOL_NAME: CHAT_READ_E2E.toolTraceHistoricalToolName,
+        CHAT_E2E_TOOL_TRACE_RESULT_CODE: CHAT_READ_E2E.toolTraceHistoricalResultCode,
         // The catalog schema override is intentionally test-only; production always resolves
         // the public Agent catalog. Authentication in this journey still uses a signed login.
         KERNEL_ALLOW_TEST_PRINCIPAL: "1",

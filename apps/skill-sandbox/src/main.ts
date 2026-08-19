@@ -20,6 +20,12 @@
  *   **更严**。已在 #1583 记录。
  *
  * TCP 监听仅用于本地开发与单测(`SKILL_SANDBOX_PORT`),生产/门控走 socket。
+ *
+ * ⚠ **macOS 上这条 UDS 路径本地验不了**(#1611 实测,已用 Python 直连确认,不是 curl
+ *   的问题):容器跑在 Linux VM 里,socket 文件经共享文件系统在宿主可见,但端点在 VM
+ *   内,宿主进程 `connect()` 拿到的是 ConnectionRefused。devapp 是 Linux,生产拓扑在
+ *   那边成立。**在 Mac 上本地开发请用 `SKILL_SANDBOX_PORT`(TCP)**,别在"socket 文件
+ *   明明存在却连不上"这件事上白查。
  */
 import { chmodSync, existsSync, unlinkSync } from "node:fs";
 import { createSandboxServer } from "./server.js";

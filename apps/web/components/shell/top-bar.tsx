@@ -2,15 +2,64 @@
 import * as React from "react";
 import { Building2, FolderKanban, Lock, ShieldCheck } from "lucide-react";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
   selfHostedOnly, SELF_HOSTED_SOURCE_LABEL,
   PROJECT_ROLES, PROJECT_ROLE_LABEL, type Identity, type ProjectRole,
 } from "@/lib/identity";
 import { resolveProjectContext } from "@/lib/project-context";
+import { listProjects } from "@/lib/live-projects";
 import { OrgMenu } from "./org-menu";
 import { Button } from "@/components/ui/button";
+
+/**
+ * `/chat?projectId=…` 的项目显示名——`resolveProjectContext` 只解得出 `id`（见该文件
+ * 头注释），这里补上「id → 人类可读名」这一步。用**已经真实挂了**的
+ * `listProjects(orgId)`（F185 之后是去重扁平数组），不新开一个「按 id 查单个项目」的
+ * 端点——本组件只是从组织的项目列表里找同一个 id 那一条，找不到（列表还没到、或这个
+ * id 不在当前组织可见范围）时诚实回退成裸 id，不拿组织名或别的字符串顶替。
+ *
+ * ⚠ 只在真的进了 `/chat` 且带了 `chatProjectId` 时才发这次请求——不在其它路由上
+ *   为了「可能用得上」预取整个项目列表。
+ */
+/**
+ * `useSearchParams()` 必须被包在自己的 `<Suspense>` 边界里——Next.js 静态导出对
+ * 直接在页面渲染路径上调用它的客户端组件会拒绝预渲染（`missing-suspense-with-csr-bailout`）。
+ * `TopBar` 是几乎每个页面共用的外壳，把整棵树都包进 Suspense 影响面太大，所以只把
+ * 这一个纯读取查询串、不渲染任何东西的组件单独摘出来，外面套一层局部 Suspense。
+ */
+function ChatProjectIdFromSearchParams({ onChange }: { onChange: (id: string | null) => void }) {
+  const searchParams = useSearchParams();
+  const chatProjectId = searchParams.get("projectId");
+  React.useEffect(() => {
+    onChange(chatProjectId);
+  }, [chatProjectId, onChange]);
+  return null;
+}
+
+function useChatProjectName(orgId: string, chatProjectId: string | null): string | null {
+  const [name, setName] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!chatProjectId) {
+      setName(null);
+      return;
+    }
+    let cancelled = false;
+    void listProjects(orgId)
+      .then((items) => {
+        if (cancelled) return;
+        setName(items.find((p) => p.id === chatProjectId)?.name ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setName(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId, chatProjectId]);
+  return name;
+}
 
 /**
  * 顶部条 = 组织切换器（裁决 O-12）+ 两层角色说明条（UC-0.3 R8）
@@ -54,7 +103,17 @@ export function TopBar({
   switching?: boolean;
 }) {
   const pathname = usePathname();
-  const project = resolveProjectContext(pathname);
+  // 只有 /chat 才读这个查询串——其它路由的 projectId 出现在路径段里，已经被
+  // resolveProjectContext 的第一条规则接住了，这里不重复解析。`chatProjectId` 由下方
+  // Suspense 包裹的 `ChatProjectIdFromSearchParams` 异步喂进来，不在本组件里直接调
+  // `useSearchParams()`（原因见该组件注释）。
+  const [chatProjectIdParam, setChatProjectIdParam] = React.useState<string | null>(null);
+  const chatProjectId = pathname === "/chat" ? chatProjectIdParam : null;
+  const project = resolveProjectContext(pathname, chatProjectId);
+  const chatProjectName = useChatProjectName(identity.org.id, chatProjectId);
+  // resolveProjectContext 对 /chat 只给得出裸 id 占位（见该函数注释）；名字解析出来后
+  // 覆盖显示值，解析完成前先诚实显示 id（不是空白，也不是编一个「加载中」的项目名）。
+  const displayProject = project && chatProjectName ? { ...project, name: chatProjectName } : project;
   const isDev = process.env.NODE_ENV !== "production";
   const projectLayer = project ? describeProjectLayer(identity) : null;
   // UC-0.5 R8：切到本地组织时整个应用要有**可感知**的状态变化——
@@ -76,6 +135,11 @@ export function TopBar({
         local ? "border-ai/30 bg-ai-tint" : "border-border bg-card",
       ].join(" ")}
     >
+      {pathname === "/chat" && (
+        <React.Suspense fallback={null}>
+          <ChatProjectIdFromSearchParams onChange={setChatProjectIdParam} />
+        </React.Suspense>
+      )}
       {/* ── 组织层：全局常驻 ── */}
       <div className="flex shrink-0 items-center gap-1.5">
         {/* <md 时 IconRail 隐藏，组织菜单（切换 + 组织管理）在这里补一个入口；≥md 由 rail 承担 */}
@@ -116,12 +180,12 @@ export function TopBar({
       </p>
 
       {/* ── 项目层：只在项目上下文里出现 ── */}
-      {project && (
+      {displayProject && (
         <>
           <div className="h-4 w-px shrink-0 bg-border" aria-hidden />
           <div className="flex min-w-0 items-center gap-1.5" data-testid="topbar-project-context">
             <FolderKanban aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate text-12 font-medium">{project.name}</span>
+            <span className="truncate text-12 font-medium">{displayProject.name}</span>
             {projectLayer && (
               <span data-testid="role-bar-project" className="truncate text-12 text-muted-foreground">
                 · {projectLayer}

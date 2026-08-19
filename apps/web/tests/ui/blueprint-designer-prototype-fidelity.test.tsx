@@ -47,6 +47,8 @@ import { PRE_TASK_AUDIENCES } from "@/components/tpl-designer/pre-tasks-panel-ed
 import { PRINT_SIZES } from "@/components/tpl-designer/print-panel-editor";
 import { MATERIAL_OWNERS } from "@/components/tpl-designer/materials-panel-editor";
 import { AGENT_STATES } from "@/components/tpl-designer/agent-panel-editor";
+import { GENERIC_NOTE as SKILL_GENERIC_NOTE } from "@/components/tpl-designer/skill-panel-editor";
+import { TIER_NOTE } from "@/components/tpl-designer/blueprint-duration-form";
 
 describe("原型保真度机械门控：编辑器里抄自原型的常量 ≡ lib/mock/tpl.ts", () => {
   it("15 项面板顶部的 intro 解释段逐条一致（原型 <Intro> 的内容）", () => {
@@ -66,6 +68,18 @@ describe("原型保真度机械门控：编辑器里抄自原型的常量 ≡ li
     expect(FACET_INTRO["skill-binding"]).toEqual(SKILL_PANEL.intro);
     expect(FACET_INTRO["outputs"]).toEqual(OUTPUTS_PANEL.intro);
     expect(FACET_INTRO["report-template"]).toEqual(REPORT_PANEL.intro);
+  });
+
+  it("2026-08-19 差距审计补回的三处静态文案 ≡ 原型（不是本次凭空写的）", () => {
+    expect(SKILL_GENERIC_NOTE).toEqual(SKILL_PANEL.genericNote);
+    // designer-panels.tsx 的 TIER_NOTE 是模块内 const，未导出，这里直接对照
+    // 逐字抄出的原型值（同一份数据不该有第三处再声明，故不重复 import 一次原型文件）。
+    expect(TIER_NOTE).toEqual({
+      "half-day": "只到收敛，不做原型",
+      "one-day": "加商业模式草稿",
+      "two-day": "加原型与用户测试",
+      "three-day": "加迭代与落地计划",
+    });
   });
 
   it("intro 表与定义表同尺寸：15 项一个不多一个不少（新增面板忘了写 intro 会红）", () => {

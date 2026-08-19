@@ -168,4 +168,36 @@ export const CHAT_READ_E2E = {
    * 消息」的道理，见上面 #1324 三条线程的头注。
    */
   attachmentPreviewThreadId: "thread-chat-read-e2e-attachment-preview",
+  /* ══════════ context-engine 浏览器 e2e（L2 滚动摘要 + F190 工具轨迹回喂）══════════
+   *
+   * 与上面几条专属线程同一套理由：各自独立、不共享其它用例的历史，唯一不同是这两条
+   * **不是**零预置消息——L2/F190 都要求"早期内容已经被挤出 L1 近端窗口"这个前提成立，
+   * 零预置消息的空线程测不出这件事，所以种子脚本会为这两条线程各自灌入足够多的撑满
+   * 字符预算的填充消息（同 `apps/api/tests/chat/agent-run-context-snapshot.test.ts`
+   * 与 `tool-trace-cross-run-context.test.ts` 两份真库单测用的 `pad()` 手法，只是这次
+   * 要让真实浏览器发的那一条消息去触发它，不是在单测里直接调 `executeQueuedRuns`）。
+   */
+
+  /** L2 滚动摘要检查线程：种了足够多填充消息，把下面这条"早期事实"挤出 L1。 */
+  l2CheckThreadId: "thread-chat-read-e2e-l2-check",
+  /** 埋在 L2 检查线程最早一条消息里的代号——只有 L2 摘要真的覆盖到它才可能间接留痕。 */
+  l2EarlyFactCodeWord: "MERLIN7734",
+  /**
+   * 确定性上游在 history 里看到 L2 摘要伪消息（`execute-run.ts` 拼的
+   * `[早前对话摘要] ...` 前缀）时，回显进回复的前缀。与 `retrievalEchoPrefix` 同一套
+   * 惯例：唯一事实源在这里，由 `playwright.chat-read.config.ts` 同时下发。
+   */
+  l2SummaryEchoPrefix: "[l2-summary-seen:]",
+
+  /** F190 工具轨迹检查线程：种了一轮"历史工具调用"+ 足够多填充消息把它挤出 L1。 */
+  toolTraceCheckThreadId: "thread-chat-read-e2e-tool-trace-check",
+  /** 那轮历史工具调用记录的工具名。 */
+  toolTraceHistoricalToolName: "lookup_incident_code",
+  /** 那轮历史工具调用的结果摘要里嵌的代号——回喂进下一轮 history 才会出现在回显里。 */
+  toolTraceHistoricalResultCode: "GRIFFIN2201",
+  /**
+   * 确定性上游在 history 里看到工具轨迹回喂伪消息（`tool-trace-context.ts` 拼的
+   * `[近期工具调用记录` 前缀）时，回显进回复的前缀。
+   */
+  toolTraceEchoPrefix: "[tool-trace-seen:]",
 } as const;

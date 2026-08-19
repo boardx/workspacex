@@ -180,19 +180,6 @@ export const ROLE_GROUP_SUBMIT: Record<ProjectRole, boolean> = {
 };
 
 /**
- * 「我的组」—— 组长/组员对本组（第 2 组 = g2）有完整可见；引导师看全部（null=不限）；
- * 观察者无归属（只看脱敏聚合）。别组对组长/组员**只显示进度，不显示原始引述**。
- */
-export const ROLE_OWN_GROUP: Record<ProjectRole, string | null> = {
-  facilitator: null, groupLead: "g2", member: "g2", observer: null,
-};
-
-/** 是否能看到**所有**组的原始引述（只有引导师）。组长/组员只在本组看，观察者全脱敏。 */
-export const ROLE_SEES_ALL_RAW: Record<ProjectRole, boolean> = {
-  facilitator: true, groupLead: false, member: false, observer: false,
-};
-
-/**
  * 观察者对「内部协作视图」（当前环节分工 / 待办看板明细 / 分组名单 / 设置配置区 / 原始洞察库）
  * 一律**看不到**（内容消失，不是变灰）。用它统一驱动各 tab 的观察者裁剪。
  */
@@ -272,40 +259,13 @@ export const ACTIVITY_FEED = [
   { id: "a4", who: "周", kind: "person" as const, text: "完成 2 场现场观察并上传影像", time: "2 天前" },
 ];
 
-/* ─────────────────────── 现场协作（原型 isWsDuring · 主持台全场） ─────────────────────── */
-
-export const LIVE_STAGE = {
-  attendance: "11 / 12 已到 · 每组一条加入链接，打开即进，不需要注册",
-  segment: "环节 3 / 7",
-  segmentTitle: "假设风暴 → 假设树画布",
-  countdown: "12:48",
-  needIntervention: "第 3 组需介入",
-};
-
-/** [原型] 四组并行卡片——每组一路录音，实时喂给本组推演模板 */
-export const LIVE_GROUPS = [
-  {
-    id: "g1", name: "第 1 组 · 首次评估投资", time: "12:41",
-    quote: "周宁：他们评估时根本没人算过削峰收益，都是听同行说",
-    canvas: "共情图 · AI 边听边填", fill: 62, needs: false,
-  },
-  {
-    id: "g2", name: "第 2 组 · 采购比选", time: "12:41",
-    quote: "高琳：采购委员会真正怕的是签完字之后没人负责",
-    canvas: "旅程图 · 比选阶段", fill: 84, needs: false, extra: "POV ＋ HMW 3 条待组长确认",
-  },
-  {
-    id: "g3", name: "第 3 组 · 并网审批", time: "",
-    quote: "近 8 分钟只有组长在说话，另两人未发言；话题偏到设备选型。Facilitator 建议你过去，或推一条提示。",
-    canvas: "共情图 素材不足", fill: 21, needs: true,
-  },
-  {
-    id: "g4", name: "第 4 组 · 收益归因", time: "12:41",
-    quote: "刘航：如果收益不达标，谁来赔？这是我们卡了三次的地方",
-    canvas: "价值主张画布 已填 5/9 格", fill: 55, needs: false,
-    extra: "本组已提出 1 个可做原型的概念：收益保底 ＋ 月度归因看板",
-  },
-];
+/*
+ * ─────────────────────── 现场协作（原型 isWsDuring · 主持台全场） ───────────────────────
+ * F963（2026-08-19）：`LIVE_STAGE`/`LIVE_GROUPS` 两个 mock 常量已删除——状态条改接真实
+ * `listAgendaSegments`/`advanceAgendaSegment`（见 `tab-live.tsx`），四组并行卡片因
+ * quote/canvas/fill/needs 在 project 束契约里全无来源，整块降级为如实空态，不再需要
+ * 这份 mock 数据。同 F172 对 `tab-overview.tsx` 待办块的处置纪律，见 `tab-live.tsx` 头注。
+ */
 
 /* ─────────────────────── 成果沉淀（原型 isWsAfter） ─────────────────────── */
 

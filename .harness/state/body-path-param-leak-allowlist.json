@@ -1,0 +1,19 @@
+{
+  "_readme": [
+    "机械门 `lint-body-path-param-leak.mjs`（issue #1581）的棘轮豁免名单。",
+    "规则：这个数组只能变短。这里的三条不是「门有假阳性」——是这几个 controller 的",
+    "body schema 本来就是 `C.operations.xxx.in`（未 `.omit()`），路径参数按契约设计",
+    "本来就该在 body 里再传一次（`live-canvas.ts` 的 `bindCanvasTemplateToSegment`",
+    "甚至靠这个冗余做一致性校验，见该函数头注：两边不一致时服务端回 400",
+    "`agenda_segment_id_mismatch`）。判据本身分辨不出「这个 controller 到底 omit 了没」，",
+    "遇到这类合法冗余走这个名单，不为了这一类硬凑规则牺牲判据的简单可读。",
+    "新增条目前请先确认对应 controller 的 body schema 确实是全量 `.in`（不是 `.omit()`），",
+    "否则就是在豁免一个真 bug——F950/F961 那种 400 从合入起一次没成功过就是这么漏过去的。"
+  ],
+  "entries": [
+    "apps/web/lib/live-projects.ts:workshopId",
+    "apps/web/lib/live-projects.ts:segmentId",
+    "apps/web/lib/live-canvas.ts:agendaSegmentId",
+    "apps/web/lib/live-chat.ts:projectId"
+  ]
+}

@@ -272,6 +272,7 @@ import {
   type AgentRunStore, type ModelCallPort, type TokenUsageMeterPort,
 } from "./application/agent-run/ports";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
+import { AGENT_RUN_CONTEXT_SNAPSHOT } from "./application/agent-run/context-snapshot";
 import { PgFileRetrieval } from "./infrastructure/agent-run/pg-file-retrieval";
 import { PgAgentRunContextSnapshot } from "./infrastructure/agent-run/pg-agent-run-context-snapshot";
 import { PgRunImageInput } from "./infrastructure/agent-run/pg-run-image-input";
@@ -1045,6 +1046,20 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: AGENT_RUN_STORE,
       useFactory: (db: DatabasePort) => new PgAgentRunRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    /**
+     * F157 —— 独立注册一份 `PgAgentRunContextSnapshot`，供
+     * `GET /agent-runs/:runId/context-snapshot`（`AgentRunController`）读用。此前这个
+     * 类只在 `AGENT_RUN_EXECUTOR` 的 `useFactory` 里 `new` 过一次（写入侧），从未作为
+     * 可注入的 provider 存在——F157 落地时只接了写，没接读端点，`readAgentRunContext
+     * Snapshot` 这个用例因此从未被任何 controller 调用过。两处各自 `new` 同一个无状态
+     * 包装类（构造参数只有 `DatabasePort`）不是"同一份状态两处持有"，同 `AGENT_RUN_STORE`
+     * 与下面 `AGENT_RUN_EXECUTOR` useFactory 里各自持有仓储引用的既有形状。
+     */
+    {
+      provide: AGENT_RUN_CONTEXT_SNAPSHOT,
+      useFactory: (db: DatabasePort) => new PgAgentRunContextSnapshot(db),
       inject: [DATABASE_PORT],
     },
     {
