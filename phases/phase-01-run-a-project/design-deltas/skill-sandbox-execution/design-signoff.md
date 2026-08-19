@@ -3,7 +3,11 @@ status: confirmed           # pending | confirmed —— ⚠ 只能由人类改�
 bundle: skill-sandbox-execution
 base_bundle: skill-trial-run
 scope: trial-run-executes-model-written-scripts-in-a-network-isolated-container-and-produces-real-artifacts
-covers: [F204]
+covers: [F210]  # 原 F204：该 ID 早已被 project 域「分组二三项配置面板结构化编辑」占用
+  # 且已 passing（issue #1531，owner dev-chat-e2e），与本 delta 毫无关系。沿用
+  # design-deltas/tool-trace-cross-run-context 的先例（原 F185 被并行分支抢占 ⇒ 重编号
+  # 为 F190），机械重编号为 F210，**不改动** status / confirmed_by / confirmed_at 三字段
+  # ——ADR-023：这只是 ID 层面的机械修正，不是重新裁决。见 F210 feature_list.json notes ①。
 confirmed_by: usam.shen@gmail.com
 confirmed_at: "2026-08-19T02:00:00+08:00"
 confirmed_via: "spike 证据（#1575）审阅确认：批准执行模型生成的代码这条路径，边界为容器 network:none + Node 权限模型两层。范围限定首个切片只做「从零创建 deck」（pptxgenjs / 纯 Node），不含编辑存量 deck、转旧 .ppt、视觉 QA。接受失败回喂重试（上限 3 次）及其 token 成本，接受试跑转异步（会改试跑 API 形状）。产物落 ObjectStore 但不自动落成项目产物。"
