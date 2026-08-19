@@ -33,6 +33,7 @@ function makeIo(root: string): MutationIo {
     },
     exists: (rel) => existsSync(join(root, rel)),
     gitAdd: (rel) => execFileSync("git", ["add", "-f", "--", rel], { cwd: root }),
+    remove: (rel) => rmSync(join(root, rel), { force: true }),
   };
 }
 
