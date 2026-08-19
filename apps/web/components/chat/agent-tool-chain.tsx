@@ -48,11 +48,19 @@ export function deriveThinkingSeconds(steps: Step[]): number | null {
   return spanValid ? Math.round(((maxEnd - minStart) / 1000) * 10) / 10 : null;
 }
 
-/** 收起态一行摘要文案：秒数缺失退化为不带秒；无工具调用时说「模型直接作答」。 */
+/**
+ * 收起态一行摘要文案：秒数缺失退化为不带秒；无工具调用时说「模型直接作答」。
+ *
+ * 2026-08-19 人类实测反馈（#1589）：`思考了 0 秒` 读起来像自相矛盾（既然是 0 秒，那还
+ * 调用了 3 个工具？听起来像埋点坏了，不是"很快"）。`deriveThinkingSeconds` 四舍五入到
+ * 0.1 秒精度，真落到 0.0 的多半是 startedAt===endedAt 这类边界（极快，不是没有过程）。
+ * `seconds === 0` 与 `seconds === null`（缺失）同等处置——都退化成不带秒的文案，
+ * 而不是印出一个会被读成"没思考"的数字。`> 0` 而非 `!== null` 是这处修复的全部。
+ */
 export function toolChainSummaryText(steps: Step[]): string {
   const seconds = deriveThinkingSeconds(steps);
   const toolCount = steps.filter((s) => s.kind === "tool_call").length;
-  const head = seconds !== null ? `思考了 ${seconds} 秒 · ` : "";
+  const head = seconds !== null && seconds > 0 ? `思考了 ${seconds} 秒 · ` : "";
   if (toolCount === 0) return `${head}模型直接作答`;
   return `${head}调用了 ${toolCount} 个工具`;
 }

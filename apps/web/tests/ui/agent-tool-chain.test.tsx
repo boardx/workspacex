@@ -48,6 +48,22 @@ describe("toolChainSummaryText / deriveThinkingSeconds", () => {
     expect(toolChainSummaryText(steps)).toBe("调用了 1 个工具");
   });
 
+  /**
+   * 2026-08-19 人类实测反馈（#1589）：`思考了 0 秒` 读起来自相矛盾（"0 秒"却"调用了
+   * 3 个工具"，像埋点坏了）。`startedAt === endedAt` 这类边界会算出恰好 0.0 秒——
+   * 这条钉住修复：0 与"无法解析"同等退化成不带秒的文案，不印出会被读成"没思考"的数字。
+   */
+  it("耗时恰好 0 秒（startedAt===endedAt）：同样退化为不带秒，不印「思考了 0 秒」", () => {
+    const zeroStep: Step = {
+      ...undatedToolStep(),
+      startedAt: "2026-01-01T00:00:00.000Z",
+      endedAt: "2026-01-01T00:00:00.000Z",
+    };
+    expect(deriveThinkingSeconds([zeroStep])).toBe(0);
+    expect(toolChainSummaryText([zeroStep])).toBe("调用了 1 个工具");
+    expect(toolChainSummaryText([zeroStep])).not.toContain("0 秒");
+  });
+
   it("有 step 但零工具调用：说「模型直接作答」，不说「调用了 0 个工具」", () => {
     const steps = toolChainSteps("no-tools");
     expect(steps.length).toBeGreaterThan(0);

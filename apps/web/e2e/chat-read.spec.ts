@@ -56,7 +56,7 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
     agentId: CHAT_READ_E2E.agentId,
   });
   expect(request.postDataJSON().clientMessageId).toMatch(/^[0-9a-f-]{36}$/i);
-  await expect(page.getByTestId("chat-message-queued")).toContainText("AgentRun 已排队");
+  await expect(page.getByTestId("chat-live-agent-run-status")).toBeVisible(); // 排队态：chat-message-queued 已删（同屏与此重复），2026-08-19 #1589
   await page.getByTestId("chat-messages-load-more").click();
   await expect(page.getByTestId("chat-message-list")).toContainText("Browser durable message");
   await expect(page.getByText("Browser durable message")).toHaveCount(1);
@@ -277,7 +277,7 @@ test("#925 ③ Enter 发送、Shift+Enter 换行（覆盖 V2 的 ⌘↵）", asy
     text: "Sent with plain Enter",
     agentId: CHAT_READ_E2E.agentId,
   });
-  await expect(page.getByTestId("chat-message-queued")).toContainText("AgentRun 已排队");
+  await expect(page.getByTestId("chat-live-agent-run-status")).toBeVisible(); // 排队态：chat-message-queued 已删（同屏与此重复），2026-08-19 #1589
 });
 
 test("#925 ② 发送后不闪烁：软重读不清空消息、不弹加载骨架", async ({ page }) => {
@@ -299,7 +299,7 @@ test("#925 ② 发送后不闪烁：软重读不清空消息、不弹加载骨�
   const input = page.getByRole("textbox", { name: "消息内容" });
   await input.fill("no flicker please");
   await input.press("Enter");
-  await expect(page.getByTestId("chat-message-queued")).toContainText("AgentRun 已排队");
+  await expect(page.getByTestId("chat-live-agent-run-status")).toBeVisible(); // 排队态：chat-message-queued 已删（同屏与此重复），2026-08-19 #1589
   // 发送后旧消息仍在场（没被清空过）
   await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
   clearInterval(poll);
@@ -427,7 +427,7 @@ test("#925 ③ 发送后强制滚到底：即使之前上滚看历史，发送�
   const input = page.getByRole("textbox", { name: "消息内容" });
   await input.fill("scroll me back to bottom");
   await input.press("Enter");
-  await expect(page.getByTestId("chat-message-queued")).toContainText("AgentRun 已排队");
+  await expect(page.getByTestId("chat-live-agent-run-status")).toBeVisible(); // 排队态：chat-message-queued 已删（同屏与此重复），2026-08-19 #1589
 
   // 发送后回到底部（distanceFromBottom<=80），jump-to-latest 按钮消失
   await expect

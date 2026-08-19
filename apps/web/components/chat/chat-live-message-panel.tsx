@@ -1058,34 +1058,38 @@ export function ChatLiveMessagePanel({
             </Button>
           </div>
         ) : null}
-      </div>
+        {/*
+          V5（PROP-CHAT-10ITER-001）—— jump-to-latest 悬浮按钮。仅当用户上滚离开底部
+          （`showJumpToLatest`）时出现，点击平滑滚到底。条件渲染而非 visibility 切换：
+          不在底部时它才存在，避免常驻挡内容，也让 e2e 能用存在性断言（`toHaveCount`）
+          确定性验证显隐。
 
-      {/*
-        V5（PROP-CHAT-10ITER-001）—— jump-to-latest 悬浮按钮。仅当用户上滚离开底部
-        （`showJumpToLatest`）时出现，绝对定位在消息区底部正中、输入区上方。点击平滑滚到底。
-        条件渲染而非 visibility 切换：不在底部时它才存在，避免常驻挡内容，也让 e2e 能用
-        存在性断言（`toHaveCount`）确定性验证显隐。
-        CLR track V-D/V-P 回归（#1267）：composer 加了建议 chips 行 + agent 选择器行后变高，
-        这个绝对定位容器落进了 composer 的区域；两者是同一层级的 sibling，都没有 z-index，
-        文档流顺序在后的 `chat-composer`（含 textarea）会盖住它、拦截 pointer events——按钮
-        看不见也点不到。显式给 z-index 让它稳定浮在 composer 之上，不再受 composer 高度变化影响。
-      */}
-      {showJumpToLatest ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 flex justify-center">
-          <Button
-            size="xs"
-            variant="outline"
-            data-testid="chat-jump-to-latest"
-            aria-label="回到最新消息"
-            title="回到最新消息"
-            className="pointer-events-auto rounded-full shadow-md"
-            onClick={scrollToLatest}
-          >
-            <ArrowDown aria-hidden className="mr-1 h-3.5 w-3.5" />
-            回到最新
-          </Button>
-        </div>
-      ) : null}
+          2026-08-19 重新定位（人类实测反馈 #1589：悬浮在 composer 上方一段空白里，位置
+          奇怪，还会被建议回复 chips 行/输入框顶到）——`absolute bottom-24`（对整个面板
+          定位、手拍的固定偏移量）换成 `sticky bottom-2`，挂在「消息滚动容器内部」
+          右下角，不再是"对整个 chat-live-message-panel 定位、猜 composer 有多高"：
+          composer 变几行（chips 行/agent 选择器行有无）都不影响它，因为它现在锚定的是
+          自己所在的滚动视口边缘，不是面板底部。sticky 元素跟随滚动内容留在文档流里，
+          天然不会盖住 composer（composer 是滚动区外的 sibling，不在同一层叠上下文里
+          打架），此前 #1267 那次"z-index 顶牛"修法因此也不再需要。
+        */}
+        {showJumpToLatest ? (
+          <div className="pointer-events-none sticky bottom-2 z-10 flex justify-end pr-1">
+            <Button
+              size="xs"
+              variant="outline"
+              data-testid="chat-jump-to-latest"
+              aria-label="回到最新消息"
+              title="回到最新消息"
+              className="pointer-events-auto rounded-full shadow-md"
+              onClick={scrollToLatest}
+            >
+              <ArrowDown aria-hidden className="mr-1 h-3.5 w-3.5" />
+              回到最新
+            </Button>
+          </div>
+        ) : null}
+      </div>
 
       {aboveComposer}
       <div className="border-t border-border p-3" data-testid="chat-composer">
@@ -1300,13 +1304,17 @@ export function ChatLiveMessagePanel({
             {speech.error}
           </p>
         ) : null}
-        {queuedRun ? (
-          // #728 第 8 轮 P10 —— 裸 40 位 id 不再印进人读文案，`data-run-id`（下方
-          // AgentRunStatus）已经把它挂在 DOM 上供机器断言，人眼不需要看两遍同一个 id。
-          <p className="mt-2 text-11 text-primary" data-testid="chat-message-queued" data-run-id={queuedRun.id}>
-            消息已持久化，AgentRun 已排队。
-          </p>
-        ) : null}
+        {/*
+          2026-08-19 人类实测反馈（#1589）：`消息已持久化，AgentRun 已排队。` 这一行 +
+          紧跟着的 `AgentRunStatus`（`正在执行`/…）读起来是同一件事说了两遍——`queuedRun`
+          与 `runObservation` 在提交后几乎同一时刻都非空（`submit()` 拿到 202 就立刻两个
+          都置了值，中间没有只有前者的可观察窗口），不是"排队中"到"执行中"两个先后
+          阶段，纯粹是同一条状态的重复文案。`data-testid="chat-message-queued"` 曾经
+          承担的机器可断言职责（"服务端已确认持久化+建了 run"）完全被
+          `chat-live-agent-run-status` 的 `data-run-id` 覆盖，删掉这一行不丢信息，
+          只是不再对人眼说两遍。保留 `queuedRun` 这个 state 本身（`submitting` 等
+          别处逻辑仍要用），只是不再渲这段文字。
+        */}
         {runObservation ? <AgentRunStatus observation={runObservation} /> : null}
         {submitFailure ? (
           <div className="mt-2" data-testid="chat-message-submit-error">
