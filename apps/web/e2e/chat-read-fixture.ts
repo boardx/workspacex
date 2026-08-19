@@ -150,4 +150,14 @@ export const CHAT_READ_E2E = {
    * 从未有任何其它用例依赖这份附件，移过来不影响 `chat-read.spec.ts` 的既有断言。
    */
   contextCheckThreadId: "thread-chat-read-e2e-context-check",
+
+  /* ══════════ #1560 P1 e2e —— 图片附件走 VLM 视觉理解，无 key 时的诚实降级路径 ══════════
+   *
+   * 本机（以及本条 e2e 链路）没有真实的百炼视觉 key——上游换成 `loopback-vision-provider.ts`
+   * 这个确定性替身，它对任何请求都如实回「key 无效」（401 `InvalidApiKey`），与
+   * `bailian-vision-extractor.ts` 的 `classifyHttpFailure` 判定 `visionNotConfigured` 的
+   * 那一支代码路径完全对齐。这条测试证的是**诚实降级**：图片上传仍 201，抽取管线真被
+   * 触发、真走到 `failed` 终态，而不是「识图真的成功了」（那需要真实上游 key，本仓不做）。
+   */
+  imageVisionThreadId: "thread-chat-read-e2e-image-vision",
 } as const;
