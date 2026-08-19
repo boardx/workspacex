@@ -57,6 +57,20 @@ export interface ProjectContext {
  * `/projects/[projectId]`——那条路由本就被上面第 1 条规则（`/projects/<id>/...`）
  * 覆盖，能拿到真实 `<id>` 而不是写死的 `kickoff`。因此 `/project` 这条隐式表项
  * 现在是死的（该路径永远重定向，从不渲染），一并移除，不留悬空映射。
+ *
+ * ── 2026-08-19 补 `/chat?projectId=…`（#728 D4 实测）──
+ * `/chat` 挂靠项目时，项目标识在**查询串**里，不在路径段——本函数原先只读
+ * `pathname`，于是项目对话主屏（`ChatReadScreen`）在真实带项目打开时，顶栏仍判定
+ * 「不在项目上下文中」，与满屏的团队编制/线程列表**同屏自相矛盾**（本条与 `/project`
+ * 那次是同一种病：满屏项目内容却被判成不在项目里）。修法：`resolveProjectContext`
+ * 新增可选第二参 `chatProjectId`（调用方从 `useSearchParams()` 取，只在
+ * pathname === "/chat" 时传），命中即判定为项目上下文。
+ *
+ * ⚠ 这里**只解出 `id`**，`name` 先落 `id` 占位——项目显示名不在本函数的解析范围
+ * （聊天场景没有『路径段本身带名字』这回事，`getThread` 也不返回项目名），
+ * 需要调用方另外发一次真实查询（`listProjects`）把 `name` 换成人类可读的值，
+ * 详见 `top-bar.tsx` 的 `useChatProjectName`。裸 id 占位期间界面仍是诚实的——
+ * 「知道在哪个项目、还不知道它叫什么」比「不知道在不在项目里」更接近事实。
  */
 const IMPLICIT_PROJECT_ROUTES: Record<string, ProjectContext> = {
   "/studio/survey": { id: "demo", name: "欧洲市场进入" },
@@ -67,13 +81,22 @@ const PROJECT_NAMES: Record<string, string> = {
   demo: "欧洲市场进入",
 };
 
-/** 从路径解析项目上下文；不在项目里返回 null。 */
-export function resolveProjectContext(pathname: string): ProjectContext | null {
+/**
+ * 从路径解析项目上下文；不在项目里返回 null。
+ * `chatProjectId`：`/chat?projectId=…` 的查询串取值，只有 pathname 是 `/chat`
+ * 时才该传非 null（调用方负责判断，本函数不重复解析 pathname 是不是 `/chat`
+ * 之外的逻辑——这个参数命名已经把「谁该传」写死在类型语义里）。
+ */
+export function resolveProjectContext(
+  pathname: string,
+  chatProjectId?: string | null,
+): ProjectContext | null {
   const m = /^\/projects\/([^/]+)(?:\/|$)/.exec(pathname);
   if (m) {
     const id = m[1]!;
     return { id, name: PROJECT_NAMES[id] ?? id };
   }
+  if (chatProjectId) return { id: chatProjectId, name: chatProjectId };
   const implicit = IMPLICIT_PROJECT_ROUTES[pathname];
   if (implicit) return implicit;
   // 隐式路由的子路径也算（如 /studio/survey/xxx）
