@@ -502,9 +502,11 @@ describe("formal Chat read path", () => {
     expect(token).toBe("provider-bearer");
     expect(input).toMatchObject({ text: "请持久保存这条消息", agentId: "agent-real" });
     expect(input.clientMessageId).toMatch(/^[0-9a-f-]{36}$/i);
-    // #728 第 8 轮 P10 —— 裸 run id 不再印进人读文案，改断言 `data-run-id`（见
-    // chat-live-message-panel.tsx 同轮改动）。
-    expect(await screen.findByTestId("chat-message-queued")).toHaveAttribute("data-run-id", "run-new");
+    // #728 第 8 轮 P10 —— 裸 run id 不再印进人读文案，改断言 `data-run-id`。
+    // 2026-08-19（#1589）：`chat-message-queued` 这个单独的"已排队"回执整个删掉了（人类
+    // 实测反馈：与下面 `chat-live-agent-run-status` 的状态文案同屏重复说同一件事）——
+    // 同一个 `data-run-id` 现在唯一挂在 `chat-live-agent-run-status` 上。
+    expect(await screen.findByTestId("chat-live-agent-run-status")).toHaveAttribute("data-run-id", "run-new");
     // 三次 GET，一次都不是多余的（#435 之前是两次）：
     //   ① 进入线程时的首屏；② 202 之后立刻重读，让 human 消息马上出现；
     //   ③ run 到终态之后重读，让 #413 写回的那条**持久**回复出现。
@@ -804,7 +806,7 @@ describe("formal Chat read path", () => {
     expect(createMessage.mock.calls[1]![1].clientMessageId).toBe(
       createMessage.mock.calls[0]![1].clientMessageId,
     );
-    expect(await screen.findByTestId("chat-message-queued")).toHaveAttribute("data-run-id", "run-retry");
+    expect(await screen.findByTestId("chat-live-agent-run-status")).toHaveAttribute("data-run-id", "run-retry");
   });
 
   it("renders a conflict explicitly and never fabricates a successful message", async () => {
@@ -819,7 +821,8 @@ describe("formal Chat read path", () => {
 
     expect(await screen.findByTestId("chat-message-submit-error")).toHaveTextContent("HTTP 409");
     expect(screen.getByTestId("chat-message-submit-error")).toHaveTextContent("未创建重复消息");
-    expect(screen.queryByTestId("chat-message-queued")).not.toBeInTheDocument();
+    // 409 意味着服务端从未真的建出一个 run——不该有任何 run 状态条冒出来。
+    expect(screen.queryByTestId("chat-live-agent-run-status")).not.toBeInTheDocument();
   });
 
   it("hides the previous context synchronously while the replacement request is pending", async () => {

@@ -90,7 +90,9 @@ async function sendMessage(page: Page, threadId: string, text: string): Promise<
   expect(response.status()).toBe(202);
   const body = await response.json() as { agentRunId: string; runStatus: string };
   expect(body.runStatus).toBe("queued");
-  await expect(page.getByTestId("chat-message-queued")).toBeVisible();
+  // 2026-08-19（#1589）：单独的 `chat-message-queued` 回执已删（与 `chat-live-agent-run-status`
+  // 同屏重复说同一件事）——排队态改盯这条状态条本身。
+  await expect(page.getByTestId("chat-live-agent-run-status")).toBeVisible();
   return body.agentRunId;
 }
 
