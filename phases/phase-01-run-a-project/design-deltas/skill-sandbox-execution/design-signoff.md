@@ -4,8 +4,9 @@ bundle: skill-sandbox-execution
 base_bundle: skill-trial-run
 scope: trial-run-executes-model-written-scripts-in-a-network-isolated-container-and-produces-real-artifacts
 covers: [F204]
-confirmed_by: usamshen
-confirmed_at: 2026-8-19
+confirmed_by: usam.shen@gmail.com
+confirmed_at: "2026-08-19T02:00:00+08:00"
+confirmed_via: "spike 证据（#1575）审阅确认：批准执行模型生成的代码这条路径，边界为容器 network:none + Node 权限模型两层。范围限定首个切片只做「从零创建 deck」（pptxgenjs / 纯 Node），不含编辑存量 deck、转旧 .ppt、视觉 QA。接受失败回喂重试（上限 3 次）及其 token 成本，接受试跑转异步（会改试跑 API 形状）。产物落 ObjectStore 但不自动落成项目产物。"
 ---
 
 # design delta 签核 · 试跑接真执行（沙箱化脚本执行 + 真实产物）
