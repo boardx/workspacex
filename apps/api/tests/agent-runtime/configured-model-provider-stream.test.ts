@@ -133,7 +133,13 @@ describe("ConfiguredModelProvider.completeStream", () => {
         { modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u" },
         async () => { throw new Error("store append failed"); },
       ),
-    ).rejects.toMatchObject({ code: "MODEL_CALL_FAILED", detail: "model provider stream transport failure" });
+      // #1611：`detail` 末尾多了一个白名单枚举 token（这里是 `UNCLASSIFIED`——onDelta
+      // 抛的是调用方自己的错误，没有 undici/Node 的 `cause.code`）。断言收紧成前缀匹配，
+      // 而不是放宽成"随便什么字符串"：provider 的原话仍然一个字都不许进来。
+    ).rejects.toMatchObject({
+      code: "MODEL_CALL_FAILED",
+      detail: expect.stringMatching(/^model provider stream transport failure \([A-Z_]+\)$/),
+    });
   });
 
   it("未配置 provider：ModelCallError(MODEL_PROVIDER_NOT_CONFIGURED)，与 complete() 同一个失败面", async () => {
