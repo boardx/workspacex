@@ -96,6 +96,14 @@ const RESTRUCTURE_PROJECT_ID = required("CHAT_E2E_RESTRUCTURE_PROJECT_ID");
  */
 const IMAGE_VISION_THREAD_ID = required("CHAT_E2E_IMAGE_VISION_THREAD_ID");
 /**
+
+ * #1584 e2e —— 附件预览/下载弹窗的专属线程。原本复用 `IMAGE_VISION_THREAD_ID`，
+ * 单独跑没问题，但 `verify:chat-read` 整套跑时与 `chat-attachment-image-vision-
+ * extraction.spec.ts` 共写同一条线程互相污染（各自的回复文本混进对方按 message id
+ * 定位到的那一行）——同一套「独立线程零预置消息」的道理，见上面 #1324 三条线程头注。
+ */
+const ATTACHMENT_PREVIEW_THREAD_ID = required("CHAT_E2E_ATTACHMENT_PREVIEW_THREAD_ID");
+/**
  * context-engine 浏览器 e2e —— 两条专属线程，**不是**零预置消息：L2 滚动摘要与 F190
  * 工具轨迹回喂都要求"早期内容已经被挤出 L1 近端窗口"这个前提成立，下面会为它们各自
  * 灌入足够多的填充消息（见 `pad()`），同 `apps/api/tests/chat/agent-run-context-
@@ -191,6 +199,7 @@ for (const [id, title] of [
   [CAUSAL_CHECK_THREAD_ID, "Causal check fixture thread"],
   [CONTEXT_CHECK_THREAD_ID, "Context check fixture thread"],
   [IMAGE_VISION_THREAD_ID, "Image vision extraction fixture thread"],
+  [ATTACHMENT_PREVIEW_THREAD_ID, "Attachment preview fixture thread"],
   [L2_CHECK_THREAD_ID, "L2 rolling summary check fixture thread"],
   [TOOL_TRACE_CHECK_THREAD_ID, "Tool trace cross-run check fixture thread"],
 ] as const) {
@@ -295,6 +304,7 @@ await asApp(ORG_ID, async (client) => {
   // 先走「加进编制」那一步，`chat-live-message-panel.tsx` 默认选中唯一在场的 agent。
   for (const threadId of [
     SKILL_MOUNT_THREAD_ID, CAUSAL_CHECK_THREAD_ID, CONTEXT_CHECK_THREAD_ID, IMAGE_VISION_THREAD_ID,
+    ATTACHMENT_PREVIEW_THREAD_ID,
     L2_CHECK_THREAD_ID, TOOL_TRACE_CHECK_THREAD_ID,
   ]) {
     await client.query(
@@ -610,5 +620,6 @@ process.stdout.write(
   + `roster=1 publishedAgent=1 catalogOnlyAgent=1 deepAgent=1 mountableSkill=1 retrievableAttachment=1 `
   + `skillMountThread=${SKILL_MOUNT_THREAD_ID} causalCheckThread=${CAUSAL_CHECK_THREAD_ID} `
   + `contextCheckThread=${CONTEXT_CHECK_THREAD_ID} imageVisionThread=${IMAGE_VISION_THREAD_ID} `
+  + `attachmentPreviewThread=${ATTACHMENT_PREVIEW_THREAD_ID} `
   + `l2CheckThread=${L2_CHECK_THREAD_ID} toolTraceCheckThread=${TOOL_TRACE_CHECK_THREAD_ID}\n`,
 );

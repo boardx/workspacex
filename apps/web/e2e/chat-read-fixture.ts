@@ -161,6 +161,13 @@ export const CHAT_READ_E2E = {
    */
   imageVisionThreadId: "thread-chat-read-e2e-image-vision",
 
+  /**
+   * #1584 e2e —— 附件预览/下载弹窗的专属线程。曾经复用 `imageVisionThreadId`，单独跑
+   * 这个 spec 文件没问题，但 `verify:chat-read` 整套跑起来时两个 spec 共写同一条线程，
+   * 各自按 message id 定位到的那一行读出了混着对方文本的内容——同一套「独立线程零预置
+   * 消息」的道理，见上面 #1324 三条线程的头注。
+   */
+  attachmentPreviewThreadId: "thread-chat-read-e2e-attachment-preview",
   /* ══════════ context-engine 浏览器 e2e（L2 滚动摘要 + F190 工具轨迹回喂）══════════
    *
    * 与上面几条专属线程同一套理由：各自独立、不共享其它用例的历史，唯一不同是这两条
