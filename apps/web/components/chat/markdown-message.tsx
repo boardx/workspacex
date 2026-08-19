@@ -97,10 +97,20 @@ export function MarkdownMessage({
     >
       {segments.map((s) =>
         s.kind === "canvas" ? (
-          // 工作坊画布模板围栏：**不透传** threadId/messageId/bearer/projectId——这条路径没有保存面
-          // （见 ChatCanvasFabric 文件头「没有最大化按钮」一节），传了也只是把一组
-          // 用不到的判权参数摊开在这里，让人误以为它依赖项目上下文。个人对话必须能用。
-          <ChatCanvasFabric key={s.key} code={s.code} lang={s.lang} />
+          // 工作坊画布模板围栏：透传与 mermaid 分支同一组判权参数——「最大化编辑」
+          // 落地后（人类 2026-08-19 要求），这条路径与 mermaid 分支一样需要它们
+          // 接 landAsArtifact / G1 读回。个人线程（无 projectId）不受影响：
+          // `ChatCanvasFabric` 内部对缺失任一项的处理与 `ChatDiagramFabric` 同款，
+          // 退回本地演示，不强依赖项目上下文。
+          <ChatCanvasFabric
+            key={s.key}
+            code={s.code}
+            lang={s.lang}
+            threadId={threadId}
+            messageId={messageId}
+            bearer={bearer}
+            projectId={projectId}
+          />
         ) : s.kind === "mermaid" ? (
           <ChatDiagramFabric
             key={s.key}

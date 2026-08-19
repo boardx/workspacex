@@ -1,11 +1,15 @@
 "use client";
 import * as React from "react";
+import { Maximize2 } from "lucide-react";
 import { Canvas as FabricCanvas } from "fabric";
 import { markdownToCanvas, fitToContent, wrapAsMermaidBlock } from "@repo/fabric-markdown";
 import { checkCanvasFence, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
 import { ensureCanvasFenceTemplate, type CanvasFenceTemplateSource } from "@/lib/canvas/fence-template-resolver";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ChatCanvasModal } from "./chat-canvas-modal";
+import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
 
 /**
  * 单个 ```canvas / ```persona 围栏在 AI 气泡内的 **fabric 渲染**。
@@ -48,11 +52,14 @@ import { Badge } from "@/components/ui/badge";
  * 本路径**不读 `projectId`**，也不依赖 `artifact.land` 能力位（那是「保存产物」才需要的）。
  * 组织模板只需要会话里的 `currentOrgId`，个人对话跑在个人组织里，一样有。
  *
- * ── 没有「最大化」按钮 ─────────────────────────────────────────────────────
- * `ChatDiagramCanvasModal` 目前是 mermaid 专用（`wrapAsMermaidBlock(code)` 默认 lang、
- * 保存时 `extractMermaidBlocks(...).find(b => b.lang === "mermaid")`），把 canvas 围栏塞进去
- * 会保存出一份 lang 错误、内容被 mermaid 序列化器改写过的源。**宁可暂时没有这个入口，
- * 也不给一枚会静默损坏用户内容的按钮。** 让 modal 支持画布模板是下一个 feature。
+ * ── 「最大化」按钮（人类 2026-08-19 推翻此前判断，要求补上）──────────────────
+ * 此前的判断是「宁可暂时没有这个入口，也不给一枚会静默损坏用户内容的按钮」——
+ * 因为 `ChatDiagramCanvasModal` 是 mermaid 专用的，直接复用会保存出 lang 错、
+ * 内容被 mermaid 序列化器改写过的源。现在补的不是"直接复用那个 modal"，是一个
+ * 独立的 `ChatCanvasModal`（同一个 `CanvasStage` 编辑器，换了三处：入参带 lang、
+ * 保存时按 `isCanvasFenceLang` 过滤、工具条只留选择/＋便签/删除），细节见该文件
+ * 文件头注释。G1 读回（`fetchLatestSavedDiagramSource`）与围栏语言无关，直接复用
+ * mermaid 路径同一份逻辑。
  */
 type Status =
   | { phase: "validating" }
@@ -66,15 +73,46 @@ const ERROR_TITLE: Record<Extract<Status, { phase: "error" }>["reason"], string>
   fetch: "读取组织的工作坊画布模板失败",
 };
 
-export function ChatCanvasFabric({ code, lang }: { code: string; lang: CanvasFenceLang }) {
+export function ChatCanvasFabric({
+  code, lang, threadId, messageId, bearer, projectId,
+}: {
+  code: string;
+  lang: CanvasFenceLang;
+  /** 「最大化」后真实持久化保存所需——三者俱全才接 `landAsArtifact`，见
+   * `ChatCanvasModal` 文件头注释。原样透传，本组件不判断。 */
+  threadId?: string;
+  messageId?: string;
+  bearer?: string;
+  /** G1 读回判权用；个人线程（无 projectId）不发读回请求，见 `ChatDiagramFabric` 同款注释。 */
+  projectId?: string;
+}) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = React.useState<Status>({ phase: "validating" });
   const [ready, setReady] = React.useState(false);
   const [inView, setInView] = React.useState(false);
+  const [maximized, setMaximized] = React.useState(false);
+  const [savedSource, setSavedSource] = React.useState<{ readonly markdown: string; readonly savedAt: string } | null>(null);
+  const [openingReadback, setOpeningReadback] = React.useState(false);
   // `useOptionalSession`：组件可能被渲染在没有 SessionProvider 的上下文里（预览页、
   // 组件测试）。那时 orgId 为 null，内置模板照样渲染，组织模板给诚实错误态。
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
+
+  // G1 读回（同 `ChatDiagramFabric.openMaximized`）：点「最大化」先查本消息是否有
+  // 保存版，有则用它初始化 modal；查不到/失败/个人线程一律退回原始消息文本。
+  const openMaximized = React.useCallback(async () => {
+    if (openingReadback) return;
+    if (!threadId || !messageId || !projectId || bearer === undefined) {
+      setSavedSource(null);
+      setMaximized(true);
+      return;
+    }
+    setOpeningReadback(true);
+    const saved = await fetchLatestSavedDiagramSource({ threadId, messageId, projectId, bearer });
+    setSavedSource(saved);
+    setOpeningReadback(false);
+    setMaximized(true);
+  }, [openingReadback, threadId, messageId, projectId, bearer]);
 
   // 惰性化：进入视口才校验+渲染（与 mermaid 那条同样的理由——一张画布一个 fabric 实例是重对象）。
   React.useEffect(() => {
@@ -183,36 +221,64 @@ export function ChatCanvasFabric({ code, lang }: { code: string; lang: CanvasFen
   }
 
   return (
-    <div
-      ref={containerRef}
-      data-testid="chat-canvas-fabric"
-      data-fence-lang={lang}
-      data-template-source={status.phase === "valid" ? status.source : undefined}
-      data-ready={ready}
-      className="group relative my-2 overflow-hidden rounded-md border border-border-subtle bg-card"
-    >
-      <div className="pointer-events-none absolute left-2 top-2 z-10">
-        <Badge tone="outline">工作坊画布模板 · 只读预览</Badge>
+    <>
+      <div
+        ref={containerRef}
+        data-testid="chat-canvas-fabric"
+        data-fence-lang={lang}
+        data-template-source={status.phase === "valid" ? status.source : undefined}
+        data-ready={ready}
+        className="group relative my-2 overflow-hidden rounded-md border border-border-subtle bg-card"
+      >
+        <div className="pointer-events-none absolute left-2 top-2 z-10">
+          <Badge tone="outline">工作坊画布模板 · 只读预览</Badge>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void openMaximized()}
+          data-testid="chat-canvas-maximize"
+          className="absolute right-2 top-2 z-10"
+          aria-label="最大化并编辑此画布"
+          disabled={status.phase !== "valid" || openingReadback}
+        >
+          <Maximize2 aria-hidden className="h-3.5 w-3.5" />
+          {openingReadback ? "读取保存版…" : "最大化"}
+        </Button>
+
+        {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
+        {status.phase === "valid" ? (
+          <canvas ref={canvasElRef} data-testid="chat-canvas-fabric-surface" />
+        ) : (
+          <div
+            data-testid="chat-canvas-loading"
+            className="flex h-40 items-center justify-center text-11 text-muted-foreground"
+          >
+            {inView ? "解析工作坊画布模板中…" : "滚动到此处即渲染"}
+          </div>
+        )}
+        {status.phase === "valid" && !ready && (
+          <div
+            data-testid="chat-canvas-loading"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"
+          >
+            渲染画布中…
+          </div>
+        )}
       </div>
-      {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
-      {status.phase === "valid" ? (
-        <canvas ref={canvasElRef} data-testid="chat-canvas-fabric-surface" />
-      ) : (
-        <div
-          data-testid="chat-canvas-loading"
-          className="flex h-40 items-center justify-center text-11 text-muted-foreground"
-        >
-          {inView ? "解析工作坊画布模板中…" : "滚动到此处即渲染"}
-        </div>
+
+      {maximized && (
+        <ChatCanvasModal
+          code={code}
+          lang={lang}
+          onClose={() => setMaximized(false)}
+          threadId={threadId}
+          messageId={messageId}
+          bearer={bearer}
+          savedSource={savedSource}
+        />
       )}
-      {status.phase === "valid" && !ready && (
-        <div
-          data-testid="chat-canvas-loading"
-          className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"
-        >
-          渲染画布中…
-        </div>
-      )}
-    </div>
+    </>
   );
 }
