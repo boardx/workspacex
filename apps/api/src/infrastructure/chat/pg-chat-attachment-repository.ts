@@ -43,4 +43,30 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       );
     });
   }
+
+  /**
+   * #1584 —— 按 id 查一行（预览/下载用）。同 `countPendingByThread` 经 `guard()` 出门（R7）。
+   * `thread_id = $2` 是查询本身的一部分，不是事后过滤——防止 org 内跨线程用别的线程的
+   * attachmentId 探测「这个 id 在不在」。
+   */
+  async findById(orgId: OrgId, threadId: string, attachmentId: string): Promise<Guarded<AttachmentRow | null>> {
+    const row = await this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        id: string; storage_ref: string; filename: string; mime: string;
+        bytes: number; created_at: string;
+      }>(
+        `SELECT id, storage_ref, filename, mime, bytes, created_at::text AS created_at
+           FROM chat_message_attachments
+          WHERE org_id = $1 AND thread_id = $2 AND id = $3`,
+        [orgId, threadId, attachmentId],
+      );
+      const hit = r.rows[0];
+      if (hit === undefined) return null;
+      return {
+        id: hit.id, orgId, threadId, storageRef: hit.storage_ref, filename: hit.filename,
+        mime: hit.mime, bytes: hit.bytes, createdAt: hit.created_at,
+      } satisfies AttachmentRow;
+    });
+    return guard({ kind: "project", id: `personal:${threadId}` }, row);
+  }
 }

@@ -62,6 +62,13 @@ export interface AttachmentCommandRepository {
   countPendingByThread(orgId: OrgId, threadId: string): Promise<Guarded<number>>;
   /** 落一行 pending 附件（`message_id` 恒 NULL，挂消息在另一条路径 set）。 */
   insertAttachment(row: AttachmentRow): Promise<void>;
+  /**
+   * #1584 —— 按 id 查一行附件（预览/下载用），`null` 表示这个线程里没有这个 id。
+   * 返回 `Guarded<AttachmentRow | null>`：租户表读一律经 permission-filter 出门（R7），
+   * 调用方须以判定 disclose 后才拿得到值。不区分 pending / 已挂消息——两者读权限相同，
+   * 都取决于「这个线程你能不能看」，不取决于附件是否已经挂上某条消息。
+   */
+  findById(orgId: OrgId, threadId: string, attachmentId: string): Promise<Guarded<AttachmentRow | null>>;
 }
 
 /** DI 令牌——与 `CHAT_MESSAGE_COMMAND_REPOSITORY` 同套，绑定在 kernel.module。 */
