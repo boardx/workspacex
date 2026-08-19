@@ -39,7 +39,7 @@ import {
   REPORT_PANEL,
 } from "@/lib/mock/tpl";
 
-import { FACET_INTRO } from "@/components/tpl-designer/facet-intro-table";
+import { FACET_INTRO } from "@/components/tpl-designer/facet-editor-registry";
 import { PERMISSION_CAPABILITIES, PERMISSION_ROLES } from "@/components/tpl-designer/facet-content-editor";
 import { GROUP_CAPABILITIES } from "@/components/tpl-designer/caps-panel-editor";
 import { VENUE_SPACE_FIELDS, VENUE_FORMATS } from "@/components/tpl-designer/venue-panel-editor";
