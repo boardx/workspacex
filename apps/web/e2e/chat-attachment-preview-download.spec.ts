@@ -51,7 +51,7 @@ async function uploadAndSend(
   let uploadCount = 0;
   page.on("requestfinished", (request) => {
     if (request.method() === "POST"
-      && request.url().endsWith(`/chat/threads/${CHAT_READ_E2E.imageVisionThreadId}/attachments`)) {
+      && request.url().endsWith(`/chat/threads/${CHAT_READ_E2E.attachmentPreviewThreadId}/attachments`)) {
       uploadCount += 1;
     }
   });
@@ -61,7 +61,7 @@ async function uploadAndSend(
 
   const uploadResponsePromise = page.waitForResponse((response) => (
     response.request().method() === "POST"
-    && response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.imageVisionThreadId}/attachments`)
+    && response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.attachmentPreviewThreadId}/attachments`)
   ));
   await page.getByTestId("chat-attachment-file-input").setInputFiles(file);
   const uploadResponse = await uploadResponsePromise;
@@ -77,7 +77,7 @@ async function uploadAndSend(
   await input.fill(text);
   const messageResponsePromise = page.waitForResponse((response) => (
     response.request().method() === "POST"
-    && response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.imageVisionThreadId}/messages`)
+    && response.url().endsWith(`/chat/threads/${CHAT_READ_E2E.attachmentPreviewThreadId}/messages`)
   ));
   await page.getByTestId("chat-message-submit").click();
   const messageResponse = await messageResponsePromise;
@@ -95,8 +95,8 @@ async function uploadAndSend(
 test.describe("#1584 附件预览/下载弹窗", () => {
   test("image/png：弹窗内联 <img>，真的拉到字节，下载按钮可用", async ({ page }) => {
     await login(page);
-    await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.imageVisionThreadId}`);
-    await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.imageVisionThreadId}`)).toBeVisible();
+    await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.attachmentPreviewThreadId}`);
+    await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.attachmentPreviewThreadId}`)).toBeVisible();
 
     const attachmentId = await uploadAndSend(
       page,
@@ -131,8 +131,8 @@ test.describe("#1584 附件预览/下载弹窗", () => {
 
   test("application/pdf：弹窗内联 <iframe>，真的拉到字节", async ({ page }) => {
     await login(page);
-    await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.imageVisionThreadId}`);
-    await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.imageVisionThreadId}`)).toBeVisible();
+    await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.attachmentPreviewThreadId}`);
+    await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.attachmentPreviewThreadId}`)).toBeVisible();
 
     const attachmentId = await uploadAndSend(
       page,
@@ -152,8 +152,8 @@ test.describe("#1584 附件预览/下载弹窗", () => {
 
   test("pptx：不支持内联预览，如实降级成提示 + 可用的下载按钮（不是空白/报错）", async ({ page }) => {
     await login(page);
-    await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.imageVisionThreadId}`);
-    await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.imageVisionThreadId}`)).toBeVisible();
+    await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.attachmentPreviewThreadId}`);
+    await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.attachmentPreviewThreadId}`)).toBeVisible();
 
     const attachmentId = await uploadAndSend(
       page,
