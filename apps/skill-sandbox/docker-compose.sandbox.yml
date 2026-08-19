@@ -1,0 +1,53 @@
+# apps/skill-sandbox 的 L1 容器隔离（contract §4 上半张表）。F210 / #1583。
+#
+# ⚠⚠ **隔离的实质在这个文件里，不在 Dockerfile 里。**
+# `network: none`、只读 rootfs、tmpfs、内存/CPU/pids 上限都是运行参数，不是镜像属性。
+# 拿这个镜像 `docker run` 裸跑 = 只有 L2、没有 L1 = 网络是通的。
+#
+# ⚠ 本文件里的 `network_mode: "none"` 是 verification.md **V2-b** 直接测的东西，
+#   **V2-CP** 的做法就是把它摘掉、断言 V2-b 立刻变红。
+#   任何让 V2-b 变绿的改动，若不是真的关掉网络，就是把门控调成不会红。
+#
+# ⚠ 通信走**共享 volume 上的 unix socket**，不是端口。理由见 src/main.ts 头注：
+#   `network: none` 的容器没有网络接口，TCP 上"既无网络又能被调用"是自相矛盾的；
+#   把 docker socket 挂进服务里再起临时容器则等于给它宿主 root，净损失。
+
+services:
+  skill-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # ── L1 第一条，也是唯一能挡网络的那一条 ──────────────────────────
+    network_mode: "none"
+    # ── 只读 rootfs：脚本与服务都改不了镜像里的任何文件 ───────────────
+    read_only: true
+    # ── 非 root（Dockerfile 里已 USER node，这里再钉一次，防止被 override）──
+    user: "node"
+    # ── 放弃全部 capability，且禁止再提权 ────────────────────────────
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # ── 可写面仅两处，都是 tmpfs（掉电即失，且带 noexec/nosuid）────────
+    #    /tmp        执行 workdir（os.tmpdir()，脚本产物写这里）
+    #    /run/sandbox unix socket 所在目录
+    #    ⚠ 不给 exec 权限：脚本产物不该能被执行。
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m,mode=1777
+    volumes:
+      - sandbox_socket:/run/sandbox
+    environment:
+      SKILL_SANDBOX_SOCKET: /run/sandbox/skill-sandbox.sock
+      SKILL_SANDBOX_MODULES_DIR: /opt/sandbox/node_modules
+      TMPDIR: /tmp
+    # ── 资源上限：一个死循环/内存炸弹脚本不能拖垮宿主 ──────────────────
+    #    wall-clock 硬超时在应用层（src/execute-script.ts），与这里互补：
+    #    前者管"跑太久"，这里管"占太多"。
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    restart: unless-stopped
+
+volumes:
+  sandbox_socket:
