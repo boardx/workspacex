@@ -77,6 +77,21 @@ const TIER_LABEL: Record<AgendaTierKey, string> = {
   "three-day": "三天",
 };
 
+/**
+ * 每档一句「这一档比上一档多出什么」的说明——原型 `designer-panels.tsx` 的
+ * `TIER_NOTE` 常量（渲染在每个档位按钮标签下方的小字副行）。
+ *
+ * ⚠ 2026-08-19（完整差距审计发现）：这份说明此前整段没有迁过来——F207 复用本组件
+ * 时只带了 `TIER_LABEL`/环节数，档位按钮从两行（标签 + 说明）退化成一行。
+ * 补回时保持原型的位置（按钮内部标签下方），不是加一个新的独立区块。
+ */
+export const TIER_NOTE: Record<AgendaTierKey, string> = {
+  "half-day": "只到收敛，不做原型",
+  "one-day": "加商业模式草稿",
+  "two-day": "加原型与用户测试",
+  "three-day": "加迭代与落地计划",
+};
+
 const FORMAT_LABEL: Record<SessionFormatView, string> = {
   hybrid: "混合",
   onsite: "线下",
@@ -122,8 +137,12 @@ export function BlueprintDurationForm({
               aria-pressed={row.tier === durationTier}
               onClick={() => onSelectTier(row.tier)}
               data-testid={`bp-duration-tier-${row.tier}`}
+              className="h-auto flex-col items-start gap-0.5 py-1.5"
             >
-              {`${TIER_LABEL[row.tier]} · ${row.agendaSegmentCount} 环节`}
+              <span>{`${TIER_LABEL[row.tier]} · ${row.agendaSegmentCount} 环节`}</span>
+              <span className="text-10 font-normal opacity-80" data-testid={`bp-duration-tier-note-${row.tier}`}>
+                {TIER_NOTE[row.tier]}
+              </span>
             </Button>
           ))}
         </div>

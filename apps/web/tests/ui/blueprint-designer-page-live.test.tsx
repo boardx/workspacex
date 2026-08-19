@@ -951,6 +951,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     expect(screen.getByTestId("bp-skill-degraded-1")).toBeInTheDocument();
     expect(screen.queryByTestId("bp-skill-degraded-0")).toBeNull();
     expect(screen.getByTestId("bp-skill-degrade-warning").textContent).toContain("亲和图自动聚类 v2");
+    // 原型的固定说明（此前整句没渲染，2026-08-19 差距审计补回）。
+    expect(screen.getByTestId("bp-skill-generic-note").textContent).toContain("其余 4 个为全程可用的通用 skill");
     expect(screen.queryByTestId("bp-facet-content-skill-binding")).toBeNull();
 
     fireEvent.click(screen.getByTestId("bp-skill-remove-1"));
@@ -1001,6 +1003,9 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     fireEvent.click(screen.getByTestId("bp-designer-facet-report-template"));
     expect(await screen.findByTestId("bp-report-title-0")).toHaveValue("一页纸结论：3 个题目与推进顺序");
     expect(screen.getByTestId("bp-report-chapter-0").textContent).toContain("01");
+    // 「中英双语」是原型标题里的固定说明，此前丢了（2026-08-19 差距审计补回）；
+    // 章数用真实计数，不是原型写死的示例数字 18。
+    expect(screen.getByTestId("bp-report-client").textContent).toContain("1 章骨架（中英双语）");
     expect(screen.getByTestId("bp-report-internal").textContent).toContain("不给客户");
     expect(screen.getAllByTestId("bp-report-rule")).toHaveLength(4);
     expect(screen.getByTestId("bp-report-history").textContent).toContain("平均改 22 分钟");
@@ -1140,6 +1145,10 @@ describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getIn
     // 如实反映「当前不是这四档之一」而不是随便挑一个亮起来。
     expect(screen.getByTestId("bp-duration-tier-half-day").getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByTestId("bp-duration-tier-two-day").getAttribute("aria-pressed")).toBe("false");
+    // 每档一句「比上一档多出什么」的说明——原型渲染在按钮标签下方，此前 F207 复用
+    // BlueprintDurationForm 时整段没带过来（2026-08-19 差距审计发现，已补回）。
+    expect(screen.getByTestId("bp-duration-tier-note-half-day").textContent).toBe("只到收敛，不做原型");
+    expect(screen.getByTestId("bp-duration-tier-note-two-day").textContent).toBe("加原型与用户测试");
 
     fireEvent.click(screen.getByTestId("bp-duration-tier-half-day"));
 
