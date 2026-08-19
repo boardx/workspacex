@@ -54,6 +54,10 @@ const FILTER_MODULE = "application/security/permission-filter";
  */
 const ALLOWLIST = new Map([
   [
+    "src/infrastructure/skill/pg-skill-trial-run-store.ts",
+    "F962 试跑转异步：`Guarded<T>` 保护的是**披露** —— 让人无法在没有权限判定的情况下把租户内容交给请求方。`skill_trial_runs` 背后**没有 ACL 对象**：一次试跑不是 Artifact / Segment / Capability，没有可以据以判定的 scope。它的披露规则只有一条 —— 只有提交者本人能读自己那一行 —— 而这条规则由 SQL 谓词 `actor_id = $3` 表达，读不到就是读不到（controller 翻成裸 404）。⚠ 为了过这个 linter 而给它编一个 `ObjectRef` 种类会**更糟**：那等于断言存在一套并不存在的权限模型，下一个人会照着去接 ACL 然后发现接不上。⚠ 与 `pg-registration-repository.ts` 同一形态，豁免不是留成一句声明：`tests/skill/trial-run-store-reads-are-actor-scoped.test.ts` 解析该文件，断言每条面向请求方的读都带 `actor_id`（唯一例外是系统侧 `FOR UPDATE SKIP LOCKED` 认领 —— 它没有请求方，行是交给执行器的），且没有 DELETE 路径。**那个测试若被删除，本条目必须跟着删。**",
+  ],
+  [
     "src/infrastructure/identity/pg-identity-repository.ts",
     "reads the memberships and bindings the decision is MADE from -- guarding it with the decision would be circular",
   ],

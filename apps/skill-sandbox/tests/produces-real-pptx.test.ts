@@ -5,14 +5,14 @@
  * 本文件锁的是链路中间那一段最容易被做假的地方:**沙箱真的能产出一个合法的
  * .pptx**,而不是"回了一个文件"。
  *
- * ⚠ 断言全部落在 `tests/support/ooxml.ts` 的真解析上(解 zip、验 central directory、
+ * ⚠ 断言全部落在 `src/ooxml.ts`（同时被 apps/api 侧引用，单一事实源） 的真解析上(解 zip、验 central directory、
  * 解每张 slide 的 XML、读 `<a:t>`)。V1-CP 就在本文件里,同一套断言喂给
  * "回空文件"/"回垃圾字节"两种假实现,证明它们会**红**。
  */
 import { describe, expect, it } from "vitest";
 import { executeScript } from "../src/execute-script.js";
 import { flatModulesDir } from "./support/flat-modules.js";
-import { inspectPptx } from "./support/ooxml.js";
+import { inspectPptx } from "../src/ooxml.js";
 
 const TIMEOUT_MS = 60_000;
 

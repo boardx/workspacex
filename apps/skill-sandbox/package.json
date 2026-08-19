@@ -20,5 +20,9 @@
     "tsx": "*",
     "typescript": "*",
     "vitest": "^2.0.0"
+  },
+  "exports": {
+    ".": "./src/main.ts",
+    "./ooxml": "./src/ooxml.ts"
   }
 }

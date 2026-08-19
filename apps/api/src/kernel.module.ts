@@ -297,6 +297,18 @@ import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agu
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 import { SkillTrialRunController, SKILL_TRIALRUN_MODEL_ID } from "./interface/controllers/skill-trial-run.controller";
 import { ORG_AGENT_MODEL_READER } from "./application/skill/trial-run-skill";
+import type { OrgAgentModelReader } from "./application/skill/trial-run-skill";
+// F962（design-delta `skill-sandbox-execution`）：端口在 application，实现在 infrastructure，
+// controller 只认端口 —— 与 ORG_AGENT_MODEL_READER 同一条洋葱先例（lint-arch-deps 机械门控）。
+import { SKILL_SANDBOX_PORT, type SkillSandboxPort } from "./application/skill/skill-sandbox-port";
+import {
+  SKILL_TRIAL_RUN_EXECUTOR,
+  SKILL_TRIAL_RUN_STORE,
+  type SkillTrialRunStore,
+} from "./application/skill/trial-run-async-ports";
+import { HttpSkillSandbox } from "./infrastructure/skill/http-skill-sandbox";
+import { PgSkillTrialRunStore } from "./infrastructure/skill/pg-skill-trial-run-store";
+import { SkillTrialRunExecutor } from "./infrastructure/skill/skill-trial-run-executor";
 import { PgOrgAgentModelReader } from "./infrastructure/skill/pg-org-agent-model-reader";
 // #617：`createAgent`（POST /agents）——F55 领域模型的第一条真实 HTTP 写入口。
 import { CREATE_AGENT_REPOSITORY } from "./application/agent/create-agent";
@@ -1085,6 +1097,67 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) =>
         new PgOrgAgentModelReader(db, readModelProviderConfig().provider),
       inject: [DATABASE_PORT],
+    },
+    /**
+     * F962（design-delta `skill-sandbox-execution`）—— 试跑接真执行的三个 provider。
+     *
+     * ⚠ 沙箱地址**没有内建默认值**：两个 env 都不给 ⇒ `HttpSkillSandbox` 在**调用时**
+     *   抛 `SANDBOX_UNAVAILABLE`，而不是在 boot 时崩溃，也不是静默降级成"假装执行成功"。
+     *   与上面 `SKILL_TRIALRUN_MODEL_ID` 空串的处理同一条纪律：一个能力没配，不该让
+     *   全组织 API 起不来；但也绝不能让它看起来像配好了。
+     *
+     * · `KERNEL_SKILL_SANDBOX_SOCKET`   生产形态（容器 `network: none` + 共享 volume 上的 UDS）
+     * · `KERNEL_SKILL_SANDBOX_BASE_URL` 本地开发与 loopback 替身（TCP 回环）
+     */
+    {
+      provide: SKILL_SANDBOX_PORT,
+      useFactory: () =>
+        new HttpSkillSandbox({
+          socketPath: process.env.KERNEL_SKILL_SANDBOX_SOCKET,
+          baseUrl: process.env.KERNEL_SKILL_SANDBOX_BASE_URL,
+        }),
+    },
+    {
+      provide: SKILL_TRIAL_RUN_STORE,
+      useFactory: (db: DatabasePort) => new PgSkillTrialRunStore(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SKILL_TRIAL_RUN_EXECUTOR,
+      useFactory: (
+        store: SkillTrialRunStore,
+        runs: AgentRunStore,
+        model: ModelCallPort,
+        sandbox: SkillSandboxPort,
+        objects: ObjectStore,
+        orgAgentModel: OrgAgentModelReader,
+        logger: LoggerPort,
+      ) =>
+        new SkillTrialRunExecutor(
+          {
+            store,
+            runs,
+            model,
+            sandbox,
+            objects,
+            orgAgentModel,
+            // 静态兜底，与 SKILL_TRIALRUN_MODEL_ID 同源同值；组织里有已发布 agent 时
+            // 由 orgAgentModel 覆盖（自愈式回退，见 trial-run-skill.ts 头注）。
+            modelProvider: readModelProviderConfig().provider,
+            modelId: process.env.KERNEL_SKILL_TRIALRUN_MODEL_ID ?? "",
+          },
+          logger,
+          process.env.KERNEL_SKILL_TRIALRUN_AUTOSTART !== "0",
+        ),
+      inject: [
+        SKILL_TRIAL_RUN_STORE,
+        AGENT_RUN_STORE,
+        MODEL_CALL_PORT,
+        SKILL_SANDBOX_PORT,
+        OBJECT_STORE,
+        ORG_AGENT_MODEL_READER,
+        LOGGER_PORT,
+      ],
     },
     {
       provide: AGENT_RUN_EXECUTOR,

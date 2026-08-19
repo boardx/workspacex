@@ -90,6 +90,9 @@ importers:
       '@repo/fabric-markdown':
         specifier: workspace:*
         version: link:../../packages/fabric-markdown
+      '@repo/skill-sandbox':
+        specifier: workspace:*
+        version: link:../skill-sandbox
       '@types/express':
         specifier: ^5.0.6
         version: 5.0.6
@@ -108,6 +111,9 @@ importers:
       fabric:
         specifier: 7.4.0
         version: 7.4.0
+      pptxgenjs:
+        specifier: ^4.0.1
+        version: 4.0.1
       tsx:
         specifier: ^4.19.0
         version: 4.23.1
