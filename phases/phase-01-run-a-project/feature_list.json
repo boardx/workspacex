@@ -4874,7 +4874,7 @@
       "id": "F962",
       "title": "试跑接真执行：沙箱化脚本执行 + 真实 .pptx 产物（skill-sandbox-execution 首个切片）",
       "user_visible_behavior": "组织成员在 /admin/skill 对一个 pptx 类 skill 版本点「试跑」并给出样例需求后，系统不再只回一段文字：模型写出 pptxgenjs 脚本，脚本在一个 network:none、只读 rootfs、非 root、workdir 挂 tmpfs 且带内存/CPU/pids 上限与 wall-clock 硬超时的容器里真实执行；脚本首次失败时，真实的 exitCode 与 stderr 被回喂给模型重写（最多 3 次）；成功后试跑结果里出现一个可下载的 .pptx 引用，下载下来是一个能被 PowerPoint/Keynote 打开的合法 OOXML 文件（zip 完整、[Content_Types].xml 声明 presentation、每张 slideN.xml 可解析、正文非空），页数与内容与请求对应。沙箱不可达 / 超硬超时 / 重试用尽三种失败各自回不同的失败码，最后一种把最后一次的真实 stderr 原样带回，不翻译成「请重试」。⚠ 试跑产物落 ObjectStore 但**不自动**落成项目产物。",
-      "spec_ref": "design-deltas/skill-sandbox-execution/contract.md",
+      "spec_ref": "03-skill/uc-3-1-上传并校验一个-skill.md#R3",
       "depends_on": [
         "F192"
       ],
