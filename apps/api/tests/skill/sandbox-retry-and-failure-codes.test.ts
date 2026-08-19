@@ -1,6 +1,6 @@
 /**
  * `verification.md` **V3**（重试循环真的在重试）与 **V4**（三个新失败码各自可达、
- * 不串味），各配反证。design delta `skill-sandbox-execution`，F210 / #1583。
+ * 不串味），各配反证。design delta `skill-sandbox-execution`，F962 / #1583。
  *
  * ⚠ 反证在本仓是硬要求（已九次踩过"全绿但空转"）。所以每一条门控下面都紧跟着
  *   一条"把它改坏之后必须变红"的断言，而不是只证明正路能走通。

@@ -1,5 +1,5 @@
 /**
- * `verification.md` **V5**：洋葱依赖方向。design delta `skill-sandbox-execution`，F210 / #1583。
+ * `verification.md` **V5**：洋葱依赖方向。design delta `skill-sandbox-execution`，F962 / #1583。
  *
  * `lint-arch-deps` 已经在 `apps/api` 的 `lint` 脚本里跑（机械门控，覆盖全层）。
  * 本文件补的是**针对本 delta 的具体断言**：`interface/` 下没有任何文件直接

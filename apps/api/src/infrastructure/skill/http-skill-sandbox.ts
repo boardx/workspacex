@@ -1,6 +1,6 @@
 /**
  * `SkillSandboxPort` 的唯一实现：经 HTTP 调 `apps/skill-sandbox` 的 `POST /run`
- * （design delta `skill-sandbox-execution` contract §3，F210 / #1583）。
+ * （design delta `skill-sandbox-execution` contract §3，F962 / #1583）。
  *
  * ## 走 unix socket，不是端口
  *

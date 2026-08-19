@@ -1,6 +1,6 @@
 /**
  * `SkillSandboxPort` —— 试跑执行模型生成脚本的应用层端口
- * （design delta `skill-sandbox-execution` contract §3，F210 / #1583）。
+ * （design delta `skill-sandbox-execution` contract §3，F962 / #1583）。
  *
  * ## 端口定义在 application 层，实现在 infrastructure —— 这是硬约束不是风格
  *

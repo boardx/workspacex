@@ -1,4 +1,4 @@
-# apps/skill-sandbox —— 试跑接真执行的沙箱服务（design delta `skill-sandbox-execution`，F210 / #1583）
+# apps/skill-sandbox —— 试跑接真执行的沙箱服务（design delta `skill-sandbox-execution`，F962 / #1583）
 #
 # ⚠⚠ 这个镜像本身**不构成**安全边界的全部。contract §4 的隔离是**两层**：
 #

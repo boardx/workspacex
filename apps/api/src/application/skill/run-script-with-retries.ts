@@ -1,7 +1,7 @@
 /**
  * contract §7 的回喂重试循环：模型写脚本 → 沙箱执行 → 非零退出把
  * `exitCode` + 截断后的 `stdout/stderr` 回喂 → 重新生成 → 上限 **N=3** 次。
- * （design delta `skill-sandbox-execution`，F210 / #1583）
+ * （design delta `skill-sandbox-execution`，F962 / #1583）
  *
  * ## ⚠ 为什么不是「给模型挂一个 run_script 工具」——这是读了代码之后的改法
  *

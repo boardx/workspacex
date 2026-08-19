@@ -1,4 +1,4 @@
-# apps/skill-sandbox 的 L1 容器隔离（contract §4 上半张表）。F210 / #1583。
+# apps/skill-sandbox 的 L1 容器隔离（contract §4 上半张表）。F962 / #1583。
 #
 # ⚠⚠ **隔离的实质在这个文件里，不在 Dockerfile 里。**
 # `network: none`、只读 rootfs、tmpfs、内存/CPU/pids 上限都是运行参数，不是镜像属性。
