@@ -961,7 +961,31 @@ describe("lint-permission-paths: counter-proof", () => {
     // 而那时本条论证的每一句都不再成立）；(d) SQL 里没有 `LIMIT`——加了就是 #1561 明文
     // 禁止的静默截断；(e) `src/interface/` 下没有任何 controller 触达它或它的端口，
     // 所以它今天是「组装用的内部素材」而不是披露面。删测试则本条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(66);
+    // ⚠ Raised 66 -> 67 by F962（phase-01 / design-delta `skill-sandbox-execution` §6.1），
+    // and it brings an enforced premise, as demanded above. The new entry is
+    // `infrastructure/skill/pg-skill-trial-run-store.ts`（`skill_trial_runs`，试跑转异步的
+    // 提交→轮询表）。
+    //
+    // 它的论证与上面 `pg-admission-test-repository.ts`（模型准入）**同一形状**，这正是重点：
+    // `ObjectRef` 是 project|artifact|segment|capability|organization|interview，而**一次试跑
+    // 一个都不是**。它没有 `acl_bindings` 行，一个 `trial-run` ref 推进 `authorize` 会找不到
+    // 绑定、退回 `DEFAULT_SCOPE`（org-wide）、看到非空 org role，然后**对组织里每个人返回
+    // `allowed: true`** —— 还带着一个看起来完全正常的 decisionId。这正是 `toAclRef` 里
+    // `capability` / `organization` / `interview` 选择 THROW 而不是去判定的原因。
+    // 为了让 lint 变绿而加第四种 ref kind，是在**制造**那个失败，不是在避免它。
+    //
+    // 「谁可以读一次试跑」根本不是 ACL 问题，而是**归属**问题：只有提交者本人。
+    // 这条规则由 SQL 谓词 `actor_id = $3` 表达，读不到就是读不到（controller 翻成裸 404，
+    // 与 `agent-run.controller.ts` 同一条「不给存在性预言机」的纪律）。
+    //
+    // 它的**被强制的前提**：`tests/skill/trial-run-store-reads-are-actor-scoped.test.ts`
+    // 解析该文件并断言四件——(a) 每条面向请求方的 SELECT 都带 `actor_id = $`（唯一例外是
+    // 系统侧 `FOR UPDATE SKIP LOCKED` 认领，它没有请求方，行是交给执行器的）；
+    // (b) 每条语句都带 `org_id` 作为 RLS 之后的第二道防线；(c) 没有任何 DELETE 路径
+    //（迁移里也不 GRANT DELETE）；(d) **自检真的解析到了 SQL**，否则一次重命名就能让
+    // 这条断言变成永远绿的空转。已实测反证：把 `actor_id = $3` 换成恒真谓词，该测试立刻红。
+    // 删那个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(67);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

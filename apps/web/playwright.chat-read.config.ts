@@ -71,13 +71,7 @@ export default defineConfig({
    * 接住（理由与上面两条逐字相同）：这里已经起好了真登录 + 真线程 + 确定性 provider 全套
    * 编排，单自建 runner 是硬瓶颈；新增的是视觉理解这一条上游替身，其余全部复用。
    */
-  /**
-   * context-engine 浏览器 e2e —— 新增 `context-engine.spec.ts` 同样由本 config 接住
-   * （理由与上面几条逐字相同）：真登录 + 真线程 + 确定性 provider 全套编排已经在，
-   * 新增的只是两条专属线程（`l2CheckThreadId`/`toolTraceCheckThreadId`）与上游替身的
-   * 两个新回显开关，其余全部复用。
-   */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|context-engine)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*

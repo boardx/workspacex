@@ -14,7 +14,10 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse } from "yaml";
-import { DOMAIN_SKILL_TEMPLATE_ID } from "./domain-skill-model";
+// H-01（#1567）删掉 H3A 治理机器时，domain-skill-model.ts 随之消失。本扫描
+// 只用到它的模板 ID 常量（用于"这类实例不归本扫描管"的排除判断），内联即可，
+// 不值得为一个字符串保留整个模块。
+const DOMAIN_SKILL_TEMPLATE_ID = "TPL-MOD-001";
 import { validateInstanceMetadata, type InstanceMetadata, type ValidationIssue } from "./template-model";
 
 /**

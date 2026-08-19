@@ -6,6 +6,9 @@ import { mockIdentity } from "@/lib/identity";
 vi.mock("next/navigation", () => ({
   usePathname: () => "/rec",
   useRouter: () => ({ replace: vi.fn() }),
+  // #728：TopBar 新增读 useSearchParams 解析 /chat?projectId=…（本屏是 /rec，不需要
+  // 真的解析，但 TopBar 无条件调用这个 hook，缺席会在挂载阶段直接抛错）。
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const api = vi.hoisted(() => ({

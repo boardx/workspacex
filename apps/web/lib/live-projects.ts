@@ -185,3 +185,44 @@ export const AGENDA_SEGMENT_STATE_LABEL: Record<AgendaSegment["state"], string> 
   closed: "已结束",
   skipped: "已跳过",
 };
+
+export type AdvanceAgendaSegmentAction = z.infer<typeof project.AgendaSegmentAdvanceAction>;
+export type AdvanceAgendaSegmentOut = z.infer<typeof project.operations.advanceAgendaSegment.out>;
+
+/**
+ * F963 —— 真实 `POST /workshops/:workshopId/agenda-segments/:segmentId/advance`
+ * （`advanceAgendaSegment`，F119 UC-P7）。
+ *
+ * 契约签了跟 `createAgendaSegment`/`listAgendaSegments` 一样久、controller 也早挂好了
+ * （`project.controller.ts` 的 `advance()`），此前只是没有前端调用方——「现场协作」
+ * 主持台的推进/提前结束/跳过/合并四个动作因此全部只能停在 mock。
+ *
+ * ⚠ body 里**必须**带 `workshopId`/`segmentId`（与路径同值）——不是 F950/F961 那种
+ *   路径参数泄漏进 body（见 `lint-body-path-param-leak.mjs`）：这个 controller 的
+ *   body schema 是全量 `C.operations.advanceAgendaSegment.in`（未 `.omit()`），
+ *   服务端还会显式比对 `body.workshopId !== workshopId`，不一致直接 400
+ *   `workshop_or_segment_id_mismatch`——两边取自同一个变量，前端制造不出那种不一致
+ *   （同 `bindCanvasTemplateToSegment` 头注一致的先例，该函数已登记进
+ *   `.harness/state/body-path-param-leak-allowlist.json`，本函数用同一条豁免）。
+ */
+export async function advanceAgendaSegment(input: {
+  readonly workshopId: string;
+  readonly segmentId: string;
+  readonly action: AdvanceAgendaSegmentAction;
+  readonly mergeIntoSegmentId: string | null;
+}): Promise<AdvanceAgendaSegmentOut> {
+  return apiRequest<AdvanceAgendaSegmentOut>(
+    project.operations.advanceAgendaSegment.path
+      .replace(":workshopId", encodeURIComponent(input.workshopId))
+      .replace(":segmentId", encodeURIComponent(input.segmentId)),
+    {
+      method: "POST",
+      body: {
+        workshopId: input.workshopId,
+        segmentId: input.segmentId,
+        action: input.action,
+        mergeIntoSegmentId: input.mergeIntoSegmentId,
+      },
+    },
+  );
+}

@@ -196,7 +196,9 @@ export function ProjectWorkbench({
   }, [projectId]);
 
   React.useEffect(() => {
-    if (!projectId || tab !== "prep") {
+    // F963：现场协作主持台状态条同一份真实数据（当前进行中环节），同「筹备」tab
+    // 共用一次拉取，不重复声明第二份 state。
+    if (!projectId || (tab !== "prep" && tab !== "live")) {
       setLiveSegments(null);
       setLiveSegmentsError(null);
       return;
@@ -495,7 +497,17 @@ function renderTab(
           onGroupingSaved={refreshGrouping}
         />
       );
-    case "live": return <TabLive view={view} readOnly={orgDisabled} />;
+    case "live":
+      return (
+        <TabLive
+          view={view}
+          readOnly={orgDisabled}
+          liveSegments={liveSegments}
+          liveSegmentsLoading={liveSegmentsLoading}
+          liveSegmentsError={liveSegmentsError}
+          onAdvanced={refreshSegments}
+        />
+      );
     case "results": return <TabResults view={view} readOnly={orgDisabled} />;
     case "todo": return <TabTodo view={view} readOnly={orgDisabled} />;
     case "settings": return <TabSettings view={view} readOnly={orgDisabled} />;

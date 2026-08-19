@@ -4796,6 +4796,29 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F211",
+      "title": "补齐三处完整差距审计发现的内容缺失（Skill绑定 genericNote / 报告模板中英双语 / 基本配置各档说明）",
+      "user_visible_behavior": "组织管理员打开「Skill 绑定」项，绑定列表下方（新增按钮上方）出现固定说明「其余 4 个为全程可用的通用 skill」（此前完全没有渲染）。打开「报告模板」项，客户交付版标题从「客户交付版 · N 章骨架」变成「客户交付版 · N 章骨架（中英双语）」。打开第 16 项「基本配置」，四个时长档位按钮从只有一行（档位名+环节数）变成两行，第二行是一句该档比上一档多出什么的说明（半天「只到收敛，不做原型」/一天「加商业模式草稿」/两天「加原型与用户测试」/三天「加迭代与落地计划」）。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F209"
+      ],
+      "points": 1,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-duration-form.test.tsx"
+      ],
+      "evidence": "evidence/F211.verify.log @ 2026-08-19T09:36:26.571Z",
+      "notes": "① 背景：人类要求对 14 个结构化编辑器 + 第16项聚合页做完整差距审计（对照 designer-panels.tsx + mock/tpl.ts）。派了 5 个并行子代理逐项核对，本 feature 修复审计结果里唯一的三处「内容缺失」（无体验降级，F210 那处唯一的体验降级已在上一轮修复合入）。\n② 审计发现的一处假阳性已自行核实并排除：子代理最初误报 Topic/Grouping/Roles 三项「intro 缺失」，经查证 intro 由 blueprint-designer-shell.tsx 的 FacetPanel 统一渲染（F209 工作），15 项全覆盖，不是各编辑器自己的职责——不是真缺陷。\n③ 三处真实修复：\n   · skill-panel-editor.tsx：SKILL_PANEL.genericNote 此前整句没有渲染，位置与原型一致（列表下方、添加按钮上方），补一个新导出常量 GENERIC_NOTE。\n   · report-panel-editor.tsx：标题丢了「中英双语」，已补回；章数保持用 value.chapters.length 真实计数，不用原型写死的示例数字 18（那是原型的静态示例，蓝本里章数由用户增删决定）。\n   · blueprint-duration-form.tsx（F19 组件，F207 起被 basic-overview-panel.tsx 复用）：TIER_NOTE 每档说明整段没有迁过来——F207 复用时只带了 TIER_LABEL/环节数，档位按钮从两行退化成一行。补回时保持原型的位置（按钮内部标签下方），不是加独立区块；同时处理了 Button 组件默认固定高度与两行内容的样式冲突（h-auto + py-1.5）。\n④ 三处都补进了防漂移机械门控（blueprint-designer-prototype-fidelity.test.tsx 新增一条断言），且都实测过反证：故意改错文案/常量，对应测试立刻变红并指出具体差异，恢复后转绿。\n⑤ 验证：新增/更新 4 处测试断言（skill 一条、report 一条、basic-overview 一条、duration-form 独立单测一条 + fidelity 门控一条），全量单测通过（1 个已知与本改动无关的 flaky 用例 chat-canvas-fence 独立重跑确认无关）；本地按 CI 原命令复核 pnpm turbo run typecheck lint --continue。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
       "id": "F199",
       "title": "createProject 创建者自动获得容器最高权限角色（推翻 Q-4②：facilitator/owner）",
       "user_visible_behavior": "任意通过 createProject 成功建出容器（工作坊/研究项目/用户洞察）的人，建完立刻就能进入并使用自己建的这个容器——不再出现「建了项目却读不到内容」（ADMIN_NOT_SUPERUSER/NO_PROJECT_ROLE）。工作坊容器：创建者获得 facilitator（引导师）角色，is_host=true。研究项目/用户洞察容器：创建者获得 owner（所有者）角色。全部与容器同一个事务写入，不存在“容器建成、角色没跟上”的中间态。",
@@ -4892,6 +4915,52 @@
       ],
       "evidence": "evidence/F961.verify.log @ 2026-08-18T07:33:12.220Z",
       "notes": "本 feature 是 F960 notes ④ 里写明「留给下一个 feature」的那半边：F960 只做了后端，当时前端接不了是因为组卡还没有真实 groupId（依赖 F950 的 `getProjectGrouping`）。F950（#1482）与 F960（#1510）现均已合入 main，前置条件成立，本次补前端。\n① **零契约改动、零迁移**——只消费 F960 已签并落地的 `getInterviewSubjects` / `updateInterviewSubjects` 两条端点，`next.config.mjs` 的 `/projects/:path*` 已覆盖该路径，不需要新 rewrite、不需要动棘轮名单。\n② **组员从姓名列表改为人数**是**向原型靠拢的修正**，不是功能删减：原型 `uc-2-2-prep-default.png` 与 `lib/mock/project.ts` 的 `members: \"3 人\"` 都是计数，F950 当时写成姓名拼接是实现时的自由发挥，本次按签核过的原型收回。姓名仍可在编辑态的组员勾选框里逐个看到，信息没有丢。\n③ **每组一次 GET**：摘要行在折叠态就要显示，所以挂载时按组并发拉取（原型是 4 组，量级可接受），不是等展开才拉——那样折叠态的摘要就得靠假数据填，正是本仓反复栽跟头的「静态痕迹」。\n④ `[AI 建议人选]` 禁用 + 如实说明，同 F950 对「AI 生成定题」、F185 对未接线菜单项的既有处置纪律，不新造一个假入口。\n⑤ **真栈 e2e 第一次跑就抓到一个真 bug（见 issue 评论）**：`lib/live-project-prep.ts` 三个 save 函数都把路径参数（`projectId`，对象表还多一个 `groupId`）塞进了 PUT body，而 controller 的 body schema 是 `.omit({projectId:true})` 且契约 object 是 `.strict()`（`.omit()` 保留 strict）⇒ 未知字段 ⇒ **整条请求 400**。也就是说 **F950 的「定题保存」「分组保存」自合入起在真实浏览器里一次都没成功过**，而所有测试全绿——因为组件测试的 `fetch` 是 mock 的，只记录 body 不校验，F950 的断言甚至明确要求 body 里有 `projectId`，把 bug 钉成了期望行为。本 feature 一并修三处 + 把两个组件测试里的断言纠正成 `not.toHaveProperty(\"projectId\")` 机械门 + e2e 里加一条 F950 回归用例（定题保存→刷新仍在），让修复本身有真栈证据。"
+    },
+    {
+      "id": "F962",
+      "title": "试跑接真执行：沙箱化脚本执行 + 真实 .pptx 产物（skill-sandbox-execution 首个切片）",
+      "user_visible_behavior": "组织成员在 /admin/skill 对一个 pptx 类 skill 版本点「试跑」并给出样例需求后，系统不再只回一段文字：模型写出 pptxgenjs 脚本，脚本在一个 network:none、只读 rootfs、非 root、workdir 挂 tmpfs 且带内存/CPU/pids 上限与 wall-clock 硬超时的容器里真实执行；脚本首次失败时，真实的 exitCode 与 stderr 被回喂给模型重写（最多 3 次）；成功后试跑结果里出现一个可下载的 .pptx 引用，下载下来是一个能被 PowerPoint/Keynote 打开的合法 OOXML 文件（zip 完整、[Content_Types].xml 声明 presentation、每张 slideN.xml 可解析、正文非空），页数与内容与请求对应。沙箱不可达 / 超硬超时 / 重试用尽三种失败各自回不同的失败码，最后一种把最后一次的真实 stderr 原样带回，不翻译成「请重试」。⚠ 试跑产物落 ObjectStore 但**不自动**落成项目产物。",
+      "spec_ref": "03-skill/uc-3-1-上传并校验一个-skill.md#R3",
+      "depends_on": [
+        "F192"
+      ],
+      "points": 8,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "dev-ai-runtime",
+      "verification": [
+        "node .harness/scripts/lint-arch-deps.mjs apps/api/src",
+        "node apps/api/scripts/lint-permission-paths.mjs",
+        "bash apps/api/scripts/verify-migrations.sh",
+        "pnpm --filter @repo/skill-sandbox run typecheck",
+        "pnpm --filter @repo/api run typecheck",
+        "pnpm --filter @repo/skill-sandbox exec vitest run tests/execute-script-isolation.test.ts tests/produces-real-pptx.test.ts",
+        "pnpm --filter @repo/skill-sandbox exec vitest run tests/container-network-isolation.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api exec vitest run tests/skill/sandbox-retry-and-failure-codes.test.ts tests/skill/sandbox-onion-dependency-direction.test.ts tests/skill/trial-run-async-real-db.test.ts tests/skill/trial-run-store-reads-are-actor-scoped.test.ts tests/skill/trial-run-skill-model-resolution.test.ts tests/skill/org-agent-model-reader-repo-guard.test.ts"
+      ],
+      "evidence": "",
+      "notes": "① ID 以 design-signoff.md 的 covers 为准 = **F962**（origin/main 已合入的机械重编号，理由见该文件 covers 行注释）。⚠ 本分支先后自行编过 F210、F211 两个号，**都作废**：F204 被 #1531 占用、F210 被 #1588 占用，而我每次都照**开工那一刻的快照**选号，快照又一次过期。这是 AGENTS.md「静态痕迹 ≠ 动态事实」连栽两次 —— ID 空间会被并行会话推进，**号只有一个权威来源：main 上的 signoff**，不由 worker 自行分配。已按 coord 裁定对齐 F962，不留并存的第二个号。\n② 隔离是**两层**，缺一不可（contract §4）：L1 容器 network:none 挡网络，L2 Node 权限模型挡文件越界与子进程。⚠⚠ L2 **挡不住网络** —— 本机 Node v22.23.1 复现 #1575 ⑤：开满 --experimental-permission --allow-fs-read/--allow-fs-write 的进程里 fetch() 照样 200。因此 tests/execute-script-isolation.test.ts 里留了一条方向反直觉的断言钉死这件事（默认跳过，需显式开 SKILL_SANDBOX_ALLOW_EGRESS_PROBE=1），防止日后有人误以为进程层已管住网络、把容器的 network: none 当冗余摘掉。\n③ V2-b/V2-CP 用**伴生容器**而非公网地址：打公网会让离线 CI 里的 V2-b 因为「根本没网」而假绿。两条断言同镜像同脚本同断言，唯一变量是 --network none vs --network <net>。\n④ 通信走共享 volume 上的 unix domain socket，不是端口 —— network:none 与「apps/api 要能调用」在 TCP 上直接矛盾；另一条出路（挂 docker socket 起临时容器）等于给沙箱服务宿主 root，为收紧网络而放开更大的逃逸面，净损失。这是比 contract §4 更严的落地细节，不是放宽。\n⑤ ⚠ 机制偏离（行为等价）：contract §7 字面写「模型带 run_script 工具」，但 ModelCallPort 没有工具调用面 —— ToolDefinition/ToolCallRequest（#725）已在 #741 被显式退役。改为在既有 complete() 面上用提示协议做同一件事（写脚本→执行→失败回喂 exitCode+stderr→上限 3）。见 run-script-with-retries.ts 头注与 #1583，待 review 裁决。\n⑥ 预装依赖必须是**扁平真实目录树**（镜像里 npm 装）：Node 权限模型不递归解析软链，pnpm 的二层软链布局下把链条上每段真实路径全部授权也依然被拒。另：--allow-fs-read=a,b 逗号形式不会被拆成两个路径，必须每路径一个独立旗标。两条都在代码里留了头注。\n⑨ §6.1 转异步落地：新表 `skill_trial_runs`（迁移 20260819120000）+ `FOR UPDATE SKIP LOCKED` 认领 + 提交后 kick + `GET /skill-trial-runs/:id` 轮询。**刻意不复用 `agent_runs`** —— 那张表的 thread_id/input_message_id 是 NOT NULL FK 指向 chat_threads/chat_messages，而试跑既无线程也无消息，复用就得为每次试跑伪造聊天行，那些行会真的出现在用户的对话列表里。复用**形态**，不复用**行**。\n⑩ ⚠ 转异步带来一个同步实现里不存在的新失败模式：**失败必须落终态**。失败若不入库，轮询端与「还在跑」无法区分，前端只能一直转圈。因此执行器最外层是catch-all，任何意外都映射成具体码落终态；真库测试对三个失败码各查一遍库。\n⑪ `lint-permission-paths` 新增第 67 条豁免（`pg-skill-trial-run-store.ts`）：试跑背后没有 ACL 对象，披露规则只有「只有提交者本人能读自己那一行」，由 SQL 谓词 `actor_id = $3` 表达。为过 linter 编一个 ObjectRef 种类会更糟（断言一套并不存在的权限模型）。⚠ 豁免配了机械守卫 `tests/skill/trial-run-store-reads-are-actor-scoped.test.ts`（同 registration-repo-is-write-only 的先例），已实测反证：去掉 `actor_id = $3` 该测试立刻红。",
+      "priority": 1,
+      "area": "ai-runtime",
+      "capability": "CAP-AI"
+    },
+    {
+      "id": "F963",
+      "title": "现场协作主持台状态条接真实数据 + 四组并行降级为如实空态",
+      "user_visible_behavior": "项目工作台「现场协作」tab 的主持台状态条从纯 mock 换成真实 `listAgendaSegments`：没有进行中环节时显示「当前没有进行中的环节」（真实空态，不是编造的假设风暴文案）；有进行中环节时显示真实标题与「环节 N/M」序号与状态徽标；引导师（facilitator）看到「下一环节 / 提前结束 / 跳过」三个按钮，点击真实调用 `advanceAgendaSegment`，成功后重新拉取列表，失败显示真实错误（如并发冲突）不静默；组长/组员/观察者不显示这三个按钮（服务端角色矩阵本就只许 facilitator 推进）。「四组并行」卡片区域整块降级为如实说明——每组的实时引述/画布进度/素材充足度/现场介入标记在 project 束契约里完全没有出处（引述与画布归 canvas/recording 束，其余两项全仓零来源），不再显示编造数字，等对应契约与仓储落地后再作为独立 feature 补上。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F119"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "16",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/project-live-stagebar.test.tsx"
+      ],
+      "evidence": "evidence/F963.verify.log @ 2026-08-19T16:23:00.356Z",
+      "notes": "同 F172 对 `tab-overview.tsx`「当前环节」卡与「待办」块的处置纪律：`getProjectOverview` 只给 `{title, state}`（没有剩余时长）⇒ 删倒计时；待办无契约来源 ⇒ 整块改如实说明，不渲染编造文案。本次同理——`listAgendaSegments`（#853 已接线）与 `advanceAgendaSegment`（F119，controller 早已挂好、此前零前端调用方）都是已签核且真实可用的操作，环节标题/序号/状态/推进动作接真；但『四组并行』卡片的引述/画布进度/素材充足度/现场介入标记（原 `LIVE_GROUPS` mock）在 project 束契约里完全无来源——`quote`/`canvas` 概念上分别对应 canvas 束的 `NodeProvenance`/`listGroupCanvases`（且后者本身也是「契约已签、零 controller/零仓储」的静态痕迹，需要独立 feature 先把后端建出来），`fill`/`needs` 全仓零来源（2026-08-19 人类会话已确认范围，见对话记录）。继续渲染这组 mock 数字会与真实状态条同屏并列、用户分不清真假，同 F172 点名的「主要缺陷」是同一种问题，故整块降级为如实空态，不新造一种处置。\n① 零契约改动、零迁移、零新 rewrite（`/workshops/:path*`、`/projects/:path*` 已覆盖）——`advanceAgendaSegment` 契约与 controller 路由（F119）早就存在，只是没有前端调用方。\n② `advanceAgendaSegment` body 必须带 `workshopId`/`segmentId`（与路径同值）——不是路径参数泄漏进 body 的 bug 类（见 issue #1600），这个 controller 的 body schema 是全量 `C.operations.advanceAgendaSegment.in`（未 `.omit()`），服务端还会显式比对 `body.workshopId !== workshopId` 不一致即 400，同 `bindCanvasTemplateToSegment` 已登记的先例；本函数应在 `.harness/state/body-path-param-leak-allowlist.json` 补两条 `apps/web/lib/live-projects.ts:workshopId`（已有）与新增的 `segmentId`（待 #1601 合并后本分支 rebase 时一并补，本分支基线尚未带上该 allowlist 机制）。\n③ `LIVE_STAGE`/`LIVE_GROUPS`/`ROLE_OWN_GROUP`/`ROLE_SEES_ALL_RAW` 四个孤儿 mock 符号已删除（同 F172「对 lib/mock/project 的依赖收窄，删孤儿 helper」纪律）——四视角目前只剩「谁能推进环节」一件事，组长/组员/观察者原本靠 `ownGroup`/`seesAllRaw` 分流的差异化展示，连同它作用的假数据一起降级，等画布进度接线（下一个 feature）落地后再按真实数据重新画出角色差异。\n④ 反证：把 `advanceAgendaSegment` 调用里的 `workshopId` 硬编码成假值，测试断言当场失败（`toMatchObject` 抓到），证明这条断言不是摆设，恢复后转绿。\n【依赖】F119（`advanceAgendaSegment` 契约+controller，已 passing）、#853（`listAgendaSegments` 前端接线，已合入）。"
     }
   ]
 }

@@ -972,9 +972,9 @@ export function ChatLiveMessagePanel({
                       */}
                       {isAgent && message.agentRunId ? <MessageRating messageId={message.id} /> : null}
                     </div>
-                    {/* #946 · V9-a F152：消息挂的附件（listMessages 投影，只读展示）。 */}
+                    {/* #946 · V9-a F152：消息挂的附件（listMessages 投影）。#1584 起点击可预览/下载。 */}
                     {message.attachments && message.attachments.length > 0 ? (
-                      <MessageAttachments attachments={message.attachments} />
+                      <MessageAttachments attachments={message.attachments} threadId={threadId} />
                     ) : null}
                     {canLandArtifacts ? (
                       <MessageLandingControls
