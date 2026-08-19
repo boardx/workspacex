@@ -4804,7 +4804,7 @@
         "F209"
       ],
       "points": 1,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "dev-chat-e2e",
       "verification": [
@@ -4812,7 +4812,7 @@
         "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/blueprint-duration-form.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F211.verify.log @ 2026-08-19T09:36:26.571Z",
       "notes": "① 背景：人类要求对 14 个结构化编辑器 + 第16项聚合页做完整差距审计（对照 designer-panels.tsx + mock/tpl.ts）。派了 5 个并行子代理逐项核对，本 feature 修复审计结果里唯一的三处「内容缺失」（无体验降级，F210 那处唯一的体验降级已在上一轮修复合入）。\n② 审计发现的一处假阳性已自行核实并排除：子代理最初误报 Topic/Grouping/Roles 三项「intro 缺失」，经查证 intro 由 blueprint-designer-shell.tsx 的 FacetPanel 统一渲染（F209 工作），15 项全覆盖，不是各编辑器自己的职责——不是真缺陷。\n③ 三处真实修复：\n   · skill-panel-editor.tsx：SKILL_PANEL.genericNote 此前整句没有渲染，位置与原型一致（列表下方、添加按钮上方），补一个新导出常量 GENERIC_NOTE。\n   · report-panel-editor.tsx：标题丢了「中英双语」，已补回；章数保持用 value.chapters.length 真实计数，不用原型写死的示例数字 18（那是原型的静态示例，蓝本里章数由用户增删决定）。\n   · blueprint-duration-form.tsx（F19 组件，F207 起被 basic-overview-panel.tsx 复用）：TIER_NOTE 每档说明整段没有迁过来——F207 复用时只带了 TIER_LABEL/环节数，档位按钮从两行退化成一行。补回时保持原型的位置（按钮内部标签下方），不是加独立区块；同时处理了 Button 组件默认固定高度与两行内容的样式冲突（h-auto + py-1.5）。\n④ 三处都补进了防漂移机械门控（blueprint-designer-prototype-fidelity.test.tsx 新增一条断言），且都实测过反证：故意改错文案/常量，对应测试立刻变红并指出具体差异，恢复后转绿。\n⑤ 验证：新增/更新 4 处测试断言（skill 一条、report 一条、basic-overview 一条、duration-form 独立单测一条 + fidelity 门控一条），全量单测通过（1 个已知与本改动无关的 flaky 用例 chat-canvas-fence 独立重跑确认无关）；本地按 CI 原命令复核 pnpm turbo run typecheck lint --continue。",
       "priority": 2,
       "area": "project",
