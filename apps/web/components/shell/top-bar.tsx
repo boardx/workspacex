@@ -23,6 +23,21 @@ import { Button } from "@/components/ui/button";
  * ⚠ 只在真的进了 `/chat` 且带了 `chatProjectId` 时才发这次请求——不在其它路由上
  *   为了「可能用得上」预取整个项目列表。
  */
+/**
+ * `useSearchParams()` 必须被包在自己的 `<Suspense>` 边界里——Next.js 静态导出对
+ * 直接在页面渲染路径上调用它的客户端组件会拒绝预渲染（`missing-suspense-with-csr-bailout`）。
+ * `TopBar` 是几乎每个页面共用的外壳，把整棵树都包进 Suspense 影响面太大，所以只把
+ * 这一个纯读取查询串、不渲染任何东西的组件单独摘出来，外面套一层局部 Suspense。
+ */
+function ChatProjectIdFromSearchParams({ onChange }: { onChange: (id: string | null) => void }) {
+  const searchParams = useSearchParams();
+  const chatProjectId = searchParams.get("projectId");
+  React.useEffect(() => {
+    onChange(chatProjectId);
+  }, [chatProjectId, onChange]);
+  return null;
+}
+
 function useChatProjectName(orgId: string, chatProjectId: string | null): string | null {
   const [name, setName] = React.useState<string | null>(null);
   React.useEffect(() => {
@@ -88,10 +103,12 @@ export function TopBar({
   switching?: boolean;
 }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   // 只有 /chat 才读这个查询串——其它路由的 projectId 出现在路径段里，已经被
-  // resolveProjectContext 的第一条规则接住了，这里不重复解析。
-  const chatProjectId = pathname === "/chat" ? searchParams.get("projectId") : null;
+  // resolveProjectContext 的第一条规则接住了，这里不重复解析。`chatProjectId` 由下方
+  // Suspense 包裹的 `ChatProjectIdFromSearchParams` 异步喂进来，不在本组件里直接调
+  // `useSearchParams()`（原因见该组件注释）。
+  const [chatProjectIdParam, setChatProjectIdParam] = React.useState<string | null>(null);
+  const chatProjectId = pathname === "/chat" ? chatProjectIdParam : null;
   const project = resolveProjectContext(pathname, chatProjectId);
   const chatProjectName = useChatProjectName(identity.org.id, chatProjectId);
   // resolveProjectContext 对 /chat 只给得出裸 id 占位（见该函数注释）；名字解析出来后
@@ -118,6 +135,11 @@ export function TopBar({
         local ? "border-ai/30 bg-ai-tint" : "border-border bg-card",
       ].join(" ")}
     >
+      {pathname === "/chat" && (
+        <React.Suspense fallback={null}>
+          <ChatProjectIdFromSearchParams onChange={setChatProjectIdParam} />
+        </React.Suspense>
+      )}
       {/* ── 组织层：全局常驻 ── */}
       <div className="flex shrink-0 items-center gap-1.5">
         {/* <md 时 IconRail 隐藏，组织菜单（切换 + 组织管理）在这里补一个入口；≥md 由 rail 承担 */}
