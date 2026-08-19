@@ -23,15 +23,8 @@ import { prQueue } from "./pr-queue";
 import { mergeGate } from "./merge-gate";
 import { templatesAllocate } from "./templates-allocate";
 import { templatesDoctor } from "./templates-doctor";
-import { templatesRender } from "./templates-render";
-import { terminologyDoctor } from "./terminology-doctor";
 import { roleFreezeDoctor } from "./role-freeze-doctor";
 import { graphAuthorityDoctor } from "./graph-authority-doctor";
-import { domainsDoctor } from "./domains-doctor";
-import { roleAuthorizationDoctor } from "./role-authorization-doctor";
-import { taskAssignmentDoctor } from "./task-assignment-doctor";
-import { workflowEventDoctor } from "./workflow-event-doctor";
-import { reviewDecisionDoctor } from "./review-decision-doctor";
 import { skillsDoctor } from "./skills-doctor";
 import { gateMutationProbe } from "./gate-mutation-probe";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
@@ -78,19 +71,7 @@ async function main(): Promise<void> {
       const subArgs = { ...args, _: args._.slice(1) };
       if (sub === "doctor") { templatesDoctor(subArgs); break; }
       if (sub === "allocate") { templatesAllocate(subArgs); break; }
-      if (sub === "render") { templatesRender(subArgs); break; }
       log.err(`未知子命令 "templates ${sub ?? ""}"。可用：doctor / allocate / render`);
-      process.exitCode = 1;
-      break;
-    }
-    case "terminology": {
-      // H3A-006/007/008（PROP-HARNESS-AGENT-001）。跟 "templates" 同一 UX
-      // 风格：`pnpm harness terminology <sub>`，子命令路由在这里，判定逻辑
-      // 在各自文件里。目前只有一个子命令，先按同款结构留出扩展位。
-      const sub = args._[0];
-      const subArgs = { ...args, _: args._.slice(1) };
-      if (sub === "doctor") { terminologyDoctor(subArgs); break; }
-      log.err(`未知子命令 "terminology ${sub ?? ""}"。可用：doctor`);
       process.exitCode = 1;
       break;
     }
@@ -111,58 +92,6 @@ async function main(): Promise<void> {
       const subArgs = { ...args, _: args._.slice(1) };
       if (sub === "doctor") { graphAuthorityDoctor(subArgs); break; }
       log.err(`未知子命令 "graph-authority ${sub ?? ""}"。可用：doctor`);
-      process.exitCode = 1;
-      break;
-    }
-    case "domains": {
-      // H3A-010/012/013/014/015（PROP-HARNESS-AGENT-001）。同 "templates"/"terminology"
-      // 的子命令路由风格。
-      const sub = args._[0];
-      const subArgs = { ...args, _: args._.slice(1) };
-      if (sub === "doctor") { domainsDoctor(subArgs); break; }
-      log.err(`未知子命令 "domains ${sub ?? ""}"。可用：doctor`);
-      process.exitCode = 1;
-      break;
-    }
-    case "role-authorization": {
-      // H3A-020/021/023/024/025/026/027/029（PROP-HARNESS-AGENT-001 Epic
-      // E2）。同 "templates"/"terminology"/"role-freeze" 的子命令路由风格。
-      const sub = args._[0];
-      const subArgs = { ...args, _: args._.slice(1) };
-      if (sub === "doctor") { roleAuthorizationDoctor(subArgs); break; }
-      log.err(`未知子命令 "role-authorization ${sub ?? ""}"。可用：doctor`);
-      process.exitCode = 1;
-      break;
-    }
-    case "task-assignment": {
-      // H3A-030（PROP-HARNESS-AGENT-001 Epic E3）。同 "domains"/"role-authorization"
-      // 的子命令路由风格。
-      const sub = args._[0];
-      const subArgs = { ...args, _: args._.slice(1) };
-      if (sub === "doctor") { taskAssignmentDoctor(subArgs); break; }
-      log.err(`未知子命令 "task-assignment ${sub ?? ""}"。可用：doctor`);
-      process.exitCode = 1;
-      break;
-    }
-    case "workflow-event": {
-      // H3A-033（PROP-HARNESS-AGENT-001 Epic E3）。独立于 "task-assignment"——
-      // Workflow Event 跟 Task Assignment 是两种不同的实例集合，同
-      // "domains"/"role-authorization" 两个独立命令的先例。
-      const sub = args._[0];
-      const subArgs = { ...args, _: args._.slice(1) };
-      if (sub === "doctor") { workflowEventDoctor(subArgs); break; }
-      log.err(`未知子命令 "workflow-event ${sub ?? ""}"。可用：doctor`);
-      process.exitCode = 1;
-      break;
-    }
-    case "review-decision": {
-      // H3A-036（PROP-HARNESS-AGENT-001 Epic E3）。独立于 "task-assignment"/
-      // "workflow-event"——Review Decision 跟另外两种是不同的实例集合，同
-      // "domains"/"role-authorization" 两个独立命令的先例。
-      const sub = args._[0];
-      const subArgs = { ...args, _: args._.slice(1) };
-      if (sub === "doctor") { reviewDecisionDoctor(subArgs); break; }
-      log.err(`未知子命令 "review-decision ${sub ?? ""}"。可用：doctor`);
       process.exitCode = 1;
       break;
     }

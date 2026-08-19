@@ -35,19 +35,16 @@ authority_refs:
     - apps/api/tests/canvas/coords-not-written-back.test.ts
     - apps/api/tests/canvas/binding-uses-key-not-displayname.test.ts
     - apps/api/tests/canvas/sticky-lww-and-group-status.test.ts
-    - .harness/domains/registry.yaml
   verification:
     - "pnpm --filter @repo/fabric-markdown exec vitest run"
     - "pnpm --filter api exec vitest run tests/canvas"
     - "pnpm --filter @repo/fabric-markdown exec tsc --noEmit"
-    - "pnpm harness domains doctor"
 last_verified:
   commit: d96cac445f2053abb53dcc2ebf1bef0f3d354fdd
   evidence_refs:
     - "issue #824 (boardx/workspacex) — H3A-018 调研与实现记录"
     - "PR body: pnpm --filter @repo/fabric-markdown exec vitest run 全绿输出"
     - "PR body: pnpm --filter api exec vitest run tests/canvas 全绿输出"
-    - "PR body: pnpm harness domains doctor 输出（本实例通过 H3A-013/014/015/016/017）"
 ---
 
 # Canvas/Diagram（mod-canvas-diagram） — Domain Skill
