@@ -35,6 +35,22 @@
  * 保守方向：`body` 里嵌套对象/数组的深层 key 恰好与路径参数同名也算命中——这类真正的
  * 假阳性理论上存在但目前没遇到过，遇到了走 allowlist（同 `rewrite-coverage-allowlist.json`
  * 的棘轮先例），不为了这个理论风险牺牲判据的简单可读。
+ *
+ * ## 反证抓出的第二个真 bug：正则漏了泛型调用形态（hotfix，2026-08-19）
+ *
+ * 上线当天做后续功能时读到 `live-projects.ts` 的 `apiRequest<CreateAgendaSegmentOut>(...)`
+ * ——`API_REQUEST_CALL_RE` 原来是 `/\bapiRequest\s*\(/`，`apiRequest` 与 `(` 之间隔着
+ * `<T>` 就匹配不上。全仓一数：`apiRequest<T>(` 159 处、`apiRequest(` 裸调用只有 9 处——
+ * 门上线当天实际只扫了 5.7% 的调用点，「117 个文件、0 处泄漏」的结论建立在几乎没扫
+ * 的样本上。修法：正则接受可选的 `<...>` 泛型参数（`[^()]*`——这些调用点的泛型实参
+ * 都是简单类型名，不含括号，够用）。
+ *
+ * 补了这个洞之后，`createAgendaSegment` 那次调用会被新扫到：它的 body 里确实带了
+ * `workshopId`，而 URL 也 `.replace(":workshopId", ...)` 替换了同一个名字——但**不是
+ * bug**：那个 controller 的 body schema 是 `C.operations.createAgendaSegment.in`
+ * **全量**（未 `.omit()`），`workshopId` 本来就在契约里，多传不会被拒。这类「schema
+ * 本身要这个字段，不是 `.omit()` 精简过」的合法冗余，用 allowlist 排除——机械判据
+ * 分辨不出「这个 controller 到底 omit 了没」，不为了这一类硬凑规则牺牲判据的简单。
  */
 
 export interface WebLibFileInput {
@@ -57,7 +73,9 @@ export interface BodyPathParamLeakReport {
 }
 
 const PATH_PARAM_IN_TEXT_RE = /\.replace\(\s*["'`]:([A-Za-z0-9_]+)["'`]/g;
-const API_REQUEST_CALL_RE = /\bapiRequest\s*\(/g;
+// 泛型实参 `<T>` 可选——见文件头注「反证抓出的第二个真 bug」。`[^()]*` 够用：
+// 这些调用点的泛型实参都是简单类型名，不含括号。
+const API_REQUEST_CALL_RE = /\bapiRequest\s*(?:<[^()]*>)?\s*\(/g;
 const FUNCTION_DEF_RE =
   /(?:function\s+(\w+)\s*\([^)]*\)|const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*(?::[^=]+)?=>)\s*\{/g;
 
@@ -153,7 +171,15 @@ function asLocalHelperCall(pathExpr: string, localFns: Map<string, string>): str
   return localFns.has(name) ? name : null;
 }
 
-export function analyzeBodyPathParamLeaks(files: readonly WebLibFileInput[]): BodyPathParamLeakReport {
+/** `"file:param"` 形态的豁免键——同 `rewrite-coverage-allowlist.json` 的棘轮先例，只能变短。 */
+export function allowlistKey(file: string, param: string): string {
+  return `${file}:${param}`;
+}
+
+export function analyzeBodyPathParamLeaks(
+  files: readonly WebLibFileInput[],
+  allowlist: ReadonlySet<string> = new Set(),
+): BodyPathParamLeakReport {
   if (files.length === 0) {
     return {
       incomplete: true,
@@ -198,7 +224,7 @@ export function analyzeBodyPathParamLeaks(files: readonly WebLibFileInput[]): Bo
 
       const bodyKeys = extractObjectKeys(bodyBlock);
       for (const key of bodyKeys) {
-        if (params.has(key)) {
+        if (params.has(key) && !allowlist.has(allowlistKey(file, key))) {
           gaps.push({
             file,
             param: key,
@@ -211,4 +237,19 @@ export function analyzeBodyPathParamLeaks(files: readonly WebLibFileInput[]): Bo
   }
 
   return { incomplete: false, filesScanned: files.length, gaps };
+}
+
+/**
+ * 棘轮陈旧条目检测——同 `rewrite-coverage.ts` 的 `staleAllowlistEntries` 先例：
+ * 不带 allowlist 重新跑一遍，allowlist 里「已经不再出现在原始结果里」的条目就是陈旧的，
+ * 必须删掉（豁免名单只能变短，留着已经不缺的条目等于给未来的回归留一扇没人看守的门）。
+ */
+export function staleAllowlistEntries(
+  files: readonly WebLibFileInput[],
+  allowlist: ReadonlySet<string>,
+): string[] {
+  const raw = analyzeBodyPathParamLeaks(files);
+  if (raw.incomplete) return [];
+  const stillLeaking = new Set(raw.gaps.map((g) => allowlistKey(g.file, g.param)));
+  return [...allowlist].filter((key) => !stillLeaking.has(key));
 }
