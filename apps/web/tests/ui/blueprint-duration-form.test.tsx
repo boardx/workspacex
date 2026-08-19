@@ -55,6 +55,14 @@ describe("时长档位目录来自定义表（而不是前端自己列的一份 
     expect(screen.getByTestId("bp-duration-tier-three-day")).toHaveTextContent("19 环节");
   });
 
+  it("每档按钮下方带一句「比上一档多出什么」的说明（原型 TIER_NOTE，2026-08-19 补回）", () => {
+    renderForm();
+    expect(screen.getByTestId("bp-duration-tier-note-half-day")).toHaveTextContent("只到收敛，不做原型");
+    expect(screen.getByTestId("bp-duration-tier-note-one-day")).toHaveTextContent("加商业模式草稿");
+    expect(screen.getByTestId("bp-duration-tier-note-two-day")).toHaveTextContent("加原型与用户测试");
+    expect(screen.getByTestId("bp-duration-tier-note-three-day")).toHaveTextContent("加迭代与落地计划");
+  });
+
   it("当前档位被选中态标出（aria-pressed）", () => {
     renderForm({ durationTier: "three-day" });
     expect(screen.getByTestId("bp-duration-tier-three-day")).toHaveAttribute("aria-pressed", "true");

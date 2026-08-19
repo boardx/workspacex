@@ -10,7 +10,10 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * - **客户交付版**：一份带编号的章节骨架，每章有标题 + 由谁写（`by`）。原型把
  *   `by` 包含「必须」二字的章节渲染成 danger 徽标、其余渲染成 ai 徽标——本编辑器
  *   把「必须人写」做成真实可勾选的布尔，其余情况下 `by` 是自由文本（原型出现
- *   "AI 起草"/"AI 生成"/"必须保留" 等多种值，不是闭集）。
+ *   "AI 起草"/"AI 生成"/"必须保留" 等多种值，不是闭集）。「中英双语」是原型标题
+ *   里的固定说明（2026-08-19 差距审计发现此前丢了这半句，已补回）；章数用
+ *   `value.chapters.length` 真实计数，不用原型写死的 "18 页"——那是示例数据，
+ *   蓝本里章节数由用户增删决定，写死反而是假数据。
  * - **内部复盘版**：原型是一段固定说明（这一份不给客户，是蓝本迭代的输入），
  *   不是可编辑字段。
  * - **写作硬约束**：四条产品级约束，原型用 Lock 图标渲染成只读清单，保持只读。
@@ -149,7 +152,7 @@ export function ReportPanelEditor({
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-report-client">
-        <h3 className="mb-2 text-13 font-semibold">客户交付版 · {value.chapters.length} 章骨架</h3>
+        <h3 className="mb-2 text-13 font-semibold">客户交付版 · {value.chapters.length} 章骨架（中英双语）</h3>
         {value.chapters.length === 0 ? (
           <p className="text-11 text-muted-foreground" data-testid="bp-report-empty">
             还没有章节——点「＋ 章节」新增。
