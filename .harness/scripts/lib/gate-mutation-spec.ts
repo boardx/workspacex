@@ -37,6 +37,8 @@ export interface MutationIo {
   exists: (rel: string) => boolean;
   /** 让文件被 git 追踪（部分门就是在查"投影是否被追踪"）。 */
   gitAdd: (rel: string) => void;
+  /** 删文件（"引用集 == 实存集"类的门就是在查这个）。 */
+  remove: (rel: string) => void;
 }
 
 /** 一道门 + 它的全部变异。 */
@@ -179,6 +181,26 @@ export function appendLine(rel: string, line: string): Mutation["apply"] {
   };
 }
 
+/** 删掉一个文件（用于"引用集 == 实存集"「死链」类检查）。 */
+export function removeFile(rel: string): Mutation["apply"] {
+  return (_root, io) => {
+    if (!io.exists(rel)) return false;
+    io.remove(rel);
+    return true;
+  };
+}
+
+/** 把文件里第一处出现的字面量替换掉（用于改配置/导航项/契约声明）。 */
+export function replaceOnce(rel: string, from: string, to: string): Mutation["apply"] {
+  return (_root, io) => {
+    if (!io.exists(rel)) return false;
+    const before = io.read(rel);
+    if (!before.includes(from)) return false;
+    io.write(rel, before.replace(from, to));
+    return true;
+  };
+}
+
 /** 新建一个文件并强制加进 git 索引（用于"投影路径不得被追踪"这类检查）。 */
 export function trackNewFile(rel: string, content: string): Mutation["apply"] {
   return (_root, io) => {
@@ -195,8 +217,15 @@ export function trackNewFile(rel: string, content: string): Mutation["apply"] {
 const EVT_A = ".harness/events/EVT-422-0001.yaml";
 const TERMS = ".harness/terminology/registry.yaml";
 const DOMAINS = ".harness/domains/registry.yaml";
+const UI_SHOT = "phases/phase-01-run-a-project/ui-preview/chat-v2/uc-8-3-landing-default.png";
+const NAV = "apps/web/lib/navigation.ts";
+const REWRITE_ALLOWLIST = ".harness/state/rewrite-coverage-allowlist.json";
+const CONTRACT_TS = "packages/contracts/src/skills.ts";
+const FL_01 = "phases/phase-01-run-a-project/feature_list.json";
 
 const cli = (...rest: string[]) => ["tsx", ".harness/scripts/cli.ts", ...rest] as const;
+const node = (script: string) => ["node", script] as const;
+const tsx = (script: string) => ["tsx", script] as const;
 
 export const GATE_SPECS: readonly GateSpec[] = [
   {
@@ -235,6 +264,68 @@ export const GATE_SPECS: readonly GateSpec[] = [
       {
         name: "把投影文件 git add -f 进索引",
         apply: trackNewFile(".harness/templates/instances/PROBE-BOGUS.yaml", "x: 1\n"),
+      },
+    ],
+  },
+  // ── 以下是 H-01（删 H3A）之后**存活**的门 ──────────────────────────────
+  // H-00 初版只登记了 workflow-event / terminology / domains / graph-authority，
+  // 而这四道里有三道正是 H-01 要删的——那样的基线保护不了删除动作，因为它证明的
+  // 恰好是即将消失的东西。真正需要网的是删完之后还在跑的门，补登记如下。
+  {
+    gate: "ui-material",
+    run: node(".harness/scripts/lint-ui-material.mjs"),
+    guards: (_r, io) => io.exists(UI_SHOT),
+    mutations: [
+      { name: "删掉一张 ui.md 引用的截图（造死链）", apply: removeFile(UI_SHOT) },
+    ],
+  },
+  {
+    gate: "nav-reachability",
+    run: node(".harness/scripts/lint-nav-reachability.mjs"),
+    guards: (_r, io) => io.exists(NAV),
+    mutations: [
+      {
+        name: "把导航项 href 改成不存在的屏",
+        apply: replaceOnce(NAV, 'href: "/chat"', 'href: "/no-such-screen-zzz"'),
+      },
+    ],
+  },
+  {
+    gate: "rewrite-coverage",
+    run: tsx(".harness/scripts/lint-rewrite-coverage.mjs"),
+    guards: (_r, io) => io.exists(REWRITE_ALLOWLIST),
+    mutations: [
+      {
+        name: "往棘轮 allowlist 里加一条不该有的豁免",
+        // 棘轮「只能变短」：加一条今天并不缺的前缀，必须当场红。
+        apply: replaceOnce(REWRITE_ALLOWLIST, '"downloads",', '"downloads",\n    "probe-bogus-prefix",'),
+      },
+    ],
+  },
+  {
+    gate: "third-artifact",
+    run: node(".harness/scripts/lint-third-artifact.mjs"),
+    guards: (_r, io) => io.exists(CONTRACT_TS),
+    mutations: [
+      { name: "删掉某束的第 ③ 件契约文件", apply: removeFile(CONTRACT_TS) },
+    ],
+  },
+  {
+    gate: "verification-can-fail",
+    // 全仓最有价值的一道门：它对每种 verification 形态**真跑一遍"指向物不存在"
+    // 的变体**，确认会非 0 退出——即"这条 verification 有可能失败吗"。
+    // 单次约 22s（9 个动态探针），是本探针最慢的一条，但正因为它守的是
+    // "验证本身会不会空转"，删掉它等于把整个证据链的地基抽掉，必须有网。
+    run: node(".harness/scripts/lint-verification-can-fail.mjs"),
+    guards: (_r, io) => io.exists(FL_01),
+    mutations: [
+      {
+        name: "把一条 verification 改成未登记形态",
+        apply: replaceOnce(
+          FL_01,
+          "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
+          "echo probe-bogus-verification",
+        ),
       },
     ],
   },
