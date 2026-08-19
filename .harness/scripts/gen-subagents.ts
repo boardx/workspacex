@@ -9,7 +9,7 @@ import { parse } from "yaml";
 import { HARNESS_DIR, REPO_ROOT } from "./lib/paths";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
-import { KIND_TO_LAYER, checkSpecialistWorkerSpecs, type RawAgentSpec } from "./lib/role-authorization";
+import { KIND_TO_LAYER, checkSpecialistWorkerSpecs, type RawAgentSpec } from "./lib/agent-spec-shape";
 
 interface AgentSpec {
   name: string;

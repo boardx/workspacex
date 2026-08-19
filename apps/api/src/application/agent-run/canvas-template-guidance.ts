@@ -40,15 +40,28 @@
  * 因为模板表抖动一下就让整轮聊天失败。
  */
 import type { OrgId } from "../../domain/org-id";
+import { getTemplate } from "@repo/fabric-markdown/templates";
 import { listTemplates, type ListTemplatesDeps } from "../canvas/list-templates";
 
-/** prompt 拼接只需要这三个字段——不是 `CanvasTemplateListing` 的全部（`version`/`status`/
+/** prompt 拼接只需要这四个字段——不是 `CanvasTemplateListing` 的全部（`version`/`status`/
  *  `builtin`/`visibility`/`underlyingType`/`usageCount` 都是列表页用的展示字段，模型不需要）。 */
 export interface CanvasTemplateGuidanceInfo {
   readonly key: string;
   readonly displayName: string;
   /** 分区名——现查现拼，不是写死的常量。见文件头「动态」那节。 */
   readonly sections: readonly { readonly name: string }[];
+  /**
+   * 表头字段名（如 persona 的「姓名/性别/年龄…」）。**只有内置模板有**——`SectionDef[]`
+   * 是本仓画布模板契约的唯一模型，字段清单从来没进过它（组织自建模板走
+   * `auto-template-layout.ts` 的自动排版器，同样没有字段概念）。内置模板的字段清单
+   * 唯一权威在 `@repo/fabric-markdown` 每个 `TemplateSpec.fields`——`undefined`/空数组
+   * 时不提字段，模型只按分区产出，与改动前完全一致。
+   *
+   * 这条线不接的后果是真实 bug，不是纸面推演：没有这段指引，模型产出的 persona 围栏
+   * 只有便签、没有表头字段值，前端渲染出的画像卡片姓名/年龄/职位等一律空白——
+   * 2026-08-19 人类实测在 chat 里生成的 persona 画布复现了这个问题。
+   */
+  readonly fields?: readonly string[];
 }
 
 export interface CanvasTemplateGuidancePort {
@@ -63,16 +76,26 @@ export interface CanvasTemplateGuidancePort {
  * `ExecuteAgentRunDeps.canvasTemplates` 的生产实现——薄适配器，不新开查询。
  * `kernel.module.ts` 用与 `CanvasTemplateController` 完全相同的三个依赖
  * （`IdentityRepository` / `CanvasTemplateRepository` / `DecisionIdFactory`）构造它。
+ *
+ * `fields` 从 `@repo/fabric-markdown/templates`（`templates-entry.ts`，纯 Node 安全，
+ * 不碰 fabric/mermaid——与 `persona-summary.ts`/`export-canvas-source.ts` 同一条既有
+ * 导入纪律）现查现拼：`getTemplate(t.key)` 命中即内置模板，取其 `fields`；组织自建
+ * 模板的 key 在那份注册表里查不到，`getTemplate` 返回 `undefined`，`fields` 随之
+ * 缺省——不是遗漏，是「组织自建模板确实没有字段」这条既有事实的如实反映。
  */
 export function createCanvasTemplateGuidancePort(deps: ListTemplatesDeps): CanvasTemplateGuidancePort {
   return {
     listPublished: async (orgId, userId) => {
       const { templates } = await listTemplates(deps, { userId, orgId, filter: "published" });
-      return templates.map((t) => ({
-        key: t.key,
-        displayName: t.displayName,
-        sections: t.sections,
-      }));
+      return templates.map((t) => {
+        const fields = getTemplate(t.key)?.fields;
+        return {
+          key: t.key,
+          displayName: t.displayName,
+          sections: t.sections,
+          ...(fields && fields.length > 0 ? { fields } : {}),
+        };
+      });
     },
   };
 }
@@ -105,16 +128,22 @@ export function buildCanvasTemplateGuidance(
       + "要点，前端会把它渲染成可贴便签、可多人协作的画布。只在内容真的适合按「协作模板的固定"
       + "分区」组织时才用；单纯讲清楚一个流程或结构，仍然优先用 mermaid 图表。",
     "本组织已配置（已发布）的协作模板：",
-    ...templates.map(
-      (t) => `- ${t.key}〔${t.sections.map((s) => s.name).join("/")}〕`,
-    ),
+    ...templates.map((t) => {
+      const fieldsNote = t.fields && t.fields.length > 0 ? `，表头字段〔${t.fields.join("/")}〕` : "";
+      return `- ${t.key}〔${t.sections.map((s) => s.name).join("/")}〕${fieldsNote}`;
+    }),
     "格式：",
     "```canvas",
     "模板: <key>",
+    "字段名: 字段值",
     "## 分区名",
     "- 要点",
     "```",
     "只用上面列出的模板 key；分区名必须与该模板列出的分区名逐字一致，不要自己发明分区或模板。",
+    "如果该模板列了「表头字段」，在 `模板: <key>` 之后、第一个 `## 分区` 之前，逐行写"
+      + "「字段名: 字段值」（字段名必须与列出的表头字段逐字一致）——这些是模板顶部的表头信息"
+      + "（如用户画像的姓名/年龄/职位），不写就会渲染成空白表头，所以内容里但凡出现能对应上的"
+      + "信息就要写进去；没有表头字段的模板（未在上面列出「表头字段」）不要凭空产出这类行。",
   ];
   return lines.join("\n");
 }

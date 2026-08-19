@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { GripVertical } from "lucide-react";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -9,11 +10,38 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * （同 `topic-panel-editor.tsx`/`grouping-panel-editor.tsx` 的先例）。
  *
  * ⚠ 逐项对照 `apps/web/components/tpl/designer-panels.tsx` 的 `AgendaPanel`
- * 与 `apps/web/lib/mock/tpl.ts` 的 `AGENDA_PANEL`（2026-08-17 人类第二次强化
- * 指令后重做）——原型的环节清单是**扁平列表**，没有"半场"嵌套，也没有分开的
- * 「引导师职责/组长职责」两列；只有一个合并的 `boardSkill`（"绑哪个画布/Skill"）
- * 自由文本列。上一版发明的 `halfDays[].segments[]` 嵌套结构与拆分列都不对，
- * 本次改成贴合原型的扁平 `segments[]{no,title,min,boardSkill,optional}`。
+ * 与 `apps/web/lib/mock/tpl.ts` 的 `AGENDA_PANEL`——原型的环节清单是**扁平列表**，
+ * 没有"半场"嵌套，也没有分开的「引导师职责/组长职责」两列；只有一个合并的
+ * `boardSkill`（"绑哪个画布/Skill"）自由文本列。
+ *
+ * ## 「半场」只是文案，不是数据结构——已核实，不是漏做
+ *
+ * 原型的 `dragHint`（"抓左侧握把拖动：环节可跨半场，半场可整块换位"）与
+ * `actions`（含"上移半场/下移半场"）两处文案提到"半场"，但 `AGENDA_PANEL.segments`
+ * 本身是扁平数组，**没有任何 `halfDay`/分组字段**；`AgendaPanel` 组件也只是把
+ * `segments` 平铺渲染成一个 `<ul>`，`actions` 里的 7 个按钮全部**没有 onClick**
+ * （纯 ghost 按钮，原型本来就是静态示意，不是真交互）。全仓搜过 `mock/tpl.ts`
+ * 与 `design-facet-table.ts`，"半场"作为数据结构在别处也不存在——它是原型文案
+ * 里描述的一种**使用场景**（多天档蓝本可能把环节分几个半天），不是已经落地的
+ * 分组概念。因此本编辑器不发明 `halfDay` 字段：拖拽实现的是"环节可以拖到列表
+ * 任意位置"（单一扁平列表内的自由重排），这已经完整覆盖 dragHint 里"可跨半场"
+ * 这句话字面能验证的部分——真要建模半场分组，需要先有一条新的字段提议与签核，
+ * 不在本次范围内。
+ *
+ * ## 拖拽实现：指针事件，不是像素级动画库
+ *
+ * 用 Pointer Events（`onPointerDown`/`onPointerMove`/`onPointerUp`）而不是原生
+ * HTML5 Drag and Drop：后者在触屏上行为不一致、在 jsdom/RTL 里几乎无法可靠模拟；
+ * Pointer Events 统一了鼠标与触摸，且能在组件测试里用 `fireEvent.pointerDown` 等
+ * 真实触发。没有引入新依赖——拖拽逻辑只是"跟踪指针位置、用 `elementFromPoint`
+ * 找到当前悬停在哪一行、实时交换数组顺序、松手时落库"，30 行内能说清楚的逻辑
+ * 不值得为它加一个库。
+ *
+ * 抓手是原型同款的 `GripVertical` 图标（之前占位用的是 Unicode `⠿`，现在换成
+ * 与原型一致的 lucide 图标，见 dragHint 徽标同样保留在列表右上角）。
+ * 拖拽只在抓手上响应（不是整行都能拖，原型的 `GripVertical` 就画在行首左侧，
+ * 不是整行可拖）。**"上移/下移"按钮原样保留**——键盘操作/屏幕阅读器场景不适合
+ * 鼠标拖拽，两条路径并存，不是二选一。
  *
  * ## 仍收窄的部分——如实收紧，不是漏做
  *
@@ -23,7 +51,9 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * （原型本身也只是纯文本展示，没有真实选择器）。`aiRhythm` 是 AI 对照历史场次
  * 给的节奏建议，原型里"采纳建议"按钮背后没有真实 AI 调用，本编辑器把这张卡片
  * 展示为只读参考（同 `contract.md` 里"需要真实 AI 调用，不在本轮范围"的既有收紧）。
- * 拖拽排序用"上移/下移"按钮达到同等效果，不做像素级拖拽手势。
+ * "插入环节"/"还原顺序"/"按新顺序重算时间"三个原型 ghost 按钮同样没有真实行为
+ * 背书（原型没有"撤销栈"或"起始时间"字段）——已有的「＋ 环节」等价于"插入环节"，
+ * 其余两个不造假按钮。
  */
 
 const AI_RHYTHM = {
@@ -165,6 +195,51 @@ export function AgendaPanelEditor({
     void persist(next);
   }
 
+  /* ── 拖拽重排：抓手响应 Pointer Events，实时交换、松手落库 ───────────────
+   * 用 ref 而不是 state 存 draggingIndex/valueRef：拖拽中 pointermove 触发频率
+   * 很高，走 state 会导致这一帧的 setValue 还没提交、下一帧 pointermove 读到的
+   * `value` 是闭包捕获的旧值——用 ref 保证每次都读到最新数组。
+   */
+  const draggingIndexRef = React.useRef<number | null>(null);
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+  const [draggingIndex, setDraggingIndex] = React.useState<number | null>(null);
+
+  function handleGripPointerDown(e: React.PointerEvent<HTMLSpanElement>, index: number): void {
+    if (e.button !== 0 && e.pointerType === "mouse") return; // 只响应主按键/触摸
+    e.currentTarget.setPointerCapture?.(e.pointerId); // jsdom 测试环境没有这个方法
+    draggingIndexRef.current = index;
+    setDraggingIndex(index);
+  }
+
+  function handleGripPointerMove(e: React.PointerEvent<HTMLSpanElement>): void {
+    if (draggingIndexRef.current === null) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const row = el?.closest<HTMLElement>("[data-agenda-index]");
+    if (row === null || row === undefined) return;
+    const overIndex = Number(row.dataset.agendaIndex);
+    const from = draggingIndexRef.current;
+    if (Number.isNaN(overIndex) || overIndex === from) return;
+
+    const segments = [...valueRef.current.segments];
+    const [moved] = segments.splice(from, 1);
+    segments.splice(overIndex, 0, moved!);
+    setValue({ segments }); // 拖拽中只更新本地态做实时预览，不逐帧发请求
+    draggingIndexRef.current = overIndex;
+    setDraggingIndex(overIndex);
+  }
+
+  function handleGripPointerUp(e: React.PointerEvent<HTMLSpanElement>): void {
+    if (draggingIndexRef.current === null) return;
+    e.currentTarget.releasePointerCapture?.(e.pointerId); // jsdom 测试环境没有这个方法
+    draggingIndexRef.current = null;
+    setDraggingIndex(null);
+    // 松手才落库、才重算编号——同「上移/下移」的既有节流纪律（拖动中不逐帧发 PUT）。
+    const next = { segments: renumber(valueRef.current.segments) };
+    setValue(next);
+    void persist(next);
+  }
+
   const totalMinutes = value.segments.reduce((sum, s) => sum + s.min, 0);
 
   return (
@@ -198,11 +273,27 @@ export function AgendaPanelEditor({
             {value.segments.map((seg, i) => (
               <li
                 key={i}
-                className="flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2.5"
+                data-agenda-index={i}
+                className={
+                  draggingIndex === i
+                    ? "flex flex-wrap items-center gap-1.5 rounded-md border border-primary bg-accent p-2.5 opacity-80"
+                    : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2.5"
+                }
                 data-testid={`bp-agenda-segment-${i}`}
               >
-                <span aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground">
-                  ⠿
+                <span
+                  role="button"
+                  tabIndex={-1}
+                  aria-label={`拖动排序：${seg.title || "环节 " + seg.no}`}
+                  aria-hidden={false}
+                  className="flex h-3.5 w-3.5 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground active:cursor-grabbing"
+                  data-testid={`bp-agenda-segment-grip-${i}`}
+                  onPointerDown={(e) => handleGripPointerDown(e, i)}
+                  onPointerMove={handleGripPointerMove}
+                  onPointerUp={handleGripPointerUp}
+                  onPointerCancel={handleGripPointerUp}
+                >
+                  <GripVertical aria-hidden className="h-3.5 w-3.5" />
                 </span>
                 <span className="w-6 shrink-0 text-11 font-mono text-muted-foreground">{seg.no}</span>
                 <input
