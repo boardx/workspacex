@@ -53,7 +53,7 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
     const row = await this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
         id: string; storage_ref: string; filename: string; mime: string;
-        bytes: number; created_at: string;
+        bytes: string; created_at: string;
       }>(
         `SELECT id, storage_ref, filename, mime, bytes, created_at::text AS created_at
            FROM chat_message_attachments
@@ -62,9 +62,10 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       );
       const hit = r.rows[0];
       if (hit === undefined) return null;
+      // bytes 是 bigint（pg 回字符串）——转成 number（≤25MB 远在安全整数内）。
       return {
         id: hit.id, orgId, threadId, storageRef: hit.storage_ref, filename: hit.filename,
-        mime: hit.mime, bytes: hit.bytes, createdAt: hit.created_at,
+        mime: hit.mime, bytes: Number(hit.bytes), createdAt: hit.created_at,
       } satisfies AttachmentRow;
     });
     return guard({ kind: "project", id: `personal:${threadId}` }, row);
