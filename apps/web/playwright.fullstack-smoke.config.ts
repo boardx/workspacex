@@ -267,6 +267,11 @@ export default defineConfig({
         //   （回显真实收到的 userText，是本用例证明"图像通道真的组装进 ModelCallInput"
         //   的关键取证点）。
         "chat-vision-honest-degrade.spec.ts",
+        // ⚠ F48/F49 同理排在 `seeded`：它要用种子里三个角色（引导师 `email` 挂 skill/
+        //   发消息、非管理员 `memberEmail` 做 D3 反证、`adminEmail` 处置）与现成的
+        //   可挂载 skill / 可运行 agent——同 `chat-vision-honest-degrade.spec.ts` 的理由，
+        //   复用现成夹具，不重新发明 chat 链路。
+        "feedback-loop-smoke.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
