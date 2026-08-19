@@ -19,6 +19,15 @@
  *      「已就绪」（上传态），从未渲染任何抽取/识图结果；这里额外断言消息气泡下的只读附件展示
  *      （`MessageAttachments`）同样只有文件名/大小，没有转录或描述文本。
  *
+ * ## 2026-08-19 观测：负载噪音复盘，非本 spec 回归
+ *
+ * 当天以 `pnpm run verify:chat-read`（跑 config 里全部 spec）连续两次跑本用例均超时失败
+ * （`getByTestId('chat-message-attachment-...')` 30s 未见），当时 `uptime` load average
+ * 均在 10–12（本机 10 核）。随后单独隔离重跑本 spec（`playwright test ... chat-attachment-
+ * image-vision-extraction.spec.ts`，1 worker），load 已回落到 3.25–4.3，稳定通过
+ * （19.8s，总计 51.5s）。结论：本次是负载导致的假红，不是本 spec 或其覆盖链路的真实回归；
+ * 未改动测试逻辑。
+ *
  * ## 终态如何在浏览器侧取证，而不是直连 DB
  *
  * 附件上传响应（契约 `Attachment`）与消息列表都不携带 `extraction_status`/`extraction_error`
