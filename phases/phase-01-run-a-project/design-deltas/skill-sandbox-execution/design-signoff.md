@@ -1,7 +1,14 @@
 ---
 status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: skill-sandbox-execution
-base_bundle: skill-trial-run
+base_bundle: skills  # ⚠ 原写 `skill-trial-run`，但 phases/phase-01-run-a-project/contracts/ 下
+  # 没有这个束（那是一条**用例**的名字，不是契约束名），`harness doctor` 因此判
+  # 「delta 凭空立户」FAIL。同域的 skill-tags / skill-reviewer-function-assignment 两个
+  # delta 用的都是 `skills`，而本 delta 改的正是 skills 束里的
+  # `runTrialRun`（POST /skill-versions/:versionId/trial-run）⇒ 挂靠 `skills`。
+  # 与上面 covers 的重编号同一性质：**指针层面的机械修正**，scope / status /
+  # confirmed_by / confirmed_at 一字未动（ADR-023，不是重新裁决）。
+  # ⚠ 已在 #1583 显式请人类确认这一条 —— 若认为应挂别的束，改这一行即可，不影响其余内容。
 scope: trial-run-executes-model-written-scripts-in-a-network-isolated-container-and-produces-real-artifacts
 covers: [F962]   # 机械重编号（2026-08-19）：F204 已被 templates 束「分组二三项配置面板」占用（真实代码+evidence 已在 main），本条是尚未落地实现的 delta 声明，改用下一个空闲号，不改任何设计决定，status/confirmed_by/confirmed_at/confirmed_via 原样未动。
 confirmed_by: usam.shen@gmail.com

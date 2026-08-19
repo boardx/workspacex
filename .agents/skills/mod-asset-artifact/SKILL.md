@@ -64,8 +64,10 @@ issue #848（资产文件真实内容缺口）、#598（skill 双模型不收敛
 ## 踩坑与经验（append-only，最新在上）
 - 2026-08-09：本 skill 曾与官方 `mod-canvas-diagram` 在画布域重叠（两份平行
   文档），已收窄范围完成收敛（出处：本次改动的 PR）。教训：建模块知识库前先查
-  `.harness/domains/registry.yaml` 和已有 TPL-MOD-001 实例，别按代码目录自行
-  推演一套平行划分。
+  已有的 skill 清单（`project/PROJECT.md` 的模块清单），别按代码目录自行推演
+  一套平行划分。（原文引的 .harness Domain registry 已随 H-01 删除——那套
+  registry 全仓只有 1 条记录、0 个 TPL-MOD-001 实例，见 #1567。此处刻意不写
+  成反引号路径，否则 skills doctor 会把它当成活引用再抓一次。）
 
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）
 

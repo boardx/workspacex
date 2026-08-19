@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Modal } from "@/components/files/overlay";
+import { ChatAttachmentPreviewModal } from "./chat-attachment-preview-modal";
 
 const MAX_FILE_BYTES = ATTACHMENT_LIMITS.maxBytesPerFile;
 const MAX_ATTACHMENTS = ATTACHMENT_LIMITS.maxAttachmentsPerMessage;
@@ -87,6 +88,15 @@ function nextLocalId(): string {
 export function useChatAttachments(opts: { threadId: string; bearer?: string }) {
   const { threadId, bearer } = opts;
   const [attachments, setAttachments] = React.useState<LiveAttachment[]>([]);
+  /**
+   * `pickFiles` 需要"当前有几个附件"来判数量上限，但不能靠把 `attachments` 塞进
+   * `useCallback` 依赖数组来读最新值——那会让 `pickFiles` 在每次上传进度更新
+   * （`patch` 高频调 `setAttachments`）时都换一个新的函数身份，级联打穿所有吃它当
+   * 依赖的下游（拖拽 handlers 等）。改用一个跟 `attachments` 同步的 ref，`pickFiles`
+   * 读它而不进依赖数组，函数身份保持稳定，读到的又不是过期值。
+   */
+  const attachmentsRef = React.useRef<LiveAttachment[]>([]);
+  React.useEffect(() => { attachmentsRef.current = attachments; }, [attachments]);
   const [banner, setBanner] = React.useState<BannerState | null>(null);
   const [dragActive, setDragActive] = React.useState(false);
   // #1492：dragEnter/dragLeave 在挂到大面积容器（消息列表 + composer 整个面板）后，
@@ -97,7 +107,6 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
   const dragCounter = React.useRef(0);
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
-
   React.useEffect(() => {
     // 切线程：清空本地附件态（不影响服务端已落的 pending 行，那些随线程/未挂而存在）。
     setAttachments([]);
@@ -122,54 +131,67 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
     }
   }, [threadId, bearer, patch]);
 
-  /** 选择/拖入文件：客户端预检（数量/大小/类型，只为快反馈，服务端仍权威）→ 逐个并发上传。 */
+  /**
+   * 选择/拖入文件：客户端预检（数量/大小/类型，只为快反馈，服务端仍权威）→ 逐个并发上传。
+   *
+   * ⚠ 2026-08-19 实测修复：这里以前把 `nextLocalId()`（有副作用——自增计数器 +
+   * `crypto.randomUUID()`）、`setBanner`、`queueMicrotask` 触发真实上传，全部塞在
+   * `setAttachments` 的 updater 函数体里。React 18 StrictMode（开发环境）会刻意把
+   * updater 调用两次来抓不纯的 reducer；由于 `nextLocalId()` 本身不纯，两次调用生成
+   * **两个不同的** localId，各自触发一次真实 `POST .../attachments`——每选一次文件，
+   * 真实上传发生两次，产出两个不同的服务端 id，最终"发消息时用哪个"纯属两次网络请求
+   * 谁先落地的竞态（#1584 e2e 新断言第一次照到这个角落）。
+   * 修法：把全部不纯的部分（id 生成、banner 提示、上传触发）挪到 updater **外面**，
+   * `setAttachments` 只传一个纯合并函数——不管 StrictMode 调用它几次，结果都一样，
+   * 副作用只在 `pickFiles` 本体（一次真实点击只调一次）里跑一遍。
+   */
   const pickFiles = React.useCallback((files: FileList | File[] | null) => {
     if (!files) return;
     const list = Array.from(files);
     if (list.length === 0) return;
-    setBanner(null);
-    setAttachments((cur) => {
-      let running = cur.length;
-      let nextBanner: BannerState | null = null;
-      const toUpload: Array<{ localId: string; file: File }> = [];
-      const added: LiveAttachment[] = [];
-      for (const file of list) {
-        if (running >= MAX_ATTACHMENTS) {
-          nextBanner = { kind: "count", text: `每条消息最多 ${MAX_ATTACHMENTS} 个附件，已达上限，多出的未添加。` };
-          break;
-        }
-        if (file.size > MAX_FILE_BYTES) {
-          nextBanner = { kind: "oversize", text: `「${file.name}」超过单文件 ${formatBytes(MAX_FILE_BYTES)} 上限，未添加。` };
-          continue;
-        }
-        if (file.type && !WHITELIST.has(file.type)) {
-          nextBanner = { kind: "type", text: `不支持的文件类型「${file.name}」。支持：${WHITELIST_LABELS}。` };
-          continue;
-        }
-        const localId = nextLocalId();
-        added.push({
-          localId, filename: file.name, mime: file.type || "application/octet-stream",
-          bytes: file.size, status: "uploading", progress: 0, file,
-        });
-        toUpload.push({ localId, file });
-        running += 1;
+
+    let running = attachmentsRef.current.length;
+    let nextBanner: BannerState | null = null;
+    const toUpload: Array<{ localId: string; file: File }> = [];
+    const added: LiveAttachment[] = [];
+    for (const file of list) {
+      if (running >= MAX_ATTACHMENTS) {
+        nextBanner = { kind: "count", text: `每条消息最多 ${MAX_ATTACHMENTS} 个附件，已达上限，多出的未添加。` };
+        break;
       }
-      if (nextBanner) setBanner(nextBanner);
-      // 上传在 setState 之外触发（副作用），但 id 已定，安全。
-      queueMicrotask(() => { for (const u of toUpload) void doUpload(u.localId, u.file); });
-      return added.length > 0 ? cur.concat(added) : cur;
-    });
+      if (file.size > MAX_FILE_BYTES) {
+        nextBanner = { kind: "oversize", text: `「${file.name}」超过单文件 ${formatBytes(MAX_FILE_BYTES)} 上限，未添加。` };
+        continue;
+      }
+      if (file.type && !WHITELIST.has(file.type)) {
+        nextBanner = { kind: "type", text: `不支持的文件类型「${file.name}」。支持：${WHITELIST_LABELS}。` };
+        continue;
+      }
+      const localId = nextLocalId();
+      added.push({
+        localId, filename: file.name, mime: file.type || "application/octet-stream",
+        bytes: file.size, status: "uploading", progress: 0, file,
+      });
+      toUpload.push({ localId, file });
+      running += 1;
+    }
+
+    setBanner(nextBanner);
+    if (added.length > 0) setAttachments((cur) => cur.concat(added)); // 纯合并，StrictMode 调几次结果都一样
+    // 真实网络请求在此触发，且只在这一条真实调用路径上触发一次（不在任何 setState updater 里）。
+    queueMicrotask(() => { for (const u of toUpload) void doUpload(u.localId, u.file); });
   }, [doUpload]);
 
   const retry = React.useCallback((localId: string) => {
-    setAttachments((cur) => {
-      const target = cur.find((a) => a.localId === localId);
-      if (target?.file) {
-        queueMicrotask(() => void doUpload(localId, target.file!));
-        return cur.map((a) => (a.localId === localId ? { ...a, status: "uploading", error: undefined, progress: 0 } : a));
-      }
-      return cur;
-    });
+    // 同 `pickFiles` 那处 2026-08-19 修复的道理：真实上传的触发不能挂在 `setAttachments`
+    // 的 updater 函数体里（StrictMode 双调用会真的重传两次）。用 `attachmentsRef` 读现状，
+    // updater 只做纯合并，`doUpload` 调用在 updater 外面、只发生一次。
+    const target = attachmentsRef.current.find((a) => a.localId === localId);
+    if (!target?.file) return;
+    setAttachments((cur) => cur.map(
+      (a) => (a.localId === localId ? { ...a, status: "uploading", error: undefined, progress: 0 } : a),
+    ));
+    queueMicrotask(() => void doUpload(localId, target.file!));
   }, [doUpload]);
 
   const removeAttachment = React.useCallback((localId: string) => {
@@ -453,30 +475,46 @@ export function ChatAttachMaterialModal({
 }
 
 /**
- * #946 · V9-a F152：消息气泡下的**只读**附件展示（listMessages 的 attachments 投影）。
- * 与 composer 的可编辑预览条不同：这里没有移除/重试，只有文件名 + 类型图标 + 大小。
+ * #946 · V9-a F152：消息气泡下的附件展示（listMessages 的 attachments 投影）。
+ * 没有移除/重试（那是 composer 可编辑预览条的事）——只有文件名 + 类型图标 + 大小 +
+ * #1584 起：点击弹窗预览/下载（`ChatAttachmentPreviewModal`）。
  */
-export function MessageAttachments({ attachments }: { attachments: readonly ChatAttachment[] }) {
+export function MessageAttachments({
+  attachments, threadId,
+}: { attachments: readonly ChatAttachment[]; threadId: string }) {
+  const [previewing, setPreviewing] = React.useState<ChatAttachment | null>(null);
   if (attachments.length === 0) return null;
   return (
-    <ul className="mt-1 flex flex-col gap-1" data-testid="chat-message-attachments">
-      {attachments.map((att) => {
-        const Icon = TYPE_ICON[iconKindForMime(att.mime)];
-        return (
-          <li
-            key={att.id}
-            className="flex items-center gap-2 rounded-lg border border-border-subtle bg-panel px-2 py-1"
-            data-testid={`chat-message-attachment-${att.id}`}
-          >
-            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden>
-              <Icon className="h-3.5 w-3.5" />
-            </span>
-            <span className="truncate text-11 text-card-foreground" title={att.filename}>{att.filename}</span>
-            <span className="ml-auto shrink-0 text-10 text-muted-foreground">{formatBytes(att.bytes)}</span>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      <ul className="mt-1 flex flex-col gap-1" data-testid="chat-message-attachments">
+        {attachments.map((att) => {
+          const Icon = TYPE_ICON[iconKindForMime(att.mime)];
+          return (
+            <li key={att.id}>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-lg border border-border-subtle bg-panel px-2 py-1 text-left transition-colors hover:bg-muted/60"
+                data-testid={`chat-message-attachment-${att.id}`}
+                onClick={() => setPreviewing(att)}
+              >
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground" aria-hidden>
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
+                <span className="truncate text-11 text-card-foreground" title={att.filename}>{att.filename}</span>
+                <span className="ml-auto shrink-0 text-10 text-muted-foreground">{formatBytes(att.bytes)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {previewing ? (
+        <ChatAttachmentPreviewModal
+          threadId={threadId}
+          attachment={previewing}
+          onClose={() => setPreviewing(null)}
+        />
+      ) : null}
+    </>
   );
 }
 
