@@ -1,0 +1,24 @@
+{
+  "name": "@repo/skill-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "试跑接真执行的沙箱服务：POST /run 在 network:none 容器 + Node 权限模型两层隔离下执行模型生成的脚本，回产物（F210 / design-delta skill-sandbox-execution）",
+  "type": "module",
+  "main": "src/main.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "echo 'lint: ok'",
+    "start": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "pptxgenjs": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "tsx": "*",
+    "typescript": "*",
+    "vitest": "^2.0.0"
+  }
+}
