@@ -203,6 +203,30 @@ export const SkillError = z.enum([
    *   与 `SKILLS_FROZEN_ROUTES` 逐字对应。
    */
   "SKILL_DRAFT_WRITE_PATH_FROZEN",
+
+  /* ── ⑥ F962：试跑接真执行（design-delta `skill-sandbox-execution` §6.2）── */
+  /**
+   * 沙箱服务不可达（连不上 / 非 200 / 响应读不懂）。
+   *
+   * ⚠ **不得**与 `MODEL_UNAVAILABLE` 或 `DEPENDENCY_UNAVAILABLE` 合并。
+   *   「模型没配好」「沙箱挂了」「模型写的脚本一直修不对」是三件**运维动作完全不同**
+   *   的事：这一条要人去看沙箱容器/socket，另两条不是。合成一个码 = 线上无法归因
+   *   （#1499 头注记过的同一条教训）。
+   */
+  "SANDBOX_UNAVAILABLE",
+  /**
+   * 脚本超过沙箱的 wall-clock 硬超时，容器已被回收。
+   * ⚠ 与 `SANDBOX_UNAVAILABLE` 分开：沙箱是好的，是这段脚本跑不完。
+   */
+  "SANDBOX_TIMEOUT",
+  /**
+   * 回喂重试用尽（上限 3，§7）仍失败。
+   *
+   * ⚠ 响应**必须原样带回最后一次的真实 stderr**，不许翻译成「生成失败，请重试」——
+   *   那会让真实原因消失（#660 已记过的同一条纪律）。做 skill 的人正是靠这段 stderr
+   *   知道该改 SKILL.md 的哪里。
+   */
+  "SCRIPT_FAILED_AFTER_RETRIES",
 ]);
 
 type SkillErrorT = z.infer<typeof SkillError>;
@@ -266,7 +290,57 @@ export const RiskItem = z
   })
   .strict();
 
-/** 试跑记录。⚠ 失败**不入库**——所以这个实体只在成功路径上出现 */
+/**
+ * F962 —— 试跑产出的**可下载产物引用**（design-delta `skill-sandbox-execution` §5）。
+ *
+ * ⚠ **它不是项目产物（artifact）**。试跑语义是「预演」：文件落 `ObjectStore.putOnce`
+ *   并回一个可下载引用，但**不自动**落成项目产物——那是另一件事，有自己的绑定/版本/
+ *   权限语义。用户要留下它，走既有的落地产物路径**显式**操作。
+ *   这条边界是签核逐字确认过的（`confirmed_via`：「产物落 ObjectStore 但不自动落成项目产物」）。
+ */
+export const TrialRunArtifact = z
+  .object({
+    name: z.string(),
+    mime: z.string(),
+    sizeBytes: z.number().int().nonnegative(),
+    /** `ObjectStore` 的键。下载走既有的 download-url 流程，不在本束新造下载路由。 */
+    objectKey: z.string(),
+  })
+  .strict();
+
+/** F962：试跑的生命周期状态。形态与 `agent_runs` 对齐，不新造一套词汇。 */
+export const TrialRunStatus = z.enum(["queued", "running", "succeeded", "failed"]);
+
+/**
+ * F962：终态失败的诊断信息。
+ *
+ * ⚠ `stderr` 是**最后一次执行的真实 stderr 原文**，不是给用户看的友好文案。
+ *   翻译成「请重试」会让真实原因消失（#660）；做 skill 的人正是靠它定位该改哪里。
+ */
+export const TrialRunFailure = z
+  .object({
+    code: z.enum([
+      "MODEL_UNAVAILABLE",
+      "DEPENDENCY_UNAVAILABLE",
+      "SANDBOX_UNAVAILABLE",
+      "SANDBOX_TIMEOUT",
+      "SCRIPT_FAILED_AFTER_RETRIES",
+    ]),
+    /** `SCRIPT_FAILED_AFTER_RETRIES` 时必非空；其余码可为空串。 */
+    stderr: z.string(),
+    /** 实际发生的执行次数（§7 上限 3）。 */
+    attempts: z.number().int().nonnegative(),
+  })
+  .strict();
+
+/**
+ * 试跑记录。
+ *
+ * ⚠ 原头注写的「失败**不入库**——所以这个实体只在成功路径上出现」在 F962 转异步后
+ *   **仍然成立**：这个实体依旧只描述成功的那一次。失败改由 `getTrialRun.out.failure`
+ *   承载，而不是塞进本实体加一堆可空字段——一个既能表示成功又能表示失败的实体，
+ *   会让「成功但字段都是空」和「失败」在类型上无法区分。
+ */
 export const TrialRun = z
   .object({
     trialRunId: z.string(),
@@ -277,6 +351,14 @@ export const TrialRun = z
     tokens: z.number().int().nonnegative(),
     /** 本次实际命中的数据范围。⚠ 它是「声明的范围」与「实际读到的东西」之间的对账面 */
     hitDataScope: z.array(z.string()),
+    /**
+     * F962：本次真实执行产出的文件。空数组 = 这次试跑没有产物（例如 skill 本来就只输出文字）。
+     * ⚠ `.default([])` 而不是必填：F962 之前落库/构造的试跑记录没有这个字段，
+     *   `.parse()` 时自动补 `[]`，不因「以前没有这个字段」而校验失败（同 `tags` 的先例）。
+     */
+    artifacts: z.array(TrialRunArtifact).default([]),
+    /** F962：实际发生的脚本执行次数（§7 回喂重试，上限 3）。无脚本执行时为 0。 */
+    attempts: z.number().int().nonnegative().default(0),
   })
   .strict();
 
@@ -475,6 +557,45 @@ export const operations = {
       })
       .strict(),
     err: ["TRIAL_RUN_SCHEMA_MISMATCH", "MODEL_UNAVAILABLE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * F962（design-delta `skill-sandbox-execution` §6.1）——试跑的**轮询读端**。
+   *
+   * ## ⚠ 为什么试跑必须转异步：这不是性能优化，是 R9 的硬线
+   *
+   * 上面 `runTrialRun` 的头注早就写着「超 10 秒转可离开页面的后台任务并保留结果（R9）」，
+   * `out.asyncTaskId` 这个槽位从第一版就在——只是此前恒为 `null`（同步实现）。
+   * 实测（#1575）：单次真实模型调用（20KB system prompt）就要 33.5s（关思考）到
+   * 200-300s（开思考），叠加 §7 的最多 3 次回喂重试与沙箱执行 ⇒ **必然**远超 10s。
+   *
+   * ⇒ 接真执行之后 `runTrialRun` **恒**返回 `{ trialRun: null, asyncTaskId }`，
+   *   结果由本操作轮询。这是签核明确批准的契约面改动
+   *   （`confirmed_via`：「接受试跑转异步（会改试跑 API 形状）」）。
+   *
+   * ## 形态照抄 `agent-runs/:runId`，不新造一套
+   *
+   * 轮询而非 SSE；终态即停；**不存在的 / 别的组织的 / 看不见的一律裸 404**
+   * （不给存在性预言机）。
+   *
+   * ⚠ `failure` 与 `trialRun` 互斥：终态要么有结果要么有失败原因，
+   *   不存在「成功了但没有产物」这种可以被静默吞掉的中间态。
+   */
+  getTrialRun: {
+    method: "GET",
+    path: "/skill-trial-runs/:trialRunId",
+    in: z.object({ trialRunId: z.string() }).strict(),
+    out: z
+      .object({
+        trialRunId: z.string(),
+        status: TrialRunStatus,
+        /** 非终态、或失败时为 null。 */
+        trialRun: TrialRun.nullable(),
+        /** `status === "failed"` 时非 null；其余为 null。 */
+        failure: TrialRunFailure.nullable(),
+      })
+      .strict(),
+    err: ["DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 提交进人工门禁。⚠ 扫描未过即拒——两道门是**并列**的，不是「先提交再补扫描」 */

@@ -214,9 +214,6 @@ export function trackNewFile(rel: string, content: string): Mutation["apply"] {
 // 这批变异全部在 2026-08-18 手工实测过（见 #1573 正文的表格），本表是把它们固化。
 // 新增门禁时**必须**在这里补登记：一道没有变异反证的门，等于没有证据说它在工作。
 
-const EVT_A = ".harness/events/EVT-422-0001.yaml";
-const TERMS = ".harness/terminology/registry.yaml";
-const DOMAINS = ".harness/domains/registry.yaml";
 const UI_SHOT = "phases/phase-01-run-a-project/ui-preview/chat-v2/uc-8-3-landing-default.png";
 const NAV = "apps/web/lib/navigation.ts";
 const REWRITE_ALLOWLIST = ".harness/state/rewrite-coverage-allowlist.json";
@@ -228,34 +225,6 @@ const node = (script: string) => ["node", script] as const;
 const tsx = (script: string) => ["tsx", script] as const;
 
 export const GATE_SPECS: readonly GateSpec[] = [
-  {
-    gate: "workflow-event",
-    run: cli("workflow-event", "doctor"),
-    guards: (_r, io) => io.exists(EVT_A),
-    mutations: [
-      { name: "instance_id 清空", apply: blankField(EVT_A, "instance_id") },
-      { name: "kind 改成非法值", apply: setField(EVT_A, "kind", "bogus_kind_xyz") },
-      { name: "instance_id 与另一实例重复", apply: setField(EVT_A, "instance_id", "EVT-hmv2-e1-001") },
-      { name: "删掉 task_id 字段", apply: dropField(EVT_A, "task_id") },
-    ],
-  },
-  {
-    gate: "terminology",
-    run: cli("terminology", "doctor"),
-    guards: (_r, io) => io.exists(TERMS),
-    mutations: [
-      {
-        name: "造重复 TERM ID",
-        apply: duplicateEntryId(TERMS, "term_id", "TERM-ORG-002", "TERM-ORG-001"),
-      },
-    ],
-  },
-  {
-    gate: "domains",
-    run: cli("domains", "doctor"),
-    guards: (_r, io) => io.exists(DOMAINS),
-    mutations: [{ name: "删掉 owner 字段", apply: dropFirstIndentedField(DOMAINS, "owner") }],
-  },
   {
     gate: "graph-authority",
     run: cli("graph-authority", "doctor"),

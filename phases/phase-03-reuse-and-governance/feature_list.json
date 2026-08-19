@@ -1084,10 +1084,11 @@
       "verification": [
         "pnpm --filter api exec vitest run tests/feedback/feedback-state-machine.test.ts",
         "pnpm --filter api exec vitest run tests/feedback/product-feedback-persistence.test.ts",
-        "pnpm --filter web exec vitest run tests/ui/feedback-dialog.test.tsx"
+        "pnpm --filter web exec vitest run tests/ui/feedback-dialog.test.tsx",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded -g \"反馈端到端\""
       ],
       "evidence": "",
-      "notes": "PROP-FEEDBACK-LOOP-E2E-001 的 FB-2。FB-1（消息级 👍/👎 归因落库）= phase-01 F176，已 passing 并在 main 上。\n\n⚠ 依据等级：[待签核] 契约束 `feedback-loop`（phases/phase-03-*/contracts/feedback-loop/design-signoff.md，status: proposed）。**签核未完成前不得标 passing**——实现先于签核落地是人类 2026-08-15 直接要求的时间顺序，不是实现方跳过关卡；签核文件里如实记了这一点，并列出三件待人类确认（`不做` 终态 / 反馈类型只有两类 / 状态流水无查看界面）。\n\n⚠ 第 ① 件（UI 截图 + ui.md + ui-material-map 声明）尚未产出，是签核前唯一挡着的东西。\n\n⚠ 本条**不含**「消息级评价聚合成含具体改动的改进建议」那一半——那是 F12 的另一半，依赖 skills.listSuggestions 的落库面，全仓今天零实现。两者不要混为一条。\n\n三条不变量（反证要守的边界）：① 提交人/状态/创建时间服务端定，契约 in 里根本没有这三个字段；② 票数是 COUNT(*)，没有计数列；③ 正文经 Guarded 出门，忘了判 D3 就投影出去是编译不过的东西。"
+      "notes": "PROP-FEEDBACK-LOOP-E2E-001 的 FB-2。FB-1（消息级 👍/👎 归因落库）= phase-01 F176，已 passing 并在 main 上。\n\n⚠ 依据等级：[待签核] 契约束 `feedback-loop`（phases/phase-03-*/contracts/feedback-loop/design-signoff.md，status: proposed）。**签核未完成前不得标 passing**——实现先于签核落地是人类 2026-08-15 直接要求的时间顺序，不是实现方跳过关卡；签核文件里如实记了这一点，并列出三件待人类确认（`不做` 终态 / 反馈类型只有两类 / 状态流水无查看界面）。\n\n⚠ 第 ① 件（UI 截图 + ui.md + ui-material-map 声明）尚未产出，是签核前唯一挡着的东西。\n\n⚠ 本条**不含**「消息级评价聚合成含具体改动的改进建议」那一半——那是 F12 的另一半，依赖 skills.listSuggestions 的落库面，全仓今天零实现。两者不要混为一条。\n\n三条不变量（反证要守的边界）：① 提交人/状态/创建时间服务端定，契约 in 里根本没有这三个字段；② 票数是 COUNT(*)，没有计数列；③ 正文经 Guarded 出门，忘了判 D3 就投影出去是编译不过的东西。\n\n⚠ 2026-08-19 补：真实浏览器端到端 apps/web/e2e/feedback-loop-smoke.spec.ts（人类原话「做一个端到端的测试，在前端提交的不同种类的反馈，在后台要可以看」）——五条串行用例覆盖三种 FeedbackTarget 分支（产品/skill/agent）× 两种 FeedbackKind、两种提交人角色，含 D3 可见性反证（非管理员看得到标题看不到别人正文）与管理员投票/分诊/带理由拒绝三连。实测 5 passed（37s），已加进 verification。"
     },
     {
       "id": "F49",
@@ -1107,10 +1108,11 @@
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/admin-feedback-live.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/admin-feedback-transitions-match-domain.test.ts",
-        "node apps/web/scripts/lint-no-backend-badge.mjs"
+        "node apps/web/scripts/lint-no-backend-badge.mjs",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded -g \"反馈端到端\""
       ],
       "evidence": "",
-      "notes": "PROP-FEEDBACK-LOOP-E2E-001 的 FB-3。同 F48，签核未完成前不得标 passing。\n\n⚠ D1（人类 2026-08-15）：后台屏是唯一入口，`components/skill/skill-feedback.tsx` 已降级为指向它的链接——两块画同一件事的 mock 屏收敛成一处，同 F160 对「组织成员」屏的处置。\n\n⚠ 右列**不是**「从消息级评价聚合出来的改进建议」。那需要 skills.listSuggestions 的落库面（今天零实现），屏内有一句话如实说它还没接地，不用 mock 顶替。\n\n⚠ 后台屏那张分诊转移表是 domain 状态机的第二份副本，由 tests/ui/admin-feedback-transitions-match-domain.test.ts 逐条对账（解析源码文本，因为 apps/web 不依赖 apps/api）。没有那条对账就不许留第二份副本。\n\n⚠ 左栏计数 ADMIN_NAV_COUNT_SOURCES.feedback 现在抛错让它显示「—」：待处理数只能异步查，同步计数源给不出，而一个永远不动的 mock 数字摆在真数据旁边是最难发现的一种谎。"
+      "notes": "PROP-FEEDBACK-LOOP-E2E-001 的 FB-3。同 F48，签核未完成前不得标 passing。\n\n⚠ D1（人类 2026-08-15）：后台屏是唯一入口，`components/skill/skill-feedback.tsx` 已降级为指向它的链接——两块画同一件事的 mock 屏收敛成一处，同 F160 对「组织成员」屏的处置。\n\n⚠ 右列**不是**「从消息级评价聚合出来的改进建议」。那需要 skills.listSuggestions 的落库面（今天零实现），屏内有一句话如实说它还没接地，不用 mock 顶替。\n\n⚠ 后台屏那张分诊转移表是 domain 状态机的第二份副本，由 tests/ui/admin-feedback-transitions-match-domain.test.ts 逐条对账（解析源码文本，因为 apps/web 不依赖 apps/api）。没有那条对账就不许留第二份副本。\n\n⚠ 左栏计数 ADMIN_NAV_COUNT_SOURCES.feedback 现在抛错让它显示「—」：待处理数只能异步查，同步计数源给不出，而一个永远不动的 mock 数字摆在真数据旁边是最难发现的一种谎。\n\n⚠ 2026-08-19 补：真实浏览器端到端 apps/web/e2e/feedback-loop-smoke.spec.ts（人类原话「做一个端到端的测试，在前端提交的不同种类的反馈，在后台要可以看」）——五条串行用例覆盖三种 FeedbackTarget 分支（产品/skill/agent）× 两种 FeedbackKind、两种提交人角色，含 D3 可见性反证（非管理员看得到标题看不到别人正文）与管理员投票/分诊/带理由拒绝三连。实测 5 passed（37s），已加进 verification。"
     }
   ]
 }

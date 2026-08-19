@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyzeBodyPathParamLeaks } from "./body-path-param-leak";
+import { analyzeBodyPathParamLeaks, allowlistKey, staleAllowlistEntries } from "./body-path-param-leak";
 
 /**
  * F961 复核发现的真 bug（PR #1549）的机械门（issue #1580）。fixture 只用最小字符串，
@@ -163,5 +163,68 @@ describe("analyzeBodyPathParamLeaks", () => {
     `;
     const report = analyzeBodyPathParamLeaks([{ file: "lib/live-project-prep.ts", source }]);
     expect(report.gaps).toHaveLength(0);
+  });
+
+  it("apiRequest<T>(...) 泛型调用形态也能抓到（hotfix 反证：live-projects.ts 上线当天漏了这个形态）", () => {
+    const source = `
+      export async function createAgendaSegment(input) {
+        const op = project.operations.createAgendaSegment;
+        return apiRequest<CreateAgendaSegmentOut>(
+          op.path.replace(":workshopId", encodeURIComponent(input.workshopId)),
+          {
+            method: "POST",
+            body: {
+              workshopId: input.workshopId,
+              title: input.title,
+            },
+          },
+        );
+      }
+    `;
+    const report = analyzeBodyPathParamLeaks([{ file: "lib/live-projects.ts", source }]);
+    expect(report.gaps).toHaveLength(1);
+    expect(report.gaps[0]?.param).toBe("workshopId");
+  });
+
+  it("allowlist 命中的条目不报（合法冗余：controller 用全量 .in，本来就要求 body 里再传一次）", () => {
+    const source = `
+      export async function createAgendaSegment(input) {
+        return apiRequest<Out>(
+          P.replace(":workshopId", encodeURIComponent(input.workshopId)),
+          { method: "POST", body: { workshopId: input.workshopId, title: input.title } },
+        );
+      }
+    `;
+    const allowlist = new Set([allowlistKey("lib/live-projects.ts", "workshopId")]);
+    const report = analyzeBodyPathParamLeaks([{ file: "lib/live-projects.ts", source }], allowlist);
+    expect(report.gaps).toHaveLength(0);
+  });
+
+  it("staleAllowlistEntries：条目已经不再泄漏 ⇒ 判陈旧，要求删掉", () => {
+    const source = `
+      export async function saveProjectTopic(input) {
+        return apiRequest(P.replace(":projectId", input.projectId), {
+          method: "PUT",
+          body: { title: input.title },
+        });
+      }
+    `;
+    const allowlist = new Set([allowlistKey("lib/live-project-prep.ts", "projectId")]);
+    const stale = staleAllowlistEntries([{ file: "lib/live-project-prep.ts", source }], allowlist);
+    expect(stale).toEqual([allowlistKey("lib/live-project-prep.ts", "projectId")]);
+  });
+
+  it("staleAllowlistEntries：条目仍在真实泄漏 ⇒ 不判陈旧", () => {
+    const source = `
+      export async function createAgendaSegment(input) {
+        return apiRequest(P.replace(":workshopId", input.workshopId), {
+          method: "POST",
+          body: { workshopId: input.workshopId },
+        });
+      }
+    `;
+    const allowlist = new Set([allowlistKey("lib/live-projects.ts", "workshopId")]);
+    const stale = staleAllowlistEntries([{ file: "lib/live-projects.ts", source }], allowlist);
+    expect(stale).toEqual([]);
   });
 });
