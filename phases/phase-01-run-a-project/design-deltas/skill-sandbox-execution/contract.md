@@ -81,6 +81,41 @@ infrastructure，controller 只认端口。
 - 用尽仍失败 ⇒ `SCRIPT_FAILED_AFTER_RETRIES`，并**原样带回最后一次的 stderr**。
   ⚠ 不翻译成"生成失败，请重试"——那会让真实原因消失（同 #660 已记过的同一条纪律）。
 
+## §7.1 ⚠ 落地修正：`run_script` 不是原生工具面，是提示协议（2026-08-19，coord 已裁定接受）
+
+上面 §7 写的「模型带 `run_script` **工具**」在落地时被证伪了一个前提：
+**`ModelCallPort` 没有工具调用面**。`ToolDefinition` / `ToolCallRequest` /
+`ToolExchangeTurn`（#725）已在 **#741 被显式退役**，连同它们服务的 TS 进程内工具循环
+一起删除（见 `apps/api/src/application/agent-run/ports.ts` 对应头注）。写 §7 时没有核实
+这个前提 —— 这是设计侧的疏漏，不是实现偷懒。
+
+**实际做法**：在既有 `complete()` 面上用**提示协议**完成同一件事 ——
+系统提示要求模型把脚本放进带标记的代码块 → 解析出来 → 沙箱执行 → 非零退出时把
+真实 `exitCode` + 截断的 `stdout/stderr` 作为下一轮 user 消息回喂 → 上限仍是 **3**。
+
+**行为等价**（写脚本 / 执行 / 失败回喂真实错误 / 上限 3），**机制不同**（提示协议而非
+原生 tool call）。签核意图（`confirmed_via` 的第 ③ 点「接受失败回喂重试」）因此满足。
+
+⚠ 读到 §7 时**不要**去找一个叫 `run_script` 的工具定义 —— 它不存在，也不该被重新造出来。
+恢复原生工具面是一次跨全部 provider 实现的独立改动，不属于本 delta。
+实现与完整推理见 `apps/api/src/application/skill/run-script-with-retries.ts` 头注。
+
+## §4.1 ⚠ 落地修正：经 unix domain socket 通信，不开端口（2026-08-19，coord 已裁定接受）
+
+§4 要求执行不可信脚本的容器 `network: none`，但 `apps/api` 又必须能把请求送进去 ——
+这两件事在 TCP 上**直接矛盾**：没有网络接口的容器根本无法被连接。§4 没有写这一层怎么解。
+
+三条出路，采用第三条：
+
+1. 给沙箱容器留网络 ⇒ 直接违反 §4 与 V2-b。**否决**。
+2. 服务容器保留网络，每次执行再起一个 `network: none` 的临时容器 ⇒ 必须把 docker socket
+   挂进服务，**等同于给它宿主 root**。为收紧网络而放开一个大得多的逃逸面，**净损失。否决**。
+3. **容器字面意义上没有网络（`network_mode: "none"`），经共享具名 volume 上的
+   unix domain socket 通信。** 无额外特权。← 采用
+
+⚠ 这是**比 §4 更严**的落地形态，不是对它的放宽：沙箱连一个可监听的网络接口都没有。
+实现见 `apps/skill-sandbox/src/main.ts` 与 `docker-compose.sandbox.yml` 头注。
+
 ## §8 明确不做（防止范围蔓延）
 
 - 不做通用多语言沙箱（Python/LibreOffice 见 §2）。
