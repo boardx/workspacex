@@ -3,12 +3,13 @@ import * as React from "react";
 import { Canvas as FabricCanvas } from "fabric";
 import {
   markdownToCanvas,
-  canvasToMarkdown,
+  extractModel,
   FlowNode,
   attachMindmapEditor,
   type DiagramModel,
   type MindmapEditor,
 } from "@repo/fabric-markdown";
+import { serializeCanvasMarkdown } from "@/lib/canvas/serialize-canvas-markdown";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { CanvasTool } from "./canvas-toolbar";
@@ -70,7 +71,9 @@ export function CanvasStage({
   const syncFromCanvas = React.useCallback(() => {
     const canvas = fabricRef.current;
     if (!canvas) return;
-    const next = canvasToMarkdown(canvas, markdownRef.current);
+    // `serializeCanvasMarkdown`，不是上游 `canvasToMarkdown`：后者对 `kind:'template'`
+    // 模型序列化用错了函数（见该文件文件头注释），会把画布模板编辑结果拼成乱码。
+    const next = serializeCanvasMarkdown(canvas, markdownRef.current);
     emit(next);
   }, [emit]);
 
@@ -134,8 +137,16 @@ export function CanvasStage({
     canvas.on("mouse:down", (opt) => {
       if (readOnlyRef.current) return;
       const t = toolRef.current;
+      // 画布模板（`kind:'template'`）的分区框/字段/标题都是结构节点，不是内容——
+      // 只有 `data.role === 'sticky'` 的便签是协作产出，可加可删。误删分区框会
+      // 破坏模板结构（序列化时依赖分区名匹配便签归属），所以模板模式下的删除
+      // 只对便签生效，其它角色的节点点了也不动。非模板画布（mermaid/mindmap）
+      // 行为不变——那类图从不产出带 `role` 的节点，判断天然放行。
+      const isTemplate = extractModel(canvas).kind === "template";
       if (opt.target) {
         if (t === "delete" && opt.target instanceof FlowNode) {
+          const role = (opt.target.data as { role?: string } | undefined)?.role;
+          if (isTemplate && role !== "sticky") return;
           canvas.remove(opt.target);
           canvas.fire("object:modified", { target: opt.target });
           syncFromCanvas();
@@ -143,18 +154,36 @@ export function CanvasStage({
         return;
       }
       if (t !== "sticky" && t !== "node") return;
+      // 模板模式下只认「＋便签」——「＋节点」是给自由画布加任意矩形节点的，模板的
+      // 分区结构是固定的，不接受新增结构节点。
+      if (isTemplate && t !== "sticky") return;
       const pointer = canvas.getScenePoint(opt.e);
       nodeSeq += 1;
       const id = `local-${t}-${nodeSeq}`;
-      const node = new FlowNode({
-        nodeId: id,
-        label: t === "sticky" ? "新便签（点选可改标签）" : "新节点",
-        shape: t === "sticky" ? "stadium" : "rect",
-        x: pointer.x,
-        y: pointer.y,
-        width: 200,
-        height: 60,
-      });
+      const node = isTemplate
+        // 形状/尺寸/`data.role` 对齐 `template-engine.ts` 自己产出的便签节点
+        // （`DEFAULT_STICKY = { w: 136, h: 92 }`，`shape: 'sticky'`，
+        // `data: { role: 'sticky' }`）——用别的形状/不带 role 加进去的节点，
+        // `serializeTemplate` 认不出它是便签，保存时会被悄悄丢掉。
+        ? new FlowNode({
+            nodeId: id,
+            label: "新便签（点选可改标签）",
+            shape: "sticky",
+            x: pointer.x,
+            y: pointer.y,
+            width: 136,
+            height: 92,
+            data: { role: "sticky" },
+          })
+        : new FlowNode({
+            nodeId: id,
+            label: t === "sticky" ? "新便签（点选可改标签）" : "新节点",
+            shape: t === "sticky" ? "stadium" : "rect",
+            x: pointer.x,
+            y: pointer.y,
+            width: 200,
+            height: 60,
+          });
       canvas.add(node);
       canvas.setActiveObject(node);
       syncFromCanvas();
