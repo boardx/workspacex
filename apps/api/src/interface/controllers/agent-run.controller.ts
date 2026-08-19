@@ -45,6 +45,12 @@ import {
   AgentRunNotRetryableError, AgentRunRetryForbiddenError, retryAgentRun,
 } from "../../application/agent-run/retry-run";
 import { streamAgentRunDeltas } from "../../application/agent-run/stream-run";
+import {
+  AGENT_RUN_CONTEXT_SNAPSHOT, type AgentRunContextSnapshotPort,
+} from "../../application/agent-run/context-snapshot";
+import {
+  AgentRunContextSnapshotNotVisibleError, readAgentRunContextSnapshot,
+} from "../../application/agent-run/read-run-context-snapshot";
 
 @Controller()
 export class AgentRunController {
@@ -53,6 +59,7 @@ export class AgentRunController {
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(AGENT_RUN_STORE) private readonly runs: AgentRunStore,
+    @Inject(AGENT_RUN_CONTEXT_SNAPSHOT) private readonly snapshots: AgentRunContextSnapshotPort,
   ) {}
 
   @Get("/agent-runs/:runId")
@@ -65,6 +72,33 @@ export class AgentRunController {
       );
     } catch (e) {
       if (e instanceof AgentRunNotVisibleError) throw new NotFoundException();
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
+  /**
+   * context-engine 可用性补口——F157 落地时只接了写（`execute-run.ts` 在组装完成后
+   * 无条件写一条快照），从未接读端点：`readAgentRunContextSnapshot` 这个用例此前
+   * 存在但零调用方，浏览器侧完全没有信号能证明"这次 run 到底用了哪几层上下文"
+   * （L1 保留几条、L2 有没有摘要、L3 命中几条来源、F190 回喂了几轮工具轨迹）。
+   *
+   * 判权与 `run()` 同一条：`readAgentRunContextSnapshot` 内部复用的正是
+   * `resolveVisibility`（同 `read-run.ts`），不新开第二套。`null` 返回值（run 可见但
+   * 还没写快照——例如早于 F157 上线，或组装从未走到写快照那一步）原样透传给客户端，
+   * 不是 404：那是"这个 run 你能看，只是没有快照"，与"你不能看这个 run"是两码事，
+   * 同 `AgentRunContextSnapshot` 类型自己文档说的三个来源都可能缺失的既有边界。
+   */
+  @Get("/agent-runs/:runId/context-snapshot")
+  async contextSnapshot(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {
+    assertPrincipal(principal);
+    try {
+      return await readAgentRunContextSnapshot(
+        { repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs, snapshots: this.snapshots },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), runId },
+      );
+    } catch (e) {
+      if (e instanceof AgentRunContextSnapshotNotVisibleError) throw new NotFoundException();
       if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
       throw e;
     }
