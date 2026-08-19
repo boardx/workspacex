@@ -3,7 +3,7 @@ status: confirmed           # pending | confirmed —— ⚠ 只能由人类改�
 bundle: skill-sandbox-execution
 base_bundle: skill-trial-run
 scope: trial-run-executes-model-written-scripts-in-a-network-isolated-container-and-produces-real-artifacts
-covers: [F204]
+covers: [F962]   # 机械重编号（2026-08-19）：F204 已被 templates 束「分组二三项配置面板」占用（真实代码+evidence 已在 main），本条是尚未落地实现的 delta 声明，改用下一个空闲号，不改任何设计决定，status/confirmed_by/confirmed_at/confirmed_via 原样未动。
 confirmed_by: usam.shen@gmail.com
 confirmed_at: "2026-08-19T02:00:00+08:00"
 confirmed_via: "spike 证据（#1575）审阅确认：批准执行模型生成的代码这条路径，边界为容器 network:none + Node 权限模型两层。范围限定首个切片只做「从零创建 deck」（pptxgenjs / 纯 Node），不含编辑存量 deck、转旧 .ppt、视觉 QA。接受失败回喂重试（上限 3 次）及其 token 成本，接受试跑转异步（会改试跑 API 形状）。产物落 ObjectStore 但不自动落成项目产物。"
