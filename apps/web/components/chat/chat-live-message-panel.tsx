@@ -9,6 +9,7 @@ import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { AgentToolChain } from "@/components/chat/agent-tool-chain";
 import { MessageThinkingChain } from "@/components/chat/message-thinking-chain";
+import { MessageContextSnapshot } from "@/components/chat/message-context-snapshot";
 import { MessageRating } from "@/components/chat/message-rating";
 import {
   createMessage,
@@ -871,6 +872,13 @@ export function ChatLiveMessagePanel({
                       挂载才惰性拉取，失败静默降级，不影响消息正文本身。
                     */}
                     {isAgent ? <MessageThinkingChain agentRunId={message.agentRunId} bearer={bearer} /> : null}
+                    {/*
+                      context-engine 可用性补口——L1/L2/L3/F190 四层组装出的上下文此前对
+                      用户完全不可见（本文件其它地方的既有注释："citations 的写入路径目前
+                      不存在"）。与上面 `MessageThinkingChain` 同一套挂法：跟着消息本身走，
+                      不是跟着"当前是否有一个 run 在跑"这个瞬时状态走。
+                    */}
+                    {isAgent ? <MessageContextSnapshot agentRunId={message.agentRunId} bearer={bearer} /> : null}
                     <div
                       className={`rounded-2xl px-3.5 py-2.5 text-12 leading-relaxed ${
                         isAgent

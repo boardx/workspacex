@@ -364,6 +364,35 @@ export const operations = {
     err: ["AGENT_RUN_NOT_VISIBLE"] as const,
   },
   /**
+   * context-engine 可用性补口（`AgentRunController.contextSnapshot`）—— F157 落地时只接了
+   * 写（`execute-run.ts` 组装完成后无条件写一条快照），从未接读端点。判权与 `getAgentRun`
+   * 同一条决策（`readAgentRunContextSnapshot` 内部复用 `resolveVisibility`）。
+   *
+   * `out` 可空：`null` = 这个 run 你能看，只是还没有快照（早于 F157 上线，或组装从未走到
+   * 写快照那一步）——与"看不到这个 run"是两码事，后者走 `err`，不混进一个可空字段。
+   */
+  getAgentRunContextSnapshot: {
+    method: "GET",
+    path: "/agent-runs/:runId/context-snapshot",
+    in: z.object({ runId: z.string().min(1) }).strict(),
+    out: z.object({
+      l1MessageCount: z.number().int().min(0),
+      l2Status: z.enum(["ok", "degraded"]),
+      l2CoveredThroughId: z.string().nullable(),
+      l3Status: z.enum(["ok", "degraded", "not_configured"]),
+      l3HitCount: z.number().int().min(0),
+      l3Sources: z.array(z.string()),
+      l3RetrievalScope: z.enum(["own-attachment", "project-retrieval"]).nullable(),
+      toolTraceStatus: z.enum(["ok", "degraded", "not_configured"]),
+      toolTraceRunCount: z.number().int().min(0),
+      toolTraceStepCount: z.number().int().min(0),
+      estimatedTokens: z.number().int().min(0),
+      createdAt: z.string(),
+    }).strict().nullable(),
+    /** 同 `getAgentRun`：不存在 / 不是你的租户 / 不是你能看的 thread，共用一个出口。 */
+    err: ["AGENT_RUN_CONTEXT_SNAPSHOT_NOT_VISIBLE"] as const,
+  },
+  /**
    * 🟡 `retryAgentRun` 于 #519 补上，**该契约面待人类补签**（照 #496 `createTemplate` 先例）。
    *
    * ## 为什么这个操作在契约里原本不存在

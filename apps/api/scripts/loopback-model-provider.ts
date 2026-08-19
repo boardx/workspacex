@@ -50,6 +50,17 @@ import {
   FILE_CONTEXT_MESSAGE_HEADER_PREFIX,
   FILE_RETRIEVAL_SOURCE_KINDS,
 } from "../src/application/agent-run/file-retrieval";
+import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../src/application/agent-run/tool-trace-context";
+
+/**
+ * F154 L2 摘要伪消息的**唯一事实源**是 `execute-run.ts` 里那一行字面量
+ * （`[早前对话摘要] ${l2Summary}`），本脚本不重新声明——它不是一个像
+ * `FILE_CONTEXT_MESSAGE_HEADER_PREFIX` 那样导出的常量，直接抄这个前缀本身
+ * 就是唯一能不新增产品侧导出面的做法（同 `FILE_CONTEXT_MESSAGE_HEADER_PREFIX`
+ * 那条注释里"读侧需要区分伪消息与 agent 字面说过这句话"的同一条纪律，这里同样
+ * 只对**开头**做前缀匹配，不做全文包含）。
+ */
+const L2_SUMMARY_MESSAGE_HEADER_PREFIX = "[早前对话摘要]";
 
 /**
  * 每个 SSE delta 的字符数上限，与段间延迟。4 字符/120ms 在一句十几到几十字的回显
@@ -156,6 +167,45 @@ function mountedSkillReachedModel(messages: CompletionRequest["messages"]): bool
   return typeof system === "string" && system.includes(SKILL_SENTINEL);
 }
 
+/**
+ * context-engine 浏览器 e2e —— 默认关闭的开关，与上面 `RETRIEVAL_ECHO_PREFIX`/
+ * `SKILL_ECHO_PREFIX` 同一条既有理由：L2 摘要伪消息与 F190 工具轨迹回喂伪消息都**不落
+ * 任何表**，`GET /agent-runs/:id` 的 step 只有 digest，浏览器侧原本没有任何信号能证明
+ * 「这一层真的把东西喂给了模型」——回显的是它真收到的东西，不是编造的。
+ *
+ * 两者都只扫 `role: "assistant"` 且**按前缀匹配开头**（不是 `includes` 全文），
+ * 与 `retrievedSourceKinds` 同一条纪律：agent 的历史回复本身也是 `assistant`，
+ * 只按开头判定才不会被"上一轮回显里字面出现过这几个字"污染。
+ */
+const L2_SUMMARY_ECHO_PREFIX = process.env.LOOPBACK_MODEL_L2_SUMMARY_ECHO_PREFIX ?? null;
+const TOOL_TRACE_ECHO_PREFIX = process.env.LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX ?? null;
+/**
+ * 期望在工具轨迹伪消息**正文**里看到的代号（种子脚本埋进那轮历史 tool_call 的
+ * `tool_result_summary` 里的那个）。与 `SKILL_SENTINEL` 同一条纪律：只回显"确实
+ * 看到了这个具体代号"，不是"看到了某条随便什么样子的工具轨迹伪消息"——后者证明力
+ * 弱得多，随便一条空壳伪消息也能让它恒真。
+ */
+const TOOL_TRACE_SENTINEL = process.env.LOOPBACK_MODEL_TOOL_TRACE_SENTINEL ?? null;
+
+function l2SummaryReachedModel(messages: CompletionRequest["messages"]): boolean {
+  if (L2_SUMMARY_ECHO_PREFIX === null) return false;
+  return (messages ?? []).some((message) => (
+    message.role === "assistant"
+    && typeof message.content === "string"
+    && message.content.startsWith(L2_SUMMARY_MESSAGE_HEADER_PREFIX)
+  ));
+}
+
+function toolTraceReachedModel(messages: CompletionRequest["messages"]): boolean {
+  if (TOOL_TRACE_ECHO_PREFIX === null || TOOL_TRACE_SENTINEL === null) return false;
+  return (messages ?? []).some((message) => (
+    message.role === "assistant"
+    && typeof message.content === "string"
+    && message.content.startsWith(TOOL_TRACE_MESSAGE_HEADER_PREFIX)
+    && message.content.includes(TOOL_TRACE_SENTINEL)
+  ));
+}
+
 function readBody(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
     let text = "";
@@ -227,7 +277,11 @@ const server = createServer((req, res) => {
     const skillEcho = mountedSkillReachedModel(parsed.messages)
       ? `${SKILL_ECHO_PREFIX}${SKILL_SENTINEL} `
       : "";
-    const fullText = `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${echoed}`;
+    // context-engine 浏览器 e2e —— 两个开关都未设置时恒为 ""（短路），拼出来的字符串
+    // 与改动前逐字节相同（同 `retrievalEcho`/`skillEcho` 既有纪律）。
+    const l2Echo = l2SummaryReachedModel(parsed.messages) ? `${L2_SUMMARY_ECHO_PREFIX} ` : "";
+    const toolTraceEcho = toolTraceReachedModel(parsed.messages) ? `${TOOL_TRACE_ECHO_PREFIX} ` : "";
+    const fullText = `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);
       return;

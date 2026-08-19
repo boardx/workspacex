@@ -359,6 +359,18 @@ test("F155：命中项目内可检索文件的提问带来源标记，未命中�
   // 这是「这段上下文是从哪一类文件来的」这一契约性质，不是某份种子文件的内容。
   await expect(groundedReply).toContainText("chat-attachment");
 
+  /*
+   * context-engine 可用性补口：F155 的确定性回显只能证明"内容真的到达了模型输入"
+   * （这件事回复渲染出来之前就已经发生），不能证明"用户自己能在界面上看到召回了
+   * 什么"——`chat-live-message-panel.tsx` 此前压根没有任何来源展示面。这里断言
+   * `GET /agent-runs/:runId/context-snapshot` 接的这枚徽标真的把 `chat-attachment`
+   * 这个来源标记摆在了用户看得到的地方，不是只存在于确定性替身的回显文本里。
+   */
+  const groundedSnapshotToggle = groundedReply.getByTestId("context-snapshot-toggle");
+  await expect(groundedSnapshotToggle).toBeVisible();
+  await groundedSnapshotToggle.click();
+  await expect(groundedReply.getByTestId("context-snapshot-l3-source-chat-attachment")).toBeVisible();
+
   /* ═══════════ 结果真的落在这条对话里 ═══════════
    *
    * 刷新一次再看：回复不是渲染在内存里的一帧，是写回了库、重读得回来的一条消息。 */
