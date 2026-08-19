@@ -217,7 +217,12 @@ phase: "01"
 #   intro 表折进 facet-editor-registry.ts——纯内部重构（渲染结果、契约、界面元素零变化），
 #   按 covers 追加规则「零新增设计面」条件自查后追加。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207, F208, F203, F961, F209]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-19（F210，dev-chat-e2e）：流程 Agenda 面板补真拖拽重排（人类发现的体验降级）——
+#   零新增契约面（仍是 updateDesignFacet 的 content: string 字段，只是保存的顺序变了，
+#   不新增契约操作/错误码/迁移/UI 元素之外的新概念——已核实原型没有"半场"数据结构），
+#   按 covers 追加规则「零新增设计面」条件自查后追加。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207, F208, F203, F961, F209, F210]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

@@ -460,6 +460,111 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     });
   });
 
+  it("流程 Agenda：抓左侧握把拖动重排，松手后编号重算并真实保存", async () => {
+    const saved = {
+      segments: [
+        { no: "01", title: "对齐目标", min: 25, boardSkill: "—", optional: false },
+        { no: "02", title: "现状共识", min: 25, boardSkill: "Scout 简报", optional: false },
+        { no: "03", title: "假设风暴", min: 60, boardSkill: "画布 hmw", optional: false },
+      ],
+    };
+    let putBody: { value: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "flow-agenda", content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/flow-agenda` && init?.method === "PUT") {
+        putBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: "ir-2",
+          completed: true,
+          completeness: { done: 1, denominator: 15 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    await screen.findByTestId("bp-agenda-segment-title-0");
+
+    // 抓手可达（键盘/屏幕阅读器可发现），且不是整行拖动——只有这个握把响应指针事件。
+    const grip0 = screen.getByTestId("bp-agenda-segment-grip-0");
+    expect(grip0).toHaveAttribute("aria-label", "拖动排序：对齐目标");
+    const row2 = screen.getByTestId("bp-agenda-segment-2");
+
+    // jsdom 压根没实现 elementFromPoint（不是"恒返回 null"，是方法不存在），真实浏览器
+    // 里由指针坐标算出悬停行；单测里补一个打桩实现，命中拖到的那一行，不改变生产代码
+    // 依赖的接口。
+    document.elementFromPoint = () => row2.querySelector("input")!;
+
+    fireEvent.pointerDown(grip0, { pointerId: 1, clientX: 0, clientY: 0, button: 0 });
+    fireEvent.pointerMove(grip0, { pointerId: 1, clientX: 0, clientY: 200 });
+    fireEvent.pointerUp(grip0, { pointerId: 1 });
+
+    // 拖到第 3 行位置：原来第 0 行（对齐目标）现在应该在第 2 行（索引 2）。
+    await waitFor(() => {
+      expect((screen.getByTestId("bp-agenda-segment-title-2") as HTMLInputElement).value).toBe("对齐目标");
+    });
+    // 编号按新顺序重算——原来排第 3 的环节顶到第 1 位，编号变成 01。
+    expect(screen.getByTestId("bp-agenda-segment-2").textContent).toContain("03");
+
+    // 松手真实落库，且发的是重排后的顺序。
+    await waitFor(() => expect(putBody).not.toBeNull());
+    const parsed = JSON.parse(putBody!.value) as { segments: { title: string; no: string }[] };
+    expect(parsed.segments.map((s) => s.title)).toEqual(["现状共识", "假设风暴", "对齐目标"]);
+    expect(parsed.segments.map((s) => s.no)).toEqual(["01", "02", "03"]);
+  });
+
+  it("流程 Agenda：拖拽之外，上移/下移按钮仍原样可用（键盘/屏幕阅读器兜底）", async () => {
+    const saved = {
+      segments: [
+        { no: "01", title: "环节甲", min: 20, boardSkill: "", optional: false },
+        { no: "02", title: "环节乙", min: 20, boardSkill: "", optional: false },
+      ],
+    };
+    let putBody: { value: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "flow-agenda", content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/flow-agenda` && init?.method === "PUT") {
+        putBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: "ir-2",
+          completed: true,
+          completeness: { done: 1, denominator: 15 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    await screen.findByTestId("bp-agenda-segment-title-0");
+
+    fireEvent.click(screen.getByTestId("bp-agenda-segment-down-0"));
+    await waitFor(() => expect(putBody).not.toBeNull());
+    const parsed = JSON.parse(putBody!.value) as { segments: { title: string }[] };
+    expect(parsed.segments.map((s) => s.title)).toEqual(["环节乙", "环节甲"]);
+  });
+
   it("角色与权限：灰色格禁用点击不发请求，可勾选格点击真实保存", async () => {
     let putCount = 0;
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

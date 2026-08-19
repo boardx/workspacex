@@ -4773,6 +4773,29 @@
       "capability": "CAP-WEB"
     },
     {
+      "id": "F210",
+      "title": "流程 Agenda 面板：环节真拖拽重排（抓左侧握把，鼠标/触摸），补齐原型体验缺口",
+      "user_visible_behavior": "组织管理员打开蓝本设计器「流程 Agenda」项，每个环节行左侧是一个可抓取的握把图标（与原型 GripVertical 一致）——按住握把用鼠标或触摸拖动，可以把这个环节拖到列表中任意位置（不限于相邻交换），拖动过程中被拖起的行有明显的视觉反馈（高亮边框），松开鼠标/手指后新顺序立即真实保存到后端，环节编号（01/02/03…）按新顺序重算。原有的「上移/下移」按钮原样保留、不受影响——键盘操作或屏幕阅读器场景下仍可用按钮完成同样的排序。",
+      "spec_ref": "02-tpl/uc-2-1-创建与编辑蓝本.md#R3",
+      "depends_on": [
+        "F202"
+      ],
+      "points": 2,
+      "status": "in_progress",
+      "sprint": "01",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/blueprint-designer-page-live.test.tsx",
+        "pnpm --filter web run lint"
+      ],
+      "evidence": "",
+      "notes": "① 背景：人类扫了全部 14 个结构化面板头注，找到唯一一处真实体验降级——agenda-panel-editor.tsx 的头注写着「拖拽排序用上移/下移按钮达到同等效果，不做像素级拖拽手势」，但原型 AgendaPanel 明确画了 GripVertical 握把图标 + dragHint 文案「抓左侧握把拖动」。本 feature 补上真拖拽。\n② 逐项对照 designer-panels.tsx 的 AgendaPanel 与 mock/tpl.ts 的 AGENDA_PANEL 后确认：dragHint/actions 提到的「半场」只是文案里描述的使用场景，AGENDA_PANEL.segments 本身是扁平数组，没有任何 halfDay/分组字段；AgendaPanel 组件把 segments 平铺渲染成一个 <ul>，actions 里 7 个按钮全部没有 onClick（纯 ghost 按钮，原型本来就是静态示意）。全仓搜过 mock/tpl.ts 与 design-facet-table.ts，「半场」作为数据结构在别处也不存在。因此本 feature 不发明 halfDay 字段——拖拽实现的是「环节可以拖到列表任意位置」（单一扁平列表内自由重排），这已完整覆盖 dragHint 字面能验证的部分；真要建模半场分组需要先有新字段提议与签核，不在本次范围。\n③ 实现：Pointer Events（不是原生 HTML5 Drag and Drop——后者触屏行为不一致、jsdom/RTL 里几乎无法可靠模拟；也没有引入新拖拽库，30 行内的逻辑不值得加依赖）。抓手用与原型一致的 lucide GripVertical 图标（替换掉之前占位的 Unicode ⠿）。拖拽只在抓手响应，不是整行可拖，与原型「GripVertical 画在行首左侧」一致。上/下按钮原样保留，两条路径并存不是二选一。\n④ 验证：新增 2 条组件测试——① 抓握把拖到第 3 行位置，验证实时预览+编号重算+真实 PUT 落库且顺序正确；② 反证既有上/下按钮不受影响仍可用。已实测反证：把 pointermove 的目标索引判断故意改成恒不生效，拖拽测试立刻从『对齐目标』错配成『假设风暴』变红，恢复后转绿——不是写完就绿的空测试。lint-verification-can-fail 门控吸取 F209 教训：本次 verification 全部用已登记形态的命令（pnpm --filter web run typecheck/vitest/lint），本地跑过一遍确认无「未登记形态」告警。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
       "id": "F199",
       "title": "createProject 创建者自动获得容器最高权限角色（推翻 Q-4②：facilitator/owner）",
       "user_visible_behavior": "任意通过 createProject 成功建出容器（工作坊/研究项目/用户洞察）的人，建完立刻就能进入并使用自己建的这个容器——不再出现「建了项目却读不到内容」（ADMIN_NOT_SUPERUSER/NO_PROJECT_ROLE）。工作坊容器：创建者获得 facilitator（引导师）角色，is_host=true。研究项目/用户洞察容器：创建者获得 owner（所有者）角色。全部与容器同一个事务写入，不存在“容器建成、角色没跟上”的中间态。",
