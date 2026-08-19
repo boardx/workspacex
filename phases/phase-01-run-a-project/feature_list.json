@@ -4943,6 +4943,24 @@
       "priority": 1,
       "area": "ai-runtime",
       "capability": "CAP-AI"
+    },
+    {
+      "id": "F963",
+      "title": "现场协作主持台状态条接真实数据 + 四组并行降级为如实空态",
+      "user_visible_behavior": "项目工作台「现场协作」tab 的主持台状态条从纯 mock 换成真实 `listAgendaSegments`：没有进行中环节时显示「当前没有进行中的环节」（真实空态，不是编造的假设风暴文案）；有进行中环节时显示真实标题与「环节 N/M」序号与状态徽标；引导师（facilitator）看到「下一环节 / 提前结束 / 跳过」三个按钮，点击真实调用 `advanceAgendaSegment`，成功后重新拉取列表，失败显示真实错误（如并发冲突）不静默；组长/组员/观察者不显示这三个按钮（服务端角色矩阵本就只许 facilitator 推进）。「四组并行」卡片区域整块降级为如实说明——每组的实时引述/画布进度/素材充足度/现场介入标记在 project 束契约里完全没有出处（引述与画布归 canvas/recording 束，其余两项全仓零来源），不再显示编造数字，等对应契约与仓储落地后再作为独立 feature 补上。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F119"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "16",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/project-live-stagebar.test.tsx"
+      ],
+      "evidence": "evidence/F963.verify.log @ 2026-08-19T16:23:00.356Z",
+      "notes": "同 F172 对 `tab-overview.tsx`「当前环节」卡与「待办」块的处置纪律：`getProjectOverview` 只给 `{title, state}`（没有剩余时长）⇒ 删倒计时；待办无契约来源 ⇒ 整块改如实说明，不渲染编造文案。本次同理——`listAgendaSegments`（#853 已接线）与 `advanceAgendaSegment`（F119，controller 早已挂好、此前零前端调用方）都是已签核且真实可用的操作，环节标题/序号/状态/推进动作接真；但『四组并行』卡片的引述/画布进度/素材充足度/现场介入标记（原 `LIVE_GROUPS` mock）在 project 束契约里完全无来源——`quote`/`canvas` 概念上分别对应 canvas 束的 `NodeProvenance`/`listGroupCanvases`（且后者本身也是「契约已签、零 controller/零仓储」的静态痕迹，需要独立 feature 先把后端建出来），`fill`/`needs` 全仓零来源（2026-08-19 人类会话已确认范围，见对话记录）。继续渲染这组 mock 数字会与真实状态条同屏并列、用户分不清真假，同 F172 点名的「主要缺陷」是同一种问题，故整块降级为如实空态，不新造一种处置。\n① 零契约改动、零迁移、零新 rewrite（`/workshops/:path*`、`/projects/:path*` 已覆盖）——`advanceAgendaSegment` 契约与 controller 路由（F119）早就存在，只是没有前端调用方。\n② `advanceAgendaSegment` body 必须带 `workshopId`/`segmentId`（与路径同值）——不是路径参数泄漏进 body 的 bug 类（见 issue #1600），这个 controller 的 body schema 是全量 `C.operations.advanceAgendaSegment.in`（未 `.omit()`），服务端还会显式比对 `body.workshopId !== workshopId` 不一致即 400，同 `bindCanvasTemplateToSegment` 已登记的先例；本函数应在 `.harness/state/body-path-param-leak-allowlist.json` 补两条 `apps/web/lib/live-projects.ts:workshopId`（已有）与新增的 `segmentId`（待 #1601 合并后本分支 rebase 时一并补，本分支基线尚未带上该 allowlist 机制）。\n③ `LIVE_STAGE`/`LIVE_GROUPS`/`ROLE_OWN_GROUP`/`ROLE_SEES_ALL_RAW` 四个孤儿 mock 符号已删除（同 F172「对 lib/mock/project 的依赖收窄，删孤儿 helper」纪律）——四视角目前只剩「谁能推进环节」一件事，组长/组员/观察者原本靠 `ownGroup`/`seesAllRaw` 分流的差异化展示，连同它作用的假数据一起降级，等画布进度接线（下一个 feature）落地后再按真实数据重新画出角色差异。\n④ 反证：把 `advanceAgendaSegment` 调用里的 `workshopId` 硬编码成假值，测试断言当场失败（`toMatchObject` 抓到），证明这条断言不是摆设，恢复后转绿。\n【依赖】F119（`advanceAgendaSegment` 契约+controller，已 passing）、#853（`listAgendaSegments` 前端接线，已合入）。"
     }
   ]
 }

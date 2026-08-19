@@ -12,6 +12,7 @@
   ],
   "entries": [
     "apps/web/lib/live-projects.ts:workshopId",
+    "apps/web/lib/live-projects.ts:segmentId",
     "apps/web/lib/live-canvas.ts:agendaSegmentId",
     "apps/web/lib/live-chat.ts:projectId"
   ]
