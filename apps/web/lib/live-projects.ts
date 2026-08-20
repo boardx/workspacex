@@ -47,13 +47,11 @@ export async function findProject(orgId: string, projectId: string): Promise<Pro
 
 export type ProjectOverview = z.infer<typeof project.operations.getProjectOverview.out>;
 /**
- * ⚠ 直接从**契约本体**推导，不走 `ProjectOverview["backflow"][number]`（#1652 顺手修）。
- *
- * 后者读起来也像"没有重新声明"，但 `lint-contract-source.mjs` 判它是 `[copy]`：
- * 索引式派生把 `BackflowEntry` 的身份**绑在 getProjectOverview 这个操作的响应形状上**，
- * 而契约里它是 `artifact.BackflowEntry` 这个独立类型、被 `project.ts` 引用（那里逐字写着
- * 「这里**引用** `artifact.BackflowEntry`，不抄一份」）。哪天有别的操作也回 backflow，
- * 索引式的这一份就会与另一处对同一类型的引用悄悄分叉。
+ * ⚠ 直接派生自契约的 `artifact.BackflowEntry`，不绕道 `ProjectOverview["backflow"][number]`。
+ * 两者类型完全相同（`project.ts` 的 `backflow` 就是 `z.array(BackflowEntry)`，逐字引用
+ * artifact 那一份），但索引访问那种写法不被 `lint-contract-source` 的 `derived` 判据认得
+ * （它只认 `z.infer<`、`C.X` 别名、含 `@repo/contracts` 三种形式）⇒ 被判成 LITERAL 重定义。
+ * 直接引用既过门，也更贴近"单一事实源"本身的意思。
  */
 export type BackflowEntry = z.infer<typeof artifact.BackflowEntry>;
 

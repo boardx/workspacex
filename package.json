@@ -30,6 +30,8 @@
     "shots:chat-behavior:raw": "pnpm --filter web exec playwright test --config playwright.chat-behavior.config.ts",
     "shots:chat-main:raw": "pnpm --filter web exec playwright test --config playwright.chat-shots.config.ts",
     "shots:chat-proto": "pnpm --filter web exec node scripts/shot-chat-prototype-ref.mjs",
+    "shots:project-results": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run shots:project-results:raw",
+    "shots:project-results:raw": "pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=project-results-shots",
     "verify:fullstack-anti-vacuity": "pnpm exec tsx .harness/scripts/verify-fullstack-anti-vacuity.ts",
     "verify:full": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:full:raw",
     "verify:full:raw": "pnpm run verify:base:raw && pnpm run verify:fullstack-smoke:raw",
