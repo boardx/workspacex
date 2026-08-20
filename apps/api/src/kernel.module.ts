@@ -1193,17 +1193,23 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
         db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
-        decisions: DecisionIdFactory, store: ObjectStore,
+        decisions: DecisionIdFactory, store: ObjectStore, sandbox: SkillSandboxPort,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
           new PgFileRetrieval(db), new PgAgentRunContextSnapshot(db), new PgToolTraceContext(db),
           createCanvasTemplateGuidancePort({ identity, templates, ids: decisions }),
           new PgRunImageInput(db, store),
+          // #1624：chat 里挂了 skill 之后模型写的脚本真的在沙箱里跑。同一条既有先例——
+          // 「这个部署的 chat 能不能真的产出文件」由这一行决定，不是运行期的偶然。
+          // 复用**同一个** SKILL_SANDBOX_PORT（试跑那条链已经在用它），不起第二套沙箱绑定；
+          // 产物字节复用既有 OBJECT_STORE（附件字节本来就存在那里）。
+          sandbox, store,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
+        SKILL_SANDBOX_PORT,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
