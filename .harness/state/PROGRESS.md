@@ -15,6 +15,6 @@
 | 08 | 转录 | not_started | 4 | 0 | 0 | 0 |
 | 09 | 问卷 | not_started | 7 | 0 | 0 | 0 |
 | 10 | 现场协作编排 | not_started | 10 | 0 | 0 | 0 |
-| 11 | research-insight-backend | in_progress | 4 | 0 | 0 | 1 |
+| 11 | research-insight-backend | in_progress | 0 | 4 | 0 | 1 |
 
-_最近聚合:2026-08-20T08:25:03.942Z_
+_最近聚合:2026-08-20T09:33:26.736Z_
