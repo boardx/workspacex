@@ -261,6 +261,9 @@ export default defineConfig({
         CHAT_E2E_CONTEXT_CHECK_THREAD_ID: CHAT_READ_E2E.contextCheckThreadId,
         // #1560 P1 e2e —— 图片视觉理解诚实降级路径的专属线程。
         CHAT_E2E_IMAGE_VISION_THREAD_ID: CHAT_READ_E2E.imageVisionThreadId,
+        // #1584 e2e —— 附件预览/下载弹窗的专属线程，不与上面那条共写（曾经共写过，
+        // `verify:chat-read` 整套跑时互相污染，见 `chat-read-fixture.ts` 同名字段头注）。
+        CHAT_E2E_ATTACHMENT_PREVIEW_THREAD_ID: CHAT_READ_E2E.attachmentPreviewThreadId,
         // context-engine 浏览器 e2e —— L2 滚动摘要 / F190 工具轨迹回喂的两条专属线程，
         // 见 `chat-read-fixture.ts` 同名字段与 `seed-chat-read-e2e.ts` 的头注。
         CHAT_E2E_L2_CHECK_THREAD_ID: CHAT_READ_E2E.l2CheckThreadId,
