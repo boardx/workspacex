@@ -296,6 +296,7 @@ export function ChatDiagramCanvasModal({
             readOnly={false}
             tool={tool}
             zoom={zoom}
+            onZoomChange={setZoom}
             markdown={markdown}
             onMarkdownChange={handleMarkdownChange}
           />
