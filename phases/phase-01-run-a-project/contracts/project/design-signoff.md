@@ -91,7 +91,25 @@ phase: "01"
 #      前端，未新增字段/操作/错误码；③ **零新增设计面**——「四组并行」卡片因数据源
 #      在契约里不存在，整块降级为如实空态（同 F172 对待办块的处置，是删减不是新增）。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191, F199, F963]
+# 2026-08-20（追加 **F964**，dev-project agent）——**零新增设计面**的自查追加。
+#   ⚠ 如实说明本次授权来源，不套用之前几次的措辞：这不是 coord-main 复核、也不是
+#     人类在对话里对着 covers 追加这件事本身点头——是人类（usam.shen@gmail.com）在
+#     本会话里**直接指派**了这个 feature 的完整范围（把 tab-overview.tsx 里
+#     liveError/liveOverviewError 两个原样甩英文 reasonCode 的插槽人性化），并且
+#     指令原文已预判并回答了「要不要走新签核」这个问题：「只要没有新增/修改后端契约……
+#     大概率不需要走新的 design-signoff.md 签核关卡」。本条追加是这句判断的机械落地，
+#     不是 agent 自己决定跳过复核。
+#   三条件对照：① UI 已签——不新增任何屏/板块，只改已签核两个错误插槽（`project-overview-
+#     live-error` / `project-overview-live-overview-error`）内部的文案与语气；
+#     ② 契约已签——reasonCode 沿用 `findProject`/`getProjectOverview` 已签核 `err` 数组
+#     （`NO_PROJECT_ROLE`/`ADMIN_NOT_SUPERUSER`/`DEPENDENCY_UNAVAILABLE`/
+#     `AUTH_SERVICE_UNAVAILABLE`），未新增/修改任何契约字段或错误码；
+#     ③ 零新增设计面——不把 F172 已判定「无契约出处」而删除的待办/动态/三角色分工/
+#     就绪检查/倒计时重新加回来。
+#   ⚠ 若 coord-main 或人类认为这类追加仍需事后正式复核，把 F964 从本行删掉，代码与
+#     测试不受影响（它们不依赖这一行，只是 `claim`/`verify` 的签核门会重新拦住）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191, F199, F963, F964]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

@@ -126,7 +126,7 @@ describe("#742 executeClaimed: completeWithProgress branch", () => {
 
     expect(executed).toBe(1);
     expect(store.failedWith).toBeNull();
-    expect(store.output).toEqual({ text: "已经帮你画好架构图了。", finalStepSeq: 5 });
+    expect(store.output).toEqual({ text: "已经帮你画好架构图了。", finalStepSeq: 5, files: [] });
 
     // step seq 0/1 are the run's own acceptance steps (not appended by this file); seq 2 is
     // context_built (appended by executeClaimed itself, not asserted here); seq 3/4 are the
@@ -155,7 +155,7 @@ describe("#742 executeClaimed: completeWithProgress branch", () => {
 
     expect(store.failedWith).toBeNull();
     expect(store.steps.filter((s) => s.kind === "tool_call")).toHaveLength(0);
-    expect(store.output).toEqual({ text: "不需要调用任何技能，直接回答。", finalStepSeq: 3 });
+    expect(store.output).toEqual({ text: "不需要调用任何技能，直接回答。", finalStepSeq: 3, files: [] });
   });
 
   it("empty final text is a failure, not a fabricated empty reply -- even with progress events recorded", async () => {

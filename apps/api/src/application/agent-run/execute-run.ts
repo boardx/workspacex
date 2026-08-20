@@ -63,6 +63,10 @@ import {
   buildToolTraceMessage, TOOL_TRACE_RUN_LIMIT, type ToolTraceContextPort,
 } from "./tool-trace-context";
 import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./canvas-template-guidance";
+import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
+import type { ObjectStore } from "../artifact/ports";
+import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
+import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
 import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
 import type { VisionInputStatus } from "./context-snapshot";
@@ -432,6 +436,17 @@ export interface ExecuteAgentRunDeps {
    */
   readonly canvasTemplates?: CanvasTemplateGuidancePort;
   /**
+   * #1624 —— chat 里挂了 skill 之后，模型写出来的脚本**真的被执行**的那条路径。
+   *
+   * **两者都可选，且必须一起注入才生效**（见 `run-skill-script.ts` 的触发判据表）：
+   * 与 `files`/`usage`/`canvasTemplates` 同一条既有先例——缺省不注入 ⇒ 这条路径整段
+   * 不存在，`text` 就是模型原文、不产出任何文件、沙箱一次都不被调用，行为与本次改动
+   * 之前**逐字节相同**。`trial-run-agent` 一类不接它的执行路径因此一行都不用改。
+   */
+  readonly sandbox?: SkillSandboxPort;
+  /** 同上：产物字节落这里（`putOnce`），没有它就没有地方放文件，于是根本不执行。 */
+  readonly objects?: ObjectStore;
+  /**
    * P2（#1561）—— 推理侧图像通道的取字节端口。**可选**，与 `files`/`contextSnapshots`/
    * `toolTrace` 同一条既有理由：既有测试与不需要这一层的执行路径（`trial-run-agent` 一类）
    * 不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）必定注入。
@@ -623,6 +638,21 @@ async function executeClaimed(
       }
     }
     system = buildSystemPrompt(run.instructions, skills, canvasGuidance);
+    /*
+     * #1624 —— 告诉模型它**真的能执行代码**。
+     *
+     * 没有这一段，挂着 pptx skill 的模型只会把 pptxgenjs 代码讲出来给人看，永远不会
+     * 主动产出一个可被解析的 `run_script` 块，于是下面的执行判据永远不成立——「接了
+     * 沙箱却拿不到文件」正是这条路径最容易出现的空转形态。
+     *
+     * ⚠ 门与执行判据**共用同一个前提**（沙箱+对象存储都注入 ∧ 挂了 skill）：不注入
+     *   沙箱时 system prompt **一个字都不变**，这是 T2「逐字节相同」覆盖到提示词这一格。
+     * ⚠ 拼在**最后**：skill 自己的指令优先，这里只追加一层能力说明——与
+     *   `execute-trial-run.ts` 逐字同一条纪律，不写第二套拼法。
+     */
+    if (deps.sandbox && deps.objects && skills.length > 0) {
+      system = `${system}\n\n---\n\n${RUN_SCRIPT_PROTOCOL_PROMPT}`;
+    }
   } catch (e) {
     // Every way of not getting the pinned context is the same fact for a client: the run
     // could not be assembled from what was pinned. The distinguishing detail is logged.
@@ -1058,11 +1088,55 @@ async function executeClaimed(
     total: reportedTokens, prompt: reportedPrompt, completion: reportedCompletion,
   }, "succeeded");
 
+  /*
+   * ── #1624：模型写了脚本就真的跑它 ──
+   *
+   * 位置在 `model_called` 记完、计量记完**之后**：那次调用已经发生、已经产生了账，
+   * 无论脚本跑不跑得起来都不该被改写。这一段只可能改变**写回给用户的正文**与
+   * **随消息挂上的附件**，改变不了"模型被调用过一次"这个已成事实。
+   *
+   * 判据、失败文案、产物落盘全在 `run-skill-script.ts` 一处（见那个文件的头注）；
+   * 这里只负责把 chat 特有的东西接上：怎么重新问模型要一版脚本（`regenerate`）。
+   *
+   * ⚠ 整段**不 fail run**：脚本失败是一次诚实的、带着真实 stderr 的回复，不是
+   *   "这条消息没人答"。把它变成 `failRun` 会让用户既拿不到文件，也看不到失败原因——
+   *   run 的终态错误码不进响应正文（本文件的既有纪律）。
+   */
+  let outputFiles: readonly ProducedFile[] = [];
+  {
+    const scripted = await maybeRunSkillScript(
+      {
+        sandbox: deps.sandbox,
+        objects: deps.objects,
+        log: deps.log,
+        // 回喂：把上一次的真实 exitCode/stderr 作为一条 user 消息再问一次。
+        // 用**同一个** system（含 skill 正文与执行协议）与同一段 history，
+        // 否则第二次生成的脚本会在一个与第一次不同的上下文里写出来。
+        regenerate: async (feedback) => {
+          const retry = await deps.model.complete({
+            modelProvider: run.modelProvider,
+            modelId: run.modelId,
+            system,
+            user: feedback,
+            history: [...history, { role: "assistant", content: text }],
+            skills: toolSkills,
+          });
+          return retry.text;
+        },
+      },
+      { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text },
+    );
+    text = scripted.text;
+    outputFiles = scripted.files;
+  }
+
   /* ── hand off to #413 ── */
   // `writeback_pending`, not `succeeded`. §6: the run may only become succeeded after the
   // Chat writeback transaction commits, and that transaction is not in this slice.
   await deps.runs.storeOutputAwaitingWriteback(
-    orgId, run.runId, { text, finalStepSeq: seqCursor.value },
+    orgId, run.runId,
+    // #1624：`files` 空数组 ⇒ 与该列 DEFAULT 一致，写回不插附件行（T2）。
+    { text, finalStepSeq: seqCursor.value, files: outputFiles },
   );
 }
 
