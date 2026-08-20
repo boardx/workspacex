@@ -1,26 +1,31 @@
 # 会话交接 — Sprint 10/01
 
 ## 当前已验证
-- **F01**（视角切换器）：`passing`。`pnpm harness verify --sprint 10/01 --feature F01` 5 条 verification 全绿；evidence 见 `evidence/F01.verify.log`。实现在生产组件 `apps/web/components/project/tab-live.tsx`，未合入 main——分支 `worker/usamshen-10-f01-viewer-switcher`，[PR #1665](https://github.com/boardx/workspacex/pull/1665)（`Closes #1654`）待人类合并。
+- **F01**（视角切换器）：`passing`，已合入 main（[PR #1665](https://github.com/boardx/workspacex/pull/1665)，`Closes #1654`）。
+- **F03**（环节状态条现场呈现 + 分组视角一致展示）：`passing`，[PR #1682](https://github.com/boardx/workspacex/pull/1682)（`Closes #1658`）待合入（提交时已跟当时最新 main 无冲突，push 前 turbo affected 173 文件/1484 用例全绿）。
 
-## 本轮改动
-- `apps/web/components/project/tab-live.tsx`：新增视角切换器（`ViewerSwitcher`/`GroupPanel`/`computeViewerOptions`），复用真实 `getProjectGrouping` + `useOptionalSession().identity.groupName`，不是新 mock。
-- `apps/web/components/project/project-workbench.tsx`：`liveGrouping` 拉取时机扩到「现场协作」tab（原来只在「筹备」tab 拉）。
-- `apps/web/tests/ui/project-live-viewer-switcher.test.tsx`：新增 9 个用例。
-- `phases/phase-10-live-collaboration-orchestration/feature_list.json`：F01 verification/evidence/notes 从「指向 UI 先行沙盒」改成「指向生产组件与真实测试」，反映实际落点。
+**sprint-01 的两个 feature 到此都做完了。** 下一轮不用回这个 sprint，除非要给 F01/F03 打补丁。
+
+## 本轮改动（F03 这一段）
+- `apps/web/tests/ui/project-live-segment-engine-consistency.test.tsx`：新增 3 个用例，验证「切 F01 视角切换器不会让状态条重建/换数据源」。
+- `phases/phase-10-live-collaboration-orchestration/feature_list.json`：F03 的 verification/evidence 从「指向 UI 先行沙盒 `orchestration-preview.tsx`」改成「指向生产组件 `tab-live.tsx` 与真实测试」。
+- 没有新增渲染逻辑——F01 落地时状态条已经是无条件渲染，这轮只是补验证。
 
 ## 仍损坏或未验证
-- **F02**（服务端角色矩阵）未开工：前端目前只是「不渲染越权选项」，组员改 URL 参数仍可能拿到不该看的数据——这是已知缺口，记在 F02 notes，PR #1665 的说明里也写明了，不是本轮遗漏。
-- F03/F04/F05/F06/F07/F08/F09/F10 全部 `not_started`；F04/F09/F10 有跨 phase 硬阻断（见各自 notes），F03 无阻断可直接领。
-- 「缺N人」（到场人数）与状态条右上角现场介入告警两个状态后缀仍是 `＊` 占位，等 F05（分组签到）与对应契约落地后再补，本轮未编造。
-- PR #1665 尚未合入 main——F03 若要在 main 上继续，需要先确认 PR #1665 已合，否则会在 F01 未落地的分支基础上重复劳动。
+- **F02**（服务端角色矩阵）未开工：组员改 URL 参数仍可能拿到不该看的数据，见 F02 notes。
+- F04/F09/F10 有跨阶段硬阻断（分别依赖 phase-01 议程束新增字段、phase-02 知识图谱/看板契约束签核）。
+- F06/F07/F08 依赖各自前置 feature（F05/F01/F07）。
+- 「缺N人」到场人数、状态条「需介入」现场告警两个字段仍是 `＊` 占位。
+- 观察此仓库负载：F03 那次 push 前 turbo affected 跑了 3m11s（F01 那次只要 31s），只是变慢没失败——如果下一轮再明显变慢或开始超时，先看机器负载（`uptime`）再判断是不是要等一等，不要一上来怀疑自己的代码。
 
 ## 下一步最佳动作
-- 先确认 [PR #1665](https://github.com/boardx/workspacex/pull/1665) 是否已合入 main（`gh pr view 1665 --json state`）。
-- 已合入：`git checkout main && git pull`，`pnpm harness claim --phase 10 --feature F03 --owner <owner>`，建分支 `worker/<owner>-10-f03-<slug>` 继续。
-- 未合入：不要在此分支上继续叠 F03——F03 是独立 feature，应该从合入后的 main 切新分支，避免把两个 feature 的 diff 混进一个 PR（AGENTS.md「一个 issue 一个 PR」硬约束）。
+- 确认 [PR #1682](https://github.com/boardx/workspacex/pull/1682) 是否已合入 main（`gh pr view 1682 --json state`）。
+- 已合入：`git fetch origin main && git reset --hard origin/main`（在一个新分支上，不要在旧的 F01/F03 分支上继续叠），然后二选一：
+  - `pnpm harness claim --phase 10 --feature F02 --owner <owner>`：继续 viewer-role 束，做服务端角色矩阵（依赖 F01，F01 已合入可以开工）。
+  - 开新 sprint `pnpm harness new-sprint --phase 10 --id 02 --features F05 --goal "..."` 再 claim F05：group-checkin 束已签核、零依赖，可以完全独立并行推进。
+- 两条路都不冲突任何硬阻断，选哪个看谁接手、想先补哪一块。
 
 ## 命令
 - 启动:`pnpm -w run dev`
 - 验证:`pnpm harness verify --sprint 10/01`
-- 调试:`pnpm --filter web exec vitest run tests/ui/project-live-viewer-switcher.test.tsx --reporter=verbose`
+- 调试:`pnpm --filter web exec vitest run tests/ui/project-live-segment-engine-consistency.test.tsx --reporter=verbose`
