@@ -60,7 +60,6 @@ export function ChatDiagramFabric({
    */
   projectId?: string;
 }) {
-  const { rawToken, inWhitelist } = React.useMemo(() => resolveDiagramType(code), [code]);
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
   const fabricRef = React.useRef<FabricCanvas | null>(null);
@@ -70,6 +69,12 @@ export function ChatDiagramFabric({
   const [maximized, setMaximized] = React.useState(false);
   const [savedSource, setSavedSource] = React.useState<DiagramSavedSource | null>(null);
   const [openingReadback, setOpeningReadback] = React.useState(false);
+  // 只读预览（气泡里那张小图）实际要画的源——优先用「这次会话里最新保存版」（无论
+  // 是 G1 从服务端读回的，还是本地演示保存后 modal 关闭时带回来的），没有保存版
+  // 才退回原始消息文本。此前恒用 `code`：保存/关闭全屏后气泡卡片纹丝不动就是因为
+  // 这条预览渲染从没读过 `savedSource`（人类实测反馈）。
+  const previewCode = savedSource?.markdown ?? code;
+  const { rawToken, inWhitelist } = React.useMemo(() => resolveDiagramType(previewCode), [previewCode]);
 
   /**
    * G1 读回（design-delta chat-persona-roundtrip，confirmed 2026-08-18）：点「最大化」
@@ -81,7 +86,9 @@ export function ChatDiagramFabric({
   const openMaximized = React.useCallback(async () => {
     if (openingReadback) return;
     if (!threadId || !messageId || !projectId || bearer === undefined) {
-      setSavedSource(null);
+      // 个人线程/无项目上下文：不发 G1 读回请求，但也**不**把 savedSource 清空——
+      // 它可能是这次会话里刚关闭的本地演示保存（见下面 onClose），清空会让刚保存
+      // 的编辑一重新打开全屏就凭空消失，比不读回还倒退。
       setMaximized(true);
       return;
     }
@@ -130,7 +137,7 @@ export function ChatDiagramFabric({
         // parse 先行：fabric 的 mermaidToModel 比 mermaid.parse 宽容，会把残缺围栏
         // 解析成「部分模型」而不抛错。若直接喂给 fabric，语法错的图会渲成半截/空白
         // 画布，违背「诚实错误态」。故让 fabric **只**看到已过 parse 的合法源。
-        await mermaid.parse(code);
+        await mermaid.parse(previewCode);
         if (!cancelled) setStatus({ phase: "valid" });
       } catch (e) {
         if (!cancelled)
@@ -144,7 +151,7 @@ export function ChatDiagramFabric({
     return () => {
       cancelled = true;
     };
-  }, [code, inWhitelist, rawToken, inView]);
+  }, [previewCode, inWhitelist, rawToken, inView]);
 
   // 阶段二：仅当 valid（<canvas> 已挂）时建 FabricCanvas 并渲染（只读）。
   React.useEffect(() => {
@@ -161,7 +168,7 @@ export function ChatDiagramFabric({
     });
     fabricRef.current = canvas;
     let cancelled = false;
-    markdownToCanvas(wrapAsMermaidBlock(code), canvas)
+    markdownToCanvas(wrapAsMermaidBlock(previewCode), canvas)
       .then(() => {
         if (cancelled) return;
         canvas.forEachObject((obj) => {
@@ -183,7 +190,7 @@ export function ChatDiagramFabric({
       fabricRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status.phase, code]);
+  }, [status.phase, previewCode]);
 
   if (status.phase === "error") {
     // VZ-01 诚实错误态：testid / 结构 / 文案与 VZ-01 一致。此分支从未挂过 fabric canvas。
@@ -198,7 +205,7 @@ export function ChatDiagramFabric({
           {status.reason === "whitelist" ? `不支持的图类型：${status.detail}` : "语法错误"}）
         </div>
         <pre className="overflow-x-auto px-2.5 py-2 font-mono text-11 leading-relaxed text-muted-foreground">
-          <code>{code}</code>
+          <code>{previewCode}</code>
         </pre>
       </div>
     );
@@ -254,7 +261,14 @@ export function ChatDiagramFabric({
       {maximized && (
         <ChatDiagramCanvasModal
           code={code}
-          onClose={() => setMaximized(false)}
+          onClose={(result) => {
+            // 关闭时如果带回了保存结果（真实落库或本地演示皆算），更新 previewCode
+            // 的源——这样退出全屏后气泡里的只读预览立刻跟着变，不用等重新拉整个
+            // 消息列表（这条链路目前也不会真的把编辑写回 chat_messages，见调用方
+            // 文件头「G1 读回」注释）。
+            if (result) setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
+            setMaximized(false);
+          }}
           threadId={threadId}
           messageId={messageId}
           bearer={bearer}
