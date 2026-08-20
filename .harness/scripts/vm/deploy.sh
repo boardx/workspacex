@@ -112,7 +112,15 @@ if ! grep -q '^KERNEL_SKILL_SANDBOX_SOCKET=' "$ENV_FILE"; then
 fi
 
 step "3. 依赖服务（具名卷；项目名与门控栈分开，端口也分开）"
+# ⚠ `sudo` 默认 `env_reset`（本机 /etc/sudoers:9 实测确认）——父 shell 里 `export` 的
+#   变量**到不了**这一行。SANDBOX_* 必须像 ENV_FILE 的变量一样**显式列在 `env` 后面**。
+#   2026-08-21 devapp 首次部署实测：只 export 不显式传 ⇒ compose 报
+#   `required variable SANDBOX_SOCKET_DIR is missing a value` 并 fail-closed 停下
+#   （那个 `:?` 形式正是为此设计——它没有静默起一个属主错误的沙箱）。
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
+  SANDBOX_SOCKET_DIR="$SANDBOX_SOCKET_DIR" \
+  SANDBOX_UID="$SANDBOX_UID" \
+  SANDBOX_GID="$SANDBOX_GID" \
   docker compose -f apps/api/docker-compose.deploy.yml -p workspacex up -d
 until docker exec workspacex-postgres-1 pg_isready -U postgres >/dev/null 2>&1; do sleep 2; done
 
