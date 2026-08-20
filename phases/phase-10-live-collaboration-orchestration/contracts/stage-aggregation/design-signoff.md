@@ -2,9 +2,9 @@
 bundle: stage-aggregation
 phase: "10"
 covers: [F09, F10]
-status: pending
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-08-20T09:19:24+08:00"
 scope_note: "首轮签核仅覆盖主持台·看板聚合视图骨架 + 主持台·知识图谱决策推演聚合视图骨架——两个 feature 都明确停在『UI 骨架 + 诚实占位』阶段。本束即便三件（UI/用例/API 契约）全部签核通过，F09/F10 仍然完全无法对接真实数据，因为它们消费的全部是 phase-02 的领域模型，而 phase-02 目前整体 not_started、contracts/ 只签了 survey 一个束。这是本 phase 十个 feature 里依赖最重的两个，签核这件事本身不解锁真正开工，见下方『硬阻断』（显著标注，不得弱化）。"
 ---
 
