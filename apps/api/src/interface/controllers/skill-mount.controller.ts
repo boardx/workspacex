@@ -59,9 +59,13 @@ import { unmountSkillFromThread } from "../../application/skill/unmount-skill-fr
 import { listThreadDeviations } from "../../application/skill/list-thread-deviations";
 import { decideCapabilityVisibility } from "../../domain/identity/capability-listing";
 import { discloseDecided, isDisclosed } from "../../application/security/permission-filter";
-import { deliverRoleOfProjectRole, type DeliverRole } from "../../domain/skill/binding-slot";
-import { isSelfMountAllowed } from "../../domain/skill/thread-mount";
 import { mountListFingerprint } from "../../domain/skill/thread-mount";
+import { authorizeThreadMount } from "../../application/skill/authorize-thread-mount";
+import {
+  AuthzUnavailableError,
+  resolveVisibility,
+} from "../../application/chat/resolve-visibility";
+import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/ports";
 import {
   SKILL_CONTRACT_REPOSITORY,
   SKILL_SECURITY_AUDIT,
@@ -107,6 +111,8 @@ export class SkillMountController {
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(SKILL_SECURITY_AUDIT) private readonly audit: SecurityAuditPort,
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
+    // #1693：线程归属（`project_id` / `created_by`）的读口——授权从这里反查，不看 query。
+    @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
   ) {}
 
   /* ────────── POST /threads/:threadId/skill-mounts ────────── */
@@ -121,14 +127,14 @@ export class SkillMountController {
   ) {
     assertPrincipal(principal);
     this.assertPathMatchesBody(threadId, body.threadId);
-    const project = this.requireProjectId(projectId);
 
     const result = await mountSkillToThread(
       {
         threadId,
         principalId: principal.userId,
-        // ⚠ 服务端解析，不信任前端。读不到成员关系 ⇒ `null` ⇒ 用例拒绝并写审计。
-        role: (await this.deliverRoleOf(principal, project)) ?? "",
+        // ⚠ 服务端解析，不信任前端：项目由 `findThreadFacts` 从线程反查，
+        //   `projectId` query 参数**不参与授权**（#1693）。
+        authorization: await this.authorizeMount(principal, threadId),
         skillIds: body.skillIds,
         // 每条挂载一个 uuid。`mountIdFor` 收 index 只是为了让测试能给可预期的值，
         // 生产就是「一次一个新 id」——不复用 skillId 之类的东西：同一个 skill
@@ -161,7 +167,7 @@ export class SkillMountController {
     @Query("projectId") projectId: string | undefined,
   ) {
     assertPrincipal(principal);
-    await this.assertMayWriteMounts(principal, this.requireProjectId(projectId), threadId, mountId);
+    await this.assertMayWriteMounts(principal, threadId, mountId);
 
     const result = await unmountSkillFromThread(
       { threadId, mountId, removedAt: new Date().toISOString() },
@@ -184,10 +190,9 @@ export class SkillMountController {
     @Query("projectId") projectId: string | undefined,
   ) {
     assertPrincipal(principal);
-    // ⚠ 读对**本项目的任意角色**开放，含组员与观察者（V5：组员看得见、但没有增删改入口）。
-    //   要求的是「你在这个项目里」，不是「你是引导师」——把读也收成引导师专属，
-    //   组员就再也看不到自己这场挂了什么，那与 V5 直接矛盾。
-    await this.assertProjectMember(principal, this.requireProjectId(projectId));
+    // ⚠ 读比写宽一档：**能读这条线程**即可，含观察者（V5：观察者看得见、但没有增删改入口）。
+    //   个人对话走 creator-only 分支（#1693）。判定同样从线程反查，不看 query。
+    await this.assertMayReadThread(principal, threadId);
 
     const result = await listThreadDeviations(
       { threadId, bindingSkillIds: NO_SEGMENT_BINDINGS },
@@ -212,18 +217,26 @@ export class SkillMountController {
   }
 
   /**
-   * `projectId` 走 query —— 与 `getAgentPanel` / `updateAgentRoster`
-   * （`chat.controller.ts`）同一个落法，不是本路由特有的怪癖：契约的 `in` 是
-   * `.strict()` 的，把 `projectId` 塞进 body 会被拒。
+   * 线程级写授权 —— 三条路径共用的**唯一**入口（#1693）。
    *
-   * ⚠ 缺了它**拒绝**，不是「退化成组员」：角色解析不出来时放行一个较低权限，
-   *   等于给「不带 projectId 就绕过引导师判定」留了一条路。
+   * ⚠ 这里**不再**有 `requireProjectId`。它此前存在的理由是「角色解析不出来时不许
+   *   退化放行」，但它保护的那个角色解析本身就是错的：项目来自调用方的 query，
+   *   从不与线程核对。现在项目由 `authorizeThreadMount` 从 `findThreadFacts` 反查，
+   *   query 里的 `projectId` 对授权**完全没有影响**——于是「不带 projectId 绕过判定」
+   *   这条路不是被堵上了，是不存在了。个人对话（`project_id IS NULL`）也因此进得来。
+   *
+   * ⚠ `AuthzUnavailableError` 原样上抛 ⇒ 503（uc-8-5 V10），不吞成 403。
    */
-  private requireProjectId(projectId: string | undefined): string {
-    if (projectId === undefined || projectId === "") {
-      throw new UnprocessableEntityException({ reasonCode: "CONTRACT_VALIDATION_FAILED" });
-    }
-    return projectId;
+  private async authorizeMount(principal: Principal, threadId: string) {
+    return authorizeThreadMount(this.visibilityDeps, {
+      userId: principal.userId,
+      orgId: toOrgId(principal.orgId),
+      threadId,
+    });
+  }
+
+  private get visibilityDeps() {
+    return { repo: this.identities, ids: this.ids, chat: this.chat };
   }
 
   /**
@@ -237,38 +250,37 @@ export class SkillMountController {
    */
   private async assertMayWriteMounts(
     principal: Principal,
-    projectId: string,
     threadId: string,
     detail: string,
   ): Promise<void> {
-    const role = await this.deliverRoleOf(principal, projectId);
-    if (role !== null && isSelfMountAllowed(role)) return;
+    const authorization = await this.authorizeMount(principal, threadId);
+    if (authorization.allowed) return;
     await this.audit.record({
       kind: "skill-member-self-mount-attempt",
       principalId: principal.userId,
-      detail: `role=${role ?? "none"} 试图在 thread=${threadId} 摘除挂载（${detail}），服务端拒绝`,
+      detail: `reason=${authorization.reason} 试图在 thread=${threadId} 摘除挂载（${detail}），服务端拒绝`,
     });
     throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
   }
 
-  /** 读路径：只要求「你在这个项目里」。不在 ⇒ 403，不是空列表——空列表会被读成「没挂东西」。 */
-  private async assertProjectMember(principal: Principal, projectId: string): Promise<void> {
-    const membership = await this.identities.findProjectMembership(
-      principal.userId,
-      projectId,
-      toOrgId(principal.orgId),
-    );
-    if (membership === null) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
-  }
-
-  /** `null` = 不在这个项目里，或角色不对应任何下发角色（observer）。 */
-  private async deliverRoleOf(principal: Principal, projectId: string): Promise<DeliverRole | null> {
-    const membership = await this.identities.findProjectMembership(
-      principal.userId,
-      projectId,
-      toOrgId(principal.orgId),
-    );
-    return deliverRoleOfProjectRole(membership?.projectRole ?? null);
+  /**
+   * 读路径：只要求「你能读这条线程」（观察者也能读，V5）。
+   * 读不到 ⇒ 403，不是空列表——空列表会被读成「没挂东西」。
+   */
+  private async assertMayReadThread(principal: Principal, threadId: string): Promise<void> {
+    const orgId = toOrgId(principal.orgId);
+    const facts = await this.chat.findThreadFacts(orgId, threadId);
+    if (facts === null) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
+    const outcome = await resolveVisibility(this.visibilityDeps, {
+      userId: principal.userId,
+      orgId,
+      // 同 `authorizeThreadMount`：真值，不是 query 参数。
+      projectId: facts.projectId,
+      threadId,
+    });
+    if (outcome.kind !== "allow") {
+      throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
+    }
   }
 
   /**

@@ -8,27 +8,35 @@
  * · **I-18 只对当前线程生效**：本用例的唯一可写端口 `ThreadMountStorePort` 只认
  *   `threadId`（见 `ports.ts`），且依赖清单里**没有** `ProjectOrchestrationStorePort`——
  *   这个用例结构上拿不到任何能改蓝本/实例编排的东西。
- * · **组员/未获下放的组长拒绝在服务端**（V4）：`isSelfMountAllowed` 判定为 false 时
- *   直接拒绝并写安全审计，**在做任何可见性/挂载判断之前**——越权尝试不应该
- *   透出「这个 skill 存不存在」之类的次级信息。
+ * · **写不了这条线程的人拒绝在服务端**（V4，#1693 改写判据）：`authorization.allowed`
+ *   为 false 时直接拒绝并写安全审计，**在做任何可见性/挂载判断之前**——越权尝试
+ *   不应该透出「这个 skill 存不存在」之类的次级信息。
+ *
+ *   ⚠ 判据本身已由人类裁决（2026-08-21）从「必须是引导师」放宽为「能写这条线程即可」：
+ *   > 「个人对话必须要可以使用公共的 skills」「所有的人都可以用」
+ *   放宽的是**谁能挂**；**能挂到什么**没动——skill 可见性过滤（下面的
+ *   `deps.skills.visibleTo` ⇒ `SKILL_NOT_FOUND`，I-14 不泄露存在性）一个字未改。
  *
  * ⚠ 临时挂载**不构成提权**（R9）：本用例不引入任何新的数据范围判定，
  *   运行时读数据仍然只能走 `ContextApiPort`（I-25），与蓝本绑定同一条通路、同一套三层权限。
  */
-import { isDeliverRole, type DeliverRole } from "../../domain/skill/binding-slot";
-import {
-  isSelfMountAllowed,
-  mountOne,
-  type ThreadSkillMount,
-} from "../../domain/skill/thread-mount";
+import { mountOne, type ThreadSkillMount } from "../../domain/skill/thread-mount";
+import type { ThreadMountAuthorization } from "./authorize-thread-mount";
 import type { SkillErrorCode } from "../../domain/skill/declarative-contract";
 import type { SecurityAuditPort, SkillVisibilityPort, ThreadMountStorePort } from "./ports";
 
 export interface MountSkillToThreadInput {
   readonly threadId: string;
   readonly principalId: string;
-  /** 原始角色字符串，未经收窄——服务端判定，不信任前端隐藏入口。 */
-  readonly role: string;
+  /**
+   * 线程级写授权，由 `authorizeThreadMount` 在**服务端**解析（#1693）。
+   *
+   * ⚠ 这里收的是一个**已判定的结果**而不是原始角色字符串：角色由请求方给的
+   *   `?projectId=` 推出来的那个旧形状，正是那个「带上任意 projectId 就能挂到
+   *   别人线程上」的洞。现在这个字段唯一的合法来源是 `authorizeThreadMount`，
+   *   而它只认 `findThreadFacts` 查出来的真实归属。
+   */
+  readonly authorization: ThreadMountAuthorization;
   readonly skillIds: readonly string[];
   /** 新挂载条目的 id 生成器：测试给可预期的值，生产由调用方接 uuid。 */
   readonly mountIdFor: (index: number) => string;
@@ -53,17 +61,19 @@ export async function mountSkillToThread(
   input: MountSkillToThreadInput,
   deps: MountSkillToThreadDeps,
 ): Promise<MountSkillToThreadResult> {
-  const role = isDeliverRole(input.role) ? input.role : null;
-  if (role === null || !isSelfMountAllowed(role as DeliverRole)) {
+  // ⚠ 顺序是判据的一部分（未改）：授权拒绝**在任何可见性/挂载判断之前**返回，
+  //   越权尝试不得透出「这个 skill 存不存在」之类的次级信息。
+  if (!input.authorization.allowed) {
     await deps.audit.record({
       kind: "skill-member-self-mount-attempt",
       principalId: input.principalId,
-      detail: `role=${input.role} 试图在 thread=${input.threadId} 自行挂载 skill（${input.skillIds.join(",")}），服务端拒绝`,
+      detail: `reason=${input.authorization.reason} 试图在 thread=${input.threadId} 挂载 skill（${input.skillIds.join(",")}），服务端拒绝`,
     });
     return {
       ok: false,
-      code: "MEMBER_CANNOT_SELF_MOUNT",
-      reason: "组员不能自行挂载 skill；组长的下放开关尚未落地（S3），同样拒绝",
+      // 「线程看不见」与「你是观察者」对外同一个码——分开就是一个线程 id 探测器。
+      code: "PERMISSION_REVOKED",
+      reason: "无权修改这条线程的挂载：线程不可见，或你在该项目里是只读的观察者",
     };
   }
 
