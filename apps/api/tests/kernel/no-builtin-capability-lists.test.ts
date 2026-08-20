@@ -115,6 +115,7 @@ describe("V1 static: no built-in capability list exists in product code", () => 
       "apps/web/lib/mock/admin-limits.ts",  // org-admin 域 #923/#924 后台用量监控+限额策略两 tab 的 UI 先行（B1，2026-08-11）
       "apps/web/lib/mock/chat-viz.ts",      // chat 域 VZ-01（#1020）mermaid 渲染签核增量的原型预览数据（2026-08-12）
       "apps/web/lib/mock/chat-diagram-fabric.ts", // chat 域 VZ-fabric（#1112）fabric.js 渲染+最大化/编辑/保存签核增量的原型预览数据（2026-08-13）；申报历史见 #1155/#1161
+      "apps/web/lib/mock/live-collab-orchestration.ts", // phase-10 现场协作编排域 UI 先行（#1636 建 phase 时随需求+原型一起进来的观众/分组视图预览数据，2026-08-20）
     ];
     const r = runGate();
     const debtLines = r.out.split("\n").filter((l) => l.startsWith("· [debt]"));
