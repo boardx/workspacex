@@ -22,6 +22,7 @@ import {
   getProjectTopic, getProjectGrouping,
   type ProjectTopicOut, type ProjectGroupingOut,
 } from "@/lib/live-project-prep";
+import { queryProvenance, type QueryProvenanceOut } from "@/lib/live-provenance";
 import { TabOverview } from "./tab-overview";
 import { TabLive } from "./tab-live";
 import { TabResults } from "./tab-results";
@@ -133,13 +134,17 @@ export function ProjectWorkbench({
    * （`getProjectOverview` 的 `orgId` 在服务端取自 principal）——与上面
    * `findProject` 那次拉取（供项目头 name/kind/status/readOnlyReason 用）是
    * 两次独立的请求，范围各自成立，互不替代。
+   *
+   * ⚠ F964：拉取范围扩大到「成果沉淀」tab 一起共用——`tab-results.tsx`「成果去向」区
+   *   需要的正是同一份 `backflow` 白名单字段（uc-00-2 V1，coverage.md 逐字点名它是
+   *   「成果沉淀 · 成果去向区」的前端消费点），不重新声明第二次拉取。
    */
   const [liveOverview, setLiveOverview] = React.useState<ProjectOverview | null>(null);
   const [liveOverviewLoading, setLiveOverviewLoading] = React.useState(false);
   const [liveOverviewError, setLiveOverviewError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (!projectId || tab !== "overview") {
+    if (!projectId || (tab !== "overview" && tab !== "results")) {
       setLiveOverview(null);
       setLiveOverviewError(null);
       return;
@@ -196,7 +201,9 @@ export function ProjectWorkbench({
   }, [projectId]);
 
   React.useEffect(() => {
-    if (!projectId || tab !== "prep") {
+    // F963：现场协作主持台状态条同一份真实数据（当前进行中环节），同「筹备」tab
+    // 共用一次拉取，不重复声明第二份 state。
+    if (!projectId || (tab !== "prep" && tab !== "live")) {
       setLiveSegments(null);
       setLiveSegmentsError(null);
       return;
@@ -212,8 +219,10 @@ export function ProjectWorkbench({
 
   /**
    * F950（2026-08-16 delta）—— 项目筹备 tab 的定题/分组，与上面 `liveSegments` 同一套
-   * 取法：只在「筹备」tab 激活时拉取；`refreshTopic`/`refreshGrouping` 单独导出给
-   * `TabPrep`，保存成功后重新打一次真实 GET，不在本地拼接乐观更新的值。
+   * 取法：只在「筹备」/「现场协作」两个 tab 激活时拉取（F01/phase-10：现场协作 tab
+   * 的视角切换器需要真实分组列表，不新建第二条取分组的路径，同一份状态两个 tab 共用）；
+   * `refreshTopic`/`refreshGrouping` 单独导出给 `TabPrep`，保存成功后重新打一次真实
+   * GET，不在本地拼接乐观更新的值。
    */
   const [liveTopic, setLiveTopic] = React.useState<ProjectTopicOut | null>(null);
   const [liveTopicLoading, setLiveTopicLoading] = React.useState(false);
@@ -250,17 +259,64 @@ export function ProjectWorkbench({
   }, [projectId]);
 
   React.useEffect(() => {
+    const needsGrouping = tab === "prep" || tab === "live";
+    if (!projectId || !needsGrouping || !getStoredSessionToken()) {
+      setLiveGrouping(null);
+      setLiveGroupingError(null);
+    } else {
+      refreshGrouping();
+    }
     if (!projectId || tab !== "prep" || !getStoredSessionToken()) {
       setLiveTopic(null);
       setLiveTopicError(null);
-      setLiveGrouping(null);
-      setLiveGroupingError(null);
       return;
     }
     refreshTopic();
-    refreshGrouping();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 两者只依赖 projectId，随它一起重建
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 两者只依赖 projectId/tab，随它们一起重建
   }, [projectId, tab]);
+
+  /**
+   * F964 —— 「成果沉淀 · 审计与反馈」区的真实 `queryProvenance`，按
+   * `targetKind:"project"` + `targetId:projectId` 收窄到本项目（`live-provenance.ts`
+   * 头注）。同 `findProject` 一样需要 `qs.org`——契约的 `queryProvenance.in.orgId`
+   * 是必填字段，服务端不会替这条读路径从 principal 推断组织；没有 `?org=` 或未登录时
+   * 保持 `null`，`TabResults` 据此显示诚实的「暂无真实数据」而不是空转（同 F353 纪律）。
+   */
+  const [liveAudit, setLiveAudit] = React.useState<QueryProvenanceOut | null>(null);
+  const [liveAuditLoading, setLiveAuditLoading] = React.useState(false);
+  const [liveAuditError, setLiveAuditError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!projectId || tab !== "results" || !qs.org) {
+      setLiveAudit(null);
+      setLiveAuditError(null);
+      return;
+    }
+    const token = getStoredSessionToken();
+    if (!token) {
+      setLiveAudit(null);
+      setLiveAuditError(null);
+      return;
+    }
+    let cancelled = false;
+    setLiveAuditLoading(true);
+    setLiveAuditError(null);
+    queryProvenance(qs.org, 50, { targetKind: "project", targetId: projectId })
+      .then((out) => {
+        if (!cancelled) setLiveAudit(out);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setLiveAuditError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLiveAuditLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, tab, qs.org]);
 
   const href = (o: Partial<{ tab: string; as: string; state: string; sub: string }>) => {
     const p = new URLSearchParams();
@@ -424,6 +480,7 @@ export function ProjectWorkbench({
                 liveSegments, liveSegmentsLoading, liveSegmentsError, refreshSegments,
                 liveTopic, liveTopicLoading, liveTopicError, refreshTopic,
                 liveGrouping, liveGroupingLoading, liveGroupingError, refreshGrouping,
+                liveAudit, liveAuditLoading, liveAuditError,
               )}
             </StateShell>
           </main>
@@ -457,6 +514,9 @@ function renderTab(
   liveGroupingLoading: boolean,
   liveGroupingError: string | null,
   refreshGrouping: () => void,
+  liveAudit: QueryProvenanceOut | null,
+  liveAuditLoading: boolean,
+  liveAuditError: string | null,
 ) {
   switch (tab) {
     case "overview":
@@ -495,8 +555,33 @@ function renderTab(
           onGroupingSaved={refreshGrouping}
         />
       );
-    case "live": return <TabLive view={view} readOnly={orgDisabled} />;
-    case "results": return <TabResults view={view} readOnly={orgDisabled} />;
+    case "live":
+      return (
+        <TabLive
+          view={view}
+          readOnly={orgDisabled}
+          liveSegments={liveSegments}
+          liveSegmentsLoading={liveSegmentsLoading}
+          liveSegmentsError={liveSegmentsError}
+          liveGrouping={liveGrouping}
+          liveGroupingLoading={liveGroupingLoading}
+          liveGroupingError={liveGroupingError}
+          onAdvanced={refreshSegments}
+        />
+      );
+    case "results":
+      return (
+        <TabResults
+          view={view}
+          readOnly={orgDisabled}
+          liveOverview={liveOverview}
+          liveOverviewLoading={liveOverviewLoading}
+          liveOverviewError={liveOverviewError}
+          liveAudit={liveAudit}
+          liveAuditLoading={liveAuditLoading}
+          liveAuditError={liveAuditError}
+        />
+      );
     case "todo": return <TabTodo view={view} readOnly={orgDisabled} />;
     case "settings": return <TabSettings view={view} readOnly={orgDisabled} />;
   }

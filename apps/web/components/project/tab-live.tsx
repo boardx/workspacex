@@ -1,119 +1,359 @@
 "use client";
+import * as React from "react";
+import { ChevronDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { SectionTitle, StatChip } from "./parts";
+import { ROLE_STAGE_CONTROL, observerHidden, type ProjectRole } from "@/lib/mock/project";
+import { ApiError } from "@/lib/api-client";
 import {
-  LIVE_STAGE, LIVE_GROUPS, ROLE_CAN_WRITE, ROLE_STAGE_CONTROL, ROLE_OWN_GROUP,
-  ROLE_SEES_ALL_RAW, observerHidden, type ProjectRole,
-} from "@/lib/mock/project";
+  advanceAgendaSegment,
+  AGENDA_SEGMENT_STATE_LABEL,
+  type ListAgendaSegmentsOut,
+} from "@/lib/live-projects";
+import { GROUP_STATUS_LABEL, type Group, type ProjectGroupingOut } from "@/lib/live-project-prep";
+import { useOptionalSession } from "@/components/session/session-provider";
 
 /**
- * 现场协作（原型 isWsDuring · 主持台全场）—— 复用 rec/canvas 域的心智：
- * 四组并行、每组一路录音喂给本组推演模板、进度条、需要介入提示。
- * ⚠ 四视角显著不同（真的改变界面，不是换文案）：
- *   · 引导师：四组原始引述全可见 + 全场控制（切环节/+5min/介入/听任意组）。
- *   · 组长/组员：**只有本组（第 2 组）**看得到原始引述与操作；别组只显示进度聚合。无全场控制。
- *   · 观察者：所有组都只显示脱敏进度，原始引述与所有操作按钮都消失。
+ * 现场协作主持台（F963，2026-08-19；F01/2026-08-20 加视角切换器）。
+ *
+ * ⚠ **状态条接真、四组并行整块降级为如实空态**，同 F172 对 `tab-overview.tsx`
+ *   「当前环节」卡与「待办」块的处置纪律（`getProjectOverview` 只给 `{title, state}`
+ *   没有剩余时长 ⇒ 删倒计时；待办无契约来源 ⇒ 整块改如实说明，不渲染编造文案）——
+ *   本次同理：`listAgendaSegments`/`advanceAgendaSegment` 已签核且真实可用，环节
+ *   标题/序号/状态/推进动作接真；但「四组并行」卡片的引述/画布进度/素材充足度/
+ *   现场介入标记在 project 束契约里**完全无来源**（`quote`/`canvas` 归 canvas/recording
+ *   束、`fill`/`needs` 全仓零来源，2026-08-19 人类会话已确认范围），继续渲染
+ *   `LIVE_GROUPS` 那组 mock 数字会与真实状态条同屏并列、用户分不清真假——同 F172
+ *   点名的「主要缺陷」是同一种问题，故整块降级为如实空态，不是新造一种处置。
+ *
+ * ⚠ **F01 视角切换器（phase-10 viewer-role 束，design-signoff.md 已签核 2026-08-20）**：
+ *   `主持台·全场 / 分组` 二档切换 + 角色锁定。数据源全部真实，无一处编造：
+ *   - 分组选项来自 `getProjectGrouping`（已 passing，`Group[]`），facilitator 可见全部；
+ *     groupLead/member 只能看自己所在的一组（本组名从 `useOptionalSession().identity.groupName`
+ *     取——真实会话身份，不是 mock；取不到时如实显示「看不出你在哪一组」，不猜一个默认组）；
+ *     observer 只有「主持台·全场」一个选项（OPEN-QUESTIONS.md Q1 已裁决：全场只读聚合，
+ *     不含任何一组的原始转写/对话逐字稿——本 feature 只做到「不渲染分组选项」这一层，
+ *     真正的服务端拒绝面属 F02）。
+ *   - 分组状态后缀用 `Group.status`（`GROUP_STATUS_LABEL`，契约已有的三态：录音就绪/缺人/
+ *     需介入）——这是**已签核契约里的真实字段**，不是 00-overview.md 硬前置里说的那个
+ *     「全仓无来源」的现场态『需介入』（那个是环节状态条右上角的告警 pill，仍然是 ＊ 占位，
+ *     两者字面同名但不是同一件事，不要混为一谈）。
+ *   - 选中某个分组时展示该组的真实字段（名称/场景/状态/组长与组员计数）；
+ *     不展示 canvas/recording 归属的实时引述与画布进度（那些字段依旧全仓无来源，
+ *     沿用「四组并行」块已有的诚实空态纪律，本 feature 未新造编造数据）。
+ *   - 「缺N人」（到场人数）与「需介入」（现场告警）两个状态后缀不在本 feature 范围内
+ *     （分别依赖 F05 分组签到、以及全仓无来源的现场介入判据），维持 ＊ 占位，
+ *     见 `viewer-role/design-signoff.md` frontmatter `scope_note`。
  */
-export function TabLive({ view, readOnly = false }: { view: ProjectRole; readOnly?: boolean }) {
-  const canWrite = ROLE_CAN_WRITE[view] && !readOnly;
+export function TabLive({
+  view,
+  readOnly = false,
+  liveSegments = null,
+  liveSegmentsLoading = false,
+  liveSegmentsError = null,
+  liveGrouping = null,
+  liveGroupingLoading = false,
+  liveGroupingError = null,
+  onAdvanced,
+}: {
+  view: ProjectRole;
+  readOnly?: boolean;
+  liveSegments?: ListAgendaSegmentsOut | null;
+  liveSegmentsLoading?: boolean;
+  liveSegmentsError?: string | null;
+  liveGrouping?: ProjectGroupingOut | null;
+  liveGroupingLoading?: boolean;
+  liveGroupingError?: string | null;
+  onAdvanced?: () => void;
+}) {
   const stageControl = ROLE_STAGE_CONTROL[view] && !readOnly;
-  const seesAllRaw = ROLE_SEES_ALL_RAW[view];
-  const ownGroup = ROLE_OWN_GROUP[view];
   const isObserver = observerHidden(view);
+  const myGroupName = useOptionalSession()?.identity?.groupName ?? null;
+
+  const groups = liveGrouping?.groups ?? [];
+  const { options, locked, defaultId } = computeViewerOptions(view, groups, myGroupName);
+  const [selectedId, setSelectedId] = React.useState<string>(defaultId ?? "stage");
+  // 分组数据是异步拉回来的：首次渲染时 options 可能还是空的，等真正到手后把选中项
+  // 同步成默认值，不然 groupLead/member 会先看见「找不到分组」的空态再跳成真内容。
+  React.useEffect(() => {
+    if (defaultId !== null) setSelectedId(defaultId);
+  }, [defaultId]);
+  const selected = options.find((o) => o.id === selectedId) ?? null;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6" data-testid="project-live">
-      {/* 主持台状态条 */}
-      <Card data-testid="project-live-stagebar">
-        <div className="flex items-center gap-3 rounded-t-lg bg-inverse px-4 py-3 text-inverse-foreground">
-          <span aria-hidden className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-destructive" />
-          <div className="min-w-0 flex-1">
-            <div className="text-10 uppercase tracking-wide text-muted-foreground">{LIVE_STAGE.segment}</div>
-            <div className="truncate text-14 font-medium">{LIVE_STAGE.segmentTitle}</div>
-          </div>
-          {stageControl && (
-            <StatChip tone="danger" testId="project-live-need-intervention">{LIVE_STAGE.needIntervention}</StatChip>
-          )}
-          <div className="shrink-0 text-right">
-            <div className="font-mono text-18 tabular-nums">{LIVE_STAGE.countdown}</div>
-            <div className="text-9 text-muted-foreground">剩余</div>
-          </div>
+      <StageBar
+        segments={liveSegments}
+        loading={liveSegmentsLoading}
+        error={liveSegmentsError}
+        stageControl={stageControl}
+        onAdvanced={onAdvanced}
+      />
+
+      <ViewerSwitcher
+        options={options}
+        locked={locked}
+        loading={liveGroupingLoading}
+        error={liveGroupingError}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        unresolved={!liveGroupingLoading && !liveGroupingError && options.length === 0}
+      />
+
+      {selected?.kind === "group" ? (
+        <GroupPanel group={selected.group} />
+      ) : (
+        <>
+          <SectionTitle meta={isObserver ? "只读" : "画布/转写接线未完成，暂不可用"}>
+            四组并行
+          </SectionTitle>
+          <Card>
+            <p className="px-3.5 py-3 text-11 leading-relaxed text-muted-foreground" data-testid="project-live-groups-unavailable">
+              每组的实时引述、画布完成度、素材充足度、现场介入标记在项目域契约里还没有出处——
+              引述与画布归 canvas/recording 束，素材充足度与介入标记全仓目前没有任何字段能表达
+              （2026-08-19 已确认范围）。它们要真，得先补上对应契约与仓储，那是接下来的 feature，
+              本版不显示编造数字。
+            </p>
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** 视角选项：「主持台·全场」或某一个真实分组。 */
+type ViewerOption =
+  | { id: "stage"; kind: "stage"; label: string }
+  | { id: string; kind: "group"; label: string; group: Group };
+
+/**
+ * 按角色计算视角切换器的选项集合（纯函数，可单测）。
+ *
+ * - facilitator：全场 + 全部真实分组，可切换。
+ * - groupLead / member：锁定本组（按 `myGroupName` 在真实分组列表里找同名的那一组）；
+ *   找不到（`identity.groupName` 为空或与任何分组都对不上）时返回空 options，
+ *   由调用方渲染诚实的「看不出你在哪一组」，**不猜一个默认组**。
+ * - observer：锁定「主持台·全场」（Q1 裁决），不渲染任何分组选项。
+ */
+export function computeViewerOptions(
+  role: ProjectRole,
+  groups: readonly Group[],
+  myGroupName: string | null,
+): { options: ViewerOption[]; locked: boolean; defaultId: string | null } {
+  const stageOption: ViewerOption = { id: "stage", kind: "stage", label: "主持台·全场" };
+  const groupOptions: ViewerOption[] = groups.map((g) => ({ id: g.groupId, kind: "group", label: g.name, group: g }));
+
+  if (role === "facilitator") {
+    return { options: [stageOption, ...groupOptions], locked: false, defaultId: "stage" };
+  }
+  if (role === "observer") {
+    return { options: [stageOption], locked: true, defaultId: "stage" };
+  }
+  // groupLead / member：只锁定真实存在、名字对得上的那一组。
+  const mine = myGroupName !== null ? groups.find((g) => g.name === myGroupName) ?? null : null;
+  if (mine === null) return { options: [], locked: true, defaultId: null };
+  return { options: [{ id: mine.groupId, kind: "group", label: mine.name, group: mine }], locked: true, defaultId: mine.groupId };
+}
+
+function ViewerSwitcher({
+  options,
+  locked,
+  loading,
+  error,
+  selectedId,
+  onSelect,
+  unresolved,
+}: {
+  options: ViewerOption[];
+  locked: boolean;
+  loading: boolean;
+  error: string | null;
+  selectedId: string;
+  onSelect: (id: string) => void;
+  unresolved: boolean;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const current = options.find((o) => o.id === selectedId) ?? null;
+
+  return (
+    <div data-testid="lc-viewer-switcher" className="relative">
+      <div className="flex items-center gap-2">
+        <span className="text-10 uppercase tracking-wide text-muted-foreground">视角</span>
+        {loading && <span className="text-11 text-muted-foreground" data-testid="lc-viewer-loading">读取分组中…</span>}
+        {!loading && error && (
+          <span className="text-11 text-destructive" data-testid="lc-viewer-error">分组读取失败：{error}</span>
+        )}
+        {!loading && !error && unresolved && (
+          <span className="text-11 text-destructive" data-testid="lc-viewer-unresolved">看不出你在哪一组</span>
+        )}
+        {!loading && !error && !unresolved && (
+          <Button
+            size="xs"
+            variant="outline"
+            disabled={locked || options.length <= 1}
+            data-testid="lc-viewer-trigger"
+            className="gap-1"
+            onClick={() => setOpen((v) => !v)}
+          >
+            {current?.label ?? "主持台·全场"}
+            {!locked && options.length > 1 && <ChevronDown className="h-3 w-3" aria-hidden />}
+          </Button>
+        )}
+      </div>
+      {open && !locked && options.length > 1 && (
+        <div
+          data-testid="lc-viewer-menu"
+          className="absolute left-0 top-full z-10 mt-1 flex min-w-48 flex-col rounded-md border bg-popover py-1 shadow-md"
+        >
+          {options.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              data-testid={`lc-viewer-option-${o.id}`}
+              className="flex items-center justify-between px-3 py-1.5 text-left text-12 transition-colors hover:bg-accent"
+              onClick={() => {
+                onSelect(o.id);
+                setOpen(false);
+              }}
+            >
+              <span>{o.label}</span>
+              {o.kind === "group" && o.group.status !== "recording-ready" && (
+                <span className="ml-2 text-10 text-muted-foreground">{GROUP_STATUS_LABEL[o.group.status]}</span>
+              )}
+            </button>
+          ))}
         </div>
-        <div className="flex flex-wrap items-center gap-2.5 px-4 py-2.5 text-11 text-muted-foreground">
-          <span>{LIVE_STAGE.attendance}</span>
-          {stageControl && (
+      )}
+    </div>
+  );
+}
+
+function GroupPanel({ group }: { group: Group }) {
+  return (
+    <Card data-testid="lc-group-panel">
+      <div className="flex flex-col gap-1.5 px-3.5 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-14 font-medium" data-testid="lc-group-panel-name">{group.name}</span>
+          {group.status !== "recording-ready" && (
+            <StatChip tone="ai" testId="lc-group-panel-status">{GROUP_STATUS_LABEL[group.status]}</StatChip>
+          )}
+        </div>
+        <p className="text-11 leading-relaxed text-muted-foreground" data-testid="lc-group-panel-scenario">
+          {group.scenario}
+        </p>
+        <p className="text-10 text-muted-foreground">
+          组员 {group.memberUserIds.length} 人{group.leaderUserId === null ? "（未指定组长）" : ""}
+        </p>
+      </div>
+    </Card>
+  );
+}
+
+function StageBar({
+  segments,
+  loading,
+  error,
+  stageControl,
+  onAdvanced,
+}: {
+  segments: ListAgendaSegmentsOut | null;
+  loading: boolean;
+  error: string | null;
+  stageControl: boolean;
+  onAdvanced?: () => void;
+}) {
+  const [advancing, setAdvancing] = React.useState(false);
+  const [advanceError, setAdvanceError] = React.useState<string | null>(null);
+
+  const current = segments?.find((s) => s.state === "active") ?? null;
+  // `ordinal` 契约里是 0-based nonnegative int（`z.number().int().nonnegative()`），
+  // 界面上按 1-based 显示第几个环节，+1 即可，不需要再数一遍列表。
+  const ordinal = current ? current.ordinal + 1 : null;
+  const total = segments?.length ?? null;
+
+  const runAdvance = React.useCallback(
+    async (action: "advance" | "closeEarly" | "skip") => {
+      if (!current) return;
+      setAdvancing(true);
+      setAdvanceError(null);
+      try {
+        await advanceAgendaSegment({
+          workshopId: current.workshopId,
+          segmentId: current.id,
+          action,
+          mergeIntoSegmentId: null,
+        });
+        onAdvanced?.();
+      } catch (e: unknown) {
+        setAdvanceError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+      } finally {
+        setAdvancing(false);
+      }
+    },
+    [current, onAdvanced],
+  );
+
+  return (
+    <Card data-testid="project-live-stagebar">
+      <div className="flex items-center gap-3 rounded-t-lg bg-inverse px-4 py-3 text-inverse-foreground">
+        <span aria-hidden className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-destructive" />
+        <div className="min-w-0 flex-1">
+          {loading && <div className="text-11 text-muted-foreground" data-testid="project-live-stagebar-loading">读取环节中…</div>}
+          {!loading && error && (
+            <div className="text-11 text-destructive" data-testid="project-live-stagebar-error">
+              环节读取失败：{error}
+            </div>
+          )}
+          {!loading && !error && current === null && (
+            <div className="truncate text-14 font-medium" data-testid="project-live-stagebar-empty">
+              当前没有进行中的环节
+            </div>
+          )}
+          {!loading && !error && current !== null && (
             <>
-              <span className="flex-1" />
-              <Button size="xs" variant="outline" data-testid="project-live-extend">＋5 分钟</Button>
-              <Button size="xs" variant="primary" data-testid="project-live-next">下一环节</Button>
+              <div className="text-10 uppercase tracking-wide text-muted-foreground">
+                环节 {ordinal}/{total}
+              </div>
+              <div className="truncate text-14 font-medium" data-testid="project-live-stagebar-title">
+                {current.title}
+              </div>
             </>
           )}
         </div>
-      </Card>
-
-      <SectionTitle meta={
-        isObserver ? "只读 · 脱敏聚合"
-          : seesAllRaw ? "每组一路录音，实时喂给本组的推演模板"
-            : "你能进的只有本组（第 2 组）；别组只显示进度"
-      }>
-        四组并行
-      </SectionTitle>
-
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2" data-testid="project-live-groups">
-        {LIVE_GROUPS.map((g) => {
-          const isOwn = ownGroup === g.id;
-          const showRaw = seesAllRaw || (isOwn && !isObserver);
-          const canActHere = !readOnly && !isObserver && (stageControl || isOwn);
-          return (
-            <Card
-              key={g.id}
-              data-testid={`project-live-group-${g.id}`}
-              className={g.needs && showRaw ? "border-destructive/40" : isOwn ? "border-primary/40" : ""}
-            >
-              <div className="flex flex-col gap-2.5 p-3.5">
-                <div className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-12 font-medium">{g.name}</span>
-                  {isOwn && <StatChip tone="ai">你在这组</StatChip>}
-                  {g.needs && stageControl
-                    ? <StatChip tone="danger">需要介入</StatChip>
-                    : g.time && showRaw && <span className="shrink-0 font-mono text-10 text-muted-foreground">{g.time}</span>}
-                </div>
-
-                {/* 原始引述：仅有权看本组/全场的角色可见；其余看到脱敏占位 */}
-                {showRaw ? (
-                  <p className="text-11 leading-relaxed text-card-foreground">{g.quote}</p>
-                ) : (
-                  <p className="rounded-md bg-muted px-2.5 py-2 text-11 text-muted-foreground">
-                    {isObserver ? "原始转写不在你的授权范围内 · 仅显示进度" : "别组原始转写不可见 · 仅显示进度聚合"}
-                  </p>
-                )}
-
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between text-10 text-muted-foreground">
-                    <span>{g.canvas}</span>
-                    <span className="font-mono">{g.fill}%</span>
-                  </div>
-                  <Progress value={g.fill} tone={g.fill < 30 ? "warning" : "primary"} />
-                </div>
-
-                {g.extra && showRaw && (
-                  <p className="rounded-md bg-panel px-2.5 py-1.5 text-10 text-muted-foreground">{g.extra}</p>
-                )}
-
-                {canActHere && (
-                  <div className="flex gap-1.5">
-                    {g.needs && stageControl && <Button size="xs" variant="primary" data-testid={`project-live-nudge-${g.id}`}>推提示给组长</Button>}
-                    {isOwn && canWrite && !stageControl && <Button size="xs" variant="primary" data-testid={`project-live-submit-${g.id}`}>提交本组产出</Button>}
-                    <Button size="xs" variant="outline" data-testid={`project-live-listen-${g.id}`}>{stageControl ? "听这组" : "回到本组"}</Button>
-                  </div>
-                )}
-              </div>
-            </Card>
-          );
-        })}
+        {current !== null && (
+          <StatChip tone="ai" testId="project-live-stagebar-state">{AGENDA_SEGMENT_STATE_LABEL[current.state]}</StatChip>
+        )}
       </div>
-    </div>
+      {stageControl && current !== null && (
+        <div className="flex flex-wrap items-center gap-2.5 px-4 py-2.5">
+          {advanceError && (
+            <span className="text-10 text-destructive" data-testid="project-live-advance-error">{advanceError}</span>
+          )}
+          <span className="flex-1" />
+          <Button
+            size="xs" variant="outline" disabled={advancing}
+            data-testid="project-live-skip"
+            onClick={() => void runAdvance("skip")}
+          >
+            跳过
+          </Button>
+          <Button
+            size="xs" variant="outline" disabled={advancing}
+            data-testid="project-live-close-early"
+            onClick={() => void runAdvance("closeEarly")}
+          >
+            提前结束
+          </Button>
+          <Button
+            size="xs" variant="primary" disabled={advancing}
+            data-testid="project-live-next"
+            onClick={() => void runAdvance("advance")}
+          >
+            下一环节
+          </Button>
+        </div>
+      )}
+    </Card>
   );
 }

@@ -4943,6 +4943,89 @@
       "priority": 1,
       "area": "ai-runtime",
       "capability": "CAP-AI"
+    },
+    {
+      "id": "F963",
+      "title": "现场协作主持台状态条接真实数据 + 四组并行降级为如实空态",
+      "user_visible_behavior": "项目工作台「现场协作」tab 的主持台状态条从纯 mock 换成真实 `listAgendaSegments`：没有进行中环节时显示「当前没有进行中的环节」（真实空态，不是编造的假设风暴文案）；有进行中环节时显示真实标题与「环节 N/M」序号与状态徽标；引导师（facilitator）看到「下一环节 / 提前结束 / 跳过」三个按钮，点击真实调用 `advanceAgendaSegment`，成功后重新拉取列表，失败显示真实错误（如并发冲突）不静默；组长/组员/观察者不显示这三个按钮（服务端角色矩阵本就只许 facilitator 推进）。「四组并行」卡片区域整块降级为如实说明——每组的实时引述/画布进度/素材充足度/现场介入标记在 project 束契约里完全没有出处（引述与画布归 canvas/recording 束，其余两项全仓零来源），不再显示编造数字，等对应契约与仓储落地后再作为独立 feature 补上。",
+      "spec_ref": "00-project/uc-00-1-项目与议程环节的领域模型.md#R3",
+      "depends_on": [
+        "F119"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "16",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/project-live-stagebar.test.tsx"
+      ],
+      "evidence": "evidence/F963.verify.log @ 2026-08-19T16:23:00.356Z",
+      "notes": "同 F172 对 `tab-overview.tsx`「当前环节」卡与「待办」块的处置纪律：`getProjectOverview` 只给 `{title, state}`（没有剩余时长）⇒ 删倒计时；待办无契约来源 ⇒ 整块改如实说明，不渲染编造文案。本次同理——`listAgendaSegments`（#853 已接线）与 `advanceAgendaSegment`（F119，controller 早已挂好、此前零前端调用方）都是已签核且真实可用的操作，环节标题/序号/状态/推进动作接真；但『四组并行』卡片的引述/画布进度/素材充足度/现场介入标记（原 `LIVE_GROUPS` mock）在 project 束契约里完全无来源——`quote`/`canvas` 概念上分别对应 canvas 束的 `NodeProvenance`/`listGroupCanvases`（且后者本身也是「契约已签、零 controller/零仓储」的静态痕迹，需要独立 feature 先把后端建出来），`fill`/`needs` 全仓零来源（2026-08-19 人类会话已确认范围，见对话记录）。继续渲染这组 mock 数字会与真实状态条同屏并列、用户分不清真假，同 F172 点名的「主要缺陷」是同一种问题，故整块降级为如实空态，不新造一种处置。\n① 零契约改动、零迁移、零新 rewrite（`/workshops/:path*`、`/projects/:path*` 已覆盖）——`advanceAgendaSegment` 契约与 controller 路由（F119）早就存在，只是没有前端调用方。\n② `advanceAgendaSegment` body 必须带 `workshopId`/`segmentId`（与路径同值）——不是路径参数泄漏进 body 的 bug 类（见 issue #1600），这个 controller 的 body schema 是全量 `C.operations.advanceAgendaSegment.in`（未 `.omit()`），服务端还会显式比对 `body.workshopId !== workshopId` 不一致即 400，同 `bindCanvasTemplateToSegment` 已登记的先例；本函数应在 `.harness/state/body-path-param-leak-allowlist.json` 补两条 `apps/web/lib/live-projects.ts:workshopId`（已有）与新增的 `segmentId`（待 #1601 合并后本分支 rebase 时一并补，本分支基线尚未带上该 allowlist 机制）。\n③ `LIVE_STAGE`/`LIVE_GROUPS`/`ROLE_OWN_GROUP`/`ROLE_SEES_ALL_RAW` 四个孤儿 mock 符号已删除（同 F172「对 lib/mock/project 的依赖收窄，删孤儿 helper」纪律）——四视角目前只剩「谁能推进环节」一件事，组长/组员/观察者原本靠 `ownGroup`/`seesAllRaw` 分流的差异化展示，连同它作用的假数据一起降级，等画布进度接线（下一个 feature）落地后再按真实数据重新画出角色差异。\n④ 反证：把 `advanceAgendaSegment` 调用里的 `workshopId` 硬编码成假值，测试断言当场失败（`toMatchObject` 抓到），证明这条断言不是摆设，恢复后转绿。\n【依赖】F119（`advanceAgendaSegment` 契约+controller，已 passing）、#853（`listAgendaSegments` 前端接线，已合入）。"
+    },
+    {
+      "id": "F964",
+      "title": "项目概览 tab 的真实数据读取失败提示人性化：区分组织层/项目层无权限与真故障，reasonCode 不再原样甩给用户",
+      "user_visible_behavior": "项目工作台「概览」tab 的两个真实数据块（project-overview-live-info / project-overview-live-overview）在读取失败时，不再显示「读取失败：ADMIN_NOT_SUPERUSER」这类原始英文常量。分层的正常访问范围（NO_PROJECT_ROLE=项目层没有角色、ADMIN_NOT_SUPERUSER=组织层管理员未提升为超级用户）用中性语气（非红色）说明原因与下一步动作，不给重试按钮（刷新不会改变角色）；真故障（DEPENDENCY_UNAVAILABLE 依赖服务不可用、AUTH_SERVICE_UNAVAILABLE 身份校验服务不可用）用醒目语气 + 「重试」按钮（同 today-board.tsx 既有约定）。原始 reasonCode 仍保留在文案末尾括号里，不丢失可追责信息。未在名单里的未知 reasonCode 落到通用兜底文案。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R4",
+      "depends_on": [
+        "F123",
+        "F172"
+      ],
+      "points": 1,
+      "status": "passing",
+      "sprint": "17",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/project-overview-live-overview.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/project-overview-live-info.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "evidence/F964.verify.log @ 2026-08-20T00:03:31.726Z",
+      "notes": "用户直接指派（非 pnpm harness readiness 队列内的活，队列当时只有 #624/#728）。范围边界——做：把 tab-overview.tsx 里 liveError/liveOverviewError 两个插槽从「读取失败：{原始 reasonCode}」翻成人话 + 区分组织层/项目层/真故障，真故障给可重试按钮（沿用 today-board.tsx 的 window.location.reload() 既有约定，不新建重试状态机）。不做：不新增/修改任何契约字段（reasonCode 枚举沿用 findProject/getProjectOverview 已签核的 err 数组：NO_PROJECT_ROLE / ADMIN_NOT_SUPERUSER / DEPENDENCY_UNAVAILABLE / AUTH_SERVICE_UNAVAILABLE）；不把 F172 已判定为「无契约出处、故意降级为如实空态」的待办/最新动态/三角色分工/就绪检查/倒计时重新加回来——这属于本仓的『不造数』红线（用户截图中的旧原型 12:48 倒计时等字符串已被 F172 逐字判定为编造数据并删除，不是本 feature 的参照）。\n⚠ 零新增设计面：不新增端点、不新增错误码、不新增板块，只是已签核两个错误插槽的呈现方式；depends_on F123（getProjectOverview 白名单 + reasonCode 枚举来源）与 F172（tab-overview.tsx 当前结构，本次在其基础上改错误呈现）。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F965",
+      "title": "成果沉淀 tab「成果去向」接真实 listBackflow + 「审计与反馈」接真实 queryProvenance，四个契约未建模区块降级为如实空态",
+      "user_visible_behavior": "进项目工作台「成果沉淀」tab（`project-results`）。「成果去向」区（`project-results-destinations`）不再显示编造的决策/洞察/行动项计数，改显示真实 `getProjectOverview` 返回的 `backflow` 列表——没有真实数据（未登录/未带 `?org=`）时显示「暂无真实数据」（`project-results-destinations-signed-out`），读取中显示加载态（`-loading`），读取失败显示真实错误（`-error`），空列表显示「暂无已回流的产出」（`-empty`），有数据时逐条显示真实 title/version/pinnedBy/pinnedAt/badge（`-list`）。「审计与反馈」区（`project-results-audit`）不再显示编造的 214 条示例事件，改显示真实 `queryProvenance`（按本项目 `targetKind:project`+`targetId` 收窄）——四态同上（`signed-out`/`loading`/`error`/`empty`），有事件时显示真实条数、时间、actor、target（`-list`/`-total`）。「项目结论」「假设状态」「发布结论」「候选决策」四块在 project 束契约里从未建模（`lib/mock/project.ts` 头注早已标注这个缺口），删除编造的结论文本/假设计数/发布按钮/候选决策签署按钮，改为如实说明「全仓无该实体，暂不可用」（`-unavailable` 系列 testid），不再有一个只弹本地对话框、不产生真实副作用的「发布结论」危险按钮。四视角投影规则不变：发布结论/候选决策两块仍只对 facilitator/canWrite 角色出现（内容变了，出现规则没变）。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R3",
+      "depends_on": [
+        "F123"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "17",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/project-results-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "evidence/F965.verify.log @ 2026-08-20T00:06:39.095Z",
+      "notes": "同 F172（tab-overview.tsx）/F963（tab-live.tsx）建立的纪律：把 coverage.md 逐字点名有前端消费点的接真（uc-00-2 V1「成果沉淀·成果去向区」→ getProjectOverview.backflow，即 listBackflow 的项目侧投影，phase-00 已签核已实现；uc-00-1 V10/uc-00-3 V11「成果沉淀·审计与反馈区」→ queryProvenance，phase-00 唯一审计检索面，不许另造），把 lib/mock/project.ts 头注第 22-26 行早已标注「契约未建模」的四块（项目结论/假设状态/发布结论/候选决策）整块降级为如实空态，不与真实数据同屏并列造成用户分不清真假。queryProvenance 补了 targetKind/targetId 两个可选参数（契约 in 早有，此前无调用方，见 live-provenance.ts 头注）。BACKFLOW_BADGE_LABEL 从 tab-overview.tsx 私有声明搬到 live-projects.ts 单一声明处（第二个消费点出现，避免同一份三值闭枚举抄两份）。readiness 队列（issue #814）本轮只有 #624/#728，本 feature 不在队列上——按人类直接下达的任务指令开工，非默默越权（AGENTS.md 0.5 步允许「确有理由」）。\n⚠ 机械重编号（2026-08-20）：原编号 F964 与另一条并行分支（tab-overview.tsx 报错文案人性化，同一时段独立取号）撞车，该分支已先合入 main。改用下一个空闲号 F965，不改任何设计决定；evidence 文件名/design-signoff.md covers 同步改。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
+    },
+    {
+      "id": "F966",
+      "title": "修复 GET /provenance 缺失的 Next.js rewrite（成果沉淀·审计与反馈区真栈 404）+ 真栈截图取证",
+      "user_visible_behavior": "进项目工作台「成果沉淀」tab，「审计与反馈」区不再显示「审计事件读取失败：HTTP 404」这个误导性错误（看起来像后端没实现，实际是前端 Next.js 从未给 `GET /provenance` 写 rewrite 规则，F965 之前`queryProvenance` 零真实调用方，这个路由缺口一直没被撞到）。修复后，有真实审计读取权限（org 级 lead/admin/compliance，或读自己的历史）的用户能看到真实审计事件列表；没有权限的用户看到真实、正确的 403（`PROJECT_ROLE_INSUFFICIENT`），不是一个伪装成路由缺失的 404。同时新增 `pnpm run shots:project-results`（真栈截图取证工具，登录 + 拍成果沉淀 tab，供 rev-uiux 对齐已签核基线图使用）。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R3",
+      "depends_on": [
+        "F965"
+      ],
+      "points": 1,
+      "status": "passing",
+      "sprint": "19",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/project-results-live.test.tsx"
+      ],
+      "evidence": "evidence/F966.verify.log @ 2026-08-20T08:25:03.933Z",
+      "notes": "真栈截图取证时发现的真 bug（非本 feature 编造场景）：next.config.mjs 全文 grep provenance 零命中，与文件里 /blueprints、/messages 注释描述的坑同一类——裸路径（无 :path*）rewrite 漏写，前端打到 Next 自己的 404 HTML，不是 API 的 404。修复：补一行 rewrite。修复后用真栈复验（pnpm run shots:project-results，两轮跑，38/38 全绿）：404 变成真实 403 PROJECT_ROLE_INSUFFICIENT（query-provenance.ts设计使然，非 bug）。UIUX 保真度评分：8/10（真栈截图，对照 ui-preview/project-v2/uc-00-3-results-*.png；未到 9-10 分是两个证据缺口——fixture 未种 backflow/provenance 数据、只拍了 default 一态——不是代码缺陷）。详见 issue 与 PR 记录。"
     }
   ]
 }

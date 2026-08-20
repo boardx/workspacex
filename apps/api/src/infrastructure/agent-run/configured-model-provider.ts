@@ -46,6 +46,7 @@
  * at all (`ports.ts`'s own header) -- this class went back to the pre-#725 request/response
  * shape, not a shape that merely stopped being exercised.
  */
+import { Agent, fetch as undiciFetch, type Response as UndiciResponse } from "undici";
 import type {
   ModelCallImage, ModelCallInput, ModelCallPort,
 } from "../../application/agent-run/ports";
@@ -80,6 +81,9 @@ export function readModelProviderConfig(
   // 而一句"重试一次"这种短请求秒回。系统提示词越长，模型生成越慢，60s 对"多技能挂载
   // 的默认 agent"这个真实场景不够用。180s 仍在 R9（>10s 转异步任务）判定之内的同步
   // 路径可接受范围——这条超时挡的是"网络/模型真的挂了"，不是"提示词长+回复长"。
+  // ⚠ 2026-08-19（#1611）：在此之前这个值 **> 300000 的部分是静默失效的**——内建 fetch
+  // 走 undici，`headersTimeout` 默认 300s 且独立于 `AbortSignal`。现在两处出网都走显式
+  // dispatcher（见 `ConfiguredModelProvider#dispatcher`），这个数字才真的说了算。
   const timeout = Number(env.KERNEL_MODEL_TIMEOUT_MS ?? "180000");
   return {
     provider: (env.KERNEL_MODEL_PROVIDER ?? "").trim(),
@@ -203,6 +207,68 @@ function readUsage(usage: WireUsage | undefined): ReportedUsage {
   };
 }
 
+/**
+ * #1611 —— `AbortSignal` 相对网络层超时的宽限，毫秒。
+ *
+ * 两个超时**不是同一件事**：`headersTimeout` / `bodyTimeout` 管的是「连接上多久没有
+ * 新字节」，`AbortSignal` 管的是整通调用的 wall-clock 上限。让 abort 严格晚于网络层
+ * 超时，是为了让**先触发的那个是能说清原因的那个**——否则 header 停顿会被 abort 抢先
+ * 打断，失败原因塌回一个笼统的 "aborted"，正是本 issue 要消灭的那种信息销毁。
+ */
+const ABORT_GRACE_MS = 2_000;
+
+/**
+ * #1611 —— 允许进入服务端日志的传输失败**枚举**白名单。
+ *
+ * 原实现是裸 `catch {}`，动机（错误 `message` 里常有主机、端口，有时是带凭据的 URL）
+ * **是对的**。修法不是"什么都不看"，而是**只看枚举字段**（`err.cause.code` /
+ * `err.name`）：这些取值来自 Node/undici 的固定常量表，本身不含任何部署信息。
+ * `message` 在本文件里一个字都不读、不入库、不透出。
+ */
+const TRANSPORT_CAUSE_CODES: ReadonlySet<string> = new Set([
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_SOCKET",
+  "UND_ERR_CLOSED",
+  "UND_ERR_DESTROYED",
+  "UND_ERR_ABORTED",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ETIMEDOUT",
+  "EPIPE",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "CERT_HAS_EXPIRED",
+  "DEPTH_ZERO_SELF_SIGNED_CERT",
+  "SELF_SIGNED_CERT_IN_CHAIN",
+  "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+]);
+
+/**
+ * 传输失败 → 一个白名单枚举 token。不在白名单里的一律 `UNCLASSIFIED`——**不回显**未知
+ * 取值，否则白名单形同虚设（未知 `code` 理论上可以是上游造出来的任意字符串）。
+ */
+export function classifyTransportError(err: unknown): string {
+  const e = err as {
+    readonly name?: unknown;
+    readonly cause?: { readonly code?: unknown; readonly errors?: readonly { readonly code?: unknown }[] };
+  } | null | undefined;
+  const code = e?.cause?.code;
+  if (typeof code === "string" && TRANSPORT_CAUSE_CODES.has(code)) return code;
+  // 双栈（IPv4/IPv6 各试一次）失败时 undici 把 cause 包成 AggregateError，真正的 code 在
+  // `errors[]` 里。实测过：单栈是 `cause.code`，双栈是 `cause.errors[0].code`——只认前者
+  // 会让一整类失败退回 UNCLASSIFIED。
+  for (const inner of e?.cause?.errors ?? []) {
+    if (typeof inner?.code === "string" && TRANSPORT_CAUSE_CODES.has(inner.code)) return inner.code;
+  }
+  if (typeof e?.name === "string" && TRANSPORT_CAUSE_CODES.has(e.name)) return e.name;
+  if (e?.name === "AbortError" || e?.name === "TimeoutError") return "ABORTED";
+  return "UNCLASSIFIED";
+}
+
 export class ConfiguredModelProvider implements ModelCallPort {
   private readonly config: ConfiguredModelProviderConfig;
 
@@ -226,6 +292,85 @@ export class ConfiguredModelProvider implements ModelCallPort {
   }
 
   /**
+   * #1611 —— 让 `KERNEL_MODEL_TIMEOUT_MS` 真的说了算的那个 dispatcher。
+   *
+   * Node 内建 `fetch` 走 undici，其 `headersTimeout` / `bodyTimeout` **默认 300s，且
+   * 独立于 `AbortSignal` 生效**——本机 Node v22.23.1 实测：不设 headersTimeout、
+   * `AbortSignal` 给 600s，调用在 **301.5s** 抛 `cause.code = UND_ERR_HEADERS_TIMEOUT`。
+   * 也就是说在此之前，`KERNEL_MODEL_TIMEOUT_MS` 任何 > 300000 的取值都**静默失效**：
+   * 配置项看着生效（无报错无告警），实际被一个更小的隐含上限压着。pptx skill（20KB
+   * system prompt，真实上游单次调用实测 120s，重试轮上下文更长）因此连续两次拿不到
+   * 结果，且原因不可见。
+   *
+   * ## 为什么 `fetch` 也从 `undici` 导入，而不是内建 fetch + npm undici 的 Agent
+   *
+   * 后者本机实测能工作（duck-typed `dispatch()`），但那是**跨 undici 实例**传
+   * dispatcher：内建 fetch 用的是 Node 自带的那份 undici，npm 那份是另一份，两者的
+   * 内部契约没有任何东西保证它们在 Node 或 undici 升级后仍然对得上，而失配的表现会是
+   * "超时配置又悄悄不生效了"——本 issue 修的正是这一类静默失效。两边都从同一个
+   * `undici` 导入，dispatcher 与消费它的 fetch 出自同一实例，且 `dispatcher` 本来就在
+   * undici 自己的 `RequestInit` 类型里（内建 fetch 的标准 `RequestInit` 没有它，那条
+   * 路还得靠类型断言绕过 tsc）。代价：多一个显式依赖，以及请求走 npm undici 而非
+   * Node 内建那份——请求/响应形态本身两者一致（同一实现的不同版本）。
+   */
+  private agent?: Agent;
+
+  private dispatcher(): Agent {
+    this.agent ??= new Agent({
+      headersTimeout: this.config.timeoutMs,
+      bodyTimeout: this.config.timeoutMs,
+    });
+    return this.agent;
+  }
+
+  /** 释放连接池。长驻进程里不需要；测试里调用它，免得 vitest 抱着 socket 不退出。 */
+  async close(): Promise<void> {
+    const agent = this.agent;
+    this.agent = undefined;
+    await agent?.close();
+  }
+
+  /**
+   * 两个调用点（`complete()` / `streamImpl()`）**唯一**的出网口。
+   *
+   * 合成一处不是顺手重构：#1611 的根因就是「超时配置只覆盖了一半的层」，而两份逐字
+   * 复制的 fetch 调用正是下一次只改一处的温床。两者的差别只有 `stream` 这一个字段。
+   */
+  private async postCompletions(input: ModelCallInput, stream: boolean): Promise<UndiciResponse> {
+    const { baseUrl, apiKey, timeoutMs } = this.config;
+    // AbortSignal 保留：它管的是整通调用的 wall-clock 上限，与 headersTimeout /
+    // bodyTimeout（「多久没有新字节」）互补，不是同一件事，删掉任何一个都会留下缺口。
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), timeoutMs + ABORT_GRACE_MS);
+    try {
+      return await undiciFetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        signal: abort.signal,
+        dispatcher: this.dispatcher(),
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: input.modelId,
+          stream,
+          messages: buildMessages(input),
+        }),
+      });
+    } catch (err) {
+      // 传输错误对象**只**被读一个枚举字段（见 `classifyTransportError`）。`message`
+      // 一个字都不读：它常含主机、端口，有时是带凭据的 URL。枚举 token 进的是
+      // `detail`，而 `detail` 只进服务端日志，从不进响应（见本文件头注）。
+      throw new ModelCallError(
+        "MODEL_CALL_FAILED",
+        `model provider transport failure (${classifyTransportError(err)})`,
+      );
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
    * P2（#1561）—— 本 provider 下**这个 modelId** 能不能真的看到图。
    *
    * 判据是部署期配置的 `visionModelIds`（`KERNEL_MODEL_VISION_IDS`），不是"我是 dashscope
@@ -241,7 +386,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
   async complete(input: ModelCallInput): Promise<
     { readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }
   > {
-    const { provider, baseUrl, apiKey, timeoutMs } = this.config;
+    const { provider, baseUrl, apiKey } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
       throw new ModelCallError(
         "MODEL_PROVIDER_NOT_CONFIGURED",
@@ -257,30 +402,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
       );
     }
 
-    const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), timeoutMs);
-    let response: Response;
-    try {
-      response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        signal: abort.signal,
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: input.modelId,
-          stream: false,
-          messages: buildMessages(input),
-        }),
-      });
-    } catch {
-      // The transport error object is not inspected at all. Its `message` routinely
-      // contains the host, the port and sometimes the URL with credentials in it.
-      throw new ModelCallError("MODEL_CALL_FAILED", "model provider transport failure");
-    } finally {
-      clearTimeout(timer);
-    }
+    const response = await this.postCompletions(input, false);
 
     if (!response.ok) {
       /*
@@ -337,7 +459,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
     input: ModelCallInput,
     onDelta: (delta: string) => Promise<void>,
   ): Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }> {
-    const { provider, baseUrl, apiKey, timeoutMs } = this.config;
+    const { provider, baseUrl, apiKey } = this.config;
     if (provider === "" || baseUrl === "" || apiKey === "") {
       throw new ModelCallError(
         "MODEL_PROVIDER_NOT_CONFIGURED",
@@ -351,28 +473,7 @@ export class ConfiguredModelProvider implements ModelCallPort {
       );
     }
 
-    const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), timeoutMs);
-    let response: Response;
-    try {
-      response = await fetch(`${baseUrl}/chat/completions`, {
-        method: "POST",
-        signal: abort.signal,
-        headers: {
-          "content-type": "application/json",
-          authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: input.modelId,
-          stream: true,
-          messages: buildMessages(input),
-        }),
-      });
-    } catch {
-      throw new ModelCallError("MODEL_CALL_FAILED", "model provider transport failure");
-    } finally {
-      clearTimeout(timer);
-    }
+    const response = await this.postCompletions(input, true);
 
     if (!response.ok) {
       throw new ModelCallError(
@@ -434,7 +535,11 @@ export class ConfiguredModelProvider implements ModelCallPort {
       }
     } catch (e) {
       if (e instanceof ModelCallError) throw e;
-      throw new ModelCallError("MODEL_CALL_FAILED", "model provider stream transport failure");
+      // 同 `postCompletions`：只取枚举 token，`message` 不读。
+      throw new ModelCallError(
+        "MODEL_CALL_FAILED",
+        `model provider stream transport failure (${classifyTransportError(e)})`,
+      );
     }
 
     return { text, tokens: usage.total, promptTokens: usage.prompt, completionTokens: usage.completion };

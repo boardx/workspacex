@@ -83,6 +83,63 @@ describe("F362 project-overview：真实概览白名单四件块只显示真实�
 });
 
 /**
+ * F964 —— 两个真实数据块的错误插槽（`project-overview-live-error` /
+ * `project-overview-live-overview-error`）不再把 reasonCode 原样甩给用户。
+ *
+ * 分层的正常访问范围（`NO_PROJECT_ROLE` 项目层 / `ADMIN_NOT_SUPERUSER` 组织层）用人话说明
+ * + 不给重试按钮（刷新不会改变角色）；真故障（`DEPENDENCY_UNAVAILABLE` /
+ * `AUTH_SERVICE_UNAVAILABLE`）用醒目语气 + 给重试按钮。原始 reasonCode 仍保留在文案里，
+ * 不丢失可追责信息（同时也是上面两条老用例继续断言 `toHaveTextContent(原始码)` 仍能过的原因）。
+ */
+describe("F964 project-overview：错误插槽人性化，区分组织层/项目层无权限与真故障", () => {
+  it("NO_PROJECT_ROLE（项目层，正常状态不是异常）：人话说明 + 不给重试按钮", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveOverviewError="NO_PROJECT_ROLE" />);
+    const notice = screen.getByTestId("project-overview-live-overview-error");
+    expect(notice).toHaveTextContent("还没有角色");
+    expect(notice).toHaveTextContent("NO_PROJECT_ROLE");
+    expect(notice.className).not.toContain("text-destructive");
+    expect(screen.queryByTestId("project-overview-live-overview-error-retry")).not.toBeInTheDocument();
+  });
+
+  it("ADMIN_NOT_SUPERUSER（组织层）：人话说明「组织层限制」+ 不给重试按钮", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveError="ADMIN_NOT_SUPERUSER" />);
+    const notice = screen.getByTestId("project-overview-live-error");
+    expect(notice).toHaveTextContent("组织层限制");
+    expect(notice).toHaveTextContent("ADMIN_NOT_SUPERUSER");
+    expect(notice.className).not.toContain("text-destructive");
+    expect(screen.queryByTestId("project-overview-live-error-retry")).not.toBeInTheDocument();
+  });
+
+  it("DEPENDENCY_UNAVAILABLE（真故障）：destructive 语气 + 给重试按钮", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveOverviewError="DEPENDENCY_UNAVAILABLE" />);
+    const notice = screen.getByTestId("project-overview-live-overview-error");
+    expect(notice.className).toContain("text-destructive");
+    expect(screen.getByTestId("project-overview-live-overview-error-retry")).toBeInTheDocument();
+  });
+
+  it("AUTH_SERVICE_UNAVAILABLE（真故障）：destructive 语气 + 给重试按钮", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveError="AUTH_SERVICE_UNAVAILABLE" />);
+    const notice = screen.getByTestId("project-overview-live-error");
+    expect(notice.className).toContain("text-destructive");
+    expect(screen.getByTestId("project-overview-live-error-retry")).toBeInTheDocument();
+  });
+
+  it("未在名单里的未知 reasonCode：落到通用兜底文案，仍保留原始码，且可重试", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveOverviewError="HTTP 503" />);
+    const notice = screen.getByTestId("project-overview-live-overview-error");
+    expect(notice).toHaveTextContent("HTTP 503");
+    expect(notice.className).toContain("text-destructive");
+    expect(screen.getByTestId("project-overview-live-overview-error-retry")).toBeInTheDocument();
+  });
+
+  it("反证：把 NO_PROJECT_ROLE 错标成 destructive 语气，断言必红——证明 tone 分支不是摆设", () => {
+    render(<TabOverview view="facilitator" projectId="p1" liveOverviewError="NO_PROJECT_ROLE" />);
+    const notice = screen.getByTestId("project-overview-live-overview-error");
+    expect(() => expect(notice.className).toContain("text-destructive")).toThrow();
+  });
+});
+
+/**
  * F172 —— 概览 tab 去掉没有契约出处的编造数据。
  *
  * 这组测试的重点不是「新块渲染出来了」，而是**旧的编造值不再出现**。

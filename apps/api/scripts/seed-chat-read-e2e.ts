@@ -95,6 +95,32 @@ const RESTRUCTURE_PROJECT_ID = required("CHAT_E2E_RESTRUCTURE_PROJECT_ID");
  * 见上面三条 #1324 线程的头注：发出去的第一条消息天然落在第一页，不需要翻页。
  */
 const IMAGE_VISION_THREAD_ID = required("CHAT_E2E_IMAGE_VISION_THREAD_ID");
+/**
+
+ * #1584 e2e —— 附件预览/下载弹窗的专属线程。原本复用 `IMAGE_VISION_THREAD_ID`，
+ * 单独跑没问题，但 `verify:chat-read` 整套跑时与 `chat-attachment-image-vision-
+ * extraction.spec.ts` 共写同一条线程互相污染（各自的回复文本混进对方按 message id
+ * 定位到的那一行）——同一套「独立线程零预置消息」的道理，见上面 #1324 三条线程头注。
+ */
+const ATTACHMENT_PREVIEW_THREAD_ID = required("CHAT_E2E_ATTACHMENT_PREVIEW_THREAD_ID");
+/**
+ * context-engine 浏览器 e2e —— 两条专属线程，**不是**零预置消息：L2 滚动摘要与 F190
+ * 工具轨迹回喂都要求"早期内容已经被挤出 L1 近端窗口"这个前提成立，下面会为它们各自
+ * 灌入足够多的填充消息（见 `pad()`），同 `apps/api/tests/chat/agent-run-context-
+ * snapshot.test.ts` / `tool-trace-cross-run-context.test.ts` 两份真库单测的既有手法，
+ * 只是这次要让真实浏览器发的那一条消息去触发它。
+ */
+const L2_CHECK_THREAD_ID = required("CHAT_E2E_L2_CHECK_THREAD_ID");
+const L2_EARLY_FACT_CODE_WORD = required("CHAT_E2E_L2_EARLY_FACT_CODE_WORD");
+const TOOL_TRACE_CHECK_THREAD_ID = required("CHAT_E2E_TOOL_TRACE_CHECK_THREAD_ID");
+const TOOL_TRACE_TOOL_NAME = required("CHAT_E2E_TOOL_TRACE_TOOL_NAME");
+const TOOL_TRACE_RESULT_CODE = required("CHAT_E2E_TOOL_TRACE_RESULT_CODE");
+
+/** 撑满字符预算，逼 `trimHistoryToBudget` 把早期轮次赶出 L1——与
+ *  `agent-run-context-snapshot.test.ts` 的 `pad()` 同一个公式。 */
+function pad(text: string): string {
+  return `${text}——${"占位内容用于撑满单条消息的字符预算".repeat(46)}`;
+}
 
 await resetOrgs(ORG_ID);
 await asOwner(async (client) => {
@@ -173,6 +199,9 @@ for (const [id, title] of [
   [CAUSAL_CHECK_THREAD_ID, "Causal check fixture thread"],
   [CONTEXT_CHECK_THREAD_ID, "Context check fixture thread"],
   [IMAGE_VISION_THREAD_ID, "Image vision extraction fixture thread"],
+  [ATTACHMENT_PREVIEW_THREAD_ID, "Attachment preview fixture thread"],
+  [L2_CHECK_THREAD_ID, "L2 rolling summary check fixture thread"],
+  [TOOL_TRACE_CHECK_THREAD_ID, "Tool trace cross-run check fixture thread"],
 ] as const) {
   await addChatThread({
     orgId: ORG_ID,
@@ -275,6 +304,8 @@ await asApp(ORG_ID, async (client) => {
   // 先走「加进编制」那一步，`chat-live-message-panel.tsx` 默认选中唯一在场的 agent。
   for (const threadId of [
     SKILL_MOUNT_THREAD_ID, CAUSAL_CHECK_THREAD_ID, CONTEXT_CHECK_THREAD_ID, IMAGE_VISION_THREAD_ID,
+    ATTACHMENT_PREVIEW_THREAD_ID,
+    L2_CHECK_THREAD_ID, TOOL_TRACE_CHECK_THREAD_ID,
   ]) {
     await client.query(
       "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
@@ -484,9 +515,111 @@ await asApp(ORG_ID, async (client) => {
   );
 });
 
+/**
+ * context-engine 浏览器 e2e ① —— L2 滚动摘要检查线程：先埋一条带代号的"早期事实"，
+ * 再灌 30 条撑满字符预算的填充轮次，把它挤出 L1（`HISTORY_MAX_CHARS=12_000`，见
+ * `execute-run.ts` 头注；30 条 `pad()` 输出稳稳超过这个预算，同 F157 真库单测的既有
+ * 用量）。用例发的第一条真实消息一定会触发 L2 增量摘要——候选窗口
+ * `L2_CATCHUP_FETCH_LIMIT=200` 覆盖得到这些填充消息，且早期事实此前从未被摘要过。
+ */
+await addChatMessage({
+  orgId: ORG_ID,
+  id: "message-chat-read-e2e-l2-early-fact",
+  threadId: L2_CHECK_THREAD_ID,
+  authorId: USER_ID,
+  authorKind: "human",
+  body: pad(`早期事实代号：${L2_EARLY_FACT_CODE_WORD}`),
+});
+for (let index = 1; index <= 30; index += 1) {
+  const suffix = String(index).padStart(2, "0");
+  await addChatMessage({
+    orgId: ORG_ID,
+    id: `message-chat-read-e2e-l2-filler-${suffix}`,
+    threadId: L2_CHECK_THREAD_ID,
+    authorId: index % 2 === 0 ? AGENT_ID : USER_ID,
+    authorKind: index % 2 === 0 ? "agent" : "human",
+    agentId: index % 2 === 0 ? AGENT_ID : null,
+    body: pad(`L2 填充第 ${suffix} 轮`),
+  });
+}
+
+/**
+ * context-engine 浏览器 e2e ② —— F190 工具轨迹检查线程：直接落库一轮"已完成、写回了
+ * 消息、且记了一个 tool_call step"的历史 run（绕开真实 `executeQueuedRuns`——那条链路
+ * 本身就是这个 feature 要接的东西，用它来造前置历史会循环依赖，同
+ * `tool-trace-cross-run-context.test.ts` 的 `seedHistoricalToolCallRun` 既有手法），
+ * 随后同样灌 30 条填充轮次把它的回复消息挤出 L1，让 F190 的回喂路径（而不是 L1 原文）
+ * 成为下一轮真实浏览器提问能看到这段历史的**唯一**路径。
+ *
+ * `agent_runs` 的 BEFORE UPDATE 状态机触发器不拦这里的 INSERT（只挡 UPDATE），可以
+ * 直接插一行 `status='succeeded'`；`chat_messages.agent_run_id` 唯一索引就是
+ * `PgToolTraceContext.recent()` 反查"这轮是否已写回、写回到了哪条消息"的依据。
+ */
+{
+  const historicalRunId = "run-chat-read-e2e-tool-trace-historical";
+  const historicalQuestionId = "message-chat-read-e2e-tool-trace-q";
+  const historicalReplyId = "message-chat-read-e2e-tool-trace-r";
+  const historicalCreatedAt = new Date(Date.now() - 60_000).toISOString();
+  await addChatMessage({
+    orgId: ORG_ID,
+    id: historicalQuestionId,
+    threadId: TOOL_TRACE_CHECK_THREAD_ID,
+    authorId: USER_ID,
+    authorKind: "human",
+    body: `问题：${TOOL_TRACE_TOOL_NAME}`,
+  });
+  await asApp(ORG_ID, async (client) => {
+    await client.query(
+      `INSERT INTO agent_runs
+         (id, org_id, thread_id, input_message_id, agent_id, agent_version_id,
+          skill_version_ids, model_provider, model_id, status, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'[]'::jsonb,$7,$8,'succeeded',$9)
+       ON CONFLICT (id) DO NOTHING`,
+      [historicalRunId, ORG_ID, TOOL_TRACE_CHECK_THREAD_ID, historicalQuestionId, AGENT_ID,
+        AGENT_VERSION_ID, AGENT_MODEL_PROVIDER, AGENT_MODEL_ID, historicalCreatedAt],
+    );
+    await client.query(
+      `INSERT INTO agent_run_steps
+         (id, org_id, run_id, seq, kind, status, started_at, ended_at,
+          tool_name, tool_args_summary, tool_result_summary, planning_note)
+       VALUES ($1,$2,$3,3,'tool_call','succeeded',$4,$4,$5,$6,$7,NULL)
+       ON CONFLICT (id) DO NOTHING`,
+      [`${historicalRunId}-step1`, ORG_ID, historicalRunId, historicalCreatedAt,
+        TOOL_TRACE_TOOL_NAME, "查历史事件代号", `命中记录，代号 ${TOOL_TRACE_RESULT_CODE}`],
+    );
+  });
+  await addChatMessage({
+    orgId: ORG_ID,
+    id: historicalReplyId,
+    threadId: TOOL_TRACE_CHECK_THREAD_ID,
+    authorId: AGENT_ID,
+    authorKind: "agent",
+    agentId: AGENT_ID,
+    body: "（历史工具调用的回复）",
+  });
+  await asApp(ORG_ID, (client) => client.query(
+    "UPDATE chat_messages SET agent_run_id=$1 WHERE org_id=$2 AND id=$3",
+    [historicalRunId, ORG_ID, historicalReplyId],
+  ));
+}
+for (let index = 1; index <= 30; index += 1) {
+  const suffix = String(index).padStart(2, "0");
+  await addChatMessage({
+    orgId: ORG_ID,
+    id: `message-chat-read-e2e-tool-trace-filler-${suffix}`,
+    threadId: TOOL_TRACE_CHECK_THREAD_ID,
+    authorId: index % 2 === 0 ? AGENT_ID : USER_ID,
+    authorKind: index % 2 === 0 ? "agent" : "human",
+    agentId: index % 2 === 0 ? AGENT_ID : null,
+    body: pad(`工具轨迹填充第 ${suffix} 轮`),
+  });
+}
+
 process.stdout.write(
   `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 `
   + `roster=1 publishedAgent=1 catalogOnlyAgent=1 deepAgent=1 mountableSkill=1 retrievableAttachment=1 `
   + `skillMountThread=${SKILL_MOUNT_THREAD_ID} causalCheckThread=${CAUSAL_CHECK_THREAD_ID} `
-  + `contextCheckThread=${CONTEXT_CHECK_THREAD_ID} imageVisionThread=${IMAGE_VISION_THREAD_ID}\n`,
+  + `contextCheckThread=${CONTEXT_CHECK_THREAD_ID} imageVisionThread=${IMAGE_VISION_THREAD_ID} `
+  + `attachmentPreviewThread=${ATTACHMENT_PREVIEW_THREAD_ID} `
+  + `l2CheckThread=${L2_CHECK_THREAD_ID} toolTraceCheckThread=${TOOL_TRACE_CHECK_THREAD_ID}\n`,
 );

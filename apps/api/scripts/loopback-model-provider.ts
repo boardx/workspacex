@@ -50,6 +50,18 @@ import {
   FILE_CONTEXT_MESSAGE_HEADER_PREFIX,
   FILE_RETRIEVAL_SOURCE_KINDS,
 } from "../src/application/agent-run/file-retrieval";
+import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../src/application/agent-run/tool-trace-context";
+import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../src/application/skill/run-script-with-retries";
+
+/**
+ * F154 L2 摘要伪消息的**唯一事实源**是 `execute-run.ts` 里那一行字面量
+ * （`[早前对话摘要] ${l2Summary}`），本脚本不重新声明——它不是一个像
+ * `FILE_CONTEXT_MESSAGE_HEADER_PREFIX` 那样导出的常量，直接抄这个前缀本身
+ * 就是唯一能不新增产品侧导出面的做法（同 `FILE_CONTEXT_MESSAGE_HEADER_PREFIX`
+ * 那条注释里"读侧需要区分伪消息与 agent 字面说过这句话"的同一条纪律，这里同样
+ * 只对**开头**做前缀匹配，不做全文包含）。
+ */
+const L2_SUMMARY_MESSAGE_HEADER_PREFIX = "[早前对话摘要]";
 
 /**
  * 每个 SSE delta 的字符数上限，与段间延迟。4 字符/120ms 在一句十几到几十字的回显
@@ -156,6 +168,89 @@ function mountedSkillReachedModel(messages: CompletionRequest["messages"]): bool
   return typeof system === "string" && system.includes(SKILL_SENTINEL);
 }
 
+/**
+ * context-engine 浏览器 e2e —— 默认关闭的开关，与上面 `RETRIEVAL_ECHO_PREFIX`/
+ * `SKILL_ECHO_PREFIX` 同一条既有理由：L2 摘要伪消息与 F190 工具轨迹回喂伪消息都**不落
+ * 任何表**，`GET /agent-runs/:id` 的 step 只有 digest，浏览器侧原本没有任何信号能证明
+ * 「这一层真的把东西喂给了模型」——回显的是它真收到的东西，不是编造的。
+ *
+ * 两者都只扫 `role: "assistant"` 且**按前缀匹配开头**（不是 `includes` 全文），
+ * 与 `retrievedSourceKinds` 同一条纪律：agent 的历史回复本身也是 `assistant`，
+ * 只按开头判定才不会被"上一轮回显里字面出现过这几个字"污染。
+ */
+const L2_SUMMARY_ECHO_PREFIX = process.env.LOOPBACK_MODEL_L2_SUMMARY_ECHO_PREFIX ?? null;
+const TOOL_TRACE_ECHO_PREFIX = process.env.LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX ?? null;
+/**
+ * 期望在工具轨迹伪消息**正文**里看到的代号（种子脚本埋进那轮历史 tool_call 的
+ * `tool_result_summary` 里的那个）。与 `SKILL_SENTINEL` 同一条纪律：只回显"确实
+ * 看到了这个具体代号"，不是"看到了某条随便什么样子的工具轨迹伪消息"——后者证明力
+ * 弱得多，随便一条空壳伪消息也能让它恒真。
+ */
+const TOOL_TRACE_SENTINEL = process.env.LOOPBACK_MODEL_TOOL_TRACE_SENTINEL ?? null;
+
+function l2SummaryReachedModel(messages: CompletionRequest["messages"]): boolean {
+  if (L2_SUMMARY_ECHO_PREFIX === null) return false;
+  return (messages ?? []).some((message) => (
+    message.role === "assistant"
+    && typeof message.content === "string"
+    && message.content.startsWith(L2_SUMMARY_MESSAGE_HEADER_PREFIX)
+  ));
+}
+
+function toolTraceReachedModel(messages: CompletionRequest["messages"]): boolean {
+  if (TOOL_TRACE_ECHO_PREFIX === null || TOOL_TRACE_SENTINEL === null) return false;
+  return (messages ?? []).some((message) => (
+    message.role === "assistant"
+    && typeof message.content === "string"
+    && message.content.startsWith(TOOL_TRACE_MESSAGE_HEADER_PREFIX)
+    && message.content.includes(TOOL_TRACE_SENTINEL)
+  ));
+}
+
+/**
+ * F962（design delta `skill-sandbox-execution`）—— 试跑执行链的协议要求模型回复
+ * **恰好一个** ```run_script 围栏代码块（`execute-trial-run.ts` 把
+ * `RUN_SCRIPT_PROTOCOL_PROMPT` 拼进 system prompt 的尾部，`extractScript` 严格按
+ * 围栏解析，解析不到就落 `SCRIPT_FAILED_AFTER_RETRIES`，见该文件头注）。
+ *
+ * 本进程原本只会对任何请求做「回显用户原文」——这对聊天/agent-run 场景是对的，
+ * 但对试跑场景，回显的原文里没有围栏，`extractScript` 必然解析失败，试跑必现失败
+ * 终态。这不是本次改动引入的新分支，是 F962 落地时这条 loopback 分支就没跟上
+ * 新协议——真栈 e2e 第一次真的跑通「提交→轮询→拿到结果」全链路（issue #1608 的
+ * 根因排查）才第一次暴露它，此前前端从未真正轮询到过这一步。
+ *
+ * 判定用 system prompt 是否**逐字**包含 `RUN_SCRIPT_PROTOCOL_PROMPT`（唯一事实源
+ * import 自产品代码，不在这里另抄一份字面量）——与本文件其余判定分支同一条纪律：
+ * 开关未命中时这条分支不执行，其余场景的回复逐字节不变。
+ *
+ * 回的脚本调用 `addText` 并把用户样例输入嵌进文本参数：`loopback-skill-sandbox.ts`
+ * 会从脚本里抓 `addText(...)` 字面量当幻灯片文本喂进真实 pptxgenjs，产物内容因此与
+ * 请求真的相关（同文件头注「内容与请求对应」的取证纪律），不是回一个与输入无关的
+ * 死脚本。
+ */
+function isTrialRunRequest(messages: CompletionRequest["messages"]): boolean {
+  const system = (messages ?? []).find((message) => message.role === "system")?.content;
+  return typeof system === "string" && system.includes(RUN_SCRIPT_PROTOCOL_PROMPT);
+}
+
+function trialRunScriptReply(sampleInput: string): string {
+  const text = sampleInput.replace(/[`\\]/g, "").slice(0, 200) || "loopback trial run";
+  return [
+    "```run_script",
+    "const pptxgenjs = require('pptxgenjs');",
+    "const pres = new pptxgenjs();",
+    "pres.layout = 'LAYOUT_16x9';",
+    `pres.addSlide().addText('${text}', { x: 0.5, y: 0.5, fontSize: 28, bold: true });`,
+    "pres.write({ outputType: 'nodebuffer' }).then((buf) => {",
+    "  require('fs').writeFileSync(",
+    "    require('path').join(process.env.SKILL_SANDBOX_OUT_DIR, 'deck.pptx'),",
+    "    buf,",
+    "  );",
+    "});",
+    "```",
+  ].join("\n");
+}
+
 function readBody(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
     let text = "";
@@ -227,7 +322,16 @@ const server = createServer((req, res) => {
     const skillEcho = mountedSkillReachedModel(parsed.messages)
       ? `${SKILL_ECHO_PREFIX}${SKILL_SENTINEL} `
       : "";
-    const fullText = `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${echoed}`;
+    // context-engine 浏览器 e2e —— 两个开关都未设置时恒为 ""（短路），拼出来的字符串
+    // 与改动前逐字节相同（同 `retrievalEcho`/`skillEcho` 既有纪律）。
+    const l2Echo = l2SummaryReachedModel(parsed.messages) ? `${L2_SUMMARY_ECHO_PREFIX} ` : "";
+    const toolTraceEcho = toolTraceReachedModel(parsed.messages) ? `${TOOL_TRACE_ECHO_PREFIX} ` : "";
+    // F962：试跑协议要求恰好一个 ```run_script 围栏，与下面「回显原文」的通用分支
+    // 互斥——见 `isTrialRunRequest` 头注。命中时其余回显前缀/开关全部让路，因为
+    // `extractScript` 只认围栏内容，混进去的前缀文字只会污染脚本语法。
+    const fullText = isTrialRunRequest(parsed.messages)
+      ? trialRunScriptReply(echoed)
+      : `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);
       return;

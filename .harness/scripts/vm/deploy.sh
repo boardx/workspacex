@@ -88,10 +88,66 @@ sudo -u "$RUN_AS" git log --oneline -1
 step "2. 依赖"
 sudo -u "$RUN_AS" pnpm install --frozen-lockfile
 
+# ── F962 / #1583：脚本执行沙箱的宿主侧准备 ─────────────────────────────────
+#
+# 必须在 compose up **之前**：compose 里 `${SANDBOX_UID}` / `${SANDBOX_SOCKET_DIR}`
+# 都用了 `:?` 形式，缺了会直接让 up 失败（刻意——沉默地不起沙箱，症状会变成
+# 用户在 chat 里等半天拿不到文件，那比启动报错难查得多）。
+#
+# ⚠ UID 对齐是这段的全部要点：沙箱容器写出的 socket，属主必须是宿主上真正去
+#   连它的那个用户（systemd 的 `User=$RUN_AS`）。不对齐 ⇒ connect() 被拒，
+#   而错误长得像"沙箱没起来"，会把人引向完全错误的方向。
+SANDBOX_SOCKET_DIR=${SANDBOX_SOCKET_DIR:-/run/workspacex-sandbox}
+SANDBOX_UID=$(id -u "$RUN_AS")
+SANDBOX_GID=$(id -g "$RUN_AS")
+export SANDBOX_SOCKET_DIR SANDBOX_UID SANDBOX_GID
+install -d -o "$RUN_AS" -g "$RUN_AS" -m 0770 "$SANDBOX_SOCKET_DIR"
+
+# API（宿主 systemd 服务）从 ENV_FILE 读这条。写进去而不是只导出：systemd 只认
+# EnvironmentFile，父 shell 的 export 到不了它。
+SANDBOX_SOCKET_PATH="$SANDBOX_SOCKET_DIR/skill-sandbox.sock"
+if ! grep -q '^KERNEL_SKILL_SANDBOX_SOCKET=' "$ENV_FILE"; then
+  echo "KERNEL_SKILL_SANDBOX_SOCKET=${SANDBOX_SOCKET_PATH}" >> "$ENV_FILE"
+  echo "  写入 KERNEL_SKILL_SANDBOX_SOCKET=${SANDBOX_SOCKET_PATH}"
+fi
+
 step "3. 依赖服务（具名卷；项目名与门控栈分开，端口也分开）"
 sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | xargs) \
   docker compose -f apps/api/docker-compose.deploy.yml -p workspacex up -d
 until docker exec workspacex-postgres-1 pg_isready -U postgres >/dev/null 2>&1; do sleep 2; done
+
+# 沙箱就绪：socket 文件真的出现，且属主是 API 将要用的那个用户。
+# ⚠ 只等"容器 running"是不够的——进程起来到 socket bind 完成之间有窗口，
+#   API 在这个窗口里调用会拿到 SANDBOX_UNAVAILABLE。
+for i in $(seq 1 30); do
+  [ -S "$SANDBOX_SOCKET_PATH" ] && break
+  sleep 1
+done
+if [ ! -S "$SANDBOX_SOCKET_PATH" ]; then
+  echo "✗ 沙箱 socket 未出现：$SANDBOX_SOCKET_PATH"
+  docker logs --tail 40 workspacex-skill-sandbox-1 2>&1 || true
+  exit 1
+fi
+SOCK_OWNER=$(stat -c '%u' "$SANDBOX_SOCKET_PATH" 2>/dev/null || stat -f '%u' "$SANDBOX_SOCKET_PATH")
+if [ "$SOCK_OWNER" != "$SANDBOX_UID" ]; then
+  echo "✗ 沙箱 socket 属主 uid=$SOCK_OWNER，但 API 以 uid=$SANDBOX_UID 运行 ⇒ connect() 会被拒"
+  exit 1
+fi
+
+# ⚠⚠ **socket 文件存在 ≠ 连得上**（AGENTS.md「静态痕迹 ≠ 动态事实」）。
+#   实测依据：在 macOS 上这个文件会如期出现、属主也对，而 connect() 照样
+#   ConnectionRefused —— 端点在 Linux VM 里，bind mount 只搬运了文件不是端点。
+#   Linux 上没有这道边界，但**这正是必须真连一次才算数的理由**：上面两条检查
+#   在一条断掉的链路上会全部通过。
+#   ⚠ 以 $RUN_AS 的身份连——root 连得上不代表 systemd 里那个用户连得上。
+if ! sudo -u "$RUN_AS" curl -sf --max-time 10 --unix-socket "$SANDBOX_SOCKET_PATH" \
+     http://sandbox/healthz >/dev/null 2>&1; then
+  echo "✗ 沙箱 socket 存在但连不上（以 $RUN_AS 身份）：$SANDBOX_SOCKET_PATH"
+  echo "  socket 文件存在只说明容器 bind 过，不说明宿主进程能连到端点。"
+  docker logs --tail 40 workspacex-skill-sandbox-1 2>&1 || true
+  exit 1
+fi
+echo "  沙箱就绪：$SANDBOX_SOCKET_PATH（uid=$SANDBOX_UID，healthz 已应答）"
 
 step "4. 迁移 —— 先于部署，且幂等"
 # 幂等在别处已被证明：migrate:check 会无视版本表强制重放每个文件再比对 schema 摘要。

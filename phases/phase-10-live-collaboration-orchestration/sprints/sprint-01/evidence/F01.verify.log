@@ -1,0 +1,310 @@
+$ grep -rq 'data-testid="lc-viewer-switcher"' apps/web/components/project/tab-live.tsx
+[exit 0]
+
+
+$ grep -rq 'data-testid="lc-viewer-trigger"' apps/web/components/project/tab-live.tsx
+[exit 0]
+
+
+$ grep -rq 'data-testid="lc-viewer-menu"' apps/web/components/project/tab-live.tsx
+[exit 0]
+
+
+$ pnpm --filter web typecheck
+[exit 0]
+
+> web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/apps/web
+> tsc --noEmit
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/project-live-viewer-switcher.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/apps/web
+
+ ✓ tests/ui/project-live-viewer-switcher.test.tsx (9 tests) 25ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  22:56:59
+   Duration  999ms (transform 211ms, setup 87ms, collect 333ms, tests 25ms, environment 395ms, prepare 38ms)
+
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=ab0d1d4195e6aa02975d37f6c767e99ff039919b（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_9647b0383f68aca0a53c inner_db=wsx_9647b0383f68aca0a53c outer_compose=wsx-9647b0383f68aca0a53c inner_compose=wsx-9647b0383f68aca0a53c status=matched
+[stack-admission] load1=3.34 cores=10 perCore=0.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mt1n91bn-22c50e9d-9647b0383f68 db=wsx_9647b0383f68aca0a53c compose=wsx-9647b0383f68aca0a53c pg=20568 redis=25568
+• turbo 2.10.5
+
+   • Packages in scope: //, web
+   • Running typecheck, lint, test in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs 88ef6b4b6ea5b9d3
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/1a20b80d-cbef-4f62-b137-4b3b25f9b86d/scratchpad/wt-mindmap-keyboard/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+web:typecheck: cache miss, executing 47f85dc8c23b4129
+web:test: cache miss, executing 96653bfd4694af33
+web:lint: cache miss, executing da3772b7b7289b47
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+web:lint: 
+web:test: 
+web:test: > web@0.1.0 test /Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/apps/web
+web:test: > vitest run
+web:test: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+web:test: 
+web:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/apps/web
+web:test: 
+web:test:  ✓ tests/ui/personal-chat-screen.test.tsx (18 tests) 266ms
+web:lint: ✔ No ESLint warnings or errors
+web:test:  ✓ tests/ui/interview-studio-home.test.tsx (15 tests) 1297ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 删除本地 Mock 历史卡前需要确认 329ms
+web:test:  ✓ tests/ui/skill-catalog-live.test.tsx (12 tests) 680ms
+web:test:  ✓ tests/ui/interview-setup-workflow.test.tsx (15 tests) 1543ms
+web:test:    ✓ F04 可点击 Mock 访谈流程 > 往返专家步骤时保留编辑，只为新增专家补齐三问 434ms
+web:test:  ✓ tests/ui/guided-research-flow.test.tsx (26 tests) 1883ms
+web:test:  ✓ tests/ui/blueprint-designer-page-live.test.tsx (36 tests) 1556ms
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+web:test:  ✓ tests/session/session-provider.test.tsx (13 tests) 300ms
+web:test:  ✓ tests/ui/canvas-template-live.test.tsx (26 tests) 978ms
+web:test:    ✓ D-43 已推翻：template-admin 屏重新挂上后台侧栏 AdminNav > 其它屏（如 editor）不挂 AdminNav——只有 template-admin 这一屏需要它 341ms
+web:test: stderr | tests/ui/capability-catalog-mutate.test.tsx > #458 Agent 目录写路径接到 POST /capabilities/mutate > 更新：op=update 只带被改动的字段，改完仍以服务端读取为准
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/ui/chat-roster-mutate.test.tsx (11 tests) 1165ms
+web:test:  ✓ tests/ui/realtime-transcription-history.test.tsx (17 tests) 2111ms
+web:test:    ✓ 实时转录历史工作台 > 遗留的转录中卡片可以结束状态，也可以直接永久删除 367ms
+web:test:  ✓ tests/ui/capability-catalog-mutate.test.tsx (10 tests) 754ms
+web:test:    ✓ #458 Agent 目录写路径接到 POST /capabilities/mutate > 新增：按契约发 op=add，并且列表来自服务端的第二次 GET 而不是本地插入 310ms
+web:test:  ✓ tests/ui/projects-screen-live.test.tsx (12 tests) 1053ms
+web:test:  ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 986ms
+web:test:    ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 594ms
+web:test:  ✓ tests/ui/project-prep-interview-subjects.test.tsx (10 tests) 359ms
+web:test:  ✓ tests/ui/survey-workflow-shell.test.tsx (25 tests) 1490ms
+web:test:  ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 1124ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 327ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 679ms
+web:test:  ✓ tests/ui/chat-live-message-panel-mic.test.tsx (9 tests) 352ms
+web:test:  ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 545ms
+web:test:  ✓ tests/ui/chat-thread-crud.test.tsx (8 tests) 488ms
+web:test:  ✓ tests/ui/canvas-stage-mindmap-keyboard.test.tsx (4 tests) 940ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个非根节点后 Tab 加子节点，挂在被选中节点下 595ms
+web:test:  ✓ tests/ui/chat-composer-attachments.test.tsx (13 tests) 526ms
+web:test:  ✓ tests/ui/new-project-wizard.test.tsx (7 tests) 345ms
+web:test:  ✓ tests/ui/project-prep-live.test.tsx (8 tests) 230ms
+web:test:  ✓ tests/ui/chat-read-screen.test.tsx (35 tests) 5704ms
+web:test:    ✓ formal Chat read path > reads list, detail, roster and the contract message page with the provider bearer 326ms
+web:test:    ✓ formal Chat read path > 推进到终态前持续轮询 AgentRun，状态取自服务端而不是本地推断 751ms
+web:test:    ✓ formal Chat read path > 渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要 533ms
+web:test:    ✓ formal Chat read path > 工具调用失败：如实显示失败状态与失败原因，不假装成功 515ms
+web:test:  ✓ tests/ui/org-switcher-real-names.test.tsx (3 tests) 361ms
+web:test:  ✓ tests/ui/files-browser.test.tsx (13 tests) 187ms
+web:test:  ✓ tests/ui/skill-starter-import.test.tsx (5 tests) 255ms
+web:test:  ✓ tests/ui/blueprint-duration-form.test.tsx (20 tests) 657ms
+web:test:    ✓ 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 489ms
+web:test:  ✓ tests/ui/admin-members-quota-live.test.tsx (8 tests) 237ms
+web:test:  ✓ tests/ui/files-preview.test.tsx (12 tests) 139ms
+web:test: stderr | tests/ui/chat-canvas-fence.test.tsx > 与 mermaid 图表分派互不干扰 > 同一条消息里 mermaid 图表走图表分支、画布围栏走画布分支
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/packages/fabric-markdown/src/index.ts:75:13)
+web:test: 
+web:test:  ✓ tests/ui/files-ingestion-ladder.test.tsx (10 tests) 331ms
+web:test:  ✓ tests/ui/chat-canvas-fence.test.tsx (14 tests) 2660ms
+web:test:    ✓ 工作坊画布模板围栏在 chat 里被渲染（不再是代码块） > ```canvas + 内置 persona 模板 → 走 fabric 画布分支，不落代码块、不落错误态 509ms
+web:test:    ✓ 组织自建模板 → 自动布局 > 查到组织模板 → 生成几何并渲染，标记来源为 org-generated 524ms
+web:test:    ✓ 诚实错误态（不崩、不静默丢、不退回 mock） > 缺 `模板:` 行 → syntax 错误态，回显原始围栏，页面不崩 662ms
+web:test:    ✓ 与 mermaid 图表分派互不干扰 > 同一条消息里 mermaid 图表走图表分支、画布围栏走画布分支 472ms
+web:test:  ✓ tests/ui/files-version-derived.test.tsx (9 tests) 211ms
+web:test:  ✓ tests/ui/skill-url-import.test.tsx (5 tests) 347ms
+web:test:  ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 1112ms
+web:test:    ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 457ms
+web:test:    ✓ F180 signed guided-research visual contract > keeps future checkpoints disabled and labels every demo output 312ms
+web:test:  ✓ tests/ui/research-detail-four-sections.test.tsx (15 tests) 446ms
+web:test:  ✓ tests/ui/blueprint-list-screen-live.test.tsx (8 tests) 350ms
+web:test:  ✓ tests/ui/survey-resource-library.test.tsx (16 tests) 1597ms
+web:test:    ✓ SurveyResourceLibrary > 新建问卷先填写名称和标签再进入新的设计页 403ms
+web:test:    ✓ SurveyResourceLibrary > 从问卷模块新建填写元数据并选择一个模块后创建完整问卷 358ms
+web:test:  ✓ tests/ui/agent-self-publish-panel.test.tsx (5 tests) 218ms
+web:test:  ✓ tests/ui/local-org-live.test.tsx (6 tests) 116ms
+web:test:  ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 84ms
+web:test:  ✓ tests/ui/feedback-dialog.test.tsx (10 tests) 300ms
+web:test:  ✓ tests/ui/join-accidents-mic.test.tsx (9 tests) 145ms
+web:test:  ✓ tests/ui/skill-single-screen-nav.test.tsx (7 tests) 223ms
+web:test:  ✓ tests/ui/admin-feedback-live.test.tsx (10 tests) 347ms
+web:test:  ✓ tests/ui/admin-limit-policy-live.test.tsx (8 tests) 271ms
+web:test:  ✓ tests/ui/admin-nav-count-unavailable.test.tsx (11 tests) 141ms
+web:test:  ✓ tests/ui/research-list-target-dash.test.tsx (13 tests) 135ms
+web:test:  ✓ tests/ui/capability-catalog-live.test.tsx (5 tests) 254ms
+web:test:  ✓ tests/ui/asset-file-edit-save.test.tsx (5 tests) 199ms
+web:test:  ✓ tests/ui/admin-nav-live-counts.test.tsx (7 tests) 180ms
+web:test:  ✓ tests/ui/project-overview-live-overview.test.tsx (9 tests) 217ms
+web:test:  ✓ tests/ui/blueprint-designer-prototype-fidelity.test.tsx (7 tests) 25ms
+web:test:  ✓ tests/ui/research-new-config-defaults.test.tsx (11 tests) 121ms
+web:test:  ✓ tests/ui/files-review-drawer.test.tsx (5 tests) 156ms
+web:test:  ✓ tests/ui/skill-catalog-no-create-panel.test.tsx (5 tests) 128ms
+web:test:  ✓ tests/ui/chat-message-rating.test.tsx (7 tests) 100ms
+web:test:  ✓ tests/ui/project-live-viewer-switcher.test.tsx (9 tests) 76ms
+web:test:  ✓ tests/ui/files-trash-queue.test.tsx (10 tests) 254ms
+web:test:  ✓ tests/ui/capability-skill-content-editor.test.tsx (3 tests) 169ms
+web:test:  ✓ tests/ui/admin-usage-monitor-live.test.tsx (6 tests) 174ms
+web:test:  ✓ tests/ui/admin-members-boundary.test.tsx (4 tests) 109ms
+web:test:  ✓ tests/ui/admin-members-boundary-live.test.tsx (6 tests) 144ms
+web:test:  ✓ tests/ui/admin-members-usage-limits-tabs.test.tsx (5 tests) 294ms
+web:test:  ✓ tests/ui/chat-fullsurface-drop-overlay.test.tsx (4 tests) 207ms
+web:test:  ✓ tests/ui/admin-menu-dedup.test.tsx (9 tests) 101ms
+web:test:  ✓ tests/ui/chat-diagram-saved-readback.test.tsx (5 tests) 110ms
+web:test:  ✓ tests/ui/password-reset-request.test.tsx (5 tests) 170ms
+web:test:  ✓ tests/ui/shell-personal-menu.test.tsx (9 tests) 162ms
+web:test:  ✓ tests/ui/admin-model-view-toggle.test.tsx (5 tests) 291ms
+web:test:  ✓ tests/ui/admin-feedback-view-toggle.test.tsx (4 tests) 312ms
+web:test:  ✓ tests/ui/chat-live-message-panel-attachment-mention.test.tsx (5 tests) 229ms
+web:test:  ✓ tests/ui/email-verification-public.test.tsx (4 tests) 266ms
+web:test:  ✓ tests/ui/rec-fidelity-gaps.test.tsx (11 tests) 31ms
+web:test:  ✓ tests/ui/chat-persona-summary-trigger.test.tsx (4 tests) 174ms
+web:test:  ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 278ms
+web:test:  ✓ tests/ui/project-live-page.test.tsx (2 tests) 127ms
+web:test:  ✓ tests/ui/research-entry-observer-absent.test.tsx (7 tests) 64ms
+web:test:  ✓ tests/ui/admin-members-list.test.tsx (6 tests) 344ms
+web:test:  ✓ tests/ui/project-live-stagebar.test.tsx (8 tests) 124ms
+web:test:  ✓ tests/ui/research-live-empty-conflict-block.test.tsx (10 tests) 111ms
+web:test:  ✓ tests/ui/org-admin-members-reviewer-function.test.tsx (4 tests) 150ms
+web:test:  ✓ tests/ui/entity-view-toggle.test.tsx (4 tests) 87ms
+web:test:  ✓ tests/ui/research-live-conflicts-no-preselect.test.tsx (8 tests) 254ms
+web:test:  ✓ tests/ui/research-preview-sentence.test.tsx (9 tests) 192ms
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > blank invite means first admin: create, login immediately, and persist the real session
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > recovers login when bootstrap committed but its HTTP response was lost
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 206ms
+web:test:  ✓ tests/ui/overview-live.test.tsx (4 tests) 111ms
+web:test:  ✓ tests/ui/asset-directory-browse.test.tsx (7 tests) 126ms
+web:test:  ✓ tests/ui/overview-mixed-state.test.tsx (6 tests) 162ms
+web:test:  ✓ tests/ui/research-exit-actions-observer-absent.test.tsx (7 tests) 110ms
+web:test:  ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 202ms
+web:test:  ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 148ms
+web:test:  ✓ tests/ui/registration-field-errors.test.tsx (4 tests) 102ms
+web:test:  ✓ tests/ui/chat-live-message-panel-actions-position.test.tsx (2 tests) 125ms
+web:test:  ✓ tests/ui/admin-agent-card-view.test.tsx (3 tests) 122ms
+web:test:  ✓ tests/ui/thread-card-button.test.tsx (7 tests) 207ms
+web:test:  ✓ tests/ui/org-menu-avatar-identity.test.tsx (3 tests) 39ms
+web:test:  ✓ tests/ui/agent-tool-chain.test.tsx (8 tests) 75ms
+web:test:  ✓ tests/ui/asset-preflight-blocking.test.tsx (6 tests) 186ms
+web:test:  ✓ tests/ui/consent-form.test.tsx (4 tests) 220ms
+web:test:  ✓ tests/ui/chat-diagram-save-gate.test.tsx (2 tests) 96ms
+web:test:  ✓ tests/ui/survey-create-dialog.test.tsx (3 tests) 596ms
+web:test:  ✓ tests/ui/org-admin-role-scope.test.tsx (4 tests) 415ms
+web:test:  ✓ tests/ui/admin-screen-notice.test.tsx (5 tests) 352ms
+web:test:  ✓ tests/ui/skill-library-prototype-fidelity.test.tsx (3 tests) 196ms
+web:test:  ✓ tests/ui/survey-app-shell.test.tsx (7 tests) 211ms
+web:test:  ✓ tests/ui/chat-live-message-panel-markdown.test.tsx (2 tests) 127ms
+web:test:  ✓ tests/ui/quick-digital-interview.test.tsx (3 tests) 299ms
+web:test:  ✓ tests/ui/admin-mcp-card-view.test.tsx (4 tests) 281ms
+web:test:  ✓ tests/ui/join-verify-form.test.tsx (5 tests) 102ms
+web:test:  ✓ tests/ui/tasks-today-fidelity.test.tsx (4 tests) 136ms
+web:test:  ✓ tests/ui/use-audio-input-devices.test.ts (4 tests) 235ms
+web:test:  ✓ tests/ui/realtime-transcription-workspace.test.tsx (5 tests) 246ms
+web:test:  ✓ tests/ui/tpl-list-admin-nav.test.tsx (3 tests) 73ms
+web:test:  ✓ tests/ui/capability-catalog-edit-navigation.test.tsx (3 tests) 120ms
+web:test:  ✓ tests/ui/project-overview-live-info.test.tsx (5 tests) 105ms
+web:test:  ✓ tests/ui/state-shell-reserved-testid.test.tsx (4 tests) 79ms
+web:test:  ✓ tests/ui/profile-mobile-actions.test.tsx (3 tests) 108ms
+web:test:  ✓ tests/ui/skill-catalog-view-toggle.test.tsx (2 tests) 120ms
+web:test:  ✓ tests/ui/login-signup-paths.test.tsx (4 tests) 73ms
+web:test:  ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 38ms
+web:test:  ✓ tests/single-source-of-truth.test.ts (22 tests) 106ms
+web:test: stderr | tests/ui/markdown-message.test.tsx > MarkdownMessage > 白名单内的 mermaid 围栏 → 走 fabric 渲染路径（validating→valid，挂 fabric 容器），不落错误态
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/live-collab-phase-plan/packages/fabric-markdown/src/index.ts:75:13)
+web:test: 
+web:test:  ✓ tests/ui/markdown-message.test.tsx (3 tests) 398ms
+web:test:  ✓ tests/ui/interview-skill-assistant.test.tsx (1 test) 124ms
+web:test:  ✓ tests/ui/login-real-error.test.tsx (2 tests) 142ms
+web:test:  ✓ tests/session/canvas-template-routes-no-mock.test.ts (12 tests) 88ms
+web:test:  ✓ tests/session/login-session-gate.test.tsx (3 tests) 28ms
+web:test:  ✓ tests/lint-no-backend-badge.test.ts (11 tests) 21ms
+web:test:  ✓ tests/capability/mcp/three-orthogonal-fields.test.ts (24 tests) 20ms
+web:test:  ✓ tests/ui/survey-route-layout.test.tsx (3 tests) 510ms
+web:test:  ✓ tests/capability/mcp/credential-endpoint-hidden.test.ts (138 tests) 18ms
+web:test:  ✓ tests/lib/auto-template-layout.test.ts (20 tests) 33ms
+web:test:  ✓ tests/recording/live-recording-capture.test.ts (22 tests) 15ms
+web:test:  ✓ tests/capability/mcp/tool-namespace.test.ts (21 tests) 8ms
+web:test:  ✓ tests/session/skill-create-route-no-mock.test.ts (5 tests) 37ms
+web:test:  ✓ tests/digital-interview-drafts.test.ts (11 tests) 8ms
+web:test:  ✓ tests/guided-research-skill-state.test.ts (8 tests) 6ms
+web:test:  ✓ tests/session/chat-dead-mock-cluster.test.ts (8 tests) 528ms
+web:test:  ✓ tests/ui/survey-template-editor-shell.test.tsx (2 tests) 245ms
+web:test:  ✓ tests/session/agent-admin-route-no-mock.test.ts (4 tests) 26ms
+web:test:  ✓ tests/api-client-ws-handshake-timeout.test.ts (4 tests) 7ms
+web:test:  ✓ tests/survey/survey-mock-structure.test.ts (10 tests) 5ms
+web:test:  ✓ tests/session/copilotkit-agui-httpagent.test.ts (2 tests) 41ms
+web:test:  ✓ tests/session/chat-roster-route-no-mock.test.ts (6 tests) 61ms
+web:test:  ✓ tests/session/api-client-non-json-error.test.ts (4 tests) 4ms
+web:test:  ✓ tests/lib/boardx-realtime-asr-client.test.ts (7 tests) 14ms
+web:test:  ✓ tests/ui/survey-workflow-model.test.ts (10 tests) 51ms
+web:test:  ✓ tests/chat-roster-api.test.ts (2 tests) 8ms
+web:test:  ✓ tests/lib/auto-template-sticky-constants.test.ts (4 tests) 3ms
+web:test:  ✓ tests/session/covered-routes-no-mock.test.ts (14 tests) 4ms
+web:test:  ✓ tests/upload-attachment-xhr.test.ts (3 tests) 5ms
+web:test:  ✓ tests/chat-read-api.test.ts (1 test) 8ms
+web:test:  ✓ tests/e2e/personal-realtime-transcription-smoke.test.ts (1 test) 7ms
+web:test:  ✓ tests/api-client-url-join.test.ts (3 tests) 52ms
+web:test:  ✓ tests/ui/admin-feedback-transitions-match-domain.test.ts (3 tests) 3ms
+web:test:  ✓ tests/guided-research-demo-state.test.ts (4 tests) 3ms
+web:test:  ✓ tests/lib/pcm-audio-worklet.test.ts (4 tests) 4ms
+web:test:  ✓ tests/lib/pick-default-agent-id.test.ts (7 tests) 3ms
+web:test:  ✓ tests/lib/live-personal-transcriptions.test.ts (2 tests) 21ms
+web:test:  ✓ tests/session/session-api.test.ts (1 test) 5ms
+web:test:  ✓ tests/ui/personal-transcription-history.test.tsx (17 tests) 1811ms
+web:test:  ✓ tests/lib/live-consent.test.ts (1 test) 4ms
+web:test:  ✓ tests/api-client-error-envelope.test.ts (2 tests) 4ms
+web:test:  ✓ tests/ui/decode-mermaid-entities.test.ts (4 tests) 1ms
+web:test:  ✓ tests/research-rewrite.test.ts (1 test) 1ms
+web:test:  ✓ tests/ui/mermaid-diagram-type.test.ts (4 tests) 3ms
+web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 196ms
+web:test:  ✓ tests/ui/provenance-labels.test.ts (2 tests) 3ms
+web:test:  ✓ tests/guided-research-stage.test.ts (2 tests) 2ms
+web:test:  ✓ tests/ui/survey-creation-draft.test.ts (3 tests) 1ms
+web:test: 
+web:test:  Test Files  170 passed (170)
+web:test:       Tests  1456 passed (1456)
+web:test:    Start at  22:57:02
+web:test:    Duration  32.04s (transform 9.16s, setup 28.06s, collect 57.79s, tests 54.77s, environment 109.15s, prepare 9.63s)
+web:test: 
+
+ Tasks:    4 successful, 4 total
+Cached:    1 cached, 4 total
+  Time:    32.657s 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：0s
+  命令执行：33s
+  清理：0s
+  总计：33s
+
+[harness-verify v1 sha256=14192cdfeb48778dd47cbaebff1fd8574b549eec3c3395f1de029616ef2f9f77 commit=e49935545db8474e5a2620c10db323e6e62277a5 at=2026-08-20T14:57:34.584Z]

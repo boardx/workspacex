@@ -71,7 +71,7 @@ export default defineConfig({
    * 接住（理由与上面两条逐字相同）：这里已经起好了真登录 + 真线程 + 确定性 provider 全套
    * 编排，单自建 runner 是硬瓶颈；新增的是视觉理解这一条上游替身，其余全部复用。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
@@ -193,6 +193,15 @@ export default defineConfig({
          */
         LOOPBACK_MODEL_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
         LOOPBACK_MODEL_SKILL_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillEchoPrefix,
+        /**
+         * context-engine 浏览器 e2e —— 同一套「默认关闭的回显开关」，打开替身进程
+         * 「在 history 里确实收到了 L2 摘要伪消息 / F190 工具轨迹回喂伪消息」这两件事
+         * 的回显（见 `loopback-model-provider.ts` 自己的头注）。`fullstack-smoke` /
+         * `core-loop` 不下发这些变量，那两条链路行为逐字节不变。
+         */
+        LOOPBACK_MODEL_L2_SUMMARY_ECHO_PREFIX: CHAT_READ_E2E.l2SummaryEchoPrefix,
+        LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX: CHAT_READ_E2E.toolTraceEchoPrefix,
+        LOOPBACK_MODEL_TOOL_TRACE_SENTINEL: CHAT_READ_E2E.toolTraceHistoricalResultCode,
       },
     },
     /**
@@ -252,6 +261,16 @@ export default defineConfig({
         CHAT_E2E_CONTEXT_CHECK_THREAD_ID: CHAT_READ_E2E.contextCheckThreadId,
         // #1560 P1 e2e —— 图片视觉理解诚实降级路径的专属线程。
         CHAT_E2E_IMAGE_VISION_THREAD_ID: CHAT_READ_E2E.imageVisionThreadId,
+        // #1584 e2e —— 附件预览/下载弹窗的专属线程，不与上面那条共写（曾经共写过，
+        // `verify:chat-read` 整套跑时互相污染，见 `chat-read-fixture.ts` 同名字段头注）。
+        CHAT_E2E_ATTACHMENT_PREVIEW_THREAD_ID: CHAT_READ_E2E.attachmentPreviewThreadId,
+        // context-engine 浏览器 e2e —— L2 滚动摘要 / F190 工具轨迹回喂的两条专属线程，
+        // 见 `chat-read-fixture.ts` 同名字段与 `seed-chat-read-e2e.ts` 的头注。
+        CHAT_E2E_L2_CHECK_THREAD_ID: CHAT_READ_E2E.l2CheckThreadId,
+        CHAT_E2E_L2_EARLY_FACT_CODE_WORD: CHAT_READ_E2E.l2EarlyFactCodeWord,
+        CHAT_E2E_TOOL_TRACE_CHECK_THREAD_ID: CHAT_READ_E2E.toolTraceCheckThreadId,
+        CHAT_E2E_TOOL_TRACE_TOOL_NAME: CHAT_READ_E2E.toolTraceHistoricalToolName,
+        CHAT_E2E_TOOL_TRACE_RESULT_CODE: CHAT_READ_E2E.toolTraceHistoricalResultCode,
         // The catalog schema override is intentionally test-only; production always resolves
         // the public Agent catalog. Authentication in this journey still uses a signed login.
         KERNEL_ALLOW_TEST_PRINCIPAL: "1",

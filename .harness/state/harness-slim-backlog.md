@@ -108,7 +108,11 @@ lint:templates-doctor     1.24s
 - **为什么先做**：H-01/H-04 的「不影响项目」不能靠人看代码判断，只能靠这个。
 
 ### H-01 删 H3A 全簇（机器 + 空数据平面）
-- **状态**：not_started ｜ **依赖**：H-00
+- **状态**：**done**（2026-08-19，PR #1596）。实测 −9,732 行 / −56 文件，
+  与预估 −9,389 基本吻合。CI 裁决：合入 commit 上 `verify-control-plane` /
+  `verify-affected` / `verify-full-compile` 全绿（红的 `e2e-full`/`fullstack-smoke`
+  在 H-01 之前的 commit 上同样红，与本次无关）。
+- ~~**依赖**：H-00~~
 - **动作**：删 52 个代码文件 + 10 个数据文件（task-assignment / workflow-event /
   review-decision / role-authorization / role-freeze / graph-authority※ / domain-skill /
   portable-role / role-scorecard / terminology 全簇 + `.harness/{tasks,events,reviews,domains,model,contracts,terminology}`），
@@ -120,14 +124,25 @@ lint:templates-doctor     1.24s
 - **风险**：低。删前必须跑一次静态可达性扫描 + 动态全 CI 路径确认零触达，
   **不是凭判断说它死了**。git history 永久可回溯，删除不是丢失。
 
-### H-02 删零/低引用小工具
-- **状态**：not_started ｜ **依赖**：H-00
-- **动作**：删 `merge-fl-parts`、`record-readiness-evidence`、`verify-readiness-evidence`、
-  `templates-{allocate,render,doctor}`、`migrate-labels`、`sweep-unblock`、`dep-graph`、
-  `verify-timing-report`、`skills-doctor` 中经全仓引用扫描确认为 0–2 次引用的部分。
-  逐条确认后再删，不整批下手。
-- **减少行数**：**−762**（实测上限）
-- **验收**：同 H-01。
+### H-02 删零/低引用小工具 —— **done，但估算错了 8 倍**
+- **状态**：done（2026-08-19）
+- **原估算 −762 是错的，实测只有 −97。** 逐条查完消费者：
+
+| 候选 | 实测消费者 | 结论 |
+|---|---|---|
+| `merge-fl-parts` | 无 | **删**（97 行） |
+| `record-readiness-evidence` | **CI 调用 2 次**（`.github/workflows/harness-verify.yml`） | 活的 |
+| `verify-readiness-evidence` | `fullstack-smoke.test.ts` 断言它的内容 | 活的 |
+| `templates-allocate` | `templates/registry.yaml` 明写"新增模板用它"，23 个 template_id 是活的 | 活的 |
+| `templates-render` | 已随 H-01 删除（依赖 workflow-event-model） | — |
+| `templates-doctor` | 10 处引用，在 verify 链上 | 活的 |
+| `migrate-labels` | `instructions/multi-agent-coordination.md` | 活的 |
+| `sweep-unblock` | `lib/types.ts` + phase-00 sprint 文档 | 活的 |
+| `dep-graph` | 2 个 SKILL.md + `lint-rewrite-coverage.mjs` | 活的 |
+| `verify-timing-report` | `lib/verify-timing.ts` 是 verify 的活依赖 | 活的 |
+| `skills-doctor` | 在 verify 链上，变异实测能抓 | 活的 |
+
+**教训见下面「引用扫描方法」一节——原估算之所以错这么多，是扫描方法本身有系统性盲区。**
 
 ### H-03 `state/` 出仓
 - **状态**：not_started
@@ -230,6 +245,39 @@ lint:templates-doctor     1.24s
 
 ---
 
+## 引用扫描方法（2026-08-19 血的教训，做 H-04 以后每一条都要照这个来）
+
+H-02 估算错 8 倍的根因不是判断失误，是**扫描命令本身有系统性盲区**：
+
+```bash
+# ✗ 错的（我用了一整轮的写法）
+grep -rn "$f" --include="*.yml" ... . | grep -v "scripts/$f"
+```
+
+`grep -v "scripts/$f"` 本意是"排除文件自身"，实际把**所有调用这个文件的行**
+也一起过滤掉了——因为调用行长这样：
+
+```
+.github/workflows/harness-verify.yml:311:  pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
+```
+
+它包含 `scripts/record-readiness-evidence`，于是被自己的排除规则吃掉。
+**这个过滤器精确地隐藏了它本该找到的东西。**
+
+```bash
+# ✓ 对的：按路径排除，不按内容
+grep -rn "$f" . | grep -v node_modules | grep -v "^\./\.harness/scripts/$f\.ts"
+#   或用 git 的路径限定
+git grep -ln "$f" -- '.github/**' 'apps/**' 'packages/**'
+```
+
+同一轮里，机械检查三次抓到我扫描漏掉的东西（`tsc` 抓到两条 import 耦合、
+`skills doctor` 抓到两处文档死链、CI grep 抓到 record-readiness-evidence）。
+**结论：静态扫描的结论必须由编译器/门禁/CI 复核，不能单独采信。**
+这与 AGENTS.md「静态痕迹 ≠ 动态事实」是同一条，只是这次栽在扫描命令的写法上。
+
+---
+
 ## 外部意见评估（2026-08-18）
 
 收到一份外部瘦身方案，逐条实测后：**采纳 3 条，反证 4 条。**
@@ -260,12 +308,26 @@ lint:templates-doctor     1.24s
 
 | 步 | 减少 | 累计 | 数据来源 |
 |---|---:|---:|---|
-| 现状（含 docs + skills） | — | 60,094 | 实测 |
-| H-00 变异基线 | +300 | 60,394 | 估 |
-| **H-09 删 superpowers** | **−6,277** | 54,117 | **实测** |
-| H-01 删 H3A 全簇 | −9,389 | 44,728 | **实测** |
-| H-02 删小工具 | −762 | 43,966 | **实测** |
-| H-03 state 出仓 | −1,321 | 42,645 | **实测（上限）** |
+**口径修正（2026-08-19）**：初版的 60,094 是**在过时的树上量的**——当时用主 checkout
+的工作树（停在某个 feature 分支）而不是 origin/main，导致 docs 少算了约 2,500 行。
+以下全部改为**声明 SHA 的实测**，这是 AGENTS.md「静态痕迹 ≠ 动态事实」的同一条。
+
+| 口径 | SHA | .harness | docs | .agents/skills | 合计 |
+|---|---|---:|---:|---:|---:|
+| 起点 | `8977b2eb` | 41,554 | 17,894 | 4,187 | **63,635** |
+| 现在 | `d1ca9673` | 33,870 | 18,013 | 4,186 | **56,069** |
+| 差 | | **−7,684** | +119 | −1 | **−7,566** |
+
+（`.harness` 的 −7,684 = H-01 的 −9,732 减去这两天别人新增的约 2,000 行。
+docs 两天只涨 119 行——初版说的「docs 一天涨 2,623」是过时树造成的假象，不成立。）
+
+| 步 | 减少 | 状态 |
+|---|---:|---|
+| H-00 变异基线 | +480 | **已合入** |
+| H-01 删 H3A 全簇 | **−9,732** | **已合入 #1596** |
+| H-02 删小工具 | **−97** | 实测（原估 −762，错 8 倍，见上表） |
+| H-09 删 superpowers | −6,277 | **blocked**（等写入者确认） |
+| H-03 state 出仓 | −1,321 | 估（上限） |
 | H-10 proposals 随 H-01 | −3,000 | 39,645 | 估 |
 | H-04 形态收敛 | −2,000 | 37,645 | 估 |
 | H-05 文档去重 + 生成式图 | −1,000 | 36,645 | 估 |

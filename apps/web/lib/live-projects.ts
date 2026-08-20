@@ -4,7 +4,7 @@
  * 类型全部从 `@repo/contracts` 推导，不重新声明——同一份形状两处声明正是本仓
  * AGENTS.md 点名的事故模式（设计 token / 字号档位 / …）。
  */
-import { project } from "@repo/contracts";
+import { artifact, project } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
@@ -46,6 +46,26 @@ export async function findProject(orgId: string, projectId: string): Promise<Pro
 }
 
 export type ProjectOverview = z.infer<typeof project.operations.getProjectOverview.out>;
+/**
+ * ⚠ 直接派生自契约的 `artifact.BackflowEntry`，不绕道 `ProjectOverview["backflow"][number]`。
+ * 两者类型完全相同（`project.ts` 的 `backflow` 就是 `z.array(BackflowEntry)`，逐字引用
+ * artifact 那一份），但索引访问那种写法不被 `lint-contract-source` 的 `derived` 判据认得
+ * （它只认 `z.infer<`、`C.X` 别名、含 `@repo/contracts` 三种形式）⇒ 被判成 LITERAL 重定义。
+ * 直接引用既过门，也更贴近"单一事实源"本身的意思。
+ */
+export type BackflowEntry = z.infer<typeof artifact.BackflowEntry>;
+
+/**
+ * 回流徽标中文标签——单一声明处。F362（`tab-overview.tsx`）与 F964（`tab-results.tsx`）
+ * 两处都要显示同一份 `BackflowEntry.badge` 三值闭枚举，之前只在 `tab-overview.tsx`
+ * 里私有声明；现在有第二个消费点，按 AGENTS.md「同一事实不得声明在两处」收成这一处，
+ * 两个组件都从这里 import，不各自抄一份。
+ */
+export const BACKFLOW_BADGE_LABEL: Record<BackflowEntry["badge"], string> = {
+  draft: "草稿",
+  live: "实时 · 随源变动",
+  pinned: "已定版",
+};
 
 /**
  * F362 —— 真实 `GET /projects/:projectId/overview`。不需要 `orgId`：契约
@@ -185,3 +205,44 @@ export const AGENDA_SEGMENT_STATE_LABEL: Record<AgendaSegment["state"], string> 
   closed: "已结束",
   skipped: "已跳过",
 };
+
+export type AdvanceAgendaSegmentAction = z.infer<typeof project.AgendaSegmentAdvanceAction>;
+export type AdvanceAgendaSegmentOut = z.infer<typeof project.operations.advanceAgendaSegment.out>;
+
+/**
+ * F963 —— 真实 `POST /workshops/:workshopId/agenda-segments/:segmentId/advance`
+ * （`advanceAgendaSegment`，F119 UC-P7）。
+ *
+ * 契约签了跟 `createAgendaSegment`/`listAgendaSegments` 一样久、controller 也早挂好了
+ * （`project.controller.ts` 的 `advance()`），此前只是没有前端调用方——「现场协作」
+ * 主持台的推进/提前结束/跳过/合并四个动作因此全部只能停在 mock。
+ *
+ * ⚠ body 里**必须**带 `workshopId`/`segmentId`（与路径同值）——不是 F950/F961 那种
+ *   路径参数泄漏进 body（见 `lint-body-path-param-leak.mjs`）：这个 controller 的
+ *   body schema 是全量 `C.operations.advanceAgendaSegment.in`（未 `.omit()`），
+ *   服务端还会显式比对 `body.workshopId !== workshopId`，不一致直接 400
+ *   `workshop_or_segment_id_mismatch`——两边取自同一个变量，前端制造不出那种不一致
+ *   （同 `bindCanvasTemplateToSegment` 头注一致的先例，该函数已登记进
+ *   `.harness/state/body-path-param-leak-allowlist.json`，本函数用同一条豁免）。
+ */
+export async function advanceAgendaSegment(input: {
+  readonly workshopId: string;
+  readonly segmentId: string;
+  readonly action: AdvanceAgendaSegmentAction;
+  readonly mergeIntoSegmentId: string | null;
+}): Promise<AdvanceAgendaSegmentOut> {
+  return apiRequest<AdvanceAgendaSegmentOut>(
+    project.operations.advanceAgendaSegment.path
+      .replace(":workshopId", encodeURIComponent(input.workshopId))
+      .replace(":segmentId", encodeURIComponent(input.segmentId)),
+    {
+      method: "POST",
+      body: {
+        workshopId: input.workshopId,
+        segmentId: input.segmentId,
+        action: input.action,
+        mergeIntoSegmentId: input.mergeIntoSegmentId,
+      },
+    },
+  );
+}

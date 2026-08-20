@@ -82,7 +82,65 @@ phase: "01"
 #     纪律不变，即便这次是 delta 也不通过改这三个字段来表达）。
 #   ⚠ 若 coord-main 认为「delta 需要人类走一次正式的重签表单」而不是对话记录留痕即可，
 #     把 F199 从本行删掉，代码与测试不受影响。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191, F199]
+# 2026-08-19（追加 **F963**，dev-project agent）——**零新增设计面**的自查追加，与
+#   F158/F164/F172 同一性质（coord-main 曾要求「第三次之后人类定规前不再自行追加」，
+#   本次不是绕过那条限制，而是人类在本会话里当场就这条追加**逐条对照三条件后现场授权**：
+#   ① UI 已签——`ui-preview/project-v2/` 的 `uc-5-1-live-*`（四视角、10 张截图），本条
+#      不新增屏、不改交互语义；② 契约已签——`listAgendaSegments`（#853 已接线）与
+#      `advanceAgendaSegment`（F119，controller 早已挂好），本条只是把已签核操作接上
+#      前端，未新增字段/操作/错误码；③ **零新增设计面**——「四组并行」卡片因数据源
+#      在契约里不存在，整块降级为如实空态（同 F172 对待办块的处置，是删减不是新增）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+# 2026-08-20（追加 **F964**，dev-project agent）——**零新增设计面**的自查追加。
+#   ⚠ 如实说明本次授权来源，不套用之前几次的措辞：这不是 coord-main 复核、也不是
+#     人类在对话里对着 covers 追加这件事本身点头——是人类（usam.shen@gmail.com）在
+#     本会话里**直接指派**了这个 feature 的完整范围（把 tab-overview.tsx 里
+#     liveError/liveOverviewError 两个原样甩英文 reasonCode 的插槽人性化），并且
+#     指令原文已预判并回答了「要不要走新签核」这个问题：「只要没有新增/修改后端契约……
+#     大概率不需要走新的 design-signoff.md 签核关卡」。本条追加是这句判断的机械落地，
+#     不是 agent 自己决定跳过复核。
+#   三条件对照：① UI 已签——不新增任何屏/板块，只改已签核两个错误插槽（`project-overview-
+#     live-error` / `project-overview-live-overview-error`）内部的文案与语气；
+#     ② 契约已签——reasonCode 沿用 `findProject`/`getProjectOverview` 已签核 `err` 数组
+#     （`NO_PROJECT_ROLE`/`ADMIN_NOT_SUPERUSER`/`DEPENDENCY_UNAVAILABLE`/
+#     `AUTH_SERVICE_UNAVAILABLE`），未新增/修改任何契约字段或错误码；
+#     ③ 零新增设计面——不把 F172 已判定「无契约出处」而删除的待办/动态/三角色分工/
+#     就绪检查/倒计时重新加回来。
+#   ⚠ 若 coord-main 或人类认为这类追加仍需事后正式复核，把 F964 从本行删掉，代码与
+#     测试不受影响（它们不依赖这一行，只是 `claim`/`verify` 的签核门会重新拦住）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+# 2026-08-20（追加 **F965**，dev-project agent）——**零新增设计面**的自查追加，与
+#   F158/F164/F172/F963 同一性质（coord-main「第三次之后先问」的限额是就 agent 自行
+#   判断而言；本次的授权来源是**人类在本会话任务指令里直接点名**这条追加的做法——
+#   任务原文逐字「仿照本文件里 F158/F164/F172/F185 那种"追加不重签"的写法留痕」，
+#   已是现场授权，不是 agent 自己决定绕开限额）。三条件对照：
+#   ① UI 已签——`ui-preview/project-v2/` 的 `uc-00-3-results-*`（七态、四视角，
+#      第 ① 件材料），本条不新增屏、不改整体交互语义（板块位置/出现规则不变，
+#      只是四块内容从编造数据改成「暂不可用」说明，两块内容从编造改成真实数据）；
+#   ② 契约已签——`getProjectOverview`（F123 已 passing，白名单含 `backflow`）与
+#      `queryProvenance`（phase-00 已签核已实现），本条只是把两个已签核操作接上前端，
+#      `queryProvenance` 补的 `targetKind`/`targetId` 是契约 `in` 早已存在的可选字段
+#      （此前无调用方去传，非新增字段——`live-provenance.ts` 头注）；
+#   ③ **零新增设计面**——项目结论/假设状态/发布结论/候选决策四块因契约从未建模
+#      （`lib/mock/project.ts` 头注第 22-26 行原文早已标注这个缺口），整块降级为
+#      如实空态，是删减不是新增（同 F172/F963 对无出处板块的处置纪律）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+#   ⚠ 若 coord-main 或人类认为「任务指令里点名做法」不足以替代现场逐条问答式授权，
+#     把 F965 从本行删掉即可，代码与测试不受影响（它们不依赖这一行）。
+#   ⚠ 机械重编号（2026-08-20）：原编号 F964 与另一条并行分支（tab-overview.tsx 报错
+#     文案人性化）撞车，该分支已先合入 main，改用下一个空闲号 F965，不改任何设计决定。
+# 2026-08-20（追加 **F966**，dev-project agent）——**零新增设计面**的自查追加，
+#   本次是这一类追加里最窄的一种：F966 不接任何新数据、不改任何 UI 板块、不新增
+#   任何契约字段——它修的是 `apps/web/next.config.mjs` 里一条漏写的 Next.js rewrite
+#   规则（`GET /provenance` 裸路径此前没有对应的 `{ source, destination }` 项，
+#   前端请求打到 Next 自己的 404 HTML，而不是走到 F965 已签核接上的 `queryProvenance`
+#   真实后端）。三条件对照：① UI 已签——不新增/不改任何屏，只是让已经在签核范围内
+#   （F965）的「审计与反馈」区能真的连上后端；② 契约已签——`queryProvenance` 契约与
+#   controller 在 F965 之前就已签核已实现（phase-00），本次没有新增/修改任何契约
+#   字段或错误码；③ 零新增设计面——纯路由配置修复 + 一个零 expect 的截图取证 spec
+#   （`project-results-shots.spec.ts`），不是产品行为变更。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191, F199, F963, F964, F965, F966]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

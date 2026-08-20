@@ -57,3 +57,23 @@ export async function getAgentRun(
     { method: "GET", sessionToken },
   );
 }
+
+export type AgentRunContextSnapshotView = z.infer<
+  typeof wave2Runtime.operations.getAgentRunContextSnapshot.out
+>;
+
+/**
+ * context-engine 可用性补口——`AgentRunContextSnapshotView` 可空：`null` = 这个 run
+ * 你能看，只是还没有快照（早于 F157 上线，或组装从未走到写快照那一步）。同
+ * `getAgentRun` 一条既有纪律：只把服务端原样交出去，读不到（403/404）就报错，
+ * 不在客户端编一份假快照。
+ */
+export async function getAgentRunContextSnapshot(
+  runId: string,
+  sessionToken?: string,
+): Promise<AgentRunContextSnapshotView> {
+  return apiRequest<AgentRunContextSnapshotView>(
+    wave2Runtime.operations.getAgentRunContextSnapshot.path.replace(":runId", encodeURIComponent(runId)),
+    { method: "GET", sessionToken },
+  );
+}
