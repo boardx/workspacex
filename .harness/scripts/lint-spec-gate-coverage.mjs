@@ -119,6 +119,20 @@ const EXEMPTIONS = [
       "两个 config 不能共存）。接进门控没有意义：这些 toBeVisible 门在 CI 里只会绿，" +
       "真正的验收在人类签核，不在这个脚本自己判定「像不像」。",
   },
+  {
+    spec: "apps/web/e2e/live-collab-orchestration-shots.spec.ts",
+    reason:
+      "Phase 10「现场协作编排」UI 先行原型（9 屏 + 七态 + 4 视角）—— 同 canvas-tpl-shots：" +
+      "**取证工具，不是规格**。它带 `expect(...).toBeVisible()`，但那些只是「等这一态的锚点" +
+      "出现了再截图」的时序门，不比对任何 POST 请求体、服务端响应字段或状态转移这类产品行为。" +
+      "目的是把 phases/phase-10-live-collaboration-orchestration/ui-preview/README.md 里列的" +
+      "18 张截图落地，供人类在束级 design-signoff.md 第 ① 件签核时逐条核对（README 已列出 3 处" +
+      "重点，其中「观察者可见范围」是安全边界决策，须人类拍板）。由" +
+      "`playwright.live-collab-shots.config.ts` 单独调用，对**已预热**的 dev server（默认 3242）" +
+      "截图、不自带 webServer，接进 fullstack-smoke 那套栈做不到（同一理由见 chat-main-shots/" +
+      "canvas-tpl-shots：两个 config 不能共存）。接进门控没有意义：这些 toBeVisible 门在 CI 里" +
+      "只会绿，真正的验收在人类签核，不在这个脚本自己判定「像不像」。",
+  },
 ];
 
 /** 拿 workspace 包名 → 目录 的映射，用于解析 `pnpm --filter <name>`。 */
