@@ -129,7 +129,18 @@ phase: "01"
 #     把 F965 从本行删掉即可，代码与测试不受影响（它们不依赖这一行）。
 #   ⚠ 机械重编号（2026-08-20）：原编号 F964 与另一条并行分支（tab-overview.tsx 报错
 #     文案人性化）撞车，该分支已先合入 main，改用下一个空闲号 F965，不改任何设计决定。
-covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191, F199, F963, F964, F965]
+# 2026-08-20（追加 **F966**，dev-project agent）——**零新增设计面**的自查追加，
+#   本次是这一类追加里最窄的一种：F966 不接任何新数据、不改任何 UI 板块、不新增
+#   任何契约字段——它修的是 `apps/web/next.config.mjs` 里一条漏写的 Next.js rewrite
+#   规则（`GET /provenance` 裸路径此前没有对应的 `{ source, destination }` 项，
+#   前端请求打到 Next 自己的 404 HTML，而不是走到 F965 已签核接上的 `queryProvenance`
+#   真实后端）。三条件对照：① UI 已签——不新增/不改任何屏，只是让已经在签核范围内
+#   （F965）的「审计与反馈」区能真的连上后端；② 契约已签——`queryProvenance` 契约与
+#   controller 在 F965 之前就已签核已实现（phase-00），本次没有新增/修改任何契约
+#   字段或错误码；③ 零新增设计面——纯路由配置修复 + 一个零 expect 的截图取证 spec
+#   （`project-results-shots.spec.ts`），不是产品行为变更。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F116, F117, F118, F119, F120, F121, F122, F123, F124, F125, F126, F127, F128, F158, F164, F172, F185, F191, F199, F963, F964, F965, F966]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

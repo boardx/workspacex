@@ -5007,6 +5007,25 @@
       "priority": 2,
       "area": "project",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F966",
+      "title": "修复 GET /provenance 缺失的 Next.js rewrite（成果沉淀·审计与反馈区真栈 404）+ 真栈截图取证",
+      "user_visible_behavior": "进项目工作台「成果沉淀」tab，「审计与反馈」区不再显示「审计事件读取失败：HTTP 404」这个误导性错误（看起来像后端没实现，实际是前端 Next.js 从未给 `GET /provenance` 写 rewrite 规则，F965 之前`queryProvenance` 零真实调用方，这个路由缺口一直没被撞到）。修复后，有真实审计读取权限（org 级 lead/admin/compliance，或读自己的历史）的用户能看到真实审计事件列表；没有权限的用户看到真实、正确的 403（`PROJECT_ROLE_INSUFFICIENT`），不是一个伪装成路由缺失的 404。同时新增 `pnpm run shots:project-results`（真栈截图取证工具，登录 + 拍成果沉淀 tab，供 rev-uiux 对齐已签核基线图使用）。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R3",
+      "depends_on": [
+        "F965"
+      ],
+      "points": 1,
+      "status": "passing",
+      "sprint": "19",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/project-results-live.test.tsx"
+      ],
+      "evidence": "evidence/F966.verify.log @ 2026-08-20T08:25:03.933Z",
+      "notes": "真栈截图取证时发现的真 bug（非本 feature 编造场景）：next.config.mjs 全文 grep provenance 零命中，与文件里 /blueprints、/messages 注释描述的坑同一类——裸路径（无 :path*）rewrite 漏写，前端打到 Next 自己的 404 HTML，不是 API 的 404。修复：补一行 rewrite。修复后用真栈复验（pnpm run shots:project-results，两轮跑，38/38 全绿）：404 变成真实 403 PROJECT_ROLE_INSUFFICIENT（query-provenance.ts设计使然，非 bug）。UIUX 保真度评分：8/10（真栈截图，对照 ui-preview/project-v2/uc-00-3-results-*.png；未到 9-10 分是两个证据缺口——fixture 未种 backflow/provenance 数据、只拍了 default 一态——不是代码缺陷）。详见 issue 与 PR 记录。"
     }
   ]
 }
