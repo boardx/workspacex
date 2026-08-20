@@ -219,8 +219,10 @@ export function ProjectWorkbench({
 
   /**
    * F950（2026-08-16 delta）—— 项目筹备 tab 的定题/分组，与上面 `liveSegments` 同一套
-   * 取法：只在「筹备」tab 激活时拉取；`refreshTopic`/`refreshGrouping` 单独导出给
-   * `TabPrep`，保存成功后重新打一次真实 GET，不在本地拼接乐观更新的值。
+   * 取法：只在「筹备」/「现场协作」两个 tab 激活时拉取（F01/phase-10：现场协作 tab
+   * 的视角切换器需要真实分组列表，不新建第二条取分组的路径，同一份状态两个 tab 共用）；
+   * `refreshTopic`/`refreshGrouping` 单独导出给 `TabPrep`，保存成功后重新打一次真实
+   * GET，不在本地拼接乐观更新的值。
    */
   const [liveTopic, setLiveTopic] = React.useState<ProjectTopicOut | null>(null);
   const [liveTopicLoading, setLiveTopicLoading] = React.useState(false);
@@ -257,16 +259,20 @@ export function ProjectWorkbench({
   }, [projectId]);
 
   React.useEffect(() => {
+    const needsGrouping = tab === "prep" || tab === "live";
+    if (!projectId || !needsGrouping || !getStoredSessionToken()) {
+      setLiveGrouping(null);
+      setLiveGroupingError(null);
+    } else {
+      refreshGrouping();
+    }
     if (!projectId || tab !== "prep" || !getStoredSessionToken()) {
       setLiveTopic(null);
       setLiveTopicError(null);
-      setLiveGrouping(null);
-      setLiveGroupingError(null);
       return;
     }
     refreshTopic();
-    refreshGrouping();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 两者只依赖 projectId，随它一起重建
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 两者只依赖 projectId/tab，随它们一起重建
   }, [projectId, tab]);
 
   /**
@@ -557,6 +563,9 @@ function renderTab(
           liveSegments={liveSegments}
           liveSegmentsLoading={liveSegmentsLoading}
           liveSegmentsError={liveSegmentsError}
+          liveGrouping={liveGrouping}
+          liveGroupingLoading={liveGroupingLoading}
+          liveGroupingError={liveGroupingError}
           onAdvanced={refreshSegments}
         />
       );

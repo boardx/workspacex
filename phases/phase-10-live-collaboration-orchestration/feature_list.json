@@ -9,19 +9,20 @@
       "spec_ref": "01-viewer-role.md#R2",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "usamshen",
       "capability": "CAP-WEB",
-      "user_visible_behavior": "引导师打开现场协作 Tab，顶部视角切换器默认『主持台·全场』；点开下拉能看到『主持台·全场(4组·看板/知识图谱/签到)』与 4 个分组选项，每个分组带状态后缀（如『推演中』『缺1人』）。组长/组员打开同一 Tab，视角切换器直接锁定本组（不可下拉切走）。",
+      "user_visible_behavior": "引导师打开项目工作台『现场协作』tab，环节状态条下方出现『视角』切换器，默认『主持台·全场』；点开下拉能看到『主持台·全场』与真实分组列表（来自 getProjectGrouping，非 mock），分组名后带真实状态后缀（Group.status 三态：录音就绪/缺人/需介入，仅在非默认态时显示）；选中某个分组展示该组的真实名称/场景/状态/组员人数，不展示 canvas/recording 归属的引述与画布进度（继续保持诚实空态）。组长/组员打开同一 Tab，视角切换器锁定为自己所在的组（按真实会话身份 identity.groupName 与分组列表比对得出）；比对不上时如实显示『看不出你在哪一组』，不猜一个默认组。观察者的切换器锁定『主持台·全场』，不出现任何分组选项（OPEN-QUESTIONS.md Q1 裁决）。『缺N人』（到场人数）与状态条『需介入』告警两个字段不在本 feature 范围内，维持 ＊ 占位，见 notes。",
       "verification": [
-        "grep -rq 'data-testid=\"lc-viewer-switcher\"' apps/web/components/live-collab/orchestration-preview.tsx",
-        "grep -rq 'data-testid=\"lc-viewer-trigger\"' apps/web/components/live-collab/orchestration-preview.tsx",
-        "grep -rq 'data-testid=\"lc-viewer-menu\"' apps/web/components/live-collab/orchestration-preview.tsx",
-        "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'viewer-switcher expanded'"
+        "grep -rq 'data-testid=\"lc-viewer-switcher\"' apps/web/components/project/tab-live.tsx",
+        "grep -rq 'data-testid=\"lc-viewer-trigger\"' apps/web/components/project/tab-live.tsx",
+        "grep -rq 'data-testid=\"lc-viewer-menu\"' apps/web/components/project/tab-live.tsx",
+        "pnpm --filter web typecheck",
+        "pnpm --filter web exec vitest run tests/ui/project-live-viewer-switcher.test.tsx"
       ],
-      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/viewer-switcher-expanded.png；phases/phase-10-live-collaboration-orchestration/ui-preview/role-member-group-chat.png",
-      "notes": "契约束候选：viewer-role。UI 骨架已由 ui-prototyper 交付（apps/web/components/live-collab/orchestration-preview.tsx + apps/web/lib/mock/live-collab-orchestration.ts）；本 feature 的剩余工作是把切换器接到真实的『当前用户在该项目/该分组的角色关系』读接口（目前是 mock），以及把状态后缀里『缺N人』接到 F05 分组签到的真实到场数——『需介入』后缀因全仓无判据来源（见 00-overview.md 硬前置），维持 UI 上的 ＊ 待签核占位，不在本 feature 内编造。"
+      "evidence": "evidence/F01.verify.log @ 2026-08-20T14:57:34.584Z",
+      "notes": "契约束候选：viewer-role。实现落在生产组件 apps/web/components/project/tab-live.tsx（不是 ui-preview 的 /preview 沙盒），复用 phase-01 已 passing 的 getProjectGrouping（F950/Group[]）与真实会话身份 useOptionalSession().identity.groupName——两者都不是新建契约，是发现已有真实数据源后直接消费，未新增 packages/contracts 文件（design-signoff.md ③ 提到的 live-collab-viewer-role.ts 契约骨架本轮未创建，因为分组数据已有现成契约，不需要另起一份）。分组状态后缀用的是 Group.status 契约字段（录音就绪/缺人/需介入），与 00-overview.md 硬前置说的『全仓无来源』的现场态『需介入』（状态条右上角告警 pill）不是同一个字段，字面同名但语义不同，未混用。『缺N人』（到场人数，依赖 F05）与状态条现场介入告警两项仍维持 ＊ 占位，不在本 feature 内编造。F02（服务端强制）仍是下一个 feature：本 feature 只做到『前端不渲染越权选项』，还没有服务端拒绝面。"
     },
     {
       "id": "F02",
@@ -43,7 +44,7 @@
         "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'denied'"
       ],
       "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-default-denied.png；phases/phase-10-live-collaboration-orchestration/ui-preview/role-observer-stage-default.png",
-      "notes": "契约束候选：viewer-role。**硬前置：OPEN-QUESTIONS.md Q1『观察者可见范围』未裁定前不得开工服务端实现**——UI 先行原型给了『观察者全场只读』的默认呈现并标了 [待签核]，这是展示态，不能当成已批准的安全边界直接写死进 RLS。需要真实的项目/分组成员关系表与角色读接口（可能已存在于 phase-00/01-auth，需实现时核实，不在本 phase 重新定义身份模型本身）。"
+      "notes": "契约束候选：viewer-role。**Q1 已裁决（2026-08-20，人类会话）：候选 A——观察者全场只读聚合，不含任何一组的原始转写/对话逐字稿**（见 OPEN-QUESTIONS.md Q1）。这只是解除了『答案未定』的阻塞，**不等于完成设计签核**——viewer-role 契约束的 design-signoff.md（① UI ② 用例 ③ API 契约）仍需人类正式签核后才能开工，agent 不得代签 status。需要真实的项目/分组成员关系表与角色读接口（可能已存在于phase-00/01-auth，需实现时核实，不在本 phase 重新定义身份模型本身）。"
     },
     {
       "id": "F03",
@@ -54,7 +55,7 @@
       "depends_on": [],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "capability": "CAP-WEB",
       "user_visible_behavior": "无论切到主持台全场还是任意分组视角，黑色环节状态条始终常驻显示同一份真实数据（环节 N/M、环节名、`listAgendaSegments`/`advanceAgendaSegment`），与 apps/web/components/project/tab-live.tsx（F963）已接的真实数据源保持单一来源，不在编排层另建一份副本状态。",
@@ -126,7 +127,7 @@
         "grep -rq 'data-testid=\"lc-checkin-view-join\"' apps/web/components/live-collab/orchestration-preview.tsx"
       ],
       "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-checkin-default.png（二维码/看加入页当前为占位）",
-      "notes": "契约束候选：group-checkin。**硬阻断**：OPEN-QUESTIONS.md Q2（到场判定口径）、Q4（二维码前端生成 vs 服务端出图）、Q5（『看加入页』是预览态还是独立 URL）三点都需人类裁定后才能定实现方案，本 feature 在裁定前不得开工写死任一方案。"
+      "notes": "契约束候选：group-checkin。**Q2/Q4/Q5 已裁决（2026-08-20，人类会话）**：到场判定 = 点过链接即到场；二维码 = 前端本地生成；『看加入页』= 站内预览（见 OPEN-QUESTIONS.md）。三点实现方案已定，但同 F02——**仍需 group-checkin 契约束的 design-signoff.md 正式签核**才能开工，这份记录只是解除了『方案未定』这一层阻塞，不是设计签核本身。"
     },
     {
       "id": "F07",
