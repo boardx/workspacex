@@ -186,7 +186,11 @@ export class BlueprintChangeRequestController {
   }
 
   private mapComputeError(e: unknown): Error {
-    if (!(e instanceof ComputeDeviationsError)) return e instanceof Error ? e : new Error(String(e));
+    // 非本域错误原样冒泡（同 `all-exceptions.filter.ts` 的既有兜底逻辑，接口层
+    // 不拼错误文本进响应——`lint-error-leak.mjs` 逐字禁止 `String(err)` 这类写法）。
+    if (!(e instanceof ComputeDeviationsError)) {
+      return e instanceof Error ? e : new Error("computeDeviations: non-Error value thrown");
+    }
     switch (e.reasonCode) {
       case "NO_PROJECT_ROLE":
       case "ROLE_INSUFFICIENT":
