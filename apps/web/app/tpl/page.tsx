@@ -14,7 +14,7 @@ import { resolveTplScreen } from "@/lib/mock/tpl";
 export default function TplPage({
   searchParams,
 }: {
-  searchParams: { state?: string; as?: string; org?: string; screen?: string };
+  searchParams: { state?: string; as?: string; org?: string; screen?: string; projectId?: string };
 }) {
   const uiState = resolvePreviewState(searchParams.state);
   const previewRole = resolvePreviewRole(searchParams.as);
@@ -27,7 +27,7 @@ export default function TplPage({
       previewRole={previewRole}
       uiState={uiState}
       screen={screen}
-      qs={{ as: searchParams.as, org: searchParams.org }}
+      qs={{ as: searchParams.as, org: searchParams.org, projectId: searchParams.projectId }}
     />
   );
 }
