@@ -177,6 +177,25 @@ import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interv
 import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 import { DigitalInterviewController } from "./interface/controllers/digital-interview.controller";
+// F01 (phase-06 · 06-itv insight sub-bundle): 洞察写路径持久化——extractQuotes /
+// generateCandidateInsights / confirmInsight 三个算子真正接线到 Postgres。
+import { InterviewInsightController } from "./interface/controllers/interview-insight.controller";
+import {
+  CANDIDATE_INSIGHT_GENERATOR,
+  CONSENT_DECLINE_READER,
+  INSIGHT_CANDIDATE_STORE,
+  INSIGHT_CONTEXT_API,
+  INSIGHT_REPOSITORY,
+  QUOTE_REPOSITORY,
+  SEGMENT_READER,
+} from "./application/interview/insight-ports";
+import { PgInterviewQuoteRepository } from "./infrastructure/interview/pg-interview-quote-repository";
+import { PgInterviewInsightRepository } from "./infrastructure/interview/pg-interview-insight-repository";
+import { PgSegmentReader } from "./infrastructure/interview/pg-segment-reader";
+import { PgConsentDeclineReader } from "./infrastructure/interview/pg-consent-decline-reader";
+import { ContextApiInsightMaterialReader } from "./infrastructure/interview/context-api-insight-material-reader";
+import { InMemoryInsightCandidateStore } from "./infrastructure/interview/in-memory-insight-candidate-store";
+import { HeuristicCandidateInsightGenerator } from "./infrastructure/interview/heuristic-candidate-insight-generator";
 import { GuidedResearchController } from "./interface/controllers/guided-research.controller";
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
 import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
@@ -623,6 +642,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     DigitalInterviewController,
     GuidedResearchController,
     InterviewScopeController,
+    InterviewInsightController,
     ChatController,
     ChatAttachmentController,
     OrgInviteController,
@@ -1304,6 +1324,46 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, identities: IdentityRepository) =>
         new ContextApiDigitalExpertMaterialReader(db, identities),
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
+    },
+    // F01 (phase-06): 洞察写路径。QUOTE_REPOSITORY / INSIGHT_REPOSITORY 是真实持久化；
+    // INSIGHT_CONTEXT_API 复用 Context Pack 既有授权 API（同 DIGITAL_EXPERT_CONTEXT_API
+    // 一样的适配形状）；INSIGHT_CANDIDATE_STORE 进程内周转（契约「候选不直接入库」）；
+    // CANDIDATE_INSIGHT_GENERATOR 是确定性启发式，非真实模型调用（见该文件文件头）。
+    {
+      provide: QUOTE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInterviewQuoteRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: INSIGHT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInterviewInsightRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SEGMENT_READER,
+      useFactory: (db: DatabasePort) => new PgSegmentReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: CONSENT_DECLINE_READER,
+      useFactory: (db: DatabasePort) => new PgConsentDeclineReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: INSIGHT_CONTEXT_API,
+      useFactory: (db: DatabasePort, identities: IdentityRepository) =>
+        new ContextApiInsightMaterialReader(db, identities),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
+    },
+    {
+      provide: INSIGHT_CANDIDATE_STORE,
+      useFactory: () => new InMemoryInsightCandidateStore(),
+      inject: [],
+    },
+    {
+      provide: CANDIDATE_INSIGHT_GENERATOR,
+      useFactory: () => new HeuristicCandidateInsightGenerator(),
+      inject: [],
     },
     {
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,
