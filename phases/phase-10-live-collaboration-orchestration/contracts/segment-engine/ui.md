@@ -3,6 +3,8 @@
 材料位置：`phases/phase-10-live-collaboration-orchestration/ui-preview/`（真实组件 + mock，
 `apps/web/components/live-collab/orchestration-preview.tsx`，预览路由 `/preview/live-collab-orchestration`）。
 
+本文件引用 **4** 张截图，目录下实际 **4** 张。
+
 | 截图 | 展示什么 | 视角/态 |
 |---|---|---|
 | `stage-default-default.png` | 黑色状态条常驻在主持台默认视图（环节 N/M、环节名、倒计时 `＊`、`＋5分钟`/`下一环节`按钮） | 引导师 · 默认 |

@@ -3,6 +3,8 @@
 材料位置：`phases/phase-10-live-collaboration-orchestration/ui-preview/`（真实组件 + mock，
 `apps/web/components/live-collab/orchestration-preview.tsx`，预览路由 `/preview/live-collab-orchestration`）。
 
+本文件引用 **3** 张截图，目录下实际 **3** 张。
+
 | 截图 | 展示什么 | 视角/态 |
 |---|---|---|
 | `stage-checkin-default.png` | 4 组分组卡片网格：组号/组名/"M/N 已到"/复制链接/二维码按钮/成员到场列表 | 引导师 · 默认 |

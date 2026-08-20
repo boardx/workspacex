@@ -55,5 +55,13 @@
   },
   "phase-09-survey": {
     "survey": "ui-preview/survey"
+  },
+  "phase-10-live-collaboration-orchestration": {
+    "//": "ui-preview/ 原是扁平目录，18 张截图混装、部分被两个束共同引用（group-graph-default.png 被 module-routing/stage-aggregation 共用；stage-default-default.png/role-member-group-chat.png/role-observer-stage-default.png 被 segment-engine/viewer-role 共用）。这四个束两两引用集合有交但不相等，不满足 reuse_bundle 要求的『集合完全相同』，因此拆成按束子目录，共用的图复制（不是链接）进两个目录各自持有一份。",
+    "group-checkin": "ui-preview/group-checkin",
+    "module-routing": "ui-preview/module-routing",
+    "segment-engine": "ui-preview/segment-engine",
+    "stage-aggregation": "ui-preview/stage-aggregation",
+    "viewer-role": "ui-preview/viewer-role"
   }
 }

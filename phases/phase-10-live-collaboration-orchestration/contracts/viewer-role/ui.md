@@ -3,6 +3,8 @@
 材料位置：`phases/phase-10-live-collaboration-orchestration/ui-preview/`（真实组件 + mock，
 `apps/web/components/live-collab/orchestration-preview.tsx`，预览路由 `/preview/live-collab-orchestration`）。
 
+本文件引用 **5** 张截图，目录下实际 **5** 张。
+
 | 截图 | 展示什么 | 视角/态 |
 |---|---|---|
 | `stage-default-default.png` | 引导师默认视图，提示条「你有全部权限」 | 引导师 · 默认 |

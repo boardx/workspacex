@@ -3,6 +3,8 @@
 材料位置：`phases/phase-10-live-collaboration-orchestration/ui-preview/`（真实组件 + mock，
 `apps/web/components/live-collab/orchestration-preview.tsx`，预览路由 `/preview/live-collab-orchestration`）。
 
+本文件引用 **5** 张截图，目录下实际 **5** 张。
+
 | 截图 | 展示什么 | 视角/态 |
 |---|---|---|
 | `group-chat-default.png` | 分组·与 AI 的对话（统一卡片列表形态） | 组员/组长 |
