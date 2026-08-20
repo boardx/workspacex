@@ -32,7 +32,7 @@ export function TplApp({
   previewRole: ProjectRole | null;
   uiState: UiState;
   screen: TplScreen;
-  qs: { as?: string; org?: string };
+  qs: { as?: string; org?: string; projectId?: string };
 }) {
   const [toast, setToast] = React.useState<string | null>(null);
 
@@ -40,6 +40,9 @@ export function TplApp({
     const p = new URLSearchParams();
     const as = o.as ?? qs.as; if (as) p.set("as", as);
     if (qs.org) p.set("org", qs.org);
+    // projectId 只由外部（页面 searchParams）灌入，本页内没有任何控件会改它——
+    // 屏/角色/态切换时原样透传，否则切一次屏 workflow 屏就会丢掉真实项目上下文。
+    if (qs.projectId) p.set("projectId", qs.projectId);
     const st = o.state ?? uiState; if (st && st !== "default") p.set("state", st);
     // 裸参数省略的是"默认屏"："list"（F318：默认落地屏已从 designer 改为 list），
     // 不再是 "designer"——否则预览态"屏"切换器点「蓝本设计器」会因省略参数被误判成 list。
@@ -60,7 +63,7 @@ export function TplApp({
           {screen === "designer" && <DesignerScreen {...common} />}
           {screen === "apply" && <ApplyWizardScreen {...common} />}
           {screen === "prep" && <ProjectPrepScreen {...common} />}
-          {screen === "workflow" && <WorkflowScreen {...common} />}
+          {screen === "workflow" && <WorkflowScreen {...common} projectId={qs.projectId ?? null} />}
           {screen === "promote" && <PromoteScreen {...common} />}
           {screen === "versions" && <VersionsScreen {...common} />}
         </div>
