@@ -9,9 +9,9 @@
       "spec_ref": "01-viewer-role.md#R2",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "usamshen",
       "capability": "CAP-WEB",
       "user_visible_behavior": "引导师打开现场协作 Tab，顶部视角切换器默认『主持台·全场』；点开下拉能看到『主持台·全场(4组·看板/知识图谱/签到)』与 4 个分组选项，每个分组带状态后缀（如『推演中』『缺1人』）。组长/组员打开同一 Tab，视角切换器直接锁定本组（不可下拉切走）。",
       "verification": [
