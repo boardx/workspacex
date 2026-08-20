@@ -85,6 +85,7 @@ const baseInput = {
   filledFacetKeys: designFacetKeys(),
   tier: "two-day" as const,
   projectName: "新项目",
+  flowAgendaContent: null,
 };
 
 describe("幂等（V13）：同一 idempotencyKey 重复提交只建一个项目", () => {

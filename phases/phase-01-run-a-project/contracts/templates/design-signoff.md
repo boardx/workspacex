@@ -227,7 +227,14 @@ phase: "01"
 #   updateDesignFacet content: string 字段内的文案补齐，或纯前端展示常量），按 covers
 #   追加规则「零新增设计面」条件自查后追加。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207, F208, F203, F961, F209, F210, F211]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-21（F970，dev-chat-e2e，issue #1667）：applyBlueprint/computeDeviations/
+#   submitBlueprintChangeRequest 补 controller + PG 仓储接线——零新增设计面：三个契约
+#   operation（路径/入参/出参/err）一字未改，只是此前零 controller、零 infra，现在真实
+#   接上电；`applyBlueprint` 读蓝本 flow-agenda facet 的 min 字段本就是 F202（已签核的
+#   AgendaContent 结构）已存在的字段，不是新字段。按 covers 追加规则「零新增设计面」
+#   三条件自查后追加。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207, F208, F203, F961, F209, F210, F211, F970]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

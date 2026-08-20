@@ -5026,6 +5026,29 @@
       ],
       "evidence": "evidence/F966.verify.log @ 2026-08-20T08:25:03.933Z",
       "notes": "真栈截图取证时发现的真 bug（非本 feature 编造场景）：next.config.mjs 全文 grep provenance 零命中，与文件里 /blueprints、/messages 注释描述的坑同一类——裸路径（无 :path*）rewrite 漏写，前端打到 Next 自己的 404 HTML，不是 API 的 404。修复：补一行 rewrite。修复后用真栈复验（pnpm run shots:project-results，两轮跑，38/38 全绿）：404 变成真实 403 PROJECT_ROLE_INSUFFICIENT（query-provenance.ts设计使然，非 bug）。UIUX 保真度评分：8/10（真栈截图，对照 ui-preview/project-v2/uc-00-3-results-*.png；未到 9-10 分是两个证据缺口——fixture 未种 backflow/provenance 数据、只拍了 default 一态——不是代码缺陷）。详见 issue 与 PR 记录。"
+    },
+    {
+      "id": "F970",
+      "title": "套用蓝本/提回蓝本补实现：controller + PG 仓储接线（F23/F29 契约缺口审计闭合）",
+      "user_visible_behavior": "组织管理员对已发布蓝本真实 POST /blueprints/:blueprintId/apply（真实前端已可达，非本地直调）能新建出一个项目：六类初始化写入真实落库，议程环节数=所选档位（AC1），且逐环节时长取自蓝本「流程 Agenda」设计面已填的 min（未填=空，不编造默认值，P10 已随 F202 落地过期）；同一 idempotencyKey 重复提交只建一个项目。项目所属引导师随后真实 GET /projects/:projectId/blueprint-deviations 能看到项目当前值与绑定蓝本版本快照的偏离（至少 flow-agenda 一项有真实数据源），勾选+填理由后 POST /projects/:projectId/blueprint-change-requests 提交回蓝本，生成的待审改动真实落库（GET /blueprints/:blueprintId/pending-changes 刷新后仍在），且提交不改蓝本本体（提交≠生效，I-10）。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R3",
+      "depends_on": [
+        "F23",
+        "F29"
+      ],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": "19",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter web run typecheck",
+        "pnpm exec tsx .harness/scripts/cli.ts doctor",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api run migrate:check",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash apps/api/scripts/verify-rls.sh"
+      ],
+      "evidence": "evidence/F970.verify.log（in_progress，非 passing——高风险档需要的 pnpm -w run verify:release 卡在与本 feature 无关的仓库级 lint-ui-material 红灯，见 session-handoff.md）",
+      "notes": "issue #1667 勘探：F23（templates.applyBlueprint）/F29（templates.submitBlueprintChangeRequest/computeDeviations）两个契约 operation 的应用层用例代码完整、单测齐全，此前零 controller、零 infra——F23/F29 早已标 passing，但没有任何 HTTP 路由指向它们，用户实际不可达；apps/web/e2e/blueprint-contract-gap-audit.spec.ts 的两条『断言仍是 404』缺口门控实测证实。本 feature 补齐两条能力的真实接线：ApplyBlueprintController（复用既有 PROJECT_REPOSITORY 的唯一创建路径，不新开第二个 INSERT INTO projects）+ PgApplyBlueprintResolver/PgApplyBlueprintRepository；BlueprintChangeRequestController + PgComputeDeviationsRepository/PgSubmitChangeRequestRepository/PgListPendingChangesRepository；新迁移放开 agenda_segments.duration 的 NOT NULL（未填=空）、给 blueprint_bindings 补 project_id/version_id、新建 blueprint_pending_changes 表。⚠ 已知登记的非原子性缺口：ApplyBlueprintRepository.apply() 里项目容器创建与 agenda_segments 写入是两个事务（不是一个），见 pg-apply-blueprint-repository.ts 文件头注。⚠ computeDeviations 今天只对 flow-agenda 一项有真实项目侧数据源（读 agenda_segments），其余设计配置项尚无项目侧独立编辑存储，如实原样返回快照值（不产生偏离），是诚实的空态不是缺陷。不依赖 #1681（workflow-screen 真实 projectId）；/project/new 前端选蓝本入口若尚未接线，留给该 issue 范围，本 feature 只保证后端真实可达。不碰 F23/F29 的 status/passing（AGENTS.md 硬约束）。"
     }
   ]
 }
