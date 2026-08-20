@@ -49,10 +49,39 @@ export interface ResidueVerdict {
   readonly unclassified: readonly string[];
 }
 
-/** `<worktree>/<子目录>/docker-compose.yml` ⇒ `<worktree>`（与 sweep-docker.ts 一致）。 */
-export function worktreeDirOf(configFiles: string): string {
-  const parts = configFiles.split("/");
-  return parts.slice(0, Math.max(0, parts.length - 2)).join("/") || "/";
+/**
+ * `<worktree>/<子目录>/docker-compose.yml` ⇒ `<worktree>`。
+ *
+ * ⚠ `ConfigFiles` 可能是**逗号分隔的多条路径**（`docker compose -f a.yml -f b.yml`，
+ * 以及同一个 compose 文件被多个 worktree 共用时 docker 会把它们都记进来）。
+ * 因此返回的是**一组**候选 worktree 根目录，不是一个。
+ *
+ * 此前这里对整串按 `/` 切分，多路径场景下算出一个**根本不存在的伪路径**。
+ * 实测后果：本仓主开发栈 `workspacex-kernel`（ConfigFiles = 主 checkout 的 compose
+ * ＋ 某个 agent worktree 的 compose，**两条都真实存在**）被判成孤儿，
+ * `--apply` 会把它连同数据卷一起 `down -v`。
+ */
+export function worktreeDirsOf(configFiles: string): readonly string[] {
+  return configFiles
+    .split(",")
+    .map((cf) => cf.trim())
+    .filter((cf) => cf !== "")
+    .map((cf) => {
+      const parts = cf.split("/");
+      return parts.slice(0, Math.max(0, parts.length - 2)).join("/") || "/";
+    });
+}
+
+/**
+ * 判据：**任何一条路径对应的 worktree 还在 ⇒ 不是孤儿**。
+ * 只有每一条都消失了，这个栈才真的没有主人。
+ *
+ * ⚠ 方向是刻意的：**宁可漏清，不可误删**。漏清的代价是一个栈继续占资源；
+ * 误删的代价是别人的数据没了，且不可回滚。
+ */
+export function hasLivingWorktree(configFiles: string, dirExists: (p: string) => boolean): boolean {
+  const dirs = worktreeDirsOf(configFiles);
+  return dirs.length === 0 || dirs.some((d) => dirExists(d));
 }
 
 export function classifyResidue(
@@ -75,7 +104,7 @@ export function classifyResidue(
 
   for (const c of containers) {
     if (c.project === null || c.configFiles === null) continue;
-    if (dirExists(worktreeDirOf(c.configFiles))) {
+    if (hasLivingWorktree(c.configFiles, dirExists)) {
       live.add(c.project);
     } else {
       orphan.add(c.project);

@@ -29,11 +29,12 @@
 // 判定逻辑抽到 `lib/docker-residue.ts` 的纯函数里，好让"该留的真留住了"能被直测
 // （真起容器的测试又慢又抖，抖动最后会被人用 retry 掩盖）。
 import { existsSync } from "node:fs";
-import { dirname } from "node:path";
 import { sh } from "./lib/sh";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
-import { classifyResidue, type ContainerRecord } from "./lib/docker-residue";
+import {
+  classifyResidue, hasLivingWorktree, worktreeDirsOf, type ContainerRecord,
+} from "./lib/docker-residue";
 
 interface ComposeProject {
   Name: string;
@@ -209,13 +210,18 @@ export function sweepDocker(args: Args): void {
   const alive: string[] = [];
 
   for (const p of projects) {
-    // ConfigFiles 形如 <worktree>/infra/docker-compose.yml
-    const worktreeDir = dirname(dirname(p.ConfigFiles));
-    if (existsSync(worktreeDir)) {
+    // ⚠ 判定收敛到 `lib/docker-residue.ts` 的 `hasLivingWorktree`——停止容器那条路径
+    //   用的是同一个函数。此前两处各自 `dirname(dirname(整串))`，多路径场景下都会算出
+    //   伪路径并误判孤儿（详见该函数头注记录的 `workspacex-kernel` 实测事故）。
+    if (hasLivingWorktree(p.ConfigFiles, existsSync)) {
       alive.push(p.Name);
       continue;
     }
-    orphans.push({ name: p.Name, status: p.Status, worktreeDir });
+    orphans.push({
+      name: p.Name,
+      status: p.Status,
+      worktreeDir: worktreeDirsOf(p.ConfigFiles).join(", "),
+    });
   }
 
   log.info(`巡检了 ${projects.length} 个 docker compose 栈：${alive.length} 个对应的 worktree 仍存在，${orphans.length} 个是孤儿。`);
