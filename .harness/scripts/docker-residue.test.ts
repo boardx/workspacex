@@ -6,7 +6,9 @@
  *   才是这份测试的价值所在。本仓已九次踩过"全绿但空转"。
  */
 import { describe, expect, it } from "vitest";
-import { classifyResidue, worktreeDirOf, type ContainerRecord } from "./lib/docker-residue";
+import {
+  classifyResidue, hasLivingWorktree, worktreeDirsOf, type ContainerRecord,
+} from "./lib/docker-residue";
 
 const c = (o: Partial<ContainerRecord> & { name: string }): ContainerRecord => ({
   project: "proj",
@@ -72,8 +74,45 @@ describe("classifyResidue —— 判据：起这个栈的 worktree 还在不在"
     expect(classifyResidue(input, () => true).orphanProjects).toEqual([]);
   });
 
-  it("worktreeDirOf 从 compose 路径回推 worktree 根（与 sweep-docker.ts 同一算法）", () => {
-    expect(worktreeDirOf("/tmp/wt-x/infra/docker-compose.yml")).toBe("/tmp/wt-x");
-    expect(worktreeDirOf("/a/b/c/d/compose.yml")).toBe("/a/b/c");
+  it("worktreeDirsOf 从 compose 路径回推 worktree 根（与 sweep-docker.ts 同一算法）", () => {
+    expect(worktreeDirsOf("/tmp/wt-x/infra/docker-compose.yml")).toEqual(["/tmp/wt-x"]);
+    expect(worktreeDirsOf("/a/b/c/d/compose.yml")).toEqual(["/a/b/c"]);
   });
 });
+
+/**
+ * 2026-08-19 真实事故的回归：`ConfigFiles` 是**逗号分隔的多条路径**时，旧实现对整串
+ * 取目录 ⇒ 算出伪路径 ⇒ 把**主开发栈**判成孤儿。`--apply` 会 `down -v` 删掉它的数据卷。
+ *
+ * ⚠ 方向刻意：宁可漏清，不可误删。
+ */
+describe("hasLivingWorktree —— 多路径 ConfigFiles（真实事故回归）", () => {
+  const exists = (alive: readonly string[]) => (p: string) => alive.includes(p);
+
+  it("⭐ 两条路径都存在 ⇒ 不是孤儿（旧实现在这里误判，会删主开发栈）", () => {
+    const cfg = "/repo/apps/api/docker-compose.dev.yml,/repo/.claude/worktrees/agent-x/apps/api/docker-compose.dev.yml";
+    expect(hasLivingWorktree(cfg, exists(["/repo/apps", "/repo/.claude/worktrees/agent-x/apps"]))).toBe(true);
+  });
+
+  it("⭐ 只有一条还在 ⇒ 仍然不是孤儿（任一尚存即有主人）", () => {
+    const cfg = "/repo/apps/api/docker-compose.dev.yml,/gone/apps/api/docker-compose.dev.yml";
+    expect(hasLivingWorktree(cfg, exists(["/repo/apps"]))).toBe(true);
+  });
+
+  it("每一条都消失了 ⇒ 才是孤儿", () => {
+    const cfg = "/gone-a/apps/api/docker-compose.dev.yml,/gone-b/apps/api/docker-compose.dev.yml";
+    expect(hasLivingWorktree(cfg, exists([]))).toBe(false);
+  });
+
+  it("单路径（既有形态）不受影响：存在 ⇒ 非孤儿；消失 ⇒ 孤儿", () => {
+    const cfg = "/repo/apps/api/docker-compose.dev.yml";
+    expect(hasLivingWorktree(cfg, exists(["/repo/apps"]))).toBe(true);
+    expect(hasLivingWorktree(cfg, exists([]))).toBe(false);
+  });
+
+  it("装置自检：worktreeDirsOf 真的切出了每一条，不是恒返回一条", () => {
+    const dirs = worktreeDirsOf("/a/x/c.yml,/b/y/c.yml");
+    expect(dirs).toEqual(["/a", "/b"]);
+  });
+});
+
