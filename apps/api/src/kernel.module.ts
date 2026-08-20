@@ -326,7 +326,9 @@ import {
   SKILL_TRIAL_RUN_STORE,
   type SkillTrialRunStore,
 } from "./application/skill/trial-run-async-ports";
-import { HttpSkillSandbox } from "./infrastructure/skill/http-skill-sandbox";
+import {
+  HttpSkillSandbox, configuredSkillSandboxAddress,
+} from "./infrastructure/skill/http-skill-sandbox";
 import { PgSkillTrialRunStore } from "./infrastructure/skill/pg-skill-trial-run-store";
 import { SkillTrialRunExecutor } from "./infrastructure/skill/skill-trial-run-executor";
 import { PgOrgAgentModelReader } from "./infrastructure/skill/pg-org-agent-model-reader";
@@ -1146,11 +1148,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
      */
     {
       provide: SKILL_SANDBOX_PORT,
-      useFactory: () =>
-        new HttpSkillSandbox({
-          socketPath: process.env.KERNEL_SKILL_SANDBOX_SOCKET,
-          baseUrl: process.env.KERNEL_SKILL_SANDBOX_BASE_URL,
-        }),
+      // 地址判定的唯一事实源是 `configuredSkillSandboxAddress()`（见那个函数的头注）：
+      // 没配 ⇒ 传空配置，`HttpSkillSandbox` 在**调用时**如实抛 `SANDBOX_UNAVAILABLE`。
+      useFactory: () => new HttpSkillSandbox(configuredSkillSandboxAddress() ?? {}),
     },
     {
       provide: SKILL_TRIAL_RUN_STORE,
@@ -1224,7 +1224,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // 「这个部署的 chat 能不能真的产出文件」由这一行决定，不是运行期的偶然。
           // 复用**同一个** SKILL_SANDBOX_PORT（试跑那条链已经在用它），不起第二套沙箱绑定；
           // 产物字节复用既有 OBJECT_STORE（附件字节本来就存在那里）。
-          sandbox, store,
+          //
+          // ⚠ #1652：**没配沙箱地址就不注入**。`SKILL_SANDBOX_PORT` 这个 provider 永远存在
+          //   （试跑那条链需要它在调用时诚实报 `SANDBOX_UNAVAILABLE`），所以这里若无条件
+          //   把它传下去，`execute-run.ts` 的 `deps.sandbox && ...` 就恒真——于是没接沙箱的
+          //   部署里 system prompt 照旧多出执行协议、模型照旧吐 `run_script` 块、上层照旧去
+          //   执行，最后给用户一条本来好好的回复追加上 `SANDBOX_UNAVAILABLE` 失败横幅。
+          //   这不是推测：`tests/chat/chat-skill-sandbox-unconfigured-no-regression.test.ts`
+          //   在这一行加上之前实测就是那个样子。
+          configuredSkillSandboxAddress() === null ? undefined : sandbox,
+          store,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
