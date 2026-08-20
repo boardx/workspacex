@@ -18,9 +18,17 @@
 两个缺口是证据缺口（fixture 未种数据、只拍 default 一态），不是代码缺陷。
 
 ## 仍损坏或未验证
-- 冲 9-10 分需要：① 给 `fullstack-smoke-fixture.ts` 补 backflow/provenance 种子数据；
-  ② 用 `FULLSTACK_E2E.leadEmail`（真正持 org lead）登录补一张「审计与反馈有数据」
-  的成功态截图。两项工作量不小，留给下一轮。
+- **已做过一次工作量探测（本会话内），结论：换账号这条捷径走不通，必须真种子**。
+  新增 `project-results-shots.spec.ts` 的 probe 用例（真跑、真通过，非臆测）：
+  用 `FULLSTACK_E2E.leadEmail` 登录后，「审计与反馈」从 403 变成真实空态
+  （证明其它 seeded spec 写的 provenance 事件不 target 这个具体 projectId，
+  换账号拿不到「免费」数据），而「成果去向」反而从空态劣化成
+  `NO_PROJECT_ROLE`（org lead 与 project 角色是种子里两件独立的事，
+  `leadEmail` 只被加成 org lead，从未加进这个项目的 project_memberships）。
+  要拍到「有数据」的成功态，需要：① 给 fixture 补至少一条 backflow 绑定
+  （理解 artifact_versions/binding schema）+ 一条 provenance 事件；② 让登录账号
+  同时具备 org 审计读权限与 project 读权限（两个账号分开种再合成，或同一账号
+  两边都种）。工作量比预期（只加 1-2 行）更大，如实停在 8/10，留给下一轮。
 - 项目结论/假设状态/发布结论/候选决策四块的真实领域模型仍未建（F965 范围内的已知
   缺口，契约未建模，需要新的契约设计与人类签核）。
 

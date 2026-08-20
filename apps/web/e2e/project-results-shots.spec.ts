@@ -28,12 +28,16 @@
  * project（没有任何 project 把它列进 `dependencies`，也没有任何 CI 脚本显式
  * `--project=project-results-shots`）。
  *
- * ## 已知局限（如实标注，不是缺陷）
+ * ## 已知局限（如实标注，不是缺陷；已做过一次工作量探测，见下面第二个 test）
  * `fullstack-smoke-fixture.ts` 没有为这个项目种任何 `backflow`/`provenance` 数据
  * （种子清单里没有这两类），所以「成果去向」「审计与反馈」两节这里拍到的是**真实的
  * 空态**（`project-results-destinations-empty`/`project-results-audit-empty`），
  * 不是基线图里 populated 的示例内容——空态本身也是需要验证的真实路径之一
- * （七态之一），但要拍到"有数据"的版本，需要先给 fixture 补种子，不在本次范围内。
+ * （七态之一）。**实测过「换账号能不能白拿数据」这条捷径，结论是不能**（见下面
+ * `probe` 用例头注）：org lead 与 project 角色是分开种的两件事，且没有任何现有
+ * spec 往这个具体 projectId 写 provenance 事件——要拍到"有数据"的成功态，必须
+ * 真的给 fixture 补种子（至少一条 backflow 绑定 + 一条 provenance 事件，且登录
+ * 账号要同时具备 org 审计读权限与 project 读权限），工作量比预期大，不在本次范围内。
  */
 /**
  * ⚠ **实测发现（2026-08-20，见 issue #1627 评论）**：下面按 `?as=groupLead/member/
@@ -89,4 +93,45 @@ test("capture the results tab against the real stack (facilitator + three other 
     await page.goto(`/projects/${FULLSTACK_E2E.projectId}?org=${FULLSTACK_E2E.orgId}&tab=results&as=${view}`);
     await shoot(`uc-00-3-results-${view}.png`);
   }
+});
+
+/**
+ * 「有数据」成功态探测——**实测结论（2026-08-20）：换账号这条路走不通，需要真种子**。
+ *
+ * 假设：这个 project 的「seeded」project 依赖链里，其它 spec
+ * （`agenda-segment-create-smoke.spec.ts`/`capability-mutate-smoke.spec.ts` 等）
+ * 已经对同一个 org/project 做过真实的写操作，理论上会在 `provenance_events` 里
+ * 留下真实事件；本用例只换一个持 org `lead` 的账号登录（审计检索按
+ * `query-provenance.ts` 只对 org 级 lead/admin/compliance 开放），看看不新增任何
+ * 种子代码、只换账号能不能拍到「审计与反馈有数据」的成功态。
+ *
+ * 实测（`uc-00-3-results-lead-probe.png`）：假设不成立，且换账号反而**新引入一个
+ * 回归**——
+ *   · 「审计与反馈」：403 变成了真实空态「本项目还没有审计事件，不生成示例条目」
+ *     ——其它 spec 写的 provenance 事件不 target 这个具体 `projectId`（它们各自
+ *     target 别的实体：capability/skill/membership 等），证明「换账号白拿数据」
+ *     这条路径不存在，必须真种子。
+ *   · 「成果去向」：从「暂无已回流的产出」（真实空态）变成
+ *     「回流列表读取失败：NO_PROJECT_ROLE」——`fullstack-smoke-fixture.ts` 只把
+ *     `leadEmail` 加成 org 级 `lead`（`addOrgMember`），从未把它加进这个项目的
+ *     `project_memberships`，所以它对这个项目本身没有项目角色，`getProjectOverview`
+ *     直接拒绝。换句话说：**org lead 与 project 角色是两件独立的事**，要同时拿到
+ *     「审计读权限」与「项目读权限」，种子需要同一个账号两边都种，或者两个账号
+ *     分别种数据后合成两张图——工作量比最初预期（只加 1-2 行 backflow/provenance）
+ *     更大，已如实记录在 issue/PR，留给下一轮。
+ */
+test("probe: does logging in as the org lead surface any real audit data without new seed code", async ({ page }) => {
+  mkdirSync(OUT, { recursive: true });
+  await page.setViewportSize(DESKTOP);
+
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
+  await page.getByTestId("login-password").fill(FULLSTACK_E2E.leadPassword);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  await page.goto(`/projects/${FULLSTACK_E2E.projectId}?org=${FULLSTACK_E2E.orgId}&tab=results`);
+  await page.getByTestId("project-results").waitFor({ state: "visible", timeout: 30_000 });
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: `${OUT}/uc-00-3-results-lead-probe.png`, fullPage: true });
 });
