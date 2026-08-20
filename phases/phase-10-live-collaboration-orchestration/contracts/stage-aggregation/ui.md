@@ -9,6 +9,8 @@
 > 见 `.harness/scripts/ui-material-map.json` 的 `shared_dir` 声明。
 
 
+本文件引用 **5** 张截图，目录下实际 **5** 张。
+
 | 截图 | 展示什么 | 视角/态 |
 |---|---|---|
 | `stage-kanban-default.png` | 4 组实时卡片网格 + 广播提示按钮 | 引导师 · 默认 |

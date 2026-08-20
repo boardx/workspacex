@@ -9,6 +9,8 @@
 > 见 `.harness/scripts/ui-material-map.json` 的 `shared_dir` 声明。
 
 
+本文件引用 **5** 张截图，目录下实际 **5** 张。
+
 | 截图 | 展示什么 | 视角/态 |
 |---|---|---|
 | `stage-default-default.png` | 引导师默认视图，提示条「你有全部权限」 | 引导师 · 默认 |

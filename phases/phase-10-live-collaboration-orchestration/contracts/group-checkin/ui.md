@@ -9,6 +9,8 @@
 > 见 `.harness/scripts/ui-material-map.json` 的 `shared_dir` 声明。
 
 
+本文件引用 **3** 张截图，目录下实际 **3** 张。
+
 | 截图 | 展示什么 | 视角/态 |
 |---|---|---|
 | `stage-checkin-default.png` | 4 组分组卡片网格：组号/组名/"M/N 已到"/复制链接/二维码按钮/成员到场列表 | 引导师 · 默认 |

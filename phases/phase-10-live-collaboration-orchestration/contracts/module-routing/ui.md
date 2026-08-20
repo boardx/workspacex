@@ -9,6 +9,8 @@
 > 见 `.harness/scripts/ui-material-map.json` 的 `shared_dir` 声明。
 
 
+本文件引用 **5** 张截图，目录下实际 **5** 张。
+
 | 截图 | 展示什么 | 视角/态 |
 |---|---|---|
 | `group-chat-default.png` | 分组·与 AI 的对话（统一卡片列表形态） | 组员/组长 |

@@ -9,6 +9,8 @@
 > 见 `.harness/scripts/ui-material-map.json` 的 `shared_dir` 声明。
 
 
+本文件引用 **4** 张截图，目录下实际 **4** 张。
+
 | 截图 | 展示什么 | 视角/态 |
 |---|---|---|
 | `stage-default-default.png` | 黑色状态条常驻在主持台默认视图（环节 N/M、环节名、倒计时 `＊`、`＋5分钟`/`下一环节`按钮） | 引导师 · 默认 |
