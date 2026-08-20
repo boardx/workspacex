@@ -76,6 +76,9 @@ test-results/
 # ⚠ 刻意不放在 test-results/ 下 —— 那个目录被 Playwright 每次 run 清空。
 .chat-shots/
 .chat-behavior/
+# F964 的「成果沉淀」tab 真栈取证图（`pnpm run shots:project-results` 的产物）。
+# 同 `.chat-shots/` 的理由：过程物，每轮重抓，不是事实源。
+.project-results-shots/
 
 
 # CI/CD 的本机配置：主机/端口/路径/并发度。**不含密码**（密码在 GitHub Secrets 与

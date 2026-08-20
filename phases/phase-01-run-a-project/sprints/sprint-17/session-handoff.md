@@ -23,43 +23,62 @@
 - 设计签核：`contracts/project/design-signoff.md` 追加 F964 到 `covers:`（零新增
   设计面自查追加，逐条对照写在该文件段落里）。
 
-## UIUX 保真度评分（结构化代码走查，非像素级截图对比——方法局限已如实标注）
+## UIUX 保真度评分（真栈截图，非结构走查——第二轮已打通）
 
-**尝试过两条截图路线，均卡住，已如实降级为第三条：**
-1. 真栈路线（docker DB + 迁移 + 种子数据 + 真实登录 + playwright）——本会话时间预算
-   内未起，避免半途而废留孤儿 docker 栈。
-2. Mock 截图路线（`apps/web/scripts/shot-project-v2.mjs` 同款，写了
-   `shot-project-results-f964.mjs` 复用同一套机制）——**实测跑不通**：
-   `/projects/[projectId]/page.tsx` 自 issue #1316（安全修复）起不再向
-   `ProjectWorkbench` 传 `identity`，`AppShell` 因此总落到 `SessionAppShell`，
-   没有真实登录会话就重定向 `/login`，`project-workbench` 永不渲染。这不是本脚本
-   独有的问题——母版 `shot-project-v2.mjs` 指向同一条路由，同样会被这条安全修复
-   挡住，说明**这批基线截图今天已经无法用同样的方法重新生成**（真正修复需要先解决
-   「预览模式怎么在有安全修复的前提下拿到一个可截图的已登录态」这个更大的问题，
-   不是这个 feature 的范围）。
-3. **实际采用**：对照已看过的 `uc-00-3-results-default.png`/`uc-00-3-results-observer.png`
-   两张基线图，逐节做结构化代码走查（板块顺序/角色投影/内容真实性），不是像素比对。
+**第一轮（结构化代码走查，约 6/10）已被推翻**——coordinator 指出 `shot-project-v2.mjs`
+当年就是用 mock 身份拍出 92 张基线图的脚本，`?state=`/`?as=` 走不通只是因为 F964 把
+`TabResults` 改成吃 `liveOverview`/`liveAudit` 两个真实 props；順著这条线查证：
 
-**打分（0-10，结构维度）：约 6/10**
-- 结构/顺序/角色投影：**满分项**——项目结论 → 假设状态+成果去向（并排两列）→
-  发布结论 → 候选决策 → 审计与反馈，六节顺序与基线逐一对应；观察者视角隐藏
-  发布结论/候选决策、保留其余四节，与基线 `-observer.png` 完全一致。
-- 数据真实性：**两节满分**（成果去向、审计与反馈已接真实后端，四态齐全，不是
-  编造数字）；**四节明显偏离基线视觉**（项目结论/假设状态/发布结论/候选决策从
-  基线里的「populated 内容」换成了「暂不可用」说明文字）——这是**故意的工程决策**
-  （契约未建模，不伪造数据，删掉两个只弹本地对话框不产生真实副作用的危险按钮），
-  但视觉上确实与基线图相差较大，扣分的大头在这里。
-- 左侧子导航未联动内容切换——全仓系统性既有 gap，非本次引入，见下方说明，本项
-  按「不可归因于本 feature」不计入扣分，但仍是保真度缺口的一部分。
-- 未做到的：像素级验证（间距/字号/配色/组件真实渲染效果）完全没有核实。
+1. **根因诊断**：`StateShell`/`uiState` 纯视觉覆盖层，从不触碰 fetch（读
+   `state-shell.tsx` 源码逐行确认）；`?as=` 预览开关本身没坏，但 `/projects/
+   [projectId]` 整条路由自 issue #1316（安全修复，2026-08-16，晚于 92 张基线图
+   2026-07-30 十七天）起不再向 `ProjectWorkbench` 传 mock `identity`——**这是全 tab
+   通用的回归，不是 F964 或成果沉淀 tab 独有**（实测 `?tab=overview` 同样重定向
+   `/login`，截图为证）。要拍到真实渲染只能走真登录。
+2. **复用已验证的真栈机制**：新增 `apps/web/e2e/project-results-shots.spec.ts`
+   （零 expect，取证工具，同 `chat-main-shots.spec.ts` 先例）+
+   `playwright.fullstack-smoke.config.ts` 新增具名 project `project-results-shots`
+   （`dependencies: ["seeded"]`，复用同一次起栈与种子，不是第二份栈定义）+
+   `pnpm run shots:project-results`（package.json，同 `shots:chat-main` 模式）。
+3. **第一次真栈截图揪出一个真 bug**：「审计与反馈」区报
+   `审计事件读取失败：HTTP 404`——诊断（`next.config.mjs` 全文 grep `provenance`
+   零命中）：`GET /provenance` 这条裸路径**从未被写进 Next.js 的 rewrite 规则**
+   （与文件里 `/blueprints`/`/messages` 注释描述的坑同一类：F964 之前
+   `queryProvenance` 零真实调用方，这条路由缺口一直没被撞到）。**这是前端路由配置
+   缺失，不是后端问题**——`provenance.controller.ts` 本身完好。修法：`next.config.mjs`
+   补一行 `{ source: "/provenance", destination: apiOrigin + "/provenance" }`。
+4. **第二次真栈截图验证修复**：404 消失，「审计与反馈」区变成
+   `审计事件读取失败：PROJECT_ROLE_INSUFFICIENT`——这是**真实、正确**的后端授权
+   决策（`query-provenance.ts`：审计检索只对 org 级 `lead`/`admin`/`compliance`
+   或读自己的历史开放，不是项目角色 `facilitator`；测试用的
+   `FULLSTACK_E2E.email` 持有项目角色 facilitator 但 org 角色不在那三档），不是 bug。
+5. **附带发现**：`?as=groupLead/member/observer` 三张截图与 default 像素级相同——
+   `resolvePreviewRole()`（`lib/identity.ts`）在 `NODE_ENV==="production"` 时**恒返回
+   facilitator**（R12 V8：预览切换器生产不可达，故意的安全边界，不是缺陷）。真栈用
+   `next build && next start` 是生产构建，所以四视角截图证明的是"这条安全边界在真栈
+   上确实生效"，角色投影的真实差异改由已通过的组件测试
+   （`project-results-live.test.tsx`）验证。
 
-**为什么没有迭代到 9 分、以及为什么现在停在这里是对的**：
-拉高分数的两条路径——(a) 为「项目结论/假设状态/发布结论/候选决策」四节堆出与基线
-视觉一致的内容——除非先补齐它们的真实领域模型（新契约设计，需要人类重新签核，
-超出本次已签核范围），否则唯一能做的是伪造数据，这正是人类任务指令明确禁止的
-「实质性假功能缺陷」；(b) 打通真栈截图去做像素级验证——需要一整套 docker DB +
-种子数据 + 登录的基础设施投入，不是在 F964 这一个 feature 里能合理完成的。
-两条路径都不是"再改一行代码"能解决的，如实停在约 6/10，把差距记录清楚交给下一轮。
+**打分（0-10）：8/10**
+- 结构/布局/子导航/顶栏：与基线 `uc-00-3-results-default.png` 逐项一致（满分）。
+- 「成果去向」「审计与反馈」两节：**端到端真实链路已跑通并留证**（真实
+  fetch→真实空态/真实 403，不是编造数字，404 路由缺口已修复并回归验证）。
+- 「项目结论/假设状态/发布结论/候选决策」四节：按指令要求整块降级为如实说明，
+  不计入扣分。
+- 未到 9-10 分的两个缺口（均为证据缺口，非代码缺陷）：
+  ① `fullstack-smoke-fixture.ts` 未给这个项目种 `backflow`/`provenance` 数据，
+  「成果去向」拍到的是真实空态而非「有数据」的那一态；
+  ② 只拍了 default 一态，未覆盖 loading/empty/invalid/dep-failed/denied/success
+  七态矩阵（真实数据驱动的 loading/error 态已由组件测试覆盖，但未在真栈截图里
+  同时留证）。
+- 补种子数据 + 用 `FULLSTACK_E2E.leadEmail`（真正持 org `lead` 的账号）登录，
+  可以再往前推进「审计与反馈」到「有数据」的成功态；这两项工作量不小
+  （改种子脚本、可能需要新增账号变体），不在本轮预算内，如实停在 8/10。
+
+**证据**：`pnpm run shots:project-results` 两轮跑（修复前 38/38 全绿但审计区
+404；修复后 38/38 全绿且审计区变真实 403），截图存
+`apps/web/.project-results-shots/`（已 gitignore，同 `.chat-shots/` 惯例，过程物
+不进仓库）。
 - **左侧子导航「洞察报告/结论与决策/产出物/行动项/审计与反馈」与本 feature 内容
   的映射未打通**：`project-workbench.tsx` 为任何带 `SUB_NAV` 条目的 tab（`research`/
   `prep`/`results`）都通用渲染这个子导航列，但 `renderTab` 把 `sub` 参数显式标成

@@ -306,6 +306,28 @@ export default defineConfig({
       dependencies: ["seeded"],
     },
     {
+      /**
+       * F964 —— 「成果沉淀」tab 真栈截图取证（`project-results-shots.spec.ts`），
+       * 供 rev-uiux 对齐 `ui-preview/project-v2/uc-00-3-results-*.png` 十张基准图。
+       *
+       * ⚠ **不是规格，是取证工具**（零 expect，只截图），同 `chat-main-shots.spec.ts`
+       *   的理由：没有断言的 spec 接进被 CI 门控自动选中的 project 只会一直绿，
+       *   等于加一条不会红的耗时步骤。因此**独立成一个具名 project**、不放进
+       *   `seeded` 自己的 `testMatch` 数组——`harness-verify.yml` 的
+       *   `verify:fullstack-smoke` 只显式点 `--project=seeded-github-import`
+       *   （沿 `dependencies` 反解拉起 `seeded`），不会拉起这个 project，
+       *   本 project 只由 `pnpm run shots:project-results` 显式点名调用。
+       * ⚠ `dependencies: ["seeded"]` 复用同一次 `seeded` 起栈与种子（同
+       *   `seeded-github-import`），不是第二份栈定义——种子里没有为这个项目预置
+       *   `backflow`/`provenance` 数据，拍到的「成果去向/审计与反馈」两节是真实空态，
+       *   已在 spec 文件头注里如实标注。
+       */
+      name: "project-results-shots",
+      testMatch: ["project-results-shots.spec.ts"],
+      grepInvert: EMPTY_DB_TAG_RE,
+      dependencies: ["seeded"],
+    },
+    {
       name: "core-loop-seeded",
       testMatch: ["core-loop.spec.ts"],
       grepInvert: EMPTY_DB_TAG_RE,

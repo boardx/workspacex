@@ -58,12 +58,28 @@
   - 发布结论/候选决策/项目结论/假设状态四块的真实领域模型仍未建——本 feature 只是
     诚实地不再假装它们存在，没有解决它们的缺失；补它们需要新的契约设计与人类签核，
     不在本次已签核范围内，留给后续 feature。
-- UIUX 保真度评分：约 6/10（结构化代码走查，非像素级截图对比——两条截图路线都
-  卡住，已如实降级，详见 `session-handoff.md`）。未到 9 分的两个原因都不是"再改
-  一行代码"能解决的：(a) 四个契约未建模的板块要么伪造数据（禁止）要么先补真实
-  领域模型（超出已签核范围）；(b) 像素级验证需要真栈基础设施投入。
-- 收尾: issue #1627 已创建（`pnpm harness sync --apply`）、已评论进展与最终分数；
-  分支已 push；PR #1633 已开（`Closes #1627`）；未合入 main（等待人工审核，本 agent
-  无自主合并权限）。
-- 下一步最佳动作: 人工审核并合并 PR #1633；下一轮若要冲 9 分，先做真栈截图基础设施
-  （docker DB + 种子数据 + 登录），或推进四个未建模板块的契约设计签核。
+- **第二轮（真栈截图，取代第一轮的结构走查）**：coordinator 指出
+  `shot-project-v2.mjs` 本就是拍基线图的脚本、真栈本可复用，顺着这条线查证：
+  1. 根因诊断——`?state=`/`?as=` 走不通不是 F964 的问题，是 `/projects/[projectId]`
+     整条路由自 #1316（安全修复，晚于基线图 17 天）起需要真登录，全部 tab 皆如此
+     （实测 `?tab=overview` 同样重定向 `/login`，非成果沉淀独有）。
+  2. 新增 `apps/web/e2e/project-results-shots.spec.ts`（取证工具，零 expect，复用
+     `playwright.fullstack-smoke.config.ts` 整栈，新增具名 project
+     `project-results-shots`）+ `pnpm run shots:project-results`。
+  3. 第一次真栈截图揪出真 bug：`GET /provenance` 从未写进 `next.config.mjs` 的
+     rewrite 规则（前端路由缺口，非后端问题）——修复：补一行 rewrite。
+  4. 第二次真栈截图验证：404 消失，变成真实、正确的 403
+     `PROJECT_ROLE_INSUFFICIENT`（审计检索按后端设计只对 org 级
+     lead/admin/compliance 开放，测试账号是项目级 facilitator，非 bug）。
+  5. 附带发现并如实记录：`?as=` 四视角截图因生产安全边界（R12 V8）恒为
+     facilitator，角色差异改由已通过的组件测试验证。
+- **UIUX 保真度评分：8/10**（真栈截图 + 405 修复验证，详见 `session-handoff.md`）。
+  未到 9-10 分是两个证据缺口（fixture 未种 backflow/provenance 数据、只拍了
+  default 一态），不是代码缺陷；已诚实停在此分数。
+- 收尾: issue #1627 已创建并评论两轮进展与最终分数；分支已 push；PR #1633 已开
+  （`Closes #1627`）；未合入 main（等待人工审核，本 agent 无自主合并权限）；docker
+  两轮 e2e 栈均由 `with-test-isolation.ts` 自动 down，实测跑完容器数回落，无孤儿。
+- 下一步最佳动作: 人工审核并合并 PR #1633；下一轮若要冲 9-10 分，给
+  `fullstack-smoke-fixture.ts` 补 backflow/provenance 种子数据 + 用
+  `FULLSTACK_E2E.leadEmail` 登录补一张「审计与反馈有数据」的成功态截图，
+  或推进四个未建模板块（项目结论/假设状态/发布结论/候选决策）的契约设计签核。
