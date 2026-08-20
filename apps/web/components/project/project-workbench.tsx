@@ -135,7 +135,7 @@ export function ProjectWorkbench({
    * `findProject` 那次拉取（供项目头 name/kind/status/readOnlyReason 用）是
    * 两次独立的请求，范围各自成立，互不替代。
    *
-   * ⚠ F964：拉取范围扩大到「成果沉淀」tab 一起共用——`tab-results.tsx`「成果去向」区
+   * ⚠ F965：拉取范围扩大到「成果沉淀」tab 一起共用——`tab-results.tsx`「成果去向」区
    *   需要的正是同一份 `backflow` 白名单字段（uc-00-2 V1，coverage.md 逐字点名它是
    *   「成果沉淀 · 成果去向区」的前端消费点），不重新声明第二次拉取。
    */
@@ -270,7 +270,7 @@ export function ProjectWorkbench({
   }, [projectId, tab]);
 
   /**
-   * F964 —— 「成果沉淀 · 审计与反馈」区的真实 `queryProvenance`，按
+   * F965 —— 「成果沉淀 · 审计与反馈」区的真实 `queryProvenance`，按
    * `targetKind:"project"` + `targetId:projectId` 收窄到本项目（`live-provenance.ts`
    * 头注）。同 `findProject` 一样需要 `qs.org`——契约的 `queryProvenance.in.orgId`
    * 是必填字段，服务端不会替这条读路径从 principal 推断组织；没有 `?org=` 或未登录时

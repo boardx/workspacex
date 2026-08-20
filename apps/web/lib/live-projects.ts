@@ -49,7 +49,7 @@ export type ProjectOverview = z.infer<typeof project.operations.getProjectOvervi
 export type BackflowEntry = ProjectOverview["backflow"][number];
 
 /**
- * 回流徽标中文标签——单一声明处。F362（`tab-overview.tsx`）与 F964（`tab-results.tsx`）
+ * 回流徽标中文标签——单一声明处。F362（`tab-overview.tsx`）与 F965（`tab-results.tsx`）
  * 两处都要显示同一份 `BackflowEntry.badge` 三值闭枚举，之前只在 `tab-overview.tsx`
  * 里私有声明；现在有第二个消费点，按 AGENTS.md「同一事实不得声明在两处」收成这一处，
  * 两个组件都从这里 import，不各自抄一份。

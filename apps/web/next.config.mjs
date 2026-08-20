@@ -38,11 +38,11 @@ export default {
     return [
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },
       { source: `${prefix}/identity/:path*`, destination: `${apiOrigin}/identity/:path*` },
-      // F964：审计检索唯一面 `GET /provenance`（identity 与 artifact 两束共写、
+      // F965：审计检索唯一面 `GET /provenance`（identity 与 artifact 两束共写、
       // provenance.controller.ts 唯一读端）。裸路径、无 `:path*`——同上面 `/capabilities`
       // `/blueprints` `/skills` 那个坑：这条路径此前**从未有过前端真实调用方**
-      // （`lib/live-provenance.ts` 的 `queryProvenance` 在 F964 之前零调用点），所以
-      // 缺这条 rewrite 一直没被撞到过。实测（F964 真栈截图取证，issue #1627）：缺了它，
+      // （`lib/live-provenance.ts` 的 `queryProvenance` 在 F965 之前零调用点），所以
+      // 缺这条 rewrite 一直没被撞到过。实测（F965 真栈截图取证，issue #1627）：缺了它，
       // 前端打到 Next 自己的 404 HTML，`成果沉淀 · 审计与反馈` 区显示
       // 「审计事件读取失败：HTTP 404」——看起来像后端没实现，实际是路由没接（与
       // `/blueprints`/`/messages` 那两条注释描述的同一类坑，只是这次真的踩上了）。

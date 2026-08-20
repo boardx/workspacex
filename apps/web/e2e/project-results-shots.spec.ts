@@ -1,5 +1,5 @@
 /**
- * F964 —— 抓「成果沉淀」tab 的**真栈产品侧截图**，与已签核的
+ * F965 —— 抓「成果沉淀」tab 的**真栈产品侧截图**，与已签核的
  * `phases/phase-01-run-a-project/ui-preview/project-v2/uc-00-3-results-*.png`
  * 十张基准图逐张比对，供 rev-uiux 保真度评分使用。
  *
@@ -10,7 +10,7 @@
  * 页面（不只是「成果沉淀」tab 的问题——`overview`/`prep`/`live` 等所有 tab 今天都
  * 同样被这条安全修复挡住，实测确认见 issue #1627 的评论）。`shot-project-v2.mjs`
  * 当年（2026-07-30）能拍出这批基准图，是因为那时候页面还在 mock 身份；#1316（
- * 2026-08-16）之后它对这条路由整体失效，与 F964 无关。要证明真实渲染，只能走
+ * 2026-08-16）之后它对这条路由整体失效，与 F965 无关。要证明真实渲染，只能走
  * 真登录，所以复用 `playwright.fullstack-smoke.config.ts` 的整栈（同
  * `agenda-segment-create-smoke.spec.ts`），不是新造一套。
  *

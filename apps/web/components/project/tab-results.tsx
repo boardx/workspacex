@@ -7,7 +7,7 @@ import { BACKFLOW_BADGE_LABEL, type ProjectOverview } from "@/lib/live-projects"
 import type { QueryProvenanceOut, ProvenanceEventType } from "@/lib/live-provenance";
 
 /**
- * 成果沉淀（原型 isWsAfter，F964 接真）—— 项目结论 / 假设状态 / 成果去向 /
+ * 成果沉淀（原型 isWsAfter，F965 接真）—— 项目结论 / 假设状态 / 成果去向 /
  * 发布结论 / 候选决策 / 审计与反馈。
  *
  * ⚠ **这次的接线不是「全部接真」，是按 `lib/mock/project.ts` 头注（第 22-26 行）
@@ -45,11 +45,11 @@ export function TabResults({
 }: {
   view: ProjectRole;
   readOnly?: boolean;
-  /** F964：白名单四件里的 `backflow`；`null` = 未登录 / 没有 `?org=` / 还没查到 */
+  /** F965：白名单四件里的 `backflow`；`null` = 未登录 / 没有 `?org=` / 还没查到 */
   liveOverview?: ProjectOverview | null;
   liveOverviewLoading?: boolean;
   liveOverviewError?: string | null;
-  /** F964：按本项目收窄的真实审计事件；`null` = 未登录 / 没有 `?org=` / 还没查到 */
+  /** F965：按本项目收窄的真实审计事件；`null` = 未登录 / 没有 `?org=` / 还没查到 */
   liveAudit?: QueryProvenanceOut | null;
   liveAuditLoading?: boolean;
   liveAuditError?: string | null;

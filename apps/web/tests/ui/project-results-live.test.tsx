@@ -1,5 +1,5 @@
 /**
- * F964（2026-08-20）—— 成果沉淀 tab「成果去向」接真实 `getProjectOverview.backflow`
+ * F965（2026-08-20）—— 成果沉淀 tab「成果去向」接真实 `getProjectOverview.backflow`
  * （`listBackflow` 的项目侧投影）、「审计与反馈」接真实 `queryProvenance`；「项目结论」/
  * 「假设状态」/「发布结论」/「候选决策」四块因契约未建模整块降级为如实空态。
  *
@@ -28,7 +28,7 @@ function overview(overrides: Partial<ProjectOverview> = {}): ProjectOverview {
   };
 }
 
-describe("F964 TabResults：成果去向 / 审计与反馈接真，四块契约未建模区块如实降级", () => {
+describe("F965 TabResults：成果去向 / 审计与反馈接真，四块契约未建模区块如实降级", () => {
   it("四个契约未建模的区块（项目结论/假设状态/发布结论/候选决策）不再显示编造数据", () => {
     render(<TabResults view="facilitator" liveOverview={overview()} liveAudit={{ events: [], nextCursor: null }} />);
     expect(screen.getByTestId("project-results-conclusion-unavailable")).toBeInTheDocument();

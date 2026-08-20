@@ -1,8 +1,8 @@
-# 会话交接 — Sprint 01/17
+# 会话交接 — Sprint 01/18
 
 ## 当前已验证
-- F964：`passing`。2 条 verification 全绿（`project-results-live.test.tsx` 12 条 +
-  `typecheck`）+ `verify:quick`（standard 档）已跑绿。evidence 见 `evidence/F964.verify.log`。
+- F965：`passing`。2 条 verification 全绿（`project-results-live.test.tsx` 12 条 +
+  `typecheck`）+ `verify:quick`（standard 档）已跑绿。evidence 见 `evidence/F965.verify.log`。
 
 ## 本轮改动
 - 后端：无新增（复用 phase-00 已签核已实现的 `listBackflow`/`getProjectOverview`/
@@ -20,20 +20,20 @@
     `tab==='results'`；新增 `liveAudit` 拉取（`tab==='results'` + `qs.org`）。
   - `lib/mock/project.ts`：删三个孤儿常量（`RESULTS`/`CANDIDATE_DECISIONS`/
     `AUDIT_TRAIL`），头注登记契约缺口。
-- 设计签核：`contracts/project/design-signoff.md` 追加 F964 到 `covers:`（零新增
+- 设计签核：`contracts/project/design-signoff.md` 追加 F965 到 `covers:`（零新增
   设计面自查追加，逐条对照写在该文件段落里）。
 
 ## UIUX 保真度评分（真栈截图，非结构走查——第二轮已打通）
 
 **第一轮（结构化代码走查，约 6/10）已被推翻**——coordinator 指出 `shot-project-v2.mjs`
-当年就是用 mock 身份拍出 92 张基线图的脚本，`?state=`/`?as=` 走不通只是因为 F964 把
+当年就是用 mock 身份拍出 92 张基线图的脚本，`?state=`/`?as=` 走不通只是因为 F965 把
 `TabResults` 改成吃 `liveOverview`/`liveAudit` 两个真实 props；順著这条线查证：
 
 1. **根因诊断**：`StateShell`/`uiState` 纯视觉覆盖层，从不触碰 fetch（读
    `state-shell.tsx` 源码逐行确认）；`?as=` 预览开关本身没坏，但 `/projects/
    [projectId]` 整条路由自 issue #1316（安全修复，2026-08-16，晚于 92 张基线图
    2026-07-30 十七天）起不再向 `ProjectWorkbench` 传 mock `identity`——**这是全 tab
-   通用的回归，不是 F964 或成果沉淀 tab 独有**（实测 `?tab=overview` 同样重定向
+   通用的回归，不是 F965 或成果沉淀 tab 独有**（实测 `?tab=overview` 同样重定向
    `/login`，截图为证）。要拍到真实渲染只能走真登录。
 2. **复用已验证的真栈机制**：新增 `apps/web/e2e/project-results-shots.spec.ts`
    （零 expect，取证工具，同 `chat-main-shots.spec.ts` 先例）+
@@ -43,7 +43,7 @@
 3. **第一次真栈截图揪出一个真 bug**：「审计与反馈」区报
    `审计事件读取失败：HTTP 404`——诊断（`next.config.mjs` 全文 grep `provenance`
    零命中）：`GET /provenance` 这条裸路径**从未被写进 Next.js 的 rewrite 规则**
-   （与文件里 `/blueprints`/`/messages` 注释描述的坑同一类：F964 之前
+   （与文件里 `/blueprints`/`/messages` 注释描述的坑同一类：F965 之前
    `queryProvenance` 零真实调用方，这条路由缺口一直没被撞到）。**这是前端路由配置
    缺失，不是后端问题**——`provenance.controller.ts` 本身完好。修法：`next.config.mjs`
    补一行 `{ source: "/provenance", destination: apiOrigin + "/provenance" }`。
@@ -87,7 +87,7 @@
   `results` 补这条路由（那会造成三个 tab 里唯独一个行为不一致，属于扩大范围而不是
   修本 feature）。对照已签核基线截图 `uc-00-3-results-default.png`（子导航在图里
   清晰可见且点开会切页），这仍是一处真实的保真度缺口，只是它的修复单位应该是
-  「子导航路由」这个跨三个 tab 的能力，不是 F964 一个 feature。子导航指向的「产出物」
+  「子导航路由」这个跨三个 tab 的能力，不是 F965 一个 feature。子导航指向的「产出物」
   「行动项」「洞察报告」三项目前在 project 束契约里**完全没有出处**（属
   phase-02 `13-deliv`/`10-report` 的范围，coverage.md 与 `feature_list.json`
   显示 phase-02 那批 F20-F30/F38-F46 全部 `not_started` 且**没有 design-signoff**），
@@ -109,5 +109,5 @@
 
 ## 命令
 - 启动:`pnpm -w run dev`
-- 验证:`pnpm harness verify --sprint 01/17`
+- 验证:`pnpm harness verify --sprint 01/18`
 - 调试:`pnpm --filter web exec vitest run tests/ui/project-results-live.test.tsx`

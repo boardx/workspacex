@@ -327,7 +327,7 @@ export default defineConfig({
     },
     {
       /**
-       * F964 —— 「成果沉淀」tab 真栈截图取证（`project-results-shots.spec.ts`），
+       * F965 —— 「成果沉淀」tab 真栈截图取证（`project-results-shots.spec.ts`），
        * 供 rev-uiux 对齐 `ui-preview/project-v2/uc-00-3-results-*.png` 十张基准图。
        *
        * ⚠ **不是规格，是取证工具**（零 expect，只截图），同 `chat-main-shots.spec.ts`

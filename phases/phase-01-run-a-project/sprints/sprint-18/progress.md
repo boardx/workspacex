@@ -1,15 +1,15 @@
-# 进度日志 — Sprint 01/17
+# 进度日志 — Sprint 01/18
 
 ## 当前已验证状态(唯一真相)
 - 仓库根目录: <repo 路径>
 - 标准启动路径: `pnpm -w run dev`
 - 标准验证路径: 见 ADR-106（`verify:quick`/`verify:harness`/`verify:release`，不确定就跑 `verify:release`）
-- 当前最高优先级未完成功能: F964 —— 成果沉淀 tab「成果去向」接真实 listBackflow + 「审计与反馈」接真实 queryProvenance
-- 当前 blocker: 无（等 `pnpm harness verify --sprint 01/17 --feature F964` 门控转 passing）
+- 当前最高优先级未完成功能: F965 —— 成果沉淀 tab「成果去向」接真实 listBackflow + 「审计与反馈」接真实 queryProvenance
+- 当前 blocker: 无（等 `pnpm harness verify --sprint 01/18 --feature F965` 门控转 passing）
 
 ## 会话记录
 ### 2026-08-20（人类要求「项目 → 成果沉淀」tab 从纯前端 mock 打通到前后台真正接线）
-- 本轮目标: F964 —— 成果沉淀 tab 里能接真的两块（成果去向 / 审计与反馈）接真，
+- 本轮目标: F965 —— 成果沉淀 tab 里能接真的两块（成果去向 / 审计与反馈）接真，
   四块契约里从未建模的板块（项目结论 / 假设状态 / 发布结论 / 候选决策）整块降级为
   如实空态，同 F172 / F963 建立的纪律。
 - 已完成:
@@ -32,12 +32,12 @@
   - `apps/web/lib/mock/project.ts`：删除三个孤儿 mock 常量
     （`RESULTS`/`CANDIDATE_DECISIONS`/`AUDIT_TRAIL`），头注登记四块契约未建模的
     缺口（同 F172/F963「收窄 mock 依赖」纪律）。
-  - 设计签核：`contracts/project/design-signoff.md` 追加 F964 到 `covers:`
+  - 设计签核：`contracts/project/design-signoff.md` 追加 F965 到 `covers:`
     （零新增设计面自查追加，逐条对照三条件，见该文件对应段落；`status`/
     `confirmed_by`/`confirmed_at` 未改）。
-  - `phases/phase-01-run-a-project/feature_list.json` 新增 F964（`not_started`）；
-    `pnpm harness new-sprint --phase 01 --id 17 --features F964` 通过设计签核门；
-    `pnpm harness claim --phase 01 --feature F964 --owner dev-project` 转 `in_progress`。
+  - `phases/phase-01-run-a-project/feature_list.json` 新增 F965（`not_started`）；
+    `pnpm harness new-sprint --phase 01 --id 17 --features F965` 通过设计签核门；
+    `pnpm harness claim --phase 01 --feature F965 --owner dev-project` 转 `in_progress`。
 - 运行过的验证:
   - `pnpm --filter web run typecheck`（绿）。
   - `pnpm --filter web run lint`（绿，含 `lint-design.sh`）。
@@ -47,10 +47,10 @@
   - `pnpm --filter web exec vitest run tests/ui/project`（回归扫，8 个测试文件
     66 条全绿，含 `project-overview-live-*`/`project-live-stagebar` 等相邻文件，
     确认 `BACKFLOW_BADGE_LABEL` 搬迁未破坏 F362/F172 既有行为）。
-- 已记录证据: 见 `evidence/F964.verify.log`（`pnpm harness verify` 落地后补）。
+- 已记录证据: 见 `evidence/F965.verify.log`（`pnpm harness verify` 落地后补）。
 - 提交记录: 分支 `worker/dev-project-01-results-backflow-audit`。
 - 已知风险或未解决问题:
-  - `pnpm harness readiness` 队列（issue #814）本轮只列 #624/#728，F964 不在队列上
+  - `pnpm harness readiness` 队列（issue #814）本轮只列 #624/#728，F965 不在队列上
     ——本次是人类在本会话任务指令里直接点名要做的活，不是默默越权，已在
     `design-signoff.md`/本记录里写明理由。
   - UIUX 保真度评分（对齐已签核 `uc-00-3-results-*.png` 十张基准图）待跑：需要真栈
@@ -60,7 +60,7 @@
     不在本次已签核范围内，留给后续 feature。
 - **第二轮（真栈截图，取代第一轮的结构走查）**：coordinator 指出
   `shot-project-v2.mjs` 本就是拍基线图的脚本、真栈本可复用，顺着这条线查证：
-  1. 根因诊断——`?state=`/`?as=` 走不通不是 F964 的问题，是 `/projects/[projectId]`
+  1. 根因诊断——`?state=`/`?as=` 走不通不是 F965 的问题，是 `/projects/[projectId]`
      整条路由自 #1316（安全修复，晚于基线图 17 天）起需要真登录，全部 tab 皆如此
      （实测 `?tab=overview` 同样重定向 `/login`，非成果沉淀独有）。
   2. 新增 `apps/web/e2e/project-results-shots.spec.ts`（取证工具，零 expect，复用

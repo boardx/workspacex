@@ -17,7 +17,7 @@ import {
   PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, BACKFLOW_BADGE_LABEL,
   type ProjectListItem, type ProjectOverview,
 } from "@/lib/live-projects";
-// ⚠ F964：`BACKFLOW_BADGE_LABEL` 搬到 `lib/live-projects.ts`（原在本文件私有声明）——
+// ⚠ F965：`BACKFLOW_BADGE_LABEL` 搬到 `lib/live-projects.ts`（原在本文件私有声明）——
 //   「成果沉淀」tab（`tab-results.tsx`）加了第二个消费点，同一份三值闭枚举不再各自抄一份。
 
 /**
