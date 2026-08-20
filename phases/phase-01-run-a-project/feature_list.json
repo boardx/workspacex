@@ -4985,6 +4985,28 @@
       "priority": 2,
       "area": "project",
       "capability": "CAP-WEB"
+    },
+    {
+      "id": "F965",
+      "title": "成果沉淀 tab「成果去向」接真实 listBackflow + 「审计与反馈」接真实 queryProvenance，四个契约未建模区块降级为如实空态",
+      "user_visible_behavior": "进项目工作台「成果沉淀」tab（`project-results`）。「成果去向」区（`project-results-destinations`）不再显示编造的决策/洞察/行动项计数，改显示真实 `getProjectOverview` 返回的 `backflow` 列表——没有真实数据（未登录/未带 `?org=`）时显示「暂无真实数据」（`project-results-destinations-signed-out`），读取中显示加载态（`-loading`），读取失败显示真实错误（`-error`），空列表显示「暂无已回流的产出」（`-empty`），有数据时逐条显示真实 title/version/pinnedBy/pinnedAt/badge（`-list`）。「审计与反馈」区（`project-results-audit`）不再显示编造的 214 条示例事件，改显示真实 `queryProvenance`（按本项目 `targetKind:project`+`targetId` 收窄）——四态同上（`signed-out`/`loading`/`error`/`empty`），有事件时显示真实条数、时间、actor、target（`-list`/`-total`）。「项目结论」「假设状态」「发布结论」「候选决策」四块在 project 束契约里从未建模（`lib/mock/project.ts` 头注早已标注这个缺口），删除编造的结论文本/假设计数/发布按钮/候选决策签署按钮，改为如实说明「全仓无该实体，暂不可用」（`-unavailable` 系列 testid），不再有一个只弹本地对话框、不产生真实副作用的「发布结论」危险按钮。四视角投影规则不变：发布结论/候选决策两块仍只对 facilitator/canWrite 角色出现（内容变了，出现规则没变）。",
+      "spec_ref": "00-project/uc-00-2-项目列表与项目主页.md#R3",
+      "depends_on": [
+        "F123"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "17",
+      "owner": "dev-project",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/project-results-live.test.tsx",
+        "pnpm --filter web run typecheck"
+      ],
+      "evidence": "evidence/F965.verify.log @ 2026-08-20T00:06:39.095Z",
+      "notes": "同 F172（tab-overview.tsx）/F963（tab-live.tsx）建立的纪律：把 coverage.md 逐字点名有前端消费点的接真（uc-00-2 V1「成果沉淀·成果去向区」→ getProjectOverview.backflow，即 listBackflow 的项目侧投影，phase-00 已签核已实现；uc-00-1 V10/uc-00-3 V11「成果沉淀·审计与反馈区」→ queryProvenance，phase-00 唯一审计检索面，不许另造），把 lib/mock/project.ts 头注第 22-26 行早已标注「契约未建模」的四块（项目结论/假设状态/发布结论/候选决策）整块降级为如实空态，不与真实数据同屏并列造成用户分不清真假。queryProvenance 补了 targetKind/targetId 两个可选参数（契约 in 早有，此前无调用方，见 live-provenance.ts 头注）。BACKFLOW_BADGE_LABEL 从 tab-overview.tsx 私有声明搬到 live-projects.ts 单一声明处（第二个消费点出现，避免同一份三值闭枚举抄两份）。readiness 队列（issue #814）本轮只有 #624/#728，本 feature 不在队列上——按人类直接下达的任务指令开工，非默默越权（AGENTS.md 0.5 步允许「确有理由」）。\n⚠ 机械重编号（2026-08-20）：原编号 F964 与另一条并行分支（tab-overview.tsx 报错文案人性化，同一时段独立取号）撞车，该分支已先合入 main。改用下一个空闲号 F965，不改任何设计决定；evidence 文件名/design-signoff.md covers 同步改。",
+      "priority": 2,
+      "area": "project",
+      "capability": "CAP-WEB"
     }
   ]
 }

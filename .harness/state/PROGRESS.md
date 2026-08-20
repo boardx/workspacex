@@ -5,7 +5,7 @@
 | Phase | 名称 | 状态 | not_started | in_progress | blocked | passing |
 |-------|------|------|-------------|-------------|---------|---------|
 | 00 | 共享内核 | in_progress | 0 | 0 | 0 | 22 |
-| 01 | 能跑完一场项目 | in_progress | 15 | 4 | 0 | 193 |
+| 01 | 能跑完一场项目 | in_progress | 15 | 4 | 0 | 194 |
 | 02 | 让推演与成果可见 | not_started | 46 | 0 | 0 | 0 |
 | 03 | 跨项目复用与治理 | not_started | 49 | 0 | 0 | 0 |
 | 04 | 数字专家访谈 Studio | in_progress | 3 | 1 | 0 | 3 |
@@ -15,6 +15,6 @@
 | 08 | 转录 | not_started | 4 | 0 | 0 | 0 |
 | 09 | 问卷 | not_started | 7 | 0 | 0 | 0 |
 | 10 | 现场协作编排 | not_started | 10 | 0 | 0 | 0 |
-| 11 | research-insight-backend | not_started | 4 | 0 | 0 | 1 |
+| 11 | research-insight-backend | in_progress | 4 | 0 | 0 | 1 |
 
-_最近聚合:2026-08-20T06:27:37.947Z_
+_最近聚合:2026-08-20T07:00:47.509Z_

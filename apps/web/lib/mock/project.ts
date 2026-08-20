@@ -21,8 +21,11 @@
  *     UI 显示中文「环节」、testid 统一为 `agenda-segment-*`（旧 `agenda-item-*` 已废弃）。
  *   · 项目生命周期状态（active/archived）—— Q-5 未裁决，此处只演示 active。
  *   · 准备度百分比口径 —— uc-2-2 已登记 [待确认]，overview 改用原型里确实存在的「就绪检查 3/3」。
- *   · 发布结论的「绑定产出版本」「保留意见随发布」—— 成果沉淀屏有控件，契约未建模。
- *   · 候选决策（来自转写，待签署）实体 —— 成果沉淀屏有，契约未建模。
+ *   · 发布结论的「绑定产出版本」「保留意见随发布」—— 成果沉淀屏有控件，契约未建模
+ *     （F964：屏上已删掉这个只弹本地对话框、不产生真实副作用的按钮，见 `tab-results.tsx`）。
+ *   · 候选决策（来自转写，待签署）实体 —— 成果沉淀屏有，契约未建模（F964 同上处理）。
+ *   · 项目结论（结论文本 + 签字人）—— 成果沉淀屏有，契约未建模（F964 同上）。
+ *   · 假设状态（已验证/待验证/已推翻计数）—— 成果沉淀屏有，契约未建模（F964 同上）。
  *   · 组织停用后项目的只读呈现（uc-00-1 V12「显示只读原因而非隐藏」）—— 契约未建模。
  *
  * ⚠ 本文件含 AI agent 名（Scout/Echo/Ava/Ledger）与蓝本清单等「内建能力清单」形状，
@@ -267,52 +270,16 @@ export const ACTIVITY_FEED = [
  * 这份 mock 数据。同 F172 对 `tab-overview.tsx` 待办块的处置纪律，见 `tab-live.tsx` 头注。
  */
 
-/* ─────────────────────── 成果沉淀（原型 isWsAfter） ─────────────────────── */
-
-export const RESULTS = {
-  conclusion: {
-    text: "先用两周尽调锁定资质可转让性，再在收购与 EPC 合作之间二选一；自建路径当场排除。",
-    signedBy: "周宁 签字 · 7/25 12:30",
-  },
-  hypothesis: { verified: 5, pending: 9, refuted: 3 },
-  destinations: { decisions: 3, insights: 14, actions: 11 },
-  /** [原型] 发布结论——危险动作：必须绑定一个确定的产出版本 + 影响范围说明 */
-  publish: {
-    boundVersion: "四组产出合并为「进入策略初步结论」", versionTag: "绑定 v2",
-    scope: "项目成员 ＋ 客户方 3 人（观察者按已发布内容可见）",
-    publisher: "林可 · 引导师 有发布授权",
-    precheck: "4/4 组产出已提交且无退回中",
-    reservation: "陈默：本地化率要求未核实，反对现在给客户时间承诺。",
-  },
-};
-
-/** [原型] 候选决策——来自转写，每条带引用位置，签署前可回听。签署是危险动作 */
-export const CANDIDATE_DECISIONS = [
-  {
-    id: "cd1", text: "两周内完成资质转让尽调后再定路径",
-    transcript: "转写 10:24:18–10:25:02", basis: "依据 v2 · 第 3 节",
-    extractedBy: "Echo 提取", signer: "周",
-    authz: "须周宁签署（合伙人 · 路径类决策）", canSign: false, signLabel: "请他签署",
-  },
-  {
-    id: "cd2", text: "首批只做德国、荷兰，波兰下一阶段再评估",
-    transcript: "转写 11:48:30–11:49:11", basis: "依据 v2 · 第 5 节",
-    extractedBy: "Echo 提取", signer: "林",
-    authz: "你有此类决策签署授权 · 有效期至 8/31", canSign: true, signLabel: "签署",
-  },
-];
-
-/** [原型] 审计记录：角色 / 版本 / Agent 调用 / 决策，同一时间线，不可删除 */
-export const AUDIT_TRAIL = {
-  totals: { all: 214, role: 8, version: 11, agent: 183, decision: 12 },
-  entries: [
-    { id: "au1", time: "12:06:41", kind: "决策", text: "林可签署「首批只做德国、荷兰」", meta: "依据 v2 · 授权有效期内" },
-    { id: "au2", time: "11:52:09", kind: "版本", text: "高琳提交第 2 组 v2", meta: "v1 退回理由已归档，不可覆盖" },
-    { id: "au3", time: "11:20:33", kind: "调用", text: "Ava → Ledger · 现金流对比（深度 2）", meta: "412k token · 人已批准" },
-    { id: "au4", time: "10:14:52", kind: "版本", text: "林可退回第 2 组 v1，附理由", meta: "v1 转为只读快照" },
-    { id: "au5", time: "09:41:07", kind: "角色", text: "授予客户方王毅「观察者」＋ 第 2 组原始内容临时读权", meta: "环节 3 结束自动失效" },
-  ],
-};
+/*
+ * ─────────────────────── 成果沉淀（原型 isWsAfter） ───────────────────────
+ * F964（2026-08-20）：`RESULTS`/`CANDIDATE_DECISIONS`/`AUDIT_TRAIL` 三个 mock 常量已删除
+ * ——同 F963 对 `LIVE_STAGE`/`LIVE_GROUPS` 的处置纪律：`tab-results.tsx`「成果去向」
+ * 改接真实 `getProjectOverview.backflow`（`listBackflow` 项目侧投影，phase-00 已签核），
+ * 「审计与反馈」改接真实 `queryProvenance`（phase-00 唯一审计检索面）；「项目结论」/
+ * 「假设状态」/「发布结论」/「候选决策」四块在 project 束契约里从未建模（本文件删除前
+ * 第 22-26 行头注早就点名这个缺口），继续渲染这批 mock 数字会与真实数据同屏并列、
+ * 用户分不清真假，故整块降级为如实空态，不再需要这份 mock 数据。
+ */
 
 /* ─────────────────────── 待办看板（净新，原型 isWsTodo · 四列） ─────────────────────── */
 
