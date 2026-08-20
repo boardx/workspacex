@@ -43,7 +43,7 @@
         "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'denied'"
       ],
       "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-default-denied.png；phases/phase-10-live-collaboration-orchestration/ui-preview/role-observer-stage-default.png",
-      "notes": "契约束候选：viewer-role。**硬前置：OPEN-QUESTIONS.md Q1『观察者可见范围』未裁定前不得开工服务端实现**——UI 先行原型给了『观察者全场只读』的默认呈现并标了 [待签核]，这是展示态，不能当成已批准的安全边界直接写死进 RLS。需要真实的项目/分组成员关系表与角色读接口（可能已存在于 phase-00/01-auth，需实现时核实，不在本 phase 重新定义身份模型本身）。"
+      "notes": "契约束候选：viewer-role。**Q1 已裁决（2026-08-20，人类会话）：候选 A——观察者全场只读聚合，不含任何一组的原始转写/对话逐字稿**（见 OPEN-QUESTIONS.md Q1）。这只是解除了『答案未定』的阻塞，**不等于完成设计签核**——viewer-role 契约束的 design-signoff.md（① UI ② 用例 ③ API 契约）仍需人类正式签核后才能开工，agent 不得代签 status。需要真实的项目/分组成员关系表与角色读接口（可能已存在于phase-00/01-auth，需实现时核实，不在本 phase 重新定义身份模型本身）。"
     },
     {
       "id": "F03",
@@ -126,7 +126,7 @@
         "grep -rq 'data-testid=\"lc-checkin-view-join\"' apps/web/components/live-collab/orchestration-preview.tsx"
       ],
       "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-checkin-default.png（二维码/看加入页当前为占位）",
-      "notes": "契约束候选：group-checkin。**硬阻断**：OPEN-QUESTIONS.md Q2（到场判定口径）、Q4（二维码前端生成 vs 服务端出图）、Q5（『看加入页』是预览态还是独立 URL）三点都需人类裁定后才能定实现方案，本 feature 在裁定前不得开工写死任一方案。"
+      "notes": "契约束候选：group-checkin。**Q2/Q4/Q5 已裁决（2026-08-20，人类会话）**：到场判定 = 点过链接即到场；二维码 = 前端本地生成；『看加入页』= 站内预览（见 OPEN-QUESTIONS.md）。三点实现方案已定，但同 F02——**仍需 group-checkin 契约束的 design-signoff.md 正式签核**才能开工，这份记录只是解除了『方案未定』这一层阻塞，不是设计签核本身。"
     },
     {
       "id": "F07",
