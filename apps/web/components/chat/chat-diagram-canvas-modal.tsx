@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { MousePointer2, Square, Spline, Trash2, Maximize, Save, X, Check } from "lucide-react";
+import { MousePointer2, Square, Trash2, Maximize, Save, X, Check } from "lucide-react";
 import { wrapAsMermaidBlock, extractMermaidBlocks } from "@repo/fabric-markdown";
 import { CanvasStage } from "@/components/canvas/canvas-stage";
 import { decodeMermaidEntities } from "@/lib/chat/decode-mermaid-entities";
@@ -162,10 +162,13 @@ export function ChatDiagramCanvasModal({
     }
   }, [markdown, canPersist, threadId, messageId, bearer]);
 
+  // 「连线」工具（`tool === "edge"`）此前在这块工具条里，但 `CanvasStage` 的
+  // `mouse:down` 从没接过它的点击逻辑——shift 点两个节点画不出任何连线，纯粹是
+  // 一枚看起来能用、点了却什么都不发生的按钮（人类实测反馈）。按钮比空白更容易
+  // 骗人：不接线的功能就不该有入口，先摘掉，等真正实现连线交互再放回来。
   const TOOLS: { key: CanvasTool; label: string; icon: typeof Square }[] = [
     { key: "select", label: "选择", icon: MousePointer2 },
     { key: "node", label: "＋节点", icon: Square },
-    { key: "edge", label: "连线", icon: Spline },
     { key: "delete", label: "删除", icon: Trash2 },
   ];
 
