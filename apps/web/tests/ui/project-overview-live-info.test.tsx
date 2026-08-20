@@ -35,7 +35,11 @@ describe("F353 project-overview：项目基本信息块只显示真实数据", (
 
   it("liveError 有值时显示失败提示，而不是空态或伪数据", () => {
     render(<TabOverview view="facilitator" projectId="p1" liveProject={null} liveError="AUTH_SERVICE_UNAVAILABLE" />);
-    expect(screen.getByTestId("project-overview-live-error")).toHaveTextContent("AUTH_SERVICE_UNAVAILABLE");
+    const notice = screen.getByTestId("project-overview-live-error");
+    expect(notice).toHaveTextContent("AUTH_SERVICE_UNAVAILABLE");
+    // F964：真故障（服务不可用）用醒目语气 + 给重试按钮，不再是一句原样英文常量。
+    expect(notice.className).toContain("text-destructive");
+    expect(screen.getByTestId("project-overview-live-error-retry")).toBeInTheDocument();
     expect(screen.queryByTestId("project-overview-live-empty")).not.toBeInTheDocument();
   });
 
