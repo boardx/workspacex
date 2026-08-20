@@ -2,9 +2,9 @@
 bundle: viewer-role
 phase: "10"
 covers: [F01, F02]
-status: pending
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-08-20T09:19:24+08:00"
 scope_note: "首轮签核仅覆盖『主持台·全场 vs 分组』二档切换 + 四角色可见性矩阵；F01 里『需介入』状态后缀因全仓无判据来源，本轮维持 ＊ 待补契约占位，不在本束签核范围内。"
 ---
 
