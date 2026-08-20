@@ -33,7 +33,7 @@
         "F01"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": "w-insight-f02",
       "verification": [
@@ -55,7 +55,7 @@
         "F01"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": "w-insight-f03",
       "verification": [
@@ -76,7 +76,7 @@
         "F01"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": "w-insight-f04",
       "verification": [
@@ -98,7 +98,7 @@
         "F01"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "02",
       "owner": "w-insight-f05",
       "verification": [
