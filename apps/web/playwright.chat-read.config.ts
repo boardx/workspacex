@@ -71,7 +71,7 @@ export default defineConfig({
    * 接住（理由与上面两条逐字相同）：这里已经起好了真登录 + 真线程 + 确定性 provider 全套
    * 编排，单自建 runner 是硬瓶颈；新增的是视觉理解这一条上游替身，其余全部复用。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*

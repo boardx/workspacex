@@ -1,4 +1,5 @@
 "use client";
+import { RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,80 @@ import {
 } from "@/lib/live-projects";
 // ⚠ F964：`BACKFLOW_BADGE_LABEL` 搬到 `lib/live-projects.ts`（原在本文件私有声明）——
 //   「成果沉淀」tab（`tab-results.tsx`）加了第二个消费点，同一份三值闭枚举不再各自抄一份。
+
+/**
+ * `findProject`（`listProjects`）与 `getProjectOverview` 两个只读端点各自的
+ * 失败面（`@repo/contracts` `project.ts` 的 `err` 数组）目前只会产出这四个
+ * reasonCode（`NO_PROJECT_ROLE` / `ADMIN_NOT_SUPERUSER` / `DEPENDENCY_UNAVAILABLE` /
+ * `AUTH_SERVICE_UNAVAILABLE`）——此前 UI 把它原样当英文常量甩给用户
+ * （「读取失败：ADMIN_NOT_SUPERUSER」），不算「说得清」。
+ *
+ * 分两类呈现：
+ *   · `NO_PROJECT_ROLE` / `ADMIN_NOT_SUPERUSER` 是**分层的正常访问范围**
+ *     （`identity.ts` 逐字「这是正常状态不是异常」/「D-18：管理员不是超级用户」），
+ *     不是故障——不用 destructive 语气，也不给重试按钮（刷新不会改变你的角色）。
+ *     区分组织层（超级用户）与项目层（项目角色）两种挡法，而不是笼统一句「没权限」。
+ *   · `DEPENDENCY_UNAVAILABLE` / `AUTH_SERVICE_UNAVAILABLE` 是**真故障**，
+ *     destructive 语气 + 可重试（同 `today-board.tsx` `tasks-section-dep-retry`
+ *     的既有约定：`window.location.reload()`，不在这里另造一套重试状态机）。
+ * 未在名单里的 reasonCode（契约以后新增、或 `HTTP xxx` 兜底）落到默认分支，
+ * 原始码仍然保留在文案末尾——不隐藏可追责信息，只是不再让它当唯一信息。
+ */
+const OVERVIEW_REASON_PRESENTATION: Record<string, { tone: "muted" | "destructive"; retry: boolean; text: string }> = {
+  NO_PROJECT_ROLE: {
+    tone: "muted",
+    retry: false,
+    text: "你在这个项目里还没有角色，因此看不到内部数据——这是正常的访问范围（项目层），不是故障。请找引导师或组长把你加进项目。",
+  },
+  ADMIN_NOT_SUPERUSER: {
+    tone: "muted",
+    retry: false,
+    text: "组织管理员默认看不到项目内部数据（组织层限制）；需要跨项目查看，得先被提升为超级用户。",
+  },
+  DEPENDENCY_UNAVAILABLE: {
+    tone: "destructive",
+    retry: true,
+    text: "后端依赖服务暂时不可用，不是没有数据——请稍后重试。",
+  },
+  AUTH_SERVICE_UNAVAILABLE: {
+    tone: "destructive",
+    retry: true,
+    text: "身份校验服务暂时不可用，无法确认你的权限——请稍后重试。",
+  },
+};
+
+function describeOverviewReason(code: string): { tone: "muted" | "destructive"; retry: boolean; text: string } {
+  return OVERVIEW_REASON_PRESENTATION[code] ?? {
+    tone: "destructive",
+    retry: true,
+    text: "读取失败，原因暂不明确——请稍后重试；如果反复出现，请联系管理员。",
+  };
+}
+
+/** 概览两个真实数据块共用的错误呈现：人话在前、原始 reasonCode 留在括号里，可重试的才给按钮。 */
+function OverviewErrorNotice({ code, testId, retryTestId }: { code: string; testId: string; retryTestId: string }) {
+  const { tone, retry, text } = describeOverviewReason(code);
+  return (
+    <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-2">
+      <p
+        className={tone === "destructive" ? "text-11 text-destructive" : "text-11 text-muted-foreground"}
+        data-testid={testId}
+      >
+        {text}（{code}）
+      </p>
+      {retry ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => window.location.reload()}
+          data-testid={retryTestId}
+        >
+          <RefreshCw aria-hidden className="h-3 w-3" />重试
+        </Button>
+      ) : null}
+    </div>
+  );
+}
 
 /**
  * 概览（净新）—— 原型 isWsOver 的转译。
@@ -52,6 +127,15 @@ import {
  *   ⇒ 本文件对 `lib/mock/project` 的依赖由 9 个符号收到 4 个，且剩下的四个都不是假数据。
  *   ⚠ 上面第 26-28 行那段「原型转译」的描述写的是**改动前**的形态，保留作沿革；
  *     以本条为准。
+ *
+ * ⚠（本次，F964 / issue #1626）：F123/F172/F353/F362 都只保证了「真实数据接线」，没有人管
+ *   接线失败时那两条 `liveError`/`liveOverviewError` 怎么呈现——此前是把后端
+ *   `reasonCode`（如 `ADMIN_NOT_SUPERUSER`）原样拼进「读取失败：{code}」，对不了解
+ *   契约内部命名的用户不算「说得清」。本次加 `OVERVIEW_REASON_PRESENTATION`：
+ *   区分「分层的正常访问范围」（`NO_PROJECT_ROLE`=项目层 / `ADMIN_NOT_SUPERUSER`=
+ *   组织层，muted 语气、不给重试）与「真故障」（`DEPENDENCY_UNAVAILABLE` /
+ *   `AUTH_SERVICE_UNAVAILABLE`，destructive 语气 + 重试按钮）。不新增契约、不新增
+ *   板块，只是把已有的两个错误插槽从「英文常量」翻成「人话 + 原始码兜底」。
  */
 export function TabOverview({
   view, readOnly = false, projectId, liveProject = null, liveLoading = false, liveError = null,
@@ -89,9 +173,11 @@ export function TabOverview({
           ) : null}
         </div>
         {liveError !== null ? (
-          <p className="text-11 text-destructive" data-testid="project-overview-live-error">
-            读取失败：{liveError}
-          </p>
+          <OverviewErrorNotice
+            code={liveError}
+            testId="project-overview-live-error"
+            retryTestId="project-overview-live-error-retry"
+          />
         ) : liveProject !== null ? (
           <div className="flex flex-wrap items-center gap-2 text-12" data-testid="project-overview-live-name">
             <span className="font-medium">{liveProject.name}</span>
@@ -128,9 +214,11 @@ export function TabOverview({
           ) : null}
         </div>
         {liveOverviewError !== null ? (
-          <p className="text-11 text-destructive" data-testid="project-overview-live-overview-error">
-            读取失败：{liveOverviewError}
-          </p>
+          <OverviewErrorNotice
+            code={liveOverviewError}
+            testId="project-overview-live-overview-error"
+            retryTestId="project-overview-live-overview-error-retry"
+          />
         ) : liveOverview !== null ? (
           <div className="flex flex-col gap-2 text-12" data-testid="project-overview-live-overview-body">
             <div className="flex flex-wrap items-center gap-2">

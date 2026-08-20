@@ -64,6 +64,13 @@ export { SandboxUnavailableError };
 /** 模型必须把脚本放进这个标记块里。 */
 const SCRIPT_FENCE_OPEN = "```run_script";
 
+/**
+ * 脚本块的**唯一**解析规则。`extractScript`（抛版）与 `tryExtractScript`（不抛版，#1624）
+ * 共用它——两处各写一份正则就是"同一事实声明在两处"，改了一处另一处会静默漂移。
+ * ⚠ 无 `g` 标志：带 `g` 的正则字面量在模块级复用会因 `lastIndex` 残留而随调用次数变结果。
+ */
+const SCRIPT_FENCE_RE = /```(?:run_script|javascript|js|node)?\s*\n([\s\S]*?)```/;
+
 export const RUN_SCRIPT_PROTOCOL_PROMPT = [
   "You can execute Node.js code in a sandbox to produce real files.",
   "",
@@ -161,13 +168,28 @@ export async function runScriptWithRetries(
  * 与真实问题无关的语法错误，把回喂循环的信噪比毁掉。
  */
 export function extractScript(reply: string): string {
-  const fenced = /```(?:run_script|javascript|js|node)?\s*\n([\s\S]*?)```/.exec(reply);
+  const fenced = SCRIPT_FENCE_RE.exec(reply);
   if (fenced?.[1] !== undefined && fenced[1].trim() !== "") return fenced[1];
   throw new ScriptFailedAfterRetriesError(
     1,
     `model reply contained no fenced script block; reply was:\n${excerpt(reply)}`,
     null,
   );
+}
+
+/**
+ * `extractScript` 的**不抛版本**（#1624）。
+ *
+ * chat 那条路径要先回答一个 `extractScript` 回答不了的问题：**这次回复里到底有没有脚本**。
+ * `extractScript` 把"没有"表达成抛 `ScriptFailedAfterRetriesError`——那在试跑里是对的
+ * （试跑就是为了执行，没脚本就是失败），但在 chat 里"模型这轮只是在说话"是**绝大多数
+ * 情况**，不是失败。用 try/catch 把常态当异常走，既贵又容易把真正的失败一起吞掉。
+ *
+ * ⚠ 两者共用同一条正则常量，**不复制第二份解析规则**——同一事实两处声明是本仓栽过五次的坑。
+ */
+export function tryExtractScript(reply: string): string | null {
+  const fenced = SCRIPT_FENCE_RE.exec(reply);
+  return fenced?.[1] !== undefined && fenced[1].trim() !== "" ? fenced[1] : null;
 }
 
 function excerpt(text: string): string {
