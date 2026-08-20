@@ -1,0 +1,64 @@
+$ pnpm --filter api exec vitest run tests/itv/insight-write-path-persists-real-db.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/fix-context-engine-gate/apps/api
+
+[db-isolation] db=wsx_41e3c92039d07adef769 capacity=100 current=6 required=32
+ ✓ tests/itv/insight-write-path-persists-real-db.test.ts (5 tests) 2041ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  14:27:30
+   Duration  4.25s (transform 246ms, setup 0ms, collect 316ms, tests 2.04s, environment 0ms, prepare 26ms)
+
+[db-isolation] db=wsx_41e3c92039d07adef769 peak_connections=4
+
+
+$ pnpm --filter api exec vitest run tests/itv/insight-pinned-snapshot-immutable-real-db.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/fix-context-engine-gate/apps/api
+
+[db-isolation] db=wsx_41e3c92039d07adef769 capacity=100 current=6 required=32
+ ✓ tests/itv/insight-pinned-snapshot-immutable-real-db.test.ts (1 test) 411ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  14:27:35
+   Duration  1.08s (transform 228ms, setup 0ms, collect 304ms, tests 411ms, environment 0ms, prepare 20ms)
+
+[db-isolation] db=wsx_41e3c92039d07adef769 peak_connections=4
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /private/tmp/fix-context-engine-gate
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=2601139dcc09fd3b217c19a574489c4e9b48187c（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_41e3c92039d07adef769 inner_db=wsx_41e3c92039d07adef769 outer_compose=wsx-41e3c92039d07adef769 inner_compose=wsx-41e3c92039d07adef769 status=matched
+[stack-admission] load1=4.32 cores=10 perCore=0.43 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mt151uz6-7c6e41dd-41e3c92039d0 db=wsx_41e3c92039d07adef769 compose=wsx-41e3c92039d07adef769 pg=22200 redis=27200
+• turbo 2.10.5
+
+   • Packages in scope: //
+   • Running typecheck, lint, test in 1 packages
+   • Remote caching disabled, using shared worktree cache
+
+ WARNING  No tasks were executed as part of this run.
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    88ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：0s
+  命令执行：0s
+  清理：0s
+  总计：1s
+
+[harness-verify v1 sha256=acfbe354e5a2e43eefeb64b228dfb88ceff21b548f80176ac1f328b32b601650 commit=df363ab501148b76f416c299775bf3b8223e8f92 at=2026-08-20T06:27:37.939Z]
