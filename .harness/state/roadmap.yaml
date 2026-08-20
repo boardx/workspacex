@@ -71,3 +71,10 @@ phases:
     status: not_started
     depends_on: ["00"]
     has_ui: true
+  - id: "10"
+    slug: live-collaboration-orchestration
+    name: 现场协作编排
+    goal: "四组并行现场协作的编排层：主持台/分组视角切换器、议程环节引擎的现场落地（环节状态条+倒计时+介入告警+下一环节推进）、分组签到、以及把已有能力域（01-run-a-project 的对话/画布/转录、02-visible-outcomes 的知识图谱决策树与看板、06 深度研究、07 用户访谈、08 转录、09 问卷与现场投票）在同一现场协作 Tab 里按角色（引导师/组长/组员/观察者）×视角（全场/分组）组合呈现——本阶段不重造这些能力域各自的领域模型，只做编排、路由与角色可见性"
+    status: not_started
+    depends_on: ["00", "01", "02", "06", "07", "08", "09"]
+    has_ui: true
