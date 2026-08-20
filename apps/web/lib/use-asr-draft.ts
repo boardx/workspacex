@@ -14,7 +14,17 @@ import * as React from "react";
 import { openAsrDraftStream, type AsrDraftErrorReason } from "./live-asr-draft";
 import { LiveRecordingError } from "./live-recording";
 
-export type AsrDraftStatus = "idle" | "listening" | "denied" | "unsupported" | "error";
+/**
+ * ⚠ 2026-08-20 人类实测反馈（devapp）：「点击 mic 图标以后要反应半天」「终止转录也不能
+ * 正常终止」——根因是这个状态机原来只有 idle/listening 两头，中间没有任何"正在连接"/
+ * "正在停止"的过渡态。真实上游（DashScope realtime ASR）的握手 + `getUserMedia`
+ * 权限弹窗、以及收尾时等最后一段 `asr.final`（`configured-realtime-asr-provider.ts`
+ * 的 `FINISH_GRACE_MS`，默认 15 秒上限）都是真实网络延迟，不是 0——旧状态机在这整段
+ * 时间里界面**没有任何变化**，用户看到的就是"点了没反应""点了停不下来"。
+ * 加 `connecting`/`stopping` 两态，让按钮在等待网络的这段时间里明确说出"正在连接"/
+ * "正在停止"，不是沉默。
+ */
+export type AsrDraftStatus = "idle" | "connecting" | "listening" | "stopping" | "denied" | "unsupported" | "error";
 
 export interface UseAsrDraftOptions {
   /** 每次转录内容更新时调用，参数是"基线文本 + 已提交的最终转录 + 当前临时转录"拼接后的完整文本。 */
@@ -32,6 +42,10 @@ export interface UseAsrDraftOptions {
 export interface UseAsrDraftResult {
   readonly status: AsrDraftStatus;
   readonly listening: boolean;
+  /** 已点开始，采音/WS 握手还没完成——真实上游下这段不是 0 秒，界面必须说话。 */
+  readonly connecting: boolean;
+  /** 已点停止，正在等最后一段 `asr.final` 落定——同样不是 0 秒（见上面文件头注）。 */
+  readonly stopping: boolean;
   readonly error: string | null;
   readonly start: () => void;
   readonly stop: () => void;
@@ -67,6 +81,9 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
   const [error, setError] = React.useState<string | null>(null);
   const handleRef = React.useRef<{ stop: () => Promise<void> } | null>(null);
   const startingRef = React.useRef(false);
+  // 防"停止过程中又点了开始"：UI 层已经在 stopping 态禁用按钮，这里是第二道防线
+  // （直接调用 hook、不经过按钮的调用方也不该在这个窗口里重新起一条新的采音管线）。
+  const stoppingRef = React.useRef(false);
   const baseTextRef = React.useRef("");
   const committedRef = React.useRef("");
   const onTranscriptRef = React.useRef(onTranscript);
@@ -79,11 +96,17 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
   const stop = React.useCallback(() => {
     const handle = handleRef.current;
     handleRef.current = null;
-    if (handle !== null) void handle.stop();
+    if (handle === null) return; // 还没连上（connecting）或已经停了——没有一条真实句柄可停。
+    // 同步置位：`handle.stop()` 要等上游确认收尾（真实上游下不是 0 秒），界面必须
+    // 立刻说"正在停止"，不能等到 promise resolve 才有反应——那正是 devapp 实测反馈的
+    // "终止转录也不能正常终止"（不是真没终止，是终止过程中界面看起来像没反应）。
+    setStatus("stopping");
+    stoppingRef.current = true;
+    void handle.stop();
   }, []);
 
   const start = React.useCallback(() => {
-    if (handleRef.current !== null || startingRef.current) return; // 已经在录，忽略重复点击。
+    if (handleRef.current !== null || startingRef.current || stoppingRef.current) return; // 已经在录/正在连/正在停，忽略重复点击。
     if (!isCaptureSupported()) {
       setStatus("unsupported");
       setError("你的浏览器不支持语音输入（缺少麦克风采音或 WebSocket 能力），请手动输入或改用 Chrome 等支持的浏览器。");
@@ -93,6 +116,10 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     committedRef.current = "";
     setError(null);
     startingRef.current = true;
+    // 同步置位：真实上游的采音权限弹窗 + WS 握手不是 0 秒，界面必须立刻说"正在连接"，
+    // 不能等到 openAsrDraftStream 的 promise resolve 才有反应——那正是 devapp 实测反馈的
+    // "点击 mic 图标以后要反应半天"。
+    setStatus("connecting");
 
     void openAsrDraftStream(
       {
@@ -105,11 +132,13 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
         },
         onError: (reason) => {
           handleRef.current = null;
+          stoppingRef.current = false;
           setStatus("error");
           setError(ERROR_TEXT[reason] ?? `语音识别出错：${reason}`);
         },
         onFinished: () => {
           handleRef.current = null;
+          stoppingRef.current = false;
           setStatus((current) => (current === "error" || current === "denied" ? current : "idle"));
         },
       },
@@ -135,5 +164,13 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
 
   React.useEffect(() => () => { void handleRef.current?.stop(); }, []);
 
-  return { status, listening: status === "listening", error, start, stop };
+  return {
+    status,
+    listening: status === "listening",
+    connecting: status === "connecting",
+    stopping: status === "stopping",
+    error,
+    start,
+    stop,
+  };
 }
