@@ -74,4 +74,17 @@ export class PgInterviewQuoteRepository implements QuoteRepository {
       return r.rows.map(toStored);
     });
   }
+
+  async listByOrgAndRqId(orgId: OrgId, rqId: string): Promise<readonly StoredQuote[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<QuoteRow>(
+        `SELECT id, interview_id, segment_id, subject_id, source_kind, text, rq_id
+           FROM interview_quotes
+          WHERE org_id = $1 AND rq_id = $2
+          ORDER BY created_at ASC`,
+        [orgId, rqId],
+      );
+      return r.rows.map(toStored);
+    });
+  }
 }

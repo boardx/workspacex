@@ -1,9 +1,11 @@
 /**
- * 洞察写路径的三条路由（F01，uc-6-5 R3 step1-3）。协议适配 only。
+ * 洞察写路径的三条路由（F01，uc-6-5 R3 step1-3）+ 普遍性断言写作约束（F05，R3 step7）。
+ * 协议适配 only。
  *
  *   404  NO_INTERVIEW_ACCESS               无权/不存在（extractQuotes）。
  *   409  INSIGHT_NO_EVIDENCE               候选/确认阶段缺证据（I-29）。
  *   409  CONCURRENT_MODIFICATION           candidateId 已确认/不存在。
+ *   409  GENERALIZATION_UNSUPPORTED        独立受访者数未达门槛（F05，AC7/V7）。
  *   503  AI_GENERATION_UNAVAILABLE         归纳服务失败，已抽引述保留（E1）。
  *   503  DEPENDENCY_UNAVAILABLE            Context Pack 不可读。
  */
@@ -13,7 +15,9 @@ import type { z } from "zod";
 import { extractQuotes } from "../../application/interview/extract-quotes";
 import { generateCandidateInsights } from "../../application/interview/generate-candidate-insights";
 import { confirmInsight } from "../../application/interview/confirm-insight";
+import { checkGeneralizationClaim } from "../../application/interview/check-generalization-claim";
 import {
+  GeneralizationUnsupportedError,
   InsightCandidateNotFoundError,
   InsightDependencyUnavailableError,
   InsightGenerationUnavailableError,
@@ -125,6 +129,22 @@ export class InterviewInsightController {
     );
   }
 
+  @Post("/interviews/themes/:themeId/generalization-check")
+  async checkGeneralization(
+    @CurrentPrincipal() principal: Principal,
+    @Param("themeId") themeId: string,
+    @Body(new ZodBodyPipe(C.operations.checkGeneralizationClaim.in))
+    body: z.infer<typeof C.operations.checkGeneralizationClaim.in>,
+  ) {
+    assertPrincipal(principal);
+    return this.run(() =>
+      checkGeneralizationClaim(
+        { quotes: this.quotes },
+        { orgId: principal.orgId, themeId, draftText: body.draftText },
+      ),
+    );
+  }
+
   private async run<T>(fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();
@@ -132,6 +152,13 @@ export class InterviewInsightController {
       if (e instanceof NoInterviewAccessError) throw new NotFoundException();
       if (e instanceof InsightNoEvidenceError) throw new ConflictException({ reasonCode: "INSIGHT_NO_EVIDENCE" });
       if (e instanceof InsightCandidateNotFoundError) throw new ConflictException({ reasonCode: "CONCURRENT_MODIFICATION" });
+      if (e instanceof GeneralizationUnsupportedError) {
+        throw new ConflictException({
+          reasonCode: "GENERALIZATION_UNSUPPORTED",
+          independentSubjects: e.independentSubjects,
+          suggestion: e.suggestion,
+        });
+      }
       if (e instanceof InsightGenerationUnavailableError) {
         throw new ServiceUnavailableException({ reasonCode: "AI_GENERATION_UNAVAILABLE" });
       }

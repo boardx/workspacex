@@ -38,6 +38,14 @@ export interface QuoteRepository {
   ): Promise<readonly StoredQuote[]>;
   /** `confirmInsight` 用：按 id 精确取回，供固化来源快照。 */
   getByIds(orgId: OrgId, quoteIds: readonly string[]): Promise<readonly StoredQuote[]>;
+  /**
+   * `checkGeneralizationClaim`（F05）用：按 `rqId` 取该"主题"下全部已抽引述——
+   * 本域目前没有独立的 theme 表（`mergeThemes`/`splitThemes` 是 F04，尚未接线），
+   * `rqId` 是唯一已持久化的主题式分组键（同 `generateCandidateInsights` 按 `rqId`
+   * 分组候选的既有先例），所以契约里的 `themeId` 在本仓当前实现下取值就是 `rqId`。
+   * 不跨 `interviewId` 限制：普遍性断言天然是跨场次统计独立受访者数。
+   */
+  listByOrgAndRqId(orgId: OrgId, rqId: string): Promise<readonly StoredQuote[]>;
 }
 
 export const QUOTE_REPOSITORY = Symbol("QuoteRepository");

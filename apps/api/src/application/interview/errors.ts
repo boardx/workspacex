@@ -466,3 +466,25 @@ export class InsightCandidateNotFoundError extends Error {
     super(`CONCURRENT_MODIFICATION: insight candidate ${candidateId} not found or already confirmed`);
   }
 }
+
+/* ─────────────────────────── F05（phase-11）：普遍性断言写作约束（uc-6-5 R3 step7） ─────────────────────────── */
+
+/**
+ * 草稿文本含「用户普遍认为」类措辞，但独立受访者数未达全仓单一门槛（O-16，5 人）——
+ * `checkGeneralizationClaim` 阻断（R4 E9/AC7/V7）。
+ *
+ * ⚠ 携带 `independentSubjects`（实际人数）与 `suggestion`（改写建议）——契约头注
+ *   「提示文案必须给出实际的独立受访者数」，`interface` 层把这两个字段原样透出到
+ *   响应体，不能只回一个笼统的 reasonCode（同 `RequiresPinnedError` 携带 `versionId`
+ *   的先例）。数字与文案由 `domain/interview/generality-claim.ts` 的
+ *   `checkGeneralizationClaim` 纯函数算出，这里不重算。
+ */
+export class GeneralizationUnsupportedError extends Error {
+  readonly code = "GENERALIZATION_UNSUPPORTED" as const;
+  constructor(
+    readonly independentSubjects: number,
+    readonly suggestion: string,
+  ) {
+    super(`GENERALIZATION_UNSUPPORTED: only ${independentSubjects} independent subject(s)`);
+  }
+}

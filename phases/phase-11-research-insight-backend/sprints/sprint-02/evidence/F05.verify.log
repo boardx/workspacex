@@ -1,0 +1,22 @@
+[stack-admission] load1=7.63 cores=10 perCore=0.76 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mt1cqjm7-f406c15f-222de0d664da db=wsx_222de0d664da1cde224f compose=wsx-222de0d664da1cde224f pg=22022 redis=27022
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ae0c1bccd5e88421c/apps/api
+
+[db-isolation] db=wsx_222de0d664da1cde224f capacity=100 current=6 required=32
+ ✓ tests/itv/generalization-claim-gate-real-db.test.ts (6 tests) 5413ms
+   ✓ F05 · checkGeneralizationClaim 真接持久化引述（uc-6-5 R3 step7 / R4 E9 / AC7 V7） > 虚拟来源受访者的引述不计入独立受访者数（sourceKind=virtual，反证：若被误计入会放行） 349ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  18:02:38
+   Duration  8.26s (transform 407ms, setup 0ms, collect 513ms, tests 5.41s, environment 0ms, prepare 37ms)
+
+[db-isolation] db=wsx_222de0d664da1cde224f peak_connections=4
+[timing] pnpm --filter api exec vitest run tests/itv/generalization-claim-gate-real-db.test.ts
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：1s
+  总计：10s
