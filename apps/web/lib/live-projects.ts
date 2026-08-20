@@ -4,7 +4,7 @@
  * 类型全部从 `@repo/contracts` 推导，不重新声明——同一份形状两处声明正是本仓
  * AGENTS.md 点名的事故模式（设计 token / 字号档位 / …）。
  */
-import { project } from "@repo/contracts";
+import { artifact, project } from "@repo/contracts";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
@@ -46,7 +46,14 @@ export async function findProject(orgId: string, projectId: string): Promise<Pro
 }
 
 export type ProjectOverview = z.infer<typeof project.operations.getProjectOverview.out>;
-export type BackflowEntry = ProjectOverview["backflow"][number];
+/**
+ * ⚠ 直接派生自契约的 `artifact.BackflowEntry`，不绕道 `ProjectOverview["backflow"][number]`。
+ * 两者类型完全相同（`project.ts` 的 `backflow` 就是 `z.array(BackflowEntry)`，逐字引用
+ * artifact 那一份），但索引访问那种写法不被 `lint-contract-source` 的 `derived` 判据认得
+ * （它只认 `z.infer<`、`C.X` 别名、含 `@repo/contracts` 三种形式）⇒ 被判成 LITERAL 重定义。
+ * 直接引用既过门，也更贴近"单一事实源"本身的意思。
+ */
+export type BackflowEntry = z.infer<typeof artifact.BackflowEntry>;
 
 /**
  * 回流徽标中文标签——单一声明处。F362（`tab-overview.tsx`）与 F964（`tab-results.tsx`）

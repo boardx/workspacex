@@ -35,6 +35,34 @@ export interface HttpSkillSandboxConfig {
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 360_000;
 
+/**
+ * 这个部署到底**有没有**配沙箱地址 —— 唯一的判定处（#1652）。
+ *
+ * ## 为什么这不是「多此一举的一个 helper」
+ *
+ * 试跑与 chat 对「没配沙箱」的正确反应**不一样**，而两者共用同一个 `SKILL_SANDBOX_PORT`：
+ *
+ * | 调用方 | 没配沙箱时正确的行为 | 为什么 |
+ * |---|---|---|
+ * | 试跑（`SkillTrialRunExecutor`） | 照常调用，拿到 `SANDBOX_UNAVAILABLE` | 试跑**就是**为了执行，执行不了就是一次诚实的失败 |
+ * | chat（`AgentRunExecutor`） | **整条路径不存在**（`sandbox` 不注入） | 用户问的是一句话，执行只是可选增强；没配就该与接沙箱之前逐字节相同 |
+ *
+ * 合成期不区分这两者会产生一条真实回归（#1652 T2 实测）：没接沙箱的部署里，
+ * system prompt 照旧多出执行协议 → 模型据此吐出 `run_script` 块 → 上层去执行 →
+ * 这里抛 `SANDBOX_UNAVAILABLE` → 用户本来好好的一条回复被追加上一段失败横幅。
+ *
+ * ⚠ 判据只写在这里一处，`kernel.module.ts` 的两个 provider 都读它。两处各写一遍
+ *   `process.env.X !== undefined && process.env.X !== ""` 就是"同一事实声明在两处"——
+ *   哪天多一个地址形态（比如第三种传输），只改一处的那半边会静默漂移回今天这条 bug。
+ */
+export function configuredSkillSandboxAddress(): HttpSkillSandboxConfig | null {
+  const socketPath = process.env.KERNEL_SKILL_SANDBOX_SOCKET;
+  const baseUrl = process.env.KERNEL_SKILL_SANDBOX_BASE_URL;
+  const present = (v: string | undefined): boolean => v !== undefined && v !== "";
+  if (!present(socketPath) && !present(baseUrl)) return null;
+  return { socketPath, baseUrl };
+}
+
 export class HttpSkillSandbox implements SkillSandboxPort {
   constructor(private readonly config: HttpSkillSandboxConfig) {}
 
