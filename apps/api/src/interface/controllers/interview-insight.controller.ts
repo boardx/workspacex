@@ -7,18 +7,21 @@
  *   503  AI_GENERATION_UNAVAILABLE         归纳服务失败，已抽引述保留（E1）。
  *   503  DEPENDENCY_UNAVAILABLE            Context Pack 不可读。
  */
-import { Body, Controller, Inject, NotFoundException, Param, Post, ServiceUnavailableException, ConflictException } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Inject, NotFoundException, Param, Post, ServiceUnavailableException, ConflictException } from "@nestjs/common";
 import { interview as C } from "@repo/contracts";
 import type { z } from "zod";
 import { extractQuotes } from "../../application/interview/extract-quotes";
 import { generateCandidateInsights } from "../../application/interview/generate-candidate-insights";
 import { confirmInsight } from "../../application/interview/confirm-insight";
+import { markStrongInsight } from "../../application/interview/mark-strong-insight";
+import { referenceForDecision } from "../../application/interview/reference-for-decision";
 import {
   InsightCandidateNotFoundError,
   InsightDependencyUnavailableError,
   InsightGenerationUnavailableError,
   InsightNoEvidenceError,
   NoInterviewAccessError,
+  VirtualSourceForbiddenError,
 } from "../../application/interview/errors";
 import { INTERVIEW_SCOPE_REPOSITORY, type InterviewScopeRepository } from "../../application/interview/ports";
 import { DECISION_ID_FACTORY, type DecisionIdFactory } from "../../application/identity/ports";
@@ -125,6 +128,42 @@ export class InterviewInsightController {
     );
   }
 
+  /**
+   * markStrongInsight —— 虚拟隔离的接口层门（F03，V3/I-28）。
+   * ⚠ 接口层拒绝，不是前端按钮置灰：直接调这个路由绕过前端仍被拒。
+   */
+  @Post("/interviews/insights/:insightId/mark-strong")
+  async markStrong(
+    @CurrentPrincipal() principal: Principal,
+    @Param("insightId") insightId: string,
+    @Body(new ZodBodyPipe(C.operations.markStrongInsight.in))
+    _body: z.infer<typeof C.operations.markStrongInsight.in>,
+  ) {
+    assertPrincipal(principal);
+    return this.run(() =>
+      markStrongInsight({ insights: this.insights }, { orgId: principal.orgId, insightId }),
+    );
+  }
+
+  /**
+   * referenceForDecision —— 同一道虚拟隔离门（F03，V3/I-28）。
+   */
+  @Post("/interviews/insights/:insightId/decision-reference")
+  async referenceForDecision(
+    @CurrentPrincipal() principal: Principal,
+    @Param("insightId") insightId: string,
+    @Body(new ZodBodyPipe(C.operations.referenceForDecision.in))
+    body: z.infer<typeof C.operations.referenceForDecision.in>,
+  ) {
+    assertPrincipal(principal);
+    return this.run(() =>
+      referenceForDecision(
+        { insights: this.insights },
+        { orgId: principal.orgId, insightId, decisionId: body.decisionId },
+      ),
+    );
+  }
+
   private async run<T>(fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();
@@ -137,6 +176,9 @@ export class InterviewInsightController {
       }
       if (e instanceof InsightDependencyUnavailableError) {
         throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+      }
+      if (e instanceof VirtualSourceForbiddenError) {
+        throw new ForbiddenException({ reasonCode: "VIRTUAL_SOURCE_FORBIDDEN" });
       }
       throw e;
     }

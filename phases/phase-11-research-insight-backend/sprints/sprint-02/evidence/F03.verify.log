@@ -1,0 +1,21 @@
+F03 verify — 2026-08-20
+base SHA: 048f153351cbd4ed793e1950b3572a142220ce64 (origin/main at branch cut)
+cmd: WORKSPACEX_DB=wsx_i1648_f03 pnpm --filter api exec vitest run tests/itv/virtual-source-interface-gate.test.ts
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a541a2eed331772f0/apps/api
+
+[db-isolation] db=wsx_i1648_f03 capacity=100 current=6 required=32
+ ✓ tests/itv/virtual-source-interface-gate.test.ts (6 tests) 703ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  17:58:20
+   Duration  1.77s (transform 400ms, setup 0ms, collect 512ms, tests 703ms, environment 0ms, prepare 36ms)
+
+[db-isolation] db=wsx_i1648_f03 peak_connections=4
+
+Additional gates run clean on the touched files:
+- node apps/api/scripts/lint-error-leak.mjs -> ok (68 files scanned)
+- node apps/api/scripts/lint-permission-paths.mjs -> ok (984 scanned, 170 tenant-tables, 71 allowlisted)
+- node .harness/scripts/lint-arch-deps.mjs apps/api/src -> ok (982 files, all dependencies point inward)
+- pnpm --filter api exec vitest run tests/itv/insight-write-path-persists-real-db.test.ts tests/itv/insight-pinned-snapshot-immutable-real-db.test.ts -> 6 tests passed (F01 regression check)

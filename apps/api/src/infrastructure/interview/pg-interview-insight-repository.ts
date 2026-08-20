@@ -76,4 +76,18 @@ export class PgInterviewInsightRepository implements InsightRepository {
       return row === undefined ? null : toStored(row);
     });
   }
+
+  async markStrong(orgId: OrgId, insightId: string): Promise<StoredInsight | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<InsightRow>(
+        `UPDATE interview_insights
+            SET strong = true, updated_at = now()
+          WHERE org_id = $1 AND id = $2
+          RETURNING id, interview_id, text, source_kind, strong, evidence_quote_ids, pinned_source_snapshot_id`,
+        [orgId, insightId],
+      );
+      const row = r.rows[0];
+      return row === undefined ? null : toStored(row);
+    });
+  }
 }

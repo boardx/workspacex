@@ -151,6 +151,14 @@ export interface InsightRepository {
   /** 一个事务内：插快照 + 插洞察，两者要么都进去要么都不进去。 */
   confirm(write: ConfirmInsightWrite): Promise<StoredInsight>;
   getById(orgId: OrgId, insightId: string): Promise<StoredInsight | null>;
+  /**
+   * `markStrongInsight`（F03）的写点——`interview_insights.strong` 由 F01 恒插
+   * `false`，UPDATE 授权在 F01 迁移里已经先开给 F03（见该迁移文件 `interview_insights`
+   * 表注释）。调用方必须在调这个方法**之前**已经过 `checkSourceAllowsStrongUse` 门；
+   * 本方法不重复判定虚拟来源，只负责落库。`insightId` 不存在（或不属于该 org）时
+   * 返回 `null`，不抛错——由调用方决定映射成什么错误。
+   */
+  markStrong(orgId: OrgId, insightId: string): Promise<StoredInsight | null>;
 }
 
 export const INSIGHT_REPOSITORY = Symbol("InsightRepository");

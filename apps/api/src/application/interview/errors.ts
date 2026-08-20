@@ -466,3 +466,20 @@ export class InsightCandidateNotFoundError extends Error {
     super(`CONCURRENT_MODIFICATION: insight candidate ${candidateId} not found or already confirmed`);
   }
 }
+
+/* ─────────────────────────── F03（phase-11）：虚拟来源隔离门（uc-6-5 R3 step5 / R7） ─────────────────────────── */
+
+/**
+ * `markStrongInsight` / `referenceForDecision` 的接口层拒绝（V3/I-28）。
+ * ⚠ 两个 controller 端点共用同一道门 `checkSourceAllowsStrongUse`
+ *   （`domain/interview/insight-source-gate.ts`）——本类只是把该纯函数的
+ *   `{ ok: false, reason: "VIRTUAL_SOURCE_FORBIDDEN" }` 结果翻成可 `throw` 的错误，
+ *   不重新判定"这条洞察算不算虚拟"。判定本身只看已固化的 `Insight.sourceKind`，
+ *   不看调用方是谁——绕过前端直接调 API 同样被拒。
+ */
+export class VirtualSourceForbiddenError extends Error {
+  readonly code = "VIRTUAL_SOURCE_FORBIDDEN" as const;
+  constructor(readonly insightId: string) {
+    super(`VIRTUAL_SOURCE_FORBIDDEN: insight ${insightId} has a virtual source and cannot be marked strong or referenced for a decision`);
+  }
+}
