@@ -177,6 +177,25 @@ import { PgInterviewScopeRepository } from "./infrastructure/interview/pg-interv
 import { PgInterviewAttachmentRepository } from "./infrastructure/interview/pg-interview-attachment-repository";
 import { InterviewScopeController } from "./interface/controllers/interview-scope.controller";
 import { DigitalInterviewController } from "./interface/controllers/digital-interview.controller";
+// F01 (phase-06 · 06-itv insight sub-bundle): 洞察写路径持久化——extractQuotes /
+// generateCandidateInsights / confirmInsight 三个算子真正接线到 Postgres。
+import { InterviewInsightController } from "./interface/controllers/interview-insight.controller";
+import {
+  CANDIDATE_INSIGHT_GENERATOR,
+  CONSENT_DECLINE_READER,
+  INSIGHT_CANDIDATE_STORE,
+  INSIGHT_CONTEXT_API,
+  INSIGHT_REPOSITORY,
+  QUOTE_REPOSITORY,
+  SEGMENT_READER,
+} from "./application/interview/insight-ports";
+import { PgInterviewQuoteRepository } from "./infrastructure/interview/pg-interview-quote-repository";
+import { PgInterviewInsightRepository } from "./infrastructure/interview/pg-interview-insight-repository";
+import { PgSegmentReader } from "./infrastructure/interview/pg-segment-reader";
+import { PgConsentDeclineReader } from "./infrastructure/interview/pg-consent-decline-reader";
+import { ContextApiInsightMaterialReader } from "./infrastructure/interview/context-api-insight-material-reader";
+import { InMemoryInsightCandidateStore } from "./infrastructure/interview/in-memory-insight-candidate-store";
+import { HeuristicCandidateInsightGenerator } from "./infrastructure/interview/heuristic-candidate-insight-generator";
 import { GuidedResearchController } from "./interface/controllers/guided-research.controller";
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
 import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
@@ -307,7 +326,9 @@ import {
   SKILL_TRIAL_RUN_STORE,
   type SkillTrialRunStore,
 } from "./application/skill/trial-run-async-ports";
-import { HttpSkillSandbox } from "./infrastructure/skill/http-skill-sandbox";
+import {
+  HttpSkillSandbox, configuredSkillSandboxAddress,
+} from "./infrastructure/skill/http-skill-sandbox";
 import { PgSkillTrialRunStore } from "./infrastructure/skill/pg-skill-trial-run-store";
 import { SkillTrialRunExecutor } from "./infrastructure/skill/skill-trial-run-executor";
 import { PgOrgAgentModelReader } from "./infrastructure/skill/pg-org-agent-model-reader";
@@ -623,6 +644,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     DigitalInterviewController,
     GuidedResearchController,
     InterviewScopeController,
+    InterviewInsightController,
     ChatController,
     ChatAttachmentController,
     OrgInviteController,
@@ -1126,11 +1148,9 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
      */
     {
       provide: SKILL_SANDBOX_PORT,
-      useFactory: () =>
-        new HttpSkillSandbox({
-          socketPath: process.env.KERNEL_SKILL_SANDBOX_SOCKET,
-          baseUrl: process.env.KERNEL_SKILL_SANDBOX_BASE_URL,
-        }),
+      // 地址判定的唯一事实源是 `configuredSkillSandboxAddress()`（见那个函数的头注）：
+      // 没配 ⇒ 传空配置，`HttpSkillSandbox` 在**调用时**如实抛 `SANDBOX_UNAVAILABLE`。
+      useFactory: () => new HttpSkillSandbox(configuredSkillSandboxAddress() ?? {}),
     },
     {
       provide: SKILL_TRIAL_RUN_STORE,
@@ -1193,17 +1213,32 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (
         runs: AgentRunStore, model: ModelCallPort, logger: LoggerPort, usage: TokenUsageMeterPort,
         db: DatabasePort, identity: IdentityRepository, templates: CanvasTemplateRepository,
-        decisions: DecisionIdFactory, store: ObjectStore,
+        decisions: DecisionIdFactory, store: ObjectStore, sandbox: SkillSandboxPort,
       ) =>
         new AgentRunExecutor(
           runs, model, logger, process.env.KERNEL_AGENT_RUN_AUTOSTART !== "0", usage,
           new PgFileRetrieval(db), new PgAgentRunContextSnapshot(db), new PgToolTraceContext(db),
           createCanvasTemplateGuidancePort({ identity, templates, ids: decisions }),
           new PgRunImageInput(db, store),
+          // #1624：chat 里挂了 skill 之后模型写的脚本真的在沙箱里跑。同一条既有先例——
+          // 「这个部署的 chat 能不能真的产出文件」由这一行决定，不是运行期的偶然。
+          // 复用**同一个** SKILL_SANDBOX_PORT（试跑那条链已经在用它），不起第二套沙箱绑定；
+          // 产物字节复用既有 OBJECT_STORE（附件字节本来就存在那里）。
+          //
+          // ⚠ #1652：**没配沙箱地址就不注入**。`SKILL_SANDBOX_PORT` 这个 provider 永远存在
+          //   （试跑那条链需要它在调用时诚实报 `SANDBOX_UNAVAILABLE`），所以这里若无条件
+          //   把它传下去，`execute-run.ts` 的 `deps.sandbox && ...` 就恒真——于是没接沙箱的
+          //   部署里 system prompt 照旧多出执行协议、模型照旧吐 `run_script` 块、上层照旧去
+          //   执行，最后给用户一条本来好好的回复追加上 `SANDBOX_UNAVAILABLE` 失败横幅。
+          //   这不是推测：`tests/chat/chat-skill-sandbox-unconfigured-no-regression.test.ts`
+          //   在这一行加上之前实测就是那个样子。
+          configuredSkillSandboxAddress() === null ? undefined : sandbox,
+          store,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
         IDENTITY_REPOSITORY, CANVAS_TEMPLATE_REPOSITORY, DECISION_ID_FACTORY, OBJECT_STORE,
+        SKILL_SANDBOX_PORT,
       ],
     },
     // F159. 计量的唯一写入实现。挂在执行器上而不是 provider 上：provider 只知道
@@ -1298,6 +1333,46 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort, identities: IdentityRepository) =>
         new ContextApiDigitalExpertMaterialReader(db, identities),
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
+    },
+    // F01 (phase-06): 洞察写路径。QUOTE_REPOSITORY / INSIGHT_REPOSITORY 是真实持久化；
+    // INSIGHT_CONTEXT_API 复用 Context Pack 既有授权 API（同 DIGITAL_EXPERT_CONTEXT_API
+    // 一样的适配形状）；INSIGHT_CANDIDATE_STORE 进程内周转（契约「候选不直接入库」）；
+    // CANDIDATE_INSIGHT_GENERATOR 是确定性启发式，非真实模型调用（见该文件文件头）。
+    {
+      provide: QUOTE_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInterviewQuoteRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: INSIGHT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgInterviewInsightRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SEGMENT_READER,
+      useFactory: (db: DatabasePort) => new PgSegmentReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: CONSENT_DECLINE_READER,
+      useFactory: (db: DatabasePort) => new PgConsentDeclineReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: INSIGHT_CONTEXT_API,
+      useFactory: (db: DatabasePort, identities: IdentityRepository) =>
+        new ContextApiInsightMaterialReader(db, identities),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
+    },
+    {
+      provide: INSIGHT_CANDIDATE_STORE,
+      useFactory: () => new InMemoryInsightCandidateStore(),
+      inject: [],
+    },
+    {
+      provide: CANDIDATE_INSIGHT_GENERATOR,
+      useFactory: () => new HeuristicCandidateInsightGenerator(),
+      inject: [],
     },
     {
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,

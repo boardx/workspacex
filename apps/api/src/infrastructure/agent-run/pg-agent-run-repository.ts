@@ -27,7 +27,7 @@ import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
   AgentRunStore, AppendedRunDelta, AppendedRunStep, ClaimOutcome, HistoryAttachmentMeta,
-  PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus,
+  PendingWriteback, PinnedSkillContent, RunDelta, RunFailureCode, RunLifecycleStatus, RunOutputFile,
   RunLocator, RunProjection, ThreadContextState, ThreadHistoryMessage,
 } from "../../application/agent-run/ports";
 
@@ -250,16 +250,24 @@ export class PgAgentRunRepository implements AgentRunStore {
   async storeOutputAwaitingWriteback(
     orgId: OrgId,
     runId: string,
-    output: { readonly text: string; readonly finalStepSeq: number },
+    output: {
+      readonly text: string;
+      readonly finalStepSeq: number;
+      readonly files?: readonly RunOutputFile[];
+    },
   ): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       // #725: `model_called_seq` travels with the run so `commitWriteback`/
       // `appendWritebackFailure` can compute the writeback step's `seq` from the ACTUAL
       // terminal step, not the pre-#725 assumption that it is always `3`.
       await s.query(
-        `UPDATE agent_runs SET status='writeback_pending', model_output=$3, model_called_seq=$4
+        `UPDATE agent_runs
+            SET status='writeback_pending', model_output=$3, model_called_seq=$4,
+                model_output_files=$5::jsonb
           WHERE org_id=$1 AND id=$2 AND status='running'`,
-        [orgId, runId, output.text, output.finalStepSeq],
+        // #1624：没有产物时写入 `'[]'` —— 与该列的 DEFAULT 完全一致，所以没有沙箱端口
+        // 的部署里这条 UPDATE 的结果与本次改动之前逐字节相同。
+        [orgId, runId, output.text, output.finalStepSeq, JSON.stringify(output.files ?? [])],
       );
     });
   }
@@ -285,8 +293,10 @@ export class PgAgentRunRepository implements AgentRunStore {
       const result = await s.query<{
         id: string; thread_id: string; input_message_id: string;
         agent_id: string; model_output: string; writeback_attempts: number;
+        model_output_files: readonly RunOutputFile[] | null;
       }>(
-        `SELECT id, thread_id, input_message_id, agent_id, model_output, writeback_attempts
+        `SELECT id, thread_id, input_message_id, agent_id, model_output, writeback_attempts,
+                model_output_files
            FROM agent_runs
           WHERE org_id=$1 AND status='writeback_pending' AND model_output IS NOT NULL
           ORDER BY created_at, id
@@ -300,6 +310,9 @@ export class PgAgentRunRepository implements AgentRunStore {
         agentId: row.agent_id,
         text: row.model_output,
         attempts: row.writeback_attempts,
+        // #1624：列有 `DEFAULT '[]'`，但历史行与任何读不到的情况一律折成空数组——
+        // "没有产物"是安全的默认，猜一个文件名会让写回去挂一个不存在的附件。
+        files: row.model_output_files ?? [],
       }));
     });
   }
@@ -310,6 +323,7 @@ export class PgAgentRunRepository implements AgentRunStore {
       readonly runId: string; readonly threadId: string; readonly inputMessageId: string;
       readonly agentId: string; readonly text: string; readonly startedAt: string;
       readonly endedAt: string; readonly outputDigest: string;
+      readonly files?: readonly RunOutputFile[];
     },
   ): Promise<{ readonly messageId: string }> {
     // ONE transaction: the message, the step and the terminal status commit together or
@@ -359,6 +373,29 @@ export class PgAgentRunRepository implements AgentRunStore {
         [randomUUID(), orgId, input.runId, input.startedAt, input.endedAt,
           input.outputDigest],
       );
+
+      /*
+       * #1624 —— 沙箱产出的文件挂成**这条助手消息的附件**，与消息、步骤、终态在
+       * 同一个事务里。分开写会产生一条说"文件见附件"却没有附件的回复。
+       *
+       * ⚠ 幂等靠一次 `NOT EXISTS` 自查而不是 `ON CONFLICT`：`chat_message_attachments`
+       *   的主键是随机 id，`(message_id, storage_ref)` 上没有唯一索引（那张表的既有语义
+       *   允许同一个文件被挂到多条消息上）。写回是**有界重试**的，第二次尝试拿到的是
+       *   同一条已存在的 `messageId`（见上面 RETURNING 为空那段），若无此判断就会给
+       *   同一条消息挂上两份同一个文件。
+       */
+      for (const file of input.files ?? []) {
+        await s.query(
+          `INSERT INTO chat_message_attachments
+             (id,org_id,thread_id,message_id,storage_ref,filename,mime,bytes)
+           SELECT $1,$2,$3,$4,$5,$6,$7,$8
+            WHERE NOT EXISTS (
+              SELECT 1 FROM chat_message_attachments
+               WHERE org_id=$2 AND message_id=$4 AND storage_ref=$5)`,
+          [randomUUID(), orgId, input.threadId, messageId,
+            file.objectKey, file.name, file.mime, file.sizeBytes],
+        );
+      }
 
       // Guarded on the current status so the loser of a race is a no-op rather than an
       // illegal `succeeded -> succeeded` write against the transition trigger.

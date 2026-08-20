@@ -69,6 +69,8 @@ async function writeBackOne(
       startedAt,
       endedAt: deps.clock.now(),
       outputDigest: sha256(pending.text),
+      // #1624：沙箱产出的文件与消息同事务挂上。缺省/空 ⇒ 不插附件行，写回逐字节同前。
+      files: pending.files,
     });
     return;
   } catch (e) {

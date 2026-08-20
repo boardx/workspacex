@@ -23,7 +23,7 @@ import {
 } from "./ag-shared";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { getAssetDirectory, readAssetFile, writeAssetFile, type AssetDirectory } from "@/lib/asset-directory";
-import { runSkillTrialRun } from "@/lib/skill-trial-run";
+import { runSkillTrialRun, pollSkillTrialRun } from "@/lib/skill-trial-run";
 import type { FileNode } from "@/lib/mock/asset-governance";
 
 type ScreenProps = { state: UiState; view: AgView };
@@ -630,19 +630,49 @@ function Editor({
     setTrialRunPending(true);
     setTrialRunError(null);
     try {
-      const result = await runSkillTrialRun(versionId, trialRunInput);
-      if (result.trialRun === null) {
-        // 契约允许转后台任务（R9），本次实现恒不转（见后端文件头），
-        // 这个分支理论上到不了，但按类型诚实处理而不是断言非空。
-        setTrialRunError("试跑已转后台任务，本次界面暂不支持查看后台任务结果。");
+      // F962 之后 POST 恒转异步（`trialRun` 恒 null，`asyncTaskId` 恒非 null）——
+      // 见 `lib/skill-trial-run.ts` 头注「POST 恒转异步，轮询是必需的一半」。但契约
+      // 类型上两个字段都是 `nullable`（`trialRun`/`asyncTaskId` 互斥，不是各自独立
+      // 可空），按类型诚实处理：`trialRun` 非空就是同步结果直接可用（契约没有排除
+      // 这条路径，只是当前实现恒不走），`asyncTaskId` 非空才需要轮询。
+      const submitted = await runSkillTrialRun(versionId, trialRunInput);
+      const polled =
+        submitted.trialRun !== null
+          ? { status: "succeeded" as const, trialRun: submitted.trialRun, failure: null }
+          : submitted.asyncTaskId !== null
+            ? await pollSkillTrialRun(submitted.asyncTaskId)
+            : null;
+      if (polled === null) {
+        setTrialRunError("试跑提交响应既没有结果也没有任务 id，无法继续。");
+        return;
+      }
+      if (polled.status === "failed") {
+        // `failure.stderr` 是真实执行原文，不是友好文案（同 #660 的既有纪律）——
+        // 按 code 给一句人话前缀，但原文必须跟着，不能只留一句「失败了」。
+        const failure = polled.failure;
+        setTrialRunError(
+          failure === null
+            ? "试跑失败（未知原因）"
+            : `${failure.code}${failure.stderr ? `：${failure.stderr}` : ""}`,
+        );
+        return;
+      }
+      if (polled.trialRun === null) {
+        // 契约类型允许非终态时 trialRun 为 null；轮询已经在终态才返回，
+        // 到这里说明是 succeeded 但 trialRun 仍是 null——按类型诚实处理，不断言非空。
+        setTrialRunError("试跑已结束，但没有返回结果内容。");
         return;
       }
       setTrialRunOutput({
-        output: result.trialRun.output,
-        durationMs: result.trialRun.durationMs,
-        tokens: result.trialRun.tokens,
+        output: polled.trialRun.output,
+        durationMs: polled.trialRun.durationMs,
+        tokens: polled.trialRun.tokens,
       });
     } catch (error) {
+      if (error instanceof Error && error.message === "TRIALRUN_POLL_BUDGET_EXCEEDED") {
+        setTrialRunError("试跑仍在后台执行，尚未在等待时间内完成——可以稍后刷新页面查看。");
+        return;
+      }
       setTrialRunError(describeAssetError(error));
     } finally {
       setTrialRunPending(false);
