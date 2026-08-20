@@ -1018,7 +1018,19 @@ describe("lint-permission-paths: counter-proof", () => {
     // `segments.readSegments`/`quotes.insertMany` 之前；（d）`src/interface/` 下没有文件
     // 直接 import `pg-interview-insight-repository.ts`（只经 DI token 拿端口类型）。
     // 删那个测试则这四条也须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(71);
+    //
+    // ⚠ Raised 71 -> 72 by F04（phase-11-research-insight-backend，#1649）：主题整理三动作
+    // （mergeThemes/splitThemes/adjustEvidenceWeight）新增一个 infra 文件
+    // `pg-theme-repository.ts`，命名 `interview_themes`/`interview_theme_operations`/
+    // `interview_quotes`/`interview_insights` 四张表——与上面 F01 的
+    // `pg-interview-insight-repository.ts` 一个立场：这几张表背后没有 `interview` 之外的
+    // ACL 对象，契约 `mergeThemes`/`splitThemes`/`adjustEvidenceWeight` 的 `err` 数组本身
+    // 也没有 `NO_INTERVIEW_ACCESS`（`packages/contracts/src/interview.ts`），如实反映本
+    // feature 未涉及按访谈可见性过滤——那是更上一层（controller/未来的可见性判定）要接的线。
+    // 被强制的前提：`tests/itv/theme-repo-permission-guard.test.ts` 解析该文件断言
+    // （a）只命名这四张表；（b）不调用 `withoutTenant`；（c）`src/interface/` 下没有文件
+    // import 它（has_ui:false，本 feature 未接 HTTP controller）。删那个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(72);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

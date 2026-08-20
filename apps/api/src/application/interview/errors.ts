@@ -466,3 +466,49 @@ export class InsightCandidateNotFoundError extends Error {
     super(`CONCURRENT_MODIFICATION: insight candidate ${candidateId} not found or already confirmed`);
   }
 }
+
+/* ─────────────────────────── F04（phase-11）：主题整理三动作 + 回滚（uc-6-5 R3 step6） ─────────────────────────── */
+
+/**
+ * 合并/拆分/调权会让**唯一反例**格子消失（AC4/E4，I-26）。
+ * ⚠ `preview: true` 时**不抛这个错误**——预检永远成功返回，把 `vanishingCells` 交给
+ *   调用方自己判断；只有 `preview: false`（或 `splitThemes`/`adjustEvidenceWeight`
+ *   这两个没有 `preview` 开关、恒等价于 `preview: false` 的算子）真正尝试写库时，
+ *   命中危险才阻断。
+ */
+export class CounterexampleWouldVanishError extends Error {
+  readonly code = "COUNTEREXAMPLE_WOULD_VANISH" as const;
+  constructor(
+    readonly vanishing: readonly { readonly themeId: string; readonly subjectId: string }[],
+  ) {
+    super(`COUNTEREXAMPLE_WOULD_VANISH: ${vanishing.length} counterexample cell(s) would vanish`);
+  }
+}
+
+/**
+ * 两名研究员并发整理同一主题/引述（E3，V12）——不静默覆盖。
+ * ⚠ 判据是 `ThemeRepository` 的 `commit*` 方法返回 `null`：一次 SQL 语句里的
+ *   `WHERE status = 'active'`（主题）等条件在提交时不再成立，说明这行在本次请求读到它
+ *   之后、写它之前，已经被另一个并发请求消费掉——"可识别最终版本"由 `getActiveThemes`/
+ *   `getThemeQuoteFacts` 随时可查当前状态给出，"可回滚"由赢得那次竞争的操作自己的
+ *   `revertToken` 给出，两者都不依赖这个错误对象本身携带更多信息。
+ */
+export class ThemeConcurrentModificationError extends Error {
+  readonly code = "CONCURRENT_MODIFICATION" as const;
+  constructor(readonly subject: string) {
+    super(`CONCURRENT_MODIFICATION: ${subject} was concurrently modified or no longer active`);
+  }
+}
+
+/**
+ * `revertToken` 不存在，或已经被兑现过一次——回滚不可重放，也不支持指一个别人的
+ * 令牌。契约本身没有为"回滚"声明专门的错误码（`mergeThemes`/`splitThemes`/
+ * `adjustEvidenceWeight` 的 `err` 数组里都没有），如实登记为已知缺口，不硬套一个
+ * 语义不符的码：回滚是本 feature notes 承诺的能力，但契约尚未开出对应的 HTTP 操作
+ * （见 `theme-ports.ts` 头注）。
+ */
+export class ThemeRevertTokenInvalidError extends Error {
+  constructor(readonly revertToken: string) {
+    super(`THEME_REVERT_TOKEN_INVALID: ${revertToken} not found or already reverted`);
+  }
+}
