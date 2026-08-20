@@ -1,6 +1,15 @@
 /**
  * #1453 —— chat 全屏编辑图的键盘交互：mindmap 选中节点后 Tab 加子节点 / Enter
- * 加兄弟节点 / Delete 删子树；非 mindmap 图（flowchart）上同样的按键必须无副作用。
+ * 加兄弟节点 / Delete 删子树；非 mindmap 图（flowchart）上 Tab/Enter 必须无副作用
+ * （那是 mindmap 专用的树操作快捷键，flowchart 节点之间不是父子关系，Tab/Enter
+ * 加不出"子节点/兄弟节点"这种概念）。
+ *
+ * ⚠ Delete 不在"无副作用"之列（人类实测反馈，2026-08-19）：此前这条测试把
+ *   「flowchart 里选中节点按 Delete 什么都不发生」当成正确行为钉住，但那其实是
+ *   一个真实体验断层——切到工具条「删除」工具点一下就能删掉的同一个节点，键盘
+ *   Delete 却删不掉，用户没有理由记住这条不一致。现在 Delete 在非 mindmap 图上
+ *   走与「删除」工具**同一条**移除路径（`canvas.remove` + `object:modified`），
+ *   Tab/Enter 仍保持无副作用。
  *
  * 测试环境探明（写在这里，不是猜的）：
  * - `packages/fabric-markdown` 既有 164 个单测全部只测 model/parsing 层，没有一个
@@ -224,7 +233,7 @@ describe("CanvasStage 键盘交互 —— #1453", () => {
     expect(danglingEdge).toBe(false);
   });
 
-  it("非 mindmap（flowchart）：选中节点后 Tab/Enter/Delete 均无副作用", async () => {
+  it("非 mindmap（flowchart）：选中节点后 Tab/Enter 无副作用（不是 mindmap 树操作）", async () => {
     render(
       <CanvasStage readOnly={false} tool="select" zoom={1} markdown={FLOWCHART_MARKDOWN} onMarkdownChange={onMarkdownChange} />,
     );
@@ -238,9 +247,27 @@ describe("CanvasStage 键盘交互 —— #1453", () => {
     selectNodeByLabel(canvas, "节点X");
     dispatchKey("Tab");
     dispatchKey("Enter");
-    dispatchKey("Delete");
 
     expect(canvas.getObjects().length).toBe(beforeCount);
     expect(canvas.getObjects().map((o: any) => o.label).filter(Boolean).sort()).toEqual(beforeLabels);
+  });
+
+  it("非 mindmap（flowchart）：选中节点后 Delete 真的删掉它——与「删除」工具同一条路径", async () => {
+    render(
+      <CanvasStage readOnly={false} tool="select" zoom={1} markdown={FLOWCHART_MARKDOWN} onMarkdownChange={onMarkdownChange} />,
+    );
+    await waitFor(() => expect(screen.getByTestId("canvas-fabric-surface")).toBeInTheDocument());
+    const canvas = getFabricCanvas();
+    await waitFor(() => expect(canvas.getObjects().length).toBeGreaterThan(0));
+
+    const beforeCount = canvas.getObjects().length;
+
+    selectNodeByLabel(canvas, "节点X");
+    dispatchKey("Delete");
+
+    expect(canvas.getObjects().length).toBeLessThan(beforeCount);
+    expect(canvas.getObjects().map((o: any) => o.label).filter(Boolean)).not.toContain("节点X");
+    // 删除必须真的走 syncFromCanvas 回写——不是只改了画布对象、没告诉父组件。
+    expect(onMarkdownChange).toHaveBeenCalled();
   });
 });
