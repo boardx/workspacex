@@ -196,6 +196,13 @@ import { PgConsentDeclineReader } from "./infrastructure/interview/pg-consent-de
 import { ContextApiInsightMaterialReader } from "./infrastructure/interview/context-api-insight-material-reader";
 import { InMemoryInsightCandidateStore } from "./infrastructure/interview/in-memory-insight-candidate-store";
 import { HeuristicCandidateInsightGenerator } from "./infrastructure/interview/heuristic-candidate-insight-generator";
+// F02 (phase-11): 证据矩阵读路径 + 观察者脱敏——EVIDENCE_MATRIX_READER / PROJECT_ROLE_READER
+// 都是真实持久化读端，见 evidence-matrix-ports.ts 文件头。
+import {
+  EVIDENCE_MATRIX_READER,
+  PROJECT_ROLE_READER,
+} from "./application/interview/evidence-matrix-ports";
+import { PgEvidenceMatrixReader } from "./infrastructure/interview/pg-evidence-matrix-reader";
 import { GuidedResearchController } from "./interface/controllers/guided-research.controller";
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
 import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
@@ -1373,6 +1380,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: CANDIDATE_INSIGHT_GENERATOR,
       useFactory: () => new HeuristicCandidateInsightGenerator(),
       inject: [],
+    },
+    // F02 (phase-11): 证据矩阵读路径——同一个 PgEvidenceMatrixReader 实例同时满足
+    // EvidenceMatrixReader 与 ProjectRoleReader 两个端口（见该文件头「一个类两个端口」）。
+    {
+      provide: EVIDENCE_MATRIX_READER,
+      useFactory: (db: DatabasePort) => new PgEvidenceMatrixReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: PROJECT_ROLE_READER,
+      useFactory: (db: DatabasePort) => new PgEvidenceMatrixReader(db),
+      inject: [DATABASE_PORT],
     },
     {
       provide: GUIDED_RESEARCH_SESSION_REPOSITORY,

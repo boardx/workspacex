@@ -7,12 +7,13 @@
  *   503  AI_GENERATION_UNAVAILABLE         归纳服务失败，已抽引述保留（E1）。
  *   503  DEPENDENCY_UNAVAILABLE            Context Pack 不可读。
  */
-import { Body, Controller, Inject, NotFoundException, Param, Post, ServiceUnavailableException, ConflictException } from "@nestjs/common";
+import { Body, Controller, Get, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException, ConflictException } from "@nestjs/common";
 import { interview as C } from "@repo/contracts";
 import type { z } from "zod";
 import { extractQuotes } from "../../application/interview/extract-quotes";
 import { generateCandidateInsights } from "../../application/interview/generate-candidate-insights";
 import { confirmInsight } from "../../application/interview/confirm-insight";
+import { getEvidenceMatrix } from "../../application/interview/get-evidence-matrix";
 import {
   InsightCandidateNotFoundError,
   InsightDependencyUnavailableError,
@@ -39,10 +40,18 @@ import {
   type QuoteRepository,
   type SegmentReader,
 } from "../../application/interview/insight-ports";
+import {
+  EVIDENCE_MATRIX_READER,
+  PROJECT_ROLE_READER,
+  type EvidenceMatrixReader,
+  type ProjectRoleReader,
+} from "../../application/interview/evidence-matrix-ports";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
+
+export const GET_EVIDENCE_MATRIX_SCHEMA = C.operations.getEvidenceMatrix.in;
 
 @Controller()
 export class InterviewInsightController {
@@ -57,7 +66,45 @@ export class InterviewInsightController {
     @Inject(CANDIDATE_INSIGHT_GENERATOR) private readonly generator: CandidateInsightGenerator,
     @Inject(INSIGHT_CANDIDATE_STORE) private readonly candidates: InsightCandidateStore,
     @Inject(INSIGHT_REPOSITORY) private readonly insights: InsightRepository,
+    @Inject(EVIDENCE_MATRIX_READER) private readonly evidence: EvidenceMatrixReader,
+    @Inject(PROJECT_ROLE_READER) private readonly projectRole: ProjectRoleReader,
   ) {}
+
+  /**
+   * 证据矩阵读路径（F02）。GET，入参同 `interview-scope.controller.ts` 的既有先例——
+   * 契约的 `in` 应用在**拼装出来的参数对象**上，不因为是 GET 就跳过校验。
+   */
+  @Get("/interviews/evidence-matrix")
+  async evidenceMatrix(
+    @CurrentPrincipal() principal: Principal,
+    @Query("scopeKind") scopeKind?: string,
+    @Query("projectId") projectId?: string,
+    @Query("researchProjectId") researchProjectId?: string,
+  ) {
+    assertPrincipal(principal);
+    const assembled = {
+      scope: {
+        kind: scopeKind,
+        projectId: projectId === undefined || projectId === "" ? null : projectId,
+        researchProjectId:
+          researchProjectId === undefined || researchProjectId === "" ? null : researchProjectId,
+      },
+    };
+    const input = new ZodBodyPipe(GET_EVIDENCE_MATRIX_SCHEMA).transform(assembled) as z.infer<
+      typeof GET_EVIDENCE_MATRIX_SCHEMA
+    >;
+    return this.run(() =>
+      getEvidenceMatrix(
+        {
+          scope: this.scope,
+          decisions: this.decisions,
+          evidence: this.evidence,
+          projectRole: this.projectRole,
+        },
+        { orgId: principal.orgId, viewerUserId: principal.userId, scope: input.scope },
+      ),
+    );
+  }
 
   @Post("/interviews/:interviewId/quotes")
   async extract(
