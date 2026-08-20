@@ -82,7 +82,7 @@ phases:
     slug: research-insight-backend
     name: research-insight-backend
     goal: "补齐 itv/research 域洞察库与结论回流的真实后端（U-8 缺口）：洞察持久化、证据矩阵、结论入库/回流，并让项目工作台「研究洞察」Tab 接上真实聚合投影"
-    status: not_started
+    status: in_progress
     depends_on: ["01"]
     # has_ui: false —— 2026-08-20 人类裁决：本阶段不引入新设计面。U-8 对应的 UI/用例/API
     # 契约已在 phase-01 的 interview / research 两个契约束里签核（confirmed_by: yanbin shen,
