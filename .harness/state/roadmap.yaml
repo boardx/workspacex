@@ -71,3 +71,26 @@ phases:
     status: not_started
     depends_on: ["00"]
     has_ui: true
+  - id: "10"
+    slug: live-collaboration-orchestration
+    name: 现场协作编排
+    goal: "四组并行现场协作的编排层：主持台/分组视角切换器、议程环节引擎的现场落地（环节状态条+倒计时+介入告警+下一环节推进）、分组签到、以及把已有能力域（01-run-a-project 的对话/画布/转录、02-visible-outcomes 的知识图谱决策树与看板、06 深度研究、07 用户访谈、08 转录、09 问卷与现场投票）在同一现场协作 Tab 里按角色（引导师/组长/组员/观察者）×视角（全场/分组）组合呈现——本阶段不重造这些能力域各自的领域模型，只做编排、路由与角色可见性"
+    status: not_started
+    depends_on: ["00", "01", "02", "06", "07", "08", "09"]
+    has_ui: true
+  - id: "11"
+    slug: research-insight-backend
+    name: research-insight-backend
+    goal: "补齐 itv/research 域洞察库与结论回流的真实后端（U-8 缺口）：洞察持久化、证据矩阵、结论入库/回流，并让项目工作台「研究洞察」Tab 接上真实聚合投影"
+    status: in_progress
+    depends_on: ["01"]
+    # has_ui: false —— 2026-08-20 人类裁决：本阶段不引入新设计面。U-8 对应的 UI/用例/API
+    # 契约已在 phase-01 的 interview / research 两个契约束里签核（confirmed_by: yanbin shen,
+    # 2026-07-30），packages/contracts/src/interview.ts 的 Insight/EvidenceMatrix 系列算子
+    # 类型已定，coverage.md uc-6-5 R12 验收条已写。本阶段只补实现（controller/handler/建表），
+    # 不重签、不复制 ui.md/usecases.md 第二份——同一事实只在 phase-01 声明一次。
+    # ⚠ id 沿革：本阶段最初误占用 06（与已存在的 06-deep-research 碰撞，PR #1639 曾把
+    # 碰撞状态合入 main），随后改 10 又与同一时间段合入的 10-live-collaboration-orchestration
+    # （PR #1636）二次碰撞。11 是本次修正时点确认的空闲号——见
+    # phases/phase-11-research-insight-backend/AGENTS.md 顶部同款留痕。
+    has_ui: false

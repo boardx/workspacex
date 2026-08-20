@@ -417,3 +417,52 @@ export class RqCoverageConcurrentModificationError extends Error {
     super(`CONCURRENT_MODIFICATION: rq ${rqId} no longer exists for interview ${interviewId}`);
   }
 }
+
+/* ─────────────────────────── F01（phase-06）：洞察写路径持久化（uc-6-5 R3 step1-3） ─────────────────────────── */
+
+/**
+ * 候选没有证据（生成阶段与确认阶段都可能触发，I-29/E2）。
+ * ⚠ 与 `domain/interview/candidate-insight.ts` 的 `INSIGHT_NO_EVIDENCE` 是同一个理由的
+ *   两个必经检查点，不是两次各自判定——见该文件 `checkConfirmable` 的文件头注释。
+ */
+export class InsightNoEvidenceError extends Error {
+  readonly code = "INSIGHT_NO_EVIDENCE" as const;
+  constructor() {
+    super("INSIGHT_NO_EVIDENCE");
+  }
+}
+
+/**
+ * `generateCandidateInsights` 取材必须经 Context API（契约头注），Context Pack 不存在 /
+ * 不可读 / 已过期 ⇒ 依赖不可用，不是本域自己的错误。
+ */
+export class InsightDependencyUnavailableError extends Error {
+  readonly code = "DEPENDENCY_UNAVAILABLE" as const;
+  constructor() {
+    super("DEPENDENCY_UNAVAILABLE");
+  }
+}
+
+/**
+ * 归纳服务失败（E1）。⚠ **已抽引述保留，不产出半截洞察**——`generateCandidateInsights`
+ * 抛出这个错误之前不写任何候选/洞察行，`interview_quotes` 里已经落库的引述原样还在，
+ * 事务性由"这条路径压根没有写操作"保证，不是靠回滚。
+ */
+export class InsightGenerationUnavailableError extends Error {
+  readonly code = "AI_GENERATION_UNAVAILABLE" as const;
+  constructor() {
+    super("AI_GENERATION_UNAVAILABLE");
+  }
+}
+
+/**
+ * `confirmInsight` 引用的 `candidateId` 不是一个「存在且尚未确认」的候选——候选态
+ * 进程内周转，不存在 / 已经被确认过一次 / 已被忽略，三种共用一个码，与
+ * `TemplateDraftNotConfirmedError` 同一纪律：不细分是哪一种。
+ */
+export class InsightCandidateNotFoundError extends Error {
+  readonly code = "CONCURRENT_MODIFICATION" as const;
+  constructor(readonly candidateId: string) {
+    super(`CONCURRENT_MODIFICATION: insight candidate ${candidateId} not found or already confirmed`);
+  }
+}
