@@ -13,13 +13,12 @@ import { SectionTitle, MetaSep, ObserverNotice } from "./parts";
 import {
   PROJECT_HEADER, PROJECT_SURFACES, ROLE_CAN_WRITE, observerHidden, type ProjectRole,
 } from "@/lib/mock/project";
-import { PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, type ProjectListItem, type ProjectOverview } from "@/lib/live-projects";
-
-const BACKFLOW_BADGE_LABEL: Record<ProjectOverview["backflow"][number]["badge"], string> = {
-  draft: "草稿",
-  live: "实时 · 随源变动",
-  pinned: "已定版",
-};
+import {
+  PROJECT_KIND_LABEL, PROJECT_STATUS_LABEL, BACKFLOW_BADGE_LABEL,
+  type ProjectListItem, type ProjectOverview,
+} from "@/lib/live-projects";
+// ⚠ F964：`BACKFLOW_BADGE_LABEL` 搬到 `lib/live-projects.ts`（原在本文件私有声明）——
+//   「成果沉淀」tab（`tab-results.tsx`）加了第二个消费点，同一份三值闭枚举不再各自抄一份。
 
 /**
  * 概览（净新）—— 原型 isWsOver 的转译。
