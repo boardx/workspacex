@@ -78,6 +78,52 @@ services:
       - workspacex_redisdata:/data
     restart: unless-stopped
 
+  # ── F962 / #1583：脚本执行沙箱 ────────────────────────────────────────────
+  #
+  # ⚠⚠ **隔离的实质在这些运行参数里，不在镜像里。** 摘掉 `network_mode: none`
+  #     这一行，镜像一个字节不变，但网络就通了 —— verification.md 的 V2-CP
+  #     就是这么做反证的。任何让 V2-b 变绿的改动，若不是真的关掉网络，
+  #     就是把门控调成不会红。
+  #
+  # ## 为什么 socket 走 bind mount 而不是命名卷
+  #
+  # `workspacex-api` 是**宿主上的 systemd 服务**（provision.sh 的
+  # `User=${APP_USER}`），不是容器。命名卷只有 `/var/lib/docker/volumes/...`
+  # 这个 root 属主的路径能被宿主看到，让一个非 root 的 systemd 服务去连那里
+  # 既别扭又脆弱。bind 一个宿主目录，两边看到的是同一条稳定路径。
+  #
+  # ## 为什么要显式指定 user
+  #
+  # 镜像里是 `USER node`（UID 1000）。socket 文件的属主就是它，而宿主上连接
+  # 这个 socket 的是 `${APP_USER}`。两个 UID 不一致 ⇒ **connect() 被拒**，
+  # 且症状是"沙箱不可用"这种看起来像服务没起来的错误。deploy.sh 因此解析出
+  # 宿主 APP_USER 的真实 uid/gid 传进来，让 socket 从诞生起就属于对的人。
+  skill-sandbox:
+    build:
+      context: ../skill-sandbox
+      dockerfile: Dockerfile
+    network_mode: "none"
+    read_only: true
+    user: "${SANDBOX_UID:?set SANDBOX_UID}:${SANDBOX_GID:?set SANDBOX_GID}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m,mode=1777
+    volumes:
+      # 宿主目录 ⇄ 容器 /run/sandbox。API（宿主进程）连的就是这个目录下的 socket。
+      - ${SANDBOX_SOCKET_DIR:?set SANDBOX_SOCKET_DIR}:/run/sandbox
+    environment:
+      SKILL_SANDBOX_SOCKET: /run/sandbox/skill-sandbox.sock
+      SKILL_SANDBOX_MODULES_DIR: /opt/sandbox/node_modules
+      TMPDIR: /tmp
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.0
+    pids_limit: 128
+    restart: unless-stopped
+
 volumes:
   workspacex_pgdata:
   workspacex_miniodata:
