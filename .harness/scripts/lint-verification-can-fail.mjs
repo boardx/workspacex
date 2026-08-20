@@ -208,6 +208,22 @@ export function classify(cmd) {
     };
   }
 
+  // playwright（按 -g 正则跑）：pnpm --filter <pkg> exec playwright test -c <config> -g '<pattern>'
+  // 与 vitest-file 同一族：失败传导路径逐字相同——`-g` 命中不到任何 test.describe/test
+  // 时 playwright 打「Error: No tests found」并非 0 退出（已实测，见下方 discovered）。
+  // 指向物是那个 `-g` 正则模式：把它换成一个必然不存在的探针字符串就是「必然失败变体」。
+  // config 路径本身不做静态存在性检查（同 test-file 的理由：config 写错会让 playwright
+  // 自己报错非 0，方向是安全的——不会把「未实现」误判成假绿，只是理由换了一种）。
+  m = /^pnpm\s+--filter\s+(\S+)\s+exec\s+playwright\s+test\s+-c\s+(\S+)\s+-g\s+'([^']*)'\s*$/.exec(c);
+  if (m) {
+    const [, pkg, config] = m;
+    return {
+      shape: `playwright-grep:${pkg}:${config}`,
+      probe: `pnpm --filter ${pkg} exec playwright test -c ${config} -g '${PROBE_TOKEN}'`,
+      checks: [{ type: "package", pkg }],
+    };
+  }
+
   // pytest：cd <python app> && pytest <path> [<path> …]
   //      或 cd <python app> && uv run pytest <path> [<path> …]
   // Python service 不在 pnpm workspace package 内，不能借 `--filter ... exec` 形态；
