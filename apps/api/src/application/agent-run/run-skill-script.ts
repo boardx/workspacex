@@ -53,6 +53,7 @@
  *   用户要把这个 .pptx 留成项目产物，仍然走既有的显式落地操作。
  */
 import type { ObjectStore } from "../artifact/ports";
+import type { RunOutputFile } from "./ports";
 import {
   MAX_SCRIPT_ATTEMPTS,
   ScriptFailedAfterRetriesError,
@@ -73,13 +74,13 @@ const MIME_BY_EXTENSION: Readonly<Record<string, string>> = {
   ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 };
 
-/** 沙箱执行产出的一个文件，字节已落对象存储。 */
-export interface ProducedFile {
-  readonly name: string;
-  readonly mime: string;
-  readonly sizeBytes: number;
-  readonly objectKey: string;
-}
+/**
+ * 沙箱执行产出的一个文件，字节已落对象存储。
+ *
+ * ⚠ 就是 `ports.ts` 的 `RunOutputFile` 本身，不是它的第二份副本——这个形状要一路走到
+ * `commitWriteback` 的附件插入，两处各声明一次必然漂移（本仓栽过五次的同一条）。
+ */
+export type ProducedFile = RunOutputFile;
 
 export type SkillScriptOutcome =
   /** 判据不成立 ⇒ 一次都没碰沙箱。`text` 恒为传进来的 `reply` 本身。 */

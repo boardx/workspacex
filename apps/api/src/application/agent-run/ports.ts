@@ -182,6 +182,21 @@ export interface RunLocator {
  * back the answer the single model call produced, never call the provider again. That is
  * why this carries the text instead of enough context to regenerate it.
  */
+/**
+ * #1624 —— 一次 run 在沙箱里跑出来的文件的**引用**（字节已在对象存储里）。
+ *
+ * 跟着 run 从执行走到写回事务，由 `commitWriteback` 挂成助手消息的附件
+ * （复用 #946 的 `chat_message_attachments` + 既有下载路由，不新造产物语义）。
+ * 空数组 ⇒ 这一轮没有产物，写回与本次改动之前逐字节相同。
+ */
+export interface RunOutputFile {
+  readonly name: string;
+  readonly mime: string;
+  readonly sizeBytes: number;
+  /** `ObjectStore` 的键。字节本体不经过这里，也不进数据库。 */
+  readonly objectKey: string;
+}
+
 export interface PendingWriteback {
   readonly runId: string;
   readonly threadId: string;
@@ -190,6 +205,11 @@ export interface PendingWriteback {
   readonly text: string;
   /** Attempts already spent from the bounded budget. */
   readonly attempts: number;
+  /**
+   * #1624 —— 这一轮沙箱产出的文件引用。**可选**：缺省/空 ⇒ 写回不插任何附件行，
+   * 与本次改动之前逐字节相同（既有测试替身不必都改，这是不回归的保证之一）。
+   */
+  readonly files?: readonly RunOutputFile[];
 }
 
 export interface AgentRunStore {
@@ -238,7 +258,12 @@ export interface AgentRunStore {
   storeOutputAwaitingWriteback(
     orgId: OrgId,
     runId: string,
-    output: { readonly text: string; readonly finalStepSeq: number },
+    output: {
+      readonly text: string;
+      readonly finalStepSeq: number;
+      /** #1624：沙箱产出的文件引用。缺省 ⇒ 该列保持 `'[]'`，行为与改动前逐字节相同。 */
+      readonly files?: readonly RunOutputFile[];
+    },
   ): Promise<void>;
 
   /** Terminal failure with a stable, enumerated code. There is no free-text variant. */
@@ -268,6 +293,13 @@ export interface AgentRunStore {
       readonly startedAt: string;
       readonly endedAt: string;
       readonly outputDigest: string;
+      /**
+       * #1624：随这条助手消息一起挂上去的附件（沙箱产出）。**同一个事务**——
+       * 消息存在而附件不存在，用户就会看到一条说"文件见附件"却没有附件的回复。
+       * 缺省/空 ⇒ 不插任何附件行。重试时按 `(message_id, storage_ref)` 幂等，
+       * 不会因为写回重试而挂上两份同一个文件。
+       */
+      readonly files?: readonly RunOutputFile[];
     },
   ): Promise<{ readonly messageId: string }>;
 
