@@ -51,6 +51,7 @@ import {
   FILE_RETRIEVAL_SOURCE_KINDS,
 } from "../src/application/agent-run/file-retrieval";
 import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../src/application/agent-run/tool-trace-context";
+import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../src/application/skill/run-script-with-retries";
 
 /**
  * F154 L2 摘要伪消息的**唯一事实源**是 `execute-run.ts` 里那一行字面量
@@ -206,6 +207,50 @@ function toolTraceReachedModel(messages: CompletionRequest["messages"]): boolean
   ));
 }
 
+/**
+ * F962（design delta `skill-sandbox-execution`）—— 试跑执行链的协议要求模型回复
+ * **恰好一个** ```run_script 围栏代码块（`execute-trial-run.ts` 把
+ * `RUN_SCRIPT_PROTOCOL_PROMPT` 拼进 system prompt 的尾部，`extractScript` 严格按
+ * 围栏解析，解析不到就落 `SCRIPT_FAILED_AFTER_RETRIES`，见该文件头注）。
+ *
+ * 本进程原本只会对任何请求做「回显用户原文」——这对聊天/agent-run 场景是对的，
+ * 但对试跑场景，回显的原文里没有围栏，`extractScript` 必然解析失败，试跑必现失败
+ * 终态。这不是本次改动引入的新分支，是 F962 落地时这条 loopback 分支就没跟上
+ * 新协议——真栈 e2e 第一次真的跑通「提交→轮询→拿到结果」全链路（issue #1608 的
+ * 根因排查）才第一次暴露它，此前前端从未真正轮询到过这一步。
+ *
+ * 判定用 system prompt 是否**逐字**包含 `RUN_SCRIPT_PROTOCOL_PROMPT`（唯一事实源
+ * import 自产品代码，不在这里另抄一份字面量）——与本文件其余判定分支同一条纪律：
+ * 开关未命中时这条分支不执行，其余场景的回复逐字节不变。
+ *
+ * 回的脚本调用 `addText` 并把用户样例输入嵌进文本参数：`loopback-skill-sandbox.ts`
+ * 会从脚本里抓 `addText(...)` 字面量当幻灯片文本喂进真实 pptxgenjs，产物内容因此与
+ * 请求真的相关（同文件头注「内容与请求对应」的取证纪律），不是回一个与输入无关的
+ * 死脚本。
+ */
+function isTrialRunRequest(messages: CompletionRequest["messages"]): boolean {
+  const system = (messages ?? []).find((message) => message.role === "system")?.content;
+  return typeof system === "string" && system.includes(RUN_SCRIPT_PROTOCOL_PROMPT);
+}
+
+function trialRunScriptReply(sampleInput: string): string {
+  const text = sampleInput.replace(/[`\\]/g, "").slice(0, 200) || "loopback trial run";
+  return [
+    "```run_script",
+    "const pptxgenjs = require('pptxgenjs');",
+    "const pres = new pptxgenjs();",
+    "pres.layout = 'LAYOUT_16x9';",
+    `pres.addSlide().addText('${text}', { x: 0.5, y: 0.5, fontSize: 28, bold: true });`,
+    "pres.write({ outputType: 'nodebuffer' }).then((buf) => {",
+    "  require('fs').writeFileSync(",
+    "    require('path').join(process.env.SKILL_SANDBOX_OUT_DIR, 'deck.pptx'),",
+    "    buf,",
+    "  );",
+    "});",
+    "```",
+  ].join("\n");
+}
+
 function readBody(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
     let text = "";
@@ -281,7 +326,12 @@ const server = createServer((req, res) => {
     // 与改动前逐字节相同（同 `retrievalEcho`/`skillEcho` 既有纪律）。
     const l2Echo = l2SummaryReachedModel(parsed.messages) ? `${L2_SUMMARY_ECHO_PREFIX} ` : "";
     const toolTraceEcho = toolTraceReachedModel(parsed.messages) ? `${TOOL_TRACE_ECHO_PREFIX} ` : "";
-    const fullText = `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
+    // F962：试跑协议要求恰好一个 ```run_script 围栏，与下面「回显原文」的通用分支
+    // 互斥——见 `isTrialRunRequest` 头注。命中时其余回显前缀/开关全部让路，因为
+    // `extractScript` 只认围栏内容，混进去的前缀文字只会污染脚本语法。
+    const fullText = isTrialRunRequest(parsed.messages)
+      ? trialRunScriptReply(echoed)
+      : `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);
       return;
