@@ -1,10 +1,10 @@
-# 进度日志 — Sprint 06/01
+# 进度日志 — Sprint 10/01
 
 ## 当前已验证状态(唯一真相)
 - 仓库根目录: `/Users/shenyanbin/Documents/workspacex`
 - 标准启动路径: `pnpm -w run dev`
 - 标准验证路径: 见 ADR-106（`verify:quick`/`verify:harness`/`verify:release`，不确定就跑 `verify:release`）
-- 当前最高优先级未完成功能: F01 洞察写路径真实持久化——实现+测试已完成，待 `pnpm harness verify --sprint 06/01` 门控转 passing
+- 当前最高优先级未完成功能: F01 洞察写路径真实持久化——实现+测试已完成，待 `pnpm harness verify --sprint 10/01` 门控转 passing
 - 当前 blocker: 无
 
 ## 会话记录
@@ -34,4 +34,4 @@
 - 已记录证据: issue #1628 评论。
 - 提交记录: 分支 `worker/w-insight-01-f01-insight-write-path`；PR `Closes #1628`。
 - 已知风险或未解决问题: 本阶段目录此前只存在于共享 checkout 未提交工作区（见阶段级 `progress.md` 详述），本轮随 PR 一并带入版本控制。
-- 下一步最佳动作: 跑 `pnpm harness verify --sprint 06/01` 门控 F01 → passing，再开 F02。
+- 下一步最佳动作: 跑 `pnpm harness verify --sprint 10/01` 门控 F01 → passing，再开 F02。

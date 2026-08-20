@@ -1,4 +1,4 @@
-# 原始需求索引 — research-insight-backend（Phase 06）
+# 原始需求索引 — research-insight-backend（Phase 10）
 
 本阶段需求已按领域拆分为单份文档（当前只有一个领域，先不过度拆分）：
 

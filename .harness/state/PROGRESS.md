@@ -14,5 +14,6 @@
 | 07 | 用户访谈 | not_started | 5 | 0 | 0 | 0 |
 | 08 | 转录 | not_started | 4 | 0 | 0 | 0 |
 | 09 | 问卷 | not_started | 7 | 0 | 0 | 0 |
+| 10 | research-insight-backend | not_started | 5 | 0 | 0 | 0 |
 
-_最近聚合:2026-08-19T23:26:57.884Z_
+_最近聚合:2026-08-20T05:21:37.612Z_

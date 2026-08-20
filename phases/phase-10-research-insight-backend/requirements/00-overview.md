@@ -1,4 +1,4 @@
-# 原始需求 — research-insight-backend（Phase 06）
+# 原始需求 — research-insight-backend（Phase 10）
 
 > 这个**文件夹**是本阶段原始需求的家。按领域放多份 `*.md`（如 `auth.md`、`teams.md`、`rooms.md`），
 > 每份用大白话/用户故事写即可。`00-overview.md` 是起始模板，可改名/拆分。

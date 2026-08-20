@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "phase": "06",
+  "phase": "10",
   "status": "not_ready",
   "reason": "runtime/E2E evidence has not been accepted",
   "assessed_at": null,

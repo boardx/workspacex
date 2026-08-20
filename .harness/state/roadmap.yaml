@@ -71,3 +71,15 @@ phases:
     status: not_started
     depends_on: ["00"]
     has_ui: true
+  - id: "10"
+    slug: research-insight-backend
+    name: research-insight-backend
+    goal: "补齐 itv/research 域洞察库与结论回流的真实后端（U-8 缺口）：洞察持久化、证据矩阵、结论入库/回流，并让项目工作台「研究洞察」Tab 接上真实聚合投影"
+    status: not_started
+    depends_on: ["01"]
+    # has_ui: false —— 2026-08-20 人类裁决：本阶段不引入新设计面。U-8 对应的 UI/用例/API
+    # 契约已在 phase-01 的 interview / research 两个契约束里签核（confirmed_by: yanbin shen,
+    # 2026-07-30），packages/contracts/src/interview.ts 的 Insight/EvidenceMatrix 系列算子
+    # 类型已定，coverage.md uc-6-5 R12 验收条已写。本阶段只补实现（controller/handler/建表），
+    # 不重签、不复制 ui.md/usecases.md 第二份——同一事实只在 phase-01 声明一次。
+    has_ui: false

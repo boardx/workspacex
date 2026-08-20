@@ -1,6 +1,6 @@
-# Sprint 06/01 — F01 洞察写路径真实持久化
+# Sprint 10/01 — F01 洞察写路径真实持久化
 
-- **所属阶段**: Phase 06 (research-insight-backend)
+- **所属阶段**: Phase 10 (research-insight-backend)
 - **创建于**: 2026-08-20 00:34:10
 
 ## 本 sprint 目标
@@ -14,5 +14,5 @@ F01 洞察写路径真实持久化
 > `pnpm harness new-sprint`(或 refresh)重新派生。
 
 ## 完成标准
-- 上述每个 feature 经 `pnpm harness verify --sprint 06/01` 门控为 `passing`。
+- 上述每个 feature 经 `pnpm harness verify --sprint 10/01` 门控为 `passing`。
 - `session-handoff.md` 与 `progress.md` 已更新。

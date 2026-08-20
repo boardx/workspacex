@@ -1,4 +1,4 @@
-# Phase 06 — research-insight-backend
+# Phase 10 — research-insight-backend
 
 - **slug**: research-insight-backend
 - **状态**: not_started
