@@ -123,6 +123,18 @@ export default {
       // 操作命中，仍然写出来 —— 这正是 `/threads` 那条留下的教训。
       { source: `${prefix}/skill-versions`, destination: `${apiOrigin}/skill-versions` },
       { source: `${prefix}/skill-versions/:path*`, destination: `${apiOrigin}/skill-versions/:path*` },
+      // F962：试跑异步轮询读，`GET /skill-trial-runs/:trialRunId`。`SkillTrialRunController`
+      // 也是 `@Controller()`（空前缀），路径是裸的 `/skill-trial-runs/...`——**不在**
+      // `/skill-versions/` 下面（提交 `POST .../trial-run` 挂在 `skill-versions` 下、
+      // 结果轮询读挂在独立的裸路径下，两者前缀不共享，与上面 `/workshops` vs `/projects`
+      // 同一种"同一件事两个路径空间"的形状）。**这是同一个坑的第 N+1 次**（本文件前面
+      // 十几条注释都在讲同一件事：漏了裸路径不会失败在网络层，会被 Next 自己接住
+      // 返回 404 **HTML**，前端表现成"查不到"而不是"路由没接"）。
+      // 实测复现（2026-08-19/20，`skill-agent-import-usecase-audit.spec.ts` ③，issue #1608）：
+      // 加了轮询逻辑后 GET 仍然稳定 404，一度怀疑是提交后短暂不可见的竞态——用
+      // Playwright trace 网络快照核对响应体才发现 `mimeType: text/html`，是 Next 自己的
+      // 404 页，不是 API 的 JSON 404。轮询逻辑本身没有问题，问题在这一条缺失的 rewrite。
+      { source: `${prefix}/skill-trial-runs/:path*`, destination: `${apiOrigin}/skill-trial-runs/:path*` },
       // 实测（真栈 e2e，`skill-agent-import-usecase-audit.spec.ts` ②）——**这是同一个坑
       // 的第 N 次，且这次没有任何一条注释提前警告过**：`asset-directory.controller.ts`
       // 的五个端口（`GetAssetDirectory`/`ReadAssetFile`/`WriteAssetFile`/`DeleteAssetFile`/

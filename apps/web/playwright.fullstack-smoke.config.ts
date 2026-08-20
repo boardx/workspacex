@@ -40,6 +40,26 @@ const asrProviderPort = String(Number(webPort) + 10_000);
  * 失败（同 `playwright.chat-read.config.ts` 已经踩过、已经修好的同一件事，P6/P7）。
  */
 const deepAgentProviderPort = String(Number(webPort) + 15_000);
+/**
+ * F962（#1608 根因排查 2026-08-20）—— 试跑沙箱替身的端口。
+ *
+ * ⚠ 2026-08-20 复核时发现前一版在这里写的是 `+20_000`（"落在 65000–70000"）——
+ *   算错了：`webPort` 落在 45000–49999（`.harness/scripts/lib/test-isolation.ts` 的
+ *   `PORT_BASE.WORKSPACEX_WEB_PORT = 45_000`，段宽 5000），`+20_000` 因此落在
+ *   65000–69999，**其中 65536 往上根本不是合法 TCP 端口**（`node:net`/WHATWG `URL`
+ *   都会在端口号 > 65535 时直接拒绝——本地复现：`new URL("http://127.0.0.1:65697/…")`
+ *   逐字抛 `TypeError: Invalid URL`，配置文件 `require` 阶段就整体炸掉，
+ *   `seeded-github-import` project 一次也没跑到测试代码，报的还是一个和这条用例
+ *   毫不相关的 `TypeError: Invalid URL`）。这不是"这一段落在了别的服务头上"的邻位
+ *   冲突，是**整个加法方案在 webPort 落在 45536 及以上时必然产出非法端口**——
+ *   而 hash 落在这段的概率不是零，说明这条路子从写下来那一刻就是错的，不是运气问题。
+ *
+ *   改成往下挪一段（`-35_000`，落在 10000–14999）：pg/redis/minio/api/web 五个真实
+ *   端口的段（20000/25000/30000/35000/40000/45000）全部在 20000 以上，model-provider/
+ *   asr-provider/deep-agent-provider 的 `+5000/+10000/+15000` 落在 50000–64999，
+ *   10000–14999 不撞其中任何一段，且远低于 65535 上限，不会重蹈同一个错。
+ */
+const skillSandboxPort = String(Number(webPort) - 35_000);
 const apiOrigin = process.env.FULLSTACK_E2E_MODE === "wrong-api-origin"
   ? "http://127.0.0.1:1"
   : `http://127.0.0.1:${apiPort}`;
@@ -416,6 +436,16 @@ export default defineConfig({
       },
     },
     {
+      command: "pnpm --filter @repo/api exec tsx scripts/loopback-skill-sandbox.ts",
+      url: `http://127.0.0.1:${skillSandboxPort}/healthz`,
+      timeout: 30_000,
+      reuseExistingServer: false,
+      env: {
+        ...process.env,
+        LOOPBACK_SKILL_SANDBOX_PORT: skillSandboxPort,
+      },
+    },
+    {
       command: [
         `${compose} up -d --wait postgres redis minio`,
         "pnpm --filter @repo/api exec tsx scripts/seed-fullstack-smoke.ts",
@@ -448,6 +478,10 @@ export default defineConfig({
         // 诚实失败（该 provider 自己的 config 头注），自助发布的 agent 试跑会打不通。
         // 逐字同一条纪律见 `playwright.chat-read.config.ts` 的同一变量。
         KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
+        // F962（#1608）—— 不供这一条，`HttpSkillSandbox` 在调用时诚实抛
+        // `SANDBOX_UNAVAILABLE`，试跑执行链在「生成脚本」之后的沙箱这一步打不通。
+        // 逐字同一条纪律见上面 `KERNEL_DEEP_AGENT_BASE_URL` 那条注释。
+        KERNEL_SKILL_SANDBOX_BASE_URL: `http://127.0.0.1:${skillSandboxPort}`,
         PORT: apiPort,
       },
     },
