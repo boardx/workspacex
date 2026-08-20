@@ -1,8 +1,8 @@
-# 洞察库真实后端（U-8 缺口）— Phase 06
+# 洞察库真实后端（U-8 缺口）— Phase 11
 
 估点 **15**（F01 持久化+写路径 5 · F02 读路径+观察者脱敏 3 · F03 虚拟隔离门 2 · F04 主题整理三动作+回滚 3 · F05 普遍性断言 2；与 `feature_list.json` 逐条 points 对账，改一处需同步改另一处）
 
-> ⚠ 本阶段 `has_ui: false`（见 `.harness/state/roadmap.yaml` 里 phase-06 的注释）——
+> ⚠ 本阶段 `has_ui: false`（见 `.harness/state/roadmap.yaml` 里 phase-11 的注释）——
 > **不引入新的设计面**。本文档描述的 UI/用例/API 契约已经在 `phase-01` 的
 > `contracts/interview/` 与 `contracts/research/` 两个契约束里签核
 > （`status: confirmed`，`confirmed_by: yanbin shen`，`2026-07-30`）。本阶段只补
