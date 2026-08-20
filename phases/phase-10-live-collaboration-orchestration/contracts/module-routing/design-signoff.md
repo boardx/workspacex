@@ -2,9 +2,9 @@
 bundle: module-routing
 phase: "10"
 covers: [F07, F08]
-status: pending
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-08-20T09:19:24+08:00"
 scope_note: "首轮签核覆盖分组五模块侧栏（对话/访谈/研究/问卷/图谱）的路由骨架 + 统一卡片形态 + 本场状态右侧栏的骨架。模块卡片统一形态字段集已在 OPEN-QUESTIONS.md Q3 裁决为候选 A（现状默认字段集），本文件按裁决结果编写。F08 的 checklist/需要知道/已生成产出三类字段全仓无契约来源——本轮只签骨架，不签这三类字段的真实数据接入，见下方『硬阻断』。"
 ---
 
