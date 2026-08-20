@@ -2,9 +2,9 @@
 bundle: group-checkin
 phase: "10"
 covers: [F05, F06]
-status: pending
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-08-20T09:19:24+08:00"
 scope_note: "首轮签核覆盖分组签到聚合视图（4 组卡片网格）+ 到场状态写入/二维码/加入页出口三个新出口。到场判定口径、二维码生成方式、看加入页目标均已在 OPEN-QUESTIONS.md Q2/Q4/Q5 裁决为候选 A，本文件按裁决结果编写，不是再重新开放讨论——但裁决只解除『方案未定』这一层阻塞，design-signoff 三件套仍需人类正式签核。"
 ---
 
