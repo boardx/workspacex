@@ -985,7 +985,40 @@ describe("lint-permission-paths: counter-proof", () => {
     //（迁移里也不 GRANT DELETE）；(d) **自检真的解析到了 SQL**，否则一次重命名就能让
     // 这条断言变成永远绿的空转。已实测反证：把 `actor_id = $3` 换成恒真谓词，该测试立刻红。
     // 删那个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(67);
+    //
+    // ⚠ Raised 67 -> 71 by F01（phase-06-research-insight-backend，#1628）：洞察写路径
+    // （extractQuotes / generateCandidateInsights / confirmInsight）新增四个 infra 文件，
+    // 各自的授权都在**调用它的用例层一层之上**完成，不是这里第二次没人判的门：
+    //
+    //   `pg-segment-reader.ts`（extractQuotes 的直连片段读取）—— `extract-quotes.ts` 的
+    //   `assertVisible` 先经 `decideInterviewVisibility`/`discloseDecided` 判过这场访谈本身
+    //   可见，才会调 `readSegments`；`interview` 这个 ACL kind 本来就不能走通用
+    //   `authorize()`/`guard()`（`permission-filter.ts` 的 `toAclRef` 对 `interview` 显式
+    //   throw，同上面既有条目对 `interview`/`subject` 的处理一致）。
+    //
+    //   `pg-interview-quote-repository.ts` —— 三个调用点各自一层之上完成授权：
+    //   `extractQuotes` 排在 `assertVisible` 之后（与上一条同一次判定复用）；
+    //   `generateCandidateInsights` 只用 Context Pack 已按 `actorId` 授权返回的
+    //   `segmentIds` 过滤（`PgContextPackStore` 对不属于当前请求者的 run 返回 null，
+    //   同 `DIGITAL_EXPERT_CONTEXT_API` 既有先例）；`confirmInsight` 只取候选自带的
+    //   `evidenceQuoteIds`，不接受调用方另传的 id 集合。
+    //
+    //   `pg-interview-insight-repository.ts` —— `confirm` 写回已经过上面授权链产生的候选，
+    //   `disclose()` 没有第二个问题要问（同 F98 `acceptCandidate` 一类『写回显已决定动作』
+    //   的既有先例）；`getById` 目前没有任何 controller/route 调用它，只在测试里核对刚写入
+    //   的行——F02 落地 `getEvidenceMatrix` 若把它接到真实读接口，必须改走
+    //   `guard()`/`discloseDecided()`，本次豁免不覆盖那次接线。
+    //
+    //   `pg-consent-decline-reader.ts` —— 与上面已有的 `pg-consent-gate-reader.ts` 同型：
+    //   出门的只是调用方本就持有的 subjectId 列表，不是任何同意位的值。
+    //
+    // 四条的被强制前提：`tests/itv/insight-segment-reader-repo-guard.test.ts` 解析全部四个
+    // 文件 + `extract-quotes.ts`，断言（a）每个文件只命名它声称的租户表；（b）四个文件都
+    // 不调用 `withoutTenant`；（c）`extractQuotes` 里 `assertVisible` 排在
+    // `segments.readSegments`/`quotes.insertMany` 之前；（d）`src/interface/` 下没有文件
+    // 直接 import `pg-interview-insight-repository.ts`（只经 DI token 拿端口类型）。
+    // 删那个测试则这四条也须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(71);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

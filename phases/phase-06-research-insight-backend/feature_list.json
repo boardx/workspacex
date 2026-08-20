@@ -1,0 +1,111 @@
+{
+  "phase": "06",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "itv",
+      "capability": "CAP-DATA",
+      "title": "洞察写路径真实持久化：抽引述→生成候选→确认入库，来源快照不可变",
+      "user_visible_behavior": "研究员对若干 segmentIds 调 extractQuotes 拿到原文引述（对 ai_analysis=false 的受访者同样返回原文，被排除的只是模型归纳），调 generateCandidateInsights 得到候选洞察数组 + 写留痕的 excludedSubjectIds + degradedToQuotesOnly 标志，再调 confirmInsight 把候选确认入库——洞察真正落 Postgres 表，入库时固化来源快照；此后即便原始逐字稿被编辑，已入库洞察的证据文本保持不变，可跨屏只读聚合引用。",
+      "spec_ref": "01-insight-library-backend.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "status": "not_started",
+      "sprint": "01",
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/insight-write-path-persists-real-db.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/insight-pinned-snapshot-immutable-real-db.test.ts"
+      ],
+      "evidence": "",
+      "notes": "算子出处（packages/contracts/src/interview.ts）：extractQuotes / generateCandidateInsights / confirmInsight。复用 apps/api/src/domain/interview/candidate-insight.ts 已有逻辑——buildCandidateInsight（空引述即 INSIGHT_NO_EVIDENCE、任一虚拟来源整条标 virtual、候选恒 strong=false、pinnedSourceSnapshotId=null）与 checkConfirmable（confirmInsight 复用的同一道缺来源不可确认门），本 feature 只补 application handler + 持久化表 + controller + Context API 接线，不重写该纯逻辑。对应 coverage.md uc-6-5 R12：V1（每条洞察可点回不可变来源快照）、V2（AI 分析＝否时抽引述返回原文、候选来源不含该人、排除名单写留痕）、V11（归纳失败已抽引述保留、事务性不产半截洞察）。E1/E2 异常见 R4。这是其余四个 feature 的前置：没有持久化表其余无法真实验证。依据等级：均为 phase-01 已 confirmed 契约 + [原型确认缺失]（洞察库屏 U-8 未建，但本阶段 has_ui:false 走 API 层验收，不受 UI 签核门约束）。估点 5。⚠ 需求文档头部无 `估点 **n**`（后端实现阶段，UI/UC/契约已在 phase-01 签核），validate-fl 的估点对账会因缺该头部而报一项——不改 requirements/*.md，见回复说明。"
+    },
+    {
+      "id": "F02",
+      "priority": 2,
+      "area": "itv",
+      "capability": "CAP-API",
+      "title": "证据矩阵读路径 + 观察者脱敏只读投影",
+      "user_visible_behavior": "任意有读权的角色调 getEvidenceMatrix(scope) 拿到主题 × 受访者矩阵：格子取值含完整五枚举（强/弱/未提及/附和/反例），附和不计入强度合计；头部同时返回 sessionCount 与 subjectCount 两个独立数，样本不对齐时两个数都正确。观察者只拿到脱敏聚合投影（原始洞察库/未验证假设整块不可见，只保留聚合后的来源分布）；受访者不可见；未授权者得 NO_INTERVIEW_ACCESS。无引述时返回真实空态，不编造示例数据。",
+      "spec_ref": "01-insight-library-backend.md#R5",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/evidence-matrix-two-counts-real-db.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/evidence-matrix-observer-redaction.test.ts"
+      ],
+      "evidence": "",
+      "notes": "算子出处：getEvidenceMatrix（读路径 + 空态 A1）。复用 apps/api/src/domain/interview/evidence-matrix.ts 已有纯逻辑——computeCellStrength（五取值同一次计算 + counterexample 布尔为 strength 的只读投影）、tallyThemeStrength（附和/未提及/反例不进强度合计）；本 feature 补的是把持久化数据投影成矩阵 + 观察者脱敏过滤 + 两个计数字段的读端组装，不重写 evidence-matrix.ts。对应 coverage.md uc-6-5 R12：V4（矩阵格子枚举完整、附和不计入强度）、V6（sessionCount 与 subjectCount 两个数不相等时都正确）、V10（空态）；观察者脱敏 = R5 权限矩阵（沿用项目工作台『研究洞察』Tab 已有观察者态注释，不新增角色）。矩阵格子取值本身在 R3 step4。依据等级：phase-01 已 confirmed 契约。has_ui:false，API 层验收。估点 3。"
+    },
+    {
+      "id": "F03",
+      "priority": 2,
+      "area": "itv",
+      "capability": "CAP-API",
+      "title": "虚拟来源隔离门：标强/进决策依据在接口层拒绝",
+      "user_visible_behavior": "研究员对已入库洞察调 markStrongInsight / referenceForDecision 时，系统在接口层校验来源是否为真人（sourceKind）：真人来源放行，虚拟来源（数字人/画像推演）一律返回 VIRTUAL_SOURCE_FORBIDDEN。这是接口层门不是前端按钮置灰——直接调 API 绕过前端仍被拒。混合来源候选（任一引述来自虚拟）整条按虚拟处理，同样被拒。",
+      "spec_ref": "01-insight-library-backend.md#R7",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/virtual-source-interface-gate.test.ts"
+      ],
+      "evidence": "",
+      "notes": "算子出处：markStrongInsight / referenceForDecision（两者共享同一道门）。复用 apps/api/src/domain/interview/insight-source-gate.ts 的 checkSourceAllowsStrongUse（真人放行/虚拟 VIRTUAL_SOURCE_FORBIDDEN，两个接口调同一函数），本 feature 只把这道纯函数接到两个 controller 上并验证『绕过前端直接调 API 仍被拒』，不重写门逻辑；混合来源的 virtual 传播由 F01 的 candidate-insight.ts buildCandidateInsight 落定，本门只消费既成 sourceKind。对应 coverage.md uc-6-5 R12：V3（虚拟来源标强/进决策依据均被接口拒绝，统计返回真人/虚拟两个独立字段）。规则出处 R7『虚拟来源永远不能被标强或引为决策依据——这是接口层门』。依据等级：phase-01 已 confirmed 契约（I-28）。has_ui:false。估点 2。"
+    },
+    {
+      "id": "F04",
+      "priority": 2,
+      "area": "itv",
+      "capability": "CAP-DATA",
+      "title": "主题整理三动作（合并/拆分/调权）+ 预览守护唯一反例 + 回滚",
+      "user_visible_behavior": "研究员对多个主题调 mergeThemes：preview:true 先看 vanishingCells（哪些格子会消失，尤其是否抹掉唯一反例），确认后 preview:false 真正合并并返回 revertToken 可回滚；splitThemes / adjustEvidenceWeight 同构。若操作会让唯一反例消失，接口返回 COUNTEREXAMPLE_WOULD_VANISH 阻断，需先看 preview 结果。两名研究员并发整理同一主题不静默覆盖，返回 CONCURRENT_MODIFICATION，可识别最终版本且可用 revertToken 回滚。",
+      "spec_ref": "01-insight-library-backend.md#R4",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/theme-organize-revert-real-db.test.ts",
+        "pnpm --filter api exec vitest run tests/itv/theme-merge-counterexample-guard.test.ts"
+      ],
+      "evidence": "",
+      "notes": "算子出处：mergeThemes / splitThemes / adjustEvidenceWeight（三者共享 COUNTEREXAMPLE_WOULD_VANISH 与 revertToken 回滚语义）。复用 apps/api/src/domain/interview/evidence-matrix.ts 的 guardCounterexamplePreservation（比较操作前后反例格子集合，任一『前存在后消失』即触发 COUNTEREXAMPLE_WOULD_VANISH），本 feature 补 preview 预检产出 vanishingCells + 真正写库 + revertToken 持久化回滚 + 并发乐观锁，不重写守护逻辑。对应 coverage.md uc-6-5 R12：V4（唯一反例阻断合并）、V12（并发合并不静默覆盖、可识别最终版本、可回滚）。异常出处 R4 E3（CONCURRENT_MODIFICATION）/E4（COUNTEREXAMPLE_WOULD_VANISH）；主流程 R3 step6。依据等级：phase-01 已 confirmed 契约（I-26）。has_ui:false。估点 3。"
+    },
+    {
+      "id": "F05",
+      "priority": 3,
+      "area": "itv",
+      "capability": "CAP-API",
+      "title": "普遍性断言写作约束：独立受访者不足即阻断并给实际人数",
+      "user_visible_behavior": "报告撰写者对草稿文本调 checkGeneralizationClaim，系统统计该主题的独立受访者数（同一人多条引述只算 1 人，附和与虚拟来源不计入），达全仓统一门槛才允许『用户普遍认为』类表述；不足则阻断（GENERALIZATION_UNSUPPORTED），返回实际独立受访者数与改写建议。实测：4 位独立受访者时阻断、补到 5 位放行。",
+      "spec_ref": "01-insight-library-backend.md#R4",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/itv/generalization-claim-gate-real-db.test.ts"
+      ],
+      "evidence": "",
+      "notes": "算子出处：checkGeneralizationClaim。复用 apps/api/src/domain/interview/generality-claim.ts 的 countIndependentSubjects（同一人多次发言只算 1、附和与 sourceKind=virtual 不计入）与阈值单源 packages/contracts/src/thresholds.ts（门槛 5 全仓声明一次，本域只引用不重声明），本 feature 补的是从持久化引述/主题真实取数喂给该纯函数 + controller 接线，不重写计数口径也不新抄阈值字面量。对应 coverage.md uc-6-5 R12：V7（4 位阻断给实际人数与改写建议、补到 5 放行、同一人 3 条只算 1）。异常出处 R4 E9；规则出处 R7『普遍性断言门槛是全仓单一常量』；主流程 R3 step7。V7b（跨组织聚合 <8）明确跨束不在本阶段范围（R6）。依据等级：phase-01 已 confirmed 契约（I-27）。has_ui:false。估点 2。"
+    }
+  ]
+}
