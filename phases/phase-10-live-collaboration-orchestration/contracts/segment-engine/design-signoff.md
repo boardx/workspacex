@@ -2,9 +2,9 @@
 bundle: segment-engine
 phase: "10"
 covers: [F03, F04]
-status: pending
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-08-20T09:19:24+08:00"
 scope_note: "首轮签核覆盖『环节状态条在编排层的复用呈现』+『倒计时字段』的骨架与契约雏形；F04 的倒计时字段本身是跨 phase-01 议程束的契约变更请求，本束只能提出请求、不能单方面拍板对方的契约——见下方『硬阻断』。『第X组需介入』告警判据全仓无来源，维持 ＊ 待补契约占位，不在本束签核范围内。"
 ---
 
