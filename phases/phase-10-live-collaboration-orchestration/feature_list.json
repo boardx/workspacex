@@ -4,18 +4,221 @@
     {
       "id": "F01",
       "priority": 1,
-      "area": "orchestrator",
-      "title": "示例:健康检查端点",
-      "user_visible_behavior": "GET /api/health 返回 200 且 body 为 {\"ok\": true}",
+      "area": "viewer-role",
+      "title": "视角切换器：主持台·全场 / 分组，含角色锁定与状态后缀",
+      "spec_ref": "01-viewer-role.md#R2",
+      "depends_on": [],
+      "points": 3,
       "status": "not_started",
       "sprint": null,
       "owner": null,
       "capability": "CAP-WEB",
+      "user_visible_behavior": "引导师打开现场协作 Tab，顶部视角切换器默认『主持台·全场』；点开下拉能看到『主持台·全场(4组·看板/知识图谱/签到)』与 4 个分组选项，每个分组带状态后缀（如『推演中』『缺1人』）。组长/组员打开同一 Tab，视角切换器直接锁定本组（不可下拉切走）。",
       "verification": [
-        "curl -sf http://localhost:3000/api/health | jq -e '.ok == true'"
+        "grep -rq 'data-testid=\"lc-viewer-switcher\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "grep -rq 'data-testid=\"lc-viewer-trigger\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "grep -rq 'data-testid=\"lc-viewer-menu\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'viewer-switcher expanded'"
       ],
-      "evidence": "",
-      "notes": "把示例替换成你自己的功能。粒度=一次会话能完成。"
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/viewer-switcher-expanded.png；phases/phase-10-live-collaboration-orchestration/ui-preview/role-member-group-chat.png",
+      "notes": "契约束候选：viewer-role。UI 骨架已由 ui-prototyper 交付（apps/web/components/live-collab/orchestration-preview.tsx + apps/web/lib/mock/live-collab-orchestration.ts）；本 feature 的剩余工作是把切换器接到真实的『当前用户在该项目/该分组的角色关系』读接口（目前是 mock），以及把状态后缀里『缺N人』接到 F05 分组签到的真实到场数——『需介入』后缀因全仓无判据来源（见 00-overview.md 硬前置），维持 UI 上的 ＊ 待签核占位，不在本 feature 内编造。"
+    },
+    {
+      "id": "F02",
+      "priority": 1,
+      "area": "viewer-role",
+      "title": "角色可见性服务端矩阵（引导师/组长/组员/观察者）",
+      "spec_ref": "01-viewer-role.md#R1",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "user_visible_behavior": "组员即使改 URL 参数尝试访问『主持台·全场』或别组的分组视角，服务端拒绝并返回无权限响应（前端呈现『无权限』态，不是空白页或 500）；引导师访问任意视角均放行；顶部提示条文案按角色区分（不是所有角色都显示『你有全部权限』那句话）。",
+      "verification": [
+        "grep -rq 'data-testid=\"denied\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'denied'"
+      ],
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-default-denied.png；phases/phase-10-live-collaboration-orchestration/ui-preview/role-observer-stage-default.png",
+      "notes": "契约束候选：viewer-role。**硬前置：OPEN-QUESTIONS.md Q1『观察者可见范围』未裁定前不得开工服务端实现**——UI 先行原型给了『观察者全场只读』的默认呈现并标了 [待签核]，这是展示态，不能当成已批准的安全边界直接写死进 RLS。需要真实的项目/分组成员关系表与角色读接口（可能已存在于 phase-00/01-auth，需实现时核实，不在本 phase 重新定义身份模型本身）。"
+    },
+    {
+      "id": "F03",
+      "priority": 1,
+      "area": "segment-engine",
+      "title": "环节状态条现场呈现（复用 F963）+ 分组视角内的一致展示",
+      "spec_ref": "00-overview.md#R1",
+      "depends_on": [],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "user_visible_behavior": "无论切到主持台全场还是任意分组视角，黑色环节状态条始终常驻显示同一份真实数据（环节 N/M、环节名、`listAgendaSegments`/`advanceAgendaSegment`），与 apps/web/components/project/tab-live.tsx（F963）已接的真实数据源保持单一来源，不在编排层另建一份副本状态。",
+      "verification": [
+        "grep -rq 'data-testid=\"lc-stage-bar\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "grep -rq 'listAgendaSegments\\|advanceAgendaSegment' apps/web/components/project/tab-live.tsx"
+      ],
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-default-default.png",
+      "notes": "契约束候选：segment-engine-live。⚠ 同一事实不得声明两处（AGENTS.md 硬约束）：环节标题/序号/推进动作的真实数据源就是 F963 已接的 tab-live.tsx 调用，本 feature 只负责把编排层的状态条渲染改成读同一个数据源/同一个前端 hook，不得重新声明或复制一份『环节当前是什么』的状态。"
+    },
+    {
+      "id": "F04",
+      "priority": 3,
+      "area": "segment-engine",
+      "title": "环节倒计时字段（新增契约，跨 phase-01 议程束）",
+      "spec_ref": "00-overview.md#R1",
+      "depends_on": [
+        "F03"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "user_visible_behavior": "状态条显示真实的剩余倒计时（而不是 ui-preview 里标注 ＊『无契约字段』的占位值），倒计时随服务端时钟走、环节推进后立即重置。",
+      "verification": [
+        "grep -rq 'data-testid=\"lc-stage-countdown\"' apps/web/components/live-collab/orchestration-preview.tsx"
+      ],
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-default-default.png（当前渲染『12:48 剩余＊』占位）",
+      "notes": "契约束候选：segment-engine-live。**硬阻断**：`listAgendaSegments` 目前只返回 `{title, state}`，没有剩余时长字段（00-overview.md 已确认）。开工前必须先跟 phase-01 议程束（07-canvas/uc-2-x 或议程本身所属域，需实现时核实具体归属文件）确认要不要新增该字段——这是**跨 phase 的契约变更**，不是本 phase 能单方面决定的，design-signoff 阶段需要显式标注这个跨阶段依赖。"
+    },
+    {
+      "id": "F05",
+      "priority": 2,
+      "area": "group-checkin",
+      "title": "分组签到聚合视图（4 组卡片网格 · 复制链接 · 成员到场列表）",
+      "spec_ref": "02-group-checkin.md#R1",
+      "depends_on": [],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "user_visible_behavior": "引导师切到『主持台·全场 → 分组与签到』，看到 4 张分组卡片：组号/组名/『M/N 已到』/复制链接按钮/成员列表（姓名+角色徽标：组长/已到/未到）。参与者点开组长转发的链接直接进对应分组视角，不需要注册。",
+      "verification": [
+        "grep -rq 'data-testid=\"lc-checkin-grid\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "grep -rq 'data-testid=\"lc-checkin\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'checkin'"
+      ],
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-checkin-default.png；stage-checkin-empty.png；stage-checkin-invalid.png",
+      "notes": "契约束候选：group-checkin（全新领域，此前无任何 UC/feature 提到过）。**复用不重造**：免注册进场的链接生成/校验逻辑归 phase-01 requirements/01-auth/uc-1-2-用分组链接免注册进场.md 所有，本 feature 只消费它、把聚合展示做出来。『到场』判定口径见 OPEN-QUESTIONS.md Q2，未裁定前用『点过加入链接即到场』这一默认展示（ui-preview 已标注 [待签核]），服务端实现时以裁定结果为准，不得自行拍板成既成事实。"
+    },
+    {
+      "id": "F06",
+      "priority": 3,
+      "area": "group-checkin",
+      "title": "到场状态写入与二维码/加入页出口",
+      "spec_ref": "02-group-checkin.md#R2",
+      "depends_on": [
+        "F05"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "user_visible_behavior": "分组签到卡片的『已到/未到』状态反映真实到场事件（不是 mock）；『二维码』『看加入页』按钮从占位变成真实可用的出口。",
+      "verification": [
+        "grep -rq 'data-testid=\"lc-checkin-view-join\"' apps/web/components/live-collab/orchestration-preview.tsx"
+      ],
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-checkin-default.png（二维码/看加入页当前为占位）",
+      "notes": "契约束候选：group-checkin。**硬阻断**：OPEN-QUESTIONS.md Q2（到场判定口径）、Q4（二维码前端生成 vs 服务端出图）、Q5（『看加入页』是预览态还是独立 URL）三点都需人类裁定后才能定实现方案，本 feature 在裁定前不得开工写死任一方案。"
+    },
+    {
+      "id": "F07",
+      "priority": 2,
+      "area": "module-routing",
+      "title": "分组五模块侧栏（对话/访谈/研究/问卷/图谱）路由骨架 + 统一卡片形态",
+      "spec_ref": "03-module-routing.md#R1",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "user_visible_behavior": "分组视角左侧显示 5 个模块 tab（CH 与AI的对话/IT 用户访谈/DR 深度研究/SV 问卷/KG 本组图谱），各带真实计数徽标；点开任一 tab，中间区域切换为该模块的统一形态卡片列表（可见性徽标+状态徽标+摘要+负责人头像+『打开模块』按钮），右侧『本场状态』侧栏保持不变。",
+      "verification": [
+        "grep -rq 'data-testid=\"lc-module-sidebar\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "grep -rq 'data-testid=\"lc-group-main\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "grep -rq 'data-testid=\"lc-group-state-sidebar\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'group-'"
+      ],
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/group-chat-default.png；group-interview-default.png；group-research-default.png；group-survey-default.png；group-graph-default.png",
+      "notes": "契约束候选：module-routing。**复用不重造**：『与AI的对话』复用 phase-01 08-chat 已有组件/接口；『用户访谈』复用 phase-07；『深度研究』复用 phase-06；『问卷』复用 phase-09（含现场投票 F07）；『本组图谱』消费 phase-02 知识图谱数据。本 feature 只做路由与统一卡片形态，不重新实现任一模块内部逻辑。模块卡片统一形态的具体字段集见 OPEN-QUESTIONS.md Q3，是编排层与 5 个下游 phase 的接口契约雏形，design-signoff 阶段需要下游 phase owner 一起确认。"
+    },
+    {
+      "id": "F08",
+      "priority": 2,
+      "area": "module-routing",
+      "title": "本场状态右侧栏：checklist / 需要知道 / 已生成产出",
+      "spec_ref": "03-module-routing.md#R1",
+      "depends_on": [
+        "F07"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-API",
+      "user_visible_behavior": "分组视角右侧『本场状态』栏显示环节倒计时（依赖 F04）、本组进度 checklist（真实勾选项与勾选态）、『需要知道』提示卡（含高亮的关键提示）、『已生成产出』列表（可点开跳转）。",
+      "verification": [
+        "grep -rq 'data-testid=\"lc-group-state-sidebar\"' apps/web/components/live-collab/orchestration-preview.tsx"
+      ],
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/group-chat-default.png",
+      "notes": "契约束候选：module-routing。**硬阻断**：checklist/需要知道/已生成产出这三类字段目前全仓无契约来源（00-overview.md 硬前置），必须先在契约设计阶段补齐字段定义，本 feature 在那之前只能维持 UI 骨架 + 明确标注的 mock，不得渲染编造数据（同 F963 处置纪律）。"
+    },
+    {
+      "id": "F09",
+      "priority": 3,
+      "area": "stage-aggregation",
+      "title": "主持台·看板聚合视图骨架（4 组实时卡片 + 广播）",
+      "spec_ref": "03-module-routing.md#R2",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "user_visible_behavior": "引导师切到『主持台·全场 → 看板』，看到 4 个分组的实时卡片（当前议题/时间戳/一句 AI 摘要引述/进度条/『听这组』『推提示给组长』操作），以及『广播提示给所有组长』全局按钮，点击后有『已发出+全组可见』的成功反馈。",
+      "verification": [
+        "grep -rq 'data-testid=\"lc-kanban-grid\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "grep -rq 'data-testid=\"lc-kanban-broadcast\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'kanban'"
+      ],
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-kanban-default.png；stage-kanban-dep-failed.png；stage-kanban-success.png",
+      "notes": "契约束候选：stage-aggregation。**硬阻断**：消费 phase-02 F02 看板领域数据——phase-02 整个阶段目前 `not_started`，`contracts/` 只签了 survey 一个束，看板契约束未签核。ui-preview 已交付『依赖失败』态（stage-kanban-dep-failed.png：『phase-02 未签，看板停骨架』）作为诚实占位；本 feature 在 phase-02 看板束签核前只能停留在这个骨架态，不得对接假数据冒充真实进度。"
+    },
+    {
+      "id": "F10",
+      "priority": 3,
+      "area": "stage-aggregation",
+      "title": "主持台·知识图谱决策推演聚合视图骨架",
+      "spec_ref": "03-module-routing.md#R2",
+      "depends_on": [
+        "F01"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "user_visible_behavior": "引导师切到『主持台·全场 → 知识图谱·决策推演』，看到决策树（节点状态：领先/在议待决/冲突/已否决/待验证）、『待决的岔口』列表、『图谱推演·如果现在拍板』预测卡、『下一步可开展的工作』派发卡片组（点『开展』派发到对应模块/分组）。",
+      "verification": [
+        "grep -rq 'data-testid=\"lc-stage-graph\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "grep -rq 'data-testid=\"lc-stage-graph-forks\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "grep -rq 'data-testid=\"lc-stage-graph-nextwork\"' apps/web/components/live-collab/orchestration-preview.tsx",
+        "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'graph'"
+      ],
+      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-graph-default.png；group-graph-default.png",
+      "notes": "契约束候选：stage-aggregation。**硬阻断**：消费 phase-02 F11（知识图谱节点/关系领域模型）/F15/F16（决策树模型/AI 不可写入闸门）/F17（下一步可开展的工作派发）——同 F09，phase-02 `not_started` 无契约束签核前只能停留骨架态。『派发』动作（点『开展』）真正把工作派到分组/模块，也依赖这些领域模型先落地。"
     }
   ]
 }
