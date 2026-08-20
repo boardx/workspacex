@@ -1,5 +1,5 @@
 {
-  "phase": "06",
+  "phase": "11",
   "features": [
     {
       "id": "F01",
@@ -11,14 +11,14 @@
       "spec_ref": "01-insight-library-backend.md#R3",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/insight-write-path-persists-real-db.test.ts",
         "pnpm --filter api exec vitest run tests/itv/insight-pinned-snapshot-immutable-real-db.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F01.verify.log @ 2026-08-20T06:27:37.939Z",
       "notes": "算子出处（packages/contracts/src/interview.ts）：extractQuotes / generateCandidateInsights / confirmInsight。复用 apps/api/src/domain/interview/candidate-insight.ts 已有逻辑——buildCandidateInsight（空引述即 INSIGHT_NO_EVIDENCE、任一虚拟来源整条标 virtual、候选恒 strong=false、pinnedSourceSnapshotId=null）与 checkConfirmable（confirmInsight 复用的同一道缺来源不可确认门），本 feature 只补 application handler + 持久化表 + controller + Context API 接线，不重写该纯逻辑。对应 coverage.md uc-6-5 R12：V1（每条洞察可点回不可变来源快照）、V2（AI 分析＝否时抽引述返回原文、候选来源不含该人、排除名单写留痕）、V11（归纳失败已抽引述保留、事务性不产半截洞察）。E1/E2 异常见 R4。这是其余四个 feature 的前置：没有持久化表其余无法真实验证。依据等级：均为 phase-01 已 confirmed 契约 + [原型确认缺失]（洞察库屏 U-8 未建，但本阶段 has_ui:false 走 API 层验收，不受 UI 签核门约束）。估点 5。⚠ 需求文档头部无 `估点 **n**`（后端实现阶段，UI/UC/契约已在 phase-01 签核），validate-fl 的估点对账会因缺该头部而报一项——不改 requirements/*.md，见回复说明。"
     },
     {
