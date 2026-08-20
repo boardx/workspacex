@@ -57,6 +57,13 @@ export function CanvasStage({
   const fabricRef = React.useRef<FabricCanvas | null>(null);
   const mindmapEditorRef = React.useRef<MindmapEditor | null>(null);
   const selectedNodeIdRef = React.useRef<string | null>(null);
+  // 「最近一次真的选中过的节点」——只在 selection:created/updated 时更新，
+  // selection:cleared 不清它（那正是 selectedNodeIdRef 会被清的时机）。用途：
+  // 思维导图模式下点空白处用"+节点"工具加子节点时，那次点击本身会先把当前
+  // 选中清空（fabric 自己的空白点击行为），到我们的 mouse:down 处理跑到时
+  // selectedNodeIdRef 已经是 null 了——用这个"上一次选中"的记忆代替，效果等价于
+  // "先选中节点，再按 Tab"，只是鼠标点了两步操作也不会丢上下文。
+  const lastSelectedNodeIdRef = React.useRef<string | null>(null);
   const lastEmittedRef = React.useRef<string>(markdown);
   const toolRef = React.useRef(tool);
   const readOnlyRef = React.useRef(readOnly);
@@ -65,6 +72,14 @@ export function CanvasStage({
   const onZoomChangeRef = React.useRef(onZoomChange);
   const inlineEditorRef = React.useRef<HTMLTextAreaElement>(null);
   const editingTargetRef = React.useRef<FlowNode | FlowEdge | null>(null);
+  // 撤销/重做（人类实测反馈：此前拖歪/删错一个节点没有任何挽回手段，只能关掉
+  // 整个弹窗放弃这次编辑）。历史栈存的是每次编辑后 `syncFromCanvas` emit 出的
+  // markdown 快照——这条画布已经有的、从 fabric 状态推 markdown 的唯一路径，
+  // 撤销/重做不发明第二套"画布对象级"历史，只是在同一条快照序列里前后移动，
+  // 与「保存」看到的是同一份数据。
+  const historyRef = React.useRef<string[]>([markdown]);
+  const historyCursorRef = React.useRef(0);
+  const restoringRef = React.useRef(false);
   const [ignoredCount, setIgnoredCount] = React.useState(0);
   const [parseError, setParseError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -80,6 +95,16 @@ export function CanvasStage({
   const emit = React.useCallback((next: string) => {
     lastEmittedRef.current = next;
     onMarkdownChangeRef.current(next);
+    // 撤销/重做触发的 emit（见挂载 effect 的 undo/redo 处理）不再记一次历史——
+    // 那是"回放旧快照"，不是"新编辑"，记了会把撤销自己变成需要撤销的操作，
+    // 历史栈会在原地反复横跳。
+    if (restoringRef.current) return;
+    const hist = historyRef.current;
+    if (hist[historyCursorRef.current] === next) return;
+    hist.splice(historyCursorRef.current + 1);
+    hist.push(next);
+    if (hist.length > 100) hist.shift();
+    historyCursorRef.current = hist.length - 1;
   }, []);
 
   const syncFromCanvas = React.useCallback(() => {
@@ -103,6 +128,14 @@ export function CanvasStage({
       selection: true,
     });
     fabricRef.current = canvas;
+
+    // 焦点是否落在一个"这里应该由浏览器原生编辑行为接管"的输入控件上——
+    // 内联便签编辑器、以及任何将来加进画布容器的输入框。Delete/撤销/空格平移
+    // 三处键盘快捷键共用同一条判断，不各写一份（写第二份的下场是改一处漏一处）。
+    const isEditableTarget = (target: EventTarget | null): boolean =>
+      target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      (target instanceof HTMLElement && target.isContentEditable);
 
     // ── 内联编辑器：双击对象直接改文字（参照 projects/fabric-markdown demo 的
     //    openInlineEditor/closeInlineEditor 模式）。一个 <textarea> 浮层贴在对象
@@ -176,6 +209,7 @@ export function CanvasStage({
       const node = obj instanceof FlowNode ? obj : null;
       setSelectedLabel(node?.label ?? null);
       selectedNodeIdRef.current = node?.nodeId ?? null;
+      if (node) lastSelectedNodeIdRef.current = node.nodeId;
       setMindmapActive(mindmapEditorRef.current?.isActive() ?? false);
     });
     canvas.on("selection:updated", (e) => {
@@ -183,6 +217,7 @@ export function CanvasStage({
       const node = obj instanceof FlowNode ? obj : null;
       setSelectedLabel(node?.label ?? null);
       selectedNodeIdRef.current = node?.nodeId ?? null;
+      if (node) lastSelectedNodeIdRef.current = node.nodeId;
       setMindmapActive(mindmapEditorRef.current?.isActive() ?? false);
     });
     canvas.on("selection:cleared", () => {
@@ -197,22 +232,82 @@ export function CanvasStage({
     const mindmapEditor = attachMindmapEditor(canvas, { onChange: syncFromCanvas });
     mindmapEditorRef.current = mindmapEditor;
 
-    // Delete/Backspace 删除当前选中节点（含子树）——attachMindmapEditor 只暴露
-    // removeSubtree 命令 API，不自带 Delete 键绑定（Tab/Enter 才是它内部处理的），
-    // 键位由这里接。只读态下 selection 被禁用（见下方 readOnly effect），
-    // selectedNodeIdRef 始终为 null，天然无副作用，不需要额外判断 readOnly。
+    // Delete/Backspace 删除当前选中节点——两条分支：
+    //   · mindmap：走 attachMindmapEditor 的 removeSubtree（含子树，它自己管派生的
+    //     树结构一致性，不能绕过它直接 canvas.remove）；
+    //   · 其它图（flowchart/类图/…）：此前这条键完全没接，选中节点按 Delete 悄悄
+    //     什么都不发生——唯一能删除节点的路径是切到工具条「删除」工具再点一下，
+    //     选中了却删不掉是常见画布编辑器都不会有的体验断层（人类实测反馈）。
+    //     这里补上：直接 canvas.remove 选中的 FlowNode，同一条"模板模式下分区/
+    //     字段等结构节点不可删"的角色守卫（见下方 mouse:down 那段）在这里复用，
+    //     不写第二份判断。
     const onDeleteKey = (ev: KeyboardEvent): void => {
+      if (readOnlyRef.current) return;
       if (ev.key !== "Delete" && ev.key !== "Backspace") return;
-      const el = ev.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+      if (isEditableTarget(ev.target)) return;
       const nodeId = selectedNodeIdRef.current;
       if (!nodeId) return;
-      if (mindmapEditorRef.current?.removeSubtree(nodeId)) {
-        selectedNodeIdRef.current = null;
-        setSelectedLabel(null);
+      if (mindmapEditorRef.current?.isActive()) {
+        if (mindmapEditorRef.current.removeSubtree(nodeId)) {
+          selectedNodeIdRef.current = null;
+          setSelectedLabel(null);
+        }
+        return;
       }
+      const target = canvas.getObjects().find((o) => o instanceof FlowNode && o.nodeId === nodeId);
+      if (!(target instanceof FlowNode)) return;
+      const isTemplate = extractModel(canvas).kind === "template";
+      const role = (target.data as { role?: string } | undefined)?.role;
+      if (isTemplate && role !== "sticky") return;
+      canvas.remove(target);
+      canvas.fire("object:modified", { target });
+      selectedNodeIdRef.current = null;
+      setSelectedLabel(null);
+      syncFromCanvas();
     };
     document.addEventListener("keydown", onDeleteKey);
+
+    // ── 撤销/重做：Cmd/Ctrl+Z 撤销，Cmd/Ctrl+Shift+Z 或 Cmd/Ctrl+Y 重做——在编辑
+    //    框（内联便签编辑器/其它输入框）里放行，交给浏览器原生的文本撤销，不抢
+    //    键位（人类正在打字时按 Cmd+Z 期待的是"撤销这个字"，不是"撤销上一次
+    //    拖拽"）。restore 复用挂载/markdown-prop-变化那条既有的
+    //    `markdownToCanvas` 重渲染路径，不是第二套"按对象回放操作"的实现——
+    //    历史栈存的本来就是完整快照，回到某一帧只需要把画布按那帧重画一遍。 ──
+    const restoreHistoryAt = (index: number): void => {
+      const hist = historyRef.current;
+      const snap = hist[index];
+      if (snap === undefined) return;
+      historyCursorRef.current = index;
+      restoringRef.current = true;
+      closeInlineEditor(false);
+      canvas.discardActiveObject();
+      selectedNodeIdRef.current = null;
+      setSelectedLabel(null);
+      void markdownToCanvas(snap, canvas)
+        .then(() => {
+          canvas.requestRenderAll();
+          emit(snap);
+        })
+        .finally(() => {
+          restoringRef.current = false;
+        });
+    };
+    const onUndoRedoKey = (ev: KeyboardEvent): void => {
+      if (readOnlyRef.current) return;
+      if (!(ev.metaKey || ev.ctrlKey) || ev.key.toLowerCase() !== "z" && ev.key.toLowerCase() !== "y") return;
+      if (isEditableTarget(ev.target)) return;
+      const redo = ev.key.toLowerCase() === "y" || ((ev.metaKey || ev.ctrlKey) && ev.shiftKey);
+      ev.preventDefault();
+      const hist = historyRef.current;
+      if (redo) {
+        if (historyCursorRef.current >= hist.length - 1) return;
+        restoreHistoryAt(historyCursorRef.current + 1);
+      } else {
+        if (historyCursorRef.current <= 0) return;
+        restoreHistoryAt(historyCursorRef.current - 1);
+      }
+    };
+    document.addEventListener("keydown", onUndoRedoKey);
 
     // ── 滚轮 / trackpad 缩放 + 平移（人类 2026-08-19 明确要求两种输入设备都要支持）。
     //
@@ -264,10 +359,6 @@ export function CanvasStage({
     let panning = false;
     let panLast: { x: number; y: number } | null = null;
     let selectionBeforePan = canvas.selection ?? true;
-    const isEditableTarget = (target: EventTarget | null): boolean =>
-      target instanceof HTMLInputElement ||
-      target instanceof HTMLTextAreaElement ||
-      (target instanceof HTMLElement && target.isContentEditable);
     const onPanKeydown = (ev: KeyboardEvent): void => {
       if (ev.code === "Space" && !isEditableTarget(ev.target)) {
         spaceDown = true;
@@ -339,7 +430,61 @@ export function CanvasStage({
       // 模板模式下只认「＋便签」——「＋节点」是给自由画布加任意矩形节点的，模板的
       // 分区结构是固定的，不接受新增结构节点。
       if (isTemplate && t !== "sticky") return;
-      const pointer = canvas.getScenePoint(opt.e);
+      // 思维导图模式：点空白处不再落一个跟树结构没有任何连线的孤立方块——
+      // 那不是"加了个节点"，是画了一个看起来像节点、实际不属于这棵树的贴纸
+      // （人类实测反馈）。mindmap 的节点位置本来就是自动布局算出来的，点击坐标
+      // 在这里没有意义；改成给"最近选中过的节点"（没选过就是根）加一个真子节点，
+      // 等价于按一次 Tab，只是鼠标可点。
+      //
+      // ⚠ 不能传 `undefined` 让 `addChild` 自己兜底——它兜底兜的是 fabric 当前的
+      //   活动对象（`canvas.getActiveObject()`），而点空白处这个动作本身就会先把
+      //   活动对象清空（fabric 内建行为，先于这段 mouse:down 处理跑），
+      //   实测复现：undefined 传进去等于"没有父节点"，`addChild` 直接返回 null，
+      //   什么都不会发生。`lastSelectedNodeIdRef` 是专门为这个场景留的、
+      //   不随 selection:cleared 清空的记忆（见该 ref 声明处注释）。
+      if (mindmapEditorRef.current?.isActive()) {
+        const parentId = lastSelectedNodeIdRef.current ?? findMindmapRootId(canvas);
+        if (parentId) mindmapEditorRef.current.addChild(parentId);
+        return;
+      }
+      let pointer = canvas.getScenePoint(opt.e);
+      // 模板模式下，新便签落点必须真的在某个分区框内——`serializeTemplate` 按
+      // "离哪个分区框中心最近"把便签分到那个分区（模板序列化的既有规则，非本文件
+      // 定的），点在分区框外的空白处看起来是"没有分区"，保存后却被悄悄计进最近
+      // 那个分区，画面看到的和存下来的对不上（人类实测踩到）。这里让画面如实
+      // 反映保存结果：落点不在任何分区框内时，夹到最近那个分区框的可用范围里。
+      if (isTemplate && t === "sticky") {
+        const sections = canvas
+          .getObjects()
+          .filter((o): o is FlowNode => o instanceof FlowNode && (o.data as { role?: string } | undefined)?.role === "section");
+        const inside = sections.some((s) => {
+          const c = s.center();
+          return Math.abs(pointer.x - c.x) <= s.width / 2 && Math.abs(pointer.y - c.y) <= s.height / 2;
+        });
+        if (!inside && sections.length > 0) {
+          let nearest = sections[0]!;
+          let bestDist = Infinity;
+          for (const s of sections) {
+            const c = s.center();
+            // 平方距离写成乘法，不用指数运算符——两个星号挨着写会被设计 lint
+            // 的朴素正则误判成 Markdown 加粗残留，换个等价写法绕开。
+            const dx = pointer.x - c.x;
+            const dy = pointer.y - c.y;
+            const d = dx * dx + dy * dy;
+            if (d < bestDist) {
+              bestDist = d;
+              nearest = s;
+            }
+          }
+          const c = nearest.center();
+          const padX = Math.min(nearest.width / 2 - 10, 68);
+          const padY = Math.min(nearest.height / 2 - 20, 46);
+          pointer = new Point(
+            Math.min(Math.max(pointer.x, c.x - padX), c.x + padX),
+            Math.min(Math.max(pointer.y, c.y - padY), c.y + padY),
+          );
+        }
+      }
       nodeSeq += 1;
       const id = `local-${t}-${nodeSeq}`;
       const node = isTemplate
@@ -373,6 +518,7 @@ export function CanvasStage({
 
     return () => {
       document.removeEventListener("keydown", onDeleteKey);
+      document.removeEventListener("keydown", onUndoRedoKey);
       document.removeEventListener("keydown", onPanKeydown);
       document.removeEventListener("keyup", onPanKeyup);
       editorEl?.removeEventListener("keydown", onEditorKeydown);
@@ -531,7 +677,7 @@ export function CanvasStage({
 }
 
 /** 底部提示条复用的平移/缩放操作说明——三种输入设备都要能发现（人类 2026-08-19 明确要求）。 */
-const PAN_ZOOM_HINT = "双指捏合/Ctrl+滚轮缩放 · 双指或滚轮平移 · 空格/Alt/中键拖拽平移";
+const PAN_ZOOM_HINT = "双指捏合/Ctrl+滚轮缩放 · 双指或滚轮平移 · 空格/Alt/中键拖拽平移 · ⌘Z 撤销 · ⌘⇧Z 重做";
 
 const TOOL_LABEL: Record<CanvasTool, string> = {
   select: "选择",
@@ -540,6 +686,19 @@ const TOOL_LABEL: Record<CanvasTool, string> = {
   edge: "连线",
   delete: "删除",
 };
+
+/**
+ * 思维导图的根节点 id——用户从没选过任何节点时，「+节点」/「+便签」工具落点在
+ * 空白处该给谁加子节点。根 = 从没在任何边里当过 target 的那个 FlowNode
+ * （树结构定义本身：根没有父）。找不到（异常态：空画布/非树结构）时返回 null，
+ * 调用方原样跳过这次添加——不瞎猜一个节点当父节点。
+ */
+function findMindmapRootId(canvas: FabricCanvas): string | null {
+  const nodes = canvas.getObjects().filter((o): o is FlowNode => o instanceof FlowNode);
+  const edges = canvas.getObjects().filter((o): o is FlowEdge => o instanceof FlowEdge);
+  const targets = new Set(edges.map((e) => e.target));
+  return nodes.find((n) => !targets.has(n.nodeId))?.nodeId ?? null;
+}
 
 /** R7 ③ 白名单忽略计数：mermaid/persona/canvas/usecase 以外的围栏语言按段计数（近似——精确名单在 F101/F102）。 */
 function countIgnoredFences(markdown: string): number {
