@@ -69,6 +69,19 @@ export interface AttachmentCommandRepository {
    * 都取决于「这个线程你能不能看」，不取决于附件是否已经挂上某条消息。
    */
   findById(orgId: OrgId, threadId: string, attachmentId: string): Promise<Guarded<AttachmentRow | null>>;
+  /**
+   * `listThreadAttachments`（#728 D9，右侧栏「材料」）：该线程**已挂到消息**的附件全部
+   * 候选行（`message_id IS NOT NULL`），按 `created_at DESC`。composer 里还没随消息发出的
+   * pending 附件不在此列——那是草稿态，不是这场对话已经产出的材料。与
+   * `ArtifactLandingRepository.listByThread` 同一套分工：这里不做可见性过滤，
+   * 过滤在 application 层的 `resolveVisibility`。
+   */
+  listSentByThread(orgId: OrgId, threadId: string): Promise<readonly SentAttachmentRow[]>;
+}
+
+/** 已挂到消息上的附件行——`listThreadAttachments` 用，比 `AttachmentRow` 多一个 `messageId`。 */
+export interface SentAttachmentRow extends AttachmentRow {
+  readonly messageId: string;
 }
 
 /** DI 令牌——与 `CHAT_MESSAGE_COMMAND_REPOSITORY` 同套，绑定在 kernel.module。 */
@@ -139,7 +152,15 @@ export async function uploadAttachment(
   const storageRef = `chat-attachments/${input.orgId}/${id}`;
   try {
     await deps.store.putOnce(storageRef, input.bytes, input.mime);
-  } catch {
+  } catch (e) {
+    // #1704：原来是裸 `catch {}`。对外仍是 STORAGE_UNAVAILABLE（契约错误码不变，
+    // 也不把内部路径泄给调用方），但**原因必须留下痕迹**——上一次这条路径整片红时，
+    // 每个上传只回一个笼统的 STORAGE_UNAVAILABLE，EEXIST / ENOSPC / EACCES 无从分辨，
+    // 诊断只能靠猜。压平错误码是契约要求，压平**证据**不是。
+    console.error(
+      `[chat-attachment] putOnce failed key=${storageRef}: ` +
+      (e instanceof Error ? `${e.name}: ${e.message}` : String(e)),
+    );
     throw new AttachmentUploadError("STORAGE_UNAVAILABLE");
   }
   const createdAt = deps.clock.now();

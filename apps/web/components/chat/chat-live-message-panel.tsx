@@ -84,6 +84,7 @@ export function ChatLiveMessagePanel({
   canLandArtifacts,
   onArtifactLanded,
   onRunSettled,
+  onMessageSent,
   aboveComposer,
   onMentionQueryChange,
   mentionResolvedNonce,
@@ -122,6 +123,15 @@ export function ChatLiveMessagePanel({
    * 去重读服务端权威列表。
    */
   onRunSettled?: () => void;
+  /**
+   * issue #728 D9（人类 2026-08-21 裁决）—— 一条消息**成功发出**后触发（无论是否带
+   * 附件）。调用方借此重读右栏「材料」列表——附件挂到消息上发生在**发送这一刻**
+   * （`createMessage` 的 `attachmentIds`），不是等到 agent run 落定（`onRunSettled`）
+   * 才发生，所以材料刷新不能借用 `onRunSettled` 那个时机，需要单独的钩子。
+   * 同 `onArtifactLanded`：单一事实源仍是服务端 `listThreadAttachments`，本组件
+   * 不在本地维护第二份材料计数。
+   */
+  onMessageSent?: () => void;
   /**
    * #728 D10 —— 「进行中」状态卡（录音/agent 跑批）的挂载点，紧贴在输入框
    * **正上方**，不是消息面板上方或全局底栏。原型里这类卡片就长在这个位置。
@@ -654,6 +664,7 @@ export function ChatLiveMessagePanel({
       setText("");
       setAttempt(null);
       attach.clear(); // 发送成功：附件已挂到该消息，清空 composer 的本地附件态
+      onMessageSent?.(); // #728 D9：材料随消息一起产出，此刻通知上层重读右栏「材料」
 
       await loadPage(null, "soft"); // 发送后重读：软换，不清空不弹骨架（#925 ② 消灭闪烁）
       // #925 ③（人类裁决）—— 发送是显式意图，无条件滚到最新一条，**覆盖 V1「尊重上滚」**

@@ -15,7 +15,7 @@ import { ApiError } from "@/lib/api-client";
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage,
-  createThread, renameThread, deleteThread, listThreadArtifacts, landAsArtifact, sessionState,
+  createThread, renameThread, deleteThread, listThreadArtifacts, listThreadAttachments, landAsArtifact, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   listThreads: vi.fn(),
@@ -28,6 +28,8 @@ const {
   deleteThread: vi.fn(),
   // 十项 UX 缺口第 4/5 项（#708）——本文件不测这两个端口，只需要默认解析值。
   listThreadArtifacts: vi.fn(),
+  // issue #728 D9（人类 2026-08-21 裁决）——右栏「材料」，本文件同样不测，只需默认解析值。
+  listThreadAttachments: vi.fn(),
   landAsArtifact: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
@@ -50,7 +52,7 @@ vi.mock("@/components/shell/app-shell", () => ({
 vi.mock("@/lib/live-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量 + uploadAttachment（#946 composer 附件）
   listThreads, getThread, getAgentPanel, listMessages, createMessage,
-  createThread, renameThread, deleteThread, listThreadArtifacts, landAsArtifact,
+  createThread, renameThread, deleteThread, listThreadArtifacts, listThreadAttachments, landAsArtifact,
 }));
 
 import { ChatReadScreen } from "@/components/chat/chat-read-screen";
@@ -112,6 +114,7 @@ describe("#460 会话增删改接入正式 /chat", () => {
     getAgentPanel.mockResolvedValue({ presentCount: 0, rosterCount: 0, agents: [] });
     listMessages.mockResolvedValue({ messages: [], nextCursor: null });
     listThreadArtifacts.mockResolvedValue({ items: [] });
+    listThreadAttachments.mockResolvedValue({ items: [] });
   });
 
   it("服务端没下发 thread.mutate 时，写入口整块不渲染", async () => {

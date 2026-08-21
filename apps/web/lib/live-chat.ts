@@ -365,6 +365,24 @@ export async function uploadAttachment(
   });
 }
 
+/** 右侧栏「材料」列表（#728 D9）——`GET /chat/threads/:threadId/attachments`（`listThreadAttachments`）。 */
+export type ListThreadAttachmentsOut = z.infer<typeof chatFileUpload.operations.listThreadAttachments.out>;
+
+/**
+ * 右侧栏「材料」列表（issue #728 D9，人类 2026-08-21 裁决）——已挂到消息上的附件全部行，
+ * 按最新在前排列。composer 里还没随消息发出的 pending 附件不在此列（那是草稿态）。
+ */
+export async function listThreadAttachments(
+  threadId: string,
+  projectId: string,
+  sessionToken?: string,
+): Promise<ListThreadAttachmentsOut> {
+  return apiRequest<ListThreadAttachmentsOut>(
+    chatFileUpload.operations.listThreadAttachments.path.replace(":threadId", encodeURIComponent(threadId)),
+    { method: "GET", query: { projectId }, sessionToken },
+  );
+}
+
 export interface CreateThreadInput {
   readonly projectId: string;
   readonly groupId: string | null;
