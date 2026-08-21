@@ -74,6 +74,7 @@ import {
   type ProjectTopicRepository,
 } from "../../application/templates/save-and-sync-topic-ports";
 import { getProjectGroupingUseCase, GetProjectGroupingError } from "../../application/templates/get-project-grouping";
+import { getViewerOptionsUseCase, GetViewerOptionsError } from "../../application/live-collab/get-viewer-options";
 import { updateGroupingUseCase, UpdateGroupingError } from "../../application/templates/update-grouping";
 import { GROUPING_REPOSITORY, type GroupingRepository } from "../../application/templates/grouping-ports";
 import type { ProjectRole } from "../../domain/identity/roles";
@@ -574,6 +575,44 @@ export class BlueprintController {
       );
     } catch (e) {
       if (e instanceof GetProjectGroupingError) throw this.mapPrepFamilyError(e.reasonCode);
+      throw e;
+    }
+  }
+
+  /**
+   * F02（phase-10 viewer-role 束，2026-08-21）——`tab-live.tsx`（现场协作视角切换器）
+   * 专用的独立只读端点。**不复用** `getGrouping()`：那个端点服务筹备阶段
+   * `tab-prep.tsx` 的「全量分组内部协作视图」，语义与这里的角色收窄互斥（见
+   * `get-project-grouping.ts` 头注）。这里读一次完整 membership（角色 + 所在组），
+   * 用 `projectViewersForRole` 做服务端投影：facilitator 全场+全部分组；
+   * groupLead/member 只有自己那一组；observer 只有『主持台·全场』一项，不含任何
+   * 分组条目（`viewer-role/domain.md` 不变量 2/3）。`requestedViewerId` 是可选的
+   * 「我要切到这个视角」意图，越权 ⇒ `VIEWER_SCOPE_DENIED`（403），不是 200 + 猜不到
+   * 内容的空列表（不变量 1）。
+   */
+  @Get("/projects/:projectId/viewer-options")
+  async getViewerOptions(
+    @CurrentPrincipal() principal: Principal,
+    @Param("projectId") projectId: string,
+    @Query("requestedViewerId") requestedViewerId?: string,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const membership = await this.identity.findProjectMembership(principal.userId, projectId, orgId);
+    const role = (membership?.projectRole as ProjectRole | undefined) ?? null;
+    const actorGroupId = membership?.groupId ?? null;
+    try {
+      return await getViewerOptionsUseCase(
+        { repo: this.groupingRepo },
+        { orgId, projectId, actorProjectRole: role, actorGroupId, requestedViewerId },
+      );
+    } catch (e) {
+      if (e instanceof GetViewerOptionsError) {
+        if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") {
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        throw new ForbiddenException({ reasonCode: e.reasonCode });
+      }
       throw e;
     }
   }

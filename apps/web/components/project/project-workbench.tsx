@@ -22,6 +22,7 @@ import {
   getProjectTopic, getProjectGrouping,
   type ProjectTopicOut, type ProjectGroupingOut,
 } from "@/lib/live-project-prep";
+import { getViewerOptions, type ViewerOptionsOut } from "@/lib/live-collab-viewer-role";
 import { queryProvenance, type QueryProvenanceOut } from "@/lib/live-provenance";
 import { TabOverview } from "./tab-overview";
 import { TabLive } from "./tab-live";
@@ -258,6 +259,26 @@ export function ProjectWorkbench({
       .finally(() => setLiveGroupingLoading(false));
   }, [projectId]);
 
+  /**
+   * F02（phase-10 viewer-role 束）—— `tab-live.tsx` 视角切换器的服务端权威数据源。
+   * **不复用** `liveGrouping`（那份数据服务 `tab-prep.tsx` 的全量分组视图，见
+   * `get-project-grouping.ts` 头注）；这里打独立端点 `getViewerOptions`，只在
+   * `tab === "live"` 时拉取。
+   */
+  const [liveViewerOptions, setLiveViewerOptions] = React.useState<ViewerOptionsOut | null>(null);
+
+  React.useEffect(() => {
+    if (!projectId || tab !== "live" || !getStoredSessionToken()) {
+      setLiveViewerOptions(null);
+      return;
+    }
+    let live = true;
+    getViewerOptions(projectId)
+      .then((out) => { if (live) setLiveViewerOptions(out); })
+      .catch(() => { if (live) setLiveViewerOptions(null); });
+    return () => { live = false; };
+  }, [projectId, tab]);
+
   React.useEffect(() => {
     const needsGrouping = tab === "prep" || tab === "live";
     if (!projectId || !needsGrouping || !getStoredSessionToken()) {
@@ -480,6 +501,7 @@ export function ProjectWorkbench({
                 liveSegments, liveSegmentsLoading, liveSegmentsError, refreshSegments,
                 liveTopic, liveTopicLoading, liveTopicError, refreshTopic,
                 liveGrouping, liveGroupingLoading, liveGroupingError, refreshGrouping,
+                liveViewerOptions,
                 liveAudit, liveAuditLoading, liveAuditError,
               )}
             </StateShell>
@@ -514,6 +536,7 @@ function renderTab(
   liveGroupingLoading: boolean,
   liveGroupingError: string | null,
   refreshGrouping: () => void,
+  liveViewerOptions: ViewerOptionsOut | null,
   liveAudit: QueryProvenanceOut | null,
   liveAuditLoading: boolean,
   liveAuditError: string | null,
@@ -566,6 +589,7 @@ function renderTab(
           liveGrouping={liveGrouping}
           liveGroupingLoading={liveGroupingLoading}
           liveGroupingError={liveGroupingError}
+          viewerOptions={liveViewerOptions}
           onAdvanced={refreshSegments}
         />
       );

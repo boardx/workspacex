@@ -13,6 +13,7 @@ import {
 } from "@/lib/live-projects";
 import { GROUP_STATUS_LABEL, type Group, type ProjectGroupingOut } from "@/lib/live-project-prep";
 import { useOptionalSession } from "@/components/session/session-provider";
+import type { ViewerOptionsOut } from "@/lib/live-collab-viewer-role";
 
 /**
  * 现场协作主持台（F963，2026-08-19；F01/2026-08-20 加视角切换器）。
@@ -45,6 +46,13 @@ import { useOptionalSession } from "@/components/session/session-provider";
  *   - 「缺N人」（到场人数）与「需介入」（现场告警）两个状态后缀不在本 feature 范围内
  *     （分别依赖 F05 分组签到、以及全仓无来源的现场介入判据），维持 ＊ 占位，
  *     见 `viewer-role/design-signoff.md` frontmatter `scope_note`。
+ *
+ * ⚠ **F02 服务端强制面（phase-10 viewer-role 束，2026-08-21）**：视角选项与顶部提示条
+ *   文案现在优先取 `viewerOptions`（新端点 `getViewerOptions`，服务端按角色 + 所在组
+ *   算好、不是前端二次过滤的权威结果——`domain.md` 不变量 1）；请求还没回来或失败时
+ *   回退到本地 `computeViewerOptions`（同 F01 既有行为，纯展示层兜底，不是安全边界）。
+ *   `promptText` 是服务端给的角色区分文案（见 `get-viewer-options.ts` 的
+ *   `promptTextForRole`），不是前端字典硬编码。
  */
 export function TabLive({
   view,
@@ -55,6 +63,7 @@ export function TabLive({
   liveGrouping = null,
   liveGroupingLoading = false,
   liveGroupingError = null,
+  viewerOptions = null,
   onAdvanced,
 }: {
   view: ProjectRole;
@@ -65,6 +74,8 @@ export function TabLive({
   liveGrouping?: ProjectGroupingOut | null;
   liveGroupingLoading?: boolean;
   liveGroupingError?: string | null;
+  /** F02：服务端权威的视角列表 + 提示条文案；`null` = 还没拿到（本地兜底）。 */
+  viewerOptions?: ViewerOptionsOut | null;
   onAdvanced?: () => void;
 }) {
   const stageControl = ROLE_STAGE_CONTROL[view] && !readOnly;
@@ -72,7 +83,14 @@ export function TabLive({
   const myGroupName = useOptionalSession()?.identity?.groupName ?? null;
 
   const groups = liveGrouping?.groups ?? [];
-  const { options, locked, defaultId } = computeViewerOptions(view, groups, myGroupName);
+  const fallback = computeViewerOptions(view, groups, myGroupName);
+  const { options, locked, defaultId } = viewerOptions !== null
+    ? {
+        options: viewerOptions.viewers as ViewerOption[],
+        locked: view !== "facilitator",
+        defaultId: viewerOptions.viewers[0]?.id ?? null,
+      }
+    : fallback;
   const [selectedId, setSelectedId] = React.useState<string>(defaultId ?? "stage");
   // 分组数据是异步拉回来的：首次渲染时 options 可能还是空的，等真正到手后把选中项
   // 同步成默认值，不然 groupLead/member 会先看见「找不到分组」的空态再跳成真内容。
@@ -83,6 +101,12 @@ export function TabLive({
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-6" data-testid="project-live">
+      {viewerOptions !== null && (
+        <p className="text-11 text-muted-foreground" data-testid="lc-viewer-role-prompt">
+          {viewerOptions.promptText}
+        </p>
+      )}
+
       <StageBar
         segments={liveSegments}
         loading={liveSegmentsLoading}

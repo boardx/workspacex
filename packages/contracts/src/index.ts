@@ -36,3 +36,6 @@ export * as personalRealtimeTranscription from "./personal-realtime-transcriptio
 
 /* ── phase-03 契约束 ───────────────────────────────────────────────── */
 export * as feedbackLoop from "./feedback-loop";
+
+/* ── phase-10 契约束 ───────────────────────────────────────────────── */
+export * as viewerRole from "./viewer-role";

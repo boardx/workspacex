@@ -1,0 +1,117 @@
+$ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/live-collab/get-viewer-options.test.ts
+[exit 0]
+[harness-isolation] outer_db=wsx_bedc9a8b66620619dc3a inner_db=wsx_bedc9a8b66620619dc3a outer_compose=wsx-bedc9a8b66620619dc3a inner_compose=wsx-bedc9a8b66620619dc3a status=matched
+[stack-admission] load1=4.52 cores=10 perCore=0.45 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mt2jobyn-81138e9f-bedc9a8b6662 db=wsx_bedc9a8b66620619dc3a compose=wsx-bedc9a8b66620619dc3a pg=23523 redis=28523
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a813593b4dc917d2b/apps/api
+
+[db-isolation] db=wsx_bedc9a8b66620619dc3a capacity=100 current=6 required=32
+ ✓ tests/live-collab/get-viewer-options.test.ts (16 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+   Start at  14:04:39
+   Duration  2.72s (transform 78ms, setup 0ms, collect 29ms, tests 6ms, environment 0ms, prepare 56ms)
+
+[db-isolation] db=wsx_bedc9a8b66620619dc3a peak_connections=1
+[timing] pnpm --filter api exec vitest run tests/live-collab/get-viewer-options.test.ts
+  环境预留：0s
+  等待资源：0s
+  命令执行：3s
+  清理：1s
+  总计：4s
+
+
+$ pnpm --filter web exec vitest run tests/ui/project-live-viewer-switcher.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a813593b4dc917d2b/apps/web
+
+ ✓ tests/ui/project-live-viewer-switcher.test.tsx (9 tests) 46ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  14:04:43
+   Duration  2.46s (transform 399ms, setup 172ms, collect 591ms, tests 46ms, environment 1.00s, prepare 50ms)
+
+
+
+$ pnpm --filter web run typecheck
+[exit 0]
+
+> web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a813593b4dc917d2b/apps/web
+> tsc --noEmit
+
+
+
+
+[BASE VERIFY] (risk=high_risk; matched: packages/contracts/src/index.ts⟵packages/contracts/**, packages/contracts/src/templates.ts⟵packages/contracts/**, packages/contracts/src/viewer-role.ts⟵packages/contracts/**) $ pnpm -w run verify:release
+[exit 1]
+
+> agentic-harness-template@ verify:release /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a813593b4dc917d2b
+> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:base:raw
+
+[harness-isolation] outer_db=wsx_bedc9a8b66620619dc3a inner_db=wsx_bedc9a8b66620619dc3a outer_compose=wsx-bedc9a8b66620619dc3a inner_compose=wsx-bedc9a8b66620619dc3a status=matched
+[stack-admission] load1=4.88 cores=10 perCore=0.49 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mt2jobyn-81138e9f-bedc9a8b6662 db=wsx_bedc9a8b66620619dc3a compose=wsx-bedc9a8b66620619dc3a pg=23523 redis=28523
+
+> agentic-harness-template@ verify:base:raw /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a813593b4dc917d2b
+> pnpm run verify:harness:raw && turbo run typecheck lint --continue && turbo run test --continue --concurrency=1
+
+
+> agentic-harness-template@ verify:harness:raw /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a813593b4dc917d2b
+> pnpm run lint:ui-material && pnpm run lint:third-artifact && pnpm run lint:verification && pnpm run lint:nav-reachability && pnpm run lint:rewrite-coverage && pnpm run lint:body-path-param-leak && pnpm run lint:spec-gate-coverage && pnpm run lint:templates-doctor && pnpm run lint:role-freeze-doctor && pnpm run lint:graph-authority-doctor && pnpm run lint:readiness && pnpm run lint:skills-doctor && pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness
+
+
+> agentic-harness-template@ lint:ui-material /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a813593b4dc917d2b
+> node .harness/scripts/lint-ui-material.mjs
+
+  ✓ phase-01-run-a-project/agent-runtime      49/49  (ui-preview/agent-runtime-v2)
+  ✓ phase-01-run-a-project/asset-governance   64/64  (ui-preview/asset-governance)
+  ✓ phase-01-run-a-project/canvas             51/51  (ui-preview/canvas-v2)
+  ✓ phase-01-run-a-project/chat               20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/chat-file-upload   12/12  (ui-preview/chat-file-upload)
+  ✓ phase-01-run-a-project/files              15/15  (ui-preview/files)
+  ✓ phase-01-run-a-project/interview          62/62  (ui-preview/itv-v2)
+  ✓ phase-01-run-a-project/org-admin          48/48  (ui-preview/org-admin)
+  ✓ phase-01-run-a-project/personal-realtime-transcription   3/3   (ui-preview/realtime-transcription)
+  ✓ phase-01-run-a-project/project            92/92  (ui-preview/project-v2)
+  ✓ phase-01-run-a-project/recording          56/56  (ui-preview/rec-v2)
+  ✓ phase-01-run-a-project/research           49/49  (ui-preview/research)
+  ✓ phase-01-run-a-project/skills             67/67  (ui-preview/skill-v2)
+  ✓ phase-01-run-a-project/templates          41/41  (ui-preview/tpl-v2)
+  ✓ phase-02-visible-outcomes/survey           6/6   (ui-preview/survey-v2)
+  ✓ phase-03-reuse-and-governance/feedback-loop   9/9   (ui-preview/feedback-loop)
+  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview  10/10  (ui-preview/digital-expert-interview)
+  ✓ phase-05-studio-style-unification/studio-style   3/3   (ui-preview/studio-style)
+  ✓ phase-06-deep-research/deep-research       7/7   (ui-preview/deep-research)
+  ✓ phase-07-user-research/user-research       1/1   (ui-preview/user-research)
+  ✓ phase-08-transcription/transcription       1/1   (ui-preview/transcription)
+  ✓ phase-09-survey/survey                     1/1   (ui-preview/survey)
+  ✓ phase-01-run-a-project/chat-context-engine  20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/curated-capability-packs  67/67  (ui-preview/skill-v2)
+
+✗ [未声明] phase-10-live-collaboration-orchestration/group-checkin/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+✗ [未声明] phase-10-live-collaboration-orchestration/module-routing/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+✗ [未声明] phase-10-live-collaboration-orchestration/segment-engine/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+✗ [未声明] phase-10-live-collaboration-orchestration/stage-aggregation/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+✗ [未声明] phase-10-live-collaboration-orchestration/viewer-role/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+
+❌ lint-ui-material: 5 处材料不一致。
+   签核第 ① 件的材料就是这批截图：ui.md 引用的集合 与 ui-preview/ 实存的集合必须逐张相等。
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+[timing] pnpm run verify:base:raw
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：1s
+ ELIFECYCLE  Command failed with exit code 1.
+
+[harness-verify v1 sha256=640113e13651316644f408bb2260ff74f65f24b3ad7b1d4fb0c68d2b51b9df81 commit=5c7c3f30e49a4f3d6cb91159996f1b1dfca56b9b at=2026-08-21T06:04:51.943Z]

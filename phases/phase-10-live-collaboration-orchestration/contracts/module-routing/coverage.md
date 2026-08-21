@@ -1,5 +1,16 @@
 # `module-routing` — feature ↔ 需求映射
 
+## R12 门控映射（第 ③ 件形态 B：本束当前无对外 HTTP 面，见 domain.md）
+
+| R12 | 一句话 | 门控命令（API 操作） | 后端落点 | 状态 |
+|---|---|---|---|---|
+| V1 | 骨架：本束现有代码（UI 骨架 + mock）typecheck/lint 不破 | `pnpm --filter web run typecheck` | `apps/web/components/live-collab/orchestration-preview.tsx` | ✅ |
+
+**缺口 1**（文字登记，不放进上表——上表要求每行都有可执行命令，本条目前没有）：
+F07/F08 尚未开工，本束还没有真实 HTTP 面/契约文件；等任一 feature 开工后，
+本节要么新增一行带真实门控命令，要么整节改写为形态 A（新建 `packages/contracts/src/module-routing.ts`）。
+
+
 | feature | 需求出处 | 覆盖情况 |
 |---|---|---|
 | F07 | `requirements/03-module-routing.md#R1`（第 1-3 点：侧栏结构、路由、统一卡片形态） | UI 骨架已建，字段集已按 Q3 裁定 |
