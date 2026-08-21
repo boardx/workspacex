@@ -45,6 +45,12 @@ import {
 const NODE_FILL = PRIMARY_SOFT;
 const NODE_STROKE = PRIMARY;
 const EDGE_STROKE = INK_SOFT;
+// Same hue as NODE_STROKE (selection language stays one color across nodes
+// and edges) — an edge picked up its own selected-state stroke so it reads
+// as "this is the thing selected", not just a loose bounding-box outline
+// (Fabric's default `hasBorders` gives that, but it's an axis-aligned box
+// around a possibly-diagonal/curved line — easy to lose in a dense graph).
+const SELECTED_EDGE_STROKE = PRIMARY;
 const LABEL_COLOR = INK;
 
 /** Shapes that get the theme drop shadow (primary content, not decorations). */
@@ -686,8 +692,32 @@ export class FlowEdge extends FabricObject {
     return this.seqY === undefined && this.data?.['straight'] !== true;
   }
 
-  /** Line/arrow color: data.color wins, then the theme edge stroke. */
+  /**
+   * Whether this edge is the interactive canvas's current selection.
+   *
+   * `getActiveObject` lives on `SelectableCanvas`/`Canvas` (interaction), not
+   * on the base `StaticCanvas` this object's `canvas` field is typed as —
+   * server-side/headless render paths (`apps/api/tests/canvas/*`,
+   * `renderToCanvas` used from Node) legitimately attach a plain
+   * `StaticCanvas` that never has it. Duck-type the check instead of
+   * asserting the type, so those callers keep rendering instead of throwing
+   * `getActiveObject is not a function` (real regression, caught by
+   * `coords-not-written-back.test.ts` erroring — not a hypothetical).
+   */
+  private isSelected(): boolean {
+    const c = this.canvas as { getActiveObject?: () => unknown } | undefined;
+    return typeof c?.getActiveObject === 'function' && c.getActiveObject() === this;
+  }
+
+  /**
+   * Line/arrow color: selected-state wins over everything (a selected edge
+   * must read as selected even on a branch-colored mindmap edge or a
+   * data.color-tinted UML relation — those are still readable through a
+   * temporary color swap, same as a node's selection outline overriding its
+   * own fill/stroke), then data.color, then the theme edge stroke.
+   */
   private lineColor(): string {
+    if (this.isSelected()) return SELECTED_EDGE_STROKE;
     return (this.data?.['color'] as string) ?? EDGE_STROKE;
   }
 
@@ -757,11 +787,15 @@ export class FlowEdge extends FabricObject {
     const by = this.y2 - cy;
 
     ctx.save();
+    const isSelected = this.isSelected();
     const color = this.lineColor();
     ctx.strokeStyle = color;
     // 'thick' (mermaid `==>`) needs to read as unmistakably heavier than a
     // plain line at a glance, not just marginally — bump it well past 2x.
-    ctx.lineWidth = this.kind === 'thick' ? 4.5 : 1.6;
+    // Selected state gets the same "unmistakably heavier" treatment, on top
+    // of whatever the kind's own width already is (a selected 'thick' edge
+    // should look thicker than an unselected 'thick' edge, not the same).
+    ctx.lineWidth = (this.kind === 'thick' ? 4.5 : 1.6) * (isSelected ? 1.6 : 1);
     if (DASHED_KINDS.has(this.kind)) ctx.setLineDash([5, 4]);
 
     // Sequence self-message (A->>A): endpoints share the lifeline x with a

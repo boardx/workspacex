@@ -4,6 +4,7 @@ import { Canvas as FabricCanvas, Point, util } from "fabric";
 import {
   markdownToCanvas,
   extractModel,
+  getConnectionManager,
   FlowNode,
   FlowEdge,
   attachMindmapEditor,
@@ -17,6 +18,7 @@ import type { CanvasTool } from "./canvas-toolbar";
 import { ZOOM_MIN, ZOOM_MAX } from "./canvas-toolbar";
 
 let nodeSeq = 0;
+let edgeSeq = 0;
 
 /**
  * 画布本体 —— **真实 mermaid 引擎渲染**（F103，替换此前「非 mermaid 渲染」的静态壳）。
@@ -64,6 +66,17 @@ export function CanvasStage({
   // selectedNodeIdRef 已经是 null 了——用这个"上一次选中"的记忆代替，效果等价于
   // "先选中节点，再按 Tab"，只是鼠标点了两步操作也不会丢上下文。
   const lastSelectedNodeIdRef = React.useRef<string | null>(null);
+  // 选中一条连线时记它的 edgeId——同 selectedNodeIdRef 平行的一份状态，不是复用
+  // 同一个 ref：节点和边是两种不同的可删除对象，`onDeleteKey`/删除工具需要分开
+  // 判断「选中的是节点还是边」，混成一个 ref 会让"选中边却按节点 id 去找"这类
+  // 错误在类型层面查不出来（人类实测反馈：选中一条连线后 Delete/删除工具对它
+  // 完全没反应——这两处此前都硬编码只认 FlowNode）。
+  const selectedEdgeIdRef = React.useRef<string | null>(null);
+  // 「连线」工具（两次点击连两个节点）的进行中状态——点了第一个节点后记它的
+  // nodeId，等第二次点击；再点同一个节点 = 取消这次连线。工具切走时清空
+  // （下面单独一个 effect），避免切到别的工具后这个"半成品"状态还悬着。
+  const pendingEdgeSourceRef = React.useRef<string | null>(null);
+  const [pendingEdgeSourceLabel, setPendingEdgeSourceLabel] = React.useState<string | null>(null);
   const lastEmittedRef = React.useRef<string>(markdown);
   const toolRef = React.useRef(tool);
   const readOnlyRef = React.useRef(readOnly);
@@ -91,6 +104,16 @@ export function CanvasStage({
   markdownRef.current = markdown;
   onMarkdownChangeRef.current = onMarkdownChange;
   onZoomChangeRef.current = onZoomChange;
+
+  // 切走「连线」工具时清掉进行中的"已点了起点，等第二次点击"状态——不然切到
+  // 别的工具再切回来，第一次点击会被当成"这是刚才那条连线的终点"，凭空连出一条
+  // 用户根本没打算连的线。
+  React.useEffect(() => {
+    if (tool !== "edge") {
+      pendingEdgeSourceRef.current = null;
+      setPendingEdgeSourceLabel(null);
+    }
+  }, [tool]);
 
   const emit = React.useCallback((next: string) => {
     lastEmittedRef.current = next;
@@ -204,25 +227,26 @@ export function CanvasStage({
     editorEl?.addEventListener("blur", onEditorBlur);
 
     canvas.on("object:modified", syncFromCanvas);
-    canvas.on("selection:created", (e) => {
+    const onSelection = (e: { selected?: unknown[] }): void => {
       const obj = e.selected?.[0];
       const node = obj instanceof FlowNode ? obj : null;
-      setSelectedLabel(node?.label ?? null);
+      const edge = obj instanceof FlowEdge ? obj : null;
+      setSelectedLabel(node?.label ?? (edge ? edge.label ?? "连线" : null));
       selectedNodeIdRef.current = node?.nodeId ?? null;
+      selectedEdgeIdRef.current = edge?.edgeId ?? null;
       if (node) lastSelectedNodeIdRef.current = node.nodeId;
       setMindmapActive(mindmapEditorRef.current?.isActive() ?? false);
-    });
-    canvas.on("selection:updated", (e) => {
-      const obj = e.selected?.[0];
-      const node = obj instanceof FlowNode ? obj : null;
-      setSelectedLabel(node?.label ?? null);
-      selectedNodeIdRef.current = node?.nodeId ?? null;
-      if (node) lastSelectedNodeIdRef.current = node.nodeId;
-      setMindmapActive(mindmapEditorRef.current?.isActive() ?? false);
-    });
+      // 选中一条边时重绘一次——vendored `FlowEdge._render` 按「自己是不是当前
+      // active object」画高亮描边（见该文件改动），选中态本身不会自动触发重绘。
+      if (edge) canvas.requestRenderAll();
+    };
+    canvas.on("selection:created", onSelection);
+    canvas.on("selection:updated", onSelection);
     canvas.on("selection:cleared", () => {
       setSelectedLabel(null);
       selectedNodeIdRef.current = null;
+      selectedEdgeIdRef.current = null;
+      canvas.requestRenderAll();
     });
 
     // #1453：选中一个 mindmap 节点后 Tab 加子节点 / Enter 加兄弟节点，复用
@@ -232,26 +256,44 @@ export function CanvasStage({
     const mindmapEditor = attachMindmapEditor(canvas, { onChange: syncFromCanvas });
     mindmapEditorRef.current = mindmapEditor;
 
-    // Delete/Backspace 删除当前选中节点——两条分支：
-    //   · mindmap：走 attachMindmapEditor 的 removeSubtree（含子树，它自己管派生的
-    //     树结构一致性，不能绕过它直接 canvas.remove）；
-    //   · 其它图（flowchart/类图/…）：此前这条键完全没接，选中节点按 Delete 悄悄
-    //     什么都不发生——唯一能删除节点的路径是切到工具条「删除」工具再点一下，
+    // Delete/Backspace 删除当前选中对象——分节点/边两条路径：
+    //   · 节点 + mindmap：走 attachMindmapEditor 的 removeSubtree（含子树，它自己管
+    //     派生的树结构一致性，不能绕过它直接 canvas.remove）；
+    //   · 节点 + 其它图（flowchart/类图/…）：此前这条键完全没接，选中节点按 Delete
+    //     悄悄什么都不发生——唯一能删除节点的路径是切到工具条「删除」工具再点一下，
     //     选中了却删不掉是常见画布编辑器都不会有的体验断层（人类实测反馈）。
     //     这里补上：直接 canvas.remove 选中的 FlowNode，同一条"模板模式下分区/
     //     字段等结构节点不可删"的角色守卫（见下方 mouse:down 那段）在这里复用，
     //     不写第二份判断。
+    //   · 边（非 mindmap）：同样此前完全没接——选中一条连线按 Delete 也什么都不
+    //     发生（人类实测反馈）。这里补上：直接 canvas.remove 选中的 FlowEdge。
+    //     mindmap 模式下边是树结构的派生物（父子关系＝边），单独删一条边而不删
+    //     它连着的子树会留下一个不再挂在树上却还画在画布上的孤儿节点——mindmap
+    //     模式下删边这个操作没有意义，交给用户改用选中节点整棵子树删（Delete 已
+    //     经支持），这里显式跳过，不是漏做。
     const onDeleteKey = (ev: KeyboardEvent): void => {
       if (readOnlyRef.current) return;
       if (ev.key !== "Delete" && ev.key !== "Backspace") return;
       if (isEditableTarget(ev.target)) return;
       const nodeId = selectedNodeIdRef.current;
-      if (!nodeId) return;
+      const edgeId = selectedEdgeIdRef.current;
+      if (!nodeId && !edgeId) return;
       if (mindmapEditorRef.current?.isActive()) {
+        if (!nodeId) return; // 选中的是边：mindmap 模式下不支持单独删边，见上方注释。
         if (mindmapEditorRef.current.removeSubtree(nodeId)) {
           selectedNodeIdRef.current = null;
           setSelectedLabel(null);
         }
+        return;
+      }
+      if (edgeId) {
+        const edgeTarget = canvas.getObjects().find((o) => o instanceof FlowEdge && o.edgeId === edgeId);
+        if (!(edgeTarget instanceof FlowEdge)) return;
+        canvas.remove(edgeTarget);
+        canvas.fire("object:modified", { target: edgeTarget });
+        selectedEdgeIdRef.current = null;
+        setSelectedLabel(null);
+        syncFromCanvas();
         return;
       }
       const target = canvas.getObjects().find((o) => o instanceof FlowNode && o.nodeId === nodeId);
@@ -424,6 +466,50 @@ export function CanvasStage({
           canvas.fire("object:modified", { target: opt.target });
           syncFromCanvas();
         }
+        // 「删除」工具点一条连线——同 Delete 键那条路径同一条规则：mindmap 模式下
+        // 边是树结构派生物，单独删边没有意义，不接（见 onDeleteKey 注释）。
+        if (t === "delete" && opt.target instanceof FlowEdge && !mindmapEditorRef.current?.isActive()) {
+          canvas.remove(opt.target);
+          canvas.fire("object:modified", { target: opt.target });
+          syncFromCanvas();
+        }
+        // 「连线」工具点第二个节点——两点连线的核心逻辑。mindmap 模式下父子关系
+        // 就是边，自由加边会破坏 attachMindmapEditor 依赖的树形结构，这里不接
+        // （同一条"mindmap 边是结构不是内容"的规则）。
+        if (t === "edge" && opt.target instanceof FlowNode && !mindmapEditorRef.current?.isActive()) {
+          const targetNode = opt.target;
+          const sourceId = pendingEdgeSourceRef.current;
+          if (sourceId === null) {
+            pendingEdgeSourceRef.current = targetNode.nodeId;
+            setPendingEdgeSourceLabel(targetNode.label ?? "起点");
+          } else if (sourceId === targetNode.nodeId) {
+            // 点了同一个节点两次＝取消这次连线，不是"连到自己"。
+            pendingEdgeSourceRef.current = null;
+            setPendingEdgeSourceLabel(null);
+          } else {
+            edgeSeq += 1;
+            const edge = new FlowEdge({
+              edgeId: `local-edge-${edgeSeq}`,
+              source: sourceId,
+              target: targetNode.nodeId,
+              kind: "open",
+            });
+            canvas.add(edge);
+            getConnectionManager(canvas).updateAllEdges();
+            canvas.requestRenderAll();
+            pendingEdgeSourceRef.current = null;
+            setPendingEdgeSourceLabel(null);
+            canvas.fire("object:modified", { target: edge });
+            syncFromCanvas();
+          }
+        }
+        return;
+      }
+      // 「连线」工具点空白处＝取消进行中的连线（同大多数画布编辑器的手感：点哪都
+      // 能取消，不用非找到刚才点过的那个节点再点一次）。
+      if (t === "edge") {
+        pendingEdgeSourceRef.current = null;
+        setPendingEdgeSourceLabel(null);
         return;
       }
       if (t !== "sticky" && t !== "node") return;
@@ -662,13 +748,17 @@ export function CanvasStage({
               : selectedLabel
                 ? mindmapActive
                   ? `选中：${selectedLabel} · 双击改文字 · Tab 加子节点 · Enter 加兄弟 · Delete 删除 · ${PAN_ZOOM_HINT} · 缩放 ${Math.round(zoom * 100)}%`
-                  : `选中：${selectedLabel} · 双击改文字 · ${PAN_ZOOM_HINT} · 缩放 ${Math.round(zoom * 100)}%`
+                  // 节点/连线都可能被选中，Delete 现在两种都接了（此前只有工具条的
+                  // 「删除」工具能删连线，键盘 Delete 对连线毫无反应——人类实测反馈）。
+                  : `选中：${selectedLabel} · 双击改文字 · Delete 删除 · ${PAN_ZOOM_HINT} · 缩放 ${Math.round(zoom * 100)}%`
                 : tool === "sticky" || tool === "node"
                   ? `点画布空白处落一个${tool === "sticky" ? "便签" : "节点"} · ${PAN_ZOOM_HINT} · 缩放 ${Math.round(zoom * 100)}%`
                   : tool === "delete"
-                    ? "点任意节点将其删除"
+                    ? "点任意节点或连线将其删除"
                     : tool === "edge"
-                      ? "连线：按住 shift 点两个节点"
+                      ? pendingEdgeSourceLabel
+                        ? `连线：已选「${pendingEdgeSourceLabel}」为起点，点终点节点完成连线（点同一个节点可取消）`
+                        : "连线：先点起点节点，再点终点节点"
                       : `点选/双击一个对象查看或改文字 · ${PAN_ZOOM_HINT} · 缩放 ${Math.round(zoom * 100)}%`}
         </p>
       </div>
