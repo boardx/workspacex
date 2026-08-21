@@ -15,6 +15,15 @@
    （怎么断言：以组长/组员身份调用 `getKanbanBoard`/`getDecisionGraph`，断言被拒绝而不是返回
    一个"未就绪"响应——权限拒绝要发生在"是否就绪"判断之前。）
 
+## 本束当前没有对外 HTTP 面（F09/F10 均未开工）
+
+本束截至目前（sprint-01/02 只完成了 F01/F03/F05，本束 F09/F10 均 `not_started`）
+**没有对外 HTTP 面**——`getKanbanBoard`/`getDecisionGraph`/`broadcastToGroupLeads` 只是
+domain.md 不变量里对未来形状的设计意图，尚未落成任何 `packages/contracts/src/*.ts` 文件，
+也不可能落成，因为它们本身**硬阻断于 phase-02** 的知识图谱/看板契约束签核（见 00-overview.md
+硬前置）。这条声明只对当前状态成立：一旦 phase-02 对应束签核、F09/F10 任一开工并新建契约文件，
+本节必须删除或改写为形态 A，不得两者同时声明造成矛盾。
+
 ## [待定] 未决项（不阻塞开工，需人类在签核时一并给答案）
 
 - 观察者能否看到本束两个聚合视图——`viewer-role` 束 Q1 的裁决文字只笼统提到"看板/知识图谱/

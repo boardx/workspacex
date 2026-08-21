@@ -5,6 +5,16 @@
 | F09 | `requirements/03-module-routing.md#R2`（第 1 点：看板） | UI 骨架已建；真实数据对接完全阻塞于 phase-02 F02，见 design-signoff.md 硬阻断 |
 | F10 | `requirements/03-module-routing.md#R2`（第 2 点：知识图谱·决策推演） | UI 骨架已建；真实数据对接完全阻塞于 phase-02 F11/F15/F16/F17，见 design-signoff.md 硬阻断 |
 
+## R12 门控映射（第 ③ 件形态 B：本束当前无对外 HTTP 面，见 domain.md——硬阻断于 phase-02）
+
+| R12 | 一句话 | 门控命令（API 操作） | 后端落点 | 状态 |
+|---|---|---|---|---|
+| V1 | 骨架：本束现有代码（UI 骨架 + mock，含"依赖失败"诚实占位态）typecheck/lint 不破 | `pnpm --filter web run typecheck` | `apps/web/components/live-collab/orchestration-preview.tsx` | ✅ |
+
+**缺口 1**（文字登记，不放进上表）：F09/F10 硬阻断于 phase-02 知识图谱/看板契约束签核，
+在那之前本束不会有真实 HTTP 面；phase-02 对应束签核后，本节要么新增真实门控命令，
+要么整节改写为形态 A。
+
 ## 反向检查
 
 - `requirements/03-module-routing.md#R2` 三点中，第 1、2 点（看板、知识图谱）已被 F09/F10 覆盖；

@@ -1133,6 +1133,12 @@ export const operations = {
    * 2026-08-16（F950，delta）：分组的读侧。`updateGrouping` 此前只有 PUT，页面刷新后
    * 无法加载已保存的分组——同一个漏签补的读端点。
    * ⚠ 未分组（`groups: []`）是**真实空态**，不是失败（同 `getProjectPrep` 的空态纪律）。
+   *
+   * ⚠ **不要在这个操作上加角色内容投影**（phase-10 F02 调研结论）：`tab-prep.tsx`
+   * 筹备阶段的 `GroupingBlock` 依赖这里返回**全量**分组给 facilitator/groupLead/member
+   * （明确设计的「内部协作视图」），跟 phase-10 现场协作视角切换器（`tab-live.tsx`）
+   * 需要的角色收窄语义互斥。后者走独立端点 `getViewerOptions`（见
+   * `live-collab-viewer-role.ts`），不复用这个契约。
    */
   getProjectGrouping: {
     method: "GET",

@@ -16,10 +16,9 @@
     "transcription": "recording"
   },
   "phase-10-live-collaboration-orchestration": {
-    "group-checkin": "live-collab-checkin",
+    "group-checkin": "org-admin",
+    "segment-engine": "project",
     "module-routing": "live-collab-module-routing",
-    "segment-engine": "live-collab-segment-engine",
-    "stage-aggregation": "live-collab-stage-aggregation",
-    "viewer-role": "live-collab-viewer-role"
+    "stage-aggregation": "live-collab-stage-aggregation"
   }
 }

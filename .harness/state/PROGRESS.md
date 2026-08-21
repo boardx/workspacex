@@ -14,7 +14,7 @@
 | 07 | 用户访谈 | not_started | 5 | 0 | 0 | 0 |
 | 08 | 转录 | not_started | 4 | 0 | 0 | 0 |
 | 09 | 问卷 | not_started | 7 | 0 | 0 | 0 |
-| 10 | 现场协作编排 | in_progress | 7 | 0 | 0 | 3 |
+| 10 | 现场协作编排 | in_progress | 6 | 0 | 0 | 4 |
 | 11 | research-insight-backend | in_progress | 0 | 4 | 0 | 1 |
 
-_最近聚合:2026-08-21T16:53:24.448Z_
+_最近聚合:2026-08-21T23:16:43.999Z_
