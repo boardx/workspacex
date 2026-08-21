@@ -42,12 +42,46 @@ if (process.env.PGDATABASE === undefined || process.env.PGDATABASE === "") {
   process.env.PGDATABASE = DB;
 }
 
-/** Is the compose postgres container up and accepting connections? */
+/**
+ * Is the compose postgres container up and accepting connections?
+ *
+ * ⚠ `-h 127.0.0.1` is load-bearing. **Do not drop it back to a bare `pg_isready`.**
+ *
+ * This compose service mounts `/var/lib/postgresql/data` as `tmpfs`, so EVERY container
+ * start is a first-time `initdb` -- the init path is not a rare cold-start case here, it is
+ * the only case. The official postgres entrypoint runs a TEMPORARY server during that init
+ * (with `listen_addresses=''`, i.e. Unix socket only), runs the init scripts, then SHUTS IT
+ * DOWN and starts the real one. Listening on the socket alone is precisely the image's own
+ * guard so that clients cannot reach the half-built instance.
+ *
+ * Probing with a bare `pg_isready` connects over that same Unix socket -- so it answers
+ * `UP` against the temporary server and **defeats the guard**. Everything the caller does
+ * next races the entrypoint's shutdown, and what it gets is:
+ *
+ *     FATAL:  terminating connection due to administrator command
+ *     FATAL:  the database system is shutting down
+ *
+ * which is what `createDatabaseIfMissing()`'s `CREATE DATABASE` kept dying on (#1704). It
+ * reads like "someone killed my database", not like "I asked too early" -- the reason it
+ * cost three separate runs to place.
+ *
+ * Measured, on a fresh stack, polling both probes each second:
+ *
+ *     4  socket=no  tcp=no
+ *     5  socket=UP  tcp=no     <-- the window; a CREATE DATABASE here hits the temp server
+ *     6  socket=UP  tcp=UP     <-- the real server is up
+ *
+ * TCP is the honest signal: the temporary server deliberately does not listen on it, so
+ * `-h 127.0.0.1` cannot see the half-built instance. This is not a retry and not a sleep --
+ * it is asking the question whose answer we actually needed.
+ */
 function postgresReady(): boolean {
   try {
-    execFileSync("docker", [...COMPOSE, "exec", "-T", "postgres", "pg_isready", "-U", "postgres"], {
-      stdio: "pipe",
-    });
+    execFileSync(
+      "docker",
+      [...COMPOSE, "exec", "-T", "postgres", "pg_isready", "-h", "127.0.0.1", "-U", "postgres"],
+      { stdio: "pipe" },
+    );
     return true;
   } catch {
     return false;
