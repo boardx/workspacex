@@ -134,6 +134,20 @@ function isConcreteScreenshotDir(value) {
   return segments.length > 1 && segments.every((segment) => segment !== "" && segment !== "." && segment !== "..");
 }
 
+/**
+ * 共用目录允许是阶段级 `ui-preview` 本身（phase-10 的真实结构就是扁平的），
+ * 也允许是它下面的子目录。安全约束与 concrete 目录一致：不许 ..、绝对路径、
+ * 反斜杠、跨 phase——只是放开「必须是子目录」这一条。
+ */
+function isPhaseContainedSharedDir(root, phase, value) {
+  if (typeof value !== "string" || value.includes("\\")) return false;
+  if (value !== "ui-preview" && !value.startsWith("ui-preview/")) return false;
+  const segments = value.split("/");
+  if (!segments.every((segment) => segment !== "" && segment !== "." && segment !== "..")) return false;
+  const phaseRoot = resolve(root, "phases", phase);
+  return resolve(phaseRoot, value).startsWith(`${phaseRoot}${sep}`);
+}
+
 function isPhaseContainedScreenshotDir(root, phase, value) {
   if (!isConcreteScreenshotDir(value)) return false;
   const phaseRoot = resolve(root, "phases", phase);
@@ -257,6 +271,114 @@ function lintUiMaterialLegacy({ root = ROOT, mapFile = MAP_FILE, phasesRoot, onl
   return { errors, rows };
 }
 
+/**
+ * 共用目录模式：`{ "shared_dir": "ui-preview" }`。
+ *
+ * 为什么需要它（2026-08-20，phase-10-live-collaboration-orchestration 实测）：
+ * 原模型是「一束 ↔ 一个独占目录 ∧ 引用集逐张相等」。phase-10 的 5 个束共用一个
+ * 阶段级 ui-preview/，而且**引用互相重叠**——`group-graph-default.png` 同时被
+ * module-routing 与 stage-aggregation 引用，`role-member-group-chat.png` 等 3 张
+ * 同时被 segment-engine 与 viewer-role 引用。这种结构无法拆成互不相交的子目录
+ * （除非复制图片，那就制造了同一张图的第二份副本）。
+ *
+ * 不是作者漏声明，是模型表达不了。所以扩模型，不是放宽判定：
+ *   · 死链检查      逐束不变（引用的图必须存在）
+ *   · 跨目录检查    逐束不变（只能引用本组声明的目录）
+ *   · 孤图检查      **升到组级**：目录里每张图必须被组内至少一个束引用
+ *   · 无材料检查    逐束新增：一个束一张图都不引用 = 没有签核材料
+ * 判据强度不变——「没有死链、没有孤图」这两条一条没松，只是孤图的检查单位从
+ * 「单束」变成「共用组」。空集仍然不许平凡为真（目录缺失/为空/束零引用都判红）。
+ */
+function lintSharedGroup({ root, phase, declaredDir, members }) {
+  const errors = [];
+  const rows = [];
+  const groupLabel = `${phase}/[共用 ${declaredDir}]`;
+  const absDir = join(root, "phases", phase, declaredDir);
+  if (!existsSync(absDir) || !statSync(absDir).isDirectory()) {
+    errors.push(
+      `[目录缺失] ${groupLabel} 声明的共用截图目录不存在：phases/${phase}/${declaredDir}\n` +
+      `    要么目录改名了，要么截图还没产出。这里不当成 0/0 通过。`,
+    );
+    return { errors, rows };
+  }
+  const actual = listPngs(absDir);
+  if (actual.length === 0) {
+    errors.push(`[目录为空] ${groupLabel} 的共用截图目录里一张 png 都没有——不具备签核条件。`);
+    return { errors, rows };
+  }
+
+  const unionRef = new Set();
+  for (const { label, ui } of members) {
+    const body = readFileSync(ui, "utf8");
+    const referenced = new Map();
+    for (const { raw, line } of extractRefs(body)) {
+      const rel = normalizeRef(raw, declaredDir);
+      const abs = resolve(root, "phases", phase, rel);
+      if (!existsSync(abs)) {
+        errors.push(
+          `[死链] ${label}/ui.md:${line} 引用了不存在的截图：${rel}\n` +
+          `    原文：${raw}\n` +
+          `    改成 phases/${phase}/${declaredDir}/ 下真实文件；若是未产出缺口，去掉 .png 后缀改成文字。`,
+        );
+        continue;
+      }
+      if (!rel.startsWith(`${declaredDir}/`)) {
+        errors.push(
+          `[跨目录] ${label}/ui.md:${line} 引用了共用目录之外的截图：${rel}\n` +
+          `    本组声明的唯一目录是 ${declaredDir}（见 ${MAP_REL}）。`,
+        );
+        continue;
+      }
+      const base = rel.slice(declaredDir.length + 1);
+      if (!referenced.has(base)) referenced.set(base, line);
+    }
+
+    if (referenced.size === 0) {
+      errors.push(
+        `[无材料] ${label}/ui.md 一张共用目录里的截图都没引用——共用目录不代表本束可以不引用材料。\n` +
+        `    签核 ① 的材料是这个束自己指名的那批图，不是"组里有图就算"。`,
+      );
+    }
+    for (const key of referenced.keys()) unionRef.add(key);
+
+    const { declaredN } = extractSelfCheck(body);
+    if (declaredN === null) {
+      errors.push(
+        `[缺自检行] ${label}/ui.md 头 20 行里找不到自检行。共用目录模式下固定写：\n` +
+        `    > **自检**：本文件引用 ${referenced.size} 张截图，目录下实际 ${actual.length} 张。\n` +
+        `    （共用 \`${declaredDir}/\`，孤图由组级并集检查兜底，见 ${MAP_REL}）`,
+      );
+    } else if (declaredN !== referenced.size) {
+      errors.push(
+        `[自检行过时] ${label}/ui.md 顶部写着引用 ${declaredN} 张，实测 ${referenced.size} 张。\n` +
+        `    这行字是同一事实的第二份副本——本门控替你核对，改了截图就得同步改它。`,
+      );
+    }
+
+    rows.push({ label, dir: declaredDir, referenced: referenced.size, actual: actual.length, orphans: 0, shared: true });
+  }
+
+  const orphans = actual.filter((file) => !unionRef.has(file));
+  for (const file of orphans) {
+    errors.push(
+      `[未被引用] ${groupLabel}: phases/${phase}/${declaredDir}/${file} 实存，但共用组里**没有任何一个束**引用它。\n` +
+      `    人类签核只看 ui.md，没被索引到的图等于不存在——要么补进某个束的索引表，要么删掉这张图。`,
+    );
+  }
+  return { errors, rows };
+}
+
+function isSharedMapping(mapping) {
+  return (
+    mapping !== null &&
+    typeof mapping === "object" &&
+    !Array.isArray(mapping) &&
+    Object.keys(mapping).length === 1 &&
+    typeof mapping.shared_dir === "string" &&
+    mapping.shared_dir.length > 0
+  );
+}
+
 function lintResolvedBundle({ root, phase, label, ui, declaredDir, reuseBundle = null }) {
   const errors = [];
   const absDir = join(root, "phases", phase, declaredDir);
@@ -365,6 +487,7 @@ export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, on
   const targetByLabel = new Map(targets.map((target) => [`${target.phase}/${target.bundle}`, target]));
   const concrete = [];
   const reused = [];
+  const sharedGroups = new Map(); // `${phase}\u0000${dir}` -> { phase, declaredDir, members }
 
   for (const target of targets) {
     const { phase, bundle } = target;
@@ -385,8 +508,22 @@ export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, on
       concrete.push({ ...target, label, declaredDir: mapping });
       continue;
     }
+    if (isSharedMapping(mapping)) {
+      const dir = mapping.shared_dir;
+      if (!isPhaseContainedSharedDir(root, phase, dir)) {
+        errors.push(
+          `[目录映射越界] ${label} 的 shared_dir 必须是当前 phase 内的 \`ui-preview\` 或其子目录：${JSON.stringify(dir)}。\n` +
+          `    禁止 ../、绝对路径、反斜杠与跨 phase。`,
+        );
+        continue;
+      }
+      const key = `${phase}\u0000${dir}`;
+      if (!sharedGroups.has(key)) sharedGroups.set(key, { phase, declaredDir: dir, members: [] });
+      sharedGroups.get(key).members.push({ ...target, label });
+      continue;
+    }
     if (!isReuseMapping(mapping)) {
-      errors.push(`[复用声明非法] ${label} 的映射必须是目录字符串，或仅含 { "reuse_bundle": "<bundle>" } 的对象。`);
+      errors.push(`[复用声明非法] ${label} 的映射必须是目录字符串、{ "reuse_bundle": "<bundle>" } 或 { "shared_dir": "<目录>" }。`);
       continue;
     }
     const keys = Object.keys(mapping);
@@ -438,6 +575,21 @@ export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, on
     reused.push({ ...target, label, declaredDir: targetMapping, reuseBundle, targetLabel });
   }
 
+  for (const group of sharedGroups.values()) {
+    // 共用组必须至少两个束——只有一个束时用普通 concrete 映射即可，
+    // 声明成共用只会把「逐张相等」悄悄降级成「并集相等」，等于白送一个豁免。
+    if (group.members.length < 2) {
+      errors.push(
+        `[共用组过小] ${group.phase}/${group.declaredDir} 只有 1 个束声明了 shared_dir（${group.members[0].label}）。\n` +
+        `    单束请直接用普通目录映射——共用模式把孤图检查放宽到组级，独占时用它等于白送一个豁免。`,
+      );
+      continue;
+    }
+    const result = lintSharedGroup({ root, ...group });
+    errors.push(...result.errors);
+    rows.push(...result.rows);
+  }
+
   const concreteResults = new Map();
   for (const descriptor of concrete) {
     const result = lintResolvedBundle({ root, ...descriptor });
@@ -460,10 +612,16 @@ export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, on
 if (process.argv[1] && process.argv[1].endsWith("lint-ui-material.mjs")) {
   const { errors, rows } = lintUiMaterial({ only: process.argv.slice(2) });
   for (const r of rows) {
-    const ok = r.referenced === r.actual && r.orphans === 0;
-    console.log(
-      `  ${ok ? "✓" : "✗"} ${r.label.padEnd(40)} ${String(r.referenced).padStart(3)}/${String(r.actual).padEnd(3)} (${r.dir})`,
-    );
+    // 共用组的行不该拿「逐张相等」去判——它的不变量是组级并集相等，
+    // 单束 3/18 是正确状态。用 ✗ 渲染会让人以为红了（本仓最恨的谎报形状）。
+    const ok = r.shared ? r.referenced > 0 && r.orphans === 0 : r.referenced === r.actual && r.orphans === 0;
+    const count = r.shared
+      ? `${String(r.referenced).padStart(3)}/${String(r.actual).padEnd(3)}*`
+      : `${String(r.referenced).padStart(3)}/${String(r.actual).padEnd(3)} `;
+    console.log(`  ${ok ? "✓" : "✗"} ${r.label.padEnd(40)} ${count}(${r.dir})`);
+  }
+  if (rows.some((r) => r.shared)) {
+    console.log("  * = 共用目录组：本束引用数 / 组目录总数。不变量是「组内并集 == 实存集」，不是逐束相等。");
   }
   if (errors.length) {
     console.error("");

@@ -1030,7 +1030,17 @@ describe("lint-permission-paths: counter-proof", () => {
     // 被强制的前提：`tests/itv/theme-repo-permission-guard.test.ts` 解析该文件断言
     // （a）只命名这四张表；（b）不调用 `withoutTenant`；（c）`src/interface/` 下没有文件
     // import 它（has_ui:false，本 feature 未接 HTTP controller）。删那个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(72);
+    //
+    // ⚠ Raised 72 -> 73 by #1680（F26 gap-fill：saveAsOrgTemplate/switchWorkflowTemplate/
+    // getWorkflowOrchestration 首次接上真实 Postgres）：新增一个 infra 文件
+    // `pg-workflow-orchestration-repository.ts`，命名 `project_workflow_orchestration`/
+    // `workflow_template_catalog` 两张表——role check 全部发生在 application 层三个
+    // use case 里（`canWriteOrchestration`/`actorProjectRole === null` 判断），走的是
+    // 同 F950 topic/grouping 条目一样的「一层之上先判，仓储层再触碰」形状，disclose 的
+    // 内容是调用者自己项目的编排/自己按 templateId 指名要读的目录项，不是跨租户/跨用户披露。
+    // 被强制的前提：`tests/tpl/workflow-orchestration-repo-guard.test.ts` 解析该文件断言
+    // （a）只命名这两张表；（b）不调用 `withoutTenant`。删那个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(73);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

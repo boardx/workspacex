@@ -94,6 +94,11 @@ export function ChatCanvasFabric({
   const [maximized, setMaximized] = React.useState(false);
   const [savedSource, setSavedSource] = React.useState<{ readonly markdown: string; readonly savedAt: string } | null>(null);
   const [openingReadback, setOpeningReadback] = React.useState(false);
+  // 只读预览（气泡里那张小画布）实际要画的源——优先用「这次会话里最新保存版」（无论
+  // 是 G1 从服务端读回的，还是本地演示保存后 modal 关闭时带回来的），没有保存版
+  // 才退回原始消息文本。此前恒用 `code`：保存/关闭全屏后气泡卡片纹丝不动就是因为
+  // 这条预览渲染从没读过 `savedSource`（人类实测反馈，同 `ChatDiagramFabric` 同款修法）。
+  const previewCode = savedSource?.markdown ?? code;
   // `useOptionalSession`：组件可能被渲染在没有 SessionProvider 的上下文里（预览页、
   // 组件测试）。那时 orgId 为 null，内置模板照样渲染，组织模板给诚实错误态。
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
@@ -103,7 +108,9 @@ export function ChatCanvasFabric({
   const openMaximized = React.useCallback(async () => {
     if (openingReadback) return;
     if (!threadId || !messageId || !projectId || bearer === undefined) {
-      setSavedSource(null);
+      // 个人线程/无项目上下文：不发 G1 读回请求，但也**不**把 savedSource 清空——
+      // 它可能是这次会话里刚关闭的本地演示保存（见下面 onClose），清空会让刚保存
+      // 的编辑一重新打开全屏就凭空消失，比不读回还倒退。
       setMaximized(true);
       return;
     }
@@ -138,7 +145,7 @@ export function ChatCanvasFabric({
   // 阶段一：校验（**不挂 canvas**）。纯函数闸门 → 模板解析闸门（可能发一次 GET）。
   React.useEffect(() => {
     if (!inView) return;
-    const check = checkCanvasFence(code, lang);
+    const check = checkCanvasFence(previewCode, lang);
     if (!check.ok) {
       setStatus({ phase: "error", reason: "syntax", detail: check.detail });
       return;
@@ -165,7 +172,7 @@ export function ChatCanvasFabric({
     return () => {
       cancelled = true;
     };
-  }, [code, lang, orgId, inView]);
+  }, [previewCode, lang, orgId, inView]);
 
   // 阶段二：仅当 valid（<canvas> 已挂）时建 FabricCanvas 并渲染（只读）。
   React.useEffect(() => {
@@ -178,7 +185,7 @@ export function ChatCanvasFabric({
     let cancelled = false;
     // 复用唯一入口 `markdownToCanvas`（它按围栏 lang 分派到 templateToModel），
     // 不在这里另写一份 templateToModel + renderToCanvas 的组合。
-    markdownToCanvas(wrapAsMermaidBlock(code, lang), canvas)
+    markdownToCanvas(wrapAsMermaidBlock(previewCode, lang), canvas)
       .then(() => {
         if (cancelled) return;
         canvas.forEachObject((obj) => {
@@ -198,7 +205,7 @@ export function ChatCanvasFabric({
       canvas.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status.phase, code, lang]);
+  }, [status.phase, previewCode, lang]);
 
   if (status.phase === "error") {
     // 诚实错误态：与 mermaid 那条同样的结构与文案节奏（「原因 + 原始源码」），
@@ -214,7 +221,7 @@ export function ChatCanvasFabric({
           无法渲染此工作坊画布模板（{ERROR_TITLE[status.reason]}：{status.detail}）
         </div>
         <pre className="overflow-x-auto px-2.5 py-2 font-mono text-11 leading-relaxed text-muted-foreground">
-          <code>{code}</code>
+          <code>{previewCode}</code>
         </pre>
       </div>
     );
@@ -272,7 +279,13 @@ export function ChatCanvasFabric({
         <ChatCanvasModal
           code={code}
           lang={lang}
-          onClose={() => setMaximized(false)}
+          onClose={(result) => {
+            // 关闭时如果带回了保存结果（真实落库或本地演示皆算），更新只读预览的
+            // 渲染源——不然「保存」点了、「已保存」徽标也亮了，退出全屏后气泡卡片
+            // 却纹丝不动（人类实测反馈，同 `ChatDiagramFabric` 同款修法）。
+            if (result) setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
+            setMaximized(false);
+          }}
           threadId={threadId}
           messageId={messageId}
           bearer={bearer}

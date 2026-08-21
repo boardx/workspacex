@@ -351,6 +351,29 @@ describe("反向反证 —— 它在仓库的真实状态下必须是绿的", ()
     const { errors, rows } = lintUiMaterial({});
     expect(errors).toEqual([]);
     expect(rows.length).toBeGreaterThanOrEqual(10);
-    for (const r of rows) expect(r.referenced).toBe(r.actual);
+    for (const r of rows) {
+      if (r.shared) {
+        // 共用目录组的不变量是「组内并集 == 实存集」，不是逐束相等——
+        // 单束 3/18 是正确状态。逐束断言在这里会把正确状态判成红。
+        // 组级并集由 lintUiMaterial 自己在 errors 里兜底（上面已断言 errors 为空）。
+        expect(r.referenced).toBeGreaterThan(0);
+        expect(r.orphans).toBe(0);
+      } else {
+        expect(r.referenced).toBe(r.actual);
+      }
+    }
+  });
+
+  it("共用目录组真实存在，且组内并集恰好等于实存集（不是靠放宽判定过的）", () => {
+    const { rows } = lintUiMaterial({});
+    const shared = rows.filter((r) => r.shared);
+    // 这条断言绑死 phase-10 的真实结构：5 个束共用一个 18 张图的扁平目录。
+    // 如果有人把共用模式滥用到别处，或 phase-10 结构变了，这里会红，逼人重新核对。
+    expect(shared.length).toBe(5);
+    for (const r of shared) expect(r.actual).toBe(18);
+    const sum = shared.reduce((n, r) => n + r.referenced, 0);
+    // 22 > 18：束之间**确实存在重叠引用**——这正是当初无法拆成互不相交子目录、
+    // 必须引入共用模式的原因。若哪天这个和等于 18，说明重叠没了，该退回普通映射。
+    expect(sum).toBeGreaterThan(18);
   });
 });

@@ -44,6 +44,8 @@ beforeAll(async () => {
   const ids = { next: (prefix: string) => `${prefix}-test-${Math.random().toString(36).slice(2)}` };
   controller = new BlueprintController(
     repo, identity, ids as never, {} as never, {} as never, {} as never, {} as never,
+    // #1680 gap-fill：构造函数新增的三个 F26 编排存储依赖，本文件不测它们，占位即可。
+    {} as never, {} as never, {} as never,
   );
 }, HOOK_TIMEOUT_MS);
 
