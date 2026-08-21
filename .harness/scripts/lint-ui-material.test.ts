@@ -383,6 +383,33 @@ describe("反向反证 —— 它在仓库的真实状态下必须是绿的", ()
   });
 });
 
+describe("map 重复键 —— 一份看得见但永不生效的死条款", () => {
+  // 2026-08-20 真实事故：两个人用两种方式修同一个 phase-10 问题，都合进了 main，
+  // 结果同一个 phase 键在 map 里出现两次。JSON.parse 按规范静默取后者，前一份
+  // 完全不生效却看不出任何异常——本仓点名的「同一事实两处声明」里最坏的一种。
+  it("同一个 phase 键出现两次 → 红，且点名是哪个键", () => {
+    shotsFor(PHASE, DIR, ["a.png"]);
+    ui(uiMd(["a.png"]));
+    const mapFile = join(root, "map.json");
+    writeFileSync(
+      mapFile,
+      `{\n  "${PHASE}": { "${BUNDLE}": "${DIR}" },\n  "${PHASE}": { "${BUNDLE}": { "reuse_bundle": "other" } }\n}\n`,
+    );
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).toContain("[重复声明]");
+    expect(errors.join("\n")).toContain(PHASE);
+  });
+
+  it("以 // 开头的注释键重复不算 —— map 里本来就有 //1 //2 这类多条注释", () => {
+    shotsFor(PHASE, DIR, ["a.png"]);
+    ui(uiMd(["a.png"]));
+    const mapFile = join(root, "map.json");
+    writeFileSync(mapFile, `{\n  "//": "x",\n  "//": "y",\n  "${PHASE}": { "${BUNDLE}": "${DIR}" }\n}\n`);
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).not.toContain("[重复声明]");
+  });
+});
+
 describe("shared_dir 共用目录模式（合成 fixture，独立于仓库真实状态）", () => {
   const DECL_DIR = "ui-preview";
   const MEMBER_A = "member-a";
