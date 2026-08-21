@@ -61,7 +61,14 @@ export function ChatDiagramCanvasModal({
   savedSource,
 }: {
   code: string;
-  onClose: () => void;
+  /**
+   * 关闭时把「这次会话里最后一次成功保存（真实落库或本地演示皆算）」的 mermaid 源带
+   * 回去——调用方（`ChatDiagramFabric`）用它更新气泡里的只读预览，不然「保存」点了、
+   * 「已保存」徽标也亮了，退出全屏后气泡卡片却纹丝不动（人类实测反馈：这正是本参数
+   * 从 `() => void` 改成带结果的原因）。没点过保存 / 保存失败就关闭 ⇒ 不传，调用方
+   * 维持原样，不会把「还没保存的编辑」误当成「已保存」回填进气泡。
+   */
+  onClose: (result?: { markdown: string }) => void;
   /** 三者俱全才真实持久化；任一缺失退回本地 mock（见文件头注释）。 */
   threadId?: string;
   messageId?: string;
@@ -116,14 +123,20 @@ export function ChatDiagramCanvasModal({
     setSaveError(null);
   }, []);
 
+  // 关闭统一走这一个出口（ESC / 右上角 X 都调它）——带不带保存结果只取决于
+  // `saved` 是否非空，不重复判断两遍。
+  const closeModal = React.useCallback(() => {
+    onClose(saved ? { markdown: saved.mermaid } : undefined);
+  }, [onClose, saved]);
+
   // ESC 关闭（全屏覆盖层的基本可达性）。
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeModal();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [closeModal]);
 
   const handleSave = React.useCallback(async () => {
     // 保存 = 取编辑后 markdown 里的 mermaid 源（canvasToMarkdown 已在 onMarkdownChange 产出）。
@@ -248,7 +261,7 @@ export function ChatDiagramCanvasModal({
             variant="ghost"
             size="icon"
             aria-label="关闭"
-            onClick={onClose}
+            onClick={closeModal}
             data-testid="chat-diagram-close"
           >
             <X aria-hidden className="h-4 w-4" />

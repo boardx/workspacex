@@ -34,8 +34,8 @@
         "F01"
       ],
       "points": 5,
-      "status": "in_progress",
-      "sprint": "02",
+      "status": "passing",
+      "sprint": "03",
       "owner": "usamshen-f02",
       "capability": "CAP-API",
       "user_visible_behavior": "现场协作『视角』切换器（`tab-live.tsx`）不再只是前端隐藏越权选项——服务端有一个独立的权威只读端点 `GET /projects/:projectId/viewer-options`，按调用者的真实项目角色 + 所在组算出『这个人现在能看哪些视角』：facilitator 拿到『主持台·全场』+全部分组；groupLead/member 只拿到自己那一组（找不到本组归属时是空列表，不是别组数据）；observer 只拿到『主持台·全场』一项，返回体里不含任何分组的原始字段（leaderUserId/memberUserIds/scenario 一个都不泄露）。可选查询参数 `requestedViewerId`（调用方明确表示『我要切到这个视角』）：越权请求（组员传 `\"stage\"`、任意角色传别组 id、观察者传任意 groupId）服务端拒绝返回 `VIEWER_SCOPE_DENIED`（403），不是 200 + 猜不到内容的空数据。`tab-live.tsx` 已接线：视角选项与顶部提示条文案（按角色区分，不是所有角色都显示引导师那句『你有全部权限』）现在优先读这个端点的真实返回值，请求未完成时回退到 F01 既有的本地纯展示计算（`computeViewerOptions`，非安全边界）。**范围说明（如实标注）**：前端目前不读写 `?viewer=` URL 参数去驱动 `requestedViewerId`——这个参数已经是真实、已测试、服务端强制的拒绝面，但触发它的『改 URL 参数』UI 路径本轮未接线，留给后续 feature；观察者对分组转写/对话详情接口的拒绝也不在本 feature 范围（全仓目前没有这类独立接口，转写归 recording/canvas 束）。",
@@ -44,7 +44,7 @@
         "pnpm --filter web exec vitest run tests/ui/project-live-viewer-switcher.test.tsx",
         "pnpm --filter web run typecheck"
       ],
-      "evidence": "apps/api/tests/live-collab/get-viewer-options.test.ts（16 个用例：facilitator/groupLead/member/observer 四角色的视角列表收窄 + requestedViewerId 越权拒绝/合法放行 + NO_PROJECT_ROLE/DEPENDENCY_UNAVAILABLE + 四角色提示条文案不同）；sprint-02/evidence/F02.verify.log",
+      "evidence": "evidence/F02.verify.log @ 2026-08-21T14:46:36.440Z",
       "notes": "契约束候选：viewer-role（design-signoff.md 已于 2026-08-20 由 usamshen 签核 confirmed，design-coherence.md 阶段一致性复核同日通过）。**关键设计取舍（调研过程中发现，撞了一次墙）**：最初实现把角色内容投影直接加进既有的 `templates.getProjectGrouping`（F01 消费的那个端点），跑到一半发现 `apps/web/components/project/tab-prep.tsx` 的 `GroupingBlock`（F950，筹备阶段）**同一个端点**，且明确设计成 facilitator/groupLead/member 都要看到**全量**分组名单（该文件头注释原话「内部协作视图」）——两个 UI 场景共用一个端点但可见性语义互斥，原方案会把筹备阶段的合法全量视图也削掉，属于会破坏已 passing 功能的改动，撤回重做。**最终方案**：新建独立端点 `getViewerOptions`（`packages/contracts/src/live-collab-viewer-role.ts`），只服务 `tab-live.tsx`；`getProjectGrouping`/`tab-prep.tsx` 未改动一行。**实现落点**：`apps/api/src/application/live-collab/get-viewer-options.ts`（新增，纯函数 `projectGroupsForRole`/`toViewerOptions`/`promptTextForRole` 可单测）；`apps/api/src/interface/controllers/blueprint.controller.ts` 新增路由 `GET /projects/:projectId/viewer-options`（读一次 `identity.findProjectMembership` 拿 `{projectRole, groupId}`）；前端 `apps/web/lib/live-collab-viewer-role.ts`（新增 API 薄封装）+ `apps/web/components/project/project-workbench.tsx`（`tab === \"live\"` 时拉取，独立于 `liveGrouping` 的 effect）+ `apps/web/components/project/tab-live.tsx`（新增 `viewerOptions` prop，优先用服务端列表与 `promptText`，未到手前回退 `computeViewerOptions`，`data-testid=\"lc-viewer-role-prompt\"` 渲染提示条）。**未选择的做法**：新增端点若前端不接调用方就是重演 `get-checkin-board.ts` 的死代码教训，故本轮把 `tab-live.tsx` 的真实接线也一并做了，不是只搭后端骨架。**已知缺口（如实登记，留给后续）**：① `?viewer=` URL 参数尚未驱动 `requestedViewerId`（服务端拒绝面已就绪且已测试，前端触发路径未接线）；② 观察者对分组转写/对话详情的拒绝——全仓无对应接口，非本 feature 范围。"
     },
     {
@@ -99,7 +99,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "capability": "CAP-WEB",
       "user_visible_behavior": "引导师切到『主持台·全场 → 分组与签到』，看到 4 张分组卡片：组号/组名/『M/N 已到』/复制链接按钮/成员列表（姓名+角色徽标：组长/已到/未到）。参与者点开组长转发的链接直接进对应分组视角，不需要注册。",

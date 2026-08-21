@@ -1,13 +1,13 @@
-# Sprint 10/02 — F02 角色可见性服务端矩阵：把 F01 前端隐藏收窄成服务端真正的内容投影 + 拒绝面
+# Sprint 10/02 — group-checkin 束首个 feature：F05 分组签到聚合视图。契约束已签核（confirmed 2026-08-20），零 depends_on，可与 viewer-role 束的 F02 并行推进。
 
 - **所属阶段**: Phase 10 (live-collaboration-orchestration)
-- **创建于**: 2026-08-20 22:07:29
+- **创建于**: 2026-08-20 21:47:46
 
 ## 本 sprint 目标
-F02 角色可见性服务端矩阵：把 F01 前端隐藏收窄成服务端真正的内容投影 + 拒绝面
+group-checkin 束首个 feature：F05 分组签到聚合视图。契约束已签核（confirmed 2026-08-20），零 depends_on，可与 viewer-role 束的 F02 并行推进。
 
 ## 领取的 feature(引用自阶段权威清单,按 id)
-- F02 (P1, viewer-role) — 角色可见性服务端矩阵（引导师/组长/组员/观察者）
+- F05 (P2, group-checkin) — 分组签到聚合视图（4 组卡片网格 · 复制链接 · 成员到场列表）
 
 > 实际工作集见同目录 `active-features.json`(脚本派生,只读,勿手改)。
 > 修改功能归属:改阶段 `feature_list.json` 里对应 feature 的 `sprint` 字段,再重跑

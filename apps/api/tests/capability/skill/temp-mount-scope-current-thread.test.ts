@@ -23,7 +23,7 @@ const MOUNT_DEPS_ALLOWED_KEYS = ["mounts", "skills", "audit", "fingerprintOf"] a
 const baseInput = {
   threadId: "thread-A",
   principalId: "u-facilitator",
-  role: "引导师",
+  authorization: { allowed: true, projectId: "p-1", projectRole: "facilitator", decisionId: "d-1" } as const,
   skillIds: ["sk-mece"],
   mountIdFor: (i: number) => `mount-${i}`,
   mountedAt: "2026-08-01T00:00:00Z",

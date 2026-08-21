@@ -12,9 +12,11 @@
  * 「这个人能看的分组」，再包成『视角』选项列表（`stage` + 收窄后的分组）。
  * `viewer-role/domain.md` 不变量 2/3/4 都可以直接读这个函数的返回值断言。
  */
+import { z } from "zod";
+import { viewerRole } from "@repo/contracts";
 import type { ProjectRole } from "../../domain/identity/roles";
 import type { OrgId } from "../../domain/org-id";
-import type { GroupPatch } from "../../domain/templates/grouping";
+import { type GroupPatch, type GroupStatusValue, isValidGroupStatus } from "../../domain/templates/grouping";
 import type { GroupingRepository } from "../templates/grouping-ports";
 
 export type GetViewerOptionsErrorCode = "NO_PROJECT_ROLE" | "VIEWER_SCOPE_DENIED" | "DEPENDENCY_UNAVAILABLE";
@@ -29,9 +31,14 @@ export class GetViewerOptionsError extends Error {
   }
 }
 
-export type ViewerOption =
-  | { readonly id: "stage"; readonly kind: "stage"; readonly label: string }
-  | { readonly id: string; readonly kind: "group"; readonly label: string; readonly group: GroupPatch };
+/**
+ * 唯一真源是 `packages/contracts/src/viewer-role.ts` 的 `ViewerOption`——不在这里
+ * 手写第二份同构定义（`lint-contract-source.mjs` 会拦）。仓储层的 `GroupPatch.status`
+ * 是宽化的 `string`（尚未在仓储边界收窄），过契约边界前用 `isValidGroupStatus` 收窄成
+ * `GroupStatusValue`（与契约 `GroupStatus` 枚举值逐字相同，见 `domain/templates/grouping.ts`
+ * 的 `GROUP_STATUSES`），不是绕过校验的裸类型断言。
+ */
+export type ViewerOption = z.infer<typeof viewerRole.ViewerOption>;
 
 export interface GetViewerOptionsInput {
   readonly orgId: OrgId;
@@ -64,9 +71,22 @@ export function projectGroupsForRole(
   return groups.filter((g) => g.groupId === actorGroupId);
 }
 
+/** 仓储层的 `status` 是宽化 `string`（尚未在仓储边界收窄）；过契约边界前收窄成
+ *  `GroupStatusValue`——与契约 `GroupStatus` 枚举值逐字相同，不是绕过校验的裸断言。
+ *  真出现非法值（数据已损坏）就如实报 `DEPENDENCY_UNAVAILABLE`，不是静默吞掉或编个假值。 */
+function narrowStatus(status: string): GroupStatusValue {
+  if (!isValidGroupStatus(status)) throw new GetViewerOptionsError("DEPENDENCY_UNAVAILABLE");
+  return status;
+}
+
 /** 把收窄后的分组包成视角选项列表：facilitator/observer 恒带 `stage`，组长/组员不带。 */
 export function toViewerOptions(role: ProjectRole, scopedGroups: readonly GroupPatch[]): readonly ViewerOption[] {
-  const groupOptions: ViewerOption[] = scopedGroups.map((g) => ({ id: g.groupId, kind: "group", label: g.name, group: g }));
+  const groupOptions: ViewerOption[] = scopedGroups.map((g) => ({
+    id: g.groupId,
+    kind: "group",
+    label: g.name,
+    group: { ...g, status: narrowStatus(g.status), memberUserIds: [...g.memberUserIds] },
+  }));
   if (role === "facilitator") return [STAGE_OPTION, ...groupOptions];
   if (role === "observer") return [STAGE_OPTION];
   return groupOptions;

@@ -55,5 +55,14 @@
   },
   "phase-09-survey": {
     "survey": "ui-preview/survey"
+  },
+  "phase-10-live-collaboration-orchestration": {
+    "//": "ui-preview/ 原是扁平目录，18 张截图混装、部分被两个束共同引用（group-graph-default.png 被 module-routing/stage-aggregation 共用；stage-default-default.png/role-member-group-chat.png/role-observer-stage-default.png 被 segment-engine/viewer-role 共用）。这四个束两两引用集合有交但不相等，不满足 reuse_bundle 要求的『集合完全相同』，因此拆成按束子目录，共用的图复制（不是链接）进两个目录各自持有一份。",
+    "//1690": "曾经这里同时存在过一份 { \"shared_dir\": \"ui-preview\" } 的映射（issue #1690 的最初方案，lint-ui-material.mjs 里确实实现了 lintSharedGroup 支持它）——但那份映射和这份用的是同一个顶层 JSON 键，JSON.parse 对重复键只取最后一次出现，导致 shared_dir 那份被这份悄悄吃掉、从未生效，issue 却被误关。真实磁盘早就不是共用扁平目录了：截图已经按束物理复制进各自子目录（本条目描述的状态），所以修法不是让 shared_dir 生效，而是删掉那份已经不对应磁盘现实的死映射，并把 ui.md 的材料位置/自检行改成跟这份一致。lintSharedGroup 逻辑保留在脚本里，留给以后真的需要共用目录的束用。",
+    "group-checkin": "ui-preview/group-checkin",
+    "module-routing": "ui-preview/module-routing",
+    "segment-engine": "ui-preview/segment-engine",
+    "stage-aggregation": "ui-preview/stage-aggregation",
+    "viewer-role": "ui-preview/viewer-role"
   }
 }

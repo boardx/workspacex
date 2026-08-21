@@ -21,7 +21,7 @@ async function mountOne(threadId: string, mounts = threadMountStore()) {
     {
       threadId,
       principalId: "u-f",
-      role: "引导师",
+      authorization: { allowed: true, projectId: "p-1", projectRole: "facilitator", decisionId: "d-1" } as const,
       skillIds: ["sk-mece"],
       mountIdFor: (i) => `mount-${i}`,
       mountedAt: "2026-08-01T00:00:00Z",

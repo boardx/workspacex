@@ -36,7 +36,7 @@
 | `SLOT_KIND_MISMATCH` | 往 skill 槽写画布模板/agent 产物（或反之） | 类型不匹配 | I-15 |
 | `TEMPLATE_WRITEBACK_FORBIDDEN` | 实例级写操作试图改模板本体 | 实例改动不回写模板；请用「另存为组织模板」 | I-17 |
 | `ORPHAN_BINDING_UNRESOLVED` | 切模板/删环节但未逐条处置孤立绑定 | 列出将丢失的 N 条绑定与 M 条分工，需确认 | I-26；**确认前零写入** |
-| `MEMBER_CANNOT_SELF_MOUNT` | 组员自行挂载 skill | 只能使用引导师下发的能力 | ⚠ **服务端拒绝 + 安全审计**，不是前端隐藏（V4） |
+| ~~`MEMBER_CANNOT_SELF_MOUNT`~~ | ~~组员自行挂载 skill~~ | **2026-08-21 人类裁决作废**：「所有的人都可以用」 | 挂载路径改抛 `PERMISSION_REVOKED`（写不了这条线程时）。码本身仍在枚举里，但**已无代码路径抛出**（#1693） |
 | `MOUNT_SCOPE_VIOLATION` | 临时挂载试图作用到别的线程/蓝本 | 临时挂载只对当前对话生效 | I-18 |
 | `CONTEXT_BUDGET_EXCEEDED` | 挂载过多导致本轮上下文超预算 | 明确提示并要求取舍 | ⚠ **不得静默丢弃某个 skill 的注入**（E2） |
 | `TODO_SYNC_FAILED` | 待办同步到任务模块失败 | 「N 条待办未同步」+ 重试 | E4；**编排保存成功但不得静默丢失** |
@@ -232,8 +232,8 @@ err: PERMISSION_REVOKED
 ```
 in:  { threadId }
 out: { boundBySegment: SkillRef[], mountable: SkillRef[] }   // 前者置顶且只读，标「本议程环节已绑定」
-pre: 池子 = 已启用 ∩ 可见性范围覆盖当前用户 ∩ 当前角色被允许自行挂载
-err: MEMBER_CANNOT_SELF_MOUNT | SKILL_NOT_FOUND | PERMISSION_REVOKED
+pre: 池子 = 已启用 ∩ 可见性范围覆盖当前用户（⚠ 2026-08-21 裁决后不再有「角色被允许自行挂载」这一项）
+err: SKILL_NOT_FOUND | PERMISSION_REVOKED
 ```
 
 ⚠ 依赖不可用的 skill **在池中显示为不可选并说明原因**（V6）——是 `mountable[].disabledReason`，不是过滤掉。
@@ -244,8 +244,12 @@ err: MEMBER_CANNOT_SELF_MOUNT | SKILL_NOT_FOUND | PERMISSION_REVOKED
 mountSkillToThread:
 in:  { threadId, skillIds[], expectedVersion }
 out: { mounts: ThreadSkillMount[] }
-pre: 调用者为引导师，或组长且引导师已下放该权限（⚠ 见 domain D-h）
-err: MEMBER_CANNOT_SELF_MOUNT | MOUNT_SCOPE_VIOLATION | SKILL_NOT_ENABLED
+pre: 调用者**能写这条线程**——个人对话为其创建者；项目对话为该项目任意成员（观察者除外）。
+     ⚠ **2026-08-21 人类产品裁决**改写本前置（原为「引导师，或组长且已下放」）：
+       「个人对话必须要可以使用公共的 skills」「所有的人都可以用」。见 #1693。
+     ⚠ 授权**从线程反查**（`findThreadFacts` → `resolveVisibility`），
+       **不读请求里的 projectId**——否则带任意自己有权限的 projectId 即可挂到别人线程。
+err: PERMISSION_REVOKED | MOUNT_SCOPE_VIOLATION | SKILL_NOT_ENABLED
    | CONTEXT_BUDGET_EXCEEDED | SKILL_VERSION_CHANGED | PERMISSION_REVOKED
 
 unmountSkillFromThread:

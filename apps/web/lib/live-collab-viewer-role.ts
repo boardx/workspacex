@@ -8,7 +8,7 @@ import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
 export type ViewerOptionsOut = z.infer<typeof viewerRole.operations.getViewerOptions.out>;
-export type ViewerOption = ViewerOptionsOut["viewers"][number];
+export type ViewerOption = z.infer<typeof viewerRole.ViewerOption>;
 
 export async function getViewerOptions(projectId: string, requestedViewerId?: string): Promise<ViewerOptionsOut> {
   const qs = requestedViewerId !== undefined ? `?requestedViewerId=${encodeURIComponent(requestedViewerId)}` : "";

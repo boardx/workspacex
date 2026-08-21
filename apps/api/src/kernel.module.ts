@@ -569,6 +569,21 @@ import {
   type InterviewSubjectsRepository,
 } from "./application/templates/interview-subjects-ports";
 import { PgInterviewSubjectsRepository } from "./infrastructure/templates/pg-interview-subjects-repository";
+// #1680 gap-fill：F26 三个用例（saveAsOrgTemplate/switchWorkflowTemplate/getWorkflowOrchestration）
+// 首次接上真实 Postgres——此前只有内存 Fake 撑单测，`infrastructure/` 零实现、零路由、零 DI。
+import {
+  ORCHESTRATION_REPOSITORY_FACTORY,
+  ORG_TEMPLATE_CREATE_PORT,
+  WORKFLOW_TEMPLATE_CATALOG_FACTORY,
+  type OrchestrationRepositoryFactory,
+  type OrgTemplateCreatePort,
+  type WorkflowTemplateCatalogFactory,
+} from "./application/templates/workflow-orchestration-ports";
+import {
+  PgOrchestrationRepository,
+  PgOrgTemplateCreateRepository,
+  PgWorkflowTemplateCatalogRepository,
+} from "./infrastructure/templates/pg-workflow-orchestration-repository";
 // #548（模型池 A 组）：契约十条早已签核、domain + application 十四个文件都在，但
 // `infrastructure` 一个实现都没有（只有 F49 的 `PgAdmissionTestRepository` 现成），
 // 于是 interface 无从接线 —— 后果是**外部模型凭据没有任何合法入口**。
@@ -1625,6 +1640,30 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: INTERVIEW_SUBJECTS_REPOSITORY,
       useFactory: (db: DatabasePort): InterviewSubjectsRepository => new PgInterviewSubjectsRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // #1680 gap-fill：读写 `project_workflow_orchestration` / `workflow_template_catalog`
+    // 两张新表，与既有仓储没有共享读写路径。`OrchestrationRepository`/`WorkflowTemplateCatalogPort`
+    // 的方法签名不带 `orgId`，所以这两个 provider 的令牌是「工厂」而不是端口本身
+    // （见 `workflow-orchestration-ports.ts` 里两个 factory 接口的文件头注）；
+    // `OrgTemplateCreatePort` 的入参本就带 `orgId`，直接注册端口本身。
+    {
+      provide: ORCHESTRATION_REPOSITORY_FACTORY,
+      useFactory: (db: DatabasePort): OrchestrationRepositoryFactory => new PgOrchestrationRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: WORKFLOW_TEMPLATE_CATALOG_FACTORY,
+      useFactory: (db: DatabasePort): WorkflowTemplateCatalogFactory =>
+        new PgWorkflowTemplateCatalogRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: ORG_TEMPLATE_CREATE_PORT,
+      useFactory: (
+        db: DatabasePort,
+        ids: import("./application/artifact/ports").IdFactory,
+      ): OrgTemplateCreatePort => new PgOrgTemplateCreateRepository(db, ids),
+      inject: [DATABASE_PORT, ID_FACTORY],
     },
     // #465: recording session lifecycle.
     {

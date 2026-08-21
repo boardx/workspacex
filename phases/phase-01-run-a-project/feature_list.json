@@ -5026,6 +5026,29 @@
       ],
       "evidence": "evidence/F966.verify.log @ 2026-08-20T08:25:03.933Z",
       "notes": "真栈截图取证时发现的真 bug（非本 feature 编造场景）：next.config.mjs 全文 grep provenance 零命中，与文件里 /blueprints、/messages 注释描述的坑同一类——裸路径（无 :path*）rewrite 漏写，前端打到 Next 自己的 404 HTML，不是 API 的 404。修复：补一行 rewrite。修复后用真栈复验（pnpm run shots:project-results，两轮跑，38/38 全绿）：404 变成真实 403 PROJECT_ROLE_INSUFFICIENT（query-provenance.ts设计使然，非 bug）。UIUX 保真度评分：8/10（真栈截图，对照 ui-preview/project-v2/uc-00-3-results-*.png；未到 9-10 分是两个证据缺口——fixture 未种 backflow/provenance 数据、只拍了 default 一态——不是代码缺陷）。详见 issue 与 PR 记录。"
+    },
+    {
+      "id": "I1680",
+      "priority": 1,
+      "area": "tpl",
+      "capability": "CAP-API",
+      "title": "gap-fill：F26 三个用例（saveAsOrgTemplate/switchWorkflowTemplate/getWorkflowOrchestration）接上真实 Postgres + 控制器 + DI（#1680）",
+      "user_visible_behavior": "在项目设置→工作流编排，[另存为组织模板]真的把当前编排另存成一条新的后台工作流模板目录项（新 id 与来源模板 id 不同，来源模板本体不被覆写）；从模板库选一个模板点[改用这个]，破坏性变更先出确认清单（不确认则零写入），确认后项目的环节链与三角色矩阵真的被替换并落库；刷新页面再读工作流编排，看到的是刚换过去的那份，不是内存态或旧值——三条路径此前只有内存 Fake 端口撑单测，`infrastructure/`/控制器/DI 全部为零，产品里不可达。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R7",
+      "depends_on": [
+        "F26"
+      ],
+      "points": 3,
+      "status": "in_progress",
+      "sprint": "20",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/tpl/workflow-orchestration-persists-real-db.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/tpl/workflow-orchestration-repo-guard.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "",
+      "notes": "契约束已签核（design-signoff.md status: confirmed，covers 含 F26），本 feature 零新增设计面，只补已签核端口的存储实现（issue #1680，见 #1666 勘探评论）。三个端口 `OrchestrationRepository`/`WorkflowTemplateCatalogPort`/`OrgTemplateCreatePort`（workflow-orchestration-ports.ts）新增 `pg-*` 实现（apps/api/src/infrastructure/templates/pg-workflow-orchestration-repository.ts）+ 新迁移（project_workflow_orchestration/workflow_template_catalog 两张表）+ BlueprintController 追加三条路由（GET /projects/:id/orchestration、POST .../workflow-template/switch、POST .../save-as-org-template）+ kernel.module.ts DI 注册。⚠ 前端 workflow-screen.tsx 接线不在本 feature 范围（收窄回 #1666/#1681）。"
     }
   ]
 }

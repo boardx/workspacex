@@ -43,6 +43,28 @@ function post(path: string, userId: string, body: unknown): Promise<Response> {
 /** 挂载路由用的乐观锁：空挂载列表恒有的确定指纹（`mountListFingerprint([])`）。 */
 const EMPTY_LIST_FINGERPRINT = createHash("sha256").update("").digest("hex");
 
+/**
+ * 真的建一条属于 `PROJECT` 的线程（#1693）。
+ *
+ * ⚠ 这个 helper 是 #1693 补的，**它的缺席此前不是无害的**：本文件原来直接往一个
+ *   随机、从不存在于 `chat_threads` 的 threadId 上挂载，居然能拿到 201——因为当时
+ *   挂载路径压根不查线程，授权只看调用方自己传的 `?projectId=`。那正是 #1693 修掉的
+ *   越权洞（带任意 projectId 就能挂到别人的线程上）。现在挂载要求线程真实存在且你写得了，
+ *   所以夹具必须建一条真线程。这三条断言因此比原来更强，而不是被放宽了。
+ */
+async function seedProjectThread(): Promise<string> {
+  const threadId = `thread-i1534-${randomUUID()}`;
+  await asApp(ORG, async (c) => {
+    await c.query(
+      `INSERT INTO chat_threads
+         (id, org_id, project_id, group_id, visibility_scope, created_by, created_at, last_activity_at)
+       VALUES ($1,$2,$3,NULL,'plenary',$4,now(),now())`,
+      [threadId, ORG, PROJECT, FACILITATOR],
+    );
+  });
+  return threadId;
+}
+
 async function mount(threadId: string, skillId: string): Promise<Response> {
   return post(
     `/threads/${threadId}/skill-mounts?projectId=${PROJECT}`,
@@ -119,7 +141,7 @@ afterAll(async () => {
 describe("#1534 · 挂载判定两边都查（模型 A wave2 + 模型 B 契约）", () => {
   it("① 正例：模型 A（GitHub/URL 导入落地，wave2 `skills` 表）的 skill 挂得上 ⇒ 201", async () => {
     const skillId = await seedWave2EnabledSkill();
-    const response = await mount(`thread-i1534-wave2-${randomUUID()}`, skillId);
+    const response = await mount(await seedProjectThread(), skillId);
     const body = await response.json();
     expect(response.status, JSON.stringify(body)).toBe(201);
     const parsed = C.operations.mountSkillToThread.out.parse(body);
@@ -131,7 +153,7 @@ describe("#1534 · 挂载判定两边都查（模型 A wave2 + 模型 B 契约�
 
   it("② 回归：模型 B（`skill_contracts`）的 skill 仍然挂得上 ⇒ 201（修 A 没有修坏 B）", async () => {
     const skillId = await seedContractEnabledSkill();
-    const response = await mount(`thread-i1534-contract-${randomUUID()}`, skillId);
+    const response = await mount(await seedProjectThread(), skillId);
     const body = await response.json();
     expect(response.status, JSON.stringify(body)).toBe(201);
     const parsed = C.operations.mountSkillToThread.out.parse(body);
@@ -140,7 +162,10 @@ describe("#1534 · 挂载判定两边都查（模型 A wave2 + 模型 B 契约�
   });
 
   it("③ 反证：两边都没有的 skillId 仍然诚实报 404 SKILL_NOT_FOUND（不是「什么都放行了」）", async () => {
-    const response = await mount(`thread-i1534-missing-${randomUUID()}`, `skill-i1534-does-not-exist-${randomUUID()}`);
+    // ⚠ 线程必须是真的：这一条要断言的是「授权过了、但 skill 不存在 ⇒ 404」。
+    //   拿一条不存在的线程去问，得到的会是 403（授权就没过），③ 就变成了一条
+    //   永远为真但什么都没验的断言。
+    const response = await mount(await seedProjectThread(), `skill-i1534-does-not-exist-${randomUUID()}`);
     const body = (await response.json()) as { readonly reasonCode?: string };
     expect(response.status, JSON.stringify(body)).toBe(404);
     expect(body.reasonCode).toBe("SKILL_NOT_FOUND");
