@@ -30,7 +30,8 @@ export interface GetThreadArtifactSourceDeps extends ResolveVisibilityDeps {
 export interface GetThreadArtifactSourceInput {
   readonly userId: string;
   readonly orgId: OrgId;
-  readonly projectId: string;
+  /** `null` = 个人线程（人类裁决，2026-08-21）——见 `list-thread-artifacts.ts` 同名字段注释。 */
+  readonly projectId: string | null;
   readonly threadId: string;
   readonly artifactId: string;
 }

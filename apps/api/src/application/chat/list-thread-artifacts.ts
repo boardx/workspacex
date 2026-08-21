@@ -35,7 +35,14 @@ export interface ListThreadArtifactsDeps extends ResolveVisibilityDeps {
 export interface ListThreadArtifactsInput {
   readonly userId: string;
   readonly orgId: OrgId;
-  readonly projectId: string;
+  /**
+   * `null` = 个人线程（人类裁决，2026-08-21）——`resolveVisibility` 按
+   * `projectId === null` 分派到 `resolvePersonalVisibility`（同 `landAsArtifact`
+   * 同一条分派规则，不是这里新发明的）。控制器把缺失的 query 参数归一成 `null`，
+   * 不是 `undefined`——`undefined` 在 `resolveVisibility` 眼里会被误判成"项目
+   * 线程但没传 projectId"，走错分支。
+   */
+  readonly projectId: string | null;
   readonly threadId: string;
 }
 

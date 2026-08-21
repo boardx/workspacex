@@ -196,12 +196,14 @@ export async function updateAgentRoster(
  */
 export async function listThreadArtifacts(
   threadId: string,
-  projectId: string,
+  /** `null` = 个人线程（人类裁决，2026-08-21）——不传这个 query 参数，controller
+   *  把缺失归一成 `null`，同 `resolveVisibility` 的个人线程分派规则。 */
+  projectId: string | null,
   sessionToken?: string,
 ): Promise<ListThreadArtifactsOut> {
   return apiRequest<ListThreadArtifactsOut>(
     chat.operations.listThreadArtifacts.path.replace(":threadId", encodeURIComponent(threadId)),
-    { method: "GET", query: { projectId }, sessionToken },
+    { method: "GET", query: { projectId: projectId ?? undefined }, sessionToken },
   );
 }
 
@@ -238,14 +240,15 @@ export type GetThreadArtifactSourceOut = z.infer<typeof chat.operations.getThrea
 export async function getThreadArtifactSource(
   threadId: string,
   artifactId: string,
-  projectId: string,
+  /** `null` = 个人线程——同 `listThreadArtifacts` 同名参数注释。 */
+  projectId: string | null,
   sessionToken?: string,
 ): Promise<GetThreadArtifactSourceOut> {
   return apiRequest<GetThreadArtifactSourceOut>(
     chat.operations.getThreadArtifactSource.path
       .replace(":threadId", encodeURIComponent(threadId))
       .replace(":artifactId", encodeURIComponent(artifactId)),
-    { method: "GET", query: { projectId }, sessionToken },
+    { method: "GET", query: { projectId: projectId ?? undefined }, sessionToken },
   );
 }
 

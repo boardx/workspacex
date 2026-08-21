@@ -104,18 +104,23 @@ export function ChatCanvasFabric({
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
 
   // G1 读回（同 `ChatDiagramFabric.openMaximized`）：点「最大化」先查本消息是否有
-  // 保存版，有则用它初始化 modal；查不到/失败/个人线程一律退回原始消息文本。
+  // 保存版，有则用它初始化 modal；查不到/失败一律退回原始消息文本。`projectId`
+  // 不是发不发请求的门（2026-08-21 人类裁决反转：个人线程 `projectId` 恒
+  // undefined，但个人对话现在也真的能持久化+读回，见 `ChatDiagramFabric` 同名
+  // 方法注释）——只有 threadId/messageId/bearer 三者不全才不发请求。
   const openMaximized = React.useCallback(async () => {
     if (openingReadback) return;
-    if (!threadId || !messageId || !projectId || bearer === undefined) {
-      // 个人线程/无项目上下文：不发 G1 读回请求，但也**不**把 savedSource 清空——
+    if (!threadId || !messageId || bearer === undefined) {
+      // 无鉴权预览 / 流式草稿：不发 G1 读回请求，但也**不**把 savedSource 清空——
       // 它可能是这次会话里刚关闭的本地演示保存（见下面 onClose），清空会让刚保存
       // 的编辑一重新打开全屏就凭空消失，比不读回还倒退。
       setMaximized(true);
       return;
     }
     setOpeningReadback(true);
-    const saved = await fetchLatestSavedDiagramSource({ threadId, messageId, projectId, bearer });
+    const saved = await fetchLatestSavedDiagramSource({
+      threadId, messageId, projectId: projectId ?? null, bearer,
+    });
     setSavedSource(saved);
     setOpeningReadback(false);
     setMaximized(true);

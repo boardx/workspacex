@@ -94,7 +94,10 @@ export function ChatLiveMessagePanel({
   archived: boolean;
   /**
    * G1 读回（design-delta chat-persona-roundtrip）：图表 modal 重开时查保存版要按
-   * projectId 判权。个人线程不传（缺省），读回关闭、维持现状本地行为。
+   * projectId 判权。个人线程恒不传（缺省 undefined，个人线程没有项目上下文这个
+   * 概念）——但这**不**代表读回对个人线程关闭：`undefined` 会被
+   * `ChatDiagramFabric`/`ChatCanvasFabric` 归一成 `null`，后端按 `null` 分派到
+   * 个人线程判权分支（2026-08-21 人类裁决：个人对话也支持真实持久化 + 读回）。
    */
   projectId?: string;
   /**
@@ -895,14 +898,17 @@ export function ChatLiveMessagePanel({
                         //
                         // 只在 canLandArtifacts 为真时传 threadId/message.id/bearer——跟
                         // 下面 `MessageLandingControls` 同一道门。此前这里无条件传全三者，
-                        // 于是图「最大化→编辑→保存」在个人线程（canLandArtifacts 恒 false，
-                        // `artifact-land-capability.test.ts` 钉死的既有设计：产物对个人线程
-                        // 是只读，不是禁用）里会调 landAsArtifact 撞上后端角色门，403「保存
-                        // 失败：当前身份没有写入权限」——那不是权限模型错了，是这个入口没接
-                        // 上已有的能力开关，让一枚本该退回「本地演示」的按钮伪装成了可保存。
-                        // 不传时 `ChatDiagramCanvasModal` 自己的 `canPersist` 判断会退回本地
-                        // 演示态（明确标「本地演示，未接后端」），不会崩、也不会打出一个
-                        // 注定 403 的请求。
+                        // 于是图「最大化→编辑→保存」在个人线程（当时 canLandArtifacts 恒
+                        // false）里会调 landAsArtifact 撞上后端角色门，403「保存失败：当前
+                        // 身份没有写入权限」——那不是权限模型错了，是这个入口没接上已有的
+                        // 能力开关，让一枚本该退回「本地演示」的按钮伪装成了可保存。
+                        // **2026-08-21 人类裁决**：个人线程的 `artifact.land` 能力已开放
+                        // （`PERSONAL_THREAD_CAPABILITIES` 含它），`canLandArtifacts` 对
+                        // 个人线程恒 true——这三者现在会真的传给个人线程，走真实持久化。
+                        // `projectId` 是唯一例外：个人线程没有项目上下文，这里恒传
+                        // `undefined`，`ChatDiagramFabric`/`ChatCanvasFabric` 把它归一成
+                        // `null` 传给后端（`resolveVisibility` 按 `null` 分派到个人线程
+                        // 判权分支，不是"没有 projectId 就不发请求"）。
                         <MarkdownMessage
                           text={message.text}
                           threadId={canLandArtifacts ? threadId : undefined}
