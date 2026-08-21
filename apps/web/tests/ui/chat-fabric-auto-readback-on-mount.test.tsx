@@ -19,6 +19,7 @@
  * D. mermaid 与工作坊画布模板两个组件（`ChatDiagramFabric`/`ChatCanvasFabric`）
  *    对称覆盖——issue 要求「两组文件一并同步修，避免只修一半」。
  */
+import * as React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
@@ -33,10 +34,13 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
   getThreadArtifactSource,
 }));
 
+// `CanvasStage` 是 `React.forwardRef` 组件（导出画布截图的命令式句柄需要它）——
+// 探针跟着换成 forwardRef，不然调用方传 `ref` 给它会撞 React 的 "Function
+// components cannot be given refs" 警告（不影响这几条测试断言，纯粹是噪音）。
 vi.mock("@/components/canvas/canvas-stage", () => ({
-  CanvasStage: (props: { markdown: string }) => (
-    <pre data-testid="canvas-stage-probe">{props.markdown}</pre>
-  ),
+  CanvasStage: React.forwardRef(function CanvasStageProbe(props: { markdown: string }, _ref) {
+    return <pre data-testid="canvas-stage-probe">{props.markdown}</pre>;
+  }),
 }));
 
 const mermaidParse = vi.fn().mockResolvedValue(true);

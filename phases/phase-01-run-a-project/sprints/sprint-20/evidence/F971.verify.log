@@ -1,0 +1,28 @@
+F971 — 「另存为组织模板」两处按钮真正接线（issue #1666 收尾）
+
+## pnpm --filter web run typecheck
+exit=0
+
+## pnpm --filter api run typecheck
+exit=0
+
+## pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded --grep 1666
+Running 4 tests using 1 worker
+  ✓ 1 [seeded] › e2e/save-as-org-template-smoke.spec.ts:82:7 › #1666：另存为组织模板——两处按钮真实接线 + 持久化反证 › tab-prep.tsx「另存为组织模板」：真实 POST，成功文案含服务端真实 id（不是编好的固定文案） (1.7s)
+  ✓ 2 [seeded] › e2e/save-as-org-template-smoke.spec.ts:126:7 › #1666：另存为组织模板——两处按钮真实接线 + 持久化反证 › workflow-screen.tsx「另存为组织模板」：真实 POST，toast 文案含服务端真实 id (1.4s)
+  ✓ 3 [seeded] › e2e/save-as-org-template-smoke.spec.ts:163:7 › #1666：另存为组织模板——两处按钮真实接线 + 持久化反证 › 反证：服务端真实失败时，界面如实显示失败，不再是「点了就说成功」的本地 toast (1.5s)
+  ✓ 4 [seeded] › e2e/save-as-org-template-smoke.spec.ts:190:7 › #1666：另存为组织模板——两处按钮真实接线 + 持久化反证 › 持久化反证：workflow-screen 存下来的组织模板真的在 PostgreSQL 里，全新项目 + 全新会话读得回来 (1.3s)
+  4 passed (1.7m)
+
+⚠ 实测反证（未留在代码里）：把 workflow-screen.tsx 的 onSaved 临时改回 issue 原文那句固定
+toast 文案（"已另存为组织级工作流模板（产物是工作流模板，不是新蓝本；不需审核）"，忽略真实
+响应体），重跑同一命令：
+  ✘ 2 [seeded] › ... workflow-screen.tsx「另存为组织模板」：真实 POST，toast 文案含服务端真实 id
+    Expected substring: "WFSCREEN_ORGTPL_dt-b53a0738-171313fd57e3"
+    Received string:    "已另存为组织级工作流模板（产物是工作流模板，不是新蓝本；不需审核）"
+  1 failed / 2 did not run / 1 passed
+复原改动后重跑，4/4 恢复全绿（见上）。
+
+## pnpm exec tsx .harness/scripts/cli.ts doctor
+doctor：体检 12 个 phase — 0 FAIL / 14 WARN（WARN 均为既有 phase readiness 提示，与本 feature 无关）
+✓ 审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内。
