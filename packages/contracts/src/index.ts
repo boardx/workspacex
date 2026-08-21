@@ -36,3 +36,11 @@ export * as personalRealtimeTranscription from "./personal-realtime-transcriptio
 
 /* ── phase-03 契约束 ───────────────────────────────────────────────── */
 export * as feedbackLoop from "./feedback-loop";
+
+/* ── phase-10 契约束（live-collaboration-orchestration）───────────────
+ * 束名与文件名不同，登记见 .harness/scripts/third-artifact-map.json。 */
+export * as liveCollabViewerRole from "./live-collab-viewer-role";
+export * as liveCollabCheckin from "./live-collab-checkin";
+export * as liveCollabModuleRouting from "./live-collab-module-routing";
+export * as liveCollabSegmentEngine from "./live-collab-segment-engine";
+export * as liveCollabStageAggregation from "./live-collab-stage-aggregation";
