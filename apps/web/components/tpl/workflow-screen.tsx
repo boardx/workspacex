@@ -13,6 +13,7 @@ import {
   type WorkflowOrchestrationOut,
 } from "@/lib/live-workflow-orchestration";
 import { SignoffFlag } from "./parts";
+import { SaveAsOrgTemplateAction } from "./save-as-org-template-action";
 
 /**
  * 工作流编排屏（F26，契约 `getWorkflowOrchestration`）。
@@ -29,9 +30,16 @@ import { SignoffFlag } from "./parts";
  * ⚠ 7c「可切换的工作流模板库」**如实降级为空态说明**：`getWorkflowOrchestration`
  *   契约只回「当前套用的模板 + 编排矩阵」，不包含模板库列表——`templates` 契约里没有
  *   这条读路径，也不是 #1680 的范围。之前 `TEMPLATE_LIBRARY` 三条 mock 数据在这次改造
- *   里被移除，不编造一份看起来真实的目录。「换模板」（`switchWorkflowTemplate`）与
- *   「另存为组织模板」（`saveAsOrgTemplate`）按钮的最终接线收窄回 #1666，本次仍是
- *   仅 toast 的占位动作。
+ *   里被移除，不编造一份看起来真实的目录。「换模板」（`switchWorkflowTemplate`）
+ *   仍未接线（契约缺口 7c 的读路径没补齐，接了也没有真实目录可选，见下方
+ *   `tpl-template-library` 区块）。
+ *
+ * 2026-08-21（#1666 收尾）：「另存为组织模板」（`tpl-wf-saveorg`）此前只
+ * `onToast(...)`，不发任何网络请求——issue #1666 勘探报告的两处「假成功」缺陷之一。
+ * #1680 落地 `saveAsOrgTemplate` 的 controller/infra 后，这里改接
+ * `SaveAsOrgTemplateAction`（`components/tpl/save-as-org-template-action.tsx`，
+ * 与 `tab-prep.tsx` 的 `project-prep-save-template` 共用同一份状态机与请求逻辑），
+ * 成功后显示服务端真实返回的 `workflowTemplateId`，失败原样显示服务端 reasonCode。
  */
 export function WorkflowScreen({
   projectId, uiState, previewRole: _previewRole, onToast,
@@ -129,9 +137,22 @@ export function WorkflowScreen({
                 ))}
               </div>
               <p className="text-10 text-muted-foreground">套用后你可以在「议程与材料」里改时长、增删环节、换绑模板与 skill。改动只影响这场项目，不会动后台的模板本体。</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button size="sm" variant="outline" onClick={() => onToast("进项目筹备 → 议程子标签细调")} data-testid="tpl-wf-refine"><ArrowRight aria-hidden className="h-3.5 w-3.5" /> 去议程里细调</Button>
-                <Button size="sm" variant="outline" onClick={() => onToast("已另存为组织级工作流模板（产物是工作流模板，不是新蓝本；不需审核）")} data-testid="tpl-wf-saveorg"><Save aria-hidden className="h-3.5 w-3.5" /> 另存为组织模板</Button>
+                <SaveAsOrgTemplateAction
+                  // ⚠ `data !== null` 只在 `shouldFetchReal`（含 `projectId !== null`）成立时被
+                  //   真实数据填充（见上方 `load()`），所以这里的 `projectId` 一定非空——
+                  //   TS narrowing 跨不过外层这个渲染分支，显式非空断言 + 注释说明前提，
+                  //   不是绕过类型检查。
+                  projectId={projectId!}
+                  testIdPrefix="tpl-wf-saveorg"
+                  onSaved={(out) => onToast(`已另存为组织模板「${out.name}」· id ${out.workflowTemplateId}（产物是工作流模板，不是新蓝本；不需审核）`)}
+                  renderTrigger={(open, testId) => (
+                    <Button size="sm" variant="outline" onClick={open} data-testid={testId}>
+                      <Save aria-hidden className="h-3.5 w-3.5" /> 另存为组织模板
+                    </Button>
+                  )}
+                />
               </div>
             </section>
 
