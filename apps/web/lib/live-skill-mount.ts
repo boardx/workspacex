@@ -42,12 +42,13 @@ function threadPath(path: string, threadId: string): string {
  */
 export async function listThreadMounts(
   threadId: string,
-  projectId: string,
+  /** ⚠ 可选：个人对话没有项目。#1693 起服务端不再把它当授权输入（授权从线程反推）。 */
+  projectId: string | undefined,
   sessionToken?: string,
 ): Promise<ListThreadDeviationsOut> {
   return apiRequest<ListThreadDeviationsOut>(
     threadPath(skills.operations.listThreadDeviations.path, threadId),
-    { method: "GET", query: { projectId }, sessionToken },
+    { method: "GET", query: projectId === undefined ? {} : { projectId }, sessionToken },
   );
 }
 
@@ -59,7 +60,8 @@ export async function listThreadMounts(
  */
 export async function mountSkills(
   threadId: string,
-  projectId: string,
+  /** ⚠ 可选：个人对话没有项目。#1693 起服务端不再把它当授权输入（授权从线程反推）。 */
+  projectId: string | undefined,
   input: { skillIds: readonly string[]; expectedVersion: string },
   sessionToken?: string,
 ): Promise<MountSkillToThreadOut> {
@@ -67,7 +69,7 @@ export async function mountSkills(
     threadPath(skills.operations.mountSkillToThread.path, threadId),
     {
       method: "POST",
-      query: { projectId },
+      query: projectId === undefined ? {} : { projectId },
       body: { threadId, skillIds: [...input.skillIds], expectedVersion: input.expectedVersion },
       sessionToken,
     },
@@ -77,7 +79,8 @@ export async function mountSkills(
 export async function unmountSkill(
   threadId: string,
   mountId: string,
-  projectId: string,
+  /** ⚠ 可选：个人对话没有项目。与本文件另外两个函数同一条理由。 */
+  projectId: string | undefined,
   sessionToken?: string,
 ): Promise<UnmountSkillFromThreadOut> {
   return apiRequest<UnmountSkillFromThreadOut>(
@@ -85,6 +88,6 @@ export async function unmountSkill(
       ":mountId",
       encodeURIComponent(mountId),
     ),
-    { method: "DELETE", query: { projectId }, sessionToken },
+    { method: "DELETE", query: projectId === undefined ? {} : { projectId }, sessionToken },
   );
 }

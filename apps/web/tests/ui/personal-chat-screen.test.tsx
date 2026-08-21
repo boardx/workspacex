@@ -36,10 +36,24 @@ vi.mock("@/lib/live-chat", () => ({
   listPersonalThreads, getThread, createPersonalThread, renameThread, deleteThread,
 }));
 vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
+/* 个人屏接入挂载面板后，面板会真的去读挂载列表——这里给它一个空列表，
+   让"入口存在"这件事可断言，而不必把整个面板 stub 掉（stub 掉就测不到真东西了）。 */
+const listThreadMounts = vi.fn().mockResolvedValue({ temporary: [], version: "0" });
+vi.mock("@/lib/live-skill-mount", () => ({
+  listThreadMounts: (...a: unknown[]) => listThreadMounts(...a),
+  mountSkills: vi.fn(),
+  unmountSkill: vi.fn(),
+}));
+vi.mock("@/lib/live-skill", () => ({ listSkills: vi.fn().mockResolvedValue([]) }));
 vi.mock("@/components/chat/chat-live-message-panel", () => ({
   ChatLiveMessagePanel: ({ agents }: { agents: unknown }) => (
     <div data-testid="stub-message-panel" data-agents={JSON.stringify(agents)} />
   ),
+  /* ⚠ `chat-skill-mount-panel.tsx` 从本模块 re-export 处取 `describeMessageFailure`
+     （它自己 re-export 自 `@/lib/live-chat`）。个人屏接入挂载面板后这条依赖被拉进来，
+     mock 里缺了它会以 13 条 Unhandled Rejection 出现——**测试仍报 18 passed**，
+     那正是 vitest 警告的「false positive」形状：断言没跑到就已经绿了。 */
+  describeMessageFailure: (e: unknown) => String(e),
 }));
 
 import { PersonalChatScreen } from "@/components/chat/personal-chat-screen";
@@ -470,3 +484,45 @@ describe("PersonalChatScreen — 手机端会话列表可达性（2026-08-07 真
     expect(document.querySelector("aside")?.textContent ?? "").not.toBe("");
   });
 });
+
+/**
+ * 人类裁决（2026-08-21，原话）：「个人对话必须要可以使用公共的 skills」「所有的人都可以用」。
+ *
+ * 服务端那一半在 #1693 已放开（个人线程可挂载，授权从线程反推项目）。但在此之前，
+ * **个人对话屏连 `ChatSkillMountPanel` 的 import 都没有** —— 服务端改好了，用户在界面上
+ * 依然挂不上，裁决没有真正生效。本组用例钉的就是"入口真的存在"这件事。
+ *
+ * ⚠ 断言落在**真实面板的 testid** 与**真实读接口被调用**上，不是断言一个 stub 存在——
+ *   后者在面板被整个删掉时照样绿。
+ */
+describe("个人对话的 skill 挂载入口（人类 2026-08-21 裁决）", () => {
+  it("选中一条个人线程 ⇒ 真实挂载面板被渲染，且用 undefined 的 projectId 去读挂载列表", async () => {
+    listPersonalThreads.mockResolvedValue({
+      groups: [{ label: "今天", cards: [{ id: "thr-sk", title: "新对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      capabilities: ["thread.mutate"],
+    });
+    getThread.mockResolvedValue({
+      thread: { id: "thr-sk", projectId: null, groupId: null, visibilityScope: "private", phase: "onsite", archived: false, createdBy: "user-current", lastActivityAt: "2026-08-06T00:00:00.000Z", version: 0 },
+      messages: [], rightTabs: [], capabilities: ["composer.send"],
+    });
+
+    render(<PersonalChatScreen initialThreadId="thr-sk" />);
+
+    // ① 真实面板（不是 stub）出现在个人对话里。
+    expect(await screen.findByTestId("chat-skill-mount-panel")).toBeInTheDocument();
+
+    // ② ⭐ 反空转：它真的去读了挂载列表，且 projectId 传的是 undefined
+    //    （个人线程没有项目；服务端 #1693 起也不再拿它当授权输入）。
+    /* ⚠ 取**最近一次**调用，不是 `calls[0]`：这个 mock 在用例之间不重置，
+       `calls[0]` 会是前面用例残留的那次（实测拿到 'thr-new'），断言就成了
+       在测别人留下的状态。 */
+    await waitFor(() =>
+      expect(listThreadMounts.mock.calls.some((c) => c[0] === "thr-sk")).toBe(true),
+    );
+    const [threadIdArg, projectIdArg] =
+      listThreadMounts.mock.calls.filter((c) => c[0] === "thr-sk").at(-1)!;
+    expect(threadIdArg).toBe("thr-sk");
+    expect(projectIdArg).toBeUndefined();
+  });
+});
+
