@@ -5,8 +5,10 @@
  *      成功后重读消息流——新 assistant mindmap 消息进入消息面板并走
  *      `MarkdownMessage → ChatDiagramFabric` 通道（探针收到 mindmap 源码）。
  *   ② 失败原样回显 reasonCode（不糊「生成失败」）。
- *   ③ `canLandArtifacts=false`（个人线程/观察者）⇒ 按钮不渲染（同「落地为产物」
- *      的能力门规矩：不渲染，而不是渲染后禁用）。
+ *   ③ `canLandArtifacts=false`（观察者角色，2026-08-21 起个人线程恒为 true——
+ *      见 `PERSONAL_THREAD_CAPABILITIES`）⇒ 按钮不渲染（同「落地为产物」的
+ *      能力门规矩：不渲染，而不是渲染后禁用；本条只测组件在给定这个布尔时的
+ *      行为，不断言哪种线程会得到这个值）。
  *   ④ 空线程 ⇒ 按钮禁用（契约 in.messageId 必传，没有锚点消息可传）。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";

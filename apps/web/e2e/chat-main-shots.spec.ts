@@ -168,15 +168,19 @@ test("capture chat main screen against the real stack", async ({ page }) => {
     { timeout: 60_000 },
   );
   /**
-   * #728 round 16 P10 —— 个人对话里**不得出现**「落地为产物」按钮。
-   * 后端对个人线程恒拒（`land-as-artifact.ts` 的 `NoWriteRoleError`，个人线程
-   * `projectRole` 恒 null），此前前端无条件渲染 = 每条消息下一枚点了必报错的
-   * 假按钮，评分员据此判 P10 = 0。修法：按钮的渲染依据是服务端下发的
-   * `artifact.land` 能力（个人线程恒无）。此刻屏上已有用户消息 + agent 回复
-   * 至少两条——若按钮还在渲染，这里数出来就不是 0，会当场红。
+   * #728 round 16 P10 → **2026-08-21 人类裁决反转**：个人对话现在**应该**出现
+   * 「落地为产物」按钮——个人线程也真的能持久化产物，不再是一枚点了必报错的
+   * 假按钮。按钮的渲染依据仍是服务端下发的 `artifact.land` 能力，只是这个能力
+   * 现在对个人线程也下发了（`PERSONAL_THREAD_CAPABILITIES` 已含
+   * `artifact.land`，见 `thread-visibility.ts`）。此刻屏上已有用户消息 + agent
+   * 回复至少两条，每条消息下都应该有这枚按钮——若渲染依据又漂移回「个人线程
+   * 恒不给」，这里数出来会是 0，当场红。
    * 项目侧「写角色看得见这枚按钮」的另一半反证在 chat-read.spec.ts。
    */
-  await expect(page.locator('[data-testid^="chat-land-artifact-open-"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid^="chat-land-artifact-open-"]').first()).toBeVisible();
+  expect(
+    await page.locator('[data-testid^="chat-land-artifact-open-"]').count(),
+  ).toBeGreaterThanOrEqual(2);
 
   await shoot("chat-main-personal-reply.png", "chat-thread-detail");
 

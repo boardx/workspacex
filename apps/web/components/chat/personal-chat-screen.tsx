@@ -456,12 +456,13 @@ function PersonalThreadDetail({
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           archived={detail.thread.archived}
           /*
-            #728 round 16 P10 —— 个人线程的能力集合恒不含 `artifact.land`
-            （`PERSONAL_THREAD_CAPABILITIES` 只有 `artifact.readonly`，后端
-            `land-as-artifact.ts` 对无项目角色恒拒），这里从服务端下发的
-            `getThread.out.capabilities` 取值 ⇒ 恒 false ⇒ 落地按钮不渲染。
-            不写死 false：万一产品日后给个人线程开这个能力，改的是服务端
-            能力集合，这行自动跟上，前端不用再动。
+            #728 round 16 P10 起：个人线程的能力集合从「恒不含 `artifact.land`」，
+            经 2026-08-21 人类裁决改为「恒含 `artifact.land`」——个人对话也要能
+            真的落地产物（`PERSONAL_THREAD_CAPABILITIES`，`land-as-artifact.ts`
+            对个人线程创建者放行、非draft 拒绝，见该文件注释）。这里从服务端
+            下发的 `getThread.out.capabilities` 取值，不写死 true/false——服务端
+            能力集合改，这行自动跟上，前端不用再动（这正是当初这么写的理由，
+            这次裁决反转没有触发任何前端改动，只是这行现在读到的值变了）。
           */
           canLandArtifacts={detail.capabilities.includes("artifact.land")}
           onRunSettled={onThreadSettled}

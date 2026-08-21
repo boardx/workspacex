@@ -60,6 +60,18 @@ export class CitationUnresolvableRequiresDraftError extends Error {
   }
 }
 
+/**
+ * 个人线程落地硬锁 draft（人类裁决，2026-08-21）——`live`/`pinned` 会打开项目专属的
+ * 下游流转语义（`isEligibleForDownstream`），个人线程没有这个维度。与
+ * `NoWriteRoleError` 分开报（那是"没有写权限"，这是"有写权限，但这个 mode 不适用
+ * 这条线程"，混成一个错误码会让客户端没法分辨该不该提示"换个模式重试"）。
+ */
+export class PersonalThreadRequiresDraftError extends Error {
+  constructor() {
+    super("personal_thread_requires_draft");
+  }
+}
+
 export class MaterializationFailedError extends Error {}
 
 export interface LandAsArtifactDeps extends ResolveVisibilityDeps {
@@ -131,10 +143,28 @@ export async function landAsArtifact(
   });
   if (outcome.kind !== "allow") throw new ThreadNotVisibleError();
 
-  // 观察者恒无写权——与 `mutateThread` / `updateAgentRoster` 同一条规则。
-  const role = outcome.actor.projectRole;
-  if (role === null || role === "observer") {
-    throw new NoWriteRoleError();
+  // 个人线程（人类裁决，2026-08-21，issue #728 round 16 P10 留的开放问题在此落地）：
+  // `outcome.actor.projectRole` 恒为 null（个人线程没有项目角色这个维度，见
+  // `resolve-visibility.ts` 的 `resolvePersonalVisibility`），但能走到这一行说明
+  // `resolveVisibility` 已经验证过 `actorUserId === thread.createdBy`
+  // （`decidePersonalThreadRead` 的 `projectLayerAllowed`）——即个人线程分支的
+  // 「role === null」不是「无权限」，是「这个维度不适用，权限已经在上一步判过了」。
+  // 项目线程分支不能沿用这条豁免：那里的 `role === null` 是真的「没有项目角色」。
+  const isPersonalThread = outcome.thread.projectId === null;
+  if (!isPersonalThread) {
+    // 观察者恒无写权——与 `mutateThread` / `updateAgentRoster` 同一条规则。
+    const role = outcome.actor.projectRole;
+    if (role === null || role === "observer") {
+      throw new NoWriteRoleError();
+    }
+  } else if (mode !== "draft") {
+    // 个人线程落地硬锁 draft（同 `summarizePersonaFromThread` 既有判例
+    // `packages/contracts/src/chat.ts` 的 `C_CHAT_11`）——`live`/`pinned` 会经
+    // `isEligibleForDownstream` 打开 report-final/submit-acceptance 等下游流转，
+    // 那是项目专属语义，个人线程的产出不适用。前端目前所有入口本来就只发
+    // draft（画布保存/落地按钮/画像生成三处皆是），这里加一道后端硬校验，
+    // 不依赖「前端恰好没传别的 mode」这个隐性约定。
+    throw new PersonalThreadRequiresDraftError();
   }
 
   const citations = await deps.chat.findCitationsForMessage(orgId, messageId);

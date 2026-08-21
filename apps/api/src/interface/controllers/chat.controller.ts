@@ -132,6 +132,7 @@ import {
   MaterializationFailedError as LandMaterializationFailedError,
   MissingProvenanceBacklinkError,
   NoWriteRoleError as LandNoWriteRoleError,
+  PersonalThreadRequiresDraftError,
 } from "../../application/chat/land-as-artifact";
 import { summarizePersonaFromThread } from "../../application/chat/summarize-persona-from-thread";
 import {
@@ -997,8 +998,10 @@ export class ChatController {
   /**
    * 把一条结论 / 产物卡落地为 Artifact。状态码：
    *   404  不可见或不存在（I-3，与其余读路径同一个出口）
-   *   403  观察者恒无写权
-   *   422  `MISSING_PROVENANCE_BACKLINK` / `CITATION_UNRESOLVABLE_REQUIRES_DRAFT`——
+   *   403  观察者恒无写权（`NO_WRITE_ROLE`）
+   *   422  `MISSING_PROVENANCE_BACKLINK` / `CITATION_UNRESOLVABLE_REQUIRES_DRAFT` /
+   *        `PERSONAL_THREAD_REQUIRES_DRAFT`（人类裁决 2026-08-21：个人线程也能落地，
+   *        但硬锁 draft，见 `land-as-artifact.ts` 同名错误类）——
    *        请求形状合法，内容不满足业务前置（与 `TITLE_INVALID` 同一档）
    *   503  物化失败（对象存储/依赖不可用）——见 `land-as-artifact.ts` 文件头
    */
@@ -1038,6 +1041,9 @@ export class ChatController {
       }
       if (e instanceof CitationUnresolvableRequiresDraftError) {
         throw new UnprocessableEntityException({ reasonCode: "CITATION_UNRESOLVABLE_REQUIRES_DRAFT" });
+      }
+      if (e instanceof PersonalThreadRequiresDraftError) {
+        throw new UnprocessableEntityException({ reasonCode: "PERSONAL_THREAD_REQUIRES_DRAFT" });
       }
       if (e instanceof LandMaterializationFailedError) {
         throw new ServiceUnavailableException({ reasonCode: "STORAGE_UNAVAILABLE" });
@@ -1123,18 +1129,22 @@ export class ChatController {
     }
   }
 
-  /** 右栏「产物」列表（UC-22）。草稿仅创建者可见——见 `list-thread-artifacts.ts` 文件头。 */
+  /**
+   * 右栏「产物」列表（UC-22）。草稿仅创建者可见——见 `list-thread-artifacts.ts` 文件头。
+   * `projectId` query 参数缺失（个人线程，人类裁决 2026-08-21）时归一成 `null`，不是
+   * `undefined`——见该 UC 同名字段注释，两者在 `resolveVisibility` 里走不同分支。
+   */
   @Get("/chat/threads/:threadId/artifacts")
   async threadArtifacts(
     @CurrentPrincipal() principal: Principal,
     @Param("threadId") threadId: string,
-    @Query("projectId") projectId: string,
+    @Query("projectId") projectId?: string,
   ) {
     assertPrincipal(principal);
     try {
       return await listThreadArtifacts(
         { ...this.deps, landings: this.landings },
-        { userId: principal.userId, orgId: toOrgId(principal.orgId), projectId, threadId },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), projectId: projectId ?? null, threadId },
       );
     } catch (e) {
       if (e instanceof ThreadNotVisibleError) throw new NotFoundException();
@@ -1148,13 +1158,15 @@ export class ChatController {
    * 2026-08-18）。状态码：
    *   404  不可见或不存在（I-36/I-3：他人草稿与不存在的 artifactId 同一个出口）
    *   503  `STORAGE_UNAVAILABLE`——landing 行存在但字节从对象存储读不回来
+   * `projectId` query 参数缺失（个人线程，人类裁决 2026-08-21）时归一成 `null`，
+   * 同 `threadArtifacts` 路由的同款理由。
    */
   @Get("/chat/threads/:threadId/artifacts/:artifactId/source")
   async threadArtifactSource(
     @CurrentPrincipal() principal: Principal,
     @Param("threadId") threadId: string,
     @Param("artifactId") artifactId: string,
-    @Query("projectId") projectId: string,
+    @Query("projectId") projectId?: string,
   ) {
     assertPrincipal(principal);
     try {
@@ -1163,7 +1175,7 @@ export class ChatController {
         {
           userId: principal.userId,
           orgId: toOrgId(principal.orgId),
-          projectId,
+          projectId: projectId ?? null,
           threadId,
           artifactId,
         },
