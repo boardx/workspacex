@@ -31,14 +31,24 @@ let nodeSeq = 0;
  * 新坐标覆盖用户刚拖好的位置（R7 ②「坐标不写回 Markdown」的直接推论：
  * 一份 markdown 可以对应多种画布坐标，不能拿它当„画布状态"的权威）。
  */
-export function CanvasStage({
-  readOnly,
-  tool,
-  zoom,
-  onZoomChange,
-  markdown,
-  onMarkdownChange,
-}: {
+/**
+ * 导出（人类要求："要可以下载，画布在前端要有 pdf，png 的导出"）：`exportPNG` 是
+ * `CanvasStage` 唯一对外暴露的导出能力——只做「画布内容 → PNG data URL」这一件事
+ * （fabric 的既有职责本就在这里），不在这个组件里引入 `jspdf`/触发浏览器下载这些
+ * 与 fabric 无关的关注点。PDF 导出、下载触发都在调用方（chat 全屏编辑器）那一层，
+ * 复用同一份 `exportPNG` 产出的 data URL——不是两套独立的"截当前画布"实现。
+ */
+export interface CanvasStageHandle {
+  /**
+   * 导出**完整内容**（不是当前视口截图）：临时把 viewport 复位到 zoom=1/无平移，
+   * 按全部对象的并集包围盒截图，再把 viewport 还原——用户拖动/缩放过的画布状态
+   * 不受导出动作影响，截出来的图也不会因为用户当前平移到别处而缺一块。空画布
+   * （没有任何节点）返回 null，不产出一张空白 PNG 冒充"导出成功"。
+   */
+  exportPNG(opts?: { multiplier?: number }): { dataUrl: string; width: number; height: number } | null;
+}
+
+export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   readOnly: boolean;
   tool: CanvasTool;
   zoom: number;
@@ -51,7 +61,14 @@ export function CanvasStage({
   onZoomChange?: (next: number) => void;
   markdown: string;
   onMarkdownChange: (next: string) => void;
-}) {
+}>(function CanvasStage({
+  readOnly,
+  tool,
+  zoom,
+  onZoomChange,
+  markdown,
+  onMarkdownChange,
+}, ref) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
   const fabricRef = React.useRef<FabricCanvas | null>(null);
@@ -605,6 +622,48 @@ export function CanvasStage({
     canvas.requestRenderAll();
   }, [readOnly, loading]);
 
+  React.useImperativeHandle(ref, () => ({
+    exportPNG: (opts) => {
+      const canvas = fabricRef.current;
+      if (!canvas) return null;
+      const objects = canvas.getObjects();
+      if (objects.length === 0) return null;
+      // 并集包围盒——用 `getBoundingRect()`（fabric v7 起恒返回绝对坐标）而不是
+      // 直接读每个对象的 left/top/width/height，因为 FlowNode/FlowEdge 内部
+      // 可能是 fabric Group，裸读那四个属性对旋转/弯曲边这类对象算出来的框会偏。
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const obj of objects) {
+        const r = obj.getBoundingRect();
+        minX = Math.min(minX, r.left);
+        minY = Math.min(minY, r.top);
+        maxX = Math.max(maxX, r.left + r.width);
+        maxY = Math.max(maxY, r.top + r.height);
+      }
+      const EXPORT_PADDING = 24;
+      const left = minX - EXPORT_PADDING;
+      const top = minY - EXPORT_PADDING;
+      const width = maxX - minX + EXPORT_PADDING * 2;
+      const height = maxY - minY + EXPORT_PADDING * 2;
+
+      // 导出的是"内容"，不是"用户当前看到的这一屏"——临时把 viewport 复位到
+      // zoom=1/无平移再截图，截完照原样还原，用户拖动/缩放过的画布状态不受
+      // 这次导出影响（截图动作本身不该是一次有副作用的操作）。
+      const prevTransform = canvas.viewportTransform ? [...canvas.viewportTransform] as typeof canvas.viewportTransform : undefined;
+      canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+      const dataUrl = canvas.toDataURL({
+        format: "png",
+        left,
+        top,
+        width,
+        height,
+        multiplier: opts?.multiplier ?? 2,
+      });
+      if (prevTransform) canvas.setViewportTransform(prevTransform);
+      canvas.requestRenderAll();
+      return { dataUrl, width, height };
+    },
+  }), []);
+
   return (
     <div
       ref={containerRef}
@@ -674,7 +733,7 @@ export function CanvasStage({
       </div>
     </div>
   );
-}
+});
 
 /** 底部提示条复用的平移/缩放操作说明——三种输入设备都要能发现（人类 2026-08-19 明确要求）。 */
 const PAN_ZOOM_HINT = "双指捏合/Ctrl+滚轮缩放 · 双指或滚轮平移 · 空格/Alt/中键拖拽平移 · ⌘Z 撤销 · ⌘⇧Z 重做";

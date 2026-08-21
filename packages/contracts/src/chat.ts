@@ -204,6 +204,14 @@ export const ChatError = z.enum([
   "MISSING_PROVENANCE_BACKLINK",
   /** 有任一引用不可定位 ⇒ **只能落草稿，不得定版**（V4d） */
   "CITATION_UNRESOLVABLE_REQUIRES_DRAFT",
+  /**
+   * 个人线程落地硬锁 draft（人类裁决，2026-08-21，issue #728 round 16 P10）——
+   * `live`/`pinned` 会打开项目专属的下游流转语义（`isEligibleForDownstream`），
+   * 个人线程没有这个维度。与 `CITATION_UNRESOLVABLE_REQUIRES_DRAFT` 分开码：
+   * 那条是「引用凑不齐所以降级」，这条是「这条线程类型压根不适用非 draft 模式」，
+   * 前端要展示的文案不同（后者不该建议用户"补引用再试"）。
+   */
+  "PERSONAL_THREAD_REQUIRES_DRAFT",
   "STUDIO_RUN_NOT_FOUND",
   /** 🔗 与 `artifact.ArtifactError` 同码同义（引用资格门是 phase-00 的那一个，I-34） */
   "REQUIRES_PINNED",
@@ -923,7 +931,7 @@ export const operations = {
     }).strict(),
     err: [
       "NOT_VISIBLE", "NO_WRITE_ROLE", "MISSING_PROVENANCE_BACKLINK",
-      "CITATION_UNRESOLVABLE_REQUIRES_DRAFT", "CITATION_OUT_OF_PACK",
+      "CITATION_UNRESOLVABLE_REQUIRES_DRAFT", "PERSONAL_THREAD_REQUIRES_DRAFT", "CITATION_OUT_OF_PACK",
       "STUDIO_RUN_NOT_FOUND", "VERSION_CHANGED", "STORAGE_UNAVAILABLE", "AUDIT_SINK_UNAVAILABLE",
     ] as const,
   },

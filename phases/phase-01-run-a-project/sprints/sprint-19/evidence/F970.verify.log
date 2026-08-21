@@ -1,0 +1,320 @@
+$ pnpm --filter api run typecheck
+[exit 0]
+
+> @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c/apps/api
+> tsc --noEmit
+
+
+
+$ pnpm --filter web run typecheck
+[exit 0]
+
+> web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c/apps/web
+> tsc --noEmit
+
+
+
+$ pnpm exec tsx .harness/scripts/cli.ts doctor
+[exit 0]
+⚠ [00] F01 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免）——跑 pnpm harness verify --sprint 00/03 --backfill-evidence 补上后把它从名单里删掉
+⚠ [00] F14 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免）——跑 pnpm harness verify --sprint 00/01 --backfill-evidence 补上后把它从名单里删掉
+⚠ [00] F18 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免）——跑 pnpm harness verify --sprint 00/02 --backfill-evidence 补上后把它从名单里删掉
+⚠ [00] runtime/E2E readiness：runtime/E2E NOT READY: 22/22 features passing; passing count is not readiness
+⚠ [01] runtime/E2E readiness：runtime/E2E NOT READY: 195/215 features passing; passing count is not readiness
+⚠ [02] runtime/E2E readiness：runtime/E2E NOT READY: 0/46 features passing; passing count is not readiness
+⚠ [03] runtime/E2E readiness：runtime/E2E NOT READY: 0/49 features passing; passing count is not readiness
+⚠ [04] runtime/E2E readiness：runtime/E2E NOT READY: 3/7 features passing; passing count is not readiness
+⚠ [05] runtime/E2E readiness：runtime/E2E NOT READY: 0/1 features passing; passing count is not readiness
+⚠ [06] runtime/E2E readiness：runtime/E2E NOT READY: 0/6 features passing; passing count is not readiness
+⚠ [07] runtime/E2E readiness：runtime/E2E NOT READY: 0/5 features passing; passing count is not readiness
+⚠ [08] runtime/E2E readiness：runtime/E2E NOT READY: 0/4 features passing; passing count is not readiness
+⚠ [09] runtime/E2E readiness：runtime/E2E NOT READY: 0/7 features passing; passing count is not readiness
+⚠ [10] runtime/E2E readiness：runtime/E2E NOT READY: 1/10 features passing; passing count is not readiness
+⚠ [11] runtime/E2E readiness：runtime/E2E NOT READY: 1/5 features passing; passing count is not readiness
+doctor：体检 12 个 phase — 0 FAIL / 15 WARN
+✓ 审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内；phase runtime/E2E readiness 已按独立状态与证据门审计（不会由 passing 数量推断）。
+
+
+$ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api run migrate:check
+[exit 0]
+[harness-isolation] outer_db=wsx_329ab6135c0e951f0aa0 inner_db=wsx_329ab6135c0e951f0aa0 outer_compose=wsx-329ab6135c0e951f0aa0 inner_compose=wsx-329ab6135c0e951f0aa0 status=matched
+[stack-admission] load1=9.67 cores=10 perCore=0.97 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mt26b2fo-6880432d-329ab6135c0e db=wsx_329ab6135c0e951f0aa0 compose=wsx-329ab6135c0e951f0aa0 pg=24955 redis=29955
+
+> @repo/api@0.0.0 migrate:check /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c/apps/api
+> ./scripts/verify-migrations.sh
+
+ Network wsx-329ab6135c0e951f0aa0_default Creating 
+ Network wsx-329ab6135c0e951f0aa0_default Created 
+ Container wsx-329ab6135c0e951f0aa0-postgres-1 Creating 
+ Container wsx-329ab6135c0e951f0aa0-postgres-1 Created 
+ Container wsx-329ab6135c0e951f0aa0-postgres-1 Starting 
+ Container wsx-329ab6135c0e951f0aa0-postgres-1 Started 
+NOTICE:  database "wsx_329ab6135c0e951f0aa0" does not exist, skipping
+  applied 141 migration(s) to an empty database
+  ✓ force replay re-ran every file (not silently skipped by the version table)
+  ✓ schema digest identical after replay
+  ✓ every file in migrations/ is recorded in the version table
+  (migrations dir: /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c/apps/api/migrations/)
+✅ migrate:check: migrations rebuild from empty and are individually replayable
+[timing] pnpm --filter api run migrate:check
+  环境预留：0s
+  等待资源：0s
+  命令执行：10s
+  清理：1s
+  总计：10s
+
+
+$ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash apps/api/scripts/verify-rls.sh
+[exit 0]
+[harness-isolation] outer_db=wsx_329ab6135c0e951f0aa0 inner_db=wsx_329ab6135c0e951f0aa0 outer_compose=wsx-329ab6135c0e951f0aa0 inner_compose=wsx-329ab6135c0e951f0aa0 status=matched
+[stack-admission] load1=9.33 cores=10 perCore=0.93 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mt26b2fo-6880432d-329ab6135c0e db=wsx_329ab6135c0e951f0aa0 compose=wsx-329ab6135c0e951f0aa0 pg=24955 redis=29955
+== bringing up postgres, resetting to an empty database ==
+ Network wsx-329ab6135c0e951f0aa0_default Creating 
+ Network wsx-329ab6135c0e951f0aa0_default Created 
+ Container wsx-329ab6135c0e951f0aa0-postgres-1 Creating 
+ Container wsx-329ab6135c0e951f0aa0-postgres-1 Created 
+ Container wsx-329ab6135c0e951f0aa0-postgres-1 Starting 
+ Container wsx-329ab6135c0e951f0aa0-postgres-1 Started 
+NOTICE:  database "wsx_329ab6135c0e951f0aa0" does not exist, skipping
+== applying migrations as the owner ==
+applied 141 migration(s), skipped 0
+  + 0001-kernel-roles.sql
+  + 0002-rls-probe.sql
+  + 0003-identity.sql
+  + 0004-f02-tenant-isolation-audit.sql
+  + 0005-f03-admin-boundary.sql
+  + 0006-f04-artifact-model.sql
+  + 0007-f05-snapshot-immutability.sql
+  + 0008-f06-binding-modes.sql
+  + 0008-f15-capability-listings.sql
+  + 0009-f10-retrieval-index.sql
+  + 0010-auth-credentials-sessions.sql
+  + 0011-f19-auth-registration.sql
+  + 0012-f07-downstream-references.sql
+  + 0013-f08-provenance-audit.sql
+  + 0014-f22-org-lifecycle.sql
+  + 0015-f16-personal-local-org.sql
+  + 0016-f13-context-pack-persistence.sql
+  + 0017-f17-local-export.sql
+  + 0018-f116-project-supertype-subtypes.sql
+  + 0019-f48-model-pool.sql
+  + 0020-f80-interview-scope.sql
+  + 0021-f108-chat-visibility.sql
+  + 0022-f10-org-member-invites.sql
+  + 0023-f31-files-browser.sql
+  + 0025-f15-project-invite-links.sql
+  + 0026-f117-create-project-idempotency.sql
+  + 0027-f32-download-grants.sql
+  + 0029-f109-thread-list.sql
+  + 0030-f81-interview-step-attachments.sql
+  + 0031-f49-admission-tests.sql
+  + 0032-f110-ai-team-panel.sql
+  + 0033-f34-files-terminal-states.sql
+  + 20260731085758_f11_admin_invite_dual_review.sql
+  + 20260731085808_f118_agenda_segments_table.sql
+  + 20260731090052_f16_revoke_access_timing.sql
+  + 20260731090952_f12_group_link_auto_enroll.sql
+  + 20260731153640_f73_recording_file_first.sql
+  + 20260731153916_f13_guestless_entry_edge_cases.sql
+  + 20260731160433_f74_speaker_assignment_backfill.sql
+  + 20260731161729_f121_agenda_segment_naming.sql
+  + 20260731165010_f72_pii_masking_phone_encryption.sql
+  + 20260731165140_f14_interviewee_phone_withdrawal.sql
+  + 20260731170006_f115_preset_conversation_distribution.sql
+  + 20260731170746_f111_chat_citations.sql
+  + 20260731203510_f33_files_export_jobs.sql
+  + 20260801000000_f35_upload_security.sql
+  + 20260801000000_f97_interview_subjects.sql
+  + 20260801103000_f82_interview_templates.sql
+  + 20260801120000_f124_project_archive_readonly.sql
+  + 20260801120500_f44_version_list_and_derived.sql
+  + 20260801130000_f36_ingestion_outbox.sql
+  + 20260801140000_f98_contact_reveal_audit.sql
+  + 20260801150000_f112_approval_gate.sql
+  + 20260801150000_f83_template_extraction_drafts.sql
+  + 20260801180000_f84_interview_outline_wizard.sql
+  + 20260801190000_f114_chat_artifact_landings.sql
+  + 20260801190000_f128_non_workshop_member_tables.sql
+  + 20260801190000_f37_idempotent_ingest_and_adapters.sql
+  + 20260801190000_f93_segment_speaker_subject.sql
+  + 20260801200000_f127_temporary_grants_table.sql
+  + 20260801210000_f45_deletion_cascade.sql
+  + 20260801220000_f39_review_pending_provenance.sql
+  + 20260801230000_f137_publish_asset_audit.sql
+  + 20260802000000_f46_trash_queue_legalhold_retention.sql
+  + 20260802050000_i342_project_archive_coverage_fix.sql
+  + 20260803000000_f86_consent_token_pg.sql
+  + 20260804030000_i411_email_verification_outbox.sql
+  + 20260804030100_i411_superseded_challenges.sql
+  + 20260804030200_i411_resend_issuance_kind.sql
+  + 20260804031000_wave2_skill_starter_import.sql
+  + 20260804060000_wave2_chat_message_acceptance.sql
+  + 20260804090000_auth_bootstrap_once.sql
+  + 20260804150000_wave2_agent_starter_import.sql
+  + 20260805030000_canvas_template_registry.sql
+  + 20260805100000_i465_recording_capture_persistence.sql
+  + 20260805110000_wave2_agent_run_execution.sql
+  + 20260805140000_i459_skill_declarative_contract_store.sql
+  + 20260805150000_i413_chat_writeback.sql
+  + 20260805170000_i467_thread_skill_mounts.sql
+  + 20260805190000_i519_agent_run_retry.sql
+  + 20260805200000_i533_recording_consent_attribution.sql
+  + 20260805200000_i552_skill_review_gates.sql
+  + 20260806040000_i595_skill_url_import.sql
+  + 20260806100000_i594_personal_threads.sql
+  + 20260807000000_i619_agent_roster_capability_convergence.sql
+  + 20260807030000_i617_create_agent.sql
+  + 20260808120000_i654_agent_run_deltas.sql
+  + 20260808130000_i725_tool_calling_loop.sql
+  + 20260808140000_i731_tool_call_planning_note.sql
+  + 20260809060000_i363_org_profile_membership.sql
+  + 20260809100000_i638_i639_avatar_password_activity_teams.sql
+  + 20260809150000_i638_activity_log_provenance.sql
+  + 20260811000000_i660_agent_instructions.sql
+  + 20260811040000_devapp_seat_quota_default.sql
+  + 20260811060000_i946_chat_message_attachments.sql
+  + 20260812000000_f164_personal_realtime_transcriptions.sql
+  + 20260812030000_f159_token_usage_events.sql
+  + 20260812040000_f160_member_token_quota.sql
+  + 20260812040000_f166_personal_realtime_asr.sql
+  + 20260812050000_f162_limit_rules.sql
+  + 20260812090000_f01_digital_interview_foundation.sql
+  + 20260812100000_f153_attachment_extraction.sql
+  + 20260812110000_f02_digital_expert_profiles.sql
+  + 20260812110000_f168_guided_research_sessions.sql
+  + 20260812113000_f167_personal_transcription_content.sql
+  + 20260812130000_f03_quick_digital_interviews.sql
+  + 20260812140000_f154_thread_context_state.sql
+  + 20260812170000_f167_resumable_personal_transcriptions.sql
+  + 20260812180000_f02_de_profile_trigger_requires_agent_row.sql
+  + 20260813040000_f175_blueprints.sql
+  + 20260813100000_f169_guided_research_checkpoints.sql
+  + 20260813100000_shared_org_invite_links.sql
+  + 20260813110000_f174_design_facet_item_revision.sql
+  + 20260814010000_f177_blueprint_revision.sql
+  + 20260814020000_f177_personal_transcription_management.sql
+  + 20260814080000_f179_blueprint_versions_and_bindings.sql
+  + 20260814083000_f180_guided_research_name_tags.sql
+  + 20260814090000_g5_skill_contract_tags.sql
+  + 20260814120000_f155_file_retrieval_fts.sql
+  + 20260814120000_f176_message_ratings.sql
+  + 20260814163000_f180_guided_research_status.sql
+  + 20260815100000_f157_agent_run_context_snapshots.sql
+  + 20260815110000_f156_l3_retrieval_scope.sql
+  + 20260815120000_f04_digital_interview_workflow.sql
+  + 20260815140000_fb2_product_feedback.sql
+  + 20260816000000_f185_project_tags.sql
+  + 20260816010000_f190_tool_trace_context.sql
+  + 20260816010000_f195_guided_research_graph_foundation.sql
+  + 20260816120000_i1415_agent_url_import.sql
+  + 20260816130000_f950_project_prep_topic_grouping.sql
+  + 20260817090000_f960_interview_subjects_table.sql
+  + 20260818090000_i1534_thread_skill_mounts_wave2_fk.sql
+  + 20260818090000_i1561_vision_input_context_snapshot.sql
+  + 20260818090000_uc73_canvas_instances.sql
+  + 20260818150000_uc73_sticky_revisions.sql
+  + 20260819120000_f962_skill_trial_runs_async.sql
+  + 20260820090000_f01_insight_write_path.sql
+  + 20260820090000_i1624_agent_run_output_files.sql
+  + 20260820160000_f04_theme_organize_revert.sql
+  + 20260821090000_i1667_apply_blueprint_infra.sql
+  + 20260821091500_i1667_blueprint_pending_changes.sql
+
+== 1-4: role and table properties ==
+  ✓ app_rw owns no table (= 0)
+  ✓ app_rw does not have BYPASSRLS (= f)
+  ✓ app_rw cannot run DDL in public (= f)
+  ✓ every RLS-enabled table is FORCEd (= 0)
+  ✓ every tenant-carrying table is ENABLE+FORCE RLS with a tenant policy (catalog-derived) (= 0)
+  ✓ audit is not idle: 173 tenant tables classified ok (floor 105)
+  ✓ no table is readable by the runtime role without either a tenant key or a written exemption (= 0)
+  ✓ rls_probe exists (assertion 8: the evidence table is a kernel asset) (= 1)
+  ✓ no table missing its project-archive freeze policy (issue #342) (= 0)
+
+== 5-7: cross-tenant reads as app_rw, no application-level filter ==
+  ✓ 5. as org-a, zero rows belong to org-b
+  ✓ 6. as org-b, own rows ARE visible (isolation, not paralysis)
+  ✓ 7. with no tenant context, zero rows (fail-closed, not fail-open)
+  ✓    (fixture sanity) org-a sees exactly its own two rows
+RLS-ASSERT-OK
+
+✅ verify-rls: RLS is enforced -- app_rw is not an owner, EVERY tenant-carrying table (derived from the catalog, not a list) is ENABLE+FORCE with a tenant policy, cross-tenant reads return 0 rows, own-tenant reads work, no tenant context is fail-closed
+[timing] bash apps/api/scripts/verify-rls.sh
+  环境预留：0s
+  等待资源：0s
+  命令执行：10s
+  清理：1s
+  总计：10s
+
+
+
+[BASE VERIFY] (risk=high_risk; matched: apps/api/migrations/20260821090000_i1667_apply_blueprint_infra.sql⟵apps/api/migrations/**, apps/api/migrations/20260821091500_i1667_blueprint_pending_changes.sql⟵apps/api/migrations/**, packages/contracts/src/project.ts⟵packages/contracts/**) $ pnpm -w run verify:release
+[exit 1]
+
+> agentic-harness-template@ verify:release /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c
+> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:base:raw
+
+[harness-isolation] outer_db=wsx_329ab6135c0e951f0aa0 inner_db=wsx_329ab6135c0e951f0aa0 outer_compose=wsx-329ab6135c0e951f0aa0 inner_compose=wsx-329ab6135c0e951f0aa0 status=matched
+[stack-admission] load1=8.70 cores=10 perCore=0.87 running=0/2
+[test-isolation] id=run-mt26b2fo-6880432d-329ab6135c0e db=wsx_329ab6135c0e951f0aa0 compose=wsx-329ab6135c0e951f0aa0 pg=24955 redis=29955
+
+> agentic-harness-template@ verify:base:raw /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c
+> pnpm run verify:harness:raw && turbo run typecheck lint --continue && turbo run test --continue --concurrency=1
+
+
+> agentic-harness-template@ verify:harness:raw /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c
+> pnpm run lint:ui-material && pnpm run lint:third-artifact && pnpm run lint:verification && pnpm run lint:nav-reachability && pnpm run lint:rewrite-coverage && pnpm run lint:body-path-param-leak && pnpm run lint:spec-gate-coverage && pnpm run lint:templates-doctor && pnpm run lint:role-freeze-doctor && pnpm run lint:graph-authority-doctor && pnpm run lint:readiness && pnpm run lint:skills-doctor && pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness
+
+
+> agentic-harness-template@ lint:ui-material /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c
+> node .harness/scripts/lint-ui-material.mjs
+
+  ✓ phase-01-run-a-project/agent-runtime      49/49  (ui-preview/agent-runtime-v2)
+  ✓ phase-01-run-a-project/asset-governance   64/64  (ui-preview/asset-governance)
+  ✓ phase-01-run-a-project/canvas             51/51  (ui-preview/canvas-v2)
+  ✓ phase-01-run-a-project/chat               20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/chat-file-upload   12/12  (ui-preview/chat-file-upload)
+  ✓ phase-01-run-a-project/files              15/15  (ui-preview/files)
+  ✓ phase-01-run-a-project/interview          62/62  (ui-preview/itv-v2)
+  ✓ phase-01-run-a-project/org-admin          48/48  (ui-preview/org-admin)
+  ✓ phase-01-run-a-project/personal-realtime-transcription   3/3   (ui-preview/realtime-transcription)
+  ✓ phase-01-run-a-project/project            92/92  (ui-preview/project-v2)
+  ✓ phase-01-run-a-project/recording          56/56  (ui-preview/rec-v2)
+  ✓ phase-01-run-a-project/research           49/49  (ui-preview/research)
+  ✓ phase-01-run-a-project/skills             67/67  (ui-preview/skill-v2)
+  ✓ phase-01-run-a-project/templates          41/41  (ui-preview/tpl-v2)
+  ✓ phase-02-visible-outcomes/survey           6/6   (ui-preview/survey-v2)
+  ✓ phase-03-reuse-and-governance/feedback-loop   9/9   (ui-preview/feedback-loop)
+  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview  10/10  (ui-preview/digital-expert-interview)
+  ✓ phase-05-studio-style-unification/studio-style   3/3   (ui-preview/studio-style)
+  ✓ phase-06-deep-research/deep-research       7/7   (ui-preview/deep-research)
+  ✓ phase-07-user-research/user-research       1/1   (ui-preview/user-research)
+  ✓ phase-08-transcription/transcription       1/1   (ui-preview/transcription)
+  ✓ phase-09-survey/survey                     1/1   (ui-preview/survey)
+  ✓ phase-01-run-a-project/chat-context-engine  20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/curated-capability-packs  67/67  (ui-preview/skill-v2)
+
+✗ [未声明] phase-10-live-collaboration-orchestration/group-checkin/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+✗ [未声明] phase-10-live-collaboration-orchestration/module-routing/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+✗ [未声明] phase-10-live-collaboration-orchestration/segment-engine/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+✗ [未声明] phase-10-live-collaboration-orchestration/stage-aggregation/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+✗ [未声明] phase-10-live-collaboration-orchestration/viewer-role/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
+
+❌ lint-ui-material: 5 处材料不一致。
+   签核第 ① 件的材料就是这批截图：ui.md 引用的集合 与 ui-preview/ 实存的集合必须逐张相等。
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+[timing] pnpm run verify:base:raw
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：1s
+ ELIFECYCLE  Command failed with exit code 1.
+
+[harness-verify v1 sha256=86036f9379b8af114ee1343890a6efaa99d4a4e9af1af795dbd3928507453f9c commit=b3deb4f487ba452821307b482fd1d681ea8196fe at=2026-08-20T23:51:41.237Z]

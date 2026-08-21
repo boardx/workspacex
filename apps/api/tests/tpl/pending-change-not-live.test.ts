@@ -7,6 +7,7 @@ import {
 import type { SubmitChangeRequestRepository } from "../../src/application/templates/submit-change-request-ports";
 import type { PendingChangeRecord } from "../../src/domain/templates/pending-change";
 import type { Deviation } from "../../src/domain/templates/deviation-diff";
+import { toOrgId } from "../../src/domain/org-id";
 
 /**
  * F29 —— **提交 ≠ 生效**（`uc-2-3` R7 逐字 / I-10 / V3）。
@@ -28,7 +29,7 @@ function makeDeps() {
   const created: PendingChangeRecord[] = [];
   let idSeq = 0;
   const repo: SubmitChangeRequestRepository = {
-    async create(records) {
+    async create(_orgId, records) {
       created.push(...records);
       return records;
     },
@@ -68,6 +69,8 @@ describe("① 提交只新增记录，不改蓝本内容/版本（I-10）", () =
     const out = await submitBlueprintChangeRequestUseCase(deps, {
       actorProjectRole: "facilitator",
       actorId: "u-1",
+      orgId: toOrgId("org-1"),
+
       projectId: "p-1",
       blueprintId: "bp-1",
       baseVersionId: "v-1",
@@ -87,6 +90,8 @@ describe("① 提交只新增记录，不改蓝本内容/版本（I-10）", () =
     const out = await submitBlueprintChangeRequestUseCase(deps, {
       actorProjectRole: "facilitator",
       actorId: "u-1",
+      orgId: toOrgId("org-1"),
+
       projectId: "p-1",
       blueprintId: "bp-1",
       baseVersionId: "v-1",
@@ -105,6 +110,8 @@ describe("② 理由必填（V4）", () => {
       submitBlueprintChangeRequestUseCase(deps, {
         actorProjectRole: "facilitator",
         actorId: "u-1",
+        orgId: toOrgId("org-1"),
+
         projectId: "p-1",
         blueprintId: "bp-1",
         baseVersionId: "v-1",
@@ -121,6 +128,8 @@ describe("② 理由必填（V4）", () => {
       submitBlueprintChangeRequestUseCase(deps, {
         actorProjectRole: "facilitator",
         actorId: "u-1",
+        orgId: toOrgId("org-1"),
+
         projectId: "p-1",
         blueprintId: "bp-1",
         baseVersionId: "v-1",
@@ -138,6 +147,8 @@ describe("③ 未勾选的偏离项不产生任何蓝本侧记录", () => {
     await submitBlueprintChangeRequestUseCase(deps, {
       actorProjectRole: "facilitator",
       actorId: "u-1",
+      orgId: toOrgId("org-1"),
+
       projectId: "p-1",
       blueprintId: "bp-1",
       baseVersionId: "v-1",
@@ -164,6 +175,8 @@ describe("④ 权限门槛：只有引导师能提交", () => {
       submitBlueprintChangeRequestUseCase(deps, {
         actorProjectRole: null,
         actorId: "u-1",
+        orgId: toOrgId("org-1"),
+
         projectId: "p-1",
         blueprintId: "bp-1",
         baseVersionId: "v-1",
@@ -179,6 +192,8 @@ describe("④ 权限门槛：只有引导师能提交", () => {
       submitBlueprintChangeRequestUseCase(deps, {
         actorProjectRole: "observer",
         actorId: "u-1",
+        orgId: toOrgId("org-1"),
+
         projectId: "p-1",
         blueprintId: "bp-1",
         baseVersionId: "v-1",

@@ -897,13 +897,27 @@ export const KNOWN_CONTRACT_GAPS = {
    *   保留该码是因为它与 `templates.applyBlueprint` 同码同义（该操作走 `versionId`
    *   可空的"当前已发布版本"语义，那条路径上这个码是真实可达的）。
    *
-   * ② 六类初始化本轮**只写"议程环节"以外的事实**（`blueprint_bindings` 记录"套用过"，
-   *   零新增存储）——议程环节本身该写多少条是清楚的（`planSixCategoryInit` 算得出
-   *   7/11/14/19），但**每条环节的 `duration`**（`agenda_segments.duration integer
-   *   NOT NULL`）没有任何出处：`agenda-segment-table.ts`（F19）只给计数与占位标题，
-   *   `uc-2-1` 需求文档同样只给计数，全仓从未有过"自动生成议程环节"的先例（此前
-   *   `createAgendaSegment` 恒由调用方逐条显式传 `duration`）。⇒ 本轮不发明一个默认
-   *   时长，`agenda_segments` 真实写入留给后续 feature，一并解决"逐段时长从哪来"。
+   * ② 🟢 **订正（2026-08-21，issue #1667）——"逐段时长无出处"这半句已经过时，不再成立**：
+   *   `apps/web/components/tpl-designer/agenda-panel-editor.tsx`（F202，2026-08-18
+   *   合入）把蓝本的「流程 Agenda」设计面从自由文本换成结构化表单，管理员真实填写
+   *   逐环节 `min`（分钟），存进 `updateDesignFacet` 的 `flow-agenda` facet
+   *   （JSON：`segments: [{ no, title, min, boardSkill, optional }]`）。P10 这半句是
+   *   在 F202 落地**之前**写的，当时确实没有任何数据源——静态痕迹（这句注释）没有跟着
+   *   动态事实（F202 已上线）一起更新，属本仓「静态痕迹 ≠ 动态事实」的又一例，
+   *   只是这次是**契约里登记的缺口本身**过期了，不是 feature 状态被误判。
+   *
+   *   `templates.applyBlueprint`（F23 补实现，issue #1667）现在真实读取
+   *   `resolvedVersion.content['flow-agenda']`、按位置对齐解析出每一行的 `min`，
+   *   写进 `agenda_segments.duration`（该列已随本次改动放开 `NOT NULL`，未填的行
+   *   如实留 `NULL`，不编造默认值——见
+   *   `apps/api/migrations/20260821090000_i1667_apply_blueprint_infra.sql` 与
+   *   `apps/api/src/domain/templates/flow-agenda-durations.ts`）。
+   *
+   *   `createProject`（BP-08，本条目①描述的路径）**仍然**只写 `blueprint_bindings`
+   *   一行、不落地真实 `agenda_segments` 行——这是本条目未变的部分，不是本次订正的
+   *   范围：BP-08 的六类初始化范围本就比 `templates.applyBlueprint` 窄（同 T9 的
+   *   既有登记），这次订正只解决"时长有没有数据源"这个技术性前提，不推翻 BP-08 的
+   *   既有范围裁决——BP-08 若要跟进落地真实议程环节写入，是它自己的后续 feature。
    */
-  P10: "createProject cannot reach BLUEPRINT_NOT_PUBLISHED (blueprintVersionId addresses a blueprint_versions row directly, whose state is always published/archived when it exists) -- kept for same-code-same-meaning with templates.applyBlueprint, which CAN reach it via nullable versionId; separately, BP-08's six-category init writes only the blueprint_bindings fact this round -- real agenda_segments rows are deferred because per-segment duration has no source anywhere (agenda-segment-table.ts and uc-2-1 only give per-tier counts, never a duration)",
+  P10: "createProject cannot reach BLUEPRINT_NOT_PUBLISHED (blueprintVersionId addresses a blueprint_versions row directly, whose state is always published/archived when it exists) -- kept for same-code-same-meaning with templates.applyBlueprint, which CAN reach it via nullable versionId; separately, BP-08's six-category init still writes only the blueprint_bindings fact -- but the other half of this entry (\"per-segment duration has no source anywhere\") is RESOLVED as of 2026-08-21 (issue #1667): F202 (2026-08-18) gave the flow-agenda design facet a real structured `segments[].min` field, and templates.applyBlueprint now reads it (agenda_segments.duration is nullable; unfilled rows stay NULL, no invented default) -- BP-08's createProject path is unchanged and still does not write real agenda_segments rows, which remains its own known, separate scope decision, not a data-availability blocker",
 } as const;

@@ -38,4 +38,13 @@ export * as personalRealtimeTranscription from "./personal-realtime-transcriptio
 export * as feedbackLoop from "./feedback-loop";
 
 /* ── phase-10 契约束 ───────────────────────────────────────────────── */
+// viewer-role 束的真实实现（F02，有真实 controller）：viewer-role.ts。
+// live-collab-viewer-role.ts 是 #1721 先行落地的草案文件，本轮起降级为「仅供
+// live-collab-module-routing/stage-aggregation 复用 VIEWER_SCOPE_DENIED 常量的
+// 内部工具文件」，不再是 viewer-role 束的契约来源（third-artifact-map.json 同步）。
 export * as viewerRole from "./viewer-role";
+export * as liveCollabViewerRole from "./live-collab-viewer-role";
+export * as liveCollabCheckin from "./live-collab-checkin";
+export * as liveCollabModuleRouting from "./live-collab-module-routing";
+export * as liveCollabSegmentEngine from "./live-collab-segment-engine";
+export * as liveCollabStageAggregation from "./live-collab-stage-aggregation";

@@ -63,6 +63,7 @@ const baseInput = {
   tier: "two-day" as const,
   projectName: "新项目",
   idempotencyKey: "idem-1",
+  flowAgendaContent: null,
 };
 
 describe("① 旁路清单：能碰后台资产本体的端口方法名恒等于白名单，且没有回写动词", () => {

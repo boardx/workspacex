@@ -208,6 +208,28 @@ export function classify(cmd) {
     };
   }
 
+  // tsc 全包类型检查：pnpm --filter <pkg> exec tsc --noEmit [<flag> …]
+  //
+  // 2026-08-20 登记。起因：phase-10 的 F01/F03 原本写 `pnpm --filter web typecheck`，
+  // 被判「恒 0:pnpm-filter-missing-exec」。实测确认那个判定是**对的**——
+  //   pnpm --filter web no-such-script      → exit 0
+  //   pnpm --filter web run no-such-script  → exit 0   （run 并不比裸词安全）
+  //   pnpm --filter web exec no-such-cmd    → exit 254 （只有 exec 会真失败）
+  // 所以改用 exec 形态，但 exec 形态此前只登记了 vitest/playwright 两族，
+  // 纯类型检查落进「未登记形态」。
+  //
+  // 指向物 = 该包的 tsconfig。必然失败变体：把 --project 指向一个不存在的
+  // tsconfig，tsc 报 TS5058 并 exit 1（已实测）。
+  m = /^pnpm\s+--filter\s+(\S+)\s+exec\s+tsc\s+--noEmit\s*$/.exec(c);
+  if (m) {
+    const [, pkg] = m;
+    return {
+      shape: `tsc-noemit:${pkg}`,
+      probe: `pnpm --filter ${pkg} exec tsc --noEmit --project ${PROBE_TOKEN}.json`,
+      checks: [{ type: "package", pkg }],
+    };
+  }
+
   // playwright（按 -g 正则跑）：pnpm --filter <pkg> exec playwright test -c <config> -g '<pattern>'
   // 与 vitest-file 同一族：失败传导路径逐字相同——`-g` 命中不到任何 test.describe/test
   // 时 playwright 打「Error: No tests found」并非 0 退出（已实测，见下方 discovered）。

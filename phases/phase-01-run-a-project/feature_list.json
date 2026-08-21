@@ -5028,6 +5028,29 @@
       "notes": "真栈截图取证时发现的真 bug（非本 feature 编造场景）：next.config.mjs 全文 grep provenance 零命中，与文件里 /blueprints、/messages 注释描述的坑同一类——裸路径（无 :path*）rewrite 漏写，前端打到 Next 自己的 404 HTML，不是 API 的 404。修复：补一行 rewrite。修复后用真栈复验（pnpm run shots:project-results，两轮跑，38/38 全绿）：404 变成真实 403 PROJECT_ROLE_INSUFFICIENT（query-provenance.ts设计使然，非 bug）。UIUX 保真度评分：8/10（真栈截图，对照 ui-preview/project-v2/uc-00-3-results-*.png；未到 9-10 分是两个证据缺口——fixture 未种 backflow/provenance 数据、只拍了 default 一态——不是代码缺陷）。详见 issue 与 PR 记录。"
     },
     {
+      "id": "F970",
+      "title": "套用蓝本/提回蓝本补实现：controller + PG 仓储接线（F23/F29 契约缺口审计闭合）",
+      "user_visible_behavior": "组织管理员对已发布蓝本真实 POST /blueprints/:blueprintId/apply（真实前端已可达，非本地直调）能新建出一个项目：六类初始化写入真实落库，议程环节数=所选档位（AC1），且逐环节时长取自蓝本「流程 Agenda」设计面已填的 min（未填=空，不编造默认值，P10 已随 F202 落地过期）；同一 idempotencyKey 重复提交只建一个项目。项目所属引导师随后真实 GET /projects/:projectId/blueprint-deviations 能看到项目当前值与绑定蓝本版本快照的偏离（至少 flow-agenda 一项有真实数据源），勾选+填理由后 POST /projects/:projectId/blueprint-change-requests 提交回蓝本，生成的待审改动真实落库（GET /blueprints/:blueprintId/pending-changes 刷新后仍在），且提交不改蓝本本体（提交≠生效，I-10）。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R3",
+      "depends_on": [
+        "F23",
+        "F29"
+      ],
+      "points": 5,
+      "status": "in_progress",
+      "sprint": "19",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter web run typecheck",
+        "pnpm exec tsx .harness/scripts/cli.ts doctor",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api run migrate:check",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash apps/api/scripts/verify-rls.sh"
+      ],
+      "evidence": "evidence/F970.verify.log（in_progress，非 passing——高风险档需要的 pnpm -w run verify:release 卡在与本 feature 无关的仓库级 lint-ui-material 红灯，见 session-handoff.md）",
+      "notes": "issue #1667 勘探：F23（templates.applyBlueprint）/F29（templates.submitBlueprintChangeRequest/computeDeviations）两个契约 operation 的应用层用例代码完整、单测齐全，此前零 controller、零 infra——F23/F29 早已标 passing，但没有任何 HTTP 路由指向它们，用户实际不可达；apps/web/e2e/blueprint-contract-gap-audit.spec.ts 的两条『断言仍是 404』缺口门控实测证实。本 feature 补齐两条能力的真实接线：ApplyBlueprintController（复用既有 PROJECT_REPOSITORY 的唯一创建路径，不新开第二个 INSERT INTO projects）+ PgApplyBlueprintResolver/PgApplyBlueprintRepository；BlueprintChangeRequestController + PgComputeDeviationsRepository/PgSubmitChangeRequestRepository/PgListPendingChangesRepository；新迁移放开 agenda_segments.duration 的 NOT NULL（未填=空）、给 blueprint_bindings 补 project_id/version_id、新建 blueprint_pending_changes 表。⚠ 已知登记的非原子性缺口：ApplyBlueprintRepository.apply() 里项目容器创建与 agenda_segments 写入是两个事务（不是一个），见 pg-apply-blueprint-repository.ts 文件头注。⚠ computeDeviations 今天只对 flow-agenda 一项有真实项目侧数据源（读 agenda_segments），其余设计配置项尚无项目侧独立编辑存储，如实原样返回快照值（不产生偏离），是诚实的空态不是缺陷。不依赖 #1681（workflow-screen 真实 projectId）；/project/new 前端选蓝本入口若尚未接线，留给该 issue 范围，本 feature 只保证后端真实可达。不碰 F23/F29 的 status/passing（AGENTS.md 硬约束）。"
+    },
+    {
       "id": "I1680",
       "priority": 1,
       "area": "tpl",
@@ -5049,6 +5072,55 @@
       ],
       "evidence": "",
       "notes": "契约束已签核（design-signoff.md status: confirmed，covers 含 F26），本 feature 零新增设计面，只补已签核端口的存储实现（issue #1680，见 #1666 勘探评论）。三个端口 `OrchestrationRepository`/`WorkflowTemplateCatalogPort`/`OrgTemplateCreatePort`（workflow-orchestration-ports.ts）新增 `pg-*` 实现（apps/api/src/infrastructure/templates/pg-workflow-orchestration-repository.ts）+ 新迁移（project_workflow_orchestration/workflow_template_catalog 两张表）+ BlueprintController 追加三条路由（GET /projects/:id/orchestration、POST .../workflow-template/switch、POST .../save-as-org-template）+ kernel.module.ts DI 注册。⚠ 前端 workflow-screen.tsx 接线不在本 feature 范围（收窄回 #1666/#1681）。"
+    },
+    {
+      "id": "F971",
+      "priority": 1,
+      "area": "tpl",
+      "capability": "CAP-WEB",
+      "title": "「另存为组织模板」两处按钮真正接线：tab-prep.tsx + workflow-screen.tsx（issue #1666 收尾）",
+      "user_visible_behavior": "进项目工作台「筹备」tab（`project-prep`），facilitator 在「议程 · 每个环节三种角色各做什么」区块点「另存为组织模板」（`project-prep-save-template`）——此前这个按钮没有 onClick，点了没有任何反应；现在点击展开一个名称输入框（`project-prep-save-template-form`），填名称并点「保存」（`-submit`）后真实 POST `/projects/:projectId/save-as-org-template`，成功后显示服务端真实返回的 `workflowTemplateId`（`project-prep-save-template-success`），失败原样显示服务端 reasonCode（`-error`）；刷新页面后按钮回到干净的折叠态，不留一个只存在于 React state 的假成功幽灵态。项目设置 → 工作流编排屏（`/tpl?screen=workflow`）的「另存为组织模板」（`tpl-wf-saveorg`）同理——此前只弹一句固定文案的本地 toast、不发任何网络请求；现在同一套交互真实落库，toast 文案里含服务端真实返回的 id，不是编好的固定文案。两处按钮共用同一个组件（`SaveAsOrgTemplateAction`）与同一份契约调用，不是各自另起一套逻辑。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R7",
+      "depends_on": [
+        "F26",
+        "I1680"
+      ],
+      "points": 2,
+      "status": "in_progress",
+      "sprint": "20",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter api run typecheck",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded --grep 1666",
+        "pnpm exec tsx .harness/scripts/cli.ts doctor"
+      ],
+      "evidence": "evidence/F971.verify.log @ 2026-08-21（真栈 e2e 4/4 通过，含失败态反证与全新项目+全新会话的持久化反证，见 PR 描述）",
+      "notes": "issue #1666 收尾：#1680（saveAsOrgTemplate 的 controller/infra，PR #1698）与 #1681（workflow-screen.tsx 接真实 projectId/getWorkflowOrchestration，PR #1683）均已合入 main，回来做两个按钮的真正接线。新增 `apps/web/components/tpl/save-as-org-template-action.tsx`（两处按钮共用的状态机：展开表单→填名称→提交→成功显示真实 id/失败原样显示 reasonCode）与 `apps/web/lib/live-workflow-orchestration.ts` 里的 `saveAsOrgTemplate`/`describeSaveAsOrgTemplateError`。种子脚本（`apps/api/scripts/seed-fullstack-smoke.ts`）为 `FULLSTACK_E2E.projectId` 补了一份真实 `project_workflow_orchestration`——`saveAsOrgTemplate` 用例在项目没有编排数据时恒抛 `DEPENDENCY_UNAVAILABLE`，此前零调用方的时候没有任何路径需要种这份数据。新增 e2e `apps/web/e2e/save-as-org-template-smoke.spec.ts`（4 条：tab-prep 真实保存+刷新复位、workflow-screen 真实保存+toast 含真实 id、失败态反证、持久化反证）。⚠「刷新后仍在」的证明方式：`saveAsOrgTemplate` 的产物（`workflow_template_catalog` 一行）契约上没有任何读路径（`getWorkflowOrchestration` 只回当前套用的模板，不回模板库列表；workflow-screen.tsx 7c 区块因此如实降级为空态说明），没有列表 UI 可以「刷新页面看它还在」——改用一条独立读路径：全新登录 `leadEmail`、真实新建一个此前不存在的项目、对它调用已有 controller/infra 但前端尚未接线的 `switchWorkflowTemplate`（传入刚保存的 `workflowTemplateId`，找不到会抛 `DEPENDENCY_UNAVAILABLE`）、再 `getWorkflowOrchestration` 读回来核对内容——四步缺一都不能证明数据真的进了 PostgreSQL 而不是进程内态，细节见 e2e 文件头注。已实测反证：把 workflow-screen 的 `onSaved` 临时改回 issue 原文那句固定 toast 文案，第 2 条用例当场失败（`Received string: \"已另存为组织级工作流模板…\"` ≠ 断言的真实 id），改完立刻复原并重新全绿——反证记录见 PR 描述，未留在代码里。「换模板」（`switchWorkflowTemplate`）UI 接线仍不在本 feature 范围（workflow-screen.tsx 7c 区块的契约缺口，`SignoffFlag` 已如实标注）。契约束已签核（design-signoff.md status: confirmed，covers 含 F26），本 feature 零新增设计面自查：①UI 已签——两处按钮的存在与位置在 F26/`workflow-screen.tsx` 原实现（含 #1681）里已经画出来，本次只是把已经画出来的按钮接上已经签核的契约操作，未新增任何界面元素或交互语义（展开态的名称输入框是必要的最小交互，契约 `saveAsOrgTemplate.in.name` 是 `min(1)`，前端必须收集，不是自由发挥的新设计）；②契约已签——只消费已签核的 `saveAsOrgTemplate` 一条 operation，形状逐字照契约；③零新增设计面——不新增契约操作/错误码/迁移，种子脚本的改动是测试基础设施不是产品代码。"
+    },
+    {
+      "id": "I1668",
+      "priority": 2,
+      "area": "chat",
+      "capability": "CAP-CHAT",
+      "title": "图表消息只读预览接引用解析：挂载即读回最新保存版，不必先点最大化（#1668）",
+      "user_visible_behavior": "项目聊天室里含 ```mermaid 围栏（或工作坊画布模板围栏）的消息，最大化编辑并保存后，气泡里的只读预览立即显示编辑后的内容（既有行为，PR #1696）；**整页刷新、重新打开该线程后，即使用户从未再点一次「最大化」，只读预览也已经是编辑后的最新保存版**（本 feature 新增：消息组件挂载滚入视口时自动查一次该消息名下最新落地 artifact）——消息 `text` 字段全程逐字节不变（保持不可变性），图表继续走独立存储/版本化（`chat_artifact_landings` 每次保存新增一行）。查不到保存版 / 无权限（他人草稿）⇒ 与今天完全一致地展示原始消息文本，不提示、不报错。",
+      "spec_ref": "08-chat/uc-8-3-对话产出落地.md#R3",
+      "depends_on": [],
+      "points": 2,
+      "status": "in_progress",
+      "sprint": "20",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/chat-fabric-auto-readback-on-mount.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/chat-diagram-saved-readback.test.tsx tests/ui/chat-fabric-preview-syncs-after-save.test.tsx",
+        "pnpm run verify:chat-read",
+        "pnpm exec tsx .harness/scripts/cli.ts doctor"
+      ],
+      "evidence": "evidence/I1668.verify.log",
+      "notes": "issue #1668 勘探结论：这不是新缺口，是 chat-persona-roundtrip（G1，confirmed 2026-08-18）读回机制唯一没接上的一个触发时机——`fetchLatestSavedDiagramSource` 此前只在用户点「最大化」时调用，组件挂载（含整页刷新后的重新挂载）时 `savedSource` 恒为初始值 `null`，只读预览因此恒画消息原文，直到用户主动点过一次最大化。人类 2026-08-21 裁决：不回写消息 text（维持不可变性），图表继续独立存储/版本化，只读预览改接已建好的引用解析。实现：`ChatDiagramFabric`/`ChatCanvasFabric` 各新增一条 `React.useEffect`（依赖 inView+savedSource+threadId+messageId+projectId+bearer），`inView` 为真且 `savedSource===null` 且三个身份参数俱全时调用既有的 `fetchLatestSavedDiagramSource`（不新起端口，`packages/contracts/src/chat.ts` 零改动），命中则 `setSavedSource`，既有的 `previewCode = savedSource?.markdown ?? code` 链路自动接管渲染；`onSaved` 回调核实后确认已由 `onClose(result)`（PR #1696）实现，无需改动。真栈 e2e 直接反证 issue 描述现象：`apps/web/e2e/chat-diagram-save-reopen-roundtrip.spec.ts` 新增一条用例——保存后不刷新（气泡像素级对照）→ 整页 reload 不点最大化（断言自动 GET .../artifacts/:id/source 请求 + 像素级与保存后截图字节相等）。设计材料：`design-deltas/chat-diagram-artifact-reference/{contract.md,design-signoff.md}`（status: confirmed，零新增契约字段）。"
     }
   ]
 }

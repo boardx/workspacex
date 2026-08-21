@@ -64,8 +64,44 @@ export function resolvePolicy(env: NodeJS.ProcessEnv, base: AdmissionPolicy = DE
   return { ...base, maxStacks: Math.min(base.maxStacks, parsed) };
 }
 
-export function leaseDir(repoRoot: string): string {
-  return join(repoRoot, ".harness", "state", ".cache", "stacks");
+/**
+ * 租约目录 —— **机器全局，不是每个 worktree 一份**。
+ *
+ * ## #1704 实测：这里原来是 `join(repoRoot, ".harness/state/.cache/stacks")`
+ *
+ * `repoRoot` 是**当前 worktree 的根**。本机同时存在 **111 个 worktree**，于是
+ * `maxStacks: 2` 这条"全队同时最多几个隔离栈"的策略，实际执行成了"**每个 worktree**
+ * 最多 2 个"——上限从 2 变成 222。实测那一刻：
+ *
+ * ```
+ * 全机租约文件总数 = 2        （111 个 worktree 的租约目录加起来）
+ * docker compose ls  = 18 个栈 / 33 个容器
+ * load average       = 48（10 核 → 4.8 倍超额，比 2026-08-05 那次事故的 4.08 还高）
+ * 已被 SIGKILL 的 postgres 容器 = 2 个（Exited 137，OOMKilled=false → down 超时被杀）
+ * ```
+ *
+ * 我这一轮的日志逐字写着 `running=0/2`——它诚实地报告了**它自己那个 worktree** 的
+ * 租约数，而机器上真有 18 个栈在跑。它没说谎，它问错了对象。
+ *
+ * ⇒ 这正是 AGENTS.md「静态痕迹 ≠ 动态事实」那条：**租约文件是痕迹，`docker compose ls`
+ *   才是事实**。痕迹写得越诚实具体（`running=0/2` 精确到分母），读起来越像权威。
+ *
+ * ## 为什么修成 tmpdir 而不是改成去问 docker
+ *
+ * 本文件顶部那条约束仍然成立且必须保留：**不 shell out 去量**——`docker ps` 在满载时
+ * 自己会挂，一个测负载的动作把自己挂住比不测更糟（那正是 2026-08-05 事故里
+ * `docker ps` 超时 >2min 的现场）。所以判据仍是进程内可读的租约文件，只是把它挪到
+ * **所有 worktree 共用的一个位置**。`os.tmpdir()` 在 macOS 上是 per-user 的，本机所有
+ * agent 同一个用户，正好是"一台机器一份预算"这个语义。
+ *
+ * 环境变量 `WORKSPACEX_STACK_LEASE_DIR` 只为**可测**存在（测试要能拿一个干净目录），
+ * 不是给撞红了的人调开的旋钮——它改的是位置，不是上限；上限那个旋钮
+ * (`WORKSPACEX_MAX_STACKS`) 依旧只能调严。
+ */
+export function leaseDir(env: NodeJS.ProcessEnv = process.env): string {
+  const override = env.WORKSPACEX_STACK_LEASE_DIR;
+  if (override !== undefined && override !== "") return override;
+  return join(os.tmpdir(), "workspacex-stack-leases");
 }
 
 function alive(pid: number): boolean {
@@ -130,7 +166,12 @@ export function decide(
 }
 
 export interface AcquireOptions {
-  repoRoot: string;
+  /**
+   * #1704：**租约不再挂在 repoRoot 下**（见 `leaseDir` 的头注：111 个 worktree 各算
+   * 各的，把 maxStacks=2 执行成了 222）。这个字段留着是因为调用方本来就有它、
+   * 且诊断信息里指出"是哪个 worktree 在起栈"仍然有用；它**不再决定租约位置**。
+   */
+  repoRoot?: string;
   isolationId: string;
   env?: NodeJS.ProcessEnv;
   log?: (message: string) => void;
@@ -164,7 +205,7 @@ export async function acquireStackSlot(options: AcquireOptions): Promise<StackSl
   const now = options.now ?? (() => Date.now());
   const readLoad = options.readLoad ?? loadPerCore;
   const policy = resolvePolicy(env);
-  const dir = leaseDir(options.repoRoot);
+  const dir = leaseDir(env);
   mkdirSync(dir, { recursive: true });
 
   const startedAt = now();

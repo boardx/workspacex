@@ -386,6 +386,12 @@ import { OrgInviteController } from "./interface/controllers/org-invite.controll
 import { ORG_INVITE_LINK_REPOSITORY } from "./application/auth/org-invite-link-ports";
 import { PgOrgInviteLinkRepository } from "./infrastructure/auth/pg-org-invite-link-repository";
 import { OrgInviteLinkController } from "./interface/controllers/org-invite-link.controller";
+// F05（phase-10 group-checkin 束）：分组签到聚合视图的 HTTP 边界——用例/仓储早就在
+// （F16 / UC-1.3 R8），只是没有路由到得了它，见 checkin-board.controller.ts 头注。
+import { LIVE_SESSION_REPOSITORY } from "./application/auth/live-session-ports";
+import { PgLiveSessionRepository } from "./infrastructure/auth/pg-live-session-repository";
+import { newLiveSessionId } from "./domain/auth/live-session";
+import { CheckinBoardController } from "./interface/controllers/checkin-board.controller";
 // F11（phase-01 / UC-1.6 R10）：双人复核 + 配额硬阻断 + 团队增删改 + 成员移除。
 // ⚠ 建在 F10 的 org_invites 之上，不重开新地基：`ORG_INVITE_REPOSITORY` 复用同一个实例
 //   （`PgOrgInviteRepository` 新增了 `reviewAdminInvite` 方法，不是第二个仓储）。
@@ -472,6 +478,7 @@ import {
   PROJECT_OVERVIEW_REPOSITORY,
   PROJECT_REPOSITORY,
   PROJECT_TAGS_REPOSITORY,
+  type ProjectRepository,
 } from "./application/project/ports";
 // F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
 // 独立 provider，见 `application/project/member-ports.ts` 与
@@ -553,6 +560,36 @@ import {
   type BlueprintPersistencePort,
 } from "./application/templates/blueprint-persistence-ports";
 import { PgBlueprintRepository } from "./infrastructure/templates/pg-blueprint-repository";
+// F23/F29 补实现（issue #1667）：`applyBlueprint`/`computeDeviations`/
+// `submitBlueprintChangeRequest` 首次接上电——此前三个契约 operation 有完整应用层
+// + 单测，零 controller、零 infra（issue #1667 勘探）。
+import { ApplyBlueprintController } from "./interface/controllers/apply-blueprint.controller";
+import { BlueprintChangeRequestController } from "./interface/controllers/blueprint-change-request.controller";
+import {
+  APPLY_BLUEPRINT_REPOSITORY,
+  type ApplyBlueprintRepository,
+} from "./application/templates/apply-blueprint-ports";
+import {
+  APPLY_BLUEPRINT_RESOLVER_PORT,
+  type ApplyBlueprintResolverPort,
+} from "./application/templates/apply-blueprint-resolver-ports";
+import {
+  COMPUTE_DEVIATIONS_REPOSITORY,
+  type ComputeDeviationsRepository,
+} from "./application/templates/compute-deviations-ports";
+import {
+  SUBMIT_CHANGE_REQUEST_REPOSITORY,
+  type SubmitChangeRequestRepository,
+} from "./application/templates/submit-change-request-ports";
+import {
+  LIST_PENDING_CHANGES_REPOSITORY,
+  type ListPendingChangesRepository,
+} from "./application/templates/list-pending-changes-ports";
+import { PgApplyBlueprintRepository } from "./infrastructure/templates/pg-apply-blueprint-repository";
+import { PgApplyBlueprintResolver } from "./infrastructure/templates/pg-apply-blueprint-resolver";
+import { PgComputeDeviationsRepository } from "./infrastructure/templates/pg-compute-deviations-repository";
+import { PgSubmitChangeRequestRepository } from "./infrastructure/templates/pg-submit-change-request-repository";
+import { PgListPendingChangesRepository } from "./infrastructure/templates/pg-list-pending-changes-repository";
 // F950（2026-08-16 delta）：定题/分组/筹备计数三条端点第一次接上真实 Postgres——
 // F24/F25 签的契约此前只有内存假仓储撑单元测试，controller 从未挂过路由。
 import { PROJECT_PREP_REPOSITORY, type ProjectPrepRepository } from "./application/templates/project-prep-ports";
@@ -664,6 +701,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ChatAttachmentController,
     OrgInviteController,
     OrgInviteLinkController,
+    CheckinBoardController,
     OrgAdminManagementController,
     FilesBrowserController,
     FilesDeliveryController,
@@ -677,6 +715,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     CanvasTemplateController,
     CanvasInstanceController,
     BlueprintController,
+    ApplyBlueprintController,
+    BlueprintChangeRequestController,
     RecordingController,
     AgentRunController,
     CopilotkitAguiController,
@@ -1460,6 +1500,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgOrgInviteLinkRepository(db),
       inject: [DATABASE_PORT],
     },
+    // F05（phase-10 group-checkin 束）：`LiveSessionRepository` 的生产实现——
+    // `checkin-board.controller.ts` 消费的 `board()` 就是这里落的库。
+    {
+      provide: LIVE_SESSION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgLiveSessionRepository(db, newLiveSessionId),
+      inject: [DATABASE_PORT],
+    },
     // F11：团队增删改（占用校验）+ 成员移除（停用访问，不删产出）。两个独立 provider——
     // 它们分别锁定 `teams` 与 `org_memberships` 两张不同的表，不是同一个仓储的两个方法。
     {
@@ -1615,6 +1662,38 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: BLUEPRINT_PERSISTENCE_PORT,
       useFactory: (db: DatabasePort): BlueprintPersistencePort =>
         new PgBlueprintRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F23 补实现（#1667）：只读解析（存在性/可见性/目标版本/档位/flow-agenda 内容）。
+    {
+      provide: APPLY_BLUEPRINT_RESOLVER_PORT,
+      useFactory: (db: DatabasePort): ApplyBlueprintResolverPort => new PgApplyBlueprintResolver(db),
+      inject: [DATABASE_PORT],
+    },
+    // F23 补实现（#1667）：写路径。注入既有 `PROJECT_REPOSITORY`——不新开第二处
+    // `INSERT INTO projects`，见 `pg-apply-blueprint-repository.ts` 文件头。
+    {
+      provide: APPLY_BLUEPRINT_REPOSITORY,
+      useFactory: (db: DatabasePort, projects: ProjectRepository, ids: UuidIdFactory): ApplyBlueprintRepository =>
+        new PgApplyBlueprintRepository(db, projects, ids),
+      inject: [DATABASE_PORT, PROJECT_REPOSITORY, ID_FACTORY],
+    },
+    // F29 补实现（#1667）：diff 基准读取，见 `pg-compute-deviations-repository.ts` 文件头。
+    {
+      provide: COMPUTE_DEVIATIONS_REPOSITORY,
+      useFactory: (db: DatabasePort): ComputeDeviationsRepository => new PgComputeDeviationsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F29 补实现（#1667）：待审改动写入，见 `pg-submit-change-request-repository.ts` 文件头。
+    {
+      provide: SUBMIT_CHANGE_REQUEST_REPOSITORY,
+      useFactory: (db: DatabasePort): SubmitChangeRequestRepository => new PgSubmitChangeRequestRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F29 补实现（#1667）：只读，见 `pg-list-pending-changes-repository.ts` 文件头。
+    {
+      provide: LIST_PENDING_CHANGES_REPOSITORY,
+      useFactory: (db: DatabasePort): ListPendingChangesRepository => new PgListPendingChangesRepository(db),
       inject: [DATABASE_PORT],
     },
     // F950（2026-08-16 delta）：三个独立 provider，各自的 `lint-permission-paths` 豁免

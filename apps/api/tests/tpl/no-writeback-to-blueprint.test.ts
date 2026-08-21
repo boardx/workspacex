@@ -60,6 +60,7 @@ const baseInput = {
   tier: "two-day" as const,
   projectName: "新项目",
   idempotencyKey: "idem-1",
+  flowAgendaContent: null,
 };
 
 describe("① 反向：套用蓝本期间从未读取 resolvedVersion.content（Proxy 读陷阱）", () => {

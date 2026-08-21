@@ -58,6 +58,7 @@ describe("① 引用不是深拷贝：命令里只带 blueprintVersionId，不�
         filledFacetKeys: ["flow-agenda"],
         tier: "half-day",
         projectName: "新项目",
+        flowAgendaContent: null,
         idempotencyKey: "idem-1",
       },
     );
@@ -93,6 +94,7 @@ describe("② 快照不漂移：绑定之后蓝本再发布新版本，已绑定
         filledFacetKeys: [],
         tier: "half-day",
         projectName: "新项目",
+        flowAgendaContent: null,
         idempotencyKey: "idem-2",
       },
     );
@@ -143,6 +145,7 @@ describe("③ 新增绑定只能挂已发布版本；已归档版本拒绝新绑
           filledFacetKeys: [],
           tier: "half-day",
           projectName: "新项目",
+          flowAgendaContent: null,
           idempotencyKey: "idem-3",
         },
       ),
@@ -161,6 +164,7 @@ describe("③ 新增绑定只能挂已发布版本；已归档版本拒绝新绑
           filledFacetKeys: [],
           tier: "half-day",
           projectName: "新项目",
+          flowAgendaContent: null,
           idempotencyKey: "idem-3b",
         },
       );
@@ -197,6 +201,7 @@ describe("③ 新增绑定只能挂已发布版本；已归档版本拒绝新绑
           filledFacetKeys: [],
           tier: "half-day",
           projectName: "新项目",
+          flowAgendaContent: null,
           idempotencyKey: "idem-4",
         },
       ),
@@ -215,6 +220,7 @@ describe("③ 新增绑定只能挂已发布版本；已归档版本拒绝新绑
           filledFacetKeys: [],
           tier: "half-day",
           projectName: "新项目",
+          flowAgendaContent: null,
           idempotencyKey: "idem-4b",
         },
       );

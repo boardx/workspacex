@@ -17,6 +17,8 @@
   },
   "phase-10-live-collaboration-orchestration": {
     "group-checkin": "org-admin",
-    "segment-engine": "project"
+    "segment-engine": "project",
+    "module-routing": "live-collab-module-routing",
+    "stage-aggregation": "live-collab-stage-aggregation"
   }
 }

@@ -13,6 +13,7 @@
  *    真实 fabric 画布 jsdom 建不出（VZ-fabric 系列既有测试头注），CanvasStage
  *    换成回显 markdown 的探针——够钉住「初始化内容 + 版本切换」这份接线。
  */
+import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { wrapAsMermaidBlock } from "@repo/fabric-markdown/markdown";
@@ -28,10 +29,15 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
   listThreadArtifacts, getThreadArtifactSource,
 }));
 
+// `CanvasStage` 从这个探针替换开始就是 `React.forwardRef` 组件（导出画布截图的
+// 命令式句柄需要它）——探针跟着换成 forwardRef，不然 `ChatDiagramCanvasModal`
+// 传 `ref={stageRef}` 给它会撞 React 的 "Function components cannot be given
+// refs" 警告（不影响这几条测试断言，但是噪音，留着不修就是往后每次跑测试都要
+// 看一遍这条无关警告）。
 vi.mock("@/components/canvas/canvas-stage", () => ({
-  CanvasStage: (props: { markdown: string }) => (
-    <pre data-testid="canvas-stage-probe">{props.markdown}</pre>
-  ),
+  CanvasStage: React.forwardRef(function CanvasStageProbe(props: { markdown: string }, _ref) {
+    return <pre data-testid="canvas-stage-probe">{props.markdown}</pre>;
+  }),
 }));
 
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";

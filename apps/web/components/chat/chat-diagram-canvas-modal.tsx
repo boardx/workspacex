@@ -1,9 +1,10 @@
 "use client";
 import * as React from "react";
-import { MousePointer2, Square, Trash2, Maximize, Save, X, Check } from "lucide-react";
+import { MousePointer2, Square, Trash2, Maximize, Save, X, Check, ImageDown, FileDown } from "lucide-react";
 import { wrapAsMermaidBlock, extractMermaidBlocks } from "@repo/fabric-markdown";
-import { CanvasStage } from "@/components/canvas/canvas-stage";
+import { CanvasStage, type CanvasStageHandle } from "@/components/canvas/canvas-stage";
 import { decodeMermaidEntities } from "@/lib/chat/decode-mermaid-entities";
+import { downloadDataUrl, exportPngAsPdf } from "@/lib/canvas/export-image";
 import { describeMessageFailure, landAsArtifact } from "@/lib/live-chat";
 import type { CanvasTool } from "@/components/canvas/canvas-toolbar";
 import { ZOOM_MIN, ZOOM_MAX } from "@/components/canvas/canvas-toolbar";
@@ -94,6 +95,8 @@ export function ChatDiagramCanvasModal({
   >(null);
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  const stageRef = React.useRef<CanvasStageHandle>(null);
+  const [exportError, setExportError] = React.useState<string | null>(null);
 
   const canPersist = threadId !== undefined && messageId !== undefined;
 
@@ -175,6 +178,38 @@ export function ChatDiagramCanvasModal({
     }
   }, [markdown, canPersist, threadId, messageId, bearer]);
 
+  // 导出（人类要求："要可以下载，画布在前端要有 pdf，png 的导出"）——`CanvasStage`
+  // 自己截图（内容包围盒 + viewport 复位是它的职责，它握着真实 fabric 实例），
+  // 这里只决定文件名、把 data URL 交给 `downloadDataUrl`/`exportPngAsPdf`。
+  // 空画布（没有任何节点）`exportPNG()` 返回 null——不产出一张空白文件冒充导出
+  // 成功，如实报错。
+  const exportFilenameBase = React.useMemo(
+    () => `对话图-${new Date().toLocaleDateString("zh-CN").replace(/\//g, "-")}`,
+    [],
+  );
+  const handleExportPNG = React.useCallback(() => {
+    setExportError(null);
+    const result = stageRef.current?.exportPNG();
+    if (!result) {
+      setExportError("画布是空的，没有可导出的内容");
+      return;
+    }
+    downloadDataUrl(result.dataUrl, `${exportFilenameBase}.png`);
+  }, [exportFilenameBase]);
+  const handleExportPDF = React.useCallback(async () => {
+    setExportError(null);
+    const result = stageRef.current?.exportPNG();
+    if (!result) {
+      setExportError("画布是空的，没有可导出的内容");
+      return;
+    }
+    try {
+      await exportPngAsPdf(result.dataUrl, result.width, result.height, `${exportFilenameBase}.pdf`);
+    } catch (failure) {
+      setExportError(describeMessageFailure(failure, "导出 PDF"));
+    }
+  }, [exportFilenameBase]);
+
   // 「连线」工具（`tool === "edge"`）此前在这块工具条里，但 `CanvasStage` 的
   // `mouse:down` 从没接过它的点击逻辑——shift 点两个节点画不出任何连线，纯粹是
   // 一枚看起来能用、点了却什么都不发生的按钮（人类实测反馈）。按钮比空白更容易
@@ -231,6 +266,32 @@ export function ChatDiagramCanvasModal({
         </span>
 
         <div className="ml-auto flex items-center gap-1.5">
+          {exportError && (
+            <span className="text-11 text-destructive" data-testid="chat-diagram-export-error">
+              {exportError}
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="导出为 PNG"
+            title="导出为 PNG"
+            onClick={handleExportPNG}
+            data-testid="chat-diagram-export-png"
+          >
+            <ImageDown aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="导出为 PDF"
+            title="导出为 PDF"
+            onClick={() => void handleExportPDF()}
+            data-testid="chat-diagram-export-pdf"
+          >
+            <FileDown aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+          <div className="mx-1 h-4 w-px bg-border" aria-hidden />
           {saveError && (
             <span className="text-11 text-destructive" data-testid="chat-diagram-save-error">
               {saveError}
@@ -309,6 +370,7 @@ export function ChatDiagramCanvasModal({
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <CanvasStage
+            ref={stageRef}
             readOnly={false}
             tool={tool}
             zoom={zoom}

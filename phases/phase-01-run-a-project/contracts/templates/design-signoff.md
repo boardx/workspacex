@@ -227,6 +227,13 @@ phase: "01"
 #   updateDesignFacet content: string 字段内的文案补齐，或纯前端展示常量），按 covers
 #   追加规则「零新增设计面」条件自查后追加。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+# 2026-08-21（F970，dev-chat-e2e，issue #1667）：applyBlueprint/computeDeviations/
+#   submitBlueprintChangeRequest 补 controller + PG 仓储接线——零新增设计面：三个契约
+#   operation（路径/入参/出参/err）一字未改，只是此前零 controller、零 infra，现在真实
+#   接上电；`applyBlueprint` 读蓝本 flow-agenda facet 的 min 字段本就是 F202（已签核的
+#   AgendaContent 结构）已存在的字段，不是新字段。按 covers 追加规则「零新增设计面」
+#   三条件自查后追加。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
 # 2026-08-21（I1680，dev-chat-e2e）：追加 **I1680**（#1680 gap-fill）——F26 三个用例
 #   （saveAsOrgTemplate/switchWorkflowTemplate/getWorkflowOrchestration）此前只有内存
 #   Fake 端口撑单测，`infrastructure/`/控制器/DI 全部为零，产品里不可达（见 #1666 勘探
@@ -240,7 +247,23 @@ phase: "01"
 #        只是把已签核端口第一次接上真实 Postgres（同 F175/F174/F177/F950 等既有先例
 #        「补 infra 实现不算新设计面」的同一条纪律）。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207, F208, F203, F961, F209, F210, F211, I1680]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-21（F971，dev-chat-e2e）：追加 **F971**（issue #1666 收尾）——#1680/#1681 都已
+#   合入 main 之后，把 `tab-prep.tsx` 的 `project-prep-save-template` 与 `workflow-screen.tsx`
+#   的 `tpl-wf-saveorg` 两个按钮真正接上已签核的 `saveAsOrgTemplate`。三条件逐条自查：
+#     1. **UI 已签**：两处按钮的存在与位置在 F26（含 #1681 的接线增量）原实现里已经画
+#        出来，本次只是把已经画出来、此前没有 `onClick`/只弹本地 toast 的按钮接上已签核
+#        的契约操作，未新增任何界面元素——展开态的「模板名称」输入框是契约
+#        `saveAsOrgTemplate.in.name: z.string().min(1)` 要求调用方必须收集的必填字段，
+#        不收集就会恒定传空串触发校验失败，是把已签核的契约形状做完整，不是自由发挥的
+#        新设计。
+#     2. **契约已签**：只消费本束已签核的 `saveAsOrgTemplate` 一条 operation，形状逐字
+#        照契约，未改一个字段。
+#     3. **零新增设计面**：不新增契约操作、不新增错误码、不新增字段、不新增交互语义——
+#        同 I1680「补前端调用方不算新设计面」的同一条纪律；种子脚本
+#        （`apps/api/scripts/seed-fullstack-smoke.ts`）新增的
+#        `project_workflow_orchestration` 一行是测试基础设施，不是产品契约面。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207, F208, F203, F961, F209, F210, F211, F970, I1680, F971]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"

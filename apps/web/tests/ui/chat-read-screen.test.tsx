@@ -6,7 +6,7 @@ import type { AgentRunStreamEvent } from "@/lib/agent-run-stream";
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, getAgentRun,
-  listThreadArtifacts, landAsArtifact,
+  listThreadArtifacts, listThreadAttachments, landAsArtifact,
   openAgentRunStream, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -18,6 +18,8 @@ const {
   getAgentRun: vi.fn(),
   // 十项 UX 缺口第 4/5 项（#708）——右栏产物列表 + 消息内联落地为产物。
   listThreadArtifacts: vi.fn(),
+  // issue #728 D9（人类 2026-08-21 裁决）——右栏「材料」列表，真实数据来自 chat_message_attachments。
+  listThreadAttachments: vi.fn(),
   landAsArtifact: vi.fn(),
   // #654 阶段2d：默认永不 resolve/reject——这条流是纯装饰性的进度增强（组件自己的
   // effect 早有 `.catch()` 兜底），本文件盯的是 `getAgentRun` 那条权威轮询，不是它。
@@ -55,7 +57,8 @@ vi.mock("@/components/shell/app-shell", () => ({
 }));
 vi.mock("@/lib/live-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量 + uploadAttachment（#946 composer 附件）
-  listThreads, getThread, getAgentPanel, listMessages, createMessage, listThreadArtifacts, landAsArtifact,
+  listThreads, getThread, getAgentPanel, listMessages, createMessage,
+  listThreadArtifacts, listThreadAttachments, landAsArtifact,
 }));
 /**
  * #435：`getAgentRun` 被 mock，但 `isTerminalRunStatus` **走真实实现**。
@@ -230,6 +233,7 @@ describe("formal Chat read path", () => {
       nextCursor: "cursor-20",
     });
     listThreadArtifacts.mockResolvedValue({ items: [] });
+    listThreadAttachments.mockResolvedValue({ items: [] });
     createMessage.mockResolvedValue({
       message: durableMessage(22, "新持久消息"),
       agentRunId: "run-new",
@@ -408,6 +412,63 @@ describe("formal Chat read path", () => {
   });
 
   /**
+   * issue #728 D9（人类 2026-08-21 裁决选项 A）—— 右栏「材料」列表真实渲染。
+   * 数据来自真实 `listThreadAttachments`（与 `listThreadArtifacts` 同一批
+   * `Promise.allSettled`），不是本地凑出来的；点击一条材料复用既有的
+   * `ChatAttachmentPreviewModal`（#1584）。
+   */
+  it("右栏「材料」面板渲染真实 listThreadAttachments 结果，并带正确的 projectId/threadId", async () => {
+    listThreadAttachments.mockResolvedValue({
+      items: [
+        {
+          id: "att-real-1", filename: "真实材料.pdf", mime: "application/pdf",
+          bytes: 2048, createdAt: "2026-08-21T00:00:00.000Z", messageId: "durable-message-2",
+        },
+      ],
+    });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    fireEvent.mouseDown(await screen.findByTestId("chat-right-tab-materials"), { button: 0 }); // Radix Tabs.Trigger 只监听 onMouseDown/onKeyDown/onFocus，不监听 click
+    const panel = await screen.findByTestId("chat-materials-panel");
+    expect(panel).toHaveTextContent("材料（1）");
+    expect(panel).toHaveTextContent("真实材料.pdf");
+    expect(listThreadAttachments).toHaveBeenCalledWith("thread-real", "project-real", "provider-bearer");
+  });
+
+  it("右栏「材料」为空时显示真实空态，不编造示例材料", async () => {
+    listThreadAttachments.mockResolvedValue({ items: [] });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    fireEvent.mouseDown(await screen.findByTestId("chat-right-tab-materials"), { button: 0 }); // Radix Tabs.Trigger 只监听 onMouseDown/onKeyDown/onFocus，不监听 click
+    expect(await screen.findByTestId("chat-materials-empty")).toHaveTextContent("还没有随消息发出的材料");
+  });
+
+  /**
+   * 发消息成功后（无论是否带附件）右栏「材料」都要重读——附件挂到消息上发生在
+   * **发送这一刻**（`createMessage.attachmentIds`），不是等 agent run 落定才发生，
+   * 所以这条不借用 `onRunSettled`，走单独的 `onMessageSent` 钩子（见
+   * `chat-live-message-panel.tsx`）。本用例证明「发消息 → 不用手动刷新页面 →
+   * 材料列表已经重读」。
+   */
+  it("发消息成功后立刻重读右栏「材料」列表，不需要手动刷新页面", async () => {
+    const composer = await (async () => {
+      render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+      return screen.findByTestId("chat-composer");
+    })();
+    expect(listThreadAttachments).toHaveBeenCalledTimes(1); // 初次进入线程的那一次
+
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    fireEvent.change(within(composer).getByRole("textbox", { name: "消息内容" }), {
+      target: { value: "带附件的消息" },
+    });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    await waitFor(() => expect(createMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(listThreadAttachments).toHaveBeenCalledTimes(2)); // 发送成功后自动重读
+  });
+
+  /**
    * 十项 UX 缺口第 5 项（issue #708）—— 消息内联「落地为产物」端到端：
    * 打开表单 → 填标题 → 提交 → 真实调用 `landAsArtifact`（`mode: "draft"`，
    * `payloadRef` = 该消息的真实 `text`）→ 成功后触发右栏重读。
@@ -519,6 +580,61 @@ describe("formal Chat read path", () => {
     // 这条测试原本顺带断言它存在，本行不再需要——上面对 `listMessages` 调用次数与
     // `createMessage` 未被二次调用的断言已经完整覆盖了这条测试真正要证的事
     // （回复来自服务端持久化重读，不是本地合成）。
+  });
+
+  /**
+   * issue #728 D6/D7 取证根因回归：线程历史条数超过分页大小（`MESSAGE_PAGE_SIZE=50`）
+   * 时，`nextCursor` 在**初次加载完成那一刻就已经非空**（`hasMore=true`）。这条测试
+   * 用 20 条历史 + `limit` 无关的 `nextCursor: "cursor-20"` 模拟同样的「已经翻过一页」
+   * 状态——不需要真凑够 50+1 条，只需要 `nextCursor` 非空这一个前置条件就足以复现。
+   *
+   * 根因（修前）：发送后 / run 终态后的「软重读」硬编码 `loadPage(null, "soft")`，
+   * 也就是不管当前已经翻到哪一页，重读永远从游标起点（最旧那批）重新拉第一页——
+   * 新发的人类消息与随后落库的 agent 回复因此**永远不在**这次重读拉回来的那一页里，
+   * 但 `chat-live-agent-run-status` 仍然如实报告 run 到达终态（run 本身确实成功了，
+   * 只是渲染用的这一页从来没盖到过它）。
+   *
+   * 断言两件事：① 软重读传的 cursor 是当前翻页位置（不是 `undefined`/起点）；
+   * ② 新落库的 agent 回复真的出现在渲染出的消息列表里。
+   */
+  it("线程已翻过一页时，发送后 / run 终态后的软重读追着当前翻页位置走，新消息真的渲染出来（issue #728 D6/D7 根因回归）", async () => {
+    listMessages
+      .mockResolvedValueOnce({
+        messages: Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)),
+        nextCursor: "cursor-20", // 已经 hasMore：真实场景对应「51 条历史、分页 50」
+      })
+      .mockResolvedValueOnce({
+        // 发送后的第一次软重读：必须带上当前翻页位置的 cursor，才能追到刚发的这条
+        messages: [durableMessage(21, "刚发的这条消息")],
+        nextCursor: "cursor-21",
+      })
+      .mockResolvedValueOnce({
+        // run 到终态后的第二次软重读：必须接着上一次的 cursor 往后走，才能追到 agent 回复
+        messages: [durableMessage(22, "刚落库的 agent 回复")],
+        nextCursor: null,
+      });
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22"));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "跑一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    // 发送后立刻可见：不是拉回第一页丢掉这条
+    expect(await screen.findByText("刚发的这条消息")).toBeInTheDocument();
+    expect(listMessages).toHaveBeenNthCalledWith(
+      2, "thread-real", { cursor: "cursor-20", limit: 50 }, "provider-bearer",
+    );
+
+    // run 到终态后：agent 回复也真的渲染出来，不是停在「执行完成」但列表没变
+    expect(await screen.findByText("刚落库的 agent 回复")).toBeInTheDocument();
+    expect(listMessages).toHaveBeenNthCalledWith(
+      3, "thread-real", { cursor: "cursor-21", limit: 50 }, "provider-bearer",
+    );
+    // 之前已经渲染过的历史消息没有因为这次软重读而消失（合并去重，不是整批替换）
+    expect(screen.getByText("真实消息 1")).toBeInTheDocument();
   });
 
   /**

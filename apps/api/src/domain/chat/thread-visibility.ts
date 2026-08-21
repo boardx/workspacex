@@ -282,12 +282,23 @@ export function decidePersonalThreadRead(input: {
  * 创建者对自己的个人线程恒有全部读写能力；`approvalGate`/`reassign`/
  * `recording.stop` 这三样是项目/工作坊现场概念（批准给谁、改派到哪个组、
  * 停止哪个录音会话），个人线程没有对应的对象，**不下发**——不是禁用，是没有。
+ *
+ * `artifact.land`（人类裁决，2026-08-21，issue #728 round 16 P10 留的开放问题
+ * 「个人对话要不要真的支持落地产物」在此落地）：**含**这一条——个人对话保存
+ * 画布/图表也要真的落库，不是「本地演示」。放行条件与项目线程不同，不经
+ * `capabilitiesFor(role)` 那条路径：`land-as-artifact.ts` 对个人线程放行的
+ * 依据是「`resolveVisibility` 已经把非创建者挡在能力集合计算之前」（个人线程
+ * 读路径本就要求 `actorUserId === thread.createdBy`），不是某个 `ProjectRole`；
+ * 且个人线程落地被硬锁在 `mode: "draft"`（同 `summarizePersonaFromThread`
+ * 的既有判例 `C_CHAT_11`）——`live`/`pinned` 会打开下游流转（report-final /
+ * submit-acceptance 等），那是项目专属语义，个人线程不适用。
  */
 export const PERSONAL_THREAD_CAPABILITIES: readonly string[] = [
   "thread.read",
   "artifact.readonly",
   "composer.send",
   "thread.mutate",
+  "artifact.land",
 ];
 
 /**
@@ -363,9 +374,11 @@ export const CHAT_WRITE_CAPABILITIES = [
    * 照上面 `thread.mutate` 立过的同一条规矩补第二侧：**按钮不渲染 且 接口拒绝**，
    * 前端据此不渲染，而不是渲染后禁用；也不许拿 `composer.send` 当代理推断
    * （本文件 :104 与 :340 两处注释都立过「两件事混成一个布尔」的规矩）。
-   * `PERSONAL_THREAD_CAPABILITIES` 刻意**不含**这一条——个人线程的产物是
-   * `artifact.readonly`，「不是禁用，是没有」（见 :278 注释）。若产品日后
-   * 裁决个人对话也要能落地产物，那是契约语义变更（ADR-023），不是改这行。
+   * `PERSONAL_THREAD_CAPABILITIES` **此前**刻意不含这一条——个人线程的产物
+   * 曾经只有 `artifact.readonly`。人类已在 2026-08-21 裁决个人对话也要能真的
+   * 落地产物（ADR-023 契约语义变更，见 `PERSONAL_THREAD_CAPABILITIES` 处的
+   * 新注释），`PERSONAL_THREAD_CAPABILITIES` 现在**含**这一条，放行依据与
+   * 项目线程不同（不经 `ProjectRole`），细节同上。
    */
   "artifact.land",
 ] as const;

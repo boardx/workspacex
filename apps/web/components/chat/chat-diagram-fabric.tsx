@@ -81,12 +81,23 @@ export function ChatDiagramFabric({
    * 先查该 (threadId, messageId) 是否有本人可见的保存版——有则取回最新一次的 markdown
    * 交给 modal 初始化（modal 里的提示条保证不静默替换）。查不到 / NOT_VISIBLE（他人
    * 草稿，签核：不提示存在性）/ 任何读回失败 ⇒ 与今天完全一致地用原始消息文本打开。
-   * 个人线程（无 projectId/bearer 三件套）不发请求，维持现状本地演示。
+   *
+   * `projectId` 不再是发不发请求的门（**2026-08-21 人类裁决反转**：个人线程
+   * `projectId` 恒 undefined，但个人对话现在也真的能持久化——见 `PERSONAL_THREAD_
+   * CAPABILITIES`）。`fetchLatestSavedDiagramSource` 接受 `projectId: string | null`，
+   * 这里把 `undefined` 归一成 `null`，`resolveVisibility` 按 `null` 分派到个人线程
+   * 判权分支（同 `land-as-artifact.ts` 同一条分派规则）。只有 threadId/messageId/
+   * bearer 三者不全（预览页/流式草稿，本来就没有稳定身份可挂）才不发请求。
    */
   const openMaximized = React.useCallback(async () => {
+    // 见下方「挂载即读回」effect：那条 effect 已经在 inView 时查过一次。这里仍然
+    // 独立重查一遍（不是复用它的结果）——理由：openMaximized 可能在挂载 effect
+    // 还没跑完（用户手快，图刚进入视口就点最大化）或者失败之后触发，modal 打开前
+    // 必须有自己的一份确定性读回序列，不能依赖另一条 effect 的时序。轻微冗余（同一
+    // 请求可能打两次）换取两条路径互不依赖，均在各自小节测试里钉死。
     if (openingReadback) return;
-    if (!threadId || !messageId || !projectId || bearer === undefined) {
-      // 个人线程/无项目上下文：不发 G1 读回请求，但也**不**把 savedSource 清空——
+    if (!threadId || !messageId || bearer === undefined) {
+      // 无鉴权预览 / 流式草稿：不发 G1 读回请求，但也**不**把 savedSource 清空——
       // 它可能是这次会话里刚关闭的本地演示保存（见下面 onClose），清空会让刚保存
       // 的编辑一重新打开全屏就凭空消失，比不读回还倒退。
       setMaximized(true);
@@ -95,11 +106,46 @@ export function ChatDiagramFabric({
     setOpeningReadback(true);
     // 取数序列（list → 过滤 messageId → 最新 → source）与「失败静默退回原始版」
     // 都在 `fetchLatestSavedDiagramSource` 一处（组件级测试钉住那份逻辑）。
-    const saved = await fetchLatestSavedDiagramSource({ threadId, messageId, projectId, bearer });
+    const saved = await fetchLatestSavedDiagramSource({
+      threadId, messageId, projectId: projectId ?? null, bearer,
+    });
     setSavedSource(saved);
     setOpeningReadback(false);
     setMaximized(true);
   }, [openingReadback, threadId, messageId, projectId, bearer]);
+
+  /**
+   * 挂载即读回（design-delta chat-diagram-artifact-reference，issue #1668）：此前
+   * G1 读回只挂在「点最大化」这一个触发点上——`savedSource` 在那之前恒为 `null`，
+   * 只读小图（气泡里的预览）永远画 `code`（消息原文）。真机实测复现：编辑保存
+   * → 关闭全屏 → **刷新页面** → 气泡预览回到编辑前的内容，因为刷新后组件重新挂载，
+   * `savedSource` 又是 `null`，而用户这次没有再点一次「最大化」。
+   *
+   * 人类裁决（2026-08-21，issue #1668）：不回写消息 `text`（维持不可变），而是让
+   * 只读预览也接上已经建好的引用解析（同一份 `fetchLatestSavedDiagramSource`，不
+   * 新起端口）——图表挂载滚入视口时就查一次该消息名下最新的落地版本，命中则预览
+   * 直接画保存版，未命中/无权限（I-36 静默）则保持原始消息文本，与今天行为一致。
+   *
+   * 只在 `savedSource` 还是 `null` 时查一次：已经有值（无论是这条 effect 自己查到
+   * 的、还是 `openMaximized`/`onClose` 带回的）就不用再查——避免挂载查一次、用户
+   * 又手动点最大化再查一次时把已经拿到的保存版覆盖回一次网络竞态。失败（网络错误/
+   * 404 他人草稿）与 `openMaximized` 同一条降级：静默保持 `null`，画原始消息文本。
+   */
+  React.useEffect(() => {
+    if (!inView) return;
+    if (savedSource !== null) return;
+    if (!threadId || !messageId || bearer === undefined) return;
+    let cancelled = false;
+    void (async () => {
+      const saved = await fetchLatestSavedDiagramSource({
+        threadId, messageId, projectId: projectId ?? null, bearer,
+      });
+      if (!cancelled && saved !== null) setSavedSource(saved);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inView, savedSource, threadId, messageId, projectId, bearer]);
 
   // 惰性化：进入视口才校验+渲染（性能——一张图一张 fabric 画布）。
   React.useEffect(() => {

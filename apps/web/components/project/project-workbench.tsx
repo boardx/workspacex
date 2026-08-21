@@ -23,6 +23,7 @@ import {
   type ProjectTopicOut, type ProjectGroupingOut,
 } from "@/lib/live-project-prep";
 import { getViewerOptions, type ViewerOptionsOut } from "@/lib/live-collab-viewer-role";
+import { getCheckinBoard, type CheckinBoardOut } from "@/lib/live-checkin";
 import { queryProvenance, type QueryProvenanceOut } from "@/lib/live-provenance";
 import { TabOverview } from "./tab-overview";
 import { TabLive } from "./tab-live";
@@ -297,6 +298,39 @@ export function ProjectWorkbench({
   }, [projectId, tab]);
 
   /**
+   * F05（phase-10 group-checkin 束）—— 「分组与签到」聚合视图的真实数据源，只在
+   * `live` tab 拉取（同 `liveSegments`/`liveGrouping` 只在需要的 tab 才发请求的既有纪律，
+   * 不要为不可见的 tab 打空转请求）。角色投影已经在服务端完成（组长只见本组），
+   * 前端只管渲染服务端给的 `groups`，不重复判一次「你能看到几组」。
+   */
+  const [liveCheckin, setLiveCheckin] = React.useState<CheckinBoardOut | null>(null);
+  const [liveCheckinLoading, setLiveCheckinLoading] = React.useState(false);
+  const [liveCheckinError, setLiveCheckinError] = React.useState<string | null>(null);
+
+  const refreshCheckin = React.useCallback(() => {
+    if (!projectId) return;
+    if (!getStoredSessionToken()) return;
+    setLiveCheckinLoading(true);
+    setLiveCheckinError(null);
+    getCheckinBoard(projectId)
+      .then((row) => setLiveCheckin(row))
+      .catch((e: unknown) => {
+        setLiveCheckinError(e instanceof ApiError ? e.reasonCode ?? `HTTP ${e.status}` : e instanceof Error ? e.message : "未知错误");
+      })
+      .finally(() => setLiveCheckinLoading(false));
+  }, [projectId]);
+
+  React.useEffect(() => {
+    if (!projectId || tab !== "live" || !getStoredSessionToken()) {
+      setLiveCheckin(null);
+      setLiveCheckinError(null);
+      return;
+    }
+    refreshCheckin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只依赖 projectId/tab，随它们一起重建
+  }, [projectId, tab]);
+
+  /**
    * F964 —— 「成果沉淀 · 审计与反馈」区的真实 `queryProvenance`，按
    * `targetKind:"project"` + `targetId:projectId` 收窄到本项目（`live-provenance.ts`
    * 头注）。同 `findProject` 一样需要 `qs.org`——契约的 `queryProvenance.in.orgId`
@@ -502,6 +536,7 @@ export function ProjectWorkbench({
                 liveTopic, liveTopicLoading, liveTopicError, refreshTopic,
                 liveGrouping, liveGroupingLoading, liveGroupingError, refreshGrouping,
                 liveViewerOptions,
+                liveCheckin, liveCheckinLoading, liveCheckinError,
                 liveAudit, liveAuditLoading, liveAuditError,
               )}
             </StateShell>
@@ -537,6 +572,9 @@ function renderTab(
   liveGroupingError: string | null,
   refreshGrouping: () => void,
   liveViewerOptions: ViewerOptionsOut | null,
+  liveCheckin: CheckinBoardOut | null,
+  liveCheckinLoading: boolean,
+  liveCheckinError: string | null,
   liveAudit: QueryProvenanceOut | null,
   liveAuditLoading: boolean,
   liveAuditError: string | null,
@@ -590,6 +628,9 @@ function renderTab(
           liveGroupingLoading={liveGroupingLoading}
           liveGroupingError={liveGroupingError}
           viewerOptions={liveViewerOptions}
+          liveCheckin={liveCheckin}
+          liveCheckinLoading={liveCheckinLoading}
+          liveCheckinError={liveCheckinError}
           onAdvanced={refreshSegments}
         />
       );

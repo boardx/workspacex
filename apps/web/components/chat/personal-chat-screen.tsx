@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, MessageSquare, RefreshCw } from "lucide-react";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
+import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import {
   NewThreadButton, ThreadCardButton, ThreadListHeader,
 } from "@/components/chat/thread-list-shell";
@@ -375,6 +376,10 @@ function PersonalThreadDetail({
   onThreadSettled?: () => void;
 }) {
   const agentOptions = useOrgAgentOptions(orgId, bearer);
+  /* `#` mention 的两个状态，与 `chat-read-screen.tsx` 逐字同一套：composer 上报
+     query，挂载成功后自增 nonce 让 composer 把 `#query` 从正文里删掉。 */
+  const [mentionQuery, setMentionQuery] = React.useState<string | null>(null);
+  const [mentionResolvedNonce, setMentionResolvedNonce] = React.useState(0);
 
   if (!detail) {
     if (loading) return <CenteredState>正在读取线程详情…</CenteredState>;
@@ -449,19 +454,47 @@ function PersonalThreadDetail({
           才能发消息。
         </p>
       ) : null}
+      {/*
+        人类裁决（2026-08-21，原话）：「个人对话必须要可以使用公共的 skills」
+        「所有的人都可以用」。
+
+        此前个人对话「没有任何挂载入口」——`ChatSkillMountPanel` 只在项目屏
+        （`chat-read-screen.tsx`）渲染，本屏连 import 都没有。服务端那一半已在
+        #1693 放开（个人线程可挂载，授权改为从线程反推项目），但用户在界面上
+        仍然挂不上，裁决因此没有真正生效。
+
+        ⚠ `projectId` 不传：个人线程没有项目。服务端已不再把 `?projectId=` 当
+        授权输入（#1693 同一批修的越权洞），可见性过滤仍在服务端，前端不复述
+        任何权限规则——这里只负责"给不给入口"。
+      */}
+      {bearer && orgId ? (
+        <ChatSkillMountPanel
+          threadId={detail.thread.id}
+          orgId={orgId}
+          bearer={bearer}
+          mentionQuery={mentionQuery}
+          onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
+        />
+      ) : null}
       {bearer ? (
         <ChatLiveMessagePanel
           threadId={detail.thread.id}
           bearer={bearer}
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           archived={detail.thread.archived}
+          /* `#` 的检测在 composer 里已经实现（与项目屏共用同一套），本屏此前
+             只是没人接收它上报的 query。两条 prop 与 `chat-read-screen.tsx`
+             逐字同名同义，不另造一套。 */
+          onMentionQueryChange={setMentionQuery}
+          mentionResolvedNonce={mentionResolvedNonce}
           /*
-            #728 round 16 P10 —— 个人线程的能力集合恒不含 `artifact.land`
-            （`PERSONAL_THREAD_CAPABILITIES` 只有 `artifact.readonly`，后端
-            `land-as-artifact.ts` 对无项目角色恒拒），这里从服务端下发的
-            `getThread.out.capabilities` 取值 ⇒ 恒 false ⇒ 落地按钮不渲染。
-            不写死 false：万一产品日后给个人线程开这个能力，改的是服务端
-            能力集合，这行自动跟上，前端不用再动。
+            #728 round 16 P10 起：个人线程的能力集合从「恒不含 `artifact.land`」，
+            经 2026-08-21 人类裁决改为「恒含 `artifact.land`」——个人对话也要能
+            真的落地产物（`PERSONAL_THREAD_CAPABILITIES`，`land-as-artifact.ts`
+            对个人线程创建者放行、非draft 拒绝，见该文件注释）。这里从服务端
+            下发的 `getThread.out.capabilities` 取值，不写死 true/false——服务端
+            能力集合改，这行自动跟上，前端不用再动（这正是当初这么写的理由，
+            这次裁决反转没有触发任何前端改动，只是这行现在读到的值变了）。
           */
           canLandArtifacts={detail.capabilities.includes("artifact.land")}
           onRunSettled={onThreadSettled}

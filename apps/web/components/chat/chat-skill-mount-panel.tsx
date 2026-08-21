@@ -62,7 +62,12 @@ export function ChatSkillMountPanel({
   onMentionMounted,
 }: {
   threadId: string;
-  projectId: string;
+  /**
+   * ⚠ **可选**：个人对话没有项目（人类 2026-08-21 裁决「个人对话必须要可以使用
+   * 公共的 skills」）。#1693 起服务端已不把 `?projectId=` 当授权输入——授权从
+   * 线程反推项目，所以这里缺省是安全的，不是把一道门关小了。
+   */
+  projectId?: string;
   orgId: string;
   bearer: string;
   /** `null`/`undefined` = composer 里没有活跃的 `#` mention。 */
