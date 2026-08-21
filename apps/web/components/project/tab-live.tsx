@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Copy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SectionTitle, StatChip } from "./parts";
@@ -12,6 +12,7 @@ import {
   type ListAgendaSegmentsOut,
 } from "@/lib/live-projects";
 import { GROUP_STATUS_LABEL, type Group, type ProjectGroupingOut } from "@/lib/live-project-prep";
+import type { CheckinBoardOut, CheckinGroupRow } from "@/lib/live-checkin";
 import { useOptionalSession } from "@/components/session/session-provider";
 
 /**
@@ -26,6 +27,18 @@ import { useOptionalSession } from "@/components/session/session-provider";
  *   束、`fill`/`needs` 全仓零来源，2026-08-19 人类会话已确认范围），继续渲染
  *   `LIVE_GROUPS` 那组 mock 数字会与真实状态条同屏并列、用户分不清真假——同 F172
  *   点名的「主要缺陷」是同一种问题，故整块降级为如实空态，不是新造一种处置。
+ *
+ * ⚠ **F05（phase-10 group-checkin 束，2026-08-21）「分组与签到」聚合视图**：
+ *   引导师在「主持台·全场」视角新增一块真实区块——`getCheckinBoard`（F16/UC-1.3 R8 早已
+ *   实现的用例，F05 只是第一次把它接成路由 + 前端消费，见 `checkin-board.controller.ts`
+ *   与 `lib/live-checkin.ts` 头注）。**这是新增区块，不是替换上面那段「四组并行」诚实空态**——
+ *   两者是不同的信息：「四组并行」说的是引述/画布进度/素材充足度（canvas/recording 归属，
+ *   全仓无来源），「分组与签到」说的是到场人数与邀请链接（本束真实归属）。
+ *   ⚠ **角色徽标「组长」未渲染**：`getCheckinBoard.out.groups[].roster` 的字段只有
+ *   `{alias, attendance}`，不含项目角色（同文件设计头注 I-16：观察者视角不含手机号/令牌，
+ *   这份形状本身就没有角色字段可取）——`design-signoff.md` ① UI 里"姓名+角色徽标：组长/
+ *   已到/未到"这句话在真实契约下只有"已到/未到"这一半有数据来源，"组长"徽标没有，
+ *   本版如实只渲染有来源的那一半，不编一个角色字段出来。
  *
  * ⚠ **F01 视角切换器（phase-10 viewer-role 束，design-signoff.md 已签核 2026-08-20）**：
  *   `主持台·全场 / 分组` 二档切换 + 角色锁定。数据源全部真实，无一处编造：
@@ -55,6 +68,9 @@ export function TabLive({
   liveGrouping = null,
   liveGroupingLoading = false,
   liveGroupingError = null,
+  liveCheckin = null,
+  liveCheckinLoading = false,
+  liveCheckinError = null,
   onAdvanced,
 }: {
   view: ProjectRole;
@@ -65,6 +81,9 @@ export function TabLive({
   liveGrouping?: ProjectGroupingOut | null;
   liveGroupingLoading?: boolean;
   liveGroupingError?: string | null;
+  liveCheckin?: CheckinBoardOut | null;
+  liveCheckinLoading?: boolean;
+  liveCheckinError?: string | null;
   onAdvanced?: () => void;
 }) {
   const stageControl = ROLE_STAGE_CONTROL[view] && !readOnly;
@@ -105,6 +124,9 @@ export function TabLive({
         <GroupPanel group={selected.group} />
       ) : (
         <>
+          {view === "facilitator" && (
+            <CheckinBoard board={liveCheckin} loading={liveCheckinLoading} error={liveCheckinError} />
+          )}
           <SectionTitle meta={isObserver ? "只读" : "画布/转写接线未完成，暂不可用"}>
             四组并行
           </SectionTitle>
@@ -119,6 +141,135 @@ export function TabLive({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * F05 —— 分组签到聚合视图：4 组卡片网格，每张卡片带组号/组名/`M/N 已到`/复制链接/成员列表。
+ * 只在引导师的「主持台·全场」渲染（同 F06 之前的范围纪律，见文件头注）。
+ */
+function CheckinBoard({
+  board,
+  loading,
+  error,
+}: {
+  board: CheckinBoardOut | null;
+  loading: boolean;
+  error: string | null;
+}) {
+  return (
+    <div data-testid="lc-checkin" className="flex flex-col gap-2">
+      <SectionTitle meta={board !== null ? `全场 ${board.overall.present}/${board.overall.total} 已到` : undefined}>
+        分组与签到
+      </SectionTitle>
+      {loading && (
+        <Card>
+          <p className="px-3.5 py-3 text-11 text-muted-foreground" data-testid="lc-checkin-loading">
+            读取签到数据中…
+          </p>
+        </Card>
+      )}
+      {!loading && error && (
+        <Card>
+          <p className="px-3.5 py-3 text-11 text-destructive" data-testid="lc-checkin-error">
+            签到数据读取失败：{error}
+          </p>
+        </Card>
+      )}
+      {!loading && !error && board !== null && board.groups.length === 0 && (
+        <Card>
+          <p className="px-3.5 py-3 text-11 text-muted-foreground" data-testid="lc-checkin-empty">
+            本项目还没有分组，签到板暂时是空的。
+          </p>
+        </Card>
+      )}
+      {!loading && !error && board !== null && board.groups.length > 0 && (
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2" data-testid="lc-checkin-grid">
+          {board.groups.map((g, i) => (
+            <CheckinGroupCard key={g.groupId} group={g} ordinal={i + 1} />
+          ))}
+        </div>
+      )}
+      {!board && !loading && !error && (
+        <Card>
+          <p className="px-3.5 py-3 text-11 text-muted-foreground" data-testid="lc-checkin-unavailable">
+            签到数据尚未加载。
+          </p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function CheckinGroupCard({ group, ordinal }: { group: CheckinGroupRow; ordinal: number }) {
+  const [copyState, setCopyState] = React.useState<"idle" | "copied" | "failed">("idle");
+  const link = group.links[0] ?? null;
+
+  async function copyLink() {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link.url);
+      setCopyState("copied");
+      window.setTimeout(() => setCopyState((s) => (s === "copied" ? "idle" : s)), 2500);
+    } catch {
+      setCopyState("failed");
+    }
+  }
+
+  return (
+    <Card data-testid={`lc-checkin-group-${group.groupId}`}>
+      <div className="flex flex-col gap-2 px-3.5 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-10 uppercase tracking-wide text-muted-foreground">第 {ordinal} 组</span>
+            <span className="text-13 font-medium" data-testid="lc-checkin-group-title">{group.title}</span>
+          </div>
+          <StatChip tone="ai" testId="lc-checkin-group-count">
+            {group.present}/{group.total} 已到
+          </StatChip>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            disabled={!link}
+            onClick={() => void copyLink()}
+            data-testid="lc-checkin-group-copy-link"
+            className="gap-1"
+          >
+            <Copy aria-hidden className="h-3 w-3" />
+            {copyState === "copied" ? "已复制" : "复制链接"}
+          </Button>
+          {copyState === "failed" && (
+            <span className="text-10 text-destructive" data-testid="lc-checkin-group-copy-failed">
+              复制失败，请手动复制
+            </span>
+          )}
+          {!link && (
+            <span className="text-10 text-muted-foreground" data-testid="lc-checkin-group-no-link">
+              暂无可用邀请链接
+            </span>
+          )}
+        </div>
+        {group.roster.length === 0 ? (
+          <p className="text-10 text-muted-foreground" data-testid="lc-checkin-group-roster-empty">
+            本组还没有名单条目。
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1" data-testid="lc-checkin-group-roster">
+            {group.roster.map((r, i) => (
+              <li key={`${r.alias}-${i}`} className="flex items-center justify-between gap-2 text-11">
+                <span className="truncate">{r.alias}</span>
+                <StatChip tone={r.attendance === "present" ? "ai" : "neutral"}>
+                  {r.attendance === "present" ? "已到" : "未到"}
+                </StatChip>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Card>
   );
 }
 
