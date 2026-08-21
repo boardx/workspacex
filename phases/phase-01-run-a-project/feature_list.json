@@ -5072,6 +5072,30 @@
       ],
       "evidence": "",
       "notes": "契约束已签核（design-signoff.md status: confirmed，covers 含 F26），本 feature 零新增设计面，只补已签核端口的存储实现（issue #1680，见 #1666 勘探评论）。三个端口 `OrchestrationRepository`/`WorkflowTemplateCatalogPort`/`OrgTemplateCreatePort`（workflow-orchestration-ports.ts）新增 `pg-*` 实现（apps/api/src/infrastructure/templates/pg-workflow-orchestration-repository.ts）+ 新迁移（project_workflow_orchestration/workflow_template_catalog 两张表）+ BlueprintController 追加三条路由（GET /projects/:id/orchestration、POST .../workflow-template/switch、POST .../save-as-org-template）+ kernel.module.ts DI 注册。⚠ 前端 workflow-screen.tsx 接线不在本 feature 范围（收窄回 #1666/#1681）。"
+    },
+    {
+      "id": "I1668",
+      "priority": 2,
+      "area": "chat",
+      "capability": "CAP-CHAT",
+      "title": "图表消息只读预览接引用解析：挂载即读回最新保存版，不必先点最大化（#1668）",
+      "user_visible_behavior": "项目聊天室里含 ```mermaid 围栏（或工作坊画布模板围栏）的消息，最大化编辑并保存后，气泡里的只读预览立即显示编辑后的内容（既有行为，PR #1696）；**整页刷新、重新打开该线程后，即使用户从未再点一次「最大化」，只读预览也已经是编辑后的最新保存版**（本 feature 新增：消息组件挂载滚入视口时自动查一次该消息名下最新落地 artifact）——消息 `text` 字段全程逐字节不变（保持不可变性），图表继续走独立存储/版本化（`chat_artifact_landings` 每次保存新增一行）。查不到保存版 / 无权限（他人草稿）⇒ 与今天完全一致地展示原始消息文本，不提示、不报错。",
+      "spec_ref": "08-chat/uc-8-3-对话产出落地.md#R3",
+      "depends_on": [],
+      "points": 2,
+      "status": "in_progress",
+      "sprint": "20",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter api run typecheck",
+        "pnpm --filter web exec vitest run tests/ui/chat-fabric-auto-readback-on-mount.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/chat-diagram-saved-readback.test.tsx tests/ui/chat-fabric-preview-syncs-after-save.test.tsx",
+        "pnpm run verify:chat-read",
+        "pnpm exec tsx .harness/scripts/cli.ts doctor"
+      ],
+      "evidence": "evidence/I1668.verify.log",
+      "notes": "issue #1668 勘探结论：这不是新缺口，是 chat-persona-roundtrip（G1，confirmed 2026-08-18）读回机制唯一没接上的一个触发时机——`fetchLatestSavedDiagramSource` 此前只在用户点「最大化」时调用，组件挂载（含整页刷新后的重新挂载）时 `savedSource` 恒为初始值 `null`，只读预览因此恒画消息原文，直到用户主动点过一次最大化。人类 2026-08-21 裁决：不回写消息 text（维持不可变性），图表继续独立存储/版本化，只读预览改接已建好的引用解析。实现：`ChatDiagramFabric`/`ChatCanvasFabric` 各新增一条 `React.useEffect`（依赖 inView+savedSource+threadId+messageId+projectId+bearer），`inView` 为真且 `savedSource===null` 且三个身份参数俱全时调用既有的 `fetchLatestSavedDiagramSource`（不新起端口，`packages/contracts/src/chat.ts` 零改动），命中则 `setSavedSource`，既有的 `previewCode = savedSource?.markdown ?? code` 链路自动接管渲染；`onSaved` 回调核实后确认已由 `onClose(result)`（PR #1696）实现，无需改动。真栈 e2e 直接反证 issue 描述现象：`apps/web/e2e/chat-diagram-save-reopen-roundtrip.spec.ts` 新增一条用例——保存后不刷新（气泡像素级对照）→ 整页 reload 不点最大化（断言自动 GET .../artifacts/:id/source 请求 + 像素级与保存后截图字节相等）。设计材料：`design-deltas/chat-diagram-artifact-reference/{contract.md,design-signoff.md}`（status: confirmed，零新增契约字段）。"
     }
   ]
 }

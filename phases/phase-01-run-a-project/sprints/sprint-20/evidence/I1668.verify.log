@@ -1,0 +1,47 @@
+I1668 — 图表消息只读预览接引用解析：挂载即读回最新保存版，不必先点最大化（#1668）
+实测 SHA（本分支切出点，origin/main）：df402344
+分支：worker/dev-chat-e2e-1668-diagram-artifact-reference
+
+$ pnpm --filter web run typecheck
+> web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/web
+> tsc --noEmit
+(exit 0)
+
+$ pnpm --filter api run typecheck
+> @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/apps/api
+> tsc --noEmit
+(exit 0)
+
+$ pnpm --filter web exec vitest run tests/ui/chat-fabric-auto-readback-on-mount.test.tsx
+ ✓ tests/ui/chat-fabric-auto-readback-on-mount.test.tsx (4 tests) 830ms
+   ✓ A · mermaid 图 · ChatDiagramFabric > 有保存版：挂载即自动查回，只读预览校验吃到的是保存版内容
+   ✓ A · mermaid 图 · ChatDiagramFabric > 无保存版：挂载查一次即可，预览保持原始消息内容，不重复发请求
+   ✓ A · mermaid 图 · ChatDiagramFabric > threadId/messageId/bearer 任一缺失：不发读回请求（预览页/流式草稿，与今天一致）
+   ✓ D · 工作坊画布模板 · ChatCanvasFabric（对称覆盖） > 有保存版：挂载即自动查回，只读预览校验吃到的是保存版内容
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+
+$ pnpm --filter web exec vitest run tests/ui/chat-diagram-saved-readback.test.tsx tests/ui/chat-fabric-preview-syncs-after-save.test.tsx
+ ✓ tests/ui/chat-diagram-saved-readback.test.tsx (5 tests)
+ ✓ tests/ui/chat-fabric-preview-syncs-after-save.test.tsx (3 tests)
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+
+$ pnpm run verify:chat-read
+（#74 隔离外壳，真栈：真浏览器 → apps/web → apps/api → PostgreSQL + 对象存储）
+Running 21 tests using 5 workers
+  ✓ e2e/chat-diagram-save-reopen-roundtrip.spec.ts:41:5 › G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版提示条 → 回到原始版 (37.4s)
+  ✓ e2e/chat-diagram-save-reopen-roundtrip.spec.ts:176:5 › 只读预览挂载即读回：保存后立即可见 + reload 不点最大化也可见（issue #1668） (26.5s)
+  ...（其余 19 条既有 e2e 全部通过，未破坏既有回归）
+  21 passed (2.2m)
+
+$ pnpm exec tsx .harness/scripts/cli.ts doctor
+doctor：体检 12 个 phase — 0 FAIL / 15 WARN
+✓ 审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，派生视图与源一致，
+  已开工的 feature 都在一份真正复核过它的签核范围内；phase runtime/E2E readiness 已按独立状态
+  与证据门审计（不会由 passing 数量推断）。
+
+设计材料：phases/phase-01-run-a-project/design-deltas/chat-diagram-artifact-reference/
+  {contract.md, design-signoff.md（status: confirmed, covers: ["I1668"]）, verification.md}
+
+GitHub issue：https://github.com/boardx/workspacex/issues/1733（对应 #1668 的技术实现落地）
