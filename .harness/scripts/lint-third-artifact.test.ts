@@ -56,7 +56,17 @@ function run() {
     phasesRoot: join(root, "phases"),
     contractsSrc: join(root, "packages", "contracts", "src"),
     schemaMapFile: join(root, ".harness", "scripts", "third-artifact-map.json"),
+    // 默认指向 fixture 里一个不存在的名单文件——不写名单时行为必须与加棘轮之前逐字相同。
+    allowlistFile: join(root, ".harness", "state", "third-artifact-allowlist.json"),
   });
+}
+
+/** 写棘轮豁免名单。传 null 写一份坏 JSON，用来验证「配置坏了必须显式红」。 */
+function allowlist(bundles: string[] | null) {
+  write(
+    ".harness/state/third-artifact-allowlist.json",
+    bundles === null ? "{ broken" : JSON.stringify({ bundles }, null, 2),
+  );
 }
 
 beforeEach(() => { root = mkdtempSync(join(tmpdir(), "third-artifact-")); });
@@ -219,5 +229,42 @@ describe("反向反证 —— 它在仓库的真实状态下必须能绿", () =>
     expect(form.get("web-kernel")).toBe("B");
     expect(form.get("identity")).toBe("A");
     expect(form.get("artifact")).toBe("A");
+  });
+});
+
+describe("棘轮豁免名单 —— 放行已知欠账，但不许放行新欠账", () => {
+  it("没有名单文件时，行为与加棘轮之前逐字相同（缺第 ③ 件照样红）", () => {
+    bundle({ schema: null, domain: "# 领域模型\n\n无声明。" });
+    const { errors } = run();
+    expect(errors.join("\n")).toContain("[第 ③ 件缺失]");
+  });
+
+  it("束在名单里 → 降级为 advisory，退出不再红", () => {
+    bundle({ schema: null, domain: "# 领域模型\n\n无声明。" });
+    allowlist([`${PHASE}/${BUNDLE}`]);
+    const { errors, advisories } = run();
+    expect(errors).toEqual([]);
+    expect(advisories).toContain(`${PHASE}/${BUNDLE}`);
+  });
+
+  it("束不在名单里 → 仍然红（新欠账不被放行，这是不做全局豁免的全部意义）", () => {
+    bundle({ schema: null, domain: "# 领域模型\n\n无声明。" });
+    allowlist(["phase-other/some-bundle"]);
+    const { errors } = run();
+    expect(errors.join("\n")).toContain("[第 ③ 件缺失]");
+  });
+
+  it("名单里的束已经补齐了 → 判陈旧豁免变红（棘轮只减不增）", () => {
+    bundle(); // 完整合规，不缺第 ③ 件
+    allowlist([`${PHASE}/${BUNDLE}`]);
+    const { errors } = run();
+    expect(errors.join("\n")).toContain("[陈旧豁免]");
+  });
+
+  it("名单文件坏了 → 显式红，既不静默放行也不静默当成空名单", () => {
+    bundle({ schema: null, domain: "# 领域模型\n\n无声明。" });
+    allowlist(null);
+    const { errors } = run();
+    expect(errors.join("\n")).toContain("[豁免名单不可读]");
   });
 });

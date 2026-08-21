@@ -214,6 +214,9 @@ export function trackNewFile(rel: string, content: string): Mutation["apply"] {
 // 这批变异全部在 2026-08-18 手工实测过（见 #1573 正文的表格），本表是把它们固化。
 // 新增门禁时**必须**在这里补登记：一道没有变异反证的门，等于没有证据说它在工作。
 
+const SHARED_DIR_SHOT = "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-checkin-empty.png";
+const SHARED_ORPHAN = "phases/phase-10-live-collaboration-orchestration/ui-preview/PROBE-orphan.png";
+const TA_ALLOWLIST = ".harness/state/third-artifact-allowlist.json";
 const UI_SHOT = "phases/phase-01-run-a-project/ui-preview/chat-v2/uc-8-3-landing-default.png";
 const NAV = "apps/web/lib/navigation.ts";
 const REWRITE_ALLOWLIST = ".harness/state/rewrite-coverage-allowlist.json";
@@ -246,6 +249,50 @@ export const GATE_SPECS: readonly GateSpec[] = [
     guards: (_r, io) => io.exists(UI_SHOT),
     mutations: [
       { name: "删掉一张 ui.md 引用的截图（造死链）", apply: removeFile(UI_SHOT) },
+    ],
+  },
+  {
+    // 共用目录模式（2026-08-20 为 phase-10 扩的模型）单独登记：它把孤图检查
+    // 从「逐束」放宽到「组级并集」，是这道门唯一一次放宽判定——必须有变异证明
+    // 放宽之后它仍然能抓到孤图，否则就是给自己开了个后门。
+    gate: "ui-material-shared",
+    run: node(".harness/scripts/lint-ui-material.mjs"),
+    guards: (_r, io) => io.exists(SHARED_DIR_SHOT),
+    mutations: [
+      {
+        name: "共用目录塞一张没人引用的图（组级孤图）",
+        apply: (root, io) => {
+          if (!io.exists(SHARED_DIR_SHOT)) return false;
+          io.write(SHARED_ORPHAN, io.read(SHARED_DIR_SHOT));
+          return true;
+        },
+      },
+      { name: "删掉共用目录里被引用的图（死链）", apply: removeFile(SHARED_DIR_SHOT) },
+    ],
+  },
+  {
+    // 棘轮豁免名单（2026-08-21 人类裁决先放行 phase-10 五个束）。
+    // 放行必须可反证：名单一旦被滥用或过期，这道门要当场红，否则棘轮就成了后门。
+    gate: "third-artifact-ratchet",
+    run: node(".harness/scripts/lint-third-artifact.mjs"),
+    guards: (_r, io) => io.exists(TA_ALLOWLIST),
+    mutations: [
+      {
+        name: "名单里加一条已经不缺第 ③ 件的束（陈旧豁免）",
+        apply: replaceOnce(
+          TA_ALLOWLIST,
+          '"bundles": [',
+          '"bundles": [\n    "phase-01-run-a-project/skills",',
+        ),
+      },
+      {
+        name: "名单文件写坏（配置坏了必须显式红，不许静默放行）",
+        apply: (_root, io) => {
+          if (!io.exists(TA_ALLOWLIST)) return false;
+          io.write(TA_ALLOWLIST, "{ broken");
+          return true;
+        },
+      },
     ],
   },
   {

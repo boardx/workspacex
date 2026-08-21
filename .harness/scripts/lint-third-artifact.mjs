@@ -160,9 +160,45 @@ function findBundles(phasesRoot) {
 
 /* ── 主体 ─────────────────────────────────────────────────────────────── */
 
-export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, schemaMapFile = CONTRACT_MAP_FILE, only = [] } = {}) {
+/**
+ * 棘轮豁免名单（人类 2026-08-21 裁决）。
+ *
+ * 起因：phase-10 五个束缺第 ③ 件，这道门在 main 上常红，**5 个 open PR 全部被拦**。
+ * 一道拦住所有人的门会被绕过——本仓 #848 已经发生过一次（门静默失效 5 天，
+ * 最后大家不再用工具）。人类决定先放行。
+ *
+ * ⚠ 刻意**不做全局豁免**：全局关掉会让新阶段也不受检查，而这道门在 24 个既有束上
+ * 是有判别力的（形态 A 21 束 / 形态 B 4 束，变异实测能抓）。棘轮只放行已知的历史
+ * 欠账，**新欠账当场红**。
+ *
+ * 名单只能变短：补齐后不删条目会被判「陈旧豁免」并变红——留着一条已补好的豁免，
+ * 等于给未来的回归留一扇没人看守的门（同 #539 rewrite-coverage 棘轮）。
+ */
+const ALLOWLIST_FILE = join(ROOT, ".harness", "state", "third-artifact-allowlist.json");
+
+function readAllowlist(file = ALLOWLIST_FILE) {
+  if (!existsSync(file)) return new Set();
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    return new Set(Array.isArray(parsed.bundles) ? parsed.bundles : []);
+  } catch {
+    // 名单读不出来时**不**静默放行——那会把「配置坏了」变成「全部通过」。
+    return null;
+  }
+}
+
+export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, schemaMapFile = CONTRACT_MAP_FILE, allowlistFile = ALLOWLIST_FILE, only = [] } = {}) {
   const errors = [];
   const rows = [];
+  const allowlist = readAllowlist(allowlistFile);
+  if (allowlist === null) {
+    errors.push(
+      `[豁免名单不可读] ${allowlistFile} 存在但解析失败。\n` +
+      `    这里不当成「名单为空、全部照常检查」也不当成「全部放行」——配置坏了必须显式红。`,
+    );
+    return { errors, rows };
+  }
+  const allowlistHit = new Set();
   const SRC = contractsSrc ?? join(root, "packages", "contracts", "src");
   const PH = phasesRoot ?? join(root, "phases");
   const schemaMap = existsSync(schemaMapFile)
@@ -320,16 +356,48 @@ export function lintThirdArtifact({ root = ROOT, phasesRoot, contractsSrc, schem
     rows.push(row);
   }
 
-  return { errors, rows };
+  /* ── 棘轮：命中名单的错误降级为 advisory，并记录命中 ──────────────── */
+  const kept = [];
+  for (const e of errors) {
+    const hit = [...allowlist].find((b) => e.includes(b));
+    if (hit) { allowlistHit.add(hit); continue; }
+    kept.push(e);
+  }
+
+  /* ── 棘轮反方向：名单里已经不缺的条目必须删掉 ──────────────────────── */
+  // ⚠ 只对**本次扫到的束**判陈旧。用 --only <phase> 过滤时，名单里其他阶段的条目
+  //   压根没被检查过，判它「已经不缺了」是无中生有——既有的反向反证（跑真仓库的
+  //   phase-00）当场抓到了这个 bug，2026-08-21。
+  const inScope = new Set(targets.map(({ phase, bundle }) => `${phase}/${bundle}`));
+  for (const b of allowlist) {
+    if (allowlistHit.has(b) || !inScope.has(b)) continue;
+    kept.push(
+      `[陈旧豁免] ${b} 已经不缺第 ③ 件了，请从 .harness/state/third-artifact-allowlist.json 删掉这条。\n` +
+      `    棘轮只减不增。留着一条已补好的豁免，等于给未来的回归留一扇没人看守的门。`,
+    );
+  }
+
+  return { errors: kept, rows, advisories: [...allowlistHit] };
 }
 
 /* ── CLI ──────────────────────────────────────────────────────────────── */
 if (process.argv[1] && process.argv[1].endsWith("lint-third-artifact.mjs")) {
-  const { errors, rows } = lintThirdArtifact({ only: process.argv.slice(2) });
+  const { errors, rows, advisories = [] } = lintThirdArtifact({ only: process.argv.slice(2) });
   for (const r of rows) {
     console.log(
       `  ${r.form ? "✓" : "✗"} ${r.label.padEnd(44)} ${r.form ? `形态 ${r.form}` : "第 ③ 件缺失"}` +
       `  R12 ${String(r.r12).padStart(3)} 行  ${r.schema ?? ""}`,
+    );
+  }
+  if (advisories.length) {
+    console.warn("");
+    console.warn(
+      `! ${advisories.length} 个束的第 ③ 件缺口在棘轮豁免名单里（人类 2026-08-21 裁决先放行，不影响退出码）：`,
+    );
+    for (const b of advisories) console.warn(`   · ${b}`);
+    console.warn(
+      "   这不是「通过」，是「已知欠账、暂不拦」。补齐后必须从 " +
+      ".harness/state/third-artifact-allowlist.json 删掉对应条目，否则会被判陈旧豁免变红。",
     );
   }
   if (errors.length) {
@@ -342,8 +410,18 @@ if (process.argv[1] && process.argv[1].endsWith("lint-third-artifact.mjs")) {
     );
     process.exit(1);
   }
-  console.log(
-    `✅ lint-third-artifact: ${rows.length} 个契约束的第 ③ 件均成立` +
-    `（形态 A ${rows.filter((r) => r.form === "A").length} 束 / 形态 B ${rows.filter((r) => r.form === "B").length} 束）`,
-  );
+  // 措辞刻意区分：有豁免时不许说「均成立」——5 个束确实不成立，只是暂不拦。
+  // 把 advisory 说成「通过」正是本仓九次「全绿但空转」的开端形状。
+  const a = rows.filter((r) => r.form === "A").length;
+  const b = rows.filter((r) => r.form === "B").length;
+  if (advisories.length) {
+    console.log(
+      `✅ lint-third-artifact: ${a + b} 个契约束的第 ③ 件成立（形态 A ${a} 束 / 形态 B ${b} 束）；` +
+      `另有 ${advisories.length} 个束**不成立**但在棘轮豁免名单里，本次不拦。`,
+    );
+  } else {
+    console.log(
+      `✅ lint-third-artifact: ${rows.length} 个契约束的第 ③ 件均成立（形态 A ${a} 束 / 形态 B ${b} 束）`,
+    );
+  }
 }

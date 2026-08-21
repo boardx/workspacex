@@ -1,0 +1,25 @@
+{
+  "_readme": [
+    "签核第 ③ 件（API 契约）的棘轮豁免名单。人类 2026-08-21 裁决：main 上这道门常红、",
+    "5 个 open PR 全部因此被拦，先放行，但不做全局豁免。",
+    "",
+    "规则：这个数组只能变短。补齐第 ③ 件之后必须把对应条目删掉——",
+    "lint-third-artifact 会把「已经补好了却还留在名单里」的条目报成陈旧并变红，",
+    "因为留着一条已补好的豁免，等于给未来的回归留一扇没人看守的门（同 #539 rewrite-coverage 棘轮）。",
+    "",
+    "为什么不是全局关掉这道门：全局豁免会让新阶段也不受检查，而这道门在既有束上是有判别力的",
+    "（形态 A 26 束 / 形态 B 4 束，实测能抓）。棘轮只放行已知的历史欠账，新欠账当场红。",
+    "",
+    "条目格式：<phase>/<bundle>。补齐方式二选一（ADR-023 决策一）：",
+    "  形态 A：写 packages/contracts/src/<束>.ts",
+    "  形态 B：domain.md 显式声明「本束无对外 HTTP 面」+ coverage.md 的 API 列填门控命令",
+    "两种都要求 coverage.md 有以 R12 编号为行键的映射表。"
+  ],
+  "bundles": [
+    "phase-10-live-collaboration-orchestration/group-checkin",
+    "phase-10-live-collaboration-orchestration/module-routing",
+    "phase-10-live-collaboration-orchestration/segment-engine",
+    "phase-10-live-collaboration-orchestration/stage-aggregation",
+    "phase-10-live-collaboration-orchestration/viewer-role"
+  ]
+}
