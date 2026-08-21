@@ -18,7 +18,7 @@
         "grep -rq 'data-testid=\"lc-viewer-switcher\"' apps/web/components/project/tab-live.tsx",
         "grep -rq 'data-testid=\"lc-viewer-trigger\"' apps/web/components/project/tab-live.tsx",
         "grep -rq 'data-testid=\"lc-viewer-menu\"' apps/web/components/project/tab-live.tsx",
-        "pnpm --filter web typecheck",
+        "pnpm --filter web exec tsc --noEmit",
         "pnpm --filter web exec vitest run tests/ui/project-live-viewer-switcher.test.tsx"
       ],
       "evidence": "evidence/F01.verify.log @ 2026-08-20T14:57:34.584Z",
@@ -62,7 +62,7 @@
       "verification": [
         "grep -rq 'data-testid=\"project-live-stagebar\"' apps/web/components/project/tab-live.tsx",
         "grep -rq 'listAgendaSegments\\|advanceAgendaSegment' apps/web/components/project/tab-live.tsx",
-        "pnpm --filter web typecheck",
+        "pnpm --filter web exec tsc --noEmit",
         "pnpm --filter web exec vitest run tests/ui/project-live-segment-engine-consistency.test.tsx"
       ],
       "evidence": "evidence/F03.verify.log @ 2026-08-20T21:05:31.132Z",

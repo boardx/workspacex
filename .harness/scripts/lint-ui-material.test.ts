@@ -364,16 +364,96 @@ describe("反向反证 —— 它在仓库的真实状态下必须是绿的", ()
     }
   });
 
-  it("共用目录组真实存在，且组内并集恰好等于实存集（不是靠放宽判定过的）", () => {
-    const { rows } = lintUiMaterial({});
-    const shared = rows.filter((r) => r.shared);
-    // 这条断言绑死 phase-10 的真实结构：5 个束共用一个 18 张图的扁平目录。
-    // 如果有人把共用模式滥用到别处，或 phase-10 结构变了，这里会红，逼人重新核对。
-    expect(shared.length).toBe(5);
-    for (const r of shared) expect(r.actual).toBe(18);
-    const sum = shared.reduce((n, r) => n + r.referenced, 0);
-    // 22 > 18：束之间**确实存在重叠引用**——这正是当初无法拆成互不相交子目录、
-    // 必须引入共用模式的原因。若哪天这个和等于 18，说明重叠没了，该退回普通映射。
-    expect(sum).toBeGreaterThan(18);
+});
+
+describe("共用目录模式（shared_dir）—— 用 fixture 测能力，不绑活仓状态", () => {
+  // 出身：2026-08-20 phase-10 的 5 个束曾共用一个扁平 ui-preview/ 且引用重叠。
+  // 该阶段后来被拆成按束子目录（共用的图各复制一份），共用模式在活仓里暂时没有
+  // 使用者——但能力保留：重叠引用是真实会再出现的结构，而拆目录靠复制图片是
+  // 「同一张图第二份副本」，不该是唯一出路。
+  // 初版这条测试断言的是活仓状态（phase-10 用共用模式），结构一变就红了——
+  // 那是测「今天恰好是什么样」，不是测「这个能力对不对」。改成 fixture。
+  const P = "phase-shared";
+  const D = "ui-preview";
+
+  function setupSharedGroup(perBundle: Record<string, string[]>, all: string[]) {
+    shotsFor(P, D, all);
+    for (const [b, refs] of Object.entries(perBundle)) uiFor(P, b, uiMdFor(b, D, refs, refs.length, all.length));
+    return writeMap({
+      [P]: Object.fromEntries(Object.keys(perBundle).map((b) => [b, { shared_dir: D }])),
+      // 需要至少一个 structured mapping 才走非 legacy 路径；shared_dir 本身就是。
+    });
+  }
+
+  it("并集恰好等于实存集 → 绿（重叠引用不判红）", () => {
+    const mapFile = setupSharedGroup(
+      { a: ["x.png", "shared.png"], b: ["y.png", "shared.png"] },
+      ["x.png", "y.png", "shared.png"],
+    );
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors).toEqual([]);
+  });
+
+  it("组里有一张谁都没引用的图 → 红（孤图检查升到组级，不是取消）", () => {
+    const mapFile = setupSharedGroup(
+      { a: ["x.png"], b: ["y.png"] },
+      ["x.png", "y.png", "nobody-refs-me.png"],
+    );
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).toContain("[未被引用]");
+    expect(errors.join("\n")).toContain("nobody-refs-me.png");
+  });
+
+  it("某个束一张都不引用 → 红（共用目录不代表本束可以没有材料）", () => {
+    shotsFor(P, D, ["x.png"]);
+    uiFor(P, "a", uiMdFor("a", D, ["x.png"], 1, 1));
+    uiFor(P, "b", ["# b", "", "> **自检：本文件引用 0 张截图，目录下实际 1 张。**", ""].join("\n"));
+    const mapFile = writeMap({ [P]: { a: { shared_dir: D }, b: { shared_dir: D } } });
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).toContain("[无材料]");
+  });
+
+  it("只有一个束声明 shared_dir → 红（独占时用共用模式等于白送一个豁免）", () => {
+    shotsFor(P, D, ["x.png", "y.png"]);
+    uiFor(P, "a", uiMdFor("a", D, ["x.png"], 1, 2));
+    const mapFile = writeMap({ [P]: { a: { shared_dir: D } } });
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).toContain("[共用组过小]");
+  });
+
+  it("shared_dir 指向 phase 外 → 红（越界防护与 concrete 一致）", () => {
+    shotsFor(P, D, ["x.png"]);
+    uiFor(P, "a", uiMdFor("a", D, ["x.png"], 1, 1));
+    uiFor(P, "b", uiMdFor("b", D, ["x.png"], 1, 1));
+    const mapFile = writeMap({ [P]: { a: { shared_dir: "../other/ui-preview" }, b: { shared_dir: D } } });
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).toContain("[目录映射越界]");
+  });
+});
+
+describe("map 重复键 —— 一份看得见但永不生效的死条款", () => {
+  // 2026-08-20 真实事故：两个人用两种方式修同一个 phase-10 问题，都合进了 main，
+  // 结果同一个 phase 键在 map 里出现两次。JSON.parse 按规范静默取后者，前一份
+  // 完全不生效却看不出任何异常——本仓点名的「同一事实两处声明」里最坏的一种。
+  it("同一个 phase 键出现两次 → 红，且点名是哪个键", () => {
+    shotsFor(PHASE, DIR, ["a.png"]);
+    ui(uiMd(["a.png"]));
+    const mapFile = join(root, "map.json");
+    writeFileSync(
+      mapFile,
+      `{\n  "${PHASE}": { "${BUNDLE}": "${DIR}" },\n  "${PHASE}": { "${BUNDLE}": { "reuse_bundle": "other" } }\n}\n`,
+    );
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).toContain("[重复声明]");
+    expect(errors.join("\n")).toContain(PHASE);
+  });
+
+  it("以 // 开头的注释键重复不算 —— map 里本来就有 //1 //2 这类多条注释", () => {
+    shotsFor(PHASE, DIR, ["a.png"]);
+    ui(uiMd(["a.png"]));
+    const mapFile = join(root, "map.json");
+    writeFileSync(mapFile, `{\n  "//": "x",\n  "//": "y",\n  "${PHASE}": { "${BUNDLE}": "${DIR}" }\n}\n`);
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).not.toContain("[重复声明]");
   });
 });
