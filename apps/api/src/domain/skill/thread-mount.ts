@@ -24,24 +24,59 @@
 import { createHash } from "node:crypto";
 import { skills } from "@repo/contracts";
 import type { z } from "zod";
-import type { DeliverRole } from "./binding-slot";
+import type { ProjectRole } from "../identity/roles";
 
 /** 从契约派生，不重写（ADR-020）——契约与本域在这个形状上没有分歧可登记。 */
 export type ThreadSkillMount = z.infer<typeof skills.ThreadSkillMount>;
 
-/* ─────────────────────── 谁能自行挂载（R5 / S3） ─────────────────────── */
+/* ─────────────────────── 谁能自行挂载（R5，2026-08-21 人类裁决改写） ─────────────────────── */
 
 /**
- * **前置：引导师，或组长且引导师已下放该权限**（契约 `mountSkillToThread` 注释 / domain D-h）。
+ * **判据：能写这条线程的人，就能往它上面挂 skill。**
  *
- * ⚠ `KNOWN_CONTRACT_GAPS.S3`（`packages/contracts/src/skills.ts`）逐字记着：
- *   「没有任何操作能产生这次下放，该前置条件目前恒不可满足」。
- *   ⇒ 在委托机制落地前，**组长与组员同样被拒**——这不是把组长降级，
- *   是如实反映「下放开关不存在」这件事，而不是悄悄放行一个没有实现的权限位。
- *   一旦委托机制签核落地，改的是这一个函数，而不是散在各处的角色判断。
+ * ## 依据：人类产品裁决 2026-08-21（逐字）
+ *
+ * > 「个人对话必须要可以使用公共的 skills」
+ * > 「所有的人都可以用」
+ *
+ * 此前本函数是 `role === "引导师"`，配 `KNOWN_CONTRACT_GAPS.S3`「组长的下放开关
+ * 尚未落地」。裁决把那条前置**整个取消**了：不再有「谁被下放了挂载权」这个问题，
+ * 因而 S3 那个缺口也不再是缺口（它描述的开关不需要存在了）。
+ *
+ * ## 为什么判据从 `DeliverRole` 换成「线程 + 角色」
+ *
+ * `DeliverRole`（引导师/组长/组员）是**项目**角色。个人对话 `project_id IS NULL`
+ * ⇒ 没有项目 ⇒ 没有 `DeliverRole` ⇒ 用一个项目角色去判个人对话，答案必然是「拒绝」，
+ * 而那正是裁决要推翻的行为。所以判据的输入必须包含「这是不是个人线程」。
+ *
+ * ## 两条分支
+ *
+ * · **个人线程**（`threadIsPersonal`）：仅创建者。与 `decidePersonalThreadRead`
+ *   （`domain/chat/thread-visibility.ts`）同一条 creator-only 规则——本函数**不重算**
+ *   它，由调用方把已判好的 `threadReadAllowed` 传进来（见 `authorize-thread-mount.ts`）。
+ * · **项目线程**：任何该项目成员，**除观察者**。观察者是「只读」，
+ *   给只读角色一个写入口就等于取消了这个角色。这与发消息路径
+ *   （`message-roundtrip.ts` 的 `MessageNoWriteRoleError`）是同一条「能不能写」判据。
+ *
+ * ⚠ `threadReadAllowed` 是必需输入而不是「调用方应该先查一下」的约定：
+ *   把它做成参数，意味着**拿不到可见性判定就调不动这个函数**——
+ *   忘记判权在这里是一个类型错误，不是一次静默放行。
  */
-export function isSelfMountAllowed(role: DeliverRole): boolean {
-  return role === "引导师";
+export function isThreadMountAllowed(input: {
+  /** 这条线程是否为个人对话（`project_id IS NULL`）。 */
+  readonly threadIsPersonal: boolean;
+  /** 调用方已经过 `resolveVisibility` 得到的「这个人能不能读这条线程」。 */
+  readonly threadReadAllowed: boolean;
+  /** 项目线程里的项目角色；个人线程恒 `null`。 */
+  readonly projectRole: ProjectRole | null;
+}): boolean {
+  // 读不到的线程一律不能写。两条分支共用这道门，所以没有「个人线程绕过可见性」的路径。
+  if (!input.threadReadAllowed) return false;
+  // 个人线程：可读即可写——creator-only 已经由上面那道门表达完了（个人分支的
+  // `resolveVisibility` 只对创建者返回 allow），这里再判一次 `createdBy` 就是第二份副本。
+  if (input.threadIsPersonal) return true;
+  // 项目线程：成员即可，观察者除外。
+  return input.projectRole !== null && input.projectRole !== "observer";
 }
 
 /* ─────────────────────── 挂载列表：纯函数，不原地改 ─────────────────────── */

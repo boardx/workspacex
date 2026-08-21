@@ -1,12 +1,7 @@
 # `viewer-role` — UI 材料索引
 
-材料位置：`phases/phase-10-live-collaboration-orchestration/ui-preview/`（真实组件 + mock，
+材料位置：`phases/phase-10-live-collaboration-orchestration/ui-preview/viewer-role/`（真实组件 + mock，
 `apps/web/components/live-collab/orchestration-preview.tsx`，预览路由 `/preview/live-collab-orchestration`）。
-> **自检**：本文件引用 5 张截图，目录下实际 18 张。
->
-> 本束与本阶段其余 4 个束**共用**扁平的 `ui-preview/`（引用互相重叠，拆子目录只能靠复制图片）。
-> 因此本行只断言「本文件引用 5 张」；「18 张全部被引用」由组级并集检查兜底，
-> 见 `.harness/scripts/ui-material-map.json` 的 `shared_dir` 声明。
 
 
 本文件引用 **5** 张截图，目录下实际 **5** 张。

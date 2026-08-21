@@ -74,7 +74,7 @@
 | V1 | AC1：临时加的 skill 在会后复盘被标「临时加载」并可提交回蓝本 | `listThreadDeviations` / `submitMountBackToTemplate` | **复盘屏未建** | ⚠ **缺口 13** |
 | V2 | AC2：第 2 组挂载后第 1 组同环节对话挂载列表不变，蓝本不变 | `mountSkillToThread`（作用域 threadId）→ `MOUNT_SCOPE_VIOLATION` | —（API 层验收） | ✅ 见 domain I-18 |
 | V3 | AC3：摘掉 skill 后此前生成的消息仍带该 skill 角标 | `unmountSkillFromThread`；归因 append-only | `/chat` `chat-ai-skill`（角标已建、可直接签） | ✅ |
-| V4 | 组员端无「＋加技能」入口；直调挂载接口被拒并写安全审计 | `mountSkillToThread` → `MEMBER_CANNOT_SELF_MOUNT` | `/chat?as=member`（**「＋加技能」入口本身未建**，见缺口 14） | ⚠ **缺口 14** |
+| V4 | ~~组员端无「＋加技能」入口~~ → **2026-08-21 人类裁决改判**：组员**可以**挂载（「所有的人都可以用」）。现判据：**写不了这条线程**的人（观察者 / 非本项目成员 / 别人的个人对话）直调接口被拒并写安全审计 | `mountSkillToThread` → `PERMISSION_REVOKED` | 真栈 HTTP：`tests/capability/skill/personal-thread-public-skill-mount.test.ts`（T2 组员可挂 / T4a·b·c·d 越权被拒），四条反证均实测变红（#1693） | ✅ 服务端已覆盖；**「＋加技能」入口本身仍未建**，见缺口 14 |
 | V5 | 可选池为空时显示真实空态与原因，不生成示例数据 | `listMountableSkills` → `[]` | **选择器面板未建** | ⚠ **缺口 14** |
 | V6 | 某 skill 依赖的模型被停用时在选择器里不可选并说明原因 | `listMountableSkills` → `mountable[].disabledReason` | `/chat` `chat-settings-skill`（**当前是单选 chip 且无禁用态**） | ⚠ **缺口 14** |
 | V7 | 五类角色遍历，可读与可执行严格符合 R5 | 各用例 `pre` | `/chat?as=…` 预览轴（观察者已无输入区） | ✅ |
