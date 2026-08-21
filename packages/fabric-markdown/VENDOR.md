@@ -12,7 +12,7 @@
 | 并入日期 | 2026-07-30 |
 | 并入内容 | `src/**`、`tests/**`（**逐字**，未改一行） |
 | 未并入 | `demo/`、`dist/`、`vite.config.ts`、`package-lock.json`、`BACKLOG.md`、`node_modules/` |
-| `src` + `tests` 树摘要 | `sha256:7136183aa6b679b90ba58d6a7fc5368b45648405133d213f3912b3b4e7d0eaea`（2026-08-21 回流后，见下方「上游回流记录」；并入当时的原始值 `sha256:55199e79f433bdbc0ee50c479631589edfd28fb1516b58e354fac6a29fa67f99` 留痕） |
+| `src` + `tests` 树摘要 | `sha256:3d54b8c9057e93a3386b0417228263654c0c90d2bf9af4d51bd9bac1aaf3a2c4`（2026-08-22 回流后，见下方「上游回流记录」；并入当时的原始值 `sha256:55199e79f433bdbc0ee50c479631589edfd28fb1516b58e354fac6a29fa67f99` 留痕） |
 
 树摘要的复算方式（在上游目录里跑，结果应与上表一致）：
 
@@ -33,13 +33,14 @@ find src tests -type f | sort | xargs shasum -a 256 | shasum -a 256
 | `src/templates-entry.ts` | 新增 | **纯 Node 入口**：只激活 19 个 A0 模板，不触碰 `fabric` / `mermaid`（ADR-100 决策三） |
 | `UPSTREAM-README.md` | 新增（重命名） | 上游 `README.md` 原文，改名以免与本仓文档混淆 |
 | `VISUAL-SPEC.md` | 原样 | 上游同名文件 |
-| `src/**`（除 `templates-entry.ts`）、`tests/**` | 2026-08-21 起有一处真实改动 | 见下方「上游回流记录」第一条；222 个单测一个未改（改动不影响既有测试覆盖，新增覆盖在 `apps/web` 那一侧） |
+| `src/**`（除 `templates-entry.ts`）、`tests/**` | 2026-08-21～08-22 起有两处真实改动 | 见下方「上游回流记录」；222 个单测一个未改（改动不影响既有测试覆盖，新增覆盖在 `apps/web` 那一侧） |
 
 ## 上游回流记录
 
 | 日期 | 文件 | 改了什么 / 为什么 |
 |---|---|---|
 | 2026-08-21 | `src/interactions/mindmap-editor.ts` | `addChildOf`（Tab/Enter 加子节点/兄弟节点共用）加新连边时，此前用 `sendObjectToBack` 把新边甩到整个 canvas 对象栈的**绝对最前面**——不只是排到所有节点前面（视觉上"在节点下方"，这是原意图），还排到了所有**既有边**前面。`extractModel` 按 `canvas.getObjects()` 迭代顺序建 `model.edges`，`buildTree`（`diagrams/mindmap.ts`）按这个顺序给每个父节点的子节点数组追加成员，`layoutMindmap` 再按子节点数组顺序给叶子分配 `leafIndex`（越靠前 y 越小、越靠上）——于是新增的子节点/兄弟节点永远排到最上面，不是追加到最下面（人类实测反馈）。改法：新边改插到**已有边簇的末尾**（`canvas.insertAt`，紧跟最后一条既有边、仍在所有节点之前）而不是整个栈的最前面——既保住"连线在节点下方"的原意图，又保住"新连线追加在已有连线之后"的正确顺序。上游 222 个单测 + 本仓 `apps/web/tests/ui/canvas-stage-mindmap-keyboard.test.tsx` 新增的两条排序回归全绿，已用 stash 反证过（回退这处改动后新增的两条测试确实会红）。 |
+| 2026-08-22 | `src/fabric-objects.ts` | 人类要求"review 可视化的连线的问题"后实测发现：`FlowEdge` 被选中时没有任何贴着线本身的视觉反馈——只有 Fabric 默认的 `hasBorders` 给的一个轴对齐外接矩形，密集图上很难看出选中的到底是哪条线（对弯曲边/mindmap S 曲线尤其明显，`setEndpoints` 给弯曲边留的 padding 本来就比直线宽松）。改法：`lineColor()`（`_render` 主描边 + `renderMarker` 箭头/marker 共用同一个方法）在这条边是 canvas 当前 active object 时换成 `SELECTED_EDGE_STROKE`（同 `NODE_STROKE` 一个色号，选中语言跨节点/边统一），`_render` 的 `ctx.lineWidth` 同时加粗到 1.6 倍——描边色 + 线宽两个信号一起变，不依赖用户去找那个松散的外接矩形。上游 222 个单测 + 本仓 `apps/web/tests/ui/canvas-stage-edge-editability.test.tsx` 新增回归全绿，已用 stash 反证过（回退这处改动后新增测试确实会红）。⚠ 第一版直接调用 `this.canvas?.getActiveObject()` 撞出一个真实回归——`getActiveObject` 只在交互式 `Canvas`/`SelectableCanvas` 上有，`apps/api/tests/canvas/coords-not-written-back.test.ts` 这类服务端/无头渲染路径用的是不带这个方法的 `StaticCanvas`，直接调用会在异步渲染帧里抛 `getActiveObject is not a function`（`pnpm --filter api exec vitest run tests/canvas` 从 0 errors 变成 6 errors，测试本身仍全绿但有未处理异常，靠这个信号抓出来的，不是靠读代码猜到的）。改成新增的 `isSelected()` 私有方法做鸭子类型判断（`typeof c?.getActiveObject === 'function'`），两条渲染路径都安全。 |
 
 ## 回流规程
 
