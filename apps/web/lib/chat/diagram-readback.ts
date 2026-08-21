@@ -18,7 +18,8 @@ export interface SavedDiagramSource {
 export async function fetchLatestSavedDiagramSource(input: {
   threadId: string;
   messageId: string;
-  projectId: string;
+  /** `null` = 个人线程（人类裁决，2026-08-21：个人对话也支持 G1 读回）。 */
+  projectId: string | null;
   bearer?: string;
 }): Promise<SavedDiagramSource | null> {
   try {

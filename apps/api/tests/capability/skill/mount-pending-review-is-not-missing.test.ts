@@ -32,7 +32,7 @@ import { collectAudit, threadMountStore, visibility } from "../../support/skill-
 const baseInput = {
   threadId: "thread-552",
   principalId: "u-facilitator",
-  role: "引导师",
+  authorization: { allowed: true, projectId: "p-1", projectRole: "facilitator", decisionId: "d-1" } as const,
   mountIdFor: (i: number) => `mount-${i}`,
   mountedAt: "2026-08-05T00:00:00Z",
   expectedFingerprint: null,

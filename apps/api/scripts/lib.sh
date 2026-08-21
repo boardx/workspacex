@@ -43,7 +43,14 @@ pg_up() {
   local tries=0
   # Readiness is checked against the SERVER, not a specific database -- a per-worker
   # database does not exist until pg_reset creates it.
-  until $COMPOSE exec -T postgres pg_isready -U postgres >/dev/null 2>&1; do
+  #
+  # `-h 127.0.0.1` is load-bearing (#1704): the compose service keeps its data dir on
+  # tmpfs, so every start runs initdb, and the entrypoint's temporary init server listens
+  # on the Unix socket ONLY. A bare `pg_isready` answers UP against that half-built
+  # instance and everything after it races the entrypoint's shutdown
+  # ("FATAL: terminating connection due to administrator command"). See the long note on
+  # `postgresReady()` in apps/api/tests/support/db.ts -- same fact, same fix.
+  until $COMPOSE exec -T postgres pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; do
     tries=$((tries + 1))
     if [ "$tries" -gt 60 ]; then
       echo "postgres did not become ready in time" >&2

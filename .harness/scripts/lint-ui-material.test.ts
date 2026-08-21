@@ -347,14 +347,13 @@ describe("显式同 phase 束复用", () => {
 });
 
 describe("反向反证 —— 它在仓库的真实状态下必须是绿的", () => {
-  it("phase-01 十个束当前全绿（一道永远红的门控等于没有）", () => {
+  it("全仓契约束当前全绿（一道永远红的门控等于没有）", () => {
     const { errors, rows } = lintUiMaterial({});
     expect(errors).toEqual([]);
     expect(rows.length).toBeGreaterThanOrEqual(10);
     for (const r of rows) {
       if (r.shared) {
         // 共用目录组的不变量是「组内并集 == 实存集」，不是逐束相等——
-        // 单束 3/18 是正确状态。逐束断言在这里会把正确状态判成红。
         // 组级并集由 lintUiMaterial 自己在 errors 里兜底（上面已断言 errors 为空）。
         expect(r.referenced).toBeGreaterThan(0);
         expect(r.orphans).toBe(0);
@@ -364,16 +363,113 @@ describe("反向反证 —— 它在仓库的真实状态下必须是绿的", ()
     }
   });
 
-  it("共用目录组真实存在，且组内并集恰好等于实存集（不是靠放宽判定过的）", () => {
+  // 2026-08-20 曾在这里绑死 phase-10 五束共用一个 18 张图的扁平目录（issue #1690 的
+  // shared_dir 方案）。2026-08-21 复查发现：该方案落地时 map.json 里写出了两份同名顶层键
+  // （shared_dir 一份 + 逐束目录一份），JSON.parse 对重复键只取最后一次出现，shared_dir
+  // 那份从未真正生效过，issue 却被误关——而磁盘早就不是共用扁平目录了：18 张截图已经
+  // 按束物理复制进 5 个独立子目录（group-checkin/module-routing/segment-engine/
+  // stage-aggregation/viewer-role），逐束引用集合与各自子目录逐张相等，不再有重叠。
+  // 见 phases/phase-10-live-collaboration-orchestration/.../ui-material-map.json 与
+  // 对应 ui.md 的自检行。lintSharedGroup 机制本身没有被删——下面这组合成 fixture 单独测它。
+  it("phase-10 五束现在是逐束独占目录，不是共用组（真实状态已不是当初绑死的样子）", () => {
     const { rows } = lintUiMaterial({});
+    const p10 = rows.filter((r) => r.label.startsWith("phase-10-live-collaboration-orchestration/"));
+    expect(p10.length).toBe(5);
+    for (const r of p10) {
+      expect(r.shared).toBeFalsy();
+      expect(r.referenced).toBe(r.actual);
+      expect(r.orphans).toBe(0);
+    }
+  });
+});
+
+describe("map 重复键 —— 一份看得见但永不生效的死条款", () => {
+  // 2026-08-20 真实事故：两个人用两种方式修同一个 phase-10 问题，都合进了 main，
+  // 结果同一个 phase 键在 map 里出现两次。JSON.parse 按规范静默取后者，前一份
+  // 完全不生效却看不出任何异常——本仓点名的「同一事实两处声明」里最坏的一种。
+  it("同一个 phase 键出现两次 → 红，且点名是哪个键", () => {
+    shotsFor(PHASE, DIR, ["a.png"]);
+    ui(uiMd(["a.png"]));
+    const mapFile = join(root, "map.json");
+    writeFileSync(
+      mapFile,
+      `{\n  "${PHASE}": { "${BUNDLE}": "${DIR}" },\n  "${PHASE}": { "${BUNDLE}": { "reuse_bundle": "other" } }\n}\n`,
+    );
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).toContain("[重复声明]");
+    expect(errors.join("\n")).toContain(PHASE);
+  });
+
+  it("以 // 开头的注释键重复不算 —— map 里本来就有 //1 //2 这类多条注释", () => {
+    shotsFor(PHASE, DIR, ["a.png"]);
+    ui(uiMd(["a.png"]));
+    const mapFile = join(root, "map.json");
+    writeFileSync(mapFile, `{\n  "//": "x",\n  "//": "y",\n  "${PHASE}": { "${BUNDLE}": "${DIR}" }\n}\n`);
+    const { errors } = lintUiMaterial({ root, mapFile, phasesRoot: join(root, "phases") });
+    expect(errors.join("\n")).not.toContain("[重复声明]");
+  });
+});
+
+describe("shared_dir 共用目录模式（合成 fixture，独立于仓库真实状态）", () => {
+  const DECL_DIR = "ui-preview";
+  const MEMBER_A = "member-a";
+  const MEMBER_B = "member-b";
+
+  function sharedMap(members: string[]) {
+    const bundles: Record<string, unknown> = {};
+    for (const m of members) bundles[m] = { shared_dir: DECL_DIR };
+    return { [PHASE]: bundles };
+  }
+
+  it("基线：两束共用一个目录、引用有重叠 ⇒ 绿，组内并集覆盖全部实存图", () => {
+    shotsFor(PHASE, DECL_DIR, ["a.png", "b.png", "c.png"]);
+    uiFor(PHASE, MEMBER_A, uiMdFor(MEMBER_A, DECL_DIR, ["a.png", "b.png"]));
+    uiFor(PHASE, MEMBER_B, uiMdFor(MEMBER_B, DECL_DIR, ["b.png", "c.png"]));
+    const { errors, rows } = run(writeMap(sharedMap([MEMBER_A, MEMBER_B])));
+    expect(errors).toEqual([]);
     const shared = rows.filter((r) => r.shared);
-    // 这条断言绑死 phase-10 的真实结构：5 个束共用一个 18 张图的扁平目录。
-    // 如果有人把共用模式滥用到别处，或 phase-10 结构变了，这里会红，逼人重新核对。
-    expect(shared.length).toBe(5);
-    for (const r of shared) expect(r.actual).toBe(18);
+    expect(shared.length).toBe(2);
     const sum = shared.reduce((n, r) => n + r.referenced, 0);
-    // 22 > 18：束之间**确实存在重叠引用**——这正是当初无法拆成互不相交子目录、
-    // 必须引入共用模式的原因。若哪天这个和等于 18，说明重叠没了，该退回普通映射。
-    expect(sum).toBeGreaterThan(18);
+    expect(sum).toBeGreaterThan(3); // b.png 被两束共同引用，重叠是这个模式存在的理由
+  });
+
+  it("组级孤图：目录里有一张图两个成员都没引用 ⇒ 报出来（孤图检查升到组级，不是逐束）", () => {
+    shotsFor(PHASE, DECL_DIR, ["a.png", "b.png", "orphan.png"]);
+    uiFor(PHASE, MEMBER_A, uiMdFor(MEMBER_A, DECL_DIR, ["a.png"]));
+    uiFor(PHASE, MEMBER_B, uiMdFor(MEMBER_B, DECL_DIR, ["b.png"]));
+    const { errors } = run(writeMap(sharedMap([MEMBER_A, MEMBER_B])));
+    expect(errors.join("\n")).toContain("[未被引用]");
+    expect(errors.join("\n")).toContain("orphan.png");
+  });
+
+  it("死链与跨目录检查逐束不变：共用模式没有放宽这两条", () => {
+    shotsFor(PHASE, DECL_DIR, ["a.png", "b.png"]);
+    uiFor(PHASE, MEMBER_A, uiMdFor(MEMBER_A, DECL_DIR, ["a.png", "ghost.png"], 2, 2));
+    uiFor(PHASE, MEMBER_B, uiMdFor(MEMBER_B, DECL_DIR, ["b.png"]));
+    const { errors } = run(writeMap(sharedMap([MEMBER_A, MEMBER_B])));
+    expect(errors.join("\n")).toContain("[死链]");
+    expect(errors.join("\n")).toContain("ghost.png");
+  });
+
+  it("一个成员一张图都不引用 ⇒ [无材料]，共用目录不代表可以不引用材料", () => {
+    shotsFor(PHASE, DECL_DIR, ["a.png", "b.png"]);
+    uiFor(PHASE, MEMBER_A, uiMdFor(MEMBER_A, DECL_DIR, []));
+    uiFor(PHASE, MEMBER_B, uiMdFor(MEMBER_B, DECL_DIR, ["a.png", "b.png"]));
+    const { errors } = run(writeMap(sharedMap([MEMBER_A, MEMBER_B])));
+    expect(errors.join("\n")).toContain("[无材料]");
+  });
+
+  it("共用组过小：只有 1 个束声明 shared_dir ⇒ 判红（独占时用共用模式等于白送豁免）", () => {
+    shotsFor(PHASE, DECL_DIR, ["a.png"]);
+    uiFor(PHASE, MEMBER_A, uiMdFor(MEMBER_A, DECL_DIR, ["a.png"]));
+    const { errors } = run(writeMap(sharedMap([MEMBER_A])));
+    expect(errors.join("\n")).toContain("[共用组过小]");
+  });
+
+  it("共用目录不存在 ⇒ 报出来，不是 0/0 全绿", () => {
+    uiFor(PHASE, MEMBER_A, uiMdFor(MEMBER_A, DECL_DIR, []));
+    uiFor(PHASE, MEMBER_B, uiMdFor(MEMBER_B, DECL_DIR, []));
+    const { errors } = run(writeMap(sharedMap([MEMBER_A, MEMBER_B])));
+    expect(errors.join("\n")).toContain("[目录缺失]");
   });
 });

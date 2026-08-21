@@ -466,8 +466,47 @@ function lintResolvedBundle({ root, phase, label, ui, declaredDir, reuseBundle =
   };
 }
 
+/**
+ * JSON 重复键检查。
+ *
+ * 2026-08-20 真实事故：两个人用两种方式修同一个 phase-10 问题，都合进了 main，
+ * 结果 map 里 `phase-10-live-collaboration-orchestration` 这个键出现了两次。
+ * JSON.parse 静默取后者，前一份声明**看得见但永不生效**——一份高度可信的死条款。
+ * 这正是本仓点名的「同一事实声明在两处」，而且是最坏的一种：没有任何报错。
+ *
+ * JSON.parse 帮不了忙（它按规范就是后者胜出），所以在文本层自己数。
+ */
+function findDuplicateTopLevelKeys(text) {
+  const seen = new Map();
+  const dups = [];
+  let depth = 0;
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.trimEnd();
+    const key = depth === 1 ? /^\s*"([^"]+)"\s*:/.exec(line)?.[1] : null;
+    if (key !== null && key !== undefined && !key.startsWith("//")) {
+      if (seen.has(key)) dups.push(key);
+      else seen.set(key, true);
+    }
+    depth += (line.match(/[{[]/g) ?? []).length - (line.match(/[}\]]/g) ?? []).length;
+  }
+  return [...new Set(dups)];
+}
+
 export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, only = [] } = {}) {
-  const map = JSON.parse(readFileSync(mapFile, "utf8"));
+  const mapText = readFileSync(mapFile, "utf8");
+  const duplicateKeys = findDuplicateTopLevelKeys(mapText);
+  if (duplicateKeys.length > 0) {
+    return {
+      errors: duplicateKeys.map(
+        (key) =>
+          `[重复声明] ${MAP_REL} 里 "${key}" 出现了不止一次。\n` +
+          `    JSON 按规范静默取最后一份——前面那份看得见但永不生效，是一份不会报错的死条款。\n` +
+          `    2026-08-20 真实撞到过：两个人用两种方式修同一个 phase，都合进了 main。留一份，删其余。`,
+      ),
+      rows: [],
+    };
+  }
+  const map = JSON.parse(mapText);
   let targets = findUiMds(phasesRoot ?? join(root, "phases"));
   if (only.length) targets = targets.filter((target) => only.includes(target.phase));
 
