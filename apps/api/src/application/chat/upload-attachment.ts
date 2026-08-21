@@ -69,6 +69,19 @@ export interface AttachmentCommandRepository {
    * 都取决于「这个线程你能不能看」，不取决于附件是否已经挂上某条消息。
    */
   findById(orgId: OrgId, threadId: string, attachmentId: string): Promise<Guarded<AttachmentRow | null>>;
+  /**
+   * `listThreadAttachments`（#728 D9，右侧栏「材料」）：该线程**已挂到消息**的附件全部
+   * 候选行（`message_id IS NOT NULL`），按 `created_at DESC`。composer 里还没随消息发出的
+   * pending 附件不在此列——那是草稿态，不是这场对话已经产出的材料。与
+   * `ArtifactLandingRepository.listByThread` 同一套分工：这里不做可见性过滤，
+   * 过滤在 application 层的 `resolveVisibility`。
+   */
+  listSentByThread(orgId: OrgId, threadId: string): Promise<readonly SentAttachmentRow[]>;
+}
+
+/** 已挂到消息上的附件行——`listThreadAttachments` 用，比 `AttachmentRow` 多一个 `messageId`。 */
+export interface SentAttachmentRow extends AttachmentRow {
+  readonly messageId: string;
 }
 
 /** DI 令牌——与 `CHAT_MESSAGE_COMMAND_REPOSITORY` 同套，绑定在 kernel.module。 */
