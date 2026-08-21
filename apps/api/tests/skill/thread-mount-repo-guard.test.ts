@@ -100,7 +100,7 @@ describe("#467 thread-mount 仓储的权限豁免前提", () => {
     // ① 摘除 / 读：门是 controller 里的一句 await，必须**文本上也在**仓储调用之前。
     for (const { marker, gate, store } of [
       { marker: "async unmount(", gate: "assertMayWriteMounts(", store: "unmountSkillFromThread(" },
-      { marker: "async deviations(", gate: "assertProjectMember(", store: "listThreadDeviations(" },
+      { marker: "async deviations(", gate: "assertMayReadThread(", store: "listThreadDeviations(" },
     ] as const) {
       const body = bodyOf(marker);
       const gateAt = body.indexOf(gate);
@@ -110,17 +110,42 @@ describe("#467 thread-mount 仓储的权限豁免前提", () => {
       expect(gateAt, `${marker}：门 ${gate} 必须在仓储调用 ${store} 之前`).toBeLessThan(storeAt);
     }
 
-    // ② 挂载：判定**在用例里**（domain 的 `isSelfMountAllowed`），controller 的义务是
-    //   把角色**从服务端解析出来交进去**。所以这里断的是「role 不来自请求体」——
+    // ② 挂载：判定**在用例里**（domain 的 `isThreadMountAllowed`），controller 的义务是
+    //   把授权**从服务端解析出来交进去**。所以这里断的是「authorization 不来自请求」——
     //   那才是这条路由唯一可能被绕开的方式。
+    //
+    // ⚠ #1693 改了这道门的形状：原来是 `this.deliverRoleOf(principal, 请求里的 projectId)`，
+    //   现在是 `this.authorizeMount(principal, threadId)`。**这不是改名，是换判据**：
+    //   项目由 `findThreadFacts` 从线程反查，不再取自调用方。
     const mountBody = bodyOf("async mount(");
-    expect(mountBody, "挂载路由必须服务端解析角色").toContain("this.deliverRoleOf(");
+    expect(mountBody, "挂载路由必须服务端解析授权").toContain("this.authorizeMount(");
     expect(
-      /role:\s*(body|input|request)\./.test(mountBody),
-      "挂载路由的 role 不得取自请求体——那等于让前端自称是引导师",
+      /authorization:\s*(body|input|request)\./.test(mountBody),
+      "挂载路由的 authorization 不得取自请求体——那等于让前端自称有权限",
     ).toBe(false);
 
-    // 门的实现本身仍要落在真实的成员关系查询上，不是一个恒真的桩。
-    expect(controller).toContain("findProjectMembership");
+    /**
+     * 🔴 #1693 的安全不变量：**授权不得读请求里的 `projectId`**。
+     *
+     * 这条是这次修掉的越权洞的钉子。此前授权建立在调用方自传的 `?projectId=` 上，
+     * 且从不与线程核对 ⇒ 知道任意线程 id + 自己有权限的 projectId，
+     * 就能挂到**别人的个人对话**上。断言方式是「授权路径上根本不出现那个变量」，
+     * 而不是「结果对不对」——后者要枚举无穷多组合，前者是结构性的。
+     */
+    expect(
+      mountBody.includes("requireProjectId("),
+      "挂载路由不得再要求/使用 query 里的 projectId 做授权（#1693）",
+    ).toBe(false);
+    expect(
+      /authorizeMount\([^)]*projectId/.test(mountBody),
+      "authorizeMount 不得收 projectId —— 项目必须从线程反查（#1693）",
+    ).toBe(false);
+
+    // 门的实现本身仍要落在真实的线程归属查询上，不是一个恒真的桩。
+    // ⚠ 锚点从 `findProjectMembership` 换成 `findThreadFacts`：授权的起点变了。
+    //   `findProjectMembership` 现在由 `resolveVisibility` 在更里面调用，
+    //   controller 自己不再直接查成员关系。
+    expect(controller).toContain("findThreadFacts");
+    expect(controller).toContain("resolveVisibility");
   });
 });

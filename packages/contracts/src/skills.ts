@@ -920,6 +920,7 @@ export const operations = {
         ),
       })
       .strict(),
+    // ⚠ `MEMBER_CANNOT_SELF_MOUNT` 留在枚举里但**已无代码路径抛出**（#1693，见 S3）。
     err: ["MEMBER_CANNOT_SELF_MOUNT", "SKILL_NOT_FOUND", "PERMISSION_REVOKED"] as const,
   },
 
@@ -928,7 +929,10 @@ export const operations = {
    * ⚠ 只对当前这条对话生效，**不改蓝本、不改实例编排**（I-18/V2）。
    * ⚠ 超预算时**明确要求取舍**，**不静默丢弃某个 skill 的注入**（E2）。
    * ⚠ 临时挂载**不构成提权**：其数据范围仍受三层权限约束（R9）。
-   * ⚠ 前置：引导师，或组长且引导师已下放该权限（domain D-h）。
+   * ⚠ 前置（**2026-08-21 人类裁决改写**，原为「引导师，或组长且引导师已下放该权限」）：
+   *   **调用者能写这条线程**——个人对话为其创建者；项目对话为该项目任意成员，观察者除外。
+   *   裁决逐字：「个人对话必须要可以使用公共的 skills」「所有的人都可以用」（#1693）。
+   * ⚠ 授权在服务端**从线程反查**，不读请求里的 `projectId`。
    */
   mountSkillToThread: {
     method: "POST",
@@ -1477,12 +1481,22 @@ export const KNOWN_CONTRACT_GAPS = {
    */
   S2: "whether a skill whose source knowledge turns 待复核 should auto-disable is unruled (domain D-j); modelled as annotate-only per the usecases.md prose",
   /**
-   * **组长能否自行挂载 skill，取决于「引导师是否已下放该权限」，而下放动作没有接口。**
-   * `mountSkillToThread` 的前置逐字写着「引导师，或组长且引导师已下放该权限（domain D-h）」，
-   * 而本束**没有任何操作能下放它**。⇒ 该前置今天**不可满足**，
-   * `MEMBER_CANNOT_SELF_MOUNT` 因此对组长恒成立。加操作 = 签核后新增。
+   * ~~**组长能否自行挂载 skill，取决于「引导师是否已下放该权限」，而下放动作没有接口。**~~
+   *
+   * ✅ **2026-08-21 人类产品裁决作废了这个缺口**（issue #1693）。裁决逐字：
+   *   > 「个人对话必须要可以使用公共的 skills」
+   *   > 「所有的人都可以用」
+   *
+   * ⇒ 「下放」这个动作**不再需要存在**：缺口不是被实现了，是被取消了。
+   *   新前置是「能写这条线程即可」（`domain/skill/thread-mount.ts` 的
+   *   `isThreadMountAllowed`），个人对话为其创建者、项目对话为该项目任意成员
+   *   （观察者除外）。`MEMBER_CANNOT_SELF_MOUNT` 随之**再无代码路径抛出**。
+   *
+   * ⚠ 条目保留而不是删掉：这份表是登记「契约说有、实现没有」的地方，
+   *   而一条被裁决取消的前置，其历史比它的消失更有信息量——直接删掉，
+   *   下一个读到旧 UC 文本的人会以为这个开关还没做完。
    */
-  S3: "mountSkillToThread's precondition mentions a facilitator delegating mount rights to a group lead, but no operation grants that delegation; the precondition is currently unsatisfiable",
+  S3: "RESOLVED 2026-08-21 by human product ruling (#1693): the facilitator-to-group-lead delegation is no longer required at all -- mounting is now allowed for anyone who can write the thread, so the previously unsatisfiable precondition has been removed rather than implemented",
   /**
    * **满意度最小样本量在 `thresholds.ts` 里还是 `known: false`。**
    * `usecases.md:410` 把数值指向阈值登记表，而登记表尚未给出该项。
