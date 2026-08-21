@@ -386,6 +386,12 @@ import { OrgInviteController } from "./interface/controllers/org-invite.controll
 import { ORG_INVITE_LINK_REPOSITORY } from "./application/auth/org-invite-link-ports";
 import { PgOrgInviteLinkRepository } from "./infrastructure/auth/pg-org-invite-link-repository";
 import { OrgInviteLinkController } from "./interface/controllers/org-invite-link.controller";
+// F05（phase-10 group-checkin 束）：分组签到聚合视图的 HTTP 边界——用例/仓储早就在
+// （F16 / UC-1.3 R8），只是没有路由到得了它，见 checkin-board.controller.ts 头注。
+import { LIVE_SESSION_REPOSITORY } from "./application/auth/live-session-ports";
+import { PgLiveSessionRepository } from "./infrastructure/auth/pg-live-session-repository";
+import { newLiveSessionId } from "./domain/auth/live-session";
+import { CheckinBoardController } from "./interface/controllers/checkin-board.controller";
 // F11（phase-01 / UC-1.6 R10）：双人复核 + 配额硬阻断 + 团队增删改 + 成员移除。
 // ⚠ 建在 F10 的 org_invites 之上，不重开新地基：`ORG_INVITE_REPOSITORY` 复用同一个实例
 //   （`PgOrgInviteRepository` 新增了 `reviewAdminInvite` 方法，不是第二个仓储）。
@@ -664,6 +670,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     ChatAttachmentController,
     OrgInviteController,
     OrgInviteLinkController,
+    CheckinBoardController,
     OrgAdminManagementController,
     FilesBrowserController,
     FilesDeliveryController,
@@ -1458,6 +1465,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: ORG_INVITE_LINK_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgInviteLinkRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // F05（phase-10 group-checkin 束）：`LiveSessionRepository` 的生产实现——
+    // `checkin-board.controller.ts` 消费的 `board()` 就是这里落的库。
+    {
+      provide: LIVE_SESSION_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgLiveSessionRepository(db, newLiveSessionId),
       inject: [DATABASE_PORT],
     },
     // F11：团队增删改（占用校验）+ 成员移除（停用访问，不删产出）。两个独立 provider——
