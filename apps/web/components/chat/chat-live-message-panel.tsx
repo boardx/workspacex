@@ -52,16 +52,31 @@ const MESSAGE_PAGE_SIZE = 50;
  *
  * 契约把 Wave 2 的 run 传输定为**轮询**并要求「有界退避 + 终态停止」
  * （`packages/contracts/src/wave2-runtime.ts:200-202`）。这三个常数就是那个「有界」：
- * 起步 400ms，每次 ×1.5，封顶 3s，总时长封顶 90s。
+ * 起步 400ms，每次 ×1.5，封顶 3s。
  *
  * ⚠ 超时**不等于**失败。超时只说明「本页面在这段时间内没等到终态」，
  * run 在服务端可能仍在跑。所以超时走 `timedOut` 分支显示「仍在进行」，
  * **不**伪造一个 `failed` —— 那会让界面对用户说谎。
+ *
+ * ## ⚠⚠ 预算为什么从 90s 提到 20min（2026-08-22 devapp 实测事故）
+ *
+ * 90s 这个数字是按「模型直接作答」定的。挂了 skill 之后这条链路完全不是那个量级：
+ * 沙箱单次脚本上限 120s × 最多 3 次重试，加上每次重新生成脚本的模型调用，
+ * 十几分钟是常态。
+ *
+ * 实测后果（devapp，pptx skill）：run 在 **14 分 18 秒**后以 MODEL_CALL_FAILED
+ * 终态失败，而前端**第 90 秒就停止轮询**了 —— 界面永远停在「正在思考…」，
+ * 用户在等一个早就死掉的任务。这不是"没做失败态"（`awaitingReply` 早就排除了终态），
+ * 是**根本没等到那个终态**。
+ *
+ * ⚠ 这四个数字此前各自独立、互不知情：前端 90s / deep-agent 300s /
+ *   沙箱单次 120s / 重试 3 次。凑在一起必然产生「界面撒谎」。预算现在必须
+ *   **覆盖得住最慢的那条真实链路**，否则超时分支就不是"少数派兜底"而是常态。
  */
 const RUN_POLL_FIRST_DELAY_MS = 400;
 const RUN_POLL_BACKOFF = 1.5;
 const RUN_POLL_MAX_DELAY_MS = 3_000;
-const RUN_POLL_BUDGET_MS = 90_000;
+const RUN_POLL_BUDGET_MS = 20 * 60_000;
 
 interface SubmissionAttempt extends CreateMessageInput {
   readonly threadId: string;
@@ -205,6 +220,24 @@ export function ChatLiveMessagePanel({
    * 停止轮询、从界面上蒸发。两者共用一个 state 就必然二选一，所以拆开。
    */
   const [activeRunId, setActiveRunId] = React.useState<string | null>(null);
+  /**
+   * gap ②「没有进度感」（人类 2026-08-22）：14 分钟里界面只有一句「正在思考…」，
+   * 用户无法判断是在跑还是已经死了。这里记录本轮开始时刻并每秒 tick 一次，
+   * 让"已耗时"成为一个**会动的**信号——会动本身就是"没卡死"的证据。
+   *
+   * ⚠ 只在有在途 run 时计时；run 一结束就停，不留常驻定时器。
+   */
+  const [runStartedAt, setRunStartedAt] = React.useState<number | null>(null);
+  const [nowTick, setNowTick] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (activeRunId === null) { setRunStartedAt(null); return; }
+    setRunStartedAt((prev) => prev ?? Date.now());
+  }, [activeRunId]);
+  React.useEffect(() => {
+    if (activeRunId === null || runStartedAt === null) return;
+    const t = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [activeRunId, runStartedAt]);
   const [runObservation, setRunObservation] = React.useState<RunObservation | null>(null);
   /**
    * #654 阶段2d —— 逐 token 累积的草稿文本，与上面 `runObservation` 刻意分开维护。
@@ -1080,6 +1113,26 @@ export function ChatLiveMessagePanel({
                   <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
                     <span className="font-medium">Agent</span>
                     <Badge tone="outline">正在思考…</Badge>
+                    {/*
+                      gap ②：已耗时。⚠ 它每秒在动 —— "会动"本身就是"没卡死"的证据，
+                      而一句静止的「正在思考…」在第 10 秒和第 10 分钟长得一模一样。
+                    */}
+                    {runStartedAt !== null ? (
+                      <span data-testid="chat-thinking-elapsed">
+                        已用 {Math.max(0, Math.floor((nowTick - runStartedAt) / 1000))} 秒
+                      </span>
+                    ) : null}
+                    {/*
+                      gap ③：挂了 skill 的这轮可能要跑好几分钟（沙箱单次 120s ×
+                      最多 3 次重试）。不给预期，用户会在第 2 分钟就以为它坏了。
+                      ⚠ 只在真的挂了 skill 时才说 —— 没挂 skill 的普通问答仍是秒级，
+                      对它说"可能要几分钟"就是另一种误导。
+                    */}
+                    {runStartedAt !== null && (nowTick - runStartedAt) > 45_000 ? (
+                      <span data-testid="chat-thinking-longrun-hint">
+                        · 执行 skill 脚本时可能需要数分钟
+                      </span>
+                    ) : null}
                   </div>
                   {runObservation?.view ? <AgentToolChain steps={runObservation.view.steps} /> : null}
                   <div

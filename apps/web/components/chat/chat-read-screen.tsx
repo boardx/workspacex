@@ -838,13 +838,13 @@ function ThreadDetail({
             ))}
           </span>
         ) : null}
-        {/* 「团队 N」本轮只呈现编制人数，**不挂任何点击行为**。
+        {/* 「团队 N」本轮只呈现编制人数，「不挂任何点击行为」。
             原型里它会打开侧栏，但本轮没有自建侧栏（产物面板走 AppShell 的 `right` 槽），
             给它挂一个什么都不做的 onClick 就是死控件。等 D9 真做侧栏分页签时再接上。 */}
         <span className="inline-flex items-center gap-1 text-11 text-muted-foreground" data-testid="chat-thread-team">
           <Users aria-hidden className="h-3 w-3" />团队 {roster?.rosterCount ?? 0}
         </span>
-        {/* 分享是**真入口还没有**的那一档：契约里没有「分享线程」操作。按本仓纪律
+        {/* 分享是「真入口还没有」的那一档：契约里没有「分享线程」操作。按本仓纪律
             宁可显式禁用并说明，也不放一个点了没反应的按钮（见 admin「未接入后端」标识）。*/}
         <Button size="xs" variant="ghost" disabled title="分享尚未接入后端（契约里没有分享线程操作）">
           <Share2 aria-hidden className="h-3 w-3" />分享
@@ -852,16 +852,6 @@ function ThreadDetail({
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
         <ThreadLiveStatusChip roster={roster} />
       </header>
-      {bearer && currentOrgId ? (
-        <ChatSkillMountPanel
-          threadId={detail.thread.id}
-          projectId={projectId}
-          orgId={currentOrgId}
-          bearer={bearer}
-          mentionQuery={mentionQuery}
-          onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
-        />
-      ) : null}
       {bearer ? (
         <ChatLiveMessagePanel
           threadId={detail.thread.id}
@@ -896,6 +886,22 @@ function ThreadDetail({
           ) : null}
         />
       ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
+      {/*
+        挂载栏放在 composer 「之后」（人类 2026-08-22：「上面的 Skill 应该也放到下面」）。
+        理由不只是位置偏好：挂载改变的是「下一条消息」的行为，放在输入框旁边，
+        「我挂了什么」与「我要发什么」在同一处视野里；放在页首则与消息流隔着整屏，
+        用户发消息时根本看不到自己挂了哪些 skill。
+      */}
+      {bearer && currentOrgId ? (
+        <ChatSkillMountPanel
+          threadId={detail.thread.id}
+          projectId={projectId}
+          orgId={currentOrgId}
+          bearer={bearer}
+          mentionQuery={mentionQuery}
+          onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
+        />
+      ) : null}
     </div>
   );
 }

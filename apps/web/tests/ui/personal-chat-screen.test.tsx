@@ -44,7 +44,8 @@ vi.mock("@/lib/live-skill-mount", () => ({
   mountSkills: vi.fn(),
   unmountSkill: vi.fn(),
 }));
-vi.mock("@/lib/live-skill", () => ({ listSkills: vi.fn().mockResolvedValue([]) }));
+const listSkills = vi.fn().mockResolvedValue([]);
+vi.mock("@/lib/live-skill", () => ({ listSkills: (...a: unknown[]) => listSkills(...a) }));
 vi.mock("@/components/chat/chat-live-message-panel", () => ({
   ChatLiveMessagePanel: ({ agents }: { agents: unknown }) => (
     <div data-testid="stub-message-panel" data-agents={JSON.stringify(agents)} />
@@ -523,6 +524,39 @@ describe("个人对话的 skill 挂载入口（人类 2026-08-21 裁决）", () 
       listThreadMounts.mock.calls.filter((c) => c[0] === "thr-sk").at(-1)!;
     expect(threadIdArg).toBe("thr-sk");
     expect(projectIdArg).toBeUndefined();
+  });
+});
+
+/**
+ * UIUX 修正（人类 2026-08-22 逐条指出）：挂载态此前显示 `sk_9c652f24-…` 这样的 UUID。
+ * 用户敲 `#pp` 选的是「pptx」，挂上后名字却消失了——而名字明明就在候选池里。
+ *
+ * ⚠ 本用例钉的是「显示名称」。反证：把 `named` 换回 `entry.skillId` ⇒ 第 ② 条必红。
+ */
+describe("挂载态显示 skill 名称，不是 UUID（人类 2026-08-22）", () => {
+  it("有挂载时 ⇒ 正文是名称，UUID 收进 title 仍可追溯", async () => {
+    listPersonalThreads.mockResolvedValue({
+      groups: [{ label: "今天", cards: [{ id: "thr-n", title: "新对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      capabilities: ["thread.mutate"],
+    });
+    getThread.mockResolvedValue({
+      thread: { id: "thr-n", projectId: null, groupId: null, visibilityScope: "private", phase: "onsite", archived: false, createdBy: "user-current", lastActivityAt: "2026-08-06T00:00:00.000Z", version: 0 },
+      messages: [], rightTabs: [], capabilities: ["composer.send"],
+    });
+    listThreadMounts.mockResolvedValue({
+      temporary: [{ mountId: "m1", threadId: "thr-n", skillId: "sk_9c652f24", versionId: "sv1", mountedAt: "2026-08-22T00:00:00.000Z" }],
+      version: "1",
+    });
+    listSkills.mockResolvedValue([{ skillId: "sk_9c652f24", name: "pptx", status: "已启用" }]);
+
+    render(<PersonalChatScreen initialThreadId="thr-n" />);
+
+    const chip = await screen.findByTestId("chat-skill-mounted-sk_9c652f24");
+    await waitFor(() => expect(chip).toHaveTextContent("pptx"));
+    // ⭐ 反空转：UUID 不再占正文（此前正是它占着）。
+    expect(chip.textContent).not.toContain("sk_9c652f24");
+    // id 仍可追溯 —— 收进 title，不是丢掉。
+    expect(chip.getAttribute("title")).toContain("sk_9c652f24");
   });
 });
 
