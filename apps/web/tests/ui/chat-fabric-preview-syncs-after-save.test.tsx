@@ -19,22 +19,31 @@
  * 复现的确切场景——「保存」只会走本地演示分支（不会真的调 landAsArtifact），但即使
  * 是本地演示，关闭全屏后气泡预览也应该反映这次编辑，不是「点了保存却什么都没变」。
  */
+import * as React from "react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 
+// `CanvasStage` 是 `React.forwardRef` 组件（导出画布截图的命令式句柄需要它）——
+// 探针跟着换成 forwardRef，不然调用方传 `ref` 给它会撞 React 的 "Function
+// components cannot be given refs" 警告（不影响这几条测试断言，纯粹是噪音）。
 vi.mock("@/components/canvas/canvas-stage", () => ({
-  CanvasStage: (props: { markdown: string; onMarkdownChange: (next: string) => void }) => (
-    <div>
-      <pre data-testid="canvas-stage-probe">{props.markdown}</pre>
-      {/* 探针按钮的 onClick 直接闭包捕获调用方传来的新 markdown 字面量（下面每条用例各自
-          传一个 data-next-markdown 属性充当"这次要吐给 onMarkdownChange 的内容"）。 */}
-      <button
-        type="button"
-        data-testid="canvas-stage-probe-edit"
-        onClick={(e) => props.onMarkdownChange(e.currentTarget.dataset.nextMarkdown ?? "")}
-      />
-    </div>
-  ),
+  CanvasStage: React.forwardRef(function CanvasStageProbe(
+    props: { markdown: string; onMarkdownChange: (next: string) => void },
+    _ref,
+  ) {
+    return (
+      <div>
+        <pre data-testid="canvas-stage-probe">{props.markdown}</pre>
+        {/* 探针按钮的 onClick 直接闭包捕获调用方传来的新 markdown 字面量（下面每条用例各自
+            传一个 data-next-markdown 属性充当"这次要吐给 onMarkdownChange 的内容"）。 */}
+        <button
+          type="button"
+          data-testid="canvas-stage-probe-edit"
+          onClick={(e) => props.onMarkdownChange(e.currentTarget.dataset.nextMarkdown ?? "")}
+        />
+      </div>
+    );
+  }),
 }));
 
 const mermaidParse = vi.fn().mockResolvedValue(true);
