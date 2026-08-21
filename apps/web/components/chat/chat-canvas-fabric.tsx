@@ -126,6 +126,27 @@ export function ChatCanvasFabric({
     setMaximized(true);
   }, [openingReadback, threadId, messageId, projectId, bearer]);
 
+  // 挂载即读回（design-delta chat-diagram-artifact-reference，issue #1668）——与
+  // `ChatDiagramFabric` 同款修法（该文件有完整背景注释，此处不复述）：图表消息
+  // 挂载滚入视口时就查一次本消息名下最新的落地版本，命中则只读预览直接画保存版，
+  // 不用再等用户点一次「最大化」才触发读回。工作坊画布模板与 mermaid 标准图表
+  // 共享同一份 `fetchLatestSavedDiagramSource`，两处改动逐字对称。
+  React.useEffect(() => {
+    if (!inView) return;
+    if (savedSource !== null) return;
+    if (!threadId || !messageId || bearer === undefined) return;
+    let cancelled = false;
+    void (async () => {
+      const saved = await fetchLatestSavedDiagramSource({
+        threadId, messageId, projectId: projectId ?? null, bearer,
+      });
+      if (!cancelled && saved !== null) setSavedSource(saved);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inView, savedSource, threadId, messageId, projectId, bearer]);
+
   // 惰性化：进入视口才校验+渲染（与 mermaid 那条同样的理由——一张画布一个 fabric 实例是重对象）。
   React.useEffect(() => {
     const node = containerRef.current;
