@@ -18,7 +18,7 @@
         "grep -rq 'data-testid=\"lc-viewer-switcher\"' apps/web/components/project/tab-live.tsx",
         "grep -rq 'data-testid=\"lc-viewer-trigger\"' apps/web/components/project/tab-live.tsx",
         "grep -rq 'data-testid=\"lc-viewer-menu\"' apps/web/components/project/tab-live.tsx",
-        "pnpm --filter web exec tsc --noEmit",
+        "pnpm --filter web run typecheck",
         "pnpm --filter web exec vitest run tests/ui/project-live-viewer-switcher.test.tsx"
       ],
       "evidence": "evidence/F01.verify.log @ 2026-08-20T14:57:34.584Z",
@@ -62,7 +62,7 @@
       "verification": [
         "grep -rq 'data-testid=\"project-live-stagebar\"' apps/web/components/project/tab-live.tsx",
         "grep -rq 'listAgendaSegments\\|advanceAgendaSegment' apps/web/components/project/tab-live.tsx",
-        "pnpm --filter web exec tsc --noEmit",
+        "pnpm --filter web run typecheck",
         "pnpm --filter web exec vitest run tests/ui/project-live-segment-engine-consistency.test.tsx"
       ],
       "evidence": "evidence/F03.verify.log @ 2026-08-20T21:05:31.132Z",
@@ -97,18 +97,19 @@
       "spec_ref": "02-group-checkin.md#R1",
       "depends_on": [],
       "points": 5,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "02",
-      "owner": null,
+      "owner": "usamshen-f05",
       "capability": "CAP-WEB",
-      "user_visible_behavior": "引导师切到『主持台·全场 → 分组与签到』，看到 4 张分组卡片：组号/组名/『M/N 已到』/复制链接按钮/成员列表（姓名+角色徽标：组长/已到/未到）。参与者点开组长转发的链接直接进对应分组视角，不需要注册。",
+      "user_visible_behavior": "引导师在『现场协作』Tab 切到『主持台·全场』，看到真实的『分组与签到』区块：每组一张卡片（第 N 组/组名/『M/N 已到』/复制链接按钮/成员列表，alias+已到/未到徽标），数据来自真实数据库（GET /projects/:projectId/checkin-board），不是 mock。切到某个具体分组视角时该区块不重复出现。参与者/组长的到场事件写入与二维码/看加入页出口不在本 feature 范围内（F06）。",
       "verification": [
-        "grep -rq 'data-testid=\"lc-checkin-grid\"' apps/web/components/live-collab/orchestration-preview.tsx",
-        "grep -rq 'data-testid=\"lc-checkin\"' apps/web/components/live-collab/orchestration-preview.tsx",
-        "pnpm --filter web exec playwright test -c playwright.live-collab-shots.config.ts -g 'checkin'"
+        "pnpm --filter web exec vitest run tests/ui/project-live-checkin-board.test.tsx",
+        "pnpm --filter api exec vitest run tests/auth/checkin-board-http-route.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/checkin-writeback.test.ts",
+        "pnpm --filter web run typecheck"
       ],
-      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-checkin-default.png；stage-checkin-empty.png；stage-checkin-invalid.png",
-      "notes": "契约束候选：group-checkin（全新领域，此前无任何 UC/feature 提到过）。**复用不重造**：免注册进场的链接生成/校验逻辑归 phase-01 requirements/01-auth/uc-1-2-用分组链接免注册进场.md 所有，本 feature 只消费它、把聚合展示做出来。『到场』判定口径见 OPEN-QUESTIONS.md Q2，未裁定前用『点过加入链接即到场』这一默认展示（ui-preview 已标注 [待签核]），服务端实现时以裁定结果为准，不得自行拍板成既成事实。"
+      "evidence": "evidence/F05.verify.log @ 2026-08-20T23:28:19.060Z",
+      "notes": "契约束：group-checkin（design-signoff.md 已签核 confirmed，2026-08-20）。**核实结果与 design-signoff.md ③ 的记录不一致，如实更正**：该文件写『契约文件 packages/contracts/src/live-collab-checkin.ts 尚未创建，签核通过后开工时的第一件产出』——实测发现契约、用例、仓储三层其实早已存在，只是落在 packages/contracts/src/org-admin.ts 的 getCheckinBoard 操作里（F16/UC-1.3 R8 顺手做出来的），签核时没人 grep 到。F05 因此复用这份已有契约，未新建 live-collab-checkin.ts——两份契约描述同一个操作会漂移，不该建第二份。**已知诚实缺口**：契约 CheckinGroupRow.roster 只有 {alias, attendance}，不含项目角色字段，design-signoff.md ① UI 描述的『组长』角色徽标没有数据来源，本版只渲染『已到/未到』，未编造角色徽标。**范围边界**：到场事件写入、二维码、『看加入页』出口归 F06（depends_on F05），本次未涉及。免注册进场的链接生成/校验逻辑仍归 phase-01 01-auth 所有，本 feature 只消费 issueInviteLink 已产出的 links[].url，未重造。"
     },
     {
       "id": "F06",

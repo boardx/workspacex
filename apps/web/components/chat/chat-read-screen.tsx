@@ -11,6 +11,7 @@ import {
   NewThreadButton, ThreadCardButton, ThreadListHeader,
 } from "@/components/chat/thread-list-shell";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
+import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
@@ -19,6 +20,7 @@ import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError } from "@/lib/api-client";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import {
@@ -27,12 +29,14 @@ import {
   getAgentPanel,
   getThread,
   listThreadArtifacts,
+  listThreadAttachments,
   listThreads,
   renameThread,
   updateAgentRoster,
   type GetAgentPanelOut,
   type GetThreadOut,
   type ListThreadArtifactsOut,
+  type ListThreadAttachmentsOut,
   type ListThreadsOut,
   type ThreadCard,
 } from "@/lib/live-chat";
@@ -101,6 +105,11 @@ export function ChatReadScreen({
   const [artifactsResult, setArtifactsResult] = React.useState<Sourced<ListThreadArtifactsOut> | null>(null);
   const [artifactsLoadingKey, setArtifactsLoadingKey] = React.useState<string | null>(null);
   const [artifactsFailure, setArtifactsFailure] = React.useState<Sourced<string> | null>(null);
+  // issue #728 D9（人类 2026-08-21 裁决）—— 右栏「材料」列表，与 `artifacts` 同一套
+  // key/loading/failure 纪律，同一批并发读取（`loadSelectedThread`）。
+  const [materialsResult, setMaterialsResult] = React.useState<Sourced<ListThreadAttachmentsOut> | null>(null);
+  const [materialsLoadingKey, setMaterialsLoadingKey] = React.useState<string | null>(null);
+  const [materialsFailure, setMaterialsFailure] = React.useState<Sourced<string> | null>(null);
   const listGeneration = React.useRef(0);
   const detailGeneration = React.useRef(0);
 
@@ -116,6 +125,9 @@ export function ChatReadScreen({
   const artifacts = artifactsResult?.key === detailKey ? artifactsResult.value : null;
   const artifactsLoading = artifactsLoadingKey === detailKey;
   const artifactsError = artifactsFailure?.key === detailKey ? artifactsFailure.value : null;
+  const materials = materialsResult?.key === detailKey ? materialsResult.value : null;
+  const materialsLoading = materialsLoadingKey === detailKey;
+  const materialsError = materialsFailure?.key === detailKey ? materialsFailure.value : null;
 
   const loadThreads = React.useCallback(async () => {
     if (!projectId || !bearer || !sourceKey) return;
@@ -159,13 +171,16 @@ export function ChatReadScreen({
     setDetailLoadingKey(key);
     setRosterLoadingKey(key);
     setArtifactsLoadingKey(key);
+    setMaterialsLoadingKey(key);
     setDetailFailure(null);
     setRosterFailure(null);
     setArtifactsFailure(null);
-    const [nextDetail, nextRoster, nextArtifacts] = await Promise.allSettled([
+    setMaterialsFailure(null);
+    const [nextDetail, nextRoster, nextArtifacts, nextMaterials] = await Promise.allSettled([
       getThread(selectedThreadId, projectId, bearer),
       getAgentPanel(selectedThreadId, projectId, bearer),
       listThreadArtifacts(selectedThreadId, projectId, bearer),
+      listThreadAttachments(selectedThreadId, projectId, bearer),
     ]);
     if (generation !== detailGeneration.current) return;
     if (nextDetail.status === "fulfilled") {
@@ -186,9 +201,16 @@ export function ChatReadScreen({
       setArtifactsResult(null);
       setArtifactsFailure({ key, value: describeFailure(nextArtifacts.reason) });
     }
+    if (nextMaterials.status === "fulfilled") {
+      setMaterialsResult({ key, value: nextMaterials.value });
+    } else {
+      setMaterialsResult(null);
+      setMaterialsFailure({ key, value: describeFailure(nextMaterials.reason) });
+    }
     setDetailLoadingKey(null);
     setRosterLoadingKey(null);
     setArtifactsLoadingKey(null);
+    setMaterialsLoadingKey(null);
   }, [bearer, detailKey, projectId, selectedThreadId]);
 
   React.useEffect(() => {
@@ -446,18 +468,44 @@ export function ChatReadScreen({
           }}
         />
       )}
-      /* `right` 只放**这场对话的产出**（产物面板，#710 交付）。
-         原型的右栏正是这一类内容（转录/执行/洞察/产物/材料），产物面板是其中的「产物」。
+      /* `right` 只放**这场对话的产出**（产物 + 材料，issue #728 D9 人类 2026-08-21 裁决）。
+         原型的右栏是五标签（转录/执行/洞察/产物/材料），本轮只画「产物」「材料」两个有真实
+         数据支撑的标签：「转录」控件本来就不在右栏（`ChatRecordingPanel` 挂在消息面板上方，
+         裁决明确不搬）；「执行/洞察」在后端没有任何真实数据支撑（`get-thread.ts` 的
+         `rightTabs()` 硬编码为 0），待后端建模，本轮不做——画一个永远显示「0」的标签
+         比不做还坏（编造一个「有数据源」的假象）。
          ⚠ 编制（`RosterPanel`）已按 #728 D2 搬进左栏，这里不再渲染第二份 ——
            两处渲染同一份编制就是「同一事实两处声明」（AGENTS.md 硬约束）。 */
       right={(
-        <ChatArtifactsPanel
-          hasSelection={selectedThreadId !== null}
-          artifacts={artifacts}
-          loading={artifactsLoading}
-          error={artifactsError}
-          onRetry={() => void loadSelectedThread()}
-        />
+        <Tabs defaultValue="artifacts" className="flex h-full flex-col">
+          <TabsList className="mx-3 mt-3">
+            <TabsTrigger value="artifacts" data-testid="chat-right-tab-artifacts">
+              产物{artifacts ? `（${artifacts.items.length}）` : ""}
+            </TabsTrigger>
+            <TabsTrigger value="materials" data-testid="chat-right-tab-materials">
+              材料{materials ? `（${materials.items.length}）` : ""}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="artifacts" className="mt-0 flex-1 overflow-y-auto">
+            <ChatArtifactsPanel
+              hasSelection={selectedThreadId !== null}
+              artifacts={artifacts}
+              loading={artifactsLoading}
+              error={artifactsError}
+              onRetry={() => void loadSelectedThread()}
+            />
+          </TabsContent>
+          <TabsContent value="materials" className="mt-0 flex-1 overflow-y-auto">
+            <ChatMaterialsPanel
+              hasSelection={selectedThreadId !== null}
+              threadId={selectedThreadId}
+              materials={materials}
+              loading={materialsLoading}
+              error={materialsError}
+              onRetry={() => void loadSelectedThread()}
+            />
+          </TabsContent>
+        </Tabs>
       )}
     >
       <ThreadDetail
@@ -472,6 +520,7 @@ export function ChatReadScreen({
         error={detailError}
         onRetry={() => void loadSelectedThread()}
         onArtifactLanded={() => void loadSelectedThread()}
+        onMessageSent={() => void loadSelectedThread()}
       />
     </AppShell>
   );
@@ -718,7 +767,7 @@ function ThreadWriteForm({
 
 function ThreadDetail({
   projectId, currentOrgId, userId, card, detail, bearer, roster, loading, error, onRetry,
-  onArtifactLanded,
+  onArtifactLanded, onMessageSent,
 }: {
   projectId: string;
   currentOrgId: string | null;
@@ -731,6 +780,8 @@ function ThreadDetail({
   error: string | null;
   onRetry: () => void;
   onArtifactLanded: () => void;
+  /** issue #728 D9 —— 一条消息（可能带附件）成功发出后触发，刷新右栏「材料」计数。 */
+  onMessageSent: () => void;
 }) {
   /**
    * composer 里敲 `#` → `ChatSkillMountPanel` 开面板/过滤/真挂载 → 挂载成功后
@@ -828,6 +879,7 @@ function ThreadDetail({
           /* G1 读回 + G2 画像判权用；个人线程 projectId 为 null ⇒ 缺省，读回关闭。 */
           projectId={projectId ?? undefined}
           onArtifactLanded={onArtifactLanded}
+          onMessageSent={onMessageSent}
           /*
             #728 D10 —— 会话录音（#466 步骤 7）从「消息面板之上」挪到
             「输入框正上方」，照原型的「进行中」状态卡位置。`userId` 是

@@ -18,11 +18,17 @@ import {
 } from "./stack-admission";
 
 const roots: string[] = [];
-function tempRoot(): string {
+/**
+ * 一个本用例独占的租约目录。#1704 之后租约位置由 `WORKSPACEX_STACK_LEASE_DIR` 决定
+ * （默认机器全局），所以测试要显式注入一个干净目录，而不是靠"每个 repoRoot 一份"
+ * 那个已经被证伪的隐含假设。
+ */
+function tempEnv(): NodeJS.ProcessEnv {
   const root = mkdtempSync(join(tmpdir(), "wsx-admission-"));
   roots.push(root);
-  mkdirSync(leaseDir(root), { recursive: true });
-  return root;
+  const env = { WORKSPACEX_STACK_LEASE_DIR: join(root, "stacks") } as NodeJS.ProcessEnv;
+  mkdirSync(leaseDir(env), { recursive: true });
+  return env;
 }
 afterEach(() => {
   for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true });
@@ -69,8 +75,8 @@ describe("② 阈值能被反证：环境变量只能调严，不能放宽", () 
 
 describe("租约：幽灵名额必须自愈", () => {
   it("进程已死的租约被当场清掉 —— 否则一次崩溃会永久占住名额", () => {
-    const root = tempRoot();
-    const dir = leaseDir(root);
+    const env = tempEnv();
+    const dir = leaseDir(env);
     // 一个几乎不可能存在的 pid
     writeFileSync(join(dir, "999999-ghost.json"), JSON.stringify({ pid: 999999, isolationId: "ghost", startedAt: 0 }));
     writeFileSync(join(dir, `${process.pid}-live.json`), JSON.stringify({ pid: process.pid, isolationId: "live", startedAt: 0 }));
@@ -81,16 +87,16 @@ describe("租约：幽灵名额必须自愈", () => {
   });
 
   it("坏掉的租约文件不会让整个准入炸掉", () => {
-    const root = tempRoot();
-    writeFileSync(join(leaseDir(root), "broken.json"), "{ not json");
-    expect(() => activeStacks(leaseDir(root))).not.toThrow();
+    const env = tempEnv();
+    writeFileSync(join(leaseDir(env), "broken.json"), "{ not json");
+    expect(() => activeStacks(leaseDir(env))).not.toThrow();
   });
 });
 
 describe("① 排队而不是拒绝 + ③ 起栈前打印 load 与栈数", () => {
   it("名额满时**排队**，等到释放后放行 —— 全程没有抛错", async () => {
-    const root = tempRoot();
-    const dir = leaseDir(root);
+    const env = tempEnv();
+    const dir = leaseDir(env);
     // 先占满两个名额（用本进程 pid，保证 alive）
     for (const id of ["a", "b"]) {
       writeFileSync(join(dir, `${process.pid}-${id}.json`), JSON.stringify({ pid: process.pid, isolationId: id, startedAt: 0 }));
@@ -104,7 +110,7 @@ describe("① 排队而不是拒绝 + ③ 起栈前打印 load 与栈数", () =>
     });
 
     const slot = await acquireStackSlot({
-      repoRoot: root, isolationId: "mine", log: (m) => lines.push(m), sleep, now: () => Date.now(),
+      env, isolationId: "mine", log: (m) => lines.push(m), sleep, now: () => Date.now(),
       // 注入负载：否则本用例会耦合真实机器负载。第一版没注入，结果它走的是
       // 「排队超时放行」那条路而不是「名额释放后放行」——绿了，但绿得不对，
       // 而且在满载机器上跑了 423 秒。
@@ -124,15 +130,13 @@ describe("① 排队而不是拒绝 + ③ 起栈前打印 load 与栈数", () =>
   });
 
   it("🔴 反证：上限设为 0 时，起栈必须当场排队并打印原因（而不是直接放行）", async () => {
-    const root = tempRoot();
     const lines: string[] = [];
     let ticks = 0;
     const sleep = vi.fn(async () => { ticks += 1; });
     // 排队上限设短，避免测试真的等十分钟；到点后它会"放行并大声说明"
     const slot = await acquireStackSlot({
-      repoRoot: root,
       isolationId: "zero",
-      env: { WORKSPACEX_MAX_STACKS: "0" } as NodeJS.ProcessEnv,
+      env: { ...tempEnv(), WORKSPACEX_MAX_STACKS: "0" } as NodeJS.ProcessEnv,
       log: (m) => lines.push(m),
       sleep,
       now: (() => { let t = 0; return () => (t += 60_000); })(),
@@ -147,19 +151,63 @@ describe("① 排队而不是拒绝 + ③ 起栈前打印 load 与栈数", () =>
   });
 
   it("超时放行也要留下租约，否则名额会被少算", async () => {
-    const root = tempRoot();
+    const env = { ...tempEnv(), WORKSPACEX_MAX_STACKS: "0" } as NodeJS.ProcessEnv;
     const slot = await acquireStackSlot({
-      repoRoot: root,
       isolationId: "overflow",
-      env: { WORKSPACEX_MAX_STACKS: "0" } as NodeJS.ProcessEnv,
+      env,
       log: () => {},
       sleep: async () => {},
       now: (() => { let t = 0; return () => (t += 60_000); })(),
       readLoad: () => ({ load1: 1, cores: 10, perCore: 0.1 }),
     });
-    expect(activeStacks(leaseDir(root)).map((l) => l.isolationId)).toEqual(["overflow"]);
+    expect(activeStacks(leaseDir(env)).map((l) => l.isolationId)).toEqual(["overflow"]);
     slot.release();
-    expect(activeStacks(leaseDir(root))).toEqual([]);
+    expect(activeStacks(leaseDir(env))).toEqual([]);
+  });
+});
+
+describe("#1704 反证：预算是**一台机器**一份，不是每个 worktree 一份", () => {
+  /**
+   * 这条是本 issue 的反证。改回 `join(repoRoot, ".harness/state/.cache/stacks")` 它必红。
+   *
+   * 现场：本机 111 个 worktree，租约按 repoRoot 分家，于是 `maxStacks: 2` 实际是
+   * "每个 worktree 2 个"。实测那一刻全机租约文件共 2 个、`docker compose ls` 却有
+   * 18 个栈、load 48/10 核，两个 postgres 容器被 SIGKILL（Exited 137）。
+   * 准入门日志逐字写着 `running=0/2`——诚实地数了错的那个池子。
+   */
+  it("🔴 两个不同 worktree 的调用共用同一份名额：第二个必须排队，不能各算各的", async () => {
+    // 一台机器 = 一个租约目录。两个 repoRoot 只是两个调用方，不该带来两份预算。
+    const machine = { WORKSPACEX_STACK_LEASE_DIR: join(mkdtempSync(join(tmpdir(), "wsx-machine-")), "stacks") } as NodeJS.ProcessEnv;
+    const idle = () => ({ load1: 1, cores: 10, perCore: 0.1 });
+
+    // worktree A 起满 maxStacks（=2）个栈
+    const held = [];
+    for (const id of ["a1", "a2"]) {
+      held.push(await acquireStackSlot({
+        repoRoot: "/fake/worktrees/A", isolationId: id, env: machine,
+        log: () => {}, sleep: async () => {}, readLoad: idle,
+      }));
+    }
+
+    // worktree B 现在来起第三个。机器已经满了——它必须**排队**，
+    // 而不是因为"我自己的 worktree 里一个栈都没有"就放行。
+    const lines: string[] = [];
+    let ticks = 0;
+    const slot = await acquireStackSlot({
+      repoRoot: "/fake/worktrees/B", isolationId: "b1", env: machine,
+      log: (m) => lines.push(m),
+      sleep: async () => {
+        ticks += 1;
+        if (ticks === 1) held.pop()!.release(); // A 跑完一个，腾出名额
+      },
+      readLoad: idle,
+    });
+
+    expect(ticks, "B 必须真的排过队；各算各的预算会让它直接放行").toBeGreaterThan(0);
+    expect(lines.join("\n"), "分母必须是机器上的真实栈数").toContain("running=2/2");
+    expect(lines.join("\n")).toContain("已有 2 个隔离栈在跑");
+    slot.release();
+    for (const h of held) h.release();
   });
 });
 
