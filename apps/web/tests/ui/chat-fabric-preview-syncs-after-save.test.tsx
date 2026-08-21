@@ -63,23 +63,33 @@ vi.mock("@/lib/canvas/canvas-fence", async (importOriginal) => {
 });
 
 // 只读预览重新建 fabric 画布这一步（`markdownToCanvas`/`fitToContent`）在 jsdom 里
-// 真的执行会撞上既有已知问题：编辑后 `previewCode` 变了 → 阶段二 effect 清理旧
-// FabricCanvas（`dispose()`）再建一个新的，这个「同一个 <canvas> DOM 节点上先拆后建」
-// 的时序在 jsdom（不是真浏览器）下会抛 `NotFoundError: removeChild ... not a child`
-// ——与本文件要验的「previewCode 有没有正确更新」无关（那是 checkCanvasFence /
-// mermaid.parse 这两道纯函数闸门的入参，在此之前就已经能验证到），保留其余真实逻辑
-// （`parseTemplateText`/`extractMermaidBlocks`/`wrapAsMermaidBlock` 等），只把这两个
-// 真正会碰 DOM 的函数换成空实现。
+// 真的执行会撞上既有已知问题：previewCode 变了 → 阶段二 effect 清理旧 FabricCanvas
+// （`dispose()`）再建一个新的，这个「同一个 <canvas> DOM 节点上先拆后建」的时序会抛
+// `NotFoundError: removeChild ... not a child`——与本文件要验的「previewCode 有没有
+// 正确更新」无关（那是 checkCanvasFence / mermaid.parse 这两道纯函数闸门的入参，在
+// 此之前就已经能验证到），保留其余真实逻辑（`parseTemplateText`/`extractMermaidBlocks`/
+// `wrapAsMermaidBlock` 等），只把这两个真正会碰 DOM 的函数换成空实现。
+//
+// ⚠ 更正（issue #1668 崩溃回归排查，2026-08-22）：这条注释与下面一条此前把这个
+// `removeChild` 崩溃归因成「jsdom 专属时序问题，真浏览器里 fabric 的 DOM 管理是
+// 稳的」——这个归因是**错的**，devapp 生产环境的真实浏览器报了一模一样的错误
+// （见 `chat-diagram-fabric-postmount-readback-no-crash.test.tsx` 头部注释）。
+// 生产代码现在已经用 `key={previewCode}` 强制整棵子树在 previewCode 变化时干净
+// 卸载重挂（不再在同一个 DOM 节点上原地 dispose+重建），从根上避免了这个时序；
+// 这里继续 stub 掉 fabric 不是因为「jsdom 不支持」，是因为 jsdom 本身没有真实 2D
+// canvas 上下文（`markdownToCanvas` 的渲染 promise 在这里永远不会真正 resolve 到
+// 「就绪」），组件测试没法拿真实 fabric 验证像素——这与「previewCode 会不会崩」是
+// 两件事，后者已经在上述新增测试文件里用一个忠实复刻 fabric DOM 包裹行为的 stub
+// 验证过。
 vi.mock("@repo/fabric-markdown", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/fabric-markdown")>();
   return { ...actual, markdownToCanvas: vi.fn().mockResolvedValue({ model: null }), fitToContent: vi.fn() };
 });
 
 // 同上一条注释：`new FabricCanvas(el, …)` 本身就会在 el 外面包一层 fabric 自建的
-// DOM 节点，`dispose()` 时拆掉——这层 DOM 管理是 fabric 在真浏览器里才稳的行为，
-// jsdom 撞的正是这个（不是 markdownToCanvas 的问题，光把它换成空实现还是会崩，
-// 实测确认过）。只读预览这条读的是「构造/清理时序」，不是「fabric 画了什么」，
-// 所以这里换一个不碰真实 DOM 的最小 stub，其余（`util`/`Point` 等）保持真实导出。
+// DOM 节点，`dispose()` 时拆掉。只读预览这条读的是「构造/清理时序」，不是「fabric
+// 画了什么」，所以这里换一个不碰真实 DOM 的最小 stub，其余（`util`/`Point` 等）
+// 保持真实导出。
 vi.mock("fabric", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fabric")>();
   class StubCanvas {
