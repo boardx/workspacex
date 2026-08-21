@@ -1030,7 +1030,27 @@ describe("lint-permission-paths: counter-proof", () => {
     // 被强制的前提：`tests/itv/theme-repo-permission-guard.test.ts` 解析该文件断言
     // （a）只命名这四张表；（b）不调用 `withoutTenant`；（c）`src/interface/` 下没有文件
     // import 它（has_ui:false，本 feature 未接 HTTP controller）。删那个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(72);
+    //
+    // ⚠ Raised 72 -> 76 by F970（templates 束，issue #1667，套用蓝本/提回蓝本补实现）：
+    // 四个新 infra 文件同一批落地，全部同 F117/F119/F124 那一支「WRITE 路径 + 调用方自己
+    // 的请求回声，没有第二个读面」的形状，不是四条各自独立的新论证：
+    //   `pg-apply-blueprint-repository.ts` —— 只写 `blueprint_bindings`（补 project_id/
+    //   version_id 到调用方自己这次请求刚产生的那一行）与 `agenda_segments`
+    //   （INSERT，调用方自己刚建出的项目的六类初始化行）。
+    //   `pg-compute-deviations-repository.ts` —— 只读调用方自己已被授权的项目所绑定的
+    //   `blueprint_bindings`/`blueprint_versions`/`agenda_segments`，判定
+    //   （`canSubmitChangeRequest`）已在 `computeDeviationsUseCase` 里先跑过。
+    //   `pg-submit-change-request-repository.ts` —— 纯 WRITE，只有一条
+    //   `INSERT INTO blueprint_pending_changes`。
+    //   `pg-list-pending-changes-repository.ts` —— `listPendingChanges` 的门槛是组织成员
+    //   身份（`NO_ORG_ROLE`），返回内容是该组织已拥有的蓝本上的待审记录，不是
+    //   Artifact/Segment/Capability 那类需要 ACL 对象判定的内容。
+    // 四条各自被强制的前提：`tests/tpl/apply-blueprint-repo-guard.test.ts`、
+    // `tests/tpl/compute-deviations-repo-guard.test.ts`、
+    // `tests/tpl/submit-change-request-repo-guard.test.ts`、
+    // `tests/tpl/list-pending-changes-repo-guard.test.ts` 各自解析对应文件，断言只命名
+    // 自己声称的租户表（不多不少）。删掉对应测试则那一条须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(76);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
