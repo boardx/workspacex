@@ -112,6 +112,29 @@ export function ChatSkillMountPanel({
     void reload();
   }, [reload]);
 
+  /**
+   * ⚠ 挂载态要显示**名称**，而名称只存在于 `pool`（`listSkills`）里——而 `pool`
+   * 原本只在点开候选器时才加载。后果很隐蔽：刚挂完能看到名字（那时 pool 在手），
+   * **刷新页面后又退回一串 `sk_…` UUID**，因为没人点过候选器。
+   *
+   * 所以「有挂载但池子是空的」时补读一次。⚠ 读失败**不设 failure**：名字只是显示
+   * 增强，拿不到就回落显示 id（见下方 `named`），不该让一条读失败把整个挂载栏
+   * 变成错误态——挂载本身是好的。
+   */
+  React.useEffect(() => {
+    if (mounts.length === 0 || pool.length > 0 || !orgId) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const items = await listSkills(orgId);
+        if (alive) setPool(items.filter((item) => item.status === "已启用"));
+      } catch {
+        /* 名字拿不到就显示 id，不打断挂载栏 */
+      }
+    })();
+    return () => { alive = false; };
+  }, [mounts.length, pool.length, orgId]);
+
   const openPicker = async (openedByMention: boolean) => {
     mentionOpenedRef.current = openedByMention;
     setPicking(true);
@@ -181,7 +204,7 @@ export function ChatSkillMountPanel({
 
   return (
     <section
-      className="flex flex-col gap-2 border-b border-border px-4 py-2"
+      className="flex flex-col gap-2 border-t border-border px-4 py-2"
       data-testid="chat-skill-mount-panel"
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -199,35 +222,58 @@ export function ChatSkillMountPanel({
             还没有挂载任何 skill
           </span>
         ) : (
-          mounts.map((entry) => (
-            <span
-              key={entry.mountId}
-              className="inline-flex items-center gap-1"
-              data-testid={`chat-skill-mounted-${entry.skillId}`}
-            >
-              <Badge tone="outline">{entry.skillId}</Badge>
-              {/*
-                FB-2 —— 对「这个 skill 本身」提反馈。挂在挂载态的 chip 上而不是选择器里：
-                有意见的前提是用过它，而选择器里的那些还没被用过。
-                传的是真实 `skillId`（不是版本 id）——见契约 `FeedbackTarget` 里
-                「skill 只带 skillId，不带 skillVersionId」那条注释。
-              */}
-              <FeedbackButton
-                target={{ kind: "skill", skillId: entry.skillId }}
-                targetLabel={entry.skillId}
-                testid={`chat-skill-feedback-${entry.skillId}`}
-              />
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={pending}
-                data-testid={`chat-skill-unmount-${entry.skillId}`}
-                onClick={() => void unmount(entry.mountId)}
+          mounts.map((entry) => {
+            /*
+              ⚠ 显示「名称」，不是 `skillId`。名字本来就在手边——`pool` 里的
+              `item.name` 正是候选列表显示的那一份。此前挂载后退回显示
+              `sk_9c652f24-…` 这样的 UUID，等于用户选完就不知道自己挂的是什么，
+              而且两条并排时肉眼几乎无法区分（都以 `sk_` 开头）⇒ 误卸载风险。
+
+              ⚠ 读不到名字时「回落到 id」，不显示「未知 skill」：挂载列表与候选池
+              是两次独立的读，池子还没到（或该 skill 已不在可见范围）时，
+              一个真实的 id 比一个编出来的占位词更有用。
+            */
+            const named = pool.find((s) => s.skillId === entry.skillId)?.name ?? entry.skillId;
+            return (
+              <span
+                key={entry.mountId}
+                className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/40 py-0.5 pl-2 pr-0.5"
+                data-testid={`chat-skill-mounted-${entry.skillId}`}
+                title={`skill id：${entry.skillId}`}
               >
-                <X aria-hidden className="h-3 w-3" />卸载
-              </Button>
-            </span>
-          ))
+                <span className="text-11 text-foreground">{named}</span>
+                {/*
+                  FB-2 —— 对「这个 skill 本身」提反馈。挂在挂载态的 chip 上而不是选择器里：
+                  有意见的前提是用过它，而选择器里的那些还没被用过。
+                  传的是真实 `skillId`（不是版本 id）——见契约 `FeedbackTarget` 里
+                  「skill 只带 skillId，不带 skillVersionId」那条注释。
+                  ⚠ `targetLabel` 传名字：它会进反馈弹层的标题，UUID 对提交反馈的人没有意义。
+                */}
+                <FeedbackButton
+                  target={{ kind: "skill", skillId: entry.skillId }}
+                  targetLabel={named}
+                  testid={`chat-skill-feedback-${entry.skillId}`}
+                />
+                {/*
+                  ⚠ 只留图标、去掉「卸载」二字：此前同一个动作有 `✕` 和「卸载」两个
+                  可点区域，占双倍宽度却不增加信息。语义交给 `aria-label` / `title`，
+                  不靠可见文字撑——屏幕阅读器读得到，视觉上不再重复。
+                */}
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="h-5 w-5 rounded-full p-0"
+                  disabled={pending}
+                  aria-label={`卸载 ${named}`}
+                  title={`卸载 ${named}`}
+                  data-testid={`chat-skill-unmount-${entry.skillId}`}
+                  onClick={() => void unmount(entry.mountId)}
+                >
+                  <X aria-hidden className="h-3 w-3" />
+                </Button>
+              </span>
+            );
+          })
         )}
 
         <Button

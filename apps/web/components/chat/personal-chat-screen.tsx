@@ -453,30 +453,7 @@ function PersonalThreadDetail({
           </a>
           才能发消息。
         </p>
-      ) : null}
-      {/*
-        人类裁决（2026-08-21，原话）：「个人对话必须要可以使用公共的 skills」
-        「所有的人都可以用」。
-
-        此前个人对话「没有任何挂载入口」——`ChatSkillMountPanel` 只在项目屏
-        （`chat-read-screen.tsx`）渲染，本屏连 import 都没有。服务端那一半已在
-        #1693 放开（个人线程可挂载，授权改为从线程反推项目），但用户在界面上
-        仍然挂不上，裁决因此没有真正生效。
-
-        ⚠ `projectId` 不传：个人线程没有项目。服务端已不再把 `?projectId=` 当
-        授权输入（#1693 同一批修的越权洞），可见性过滤仍在服务端，前端不复述
-        任何权限规则——这里只负责"给不给入口"。
-      */}
-      {bearer && orgId ? (
-        <ChatSkillMountPanel
-          threadId={detail.thread.id}
-          orgId={orgId}
-          bearer={bearer}
-          mentionQuery={mentionQuery}
-          onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
-        />
-      ) : null}
-      {bearer ? (
+      ) : null}      {bearer ? (
         <ChatLiveMessagePanel
           threadId={detail.thread.id}
           bearer={bearer}
@@ -500,6 +477,29 @@ function PersonalThreadDetail({
           onRunSettled={onThreadSettled}
         />
       ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
+      {/*
+        人类裁决（2026-08-21，原话）：「个人对话必须要可以使用公共的 skills」
+        「所有的人都可以用」。
+
+        此前个人对话「没有任何挂载入口」——`ChatSkillMountPanel` 只在项目屏
+        （`chat-read-screen.tsx`）渲染，本屏连 import 都没有。服务端那一半已在
+        #1693 放开（个人线程可挂载，授权改为从线程反推项目），但用户在界面上
+        仍然挂不上，裁决因此没有真正生效。
+
+        ⚠ `projectId` 不传：个人线程没有项目。服务端已不再把 `?projectId=` 当
+        授权输入（#1693 同一批修的越权洞），可见性过滤仍在服务端，前端不复述
+        任何权限规则——这里只负责"给不给入口"。
+      */}
+      {bearer && orgId ? (
+        <ChatSkillMountPanel
+          threadId={detail.thread.id}
+          orgId={orgId}
+          bearer={bearer}
+          mentionQuery={mentionQuery}
+          onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
+        />
+      ) : null}
+
     </div>
   );
 }
