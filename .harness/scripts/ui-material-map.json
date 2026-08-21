@@ -31,14 +31,6 @@
     "skills": "ui-preview/skill-v2",
     "templates": "ui-preview/tpl-v2"
   },
-  "phase-10-live-collaboration-orchestration": {
-    "//": "这 5 个束共用阶段级 ui-preview/，且引用互相重叠——group-graph-default.png 同时被 module-routing 与 stage-aggregation 引用，role-member-group-chat.png 等 3 张同时被 segment-engine 与 viewer-role 引用。拆成互不相交的子目录只能靠复制图片，那就制造了同一张图的第二份副本。所以用 shared_dir：死链与跨目录检查逐束不变，孤图检查升到组级（并集 == 实存集）。",
-    "group-checkin": { "shared_dir": "ui-preview" },
-    "module-routing": { "shared_dir": "ui-preview" },
-    "segment-engine": { "shared_dir": "ui-preview" },
-    "stage-aggregation": { "shared_dir": "ui-preview" },
-    "viewer-role": { "shared_dir": "ui-preview" }
-  },
   "phase-02-visible-outcomes": {
     "survey": "ui-preview/survey-v2"
   },
