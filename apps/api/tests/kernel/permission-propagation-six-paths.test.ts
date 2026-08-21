@@ -1050,7 +1050,17 @@ describe("lint-permission-paths: counter-proof", () => {
     // `tests/tpl/submit-change-request-repo-guard.test.ts`、
     // `tests/tpl/list-pending-changes-repo-guard.test.ts` 各自解析对应文件，断言只命名
     // 自己声称的租户表（不多不少）。删掉对应测试则那一条须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(76);
+    //
+    // ⚠ Raised 76 -> 77 by #1680（F26 gap-fill：saveAsOrgTemplate/switchWorkflowTemplate/
+    // getWorkflowOrchestration 首次接上真实 Postgres）：新增一个 infra 文件
+    // `pg-workflow-orchestration-repository.ts`，命名 `project_workflow_orchestration`/
+    // `workflow_template_catalog` 两张表——role check 全部发生在 application 层三个
+    // use case 里（`canWriteOrchestration`/`actorProjectRole === null` 判断），走的是
+    // 同 F950 topic/grouping 条目一样的「一层之上先判，仓储层再触碰」形状，disclose 的
+    // 内容是调用者自己项目的编排/自己按 templateId 指名要读的目录项，不是跨租户/跨用户披露。
+    // 被强制的前提：`tests/tpl/workflow-orchestration-repo-guard.test.ts` 解析该文件断言
+    // （a）只命名这两张表；（b）不调用 `withoutTenant`。删那个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(77);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

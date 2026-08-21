@@ -5049,6 +5049,29 @@
       ],
       "evidence": "evidence/F970.verify.log（in_progress，非 passing——高风险档需要的 pnpm -w run verify:release 卡在与本 feature 无关的仓库级 lint-ui-material 红灯，见 session-handoff.md）",
       "notes": "issue #1667 勘探：F23（templates.applyBlueprint）/F29（templates.submitBlueprintChangeRequest/computeDeviations）两个契约 operation 的应用层用例代码完整、单测齐全，此前零 controller、零 infra——F23/F29 早已标 passing，但没有任何 HTTP 路由指向它们，用户实际不可达；apps/web/e2e/blueprint-contract-gap-audit.spec.ts 的两条『断言仍是 404』缺口门控实测证实。本 feature 补齐两条能力的真实接线：ApplyBlueprintController（复用既有 PROJECT_REPOSITORY 的唯一创建路径，不新开第二个 INSERT INTO projects）+ PgApplyBlueprintResolver/PgApplyBlueprintRepository；BlueprintChangeRequestController + PgComputeDeviationsRepository/PgSubmitChangeRequestRepository/PgListPendingChangesRepository；新迁移放开 agenda_segments.duration 的 NOT NULL（未填=空）、给 blueprint_bindings 补 project_id/version_id、新建 blueprint_pending_changes 表。⚠ 已知登记的非原子性缺口：ApplyBlueprintRepository.apply() 里项目容器创建与 agenda_segments 写入是两个事务（不是一个），见 pg-apply-blueprint-repository.ts 文件头注。⚠ computeDeviations 今天只对 flow-agenda 一项有真实项目侧数据源（读 agenda_segments），其余设计配置项尚无项目侧独立编辑存储，如实原样返回快照值（不产生偏离），是诚实的空态不是缺陷。不依赖 #1681（workflow-screen 真实 projectId）；/project/new 前端选蓝本入口若尚未接线，留给该 issue 范围，本 feature 只保证后端真实可达。不碰 F23/F29 的 status/passing（AGENTS.md 硬约束）。"
+    },
+    {
+      "id": "I1680",
+      "priority": 1,
+      "area": "tpl",
+      "capability": "CAP-API",
+      "title": "gap-fill：F26 三个用例（saveAsOrgTemplate/switchWorkflowTemplate/getWorkflowOrchestration）接上真实 Postgres + 控制器 + DI（#1680）",
+      "user_visible_behavior": "在项目设置→工作流编排，[另存为组织模板]真的把当前编排另存成一条新的后台工作流模板目录项（新 id 与来源模板 id 不同，来源模板本体不被覆写）；从模板库选一个模板点[改用这个]，破坏性变更先出确认清单（不确认则零写入），确认后项目的环节链与三角色矩阵真的被替换并落库；刷新页面再读工作流编排，看到的是刚换过去的那份，不是内存态或旧值——三条路径此前只有内存 Fake 端口撑单测，`infrastructure/`/控制器/DI 全部为零，产品里不可达。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R7",
+      "depends_on": [
+        "F26"
+      ],
+      "points": 3,
+      "status": "in_progress",
+      "sprint": "20",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/tpl/workflow-orchestration-persists-real-db.test.ts",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/tpl/workflow-orchestration-repo-guard.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "",
+      "notes": "契约束已签核（design-signoff.md status: confirmed，covers 含 F26），本 feature 零新增设计面，只补已签核端口的存储实现（issue #1680，见 #1666 勘探评论）。三个端口 `OrchestrationRepository`/`WorkflowTemplateCatalogPort`/`OrgTemplateCreatePort`（workflow-orchestration-ports.ts）新增 `pg-*` 实现（apps/api/src/infrastructure/templates/pg-workflow-orchestration-repository.ts）+ 新迁移（project_workflow_orchestration/workflow_template_catalog 两张表）+ BlueprintController 追加三条路由（GET /projects/:id/orchestration、POST .../workflow-template/switch、POST .../save-as-org-template）+ kernel.module.ts DI 注册。⚠ 前端 workflow-screen.tsx 接线不在本 feature 范围（收窄回 #1666/#1681）。"
     }
   ]
 }

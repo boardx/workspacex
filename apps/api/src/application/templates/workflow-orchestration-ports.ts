@@ -11,6 +11,7 @@ import type {
   MatrixCellLike,
   WorkflowOrchestrationSnapshot,
 } from "../../domain/templates/workflow-orchestration";
+import type { OrgId } from "../../domain/org-id";
 
 /** 项目侧实例编排的读写面。 */
 export interface OrchestrationRepository {
@@ -48,6 +49,25 @@ export interface WorkflowTemplateCatalogPort {
   load(templateId: string): Promise<WorkflowTemplateCatalogEntry | null>;
 }
 
+/**
+ * #1680 gap-fill：`OrchestrationRepository` / `WorkflowTemplateCatalogPort` 的方法签名
+ * 都不带 `orgId`（见上方两个接口），而真实存储层的 RLS 隔离必须知道租户——这两个工厂
+ * 接口是 DI 组装（无请求上下文）与端口消费（有 `orgId`，来自 `principal.orgId`）之间
+ * 的组合点：控制器每次请求用 `forOrg(orgId)` 现场绑出一份满足端口接口的适配器，而不是
+ * 直接把 PostgreSQL 实现类型（`infrastructure/`）导入 `interface/controllers/`——
+ * 那会让控制器绕过应用层端口去认识一个具体存储实现，违反本仓洋葱架构的既有边界
+ * （`interface` 只认 `application` 的端口/令牌，从不 `import` `infrastructure` 里的类）。
+ */
+export interface OrchestrationRepositoryFactory {
+  forOrg(orgId: OrgId): OrchestrationRepository;
+}
+export const ORCHESTRATION_REPOSITORY_FACTORY = Symbol("OrchestrationRepositoryFactory");
+
+export interface WorkflowTemplateCatalogFactory {
+  forOrg(orgId: OrgId): WorkflowTemplateCatalogPort;
+}
+export const WORKFLOW_TEMPLATE_CATALOG_FACTORY = Symbol("WorkflowTemplateCatalogFactory");
+
 /** `[另存为组织模板]` 的唯一写入口——**没有**对应的「读来源模板」方法，见该用例文件头注。 */
 export interface OrgTemplateCreatePort {
   create(input: {
@@ -57,6 +77,19 @@ export interface OrgTemplateCreatePort {
     readonly matrix: readonly MatrixCellLike[];
   }): Promise<{ readonly workflowTemplateId: string }>;
 }
+
+/**
+ * #1680 gap-fill：`OrgTemplateCreatePort` 的 DI 令牌。
+ *
+ * ⚠ `OrchestrationRepository` / `WorkflowTemplateCatalogPort` 故意**没有**同款令牌——
+ * 两者的方法签名不带 `orgId`（见上方接口定义），PG 实现因此不能直接满足接口；
+ * 控制器改为注入各自的具体类（`PgOrchestrationRepository` / `PgWorkflowTemplateCatalogRepository`，
+ * `infrastructure/templates/pg-workflow-orchestration-repository.ts`）并按请求的
+ * `orgId` 用 `.forOrg(orgId)` 现场绑出一份满足接口的适配器——这是绑定 `orgId` 的
+ * 组合点，不是端口签名的一部分，所以不在这里加令牌。`OrgTemplateCreatePort.create`
+ * 不受影响：它的入参本就带 `orgId`，PG 实现可以直接 `implements` 这个接口。
+ */
+export const ORG_TEMPLATE_CREATE_PORT = Symbol("OrgTemplateCreatePort");
 
 /* ═══════════════════════ F27：矩阵格 → 待办同步的端口 ═══════════════════════ */
 

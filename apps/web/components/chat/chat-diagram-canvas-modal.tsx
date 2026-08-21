@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { MousePointer2, Square, Spline, Trash2, Maximize, Save, X, Check } from "lucide-react";
+import { MousePointer2, Square, Trash2, Maximize, Save, X, Check } from "lucide-react";
 import { wrapAsMermaidBlock, extractMermaidBlocks } from "@repo/fabric-markdown";
 import { CanvasStage } from "@/components/canvas/canvas-stage";
 import { decodeMermaidEntities } from "@/lib/chat/decode-mermaid-entities";
@@ -61,7 +61,14 @@ export function ChatDiagramCanvasModal({
   savedSource,
 }: {
   code: string;
-  onClose: () => void;
+  /**
+   * 关闭时把「这次会话里最后一次成功保存（真实落库或本地演示皆算）」的 mermaid 源带
+   * 回去——调用方（`ChatDiagramFabric`）用它更新气泡里的只读预览，不然「保存」点了、
+   * 「已保存」徽标也亮了，退出全屏后气泡卡片却纹丝不动（人类实测反馈：这正是本参数
+   * 从 `() => void` 改成带结果的原因）。没点过保存 / 保存失败就关闭 ⇒ 不传，调用方
+   * 维持原样，不会把「还没保存的编辑」误当成「已保存」回填进气泡。
+   */
+  onClose: (result?: { markdown: string }) => void;
   /** 三者俱全才真实持久化；任一缺失退回本地 mock（见文件头注释）。 */
   threadId?: string;
   messageId?: string;
@@ -116,14 +123,20 @@ export function ChatDiagramCanvasModal({
     setSaveError(null);
   }, []);
 
+  // 关闭统一走这一个出口（ESC / 右上角 X 都调它）——带不带保存结果只取决于
+  // `saved` 是否非空，不重复判断两遍。
+  const closeModal = React.useCallback(() => {
+    onClose(saved ? { markdown: saved.mermaid } : undefined);
+  }, [onClose, saved]);
+
   // ESC 关闭（全屏覆盖层的基本可达性）。
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") closeModal();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [closeModal]);
 
   const handleSave = React.useCallback(async () => {
     // 保存 = 取编辑后 markdown 里的 mermaid 源（canvasToMarkdown 已在 onMarkdownChange 产出）。
@@ -162,10 +175,13 @@ export function ChatDiagramCanvasModal({
     }
   }, [markdown, canPersist, threadId, messageId, bearer]);
 
+  // 「连线」工具（`tool === "edge"`）此前在这块工具条里，但 `CanvasStage` 的
+  // `mouse:down` 从没接过它的点击逻辑——shift 点两个节点画不出任何连线，纯粹是
+  // 一枚看起来能用、点了却什么都不发生的按钮（人类实测反馈）。按钮比空白更容易
+  // 骗人：不接线的功能就不该有入口，先摘掉，等真正实现连线交互再放回来。
   const TOOLS: { key: CanvasTool; label: string; icon: typeof Square }[] = [
     { key: "select", label: "选择", icon: MousePointer2 },
     { key: "node", label: "＋节点", icon: Square },
-    { key: "edge", label: "连线", icon: Spline },
     { key: "delete", label: "删除", icon: Trash2 },
   ];
 
@@ -245,7 +261,7 @@ export function ChatDiagramCanvasModal({
             variant="ghost"
             size="icon"
             aria-label="关闭"
-            onClick={onClose}
+            onClick={closeModal}
             data-testid="chat-diagram-close"
           >
             <X aria-hidden className="h-4 w-4" />

@@ -83,6 +83,19 @@ import {
 } from "../../application/templates/update-interview-subjects";
 import { getInterviewSubjectsUseCase, GetInterviewSubjectsError } from "../../application/templates/get-interview-subjects";
 import { INTERVIEW_SUBJECTS_REPOSITORY, type InterviewSubjectsRepository } from "../../application/templates/interview-subjects-ports";
+// #1680 gap-fill：F26 三个用例（saveAsOrgTemplate/switchWorkflowTemplate/getWorkflowOrchestration）
+// 首次接上真实 Postgres——此前只有内存 Fake 撑单测，`infrastructure/` 零实现、本文件零路由。
+import { saveAsOrgTemplate, SaveAsOrgTemplateError } from "../../application/templates/save-as-org-template";
+import { switchWorkflowTemplate, SwitchWorkflowTemplateError } from "../../application/templates/switch-workflow-template";
+import { getWorkflowOrchestration, GetWorkflowOrchestrationError } from "../../application/templates/get-workflow-orchestration";
+import {
+  ORCHESTRATION_REPOSITORY_FACTORY,
+  ORG_TEMPLATE_CREATE_PORT,
+  WORKFLOW_TEMPLATE_CATALOG_FACTORY,
+  type OrchestrationRepositoryFactory,
+  type OrgTemplateCreatePort,
+  type WorkflowTemplateCatalogFactory,
+} from "../../application/templates/workflow-orchestration-ports";
 
 const CREATE_SCHEMA = C.operations.createBlueprint.in;
 type CreateBody = z.infer<typeof CREATE_SCHEMA>;
@@ -100,6 +113,11 @@ const UPDATE_INTERVIEW_SUBJECTS_BODY_SCHEMA = C.operations.updateInterviewSubjec
   groupId: true,
 });
 type UpdateInterviewSubjectsBody = z.infer<typeof UPDATE_INTERVIEW_SUBJECTS_BODY_SCHEMA>;
+// #1680 gap-fill：projectId 来自路径，body 只带契约 `in` 剩下的字段。
+const SAVE_AS_ORG_TEMPLATE_BODY_SCHEMA = C.operations.saveAsOrgTemplate.in.omit({ projectId: true });
+type SaveAsOrgTemplateBody = z.infer<typeof SAVE_AS_ORG_TEMPLATE_BODY_SCHEMA>;
+const SWITCH_WORKFLOW_TEMPLATE_BODY_SCHEMA = C.operations.switchWorkflowTemplate.in.omit({ projectId: true });
+type SwitchWorkflowTemplateBody = z.infer<typeof SWITCH_WORKFLOW_TEMPLATE_BODY_SCHEMA>;
 
 @Controller()
 export class BlueprintController {
@@ -111,6 +129,10 @@ export class BlueprintController {
     @Inject(PROJECT_TOPIC_REPOSITORY) private readonly topicRepo: ProjectTopicRepository,
     @Inject(GROUPING_REPOSITORY) private readonly groupingRepo: GroupingRepository,
     @Inject(INTERVIEW_SUBJECTS_REPOSITORY) private readonly interviewSubjects: InterviewSubjectsRepository,
+    // #1680 gap-fill：三个 F26 用例的存储依赖。
+    @Inject(ORCHESTRATION_REPOSITORY_FACTORY) private readonly orchestrationsFactory: OrchestrationRepositoryFactory,
+    @Inject(WORKFLOW_TEMPLATE_CATALOG_FACTORY) private readonly catalogFactory: WorkflowTemplateCatalogFactory,
+    @Inject(ORG_TEMPLATE_CREATE_PORT) private readonly orgTemplateCreate: OrgTemplateCreatePort,
   ) {}
 
   @Post("/blueprints")
@@ -664,6 +686,97 @@ export class BlueprintController {
       if (err instanceof GetInterviewSubjectsError) throw this.mapInterviewSubjectsError(err.reasonCode);
       throw err;
     }
+  }
+
+  /**
+   * #1680 gap-fill —— F26 三条路由：读工作流编排 / 换模板 / 另存为组织模板。
+   * 三个用例（application 层）早已存在且早已单测覆盖，这里只做接线：解析 `actorProjectRole`
+   * 与 `orgId`（同本文件其它 `/projects/:projectId/...` 路由的既有惯例——`principal.orgId`，
+   * 不反查项目所属组织，见 `pg-workflow-orchestration-repository.ts` 文件头注）、
+   * 把三个端口的存储实现用 `.forOrg(orgId)` 现场绑好、把三个用例各自的错误类映射成 HTTP。
+   */
+  @Get("/projects/:projectId/orchestration")
+  async getOrchestration(
+    @Param("projectId") projectId: string,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const actorProjectRole = await this.getActorProjectRole(orgId, projectId, principal.userId);
+    try {
+      return await getWorkflowOrchestration(
+        { orchestrations: this.orchestrationsFactory.forOrg(orgId) },
+        { projectId, actorProjectRole },
+      );
+    } catch (e) {
+      if (e instanceof GetWorkflowOrchestrationError) throw this.mapTemplateOrchestrationError(e.reasonCode);
+      throw e;
+    }
+  }
+
+  @Post("/projects/:projectId/workflow-template/switch")
+  async switchWorkflowTemplateRoute(
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(SWITCH_WORKFLOW_TEMPLATE_BODY_SCHEMA)) body: SwitchWorkflowTemplateBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const actorProjectRole = await this.getActorProjectRole(orgId, projectId, principal.userId);
+    try {
+      return await switchWorkflowTemplate(
+        {
+          orchestrations: this.orchestrationsFactory.forOrg(orgId),
+          catalog: this.catalogFactory.forOrg(orgId),
+          // 注入而不是内部生成——同用例文件头注「测试要断言的是内容不是随机串」；
+          // 生产路径复用仓库既有的 `ID_FACTORY`，不新造一个 id 生成器。
+          newCellId: () => this.ids.next("cell"),
+          newRevision: () => this.ids.next("rev"),
+        },
+        { projectId, templateId: body.templateId, confirmed: body.confirmed, actorProjectRole },
+      );
+    } catch (e) {
+      if (e instanceof SwitchWorkflowTemplateError) throw this.mapTemplateOrchestrationError(e.reasonCode);
+      throw e;
+    }
+  }
+
+  @Post("/projects/:projectId/save-as-org-template")
+  async saveAsOrgTemplateRoute(
+    @Param("projectId") projectId: string,
+    @Body(new ZodBodyPipe(SAVE_AS_ORG_TEMPLATE_BODY_SCHEMA)) body: SaveAsOrgTemplateBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    const orgId = toOrgId(principal.orgId);
+    const actorProjectRole = await this.getActorProjectRole(orgId, projectId, principal.userId);
+    try {
+      return await saveAsOrgTemplate(
+        { orchestrations: this.orchestrationsFactory.forOrg(orgId), orgTemplates: this.orgTemplateCreate },
+        { projectId, orgId, name: body.name, actorProjectRole },
+      );
+    } catch (e) {
+      if (e instanceof SaveAsOrgTemplateError) throw this.mapTemplateOrchestrationError(e.reasonCode);
+      throw e;
+    }
+  }
+
+  /**
+   * 三个用例共用的错误面映射。⚠ 参数类型故意写成 `string`，不是三个 `*ErrorCode`
+   * 的并集字面量：三者都是 `z.infer<typeof C.TemplateError>`（30+ 成员的全集闭集），
+   * 但每个用例实际只构造得出 `NO_PROJECT_ROLE`/`ROLE_INSUFFICIENT`/`DEPENDENCY_UNAVAILABLE`
+   * 三者之一（逐一读过三个用例文件的每个 throw 分支可核对）——写并集字面量只会把
+   * 30 个用例永远走不到的分支硬摆在这里，不会让这三条路由更安全。未知码兜底抛出，
+   * 不静默吞掉（同本文件其它 map*Error 方法不接受意料之外分支的既有纪律）。
+   */
+  private mapTemplateOrchestrationError(reasonCode: string): Error {
+    if (reasonCode === "DEPENDENCY_UNAVAILABLE") {
+      return new ServiceUnavailableException({ reasonCode });
+    }
+    if (reasonCode === "NO_PROJECT_ROLE" || reasonCode === "ROLE_INSUFFICIENT") {
+      return new ForbiddenException({ reasonCode });
+    }
+    return new Error(`unmapped TemplateError reasonCode from F26 orchestration route: ${reasonCode}`);
   }
 
   private mapInterviewSubjectsError(

@@ -54,17 +54,19 @@
       "spec_ref": "00-overview.md#R1",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "01",
-      "owner": null,
+      "owner": "usamshen",
       "capability": "CAP-WEB",
-      "user_visible_behavior": "无论切到主持台全场还是任意分组视角，黑色环节状态条始终常驻显示同一份真实数据（环节 N/M、环节名、`listAgendaSegments`/`advanceAgendaSegment`），与 apps/web/components/project/tab-live.tsx（F963）已接的真实数据源保持单一来源，不在编排层另建一份副本状态。",
+      "user_visible_behavior": "无论切到主持台全场还是任意分组视角（F01 视角切换器），黑色环节状态条始终常驻显示同一份真实数据（环节 N/M、环节名、状态、`listAgendaSegments`/`advanceAgendaSegment`）：状态条组件在切换视角时不被卸载重建，推进控制（下一环节/跳过/提前结束，按角色决定是否可见）在任一视角下行为一致，不在编排层另建一份副本状态。",
       "verification": [
-        "grep -rq 'data-testid=\"lc-stage-bar\"' apps/web/components/live-collab/orchestration-preview.tsx",
-        "grep -rq 'listAgendaSegments\\|advanceAgendaSegment' apps/web/components/project/tab-live.tsx"
+        "grep -rq 'data-testid=\"project-live-stagebar\"' apps/web/components/project/tab-live.tsx",
+        "grep -rq 'listAgendaSegments\\|advanceAgendaSegment' apps/web/components/project/tab-live.tsx",
+        "pnpm --filter web typecheck",
+        "pnpm --filter web exec vitest run tests/ui/project-live-segment-engine-consistency.test.tsx"
       ],
-      "evidence": "phases/phase-10-live-collaboration-orchestration/ui-preview/stage-default-default.png",
-      "notes": "契约束候选：segment-engine-live。⚠ 同一事实不得声明两处（AGENTS.md 硬约束）：环节标题/序号/推进动作的真实数据源就是 F963 已接的 tab-live.tsx 调用，本 feature 只负责把编排层的状态条渲染改成读同一个数据源/同一个前端 hook，不得重新声明或复制一份『环节当前是什么』的状态。"
+      "evidence": "evidence/F03.verify.log @ 2026-08-20T21:05:31.132Z",
+      "notes": "契约束候选：segment-engine-live。⚠ 同一事实不得声明两处（AGENTS.md 硬约束）：环节标题/序号/推进动作的真实数据源就是 F963 已接的 tab-live.tsx 调用，本 feature 只负责验证『切换 F01 视角切换器不会让状态条另建一份副本状态』——实现层面 F01 落地时 StageBar 已经放在切换器之上无条件渲染（同一份 props），本 feature 本质是给这条已经成立的行为补上显式的回归测试与验证锚点，未新增渲染逻辑。"
     },
     {
       "id": "F04",
@@ -96,7 +98,7 @@
       "depends_on": [],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "02",
       "owner": null,
       "capability": "CAP-WEB",
       "user_visible_behavior": "引导师切到『主持台·全场 → 分组与签到』，看到 4 张分组卡片：组号/组名/『M/N 已到』/复制链接按钮/成员列表（姓名+角色徽标：组长/已到/未到）。参与者点开组长转发的链接直接进对应分组视角，不需要注册。",

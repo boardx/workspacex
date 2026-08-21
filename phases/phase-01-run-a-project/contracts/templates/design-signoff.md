@@ -234,7 +234,20 @@ phase: "01"
 #   AgendaContent 结构）已存在的字段，不是新字段。按 covers 追加规则「零新增设计面」
 #   三条件自查后追加。
 #   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
-covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207, F208, F203, F961, F209, F210, F211, F970]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
+# 2026-08-21（I1680，dev-chat-e2e）：追加 **I1680**（#1680 gap-fill）——F26 三个用例
+#   （saveAsOrgTemplate/switchWorkflowTemplate/getWorkflowOrchestration）此前只有内存
+#   Fake 端口撑单测，`infrastructure/`/控制器/DI 全部为零，产品里不可达（见 #1666 勘探
+#   评论）。三条件逐条自查：
+#     1. **UI 已签**：本 feature 是纯后端（pg-* 仓储实现 + 三条控制器路由 + DI 注册），
+#        零新界面落点——前端接线是另一条已收窄出去的 issue（#1681），不在本 feature 范围。
+#     2. **契约已签**：只实现本束已签核的三条 operation——`saveAsOrgTemplate`/
+#        `switchWorkflowTemplate`/`getWorkflowOrchestration`，路由路径/方法/鉴权前置条件/
+#        错误码逐字照 `packages/contracts/src/templates.ts` 既有形状，未改一个字段。
+#     3. **零新增设计面**：不新增契约操作、不新增错误码、不新增字段、不新增交互语义——
+#        只是把已签核端口第一次接上真实 Postgres（同 F175/F174/F177/F950 等既有先例
+#        「补 infra 实现不算新设计面」的同一条纪律）。
+#   ⚠ 本行**只动 `covers:`**，`status` / `confirmed_by` / `confirmed_at` 一字未改（ADR-023）。
+covers: [F17, F18, F19, F20, F21, F22, F23, F24, F25, F26, F27, F28, F29, F30, F175, F174, F177, F179, F181, F186, F187, F188, F189, F193, F194, F201, F202, F950, F960, F204, F205, F206, F207, F208, F203, F961, F209, F210, F211, F970, I1680]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
 confirmed_at: "2026-07-30T16:50:06+08:00"
