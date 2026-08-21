@@ -502,6 +502,35 @@ await asApp(orgId, async (client) => {
      ON CONFLICT (id) DO NOTHING`,
     [agendaSegmentId, orgId, projectId, agendaSegmentTitle],
   );
+  /**
+   * #1666 收尾（saveAsOrgTemplate 的按钮真栈门控）：`saveAsOrgTemplate`
+   * （`apps/api/src/application/templates/save-as-org-template.ts`）在
+   * `OrchestrationRepository.load(projectId)` 回 `null` 时恒抛
+   * `DEPENDENCY_UNAVAILABLE`——项目要先有一份真实 `project_workflow_orchestration`
+   * 才有「另存为组织模板」可另存的内容。种子给的这份编排复用上面刚建的
+   * `agendaSegmentId`（同一环节，两张表的外键语义不同：`agenda_segments` 是环节本体，
+   * `project_workflow_orchestration.segments` 是编排快照里的一份 `AgendaSegmentRef`
+   * 投影，字段形状见 `domain/templates/workflow-orchestration.ts`），
+   * 不额外造一个不存在的环节 id。矩阵给三角色各一格，非空但不追求覆盖 F27 的联动语义
+   * ——那是另一条门控的范围。
+   */
+  await client.query(
+    `INSERT INTO project_workflow_orchestration
+       (project_id, org_id, template_id, template_name, template_source_version, segments, matrix, revision)
+     VALUES ($1,$2,$3,$4,2,$5::jsonb,$6::jsonb,'rev-seed-1')
+     ON CONFLICT (project_id) DO NOTHING`,
+    [
+      projectId, orgId, "tpl-seed-fullstack-e2e", "设计思维标准五步",
+      JSON.stringify([
+        { agendaSegmentId, title: agendaSegmentTitle, addedBy: null, optional: false },
+      ]),
+      JSON.stringify([
+        { cellId: "cell-seed-facilitator", agendaSegmentId, roleKey: "facilitator", content: "开场并主持破冰", canvasTemplateId: null, skillIds: [] },
+        { cellId: "cell-seed-groupLead", agendaSegmentId, roleKey: "groupLead", content: "带组内讨论", canvasTemplateId: null, skillIds: [] },
+        { cellId: "cell-seed-member", agendaSegmentId, roleKey: "member", content: "参与讨论并记录", canvasTemplateId: null, skillIds: [] },
+      ]),
+    ],
+  );
 });
 
 // ⚠ 刻意**没有**预置任何 capability_listings 行。#458 的浏览器门控要证的正是

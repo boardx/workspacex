@@ -282,6 +282,13 @@ export default defineConfig({
         //   它会往 sentinel 工作坊里真实建一个分组：全仓 `grep project-prep-groups`
         //   确认没有任何别的 spec 断言「分组为空」，不会像 #520/#496 那样把别人写脏。
         "interview-subjects-smoke.spec.ts",
+        // ⚠ #1666 同理排在 `seeded`：它要用种子里的 sentinel 工作坊
+        //   （`FULLSTACK_E2E.projectId`，本次种子给它补了一份真实
+        //   `project_workflow_orchestration`，`saveAsOrgTemplate` 要读到东西才能另存）、
+        //   该工作坊的 facilitator（`FULLSTACK_E2E.email`）、以及 `leadEmail`
+        //   （持久化反证要用它新建一个全新的隔离项目，避免往共享种子项目上做
+        //   覆盖式写）。
+        "save-as-org-template-smoke.spec.ts",
         // ⚠ P2（#1561）图像通道诚实降级：同理排在 `seeded`——它要用种子里可运行的
         //   agent（`FULLSTACK_E2E.agentId`）与确定性上游 `loopback-model-provider.ts`
         //   （回显真实收到的 userText，是本用例证明"图像通道真的组装进 ModelCallInput"

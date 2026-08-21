@@ -5074,6 +5074,31 @@
       "notes": "契约束已签核（design-signoff.md status: confirmed，covers 含 F26），本 feature 零新增设计面，只补已签核端口的存储实现（issue #1680，见 #1666 勘探评论）。三个端口 `OrchestrationRepository`/`WorkflowTemplateCatalogPort`/`OrgTemplateCreatePort`（workflow-orchestration-ports.ts）新增 `pg-*` 实现（apps/api/src/infrastructure/templates/pg-workflow-orchestration-repository.ts）+ 新迁移（project_workflow_orchestration/workflow_template_catalog 两张表）+ BlueprintController 追加三条路由（GET /projects/:id/orchestration、POST .../workflow-template/switch、POST .../save-as-org-template）+ kernel.module.ts DI 注册。⚠ 前端 workflow-screen.tsx 接线不在本 feature 范围（收窄回 #1666/#1681）。"
     },
     {
+      "id": "F971",
+      "priority": 1,
+      "area": "tpl",
+      "capability": "CAP-WEB",
+      "title": "「另存为组织模板」两处按钮真正接线：tab-prep.tsx + workflow-screen.tsx（issue #1666 收尾）",
+      "user_visible_behavior": "进项目工作台「筹备」tab（`project-prep`），facilitator 在「议程 · 每个环节三种角色各做什么」区块点「另存为组织模板」（`project-prep-save-template`）——此前这个按钮没有 onClick，点了没有任何反应；现在点击展开一个名称输入框（`project-prep-save-template-form`），填名称并点「保存」（`-submit`）后真实 POST `/projects/:projectId/save-as-org-template`，成功后显示服务端真实返回的 `workflowTemplateId`（`project-prep-save-template-success`），失败原样显示服务端 reasonCode（`-error`）；刷新页面后按钮回到干净的折叠态，不留一个只存在于 React state 的假成功幽灵态。项目设置 → 工作流编排屏（`/tpl?screen=workflow`）的「另存为组织模板」（`tpl-wf-saveorg`）同理——此前只弹一句固定文案的本地 toast、不发任何网络请求；现在同一套交互真实落库，toast 文案里含服务端真实返回的 id，不是编好的固定文案。两处按钮共用同一个组件（`SaveAsOrgTemplateAction`）与同一份契约调用，不是各自另起一套逻辑。",
+      "spec_ref": "02-tpl/uc-2-2-套用蓝本新建项目.md#R7",
+      "depends_on": [
+        "F26",
+        "I1680"
+      ],
+      "points": 2,
+      "status": "in_progress",
+      "sprint": "20",
+      "owner": "dev-chat-e2e",
+      "verification": [
+        "pnpm --filter web run typecheck",
+        "pnpm --filter api run typecheck",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded --grep 1666",
+        "pnpm exec tsx .harness/scripts/cli.ts doctor"
+      ],
+      "evidence": "evidence/F971.verify.log @ 2026-08-21（真栈 e2e 4/4 通过，含失败态反证与全新项目+全新会话的持久化反证，见 PR 描述）",
+      "notes": "issue #1666 收尾：#1680（saveAsOrgTemplate 的 controller/infra，PR #1698）与 #1681（workflow-screen.tsx 接真实 projectId/getWorkflowOrchestration，PR #1683）均已合入 main，回来做两个按钮的真正接线。新增 `apps/web/components/tpl/save-as-org-template-action.tsx`（两处按钮共用的状态机：展开表单→填名称→提交→成功显示真实 id/失败原样显示 reasonCode）与 `apps/web/lib/live-workflow-orchestration.ts` 里的 `saveAsOrgTemplate`/`describeSaveAsOrgTemplateError`。种子脚本（`apps/api/scripts/seed-fullstack-smoke.ts`）为 `FULLSTACK_E2E.projectId` 补了一份真实 `project_workflow_orchestration`——`saveAsOrgTemplate` 用例在项目没有编排数据时恒抛 `DEPENDENCY_UNAVAILABLE`，此前零调用方的时候没有任何路径需要种这份数据。新增 e2e `apps/web/e2e/save-as-org-template-smoke.spec.ts`（4 条：tab-prep 真实保存+刷新复位、workflow-screen 真实保存+toast 含真实 id、失败态反证、持久化反证）。⚠「刷新后仍在」的证明方式：`saveAsOrgTemplate` 的产物（`workflow_template_catalog` 一行）契约上没有任何读路径（`getWorkflowOrchestration` 只回当前套用的模板，不回模板库列表；workflow-screen.tsx 7c 区块因此如实降级为空态说明），没有列表 UI 可以「刷新页面看它还在」——改用一条独立读路径：全新登录 `leadEmail`、真实新建一个此前不存在的项目、对它调用已有 controller/infra 但前端尚未接线的 `switchWorkflowTemplate`（传入刚保存的 `workflowTemplateId`，找不到会抛 `DEPENDENCY_UNAVAILABLE`）、再 `getWorkflowOrchestration` 读回来核对内容——四步缺一都不能证明数据真的进了 PostgreSQL 而不是进程内态，细节见 e2e 文件头注。已实测反证：把 workflow-screen 的 `onSaved` 临时改回 issue 原文那句固定 toast 文案，第 2 条用例当场失败（`Received string: \"已另存为组织级工作流模板…\"` ≠ 断言的真实 id），改完立刻复原并重新全绿——反证记录见 PR 描述，未留在代码里。「换模板」（`switchWorkflowTemplate`）UI 接线仍不在本 feature 范围（workflow-screen.tsx 7c 区块的契约缺口，`SignoffFlag` 已如实标注）。契约束已签核（design-signoff.md status: confirmed，covers 含 F26），本 feature 零新增设计面自查：①UI 已签——两处按钮的存在与位置在 F26/`workflow-screen.tsx` 原实现（含 #1681）里已经画出来，本次只是把已经画出来的按钮接上已经签核的契约操作，未新增任何界面元素或交互语义（展开态的名称输入框是必要的最小交互，契约 `saveAsOrgTemplate.in.name` 是 `min(1)`，前端必须收集，不是自由发挥的新设计）；②契约已签——只消费已签核的 `saveAsOrgTemplate` 一条 operation，形状逐字照契约；③零新增设计面——不新增契约操作/错误码/迁移，种子脚本的改动是测试基础设施不是产品代码。"
+    },
+    {
       "id": "I1668",
       "priority": 2,
       "area": "chat",

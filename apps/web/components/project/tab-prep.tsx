@@ -22,6 +22,7 @@ import {
 } from "@/lib/live-project-prep";
 import { listOrgMembers, type ListOrgMembersOut } from "@/lib/live-org-admin";
 import { useSession } from "@/components/session/session-provider";
+import { SaveAsOrgTemplateAction } from "@/components/tpl/save-as-org-template-action";
 
 type OrgMemberRow = ListOrgMembersOut["members"][number];
 
@@ -39,6 +40,15 @@ type OrgMemberRow = ListOrgMembersOut["members"][number];
  *   三角色分工在契约里没有出处（同 `tab-overview.tsx` F172 对当前环节卡的处理），
  *   本次不动它。
  *
+ * ⚠ #1666 收尾（2026-08-21）：那张 mock 表下面的「另存为组织模板」按钮**此前没有
+ *   `onClick`**，纯装饰，点了没有任何反应——issue #1666 勘探报告的两处「假成功」缺陷
+ *   之一。#1680 给 `saveAsOrgTemplate` 补上 controller/infra 之后，这里改接
+ *   `SaveAsOrgTemplateAction`（`components/tpl/save-as-org-template-action.tsx`，
+ *   与 `workflow-screen.tsx` 的 `tpl-wf-saveorg` 共用同一份状态机与请求逻辑）——
+ *   按钮读的服务端字段是「这个项目此刻真实落库的工作流编排」（`project_workflow_orchestration`
+ *   表），不是上面这张仍为 mock 的三角色表，两者不是同一份数据，只是恰好画在同一个 section。
+ *
+
  * ⚠ F950（2026-08-16 delta）：定题与分组从 mock（`PROJECT_HEADER.question`/
  *   `PREP_GROUPS`）换成真实 `getProjectTopic`/`getProjectGrouping`/`saveAndSyncTopic`/
  *   `updateGrouping`——F24/F25 签的契约第一次真正落库。组长/组员的姓名解析复用既有的
@@ -155,9 +165,19 @@ export function TabPrep({
           每一格都会变成对应角色的一条待办，同步到「待办」看板里；组长切换环节状态后，三种视角的首屏立刻跟着换。
         </p>
         {canWrite && (
-          <div className="mt-2 flex gap-2">
-            <Button size="sm" variant="outline" data-testid="project-prep-edit-agenda">去议程里细调</Button>
-            <Button size="sm" variant="ghost" className="transition-colors" data-testid="project-prep-save-template">另存为组织模板</Button>
+          <div className="mt-2 flex flex-col gap-1.5">
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" data-testid="project-prep-edit-agenda">去议程里细调</Button>
+              <SaveAsOrgTemplateAction
+                projectId={projectId}
+                testIdPrefix="project-prep-save-template"
+                renderTrigger={(open, testId) => (
+                  <Button size="sm" variant="ghost" className="transition-colors" onClick={open} data-testid={testId}>
+                    另存为组织模板
+                  </Button>
+                )}
+              />
+            </div>
           </div>
         )}
       </section>
