@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, Bot, Check, Copy, Mic, RefreshCw, Send, UserRound } from "lucide-react";
+import { ArrowDown, Bot, Check, Copy, FileText, Mic, RefreshCw, Send, UserRound } from "lucide-react";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 // VZ-01 → live panel（coord 裁 ①+续刀）：活体 AI 消息渲染从 CopilotKit 的 Markdown
 // 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
@@ -1509,11 +1509,7 @@ function MessageLandingControls({
   }
 
   if (state.status === "done") {
-    return (
-      <p className="text-10 text-primary" data-testid={`chat-land-artifact-done-${message.id}`}>
-        已落地为产物（草稿）：{state.title}
-      </p>
-    );
+    return <LandedArtifactCard messageId={message.id} title={state.title} sourceText={message.text} />;
   }
 
   const busy = state.status === "submitting";
@@ -1556,6 +1552,59 @@ function MessageLandingControls({
         </p>
       ) : null}
     </form>
+  );
+}
+
+/**
+ * #728 D7——已落地产物的结构化卡片，取代此前纯文本的「已落地为产物（草稿）：{title}」
+ * 一行字（原型是带 AI 徽标 + 展开操作的卡片，不是文本）。
+ *
+ * ⚠ 「展开」展开的是**这条消息本来就有的正文**（`message.text`，本地已持有，
+ *   零额外请求）——不是链到一个产物详情页。本仓目前**没有**任何独立的产物查看路由
+ *   （`grep app -path "*artifact*"` 零命中），链一个不存在的页面就是判据明令禁止的
+ *   「没有真实数据支撑的能力」。等产物详情页真的接出来，这里再换成真链接，
+ *   不提前画一个点了 404 的入口。
+ */
+function LandedArtifactCard({
+  messageId, title, sourceText,
+}: {
+  messageId: string;
+  title: string;
+  sourceText: string;
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+  return (
+    <div
+      className="flex w-full max-w-xs flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2"
+      data-testid={`chat-land-artifact-done-${messageId}`}
+    >
+      <div className="flex items-center gap-1.5">
+        <FileText aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <p className="min-w-0 flex-1 truncate text-11 font-medium">{title}</p>
+        <Badge tone="ai">AI</Badge>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-10 text-muted-foreground">已落地为产物（草稿）</span>
+        <Button
+          size="xs"
+          variant="ghost"
+          className="h-5 px-1.5 text-10"
+          aria-expanded={expanded}
+          data-testid={`chat-land-artifact-expand-${messageId}`}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "收起" : "展开"}
+        </Button>
+      </div>
+      {expanded ? (
+        <p
+          className="whitespace-pre-wrap text-10 text-muted-foreground"
+          data-testid={`chat-land-artifact-content-${messageId}`}
+        >
+          {sourceText}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

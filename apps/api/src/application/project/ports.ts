@@ -385,3 +385,22 @@ export interface ProjectTagsRepository {
 }
 
 export const PROJECT_TAGS_REPOSITORY = Symbol("ProjectTagsRepository");
+
+/* ═══════════════════════ #728 D4：`ThreadCard.subtitle` 要读项目名 ═══════════════════════ */
+
+/**
+ * #728 D4（人类 2026-08-09 #831 裁决 D-3 方案 A："只显示真实存在的层级"）——
+ * 对话线程卡/线程头部的副行要能显示**项目名**（既有 `ProjectRepository` 只有
+ * `create()` 一个方法，同 F122/F123/F185 那几条端口分裂的理由：加第二个方法就是
+ * 让调用方自己决定"这次要不要顺带查名字"，新读需求各自成立就各开一个新端口）。
+ *
+ * ⚠ 这是 `chat` 束第一次读 `project` 束的数据——之前没有一个 chat 用例跨过这条边界。
+ *   只读一个字段（`name`），不读整行、不读治理相关列，把跨界面积压到最小。
+ */
+export interface ProjectNameLookupPort {
+  /** 找不到（含跨组织误传 id）时返回 `null`——调用方（`listThreads`）拿到 `null`
+   *  就把 `subtitle` 留空，不是拼一个"未知项目"之类的假文案。 */
+  findName(orgId: OrgId, projectId: string): Promise<string | null>;
+}
+
+export const PROJECT_NAME_LOOKUP = Symbol("ProjectNameLookupPort");

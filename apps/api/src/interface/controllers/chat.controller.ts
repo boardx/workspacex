@@ -51,6 +51,7 @@ import {
   SourceArtifactDeletedError,
 } from "../../application/chat/locate-citation";
 import { listThreads } from "../../application/chat/list-threads";
+import { PROJECT_NAME_LOOKUP, type ProjectNameLookupPort } from "../../application/project/ports";
 import { listPersonalThreads } from "../../application/chat/list-personal-threads";
 import {
   mutateThread,
@@ -270,6 +271,8 @@ export class ChatController {
     // §2 规定本请求返回 202 + `runStatus: "queued"`，绝不内联回复，所以模型慢或挂
     // 都不许把这条写入拖慢或拖挂。
     @Inject(AGENT_RUN_EXECUTOR) private readonly agentRuns: AgentRunExecutorPort,
+    // #728 D4：线程卡副行读项目名，见 `application/project/ports.ts` 该端口文件头。
+    @Inject(PROJECT_NAME_LOOKUP) private readonly projectNames: ProjectNameLookupPort,
   ) {}
 
   private get deps() {
@@ -476,7 +479,7 @@ export class ChatController {
     assertPrincipal(principal);
     try {
       return await listThreads(
-        { ...this.deps, clock: this.clock },
+        { ...this.deps, clock: this.clock, projects: this.projectNames },
         {
           userId: principal.userId,
           orgId: toOrgId(principal.orgId),

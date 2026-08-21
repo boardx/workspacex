@@ -479,6 +479,7 @@ import {
   PROJECT_REPOSITORY,
   PROJECT_TAGS_REPOSITORY,
   type ProjectRepository,
+  PROJECT_NAME_LOOKUP,
 } from "./application/project/ports";
 // F125（本次新增）：`PROJECT_MEMBERSHIP_REPOSITORY` / `MEMBER_SUBJECT_RESOLVER`——
 // 独立 provider，见 `application/project/member-ports.ts` 与
@@ -494,6 +495,7 @@ import { PgProjectArchiveRepository } from "./infrastructure/project/pg-project-
 // `pg-blueprint-reference-repository.ts` 的注释。
 import { PgBlueprintReferenceRepository } from "./infrastructure/project/pg-blueprint-reference-repository";
 import { PgProjectTagsRepository } from "./infrastructure/project/pg-project-tags-repository";
+import { PgProjectNameLookup } from "./infrastructure/project/pg-project-name-lookup";
 import { PgProjectMembershipRepository } from "./infrastructure/project/pg-project-membership-repository";
 import { PgInviteTokenMemberResolver } from "./infrastructure/project/pg-invite-token-member-resolver";
 // F127（本次新增）：`TEMPORARY_GRANT_REPOSITORY`——F05 交付了判定逻辑但故意不建的存储层，
@@ -1618,6 +1620,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PROJECT_TAGS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProjectTagsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // #728 D4：独立 provider，见 `pg-project-name-lookup.ts` 文件头。
+    {
+      provide: PROJECT_NAME_LOOKUP,
+      useFactory: (db: DatabasePort) => new PgProjectNameLookup(db),
       inject: [DATABASE_PORT],
     },
     // F125：独立 provider，见 `pg-project-membership-repository.ts` 文件头。

@@ -43,6 +43,7 @@ import {
 import { THREAD_GROUP_ORDER, threadGroupLabel } from "../../domain/chat/thread-grouping";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import type { Clock } from "../auth/ports";
+import type { ProjectNameLookupPort } from "../project/ports";
 import type { ChatRepository } from "./ports";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
 
@@ -52,6 +53,8 @@ type ThreadCard = z.infer<typeof C.ThreadCard>;
 export interface ListThreadsDeps extends ResolveVisibilityDeps {
   readonly chat: ChatRepository;
   readonly clock: Clock;
+  /** #728 D4——线程头部/线程卡的副行要显示项目名，见 `ports.ts` 该端口的文件头。 */
+  readonly projects: ProjectNameLookupPort;
 }
 
 export interface ListThreadsInput {
@@ -82,6 +85,9 @@ export async function listThreads(
   );
   const capabilities = capabilitiesFor(membership?.projectRole ?? null);
 
+  // #728 D4——查一次，喂给这个项目下的每一张卡，不是逐线程各查一次同一个项目的名字。
+  const projectName = await deps.projects.findName(input.orgId, input.projectId);
+
   const now = deps.clock.now();
   const byLabel = new Map<string, ThreadCard[]>();
 
@@ -101,7 +107,7 @@ export async function listThreads(
     // 返回「还有 N 条你看不到」就是 uc-8-5 V9 禁止的那种泄露。
     if (outcome.kind !== "allow") continue;
 
-    const card = await buildCard(deps, input.orgId, row, outcome);
+    const card = await buildCard(deps, input.orgId, row, outcome, projectName);
     if (card === null) continue;
     const bucket = byLabel.get(label) ?? [];
     bucket.push(card);
@@ -130,6 +136,7 @@ async function buildCard(
   orgId: OrgId,
   row: Awaited<ReturnType<ChatRepository["listProjectThreads"]>>[number],
   outcome: Extract<Awaited<ReturnType<typeof resolveVisibility>>, { kind: "allow" }>,
+  projectName: string | null,
 ): Promise<ThreadCard | null> {
   // 正文经守卫读路径取出，交的是**刚刚那次判定**——不是现造一个 allow。
   const guarded = await deps.chat.findMessages(orgId, row.threadId);
@@ -159,10 +166,12 @@ async function buildCard(
   return {
     id: row.threadId,
     title: row.title,
-    // ⚠ 契约的 `subtitle` 对应 uc-8-1 R3 的「标题（含副标题）」，**不是**状态行。
-    //   把 `● 转录中` / `已归档` 塞进这里会让它变成一个没人能解析的状态字段——
-    //   契约缺口原样上报，见 `thread-badges.ts` 文件头。
-    subtitle: "",
+    // #728 D4（人类 #831 裁决 D-3 方案 A："只显示真实存在的层级，不建项目阶段/
+    // 周次模型"）——副行印**项目名**，不是状态行：`● 转录中`/`已归档` 已经有
+    // 自己的位置（`badges`，见下面），塞进这里会变成一个没人能解析的状态字段。
+    // 找不到项目（理论上不该发生——`resolveVisibility` 已经确认过这条线程
+    // 属于这个项目）时留空，不拼一句"未知项目"之类的假文案。
+    subtitle: projectName ?? "",
     badges: toContractBadges(state),
     agentSummary: threadAgentSummary({
       state,
