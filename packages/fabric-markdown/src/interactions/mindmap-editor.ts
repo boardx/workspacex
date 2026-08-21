@@ -213,11 +213,33 @@ export function attachMindmapEditor(canvas: Canvas, opts: MindmapEditorOptions =
       height: metrics.height,
       data: { mmType: 0, fontSize: metrics.fontSize },
     });
-    canvas.add(edge);
-    // Keep connectors under the nodes, like renderToCanvas does.
-    const sendBack = (canvas as unknown as { sendObjectToBack?: (o: FabricObject) => void })
-      .sendObjectToBack;
-    if (typeof sendBack === 'function') sendBack.call(canvas, edge);
+    // Keep connectors under the nodes, like renderToCanvas does (canvas-io.ts
+    // adds locked nodes, then ALL edges as one contiguous block, then unlocked
+    // nodes — mindmaps have no locked nodes, so that block sits at index 0).
+    //
+    // This used to be `canvas.add(edge)` followed by `sendObjectToBack(edge)`,
+    // which does keep the edge behind every node, but it also jumps the new
+    // edge ahead of every PRE-EXISTING edge (sendObjectToBack moves to the
+    // absolute front of the whole stack, not just relative to other edges).
+    // `extractModel` builds `model.edges` by iterating `canvas.getObjects()`,
+    // and `buildTree` (diagrams/mindmap.ts) pushes each parent's children in
+    // that same order — so a freshly added child/sibling always landed FIRST
+    // in its parent's children array and got the smallest `layoutMindmap`
+    // `leafIndex`, rendering ABOVE its pre-existing siblings instead of below
+    // them (reported: Tab/Enter add a node, but it appears above the older
+    // ones, not appended below).
+    //
+    // Insert relative to the edge cluster instead: right after the last
+    // existing edge (or at index 0 if this is the very first edge). That
+    // appends the new edge to the END of the cluster — correct sibling
+    // order — while it's still before every node, so it stays visually under
+    // them exactly like `renderToCanvas` places them.
+    const objects = canvas.getObjects();
+    let insertIndex = 0;
+    for (let i = 0; i < objects.length; i += 1) {
+      if (objects[i] instanceof FlowEdge) insertIndex = i + 1;
+    }
+    canvas.insertAt(insertIndex, edge);
     canvas.add(node);
     canvas.setActiveObject(node);
     refresh();

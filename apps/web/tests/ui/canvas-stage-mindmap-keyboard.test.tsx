@@ -201,6 +201,68 @@ describe("CanvasStage 键盘交互 —— #1453", () => {
     // Sibling of A → parent is root, same as A's own parent.
     const linkedToRoot = edges.some((e: any) => e.source === root.nodeId && e.target === newNode.nodeId);
     expect(linkedToRoot).toBe(true);
+
+    // 回归：新兄弟节点应该排在 A/B 下方（追加到最后），不是插到最上面
+    // （人类实测反馈，2026-08-21）。根因是 `attachMindmapEditor` 加新边时用
+    // `sendObjectToBack` 把它甩到整个 canvas 对象栈的绝对最前面——不只是排在
+    // 所有节点前面（视觉上确实"在节点下方"），还排到了所有**既有边**前面。
+    // `extractModel` 按 `canvas.getObjects()` 迭代顺序建 `model.edges`，
+    // mindmap 布局按这个顺序给每个叶子分配 `leafIndex`（越靠前 y 越小、越靠
+    // 上）——于是新节点永远拿到最小的 leafIndex，长在最上面，而不是最下面。
+    // 直接断言：新兄弟的 y 坐标必须比 A、B 都大（在两者下方）。
+    const branchA = nodes.find((n: any) => n.label === "分支A") as any;
+    const branchB = nodes.find((n: any) => n.label === "分支B") as any;
+    // 位置写回（`applyModel`）走 fabric 的 `node.animate()`（150ms 过渡动画），
+    // 不是同步 set——`waitFor` 轮询到最终稳定值，不是读一次刚触发动画时的
+    // 过渡中间值（那会读到还没动完的旧坐标，跟这里要验的排序 bug 无关）。
+    await waitFor(() => expect(newNode.center().y).toBeGreaterThan(branchA.center().y));
+    await waitFor(() => expect(newNode.center().y).toBeGreaterThan(branchB.center().y));
+
+    // 同一件事的另一个独立证据（不依赖 layoutMindmap 的具体几何公式，只看
+    // extractModel 产出的边顺序本身）：root 的新连边必须排在 root 已有的两条
+    // 连边（root→A、root→B）之后，不是之前——这正是 layoutMindmap 用来分配
+    // leafIndex 的那份顺序。
+    const { extractModel } = await import("@repo/fabric-markdown");
+    const model = extractModel(canvas);
+    const rootChildEdgeIndices = model.edges
+      .map((e, i) => ({ e, i }))
+      .filter(({ e }) => e.source === root.nodeId)
+      .map(({ i }) => i);
+    const newEdgeIndex = rootChildEdgeIndices.at(-1);
+    expect(newEdgeIndex).toBeDefined();
+    const priorEdgeIndices = rootChildEdgeIndices.slice(0, -1);
+    expect(priorEdgeIndices.every((i) => i < (newEdgeIndex as number))).toBe(true);
+  });
+
+  it("mindmap：给同一个父节点连续 Tab 两次，第二个子节点排在第一个下方（追加，不是插到最前）", async () => {
+    render(
+      <CanvasStage readOnly={false} tool="select" zoom={1} markdown={MINDMAP_MARKDOWN} onMarkdownChange={onMarkdownChange} />,
+    );
+    await waitFor(() => expect(screen.getByTestId("canvas-fabric-surface")).toBeInTheDocument());
+    const canvas = getFabricCanvas();
+    await waitFor(() => expect(canvas.getObjects().length).toBeGreaterThan(0));
+
+    // root 已有两个子节点（A、B）。选中 root 后连按两次 Tab，各加一个子节点——
+    // 两次新增的子节点必须按加入顺序自上而下排列，不能都挤到 A/B 上方。
+    selectNodeByLabel(canvas, "根主题");
+    dispatchKey("Tab");
+    await waitFor(() => expect(canvas.getObjects().some((o: any) => o.label === "新节点")).toBe(true));
+    const first = canvas.getObjects().find((o: any) => o.label === "新节点") as any;
+    // 重新选中 root（Tab 后活动对象已经切到新节点），再加第二个。
+    selectNodeByLabel(canvas, "根主题");
+    dispatchKey("Tab");
+    await waitFor(() => expect(canvas.getObjects().filter((o: any) => o.label === "新节点").length).toBe(2));
+    const both = canvas.getObjects().filter((o: any) => o.label === "新节点") as any[];
+    const second = both.find((n) => n !== first)!;
+
+    const branchB = canvas.getObjects().find((o: any) => o.label === "分支B") as any;
+    // 位置写回走 `node.animate()`（150ms 过渡），`waitFor` 轮询到最终稳定值
+    // （同上一条测试的理由）。
+    // 两个新子节点都应该排在既有子节点 A/B 下方……
+    await waitFor(() => expect(first.center().y).toBeGreaterThan(branchB.center().y));
+    await waitFor(() => expect(second.center().y).toBeGreaterThan(branchB.center().y));
+    // ……且第二个必须在第一个下方（按加入顺序追加，不是每次都插到最前）。
+    await waitFor(() => expect(second.center().y).toBeGreaterThan(first.center().y));
   });
 
   it("mindmap：选中一个节点后 Delete 删除该节点及其子树、相连的边", async () => {
