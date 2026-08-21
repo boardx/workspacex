@@ -8,11 +8,14 @@
  * 这里用 tmp 目录搭合成 phase，不碰仓库里的真材料。
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 // @ts-expect-error —— .mjs 无类型声明，故意直接引
-import { lintUiMaterial, extractRefs, extractSelfCheck, normalizeRef } from "./lint-ui-material.mjs";
+import { lintUiMaterial, extractRefs, extractSelfCheck, normalizeRef, findDuplicateKeys } from "./lint-ui-material.mjs";
+
+const MAP_PATH = fileURLToPath(new URL("./ui-material-map.json", import.meta.url));
 
 let root: string;
 const PHASE = "phase-test";
@@ -364,16 +367,34 @@ describe("反向反证 —— 它在仓库的真实状态下必须是绿的", ()
     }
   });
 
-  it("共用目录组真实存在，且组内并集恰好等于实存集（不是靠放宽判定过的）", () => {
+  it("phase-10 五束各自持有子目录，且跨目录确有重复副本（绑死真实结构，防悄悄漂回共用模式）", () => {
     const { rows } = lintUiMaterial({});
-    const shared = rows.filter((r) => r.shared);
-    // 这条断言绑死 phase-10 的真实结构：5 个束共用一个 18 张图的扁平目录。
-    // 如果有人把共用模式滥用到别处，或 phase-10 结构变了，这里会红，逼人重新核对。
-    expect(shared.length).toBe(5);
-    for (const r of shared) expect(r.actual).toBe(18);
-    const sum = shared.reduce((n, r) => n + r.referenced, 0);
-    // 22 > 18：束之间**确实存在重叠引用**——这正是当初无法拆成互不相交子目录、
-    // 必须引入共用模式的原因。若哪天这个和等于 18，说明重叠没了，该退回普通映射。
-    expect(sum).toBeGreaterThan(18);
+    const p10 = rows.filter((r) => r.label.startsWith("phase-10-live-collaboration-orchestration/"));
+    // #1691 把原先扁平的 18 张图按束拆成 5 个子目录，共用的图**复制**成各自一份。
+    // 这条断言绑死那个结构：谁把 phase-10 改回共用模式（或改成别的），这里就红，
+    // 逼人重新核对，而不是让两份映射同时躺在 map 里靠 JSON「后者胜出」决胜负。
+    expect(p10.length).toBe(5);
+    for (const r of p10) {
+      expect(r.shared).toBeFalsy();
+      expect(r.referenced).toBe(r.actual);   // 逐束严格相等：无死链、无孤图
+      expect(r.actual).toBeGreaterThan(0);
+    }
+    // 22 > 18：拆分前后总量对得上——扁平目录 18 张，逐束求和 22，多出的 4 张正是
+    // 被两个束共同引用、因而各留一份副本的那 4 张（group-graph-default、
+    // stage-default-default、role-member-group-chat、role-observer-stage-default）。
+    // 若哪天这个和等于 18，说明重叠没了，那就该退回单一目录，别再留重复副本。
+    const sum = p10.reduce((n, r) => n + r.actual, 0);
+    expect(sum).toBe(22);
+  });
+
+  it("map 里的重复键必须报错而不是被 JSON 静默丢弃", () => {
+    // 反证 2026-08 那次真实事故：#1692 与 #1691 各写了一份 phase-10 映射，
+    // 两块都留在文件里，JSON.parse 后者胜出、前者连同注释成了没人执行的死代码。
+    expect(findDuplicateKeys('{"a":{"x":1},"a":{"y":2}}')).toEqual(["a"]);
+    expect(findDuplicateKeys('{"b":{"k":1,"k":2}}')).toEqual(["b › k"]);
+    // 键里出现转义引号、值里出现 { } " 都不能把扫描带偏（否则会漏报或误报）。
+    expect(findDuplicateKeys('{"a\\"b":1,"c":"} \\" {","d":2}')).toEqual([]);
+    // 仓库真实的 map 必须是干净的——这条同时挡住「以后又有人补第二份」。
+    expect(findDuplicateKeys(readFileSync(MAP_PATH, "utf8"))).toEqual([]);
   });
 });

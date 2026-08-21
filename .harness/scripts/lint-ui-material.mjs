@@ -160,10 +160,78 @@ export function extractReuseStatement(body) {
   return match?.[1] ?? null;
 }
 
+/**
+ * 读 map 文件，并在解析前先查一遍**重复键**。
+ *
+ * 为什么要单独查：`JSON.parse` 对重复键是「后者胜出、前者静默丢弃」。
+ * 2026-08 就栽过一次——#1692 给 phase-10 写了 `shared_dir` 映射，#1691 又给同一个
+ * phase 写了第二份按束子目录映射，两块都留在文件里。门控只认后一块，前一块连同它
+ * 那段解释「为什么必须共用目录」的注释成了死代码，读文件的人会看到两段互相矛盾的说明。
+ * 本仓硬约束是「同一事实不得声明在两处」——这次连两处都不在两个文件里，是同一个对象里
+ * 的同一个键。丢弃发生在 JSON 层，静悄悄的，没有任何东西会报。现在会报。
+ */
+export function findDuplicateKeys(text) {
+  const dups = [];
+  const stack = [];        // 每层对象一个 Set<key>
+  const path = [];         // 当前 key 路径，仅用于报错可读
+  let i = 0;
+  let pendingKey = null;   // 刚读到的字符串，若下一个非空白字符是 ':' 则它是 key
+
+  const readString = () => {
+    let out = "";
+    i += 1;                // 跳过开引号
+    while (i < text.length) {
+      const c = text[i];
+      if (c === "\\") { out += text[i + 1] ?? ""; i += 2; continue; }
+      if (c === '"') { i += 1; return out; }
+      out += c;
+      i += 1;
+    }
+    return out;            // 未闭合的字符串交给下面的 JSON.parse 去报语法错
+  };
+
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '"') { pendingKey = readString(); continue; }
+    if (c === ":" && pendingKey !== null && stack.length > 0) {
+      const seen = stack[stack.length - 1];
+      const key = pendingKey;
+      // `//`、`//1` 这类注释键在本文件里成组出现且各不相同；真重复了照样该报。
+      if (seen.has(key)) dups.push([...path.slice(0, stack.length - 1), key].join(" › "));
+      else seen.add(key);
+      path[stack.length - 1] = key;
+      pendingKey = null;
+      i += 1;
+      continue;
+    }
+    if (c === "{") { stack.push(new Set()); pendingKey = null; i += 1; continue; }
+    if (c === "}") { stack.pop(); path.length = Math.max(0, stack.length); pendingKey = null; i += 1; continue; }
+    if (c === "," || c === "[" || c === "]") pendingKey = null;
+    i += 1;
+  }
+  return dups;
+}
+
+function readMap(mapFile) {
+  const text = readFileSync(mapFile, "utf8");
+  const dups = findDuplicateKeys(text);
+  if (dups.length) {
+    const rel = relative(ROOT, mapFile);
+    throw new Error(
+      `[映射重复键] ${rel} 里有 ${dups.length} 个键出现了不止一次：\n` +
+      dups.map((d) => `      ${d}`).join("\n") +
+      `\n    JSON.parse 会让后者胜出、前者连同它的 "//" 注释一起被静默丢弃，\n` +
+      `    于是文件里躺着一份没人执行的映射，读的人却以为它生效。\n` +
+      `    修法：把两份收敛成一份（本仓硬约束：同一事实不得声明在两处），别靠"后者胜出"。`,
+    );
+  }
+  return JSON.parse(text);
+}
+
 function lintUiMaterialLegacy({ root = ROOT, mapFile = MAP_FILE, phasesRoot, only = [] } = {}) {
   const errors = [];
   const rows = [];
-  const map = JSON.parse(readFileSync(mapFile, "utf8"));
+  const map = readMap(mapFile);
 
   let targets = findUiMds(phasesRoot ?? join(root, "phases"));
   if (only.length) targets = targets.filter((t) => only.includes(t.phase));
@@ -467,7 +535,7 @@ function lintResolvedBundle({ root, phase, label, ui, declaredDir, reuseBundle =
 }
 
 export function lintUiMaterial({ root = ROOT, mapFile = MAP_FILE, phasesRoot, only = [] } = {}) {
-  const map = JSON.parse(readFileSync(mapFile, "utf8"));
+  const map = readMap(mapFile);
   let targets = findUiMds(phasesRoot ?? join(root, "phases"));
   if (only.length) targets = targets.filter((target) => only.includes(target.phase));
 
