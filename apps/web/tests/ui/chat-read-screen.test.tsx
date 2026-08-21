@@ -500,8 +500,14 @@ describe("formal Chat read path", () => {
       { messageId, mode: "draft", title: "手填的产物标题", payloadRef: expect.any(String) },
       "provider-bearer",
     );
-    expect(await screen.findByTestId(`chat-land-artifact-done-${messageId}`))
-      .toHaveTextContent("已落地为产物（草稿）：手填的产物标题");
+    // #728 D7——落地成功后渲染的是结构化卡片（标题 + AI 徽标 + 展开），不再是一行纯文本。
+    const doneCard = await screen.findByTestId(`chat-land-artifact-done-${messageId}`);
+    expect(doneCard).toHaveTextContent("手填的产物标题");
+    expect(doneCard).toHaveTextContent("已落地为产物（草稿）");
+    expect(doneCard).toHaveTextContent("AI");
+    // 展开按钮真的能展开出这条消息的原文——本地已有数据，不是链一个不存在的产物详情页。
+    fireEvent.click(within(doneCard).getByTestId(`chat-land-artifact-expand-${messageId}`));
+    expect(screen.getByTestId(`chat-land-artifact-content-${messageId}`)).toBeInTheDocument();
     // 成功后重新读取右栏产物列表——单一事实源仍是服务端 `listThreadArtifacts`。
     await waitFor(() => expect(listThreadArtifacts).toHaveBeenCalledTimes(2));
   });

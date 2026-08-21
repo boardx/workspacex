@@ -1060,7 +1060,19 @@ describe("lint-permission-paths: counter-proof", () => {
     // 内容是调用者自己项目的编排/自己按 templateId 指名要读的目录项，不是跨租户/跨用户披露。
     // 被强制的前提：`tests/tpl/workflow-orchestration-repo-guard.test.ts` 解析该文件断言
     // （a）只命名这两张表；（b）不调用 `withoutTenant`。删那个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(77);
+    //
+    // ⚠ Raised 77 -> 78 by #728 D4（ThreadCard.subtitle 显示项目名）：新增
+    // `pg-project-name-lookup.ts`，只命名 `projects` 一张表、只选 `name` 一列——同上面
+    // `pg-project-list-repository.ts`/`pg-project-overview-repository.ts` 已经画的
+    // D-18 那条线（容器自己的 name/kind/status 不是 `acl_bindings` 治理的内容）。这次
+    // 返回值不靠"调用方已经先 authorize() 过 projectId"来担保安全——它靠的是同一个
+    // 函数（`listThreads`）内部，这个值只会被塞进已经过逐条 `resolveVisibility()` 判过
+    // `allow` 的那条线程卡，一个在这个项目下一条线程都看不见的调用方永远拿不到它。
+    // 被强制的前提：`tests/project/project-name-lookup-repo-guard.test.ts` 解析
+    // `pg-project-name-lookup.ts` + `list-threads.ts` 断言（a）仓储只命名 `projects`、
+    // 只选 `name`；（b）`findName` 的返回值只在 `listThreads` 里 `outcome.kind === "allow"`
+    // 分支之后被塞进 `buildCard`，不出现在早退 `continue` 之前。删那个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(78);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
