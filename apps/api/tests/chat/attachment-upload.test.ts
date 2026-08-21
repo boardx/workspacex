@@ -6,6 +6,9 @@
  *   422 MIME 与字节不符 · 409 该线程 pending 达 10。
  * 断言查真库（`chat_message_attachments`，`message_id IS NULL`），不看进程内状态。
  */
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { chatFileUpload as CFU } from "@repo/contracts";
@@ -16,6 +19,25 @@ import { addChatThread } from "../support/chat-db";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
+
+/**
+ * #1704：本文件曾是 tests/chat 里唯一**不**持有自己对象根的写字节测试，于是落进
+ * `objectStoreRoot()` 的开发默认值 `$TMPDIR/workspacex-objects`——一个跨 run、跨
+ * isolation id、跨 worktree、跨 agent 全局共享且从不清理的目录。实测该目录已积到
+ * 17M / 2274 个文件，其中 `chat-attachments/org-v9a-attach/` 有 308 个本文件历次跑
+ * 的残留。同机并发的其它 agent 也在写它。
+ *
+ * `with-test-isolation` 隔离的是 DB 与 compose 栈，**不隔离 $TMPDIR**：对象根不会
+ * 随隔离 id 变。所以这里必须自己 mkdtemp，和兄弟测试（list-thread-artifacts-message-id
+ * / summarize-persona-mindmap-message / get-thread-artifact-source）以及通用 helper
+ * `tests/support/export-db.ts` 的 `useTempObjectStore()` 保持同一个约定。
+ *
+ * ⚠ 必须在 `createApp` 被 import **之前**设——`objectStoreRoot()` 之所以是函数而不是
+ * 模块级常量，正是为了这一刻（见该文件头注）。本文件的 `createApp` 是 beforeAll 里的
+ * 动态 import，模块顶层赋值先于它执行。
+ */
+const OBJECT_ROOT = mkdtempSync(join(tmpdir(), "wsx-1704-attach-"));
+process.env.WORKSPACEX_OBJECT_ROOT = OBJECT_ROOT;
 
 const ORG = "org-v9a-attach";
 const PROJECT = "proj-v9a-attach";
@@ -66,6 +88,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app?.close();
+  // 自己的根自己收——不收就是把本文件从共享目录的累积者变成 $TMPDIR 的累积者。
+  rmSync(OBJECT_ROOT, { recursive: true, force: true });
 });
 
 beforeEach(async () => {

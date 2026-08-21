@@ -139,7 +139,15 @@ export async function uploadAttachment(
   const storageRef = `chat-attachments/${input.orgId}/${id}`;
   try {
     await deps.store.putOnce(storageRef, input.bytes, input.mime);
-  } catch {
+  } catch (e) {
+    // #1704：原来是裸 `catch {}`。对外仍是 STORAGE_UNAVAILABLE（契约错误码不变，
+    // 也不把内部路径泄给调用方），但**原因必须留下痕迹**——上一次这条路径整片红时，
+    // 每个上传只回一个笼统的 STORAGE_UNAVAILABLE，EEXIST / ENOSPC / EACCES 无从分辨，
+    // 诊断只能靠猜。压平错误码是契约要求，压平**证据**不是。
+    console.error(
+      `[chat-attachment] putOnce failed key=${storageRef}: ` +
+      (e instanceof Error ? `${e.name}: ${e.message}` : String(e)),
+    );
     throw new AttachmentUploadError("STORAGE_UNAVAILABLE");
   }
   const createdAt = deps.clock.now();
