@@ -583,6 +583,61 @@ describe("formal Chat read path", () => {
   });
 
   /**
+   * issue #728 D6/D7 取证根因回归：线程历史条数超过分页大小（`MESSAGE_PAGE_SIZE=50`）
+   * 时，`nextCursor` 在**初次加载完成那一刻就已经非空**（`hasMore=true`）。这条测试
+   * 用 20 条历史 + `limit` 无关的 `nextCursor: "cursor-20"` 模拟同样的「已经翻过一页」
+   * 状态——不需要真凑够 50+1 条，只需要 `nextCursor` 非空这一个前置条件就足以复现。
+   *
+   * 根因（修前）：发送后 / run 终态后的「软重读」硬编码 `loadPage(null, "soft")`，
+   * 也就是不管当前已经翻到哪一页，重读永远从游标起点（最旧那批）重新拉第一页——
+   * 新发的人类消息与随后落库的 agent 回复因此**永远不在**这次重读拉回来的那一页里，
+   * 但 `chat-live-agent-run-status` 仍然如实报告 run 到达终态（run 本身确实成功了，
+   * 只是渲染用的这一页从来没盖到过它）。
+   *
+   * 断言两件事：① 软重读传的 cursor 是当前翻页位置（不是 `undefined`/起点）；
+   * ② 新落库的 agent 回复真的出现在渲染出的消息列表里。
+   */
+  it("线程已翻过一页时，发送后 / run 终态后的软重读追着当前翻页位置走，新消息真的渲染出来（issue #728 D6/D7 根因回归）", async () => {
+    listMessages
+      .mockResolvedValueOnce({
+        messages: Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)),
+        nextCursor: "cursor-20", // 已经 hasMore：真实场景对应「51 条历史、分页 50」
+      })
+      .mockResolvedValueOnce({
+        // 发送后的第一次软重读：必须带上当前翻页位置的 cursor，才能追到刚发的这条
+        messages: [durableMessage(21, "刚发的这条消息")],
+        nextCursor: "cursor-21",
+      })
+      .mockResolvedValueOnce({
+        // run 到终态后的第二次软重读：必须接着上一次的 cursor 往后走，才能追到 agent 回复
+        messages: [durableMessage(22, "刚落库的 agent 回复")],
+        nextCursor: null,
+      });
+    getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22"));
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "跑一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    // 发送后立刻可见：不是拉回第一页丢掉这条
+    expect(await screen.findByText("刚发的这条消息")).toBeInTheDocument();
+    expect(listMessages).toHaveBeenNthCalledWith(
+      2, "thread-real", { cursor: "cursor-20", limit: 50 }, "provider-bearer",
+    );
+
+    // run 到终态后：agent 回复也真的渲染出来，不是停在「执行完成」但列表没变
+    expect(await screen.findByText("刚落库的 agent 回复")).toBeInTheDocument();
+    expect(listMessages).toHaveBeenNthCalledWith(
+      3, "thread-real", { cursor: "cursor-21", limit: 50 }, "provider-bearer",
+    );
+    // 之前已经渲染过的历史消息没有因为这次软重读而消失（合并去重，不是整批替换）
+    expect(screen.getByText("真实消息 1")).toBeInTheDocument();
+  });
+
+  /**
    * #435 —— AgentRun 的可见状态。
    *
    * 这三条盯的是同一件事的三个面：状态**来自服务端**、轮询**在终态停下**、

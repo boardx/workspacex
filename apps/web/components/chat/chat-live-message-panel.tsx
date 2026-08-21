@@ -161,6 +161,27 @@ export function ChatLiveMessagePanel({
   const sourceKey = `${threadId}\u0000${bearer}`;
   const [messages, setMessages] = React.useState<DurableMessage[]>([]);
   const [nextCursor, setNextCursor] = React.useState<string | null>(null);
+  /**
+   * 根因修复（issue #728 D6/D7 取证发现）——`nextCursor` 是「加载更早之后的消息」按钮的
+   * 显隐依据（`page.hasMore` 为假时服务端就把它置空，见 `message-roundtrip.ts:209`），
+   * 但下面几处「软重读」（发送后 / run 终态 / persona 摘要后）以前**硬编码传 `null`**，
+   * 也就是「不管当前已经翻到哪一页，重读永远从游标起点（最旧那批）重新拉第一页」。
+   *
+   * 线程消息数一旦超过 `MESSAGE_PAGE_SIZE`（真栈复现：51 条历史 + 分页 50），初次进入
+   * 就只显示最旧的 50 条、`nextCursor` 已经指向「第 50 条之后」；这时发一条新消息，
+   * 软重读却仍然 `cursor=null` 拉回同一批最旧 50 条——新发的这条（连同 agent 回复）
+   * 永远不在这一页里，用户看不到，但 run 状态条照样如实报「执行完成」（run 真的成功了，
+   * 只是当前渲染的这一页从来没包含过它）。用 `chat-message-row` 数量 + a11y 快照两次真栈
+   * 复现，不是环境噪音。
+   *
+   * 修法：软重读改成从**当前已知的翻页位置**（这个 ref，与 `nextCursor` state 同步）
+   * 继续往后拉，且用 `appendUnique` 合并进现有列表而不是整批替换——语义从「重新加载
+   * 第一页」变成「把第一页之后新增的内容追上来」，不违反 R9（仍是增量翻页，不是一次性
+   * 拉全部历史）。`nextCursor` 为 `null`（真已翻到底）时退化回 `cursor=null`，等价于
+   * 「这批本来就没有更旧的内容要跳过」，行为与之前一致，不算回归。
+   */
+  const nextCursorRef = React.useRef<string | null>(null);
+  nextCursorRef.current = nextCursor;
   const [loading, setLoading] = React.useState(true);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [listFailure, setListFailure] = React.useState<string | null>(null);
@@ -350,7 +371,10 @@ export function ChatLiveMessagePanel({
         bearer,
       );
       if (generation.current !== requestGeneration) return;
-      setMessages((current) => mode === "append" ? appendUnique(current, result.messages) : result.messages);
+      // "append"（用户点「加载更早之后的消息」）与 "soft"（软重读，见上面 `nextCursorRef`
+      // 的注释）都是「把这一页新增内容接到已有列表后面」，用 appendUnique 合并去重；
+      // 只有 "replace"（换线程 / 错误重试）才是真的整批替换。
+      setMessages((current) => mode === "replace" ? result.messages : appendUnique(current, result.messages));
       setNextCursor(result.nextCursor);
     } catch (failure) {
       if (generation.current !== requestGeneration) return;
@@ -434,7 +458,8 @@ export function ChatLiveMessagePanel({
       if (isTerminalRunStatus(view.status)) {
         // 终态才重读消息页：写回是在 `writeback_pending` 之后才提交的，
         // 早读会读到一个还没有助手回复的列表，并且再也不会自己刷新。
-        await loadPage(null, "soft"); // 终态重读：软换，不清空不弹骨架（#925 ② 消灭闪烁）
+        // 终态重读：从当前已知翻页位置追新，不清空不弹骨架（#925 ② 消灭闪烁 + 根因修复见上）
+        await loadPage(nextCursorRef.current, "soft");
         // #728 第 10 轮 P10 —— `queuedRun` 是「已提交、等待轮询」那段过渡态的回执，
         // 到了终态（成功/失败）它就该让位给下面 `AgentRunStatus` 的权威状态文案。
         // 之前没清，评分员截到过「消息已持久化，AgentRun 已排队。」和「执行完成，
@@ -666,7 +691,8 @@ export function ChatLiveMessagePanel({
       attach.clear(); // 发送成功：附件已挂到该消息，清空 composer 的本地附件态
       onMessageSent?.(); // #728 D9：材料随消息一起产出，此刻通知上层重读右栏「材料」
 
-      await loadPage(null, "soft"); // 发送后重读：软换，不清空不弹骨架（#925 ② 消灭闪烁）
+      // 发送后重读：从当前已知翻页位置追新，不清空不弹骨架（#925 ② 消灭闪烁 + 根因修复见上）
+      await loadPage(nextCursorRef.current, "soft");
       // #925 ③（人类裁决）—— 发送是显式意图，无条件滚到最新一条，**覆盖 V1「尊重上滚」**
       // （用户之前上滚看历史，发送后也要拽回底部；对齐 Claude/ChatGPT）。置 atBottomRef=true
       // 让后续流式/回复继续跟随；显式 rAF 滚一次保证这次立刻到底。
@@ -699,7 +725,7 @@ export function ChatLiveMessagePanel({
     setPersonaFailure(null);
     try {
       await summarizePersonaFromThread(threadId, anchor.id, bearer);
-      await loadPage(null, "soft");
+      await loadPage(nextCursorRef.current, "soft"); // 根因修复见上（`nextCursorRef` 注释）
       atBottomRef.current = true;
       setShowJumpToLatest(false);
       requestAnimationFrame(() => {
