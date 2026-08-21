@@ -1,68 +1,38 @@
 /**
  * 蓝本管理闭环 + 契约缺口审计——本文件名与标题在 2026-08-15 重定框
- * （issue #1323，响应对 #1312 / PR #1313 的外部复核；复核评分：作为"主流程"证明力
- * 3/10，作为"缺口审计"价值 7/10）。旧名 `blueprint-to-project-journey.spec.ts` 和旧标题
- * 「蓝本到项目主流程」会让读者以为测试真的走到了"套用蓝本新建项目"这一步——它没有，
- * 见下方②。这次改动**只重定框，不改变任何断言的判定逻辑**：所有 expect 与旧版逐字相同。
+ * （issue #1323，响应对 #1312 / PR #1313 的外部复核）。2026-08-21（issue #1667）
+ * 再次更新：F23/F29 两条此前的「缺口门控」（断言路径确实还是 404）已翻正为
+ * 「套用/提回成功且刷新后仍在」的正向断言——两条契约 operation 补齐了真实
+ * controller + infra（`ApplyBlueprintController`/`BlueprintChangeRequestController`，
+ * `PgApplyBlueprintRepository`/`PgComputeDeviationsRepository`/
+ * `PgSubmitChangeRequestRepository`/`PgListPendingChangesRepository`），
+ * 不再是「代码写了但没人接得到」的状态。
  *
- * 本文件覆盖两类完全不同性质的东西，读结果时不要混为一谈：
+ * 本文件覆盖两类不同性质的东西，读结果时不要混为一谈：
  *
  * 【A. 蓝本管理闭环——真实端到端，phase-01 已 passing】
- * F175（新建蓝本）→ F174（设计环节逐项写入）→ F179（试跑/发布版本）。链路一节不许省：
- * Chromium → 真登录 → Next 同源代理 → NestJS `BlueprintController` →
- * `PgBlueprintRepository` → PostgreSQL。这部分是本文件里唯一能称为"闭环验证"的内容。
+ * F175（新建蓝本）→ F174（设计环节逐项写入）→ F179（试跑/发布版本）→
+ * F23（套用蓝本新建项目）→ F29（提回蓝本）。链路一节不许省：
+ * Chromium → 真登录 → Next 同源代理 → NestJS controller → PG 仓储 → PostgreSQL。
  *
- * 【B. 契约缺口审计——F177 边界证明 + F23/F29 缺口门控，不是功能验证】
- * 覆盖范围为什么比人类原始需求窄——如实记录，不是漏做。
+ * 【B. 契约缺口审计——F177 仍是边界证明，不是功能验证】
+ * F177（换时长档位）——`setDurationTier` 契约要求调用方传 `expectedVersion`
+ * （CAS 令牌，对应 `blueprints.revision` 列，`gen_random_uuid()::text`），但**没有任何
+ * 契约操作把这个值读出来给调用方**：`listBlueprints.out`（`BlueprintRow`）不含它，
+ * 也没有 `getBlueprint` 单条读接口。这是登记在案的契约缺口 T9
+ * （`packages/contracts/src/templates.ts` `KNOWN_CONTRACT_GAPS.T9`，
+ * 迁移文件头注 `apps/api/migrations/20260814010000_f177_blueprint_revision.sql` 逐字同文）。
+ * ⇒ 一个只用得到公开契约的调用方，**今天没有合法途径**拿到第一次调用要用的
+ * `expectedVersion`；本文件因此不去猜/编一个值，只用真实端点证明它的乐观并发闸门
+ * 确实是活的（见下方 F177 用例）——**不要**把这条读作"F177 已经端到端验证"。
  *
- * 人类原始需求还要求覆盖 F177（换时长档位）与 F23（套用蓝本新建项目，六类初始化 +
- * 版本快照绑定）。逐项勘探（本次改动前）发现两者在**当前 main（SHA cf162a2d）**上
- * 均不具备任何"真实用户能走到"的路径，原因不是 UI 没接线这么简单：
- *
- * ① F177 换时长档位——`setDurationTier` 契约要求调用方传 `expectedVersion`
- *    （CAS 令牌，对应 `blueprints.revision` 列，`gen_random_uuid()::text`），但**没有任何
- *    契约操作把这个值读出来给调用方**：`listBlueprints.out`（`BlueprintRow`）不含它，
- *    也没有 `getBlueprint` 单条读接口。这是登记在案的契约缺口 T9
- *    （`packages/contracts/src/templates.ts` `KNOWN_CONTRACT_GAPS.T9`，
- *    迁移文件头注 `apps/api/migrations/20260814010000_f177_blueprint_revision.sql` 逐字同文）。
- *    ⇒ 一个只用得到公开契约的调用方，**今天没有合法途径**拿到第一次调用要用的
- *    `expectedVersion`；唯一能算出这个值的办法是直接读 Postgres 内部列，
- *    那不是"真实用户会走的路径"，是绕过契约的后门。本文件因此不去猜/编一个值，
- *    只用真实端点证明它的乐观并发闸门确实是活的（见下方 test 2）。
- *
- * ② F23 套用蓝本新建项目——契约 `templates.applyBlueprint`
- *    （`POST /blueprints/:blueprintId/apply`）与用例 `applyBlueprintUseCase`
- *    （`apps/api/src/application/templates/apply-blueprint.ts`）都是真实、可测的代码，
- *    但**全仓 `apps/api/src/interface` 下没有任何控制器调用它**——实测
- *    `grep -rn "applyBlueprintUseCase" apps/api/src` 只命中定义处与端口类型，
- *    零控制器命中。同一份事实也写在 `apply-blueprint.ts` 第 83 行注释与
- *    `blueprint-audit-ports.ts` 第 16 行注释里。⇒ 这条路径**没有被路由到任何 HTTP 方法**，
- *    不存在"真实浏览器 + 真实网络请求"能触达它的方式；F23 标 passing 靠的是
- *    application 层直调的 vitest，不是任何用户可达的入口。同类缺口也存在于
- *    F29 提回蓝本（`templates.submitBlueprintChangeRequest`，
- *    `POST /projects/:projectId/blueprint-change-requests`）——
- *    `grep -rn "submitChangeRequest" apps/api/src/interface` 零命中。
- *
- * 本文件因此：
- *   · 【A 闭环】正例走完 F175 → F174 → F179 的完整真实闭环（含真实 UI 新建蓝本 +
- *     刷新持久化）；
- *   · 【B 审计】对 F177 用真实端点做一条**诚实的边界证明**（CAS 闸门活着，而不是假装
- *     完成了一次被契约允许的写入）——这条不证明"换档位功能可用"，只证明"这条端点存在
- *     且校验逻辑是活的"；
- *   · 【B 审计】对 F23 / F29 各留一条**契约缺口门控**——不是随便编的 URL，是契约里
- *     `operations.applyBlueprint.path` / `operations.submitBlueprintChangeRequest.path`
- *     字面量本身，断言"这条能力承诺的入口，在生产路由表里不存在"（404）。这两条用例的
- *     目的不是证明主流程走通了，是**在缺口被悄悄补上之前一直提醒它还没补上**——一旦
- *     哪天有人挂了控制器却没更新这条断言，CI 会在这里红，逼着回来把这条用例升级成
- *     真实功能验证。
- *   · 【B 审计】`/project/new`（生产入口）里蓝本套用整体禁用是源码自己标注的当前状态
- *     （`new-project-flow.tsx` 文件头注），本文件对它做一条真实断言，防止它在未来
- *     被悄悄"看起来能用了"却没有真正接上 `applyBlueprint`。
- *
- * 这份记录不是"这条测试写不完"的借口——是"现在到底能验证到哪"的诚实边界，
- * 供人类决定接下来先补哪个缺口（读路径 T9，还是 `applyBlueprint` 挂控制器）。
- * 【B 审计】部分**不要**被当作"F177/F23/F29 已经过端到端验证"的证据引用——它们验证的是
- * "缺口确实还在"，方向和【A 闭环】相反。
+ * ⚠ F29 的偏离 diff（`computeDeviations`）今天只对 `flow-agenda` 一项有真实数据源
+ *   （见 `pg-compute-deviations-repository.ts` 头注）：项目侧其余设计配置项
+ *   （主题与背景/分组规则/角色与权限……）尚无独立于蓝本草稿之后可编辑的存储，
+ *   `findCurrentProjectContent` 对它们如实原样返回快照值（= 不产生偏离），这是诚实的
+ *   空态，不是缺陷。本文件下方 F29 用例因此只对 `flow-agenda` 断言真实偏离——
+ *   套用蓝本后六类初始化真实写入的 `agenda_segments`（真实数据）与蓝本从未填过的
+ *   `flow-agenda` facet（空快照）天然不同，不需要额外"手工改一下"来制造这条偏离。
  *
  * ⚠ 排进 `playwright.fullstack-smoke.config.ts` 的 `seeded` project：本文件用种子里的
  *   组织管理员（`FULLSTACK_E2E.adminEmail`，唯一能写蓝本的角色，`canMutateCapabilities`
@@ -101,7 +71,7 @@ const { scope } = (() => {
 
 const BLUEPRINT_NAME = `BP2PROJ_${scope}`;
 
-test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到项目」主流程——套用蓝本建项目今天不可达，见文件头注②）", () => {
+test.describe.serial("蓝本管理闭环 + 契约缺口审计（F175→F193/F174→F177(边界)→F179→F23→F29，见文件头注）", () => {
   let blueprintId = "";
 
   test("F175: 组织后台在真实浏览器里新建蓝本，刷新后仍在（真实 POST/GET /blueprints）", async ({ page }) => {
@@ -354,26 +324,21 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到�
     await expect(card.getByTestId("tpl-live-card-state")).toContainText("v1");
   });
 
-  test("F23 边界证明：套用蓝本新建项目——生产入口整体禁用 + 契约路径 404（不是猜的 URL，是 operations.applyBlueprint.path 字面量）", async ({ page }) => {
+  let appliedProjectId = "";
+
+  test("F23（issue #1667 补实现）：套用蓝本真实新建项目——POST /blueprints/:id/apply 201，刷新 /projects 后仍在（真实落库）", async ({ page }) => {
     test.skip(blueprintId === "", "上一条用例没能建出蓝本，跳过（不是本条用例本身的失败）");
 
-    // ① 真实 UI：`/project/new`（生产新建项目入口）今天把蓝本套用整体禁用，
-    //    即便这个组织已经有一个刚发布出来的蓝本可看。这是源码自己标注的当前状态
-    //    （`new-project-flow.tsx` 头注「选择依然禁用」），本条断言防止它未来被悄悄
-    //    翻成「看起来能选了」却没有真的接上 applyBlueprint。
+    // ⚠ 2026-08-21（issue #1667）：这条用例此前的断言方向是「契约路径 404」——
+    //   `templates.applyBlueprint` 当时零控制器、零 infra。本次已补上真实
+    //   `PgApplyBlueprintRepository`（复用 `PROJECT_REPOSITORY` 的唯一创建路径，
+    //   不新开第二个 `INSERT INTO projects`）与 `ApplyBlueprintController`，
+    //   断言方向翻正：验证套用真的建出一个项目、真的落库。
     await loginAsAdmin(page);
-    await page.goto("/project/new");
-    await expect(page.getByTestId("project-new")).toBeVisible();
-    await expect(page.getByTestId("project-new-blueprint-unavailable")).toBeVisible();
-    const blueprintCard = page.getByTestId(`project-new-blueprint-${blueprintId}`);
-    // 目录卡片渲染的是真实数据（能看到我们上面建的这个蓝本），但按钮禁用。
-    await expect(blueprintCard).toBeVisible();
-    await expect(blueprintCard).toBeDisabled();
-
-    // ② 契约承诺的入口本身：`operations.applyBlueprint.path` 是这条能力唯一的真实契约地址，
-    //    不是本文件编的 URL。今天它在生产路由表里不存在——校验的是「压根没有 controller
-    //    认领这条路径」，不是权限或参数错误，所以断言必须是 404，不能是 403/422。
     const headers = await authHeaders(page);
+
+    const idempotencyKey = `e2e-apply-${scope}`;
+    const projectName = `${BLUEPRINT_NAME}_applied`;
     const applyResponse = await page.request.post(
       `${API}${templates.operations.applyBlueprint.path.replace(":blueprintId", blueprintId)}`,
       {
@@ -383,27 +348,102 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（非「蓝本到�
           blueprintId,
           versionId: null,
           tier: "one-day",
-          projectName: `${BLUEPRINT_NAME}_applied`,
-          idempotencyKey: `e2e-apply-${scope}`,
+          projectName,
+          idempotencyKey,
         },
       },
     );
-    expect(applyResponse.status()).toBe(404);
+    expect(applyResponse.status(), await applyResponse.text()).toBe(201);
+    const applyBody = await applyResponse.json();
+    expect(applyBody.projectId).toBeTruthy();
+    // 六类恒 6 项，即使某一类今天 count 恒 0 也要出现（I-17，见 apply-blueprint-init.ts）。
+    expect(applyBody.initialized).toHaveLength(6);
+    const agendaCategory = applyBody.initialized.find((c: { category: string }) => c.category === "议程环节");
+    // AC1「打开即有完整议程环节（数量=所选档位）」——one-day 档恒 11 个（F19 议程环节表）。
+    expect(agendaCategory?.count).toBe(11);
+    appliedProjectId = applyBody.projectId;
+
+    // 同一 idempotencyKey 重复提交只建一个项目（V13）——真实打第二次，projectId 必须相同。
+    const replayResponse = await page.request.post(
+      `${API}${templates.operations.applyBlueprint.path.replace(":blueprintId", blueprintId)}`,
+      {
+        headers,
+        data: {
+          orgId: FULLSTACK_E2E.orgId,
+          blueprintId,
+          versionId: null,
+          tier: "one-day",
+          projectName,
+          idempotencyKey,
+        },
+      },
+    );
+    expect(replayResponse.status()).toBe(201);
+    expect((await replayResponse.json()).projectId).toBe(appliedProjectId);
+
+    // ── 真实 UI 复核：刷新 /projects，套用建出来的项目真的在列表里（不是内存态）──
+    await page.goto("/projects");
+    await expect(page.getByTestId(`projects-card-${appliedProjectId}`)).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId(`projects-card-${appliedProjectId}`)).toBeVisible();
   });
 
-  test("F29 边界证明：提回蓝本——契约路径 404（submitBlueprintChangeRequest 未挂任何控制器）", async ({ page }) => {
+  test("F29（issue #1667 补实现）：提回蓝本——GET 偏离 + POST 提交 201，GET /pending-changes 刷新后仍在（真实落库）", async ({ page }) => {
+    test.skip(appliedProjectId === "", "F23 用例没能套用成功，跳过（不是本条用例本身的失败）");
+
+    // ⚠ 2026-08-21（issue #1667）：这条用例此前的断言方向是「契约路径 404」——
+    //   `templates.submitBlueprintChangeRequest`/`computeDeviations` 当时零控制器、
+    //   零 infra。本次已补上 `PgComputeDeviationsRepository`（diff 基准 =
+    //   `blueprint_bindings`/`blueprint_versions` 快照，当前值对 `flow-agenda` 一项
+    //   真实读 `agenda_segments`，其余各项项目侧配置编辑路径尚未落地、诚实原样返回快照
+    //   值，见该文件头注）与 `BlueprintChangeRequestController`。
+    //
+    // 上一条用例套用出的项目，六类初始化真实写了 11 条 `agenda_segments`（议程环节，
+    // one-day 档），蓝本的 `flow-agenda` facet 从未被填过（本文件没有走那个面板）——
+    // 两边序列化后天然不同，这就是一条真实、不需要额外「手工改一下」的偏离，
+    // 不是编出来的测试数据。
     await loginAsAdmin(page);
     const headers = await authHeaders(page);
 
-    // 走真实的 sentinel 项目（fixture 种好的那个），不是编一个不存在的 projectId——
-    // 这样 404 断言的是「这条路径没有路由」，不会被「项目不存在」这个更浅的 404 混淆归因。
-    const proposeBackResponse = await page.request.post(
-      `${API}${templates.operations.submitBlueprintChangeRequest.path.replace(
-        ":projectId",
-        FULLSTACK_E2E.projectId,
-      )}`,
-      { headers, data: { selections: [] } },
+    const deviationsResponse = await page.request.get(
+      `${API}${templates.operations.computeDeviations.path.replace(":projectId", appliedProjectId)}`,
+      { headers },
     );
-    expect(proposeBackResponse.status()).toBe(404);
+    expect(deviationsResponse.status(), await deviationsResponse.text()).toBe(200);
+    const deviationsBody = await deviationsResponse.json();
+    const flowAgendaDeviation = deviationsBody.deviations.find(
+      (d: { designFacetKey: string }) => d.designFacetKey === "flow-agenda",
+    );
+    expect(flowAgendaDeviation, JSON.stringify(deviationsBody)).toBeTruthy();
+
+    const rationale = `现场核对过环节时长 ${scope}`;
+    const submitResponse = await page.request.post(
+      `${API}${templates.operations.submitBlueprintChangeRequest.path.replace(":projectId", appliedProjectId)}`,
+      { headers, data: { selections: [{ designFacetKey: "flow-agenda", rationale }] } },
+    );
+    expect(submitResponse.status(), await submitResponse.text()).toBe(201);
+    const submitBody = await submitResponse.json();
+    expect(submitBody.changeRequestIds).toHaveLength(1);
+    // 提交≠生效（I-10 / A1）——必须明示尚未生效，不是一个看起来像成功的 `{ok:true}`。
+    expect(submitBody.pendingNotice).toContain("待");
+
+    // ── 真实落库复核：GET /blueprints/:id/pending-changes，刷新一次仍在 ──────────
+    const listUrl = `${API}/blueprints/${blueprintId}/pending-changes`;
+    const listResponse = await page.request.get(listUrl, { headers });
+    expect(listResponse.status(), await listResponse.text()).toBe(200);
+    const listBody: Array<{ changeRequest: { changeRequestId: string; rationale: string; status?: string } }> =
+      await listResponse.json();
+    const match = listBody.find((row) => row.changeRequest.changeRequestId === submitBody.changeRequestIds[0]);
+    expect(match, JSON.stringify(listBody)).toBeTruthy();
+    expect(match!.changeRequest.rationale).toBe(rationale);
+    // 契约 `ChangeRequest` 是四要素 `.strict()` 形状，不含内部生命周期字段 `status`。
+    expect(match!.changeRequest.status).toBeUndefined();
+
+    const listAgainResponse = await page.request.get(listUrl, { headers });
+    expect(listAgainResponse.status()).toBe(200);
+    const listAgainBody: Array<{ changeRequest: { changeRequestId: string } }> = await listAgainResponse.json();
+    expect(listAgainBody.some((row) => row.changeRequest.changeRequestId === submitBody.changeRequestIds[0])).toBe(
+      true,
+    );
   });
 });

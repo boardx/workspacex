@@ -27,6 +27,7 @@ import {
 } from "../../domain/templates/pending-change";
 import type { Deviation } from "../../domain/templates/deviation-diff";
 import type { ProjectRole } from "../../domain/identity/roles";
+import type { OrgId } from "../../domain/org-id";
 import type { SubmitChangeRequestRepository } from "./submit-change-request-ports";
 
 export type SubmitChangeRequestOutput = z.infer<
@@ -49,6 +50,7 @@ export function canSubmitChangeRequest(projectRole: ProjectRole | null): boolean
 }
 
 export interface SubmitChangeRequestInput {
+  readonly orgId: OrgId;
   readonly actorProjectRole: ProjectRole | null;
   readonly actorId: string;
   readonly projectId: string;
@@ -94,7 +96,7 @@ export async function submitBlueprintChangeRequestUseCase(
     idFactory: () => deps.ids.next(),
   });
 
-  const created = await deps.repo.create(records);
+  const created = await deps.repo.create(input.orgId, records);
 
   return {
     changeRequestIds: created.map((r) => r.changeRequestId),

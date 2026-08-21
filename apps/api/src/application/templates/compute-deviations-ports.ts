@@ -23,3 +23,5 @@ export interface ComputeDeviationsRepository {
   /** 项目当前的设计配置值，按 `designFacetKey` 存放。 */
   findCurrentProjectContent(orgId: OrgId, projectId: string): Promise<Readonly<Record<string, unknown>>>;
 }
+
+export const COMPUTE_DEVIATIONS_REPOSITORY = Symbol("ComputeDeviationsRepository");

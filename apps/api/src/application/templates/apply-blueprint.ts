@@ -33,10 +33,12 @@ import {
 } from "../../domain/templates/apply-blueprint-init";
 import { DESIGN_FACET_DEFINITIONS, type DesignFacetRow } from "../../domain/templates/design-facet-table";
 import { AGENDA_SEGMENT_DEFINITIONS, type AgendaSegmentRow } from "../../domain/templates/agenda-segment-table";
+import { parseFlowAgendaDurations } from "../../domain/templates/flow-agenda-durations";
 import type { OrgRole } from "../../domain/identity/roles";
 import type { OrgId } from "../../domain/org-id";
 import {
   BlueprintInitializationFailedError,
+  type AppliedAgendaSegmentRef,
   type AppliedProject,
   type ApplyBlueprintRepository,
 } from "./apply-blueprint-ports";
@@ -111,6 +113,15 @@ export interface ApplyBlueprintInput {
   readonly tier: DurationTier;
   readonly projectName: string;
   readonly idempotencyKey: string;
+  /**
+   * 蓝本「流程 Agenda」（`flow-agenda`）facet 在**这一版**（`resolvedVersion.content`）里
+   * 的原始 JSON 字符串——由调用方（controller）从已解析出的版本内容里取出这一项传入，
+   * 本用例**自己不读** `BlueprintVersion.content`（同头注「blueprintVersionId 全程只被
+   * 当作不透明引用传递」的同一条纪律：`filledFacetKeys` 早已是同类的「调用方从 content
+   * 派生出的摘要」，本字段与它同一处置，不是新开的口子）。
+   * null = 该版本没有这一项内容（蓝本创建者没填过「流程 Agenda」）。
+   */
+  readonly flowAgendaContent: string | null;
 }
 
 export interface ApplyBlueprintDeps {
@@ -154,6 +165,15 @@ export async function applyBlueprintUseCase(
 
   const plan = planSixCategoryInit(input.filledFacetKeys, input.tier, facetTable, agendaTable);
 
+  // 逐环节时长：按位置对齐 `flow-agenda` facet 里真实已存的 `min`（P10 已随 F202
+  // 落地过期，见文件头引用与 `domain/templates/flow-agenda-durations.ts` 头注）。
+  // 未填 / 解析失败 / 超出 facet 记录范围一律 `null`，不编造默认值。
+  const durations = parseFlowAgendaDurations(input.flowAgendaContent);
+  const agendaSegments: readonly AppliedAgendaSegmentRef[] = plan.agendaSegments.map((seg, i) => ({
+    ...seg,
+    durationMinutes: durations[i] ?? null,
+  }));
+
   let applied: AppliedProject;
   try {
     applied = await deps.repo.apply({
@@ -164,7 +184,7 @@ export async function applyBlueprintUseCase(
       projectName: input.projectName,
       idempotencyKey: input.idempotencyKey,
       initialized: plan.initialized,
-      agendaSegments: plan.agendaSegments,
+      agendaSegments,
     });
   } catch (err) {
     if (err instanceof BlueprintInitializationFailedError) {

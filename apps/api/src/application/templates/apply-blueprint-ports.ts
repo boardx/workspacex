@@ -20,6 +20,19 @@ import type { CategoryInitCount } from "../../domain/templates/apply-blueprint-i
 import type { AgendaSegmentRefLike } from "../../domain/templates/duration-tier";
 import type { OrgId } from "../../domain/org-id";
 
+/**
+ * `AgendaSegmentRefLike` + 真实时长（F23 补实现 / #1667）。
+ *
+ * ⚠ `durationMinutes` 不是 `AgendaSegmentRefLike` 本身的字段——那个类型也被
+ * `duration-tier.ts`（换档位，与「这一行时长多少」无关）共用，往共享类型上加一个
+ * 只有 `applyBlueprint` 才用得上的字段，会让「换档位」的调用方也要决定这个字段填什么。
+ * 这里单开一个扩展类型，只在本仓储端口的边界上存在。
+ */
+export interface AppliedAgendaSegmentRef extends AgendaSegmentRefLike {
+  /** null = 蓝本「流程 Agenda」facet 未填这一行的时长，或该行超出 facet 记录范围——如实未填，不编造默认值 */
+  readonly durationMinutes: number | null;
+}
+
 export interface ApplyBlueprintCommand {
   readonly orgId: OrgId;
   readonly actorId: string;
@@ -30,7 +43,7 @@ export interface ApplyBlueprintCommand {
   readonly idempotencyKey: string;
   /** 六类写入计划：由 `domain/templates/apply-blueprint-init.ts` 算出，仓储不自己判定 */
   readonly initialized: readonly CategoryInitCount[];
-  readonly agendaSegments: readonly AgendaSegmentRefLike[];
+  readonly agendaSegments: readonly AppliedAgendaSegmentRef[];
 }
 
 export interface AppliedProject {
