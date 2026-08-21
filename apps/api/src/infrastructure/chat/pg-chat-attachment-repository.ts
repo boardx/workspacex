@@ -8,6 +8,7 @@ import { guard, type Guarded } from "../../application/security/permission-filte
 import type {
   AttachmentCommandRepository,
   AttachmentRow,
+  SentAttachmentRow,
 } from "../../application/chat/upload-attachment";
 
 export class PgChatAttachmentRepository implements AttachmentCommandRepository {
@@ -69,5 +70,32 @@ export class PgChatAttachmentRepository implements AttachmentCommandRepository {
       } satisfies AttachmentRow;
     });
     return guard({ kind: "project", id: `personal:${threadId}` }, row);
+  }
+
+  /**
+   * `listThreadAttachments`（#728 D9，右侧栏「材料」）：该线程已挂到消息的附件全部行
+   * （`message_id IS NOT NULL`），按 `created_at DESC`。**不经 `guard()`**——与
+   * `PgArtifactLandingRepository.listByThread` 同一套分工：调用方
+   * （`list-thread-attachments.ts`）在拿到这份行之前已经跑过 `resolveVisibility`，
+   * 这里不重复披露判定，只做数据整形（同一个理由，这类"读端口先由上层判过权限
+   * 才会被调用"的路径不在 `guard()` 覆盖范围内）。
+   */
+  async listSentByThread(orgId: OrgId, threadId: string): Promise<readonly SentAttachmentRow[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{
+        id: string; storage_ref: string; filename: string; mime: string;
+        bytes: string; created_at: string; message_id: string;
+      }>(
+        `SELECT id, storage_ref, filename, mime, bytes, created_at::text AS created_at, message_id
+           FROM chat_message_attachments
+          WHERE org_id = $1 AND thread_id = $2 AND message_id IS NOT NULL
+          ORDER BY created_at DESC`,
+        [orgId, threadId],
+      );
+      return r.rows.map((hit) => ({
+        id: hit.id, orgId, threadId, storageRef: hit.storage_ref, filename: hit.filename,
+        mime: hit.mime, bytes: Number(hit.bytes), createdAt: hit.created_at, messageId: hit.message_id,
+      } satisfies SentAttachmentRow));
+    });
   }
 }

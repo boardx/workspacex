@@ -84,6 +84,29 @@ export type ChatAttachmentError = z.infer<typeof ChatAttachmentError>;
 
 export const operations = {
   /**
+   * `listThreadAttachments` —— 右侧栏「材料」列表（issue #728 D9，人类 2026-08-21 裁决
+   * 选项 A：先做「产物 + 材料」两个有真实数据支撑的标签，转录控件不搬进右侧栏，
+   * 「执行/洞察」两个待后端建模、本轮不做）。
+   *
+   * 只返回**已挂到某条消息**的附件（`message_id IS NOT NULL`）——composer 里还在传、
+   * 尚未随消息发出的 pending 附件（`message_id IS NULL`）不算「材料」，那是草稿态，
+   * 不是这场对话已经产出的东西。按 `created_at DESC` 排列，与产物面板同一套
+   * 「这场对话产出了什么」的叙事。
+   *
+   * 判权与 `listThreadArtifacts` 同一处：先 `resolveVisibility`，不可见/不存在
+   * 一律 `THREAD_NOT_VISIBLE` → 控制器裸 404（I-3）。
+   */
+  listThreadAttachments: {
+    method: "GET",
+    path: "/chat/threads/:threadId/attachments",
+    in: z.object({ threadId: z.string() }).strict(),
+    out: z.object({
+      items: z.array(Attachment.extend({ messageId: z.string() }).strict()),
+    }).strict(),
+    err: ["THREAD_NOT_VISIBLE"] as const,
+  },
+
+  /**
    * `uploadAttachment` —— 上传一个附件到某线程，拿到 attachment id（随后由
    * `chat.createMessage` 的 `attachmentIds` 挂到消息上）。
    *

@@ -6,7 +6,7 @@ import type { AgentRunStreamEvent } from "@/lib/agent-run-stream";
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, getAgentRun,
-  listThreadArtifacts, landAsArtifact,
+  listThreadArtifacts, listThreadAttachments, landAsArtifact,
   openAgentRunStream, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -18,6 +18,8 @@ const {
   getAgentRun: vi.fn(),
   // 十项 UX 缺口第 4/5 项（#708）——右栏产物列表 + 消息内联落地为产物。
   listThreadArtifacts: vi.fn(),
+  // issue #728 D9（人类 2026-08-21 裁决）——右栏「材料」列表，真实数据来自 chat_message_attachments。
+  listThreadAttachments: vi.fn(),
   landAsArtifact: vi.fn(),
   // #654 阶段2d：默认永不 resolve/reject——这条流是纯装饰性的进度增强（组件自己的
   // effect 早有 `.catch()` 兜底），本文件盯的是 `getAgentRun` 那条权威轮询，不是它。
@@ -55,7 +57,8 @@ vi.mock("@/components/shell/app-shell", () => ({
 }));
 vi.mock("@/lib/live-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量 + uploadAttachment（#946 composer 附件）
-  listThreads, getThread, getAgentPanel, listMessages, createMessage, listThreadArtifacts, landAsArtifact,
+  listThreads, getThread, getAgentPanel, listMessages, createMessage,
+  listThreadArtifacts, listThreadAttachments, landAsArtifact,
 }));
 /**
  * #435：`getAgentRun` 被 mock，但 `isTerminalRunStatus` **走真实实现**。
@@ -230,6 +233,7 @@ describe("formal Chat read path", () => {
       nextCursor: "cursor-20",
     });
     listThreadArtifacts.mockResolvedValue({ items: [] });
+    listThreadAttachments.mockResolvedValue({ items: [] });
     createMessage.mockResolvedValue({
       message: durableMessage(22, "新持久消息"),
       agentRunId: "run-new",
@@ -405,6 +409,63 @@ describe("formal Chat read path", () => {
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
     expect(await screen.findByTestId("chat-artifacts-empty")).toHaveTextContent("还没有落地的产物");
+  });
+
+  /**
+   * issue #728 D9（人类 2026-08-21 裁决选项 A）—— 右栏「材料」列表真实渲染。
+   * 数据来自真实 `listThreadAttachments`（与 `listThreadArtifacts` 同一批
+   * `Promise.allSettled`），不是本地凑出来的；点击一条材料复用既有的
+   * `ChatAttachmentPreviewModal`（#1584）。
+   */
+  it("右栏「材料」面板渲染真实 listThreadAttachments 结果，并带正确的 projectId/threadId", async () => {
+    listThreadAttachments.mockResolvedValue({
+      items: [
+        {
+          id: "att-real-1", filename: "真实材料.pdf", mime: "application/pdf",
+          bytes: 2048, createdAt: "2026-08-21T00:00:00.000Z", messageId: "durable-message-2",
+        },
+      ],
+    });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    fireEvent.mouseDown(await screen.findByTestId("chat-right-tab-materials"), { button: 0 }); // Radix Tabs.Trigger 只监听 onMouseDown/onKeyDown/onFocus，不监听 click
+    const panel = await screen.findByTestId("chat-materials-panel");
+    expect(panel).toHaveTextContent("材料（1）");
+    expect(panel).toHaveTextContent("真实材料.pdf");
+    expect(listThreadAttachments).toHaveBeenCalledWith("thread-real", "project-real", "provider-bearer");
+  });
+
+  it("右栏「材料」为空时显示真实空态，不编造示例材料", async () => {
+    listThreadAttachments.mockResolvedValue({ items: [] });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    fireEvent.mouseDown(await screen.findByTestId("chat-right-tab-materials"), { button: 0 }); // Radix Tabs.Trigger 只监听 onMouseDown/onKeyDown/onFocus，不监听 click
+    expect(await screen.findByTestId("chat-materials-empty")).toHaveTextContent("还没有随消息发出的材料");
+  });
+
+  /**
+   * 发消息成功后（无论是否带附件）右栏「材料」都要重读——附件挂到消息上发生在
+   * **发送这一刻**（`createMessage.attachmentIds`），不是等 agent run 落定才发生，
+   * 所以这条不借用 `onRunSettled`，走单独的 `onMessageSent` 钩子（见
+   * `chat-live-message-panel.tsx`）。本用例证明「发消息 → 不用手动刷新页面 →
+   * 材料列表已经重读」。
+   */
+  it("发消息成功后立刻重读右栏「材料」列表，不需要手动刷新页面", async () => {
+    const composer = await (async () => {
+      render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+      return screen.findByTestId("chat-composer");
+    })();
+    expect(listThreadAttachments).toHaveBeenCalledTimes(1); // 初次进入线程的那一次
+
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    fireEvent.change(within(composer).getByRole("textbox", { name: "消息内容" }), {
+      target: { value: "带附件的消息" },
+    });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    await waitFor(() => expect(createMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(listThreadAttachments).toHaveBeenCalledTimes(2)); // 发送成功后自动重读
   });
 
   /**

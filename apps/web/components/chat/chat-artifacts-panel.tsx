@@ -9,13 +9,14 @@ import type { ListThreadArtifactsOut } from "@/lib/live-chat";
 /**
  * 十项 UX 缺口第 4 项（右侧上下文面板，issue #708）—— 真实「产物」列表。
  *
- * ⚠ 只做「产物」这一个子项。原型期五标签设计（转录/执行/洞察/产物/材料）里，
- *   「转录」已经有独立入口（`ChatRecordingPanel`，挂在 `chat-read-screen.tsx`），
- *   「执行/洞察/材料」在后端**没有任何真实数据支撑**——`get-thread.ts` 的
- *   `rightTabs()` 把这三个计数硬编码为 0，没有查询、没有落库。给它们画一个
- *   永远显示「0」或编造假计数的标签页，比不做还坏：那是在编一个「有数据源」的假象。
- *   这里只做「产物」这一项**有真实 `chat_artifact_landings` 表支撑**的子项，
- *   其余不做——如实反映现状，而不是凑够五个标签。
+ * ⚠ 原型期五标签设计（转录/执行/洞察/产物/材料）里，「转录」有独立入口
+ *   （`ChatRecordingPanel`，挂在消息面板上方，issue #728 D9 人类 2026-08-21 裁决
+ *   明确不搬进右侧栏）；「执行/洞察」在后端**没有任何真实数据支撑**——`get-thread.ts`
+ *   的 `rightTabs()` 把这两项计数硬编码为 0，没有查询、没有落库，待后端建模，本轮不做。
+ *   给它们画一个永远显示「0」或编造假计数的标签页，比不做还坏：那是在编一个
+ *   「有数据源」的假象。「材料」这一项**已经**有真实 `chat_message_attachments` 表支撑
+ *   （见 `chat-materials-panel.tsx`），与本面板拼成 D9 的两个真标签，一起挂在
+ *   `chat-read-screen.tsx` 右侧栏的 `Tabs` 下。
  *
  * 数据来自 `listThreadArtifacts`（`GET /chat/threads/:threadId/artifacts`），
  * 由 `chat-read-screen.tsx` 顶层读取（与 `roster` 同一套 key/loading/failure 纪律），

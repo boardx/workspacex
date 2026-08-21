@@ -46,7 +46,7 @@ import { ApiError } from "@/lib/api-client";
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage,
   createThread, renameThread, deleteThread, updateAgentRoster, listCapabilities,
-  listThreadArtifacts, landAsArtifact, sessionState,
+  listThreadArtifacts, listThreadAttachments, landAsArtifact, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   listThreads: vi.fn(),
@@ -62,6 +62,8 @@ const {
   // 十项 UX 缺口第 4/5 项（#708）——本文件不测这两个端口，只需要它们有默认解析值，
   // 不然 `chat-read-screen.tsx` 顶层的 `Promise.allSettled` 会产生未处理的 rejection。
   listThreadArtifacts: vi.fn(),
+  // issue #728 D9（人类 2026-08-21 裁决）——右栏「材料」，同样只需默认解析值。
+  listThreadAttachments: vi.fn(),
   landAsArtifact: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
@@ -85,7 +87,7 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量 + uploadAttachment（#946 composer 附件）
   listThreads, getThread, getAgentPanel, listMessages, createMessage,
   createThread, renameThread, deleteThread, updateAgentRoster,
-  listThreadArtifacts, landAsArtifact,
+  listThreadArtifacts, listThreadAttachments, landAsArtifact,
 }));
 // #619：加入表单的候选来自这个真实读端口（`GET /capabilities?kind=agent`），
 // 不再是自由文本框——每条用例要选的 id 必须先出现在这份候选列表里，
@@ -183,6 +185,7 @@ describe("#467 会话内 agent 编制的增删接线", () => {
     getAgentPanel.mockResolvedValue(panel([]));
     listMessages.mockResolvedValue({ messages: [], nextCursor: null });
     listThreadArtifacts.mockResolvedValue({ items: [] });
+    listThreadAttachments.mockResolvedValue({ items: [] });
     updateAgentRoster.mockResolvedValue({ rosterVersion: 1, agents: [], auditEventId: "prov-1" });
     listCapabilities.mockResolvedValue(ALL_TEST_CANDIDATES);
   });
