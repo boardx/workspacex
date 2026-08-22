@@ -106,3 +106,65 @@ describe("DA-04 线程连续性（rubric D4）", () => {
     expect(deriveRemoteThreadId("x")).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 });
+
+// —— DA-06 附带的 api 侧反证：write_todos 参数的 JSON 完整性 ——
+// （放本文件避免为 30 行再开一个测试进程；与线程连续性同属 provider 协议面。）
+import { DeepAgentModelProvider as _P } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
+
+describe("DA-06 write_todos 参数完整性（rubric D1）", () => {
+  it("超过 500 字符的 todos JSON 经 progress 事件后仍是完整合法 JSON；其他工具仍 500 截断", async () => {
+    const todos = { todos: Array.from({ length: 12 }, (_, i) => ({
+      content: `第 ${i} 步：一段足够长的描述文字用来把总长度顶过五百字符——${"填充".repeat(10)}`,
+      status: "pending",
+    })) };
+    const argsJson = JSON.stringify(todos);
+    expect(argsJson.length).toBeGreaterThan(500);
+    const otherArgs = JSON.stringify({ text: "x".repeat(600) });
+
+    const events: { toolName: string; toolArgsSummary: string | null }[] = [];
+    const { baseUrl } = await (async () => {
+      const seen = { threadPosts: [], runThreads: [] } as never;
+      // 直接复用本文件的假上游骨架不够——state 要回带 tool_calls 的消息，就地起一个。
+      const srv = createServer((req, res) => {
+        const url = req.url ?? "";
+        if (req.method === "POST" && url === "/threads") { res.writeHead(200).end(JSON.stringify({ thread_id: "t9" })); return; }
+        if (req.method === "POST" && /\/runs$/.test(url)) { res.writeHead(200).end(JSON.stringify({ run_id: "r9" })); return; }
+        if (req.method === "GET" && /\/runs\/r9$/.test(url)) { res.writeHead(200).end(JSON.stringify({ status: "success" })); return; }
+        if (req.method === "GET" && /\/state$/.test(url)) {
+          res.writeHead(200).end(JSON.stringify({ values: { messages: [
+            { type: "ai", content: "", tool_calls: [
+              { id: "c1", name: "write_todos", args: todos },
+              { id: "c2", name: "call_skill", args: JSON.parse(otherArgs) },
+            ] },
+            { type: "tool", tool_call_id: "c1", content: "ok" },
+            { type: "tool", tool_call_id: "c2", content: "ok" },
+            { type: "ai", content: "done", tool_calls: [] },
+          ] } }));
+          return;
+        }
+        res.writeHead(404).end();
+      });
+      server = srv; // 复用 afterEach 清理
+      return new Promise<{ baseUrl: string }>((resolve) => {
+        srv.listen(0, "127.0.0.1", () => {
+          const addr = srv.address();
+          resolve({ baseUrl: `http://127.0.0.1:${typeof addr === "object" && addr ? addr.port : 0}` });
+        });
+      });
+    })();
+
+    const p = new _P({ baseUrl, timeoutMs: 5000, pollIntervalMs: 5 });
+    await p.completeWithProgress(base as never, async (e) => {
+      events.push({ toolName: e.toolName, toolArgsSummary: e.toolArgsSummary });
+    });
+    const todoEvent = events.find((e) => e.toolName === "write_todos");
+    expect(todoEvent).toBeDefined();
+    // 核心断言：完整、可 parse、逐字等于原始 JSON——前端规划条靠它活着。
+    expect(todoEvent!.toolArgsSummary).toBe(argsJson);
+    expect(() => JSON.parse(todoEvent!.toolArgsSummary!)).not.toThrow();
+    // 反向：其他工具保持 500 截断纪律（尾带省略号，长度 501）。
+    const other = events.find((e) => e.toolName === "call_skill");
+    expect(other!.toolArgsSummary!.length).toBe(501);
+    expect(other!.toolArgsSummary!.endsWith("…")).toBe(true);
+  });
+});
