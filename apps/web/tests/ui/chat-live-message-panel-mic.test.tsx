@@ -67,6 +67,12 @@ function stubCaptureSupport(supported: boolean) {
 function deferredStream() {
   let capturedHandlers: AsrDraftStreamHandlers | null = null;
   const stop = vi.fn(async () => {
+    // 2026-08-20 —— 真实的 `handle.stop()`（`live-asr-draft.ts`）要等上游确认收尾才 resolve，
+    // 从来不是同步完成。这里原来直接同步调 `onFinished()`（`async () => {...}` 函数体里没有
+    // 任何 `await`，等同于同步执行），于是"点了停止"到"onFinished 真的触发"之间**没有一个
+    // 可观察的微任务窗口**——这正是 devapp 那个"终止转录也不能正常终止"的 bug 长期未被这份
+    // 测试文件测出来的原因：mock 比真实上游快得多，快到把 stopping 这个中间态盖住了。
+    await Promise.resolve();
     capturedHandlers?.onFinished();
   });
   const handle: AsrDraftStreamHandle = { stop };
@@ -123,6 +129,65 @@ describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服�
 
     await waitFor(() => expect(micButton).toHaveAttribute("aria-pressed", "true"));
     expect(screen.getByTestId("chat-mic-listening")).toBeInTheDocument();
+  });
+
+  /**
+   * 2026-08-20 devapp 实测反馈：「点击 mic 图标以后要反应半天」「终止转录也不能正常终止」。
+   * 根因是状态机原来只有 idle/listening 两头——`openAsrDraftStream` 对真实上游而言不是
+   * 0 秒（麦克风权限弹窗 + WS 握手），旧版这段真实等待期里界面**没有任何变化**。
+   *
+   * 这条测试的关键：断言发生在 `fireEvent.click` **之后、`await stream.promise` 之前**
+   * ——这正是旧版全程沉默的那个窗口。此前的 `deferredStream()` mock 让
+   * `openAsrDraftStream` 在同一个微任务里就 resolve，之前的用例从未在这个窗口里断言过
+   * 任何东西，所以这个缺口一直没被测出来（真实上游的这段窗口是几百毫秒到几秒，
+   * 不是本测试环境里的一个微任务，但状态机本身该不该在这段等待里说话，是一件与
+   * "等多久"无关、可以在同步窗口里钉死的事）。
+   */
+  it("shows a 'connecting' state synchronously on click, before the network handshake settles (2026-08-20 devapp: 反应半天)", async () => {
+    const stream = deferredStream();
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
+    await waitFor(() => expect(listMessages).toHaveBeenCalled());
+
+    const micButton = screen.getByTestId("chat-mic-button");
+    fireEvent.click(micButton);
+
+    // 就在这里——mock 的 resolve 还没被微任务队列处理，仍然是"点了但还没连上"那一刻。
+    expect(micButton).toHaveAttribute("data-mic-status", "connecting");
+    expect(micButton).toBeDisabled();
+    expect(micButton).toHaveAttribute("aria-label", "正在连接语音识别…");
+    expect(screen.getByTestId("chat-mic-connecting")).toBeInTheDocument();
+    expect(screen.queryByTestId("chat-mic-listening")).not.toBeInTheDocument();
+
+    await act(() => stream.promise);
+    await waitFor(() => expect(micButton).toHaveAttribute("data-mic-status", "listening"));
+    expect(screen.queryByTestId("chat-mic-connecting")).not.toBeInTheDocument();
+  });
+
+  /**
+   * 同上，收尾那一侧：`handle.stop()` 要等上游确认（真实上游下最多
+   * `KERNEL_ASR_FINISH_GRACE_MS`，默认 15 秒），这段等待期界面也必须说"正在停止"，
+   * 不能一片空白到用户以为"点了没反应，是不是卡住了"。
+   */
+  it("shows a 'stopping' state synchronously on the stop click, before the upstream confirms (2026-08-20 devapp: 终止转录也不能正常终止)", async () => {
+    const stream = deferredStream();
+    render(<ChatLiveMessagePanel threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false} />);
+    await waitFor(() => expect(listMessages).toHaveBeenCalled());
+
+    const micButton = screen.getByTestId("chat-mic-button");
+    fireEvent.click(micButton);
+    await act(() => stream.promise);
+    await waitFor(() => expect(micButton).toHaveAttribute("data-mic-status", "listening"));
+
+    fireEvent.click(micButton); // 第二次点击 = 停止
+
+    // 就在这里——`stop` mock 里的 `onFinished()` 还没被微任务队列处理。
+    expect(micButton).toHaveAttribute("data-mic-status", "stopping");
+    expect(micButton).toBeDisabled();
+    expect(micButton).toHaveAttribute("aria-label", "正在停止…");
+    expect(screen.getByTestId("chat-mic-stopping")).toBeInTheDocument();
+
+    await waitFor(() => expect(micButton).toHaveAttribute("data-mic-status", "idle"));
+    expect(screen.queryByTestId("chat-mic-stopping")).not.toBeInTheDocument();
   });
 
   it("realtime-asr 增补 A（§7）：设备下拉挂在麦克风旁，选中的 deviceId 传给采音层", async () => {

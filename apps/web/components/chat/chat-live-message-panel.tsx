@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, Bot, Check, Copy, FileText, Mic, RefreshCw, Send, UserRound } from "lucide-react";
+import { ArrowDown, Bot, Check, Copy, FileText, Loader2, Mic, RefreshCw, Send, UserRound } from "lucide-react";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 // VZ-01 → live panel（coord 裁 ①+续刀）：活体 AI 消息渲染从 CopilotKit 的 Markdown
 // 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
@@ -1364,7 +1364,7 @@ export function ChatLiveMessagePanel({
               <MicDevicePicker
                 devices={micDevices.devices}
                 selectedDeviceId={micDevices.selectedDeviceId}
-                disabled={archived || submitting || speech.listening}
+                disabled={archived || submitting || speech.listening || speech.connecting || speech.stopping}
                 onSelect={micDevices.select}
               />
               <Button
@@ -1379,12 +1379,30 @@ export function ChatLiveMessagePanel({
                 data-testid="chat-mic-button"
                 data-mic-status={speech.status}
                 aria-pressed={speech.listening}
-                aria-label={speech.listening ? "停止语音输入" : "开始语音输入"}
-                title={noAgentToRunWith ? "没有可选 Agent，暂时无法发送消息" : (speech.listening ? "停止语音输入" : "开始语音输入")}
-                disabled={archived || submitting || noAgentToRunWith}
+                aria-busy={speech.connecting || speech.stopping}
+                aria-label={
+                  speech.connecting ? "正在连接语音识别…"
+                    : speech.stopping ? "正在停止…"
+                    : speech.listening ? "停止语音输入" : "开始语音输入"
+                }
+                title={
+                  noAgentToRunWith ? "没有可选 Agent，暂时无法发送消息"
+                    : speech.connecting ? "正在连接语音识别…"
+                    : speech.stopping ? "正在停止…"
+                    : speech.listening ? "停止语音输入" : "开始语音输入"
+                }
+                // #726 real-upstream 补丁（devapp 实测「反应半天」「停不下来」）：connecting/
+                // stopping 期间禁用——那段真实网络延迟里再点一下不该起第二条采音管线，也
+                // 不该在还没停干净时又开始一条新的（`use-asr-draft.ts` 的 stoppingRef 是
+                // 第二道防线，这里是第一道：UI 本身就不让点）。
+                disabled={archived || submitting || noAgentToRunWith || speech.connecting || speech.stopping}
                 onClick={() => (speech.listening ? speech.stop() : speech.start())}
               >
-                <Mic aria-hidden className="h-3.5 w-3.5" />
+                {speech.connecting || speech.stopping ? (
+                  <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Mic aria-hidden className="h-3.5 w-3.5" />
+                )}
               </Button>
               <Button
                 type="button"
@@ -1412,12 +1430,29 @@ export function ChatLiveMessagePanel({
             断言随本次改动一并删除（不是改文案，是这条提示整个不再存在）。
           */}
         </div>
+        {speech.connecting ? (
+          // #726 real-upstream 补丁——真实上游握手（麦克风权限弹窗 + WS 连接）不是 0 秒，
+          // 这段等待期界面必须说话，不能沉默（devapp 实测反馈「点了反应半天」正是这段空窗）。
+          <p className="mt-2 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="chat-mic-connecting">
+            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+            正在连接语音识别……
+          </p>
+        ) : null}
         {speech.listening ? (
           // #726 —— 转录进行中的可见反馈："正在听"，不是静默录音。文字实时通过
           // `onTranscript` 写回 `text`（见上面 `updateDraft` 的调用），这里只是状态提示。
           <p className="mt-2 flex items-center gap-1.5 text-11 text-destructive" data-testid="chat-mic-listening">
             <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
             正在听……实时转录中，说完点击麦克风按钮停止，确认无误后再手动发送。
+          </p>
+        ) : null}
+        {speech.stopping ? (
+          // 同上：`handle.stop()` 要等上游确认收尾（最多 15 秒，见
+          // `configured-realtime-asr-provider.ts` 的 `FINISH_GRACE_MS`），这段时间界面
+          // 必须说"正在停止"，不能让按钮变灰之后界面就没有任何进一步的反馈了。
+          <p className="mt-2 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="chat-mic-stopping">
+            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+            正在停止……等待最后一段转录落定。
           </p>
         ) : null}
         {speech.error !== null ? (
