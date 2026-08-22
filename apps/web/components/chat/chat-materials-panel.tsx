@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBytes, iconKindForMime, type AttachmentIconKind } from "@/lib/chat-attachment-format";
 import { ChatAttachmentPreviewModal } from "@/components/chat/chat-attachment-preview-modal";
+import { ChatSidebarUploadButton, type ChatAttachmentsController } from "@/components/chat/chat-composer-attachments";
 import type { ChatAttachment, ListThreadAttachmentsOut } from "@/lib/live-chat";
 
 /**
@@ -21,9 +22,16 @@ import type { ChatAttachment, ListThreadAttachmentsOut } from "@/lib/live-chat";
  * 只列**已挂到消息**的附件（`message_id IS NOT NULL`）——composer 里还没随消息发出的
  * pending 附件不算材料，那是草稿态。点击一条材料复用 `ChatAttachmentPreviewModal`
  * （#1584 已有组件，消息气泡里点附件同一个弹窗），不另写第二份预览实现。
+ *
+ * ## 头部「+」上传入口（issue #1758，人类给参考截图后裁决 C）
+ * 点了之后走的是**同一个** composer 的 `ChatAttachmentsController.pickFiles`（同一次真实
+ * `uploadAttachment` 调用），效果是"加进 composer 的 pending 队列"——不自动发消息、不触发
+ * agent run。上传后文件出现在输入框下方的 composer 附件区，不会立刻出现在这个材料列表里
+ * （见 `ChatSidebarUploadButton` 头注的架构调查）。`uploadCtl` 为 `null`（未登录/没有真实
+ * bearer）时不渲染上传入口——没有可用的上传通道，渲染一个点了必炸的按钮比不渲染还坏。
  */
 export function ChatMaterialsPanel({
-  hasSelection, threadId, materials, loading, error, onRetry,
+  hasSelection, threadId, materials, loading, error, onRetry, uploadCtl,
 }: {
   hasSelection: boolean;
   threadId: string | null;
@@ -31,14 +39,22 @@ export function ChatMaterialsPanel({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** issue #1758 —— composer 与右栏共享的同一份附件控制器；`null` 表示当前没有可用的上传通道。 */
+  uploadCtl: ChatAttachmentsController | null;
 }) {
   const [previewing, setPreviewing] = React.useState<ChatAttachment | null>(null);
   return (
     <div className="flex flex-col" data-testid="chat-materials-panel">
       <div className="flex items-center gap-2 border-b border-border-subtle p-3">
         <FileText aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-12 font-medium">材料{materials ? `（${materials.items.length}）` : ""}</h2>
+        <h2 className="flex-1 text-12 font-medium">材料{materials ? `（${materials.items.length}）` : ""}</h2>
+        {uploadCtl ? <ChatSidebarUploadButton ctl={uploadCtl} disabled={!hasSelection} /> : null}
       </div>
+      {uploadCtl ? (
+        <p className="px-3 pt-2 text-10 text-muted-foreground">
+          上传的文件会加入下一条消息的附件，发送后才会出现在这个列表里。
+        </p>
+      ) : null}
       {!hasSelection ? <p className="p-3 text-12 text-muted-foreground">选择线程后读取材料。</p> : null}
       {loading ? <p className="p-3 text-12 text-muted-foreground">正在读取真实材料列表…</p> : null}
       {error ? (

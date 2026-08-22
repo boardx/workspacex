@@ -6,7 +6,7 @@ import type { AgentRunStreamEvent } from "@/lib/agent-run-stream";
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, getAgentRun,
-  listThreadArtifacts, listThreadAttachments, landAsArtifact,
+  listThreadArtifacts, listThreadAttachments, uploadAttachment, landAsArtifact,
   openAgentRunStream, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -20,6 +20,8 @@ const {
   listThreadArtifacts: vi.fn(),
   // issue #728 D9（人类 2026-08-21 裁决）——右栏「材料」列表，真实数据来自 chat_message_attachments。
   listThreadAttachments: vi.fn(),
+  // issue #1758（人类给参考截图后裁决 C）——右栏「材料」头部「+」入口，走同一条真实上传端点。
+  uploadAttachment: vi.fn(),
   landAsArtifact: vi.fn(),
   // #654 阶段2d：默认永不 resolve/reject——这条流是纯装饰性的进度增强（组件自己的
   // effect 早有 `.catch()` 兜底），本文件盯的是 `getAgentRun` 那条权威轮询，不是它。
@@ -56,9 +58,9 @@ vi.mock("@/components/shell/app-shell", () => ({
   }) => <div><aside>{left}</aside><main>{children}</main><aside>{right}</aside></div>,
 }));
 vi.mock("@/lib/live-chat", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量 + uploadAttachment（#946 composer 附件）
+  ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量
   listThreads, getThread, getAgentPanel, listMessages, createMessage,
-  listThreadArtifacts, listThreadAttachments, landAsArtifact,
+  listThreadArtifacts, listThreadAttachments, uploadAttachment, landAsArtifact,
 }));
 /**
  * #435：`getAgentRun` 被 mock，但 `isTerminalRunStatus` **走真实实现**。
@@ -234,6 +236,10 @@ describe("formal Chat read path", () => {
     });
     listThreadArtifacts.mockResolvedValue({ items: [] });
     listThreadAttachments.mockResolvedValue({ items: [] });
+    uploadAttachment.mockResolvedValue({
+      id: "att-server-1", filename: "sidebar-upload.pdf", mime: "application/pdf",
+      bytes: 1024, createdAt: "2026-08-22T00:00:00.000Z",
+    });
     createMessage.mockResolvedValue({
       message: durableMessage(22, "新持久消息"),
       agentRunId: "run-new",
@@ -416,6 +422,9 @@ describe("formal Chat read path", () => {
    * 数据来自真实 `listThreadAttachments`（与 `listThreadArtifacts` 同一批
    * `Promise.allSettled`），不是本地凑出来的；点击一条材料复用既有的
    * `ChatAttachmentPreviewModal`（#1584）。
+   *
+   * issue #1758：产物/材料从 tab 切换看改成堆叠同时可见，不再需要先点 tab 才能看到
+   * 「材料」区块——本用例不再 `fireEvent.mouseDown` 任何 tab trigger，直接找面板。
    */
   it("右栏「材料」面板渲染真实 listThreadAttachments 结果，并带正确的 projectId/threadId", async () => {
     listThreadAttachments.mockResolvedValue({
@@ -428,7 +437,6 @@ describe("formal Chat read path", () => {
     });
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
-    fireEvent.mouseDown(await screen.findByTestId("chat-right-tab-materials"), { button: 0 }); // Radix Tabs.Trigger 只监听 onMouseDown/onKeyDown/onFocus，不监听 click
     const panel = await screen.findByTestId("chat-materials-panel");
     expect(panel).toHaveTextContent("材料（1）");
     expect(panel).toHaveTextContent("真实材料.pdf");
@@ -439,8 +447,72 @@ describe("formal Chat read path", () => {
     listThreadAttachments.mockResolvedValue({ items: [] });
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
-    fireEvent.mouseDown(await screen.findByTestId("chat-right-tab-materials"), { button: 0 }); // Radix Tabs.Trigger 只监听 onMouseDown/onKeyDown/onFocus，不监听 click
     expect(await screen.findByTestId("chat-materials-empty")).toHaveTextContent("还没有随消息发出的材料");
+  });
+
+  /**
+   * issue #1758（人类给参考截图后裁决）—— 右栏「产物」与「材料」从 tab 切换看改成
+   * 上下堆叠、同时可见。两个面板 testid 应该**同时**能在 DOM 里找到，不需要任何
+   * tab 切换动作。
+   */
+  it("右栏「产物」「材料」堆叠同时可见，不需要 tab 切换", async () => {
+    listThreadArtifacts.mockResolvedValue({
+      items: [{
+        artifactId: "artifact-stack-1", title: "堆叠布局产物", mode: "draft",
+        version: null, pinnedBy: null, pinnedAt: null, hasSource: false,
+      }],
+    });
+    listThreadAttachments.mockResolvedValue({
+      items: [{
+        id: "att-stack-1", filename: "堆叠布局材料.pdf", mime: "application/pdf",
+        bytes: 512, createdAt: "2026-08-22T00:00:00.000Z", messageId: "durable-message-2",
+      }],
+    });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    const artifactsPanel = await screen.findByTestId("chat-artifacts-panel");
+    const materialsPanel = await screen.findByTestId("chat-materials-panel");
+    // 两者都在同一个 `chat-right-panel-stack` 容器内、同时挂载。
+    const stack = screen.getByTestId("chat-right-panel-stack");
+    expect(stack).toContainElement(artifactsPanel);
+    expect(stack).toContainElement(materialsPanel);
+    expect(artifactsPanel).toHaveTextContent("堆叠布局产物");
+    expect(materialsPanel).toHaveTextContent("堆叠布局材料.pdf");
+    // 不存在 Tabs 遗留的 trigger——已经从「切换看」改成「同时看」。
+    expect(screen.queryByTestId("chat-right-tab-artifacts")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chat-right-tab-materials")).not.toBeInTheDocument();
+  });
+
+  /**
+   * issue #1758（人类裁决 C）—— 右栏「材料」头部「+」上传入口：点了选文件后，走的是
+   * composer 同一条真实 `uploadAttachment` 路径（同一个 `ChatAttachmentsController`），
+   * 文件出现在输入框下方的 composer 附件区（`chat-attachment-list`），**不**自动发消息、
+   * **不**立刻出现在材料列表里——材料列表仍然只在真正发消息之后才重读/出现新增项
+   * （见下一条用例）。
+   */
+  it("右栏「材料」头部「+」上传的文件走真实上传端点、出现在 composer 附件区，但不自动发消息", async () => {
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    const materialsPanel = await screen.findByTestId("chat-materials-panel");
+    const trigger = within(materialsPanel).getByTestId("chat-materials-upload-trigger");
+    fireEvent.click(trigger);
+    const input = within(materialsPanel).getByTestId("chat-materials-upload-input") as HTMLInputElement;
+    const file = new File([new Uint8Array(8)], "sidebar-upload.pdf", { type: "application/pdf" });
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file] } });
+    });
+
+    await waitFor(() => expect(uploadAttachment).toHaveBeenCalledWith(
+      "thread-real", expect.any(File), "provider-bearer", expect.any(Function),
+    ));
+
+    // 出现在 composer 附件区（同一个 ChatAttachmentsController 实例）。
+    const attachmentList = await screen.findByTestId("chat-attachment-list");
+    await waitFor(() => expect(within(attachmentList).getByText("sidebar-upload.pdf")).toBeInTheDocument());
+
+    // 没有自动发消息——不触发 createMessage，材料列表也没有因此重读出新内容。
+    expect(createMessage).not.toHaveBeenCalled();
+    expect(listThreadAttachments).toHaveBeenCalledTimes(1); // 只有初次进入线程那一次
   });
 
   /**
