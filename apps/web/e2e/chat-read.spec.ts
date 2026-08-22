@@ -12,7 +12,12 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
 
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
-  await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.agentId}`)).toContainText("Controlled Read Agent");
+  // #728 D2 —— `seed-chat-read-e2e.ts` 把这个夹具 agent 的显示名从
+  // "Controlled Read Agent" 缩短成 "Read Agent"，专门为了让 `roleLabel`
+  // （"引导协作助手"）不被同一个 `truncate` 容器吃掉（见该脚本对应改动的头注）。
+  // 这里一并断言 roleLabel 真的出现在编制区第一行，不只是名字本身。
+  await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.agentId}`)).toContainText("Read Agent");
+  await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.agentId}`)).toContainText("引导协作助手");
   await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
   await expect(page.getByTestId("chat-message-list")).not.toContainText("Controlled fixture message 51");
 

@@ -214,6 +214,18 @@ for (const [id, title] of [
   });
 }
 
+/**
+ * #728 D3 取证覆盖缺口（独立评分连续几轮发现）—— `THREAD_ID` 与它的 51 条种子消息
+ * 里此前没有一条带 `review_pending`，`thread-badges.ts` 的 `messageBadges()`/
+ * `toContractBadges()` 因此对这条线程恒算出「无徽标」，`ThreadCard.badges` 永远是
+ * 空数组，项目对话侧的取证截图看不到「N 条待复核」这个徽标长什么样——不是徽标渲染
+ * 没写，是没有一条真实数据能触发它算出非零值。`chat_messages.review_pending` 是
+ * I-13 的唯一事实源（`ports.ts` 头注），`addChatMessage` 早已支持这个字段
+ * （`tests/support/chat-db.ts:115`），这里只是首次真的传它。
+ *
+ * 挑 index 50（agent 回复）而不是某条人类消息：徽标语义是「AI 输出待复核」，
+ * 挂在 agent 消息上才对应真实场景，不是随手选一条凑数。
+ */
 for (let index = 1; index <= 51; index += 1) {
   const suffix = String(index).padStart(2, "0");
   await addChatMessage({
@@ -224,6 +236,7 @@ for (let index = 1; index <= 51; index += 1) {
     authorKind: index % 2 === 0 ? "agent" : "human",
     agentId: index % 2 === 0 ? AGENT_ID : null,
     body: `Controlled fixture message ${suffix}`,
+    reviewPending: index === 50,
   });
 }
 
@@ -247,11 +260,32 @@ await asApp(ORG_ID, async (client) => {
   const instructions = "Chat read E2E fixture agent. Echo back what you are given.";
   const { createHash } = await import("node:crypto");
   const instructionDigest = createHash("sha256").update(instructions).digest("hex");
+  /**
+   * #728 D2/D5 取证覆盖缺口（独立评分连续几轮发现）—— `AGENT_ID` 此前从未种过
+   * `role_label`，`chat-read-screen.tsx:1083` 的 `{agent.roleLabel ? ... : null}`
+   * 因此永远不出现，D2「AI 团队编制区『名字 · 角色』」这一维在项目对话侧的取证截图里
+   * 没有内容可评——不是代码没写，是夹具数据没喂。与 `agents.role`（「职责一句话」，
+   * 投影进 `capability_listings.duty`）刻意分开存一份真实的短头衔（迁移
+   * `20260821180000_i1705_agent_role_label.sql` 头注）。
+   *
+   * ⚠ 同一轮把 `name` 从 "Controlled Read Agent" 缩短成 "Read Agent"：编制区第一行是
+   * `{name} · {roleLabel}` 同挤在**一个** `className="truncate"` 的 `<p>` 里
+   * （`chat-read-screen.tsx:1080-1084`），侧栏容器只有约 200px 宽。实测（跑
+   * `pnpm run shots:chat-main` 抓 `chat-main-default.png` 逐像素核对）原名字长度
+   * 21 字符已经吃满这行的截断宽度（视觉上停在「Controlled Read Age…」），角色标签
+   * 追加的 `roleLabel` 无论多短都不可能进入可见区——这不是数据没喂到，是**这一个
+   * 夹具的显示名恰好撞在既有截断宽度上**，`duty` 那半句此前也是同样被截断（不是
+   * 这次改动引入的新截断）。缩短显示名让两行都进入可见区，是让取证截图真的看得到
+   * 这套已经写好的渲染逻辑，不是发明新行为。全仓只有 `chat-read.spec.ts:15` 一处
+   * 断言这个字面量（`toContainText`），已同步改过去。
+   */
+  const AGENT_NAME = "Read Agent";
+  const AGENT_ROLE_LABEL = "引导协作助手";
   await client.query(
-    `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
-     VALUES ($1,$2,$1,$3,'enabled',$4,now(),now())
-     ON CONFLICT (id) DO UPDATE SET status='enabled'`,
-    [AGENT_ID, ORG_ID, "Controlled Read Agent", USER_ID],
+    `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,role_label,role_label_needs_confirmation)
+     VALUES ($1,$2,$1,$3,'enabled',$4,now(),now(),$5,false)
+     ON CONFLICT (id) DO UPDATE SET status='enabled', name=$3, role_label=$5, role_label_needs_confirmation=false`,
+    [AGENT_ID, ORG_ID, AGENT_NAME, USER_ID, AGENT_ROLE_LABEL],
   );
   await client.query(
     `INSERT INTO agent_versions
@@ -285,10 +319,15 @@ await asApp(ORG_ID, async (client) => {
   // `20260807000000_i619_agent_roster_capability_convergence.sql`）。这里同时也是
   // roster 选择器的真实读源（`GET /capabilities?kind=agent`），所以这两行同时
   // 承担「合法性判据」与「界面下拉可选项」两个角色。
+  // ⚠ #728 D2/D5 —— `role_label` 走与 `role → duty` 完全平行的一条投影（迁移
+  // `20260821180000_i1705_agent_role_label.sql` 头注），`findAgentRoster`/
+  // `updateAgentRoster` 读的正是这张表的 `cl.role_label`
+  // （`pg-chat-repository.ts:421,509`），不是 `agents.role_label`——只种 `agents`
+  // 那一张、不种这里，编制面板仍然拿不到，退回 `duty`，D2 那半句照样不出现。
   await client.query(
-    `INSERT INTO capability_listings (id, org_id, kind, name, scope, enabled, abbr, duty)
-     VALUES ($1,$2,'agent','Controlled Read Agent','org-wide',true,$3,$4)`,
-    [AGENT_ID, ORG_ID, "CR", "Read-only E2E roster fixture"],
+    `INSERT INTO capability_listings (id, org_id, kind, name, scope, enabled, abbr, duty, role_label, role_label_needs_confirmation)
+     VALUES ($1,$2,'agent',$3,'org-wide',true,$4,$5,$6,false)`,
+    [AGENT_ID, ORG_ID, AGENT_NAME, "CR", "Read-only E2E roster fixture", AGENT_ROLE_LABEL],
   );
   // #467：进目录但**不**进 `chat_thread_agents`——它是「加进来」那条用例的素材。
   await client.query(
