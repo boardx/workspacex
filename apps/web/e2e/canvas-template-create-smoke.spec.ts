@@ -273,9 +273,9 @@ test("admin mints a new draft version from a published template; the v2 draft su
   await expect(sourceRow).toContainText("草稿");
 
   // ── ① 常驻反证：draft 行没有「基于此开新版」（签核裁决：仅非 draft 挂）─────────
-  //    先证行操作区真的渲染了（draft 行有「试跑入口待补」占位），再说按钮不在——
-  //    否则一次渲染失败会让「不在」恒成立。
-  await expect(page.getByTestId(`tpladmin-notrial-${KEY}-1`)).toBeVisible();
+  //    先证行操作区真的渲染了（draft 行有「试跑」按钮，2026-08-22 起真接了后端），
+  //    再说「基于此开新版」按钮不在——否则一次渲染失败会让「不在」恒成立。
+  await expect(page.getByTestId(`tpladmin-trial-${KEY}-1`)).toBeVisible();
   await expect(page.getByTestId(`tpladmin-mint-version-${KEY}-1`)).toHaveCount(0);
 
   await page.getByTestId(`tpladmin-publish-${KEY}-1`).click();
@@ -324,6 +324,6 @@ test("admin mints a new draft version from a published template; the v2 draft su
   expect(mints).toEqual([201]);
 
   // ── ⑥ 反证在新行上再验一次：v2 是 draft ⇒ 同样没有开新版入口 ──────────────────
-  await expect(page.getByTestId(`tpladmin-notrial-${KEY}-2`)).toBeVisible();
+  await expect(page.getByTestId(`tpladmin-trial-${KEY}-2`)).toBeVisible();
   await expect(page.getByTestId(`tpladmin-mint-version-${KEY}-2`)).toHaveCount(0);
 });
