@@ -1072,7 +1072,16 @@ describe("lint-permission-paths: counter-proof", () => {
     // `pg-project-name-lookup.ts` + `list-threads.ts` 断言（a）仓储只命名 `projects`、
     // 只选 `name`；（b）`findName` 的返回值只在 `listThreads` 里 `outcome.kind === "allow"`
     // 分支之后被塞进 `buildCard`，不出现在早退 `continue` 之前。删那个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(78);
+    //
+    // ⚠ Raised 78 -> 79 by #1705（#728 D-1：agents.role_label 简短头衔字段）：新增
+    // `pg-set-agent-role-label-repository.ts`，命名 `agents`/`capability_listings`
+    // 两张表——授权（admin 组织成员判定）全部发生在 `set-agent-role-label.ts` 用例层，
+    // 且在仓储调用之前，同 `pg-self-publish-agent-repository.ts` 条目一样的
+    // 「一层之上先判、仓储层只管落库」形状。被强制的前提：
+    // `tests/agent-runtime/set-agent-role-label-repo-guard.test.ts` 机械断言
+    // （a）只命名这两张表；（b）不调用 `withoutTenant`；（c）授权判定确实在仓储调用之前。
+    // 删那个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(79);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

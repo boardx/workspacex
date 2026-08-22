@@ -186,6 +186,7 @@ async function createOwnAgent(name: string): Promise<string> {
       name,
       initials: "ZJ",
       role: "我自己建的助手",
+      roleLabel: "自建助手",
       visibility: "全组织可用",
       cloneFrom: null,
       source: "self",

@@ -27,7 +27,7 @@ afterEach(() => {
 const ROSTER_OK = {
   rosterVersion: 4,
   agents: [
-    { id: "agent-a", abbr: "AA", name: "Agent A", duty: "研究", presence: "off" as const },
+    { id: "agent-a", abbr: "AA", name: "Agent A", duty: "研究", roleLabel: "研究员", presence: "off" as const },
   ],
   auditEventId: "prov-1",
 };
