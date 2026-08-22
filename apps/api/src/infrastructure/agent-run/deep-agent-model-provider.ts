@@ -189,7 +189,15 @@ function extractToolCallEvents(
         const id = typeof call.id === "string" ? call.id : null;
         const name = typeof call.name === "string" ? call.name : null;
         if (id === null || name === null || alreadyEmitted.has(id)) continue;
-        const argsSummary = call.args === undefined ? null : summarizeProgressText(JSON.stringify(call.args));
+        // DA-06（#1749，rubric D1）：write_todos 的参数是**结构化数据**，前端规划条
+        // 要 JSON.parse 它渲染 todo 列表——500 字符截断会把它切成非法 JSON，规划条
+        // 直接瞎掉。todos 由 TodoListMiddleware 生成、条目数有实际上限，4000 字符
+        // 足够容纳而不至于失控（DB 列是 text，无长度约束）。其他工具保持 500 截断
+        // 纪律不变——它们的 argsSummary 是给人读的摘要，不是给程序解析的数据。
+        const maxChars = name === "write_todos" ? 4000 : undefined;
+        const argsSummary = call.args === undefined
+          ? null
+          : summarizeProgressText(JSON.stringify(call.args), maxChars);
         pending.set(id, { name, argsSummary, planningNote });
       }
       continue;
