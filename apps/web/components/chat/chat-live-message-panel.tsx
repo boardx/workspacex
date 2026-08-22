@@ -15,6 +15,7 @@ import {
   createMessage,
   describeMessageFailure,
   landAsArtifact,
+  lastUsedAgentId,
   listMessages,
   pickDefaultAgentId,
   summarizePersonaFromThread,
@@ -384,10 +385,11 @@ export function ChatLiveMessagePanel({
   // 已有的顾虑，见下面 `[activeRunId, bearer, loadPage]`）。
   const onRunSettledRef = React.useRef(onRunSettled);
   onRunSettledRef.current = onRunSettled;
-  // 2026-08-14 devapp 实测根因（Deep Research 意外被选中导致长时间卡在"思考中"）+
-  // 修法见 `pickDefaultAgentId` 自己的文档注释——纯函数抽到 `lib/live-chat.ts`，
-  // 与 `describeMessageFailure` 同一理由：可独立单测，不用挂真实组件。
-  const selectedAgentId = pickDefaultAgentId(agents, agentId);
+  // 2026-08-14 实测根因 + 修法见 `pickDefaultAgentId` 文档注释。
+  // #1806：换线程时 `agentId` 会被清空（见下面 `setAgentId("")`），此时优先级降到
+  // 「线程历史里最近实际用过的 agent」（`lastUsedAgentId`，见其文档注释），而不是
+  // 直接落到「通用助手」；用户在这条线程手动选过时仍原样尊重那次选择。
+  const selectedAgentId = pickDefaultAgentId(agents, agentId || lastUsedAgentId(messages));
 
   /**
    * V1 —— 新消息列表变化或流式 token 追加时，若用户还贴着底部就跟到底。

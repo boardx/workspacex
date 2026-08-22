@@ -559,6 +559,37 @@ export function pickDefaultAgentId(
     ?? "";
 }
 
+/**
+ * #1806 —— 2026-08-22 devapp 实测：用 Deep Research 在某条线程发过消息后，切走再切回
+ * （或刷新重进），「运行 Agent」选择器又变回硬编码的「通用助手」，与线程真实历史对不上。
+ *
+ * 根因不是「字段没持久化」——agent 消息本身在 `chat_messages.agent_id` 上确实存了真实
+ * agent id，`listMessages` 回读时也投影进了 `DurableMessage.agentId`；前端换线程时只是
+ * 把本地选择状态清空（`setAgentId("")`），从没拿这份已经加载到的历史算过默认值。
+ *
+ * 纯函数：从**当前已加载**的消息窗口里，找 `authorKind === "agent"` 且 `agentId` 非空、
+ * `createdAt` 最新的一条，返回它的 agent id。找不到就是空串（调用方据此继续走
+ * `pickDefaultAgentId` 原有的「通用助手 → 数组第一个」兜底，不引入新的空态）。
+ *
+ * 已知边界（沿用 `threadAttachmentOptions` 同一先例）：只看当前已加载窗口，不是全线程
+ * 权威查询——足够长的线程如果最近一条 agent 消息还没翻页加载到，这里暂时算不出来，
+ * 退到「通用助手」。这是第一版边界，不是 bug。
+ */
+export function lastUsedAgentId(
+  messages: readonly Pick<DurableMessage, "authorKind" | "agentId" | "createdAt">[],
+): string {
+  let bestId: string | null = null;
+  let bestCreatedAt = "";
+  for (const m of messages) {
+    if (m.authorKind !== "agent" || m.agentId === null) continue;
+    if (m.createdAt > bestCreatedAt) {
+      bestCreatedAt = m.createdAt;
+      bestId = m.agentId;
+    }
+  }
+  return bestId ?? "";
+}
+
 export function describeMessageFailure(failure: unknown, action: string): string {
   if (failure instanceof ApiError) {
     if (failure.status === 401) return `${action}失败：登录已失效（HTTP 401），请重新登录。`;
