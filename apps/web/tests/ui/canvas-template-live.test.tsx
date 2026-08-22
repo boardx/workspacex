@@ -24,8 +24,15 @@ const sessionState = vi.hoisted(() => ({ currentOrgId: "org-464", orgRole: "admi
 // 只有下方 D-43 那组测试会真的挂 `CanvasHub`（经由 `AppShell` → `SessionAppShell`，
 // 后者用 `useRouter`）——其余测试直接渲染 `TemplateAdmin` 本体，用不上这个 mock，
 // 但 `vi.mock` 是模块级提升的，放这里不影响它们。
+/**
+ * #9（2026-08-22）：`routerReplace` 是**共享**的 spy——`TemplateAdmin` 每次筛选/视图/
+ * 搜索词变化都调 `router.replace` 同步 URL，测试要能断言「调用过、调了什么」，
+ * 不能每次 `useRouter()` 都发一个新 `vi.fn()`（那样测试拿不到调用记录）。
+ */
+const routerReplace = vi.hoisted(() => vi.fn());
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: routerReplace, refresh: vi.fn(), back: vi.fn() }),
   usePathname: () => "/canvas",
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -292,7 +299,9 @@ describe("D-43 /admin/canvasadmin 与 /canvas?screen=template-admin 已真合并
       resolve(ROOT, "components/canvas/canvas-hub.tsx"),
       "utf8",
     );
-    expect(src).toMatch(/screen === "template-admin" && <TemplateAdmin/);
+    // #9（2026-08-22）起这一行多包了一层 `(` 给 TemplateAdmin 传 URL 初值 props——
+    // 断言只锁「这个条件仍然渲染 TemplateAdmin」，不锁它是不是单行 JSX。
+    expect(src).toMatch(/screen === "template-admin" && \(\s*<TemplateAdmin/);
   });
 });
 
@@ -671,5 +680,189 @@ describe("D-43 已推翻：template-admin 屏重新挂上后台侧栏 AdminNav",
       <CanvasHub previewRole="facilitator" uiState="default" screen="editor" initialConflict={false} />,
     );
     expect(screen.queryByTestId("admin-nav")).toBeNull();
+  });
+});
+
+/**
+ * 2026-08-22 可用性改进轮——人类原话「检查后台的画布模板的管理……提出 10 个改进可用性的
+ * 地方，并实施」。本组只测这一轮里**纯前端新增/改动**的六项；试跑的服务端接线已由
+ * `application/canvas/trial-template.ts` 自己的单测与本组的组件测试覆盖，
+ * 真实浏览器门控见 `e2e/canvas-template-create-smoke.spec.ts` 的 `tpladmin-trial-*` 断言。
+ */
+describe("2026-08-22 模板管理可用性改进", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-usability";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-usability");
+    routerReplace.mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("① 搜索框按名字/key 在当前筛选结果内过滤，不发新请求；清空后恢复全部", async () => {
+    let listCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      listCalls += 1;
+      return jsonResponse({
+        templates: [
+          template({ key: "persona", displayName: "用户画像", version: 3 }),
+          template({ key: "swot", displayName: "SWOT 分析", version: 2 }),
+        ],
+      });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
+    expect(screen.getByTestId("tpladmin-row-swot-2")).toBeInTheDocument();
+    expect(listCalls).toBe(1);
+
+    fireEvent.change(screen.getByTestId("tpladmin-search"), { target: { value: "swot" } });
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-row-persona-3")).toBeNull());
+    expect(screen.getByTestId("tpladmin-row-swot-2")).toBeInTheDocument();
+    // 纯前端过滤——不为一次按键多发一次 GET。
+    expect(listCalls).toBe(1);
+
+    fireEvent.change(screen.getByTestId("tpladmin-search"), { target: { value: "" } });
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
+  });
+
+  it("① 搜不到任何模板时显示「没有匹配」空态，不是「组织里没有模板」那句", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId("tpladmin-search"), { target: { value: "找不到的名字" } });
+    await waitFor(() => expect(screen.getByTestId("tpladmin-search-empty")).toBeInTheDocument());
+    expect(screen.queryByTestId("tpladmin-empty")).toBeNull();
+  });
+
+  it("② 「只看当前版本」默认关闭时两个版本都在；打开后同 key 只留状态优先级最高的那个", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [
+        template({ key: "persona", displayName: "用户画像", version: 1, status: "archived" }),
+        template({ key: "persona", displayName: "用户画像", version: 2, status: "published" }),
+      ],
+    })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-1")).toBeInTheDocument());
+    expect(screen.getByTestId("tpladmin-row-persona-2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("tpladmin-latest-only-toggle"));
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-row-persona-1")).toBeNull());
+    // published（v2）比 archived（v1）优先级高，留下的是 v2。
+    expect(screen.getByTestId("tpladmin-row-persona-2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("tpladmin-latest-only-toggle"));
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-1")).toBeInTheDocument());
+  });
+
+  it("④ 内置模板显示「内置模板」，不再暗示别的模板可以被删除；页头有「不支持永久删除」说明", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template({ builtin: true })] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    const row = await waitFor(() => screen.getByTestId("tpladmin-row-persona-3"));
+    expect(within(row).getByText("内置模板")).toBeInTheDocument();
+    expect(within(row).queryByText(/不可删/)).toBeNull();
+    expect(screen.getByText(/没有任何画布模板支持永久删除/)).toBeInTheDocument();
+  });
+
+  it("⑥ draft 行的「试跑」真调 trialTemplate，成功后重读列表——不在本地把 status 改成 trial", async () => {
+    let listCalls = 0;
+    const posts: { path: string; body: Record<string, unknown> }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/projects") {
+        // 契约 `listProjects.out` 是**裸数组**，不是 `{ projects: [...] }`。
+        return jsonResponse([{ id: "proj-1", name: "试跑用工作坊", kind: "workshop", status: "active" }]);
+      }
+      if (init?.method === "POST" && url.pathname === "/canvas/templates/persona/trial") {
+        posts.push({ path: url.pathname, body: JSON.parse(String(init.body)) as Record<string, unknown> });
+        return jsonResponse({ key: "persona", version: 3, status: "trial" });
+      }
+      listCalls += 1;
+      return jsonResponse({
+        templates: [template({ status: listCalls === 1 ? "draft" : "trial" })],
+      });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
+    expect(screen.getByTestId("tpladmin-row-persona-3").textContent).toContain("草稿");
+
+    fireEvent.click(screen.getByTestId("tpladmin-trial-persona-3"));
+    await waitFor(() => expect(screen.getByTestId("tpladmin-trial-dialog")).toBeInTheDocument());
+    // 选项来自异步的 `listProjects`——先等它真的渲染出来，否则 `fireEvent.change`
+    // 选中一个 DOM 里还不存在的 `<option>`，浏览器/jsdom 会静默忽略，值仍是 ""。
+    await waitFor(() => expect(screen.getByText("试跑用工作坊")).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId("tpladmin-trial-project"), { target: { value: "proj-1" } });
+    fireEvent.click(screen.getByTestId("tpladmin-trial-submit"));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]).toEqual({
+      path: "/canvas/templates/persona/trial",
+      body: { key: "persona", version: 3, projectId: "proj-1" },
+    });
+    // 写完必须回服务端重新读，屏上那一行不是前端自己猜的状态。
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3").textContent).toContain("试跑"));
+  });
+
+  it("⑧ 新建表单显示名与已加载行重名时给软提示，但不阻断提交", async () => {
+    const posts: Record<string, unknown>[] = [];
+    let listCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST") {
+        posts.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+        return jsonResponse({
+          key: "swot", displayName: "用户画像", version: 1, status: "draft",
+          builtin: false, visibility: "org-wide", underlyingType: "canvas", sections: [],
+        }, 201);
+      }
+      listCalls += 1;
+      return jsonResponse({ templates: [template({ key: "persona", displayName: "用户画像" })] });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    await waitFor(() => expect(screen.getByTestId("tpladmin-create-dialog")).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId("tpladmin-create-key"), { target: { value: "swot" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-name"), { target: { value: "用户画像" } });
+    fireEvent.blur(screen.getByTestId("tpladmin-create-name"));
+
+    await waitFor(() => expect(screen.getByTestId("tpladmin-create-name-duplicate-hint")).toBeInTheDocument());
+    // 软提示——提交按钮仍然可点。
+    expect(screen.getByTestId("tpladmin-create-submit")).not.toBeDisabled();
+    fireEvent.click(screen.getByTestId("tpladmin-create-submit"));
+    await waitFor(() => expect(posts).toHaveLength(1));
+  });
+
+  it("⑨ 切换筛选 tab / 视图 / 搜索词都调用 router.replace 把状态写进 URL", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-filter-published"));
+    await waitFor(() => expect(routerReplace).toHaveBeenCalledWith(expect.stringContaining("filter=published"), { scroll: false }));
+
+    fireEvent.click(screen.getByTestId("tpladmin-view-card"));
+    await waitFor(() => expect(routerReplace).toHaveBeenCalledWith(expect.stringContaining("view=card"), { scroll: false }));
+
+    fireEvent.change(screen.getByTestId("tpladmin-search"), { target: { value: "画像" } });
+    await waitFor(() => expect(routerReplace).toHaveBeenCalledWith(expect.stringContaining("q="), { scroll: false }));
+  });
+
+  it("⑨ `initialFilter`/`initialView`/`initialQuery` 从 URL 初值恢复上次的筛选/视图/搜索状态", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({ status: "draft" })],
+    })));
+    render(<TemplateAdmin previewRole="facilitator" initialFilter="draft" initialView="card" initialQuery="用户" />);
+
+    await waitFor(() => expect(screen.getByTestId("tpladmin-filter-draft")).toHaveAttribute("aria-selected", "true"));
+    expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument();
+    expect(screen.getByTestId("tpladmin-search")).toHaveValue("用户");
   });
 });

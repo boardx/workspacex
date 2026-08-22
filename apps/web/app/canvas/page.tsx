@@ -20,7 +20,11 @@ import { resolveCanvasScreen } from "@/lib/canvas-screens";
 export default function CanvasPage({
   searchParams,
 }: {
-  searchParams: { state?: string; as?: string; screen?: string; conflict?: string };
+  searchParams: {
+    state?: string; as?: string; screen?: string; conflict?: string;
+    /** #9（2026-08-22）：`template-admin` 屏筛选/视图/搜索词——只有该屏读它们。 */
+    filter?: string; view?: string; q?: string;
+  };
 }) {
   const uiState = resolvePreviewState(searchParams.state);
   const previewRole = resolvePreviewRole(searchParams.as);
@@ -33,6 +37,9 @@ export default function CanvasPage({
       uiState={uiState}
       screen={screen}
       initialConflict={initialConflict}
+      tplFilter={searchParams.filter}
+      tplView={searchParams.view}
+      tplQuery={searchParams.q}
     />
   );
 }

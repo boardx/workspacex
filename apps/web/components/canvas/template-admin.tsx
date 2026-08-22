@@ -1,7 +1,9 @@
 "use client";
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   LayoutGrid, List, Archive, RotateCcw, Rocket, Pencil, AlertTriangle, RefreshCw, Plus, Play, X,
+  Search, FlaskConical,
 } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import type { ProjectRole } from "@/lib/identity";
@@ -27,6 +29,7 @@ import {
   type TemplateVisibility,
 } from "@/lib/live-canvas";
 import { TemplateApplyDialog } from "./template-apply-dialog";
+import { TemplateTrialDialog } from "./template-trial-dialog";
 
 /**
  * UC-7.1 画布模板库（`/canvas?screen=template-admin`）。
@@ -83,6 +86,36 @@ import { TemplateApplyDialog } from "./template-apply-dialog";
  *
  * ⚠ `previewRole === "observer"` 时不挂写入口，那是**降噪不是权限**：
  *   真正的拒绝在服务端（`ROLE_INSUFFICIENT` → 403），失败信封原样回显。
+ *
+ * ## 2026-08-22 可用性改进轮（人类要求「提出 10 个改进可用性的地方，并实施」）
+ *
+ * 本屏当时被点名的问题是「模板一多就不好管」。这一轮实施的六项、全部前端内可独立完成、
+ * 不改契约形状：
+ *  ① **按名字/key 搜索**——`query` 状态，纯前端在当前筛选结果内再过滤一层。
+ *  ② **同 key 多版本分组**——默认仍展示全部行（`tpladmin-row-*` 语义不变，
+ *     `canvas-template-create-smoke.spec.ts` 的「reload 后 v1/v2 都在」断言压着这条），
+ *     新增「只看每个 key 的当前版本」开关，默认关闭。
+ *  ④ 「内置 · 不可删」→「内置模板」+ 一句通栏说明：**没有任何模板支持真删除**，
+ *     这里的「归档」都是可逆置位（服务端唯一的硬删除码 `BUILTIN_TEMPLATE_UNDELETABLE`
+ *     其实挡的是「归档」，不是字面意义的删除——原文案暗示别的模板能被删掉，不成立）。
+ *  ⑥ **试跑真接上** —— `trialCanvasTemplate` 早已是真实路由（`trial-template.ts`），
+ *     只是全仓零 UI 调用；`TemplateTrialDialog` 复用 `TemplateApplyDialog` 已验证过的
+ *     「工作坊来源 = `listProjects`」模式补上这个入口。
+ *  ⑧ **新建时的显示名重名提示**——契约只保证 key 唯一，显示名不唯一在服务端是合法状态；
+ *     这里只是**软提示**（不阻断提交），且明确只扫得到当前已加载的行，不假装是全组织扫描。
+ *  ⑨ **筛选 / 视图 / 搜索词写进 URL**——同这一屏已有的 `?screen=` 路由习惯一致，
+ *     刷新、分享链接、浏览器前进后退都保留当前在看什么。
+ *  ⑩ **分区 / 类型·可见性列不再在窄屏彻底消失**——原先 `lg:`/`md:` 断点下这两列整列隐藏、
+ *     信息只是没了；现在窄屏下把它们收进「模板」列名字下方的一行小字，信息还在，只是换了位置。
+ *
+ * 另外两项（③「被 N 场」下钻到具体绑定列表、⑦ team-only 显示归属团队名）需要新增一个
+ * 读接口 / 一个契约字段，不是纯前端能闭环的改动——按本仓契约先行的纪律，
+ * 这两项**故意没有在这一轮做**，缺口已随实施 PR 报出，不在这里发明一个假读接口垫上。
+ * 原始的「org-admin-only 权限判据前端投影用错了轴」的发现（`previewRole` 是项目角色、
+ * 服务端判据是组织角色）也**没有在这一轮改**：`readOnly = previewRole === "observer"`
+ * 是已签核、已测试（`canvas-template-live.test.tsx`「观察者视角不挂写入口」）的**降噪**
+ * 设计，不是权限实现——真正的拒绝原样回显在 `actionError`。把它改成读 `orgRole` 会话字段
+ * 是在没有人类重新签核的情况下推翻一条已落地决策，留给单独一次带签核的改动。
  */
 
 const STATUS_TONE: Record<TemplateStatus, "primary" | "neutral" | "warning" | "outline"> = {
@@ -110,13 +143,67 @@ interface ArchivePreflight {
   readonly stillBoundSegmentCount: number;
 }
 
-export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null }) {
+/** `filter`/`view` 从 URL 读到的初值——不是合法档位就退回默认，不让一个坏链接空白页。 */
+function parseInitialFilter(raw: string | undefined): ListTemplatesFilter {
+  return (TEMPLATE_FILTERS as readonly string[]).includes(raw ?? "")
+    ? (raw as ListTemplatesFilter)
+    : "all";
+}
+function parseInitialView(raw: string | undefined): "list" | "card" {
+  return raw === "card" ? "card" : "list";
+}
+
+export function TemplateAdmin({
+  previewRole, initialFilter, initialView, initialQuery,
+}: {
+  previewRole: ProjectRole | null;
+  /** #9：`/canvas?screen=template-admin&filter=...&view=...&q=...` 的初值，见 `canvas/page.tsx`。 */
+  initialFilter?: string;
+  initialView?: string;
+  initialQuery?: string;
+}) {
   const { session } = useSession();
   if (!session) throw new Error("TemplateAdmin requires an authenticated session");
   const orgId = session.currentOrgId;
+  const router = useRouter();
 
-  const [filter, setFilter] = React.useState<ListTemplatesFilter>("all");
-  const [view, setView] = React.useState<"list" | "card">("list");
+  const [filter, setFilterState] = React.useState<ListTemplatesFilter>(() => parseInitialFilter(initialFilter));
+  const [view, setViewState] = React.useState<"list" | "card">(() => parseInitialView(initialView));
+  const [query, setQueryState] = React.useState(initialQuery ?? "");
+  /** #2：默认展示每个 key 的**全部**版本（既有行为，e2e 依赖它）；开着才折叠成每 key 一行。 */
+  const [latestOnly, setLatestOnly] = React.useState(false);
+
+  /**
+   * #9：三个筛选态每变一次就把当前地址栏的 query string 换成新值——`router.replace`
+   * 不留历史记录（`scroll:false`）。⚠ 只在浏览器里执行（`window` 存在时）：
+   * 服务端渲染这一步不需要，且 `window.location.search` 本来就是浏览器专属状态。
+   */
+  const syncUrl = React.useCallback((next: { filter?: ListTemplatesFilter; view?: "list" | "card"; q?: string }) => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const nextFilter = next.filter ?? filter;
+    const nextView = next.view ?? view;
+    const nextQuery = next.q ?? query;
+    if (nextFilter === "all") params.delete("filter"); else params.set("filter", nextFilter);
+    if (nextView === "list") params.delete("view"); else params.set("view", nextView);
+    if (nextQuery.trim() === "") params.delete("q"); else params.set("q", nextQuery);
+    const qs = params.toString();
+    router.replace(qs.length > 0 ? `?${qs}` : "?", { scroll: false });
+  }, [filter, view, query, router]);
+
+  const setFilter = React.useCallback((f: ListTemplatesFilter) => {
+    setFilterState(f);
+    syncUrl({ filter: f });
+  }, [syncUrl]);
+  const setView = React.useCallback((v: "list" | "card") => {
+    setViewState(v);
+    syncUrl({ view: v });
+  }, [syncUrl]);
+  const setQuery = React.useCallback((q: string) => {
+    setQueryState(q);
+    syncUrl({ q });
+  }, [syncUrl]);
+
   const sourceKey = `${orgId}:${filter}`;
   const generation = React.useRef(0);
   const currentSourceKey = React.useRef(sourceKey);
@@ -129,6 +216,8 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
   const [minting, setMinting] = React.useState<CanvasTemplate | null>(null);
   /** #493：正在被「使用」的那一行。null = 对话框没开。 */
   const [applying, setApplying] = React.useState<CanvasTemplate | null>(null);
+  /** #6：正在被「试跑」的那一行。null = 对话框没开。 */
+  const [trialing, setTrialing] = React.useState<CanvasTemplate | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
 
@@ -163,8 +252,32 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
   // 换组织/换筛选时，渲染期就失效上一批行：effect 在 paint 之后跑，
   // 只靠它会让新条件下短暂显示旧条件的结果。
   const visibleState: LoadState = state.sourceKey === sourceKey ? state : { sourceKey, status: "loading" };
-  const rows = visibleState.status === "ready" ? visibleState.rows : [];
+  const allRows = visibleState.status === "ready" ? visibleState.rows : [];
   const readOnly = previewRole === "observer";
+
+  // #1：搜索按名字/key，纯前端在当前状态筛选结果内再过滤一层——不额外发请求，
+  // 服务端的 `filter` 仍是唯一的状态筛选真相源，这里只加一层文本匹配。
+  const trimmedQuery = query.trim().toLowerCase();
+  const queried = trimmedQuery === ""
+    ? allRows
+    : allRows.filter((t) => t.displayName.toLowerCase().includes(trimmedQuery) || t.key.toLowerCase().includes(trimmedQuery));
+
+  // #2：`latestOnly` 开着时，每个 key 只留一行——优先已发布，其次试跑，其次草稿，
+  // 最后已归档；同优先级取版本号最大的那个。**不**丢弃其它版本的数据，只是不渲染，
+  // 关掉开关立刻能看到全部——不是一次不可逆的「删掉旧版本」。
+  const STATUS_PRIORITY: Record<TemplateStatus, number> = { published: 0, trial: 1, draft: 2, archived: 3 };
+  const rows = !latestOnly ? queried : (() => {
+    const byKey = new Map<string, CanvasTemplate>();
+    for (const t of queried) {
+      const cur = byKey.get(t.key);
+      if (!cur) { byKey.set(t.key, t); continue; }
+      const curRank = STATUS_PRIORITY[cur.status];
+      const nextRank = STATUS_PRIORITY[t.status];
+      if (nextRank < curRank || (nextRank === curRank && t.version > cur.version)) byKey.set(t.key, t);
+    }
+    return queried.filter((t) => byKey.get(t.key) === t);
+  })();
+  const hiddenVersionCount = queried.length - rows.length;
 
   async function openArchive(row: CanvasTemplate) {
     setActionError(null);
@@ -274,6 +387,14 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
     await load();
   }
 
+  /** #6：「试跑」成功之后——同 `applied`，`await load()` 重读列表，不本地把 status 改成 "trial"。 */
+  async function trialed(message: string) {
+    setTrialing(null);
+    setActionError(null);
+    setNotice(message);
+    await load();
+  }
+
   async function restore(row: CanvasTemplate) {
     setActionError(null);
     setNotice(null);
@@ -293,7 +414,20 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
           <h1 className="text-14 font-semibold tracking-tight">画布模板库</h1>
           <p className="text-11 text-muted-foreground">
             组织 {orgId}
-            {visibleState.status === "ready" && ` · 当前筛选下 ${rows.length} 个`}
+            {visibleState.status === "ready" && (
+              trimmedQuery === "" && !latestOnly
+                ? ` · 当前筛选下 ${rows.length} 个`
+                : ` · 当前筛选下 ${queried.length} 个，展示 ${rows.length} 个`
+            )}
+          </p>
+          {/*
+            #4：原来只有内置模板那一行写「不可删」，暗示别的模板真能被删掉——不成立。
+            契约里没有任何 `deleteTemplate` 操作（全仓 grep 零命中），能做到的最接近的事
+            是「归档」，且归档是可逆置位（O-10，见 `ArchiveDialog`），不是删除。
+            这句话放在页头、对全部模板都成立，不重复放进每一行。
+          */}
+          <p className="text-9 text-muted-foreground">
+            没有任何画布模板支持永久删除——「归档」是可逆置位，随时可「恢复」。
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -345,15 +479,46 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
             </Button>
           ))}
         </div>
-        <div className="flex items-center gap-0.5">
-          <Button size="icon" variant={view === "list" ? "secondary" : "ghost"} aria-label="列表视图" onClick={() => setView("list")} data-testid="tpladmin-view-list">
-            <List aria-hidden className="h-3.5 w-3.5" />
+        <div className="flex flex-1 items-center justify-end gap-2">
+          {/* #1：按名字/key 搜索——纯前端过滤，见 rows 派生处的注释。 */}
+          <label className="relative flex min-w-0 max-w-64 flex-1 items-center">
+            <Search aria-hidden className="pointer-events-none absolute left-2 h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              type="search"
+              className="w-full rounded-md border border-border bg-background py-1.5 pl-7 pr-2 text-12"
+              placeholder="按名字或 key 搜索…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="按名字或 key 搜索模板"
+              data-testid="tpladmin-search"
+            />
+          </label>
+          {/* #2：默认关闭——关闭时展示的行集合与本次改动之前完全一致。 */}
+          <Button
+            size="xs"
+            variant={latestOnly ? "primary" : "outline"}
+            aria-pressed={latestOnly}
+            onClick={() => setLatestOnly((v) => !v)}
+            data-testid="tpladmin-latest-only-toggle"
+            title="每个 key 只显示一个最有代表性的版本（优先已发布），其余版本仍在库里、随时切回来看"
+          >
+            只看每个模板的当前版本
           </Button>
-          <Button size="icon" variant={view === "card" ? "secondary" : "ghost"} aria-label="卡片视图" onClick={() => setView("card")} data-testid="tpladmin-view-card">
-            <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-0.5">
+            <Button size="icon" variant={view === "list" ? "secondary" : "ghost"} aria-label="列表视图" onClick={() => setView("list")} data-testid="tpladmin-view-list">
+              <List aria-hidden className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="icon" variant={view === "card" ? "secondary" : "ghost"} aria-label="卡片视图" onClick={() => setView("card")} data-testid="tpladmin-view-card">
+              <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
+      {latestOnly && hiddenVersionCount > 0 && (
+        <p className="border-b border-border-subtle bg-panel px-4 py-1 text-10 text-muted-foreground" data-testid="tpladmin-latest-only-note">
+          已折叠 {hiddenVersionCount} 个非当前版本 —— 它们仍在库里，关掉上面的开关就能看到。
+        </p>
+      )}
 
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {visibleState.status === "loading" && (
@@ -372,7 +537,17 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
           </div>
         )}
 
-        {visibleState.status === "ready" && rows.length === 0 && (
+        {visibleState.status === "ready" && rows.length === 0 && allRows.length > 0 && (
+          // #1：搜不到 ≠ 组织里没有模板——用不同的空态文案，别让用户以为要去新建一个。
+          <div className="flex flex-col gap-1 rounded-lg border border-dashed border-border p-6" data-testid="tpladmin-search-empty">
+            <p className="text-13 font-medium">没有名字或 key 匹配「{query.trim()}」的模板</p>
+            <p className="text-11 text-muted-foreground">
+              当前筛选下共有 {allRows.length} 个模板，清空搜索框可以看到全部。
+            </p>
+          </div>
+        )}
+
+        {visibleState.status === "ready" && allRows.length === 0 && (
           <div className="flex flex-col gap-1 rounded-lg border border-dashed border-border p-6" data-testid="tpladmin-empty">
             <p className="text-13 font-medium">当前筛选下没有画布模板</p>
             <p className="text-11 text-muted-foreground">
@@ -407,7 +582,16 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
                       <td className="px-3 py-2">
                         <div className="flex flex-col">
                           <span className="font-medium">{t.displayName}</span>
-                          {t.builtin && <span className="text-9 text-muted-foreground">内置 · 不可删</span>}
+                          {t.builtin && <span className="text-9 text-muted-foreground">内置模板</span>}
+                          {/*
+                            #10：窄屏下「分区」「类型 · 可见性」两列整列隐藏（`lg:`/`md:` 断点），
+                            信息不能就这么消失——收进名字下面的一行小字，宽屏时这两列各自可见，
+                            这里就 `lg:hidden` 掉，不重复显示同一份信息。
+                          */}
+                          <span className="text-9 text-muted-foreground lg:hidden">{describeSections(t)}</span>
+                          <span className="text-9 text-muted-foreground md:hidden">
+                            {t.underlyingType} · {TEMPLATE_VISIBILITY_LABEL[t.visibility]}
+                          </span>
                         </div>
                       </td>
                       <td className="px-3 py-2"><Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge></td>
@@ -424,7 +608,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
                       */}
                       <td className="px-3 py-2 text-11 tabular-nums" data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</td>
                       <td className="px-3 py-2">
-                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} />
+                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} />
                       </td>
                     </tr>
                   ))}
@@ -447,8 +631,9 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
                     <span className="text-11 text-muted-foreground">{describeSections(t)}</span>
                     <span className="font-mono text-10 text-muted-foreground">
                       {t.key} v{t.version} · {t.underlyingType} · 被 {t.usageCount} 场
+                      {t.builtin && " · 内置模板"}
                     </span>
-                    <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} />
+                    <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} />
                   </CardContent>
                 </Card>
               ))}
@@ -458,7 +643,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
       </div>
 
       {creating && (
-        <CreateDialog onClose={() => setCreating(false)} onSubmit={create} />
+        <CreateDialog onClose={() => setCreating(false)} onSubmit={create} existingNames={allRows.map((t) => t.displayName)} />
       )}
 
       {minting && (
@@ -466,6 +651,7 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
           mintFrom={minting}
           onClose={() => setMinting(null)}
           onSubmit={(draft) => mintVersion(minting.key, draft)}
+          existingNames={allRows.filter((t) => t.key !== minting.key).map((t) => t.displayName)}
         />
       )}
 
@@ -475,6 +661,15 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
           orgId={orgId}
           onClose={() => setApplying(null)}
           onApplied={applied}
+        />
+      )}
+
+      {trialing && (
+        <TemplateTrialDialog
+          template={trialing}
+          orgId={orgId}
+          onClose={() => setTrialing(null)}
+          onTrialed={trialed}
         />
       )}
 
@@ -490,11 +685,11 @@ export function TemplateAdmin({ previewRole }: { previewRole: ProjectRole | null
 }
 
 /**
- * 状态机的行操作。**只挂后端真接得上的三个**（发布 / 归档 / 恢复）——试跑仍缺
- * `projectId` 的真实来源，见文件头。
+ * 状态机的行操作。#6（2026-08-22）起「试跑」也真接了——`trialCanvasTemplate` 早就是
+ * 真实路由，缺的只是一个能给它一个 `projectId` 的 UI，见 `template-trial-dialog.tsx`。
  */
 function RowActions({
-  row, readOnly, onArchive, onRestore, onPublish, onApply, onMintVersion,
+  row, readOnly, onArchive, onRestore, onPublish, onApply, onMintVersion, onTrial,
 }: {
   row: CanvasTemplate;
   readOnly: boolean;
@@ -503,6 +698,7 @@ function RowActions({
   onPublish: () => void;
   onApply: () => void;
   onMintVersion: () => void;
+  onTrial: () => void;
 }) {
   if (readOnly) return <span className="text-10 text-muted-foreground">只读</span>;
   return (
@@ -536,9 +732,9 @@ function RowActions({
         </Button>
       )}
       {row.status === "draft" && (
-        <span className="flex items-center gap-1 text-10 text-muted-foreground" data-testid={`tpladmin-notrial-${row.key}-${row.version}`}>
-          试跑入口待补（缺试跑项目的真实来源）
-        </span>
+        <Button size="xs" variant="outline" data-testid={`tpladmin-trial-${row.key}-${row.version}`} onClick={onTrial}>
+          <FlaskConical aria-hidden className="h-3 w-3" /> 试跑
+        </Button>
       )}
       {/*
         #988：仅非 draft 才挂「基于此开新版」——draft 本身还没定稿，「新版本」对它没有
@@ -584,11 +780,18 @@ interface NewTemplateDraft {
  * 路径不会撞它，但仍复用同一段回显逻辑，多出的分支就是没有）。
  */
 function CreateDialog({
-  mintFrom, onClose, onSubmit,
+  mintFrom, onClose, onSubmit, existingNames = [],
 }: {
   mintFrom?: CanvasTemplate;
   onClose: () => void;
   onSubmit: (draft: NewTemplateDraft) => Promise<void>;
+  /**
+   * #8：已加载行里其它模板的显示名——契约只保证 `key` 唯一（`TEMPLATE_KEY_CONFLICT`），
+   * 显示名重复在服务端是合法状态，所以这里只是**软提示**，不阻断 `canSubmit`。
+   * ⚠ 只扫得到调用方**当前已加载**的行（受当前状态筛选影响），不是全组织的真扫描——
+   *   提示文案如实说「当前列表里」，不冒充一个后端没做过的全局唯一性检查。
+   */
+  existingNames?: readonly string[];
 }) {
   const [key, setKey] = React.useState(mintFrom?.key ?? "");
   const [displayName, setDisplayName] = React.useState(mintFrom?.displayName ?? "");
@@ -609,6 +812,10 @@ function CreateDialog({
   });
   const keyMissing = touched.key && key.trim().length === 0;
   const nameMissing = touched.displayName && displayName.trim().length === 0;
+  // #8：软提示，不阻断提交——大小写/首尾空格不敏感地匹配，减少「同一个名字建了两遍」
+  // 之后才在列表里发现分不清是哪个的情况。
+  const nameDuplicate = touched.displayName && displayName.trim().length > 0
+    && existingNames.some((n) => n.trim().toLowerCase() === displayName.trim().toLowerCase());
 
   // 提交所需的最小集，与契约的 `.min(1)` 对齐 —— 但**不**在这里重述一份校验规则：
   // 真正的裁决在服务端，这里只是不让一个必然 400 的请求白跑一趟。
@@ -708,6 +915,12 @@ function CreateDialog({
           />
           {nameMissing && (
             <span className="text-10 text-destructive" data-testid="tpladmin-create-name-hint">必填</span>
+          )}
+          {!nameMissing && nameDuplicate && (
+            // #8：软提示——`canSubmit` 不因此变 false，服务端本来就允许显示名重复。
+            <span className="text-10 text-warning" data-testid="tpladmin-create-name-duplicate-hint">
+              当前列表里已经有一个同名模板，确定要用一样的名字吗？（key 仍会保证唯一）
+            </span>
           )}
         </label>
 
