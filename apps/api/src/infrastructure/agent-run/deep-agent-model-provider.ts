@@ -291,11 +291,11 @@ export class DeepAgentModelProvider implements ModelCallPort {
         const status = await this.readRunStatus(baseUrl, threadId, runId);
         if (status === "success") {
           await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
-          const text = await this.readFinalReply(baseUrl, threadId);
-          if (text.trim() === "") {
-            throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
-          }
-          return { text };
+          /* ⚠ 走 `readCompletion` 而不是只读终稿文本：#1747 起返回体要带
+             `scriptCandidates`（`call_skill` 的工具结果里可能含脚本块）。
+             这条**流式**分支若只返回 `{ text }`，脚本候选会被静默丢掉——
+             症状是"挂了 skill 但没产出文件"，与 #1747 修的正是同一个形状。 */
+          return await this.readCompletion(baseUrl, threadId);
         }
         if (status === "error" || status === "timeout" || status === "interrupted") {
           await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
