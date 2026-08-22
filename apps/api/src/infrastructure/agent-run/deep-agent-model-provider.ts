@@ -605,6 +605,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
       method: "POST",
       body: JSON.stringify({
         assistant_id: ASSISTANT_ID,
+        // 生产无流式的根因（2026-08-23 人类实测报告 → 静态定位）：创建 run 时不带
+        // stream_mode，LangGraph 的 join 流（GET /runs/:id/stream）默认只回放 values
+        // 状态快照——没有逐 token 的 messages 事件，tryStreamRun 的解析器（只认
+        // messages-tuple 的 [chunk, metadata] 形状）全部跳过，零 delta，按设计静默
+        // 回退轮询。修法是在**创建时**声明要什么流：messages-tuple 逐 token。
+        // 对不消费流的调用（complete()）无害——事件只是被缓存，没人读而已。
+        stream_mode: ["messages-tuple"],
         input: { messages },
         config: {
           configurable: {
