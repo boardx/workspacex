@@ -22,6 +22,7 @@ const FINAL_MESSAGES = [
 ];
 
 let server: Server | undefined;
+const seenRunBodies: { stream_mode?: unknown }[] = [];
 afterEach(() => new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve())));
 
 function startFake(opts: { streamStatus: number; chunks: readonly string[]; gapMs: number }): Promise<string> {
@@ -32,6 +33,9 @@ function startFake(opts: { streamStatus: number; chunks: readonly string[]; gapM
       return;
     }
     if (req.method === "POST" && url === "/threads/t1/runs") {
+      let raw = "";
+      for await (const c of req) raw += c;
+      seenRunBodies.push(JSON.parse(raw));
       res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ run_id: "r1" }));
       return;
     }
@@ -77,6 +81,13 @@ const INPUT = {
 } as never;
 
 describe("DA-03 真流式（rubric D3）", () => {
+  it("createRun 声明 stream_mode: [messages-tuple]——不声明时 join 流只有 values 快照、零 token（2026-08-23 生产无流式的根因）", async () => {
+    const baseUrl = await startFake({ streamStatus: 200, chunks: ["hi"], gapMs: 1 });
+    seenRunBodies.length = 0;
+    await provider(baseUrl, true).completeWithProgress(INPUT, async () => {}, async () => {});
+    expect(seenRunBodies[0]?.stream_mode).toEqual(["messages-tuple"]);
+  });
+
   it("delta 按序逐个到达，且到达时刻分散——终态打包冒充流式在这条断言下必然露馅", async () => {
     const baseUrl = await startFake({ streamStatus: 200, chunks: ["He", "llo ", "world"], gapMs: 25 });
     const arrivals: { delta: string; at: number }[] = [];
