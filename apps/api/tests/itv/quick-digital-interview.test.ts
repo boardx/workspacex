@@ -51,7 +51,7 @@ beforeEach(async () => {
     await c.query(`INSERT INTO agent_versions (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
       VALUES ('av-f03',$1,$2,'v1',$3,'从采购决策视角回答',ARRAY[]::text[],$4,$5,'[]'::jsonb,$6,now(),now())`, [ORG, AGENT, createHash("sha256").update("从采购决策视角回答").digest("hex"), PROVIDER, MODEL, USER]);
     await c.query(`UPDATE agents SET published_version_id='av-f03' WHERE org_id=$1 AND id=$2`, [ORG, AGENT]);
-    await c.query(`INSERT INTO capability_listings (id,org_id,kind,name,scope,enabled,abbr,duty) VALUES ($1,$2,'agent','德国采购总监','org-wide',true,'DE','采购决策')`, [AGENT, ORG]);
+    await c.query(`INSERT INTO capability_listings (id,org_id,kind,name,scope,enabled,abbr,duty,role_label) VALUES ($1,$2,'agent','德国采购总监','org-wide',true,'DE','采购决策','采购总监')`, [AGENT, ORG]);
   });
 });
 

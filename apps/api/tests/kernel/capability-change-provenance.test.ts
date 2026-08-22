@@ -306,12 +306,14 @@ describe("the payload is validated even though the contract leaves it open", () 
     // being removed; the CHECK is not, and it covers writers that never see the schema.
     // #619: abbr/duty 补上非空值——本测试要验的是 team-only 那条 CHECK，不是 abbr/duty
     // 那条（那条有它自己的反证，见 `capability-listings-agent-fields.test.ts`）。
-    // 缺了它们，两条 CHECK 都会被同一个 INSERT 撞上，谁先报错不是本测试关心的事。
+    // 缺了它们，多条 CHECK 都会被同一个 INSERT 撞上，谁先报错不是本测试关心的事。
+    // #1705：role_label 同理补上非空值——理由与 abbr/duty 完全相同（否则本测试可能
+    // 撞上 `capability_listings_agent_needs_role_label` 而不是本测试要验的那条）。
     await expect(
       asApp(ORG, (c) =>
         c.query(
-          `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, abbr, duty)
-           VALUES ('cap-halfway', $1, 'agent', 'Halfway', 'team-only', NULL, 'HW', 'test fixture agent')`,
+          `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, abbr, duty, role_label)
+           VALUES ('cap-halfway', $1, 'agent', 'Halfway', 'team-only', NULL, 'HW', 'test fixture agent', 'HW')`,
           [ORG],
         ),
       ),

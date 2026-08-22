@@ -69,6 +69,7 @@ export async function getAgentPanel(
       abbr: a.abbr,
       name: a.name,
       duty: a.duty,
+      roleLabel: a.roleLabel,
       presence: a.presence,
     })),
     presentCount,

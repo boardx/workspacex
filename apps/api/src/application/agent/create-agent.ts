@@ -49,6 +49,8 @@ export interface CreateAgentInput {
   readonly name: string;
   readonly initials: string;
   readonly role: string;
+  /** #1705（#728 D-1）—— 简短角色头衔，建 agent 时必填。 */
+  readonly roleLabel: string;
   readonly visibility: AgentVisibility;
   /** null = 从零新建；非 null = 复制一个现成的（I-30） */
   readonly cloneFrom: string | null;
@@ -101,6 +103,7 @@ export async function createAgent(
     name: input.name,
     initials: input.initials,
     role: input.role,
+    roleLabel: input.roleLabel,
     visibility: input.visibility,
   };
 
@@ -121,6 +124,10 @@ export async function createAgent(
       name: input.name,
       initials: input.initials,
       role: input.role,
+      roleLabel: input.roleLabel,
+      // #1705：这里落 false 而不是留 `newAgentDefinition` 缺省——从零新建的 roleLabel
+      // 是 admin 刚打的真实文本，不是回填出来的占位符，两者的「待确认」语义不同。
+      roleLabelNeedsConfirmation: false,
       visibility: input.visibility,
       source: input.source,
       /**

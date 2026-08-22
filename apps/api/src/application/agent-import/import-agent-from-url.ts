@@ -187,6 +187,12 @@ export async function importAgentFromUrl(
     name: input.name,
     initials: initialsFrom(input.name),
     role: "从 GitHub 导入",
+    // #1705（#728 D-1）：这条路径没有人类手填的头衔可用——`role` 本身就是一句
+    // 自动生成的占位文案，`roleLabel` 同理截 8 字符派生，不编一句"看起来像人取的"
+    // 短标题出来。标 `roleLabelNeedsConfirmation = true`，同 starter-pack 导入
+    // （`pg-agent-starter-import-repository.ts`）那条纪律：管理员应尽快去改。
+    roleLabel: "从 GitHub 导入".slice(0, 8),
+    roleLabelNeedsConfirmation: true,
     /**
      * 恒 `全组织可用`——`checkToollessSelfPublish` 只放行这一档可见性
      * （`仅某组` 没有"哪个组"的出处，`createAgent.in` 也不收 team）。导入路径的

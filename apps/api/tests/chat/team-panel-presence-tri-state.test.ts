@@ -17,16 +17,17 @@
 import { describe, expect, it } from "vitest";
 import {
   AgentDutyEmptyError,
+  AgentRoleLabelEmptyError,
   agentPanelCounts,
   assertAgentPanelInvariants,
   type AgentPanelAgent,
 } from "../../src/domain/chat/agent-presence";
 
 const agents: AgentPanelAgent[] = [
-  { id: "av", abbr: "AV", name: "Ava", duty: "拆问题、标致命假设", presence: "present" },
-  { id: "at", abbr: "AT", name: "Atlas", duty: "把业务流拆成任务", presence: "present" },
-  { id: "sc", abbr: "SC", name: "Scout", duty: "找同行案例", presence: "away" },
-  { id: "lg", abbr: "LG", name: "Ledger", duty: "算人天节省", presence: "off" },
+  { id: "av", abbr: "AV", name: "Ava", duty: "拆问题、标致命假设", roleLabel: "战略分析师", presence: "present" },
+  { id: "at", abbr: "AT", name: "Atlas", duty: "把业务流拆成任务", roleLabel: "任务规划师", presence: "present" },
+  { id: "sc", abbr: "SC", name: "Scout", duty: "找同行案例", roleLabel: "调研专员", presence: "away" },
+  { id: "lg", abbr: "LG", name: "Ledger", duty: "算人天节省", roleLabel: "财务分析师", presence: "off" },
 ];
 
 describe("F110 AgentPresence 三态", () => {
@@ -55,8 +56,8 @@ describe("F110 AgentPresence 三态", () => {
 
   it("反证：away 与 off 都不计入在场——把它们错记成 present 就会让下面这条变红", () => {
     const allAway: AgentPanelAgent[] = [
-      { id: "x1", abbr: "X1", name: "X1", duty: "d", presence: "away" },
-      { id: "x2", abbr: "X2", name: "X2", duty: "d", presence: "off" },
+      { id: "x1", abbr: "X1", name: "X1", duty: "d", roleLabel: "r", presence: "away" },
+      { id: "x2", abbr: "X2", name: "X2", duty: "d", roleLabel: "r", presence: "off" },
     ];
     expect(agentPanelCounts(allAway).presentCount).toBe(0);
     expect(agentPanelCounts(allAway).rosterCount).toBe(2);
@@ -72,8 +73,8 @@ describe("F110 AgentPresence 三态", () => {
 
   it("I-17 反证：空 duty（含纯空格）必须被拒绝，且报出是哪个 agent", () => {
     const bad: AgentPanelAgent[] = [
-      { id: "av", abbr: "AV", name: "Ava", duty: "拆问题", presence: "present" },
-      { id: "silent", abbr: "SL", name: "Silent", duty: "   ", presence: "off" },
+      { id: "av", abbr: "AV", name: "Ava", duty: "拆问题", roleLabel: "分析师", presence: "present" },
+      { id: "silent", abbr: "SL", name: "Silent", duty: "   ", roleLabel: "分析师", presence: "off" },
     ];
     expect(() => assertAgentPanelInvariants(bad)).toThrow(AgentDutyEmptyError);
     try {
@@ -82,6 +83,25 @@ describe("F110 AgentPresence 三态", () => {
     } catch (e) {
       expect(e).toBeInstanceOf(AgentDutyEmptyError);
       expect((e as AgentDutyEmptyError).agentId).toBe("silent");
+    }
+  });
+
+  /**
+   * #1705（#728 D-1）—— `roleLabel` 版本的 I-17 反证，同上一条同一个理由：
+   * 门控写完立刻造反证，不能只靠"正样本全绿"就相信这条断言真的会拦人。
+   */
+  it("#1705 反证：空 roleLabel（含纯空格）必须被拒绝，且报出是哪个 agent", () => {
+    const bad: AgentPanelAgent[] = [
+      { id: "av", abbr: "AV", name: "Ava", duty: "拆问题", roleLabel: "分析师", presence: "present" },
+      { id: "silent", abbr: "SL", name: "Silent", duty: "职责非空", roleLabel: "   ", presence: "off" },
+    ];
+    expect(() => assertAgentPanelInvariants(bad)).toThrow(AgentRoleLabelEmptyError);
+    try {
+      assertAgentPanelInvariants(bad);
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(AgentRoleLabelEmptyError);
+      expect((e as AgentRoleLabelEmptyError).agentId).toBe("silent");
     }
   });
 });

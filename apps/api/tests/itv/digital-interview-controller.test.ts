@@ -92,8 +92,8 @@ beforeEach(async () => {
     );
     await session.query(
       `INSERT INTO capability_listings
-        (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint,abbr,duty)
-       VALUES ('agent-f02-de',$1,'agent','德国采购总监','org-wide',NULL,true,NULL,'DE','负责德国制造业能源采购与供应商谈判')`,
+        (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint,abbr,duty,role_label)
+       VALUES ('agent-f02-de',$1,'agent','德国采购总监','org-wide',NULL,true,NULL,'DE','负责德国制造业能源采购与供应商谈判','采购总监')`,
       [ORG],
     );
   });

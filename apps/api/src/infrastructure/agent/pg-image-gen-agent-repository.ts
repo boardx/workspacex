@@ -23,6 +23,7 @@ const IMAGE_GEN_AGENT_TEMPLATE: SystemAgentTemplate = {
   name: IMAGE_GEN_AGENT_NAME,
   abbr: "图片",
   duty: "根据文字描述生成图片",
+  roleLabel: "图片生成",
   instructions: IMAGE_GEN_AGENT_INSTRUCTIONS,
   lockKey: 662,
   resolveModel: () => ({ provider: IMAGE_GEN_AGENT_PROVIDER, modelId: IMAGE_GEN_AGENT_MODEL_ID }),

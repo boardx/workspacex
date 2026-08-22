@@ -563,6 +563,16 @@ export const operations = {
         name: z.string(),
         /** ⚠ 非空（I-17）：一个说不出职责的 agent 在面板里等于噪音 */
         duty: z.string(),
+        /**
+         * #1705（#728 D-1，人类裁决见 issue #831 2026-08-09 + #1705 2026-08-21 补裁）——
+         * 简短角色头衔（如「战略分析师」），D2 编制区渲染成「{name} · {roleLabel}」，
+         * `duty` 仍是第二行的一句话能力描述。⚠ 与 `agentRuntime.AgentRow.role`
+         * （「职责一句话」）不是同一个字段——那个字段投影到这里的 `duty`，
+         * 这里的 `roleLabel` 投影自 `agentRuntime.AgentRow.roleLabel`。
+         * 非空（同 `duty` 一样的 I-17 纪律，见 CHECK
+         * `capability_listings_agent_needs_role_label`）。
+         */
+        roleLabel: z.string(),
         presence: AgentPresence,
       }).strict()),
       presentCount: z.number().int().nonnegative(),
@@ -607,7 +617,10 @@ export const operations = {
       rosterVersion: z.number().int().nonnegative(),
       agents: z.array(z.object({
         id: z.string(), abbr: z.string(), name: z.string(),
-        duty: z.string(), presence: AgentPresence,
+        duty: z.string(),
+        /** #1705——同 `getAgentPanel.out.agents[].roleLabel`，同一个字段同一份注释。 */
+        roleLabel: z.string(),
+        presence: AgentPresence,
       }).strict()),
       auditEventId: z.string(),
     }).strict(),

@@ -562,6 +562,11 @@ function toAgentOption(row: CapabilityListing): GetAgentPanelOut["agents"][numbe
     abbr: abbrSource.slice(0, 2).toUpperCase(),
     name: trimmedName || row.id,
     duty: "组织已配置 Agent",
+    // #1705（#728 D-1）：`CapabilityListing`（能力目录读侧的通用形状）本身不带
+    // `role_label`——它和 `getAgentPanel` 是两条不同的读路径，本函数把它投影成
+    // `getAgentPanel` 的输出形状时，`duty` 已经是同样手法的占位文案（见上一行），
+    // `roleLabel` 同理不编一个更具体的头衔出来，跟 `duty` 用同一段占位文案。
+    roleLabel: "组织已配置 Agent",
     presence: "present",
   };
 }

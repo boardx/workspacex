@@ -23,6 +23,7 @@ const DEEP_RESEARCH_AGENT_TEMPLATE: SystemAgentTemplate = {
   name: DEEP_RESEARCH_AGENT_NAME,
   abbr: "DR",
   duty: "多轮深度检索与调研综述",
+  roleLabel: "深度调研",
   instructions: DEEP_RESEARCH_AGENT_INSTRUCTIONS,
   lockKey: 661,
   resolveModel: () => ({ provider: DEEP_RESEARCH_AGENT_PROVIDER, modelId: DEEP_RESEARCH_AGENT_MODEL_ID }),

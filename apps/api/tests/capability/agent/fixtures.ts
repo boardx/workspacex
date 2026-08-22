@@ -14,6 +14,8 @@ export function agent(over: Partial<AgentDefinition> = {}): AgentDefinition {
     name: "Ava",
     initials: "AV",
     role: "访谈引导与纪要",
+    roleLabel: "访谈引导员",
+    roleLabelNeedsConfirmation: false,
     visibility: "全组织可用",
     cloneFrom: null,
     source: "self",

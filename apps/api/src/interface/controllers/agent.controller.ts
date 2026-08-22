@@ -36,6 +36,12 @@ import {
   SET_AGENT_INSTRUCTIONS_REPOSITORY,
   type SetAgentInstructionsRepository,
 } from "../../application/agent/set-agent-instructions";
+import {
+  setAgentRoleLabel,
+  SetAgentRoleLabelError,
+  SET_AGENT_ROLE_LABEL_REPOSITORY,
+  type SetAgentRoleLabelRepository,
+} from "../../application/agent/set-agent-role-label";
 
 type CreateAgentBody = ReturnType<typeof C.operations.createAgent.in.parse>;
 type SelfPublishBody = ReturnType<typeof C.operations.selfPublishToollessAgent.in.parse>;
@@ -61,6 +67,8 @@ export class AgentController {
     private readonly selfPublishRepository: SelfPublishAgentRepository,
     @Inject(SET_AGENT_INSTRUCTIONS_REPOSITORY)
     private readonly instructionsRepository: SetAgentInstructionsRepository,
+    @Inject(SET_AGENT_ROLE_LABEL_REPOSITORY)
+    private readonly roleLabelRepository: SetAgentRoleLabelRepository,
   ) {}
 
   @Post(C.operations.createAgent.path)
@@ -78,6 +86,7 @@ export class AgentController {
           name: body.name,
           initials: body.initials,
           role: body.role,
+          roleLabel: body.roleLabel,
           visibility: body.visibility,
           cloneFrom: body.cloneFrom,
           source: body.source,
@@ -136,12 +145,13 @@ export class AgentController {
   }
 
   /**
-   * `PATCH /agents/:agentId` —— #660 候选 A：写入可执行定义。
+   * `PATCH /agents/:agentId` —— #660 候选 A（instructions）+ #1705（#728 D-1，roleLabel）。
    *
-   * ⚠ **只接 `patch.instructions` 一个字段**。契约的 patch 还有另外六个，本轮一个都没做
-   * （见 `set-agent-instructions.ts` 头注的范围说明）。收到其它字段时返回 **501 且不带
-   * `reasonCode`**，**绝不静默忽略** —— 静默忽略会让调用方以为改成功了，而那正是
-   * #660 这一族 bug 的形状（界面说成了，库里没变）。
+   * ⚠ **只接 `patch.instructions` / `patch.roleLabel` 两个字段**。契约的 patch 还有另外
+   * 六个，两轮加起来一共两个字段接线（见 `set-agent-instructions.ts` / `set-agent-role-label.ts`
+   * 头注的范围说明）。收到其它字段时返回 **501 且不带 `reasonCode`**，**绝不静默忽略**
+   * —— 静默忽略会让调用方以为改成功了，而那正是 #660 这一族 bug 的形状
+   * （界面说成了，库里没变）。
    */
   @Patch(C.operations.updateAgentDefinition.path)
   async update(
@@ -152,26 +162,36 @@ export class AgentController {
     assertPrincipal(principal);
     if (body.agentId !== agentId) throw new NotFoundException({ reasonCode: "AGENT_NOT_FOUND" });
 
-    const { instructions, ...rest } = body.patch;
+    const { instructions, roleLabel, ...rest } = body.patch;
     const unsupported = Object.keys(rest);
     if (unsupported.length > 0) {
       throw new NotImplementedException(
-        `updateAgentDefinition: 本轮只接线 instructions，未实现的字段：${unsupported.join(", ")}（#660 候选 A 范围）`,
+        `updateAgentDefinition: 本轮只接线 instructions/roleLabel，未实现的字段：${unsupported.join(", ")}（#660 候选 A / #1705 范围）`,
       );
     }
-    if (instructions === undefined) {
-      throw new NotImplementedException("updateAgentDefinition: patch 为空——本轮只接线 instructions");
+    if (instructions === undefined && roleLabel === undefined) {
+      throw new NotImplementedException("updateAgentDefinition: patch 为空——本轮只接线 instructions/roleLabel");
     }
 
     try {
-      await setAgentInstructions(
-        { orgId: principal.orgId, actorId: principal.userId, agentId, instructions },
-        { identities: this.identities, repository: this.instructionsRepository },
-      );
+      if (instructions !== undefined) {
+        await setAgentInstructions(
+          { orgId: principal.orgId, actorId: principal.userId, agentId, instructions },
+          { identities: this.identities, repository: this.instructionsRepository },
+        );
+      }
+      if (roleLabel !== undefined) {
+        await setAgentRoleLabel(
+          { orgId: principal.orgId, actorId: principal.userId, agentId, roleLabel },
+          { identities: this.identities, repository: this.roleLabelRepository },
+        );
+      }
       // ⚠ 不回显 instructions（可能很长）——签核记录里那三条「刻意没做的事」第 3 条。
+      // roleLabel 同理不回显：调用方已经知道自己刚发了什么，回显只是重复。
       return { agentId };
     } catch (error) {
       if (error instanceof SetAgentInstructionsError) throw this.toHttp(error.code);
+      if (error instanceof SetAgentRoleLabelError) throw this.toHttp(error.code);
       throw error;
     }
   }

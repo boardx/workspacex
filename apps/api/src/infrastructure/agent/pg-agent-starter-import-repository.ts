@@ -52,7 +52,11 @@ export class PgAgentStarterImportRepository implements AgentStarterImportReposit
       for (const agent of input.pack.agents) {
         const agentId = `agent-${randomUUID()}`; const versionId = `agent-version-${randomUUID()}`;
         agentIds.push(agentId); versionIds.push(versionId);
-        await s.query("INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL)", [agentId,input.orgId,agent.stableName,agent.name,input.actorId,importedAt]);
+        // #1705：`role_label` 现在是 `agents` 表的 NOT NULL 列——同下面 abbr/duty 的既有
+        // 纪律，从 pack 自己声明的字段派生（不新开一次契约修订，也不编一个假头衔）：
+        // `stableName` 前两位大写复用同一条派生规则，避免与 abbr 撞得太像时再造一套。
+        const roleLabel = agent.stableName.slice(0, 8);
+        await s.query("INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,role_label,role_label_needs_confirmation) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,true)", [agentId,input.orgId,agent.stableName,agent.name,input.actorId,importedAt,roleLabel]);
         await s.query(`INSERT INTO agent_versions (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at) VALUES ($1,$2,$3,$4,$5,$6,$7::text[],$8,$9,$10::jsonb,$11,$12,$12)`, [versionId,input.orgId,agentId,agent.semanticVersion,agent.instructionDigest,agent.instructions,agent.skillVersions.map((ref) => ref.versionId),agent.modelProvider,agent.modelId,JSON.stringify(agent.toolPolicy),input.actorId,importedAt]);
         await s.query("UPDATE agents SET published_version_id=$3,updated_at=$4 WHERE id=$1 AND org_id=$2", [agentId,input.orgId,versionId,importedAt]);
         // #619：`capability_listings_agent_needs_abbr_duty` 要求 kind='agent' 的行非空
@@ -61,7 +65,7 @@ export class PgAgentStarterImportRepository implements AgentStarterImportReposit
         // `duty` 直接复用 `name`（同这个脚本原来给 core-loop 用的终端占位值一样短）。
         // ⚠ 这不是"编一个像样的假职责"：两个值都是从 pack 自己声明的字段推出来的事实，
         //   不是编造的内容。
-        await s.query("INSERT INTO capability_listings (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint,abbr,duty) VALUES ($1,$2,'agent',$3,'org-wide',NULL,true,NULL,$4,$5)", [agentId,input.orgId,agent.name,agent.stableName.slice(0, 2).toUpperCase(),agent.name]);
+        await s.query("INSERT INTO capability_listings (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint,abbr,duty,role_label,role_label_needs_confirmation) VALUES ($1,$2,'agent',$3,'org-wide',NULL,true,NULL,$4,$5,$6,true)", [agentId,input.orgId,agent.name,agent.stableName.slice(0, 2).toUpperCase(),agent.name,roleLabel]);
       }
       const result: AgentStarterImportResult = { importId,packId:input.pack.packId,packVersion:input.pack.packVersion,packDigest:input.pack.packDigest,status:"succeeded",agentIds,versionIds,importedAt };
       await s.query("UPDATE agent_starter_pack_imports SET status='succeeded',result_json=$3::jsonb,failure_code=NULL WHERE id=$1 AND org_id=$2", [importId,input.orgId,JSON.stringify(result)]);

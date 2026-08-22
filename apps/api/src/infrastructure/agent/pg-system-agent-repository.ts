@@ -29,6 +29,12 @@ export interface SystemAgentTemplate {
    */
   readonly abbr: string;
   readonly duty: string;
+  /**
+   * #1705（#728 D-1）—— 简短角色头衔（如「通用助手」）。与 `duty`（一句话职责描述）
+   * 是两个不同的展示位，同 `agents.role_label`/`role` 的区分——不给默认值、
+   * 不派生自 `duty`，缺了就让模板作者显式补上（同 `abbr`/`duty` 这两列的既有纪律）。
+   */
+  readonly roleLabel: string;
   readonly instructions: string;
   /** 幂等锁的 key——必须跟 `stableName` 一一对应且互不相同，否则两个模板会互相排队。 */
   readonly lockKey: number;
@@ -65,8 +71,8 @@ export async function ensureSystemAgent(
     const { provider, modelId } = template.resolveModel();
 
     await s.query(
-      "INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL)",
-      [agentId, input.orgId, template.stableName, template.name, input.actorId, nowIso],
+      "INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,published_version_id,role_label,role_label_needs_confirmation) VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6,NULL,$7,false)",
+      [agentId, input.orgId, template.stableName, template.name, input.actorId, nowIso, template.roleLabel],
     );
     await s.query(
       `INSERT INTO agent_versions (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,model_provider,model_id,tool_policy,creator_id,created_at,published_at)
@@ -78,8 +84,8 @@ export async function ensureSystemAgent(
       [agentId, input.orgId, versionId, nowIso],
     );
     await s.query(
-      "INSERT INTO capability_listings (id,org_id,kind,name,abbr,duty,scope,owner_team_id,enabled,endpoint) VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL)",
-      [agentId, input.orgId, template.name, template.abbr, template.duty],
+      "INSERT INTO capability_listings (id,org_id,kind,name,abbr,duty,scope,owner_team_id,enabled,endpoint,role_label,role_label_needs_confirmation) VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL,$6,false)",
+      [agentId, input.orgId, template.name, template.abbr, template.duty, template.roleLabel],
     );
     return { agentId, created: true };
   });

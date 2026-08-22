@@ -113,6 +113,8 @@ describe("F55 I-30 -- 复制不继承工具白名单", () => {
       name: "Echo",
       initials: "EC",
       role: "会议纪要",
+      roleLabel: "会议纪要员",
+      roleLabelNeedsConfirmation: false,
       visibility: "全组织可用",
       source: "self",
       instructions: null,

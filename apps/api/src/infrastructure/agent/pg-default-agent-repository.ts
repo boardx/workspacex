@@ -59,6 +59,7 @@ const DEFAULT_AGENT_TEMPLATE: SystemAgentTemplate = {
   name: DEFAULT_AGENT_NAME,
   abbr: "通用",
   duty: "通用对话与任务协助，新组织的默认可聊 agent",
+  roleLabel: "通用助手",
   instructions: DEFAULT_AGENT_INSTRUCTIONS,
   lockKey: 660,
   resolveModel: resolveDeepAgentModel,

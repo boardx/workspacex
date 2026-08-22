@@ -33,7 +33,7 @@ vi.mock("mermaid", () => ({
 
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 
-const agents = [{ id: "agent-real", abbr: "AR", name: "真实 Agent", duty: "只读研究", presence: "present" as const }];
+const agents = [{ id: "agent-real", abbr: "AR", name: "真实 Agent", duty: "只读研究", roleLabel: "研究", presence: "present" as const }];
 
 function msg(over: Record<string, unknown>) {
   return {
