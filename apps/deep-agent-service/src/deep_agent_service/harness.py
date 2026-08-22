@@ -57,6 +57,26 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     ]
 
 
+def build_interrupt_on() -> dict[str, bool] | None:
+    """DA-07（#1749，rubric D6 人在环）：敏感工具调用前暂停待人批。
+
+    `DEEP_AGENT_HITL_TOOLS`：逗号分隔的工具名列表（如 "call_skill"）。列出的工具
+    在每次调用前触发 langgraph interrupt——run 停住、状态落 checkpointer，等外部用
+    `Command(resume={"decisions": [{"type": "approve"|...}]})` 裁决后继续
+    （0.7.6 的 HumanInTheLoopMiddleware 实测契约，四种决策类型）。
+
+    默认未设 = 完全关闭 = 行为与 DA-07 之前逐字相同（S1=B 双轨纪律：新能力
+    必须先以灰度开关存在）。⚠ 中断依赖 checkpointer——平台托管环境由平台提供；
+    自托管必须同时设 DEEP_AGENT_CHECKPOINT_DB，否则 interrupt 无处落地，
+    langgraph 会在运行时报错，这是正确的 fail-closed 而不是我们要吞的错。
+    """
+    raw = (os.environ.get("DEEP_AGENT_HITL_TOOLS") or "").strip()
+    if raw == "":
+        return None
+    tools = [t.strip() for t in raw.split(",") if t.strip() != ""]
+    return {t: True for t in tools} if tools else None
+
+
 def build_checkpointer():
     """自托管时显式 Postgres 持久化；平台托管时返回 None（图上不带，平台自己管）。
 

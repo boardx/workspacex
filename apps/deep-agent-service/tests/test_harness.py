@@ -93,3 +93,87 @@ def test_version_floor_matches_lock():
         f"pyproject 地板 {floor} != uv.lock 锁定 {locked}——按地板安装会装到不同 minor 的库；"
         "升级 lock 时必须同步提地板（反之亦然）。"
     )
+
+
+# ── DA-07（rubric D6）：人在环中断 + 恢复的活体反证（进程内真图，MemorySaver）──
+
+
+def _hitl_graph(monkeypatch):
+    """带 interrupt_on 的真编译图。模型是脚本化假模型：第一轮发起 dangerous_tool
+    调用，第二轮直接作答——这样中断/恢复的全链路不需要任何网络或凭据。"""
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+    from langchain_core.messages import AIMessage
+    from langchain_core.tools import tool
+    from langgraph.checkpoint.memory import MemorySaver
+
+    from deepagents import create_deep_agent
+    from deep_agent_service.harness import build_interrupt_on
+
+    monkeypatch.setenv("DEEP_AGENT_HITL_TOOLS", "dangerous_tool")
+
+    @tool
+    def dangerous_tool(payload: str) -> str:
+        """A tool that must not run without approval."""
+        return f"EXECUTED:{payload}"
+
+    class ScriptedToolCallingModel(GenericFakeChatModel):
+        """GenericFakeChatModel 的基类 bind_tools 抛 NotImplementedError（实测）——
+        deepagents 建图时要 bind 全套 harness 工具。脚本已定死要发什么调用，
+        bind 在这里就是个 no-op：返回自身即可。"""
+
+        def bind_tools(self, tools, **kwargs):  # noqa: ANN001, ANN003
+            return self
+
+    model = ScriptedToolCallingModel(messages=iter([
+        AIMessage(content="", tool_calls=[{"id": "c1", "name": "dangerous_tool", "args": {"payload": "x"}}]),
+        AIMessage(content="done after approval"),
+    ]))
+    return create_deep_agent(
+        model=model,
+        tools=[dangerous_tool],
+        interrupt_on=build_interrupt_on(),
+        checkpointer=MemorySaver(),
+    )
+
+
+def test_hitl_interrupts_before_sensitive_tool(monkeypatch):
+    """D6 正向：列入 DEEP_AGENT_HITL_TOOLS 的工具调用前，run 必须停在 interrupt——
+    工具没有执行（消息里没有 EXECUTED），状态里挂着待裁决的中断。"""
+    graph = _hitl_graph(monkeypatch)
+    config = {"configurable": {"thread_id": "hitl-1"}}
+    result = graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    assert "__interrupt__" in result, "run 应停在 interrupt 等人裁决"
+    texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
+    assert not any("EXECUTED" in t for t in texts), "工具在批准前绝不能执行"
+
+
+def test_hitl_resume_approve_runs_tool(monkeypatch):
+    """D6 恢复：Command(resume=[approve]) 后工具真实执行、run 走到终稿。"""
+    from langgraph.types import Command
+
+    graph = _hitl_graph(monkeypatch)
+    config = {"configurable": {"thread_id": "hitl-2"}}
+    graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    # resume 形状是 {"decisions": [...]}，不是裸列表——0.7.6 的
+    # HumanInTheLoopMiddleware.after_model 源码实测（interrupt(...)["decisions"]），
+    # 传裸列表会 TypeError。这条注释就是那次红的存档。
+    result = graph.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config)
+    texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
+    assert any("EXECUTED:x" in t for t in texts), "批准后工具必须真实执行"
+    assert "__interrupt__" not in result
+
+
+def test_hitl_off_by_default(monkeypatch):
+    """双轨反证：未设 DEEP_AGENT_HITL_TOOLS 时 build_interrupt_on 返回 None——
+    行为与 DA-07 之前逐字相同，没有任何工具会被拦。"""
+    monkeypatch.delenv("DEEP_AGENT_HITL_TOOLS", raising=False)
+    from deep_agent_service.harness import build_interrupt_on
+
+    assert build_interrupt_on() is None
+
+
+def test_hitl_env_parsing(monkeypatch):
+    from deep_agent_service.harness import build_interrupt_on
+
+    monkeypatch.setenv("DEEP_AGENT_HITL_TOOLS", "call_skill, execute ,")
+    assert build_interrupt_on() == {"call_skill": True, "execute": True}
