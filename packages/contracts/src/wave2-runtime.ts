@@ -220,6 +220,13 @@ export const AgentStarterImportResult = z.object({
 
 export const AgentRunStatus = z.enum([
   "queued", "running", "writeback_pending", "succeeded", "failed",
+  /**
+   * DA-07b（#1749，rubric D6 人在环）：run 停在敏感工具调用前，等人裁决。
+   * 不是终态——approve 回 running 继续，reject 落 failed("HITL_REJECTED")。
+   * 把「等待人」记成 failed 是账本撒谎（等待 ≠ 失败），所以是一等状态。
+   * 与 DB CHECK/触发器的同步同本枚举其余值：pg_constraint 集合相等测试看守。
+   */
+  "awaiting_approval",
 ]);
 
 /**
@@ -258,6 +265,8 @@ export const AgentRunStepStatus = z.enum(["succeeded", "failed"]);
  * and asserts set equality with `.options`.
  */
 export const AgentRunError = z.enum([
+  /** DA-07b：人在环裁决为拒绝。run 的终态错误码——用户明确说了不。 */
+  "HITL_REJECTED",
   /** The run's snapshot names a provider this deployment has not configured. No fallback. */
   "MODEL_PROVIDER_NOT_CONFIGURED",
   /** A pinned Skill version's content is not retrievable. Fail closed, never drop it. */
@@ -345,6 +354,15 @@ export const AgentRunView = z.object({
   resultMessageId: z.string().nullable(),
   steps: z.array(AgentRunStep),
   createdAt: z.string(),
+  /**
+   * DA-07b：status === "awaiting_approval" 时，等待裁决的工具调用摘要——
+   * 前端审批条靠它显示「要批的是什么」。其余状态恒为 null。
+   * optional：老客户端/老快照缺字段不炸（向后兼容）。
+   */
+  pendingApproval: z.object({
+    toolName: z.string(),
+    argsSummary: z.string().nullable(),
+  }).strict().nullable().optional(),
 }).strict();
 
 export const operations = {

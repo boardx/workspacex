@@ -44,7 +44,8 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
     runId: "run-1", threadId: "thread-1", projectId: null, inputMessageId: "msg-now",
     requesterUserId: "user-1", inputText: "图里画了什么？", inputAttachments: [],
     agentId: "agent-1", agentVersionId: "agent-version-1", instructions: "你是通用助手",
-    skillVersionIds: [], modelProvider: "test-provider", modelId: "test-model", ...overrides,
+    skillVersionIds: [], modelProvider: "test-provider", modelId: "test-model", pendingDecision: null,
+    ...overrides,
   };
 }
 
@@ -60,6 +61,8 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore {
     readModelDeltas: async (): Promise<readonly RunDelta[]> => [],
     storeOutputAwaitingWriteback: async () => {},
     failRun: async (_o, _r, _c: RunFailureCode) => {},
+    async markAwaitingApproval() { throw new Error('unexpected markAwaitingApproval in this test'); },
+    async approveAndRequeue() { throw new Error('unexpected approveAndRequeue in this test'); return false; },
     claimWritebackPending: unused("claimWritebackPending"),
     commitWriteback: unused("commitWriteback"),
     recordWritebackAttempt: unused("recordWritebackAttempt"),

@@ -35,6 +35,7 @@ interface ClaimRow {
   id: string; thread_id: string; project_id: string; input_message_id: string;
   input_text: string; agent_id: string; agent_version_id: string; instructions: string;
   skill_version_ids: unknown; model_provider: string; model_id: string;
+  pending_decision?: string | null;
 }
 
 interface RunRow {
@@ -42,6 +43,9 @@ interface RunRow {
   agent_id: string; agent_version_id: string; skill_version_ids: unknown;
   model_provider: string; model_id: string; status: string; error_code: string | null;
   result_message_id: string | null; created_at: Date;
+  pending_tool_name?: string | null;
+  pending_args_summary?: string | null;
+  pending_decision?: string | null;
 }
 
 interface StepRow {
@@ -122,7 +126,7 @@ export class PgAgentRunRepository implements AgentRunStore {
                FOR UPDATE SKIP LOCKED
             )
         RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
-                  r.skill_version_ids, r.model_provider, r.model_id`,
+                  r.skill_version_ids, r.model_provider, r.model_id, r.pending_decision`,
         [orgId, limit],
       );
       if (claimed.rows.length === 0) return [];
@@ -169,6 +173,7 @@ export class PgAgentRunRepository implements AgentRunStore {
           skillVersionIds: toStringArray(row.skill_version_ids),
           modelProvider: row.model_provider,
           modelId: row.model_id,
+          pendingDecision: (row.pending_decision as "approve" | null | undefined) ?? null,
         } });
       }
       return runs;
@@ -279,6 +284,37 @@ export class PgAgentRunRepository implements AgentRunStore {
           WHERE org_id=$1 AND id=$2 AND status NOT IN ('succeeded','failed')`,
         [orgId, runId, code],
       );
+    });
+  }
+
+  async markAwaitingApproval(
+    orgId: OrgId, runId: string,
+    pending: { readonly toolName: string; readonly argsSummary: string | null },
+  ): Promise<void> {
+    await this.db.withTenant(orgId, async (s) => {
+      // 只从 running 起跳（触发器同样拦，但这里显式写条件让意图可读；
+      // 命中 0 行不是错——并发下 run 可能已被 failRun 收走，账本以先到者为准）。
+      await s.query(
+        `UPDATE agent_runs
+            SET status='awaiting_approval', pending_tool_name=$3, pending_args_summary=$4
+          WHERE org_id=$1 AND id=$2 AND status='running'`,
+        [orgId, runId, pending.toolName, pending.argsSummary],
+      );
+    });
+  }
+
+  async approveAndRequeue(orgId: OrgId, runId: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      // → queued 而非 → running：executor 的 claimQueued 只领 queued，置 running
+      // 等于造一个永远没人执行的 run。重新入队让既有领取/并发语义原样生效。
+      const updated = await s.query(
+        `UPDATE agent_runs
+            SET status='queued', pending_decision='approve'
+          WHERE org_id=$1 AND id=$2 AND status='awaiting_approval'
+          RETURNING id`,
+        [orgId, runId],
+      );
+      return updated.rows.length > 0;
     });
   }
 
@@ -483,7 +519,8 @@ export class PgAgentRunRepository implements AgentRunStore {
       const run = await s.query<RunRow>(
         `SELECT r.id, r.thread_id, t.project_id, r.input_message_id, r.agent_id,
                 r.agent_version_id, r.skill_version_ids, r.model_provider, r.model_id,
-                r.status, r.error_code, r.created_at, reply.id AS result_message_id
+                r.status, r.error_code, r.created_at, reply.id AS result_message_id,
+                r.pending_tool_name, r.pending_args_summary
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
            LEFT JOIN chat_messages reply
@@ -528,6 +565,9 @@ export class PgAgentRunRepository implements AgentRunStore {
         planningNote: step.planning_note,
       })),
       createdAt: found.row.created_at.toISOString(),
+      pendingApproval: found.row.pending_tool_name === null || found.row.pending_tool_name === undefined
+        ? null
+        : { toolName: found.row.pending_tool_name, argsSummary: found.row.pending_args_summary ?? null },
     };
     // The thread's project is the object the Chat decision is made against (see
     // `resolve-visibility.ts`), so it is the ref this projection travels under.

@@ -92,6 +92,11 @@ export interface ClaimedAgentRun {
   readonly skillVersionIds: readonly string[];
   readonly modelProvider: string;
   readonly modelId: string;
+  /**
+   * DA-07b：'approve' = 这是一次人批准后的续跑——execute-run 据此让 provider 走
+   * resume（command.resume）而不是把用户输入重发一遍。普通新 run 恒为 null。
+   */
+  readonly pendingDecision: "approve" | null;
 }
 
 export interface PinnedSkillContent {
@@ -167,6 +172,11 @@ export interface RunProjection {
   readonly resultMessageId: string | null;
   readonly steps: readonly Omit<AppendedRunStep, "runId" | "seq">[];
   readonly createdAt: string;
+  /** DA-07b：等待裁决的工具摘要；非 awaiting_approval 时为 null。
+   * （pending_decision 列刻意**不**投影到这里：它是 executor 的内部执行细节，
+   * 走 ClaimedAgentRun.pendingDecision；对外视图多一个键就会被 AgentRunView
+   * 的 .strict() 拒绝——29 个既有测试当场教的。） */
+  readonly pendingApproval: { readonly toolName: string; readonly argsSummary: string | null } | null;
 }
 
 /** Ids only -- enough to ASK the visibility question, never enough to answer it. */
@@ -268,6 +278,22 @@ export interface AgentRunStore {
 
   /** Terminal failure with a stable, enumerated code. There is no free-text variant. */
   failRun(orgId: OrgId, runId: string, code: RunFailureCode): Promise<void>;
+
+  /**
+   * DA-07b：running → awaiting_approval，同时落等待裁决的工具摘要。
+   * 触发器只放行 running 起跳——在其他状态上调用会被 DB 拒绝，这是对的。
+   */
+  markAwaitingApproval(
+    orgId: OrgId, runId: string,
+    pending: { readonly toolName: string; readonly argsSummary: string | null },
+  ): Promise<void>;
+
+  /**
+   * DA-07b：awaiting_approval → running（人批准），并记 pending_decision='approve'
+   * 供 executor 重新领 run 时让 provider 走 resume。返回 false = run 不在
+   * awaiting_approval（并发裁决/已终态），调用方按冲突处理，不重试。
+   */
+  approveAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
 
   /** Runs sitting in `writeback_pending`, including ones stranded by a process restart. */
   claimWritebackPending(orgId: OrgId, limit: number): Promise<readonly PendingWriteback[]>;
@@ -507,6 +533,13 @@ export interface ModelCallInput {
    * 不传时 provider 保持每轮新建 thread 的旧行为——同 onDelta 的双轨纪律。
    */
   readonly threadId?: string;
+  /**
+   * DA-07b（rubric D6）：本次调用是对一个停在 interrupt 的远端 run 的**恢复**，
+   * 不是新消息。provider 见到它时向既有 thread 提交 resume 命令
+   * （command.resume.decisions），绝不重发用户输入——重发会让引擎把同一条
+   * 消息处理两遍。只有 deep-agent provider 关心它。
+   */
+  readonly resume?: { readonly decision: "approve" };
   readonly system: string;
   readonly user: string;
   /**
@@ -603,6 +636,12 @@ export class ModelCallError extends Error {
  * 漏一处就是一条只在某一条分支上存在的契约。
  */
 export interface ModelCallCompletion {
+  /**
+   * DA-07b：非 undefined = 远端 run 停在敏感工具调用前等人裁决（interrupt_on）。
+   * 此时没有终稿，text 为空串；调用方必须先查本字段再判空文本——顺序反了会把
+   * 「等待批准」误判成「provider 没回内容」。
+   */
+  readonly interrupted?: { readonly toolName: string; readonly argsSummary: string | null };
   readonly text: string;
   readonly tokens?: number;
   readonly promptTokens?: number;
