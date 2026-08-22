@@ -457,6 +457,21 @@ export function ChatLiveMessagePanel({
       // 只有 "replace"（换线程 / 错误重试）才是真的整批替换。
       setMessages((current) => mode === "replace" ? result.messages : appendUnique(current, result.messages));
       setNextCursor(result.nextCursor);
+      // #1805 —— 换线程/mount（"replace"）时，`activeRunId` 已在调用方被清空（见下面那条
+      // effect），轮询完全靠内存。如果发消息后标签页真的丢了（刷新/关闭重开/断网重连），
+      // 内存没了，界面上就再也没人去问「这条消息触发的 run 跑到哪了」——用户看到的是消息
+      // 卡住不动、没有任何提示。这里从刚读回的持久消息里找回它：最新一条人类消息如果带了
+      // `agentRunId` 且还没有任何消息 `replyToMessageId` 指回它，说明写回大概率还没完成，
+      // 重新挂上 `activeRunId` 让下面已有的轮询 effect（487 行起）接管——若那个 run 其实
+      // 已经是终态，poll 一次就会发现并停止，不会产生错误状态，只多打一次 GET。
+      if (mode === "replace" && !archived) {
+        const lastHuman = [...result.messages].reverse()
+          .find((m) => m.authorKind === "human" && m.agentRunId !== null);
+        if (lastHuman) {
+          const alreadyReplied = result.messages.some((m) => m.replyToMessageId === lastHuman.id);
+          if (!alreadyReplied) setActiveRunId(lastHuman.agentRunId);
+        }
+      }
     } catch (failure) {
       if (generation.current !== requestGeneration) return;
       // 软重载失败不该把已经在显示的消息换成错误态（那更像倒退）——软模式静默保留旧消息，
@@ -468,7 +483,7 @@ export function ChatLiveMessagePanel({
         setLoadingMore(false);
       }
     }
-  }, [bearer, threadId]);
+  }, [bearer, threadId, archived]);
 
   React.useEffect(() => {
     setText("");

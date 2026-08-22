@@ -350,6 +350,54 @@ describe("formal Chat read path", () => {
     expect(screen.queryByTestId("chat-followup-suggestions")).not.toBeInTheDocument();
   });
 
+  /**
+   * issue #1805 真实回归：发消息后标签页丢失（刷新/关闭重开/断网重连），`activeRunId`
+   * 只活在内存里，重新挂载后没有任何机制去问「这条消息触发的 run 跑到哪了」——用户看到
+   * 的是消息卡住不动、没有任何提示（真实 devapp 事故：GET .../messages 里那条触发了 run
+   * 的人类消息一小时后还是没有回复，界面上也没有任何进度/错误）。
+   *
+   * 这里模拟"重新挂载线程"（等价于刷新/重连）时读到的持久消息页：最新一条是人类消息，
+   * 带着它触发的 `agentRunId`，且没有任何消息 `replyToMessageId` 指回它——这正是 #1805
+   * 读侧修复后（`pg-chat-message-command-repository.ts` 的 `page()` 用
+   * `agent_runs.input_message_id` 回填）GET 会返回的形状。断言：组件不靠用户重新发消息，
+   * 挂载后自己就应该重新挂上轮询（`chat-live-agent-run-status` 带着正确的 `data-run-id`
+   * 出现，且 `getAgentRun` 真的被这个 runId 调用了）。
+   */
+  it("重新挂载线程时，最新一条未回复的人类消息带着 agentRunId ⇒ 自动恢复轮询（#1805）", async () => {
+    const pendingHuman = { ...durableMessage(1), agentRunId: "run-resume-after-reload" };
+    listMessages.mockResolvedValueOnce({ messages: [pendingHuman], nextCursor: null });
+    getAgentRun.mockResolvedValue(agentRunView("running", null));
+
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByText("真实消息 1");
+    expect(await screen.findByTestId("chat-live-agent-run-status"))
+      .toHaveAttribute("data-run-id", "run-resume-after-reload");
+    await waitFor(() => expect(getAgentRun).toHaveBeenCalledWith(
+      "run-resume-after-reload", "provider-bearer",
+    ));
+  });
+
+  /**
+   * 反面用例：最新人类消息**已经有**回复（`replyToMessageId` 指回它）时，不该再去恢复
+   * 轮询——那个 run 早就完成了，重新挂上只会白打一次 GET。断言 `chat-live-agent-run-status`
+   * 不出现、且这条人类消息自己的 `agentRunId`（`run-already-done`）从没被 `getAgentRun`
+   * 拉取过——不断言"零调用"，因为 `MessageThinkingChain` 会为 agent 回复自己的
+   * `agentRunId`（这里是 `reply` 那条的 `run-2`）单独发起拉取，那是既有功能，与本条
+   * 回归防的"要不要恢复轮询"无关。
+   */
+  it("最新人类消息已有回复时不恢复轮询", async () => {
+    const repliedHuman = { ...durableMessage(1), agentRunId: "run-already-done" };
+    const reply = { ...durableMessage(2), replyToMessageId: repliedHuman.id };
+    listMessages.mockResolvedValueOnce({ messages: [repliedHuman, reply], nextCursor: null });
+
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByText("真实消息 1");
+    expect(screen.queryByTestId("chat-live-agent-run-status")).not.toBeInTheDocument();
+    expect(getAgentRun).not.toHaveBeenCalledWith("run-already-done", expect.anything());
+  });
+
   it("已归档的线程不显示建议（composer 本身已是只读）", async () => {
     getThread.mockResolvedValueOnce({
       ...threadDetail,
