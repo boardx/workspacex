@@ -152,6 +152,10 @@ WORKSPACEX_OBJECT_ROOT=/opt/workspacex/objects
 # KERNEL_MODEL_API_KEY 是人工填的部署密钥（不在此模板生成），第 4h 步会把它们投影进
 # /opt/workspacex/deep-agent.env 给容器用，缺了部署直接红。
 KERNEL_DEEP_AGENT_BASE_URL=http://127.0.0.1:2025
+# DA-03/DA-05（#1749，rubric D3）：deep-agent 通路 token 级流式的灰度开关。
+# 1 = provider 消费 langgraph /runs/stream SSE 并写 delta 账本，前端 streamingText
+# 逐 token 渲染；任何流路失败自动回退轮询（S1=B 双轨）。关掉即回到纯轮询。
+KERNEL_DEEP_AGENT_STREAM_ENABLED=1
 # ⚠ 必填、无默认值（coord-main 裁决，PR #941）：deep-agent-service 调模型用的模型 ID，
 # 每环境显式填写。留空则 deploy.sh 第 4h 步显式红退并指回这里补。
 KERNEL_DEEP_AGENT_MODEL_ID=
