@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { chat as C } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import { observerMayReadMessage } from "../../domain/chat/thread-visibility";
 import type { ResolveVisibilityDeps } from "./resolve-visibility";
@@ -149,9 +150,10 @@ export async function acceptHumanMessage(
   return outcome.accepted;
 }
 
-function encodeCursor(row: MessagePageRow): string {
-  return Buffer.from(JSON.stringify([row.createdAt, row.id]), "utf8").toString("base64url");
-}
+// 编码实现单源于 `packages/contracts/src/chat.ts` 的 `encodeMessageCursor`——见那份
+// 头注（issue #728 D 组 round 2 H3 阻塞回归根因）：前端「软重读」追新游标与这里
+// 「翻页游标」必须是逐字节相同的算法，本文件不再自己维护第二份。
+const encodeCursor = C.encodeMessageCursor;
 
 function decodeCursor(value: string | undefined): { createdAt: string; messageId: string } | null {
   if (value === undefined || value === "") return null;

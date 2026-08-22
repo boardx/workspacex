@@ -99,6 +99,51 @@ export const DurableMessage = z.object({
   attachments: z.array(Attachment).optional(),
 }).strict();
 
+/**
+ * `listMessages` 分页游标的**唯一编码实现**（issue #728 D 组 round 2 独立评分发现的
+ * H3 阻塞回归根因修复）。此前 `apps/api/.../message-roundtrip.ts` 与前端各自认知
+ * 「翻页游标」——服务端把它编进 `nextCursor` 字段，且**只在 `hasMore` 为真时才给**
+ * （`hasMore` 为假时 `nextCursor` 恒为 `null`，语义是「翻页按钮该消失了」，从未打算
+ * 兼职表达「这是可以继续追新的位置」）。
+ *
+ * `chat-live-message-panel.tsx`（#1726）把发送后/run 终态/生成画像后的「软重读」从
+ * 硬编码 `cursor=null` 改成了传当前 `nextCursor`，让翻过页之后新消息追得上——但线程
+ * 一旦被追到底（`hasMore` 变假 ⇒ `nextCursor` 塌成 `null`），下一次软重读传的
+ * `cursor=null` 会被服务端理解成"从头再来"（`decodeCursor(undefined) → null` ⇒
+ * 拉第一页），把 `nextCursor` 重新弹回非空——「加载更早之后的消息」按钮因此在几次
+ * 软重读之间反复挂载/卸载，真实浏览器里表现为 Playwright 点它时无限
+ * `element was detached from the DOM, retrying`（round 2 独评复现，
+ * `chat-diagram-save-reopen-roundtrip.spec.ts:82`）。
+ *
+ * 修法：软重读不再依赖服务端 `nextCursor`（它的语义是「还有没有下一页可翻」，不是
+ * 「继续追新该从哪起」，硬把两件事塞进一个字段才是这次回归的根）。改成**本地用
+ * 已加载消息列表自己的尾部**算出追新起点——只要至少加载过一条消息，这个游标就
+ * 永远存在、永远单调前进，不会像 `nextCursor` 那样在"翻到底"那一刻塌成 `null`。
+ * 编码算法与服务端 `encodeCursor`（`message-roundtrip.ts`）**逐字节相同**（对同一行
+ * `{createdAt, id}` 算出来的游标必须相等，否则服务端 `decodeCursor` 解不出正确的
+ * `after` 位置）——两边共享这一份实现，不允许出现第二份（AGENTS.md「同一事实不得
+ * 声明在两处」），服务端据此把自己原来手写的那份删掉，改 import 这里。
+ *
+ * ⚠ **不用 `Buffer.from(...).toString("base64url")`**——这份函数现在是**浏览器**代码
+ * 也会真正执行到的路径（`chat-live-message-panel.tsx` 在客户端调用它算追新起点），
+ * 而 webpack/Next 给浏览器打的 `buffer` polyfill 不认 `"base64url"` 这个 encoding
+ * 名字，真机实测直接炸 `TypeError: Unknown encoding: base64url`（round 2 独评复现，
+ * 第一版用 native `"base64url"` 的实现在 `chat-diagram-save-reopen-roundtrip.spec.ts`
+ * 里把「无限 detach 重试」换成了「首屏 Unhandled Runtime Error」，仍然是没修好）。
+ * 改用 Node 与浏览器 `buffer` polyfill **都支持**的 `"base64"` 编码，再手动做
+ * base64 → base64url 的字符替换（`+`→`-`、`/`→`_`、去掉 `=` padding）——这是
+ * base64url 的标准定义本身，产出的字节与 Node 原生 `"base64url"` 逐字节相同，
+ * 服务端 `decodeCursor` 用 Node 原生 `Buffer.from(value, "base64url")` 解码
+ * 不受影响（Node 原生解码器认标准 base64url 字符集）。
+ */
+export function encodeMessageCursor(row: { createdAt: string; id: string }): string {
+  return Buffer.from(JSON.stringify([row.createdAt, row.id]), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 /** 消息徽标。⚠ **标在发生它的那条消息上**，不折叠进别处（AC5 / 原型状态 4.5） */
 export const MessageBadge = z.enum(["degraded", "review-pending"]);
 
