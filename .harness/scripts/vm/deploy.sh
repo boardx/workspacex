@@ -267,6 +267,14 @@ DEEP_AGENT_HOST_PORT=$(deep_agent_resolve_host_port "$ENV_FILE" 2025 "${DEEP_AGE
 DEEP_AGENT_MODEL_BASE_URL=$(read_env_value "$ENV_FILE" KERNEL_MODEL_BASE_URL)
 DEEP_AGENT_MODEL_API_KEY=$(read_env_value "$ENV_FILE" KERNEL_MODEL_API_KEY)
 DEEP_AGENT_MODEL_ID=$(read_env_value "$ENV_FILE" KERNEL_DEEP_AGENT_MODEL_ID)
+# DA-10（#1749，rubric D10④ 可观测性）：LangSmith tracing 三件套。**可选**——
+# 未在 deploy.env 设置就不投影（tracing 关闭，行为与之前逐字相同），设置了就
+# 原样投影进 deep-agent.env。langchain/langgraph 对这三个 env 是原生识别，
+# 服务侧零代码；开了之后每个 run 的 trace 在 LangSmith 项目里可查，
+# 正式评分（TC-1~5）的 trace ID 物理证据从那里取。
+DEEP_AGENT_LANGSMITH_TRACING=$(read_env_value "$ENV_FILE" LANGSMITH_TRACING)
+DEEP_AGENT_LANGSMITH_API_KEY=$(read_env_value "$ENV_FILE" LANGSMITH_API_KEY)
+DEEP_AGENT_LANGSMITH_PROJECT=$(read_env_value "$ENV_FILE" LANGSMITH_PROJECT)
 deep_agent_assert_model_env "$ENV_FILE" "$DEEP_AGENT_MODEL_BASE_URL" "$DEEP_AGENT_MODEL_API_KEY" "$DEEP_AGENT_MODEL_ID" || exit 1
 
 # env 文件整体重写（单一来源是 deploy.env，本文件只是投影）——幂等且不会越追加越长。
@@ -278,6 +286,19 @@ KERNEL_MODEL_API_KEY=${DEEP_AGENT_MODEL_API_KEY}
 KERNEL_DEEP_AGENT_MODEL_ID=${DEEP_AGENT_MODEL_ID}
 EOF
 )
+# LangSmith 三件套按需追加（键未设不写行——deep-agent.env 里不留空值假象；
+# TRACING 设了但 API_KEY 缺，写出去也只会让服务反复空转上报，这里显式红退）。
+if [ -n "$DEEP_AGENT_LANGSMITH_TRACING" ]; then
+  if [ -z "$DEEP_AGENT_LANGSMITH_API_KEY" ]; then
+    echo "✗ deploy.env 设了 LANGSMITH_TRACING 却没设 LANGSMITH_API_KEY——tracing 无法上报，补齐或删掉 TRACING 行" >&2
+    exit 1
+  fi
+  {
+    echo "LANGSMITH_TRACING=${DEEP_AGENT_LANGSMITH_TRACING}"
+    echo "LANGSMITH_API_KEY=${DEEP_AGENT_LANGSMITH_API_KEY}"
+    echo "LANGSMITH_PROJECT=${DEEP_AGENT_LANGSMITH_PROJECT:-workspacex-deep-agent}"
+  } >> "$DEEP_AGENT_ENV_FILE"
+fi
 chown "$RUN_AS":"$RUN_AS" "$DEEP_AGENT_ENV_FILE"
 
 echo "  构建镜像 ${DEEP_AGENT_IMAGE}（从当前部署源码，有出处）"
