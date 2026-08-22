@@ -88,3 +88,26 @@ UX 验收，应该走 `pnpm harness new-phase` + `feature_list.json` 的常规�
 
 *本提案由 dev-chat-e2e worker（issue #728 分支 `worker/dev-chat-e2e-01-chat-main-fidelity`）
 于 2026-08-09 起草，未获任何架构裁决权。*
+
+---
+
+## 人类裁决（S1，2026-08-22）—— 本提案的编排层范围问题就此关闭
+
+**裁决：选 B —— 双轨灰度。** 裁决来源：人类 2026-08-22 在 coord-architecture 会话中
+直接指示（原话「S1 选 B」，上下文为 issue #1749 的签署清单 S1：
+「编排层范围：☐A 全量替换 AgentRun ☐B 双轨灰度」）。本记录由 coord-architecture 落笔，
+**人类合并本 PR 即为签署确认**——同 rubric S2 的签署纪律（那份由人类在 GitHub 网页端
+亲自提交，`ceded207` 的血统里可查）。
+
+裁决含义，逐条：
+
+1. **AG-UI/LangGraph（deepagents）成为 agent 会话的主执行与传输路径**，按
+   `.harness/state/deepagent-copilotkit-backlog.md` 的 DA-03→DA-05 顺序推进。
+2. **AgentRun 编排层保留为降级路径，不退役**：#742 的记账账本约束不变
+   （每个 tool_call 步照走 `record()`，「没有留痕就没有调用」）；轮询读路径
+   （`GET /agent-runs/:runId`）保留，AG-UI 通路故障时前端可回切。
+3. **退役另议**：双轨稳定运行后，AgentRun 编排层是否退役需要一份新的独立裁决，
+   本裁决不预授权。
+4. 与 #654 原裁决（「LangGraph 限定在 P4」）的关系：**本裁决取代它的范围限定**。
+   按本文件 §建议的下一步 第 1 条的要求，取代以「同一份文档里的后继裁决」方式记录
+   （即本节），不另立第二份文档——同一事实不两处声明。
