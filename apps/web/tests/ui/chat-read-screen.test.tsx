@@ -3,11 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ApiError } from "@/lib/api-client";
 import type { AgentRunStreamEvent } from "@/lib/agent-run-stream";
+import { chat as ChatContract } from "@repo/contracts";
+
+const encodeMessageCursor = ChatContract.encodeMessageCursor;
 
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, getAgentRun,
   listThreadArtifacts, listThreadAttachments, uploadAttachment, landAsArtifact,
-  openAgentRunStream, sessionState,
+  summarizePersonaFromThread, openAgentRunStream, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   listThreads: vi.fn(),
@@ -16,6 +19,9 @@ const {
   listMessages: vi.fn(),
   createMessage: vi.fn(),
   getAgentRun: vi.fn(),
+  // issue #728 round 2 H3 反证用例（追新起点在"翻到底后再软重读"场景不塌回起点）——
+  // G2「生成用户画像」是真实 e2e 复现路径同一个软重读触发点，见该测试头注。
+  summarizePersonaFromThread: vi.fn(),
   // 十项 UX 缺口第 4/5 项（#708）——右栏产物列表 + 消息内联落地为产物。
   listThreadArtifacts: vi.fn(),
   // issue #728 D9（人类 2026-08-21 裁决）——右栏「材料」列表，真实数据来自 chat_message_attachments。
@@ -61,6 +67,7 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量
   listThreads, getThread, getAgentPanel, listMessages, createMessage,
   listThreadArtifacts, listThreadAttachments, uploadAttachment, landAsArtifact,
+  summarizePersonaFromThread,
 }));
 /**
  * #435：`getAgentRun` 被 mock，但 `isTerminalRunStatus` **走真实实现**。
@@ -663,32 +670,42 @@ describe("formal Chat read path", () => {
   /**
    * issue #728 D6/D7 取证根因回归：线程历史条数超过分页大小（`MESSAGE_PAGE_SIZE=50`）
    * 时，`nextCursor` 在**初次加载完成那一刻就已经非空**（`hasMore=true`）。这条测试
-   * 用 20 条历史 + `limit` 无关的 `nextCursor: "cursor-20"` 模拟同样的「已经翻过一页」
-   * 状态——不需要真凑够 50+1 条，只需要 `nextCursor` 非空这一个前置条件就足以复现。
+   * 用 20 条历史模拟同样的「已经翻过一页」状态——不需要真凑够 50+1 条。
    *
-   * 根因（修前）：发送后 / run 终态后的「软重读」硬编码 `loadPage(null, "soft")`，
-   * 也就是不管当前已经翻到哪一页，重读永远从游标起点（最旧那批）重新拉第一页——
-   * 新发的人类消息与随后落库的 agent 回复因此**永远不在**这次重读拉回来的那一页里，
-   * 但 `chat-live-agent-run-status` 仍然如实报告 run 到达终态（run 本身确实成功了，
-   * 只是渲染用的这一页从来没盖到过它）。
+   * 根因（修前，#1726 之前）：发送后 / run 终态后的「软重读」硬编码
+   * `loadPage(null, "soft")`，也就是不管当前已经翻到哪一页，重读永远从游标起点
+   * （最旧那批）重新拉第一页——新发的人类消息与随后落库的 agent 回复因此**永远不在**
+   * 这次重读拉回来的那一页里，但 `chat-live-agent-run-status` 仍然如实报告 run 到达
+   * 终态（run 本身确实成功了，只是渲染用的这一页从来没盖到过它）。
    *
-   * 断言两件事：① 软重读传的 cursor 是当前翻页位置（不是 `undefined`/起点）；
+   * 2026-08-22 更新（issue #728 round 2 独评发现的 H3 阻塞回归修复后）：软重读的追新
+   * 起点从「服务端 `nextCursor`」换成了「本地已加载列表尾部现算的游标」
+   * （`catchUpCursorRef`，见 `chat-live-message-panel.tsx` 头注）——这条测试原先断言
+   * 传的 cursor 是服务端下发的 `nextCursor` 字符串，现在改断言传的是
+   * `encodeMessageCursor(本地列表最后一条消息)`，与 `packages/contracts/src/chat.ts`
+   * 单源实现保持逐字节一致。
+   *
+   * 断言两件事：① 软重读传的 cursor 是本地已加载列表的真实尾部游标（不是
+   * `undefined`/起点，也不是服务端可能已经塌成 `null` 的 `nextCursor`）；
    * ② 新落库的 agent 回复真的出现在渲染出的消息列表里。
    */
-  it("线程已翻过一页时，发送后 / run 终态后的软重读追着当前翻页位置走，新消息真的渲染出来（issue #728 D6/D7 根因回归）", async () => {
+  it("线程已翻过一页时，发送后 / run 终态后的软重读追着本地已加载列表尾部走，新消息真的渲染出来（issue #728 D6/D7 根因回归）", async () => {
+    const page1 = Array.from({ length: 20 }, (_, index) => durableMessage(index + 1));
+    const message21 = durableMessage(21, "刚发的这条消息");
+    const message22 = durableMessage(22, "刚落库的 agent 回复");
     listMessages
       .mockResolvedValueOnce({
-        messages: Array.from({ length: 20 }, (_, index) => durableMessage(index + 1)),
+        messages: page1,
         nextCursor: "cursor-20", // 已经 hasMore：真实场景对应「51 条历史、分页 50」
       })
       .mockResolvedValueOnce({
-        // 发送后的第一次软重读：必须带上当前翻页位置的 cursor，才能追到刚发的这条
-        messages: [durableMessage(21, "刚发的这条消息")],
+        // 发送后的第一次软重读：必须带上本地列表尾部（消息 20）的游标，才能追到刚发的这条
+        messages: [message21],
         nextCursor: "cursor-21",
       })
       .mockResolvedValueOnce({
-        // run 到终态后的第二次软重读：必须接着上一次的 cursor 往后走，才能追到 agent 回复
-        messages: [durableMessage(22, "刚落库的 agent 回复")],
+        // run 到终态后的第二次软重读：必须接着本地列表新尾部（消息 21）走，才能追到 agent 回复
+        messages: [message22],
         nextCursor: null,
       });
     getAgentRun.mockResolvedValue(agentRunView("succeeded", "durable-message-22"));
@@ -703,16 +720,63 @@ describe("formal Chat read path", () => {
     // 发送后立刻可见：不是拉回第一页丢掉这条
     expect(await screen.findByText("刚发的这条消息")).toBeInTheDocument();
     expect(listMessages).toHaveBeenNthCalledWith(
-      2, "thread-real", { cursor: "cursor-20", limit: 50 }, "provider-bearer",
+      2, "thread-real",
+      { cursor: encodeMessageCursor(page1[page1.length - 1]!), limit: 50 },
+      "provider-bearer",
     );
 
     // run 到终态后：agent 回复也真的渲染出来，不是停在「执行完成」但列表没变
     expect(await screen.findByText("刚落库的 agent 回复")).toBeInTheDocument();
     expect(listMessages).toHaveBeenNthCalledWith(
-      3, "thread-real", { cursor: "cursor-21", limit: 50 }, "provider-bearer",
+      3, "thread-real",
+      { cursor: encodeMessageCursor(message21), limit: 50 },
+      "provider-bearer",
     );
     // 之前已经渲染过的历史消息没有因为这次软重读而消失（合并去重，不是整批替换）
     expect(screen.getByText("真实消息 1")).toBeInTheDocument();
+  });
+
+  /**
+   * issue #728 D 组 round 2 独立评分发现的 H3 阻塞回归——直接反证本次修复的根因场景：
+   * 线程被追到底（服务端 `nextCursor` 已塌成 `null`，`hasMore=false`）之后，**再**触发
+   * 一次软重读（这里用「生成用户画像」，与真实 e2e 复现路径同一个触发点），追新起点
+   * 不能塌回 `cursor: undefined`（服务端 `decodeCursor(undefined)` 会解成"从头再来"，
+   * 重新拉第一页，把已经归零的 `nextCursor` 弹回非空——修前版本的真实行为，见
+   * `chat-live-message-panel.tsx` 头注）。
+   *
+   * 反证协议：这条测试断言追新请求的 `cursor` 字段是本地已加载列表尾部的真实游标
+   * （`encodeMessageCursor`），而不是 `undefined`——`stash` 掉 `catchUpCursorRef` 那段
+   * 改动、把三处软重读调用改回 `nextCursorRef.current` 会让本测试断言的
+   * `cursor: undefined` 变成真（"从头再来"），这条测试会真的红，不是同义反复。
+   */
+  it("线程已被追到底（nextCursor 已塌成 null）后再软重读，追新起点不塌回起点重新拉第一页（issue #728 round 2 H3 阻塞回归）", async () => {
+    const page1 = Array.from({ length: 20 }, (_, index) => durableMessage(index + 1));
+    const personaMessage = durableMessage(21, "画像生成的新消息");
+    listMessages
+      .mockResolvedValueOnce({ messages: page1, nextCursor: null }) // 首屏即已翻到底
+      .mockResolvedValueOnce({ messages: [personaMessage], nextCursor: null }); // G2 触发的软重读
+    summarizePersonaFromThread.mockResolvedValue({
+      artifactId: "a1", versionId: null, contentHash: null, mode: "draft", hasSource: false,
+      sufficient: true, resultMessageId: "durable-message-21",
+      provenanceBacklink: { conversationId: "thread-real", messageId: "durable-message-20", citations: [] },
+    });
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    await waitFor(() => expect(screen.getByText("真实消息 20")).toBeInTheDocument());
+    // 首屏已经翻到底：「加载更早之后的消息」按钮不该出现
+    expect(screen.queryByTestId("chat-messages-load-more")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("chat-persona-summary-trigger"));
+
+    expect(await screen.findByText("画像生成的新消息")).toBeInTheDocument();
+    // 关键断言：追新请求的 cursor 是本地列表尾部（消息 20）的真实游标，不是
+    // `undefined`（"从头再来"）——这正是修前版本会在这一步踩中的根因。
+    expect(listMessages).toHaveBeenNthCalledWith(
+      2, "thread-real",
+      { cursor: encodeMessageCursor(page1[page1.length - 1]!), limit: 50 },
+      "provider-bearer",
+    );
   });
 
   /**

@@ -16,14 +16,24 @@ import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 
 /**
- * 反复点「加载更早之后的消息」直到按钮消失（真的翻到底，不是「翻出了某张目标图
- * 就提前停」——本文件跨用例共用同一条夹具线程、消息数会累加，「某个 mindmap 图
- * 出现了」不能保证是**这一条用例自己刚生成的那条**，只有翻到底才能确定最新消息
- * 已经加载）。面板此刻仍在软刷新消息流（context-engine 的 L1/L2/L3 徽标逐条轮询、
- * `MessageContextSnapshot` 挂载即拉取），点在刷新中点会短暂 `element was detached
- * from the DOM`——Playwright 单次 `.click()` 内建重试处理的是「元素还没就绪」，
- * 处理不了「持续被替换」这种反复剧烈重渲染，这里换成自己的重试外壳：每轮重新
- * 定位再点，吃掉瞬时 detach。
+ * 反复点「加载更早之后的消息」直到按钮消失或不再出现——真的翻到底，不是「翻出了
+ * 某张目标图就提前停」（本文件跨用例共用同一条夹具线程、消息数会累加，「某个
+ * mindmap 图出现了」不能保证是**这一条用例自己刚生成的那条**，只有翻到底才能确定
+ * 最新消息已经加载）。
+ *
+ * 2026-08-22 更新（issue #728 round 2 独评发现的 H3 阻塞回归修复，见
+ * `chat-live-message-panel.tsx` `catchUpCursorRef` 头注）：修复前，软重读追新起点
+ * 用服务端 `nextCursor`，一旦线程被追到底就会塌成 `null`、下一次软重读又把它错误地
+ * 解释成"从头再来"重新拉第一页——这既会把 `nextCursor` 弹回非空造成按钮反复
+ * 挂载/卸载（点它时无限 `element was detached from the DOM, retrying` 直到测试
+ * 预算耗尽），也意味着"翻到底"永远等不到真正发生。
+ *
+ * 修复后，发送 / run 终态 / 生成画像触发的软重读会用本地列表尾部现算的游标，
+ * 自己就能把分页追到底——**按钮往往在测试走到这一步之前就已经不存在**（真实
+ * 复现：G2 流程跑完时全部 51+3 条消息已经在 DOM 里，从未出现过按钮）。这个 helper
+ * 因此要同时处理「按钮从未出现过」（`count()===0` 立即返回，不算失败）与「按钮还
+ * 在但翻页过程中瞬时 detach」（重试外壳，每轮重新定位再点，吃掉瞬时 detach）两种
+ * 情况——不能再假设按钮必然会出现一次。
  */
 async function loadAllMessagePages(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
@@ -77,9 +87,11 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   expect(personaOut.sufficient).toBe(true);
   expect(typeof personaOut.resultMessageId).toBe("string");
 
-  // 夹具线程有 51+ 条种子消息，首页只显示最老的 50 条——新消息在第二页（与
-  // chat-read.spec 同一现实），先翻页再找图。
-  await page.getByTestId("chat-messages-load-more").click();
+  // 夹具线程有 51+ 条种子消息，首页只显示最老的 50 条。2026-08-22 起（H3 根因
+  // 修复后）软重读会自己把分页追到底，按钮到这一步往往已经不存在——用
+  // `loadAllMessagePages` 而不是裸 `.click()`：按钮不在就直接返回，不强行等一个
+  // 可能已经不会再出现的元素（见该 helper 头注）。
+  await loadAllMessagePages(page);
 
   // mindmap 围栏走既有 fabric 通道渲染出来（mermaid.parse 真跑在浏览器里）。
   const diagram = page.locator('[data-testid="chat-diagram-fabric"][data-diagram-type="mindmap"]').last();
@@ -112,7 +124,10 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   await page.getByTestId("chat-diagram-close").click();
   await page.reload();
   await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
-  await page.getByTestId("chat-messages-load-more").click();
+  // 整页 reload 后是全新挂载（前端内存态清零）：分页从第一页重新开始，还没有任何
+  // 软重读追新过，按钮这次理应存在——仍用 `loadAllMessagePages` 而不是裸
+  // `.click()`，翻页过程中偶发的瞬时 detach 由它的重试外壳吃掉。
+  await loadAllMessagePages(page);
 
   // ── 重开同一消息的最大化 ⇒ 保存版初始化 + 读回提示条 ──────────────────
   const diagram2 = page.locator('[data-testid="chat-diagram-fabric"][data-diagram-type="mindmap"]').last();
