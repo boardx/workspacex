@@ -289,9 +289,16 @@ describe("compliance withdrawal: the one exemption, and why it is absent", () =>
     // the hole wide open for whoever knows the incantation.
     const fns = await asOwner(async (c) => {
       const r = await c.query<{ proname: string }>(
+        // `%force%` also matches `enforce`, and DA-07b legitimately named a trigger
+        // `agent_runs_enforce_status_transition` -- it guards agent_runs' status state
+        // machine (RAISE EXCEPTION on an illegal transition; it contains no DELETE and
+        // touches no snapshot table) and is the opposite of an escape hatch: it exists to
+        // forbid transitions, not to bypass a prohibition. Excluding `%enforce%` keeps the
+        // scan catching an actual `force_delete`/`force_purge` while not flagging every
+        // guard trigger that happens to have "force" inside "enforce".
         `SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-          WHERE n.nspname = 'public' AND (p.proname ILIKE '%force%' OR p.proname ILIKE '%purge%'
-             OR p.proname ILIKE '%hard_delete%' OR p.proname ILIKE '%withdraw%')`,
+          WHERE n.nspname = 'public' AND ((p.proname ILIKE '%force%' AND p.proname NOT ILIKE '%enforce%')
+             OR p.proname ILIKE '%purge%' OR p.proname ILIKE '%hard_delete%' OR p.proname ILIKE '%withdraw%')`,
       );
       return r.rows.map((x) => x.proname);
     });
