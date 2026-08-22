@@ -978,6 +978,7 @@ async function executeClaimed(
     const completeWithProgress = deps.model.completeWithProgress?.bind(deps.model);
     const wantsProgress = completeWithProgress !== undefined
       && (deps.model.supportsProgress ? deps.model.supportsProgress(run.modelProvider) : true);
+    let progressDeltaSeq = 0;
     if (wantsProgress && completeWithProgress) {
       // #742: a provider whose run is a remote, multi-step planning loop (today:
       // `DeepAgentModelProvider`) reports intermediate steps as they happen -- the ONE
@@ -1005,6 +1006,15 @@ async function executeClaimed(
             planningNote: event.planningNote,
           });
           seqCursor.value += 1;
+        },
+        // DA-03：token 增量落进与 completeStream 分支完全相同的 delta 账本
+        // （appendModelDelta + 递增 seq），agui-bridge 的逐轮 readModelDeltas
+        // 转发因此对两条通路一视同仁——它不需要知道 token 是谁产的。
+        async (delta) => {
+          if (delta === "") return;
+          const seq = progressDeltaSeq;
+          progressDeltaSeq += 1;
+          await deps.runs.appendModelDelta(orgId, { runId: run.runId, seq, text: delta });
         },
       );
       if (completion.text.trim() === "") {

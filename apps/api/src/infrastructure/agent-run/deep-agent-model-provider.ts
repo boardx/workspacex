@@ -79,6 +79,14 @@ const ASSISTANT_ID = "Deep Agent";
 
 export interface DeepAgentProviderConfig {
   /**
+   * DA-03（#1749，rubric D3）：`KERNEL_DEEP_AGENT_STREAM_ENABLED === "1"` 时，
+   * `completeWithProgress` 优先走 LangGraph 的 `POST /threads/:id/runs/stream` SSE
+   * 取 token 级增量；关闭或流路失败时回退到下方的状态轮询——回退路径与开关不存在时
+   * **逐字相同**（S1=B 双轨纪律：新通路故障不得比旧世界更糟）。
+   * 默认关。与 `KERNEL_MODEL_STREAM_ENABLED` 同一个灰度模式（configured-model-provider 先例）。
+   */
+  readonly streamEnabled?: boolean;
+  /**
    * Only an internal address, same discipline as `DeepResearchProviderConfig.baseUrl` --
    * this service has no auth of its own. UNLIKE that sibling config, this has no "known
    * real deployment" default: #739's service has never been deployed anywhere yet (per the
@@ -106,6 +114,7 @@ export function readDeepAgentProviderConfig(
     baseUrl: (env.KERNEL_DEEP_AGENT_BASE_URL ?? "").trim().replace(/\/+$/, ""),
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 300_000,
     pollIntervalMs: Number.isFinite(pollInterval) && pollInterval > 0 ? pollInterval : 2_000,
+    streamEnabled: env.KERNEL_DEEP_AGENT_STREAM_ENABLED === "1",
   };
 }
 
@@ -239,21 +248,36 @@ export class DeepAgentModelProvider implements ModelCallPort {
   async completeWithProgress(
     input: ModelCallInput,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
+    onDelta?: (delta: string) => Promise<void>,
   ): Promise<{ readonly text: string; readonly tokens?: number }> {
     const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
     const emitted = new Set<string>();
 
-    const emitNewEvents = async (): Promise<void> => {
-      const state = await this.readState(baseUrl, threadId);
-      const messages = state.values?.messages ?? [];
-      for (const { id, event } of extractToolCallEvents(messages, emitted)) {
-        // Marked emitted ONLY after `onProgress` resolves -- a rejection (the run store
-        // append failed, say) must not silently drop this event from a later poll's retry,
-        // same "not best effort" discipline `completeStream`'s `onDelta` already keeps.
-        await onProgress(event);
-        emitted.add(id);
+    if (this.config.streamEnabled === true && onDelta !== undefined) {
+      // DA-03 流式通路。任何一步失败都落回下面的轮询循环——run 已经在服务端跑着，
+      // 轮询继续等它到终态；已经通过 onDelta 交付过的片段不会重复（delta 是观察通道，
+      // 终稿仍从 readFinalReply 读，两者由 agui-bridge/前端按既有约定拼接）。
+      const streamed = await this.tryStreamRun(baseUrl, threadId, runId, onDelta, onProgress, emitted);
+      if (streamed) {
+        const status = await this.readRunStatus(baseUrl, threadId, runId);
+        if (status === "success") {
+          await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+          const text = await this.readFinalReply(baseUrl, threadId);
+          if (text.trim() === "") {
+            throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
+          }
+          return { text };
+        }
+        if (status === "error" || status === "timeout" || status === "interrupted") {
+          await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+          throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run ended with status "${status}"`);
+        }
+        // 流断了但 run 还没终态：落回轮询等待，不重复提交。
       }
-    };
+    }
+
+    const emitNewEvents = async (): Promise<void> =>
+      this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
 
     while (true) {
       await emitNewEvents();
@@ -282,6 +306,99 @@ export class DeepAgentModelProvider implements ModelCallPort {
       throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
     }
     return { text };
+  }
+
+  /** `completeWithProgress` 的 tool 事件提取（原内联闭包提为方法，流式与轮询两条通路共用）。
+   * emitted 只在 `onProgress` resolve 后标记——拒绝不得静默丢事件（"not best effort"）。 */
+  private async emitNewToolEvents(
+    baseUrl: string,
+    threadId: string,
+    onProgress: (event: ModelCallProgressEvent) => Promise<void>,
+    emitted: Set<string>,
+  ): Promise<void> {
+    const state = await this.readState(baseUrl, threadId);
+    const messages = state.values?.messages ?? [];
+    for (const { id, event } of extractToolCallEvents(messages, emitted)) {
+      await onProgress(event);
+      emitted.add(id);
+    }
+  }
+
+  /**
+   * DA-03：`POST /threads/:id/runs/stream?` 的 SSE 消费。返回 true = 流打开过且正常读完
+   * （不保证 run 成功——终态判定归调用方）；false = 流根本没打开（HTTP 非 2xx / 传输错），
+   * 调用方落回轮询。
+   *
+   * 解析刻意只认两种形状、其余静默跳过（fail-open 到轮询而不是猜）：
+   *   · `event: messages` 且 data 为 `[chunk, metadata]`、chunk.content 是非空字符串、
+   *     chunk 无 tool_call_id → 当作 AIMessageChunk 的 token 片段 → onDelta
+   *   · chunk 带 `tool_call_id` → 有 ToolMessage 落地 → 事件驱动地读一次 state 提取
+   *     tool 事件对（比旧的定时轮询更及时，语义与其同源：仍从 state 提取、仍按 emitted 去重）
+   *
+   * ⚠ 事件形状按 LangGraph Platform 文档 + loopback 测试锚定；对真实 `langgraph dev`
+   * 的首次实跑验证 outstanding——与 #739/#783 同一个已声明的验证边界。形状不匹配的
+   * 后果被设计成「退化为无 delta 的轮询语义」，不会丢终稿、不会伪造流式。
+   */
+  private async tryStreamRun(
+    baseUrl: string,
+    threadId: string,
+    runId: string,
+    onDelta: (delta: string) => Promise<void>,
+    onProgress: (event: ModelCallProgressEvent) => Promise<void>,
+    emitted: Set<string>,
+  ): Promise<boolean> {
+    let response: Response;
+    try {
+      response = await fetch(`${baseUrl}/threads/${threadId}/runs/${runId}/stream`, {
+        method: "GET",
+        headers: { accept: "text/event-stream" },
+      });
+    } catch {
+      return false;
+    }
+    if (!response.ok || response.body === null) return false;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep: number;
+        while ((sep = buffer.indexOf("\n\n")) >= 0) {
+          const rawEvent = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          const dataLines = rawEvent
+            .split("\n")
+            .filter((l) => l.startsWith("data:"))
+            .map((l) => l.slice(5).trim());
+          if (dataLines.length === 0) continue;
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(dataLines.join(""));
+          } catch {
+            continue;
+          }
+          if (!Array.isArray(parsed) || parsed.length === 0) continue;
+          const chunk = parsed[0] as { content?: unknown; tool_call_id?: unknown };
+          if (typeof chunk.tool_call_id === "string" && chunk.tool_call_id !== "") {
+            await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+            continue;
+          }
+          if (typeof chunk.content === "string" && chunk.content !== "") {
+            await onDelta(chunk.content);
+          }
+        }
+      }
+      return true;
+    } catch {
+      // 流中途断：run 还在服务端跑，调用方落回轮询——已交付的 delta 不回滚也不重发。
+      return true;
+    } finally {
+      reader.releaseLock();
+    }
   }
 
   /** Shared by `complete()` and `completeWithProgress()`: validate config/provider, create
