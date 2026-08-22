@@ -92,8 +92,8 @@ export function TemplateTrialDialog({
 
         <p className="rounded-md border border-border-subtle bg-panel px-2.5 py-1.5 text-11 text-muted-foreground">
           试跑把这一行从「草稿」推进到「试跑」，仍未发布——发布前它不会出现在环节可绑定的清单里。
-          选一个工作坊只用作服务端的校验入参，本次试跑**不会**在该工作坊里留下任何记录（服务端如实
-          不落库这一栏，缺口已随 #463 报出）。
+          选一个工作坊只用作服务端的校验入参，本次试跑<strong className="text-background-foreground">不会</strong>在该工作坊里留下任何记录
+          （服务端如实不落库这一栏，缺口已随 #463 报出）。
         </p>
 
         <label className="flex flex-col gap-1 text-11">
