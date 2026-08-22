@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, MessageSquare, RefreshCw } from "lucide-react";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
+import { ChatPopoverCoordinatorProvider } from "@/components/chat/chat-popover-coordinator";
 import {
   NewThreadButton, ThreadCardButton, ThreadListHeader,
 } from "@/components/chat/thread-list-shell";
@@ -380,6 +381,8 @@ function PersonalThreadDetail({
      query，挂载成功后自增 nonce 让 composer 把 `#query` 从正文里删掉。 */
   const [mentionQuery, setMentionQuery] = React.useState<string | null>(null);
   const [mentionResolvedNonce, setMentionResolvedNonce] = React.useState(0);
+  /** issue #1803 gap #4 —— 同 `chat-read-screen.tsx`，转存挂载数给 longrun hint 用。 */
+  const [mountedSkillCount, setMountedSkillCount] = React.useState(0);
 
   if (!detail) {
     if (loading) return <CenteredState>正在读取线程详情…</CenteredState>;
@@ -453,52 +456,62 @@ function PersonalThreadDetail({
           </a>
           才能发消息。
         </p>
-      ) : null}      {bearer ? (
-        <ChatLiveMessagePanel
-          threadId={detail.thread.id}
-          bearer={bearer}
-          agents={agentOptions.status === "ready" ? agentOptions.agents : null}
-          archived={detail.thread.archived}
-          /* `#` 的检测在 composer 里已经实现（与项目屏共用同一套），本屏此前
-             只是没人接收它上报的 query。两条 prop 与 `chat-read-screen.tsx`
-             逐字同名同义，不另造一套。 */
-          onMentionQueryChange={setMentionQuery}
-          mentionResolvedNonce={mentionResolvedNonce}
-          /*
-            #728 round 16 P10 起：个人线程的能力集合从「恒不含 `artifact.land`」，
-            经 2026-08-21 人类裁决改为「恒含 `artifact.land`」——个人对话也要能
-            真的落地产物（`PERSONAL_THREAD_CAPABILITIES`，`land-as-artifact.ts`
-            对个人线程创建者放行、非draft 拒绝，见该文件注释）。这里从服务端
-            下发的 `getThread.out.capabilities` 取值，不写死 true/false——服务端
-            能力集合改，这行自动跟上，前端不用再动（这正是当初这么写的理由，
-            这次裁决反转没有触发任何前端改动，只是这行现在读到的值变了）。
-          */
-          canLandArtifacts={detail.capabilities.includes("artifact.land")}
-          onRunSettled={onThreadSettled}
-        />
-      ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
-      {/*
-        人类裁决（2026-08-21，原话）：「个人对话必须要可以使用公共的 skills」
-        「所有的人都可以用」。
-
-        此前个人对话「没有任何挂载入口」——`ChatSkillMountPanel` 只在项目屏
-        （`chat-read-screen.tsx`）渲染，本屏连 import 都没有。服务端那一半已在
-        #1693 放开（个人线程可挂载，授权改为从线程反推项目），但用户在界面上
-        仍然挂不上，裁决因此没有真正生效。
-
-        ⚠ `projectId` 不传：个人线程没有项目。服务端已不再把 `?projectId=` 当
-        授权输入（#1693 同一批修的越权洞），可见性过滤仍在服务端，前端不复述
-        任何权限规则——这里只负责"给不给入口"。
-      */}
-      {bearer && orgId ? (
-        <ChatSkillMountPanel
-          threadId={detail.thread.id}
-          orgId={orgId}
-          bearer={bearer}
-          mentionQuery={mentionQuery}
-          onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
-        />
       ) : null}
+      {/*
+        issue #1803 gap #3 —— 同 `chat-read-screen.tsx`：`ChatLiveMessagePanel`
+        （内含 `AgentPicker`）与 `ChatSkillMountPanel` 各自的浮层此前互不相知，
+        Provider 包在共同父层让两边共享「同一时刻只开一个」的互斥状态。
+      */}
+      <ChatPopoverCoordinatorProvider>
+        {bearer ? (
+          <ChatLiveMessagePanel
+            threadId={detail.thread.id}
+            bearer={bearer}
+            agents={agentOptions.status === "ready" ? agentOptions.agents : null}
+            archived={detail.thread.archived}
+            /* `#` 的检测在 composer 里已经实现（与项目屏共用同一套），本屏此前
+               只是没人接收它上报的 query。两条 prop 与 `chat-read-screen.tsx`
+               逐字同名同义，不另造一套。 */
+            onMentionQueryChange={setMentionQuery}
+            mentionResolvedNonce={mentionResolvedNonce}
+            /*
+              #728 round 16 P10 起：个人线程的能力集合从「恒不含 `artifact.land`」，
+              经 2026-08-21 人类裁决改为「恒含 `artifact.land`」——个人对话也要能
+              真的落地产物（`PERSONAL_THREAD_CAPABILITIES`，`land-as-artifact.ts`
+              对个人线程创建者放行、非draft 拒绝，见该文件注释）。这里从服务端
+              下发的 `getThread.out.capabilities` 取值，不写死 true/false——服务端
+              能力集合改，这行自动跟上，前端不用再动（这正是当初这么写的理由，
+              这次裁决反转没有触发任何前端改动，只是这行现在读到的值变了）。
+            */
+            canLandArtifacts={detail.capabilities.includes("artifact.land")}
+            onRunSettled={onThreadSettled}
+            hasMountedSkills={mountedSkillCount > 0}
+          />
+        ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
+        {/*
+          人类裁决（2026-08-21，原话）：「个人对话必须要可以使用公共的 skills」
+          「所有的人都可以用」。
+
+          此前个人对话「没有任何挂载入口」——`ChatSkillMountPanel` 只在项目屏
+          （`chat-read-screen.tsx`）渲染，本屏连 import 都没有。服务端那一半已在
+          #1693 放开（个人线程可挂载，授权改为从线程反推项目），但用户在界面上
+          仍然挂不上，裁决因此没有真正生效。
+
+          ⚠ `projectId` 不传：个人线程没有项目。服务端已不再把 `?projectId=` 当
+          授权输入（#1693 同一批修的越权洞），可见性过滤仍在服务端，前端不复述
+          任何权限规则——这里只负责"给不给入口"。
+        */}
+        {bearer && orgId ? (
+          <ChatSkillMountPanel
+            threadId={detail.thread.id}
+            orgId={orgId}
+            bearer={bearer}
+            mentionQuery={mentionQuery}
+            onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
+            onMountsChange={setMountedSkillCount}
+          />
+        ) : null}
+      </ChatPopoverCoordinatorProvider>
 
     </div>
   );

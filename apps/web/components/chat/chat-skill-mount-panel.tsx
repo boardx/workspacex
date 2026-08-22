@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { describeMessageFailure } from "./chat-live-message-panel";
+import { useChatPopoverSlot } from "./chat-popover-coordinator";
 
 /**
  * #467 / #509 —— 会话内挂载 / 卸载 skill（F65）。
@@ -60,6 +61,7 @@ export function ChatSkillMountPanel({
   bearer,
   mentionQuery,
   onMentionMounted,
+  onMountsChange,
 }: {
   threadId: string;
   /**
@@ -74,6 +76,12 @@ export function ChatSkillMountPanel({
   mentionQuery?: string | null;
   /** 由一次 mention 触发的挂载成功后调用——composer 借此清掉输入框里的 `#query`。 */
   onMentionMounted?: () => void;
+  /**
+   * issue #1803 gap #4 —— 把「本对话挂了几个 skill」转发给调用方，供
+   * `ChatLiveMessagePanel` 的 longrun hint 判断措辞（不在那边重读一份挂载列表，
+   * 单一事实源仍是这里的 `listThreadMounts`）。
+   */
+  onMountsChange?: (count: number) => void;
 }) {
   const [mounts, setMounts] = React.useState<readonly ThreadSkillMount[]>([]);
   /**
@@ -83,7 +91,14 @@ export function ChatSkillMountPanel({
    */
   const [version, setVersion] = React.useState<string | null>(null);
   const [pool, setPool] = React.useState<readonly SkillListItem[]>([]);
-  const [picking, setPicking] = React.useState(false);
+  /*
+    issue #1803 gap #3（devapp 实测）——这个候选面板与 `AgentPicker`（运行 Agent
+    下拉）此前是两个互不相知的私有 `useState<boolean>`，先开一个不关、再开另一个
+    会同屏叠在一起。换成 `useChatPopoverSlot`：谁开谁抢占共享的 `activeId`，
+    原来开着的那个自动读到 `open === false`。找不到 Provider 时退化为本地
+    state（不炸，也不互斥），详见 `chat-popover-coordinator.tsx` 文件头注释。
+  */
+  const [picking, setPicking] = useChatPopoverSlot("chat-skill-mount");
   const [loading, setLoading] = React.useState(true);
   const [pending, setPending] = React.useState(false);
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -111,6 +126,10 @@ export function ChatSkillMountPanel({
   React.useEffect(() => {
     void reload();
   }, [reload]);
+
+  React.useEffect(() => {
+    onMountsChange?.(mounts.length);
+  }, [mounts.length, onMountsChange]);
 
   /**
    * ⚠ 挂载态要显示**名称**，而名称只存在于 `pool`（`listSkills`）里——而 `pool`
