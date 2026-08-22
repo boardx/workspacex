@@ -54,6 +54,21 @@ async function loginAsAdmin(page: Page) {
 }
 
 /**
+ * `applyBlueprint` 的组织角色门槛是 `canApplyBlueprint`（`orgRole === "lead"`），
+ * 与「唯一能写蓝本的角色」`admin`（`canMutateCapabilities`）是两个不同的判据——
+ * 见 `apply-blueprint.ts` 头注「admin/lead 分歧」，`admin` 登录会被 403 ROLE_INSUFFICIENT。
+ * F23/F29（`submitBlueprintChangeRequest` 门槛是套用者自动拿到的 `facilitator` 项目角色，
+ * 见 `pg-project-repository.ts` 的 `createProject`）因此都要用 `leadEmail` 登录。
+ */
+async function loginAsLead(page: Page) {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
+  await page.getByTestId("login-password").fill(FULLSTACK_E2E.leadPassword);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+}
+
+/**
  * 直连 API 时要带的头——同 `skill-review-gate.spec.ts` 的规矩：`page.request`
  * 不会自动带上身份（Bearer token，不是 cookie），token 由页面存进 localStorage。
  */
@@ -334,18 +349,20 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（F175→F193/F174
     //   `PgApplyBlueprintRepository`（复用 `PROJECT_REPOSITORY` 的唯一创建路径，
     //   不新开第二个 `INSERT INTO projects`）与 `ApplyBlueprintController`，
     //   断言方向翻正：验证套用真的建出一个项目、真的落库。
-    await loginAsAdmin(page);
+    await loginAsLead(page);
     const headers = await authHeaders(page);
 
     const idempotencyKey = `e2e-apply-${scope}`;
     const projectName = `${BLUEPRINT_NAME}_applied`;
+    // ⚠ `orgId`/`blueprintId` 不进请求体——两者分别来自会话与 URL 路径，controller 的
+    //   `APPLY_BODY_SCHEMA`（apply-blueprint.controller.ts）用 `.omit({orgId,blueprintId})`
+    //   显式拒收，与本仓其余全部 blueprint controller 同一约定（不信前端传路径已表达的字段）。
+    //   带上这两个字段会被 Zod 判 unrecognized_keys，400。
     const applyResponse = await page.request.post(
       `${API}${templates.operations.applyBlueprint.path.replace(":blueprintId", blueprintId)}`,
       {
         headers,
         data: {
-          orgId: FULLSTACK_E2E.orgId,
-          blueprintId,
           versionId: null,
           tier: "one-day",
           projectName,
@@ -369,8 +386,6 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（F175→F193/F174
       {
         headers,
         data: {
-          orgId: FULLSTACK_E2E.orgId,
-          blueprintId,
           versionId: null,
           tier: "one-day",
           projectName,
@@ -402,7 +417,7 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（F175→F193/F174
     // one-day 档），蓝本的 `flow-agenda` facet 从未被填过（本文件没有走那个面板）——
     // 两边序列化后天然不同，这就是一条真实、不需要额外「手工改一下」的偏离，
     // 不是编出来的测试数据。
-    await loginAsAdmin(page);
+    await loginAsLead(page);
     const headers = await authHeaders(page);
 
     const deviationsResponse = await page.request.get(
