@@ -44,6 +44,18 @@ from langchain.agents.middleware import (
 )
 from langchain_core.language_models.chat_models import BaseChatModel
 
+from deepagents import FilesystemMiddleware
+
+# DA-08（#1749，rubric D8②）：单个工具输出超过这个 token 数就驱逐到虚拟文件系统，
+# 正文只留文件引用（实测行为：ToolMessage 被替换为
+# "saved in the filesystem at this path: /large_tool_results/<call_id>"，
+# 完整内容落 state files——2026-08-23 进程内实测，见 test_harness.py 的反证）。
+#
+# 1000 token ≈ 4KB 文本，对齐 rubric v2 的量化口径（人类改进意见第 4 条）。
+# deepagents 默认 20000（≈80KB）——不显式固定就是吃库默认，升级时默认值漂移会
+# 悄悄改变我们的上下文策略，与 Summarization trigger/keep 同一条纪律。
+TOOL_RESULT_EVICT_TOKENS = 1000
+
 
 def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
@@ -54,6 +66,9 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     return [
         TodoListMiddleware(),
         SummarizationMiddleware(model=model, trigger=("tokens", 60000), keep=("messages", 20)),
+        # by-name override（0.7 机制）：同名实例替换 create_deep_agent 内建的默认
+        # FilesystemMiddleware，不是叠第二份——文件工具仍只有一套。
+        FilesystemMiddleware(tool_token_limit_before_evict=TOOL_RESULT_EVICT_TOKENS),
     ]
 
 
