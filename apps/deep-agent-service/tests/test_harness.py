@@ -177,3 +177,70 @@ def test_hitl_env_parsing(monkeypatch):
 
     monkeypatch.setenv("DEEP_AGENT_HITL_TOOLS", "call_skill, execute ,")
     assert build_interrupt_on() == {"call_skill": True, "execute": True}
+
+
+# ── DA-08（rubric D8②）：大工具结果驱逐到虚拟文件系统的活体反证 ──
+
+
+def _offload_graph(payload_chars: int):
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+    from langchain_core.messages import AIMessage
+    from langchain_core.tools import tool
+
+    from deepagents import create_deep_agent
+    from deep_agent_service.harness import build_middleware
+
+    @tool
+    def probe_tool() -> str:
+        """Returns a payload of a controlled size."""
+        return "X" * payload_chars
+
+    class ScriptedModel(GenericFakeChatModel):
+        def bind_tools(self, tools, **kwargs):  # noqa: ANN001, ANN003
+            return self
+
+    model = ScriptedModel(messages=iter([
+        AIMessage(content="", tool_calls=[{"id": "c1", "name": "probe_tool", "args": {}}]),
+        AIMessage(content="done"),
+    ]))
+    return create_deep_agent(model=model, tools=[probe_tool], middleware=build_middleware(model))
+
+
+def test_large_tool_result_evicted_to_file():
+    """超过阈值（1000 token ≈ 4KB）的工具输出必须被驱逐：正文只留文件引用，
+    完整内容一字不丢地落在 state files——两半都断言，缺一半就是丢数据。"""
+    out = _offload_graph(payload_chars=8000).invoke({"messages": [{"role": "user", "content": "go"}]})
+    tool_msgs = [m for m in out["messages"] if type(m).__name__ == "ToolMessage"]
+    assert len(tool_msgs) == 1
+    body = str(tool_msgs[0].content)
+    # 驱逐后的正文 = 文件引用 + 一段截断预览（实测 ~1600 字符）。断言口径：
+    # 本体绝大部分已搬走（正文远小于 8000）且引用在场——不断言"一个 X 都没有"，
+    # 预览是设计行为，帮模型不用 read_file 就知道结果大概长什么样。
+    assert len(body) < 4000, f"正文应远小于本体（实际 {len(body)}）——驱逐没生效"
+    assert "/large_tool_results/" in body, "正文必须留下文件引用路径"
+    files = out.get("files") or {}
+    stored = next((v for k, v in files.items() if "/large_tool_results/" in k), None)
+    assert stored is not None, "完整结果必须落在虚拟文件系统里"
+    content = stored if isinstance(stored, str) else str(stored)
+    assert content.count("X") == 8000, "落盘内容必须一字不丢"
+
+
+def test_small_tool_result_stays_inline():
+    """反向：不超限的输出保持原样内联——驱逐不是无差别搬家，小结果搬走只会
+    多一次 read_file 往返。"""
+    out = _offload_graph(payload_chars=200).invoke({"messages": [{"role": "user", "content": "go"}]})
+    tool_msgs = [m for m in out["messages"] if type(m).__name__ == "ToolMessage"]
+    assert "X" * 200 in str(tool_msgs[0].content)
+    assert not (out.get("files") or {}), "小结果不该产生任何落盘文件"
+
+
+def test_evict_threshold_pinned():
+    """阈值显式固定为 1000（≈4KB，rubric v2 口径），不吃库默认 20000——
+    升级时默认值漂移不得悄悄改变上下文策略（与 Summarization 同一条纪律）。"""
+    from deep_agent_service.harness import TOOL_RESULT_EVICT_TOKENS, build_middleware
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+    assert TOOL_RESULT_EVICT_TOKENS == 1000
+    mw = build_middleware(FakeListChatModel(responses=["ok"]))
+    fs = next(m for m in mw if type(m).__name__ == "FilesystemMiddleware")
+    assert getattr(fs, "_tool_token_limit_before_evict", None) == 1000  # 私有名，实测 vars() 确认
