@@ -162,7 +162,10 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toBeVisible();
 
     await page.getByTestId(`chat-skill-feedback-${skillId}`).click();
-    await expect(page.getByTestId("feedback-dialog-title")).toContainText(skillId);
+    // ⚠ 标题显示的是 skill 的**名字**不是 id（`feedback-dialog.tsx` `targetHeading()`：
+    //   名字缺失才退回 id）——这条断言从写下来那天起就没跟上界面实际形状（issue #1768），
+    //   改成断言 fixture 里专门准备好的 mountableSkillName。
+    await expect(page.getByTestId("feedback-dialog-title")).toContainText(FULLSTACK_E2E.mountableSkillName);
     await submitOpenFeedback(page, {
       kind: "缺陷",
       title: TITLES.skillBug,
