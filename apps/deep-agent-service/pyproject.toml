@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Thin wrapper: organization Skills exposed as dynamic deepagents tools, served via `langgraph dev` (#739, see #738 for the architecture investigation)."
 requires-python = ">=3.11"
 dependencies = [
-  "deepagents>=0.0.5",
+  "deepagents>=0.7,<0.8",
   "langchain-openai>=0.3.0",
   "langgraph-cli[inmem]>=0.4.0",
   "langgraph-checkpoint-postgres>=2.0.0",
