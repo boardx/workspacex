@@ -56,6 +56,21 @@ def _read_org_skills(config: RunnableConfig) -> list[OrgSkill]:
     ]
 
 
+def _read_script_protocol(config: RunnableConfig) -> str | None:
+    """#1747 -- the run-script protocol text, supplied by the calling API per run.
+
+    Absent (the default) means this run has no sandbox behind it, so `call_skill` behaves
+    exactly as it did before #1747. The protocol TEXT is never authored here: the regex that
+    parses a script block out of a reply lives on the TypeScript side, in
+    `run-script-with-retries.ts`, and a second copy of the prose describing that regex is the
+    "same fact declared in two places" drift this repository has been bitten by five times.
+    The caller sends it, this side forwards it verbatim.
+    """
+    configurable = (config or {}).get("configurable") or {}
+    protocol = configurable.get("script_protocol")
+    return protocol if isinstance(protocol, str) and protocol.strip() != "" else None
+
+
 def _find_skill(skills: list[OrgSkill], stable_name: str) -> OrgSkill | None:
     for skill in skills:
         if skill["stable_name"] == stable_name:
@@ -93,10 +108,21 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
                 f"未知技能「{skill_stable_name}」：本次运行挂载的技能里没有这一个，"
                 "先调用 list_org_skills 看看有哪些，或直接根据已有信息回答。"
             )
+        # #1747 -- when the caller tells us a sandbox is behind this run, the focused call
+        # this tool makes must be allowed to answer with an EXECUTABLE script block rather
+        # than prose about one. Appended AFTER the skill body, never before: the skill's own
+        # instructions stay in charge, this only adds a capability statement -- the same
+        # ordering discipline the TypeScript side uses when it appends the identical text to
+        # its own system prompt.
+        protocol = _read_script_protocol(config)
+        system_prompt = (
+            skill["content"] if protocol is None
+            else f"{skill['content']}\n\n---\n\n{protocol}"
+        )
         try:
             response = model.invoke(
                 [
-                    {"role": "system", "content": skill["content"]},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": task},
                 ]
             )

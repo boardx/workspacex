@@ -72,7 +72,12 @@
  */
 import { createHash } from "node:crypto";
 
-import type { ModelCallInput, ModelCallProgressEvent, PinnedSkillContent } from "../../application/agent-run/ports";
+import type {
+  ModelCallCompletion,
+  ModelCallInput,
+  ModelCallProgressEvent,
+  PinnedSkillContent,
+} from "../../application/agent-run/ports";
 import { ModelCallError, type ModelCallPort } from "../../application/agent-run/ports";
 
 export const DEEP_AGENT_PROVIDER_NAME = "deep-agent";
@@ -214,6 +219,32 @@ function extractToolCallEvents(
   return found;
 }
 
+/**
+ * #1747 —— 从线程状态里把**工具结果正文**收出来，作为脚本解析的候选来源。
+ *
+ * 为什么最终回复不够：deep-agent 的最后一条 `AIMessage` 是编排模型对工具结果的**转述**。
+ * 子模型（`call_skill` 里那次独立调用）按 `scriptProtocol` 写出来的 ```run_script 块留在
+ * 它答复的那条 `ToolMessage` 里，永远不会逐字出现在最终回复中。判据只看最终回复时，
+ * 挂了 skill 的 deep-agent run 会一路 succeeded 却一个文件都产不出来——#1747 的实测形态。
+ *
+ * **倒序**返回：最后一次工具调用是真正在回答用户这一问的那次，先看它。
+ *
+ * 不按工具名过滤（不只挑 `call_skill`）是有意的：这一侧不需要理解某个工具的语义，
+ * 判「这段文本里有没有可执行块」的唯一规则在 `run-script-with-retries.ts` 的那条正则，
+ * 在这里再加一层按名字的过滤，等于把同一个判断分散到两处。`list_org_skills` 的输出是
+ * 一行行技能名，本来就不含代码围栏，过不了那条正则。
+ */
+function collectScriptCandidates(messages: readonly ThreadMessage[]): readonly string[] {
+  const candidates: string[] = [];
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message?.type === "tool" && typeof message.content === "string" && message.content.trim() !== "") {
+      candidates.push(message.content);
+    }
+  }
+  return candidates;
+}
+
 /** Wire shape for `config.configurable.org_skills` -- matches
  * `apps/deep-agent-service/src/deep_agent_service/tools.py`'s `OrgSkill` TypedDict field
  * names verbatim (snake_case, because that side reads it as plain JSON, not through this
@@ -232,14 +263,10 @@ function toWireSkills(skills: readonly PinnedSkillContent[] | undefined): readon
 export class DeepAgentModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepAgentProviderConfig) {}
 
-  async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
+  async complete(input: ModelCallInput): Promise<ModelCallCompletion> {
     const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
     await this.pollToTerminal(baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs);
-    const text = await this.readFinalReply(baseUrl, threadId);
-    if (text.trim() === "") {
-      throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
-    }
-    return { text };
+    return this.readCompletion(baseUrl, threadId);
   }
 
   /**
@@ -251,7 +278,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     input: ModelCallInput,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
     onDelta?: (delta: string) => Promise<void>,
-  ): Promise<{ readonly text: string; readonly tokens?: number }> {
+  ): Promise<ModelCallCompletion> {
     const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
     const emitted = new Set<string>();
 
@@ -303,11 +330,23 @@ export class DeepAgentModelProvider implements ModelCallPort {
     // closes it the identical way -- it never introduces a new race, only catches up.
     await emitNewEvents();
 
-    const text = await this.readFinalReply(baseUrl, threadId);
+    return this.readCompletion(baseUrl, threadId);
+  }
+
+  /**
+   * 终态之后**读一次** state，同时得到最终回复与 #1747 的候选脚本来源。
+   *
+   * 一次读而不是两次：两次分别读会拿到两个可能不同的快照，于是「回复」与「产生它的
+   * 工具结果」可能来自不同时刻——那正是本仓一再栽的「同一事实取自两处」。
+   */
+  private async readCompletion(baseUrl: string, threadId: string): Promise<ModelCallCompletion> {
+    const state = await this.readState(baseUrl, threadId);
+    const messages = state.values?.messages ?? [];
+    const text = readFinalReply(messages);
     if (text.trim() === "") {
       throw new ModelCallError("MODEL_CALL_FAILED", "deep agent run succeeded but produced no assistant message");
     }
-    return { text };
+    return { text, scriptCandidates: collectScriptCandidates(messages) };
   }
 
   /** `completeWithProgress` 的 tool 事件提取（原内联闭包提为方法，流式与轮询两条通路共用）。
@@ -503,7 +542,22 @@ export class DeepAgentModelProvider implements ModelCallPort {
       body: JSON.stringify({
         assistant_id: ASSISTANT_ID,
         input: { messages },
-        config: { configurable: { org_skills: toWireSkills(input.skills) } },
+        config: {
+          configurable: {
+            org_skills: toWireSkills(input.skills),
+            /*
+             * #1747 —— 脚本执行协议原样转发给远端。
+             *
+             * 远端的 `call_skill` 发起的是一次**独立的**子模型调用，system prompt 是
+             * skill 正文，收不到上面那条 system 消息。协议只能作为 per-run 配置过去，
+             * 和 `org_skills` 一样走 LangGraph 自己的 `configurable` 通道。
+             *
+             * ⚠ 缺席时这个键**不出现**——远端读不到就完全按改动前的方式跑（T2）。
+             *   协议正文的唯一事实源在 `run-script-with-retries.ts`，Python 侧不写副本。
+             */
+            ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
+          },
+        },
       }),
     });
     const body = (await response.json()) as { run_id?: string };
@@ -532,17 +586,18 @@ export class DeepAgentModelProvider implements ModelCallPort {
     return (await response.json()) as ThreadStateResponse;
   }
 
-  private async readFinalReply(baseUrl: string, threadId: string): Promise<string> {
-    const state = await this.readState(baseUrl, threadId);
-    const messages = state.values?.messages ?? [];
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      const message = messages[i];
-      if (message?.type === "ai" && typeof message.content === "string" && message.content.trim() !== "") {
-        return message.content;
-      }
+}
+
+/** 最后一条非空 `AIMessage` 的正文。#1747 把它从方法改成纯函数：`readCompletion` 要在
+ * **同一份** state 快照上同时取回复与候选来源，再读一次 HTTP 就是取自两个时刻。 */
+function readFinalReply(messages: readonly ThreadMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message?.type === "ai" && typeof message.content === "string" && message.content.trim() !== "") {
+      return message.content;
     }
-    return "";
   }
+  return "";
 }
 
 /** Chat threadId → 远端 thread id 的决定性派生。见 `ensureThread` 的注释。 */

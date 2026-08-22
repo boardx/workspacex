@@ -552,6 +552,23 @@ export interface ModelCallInput {
    * 定界与「没送的那几张为什么没送」的渲染在 `run-image-input.ts`。
    */
   readonly images?: readonly ModelCallImage[];
+  /**
+   * #1747 —— 脚本执行协议的正文（`RUN_SCRIPT_PROTOCOL_PROMPT`），给那些把 skill 的执行
+   * 委托给一个远端子模型调用的 provider 用（今天只有 `DeepAgentModelProvider`）。
+   *
+   * 为什么要单独立一个字段，而不是让远端自己写一份：这段文字是「脚本长什么样才会被
+   * 解析出来执行」的唯一事实源，解析它的正则在 `run-script-with-retries.ts`。让
+   * `apps/deep-agent-service` 的 Python 侧再写一份中文/英文对照，就是把同一个事实声明
+   * 在两处——本仓已经因此漂移过五次。所以协议正文从 TS 这一侧发过去，Python 只负责
+   * 原样转发给它发起的那次子模型调用。
+   *
+   * ⚠ 可选，且**缺席即关闭**：`execute-run.ts` 只在「沙箱与对象存储都注入了 ∧ 这轮真的
+   *   挂了 skill」这道**已有的**门里填它——与它给 `system` 追加同一段协议文本用的是同一
+   *   个条件，不是第二道门。不填 ⇒ 远端行为与本次改动之前逐字节相同。
+   * ⚠ 一个不理解这个字段的 provider 忽略它是允许的形态，与 `history` / `skills` /
+   *   `images` 逐字同一条纪律：接受但忽略一个用不上的输入，不是静默丢弃。
+   */
+  readonly scriptProtocol?: string;
 }
 
 /**
@@ -580,6 +597,33 @@ export class ModelCallError extends Error {
   }
 }
 
+/**
+ * 一次模型调用的返回。原本是三处逐字重复的内联字面量（`complete` / `completeStream` /
+ * `completeWithProgress`），#1747 收敛成一个具名类型——否则新增一个字段要改三处，
+ * 漏一处就是一条只在某一条分支上存在的契约。
+ */
+export interface ModelCallCompletion {
+  readonly text: string;
+  readonly tokens?: number;
+  readonly promptTokens?: number;
+  readonly completionTokens?: number;
+  /**
+   * #1747 —— 除最终回复之外，这次调用途中产生的、**可能含可执行脚本块**的文本。
+   *
+   * 只有把 skill 的执行委托给远端 agent 循环的 provider 会填它（今天只有
+   * `DeepAgentModelProvider`：它填的是那轮 `call_skill` 的 `ToolMessage` 正文）。
+   *
+   * 为什么需要它：deep-agent 的最终 AI 消息是编排模型对工具结果的**转述**，脚本块留在
+   * 工具结果里，从来没有进入过 `text`。`maybeRunSkillScript` 的判据只看 `text`，于是
+   * 挂了 skill 的 deep-agent run 一路 `succeeded` 却 0 文件——这就是 #1747 的真实形态。
+   *
+   * ⚠ 这里**不是**第二个「本轮是否成功」的事实源。成功与否仍然只由 `text` 决定
+   *   （`execute-run.ts` 对空 `text` 的检查一行没动），这个字段只多提供几段候选文本供
+   *   脚本解析。缺席/空数组 ⇒ 与本次改动之前逐字节相同，既有实现与测试替身都不必改。
+   */
+  readonly scriptCandidates?: readonly string[];
+}
+
 export interface ModelCallPort {
   /**
    * Perform the single model call for a pinned provider/model.
@@ -596,9 +640,7 @@ export interface ModelCallPort {
    * need a usage figure (`trialRunAgent`, #595 Line A) and treat its absence as `0`, which
    * reads as "not reported", not "confirmed zero".
    */
-  complete(input: ModelCallInput): Promise<
-    { readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }
-  >;
+  complete(input: ModelCallInput): Promise<ModelCallCompletion>;
 
   /**
    * OPTIONAL streaming variant of `complete` (#654 阶段2a).
@@ -618,7 +660,7 @@ export interface ModelCallPort {
   completeStream?(
     input: ModelCallInput,
     onDelta: (delta: string) => Promise<void>,
-  ): Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }>;
+  ): Promise<ModelCallCompletion>;
 
   /**
    * #742 -- OPTIONAL, and MUTUALLY EXCLUSIVE with `completeStream` in practice (a provider
@@ -653,7 +695,10 @@ export interface ModelCallPort {
      * 加此参数之前逐字一致（S1=B 双轨纪律在端口层的镜像）。
      */
     onDelta?: (delta: string) => Promise<void>,
-  ): Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }>;
+    /* ⚠ 返回 `ModelCallCompletion`（#1747）：它在原来的 `{text,tokens,...}` 之上多带
+       `files`——deep-agent 走 `call_skill` 产出的脚本，其执行产物要经这里回到
+       `execute-run.ts` 落 ObjectStore。与上面的 `onDelta` 是两件独立的事，同时保留。 */
+  ): Promise<ModelCallCompletion>;
 
   /**
    * 2026-08-09 hotfix (#798) -- OPTIONAL per-run capability query, only meaningful for a

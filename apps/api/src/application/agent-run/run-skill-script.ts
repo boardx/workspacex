@@ -14,7 +14,7 @@
  * |---|---|
  * | `deps.sandbox` 与 `deps.objects` 都注入了 | 没注入 ⇒ 这条路径整段不存在，行为与今天**逐字节相同**（T2） |
  * | 这次 run **挂了至少一个 skill** | 没挂 skill 的普通对话不该因为模型随口贴了段 js 就被拿去执行 |
- * | `tryExtractScript(reply)` 真的抠到了脚本 | 模型这轮只是在说话 ⇒ 什么都不做 |
+ * | `reply` 或任一 `scriptSources` 里真的抠到了脚本 | 模型这轮只是在说话 ⇒ 什么都不做 |
  *
  * ⚠ **为什么不是"挂了 skill 就执行"**：挂着 pptx skill 问一句"你都能做什么"，模型会
  *   回一段说明文字。恒真判据会把那段散文喂给 node，产生一堆与真实问题无关的语法错误，
@@ -25,6 +25,16 @@
  *   会得到一个 ```js 块——那是给人看的答案，不是要求执行。挂载是用户的显式意图信号。
  *
  * 反证（T3-CP）：把判据改成恒真，T3 必须变红。
+ *
+ * ## #1747：deep-agent 那条路的脚本不在最终回复里
+ *
+ * 走 `通用助手`（`DeepAgentModelProvider`）时，最终 AI 消息是编排模型对 `call_skill`
+ * 结果的转述散文；子模型写出来的脚本块留在 `ToolMessage` 里，从来没进过被检查的那段
+ * 文本。所以判据的第三条从「reply 里有脚本」放宽到「reply 或任一候选来源里有脚本」，
+ * 候选来源由 provider 通过 `ModelCallCompletion.scriptCandidates` 交上来。
+ *
+ * ⚠ 放宽的只是**去哪儿找脚本**，不是**什么时候可以执行**：前两条判据（注入了沙箱与
+ *   对象存储 ∧ 这轮挂了 skill）一个字没动。没挂 skill 的对话仍然一次都不碰沙箱。
  *
  * ## 第一次尝试**不额外调模型**
  *
@@ -120,6 +130,18 @@ export interface MaybeRunSkillScriptInput {
   readonly pinnedSkillCount: number;
   /** 模型这一轮的完整回复。 */
   readonly reply: string;
+  /**
+   * #1747 —— 除最终回复之外的**候选脚本来源**（`ModelCallCompletion.scriptCandidates`）。
+   *
+   * 为什么需要它：走 deep-agent 的 run，最终回复是编排模型对 `call_skill` 结果的转述，
+   * 真正的脚本块留在工具结果里。判据只看 `reply` 时，挂了 skill 的 deep-agent run 会
+   * 一路 succeeded 却 0 文件——#1747 的实测形态。
+   *
+   * ⚠ 缺省/空数组 ⇒ 判据与执行路径与本次改动之前**逐字节相同**（T2 的保证之一）。
+   * ⚠ 只影响「拿哪段文本去解析脚本」。写回给用户的正文永远是 `reply`，不是这里的候选——
+   *   工具结果是链路中间产物，把它贴给用户等于让用户看到两份互相矛盾的答案。
+   */
+  readonly scriptSources?: readonly string[];
 }
 
 export async function maybeRunSkillScript(
@@ -131,7 +153,12 @@ export async function maybeRunSkillScript(
   // ── 判据（见头注的表）。三条任一不成立就原样返回，沙箱一次都不被调用。 ──
   if (!deps.sandbox || !deps.objects) return notAttempted;
   if (input.pinnedSkillCount <= 0) return notAttempted;
-  if (tryExtractScript(input.reply) === null) return notAttempted;
+  // 第三条：`reply` 优先，其次才是 #1747 的候选来源。顺序有意义——模型这轮**自己**写出来
+  // 的脚本，与写回给用户的正文是同一段文字；候选来源是链路中间产物，只在正文里确实没有
+  // 脚本时才用得上。`scriptSources` 缺省 ⇒ 这一行退化成改动前的那一行。
+  const scriptSource = [input.reply, ...(input.scriptSources ?? [])]
+    .find((candidate) => tryExtractScript(candidate) !== null);
+  if (scriptSource === undefined) return notAttempted;
 
   const sandbox = deps.sandbox;
   const objects = deps.objects;
@@ -143,7 +170,7 @@ export async function maybeRunSkillScript(
       maxAttempts: deps.maxAttempts ?? MAX_SCRIPT_ATTEMPTS,
       log: deps.log,
       // 第 1 次复用已有回复（feedback === null），之后才真的再调模型。
-      generateScript: async (feedback) => (feedback === null ? input.reply : deps.regenerate(feedback)),
+      generateScript: async (feedback) => (feedback === null ? scriptSource : deps.regenerate(feedback)),
     });
 
     const files: ProducedFile[] = [];
