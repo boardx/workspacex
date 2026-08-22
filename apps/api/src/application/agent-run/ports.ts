@@ -637,6 +637,14 @@ export interface ModelCallPort {
   completeWithProgress?(
     input: ModelCallInput,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
+    /**
+     * DA-03（#1749，rubric D3）：token 级增量的观察通道，契约与 `completeStream` 的
+     * `onDelta` 逐字相同——按序、resolve 前逐个 fire、拒绝即失败（不是 best effort）。
+     * 可选参数而非新方法：一个 provider 的「多步进度」与「token 流」是同一次远程
+     * 执行的两种观察，拆成两个方法会诱导两次调用。不传时 provider 行为必须与
+     * 加此参数之前逐字一致（S1=B 双轨纪律在端口层的镜像）。
+     */
+    onDelta?: (delta: string) => Promise<void>,
   ): Promise<{ readonly text: string; readonly tokens?: number; readonly promptTokens?: number; readonly completionTokens?: number }>;
 
   /**
