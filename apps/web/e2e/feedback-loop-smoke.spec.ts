@@ -162,7 +162,10 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     await expect(page.getByTestId(`chat-skill-mounted-${skillId}`)).toBeVisible();
 
     await page.getByTestId(`chat-skill-feedback-${skillId}`).click();
-    await expect(page.getByTestId("feedback-dialog-title")).toContainText(skillId);
+    // ⚠ 2026-08-22：PR #1741 把挂载栏反馈弹层的 `targetLabel` 从裸 UUID 改成了技能名——
+    //   `chat-skill-mount-panel.tsx` 头注「UUID 对提交反馈的人没有意义」，人类 UX 裁决。
+    //   这条断言原先按 id 校验，随之改成按人类可读的名字校验，跟上真实标题。
+    await expect(page.getByTestId("feedback-dialog-title")).toContainText(FULLSTACK_E2E.mountableSkillName);
     await submitOpenFeedback(page, {
       kind: "缺陷",
       title: TITLES.skillBug,
