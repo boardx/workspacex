@@ -54,6 +54,20 @@ async function loginAsAdmin(page: Page) {
 }
 
 /**
+ * 套用蓝本（`applyBlueprint`）只放行 `orgRole === "lead"`（`canApplyBlueprint`，
+ * `apply-blueprint.ts` 头注「admin/lead 分歧」逐字钉死）——admin 能写蓝本本体
+ * （`canMutateCapabilities` 只认 admin），但套用新建项目走的是「新建项目唯一有权
+ * 的角色」这条既有裁决（PJ-01 / #976），两者是不同的角色边界，F23 因此必须换身份。
+ */
+async function loginAsLead(page: Page) {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.leadEmail);
+  await page.getByTestId("login-password").fill(FULLSTACK_E2E.leadPassword);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+}
+
+/**
  * 直连 API 时要带的头——同 `skill-review-gate.spec.ts` 的规矩：`page.request`
  * 不会自动带上身份（Bearer token，不是 cookie），token 由页面存进 localStorage。
  */
@@ -334,7 +348,13 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（F175→F193/F174
     //   `PgApplyBlueprintRepository`（复用 `PROJECT_REPOSITORY` 的唯一创建路径，
     //   不新开第二个 `INSERT INTO projects`）与 `ApplyBlueprintController`，
     //   断言方向翻正：验证套用真的建出一个项目、真的落库。
-    await loginAsAdmin(page);
+    // ⚠ 2026-08-22（issue #1767）：换成 `loginAsLead`——`canApplyBlueprint` 只认
+    //   `lead`，admin 打这条会 403（此前测试自身的 bug，套用未被真实覆盖过）。
+    //   POST body 也不再带 `orgId`/`blueprintId`——`APPLY_BODY_SCHEMA`
+    //   （controller 侧 `.omit({orgId, blueprintId})`）显式拒收这两个字段，
+    //   带上会触发 Zod `unrecognized_keys` 400（同仓其余 blueprint controller
+    //   一致的约定：路径/会话已表达的字段不信前端重复传）。
+    await loginAsLead(page);
     const headers = await authHeaders(page);
 
     const idempotencyKey = `e2e-apply-${scope}`;
@@ -344,8 +364,6 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（F175→F193/F174
       {
         headers,
         data: {
-          orgId: FULLSTACK_E2E.orgId,
-          blueprintId,
           versionId: null,
           tier: "one-day",
           projectName,
@@ -369,8 +387,6 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（F175→F193/F174
       {
         headers,
         data: {
-          orgId: FULLSTACK_E2E.orgId,
-          blueprintId,
           versionId: null,
           tier: "one-day",
           projectName,
@@ -402,7 +418,11 @@ test.describe.serial("蓝本管理闭环 + 契约缺口审计（F175→F193/F174
     // one-day 档），蓝本的 `flow-agenda` facet 从未被填过（本文件没有走那个面板）——
     // 两边序列化后天然不同，这就是一条真实、不需要额外「手工改一下」的偏离，
     // 不是编出来的测试数据。
-    await loginAsAdmin(page);
+    // ⚠ 2026-08-22（issue #1767）：换成 `loginAsLead`——上一条用例（F23）现在是
+    //   `lead` 套用出的项目，`computeDeviations` 要求 `actorProjectRole` 非空
+    //   （`compute-deviations.ts` 的 `NO_PROJECT_ROLE` 判定），admin 不是这个项目
+    //   的成员，403；创建者 `lead` 天然有项目角色。
+    await loginAsLead(page);
     const headers = await authHeaders(page);
 
     const deviationsResponse = await page.request.get(

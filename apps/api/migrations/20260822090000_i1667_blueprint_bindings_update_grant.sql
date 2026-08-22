@@ -1,0 +1,23 @@
+-- 修真实生产回归（issue #1767）：`blueprint_bindings` 自建表起（migration
+-- `20260814080000_f179_blueprint_versions_and_bindings.sql`）只
+-- `GRANT SELECT, INSERT`——当时的理由（该迁移原文）是「绑定是历史事实的记录，
+-- 不给 UPDATE/DELETE——修改或删除一条绑定记录等于让『已经发生过的事』重新变得
+-- 没发生过」。
+--
+-- 迁移 `20260821090000_i1667_apply_blueprint_infra.sql`（F23/#1667）给这张表补了
+-- `project_id`/`version_id` 两列，`PgApplyBlueprintRepository.apply()` 用
+-- `UPDATE blueprint_bindings SET project_id = $1, version_id = $2` 回填它们——
+-- 这不是「让已发生的事重新没发生」，是给一条本就存在、`project_id` 恒为
+-- `NULL` 的占位绑定行（`kind = 'project'`，套用尚未完成时先写下的占位）补上
+-- 「套到了哪个项目」这个此前不知道的事实，语义上更接近 INSERT 补全而非改写历史——
+-- 但这是本仓第一处、也是唯一一处 UPDATE 这张表的调用方，GRANT 从未跟上，
+-- 上线后 `POST /blueprints/:id/apply` 卡在这条 UPDATE 上抛
+-- `permission denied for table blueprint_bindings`（Postgres 42501），
+-- NestJS 全局异常过滤器把它当未识别异常，回 500。
+--
+-- 只授权 `project_id`/`version_id` 两列的列级 UPDATE（不放开整表 UPDATE）——
+-- 沿用原迁移「绑定记录不可任意改写」的立场，只开这一条真实调用方需要的口子，
+-- 不收窄到需要另开一张表，也不放宽到能改 `blueprint_id`/`kind`/`org_id` 这些
+-- 定义「这条绑定是什么」的字段。
+
+GRANT UPDATE (project_id, version_id) ON blueprint_bindings TO app_rw;
