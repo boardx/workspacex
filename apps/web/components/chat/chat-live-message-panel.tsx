@@ -30,6 +30,7 @@ import {
 } from "@/lib/agent-run";
 import { openAgentRunStream } from "@/lib/agent-run-stream";
 import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
+import { AgentApprovalPanel } from "@/components/chat/agent-approval-panel";
 import { ApiError } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
@@ -1103,6 +1104,9 @@ export function ChatLiveMessagePanel({
                       不再挂在 composer 下方——同一条 run 落库后接力给 `MessageThinkingChain`
                       （上面持久消息那条），视觉位置不因"是否还在流式中"而跳动。 */}
                   {runObservation?.view ? <AgentPlanPanel steps={runObservation.view.steps} /> : null}
+                  {runObservation?.view ? (
+                    <AgentApprovalPanel view={runObservation.view} sessionToken={bearer} />
+                  ) : null}
                   {runObservation?.view ? <AgentToolChain steps={runObservation.view.steps} /> : null}
                   <div className="rounded-2xl rounded-tl-sm bg-panel px-3.5 py-2.5 text-12 leading-relaxed text-card-foreground">
                     {/* 同一个 MarkdownMessage——流式草稿与落库后的最终消息渲染路径不该是两套。
@@ -1151,6 +1155,9 @@ export function ChatLiveMessagePanel({
                     ) : null}
                   </div>
                   {runObservation?.view ? <AgentPlanPanel steps={runObservation.view.steps} /> : null}
+                  {runObservation?.view ? (
+                    <AgentApprovalPanel view={runObservation.view} sessionToken={bearer} />
+                  ) : null}
                   {runObservation?.view ? <AgentToolChain steps={runObservation.view.steps} /> : null}
                   <div
                     className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-panel px-3.5 py-3"
@@ -1568,6 +1575,7 @@ const RUN_STATUS_TEXT: Record<AgentRunStatus, string> = {
   queued: "已排队，等待执行",
   running: "正在执行",
   writeback_pending: "已产出，正在写回对话",
+  awaiting_approval: "等待你的批准（见上方审批卡）",
   succeeded: "执行完成，回复已写入对话",
   failed: "执行失败",
 };

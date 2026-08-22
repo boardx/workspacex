@@ -370,6 +370,17 @@ export const operations = {
    * Wave 2's run transport is polling (§5). Clients use bounded backoff and stop at a
    * terminal status. There is no SSE variant in this slice.
    */
+  /**
+   * DA-07c（#1749，rubric D6）：awaiting_approval 的人裁决入口。
+   * 409（AGENT_RUN_NOT_AWAITING_APPROVAL）= 竞态输了：run 已被别人裁决或已终态，
+   * 客户端展示真实状态，不假装自己的决定生效。
+   */
+  decideAgentRun: {
+    method: "POST",
+    path: "/agent-runs/:runId/decision",
+    in: z.object({ runId: z.string().min(1), decision: z.enum(["approve", "reject"]) }).strict(),
+    out: AgentRunView,
+  },
   getAgentRun: {
     method: "GET",
     path: "/agent-runs/:runId",
