@@ -1,6 +1,9 @@
 # Deep Agent × CopilotKit 十分体验 Backlog
 
-> 创建于 2026-08-22，coord-architecture。目标：agent+chat 体验达到行业顶级 10 分。
+> 创建于 2026-08-22，coord-architecture；同日 v2——按人类 15 条改进意见修订
+> （统一 4 级标尺 / D4 时间旅行 / D7 死循环+预算熔断 / D8 量化阈值 / D9 双向注入 /
+> D10 可观测性 / TC-1~5 黄金场景 / 反伪造一票否决 / 物理证据闭环 / 应用层
+> 「一切皆文件」五条 DA-12~16）。目标：agent+chat 体验达到行业顶级 10 分。
 > 判据：`.harness/rubrics/deepagent-capability-rubric.md`（引擎能力，本 backlog 主判据）
 > ＋ `chat-ux-acceptance-criteria.md`（端到端行为）＋ `chat-main-fidelity-rubric.md`（视觉）。
 > 三份都要满，本 backlog 逐条标注它推动哪份的哪个维度。
@@ -91,10 +94,14 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
   前端失败态持久可见 + 可重试。
 - **依赖**：DA-05。
 
-### DA-09 harness engineering：PreCompletionChecklist + 反证评测
-- **推动**：D7、chat-ux 维度 4（真实多步的质量底）
-- **动作**：加 PreCompletionChecklistMiddleware（退出前对照任务自检——LangChain 实测同模型
-  +13.7 分那套的核心件）；建一组固定评测任务（多步、含失败注入），CI 可跑，防止引擎回归。
+### DA-09 harness engineering：PreCompletionChecklist + 死循环/预算熔断 + 黄金压测场景
+- **推动**：D7（v2 扩充后的三件套）、chat-ux 维度 4
+- **动作**：
+  1. `PreCompletionChecklistMiddleware`（退出前对照任务自检，LangChain 同模型 +13.7 分核心件）
+  2. **LoopDetection 等价**：同一工具/文件重复操作超阈值注入纠偏
+  3. **预算熔断**：最大步数/Token/时间至少两种强制生效，超限安全降级并明确通告（不是静默截断）
+  4. **TC-1~TC-5 黄金压测场景脚本**落在 `apps/deep-agent-service/tests/golden/`，
+     CI 跑自动化子集——rubric v2 规定每次正式评分必须跑完五场景，这条是评分客观化的地基
 - **依赖**：DA-02。
 
 ### DA-10 guided_research 平行 loop 的裁决
@@ -108,6 +115,43 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 - **动作**：SubagentMiddleware 启用 + 前端渲染「委托给 X」嵌套卡片。
 - **依赖**：DA-06。
 
+### DA-12 应用层虚拟文件系统（VFS）⚠ 需 S1
+- **推动**：D8（卸载落点）、D9、「一切皆文件」路线的地基
+- **动作**：用户上传附件、网页片段、agent 产出物、任务清单统一抽象为带唯一 URI 的虚拟
+  文件对象，跨会话持久化 + 文件树管理。**先盘点复用**：本仓已有 files 模块 / chat-file-upload /
+  canvas 产物链（F41 七源 materialize），VFS 是给它们一层统一寻址，不是第二套存储——
+  发现重叠以既有实现为准（同一事实不两处声明）。
+- **依赖**：DA-02（引擎侧 FilesystemMiddleware 的落点）；与 DA-05 并行。
+
+### DA-13 双栏联动：Chat + 活动文件工作台 ⚠ 需 S1
+- **推动**：chat-ux 维度 8/9/10、「一切皆文件」的交互主体
+- **动作**：左栏流式对话与决策过程；右栏活动文件工作台（Active File Panel）——长文档/代码
+  不再塞进聊天气泡，agent 打开/写入文件时右栏实时展开。样式服从 fidelity rubric。
+- **依赖**：DA-12 + DA-15（文件事件流）。
+
+### DA-14 显式/隐式文件上下文注入 ⚠ 需 S1
+- **推动**：D9 到 1.0（上行注入是 v2 的硬指标）
+- **动作**：
+  1. 显式：输入框 `@` 引用工作区文件 + Pin 关键文档；文件胶囊（chips）展示所耗 token 预算
+  2. 隐式：前端捕获右栏当前视窗/选中片段，请求时作为「临时文件切片」静默注入
+     （useCopilotReadable 通路），并可在请求体中验证注入生效
+- **依赖**：DA-12、DA-13。
+
+### DA-15 文件事件流契约（AG-UI 命名空间扩展）
+- **推动**：D2/D9、DA-13 的传输层
+- **动作**：定义 `file_created` / `file_content_delta` / `file_patch_applied` 事件，
+  作为 AG-UI **自定义事件命名空间扩展**——⚠ 边界：不 fork AG-UI 协议本身，标准事件
+  （TEXT_MESSAGE_*/TOOL_CALL_*/STATE_*）语义不改，扩展事件走协议预留的 custom 通道；
+  契约文件按 ADR-023 落 `packages/contracts/`，前后端共用单源。
+- **依赖**：DA-03。
+
+### DA-16 局部文件补丁 + 可视化 Diff ⚠ 需 S1
+- **推动**：chat-ux 维度 8、D2
+- **动作**：agent 改已有文件禁止全量重写——引擎侧走 FilesystemMiddleware 的 `edit_file`
+  （patch 语义），事件流发 `file_patch_applied`；前端红绿 diff 高亮 + Accept/Reject。
+  Reject 语义 = 不应用该 patch 并把拒绝原因回注给 agent。
+- **依赖**：DA-13、DA-15。
+
 ## 评分预期（诚实版）
 
 | 条目完成后 | 引擎分预期 | 说明 |
@@ -116,8 +160,9 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 | DA-02 | ~4（估） | D1+D4+D8+D10 各升 |
 | DA-03/04 | ~5.5（估） | D3 到 1，D9 到 0.5 |
 | DA-05/06 | ~7（估） | D2/D9 到 1 |
-| DA-07/08/09/11 | ~9+（估） | D5/D6/D7 补齐 |
-| **10 分** | 由独立评分 + 人类确认给出 | **不承诺日期承诺机制**：每条做完必重评，最低分维度优先修 |
+| DA-07/08/09/11 | ~8.5+（估） | D5/D6/D7 补齐（D7 v2 加了死循环+熔断，更难满） |
+| DA-12~16 | ~9.5+（估） | D8/D9 的 1.0 硬指标（上行注入、卸载落点）靠这批 |
+| **10 分** | 独立评分跑完 TC-1~5 + 物理证据闭环 + 人类确认 | **不承诺日期承诺机制**：每条做完必重评，最低分维度优先修 |
 
 ## 不做的事（明确排除）
 
