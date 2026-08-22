@@ -60,6 +60,16 @@ import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
  * 保存时按 `isCanvasFenceLang` 过滤、工具条只留选择/＋便签/删除），细节见该文件
  * 文件头注释。G1 读回（`fetchLatestSavedDiagramSource`）与围栏语言无关，直接复用
  * mermaid 路径同一份逻辑。
+ *
+ * ── 根因修复（issue #1668 引入的回归，与 `ChatDiagramFabric` 同款，同一次 devapp
+ * 崩溃排查，2026-08-22）──────────────────────────────────────────────────────
+ * 挂载即读回把 `previewCode` 换成保存版这一步，如果发生在「已经挂了 fabric
+ * canvas」之后（`status.phase === "valid"`），而新内容重新校验又失败，`status`
+ * 会从 "valid" 跳到别的状态——这一次 fabric 已经真的包过 DOM，React 卸载/替换
+ * 这棵子树时会撞上它塞进去的包裹节点崩页。修法与 `ChatDiagramFabric` 逐字对称：
+ * 把整套状态机搬进 `CanvasFabricBody` 子组件，由外层用 `key={previewCode}` 渲染——
+ * previewCode 一变就整个子组件实例连同内部 DOM 一起摘除重挂，状态机永远从干净的
+ * "validating" 起步。完整推导见 `chat-diagram-fabric.tsx` 同名注释，不复述。
  */
 type Status =
   | { phase: "validating" }
@@ -87,9 +97,6 @@ export function ChatCanvasFabric({
   projectId?: string;
 }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const canvasElRef = React.useRef<HTMLCanvasElement>(null);
-  const [status, setStatus] = React.useState<Status>({ phase: "validating" });
-  const [ready, setReady] = React.useState(false);
   const [inView, setInView] = React.useState(false);
   const [maximized, setMaximized] = React.useState(false);
   const [savedSource, setSavedSource] = React.useState<{ readonly markdown: string; readonly savedAt: string } | null>(null);
@@ -131,6 +138,10 @@ export function ChatCanvasFabric({
   // 挂载滚入视口时就查一次本消息名下最新的落地版本，命中则只读预览直接画保存版，
   // 不用再等用户点一次「最大化」才触发读回。工作坊画布模板与 mermaid 标准图表
   // 共享同一份 `fetchLatestSavedDiagramSource`，两处改动逐字对称。
+  //
+  // ⚠ 这条 effect 是 previewCode 会在**首次挂载之后**发生变化的唯一来源——它带来
+  // 的 DOM 崩溃风险由下面 `CanvasFabricBody` 的 `key={previewCode}` 承接，见本
+  // 文件头部大注释。
   React.useEffect(() => {
     if (!inView) return;
     if (savedSource !== null) return;
@@ -147,7 +158,9 @@ export function ChatCanvasFabric({
     };
   }, [inView, savedSource, threadId, messageId, projectId, bearer]);
 
-  // 惰性化：进入视口才校验+渲染（与 mermaid 那条同样的理由——一张画布一个 fabric 实例是重对象）。
+  // 惰性化：进入视口才校验+渲染（与 mermaid 那条同样的理由——一张画布一个 fabric 实例
+  // 是重对象）。停在 outer：previewCode 变化触发的重挂载只发生在**已经进过视口一次
+  // 之后**（读回本身就要 `inView` 才会发起），这条 observer 不需要跟着子组件重来。
   React.useEffect(() => {
     const node = containerRef.current;
     if (!node) return;
@@ -168,7 +181,64 @@ export function ChatCanvasFabric({
     return () => io.disconnect();
   }, []);
 
+  return (
+    <>
+      <CanvasFabricBody
+        key={previewCode}
+        previewCode={previewCode}
+        lang={lang}
+        orgId={orgId}
+        inView={inView}
+        containerRef={containerRef}
+        openMaximized={openMaximized}
+        openingReadback={openingReadback}
+      />
+
+      {maximized && (
+        <ChatCanvasModal
+          code={code}
+          lang={lang}
+          onClose={(result) => {
+            // 关闭时如果带回了保存结果（真实落库或本地演示皆算），更新只读预览的
+            // 渲染源——不然「保存」点了、「已保存」徽标也亮了，退出全屏后气泡卡片
+            // 却纹丝不动（人类实测反馈，同 `ChatDiagramFabric` 同款修法）。
+            if (result) setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
+            setMaximized(false);
+          }}
+          threadId={threadId}
+          messageId={messageId}
+          bearer={bearer}
+          savedSource={savedSource}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * 只读预览的状态机本体（validating → resolving → valid | error）+ fabric canvas
+ * 挂载/卸载。由 `ChatCanvasFabric` 用 `key={previewCode}` 渲染——previewCode 变化时
+ * 整个组件实例连同内部 DOM 一起被摘除重挂。见 `ChatCanvasFabric`/`ChatDiagramFabric`
+ * 文件头大注释。
+ */
+function CanvasFabricBody({
+  previewCode, lang, orgId, inView, containerRef, openMaximized, openingReadback,
+}: {
+  previewCode: string;
+  lang: CanvasFenceLang;
+  orgId: string | null;
+  inView: boolean;
+  containerRef: React.RefObject<HTMLDivElement>;
+  openMaximized: () => void;
+  openingReadback: boolean;
+}) {
+  const canvasElRef = React.useRef<HTMLCanvasElement>(null);
+  const [status, setStatus] = React.useState<Status>({ phase: "validating" });
+  const [ready, setReady] = React.useState(false);
+
   // 阶段一：校验（**不挂 canvas**）。纯函数闸门 → 模板解析闸门（可能发一次 GET）。
+  // `previewCode`/`lang`/`orgId` 在这个组件实例的生命周期内不会变（previewCode 变化
+  // 即换 key、换实例）；`orgId` 理论上可能因为登录状态变化而变，沿用既有依赖数组。
   React.useEffect(() => {
     if (!inView) return;
     const check = checkCanvasFence(previewCode, lang);
@@ -230,6 +300,8 @@ export function ChatCanvasFabric({
       cancelled = true;
       canvas.dispose();
     };
+    // 本组件实例内 previewCode/lang 恒定不变（见组件头注释），status.phase 是这条
+    // effect 唯一真正会变化的依赖。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status.phase, previewCode, lang]);
 
@@ -254,70 +326,50 @@ export function ChatCanvasFabric({
   }
 
   return (
-    <>
-      <div
-        ref={containerRef}
-        data-testid="chat-canvas-fabric"
-        data-fence-lang={lang}
-        data-template-source={status.phase === "valid" ? status.source : undefined}
-        data-ready={ready}
-        className="group relative my-2 overflow-hidden rounded-md border border-border-subtle bg-card"
-      >
-        <div className="pointer-events-none absolute left-2 top-2 z-10">
-          <Badge tone="outline">工作坊画布模板 · 只读预览</Badge>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => void openMaximized()}
-          data-testid="chat-canvas-maximize"
-          className="absolute right-2 top-2 z-10"
-          aria-label="最大化并编辑此画布"
-          disabled={status.phase !== "valid" || openingReadback}
-        >
-          <Maximize2 aria-hidden className="h-3.5 w-3.5" />
-          {openingReadback ? "读取保存版…" : "最大化"}
-        </Button>
-
-        {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
-        {status.phase === "valid" ? (
-          <canvas ref={canvasElRef} data-testid="chat-canvas-fabric-surface" />
-        ) : (
-          <div
-            data-testid="chat-canvas-loading"
-            className="flex h-40 items-center justify-center text-11 text-muted-foreground"
-          >
-            {inView ? "解析工作坊画布模板中…" : "滚动到此处即渲染"}
-          </div>
-        )}
-        {status.phase === "valid" && !ready && (
-          <div
-            data-testid="chat-canvas-loading"
-            className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"
-          >
-            渲染画布中…
-          </div>
-        )}
+    <div
+      ref={containerRef}
+      data-testid="chat-canvas-fabric"
+      data-fence-lang={lang}
+      data-template-source={status.phase === "valid" ? status.source : undefined}
+      data-ready={ready}
+      className="group relative my-2 overflow-hidden rounded-md border border-border-subtle bg-card"
+    >
+      <div className="pointer-events-none absolute left-2 top-2 z-10">
+        <Badge tone="outline">工作坊画布模板 · 只读预览</Badge>
       </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => void openMaximized()}
+        data-testid="chat-canvas-maximize"
+        className="absolute right-2 top-2 z-10"
+        aria-label="最大化并编辑此画布"
+        disabled={status.phase !== "valid" || openingReadback}
+      >
+        <Maximize2 aria-hidden className="h-3.5 w-3.5" />
+        {openingReadback ? "读取保存版…" : "最大化"}
+      </Button>
 
-      {maximized && (
-        <ChatCanvasModal
-          code={code}
-          lang={lang}
-          onClose={(result) => {
-            // 关闭时如果带回了保存结果（真实落库或本地演示皆算），更新只读预览的
-            // 渲染源——不然「保存」点了、「已保存」徽标也亮了，退出全屏后气泡卡片
-            // 却纹丝不动（人类实测反馈，同 `ChatDiagramFabric` 同款修法）。
-            if (result) setSavedSource({ markdown: result.markdown, savedAt: new Date().toISOString() });
-            setMaximized(false);
-          }}
-          threadId={threadId}
-          messageId={messageId}
-          bearer={bearer}
-          savedSource={savedSource}
-        />
+      {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
+      {status.phase === "valid" ? (
+        <canvas ref={canvasElRef} data-testid="chat-canvas-fabric-surface" />
+      ) : (
+        <div
+          data-testid="chat-canvas-loading"
+          className="flex h-40 items-center justify-center text-11 text-muted-foreground"
+        >
+          {inView ? "解析工作坊画布模板中…" : "滚动到此处即渲染"}
+        </div>
       )}
-    </>
+      {status.phase === "valid" && !ready && (
+        <div
+          data-testid="chat-canvas-loading"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center text-11 text-muted-foreground"
+        >
+          渲染画布中…
+        </div>
+      )}
+    </div>
   );
 }
