@@ -66,7 +66,7 @@ import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
-import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
+import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
 import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
 import type { VisionInputStatus } from "./context-snapshot";
@@ -1163,8 +1163,22 @@ async function executeClaimed(
             user: feedback,
             history: [...history, { role: "assistant", content: text }],
             skills: toolSkills,
+            ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
           });
-          return retry.text;
+          /*
+           * #1747 —— 回喂重试也要去工具结果里找脚本，理由与第一次尝试逐字相同。
+           *
+           * 少了这一句，deep-agent 那条路的失败诚实性会被悄悄换掉：第 1 次跑的是工具
+           * 结果里的真脚本、真的失败了、拿到了真的 stderr；第 2 次却因为最终回复里没有
+           * 代码围栏而以「model reply contained no fenced script block」终止——用户看到的
+           * 就不再是沙箱返回的真实错误，而是一句关于回复格式的内部抱怨。真因照样消失，
+           * 只是换了个消失的姿势（#660 / #1611 那条纪律的同一个缺口）。
+           *
+           * 一个都没有时**退回 `retry.text`**，让 `extractScript` 照常抛它那条诚实的
+           * 「这次回复里根本没有脚本」——不在这里替它编一个空脚本。
+           */
+          const retryCandidates = [retry.text, ...(retry.scriptCandidates ?? [])];
+          return retryCandidates.find((candidate) => tryExtractScript(candidate) !== null) ?? retry.text;
         },
       },
       { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates },
