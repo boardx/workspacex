@@ -988,6 +988,7 @@ async function executeClaimed(
       const completion = await completeWithProgress(
         {
           modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
+            threadId: run.threadId,
           history,
           // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
           // （`gatherVisionImages` 的门），所以空数组恒等于"这轮没有图要给你看"。
@@ -1035,6 +1036,7 @@ async function executeClaimed(
         ? await deps.model.completeStream(
           {
             modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
+            threadId: run.threadId,
             history, skills: toolSkills,
             ...(vision.images.length > 0 ? { images: vision.images } : {}),
           },

@@ -70,6 +70,8 @@
  * `tool_call_id`) and reports the pair as ONE `ModelCallProgressEvent` only once both halves
  * are present -- a call announced but not yet answered is not reported early as a guess.
  */
+import { createHash } from "node:crypto";
+
 import type { ModelCallInput, ModelCallProgressEvent, PinnedSkillContent } from "../../application/agent-run/ports";
 import { ModelCallError, type ModelCallPort } from "../../application/agent-run/ports";
 
@@ -423,9 +425,44 @@ export class DeepAgentModelProvider implements ModelCallPort {
       );
     }
     const deadline = Date.now() + timeoutMs;
-    const threadId = await this.createThread(baseUrl);
+    const threadId = input.threadId === undefined || input.threadId === ""
+      ? await this.createThread(baseUrl)
+      : await this.ensureThread(baseUrl, input.threadId);
     const runId = await this.createRun(baseUrl, threadId, input);
     return { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs };
+  }
+
+  /**
+   * DA-04（#1749，rubric D4）：同一个 Chat thread 的每一轮都落进**同一个**远端
+   * LangGraph thread——checkpointer 里的跨轮上下文（DA-02 接的 PostgresSaver）
+   * 只有在 thread 稳定时才真正生效；此前每轮 createThread，持久化形同虚设。
+   *
+   * 做法：Chat threadId → 决定性派生一个 UUID 形状的远端 id（sha256 截断，
+   * 版本/变体位按 RFC 4122 摆好——不是标准 uuid5，但决定性、无碰撞顾虑、格式合法，
+   * 且**不需要一张映射表**：同输入永远同输出，映射关系本身就是纯函数，
+   * 存表反而制造第二份事实）。然后 `POST /threads` 带 `if_exists: "do_nothing"`
+   * 幂等创建——LangGraph Platform 的原生语义，首轮创建、后续复用，无竞态窗口。
+   *
+   * ⚠ 验证边界（同 DA-03 先例）：`if_exists` 语义按 Platform 文档 + loopback 测试
+   * 锚定，真实 langgraph dev 实跑 outstanding。失败模式 fail-closed：HTTP 非 2xx
+   * 即抛 MODEL_CALL_FAILED，不静默退回「每轮新 thread」——那会把「续聊坏了」
+   * 伪装成「记性差」。
+   */
+  private async ensureThread(baseUrl: string, chatThreadId: string): Promise<string> {
+    const remoteThreadId = deriveRemoteThreadId(chatThreadId);
+    const response = await fetchWithTransportErrors(`${baseUrl}/threads`, {
+      method: "POST",
+      body: JSON.stringify({ thread_id: remoteThreadId, if_exists: "do_nothing" }),
+    });
+    if (!response.ok) {
+      throw new ModelCallError("MODEL_CALL_FAILED", `deep agent thread ensure failed with HTTP ${response.status}`);
+    }
+    // 服务器是 thread id 的权威：真平台会回显请求的 id（幂等创建），此时连续性成立；
+    // 一个不支持调用方指定 id 的上游（或测试假上游）会回自己分配的 id——那就用它的，
+    // 这一轮照常工作，只是没有跨轮连续性。**不能**无视响应体硬用派生 id：上游没接受
+    // 那个 id 时，后续所有按派生 id 的读写都会 404，把「上游不支持」放大成「run 全挂」。
+    const body = (await response.json().catch(() => ({}))) as { thread_id?: string };
+    return typeof body.thread_id === "string" && body.thread_id !== "" ? body.thread_id : remoteThreadId;
   }
 
   /** `complete()`'s own poll-to-terminal loop, extracted so `completeWithProgress` can
@@ -506,6 +543,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
     }
     return "";
   }
+}
+
+/** Chat threadId → 远端 thread id 的决定性派生。见 `ensureThread` 的注释。 */
+export function deriveRemoteThreadId(chatThreadId: string): string {
+  const hex = createHash("sha256").update(`workspacex:deep-agent:${chatThreadId}`).digest("hex");
+  // RFC 4122 形状：版本位固定 4、变体位固定 8——格式合法即可，唯一性来自 sha256。
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
 async function fetchWithTransportErrors(url: string, init: { method: string; body?: string }): Promise<Response> {

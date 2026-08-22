@@ -499,6 +499,14 @@ export interface ModelCallImage {
 export interface ModelCallInput {
   readonly modelProvider: string;
   readonly modelId: string;
+  /**
+   * DA-04（#1749，rubric D4）：本次调用所属的 Chat thread id。OPTIONAL——绝大多数
+   * provider 不关心它；`DeepAgentModelProvider` 用它把远端 LangGraph thread 与
+   * Chat thread **决定性对齐**（uuid5 派生 + 幂等创建），同一会话的第 N 轮落进
+   * 同一个远端 thread，checkpointer 里的上下文才真正跨轮生效。
+   * 不传时 provider 保持每轮新建 thread 的旧行为——同 onDelta 的双轨纪律。
+   */
+  readonly threadId?: string;
   readonly system: string;
   readonly user: string;
   /**

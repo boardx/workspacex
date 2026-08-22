@@ -98,9 +98,21 @@ const server = createServer((req, res) => {
   }
 
   if (req.method === "POST" && url === "/threads") {
-    const threadId = randomUUID();
-    runs.set(threadId, { userText: "", statusPolls: 0 });
-    sendJson(res, 200, { thread_id: threadId });
+    // DA-04：真实 LangGraph Platform 支持调用方指定 thread_id + if_exists 幂等创建，
+    // provider 的 ensureThread 靠它做线程连续性。假上游必须镜像同一协议面——
+    // 「loopback 假上游要与真上游同步改」是 dashscope realtime ASR 那次的教训原话。
+    void readBody(req).then((raw) => {
+      let requested: string | undefined;
+      try {
+        const parsed = raw === "" ? {} : (JSON.parse(raw) as { thread_id?: string });
+        requested = typeof parsed.thread_id === "string" && parsed.thread_id !== "" ? parsed.thread_id : undefined;
+      } catch {
+        requested = undefined;
+      }
+      const threadId = requested ?? randomUUID();
+      if (!runs.has(threadId)) runs.set(threadId, { userText: "", statusPolls: 0 });
+      sendJson(res, 200, { thread_id: threadId });
+    });
     return;
   }
 
