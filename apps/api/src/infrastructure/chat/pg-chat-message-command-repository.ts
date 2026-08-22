@@ -169,12 +169,20 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
         reply_to_message_id: string | null; raw_transcript: boolean;
         visibility_scope: string | null; created_at: Date;
       }>(
-        `SELECT id,author_kind,author_id,agent_id,body,client_message_id::text,agent_run_id,
-                reply_to_message_id,raw_transcript,visibility_scope,created_at
-           FROM chat_messages
-          WHERE org_id=$1 AND thread_id=$2
-            AND ($3::timestamptz IS NULL OR (created_at,id) > ($3::timestamptz,$4::text))
-          ORDER BY created_at ASC, id ASC LIMIT $5`,
+        // #1805：chat_messages.agent_run_id 只在 author_kind='agent' 时写入（写回幂等索引
+        // 就是拿这条语义定的，见 20260804060000_wave2_chat_message_acceptance.sql:16-18），
+        // 所以人类消息这一列在 DB 里恒为 NULL——但触发它的那个 run 仍然可查：
+        // agent_runs.input_message_id 是 NOT NULL + UNIQUE(org_id, input_message_id)，
+        // 一条人类消息至多对应一个 run。COALESCE 回填后，人类消息也能带出它触发的 runId，
+        // 前端才有办法在页面刷新/重连后凭这个字段恢复轮询（而不是只信内存 state）。
+        `SELECT m.id,m.author_kind,m.author_id,m.agent_id,m.body,m.client_message_id::text,
+                COALESCE(m.agent_run_id, r.id) AS agent_run_id,
+                m.reply_to_message_id,m.raw_transcript,m.visibility_scope,m.created_at
+           FROM chat_messages m
+           LEFT JOIN agent_runs r ON r.org_id = m.org_id AND r.input_message_id = m.id
+          WHERE m.org_id=$1 AND m.thread_id=$2
+            AND ($3::timestamptz IS NULL OR (m.created_at,m.id) > ($3::timestamptz,$4::text))
+          ORDER BY m.created_at ASC, m.id ASC LIMIT $5`,
         [orgId, input.threadId, input.after?.createdAt ?? null,
           input.after?.messageId ?? null, input.limit + 1],
       );

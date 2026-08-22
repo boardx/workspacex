@@ -193,6 +193,33 @@ describe("POST /chat/threads/:threadId/messages", () => {
     })]);
   });
 
+  // #1805 —— the human message's own `agent_run_id` DB column is (by design, see
+  // `chat_messages_agent_run_idx`) only ever written for `author_kind='agent'` rows. But the
+  // run it triggered is still discoverable via `agent_runs.input_message_id`, and the read
+  // path (GET .../messages) must surface it -- the frontend relies on this field to resume
+  // polling a run after the page reloads (real devapp incident: message sent, tab lost to a
+  // reconnect, GET .../messages came back with `agentRunId: null` on the human message forever,
+  // and the UI never showed the reply or any progress/error state).
+  it("surfaces the triggering run's id on the human message via GET, not just the POST response", async () => {
+    await publishAgent();
+    const clientMessageId = randomUUID();
+    const posted = await postMessage({ clientMessageId, text: "Resume me after reload", agentId: AGENT });
+    expect(posted.status).toBe(202);
+    const postedBody = await posted.json() as { message: { id: string }; agentRunId: string };
+
+    const listed = await listMessages();
+    expect(listed.status).toBe(200);
+    const listedBody = await listed.json() as {
+      messages: { id: string; authorKind: string; agentRunId: string | null; replyToMessageId: string | null }[];
+    };
+    const humanRow = listedBody.messages.find((m) => m.id === postedBody.message.id);
+    expect(humanRow).toMatchObject({
+      authorKind: "human",
+      agentRunId: postedBody.agentRunId,
+      replyToMessageId: null,
+    });
+  });
+
   it("returns the original result for exact replay, even after the Agent becomes disabled", async () => {
     await publishAgent();
     const request = { clientMessageId: randomUUID(), text: "Only once", agentId: AGENT };
