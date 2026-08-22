@@ -379,6 +379,25 @@ await addCapability({
 });
 
 /**
+ * #728 D 组取证覆盖缺口（round独评发现：`shots:chat-main` 项目对话侧从未走过真实
+ * `deep-agent` provider 代码路径）—— 把 `DEEP_AGENT_ID` 也挂进**项目对话**
+ * （`THREAD_ID`）的编制。个人对话的 agent 下拉读组织能力目录（见上面那段头注），
+ * 但项目线程的 `chat-agent-select` 选项来自 `GetAgentPanelOut["agents"]`，也就是
+ * `chat_thread_agents` 编制本身（`chat-read-screen.tsx` 里 `roster.agents`）——只进
+ * `capability_listings` 不进编制，这个 agent 在项目对话的下拉里根本不会出现。
+ *
+ * ⚠ 这条 INSERT 必须排在上面 `addCapability(DEEP_AGENT_ID)` **之后**——#619 编制收敛
+ *   之后 `chat_thread_agents` 的插入触发器直接查 `capability_listings`（kind='agent',
+ *   enabled=true）判定合法性，提前插会撞上那道校验。
+ */
+await asApp(ORG_ID, async (client) => {
+  await client.query(
+    "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
+    [THREAD_ID, ORG_ID, DEEP_AGENT_ID],
+  );
+});
+
+/**
  * #1310 ① / #1559 —— F65 要挂载的那个**已启用** skill。
  *
  * ## ⚠ #1559：种在 **wave2 的 `skills` / `skill_versions` / `skill_version_files`（模型 A）**

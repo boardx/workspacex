@@ -29,6 +29,8 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
 const OUT = resolve(process.env.CHAT_SHOTS_OUT ?? ".chat-shots");
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 375, height: 812 };
+/** #728 D10 —— 三档响应式判据要求 1440/768/375 都能验证，这支脚本此前只有两档。 */
+const TABLET = { width: 768, height: 1024 };
 
 /**
  * ⚠ 取证不是门控，所以给足超时。默认 30s **不够**：这一条要冷编译 `/login`、`/chat`、
@@ -72,6 +74,120 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   await page.setViewportSize(MOBILE);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
   await shoot("chat-main-mobile.png", "chat-thread-detail");
+
+  /**
+   * issue #728 D 组独评发现的取证覆盖缺口：整支脚本此前只对**项目对话**（带
+   * `projectId`）产出上面这两张（默认桌面态 + 375 移动态），第 76 行往后所有真实
+   * 交互流程——真实发消息、工具调用链、失败态、语音——全部只跑在**个人对话**路径上。
+   * D6（AI 过程可见：思考 X 秒 · N 步 + 工具调用折叠块）、D7（结构化产物卡）、
+   * D9（右栏「产物」+「材料」堆叠同屏）、D10（进行中状态条 + 三档响应式）这四维
+   * 因此在项目对话侧从未被真实截图观测过——评分员每轮都因为「没有可评的图」卡在
+   * H3，与代码是否正确无关。这里比照下面 76-280 行个人对话已验证过的手法，给
+   * 项目对话补一段等价的真实交互流程。
+   *
+   * 走的是 `CHAT_READ_E2E.deepAgentId`（真实 `DeepAgentModelProvider` 代码路径，
+   * 上游是确定性替身 `loopback-deep-agent-provider.ts`）——`seed-chat-read-e2e.ts`
+   * 今天把它挂进了 `THREAD_ID`（项目对话默认线程）的编制：项目线程的
+   * `chat-agent-select` 选项读的是编制本身（`GetAgentPanelOut["agents"]`），不是
+   * 个人对话那条走组织能力目录的路径，只进 `capability_listings` 不进编制的话，
+   * 这个 agent 在项目对话的下拉里根本不会出现。
+   */
+  await page.setViewportSize(DESKTOP);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await page.getByTestId("chat-thread-detail").waitFor({ state: "visible", timeout: 30_000 });
+
+  await page.getByTestId("chat-agent-select").click();
+  await page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.deepAgentId}`).click();
+  await page.getByTestId("chat-message-input").fill("请帮我查一下现在几点");
+  await page.getByTestId("chat-message-submit").click();
+
+  /**
+   * D10 —— 「进行中状态条」如实抓样。`chat-live-message-panel.tsx` 的 D10 挂载点
+   * 注释写得很直白：输入框正上方那个位置目前挂的仍是 `ChatRecordingPanel`（会话
+   * 录音面板），**不是**按原型重写出的行内「进行中」卡——那条注释原话「这是纯粹的
+   * 位置改动，不是把 `ChatRecordingPanel` 重写成条件渲染」。所以这里如实抓当前
+   * 真实样子（run 状态徽标 + 仍是空闲态的录音面板同屏），不假装它已经是原型要求的
+   * 进行中卡。抓拍时机赶在终态之前——`chat-live-agent-run-status` 一出现就拍，
+   * 不等 run 落定。
+   */
+  await page.getByTestId("chat-live-agent-run-status").waitFor({ state: "visible", timeout: 15_000 });
+  await page.screenshot({ path: `${OUT}/chat-main-project-in-progress.png` });
+
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-testid="chat-live-agent-run-status"]');
+      const status = el?.getAttribute("data-run-status");
+      return status === "succeeded" || status === "failed";
+    },
+    { timeout: 60_000 },
+  );
+
+  // D6 —— 工具调用链折叠块：与个人对话同一套断言，收窄到刚发出的这条消息自己的
+  // `chat-message-row`（每条 agent 消息各自渲染一份 `agent-tool-chain-summary`）。
+  const projectLatestRow = page.locator('[data-testid="chat-message-row"]').last();
+  await projectLatestRow.getByTestId("agent-tool-chain").waitFor({ state: "visible", timeout: 5_000 });
+  await expect(projectLatestRow.getByTestId("agent-tool-chain-summary")).toContainText("工具");
+  await shoot("chat-main-project-tool-call.png", "chat-thread-detail");
+  await projectLatestRow.getByTestId("agent-tool-chain-toggle").click();
+  await projectLatestRow.getByTestId("agent-tool-chain-step-0").waitFor({ state: "visible", timeout: 5_000 });
+
+  /**
+   * D7 —— 把这条 agent 回复真的落地为产物，抓下 `LandedArtifactCard` 结构化卡片
+   * （标题 + AI 徽标 + 可展开），不是只断言按钮存在（`chat-read.spec.ts:119` 已经
+   * 断言过按钮可见，这里走完整条落地流程，证明卡片本身长什么样）。
+   */
+  const projectLandOpen = projectLatestRow.locator('[data-testid^="chat-land-artifact-open-"]');
+  await projectLandOpen.waitFor({ state: "visible", timeout: 10_000 });
+  await projectLandOpen.click();
+  const projectLandSubmit = projectLatestRow.locator('[data-testid^="chat-land-artifact-submit-"]');
+  await projectLandSubmit.click();
+  const projectLandDone = projectLatestRow.locator('[data-testid^="chat-land-artifact-done-"]');
+  await projectLandDone.waitFor({ state: "visible", timeout: 10_000 });
+  await projectLatestRow.locator('[data-testid^="chat-land-artifact-expand-"]').click();
+  await shoot("chat-main-project-artifact-card.png", "chat-thread-detail");
+
+  /**
+   * D9 —— 右栏「产物」+「材料」两个堆叠区块同屏可见（issue #1758，PR #1715/#1761
+   * 从 Tabs 改成纵向堆叠）。上面已经落地了一个产物，「产物」区块此刻应有真实内容；
+   * 这里再走一遍「材料」头部的直传入口（`ChatSidebarUploadButton`，issue #1758
+   * 裁决 C），真实上传一个文件、真实发一条消息把它带进材料列表，让两个区块
+   * 同屏都有真实内容，不是一个有内容、一个还是空态。
+   */
+  await page.getByTestId("chat-right-panel-stack").waitFor({ state: "visible" });
+  await expect(page.locator('[data-testid^="chat-artifact-"]').first()).toBeVisible({ timeout: 10_000 });
+
+  const materialFile = {
+    name: "project-shot-material.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("D9 取证素材：项目对话右栏材料区块。"),
+  };
+  const materialUploadInput = page.getByTestId("chat-materials-upload-input");
+  if (await materialUploadInput.count() > 0) {
+    await materialUploadInput.setInputFiles(materialFile);
+    const materialChip = page.locator('[data-testid^="chat-attachment-chip-"]');
+    await expect(materialChip).toHaveAttribute("data-status", "uploaded", { timeout: 15_000 });
+    await page.getByTestId("chat-message-input").fill("D9 取证：这条消息带着刚上传的材料");
+    await page.getByTestId("chat-message-submit").click();
+    await expect(page.locator('[data-testid^="chat-material-"]').first()).toBeVisible({ timeout: 15_000 });
+  }
+  await shoot("chat-main-project-right-panel.png", "chat-thread-detail");
+
+  /**
+   * D10 三档响应式 —— 这支脚本此前只有 1440/375 两档，判据逐字要求三档都验证
+   * 无横向溢出。768px 补齐中间档，且实测断言 `scrollWidth<=clientWidth`（不是只
+   * 拍图靠肉眼看）。
+   */
+  await page.setViewportSize(TABLET);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await page.getByTestId("chat-read-thread-list").waitFor({ state: "visible", timeout: 30_000 });
+  await page.waitForTimeout(300);
+  const noHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+  );
+  if (!noHorizontalOverflow) {
+    throw new Error("768px 视口下页面出现横向溢出——D10 三档判据要求的正是这件事不该发生");
+  }
+  await shoot("chat-main-project-tablet.png", "chat-read-thread-list");
 
   /**
    * #728 P4/P5 —— rev-uiux 第 5 轮指出的证据缺口：「创建后自动选中」与「个人对话
