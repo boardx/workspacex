@@ -24,7 +24,24 @@ Same requirement the human's task description states explicitly for the TS versi
 replaces: "语义要和刚被替换掉的 TS 版本等价（拿 skill 内容当 system prompt 发起真实模型
 调用，返回真实结果，不是编造）". This mirrors `execute-run.ts`'s `executeSkillTool`
 one-for-one: a SEPARATE, focused model call whose system prompt is only that Skill's
-content, task text as the user turn, real response returned. A failure (skill not found,
+content, task text as the user turn, real response returned.
+
+## #1747 -- that focused call may now answer with a SCRIPT, and the caller executes it
+
+"A real model call" turned out not to be enough for a Skill whose whole point is producing
+a FILE (a .pptx, say). Measured, in the deployment's own database: three consecutive runs
+with a Skill pinned recorded one pinned Skill and ZERO output files, one of them with a
+terminal status of `succeeded` -- so not a timeout, this path simply never produced a file.
+The reason is that this tool returned prose, and prose is not a deck.
+
+The fix keeps every boundary this file's header already defends. When the caller tells us a
+sandbox stands behind this run, it sends the run-script protocol as per-run config and this
+tool appends it to the focused call's system prompt; whatever that call answers is returned
+VERBATIM, and the caller pulls the script block out of this tool's result and executes it on
+its own side. This service still never touches a sandbox, a socket, or a database -- it
+gains no new capability at all, it just stops flattening an executable answer into prose.
+
+A run with no `script_protocol` in its config behaves byte-for-byte as it did before #1747. A failure (skill not found,
 model call raises) becomes a result TEXT the orchestrating deep agent can see and react
 to -- never an exception that aborts the whole run, same discipline `executeSkillTool`'s
 own doc comment describes ("Never throws").
@@ -54,6 +71,21 @@ def _read_org_skills(config: RunnableConfig) -> list[OrgSkill]:
         s for s in skills
         if isinstance(s, dict) and isinstance(s.get("stable_name"), str) and isinstance(s.get("content"), str)
     ]
+
+
+def _read_script_protocol(config: RunnableConfig) -> str | None:
+    """#1747 -- the run-script protocol text, supplied by the calling API per run.
+
+    Absent (the default) means this run has no sandbox behind it, so `call_skill` behaves
+    exactly as it did before #1747. The protocol TEXT is never authored here: the regex that
+    parses a script block out of a reply lives on the TypeScript side, in
+    `run-script-with-retries.ts`, and a second copy of the prose describing that regex is the
+    "same fact declared in two places" drift this repository has been bitten by five times.
+    The caller sends it, this side forwards it verbatim.
+    """
+    configurable = (config or {}).get("configurable") or {}
+    protocol = configurable.get("script_protocol")
+    return protocol if isinstance(protocol, str) and protocol.strip() != "" else None
 
 
 def _find_skill(skills: list[OrgSkill], stable_name: str) -> OrgSkill | None:
@@ -93,10 +125,21 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
                 f"未知技能「{skill_stable_name}」：本次运行挂载的技能里没有这一个，"
                 "先调用 list_org_skills 看看有哪些，或直接根据已有信息回答。"
             )
+        # #1747 -- when the caller tells us a sandbox is behind this run, the focused call
+        # this tool makes must be allowed to answer with an EXECUTABLE script block rather
+        # than prose about one. Appended AFTER the skill body, never before: the skill's own
+        # instructions stay in charge, this only adds a capability statement -- the same
+        # ordering discipline the TypeScript side uses when it appends the identical text to
+        # its own system prompt.
+        protocol = _read_script_protocol(config)
+        system_prompt = (
+            skill["content"] if protocol is None
+            else f"{skill['content']}\n\n---\n\n{protocol}"
+        )
         try:
             response = model.invoke(
                 [
-                    {"role": "system", "content": skill["content"]},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": task},
                 ]
             )

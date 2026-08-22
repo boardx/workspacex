@@ -66,7 +66,7 @@ import { buildCanvasTemplateGuidance, type CanvasTemplateGuidancePort } from "./
 import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
-import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../skill/run-script-with-retries";
+import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
 import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
 import type { VisionInputStatus } from "./context-snapshot";
@@ -604,6 +604,11 @@ async function executeClaimed(
   // `ModelCallInput.skills` -- see that field's own doc comment for why `DeepAgentModelProvider`
   // needs the structured list, not just the flattened text already baked into `system`.
   let toolSkills: readonly PinnedSkillContent[] = [];
+  /**
+   * #1747 —— 这轮要不要把脚本执行协议作为结构化输入送给 provider。`undefined` = 不送。
+   * 由下面那道**已有的**门赋值，与它给 `system` 追加协议文本用的是同一个条件。
+   */
+  let scriptProtocol: string | undefined;
   try {
     const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);
     if (skills.length !== run.skillVersionIds.length) {
@@ -652,6 +657,18 @@ async function executeClaimed(
      */
     if (deps.sandbox && deps.objects && skills.length > 0) {
       system = `${system}\n\n---\n\n${RUN_SCRIPT_PROTOCOL_PROMPT}`;
+      /*
+       * #1747 —— 同一道门，同一段文本，多一个出口。
+       *
+       * 对普通 provider，协议写在 system prompt 里就够了：模型的回复就是被解析的那段
+       * 文本。对 `DeepAgentModelProvider` 不够——它把 skill 的执行委托给远端 graph 里
+       * 一次**独立的**子模型调用（`call_skill`），那次调用的 system prompt 是 skill 正文，
+       * 收不到这里的 `system`。协议得作为结构化输入随请求过去，远端原样转发。
+       *
+       * ⚠ 刻意复用同一个常量而不是在 Python 侧再写一份：解析脚本块的正则在
+       *   `run-script-with-retries.ts`，协议文本必须与它同源。
+       */
+      scriptProtocol = RUN_SCRIPT_PROTOCOL_PROMPT;
     }
   } catch (e) {
     // Every way of not getting the pinned context is the same fact for a client: the run
@@ -961,6 +978,11 @@ async function executeClaimed(
   /** F159 —— 上游若报了 prompt/completion 拆分就带上；没报是 undefined（不是 0）。 */
   let reportedPrompt: number | undefined;
   let reportedCompletion: number | undefined;
+  /**
+   * #1747 —— provider 交上来的候选脚本来源（deep-agent 的 `call_skill` 工具结果正文）。
+   * 恒为数组，缺席时是空的——空数组喂给 `maybeRunSkillScript` 与不传逐字等价。
+   */
+  let scriptCandidates: readonly string[] = [];
   // #741: this used to be advanced by `executeToolLoop` as it recorded `tool_call` steps;
   // with that loop retired, `model_called` is always the third step (context_built is 2,
   // the two preceding are the run's own acceptance steps), so this is a constant again.
@@ -990,6 +1012,11 @@ async function executeClaimed(
           modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
             threadId: run.threadId,
           history,
+          // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
+          skills: toolSkills,
+          // #1747：远端把 skill 的执行委托给一次独立的子模型调用，那次调用收不到上面的
+          // `system`，协议只能作为结构化输入过去。`undefined` ⇒ 这个键不出现在请求里。
+          ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
           // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
           // （`gatherVisionImages` 的门），所以空数组恒等于"这轮没有图要给你看"。
           ...(vision.images.length > 0 ? { images: vision.images } : {}),
@@ -1025,6 +1052,8 @@ async function executeClaimed(
       reportedTokens = completion.tokens;
       reportedPrompt = completion.promptTokens;
       reportedCompletion = completion.completionTokens;
+      // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
+      scriptCandidates = completion.scriptCandidates ?? [];
     } else {
       // #654 阶段2a: when the configured port supports streaming, use it and persist each
       // fragment as it arrives -- purely observational (see `AppendedRunDelta`'s own doc):
@@ -1065,6 +1094,8 @@ async function executeClaimed(
       reportedTokens = completion.tokens;
       reportedPrompt = completion.promptTokens;
       reportedCompletion = completion.completionTokens;
+      // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
+      scriptCandidates = completion.scriptCandidates ?? [];
     }
   } catch (e) {
     const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
@@ -1132,11 +1163,25 @@ async function executeClaimed(
             user: feedback,
             history: [...history, { role: "assistant", content: text }],
             skills: toolSkills,
+            ...(scriptProtocol === undefined ? {} : { scriptProtocol }),
           });
-          return retry.text;
+          /*
+           * #1747 —— 回喂重试也要去工具结果里找脚本，理由与第一次尝试逐字相同。
+           *
+           * 少了这一句，deep-agent 那条路的失败诚实性会被悄悄换掉：第 1 次跑的是工具
+           * 结果里的真脚本、真的失败了、拿到了真的 stderr；第 2 次却因为最终回复里没有
+           * 代码围栏而以「model reply contained no fenced script block」终止——用户看到的
+           * 就不再是沙箱返回的真实错误，而是一句关于回复格式的内部抱怨。真因照样消失，
+           * 只是换了个消失的姿势（#660 / #1611 那条纪律的同一个缺口）。
+           *
+           * 一个都没有时**退回 `retry.text`**，让 `extractScript` 照常抛它那条诚实的
+           * 「这次回复里根本没有脚本」——不在这里替它编一个空脚本。
+           */
+          const retryCandidates = [retry.text, ...(retry.scriptCandidates ?? [])];
+          return retryCandidates.find((candidate) => tryExtractScript(candidate) !== null) ?? retry.text;
         },
       },
-      { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text },
+      { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates },
     );
     text = scripted.text;
     outputFiles = scripted.files;
