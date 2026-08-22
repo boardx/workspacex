@@ -16,6 +16,7 @@ import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel"
 import { useChatAttachments, type ChatAttachmentsController } from "@/components/chat/chat-composer-attachments";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
+import { ChatPopoverCoordinatorProvider } from "@/components/chat/chat-popover-coordinator";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
@@ -808,6 +809,12 @@ function ThreadDetail({
    */
   const [mentionQuery, setMentionQuery] = React.useState<string | null>(null);
   const [mentionResolvedNonce, setMentionResolvedNonce] = React.useState(0);
+  /**
+   * issue #1803 gap #4 —— `ChatSkillMountPanel` 是这条线程「挂了几个 skill」的
+   * 单一事实源（`listThreadMounts`）；这里只转存它上报的计数，供
+   * `ChatLiveMessagePanel` 的 longrun hint 判断措辞，不重读第二份。
+   */
+  const [mountedSkillCount, setMountedSkillCount] = React.useState(0);
 
   if (loading && detail === null) return <CenteredState>正在读取线程详情…</CenteredState>;
   if (error) return <ErrorState testId="chat-thread-detail-error" message={error} retryTestId="chat-thread-detail-retry" onRetry={onRetry} />;
@@ -870,57 +877,68 @@ function ThreadDetail({
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
         <ThreadLiveStatusChip roster={roster} />
       </header>
-      {bearer ? (
-        <ChatLiveMessagePanel
-          threadId={detail.thread.id}
-          bearer={bearer}
-          attach={attach}
-          agents={roster?.agents ?? null}
-          archived={detail.thread.archived}
-          onMentionQueryChange={setMentionQuery}
-          mentionResolvedNonce={mentionResolvedNonce}
-          /*
-            #728 round 16 P10 —— 落地按钮的渲染依据是服务端下发的能力
-            （`capabilitiesFor`：写角色含 `artifact.land`，观察者不含），
-            与 `thread.mutate`（#460）同一条「按钮不渲染 且 接口拒绝」规矩。
-          */
-          canLandArtifacts={detail.capabilities.includes("artifact.land")}
-          /* G1 读回 + G2 画像判权用；个人线程 projectId 为 null ⇒ 缺省，读回关闭。 */
-          projectId={projectId ?? undefined}
-          onArtifactLanded={onArtifactLanded}
-          onMessageSent={onMessageSent}
-          /*
-            #728 D10 —— 会话录音（#466 步骤 7）从「消息面板之上」挪到
-            「输入框正上方」，照原型的「进行中」状态卡位置。`userId` 是
-            `trackPlan` 的 participant：录的是谁的音轨，服务端据此判定
-            授权矩阵，不能省——这条纪律没有变，只是挂载点换了。
-          */
-          aboveComposer={bearer && userId ? (
-            <ChatRecordingPanel
-              threadId={detail.thread.id}
-              projectId={projectId}
-              userId={userId}
-              bearer={bearer}
-            />
-          ) : null}
-        />
-      ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
       {/*
-        挂载栏放在 composer 「之后」（人类 2026-08-22：「上面的 Skill 应该也放到下面」）。
-        理由不只是位置偏好：挂载改变的是「下一条消息」的行为，放在输入框旁边，
-        「我挂了什么」与「我要发什么」在同一处视野里；放在页首则与消息流隔着整屏，
-        用户发消息时根本看不到自己挂了哪些 skill。
+        issue #1803 gap #3 —— `ChatLiveMessagePanel`（内含 `AgentPicker`）与
+        `ChatSkillMountPanel` 是兄弟组件，各自的浮层此前互不相知、可同屏叠开。
+        Provider 包在它们共同的父层，两边各自把浮层的 `useState` 换成
+        `useChatPopoverSlot` 即可共享「同一时刻只开一个」的互斥状态，不需要
+        再往下多传一层 prop。
       */}
-      {bearer && currentOrgId ? (
-        <ChatSkillMountPanel
-          threadId={detail.thread.id}
-          projectId={projectId}
-          orgId={currentOrgId}
-          bearer={bearer}
-          mentionQuery={mentionQuery}
-          onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
-        />
-      ) : null}
+      <ChatPopoverCoordinatorProvider>
+        {bearer ? (
+          <ChatLiveMessagePanel
+            threadId={detail.thread.id}
+            bearer={bearer}
+            attach={attach}
+            agents={roster?.agents ?? null}
+            archived={detail.thread.archived}
+            onMentionQueryChange={setMentionQuery}
+            mentionResolvedNonce={mentionResolvedNonce}
+            /*
+              #728 round 16 P10 —— 落地按钮的渲染依据是服务端下发的能力
+              （`capabilitiesFor`：写角色含 `artifact.land`，观察者不含），
+              与 `thread.mutate`（#460）同一条「按钮不渲染 且 接口拒绝」规矩。
+            */
+            canLandArtifacts={detail.capabilities.includes("artifact.land")}
+            /* G1 读回 + G2 画像判权用；个人线程 projectId 为 null ⇒ 缺省，读回关闭。 */
+            projectId={projectId ?? undefined}
+            onArtifactLanded={onArtifactLanded}
+            onMessageSent={onMessageSent}
+            hasMountedSkills={mountedSkillCount > 0}
+            /*
+              #728 D10 —— 会话录音（#466 步骤 7）从「消息面板之上」挪到
+              「输入框正上方」，照原型的「进行中」状态卡位置。`userId` 是
+              `trackPlan` 的 participant：录的是谁的音轨，服务端据此判定
+              授权矩阵，不能省——这条纪律没有变，只是挂载点换了。
+            */
+            aboveComposer={bearer && userId ? (
+              <ChatRecordingPanel
+                threadId={detail.thread.id}
+                projectId={projectId}
+                userId={userId}
+                bearer={bearer}
+              />
+            ) : null}
+          />
+        ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}
+        {/*
+          挂载栏放在 composer 「之后」（人类 2026-08-22：「上面的 Skill 应该也放到下面」）。
+          理由不只是位置偏好：挂载改变的是「下一条消息」的行为，放在输入框旁边，
+          「我挂了什么」与「我要发什么」在同一处视野里；放在页首则与消息流隔着整屏，
+          用户发消息时根本看不到自己挂了哪些 skill。
+        */}
+        {bearer && currentOrgId ? (
+          <ChatSkillMountPanel
+            threadId={detail.thread.id}
+            projectId={projectId}
+            orgId={currentOrgId}
+            bearer={bearer}
+            mentionQuery={mentionQuery}
+            onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
+            onMountsChange={setMountedSkillCount}
+          />
+        ) : null}
+      </ChatPopoverCoordinatorProvider>
     </div>
   );
 }
