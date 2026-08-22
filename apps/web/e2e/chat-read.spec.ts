@@ -57,7 +57,34 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   });
   expect(request.postDataJSON().clientMessageId).toMatch(/^[0-9a-f-]{36}$/i);
   await expect(page.getByTestId("chat-live-agent-run-status")).toBeVisible(); // 排队态：chat-message-queued 已删（同屏与此重复），2026-08-19 #1589
-  await page.getByTestId("chat-messages-load-more").click();
+  /**
+   * issue #728 D 组 round 3 独评发现的 H3 阻塞回归——**反证结论：不是 nextCursor 的 bug**。
+   *
+   * round 3 的假设是「软重读（发送后触发）无条件覆盖 `nextCursor`，一旦软重读追新时
+   * 恰好 `hasMore=false`，按钮就会永久消失，哪怕真的还有更早历史没加载」。这条假设
+   * 本反证测试实测**不成立**：真实跑一遍（SHA 与本 PR 基线一致，`5e34e093`，即 PR #1786
+   * 已合入之后）发现，`chat-messages-load-more` 在这一步之前就已经真的不存在了——
+   * 但**不是因为漏加载了什么**：120s 超时快照（`error-context.md`）里
+   * "Browser durable message"（刚发的消息）与它的助手回复 `[loopback] Controlled
+   * fixture message 01` **都已经在 DOM 里可见**。也就是说触发这次断言之前，
+   * `submit()`（`chat-live-message-panel.tsx:763`）里那次 `loadPage(catchUpCursorRef.
+   * current, "soft")` 已经把这条新消息真实拉回来并渲染了——`nextCursor` 之所以是
+   * `null`，是因为在这之前（本文件 19 行）已经点过一次「加载更早之后的消息」，
+   * 那次点击已经把全部 51 条夹具消息 + 这条新发消息一次性追到底（`hasMore` 服务端
+   * 如实回答"没有更多了"）。按钮消失是**正确行为**，不是数据丢失——原因见
+   * `message-roundtrip.ts:211` 的游标分页不变量：`after=X` 的响应必然把 X 之后到
+   * 当前真实末尾之间的全部内容按顺序返回（不会跳过任何一条），`hasMore=false`
+   * 就代表真的没有更多，不存在"看起来没有、其实还有一段没追到"的中间态。
+   *
+   * 真正的 bug 在**这条测试自己**：它继承了 H3 修复前的旧假设（软重读不会自动追新，
+   * 手动点按钮才能看到刚发的消息），在按钮已经因为真正追到底而合法消失之后，仍然
+   * 无条件 `.click()` 一个不会再出现的元素，白等 120s 预算耗尽。修法对齐
+   * `chat-diagram-save-reopen-roundtrip.spec.ts` 的 `loadAllMessagePages` 同一个道理——
+   * 按钮不在就不点，因为软重读已经把内容追回来了，不需要再手动翻一页。
+   */
+  if (await page.getByTestId("chat-messages-load-more").count() > 0) {
+    await page.getByTestId("chat-messages-load-more").click();
+  }
   await expect(page.getByTestId("chat-message-list")).toContainText("Browser durable message");
   await expect(page.getByText("Browser durable message")).toHaveCount(1);
 
