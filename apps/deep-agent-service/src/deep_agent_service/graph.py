@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from deepagents import create_deep_agent
 
-from deep_agent_service.harness import build_checkpointer, build_middleware
+from deep_agent_service.harness import build_checkpointer, build_interrupt_on, build_middleware
 from deep_agent_service.model import build_chat_model
 from deep_agent_service.tools import build_tools
 
@@ -41,4 +41,5 @@ graph = create_deep_agent(
     system_prompt=SYSTEM_PROMPT,
     middleware=build_middleware(_model),
     checkpointer=build_checkpointer(),
+    interrupt_on=build_interrupt_on(),
 )
