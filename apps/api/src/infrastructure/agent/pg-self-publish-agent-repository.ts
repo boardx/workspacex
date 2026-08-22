@@ -149,10 +149,29 @@ export class PgSelfPublishAgentRepository implements SelfPublishAgentRepository 
       //    「这个 agent 是干什么的」是**同一个语义**，是 roster 上给人看的标签，
       //    与 `agent_versions.instructions` 各走各的，互不顶替。
       //    同 `ensureSystemAgent` 那条 INSERT 的列与含义。
+      //
+      // ⚠ #1705（#728 D-1）：`role_label` 同一条投影——迁移
+      //    `20260821180000_i1705_agent_role_label.sql` 头注明写「自发布时把新字段也
+      //    投影进 capability_listings（同现有 role→duty 那条管道的形状，新增一条
+      //    平行投影）」，这里是那条投影**唯一**发生的地方（自助发布是本仓目前
+      //    ③ 步——写 `capability_listings`——的两条路径之一，另一条是
+      //    `ensureSystemAgent`，那条已经带了 `role_label`）。漏了这一列，`agents`
+      //    有真实头衔而面板永远拿不到，只能悄悄回退到 `duty`——不是报错，
+      //    是一个不会自己暴露的功能缺口。
       await session.query(
-        `INSERT INTO capability_listings (id,org_id,kind,name,abbr,duty,scope,owner_team_id,enabled,endpoint)
-         VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL)`,
-        [input.agentId, input.orgId, definition.name, definition.initials, definition.role],
+        `INSERT INTO capability_listings
+           (id,org_id,kind,name,abbr,duty,scope,owner_team_id,enabled,endpoint,
+            role_label,role_label_needs_confirmation)
+         VALUES ($1,$2,'agent',$3,$4,$5,'org-wide',NULL,true,NULL,$6,$7)`,
+        [
+          input.agentId,
+          input.orgId,
+          definition.name,
+          definition.initials,
+          definition.role,
+          definition.roleLabel,
+          definition.roleLabelNeedsConfirmation,
+        ],
       );
 
       return { agentVersionId: versionId };

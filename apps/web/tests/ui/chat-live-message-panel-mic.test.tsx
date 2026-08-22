@@ -86,7 +86,7 @@ function deferredStream() {
   };
 }
 
-const agents = [{ id: "agent-real", abbr: "AR", name: "真实 Agent", duty: "只读研究", presence: "present" as const }];
+const agents = [{ id: "agent-real", abbr: "AR", name: "真实 Agent", duty: "只读研究", roleLabel: "研究", presence: "present" as const }];
 
 describe("ChatLiveMessagePanel — composer 麦克风按钮（issue #726，服务端代理 ASR）", () => {
   beforeEach(() => {

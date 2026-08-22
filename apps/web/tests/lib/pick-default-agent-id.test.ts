@@ -12,7 +12,7 @@ import type { GetAgentPanelOut } from "@/lib/live-chat";
 type Agent = GetAgentPanelOut["agents"][number];
 
 const agent = (id: string, name: string): Agent =>
-  ({ id, abbr: name.slice(0, 2), name, duty: "test", presence: "off" });
+  ({ id, abbr: name.slice(0, 2), name, duty: "test", roleLabel: "test", presence: "off" });
 
 describe("pickDefaultAgentId", () => {
   it("requestedAgentId 命中候选集 → 原样用它（用户/调用方明确选过）", () => {

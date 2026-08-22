@@ -338,6 +338,7 @@ import { AGENT_PUBLISH_REPOSITORY, AGENT_REVIEWER_FUNCTION_PORT } from "./applic
 import { PgAgentPublishRepository, PgAgentReviewerFunctionPort } from "./infrastructure/agent/pg-agent-publish-repository";
 import { SELF_PUBLISH_AGENT_REPOSITORY } from "./application/agent/self-publish-toolless-agent";
 import { SET_AGENT_INSTRUCTIONS_REPOSITORY } from "./application/agent/set-agent-instructions";
+import { SET_AGENT_ROLE_LABEL_REPOSITORY } from "./application/agent/set-agent-role-label";
 import { ENSURE_DEFAULT_AGENT_REPOSITORY } from "./application/agent/ensure-default-agent";
 import { ENSURE_DEEP_RESEARCH_AGENT_REPOSITORY } from "./application/agent/ensure-deep-research-agent";
 import { ENSURE_IMAGE_GEN_AGENT_REPOSITORY } from "./application/agent/ensure-image-gen-agent";
@@ -347,6 +348,7 @@ import { PgImageGenAgentRepository } from "./infrastructure/agent/pg-image-gen-a
 import { PgSelfPublishAgentRepository } from "./infrastructure/agent/pg-self-publish-agent-repository";
 import { PgSetAgentInstructionsRepository } from "./infrastructure/agent/pg-create-agent-repository";
 import { PgCreateAgentRepository } from "./infrastructure/agent/pg-create-agent-repository";
+import { PgSetAgentRoleLabelRepository } from "./infrastructure/agent/pg-set-agent-role-label-repository";
 import { AgentController } from "./interface/controllers/agent.controller";
 import { AgentPublishController } from "./interface/controllers/agent-publish.controller";
 // #459：声明式契约 skill 的存储与 HTTP 边界（建草稿 / 列表 / 详情 / 停用被拒）。
@@ -866,6 +868,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: SET_AGENT_INSTRUCTIONS_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgSetAgentInstructionsRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: SET_AGENT_ROLE_LABEL_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgSetAgentRoleLabelRepository(db),
       inject: [DATABASE_PORT],
     },
     {

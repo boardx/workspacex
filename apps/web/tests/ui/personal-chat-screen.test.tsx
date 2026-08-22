@@ -220,7 +220,7 @@ describe("PersonalChatScreen — agent 下拉（#594 后续：消灭手填 agent
     const panel = await screen.findByTestId("stub-message-panel");
     await waitFor(() => {
       const agents = JSON.parse(panel.getAttribute("data-agents") ?? "null");
-      expect(agents).toEqual([{ id: "agent-1", abbr: "客服", name: "客服助手", duty: "组织已配置 Agent", presence: "present" }]);
+      expect(agents).toEqual([{ id: "agent-1", abbr: "客服", name: "客服助手", duty: "组织已配置 Agent", roleLabel: "组织已配置 Agent", presence: "present" }]);
     });
 
     // 手填 agent id 的文本框必须彻底消失。

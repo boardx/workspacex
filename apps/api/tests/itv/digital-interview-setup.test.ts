@@ -142,8 +142,8 @@ beforeEach(async () => {
       [ORG, EXPERT, EXPERT_VERSION],
     );
     await session.query(
-      `INSERT INTO capability_listings(id,org_id,kind,name,scope,enabled,abbr,duty)
-       VALUES ($1,$2,'agent','德国采购总监','org-wide',true,'DE','采购决策')`,
+      `INSERT INTO capability_listings(id,org_id,kind,name,scope,enabled,abbr,duty,role_label)
+       VALUES ($1,$2,'agent','德国采购总监','org-wide',true,'DE','采购决策','采购总监')`,
       [EXPERT, ORG],
     );
   });

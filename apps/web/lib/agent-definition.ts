@@ -29,6 +29,8 @@ export async function createAgentFromScratch(input: {
   readonly name: string;
   readonly initials: string;
   readonly role: string;
+  /** #1705（#728 D-1，人类裁决）—— 简短角色头衔，建 agent 时必填。见 `AgentRow.roleLabel`。 */
+  readonly roleLabel: string;
   readonly visibility: AgentVisibility;
 }): Promise<CreateAgentResult> {
   return apiRequest<CreateAgentResult>(agentRuntime.operations.createAgent.path, {
@@ -37,6 +39,7 @@ export async function createAgentFromScratch(input: {
       name: input.name,
       initials: input.initials,
       role: input.role,
+      roleLabel: input.roleLabel,
       visibility: input.visibility,
       cloneFrom: null,
       source: "self",
@@ -61,6 +64,23 @@ export async function setAgentInstructions(
   return apiRequest<{ agentId: string }>(
     agentRuntime.operations.updateAgentDefinition.path.replace(":agentId", encodeURIComponent(agentId)),
     { method: "PATCH", body: { agentId, patch: { instructions }, expectedVersion: "" } },
+  );
+}
+
+/**
+ * #1705（#728 D-1）—— 写入 agent 的**简短角色头衔**（`PATCH /agents/:agentId`）。
+ *
+ * ⚠ 与 `setAgentInstructions` 同一条纪律：后端本轮**只**接线 `patch.instructions` 与
+ * `patch.roleLabel` 两个字段，其余字段返回 501（见 `set-agent-role-label.ts` 头注）。
+ * `expectedVersion` 同理传空串——理由与 `setAgentInstructions` 逐字相同。
+ */
+export async function setAgentRoleLabel(
+  agentId: string,
+  roleLabel: string,
+): Promise<{ agentId: string }> {
+  return apiRequest<{ agentId: string }>(
+    agentRuntime.operations.updateAgentDefinition.path.replace(":agentId", encodeURIComponent(agentId)),
+    { method: "PATCH", body: { agentId, patch: { roleLabel }, expectedVersion: "" } },
   );
 }
 

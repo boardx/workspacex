@@ -28,6 +28,12 @@ import {
   type AgentVisibility,
   type CreateAgentResult,
 } from "@/lib/agent-definition";
+// #1705（#728 D-1）：故意不导入 `setAgentRoleLabel` 到本文件——建 agent 时 `roleLabel`
+// 随 `createAgentFromScratch` 一次性提交（见下方表单新增的输入框），不需要建完再补
+// 一次 PATCH。`setAgentRoleLabel` 是给"编辑既有 agent"用的，那条 UI 落在 agent 详情/
+// 编辑页（`apps/web/app/admin/agent/[id]/page.tsx`），本轮尚未接线——同 `setAgentInstructions`
+// 目前也只在"新建"这条路径上接线、编辑页还没有 PATCH 入口的既有范围边界一致，
+// 不是本 feature 新开的缺口。
 
 const TEXTAREA_CLASS =
   "w-full rounded-md border border-input bg-card px-2.5 py-2 text-13 " +
@@ -58,6 +64,13 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
   const [initials, setInitials] = React.useState("");
   const [role, setRole] = React.useState("");
   /**
+   * #1705（#728 D-1，人类裁决）—— 简短角色头衔（如「战略分析师」），与上面的 `role`
+   * （「职责一句话」）是两个不同的输入框、两个不同的字段：D2 编制区渲染成
+   * 「{name} · {roleLabel}」，`role` 仍走既有的「职责一句话」展示位（面板第二行）。
+   * 建 agent 时必填——契约 `createAgent.in.roleLabel` 是 `.min(1)`。
+   */
+  const [roleLabel, setRoleLabel] = React.useState("");
+  /**
    * #660 候选 A —— 可执行定义。**与「职责一句话」是两件事**：
    * `role` 是给人看的标签，这段是 agent 运行时真的照着执行的系统提示词。
    * 界面上分成两个输入框、文案点明区别，正是为了不让人以为填了 role 就够了。
@@ -76,6 +89,7 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
     setName("");
     setInitials("");
     setRole("");
+    setRoleLabel("");
     setInstructions("");
     setVisibility("全组织可用");
     setError(null);
@@ -85,9 +99,10 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
     const trimmedName = name.trim();
     const trimmedInitials = initials.trim();
     const trimmedRole = role.trim();
+    const trimmedRoleLabel = roleLabel.trim();
     const trimmedInstructions = instructions.trim();
-    if (!trimmedName || !trimmedInitials || !trimmedRole) {
-      setError("名称、缩写角标、职责一句话均不能为空。");
+    if (!trimmedName || !trimmedInitials || !trimmedRole || !trimmedRoleLabel) {
+      setError("名称、缩写角标、职责一句话、角色头衔均不能为空。");
       return;
     }
     if (!trimmedInstructions) {
@@ -103,6 +118,7 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
         name: trimmedName,
         initials: trimmedInitials,
         role: trimmedRole,
+        roleLabel: trimmedRoleLabel,
         visibility,
       });
       // ⚠ 两次请求：createAgent 不收 instructions（它是 updateAgentDefinition 的字段），
@@ -218,6 +234,18 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
               disabled={busy}
               autoComplete="off"
               data-testid={`${prefix}-add-role`}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-12 sm:col-span-2">
+            {/* #1705（#728 D-1，人类裁决）—— 与「职责一句话」是不同的字段、不同的
+                展示位：这个是 D2 编制区渲染成「{name} · {roleLabel}」的短头衔。 */}
+            <span>角色头衔（如「战略分析师」）</span>
+            <Input
+              value={roleLabel}
+              onChange={(e) => setRoleLabel(e.target.value)}
+              disabled={busy}
+              autoComplete="off"
+              data-testid={`${prefix}-add-role-label`}
             />
           </label>
           <label className="flex flex-col gap-1 text-12 sm:col-span-2">

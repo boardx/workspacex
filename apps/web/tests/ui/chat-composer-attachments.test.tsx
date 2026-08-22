@@ -37,7 +37,7 @@ vi.mock("@/lib/agent-run-stream", () => ({ openAgentRunStream }));
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import { ATTACHMENT_LIMITS } from "@/lib/live-chat";
 
-const agents = [{ id: "agent-real", abbr: "AR", name: "真实 Agent", duty: "只读研究", presence: "present" as const }];
+const agents = [{ id: "agent-real", abbr: "AR", name: "真实 Agent", duty: "只读研究", roleLabel: "研究", presence: "present" as const }];
 
 function pdf(name: string, bytes = 1024): File {
   return new File([new Uint8Array(bytes)], name, { type: "application/pdf" });

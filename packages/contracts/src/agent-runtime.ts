@@ -717,6 +717,13 @@ export const AgentRow = z
     initials: z.string(),
     name: z.string(),
     role: z.string(),
+    /**
+     * #1705（#728 D-1）—— 简短角色头衔（如「战略分析师」），**与 `role`（职责一句话）
+     * 是两个不同的字段，刻意不同名**：`role` 早已存在且被
+     * `design-deltas/agent-instructions/design-signoff.md` 保护，不得挪作他用；
+     * `roleLabel` 是 D2/D5 面板要展示的短标签（「Ava · 战略分析师」的后半段）。
+     */
+    roleLabel: z.string(),
     visibility: z.enum(["全组织可用", "仅某组"]),
     publishState: AgentPublishState,
     modelId: z.string().nullable(),
@@ -1468,6 +1475,8 @@ export const operations = {
         name: z.string().min(1),
         initials: z.string().min(1),
         role: z.string().min(1),
+        /** #1705（#728 D-1，人类裁决）—— 简短角色头衔，建 agent 时必填。见 `AgentRow.roleLabel`。 */
+        roleLabel: z.string().min(1),
         visibility: z.enum(["全组织可用", "仅某组"]),
         /** null = 从零新建；非 null = 复制（`cloneAgent` 的入口合并在这里，同一条落库路径） */
         cloneFrom: z.string().nullable(),
@@ -1502,6 +1511,8 @@ export const operations = {
         patch: z
           .object({
             role: z.string().optional(),
+            /** #1705（#728 D-1）—— 简短角色头衔，admin 可改。见 `AgentRow.roleLabel`。 */
+            roleLabel: z.string().min(1).optional(),
             visibility: z.enum(["全组织可用", "仅某组"]).optional(),
             proactiveSpeaking: z.boolean().optional(),
             requiresApproval: z.boolean().optional(),
@@ -1534,6 +1545,7 @@ export const operations = {
         agentId: z.string(),
         name: z.string(),
         role: z.string(),
+        roleLabel: z.string(),
         visibility: z.enum(["全组织可用", "仅某组"]),
         publishState: AgentPublishState,
         modelId: z.string().nullable(),

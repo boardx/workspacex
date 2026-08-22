@@ -34,6 +34,14 @@ export const CLONE_INHERITED_FIELDS = [
   "name",
   "initials",
   "role",
+  /** #1705 —— 简短角色头衔，同 name/initials/role 一样：默认继承，复制对话框可覆盖。 */
+  "roleLabel",
+  /**
+   * #1705 —— 基础分类放「继承」，但 `cloneAgentDefinition` 里会按 identity 是否显式
+   * 覆盖了 `roleLabel` 再决定实际取值（覆盖了就是全新文本 ⇒ false；没覆盖就照抄源的
+   * 待确认状态，不擅自替它"确认掉"）。这里只做编译期分类，真实取值逻辑见函数体。
+   */
+  "roleLabelNeedsConfirmation",
   /**
    * #660 —— 复制**继承**可执行定义。
    * ⚠ 这与 I-30「复制不继承权限」不矛盾：I-30 管的是**权限面**（工具白名单），
@@ -87,6 +95,8 @@ export interface NewAgentIdentity {
   readonly name?: string;
   readonly initials?: string;
   readonly role?: string;
+  /** #1705 —— 覆盖了就是全新头衔（不是源的占位文本），落库时 `roleLabelNeedsConfirmation=false`。 */
+  readonly roleLabel?: string;
   readonly visibility?: AgentVisibility;
 }
 
@@ -117,6 +127,11 @@ export function cloneAgentDefinition(
     name: identity.name ?? inherited.name,
     initials: identity.initials ?? inherited.initials,
     role: identity.role ?? inherited.role,
+    roleLabel: identity.roleLabel ?? inherited.roleLabel,
+    // #1705：显式覆盖 = 人刚打的新文本，不是待确认的占位符；没覆盖 = 原样继承源的
+    // 待确认状态（源如果本身就是待确认的占位头衔，复制出来的仍然是同一个占位头衔）。
+    roleLabelNeedsConfirmation:
+      identity.roleLabel !== undefined ? false : inherited.roleLabelNeedsConfirmation,
     visibility: identity.visibility ?? inherited.visibility,
     agentId: identity.agentId,
     cloneFrom: source.agentId,

@@ -949,7 +949,7 @@ export function ChatLiveMessagePanel({
                       <span className="font-medium text-card-foreground">
                         {isAgent ? agentLabel(message.agentId, agents) : "我"}
                       </span>
-                      {isAgent ? agentDuty(message.agentId, agents) : null}
+                      {isAgent ? agentRoleLabel(message.agentId, agents) : null}
                       <span>{messageTime(message.createdAt)}</span>
                     </div>
                     {/*
@@ -1456,13 +1456,20 @@ function agentLabel(agentId: string | null, agents: GetAgentPanelOut["agents"] |
   return agents?.find((a) => a.id === agentId)?.name ?? agentId;
 }
 
-/** agent 的角色 chip。编制里没有这个 agent 时不渲染 —— 不编一个角色出来。 */
-function agentDuty(
+/**
+ * agent 的角色 chip。编制里没有这个 agent 时不渲染 —— 不编一个角色出来。
+ *
+ * #1705（#728 D-1，人类裁决 2026-08-21）—— 这里原来印的是 `duty`（一句话能力描述，
+ * 偏长）；D5 身份行的 chip 应该是短头衔，改成 `roleLabel`（同 D2 编制区第一行用的
+ * 同一个字段，「Ava · 战略分析师」的后半段），`duty` 那句能力描述留在 D2 编制区
+ * 第二行，不在消息气泡这种寸土寸金的行内重复。
+ */
+function agentRoleLabel(
   agentId: string | null,
   agents: GetAgentPanelOut["agents"] | null,
 ): React.ReactNode {
-  const duty = agentId === null ? undefined : agents?.find((a) => a.id === agentId)?.duty;
-  return duty ? <Badge tone="ai">{duty}</Badge> : null;
+  const roleLabel = agentId === null ? undefined : agents?.find((a) => a.id === agentId)?.roleLabel;
+  return roleLabel ? <Badge tone="ai">{roleLabel}</Badge> : null;
 }
 
 /**

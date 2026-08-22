@@ -27,12 +27,14 @@ import type { z } from "zod";
 /** 三值封闭，与契约 `chat.AgentPresence` 同码同义，不另起一份枚举。 */
 export type AgentPresenceValue = z.infer<typeof C.AgentPresence>;
 
-/** 面板/编制里的一个 agent。`duty` 非空是 I-17 的前提，见下方断言函数。 */
+/** 面板/编制里的一个 agent。`duty`/`roleLabel` 非空是 I-17 的前提，见下方断言函数。 */
 export interface AgentPanelAgent {
   readonly id: string;
   readonly abbr: string;
   readonly name: string;
   readonly duty: string;
+  /** #1705（#728 D-1）—— 简短角色头衔，D2/D5 展示用。与 `duty` 是两个不同的展示位。 */
+  readonly roleLabel: string;
   readonly presence: AgentPresenceValue;
 }
 
@@ -42,13 +44,21 @@ export class AgentDutyEmptyError extends Error {
   }
 }
 
+/** #1705——同 `AgentDutyEmptyError`，`roleLabel` 版本，不复用同一个错误类型（字段不同）。 */
+export class AgentRoleLabelEmptyError extends Error {
+  constructor(public readonly agentId: string) {
+    super(`agent_role_label_empty:${agentId}`);
+  }
+}
+
 /**
  * I-17 的唯一断言点。**在把 agent 列表交给调用方之前调用**——
- * 断言写在读路径的末端，晚了就等于允许一个空 duty 的 agent 先被用掉。
+ * 断言写在读路径的末端，晚了就等于允许一个空 duty/roleLabel 的 agent 先被用掉。
  */
 export function assertAgentPanelInvariants(agents: readonly AgentPanelAgent[]): void {
   for (const a of agents) {
     if (a.duty.trim().length === 0) throw new AgentDutyEmptyError(a.id);
+    if (a.roleLabel.trim().length === 0) throw new AgentRoleLabelEmptyError(a.id);
   }
 }
 

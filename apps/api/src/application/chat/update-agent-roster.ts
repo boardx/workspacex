@@ -69,6 +69,8 @@ export interface UpdateAgentRosterResult {
     readonly abbr: string;
     readonly name: string;
     readonly duty: string;
+    /** #1705（#728 D-1）—— 同 `AgentPanelAgent.roleLabel`。 */
+    readonly roleLabel: string;
     readonly presence: "present" | "away" | "off";
   }>;
   readonly auditEventId: string;

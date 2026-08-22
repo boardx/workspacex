@@ -67,6 +67,8 @@ async function createDraft() {
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-name`), { target: { value: "我的助手" } });
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-initials`), { target: { value: "WD" } });
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-role`), { target: { value: "帮我整理会议纪要" } });
+  // #1705（#728 D-1）：与「职责一句话」是不同的字段，同样必填。
+  fireEvent.change(screen.getByTestId(`${PREFIX}-add-role-label`), { target: { value: "会议助理" } });
   fireEvent.change(screen.getByTestId(`${PREFIX}-add-instructions`), {
     target: { value: INSTRUCTIONS },
   });
@@ -143,6 +145,9 @@ describe("#660 后台面板：草稿建成后有一条发布入口", () => {
     fireEvent.change(screen.getByTestId(`${PREFIX}-add-name`), { target: { value: "我的助手" } });
     fireEvent.change(screen.getByTestId(`${PREFIX}-add-initials`), { target: { value: "WD" } });
     fireEvent.change(screen.getByTestId(`${PREFIX}-add-role`), { target: { value: "帮我整理会议纪要" } });
+    // #1705（#728 D-1）：填齐 name/initials/role/roleLabel 四个必填项，让这条测试真的
+    // 走到「未填执行什么」那一支断言，不是提前撞在 roleLabel 缺失的那一支。
+    fireEvent.change(screen.getByTestId(`${PREFIX}-add-role-label`), { target: { value: "会议助理" } });
     fireEvent.click(screen.getByTestId(`${PREFIX}-add-submit`));
 
     await waitFor(() => expect(screen.getByTestId(`${PREFIX}-add-error`)).toBeTruthy());

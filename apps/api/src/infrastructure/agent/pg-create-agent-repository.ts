@@ -32,6 +32,14 @@ export interface AgentDefinitionRow {
   readonly name: string;
   readonly initials: string | null;
   readonly role: string | null;
+  /**
+   * #1705。列本身允许 NULL（迁移 `20260821180000_i1705_agent_role_label.sql` 头注：
+   * 刻意不对整张 `agents` 表加 NOT NULL，避免连带破坏其它写路径/测试）——
+   * `createAgent` 这条写路径通过契约 `.min(1)` + 应用层保证非空，
+   * 但一行 `agents` 未必是经 `createAgent` 建的，读侧不能假设非空。
+   */
+  readonly role_label: string | null;
+  readonly role_label_needs_confirmation: boolean;
   readonly instructions: string | null;
   readonly visibility: string | null;
   readonly clone_from: string | null;
@@ -45,8 +53,8 @@ export interface AgentDefinitionRow {
 }
 
 export const AGENT_DEFINITION_COLUMNS =
-  `id, org_id, name, initials, role, visibility, clone_from, source,
-   publish_state, model_id, skill_mounts, tool_whitelist, concurrency_limit,
+  `id, org_id, name, initials, role, role_label, role_label_needs_confirmation, visibility,
+   clone_from, source, publish_state, model_id, skill_mounts, tool_whitelist, concurrency_limit,
    degrade_policy, instructions`;
 
 export function toDefinition(row: AgentDefinitionRow): AgentDefinition | null {
@@ -71,6 +79,13 @@ export function toDefinition(row: AgentDefinitionRow): AgentDefinition | null {
     name: row.name,
     initials: row.initials,
     role: row.role,
+    // ⚠ #1705：`role_label` 列允许 NULL（见字段注释），且**不**参与上面那组
+    // "这一行不是 createAgent 建的"判据——那组判据靠的是 #617 那批只在 createAgent
+    // 落库的列。`createAgent` 写路径本身通过契约保证非空，但一行没有 role_label
+    // 的合法 `AgentDefinition` 仍然读得出来（同其它可为默认值的字段），空字符串
+    // 兜底而不是抛错——一个读路径不该因为某条其它写路径没填这个字段而整体炸掉。
+    roleLabel: row.role_label ?? "",
+    roleLabelNeedsConfirmation: row.role_label_needs_confirmation,
     // ⚠ NULL 是合法值（「还没配可执行定义」），不参与上面那组"这一行不是 createAgent
     // 建的"判据——那组判的是 #617 那批列，而 instructions 是 #660 才加的，
     // 存量行本来就该是 NULL。
@@ -125,11 +140,12 @@ export class PgCreateAgentRepository implements CreateAgentRepository {
       await session.query(
         `INSERT INTO agents
            (id, org_id, stable_name, name, status, creator_id, created_at, updated_at,
-            published_version_id, initials, role, visibility, clone_from, source,
+            published_version_id, initials, role, role_label, role_label_needs_confirmation,
+            visibility, clone_from, source,
             publish_state, model_id, skill_mounts, tool_whitelist, concurrency_limit,
             degrade_policy, instructions)
-         VALUES ($1,$2,$1,$3,'enabled',$4,$5,$5,NULL,$6,$7,$8,$9,$10,$11,$12,
-                 $13::jsonb,$14::jsonb,$15,$16,$17)`,
+         VALUES ($1,$2,$1,$3,'enabled',$4,$5,$5,NULL,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+                 $15::jsonb,$16::jsonb,$17,$18,$19)`,
         [
           definition.agentId,
           definition.orgId,
@@ -138,6 +154,8 @@ export class PgCreateAgentRepository implements CreateAgentRepository {
           now,
           definition.initials,
           definition.role,
+          definition.roleLabel,
+          definition.roleLabelNeedsConfirmation,
           definition.visibility,
           definition.cloneFrom,
           definition.source,

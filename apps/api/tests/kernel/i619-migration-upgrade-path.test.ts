@@ -56,9 +56,21 @@ beforeAll(() => {
   psql("postgres", `CREATE DATABASE ${DB}`);
 
   // ① 一份摘掉 i619 的迁移目录 = 本 PR 之前的既有部署。
+  //
+  // ⚠ #1705（#728 D-1）实测发现的真实空转：`20260821180000_i1705_agent_role_label.sql`
+  //   的 `UPDATE capability_listings ... COALESCE(NULLIF(trim(duty), ...` 那句假设
+  //   `duty` 列已经存在——而 `duty` 列正是 i619 加的。step ① 的 `migrate(cfg(), { dir:
+  //   legacyDir })` 会把 legacyDir 里剩下的**全部**迁移（含 i1705，因为它只被摘掉了
+  //   i619 一个文件）都跑一遍，i1705 排在 i619 本该在的位置之后、但 i619 已被摘掉，
+  //   于是 i1705 在一个还没有 `duty` 列的库上运行 ⇒ `column "duty" does not exist`。
+  //   这在真实部署里**不会发生**（i619 早在 2026-08-07 就合入 main，任何看到 i1705
+  //   的环境必然已经跑过 i619），但这个测试的"摘掉一个文件"手法制造了一个真实迁移
+  //   历史里不存在的中间态。修法：任何**依赖 i619 加的列**的后续迁移，在这里模拟
+  //   "i619 之前的部署"时也要一并摘掉——它们和 i619 是同一批要在 step ③ 里一起补上的。
   legacyDir = mkdtempSync(join(tmpdir(), "i619-legacy-"));
   cpSync(MIGRATIONS_DIR, legacyDir, { recursive: true });
   unlinkSync(join(legacyDir, "20260807000000_i619_agent_roster_capability_convergence.sql"));
+  unlinkSync(join(legacyDir, "20260821180000_i1705_agent_role_label.sql"));
 }, 120_000);
 
 afterAll(() => {
@@ -96,8 +108,12 @@ it("已经有 agent listing 的库能升级：i619 回填既有行而不是被�
   expect(duty).toBeTruthy();
 
   // 约束确实存在（回填不是靠"没加约束"蒙混过关）——再插一行无 abbr/duty 的 agent 必须被挡。
+  // #1705：本次 migrate() 也带上了 role_label 的 NOT NULL 迁移——这里显式给 role_label
+  // 一个值，让这条 INSERT 只撞 abbr/duty 那条 CHECK（本测试要验的那条），不与
+  // role_label 那条 CHECK 混在一起判先后。role_label 自己的等价反证见
+  // `role-label-migration-upgrade-path.test.ts`。
   expect(() =>
-    psql(DB, "INSERT INTO capability_listings (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint) " +
-      "VALUES ('agent-after','org-i619','agent','x','org-wide',NULL,true,NULL)"),
+    psql(DB, "INSERT INTO capability_listings (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint,role_label) " +
+      "VALUES ('agent-after','org-i619','agent','x','org-wide',NULL,true,NULL,'x')"),
   ).toThrow(/capability_listings_agent_needs_abbr_duty/);
 }, 300_000);

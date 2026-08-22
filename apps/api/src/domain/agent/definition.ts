@@ -39,6 +39,13 @@ export interface AgentDefinition {
   /** 职责一句话. */
   readonly role: string;
   /**
+   * #1705（#728 D-1，人类裁决）—— 简短角色头衔（如「战略分析师」）。
+   * ⚠ 与 `role`（职责一句话）是两个不同字段，刻意不同名，见契约 `AgentRow.roleLabel` 注释。
+   */
+  readonly roleLabel: string;
+  /** #1705 —— 存量回填出来的占位头衔尚待人工确认时为 true；admin 显式改过后落 false。 */
+  readonly roleLabelNeedsConfirmation: boolean;
+  /**
    * #660 候选 A —— 用户自己写的**可执行定义**（系统提示词），`null` = 尚未配置。
    *
    * ⚠ 与上面的 `role` **不是同一件事，不得互相顶替**：`role` 是给人看的角色标签，

@@ -41,6 +41,13 @@ interface AgentRosterDbRow {
   abbr: string;
   name: string;
   duty: string;
+  /**
+   * #1705（#728 D-1）—— `capability_listings.role_label`。⚠ 可能为 NULL：这一列没有
+   * NOT NULL/kind 条件强制（见迁移 `20260821180000_i1705_agent_role_label.sql` 头注——
+   * 「能力目录」admin 表单这条独立写路径不产出它）。`toAgentPanelAgent` 在映射时回退到
+   * `duty`，不把 NULL 交给调用方。
+   */
+  role_label: string | null;
   presence: string;
 }
 
@@ -411,7 +418,7 @@ export class PgChatRepository implements ChatRepository {
          *   同 R8「停用不隐藏，标注原因」的精神：这里虽然还没有"标注原因"的字段，
          *   但至少不能让停用悄悄地把编制读丢一行，那会是比"没有原因"更糟的行为。
          */
-        `SELECT ta.agent_id, cl.abbr, cl.name, cl.duty, ta.presence
+        `SELECT ta.agent_id, cl.abbr, cl.name, cl.duty, cl.role_label, ta.presence
            FROM chat_thread_agents ta
            JOIN capability_listings cl
              ON cl.org_id = ta.org_id AND cl.id = ta.agent_id AND cl.kind = 'agent'
@@ -499,7 +506,7 @@ export class PgChatRepository implements ChatRepository {
         // #619：同 `findAgentRoster` 那条 JOIN，同一个理由（不加 `enabled` 过滤——
         // 已在编制里的成员资格不因目录条目后来被停用而消失）。
         const rows = await s.query<AgentRosterDbRow>(
-          `SELECT ta.agent_id, cl.abbr, cl.name, cl.duty, ta.presence
+          `SELECT ta.agent_id, cl.abbr, cl.name, cl.duty, cl.role_label, ta.presence
              FROM chat_thread_agents ta
              JOIN capability_listings cl
                ON cl.org_id = ta.org_id AND cl.id = ta.agent_id AND cl.kind = 'agent'
@@ -815,6 +822,12 @@ function toAgentPanelAgent(row: AgentRosterDbRow) {
     abbr: row.abbr,
     name: row.name,
     duty: row.duty,
+    // #1705：NULL（走「能力目录」admin 表单造的、还没有 role_label 的旧行）回退到
+    // `duty`——面板永远有一句可显示的角色文案，不因为某条独立写路径没填这个字段
+    // 就让 I-17 style 的非空断言炸出 500。`duty` 已经是这一行**保证非空**的字段
+    // （既有 `capability_listings_agent_needs_abbr_duty` CHECK），是诚实的兜底，
+    // 不是编造的文本。
+    roleLabel: row.role_label ?? row.duty,
     presence: row.presence as AgentPresenceValue,
   };
 }

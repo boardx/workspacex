@@ -32,6 +32,13 @@ export const SNAPSHOT_FROZEN_FIELDS = [
   "initials",
   "role",
   /**
+   * #1705（#728 D-1）—— 冻结，同 `name`/`initials`/`role` 一样的理由：它是身份展示的
+   * 一部分（「Ava · 战略分析师」的后半段），不是运行时会读的执行字段，但历史 run
+   * 应该答得出"当时这个 agent 顶着的头衔是什么"——同 `role` 的既有纪律一致，
+   * 不因为它比 `role` 晚加就区别对待。
+   */
+  "roleLabel",
+  /**
    * #660 —— **必须冻结**。它就是「这一版到底跑什么」本身；不冻结的话，UC-4.4 的
    * 「当时跑的是哪一版」还能答出版本号，却答不出那一版的行为（作者事后改了指令，
    * 历史 run 的解释就跟着变了）。同 `agent_versions.instructions` 一列不可变。
@@ -53,6 +60,13 @@ export const SNAPSHOT_FROZEN_FIELDS = [
  *                    would make a locked project's snapshot say 运行中 forever, which is the
  *                    exact opposite of I-32 (disabling must be observable on the agent).
  *   cloneFrom        provenance of the definition, not part of what runs
+ *   roleLabelNeedsConfirmation
+ *                    #1705（#728 D-1）—— a LIFECYCLE fact about the `roleLabel` text itself
+ *                    ("is this still an unreviewed placeholder or has an admin confirmed
+ *                    it"), not part of what this version runs. Freezing it would make a
+ *                    label an admin later confirmed show as forever-unconfirmed in old
+ *                    version snapshots -- not history, just a stale flag the snapshot
+ *                    manufactures. Same reasoning as `publishState` above.
  */
 export const SNAPSHOT_EXCLUDED_FIELDS = [
   "agentId",
@@ -60,6 +74,7 @@ export const SNAPSHOT_EXCLUDED_FIELDS = [
   "publishState",
   "cloneFrom",
   "source",
+  "roleLabelNeedsConfirmation",
 ] as const satisfies readonly (keyof AgentDefinition)[];
 
 type FrozenKey = (typeof SNAPSHOT_FROZEN_FIELDS)[number];
