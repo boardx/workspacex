@@ -313,6 +313,46 @@ export function ChatLiveMessagePanel({
   const atBottomRef = React.useRef(true);
   const BOTTOM_FOLLOW_THRESHOLD_PX = 80;
   /**
+   * issue #728 D 组 round 4 独评发现的 H3——「发送后强制滚到底」间歇性卡在半屏（源码
+   * 推理，未经 trace 证实）。反证记录见 #1815：用 CPU 20x 降速 + soft 重读延迟 400ms
+   * 复现评分员怀疑的「rAF 落在 commit 之前」窗口，本仓浏览器环境下没能复现——程序性
+   * `scrollTop` 赋值触发的 `scroll` 事件在本环境里是同步的，不存在评分员假设的那种
+   * 「变高之后才跑到」的延迟。
+   *
+   * 但顺着这条线读代码，找到一个**不需要那个未证实假设也成立**的真实缺口：`awaitingReply`
+   * 的「正在思考…」占位行、以及每条 AI 消息自己挂的 `MessageThinkingChain` /
+   * `MessageContextSnapshot`（惰性 `IntersectionObserver` 拉取，见两份组件自己的头注）
+   * 都会在**跟随 `messages.length`/`streamingText` 的那次性 rAF 滚动之后**才把自己的
+   * 高度插进消息区——这类增高没有对应的 `messages.length` 变化，旧代码里没有任何机制
+   * 会在这之后重新贴底。用户贴着底部时，这类异步增高应该继续把视口按住在底部，而不是
+   * 放任它把距离拉开又没人纠正。
+   *
+   * 修法：不再用「消息变化触发一次性 rAF」这种一次性修正，改成用 `ResizeObserver`
+   * 盯着消息列表自身的盒子——只要它的高度变化（不管是持久消息新增、流式追加、还是上面
+   * 这几个惰性子组件事后长高），且用户仍贴底（`atBottomRef.current` 为真），就重新贴底。
+   * 这个机制对"具体是哪次渲染、哪一帧触发了增高"完全不敏感，天然覆盖了原本 rAF
+   * 时序假设想解决的问题，也覆盖了这里新发现的惰性子组件增高问题。
+   */
+  const messageListRef = React.useRef<HTMLOListElement | null>(null);
+  /**
+   * 「程序性滚动生效期」——`pinToBottom()` 自己产生的 `scrollTop` 赋值也会触发一次
+   * `scroll` 事件跑进 `handleScrollAreaScroll`。防御性地在生效期内不让它覆写
+   * `atBottomRef`（只更新按钮显隐）：即使某个环境下这次 `scroll` 事件真的如评分员
+   * 假设的那样在内容变高之后才到达、读到一个偏大的 `distanceFromBottom`，也不会把
+   * 「用户其实还贴着底」误判成「用户离开了底部」。
+   */
+  const PROGRAMMATIC_SCROLL_GRACE_MS = 400;
+  const programmaticScrollUntilRef = React.useRef(0);
+  const markProgrammaticScroll = React.useCallback(() => {
+    programmaticScrollUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_GRACE_MS;
+  }, []);
+  const pinToBottom = React.useCallback(() => {
+    const el = scrollAreaRef.current;
+    if (!el) return;
+    markProgrammaticScroll();
+    el.scrollTop = el.scrollHeight;
+  }, [markProgrammaticScroll]);
+  /**
    * V5（PROP-CHAT-10ITER-001）—— jump-to-latest 悬浮按钮的显隐。V1 的 `atBottomRef`
    * 是给「自动跟随判定」用的 ref（不触发渲染）；按钮显隐必须进 state 才能重渲染，
    * 所以这里单独用一个 state，在同一个 onScroll 里一起更新。用户不在底部附近 ⇒ 显示。
@@ -323,16 +363,33 @@ export function ChatLiveMessagePanel({
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     const atBottom = distanceFromBottom <= BOTTOM_FOLLOW_THRESHOLD_PX;
-    atBottomRef.current = atBottom;
     setShowJumpToLatest((current) => (current === !atBottom ? current : !atBottom));
+    if (Date.now() < programmaticScrollUntilRef.current) return;
+    atBottomRef.current = atBottom;
   }, []);
+  React.useEffect(() => {
+    const target = messageListRef.current;
+    if (!target || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (!atBottomRef.current) return;
+      pinToBottom();
+    });
+    ro.observe(target);
+    return () => ro.disconnect();
+    // `messageListRef.current` 只在 loading/listFailure/空态 与「真的有消息」之间切换时
+    // 才会从 null 变成真实节点（或反过来），这几个 state 就是「该不该重新挂 observer」
+    // 的完整依赖——`messages.length` 本身的变化不需要重挂，容器元素没变，
+    // ResizeObserver 自己会持续汇报后续的高度变化。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinToBottom, loading, listFailure, messages.length === 0]);
   const scrollToLatest = React.useCallback(() => {
     const el = scrollAreaRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    markProgrammaticScroll();
     atBottomRef.current = true;
     setShowJumpToLatest(false);
-  }, []);
+  }, [markProgrammaticScroll]);
   /**
    * V7（PROP-CHAT-10ITER-001）—— 输入区随内容多行自动增高。每次 `text` 变化把高度
    * 先归零再设成 `scrollHeight`（这样删字也会缩回），封顶 `COMPOSER_MAX_HEIGHT_PX`
@@ -404,21 +461,13 @@ export function ChatLiveMessagePanel({
   // 直接落到「通用助手」；用户在这条线程手动选过时仍原样尊重那次选择。
   const selectedAgentId = pickDefaultAgentId(agents, agentId || lastUsedAgentId(messages));
 
-  /**
-   * V1 —— 新消息列表变化或流式 token 追加时，若用户还贴着底部就跟到底。
-   * 依赖 `messages.length`（新持久消息）与 `streamingText`（逐 token 追加）两个信号；
-   * `atBottomRef` 为 false（用户上滚了）时什么都不做。用 `requestAnimationFrame`
-   * 等这一帧的 DOM 高度落定后再设 scrollTop，否则会滚到「加内容之前」的旧高度。
-   */
-  React.useEffect(() => {
-    if (!atBottomRef.current) return;
-    const el = scrollAreaRef.current;
-    if (!el) return;
-    const id = requestAnimationFrame(() => {
-      el.scrollTop = el.scrollHeight;
-    });
-    return () => cancelAnimationFrame(id);
-  }, [messages.length, streamingText]);
+  // V1 —— 新消息列表变化或流式 token 追加时，若用户还贴着底部就跟到底。
+  // 原来是一次性 `requestAnimationFrame`，只对 `messages.length`/`streamingText`
+  // 这两个信号敏感；issue #728 D 组 round 4 独评 + 本文件上方 `messageListRef`
+  // 头注记录的排查：`MessageThinkingChain`/`MessageContextSnapshot` 惰性拉取后
+  // 才追加高度，不产生这两个信号中的任何一个，一次性 rAF 追不上。已改成
+  // `messageListRef` 那个 `ResizeObserver`——盯的是容器盒子本身的高度变化，不管
+  // 增高来自哪个信号，只要用户还贴底就重新贴底，这条 effect 因此不再需要。
 
   /**
    * `mode`（#925 ② 修复整界面闪烁）：
@@ -792,14 +841,14 @@ export function ChatLiveMessagePanel({
       // （#925 ② 消灭闪烁 + `catchUpCursorRef` 头注——H3 根因修复）
       await loadPage(catchUpCursorRef.current, "soft");
       // #925 ③（人类裁决）—— 发送是显式意图，无条件滚到最新一条，**覆盖 V1「尊重上滚」**
-      // （用户之前上滚看历史，发送后也要拽回底部；对齐 Claude/ChatGPT）。置 atBottomRef=true
-      // 让后续流式/回复继续跟随；显式 rAF 滚一次保证这次立刻到底。
+      // （用户之前上滚看历史，发送后也要拽回底部；对齐 Claude/ChatGPT）。置
+      // atBottomRef=true 让后续流式/回复/惰性子组件增高继续跟随；`pinToBottom()`
+      // 立即尽力滚一次，随后 `messageListRef` 的 `ResizeObserver`（见其头注，H3
+      // round 4 根因修复）接手兜底——不管这次立即滚动是抢在 commit 之前还是之后，
+      // 内容盒子一旦再变化都会被追上，不再是「滚一次赌中就中」。
       atBottomRef.current = true;
       setShowJumpToLatest(false);
-      requestAnimationFrame(() => {
-        const el = scrollAreaRef.current;
-        if (el) el.scrollTop = el.scrollHeight;
-      });
+      pinToBottom();
     } catch (failure) {
       setSubmitFailure(describeMessageFailure(failure, "发送消息"));
     } finally {
@@ -826,10 +875,7 @@ export function ChatLiveMessagePanel({
       await loadPage(catchUpCursorRef.current, "soft"); // H3 根因修复见上（`catchUpCursorRef` 注释）
       atBottomRef.current = true;
       setShowJumpToLatest(false);
-      requestAnimationFrame(() => {
-        const el = scrollAreaRef.current;
-        if (el) el.scrollTop = el.scrollHeight;
-      });
+      pinToBottom(); // 立即尽力 + `messageListRef` 的 ResizeObserver 兜底，见其头注
     } catch (failure) {
       setPersonaFailure(
         failure instanceof ApiError
@@ -957,7 +1003,7 @@ export function ChatLiveMessagePanel({
           </div>
         ) : null}
         {messages.length > 0 ? (
-          <ol className="flex flex-col gap-4" data-testid="chat-message-list">
+          <ol ref={messageListRef} className="flex flex-col gap-4" data-testid="chat-message-list">
             {messages.map((message) => {
               const isAgent = message.authorKind === "agent";
               return (
