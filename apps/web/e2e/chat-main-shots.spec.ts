@@ -289,14 +289,22 @@ test("capture chat main screen against the real stack", async ({ page }) => {
    * 假按钮。按钮的渲染依据仍是服务端下发的 `artifact.land` 能力，只是这个能力
    * 现在对个人线程也下发了（`PERSONAL_THREAD_CAPABILITIES` 已含
    * `artifact.land`，见 `thread-visibility.ts`）。此刻屏上已有用户消息 + agent
-   * 回复至少两条，每条消息下都应该有这枚按钮——若渲染依据又漂移回「个人线程
+   * 回复共两条，每条消息下都应该有这枚按钮——若渲染依据又漂移回「个人线程
    * 恒不给」，这里数出来会是 0，当场红。
    * 项目侧「写角色看得见这枚按钮」的另一半反证在 chat-read.spec.ts。
+   *
+   * issue #728 D 组 round 4 独评发现这里实测只数到 1（不是产品回归——分诊见
+   * issue #1816）：真根因是上面这行的旧写法 `expect(await locator.count())
+   * .toBeGreaterThanOrEqual(2)` 只读一次快照，不像 Playwright 的 web-first
+   * 断言那样重试。断言语义本身没有过期：`chat-live-message-panel.tsx` 的
+   * `MessageLandingControls` 不区分 `isAgent`，用户消息和 agent 回复都会渲染
+   * 这枚按钮，1 条用户消息 + 1 条 agent 回复稳定应有 2 个——只是上面
+   * `waitForFunction` 只等了 `data-run-status` 到终态，没有等 agent 回复那次
+   * `loadPage(..., "soft")` 异步重读真的把第二条消息渲染进 DOM，`.count()`
+   * 抢跑在只有第一个（用户自己那条）按钮落地的那一刻。改用 `toHaveCount`（会
+   * 重试到 Playwright expect 超时）而不是放宽这个数字。
    */
-  await expect(page.locator('[data-testid^="chat-land-artifact-open-"]').first()).toBeVisible();
-  expect(
-    await page.locator('[data-testid^="chat-land-artifact-open-"]').count(),
-  ).toBeGreaterThanOrEqual(2);
+  await expect(page.locator('[data-testid^="chat-land-artifact-open-"]')).toHaveCount(2);
 
   await shoot("chat-main-personal-reply.png", "chat-thread-detail");
 
