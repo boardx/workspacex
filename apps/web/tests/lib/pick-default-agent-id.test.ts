@@ -6,8 +6,8 @@
  * 的证明纪律。
  */
 import { describe, expect, it } from "vitest";
-import { pickDefaultAgentId } from "@/lib/live-chat";
-import type { GetAgentPanelOut } from "@/lib/live-chat";
+import { lastUsedAgentId, pickDefaultAgentId } from "@/lib/live-chat";
+import type { DurableMessage, GetAgentPanelOut } from "@/lib/live-chat";
 
 type Agent = GetAgentPanelOut["agents"][number];
 
@@ -50,5 +50,50 @@ describe("pickDefaultAgentId", () => {
   it("requestedAgentId 指向一个已不在候选集里的 id（agent 被下线/换编制）→ 同「未命中」路径", () => {
     const agents = [agent("a-general", "通用助手")];
     expect(pickDefaultAgentId(agents, "a-stale-id")).toBe("a-general");
+  });
+});
+
+/**
+ * `lastUsedAgentId`（#1806 反证）——2026-08-22 devapp 实测：重开线程后选择器不恢复成
+ * 线程实际用过的 agent，而是硬编码回落「通用助手」。这里钉住「从已加载消息里挑最近一条
+ * agent 消息的 agentId」这个纯函数本身，组件接线的回归见
+ * `tests/ui/chat-live-message-panel-agent-selector-restore.test.tsx`。
+ */
+function agentMsg(over: Partial<DurableMessage> & { id: string }): DurableMessage {
+  return {
+    authorKind: "agent", authorId: "sys", agentId: null, text: "", clientMessageId: null,
+    agentRunId: null, replyToMessageId: null, createdAt: "2026-01-01T00:00:00.000Z", ...over,
+  };
+}
+
+describe("lastUsedAgentId", () => {
+  it("多条 agent 消息 → 取 createdAt 最新的那条的 agentId，不管数组顺序", () => {
+    const messages = [
+      agentMsg({ id: "m-1", agentId: "agent-general", createdAt: "2026-08-20T00:00:00.000Z" }),
+      agentMsg({ id: "m-2", agentId: "agent-deep-research", createdAt: "2026-08-22T00:00:00.000Z" }),
+      agentMsg({ id: "m-3", agentId: "agent-general", createdAt: "2026-08-21T00:00:00.000Z" }),
+    ];
+    expect(lastUsedAgentId(messages)).toBe("agent-deep-research");
+  });
+
+  it("human 消息（authorKind !== 'agent'）不参与计算，即便本身带了字段", () => {
+    const messages = [
+      { ...agentMsg({ id: "m-1", agentId: "agent-general" }), authorKind: "human" as const },
+    ];
+    expect(lastUsedAgentId(messages)).toBe("");
+  });
+
+  it("agent 消息但 agentId 为 null（历史行/legacy）→ 跳过，不当成候选", () => {
+    const messages = [agentMsg({ id: "m-1", agentId: null })];
+    expect(lastUsedAgentId(messages)).toBe("");
+  });
+
+  it("空消息列表（线程还没消息，或当前窗口还没加载到）→ 空串", () => {
+    expect(lastUsedAgentId([])).toBe("");
+  });
+
+  it("单条 agent 消息 → 直接取它", () => {
+    const messages = [agentMsg({ id: "m-1", agentId: "agent-image-gen" })];
+    expect(lastUsedAgentId(messages)).toBe("agent-image-gen");
   });
 });
