@@ -31,7 +31,11 @@
  * 403/409 在这条路由上**不是**存在性 oracle：两者都在**可见性判定通过之后**才可能返回，
  * 也就是提问的人已经能看见这个 run 了。
  */
-import { Controller, ConflictException, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Res, ServiceUnavailableException } from "@nestjs/common";
+import {
+  AgentRunNotAwaitingApprovalError,
+  decideAgentRun,
+} from "../../application/agent-run/decide-agent-run";
+import { BadRequestException, Body, Controller, ConflictException, ForbiddenException, Get, HttpCode, Inject, NotFoundException, Param, Post, Res, ServiceUnavailableException } from "@nestjs/common";
 import type { Response } from "express";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { assertPrincipal, type Principal } from "../../domain/principal";
@@ -39,7 +43,7 @@ import { toOrgId } from "../../domain/org-id";
 import { DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository } from "../../application/identity/ports";
 import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/ports";
 import { AuthzUnavailableError } from "../../application/chat/resolve-visibility";
-import { AGENT_RUN_STORE, type AgentRunStore } from "../../application/agent-run/ports";
+import { AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, type AgentRunExecutorPort, type AgentRunStore } from "../../application/agent-run/ports";
 import { AgentRunNotVisibleError, readAgentRun } from "../../application/agent-run/read-run";
 import {
   AgentRunNotRetryableError, AgentRunRetryForbiddenError, retryAgentRun,
@@ -60,6 +64,7 @@ export class AgentRunController {
     @Inject(CHAT_REPOSITORY) private readonly chat: ChatRepository,
     @Inject(AGENT_RUN_STORE) private readonly runs: AgentRunStore,
     @Inject(AGENT_RUN_CONTEXT_SNAPSHOT) private readonly snapshots: AgentRunContextSnapshotPort,
+    @Inject(AGENT_RUN_EXECUTOR) private readonly executor: AgentRunExecutorPort,
   ) {}
 
   @Get("/agent-runs/:runId")
@@ -186,6 +191,39 @@ export class AgentRunController {
    *
    * 200 而不是 202：返回的是重开后的 run 投影，客户端照 §5 继续轮询到终态。
    */
+  /**
+   * DA-07b（rubric D6）：awaiting_approval 的人裁决入口。
+   * body.decision: "approve" | "reject"。404/403/409/503 语义与 retries 同一套：
+   * 不可见 = 404（I-3：不确认存在性）、observer/归档 = 403、状态不对 = 409。
+   */
+  @Post("/agent-runs/:runId/decision")
+  @HttpCode(200)
+  async decide(
+    @CurrentPrincipal() principal: Principal,
+    @Param("runId") runId: string,
+    @Body() body: { decision?: unknown },
+  ) {
+    assertPrincipal(principal);
+    const decision = body?.decision;
+    if (decision !== "approve" && decision !== "reject") {
+      throw new BadRequestException("decision must be \"approve\" or \"reject\"");
+    }
+    try {
+      return await decideAgentRun(
+        { repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs, kick: (orgId) => this.executor.kick(orgId) },
+        { userId: principal.userId, orgId: toOrgId(principal.orgId), runId, decision },
+      );
+    } catch (e) {
+      if (e instanceof AgentRunNotVisibleError) throw new NotFoundException();
+      if (e instanceof AgentRunRetryForbiddenError) throw new ForbiddenException("AGENT_RUN_DECISION_FORBIDDEN");
+      if (e instanceof AgentRunNotAwaitingApprovalError) {
+        throw new ConflictException({ reasonCode: "AGENT_RUN_NOT_AWAITING_APPROVAL", status: e.status });
+      }
+      if (e instanceof AuthzUnavailableError) throw new ServiceUnavailableException("authz_unavailable");
+      throw e;
+    }
+  }
+
   @Post("/agent-runs/:runId/retries")
   @HttpCode(200)
   async retry(@CurrentPrincipal() principal: Principal, @Param("runId") runId: string) {

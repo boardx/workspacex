@@ -35,7 +35,8 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
     runId: "run-1", threadId: "thread-1", projectId: "proj-1", inputMessageId: "msg-1", requesterUserId: "user-1",
     inputText: "帮我画一张架构图", inputAttachments: [], agentId: "agent-1", agentVersionId: "agent-version-1",
     instructions: "你是通用助手", skillVersionIds: [SKILL.versionId],
-    modelProvider: "deep-agent-fake", modelId: "deep-agent", ...overrides,
+    modelProvider: "deep-agent-fake", modelId: "deep-agent", pendingDecision: null,
+    ...overrides,
   };
 }
 
@@ -70,6 +71,8 @@ function fakeStore(
       _orgId, _runId, output: { text: string; finalStepSeq: number },
     ) => { state.output = output; },
     failRun: async (_orgId, _runId, code: RunFailureCode) => { state.failedWith = code; },
+    async markAwaitingApproval() { throw new Error('unexpected markAwaitingApproval in this test'); },
+    async approveAndRequeue() { throw new Error('unexpected approveAndRequeue in this test'); return false; },
     claimWritebackPending: unused("claimWritebackPending"),
     commitWriteback: unused("commitWriteback"),
     recordWritebackAttempt: unused("recordWritebackAttempt"),

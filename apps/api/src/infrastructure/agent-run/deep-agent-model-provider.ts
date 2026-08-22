@@ -305,7 +305,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
              症状是"挂了 skill 但没产出文件"，与 #1747 修的正是同一个形状。 */
           return await this.readCompletion(baseUrl, threadId);
         }
-        if (status === "error" || status === "timeout" || status === "interrupted") {
+        if (status === "interrupted") {
+          // DA-07b：停在 interrupt_on 等人裁决——不是失败。读 state 找出待批的调用。
+          await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+          return { text: "", interrupted: await this.readPendingApproval(baseUrl, threadId) };
+        }
+        if (status === "error" || status === "timeout") {
           await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
           throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run ended with status "${status}"`);
         }
@@ -320,7 +325,12 @@ export class DeepAgentModelProvider implements ModelCallPort {
       await emitNewEvents();
       const status = await this.readRunStatus(baseUrl, threadId, runId);
       if (status === "success") break;
-      if (status === "error" || status === "timeout" || status === "interrupted") {
+      if (status === "interrupted") {
+        // DA-07b：等人裁决，不是失败。
+        await emitNewEvents();
+        return { text: "", interrupted: await this.readPendingApproval(baseUrl, threadId) };
+      }
+      if (status === "error" || status === "timeout") {
         // One last read: a call that completed in the same instant the run turned terminal
         // must not be lost because this loop stops polling the moment it sees the status.
         await emitNewEvents();
@@ -530,6 +540,33 @@ export class DeepAgentModelProvider implements ModelCallPort {
     }
   }
 
+  /** DA-07b：从 thread state 找待批的调用——最后一个没有 ToolMessage 回应的 tool_call。
+   * 找不到时如实返回占位名（"unknown"），绝不编参数。 */
+  private async readPendingApproval(
+    baseUrl: string, threadId: string,
+  ): Promise<{ toolName: string; argsSummary: string | null }> {
+    const state = await this.readState(baseUrl, threadId);
+    const messages = state.values?.messages ?? [];
+    const answered = new Set<string>();
+    for (const m of messages) {
+      if (m.type === "tool" && typeof m.tool_call_id === "string") answered.add(m.tool_call_id);
+    }
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const m = messages[i]!;
+      if (m.type !== "ai" || !Array.isArray(m.tool_calls)) continue;
+      for (const call of m.tool_calls) {
+        const id = typeof call.id === "string" ? call.id : null;
+        const name = typeof call.name === "string" ? call.name : null;
+        if (id === null || name === null || answered.has(id)) continue;
+        return {
+          toolName: name,
+          argsSummary: call.args === undefined ? null : summarizeProgressText(JSON.stringify(call.args), 4000),
+        };
+      }
+    }
+    return { toolName: "unknown", argsSummary: null };
+  }
+
   private async createThread(baseUrl: string): Promise<string> {
     const response = await fetchWithTransportErrors(`${baseUrl}/threads`, { method: "POST", body: "{}" });
     const body = (await response.json()) as { thread_id?: string };
@@ -540,6 +577,25 @@ export class DeepAgentModelProvider implements ModelCallPort {
   }
 
   private async createRun(baseUrl: string, threadId: string, input: ModelCallInput): Promise<string> {
+    // DA-07b：resume 模式——向停在 interrupt 的既有 run 提交裁决，绝不重发用户输入
+    // （重发会让引擎把同一条消息处理两遍）。resume 形状 {"decisions":[...]} 是 0.7.6
+    // HumanInTheLoopMiddleware 的实测契约（裸列表 TypeError，见 deep-agent-service
+    // 的 test_harness.py 存档）。
+    if (input.resume !== undefined) {
+      const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs`, {
+        method: "POST",
+        body: JSON.stringify({
+          assistant_id: ASSISTANT_ID,
+          command: { resume: { decisions: [{ type: input.resume.decision }] } },
+        }),
+      });
+      const body = (await response.json()) as { run_id?: string };
+      if (!response.ok || !body.run_id) {
+        throw new ModelCallError("MODEL_CALL_FAILED", `deep agent resume failed with HTTP ${response.status}`);
+      }
+      return body.run_id;
+    }
+
     const messages: { role: string; content: string }[] = [];
     if (input.system.trim() !== "") messages.push({ role: "system", content: input.system });
     for (const turn of input.history ?? []) messages.push({ role: turn.role, content: turn.content });

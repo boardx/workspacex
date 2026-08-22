@@ -1011,6 +1011,9 @@ async function executeClaimed(
         {
           modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
             threadId: run.threadId,
+          // DA-07b：人已批准的 run 以 resume 方式续跑（provider 发 command.resume，
+          // 不重发用户输入）。
+          ...(run.pendingDecision === "approve" ? { resume: { decision: "approve" as const } } : {}),
           history,
           // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
           skills: toolSkills,
@@ -1045,6 +1048,18 @@ async function executeClaimed(
           await deps.runs.appendModelDelta(orgId, { runId: run.runId, seq, text: delta });
         },
       );
+      if (completion.interrupted !== undefined) {
+        // DA-07b（rubric D6）：run 停在敏感工具调用前等人裁决。这不是失败也不是完成——
+        // run 落 awaiting_approval + 待批摘要，本轮执行到此为止：不写回、不置终态。
+        // decideAgentRun 是唯一的出口（approve → 重新入队以 resume 续跑；reject → failed）。
+        await record(deps, orgId, {
+          runId: run.runId, seq: seqCursor.value, kind: "model_called", startedAt: modelStartedAt,
+          inputDigest: systemDigest, outputDigest: null, failureCode: null,
+          planningNote: `等待人工批准：${completion.interrupted.toolName}`,
+        });
+        await deps.runs.markAwaitingApproval(orgId, run.runId, completion.interrupted);
+        return;
+      }
       if (completion.text.trim() === "") {
         throw new ModelCallError("MODEL_CALL_FAILED", "provider returned neither content nor a progress event");
       }

@@ -191,6 +191,8 @@ function fakeStore(
     readModelDeltas: async () => [],
     storeOutputAwaitingWriteback: async (_orgId, _runId, output: StoredOutput) => { state.output = output; },
     failRun: async (_orgId, _runId, code: RunFailureCode) => { state.failedWith = code; },
+    async markAwaitingApproval() { throw new Error('unexpected markAwaitingApproval in this test'); },
+    async approveAndRequeue() { throw new Error('unexpected approveAndRequeue in this test'); return false; },
     claimWritebackPending: unused("claimWritebackPending"),
     commitWriteback: unused("commitWriteback"),
     recordWritebackAttempt: unused("recordWritebackAttempt"),
@@ -225,6 +227,7 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
     agentId: "agent-1", agentVersionId: "agent-version-1", instructions: "你是通用助手",
     skillVersionIds: [PPTX_SKILL.versionId],
     modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "deep-agent",
+    pendingDecision: null,
     ...overrides,
   };
 }
