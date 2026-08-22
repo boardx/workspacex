@@ -24,7 +24,24 @@ Same requirement the human's task description states explicitly for the TS versi
 replaces: "语义要和刚被替换掉的 TS 版本等价（拿 skill 内容当 system prompt 发起真实模型
 调用，返回真实结果，不是编造）". This mirrors `execute-run.ts`'s `executeSkillTool`
 one-for-one: a SEPARATE, focused model call whose system prompt is only that Skill's
-content, task text as the user turn, real response returned. A failure (skill not found,
+content, task text as the user turn, real response returned.
+
+## #1747 -- that focused call may now answer with a SCRIPT, and the caller executes it
+
+"A real model call" turned out not to be enough for a Skill whose whole point is producing
+a FILE (a .pptx, say). Measured, in the deployment's own database: three consecutive runs
+with a Skill pinned recorded one pinned Skill and ZERO output files, one of them with a
+terminal status of `succeeded` -- so not a timeout, this path simply never produced a file.
+The reason is that this tool returned prose, and prose is not a deck.
+
+The fix keeps every boundary this file's header already defends. When the caller tells us a
+sandbox stands behind this run, it sends the run-script protocol as per-run config and this
+tool appends it to the focused call's system prompt; whatever that call answers is returned
+VERBATIM, and the caller pulls the script block out of this tool's result and executes it on
+its own side. This service still never touches a sandbox, a socket, or a database -- it
+gains no new capability at all, it just stops flattening an executable answer into prose.
+
+A run with no `script_protocol` in its config behaves byte-for-byte as it did before #1747. A failure (skill not found,
 model call raises) becomes a result TEXT the orchestrating deep agent can see and react
 to -- never an exception that aborts the whole run, same discipline `executeSkillTool`'s
 own doc comment describes ("Never throws").

@@ -106,3 +106,63 @@ def test_call_skill_model_exception_returns_text_never_raises() -> None:
     )
 
     assert result == "技能「画图技能」执行失败。"
+
+
+# -- #1747: the run-script protocol arrives as per-run config, never authored here --------
+
+PROTOCOL = "You can execute Node.js code in a sandbox to produce real files."
+
+SKILL_CONFIG_WITH_PROTOCOL = {
+    "configurable": {
+        "org_skills": SKILL_CONFIG["configurable"]["org_skills"],
+        "script_protocol": PROTOCOL,
+    }
+}
+
+
+def test_call_skill_appends_the_protocol_after_the_skill_body() -> None:
+    model = FakeChatModel("```run_script\nconsole.log(1);\n```")
+    _, call_skill = build_tools(model)
+
+    call_skill.invoke(
+        {"skill_stable_name": "diagram-maker", "task": "t"}, config=SKILL_CONFIG_WITH_PROTOCOL,
+    )
+
+    system = model.received_messages[0][0]["content"]
+    # Order matters: the skill's own instructions stay first, the capability statement is
+    # appended. A protocol pasted BEFORE the skill body would outrank it.
+    assert system.startswith("You draw diagrams.")
+    assert system.endswith(PROTOCOL)
+
+
+def test_call_skill_without_the_protocol_sends_the_skill_body_verbatim() -> None:
+    """#1747's non-regression half: no `script_protocol` in config means no sandbox behind
+    this run, and the system prompt must be byte-identical to what it was before #1747."""
+    model = FakeChatModel("answer")
+    _, call_skill = build_tools(model)
+
+    call_skill.invoke(
+        {"skill_stable_name": "diagram-maker", "task": "t"}, config=SKILL_CONFIG,
+    )
+
+    assert model.received_messages[0][0]["content"] == "You draw diagrams."
+
+
+def test_a_blank_protocol_is_treated_as_absent_not_as_a_trailing_separator() -> None:
+    """Fail closed on a malformed value: an empty/whitespace `script_protocol` would
+    otherwise append a bare separator to every skill's system prompt, silently changing the
+    prompt of every run whose caller sent the field wrong."""
+    model = FakeChatModel("answer")
+    _, call_skill = build_tools(model)
+
+    call_skill.invoke(
+        {"skill_stable_name": "diagram-maker", "task": "t"},
+        config={
+            "configurable": {
+                "org_skills": SKILL_CONFIG["configurable"]["org_skills"],
+                "script_protocol": "   ",
+            }
+        },
+    )
+
+    assert model.received_messages[0][0]["content"] == "You draw diagrams."
