@@ -44,6 +44,7 @@ import {
   ChatAttachmentList,
   MessageAttachments,
   useChatAttachments,
+  type ChatAttachmentsController,
 } from "@/components/chat/chat-composer-attachments";
 
 const MESSAGE_PAGE_SIZE = 50;
@@ -104,6 +105,7 @@ export function ChatLiveMessagePanel({
   aboveComposer,
   onMentionQueryChange,
   mentionResolvedNonce,
+  attach: attachProp,
 }: {
   threadId: string;
   bearer: string;
@@ -176,6 +178,14 @@ export function ChatLiveMessagePanel({
    * 用递增数字而不是布尔值：布尔值连续两次挂载可能"没变化"因而不触发 effect。
    */
   mentionResolvedNonce?: number;
+  /**
+   * issue #1758 —— composer 的附件控制器可以由调用方（`chat-read-screen.tsx`）传入，
+   * 与右栏「材料」面板头部的上传入口共享**同一份** pending 队列（同一个 `ChatAttachmentsController`
+   * 实例，不是两份分别维护的上传态）。省略时（如 `chat-composer-attachments.test.tsx`
+   * 直接单独渲染本组件的既有单测）本组件退化回自己创建一份——行为与 #1758 之前完全一致，
+   * 不是两条分叉的实现，只是「谁创建」这一件事可以被外部接管。
+   */
+  attach?: ChatAttachmentsController;
 }) {
   const sourceKey = `${threadId}\u0000${bearer}`;
   const [messages, setMessages] = React.useState<DurableMessage[]>([]);
@@ -207,7 +217,11 @@ export function ChatLiveMessagePanel({
   const [text, setText] = React.useState("");
   const [agentId, setAgentId] = React.useState("");
   // #946 · V9-a F152：composer 附件（📎 / 拖拽 / 预览条 / 上传态 / 移除）。接真实上传端点。
-  const attach = useChatAttachments({ threadId, bearer });
+  // #1758：`attachProp` 由调用方传入时（`chat-read-screen.tsx`）复用同一份，与右栏材料
+  // 面板的上传入口共享；未传入时（既有的 `chat-composer-attachments.test.tsx` 单测）
+  // 退化回本组件自己创建一份——两条路径共用同一个 hook 调用点，不重复维护逻辑。
+  const internalAttach = useChatAttachments({ threadId, bearer });
+  const attach = attachProp ?? internalAttach;
   const [submitting, setSubmitting] = React.useState(false);
   const [submitFailure, setSubmitFailure] = React.useState<string | null>(null);
   const [attempt, setAttempt] = React.useState<SubmissionAttempt | null>(null);

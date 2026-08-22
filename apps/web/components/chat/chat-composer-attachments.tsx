@@ -15,7 +15,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import {
   AlertCircle, File as FileIcon, FileImage, FileSpreadsheet, FileText, Loader2, Paperclip,
-  Presentation, RotateCw, Trash2, UploadCloud, X, type LucideIcon,
+  Plus, Presentation, RotateCw, Trash2, UploadCloud, X, type LucideIcon,
 } from "lucide-react";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -471,6 +471,55 @@ export function ChatAttachMaterialModal({
     </Modal>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * issue #1758（人类给参考截图后裁决 C）—— 右栏「材料」区块头部的直传入口。
+ *
+ * 点了它选出的文件，走的是**同一个** `ctl.pickFiles`（与 composer 的 📎 完全同一条路径、
+ * 同一次真实 `uploadAttachment` 调用），效果就是"加进 composer 的 pending 队列"——
+ * **不**自动发消息、**不**触发 agent run。上传后文件出现在输入框下方的 composer 附件区
+ * （`ChatAttachmentList`），不会立刻出现在"材料"列表里；材料列表的语义仍是"已随某条
+ * 消息发出的附件"（`chat-materials-panel.tsx` 头注），用户仍需真正发一条消息才会进材料
+ * 列表。这个语义差异是刻意的（人类裁决：自动发消息会让"上传参考文件"这个动作意外触发
+ * 一次真实 AI 回合，见 #1758 架构调查——`acceptHumanMessage` 把附件转正与 `kick` 一次
+ * 真实 agent run 是同一次调用，没有"只挂附件不触发 AI"的旁路）。
+ *
+ * 用自己的本地 `<input>`+ref，**不**复用 `ctl.fileInputRef`——那个 ref 已经被 composer
+ * 自己的隐藏 input（`ChatAttachmentButton`）占用；两处若共用同一个 ref 对象，后挂载的
+ * 一方会覆盖前者的 DOM 节点引用，`ctl.openFileDialog()` 与这里的本地点击各自只能点中
+ * 其中一个，是入口互相打架的角落，所以给这个入口另开一个独立 ref。
+ */
+export function ChatSidebarUploadButton({
+  ctl, disabled,
+}: { ctl: ChatAttachmentsController; disabled?: boolean }) {
+  const localInputRef = React.useRef<HTMLInputElement | null>(null);
+  return (
+    <span className="inline-flex items-center">
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="h-6 w-6 rounded-md"
+        data-testid="chat-materials-upload-trigger"
+        aria-label="上传文件（加入下一条消息的附件）"
+        title={`上传文件，加入下一条消息的附件（单个不超过 ${formatBytes(MAX_FILE_BYTES)}，最多 ${MAX_ATTACHMENTS} 个）；发送后才会出现在材料列表`}
+        disabled={disabled}
+        onClick={() => localInputRef.current?.click()}
+      >
+        <Plus aria-hidden className="h-3.5 w-3.5" />
+      </Button>
+      <input
+        ref={localInputRef}
+        type="file"
+        multiple
+        accept={(ATTACHMENT_MIME_ALLOWLIST as readonly string[]).join(",")}
+        className="hidden"
+        data-testid="chat-materials-upload-input"
+        onChange={(e) => { ctl.pickFiles(e.target.files); e.target.value = ""; }}
+      />
+    </span>
   );
 }
 

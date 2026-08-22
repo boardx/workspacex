@@ -13,6 +13,7 @@ import {
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
+import { useChatAttachments, type ChatAttachmentsController } from "@/components/chat/chat-composer-attachments";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { AppShell } from "@/components/shell/app-shell";
@@ -20,7 +21,6 @@ import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApiError } from "@/lib/api-client";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import {
@@ -128,6 +128,22 @@ export function ChatReadScreen({
   const materials = materialsResult?.key === detailKey ? materialsResult.value : null;
   const materialsLoading = materialsLoadingKey === detailKey;
   const materialsError = materialsFailure?.key === detailKey ? materialsFailure.value : null;
+
+  /**
+   * issue #1758（人类给参考截图后裁决 C）—— composer 的附件控制器提到这一层，
+   * 与右栏「材料」面板头部的直传入口共享**同一份** pending 队列。这一层是
+   * `ChatArtifactsPanel`/`ChatMaterialsPanel`（`right` 槽）与 `ThreadDetail`
+   * （承载 `ChatLiveMessagePanel`）共同的父组件——两处是兄弟节点，不是父子，
+   * 所以共享状态只能提到它们共同的父级，不能从其中一个塞给另一个。
+   *
+   * `threadId` 缺省用空串占位：`selectedThreadId` 为 `null` 时右栏/composer 都不会
+   * 真正渲染这个控制器暴露出的交互（`hasSelection`/`bearer` 门控），空串只是让 hook
+   * 内部「换线程清空 pending」的 effect 有个确定的初始依赖值，不代表真实上传会用到它。
+   * `bearer` 为 `null`（未登录）时传 `undefined`——`uploadAttachment` 本身允许匿名调用方
+   * 传 `undefined`（契约测试环境用），但材料面板会在 `uploadCtl` 判空时直接不渲染入口，
+   * 真实产品路径里 `bearer` 恒非空才会走到这条上传。
+   */
+  const attach = useChatAttachments({ threadId: selectedThreadId ?? "", bearer: bearer ?? undefined });
 
   const loadThreads = React.useCallback(async () => {
     if (!projectId || !bearer || !sourceKey) return;
@@ -475,18 +491,15 @@ export function ChatReadScreen({
          `rightTabs()` 硬编码为 0），待后端建模，本轮不做——画一个永远显示「0」的标签
          比不做还坏（编造一个「有数据源」的假象）。
          ⚠ 编制（`RosterPanel`）已按 #728 D2 搬进左栏，这里不再渲染第二份 ——
-           两处渲染同一份编制就是「同一事实两处声明」（AGENTS.md 硬约束）。 */
+           两处渲染同一份编制就是「同一事实两处声明」（AGENTS.md 硬约束）。
+
+         issue #1758（人类给参考截图后裁决）—— 从「产物/材料」两个 tab 切换看，改成两个
+         区块上下堆叠、同时可见（更接近参考截图的「输出内容 + 来源」布局）。两个区块
+         各自 `flex-1 overflow-y-auto` 内部滚动，不让整个右栏被撑爆；不改各自内部的
+         空态/加载态/错误态/点击预览逻辑，只是外层容器从 `Tabs` 换成纵向 `flex`。 */
       right={(
-        <Tabs defaultValue="artifacts" className="flex h-full flex-col">
-          <TabsList className="mx-3 mt-3">
-            <TabsTrigger value="artifacts" data-testid="chat-right-tab-artifacts">
-              产物{artifacts ? `（${artifacts.items.length}）` : ""}
-            </TabsTrigger>
-            <TabsTrigger value="materials" data-testid="chat-right-tab-materials">
-              材料{materials ? `（${materials.items.length}）` : ""}
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="artifacts" className="mt-0 flex-1 overflow-y-auto">
+        <div className="flex h-full flex-col" data-testid="chat-right-panel-stack">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-b border-border-subtle">
             <ChatArtifactsPanel
               hasSelection={selectedThreadId !== null}
               artifacts={artifacts}
@@ -494,8 +507,8 @@ export function ChatReadScreen({
               error={artifactsError}
               onRetry={() => void loadSelectedThread()}
             />
-          </TabsContent>
-          <TabsContent value="materials" className="mt-0 flex-1 overflow-y-auto">
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <ChatMaterialsPanel
               hasSelection={selectedThreadId !== null}
               threadId={selectedThreadId}
@@ -503,9 +516,11 @@ export function ChatReadScreen({
               loading={materialsLoading}
               error={materialsError}
               onRetry={() => void loadSelectedThread()}
+              // issue #1758：没有真实 bearer 就没有可用的上传通道，不渲染入口。
+              uploadCtl={bearer ? attach : null}
             />
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       )}
     >
       <ThreadDetail
@@ -518,6 +533,7 @@ export function ChatReadScreen({
         roster={roster}
         loading={detailLoading}
         error={detailError}
+        attach={attach}
         onRetry={() => void loadSelectedThread()}
         onArtifactLanded={() => void loadSelectedThread()}
         onMessageSent={() => void loadSelectedThread()}
@@ -767,7 +783,7 @@ function ThreadWriteForm({
 
 function ThreadDetail({
   projectId, currentOrgId, userId, card, detail, bearer, roster, loading, error, onRetry,
-  onArtifactLanded, onMessageSent,
+  attach, onArtifactLanded, onMessageSent,
 }: {
   projectId: string;
   currentOrgId: string | null;
@@ -779,6 +795,8 @@ function ThreadDetail({
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  /** issue #1758 —— composer 附件控制器，与右栏「材料」面板头部的上传入口共享同一份。 */
+  attach: ChatAttachmentsController;
   onArtifactLanded: () => void;
   /** issue #728 D9 —— 一条消息（可能带附件）成功发出后触发，刷新右栏「材料」计数。 */
   onMessageSent: () => void;
@@ -856,6 +874,7 @@ function ThreadDetail({
         <ChatLiveMessagePanel
           threadId={detail.thread.id}
           bearer={bearer}
+          attach={attach}
           agents={roster?.agents ?? null}
           archived={detail.thread.archived}
           onMentionQueryChange={setMentionQuery}
