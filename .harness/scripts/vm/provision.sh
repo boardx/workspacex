@@ -156,6 +156,11 @@ KERNEL_DEEP_AGENT_BASE_URL=http://127.0.0.1:2025
 # 1 = provider 消费 langgraph /runs/stream SSE 并写 delta 账本，前端 streamingText
 # 逐 token 渲染；任何流路失败自动回退轮询（S1=B 双轨）。关掉即回到纯轮询。
 KERNEL_DEEP_AGENT_STREAM_ENABLED=1
+# DA-10（rubric D10④）：LangSmith tracing，可选。三行都填才生效（deploy.sh 4h 步
+# 会在设了 TRACING 却缺 API_KEY 时红退）。默认注释 = 关闭。
+# LANGSMITH_TRACING=true
+# LANGSMITH_API_KEY=
+# LANGSMITH_PROJECT=workspacex-deep-agent
 # ⚠ 必填、无默认值（coord-main 裁决，PR #941）：deep-agent-service 调模型用的模型 ID，
 # 每环境显式填写。留空则 deploy.sh 第 4h 步显式红退并指回这里补。
 KERNEL_DEEP_AGENT_MODEL_ID=

@@ -37,6 +37,8 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 | S3 | 各条目 PR 合并（正常 review 流程） | — | — |
 | S4 |（建议）修 F204 签核归属重复 | 解开 pre-push doctor 常红 | 不阻塞本 backlog，但每个 PR 都在被迫 --no-verify |
 | S5 | 存量 VM 的 `/opt/workspacex` deploy.env 加一行 `KERNEL_DEEP_AGENT_STREAM_ENABLED=1` | 生产 agent 会话逐 token 流式生效（关掉即回纯轮询，S1=B 可回切） | DA-05 验收 |
+| S6 | 存量 VM deploy.env 填 `LANGSMITH_TRACING=true` + `LANGSMITH_API_KEY=<key>`（LangSmith 账号的 key，人工密钥） | trace 上报生效，正式评分的 trace ID 物理证据从 LangSmith 项目里取 | D10④、正式评分 |
+| S7 | 活体验证：VM 部署一轮后由独立会话跑 TC-1~TC-5 并归档物理证据 | 解封 D2/D3/D4 的中期分顶；产出第一个**正式**评分行 | 正式评分 |
 
 ## Backlog（依赖顺序排列）
 

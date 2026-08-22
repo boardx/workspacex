@@ -313,3 +313,54 @@ esac
     expect(gcAt).toBeGreaterThan(readyAt);
   });
 });
+
+describe("DA-10 —— LangSmith 三件套投影（deploy.sh 4h 步的片段语义，rubric D10④）", () => {
+  // 从 deploy.sh 提取投影片段在隔离 shell 里跑——与上面 read_env_value 的测法同一模式：
+  // 不跑整个 deploy.sh（那需要 VM），只把「读 env → 校验 → 追加」这段逻辑在真 bash 下反证。
+  const projectionScript = (envContent: string) => `
+    set -euo pipefail
+    source "${resolve(import.meta.dirname, "deep-agent-lib.sh")}"
+    ENV_FILE=$(mktemp); printf '%s\n' "${envContent.replace(/"/g, '\\"')}" > "$ENV_FILE"
+    OUT_FILE=$(mktemp); : > "$OUT_FILE"
+    T=$(read_env_value "$ENV_FILE" LANGSMITH_TRACING)
+    K=$(read_env_value "$ENV_FILE" LANGSMITH_API_KEY)
+    P=$(read_env_value "$ENV_FILE" LANGSMITH_PROJECT)
+    if [ -n "$T" ]; then
+      if [ -z "$K" ]; then echo "MISSING_KEY" >&2; exit 1; fi
+      { echo "LANGSMITH_TRACING=$T"; echo "LANGSMITH_API_KEY=$K"; echo "LANGSMITH_PROJECT=\${P:-workspacex-deep-agent}"; } >> "$OUT_FILE"
+    fi
+    cat "$OUT_FILE"
+  `;
+
+  it("三件齐 → 三行投影", () => {
+    const r = spawnSync("bash", ["-c", projectionScript("LANGSMITH_TRACING=true\nLANGSMITH_API_KEY=lsv2_x\nLANGSMITH_PROJECT=proj")], { encoding: "utf8" });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("LANGSMITH_TRACING=true");
+    expect(r.stdout).toContain("LANGSMITH_PROJECT=proj");
+  });
+
+  it("未设 TRACING → 零投影（tracing 关闭，deep-agent.env 里不留空值假象）", () => {
+    const r = spawnSync("bash", ["-c", projectionScript("KERNEL_MODEL_BASE_URL=http://x")], { encoding: "utf8" });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe("");
+  });
+
+  it("设了 TRACING 缺 API_KEY → 红退（写出去只会让服务空转上报）", () => {
+    const r = spawnSync("bash", ["-c", projectionScript("LANGSMITH_TRACING=true")], { encoding: "utf8" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("MISSING_KEY");
+  });
+
+  it("PROJECT 缺省 → 默认 workspacex-deep-agent", () => {
+    const r = spawnSync("bash", ["-c", projectionScript("LANGSMITH_TRACING=true\nLANGSMITH_API_KEY=lsv2_x")], { encoding: "utf8" });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("LANGSMITH_PROJECT=workspacex-deep-agent");
+  });
+
+  it("deploy.sh 真文件里包含同一投影逻辑（防止片段测试与真脚本漂移）", () => {
+    const deployText = readFileSync(DEPLOY, "utf8");
+    expect(deployText).toContain("LANGSMITH_TRACING");
+    expect(deployText).toContain("LANGSMITH_API_KEY");
+    expect(deployText).toContain("却没设 LANGSMITH_API_KEY");
+  });
+});
