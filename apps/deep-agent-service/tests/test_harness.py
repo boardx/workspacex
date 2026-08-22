@@ -244,3 +244,91 @@ def test_evict_threshold_pinned():
     mw = build_middleware(FakeListChatModel(responses=["ok"]))
     fs = next(m for m in mw if type(m).__name__ == "FilesystemMiddleware")
     assert getattr(fs, "_tool_token_limit_before_evict", None) == 1000  # 私有名，实测 vars() 确认
+
+
+# ── DA-07d（rubric D7）：预算熔断 + 死循环纠偏 + 失败重试的活体反证 ──
+
+
+def _looping_graph(n_tool_rounds: int, tool_fn=None):
+    """脚本化模型连发 n 轮工具调用再收尾——模拟会循环的任务。"""
+    import itertools
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+    from langchain_core.messages import AIMessage
+    from langchain_core.tools import tool
+
+    from deepagents import create_deep_agent
+    from deep_agent_service.harness import build_middleware
+
+    calls = {"n": 0}
+
+    @tool
+    def spin_tool() -> str:
+        """A tool the model keeps calling."""
+        calls["n"] += 1
+        if tool_fn is not None:
+            return tool_fn(calls["n"])
+        return f"round {calls['n']}"
+
+    class ScriptedModel(GenericFakeChatModel):
+        def bind_tools(self, tools, **kwargs):  # noqa: ANN001, ANN003
+            return self
+
+    def gen():
+        for i in range(n_tool_rounds):
+            yield AIMessage(content="", tool_calls=[{"id": f"c{i}", "name": "spin_tool", "args": {}}])
+        while True:
+            yield AIMessage(content="finally done")
+
+    model = ScriptedModel(messages=gen())
+    return create_deep_agent(model=model, tools=[spin_tool], middleware=build_middleware(model)), calls
+
+
+def test_model_call_budget_ends_run_with_notice():
+    """D7③ 熔断：模型调用到 25 次预算时 run 必须**优雅终止且带明确通告**——
+    不是裸异常（那是崩溃不是熔断），也不是静默截断（rubric 点名禁止）。"""
+    graph, _ = _looping_graph(n_tool_rounds=100)
+    result = graph.invoke({"messages": [{"role": "user", "content": "go"}]},
+                          {"recursion_limit": 300})
+    texts = " ".join(str(getattr(m, "content", "")) for m in result["messages"])
+    assert "finally done" not in texts, "100 轮循环的剧本不该自然走完——熔断必须先触发"
+    assert "limit" in texts.lower(), "终止时必须有 limit 通告消息，静默截断不算熔断"
+
+
+def test_tool_call_limit_injects_correction():
+    """D7② 纠偏：工具调用超 40 次后，后续调用被拦截并注入超限消息（模型被迫收尾），
+    真实工具执行次数被钉在阈值——纠偏不是计数器装饰。"""
+    graph, calls = _looping_graph(n_tool_rounds=60)
+    result = graph.invoke({"messages": [{"role": "user", "content": "go"}]},
+                          {"recursion_limit": 300})
+    from deep_agent_service.harness import RUN_TOOL_CALL_LIMIT
+    assert calls["n"] <= RUN_TOOL_CALL_LIMIT, (
+        f"真实执行 {calls['n']} 次，超过 {RUN_TOOL_CALL_LIMIT}——拦截没生效"
+    )
+
+
+def test_tool_retry_recovers_transient_failure():
+    """D7① 重试：工具前两次抛错、第三次成功——run 必须拿到成功结果走到终稿，
+    而不是把瞬时失败当终局。"""
+    def flaky(n: int) -> str:
+        if n <= 2:
+            raise RuntimeError(f"transient failure {n}")
+        return "recovered"
+
+    graph, calls = _looping_graph(n_tool_rounds=1, tool_fn=flaky)
+    result = graph.invoke({"messages": [{"role": "user", "content": "go"}]},
+                          {"recursion_limit": 50})
+    texts = " ".join(str(getattr(m, "content", "")) for m in result["messages"])
+    assert calls["n"] == 3, f"应重试到第 3 次成功，实际执行 {calls['n']} 次"
+    assert "recovered" in texts, "重试成功的结果必须回到对话"
+
+
+def test_budget_thresholds_pinned():
+    """阈值钉死（25/40），不吃库默认——升级漂移不得悄悄改变预算策略。"""
+    from deep_agent_service.harness import RUN_MODEL_CALL_LIMIT, RUN_TOOL_CALL_LIMIT, build_middleware
+    from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+    assert (RUN_MODEL_CALL_LIMIT, RUN_TOOL_CALL_LIMIT) == (25, 40)
+    mw = build_middleware(FakeListChatModel(responses=["ok"]))
+    names = [type(m).__name__ for m in mw]
+    for required in ["ToolCallLimitMiddleware", "ModelCallLimitMiddleware", "ToolRetryMiddleware"]:
+        assert required in names
