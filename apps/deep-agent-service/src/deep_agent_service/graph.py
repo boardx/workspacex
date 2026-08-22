@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from deepagents import create_deep_agent
 
+from deep_agent_service.harness import build_checkpointer, build_middleware
 from deep_agent_service.model import build_chat_model
 from deep_agent_service.tools import build_tools
 
@@ -30,8 +31,14 @@ SYSTEM_PROMPT = (
 
 _model = build_chat_model()
 
+# DA-02（#1749）：harness 现代化。middleware 与 checkpointer 的选择理由、
+# 每一项对应哪个 rubric 维度，见 harness.py 模块注释——那里是单一事实源，这里不复述。
+# checkpointer 为 None 时（平台托管环境）create_deep_agent 收到 None 与 0.7.6
+# 之前的行为逐字一致（参数默认值就是 None，实测签名确认）。
 graph = create_deep_agent(
     model=_model,
     tools=build_tools(_model),
     system_prompt=SYSTEM_PROMPT,
+    middleware=build_middleware(_model),
+    checkpointer=build_checkpointer(),
 )
