@@ -32,10 +32,11 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 
 | # | 文件 | 决定什么 | 阻塞哪些条目 |
 |---|---|---|---|
-| S1 | `docs/proposals/PROP-CHAT-COPILOTKIT-LANGGRAPH-001.md` | 编排层范围：☐A 全量替换 AgentRun ☐B 双轨灰度（**推荐 B**：AgentRun 留降级路径，稳定后另议退役） | DA-05 起的全部前端切换 |
-| S2 | `.harness/rubrics/deepagent-capability-rubric.md` 文末签名行 | 本评分卡生效 | 全部条目的验收 |
+| S1 | ~~PROP-CHAT-COPILOTKIT-LANGGRAPH-001~~ | ✅ **已签（2026-08-22，选 B 双轨灰度，PR #1753 合并即签署）** | — |
+| S2 | ~~rubric 签名行~~ | ✅ **已签（2026-08-22，人类 GitHub 网页端提交，`ceded207` 血统可查）** | — |
 | S3 | 各条目 PR 合并（正常 review 流程） | — | — |
 | S4 |（建议）修 F204 签核归属重复 | 解开 pre-push doctor 常红 | 不阻塞本 backlog，但每个 PR 都在被迫 --no-verify |
+| S5 | 存量 VM 的 `/opt/workspacex` deploy.env 加一行 `KERNEL_DEEP_AGENT_STREAM_ENABLED=1` | 生产 agent 会话逐 token 流式生效（关掉即回纯轮询，S1=B 可回切） | DA-05 验收 |
 
 ## Backlog（依赖顺序排列）
 
@@ -69,13 +70,20 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 - **动作**：桥/端点接受 threadId 复用 checkpointer 线程；无则新建。
 - **依赖**：DA-02（有真 checkpointer 才有真线程）。
 
-### DA-05 前端切换：生产 /chat 的 agent 会话走 AG-UI 流 ⚠ 需 S1
-- **推动**：chat-ux 维度 1/3/9、D2/D3 的用户可见化
-- **动作**：装 `@copilotkit/runtime`，Next API route 建 CopilotRuntime + LangGraphHttpAgent；
-  `chat-live-message-panel` agent 会话分支从轮询切 AG-UI 订阅。**保留现有气泡/testid/视觉**
-  （#728 保真度资产不动），CopilotChat 做 headless 数据源。轮询代码保留为降级路径（S1 选 B 时）。
-- **验收**：真实浏览器逐 token 出现；chat-ux 十维重评，维度 1 从当前分升到 1。
-- **依赖**：DA-03 + **S1 签署**。
+### DA-05 前端切换 —— **改判（2026-08-22 实测）：架构已被 #654 阶段2d 完成，剩余是一个部署开关**
+- **状态**：done（改判 + 开关落模板）
+- **实测发现**（开工前核对，与 DA-01 同一课）：原描述基于过时基线。生产面板
+  `chat-live-message-panel.tsx` **已经**是「轮询权威 + SSE 叠加」双轨——对每个
+  activeRunId 无条件 `openAgentRunStream`（GET /agent-runs/:runId/stream），
+  delta 进 `streamingText` 逐 token 渲染，流路失败静默回退轮询。这正是 S1=B
+  要的形状，且比原计划更优：不引入 `@copilotkit/runtime` 的 GraphQL 拓扑
+  （#654 已明确排除它，preview panel 文件头有实测记录）。
+- **完整链路**（DA-03 合入后已全通）：
+  `deep-agent /runs/stream SSE → appendModelDelta → GET /agent-runs/:runId/stream → streamingText`
+- **唯一剩余动作**：部署开关 `KERNEL_DEEP_AGENT_STREAM_ENABLED=1`（apps/api 读，
+  deploy.env 注入）。新环境模板已加（provision.sh）；**存量 VM 的 deploy.env 需要
+  人工加这一行**——记入下方签署/部署清单 S5。
+- **验收**（部署开关打开后）：真实浏览器 agent 会话逐 token 出现；chat-ux 维度 1 重评。
 
 ### DA-06 工具调用卡片 + 规划条（generative UI）
 - **推动**：chat-ux 维度 2/3/9（P7 是 P 组到 9/10 的唯一阻塞项）、D1/D2 用户可见化
