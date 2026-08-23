@@ -1,0 +1,1 @@
+{"version":"0.13.0","langgraph_py_version":"1.2.11","flags":{"assistants":true,"crons":true,"langsmith":false,"langsmith_tracing_replicas":true,"langsmith_tracing_session_on_runs":true},"host":{"kind":"self-hosted","project_id":null,"host_revision_id":null,"revision_id":null,"tenant_id":null}}
