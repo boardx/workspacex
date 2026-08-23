@@ -59,10 +59,21 @@ export function deriveThinkingSeconds(steps: Step[]): number | null {
  */
 export function toolChainSummaryText(steps: Step[]): string {
   const seconds = deriveThinkingSeconds(steps);
-  const toolCount = steps.filter((s) => s.kind === "tool_call").length;
+  const toolSteps = steps.filter((s) => s.kind === "tool_call");
   const head = seconds !== null && seconds > 0 ? `思考了 ${seconds} 秒 · ` : "";
-  if (toolCount === 0) return `${head}模型直接作答`;
-  return `${head}调用了 ${toolCount} 个工具`;
+  if (toolSteps.length === 0) return `${head}模型直接作答`;
+  // UI 评分 2026-08-23 第 3 项判 0 的直接依据：「调用参数摘要在任何一张图里都没
+  // 露出，默认视图对用户仍是黑盒」。收起态在计数后带首个工具的 名称(参数片段)，
+  // 参数截 40 字符——够认出「调的什么、拿什么调的」，不够把折叠头挤成第二个正文。
+  // write_todos 这类结构化参数只显示工具名（JSON 片段对人没有信息量）。
+  const first = toolSteps[0]!;
+  const argsBrief =
+    first.toolName !== "write_todos" && first.toolArgsSummary !== null && first.toolArgsSummary !== ""
+      ? `(${first.toolArgsSummary.slice(0, 40)}${first.toolArgsSummary.length > 40 ? "…" : ""})`
+      : "";
+  const firstLabel = first.toolName !== null ? ` ${first.toolName}${argsBrief}` : "";
+  const extra = toolSteps.length > 1 ? ` 等 ${toolSteps.length} 个工具` : "";
+  return `${head}调用了${firstLabel}${extra}`;
 }
 
 export function AgentToolChain({

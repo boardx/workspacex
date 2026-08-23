@@ -39,13 +39,14 @@ describe("toolChainSummaryText / deriveThinkingSeconds", () => {
   it("有耗时 + 有工具：思考了 X 秒 · 调用了 N 个工具", () => {
     const steps = toolChainSteps("collapsed"); // 三工具成功链，时间可解析
     expect(deriveThinkingSeconds(steps)).not.toBeNull();
-    expect(toolChainSummaryText(steps)).toMatch(/^思考了 [\d.]+ 秒 · 调用了 3 个工具$/);
+    // UI 评分 2026-08-23 第 3 项：收起态必须带首个工具名+参数片段（默认视图不再黑盒）
+    expect(toolChainSummaryText(steps)).toMatch(/^思考了 [\d.]+ 秒 · 调用了 \S+.* 等 3 个工具$/);
   });
 
   it("耗时无法解析：退化为不带秒的摘要，绝不编一个耗时", () => {
     const steps = [undatedToolStep()];
     expect(deriveThinkingSeconds(steps)).toBeNull();
-    expect(toolChainSummaryText(steps)).toBe("调用了 1 个工具");
+    expect(toolChainSummaryText(steps)).toMatch(/^调用了 \S+/);
   });
 
   /**
@@ -60,7 +61,7 @@ describe("toolChainSummaryText / deriveThinkingSeconds", () => {
       endedAt: "2026-01-01T00:00:00.000Z",
     };
     expect(deriveThinkingSeconds([zeroStep])).toBe(0);
-    expect(toolChainSummaryText([zeroStep])).toBe("调用了 1 个工具");
+    expect(toolChainSummaryText([zeroStep])).toMatch(/^调用了 \S+/);
     expect(toolChainSummaryText([zeroStep])).not.toContain("0 秒");
   });
 
@@ -80,7 +81,7 @@ describe("AgentToolChain 渲染", () => {
 
   it("默认收起：摘要在场，但逐条 step 细节点开前不在 DOM", () => {
     render(<AgentToolChain steps={toolChainSteps("collapsed")} />);
-    expect(screen.getByTestId("agent-tool-chain-summary")).toHaveTextContent("调用了 3 个工具");
+    expect(screen.getByTestId("agent-tool-chain-summary")).toHaveTextContent(/调用了 \S+.* 等 3 个工具/);
     // 收起态：细节区与 step 行都不在 DOM —— 这正是方案 A 反转 P7「默认可见」的证据。
     expect(screen.queryByTestId("agent-tool-chain-detail")).toBeNull();
     expect(screen.queryByTestId("agent-tool-chain-step-0")).toBeNull();

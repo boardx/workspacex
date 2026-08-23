@@ -87,6 +87,13 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const [listLoadingKey, setListLoadingKey] = React.useState<string | null>(null);
   const [listFailure, setListFailure] = React.useState<Sourced<string> | null>(null);
   const [selectedThreadId, setSelectedThreadId] = React.useState<string | null>(initialThreadId);
+  /**
+   * UI 评分 2026-08-23 第 10 项点名的不一致①：刚建的空线程在消息区渲染出三个
+   * 骨架气泡（伪装成有历史），同一线程稍后又显示正确空态——自相矛盾。
+   * 记住「本会话里刚创建的线程 id」，传给消息面板跳过首载骨架：我们**确知**
+   * 它没有历史，骨架在这里不是加载提示，是错误暗示。
+   */
+  const justCreatedThreadIdRef = React.useRef<string | null>(null);
   const detailKey = sourceKey && selectedThreadId ? `${sourceKey} ${selectedThreadId}` : null;
   const [detailResult, setDetailResult] = React.useState<Sourced<GetThreadOut> | null>(null);
   const [detailLoadingKey, setDetailLoadingKey] = React.useState<string | null>(null);
@@ -212,6 +219,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
       // 不做乐观更新（乐观更新会在服务端拒绝时先给用户一个假的成功画面）。
       const refreshed = await listPersonalThreads({}, bearer);
       setThreadResult({ key: sourceKey, value: refreshed });
+      justCreatedThreadIdRef.current = result.threadId;
       setSelectedThreadId(result.threadId);
       router.replace(personalChatHref(result.threadId));
     } catch (failure) {
@@ -387,6 +395,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
         threadListPanel
       ) : selectedThreadId === null ? (
         <PersonalThreadDetail
+          knownEmpty={selectedThreadId !== null && justCreatedThreadIdRef.current === selectedThreadId}
           card={selectedCard}
           detail={detail}
           bearer={bearer}
@@ -401,6 +410,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
         />
       ) : (
         <PersonalThreadDetail
+          knownEmpty={selectedThreadId !== null && justCreatedThreadIdRef.current === selectedThreadId}
           card={selectedCard}
           detail={detail}
           bearer={bearer}
@@ -450,8 +460,10 @@ function useIsDesktop(): boolean {
 
 function PersonalThreadDetail({
   card, detail, bearer, orgId, loading, error, onRetry, onBackMobile, onThreadSettled,
-  attach, onArtifactLanded, onMessageSent,
+  attach, onArtifactLanded, onMessageSent, knownEmpty = false,
 }: {
+  /** 父组件确知这是本会话刚创建的空线程（见 justCreatedThreadIdRef 注释）。 */
+  knownEmpty?: boolean;
   card: ThreadCard | null;
   detail: GetThreadOut | null;
   bearer: string | null;
@@ -563,6 +575,7 @@ function PersonalThreadDetail({
         {bearer ? (
           <ChatLiveMessagePanel
             threadId={detail.thread.id}
+            knownEmpty={knownEmpty}
             bearer={bearer}
             attach={attach}
             agents={agentOptions.status === "ready" ? agentOptions.agents : null}
