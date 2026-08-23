@@ -2,9 +2,9 @@
 bundle: accessibility-guardrails
 phase: "12"
 covers: [F05, F06, F07, F08]
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:
-confirmed_at:
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: usamshen
+confirmed_at: 2026-08-23T14:30:00+08:00
 ---
 
 # 契约束 `accessibility-guardrails` 设计签核
