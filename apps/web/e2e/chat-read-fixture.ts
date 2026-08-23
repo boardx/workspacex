@@ -53,6 +53,15 @@ export const CHAT_READ_E2E = {
    * 渲染路径是真实生产代码——给渲染器喂已知输入，不是伪造输出。 */
   deepAgentMarkdownTrigger: "取证：请用 markdown 展示能力",
   /**
+   * UI 评分第 4 项取证（真实多步能力）：替身对这句回一条**多步依赖链**剧本——
+   * write_todos → search_documents → read_document（第二个工具的 args 可见地引用
+   * 第一个工具的结果）→ 终稿。评分员两轮都因「只有单个工具调用块、看不到
+   * 调用→看结果→下一步的链条」无法给分；这条剧本让链条在 UI 上可判。
+   * 与 `deepAgentMarkdownTrigger` 同一套接线：唯一事实源在本文件，
+   * `playwright.chat-read.config.ts` 下发给替身进程。
+   */
+  deepAgentMultiStepTrigger: "取证：请展示多步执行",
+  /**
    * #728 P8 —— 麦克风实时转录取证。与 `fullstack-smoke-fixture.ts` 的
    * `asrTranscriptPrefix` 同一套惯例：确定性上游回一个带前缀的转录文本，
    * 断言方（这里是取证脚本自己，肉眼加截图）能确认转录确实来自这个进程，
