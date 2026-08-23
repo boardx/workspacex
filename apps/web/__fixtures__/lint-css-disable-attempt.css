@@ -1,0 +1,7 @@
+/* 门控自身测试用 fixture（F07）：故意在文件头部塞一条常见的"整文件禁用"式注释，
+   证明 U9 不支持行内 disable 绕过整个文件（R4-E2）—— 未登记覆盖仍必须被拦截。 */
+/* lint-design-disable-file */
+/* eslint-disable */
+.acmeWidgetHeader {
+  color: var(--foreground);
+}

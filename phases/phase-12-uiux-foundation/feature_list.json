@@ -130,14 +130,14 @@
       "spec_ref": "04-third-party-style-guardrail.md#R3",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-b",
       "verification": [
         "pnpm --filter web exec vitest run tests/lint-third-party-style-registry.test.ts",
         "pnpm --filter web run lint:design"
       ],
-      "evidence": "",
+      "evidence": "evidence/F07.verify.log @ 2026-08-23T12:52:02.308Z",
       "notes": "依据等级：[Backlog]（IT-04；globals.css:202-218 记录了 CopilotKit 强制 16px 覆盖气泡 12px 字号的真实事故，已修复但缺机械关卡——新增基础设施）。R8：纯基础设施/流程，大概率不需契约束级签核，束划分时确认归属。R11：单个小 feature（S，2 点）。vitest 固化『未登记覆盖被拦截 / 登记后放行』的反证（R3-4），覆盖值必须引用现有 token 而非字面量（R7）。lint 规则不应支持行内 disable 绕过整文件（R4-E2）。"
     },
     {
