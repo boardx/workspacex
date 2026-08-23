@@ -53,6 +53,12 @@ if (!Number.isInteger(port) || port <= 0) {
  */
 const PLANNING_NOTE = process.env.LOOPBACK_DEEP_AGENT_PLANNING_NOTE ?? "我需要先查一下当前时间，再回答这个问题。";
 const TOOL_NAME = process.env.LOOPBACK_DEEP_AGENT_TOOL_NAME ?? "lookup_time";
+// UI 流式取证的时序旋钮（2026-08-23）：默认值保持既有行为（run ~1s 内完成），
+// 取证 config 把两者调大让 run 拖到数秒——截图采样间隔 1.5s，窗口太短第一帧
+// 就已终态，streaming 行永远拍不到（v4 取证实测教训）。真实模型是秒级往返，
+// 慢速档模拟的才是真实时序，不是造假。
+const STATUS_POLLS_BEFORE_DONE = Number(process.env.LOOPBACK_DEEP_AGENT_STATUS_POLLS ?? "2");
+const STREAM_GAP_MS = Number(process.env.LOOPBACK_DEEP_AGENT_STREAM_GAP_MS ?? "80");
 /**
  * #728 P9 —— 确定性失败触发词。用户消息**逐字等于**这个值时，本进程让 run 走到
  * `error` 终态而不是 `success`，供取证脚本构造一次真实失败并截图——不是在前端
@@ -144,10 +150,36 @@ const server = createServer((req, res) => {
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
     record.statusPolls += 1;
-    if (record.statusPolls < 2) { sendJson(res, 200, { status: "pending" }); return; }
+    if (record.statusPolls < STATUS_POLLS_BEFORE_DONE) { sendJson(res, 200, { status: "pending" }); return; }
     // 第二次起终态——见头注。用户原话逐字等于失败触发词时终态是 error，不是 success。
     const status = FAILURE_TRIGGER !== undefined && record.userText === FAILURE_TRIGGER ? "error" : "success";
     sendJson(res, 200, { status });
+    return;
+  }
+
+  // DA-03 取证扩展：join 流端点（messages-tuple 形状，与真 LangGraph 一致）。
+  // 逐片发 finalReply（每片 ~8 字符、间隔 80ms）——「相邻帧正文字数不同」是
+  // UI 评分第 1 项的判据，整段一次性发等于白做。
+  const streamMatch = /^\/threads\/([^/]+)\/runs\/([^/]+)\/stream$/.exec(url);
+  if (req.method === "GET" && streamMatch) {
+    const threadId = streamMatch[1]!;
+    const record = runs.get(threadId);
+    if (!record) { sendJson(res, 404, { error: "unknown thread" }); return; }
+    res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
+    const reply = `根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
+    const pieces: string[] = [];
+    for (let i = 0; i < reply.length; i += 8) pieces.push(reply.slice(i, i + 8));
+    let idx = 0;
+    const timer = setInterval(() => {
+      if (idx >= pieces.length) {
+        clearInterval(timer);
+        res.end();
+        return;
+      }
+      res.write(`event: messages\ndata: [{"content": ${JSON.stringify(pieces[idx])}, "type": "AIMessageChunk"}, {}]\n\n`);
+      idx += 1;
+    }, STREAM_GAP_MS);
+    req.on("close", () => clearInterval(timer));
     return;
   }
 
@@ -157,12 +189,30 @@ const server = createServer((req, res) => {
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown thread" }); return; }
     const toolCallId = `call-${threadId}`;
+    // DA-06 取证扩展（#1749，UI 主卡第 2 项「规划步骤」）：剧本先发一次 write_todos
+    // ——与真 deepagents TodoListMiddleware 的调用形状一致（args.todos 数组），
+    // 让规划条（agent-plan-panel）在确定性替身下也能被真实渲染并被取证脚本拍到。
+    // 三态齐全：completed/in_progress/pending，前端逐态图标都有得判。
+    const todosCallId = `todos-${threadId}`;
+    const todosArgs = {
+      todos: [
+        { content: "理解用户问题", status: "completed" },
+        { content: "查询当前时间", status: "in_progress" },
+        { content: "组织最终回答", status: "pending" },
+      ],
+    };
     const toolResult = `已查询：当前时间 ${new Date().toISOString()}。用户原话："${record.userText}"`;
     const finalReply = `根据查询结果回答你："${record.userText}" —— ${toolResult}`;
     sendJson(res, 200, {
       values: {
         messages: [
           { type: "human", content: record.userText },
+          {
+            type: "ai",
+            content: "",
+            tool_calls: [{ id: todosCallId, name: "write_todos", args: todosArgs }],
+          },
+          { type: "tool", tool_call_id: todosCallId, content: "todos updated" },
           {
             type: "ai",
             content: PLANNING_NOTE,

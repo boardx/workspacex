@@ -138,6 +138,7 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
       const seen = async (id: string) =>
         page.getByTestId(id).isVisible({ timeout: 1_000 }).catch(() => false);
       const streaming = await seen("chat-message-row-streaming");
+      const planPanel = await seen("agent-plan-panel");
       // TOOLCHAIN-01：活体工具调用链现为折叠块（默认收起一行摘要），锚点改用容器 testid。
       const toolSteps = await seen("agent-tool-chain");
       const runStatus = await page.getByTestId("chat-live-agent-run-status")
@@ -145,7 +146,7 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
       await shoot(
         `b1-stream-${String(i).padStart(2, "0")}.png`,
         "第1项 流式反馈 / 第2项 规划步骤 / 第3项 工具调用可见",
-        `第 ${i * 1.5}s：streaming行=${streaming} 工具调用块=${toolSteps} 状态="${(runStatus ?? "").trim().slice(0, 40)}"`,
+        `第 ${i * 1.5}s：streaming行=${streaming} 工具调用块=${toolSteps} 规划条=${planPanel} 状态="${(runStatus ?? "").trim().slice(0, 40)}"`,
       );
     }
 

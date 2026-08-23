@@ -45,9 +45,14 @@ export class RoutingModelCallPort implements ModelCallPort {
    * PINNED provider itself implements `completeWithProgress`, so this delegation never has
    * to fall back to anything -- a resolved port lacking the method here is a caller bug.
    */
+  // ⚠ DA-03 事后修（2026-08-23 UI 取证抓出）：这里曾只转发 (input, onProgress)，
+  // 把 execute-run 传来的第三参 onDelta 静默吞掉——token 流在生产/取证环境全断，
+  // 而所有 provider 层单测都直连 provider、绕过本路由层，全绿。
+  // 「链路上每一层都要有一个测试逼它转发完整签名」，见本文件配套测试。
   async completeWithProgress(
     input: ModelCallInput,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
+    onDelta?: (delta: string) => Promise<void>,
   ): Promise<{ readonly text: string; readonly tokens?: number }> {
     const port = this.resolve(input.modelProvider);
     if (!port.completeWithProgress) {
@@ -57,7 +62,7 @@ export class RoutingModelCallPort implements ModelCallPort {
           "caller must gate on supportsProgress(modelProvider) before calling this",
       );
     }
-    return port.completeWithProgress(input, onProgress);
+    return port.completeWithProgress(input, onProgress, onDelta);
   }
 
   /** Per-run capability query so `execute-run.ts` can decide the branch by what the run's
