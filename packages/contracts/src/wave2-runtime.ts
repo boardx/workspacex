@@ -308,10 +308,15 @@ export const AgentRunStepKind = z.enum([
  * Rendering / State Rendering 模式要求 status 至少支持 `inProgress`/`complete` 两态迁移。
  *
  * `in_progress` 只对 `kind: "tool_call"` 的步骤有意义：工具调用开始时落一条
- * `in_progress` 记录，调用结束时**更新同一条记录**（同一个 `(runId, seq)`）到
- * `succeeded`/`failed`，不是插入第二条记录（#742 记账纪律「没有留痕就没有调用」，
- * 一次调用一条账，不是两条）。其余 `kind`（`accepted`/`context_built`/`model_called`/
- * `chat_writeback`）不产生中间态，永远直接落终态——它们本就是同步完成的单次动作。
+ * `in_progress` 记录，调用结束时**再插入一条独立的终态记录**（`succeeded`/`failed`），
+ * 不是原地 UPDATE 那一条——`agent_run_steps` 本身是 append-only 账本（DB 级强制，见
+ * `no-tool-run-writeback.test.ts` 的「run steps are append-only」套件），一次调用落
+ * 两条共享 `toolCallId` 的账，不是一条改两次。读端（`pg-agent-run-repository.ts`
+ * `readRun`）按 `toolCallId` 把这两条折叠成一张卡片，`toolCallId` 本身不进公开契约。
+ * 这正是 #742「没有留痕就没有调用」纪律要求的形状：进行中和终态各自是一次真实、
+ * 独立、可追溯的留痕，不是靠原地覆写让「进行中」这个状态凭空消失。其余 `kind`
+ * （`accepted`/`context_built`/`model_called`/`chat_writeback`）不产生中间态，永远
+ * 直接落终态——它们本就是同步完成的单次动作。
  *
  * ⚠ 这个枚举与 `agent_run_steps_status_check`（migration
  * `20260824000000_i742_tool_call_in_progress.sql`）是同一个事实，同一份门控纪律
