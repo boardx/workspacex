@@ -1,9 +1,9 @@
 ---
 phase: "12"
 covers_bundles: [interaction-primitives, motion-microinteraction, accessibility-guardrails, review-governance]
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:
-confirmed_at:
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: usamshen
+confirmed_at: 2026-08-23T14:30:00+08:00
 ---
 
 # Phase 12（uiux-foundation）一致性复核

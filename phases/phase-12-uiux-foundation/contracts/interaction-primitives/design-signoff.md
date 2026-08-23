@@ -2,9 +2,9 @@
 bundle: interaction-primitives
 phase: "12"
 covers: [F01, F02, F09, F10]
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:
-confirmed_at:
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: usamshen
+confirmed_at: 2026-08-23T14:30:00+08:00
 ---
 
 # 契约束 `interaction-primitives` 设计签核
