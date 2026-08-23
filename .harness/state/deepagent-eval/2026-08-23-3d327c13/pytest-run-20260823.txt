@@ -1,0 +1,65 @@
+FF.....F.......................................                          [100%]
+=================================== FAILURES ===================================
+_____________ test_interrupt_survives_process_restart_and_resumes ______________
+
+    def test_interrupt_survives_process_restart_and_resumes() -> None:
+        postgres_url = os.environ.get("DEEP_AGENT_TEST_POSTGRES_URL")
+        if not postgres_url:
+>           pytest.fail("DEEP_AGENT_TEST_POSTGRES_URL is required for the Postgres recovery test")
+E           Failed: DEEP_AGENT_TEST_POSTGRES_URL is required for the Postgres recovery test
+
+tests/test_deep_agent_postgres_recovery.py:60: Failed
+______________________ test_time_travel_rollback_and_fork ______________________
+
+    def test_time_travel_rollback_and_fork() -> None:
+        """D4 → 1.0 的最后缺口（rubric 硬指标）：按 checkpoint_id 回溯到历史节点，
+        并从那个节点**分支**出另一条执行——不是只能沿着最新状态往前走。
+    
+        全程真 Postgres（同一 env 约定）。三半都断：
+          ① get_state_history 能列出历史 checkpoint（回溯的原料）
+          ② 拿历史 checkpoint_id 读 state = 当时的样子（消息数更少）
+          ③ 从历史节点 invoke = 分支：新结果基于旧上下文，且原线程的最新状态被
+            分支覆盖为新时间线（langgraph fork 语义）——分支是真执行，不是只读。
+        """
+        postgres_url = os.environ.get("DEEP_AGENT_TEST_POSTGRES_URL")
+        if not postgres_url:
+>           pytest.fail("DEEP_AGENT_TEST_POSTGRES_URL is required for the time-travel test")
+E           Failed: DEEP_AGENT_TEST_POSTGRES_URL is required for the time-travel test
+
+tests/test_deep_agent_postgres_recovery.py:98: Failed
+________________ test_same_thread_resumes_after_process_restart ________________
+
+    def test_same_thread_resumes_after_process_restart() -> None:
+        postgres_url = os.environ.get("GUIDED_RESEARCH_TEST_POSTGRES_URL")
+        if not postgres_url:
+>           pytest.fail("GUIDED_RESEARCH_TEST_POSTGRES_URL is required for the Postgres recovery test")
+E           Failed: GUIDED_RESEARCH_TEST_POSTGRES_URL is required for the Postgres recovery test
+
+tests/test_guided_research_postgres_recovery.py:19: Failed
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a430080ff606a62ac/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_deep_agent_postgres_recovery.py::test_interrupt_survives_process_restart_and_resumes
+FAILED tests/test_deep_agent_postgres_recovery.py::test_time_travel_rollback_and_fork
+FAILED tests/test_guided_research_postgres_recovery.py::test_same_thread_resumes_after_process_restart
+3 failed, 44 passed, 1 warning in 4.69s
+......                                                                   [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a430080ff606a62ac/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+6 passed, 17 deselected, 1 warning in 0.87s
+...                                                                      [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a430080ff606a62ac/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 1 warning in 0.65s
