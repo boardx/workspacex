@@ -89,7 +89,7 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
    *   `composer-settings.tsx`，`chat-main.tsx` 还牵着 `message-stream` / `reassign-bar`。
    *   只删链尾会当场把 `chat-main.tsx` 的 typecheck 打红（实测：
    *   `error TS2307: Cannot find module './composer'`）。
-   * · `chat-main` / `chat-left-panel` / `chat-right-panel` 被 `app/chat/live/page.tsx`
+   * · `chat-main` / `chat-left-panel`（`chat-right-panel` 已于 UX-9 Line D1 删除）被 `app/chat/live/page.tsx`
    *   的注释指名为**已签核的原型屏**，`phases/phase-01-run-a-project/contracts/chat/ui.md:69`
    *   也把 `composer.tsx` / `composer-settings.tsx` 登记为输入区的设计材料。
    *   删掉整条链 = 扔掉已签核的 UI 材料，那是签核动作，不是 p2 清理动作。
@@ -172,8 +172,9 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
       // `/chat/landing`：已签核原型屏，后端无对应路由。
       // ⚠ 路由外壳自身**不引** mock（第一版台账把 `app/chat/landing/page.tsx -> …`
       //   也写了进去，那一条是凭印象编的，跑出来就红——留此注记提醒台账只能来自实测）。
+      // ⚠ UX-9 Line D1 起 `chat-right-panel.tsx` 那条边不复存在：该组件（转录/执行/
+      //   洞察全为无后端支撑的 mock）已整体删除，落地页右栏不再渲染假信息。
       "components/chat/chat-left-panel.tsx -> lib/mock/chat.ts",
-      "components/chat/chat-right-panel.tsx -> lib/mock/chat.ts",
       "components/chat/chat-team-panel.tsx -> lib/mock/chat.ts",
       "components/chat/landing-panel.tsx -> lib/mock/chat.ts",
       // `/chat/preset`：预设三件套的展示字段仍取自 mock

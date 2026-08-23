@@ -3,7 +3,6 @@ import { StatePreviewSwitcher } from "@/components/state/state-shell";
 import { resolvePreviewState, UI_STATE_LABEL } from "@/lib/ui-state";
 import { resolvePreviewRole } from "@/lib/identity";
 import { ChatLeftPanel } from "@/components/chat/chat-left-panel";
-import { ChatRightPanel } from "@/components/chat/chat-right-panel";
 import { LandingPanel } from "@/components/chat/landing-panel";
 
 /**
@@ -23,7 +22,9 @@ export default function ChatLandingPage({
     <AppShell
       previewRole={previewRole}
       left={<ChatLeftPanel />}
-      right={<ChatRightPanel state={state} />}
+      /* UX-9 Line D1：原 `ChatRightPanel`（转录/执行/洞察全吃 lib/mock/chat 的假数据）
+         已整体删除——无真实后端支撑的假 UI 删掉比留着强；真实的产物/材料面板在正式
+         `/chat` 的 `chat-right-panel-stack`（chat-artifacts-panel / chat-materials-panel）。 */
     >
       <div className="flex h-full flex-col">
         <div className="shrink-0 border-b border-border-subtle bg-panel px-4 py-1.5">
