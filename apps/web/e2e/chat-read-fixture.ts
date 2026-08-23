@@ -49,6 +49,9 @@ export const CHAT_READ_E2E = {
    * 让 run 走到真实 `error` 终态，而不是本地伪造一个失败态组件。
    */
   deepAgentFailureTrigger: "取证：请让这次执行失败",
+  /** UI 评分第 8 项取证：替身对这句回 markdown 正文（标题/列表/代码块），
+   * 渲染路径是真实生产代码——给渲染器喂已知输入，不是伪造输出。 */
+  deepAgentMarkdownTrigger: "取证：请用 markdown 展示能力",
   /**
    * #728 P8 —— 麦克风实时转录取证。与 `fullstack-smoke-fixture.ts` 的
    * `asrTranscriptPrefix` 同一套惯例：确定性上游回一个带前缀的转录文本，

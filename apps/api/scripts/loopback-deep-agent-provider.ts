@@ -68,6 +68,26 @@ const STREAM_GAP_MS = Number(process.env.LOOPBACK_DEEP_AGENT_STREAM_GAP_MS ?? "8
  * `apps/web/e2e/chat-read-fixture.ts` 的 `deepAgentFailureTrigger`，两头不各写一份。
  */
 const FAILURE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER;
+// UI 评分第 8 项取证：对这句触发词回 markdown 正文（标题/列表/代码块/行内 code）。
+// 渲染是真实生产代码在跑——这是给渲染器喂已知输入，不是伪造输出。
+const MARKDOWN_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER;
+const MARKDOWN_REPLY = [
+  "## 分析结果",
+  "",
+  "根据你的要求，以下是三个要点：",
+  "",
+  "1. **第一点**：行内代码示例 `pnpm harness verify`",
+  "2. *第二点*：斜体与 [链接示例](https://example.com)",
+  "3. 第三点：见下方代码块",
+  "",
+  "```typescript",
+  "export function demo(): string {",
+  '  return "markdown 渲染取证";',
+  "}",
+  "```",
+  "",
+  "> 引用块：以上由确定性替身生成，用于验证渲染器。",
+].join("\n");
 
 interface RunRecord {
   readonly userText: string;
@@ -202,7 +222,9 @@ const server = createServer((req, res) => {
       ],
     };
     const toolResult = `已查询：当前时间 ${new Date().toISOString()}。用户原话："${record.userText}"`;
-    const finalReply = `根据查询结果回答你："${record.userText}" —— ${toolResult}`;
+    const finalReply = MARKDOWN_TRIGGER !== undefined && record.userText === MARKDOWN_TRIGGER
+      ? MARKDOWN_REPLY
+      : `根据查询结果回答你："${record.userText}" —— ${toolResult}`;
     sendJson(res, 200, {
       values: {
         messages: [
