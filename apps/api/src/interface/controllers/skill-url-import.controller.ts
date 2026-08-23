@@ -54,6 +54,12 @@ import {
   type ImportSkillFromUrlDepsFactory,
 } from "../../application/skill-import/import-skill-from-url";
 import { ImportSkillFromUrlError } from "../../application/skill-import/url-import-draft";
+import {
+  discoverSkillsFromUrl,
+  DiscoverSkillsFromUrlError,
+  DISCOVER_SKILLS_FROM_URL_DEPS_FACTORY,
+  type DiscoverSkillsFromUrlDepsFactory,
+} from "../../application/skill-import/discover-skills-from-url";
 import { ImportSourceRefusedError } from "../../domain/skill/import-source";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import { isLocalOrg } from "../../domain/identity/local-org";
@@ -76,6 +82,9 @@ const USE_CASE_STATUS: Record<string, number> = {
   IMPORT_CONTENT_INVALID: HttpStatus.UNPROCESSABLE_ENTITY,
   IMPORT_NAME_CONFLICT: HttpStatus.CONFLICT,
   IMPORT_IDEMPOTENCY_CONFLICT: HttpStatus.CONFLICT,
+  // #1865 —— 扫描用例自己的两个码；上面四个 admin/content-invalid 码两条用例共用同一状态。
+  IMPORT_NO_SKILLS_FOUND: HttpStatus.UNPROCESSABLE_ENTITY,
+  IMPORT_TOO_MANY_SKILLS_FOUND: HttpStatus.UNPROCESSABLE_ENTITY,
 };
 
 @Controller()
@@ -84,6 +93,8 @@ export class SkillUrlImportController {
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(IMPORT_SKILL_FROM_URL_DEPS_FACTORY)
     private readonly composeDeps: ImportSkillFromUrlDepsFactory,
+    @Inject(DISCOVER_SKILLS_FROM_URL_DEPS_FACTORY)
+    private readonly composeDiscoverDeps: DiscoverSkillsFromUrlDepsFactory,
   ) {}
 
   @Post("/admin/skills/url-imports")
@@ -129,6 +140,50 @@ export class SkillUrlImportController {
        *   「被 SSRF 门拦下」与「你 URL 打错了」就无法区分，
        *   而前者是**服务端替你做了一次安全判定**，调用方有权知道。
        */
+      if (error instanceof ImportSourceRefusedError) {
+        if (error.code === "IMPORT_URL_FORBIDDEN_FOR_LOCAL_ORG") {
+          throw new ForbiddenException({ reasonCode: error.code });
+        }
+        throw new UnprocessableEntityException({ reasonCode: error.code });
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * #1865 —— 扫描一个仓库/目录 URL，找出其中所有的 SKILL.md。只读，不落库。
+   *
+   * ⚠ 授权/组织查找/`localOnlyOrg` 推导与上面 `import` 方法逐字同一条纪律——
+   *   两条端点通向同一批出站能力，门槛不能有差异。
+   */
+  @Post("/admin/skills/url-imports/discover")
+  async discover(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(C.operations.discoverSkillsFromUrl.in))
+    body: ReturnType<typeof C.operations.discoverSkillsFromUrl.in.parse>,
+  ) {
+    assertPrincipal(principal);
+
+    const orgId = toOrgId(principal.orgId);
+    const organization = await this.identities.findOrganization(orgId);
+    if (organization === null) {
+      throw new ForbiddenException({ reasonCode: "IMPORT_NOT_ORG_ADMIN" });
+    }
+
+    const deps = this.composeDiscoverDeps({ localOnlyOrg: isLocalOrg(organization.kind) });
+
+    try {
+      const result = await discoverSkillsFromUrl(
+        { orgId: principal.orgId, actorId: principal.userId, ...body },
+        deps,
+      );
+      return C.operations.discoverSkillsFromUrl.out.parse(result);
+    } catch (error) {
+      if (error instanceof DiscoverSkillsFromUrlError) {
+        const status = USE_CASE_STATUS[error.code];
+        if (status === HttpStatus.FORBIDDEN) throw new ForbiddenException({ reasonCode: error.code });
+        throw new UnprocessableEntityException({ reasonCode: error.code });
+      }
       if (error instanceof ImportSourceRefusedError) {
         if (error.code === "IMPORT_URL_FORBIDDEN_FOR_LOCAL_ORG") {
           throw new ForbiddenException({ reasonCode: error.code });

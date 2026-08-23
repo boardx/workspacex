@@ -100,6 +100,56 @@ export const SkillUrlImportResult = z.object({
   replayed: z.boolean(),
 }).strict();
 
+/* ────────────────── #1865 仓库/目录 URL 批量扫描：⚠ 草案，**尚未经人类签核**（ADR-023） ──────────────────
+ *
+ * 与上面 `importSkillFromUrl` 同一条许可（登记后先落地，签核后再改形状）。
+ * 这条**只做发现，不落库**：真正的导入仍然复用既有 `importSkillFromUrl`——
+ * 每个发现出来的候选带一个 `treeUrl`，前端拿它当 `sourceUrl` 再打一次既有端点，
+ * ⇒ 落库路径、幂等 key、名字冲突处理、`skill_review_gate` 等既有门禁**全部原样复用**，
+ * 不另开一条持久化。
+ */
+export const SkillDiscoveryError = z.enum([
+  /* 用例层 */
+  "IMPORT_NOT_ORG_ADMIN",
+  /** 扫描到的内容不是一个能理解的 GitHub 仓库/目录形状（比如指向了单个文件） */
+  "IMPORT_CONTENT_INVALID",
+  /** 扫描完了，但一个包含 SKILL.md 的子目录都没找到 */
+  "IMPORT_NO_SKILLS_FOUND",
+  /** 扫描过程中候选 skill 数量或目录数量越过了保守上限（导入的是 skill 目录，不是整个大型仓库） */
+  "IMPORT_TOO_MANY_SKILLS_FOUND",
+  /* 取回层（`domain/skill/import-source.ts`），与单文件/单目录导入同一套 SSRF 门 */
+  "IMPORT_URL_MALFORMED",
+  "IMPORT_URL_SCHEME_FORBIDDEN",
+  "IMPORT_URL_CREDENTIALS_FORBIDDEN",
+  "IMPORT_URL_HOST_NOT_PUBLIC",
+  "IMPORT_URL_FORBIDDEN_FOR_LOCAL_ORG",
+  "IMPORT_PAYLOAD_TOO_LARGE",
+  "IMPORT_TOO_MANY_REDIRECTS",
+  "IMPORT_FETCH_TIMEOUT",
+  "IMPORT_FETCH_FAILED",
+]);
+
+export const DiscoveredSkillCandidate = z.object({
+  /** 仓库内的目录路径，比如 `document-skills/pptx`。不含前导/尾随斜杠。 */
+  dirPath: z.string().min(1).max(1024),
+  /** 可以原样传给 `importSkillFromUrl.in.sourceUrl` 的 GitHub 目录 URL。 */
+  treeUrl: z.string().min(1).max(2048),
+  /** 取自 `SKILL.md` frontmatter 的 `name`；缺失时退化为目录名。 */
+  name: z.string().min(1).max(255),
+  /** 取自 `SKILL.md` frontmatter 的 `description`；缺失时为空字符串。 */
+  description: z.string().max(2000),
+  /**
+   * 该 skill 目录下的文件数**近似值**（往下多看一层子目录，不再深探），
+   * 供用户判断"这是不是我想要的那个"——不是精确的递归总数，见后端
+   * `discover-skills-from-url.ts` 的 `approximateFileCount` 头注。
+   */
+  fileCount: z.number().int().min(1),
+}).strict();
+
+export const DiscoverSkillsFromUrlResult = z.object({
+  skills: z.array(DiscoveredSkillCandidate),
+}).strict();
+
 /**
  * #1415 —— agent 版的 `SkillUrlImportError`/`SkillUrlImportResult`。同一条草案许可
  * （见上方 `SkillUrlImportError` 处的头注），同一份机械门控理由
@@ -507,6 +557,23 @@ export const operations = {
     }).strict(),
     out: SkillUrlImportResult,
     err: SkillUrlImportError.options,
+  },
+  /**
+   * #1865 —— 扫描一个仓库/目录 URL，找出其中所有包含 `SKILL.md` 的子目录。
+   * ⚠ 草案，未签核 —— 见上方 `SkillDiscoveryError` 处的说明。
+   *
+   * 只读，不落库。真正的导入由调用方拿返回的某个候选的 `treeUrl` 再打一次
+   * `importSkillFromUrl`——两条端点故意保持"发现"与"落库"分离，用户逐个确认。
+   */
+  discoverSkillsFromUrl: {
+    method: "POST",
+    path: "/admin/skills/url-imports/discover",
+    in: z.object({
+      /** 仓库根 URL 或子目录 URL；两道 SSRF 门同样作用在它派生出的每一次取回上 */
+      sourceUrl: z.string().min(1).max(2048),
+    }).strict(),
+    out: DiscoverSkillsFromUrlResult,
+    err: SkillDiscoveryError.options,
   },
   /**
    * #1415 —— agent 版的 `importSkillFromUrl`，与它同一心智：URL 内容取回后不落一整棵

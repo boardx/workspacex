@@ -5,5 +5,11 @@ prompt = no
 [dn]
 CN = workspacex-test-only
 [ext]
-subjectAltName = DNS:allowed.example, DNS:redirect.example, DNS:big.example, DNS:metadata.example, DNS:rebind.example
+# github.com / api.github.com（#1865）：discover-skills-from-url 的用例把 GitHub
+# API host 从调用方传入的 sourceUrl 派生，而不是写死 —— 测试里传一个
+# "https://github.com:<port>/..." fixture 地址，派生出的 "https://api.github.com:<port>"
+# 就会连到本机 loopback 上的 fixture 服务器；这两个 DNS 名要能过 TLS 主机名校验，
+# 就得进这份 SAN 列表。仍然是当场生成、CI 与本地一致的一次性测试证书，不冒充真的
+# github.com 证书——只在测试进程内临时替换 https.globalAgent 的信任锚。
+subjectAltName = DNS:allowed.example, DNS:redirect.example, DNS:big.example, DNS:metadata.example, DNS:rebind.example, DNS:github.com, DNS:api.github.com
 basicConstraints = critical, CA:TRUE
