@@ -63,6 +63,8 @@ export type RestoreTemplateOut = z.infer<typeof canvas.operations.restoreTemplat
 export type PublishTemplateOut = z.infer<typeof canvas.operations.publishTemplate.out>;
 export type TrialTemplateOut = z.infer<typeof canvas.operations.trialTemplate.out>;
 export type SuggestTemplateSectionsOut = z.infer<typeof canvas.operations.suggestTemplateSections.out>;
+export type UpdateTemplateDraftIn = z.infer<typeof canvas.operations.updateTemplateDraft.in>;
+export type UpdateTemplateDraftOut = z.infer<typeof canvas.operations.updateTemplateDraft.out>;
 /** #493：「使用一个模板」的返回。`boundTemplateVersion` 是**绑定那一刻**的版本，见用例文件头。 */
 export type BindTemplateToSegmentOut = z.infer<
   typeof canvas.operations.bindTemplateToSegment.out
@@ -128,6 +130,27 @@ export async function createCanvasTemplate(input: CreateTemplateIn): Promise<Cre
       key: input.key,
       displayName: input.displayName,
       underlyingType: input.underlyingType,
+      sections: input.sections,
+      visibility: input.visibility,
+    },
+  });
+}
+
+/**
+ * 2026-08-23，**该契约面待人类补签**（同 `createTemplate` 的先例）。
+ *
+ * 原地改写一个**仍是 draft** 的版本——`displayName`/`sections`/`visibility` 全量替换。
+ * 已发布/已归档版本调用它恒被拒（409 `TEMPLATE_NOT_DRAFT`，不变量原样保留），要改
+ * 只能走 `mintCanvasTemplateVersion` 开新版。人类原话「新建画布……所有的内容进入编辑的
+ * 界面来管理」——这条就是那个编辑界面唯一的写入口。
+ */
+export async function updateCanvasTemplateDraft(input: UpdateTemplateDraftIn): Promise<UpdateTemplateDraftOut> {
+  return apiRequest<UpdateTemplateDraftOut>(templatePath(canvas.operations.updateTemplateDraft, input.key), {
+    method: "POST",
+    body: {
+      key: input.key,
+      version: input.version,
+      displayName: input.displayName,
       sections: input.sections,
       visibility: input.visibility,
     },

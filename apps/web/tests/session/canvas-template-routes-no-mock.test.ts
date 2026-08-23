@@ -266,7 +266,7 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
 
     // 正样本：同一台切割器切 `create` 时切得到它自己的创建调用 —— 证明它不是对任何输入
     // 都返回一段「刚好不含目标字符串」的文本。
-    expect(functionBody(admin, "async function create(")).toContain("createCanvasTemplate(");
+    expect(functionBody(admin, "async function createMinimal(")).toContain("createCanvasTemplate(");
   });
 
   /**
@@ -279,7 +279,7 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
    */
   it("#496 新建不顺手发布：create 的函数体里没有 publishCanvasTemplate", () => {
     const admin = readFileSync(resolve(ROOT, TEMPLATE_ADMIN), "utf8");
-    const body = functionBody(admin, "async function create(");
+    const body = functionBody(admin, "async function createMinimal(");
     // 反空转：切出来的必须真的是那个函数体（它里面必须有创建调用），否则下面那条恒绿。
     expect(body).toContain("createCanvasTemplate(");
     expect(body).not.toContain("publishCanvasTemplate");

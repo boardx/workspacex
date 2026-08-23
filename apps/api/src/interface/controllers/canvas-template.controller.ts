@@ -4,6 +4,7 @@
  *
  *   POST /canvas/templates                     造一行（#496 → #988，已签核）
  *   POST /canvas/templates/suggestions         AI 提议分区名，只读不落库（2026-08-23，待补签）
+ *   POST /canvas/templates/:key/draft          原地改写仍是 draft 的版本（2026-08-23，待补签）
  *   GET  /canvas/templates                     后台模板库 / 绑定选择器（共用一个端口，I-5）
  *   POST /canvas/templates/:key/publish        三段发布流程第三段（I-4）
  *   POST /canvas/templates/:key/trial          第二段
@@ -77,6 +78,7 @@ import { listTemplates } from "../../application/canvas/list-templates";
 import { publishTemplate } from "../../application/canvas/publish-template";
 import { restoreTemplate } from "../../application/canvas/restore-template";
 import { suggestTemplateSections } from "../../application/canvas/suggest-template-sections";
+import { updateTemplateDraft } from "../../application/canvas/update-template-draft";
 import {
   CANVAS_TEMPLATE_REPOSITORY,
   type CanvasTemplateRepository,
@@ -105,9 +107,11 @@ export const RESTORE_CANVAS_TEMPLATE_SCHEMA = C.operations.restoreTemplate.in;
 export const BIND_CANVAS_TEMPLATE_SCHEMA = C.operations.bindTemplateToSegment.in;
 export const MINT_CANVAS_TEMPLATE_VERSION_SCHEMA = C.operations.mintTemplateVersion.in;
 export const SUGGEST_TEMPLATE_SECTIONS_SCHEMA = C.operations.suggestTemplateSections.in;
+export const UPDATE_TEMPLATE_DRAFT_SCHEMA = C.operations.updateTemplateDraft.in;
 
 type CreateBody = z.infer<typeof C.operations.createTemplate.in>;
 type SuggestSectionsBody = z.infer<typeof C.operations.suggestTemplateSections.in>;
+type UpdateDraftBody = z.infer<typeof C.operations.updateTemplateDraft.in>;
 type PublishBody = z.infer<typeof C.operations.publishTemplate.in>;
 type TrialBody = z.infer<typeof C.operations.trialTemplate.in>;
 type ArchiveBody = z.infer<typeof C.operations.archiveTemplate.in>;
@@ -187,6 +191,37 @@ export class CanvasTemplateController {
         await suggestTemplateSections(
           { identity: this.identity, model: this.model },
           { userId: principal.userId, orgId: principal.orgId, prompt: body.prompt },
+        ),
+      ),
+    );
+  }
+
+  /**
+   * 🟡 2026-08-23，**待人类补签**——全量替换一个仍是 `draft` 的版本的内容。**200**，
+   * 不是 201：没有新资源被创建，写的是已存在的那一行（同下面四条状态转移一样）。
+   */
+  @Post("/canvas/templates/:key/draft")
+  @HttpCode(HttpStatus.OK)
+  async updateDraft(
+    @Param("key") key: string,
+    @Body(new ZodBodyPipe(UPDATE_TEMPLATE_DRAFT_SCHEMA)) body: UpdateDraftBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    this.assertKeyMatches(key, body.key);
+    return this.run(async () =>
+      C.operations.updateTemplateDraft.out.parse(
+        await updateTemplateDraft(
+          { identity: this.identity, templates: this.templates },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            key: body.key,
+            version: body.version,
+            displayName: body.displayName,
+            sections: body.sections,
+            visibility: body.visibility,
+          },
         ),
       ),
     );
@@ -443,6 +478,11 @@ export class CanvasTemplateController {
         if (e.reasonCode === "TEMPLATE_SUGGESTION_UNAVAILABLE") {
           // 503 同上一条——模型调用失败/输出解析不出来，都不是权限裁定。
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        if (e.reasonCode === "TEMPLATE_NOT_DRAFT") {
+          // 409 而不是 403：目标版本已发布/已归档，这是状态冲突，不是权限裁定——
+          // 同 `TEMPLATE_KEY_CONFLICT` 用 409 的理由同型。
+          throw new ConflictException({ reasonCode: e.reasonCode });
         }
         if (e.reasonCode === "TEAM_REQUIRED_FOR_TEAM_ONLY") {
           // 400 而不是 403：这是请求本身缺了一个必要条件（归属团队），不是权限裁定——
