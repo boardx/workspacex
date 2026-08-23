@@ -182,26 +182,52 @@ test.describe("核心闭环八步", () => {
   // `/admin/canvasadmin` 只做清单与去向，两处各放一个新建按钮 = 两个写入口。
   // testid 来源实测：`components/canvas/template-admin.tsx` 的 `tpladmin-create`
   // 与 `tpladmin-row-<key>-<version>`，与 `canvas-template-create-smoke.spec.ts` 同一批。
-  test("步骤 4：新增 canvas 模板 → 刷新仍在（#496 / PR #508 交付）", async ({ page }) => {
-    // ⚠ key 与 `canvas-template-create-smoke.spec.ts` 用的**不同**：同 project 同一个库，
-    //   撞 key 会拿到 409 TEMPLATE_KEY_CONFLICT，这一步就红在一个与闭环无关的原因上。
-    const key = "core-loop-492-tpl";
+  //
+  // ⚠ 2026-08-24 改版（#1916）：PR #1897（2026-08-23，人类原话「新建画布，不要放
+  //   分区设计，也不要放key，只需要一个名字就可以」）把「新建」对话框改成只问
+  //   显示名——`tpladmin-create-key` 这个字段已经不存在于新建流程里（现在只在
+  //   「基于此开新版」的 mint 对话框才有），本用例此前断言它，稳定超时失败，还
+  //   连带阻塞了 `core-loop-empty-db` 对本 project 的硬依赖（见
+  //   `playwright.fullstack-smoke.config.ts` 的 `dependencies`）。key 现在由服务端
+  //   从显示名派生，测试改成从真实 `POST /canvas/templates` 响应体里读回它，同
+  //   `canvas-template-create-smoke.spec.ts` 的 `fillCreateForm` 那套做法——不假设
+  //   固定字符串。建完自动打开 `TemplateEditorPanel`，分区在那个面板里加、保存。
+  test("步骤 4：新增 canvas 模板 → 刷新仍在（#496 / PR #508 交付；#1897 UX 简化后于 #1916 跟进）", async ({ page }) => {
     const name = "闭环验收模板";
 
     await loginAsAdmin(page);
     await page.goto("/canvas?screen=template-admin");
     await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 
+    // 用正则匹配 url（不锚定具体代理前缀）——同本文件其它步骤（如上面步骤 6b 的
+    // chat/threads/.../messages）一贯的写法，不假设某一种固定的 `/__fullstack_api`
+    // 前缀形态。
+    const responsePromise = page.waitForResponse((response) => (
+      response.request().method() === "POST" && /\/canvas\/templates(\?|$)/.test(response.url())
+    ));
+
     await page.getByTestId("tpladmin-create").click();
-    await page.getByTestId("tpladmin-create-key").fill(key);
+    await expect(page.getByTestId("tpladmin-create-dialog")).toBeVisible();
     await page.getByTestId("tpladmin-create-name").fill(name);
     await page.getByTestId("tpladmin-create-submit").click();
 
-    await expect(page.getByTestId(`tpladmin-row-${key}-1`)).toContainText(name);
+    const response = await responsePromise;
+    const created = await response.json() as { key: string };
+
+    // 建完自动打开编辑面板（草稿态）——分区在这里加、保存，同 #1897 的既定流程。
+    await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+    await page.getByTestId("tpladmin-editor-add-section").click();
+    await page.getByTestId("tpladmin-editor-section-0").fill("优势");
+    await page.getByTestId("tpladmin-editor-save").click();
+    await expect(page.getByTestId("tpladmin-editor-save")).toHaveText("已保存");
+    await page.getByTestId("tpladmin-editor-close").click();
+    await expect(page.getByTestId("tpladmin-editor-panel")).toHaveCount(0);
+
+    await expect(page.getByTestId(`tpladmin-row-${created.key}-1`)).toContainText(name);
 
     // 「刷新仍在」才是这一步的全部意义：重新加载页面区分「写进了库」与「写进了 React state」。
     await page.reload();
-    await expect(page.getByTestId(`tpladmin-row-${key}-1`)).toContainText(name);
+    await expect(page.getByTestId(`tpladmin-row-${created.key}-1`)).toContainText(name);
   });
 
   /* ── 步骤 5：登录已有用户（已交付，#387）──────────────────────────────── */
