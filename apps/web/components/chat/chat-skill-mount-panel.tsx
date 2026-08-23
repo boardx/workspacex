@@ -187,20 +187,36 @@ export function ChatSkillMountPanel({
 
   const visiblePool = mentionQuery ? pool.filter((item) => item.name.includes(mentionQuery)) : pool;
 
+  /**
+   * issue #1803 gap #9（人类 2026-08-22 devapp 真实浏览器实测）——此前浮层要等
+   * `mountSkills` 网络往返真的返回才 `setPicking(false)`。网络稍有延迟时，
+   * 用户点完候选项看不到任何即时反馈（面板照样开着、选项因 `pending` 变灰），
+   * 容易怀疑"是不是没点中"而去点别处强行关闭，或在等待期间又点了别的候选项
+   * （`pending` 挡得住这一下，但体验上已经是"看起来卡住了"）。
+   *
+   * 改成**乐观关闭**：点击候选项这一刻就收起浮层（不等网络结果）；一旦
+   * `mountSkills` 真的失败，再把浮层**重新打开**并展示错误——用户不会因为
+   * 一次静默失败就以为挂载已经生效，仍然能看到错误、重试或换一个 skill。
+   * 成功路径肉眼观感不变（面板本来就该关），失败路径从"面板全程不动"变成
+   * "先关一下、失败后弹回来"，但错误信息与可重试性一个字节没丢。
+   */
   const mount = async (skillId: string) => {
     if (version === null || pending) return;
     const viaMention = mentionOpenedRef.current;
+    setPicking(false);
     setPending(true);
     setFailure(null);
     try {
       await mountSkills(threadId, projectId, { skillIds: [skillId], expectedVersion: version }, bearer);
-      setPicking(false);
       mentionOpenedRef.current = false;
       // 重读而不是把 POST 的回包拼进本地列表：版本号必须跟着一起更新，
       // 否则下一次挂载会拿着旧指纹去撞 409。
       await reload();
       if (viaMention) onMentionMounted?.();
     } catch (error) {
+      // 失败：把浮层重新打开，让用户看到错误、可以重试或换一个 skill——
+      // 不是"乐观关闭"就意味着失败也悄悄放过。
+      setPicking(true);
       setFailure(describeMessageFailure(error, "挂载 skill"));
     } finally {
       setPending(false);
