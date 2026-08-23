@@ -2,6 +2,7 @@
 import * as React from "react";
 import { getAgentRun, type AgentRunView } from "@/lib/agent-run";
 import { AgentToolChain } from "@/components/chat/agent-tool-chain";
+import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
 
 /**
  * 2026-08-14 人类实测反馈重做：思考过程/工具调用链此前**只**挂在 composer 下方、只在
@@ -86,6 +87,10 @@ export function MessageThinkingChain({
   if (!agentRunId) return null;
   return (
     <div ref={containerRef}>
+      {/* UX-9 Line A：计划留存于消息记录（评分员：「计划从未推进到 3/3、事后
+          无迹可查」）。与工具链同源同挂法——run 终态后翻这条消息仍能看到
+          完整计划及其最终状态。 */}
+      {view ? <AgentPlanPanel steps={view.steps} /> : null}
       {view ? <AgentToolChain steps={view.steps} /> : null}
     </div>
   );
