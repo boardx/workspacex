@@ -1069,4 +1069,30 @@ describe("2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑�
       { sectionId: "s3", name: "优势", order: 2, required: false, capacity: null },
     ]);
   });
+
+  it("迭代 3/3：Esc 关闭面板——同其它全屏编辑面板（chat-diagram-canvas-modal.tsx）既有约定", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })],
+    })));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    await screen.findByTestId("tpladmin-editor-panel");
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-panel")).toBeNull());
+  });
+
+  it("迭代 3/3：刚建出来的空白草稿打开面板，AI 起草输入框自动获得焦点", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })],
+    })));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-ai-prompt")).toHaveFocus());
+  });
 });

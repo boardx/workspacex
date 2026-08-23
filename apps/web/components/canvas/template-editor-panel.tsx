@@ -106,6 +106,19 @@ export function TemplateEditorPanel({
     || sectionNames.some((n, i) => n !== row.sections[i]?.name)
   );
 
+  // 迭代 3/3——Esc 关面板，同 `chat-diagram-canvas-modal.tsx` 等其它全屏编辑面板
+  // 已有的既定约定，不是本面板自创一套。⚠ 不拦截 `dirty`：本仓「未保存改动」的
+  // 既定处理方式是**展示**一个提示（下面的徽章，抄 `chat-diagram-canvas-modal.tsx`
+  // 「有未保存的改动」那一句），不是拦一个原生 `confirm()` 弹窗——那是这个代码库
+  // 里从来没出现过的交互模式，本面板不该带头造一个新的。
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   // 预览随「显示名 + 分区名列表」实时重算——纯前端、不发请求，同 `CreateDialog` 的
   // AI 起草那段「生成后仍在这个表单里，不自动提交」同一个哲学：所见即将要提交的东西。
   const preview = React.useMemo(
@@ -301,6 +314,11 @@ export function TemplateEditorPanel({
                   value={aiPrompt}
                   onChange={(e) => setAiPrompt(e.target.value)}
                   disabled={aiSuggesting}
+                  // 迭代 3/3：刚新建出来的空白草稿（还没有任何分区）自动把光标放在这里——
+                  // 建完立刻打开面板的整套流程里，"打个模板名字试试 AI 起草"是最快填上
+                  // 内容的一步，不该还要使用者自己点一下才能开始打字。已有分区的草稿
+                  // （重新打开来改）不抢焦点，那时使用者大概率是来改具体某个分区的。
+                  autoFocus={sectionNames.length === 0}
                   data-testid="tpladmin-editor-ai-prompt"
                 />
                 <Button
