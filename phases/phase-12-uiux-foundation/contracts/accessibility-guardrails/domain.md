@@ -27,3 +27,9 @@ F07（第三方样式覆盖登记）、F08（图片/图标 a11y 标注）。
 
 ## 明确不是不变量
 - 「无障碍体验应该友好」——体验目标，不可断言。
+
+## ③ 件为什么不是 zod 契约文件（本束无对外 HTTP 面）
+键盘可达性验证、第三方样式登记、图片/图标标注补全都是前端行为修复与静态标注，不新增
+任何 HTTP 端点，因此没有 `packages/contracts/src/accessibility-guardrails.ts` 的必要。
+本束的「契约」是 Playwright 键盘走查用例与 lint-design 新规则，逐条落在 `coverage.md`
+的可执行门控命令里。

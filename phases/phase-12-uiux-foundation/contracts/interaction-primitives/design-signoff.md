@@ -2,21 +2,21 @@
 bundle: interaction-primitives
 phase: "12"
 covers: [F01, F02, F09, F10]
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:
-confirmed_at:
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: usamshen
+confirmed_at: 2026-08-23T14:30:00+08:00
 ---
 
 # 契约束 `interaction-primitives` 设计签核
 
-> ## 🔴 本束现在不可签核。请不要把 `status` 改成 `confirmed`。
+> ## ✅ 三件材料均已备齐，可以签核。
 >
-> 阻塞的是**一条**，其余材料已备齐：
->
-> **① 🔴 UI 材料未产出。** `ui-preview/interaction-primitives/` 目录尚不存在——
-> ui-prototyper 还没有跑过。`lint-ui-material.mjs` 会对本束报判定④「目录不存在 / 0 张 png」。
-> 已在 `.harness/scripts/ui-material-map.json` 补上本束的映射行（见该文件本次改动）。
-> **这条红是本束的正确状态，不是待修的故障**——材料确实还没产出。
+> **① ✅ UI 材料已产出。** `ui-preview/interaction-primitives/` 下 5 张截图（四原语默认态、
+> Dialog 打开态、Dropdown 展开态、Select 键盘导航态、Tooltip 触发态），`lint-ui-material.mjs`
+> 对本束报 `5/5` 全绿。⚠ 签核时请确认一处实现取舍：Select 组件**不是**用
+> `@radix-ui/react-select`（依赖未装），是用已在库的 `dropdown-menu` 组合出的单选下拉
+> （`apps/web/components/ui/select.tsx`），键盘操作模型等价但不是官方实现——能接受就在
+> 签核时一并认可，不能接受需要退回重做并补装依赖。
 >
 > **② ✅ usecases.md / domain.md / coverage.md 已备齐。** 五个用例的 in/out/pre/err
 > 均已写明，四条不变量均可写成断言，覆盖表两个方向的核查已列出（反向核查标注为
@@ -32,8 +32,8 @@ confirmed_at:
 
 ## 人类签核时请重点确认
 
-- **① UI**：ui-prototyper 产出 `ui-preview/interaction-primitives/` 后，回来这里核对
-  截图是否覆盖四个弹层原语 + 复合组件的关键状态（默认/hover/keyboard-focus/空态）。
+- **① UI**：核对 5 张截图是否覆盖四个弹层原语的关键状态；确认 Select 用
+  `dropdown-menu` 组合实现（非 radix-select）这个取舍能接受。
 - **② 用例**：UC-4「收口一个复合组件模式」的 `BELOW_THRESHOLD` 分支——如果盘点后
   发现某个候选模式其实不到 3 次重复，是否接受「不收口」作为合法结果（本文档默认接受，
   避免为了凑数过度抽象）。

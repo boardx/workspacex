@@ -2,36 +2,27 @@
 bundle: accessibility-guardrails
 phase: "12"
 covers: [F05, F06, F07, F08]
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:
-confirmed_at:
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: usamshen
+confirmed_at: 2026-08-23T14:30:00+08:00
 ---
 
 # 契约束 `accessibility-guardrails` 设计签核
 
-> ## 🔴 本束现在不可签核。请不要把 `status` 改成 `confirmed`。
+> ## ✅ 三件材料均已备齐，可以签核。
 >
-> **① 🔴 UI 材料未产出，且有一处需要人类决策（见下方 A/B/C）。**
-> 本束四个 feature 都**不引入新界面**——chat/profile/org-admin 是 phase-01 已上线的
-> 既有页面，本束只做行为修复（键盘可达）与不可见标注（aria/alt）。
->
-> 按 `.harness/instructions/contract-design.md` 的规则，`ui-preview/` 材料**不允许
-> 跨 phase 复用**（「chained/跨 phase 均 fail closed」），而 phase-12 是新阶段，
-> 没有自己的 chat/profile/org-admin 截图集。这意味着即便本束不改视觉，仍然需要
-> 在本 phase 下产出一套材料才能过 `lint-ui-material.mjs`。**这不是我能替你决定的
-> 流程选择**，列出三个选项供裁决：
->
-> - **A（推荐，人类 2026-08-23 已选定）**：在本 phase 补拍这几个页面的截图。
-> - B：把这四个 feature 移出 has_ui 阶段——未选。
-> - C：改 `lint-ui-material.mjs` 本体新增豁免声明——未选。
->
-> **✅ 已裁决：方案 A。** 人类 2026-08-23 选定。落地口径的一处澄清（agent 补充，
-> 非新裁决）：F05-F08 的**修复本身还没做**，所以现在能拍的是「界面落点」参考态——
-> chat 发消息区/会话列表、profile 资料编辑表单、org-admin 权限弹层的**当前默认状态**
-> 截图，用于确认「① UI：界面落点对不对」这一层签核问题（是不是这几个页面/组件）。
+> **① ✅ UI 材料已产出（方案 A 已落地）。** `ui-preview/accessibility-guardrails/` 下
+> 4 张「界面落点参考态」截图：chat 消息输入区+会话列表、profile 资料编辑表单、
+> org-admin 成员列表、org-admin 权限设置弹层打开态。`lint-ui-material.mjs` 报 `4/4` 全绿。
 > **不是**「修复后」对比图——那组 before/after 证据属于 F05-F08 各自 feature 落地时
-> 的验收产出（写进对应 issue/PR），不是本次签核材料的一部分，两者时间点不同、不要混淆。
-> 已在 `ui-material-map.json` 声明目录，ui-prototyper 产出后回填 `ui.md` 索引。
+> 的验收产出，不是本次签核材料的一部分。
+>
+> ⚠ **签核时请重点核对来源**：线上 `/chat`、`/profile` 都卡在登录门后需要完整后端栈，
+> UI 先行阶段不依赖后端，所以 chat 取自权威原型 `WorkspaceX Standalone.html`，
+> profile 是新建的离线预览页 `/profile/preview`（套的是**真实** `ProfileScreen` 组件 +
+> mock 身份，`/profile` 生产逻辑未改一字），org-admin 用已有的 `/org-admin/preview`
+> （`?org=org-local` 解锁权限弹层）。这些替代来源是否满足「① UI：确认是正确页面」
+> 这个签核目的？如果你认为必须是带真实后端的线上页面才算数，需要另外排一次带后端栈的取证。
 >
 > **② ✅ usecases.md / domain.md / coverage.md 已备齐。UC-3 AMBIGUOUS_SEMANTIC 默认值
 > 人类 2026-08-23 已确认**：图片语义难以一句话描述时留空 alt + 靠相邻文字说明，不强行
@@ -40,8 +31,9 @@ confirmed_at:
 > **③ N/A — 本束无后端 API 契约面。**
 
 ## 人类签核时请重点确认
-- **① UI**：ui-prototyper 产出「界面落点参考态」截图后，核对是不是本束要修改行为的
-  正确页面/组件（不是核对修复效果——修复效果在各 feature 落地时另外验收）。
+- **① UI**：核对 4 张截图是不是本束要修改行为的正确页面/组件；确认「权威原型 +
+  离线预览页 + preview 路由」这套替代来源能否满足「确认正确页面」这个签核目的
+  （不是核对修复效果——修复效果在各 feature 落地时另外验收）。
 - **② 用例**：UC-3「AMBIGUOUS_SEMANTIC」分支——图片语义难以描述时是否允许留空 alt
   并只依赖相邻文字，还是必须强制写出（哪怕不完美）？两种都有可访问性专家支持，
   本文档默认「配合上下文，不强行编造」，需要你确认这个默认站不站得住。

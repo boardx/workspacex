@@ -26,3 +26,9 @@ F10（Breadcrumb/Pagination 收口）。对应需求 `requirements/01-*.md`、`r
 
 ## 明确不是不变量（避免与规则混淆）
 - 「弹层动效应该流畅」——这是体验目标，不可断言，不写进本节（动效具体约束见 `motion-microinteraction` 束）。
+
+## ③ 件为什么不是 zod 契约文件（本束无对外 HTTP 面）
+Dialog/Dropdown/Select/Tooltip/Table/Menu/Breadcrumb/Pagination 全部是纯前端展示与交互
+组件，不经由任何 HTTP 端点与后端通信，因此没有 `packages/contracts/src/interaction-primitives.ts`
+的必要——没有请求/响应体可写 schema。本束的「契约」是它对既有回归门控的承诺：token 化、
+键盘可达、无裸拼装点，逐条落在 `coverage.md` 的可执行门控命令里。

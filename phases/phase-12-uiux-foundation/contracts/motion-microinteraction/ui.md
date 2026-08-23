@@ -1,30 +1,33 @@
 # 契约束 `motion-microinteraction` — 签核①：UI（界面落点）
 
-> ## 🔴 自检（可机械核对）：**本文件引用 0 张截图，目录尚未产出。**
+> ## ✅ 自检（可机械核对）：**本文件引用 4 张截图，目录下实际 4 张。**
 >
 > 目录：`phases/phase-12-uiux-foundation/ui-preview/motion-microinteraction/`
-> **该目录现在不存在** —— ui-prototyper 尚未执行；且编排级动效的「值得编排的时刻」
-> 本身待人类在 `design-signoff.md` 拍板（见该文件②节），拍板前无法产出准确的示意材料。
+> 由 ui-prototyper 产出（脚本 `apps/web/scripts/shot-phase12-signoff.mjs`）。
 >
-> ⇒ `lint-ui-material.mjs` 会对本束报判定④「目录不存在 / 0 张 png」。
-> 已在 `.harness/scripts/ui-material-map.json` 补上本束的映射行。
+> ⚠ **本轮范围限定为原有 F03/F04**：动效 token 档位对照 + 对话面「消息到达 / 面板展开」
+> 的界面落点参考。`design-signoff.md` ②节人类已把编排动效扩到三类（追加首屏加载
+> UC-5、上传进度 UC-6），但那两类属未来 F17/F18，本轮**不产出**其材料。
+> 静态 png 无法完整表达动效——这里给的是「取值对照 + 落点参考」，不是动效本身。
 
-## 该有哪些材料（文字描述，动效无法用静态 png 完整表达）
+## 材料说明
 
-- **动效 token 档位对照**：kitchen-sink 展示区，三档（fast/base/slow）分别应用在同一组
-  弹层组件上的对比截图，辅以时长数值标注
-- **编排级动效的关键帧序列**：消息到达 / 面板展开各拍 3-4 帧关键帧（开始/中间态/结束），
-  按时间线排列，辅以文字说明每一步的 delay/duration
-- **微交互状态矩阵**：四个域（chat/profile/org-admin/canvas）各抽 1-2 个代表性可点击元素，
-  default/hover/focus/active 四态并排对比
+- **动效 token 档位对照**：`/kitchen-sink` 新增「动效 token 档位对照」展示区，三档
+  （fast 150ms / base 200ms / slow 300ms）套在同一组卡片上，附时长标注。静止态一张、
+  hover 中档一张，用于人类确认取值与观感差异。取值不在组件里散写。
+- **对话面落点参考（非编排动效本身）**：从对话主屏（权威原型 `WorkspaceX Standalone.html`，
+  与 `shot-chat-prototype-ref.mjs` 同源）截「消息列表默认态」与「右侧过程区展开态」，
+  作为「消息到达 / 面板展开」编排动效将来落地的**位置参考**。线上 `/chat` 未登录会跳
+  `/login`（需后端栈），故对话面取自这份已确认设计语言的权威原型。
 
-## 索引表（ui-prototyper 产出后填写）
+## 索引表
 
 | 状态 | 文件名 |
 |---|---|
-| ⚠ 未产出：动效 token 档位对照 | — |
-| ⚠ 未产出：消息到达关键帧序列 | — |
-| ⚠ 未产出：面板展开关键帧序列 | — |
-| ⚠ 未产出：微交互状态矩阵 | — |
+| 动效 token 三档对照 · 静止态 | f03-motion-tokens-rest.png |
+| 动效 token 三档对照 · hover 中档（200ms） | f03-motion-tokens-hover.png |
+| 对话主屏消息列表默认态（消息到达落点） | f04-chat-message-list-default.png |
+| 右侧过程区展开态（面板展开落点） | f04-chat-panel-expanded-default.png |
 
-> 覆盖 feature 与依据见 `design-signoff.md`（权威）。
+> 覆盖 feature 与依据见 `design-signoff.md`（权威）。设计决定与待确认清单见
+> `phases/phase-12-uiux-foundation/ui-preview/README.md`。

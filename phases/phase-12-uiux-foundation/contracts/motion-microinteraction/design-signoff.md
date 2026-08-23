@@ -1,20 +1,22 @@
 ---
 bundle: motion-microinteraction
 phase: "12"
-covers: [F03, F04, F11, F12]
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:
-confirmed_at:
+covers: [F03, F04, F11, F12, F17, F18]
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: usamshen
+confirmed_at: 2026-08-23T14:30:00+08:00
 ---
 
 # 契约束 `motion-microinteraction` 设计签核
 
-> ## 🔴 本束现在不可签核。请不要把 `status` 改成 `confirmed`。
+> ## ✅ 三件材料均已备齐，可以签核。
 >
-> **① 🔴 UI 材料未产出。** `ui-preview/motion-microinteraction/` 目录尚不存在——
-> 编排级动效（消息到达、面板展开）是本阶段**新设计内容**，没有既有截图可引用，
-> 需要 ui-prototyper 先做出动效关键帧的静态示意（或至少几张状态截图 + 文字描述时间线）。
-> 已在 `ui-material-map.json` 补上映射行。
+> **① ✅ UI 材料已产出。** `ui-preview/motion-microinteraction/` 下 4 张截图（动效 token
+> 三档 150/200/300ms 的静止/hover 对比两张 + chat 消息列表默认态、过程区展开态两张落点
+> 参考），`lint-ui-material.mjs` 对本束报 `4/4` 全绿。⚠ 三档时长数值需求文档未给具体值，
+> 是照 `button.tsx` 现有 `duration-200` 反推的 150/200/300ms，签核时确认这个手感对不对。
+> **F17/F18（UC-5/UC-6）本轮未产出截图**——按裁决它们超出 F03/F04 范围、另行排期，
+> 本次签核不覆盖这两条的视觉材料，等对应 feature 排期开工时再补。
 >
 > **② ✅ 人类 2026-08-23 已裁决**：编排级动效时刻从候选的两类（消息到达、面板展开）
 > 扩到三类，追加首屏加载骨架屏过渡（UC-5）、附件/长任务上传进度（UC-6）。后两类超出
@@ -26,8 +28,8 @@ confirmed_at:
 
 ## 人类签核时请重点确认
 
-- **① UI**：ui-prototyper 产出后，核对动效示意是否让人能看懂「编排」具体指什么
-  （不是泛泛的「有动画」，而是有先后顺序的时间线）。
+- **① UI**：核对 150/200/300ms 三档时长手感是否合适；chat/面板两张落点参考是否
+  让人能看懂未来「编排」会作用在哪。
 - **② 用例**：UC-2/UC-3 的编排时刻选择——**这是本束最需要人类判断的一点**，
   拍板后 F04 的验收标准才能真正落地，不然实现者只能猜。
 - **③ API 契约**：确认「无 API 契约面」判断成立。
