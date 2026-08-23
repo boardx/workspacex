@@ -112,9 +112,9 @@
         "F05"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-f",
       "verification": [
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard org-admin'",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'axe keyboard'"
