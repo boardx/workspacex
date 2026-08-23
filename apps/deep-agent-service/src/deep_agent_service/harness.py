@@ -117,6 +117,50 @@ def build_interrupt_on() -> dict[str, bool] | None:
     return {t: True for t in tools} if tools else None
 
 
+def build_subagents(model: BaseChatModel) -> list[dict] | None:
+    """DA-05（#1838，rubric D5 子代理委托）：具名研究子代理，让 task 工具有真实用途。
+
+    基线实测（2026-08-23）：SubAgentMiddleware 是 create_deep_agent 默认自带的，
+    task 工具一直存在，但可用类型只有内建 general-purpose——「task 工具守着空气」，
+    D5 = 0.3。本函数注册一个具名 `org-skill-researcher`：调研组织技能库并汇总，
+    system_prompt 指示它先用 list_org_skills 探查、再汇总；tools 复用主图同一套
+    org skills 工具（build_tools(model)），model 显式钉为主模型——不吃「继承主
+    agent 模型」的库默认，升级时默认继承策略漂移不得悄悄改变子代理用哪个模型。
+
+    deepagents 0.7.6 实测契约（inspect，不是猜的）：
+    - SubAgent 是 TypedDict：必填 name/description/system_prompt（⚠ 是
+      system_prompt 不是 prompt），可选 tools/model/middleware/...
+    - 主模型触发委托的 task 工具参数形状：{"description": str, "subagent_type": str}，
+      subagent_type 取 SubAgent["name"]。
+
+    灰度（S1=B 纪律）：`DEEP_AGENT_SUBAGENTS_ENABLED=1` 才启用。默认未设 → 返回
+    None → create_deep_agent 收到 None 与参数默认值逐字一致，行为与之前完全相同。
+    """
+    if (os.environ.get("DEEP_AGENT_SUBAGENTS_ENABLED") or "").strip() != "1":
+        return None
+    # 延迟导入与 tools.py 的依赖，避免 harness 模块在无关路径上加载它。
+    from deep_agent_service.tools import build_tools
+
+    return [
+        {
+            "name": "org-skill-researcher",
+            "description": (
+                "调研本组织的技能库并汇总：探查本次运行挂载了哪些组织技能、各自能做什么，"
+                "把调研结论汇总成一段可直接使用的报告。凡是「有哪些技能可用/该用哪个技能/"
+                "技能库现状」这类调研型任务，委托给它。"
+            ),
+            "system_prompt": (
+                "你是组织技能库研究员。收到任务后，先用 list_org_skills 探查本次运行"
+                "挂载的全部技能，必要时用 call_skill 对具体技能做试探性验证，然后把"
+                "调研发现汇总成结构化结论：有哪些技能、各自适合什么任务、与任务的匹配"
+                "建议。只汇报你真实探查到的内容，不要凭技能名字编造能力。"
+            ),
+            "tools": build_tools(model),
+            "model": model,
+        }
+    ]
+
+
 def build_checkpointer():
     """自托管时显式 Postgres 持久化；平台托管时返回 None（图上不带，平台自己管）。
 
