@@ -388,15 +388,27 @@ export class DeepAgentModelProvider implements ModelCallPort {
    * （不保证 run 成功——终态判定归调用方）；false = 流根本没打开（HTTP 非 2xx / 传输错），
    * 调用方落回轮询。
    *
-   * 解析刻意只认两种形状、其余静默跳过（fail-open 到轮询而不是猜）：
+   * 解析刻意只认三种形状、其余静默跳过（fail-open 到轮询而不是猜）：
    *   · `event: messages` 且 data 为 `[chunk, metadata]`、chunk.content 是非空字符串、
    *     chunk 无 tool_call_id → 当作 AIMessageChunk 的 token 片段 → onDelta
-   *   · chunk 带 `tool_call_id` → 有 ToolMessage 落地 → 事件驱动地读一次 state 提取
-   *     tool 事件对（比旧的定时轮询更及时，语义与其同源：仍从 state 提取、仍按 emitted 去重）
+   *   · 同一形状但 chunk 带 `tool_call_id` → 有 ToolMessage 落地 → 事件驱动地读一次
+   *     state 提取 tool 事件对（语义与旧的定时轮询同源：仍从 state 提取、仍按 emitted
+   *     去重）—— ⚠ 2026-08-23 人类第二轮引擎重评实测（D2）证实这条分支在真实 run 里
+   *     几乎从不命中：90 条 messages-tuple chunk 里 0 条带 `tool_call_id`，工具调用
+   *     实际只靠下面轮询循环的 `pollIntervalMs` 兜底读一次 state，不是逐次事件驱动。
+   *   · `event: updates` 的 data 是 `{node_name: patch}` 形状的对象（不是数组）——同一份
+   *     实测证据显示 engine 真的会在这个 stream_mode 下把 `tools` 节点的 patch 独立
+   *     发出来（`{"tools":{"messages":[ToolMessage...],"todos":[...]}}`），一次 patch
+   *     对应一次工具调用真正落地。见到 "tools" 键就立刻触发一次 state 读——这是上面
+   *     那条"事实上失效"的分支之外，真正能让工具调用事件实时驱动记账（而不是等轮询
+   *     周期）的信号。复用同一个 `emitNewToolEvents`/`extractToolCallEvents` 配对逻辑，
+   *     不新建第二套解析或记账路径。
    *
-   * ⚠ 事件形状按 LangGraph Platform 文档 + loopback 测试锚定；对真实 `langgraph dev`
-   * 的首次实跑验证 outstanding——与 #739/#783 同一个已声明的验证边界。形状不匹配的
-   * 后果被设计成「退化为无 delta 的轮询语义」，不会丢终稿、不会伪造流式。
+   * ⚠ 事件形状按 LangGraph Platform 文档 + loopback 测试 + 2026-08-23 对真实
+   * `apps/deep-agent-service` 的实测 SSE 采集（`.harness/state/deepagent-eval/
+   * 2026-08-23-3d327c13/sse-and-thread-state-evidence-v2/01-sse-stream.txt`）锚定。
+   * 形状不匹配的后果被设计成「退化为无 delta/无提前信号的轮询语义」，不会丢终稿、
+   * 不会伪造流式。
    */
   private async tryStreamRun(
     baseUrl: string,
@@ -440,14 +452,29 @@ export class DeepAgentModelProvider implements ModelCallPort {
           } catch {
             continue;
           }
-          if (!Array.isArray(parsed) || parsed.length === 0) continue;
-          const chunk = parsed[0] as { content?: unknown; tool_call_id?: unknown };
-          if (typeof chunk.tool_call_id === "string" && chunk.tool_call_id !== "") {
-            await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+          if (Array.isArray(parsed)) {
+            // messages-tuple 形状：[chunk, metadata]。
+            if (parsed.length === 0) continue;
+            const chunk = parsed[0] as { content?: unknown; tool_call_id?: unknown };
+            if (typeof chunk.tool_call_id === "string" && chunk.tool_call_id !== "") {
+              await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+              continue;
+            }
+            if (typeof chunk.content === "string" && chunk.content !== "") {
+              await onDelta(chunk.content);
+            }
             continue;
           }
-          if (typeof chunk.content === "string" && chunk.content !== "") {
-            await onDelta(chunk.content);
+          // updates 形状：`{node_name: patch}`——一个 pregel 步骤更新了哪些节点。
+          // 只认 "tools" 键，其余节点（各种 middleware 的 before_agent/before_model、
+          // "model" 节点自身等）与工具调用可见性无关，静默跳过；`patch` 的具体字段
+          // （`messages`/`todos`）留给 `emitNewToolEvents` 内部已有的 state 读 + 配对
+          // 逻辑消费，这里不重新解析它。
+          if (typeof parsed === "object" && parsed !== null) {
+            const patch = parsed as Record<string, unknown>;
+            if ("tools" in patch && patch.tools !== null && patch.tools !== undefined) {
+              await this.emitNewToolEvents(baseUrl, threadId, onProgress, emitted);
+            }
           }
         }
       }
@@ -630,7 +657,19 @@ export class DeepAgentModelProvider implements ModelCallPort {
         // messages-tuple 的 [chunk, metadata] 形状）全部跳过，零 delta，按设计静默
         // 回退轮询。修法是在**创建时**声明要什么流：messages-tuple 逐 token。
         // 对不消费流的调用（complete()）无害——事件只是被缓存，没人读而已。
-        stream_mode: ["messages-tuple"],
+        // 2026-08-23 人类第二轮引擎重评（D2，见 `.harness/state/deepagent-eval/
+        // 2026-08-23-3d327c13/scoring-rationale.md`）：activity 探针修好后证实 engine
+        // 原生真的会在 `updates` stream_mode 下发出独立的 `tools` 节点事件（每条带
+        // tool_call_id/name/content/status，见该目录 `01-sse-stream.txt` 第 118/121/195
+        // 行），但这条链路此前只请求了 `messages-tuple`——`tryStreamRun` 里判断"有 Tool
+        // Message 落地"的唯一信号是 messages-tuple chunk 携带 `tool_call_id`，而同一份
+        // 实测证据显示这个字段在真实 run 里从未出现在 messages-tuple chunk 上（90 条
+        // messages 事件里 0 条带 tool_call_id）——那条触发路径形同虚设，工具调用可见性
+        // 实际只靠轮询循环每 `pollIntervalMs` 兜底读一次 state，不是逐次事件驱动。
+        // 加上 "updates" 后，`tryStreamRun` 新增对象形状（{node_name: patch}）的分支：
+        // 见到 "tools" 节点的 patch 就立刻触发一次 `emitNewToolEvents`——复用既有的
+        // state 读 + `extractToolCallEvents` 配对逻辑，不新建第二套记账路径。
+        stream_mode: ["messages-tuple", "updates"],
         input: { messages },
         config: {
           configurable: {
