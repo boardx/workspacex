@@ -1609,6 +1609,43 @@ export const operations = {
   },
 
   /**
+   * #1911 —— agent 详情页「能力图」只读视图的数据来源。**⚠⚠ 草案，尚未经人类签核**
+   * （ADR-023，登记在 issue #1911；沿用 `setAgentSkillPins`/`setToolWhitelist` 同样的
+   * 「草案边，先接线，人类事后确认」模式——这两条写操作本身也是这个状态）。
+   *
+   * ## 为什么加这一条，而不是复用 `listAgents`
+   *
+   * `listAgents.out` 的 `AgentRow.skillCount` 只是数字（`agent-runtime.ts` 头注），
+   * 画不出「具体挂了哪个 skill、具体授权了哪个工具」这张图必须的**逐条 id**。
+   * `skill_mounts`/`tool_whitelist` 两列已经真实落在 `agents` 表（
+   * `20260807030000_i617_create_agent.sql`），且已有 `PgCreateAgentRepository.findForClone`
+   * 在读它们（供复制取源用）——本操作复用同一条读路径，不新开 SQL、不新建表、
+   * 不碰任何写路径。
+   *
+   * ## 只读，no MCP 全局目录
+   *
+   * `toolWhitelist[].toolFullName` 本身就是 `mcp:<服务器>.<工具>`（见上方
+   * `parseMcpToolFullName`），前端从这一条已经在读的字段里解析出服务器/工具名，
+   * 不依赖 `listMcpServers`/`listMcpTools`——那两条操作目前零后端实现
+   * （全仓无 controller、DB 无 mcp_servers 表），本操作不对它们产生任何依赖。
+   */
+  getAgentCapabilityGraph: {
+    method: "GET",
+    path: "/agents/:agentId",
+    in: z.object({ agentId: z.string() }).strict(),
+    out: z
+      .object({
+        agentId: z.string(),
+        name: z.string(),
+        roleLabel: z.string(),
+        skillMounts: z.array(SkillMount),
+        toolWhitelist: z.array(ToolWhitelistEntry),
+      })
+      .strict(),
+    err: ["AGENT_NOT_FOUND"] as const,
+  },
+
+  /**
    * #595 A2 —— **⚠⚠ 草案，尚未经人类签核**（ADR-023，登记在 issue #595）。
    *
    * ## 为什么不是 `mountSkill`

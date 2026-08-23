@@ -10,7 +10,7 @@
  * `POST /agents/:agentId/trial-run`）——Nest 按路径+方法整体匹配，两个控制器
  * 共存不冲突，与 `agent-trial-run.controller.ts` 文件头的独立文件理由相同。
  */
-import { Body, Controller, ForbiddenException, HttpStatus, Inject, NotFoundException, NotImplementedException, Param, Patch, Post, Res, UnprocessableEntityException } from "@nestjs/common";
+import { Body, Controller, ForbiddenException, Get, HttpStatus, Inject, NotFoundException, NotImplementedException, Param, Patch, Post, Res, UnprocessableEntityException } from "@nestjs/common";
 import type { Response } from "express";
 import { agentRuntime as C } from "@repo/contracts";
 import type { Principal } from "../../domain/principal";
@@ -42,6 +42,10 @@ import {
   SET_AGENT_ROLE_LABEL_REPOSITORY,
   type SetAgentRoleLabelRepository,
 } from "../../application/agent/set-agent-role-label";
+import {
+  getAgentCapabilityGraph,
+  GetAgentCapabilityGraphError,
+} from "../../application/agent/get-agent-capability-graph";
 
 type CreateAgentBody = ReturnType<typeof C.operations.createAgent.in.parse>;
 type SelfPublishBody = ReturnType<typeof C.operations.selfPublishToollessAgent.in.parse>;
@@ -192,6 +196,29 @@ export class AgentController {
     } catch (error) {
       if (error instanceof SetAgentInstructionsError) throw this.toHttp(error.code);
       if (error instanceof SetAgentRoleLabelError) throw this.toHttp(error.code);
+      throw error;
+    }
+  }
+
+  /**
+   * `GET /agents/:agentId` —— #1911，agent 详情页「能力图」的数据源。
+   * 只读，复用已注入的 `CREATE_AGENT_REPOSITORY`（`findForClone` 同一条读路径），
+   * 不新增仓储、不碰任何写路径。
+   */
+  @Get(C.operations.getAgentCapabilityGraph.path)
+  async getCapabilityGraph(
+    @CurrentPrincipal() principal: Principal,
+    @Param("agentId") agentId: string,
+  ) {
+    assertPrincipal(principal);
+    try {
+      const result = await getAgentCapabilityGraph(
+        { orgId: principal.orgId, agentId },
+        { repository: this.repository },
+      );
+      return C.operations.getAgentCapabilityGraph.out.parse(result);
+    } catch (error) {
+      if (error instanceof GetAgentCapabilityGraphError) throw this.toHttp(error.code);
       throw error;
     }
   }
