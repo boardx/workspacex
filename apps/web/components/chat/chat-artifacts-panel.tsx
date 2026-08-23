@@ -37,8 +37,10 @@ export function ChatArtifactsPanel({
         <Package aria-hidden className="h-4 w-4 text-muted-foreground" />
         <h2 className="text-12 font-medium">产物{artifacts ? `（${artifacts.items.length}）` : ""}</h2>
       </div>
+      {/* 未选线程与加载中是互斥状态，同一时刻只显一态（UI 评分 b10-entry 截图：两态并存）。
+          文案不带「真实」——那是区别于 mock 的开发者词汇，不该出现在用户可见文案里。 */}
       {!hasSelection ? <p className="p-3 text-12 text-muted-foreground">选择线程后读取产物。</p> : null}
-      {loading ? <p className="p-3 text-12 text-muted-foreground">正在读取真实产物列表…</p> : null}
+      {hasSelection && loading ? <p className="p-3 text-12 text-muted-foreground">正在读取产物列表…</p> : null}
       {error ? (
         <div className="flex flex-col items-start gap-2 p-3" data-testid="chat-artifacts-error">
           <p className="text-12 text-destructive">{error}</p>
