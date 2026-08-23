@@ -1095,4 +1095,34 @@ describe("2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑�
     const panel = await screen.findByTestId("tpladmin-editor-panel");
     await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-ai-prompt")).toHaveFocus());
   });
+
+  it("迭代 4/N：改了显示名，标题旁出现「有未保存的改动」；保存后消失", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname === "/canvas/templates/swot/draft") {
+        const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+        return jsonResponse({
+          key: "swot", version: 1, status: "draft", displayName: body["displayName"],
+          builtin: false, visibility: body["visibility"], underlyingType: "canvas", sections: body["sections"],
+        });
+      }
+      return jsonResponse({
+        templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })],
+      });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+
+    // 刚打开、还没改过——不该显示「未保存」。
+    expect(within(panel).queryByTestId("tpladmin-editor-dirty")).toBeNull();
+
+    fireEvent.change(within(panel).getByTestId("tpladmin-editor-name"), { target: { value: "SWOT 分析" } });
+    expect(within(panel).getByTestId("tpladmin-editor-dirty")).toBeInTheDocument();
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-save"));
+    await waitFor(() => expect(within(panel).queryByTestId("tpladmin-editor-dirty")).toBeNull());
+  });
 });

@@ -76,6 +76,14 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
    *   调用方的事（它知道自己刚拿什么分区数据生成的这份 markdown，`CanvasStage` 不知道）。
    */
   onCanvasClick?: (point: { x: number; y: number }) => void;
+  /**
+   * 迭代 4——同 `onCanvasClick`，但在**点击之前**：鼠标移动到分区框范围内时触发，
+   * 光标移出画布（或移到任何框外的空白处）时以 `null` 触发一次清空。分区框是
+   * `locked`（同上，fabric 不认 hover），这里同样是画布级 `mouse:move`/`mouse:out`
+   * 自己转发场景坐标，命中测试仍然是调用方的事——`CanvasStage` 不需要知道
+   * "框"是什么形状，只负责把指针在哪原样递出去。
+   */
+  onCanvasHover?: (point: { x: number; y: number } | null) => void;
 }>(function CanvasStage({
   readOnly,
   tool,
@@ -84,6 +92,7 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   markdown,
   onMarkdownChange,
   onCanvasClick,
+  onCanvasHover,
 }, ref) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
@@ -113,6 +122,8 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   const readOnlyRef = React.useRef(readOnly);
   const onCanvasClickRef = React.useRef(onCanvasClick);
   onCanvasClickRef.current = onCanvasClick;
+  const onCanvasHoverRef = React.useRef(onCanvasHover);
+  onCanvasHoverRef.current = onCanvasHover;
   const markdownRef = React.useRef(markdown);
   const onMarkdownChangeRef = React.useRef(onMarkdownChange);
   const onZoomChangeRef = React.useRef(onZoomChange);
@@ -471,15 +482,27 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
       }
     });
     canvas.on("mouse:move", (opt) => {
-      if (!panning || !panLast) return;
       const e = opt.e as MouseEvent;
-      const vpt = canvas.viewportTransform;
-      if (vpt) {
-        vpt[4] += e.clientX - panLast.x;
-        vpt[5] += e.clientY - panLast.y;
-        canvas.setViewportTransform(vpt);
+      if (panning && panLast) {
+        const vpt = canvas.viewportTransform;
+        if (vpt) {
+          vpt[4] += e.clientX - panLast.x;
+          vpt[5] += e.clientY - panLast.y;
+          canvas.setViewportTransform(vpt);
+        }
+        panLast = { x: e.clientX, y: e.clientY };
+        return;
       }
-      panLast = { x: e.clientX, y: e.clientY };
+      if (readOnlyRef.current && onCanvasHoverRef.current) {
+        const p = canvas.getScenePoint(e);
+        onCanvasHoverRef.current({ x: p.x, y: p.y });
+      }
+    });
+    // 指针整个离开画布——同一件事之前只有"移到某个框范围外"能清空（上面
+    // mouse:move 自己算），指针直接飞出画布边界那次移动不落在画布上，不会
+    // 触发 mouse:move，悬停高亮会卡在最后一个框上不消失。
+    canvas.on("mouse:out", () => {
+      if (readOnlyRef.current && onCanvasHoverRef.current) onCanvasHoverRef.current(null);
     });
     canvas.on("mouse:up", () => {
       if (!panning) return;
@@ -811,6 +834,11 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
           "relative h-full min-h-96 w-full",
           tool === "sticky" || tool === "node" ? (readOnly ? "" : "cursor-crosshair") : "",
           tool === "delete" && !readOnly && "cursor-not-allowed",
+          // 迭代 4——只读+可点击画布（模板编辑面板的分区框联动）此前没有任何鼠标态
+          // 提示：光标停在分区框上和停在空白背景上看起来一模一样，使用者只能靠
+          // 试错才知道"这块能点"。改成 pointer——同一块画布区域现在既是"预览"
+          // 也是"可交互控件"，光标应该说出这件事，不该假装自己只是一张静态截图。
+          readOnly && onCanvasClick && "cursor-pointer",
         )}
       >
         <canvas ref={canvasElRef} data-testid="canvas-fabric-surface" />
