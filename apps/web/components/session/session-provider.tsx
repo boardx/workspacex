@@ -10,6 +10,7 @@ import {
   storeSessionToken,
 } from "@/lib/api-client";
 import type { Identity } from "@/lib/identity";
+import { mockIdentity, MOCK_ORGS } from "@/lib/identity";
 import type { OrganizationSummary } from "@/lib/org-display";
 import {
   resolveIdentity,
@@ -403,6 +404,52 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     switchOrganization, updateDisplayName, updateOrgName, updateAvatarUrl,
   ]);
 
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+}
+
+
+/**
+ * PreviewSessionProvider —— 仅供 /preview 形态的原型页使用的离线 session 上下文。
+ *
+ * 为什么需要它：`/profile` 等页面走 `AppShell` 的 session 门（`components/shell/app-shell.tsx`
+ * SessionAppShell），未登录会跳 `/login`；而 ADR-003 的 UI 先行截图不应依赖后端栈。
+ * 本 provider 直接注入一个"已登录"的 mock 上下文（不发任何网络请求），让**真实**的
+ * ProfileScreen 等组件用 mock 身份渲染出来——满足"真实组件 + mock 数据"，
+ * 且不改动生产页面自身的 session 行为。所有写方法都是 no-op（预览不落库）。
+ */
+export function PreviewSessionProvider({
+  children,
+  orgId = "org-yuanyang",
+}: {
+  children: React.ReactNode;
+  orgId?: string;
+}) {
+  const value = React.useMemo<SessionContextValue>(() => {
+    const identity = mockIdentity(orgId, null);
+    const session: SessionInfo = {
+      sessionToken: "preview-token",
+      userId: "preview-user",
+      orgIds: MOCK_ORGS.map((o) => o.id),
+      currentOrgId: identity.org.id,
+      expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+    };
+    const noop = () => {};
+    const noopAsync = async () => {};
+    return {
+      status: "authenticated",
+      session,
+      identity,
+      organizations: MOCK_ORGS.map((o) => ({ id: o.id, name: o.name, nameStatus: "ready" as const })),
+      error: null,
+      startSession: noopAsync,
+      switchOrganization: noopAsync,
+      retry: noopAsync,
+      logout: noop,
+      updateDisplayName: noop,
+      updateOrgName: noop,
+      updateAvatarUrl: noop,
+    };
+  }, [orgId]);
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 
