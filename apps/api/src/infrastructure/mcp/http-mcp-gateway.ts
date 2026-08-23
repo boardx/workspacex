@@ -55,6 +55,8 @@ export interface HttpMcpGatewayDeps {
   readonly timeoutMs?: number;
   /** 测试接缝——生产装配从不传它,只有对着回环地址的测试替身会传。 */
   readonly seams?: GuardedFetchSeams;
+  /** 见 `guarded-fetch.ts` 的 `extraTrustedCa`——生产装配从不传它。 */
+  readonly extraTrustedCa?: string | Buffer;
 }
 
 function sideEffectOf(tool: McpSdkTool): DiscoveredTool["sideEffect"] {
@@ -95,17 +97,41 @@ export function createHttpMcpGateway(deps: HttpMcpGatewayDeps): McpGateway {
         throw refusal;
       }
 
-      const guardedFetch = createGuardedFetch({ connectTimeoutMs: timeoutMs, seams: deps.seams });
+      const guardedFetch = createGuardedFetch({
+        connectTimeoutMs: timeoutMs,
+        seams: deps.seams,
+        extraTrustedCa: deps.extraTrustedCa,
+      });
       const transport = new StreamableHTTPClientTransport(url, {
         fetch: guardedFetch,
         requestInit:
           deps.credential !== null
             ? { headers: { authorization: `Bearer ${deps.credential}` } }
             : undefined,
+        // ⚠ 一次发现动作不需要"断线自动重连"——那是给长连接会话用的。关掉它，一次
+        //   连接失败就是失败，不在 SDK 内部悄悄重试拖长"答内 Nms" 的实际耗时（UC-21.1 R9）。
+        reconnectionOptions: {
+          maxRetries: 0,
+          initialReconnectionDelay: 0,
+          maxReconnectionDelay: 0,
+          reconnectionDelayGrowFactor: 1,
+        },
       });
       const client = new Client({ name: CLIENT_NAME, version: CLIENT_VERSION });
 
-      try {
+      /**
+       * ⚠ **不能只信 `RequestOptions.timeout`**——实测（vitest 的 worker 池环境）：guarded
+       *   fetch 本身按期用 `AbortSignal.timeout` 拒绝了两次尝试，但 `client.connect()` 的
+       *   promise 仍然不 settle，一路挂到 vitest 自己的 10s 用例超时——SDK 内部某处没有把
+       *   底层 fetch 的拒绝正确地转成 `connect()` 的拒绝。这里在最外层再叠一道硬性
+       *   `Promise.race`，不管内部机制是否可靠，`listTools` 的调用方在 `timeoutMs` 内
+       *   必然拿到结果或错误。
+       */
+      const hardDeadline = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new McpDiscoveryTimeoutError(serverId)), timeoutMs).unref?.();
+      });
+
+      const attempt = (async (): Promise<readonly DiscoveredTool[]> => {
         await client.connect(transport, { timeout: timeoutMs });
         const result = await client.listTools(undefined, { timeout: timeoutMs });
         return result.tools.map(
@@ -115,7 +141,15 @@ export function createHttpMcpGateway(deps: HttpMcpGatewayDeps): McpGateway {
             sideEffect: sideEffectOf(tool),
           }),
         );
+      })();
+      // 硬性 deadline 赢了竞速之后，`attempt` 自己迟早也会 settle——不吞它会变成
+      // 一条未处理的 promise rejection 警告（不是真的错误，只是没人再要这个结果了）。
+      attempt.catch(() => {});
+
+      try {
+        return await Promise.race([attempt, hardDeadline]);
       } catch (error) {
+        if (error instanceof McpDiscoveryTimeoutError) throw error;
         if (error instanceof McpError && error.code === ErrorCode.RequestTimeout) {
           throw new McpDiscoveryTimeoutError(serverId);
         }
@@ -129,7 +163,10 @@ export function createHttpMcpGateway(deps: HttpMcpGatewayDeps): McpGateway {
         }
         throw new McpServerUnreachableError(serverId);
       } finally {
-        await client.close().catch(() => {});
+        // ⚠ **不 await**：一个卡住的底层连接（比如握手中途沉默的服务器）会让
+        //   `client.close()` 自己也悬着不返回，而调用方已经拿到了结果/错误，
+        //   不该被"收尾"这件事再拖住。清理是尽力而为，不是返回值的前提。
+        void client.close().catch(() => {});
       }
     },
   };

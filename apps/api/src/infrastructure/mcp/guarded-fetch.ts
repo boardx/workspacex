@@ -71,6 +71,15 @@ export interface GuardedFetchOptions {
   /** 单次连接的超时（毫秒）——UC-21.1 R9："答内 10s 或明确失败，绝不挂起"。 */
   readonly connectTimeoutMs: number;
   readonly seams?: GuardedFetchSeams;
+  /**
+   * 额外信任的 CA（PEM）。⚠ 这**不是**安全旁路——生产场景本来就存在"组织自建 MCP 服务器
+   * 挂了内部签发的证书"这种正当需求；对测试而言，它是让 `http-mcp-gateway-real-protocol.test.ts`
+   * 能对着 `tests/support/tls.ts` 的 test-only 自签证书完成真实 TLS 握手的手段，
+   * 与 `http-import-fetcher.ts` 测试里"信任关系建立在 https.globalAgent.options.ca 上"
+   * 是同一件事的 undici 版本——那边改的是全局 agent，这里通过显式选项传，因为
+   * 本文件的 `Agent` 从不使用全局 dispatcher。
+   */
+  readonly extraTrustedCa?: string | Buffer;
 }
 
 /**
@@ -84,16 +93,27 @@ export function createGuardedFetch(options: GuardedFetchOptions): typeof fetch {
     connect: {
       lookup: guardedLookup(seams),
       timeout: options.connectTimeoutMs,
+      ...(options.extraTrustedCa !== undefined ? { ca: options.extraTrustedCa } : {}),
     },
     bodyTimeout: options.connectTimeoutMs,
     headersTimeout: options.connectTimeoutMs,
   });
 
   return (async (input: string | URL | Request, init?: RequestInit) => {
-    return undiciFetch(input as never, {
-      ...(init as never),
-      redirect: "error",
-      dispatcher: agent as never,
-    } as never) as unknown as Promise<Response>;
+    const merged: Record<string, unknown> = { ...(init as Record<string, unknown> | undefined) };
+    merged.redirect = "error";
+    merged.dispatcher = agent;
+    /**
+     * ⚠ **不能只靠 `Agent` 的 `connect.timeout`/`bodyTimeout`/`headersTimeout`**——实测
+     *   （vitest 的 worker 池环境，`http-mcp-gateway-real-protocol.test.ts` 的超时用例）：
+     *   同一段代码在裸 `tsx` 下几百毫秒内如期触发，在 vitest 的 worker 线程里却真的挂到
+     *   vitest 自己的 10s 测试超时——undici 的连接层定时器在该环境下没有如期触发。
+     *   这里显式叠一层 `AbortSignal.timeout`，不依赖 dispatcher 内部计时器，是"答内 Nms
+     *   或明确失败"（UC-21.1 R9）唯一在两种运行环境下都验证过确实生效的手段。
+     */
+    const deadline = AbortSignal.timeout(options.connectTimeoutMs);
+    const callerSignal = (init as { signal?: AbortSignal } | undefined)?.signal;
+    merged.signal = callerSignal ? AbortSignal.any([callerSignal, deadline]) : deadline;
+    return undiciFetch(input as never, merged as never) as unknown as Promise<Response>;
   }) as typeof fetch;
 }
