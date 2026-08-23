@@ -30,6 +30,7 @@ import {
   type AgentRunStatus,
   type AgentRunView,
 } from "@/lib/agent-run";
+import { deriveRunPhaseLabel } from "@/lib/agent-run-phase";
 import { openAgentRunStream } from "@/lib/agent-run-stream";
 import { chat as ChatContract } from "@repo/contracts";
 import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
@@ -980,6 +981,15 @@ export function ChatLiveMessagePanel({
     && !(runObservation?.authExpired ?? false)
     && !(runObservation?.view != null && isTerminalRunStatus(runObservation.view.status));
 
+  /**
+   * gap #8（人类 2026-08-22 devapp 实测）——「正在思考…」卡片旁边挂一句阶段文案，
+   * 与已耗时计时器并列，而不是取代它（计时器答"卡没卡死"，阶段文案答"卡在哪一步"，
+   * 两者不是同一件事）。`null`（run 还没有任何 step，或压根没有在途 run）时不渲染，
+   * 不留一个空 `·` 分隔符。见 `lib/agent-run-phase.ts` 的映射表与「为什么读最新一条
+   * 已完成 step」的说明。
+   */
+  const runPhaseLabel = runObservation?.view != null ? deriveRunPhaseLabel(runObservation.view.steps) : null;
+
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col"
@@ -1288,6 +1298,16 @@ export function ChatLiveMessagePanel({
                       <span data-testid="chat-thinking-elapsed">
                         已用 {Math.max(0, Math.floor((nowTick - runStartedAt) / 1000))} 秒
                       </span>
+                    ) : null}
+                    {/*
+                      gap ⑧（人类 2026-08-22 devapp 实测）：只有一句笼统的
+                      「正在思考…已用 N 秒」，长任务中途看不出卡在哪一步。这里读
+                      `runObservation.view.steps` 最新一条（无新接口，`AgentToolChain`
+                      /`AgentPlanPanel` 就在吃同一个数组）翻译成用户可读阶段文案，
+                      与计时器并列——计时器留着答"卡没卡死"，这句答"卡在哪一步"。
+                    */}
+                    {runPhaseLabel !== null ? (
+                      <span data-testid="chat-thinking-phase">· {runPhaseLabel}</span>
                     ) : null}
                     {/*
                       gap ③：挂了 skill 的这轮可能要跑好几分钟（沙箱单次 120s ×
