@@ -10,7 +10,7 @@
       "depends_on": [],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/overlay-primitives-dialog-dropdown.test.tsx",
@@ -26,10 +26,12 @@
       "title": "统一的 Select / Tooltip 弹层原语 + kitchen-sink 展示区",
       "user_visible_behavior": "全站下拉选择与悬浮提示改用 components/ui/select.tsx 与 tooltip.tsx，视觉语言与 button.tsx 标杆一致；超长下拉列表在视口内可滚动截断；kitchen-sink 页面新增 dialog/dropdown/select/tooltip 四个组件的完整状态展示区块，作为后续 UI 先行阶段的参考起点；全仓裸 Radix 拼装点清零或有记录的例外（迁移映射表）。",
       "spec_ref": "01-component-primitives-overlays.md#R6",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/overlay-primitives-select-tooltip.test.tsx",
@@ -45,10 +47,12 @@
       "title": "语义化动效 token 体系 + lint 拦截裸 duration/easing",
       "user_visible_behavior": "tailwind.config.ts 出现语义化 transitionDuration/transitionTimingFunction 档位（fast/base/slow，数值依据写在 globals.css 注释里）；F01/F02 的弹层进出场动画迁移到新 token 作为示范；lint-design.sh 新增规则，故意写一个裸 duration-500 或 ease-linear 会被拦截。",
       "spec_ref": "02-motion-token-system.md#R3",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/lint-design-motion-rule.test.ts",
@@ -63,10 +67,12 @@
       "title": "1-2 处编排级动效 + prefers-reduced-motion 降级",
       "user_visible_behavior": "至少一处编排级动效落地（候选：chat 消息到达进场、侧边面板展开/收起），有明确时间线（内容先淡入、位移后跟上）而非单一线性过渡；系统开启『减少动态效果』时编排级动效被关闭或降级为瞬时切换；chat 流式高频到达场景下动效不拖慢渲染。",
       "spec_ref": "02-motion-token-system.md#R6",
-      "depends_on": ["F03"],
+      "depends_on": [
+        "F03"
+      ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/motion-orchestration.test.tsx",
@@ -81,10 +87,12 @@
       "title": "chat / profile 核心任务全键盘可达",
       "user_visible_behavior": "只用键盘（Tab/Shift+Tab/Enter/Esc/方向键）即可在 chat 完成『发一条消息』『切换到另一个会话』，在 profile 完成『修改一项资料并保存』；弹层打开后焦点进入弹层内部、Esc 可关闭、Tab 顺序符合视觉顺序、关键节点 focus 环可见；无需鼠标介入。",
       "spec_ref": "03-keyboard-accessibility.md#R3",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard chat'",
@@ -99,10 +107,13 @@
       "title": "org-admin 核心任务全键盘可达 + axe-core keyboard 扫描接入 CI",
       "user_visible_behavior": "只用键盘即可在 org-admin 完成『打开一个成员的权限设置弹层并调整』（在有管理权限的角色登录态下）；axe-core（或等价工具）的 keyboard/focus 相关规则接入 CI 并全过；已知卡点清单归档。",
       "spec_ref": "03-keyboard-accessibility.md#R6",
-      "depends_on": ["F01", "F05"],
+      "depends_on": [
+        "F01",
+        "F05"
+      ],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard org-admin'",
@@ -120,7 +131,7 @@
       "depends_on": [],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/lint-third-party-style-registry.test.ts",
@@ -138,7 +149,7 @@
       "depends_on": [],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/lint-image-alt-nextimage.test.ts",
@@ -154,10 +165,12 @@
       "title": "复合组件收口：Table / Menu 原语落地",
       "user_visible_behavior": "在 3 个以上业务目录重复出现的数据表格（表头/排序/空态一致性）与 command palette/右键菜单模式收口进 components/ui/；org-admin/profile 等业务目录的二次实现替换为新原语，视觉语言与 F01 弹层组件同一套 token；语义差异过大的表格拆成聚焦原语而非万能组件。",
       "spec_ref": "06-component-primitives-composites.md#R3",
-      "depends_on": ["F01"],
+      "depends_on": [
+        "F01"
+      ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/composite-table-menu.test.tsx",
@@ -172,10 +185,12 @@
       "title": "复合组件收口：Breadcrumb / Pagination 原语 + kitchen-sink 展示",
       "user_visible_behavior": "面包屑导航与分页控件收口进 components/ui/，业务目录重复实现降到 0-1（允许注释说明的特例）；table 类组件在百行以上数据量渲染性能不明显劣化；375/768/1280 三档视口无横向溢出；kitchen-sink 新增复合组件展示区块。",
       "spec_ref": "06-component-primitives-composites.md#R6",
-      "depends_on": ["F09"],
+      "depends_on": [
+        "F09"
+      ],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/composite-breadcrumb-pagination.test.tsx",
@@ -190,10 +205,13 @@
       "title": "chat / profile 微交互一致性稽核与整改",
       "user_visible_behavior": "chat、profile 两域下所有可点击元素（按钮/卡片/列表项/图标按钮）的 hover/focus/active 反馈收敛到 uiux-standards.md §5 统一模式：过渡时长、颜色变化幅度、active:scale 点击反馈一致；『完全没有反馈』的元素（含缺 :focus-visible 的键盘不可见焦点）优先修复；prefers-reduced-motion 下保留必要状态提示（如颜色变化）只去掉动画过渡。",
       "spec_ref": "07-microinteraction-consistency-audit.md#R3",
-      "depends_on": ["F01", "F09"],
+      "depends_on": [
+        "F01",
+        "F09"
+      ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web run lint:design",
@@ -208,10 +226,12 @@
       "title": "org-admin / canvas 微交互一致性稽核与整改",
       "user_visible_behavior": "org-admin、canvas 两域下所有可点击元素的 hover/focus/active 反馈收敛到统一模式；缺失反馈的元素补齐；稽核报告列出发现的偏离案例总数与修复状态；修复 PR 按域拆分避免单 PR 改动面过大。",
       "spec_ref": "07-microinteraction-consistency-audit.md#R6",
-      "depends_on": ["F11"],
+      "depends_on": [
+        "F11"
+      ],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web run lint:design",
@@ -229,7 +249,7 @@
       "depends_on": [],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/uiux/review-log-schema.test.ts",
@@ -244,10 +264,14 @@
       "title": "chat 主屏截图级保真度评审达标（≥9）并落盘",
       "user_visible_behavior": "rev-uiux 角色对 chat 主屏按 chat-main-fidelity-rubric.md 十维做正式截图级评审，每维得分与扣分理由写入 uiux-review-log.jsonl；针对『技术合规但观感局促』的扣分项（卡片内边距/行高/信息密度）做视觉微调；重评直到 chat 达到 ≥9 门槛；数据缺口类维度如实记录为超范围产品缺口，不伪造数据凑分。",
       "spec_ref": "09-screenshot-fidelity-review.md#R3",
-      "depends_on": ["F13", "F04", "F11"],
+      "depends_on": [
+        "F13",
+        "F04",
+        "F11"
+      ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/uiux/review-log-chat-threshold.test.ts",
@@ -262,10 +286,14 @@
       "title": "profile / org-admin 截图级保真度评审达标（≥9）并落盘",
       "user_visible_behavior": "rev-uiux 角色对 profile、org-admin 按 uiux-screenshot-review-profile-org.md 十项做正式截图级评审，得分与扣分理由写入结构化日志；对扣分项做视觉密度打磨；重评直到 profile/org 达到 ≥9 门槛；覆盖 375/768/1280 三档视口。",
       "spec_ref": "09-screenshot-fidelity-review.md#R6",
-      "depends_on": ["F13", "F04", "F12"],
+      "depends_on": [
+        "F13",
+        "F04",
+        "F12"
+      ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/uiux/review-log-profile-org-threshold.test.ts",
@@ -281,12 +309,25 @@
       "user_visible_behavior": "全量跑通 lint-design.sh（含新增 U9 第三方组件规则、扩展后 U7a 图片规则）、check-token-contrast.mjs 对比度门控、axe-core 全站扫描（chat/profile/org-admin/canvas）、F05/F06 的键盘走查自动化用例，均无回归；./init.sh 基础验证与 pnpm harness doctor 三条检查通过；对照《十分制评估》十维评分逐维重算并贴证据；未闭合缺口如实记录为下一阶段待办，不虚报达标。",
       "spec_ref": "10-final-verification-sweep.md#R3",
       "depends_on": [
-        "F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08",
-        "F09", "F10", "F11", "F12", "F13", "F14", "F15"
+        "F01",
+        "F02",
+        "F03",
+        "F04",
+        "F05",
+        "F06",
+        "F07",
+        "F08",
+        "F09",
+        "F10",
+        "F11",
+        "F12",
+        "F13",
+        "F14",
+        "F15"
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "01",
       "owner": null,
       "verification": [
         "pnpm --filter web run lint:design",
@@ -303,7 +344,10 @@
       "title": "首屏加载骨架屏→内容过渡动效",
       "user_visible_behavior": "chat/profile/org-admin 路由的骨架屏渲染完成、真实内容就绪时，出现有明确时间线的过渡动效（不是单一线性淡入）；目标路由若无骨架屏基础设施，本 feature 不新建骨架屏组件本身，也不对普通 loading spinner 强行包一层过渡动效冒充『编排』；prefers-reduced-motion 下降级为瞬时切换。",
       "spec_ref": "02-motion-token-system.md#R13",
-      "depends_on": ["F03", "F04"],
+      "depends_on": [
+        "F03",
+        "F04"
+      ],
       "points": 2,
       "status": "not_started",
       "sprint": null,
@@ -321,7 +365,10 @@
       "title": "附件/长任务上传进度动效",
       "user_visible_behavior": "上传附件或触发长任务时，若后端提供细粒度真实进度事件，前端呈现对应的进度动效；后端只提供二元『进行中/完成』时，动效降级为不确定态（indeterminate）指示器，不插值出虚假百分比；prefers-reduced-motion 下降级为瞬时切换。",
       "spec_ref": "02-motion-token-system.md#R14",
-      "depends_on": ["F03", "F04"],
+      "depends_on": [
+        "F03",
+        "F04"
+      ],
       "points": 2,
       "status": "not_started",
       "sprint": null,
