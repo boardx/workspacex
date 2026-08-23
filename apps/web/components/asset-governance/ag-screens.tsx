@@ -21,6 +21,7 @@ import {
 import {
   ScreenHead, BackstageGate, VerdictBadge, Meter, FileTree, CodeView, DangerConfirm, Panel,
 } from "./ag-shared";
+import { AssetCodeEditor } from "./asset-code-editor";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { getAssetDirectory, readAssetFile, writeAssetFile, type AssetDirectory } from "@/lib/asset-directory";
 import { runSkillTrialRun, pollSkillTrialRun } from "@/lib/skill-trial-run";
@@ -859,13 +860,21 @@ function Editor({
                       /**
                        * #881：真实数据态下这里是**可编辑**的。此前是只读 `CodeView`，
                        * 配一个不接任何写路径的「保存并发布」按钮——按钮在说谎。
+                       * #1884：原生 `<textarea>` 换成 Monaco（语法高亮 + 内联校验）——
+                       * frontmatter 规则对 `skill`/`agent` 都定义了（`RootFrontmatterAssetKind`），
+                       * 只要选中的文件是这次读到的目录自己的 `rootFile` 就接上；`agent` 今天
+                       * 读到的仍是 `FixtureAssetFileRepository` 的固定内容（`#787` 未解决），
+                       * 校验逻辑本身是真的，只是它验证的数据源还不是真实存储——与 `isLive`
+                       * 徽标已经如实展示的「数据源」区分是两件事。
                        */
-                      <textarea
-                        data-testid={`ag-${kind}-code`}
-                        className="min-h-[320px] w-full rounded-lg border border-border bg-card p-3 font-mono text-11 leading-relaxed text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      <AssetCodeEditor
+                        testid={`ag-${kind}-code`}
+                        path={sel}
                         value={draft}
-                        spellCheck={false}
-                        onChange={(e) => setDraft(e.target.value)}
+                        onChange={setDraft}
+                        rootFrontmatterCheck={
+                          liveDir ? { assetKind: kind, isRootFile: sel === liveDir.rootFile } : undefined
+                        }
                       />
                     ) : (
                       <CodeView body={draft} testid={`ag-${kind}-code`} />
