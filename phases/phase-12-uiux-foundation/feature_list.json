@@ -71,9 +71,9 @@
         "F03"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-h",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/motion-orchestration.test.tsx",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'reduced motion'"
