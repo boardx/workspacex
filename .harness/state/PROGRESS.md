@@ -16,5 +16,6 @@
 | 09 | 问卷 | not_started | 7 | 0 | 0 | 0 |
 | 10 | 现场协作编排 | in_progress | 6 | 0 | 0 | 4 |
 | 11 | research-insight-backend | in_progress | 0 | 4 | 0 | 1 |
+| 12 | uiux-foundation | in_progress | 17 | 0 | 0 | 1 |
 
-_最近聚合:2026-08-21T23:16:43.999Z_
+_最近聚合:2026-08-23T11:42:13.932Z_
