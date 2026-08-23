@@ -15,6 +15,7 @@ import { AgentPicker, MicDevicePicker } from "@/components/chat/chat-composer-pi
 import {
   createMessage,
   describeMessageFailure,
+  generateFollowUpSuggestions as fetchFollowUpSuggestions,
   landAsArtifact,
   lastUsedAgentId,
   listMessages,
@@ -736,8 +737,68 @@ export function ChatLiveMessagePanel({
     };
   }, [activeRunId, bearer]);
 
-  // 十项 UX 缺口第 6 项（issue #712）——规则驱动的建议后续操作。
-  const followUpSuggestions = computeFollowUpSuggestions(messages, archived);
+  /**
+   * UIUX 对标 CopilotKit gap #2（issue #712 调查结论：原实现是纯前端确定性规则，
+   * 不是真实 AI 推荐）—— 真实模型推理优先，`computeFollowUpSuggestions`（规则驱动）
+   * 退化为兜底，不是被替换掉。
+   *
+   * `followUpTurnKey` 只在「已归档=false ∧ 最新一条来自 agent」时非 null——与
+   * `computeFollowUpSuggestions` 判断「该不该建议」的条件逐字同源（不是第二套判据），
+   * 只是这里还要多识别「这是同一轮对话，不必重新请求」：key 含最新消息 id +
+   * 当前选中的 agent，agent 一换或来了新一轮回复，key 变了就重新拉一次。
+   */
+  const latestMessage = messages.length > 0 ? messages[messages.length - 1]! : null;
+  const followUpTurnKey = !archived && latestMessage !== null && latestMessage.authorKind === "agent" && selectedAgentId !== ""
+    ? `${latestMessage.id} ${selectedAgentId}`
+    : null;
+  const [realFollowUp, setRealFollowUp] = React.useState<{
+    readonly key: string;
+    readonly suggestions: readonly FollowUpSuggestion[];
+  } | null>(null);
+  const [followUpLoading, setFollowUpLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (followUpTurnKey === null) {
+      setFollowUpLoading(false);
+      return;
+    }
+    if (realFollowUp?.key === followUpTurnKey) return;
+    let cancelled = false;
+    setFollowUpLoading(true);
+    // 8s——比消息发送本身的轮询预算短得多：这只是 composer 下方的一排建议 chip，
+    // 兜底规则已经能立刻给出可点的内容，真实建议慢就不必让用户等它。
+    const timeout = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("followup_suggestions_timeout")), 8_000);
+    });
+    Promise.race([fetchFollowUpSuggestions(threadId, selectedAgentId, bearer), timeout])
+      .then((out) => {
+        if (cancelled) return;
+        setRealFollowUp({
+          key: followUpTurnKey,
+          suggestions: out.suggestions.map((text, index) => ({ id: `real-${index}`, text })),
+        });
+      })
+      .catch(() => {
+        // 端点未配置 / 模型调用失败 / 超时——优雅降级：不重试、不报错给用户，`realFollowUp`
+        // 保持不变（未写入这个 key），下面 `followUpSuggestions` 的渲染分支这一轮就退回
+        // `computeFollowUpSuggestions` 的确定性规则，用户看到的仍是一排能点的 chip，
+        // 只是不是真实推理出来的那批。
+      })
+      .finally(() => {
+        if (!cancelled) setFollowUpLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [followUpTurnKey, selectedAgentId, threadId, bearer, realFollowUp?.key]);
+
+  const followUpSuggestions = followUpTurnKey !== null && realFollowUp?.key === followUpTurnKey
+    ? realFollowUp.suggestions
+    : computeFollowUpSuggestions(messages, archived);
+  /** 真实建议还没回来/已降级，但兜底规则这一轮确实有话可说——给个不打断兜底 chip 的加载提示。 */
+  const followUpSuggestionsPending = followUpTurnKey !== null
+    && realFollowUp?.key !== followUpTurnKey
+    && followUpLoading;
   /**
    * #728 P10 —— 与 `AgentPicker`/提交按钮判「没有可选 Agent」用同一个事实
    * （`agents` 已加载完成且为空数组），不是另起一条判断。追问建议 chip 与麦克风
@@ -1587,7 +1648,7 @@ export function ChatLiveMessagePanel({
           不是另起一条判断——两处判据不一致才是真正的风险。
         */}
         {followUpSuggestions.length > 0 && !noAgentToRunWith ? (
-          <div className="mb-2 flex flex-wrap gap-1.5" data-testid="chat-followup-suggestions">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5" data-testid="chat-followup-suggestions">
             {followUpSuggestions.map((suggestion) => (
               <Button
                 key={suggestion.id}
@@ -1602,6 +1663,21 @@ export function ChatLiveMessagePanel({
                 {suggestion.text}
               </Button>
             ))}
+            {/*
+              真实建议还在路上：兜底 chip 已经先展示了（上面 map 出来的那些），这里只是
+              明确告诉用户「这批不是最终结果」——不是没有建议，是还在等更贴合这轮对话的。
+              端点失败/超时时这个指示会随 `followUpSuggestionsPending` 变 false 一起消失，
+              兜底 chip 留在原地，不留下一个转不动的假加载态。
+            */}
+            {followUpSuggestionsPending ? (
+              <span
+                className="inline-flex items-center gap-1 text-10 text-muted-foreground"
+                data-testid="chat-followup-suggestions-loading"
+              >
+                <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+                正在生成更贴合的建议…
+              </span>
+            ) : null}
           </div>
         ) : null}
         {/* #946 · V9-a F152：就地报错横幅（超大小 / 非白名单 / 超数量），不静默丢弃。 */}

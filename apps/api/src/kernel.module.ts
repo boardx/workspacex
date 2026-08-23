@@ -324,6 +324,7 @@ import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor"
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
+import { ChatFollowUpSuggestionsController } from "./interface/controllers/chat-followup-suggestions.controller";
 import { SkillTrialRunController, SKILL_TRIALRUN_MODEL_ID } from "./interface/controllers/skill-trial-run.controller";
 import { ORG_AGENT_MODEL_READER } from "./application/skill/trial-run-skill";
 import type { OrgAgentModelReader } from "./application/skill/trial-run-skill";
@@ -712,6 +713,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     InterviewScopeController,
     InterviewInsightController,
     ChatController,
+    ChatFollowUpSuggestionsController,
     ChatAttachmentController,
     OrgInviteController,
     OrgInviteLinkController,

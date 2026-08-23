@@ -1048,6 +1048,32 @@ export const operations = {
   },
 
   /**
+   * generateFollowUpSuggestions —— UIUX 对标 CopilotKit gap #2（issue #712）：把线程
+   * composer 下方的「追问建议」chip 从纯前端确定性规则换成一次真实模型推理。
+   *
+   * ⚠ **这不是 chat 主回复**：不写入 `chat_messages`、不占用 `agent_runs` 状态机，
+   *   只读线程最近若干轮正文、拼一段简短 system prompt、调一次
+   *   `ModelCallPort.complete`，把回复解析成 2-3 条追问问题。`agentId` 由调用方
+   *   （composer 当前选中的 Agent）传入，与 `acceptHumanMessage.in.agentId` 同一信任级别。
+   * ⚠ **失败即失败，不在这里编造兜底句**：模型没配置/调用失败/回复解不出结构化建议，
+   *   一律 `AGENT_DEPENDENCY_FAILED`（503）。「没有真实建议时展示什么」是前端
+   *   `computeFollowUpSuggestions` 自己的既有确定性规则要接手的事，不是这个操作的职责。
+   * ⚠ `suggestions` 可能少于 3 条（模型只给了 1-2 条时如实返回），但不会是空数组——
+   *   空结果在用例层已经归入失败（`FollowUpSuggestionsDependencyFailedError`）。
+   */
+  generateFollowUpSuggestions: {
+    method: "POST", path: "/chat/threads/:threadId/followup-suggestions",
+    in: z.object({
+      threadId: z.string(),
+      agentId: z.string(),
+    }).strict(),
+    out: z.object({
+      suggestions: z.array(z.string()).min(1).max(3),
+    }).strict(),
+    err: ["NOT_VISIBLE", "AGENT_DEPENDENCY_FAILED"] as const,
+  },
+
+  /**
    * checkDownstreamEligibility —— 引用资格门。
    * ⚠ **这个门必须是 phase-00 `artifact.referenceForDownstream` 那一个**（I-34）——
    *   对话侧**不自己判「是不是快照」**。本端口是那个门的**投影**，不是第二道门。
