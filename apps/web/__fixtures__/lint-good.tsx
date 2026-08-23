@@ -1,4 +1,6 @@
 // 合规样例 —— lint-design.sh 必须对它 exit 0。
+import Image from "next/image";
+
 export function Good() {
   return (
     <div>
@@ -9,6 +11,7 @@ export function Good() {
       </button>
       <a className="transition-all duration-200 hover:bg-muted">链接</a>
       <img src="/x.png" alt="示意图" />
+      <Image src="/y.png" alt="装饰性占位图" width={40} height={40} />
       <input className="outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       <p className="text-13">表内档位</p>
       <div data-testid="files-tree-node" />

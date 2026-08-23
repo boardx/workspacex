@@ -1150,7 +1150,7 @@ export function ChatLiveMessagePanel({
                       isAgent ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {isAgent ? <Bot className="h-3.5 w-3.5" /> : <UserRound className="h-3.5 w-3.5" />}
+                    {isAgent ? <Bot className="h-3.5 w-3.5" aria-hidden /> : <UserRound className="h-3.5 w-3.5" aria-hidden />}
                   </div>
                   <div className={`flex max-w-[80%] flex-col gap-1 ${isAgent ? "items-start" : "items-end"}`}>
                     {/*
@@ -1328,7 +1328,7 @@ export function ChatLiveMessagePanel({
                   aria-hidden
                   className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"
                 >
-                  <Bot className="h-3.5 w-3.5" />
+                  <Bot className="h-3.5 w-3.5" aria-hidden />
                 </div>
                 <div className="flex min-w-0 max-w-[85%] flex-col gap-1.5">
                   <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
@@ -1390,7 +1390,7 @@ export function ChatLiveMessagePanel({
                 data-run-id={activeRunId}
               >
                 <div aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                  <Bot className="h-3.5 w-3.5" />
+                  <Bot className="h-3.5 w-3.5" aria-hidden />
                 </div>
                 <div className="flex max-w-[80%] flex-col gap-1 items-start">
                   <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
@@ -1421,7 +1421,7 @@ export function ChatLiveMessagePanel({
                 data-run-id={activeRunId}
               >
                 <div aria-hidden className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                  <Bot className="h-3.5 w-3.5" />
+                  <Bot className="h-3.5 w-3.5" aria-hidden />
                 </div>
                 <div className="flex max-w-[80%] flex-col gap-1 items-start">
                   <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">

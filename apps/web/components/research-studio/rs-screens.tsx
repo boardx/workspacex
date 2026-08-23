@@ -185,7 +185,7 @@ export function RsListScreen({
            *   （见 `ui-preview/research/README.md` 四①）。观察者入口不存在于 DOM
            *   这条断在组件级（`research-entry-observer-absent`），不在本屏。
            */
-          actions={<NewResearchFlow role="facilitator" at="studio" icon={<Search className="h-3.5 w-3.5" />} />}
+          actions={<NewResearchFlow role="facilitator" at="studio" icon={<Search className="h-3.5 w-3.5" aria-hidden />} />}
         />
         <TagRow tags={RS_LIST_TAGS} active={showArchived ? "已归档" : undefined} hrefFor={tagHref} />
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
@@ -194,7 +194,7 @@ export function RsListScreen({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-1.5">
-                    {it.pinned && <Badge tone="warning" data-testid={`rs-card-${it.id}-pinned`}><Pin className="h-3 w-3" />关键 · 置顶</Badge>}
+                    {it.pinned && <Badge tone="warning" data-testid={`rs-card-${it.id}-pinned`}><Pin className="h-3 w-3" aria-hidden />关键 · 置顶</Badge>}
                     <Badge tone={it.status === "已完成" ? "primary" : it.status === "待复核" ? "warning" : "neutral"} data-testid={`rs-card-${it.id}-status`}>{it.status}</Badge>
                   </div>
                   <h3 className="text-14 font-medium text-foreground">{it.title}</h3>
@@ -212,9 +212,9 @@ export function RsListScreen({
                 <span className="text-11 text-muted-foreground">· {it.createdBy}发起</span>
               </div>
               <div className="mt-1 flex items-center gap-1.5 border-t border-border-subtle pt-2">
-                <ActionButton view={view} action="复制" variant="outline" testid={`rs-card-${it.id}-copy`} icon={<Copy className="h-3.5 w-3.5" />} />
+                <ActionButton view={view} action="复制" variant="outline" testid={`rs-card-${it.id}-copy`} icon={<Copy className="h-3.5 w-3.5" aria-hidden />} />
                 {/* N-7：文案是「归档」不是「删除」；本域无硬删除 */}
-                <ActionButton view={view} action="归档" variant="outline" testid={`rs-card-${it.id}-archive`} icon={<Archive className="h-3.5 w-3.5" />} />
+                <ActionButton view={view} action="归档" variant="outline" testid={`rs-card-${it.id}-archive`} icon={<Archive className="h-3.5 w-3.5" aria-hidden />} />
               </div>
             </div>
           ))}
@@ -246,7 +246,7 @@ export function RsPlanScreen({ state, view, sub }: { state: UiState; view: RsVie
     <StateShell state={state} {...shellProps("plan")}>
       <div className="flex flex-col gap-4" data-testid="rs-plan-screen">
         <button className="flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors hover:text-foreground" data-testid="rs-plan-back">
-          <ArrowLeft className="h-3.5 w-3.5" />‹ 全部研究
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />‹ 全部研究
         </button>
         <Head testid="rs-plan-head" title={`${p.title} · 研究计划`} uc="UC-24.3" sub={`${p.status} · Scout 并行 ${p.parallelRoutes} 路`} />
         <div className="flex flex-wrap gap-3">
@@ -391,7 +391,7 @@ export function RsNewScreen({ state, view, sub }: { state: UiState; view: RsView
             </div>
             {/* 实时预览句（N-4 / N-12）*/}
             <div className="rounded-md border border-ai/20 bg-ai-tint px-3 py-2" data-testid="rs-preview">
-              <p className="text-11 leading-relaxed text-ai-tint-foreground"><Bot className="mr-1 inline h-3.5 w-3.5" />{preview}</p>
+              <p className="text-11 leading-relaxed text-ai-tint-foreground"><Bot className="mr-1 inline h-3.5 w-3.5" aria-hidden />{preview}</p>
             </div>
             <div className="flex items-center justify-end gap-2">
               <Button size="sm" variant="ghost" data-testid="rs-new-cancel">取消</Button>
@@ -416,14 +416,14 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
     <StateShell state={state} {...shellProps("detail")}>
       <div className="flex flex-col gap-4" data-testid="rs-detail-screen">
         <button className="flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors hover:text-foreground" data-testid="rs-detail-back">
-          <ArrowLeft className="h-3.5 w-3.5" />‹ 全部研究主题
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden />‹ 全部研究主题
         </button>
         <Head testid="rs-detail-head" title="德国工商储的并网审批实际要多久？" uc="UC-24.2" sub="已出结论 · 来源 14" />
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
           {/* 左半：深度对话 */}
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3" data-testid="rs-dialog">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-13 font-medium text-foreground"><Bot className="h-4 w-4 text-ai" />深度对话 · Scout</span>
+              <span className="flex items-center gap-1.5 text-13 font-medium text-foreground"><Bot className="h-4 w-4 text-ai" aria-hidden />深度对话 · Scout</span>
               <span className="text-11 text-muted-foreground">41 分钟 · 3 轮</span>
             </div>
             {RS_DIALOG.map((r, i) => (
@@ -448,7 +448,7 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
               <ul className="flex flex-col gap-1">{RS_RESULT.keyFindings.map((f, i) => <li key={i} className="text-12 text-foreground">· {f}</li>)}</ul>
             </section>
             <section className="rounded-lg border border-warning/30 bg-warning/5 p-3" data-testid="rs-sec-disputed">
-              <h3 className="mb-1.5 flex items-center gap-1 text-12 font-semibold text-warning"><AlertTriangle className="h-3.5 w-3.5" />② 争议 / 不确定</h3>
+              <h3 className="mb-1.5 flex items-center gap-1 text-12 font-semibold text-warning"><AlertTriangle className="h-3.5 w-3.5" aria-hidden />② 争议 / 不确定</h3>
               {RS_RESULT.disputed.map((d, i) => <p key={i} className="mb-1 text-11 leading-relaxed text-foreground">{d}</p>)}
               <Badge tone="warning" data-testid="rs-disputed-flag">此段永不进洞察库（N-2）</Badge>
             </section>
@@ -459,7 +459,7 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
                   <div key={i} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 py-1" data-testid={`rs-src-${i}`}>
                     <Badge tone="outline">{s.category}</Badge>
                     <span className="truncate text-11 text-foreground">
-                      {s.fromTranscript && view === "collaborator" ? <span className="inline-flex items-center gap-1 text-muted-foreground"><EyeOff className="h-3 w-3" />来自本场转写（原文脱敏）</span> : s.name}
+                      {s.fromTranscript && view === "collaborator" ? <span className="inline-flex items-center gap-1 text-muted-foreground"><EyeOff className="h-3 w-3" aria-hidden />来自本场转写（原文脱敏）</span> : s.name}
                     </span>
                     <Confidence value={s.confidence} low={s.low} />
                   </div>
@@ -482,7 +482,7 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
               {/* 门控阻断（点了被拒 + 说明，不是灰按钮）*/}
               {block && (
                 <div className="mt-2 flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/5 p-2.5" role="alert" data-testid="rs-promote-blocked">
-                  <span className="flex items-center gap-1 text-12 font-medium text-destructive"><XCircle className="h-3.5 w-3.5" />{block.title}</span>
+                  <span className="flex items-center gap-1 text-12 font-medium text-destructive"><XCircle className="h-3.5 w-3.5" aria-hidden />{block.title}</span>
                   <span className="font-mono text-10 text-destructive">{block.code}</span>
                   <span className="text-11 text-foreground">{block.detail}</span>
                   <span className="text-11 text-muted-foreground">{block.fix}</span>
@@ -491,10 +491,10 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
               {/* 部分成功：入库成功 + 节点回流失败 */}
               {partial && (
                 <div className="mt-2 flex flex-col gap-1 rounded-md border border-warning/40 bg-warning/5 p-2.5" role="status" data-testid="rs-promote-partial">
-                  <span className="flex items-center gap-1 text-12 font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" />{RS_PROMOTE_PARTIAL.insight}</span>
-                  <span className="flex items-center gap-1 text-11 text-warning"><AlertTriangle className="h-3.5 w-3.5" />决策节点回流失败 · {RS_PROMOTE_PARTIAL.backflow.reason} · {RS_PROMOTE_PARTIAL.backflow.node}</span>
+                  <span className="flex items-center gap-1 text-12 font-medium text-success"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden />{RS_PROMOTE_PARTIAL.insight}</span>
+                  <span className="flex items-center gap-1 text-11 text-warning"><AlertTriangle className="h-3.5 w-3.5" aria-hidden />决策节点回流失败 · {RS_PROMOTE_PARTIAL.backflow.reason} · {RS_PROMOTE_PARTIAL.backflow.node}</span>
                   <span className="text-11 text-muted-foreground">{RS_PROMOTE_PARTIAL.note}</span>
-                  <Button size="xs" variant="outline" data-testid="rs-backflow-retry" className="mt-1 w-fit"><RefreshCw className="h-3 w-3" />重试回流</Button>
+                  <Button size="xs" variant="outline" data-testid="rs-backflow-retry" className="mt-1 w-fit"><RefreshCw className="h-3 w-3" aria-hidden />重试回流</Button>
                 </div>
               )}
             </section>
@@ -526,7 +526,7 @@ export function RsLiveScreen({ state, view, sub }: { state: UiState; view: RsVie
           actions={
             <div className="flex items-center gap-2">
               <button data-testid="rs-live-filter" data-on={filterOn} className={cn("flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-11", filterOn ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground")}>
-                <Filter className="h-3 w-3" />只看有冲突的
+                <Filter className="h-3 w-3" aria-hidden />只看有冲突的
               </button>
               {/* F144：同上，像素不变；`rs-live-new` → `rs-entry-live`。 */}
               <NewResearchFlow role="facilitator" at="live" />
@@ -545,7 +545,7 @@ export function RsLiveScreen({ state, view, sub }: { state: UiState; view: RsVie
                 <span className="truncate text-foreground">{t.question}</span>
                 <span className="text-11 text-muted-foreground" data-testid={`rs-task-${i}-proposer`}>{t.proposer} · {t.metric}</span>
                 <Badge tone={t.failed ? "danger" : t.status === "已就绪" ? "primary" : t.status === "待判定" ? "warning" : "neutral"} data-testid={`rs-task-${i}-status`}>{t.failed ? "失败 · 可重试" : t.status}</Badge>
-                <Button size="xs" variant="outline" data-testid={`rs-task-${i}-open`}>打开<ChevronRight className="h-3 w-3" /></Button>
+                <Button size="xs" variant="outline" data-testid={`rs-task-${i}-open`}>打开<ChevronRight className="h-3 w-3" aria-hidden /></Button>
               </div>
             ))}
           </div>

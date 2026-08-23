@@ -75,8 +75,9 @@ report "U4" "有 hover: 但同一 className 内无 transition-*（见 uiux-stand
   "$(scan 'className=("|\{`)[^"`]*hover:[^"`]*("|`)' | grep -v 'transition-' || true)"
 
 # ── U7a 图片缺 alt ──────────────────────────────────────────────────────────
-report "U7a" "<img> 缺 alt 属性" \
-  "$(scan '<img[ />]' | grep -v 'alt=' || true)"
+# 覆盖裸 <img> 与 next/image 的 <Image>（F08：之前只覆盖前者，后者是漏检口）。
+report "U7a" "<img>/<Image> 缺 alt 属性（见 uiux-standards §7；next/image 同样需要 alt，装饰性图传 alt=\"\"）" \
+  "$(scan '<(img|Image)[ />]' | grep -v 'alt=' || true)"
 
 # ── U7b 裸 outline-none 消除焦点环 ──────────────────────────────────────────
 # 允许 outline-none 与 focus-visible:ring-* 同现；单独出现即违规。

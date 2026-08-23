@@ -70,7 +70,7 @@ export function CreateGuidedResearchDialog({
               <Dialog.Description className="text-12 text-muted-foreground">先为研究命名，进入后再确认研究主题与范围。</Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <Button type="button" size="icon" variant="ghost" aria-label="关闭创建研究弹窗"><X className="h-4 w-4" /></Button>
+              <Button type="button" size="icon" variant="ghost" aria-label="关闭创建研究弹窗"><X className="h-4 w-4" aria-hidden /></Button>
             </Dialog.Close>
           </div>
 
@@ -102,7 +102,7 @@ export function CreateGuidedResearchDialog({
                   <Badge key={tag} tone="neutral" className="gap-1 py-1">
                     {tag}
                     <button type="button" aria-label={`移除标签 ${tag}`} className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setTags((current) => current.filter((item) => item !== tag))}>
-                      <X className="h-3 w-3" />
+                      <X className="h-3 w-3" aria-hidden />
                     </button>
                   </Badge>
                 ))}

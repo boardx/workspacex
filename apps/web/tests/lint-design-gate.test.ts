@@ -29,7 +29,7 @@ describe("lint-design.sh 门控", () => {
     ["U1.1 disabled:opacity", /U1\.1/],
     ["U1.2 状态用 opacity", /U1\.2/],
     ["U4 hover 无过渡", /U4/],
-    ["U7a img 缺 alt", /U7a/],
+    ["U7a img/Image 缺 alt", /U7a/],
     ["U7b 裸 outline-none", /U7b/],
     ["§1.2 表外字号档位", /§1\.2/],
     ["D-35 testid 携带业务数据", /D-35/],

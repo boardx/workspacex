@@ -142,7 +142,7 @@ export function InterviewStudioHome({
             onClick={() => setCreateOpen(true)}
             className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
           >
-            <Plus className="size-4" /> 新建访谈
+            <Plus className="size-4" aria-hidden /> 新建访谈
           </button>
         </header>
 
@@ -293,7 +293,7 @@ function HistoryCard({ item, onChanged }: { item: DigitalInterviewHistoryRow; on
         </div>
         <div className="flex items-center justify-between gap-3">
           <Link href={action.href} className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
-            {action.label}<ArrowRight className="size-4" />
+            {action.label}<ArrowRight className="size-4" aria-hidden />
           </Link>
           <InterviewHistoryCardActions item={item} onChanged={onChanged} />
         </div>

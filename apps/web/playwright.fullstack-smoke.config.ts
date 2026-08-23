@@ -381,6 +381,17 @@ export default defineConfig({
       name: "overlay-primitives-keyboard",
       testMatch: ["overlay-primitives-keyboard.spec.ts"],
     },
+    {
+      /**
+       * F08（phase-12-uiux-foundation/accessibility-guardrails）—— axe-core
+       * `image-alt` 规则回归。同 `overlay-primitives-keyboard`：目标页 `/kitchen-sink`
+       * 是纯静态设计系统展示页（`AppShell` 顶栏含组织头像 `<img>`、`ButtonGallery`/
+       * `PrimitivesGallery` 含大量 `lucide-react` 图标），不读 DB、不需要登录态，
+       * 独立成一个不带 dependencies 的 project，只复用 config 顶层已经起好的 web 服务器。
+       */
+      name: "axe-image-alt",
+      testMatch: ["axe-image-alt.spec.ts"],
+    },
   ],
   fullyParallel: false,
   retries: 0,

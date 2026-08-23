@@ -148,7 +148,7 @@
       "spec_ref": "05-image-icon-accessibility.md#R3",
       "depends_on": [],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "claude-c",
       "verification": [
@@ -156,7 +156,7 @@
         "pnpm --filter web run lint:design",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'axe image-alt'"
       ],
-      "evidence": "",
+      "evidence": "evidence/F08.verify.log @ 2026-08-23T13:27:24.587Z",
       "notes": "依据等级：[原型]为主（对既有页面图片/图标做标注补全）+ [Backlog]（U7a 规则扩展 next/image 为新增门控，IT-05）。R8：通常不改可见视觉、不涉签核。R11：单个小 feature（S，2 点），可与 03/04 并行。vitest 断言 U7a 规则命中 next/image 缺 alt 的情况（反证）；playwright 集成 axe-core image-alt 规则做自动化回归。"
     },
     {

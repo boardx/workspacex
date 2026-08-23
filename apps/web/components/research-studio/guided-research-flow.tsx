@@ -268,7 +268,7 @@ function FlowProgress({ step, maxStep, onBack, onNavigate }: {
   return (
     <div className="rounded-lg border border-border bg-card px-3 py-2" data-density="compact" data-testid="research-flow-progress">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={onBack} data-testid="research-flow-back"><ArrowLeft className="h-4 w-4" />返回</Button>
+        <Button variant="ghost" size="sm" onClick={onBack} data-testid="research-flow-back"><ArrowLeft className="h-4 w-4" aria-hidden />返回</Button>
         <div className="grid min-w-0 flex-1 grid-cols-5 gap-2">
           {steps.map((item, index) => (
             <div key={item.id} className="flex min-w-0 items-center gap-2">
@@ -287,7 +287,7 @@ function FlowProgress({ step, maxStep, onBack, onNavigate }: {
                   index < current && "border-primary bg-primary text-primary-foreground",
                   index === current && "border-primary bg-accent text-accent-foreground",
                   index > current && "border-border text-muted-foreground",
-                )}>{index < current ? <Check className="h-3 w-3" /> : index > maximum ? <LockKeyhole className="h-3 w-3" aria-hidden /> : index + 1}</span>
+                )}>{index < current ? <Check className="h-3 w-3" aria-hidden /> : index > maximum ? <LockKeyhole className="h-3 w-3" aria-hidden /> : index + 1}</span>
                 <span className="truncate text-11">{item.label}</span>
               </button>
             </div>
@@ -330,15 +330,15 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
           <h1 className="text-24 font-semibold tracking-tight text-foreground">研究</h1>
           <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">从一个明确的问题开始，让 AI 帮你拆方向、定大纲、检索资料并生成带引用的完整报告。</p>
         </div>
-        <Button variant="primary" size="lg" onClick={() => setCreateOpen(true)} data-testid="research-create"><Plus className="h-4 w-4" />创建研究</Button>
+        <Button variant="primary" size="lg" onClick={() => setCreateOpen(true)} data-testid="research-create"><Plus className="h-4 w-4" aria-hidden />创建研究</Button>
       </header>
       <Card className="border-primary/20 bg-accent/40">
         <CardContent className="flex flex-col items-start justify-between gap-4 p-5 md:flex-row md:items-center">
           <div className="flex items-start gap-3">
-            <span className="rounded-lg bg-primary p-2 text-primary-foreground"><Sparkles className="h-5 w-5" /></span>
+            <span className="rounded-lg bg-primary p-2 text-primary-foreground"><Sparkles className="h-5 w-5" aria-hidden /></span>
             <div><h2 className="text-15 font-semibold">开始一项新的深度研究</h2><p className="mt-1 text-12 text-muted-foreground">确认主题后，研究方向和报告大纲都可以在执行前编辑。</p></div>
           </div>
-          <Button variant="primary" onClick={() => setCreateOpen(true)} data-testid="research-create-hero">描述研究主题<ArrowRight className="h-4 w-4" /></Button>
+          <Button variant="primary" onClick={() => setCreateOpen(true)} data-testid="research-create-hero">描述研究主题<ArrowRight className="h-4 w-4" aria-hidden /></Button>
         </CardContent>
       </Card>
       <section className="space-y-3" data-testid="research-history">
@@ -352,7 +352,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
               <CardHeader className="space-y-3 p-0 pb-2">
                 <div className="flex items-center justify-between gap-2">
                   <Badge tone={item.status === "completed" ? "primary" : item.stage === "researching" ? "warning" : "outline"}>{item.status === "completed" ? "已完成" : item.stage === "researching" ? "研究中" : "待继续"}</Badge>
-                  <span className="flex items-center gap-1 text-10 text-muted-foreground"><Clock3 className="h-3 w-3" />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</span>
+                  <span className="flex items-center gap-1 text-10 text-muted-foreground"><Clock3 className="h-3 w-3" aria-hidden />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</span>
                 </div>
                 <CardTitle className="text-16 leading-snug">{item.title}</CardTitle>
                 {item.tags?.length > 0 && <div className="flex flex-wrap gap-1.5">{item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>}
@@ -361,9 +361,9 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
               <CardContent className="mt-auto space-y-3 p-0 pt-2">
                 <div className="space-y-1.5"><div className="flex justify-between text-10 text-muted-foreground"><span>{item.progress}%</span><span>{item.sourceCount} 个来源</span></div><Progress value={item.progress} /></div>
                 {item.status === "completed" ? (
-                  <Button className="w-full" variant="outline" onClick={() => onNavigate("report", item.sessionId)} data-testid={`research-view-${item.sessionId}`}><FileText className="h-4 w-4" />查看报告</Button>
+                  <Button className="w-full" variant="outline" onClick={() => onNavigate("report", item.sessionId)} data-testid={`research-view-${item.sessionId}`}><FileText className="h-4 w-4" aria-hidden />查看报告</Button>
                 ) : (
-                  <Button className="w-full" variant="secondary" onClick={() => onNavigate(stageToStep(item.resumeStage), item.sessionId)} data-testid={`research-continue-${item.sessionId}`}><RotateCcw className="h-4 w-4" />继续研究</Button>
+                  <Button className="w-full" variant="secondary" onClick={() => onNavigate(stageToStep(item.resumeStage), item.sessionId)} data-testid={`research-continue-${item.sessionId}`}><RotateCcw className="h-4 w-4" aria-hidden />继续研究</Button>
                 )}
               </CardContent>
             </Card>
@@ -509,9 +509,9 @@ function BriefScreen({ sessionId, session, workflow, onSession, onWorkflow, onNa
           <div className="grid gap-4 md:grid-cols-2"><Field label="时间范围"><Input value={brief.timeRange} onChange={(event) => patch("timeRange", event.target.value)} data-testid="research-brief-time" aria-label="时间范围" /></Field><Field label="地域范围"><Input value={brief.region} onChange={(event) => patch("region", event.target.value)} data-testid="research-brief-region" aria-label="地域范围" /></Field></div>
           <Field label="重点关注"><Textarea value={brief.focus} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
           {submitFailed && <p className="text-11 text-destructive" role="alert">研究创建失败，请重试。再次提交不会重复创建。</p>}
-          <div className="flex justify-end"><Button variant="primary" disabled={submitting || !brief.topic.trim() || !brief.goal.trim()} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "确认并生成研究方向"}<ArrowRight className="h-4 w-4" /></Button></div>
+          <div className="flex justify-end"><Button variant="primary" disabled={submitting || !brief.topic.trim() || !brief.goal.trim()} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "确认并生成研究方向"}<ArrowRight className="h-4 w-4" aria-hidden /></Button></div>
         </CardContent></Card>
-        <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><Target className="h-4 w-4" />本次研究将回答</CardTitle></CardHeader><CardContent className="space-y-3 text-11 leading-relaxed text-muted-foreground"><p>哪些欧洲市场同时具备增长、政策与并网确定性？</p><p>适合以自建、合资还是渠道合作进入？</p><p>未来 90 天最优先验证哪些假设？</p><div className="rounded-md border border-border bg-muted p-3 text-10">可在下一步逐条修改或删除 AI 建议的研究方向。</div></CardContent></Card>
+        <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><Target className="h-4 w-4" aria-hidden />本次研究将回答</CardTitle></CardHeader><CardContent className="space-y-3 text-11 leading-relaxed text-muted-foreground"><p>哪些欧洲市场同时具备增长、政策与并网确定性？</p><p>适合以自建、合资还是渠道合作进入？</p><p>未来 90 天最优先验证哪些假设？</p><div className="rounded-md border border-border bg-muted p-3 text-10">可在下一步逐条修改或删除 AI 建议的研究方向。</div></CardContent></Card>
       </div>
       </div>
     </GuidedResearchStepLayout>
@@ -622,14 +622,14 @@ function DirectionsScreen({ sessionId, session, workflow, onSession, onWorkflow,
       }
     >
       <div className="flex min-w-0 flex-col gap-4" data-density="compact-step">
-      <PageHeading eyebrow="Step 2 · Directions" title="编辑研究方向" description="AI 根据主题生成了互补方向。重新生成只创建候选版本，不会覆盖最近一次人工确认。" action={<Button variant="outline" disabled={submitting || !sessionId} onClick={() => void regenerate()} data-testid="research-regenerate-directions"><Sparkles className="h-4 w-4" />重新生成</Button>} />
+      <PageHeading eyebrow="Step 2 · Directions" title="编辑研究方向" description="AI 根据主题生成了互补方向。重新生成只创建候选版本，不会覆盖最近一次人工确认。" action={<Button variant="outline" disabled={submitting || !sessionId} onClick={() => void regenerate()} data-testid="research-regenerate-directions"><Sparkles className="h-4 w-4" aria-hidden />重新生成</Button>} />
       {session && maxGuidedResearchStep(session) !== "directions" && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">重新确认后，后续演示结果将重新生成。</p>}
       <div className="space-y-3" data-testid="research-directions">
-        {directions.map((direction, index) => <Card key={direction.id} className={cn("transition-colors", !direction.enabled && "bg-muted")} data-testid={`research-direction-${direction.id}`}><CardContent className="flex gap-3 p-4"><GripVertical className="mt-2 h-4 w-4 shrink-0 text-muted-foreground" /><Button variant="outline" size="icon" aria-label={`启用方向 ${index + 1}`} onClick={() => patch(direction.id, { enabled: !direction.enabled })} className="mt-1 h-6 w-6 shrink-0">{direction.enabled && <Check className="h-3 w-3" />}</Button><div className="min-w-0 flex-1 space-y-2"><Input value={direction.title} onChange={(event) => patch(direction.id, { title: event.target.value })} data-testid={`research-direction-title-${direction.id}`} aria-label={`研究方向 ${index + 1} 标题`} /><Textarea value={direction.description} onChange={(event) => patch(direction.id, { description: event.target.value })} data-testid={`research-direction-description-${direction.id}`} aria-label={`研究方向 ${index + 1} 描述`} /></div><Button variant="ghost" size="icon" aria-label={`删除方向 ${index + 1}`} onClick={() => setDirections((items) => items.filter((item) => item.id !== direction.id))}><Trash2 className="h-4 w-4" /></Button></CardContent></Card>)}
-        <Button variant="outline" className="w-full border-dashed" onClick={add} data-testid="research-add-direction"><Plus className="h-4 w-4" />添加研究方向</Button>
+        {directions.map((direction, index) => <Card key={direction.id} className={cn("transition-colors", !direction.enabled && "bg-muted")} data-testid={`research-direction-${direction.id}`}><CardContent className="flex gap-3 p-4"><GripVertical className="mt-2 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden /><Button variant="outline" size="icon" aria-label={`启用方向 ${index + 1}`} onClick={() => patch(direction.id, { enabled: !direction.enabled })} className="mt-1 h-6 w-6 shrink-0">{direction.enabled && <Check className="h-3 w-3" aria-hidden />}</Button><div className="min-w-0 flex-1 space-y-2"><Input value={direction.title} onChange={(event) => patch(direction.id, { title: event.target.value })} data-testid={`research-direction-title-${direction.id}`} aria-label={`研究方向 ${index + 1} 标题`} /><Textarea value={direction.description} onChange={(event) => patch(direction.id, { description: event.target.value })} data-testid={`research-direction-description-${direction.id}`} aria-label={`研究方向 ${index + 1} 描述`} /></div><Button variant="ghost" size="icon" aria-label={`删除方向 ${index + 1}`} onClick={() => setDirections((items) => items.filter((item) => item.id !== direction.id))}><Trash2 className="h-4 w-4" aria-hidden /></Button></CardContent></Card>)}
+        <Button variant="outline" className="w-full border-dashed" onClick={add} data-testid="research-add-direction"><Plus className="h-4 w-4" aria-hidden />添加研究方向</Button>
       </div>
       {saveFailed && <p className="text-12 text-destructive" role="alert">研究方向保存失败，请重试。</p>}
-      <div className="flex justify-end"><Button variant="primary" disabled={submitting || candidateVersion === null || !directions.some((item) => item.enabled)} onClick={() => void confirm()} data-testid="research-confirm-directions">生成报告大纲<ArrowRight className="h-4 w-4" /></Button></div>
+      <div className="flex justify-end"><Button variant="primary" disabled={submitting || candidateVersion === null || !directions.some((item) => item.enabled)} onClick={() => void confirm()} data-testid="research-confirm-directions">生成报告大纲<ArrowRight className="h-4 w-4" aria-hidden /></Button></div>
       </div>
     </GuidedResearchStepLayout>
   );
@@ -735,17 +735,17 @@ function OutlineScreen({ sessionId, session, workflow, onSession, onWorkflow, on
       }
     >
       <div className="flex min-w-0 flex-col gap-4" data-density="compact-step">
-      <PageHeading eyebrow="Step 3 · Outline" title="确认报告大纲" description="大纲决定 Web Search 的任务拆分与报告结构。重新生成不会覆盖最近一次人工确认。" action={<Button variant="outline" disabled={submitting || !sessionId} onClick={() => void regenerate()} data-testid="research-regenerate-outline"><Sparkles className="h-4 w-4" />重新生成</Button>} />
+      <PageHeading eyebrow="Step 3 · Outline" title="确认报告大纲" description="大纲决定 Web Search 的任务拆分与报告结构。重新生成不会覆盖最近一次人工确认。" action={<Button variant="outline" disabled={submitting || !sessionId} onClick={() => void regenerate()} data-testid="research-regenerate-outline"><Sparkles className="h-4 w-4" aria-hidden />重新生成</Button>} />
       {session && maxGuidedResearchStep(session) !== "outline" && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">重新确认后，后续演示结果将重新生成。</p>}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="space-y-3" data-testid="research-outline">
-          {sections.map((section, index) => <Card key={section.id} data-testid={`research-outline-${section.id}`}><CardContent className="flex gap-3 p-4"><GripVertical className="mt-2 h-4 w-4 text-muted-foreground" /><span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-10 font-semibold">{index + 1}</span><div className="min-w-0 flex-1 space-y-2"><Input value={section.title} onChange={(event) => patchTitle(section.id, event.target.value)} data-testid={`research-outline-title-${section.id}`} aria-label={`大纲章节 ${index + 1}`} /><div className="flex flex-wrap gap-1.5">{section.questions.map((question) => <Badge key={question} tone="outline">{question}</Badge>)}</div></div><Pencil className="mt-2 h-4 w-4 text-muted-foreground" /></CardContent></Card>)}
-          <Button variant="outline" className="w-full border-dashed" onClick={add} data-testid="research-add-outline"><Plus className="h-4 w-4" />添加章节</Button>
+          {sections.map((section, index) => <Card key={section.id} data-testid={`research-outline-${section.id}`}><CardContent className="flex gap-3 p-4"><GripVertical className="mt-2 h-4 w-4 text-muted-foreground" aria-hidden /><span className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-10 font-semibold">{index + 1}</span><div className="min-w-0 flex-1 space-y-2"><Input value={section.title} onChange={(event) => patchTitle(section.id, event.target.value)} data-testid={`research-outline-title-${section.id}`} aria-label={`大纲章节 ${index + 1}`} /><div className="flex flex-wrap gap-1.5">{section.questions.map((question) => <Badge key={question} tone="outline">{question}</Badge>)}</div></div><Pencil className="mt-2 h-4 w-4 text-muted-foreground" aria-hidden /></CardContent></Card>)}
+          <Button variant="outline" className="w-full border-dashed" onClick={add} data-testid="research-add-outline"><Plus className="h-4 w-4" aria-hidden />添加章节</Button>
         </div>
-        <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><ListTree className="h-4 w-4" />研究计划摘要</CardTitle></CardHeader><CardContent className="space-y-3 text-11 text-muted-foreground"><div className="flex justify-between"><span>报告章节</span><strong className="text-foreground">{sections.length}</strong></div><div className="flex justify-between"><span>研究问题</span><strong className="text-foreground">{sections.reduce((sum, item) => sum + item.questions.length, 0)}</strong></div><div className="flex justify-between"><span>预计检索</span><strong className="text-foreground">20–30 个来源</strong></div><p className="rounded-md bg-muted p-3 text-10 leading-relaxed">开始后系统会按章节并行搜索，过程中可离开页面，稍后从研究首页继续。</p></CardContent></Card>
+        <Card className="h-fit"><CardHeader><CardTitle className="flex items-center gap-2 text-14"><ListTree className="h-4 w-4" aria-hidden />研究计划摘要</CardTitle></CardHeader><CardContent className="space-y-3 text-11 text-muted-foreground"><div className="flex justify-between"><span>报告章节</span><strong className="text-foreground">{sections.length}</strong></div><div className="flex justify-between"><span>研究问题</span><strong className="text-foreground">{sections.reduce((sum, item) => sum + item.questions.length, 0)}</strong></div><div className="flex justify-between"><span>预计检索</span><strong className="text-foreground">20–30 个来源</strong></div><p className="rounded-md bg-muted p-3 text-10 leading-relaxed">开始后系统会按章节并行搜索，过程中可离开页面，稍后从研究首页继续。</p></CardContent></Card>
       </div>
       {saveFailed && <p className="text-12 text-destructive" role="alert">报告大纲保存失败，请重试。</p>}
-      <div className="flex justify-end"><Button variant="primary" disabled={submitting || candidateVersion === null || !sections.some((item) => item.enabled && item.title.trim())} onClick={() => void confirm()} data-testid="research-start-search"><Search className="h-4 w-4" />按此大纲开始研究</Button></div>
+      <div className="flex justify-end"><Button variant="primary" disabled={submitting || candidateVersion === null || !sections.some((item) => item.enabled && item.title.trim())} onClick={() => void confirm()} data-testid="research-start-search"><Search className="h-4 w-4" aria-hidden />按此大纲开始研究</Button></div>
       </div>
     </GuidedResearchStepLayout>
   );
@@ -823,15 +823,15 @@ function SearchScreen({
       }
     >
       <div className="flex min-w-0 flex-col gap-4" data-density="compact-step">
-      <PageHeading eyebrow="Step 4 · Web Search" title="正在检索与交叉验证" description="你可以离开此页面。任务进度、已找到的来源和当前查询都会保存，回来后可继续查看。" action={<Badge tone="warning"><Loader2 className="mr-1 h-3 w-3 animate-spin" />研究进行中</Badge>} />
+      <PageHeading eyebrow="Step 4 · Web Search" title="正在检索与交叉验证" description="你可以离开此页面。任务进度、已找到的来源和当前查询都会保存，回来后可继续查看。" action={<Badge tone="warning"><Loader2 className="mr-1 h-3 w-3 animate-spin" aria-hidden />研究进行中</Badge>} />
       <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">演示检索结果，不代表真实 Web Search</p>
-      <Card data-testid="research-search-summary"><CardContent className="space-y-4 p-5"><div className="flex items-end justify-between"><div><p className="text-12 text-muted-foreground">整体进度</p><p className="text-24 font-semibold">{progress}%</p></div><p className="text-11 text-muted-foreground">已完成 {completedTaskCount} / {GUIDED_SEARCH_TASKS.length} 项演示任务</p></div><div data-testid="research-search-progress" data-progress={progress}><Progress value={progress} /></div><div className="flex items-start gap-3 rounded-md border border-primary/20 bg-accent p-3"><Globe2 className="mt-0.5 h-4 w-4 text-primary" /><div><p className="text-10 uppercase tracking-wide text-muted-foreground">当前查询</p><p className="mt-1 text-12 font-medium" data-testid="research-current-query">Germany utility-scale battery storage market 2025</p></div></div></CardContent></Card>
+      <Card data-testid="research-search-summary"><CardContent className="space-y-4 p-5"><div className="flex items-end justify-between"><div><p className="text-12 text-muted-foreground">整体进度</p><p className="text-24 font-semibold">{progress}%</p></div><p className="text-11 text-muted-foreground">已完成 {completedTaskCount} / {GUIDED_SEARCH_TASKS.length} 项演示任务</p></div><div data-testid="research-search-progress" data-progress={progress}><Progress value={progress} /></div><div className="flex items-start gap-3 rounded-md border border-primary/20 bg-accent p-3"><Globe2 className="mt-0.5 h-4 w-4 text-primary" aria-hidden /><div><p className="text-10 uppercase tracking-wide text-muted-foreground">当前查询</p><p className="mt-1 text-12 font-medium" data-testid="research-current-query">Germany utility-scale battery storage market 2025</p></div></div></CardContent></Card>
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <Card><CardHeader><CardTitle className="text-14">按大纲执行</CardTitle></CardHeader><CardContent className="space-y-2">{GUIDED_SEARCH_TASKS.map((task) => { const complete = demoState.completedTaskIds.includes(task.id); return <div key={task.id} className="flex items-center gap-3 rounded-md border border-border p-3" data-testid={`research-task-${task.id}`}>{complete ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Circle className="h-4 w-4 text-muted-foreground" />}<div className="min-w-0 flex-1"><p className="text-12 font-medium">{task.label}</p><p className="text-10 text-muted-foreground">{complete ? "已完成演示检索" : "等待完成演示检索"}</p></div>{complete ? <Badge tone="outline">已完成</Badge> : <Button type="button" size="sm" variant="outline" onClick={() => persist(advanceDemoTask(demoState, task.id))}>完成演示检索</Button>}</div>; })}</CardContent></Card>
-        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-14"><FileSearch className="h-4 w-4" />演示来源</CardTitle></CardHeader><CardContent className="space-y-3">{GUIDED_SEARCH_SOURCES.map((source) => { const decision = demoState.sourceDecisions[source.id]; return <article key={source.id} className="space-y-2 border-b border-border pb-3 last:border-0 last:pb-0" data-testid={`research-source-${source.id}`}><div className="flex items-center justify-between gap-2"><span className="text-10 text-primary">{source.domain}</span><Badge tone="outline">{source.confidence}可信</Badge></div><p className="text-11 font-medium leading-relaxed">{source.title}</p><div className="flex items-center justify-between gap-2"><span className="text-10 text-muted-foreground">{source.kind}</span>{decision ? <Badge tone={decision === "accepted" ? "primary" : "neutral"}>{decision === "accepted" ? "已保留" : "已排除"}</Badge> : <div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => persist(decideDemoSource(demoState, source.id, "excluded"))}>排除</Button><Button size="sm" variant="outline" onClick={() => persist(decideDemoSource(demoState, source.id, "accepted"))}>保留</Button></div>}</div></article>; })}</CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-14">按大纲执行</CardTitle></CardHeader><CardContent className="space-y-2">{GUIDED_SEARCH_TASKS.map((task) => { const complete = demoState.completedTaskIds.includes(task.id); return <div key={task.id} className="flex items-center gap-3 rounded-md border border-border p-3" data-testid={`research-task-${task.id}`}>{complete ? <CheckCircle2 className="h-4 w-4 text-success" aria-hidden /> : <Circle className="h-4 w-4 text-muted-foreground" aria-hidden />}<div className="min-w-0 flex-1"><p className="text-12 font-medium">{task.label}</p><p className="text-10 text-muted-foreground">{complete ? "已完成演示检索" : "等待完成演示检索"}</p></div>{complete ? <Badge tone="outline">已完成</Badge> : <Button type="button" size="sm" variant="outline" onClick={() => persist(advanceDemoTask(demoState, task.id))}>完成演示检索</Button>}</div>; })}</CardContent></Card>
+        <Card><CardHeader><CardTitle className="flex items-center gap-2 text-14"><FileSearch className="h-4 w-4" aria-hidden />演示来源</CardTitle></CardHeader><CardContent className="space-y-3">{GUIDED_SEARCH_SOURCES.map((source) => { const decision = demoState.sourceDecisions[source.id]; return <article key={source.id} className="space-y-2 border-b border-border pb-3 last:border-0 last:pb-0" data-testid={`research-source-${source.id}`}><div className="flex items-center justify-between gap-2"><span className="text-10 text-primary">{source.domain}</span><Badge tone="outline">{source.confidence}可信</Badge></div><p className="text-11 font-medium leading-relaxed">{source.title}</p><div className="flex items-center justify-between gap-2"><span className="text-10 text-muted-foreground">{source.kind}</span>{decision ? <Badge tone={decision === "accepted" ? "primary" : "neutral"}>{decision === "accepted" ? "已保留" : "已排除"}</Badge> : <div className="flex gap-1"><Button size="sm" variant="ghost" onClick={() => persist(decideDemoSource(demoState, source.id, "excluded"))}>排除</Button><Button size="sm" variant="outline" onClick={() => persist(decideDemoSource(demoState, source.id, "accepted"))}>保留</Button></div>}</div></article>; })}</CardContent></Card>
       </div>
       {error && <p className="text-center text-12 text-destructive" role="alert">{error}</p>}
-      <div className="flex justify-end"><Button variant="primary" disabled={!sessionId || incompleteTasks.length > 0 || submitting} onClick={() => void completeCollection()}>生成演示研究报告<ArrowRight className="h-4 w-4" /></Button></div>
+      <div className="flex justify-end"><Button variant="primary" disabled={!sessionId || incompleteTasks.length > 0 || submitting} onClick={() => void completeCollection()}>生成演示研究报告<ArrowRight className="h-4 w-4" aria-hidden /></Button></div>
       </div>
     </GuidedResearchStepLayout>
   );
@@ -923,7 +923,7 @@ function ReportScreen({
       }
     >
       <div className="flex min-w-0 flex-col gap-4" data-density="compact-report">
-      <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => exportReport("pdf")} data-testid="research-report-export-pdf"><Download className="h-4 w-4" />导出 PDF</Button><Button variant="outline" onClick={() => exportReport("word")} data-testid="research-report-export-word"><FileText className="h-4 w-4" />导出 Word</Button><Button variant="outline" onClick={() => onNavigate("search", sessionId)}>返回资料研究</Button><Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button></div>} />
+      <PageHeading eyebrow="Step 5 · Final report" title={completed ? "研究已完成" : "演示研究报告"} description="报告按确认过的大纲生成，关键判断可追溯到演示引用。" action={<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => exportReport("pdf")} data-testid="research-report-export-pdf"><Download className="h-4 w-4" aria-hidden />导出 PDF</Button><Button variant="outline" onClick={() => exportReport("word")} data-testid="research-report-export-word"><FileText className="h-4 w-4" aria-hidden />导出 Word</Button><Button variant="outline" onClick={() => onNavigate("search", sessionId)}>返回资料研究</Button><Button variant="outline" onClick={() => onNavigate("home", sessionId)}>返回研究首页</Button></div>} />
       <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">演示报告，不作为真实研究结论</p>
       <div className="space-y-4" data-testid="research-report" data-layout="full-width-report">
         <Card className="h-fit">
@@ -939,7 +939,7 @@ function ReportScreen({
         </div>
       </div>
       {error && <p className="text-center text-12 text-destructive" role="alert">{error}</p>}
-      {!completed && <div className="flex justify-end"><Button variant="primary" disabled={!sessionId || submitting} onClick={() => void finishReport()}>完成研究<BookOpen className="h-4 w-4" /></Button></div>}
+      {!completed && <div className="flex justify-end"><Button variant="primary" disabled={!sessionId || submitting} onClick={() => void finishReport()}>完成研究<BookOpen className="h-4 w-4" aria-hidden /></Button></div>}
       </div>
     </GuidedResearchStepLayout>
   );

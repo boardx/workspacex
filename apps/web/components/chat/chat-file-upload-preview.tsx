@@ -397,7 +397,7 @@ function AttachmentRow({
           aria-hidden
         >
           {isUploading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
           ) : (
             <Icon aria-hidden className="h-3.5 w-3.5" />
           )}

@@ -80,7 +80,7 @@ export function CanvasTemplateGallery({
             }}
             data-testid="canvas-tpl-back"
           >
-            <ArrowLeft className="h-3.5 w-3.5" /> 换个模板
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden /> 换个模板
           </Button>
           <span className="text-13 font-medium" data-testid="canvas-tpl-started">
             {picked.glyph} 已从模板起手：{picked.title}
@@ -100,7 +100,7 @@ export function CanvasTemplateGallery({
     <div className="flex h-full w-full flex-col bg-panel" data-testid="canvas-tpl-gallery">
       {/* 模态头 */}
       <div className="flex items-center gap-2 border-b border-border bg-card px-4 py-3">
-        <Plus className="h-4 w-4 text-primary" />
+        <Plus className="h-4 w-4 text-primary" aria-hidden />
         <div>
           <h2 className="text-14 font-semibold">新建画布</h2>
           <p className="text-11 text-muted-foreground">选一个模板起手，或从空白开始</p>
@@ -116,7 +116,7 @@ export function CanvasTemplateGallery({
             示例内容
           </label>
           <Button variant="ghost" size="icon" aria-label="关闭" data-testid="canvas-tpl-close">
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden />
           </Button>
         </div>
       </div>
@@ -136,7 +136,7 @@ export function CanvasTemplateGallery({
           {/* 搜索 + 分类过滤 */}
           <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle px-4 py-2.5">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
