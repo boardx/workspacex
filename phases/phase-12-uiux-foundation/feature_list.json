@@ -148,9 +148,9 @@
       "spec_ref": "05-image-icon-accessibility.md#R3",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-c",
       "verification": [
         "pnpm --filter web exec vitest run tests/lint-image-alt-nextimage.test.ts",
         "pnpm --filter web run lint:design",
