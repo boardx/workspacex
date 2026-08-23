@@ -39,14 +39,15 @@ export function ContextSnapshotBadge({ snapshot }: { snapshot: AgentRunContextSn
   const [open, setOpen] = React.useState(false);
   if (snapshot === null) return null;
 
+  // UI 评分 2026-08-23 第 10 项点名：「L1 0 条 · L2 正常 · L3 命中 0 · 工具轨迹 0 轮
+  // 是内部术语直出给终端用户」。收起态改说人话（内部分层术语收进展开详情——
+  // 展开面板里的 L1/L2/L3 字段名保留，那是给想深究的人看的，两层受众不同）。
   const summary = [
-    `L1 ${snapshot.l1MessageCount} 条`,
-    `L2 ${statusLabel(snapshot.l2Status)}`,
-    snapshot.l3Status === "not_configured" ? "L3 未启用" : `L3 命中 ${snapshot.l3HitCount}`,
-    snapshot.toolTraceStatus === "not_configured"
-      ? "工具轨迹未启用"
-      : `工具轨迹 ${snapshot.toolTraceRunCount} 轮`,
-  ].join(" · ");
+    `参考了 ${snapshot.l1MessageCount} 条近期消息`,
+    snapshot.l2Status === "degraded" ? "历史摘要降级" : "历史摘要正常",
+    snapshot.l3Status === "not_configured" ? null : `知识检索命中 ${snapshot.l3HitCount}`,
+    snapshot.toolTraceStatus === "not_configured" ? null : `工具记录 ${snapshot.toolTraceRunCount} 轮`,
+  ].filter((part): part is string => part !== null).join(" · ");
 
   return (
     <div className="flex flex-col gap-1" data-testid="context-snapshot-badge">

@@ -108,6 +108,7 @@ interface RunObservation {
 export function ChatLiveMessagePanel({
   threadId,
   bearer,
+  knownEmpty = false,
   agents,
   archived,
   projectId,
@@ -123,6 +124,9 @@ export function ChatLiveMessagePanel({
 }: {
   threadId: string;
   bearer: string;
+  /** 调用方确知这是刚创建的空线程：首载跳过消息骨架（骨架会伪装成有历史，
+   * UI 评分 2026-08-23 第 10 项点名的不一致），直接走空态提示。 */
+  knownEmpty?: boolean;
   agents: GetAgentPanelOut["agents"] | null;
   archived: boolean;
   /**
@@ -988,7 +992,7 @@ export function ChatLiveMessagePanel({
         className="min-h-0 flex-1 overflow-y-auto p-4"
         data-testid="chat-message-scroll"
       >
-        {loading ? (
+        {loading && !knownEmpty ? (
           // V4（PROP-CHAT-10ITER-001）—— 消息首载骨架屏，替换原来的灰字「正在读取持久消息…」。
           // 沿用全站 StateShell 的骨架样式（animate-pulse + bg-muted），但做成消息形状
           // （头像圆 + 气泡条，交替左右）而不是通用矩形块，让加载态就预示了内容的排布。
@@ -1181,7 +1185,10 @@ export function ChatLiveMessagePanel({
                     {message.attachments && message.attachments.length > 0 ? (
                       <MessageAttachments attachments={message.attachments} threadId={threadId} />
                     ) : null}
-                    {canLandArtifacts ? (
+                    {/* UI 评分 2026-08-23 第 10 项不一致②：这个入口曾同时挂在用户
+                        气泡下（右对齐悬浮），语义错位——落地为产物的对象是 agent 的
+                        产出，不是用户自己的话。只挂 agent 消息。 */}
+                    {canLandArtifacts && isAgent ? (
                       <MessageLandingControls
                         message={message}
                         state={landingState[message.id]}
@@ -1738,8 +1745,8 @@ function MessageLandingControls({
     return (
       <Button
         size="xs"
-        variant="ghost"
-        className="self-start text-10 text-muted-foreground"
+        variant="outline"
+        className="self-start text-10"
         data-testid={`chat-land-artifact-open-${message.id}`}
         onClick={onOpen}
       >
