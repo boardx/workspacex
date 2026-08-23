@@ -10,6 +10,13 @@ dependencies = [
   "langgraph-checkpoint-postgres>=2.0.0",
   "psycopg[binary,pool]>=3.2.0",
   "jsonschema>=4.23.0",
+  # D10④（deepagent-capability-rubric.md）：本地 OTel 导出，见 tracing.py 模块注释。
+  # 已在 uv.lock 里作为 langgraph-api 的传递依赖存在（`langsmith[otel]` 拉的），
+  # 这里把它提成直接依赖——我们的代码直接 import 这三个包，不能只靠别人的传递依赖
+  # 碰巧把它带进来（对方哪天不再需要 otel extra，我们的 import 就会静默失效）。
+  "opentelemetry-api>=1.37,<2",
+  "opentelemetry-sdk>=1.37,<2",
+  "opentelemetry-exporter-otlp-proto-http>=1.37,<2",
 ]
 
 [project.optional-dependencies]
