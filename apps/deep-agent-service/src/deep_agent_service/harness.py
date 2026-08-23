@@ -39,8 +39,11 @@ import os
 
 from langchain.agents.middleware import (
     AgentMiddleware,
+    ModelCallLimitMiddleware,
     SummarizationMiddleware,
     TodoListMiddleware,
+    ToolCallLimitMiddleware,
+    ToolRetryMiddleware,
 )
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -56,6 +59,25 @@ from deepagents import FilesystemMiddleware
 # 悄悄改变我们的上下文策略，与 Summarization trigger/keep 同一条纪律。
 TOOL_RESULT_EVICT_TOKENS = 1000
 
+# DA-07d（#1749，rubric D7 三件套）：死循环纠偏 + 预算熔断 + 失败重试。全部用
+# langchain 原生 middleware，参数显式钉死不吃库默认（同 Summarization 的纪律）。
+#
+# 双层防线，先纠偏后熔断：
+# · ToolCallLimitMiddleware(run_limit=40, exit_behavior="continue")——单 run 工具
+#   调用超 40 次后，后续工具调用被拦截并注入「超限」ToolMessage，模型被迫收尾。
+#   这是 rubric「重复操作超阈值时注入纠偏」的实现：不硬杀，先给模型一次自己
+#   收敛的机会。
+# · ModelCallLimitMiddleware(run_limit=25, exit_behavior="end")——模型调用（≈步数）
+#   到 25 次强制优雅终止，**注入 limit-exceeded 消息**（实测 "end" 行为语义）：
+#   用户看到的是「预算耗尽的明确通告」，不是静默截断也不是裸异常。
+# · ToolRetryMiddleware(max_retries=2)——工具瞬时失败自动退避重试两次，
+#   重试仍败时错误如实回给模型改道（on_failure 默认 continue = 错误进对话）。
+#
+# 时间预算在 provider 层已有（KERNEL_DEEP_AGENT_TIMEOUT_MS，默认 300s）——
+# rubric「三种预算至少两种」由步数（本处）+ 时间（provider）满足。
+RUN_MODEL_CALL_LIMIT = 25
+RUN_TOOL_CALL_LIMIT = 40
+
 
 def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
@@ -69,6 +91,9 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
         # by-name override（0.7 机制）：同名实例替换 create_deep_agent 内建的默认
         # FilesystemMiddleware，不是叠第二份——文件工具仍只有一套。
         FilesystemMiddleware(tool_token_limit_before_evict=TOOL_RESULT_EVICT_TOKENS),
+        ToolCallLimitMiddleware(run_limit=RUN_TOOL_CALL_LIMIT, exit_behavior="continue"),
+        ModelCallLimitMiddleware(run_limit=RUN_MODEL_CALL_LIMIT, exit_behavior="end"),
+        ToolRetryMiddleware(max_retries=2),
     ]
 
 
