@@ -296,6 +296,42 @@
       ],
       "evidence": "",
       "notes": "依据等级：[Backlog]（IT-10；本阶段收官治理性 feature）。R8：本身不产出新可见 UI（除验证中发现的小修复），一般不需新签核，但需确认阶段级 design-coherence.md（一致性复核）已完成。R2：依赖前 9 个需求（F01-F15）全部 passing 后触发。R7：终验分数必须有可复现证据链，不凭印象打分；R4-E2 分数未达 10 分如实报告差距而非调整标准凑分。verification 覆盖 lint-design/contrast/axe/键盘走查四类机械门控；init.sh 与 harness doctor 由收尾流程另行执行并写入 evidence。"
+    },
+    {
+      "id": "F17",
+      "area": "motion",
+      "title": "首屏加载骨架屏→内容过渡动效",
+      "user_visible_behavior": "chat/profile/org-admin 路由的骨架屏渲染完成、真实内容就绪时，出现有明确时间线的过渡动效（不是单一线性淡入）；目标路由若无骨架屏基础设施，本 feature 不新建骨架屏组件本身，也不对普通 loading spinner 强行包一层过渡动效冒充『编排』；prefers-reduced-motion 下降级为瞬时切换。",
+      "spec_ref": "02-motion-token-system.md#R13",
+      "depends_on": ["F03", "F04"],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/motion-skeleton-transition.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'reduced motion skeleton'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[设计]（人类 2026-08-23 会话裁决新增，超出原 F03/F04 范围）。has_ui：属 has_ui 契约束（motion-microinteraction 束），需随该束签核；截图材料本轮（phase-12 首批 UI 材料产出）不覆盖本 feature，留待本 feature 实际排期开工时另补。R2：依赖 F03（token）/F04（编排动效范式）先落地，复用同一套动效 token，不新造一套。verification：vitest 断言『无骨架屏基础设施时不产生动效』的反证（对应需求 R13 业务规则）；playwright 验证 reduced-motion 降级。排期：暂记 F17，最终编号/sprint 归属由 requirement-author 或人工在正式排期时确认，本次只做占位登记，不代表已进入开工队列。"
+    },
+    {
+      "id": "F18",
+      "area": "motion",
+      "title": "附件/长任务上传进度动效",
+      "user_visible_behavior": "上传附件或触发长任务时，若后端提供细粒度真实进度事件，前端呈现对应的进度动效；后端只提供二元『进行中/完成』时，动效降级为不确定态（indeterminate）指示器，不插值出虚假百分比；prefers-reduced-motion 下降级为瞬时切换。",
+      "spec_ref": "02-motion-token-system.md#R14",
+      "depends_on": ["F03", "F04"],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/motion-upload-progress.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'reduced motion upload progress'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[设计]（人类 2026-08-23 会话裁决新增，超出原 F03/F04 范围）。has_ui：同 F17，随 motion-microinteraction 束签核；本轮 UI 材料产出不覆盖本 feature。**关键约束**：依赖后端真实进度事件源是否就绪（如 DA-15 一类通道），不能抢跑前端插值伪造进度（需求 R14 业务规则）——本 feature 的实际开工时间点取决于对应后端能力的排期，不由本阶段单方面决定。verification：vitest 断言『无细粒度进度源时降级为 indeterminate、不插值』的反证；playwright 验证 reduced-motion 降级。排期：暂记 F18，最终编号/sprint 归属待定，本次只做占位登记。"
     }
   ]
 }

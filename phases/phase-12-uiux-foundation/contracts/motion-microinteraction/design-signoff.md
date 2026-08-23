@@ -1,7 +1,7 @@
 ---
 bundle: motion-microinteraction
 phase: "12"
-covers: [F03, F04, F11, F12]
+covers: [F03, F04, F11, F12, F17, F18]
 status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by:
 confirmed_at:
