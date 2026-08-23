@@ -110,6 +110,34 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 ---
 
+## 9. rev-uiux 评审结果落盘（F13，issue #1875）
+
+> 单一事实源：`.harness/state/uiux-review-log.jsonl`。它是 `rev-uiux` 历次评审结果
+> （chat-main-fidelity-rubric.md / uiux-screenshot-review-profile-org.md / chat-ux-acceptance-criteria.md
+> 等评分卡产出）的权威聚合，**append-only**——发现旧记录打错分，追加一条更正记录，
+> 不去改写/删除已有行（审计可追溯，R7）。schema 定义见 `.harness/scripts/uiux-review-log.ts`，
+> 不要在别处重复定义字段。
+
+**每次 `rev-uiux` 评审完成后，必须做的事**：
+
+1. 往 `.harness/state/uiux-review-log.jsonl` 追加一条记录（用
+   `.harness/scripts/uiux-review-log.ts` 导出的 `appendEntries`，不要手写 JSON 拼字符串，
+   会漏字段校验）。字段含义见该文件顶部的类型注释；`dimensions` 没有逐维明细时可以是
+   `null`，但总分（`total_score`/`scale`）必须填。
+2. 记录写完后跑一次 `pnpm run uiux-review-log:stats` 看 Top5 反复扣分维度有没有变化——
+   如果某个维度又双叒扣分了，评估是否该把它前移成 lint-design 规则或组件级契约测试
+   （而不是留着每轮人工肉眼查同一条）。
+3. 涉及历史记录回填（如迁移到新评分卡格式）时用 `.harness/scripts/uiux-review-log-backfill.ts`
+   （从 git log 尽力提取）或按需扩展 `uiux-review-log-seed-known-detail.ts`（手工搬运已有
+   文档里的逐维明细，不要凭印象编数据）——两者都是幂等的，重复跑不会堆出重复行。
+
+```
+pnpm run uiux-review-log:stats      # 看 Top5 反复扣分维度 + 样本量 + 行动项建议
+pnpm run uiux-review-log:backfill   # 从 git log 尽力回填（--dry-run 先看不写盘）
+```
+
+---
+
 本规范为 BoardX 项目的核心设计系统指引，旨在指导所有 Agent 和开发人员在编写 React 组件时，遵循统一的、符合 **Tailwind CSS 与 shadcn/ui** 约定的世界一流体验标准。
 
 ---
