@@ -108,9 +108,10 @@ export function TemplateEditorPanel({
 
   // 迭代 3/3——Esc 关面板，同 `chat-diagram-canvas-modal.tsx` 等其它全屏编辑面板
   // 已有的既定约定，不是本面板自创一套。⚠ 不拦截 `dirty`：本仓「未保存改动」的
-  // 既定处理方式是**展示**一个提示（下面的徽章，抄 `chat-diagram-canvas-modal.tsx`
-  // 「有未保存的改动」那一句），不是拦一个原生 `confirm()` 弹窗——那是这个代码库
-  // 里从来没出现过的交互模式，本面板不该带头造一个新的。
+  // 既定处理方式是**展示**一个提示（标题旁的徽章，见下方 JSX，抄
+  // `chat-diagram-canvas-modal.tsx`「有未保存的改动」那一句），不是拦一个原生
+  // `confirm()` 弹窗——那是这个代码库里从来没出现过的交互模式，本面板不该带头
+  // 造一个新的。
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -140,8 +141,11 @@ export function TemplateEditorPanel({
    */
   const sectionInputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
   const [highlightedSection, setHighlightedSection] = React.useState<number | null>(null);
-  function handleCanvasClick(point: { x: number; y: number }) {
-    const hitIndex = sectionNames.findIndex((name) => {
+
+  // 命中测试逻辑点击/悬停共用一份——两处此前各写一遍同样的矩形范围判断，
+  // 容易改一处漏一处（gutter 判定这类细节尤其容易漂移）。
+  function hitTestSection(point: { x: number; y: number }): number {
+    return sectionNames.findIndex((name) => {
       const cell = preview.cells.find((c) => c.name === name);
       if (!cell) return false;
       // 命中测试用的是矩形范围，不是"点最近哪个中心"——分区框之间有 gutter 间隙，
@@ -149,6 +153,10 @@ export function TemplateEditorPanel({
       // 也意外跳去改某个分区，行为看起来随机）。
       return Math.abs(point.x - cell.x) <= cell.w / 2 && Math.abs(point.y - cell.y) <= cell.h / 2;
     });
+  }
+
+  function handleCanvasClick(point: { x: number; y: number }) {
+    const hitIndex = hitTestSection(point);
     if (hitIndex < 0) return;
     setHighlightedSection(hitIndex);
     const input = sectionInputRefs.current[hitIndex];
@@ -158,6 +166,23 @@ export function TemplateEditorPanel({
       input.scrollIntoView({ behavior: "smooth", block: "center" });
     }
     input?.focus();
+  }
+
+  /**
+   * 迭代 4——「点了才知道点中了什么」在真拖拽框体不可行的前提下，是这个编辑器
+   * 里最接近"直接操作"体验的短板：点之前完全没有反馈，使用者只能靠试。悬停
+   * 高亮补上这一半——鼠标移到框上先亮一圈（不抢焦点、不滚动），点下去才真正
+   * 聚焦输入框。与 `highlightedSection`（点击后落地、驱动 focus/scroll）是两个
+   * 独立的状态：悬停是"预告"，点击才是"确认"，一个 hover 态叫 focus 属实过界。
+   */
+  const [hoveredSection, setHoveredSection] = React.useState<number | null>(null);
+  function handleCanvasHover(point: { x: number; y: number } | null) {
+    if (point === null) {
+      setHoveredSection(null);
+      return;
+    }
+    const hitIndex = hitTestSection(point);
+    setHoveredSection(hitIndex >= 0 ? hitIndex : null);
   }
 
   function addSection() {
@@ -236,6 +261,15 @@ export function TemplateEditorPanel({
           <Badge tone={row.status === "published" ? "primary" : row.status === "draft" ? "warning" : row.status === "trial" ? "outline" : "neutral"}>
             {TEMPLATE_STATUS_LABEL[row.status]}
           </Badge>
+          {/* 迭代 4——`dirty` 此前只在「保存改动」按钮文案里间接体现（disabled + 换字），
+              标题旁没有任何提示；关闭按钮就在正左边，点错一下改动就没了却毫无预警。
+              抄 `chat-diagram-canvas-modal.tsx` 同款「有未保存的改动」纯文字徽章，
+              不拦截关闭——同一套「展示不拦截」的既定约定，见上面 Esc 那段注释。 */}
+          {dirty && !saving && (
+            <span className="text-11 text-muted-foreground" data-testid="tpladmin-editor-dirty">
+              有未保存的改动
+            </span>
+          )}
         </div>
         {!readOnly && (
           <div className="flex items-center gap-1.5">
@@ -372,7 +406,11 @@ export function TemplateEditorPanel({
                   className={
                     "min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-12 transition-colors duration-200 "
                     + "disabled:bg-disabled disabled:text-disabled-foreground "
-                    + (highlightedSection === i ? "border-primary ring-2 ring-primary/30" : "border-border")
+                    + (highlightedSection === i
+                      ? "border-primary ring-2 ring-primary/30"
+                      // 悬停态比点击态弱一档（无 ring，只换边框色）——两者都用同一种
+                      // "亮"会让使用者分不清"这是我刚点的"还是"鼠标刚好划过去而已"。
+                      : hoveredSection === i ? "border-primary/60" : "border-border")
                   }
                   placeholder={`分区 ${i + 1}`}
                   value={name}
@@ -430,6 +468,7 @@ export function TemplateEditorPanel({
             markdown={preview.markdown}
             onMarkdownChange={() => {}}
             onCanvasClick={handleCanvasClick}
+            onCanvasHover={handleCanvasHover}
           />
         </div>
       </div>

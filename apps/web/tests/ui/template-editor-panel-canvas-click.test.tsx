@@ -147,3 +147,67 @@ describe("TemplateEditorPanel —— 点击画布上的分区框，联动高亮�
     expect(() => clickCanvasAt(canvas, point)).not.toThrow();
   });
 });
+
+describe("TemplateEditorPanel —— 悬停画布上的分区框，预告哪个框会被点中（迭代 4）", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("鼠标移到「劣势」框上方——第二个输入框换一档更弱的边框色，不聚焦、不滚动", async () => {
+    const row = draftRow();
+    render(
+      <TemplateEditorPanel
+        row={row}
+        readOnly={false}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onPublish={() => {}}
+        onArchive={() => {}}
+        onRestore={() => {}}
+        onTrial={() => {}}
+        onMintVersion={() => {}}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("tpladmin-editor-preview")).toBeInTheDocument());
+    const canvas = getFabricCanvas();
+    const point = centerOfSection(["优势", "劣势", "机会"], 1); // 「劣势」
+    vi.spyOn(canvas, "getScenePoint").mockReturnValue(point as any);
+    canvas.fire("mouse:move", { e: new MouseEvent("mousemove") } as any);
+
+    const input1 = screen.getByTestId("tpladmin-editor-section-1") as HTMLInputElement;
+    await waitFor(() => expect(input1.className).toContain("border-primary/60"));
+    // 悬停≠点击——不抢焦点，也不是点击命中后的那种更亮的 ring 高亮。
+    expect(input1).not.toHaveFocus();
+    expect(input1.className).not.toContain("ring-2");
+  });
+
+  it("鼠标移出画布——悬停高亮清空，不会卡在最后一个划过的框上", async () => {
+    const row = draftRow();
+    render(
+      <TemplateEditorPanel
+        row={row}
+        readOnly={false}
+        onClose={() => {}}
+        onSaved={() => {}}
+        onPublish={() => {}}
+        onArchive={() => {}}
+        onRestore={() => {}}
+        onTrial={() => {}}
+        onMintVersion={() => {}}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("tpladmin-editor-preview")).toBeInTheDocument());
+    const canvas = getFabricCanvas();
+    const point = centerOfSection(["优势", "劣势", "机会"], 0);
+    vi.spyOn(canvas, "getScenePoint").mockReturnValue(point as any);
+    canvas.fire("mouse:move", { e: new MouseEvent("mousemove") } as any);
+
+    const input0 = screen.getByTestId("tpladmin-editor-section-0") as HTMLInputElement;
+    await waitFor(() => expect(input0.className).toContain("border-primary/60"));
+
+    canvas.fire("mouse:out", {} as any);
+    await waitFor(() => expect(input0.className).not.toContain("border-primary/60"));
+  });
+});
