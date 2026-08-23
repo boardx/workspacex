@@ -2,13 +2,19 @@
  * Ports MCP tool discovery needs. Defined here, implemented by `infrastructure`
  * (dependency inversion).
  *
- * ⚠ **F52 ships no PostgreSQL implementation.** Persisting servers and tools is a schema
- * decision that belongs with F53/F54 (review records, security switches) -- building the
- * tables now would be guessing at the shape they have to live with. What F52 owns is the
- * SHAPE of the question discovery asks of a gateway, and the invariants over the answer.
+ * ⚠ **F52's original claim -- "ships no PostgreSQL implementation" -- is superseded by
+ * issue #1928.** The reasoning at the time was sound (persisting servers and tools is a
+ * schema decision that belongs with F53/F54's shape); it is no longer speculative now that
+ * F53 (`review-mcp-server.ts`) and F54 (`set-security-policy.ts`) exist and already commit to
+ * `McpReviewStatus` / `McpConnectionStatus`. `McpServerStore` below reuses that exact
+ * vocabulary rather than inventing a second one -- see `PersistedMcpServer`.
  */
 import type { z } from "zod";
 import type { McpTool, SecurityPolicy, ToolAuthScope, ToolSideEffect } from "@repo/contracts/agent-runtime";
+import type { ReviewStatus, ConnectionStatus, AuthScope } from "../../domain/mcp/server-status";
+import type { CredentialCipher, SealedCredential } from "../../domain/model/credential-vault";
+
+export type { CredentialCipher, SealedCredential };
 
 /** `MCP_SERVER_UNREACHABLE` -- the contract's code, carried rather than re-invented at the edge. */
 export class McpServerUnreachableError extends Error {
@@ -187,3 +193,55 @@ export interface ReviewRecordStore {
   /** 该服务器已有的评审记录，倒序（供审计检索 V16，phase-1 只暴露内存实现） */
   listByServer(serverId: string): Promise<readonly { readonly reviewerId: string }[]>;
 }
+
+/**
+ * issue #1928 -- 发现结果落库后，能被 `listMcpServers` 读回的一行。
+ *
+ * ⚠ 有意不带 `credential`/密文 -- 与 `StoredModel`（model pool）同一条纪律
+ * （`credentialConfigured` 是一个布尔，不是一个可以还原出密文的字段）。
+ */
+export interface PersistedMcpServer {
+  readonly serverId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly endpoint: string;
+  readonly authScope: AuthScope;
+  readonly reviewStatus: ReviewStatus;
+  readonly connectionStatus: ConnectionStatus;
+  readonly quarantineUntil: string | null;
+  readonly involvesCustomerData: boolean;
+  readonly isEgress: boolean;
+  readonly credentialConfigured: boolean;
+  readonly toolCount: number;
+  readonly lastDiscoveredAt: string;
+}
+
+/**
+ * issue #1928 -- 把一次成功的发现（`discoverRemoteMcpTools`）落成一条可在
+ * `listMcpServers` 读回的服务器记录，交给既有的评审/策略治理骨架管，而不是绕开它另起
+ * 一套。
+ *
+ * ⚠ **`upsertDiscovered` 只在首次插入时写 `initialStatus`。** 重新发现同一台服务器
+ * （相同 `orgId` + `serverId`）只刷新 `endpoint`/`toolCount`/`lastDiscoveredAt` 与凭据
+ * （若本次提供了新的），**不触碰 `reviewStatus`/`connectionStatus`**——已经过评审的服务器
+ * 不该被一次重新发现悄悄打回未评审状态，这与 `discoverMcpTools` 用例头注第 2 条
+ * （重新发现不改白名单）是同一条"发现只报告事实，不越权改治理状态"的纪律。
+ */
+export interface McpServerStore {
+  upsertDiscovered(input: {
+    readonly orgId: string;
+    readonly serverId: string;
+    readonly endpoint: string;
+    readonly registeredByActorId: string;
+    readonly toolCount: number;
+    readonly discoveredAt: string;
+    readonly sealedCredential: SealedCredential | null;
+    /** 仅在首次插入（该 org+server 之前从未落库）时生效。 */
+    readonly initialStatus: { readonly reviewStatus: ReviewStatus; readonly connectionStatus: ConnectionStatus };
+  }): Promise<void>;
+
+  listForOrg(orgId: string): Promise<readonly PersistedMcpServer[]>;
+}
+
+/** DI 令牌。 */
+export const MCP_SERVER_STORE = Symbol("McpServerStore");

@@ -60,3 +60,16 @@ export async function discoverRemoteMcpTools(
     { method: "POST", body: wire },
   );
 }
+
+/**
+ * issue #1928 —— 读回 `discoverRemoteMcpTools` 落库的服务器记录。
+ *
+ * ⚠ 不带过滤参数——`listMcpServers.in` 的三个过滤字段本轮未接线（服务器清单区域
+ *   还没有对应的筛选器 UI），后端目前也忽略 query，恒回该组织已发现过的全部服务器。
+ */
+export type ListMcpServersOut = z.infer<typeof agentRuntime.operations.listMcpServers.out>;
+export type ListedMcpServer = ListMcpServersOut[number];
+
+export async function listMcpServers(): Promise<ListMcpServersOut> {
+  return apiRequest<ListMcpServersOut>(agentRuntime.operations.listMcpServers.path);
+}
