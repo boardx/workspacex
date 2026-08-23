@@ -234,6 +234,7 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER: CHAT_READ_E2E.deepAgentFailureTrigger,
         LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
         LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: CHAT_READ_E2E.deepAgentMultiStepTrigger,
+        LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER: CHAT_READ_E2E.deepAgentApprovalTrigger,
       },
     },
     {

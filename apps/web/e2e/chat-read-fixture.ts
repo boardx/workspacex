@@ -62,6 +62,14 @@ export const CHAT_READ_E2E = {
    */
   deepAgentMultiStepTrigger: "取证：请展示多步执行",
   /**
+   * UX-9 D4 前端接入取证（gap 清单第 3 条，「Edit, then continue」HITL 模式）：
+   * 替身对这句触发词让 run 走真实 `awaiting_approval`（`status: "interrupted"`），
+   * 前端 `AgentApprovalPanel` 据此渲染待批工具 + 参数、可编辑 JSON 表单。
+   * 唯一事实源在本文件，`playwright.chat-read.config.ts` 下发给替身进程，
+   * 与 `deepAgentMarkdownTrigger`/`deepAgentMultiStepTrigger` 同一套接线纪律。
+   */
+  deepAgentApprovalTrigger: "取证：请触发人工审批",
+  /**
    * #728 P8 —— 麦克风实时转录取证。与 `fullstack-smoke-fixture.ts` 的
    * `asrTranscriptPrefix` 同一套惯例：确定性上游回一个带前缀的转录文本，
    * 断言方（这里是取证脚本自己，肉眼加截图）能确认转录确实来自这个进程，
