@@ -112,15 +112,15 @@
         "F05"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "claude-f",
       "verification": [
-        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard org-admin'",
+        "pnpm run verify:self-service-profile",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'axe keyboard'"
       ],
-      "evidence": "",
-      "notes": "依据等级：[原型]（org-admin 已上线）。org-admin 走查需在有管理权限角色登录态下进行，不能用管理员账号验普通用户任务、反之亦然（R5）。R11：与 F05 同属 03 号需求。axe-core 扫描聚焦 keyboard/focus 规则（R3-5），以 playwright 集成 @axe-core/playwright 固化。"
+      "evidence": "evidence/F06.verify.log @ 2026-08-23T23:10:01.318Z",
+      "notes": "依据等级：[原型]（org-admin 已上线）。org-admin 走查需在有管理权限角色登录态下进行，不能用管理员账号验普通用户任务、反之亦然（R5）。R11：与 F05 同属 03 号需求。axe-core 扫描聚焦 keyboard/focus 规则（R3-5），以 playwright 集成 @axe-core/playwright 固化。⚠ verification 命令第 1 条 2026-08-24 由原始 `-c playwright.config.ts -g 'keyboard org-admin'`（F01 沿用的裸配置模式）改为 `pnpm run verify:self-service-profile`——同 F05 已实测复现的理由（issue #1869 评论）：org-admin『打开一个成员的权限设置弹层并调整』要验证真实登录态+组织 admin 角色+真实写库（`assignSkillReviewerFunction`），裸配置的 webServer 只起 `next dev`、没有 API/DB，login 表单必然打不通。改用已挂载真实登录+种子库的 CI 门控命令（`playwright.self-service-profile.config.ts`，扩展 testMatch 纳入新增的 `org-admin-keyboard-navigation.spec.ts`，同一 config 里已有 `/org-admin` 的真实登录+种子编排可直接复用），新增独立账号对 `orgAdminKeyboardAdminEmail`/`orgAdminKeyboardMemberEmail`（不复用会改密码的既有 admin 账号，理由见 `self-service-profile-fixture.ts` 头注）。第 2 条沿用 F01/F08 已验证可行的裸配置模式——`axe-keyboard-focus.spec.ts` 同 `axe-image-alt.spec.ts` 一样目标 `/kitchen-sink`（不读 DB、不需要登录态），锁定 axe-core `cat.keyboard` 规则组（`accesskeys`/`bypass`/`focus-order-semantics`/`frame-focusable-content`/`nested-interactive`/`region`/`scrollable-region-focusable`/`skip-link`/`tabindex`，2026-08-24 实测于 axe-core 4.13.0），裸配置跑得通。⚠ 已知卡点归档（走查『打开一个成员的权限设置弹层并调整』这条核心任务时实测撞到，均已修复）：① 该控件此前是原生 `<select>`——原生下拉弹层是浏览器渲染的 OS 级控件，不在页面 DOM 事件系统内，键盘自动化测试的合成事件能让它聚焦但无法驱动其弹层导航真正改值（`ArrowDown`/`Enter+ArrowDown+Enter`/`Space+ArrowDown+Enter`/`Alt+ArrowDown+ArrowDown+Enter` 四种序列、headless-shell 与完整 chromium 二进制均实测复现），改为复用既有的 `PopoverSelect`（真实 DOM 按钮 + `role=listbox`，同页邀请表单『组织角色』下拉同一实现，`org-admin-screen.tsx` 的 `ReviewerFunctionPicker`）；② 弹层关闭后（Esc 或选中一项）焦点会丢到 `<body>`——选中的选项按钮随弹层卸载是浏览器默认行为，已在 `PopoverSelect` 加 `closeAndRefocus` 显式把焦点带回触发按钮；③ 触发按钮在写库请求飞行中被设为原生 `disabled`，若这一刻它正持有焦点会被浏览器强制 blur 到 `<body>`（原生 disabled 元素不能持有焦点）——改为 `aria-disabled` + 内部拦截 `onClick`，按钮始终可持有焦点。三个卡点均在 `apps/web/components/org-admin/org-admin-screen.tsx` 的 `PopoverSelect`/`ReviewerFunctionPicker` 修复，同步更新了受影响的 `tests/ui/org-admin-members-reviewer-function.test.tsx`（交互从 `fireEvent.change` 改为点击按钮+选项，4/4 通过）。"
     },
     {
       "id": "F07",

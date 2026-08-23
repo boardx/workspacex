@@ -34,6 +34,15 @@ const keyboardEmail = required("SSP_E2E_KEYBOARD_EMAIL");
 const keyboardPassword = required("SSP_E2E_KEYBOARD_PASSWORD");
 const keyboardDisplayName = required("SSP_E2E_KEYBOARD_DISPLAY_NAME");
 
+/** F06 —— org-admin 键盘可达性专属账号对（见 `self-service-profile-fixture.ts` 同名字段头注）。 */
+const orgAdminKeyboardAdminUserId = required("SSP_E2E_ORG_ADMIN_KEYBOARD_ADMIN_USER_ID");
+const orgAdminKeyboardAdminEmail = required("SSP_E2E_ORG_ADMIN_KEYBOARD_ADMIN_EMAIL");
+const orgAdminKeyboardAdminPassword = required("SSP_E2E_ORG_ADMIN_KEYBOARD_ADMIN_PASSWORD");
+const orgAdminKeyboardAdminDisplayName = required("SSP_E2E_ORG_ADMIN_KEYBOARD_ADMIN_DISPLAY_NAME");
+const orgAdminKeyboardMemberUserId = required("SSP_E2E_ORG_ADMIN_KEYBOARD_MEMBER_USER_ID");
+const orgAdminKeyboardMemberEmail = required("SSP_E2E_ORG_ADMIN_KEYBOARD_MEMBER_EMAIL");
+const orgAdminKeyboardMemberDisplayName = required("SSP_E2E_ORG_ADMIN_KEYBOARD_MEMBER_DISPLAY_NAME");
+
 const seedTeamName = required("SSP_E2E_SEED_TEAM_NAME");
 
 ensureDatabase();
@@ -42,7 +51,10 @@ await resetOrgs(orgId);
 await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
-    [[adminUserId, memberUserId, keyboardUserId], [adminEmail, memberEmail, keyboardEmail]],
+    [
+      [adminUserId, memberUserId, keyboardUserId, orgAdminKeyboardAdminUserId, orgAdminKeyboardMemberUserId],
+      [adminEmail, memberEmail, keyboardEmail, orgAdminKeyboardAdminEmail, orgAdminKeyboardMemberEmail],
+    ],
   );
 });
 
@@ -58,25 +70,35 @@ await addOrgMember(orgId, adminUserId, "admin", null);
 await addOrgMember(orgId, memberUserId, "consultant", fixture.teams[seedTeamName] ?? null);
 // F05 —— 键盘可达性专属账号，独立于 admin/member，避免与改密码用例的执行顺序耦合。
 await addOrgMember(orgId, keyboardUserId, "consultant", null);
+// F06 —— org-admin 键盘可达性专属账号对：admin 角色是 `ReviewerFunctionPicker` 渲染
+// 的前提条件（`org-admin-screen.tsx` 的 `isAdmin` 判断），target 是它要调整权限的成员。
+await addOrgMember(orgId, orgAdminKeyboardAdminUserId, "admin", null);
+await addOrgMember(orgId, orgAdminKeyboardMemberUserId, "consultant", null);
 
 const hasher = new BcryptPasswordHasher();
 const adminPasswordHash = await hasher.hash(adminPassword);
 // 成员账号不通过浏览器登录，密码随便给一个满足策略的占位值即可。
 const memberPasswordHash = await hasher.hash("Ssp-e2e-member-not-logged-in-639!");
 const keyboardPasswordHash = await hasher.hash(keyboardPassword);
+const orgAdminKeyboardAdminPasswordHash = await hasher.hash(orgAdminKeyboardAdminPassword);
+// 目标成员不通过浏览器登录，密码随便给一个满足策略的占位值即可（同上面 memberPasswordHash 的理由）。
+const orgAdminKeyboardMemberPasswordHash = await hasher.hash("Ssp-e2e-org-admin-keyboard-target-not-logged-in-1930!");
 await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
-     VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now())`,
+     VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now()),
+            ($13,$14,$15,$16,now()), ($17,$18,$19,$20,now())`,
     [
       adminUserId, adminEmail, adminDisplayName, adminPasswordHash,
       memberUserId, memberEmail, "SSP E2E member", memberPasswordHash,
       keyboardUserId, keyboardEmail, keyboardDisplayName, keyboardPasswordHash,
+      orgAdminKeyboardAdminUserId, orgAdminKeyboardAdminEmail, orgAdminKeyboardAdminDisplayName, orgAdminKeyboardAdminPasswordHash,
+      orgAdminKeyboardMemberUserId, orgAdminKeyboardMemberEmail, orgAdminKeyboardMemberDisplayName, orgAdminKeyboardMemberPasswordHash,
     ],
   );
 });
 
 process.stdout.write(
   `[self-service-profile-e2e-fixture] seeded org=${orgId} admin=${adminEmail} seedTeam=${seedTeamName} `
-  + `keyboardUser=${keyboardEmail}\n`,
+  + `keyboardUser=${keyboardEmail} orgAdminKeyboardAdmin=${orgAdminKeyboardAdminEmail}\n`,
 );

@@ -396,6 +396,16 @@ export default defineConfig({
       name: "axe-image-alt",
       testMatch: ["axe-image-alt.spec.ts"],
     },
+    {
+      /**
+       * F06（phase-12-uiux-foundation/accessibility-guardrails）—— axe-core
+       * `cat.keyboard` 规则组回归。同 `axe-image-alt`：目标页 `/kitchen-sink`
+       * 不读 DB、不需要登录态，独立成一个不带 dependencies 的 project，只复用 config
+       * 顶层已经起好的 web 服务器。
+       */
+      name: "axe-keyboard-focus",
+      testMatch: ["axe-keyboard-focus.spec.ts"],
+    },
   ],
   fullyParallel: false,
   retries: 0,

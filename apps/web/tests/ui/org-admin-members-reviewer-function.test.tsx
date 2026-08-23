@@ -7,6 +7,11 @@
  *  · admin 渲染时职能下拉的初始值来自真实 `GET` 响应，不是写死的 "无职能"；
  *  · 选择一个职能会真的发出 `POST assign` 请求，body 带 `orgId/userId/reviewerFunction`；
  *  · 选回"无审核职能"会发 `POST revoke`，不是发一次 `assign(null)`。
+ *
+ * F06（issue #1930）—— 控件从原生 `<select>` 换成 `PopoverSelect`（按钮 + `role=listbox`
+ * 弹层）后，交互从 `fireEvent.change(select, ...)` 改为 `fireEvent.click` 触发按钮
+ * 打开弹层、再点目标选项——同 `org-admin-screen.tsx` 里 `ReviewerFunctionPicker`
+ * 头注说明的理由：原生 select 弹层不在自动化可驱动的 DOM 事件系统内。
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -85,8 +90,8 @@ describe("MembersTab —— issue #852 审核人职能指派", () => {
     render(<MembersTab orgId="org-i852" isAdmin={true} />);
 
     await waitFor(() => {
-      const select = screen.getByTestId("org-admin-member-u-linke-reviewer-function") as HTMLSelectElement;
-      expect(select.value).toBe("security-reviewer");
+      const trigger = screen.getByTestId("org-admin-member-u-linke-reviewer-function");
+      expect(trigger).toHaveTextContent("安全评审人");
     });
   });
 
@@ -94,10 +99,12 @@ describe("MembersTab —— issue #852 审核人职能指派", () => {
     fetchMock.mockImplementation(routed());
     render(<MembersTab orgId="org-i852" isAdmin={true} />);
 
-    const select = (await screen.findByTestId("org-admin-member-u-linke-reviewer-function")) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: "methodology-reviewer" } });
+    const trigger = await screen.findByTestId("org-admin-member-u-linke-reviewer-function");
+    fireEvent.click(trigger);
+    const option = await screen.findByTestId("org-admin-member-u-linke-reviewer-function-option-methodology-reviewer");
+    fireEvent.click(option);
 
-    await waitFor(() => expect(select.value).toBe("methodology-reviewer"));
+    await waitFor(() => expect(trigger).toHaveTextContent("方法论审核人"));
 
     const assignCall = fetchMock.mock.calls.find(
       (c) => String(c[0]).includes("skill-reviewer-function") && !String(c[0]).includes("revoke") && c[1]?.method === "POST",
@@ -117,11 +124,14 @@ describe("MembersTab —— issue #852 审核人职能指派", () => {
     );
     render(<MembersTab orgId="org-i852" isAdmin={true} />);
 
-    const select = (await screen.findByTestId("org-admin-member-u-linke-reviewer-function")) as HTMLSelectElement;
-    await waitFor(() => expect(select.value).toBe("methodology-reviewer"));
+    const trigger = await screen.findByTestId("org-admin-member-u-linke-reviewer-function");
+    await waitFor(() => expect(trigger).toHaveTextContent("方法论审核人"));
 
-    fireEvent.change(select, { target: { value: "" } });
-    await waitFor(() => expect(select.value).toBe(""));
+    fireEvent.click(trigger);
+    const option = await screen.findByTestId("org-admin-member-u-linke-reviewer-function-option-");
+    fireEvent.click(option);
+
+    await waitFor(() => expect(trigger).toHaveTextContent("无审核职能"));
 
     const revokeCall = fetchMock.mock.calls.find((c) => String(c[0]).includes("skill-reviewer-function/revoke"));
     expect(revokeCall).toBeTruthy();

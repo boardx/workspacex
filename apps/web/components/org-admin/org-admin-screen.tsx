@@ -20,6 +20,7 @@ import { buildActivationLink } from "@/lib/activation-link";
 import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import { auth as authContract } from "@repo/contracts";
 import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/org-admin/shared-invite-links";
+import { cn } from "@/lib/utils";
 import {
   createTeam, deleteTeam, listTeams, renameTeam, listOrgMembers, listOrgInvites,
   updateOrganization, uploadOrgAvatar,
@@ -496,10 +497,26 @@ function TeamRow({
 
 /* ═══════════════════════════════ 成员（#363，真实数据） ═══════════════════════════════ */
 
+const REVIEWER_FUNCTION_OPTIONS: ReadonlyArray<{ id: string; label: string }> = [
+  { id: "", label: "无审核职能" },
+  { id: "methodology-reviewer", label: "方法论审核人" },
+  { id: "security-reviewer", label: "安全评审人" },
+];
+
 /**
  * issue #852 —— 「Skill 审核人职能」下拉，只在 `isAdmin` 时渲染成可操作控件。
  * 非 admin 完全看不到这一列（同 `listSkillReviewerFunctions` 契约仅 admin 可读的既定
  * 纪律：「谁能审我」不是给提交人看的信息，不只是「看得到但按不动」）。
+ *
+ * F06（issue #1930）—— 原生 `<select>` 改为复用既有的 `PopoverSelect`（同
+ * `top-bar.tsx` 的 `OrgSwitcher`/本文件邀请表单"组织角色"下拉同一套弹层单选实现）。
+ * ⚠ 不是顺手重构：原生 `<select>` 的下拉弹层是浏览器渲染的 OS 级控件，不在页面
+ * DOM 事件系统内——自动化测试的合成键盘事件（CDP `Input.dispatchKeyEvent`）能让它
+ * 聚焦，但不能驱动它的弹层导航（`ArrowDown`/`Enter`/`Space`/`Alt+ArrowDown` 四种
+ * 序列均实测复现：焦点确认落在 select 上，值仍不变，见 issue #1930 讨论），这正是
+ * F06「打开一个成员的权限设置弹层并调整」这条核心任务本身要验证的控件——用真实
+ * DOM 按钮+`role=listbox` 弹层的 `PopoverSelect` 替换，让它对真实用户和自动化
+ * 测试都是可键盘操作的，不是仅在人手动测试时"看起来能行"。
  */
 function ReviewerFunctionPicker({
   orgId, userId, current, onChanged,
@@ -512,8 +529,8 @@ function ReviewerFunctionPicker({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const handleChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = event.currentTarget.value as SkillReviewerFunctionValue | "";
+  const handleSelect = async (id: string) => {
+    const value = id as SkillReviewerFunctionValue | "";
     setBusy(true);
     setError(null);
     try {
@@ -533,17 +550,16 @@ function ReviewerFunctionPicker({
 
   return (
     <div className="flex items-center gap-1.5">
-      <select
-        className="h-7 rounded-md border border-input bg-panel px-1.5 text-11 disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
-        value={current ?? ""}
-        disabled={busy}
-        onChange={(e) => void handleChange(e)}
-        data-testid={`org-admin-member-${userId}-reviewer-function`}
-      >
-        <option value="">无审核职能</option>
-        <option value="methodology-reviewer">方法论审核人</option>
-        <option value="security-reviewer">安全评审人</option>
-      </select>
+      <div className="w-36">
+        <PopoverSelect
+          value={current ?? ""}
+          options={REVIEWER_FUNCTION_OPTIONS}
+          onSelect={(id) => void handleSelect(id)}
+          disabled={busy}
+          testid={`org-admin-member-${userId}-reviewer-function`}
+          ariaLabel="Skill 审核人职能"
+        />
+      </div>
       {error && (
         <span className="text-10 text-destructive" data-testid={`org-admin-member-${userId}-reviewer-function-error`}>
           {error}
@@ -703,7 +719,18 @@ export function PopoverSelect({
 }) {
   const [open, setOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLButtonElement>(null);
   const currentLabel = options.find((o) => o.id === value)?.label ?? value;
+
+  // F06（issue #1930）—— 关闭弹层时把焦点带回触发按钮（Esc / 选中选项两条路径），
+  // 不让它落到 <body>：选中的选项按钮随弹层一起卸载，浏览器默认行为会把焦点丢到
+  // <body>，这正是 R6「关键节点 focus 环可见」要防的坑——键盘用户选完一项之后
+  // 应该能立刻继续 Tab/操作，而不是先要重新找回焦点在哪。外点关闭不在此列：
+  // 那种情况下用户的焦点意图本来就是点到的那个别的元素，不应该被强行拽回来。
+  const closeAndRefocus = React.useCallback(() => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  }, []);
 
   React.useEffect(() => {
     if (!open) return;
@@ -711,7 +738,7 @@ export function PopoverSelect({
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") closeAndRefocus();
     }
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
@@ -719,21 +746,34 @@ export function PopoverSelect({
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [open]);
+  }, [open, closeAndRefocus]);
 
   return (
     <div ref={containerRef} className="relative">
+      {/*
+        * ⚠ 不用原生 `disabled`——原生 disabled 的按钮在被禁用的瞬间会被浏览器强制
+        * blur（disabled 元素不能持有焦点），如果这一刻正好是这个按钮自己持有焦点
+        * （典型场景：刚选完一个选项、`assignSkillReviewerFunction` 请求还在飞行中、
+        * `busy=true`），焦点会被弹到 <body>——同上面 `closeAndRefocus` 想防的是
+        * 同一类问题，只是触发路径不同（那个防的是"选项按钮卸载"，这个防的是"触发
+        * 按钮被禁用"）。改用 `aria-disabled` + 手动拦截 `onClick`，按钮始终可持有
+        * 焦点，语义仍然是"当前不可操作"。
+        */}
       <Button
+        ref={triggerRef}
         type="button"
         size="xs"
         variant="outline"
         data-testid={testid}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-disabled={disabled}
         aria-label={`${ariaLabel}，当前：${currentLabel}`}
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        className="h-8 w-full justify-between gap-1 rounded-md pl-2.5 pr-2 text-12 font-normal"
+        onClick={() => { if (!disabled) setOpen((v) => !v); }}
+        className={cn(
+          "h-8 w-full justify-between gap-1 rounded-md pl-2.5 pr-2 text-12 font-normal",
+          disabled && "cursor-not-allowed bg-disabled text-disabled-foreground",
+        )}
       >
         <span className="truncate">{currentLabel}</span>
         <ChevronDown aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -754,7 +794,7 @@ export function PopoverSelect({
               data-testid={`${testid}-option-${o.id}`}
               onClick={() => {
                 onSelect(o.id);
-                setOpen(false);
+                closeAndRefocus();
               }}
               className={[
                 "flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
