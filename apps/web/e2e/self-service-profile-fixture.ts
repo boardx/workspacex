@@ -39,6 +39,29 @@ export const SELF_SERVICE_PROFILE_E2E = {
   keyboardPassword: "Ssp-e2e-keyboard-only-1869!",
   keyboardDisplayName: "SSP E2E Keyboard",
 
+  /**
+   * F06 —— org-admin 键盘可达性专属账号（issue #1930）。**不**复用 `adminEmail`：
+   * 那个账号的用例会真的改密码（`test.describe.serial` 里"改密码后旧密码不可登录"
+   * 这条反证），共用账号会让本文件的执行结果依赖那条用例的执行顺序——同上面
+   * `keyboardEmail` 头注同一个理由。本账号带**组织 admin 角色**（`MembersTab` 的
+   * `ReviewerFunctionPicker` 仅 admin 渲染，见 `org-admin-screen.tsx`），是
+   * "打开一个成员的权限设置弹层并调整"这条核心任务必须的身份条件——不能像
+   * `keyboardEmail`（consultant）那样验证，那个身份下这条控件根本不渲染。
+   */
+  orgAdminKeyboardAdminUserId: "user-ssp-e2e-org-admin-keyboard",
+  orgAdminKeyboardAdminEmail: "ssp-e2e-org-admin-keyboard@example.test",
+  orgAdminKeyboardAdminPassword: "Ssp-e2e-org-admin-keyboard-1930!",
+  orgAdminKeyboardAdminDisplayName: "SSP E2E Org Admin Keyboard",
+
+  /**
+   * F06 —— 上面那个 admin 要调整权限的**目标成员**。不复用既有的 `memberUserId`
+   * （那个人挂在 `seedTeamName` 上，专门给"非空团队不能删"这条反证用，混进来会让
+   * 两条用例意外耦合团队成员计数）。这个成员不入任何团队，专属本条用例。
+   */
+  orgAdminKeyboardMemberUserId: "user-ssp-e2e-org-admin-keyboard-target",
+  orgAdminKeyboardMemberEmail: "ssp-e2e-org-admin-keyboard-target@example.test",
+  orgAdminKeyboardMemberDisplayName: "SSP E2E Org Admin Keyboard Target",
+
   projectId: "project-ssp-e2e",
 
   /** 种子里已存在、带一名成员的团队——"删除非空团队被拒绝"这条反证的对象。 */

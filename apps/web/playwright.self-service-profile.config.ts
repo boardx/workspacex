@@ -24,8 +24,13 @@ export default defineConfig({
    * 起好了 profile 这条链路需要的真登录 + 真种子库全套编排，单自建 runner 是硬瓶颈。
    * 用的是独立的 `keyboardEmail` 账号（`self-service-profile-fixture.ts` 头注），
    * 不与 `self-service-profile.spec.ts` 的 admin 账号共享登录态/密码。
+   *
+   * F06 —— 新增 `org-admin-keyboard-navigation.spec.ts` 同理接住：`/org-admin`
+   * 需要真登录 + 组织 admin 角色（`ReviewerFunctionPicker` 仅 admin 渲染）+ 真种子库，
+   * 同样是这套编排的自然延伸。用的是独立的 `orgAdminKeyboardAdminEmail`/
+   * `orgAdminKeyboardMemberEmail` 账号对（`self-service-profile-fixture.ts` 头注）。
    */
-  testMatch: /(self-service-profile|profile-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(self-service-profile|profile-keyboard-navigation|org-admin-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   // 本文件一条用例里串了登录/改名/刷新/改密码/退出/两次重新登录/团队增改删五组动作，
@@ -77,6 +82,14 @@ export default defineConfig({
         SSP_E2E_KEYBOARD_EMAIL: SELF_SERVICE_PROFILE_E2E.keyboardEmail,
         SSP_E2E_KEYBOARD_PASSWORD: SELF_SERVICE_PROFILE_E2E.keyboardPassword,
         SSP_E2E_KEYBOARD_DISPLAY_NAME: SELF_SERVICE_PROFILE_E2E.keyboardDisplayName,
+        // F06 —— org-admin 键盘可达性专属账号对，唯一事实源在 `self-service-profile-fixture.ts`。
+        SSP_E2E_ORG_ADMIN_KEYBOARD_ADMIN_USER_ID: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardAdminUserId,
+        SSP_E2E_ORG_ADMIN_KEYBOARD_ADMIN_EMAIL: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardAdminEmail,
+        SSP_E2E_ORG_ADMIN_KEYBOARD_ADMIN_PASSWORD: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardAdminPassword,
+        SSP_E2E_ORG_ADMIN_KEYBOARD_ADMIN_DISPLAY_NAME: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardAdminDisplayName,
+        SSP_E2E_ORG_ADMIN_KEYBOARD_MEMBER_USER_ID: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardMemberUserId,
+        SSP_E2E_ORG_ADMIN_KEYBOARD_MEMBER_EMAIL: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardMemberEmail,
+        SSP_E2E_ORG_ADMIN_KEYBOARD_MEMBER_DISPLAY_NAME: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardMemberDisplayName,
         // #548：不供这一条，API 进程起不来（`credentialCipherFromEnv()` 抛错）。
         MODEL_CREDENTIAL_KEY: "self-service-profile-e2e-credential-key-not-a-secret",
       },
