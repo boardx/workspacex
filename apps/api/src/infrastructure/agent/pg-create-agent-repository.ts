@@ -16,7 +16,7 @@
 import type { DatabasePort } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
 import type { AgentDefinition } from "../../domain/agent/definition";
-import type { CreateAgentRepository } from "../../application/agent/create-agent";
+import type { AgentCapabilityGraphRow, CreateAgentRepository } from "../../application/agent/create-agent";
 import type { SetAgentInstructionsRepository } from "../../application/agent/set-agent-instructions";
 
 /**
@@ -50,6 +50,19 @@ export interface AgentDefinitionRow {
   readonly tool_whitelist: unknown;
   readonly concurrency_limit: number | null;
   readonly degrade_policy: string | null;
+}
+
+/**
+ * #1918 hotfix（#1923）—— `findForCapabilityGraph` 的窄行形状。刻意不复用
+ * `AgentDefinitionRow`：那个类型的字段集合是为 `toDefinition` 的七列判据服务的，
+ * 混进同一个类型容易让人以为能力图也要过那组判据。
+ */
+interface CapabilityGraphColumnsRow {
+  readonly id: string;
+  readonly name: string;
+  readonly role_label: string | null;
+  readonly skill_mounts: unknown;
+  readonly tool_whitelist: unknown;
 }
 
 export const AGENT_DEFINITION_COLUMNS =
@@ -126,6 +139,33 @@ export class PgCreateAgentRepository implements CreateAgentRepository {
       );
       const row = found.rows[0];
       return row === undefined ? null : toDefinition(row);
+    });
+  }
+
+  /**
+   * #1918 hotfix（#1923）—— 能力图只读路径，**不**经过 `toDefinition` 的
+   * 「七列非空才算数」判据（那条判据是为「能不能当克隆源」服务的）。只要这一行
+   * 存在（同组织），就能读出能力图要用的几个字段——`role_label`/`skill_mounts`/
+   * `tool_whitelist` 允许为 NULL，分别兜底成 `""`/`[]`/`[]`，与 `toDefinition`
+   * 对这几列的兜底逻辑一致（它们本就不参与那组七列判据）。
+   */
+  async findForCapabilityGraph(orgId: string, agentId: string): Promise<AgentCapabilityGraphRow | null> {
+    return this.db.withTenant(toOrgId(orgId), async (session) => {
+      const found = await session.query<CapabilityGraphColumnsRow>(
+        `SELECT id, name, role_label, skill_mounts, tool_whitelist
+           FROM agents
+          WHERE id = $1 AND org_id = $2`,
+        [agentId, orgId],
+      );
+      const row = found.rows[0];
+      if (row === undefined) return null;
+      return {
+        agentId: row.id,
+        name: row.name,
+        roleLabel: row.role_label ?? "",
+        skillMounts: (row.skill_mounts as AgentDefinition["skillMounts"]) ?? [],
+        toolWhitelist: (row.tool_whitelist as AgentDefinition["toolWhitelist"]) ?? [],
+      };
     });
   }
 
