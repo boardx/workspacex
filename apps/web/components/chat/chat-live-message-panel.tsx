@@ -627,6 +627,18 @@ export function ChatLiveMessagePanel({
         // 终态重读：从本地已加载列表尾部追新，不清空不弹骨架
         // （#925 ② 消灭闪烁 + `catchUpCursorRef` 头注——H3 根因修复）
         await loadPage(catchUpCursorRef.current, "soft");
+        // 真实回归（本轮复测抓到）：上面的流式 effect 头注说「清空移到 loadPage 完成
+        // 之后」，但实际把 `setStreamingText("")` 删掉后从没在别处补上——草稿气泡
+        // 因此永远不清空，一直挂到下一次提交为止。这里补上，回到「持久消息已接管，
+        // 草稿让位」的设计意图。
+        setStreamingText("");
+        // 同理：`runObservation` 只在下次提交/换线程时清（见上方头注「换线程/新提交
+        // 时 runObservation 置 null」），但持久消息此刻已经进了列表，自己挂了一份
+        // `MessageThinkingChain`（第 1081 行）——如果不在这里清掉，过程区 `<li>`
+        // （第 1211 行起）与持久消息的工具链会为同一个 run 同屏渲染两份
+        // `AgentToolChain`，`agent-tool-chain-toggle` 等 testid 撞出「多个匹配元素」。
+        // 持久消息已经接管展示，这里清空就是把权威关系交回去，不是丢状态。
+        setRunObservation(null);
         // #728 第 10 轮 P10 —— `queuedRun` 是「已提交、等待轮询」那段过渡态的回执，
         // 到了终态（成功/失败）它就该让位给下面 `AgentRunStatus` 的权威状态文案。
         // 之前没清，评分员截到过「消息已持久化，AgentRun 已排队。」和「执行完成，
