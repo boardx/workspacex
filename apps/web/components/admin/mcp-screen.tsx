@@ -1,9 +1,9 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Plus, Plug, Wrench, ShieldCheck, Check, Ban, ArrowUpRight, LayoutGrid, LayoutList } from "lucide-react";
+import { Plus, Plug, Wrench, ShieldCheck, Check, Ban, ArrowUpRight, LayoutGrid, LayoutList, TriangleAlert } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
-import { NoBackendNotice } from "./no-backend-notice";
+import { McpRemoteDiscoverPanel } from "./mcp-remote-discover-panel";
 import { AuthScopeBadge, ReviewBadge } from "./scope-badges";
 import { AdminDrawer, ConfirmDialog, Toast, Field, KV } from "./panel";
 import { DisableDialog, type DisableMode } from "./disable-dialog";
@@ -16,6 +16,37 @@ import {
   type McpConnStatus, type McpRow,
 } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
+
+/**
+ * issue #1849 —— 这块屏**局部**接了真库：上方「连接远程 MCP 服务器」面板
+ * （`./mcp-remote-discover-panel`）走真实 `discoverRemoteMcpTools` API，服务端真的用
+ * MCP SDK 连出去、发现真实工具列表。下方服务器清单/放行评审/安全策略四开关仍是
+ * `lib/mock/admin` 的静态演示数据（`registerMcpServer` 等治理契约仍未接线，见
+ * `apps/api/src/application/mcp/ports.ts` 头注）。
+ *
+ * ⚠ 两者混在同一页头写一句话会失真——要么说"零后端"（对发现面板不成立），
+ *   要么说"已接入真实后端"（对下方清单不成立）。选择贴着还是 mock 的部分单独提示
+ *   （见下方 `McpMockRegistryNotice`），页头不再挂 `NoBackendNotice`。
+ * lint-no-backend-badge:backed-by-children — ./mcp-remote-discover-panel 走真实 discoverRemoteMcpTools API，其余仍是演示数据
+ */
+function McpMockRegistryNotice() {
+  return (
+    <div
+      data-testid="admin-mcp-mock-registry-notice"
+      role="alert"
+      className="flex items-start gap-2.5 rounded-md border border-warning/40 bg-warning/10 p-3"
+    >
+      <TriangleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="text-12 font-semibold text-warning-foreground">以下服务器清单为静态演示数据</span>
+        <p className="text-11 text-muted-foreground">
+          服务器注册、放行评审、安全策略四开关尚未接入真实后端，以下内容与操作不会真的生效。
+          上方「连接远程 MCP 服务器」面板已接入真实链路——填端点即真的会发起连接、发现真实工具。
+        </p>
+      </div>
+    </div>
+  );
+}
 
 const CONN_TONE: Record<McpConnStatus, "primary" | "warning" | "danger"> = {
   connected: "primary",
@@ -40,7 +71,12 @@ export function McpScreen({ state }: { state: UiState }) {
       state={state}
       moduleLabel="MCP"
       title="MCP 服务器"
-      noticeOverride={<NoBackendNotice />}
+      /* ⚠ 空 fragment 而非省略/传 `null`——`AdminScreen` 对 `noticeOverride` 用 `??`
+         兜底成 `<SampleConfigNotice />`，那条提示的语义（"后端真实，这是组织自行配置的
+         示例"）对这块屏同样不成立。页头不挂任何一条通用提示，改成贴着仍是 mock 的
+         区块单独提示（见下方 `McpMockRegistryNotice`），与 `members-screen.tsx` 处理
+         局部 mock 区块的方式同一条原则，只是本屏 mock 与真实的比例相反。 */
+      noticeOverride={<></>}
       intro="注册服务器、设定授权范围、默认隔离。新注册的服务器默认隔离、工具不可被调用，须经人工评审放行。工具随授权范围被 agent 白名单引用。"
       emptyHint="还没有注册任何 MCP 服务器"
       errors={{ endpoint: "工具发现失败：端点握手成功但未返回工具清单；服务器保持已隔离，不放行" }}
@@ -49,6 +85,10 @@ export function McpScreen({ state }: { state: UiState }) {
       successMessage="服务器『欧盟法规库』维持隔离；授权范围已设为全体成员，评审状态待安全评审"
     >
       <div className="flex flex-col gap-4">
+        <McpRemoteDiscoverPanel />
+
+        <McpMockRegistryNotice />
+
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-12 text-muted-foreground">
             {MCP_SUMMARY.total} 台 · {MCP_SUMMARY.connected} 台已连接 · {MCP_SUMMARY.isolated} 台已隔离

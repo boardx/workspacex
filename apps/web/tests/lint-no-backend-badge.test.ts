@@ -188,9 +188,19 @@ describe("反向反证 —— 真仓库当前必须是绿的", () => {
   it("apps/web/app/admin/** 下每个零后端模块屏都渲染了 NoBackendNotice", () => {
     const { errors, rows } = lintNoBackendBadge();
     expect(errors, errors.join("\n")).toEqual([]);
-    const zeroBackendRows = rows.filter((r: { zeroBackend: boolean }) => r.zeroBackend);
-    // 若这个数变成 0，说明枚举链路本身断了（比如路由文件的 import 格式变了导致抽不到），
-    // 那样上面的 errors 检查会平凡地通过——用这一条防止它偷偷空转。
-    expect(zeroBackendRows.length).toBeGreaterThan(0);
+    /**
+     * issue #1849：MCP 后台页接上了第一条真实链路（`discoverRemoteMcpTools`，见
+     * `mcp-screen.tsx` 的 `lint-no-backend-badge:backed-by-children` 标记），是这两个
+     * 路由文件目前能枚举到的七块屏里**最后一块**零后端的。⇒ `zeroBackendRows.length`
+     * 合法地变成了 0——这不是枚举链路断了，是产品状态真的变了。
+     *
+     * ⚠ 原来这里断言 `zeroBackendRows.length > 0`，用意是"防止枚举链路悄悄空转"（见
+     *   本文件顶部头注）。但把这条防空转检查焊死在"某块真实生产屏必须永远保持纯 mock"
+     *   上，本身就是一个会随功能开发必然过期的不变量——上面 185 行之前的合成 fixture
+     *   已经用受控输入把红/绿转换测得很干净，不需要再靠一块真实屏"恰好还没接后端"
+     *   来证明枚举没坏。防空转改成断言"枚举到的屏总数 > 0"：这条不会因为某块屏
+     *   接了真后端而被迫改，只会在 `extractScreenImports` 真的抓不到任何屏时才红。
+     */
+    expect(rows.length).toBeGreaterThan(0);
   });
 });
