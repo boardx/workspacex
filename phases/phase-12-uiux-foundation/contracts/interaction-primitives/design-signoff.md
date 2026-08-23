@@ -20,7 +20,8 @@ confirmed_at:
 >
 > **② ✅ usecases.md / domain.md / coverage.md 已备齐。** 五个用例的 in/out/pre/err
 > 均已写明，四条不变量均可写成断言，覆盖表两个方向的核查已列出（反向核查标注为
-> 「未核查」，将在 F01 开工时补，不是假装已经查过）。
+> 「未核查」，将在 F01 开工时补，不是假装已经查过）。UC-4 BELOW_THRESHOLD 默认值
+> 人类 2026-08-23 已确认：复合组件盘点后若不足 3 次重复，接受「不收口」为合法结果。
 >
 > **③ N/A — 本束无后端 API 契约面。** Dialog/Dropdown/Select/Tooltip/Table/Menu/
 > Breadcrumb/Pagination 均为纯前端展示与交互组件，不产生服务端调用，因此

@@ -30,6 +30,31 @@ err: REDUCED_MOTION — 同 UC-2
 err: RAPID_TOGGLE — 用户快速连续点击展开/收起，动效不应堆叠或产生视觉抖动（需 debounce 或中断上一次动画）
 ```
 
+## UC-5：首屏加载骨架屏→内容过渡动效（人类 2026-08-23 裁决新增，超出 F03/F04 原范围）
+```
+in:  { route: "chat" | "profile" | "org-admin", contentReady: boolean }
+out: { renderedWithSkeletonToContentTransition: boolean }
+pre: 路由已挂载，骨架屏基础设施存在（本束不建骨架屏组件本身，只定义骨架屏→内容这一段过渡的动效）
+err: REDUCED_MOTION — 同 UC-2
+err: NO_SKELETON_INFRASTRUCTURE — 目标路由尚无骨架屏组件时，本 UC 不产生任何动效（不得对
+     普通 loading spinner 强行包一层过渡动效冒充「编排」）
+```
+⚠ 需要新开 feature（暂记 F17，最终编号由 requirement-author 或人工排定）——现有
+F03（token）/F04（编排动效）覆盖的是消息到达与面板展开，不包含首屏加载。
+
+## UC-6：附件/长任务上传进度动效（人类 2026-08-23 裁决新增，超出 F03/F04 原范围）
+```
+in:  { taskId: string, progress: number, phase: "uploading" | "processing" | "done" | "error" }
+out: { renderedWithProgressAnimation: boolean }
+pre: 上传/长任务已有真实进度事件源（依赖后端进度事件，如 DA-15 file_content_delta 一类通道
+     ——本 UC 只定义收到真实进度事件后的前端动效呈现，不得在事件源缺失时插值编造进度）
+err: REDUCED_MOTION — 同 UC-2
+err: NO_PROGRESS_SOURCE — 后端不提供细粒度进度、只有二元「进行中/完成」时，动效降级为
+     不确定态（indeterminate）指示器，不得插值出虚假的百分比动画
+```
+⚠ 需要新开 feature（暂记 F18，最终编号由 requirement-author 或人工排定）——且依赖后端
+进度事件源是否存在，落地前需与对应后端能力（如 DA-15）对齐时序，不能单独抢跑。
+
 ## UC-4：微交互一致性稽核发现偏离并修复
 ```
 in:  { domain: "chat" | "profile" | "org-admin" | "canvas", element: ComponentRef }

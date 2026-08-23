@@ -33,7 +33,9 @@ confirmed_at:
 > 的验收产出（写进对应 issue/PR），不是本次签核材料的一部分，两者时间点不同、不要混淆。
 > 已在 `ui-material-map.json` 声明目录，ui-prototyper 产出后回填 `ui.md` 索引。
 >
-> **② ✅ usecases.md / domain.md / coverage.md 已备齐。**
+> **② ✅ usecases.md / domain.md / coverage.md 已备齐。UC-3 AMBIGUOUS_SEMANTIC 默认值
+> 人类 2026-08-23 已确认**：图片语义难以一句话描述时留空 alt + 靠相邻文字说明，不强行
+> 编造 alt 文案。
 >
 > **③ N/A — 本束无后端 API 契约面。**
 

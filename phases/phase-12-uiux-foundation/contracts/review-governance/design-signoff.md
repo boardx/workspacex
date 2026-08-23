@@ -19,7 +19,9 @@ confirmed_at:
 > **② ✅ usecases.md / domain.md / coverage.md 已备齐**，含一处需要注意：UC-3
 > 的 `DATA_GAP_FOUND` 分支——评审中如果发现某维度对应的产品数据不存在，参照
 > #831/#728 先例可以移除该维度重算，**但这需要人类确认，不是评审 agent 能自行拍板的**，
-> 已在 domain.md I-4 里写明。
+> 已在 domain.md I-4 里写明。UC-4 UNCLOSED_GAP 默认值人类 2026-08-23 已确认：阶段终验收
+> 若某维度确实因产品功能缺口无法闭合，接受「不满 10 分但如实交付」为合法结束态，不为
+> 凑分伪造证据。
 >
 > **③ N/A — 本束无对外 API 契约面。** `.harness/state/uiux-review-log.jsonl` 是内部
 > 治理数据，不经 `packages/contracts/` 暴露。
