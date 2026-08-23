@@ -95,8 +95,12 @@ import { FileSkillStarterPackSource } from "./infrastructure/skill/file-skill-st
 import { PgSkillStarterImportRepository } from "./infrastructure/skill/pg-skill-starter-import-repository";
 import { SkillStarterImportController } from "./interface/controllers/skill-starter-import.controller";
 import { SkillUrlImportController } from "./interface/controllers/skill-url-import.controller";
-import { composeImportSkillFromUrlDeps } from "./infrastructure/skill/url-import-composition";
+import {
+  composeImportSkillFromUrlDeps,
+  composeDiscoverSkillsFromUrlDeps,
+} from "./infrastructure/skill/url-import-composition";
 import { IMPORT_SKILL_FROM_URL_DEPS_FACTORY } from "./application/skill-import/import-skill-from-url";
+import { DISCOVER_SKILLS_FROM_URL_DEPS_FACTORY } from "./application/skill-import/discover-skills-from-url";
 import { AgentUrlImportController } from "./interface/controllers/agent-url-import.controller";
 import { composeImportAgentFromUrlDeps } from "./infrastructure/agent-import/import-agent-from-url-composition";
 import { IMPORT_AGENT_FROM_URL_DEPS_FACTORY } from "./application/agent-import/import-agent-from-url";
@@ -835,6 +839,16 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         (input: { readonly localOnlyOrg: boolean }) =>
           composeImportSkillFromUrlDeps({ db, identities, localOnlyOrg: input.localOnlyOrg }),
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
+    },
+    /**
+     * #1865 —— 扫描用例的 deps 工厂。同一条纪律（工厂而不是现成 deps，`localOnlyOrg`
+     * 逐请求推导）；这条不需要 `DATABASE_PORT`，因为扫描只读不落库。
+     */
+    {
+      provide: DISCOVER_SKILLS_FROM_URL_DEPS_FACTORY,
+      useFactory: (identities: IdentityRepository) => (input: { readonly localOnlyOrg: boolean }) =>
+        composeDiscoverSkillsFromUrlDeps({ identities, localOnlyOrg: input.localOnlyOrg }),
+      inject: [IDENTITY_REPOSITORY],
     },
     /**
      * #1415 —— agent 版的上一条，同一条纪律（工厂而不是现成 deps，`localOnlyOrg`

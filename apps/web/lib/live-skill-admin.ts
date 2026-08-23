@@ -34,6 +34,12 @@ export type ImportSkillFromUrlIn = z.infer<
 export type ImportSkillFromUrlOut = z.infer<
   typeof wave2Runtime.operations.importSkillFromUrl.out
 >;
+export type DiscoverSkillsFromUrlIn = z.infer<
+  typeof wave2Runtime.operations.discoverSkillsFromUrl.in
+>;
+export type DiscoverSkillsFromUrlOut = z.infer<
+  typeof wave2Runtime.operations.discoverSkillsFromUrl.out
+>;
 
 /**
  * 编辑 = **追加一个新版本**，不是原地改旧版本。
@@ -68,6 +74,22 @@ export async function importSkillFromUrl(
 ): Promise<ImportSkillFromUrlOut> {
   return apiRequest<ImportSkillFromUrlOut>(
     wave2Runtime.operations.importSkillFromUrl.path,
+    { method: "POST", body: input },
+  );
+}
+
+/**
+ * #1865 —— 扫描一个仓库/目录 URL，找出其中所有的 SKILL.md。只读，不落库。
+ *
+ * 每个返回的候选带一个 `treeUrl`——确认导入某一个候选时，把它当
+ * `importSkillFromUrl` 的 `sourceUrl` 原样传回去即可，复用同一条已有的
+ * 落库路径（幂等 key、名字冲突、发布触发器……都不在这一层重新发明）。
+ */
+export async function discoverSkillsFromUrl(
+  input: DiscoverSkillsFromUrlIn,
+): Promise<DiscoverSkillsFromUrlOut> {
+  return apiRequest<DiscoverSkillsFromUrlOut>(
+    wave2Runtime.operations.discoverSkillsFromUrl.path,
     { method: "POST", body: input },
   );
 }

@@ -27,6 +27,7 @@ import type {
   ImportSkillFromUrlDeps,
   ImportSourceFetcher,
 } from "../../application/skill-import/import-skill-from-url";
+import type { DiscoverSkillsFromUrlDeps } from "../../application/skill-import/discover-skills-from-url";
 
 /**
  * 生产取回器。**必须**是 `http-import-fetcher.ts` 的 `fetchImportSource` 本身，
@@ -55,6 +56,26 @@ export function composeImportSkillFromUrlDeps(input: {
     identities: input.identities,
     fetch: PRODUCTION_IMPORT_FETCHER,
     repository: new PgSkillUrlImportRepository(input.db),
+    policy: { localOnlyOrg: input.localOnlyOrg },
+  };
+}
+
+/**
+ * #1865 —— 扫描用例的装配。**只读，不落库**，所以没有仓储字段——与
+ * `composeImportSkillFromUrlDeps` 唯一的差别就是少了 `repository`，
+ * `fetch` 仍然绑的是同一个 `fetchImportSource`（两道 SSRF 门同一套，不重新发明）。
+ *
+ * ⚠ 这个函数不参与 `url-import-binding-guard.test.ts` 的同一性/唯一装配点断言——
+ *   那份守卫钉的是 `composeImportSkillFromUrlDeps`/`ImportSkillFromUrlDeps` 这组
+ *   具体标识符，本函数是不同的名字、不同的 deps 形状，不是它要挡的"第二处装配"。
+ */
+export function composeDiscoverSkillsFromUrlDeps(input: {
+  readonly identities: IdentityRepository;
+  readonly localOnlyOrg: boolean;
+}): DiscoverSkillsFromUrlDeps {
+  return {
+    identities: input.identities,
+    fetch: PRODUCTION_IMPORT_FETCHER,
     policy: { localOnlyOrg: input.localOnlyOrg },
   };
 }
