@@ -189,6 +189,11 @@ export const CanvasError = z.enum([
   "REALTIME_DEGRADED",
   /** 过程中权限被撤：终止后续写，未提交输入留本地草稿（E4） */
   "AUTHORIZATION_REVOKED",
+  /**
+   * `suggestTemplateSections`：模型调用失败**或**模型回了解析不出来的 JSON，两种失败
+   * 合用同一个码——见该操作文件头「模型调用失败/模型回了解析不出来的东西，同一个码」。
+   */
+  "TEMPLATE_SUGGESTION_UNAVAILABLE",
 ]);
 
 /* ─────────────────────────────── 值对象 ─────────────────────────────── */
@@ -200,6 +205,21 @@ export const SectionDef = z.object({
   order: z.number().int().nonnegative(),
   required: z.boolean(),
   capacity: z.number().int().positive().nullable(),
+}).strict();
+
+/** `suggestTemplateSections.out.sections` 里的一项——AI 只提议名字，没有 id/order/capacity。 */
+export const TemplateSectionSuggestion = z.object({ name: z.string() }).strict();
+
+/**
+ * `suggestTemplateSections` 用例解析模型原始 JSON 输出用的 schema——**不是** `out`（`out`
+ * 多了 `modelProvider`/`modelId` 两栏，那是用例自己附上的 provenance，不是模型说的话）。
+ * 单独放这里而不是让用例自己声明一个 `z.object`，是因为 `contract-single-source.test.ts`
+ * 钉死了「后端一个 z.object 都不许自己声明，形状只能来自契约」（同 `research.ts` 的
+ * `GuidedResearchOutlineGenerationResponse` 与 `GuidedResearchOutlineGeneration` 分开的理由）。
+ */
+export const TemplateSectionSuggestionModelResponse = z.object({
+  displayName: z.string().min(1),
+  sections: z.array(TemplateSectionSuggestion).min(2).max(12),
 }).strict();
 
 /** 便签。⚠ 匿名成员也能贴，`authorRef` 用临时身份标记，且该标记在导出与审计中**可追溯**（V12） */
@@ -344,6 +364,53 @@ export const operations = {
       sections: z.array(SectionDef),
     }).strict(),
     err: ["TEMPLATE_KEY_CONFLICT", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * suggestTemplateSections —— 2026-08-23，**设计增量、待人类补签**（同 #496/#988 的先例：
+   * coord-main 在人类不在场时代裁「先做」，登记待补签，见 issue #1798 的后续跟进 issue）。
+   *
+   * ## 这条只读，不落库——它不是 `createTemplate` 的替代
+   *
+   * 人类原话「输入一个常用的管理模板……系统可以自动创建可视化的模板」。落地成两段而不是
+   * 一段：本操作只做「AI 提议这个模板该有哪些分区」，返回值**不写任何东西进模板注册表**——
+   * 真正造出那一行草稿，仍然走已签核的 `createTemplate`（前端把这里的建议**回填进同一个
+   * 新建表单**，使用者仍要看一眼、能改、再点「新建草稿」）。选择只读的理由：`createTemplate`
+   * 是已签核的契约面，「AI 建议」如果直接产出一次写入，等于让一个未经模型输出可靠性验证的
+   * 新入口绕过使用者审阅就动了模板注册表——而 AI 生成的分区名不受任何 schema 约束（模型可能
+   * 瞎写），把「读」和「写」分成两步，坏的建议只会让表单显示得不对，不会真的建出一行坏数据。
+   *
+   * ## `prompt` 是自由文本，不是模板 key 的枚举
+   *
+   * 不做「从 19 个内置 key 里选一个」这种收窄——那样就不是「输入一个常用模板名字」了，
+   * 而是从下拉框选。`prompt` 原样交给模型，模型认不认得（商业模式画布/SWOT/……随便一个
+   * 工作坊常见框架）取决于模型自己的知识，不在契约层判定。
+   *
+   * ## `suggestedKey` 故意不在 `out` 里
+   *
+   * key 在组织内唯一（`TEMPLATE_KEY_CONFLICT`），而唯一性检查只有 `createTemplate` 自己的
+   * 仓储那条语句知道当下真相——这里生成一个「看起来合适」的 key 建议，等提交时才发现已被
+   * 占用，是在给使用者一个大概率要重填的假建议。`displayName`/`sections` 不撞库存在性问题，
+   * `key` 撞，所以只有 `key` 这一栏留给使用者自己填。
+   */
+  suggestTemplateSections: {
+    method: "POST", path: "/canvas/templates/suggestions",
+    in: z.object({
+      /** 使用者打的模板名字/一句话描述，如「商业模式画布」或「团队复盘 retro」。 */
+      prompt: z.string().min(1).max(200),
+    }).strict(),
+    out: z.object({
+      /** AI 提议的显示名——回填进新建表单，使用者仍可改。 */
+      suggestedDisplayName: z.string(),
+      sections: z.array(TemplateSectionSuggestion).min(2).max(12),
+      modelProvider: z.string(),
+      modelId: z.string(),
+    }).strict(),
+    /**
+     * ⚠ 模型调用失败 / 模型回了解析不出来的东西，**同一个码**：两种失败对使用者是同一件事
+     * ——「这次没建议出来，手动填或再试一次」，不需要在界面上分两种文案，见用例实现的说明。
+     */
+    err: ["TEMPLATE_SUGGESTION_UNAVAILABLE", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /**

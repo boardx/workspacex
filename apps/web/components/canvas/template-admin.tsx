@@ -3,7 +3,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutGrid, List, Archive, RotateCcw, Rocket, Pencil, AlertTriangle, RefreshCw, Plus, Play, X,
-  Search, FlaskConical,
+  Search, FlaskConical, Sparkles,
 } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import type { ProjectRole } from "@/lib/identity";
@@ -18,6 +18,7 @@ import {
   mintCanvasTemplateVersion,
   publishCanvasTemplate,
   restoreCanvasTemplate,
+  suggestCanvasTemplateSections,
   TEMPLATE_FILTERS,
   TEMPLATE_STATUS_LABEL,
   TEMPLATE_VISIBILITY_LABEL,
@@ -817,6 +818,34 @@ function CreateDialog({
   const nameDuplicate = touched.displayName && displayName.trim().length > 0
     && existingNames.some((n) => n.trim().toLowerCase() === displayName.trim().toLowerCase());
 
+  /**
+   * 2026-08-23——「输入一个常用的管理模板……系统可以自动创建可视化的模板」（人类原话）。
+   * 只在「新建」模式提供：「基于此开新版」已经有一份来源内容，AI 起草一份新的分区结构
+   * 会让"来源版本预填"与"AI 建议"两个初始值来源打架，`mintFrom` 存在时不挂这个入口。
+   *
+   * ⚠ AI 只**提议**——回填进这份表单之后，使用者仍要看一眼、能改、再点「新建草稿」。
+   *   见 `suggestCanvasTemplateSections` 与契约操作文件头「为什么不直接写库」。
+   */
+  const [aiPrompt, setAiPrompt] = React.useState("");
+  const [aiSuggesting, setAiSuggesting] = React.useState(false);
+  const [aiError, setAiError] = React.useState<string | null>(null);
+
+  async function suggestFromAi() {
+    if (aiPrompt.trim().length === 0) return;
+    setAiSuggesting(true);
+    setAiError(null);
+    try {
+      const out = await suggestCanvasTemplateSections({ prompt: aiPrompt });
+      setDisplayName(out.suggestedDisplayName);
+      setSectionNames(out.sections.map((s) => s.name));
+      setTouched((t) => ({ ...t, displayName: true }));
+    } catch (e) {
+      setAiError(describeError(e));
+    } finally {
+      setAiSuggesting(false);
+    }
+  }
+
   // 提交所需的最小集，与契约的 `.min(1)` 对齐 —— 但**不**在这里重述一份校验规则：
   // 真正的裁决在服务端，这里只是不让一个必然 400 的请求白跑一趟。
   const canSubmit = key.trim().length > 0 && displayName.trim().length > 0
@@ -884,6 +913,39 @@ function CreateDialog({
             </>
           )}
         </p>
+
+        {!mintFrom && (
+          <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-2.5" data-testid="tpladmin-create-ai-suggest">
+            <span className="text-11 text-muted-foreground">
+              AI 起草——打一个常用模板名字（如「商业模式画布」），自动提议显示名与分区
+            </span>
+            <div className="flex items-center gap-1.5">
+              <input
+                className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-12"
+                placeholder="例如：商业模式画布 / 团队复盘 retro"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                disabled={aiSuggesting}
+                data-testid="tpladmin-create-ai-prompt"
+              />
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={aiPrompt.trim().length === 0 || aiSuggesting}
+                onClick={() => void suggestFromAi()}
+                data-testid="tpladmin-create-ai-generate"
+              >
+                <Sparkles aria-hidden className="h-3 w-3" /> {aiSuggesting ? "生成中…" : "AI 生成"}
+              </Button>
+            </div>
+            <span className="text-9 text-muted-foreground">
+              只是建议，不会自动建出模板——生成后请检查下方字段，确认无误再提交。
+            </span>
+            {aiError && (
+              <span className="text-10 text-destructive" data-testid="tpladmin-create-ai-error">{aiError}</span>
+            )}
+          </div>
+        )}
 
         <label className="flex flex-col gap-1 text-11">
           <span className="text-muted-foreground">
