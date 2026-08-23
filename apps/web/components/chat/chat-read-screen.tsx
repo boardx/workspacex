@@ -124,10 +124,15 @@ export function ChatReadScreen({
   const rosterLoading = rosterLoadingKey === detailKey;
   const rosterError = rosterFailure?.key === detailKey ? rosterFailure.value : null;
   const artifacts = artifactsResult?.key === detailKey ? artifactsResult.value : null;
-  const artifactsLoading = artifactsLoadingKey === detailKey;
+  // ⚠ `xxxLoadingKey === detailKey` 在两者都是初始值 `null` 时为真（与
+  // `detailLoading` 当年在活体浏览器里抓到的是同一类 bug，见
+  // `personal-chat-screen.test.tsx` 头部注释）——未选中线程、没有任何请求在飞时
+  // 右栏会同时显示「选择线程后读取…」和「正在读取…」两个互斥状态
+  // （UI 评分 2026-08-23 第二轮 b10-entry 截图实锤）。加 `detailKey !== null` 收口。
+  const artifactsLoading = detailKey !== null && artifactsLoadingKey === detailKey;
   const artifactsError = artifactsFailure?.key === detailKey ? artifactsFailure.value : null;
   const materials = materialsResult?.key === detailKey ? materialsResult.value : null;
-  const materialsLoading = materialsLoadingKey === detailKey;
+  const materialsLoading = detailKey !== null && materialsLoadingKey === detailKey;
   const materialsError = materialsFailure?.key === detailKey ? materialsFailure.value : null;
 
   /**
@@ -629,7 +634,7 @@ function ThreadList({
       ) : null}
       {roster}
       <Separator />
-      {loading && groups === null ? <p className="p-3 text-12 text-muted-foreground">正在加载真实线程…</p> : null}
+      {loading && groups === null ? <p className="p-3 text-12 text-muted-foreground">正在加载线程…</p> : null}
       {error ? (
         <ErrorState testId="chat-thread-list-error" message={error} retryTestId="chat-thread-list-retry" onRetry={onRetry} />
       ) : null}
@@ -1067,7 +1072,7 @@ function RosterPanel({
       ) : null}
 
       {!hasSelection ? <p className="text-11 text-muted-foreground">选择线程后读取编制。</p> : null}
-      {loading ? <p className="text-11 text-muted-foreground">正在读取真实编制…</p> : null}
+      {loading ? <p className="text-11 text-muted-foreground">正在读取编制…</p> : null}
       {error ? <ErrorState testId="chat-roster-error" message={error} retryTestId="chat-roster-retry" onRetry={onRetry} /> : null}
 
       {roster ? (

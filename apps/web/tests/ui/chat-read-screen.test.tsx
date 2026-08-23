@@ -1141,7 +1141,7 @@ describe("formal Chat read path", () => {
     view.rerender(<ChatReadScreen projectId="project-new" initialThreadId={null} />);
 
     expect(screen.queryByText("旧项目线程")).not.toBeInTheDocument();
-    expect(screen.getByText("正在加载真实线程…")).toBeInTheDocument();
+    expect(screen.getByText("正在加载线程…")).toBeInTheDocument();
 
     await act(async () => next.resolve(threadList("thread-new", "新项目线程")));
     expect(await within(screen.getByTestId("chat-read-thread-list")).findByText("新项目线程")).toBeInTheDocument();
