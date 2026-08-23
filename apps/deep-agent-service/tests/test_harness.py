@@ -98,9 +98,14 @@ def test_version_floor_matches_lock():
 # ── DA-07（rubric D6）：人在环中断 + 恢复的活体反证（进程内真图，MemorySaver）──
 
 
-def _hitl_graph(monkeypatch):
+def _hitl_graph(monkeypatch, *, calls: list[str] | None = None):
     """带 interrupt_on 的真编译图。模型是脚本化假模型：第一轮发起 dangerous_tool
-    调用，第二轮直接作答——这样中断/恢复的全链路不需要任何网络或凭据。"""
+    调用，第二轮直接作答——这样中断/恢复的全链路不需要任何网络或凭据。
+
+    `calls`：传入一个列表时，dangerous_tool 每次真实执行都会把收到的 payload
+    追加进去——reject/edit 测试靠这份记录断言「有没有真的跑」「跑的是谁的参数」，
+    不是只看消息文本（消息断言 + 副作用记录双证，同 test_tool_call_limit_injects_correction
+    的纪律）。"""
     from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
     from langchain_core.messages import AIMessage
     from langchain_core.tools import tool
@@ -110,10 +115,12 @@ def _hitl_graph(monkeypatch):
     from deep_agent_service.harness import build_interrupt_on
 
     monkeypatch.setenv("DEEP_AGENT_HITL_TOOLS", "dangerous_tool")
+    sink = calls if calls is not None else []
 
     @tool
     def dangerous_tool(payload: str) -> str:
         """A tool that must not run without approval."""
+        sink.append(payload)
         return f"EXECUTED:{payload}"
 
     class ScriptedToolCallingModel(GenericFakeChatModel):
@@ -160,6 +167,70 @@ def test_hitl_resume_approve_runs_tool(monkeypatch):
     result = graph.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config)
     texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
     assert any("EXECUTED:x" in t for t in texts), "批准后工具必须真实执行"
+    assert "__interrupt__" not in result
+
+
+def test_hitl_resume_reject_tool_not_executed(monkeypatch):
+    """D6 拒绝：Command(resume=[reject]) 后被拒的工具调用绝不能真实执行，
+    run 必须优雅收尾（走到终稿的 AIMessage，不是挂死或裸异常）——不是只看
+    消息文本里没有 EXECUTED，副作用计数（dangerous_tool 的调用次数）必须是 0，
+    这才是「没有真实执行」的硬证据。
+
+    langchain 0.7.6 HumanInTheLoopMiddleware._process_decision 源码实测
+    （human_in_the_loop.py）：reject 分支把原始 tool_call 连同一条
+    status="error" 的合成 ToolMessage 一起放回状态——进程内实测（本注释旁的
+    反证）确认 ToolNode 遇到已有匹配 tool_call_id 的 ToolMessage 时不会重跑，
+    dangerous_tool 真实调用次数钉在 0。"""
+    from langgraph.types import Command
+
+    calls: list[str] = []
+    graph = _hitl_graph(monkeypatch, calls=calls)
+    config = {"configurable": {"thread_id": "hitl-reject"}}
+    graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    result = graph.invoke(Command(resume={"decisions": [{"type": "reject"}]}), config)
+
+    assert calls == [], f"被拒绝的工具绝不能真实执行，实际记录到调用 {calls}"
+    texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
+    assert not any("EXECUTED" in t for t in texts), "拒绝后消息里不该出现工具执行结果"
+    assert any("rejected" in t.lower() for t in texts), "必须有明确的拒绝通告，不是静默丢弃"
+    assert "__interrupt__" not in result, "拒绝后 run 必须走到终稿，不能停在半途"
+    assert any(getattr(m, "content", "") == "done after approval" for m in result["messages"]), (
+        "run 必须优雅收尾到脚本的下一轮回答，不是挂死或裸异常"
+    )
+
+
+def test_hitl_resume_edit_uses_edited_args(monkeypatch):
+    """D6 改参数放行：这条能力存在的核心价值——人改过的参数必须是实际执行时
+    用的参数，不是模型原始提议的参数。
+
+    resume 形状实测（HumanInTheLoopMiddleware._process_decision，edit 分支）：
+    `Command(resume={"decisions": [{"type": "edit", "edited_action":
+    {"name": <工具名>, "args": <完整参数 dict，不是 patch>}}]})`——`edited_action`
+    直接构成新的 ToolCall(name=edited_action["name"], args=edited_action["args"])，
+    args 整体替换而非合并，这与 apps/api 侧 #1848 实测的字段命名
+    （edited_action.name / edited_action.args，args 是完整对象）一致，
+    这里以 deep-agent-service 自己对 langchain.agents.middleware 的 inspect
+    结果为准。"""
+    from langgraph.types import Command
+
+    calls: list[str] = []
+    graph = _hitl_graph(monkeypatch, calls=calls)
+    config = {"configurable": {"thread_id": "hitl-edit"}}
+    graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    result = graph.invoke(
+        Command(resume={"decisions": [{
+            "type": "edit",
+            "edited_action": {"name": "dangerous_tool", "args": {"payload": "edited-by-human"}},
+        }]}),
+        config,
+    )
+
+    assert calls == ["edited-by-human"], (
+        f"实际执行必须用人改过的参数，模型原始提议是 payload='x'，实际记录到 {calls}"
+    )
+    texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
+    assert any("EXECUTED:edited-by-human" in t for t in texts), "工具结果必须体现改过的参数"
+    assert not any("EXECUTED:x" in t for t in texts), "模型原始提议的参数绝不能被执行"
     assert "__interrupt__" not in result
 
 
