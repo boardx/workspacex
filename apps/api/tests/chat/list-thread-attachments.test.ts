@@ -163,3 +163,54 @@ describe("GET /chat/threads/:threadId/attachments — listThreadAttachments（#7
     expect(await res.json()).not.toHaveProperty("reasonCode");
   });
 });
+
+/**
+ * 个人线程（`projectId: null`，issue #1824）—— 人类今天在 devapp 实测发现个人对话
+ * 完全没有右栏，追查发现 `listThreadAttachments` 全链路（这个用例 + controller +
+ * 前端 client）此前都要求 `projectId` 非空字符串，个人线程一条都读不出来。
+ * `listThreadArtifacts` 早在 2026-08-21 就支持了 `projectId: null`，这里补齐同一条
+ * 判权分派规则（`resolveVisibility` 的 `projectId === null` 分支本就支持，缺的只是
+ * 这条 use case/controller/client 三层没有把 `null` 传进去）。
+ */
+const PERSONAL_THREAD = "thread-d9-materials-personal";
+const PERSONAL_OWNER = "u-d9-materials-personal-owner";
+const PERSONAL_OTHER = "u-d9-materials-personal-other";
+
+describe("GET /chat/threads/:threadId/attachments — 个人线程（projectId: null，#1824）", () => {
+  beforeEach(async () => {
+    await addOrgMember(ORG, PERSONAL_OWNER, "consultant", null);
+    await addOrgMember(ORG, PERSONAL_OTHER, "consultant", null);
+    await addChatThread({
+      orgId: ORG, id: PERSONAL_THREAD, projectId: null, groupId: null,
+      visibilityScope: "plenary", createdBy: PERSONAL_OWNER, title: "个人对话",
+    });
+  });
+
+  it("200：不传 projectId query（缺省 ⇒ 后端归一成 null）——创建者能读回已挂消息的材料", async () => {
+    const sent = await uploadTo(PERSONAL_OWNER, PERSONAL_THREAD, "personal-sent.pdf");
+    const res = await fetch(`${BASE}/chat/threads/${PERSONAL_THREAD}/messages`, {
+      method: "POST",
+      headers: { "x-kernel-test-principal": `${PERSONAL_OWNER}:${ORG}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        clientMessageId: randomUUID(), text: "个人对话里的文件", agentId: AGENT, attachmentIds: [sent],
+      }),
+    });
+    expect(res.status).toBe(202);
+
+    // 关键：不带 `?projectId=` 查询参数——这正是个人对话前端会发出的真实请求形状。
+    const list = await fetch(`${BASE}/chat/threads/${PERSONAL_THREAD}/attachments`, {
+      headers: { "x-kernel-test-principal": `${PERSONAL_OWNER}:${ORG}` },
+    });
+    expect(list.status).toBe(200);
+    const body = await list.json() as { items: Array<{ id: string }> };
+    expect(body.items.map((x) => x.id)).toEqual([sent]);
+  });
+
+  it("404：非创建者读别人的个人线程材料——不可见与不存在同一个出口（I-3）", async () => {
+    const list = await fetch(`${BASE}/chat/threads/${PERSONAL_THREAD}/attachments`, {
+      headers: { "x-kernel-test-principal": `${PERSONAL_OTHER}:${ORG}` },
+    });
+    expect(list.status).toBe(404);
+    expect(await list.json()).not.toHaveProperty("reasonCode");
+  });
+});

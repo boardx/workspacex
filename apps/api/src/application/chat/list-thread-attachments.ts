@@ -5,7 +5,8 @@
  * `docs/proposals/CHAT-728-PENDING-DECISIONS.md` D9 一节）。
  *
  * 与 `list-thread-artifacts.ts` 同一套判权分工：先 `resolveVisibility`，不可见/不存在
- * 一律 `ThreadNotVisibleError`（控制器映射 404，I-3 裸 404 不带 reasonCode）。
+ * 一律 `ThreadNotVisibleError`（控制器映射 404，I-3 裸 404 不带 reasonCode）。`projectId`
+ * 支持 `null`（个人线程，issue #1824 补齐——`resolveVisibility` 早支持，这层此前没接上）。
  *
  * ⚠ 只返回**已挂到某条消息**的附件（`message_id IS NOT NULL`）——composer 里还在传、
  * 尚未随消息发出的 pending 附件不算「材料」：那是草稿态，不是这场对话已经产出的东西。
@@ -31,7 +32,13 @@ export interface ListThreadAttachmentsDeps extends ResolveVisibilityDeps {
 export interface ListThreadAttachmentsInput {
   readonly userId: string;
   readonly orgId: OrgId;
-  readonly projectId: string;
+  /**
+   * `null` = 个人线程（issue #1824）——`resolveVisibility` 按 `projectId === null`
+   * 分派到 `resolvePersonalVisibility`，与 `listThreadArtifacts` 同一条既有分派规则
+   * （2026-08-21 裁决）。此前这里误写成非空 `string`，个人对话的材料面板全链路
+   * 读不出来——不是设计如此，是这层类型比 `resolveVisibility` 的既有支持窄了一档。
+   */
+  readonly projectId: string | null;
   readonly threadId: string;
 }
 
