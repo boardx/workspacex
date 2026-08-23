@@ -3,6 +3,7 @@
  * 协议适配，判断全在 `application`。
  *
  *   POST /canvas/templates                     造一行（#496 → #988，已签核）
+ *   POST /canvas/templates/suggestions         AI 提议分区名，只读不落库（2026-08-23，待补签）
  *   GET  /canvas/templates                     后台模板库 / 绑定选择器（共用一个端口，I-5）
  *   POST /canvas/templates/:key/publish        三段发布流程第三段（I-4）
  *   POST /canvas/templates/:key/trial          第二段
@@ -75,11 +76,13 @@ import {
 import { listTemplates } from "../../application/canvas/list-templates";
 import { publishTemplate } from "../../application/canvas/publish-template";
 import { restoreTemplate } from "../../application/canvas/restore-template";
+import { suggestTemplateSections } from "../../application/canvas/suggest-template-sections";
 import {
   CANVAS_TEMPLATE_REPOSITORY,
   type CanvasTemplateRepository,
 } from "../../application/canvas/template-ports";
 import { trialTemplate } from "../../application/canvas/trial-template";
+import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
 import {
   DECISION_ID_FACTORY,
   IDENTITY_REPOSITORY,
@@ -101,8 +104,10 @@ export const ARCHIVE_CANVAS_TEMPLATE_SCHEMA = C.operations.archiveTemplate.in;
 export const RESTORE_CANVAS_TEMPLATE_SCHEMA = C.operations.restoreTemplate.in;
 export const BIND_CANVAS_TEMPLATE_SCHEMA = C.operations.bindTemplateToSegment.in;
 export const MINT_CANVAS_TEMPLATE_VERSION_SCHEMA = C.operations.mintTemplateVersion.in;
+export const SUGGEST_TEMPLATE_SECTIONS_SCHEMA = C.operations.suggestTemplateSections.in;
 
 type CreateBody = z.infer<typeof C.operations.createTemplate.in>;
+type SuggestSectionsBody = z.infer<typeof C.operations.suggestTemplateSections.in>;
 type PublishBody = z.infer<typeof C.operations.publishTemplate.in>;
 type TrialBody = z.infer<typeof C.operations.trialTemplate.in>;
 type ArchiveBody = z.infer<typeof C.operations.archiveTemplate.in>;
@@ -125,6 +130,7 @@ export class CanvasTemplateController {
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(ID_FACTORY) private readonly ids: IdFactory,
+    @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
   ) {}
 
   /**
@@ -160,6 +166,27 @@ export class CanvasTemplateController {
             sections: body.sections,
             visibility: body.visibility,
           },
+        ),
+      ),
+    );
+  }
+
+  /**
+   * 🟡 2026-08-23，**待人类补签**（同 `create()` 一样的先例）。只读——见用例文件头
+   * 「为什么不直接写库」。**200**，不是 201：没有任何资源被创建。
+   */
+  @Post("/canvas/templates/suggestions")
+  @HttpCode(HttpStatus.OK)
+  async suggestSections(
+    @Body(new ZodBodyPipe(SUGGEST_TEMPLATE_SECTIONS_SCHEMA)) body: SuggestSectionsBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    return this.run(async () =>
+      C.operations.suggestTemplateSections.out.parse(
+        await suggestTemplateSections(
+          { identity: this.identity, model: this.model },
+          { userId: principal.userId, orgId: principal.orgId, prompt: body.prompt },
         ),
       ),
     );
@@ -411,6 +438,10 @@ export class CanvasTemplateController {
         }
         if (e.reasonCode === "DEPENDENCY_UNAVAILABLE") {
           // 503 而不是 403：判定服务不可用不是一个裁定。
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        if (e.reasonCode === "TEMPLATE_SUGGESTION_UNAVAILABLE") {
+          // 503 同上一条——模型调用失败/输出解析不出来，都不是权限裁定。
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
         }
         if (e.reasonCode === "TEAM_REQUIRED_FOR_TEAM_ONLY") {

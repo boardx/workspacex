@@ -62,6 +62,7 @@ export type ArchiveTemplateOut = z.infer<typeof canvas.operations.archiveTemplat
 export type RestoreTemplateOut = z.infer<typeof canvas.operations.restoreTemplate.out>;
 export type PublishTemplateOut = z.infer<typeof canvas.operations.publishTemplate.out>;
 export type TrialTemplateOut = z.infer<typeof canvas.operations.trialTemplate.out>;
+export type SuggestTemplateSectionsOut = z.infer<typeof canvas.operations.suggestTemplateSections.out>;
 /** #493：「使用一个模板」的返回。`boundTemplateVersion` 是**绑定那一刻**的版本，见用例文件头。 */
 export type BindTemplateToSegmentOut = z.infer<
   typeof canvas.operations.bindTemplateToSegment.out
@@ -130,6 +131,22 @@ export async function createCanvasTemplate(input: CreateTemplateIn): Promise<Cre
       sections: input.sections,
       visibility: input.visibility,
     },
+  });
+}
+
+/**
+ * 2026-08-23，**该契约面待人类补签**（同 `createTemplate` 的先例）。
+ *
+ * 只读——不写模板注册表。`prompt` 是使用者打的模板名字（如「商业模式画布」），返回值
+ * **只用来回填新建表单**：使用者仍要看一眼、能改、再调 `createCanvasTemplate` 才真的
+ * 建出一行草稿。见契约里 `suggestTemplateSections` 操作的文件头「为什么不直接写库」。
+ */
+export async function suggestCanvasTemplateSections(
+  input: { readonly prompt: string },
+): Promise<SuggestTemplateSectionsOut> {
+  return apiRequest<SuggestTemplateSectionsOut>(canvas.operations.suggestTemplateSections.path, {
+    method: "POST",
+    body: { prompt: input.prompt },
   });
 }
 

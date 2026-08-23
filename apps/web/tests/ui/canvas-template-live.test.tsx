@@ -866,3 +866,95 @@ describe("2026-08-22 模板管理可用性改进", () => {
     expect(screen.getByTestId("tpladmin-search")).toHaveValue("用户");
   });
 });
+
+/**
+ * 2026-08-23 —— 人类原话「输入一个常用的管理模板……系统可以自动创建可视化的模板」。
+ * `suggestTemplateSections` 只读、回填表单（见其契约文件头「为什么不直接写库」），
+ * 所以这里只验前端这一半：调对了端点、回填对了字段、失败原样回显、且**不自动提交**。
+ * 只读端口本身的服务端反证（模型失败/输出解析不出来映射到同一个 reasonCode、
+ * 不落库）已由 `apps/api/tests/canvas/suggest-template-sections-http.test.ts` 覆盖。
+ */
+describe("2026-08-23 AI 起草模板（suggestTemplateSections）", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-ai-suggest";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-ai-suggest");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("「基于此开新版」模式不挂 AI 起草入口——来源内容与 AI 建议是两个不该打架的初始值来源", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template({ status: "published" })] })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-mint-version-persona-3"));
+    await waitFor(() => expect(screen.getByTestId("tpladmin-mint-dialog")).toBeInTheDocument());
+    expect(screen.queryByTestId("tpladmin-create-ai-suggest")).toBeNull();
+  });
+
+  it("「新建」对话框里，AI 生成成功后回填显示名与分区，且不自动提交", async () => {
+    const posts: Record<string, unknown>[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname === "/canvas/templates/suggestions") {
+        expect(JSON.parse(String(init.body))).toEqual({ prompt: "商业模式画布" });
+        posts.push({ path: url.pathname });
+        return jsonResponse({
+          suggestedDisplayName: "商业模式画布",
+          sections: [
+            { name: "关键合作伙伴" }, { name: "价值主张" }, { name: "客户细分" },
+          ],
+          modelProvider: "test-qwen",
+          modelId: "qwen3.7-plus",
+        });
+      }
+      return jsonResponse({ templates: [] });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    await waitFor(() => expect(screen.getByTestId("tpladmin-create-dialog")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId("tpladmin-create-ai-prompt"), { target: { value: "商业模式画布" } });
+    fireEvent.click(screen.getByTestId("tpladmin-create-ai-generate"));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    // 回填——显示名与三个分区框都出现了 AI 建议的值。
+    await waitFor(() => expect(screen.getByTestId("tpladmin-create-name")).toHaveValue("商业模式画布"));
+    expect(screen.getByTestId("tpladmin-create-section-0")).toHaveValue("关键合作伙伴");
+    expect(screen.getByTestId("tpladmin-create-section-1")).toHaveValue("价值主张");
+    expect(screen.getByTestId("tpladmin-create-section-2")).toHaveValue("客户细分");
+
+    // ⚠ 核心断言：只回填，不自动提交——没有任何 POST /canvas/templates 发生。
+    expect(posts).toHaveLength(1);
+    expect(screen.getByTestId("tpladmin-create-dialog")).toBeInTheDocument();
+  });
+
+  it("AI 生成失败时原样回显 reasonCode，且不清空使用者已经填的字段", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname === "/canvas/templates/suggestions") {
+        return jsonResponse({ reasonCode: "TEMPLATE_SUGGESTION_UNAVAILABLE" }, 503);
+      }
+      return jsonResponse({ templates: [] });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-create"));
+    await waitFor(() => expect(screen.getByTestId("tpladmin-create-dialog")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId("tpladmin-create-name"), { target: { value: "手动填的名字" } });
+    fireEvent.change(screen.getByTestId("tpladmin-create-ai-prompt"), { target: { value: "商业模式画布" } });
+    fireEvent.click(screen.getByTestId("tpladmin-create-ai-generate"));
+
+    await waitFor(() => expect(screen.getByTestId("tpladmin-create-ai-error").textContent).toContain("TEMPLATE_SUGGESTION_UNAVAILABLE"));
+    // 失败不清空使用者已经手填的东西。
+    expect(screen.getByTestId("tpladmin-create-name")).toHaveValue("手动填的名字");
+  });
+});
