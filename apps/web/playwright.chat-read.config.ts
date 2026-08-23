@@ -71,7 +71,14 @@ export default defineConfig({
    * 接住（理由与上面两条逐字相同）：这里已经起好了真登录 + 真线程 + 确定性 provider 全套
    * 编排，单自建 runner 是硬瓶颈；新增的是视觉理解这一条上游替身，其余全部复用。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine)\.spec\.ts$/,
+  /**
+   * DA-17（UX-9 Line D3）—— 新增 `copilotkit-agui-state-snapshot.spec.ts` 同样由本 config
+   * 接住（理由与上面几条逐字相同）：这里已经起好了 deep-agent loopback 替身
+   * （`CHAT_READ_E2E.deepAgentId` 走真实 `DeepAgentModelProvider` 代码路径，会真的产出
+   * `write_todos` 步骤）+ 真登录，唯一新增的断言目标是 `/chat/copilotkit-preview`
+   * 这个既有路由，不需要新的 webServer 编排。
+   */
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*

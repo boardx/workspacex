@@ -254,7 +254,14 @@ export class CopilotkitAguiController {
     }
 
     response.writeHead(200, {
-      "Content-Type": "text/event-stream",
+      // DA-17（UX-9 Line D3）实测发现：不带 `charset` 时，Chromium 的 CDP 网络检查层
+      // （Playwright `response.text()`/`response.body()` 走的正是这条路径，不是页面
+      // 自己 `fetch()` + `TextDecoder` 那条）会把这条 SSE 流当非 UTF-8 解码，中文内容
+      // 全部乱码——`copilotkit-agui-state-snapshot.spec.ts` 抓 wire 字节时踩到。页面内
+      // `HttpAgent` 自己读流不受影响（`TextDecoder` 默认按 UTF-8），但显式声明
+      // charset 是 SSE 响应本该做的事（避免任何中间层/工具凭猜测解码），不是单纯为了
+      // 迁就测试。
+      "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
