@@ -141,6 +141,7 @@
 
 | 日期 | SHA | D1 | D2 | D3 | D4 | D5 | D6 | D7 | D8 | D9 | D10 | 总分 | 证据 | 违规 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-08-23 | 6f84375c | 0.7 | 0.3 | 0.3 | 0.7 | 0.7 | 0.3 | 0.7 | 0.7 | 0.3 | 0.3 | **5.0** | `.harness/state/deepagent-eval/2026-08-23-6f84375c/`（`sse-and-thread-state-evidence/` = 活体 SSE/thread-state/checkpoint-history/fault-injection 采集；`postgres-supplement/` = 本次评分会话补采的真 Postgres 时间旅行/HITL 跨进程恢复验证 + checkpoint 行导出；`scoring-rationale.md` = 十维逐条依据） | ① D10④ trace 链路缺失：证据 `00-info.json` 显示 `langsmith:false`，全仓无 OTel 导出，评测时拿不出 trace ID，D10④ 判未达标，是 D10 停在 0.3 而非 0.7 的主因之一。② D10③ `guided_research_graph.py` 平行 loop：人类已于同日裁决「迁移到 deepagents 统一引擎」但尚未派工执行，现状仍是未收口的双图。③ TC-1~TC-5 黄金压测脚本目录 `apps/deep-agent-service/tests/golden/` 不存在（DA-09 未交付），本次评分未临时补写脚本凑数，如实记录为缺口而非违规。④ D6 只验证了 approve 一态，reject/在线改参数两态无任何测试或活体证据。⑤ D7② 死循环纠偏是总调用次数硬顶（近似），非同工具/文件重复检测的严格等价物。 |
 | 2026-08-22 | 314a6561 | 0 | 0.3 | 0.3 | 0.3 | 0 | 0 | 0.3 | 0 | 0 | 0.3 | **1.5** | 基线，backlog §基线取证（v2 标尺重评：D4 平台内存态 0.5→0.3、D10 旧 API 用法 0.5→0.3、D7 失败可见无恢复 0.3；总分不变） | — |
 
 > 基线注：引擎能力分与 chat-ux P 组 7/10 不矛盾——那 7 分里相当部分是前端在轮询架构上
