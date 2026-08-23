@@ -27,6 +27,7 @@ from deep_agent_service.harness import (
 )
 from deep_agent_service.model import build_chat_model
 from deep_agent_service.tools import build_tools
+from deep_agent_service.tracing import build_tracing_callbacks
 
 SYSTEM_PROMPT = (
     "你是本组织的通用助手（由 deepagents 驱动，系统预置）。收到任务后先想清楚要不要调用"
@@ -51,3 +52,8 @@ graph = create_deep_agent(
     # 与 create_deep_agent 的参数默认值逐字一致——行为与接线前完全相同。
     subagents=build_subagents(_model),
 )
+
+# DA-10④（rubric D10④）：默认本地 OTel 导出，理由与导出目标见 tracing.py 模块注释。
+# `.with_config` 是 Runnable 的官方「绑定默认配置」机制，`langgraph dev`/Platform
+# 经 API 发起的 run 一样会经过它，不需要调用方配合传 callbacks。
+graph = graph.with_config({"callbacks": build_tracing_callbacks()})
