@@ -119,6 +119,10 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 - **动作**：289 行手写 StateGraph 要么迁移到 deepagents（若 interrupt 语义可覆盖），
   要么在文件头写明豁免理由 + 签核。不允许无声地维持两套。
 - **依赖**：DA-02 后评估，产出裁决材料给人类。
+- **✅ 人类 2026-08-23 已裁决：迁移到 deepagents 统一引擎**（narrowed A/B 提问，
+  非开放式）。开工前需先验证 guided_research 现有的中断/重试路径在 deepagents
+  的 interrupt 语义下是否等价——这是本条本身要做的核对，不是新的待裁决点。
+  尚未派工，需要新开 issue。
 
 ### DA-11 子代理委托可见化
 - **推动**：D5（0→1）
@@ -162,6 +166,23 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
   Reject 语义 = 不应用该 patch 并把拒绝原因回注给 agent。
 - **依赖**：DA-13、DA-15。
 
+### DA-17 AG-UI 桥补状态轴 + CUSTOM 通道
+- **推动**：D9（下行状态）、DA-13 的传输层
+- **动作**：`AguiEvent` 联合类型补 `STATE_SNAPSHOT`/`STATE_DELTA`（RFC 6902 JSON Patch）/
+  `CUSTOM {name, value}`，字段形状对齐真实 `@ag-ui/core` zod schema；`write_todos`
+  完成时作为首个真实生产者发 `STATE_SNAPSHOT`（解析失败/空结果不发，不造假状态）。
+- **状态**：✅ done —— #1842（Closes #1841），已合入 main。
+
+### DA-18 通用声明式 UI schema
+- **推动**：per-tool 生成式卡片的复用度
+- **动作**：评估是否做一个通用 schema 描述工具调用卡片的渲染形状，替代逐工具各写
+  渲染逻辑。
+- **✅ 人类 2026-08-23 已裁决：不做**（narrowed A/B 提问，非开放式）。理由：通用
+  schema 若做成前端可以脱离真实数据渲染任意结构，等于给「造假 UI」开了一条正当化
+  的路——与「不做无后端支撑假 UI」硬红线冲突。per-tool 卡片各自贴合自己的真实数据
+  形状（如 DA-06 的工具调用卡、DA-17 的 todos 规划条）更安全，代价是复用度低一些，
+  可接受。此条视为关闭，不再是待裁决项。
+
 ## UX-9 冲刺（2026-08-23 人类裁决：以 UI 主卡到 9 分为目标，subagent 并行，全程无人类参与）
 
 评分循环：改代码 → shots 真栈取证（慢速档）→ 独立评分员看图 → 实锤 → 下一轮。
@@ -171,12 +192,17 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 |---|---|---|---|
 | **A**（coord-architecture） | 流式交接无缝（草稿活到持久消息落位）· run 过程区独立于瞬态气泡（终态留存 3/3）· 折叠头不早下结论 + 逐工具参数摘要 · 三场景取证（展开态/markdown/真实失败） | 1 / 2 / 3 / 7 / 8 | v8 自证：streaming行=true×6、规划条留存到终态 |
 | **B**（dev-chat-e2e 并行） | 一致性五处：右栏双态并存 ·「真实」等开发者词汇外泄 · 录音红色语义冲突 · agent 名称中途改写 ·（遮挡留 A） | 10 / 5 | 进行中 |
-| **C**（dev-chat-e2e 并行，stack 在 A 上） | loopback 多步剧本（第二工具参数引用第一工具结果）+ 展开态取证——「看结果→定下一步」的链条可判 | 4 / 3 | 进行中 |
-| **D**（A/B/C 合并后） | 上行上下文注入（useCopilotReadable 等价：视窗/选中→run 上下文）· DA-12 VFS · DA-13 双栏工作台 | 9 + 架构下半场 | 排队 |
+| **C**（dev-chat-e2e 并行） | loopback 多步剧本（第二工具参数引用第一工具结果）+ 展开态取证——「看结果→定下一步」的链条可判 | 4 / 3 | #1855 PR 待合（原 #1835 因 stack 在已 squash 的 A 分支上产生假冲突，重开） |
+| **D1**（dev-chat-e2e） | 删除无后端支撑的假数据右栏 chat-right-panel（原型专用，157 行纯 mock） | 反假数据/诚实度 | #1840 PR 待合 |
+| **D2**（dev-ai-runtime） | DA-17：AG-UI 桥补状态轴 STATE_SNAPSHOT/DELTA + CUSTOM 通道，write_todos 作首个真实生产者 | 9（下行状态） | #1842 PR 待合 |
+| **D4**（dev-ai-runtime） | HITL edit 三态——契约/DB/应用/provider 四层，edited_action 字段形状实测（非猜测） | 6（人在环） | #1848 PR 待合 |
+| **D5**（dev-ai-runtime） | 具名研究子代理 org-skill-researcher，真实委托三证据 | 11（子代理委托可见） | #1843 PR 待合 |
+| **D3**（A/B/C 全合并后） | 上行上下文注入（useCopilotReadable 等价：视窗/选中→run 上下文）· DA-12 VFS · DA-13 双栏工作台——前端消费 D2 落的 STATE 事件 | 9 + 架构下半场 | 排队，等 C(#1855) 合并 |
 | 活体半边 | 真实模型的 4/6 质量判定、真实麦克风的 5——devapp 取证（live-evidence workflow #1823） | 4 / 5 / 6 | 需部署环境 |
 
-并行纪律：文件级禁区互斥（A 持 panel/tool-chain，B 禁入；C stack 在 A 分支）；
+并行纪律：文件级禁区互斥（A 持 panel/tool-chain，B 禁入；C stack 在 A 分支；D1/D2/D4/D5 各自独立文件域，互不相扰）；
 机器容量上限 3 条并行（parallel-dispatch 教训：四条线 load 50）。
+命名说明：原「线 D」拆成 D1/D2/D4/D5（已完工待合）+ D3（依赖 A/B/C 全合并，未开工）——避免把「D 排队」和「D1/D2/D4/D5 已完工」两个事实叠在一处。
 
 ## 评分预期（诚实版）
 
