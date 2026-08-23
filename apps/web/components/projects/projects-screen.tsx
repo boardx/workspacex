@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
@@ -239,6 +240,11 @@ export function ProjectsScreen() {
  * F164：⋯ 菜单接真 archive/unarchive（编辑/看大屏/复制邀请后端未实现，禁用 + 如实说明）。
  * F185：加标签编辑（增/删，整体替换语义）；`layout` 控制卡片/列表两种密度，
  * 同一份逻辑与 testid，不另外维护第二份组件。
+ * F09：⋯ 菜单改走 `components/ui/menu.tsx`（Radix DropdownMenu 别名）——此前是手写
+ * `open` state（且此前**没有**外点关闭/Esc 关闭，Radix 原生补上了这个此前缺失的行为）。
+ * 归档二次确认子态（`confirming`）用 `onSelect` preventDefault 承接，不让 Radix
+ * 「选中即自动关闭」抢走本组件自己的 confirming/busy/error 状态机（F01 当初把这个
+ * 文件判定为高风险暂缓，F09 验证过 Radix 受控 `open` + preventDefault 能干净承接）。
  */
 function ProjectRealCard({
   project, orgId, layout, onChanged,
@@ -291,105 +297,101 @@ function ProjectRealCard({
                   </Badge>
                 ) : null}
 
-                <div className="relative">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="更多操作"
-                    aria-expanded={open}
-                    data-testid={`projects-card-${project.id}-more`}
-                    onClick={() => { setOpen((v) => !v); setConfirming(false); setError(null); }}
-                  >
-                    <MoreHorizontal aria-hidden className="h-4 w-4" />
-                  </Button>
-
-                  {open ? (
-                    <div
-                      role="menu"
-                      data-testid={`projects-more-menu-${project.id}`}
-                      className="absolute right-0 top-9 z-10 w-64 rounded-lg border border-border bg-popover p-1 shadow-md"
+                <Menu
+                  open={open}
+                  onOpenChange={(next) => {
+                    setOpen(next);
+                    setConfirming(false);
+                    setError(null);
+                  }}
+                >
+                  <MenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="更多操作"
+                      data-testid={`projects-card-${project.id}-more`}
                     >
-                      {confirming ? (
-                        <div className="flex flex-col gap-2 p-2" data-testid={`projects-archive-confirm-${project.id}`}>
-                          <p className="text-12 font-medium">
-                            {archived ? "确认恢复这个项目？" : "确认归档这个项目？"}
-                          </p>
-                          <div className="rounded-md border border-warning/30 bg-warning/5 p-2">
-                            {archived ? (
-                              <p className="text-11 text-muted-foreground">恢复后项目重新可写，内容与引用关系不变。</p>
-                            ) : (
-                              <>
-                                <p className="text-11 font-medium text-warning-foreground">归档会影响：</p>
-                                {/* 这几条都来自 F124（已 passing）真实验证过的归档语义，不是文案想象 */}
-                                <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4 text-11 text-muted-foreground">
-                                  <li>项目转为只读：写入被拒绝，读仍然可用</li>
-                                  <li>不删除任何内容，误归档可一键恢复</li>
-                                  <li>已定版的快照仍可被下游引用</li>
-                                  <li>默认不再被上下文召回，需要时可显式请求</li>
-                                </ul>
-                              </>
-                            )}
-                          </div>
-                          {error !== null ? (
-                            <p className="text-11 text-destructive" data-testid={`projects-archive-error-${project.id}`}>
-                              {error}
-                            </p>
-                          ) : null}
-                          <div className="flex justify-end gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              data-testid={`projects-archive-cancel-${project.id}`}
-                              onClick={close}
-                              disabled={busy}
-                            >
-                              取消
-                            </Button>
-                            <Button
-                              variant={archived ? "primary" : "destructive"}
-                              size="sm"
-                              data-testid={`projects-archive-submit-${project.id}`}
-                              onClick={() => void submit()}
-                              disabled={busy}
-                            >
-                              {busy ? "提交中…" : archived ? "确认恢复" : "确认归档"}
-                            </Button>
-                          </div>
+                      <MoreHorizontal aria-hidden className="h-4 w-4" />
+                    </Button>
+                  </MenuTrigger>
+                  <MenuContent align="end" sideOffset={4} data-testid={`projects-more-menu-${project.id}`} className="w-64">
+                    {confirming ? (
+                      <div className="flex flex-col gap-2 p-2" data-testid={`projects-archive-confirm-${project.id}`}>
+                        <p className="text-12 font-medium">
+                          {archived ? "确认恢复这个项目？" : "确认归档这个项目？"}
+                        </p>
+                        <div className="rounded-md border border-warning/30 bg-warning/5 p-2">
+                          {archived ? (
+                            <p className="text-11 text-muted-foreground">恢复后项目重新可写，内容与引用关系不变。</p>
+                          ) : (
+                            <>
+                              <p className="text-11 font-medium text-warning-foreground">归档会影响：</p>
+                              {/* 这几条都来自 F124（已 passing）真实验证过的归档语义，不是文案想象 */}
+                              <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4 text-11 text-muted-foreground">
+                                <li>项目转为只读：写入被拒绝，读仍然可用</li>
+                                <li>不删除任何内容，误归档可一键恢复</li>
+                                <li>已定版的快照仍可被下游引用</li>
+                                <li>默认不再被上下文召回，需要时可显式请求</li>
+                              </ul>
+                            </>
+                          )}
                         </div>
-                      ) : (
-                        <div className="flex flex-col">
-                          <MenuItemUnavailable testid={`projects-more-${project.id}-edit`}>编辑项目</MenuItemUnavailable>
-                          <MenuItemUnavailable testid={`projects-more-${project.id}-bigscreen`}>看现场大屏</MenuItemUnavailable>
-                          <MenuItemUnavailable testid={`projects-more-${project.id}-copy-invite`}>复制邀请链接</MenuItemUnavailable>
-                          <p
-                            className="px-2 py-1 text-9 text-muted-foreground"
-                            data-testid={`projects-more-${project.id}-unavailable-note`}
-                          >
-                            上面三项后端尚未实现，暂不可用。
+                        {error !== null ? (
+                          <p className="text-11 text-destructive" data-testid={`projects-archive-error-${project.id}`}>
+                            {error}
                           </p>
-                          <div className="my-1 h-px bg-border" aria-hidden />
-                          <button
-                            type="button"
-                            role="menuitem"
-                            data-testid={`projects-more-${project.id}-archive`}
-                            onClick={() => { setConfirming(true); setError(null); }}
-                            className={cn(
-                              "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-12",
-                              "transition-colors duration-200 hover:bg-muted",
-                              archived ? "text-card-foreground" : "text-destructive",
-                            )}
+                        ) : null}
+                        <div className="flex justify-end gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            data-testid={`projects-archive-cancel-${project.id}`}
+                            onClick={close}
+                            disabled={busy}
                           >
-                            <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
-                            {archived ? "恢复项目" : "归档项目"}
-                          </button>
-                          <p className="px-2 py-1 text-9 text-muted-foreground">
-                            不提供「删除项目」（Q-9）：归档 = 退役且可只读回看，不销毁内容。
-                          </p>
+                            取消
+                          </Button>
+                          <Button
+                            variant={archived ? "primary" : "destructive"}
+                            size="sm"
+                            data-testid={`projects-archive-submit-${project.id}`}
+                            onClick={() => void submit()}
+                            disabled={busy}
+                          >
+                            {busy ? "提交中…" : archived ? "确认恢复" : "确认归档"}
+                          </Button>
                         </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
+                      </div>
+                    ) : (
+                      <>
+                        <MenuItemUnavailable testid={`projects-more-${project.id}-edit`}>编辑项目</MenuItemUnavailable>
+                        <MenuItemUnavailable testid={`projects-more-${project.id}-bigscreen`}>看现场大屏</MenuItemUnavailable>
+                        <MenuItemUnavailable testid={`projects-more-${project.id}-copy-invite`}>复制邀请链接</MenuItemUnavailable>
+                        <p
+                          className="px-2 py-1 text-9 text-muted-foreground"
+                          data-testid={`projects-more-${project.id}-unavailable-note`}
+                        >
+                          上面三项后端尚未实现，暂不可用。
+                        </p>
+                        <MenuSeparator />
+                        {/* onSelect preventDefault：点「归档/恢复」要切到本组件的 confirming
+                            子态，不能让 Radix「选中即关闭」抢先把菜单关掉。 */}
+                        <MenuItem
+                          data-testid={`projects-more-${project.id}-archive`}
+                          onSelect={(event) => { event.preventDefault(); setConfirming(true); setError(null); }}
+                          className={cn(archived ? "text-card-foreground" : "text-destructive data-[highlighted]:text-destructive")}
+                        >
+                          <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
+                          {archived ? "恢复项目" : "归档项目"}
+                        </MenuItem>
+                        <p className="px-2 py-1 text-9 text-muted-foreground">
+                          不提供「删除项目」（Q-9）：归档 = 退役且可只读回看，不销毁内容。
+                        </p>
+                      </>
+                    )}
+                  </MenuContent>
+                </Menu>
               </div>
             </div>
 
@@ -507,15 +509,9 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
 /** 后端未实现的菜单项：禁用 + 如实说明，不做成点了弹「演示」的假按钮。 */
 function MenuItemUnavailable({ children, testid }: { children: React.ReactNode; testid: string }) {
   return (
-    <button
-      type="button"
-      role="menuitem"
-      disabled
-      data-testid={testid}
-      className="rounded-md px-2 py-1.5 text-left text-12 text-muted-foreground opacity-60"
-    >
+    <MenuItem disabled data-testid={testid} className="text-muted-foreground opacity-60">
       {children}
-    </button>
+    </MenuItem>
   );
 }
 

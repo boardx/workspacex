@@ -3,6 +3,7 @@ import * as React from "react";
 import { ChevronRight, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   SOURCE_ICON, IngestBadge, SynthesizedBadge, ConfidentialBadge, IntegrityBadge,
 } from "./status";
@@ -38,26 +39,26 @@ export function FilesList({
       data-testid="files-list"
       data-allow-x-scroll="文件表 7 列，窄屏横滚看全；砍列会丢信息"
     >
-      <table className="w-full min-w-[52rem] border-collapse text-12">
-        <thead>
-          <tr className="border-b border-border text-left text-11 text-muted-foreground">
-            <th className="w-8 px-2 py-2" />
-            <th className="px-2 py-2 font-medium">名称</th>
-            <th className="px-2 py-2 font-medium">大小</th>
-            <th className="px-2 py-2 font-medium">版本</th>
-            <th className="px-2 py-2 font-medium">时间</th>
-            <th className="px-2 py-2 font-medium">上传者</th>
-            <th className="px-2 py-2 font-medium">所属环节</th>
-            <th className="px-2 py-2 font-medium">可见性</th>
-            <th className="px-2 py-2 font-medium">状态</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table className="w-full min-w-[52rem] border-collapse text-12">
+        <TableHeader>
+          <TableRow className="border-b border-border text-left text-11 text-muted-foreground">
+            <TableHead className="w-8 px-2 py-2" />
+            <TableHead className="px-2 py-2 font-medium">名称</TableHead>
+            <TableHead className="px-2 py-2 font-medium">大小</TableHead>
+            <TableHead className="px-2 py-2 font-medium">版本</TableHead>
+            <TableHead className="px-2 py-2 font-medium">时间</TableHead>
+            <TableHead className="px-2 py-2 font-medium">上传者</TableHead>
+            <TableHead className="px-2 py-2 font-medium">所属环节</TableHead>
+            <TableHead className="px-2 py-2 font-medium">可见性</TableHead>
+            <TableHead className="px-2 py-2 font-medium">状态</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {files.map((f) => {
             const Icon = SOURCE_ICON[f.sourceType];
             const active = f.id === selectedId;
             return (
-              <tr
+              <TableRow
                 key={f.id}
                 data-testid="files-row"
                 onClick={() => onRow(f)}
@@ -66,15 +67,15 @@ export function FilesList({
                   active ? "bg-muted" : "hover:bg-panel",
                 )}
               >
-                <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                <TableCell className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     checked={checkedIds.has(f.id)}
                     onChange={() => onToggleCheck(f.id)}
                     aria-label="选择此行"
                     data-testid="files-row-check"
                   />
-                </td>
-                <td className="max-w-[18rem] px-2 py-1.5">
+                </TableCell>
+                <TableCell className="max-w-[18rem] px-2 py-1.5">
                   <div className="flex items-center gap-2">
                     <Icon aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <span className="truncate font-medium" title={f.name}>{f.name}.{f.ext}</span>
@@ -84,9 +85,9 @@ export function FilesList({
                     {f.synthesized && <SynthesizedBadge />}
                     {f.integrity === "failed" && <IntegrityBadge />}
                   </div>
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{formatBytes(f.sizeBytes)}</td>
-                <td className="px-2 py-1.5">
+                </TableCell>
+                <TableCell className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{formatBytes(f.sizeBytes)}</TableCell>
+                <TableCell className="px-2 py-1.5">
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); onOpenVersions(f); }}
@@ -95,9 +96,9 @@ export function FilesList({
                   >
                     v{f.versionCount} <ChevronRight aria-hidden className="h-3 w-3" />
                   </button>
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{f.createdAt}</td>
-                <td className="whitespace-nowrap px-2 py-1.5">
+                </TableCell>
+                <TableCell className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{f.createdAt}</TableCell>
+                <TableCell className="whitespace-nowrap px-2 py-1.5">
                   {f.uploader.type === "agent" ? (
                     <span className="inline-flex items-center gap-1 text-ai-tint-foreground" title={`agent_run_id: ${f.uploader.agentRunId}`} data-testid="files-row-agent">
                       <Bot aria-hidden className="h-3 w-3" /> {f.uploader.name}
@@ -105,15 +106,15 @@ export function FilesList({
                   ) : (
                     <span className="text-muted-foreground">{f.uploader.name}</span>
                   )}
-                </td>
-                <td className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{SEG_NAME(f.segmentId)}</td>
-                <td className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{VISIBILITY_LABEL[f.visibility]}</td>
-                <td className="px-2 py-1.5"><IngestBadge state={f.ingest} /></td>
-              </tr>
+                </TableCell>
+                <TableCell className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{SEG_NAME(f.segmentId)}</TableCell>
+                <TableCell className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{VISIBILITY_LABEL[f.visibility]}</TableCell>
+                <TableCell className="px-2 py-1.5"><IngestBadge state={f.ingest} /></TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

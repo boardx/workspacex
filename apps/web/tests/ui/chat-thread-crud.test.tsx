@@ -185,7 +185,7 @@ describe("#460 会话增删改接入正式 /chat", () => {
 
     renderScreen();
     // 2026-08-14 重做：改名/删除现在挂在选中卡片自己的 hover「…」菜单里。
-    fireEvent.click(await screen.findByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.pointerDown(await screen.findByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-rename"));
     fireEvent.change(screen.getByTestId("chat-thread-title-input"), { target: { value: "改过的名字" } });
     fireEvent.click(screen.getByTestId("chat-thread-title-submit"));
@@ -207,7 +207,7 @@ describe("#460 会话增删改接入正式 /chat", () => {
 
     // 路由参数仍指向被删掉的 thread-a——不许据此把已删会话重新选回来。
     renderScreen("thread-a");
-    fireEvent.click(await screen.findByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.pointerDown(await screen.findByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
     expect(deleteThread).not.toHaveBeenCalled();      // 只点[删除]不算确认
 

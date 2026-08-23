@@ -3,6 +3,7 @@ import * as React from "react";
 import { GitBranch, Layers as LayersIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   CHAINS,
   CHAIN_NODE_TYPE_LABEL,
@@ -197,24 +198,24 @@ function ChainTemplateView() {
           <span className="text-11 text-muted-foreground">已晋升，全员可套用；改动要走晋升队列</span>
         </div>
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full border-collapse text-12" data-testid="brain-template-org-table">
-            <thead>
-              <tr className="border-b border-border bg-panel text-left text-11 text-muted-foreground">
-                <th className="p-2 font-medium">模板</th>
-                <th className="p-2 font-medium">硬性要求</th>
-                <th className="p-2 font-medium">作者</th>
-                <th className="p-2 font-medium">套用</th>
-                <th className="p-2 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full border-collapse text-12" data-testid="brain-template-org-table">
+            <TableHeader>
+              <TableRow className="border-b border-border bg-panel text-left text-11 text-muted-foreground">
+                <TableHead className="p-2 font-medium">模板</TableHead>
+                <TableHead className="p-2 font-medium">硬性要求</TableHead>
+                <TableHead className="p-2 font-medium">作者</TableHead>
+                <TableHead className="p-2 font-medium">套用</TableHead>
+                <TableHead className="p-2 font-medium" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {TEMPLATES_ORG.map((t) => (
-                <tr key={t.id} data-testid={`brain-template-org-${t.id}`} className={`border-b border-border-subtle last:border-0 ${t.archived ? "opacity-65" : ""}`}>
-                  <td className="p-2 font-medium">{t.title}</td>
-                  <td className="p-2 text-muted-foreground">{t.requirement}</td>
-                  <td className="p-2 text-muted-foreground">{t.author}</td>
-                  <td className="p-2 tabular-nums">{t.appliedCount}</td>
-                  <td className="p-2">
+                <TableRow key={t.id} data-testid={`brain-template-org-${t.id}`} className={`border-b border-border-subtle last:border-0 ${t.archived ? "opacity-65" : ""}`}>
+                  <TableCell className="p-2 font-medium">{t.title}</TableCell>
+                  <TableCell className="p-2 text-muted-foreground">{t.requirement}</TableCell>
+                  <TableCell className="p-2 text-muted-foreground">{t.author}</TableCell>
+                  <TableCell className="p-2 tabular-nums">{t.appliedCount}</TableCell>
+                  <TableCell className="p-2">
                     {t.archived ? (
                       <Badge tone="neutral">已归档</Badge>
                     ) : (
@@ -223,11 +224,11 @@ function ChainTemplateView() {
                         <Button size="xs" variant="ghost" data-testid={`brain-template-copy-${t.id}`}>复制为我的</Button>
                       </div>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </section>
 

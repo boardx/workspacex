@@ -244,3 +244,75 @@
 - 下一步最佳动作: F04（编排级动效：候选是 chat 消息到达、面板展开/收起），依赖 F03 的
   token 体系已就绪；或按迁移优先级清单先做 P0 批次（`components/ui`+`components/shell`
   21 处）作为独立小 feature/PR。
+### 2026-08-24 F09 完成
+- 本轮目标: F09（复合组件收口：Table / Menu 原语落地，issue #1871）。
+- 盘点结论（自己重新 grep 核对，未直接信任任务指令里的种子清单）：
+  - Table：19 处业务目录手写 `<table>`（admin/limit-policy-tab.tsx、admin/usage-monitor-tab.tsx、
+    brain/decision-chain.tsx、brain/decision-ledger.tsx、canvas/knowledge-backflow.tsx、
+    canvas/template-admin.tsx、chat/preset-dispatch.tsx、files/files-list.tsx、
+    files/live-files-browser.tsx、interview/insights-report.tsx、itv/insight-report.tsx、
+    project/tab-prep.tsx、survey/workflow/analysis-report-step.tsx、
+    survey/workflow/response-review-step.tsx、tpl-designer/facet-content-editor.tsx、
+    tpl-designer/materials-panel-editor.tsx、tpl/designer-panels.tsx（×2 张表）、
+    tpl/project-prep-screen.tsx、tpl/workflow-screen.tsx）——逐一读过全部之后形状高度一致
+    （thead/tr 表头 + tbody/tr 数据行 + 可选 colSpan 空态/展开行），未发现语义分裂到需要
+    拆两个原语的地步，收口为**一套** `Table` 原语，不强行拆分。
+  - Menu：5 处业务目录手写「open state + document mousedown/keydown 监听外点关闭/Esc +
+    role="menu" 绝对定位 div」（chat/thread-list-shell.tsx、projects/project-more-menu.tsx、
+    projects/projects-screen.tsx、shell/org-menu.tsx、shell/personal-menu.tsx）——`Menu`
+    原语直接复用 F01 的 `dropdown-menu.tsx`（Radix DropdownMenu），只做命名别名
+    （`components/ui/menu.tsx`），不重新实现弹层逻辑。
+- 已完成:
+  - 新增 `apps/web/components/ui/table.tsx`（`Table`/`TableHeader`/`TableBody`/`TableRow`
+    （`variant="header"|"body"`）/`TableHead`/`TableCell`/`TableCaption`/`TableEmpty`）。
+    默认 token 贴合已有多数用法（`border-border`/`border-border-subtle`/`bg-panel`），
+    未强加 `text-align`（Tailwind preflight 已把 th/td 的 text-align reset 成 inherit，
+    与之前手写标签视觉等价）；未做「可排序表头」——19 处盘点里没有一处真的点表头排序，
+    现在加是「看起来做了事」而不是回应真实需求。
+  - 新增 `apps/web/components/ui/menu.tsx`（`Menu`/`MenuTrigger`/`MenuContent`/`MenuItem`/
+    `MenuLabel`/`MenuSeparator`/`MenuGroup`/`MenuRadioGroup`/`MenuRadioItem`，均为
+    `dropdown-menu.tsx` 的命名别名）。
+  - 迁移全部 19 处 Table 消费点（机械化标签替换：`<table>`→`<Table>`等六对标签，
+    classNames/data-testid/事件处理器原样保留，视觉 1:1 不变，因为 `cn()` 用
+    tailwind-merge，调用方 className 总能覆盖新原语的默认值）；`project/tab-prep.tsx`
+    的空态行额外收口成 `TableEmpty`。
+  - 迁移全部 5 处 Menu 消费点：
+    - `shell/personal-menu.tsx`、`shell/org-menu.tsx`：改走非受控 `Menu`；org-menu 的
+      「切换组织」列表从手写 `role="menuitemradio"` 按钮改用 `MenuRadioGroup`/`MenuRadioItem`
+      （Radix 原生渲染 role/aria-checked/选中态 Check 图标）。
+    - `chat/thread-list-shell.tsx`（`ThreadCardButton`）：菜单是四态状态机
+      （view/menu/editing/deleting）里的一态，`open={mode==="menu"}` 受控，选中项用
+      `onSelect` `preventDefault()` 避免 Radix「选中即关闭」抢在本组件自己的状态机之前
+      把 `mode` 拉回 `"view"`（两个 setState 竞态，实测复现过一次才定位到）。
+    - `projects/projects-screen.tsx`（`ProjectRealCard`）、`projects/project-more-menu.tsx`：
+      F01 当初把这两个文件判定为高风险暂缓（菜单内嵌归档二次确认子态）——F09 验证过
+      Radix 受控 `open` + `onSelect preventDefault()` 能干净承接这种子态切换，正式迁移。
+      迁移顺带**修复**了一个此前的真实缺口：`projects-screen.tsx`/`project-more-menu.tsx`
+      的菜单此前完全没有外点关闭/Esc 关闭（纯靠按钮 toggle），Radix 原生补上了。
+  - `components/state/primitives-gallery.tsx` 新增 `CompositePrimitivesGallery`
+    （Table 演示区含"清空看空态"按钮 + Menu 演示区），接入 `/kitchen-sink`。
+  - 新增 `apps/web/tests/ui/composite-table-menu.test.tsx`（18 用例：table.tsx/menu.tsx
+    token 化、Table 表头/数据行/空态/variant 默认值/className 覆盖、Menu 开合/外点关闭/
+    Esc 关闭/键盘 Enter 触发/disabled 项不可选中）。
+  - 修复因迁移而需要调整的既有测试（Radix DropdownMenuTrigger 靠 `pointerdown` 开合，
+    不是 `click`；外点关闭需要等 `setTimeout(0)` 让 Radix 的延迟 pointerdown 监听器挂载；
+    Radix Item 渲染成 `<div role="menuitem">`，`toBeDisabled()` 只认原生表单控件，
+    改断言 `data-disabled`）：`tests/ui/shell-personal-menu.test.tsx`、
+    `tests/ui/org-switcher-real-names.test.tsx`、`tests/ui/thread-card-button.test.tsx`、
+    `tests/ui/chat-thread-crud.test.tsx`、`tests/ui/personal-chat-screen.test.tsx`、
+    `tests/ui/projects-screen-live.test.tsx`。
+- 运行过的验证:
+  - `pnpm --filter web exec vitest run tests/ui/composite-table-menu.test.tsx` → 18 passed
+  - `pnpm --filter web run lint:design` → 全过
+  - `pnpm --filter web exec tsc --noEmit -p .` → 无错误
+  - `pnpm --filter web exec vitest run`（全量 apps/web 单测回归）→ 203 files / 1716 tests 全过
+  - `pnpm harness verify --sprint 12/01 --feature F09` → passing
+  - `pnpm harness doctor --phase 12` → 0 FAIL（3 WARN：证据日志未提交/issue 未关闭/
+    readiness 未达标，均待本轮 PR 合入与 issue 关闭后自然清除）
+- 已记录证据: `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F09.verify.log`
+- 提交记录: 见本轮 PR（`worker/claude-g-12-F09` → main）
+- 已知风险或未解决问题: 无新增遗留；`project-more-menu.tsx` 本身是未被任何路由引用的
+  遗留原型卡（`components/projects/project-card.tsx` 无调用方），仍按同样标准迁移以保持
+  菜单实现单一事实源，但它不产生真实用户可见行为，不计入"新迁移的真实业务面"。
+- 下一步最佳动作: F03（语义化动效 token 体系 + lint 拦截裸 duration/easing），或 F10
+  （breadcrumb/pagination 原语，R11 拆分的另一半）。

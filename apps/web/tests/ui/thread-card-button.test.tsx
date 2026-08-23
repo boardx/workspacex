@@ -6,9 +6,18 @@
  * 不重复接线到真实 API 的部分，纯组件层面、无 IO。
  */
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ThreadCardButton } from "@/components/chat/thread-list-shell";
 import type { ThreadCard } from "@/lib/live-chat";
+
+/**
+ * Radix 的外点关闭监听（pointerdown）在 `setTimeout(0)` 之后才挂载（避免打开那次
+ * pointerdown 立刻把自己关掉）——同步 fireEvent 测不到，要素材真等一个 tick。
+ * 见 `overlay-primitives-dialog-dropdown.test.tsx` 的同名先例。
+ */
+async function nextTick() {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 const CARD: ThreadCard = {
   id: "thr-a", title: "对话 A", subtitle: "", badges: [], agentSummary: "",
@@ -29,7 +38,8 @@ describe("ThreadCardButton", () => {
     );
     const trigger = screen.getByTestId("chat-thread-card-menu-trigger");
     expect(trigger).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(trigger);
+    // Radix DropdownMenuTrigger 靠 pointerdown 开菜单（fireEvent.click 在 jsdom 下不触发）。
+    fireEvent.pointerDown(trigger, { button: 0 });
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("chat-thread-rename")).toBeVisible();
     expect(screen.getByTestId("chat-thread-delete")).toBeVisible();
@@ -48,17 +58,21 @@ describe("ThreadCardButton", () => {
     expect(onRename).toHaveBeenCalledWith("新标题");
   });
 
-  it("点击菜单外部关闭菜单，不触发改名/删除", () => {
+  it("点击菜单外部关闭菜单，不触发改名/删除", async () => {
     render(
       <div>
         <ThreadCardButton card={CARD} selected onSelect={vi.fn()} onRename={vi.fn()} onDelete={vi.fn()} pending={null} failure={null} />
         <button type="button" data-testid="outside">外部</button>
       </div>,
     );
-    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.pointerDown(screen.getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     expect(screen.getByTestId("chat-thread-rename")).toBeVisible();
-    fireEvent.mouseDown(screen.getByTestId("outside"));
-    expect(screen.queryByTestId("chat-thread-rename")).not.toBeInTheDocument();
+    await nextTick();
+
+    // Radix 的外点关闭同时监听 pointerdown（延迟挂载）与 click，两个都发一遍最稳。
+    fireEvent.pointerDown(screen.getByTestId("outside"), { button: 0 });
+    fireEvent.click(screen.getByTestId("outside"), { button: 0 });
+    await waitFor(() => expect(screen.queryByTestId("chat-thread-rename")).not.toBeInTheDocument());
   });
 
   it("行内改名时按 Escape 取消，不提交、不发起改名", () => {
@@ -78,7 +92,7 @@ describe("ThreadCardButton", () => {
     render(
       <ThreadCardButton card={CARD} selected onSelect={vi.fn()} onRename={vi.fn()} onDelete={vi.fn()} pending={null} failure={null} />,
     );
-    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.pointerDown(screen.getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
     expect(screen.getByTestId("chat-thread-delete-submit")).toBeDisabled();
     expect(screen.queryByTestId("chat-thread-card-menu-trigger")).not.toBeInTheDocument(); // 二次确认期间不重复显示菜单入口

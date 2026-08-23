@@ -21,6 +21,8 @@
   `apps/web/e2e/overlay-primitives-keyboard.spec.ts`。
 - F02（统一的 Select / Tooltip 弹层原语 + kitchen-sink 展示区）passing。三条 verification
   命令全过，见 `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F02.verify.log`。
+- F09（复合组件收口：Table / Menu 原语落地）passing。见
+  `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F09.verify.log`。
 
 ## 本轮改动（F02）
 - `apps/web/components/ui/select.tsx`：`DropdownMenuContent` 加 `max-h-72 overflow-y-auto`。
@@ -115,6 +117,23 @@
 - F04（编排级动效：chat 消息到达 / 面板展开收起），依赖 F03 token 体系已就绪。
 - 或先做迁移优先级清单 P0 批次（`components/ui`+`components/shell` 共 21 处裸值，
   见 `contracts/motion-microinteraction/motion-migration-priority.md`）。
+## 本轮改动（F09）
+- 新增 `apps/web/components/ui/table.tsx`（Table/TableHeader/TableBody/TableRow/TableHead/
+  TableCell/TableCaption/TableEmpty）与 `apps/web/components/ui/menu.tsx`（F01
+  `dropdown-menu.tsx` 的命名别名）。
+- 迁移 19 处业务目录手写 `<table>` → `Table` 原语，5 处业务目录手写弹层菜单 → `Menu`
+  原语（`shell/personal-menu.tsx`、`shell/org-menu.tsx`、`chat/thread-list-shell.tsx`、
+  `projects/projects-screen.tsx`、`projects/project-more-menu.tsx`）——完整清单与设计
+  取舍见本 sprint `progress.md` F09 条目。
+- `components/state/primitives-gallery.tsx` 新增 `CompositePrimitivesGallery`（Table/Menu
+  演示区），接入 `/kitchen-sink`。
+- 新增 `apps/web/tests/ui/composite-table-menu.test.tsx`；修复 6 个因迁移需要调整交互
+  方式的既有测试（`fireEvent.click` → `fireEvent.pointerDown` 开菜单、`toBeDisabled()` →
+  `toHaveAttribute("data-disabled")`，原因见 progress.md）。
+
+## 下一步最佳动作
+- F03（语义化动效 token 体系 + lint 拦截裸 duration/easing），或 F10（breadcrumb/
+  pagination 原语，R11 拆分的另一半，依赖 F09 已 passing）。
 
 ## 命令
 - 启动:`pnpm -w run dev`

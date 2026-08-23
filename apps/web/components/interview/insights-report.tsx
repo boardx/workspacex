@@ -19,6 +19,7 @@ import {
   type Evidence, type MatrixRow,
 } from "@/lib/mock/interview-studio";
 import { cn } from "@/lib/utils";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 const MATRIX_OPS = [
   { id: "merge", label: "合并主题", icon: Merge },
@@ -179,27 +180,27 @@ function MatrixLegend() {
 function MatrixTable() {
   return (
     <div className="overflow-x-auto rounded-md border border-border">
-      <table className="w-full border-collapse text-11">
-        <thead>
-          <tr className="border-b border-border bg-panel">
-            <th className="p-2 text-left font-medium text-muted-foreground">主题 · {MATRIX_ROWS.length}</th>
+      <Table className="w-full border-collapse text-11">
+        <TableHeader>
+          <TableRow className="border-b border-border bg-panel">
+            <TableHead className="p-2 text-left font-medium text-muted-foreground">主题 · {MATRIX_ROWS.length}</TableHead>
             {MATRIX_COLUMNS.map((c) => (
-              <th key={c.id} className="p-2 text-center font-medium" data-testid={`itv-matrix-col-${c.id}`}>
+              <TableHead key={c.id} className="p-2 text-center font-medium" data-testid={`itv-matrix-col-${c.id}`}>
                 <span className={cn("inline-flex flex-col items-center gap-0.5", c.virtual && "text-ai-tint-foreground")}>
                   {c.virtual && <Bot aria-hidden className="h-3 w-3 text-ai" />}
                   <span className="font-mono text-10">{c.id}</span>
                   {c.virtual && <span className="text-9 text-ai">虚拟</span>}
                 </span>
-              </th>
+              </TableHead>
             ))}
-          </tr>
-        </thead>
-        <tbody>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {MATRIX_ROWS.map((row) => (
             <MatrixRowView key={row.theme} row={row} />
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -208,8 +209,8 @@ function MatrixRowView({ row }: { row: MatrixRow }) {
   const [showNote, setShowNote] = React.useState(false);
   return (
     <>
-      <tr className="border-b border-border-subtle" data-testid={`itv-matrix-row-${row.theme}`}>
-        <th className="max-w-40 p-2 text-left align-top font-medium">
+      <TableRow className="border-b border-border-subtle" data-testid={`itv-matrix-row-${row.theme}`}>
+        <TableHead className="max-w-40 p-2 text-left align-top font-medium">
           <span className="flex items-center gap-1">
             {row.theme}
             {row.note && (
@@ -225,29 +226,29 @@ function MatrixRowView({ row }: { row: MatrixRow }) {
               </button>
             )}
           </span>
-        </th>
+        </TableHead>
         {MATRIX_COLUMNS.map((c) => {
           const ev = row.cells[c.id] ?? "none";
           const style = EVIDENCE_STYLE[ev];
           return (
-            <td key={c.id} className="p-1 text-center align-middle" data-testid={`itv-matrix-cell-${row.theme}-${c.id}`}>
+            <TableCell key={c.id} className="p-1 text-center align-middle" data-testid={`itv-matrix-cell-${row.theme}-${c.id}`}>
               <span
                 title={`${EVIDENCE_LABEL[ev]} · ${style.hint}`}
                 className={cn("inline-flex h-6 w-6 items-center justify-center rounded-sm text-11 font-bold", style.tone)}
               >
                 {style.glyph}
               </span>
-            </td>
+            </TableCell>
           );
         })}
-      </tr>
+      </TableRow>
       {showNote && row.note && (
-        <tr className="bg-warning/5" data-testid={`itv-matrix-note-${row.theme}`}>
-          <td colSpan={MATRIX_COLUMNS.length + 1} className="p-2 text-10 text-muted-foreground">
+        <TableRow className="bg-warning/5" data-testid={`itv-matrix-note-${row.theme}`}>
+          <TableCell colSpan={MATRIX_COLUMNS.length + 1} className="p-2 text-10 text-muted-foreground">
             <AlertTriangle aria-hidden className="mr-1 inline h-3 w-3 text-warning" />
             {row.note}
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );

@@ -11,6 +11,7 @@ import {
 } from "@/lib/mock/admin-limits";
 import { LimitRulesLive } from "./limit-rules-live";
 import { NoBackendNotice } from "./no-backend-notice";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 function taskToneClass(tone: TaskGradingRow["tone"]): string {
   if (tone === "destructive") return "text-destructive";
@@ -102,24 +103,24 @@ export function LimitPolicyTab() {
       <section className="flex flex-col gap-2">
         <Card>
           <CardContent className="overflow-x-auto p-0">
-            <table className="w-full min-w-[560px] border-collapse text-11" data-testid="admin-degrade-task-table">
-              <thead>
-                <tr className="border-b border-border bg-panel text-11 text-muted-foreground">
-                  <th className="px-3 py-2 text-left font-medium">任务类型</th>
-                  <th className="px-3 py-2 text-left font-medium">触发降级时</th>
-                  <th className="px-3 py-2 text-left font-medium">为什么</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="w-full min-w-[560px] border-collapse text-11" data-testid="admin-degrade-task-table">
+              <TableHeader>
+                <TableRow className="border-b border-border bg-panel text-11 text-muted-foreground">
+                  <TableHead className="px-3 py-2 text-left font-medium">任务类型</TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium">触发降级时</TableHead>
+                  <TableHead className="px-3 py-2 text-left font-medium">为什么</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {TASK_TYPE_GRADING.map((row) => (
-                  <tr key={row.key} className="border-b border-border-subtle last:border-b-0" data-testid={`admin-degrade-task-${row.key}`}>
-                    <td className="px-3 py-2.5">{row.taskType}</td>
-                    <td className={`px-3 py-2.5 font-medium ${taskToneClass(row.tone)}`}>{row.action}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground">{row.reason}</td>
-                  </tr>
+                  <TableRow key={row.key} className="border-b border-border-subtle last:border-b-0" data-testid={`admin-degrade-task-${row.key}`}>
+                    <TableCell className="px-3 py-2.5">{row.taskType}</TableCell>
+                    <TableCell className={`px-3 py-2.5 font-medium ${taskToneClass(row.tone)}`}>{row.action}</TableCell>
+                    <TableCell className="px-3 py-2.5 text-muted-foreground">{row.reason}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </CardContent>
         </Card>
       </section>

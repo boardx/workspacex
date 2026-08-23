@@ -3,6 +3,7 @@ import * as React from "react";
 import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import type { ThreadCard } from "@/lib/live-chat";
 
 /**
@@ -80,6 +81,12 @@ const THREAD_BADGE_TEXT: Record<ThreadCard["badges"][number], string> = {
  * `onRename`/`onDelete`/`pending`/`failure` 全部可选：不传即渲染成纯选择按钮
  * （非 `selected` 的卡片走这条路径，`selected` 但调用方不支持写操作——例如未来只读
  * 场景——也一样安全降级）。
+ *
+ * F09：「…」菜单改走 `components/ui/menu.tsx`（Radix DropdownMenu 别名）——此前是
+ * `mode === "menu"` + `document.mousedown` 手动监听外点关闭（F09 盘点发现的 5 处重复
+ * 实现之一）。菜单只是这个组件四态状态机（view/menu/editing/deleting）里的一态，
+ * 选中「改名」「删除」后 `mode` 立刻切到 editing/deleting，菜单随之自然关闭
+ * （`open={mode === "menu"}` 跟随状态机，不需要额外收口逻辑）。
  */
 export function ThreadCardButton({
   card, selected, onSelect, onRename, onDelete, pending, failure,
@@ -96,7 +103,6 @@ export function ThreadCardButton({
   const [mode, setMode] = React.useState<"view" | "menu" | "editing" | "deleting">("view");
   const [titleDraft, setTitleDraft] = React.useState(card.title);
   const [deleteReason, setDeleteReason] = React.useState("");
-  const menuRef = React.useRef<HTMLDivElement>(null);
   const busy = pending !== undefined && pending !== null;
 
   // 卡片不再被选中（切到别的会话）时退回浏览态——不留一个挂在已经不对的会话上的编辑框。
@@ -120,17 +126,6 @@ export function ThreadCardButton({
     const justSettled = prevPending !== undefined && prevPending !== null && (pending === null || pending === undefined);
     if (justSettled && !failure) setMode("view");
   }, [pending, failure]);
-
-  // 菜单展开时点击外部关闭——同「先判后挂」的克制：只在 menu 打开时挂监听，
-  // 用完立刻摘掉，不常驻一个全局点击监听器。
-  React.useEffect(() => {
-    if (mode !== "menu") return;
-    function onDocPointerDown(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) setMode("view");
-    }
-    document.addEventListener("mousedown", onDocPointerDown);
-    return () => document.removeEventListener("mousedown", onDocPointerDown);
-  }, [mode]);
 
   function startEdit(): void {
     setTitleDraft(card.title);
@@ -231,48 +226,37 @@ export function ThreadCardButton({
         <ThreadMeta card={card} />
       </button>
       {canMutate ? (
-        <div ref={menuRef} className="absolute right-1 top-1">
-          <button
-            type="button"
-            aria-label="更多操作"
-            aria-haspopup="menu"
-            aria-expanded={mode === "menu"}
-            data-testid="chat-thread-card-menu-trigger"
-            onClick={(event) => {
-              event.stopPropagation();
-              setMode((current) => (current === "menu" ? "view" : "menu"));
-            }}
-            className="rounded-md p-1 text-muted-foreground transition-colors invisible hover:bg-panel-alt hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
-          >
-            <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
-          </button>
-          {mode === "menu" ? (
-            <div
-              role="menu"
-              data-testid="chat-thread-card-menu"
-              className="absolute right-0 top-full z-10 mt-1 min-w-28 rounded-md border border-border bg-card py-1 shadow-md"
+        <Menu open={mode === "menu"} onOpenChange={(o) => setMode(o ? "menu" : "view")}>
+          <MenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="更多操作"
+              data-testid="chat-thread-card-menu-trigger"
+              onClick={(event) => event.stopPropagation()}
+              className="absolute right-1 top-1 rounded-md p-1 text-muted-foreground transition-colors invisible hover:bg-panel-alt hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
             >
-              <button
-                type="button"
-                role="menuitem"
-                data-testid="chat-thread-rename"
-                onClick={(event) => { event.stopPropagation(); startEdit(); }}
-                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-12 transition-colors hover:bg-muted"
-              >
-                <Pencil aria-hidden className="h-3 w-3" />改名
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                data-testid="chat-thread-delete"
-                onClick={(event) => { event.stopPropagation(); startDelete(); }}
-                className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-12 text-destructive transition-colors hover:bg-muted"
-              >
-                <Trash2 aria-hidden className="h-3 w-3" />删除
-              </button>
-            </div>
-          ) : null}
-        </div>
+              <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+            </button>
+          </MenuTrigger>
+          <MenuContent align="end" sideOffset={4} data-testid="chat-thread-card-menu" className="min-w-28 py-1">
+            {/* onSelect preventDefault：`open` 由 `mode` 状态机控制，选中项要切到
+                editing/deleting 而不是让 Radix 自己的「选中即关闭」把 mode 抢回 "view"。 */}
+            <MenuItem
+              data-testid="chat-thread-rename"
+              onSelect={(event) => { event.preventDefault(); startEdit(); }}
+              className="gap-1.5"
+            >
+              <Pencil aria-hidden className="h-3 w-3" />改名
+            </MenuItem>
+            <MenuItem
+              data-testid="chat-thread-delete"
+              onSelect={(event) => { event.preventDefault(); startDelete(); }}
+              className="gap-1.5 text-destructive data-[highlighted]:text-destructive"
+            >
+              <Trash2 aria-hidden className="h-3 w-3" />删除
+            </MenuItem>
+          </MenuContent>
+        </Menu>
       ) : null}
     </div>
   );

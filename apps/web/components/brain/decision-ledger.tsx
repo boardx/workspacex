@@ -3,6 +3,7 @@ import * as React from "react";
 import { AlertTriangle, PenLine, Check, GitBranch } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   LEDGER_HEADER,
   AWAITING_SIGN,
@@ -128,38 +129,38 @@ export function DecisionLedger() {
       <section className="flex flex-col gap-2">
         <h3 className="text-12 font-semibold text-muted-foreground">台账</h3>
         <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full border-collapse text-12" data-testid="brain-ledger-table">
-            <thead>
-              <tr className="border-b border-border bg-panel text-left text-11 text-muted-foreground">
-                <th className="p-2 font-medium">决策</th>
-                <th className="p-2 font-medium">项目</th>
-                <th className="p-2 font-medium">拍板</th>
-                <th className="p-2 font-medium">依据强度</th>
-                <th className="p-2 font-medium">复盘</th>
-                <th className="p-2 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full border-collapse text-12" data-testid="brain-ledger-table">
+            <TableHeader>
+              <TableRow className="border-b border-border bg-panel text-left text-11 text-muted-foreground">
+                <TableHead className="p-2 font-medium">决策</TableHead>
+                <TableHead className="p-2 font-medium">项目</TableHead>
+                <TableHead className="p-2 font-medium">拍板</TableHead>
+                <TableHead className="p-2 font-medium">依据强度</TableHead>
+                <TableHead className="p-2 font-medium">复盘</TableHead>
+                <TableHead className="p-2 font-medium" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {LEDGER_ROWS.map((r) => {
                 const open = expandedRow === r.id;
                 return (
                   <React.Fragment key={r.id}>
-                    <tr data-testid={`brain-ledger-row-${r.id}`} className="border-b border-border-subtle last:border-0">
-                      <td className="p-2 font-medium">{r.decision}</td>
-                      <td className="p-2 text-muted-foreground">{r.project}</td>
-                      <td className="p-2 text-muted-foreground">{r.decidedBy}</td>
-                      <td className="p-2">
+                    <TableRow data-testid={`brain-ledger-row-${r.id}`} className="border-b border-border-subtle last:border-0">
+                      <TableCell className="p-2 font-medium">{r.decision}</TableCell>
+                      <TableCell className="p-2 text-muted-foreground">{r.project}</TableCell>
+                      <TableCell className="p-2 text-muted-foreground">{r.decidedBy}</TableCell>
+                      <TableCell className="p-2">
                         <span className="inline-flex items-center gap-1 text-11">
                           <span className="text-primary">支持 {r.support}</span>
                           <span className="text-destructive">反对 {r.against}</span>
                         </span>
-                      </td>
-                      <td className="p-2">
+                      </TableCell>
+                      <TableCell className="p-2">
                         <Badge tone={REVIEW_TONE[r.reviewState]}>
                           {r.reviewState}{r.reviewDate ? ` · ${r.reviewDate}` : ""}
                         </Badge>
-                      </td>
-                      <td className="p-2">
+                      </TableCell>
+                      <TableCell className="p-2">
                         <Button
                           size="xs"
                           variant="ghost"
@@ -170,20 +171,20 @@ export function DecisionLedger() {
                           <GitBranch aria-hidden className="h-3 w-3" />
                           {open ? "收起" : "支持链"}
                         </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                     {open && (
-                      <tr data-testid={`brain-support-chain-detail-${r.id}`}>
-                        <td colSpan={6} className="border-b border-border-subtle bg-muted p-2.5">
+                      <TableRow data-testid={`brain-support-chain-detail-${r.id}`}>
+                        <TableCell colSpan={6} className="border-b border-border-subtle bg-muted p-2.5">
                           <ChainList steps={reasoningChainFor(r.id, r.support, r.against)} testid={`brain-chain-row-${r.id}`} />
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     )}
                   </React.Fragment>
                 );
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <p className="text-10 text-muted-foreground">
           依据强度必须含反对条数；「支持链」「看完整推演链」在此内联展开，支持与反对分列，反对强制可见。

@@ -14,6 +14,7 @@ import {
 } from "@/lib/live-workflow-orchestration";
 import { SignoffFlag } from "./parts";
 import { SaveAsOrgTemplateAction } from "./save-as-org-template-action";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 /**
  * 工作流编排屏（F26，契约 `getWorkflowOrchestration`）。
@@ -165,17 +166,17 @@ export function WorkflowScreen({
               </div>
               <p className="text-11 font-medium text-primary">编排一次，三套视图与待办自动生成</p>
               <div className="overflow-x-auto" data-allow-x-scroll="环节×角色矩阵，窄屏允许横向滚动看全">
-                <table className="w-full min-w-[720px] border-collapse text-11">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-2 py-1.5 font-medium">环节</th>
-                      {roleKeys.map((r) => <th key={r} className="px-2 py-1.5 font-medium" data-testid="tpl-matrix-col">{roleLabel(r)}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
+                <Table className="w-full min-w-[720px] border-collapse text-11">
+                  <TableHeader>
+                    <TableRow className="border-b border-border text-left">
+                      <TableHead className="px-2 py-1.5 font-medium">环节</TableHead>
+                      {roleKeys.map((r) => <TableHead key={r} className="px-2 py-1.5 font-medium" data-testid="tpl-matrix-col">{roleLabel(r)}</TableHead>)}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {data.segmentChain.map((seg) => (
-                      <tr key={seg.agendaSegmentId} className="border-b border-border/60 align-top" data-testid="tpl-matrix-row">
-                        <td className="px-2 py-2">
+                      <TableRow key={seg.agendaSegmentId} className="border-b border-border/60 align-top" data-testid="tpl-matrix-row">
+                        <TableCell className="px-2 py-2">
                           <div className="text-12 font-medium">{seg.title}</div>
                           {/* ⚠ 没有「绑定」字段（mock 曾有的 "25m · 模板 xxx" 不在契约里，
                               不编造）——这里显示的是契约真有的 addedBy/optional 两个字段。 */}
@@ -183,11 +184,11 @@ export function WorkflowScreen({
                             {seg.addedBy !== null ? `因「${seg.addedBy}」自动加入` : "手动加入"}
                             {seg.optional ? " · 可选" : ""}
                           </div>
-                        </td>
+                        </TableCell>
                         {roleKeys.map((r) => {
                           const cell = cellFor(seg.agendaSegmentId, r);
                           return (
-                            <td key={r} className="px-2 py-2">
+                            <TableCell key={r} className="px-2 py-2">
                               {cell === null ? (
                                 <span className="text-10 text-muted-foreground">—</span>
                               ) : (
@@ -202,13 +203,13 @@ export function WorkflowScreen({
                                   )}
                                 </span>
                               )}
-                            </td>
+                            </TableCell>
                           );
                         })}
-                      </tr>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
               <p className="rounded-md bg-panel px-2.5 py-1.5 text-10 text-muted-foreground" data-testid="tpl-matrix-rule">
                 每一格都会变成对应角色的一条待办，同步到「任务」里；组长切换环节状态后，三种视角的首屏立刻跟着换。

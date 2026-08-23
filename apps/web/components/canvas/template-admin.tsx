@@ -31,6 +31,7 @@ import {
 import { TemplateApplyDialog } from "./template-apply-dialog";
 import { TemplateTrialDialog } from "./template-trial-dialog";
 import { TemplateEditorPanel } from "./template-editor-panel";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 /**
  * UC-7.1 画布模板库（`/canvas?screen=template-admin`）。
@@ -599,26 +600,26 @@ export function TemplateAdmin({
         {visibleState.status === "ready" && rows.length > 0 && (
           view === "list" ? (
             <div className="overflow-hidden rounded-lg border border-border" data-testid="tpladmin-table">
-              <table className="w-full text-left text-12">
-                <thead className="bg-panel text-11 text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">模板</th>
-                    <th className="px-3 py-2 font-medium">状态</th>
-                    <th className="hidden px-3 py-2 font-medium lg:table-cell">分区</th>
-                    <th className="px-3 py-2 font-medium">key vN</th>
-                    <th className="hidden px-3 py-2 font-medium md:table-cell">类型 · 可见性</th>
-                    <th className="px-3 py-2 font-medium">被 N 场</th>
-                    <th className="px-3 py-2 font-medium">操作</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table className="w-full text-left text-12">
+                <TableHeader className="bg-panel text-11 text-muted-foreground">
+                  <TableRow>
+                    <TableHead className="px-3 py-2 font-medium">模板</TableHead>
+                    <TableHead className="px-3 py-2 font-medium">状态</TableHead>
+                    <TableHead className="hidden px-3 py-2 font-medium lg:table-cell">分区</TableHead>
+                    <TableHead className="px-3 py-2 font-medium">key vN</TableHead>
+                    <TableHead className="hidden px-3 py-2 font-medium md:table-cell">类型 · 可见性</TableHead>
+                    <TableHead className="px-3 py-2 font-medium">被 N 场</TableHead>
+                    <TableHead className="px-3 py-2 font-medium">操作</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {rows.map((t) => (
-                    <tr
+                    <TableRow
                       key={`${t.key}-${t.version}`}
                       className="border-t border-border-subtle transition-colors duration-200 hover:bg-muted"
                       data-testid={`tpladmin-row-${t.key}-${t.version}`}
                     >
-                      <td className="px-3 py-2">
+                      <TableCell className="px-3 py-2">
                         <div className="flex flex-col">
                           <span className="font-medium">{t.displayName}</span>
                           {t.builtin && <span className="text-9 text-muted-foreground">内置模板</span>}
@@ -632,27 +633,27 @@ export function TemplateAdmin({
                             {t.underlyingType} · {TEMPLATE_VISIBILITY_LABEL[t.visibility]}
                           </span>
                         </div>
-                      </td>
-                      <td className="px-3 py-2"><Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge></td>
-                      <td className="hidden px-3 py-2 text-11 text-muted-foreground lg:table-cell">{describeSections(t)}</td>
-                      <td className="px-3 py-2"><span className="font-mono text-11">{t.key} v{t.version}</span></td>
-                      <td className="hidden px-3 py-2 text-11 text-muted-foreground md:table-cell">
+                      </TableCell>
+                      <TableCell className="px-3 py-2"><Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge></TableCell>
+                      <TableCell className="hidden px-3 py-2 text-11 text-muted-foreground lg:table-cell">{describeSections(t)}</TableCell>
+                      <TableCell className="px-3 py-2"><span className="font-mono text-11">{t.key} v{t.version}</span></TableCell>
+                      <TableCell className="hidden px-3 py-2 text-11 text-muted-foreground md:table-cell">
                         {t.underlyingType} · {TEMPLATE_VISIBILITY_LABEL[t.visibility]}
-                      </td>
+                      </TableCell>
                       {/*
                         #493：这一格是「模板被用了几次」的服务端事实——`usageCount` 是
                         `COUNT(*) FROM canvas_template_bindings` 现查的（库里没有可写的计数列，
                         见迁移 20260805030000 的文件头）。第 8c 步靠它区分「绑定进了 PostgreSQL」
                         与「绑定只进了 React state」，所以它需要一个能被断言锚住的 testid。
                       */}
-                      <td className="px-3 py-2 text-11 tabular-nums" data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</td>
-                      <td className="px-3 py-2">
+                      <TableCell className="px-3 py-2 text-11 tabular-nums" data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</TableCell>
+                      <TableCell className="px-3 py-2">
                         <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} onEdit={() => { setEditing(t); setActionError(null); setNotice(null); }} />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpladmin-cards">
