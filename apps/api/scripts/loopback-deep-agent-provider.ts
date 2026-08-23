@@ -79,6 +79,20 @@ const MARKDOWN_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER;
  * 触发词唯一事实源在 `apps/web/e2e/chat-read-fixture.ts` 的 `deepAgentMultiStepTrigger`。
  */
 const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
+/**
+ * UX-9 D4 前端接入取证（gap 清单第 3 条）—— 对这句触发词，第一次到达状态阈值时回
+ * `status: "interrupted"` 而不是 `"success"`：`DeepAgentModelProvider.completeWithProgress`
+ * 见到 `"interrupted"` 会去读 state 找待批工具调用（`readPendingApproval`），run 落
+ * `awaiting_approval` ——这是让真实 HITL 链路（DA-07b/DA-07c）在确定性替身下也能被
+ * 端到端取证的唯一入口，不是在前端伪造一个「正等待批准」的卡片。
+ *
+ * resume 之后（`createRun` 收到 `command.resume`）本进程记下裁决（approve/edit/reject
+ * 三态之一），下一次状态轮询直接答 `success`，`state` 端点据裁决类型拼出不同的工具
+ * 结果与终稿正文——`edit` 时终稿里能看到编辑后的参数值，供截图肉眼核对「提交的确实
+ * 是编辑后的值」而不是原样通过。
+ */
+const APPROVAL_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER;
+const APPROVAL_TOOL_NAME = process.env.LOOPBACK_DEEP_AGENT_APPROVAL_TOOL_NAME ?? "send_email";
 const MARKDOWN_REPLY = [
   "## 分析结果",
   "",
@@ -97,9 +111,19 @@ const MARKDOWN_REPLY = [
   "> 引用块：以上由确定性替身生成，用于验证渲染器。",
 ].join("\n");
 
+interface ApprovalDecision {
+  readonly type: "approve" | "edit" | "reject";
+  readonly editedArgs?: Record<string, unknown>;
+}
+
 interface RunRecord {
   readonly userText: string;
   statusPolls: number;
+  /** UX-9 D4：approve/edit/reject 触发词回合的既有原始参数值（提交前），供
+   *  state 端点在裁决前展示待批参数、裁决后对照展示「原值 vs 编辑后的值」。 */
+  approvalArgs?: Record<string, unknown>;
+  /** resume 请求（`command.resume`）到达后记下的裁决——null = 还没被裁决过。 */
+  decision: ApprovalDecision | null;
 }
 
 const runs = new Map<string, RunRecord>();
@@ -121,6 +145,16 @@ function sendJson(res: import("node:http").ServerResponse, status: number, body:
 
 interface CreateRunBody {
   readonly input?: { readonly messages?: { readonly role?: string; readonly content?: unknown }[] };
+  /** DA-07b resume 形状：`{decisions:[{type:"approve"|"edit"|"reject", edited_action?}]}`。
+   *  只在裁决请求里出现——首次创建 run 不带 `command`。 */
+  readonly command?: {
+    readonly resume?: {
+      readonly decisions?: readonly {
+        readonly type?: string;
+        readonly edited_action?: { readonly name?: string; readonly args?: unknown };
+      }[];
+    };
+  };
 }
 
 const server = createServer((req, res) => {
@@ -144,7 +178,7 @@ const server = createServer((req, res) => {
         requested = undefined;
       }
       const threadId = requested ?? randomUUID();
-      if (!runs.has(threadId)) runs.set(threadId, { userText: "", statusPolls: 0 });
+      if (!runs.has(threadId)) runs.set(threadId, { userText: "", statusPolls: 0, decision: null });
       sendJson(res, 200, { thread_id: threadId });
     });
     return;
@@ -163,8 +197,24 @@ const server = createServer((req, res) => {
         sendJson(res, 400, { error: "invalid json" });
         return;
       }
+      const resumeDecisionWire = parsed.command?.resume?.decisions?.[0];
+      if (resumeDecisionWire !== undefined) {
+        // DA-07b resume：既有 run 提交裁决，绝不重发用户输入、绝不重置 userText/statusPolls
+        // ——那会丢掉「这是哪个触发词场景」的记账，且会让轮询重新走一遍 pending 阈值。
+        const existingForResume = runs.get(threadId);
+        if (existingForResume === undefined) { sendJson(res, 404, { error: "unknown thread" }); return; }
+        const type = resumeDecisionWire.type === "approve" || resumeDecisionWire.type === "edit"
+          || resumeDecisionWire.type === "reject" ? resumeDecisionWire.type : "reject";
+        const editedArgs = type === "edit" && typeof resumeDecisionWire.edited_action?.args === "object"
+          && resumeDecisionWire.edited_action.args !== null && !Array.isArray(resumeDecisionWire.edited_action.args)
+          ? resumeDecisionWire.edited_action.args as Record<string, unknown>
+          : undefined;
+        existingForResume.decision = { type, editedArgs };
+        sendJson(res, 200, { run_id: threadId });
+        return;
+      }
       const lastUser = [...(parsed.input?.messages ?? [])].reverse().find((m) => m.role === "user")?.content;
-      runs.set(threadId, { userText: typeof lastUser === "string" ? lastUser : "", statusPolls: 0 });
+      runs.set(threadId, { userText: typeof lastUser === "string" ? lastUser : "", statusPolls: 0, decision: null });
       // 用 thread id 直接当 run id：同一线程本进程不并发跑第二个 run，够用，
       // 不需要为了"看起来更像真服务"多维护一份映射。
       sendJson(res, 200, { run_id: threadId });
@@ -179,6 +229,16 @@ const server = createServer((req, res) => {
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
     record.statusPolls += 1;
     if (record.statusPolls < STATUS_POLLS_BEFORE_DONE) { sendJson(res, 200, { status: "pending" }); return; }
+    // UX-9 D4：审批触发词且还没被裁决过 → 停在 interrupted，让真实 DA-07b 轮询循环
+    // 读到「等人裁决」而不是直接终态。裁决（resume）到达后 record.decision 非 null，
+    // 之后的轮询一律走终态分支——不会无限停在 interrupted。
+    if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER && record.decision === null) {
+      sendJson(res, 200, { status: "interrupted" });
+      return;
+    }
+    // ⚠ reject 在这里**永远不会**被观察到：`decide-agent-run.ts` 对 reject 直接
+    // `failRun("HITL_REJECTED")`，从不向 provider 发 resume——服务端就是唯一权威，
+    // 本替身没有、也不该有 reject 分支（写一个够不到的分支是「同一事实两处声明」）。
     // 第二次起终态——见头注。用户原话逐字等于失败触发词时终态是 error，不是 success。
     const status = FAILURE_TRIGGER !== undefined && record.userText === FAILURE_TRIGGER ? "error" : "success";
     sendJson(res, 200, { status });
@@ -272,6 +332,51 @@ const server = createServer((req, res) => {
             },
             { type: "tool", tool_call_id: readCallId, content: "A.md 内容：多步执行取证样例正文——搜索命中的第一份文档。" },
             { type: "ai", content: "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。" },
+          ],
+        },
+      });
+      return;
+    }
+    // UX-9 D4 前端接入取证（gap 清单第 3 条）：审批触发词的剧本。原始参数（裁决前
+    // `readPendingApproval` 读到、渲染进审批面板的那份）与裁决后落进 state 的工具结果
+    // 是两件事——`editedArgs`（若有）必须能在终稿里被肉眼核对，不是「按了编辑就白按」。
+    if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER) {
+      const approvalCallId = `approval-${threadId}`;
+      const originalArgs = { to: "ops@example.test", subject: "取证：待批邮件", body: "原始正文（未编辑）" };
+      record.approvalArgs = originalArgs;
+      const pendingApprovalAi = {
+        type: "ai",
+        content: "这一步需要人工批准后才能继续。",
+        tool_calls: [{ id: approvalCallId, name: APPROVAL_TOOL_NAME, args: originalArgs }],
+      };
+      if (record.decision === null) {
+        // 还没被裁决：工具调用没有配对的 tool 消息——`readPendingApproval` 靠这个
+        // 找到「待批的那一个」，与真实中间件的 interrupt_on 语义一致。
+        sendJson(res, 200, {
+          values: {
+            messages: [
+              { type: "human", content: record.userText },
+              pendingApprovalAi,
+            ],
+          },
+        });
+        return;
+      }
+      const usedArgs = record.decision.type === "edit" && record.decision.editedArgs !== undefined
+        ? record.decision.editedArgs
+        : originalArgs;
+      const toolResultText = `已发送邮件（${record.decision.type === "edit" ? "编辑后" : "原样"}参数）：`
+        + JSON.stringify(usedArgs);
+      const finalReplyText = record.decision.type === "edit"
+        ? `已按你编辑后的参数发送：${JSON.stringify(usedArgs)}`
+        : `已按原参数发送：${JSON.stringify(usedArgs)}`;
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            { ...pendingApprovalAi, tool_calls: [{ id: approvalCallId, name: APPROVAL_TOOL_NAME, args: usedArgs }] },
+            { type: "tool", tool_call_id: approvalCallId, content: toolResultText },
+            { type: "ai", content: finalReplyText },
           ],
         },
       });

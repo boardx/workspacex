@@ -109,15 +109,43 @@ export async function retryAgentRun(
  * DA-07c（rubric D6）：对 awaiting_approval 的 run 提交人裁决。
  * 只把服务端结果原样交出去；409 会从 apiRequest 以错误抛出——调用方据此
  * 重读 run 展示真实状态，不在客户端假装决定生效（与 getAgentRun 同一条纪律）。
+ *
+ * UX-9 D4 前端接入（gap 清单第 3 条，PR #1848 的后端半边）：新增 "edit" 分支。
+ * `editedArgs` 是改后的**完整**工具参数对象（不是 patch），与契约
+ * （`wave2-runtime.ts` 的 `decideAgentRun.in` superRefine）同一条规则——
+ * 仅 decision === "edit" 时必填，approve/reject 携带会被服务端 400。
+ * 这里用参数重载把「不允许传」在类型层面表达出来，而不是让调用方自己记规则。
  */
 export async function decideAgentRun(
   runId: string,
   decision: "approve" | "reject",
   sessionToken?: string,
+): Promise<AgentRunView>;
+export async function decideAgentRun(
+  runId: string,
+  decision: "edit",
+  editedArgs: Readonly<Record<string, unknown>>,
+  sessionToken?: string,
+): Promise<AgentRunView>;
+export async function decideAgentRun(
+  runId: string,
+  decision: "approve" | "edit" | "reject",
+  editedArgsOrSessionToken?: Readonly<Record<string, unknown>> | string,
+  maybeSessionToken?: string,
 ): Promise<AgentRunView> {
+  const editedArgs = decision === "edit"
+    ? (editedArgsOrSessionToken as Readonly<Record<string, unknown>>)
+    : undefined;
+  const sessionToken = decision === "edit"
+    ? maybeSessionToken
+    : (editedArgsOrSessionToken as string | undefined);
   return apiRequest<AgentRunView>(
     wave2Runtime.operations.decideAgentRun.path.replace(":runId", encodeURIComponent(runId)),
-    { method: "POST", body: { decision }, sessionToken },
+    {
+      method: "POST",
+      body: decision === "edit" ? { decision, editedArgs } : { decision },
+      sessionToken,
+    },
   );
 }
 
