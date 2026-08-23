@@ -85,6 +85,7 @@ import {
   MessageThreadArchivedError, MessageIdempotencyConflictError, AgentRunNotVisibleError,
   TitleInvalidError, AguiBridgeResultUnreadableError, type RunStepPublic,
 } from "../../application/agent-run/agui-bridge";
+import { parseWriteTodosSnapshot, type JsonPatchOp } from "@repo/contracts/agui-state-events";
 
 /** The minimal slice of AG-UI's `RunAgentInput` this bridge reads. Everything else in a
  * real `RunAgentInput` (tools, context, state, forwardedProps) is ignored -- Phase 1b is
@@ -117,7 +118,19 @@ type AguiEvent =
     readonly type: EventType.TOOL_CALL_RESULT; readonly messageId: string; readonly toolCallId: string;
     readonly content: string; readonly role: "tool";
   }
-  | { readonly type: EventType.STEP_FINISHED; readonly stepName: string };
+  | { readonly type: EventType.STEP_FINISHED; readonly stepName: string }
+  // DA-17（UX-9 Line D2）-- 状态轴与自定义事件轴，架构裁决（coord-architecture，
+  // 2026-08-23）：DA-13 双栏的小而频 UI 状态走 STATE_DELTA（RFC 6902），DA-15 文件
+  // 事件走 CUSTOM {name,value}，两轴并用不 fork 协议。字段名逐字取自 `@ag-ui/core`
+  // 的 `StateSnapshotEventSchema`/`StateDeltaEventSchema`/`CustomEventSchema`，与
+  // ag-ui 官方 docs/concepts/events.mdx 一致——同上，不凭记忆。
+  //
+  // 当前唯一的生产者是 `writeToolCallStep` 里的 write_todos → STATE_SNAPSHOT；
+  // STATE_DELTA / CUSTOM 本轮只落 wire 类型（DA-13/DA-15 的传输前提），**没有真实
+  // 数据源之前不许 write 它们**——空事件/编造事件违反本仓反空转纪律。
+  | { readonly type: EventType.STATE_SNAPSHOT; readonly snapshot: unknown }
+  | { readonly type: EventType.STATE_DELTA; readonly delta: readonly JsonPatchOp[] }
+  | { readonly type: EventType.CUSTOM; readonly name: string; readonly value: unknown };
 
 function lastUserText(input: AguiRunInput): string | null {
   const messages = input.messages ?? [];
@@ -175,6 +188,20 @@ function writeToolCallStep(write: (event: AguiEvent) => void, step: RunStepPubli
   });
 
   write({ type: EventType.STEP_FINISHED, stepName });
+
+  // DA-17 -- 状态轴的首个真实生产者：write_todos 的参数就是结构化的计划账本
+  // （TodoListMiddleware 语义：每次调用都是全量），所以每个 write_todos step 之后
+  // 下发一次全量 STATE_SNAPSHOT，客户端按序应用、最后一次即当前计划——与
+  // `agent-plan-panel.tsx` 的 derivePlanTodos「取最后一次 write_todos」等价，解析
+  // 纪律也逐条同一（单一事实源在 `@repo/contracts/agui-state-events`）：坏 JSON、
+  // 空 todos、非法条目 → 一律不发，绝不发编造的空快照。失败的 write_todos 调用
+  // 不代表账本推进了，同样不发。
+  if (step.status === "succeeded" && step.toolName === "write_todos" && step.toolArgsSummary !== null) {
+    const snapshot = parseWriteTodosSnapshot(step.toolArgsSummary);
+    if (snapshot !== null) {
+      write({ type: EventType.STATE_SNAPSHOT, snapshot });
+    }
+  }
 }
 
 @Controller()

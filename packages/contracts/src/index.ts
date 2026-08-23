@@ -48,3 +48,6 @@ export * as liveCollabCheckin from "./live-collab-checkin";
 export * as liveCollabModuleRouting from "./live-collab-module-routing";
 export * as liveCollabSegmentEngine from "./live-collab-segment-engine";
 export * as liveCollabStageAggregation from "./live-collab-stage-aggregation";
+
+/* ── UX-9 冲刺（AG-UI 桥扩展轴）──────────────────────────────────── */
+export * as aguiStateEvents from "./agui-state-events";
