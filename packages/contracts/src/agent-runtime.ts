@@ -640,6 +640,19 @@ export const McpServerRow = z
     quarantineUntil: z.string().nullable(),
     involvesCustomerData: z.boolean(),
     isEgress: z.boolean(),
+    /**
+     * issue #1928——发现出的工具个数。⚠ **不是「工具调用量」**（那个区块 phase-1 留空，
+     * D-07，见上）——这里是「这台服务器有多少个已知工具」，来自 `mcp_tools` 表的行数，
+     * 与调用次数无关。`.default(0)` 只是为了不破坏本文件已有的、未显式传这个字段的测试
+     * 夹具，**不代表新服务器的语义默认值是 0**——调用方总是显式传实际计数。
+     */
+    toolCount: z.number().int().min(0).default(0),
+    /** issue #1928——上次发现（首次注册或重新发现）的时刻。`null` = 从未发现过。 */
+    lastDiscoveredAt: z.string().nullable().default(null),
+    /** issue #1928——是否配置了鉴权凭据。⚠ 只是布尔位，`credentialConfigured` 在
+     *  `credential-endpoint-hidden.test.ts` 里是**全局豁免**的字段名（同 `listModelPool`
+     *  的先例）——它是唯一允许透出的「有没有配」，不是凭据本身。 */
+    credentialConfigured: z.boolean().default(false),
   })
   .strict();
 
