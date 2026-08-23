@@ -21,7 +21,11 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, cleanup, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, cleanup, waitFor, within } from "@testing-library/react";
+
+// #1884：编辑区从 `<textarea>` 换成 Monaco 之后接的替身——见该文件头注，
+// 真实 Monaco 在 jsdom 下无法渲染，替身只接管「怎么画」，本文件仍然测「接线对不对」。
+vi.mock("@monaco-editor/react", () => import("@/tests/support/monaco-editor-stub"));
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-848", orgRole: "admin" }));
 
@@ -123,11 +127,13 @@ describe("F848 · 独立编辑页面接真实后端的内容面板", () => {
       />,
     );
 
+    // `ag-skill-code` 现在是 `AssetCodeEditor` 的外层 wrapper div（Monaco 挂载点），
+    // 真正接收输入的是替身渲染在它里面的 `<textarea>`——见 `monaco-editor-stub.tsx`。
     await waitFor(() => {
-      const el = screen.getByTestId("ag-skill-code");
-      expect(el.tagName).toBe("TEXTAREA");
+      expect(screen.getByTestId("ag-skill-code")).toBeInTheDocument();
     });
-    const codeBox = () => screen.getByTestId("ag-skill-code") as HTMLTextAreaElement;
+    const codeBox = () =>
+      within(screen.getByTestId("ag-skill-code")).getByTestId("monaco-mock-editor") as HTMLTextAreaElement;
     await waitFor(() => expect(codeBox().value).toBe(SERVER_BODY));
 
     const EDITED = SERVER_BODY + "改过一行\n";

@@ -1,3 +1,33 @@
+import { cpSync, existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * #1884：Monaco Editor 自托管（不接 CDN）——与仓库既有的 `mermaid`/`fabric` 走同一条路子：
+ * npm 装的包被静态复制进 `public/`，浏览器不对外发起脚本请求。`@monaco-editor/react`
+ * 默认行为是从 jsdelivr CDN 拉 `vs/loader.js`，那条路径在离线/CSP 受限环境下不可用——
+ * 本仓门控与真栈 e2e 常跑在隔离环境里，不能依赖外网可达。
+ *
+ * 选择「复制预构建的 `monaco-editor/min/vs`（AMD 版）到 `public/monaco-editor/vs`，
+ * 由 `@monaco-editor/react` 的 `loader.config({ paths: { vs: ... } })` 指过去」，
+ * 而不是走 `monaco-editor-webpack-plugin` + ESM 打包：后者需要额外处理 Monaco 自带的
+ * CSS（`editor.main.css`）与 worker chunk 命名/`MonacoEnvironment.getWorkerUrl` 手动接线，
+ * 在 Next 14 app router 下两处都有已知坑；`min/vs` 是 monaco 官方发布的可直接部署产物，
+ * AMD loader 自己处理 worker 加载，不需要额外的 webpack 配置。
+ *
+ * 复制发生在 `next.config.mjs` 求值期（`next dev`/`next build` 每次启动都会跑到这里）而
+ * 不是 npm 生命周期钩子（`predev`/`prebuild`）——pnpm 默认不保证会跑除
+ * `install`/`start` 外的 pre/post 钩子，写在这里则与 Next 的启动路径绑死，不依赖
+ * 包管理器的钩子配置。`existsSync` 短路：源目录不变时跳过复制，不拖慢日常 `next dev`。
+ */
+const monacoVsSrc = join(__dirname, "node_modules/monaco-editor/min/vs");
+const monacoVsDest = join(__dirname, "public/monaco-editor/vs");
+if (existsSync(monacoVsSrc) && !existsSync(monacoVsDest)) {
+  cpSync(monacoVsSrc, monacoVsDest, { recursive: true });
+}
+
 /** @type {import('next').NextConfig} */
 export default {
   reactStrictMode: true,

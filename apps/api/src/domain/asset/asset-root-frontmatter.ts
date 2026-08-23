@@ -1,101 +1,19 @@
 /**
- * `validateRootFrontmatter` -- F142 (`uc-23-3` R3 "根文件的 frontmatter" / E2, R12-10).
+ * `validateRootFrontmatter` —— 实现已迁到 `@repo/contracts/asset-governance`（#1884）。
  *
- * Pure function: given a root file's (`SKILL.md` / `AGENT.md`) full text, decide whether its
- * leading `--- ... ---` frontmatter block is well-formed AND carries the required fields for
- * that `AssetKind`. Returns an empty array when it is fine, otherwise one issue per problem --
- * mirroring `domain/skill/declarative-contract.ts`'s `ValidationIssue` shape (`field` / `rule`
- * / `detail`) so `CONTRACT_VALIDATION_FAILED` reads the same way across both bundles (`skills`
- * I-14's reuse note on this very code).
+ * 迁移原因：Monaco 编辑器的内联校验（`apps/web`）需要在编辑期对着**同一套**根文件
+ * frontmatter 规则标红，而不是重新发明一份可能漂移的第二套——本仓已经因「同一事实
+ * 两处声明」栽过五次（设计 token / 字号档位 / 丢弃原因枚举 / 撤回链 SLA / 估点），
+ * 不应有第六次。`assetFileBadgeFromPath` 早先就是同样的理由放进 `@repo/contracts`
+ * （见该文件同款注释），此文件只是同一模式的第二个实例。
  *
- * ⚠ **Only the two root-file kinds are covered** (`skill` / `agent`) -- same 2/6 scope as the
- * rest of F141/F142 (AG4). Callers outside that pair should not call this at all.
- * ⚠ **Required fields come straight from `uc-23-3` R3's "根文件的 frontmatter" table** --
- *   `SKILL.md`: `name` / `description` / `allowed-tools`; `AGENT.md`: `name` / `role` / `model`
- *   / `skills` / `memory`. This module does not invent a fifth or sixth requirement.
- * ⚠ A malformed line (not `key: value`) makes the WHOLE block unparseable -- it stops at the
- *   first such line rather than trying to salvage a partial field list, because a YAML parser
- *   would reject the whole document too; reporting field-by-field after that point would imply
- *   a confidence the parse does not have.
+ * 这个文件保留为**薄 re-export**，只是为了不动 `write-asset-file.ts` 现有的
+ * `../../domain/asset/asset-root-frontmatter` 导入路径——真正的实现、类型定义与
+ * 完整头注释见 `packages/contracts/src/asset-governance.ts`。
  */
-
-export interface FrontmatterIssue {
-  readonly field: string;
-  readonly rule: "unparsable" | "required";
-  readonly detail: string;
-}
-
-export type RootFrontmatterAssetKind = "skill" | "agent";
-
-export function isRootFrontmatterAssetKind(kind: string): kind is RootFrontmatterAssetKind {
-  return kind === "skill" || kind === "agent";
-}
-
-// Named (rather than inlined below) so neither list reads as `skill: [...]` / `agent: [...]` --
-// that shape is indistinguishable, to a static scanner, from a hardcoded built-in capability
-// list (lint-no-builtin-capabilities.mjs's rule 2). These are frontmatter FIELD NAMES per
-// `uc-23-3` R3, not capability entries, so they live under names ending in `_FIELDS`, matching
-// the precedent in `domain/skill/declarative-contract.ts`'s `REQUIRED_TEXT_FIELDS`.
-const SKILL_REQUIRED_FIELDS = ["name", "description", "allowed-tools"] as const;
-const AGENT_REQUIRED_FIELDS = ["name", "role", "model", "skills", "memory"] as const;
-
-const ROOT_REQUIRED_FIELDS: Readonly<Record<RootFrontmatterAssetKind, readonly string[]>> = {
-  skill: SKILL_REQUIRED_FIELDS,
-  agent: AGENT_REQUIRED_FIELDS,
-};
-
-const FRONTMATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s?(.*)$/;
-
-export function validateRootFrontmatter(
-  assetKind: RootFrontmatterAssetKind,
-  body: string,
-): readonly FrontmatterIssue[] {
-  const lines = body.split(/\r?\n/);
-
-  if ((lines[0] ?? "").trim() !== "---") {
-    return [
-      {
-        field: "frontmatter",
-        rule: "unparsable",
-        detail: "文件未以 `---` frontmatter 分隔符开头",
-      },
-    ];
-  }
-
-  const endIdx = lines.findIndex((line, i) => i > 0 && line.trim() === "---");
-  if (endIdx === -1) {
-    return [
-      {
-        field: "frontmatter",
-        rule: "unparsable",
-        detail: "找不到 frontmatter 的结束分隔符 `---`",
-      },
-    ];
-  }
-
-  const fields = new Map<string, string>();
-  for (let i = 1; i < endIdx; i += 1) {
-    const line = lines[i] ?? "";
-    if (line.trim().length === 0) continue;
-    const match = FRONTMATTER_LINE.exec(line);
-    if (match === null) {
-      return [
-        {
-          field: "frontmatter",
-          rule: "unparsable",
-          detail: `第 ${i + 1} 行不是合法的 \`key: value\` 语法：${JSON.stringify(line)}`,
-        },
-      ];
-    }
-    fields.set(match[1]!, match[2]!);
-  }
-
-  const issues: FrontmatterIssue[] = [];
-  for (const field of ROOT_REQUIRED_FIELDS[assetKind]) {
-    const value = fields.get(field);
-    if (value === undefined || value.trim().length === 0) {
-      issues.push({ field, rule: "required", detail: `必填项 \`${field}\` 缺失或为空` });
-    }
-  }
-  return issues;
-}
+export {
+  isRootFrontmatterAssetKind,
+  validateRootFrontmatter,
+  type FrontmatterIssue,
+  type RootFrontmatterAssetKind,
+} from "@repo/contracts/asset-governance";

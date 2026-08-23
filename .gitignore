@@ -99,3 +99,8 @@ apps/deep-agent-service/__pycache__/
 apps/deep-agent-service/**/__pycache__/
 apps/deep-agent-service/.venv/
 apps/deep-agent-service/uv.lock.bak
+
+# #1884：Monaco Editor 自托管静态资源，由 `apps/web/next.config.mjs` 在每次
+# `next dev`/`next build` 启动时从 `node_modules/monaco-editor/min/vs` 复制而来
+# （AMD loader 版），是构建产物不是事实源，不入库。
+apps/web/public/monaco-editor/

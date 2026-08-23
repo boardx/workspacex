@@ -286,6 +286,102 @@ export const AssetTreeNode = z
 /** 资产引用。`ScanReviewClocks` 的两段返回都是它 */
 export const AssetRef = z.object({ assetKind: AssetKind, assetId: z.string() }).strict();
 
+/* ─────────────────────────── 根文件 frontmatter 校验 ─────────────────────────── */
+
+/**
+ * `validateRootFrontmatter` —— `uc-23-3` R3「根文件的 frontmatter」/ E2, R12-10。
+ *
+ * Pure function：给定根文件（`SKILL.md` / `AGENT.md`）全文，判断其开头 `--- ... ---`
+ * frontmatter 块是否合法、且带齐该 `AssetKind` 的必填字段。合法返回空数组，否则每个
+ * 问题一条——沿用 `domain/skill/declarative-contract.ts` `ValidationIssue` 的形状
+ * （`field`/`rule`/`detail`），使 `CONTRACT_VALIDATION_FAILED` 在两个束里读起来一致。
+ *
+ * ⚠ **单点声明，`apps/api`（`WriteAssetFile` 服务端强校验）与 `apps/web`（Monaco
+ *   `setModelMarkers` 编辑期内联校验）共用同一份规则**——这是本仓已经栽过五次的
+ *   「同一事实两处声明」的候选现场（见 `asset-governance/design-signoff.md`
+ *   `EXTENSION_BADGE` 那条同款注释），故不重复写第二份。原实现曾单独放在
+ *   `apps/api/src/domain/asset/asset-root-frontmatter.ts`，`#1884` 迁到这里，
+ *   该文件改为薄的 re-export 以保留既有导入路径。
+ * ⚠ **只覆盖两个根文件 kind**（`skill`/`agent`）——与 F141/F142 的 2/6 范围一致
+ *   （`AG4`）。调用方不应对这个范围之外的 kind 调用它。
+ * ⚠ **必填字段表逐字来自 `uc-23-3` R3**——`SKILL.md`：`name`/`description`/
+ *   `allowed-tools`；`AGENT.md`：`name`/`role`/`model`/`skills`/`memory`。
+ *   本模块不发明第五、第六个必填项。
+ * ⚠ 一行不是合法 `key: value` 语法 ⇒ **整个块判不可解析**，不逐字段尝试挽救——
+ *   YAML parser 遇到这种情况本来也会整篇拒绝，逐字段继续报会暗示一种实际不存在的置信度。
+ */
+
+export interface FrontmatterIssue {
+  readonly field: string;
+  readonly rule: "unparsable" | "required";
+  readonly detail: string;
+}
+
+export type RootFrontmatterAssetKind = "skill" | "agent";
+
+export function isRootFrontmatterAssetKind(kind: string): kind is RootFrontmatterAssetKind {
+  return kind === "skill" || kind === "agent";
+}
+
+// 命名成 `_FIELDS` 结尾（而不是内联在下面写成 `skill: [...]`/`agent: [...]`）：那种形状
+// 对静态扫描器而言与「硬编码内置能力清单」无法区分（lint-no-builtin-capabilities.mjs
+// 规则 2）。这些是 `uc-23-3` R3 定的 frontmatter **字段名**，不是能力条目。
+const SKILL_ROOT_REQUIRED_FIELDS = ["name", "description", "allowed-tools"] as const;
+const AGENT_ROOT_REQUIRED_FIELDS = ["name", "role", "model", "skills", "memory"] as const;
+
+const ROOT_REQUIRED_FIELDS: Readonly<Record<RootFrontmatterAssetKind, readonly string[]>> = {
+  skill: SKILL_ROOT_REQUIRED_FIELDS,
+  agent: AGENT_ROOT_REQUIRED_FIELDS,
+};
+
+const FRONTMATTER_LINE = /^([A-Za-z][A-Za-z0-9_-]*):\s?(.*)$/;
+
+export function validateRootFrontmatter(
+  assetKind: RootFrontmatterAssetKind,
+  body: string,
+): readonly FrontmatterIssue[] {
+  const lines = body.split(/\r?\n/);
+
+  if ((lines[0] ?? "").trim() !== "---") {
+    return [
+      { field: "frontmatter", rule: "unparsable", detail: "文件未以 `---` frontmatter 分隔符开头" },
+    ];
+  }
+
+  const endIdx = lines.findIndex((line, i) => i > 0 && line.trim() === "---");
+  if (endIdx === -1) {
+    return [
+      { field: "frontmatter", rule: "unparsable", detail: "找不到 frontmatter 的结束分隔符 `---`" },
+    ];
+  }
+
+  const fields = new Map<string, string>();
+  for (let i = 1; i < endIdx; i += 1) {
+    const line = lines[i] ?? "";
+    if (line.trim().length === 0) continue;
+    const match = FRONTMATTER_LINE.exec(line);
+    if (match === null) {
+      return [
+        {
+          field: "frontmatter",
+          rule: "unparsable",
+          detail: `第 ${i + 1} 行不是合法的 \`key: value\` 语法：${JSON.stringify(line)}`,
+        },
+      ];
+    }
+    fields.set(match[1]!, match[2]!);
+  }
+
+  const issues: FrontmatterIssue[] = [];
+  for (const field of ROOT_REQUIRED_FIELDS[assetKind]) {
+    const value = fields.get(field);
+    if (value === undefined || value.trim().length === 0) {
+      issues.push({ field, rule: "required", detail: `必填项 \`${field}\` 缺失或为空` });
+    }
+  }
+  return issues;
+}
+
 /* ─────────────────────────── 操作 ─────────────────────────── */
 
 export const operations = {
