@@ -4,6 +4,8 @@ import * as React from "react";
 import { HttpAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/core";
 import { apiBaseUrl, getStoredSessionToken } from "../../lib/api-client";
+import { useAguiPlanTodos } from "../../lib/agui-plan-todos";
+import { AgentPlanPanel } from "./agent-plan-panel";
 
 /**
  * #654 阶段 1b —— 直连 AG-UI SSE 桥接端点的 CopilotKit 预览面板。
@@ -33,6 +35,14 @@ import { apiBaseUrl, getStoredSessionToken } from "../../lib/api-client";
  * 多轮上下文持久化（后端桥接端点每次调用都开一条新的个人线程，单轮范围，
  * 见 `apps/api/src/interface/controllers/copilotkit-agui.controller.ts` 文件头）；
  * token 级真流式（后端一次性吐出整段回复，不是逐 token，阶段 2 才做）。
+ *
+ * ## DA-17（UX-9 Line D3）—— 这个面板也是 `STATE_SNAPSHOT` 目前唯一的真实消费点
+ *
+ * `agent.runAgent` 的 subscriber 除了已有的 `onRunErrorEvent`/`onMessagesChanged`，
+ * 现在还接了 `useAguiPlanTodos` 的 `onStateSnapshotEvent`——`write_todos` 步骤成功后
+ * 后端下发的 `STATE_SNAPSHOT` 落到这里，校验通过就更新 `AgentPlanPanel`
+ * 的 `stateSnapshotTodos`（比该组件另一条从 `toolArgsSummary` 反解字符串的路径更权威，
+ * 见 `agent-plan-panel.tsx` 该 prop 的文档）。
  */
 export function CopilotKitPreviewPanel(): JSX.Element {
   const [agentIdDraft, setAgentIdDraft] = React.useState("");
@@ -40,6 +50,7 @@ export function CopilotKitPreviewPanel(): JSX.Element {
   const [messages, setMessages] = React.useState<readonly Message[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const { todos: planTodos, onStateSnapshotEvent, reset: resetPlanTodos } = useAguiPlanTodos();
 
   const send = React.useCallback(async () => {
     const agentId = agentIdDraft.trim();
@@ -49,6 +60,7 @@ export function CopilotKitPreviewPanel(): JSX.Element {
     setError(null);
     setBusy(true);
     setInputDraft("");
+    resetPlanTodos();
 
     const userMessage: Message = { id: crypto.randomUUID(), role: "user", content: text };
     const nextMessages: Message[] = [...messages, userMessage];
@@ -69,13 +81,14 @@ export function CopilotKitPreviewPanel(): JSX.Element {
         onMessagesChanged: ({ messages: updated }) => {
           setMessages([...updated]);
         },
+        onStateSnapshotEvent,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "AGUI_RUN_FAILED");
     } finally {
       setBusy(false);
     }
-  }, [agentIdDraft, inputDraft, messages, busy]);
+  }, [agentIdDraft, inputDraft, messages, busy, onStateSnapshotEvent, resetPlanTodos]);
 
   return (
     <div className="flex h-full w-full flex-col gap-3 p-4">
@@ -89,6 +102,10 @@ export function CopilotKitPreviewPanel(): JSX.Element {
         value={agentIdDraft}
         onChange={(e) => setAgentIdDraft(e.target.value)}
       />
+      {/* DA-17／Line D3 -- STATE_SNAPSHOT 驱动，steps=[] 因为这个面板没有
+          `AgentRunView.steps`（那是 `/agent-runs` 轮询通道的形状，见文件头）；
+          `stateSnapshotTodos` 是这里唯一可能非空的数据源。 */}
+      <AgentPlanPanel steps={[]} stateSnapshotTodos={planTodos} />
       <div className="flex-1 overflow-y-auto rounded border p-2" data-testid="copilotkit-preview-messages">
         {messages.map((m) => (
           <div key={m.id} data-testid={`copilotkit-preview-message-${m.role}`} className="mb-2 text-sm">

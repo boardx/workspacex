@@ -28,6 +28,18 @@ import type { AgentRunView } from "@/lib/agent-run";
  *
  * 同一张卡片式（rounded-md border bg-card）、同一 11px 字号——规划条与工具链
  * 在消息流里是同一层级的「过程可见性」信息，不引入风格孤岛（fidelity rubric）。
+ *
+ * ## `stateSnapshotTodos`（DA-17，UX-9 Line D3）—— 第二条真实数据路径，不冲突
+ *
+ * D2（#1842）让后端在 `write_todos` 成功后于 AG-UI SSE 上额外发一次
+ * `STATE_SNAPSHOT { snapshot: { todos } }`（`copilotkit-agui.controller.ts`）——这是
+ * **服务端已确认的状态快照**，比本组件从 `toolArgsSummary` 反解字符串更权威（少一次
+ * 客户端 JSON.parse）。消费方（`apps/web/lib/agui-plan-todos.ts` 的
+ * `useAguiPlanTodos` hook）把它按 `@repo/contracts/agui-state-events` 的单一解析纪律
+ * 校验好之后，通过这个 prop 传进来。**非 null 时优先于 `derivePlanTodos(steps)`**——
+ * 但 `steps` 派生路径不删：STATE_SNAPSHOT 事件到达前（或消费方根本没接 AG-UI 事件流，
+ * 比如仍在用 `/agent-runs` 轮询的生产聊天页）仍要有得看，两条路径是「更权威的一旦到达
+ * 就顶上，没到达就用现成的」，不是二选一。
  */
 
 type Step = AgentRunView["steps"][number];
@@ -70,8 +82,16 @@ function StatusIcon({ status }: { status: PlanTodo["status"] }) {
   return <Circle aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />;
 }
 
-export function AgentPlanPanel({ steps }: { steps: readonly Step[] }) {
-  const todos = derivePlanTodos(steps);
+export function AgentPlanPanel({
+  steps,
+  stateSnapshotTodos = null,
+}: {
+  steps: readonly Step[];
+  /** DA-17／Line D3 -- STATE_SNAPSHOT 已解析好的 todos，非 null 时优先于 `steps` 派生。
+   *  null（默认）= 尚未收到快照（或该消费方压根没接 AG-UI 事件流），退回旧路径。 */
+  stateSnapshotTodos?: PlanTodo[] | null;
+}) {
+  const todos = stateSnapshotTodos ?? derivePlanTodos(steps);
   if (todos === null) return null;
   const done = todos.filter((t) => t.status === "completed").length;
   return (

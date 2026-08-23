@@ -68,4 +68,26 @@ describe("AgentPlanPanel", () => {
     const { container } = render(<AgentPlanPanel steps={[step({ toolArgsSummary: "{broken" })]} />);
     expect(container.innerHTML).toBe("");
   });
+
+  it("DA-17／Line D3：stateSnapshotTodos 非 null 时优先于 steps 派生（更权威的 STATE_SNAPSHOT 顶上）", () => {
+    const fromSteps = { todos: [{ content: "steps 派生的旧内容", status: "pending" }] };
+    const fromSnapshot = [
+      { content: "快照给的最新内容", status: "in_progress" as const },
+      { content: "第二条", status: "completed" as const },
+    ];
+    render(
+      <AgentPlanPanel
+        steps={[step({ toolArgsSummary: JSON.stringify(fromSteps) })]}
+        stateSnapshotTodos={fromSnapshot}
+      />,
+    );
+    const panel = screen.getByTestId("agent-plan-panel");
+    expect(panel.getAttribute("data-plan-total")).toBe("2");
+    expect(screen.getByTestId("agent-plan-item-0").textContent).toContain("快照给的最新内容");
+  });
+
+  it("stateSnapshotTodos 未传（undefined，默认 null）时退回 steps 派生，行为与旧调用方逐字一致", () => {
+    render(<AgentPlanPanel steps={[step({ toolArgsSummary: JSON.stringify(TODOS) })]} />);
+    expect(screen.getByTestId("agent-plan-item-0").textContent).toContain("查清现状");
+  });
 });
