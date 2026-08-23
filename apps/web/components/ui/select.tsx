@@ -63,7 +63,7 @@ export function Select({
         </span>
         <ChevronDown aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[12rem]">
+      <DropdownMenuContent align="start" className="max-h-72 min-w-[12rem] overflow-y-auto">
         <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
           {options.map((o) => (
             <DropdownMenuRadioItem key={o.value} value={o.value} className="pl-7">

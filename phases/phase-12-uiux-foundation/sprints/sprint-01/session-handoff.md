@@ -1,7 +1,7 @@
 # 会话交接 — Sprint 12/01
 
 ## 当前已验证
-- F01（统一的 Dialog / Dropdown 弹层原语）passing。三条 verification 命令全过，见
+- F01（统一的 Dialog / Dropdown 弹层原语）passing。见
   `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F01.verify.log`。
 - F05（chat / profile 核心任务全键盘可达）passing。两条 verification 命令全过，见
   `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F05.verify.log`。
@@ -19,6 +19,23 @@
 - `apps/web/components/rec/delete-transcription-dialog.tsx`：裸 Radix → `ui/dialog.tsx`。
 - 新增 `apps/web/tests/ui/overlay-primitives-dialog-dropdown.test.tsx`、
   `apps/web/e2e/overlay-primitives-keyboard.spec.ts`。
+- F02（统一的 Select / Tooltip 弹层原语 + kitchen-sink 展示区）passing。三条 verification
+  命令全过，见 `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F02.verify.log`。
+
+## 本轮改动（F02）
+- `apps/web/components/ui/select.tsx`：`DropdownMenuContent` 加 `max-h-72 overflow-y-auto`。
+- `apps/web/components/ui/tooltip.tsx`：`TooltipContent` 空 content（null/undefined/纯空白）
+  不挂载气泡。
+- 迁移 3 处原生 `<select>` → `Select`：`apps/web/app/chat/live/page.tsx`、
+  `apps/web/app/project/live/page.tsx`、`apps/web/app/itv/live/page.tsx`（均无 e2e/单测
+  依赖裸 `<select>` API，低风险）。
+- 迁移 6 处 `title=` 裸 tooltip → `Tooltip` 组件：`apps/web/components/chat/chat-canvas-modal.tsx`、
+  `apps/web/components/chat/chat-diagram-canvas-modal.tsx`（各 3 个工具栏图标按钮）。
+- `apps/web/components/state/primitives-gallery.tsx`：Select 补禁用态 + 超长列表演示，
+  Tooltip 补禁用触发态演示。
+- 新增 `apps/web/tests/ui/overlay-primitives-select-tooltip.test.tsx`、
+  `apps/web/e2e/overlay-primitives-kitchen-sink.spec.ts`（并入 `overlay-primitives-keyboard`
+  project 的 testMatch）。
 
 ## 本轮改动（F05）
 - `apps/web/components/chat/chat-live-message-panel.tsx`：修复发消息后焦点丢到
@@ -57,9 +74,29 @@
   迁移 → 补 verification）继续。
 - F06（org-admin 键盘可达 + axe-core）依赖已满足（F01、F05 均 passing），可开工，
   但注意上面「仍损坏或未验证」提到的裸配置问题会同样出现。
+- 「暂不迁移」清单（原生 `<select>`）：
+  - `chat-roster-add-input`（chat-read-screen.tsx）、`project-prep-group-*-leader`
+    （tab-prep.tsx）—— 5+ 条 CI 门控 e2e spec 用 Playwright `.selectOption()` 直接操作，
+    该 API 只认原生 `<select>`，迁移前要先重写这些 spec。
+  - `org-admin-member-*-reviewer-function`（org-admin-screen.tsx）—— vitest RTL 测试
+    用 `fireEvent.change` + `HTMLSelectElement.value` 断言，同样需要同步重写测试。
+  - `project-prep-group-*-status`（tab-prep.tsx）——与 leader select 同一表单，为保持
+    同一表单内控件风格一致，留到与 leader 一起处理。
+  - `research-studio/*`、`admin/capability-mutate.tsx`、`admin/agent-definition-create-panel.tsx`、
+    `admin/limit-rules-live.tsx`、`canvas/template-*.tsx` 等约 8 处未逐一核实测试耦合，
+    本轮时间预算内未动，留给后续小 PR 按同样方法逐个核实再迁移。
+  - `components/chat/chat-composer-pickers.tsx`：源码注释里已有历史决策记录（故意不用
+    原生 `<select>` 也不用 `Select` 组件，手写弹层），非遗漏。
+- GitHub issue #1676（F02 对应 issue）标题/labels 是历史遗留漂移（sprint:12-03/
+  area:project，phase-12 实际只有 sprint-01），`sync --apply` 的 `--remove-label` 调用
+  本轮失败了，标题/labels 没清干净，body 是对的。已用 spawn_task 登记单独任务。
+
+## 下一步最佳动作
+- F03（语义化动效 token 体系 + lint 拦截裸 duration/easing）。
 
 ## 命令
 - 启动:`pnpm -w run dev`
 - 验证:`pnpm harness verify --sprint 12/01`
 - 调试:`pnpm --filter web exec vitest run tests/ui/overlay-primitives-dialog-dropdown.test.tsx`
 - F05 调试:`pnpm run verify:chat-read`、`pnpm run verify:self-service-profile`
+- 调试:`pnpm --filter web exec vitest run tests/ui/overlay-primitives-select-tooltip.test.tsx`

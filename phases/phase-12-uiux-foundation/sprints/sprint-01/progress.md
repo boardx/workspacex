@@ -4,7 +4,7 @@
 - 仓库根目录: apps/web
 - 标准启动路径: `pnpm -w run dev`
 - 标准验证路径: 见 ADR-106（`verify:quick`/`verify:harness`/`verify:release`，不确定就跑 `verify:release`）
-- 当前最高优先级未完成功能: F02（统一的 Select / Tooltip 弹层原语 + kitchen-sink 展示区）
+- 当前最高优先级未完成功能: F03（语义化动效 token 体系 + lint 拦截裸 duration/easing）
 - 当前 blocker: 无
 
 ### 2026-08-23 F05 完成
@@ -147,3 +147,47 @@
 - 下一步最佳动作: F02（Select / Tooltip 原语 + kitchen-sink 展示区，两者已在
   `components/ui/select.tsx`/`tooltip.tsx` 且 `PrimitivesGallery` 已展示，需要同样做
   全仓盘点 + 迁移 + 补 verification）。
+
+### 2026-08-23 F02 完成
+- 本轮目标: F02（统一的 Select / Tooltip 弹层原语 + kitchen-sink 展示区）。
+- 已完成:
+  - `components/ui/select.tsx`：`DropdownMenuContent` 加 `max-h-72 overflow-y-auto`，
+    超长选项列表视口内可滚动截断（不撑爆页面），选项数据仍全量渲染（截断是视觉滚动
+    不是裁数据）。
+  - `components/ui/tooltip.tsx`：`TooltipContent` 新增空 content 守卫
+    （`isEmptyTooltipContent`）——children 为 null/undefined/纯空白字符串时不挂载气泡节点。
+  - 全仓裸实现盘点（原生 `<select>`/裸 title= 当 tooltip/裸 `@radix-ui/react-tooltip`）：
+    - 裸 `@radix-ui/react-tooltip` 拼装：0 处（本仓 tooltip 一直只有这一个文件用）。
+    - 原生 `<select>`：约 15 处分散在 app/ 与 components/ 下。迁移 3 处低风险（见下），
+      其余记录「暂不迁移」清单（PR 描述）。
+    - `title=` 充当 tooltip 的裸实现：迁移 6 处（chat-canvas-modal.tsx / 
+      chat-diagram-canvas-modal.tsx 各 3 个工具栏图标按钮），改用 Tooltip 组件、
+      保留 aria-label。
+  - `components/state/primitives-gallery.tsx`：Select 区块补齐禁用态 + 40 项超长列表
+    可滚动截断演示；Tooltip 区块补齐禁用触发态演示。
+  - 新增 `tests/ui/overlay-primitives-select-tooltip.test.tsx`（12 用例：token 化 /
+    超长列表 content 带 max-h-*+overflow-y-auto / tooltip 空 content 不挂载）与
+    `e2e/overlay-primitives-kitchen-sink.spec.ts`（5 用例：四原语展示区可见 / select
+    可展开选中 / select 禁用态 / 超长列表滚动截断 / tooltip hover+禁用态），并入既有
+    `overlay-primitives-keyboard` project 的 testMatch（同一静态页、同样不需要种子/登录）。
+- 运行过的验证:
+  - `pnpm --filter web exec vitest run tests/ui/overlay-primitives-select-tooltip.test.tsx` → 12 passed
+  - `pnpm --filter web run lint:design` → 全过
+  - `pnpm --filter web exec playwright test -c playwright.config.ts -g 'kitchen sink overlays'` → 5 passed
+  - `node .harness/scripts/lint-spec-gate-coverage.mjs` → 全 [covered]/[exempt]，新 spec 非 [unrun]
+  - `pnpm -w run verify:quick` → 通过（194 test files / 1656 tests；typecheck/lint 全过）
+  - `pnpm harness verify --sprint 12/01 --feature F02` → passing
+- 已记录证据: `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F02.verify.log`
+- 提交记录: 见本轮 PR（`worker/claude-12-F02` → main）
+- 已知风险或未解决问题:
+  - 「暂不迁移」的原生 `<select>` 清单里，`chat-roster-add-input`（chat-read-screen.tsx）
+    与 `project-prep-group-*-leader`（tab-prep.tsx）被 5+ 条 CI 门控 e2e spec 用
+    Playwright `.selectOption()`（仅原生 `<select>` 支持）直接操作，迁移前必须先把那些
+    spec 改成点击式交互，成本超出本 feature 范围。
+  - `org-admin-member-*-reviewer-function` 有 vitest RTL 测试用 `fireEvent.change` +
+    `HTMLSelectElement.value` 断言，迁移同样需要同步重写测试。
+  - GitHub issue #1676 的标题/labels 是历史遗留漂移（sprint:12-03/area:project，phase-12
+    实际只有 sprint-01），`pnpm harness sync --phase 12 --apply` 已把它的 body 正确
+    覆盖为 F02 内容并关闭，但 `--remove-label` 那几条 gh 调用本轮同步日志里失败了，
+    标题/labels 未清干净——已用 spawn_task 登记一条独立收尾任务，不在本 PR 里顺手改。
+- 下一步最佳动作: F03（语义化动效 token 体系 + lint 拦截裸 duration/easing）。

@@ -31,6 +31,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, clearStoredSessionToken, getStoredSessionToken, storeSessionToken } from "@/lib/api-client";
 import { getInterview, listInterviews, login, type GetInterviewOut, type InterviewRow } from "@/lib/live-interviews";
@@ -188,16 +189,16 @@ export default function ItvLivePage() {
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <select
+            <Select
               data-testid="live-itv-scope-kind"
-              className="h-8 rounded-md border border-input bg-card px-2.5 text-13"
+              options={[
+                { value: "none", label: "不属于任何项目" },
+                { value: "project", label: "项目" },
+                { value: "research", label: "研究项目" },
+              ]}
               value={scopeKind}
-              onChange={(e) => setScopeKind(e.target.value as typeof scopeKind)}
-            >
-              <option value="none">不属于任何项目</option>
-              <option value="project">项目</option>
-              <option value="research">研究项目</option>
-            </select>
+              onValueChange={(v) => setScopeKind(v as typeof scopeKind)}
+            />
             {scopeKind === "project" ? (
               <Input
                 data-testid="live-itv-project-id"

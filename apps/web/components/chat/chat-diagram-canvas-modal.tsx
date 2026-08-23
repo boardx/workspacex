@@ -10,6 +10,7 @@ import type { CanvasTool } from "@/components/canvas/canvas-toolbar";
 import { ZOOM_MIN, ZOOM_MAX } from "@/components/canvas/canvas-toolbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
  * 最大化 → 全屏**可编辑**画布（VZ-02 第 ② / ③ 件）。复用 `CanvasStage`
@@ -231,6 +232,7 @@ export function ChatDiagramCanvasModal({
       className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm"
     >
       {/* 顶栏：标题 + 工具条 + 保存 + 关闭 */}
+      <TooltipProvider delayDuration={200}>
       <header className="flex flex-wrap items-center gap-1 border-b border-border bg-card px-3 py-2">
         <span className="mr-2 text-13 font-semibold">编辑图</span>
         <Badge tone="ai">fabric 可编辑</Badge>
@@ -253,16 +255,20 @@ export function ChatDiagramCanvasModal({
 
         <div className="mx-2 h-4 w-px bg-border" aria-hidden />
 
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="适应画布（回到 100%）"
-          title="适应画布"
-          onClick={() => setZoom(1)}
-          data-testid="chat-diagram-zoom-fit"
-        >
-          <Maximize aria-hidden className="h-3.5 w-3.5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="适应画布（回到 100%）"
+              onClick={() => setZoom(1)}
+              data-testid="chat-diagram-zoom-fit"
+            >
+              <Maximize aria-hidden className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>适应画布</TooltipContent>
+        </Tooltip>
         <span className="w-10 text-center font-mono text-10 tabular-nums text-muted-foreground">
           {Math.round(zoom * 100)}%
         </span>
@@ -273,26 +279,34 @@ export function ChatDiagramCanvasModal({
               {exportError}
             </span>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="导出为 PNG"
-            title="导出为 PNG"
-            onClick={handleExportPNG}
-            data-testid="chat-diagram-export-png"
-          >
-            <ImageDown aria-hidden className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="导出为 PDF"
-            title="导出为 PDF"
-            onClick={() => void handleExportPDF()}
-            data-testid="chat-diagram-export-pdf"
-          >
-            <FileDown aria-hidden className="h-3.5 w-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="导出为 PNG"
+                onClick={handleExportPNG}
+                data-testid="chat-diagram-export-png"
+              >
+                <ImageDown aria-hidden className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>导出为 PNG</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="导出为 PDF"
+                onClick={() => void handleExportPDF()}
+                data-testid="chat-diagram-export-pdf"
+              >
+                <FileDown aria-hidden className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>导出为 PDF</TooltipContent>
+          </Tooltip>
           <div className="mx-1 h-4 w-px bg-border" aria-hidden />
           {saveError && (
             <span className="text-11 text-destructive" data-testid="chat-diagram-save-error">
@@ -331,6 +345,7 @@ export function ChatDiagramCanvasModal({
           </Button>
         </div>
       </header>
+      </TooltipProvider>
 
       {/* G1 读回提示条（签核硬约束：不静默替换——始终能分辨在看保存版还是原始版）。 */}
       {savedSource && viewing === "saved" ? (

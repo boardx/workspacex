@@ -13,23 +13,34 @@ export const TooltipProvider = TooltipPrimitive.Provider;
 export const Tooltip = TooltipPrimitive.Root;
 export const TooltipTrigger = TooltipPrimitive.Trigger;
 
+/** 空 content（null/undefined/纯空白字符串）不挂气泡——没有内容的提示不该占屏幕。 */
+function isEmptyTooltipContent(children: React.ReactNode): boolean {
+  if (children === null || children === undefined || children === false) return true;
+  if (typeof children === "string") return children.trim() === "";
+  if (Array.isArray(children)) return children.every(isEmptyTooltipContent);
+  return false;
+}
+
 export const TooltipContent = React.forwardRef<
   React.ElementRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
->(({ className, sideOffset = 6, children, ...props }, ref) => (
-  <TooltipPrimitive.Portal>
-    <TooltipPrimitive.Content
-      ref={ref}
-      sideOffset={sideOffset}
-      className={cn(
-        "z-50 max-w-xs rounded-md bg-inverse px-2 py-1 text-11 text-inverse-foreground shadow-md",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      <TooltipPrimitive.Arrow className="fill-inverse" />
-    </TooltipPrimitive.Content>
-  </TooltipPrimitive.Portal>
-));
+>(({ className, sideOffset = 6, children, ...props }, ref) => {
+  if (isEmptyTooltipContent(children)) return null;
+  return (
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Content
+        ref={ref}
+        sideOffset={sideOffset}
+        className={cn(
+          "z-50 max-w-xs rounded-md bg-inverse px-2 py-1 text-11 text-inverse-foreground shadow-md",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+        <TooltipPrimitive.Arrow className="fill-inverse" />
+      </TooltipPrimitive.Content>
+    </TooltipPrimitive.Portal>
+  );
+});
 TooltipContent.displayName = "TooltipContent";
