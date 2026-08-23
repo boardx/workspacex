@@ -5,6 +5,11 @@
   `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F01.verify.log`。
 - F05（chat / profile 核心任务全键盘可达）passing。两条 verification 命令全过，见
   `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F05.verify.log`。
+- F13（rev-uiux 评审结果结构化落盘 + 历史回填 + Top5 扣分维度统计）passing。两条
+  verification 命令全过，见
+  `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F13.verify.log`。
+  与 F01/F02 等无代码交集（纯 `.harness/state/` + `.harness/scripts/` 治理数据），
+  独立分支 `worker/claude-d-12-F13`，不阻塞/不依赖其他并行 feature。
 
 ## 本轮改动（F01，历史）
 - `apps/web/components/ui/dialog.tsx`：`DialogContent` 加 `closeTestId`/`hideClose`。

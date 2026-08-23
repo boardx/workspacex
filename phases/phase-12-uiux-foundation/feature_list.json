@@ -248,15 +248,15 @@
       "spec_ref": "08-review-evidence-log.md#R3",
       "depends_on": [],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "claude-d",
       "verification": [
-        "pnpm --filter api exec vitest run tests/uiux/review-log-schema.test.ts",
-        "pnpm --filter api exec vitest run tests/uiux/review-log-stats.test.ts"
+        "pnpm exec vitest run --config .harness/vitest.config.ts .harness/scripts/uiux-review-log-schema.test.ts",
+        "pnpm exec vitest run --config .harness/vitest.config.ts .harness/scripts/uiux-review-log-stats.test.ts"
       ],
-      "evidence": "",
-      "notes": "依据等级：[Backlog]（IT-08；评分历史目前散落 git log/issue/rubric 注记，无结构化聚合——新增治理数据结构）。R8：纯后台治理数据，不涉可见 UI、不需签核。R11：单 feature（S，2 点），建议在 F14/F15 截图评审之前完成以提供落盘结构。vitest 断言 jsonl 结构可解析、统计脚本输出 Top5 且标注样本量（小样本不冒充趋势，R4-E2）、日志追加更正而非静默改写历史值（R7 审计可追溯）。切分最不确定之一：历史回填完整度取决于历史记录本身的可解析程度，回填条数无法预先承诺，验证只能断言『无法解析的被如实标注』而非某个回填数量。"
+      "evidence": "evidence/F13.verify.log @ 2026-08-23T13:19:15.139Z",
+      "notes": "依据等级：[Backlog]（IT-08；评分历史目前散落 git log/issue/rubric 注记，无结构化聚合——新增治理数据结构）。R8：纯后台治理数据，不涉可见 UI、不需签核。R11：单 feature（S，2 点），建议在 F14/F15 截图评审之前完成以提供落盘结构。vitest 断言 jsonl 结构可解析、统计脚本输出 Top5 且标注样本量（小样本不冒充趋势，R4-E2）、日志追加更正而非静默改写历史值（R7 审计可追溯）。切分最不确定之一：历史回填完整度取决于历史记录本身的可解析程度，回填条数无法预先承诺，验证只能断言『无法解析的被如实标注』而非某个回填数量。**verification 路径变更说明（实现时改）**：原计划 `pnpm --filter api exec vitest run tests/uiux/...`，实现时发现 apps/api 的 vitest 配置带 `globalSetup: tests/support/db-global-setup.ts`（连 Postgres、跑迁移），F13 是纯文件系统治理数据、不碰后端业务逻辑/DB，硬塞进 apps/api 会让两条纯 fs 测试平白多背一个数据库依赖。改用 `.harness/scripts/*.test.ts` + `.harness/vitest.config.ts`（该目录本就是治理/门控类脚本的家，如 lint-nav-reachability.test.ts 等同款先例），无 DB 依赖，测试即时跑完。"
     },
     {
       "id": "F14",

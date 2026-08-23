@@ -41,7 +41,9 @@
     "lint:role-freeze-doctor": "pnpm exec tsx .harness/scripts/cli.ts role-freeze doctor",
     "lint:graph-authority-doctor": "pnpm exec tsx .harness/scripts/cli.ts graph-authority doctor",
     "lint:readiness": "pnpm exec tsx .harness/scripts/cli.ts readiness --strict",
-    "lint:skills-doctor": "pnpm exec tsx .harness/scripts/cli.ts skills doctor"
+    "lint:skills-doctor": "pnpm exec tsx .harness/scripts/cli.ts skills doctor",
+    "uiux-review-log:backfill": "pnpm exec tsx .harness/scripts/uiux-review-log-backfill.ts",
+    "uiux-review-log:stats": "pnpm exec tsx .harness/scripts/uiux-review-log-stats.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
