@@ -9,12 +9,14 @@ confirmed_at:
 
 # 契约束 `review-governance` 设计签核
 
-> ## 🔴 本束现在不可签核。请不要把 `status` 改成 `confirmed`。
+> ## ✅ 三件材料均已备齐，可以签核。
 >
-> **① 🔴 UI 材料未产出。人类 2026-08-23 已就 `accessibility-guardrails` 束的 A/B/C
-> 选定方案 A，本束沿用同一裁决**（不重复裁决）：F14/F15 的评审对象是 chat/profile/
-> org-admin 既有页面，先拍「界面落点参考态」截图（当前默认状态，非评审结果本身——
-> 正式评审的截图是 F14/F15 落地时的评审产出，不是本次签核材料）。
+> **① ✅ UI 材料已产出（方案 A 已落地，同 `accessibility-guardrails` 束）。**
+> `ui-preview/review-governance/` 下 3 张「界面落点参考态」截图：chat 主屏、profile 页、
+> org-admin 页整体布局。`lint-ui-material.mjs` 报 `3/3` 全绿。来源同 `accessibility-guardrails`
+> 束（chat 取权威原型、profile 用新建离线预览页、org-admin 用已有 preview 路由）——
+> 是否接受同一份来源判断，请参照该束签核时的结论。截图本身**不是**正式评审结果，
+> 正式评审的截图是 F14/F15 落地时的评审产出。
 >
 > **② ✅ usecases.md / domain.md / coverage.md 已备齐**，含一处需要注意：UC-3
 > 的 `DATA_GAP_FOUND` 分支——评审中如果发现某维度对应的产品数据不存在，参照
@@ -27,8 +29,8 @@ confirmed_at:
 > 治理数据，不经 `packages/contracts/` 暴露。
 
 ## 人类签核时请重点确认
-- **① UI**：ui-prototyper 产出「界面落点参考态」截图后，核对是不是 F14/F15 要评审的
-  正确页面（不是核对分数——分数是 F14/F15 落地时的评审产出）。
+- **① UI**：核对 3 张截图是不是 F14/F15 要评审的正确页面（不是核对分数——分数是
+  F14/F15 落地时的评审产出）。
 - **② 用例**：UC-4 `UNCLOSED_GAP` 分支——如果 F16 终验发现某个维度确实无法在本阶段
   闭合（比如受限于产品功能缺口），是否接受阶段「不满 10 分但如实交付」作为合法结束态？
   本文档默认接受（对应 AGENTS.md「没有证据 = 没有完成」的反面：也不该为了凑分造证据），
