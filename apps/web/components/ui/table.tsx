@@ -45,7 +45,7 @@ export const TableRow = React.forwardRef<
     className={cn(
       variant === "header"
         ? "border-b border-border bg-panel text-left text-11 text-muted-foreground"
-        : "border-b border-border-subtle transition-colors duration-200 last:border-b-0",
+        : "border-b border-border-subtle transition-colors duration-base last:border-b-0",
       className,
     )}
     {...props}
