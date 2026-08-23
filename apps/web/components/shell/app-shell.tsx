@@ -177,6 +177,26 @@ function ShellChrome({
    * （图标栏 / <md 顶栏 / chat 里每个 agent·skill 一个按钮），而弹层只该有一个。
    * 见 `components/feedback/feedback-provider.tsx` 头注。
    */
+  /**
+   * UIUX-CK-1（人类实测 3 分的第一条实锤，2026-08-23）：左右栏此前固定宽度、
+   * 不可收起——右栏在 xl 以下整个消失，xl 以上永远占位。加收起/展开 toggle，
+   * 状态记忆在 localStorage（每人自己的工作习惯，不是服务端事实，不入库）。
+   * 读取放 effect：SSR 无 localStorage，初始渲染两端必须一致，否则 hydration 警告。
+   */
+  const [leftCollapsed, setLeftCollapsed] = React.useState(false);
+  const [rightCollapsed, setRightCollapsed] = React.useState(false);
+  React.useEffect(() => {
+    try {
+      setLeftCollapsed(window.localStorage.getItem("shell.leftCollapsed") === "1");
+      setRightCollapsed(window.localStorage.getItem("shell.rightCollapsed") === "1");
+    } catch { /* 隐私模式等拿不到 storage：保持默认展开 */ }
+  }, []);
+  const togglePanel = (side: "left" | "right") => {
+    const next = side === "left" ? !leftCollapsed : !rightCollapsed;
+    (side === "left" ? setLeftCollapsed : setRightCollapsed)(next);
+    try { window.localStorage.setItem(`shell.${side}Collapsed`, next ? "1" : "0"); } catch { /* 同上 */ }
+  };
+
   return (
     <FeedbackProvider>
     <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
@@ -202,24 +222,64 @@ function ShellChrome({
           />
         )}
         <div className="flex min-h-0 flex-1">
-          {left && (
+          {left && !leftCollapsed && (
             <aside
               data-testid="shell-left-panel"
-              className="hidden w-panel shrink-0 overflow-y-auto border-r border-border bg-panel md:block"
+              className="relative hidden w-panel shrink-0 overflow-y-auto border-r border-border bg-panel md:block"
             >
+              <button
+                type="button"
+                aria-label="收起左栏"
+                data-testid="shell-left-collapse"
+                onClick={() => togglePanel("left")}
+                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+              >
+                ‹
+              </button>
               {left}
             </aside>
+          )}
+          {left && leftCollapsed && (
+            <button
+              type="button"
+              aria-label="展开左栏"
+              data-testid="shell-left-expand"
+              onClick={() => togglePanel("left")}
+              className="hidden w-5 shrink-0 items-center justify-center border-r border-border bg-panel text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
+            >
+              ›
+            </button>
           )}
           <main data-testid="shell-main" className="min-w-0 flex-1 overflow-y-auto bg-card">
             {children}
           </main>
-          {right && (
+          {right && !rightCollapsed && (
             <aside
               data-testid="shell-right-panel"
-              className={cn("hidden w-panel-alt shrink-0 overflow-y-auto border-l border-border bg-panel-alt xl:block")}
+              className={cn("relative hidden w-panel-alt shrink-0 overflow-y-auto border-l border-border bg-panel-alt xl:block")}
             >
+              <button
+                type="button"
+                aria-label="收起右栏"
+                data-testid="shell-right-collapse"
+                onClick={() => togglePanel("right")}
+                className="absolute left-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground xl:flex"
+              >
+                ›
+              </button>
               {right}
             </aside>
+          )}
+          {right && rightCollapsed && (
+            <button
+              type="button"
+              aria-label="展开右栏"
+              data-testid="shell-right-expand"
+              onClick={() => togglePanel("right")}
+              className="hidden w-5 shrink-0 items-center justify-center border-l border-border bg-panel-alt text-muted-foreground transition-colors hover:bg-muted hover:text-foreground xl:flex"
+            >
+              ‹
+            </button>
           )}
         </div>
         <MobileTabs />

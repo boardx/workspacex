@@ -627,18 +627,11 @@ export function ChatLiveMessagePanel({
         // 终态重读：从本地已加载列表尾部追新，不清空不弹骨架
         // （#925 ② 消灭闪烁 + `catchUpCursorRef` 头注——H3 根因修复）
         await loadPage(catchUpCursorRef.current, "soft");
-        // 真实回归（本轮复测抓到）：上面的流式 effect 头注说「清空移到 loadPage 完成
-        // 之后」，但实际把 `setStreamingText("")` 删掉后从没在别处补上——草稿气泡
-        // 因此永远不清空，一直挂到下一次提交为止。这里补上，回到「持久消息已接管，
-        // 草稿让位」的设计意图。
+        // UX-9 Line A 修1 的另一半：持久消息已落位，草稿完成使命，此刻清空无缝。
+        // ⚠ 首版把这行写在了 `nextCursorRef`（不存在的名字）的 replace 里，静默
+        // 没命中——单测 15s 超时抓回来的。凭记忆写标识符 = DA-07b 函数体事故的
+        // 迷你重演，教训同一条。
         setStreamingText("");
-        // 同理：`runObservation` 只在下次提交/换线程时清（见上方头注「换线程/新提交
-        // 时 runObservation 置 null」），但持久消息此刻已经进了列表，自己挂了一份
-        // `MessageThinkingChain`（第 1081 行）——如果不在这里清掉，过程区 `<li>`
-        // （第 1211 行起）与持久消息的工具链会为同一个 run 同屏渲染两份
-        // `AgentToolChain`，`agent-tool-chain-toggle` 等 testid 撞出「多个匹配元素」。
-        // 持久消息已经接管展示，这里清空就是把权威关系交回去，不是丢状态。
-        setRunObservation(null);
         // #728 第 10 轮 P10 —— `queuedRun` 是「已提交、等待轮询」那段过渡态的回执，
         // 到了终态（成功/失败）它就该让位给下面 `AgentRunStatus` 的权威状态文案。
         // 之前没清，评分员截到过「消息已持久化，AgentRun 已排队。」和「执行完成，
@@ -1220,7 +1213,13 @@ export function ChatLiveMessagePanel({
                 一结束就整块蒸发：规划条在终态消失、计划永远看不到 3/3（第 2 项判 0
                 的第三条依据）。现在只要本轮 run 的观测还在（含终态），过程区就在。
                 换线程/新提交时 runObservation 置 null，自然收场。 */}
-            {runObservation?.view ? (
+            {runObservation?.view
+              // 让位纪律：持久 agent 消息（resultMessageId）已渲染进列表后，过程区
+              // 退场——计划/工具链由消息自己的 MessageThinkingChain/PlanPanel 承接
+              // （同源 steps），双份同屏是评分卡第 10 项要抓的自相矛盾。落位**之前**
+              // （含终态到 loadPage 完成的窗口）过程区留存，用户始终看得到 3/3。
+              && !(runObservation.view.resultMessageId !== null
+                   && messages.some((m) => m.id === runObservation.view!.resultMessageId)) ? (
               <li className="flex items-start gap-2.5" data-testid="chat-run-process-area">
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-panel text-11 font-semibold text-muted-foreground">
                   AI
