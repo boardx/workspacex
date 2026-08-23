@@ -30,9 +30,9 @@
         "F01"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/overlay-primitives-select-tooltip.test.tsx",
         "pnpm --filter web run lint:design",
