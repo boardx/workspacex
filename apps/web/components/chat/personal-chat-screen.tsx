@@ -3,7 +3,10 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, MessageSquare, RefreshCw } from "lucide-react";
+import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
+import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
+import { useChatAttachments, type ChatAttachmentsController } from "@/components/chat/chat-composer-attachments";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { ChatPopoverCoordinatorProvider } from "@/components/chat/chat-popover-coordinator";
 import {
@@ -20,9 +23,13 @@ import {
   deleteThread,
   getThread,
   listPersonalThreads,
+  listThreadArtifacts,
+  listThreadAttachments,
   renameThread,
   type GetAgentPanelOut,
   type GetThreadOut,
+  type ListThreadArtifactsOut,
+  type ListThreadAttachmentsOut,
   type ListThreadsOut,
   type ThreadCard,
 } from "@/lib/live-chat";
@@ -84,6 +91,18 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const [detailResult, setDetailResult] = React.useState<Sourced<GetThreadOut> | null>(null);
   const [detailLoadingKey, setDetailLoadingKey] = React.useState<string | null>(null);
   const [detailFailure, setDetailFailure] = React.useState<Sourced<string> | null>(null);
+  /**
+   * issue #1824 —— 右栏「产物」/「材料」，与 `chat-read-screen.tsx` D9 之后同一套
+   * key/loading/failure 纪律，跟 `detail` 一起在 `loadSelectedThread` 并发读取。
+   * `listThreadArtifacts`/`listThreadAttachments` 都已支持 `projectId: null`
+   * （个人线程判权路径），这里传 `null`，不是 `undefined`。
+   */
+  const [artifactsResult, setArtifactsResult] = React.useState<Sourced<ListThreadArtifactsOut> | null>(null);
+  const [artifactsLoadingKey, setArtifactsLoadingKey] = React.useState<string | null>(null);
+  const [artifactsFailure, setArtifactsFailure] = React.useState<Sourced<string> | null>(null);
+  const [materialsResult, setMaterialsResult] = React.useState<Sourced<ListThreadAttachmentsOut> | null>(null);
+  const [materialsLoadingKey, setMaterialsLoadingKey] = React.useState<string | null>(null);
+  const [materialsFailure, setMaterialsFailure] = React.useState<Sourced<string> | null>(null);
   const listGeneration = React.useRef(0);
   const detailGeneration = React.useRef(0);
 
@@ -91,6 +110,12 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const listLoading = listLoadingKey === sourceKey;
   const listError = listFailure?.key === sourceKey ? listFailure.value : null;
   const detail = detailResult?.key === detailKey ? detailResult.value : null;
+  const artifacts = artifactsResult?.key === detailKey ? artifactsResult.value : null;
+  const artifactsLoading = artifactsLoadingKey === detailKey;
+  const artifactsError = artifactsFailure?.key === detailKey ? artifactsFailure.value : null;
+  const materials = materialsResult?.key === detailKey ? materialsResult.value : null;
+  const materialsLoading = materialsLoadingKey === detailKey;
+  const materialsError = materialsFailure?.key === detailKey ? materialsFailure.value : null;
   /**
    * 🔴 实测发现的真实 bug（活体浏览器验证时抓到，不是靠猜的）：
    * `detailLoadingKey` 与 `detailKey` 初始值都是 `null`，`null === null` 为真，
@@ -133,18 +158,38 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
     const key = detailKey;
     const generation = ++detailGeneration.current;
     setDetailLoadingKey(key);
+    setArtifactsLoadingKey(key);
+    setMaterialsLoadingKey(key);
     setDetailFailure(null);
-    try {
-      const result = await getThread(selectedThreadId, null, bearer);
-      if (generation !== detailGeneration.current) return;
-      setDetailResult({ key, value: result });
-    } catch (failure) {
-      if (generation !== detailGeneration.current) return;
+    setArtifactsFailure(null);
+    setMaterialsFailure(null);
+    const [nextDetail, nextArtifacts, nextMaterials] = await Promise.allSettled([
+      getThread(selectedThreadId, null, bearer),
+      listThreadArtifacts(selectedThreadId, null, bearer),
+      listThreadAttachments(selectedThreadId, null, bearer),
+    ]);
+    if (generation !== detailGeneration.current) return;
+    if (nextDetail.status === "fulfilled") {
+      setDetailResult({ key, value: nextDetail.value });
+    } else {
       setDetailResult(null);
-      setDetailFailure({ key, value: describeFailure(failure) });
-    } finally {
-      if (generation === detailGeneration.current) setDetailLoadingKey(null);
+      setDetailFailure({ key, value: describeFailure(nextDetail.reason) });
     }
+    if (nextArtifacts.status === "fulfilled") {
+      setArtifactsResult({ key, value: nextArtifacts.value });
+    } else {
+      setArtifactsResult(null);
+      setArtifactsFailure({ key, value: describeFailure(nextArtifacts.reason) });
+    }
+    if (nextMaterials.status === "fulfilled") {
+      setMaterialsResult({ key, value: nextMaterials.value });
+    } else {
+      setMaterialsResult(null);
+      setMaterialsFailure({ key, value: describeFailure(nextMaterials.reason) });
+    }
+    setDetailLoadingKey(null);
+    setArtifactsLoadingKey(null);
+    setMaterialsLoadingKey(null);
   }, [bearer, detailKey, selectedThreadId]);
 
   React.useEffect(() => {
@@ -179,6 +224,15 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const cards = threads?.groups.flatMap((group) => group.cards) ?? [];
   const selectedCard = cards.find((card) => card.id === selectedThreadId) ?? null;
   const canCreate = threads?.capabilities.includes("thread.mutate") ?? true;
+
+  /**
+   * issue #1824（同 `chat-read-screen.tsx` #1758 的既有手法）—— composer 的附件
+   * 控制器提到这一层，与右栏「材料」面板头部的直传入口共享**同一份** pending 队列。
+   * 这一层是 `ChatArtifactsPanel`/`ChatMaterialsPanel`（`right` 槽）与
+   * `PersonalThreadDetail`（承载 `ChatLiveMessagePanel`）共同的父组件——两处是兄弟
+   * 节点，不是父子，所以共享状态只能提到它们共同的父级。
+   */
+  const attach = useChatAttachments({ threadId: selectedThreadId ?? "", bearer: bearer ?? undefined });
 
   /**
    * 改名/删除（2026-08-14）——同一套「先等服务端返回，再重读服务端」纪律，
@@ -298,7 +352,37 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const showThreadListInMain = selectedThreadId === null && !isDesktop;
 
   return (
-    <AppShell previewRole={null} left={isDesktop ? threadListPanel : undefined}>
+    <AppShell
+      previewRole={null}
+      left={isDesktop ? threadListPanel : undefined}
+      /* issue #1824 —— 个人对话之前完全没有右栏。原样复用 `chat-read-screen.tsx`
+         D9 之后的模式（产物 + 材料两个堆叠区块），同一份组件、同一套空态/加载态/
+         错误态/点击预览逻辑，不另造第二份。 */
+      right={(
+        <div className="flex h-full flex-col" data-testid="chat-right-panel-stack">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-b border-border-subtle">
+            <ChatArtifactsPanel
+              hasSelection={selectedThreadId !== null}
+              artifacts={artifacts}
+              loading={artifactsLoading}
+              error={artifactsError}
+              onRetry={() => void loadSelectedThread()}
+            />
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+            <ChatMaterialsPanel
+              hasSelection={selectedThreadId !== null}
+              threadId={selectedThreadId}
+              materials={materials}
+              loading={materialsLoading}
+              error={materialsError}
+              onRetry={() => void loadSelectedThread()}
+              uploadCtl={bearer ? attach : null}
+            />
+          </div>
+        </div>
+      )}
+    >
       {showThreadListInMain ? (
         threadListPanel
       ) : selectedThreadId === null ? (
@@ -309,8 +393,11 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
           orgId={currentOrgId}
           loading={detailLoading}
           error={detailError}
+          attach={attach}
           onRetry={() => void loadSelectedThread()}
           onThreadSettled={() => void loadThreads()}
+          onArtifactLanded={() => void loadSelectedThread()}
+          onMessageSent={() => void loadSelectedThread()}
         />
       ) : (
         <PersonalThreadDetail
@@ -320,12 +407,15 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
           orgId={currentOrgId}
           loading={detailLoading}
           error={detailError}
+          attach={attach}
           onRetry={() => void loadSelectedThread()}
           onBackMobile={!isDesktop ? () => {
             setSelectedThreadId(null);
             router.replace("/chat");
           } : undefined}
           onThreadSettled={() => void loadThreads()}
+          onArtifactLanded={() => void loadSelectedThread()}
+          onMessageSent={() => void loadSelectedThread()}
         />
       )}
     </AppShell>
@@ -360,6 +450,7 @@ function useIsDesktop(): boolean {
 
 function PersonalThreadDetail({
   card, detail, bearer, orgId, loading, error, onRetry, onBackMobile, onThreadSettled,
+  attach, onArtifactLanded, onMessageSent,
 }: {
   card: ThreadCard | null;
   detail: GetThreadOut | null;
@@ -375,6 +466,12 @@ function PersonalThreadDetail({
    * 由 `PersonalChatScreen` 传入自己的 `loadThreads`，本组件不持有左栏数据。
    */
   onThreadSettled?: () => void;
+  /** issue #1824 —— composer 附件控制器，与右栏「材料」面板头部的上传入口共享同一份。 */
+  attach: ChatAttachmentsController;
+  /** issue #1824 —— 一次落地成功后触发，刷新右栏「产物」计数。 */
+  onArtifactLanded: () => void;
+  /** issue #1824 —— 一条消息（可能带附件）成功发出后触发，刷新右栏「材料」计数。 */
+  onMessageSent: () => void;
 }) {
   const agentOptions = useOrgAgentOptions(orgId, bearer);
   /* `#` mention 的两个状态，与 `chat-read-screen.tsx` 逐字同一套：composer 上报
@@ -467,6 +564,7 @@ function PersonalThreadDetail({
           <ChatLiveMessagePanel
             threadId={detail.thread.id}
             bearer={bearer}
+            attach={attach}
             agents={agentOptions.status === "ready" ? agentOptions.agents : null}
             archived={detail.thread.archived}
             /* `#` 的检测在 composer 里已经实现（与项目屏共用同一套），本屏此前
@@ -485,6 +583,8 @@ function PersonalThreadDetail({
             */
             canLandArtifacts={detail.capabilities.includes("artifact.land")}
             onRunSettled={onThreadSettled}
+            onArtifactLanded={onArtifactLanded}
+            onMessageSent={onMessageSent}
             hasMountedSkills={mountedSkillCount > 0}
           />
         ) : <CenteredState>登录已失效，无法读取或发送消息。</CenteredState>}

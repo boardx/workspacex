@@ -374,15 +374,18 @@ export type ListThreadAttachmentsOut = z.infer<typeof chatFileUpload.operations.
 /**
  * 右侧栏「材料」列表（issue #728 D9，人类 2026-08-21 裁决）——已挂到消息上的附件全部行，
  * 按最新在前排列。composer 里还没随消息发出的 pending 附件不在此列（那是草稿态）。
+ *
+ * `projectId: null` = 个人线程（issue #1824）——不传这个 query 参数，controller 把缺失
+ * 归一成 `null`，同 `listThreadArtifacts`/`resolveVisibility` 的个人线程分派规则。
  */
 export async function listThreadAttachments(
   threadId: string,
-  projectId: string,
+  projectId: string | null,
   sessionToken?: string,
 ): Promise<ListThreadAttachmentsOut> {
   return apiRequest<ListThreadAttachmentsOut>(
     chatFileUpload.operations.listThreadAttachments.path.replace(":threadId", encodeURIComponent(threadId)),
-    { method: "GET", query: { projectId }, sessionToken },
+    { method: "GET", query: { projectId: projectId ?? undefined }, sessionToken },
   );
 }
 

@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api-client";
 
 const {
   replace, listPersonalThreads, getThread, createPersonalThread, renameThread, deleteThread,
+  listThreadArtifacts, listThreadAttachments,
   listCapabilities, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
@@ -13,6 +14,8 @@ const {
   createPersonalThread: vi.fn(),
   renameThread: vi.fn(),
   deleteThread: vi.fn(),
+  listThreadArtifacts: vi.fn(),
+  listThreadAttachments: vi.fn(),
   listCapabilities: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
@@ -28,12 +31,14 @@ vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({ status: "authenticated", session: sessionState, identity: null, error: null }),
 }));
 vi.mock("@/components/shell/app-shell", () => ({
-  AppShell: ({ left, children }: { left?: React.ReactNode; children: React.ReactNode }) => (
-    <div><aside>{left}</aside><main>{children}</main></div>
+  AppShell: ({ left, right, children }: { left?: React.ReactNode; right?: React.ReactNode; children: React.ReactNode }) => (
+    <div><aside>{left}</aside><main>{children}</main><section data-testid="stub-right-slot">{right}</section></div>
   ),
 }));
-vi.mock("@/lib/live-chat", () => ({
+vi.mock("@/lib/live-chat", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量
   listPersonalThreads, getThread, createPersonalThread, renameThread, deleteThread,
+  listThreadArtifacts, listThreadAttachments,
 }));
 vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
 /* 个人屏接入挂载面板后，面板会真的去读挂载列表——这里给它一个空列表，
@@ -64,6 +69,15 @@ const EMPTY_LIST = { groups: [], capabilities: ["thread.mutate"] };
 beforeEach(() => {
   listCapabilities.mockReset();
   listCapabilities.mockResolvedValue([]);
+  // 右栏「产物」「材料」默认空态——大多数既有用例不关心右栏内容，只关心它不炸掉。
+  listThreadArtifacts.mockReset();
+  listThreadArtifacts.mockResolvedValue({ items: [] });
+  listThreadAttachments.mockReset();
+  listThreadAttachments.mockResolvedValue({ items: [] });
+  // 「跨用户隔离」一节的用例会在文件级共享的 sessionState 上改 userId/sessionToken
+  // 来模拟换用户，且不做还原——这里每个用例开始前都复位，避免后面的用例读到残留值。
+  sessionState.userId = "user-current";
+  sessionState.sessionToken = "provider-bearer";
 });
 
 describe("PersonalChatScreen — 主路径", () => {
@@ -188,6 +202,73 @@ describe("🔴 PersonalChatScreen — 跨用户隔离（前端不得替后端的
 
     await waitFor(() => expect(screen.queryByTestId("chat-thread-thr-user-a")).not.toBeInTheDocument());
     expect(await screen.findByTestId("chat-thread-thr-user-b")).toBeInTheDocument();
+  });
+});
+
+/**
+ * 🔴 人类今天在 devapp 实测发现的真实 bug（issue #1824）：个人对话完全没有右栏——
+ * `AppShell` 只传了 `left`，产物/材料两个面板（项目对话侧 #1758/#728 D9 已经做好）
+ * 在个人对话侧压根不存在。本组用例钉的是"入口真的存在、读的是真实接口、且
+ * `projectId` 传的是 `null` 不是漏传成 `undefined`"。
+ */
+describe("PersonalChatScreen — 右栏产物/材料面板（issue #1824，人类实测发现缺失）", () => {
+  const THREAD_LIST_WITH_ONE = {
+    groups: [{ label: "今天", cards: [{ id: "thr-right", title: "对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+    capabilities: ["thread.mutate"],
+  };
+  const THREAD_DETAIL = {
+    thread: { id: "thr-right", projectId: null, groupId: null, visibilityScope: "private", phase: "onsite", archived: false, createdBy: "user-current", lastActivityAt: "2026-08-06T00:00:00.000Z", version: 0 },
+    messages: [], rightTabs: [], capabilities: ["composer.send", "artifact.land"],
+  };
+
+  it("选中一条个人线程 ⇒ 右栏渲染出真实的产物+材料两个堆叠区块，projectId 传 null（不是漏传成 undefined）", async () => {
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_WITH_ONE);
+    getThread.mockResolvedValue(THREAD_DETAIL);
+    listThreadArtifacts.mockResolvedValue({
+      items: [{ artifactId: "art-1", title: "个人对话产物", mode: "draft", version: null, pinnedBy: null, pinnedAt: null, hasSource: true, messageId: "msg-1" }],
+    });
+    listThreadAttachments.mockResolvedValue({
+      items: [{ id: "att-1", filename: "个人材料.pdf", mime: "application/pdf", bytes: 1024, createdAt: "2026-08-23T00:00:00.000Z", messageId: "msg-1" }],
+    });
+
+    render(<PersonalChatScreen initialThreadId="thr-right" />);
+    await screen.findByTestId("chat-thread-detail");
+
+    const rightSlot = await screen.findByTestId("stub-right-slot");
+    expect(rightSlot.querySelector('[data-testid="chat-right-panel-stack"]')).toBeInTheDocument();
+    expect(rightSlot.querySelector('[data-testid="chat-artifacts-panel"]')).toBeInTheDocument();
+    expect(rightSlot.querySelector('[data-testid="chat-materials-panel"]')).toBeInTheDocument();
+    expect(rightSlot.querySelector('[data-testid="chat-artifact-art-1"]')).toBeInTheDocument();
+    expect(rightSlot.querySelector('[data-testid="chat-material-att-1"]')).toBeInTheDocument();
+
+    // 决定性断言：`projectId` 传的是 null，同 `listThreadArtifacts`/`resolveVisibility`
+    // 的个人线程分派规则——不是漏传成 undefined（那会被 resolveVisibility 判成
+    // "项目线程但没传 projectId"，走错分支）。
+    await waitFor(() => expect(listThreadArtifacts).toHaveBeenCalledWith("thr-right", null, "provider-bearer"));
+    await waitFor(() => expect(listThreadAttachments).toHaveBeenCalledWith("thr-right", null, "provider-bearer"));
+  });
+
+  it("材料面板头部渲染上传入口——复用项目对话同一个 ChatSidebarUploadButton，不另造一份", async () => {
+    listPersonalThreads.mockResolvedValue(THREAD_LIST_WITH_ONE);
+    getThread.mockResolvedValue(THREAD_DETAIL);
+
+    render(<PersonalChatScreen initialThreadId="thr-right" />);
+    await screen.findByTestId("chat-thread-detail");
+
+    expect(await screen.findByTestId("chat-materials-upload-trigger")).toBeInTheDocument();
+  });
+
+  it("未选中任何线程 ⇒ 右栏两个面板仍渲染（空态：'选择线程后读取…'），不是整个右栏消失", async () => {
+    listPersonalThreads.mockResolvedValue({ groups: [], capabilities: ["thread.mutate"] });
+
+    render(<PersonalChatScreen initialThreadId={null} />);
+    await screen.findByTestId("chat-thread-list-empty");
+
+    const rightSlot = await screen.findByTestId("stub-right-slot");
+    expect(rightSlot.querySelector('[data-testid="chat-artifacts-panel"]')).toBeInTheDocument();
+    expect(rightSlot.querySelector('[data-testid="chat-materials-panel"]')).toBeInTheDocument();
+    expect(listThreadArtifacts).not.toHaveBeenCalled();
+    expect(listThreadAttachments).not.toHaveBeenCalled();
   });
 });
 
