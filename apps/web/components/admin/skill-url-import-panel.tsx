@@ -68,7 +68,15 @@ function reasonCodeOf(failure: unknown): string {
 }
 
 export function SkillUrlImportPanel({ onImported }: { onImported(): Promise<boolean> }) {
-  const [open, setOpen] = React.useState(false);
+  /**
+   * #1941 —— 默认展开，不是默认收起。
+   *
+   * 之前默认 `false`：第一次用的人得先点开一个折叠触发按钮才看得到"单文件/仓库导入"
+   * 两个 tab 和输入框，实测（2026-08-23）时这个折叠面板一度把评测者导向"构建缓存坏了"
+   * 的错误排查方向。这是个填空场景，展开不占用多少空间，没有理由默认藏起来——
+   * 折叠触发按钮仍然保留（点一下可以收起，节省屏幕空间），只是初始态改了。
+   */
+  const [open, setOpen] = React.useState(true);
   const [mode, setMode] = React.useState<ImportMode>("single");
   const [sourceUrl, setSourceUrl] = React.useState("");
   const [name, setName] = React.useState("");

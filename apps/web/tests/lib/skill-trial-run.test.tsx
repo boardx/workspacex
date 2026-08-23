@@ -7,8 +7,13 @@
  * 不是随便 mock 一次就算过。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
-import { getSkillTrialRun, isTerminalTrialRunStatus, pollSkillTrialRun } from "@/lib/skill-trial-run";
+import { ApiError, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
+import {
+  getSkillTrialRun,
+  isTerminalTrialRunStatus,
+  isTrialRunAuthExpiredError,
+  pollSkillTrialRun,
+} from "@/lib/skill-trial-run";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -31,6 +36,21 @@ describe("isTerminalTrialRunStatus", () => {
     expect(isTerminalTrialRunStatus("running")).toBe(false);
     expect(isTerminalTrialRunStatus("succeeded")).toBe(true);
     expect(isTerminalTrialRunStatus("failed")).toBe(true);
+  });
+});
+
+describe("isTrialRunAuthExpiredError（issue #1941）", () => {
+  it("ApiError(401, ...) → true", () => {
+    expect(isTrialRunAuthExpiredError(new ApiError(401, "UNAUTHORIZED", undefined))).toBe(true);
+  });
+
+  it("其它状态码（如 503）→ false，不误判成「过期」", () => {
+    expect(isTrialRunAuthExpiredError(new ApiError(503, "DEPENDENCY_UNAVAILABLE", undefined))).toBe(false);
+  });
+
+  it("非 ApiError（如普通 Error/字符串）→ false", () => {
+    expect(isTrialRunAuthExpiredError(new Error("boom"))).toBe(false);
+    expect(isTrialRunAuthExpiredError("boom")).toBe(false);
   });
 });
 
@@ -111,6 +131,18 @@ describe("pollSkillTrialRun", () => {
     const assertion = expect(promise).rejects.toMatchObject({ status: 404 });
     await vi.advanceTimersByTimeAsync(10_000);
     await assertion;
+  });
+
+  it("issue #1941 · 401 立即停止轮询：只打一次 GET，原样抛出（不进宽限期/退避）", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ error: "unauthorized" }, 401));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const promise = pollSkillTrialRun("tr_6");
+    const assertion = expect(promise).rejects.toMatchObject({ status: 401 });
+    await vi.advanceTimersByTimeAsync(10_000);
+    await assertion;
+    // 不是 404 的宽限期分支——只应该打过一次 GET，不该像 404 那样再退避重试。
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("预算耗尽仍未到终态：诚实抛错，不假装成功也不无限等下去", async () => {
