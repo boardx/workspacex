@@ -51,9 +51,9 @@
         "F01"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-e",
       "verification": [
         "pnpm --filter web exec vitest run tests/lint-design-motion-rule.test.ts",
         "pnpm --filter web run lint:design"
