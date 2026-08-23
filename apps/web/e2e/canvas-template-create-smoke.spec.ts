@@ -5,6 +5,13 @@
  * 「先做」并登记为 design-delta，见 `packages/contracts/src/canvas.ts` 的 `createTemplate`
  * 文件头。人类若推翻它，本文件与它验的那条路径一并回退。
  *
+ * ⚠ 2026-08-23 改版：人类原话「新建画布，的时候，不要在这里放分区设计，也不要放key，
+ *   只需要一个名字就可以，需要发布的生命周期的管理，所有的内容进入编辑的界面来管理」。
+ *   `fillCreateForm` 因此不再手填 key/分区——只填显示名，建完自动打开
+ *   `TemplateEditorPanel`，分区在那个面板里加、`updateTemplateDraft`（同样 design-delta，
+ *   待补签）落库，`key` 由服务端返回的真实值决定，测试从这次真实响应里**读回**它，
+ *   不再假设某个固定字符串。
+ *
  * 链路一节不许省：Chromium → Next 同源代理 → NestJS 控制器 → application 用例
  * → `PgCanvasTemplateRepository` → PostgreSQL。中途没有任何一处塞假数据。
  *
@@ -60,13 +67,40 @@ async function openTemplateAdmin(page: Page) {
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 }
 
-async function fillCreateForm(page: Page, key: string, name: string) {
+/**
+ * 2026-08-23 起，「新建」只问显示名——`key` 由服务端从显示名派生（`createMinimal`
+ * 的自动生成逻辑，撞车会自动重试），前端事先不知道最终值是什么。这里从
+ * `POST /canvas/templates` 的**真实响应体**里读回它，而不是假设一个固定字符串——
+ * 假设固定字符串会让「key 到底是不是服务端定的」这件事测不出来。
+ *
+ * 建完会自动打开 `TemplateEditorPanel`（空白草稿），这里在面板里加一个分区、保存，
+ * 再关掉面板回到列表——分区在「编辑界面」里定，不是在新建对话框里。
+ */
+async function fillCreateForm(page: Page, name: string): Promise<string> {
+  const responsePromise = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === CREATE_PATH && r.request().method() === "POST",
+  );
+
   await page.getByTestId("tpladmin-create").click();
   await expect(page.getByTestId("tpladmin-create-dialog")).toBeVisible();
-  await page.getByTestId("tpladmin-create-key").fill(key);
   await page.getByTestId("tpladmin-create-name").fill(name);
-  await page.getByTestId("tpladmin-create-section-0").fill("优势");
   await page.getByTestId("tpladmin-create-submit").click();
+
+  const response = await responsePromise;
+  const created = await response.json() as { key: string };
+
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+  await expect(page.getByTestId("tpladmin-editor-name")).toHaveValue(name);
+  await page.getByTestId("tpladmin-editor-add-section").click();
+  await page.getByTestId("tpladmin-editor-section-0").fill("优势");
+  await page.getByTestId("tpladmin-editor-save").click();
+  // 保存按钮的文案在 `updateTemplateDraft` 落库后从「保存改动」变回「已保存」——
+  // 用它做「这次保存真的完成了」的信号，同 #952 那条「等 notice 而不是固定 sleep」的纪律。
+  await expect(page.getByTestId("tpladmin-editor-save")).toHaveText("已保存");
+  await page.getByTestId("tpladmin-editor-close").click();
+  await expect(page.getByTestId("tpladmin-editor-panel")).toHaveCount(0);
+
+  return created.key;
 }
 
 /**
@@ -93,7 +127,7 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
   });
   page.on("pageerror", (e) => failures.push(`page error: ${e.message}`));
 
-  const { canvasTemplateKey: KEY, canvasTemplateName: NAME } = FULLSTACK_E2E;
+  const { canvasTemplateName: NAME } = FULLSTACK_E2E;
 
   await loginAsAdmin(page);
   await openTemplateAdmin(page);
@@ -102,8 +136,8 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
   // 也是「后面看到的那一行确实是这次建出来的」的前提。
   await expect(page.getByTestId("tpladmin-empty")).toBeVisible();
 
-  // ── ① 新建 ───────────────────────────────────────────────────────────────
-  await fillCreateForm(page, KEY, NAME);
+  // ── ① 新建（只填名字）+ 在编辑面板里加分区、保存 ────────────────────────────
+  const KEY = await fillCreateForm(page, NAME);
 
   const row = page.getByTestId(`tpladmin-row-${KEY}-1`);
   await expect(row).toBeVisible();
@@ -117,12 +151,15 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
   await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toHaveCount(0);
   await page.getByTestId("tpladmin-filter-all").click();
 
-  // ── ③ 刷新后仍在 = 它在库里，不在 React state 里 ────────────────────────
+  // ── ③ 刷新后仍在 = 它在库里，不在 React state 里；分区也真的存进去了 ────────
   await page.reload();
   await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toBeVisible();
   await expect(page.getByTestId("tpladmin-empty")).toHaveCount(0);
   // 刷新没有再发一次创建请求——那一行来自 GET，不是重放。
   expect(creates).toEqual([201]);
+  await page.getByTestId(`tpladmin-edit-${KEY}-1`).click();
+  await expect(page.getByTestId("tpladmin-editor-section-0")).toHaveValue("优势");
+  await page.getByTestId("tpladmin-editor-close").click();
 
   // ── ④ 发布 → 可被使用 ───────────────────────────────────────────────────
   await page.getByTestId(`tpladmin-publish-${KEY}-1`).click();
@@ -173,6 +210,10 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
  *   不知道它是不是因为对的原因红的（比如登录挂了也会红）。这里逐条检查：
  *   拦截确实发生过、界面确实一度显示了那一行、刷新后它确实不在、且**库里本来就没有**
  *   （用真实 GET 列表复核，不只看界面）。
+ *
+ * ⚠ 这里拦截的响应体是测试**自己拼的**，`key` 用固定值没问题——它从来没有经过真实的
+ *   `createMinimal` 派生逻辑，本来就是假的，断言的是「界面暂时显示了它、刷新后消失」，
+ *   不依赖 key 具体是什么。
  */
 test("counterproof: with the create request stubbed out in the browser, the row does not survive a reload", async ({ page }) => {
   const {
@@ -196,20 +237,26 @@ test("counterproof: with the create request stubbed out in the browser, the row 
         builtin: false,
         visibility: "org-wide",
         underlyingType: "canvas",
-        sections: [{ sectionId: "s1", name: "优势", order: 0, required: false, capacity: null }],
+        sections: [],
       }),
     });
   });
 
   await loginAsAdmin(page);
   await openTemplateAdmin(page);
-  await fillCreateForm(page, KEY, NAME);
+
+  await page.getByTestId("tpladmin-create").click();
+  await expect(page.getByTestId("tpladmin-create-dialog")).toBeVisible();
+  await page.getByTestId("tpladmin-create-name").fill(NAME);
+  await page.getByTestId("tpladmin-create-submit").click();
 
   // 拦截真的发生了——否则下面的「刷新后不在」可能只是因为这次根本没建。
   expect(intercepted).toBe(1);
 
-  // 界面一度显示成功：`notice` 是提交成功后才出现的。
-  await expect(page.getByTestId("tpladmin-notice")).toContainText(NAME);
+  // 界面一度显示成功：建完自动打开的编辑面板证明了这一点（草稿的 displayName 就是它）。
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+  await expect(page.getByTestId("tpladmin-editor-name")).toHaveValue(NAME);
+  await page.getByTestId("tpladmin-editor-close").click();
 
   // ⚠ 关键：这一行从来没进过库。刷新之后它不在。
   await page.reload();
@@ -251,7 +298,13 @@ test("counterproof: with the create request stubbed out in the browser, the row 
  * ⑥ v2 自己是 draft ⇒ 它同样没有「基于此开新版」按钮（反证在新行上再验一次）。
  */
 test("admin mints a new draft version from a published template; the v2 draft survives a reload and draft rows expose no mint entry", async ({ page }) => {
-  const { mintSourceKey: KEY, mintSourceName: SOURCE, mintedDisplayName: MINTED } = FULLSTACK_E2E;
+  const { mintSourceName: SOURCE, mintedDisplayName: MINTED } = FULLSTACK_E2E;
+
+  await loginAsAdmin(page);
+  await openTemplateAdmin(page);
+
+  // ── 前置：现场建出来源 v1 并发布（#496 已门控的两步，这里只当脚手架用）────────
+  const KEY = await fillCreateForm(page, SOURCE);
   const MINT_PATH = `${API}/canvas/templates/${KEY}/versions`;
 
   // 只记「开新版」那条 POST 的状态码；创建/发布/GET 都不进这个数组。
@@ -263,11 +316,6 @@ test("admin mints a new draft version from a published template; the v2 draft su
     }
   });
 
-  await loginAsAdmin(page);
-  await openTemplateAdmin(page);
-
-  // ── 前置：现场建出来源 v1 并发布（#496 已门控的两步，这里只当脚手架用）────────
-  await fillCreateForm(page, KEY, SOURCE);
   const sourceRow = page.getByTestId(`tpladmin-row-${KEY}-1`);
   await expect(sourceRow).toBeVisible();
   await expect(sourceRow).toContainText("草稿");

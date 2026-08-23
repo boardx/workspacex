@@ -26,11 +26,14 @@
  * `design-signoff.md` 签核确认（2026-08-17）。`create()` 仍然只铸 v1（`createTemplate`
  * 本身未改动），铸 v2 及以后走这个新端口。
  *
- * ## 这里仍然没有什么
+ * ## `updateDraft()` 于 2026-08-23 补上，**该契约面待人类补签**——但不是「原来那句话错了」
  *
- * **没有 `update()`。** 契约里仍然没有「原地改模板」的操作——「编辑」在这个束的语义
- * 是开新版（`mintTemplateVersion`），不是改写已存在的行。已发布/已归档版本永远是
- * 不可变快照。
+ * 上一段的历史版本写着「没有 `update()`……已发布/已归档版本永远是不可变快照」。
+ * 这条不变量**没有被推翻**：`updateDraft()` 只对 `status === 'draft'` 的行生效，
+ * 已发布/已归档仍然只能通过 `mintTemplateVersion` 开新版去"改"。收窄的是另一半——
+ * "草稿本身在被发布之前是不是也不可变"。人类原话「新建画布……不要在这里放分区设计……
+ * 所有的内容进入编辑的界面来管理」：新建时只给名字，意味着新建出来的草稿必须能在
+ * 发布前被反复改，编辑界面才有内容可编——否则一个空分区的草稿只能被发布，不能被填。
  *
  * **没有 `delete()`。** 归档是置位（O-10），迁移也没有 GRANT DELETE。
  */
@@ -120,6 +123,21 @@ export type MintTemplateVersionOutcome =
   | { readonly minted: true; readonly template: MintedCanvasTemplateVersion }
   | { readonly minted: false; readonly reason: "key-not-found" };
 
+/** `updateTemplateDraft.out` 逐字派生——见该操作契约文件头。 */
+export type UpdatedCanvasTemplateDraft = z.infer<
+  typeof canvas.operations.updateTemplateDraft.out
+>;
+
+/**
+ * `updateDraft()` 的结果。两种「没改成」用不同 reason——用例层按 reason 翻成
+ * `TEMPLATE_NOT_FOUND`（key/version 压根不存在）或 `TEMPLATE_NOT_DRAFT`
+ * （存在，但不是 draft）。合并成一种会让「这个 key 我打错了」与「这一版已经发布了、
+ * 内容改不了」在响应上无法区分——它们是使用者要采取的两种不同行动。
+ */
+export type UpdateDraftOutcome =
+  | { readonly updated: true; readonly template: UpdatedCanvasTemplateDraft }
+  | { readonly updated: false; readonly reason: "not-found" | "not-draft" };
+
 export interface PublishOutcome {
   /** 本次发布顺带归档掉的同 key 旧版（I-4 前半）。 */
   readonly archivedVersions: readonly { readonly key: string; readonly version: number }[];
@@ -181,6 +199,27 @@ export interface CanvasTemplateRepository {
     key: string,
     version: number,
   ): Promise<CanvasTemplateVersionFacts | null>;
+
+  /**
+   * 2026-08-23，**设计增量、待人类补签**——原地改写一个 **仍是 draft** 的版本的
+   * `displayName`/`sections`/`visibility`（全量替换，见契约 `updateTemplateDraft`
+   * 文件头）。目标不是 draft（已发布/已归档）时不写、回 `{updated:false,
+   * reason:"not-draft"}`——那条「已发布/已归档版本永远是不可变快照」的不变量
+   * 原样保留，本方法只是把它的边界从"创建那一刻起不可变"收紧到"发布那一刻起不可变"。
+   *
+   * ⚠ 状态判定必须与写入在同一条 `UPDATE ... WHERE status='draft'` 语句里，不是
+   *   先 `findVersion` 再 `UPDATE`——理由与 `create()`/`mintVersion()` 的并发窗口
+   *   同型：两个并发请求（一个在改草稿，一个在发布它）之间不该有能让"改了一个
+   *   已经发布出去的版本"发生的窗口。
+   */
+  updateDraft(cmd: {
+    readonly orgId: OrgId;
+    readonly key: string;
+    readonly version: number;
+    readonly displayName: string;
+    readonly sections: CreatedCanvasTemplate["sections"];
+    readonly visibility: VisibilityScope;
+  }): Promise<UpdateDraftOutcome>;
 
   /**
    * **一个事务**：把同 key 的其它 published 版本归档 + 把本版本置为 published。

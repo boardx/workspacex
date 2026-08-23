@@ -194,6 +194,8 @@ export const CanvasError = z.enum([
    * 合用同一个码——见该操作文件头「模型调用失败/模型回了解析不出来的东西，同一个码」。
    */
   "TEMPLATE_SUGGESTION_UNAVAILABLE",
+  /** `updateTemplateDraft`：目标版本不是 `draft`——已发布/已归档版本仍是不可变快照。 */
+  "TEMPLATE_NOT_DRAFT",
 ]);
 
 /* ─────────────────────────────── 值对象 ─────────────────────────────── */
@@ -364,6 +366,49 @@ export const operations = {
       sections: z.array(SectionDef),
     }).strict(),
     err: ["TEMPLATE_KEY_CONFLICT", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * updateTemplateDraft —— 2026-08-23，**设计增量、待人类补签**（同 #496/#988 的先例）。
+   *
+   * ## 收窄了「已发布/已归档版本永远是不可变快照」这条不变量吗？没有
+   *
+   * `template-ports.ts` 文件头逐字写着「没有 `update()`……已发布/已归档版本永远是
+   * 不可变快照」——这条本操作**原样保留**：`err` 里的 `TEMPLATE_NOT_DRAFT` 就是这条
+   * 不变量的守门人，目标版本一旦不是 `draft`，本操作恒拒绝，改内容仍然只能走
+   * `mintTemplateVersion` 开新版。本操作缩小的是另一件事——「`draft` 本身在被发布之前
+   * 是不是也不可变」。人类原话「新建画布……不要在这里放分区设计……需要发布的生命周期
+   * 的管理，所有的内容进入编辑的界面来管理」：新建时只给名字，分区/可见范围留到一个
+   * 真正的编辑界面里定——那意味着"新建出来的草稿"必须能在发布前被反复改，不然编辑界面
+   * 无内容可编。`createTemplate` 本身不改（仍然是"造第一行"，`sections` 允许传空数组）。
+   *
+   * ## 全量替换，不是增量 patch
+   *
+   * `displayName`/`sections`/`visibility` 三栏一起提交，同 `createTemplate`/
+   * `mintTemplateVersion` 的既有形状一致——编辑界面本来就是把这三栏都摆出来一起改，
+   * 没有"只改一个字段"的界面路径，做成全量替换不会比 patch 更难用，却少一套
+   * "哪些字段传了才算改"的解释成本。
+   */
+  updateTemplateDraft: {
+    method: "POST", path: "/canvas/templates/:key/draft",
+    in: z.object({
+      key: z.string().min(1),
+      version: z.number().int().positive(),
+      displayName: z.string().min(1),
+      sections: z.array(SectionDef),
+      visibility: TemplateVisibility,
+    }).strict(),
+    out: z.object({
+      key: z.string(),
+      version: z.number().int().positive(),
+      status: z.literal("draft"),
+      displayName: z.string(),
+      builtin: z.literal(false),
+      visibility: TemplateVisibility,
+      underlyingType: z.string(),
+      sections: z.array(SectionDef),
+    }).strict(),
+    err: ["TEMPLATE_NOT_FOUND", "TEMPLATE_NOT_DRAFT", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /**
