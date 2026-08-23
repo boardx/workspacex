@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import type { FacetSaveFn } from "./facet-content-editor";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 /**
  * 「项目材料」结构化编辑器（第 2 项，分组三）——替换该项此前的 `FacetTextEditor`。
@@ -146,20 +147,20 @@ export function MaterialsPanelEditor({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-12" data-testid="bp-mat-table">
-              <thead>
-                <tr className="border-b border-border text-11 text-muted-foreground">
-                  <th className="py-1.5 pr-2 text-left font-medium">物料</th>
-                  <th className="px-2 py-1.5 text-left font-medium">数量</th>
-                  <th className="px-2 py-1.5 text-left font-medium">用于环节</th>
-                  <th className="px-2 py-1.5 text-left font-medium">谁准备</th>
-                  <th className="px-2 py-1.5" />
-                </tr>
-              </thead>
-              <tbody>
+            <Table className="w-full border-collapse text-12" data-testid="bp-mat-table">
+              <TableHeader>
+                <TableRow className="border-b border-border text-11 text-muted-foreground">
+                  <TableHead className="py-1.5 pr-2 text-left font-medium">物料</TableHead>
+                  <TableHead className="px-2 py-1.5 text-left font-medium">数量</TableHead>
+                  <TableHead className="px-2 py-1.5 text-left font-medium">用于环节</TableHead>
+                  <TableHead className="px-2 py-1.5 text-left font-medium">谁准备</TableHead>
+                  <TableHead className="px-2 py-1.5" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {value.rows.map((r, i) => (
-                  <tr key={i} className="border-b border-border-subtle" data-testid={`bp-mat-row-${i}`}>
-                    <td className="py-1.5 pr-2">
+                  <TableRow key={i} className="border-b border-border-subtle" data-testid={`bp-mat-row-${i}`}>
+                    <TableCell className="py-1.5 pr-2">
                       <input
                         type="text"
                         className="w-full rounded-md border border-border bg-background p-1 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -169,8 +170,8 @@ export function MaterialsPanelEditor({
                         placeholder="便签（4 色，76mm）"
                         data-testid={`bp-mat-name-${i}`}
                       />
-                    </td>
-                    <td className="px-2 py-1.5">
+                    </TableCell>
+                    <TableCell className="px-2 py-1.5">
                       <input
                         type="text"
                         className="w-20 rounded-md border border-border bg-background p-1 font-mono text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -180,8 +181,8 @@ export function MaterialsPanelEditor({
                         placeholder="16 叠"
                         data-testid={`bp-mat-qty-${i}`}
                       />
-                    </td>
-                    <td className="px-2 py-1.5">
+                    </TableCell>
+                    <TableCell className="px-2 py-1.5">
                       <input
                         type="text"
                         className="w-20 rounded-md border border-border bg-background p-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -191,8 +192,8 @@ export function MaterialsPanelEditor({
                         placeholder="03 / 04"
                         data-testid={`bp-mat-seg-${i}`}
                       />
-                    </td>
-                    <td className="px-2 py-1.5">
+                    </TableCell>
+                    <TableCell className="px-2 py-1.5">
                       <div className="flex gap-0.5">
                         {MATERIAL_OWNERS.map((o) => (
                           <button
@@ -211,8 +212,8 @@ export function MaterialsPanelEditor({
                           </button>
                         ))}
                       </div>
-                    </td>
-                    <td className="px-2 py-1.5">
+                    </TableCell>
+                    <TableCell className="px-2 py-1.5">
                       <button
                         type="button"
                         onClick={() => removeRow(i)}
@@ -222,11 +223,11 @@ export function MaterialsPanelEditor({
                       >
                         ✕
                       </button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
         <p className="mt-2 rounded-md bg-panel px-2.5 py-1.5 text-11 text-muted-foreground" data-testid="bp-mat-footnote">

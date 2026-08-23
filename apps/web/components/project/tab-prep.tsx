@@ -23,6 +23,7 @@ import {
 import { listOrgMembers, type ListOrgMembersOut } from "@/lib/live-org-admin";
 import { useSession } from "@/components/session/session-provider";
 import { SaveAsOrgTemplateAction } from "@/components/tpl/save-as-org-template-action";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from "@/components/ui/table";
 
 type OrgMemberRow = ListOrgMembersOut["members"][number];
 
@@ -404,27 +405,25 @@ function InterviewSubjectsRow({
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[520px] border-collapse text-10">
-                  <thead>
-                    <tr className="text-muted-foreground">
+                <Table className="w-full min-w-[520px] border-collapse text-10">
+                  <TableHeader>
+                    <TableRow className="text-muted-foreground">
                       {INTERVIEW_SUBJECT_COLUMNS.map((c) => (
-                        <th key={c.key} className="border-b border-border/60 px-1 py-1 text-left font-normal">{c.label}</th>
+                        <TableHead key={c.key} className="border-b border-border/60 px-1 py-1 text-left font-normal">{c.label}</TableHead>
                       ))}
-                      {editing && <th className="border-b border-border/60 px-1 py-1" aria-label="删除" />}
-                    </tr>
-                  </thead>
-                  <tbody>
+                      {editing && <TableHead className="border-b border-border/60 px-1 py-1" aria-label="删除" />}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {rows.length === 0 && (
-                      <tr>
-                        <td colSpan={INTERVIEW_SUBJECT_COLUMNS.length} className="px-1 py-2 text-muted-foreground">
-                          还没有访谈对象——{canWrite ? "点「＋ 加对象」加第一个。" : "等引导师或组长填。"}
-                        </td>
-                      </tr>
+                      <TableEmpty colSpan={INTERVIEW_SUBJECT_COLUMNS.length} className="px-1 py-2 text-left text-muted-foreground">
+                        还没有访谈对象——{canWrite ? "点「＋ 加对象」加第一个。" : "等引导师或组长填。"}
+                      </TableEmpty>
                     )}
                     {rows.map((s) => (
-                      <tr key={s.subjectId} data-testid={`project-prep-subject-${s.subjectId}`}>
+                      <TableRow key={s.subjectId} data-testid={`project-prep-subject-${s.subjectId}`}>
                         {INTERVIEW_SUBJECT_COLUMNS.map((c) => (
-                          <td key={c.key} className="border-b border-border/40 px-1 py-1 align-top">
+                          <TableCell key={c.key} className="border-b border-border/40 px-1 py-1 align-top">
                             {editing ? (
                               <Input
                                 value={s[c.key]}
@@ -436,10 +435,10 @@ function InterviewSubjectsRow({
                             ) : (
                               <span>{s[c.key].trim() === "" ? "—" : s[c.key]}</span>
                             )}
-                          </td>
+                          </TableCell>
                         ))}
                         {editing && (
-                          <td className="border-b border-border/40 px-1 py-1 align-top">
+                          <TableCell className="border-b border-border/40 px-1 py-1 align-top">
                             <button
                               type="button"
                               aria-label={`删除 ${s.name.trim() || "这一行"}`}
@@ -449,12 +448,12 @@ function InterviewSubjectsRow({
                             >
                               <X aria-hidden className="h-3 w-3" />
                             </button>
-                          </td>
+                          </TableCell>
                         )}
-                      </tr>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
 
               <p className="mt-1.5 text-10 text-muted-foreground">

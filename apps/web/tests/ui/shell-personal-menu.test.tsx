@@ -41,7 +41,8 @@ describe("IconRail：左上角组织菜单 + 个人菜单", () => {
     renderRail();
     const trigger = screen.getByTestId("org-switcher");
     expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
-    fireEvent.click(trigger);
+    // Radix DropdownMenuTrigger 靠 pointerdown 开菜单（fireEvent.click 在 jsdom 下不触发）。
+    fireEvent.pointerDown(trigger, { button: 0 });
 
     const entry = screen.getByTestId("org-admin-entry");
     expect(entry.getAttribute("href")).toBe("/org-admin");
@@ -53,7 +54,7 @@ describe("IconRail：左上角组织菜单 + 个人菜单", () => {
   it("组织菜单列出全部组织，当前组织 aria-checked=true；点另一个组织触发切换回调", () => {
     const onSwitch = vi.fn();
     renderRail({ onSwitch });
-    fireEvent.click(screen.getByTestId("org-switcher"));
+    fireEvent.pointerDown(screen.getByTestId("org-switcher"), { button: 0 });
 
     const menu = screen.getByTestId("org-menu");
     const options = Array.from(menu.querySelectorAll('[role="menuitemradio"]'));
@@ -63,7 +64,7 @@ describe("IconRail：左上角组织菜单 + 个人菜单", () => {
     fireEvent.click(screen.getByTestId("org-switcher-option-org-hengtai"));
     expect(onSwitch).toHaveBeenCalledWith("org-hengtai");
     // 点当前组织不触发切换（切到自己没有意义，也不该清空项目上下文）
-    fireEvent.click(screen.getByTestId("org-switcher"));
+    fireEvent.pointerDown(screen.getByTestId("org-switcher"), { button: 0 });
     fireEvent.click(screen.getByTestId("org-switcher-option-org-yuanyang"));
     expect(onSwitch).toHaveBeenCalledTimes(1);
   });
@@ -73,7 +74,7 @@ describe("IconRail：左上角组织菜单 + 个人菜单", () => {
     const trigger = screen.getByTestId("org-switcher");
     // mock 身份没有组织头像 ⇒ 首字回落（远洋新能源 → 远），不再是品牌 X
     expect(trigger.textContent).toBe("远");
-    fireEvent.click(trigger);
+    fireEvent.pointerDown(trigger, { button: 0 });
     expect(screen.getByTestId("org-menu")).toBeTruthy();
     fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByTestId("org-menu")).toBeNull();
@@ -82,7 +83,7 @@ describe("IconRail：左上角组织菜单 + 个人菜单", () => {
 
   it("头像触发器点击后展开个人菜单：个人资料 / 个人 Brain / 主题切换三项恒在", () => {
     renderRail();
-    fireEvent.click(screen.getByTestId("rail-profile-menu"));
+    fireEvent.pointerDown(screen.getByTestId("rail-profile-menu"), { button: 0 });
 
     expect(screen.getByTestId("personal-menu-profile").getAttribute("href")).toBe("/profile");
     expect(screen.getByTestId("personal-menu-brain").getAttribute("href")).toBe("/brain");
@@ -91,14 +92,14 @@ describe("IconRail：左上角组织菜单 + 个人菜单", () => {
 
   it("没有 `onLogout`（旧版 `identity` 直传原型页）时不渲染退出项——不留一个点了没反应的假按钮", () => {
     renderRail();
-    fireEvent.click(screen.getByTestId("rail-profile-menu"));
+    fireEvent.pointerDown(screen.getByTestId("rail-profile-menu"), { button: 0 });
     expect(screen.queryByTestId("personal-menu-logout")).toBeNull();
   });
 
   it("传了 `onLogout` 时渲染退出项，点击后调用它", () => {
     const onLogout = vi.fn();
     renderRail({ onLogout });
-    fireEvent.click(screen.getByTestId("rail-profile-menu"));
+    fireEvent.pointerDown(screen.getByTestId("rail-profile-menu"), { button: 0 });
 
     const logoutItem = screen.getByTestId("personal-menu-logout");
     fireEvent.click(logoutItem);

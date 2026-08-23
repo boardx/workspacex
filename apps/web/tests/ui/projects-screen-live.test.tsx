@@ -258,20 +258,23 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
   async function openMenu() {
     render(<ProjectsScreen />);
     await screen.findByTestId("projects-list");
-    fireEvent.click(screen.getByTestId("projects-card-p-real-1-more"));
+    fireEvent.pointerDown(screen.getByTestId("projects-card-p-real-1-more"), { button: 0 });
     return screen.getByTestId("projects-more-menu-p-real-1");
   }
 
   it("菜单四项且无删除项；未实现的三项禁用并如实说明", async () => {
     const menu = await openMenu();
 
-    expect(within(menu).getByTestId("projects-more-p-real-1-edit")).toBeDisabled();
-    expect(within(menu).getByTestId("projects-more-p-real-1-bigscreen")).toBeDisabled();
-    expect(within(menu).getByTestId("projects-more-p-real-1-copy-invite")).toBeDisabled();
+    // Radix DropdownMenuItem 渲染成 `<div role="menuitem">`，禁用态走 `aria-disabled`/
+    // `data-disabled`（jest-dom 的 `toBeDisabled()` 只认原生表单控件的 `disabled` 属性，
+    // 这里不适用——断言改读 Radix 实际输出的禁用信号）。
+    expect(within(menu).getByTestId("projects-more-p-real-1-edit")).toHaveAttribute("data-disabled");
+    expect(within(menu).getByTestId("projects-more-p-real-1-bigscreen")).toHaveAttribute("data-disabled");
+    expect(within(menu).getByTestId("projects-more-p-real-1-copy-invite")).toHaveAttribute("data-disabled");
     expect(within(menu).getByTestId("projects-more-p-real-1-unavailable-note")).toBeInTheDocument();
 
     // 归档项可点；**没有删除这个菜单项**（Q-9 裁不提供删除项目）
-    expect(within(menu).getByTestId("projects-more-p-real-1-archive")).toBeEnabled();
+    expect(within(menu).getByTestId("projects-more-p-real-1-archive")).not.toHaveAttribute("data-disabled");
     // 注意断的是「菜单项」而不是「页面上不出现『删除项目』四个字」——
     // Q-9 的说明文案本身就要提到它，按文本断会把说明也判成违规。
     const items = within(menu).getAllByRole("menuitem");
@@ -338,7 +341,7 @@ describe("F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject", 
     fireEvent.click(screen.getByTestId("projects-refresh"));
     await waitFor(() => expect(screen.getByTestId("projects-card-p-real-1-status")).toHaveTextContent("已归档"));
 
-    fireEvent.click(screen.getByTestId("projects-card-p-real-1-more"));
+    fireEvent.pointerDown(screen.getByTestId("projects-card-p-real-1-more"), { button: 0 });
     const archiveItem = screen.getByTestId("projects-more-p-real-1-archive");
     expect(archiveItem).toHaveTextContent("恢复项目");
 

@@ -10,6 +10,7 @@ import { StaticSwitch } from "@/components/itv/static-switch";
 import { StateShell } from "@/components/state/state-shell";
 import type { UiState } from "@/lib/ui-state";
 import { cn } from "@/lib/utils";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   PRESETS, DISPATCH_TARGET_LABEL, PRESET_HEADER, PRESET_EDITOR, PRESET_CONSUMER,
   PRESET_ANSWERED, dispatchScopeViolation, type Preset,
@@ -93,20 +94,20 @@ function DispatcherPanel({ readOnly, onNew }: { readOnly: boolean; onNew: () => 
           <Badge tone="neutral">{PRESETS.length}</Badge>
         </div>
         <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-11">
-            <thead>
-              <tr className="border-b border-border-subtle bg-panel text-left text-muted-foreground">
+          <Table className="w-full text-11">
+            <TableHeader>
+              <TableRow className="border-b border-border-subtle bg-panel text-left text-muted-foreground">
                 {PRESET_HEADER.columns.map((c) => (
-                  <th key={c} className="px-3 py-2 font-medium">{c}</th>
+                  <TableHead key={c} className="px-3 py-2 font-medium">{c}</TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {PRESETS.map((p) => (
                 <PresetRow key={p.id} preset={p} />
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         {/* 规则条 —— 同时是「能不能拒」的原型答案 */}
         <p className="mt-2 flex items-start gap-1.5 rounded-md bg-ai-tint/40 px-2.5 py-2 text-11 text-ai-tint-foreground" data-testid="chat-preset-rule">
@@ -126,12 +127,12 @@ function DispatcherPanel({ readOnly, onNew }: { readOnly: boolean; onNew: () => 
 function PresetRow({ preset }: { preset: Preset }) {
   const groupSkill = preset.skills.find((s) => s.scope === "group");
   return (
-    <tr className="border-b border-border-subtle align-top last:border-0" data-testid={`chat-preset-row-${preset.id}`}>
-      <td className="px-3 py-2.5">
+    <TableRow className="border-b border-border-subtle align-top last:border-0" data-testid={`chat-preset-row-${preset.id}`}>
+      <TableCell className="px-3 py-2.5">
         <div className="font-medium text-foreground">{preset.name}</div>
         <div className="mt-0.5 text-10 text-muted-foreground">{preset.note}</div>
-      </td>
-      <td className="px-3 py-2.5">
+      </TableCell>
+      <TableCell className="px-3 py-2.5">
         <div className="flex flex-wrap gap-1">
           {preset.skills.map((s) => (
             <span
@@ -152,14 +153,14 @@ function PresetRow({ preset }: { preset: Preset }) {
             「{groupSkill.name}」仅『{groupSkill.scopeGroup}』可见 · 下发对象含此范围外的组即拒
           </div>
         )}
-      </td>
-      <td className="px-3 py-2.5">
+      </TableCell>
+      <TableCell className="px-3 py-2.5">
         <Badge tone="outline" data-testid={`chat-preset-to-${preset.id}`}>{DISPATCH_TARGET_LABEL[preset.to]}</Badge>
-      </td>
-      <td className="px-3 py-2.5 tabular-nums text-muted-foreground" data-testid={`chat-preset-used-${preset.id}`}>
+      </TableCell>
+      <TableCell className="px-3 py-2.5 tabular-nums text-muted-foreground" data-testid={`chat-preset-used-${preset.id}`}>
         {preset.used} 次
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 

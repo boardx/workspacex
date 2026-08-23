@@ -49,6 +49,7 @@ import {
 } from "@/lib/live-files";
 import { IngestBadge, ConfidentialBadge } from "./status";
 import { formatBytes, type IngestState } from "@/lib/mock/files";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 function describeError(e: unknown): string {
   if (e instanceof ApiError) return e.reasonCode ?? `HTTP ${e.status}`;
@@ -198,10 +199,10 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
               这个项目还没有任何文件。
             </p>
           ) : (
-            <table className="w-full min-w-[42rem] border-collapse text-12" data-testid="live-files-list">
-              <thead>
-                <tr className="border-b border-border text-left text-11 text-muted-foreground">
-                  <th className="px-2 py-2 font-medium">
+            <Table className="w-full min-w-[42rem] border-collapse text-12" data-testid="live-files-list">
+              <TableHeader>
+                <TableRow className="border-b border-border text-left text-11 text-muted-foreground">
+                  <TableHead className="px-2 py-2 font-medium">
                     <input
                       type="checkbox"
                       aria-label="全选"
@@ -214,19 +215,19 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
                         setSelectedIds(e.target.checked ? new Set(nodes.map((n) => n.artifactId)) : new Set())
                       }
                     />
-                  </th>
-                  <th className="px-2 py-2 font-medium">名称</th>
-                  <th className="px-2 py-2 font-medium">来源类型</th>
-                  <th className="px-2 py-2 font-medium">大小</th>
-                  <th className="px-2 py-2 font-medium">所属环节</th>
-                  <th className="px-2 py-2 font-medium">摄取状态</th>
-                  <th className="px-2 py-2 font-medium">更新时间</th>
-                  <th className="px-2 py-2 font-medium" />
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                  <TableHead className="px-2 py-2 font-medium">名称</TableHead>
+                  <TableHead className="px-2 py-2 font-medium">来源类型</TableHead>
+                  <TableHead className="px-2 py-2 font-medium">大小</TableHead>
+                  <TableHead className="px-2 py-2 font-medium">所属环节</TableHead>
+                  <TableHead className="px-2 py-2 font-medium">摄取状态</TableHead>
+                  <TableHead className="px-2 py-2 font-medium">更新时间</TableHead>
+                  <TableHead className="px-2 py-2 font-medium" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {nodes.map((n) => (
-                  <tr
+                  <TableRow
                     key={n.artifactId}
                     data-testid="live-files-row"
                     onClick={() => setSelected(n)}
@@ -235,7 +236,7 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
                       (selected?.artifactId === n.artifactId ? "bg-muted" : "hover:bg-panel")
                     }
                   >
-                    <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                    <TableCell className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                       <input
                         type="checkbox"
                         aria-label={`选中 ${n.name} 用于导出`}
@@ -243,17 +244,17 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
                         checked={selectedIds.has(n.artifactId)}
                         onChange={() => toggleSelected(n.artifactId)}
                       />
-                    </td>
-                    <td className="max-w-[16rem] px-2 py-1.5">
+                    </TableCell>
+                    <TableCell className="max-w-[16rem] px-2 py-1.5">
                       <span className="truncate font-medium" title={n.name}>{n.name}</span>
                       {n.confidential && <span className="ml-1.5 inline-block align-middle"><ConfidentialBadge /></span>}
-                    </td>
-                    <td className="px-2 py-1.5 text-muted-foreground">{n.sourceType}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{formatBytes(n.sizeBytes)}</td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{n.agendaSegmentId ?? "—"}</td>
-                    <td className="px-2 py-1.5"><IngestBadge state={n.ingestionStatus as IngestState} /></td>
-                    <td className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{n.updatedAt}</td>
-                    <td className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
+                    </TableCell>
+                    <TableCell className="px-2 py-1.5 text-muted-foreground">{n.sourceType}</TableCell>
+                    <TableCell className="whitespace-nowrap px-2 py-1.5 tabular-nums text-muted-foreground">{formatBytes(n.sizeBytes)}</TableCell>
+                    <TableCell className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{n.agendaSegmentId ?? "—"}</TableCell>
+                    <TableCell className="px-2 py-1.5"><IngestBadge state={n.ingestionStatus as IngestState} /></TableCell>
+                    <TableCell className="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{n.updatedAt}</TableCell>
+                    <TableCell className="px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                       <Button
                         size="xs"
                         variant="ghost"
@@ -262,11 +263,11 @@ export function LiveFilesBrowser({ projectId, onToast }: { projectId: string; on
                       >
                         <Pencil aria-hidden className="h-3 w-3" /> 重命名
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
         </div>
       </div>

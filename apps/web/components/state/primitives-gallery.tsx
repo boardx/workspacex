@@ -29,6 +29,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Table, TableBody, TableCaption, TableCell, TableEmpty, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 
 const ROLE_OPTIONS = [
   { value: "facilitator", label: "引导师（可下发、可编辑）" },
@@ -194,6 +198,112 @@ export function PrimitivesGallery() {
               </Tooltip>
             </div>
           </TooltipProvider>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 示例表格数据——纯展示，不接任何真实数据源。 */
+const DEMO_TABLE_ROWS = [
+  { id: "row-1", name: "欧洲储能进入策略", owner: "陈工", status: "进行中" },
+  { id: "row-2", name: "德国工商储电价机制核查", owner: "林工", status: "待复核" },
+];
+
+/**
+ * 复合组件展示区（Table / Menu）—— 契约束 interaction-primitives（F09）签核①材料。
+ * Table 收口 19 处业务目录重复的手写 `<table>`；Menu 是 F01 `dropdown-menu.tsx` 的命名
+ * 别名，收口 5 处业务目录重复的「手写 open state + document 监听」弹层实现。
+ */
+export function CompositePrimitivesGallery() {
+  const [tableRows, setTableRows] = React.useState(DEMO_TABLE_ROWS);
+
+  return (
+    <div className="flex flex-col gap-6" data-testid="section-composites">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-16 font-semibold">复合组件（Table / Menu）</h2>
+        <p className="text-12 text-muted-foreground">
+          契约束 <code className="font-mono text-11">interaction-primitives</code> · F09。
+          Table 收口 19 处业务目录重复的手写表格；Menu 复用 F01 的{" "}
+          <code className="font-mono text-11">dropdown-menu.tsx</code>
+          （Radix DropdownMenu），收口 5 处手写下拉菜单。
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {/* ── Table ─────────────────────────────────────────── */}
+        <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4" data-testid="primitive-table">
+          <h3 className="text-13 font-semibold">Table（数据表格）</h3>
+          <p className="text-11 text-muted-foreground">表头 / 数据行 / 空态一套 token，业务目录不再各写一份。</p>
+          <div className="overflow-x-auto rounded-md border border-border">
+            <Table data-testid="primitive-table-el">
+              <TableCaption>项目台账（示例数据）</TableCaption>
+              <TableHeader>
+                <TableRow variant="header">
+                  <TableHead>项目</TableHead>
+                  <TableHead>负责人</TableHead>
+                  <TableHead>状态</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tableRows.length === 0 ? (
+                  <TableEmpty colSpan={3} data-testid="primitive-table-empty">
+                    暂无项目——点下方按钮清空/恢复演示数据
+                  </TableEmpty>
+                ) : (
+                  tableRows.map((r) => (
+                    <TableRow key={r.id} data-testid={`primitive-table-row-${r.id}`}>
+                      <TableCell className="font-medium">{r.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.owner}</TableCell>
+                      <TableCell>{r.status}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <Button
+            size="xs"
+            variant="outline"
+            data-testid="primitive-table-toggle-empty"
+            onClick={() => setTableRows((prev) => (prev.length === 0 ? DEMO_TABLE_ROWS : []))}
+          >
+            {tableRows.length === 0 ? "恢复演示数据" : "清空 → 看空态"}
+          </Button>
+        </div>
+
+        {/* ── Menu ──────────────────────────────────────────── */}
+        <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4" data-testid="primitive-menu">
+          <h3 className="text-13 font-semibold">Menu（菜单）</h3>
+          <p className="text-11 text-muted-foreground">
+            F01 dropdown 的命名别名；焦点陷阱 / Esc 关闭 / 外点关闭 / ↑↓ 导航全部原生继承。
+          </p>
+          <Menu>
+            <MenuTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="primitive-menu-trigger">
+                <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
+                更多操作
+              </Button>
+            </MenuTrigger>
+            <MenuContent align="start" data-testid="primitive-menu-content">
+              <MenuItem data-testid="primitive-menu-rename">
+                <Pencil aria-hidden className="h-3.5 w-3.5" />
+                重命名
+              </MenuItem>
+              <MenuItem data-testid="primitive-menu-share">
+                <Share2 aria-hidden className="h-3.5 w-3.5" />
+                生成分享链接
+              </MenuItem>
+              <MenuSeparator />
+              <MenuItem
+                className="text-destructive data-[highlighted]:text-destructive"
+                data-testid="primitive-menu-delete"
+              >
+                <Trash2 aria-hidden className="h-3.5 w-3.5" />
+                删除
+              </MenuItem>
+            </MenuContent>
+          </Menu>
         </div>
       </div>
     </div>

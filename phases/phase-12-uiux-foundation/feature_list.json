@@ -169,14 +169,14 @@
         "F01"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "claude-g",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/composite-table-menu.test.tsx",
         "pnpm --filter web run lint:design"
       ],
-      "evidence": "",
+      "evidence": "evidence/F09.verify.log @ 2026-08-23T22:29:48.124Z",
       "notes": "依据等级：[Backlog]（IT-06；原型确认缺失，业务目录各写一份 table/menu）。has_ui：需随所属契约束签核。R11 拆分：table+menu 为本 feature，breadcrumb+pagination 为 F10，工作量 L 合计 5 点。menu 组件复用 F01 的 dropdown 底层实现（R10）。切分最不确定之一：需先做重复模式盘点，实际满足『3 个以上重复』门槛的模式集合要盘点后才定，可能降级不收口（R4-A1）——盘点结论会反过来影响本 feature 与 F10 的具体组件清单。"
     },
     {

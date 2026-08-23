@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StateShell, type UiState } from "@/components/state/state-shell";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   MATRIX_COLUMNS,
   MATRIX_ROWS,
@@ -93,12 +94,12 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
             </div>
 
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full border-collapse text-11">
-                <thead>
-                  <tr>
-                    <th className="p-1.5 text-left text-10 font-medium text-muted-foreground">主题 · {MATRIX_ROWS.length}</th>
+              <Table className="w-full border-collapse text-11">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="p-1.5 text-left text-10 font-medium text-muted-foreground">主题 · {MATRIX_ROWS.length}</TableHead>
                     {MATRIX_COLUMNS.map((c) => (
-                      <th key={c.id} className="p-1.5 text-center" data-testid={`itv-matrix-col-${c.id}`}>
+                      <TableHead key={c.id} className="p-1.5 text-center" data-testid={`itv-matrix-col-${c.id}`}>
                         <span className="flex flex-col items-center gap-0.5">
                           <span className={cn("font-mono text-10", c.kind === "virtual" ? "text-ai-tint-foreground" : "text-foreground")}>
                             {c.id}
@@ -111,17 +112,17 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
                             <User aria-hidden className="h-3 w-3 text-muted-foreground" />
                           )}
                         </span>
-                      </th>
+                      </TableHead>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {MATRIX_ROWS.map((row) => {
                     const strong = strongIndependentCount(row);
                     const belowThreshold = strong < MATRIX_WRITING_GUARDS.universalClaimThreshold;
                     return (
-                      <tr key={row.theme} data-testid={`itv-matrix-row-${row.theme}`}>
-                        <td className="p-1.5">
+                      <TableRow key={row.theme} data-testid={`itv-matrix-row-${row.theme}`}>
+                        <TableCell className="p-1.5">
                           <span className="text-11 text-foreground">{row.theme}</span>
                           <span
                             className={cn("ml-1 text-10", belowThreshold ? "text-warning" : "text-success")}
@@ -129,11 +130,11 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
                           >
                             （独立强证据 {strong}）
                           </span>
-                        </td>
+                        </TableCell>
                         {MATRIX_COLUMNS.map((c) => {
                           const ev = row.cells[c.id]!;
                           return (
-                            <td key={c.id} className="p-1 text-center">
+                            <TableCell key={c.id} className="p-1 text-center">
                               <span
                                 data-testid={`itv-cell-${row.theme}-${c.id}`}
                                 className={cn(
@@ -143,14 +144,14 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
                               >
                                 <span className="font-mono">{EVIDENCE_GLYPH[ev]}</span>
                               </span>
-                            </td>
+                            </TableCell>
                           );
                         })}
-                      </tr>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
 
             {/* 写作约束 */}
