@@ -11,6 +11,8 @@
     "lint:spec-gate-coverage": "node .harness/scripts/lint-spec-gate-coverage.mjs",
     "lint:graph": "pnpm harness graph validate --no-cache",
     "lint:body-path-param-leak": "pnpm exec tsx .harness/scripts/lint-body-path-param-leak.mjs",
+    "test:uiux-review-log-schema": "vitest run --config .harness/vitest.config.ts --dir .harness uiux-review-log-schema.test.ts",
+    "test:uiux-review-log-stats": "vitest run --config .harness/vitest.config.ts --dir .harness uiux-review-log-stats.test.ts",
     "verify:base": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:base:raw",
     "verify:base:raw": "pnpm run verify:harness:raw && turbo run typecheck lint --continue && turbo run test --continue --concurrency=1",
     "verify:harness": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:harness:raw",
