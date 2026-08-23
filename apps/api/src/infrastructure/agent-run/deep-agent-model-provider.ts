@@ -67,8 +67,20 @@
  * discipline `agui-bridge.ts`'s "read deltas, then read status, same iteration" already
  * uses for `DeepResearchModelProvider`-adjacent streaming. `extractToolCallEvents` pairs
  * each `AIMessage.tool_calls[]` entry with the `ToolMessage` that answers it (matched by
- * `tool_call_id`) and reports the pair as ONE `ModelCallProgressEvent` only once both halves
- * are present -- a call announced but not yet answered is not reported early as a guess.
+ * `tool_call_id`).
+ *
+ * ## #742 Gap 1（CopilotKit 对标）—— `in_progress` 不再是"猜"，是真事件
+ *
+ * 这条头注曾经写着"a call announced but not yet answered is not reported early as a
+ * guess"——那是在 `AgentRunStepStatus` 只有两个终态值的年代做的取舍：没有第三种状态可以
+ * 承载"已宣布、还没结果"，提前报告就只能落成一个撒谎的 `succeeded`。CopilotKit 的 Tool
+ * Call Rendering / State Rendering 模式要求至少 `inProgress`/`complete` 两态迁移
+ * （#742 Gap 1），账本加了 `in_progress` 状态之后，"announced but not answered" 不再是一个
+ * 要猜的结论，是一个可以如实记录的真实阶段——`extractToolCallEvents` 现在为每个
+ * `tool_calls[]` 条目在被宣布的那一刻就报一次 `phase: "in_progress"`，结果到达时再报一次
+ * `phase: "complete"`，两次事件共享同一个 `toolCallId`。`agent_run_steps` 是 append-only
+ * 账本（DB 级强制，见 `AppendedRunStep.toolCallId` 的头注），这两次事件因此落成两行，
+ * 由读端按 `toolCallId` 折叠回一张卡片，不是同一行被原地改写。
  */
 import { createHash } from "node:crypto";
 
@@ -166,24 +178,46 @@ function summarizeProgressText(text: string, maxChars = PROGRESS_SUMMARY_MAX_CHA
 }
 
 /**
+ * #742 Gap 1 -- two running sets, one per phase, so a call gets reported exactly once
+ * per phase it actually passes through: `inProgress` = ids that already got an
+ * `in_progress` event, `complete` = ids that already got their terminal event. Kept
+ * separate (not one "seen" set) because a call legitimately fires BOTH events over its
+ * lifetime -- collapsing them would either re-announce a completed call as in-progress or,
+ * worse, skip the terminal event because the id "was already emitted".
+ */
+export interface ToolCallEmittedIds {
+  readonly inProgress: Set<string>;
+  readonly complete: Set<string>;
+}
+
+/**
  * Walk `messages` (the FULL array, fresh every call -- see this file's own header on why
- * that is simpler and safe here) and pair every `AIMessage.tool_calls[]` entry with the
- * `ToolMessage` that answers it, by `tool_call_id`. Returns one `ModelCallProgressEvent`
- * per COMPLETE pair, in the order the answering `ToolMessage` appears -- a call announced
- * but not yet answered is not reported (see file head: "not reported early as a guess").
+ * that is simpler and safe here) and report:
+ *  - an `in_progress` `ModelCallProgressEvent` the FIRST time an `AIMessage.tool_calls[]`
+ *    entry is seen that has not already gotten one (#742 Gap 1 -- previously a call
+ *    announced but not yet answered was not reported at all: "not reported early as a
+ *    guess". It now IS reported, exactly once, as `in_progress`, precisely because a
+ *    client watching a run in progress is the whole point of that phase existing.)
+ *  - a `"complete"` `ModelCallProgressEvent` once both the `AIMessage.tool_calls[]` entry
+ *    AND the `ToolMessage` that answers it (paired by `tool_call_id`) are present, same as
+ *    before this feature.
  *
- * `alreadyEmitted` is the caller's running set of `tool_call_id`s already turned into an
- * event on an earlier poll; this function neither reads nor mutates it beyond skipping
- * ids already in it -- the caller owns when an id is added, so a rejected `onProgress`
- * (see `ModelCallPort.completeWithProgress`'s own doc: "not best effort") does not leave
- * an id marked emitted for an event that never actually made it out.
+ * Both event kinds carry `toolCallId` so `execute-run.ts` can correlate the pair into one
+ * ledger group without them ever needing to be the SAME database row (`agent_run_steps` is
+ * append-only -- see `AppendedRunStep.toolCallId`'s own doc).
+ *
+ * `emittedIds` is the caller's running record of what has already gone out on earlier
+ * polls; this function neither reads nor mutates it beyond skipping ids already in the
+ * relevant set -- the caller owns when an id is added, so a rejected `onProgress` (see
+ * `ModelCallPort.completeWithProgress`'s own doc: "not best effort") does not leave an id
+ * marked emitted for an event that never actually made it out.
  */
 function extractToolCallEvents(
   messages: readonly ThreadMessage[],
-  alreadyEmitted: ReadonlySet<string>,
-): readonly { readonly id: string; readonly event: ModelCallProgressEvent }[] {
+  emittedIds: ToolCallEmittedIds,
+): readonly { readonly id: string; readonly phase: "in_progress" | "complete"; readonly event: ModelCallProgressEvent }[] {
   const pending = new Map<string, { readonly name: string; readonly argsSummary: string | null; readonly planningNote: string | null }>();
-  const found: { readonly id: string; readonly event: ModelCallProgressEvent }[] = [];
+  const found: { readonly id: string; readonly phase: "in_progress" | "complete"; readonly event: ModelCallProgressEvent }[] = [];
 
   for (const message of messages) {
     if (message.type === "ai" && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
@@ -193,7 +227,7 @@ function extractToolCallEvents(
       for (const call of message.tool_calls) {
         const id = typeof call.id === "string" ? call.id : null;
         const name = typeof call.name === "string" ? call.name : null;
-        if (id === null || name === null || alreadyEmitted.has(id)) continue;
+        if (id === null || name === null) continue;
         // DA-06（#1749，rubric D1）：write_todos 的参数是**结构化数据**，前端规划条
         // 要 JSON.parse 它渲染 todo 列表——500 字符截断会把它切成非法 JSON，规划条
         // 直接瞎掉。todos 由 TodoListMiddleware 生成、条目数有实际上限，4000 字符
@@ -204,21 +238,34 @@ function extractToolCallEvents(
           ? null
           : summarizeProgressText(JSON.stringify(call.args), maxChars);
         pending.set(id, { name, argsSummary, planningNote });
+        // #742 Gap 1: report "announced, not yet answered" exactly once per id.
+        if (!emittedIds.inProgress.has(id)) {
+          found.push({
+            id,
+            phase: "in_progress",
+            event: {
+              toolName: name, toolArgsSummary: argsSummary, toolResultSummary: null,
+              planningNote, phase: "in_progress", toolCallId: id,
+            },
+          });
+        }
       }
       continue;
     }
     if (message.type === "tool" && typeof message.tool_call_id === "string") {
       const id = message.tool_call_id;
       const call = pending.get(id);
-      if (call === undefined || alreadyEmitted.has(id)) continue;
+      if (call === undefined || emittedIds.complete.has(id)) continue;
       const resultSummary = typeof message.content === "string" && message.content.trim() !== ""
         ? summarizeProgressText(message.content)
         : null;
       found.push({
         id,
+        phase: "complete",
         event: {
           toolName: call.name, toolArgsSummary: call.argsSummary,
           toolResultSummary: resultSummary, planningNote: call.planningNote,
+          phase: "complete", toolCallId: id,
         },
       });
       pending.delete(id);
@@ -288,7 +335,9 @@ export class DeepAgentModelProvider implements ModelCallPort {
     onDelta?: (delta: string) => Promise<void>,
   ): Promise<ModelCallCompletion> {
     const { baseUrl, threadId, runId, deadline, pollIntervalMs, timeoutMs } = await this.startRun(input);
-    const emitted = new Set<string>();
+    // #742 Gap 1: two sets, not one -- see `ToolCallEmittedIds`'s own doc for why a call
+    // legitimately needs to pass through both phases without either suppressing the other.
+    const emitted: ToolCallEmittedIds = { inProgress: new Set<string>(), complete: new Set<string>() };
 
     if (this.config.streamEnabled === true && onDelta !== undefined) {
       // DA-03 流式通路。任何一步失败都落回下面的轮询循环——run 已经在服务端跑着，
@@ -373,13 +422,13 @@ export class DeepAgentModelProvider implements ModelCallPort {
     baseUrl: string,
     threadId: string,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
-    emitted: Set<string>,
+    emitted: ToolCallEmittedIds,
   ): Promise<void> {
     const state = await this.readState(baseUrl, threadId);
     const messages = state.values?.messages ?? [];
-    for (const { id, event } of extractToolCallEvents(messages, emitted)) {
+    for (const { id, phase, event } of extractToolCallEvents(messages, emitted)) {
       await onProgress(event);
-      emitted.add(id);
+      (phase === "in_progress" ? emitted.inProgress : emitted.complete).add(id);
     }
   }
 
@@ -416,7 +465,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     runId: string,
     onDelta: (delta: string) => Promise<void>,
     onProgress: (event: ModelCallProgressEvent) => Promise<void>,
-    emitted: Set<string>,
+    emitted: ToolCallEmittedIds,
   ): Promise<boolean> {
     let response: Response;
     try {

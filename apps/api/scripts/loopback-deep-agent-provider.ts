@@ -60,6 +60,17 @@ const TOOL_NAME = process.env.LOOPBACK_DEEP_AGENT_TOOL_NAME ?? "lookup_time";
 const STATUS_POLLS_BEFORE_DONE = Number(process.env.LOOPBACK_DEEP_AGENT_STATUS_POLLS ?? "2");
 const STREAM_GAP_MS = Number(process.env.LOOPBACK_DEEP_AGENT_STREAM_GAP_MS ?? "80");
 /**
+ * #742 Gap 1 取证旋钮——多步剧本默认（`STATUS_POLLS_BEFORE_DONE=2`）在第二次状态轮询
+ * 就终态，`/state` 从第一次读起就是"完整"的（文件头注原话）：三次工具调用连同各自的
+ * `ToolMessage` 结果同时出现，账本里 `in_progress` 行与终态行几乎在同一毫秒内落地，
+ * 结构上**不给** `GET /agent-runs/:runId` 的轮询留一个能拍到 `in_progress` 徽标的窗口。
+ * 这条旋钮只在多步触发词命中时把该 run 的终态推迟到至少这么多次状态轮询之后，`/state`
+ * 按下面 `multistepStage()` 分阶段揭示——每个工具调用在被真正回答之前，先单独停留至少
+ * 一轮，好让真实的 `in_progress` 记账行有机会被前端真的轮询到、真的渲染出来。
+ * 不影响其它触发词/默认路径（读取时判空/判等）。
+ */
+const MULTISTEP_MIN_STATUS_POLLS = Number(process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_MIN_POLLS ?? "6");
+/**
  * #728 P9 —— 确定性失败触发词。用户消息**逐字等于**这个值时，本进程让 run 走到
  * `error` 终态而不是 `success`，供取证脚本构造一次真实失败并截图——不是在前端
  * 伪造一个失败态组件，是让这条真实的 `DeepAgentModelProvider.pollToTerminal` 轮询
@@ -228,7 +239,11 @@ const server = createServer((req, res) => {
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown run" }); return; }
     record.statusPolls += 1;
-    if (record.statusPolls < STATUS_POLLS_BEFORE_DONE) { sendJson(res, 200, { status: "pending" }); return; }
+    // #742 Gap 1：多步剧本要求更多轮才终态——见 `MULTISTEP_MIN_STATUS_POLLS` 头注。
+    const requiredPolls = MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
+      ? Math.max(STATUS_POLLS_BEFORE_DONE, MULTISTEP_MIN_STATUS_POLLS)
+      : STATUS_POLLS_BEFORE_DONE;
+    if (record.statusPolls < requiredPolls) { sendJson(res, 200, { status: "pending" }); return; }
     // UX-9 D4：审批触发词且还没被裁决过 → 停在 interrupted，让真实 DA-07b 轮询循环
     // 读到「等人裁决」而不是直接终态。裁决（resume）到达后 record.decision 非 null，
     // 之后的轮询一律走终态分支——不会无限停在 interrupted。
@@ -299,42 +314,54 @@ const server = createServer((req, res) => {
       const searchCallId = `search-${threadId}`;
       const readCallId = `read-${threadId}`;
       const searchResult = "找到 3 份文档：A.md B.md C.md";
-      sendJson(res, 200, {
-        values: {
-          messages: [
-            { type: "human", content: record.userText },
-            {
-              type: "ai",
-              content: "",
-              tool_calls: [{
-                id: todosCallId,
-                name: "write_todos",
-                args: {
-                  todos: [
-                    { content: "搜索相关文档", status: "in_progress" },
-                    { content: "读取最相关的一份", status: "pending" },
-                    { content: "综合结论作答", status: "pending" },
-                  ],
-                },
-              }],
-            },
-            { type: "tool", tool_call_id: todosCallId, content: "todos updated" },
-            {
-              type: "ai",
-              content: "我先搜索文档库，看有哪些相关材料。",
-              tool_calls: [{ id: searchCallId, name: "search_documents", args: { query: record.userText } }],
-            },
-            { type: "tool", tool_call_id: searchCallId, content: searchResult },
-            {
-              type: "ai",
-              content: "基于搜索结果，读取最相关的 A.md。",
-              tool_calls: [{ id: readCallId, name: "read_document", args: { path: "A.md" } }],
-            },
-            { type: "tool", tool_call_id: readCallId, content: "A.md 内容：多步执行取证样例正文——搜索命中的第一份文档。" },
-            { type: "ai", content: "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。" },
-          ],
-        },
-      });
+      const human = { type: "human", content: record.userText };
+      const todosAnnounced = {
+        type: "ai",
+        content: "",
+        tool_calls: [{
+          id: todosCallId,
+          name: "write_todos",
+          args: {
+            todos: [
+              { content: "搜索相关文档", status: "in_progress" },
+              { content: "读取最相关的一份", status: "pending" },
+              { content: "综合结论作答", status: "pending" },
+            ],
+          },
+        }],
+      };
+      const todosAnswered = { type: "tool", tool_call_id: todosCallId, content: "todos updated" };
+      const searchAnnounced = {
+        type: "ai",
+        content: "我先搜索文档库，看有哪些相关材料。",
+        tool_calls: [{ id: searchCallId, name: "search_documents", args: { query: record.userText } }],
+      };
+      const searchAnswered = { type: "tool", tool_call_id: searchCallId, content: searchResult };
+      const readAnnounced = {
+        type: "ai",
+        content: "基于搜索结果，读取最相关的 A.md。",
+        tool_calls: [{ id: readCallId, name: "read_document", args: { path: "A.md" } }],
+      };
+      const readAnswered = {
+        type: "tool", tool_call_id: readCallId,
+        content: "A.md 内容：多步执行取证样例正文——搜索命中的第一份文档。",
+      };
+      const finalReply = {
+        type: "ai",
+        content: "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。",
+      };
+      /**
+       * #742 Gap 1：按 `statusPolls` 分阶段揭示——每个工具调用先只有「宣布」那半
+       * （对应账本里的 `in_progress` 行），停留至少一轮真实轮询，再补上「回答」那半
+       * （对应终态行）。真实 `execute-run.ts` 的 `completeWithProgress` 循环会在这个
+       * 过程中真的把 `in_progress` 行写进 `agent_run_steps`，前端真的有机会轮询到它。
+       */
+      const polls = record.statusPolls;
+      const messages: unknown[] = [human, todosAnnounced];
+      if (polls >= 2) messages.push(todosAnswered, searchAnnounced);
+      if (polls >= 4) messages.push(searchAnswered, readAnnounced);
+      if (polls >= 6) messages.push(readAnswered, finalReply);
+      sendJson(res, 200, { values: { messages } });
       return;
     }
     // UX-9 D4 前端接入取证（gap 清单第 3 条）：审批触发词的剧本。原始参数（裁决前

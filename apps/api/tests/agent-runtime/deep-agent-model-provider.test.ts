@@ -212,8 +212,8 @@ describe("DeepAgentModelProvider.complete", () => {
   });
 });
 
-describe("DeepAgentModelProvider.completeWithProgress (#783)", () => {
-  it("每一对 AIMessage.tool_calls / 匹配的 ToolMessage 一出现就报成一个 progress event，按序、终态答案不变", async () => {
+describe("DeepAgentModelProvider.completeWithProgress (#783, #742 Gap 1 in_progress)", () => {
+  it("每次调用宣布时先报一个 in_progress，结果到达时再报一个 complete，两者共享 toolCallId，按序、终态答案不变", async () => {
     threadId = `thread-${randomUUID()}`;
     runId = `run-${randomUUID()}`;
     statusSequence = ["running", "running", "success"];
@@ -272,16 +272,28 @@ describe("DeepAgentModelProvider.completeWithProgress (#783)", () => {
     expect(events).toEqual([
       {
         toolName: "list_org_skills", toolArgsSummary: "{}",
+        toolResultSummary: null, planningNote: "我先看看有哪些技能可用",
+        phase: "in_progress", toolCallId: "call-1",
+      },
+      {
+        toolName: "list_org_skills", toolArgsSummary: "{}",
         toolResultSummary: "- diagram-maker：画图技能", planningNote: "我先看看有哪些技能可用",
+        phase: "complete", toolCallId: "call-1",
+      },
+      {
+        toolName: "call_skill", toolArgsSummary: '{"skill_stable_name":"diagram-maker","task":"画架构图"}',
+        toolResultSummary: null, planningNote: "调用画图技能",
+        phase: "in_progress", toolCallId: "call-2",
       },
       {
         toolName: "call_skill", toolArgsSummary: '{"skill_stable_name":"diagram-maker","task":"画架构图"}',
         toolResultSummary: "已生成架构图。", planningNote: "调用画图技能",
+        phase: "complete", toolCallId: "call-2",
       },
     ]);
   });
 
-  it("一个宣布了但从未收到结果的调用不会被上报", async () => {
+  it("一个宣布了但从未收到结果的调用只报一次 in_progress，不会伪造一个 complete", async () => {
     threadId = `thread-${randomUUID()}`;
     runId = `run-${randomUUID()}`;
     statusSequence = ["success"];
@@ -302,11 +314,16 @@ describe("DeepAgentModelProvider.completeWithProgress (#783)", () => {
       async (event) => { events.push(event); },
     );
 
-    expect(events).toEqual([]);
+    expect(events).toEqual([
+      {
+        toolName: "call_skill", toolArgsSummary: "{}", toolResultSummary: null,
+        planningNote: null, phase: "in_progress", toolCallId: "call-orphan",
+      },
+    ]);
     expect(result.text).toBe("算了，直接回答你。");
   });
 
-  it("同一个事件不会因为跨多次轮询重复读到而被上报两次", async () => {
+  it("同一个事件不会因为跨多次轮询重复读到而被上报两次（in_progress 与 complete 各自恰好一次）", async () => {
     threadId = `thread-${randomUUID()}`;
     runId = `run-${randomUUID()}`;
     statusSequence = ["running", "running", "success"];
@@ -329,7 +346,11 @@ describe("DeepAgentModelProvider.completeWithProgress (#783)", () => {
       async (event) => { events.push(event); },
     );
 
-    expect(events).toHaveLength(1);
+    // The first poll already sees BOTH halves at once (announcement and answer in the same
+    // read), so it reports in_progress THEN complete in that one poll -- exactly 2 events,
+    // never re-reported on the two later polls that see the identical state again.
+    expect(events).toHaveLength(2);
+    expect((events as { phase: string }[]).map((e) => e.phase)).toEqual(["in_progress", "complete"]);
   });
 
   it("run 转 error 之前已经完成的调用仍然被上报（补读一次，不因为终态而丢失）", async () => {
@@ -353,8 +374,10 @@ describe("DeepAgentModelProvider.completeWithProgress (#783)", () => {
       async (event) => { events.push(event); },
     )).rejects.toMatchObject({ code: "MODEL_CALL_FAILED" });
 
-    expect(events).toHaveLength(1);
-    expect((events[0] as { toolResultSummary: string }).toolResultSummary).toBe("部分结果");
+    expect(events).toHaveLength(2);
+    expect((events[0] as { phase: string }).phase).toBe("in_progress");
+    expect((events[1] as { toolResultSummary: string; phase: string }).toolResultSummary).toBe("部分结果");
+    expect((events[1] as { toolResultSummary: string; phase: string }).phase).toBe("complete");
   });
 
   it("onProgress 拒绝会让整个调用失败，不是被吞掉——不是 best effort", async () => {

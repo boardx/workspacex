@@ -410,7 +410,12 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
     try {
       const { store, sandboxRuns } = await runOnce({ deepAgent, withSandbox: false });
       expect(sandboxRuns).toBe(0);
-      expect(store.output).toEqual({ text: FINAL_PROSE_REPLY, finalStepSeq: 4, files: [] });
+      // #742 Gap 1: finalStepSeq is 5, not 4 -- the one tool call (call-1) now writes TWO
+      // ledger rows (an `in_progress` row when announced, a `succeeded` row when answered),
+      // sharing `tool_call_id`, not one -- see `AppendedRunStep.toolCallId`'s own doc. The
+      // terminal `model_called` step's seq shifts accordingly; this is the correct new
+      // count, not a regression.
+      expect(store.output).toEqual({ text: FINAL_PROSE_REPLY, finalStepSeq: 5, files: [] });
       const body = deepAgent.createRunBodies[0] as { config: { configurable: Record<string, unknown> } };
       expect(Object.keys(body.config.configurable)).toEqual(["org_skills"]);
     } finally {

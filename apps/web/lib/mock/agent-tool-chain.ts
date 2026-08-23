@@ -20,7 +20,11 @@ import type { AgentRunView } from "@/lib/agent-run";
 
 type Step = AgentRunView["steps"][number];
 
-export const TOOLCHAIN_SCENES = ["collapsed", "expanded", "failure", "no-tools", "single"] as const;
+export const TOOLCHAIN_SCENES = [
+  "collapsed", "expanded", "failure", "no-tools", "single",
+  // #742 Gap 1 + Gap 4（CopilotKit 对标）：进行中态 + 四个 per-tool 定制卡片并列展示。
+  "in-progress-per-tool",
+] as const;
 export type ToolChainScene = (typeof TOOLCHAIN_SCENES)[number];
 
 export function resolveToolChainScene(raw?: string): ToolChainScene {
@@ -169,6 +173,56 @@ function noTools(): Step[] {
   ];
 }
 
+// #742 Gap 1 + Gap 4：write_todos → search_documents → read_document 全部已完成，
+// lookup_time 还挂在 in_progress——同一屏证明「进行中态可见」+「至少两个工具的定制渲染」。
+function inProgressPerTool(): Step[] {
+  return [
+    frameStep("accepted", T0, "2026-08-24T09:00:00.100Z"),
+    frameStep("context_built", "2026-08-24T09:00:00.100Z", "2026-08-24T09:00:00.400Z"),
+    frameStep("model_called", "2026-08-24T09:00:00.400Z", "2026-08-24T09:00:00.900Z"),
+    toolStep({
+      startedAt: "2026-08-24T09:00:00.900Z",
+      endedAt: "2026-08-24T09:00:01.200Z",
+      toolName: "write_todos",
+      toolArgsSummary: JSON.stringify({
+        todos: [
+          { content: "搜索相关文档", status: "completed" },
+          { content: "读取最相关的一份", status: "completed" },
+          { content: "综合结论作答", status: "in_progress" },
+        ],
+      }),
+      toolResultSummary: "todos updated",
+      planningNote: "先列一下计划，再逐步执行。",
+    }),
+    toolStep({
+      startedAt: "2026-08-24T09:00:01.200Z",
+      endedAt: "2026-08-24T09:00:01.900Z",
+      toolName: "search_documents",
+      toolArgsSummary: JSON.stringify({ query: "东南亚 SaaS 定价" }),
+      toolResultSummary: "找到 3 份文档：A.md B.md C.md",
+      planningNote: "先搜索相关文档。",
+    }),
+    toolStep({
+      startedAt: "2026-08-24T09:00:01.900Z",
+      endedAt: "2026-08-24T09:00:02.500Z",
+      toolName: "read_document",
+      toolArgsSummary: JSON.stringify({ path: "A.md" }),
+      toolResultSummary: "A.md 内容：多步执行取证样例正文——搜索命中的第一份文档。",
+      planningNote: "基于搜索结果，读取最相关的 A.md。",
+    }),
+    // 进行中——还没有 toolResultSummary，账本里是 in_progress。
+    toolStep({
+      status: "in_progress",
+      startedAt: "2026-08-24T09:00:02.500Z",
+      endedAt: "2026-08-24T09:00:02.500Z",
+      toolName: "lookup_time",
+      toolArgsSummary: "{}",
+      toolResultSummary: null,
+      planningNote: "顺便确认一下当前时间。",
+    }),
+  ];
+}
+
 export function toolChainSteps(scene: ToolChainScene): Step[] {
   switch (scene) {
     case "collapsed":
@@ -180,12 +234,14 @@ export function toolChainSteps(scene: ToolChainScene): Step[] {
       return noTools();
     case "single":
       return singleTool();
+    case "in-progress-per-tool":
+      return inProgressPerTool();
   }
 }
 
 /** 预览页据此决定该 scene 是否默认展开（expanded 屏令其展开，其余收起）。 */
 export function sceneDefaultOpen(scene: ToolChainScene): boolean {
-  return scene === "expanded";
+  return scene === "expanded" || scene === "in-progress-per-tool";
 }
 
 export const SCENE_LABEL: Record<ToolChainScene, string> = {
@@ -194,4 +250,5 @@ export const SCENE_LABEL: Record<ToolChainScene, string> = {
   failure: "failure 含失败",
   "no-tools": "no-tools 直接作答",
   single: "single 单工具",
+  "in-progress-per-tool": "in-progress-per-tool 进行中 + 按工具定制",
 };

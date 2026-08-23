@@ -141,7 +141,9 @@ export interface AguiBridgeInput {
  * never surfaced (see 阶段1b/2b: only `TEXT_MESSAGE_*`/`RUN_*` ever crossed the wire before
  * this field), so `onStep` only ever fires for `kind === "tool_call"`. */
 export interface RunStepPublic {
-  readonly status: "succeeded" | "failed";
+  /** #742 Gap 1: `"in_progress"` joined the two terminal values -- an AG-UI consumer of
+   * `onStep` now sees a tool call announced BEFORE it resolves, not only once it has. */
+  readonly status: "succeeded" | "failed" | "in_progress";
   readonly toolName: string | null;
   readonly toolArgsSummary: string | null;
   readonly toolResultSummary: string | null;
