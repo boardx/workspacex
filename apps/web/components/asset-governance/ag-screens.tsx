@@ -24,7 +24,7 @@ import {
 import { AssetCodeEditor } from "./asset-code-editor";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { getAssetDirectory, readAssetFile, writeAssetFile, type AssetDirectory } from "@/lib/asset-directory";
-import { runSkillTrialRun, pollSkillTrialRun } from "@/lib/skill-trial-run";
+import { runSkillTrialRun, pollSkillTrialRun, isTrialRunAuthExpiredError } from "@/lib/skill-trial-run";
 import type { FileNode } from "@/lib/mock/asset-governance";
 
 type ScreenProps = { state: UiState; view: AgView };
@@ -619,6 +619,12 @@ function Editor({
   const [trialRunPending, setTrialRunPending] = React.useState(false);
   const [trialRunOutput, setTrialRunOutput] = React.useState<{ output: string; durationMs: number; tokens: number } | null>(null);
   const [trialRunError, setTrialRunError] = React.useState<string | null>(null);
+  /**
+   * #1941 —— 同 issue #1819/PR #1820 里 `chat-live-message-panel.tsx` 的
+   * `runObservation.authExpired` 同一条纪律：401 与其它可重试失败区分开单独标出，
+   * 好让渲染那一层不必靠正则匹配文案来判断是不是这一种终态。
+   */
+  const [trialRunAuthExpired, setTrialRunAuthExpired] = React.useState(false);
   const trialRunAvailable = isLive && kind === "skill";
 
   const runTrialRun = async () => {
@@ -630,6 +636,7 @@ function Editor({
     }
     setTrialRunPending(true);
     setTrialRunError(null);
+    setTrialRunAuthExpired(false);
     try {
       // F962 之后 POST 恒转异步（`trialRun` 恒 null，`asyncTaskId` 恒非 null）——
       // 见 `lib/skill-trial-run.ts` 头注「POST 恒转异步，轮询是必需的一半」。但契约
@@ -672,6 +679,14 @@ function Editor({
     } catch (error) {
       if (error instanceof Error && error.message === "TRIALRUN_POLL_BUDGET_EXCEEDED") {
         setTrialRunError("试跑仍在后台执行，尚未在等待时间内完成——可以稍后刷新页面查看。");
+        return;
+      }
+      // #1941 —— 401 是不可恢复的：bearer 已过期，`describeAssetError` 的通用兜底
+      // 会把它显示成裸 `HTTP 401`/reasonCode，不可行动。单独识别出来，换成明确的
+      // "登录已失效，请重新登录"（同 issue #1819/PR #1820 里 AgentRun 轮询的同一条纪律）。
+      if (isTrialRunAuthExpiredError(error)) {
+        setTrialRunAuthExpired(true);
+        setTrialRunError("登录已失效，请重新登录。");
         return;
       }
       setTrialRunError(describeAssetError(error));
@@ -810,7 +825,13 @@ function Editor({
               </Button>
             </div>
             {trialRunError ? (
-              <p className="text-11 text-destructive" data-testid={`ag-${kind}-trialrun-error`}>{trialRunError}</p>
+              <p
+                className="text-11 text-destructive"
+                data-testid={`ag-${kind}-trialrun-error`}
+                data-trial-run-auth-expired={trialRunAuthExpired || undefined}
+              >
+                {trialRunError}
+              </p>
             ) : null}
             {trialRunOutput ? (
               <div className="flex flex-col gap-1 rounded-md border border-border-subtle bg-muted/30 p-2" data-testid={`ag-${kind}-trialrun-output`}>

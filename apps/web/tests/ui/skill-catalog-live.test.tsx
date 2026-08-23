@@ -233,7 +233,9 @@ describe("#520 Skill 库屏接真实 API", () => {
       fireEvent.click(screen.getByTestId("skill-create-mode-import"));
       expect(screen.getByTestId("skill-url-import-panel")).toBeTruthy();
 
-      fireEvent.click(screen.getByTestId("skill-url-import-open"));
+      // #1941 —— 面板默认已展开；只在意外收起时才点开，不无条件点击。
+      const opener = screen.getByTestId("skill-url-import-open");
+      if (opener.getAttribute("aria-expanded") !== "true") fireEvent.click(opener);
       fireEvent.change(screen.getByTestId("skill-url-import-url"), {
         target: { value: "https://github.com/org/skill-repo" },
       });

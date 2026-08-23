@@ -30,7 +30,7 @@
  */
 import { skills } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { apiRequest, ApiError } from "./api-client";
 
 export type RunTrialRunOut = z.infer<typeof skills.operations.runTrialRun.out>;
 export type GetTrialRunOut = z.infer<typeof skills.operations.getTrialRun.out>;
@@ -70,6 +70,19 @@ const TERMINAL_TRIALRUN_STATUSES: ReadonlySet<TrialRunStatus> = new Set(["succee
 
 export function isTerminalTrialRunStatus(status: TrialRunStatus): boolean {
   return TERMINAL_TRIALRUN_STATUSES.has(status);
+}
+
+/**
+ * #1941 —— 试跑链路（提交 `runSkillTrialRun` 或轮询 `pollSkillTrialRun`）撞到 401
+ * 的判定，同 issue #1819/PR #1820 里 `chat-live-message-panel.tsx` 对
+ * `runObservation.authExpired` 的判定同一条规则：bearer 已过期，不是"这次没读到、
+ * 下次再试"的可重试失败——继续轮询没有意义，唯一出路是用户重新登录。
+ *
+ * 调用方（`ag-screens.tsx`）据此把 `HTTP 401`/裸 reasonCode 换成明确的
+ * "登录已失效，请重新登录"文案，不是让 `describeAssetError` 的通用兜底吞掉这个区分。
+ */
+export function isTrialRunAuthExpiredError(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 401;
 }
 
 const POLL_FIRST_DELAY_MS = 400;
@@ -123,6 +136,9 @@ export async function pollSkillTrialRun(
         await sleep(delay);
         continue;
       }
+      // #1941 —— 401（`isTrialRunAuthExpiredError`）落在这里：不是 404 宽限期内的
+      // 那一种，直接原样抛出，不再进入下一轮退避。这就是"401 立即停止轮询"——
+      // 调用方用 `isTrialRunAuthExpiredError` 识别出来后渲染明确的重新登录文案。
       throw e;
     }
     if (isTerminalTrialRunStatus(view.status)) return view;

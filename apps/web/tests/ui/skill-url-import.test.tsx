@@ -65,11 +65,20 @@ beforeEach(() => {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/**
+ * #1941 —— 面板默认已展开（`aria-expanded="true"`），只在它意外收起时才点开，
+ * 不无条件点击（否则会把默认展开的面板点成收起，与本轮修的行为正相反）。
+ */
+function ensureUrlImportOpen() {
+  const opener = screen.getByTestId("skill-url-import-open");
+  if (opener.getAttribute("aria-expanded") !== "true") fireEvent.click(opener);
+}
+
 /** 打开面板并填好两个字段。返回捕获到的导入请求体数组。 */
 async function openAndFill(fetchMock: ReturnType<typeof vi.fn>) {
   render(<SkillScreen state="default" />);
   await screen.findByTestId("skill-url-import-panel");
-  fireEvent.click(screen.getByTestId("skill-url-import-open"));
+  ensureUrlImportOpen();
   fireEvent.change(screen.getByTestId("skill-url-import-url"), {
     target: { value: "https://example.com/s.md" },
   });
@@ -79,6 +88,36 @@ async function openAndFill(fetchMock: ReturnType<typeof vi.fn>) {
   // 装置自检：到这一步为止，导入请求必须一次都没发过。
   expect(importCalls(fetchMock)).toHaveLength(0);
 }
+
+describe("issue #1941 · 折叠面板默认展开，不需要额外点击就能可发现", () => {
+  it("面板挂载后：不点『从 URL 导入』触发按钮，单文件/仓库导入两个 tab 与输入框就已经在 DOM 里", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SkillScreen state="default" />);
+    await screen.findByTestId("skill-url-import-panel");
+
+    const opener = screen.getByTestId("skill-url-import-open");
+    expect(opener).toHaveAttribute("aria-expanded", "true");
+    // 不点 opener——如果这些元素能被找到，说明确实默认就展开了，不是恰好被别处点开。
+    expect(screen.getByTestId("skill-url-import-mode-single")).toBeTruthy();
+    expect(screen.getByTestId("skill-url-import-mode-repo")).toBeTruthy();
+    expect(screen.getByTestId("skill-url-import-url")).toBeTruthy();
+    expect(screen.getByTestId("skill-url-import-name")).toBeTruthy();
+  });
+
+  it("点『从 URL 导入』可以收起（折叠触发按钮功能仍在，只是初始态变了）", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse([]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<SkillScreen state="default" />);
+    await screen.findByTestId("skill-url-import-panel");
+    fireEvent.click(screen.getByTestId("skill-url-import-open"));
+
+    expect(screen.getByTestId("skill-url-import-open")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("skill-url-import-url")).toBeNull();
+  });
+});
 
 describe("F2 · 真的能从 URL 导入", () => {
   it("确认后：打真实端口、带 Bearer、body 形状与契约一致，导入结果如实显示", async () => {
@@ -175,7 +214,7 @@ describe("F2 · 真的能从 URL 导入", () => {
 
     render(<SkillScreen state="default" />);
     await screen.findByTestId("skill-url-import-panel");
-    fireEvent.click(screen.getByTestId("skill-url-import-open"));
+    ensureUrlImportOpen();
     fireEvent.change(screen.getByTestId("skill-url-import-url"), {
       target: { value: "https://example.com/s.md" },
     });
