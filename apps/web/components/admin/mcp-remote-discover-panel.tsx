@@ -14,7 +14,7 @@ import {
 } from "@/lib/live-mcp-admin";
 
 /**
- * issue #1849 —— MCP 后台第一条真实链路：填一个远程 MCP HTTP/SSE 服务器端点
+ * issue #1852 —— MCP 后台第一条真实链路：填一个远程 MCP HTTP/SSE 服务器端点
  * （+ 可选鉴权 token）→ 提交 → 后端用官方 SDK 真的连上去、发现真实工具列表 → 展示。
  *
  * ⚠ 这不是完整的服务器注册流程——`registerMcpServer`（隔离期/评审状态/授权范围）

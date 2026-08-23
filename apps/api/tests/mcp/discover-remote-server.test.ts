@@ -1,5 +1,5 @@
 /**
- * issue #1849 —— `discoverRemoteMcpTools` 用例：admin 门 + SSRF 字面量门都在网关调用**之前**，
+ * issue #1852 —— `discoverRemoteMcpTools` 用例：admin 门 + SSRF 字面量门都在网关调用**之前**，
  * 且成功路径原样委托给既有的 `discoverMcpTools`（不重新发明变更集逻辑）。
  */
 import { describe, expect, it } from "vitest";

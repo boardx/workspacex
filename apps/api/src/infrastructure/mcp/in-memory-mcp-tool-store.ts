@@ -1,5 +1,5 @@
 /**
- * issue #1849 —— `McpToolStore`（`application/mcp/ports.ts`）的第一个实现，**进程内存**。
+ * issue #1852 —— `McpToolStore`（`application/mcp/ports.ts`）的第一个实现，**进程内存**。
  *
  * ⚠ `ports.ts` 头注逐字写着 F52 刻意不带 PostgreSQL 实现——持久化服务器与工具的表结构
  *   属于 F53/F54（评审记录、安全开关）该决定的形状，提前建表是在猜一个还没定的接口。

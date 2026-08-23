@@ -1,5 +1,5 @@
 /**
- * issue #1849 —— `createHttpMcpGateway` 对着一个**真实**的 MCP HTTP/SSE 服务器
+ * issue #1852 —— `createHttpMcpGateway` 对着一个**真实**的 MCP HTTP/SSE 服务器
  * （官方 SDK `McpServer` + `StreamableHTTPServerTransport`，见 `support/local-mcp-http-server.ts`）
  * 完成一次真正的协议握手 + `tools/list`。
  *

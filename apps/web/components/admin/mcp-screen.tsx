@@ -18,7 +18,7 @@ import {
 import type { UiState } from "@/lib/ui-state";
 
 /**
- * issue #1849 —— 这块屏**局部**接了真库：上方「连接远程 MCP 服务器」面板
+ * issue #1852 —— 这块屏**局部**接了真库：上方「连接远程 MCP 服务器」面板
  * （`./mcp-remote-discover-panel`）走真实 `discoverRemoteMcpTools` API，服务端真的用
  * MCP SDK 连出去、发现真实工具列表。下方服务器清单/放行评审/安全策略四开关仍是
  * `lib/mock/admin` 的静态演示数据（`registerMcpServer` 等治理契约仍未接线，见

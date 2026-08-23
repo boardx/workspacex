@@ -1,6 +1,6 @@
 /**
  * `POST /mcp-servers/discover-remote` —— 契约 `agentRuntime.operations.discoverRemoteMcpTools`
- * （issue #1849）。协议适配，判断全在 `application/mcp/discover-remote-server.ts`。
+ * （issue #1852）。协议适配，判断全在 `application/mcp/discover-remote-server.ts`。
  *
  * 这是本仓第一条真正把 `McpGateway` 接到一个说 MCP 协议的 client 上的路由——之前
  * `apps/api/src/application/mcp/*` 的治理用例全部存在、全部有测试，但零路由、零真实

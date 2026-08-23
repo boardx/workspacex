@@ -1,5 +1,5 @@
 /**
- * issue #1849 —— 装配 `discoverRemoteMcpTools` 的生产依赖。
+ * issue #1852 —— 装配 `discoverRemoteMcpTools` 的生产依赖。
  *
  * ⚠ `store` 在这里是**单例**（进程内存，见 `in-memory-mcp-tool-store.ts`）——它必须跨请求
  *   存活，否则"重新发现"的变更集（added/removed/signatureChanged）永远算不出来。

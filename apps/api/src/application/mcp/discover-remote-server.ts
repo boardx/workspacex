@@ -1,5 +1,5 @@
 /**
- * `discoverRemoteMcpTools` -- issue #1849. 管理员填一个远程 MCP 服务器端点、当场连上去
+ * `discoverRemoteMcpTools` -- issue #1852. 管理员填一个远程 MCP 服务器端点、当场连上去
  * 发现真实工具列表——本轮 MCP 治理骨架第一条说真实协议的路径。
  *
  * ## 这条用例做的事，与 `discover-tools.ts` 的关系

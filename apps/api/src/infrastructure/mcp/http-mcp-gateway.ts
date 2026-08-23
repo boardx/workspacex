@@ -1,5 +1,5 @@
 /**
- * issue #1849 —— `McpGateway`（`application/mcp/ports.ts`）第一个真正说 MCP 协议的实现。
+ * issue #1852 —— `McpGateway`（`application/mcp/ports.ts`）第一个真正说 MCP 协议的实现。
  *
  * ## 范围：只做 remote transport（HTTP/SSE，即官方 SDK 的 `StreamableHTTPClientTransport`）
  *

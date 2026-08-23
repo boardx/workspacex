@@ -189,7 +189,7 @@ describe("反向反证 —— 真仓库当前必须是绿的", () => {
     const { errors, rows } = lintNoBackendBadge();
     expect(errors, errors.join("\n")).toEqual([]);
     /**
-     * issue #1849：MCP 后台页接上了第一条真实链路（`discoverRemoteMcpTools`，见
+     * issue #1852：MCP 后台页接上了第一条真实链路（`discoverRemoteMcpTools`，见
      * `mcp-screen.tsx` 的 `lint-no-backend-badge:backed-by-children` 标记），是这两个
      * 路由文件目前能枚举到的七块屏里**最后一块**零后端的。⇒ `zeroBackendRows.length`
      * 合法地变成了 0——这不是枚举链路断了，是产品状态真的变了。

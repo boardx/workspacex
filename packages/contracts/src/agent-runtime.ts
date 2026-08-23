@@ -1224,7 +1224,7 @@ export const operations = {
   },
 
   /**
-   * issue #1849 —— 第一条**说真实 MCP 协议**的发现路径（HTTP/SSE remote transport，官方
+   * issue #1852 —— 第一条**说真实 MCP 协议**的发现路径（HTTP/SSE remote transport，官方
    * TypeScript SDK 的 `StreamableHTTPClientTransport`）。
    *
    * ⚠ 与 `discoverMcpTools` 的关系：那条操作假定服务器**已注册**（`serverId` 已知端点），

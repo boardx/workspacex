@@ -56,7 +56,7 @@ export interface McpToolStore {
   replace(serverId: string, tools: readonly z.infer<typeof McpTool>[]): Promise<void>;
 }
 
-/** DI token. issue #1849's `createInMemoryMcpToolStore` is the first bound implementation. */
+/** DI token. issue #1852's `createInMemoryMcpToolStore` is the first bound implementation. */
 export const MCP_TOOL_STORE = Symbol("McpToolStore");
 
 /**

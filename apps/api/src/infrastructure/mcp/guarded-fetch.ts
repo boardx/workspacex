@@ -1,5 +1,5 @@
 /**
- * issue #1849 —— 出站取回层，也就是 SSRF 第二道门（DNS 解析后）**唯一的调用点**。
+ * issue #1852 —— 出站取回层，也就是 SSRF 第二道门（DNS 解析后）**唯一的调用点**。
  *
  * 与 `infrastructure/skill/http-import-fetcher.ts` 同一条纪律（该文件头注详细写明理由，
  * 这里不重复）：字面量校验（`assertMcpEndpointAllowed`）挡不住 DNS rebinding——

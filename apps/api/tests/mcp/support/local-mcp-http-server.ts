@@ -1,5 +1,5 @@
 /**
- * issue #1849 —— **测试专用**的真实 MCP HTTP/SSE 服务器 fixture。
+ * issue #1852 —— **测试专用**的真实 MCP HTTP/SSE 服务器 fixture。
  *
  * ⚠ 这不是运行时会启动的东西——它是测试基础设施，用来验证
  * `infrastructure/mcp/http-mcp-gateway.ts` 真的说得对 MCP 协议（用官方 SDK 的

@@ -848,7 +848,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
     },
     /**
-     * issue #1849 —— `McpGateway` 的第一个真实实现接线。`MCP_TOOL_STORE` 是**单例**
+     * issue #1852 —— `McpGateway` 的第一个真实实现接线。`MCP_TOOL_STORE` 是**单例**
      * （进程内存，见 `in-memory-mcp-tool-store.ts` 头注：F52 刻意不带 PostgreSQL 实现，
      * 落表结构是 F53/F54 该决定的事），`gateway` 逐请求现造——同一条工厂纪律。
      */

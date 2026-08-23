@@ -1,5 +1,5 @@
 /**
- * issue #1849 —— `domain/mcp/remote-endpoint-guard.ts` 的字面量门。
+ * issue #1852 —— `domain/mcp/remote-endpoint-guard.ts` 的字面量门。
  * 每一组都带反证：一个必须通过的输入，紧挨着必须拒绝的输入，防止空转成"总是拒绝也绿"。
  */
 import { describe, expect, it } from "vitest";
