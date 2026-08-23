@@ -29,7 +29,7 @@ const identity: Identity = {
 
 function shell() {
   return render(
-    <AppShell identity={identity} left={<div>左内容</div>} right={<div>右内容</div>}>
+    <AppShell identity={identity} previewRole={null} left={<div>左内容</div>} right={<div>右内容</div>}>
       <div>主内容</div>
     </AppShell>,
   );
