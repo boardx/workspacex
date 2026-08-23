@@ -100,6 +100,11 @@ import { IMPORT_SKILL_FROM_URL_DEPS_FACTORY } from "./application/skill-import/i
 import { AgentUrlImportController } from "./interface/controllers/agent-url-import.controller";
 import { composeImportAgentFromUrlDeps } from "./infrastructure/agent-import/import-agent-from-url-composition";
 import { IMPORT_AGENT_FROM_URL_DEPS_FACTORY } from "./application/agent-import/import-agent-from-url";
+import { McpRemoteDiscoveryController } from "./interface/controllers/mcp-remote-discovery.controller";
+import { composeDiscoverRemoteMcpToolsDeps } from "./infrastructure/mcp/discover-remote-mcp-tools-composition";
+import { createInMemoryMcpToolStore } from "./infrastructure/mcp/in-memory-mcp-tool-store";
+import { DISCOVER_REMOTE_MCP_TOOLS_DEPS_FACTORY } from "./application/mcp/discover-remote-server";
+import { MCP_TOOL_STORE } from "./application/mcp/ports";
 import {
   AGENT_STARTER_IMPORT_REPOSITORY,
   AGENT_STARTER_PACK_SOURCE,
@@ -684,6 +689,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SkillStarterImportController,
     SkillUrlImportController,
     AgentUrlImportController,
+    McpRemoteDiscoveryController,
     AgentStarterImportController,
     AgentSkillPinsController,
     SkillVersionEditController,
@@ -840,6 +846,21 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
         (input: { readonly localOnlyOrg: boolean }) =>
           composeImportAgentFromUrlDeps({ db, identities, localOnlyOrg: input.localOnlyOrg }),
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY],
+    },
+    /**
+     * issue #1852 —— `McpGateway` 的第一个真实实现接线。`MCP_TOOL_STORE` 是**单例**
+     * （进程内存，见 `in-memory-mcp-tool-store.ts` 头注：F52 刻意不带 PostgreSQL 实现，
+     * 落表结构是 F53/F54 该决定的事），`gateway` 逐请求现造——同一条工厂纪律。
+     */
+    {
+      provide: MCP_TOOL_STORE,
+      useFactory: () => createInMemoryMcpToolStore(),
+    },
+    {
+      provide: DISCOVER_REMOTE_MCP_TOOLS_DEPS_FACTORY,
+      useFactory: (identities: IdentityRepository, store: ReturnType<typeof createInMemoryMcpToolStore>) =>
+        composeDiscoverRemoteMcpToolsDeps({ identities, store }),
+      inject: [IDENTITY_REPOSITORY, MCP_TOOL_STORE],
     },
     {
       provide: AGENT_STARTER_PACK_SOURCE,
