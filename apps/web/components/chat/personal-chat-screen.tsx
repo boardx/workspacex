@@ -321,7 +321,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
             </div>
           ) : null}
           <Separator />
-          {listLoading && threads === null ? <p className="p-3 text-12 text-muted-foreground">正在加载真实线程…</p> : null}
+          {listLoading && threads === null ? <p className="p-3 text-12 text-muted-foreground">正在加载线程…</p> : null}
           {listError ? (
             <ErrorState testId="chat-thread-list-error" message={listError} retryTestId="chat-thread-list-retry" onRetry={() => void loadThreads()} />
           ) : null}

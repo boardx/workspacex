@@ -55,8 +55,10 @@ export function ChatMaterialsPanel({
           上传的文件会加入下一条消息的附件，发送后才会出现在这个列表里。
         </p>
       ) : null}
+      {/* 未选线程与加载中是互斥状态，同一时刻只显一态（UI 评分 b10-entry 截图：两态并存）。
+          文案不带「真实」——那是区别于 mock 的开发者词汇，不该出现在用户可见文案里。 */}
       {!hasSelection ? <p className="p-3 text-12 text-muted-foreground">选择线程后读取材料。</p> : null}
-      {loading ? <p className="p-3 text-12 text-muted-foreground">正在读取真实材料列表…</p> : null}
+      {hasSelection && loading ? <p className="p-3 text-12 text-muted-foreground">正在读取材料列表…</p> : null}
       {error ? (
         <div className="flex flex-col items-start gap-2 p-3" data-testid="chat-materials-error">
           <p className="text-12 text-destructive">{error}</p>
