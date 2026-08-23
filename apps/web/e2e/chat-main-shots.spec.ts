@@ -126,7 +126,13 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   // `chat-message-row`（每条 agent 消息各自渲染一份 `agent-tool-chain-summary`）。
   const projectLatestRow = page.locator('[data-testid="chat-message-row"]').last();
   await projectLatestRow.getByTestId("agent-tool-chain").waitFor({ state: "visible", timeout: 5_000 });
-  await expect(projectLatestRow.getByTestId("agent-tool-chain-summary")).toContainText("工具");
+  // 2026-08-24：断言原文是 `toContainText("工具")`——`toolChainSummaryText()`
+  // 在工具数 ≤2 时逐个列 `名称(参数片段)`，不出现「工具」二字（只有 >2 才走
+  // 「等 N 个工具」分支），此后经数轮摘要文案改写（e14f6081/71b60e30/83a19223）
+  // 断言未同步，稳定超时，18 张取证图卡在只产出 4 张（#1921）。改断「调用了」——
+  // 源码里 `${head}调用了 ${listed}${extra}` 这四个字在 toolSteps.length > 0 的
+  // 所有分支下恒定存在，不随参数摘要文案演进而漂移。
+  await expect(projectLatestRow.getByTestId("agent-tool-chain-summary")).toContainText("调用了");
   await shoot("chat-main-project-tool-call.png", "chat-thread-detail");
   await projectLatestRow.getByTestId("agent-tool-chain-toggle").click();
   await projectLatestRow.getByTestId("agent-tool-chain-step-0").waitFor({ state: "visible", timeout: 5_000 });
@@ -286,25 +292,23 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   /**
    * #728 round 16 P10 → **2026-08-21 人类裁决反转**：个人对话现在**应该**出现
    * 「落地为产物」按钮——个人线程也真的能持久化产物，不再是一枚点了必报错的
-   * 假按钮。按钮的渲染依据仍是服务端下发的 `artifact.land` 能力，只是这个能力
-   * 现在对个人线程也下发了（`PERSONAL_THREAD_CAPABILITIES` 已含
-   * `artifact.land`，见 `thread-visibility.ts`）。此刻屏上已有用户消息 + agent
-   * 回复共两条，每条消息下都应该有这枚按钮——若渲染依据又漂移回「个人线程
-   * 恒不给」，这里数出来会是 0，当场红。
+   * 假按钮。按钮的渲染依据是服务端下发的 `artifact.land` 能力（个人线程也下发，
+   * 见 `thread-visibility.ts` 的 `PERSONAL_THREAD_CAPABILITIES`）。
    * 项目侧「写角色看得见这枚按钮」的另一半反证在 chat-read.spec.ts。
    *
-   * issue #728 D 组 round 4 独评发现这里实测只数到 1（不是产品回归——分诊见
-   * issue #1816）：真根因是上面这行的旧写法 `expect(await locator.count())
-   * .toBeGreaterThanOrEqual(2)` 只读一次快照，不像 Playwright 的 web-first
-   * 断言那样重试。断言语义本身没有过期：`chat-live-message-panel.tsx` 的
-   * `MessageLandingControls` 不区分 `isAgent`，用户消息和 agent 回复都会渲染
-   * 这枚按钮，1 条用户消息 + 1 条 agent 回复稳定应有 2 个——只是上面
-   * `waitForFunction` 只等了 `data-run-status` 到终态，没有等 agent 回复那次
-   * `loadPage(..., "soft")` 异步重读真的把第二条消息渲染进 DOM，`.count()`
-   * 抢跑在只有第一个（用户自己那条）按钮落地的那一刻。改用 `toHaveCount`（会
-   * 重试到 Playwright expect 超时）而不是放宽这个数字。
+   * ⚠ 2026-08-24 断言数字更正为 1（原为 2，取证于 #1921 修 D6 断言后本轮才第一次
+   * 真正跑到这一步，此前这条断言从未被本轮验证覆盖到）：PR #1829（2026-08-23，
+   * 人类本人「UI 一致性与可见性修复包」，第 10 项不一致③）**刻意**把这枚按钮收窄
+   * 成只挂 `isAgent` 消息——`chat-live-message-panel.tsx` 原文注释「落地对象是
+   * agent 的产出，不是用户自己的话」，此前用户消息下的按钮（右对齐悬浮在用户
+   * 气泡下）语义错位，人类本人认定是缺陷已改掉。此刻屏上 1 条用户消息 + 1 条
+   * agent 回复，只有后者渲染按钮，故稳定应为 1，不是 2——旧断言数字沿用的是
+   * 该 PR 之前的行为，未跟进这次人类本人的产品决策。仍用 `toHaveCount`
+   * （会重试到 Playwright expect 超时）而非一次性 `.count()` 快照，理由不变：
+   * 需要等 agent 回复那次 `loadPage(..., "soft")` 异步重读真的把第二条消息
+   * 渲染进 DOM，不能在 `data-run-status` 刚到终态那一刻就抢拍快照。
    */
-  await expect(page.locator('[data-testid^="chat-land-artifact-open-"]')).toHaveCount(2);
+  await expect(page.locator('[data-testid^="chat-land-artifact-open-"]')).toHaveCount(1);
 
   await shoot("chat-main-personal-reply.png", "chat-thread-detail");
 
@@ -338,7 +342,9 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   // 只有一份"这个已经不成立的假设。
   const latestMessageRow = page.locator('[data-testid="chat-message-row"]').last();
   await latestMessageRow.getByTestId("agent-tool-chain").waitFor({ state: "visible", timeout: 5_000 });
-  await expect(latestMessageRow.getByTestId("agent-tool-chain-summary")).toContainText("工具");
+  // 同上方项目侧那处（#1921）：断「调用了」而非「工具」，四个字在 toolSteps.length
+  // > 0 的所有分支下恒定存在，不随参数摘要文案演进而漂移。
+  await expect(latestMessageRow.getByTestId("agent-tool-chain-summary")).toContainText("调用了");
   await shoot("chat-main-personal-tool-call.png", "chat-thread-detail");
   // 点开摘要，证明细节一键可达、逐条真实 step 仍在（信息不丢，只是默认折起）。
   await latestMessageRow.getByTestId("agent-tool-chain-toggle").click();
