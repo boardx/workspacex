@@ -163,6 +163,21 @@ export function TemplateEditorPanel({
     [next[i], next[j]] = [next[j]!, next[i]!];
     setSectionNames(next);
   }
+  function reorderSection(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= sectionNames.length || to >= sectionNames.length) return;
+    const next = [...sectionNames];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved!);
+    setSectionNames(next);
+  }
+
+  /**
+   * 迭代 2/3——拖拽手柄（`GripVertical` 图标）直接拖动一行到目标位置，同 canvas
+   * 上分区框的顺序会跟着实时重排（`preview` 随 `sectionNames` 重算）。up/down
+   * 按钮**不撤**：拖拽是键盘用户够不到的操作，两条路径并存，不是二选一。
+   */
+  const [dragIndex, setDragIndex] = React.useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = React.useState<number | null>(null);
 
   async function save() {
     setSaving(true);
@@ -309,8 +324,31 @@ export function TemplateEditorPanel({
               分区（导出为 ## 段落；留空即零分区{editable && "——也可以直接点右边画布上的框"}）
             </span>
             {sectionNames.map((name, i) => (
-              <div key={i} className="flex items-center gap-1">
-                <GripVertical aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <div
+                key={i}
+                className={
+                  "flex items-center gap-1 rounded-md transition-[border-top-color] duration-150 "
+                  + (dragOverIndex === i && dragIndex !== null && dragIndex !== i
+                    ? "border-t-2 border-t-primary" : "border-t-2 border-t-transparent")
+                }
+                onDragOver={editable ? (e) => { e.preventDefault(); setDragOverIndex(i); } : undefined}
+                onDrop={editable ? (e) => {
+                  e.preventDefault();
+                  if (dragIndex !== null) reorderSection(dragIndex, i);
+                  setDragIndex(null);
+                  setDragOverIndex(null);
+                } : undefined}
+              >
+                <span
+                  className={editable ? "cursor-grab active:cursor-grabbing" : undefined}
+                  draggable={editable}
+                  onDragStart={editable ? () => setDragIndex(i) : undefined}
+                  onDragEnd={editable ? () => { setDragIndex(null); setDragOverIndex(null); } : undefined}
+                  aria-label={editable ? `拖拽调整「${name || `分区 ${i + 1}`}」的顺序` : undefined}
+                  data-testid={`tpladmin-editor-section-${i}-drag`}
+                >
+                  <GripVertical aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                </span>
                 <input
                   ref={(el) => { sectionInputRefs.current[i] = el; }}
                   className={

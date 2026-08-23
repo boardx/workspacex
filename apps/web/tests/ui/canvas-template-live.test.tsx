@@ -1017,4 +1017,56 @@ describe("2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑�
     await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-panel")).toBeNull());
     await waitFor(() => expect(posts).toHaveLength(1));
   });
+
+  it("迭代 2/3：拖拽分区顺序——拖第一个到第三个位置，保存时顺序真的变了", async () => {
+    const posts: { body: Record<string, unknown> }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname === "/canvas/templates/swot/draft") {
+        const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+        posts.push({ body });
+        return jsonResponse({
+          key: "swot", version: 1, status: "draft", displayName: body["displayName"],
+          builtin: false, visibility: body["visibility"], underlyingType: "canvas", sections: body["sections"],
+        });
+      }
+      return jsonResponse({
+        templates: [template({
+          key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+          sections: [
+            { sectionId: "s1", name: "优势", order: 0, required: false, capacity: null },
+            { sectionId: "s2", name: "劣势", order: 1, required: false, capacity: null },
+            { sectionId: "s3", name: "机会", order: 2, required: false, capacity: null },
+          ],
+        })],
+      });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-section-2")).toHaveValue("机会"));
+
+    // 拖手柄 0（优势）到行 2（机会）的位置。jsdom 没有真实拖拽物理引擎，
+    // 逐个派发 HTML5 drag 事件序列是官方推荐的测试手法。
+    const handle0 = within(panel).getByTestId("tpladmin-editor-section-0-drag");
+    const row2Target = within(panel).getByTestId("tpladmin-editor-section-2").closest("div")!;
+    fireEvent.dragStart(handle0);
+    fireEvent.dragOver(row2Target);
+    fireEvent.drop(row2Target);
+
+    // 拖完顺序是 劣势/机会/优势——优势从下标 0 挪到了下标 2。
+    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-section-0")).toHaveValue("劣势"));
+    expect(within(panel).getByTestId("tpladmin-editor-section-1")).toHaveValue("机会");
+    expect(within(panel).getByTestId("tpladmin-editor-section-2")).toHaveValue("优势");
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-save"));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(posts[0]!.body["sections"]).toEqual([
+      { sectionId: "s1", name: "劣势", order: 0, required: false, capacity: null },
+      { sectionId: "s2", name: "机会", order: 1, required: false, capacity: null },
+      { sectionId: "s3", name: "优势", order: 2, required: false, capacity: null },
+    ]);
+  });
 });
