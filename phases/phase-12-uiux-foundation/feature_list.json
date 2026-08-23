@@ -1,0 +1,301 @@
+{
+  "phase": "12",
+  "features": [
+    {
+      "id": "F01",
+      "area": "component-primitives",
+      "title": "统一的 Dialog / Dropdown 弹层原语落地，全站弹窗观感一致",
+      "user_visible_behavior": "全站的确认框、设置面板、右键/操作菜单改用 components/ui/dialog.tsx 与 dropdown-menu.tsx；遮罩透明度、圆角、阴影层级、进出场时机在所有页面完全一致；Esc 关闭、点遮罩关闭、Tab 焦点陷阱、方向键在菜单内导航均行为统一；深色模式正常；嵌套 dialog 场景不丢焦点。",
+      "spec_ref": "01-component-primitives-overlays.md#R3",
+      "depends_on": [],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/overlay-primitives-dialog-dropdown.test.tsx",
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'overlay primitives keyboard'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]（来源《十分冲刺 Backlog》IT-01；components/ui/ 目前只有 12 个原子组件，dialog/dropdown 为原型确认缺失——Radix 依赖已装但从未集中封装，各业务目录各写一份）。has_ui：本 feature 属 has_ui 契约束，开工前所属束的 design-signoff.md（① UI ② 用例 ③ API 契约）必须经人类签核、且阶段一致性复核通过，否则进不了 new-sprint / claim（权威在束级 contracts/<bundle>/ui.md + design-signoff.md）。R11 建议：本 01 号需求拆成 dialog+dropdown 一组（本 feature）与 select+tooltip 一组（F02），工作量 L 合计 5 点。lint:design 用于兜住 U5a/U5b（token 化色值/圆角/阴影），vitest 断言键盘可达与关闭行为一致性，playwright 做 Tab/Esc/方向键走查。"
+    },
+    {
+      "id": "F02",
+      "area": "component-primitives",
+      "title": "统一的 Select / Tooltip 弹层原语 + kitchen-sink 展示区",
+      "user_visible_behavior": "全站下拉选择与悬浮提示改用 components/ui/select.tsx 与 tooltip.tsx，视觉语言与 button.tsx 标杆一致；超长下拉列表在视口内可滚动截断；kitchen-sink 页面新增 dialog/dropdown/select/tooltip 四个组件的完整状态展示区块，作为后续 UI 先行阶段的参考起点；全仓裸 Radix 拼装点清零或有记录的例外（迁移映射表）。",
+      "spec_ref": "01-component-primitives-overlays.md#R6",
+      "depends_on": ["F01"],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/overlay-primitives-select-tooltip.test.tsx",
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'kitchen sink overlays'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]（IT-01；原型确认缺失，同 F01）。has_ui：随 01 号需求所属契约束一并签核。R11 拆分：与 F01 同属 01 号需求（工作量 L，两 feature 合计 5 点）。playwright 断言 kitchen-sink 四个新组件展示区块可见，作为新旧弹层视觉回归的对比锚点（R4-E3）。"
+    },
+    {
+      "id": "F03",
+      "area": "motion",
+      "title": "语义化动效 token 体系 + lint 拦截裸 duration/easing",
+      "user_visible_behavior": "tailwind.config.ts 出现语义化 transitionDuration/transitionTimingFunction 档位（fast/base/slow，数值依据写在 globals.css 注释里）；F01/F02 的弹层进出场动画迁移到新 token 作为示范；lint-design.sh 新增规则，故意写一个裸 duration-500 或 ease-linear 会被拦截。",
+      "spec_ref": "02-motion-token-system.md#R3",
+      "depends_on": ["F01"],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/lint-design-motion-rule.test.ts",
+        "pnpm --filter web run lint:design"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]（IT-02；全仓 167 处手写 transition，无语义 token——新增基础设施）。has_ui：属 has_ui 需求，需随所属契约束签核。R11 拆分：token 定义+lint 为本 feature，编排级动效为 F04。vitest 参照现有 apps/web/tests/lint-design-gate.test.ts 的写法，断言引入裸 duration/ease 时规则报红（反证），再断言合规写法放行。不引入 framer-motion，保持纯 CSS transition 路线（R6/R10）。"
+    },
+    {
+      "id": "F04",
+      "area": "motion",
+      "title": "1-2 处编排级动效 + prefers-reduced-motion 降级",
+      "user_visible_behavior": "至少一处编排级动效落地（候选：chat 消息到达进场、侧边面板展开/收起），有明确时间线（内容先淡入、位移后跟上）而非单一线性过渡；系统开启『减少动态效果』时编排级动效被关闭或降级为瞬时切换；chat 流式高频到达场景下动效不拖慢渲染。",
+      "spec_ref": "02-motion-token-system.md#R6",
+      "depends_on": ["F03"],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/motion-orchestration.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'reduced motion'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[设计]（IT-02；编排级动效无既有截图，属本阶段新设计内容，需在 UI 先行阶段产出预览并经人类签核，R8）。has_ui。R11 拆分：编排级动效独立成 feature。playwright 用 emulateMedia({ reducedMotion: 'reduce' }) 验证降级生效（R4-E1/R9）。切分最不确定之一：编排级动效的『值得编排的时刻』尚未由设计确认，落点（消息到达 vs 面板展开）可能在签核时调整。"
+    },
+    {
+      "id": "F05",
+      "area": "a11y",
+      "title": "chat / profile 核心任务全键盘可达",
+      "user_visible_behavior": "只用键盘（Tab/Shift+Tab/Enter/Esc/方向键）即可在 chat 完成『发一条消息』『切换到另一个会话』，在 profile 完成『修改一项资料并保存』；弹层打开后焦点进入弹层内部、Esc 可关闭、Tab 顺序符合视觉顺序、关键节点 focus 环可见；无需鼠标介入。",
+      "spec_ref": "03-keyboard-accessibility.md#R3",
+      "depends_on": ["F01"],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard chat'",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard profile'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[原型]（chat/profile 页面均已上线，是对既有原型的行为验证/修复；aria 覆盖 257 文件但 onKeyDown 仅 18 文件——键盘可达是验证过没被业务层破坏，而非新画界面）。通常不需签核（R8，纯行为修复），若修复涉及可见 focus ring 视觉调整由所属束负责人评估。R11 拆分：按域拆（本 feature chat+profile，F06 org-admin+axe），工作量 M 合计 5 点。playwright 用 page.keyboard 固化每条核心任务。"
+    },
+    {
+      "id": "F06",
+      "area": "a11y",
+      "title": "org-admin 核心任务全键盘可达 + axe-core keyboard 扫描接入 CI",
+      "user_visible_behavior": "只用键盘即可在 org-admin 完成『打开一个成员的权限设置弹层并调整』（在有管理权限的角色登录态下）；axe-core（或等价工具）的 keyboard/focus 相关规则接入 CI 并全过；已知卡点清单归档。",
+      "spec_ref": "03-keyboard-accessibility.md#R6",
+      "depends_on": ["F01", "F05"],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard org-admin'",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'axe keyboard'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[原型]（org-admin 已上线）。org-admin 走查需在有管理权限角色登录态下进行，不能用管理员账号验普通用户任务、反之亦然（R5）。R11：与 F05 同属 03 号需求。axe-core 扫描聚焦 keyboard/focus 规则（R3-5），以 playwright 集成 @axe-core/playwright 固化。"
+    },
+    {
+      "id": "F07",
+      "area": "guardrail",
+      "title": "第三方组件样式覆盖登记表 + lint 关卡（防 CopilotKit 类事故复发）",
+      "user_visible_behavior": "globals.css 头部有『第三方组件样式覆盖登记表』区块（依赖名/覆盖选择器/原因/具体值）；lint-design.sh 新增规则（如 U9）：CSS 中针对第三方库 class 前缀（如 .copilotKit*）的选择器覆盖若未登记则报错；反证成立——故意新增一条未登记覆盖会被 lint 拦住，补登记后放行。",
+      "spec_ref": "04-third-party-style-guardrail.md#R3",
+      "depends_on": [],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/lint-third-party-style-registry.test.ts",
+        "pnpm --filter web run lint:design"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]（IT-04；globals.css:202-218 记录了 CopilotKit 强制 16px 覆盖气泡 12px 字号的真实事故，已修复但缺机械关卡——新增基础设施）。R8：纯基础设施/流程，大概率不需契约束级签核，束划分时确认归属。R11：单个小 feature（S，2 点）。vitest 固化『未登记覆盖被拦截 / 登记后放行』的反证（R3-4），覆盖值必须引用现有 token 而非字面量（R7）。lint 规则不应支持行内 disable 绕过整文件（R4-E2）。"
+    },
+    {
+      "id": "F08",
+      "area": "a11y",
+      "title": "图片/图标可访问性标注补全 + U7a 规则覆盖 next/image",
+      "user_visible_behavior": "全站 <img>、next/image、lucide-react 图标使用点完成分类补齐：承载信息的图片有有意义 alt（含加载/失败占位、动态头像首字母），纯装饰图标 aria-hidden；lint-design.sh 的 U7a 规则从只覆盖裸 <img> 扩展到覆盖 next/image；axe-core image-alt 规则接入并全过。",
+      "spec_ref": "05-image-icon-accessibility.md#R3",
+      "depends_on": [],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/lint-image-alt-nextimage.test.ts",
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'axe image-alt'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[原型]为主（对既有页面图片/图标做标注补全）+ [Backlog]（U7a 规则扩展 next/image 为新增门控，IT-05）。R8：通常不改可见视觉、不涉签核。R11：单个小 feature（S，2 点），可与 03/04 并行。vitest 断言 U7a 规则命中 next/image 缺 alt 的情况（反证）；playwright 集成 axe-core image-alt 规则做自动化回归。"
+    },
+    {
+      "id": "F09",
+      "area": "component-primitives",
+      "title": "复合组件收口：Table / Menu 原语落地",
+      "user_visible_behavior": "在 3 个以上业务目录重复出现的数据表格（表头/排序/空态一致性）与 command palette/右键菜单模式收口进 components/ui/；org-admin/profile 等业务目录的二次实现替换为新原语，视觉语言与 F01 弹层组件同一套 token；语义差异过大的表格拆成聚焦原语而非万能组件。",
+      "spec_ref": "06-component-primitives-composites.md#R3",
+      "depends_on": ["F01"],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/composite-table-menu.test.tsx",
+        "pnpm --filter web run lint:design"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]（IT-06；原型确认缺失，业务目录各写一份 table/menu）。has_ui：需随所属契约束签核。R11 拆分：table+menu 为本 feature，breadcrumb+pagination 为 F10，工作量 L 合计 5 点。menu 组件复用 F01 的 dropdown 底层实现（R10）。切分最不确定之一：需先做重复模式盘点，实际满足『3 个以上重复』门槛的模式集合要盘点后才定，可能降级不收口（R4-A1）——盘点结论会反过来影响本 feature 与 F10 的具体组件清单。"
+    },
+    {
+      "id": "F10",
+      "area": "component-primitives",
+      "title": "复合组件收口：Breadcrumb / Pagination 原语 + kitchen-sink 展示",
+      "user_visible_behavior": "面包屑导航与分页控件收口进 components/ui/，业务目录重复实现降到 0-1（允许注释说明的特例）；table 类组件在百行以上数据量渲染性能不明显劣化；375/768/1280 三档视口无横向溢出；kitchen-sink 新增复合组件展示区块。",
+      "spec_ref": "06-component-primitives-composites.md#R6",
+      "depends_on": ["F09"],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/composite-breadcrumb-pagination.test.tsx",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'kitchen sink composites'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]（IT-06，同 F09）。has_ui。R11：与 F09 同属 06 号需求。pagination 组件层只负责展示与交互，不强行统一底层游标/页码分页策略（R4-E2）。playwright 验证 kitchen-sink 复合组件展示区块可见并做三档视口无溢出检查（R9）。"
+    },
+    {
+      "id": "F11",
+      "area": "microinteraction",
+      "title": "chat / profile 微交互一致性稽核与整改",
+      "user_visible_behavior": "chat、profile 两域下所有可点击元素（按钮/卡片/列表项/图标按钮）的 hover/focus/active 反馈收敛到 uiux-standards.md §5 统一模式：过渡时长、颜色变化幅度、active:scale 点击反馈一致；『完全没有反馈』的元素（含缺 :focus-visible 的键盘不可见焦点）优先修复；prefers-reduced-motion 下保留必要状态提示（如颜色变化）只去掉动画过渡。",
+      "spec_ref": "07-microinteraction-consistency-audit.md#R3",
+      "depends_on": ["F01", "F09"],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web exec vitest run tests/ui/microinteraction-chat-profile.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[原型]（对既有 chat/profile 可点击元素的一致性修复，button.tsx 是标杆实现）。R8：改动幅度通常小，是否签核取决于是否改变显著视觉呈现，由所属束负责人判断。R11 拆分：按域拆（本 feature chat+profile，F12 org-admin+canvas），工作量 M 合计 5 点。lint:design 兜住 U4（hover 必有 transition）；vitest 断言可点击元素具备 hover/focus 反馈之一（R7）。发现更严重 a11y 焦点问题时与 F05/F06 协同（R4-E2）。"
+    },
+    {
+      "id": "F12",
+      "area": "microinteraction",
+      "title": "org-admin / canvas 微交互一致性稽核与整改",
+      "user_visible_behavior": "org-admin、canvas 两域下所有可点击元素的 hover/focus/active 反馈收敛到统一模式；缺失反馈的元素补齐；稽核报告列出发现的偏离案例总数与修复状态；修复 PR 按域拆分避免单 PR 改动面过大。",
+      "spec_ref": "07-microinteraction-consistency-audit.md#R6",
+      "depends_on": ["F11"],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web exec vitest run tests/ui/microinteraction-orgadmin-canvas.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[原型]（对既有 org-admin/canvas 元素的一致性修复）。R11：与 F11 同属 07 号需求。第三方组件（如 CopilotKit 渲染内容里的链接）微交互不受本仓控制，记录为已知限制（R4-E1）。"
+    },
+    {
+      "id": "F13",
+      "area": "governance",
+      "title": "rev-uiux 评审结果结构化落盘 + 历史回填 + Top5 扣分维度统计",
+      "user_visible_behavior": "新增 .harness/state/uiux-review-log.jsonl（评审对象/日期/评分卡/各维得分/总分/扣分说明/issue-PR 链接）；脚本从历史 git log 尽力回填可识别的评审记录，无法解析的明确标注『未能回填』不编造；统计脚本跑出最常反复扣分维度 Top5 并标注样本量；至少 1 条统计结论对应到一个后续行动项（lint 规则或组件修复）。",
+      "spec_ref": "08-review-evidence-log.md#R3",
+      "depends_on": [],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/uiux/review-log-schema.test.ts",
+        "pnpm --filter api exec vitest run tests/uiux/review-log-stats.test.ts"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]（IT-08；评分历史目前散落 git log/issue/rubric 注记，无结构化聚合——新增治理数据结构）。R8：纯后台治理数据，不涉可见 UI、不需签核。R11：单 feature（S，2 点），建议在 F14/F15 截图评审之前完成以提供落盘结构。vitest 断言 jsonl 结构可解析、统计脚本输出 Top5 且标注样本量（小样本不冒充趋势，R4-E2）、日志追加更正而非静默改写历史值（R7 审计可追溯）。切分最不确定之一：历史回填完整度取决于历史记录本身的可解析程度，回填条数无法预先承诺，验证只能断言『无法解析的被如实标注』而非某个回填数量。"
+    },
+    {
+      "id": "F14",
+      "area": "fidelity-review",
+      "title": "chat 主屏截图级保真度评审达标（≥9）并落盘",
+      "user_visible_behavior": "rev-uiux 角色对 chat 主屏按 chat-main-fidelity-rubric.md 十维做正式截图级评审，每维得分与扣分理由写入 uiux-review-log.jsonl；针对『技术合规但观感局促』的扣分项（卡片内边距/行高/信息密度）做视觉微调；重评直到 chat 达到 ≥9 门槛；数据缺口类维度如实记录为超范围产品缺口，不伪造数据凑分。",
+      "spec_ref": "09-screenshot-fidelity-review.md#R3",
+      "depends_on": ["F13", "F04", "F11"],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/uiux/review-log-chat-threshold.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.chat-shots.config.ts -g 'chat fidelity shots'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[原型]（对既有 chat 主屏的评审+微调）+ 评分门槛为人类已裁决收窄值（≥9，见 MEMORY『profile/org系列UIUX验收线放宽到9分』；chat 沿用 chat-main-fidelity-rubric.md）。has_ui：涉可见 UI 微调，需随所属束签核（R8）。R7/R10：评分只由 rev-uiux 角色在真实截图上打，禁止只读源码推断分数；本 feature 需在前序可见改动（F01/F02/F04/F09/F10/F11）落地后进行才有意义评审。R11 拆分：chat 独立（本 feature），profile+org 为 F15，工作量 L 合计 6 点。vitest 断言日志中 chat 记录总分 ≥9（结构性门槛断言，避免依赖主观打分过程）；playwright 复用现有 playwright.chat-shots.config.ts 产出截图证据。切分最不确定之一：R4-E1 指出评审可能发现维度对应产品数据缺口无法靠 UI 修复解决（先例 #831/#728 直接移除维度），届时 ≥9 门槛的达成路径可能变为『移除数据不支撑的维度后重算』而非硬修。"
+    },
+    {
+      "id": "F15",
+      "area": "fidelity-review",
+      "title": "profile / org-admin 截图级保真度评审达标（≥9）并落盘",
+      "user_visible_behavior": "rev-uiux 角色对 profile、org-admin 按 uiux-screenshot-review-profile-org.md 十项做正式截图级评审，得分与扣分理由写入结构化日志；对扣分项做视觉密度打磨；重评直到 profile/org 达到 ≥9 门槛；覆盖 375/768/1280 三档视口。",
+      "spec_ref": "09-screenshot-fidelity-review.md#R6",
+      "depends_on": ["F13", "F04", "F12"],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/uiux/review-log-profile-org-threshold.test.ts",
+        "pnpm --filter web exec playwright test -c playwright.self-service-profile.config.ts -g 'profile fidelity shots'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[原型] + 门槛为人类已裁决收窄值（profile/org ≥9，MEMORY『uiux-acceptance-bar-nine』）。has_ui：涉可见 UI 微调，需签核。R11：与 F14 同属 09 号需求。vitest 断言日志中 profile 与 org-admin 记录总分均 ≥9；playwright 复用现有 playwright.self-service-profile.config.ts 产出截图证据（org-admin 若无专用 config 可在本 feature 内新增，config 路径不受 lint 静态存在性检查约束）。"
+    },
+    {
+      "id": "F16",
+      "area": "governance",
+      "title": "全站终验收官：机械门控全绿 + 十维评分重算并附证据",
+      "user_visible_behavior": "全量跑通 lint-design.sh（含新增 U9 第三方组件规则、扩展后 U7a 图片规则）、check-token-contrast.mjs 对比度门控、axe-core 全站扫描（chat/profile/org-admin/canvas）、F05/F06 的键盘走查自动化用例，均无回归；./init.sh 基础验证与 pnpm harness doctor 三条检查通过；对照《十分制评估》十维评分逐维重算并贴证据；未闭合缺口如实记录为下一阶段待办，不虚报达标。",
+      "spec_ref": "10-final-verification-sweep.md#R3",
+      "depends_on": [
+        "F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08",
+        "F09", "F10", "F11", "F12", "F13", "F14", "F15"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web run contrast",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'axe full-site'",
+        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard'"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[Backlog]（IT-10；本阶段收官治理性 feature）。R8：本身不产出新可见 UI（除验证中发现的小修复），一般不需新签核，但需确认阶段级 design-coherence.md（一致性复核）已完成。R2：依赖前 9 个需求（F01-F15）全部 passing 后触发。R7：终验分数必须有可复现证据链，不凭印象打分；R4-E2 分数未达 10 分如实报告差距而非调整标准凑分。verification 覆盖 lint-design/contrast/axe/键盘走查四类机械门控；init.sh 与 harness doctor 由收尾流程另行执行并写入 evidence。"
+    }
+  ]
+}
