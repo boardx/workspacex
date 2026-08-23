@@ -1,10 +1,20 @@
 "use client";
 import * as React from "react";
-import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-/** 居中弹层（上传 / 删除确认）。遮罩用 --inverse 实底 + 透明度（透明度只做遮罩，合规）。*/
+/**
+ * 居中弹层（上传 / 删除确认）—— F01 迁移：内部改用 `components/ui/dialog.tsx`
+ * （即 Radix Dialog），调用方 props 不变（title/subtitle/onClose/children/footer/testid/width）。
+ * 拿到的是统一的 Esc 关闭 / 点遮罩关闭 / Tab 焦点陷阱 / 深色模式，不用每个调用方各自补。
+ */
 export function Modal({
   title, subtitle, onClose, children, footer, testid, width = "md",
 }: {
@@ -17,34 +27,31 @@ export function Modal({
   width?: "md" | "lg";
 }) {
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center p-4" data-testid={`${testid}-backdrop`}>
-      <div className="absolute inset-0 bg-inverse/40" onClick={onClose} aria-hidden />
-      <div
-        role="dialog"
-        aria-label={title}
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent
         data-testid={testid}
+        closeTestId={`${testid}-close`}
         className={cn(
-          "relative flex max-h-full flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg",
-          width === "lg" ? "w-full max-w-2xl" : "w-full max-w-lg",
+          "flex max-h-[85vh] flex-col gap-0 p-0",
+          width === "lg" ? "max-w-2xl" : "max-w-lg",
         )}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-border p-4 pb-3">
-          <div className="min-w-0">
-            <h2 className="text-16 font-semibold">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-12 text-muted-foreground">{subtitle}</p>}
-          </div>
-          <Button size="icon" variant="ghost" onClick={onClose} aria-label="关闭" data-testid={`${testid}-close`}>
-            <X aria-hidden className="h-4 w-4" />
-          </Button>
-        </div>
+        <DialogHeader className="gap-0.5 border-b border-border p-4 pb-3">
+          <DialogTitle>{title}</DialogTitle>
+          {subtitle && <DialogDescription>{subtitle}</DialogDescription>}
+        </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
-        {footer && <div className="flex items-center justify-end gap-2 border-t border-border p-3">{footer}</div>}
-      </div>
-    </div>
+        {footer && <DialogFooter className="mt-0 border-t border-border p-3">{footer}</DialogFooter>}
+      </DialogContent>
+    </Dialog>
   );
 }
 
-/** 右侧抽屉（摄取进度 / 版本列表 / 复核）。不打断主界面，收进右下常驻（UC-22.2 R8）。*/
+/**
+ * 右侧抽屉（摄取进度 / 版本列表 / 复核）。不打断主界面，收进右下常驻（UC-22.2 R8）。
+ * 同样改用 Radix Dialog——只是把内容定位从「居中卡片」覆写成「贴右满高面板」，
+ * Esc / 焦点陷阱等行为与 Modal 完全一致（这正是 F01 要收敛的：全站弹层观感统一）。
+ */
 export function Drawer({
   title, subtitle, onClose, children, testid,
 }: {
@@ -55,25 +62,21 @@ export function Drawer({
   testid: string;
 }) {
   return (
-    <div className="absolute inset-0 z-30 flex justify-end" data-testid={`${testid}-backdrop`}>
-      <div className="absolute inset-0 bg-inverse/30" onClick={onClose} aria-hidden />
-      <aside
-        role="dialog"
-        aria-label={title}
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent
         data-testid={testid}
-        className="relative flex h-full w-full max-w-md flex-col border-l border-border bg-card shadow-lg"
+        closeTestId={`${testid}-close`}
+        className={cn(
+          "inset-y-0 left-auto right-0 top-auto h-full max-h-full w-full max-w-md",
+          "translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0",
+        )}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-border p-4 pb-3">
-          <div className="min-w-0">
-            <h2 className="text-14 font-semibold">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-11 text-muted-foreground">{subtitle}</p>}
-          </div>
-          <Button size="icon" variant="ghost" onClick={onClose} aria-label="关闭" data-testid={`${testid}-close`}>
-            <X aria-hidden className="h-4 w-4" />
-          </Button>
-        </div>
+        <DialogHeader className="gap-0.5 border-b border-border p-4 pb-3">
+          <DialogTitle className="text-14">{title}</DialogTitle>
+          {subtitle && <DialogDescription className="text-11">{subtitle}</DialogDescription>}
+        </DialogHeader>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
-      </aside>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

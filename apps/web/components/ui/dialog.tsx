@@ -32,8 +32,17 @@ DialogOverlay.displayName = "DialogOverlay";
 
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /**
+     * 内置关闭按钮的 data-testid，默认 "dialog-close"。多个 Dialog 同屏共存
+     * （如嵌套 dialog、或旧的 `Modal`/`AdminModal` 每实例一个 testid 的调用方）
+     * 需要各自可寻址，传入区分值即可，不改变行为，只改 testid。
+     */
+    closeTestId?: string;
+    /** 隐藏内置关闭按钮，调用方自己在 children 里放（极少数场景，如复用旧 footer 结构）。 */
+    hideClose?: boolean;
+  }
+>(({ className, children, closeTestId = "dialog-close", hideClose, ...props }, ref) => (
   <DialogPrimitive.Portal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -47,17 +56,19 @@ export const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close
-        aria-label="关闭"
-        data-testid="dialog-close"
-        className={cn(
-          "absolute right-3 top-3 rounded-md p-1 text-muted-foreground transition-all duration-200",
-          "hover:bg-muted hover:text-background-foreground",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        )}
-      >
-        <X aria-hidden className="h-4 w-4" />
-      </DialogPrimitive.Close>
+      {!hideClose && (
+        <DialogPrimitive.Close
+          aria-label="关闭"
+          data-testid={closeTestId}
+          className={cn(
+            "absolute right-3 top-3 rounded-md p-1 text-muted-foreground transition-all duration-200",
+            "hover:bg-muted hover:text-background-foreground",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          )}
+        >
+          <X aria-hidden className="h-4 w-4" />
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPrimitive.Portal>
 ));

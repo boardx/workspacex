@@ -9,15 +9,15 @@
       "spec_ref": "01-component-primitives-overlays.md#R3",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/overlay-primitives-dialog-dropdown.test.tsx",
         "pnpm --filter web run lint:design",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'overlay primitives keyboard'"
       ],
-      "evidence": "",
+      "evidence": "evidence/F01.verify.log @ 2026-08-23T11:42:13.914Z",
       "notes": "依据等级：[Backlog]（来源《十分冲刺 Backlog》IT-01；components/ui/ 目前只有 12 个原子组件，dialog/dropdown 为原型确认缺失——Radix 依赖已装但从未集中封装，各业务目录各写一份）。has_ui：本 feature 属 has_ui 契约束，开工前所属束的 design-signoff.md（① UI ② 用例 ③ API 契约）必须经人类签核、且阶段一致性复核通过，否则进不了 new-sprint / claim（权威在束级 contracts/<bundle>/ui.md + design-signoff.md）。R11 建议：本 01 号需求拆成 dialog+dropdown 一组（本 feature）与 select+tooltip 一组（F02），工作量 L 合计 5 点。lint:design 用于兜住 U5a/U5b（token 化色值/圆角/阴影），vitest 断言键盘可达与关闭行为一致性，playwright 做 Tab/Esc/方向键走查。"
     },
     {
