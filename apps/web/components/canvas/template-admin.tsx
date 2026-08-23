@@ -3,7 +3,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import {
   LayoutGrid, List, Archive, RotateCcw, Rocket, Pencil, AlertTriangle, RefreshCw, Plus, Play, X,
-  Search, FlaskConical, Sparkles,
+  Search, FlaskConical,
 } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import type { ProjectRole } from "@/lib/identity";
@@ -18,7 +18,6 @@ import {
   mintCanvasTemplateVersion,
   publishCanvasTemplate,
   restoreCanvasTemplate,
-  suggestCanvasTemplateSections,
   TEMPLATE_FILTERS,
   TEMPLATE_STATUS_LABEL,
   TEMPLATE_VISIBILITY_LABEL,
@@ -31,6 +30,7 @@ import {
 } from "@/lib/live-canvas";
 import { TemplateApplyDialog } from "./template-apply-dialog";
 import { TemplateTrialDialog } from "./template-trial-dialog";
+import { TemplateEditorPanel } from "./template-editor-panel";
 
 /**
  * UC-7.1 画布模板库（`/canvas?screen=template-admin`）。
@@ -80,13 +80,23 @@ import { TemplateTrialDialog } from "./template-trial-dialog";
  * ## 🟢 #988 补上的第四个入口：「基于此开新版」
  *
  * 「编辑」在本束的语义**不是**原地改一行——已发布/已归档的版本是不可变快照。点「基于此
- * 开新版」打开与「新建」同一个对话框，但 `key` 锁定不可改、其余字段预填自选中版本，
- * 提交调 `mintCanvasTemplateVersion`，产出 `version: N+1` 的新 `draft` 行。
- * 仅在该行 `status !== "draft"` 时出现（`draft` 本身还没定稿，「新版本」对它没有意义，
- * 见 `design-signoff.md`「人类决定」①）。
+ * 开新版」打开 `CreateDialog`（2026-08-23 起收窄成 mint 专用，见其自身文件头），
+ * `key` 锁定不可改、其余字段预填自选中版本，提交调 `mintCanvasTemplateVersion`，
+ * 产出 `version: N+1` 的新 `draft` 行。仅在该行 `status !== "draft"` 时出现
+ * （`draft` 本身还没定稿，「新版本」对它没有意义，见 `design-signoff.md`「人类决定」①）。
  *
  * ⚠ `previewRole === "observer"` 时不挂写入口，那是**降噪不是权限**：
  *   真正的拒绝在服务端（`ROLE_INSUFFICIENT` → 403），失败信封原样回显。
+ *
+ * ## 🟢 2026-08-23 补上的第五、六个入口：「新建只问名字」+「编辑界面」
+ *
+ * 人类原话「新建画布，的时候，不要在这里放分区设计，也不要放key，只需要一个名字就
+ * 可以，需要发布的生命周期的管理，所有的内容进入编辑的界面来管理」。`MinimalCreateDialog`
+ * 只问显示名，`key` 由 `createMinimal` 从显示名 slugify（撞了自动换后缀重试），
+ * `sections: []`、`visibility: "org-wide"` 都是默认——建完立刻打开 `TemplateEditorPanel`，
+ * 分区/可见范围/生命周期动作都在那一个面板里管理。`updateTemplateDraft`（design-delta，
+ * 待人类补签，见契约文件头）是这个面板唯一的内容写入口，只对仍是 `draft` 的行生效——
+ * 已发布/已归档版本的不可变快照那条不变量**原样保留**，没有被这条新入口推翻。
  *
  * ## 2026-08-22 可用性改进轮（人类要求「提出 10 个改进可用性的地方，并实施」）
  *
@@ -219,6 +229,11 @@ export function TemplateAdmin({
   const [applying, setApplying] = React.useState<CanvasTemplate | null>(null);
   /** #6：正在被「试跑」的那一行。null = 对话框没开。 */
   const [trialing, setTrialing] = React.useState<CanvasTemplate | null>(null);
+  /**
+   * 2026-08-23：正在被「编辑/查看」的那一行——`TemplateEditorPanel`，本屏「所有内容
+   * 进入编辑的界面来管理」这句话唯一的落点。null = 面板没开。
+   */
+  const [editing, setEditing] = React.useState<CanvasTemplate | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
 
@@ -242,6 +257,7 @@ export function TemplateAdmin({
     setCreating(false);
     setMinting(null);
     setApplying(null);
+    setEditing(null);
     setActionError(null);
     setNotice(null);
     void load();
@@ -306,25 +322,47 @@ export function TemplateAdmin({
   }
 
   /**
-   * 🟡 #496。建完**不**自动发布，也不自动跳到别的屏——只重新读一次列表，
-   * 让那一行以「草稿」的样子出现在它真实的位置上。
+   * 2026-08-23——人类原话「新建画布，的时候，不要在这里放分区设计，也不要放key，
+   * 只需要一个名字就可以，需要发布的生命周期的管理，所有的内容进入编辑的界面来管理」。
    *
-   * ⚠ 成功之后必须 `await load()` 而不是把新行插进本地 state：插进去的那一行
-   *   看起来与真的一模一样，而「它到底进没进库」正是这条闭环唯一要证明的事。
+   * `key` 不再由使用者填，从显示名 slugify 而来，撞了（`TEMPLATE_KEY_CONFLICT`，理论上
+   * 概率极低——slug 后面带一段随机后缀）就换一段随机后缀重试，重试仍失败才把错误摆出来
+   * 让使用者自己决定（几乎不会走到这一步）。`sections: []`、`visibility: "org-wide"`
+   * 都是空/默认——真正的内容在建出来之后打开 `TemplateEditorPanel` 去定。
+   *
+   * ⚠ 成功之后 `await load()` 重读列表，不把新行拼进本地 state——同 #496 原有的理由。
+   *   建完**立刻打开编辑面板**（不是像旧版那样只是关掉对话框）：新建出来的草稿零分区，
+   *   界面上啥都没有才是「建完了」的真实样子，直接把使用者带到能填内容的地方去。
    */
-  async function create(draft: NewTemplateDraft) {
+  const MAX_KEY_RETRIES = 5;
+  async function createMinimal(displayName: string): Promise<void> {
     setActionError(null);
     setNotice(null);
-    const out = await createCanvasTemplate({
-      key: draft.key.trim(),
-      displayName: draft.displayName.trim(),
-      underlyingType: draft.underlyingType.trim(),
-      sections: draft.sections,
-      visibility: draft.visibility,
-    });
-    setCreating(false);
-    setNotice(`已新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
-    await load();
+    const trimmed = displayName.trim();
+    let lastError: unknown;
+    for (let attempt = 0; attempt < MAX_KEY_RETRIES; attempt += 1) {
+      const key = slugifyTemplateKey(trimmed);
+      try {
+        const out = await createCanvasTemplate({
+          key,
+          displayName: trimmed,
+          underlyingType: "canvas",
+          sections: [],
+          visibility: "org-wide",
+        });
+        setCreating(false);
+        setNotice(`已新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
+        await load();
+        // 立刻打开编辑面板——`usageCount` 恒为 0（刚造出来的行不可能已被绑定）。
+        setEditing({ ...out, usageCount: 0 });
+        return;
+      } catch (error) {
+        lastError = error;
+        if (!(error instanceof ApiError) || error.reasonCode !== "TEMPLATE_KEY_CONFLICT") throw error;
+        // key 撞了——换一段随机后缀重试，使用者从头到尾看不到这次冲突。
+      }
+    }
+    throw lastError;
   }
 
   /**
@@ -609,7 +647,7 @@ export function TemplateAdmin({
                       */}
                       <td className="px-3 py-2 text-11 tabular-nums" data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</td>
                       <td className="px-3 py-2">
-                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} />
+                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} onEdit={() => { setEditing(t); setActionError(null); setNotice(null); }} />
                       </td>
                     </tr>
                   ))}
@@ -634,7 +672,7 @@ export function TemplateAdmin({
                       {t.key} v{t.version} · {t.underlyingType} · 被 {t.usageCount} 场
                       {t.builtin && " · 内置模板"}
                     </span>
-                    <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} />
+                    <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} onEdit={() => { setEditing(t); setActionError(null); setNotice(null); }} />
                   </CardContent>
                 </Card>
               ))}
@@ -644,7 +682,7 @@ export function TemplateAdmin({
       </div>
 
       {creating && (
-        <CreateDialog onClose={() => setCreating(false)} onSubmit={create} existingNames={allRows.map((t) => t.displayName)} />
+        <MinimalCreateDialog onClose={() => setCreating(false)} onSubmit={createMinimal} />
       )}
 
       {minting && (
@@ -674,6 +712,31 @@ export function TemplateAdmin({
         />
       )}
 
+      {editing && (
+        <TemplateEditorPanel
+          row={editing}
+          readOnly={readOnly}
+          onClose={() => setEditing(null)}
+          onSaved={(message, updated) => {
+            setNotice(message);
+            setEditing(updated);
+            return load();
+          }}
+          /*
+           * ⚠ 发布/归档/恢复/试跑/开新版都会改变这一行的状态，而 `editing` 是面板打开
+           *   那一刻的快照——继续开着只会显示过期状态。这四个动作各自打开自己的对话框
+           *   / 直接落库，完成后都走既有的 `await load()` 刷新列表，所以这里统一先关掉
+           *   面板，让使用者从刷新后的列表里看真相，而不是让面板里显示一个已经不对的
+           *   `draft` 徽章。
+           */
+          onPublish={() => { setEditing(null); void publish(editing); }}
+          onArchive={() => { setEditing(null); void openArchive(editing); }}
+          onRestore={() => { setEditing(null); void restore(editing); }}
+          onTrial={() => { setEditing(null); setTrialing(editing); setActionError(null); setNotice(null); }}
+          onMintVersion={() => { setEditing(null); setMinting(editing); setActionError(null); setNotice(null); }}
+        />
+      )}
+
       {archiving && (
         <ArchiveDialog
           preflight={archiving}
@@ -690,7 +753,7 @@ export function TemplateAdmin({
  * 真实路由，缺的只是一个能给它一个 `projectId` 的 UI，见 `template-trial-dialog.tsx`。
  */
 function RowActions({
-  row, readOnly, onArchive, onRestore, onPublish, onApply, onMintVersion, onTrial,
+  row, readOnly, onArchive, onRestore, onPublish, onApply, onMintVersion, onTrial, onEdit,
 }: {
   row: CanvasTemplate;
   readOnly: boolean;
@@ -700,10 +763,19 @@ function RowActions({
   onApply: () => void;
   onMintVersion: () => void;
   onTrial: () => void;
+  onEdit: () => void;
 }) {
   if (readOnly) return <span className="text-10 text-muted-foreground">只读</span>;
   return (
     <div className="flex flex-wrap items-center gap-1">
+      {/*
+        2026-08-23：「所有的内容进入编辑的界面来管理」——draft 的「编辑」打开可写的
+        `TemplateEditorPanel`；非 draft 内容不可变，同一个入口开成只读预览
+        （`TemplateEditorPanel` 自己按 `row.status` 决定要不要禁用表单）。
+      */}
+      <Button size="xs" variant="outline" onClick={onEdit} data-testid={`tpladmin-edit-${row.key}-${row.version}`}>
+        <Pencil aria-hidden className="h-3 w-3" /> {row.status === "draft" ? "编辑" : "查看"}
+      </Button>
       {/*
         #493：只有 published 挂「使用」入口。绑定的判定只接受 published
         （`domain/canvas/segment-binding.ts`），给草稿也挂一个，点了必然拿到
@@ -762,28 +834,27 @@ interface NewTemplateDraft {
 }
 
 /**
- * 🟡 #496 新建模板对话框 / #988「基于此开新版」对话框——**同一个组件**。
+ * 2026-08-23——「新建」不再是这个组件的职责（人类原话「新建画布……只需要一个名字就
+ * 可以……所有的内容进入编辑的界面来管理」，见 `MinimalCreateDialog` 与
+ * `TemplateEditorPanel`）。本组件收窄成**只做「基于此开新版」**——`key` 恒锁定为来源
+ * 版本的 key，`displayName`/`sections`/`visibility` 预填自来源版本、可编辑，提交调
+ * `mintCanvasTemplateVersion` 产出下一个版本的草稿。
  *
- * ## 新建 vs 开新版：只有 `key` 是否锁定、初始值来自哪里不同
+ * ## 分区在这里预填，不是「只能在这里定」
  *
- * `mintFrom` 存在时是「开新版」模式：`key` 预填自来源版本且**禁用**（新版本必须是同一条
- * 谱系），其余字段预填自来源版本的当前值、可编辑。两条路径共用同一份表单与校验，
- * 不重写一遍——同 `CreateDialog` 自己一贯的「不变量只写一遍」纪律。
- *
- * ## 分区**只能在这里定**
- *
- * 新建时，分区结构此后改不了，只能靠「基于此开新版」产出下一个版本再改——本对话框
- * 同时是这两件事唯一的落点。
+ * 旧版本这条注释说「分区结构只能在这里定」——不再成立：产出的新草稿之后还能在
+ * `TemplateEditorPanel` 里继续改（`updateTemplateDraft`，2026-08-23 补上）。这里预填
+ * 来源版本的分区只是给一个合理起点，不是「过了这一步就锁死」。
  *
  * ## 失败原样回显
  *
- * key 被占用是 409 + `TEMPLATE_KEY_CONFLICT`（仅新建路径会遇到，`key` 被锁定的开新版
- * 路径不会撞它，但仍复用同一段回显逻辑，多出的分支就是没有）。
+ * `TEAM_REQUIRED_FOR_TEAM_ONLY` 等码走 `describeCreateError`，与 `MinimalCreateDialog`
+ * 共用同一段回显逻辑（同一份判据不写两遍）。
  */
 function CreateDialog({
   mintFrom, onClose, onSubmit, existingNames = [],
 }: {
-  mintFrom?: CanvasTemplate;
+  mintFrom: CanvasTemplate;
   onClose: () => void;
   onSubmit: (draft: NewTemplateDraft) => Promise<void>;
   /**
@@ -794,71 +865,37 @@ function CreateDialog({
    */
   existingNames?: readonly string[];
 }) {
-  const [key, setKey] = React.useState(mintFrom?.key ?? "");
-  const [displayName, setDisplayName] = React.useState(mintFrom?.displayName ?? "");
-  const [underlyingType, setUnderlyingType] = React.useState(mintFrom?.underlyingType ?? "canvas");
-  const [visibility, setVisibility] = React.useState<TemplateVisibility>(mintFrom?.visibility ?? "org-wide");
+  const [displayName, setDisplayName] = React.useState(mintFrom.displayName);
+  const [visibility, setVisibility] = React.useState<TemplateVisibility>(mintFrom.visibility);
   const [sectionNames, setSectionNames] = React.useState<readonly string[]>(
-    mintFrom && mintFrom.sections.length > 0 ? mintFrom.sections.map((s) => s.name) : [""],
+    mintFrom.sections.length > 0 ? mintFrom.sections.map((s) => s.name) : [""],
   );
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   /**
-   * 只在用户碰过某个字段之后才提示它「必填」——刚打开对话框时两个空输入框全红，
+   * 只在用户碰过显示名字段之后才提示它「必填」——刚打开对话框时一个空输入框就红，
    * 不是校验，是噪音。`onBlur` 才标记 touched，不是 `onChange`：那样每敲一个字符
    * 都会闪一下红边再消失。
    */
-  const [touched, setTouched] = React.useState<{ key: boolean; displayName: boolean }>({
-    key: false, displayName: false,
-  });
-  const keyMissing = touched.key && key.trim().length === 0;
-  const nameMissing = touched.displayName && displayName.trim().length === 0;
+  const [nameTouched, setNameTouched] = React.useState(false);
+  const nameMissing = nameTouched && displayName.trim().length === 0;
   // #8：软提示，不阻断提交——大小写/首尾空格不敏感地匹配，减少「同一个名字建了两遍」
   // 之后才在列表里发现分不清是哪个的情况。
-  const nameDuplicate = touched.displayName && displayName.trim().length > 0
+  const nameDuplicate = nameTouched && displayName.trim().length > 0
     && existingNames.some((n) => n.trim().toLowerCase() === displayName.trim().toLowerCase());
-
-  /**
-   * 2026-08-23——「输入一个常用的管理模板……系统可以自动创建可视化的模板」（人类原话）。
-   * 只在「新建」模式提供：「基于此开新版」已经有一份来源内容，AI 起草一份新的分区结构
-   * 会让"来源版本预填"与"AI 建议"两个初始值来源打架，`mintFrom` 存在时不挂这个入口。
-   *
-   * ⚠ AI 只**提议**——回填进这份表单之后，使用者仍要看一眼、能改、再点「新建草稿」。
-   *   见 `suggestCanvasTemplateSections` 与契约操作文件头「为什么不直接写库」。
-   */
-  const [aiPrompt, setAiPrompt] = React.useState("");
-  const [aiSuggesting, setAiSuggesting] = React.useState(false);
-  const [aiError, setAiError] = React.useState<string | null>(null);
-
-  async function suggestFromAi() {
-    if (aiPrompt.trim().length === 0) return;
-    setAiSuggesting(true);
-    setAiError(null);
-    try {
-      const out = await suggestCanvasTemplateSections({ prompt: aiPrompt });
-      setDisplayName(out.suggestedDisplayName);
-      setSectionNames(out.sections.map((s) => s.name));
-      setTouched((t) => ({ ...t, displayName: true }));
-    } catch (e) {
-      setAiError(describeError(e));
-    } finally {
-      setAiSuggesting(false);
-    }
-  }
 
   // 提交所需的最小集，与契约的 `.min(1)` 对齐 —— 但**不**在这里重述一份校验规则：
   // 真正的裁决在服务端，这里只是不让一个必然 400 的请求白跑一趟。
-  const canSubmit = key.trim().length > 0 && displayName.trim().length > 0
-    && underlyingType.trim().length > 0 && !submitting;
+  const canSubmit = displayName.trim().length > 0 && !submitting;
 
   async function submit() {
     setSubmitting(true);
     setError(null);
     try {
       await onSubmit({
-        key,
+        key: mintFrom.key,
         displayName,
-        underlyingType,
+        underlyingType: mintFrom.underlyingType,
         visibility,
         // 空名字的分区不提交：它不是一个分区，是一行没填的输入框。
         sections: sectionNames
@@ -880,19 +917,18 @@ function CreateDialog({
     }
   }
 
-  const dialogTestId = mintFrom ? "tpladmin-mint-dialog" : "tpladmin-create-dialog";
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="create-title"
-      data-testid={dialogTestId}
+      data-testid="tpladmin-mint-dialog"
     >
       <div className="flex w-full max-w-lg flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-lg">
         <div className="flex items-start justify-between gap-2">
           <h2 id="create-title" className="text-14 font-semibold">
-            {mintFrom ? `基于「${mintFrom.displayName} v${mintFrom.version}」开新版` : "新建画布模板"}
+            基于「{mintFrom.displayName} v{mintFrom.version}」开新版
           </h2>
           <Button size="icon" variant="ghost" aria-label="关闭" onClick={onClose} data-testid="tpladmin-create-close">
             <X aria-hidden className="h-3.5 w-3.5" />
@@ -900,69 +936,19 @@ function CreateDialog({
         </div>
 
         <p className="rounded-md border border-warning/40 bg-warning/5 px-2.5 py-1.5 text-11 text-muted-foreground" data-testid="tpladmin-create-draft-note">
-          {mintFrom ? (
-            <>
-              产出的是同一个 key 下的<strong className="text-background-foreground">下一个版本（草稿）</strong>，
-              来源版本 v{mintFrom.version} <strong className="text-background-foreground">不受影响</strong>，
-              要被议程环节使用还得再点一次「发布」。
-            </>
-          ) : (
-            <>
-              建出来的是 <strong className="text-background-foreground">草稿</strong>，要被议程环节使用还得再点一次「发布」。
-              分区结构<strong className="text-background-foreground">只能在这里定</strong> —— 之后只能靠「基于此开新版」改。
-            </>
-          )}
+          产出的是同一个 key 下的<strong className="text-background-foreground">下一个版本（草稿）</strong>，
+          来源版本 v{mintFrom.version} <strong className="text-background-foreground">不受影响</strong>，
+          要被议程环节使用还得再点一次「发布」。分区之后还能回到编辑界面继续改。
         </p>
 
-        {!mintFrom && (
-          <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-2.5" data-testid="tpladmin-create-ai-suggest">
-            <span className="text-11 text-muted-foreground">
-              AI 起草——打一个常用模板名字（如「商业模式画布」），自动提议显示名与分区
-            </span>
-            <div className="flex items-center gap-1.5">
-              <input
-                className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-12"
-                placeholder="例如：商业模式画布 / 团队复盘 retro"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                disabled={aiSuggesting}
-                data-testid="tpladmin-create-ai-prompt"
-              />
-              <Button
-                size="xs"
-                variant="outline"
-                disabled={aiPrompt.trim().length === 0 || aiSuggesting}
-                onClick={() => void suggestFromAi()}
-                data-testid="tpladmin-create-ai-generate"
-              >
-                <Sparkles aria-hidden className="h-3 w-3" /> {aiSuggesting ? "生成中…" : "AI 生成"}
-              </Button>
-            </div>
-            <span className="text-9 text-muted-foreground">
-              只是建议，不会自动建出模板——生成后请检查下方字段，确认无误再提交。
-            </span>
-            {aiError && (
-              <span className="text-10 text-destructive" data-testid="tpladmin-create-ai-error">{aiError}</span>
-            )}
-          </div>
-        )}
-
         <label className="flex flex-col gap-1 text-11">
-          <span className="text-muted-foreground">
-            模板 key（{mintFrom ? "开新版锁定为来源版本的 key，不可改" : "组织内唯一，之后不可改"}）
-          </span>
+          <span className="text-muted-foreground">模板 key（开新版锁定为来源版本的 key，不可改）</span>
           <input
-            className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12 disabled:bg-disabled disabled:text-disabled-foreground aria-[invalid=true]:border-destructive"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            onBlur={() => setTouched((t) => ({ ...t, key: true }))}
-            disabled={mintFrom !== undefined}
-            aria-invalid={keyMissing}
+            className="rounded-md border border-border bg-disabled px-2 py-1.5 font-mono text-12 text-disabled-foreground"
+            value={mintFrom.key}
+            disabled
             data-testid="tpladmin-create-key"
           />
-          {keyMissing && (
-            <span className="text-10 text-destructive" data-testid="tpladmin-create-key-hint">必填</span>
-          )}
         </label>
 
         <label className="flex flex-col gap-1 text-11">
@@ -971,7 +957,7 @@ function CreateDialog({
             className="rounded-md border border-border bg-background px-2 py-1.5 text-12 aria-[invalid=true]:border-destructive"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            onBlur={() => setTouched((t) => ({ ...t, displayName: true }))}
+            onBlur={() => setNameTouched(true)}
             aria-invalid={nameMissing}
             data-testid="tpladmin-create-name"
           />
@@ -985,25 +971,6 @@ function CreateDialog({
             </span>
           )}
         </label>
-
-        {/*
-          底层类型：今天唯一的真实取值就是 "canvas"（mermaid 分支的扩展已签核但延后为
-          独立 feature，见 #988），默认值已经是它——不需要在主表单里占一个显眼的必填
-          自由文本框。收进 <details> 里，需要改的人（几乎不会有）自己展开，
-          不需要的人（几乎所有人）看不到这个字段。
-        */}
-        <details className="text-11">
-          <summary className="cursor-pointer text-muted-foreground">高级选项</summary>
-          <label className="mt-1 flex flex-col gap-1">
-            <span className="text-muted-foreground">底层类型（今天仅 canvas 一种真实取值）</span>
-            <input
-              className="rounded-md border border-border bg-background px-2 py-1.5 font-mono text-12"
-              value={underlyingType}
-              onChange={(e) => setUnderlyingType(e.target.value)}
-              data-testid="tpladmin-create-underlying-type"
-            />
-          </label>
-        </details>
 
         <label className="flex flex-col gap-1 text-11">
           <span className="text-muted-foreground">可见范围</span>
@@ -1027,7 +994,7 @@ function CreateDialog({
         </label>
 
         <div className="flex flex-col gap-1" data-testid="tpladmin-create-sections">
-          <span className="text-11 text-muted-foreground">分区（导出为 ## 段落；留空即零分区）</span>
+          <span className="text-11 text-muted-foreground">分区（导出为 ## 段落；留空即零分区，之后仍可在编辑界面改）</span>
           {sectionNames.map((name, i) => (
             <div key={i} className="flex items-center gap-1">
               <input
@@ -1072,11 +1039,97 @@ function CreateDialog({
             variant="primary"
             disabled={!canSubmit}
             onClick={() => void submit()}
-            data-testid={mintFrom ? "tpladmin-mint-submit" : "tpladmin-create-submit"}
+            data-testid="tpladmin-mint-submit"
           >
-            {mintFrom
-              ? (submitting ? "正在新建版本…" : "新建版本")
-              : (submitting ? "正在新建…" : "新建草稿")}
+            {submitting ? "正在新建版本…" : "新建版本"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 2026-08-23——「新建画布，的时候，不要在这里放分区设计，也不要放key，只需要一个
+ * 名字就可以」（人类原话）。这个对话框**只问显示名**：`key` 由 `createMinimal`
+ * 从显示名派生，`sections: []`、`visibility: "org-wide"` 都是空/默认——
+ * 内容与可见范围之后在 `TemplateEditorPanel` 里定。
+ */
+function MinimalCreateDialog({ onClose, onSubmit }: {
+  onClose: () => void;
+  onSubmit: (displayName: string) => Promise<void>;
+}) {
+  const [displayName, setDisplayName] = React.useState("");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [touched, setTouched] = React.useState(false);
+  const nameMissing = touched && displayName.trim().length === 0;
+  const canSubmit = displayName.trim().length > 0 && !submitting;
+
+  async function submit() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      await onSubmit(displayName);
+    } catch (e) {
+      setError(describeCreateError(e));
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/60 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="create-title"
+      data-testid="tpladmin-create-dialog"
+    >
+      <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-lg">
+        <div className="flex items-start justify-between gap-2">
+          <h2 id="create-title" className="text-14 font-semibold">新建画布模板</h2>
+          <Button size="icon" variant="ghost" aria-label="关闭" onClick={onClose} data-testid="tpladmin-create-close">
+            <X aria-hidden className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        <p className="rounded-md border border-warning/40 bg-warning/5 px-2.5 py-1.5 text-11 text-muted-foreground" data-testid="tpladmin-create-draft-note">
+          建出来的是 <strong className="text-background-foreground">空白草稿</strong>，
+          分区、可见范围都留到下一步的<strong className="text-background-foreground">编辑界面</strong>里定。
+        </p>
+
+        <label className="flex flex-col gap-1 text-11">
+          <span className="text-muted-foreground">显示名</span>
+          <input
+            className="rounded-md border border-border bg-background px-2 py-1.5 text-12 aria-[invalid=true]:border-destructive"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            onBlur={() => setTouched(true)}
+            aria-invalid={nameMissing}
+            autoFocus
+            data-testid="tpladmin-create-name"
+          />
+          {nameMissing && (
+            <span className="text-10 text-destructive" data-testid="tpladmin-create-name-hint">必填</span>
+          )}
+        </label>
+
+        {error && (
+          <p className="rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5 text-11 text-destructive" role="alert" data-testid="tpladmin-create-error">
+            {error}
+          </p>
+        )}
+
+        <div className="flex items-center justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={onClose} data-testid="tpladmin-create-cancel">取消</Button>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={!canSubmit}
+            onClick={() => void submit()}
+            data-testid="tpladmin-create-submit"
+          >
+            {submitting ? "正在新建…" : "新建草稿"}
           </Button>
         </div>
       </div>
@@ -1122,6 +1175,24 @@ function ArchiveDialog({
       </div>
     </div>
   );
+}
+
+/**
+ * 2026-08-23——「新建」不再问使用者要 key，从显示名派生一个，带一段随机后缀避免撞车
+ * （`createMinimal` 撞了会换一段重试，这个函数不用管重试，只管「生成一个大概率没人用过
+ * 的 key」）。ASCII 之外的字符（中文模板名是常态）全部落到 fallback：一段纯随机字符串
+ * ——比起把中文转拼音或干脆留中文在 key 里（key 契约上是自由字符串，允许，但用户看到的
+ * `key vN` 那一列会因此长得五花八门、不像一个稳定标识符），一段短随机串更朴素诚实。
+ */
+function slugifyTemplateKey(displayName: string): string {
+  const base = displayName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return base.length > 0 ? `${base}-${suffix}` : `tpl-${suffix}`;
 }
 
 function describeSections(t: CanvasTemplate): string {

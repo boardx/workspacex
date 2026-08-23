@@ -438,6 +438,31 @@ export function ChatLiveMessagePanel({
     composerRef.current?.focus();
   }, [threadId, archived]);
   /**
+   * F05 —— 发送成功后把焦点带回输入框。
+   *
+   * ⚠ 这不能在 `submit()` 内部、`setSubmitting(false)` 之前直接调用 `.focus()`——
+   *   composer 的 `disabled` 属性绑的是 `submitting`（本文件 `disabled={archived ||
+   *   submitting}`），`setSubmitting` 触发的重渲染此刻还没提交，DOM 上的 `<textarea>`
+   *   仍然是 `disabled`；对一个 `disabled` 元素调用 `.focus()` 是浏览器规范里的
+   *   no-op，焦点会落空、退到 `<body>`。实测过一次：`submit()` 内 `loadPage`/
+   *   `pinToBottom()` 之后直接调用仍然复现同一个失败，根因不是"调用时机太早"，
+   *   是"disabled 还没摘下来"。
+   *
+   * 用 `submitting` 从 true 变回 false（且这次没有失败）这个**已经提交完成的**
+   * 时刻做触发信号，与 `thread-list-shell.tsx` 的 `ThreadCardButton` 用
+   * `pending` 下降沿判断"提交结算"是同一个手法，不是发明新模式。`resend`（重试失败
+   * run）也共用这同一个 `submitting` 标志，一并收回焦点——焦点回到 composer 对任何
+   * 提交路径都是合理的落点，不需要额外区分。
+   */
+  const prevSubmittingRef = React.useRef(submitting);
+  React.useEffect(() => {
+    const wasSubmitting = prevSubmittingRef.current;
+    prevSubmittingRef.current = submitting;
+    if (wasSubmitting && !submitting && !submitFailure && !archived) {
+      composerRef.current?.focus();
+    }
+  }, [submitting, submitFailure, archived]);
+  /**
    * V3（PROP-CHAT-10ITER-001）—— 逐条消息复制。`copiedMessageId` 记住「刚复制的是哪条」，
    * 2 秒后自动清空，让图标从对勾切回复制图标（短暂反馈，不常驻）。复制的是消息**纯文本**
    * （`message.text`），不是渲染后的 HTML——用户要的是原文（含代码/markdown 源）。

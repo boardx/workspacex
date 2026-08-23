@@ -1,0 +1,7 @@
+/* 门控自身测试用 fixture（F07）：与 lint-css-bad.css 同一条覆盖，但已在本文件内
+   补登记 @third-party-override —— U9 应当放行。 */
+
+/* @third-party-override: acme-widgets | .acmeWidgetHeader | fixture 反证：登记后应放行 | var(--foreground) */
+.acmeWidgetHeader {
+  color: var(--foreground);
+}

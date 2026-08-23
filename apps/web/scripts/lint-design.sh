@@ -84,6 +84,60 @@ report "U7a" "<img>/<Image> 缺 alt 属性（见 uiux-standards §7；next/image
 report "U7b" "outline-none 未配 focus-visible:ring-*（严禁隐藏焦点可见性而不作替代）" \
   "$(scan 'outline-none' | grep -v 'focus-visible:ring' || true)"
 
+# ── U9 未登记的第三方组件样式覆盖 ────────────────────────────────────────────
+# 登记表见 app/globals.css 头部『第三方组件样式覆盖登记表』（@third-party-override
+# 行，机械解析，见该区块说明；F07，防 CopilotKit 类事故复发）。
+# 判据：第三方库自带样式类惯用 camelCase（如 .copilotKitParagraph），本仓自己的
+# class 命名一律 kebab-case（D-35）——用这个天然边界当"像不像第三方覆盖"的机械判据，
+# 不需要手工维护第二份库名单。逐行剥离 CSS `/* */` 注释、保留原始行号后，只在真实
+# CSS 规则（本行含 `{`）里找 camelCase 选择器；本规则不识别任何行内 disable 注释，
+# 不支持绕过整个文件（R4-E2）。
+strip_css_comments() { # 输出 "行号: 剥注释后的内容"（保留行号；CSS 无单行 // 注释）
+  awk '
+  {
+    line = $0
+    if (in_comment) {
+      idx = index(line, "*/")
+      if (idx > 0) { in_comment = 0; line = substr(line, idx + 2) } else { line = "" }
+    }
+    while (!in_comment) {
+      s = index(line, "/*")
+      if (s == 0) break
+      rest = substr(line, s + 2)
+      e = index(rest, "*/")
+      if (e > 0) { line = substr(line, 1, s - 1) substr(rest, e + 2) }
+      else { line = substr(line, 1, s - 1); in_comment = 1 }
+    }
+    print NR ": " line
+  }' "$1" 2>/dev/null
+}
+CSS_FILES=$(find "${TARGETS[@]}" -name "*.css" 2>/dev/null)
+if [ "$IS_FIXTURE_RUN" -eq 0 ]; then
+  CSS_FILES=$(printf '%s\n' "$CSS_FILES" | grep -v "__fixtures__" || true)
+fi
+REGISTRY_TEXT=""
+if [ -n "$CSS_FILES" ]; then
+  REGISTRY_TEXT=$(grep -h -oE '@third-party-override:.*' $CSS_FILES 2>/dev/null || true)
+fi
+U9_HITS=""
+if [ -n "$CSS_FILES" ]; then
+  for f in $CSS_FILES; do
+    while IFS= read -r rec; do
+      lineno="${rec%%:*}"
+      content="${rec#*: }"
+      case "$content" in *"{"*) : ;; *) continue ;; esac
+      sel=$(printf '%s' "$content" | grep -oE '\.[a-z][a-zA-Z0-9]*[A-Z][a-zA-Z0-9]*' | head -1)
+      [ -z "$sel" ] && continue
+      if ! printf '%s' "$REGISTRY_TEXT" | grep -qF "$sel"; then
+        U9_HITS="$U9_HITS
+$f:$lineno:$content"
+      fi
+    done <<< "$(strip_css_comments "$f")"
+  done
+fi
+report "U9" "未登记的第三方组件样式覆盖（先在 globals.css 头部『第三方组件样式覆盖登记表』加一行 @third-party-override 再写覆盖规则；不接受行内 disable 绕过）" \
+  "$(printf '%s' "$U9_HITS" | sed '/^$/d')"
+
 # ── §1.2 字号档位表外值 ─────────────────────────────────────────────────────
 # 白名单从 lib/font-scale.ts 动态取，**不在本脚本里手抄第二份清单**。
 ALLOWED=$(sed -nE 's/^  ([0-9]+): \[.*/\1/p' lib/font-scale.ts | paste -sd'|' -)

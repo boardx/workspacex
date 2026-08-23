@@ -1,3 +1,55 @@
+"""Guided Research 状态机（DA-10，issue #1749 系列 / 人类 2026-08-23 裁决核对结果）。
+
+## 2026-08-23 迁移核对结论：不迁移到 `create_deep_agent`，理由是真实语义鸿沟，不是嫌麻烦
+
+人类裁决「289 行手写 StateGraph 要么迁移到 deepagents（若 interrupt 语义可覆盖），
+要么在文件头写明豁免理由」——本节是那次核对的记录（对照 `harness.py::build_middleware`
+逐条过的，不是没试就下结论）。
+
+**这个图不是 agent。** 全文 289 行没有一次模型调用、没有一个工具。每一次状态转移
+（`handle_node`）都由外部调用方显式传入的 `command`（`{node, action, requestId,
+expectedGraphVersion, nodeState}`）决定，经 JSON Schema（`_COMMAND_VALIDATOR`）与
+`_validate_command` 校验后确定性执行——`directions` 节点上出现的 `modelId` /
+`modelInvocationId` 只是把「模型调用发生在图外」这件事记录进 nodeSummaries 的元数据，
+图本身不 invoke 任何 `BaseChatModel`。`langgraph.json` 把它注册成与 "Deep Agent"
+平行的独立顶层 graph（"Guided Research"），由前端 API 直接 invoke/resume 驱动，
+不经过任何 LLM 决策循环。
+
+`interrupt()` 在这里的语义也和 deepagents 的 HITL 不同：`await_command` 是**无条件**
+在每一步之后暂停、等待下一条外部命令——本质是借 LangGraph 的 checkpointer + interrupt
+机制换取「线程级持久化 + 乐观并发（`expectedGraphVersion`）+ 请求幂等（`processedRequests`
+按 requestId 去重并核对 fingerprint）」这几个 RPC-over-checkpoint 的免费能力，
+不是「工具调用前暂停等人批准/拒绝/编辑」。
+
+逐条对照 `harness.py::build_middleware` 的七件 middleware，没有一件的适用前提
+（存在一个自主决定下一步做什么的 LLM 循环）在这里成立：
+
+- `TodoListMiddleware`（D1 规划可见性）——没有多步任务规划，下一步永远由外部命令指定。
+- `SummarizationMiddleware`（D8 滚动摘要）——没有累积的对话消息历史需要摘要；
+  `nodeStates` 是按节点覆盖写入的结构化字段，不是消息列表。
+- `FilesystemMiddleware`（大工具输出卸载）——没有工具调用，没有工具输出可卸载。
+- `ToolCallLimitMiddleware` / `ModelCallLimitMiddleware`（预算熔断）——没有工具调用、
+  没有模型调用可计数；这里的 "retry" 是**领域动作**（前端可对 research/report 节点
+  发 `action=retry` 要求重做），不是 `ToolRetryMiddleware` 防的那种工具瞬时故障重试，
+  两者字面同名、语义不同，不能互相替代。
+- `ToolRetryMiddleware`——同上，没有工具调用可重试。
+- `HumanInTheLoopMiddleware`——它中断的对象是「即将发生的某个具体工具调用」，
+  裁决类型是 approve/reject/edit 这四种固定动作；guided_research 的中断对象是
+  「任意下一条命令」，路由目标是 5 个节点 × 多种领域动作的笛卡尔积，裁决内容是
+  结构化的业务状态（`nodeState`），形状完全不同，硬套上去意味着发明一套假工具
+  （每个 node×action 组合一个），让 LLM「决定」调用哪个——这不是把底层实现换掉，
+  是把「外部调用方显式指定、JSON Schema 校验、乐观并发保护」的确定性状态转移
+  改造成「LLM 猜测意图」的非确定性转移，属于行为回归，不是等价迁移。
+
+**结论**：不满足「用 deepagents 原生等价物覆盖」的前提——没有 agent 循环可以套
+middleware。继续维持这个独立的手写 StateGraph 不是「偷懒留了第二条路」，是因为
+它服务的是与 "Deep Agent"（真正的 LLM ReAct 循环，`harness.py` 那一套）完全不同的
+问题：一个前端驱动的、带乐观并发与幂等保证的向导式状态机后端。豁免记录同步写回
+`.harness/state/deepagent-copilotkit-backlog.md` DA-10 条目。
+
+若未来 deepagents 出现「确定性状态机」类的原生构件（不是 LLM 循环控制器），
+应重新评估；在此之前这条不应被重复提起为「未收口」。
+"""
 from __future__ import annotations
 
 import hashlib

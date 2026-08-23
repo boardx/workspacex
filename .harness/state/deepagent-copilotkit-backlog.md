@@ -122,7 +122,21 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 - **✅ 人类 2026-08-23 已裁决：迁移到 deepagents 统一引擎**（narrowed A/B 提问，
   非开放式）。开工前需先验证 guided_research 现有的中断/重试路径在 deepagents
   的 interrupt 语义下是否等价——这是本条本身要做的核对，不是新的待裁决点。
-  尚未派工，需要新开 issue。
+- **⛔ 2026-08-23 核对结果：不迁移，真实语义鸿沟，非豁免偷懒**（dev-ai-runtime 执行，
+  issue 见 PR 关联）。逐条对照 `harness.py::build_middleware` 的七件 middleware 后
+  发现：guided_research_graph.py 全程零模型调用、零工具调用——每次状态转移由外部
+  API 显式传入的 `{node, action, requestId, expectedGraphVersion, nodeState}` 命令
+  决定，靠 JSON Schema 校验后确定性执行；它借 LangGraph 的 checkpointer + `interrupt()`
+  换的是「线程持久化 + 乐观并发（expectedGraphVersion）+ 请求幂等（processedRequests）」，
+  不是「工具调用前暂停等人批准」。deepagents 七件 middleware（TodoList/Summarization/
+  Filesystem/ToolCallLimit/ModelCallLimit/ToolRetry/HumanInTheLoop）全部以「存在一个
+  自主决定下一步的 LLM 循环」为前提，这个前提在这里不成立——没有 agent 循环可以套
+  middleware。硬套等价于给每个 node×action 组合发明一个假工具、让 LLM 猜该调哪个，
+  这是把确定性 API 驱动的状态转移改造成非确定性的 LLM 猜测，是行为回归不是等价迁移。
+  完整核对记录见 `apps/deep-agent-service/src/deep_agent_service/guided_research_graph.py`
+  文件头新增的豁免说明。D10「无未裁决的平行 loop」这一维度的扣分点应改记为
+  「已核对、有据可查的架构差异」，不再是「未收口」。若未来 deepagents 出现确定性
+  状态机类构件（非 LLM 循环控制器），应重新评估。
 
 ### DA-11 子代理委托可见化
 - **推动**：D5（0→1）

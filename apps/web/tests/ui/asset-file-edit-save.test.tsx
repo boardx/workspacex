@@ -20,7 +20,11 @@
  */
 import * as React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
+
+// #1884：编辑区从 `<textarea>` 换成 Monaco 之后接的替身——真实 Monaco 在 jsdom 下
+// 无法渲染（需要 canvas/worker/ResizeObserver），见 `monaco-editor-stub.tsx` 头注。
+vi.mock("@monaco-editor/react", () => import("@/tests/support/monaco-editor-stub"));
 
 const { getAssetDirectory, readAssetFile, writeAssetFile, getStoredSessionToken } = vi.hoisted(() => ({
   getAssetDirectory: vi.fn(),
@@ -48,18 +52,18 @@ function directory(path: string) {
 async function renderLiveEditor() {
   const view = render(<AgSkillEditor state="default" view="admin" />);
   // ⚠ 必须等到**真实数据态**：mock 态下 `ag-skill-code` 是只读 `CodeView`（div），
-  //   真实态才换成 textarea。早取一次会拿到那个 div，之后它被替换掉，引用就失效了
+  //   真实态才换成 Monaco（替身渲染的 `<textarea>`，见 `monaco-editor-stub.tsx`）。
+  //   早取一次会拿到那个 div 内容，之后它被替换掉，引用就失效了
   //   （第一版测试就是这么写错的：断言 `.value` 恒为 undefined/''）。
   await waitFor(() => {
-    const el = screen.getByTestId("ag-skill-code");
-    expect(el.tagName).toBe("TEXTAREA");
+    within(screen.getByTestId("ag-skill-code")).getByTestId("monaco-mock-editor");
   });
   return view;
 }
 
 /** 每次都重新取，避免持有已被替换掉的旧节点。 */
 function codeBox(): HTMLTextAreaElement {
-  return screen.getByTestId("ag-skill-code") as HTMLTextAreaElement;
+  return within(screen.getByTestId("ag-skill-code")).getByTestId("monaco-mock-editor") as HTMLTextAreaElement;
 }
 
 beforeEach(() => {

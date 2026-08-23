@@ -1,0 +1,5 @@
+/* 门控自身测试用 fixture（F07）：故意引入一条未登记的第三方组件样式覆盖，
+   U9 应当拦截。这个文件不参与构建，只作为 lint-design.sh 的测试输入。 */
+.acmeWidgetHeader {
+  color: var(--foreground);
+}

@@ -91,15 +91,15 @@
         "F01"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "01",
       "owner": null,
       "verification": [
-        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard chat'",
-        "pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard profile'"
+        "pnpm run verify:chat-read",
+        "pnpm run verify:self-service-profile"
       ],
-      "evidence": "",
-      "notes": "依据等级：[原型]（chat/profile 页面均已上线，是对既有原型的行为验证/修复；aria 覆盖 257 文件但 onKeyDown 仅 18 文件——键盘可达是验证过没被业务层破坏，而非新画界面）。通常不需签核（R8，纯行为修复），若修复涉及可见 focus ring 视觉调整由所属束负责人评估。R11 拆分：按域拆（本 feature chat+profile，F06 org-admin+axe），工作量 M 合计 5 点。playwright 用 page.keyboard 固化每条核心任务。"
+      "evidence": "evidence/F05.verify.log @ 2026-08-23T14:17:06.008Z",
+      "notes": "依据等级：[原型]（chat/profile 页面均已上线，是对既有原型的行为验证/修复；aria 覆盖 257 文件但 onKeyDown 仅 18 文件——键盘可达是验证过没被业务层破坏，而非新画界面）。通常不需签核（R8，纯行为修复），若修复涉及可见 focus ring 视觉调整由所属束负责人评估。R11 拆分：按域拆（本 feature chat+profile，F06 org-admin+axe），工作量 M 合计 5 点。playwright 用 page.keyboard 固化每条核心任务；测试标题含 'keyboard chat'/'keyboard profile'，可被 -g 精确匹配。⚠ verification 命令 2026-08-23 由原始 `-c playwright.config.ts -g 'keyboard chat'`（F01 沿用的裸配置模式）改为 `pnpm run verify:chat-read`/`verify:self-service-profile`——F01 的 Dialog/Dropdown 是纯客户端原语，能靠 /kitchen-sink 无登录演示页跑通裸配置；chat『发消息/切会话』与 profile『改资料并保存』本身就是要验证真实登录+持久化（R3 的 user_visible_behavior 逐字要求『端到端可复现』），裸配置的 webServer 只起 `next dev`、没有 API/DB，login 表单必然打不通，实测复现（2 个测试在裸配置下 100% 因 `toHaveURL(/\\/projects$/)` 超时失败）。改用已挂载真实登录+种子库的 CI 门控命令（`playwright.chat-read.config.ts`/`playwright.self-service-profile.config.ts`），逐条命令都已实测跑绿（24/24、2/2）且被 `lint-spec-gate-coverage.mjs` 判定 `[covered]`。同一模式后续也适用于 F06/F16 里同样引用 `-c playwright.config.ts -g 'keyboard ...'` 的条目，留给对应 feature 开工时处理，不在本次范围内顺手改。"
     },
     {
       "id": "F06",
@@ -130,14 +130,14 @@
       "spec_ref": "04-third-party-style-guardrail.md#R3",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-b",
       "verification": [
         "pnpm --filter web exec vitest run tests/lint-third-party-style-registry.test.ts",
         "pnpm --filter web run lint:design"
       ],
-      "evidence": "",
+      "evidence": "evidence/F07.verify.log @ 2026-08-23T12:52:02.308Z",
       "notes": "依据等级：[Backlog]（IT-04；globals.css:202-218 记录了 CopilotKit 强制 16px 覆盖气泡 12px 字号的真实事故，已修复但缺机械关卡——新增基础设施）。R8：纯基础设施/流程，大概率不需契约束级签核，束划分时确认归属。R11：单个小 feature（S，2 点）。vitest 固化『未登记覆盖被拦截 / 登记后放行』的反证（R3-4），覆盖值必须引用现有 token 而非字面量（R7）。lint 规则不应支持行内 disable 绕过整文件（R4-E2）。"
     },
     {
