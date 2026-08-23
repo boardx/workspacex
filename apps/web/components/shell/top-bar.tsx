@@ -237,10 +237,21 @@ export function TopBar({
         </p>
       )}
 
-      {/* 不在项目里时给一句解释，而不是留白——「无项目角色」是正常状态，不是缺失 */}
+      {/*
+        不在项目里时给一句解释，而不是留白——「无项目角色」是正常状态，不是缺失。
+
+        UI 评分 2026-08-23 第 10 项不一致③——旧文案「不在项目上下文中 · 项目角色不适用」
+        与左侧 `role-bar-org`（`describeOrgLayer`）在组织角色恰好是「项目负责人」
+        （`ORG_ROLE_LABEL.lead`，见 `lib/identity.ts`）时同屏并存，读起来像自相矛盾：
+        一句说你是「项目负责人」，紧挨着一句说「项目角色不适用」。两者其实是两个不同的
+        轴——组织角色（admin/lead/consultant/compliance，全局，与是否在某个具体项目里
+        无关）vs 项目内角色（facilitator/groupLead/member/observer，只在项目里才有）——
+        但共用「项目」这个字面词，普通用户看不出这层区分。改成明确列出项目内角色的名字，
+        不再用「项目角色」这个会撞上「项目负责人」的泛称。
+      */}
       {!project && !local && !sh.on && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
-          不在项目上下文中 · 项目角色不适用
+          不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
         </p>
       )}
 

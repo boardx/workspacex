@@ -874,7 +874,13 @@ describe("formal Chat read path", () => {
 
     const status = await screen.findByTestId("chat-live-agent-run-status");
     await waitFor(() => expect(status).toHaveAttribute("data-run-status", "failed"));
-    expect(status).toHaveTextContent("MODEL_CALL_FAILED");
+    // 「如实显示」不再等于「原样印出稳定枚举」——UX-9 track B 第 7 项修复
+    // （2026-08-23 回归）：`MODEL_CALL_FAILED` 这类排障用的稳定错误码不是给用户看的话，
+    // 换成人读文案（`describeAgentRunError`），原始 code 仍然可核对，只是搬进了
+    // `data-run-error` 属性（一直都在，此前只是没被这条测试单独断言过）和 `title`。
+    expect(status).toHaveAttribute("data-run-error", "MODEL_CALL_FAILED");
+    expect(status).toHaveTextContent("模型这次没能返回可用结果");
+    expect(status).not.toHaveTextContent("MODEL_CALL_FAILED");
     expect(status).not.toHaveAttribute("data-result-message-id");
   });
 
