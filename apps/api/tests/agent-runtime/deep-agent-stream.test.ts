@@ -208,10 +208,22 @@ describe("D2 工具调用透明度：updates 事件驱动 onProgress（不是解
     });
   }
 
-  const EXPECTED_EVENT = {
-    toolName: "list_org_skills", toolArgsSummary: "{}",
-    toolResultSummary: "- diagram-maker：画图技能", planningNote: "先看看有哪些技能可用",
-  };
+  // #742 Gap 1: `TOOL_CALL_STATE` already has both the announcement and the result from the
+  // very first read, so the very first `extractToolCallEvents` pass reports BOTH phases for
+  // `call-1` in one go (in_progress then complete) -- every later read of the identical
+  // state reports neither again (already in both emitted sets).
+  const EXPECTED_EVENTS = [
+    {
+      toolName: "list_org_skills", toolArgsSummary: "{}",
+      toolResultSummary: null, planningNote: "先看看有哪些技能可用",
+      phase: "in_progress", toolCallId: "call-1",
+    },
+    {
+      toolName: "list_org_skills", toolArgsSummary: "{}",
+      toolResultSummary: "- diagram-maker：画图技能", planningNote: "先看看有哪些技能可用",
+      phase: "complete", toolCallId: "call-1",
+    },
+  ];
 
   it("updates 事件带 tools 节点 patch 时，onProgress 真的被调用，且拿到正确的 tool_call 记账字段", async () => {
     const { baseUrl, stateReadCount } = await startUpdatesFake({
@@ -234,7 +246,7 @@ describe("D2 工具调用透明度：updates 事件驱动 onProgress（不是解
     // 复用的正是 execute-run.ts `record(...)` 写 agent_run_steps 时读的同一份字段
     // （toolName/toolArgsSummary/toolResultSummary/planningNote）——证明 updates 事件
     // 真的映射进了既有记账路径，不是解析了没人用。
-    expect(events).toEqual([EXPECTED_EVENT]);
+    expect(events).toEqual(EXPECTED_EVENTS);
     expect(result.text).toBe("已完成，diagram-maker 可用。");
     // 3 次 state 读 = updates 帧触发的那 1 次（流式阶段） + status 转 success 之后固定
     // 发生的 2 次（`emitNewToolEvents` 补读 + `readCompletion`，见下面"无关节点"用例的
@@ -262,7 +274,7 @@ describe("D2 工具调用透明度：updates 事件驱动 onProgress（不是解
     // success 之后固定发生 2 次读（`emitNewToolEvents` 的补读 + `readCompletion` 读
     // 最终答案，与 updates 帧是否出现无关，见 provider 的 `completeWithProgress` 实现）
     // ——用这个数字而不是 0/1 来确认"流式阶段本身零额外读"，而不是巧合碰对。
-    expect(events).toEqual([EXPECTED_EVENT]);
+    expect(events).toEqual(EXPECTED_EVENTS);
     expect(result.text).toBe("已完成，diagram-maker 可用。");
     expect(stateReadCount()).toBe(2);
   }, 10_000);

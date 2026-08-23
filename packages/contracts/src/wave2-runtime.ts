@@ -300,7 +300,25 @@ export const AgentRunStepKind = z.enum([
   "accepted", "context_built", "model_called", "tool_call", "chat_writeback",
 ]);
 
-export const AgentRunStepStatus = z.enum(["succeeded", "failed"]);
+/**
+ * #742 Gap 1（CopilotKit 对标）：`tool_call` 步骤新增 `in_progress` 中间态。
+ *
+ * 之前只有两个终态（`succeeded`/`failed`）——工具调用只有落进账本终态后才出现在
+ * `steps` 数组里，用户在调用过程中看不到「正在调用 X」。CopilotKit 官方 Tool Call
+ * Rendering / State Rendering 模式要求 status 至少支持 `inProgress`/`complete` 两态迁移。
+ *
+ * `in_progress` 只对 `kind: "tool_call"` 的步骤有意义：工具调用开始时落一条
+ * `in_progress` 记录，调用结束时**更新同一条记录**（同一个 `(runId, seq)`）到
+ * `succeeded`/`failed`，不是插入第二条记录（#742 记账纪律「没有留痕就没有调用」，
+ * 一次调用一条账，不是两条）。其余 `kind`（`accepted`/`context_built`/`model_called`/
+ * `chat_writeback`）不产生中间态，永远直接落终态——它们本就是同步完成的单次动作。
+ *
+ * ⚠ 这个枚举与 `agent_run_steps_status_check`（migration
+ * `20260824000000_i742_tool_call_in_progress.sql`）是同一个事实，同一份门控纪律
+ * （见 `AgentRunStepKind`/`AgentRunError` 头注：zod 枚举与 SQL CHECK 用测试读
+ * `pg_constraint` 断言集合相等）。
+ */
+export const AgentRunStepStatus = z.enum(["succeeded", "failed", "in_progress"]);
 
 /**
  * Stable, redacted terminal codes (§5: "a stable, redacted error code").

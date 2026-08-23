@@ -104,3 +104,50 @@ describe("AgentToolChain 渲染", () => {
     expect(screen.queryByTestId("agent-tool-chain-fail-badge")).toBeNull();
   });
 });
+
+/** #742 Gap 1 —— 工具调用进行中态：折叠头与展开态都要能看到「还没落终态」。 */
+describe("AgentToolChain 进行中态（#742 Gap 1）", () => {
+  it("收起态就有「进行中」徽标——不用点开就知道还有调用没完成", () => {
+    render(<AgentToolChain steps={toolChainSteps("in-progress-per-tool")} />);
+    expect(screen.getByTestId("agent-tool-chain-in-progress-badge")).toHaveTextContent("进行中");
+    expect(screen.queryByTestId("agent-tool-chain-fail-badge")).toBeNull();
+    expect(screen.queryByTestId("agent-tool-chain-ok")).toBeNull();
+  });
+
+  it("展开态：in_progress 的那一步显示脉动图标 + 「正在调用」文案，且没有结果文本", () => {
+    render(<AgentToolChain steps={toolChainSteps("in-progress-per-tool")} defaultOpen />);
+    const lookupStep = screen.getByTestId("agent-tool-chain-step-3");
+    expect(lookupStep).toHaveAttribute("data-tool-status", "in_progress");
+    expect(lookupStep).toHaveTextContent("正在调用 lookup_time");
+    expect(screen.getByTestId("agent-tool-chain-in-progress-3")).toHaveTextContent("正在调用…结果尚未返回");
+    // 进行中态没有专属卡片（还没有结果可渲染），所以 lookup_time 的展示型卡片不应出现。
+    expect(screen.queryByTestId("agent-tool-chain-lookup-time-card")).toBeNull();
+  });
+});
+
+/** #742 Gap 4 —— per-tool 定制渲染：至少 write_todos / search_documents / read_document /
+ * lookup_time 四个工具各有贴合数据形状的展开态卡片，不是「参数 JSON + 结果 JSON」文本。 */
+describe("AgentToolChain per-tool 定制卡片（#742 Gap 4）", () => {
+  it("write_todos：渲成计划条目列表，不是原始 JSON", () => {
+    render(<AgentToolChain steps={toolChainSteps("in-progress-per-tool")} defaultOpen />);
+    const list = screen.getByTestId("agent-tool-chain-write-todos-list");
+    expect(list).toHaveTextContent("搜索相关文档");
+    expect(list).toHaveTextContent("综合结论作答");
+    expect(list).toHaveTextContent("进行中");
+  });
+
+  it("search_documents：结果渲成文档条目列表", () => {
+    render(<AgentToolChain steps={toolChainSteps("in-progress-per-tool")} defaultOpen />);
+    const card = screen.getByTestId("agent-tool-chain-search-documents-card");
+    expect(card).toHaveTextContent("A.md");
+    expect(card).toHaveTextContent("B.md");
+    expect(card).toHaveTextContent("C.md");
+  });
+
+  it("read_document：文件名与正文预览分开展示", () => {
+    render(<AgentToolChain steps={toolChainSteps("in-progress-per-tool")} defaultOpen />);
+    const card = screen.getByTestId("agent-tool-chain-read-document-card");
+    expect(card).toHaveTextContent("A.md");
+    expect(card).toHaveTextContent("多步执行取证样例正文");
+  });
+});

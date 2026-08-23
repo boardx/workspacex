@@ -776,6 +776,61 @@ describe("run steps are append-only in the database, not by convention", () => {
       .toBeGreaterThan(0);
     expect(new Set(declared)).toEqual(new Set(W.AgentRunStepKind.options));
   });
+
+  /** #742 Gap 1 -- same discipline as the kind check above, for the newly-widened status
+   * vocabulary (`succeeded`/`failed`/`in_progress`). */
+  it("keeps the database's step STATUS vocabulary and the contract's enum as one fact", async () => {
+    const constraint = await asOwner((c) => c.query<{ def: string }>(
+      `SELECT pg_get_constraintdef(oid) AS def FROM pg_constraint
+        WHERE conrelid='agent_run_steps'::regclass AND conname='agent_run_steps_status_check'`,
+    ));
+    const declared = [...constraint.rows[0]!.def.matchAll(/'([a-z_]+)'/g)].map((m) => m[1]!);
+    expect(declared.length, "read zero statuses -- this assertion would pass vacuously")
+      .toBeGreaterThan(0);
+    expect(new Set(declared)).toEqual(new Set(W.AgentRunStepStatus.options));
+  });
+
+  /**
+   * #742 Gap 1 -- the append-only ledger cannot UPDATE a row in place (see the sibling test
+   * above), so an `in_progress` tool-call step and its later terminal outcome are two
+   * separate INSERTed rows sharing `tool_call_id`. This proves the READ side really does
+   * fold them into ONE step for the same logical call -- a client must never see a phantom
+   * duplicate "lookup_time" entry (one in_progress, one succeeded) for a single invocation.
+   */
+  it("readRun 把共享 tool_call_id 的 in_progress 行与终态行折叠成一张卡片，不是两条", async () => {
+    const { agentRunId } = await postMessage("collapse me by tool_call_id");
+    await tick();
+    await readRun(agentRunId); // sanity: the run itself is real and visible before we graft on extra steps
+
+    const callId = `call-${randomUUID()}`;
+    await asApp(ORG, async (c) => {
+      // Same append-only INSERT path `pg-agent-run-repository.ts`'s `appendStep` uses --
+      // no UPDATE grant exists for this role, so this is genuinely two separate writes.
+      await c.query(
+        `INSERT INTO agent_run_steps
+           (id,org_id,run_id,seq,kind,status,started_at,ended_at,
+            tool_name,tool_args_summary,tool_result_summary,tool_call_id)
+         VALUES ($1,$2,$3,90,'tool_call','in_progress',now(),now(),
+                 'lookup_time','{}',NULL,$4)`,
+        [randomUUID(), ORG, agentRunId, callId],
+      );
+      await c.query(
+        `INSERT INTO agent_run_steps
+           (id,org_id,run_id,seq,kind,status,started_at,ended_at,
+            tool_name,tool_args_summary,tool_result_summary,tool_call_id)
+         VALUES ($1,$2,$3,91,'tool_call','succeeded',now(),now(),
+                 'lookup_time','{}','2026-08-24T00:00:00.000Z',$4)`,
+        [randomUUID(), ORG, agentRunId, callId],
+      );
+    });
+
+    const view = await readRun(agentRunId);
+    const lookupSteps = view.steps.filter((s) => s.toolName === "lookup_time");
+    expect(lookupSteps, "one logical call must project as one step, not one per ledger row")
+      .toHaveLength(1);
+    expect(lookupSteps[0]!.status).toBe("succeeded");
+    expect(lookupSteps[0]!.toolResultSummary).toBe("2026-08-24T00:00:00.000Z");
+  });
 });
 
 /* ═════════════════════ 6. the status machine is enforced ═════════════════════ */

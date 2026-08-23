@@ -50,8 +50,8 @@ import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type {
   AgentRunClock, AgentRunStore, ClaimedAgentRun, HistoryAttachmentMeta, ModelCallPort,
-  PinnedSkillContent, ReportedUsage, RunFailureCode, RunStepKind, ThreadHistoryMessage,
-  TokenUsageMeterPort,
+  PinnedSkillContent, ReportedUsage, RunFailureCode, RunStepKind, RunStepStatus,
+  ThreadHistoryMessage, TokenUsageMeterPort,
 } from "./ports";
 import { ModelCallError, isModelCallImageMime } from "./ports";
 import type { ModelCallImage } from "./ports";
@@ -570,13 +570,19 @@ async function record(
     inputDigest: string | null; outputDigest: string | null; failureCode: RunFailureCode | null;
     toolName?: string | null; toolArgsSummary?: string | null; toolResultSummary?: string | null;
     planningNote?: string | null;
+    /** #742 Gap 1 -- explicit status override for the ONE case `failureCode` can't express:
+     * an `in_progress` `tool_call` row. Every other caller omits this and keeps the old
+     * derivation (`failureCode === null ? "succeeded" : "failed"`). */
+    status?: RunStepStatus;
+    /** #742 Gap 1 -- `tool_call` steps only, see `AppendedRunStep.toolCallId`'s own doc. */
+    toolCallId?: string | null;
   },
 ): Promise<void> {
   await deps.runs.appendStep(orgId, {
     runId: input.runId,
     seq: input.seq,
     kind: input.kind,
-    status: input.failureCode === null ? "succeeded" : "failed",
+    status: input.status ?? (input.failureCode === null ? "succeeded" : "failed"),
     startedAt: input.startedAt,
     endedAt: deps.clock.now(),
     inputDigest: input.inputDigest,
@@ -586,6 +592,7 @@ async function record(
     toolArgsSummary: input.toolArgsSummary ?? null,
     toolResultSummary: input.toolResultSummary ?? null,
     planningNote: input.planningNote ?? null,
+    toolCallId: input.toolCallId ?? null,
   });
 }
 
@@ -1040,8 +1047,15 @@ async function executeClaimed(
         },
         async (event) => {
           const stepStartedAt = deps.clock.now();
+          // #742 Gap 1: `phase` absent/"complete" is the pre-existing behaviour verbatim
+          // (one event, one terminal `succeeded` row). `phase: "in_progress"` is the new
+          // branch -- it ALSO gets its own new row (append-only ledger, see
+          // `AppendedRunStep.toolCallId`'s own doc for why this can't be an UPDATE); the
+          // read side folds the pair back into one card for the same `toolCallId`.
+          const status: RunStepStatus = event.phase === "in_progress" ? "in_progress" : "succeeded";
           await record(deps, orgId, {
             runId: run.runId, seq: seqCursor.value, kind: "tool_call", startedAt: stepStartedAt,
+            status,
             inputDigest: event.toolArgsSummary === null ? null : sha256(event.toolArgsSummary),
             outputDigest: event.toolResultSummary === null ? null : sha256(event.toolResultSummary),
             failureCode: null,
@@ -1049,6 +1063,7 @@ async function executeClaimed(
             toolArgsSummary: event.toolArgsSummary,
             toolResultSummary: event.toolResultSummary,
             planningNote: event.planningNote,
+            toolCallId: event.toolCallId ?? null,
           });
           seqCursor.value += 1;
         },

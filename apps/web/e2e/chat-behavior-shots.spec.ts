@@ -208,19 +208,83 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
      * 替身对这句触发词回 write_todos → search_documents → read_document 的剧本，
      * 第二个工具的 args.path（A.md）逐字来自第一个工具的结果——链条本身就是证据。
      * 展开写法照上面 b3-tool-expanded。 */
+    // 发送前先数一次折叠头数量——发送后 `.last()` 必须等这个数字真的涨了才可信，
+    // 否则消息行还没挂载，`.last()` 会取到上一条消息的折叠头（陈旧内容，2026-08-24
+    // 第一轮取证实测踩过：b742-1 系列曾经拍到的是第一条消息已终态的 lookup_time 块）。
+    const toggleCountBeforeMultistep = await page.getByTestId("agent-tool-chain-toggle").count();
     await step("发多步取证消息", async () => {
       await composer2.fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
       await page.getByTestId("chat-message-submit").click({ timeout: 20_000 });
     });
-    await page.waitForTimeout(9000);
-    await step("展开多步工具链折叠块", async () => {
+
+    /* ── #742 Gap 1 取证：run 进行中态可见 ──────────────────────────────
+     * loopback 上游（见 `loopback-deep-agent-provider.ts` 的
+     * `MULTISTEP_MIN_STATUS_POLLS`）把这条多步剧本的终态推迟到至少 6 次状态轮询、
+     * 每个工具调用先只有"宣布"半、停留至少一轮，让真实的 `in_progress` 账本行有一个
+     * 能被前端真的轮询到、真的渲染出来的窗口。展开工具链，边等边拍，抓「进行中」徽标
+     * 与脉动图标——不是等终态后拍一张再假装它曾经在场。 */
+    await step("等新消息的折叠头真的挂载、再展开（趁 run 还在进行中）", async () => {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        if (await page.getByTestId("agent-tool-chain-toggle").count() > toggleCountBeforeMultistep) break;
+        await page.waitForTimeout(500);
+      }
       const toggle = page.getByTestId("agent-tool-chain-toggle").last();
-      if (await toggle.isVisible().catch(() => false)) {
+      if (await toggle.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await toggle.click({ timeout: 10_000 });
-        await page.waitForTimeout(400);
       }
     });
-    await shoot("b4-multistep-expanded.png", "第4项 真实多步能力", "展开态显示三次工具调用的入参/结果链条：write_todos → search_documents(query) → read_document(path=A.md，path 逐字来自搜索结果)");
+    for (let i = 1; i <= 4; i += 1) {
+      await page.waitForTimeout(1500);
+      const inProgressBadge = await page.getByTestId("agent-tool-chain-in-progress-badge")
+        .isVisible({ timeout: 1_000 }).catch(() => false);
+      await shoot(
+        `b742-1-in-progress-${String(i).padStart(2, "0")}.png`,
+        "#742 Gap 1 进行中态可见",
+        `第 ${i * 1.5}s：折叠头「进行中」徽标可见=${inProgressBadge}——工具调用开始时就有真实记账（in_progress），不是只有终态才出现在 steps 里`,
+      );
+    }
+    /* 多步剧本被 `MULTISTEP_MIN_STATUS_POLLS` 故意拖慢（见上面 Gap 1 取证的注释）。
+     * ⚠ 目标信号选的是 search_documents 的终态卡片，不是链条最后一次的 read_document：
+     * read_document 一落终态，run 几乎在同一拍就转终态、写回、前端从"活体 run 视图"
+     * 切到持久消息视图（`agent-tool-chain-*` 一系列 testid 随之从 DOM 消失，见
+     * `agent-tool-chain.tsx` 头注"它替换了什么"一节——持久消息走的是另一套 `ToolCalls`
+     * 组件），窗口窄到几乎拍不到。search_documents 终态之后 read_document 还要再等
+     * 至少一轮才被回答，这段间隙才是稳定拍得到"至少两个工具定制卡片同屏"的窗口。
+     * 运行中的 run 偶尔会因 UI 重渲染把折叠块重新收起，所以每轮都重新点开再检查。 */
+    await step("等多步链路跑到 search_documents 落终态（而不是猜一个固定时长）", async () => {
+      const searchCard = page.getByTestId("agent-tool-chain-search-documents-card");
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        if (await searchCard.isVisible({ timeout: 500 }).catch(() => false)) return;
+        const toggle = page.getByTestId("agent-tool-chain-toggle").last();
+        if (await toggle.isVisible({ timeout: 500 }).catch(() => false)
+          && await toggle.getAttribute("aria-expanded").catch(() => null) === "false") {
+          await toggle.click({ timeout: 5_000 }).catch(() => {});
+        }
+        await page.waitForTimeout(1000);
+      }
+    });
+    await shoot("b4-multistep-expanded.png", "第4项 真实多步能力", "展开态显示工具调用的入参/结果链条：write_todos → search_documents(query) → read_document(path=A.md，path 逐字来自搜索结果，此刻可能仍是进行中)");
+
+    /* ── #742 Gap 4 取证：至少两个工具的定制渲染可见 ──────────────────────
+     * write_todos 渲成计划条目列表、search_documents 渲成文档条目列表——不是
+     * 「参数 JSON + 结果 JSON」的通用文本卡片。read_document 此刻大概率仍是
+     * in_progress（上一步特意等在这个窗口，见其注释），readOk 记 false 是这一刻的
+     * 真实状态，不是它没做——它的展开态卡片与 write_todos/search_documents 是同一份
+     * 组件代码（`ToolChainStepBody` 的 switch 分支），单测（`agent-tool-chain.test.tsx`
+     * 「read_document：文件名与正文预览分开展示」）已经真实断言过它的渲染。 */
+    await step("截取 per-tool 定制卡片", async () => {
+      const todosCard = page.getByTestId("agent-tool-chain-write-todos-list");
+      const searchCard = page.getByTestId("agent-tool-chain-search-documents-card");
+      const readCard = page.getByTestId("agent-tool-chain-read-document-card");
+      const todosOk = await todosCard.isVisible({ timeout: 3_000 }).catch(() => false);
+      const searchOk = await searchCard.isVisible({ timeout: 3_000 }).catch(() => false);
+      const readOk = await readCard.isVisible({ timeout: 3_000 }).catch(() => false);
+      await shoot(
+        "b742-2-per-tool-cards.png",
+        "#742 Gap 4 按工具定制渲染",
+        `write_todos 列表=${todosOk} search_documents 文档列表=${searchOk} read_document 卡片=${readOk}——各自贴合真实数据形状，不共用同一张通用卡片`,
+      );
+    });
 
     /* ── 取证缺口③：真实失败态。FAILURE_TRIGGER 是 loopback 既有的真实失败通路
      *    （上游 run 真的以 error 终态返回，api 侧走真实失败处理与写回）——

@@ -26,6 +26,9 @@ import type { Guarded } from "../security/permission-filter";
 export type RunFailureCode = z.infer<typeof C.AgentRunError>;
 export type RunStepKind = z.infer<typeof C.AgentRunStepKind>;
 export type RunLifecycleStatus = z.infer<typeof C.AgentRunStatus>;
+/** #742 Gap 1 -- `"succeeded" | "failed" | "in_progress"`, derived from the contract's own
+ * enum (never restated). `in_progress` is only ever produced for `kind: "tool_call"` steps. */
+export type RunStepStatus = z.infer<typeof C.AgentRunStepStatus>;
 
 /**
  * The outcome of claiming one run.
@@ -125,7 +128,7 @@ export interface AppendedRunStep {
   readonly runId: string;
   readonly seq: number;
   readonly kind: RunStepKind;
-  readonly status: "succeeded" | "failed";
+  readonly status: RunStepStatus;
   readonly startedAt: string;
   readonly endedAt: string;
   readonly inputDigest: string | null;
@@ -139,6 +142,21 @@ export interface AppendedRunStep {
   /** `tool_call` steps only (#731 follow-up) -- see `AgentRunStep.planningNote`'s own doc
    * comment. `null` when the model called the tool with no accompanying explanation. */
   readonly planningNote: string | null;
+  /**
+   * #742 Gap 1 -- `tool_call` steps only. A provider-supplied stable id for ONE logical
+   * tool invocation, present on BOTH the `in_progress` row this invocation writes when the
+   * call starts AND the terminal (`succeeded`/`failed`) row it writes when the call ends.
+   *
+   * `agent_run_steps` is append-only at the database level (grants + trigger, see
+   * `no-tool-run-writeback.test.ts` "run steps are append-only in the database, not by
+   * convention") -- there is no UPDATE path to flip one row's status in place. This id is
+   * how the READ side (`pg-agent-run-repository.ts`'s `readRun`) recognizes that two rows
+   * are the SAME logical call and collapses them to the most current one instead of
+   * rendering a phantom duplicate. `null` for every non-`tool_call` step, and for a
+   * `tool_call` step whose provider does not supply a stable id (falls back to the
+   * pre-#742 behaviour: one row, one call, no correlation needed).
+   */
+  readonly toolCallId: string | null;
 }
 
 /**
@@ -178,7 +196,16 @@ export interface RunProjection {
   readonly status: RunLifecycleStatus;
   readonly error: RunFailureCode | null;
   readonly resultMessageId: string | null;
-  readonly steps: readonly Omit<AppendedRunStep, "runId" | "seq">[];
+  /**
+   * #742 Gap 1: `toolCallId` is excluded here on purpose. It exists only so the
+   * append-only ledger's read side (`pg-agent-run-repository.ts`'s `readRun`) can fold an
+   * `in_progress` row and its later terminal row into ONE projected step; by the time a
+   * step reaches this projection that folding has already happened, so every step here is
+   * exactly what a client should render -- no correlation id for it to reconstruct. The
+   * public contract (`AgentRunStep`, `.strict()`) has never had this field and does not
+   * gain one now.
+   */
+  readonly steps: readonly Omit<AppendedRunStep, "runId" | "seq" | "toolCallId">[];
   readonly createdAt: string;
   /** DA-07b：等待裁决的工具摘要；非 awaiting_approval 时为 null。
    * （pending_decision 列刻意**不**投影到这里：它是 executor 的内部执行细节，
@@ -494,6 +521,23 @@ export interface ModelCallProgressEvent {
   readonly toolArgsSummary: string | null;
   readonly toolResultSummary: string | null;
   readonly planningNote: string | null;
+  /**
+   * #742 Gap 1（CopilotKit 对标：进行中态）—— 两个新增的可选字段，S1=B 双轨纪律：
+   * 不传时行为与加这两个字段之前逐字相同（`phase` 缺席按 `"complete"` 处置，一个
+   * 事件=一条终态记录，与今天完全一样）。
+   *
+   * `phase`：这次事件是「工具刚被宣布调用、还没拿到结果」（`"in_progress"`）还是
+   * 「已经拿到结果」（`"complete"`，缺省值）。只有前者会在账本里落一条 `in_progress`
+   * 记录；`execute-run.ts` 不替 provider 猜测，provider 不传就永远走终态路径。
+   *
+   * `toolCallId`：provider 自己对这次工具调用的稳定标识（`DeepAgentModelProvider` 用的
+   * 是 LangChain `tool_call_id`）。`phase: "in_progress"` 与随后那次 `phase: "complete"`
+   * / 缺省事件如果是**同一次调用**，必须带同一个 `toolCallId`——读端靠它把 append-only
+   * 账本里的两行折叠成用户看到的一张卡片（见 `AppendedRunStep.toolCallId` 头注）。
+   * 不传（`null`/缺席）等价于「这个 provider 不报进行中态，也不需要折叠」。
+   */
+  readonly phase?: "in_progress" | "complete";
+  readonly toolCallId?: string | null;
 }
 
 /**

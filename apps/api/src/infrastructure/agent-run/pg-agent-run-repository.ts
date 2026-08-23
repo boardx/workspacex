@@ -55,6 +55,8 @@ interface StepRow {
   input_digest: string | null; output_digest: string | null; failure_code: string | null;
   tool_name: string | null; tool_args_summary: string | null; tool_result_summary: string | null;
   planning_note: string | null;
+  /** #742 Gap 1 -- see `AppendedRunStep.toolCallId`'s own doc. */
+  tool_call_id: string | null;
 }
 
 interface ClaimDetailRow {
@@ -230,15 +232,20 @@ export class PgAgentRunRepository implements AgentRunStore {
 
   async appendStep(orgId: OrgId, step: AppendedRunStep): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
+      // #742 Gap 1: still a plain INSERT, never an UPDATE -- `agent_run_steps` stays
+      // append-only (grants + trigger unchanged by this feature). An `in_progress` row and
+      // the terminal row that later reports the SAME tool call are two separate rows that
+      // share `tool_call_id`; `readRun` below folds them back into one at read time.
       await s.query(
         `INSERT INTO agent_run_steps
            (id,org_id,run_id,seq,kind,status,started_at,ended_at,
             input_digest,output_digest,failure_code,
-            tool_name,tool_args_summary,tool_result_summary,planning_note)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14,$15)`,
+            tool_name,tool_args_summary,tool_result_summary,planning_note,tool_call_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::timestamptz,$8::timestamptz,$9,$10,$11,$12,$13,$14,$15,$16)`,
         [randomUUID(), orgId, step.runId, step.seq, step.kind, step.status,
           step.startedAt, step.endedAt, step.inputDigest, step.outputDigest, step.failureCode,
-          step.toolName, step.toolArgsSummary, step.toolResultSummary, step.planningNote],
+          step.toolName, step.toolArgsSummary, step.toolResultSummary, step.planningNote,
+          step.toolCallId],
       );
     });
   }
@@ -559,10 +566,27 @@ export class PgAgentRunRepository implements AgentRunStore {
       );
       const row = run.rows[0];
       if (row === undefined) return null;
+      // #742 Gap 1: `agent_run_steps` is append-only, so an in-progress tool call and its
+      // later terminal outcome are TWO rows sharing `tool_call_id`, not one row updated in
+      // place (see `AppendedRunStep.toolCallId`'s own doc). Collapse each `tool_call_id`
+      // group here to the row a client should actually see: the terminal one once it
+      // exists, else the `in_progress` one while it's still pending. Rows with no
+      // `tool_call_id` (every non-`tool_call` step, and any `tool_call` step whose
+      // provider never supplied one) are each their own group via `COALESCE(..., id)`, so
+      // this changes nothing for them -- identical to the pre-#742 one-row-per-call shape.
       const steps = await s.query<StepRow>(
         `SELECT kind,status,started_at,ended_at,input_digest,output_digest,failure_code,
-                tool_name,tool_args_summary,tool_result_summary,planning_note
-           FROM agent_run_steps WHERE org_id=$1 AND run_id=$2 ORDER BY seq, started_at`,
+                tool_name,tool_args_summary,tool_result_summary,planning_note,tool_call_id
+           FROM (
+             SELECT *,
+               ROW_NUMBER() OVER (
+                 PARTITION BY COALESCE(tool_call_id, id)
+                 ORDER BY (status <> 'in_progress') DESC, seq DESC
+               ) AS rn
+             FROM agent_run_steps WHERE org_id=$1 AND run_id=$2
+           ) collapsed
+          WHERE rn = 1
+          ORDER BY seq, started_at`,
         [orgId, runId],
       );
       return { row, steps: steps.rows };
@@ -592,6 +616,9 @@ export class PgAgentRunRepository implements AgentRunStore {
         toolArgsSummary: step.tool_args_summary,
         toolResultSummary: step.tool_result_summary,
         planningNote: step.planning_note,
+        // #742 Gap 1: `tool_call_id` was only needed to COLLAPSE rows in the query above --
+        // it stops here, see `RunProjection.steps`'s own doc for why it never reaches the
+        // public contract.
       })),
       createdAt: found.row.created_at.toISOString(),
       pendingApproval: found.row.pending_tool_name === null || found.row.pending_tool_name === undefined

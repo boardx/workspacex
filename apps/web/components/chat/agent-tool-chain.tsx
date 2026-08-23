@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
-import { ChevronRight, CheckCircle2, XCircle, Wrench } from "lucide-react";
+import {
+  ChevronRight, CheckCircle2, XCircle, Wrench, Loader2, FileSearch, FileText, Clock, ListTodo,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { AgentRunView } from "@/lib/agent-run";
@@ -118,6 +120,9 @@ export function AgentToolChain({
 
   const toolSteps = steps.filter((s) => s.kind === "tool_call");
   const failCount = toolSteps.filter((s) => s.status === "failed").length;
+  // #742 Gap 1：至少有一个工具调用还没落终态——折叠头也要能不点开就看到「还在跑」，
+  // 不是只有展开态那一张卡片知道。失败徽标优先于它：已经出的错比还在跑的调用更要紧。
+  const inProgressCount = toolSteps.filter((s) => s.status === "in_progress").length;
   const summary = toolChainSummaryText(steps, running);
 
   return (
@@ -147,6 +152,11 @@ export function AgentToolChain({
             <Badge tone="danger" data-testid="agent-tool-chain-fail-badge">
               <XCircle aria-hidden className="h-2.5 w-2.5" />
               {failCount} 个失败
+            </Badge>
+          ) : inProgressCount > 0 ? (
+            <Badge tone="neutral" data-testid="agent-tool-chain-in-progress-badge">
+              <Loader2 aria-hidden className="h-2.5 w-2.5 animate-spin" />
+              进行中
             </Badge>
           ) : runFailed ? (
             // 每一步工具调用都成功，但 run 整体仍以 failed 收场（如 MODEL_CALL_FAILED）——
@@ -184,8 +194,174 @@ export function AgentToolChain({
   );
 }
 
+/** 折叠态徽标：三态（进行中/完成/失败），复用同一套图标语言。 */
+function StepStatusBadge({ status }: { status: Step["status"] }) {
+  if (status === "in_progress") {
+    return (
+      <Badge tone="neutral" data-testid="agent-tool-chain-step-in-progress-badge">
+        <Loader2 aria-hidden className="h-2.5 w-2.5 animate-spin" />进行中
+      </Badge>
+    );
+  }
+  if (status === "succeeded") {
+    return <Badge tone="primary"><CheckCircle2 aria-hidden className="h-2.5 w-2.5" />完成</Badge>;
+  }
+  return <Badge tone="danger"><XCircle aria-hidden className="h-2.5 w-2.5" />失败</Badge>;
+}
+
+/** #742 Gap 4 支撑：`toolArgsSummary` 是 JSON 字符串（`write_todos`/`search_documents`/
+ * `read_document` 皆如此），解析失败就返回 `null`——per-tool 卡片据此退化，绝不假装解析成功。 */
+function tryParseJsonObject(raw: string | null): Record<string, unknown> | null {
+  if (raw === null || raw === "") return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+const TODO_STATUS_TEXT: Record<string, string> = {
+  pending: "待办", in_progress: "进行中", completed: "已完成",
+};
+
+/** `write_todos` 展开态：真实的计划条目列表，不是一坨 JSON。 */
+function WriteTodosCard({ step }: { step: Step }) {
+  const parsed = tryParseJsonObject(step.toolArgsSummary);
+  const todos = Array.isArray(parsed?.todos) ? (parsed!.todos as unknown[]) : null;
+  if (todos === null) return <GenericToolBody step={step} />;
+  return (
+    <ul className="mt-1 flex flex-col gap-0.5" data-testid="agent-tool-chain-write-todos-list">
+      {todos.map((t, i) => {
+        const todo = t as { content?: unknown; status?: unknown };
+        const content = typeof todo.content === "string" ? todo.content : null;
+        const status = typeof todo.status === "string" ? todo.status : null;
+        if (content === null) return null;
+        return (
+          <li key={i} className="flex items-center gap-1.5 text-10">
+            <ListTodo
+              aria-hidden
+              className={cn(
+                "h-3 w-3 shrink-0",
+                status === "completed" ? "text-primary" : "text-muted-foreground",
+              )}
+            />
+            <span className={cn("min-w-0 flex-1 truncate", status === "completed" && "text-muted-foreground line-through")}>
+              {content}
+            </span>
+            {status !== null ? (
+              <span className="shrink-0 text-muted-foreground">{TODO_STATUS_TEXT[status] ?? status}</span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/** `search_documents` 展开态：结果渲成文档条目列表——从摘要文本里抽出「看起来像文件名」的
+ * token（`xxx.ext`）。抽不出任何文件名就老实退化成原文本，不编一个空列表。 */
+function SearchDocumentsCard({ step }: { step: Step }) {
+  const args = tryParseJsonObject(step.toolArgsSummary);
+  const query = typeof args?.query === "string" ? args.query : null;
+  const files = step.toolResultSummary !== null
+    ? [...step.toolResultSummary.matchAll(/[^\s，,。:：]+\.[A-Za-z0-9]{1,6}/g)].map((m) => m[0])
+    : [];
+  return (
+    <div className="mt-1" data-testid="agent-tool-chain-search-documents-card">
+      {query !== null ? (
+        <p className="flex items-center gap-1.5 text-10 text-muted-foreground">
+          <FileSearch aria-hidden className="h-3 w-3 shrink-0" />检索词：{query}
+        </p>
+      ) : null}
+      {step.toolResultSummary === null ? null : files.length > 0 ? (
+        <ul className="mt-0.5 flex flex-col gap-0.5">
+          {files.map((f, i) => (
+            <li key={i} className="flex items-center gap-1.5 text-10 text-card-foreground">
+              <FileText aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 flex-1 truncate">{f}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-0.5 text-10 text-card-foreground">{step.toolResultSummary}</p>
+      )}
+    </div>
+  );
+}
+
+/** `read_document` 展开态：文件名单独一行，正文预览另起一段——不是「参数 JSON + 结果 JSON」
+ * 拼一起的通用卡片。 */
+function ReadDocumentCard({ step }: { step: Step }) {
+  const args = tryParseJsonObject(step.toolArgsSummary);
+  const path = typeof args?.path === "string" ? args.path : null;
+  return (
+    <div className="mt-1" data-testid="agent-tool-chain-read-document-card">
+      {path !== null ? (
+        <p className="flex items-center gap-1.5 text-10 font-medium text-card-foreground">
+          <FileText aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />{path}
+        </p>
+      ) : null}
+      {step.toolResultSummary !== null ? (
+        <p className="mt-0.5 rounded-sm border border-border-subtle bg-muted px-1.5 py-1 text-10 text-card-foreground">
+          {step.toolResultSummary}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** `lookup_time` 展开态：把结果里的 ISO 时间戳单独摘出来加粗，不是一整行原文。抽不出就
+ * 原样显示——绝不假装解析出一个时间。 */
+function LookupTimeCard({ step }: { step: Step }) {
+  const match = step.toolResultSummary?.match(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/) ?? null;
+  return (
+    <div className="mt-1 flex items-center gap-1.5 text-10" data-testid="agent-tool-chain-lookup-time-card">
+      <Clock aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+      {match !== null ? (
+        <span className="font-mono font-medium text-card-foreground">{match[0]}</span>
+      ) : step.toolResultSummary !== null ? (
+        <span className="text-card-foreground">{step.toolResultSummary}</span>
+      ) : null}
+    </div>
+  );
+}
+
+/** 兜底通用卡片：没有专属渲染的工具走这条——「参数 JSON + 结果 JSON」文本布局，逐字保留
+ * 本组件原有行为。 */
+function GenericToolBody({ step }: { step: Step }) {
+  const failed = step.status === "failed";
+  return (
+    <>
+      {step.toolArgsSummary ? (
+        <p className="mt-1 font-mono text-10 text-muted-foreground">参数：{step.toolArgsSummary}</p>
+      ) : null}
+      {step.toolResultSummary ? (
+        <p className={cn("mt-0.5 text-10", failed ? "text-destructive" : "text-card-foreground")}>
+          {failed ? "失败原因" : "结果"}：{step.toolResultSummary}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/** #742 Gap 4：按 `toolName` 分发到贴合数据形状的展示分支；其余工具兜底走
+ * `GenericToolBody`（不要求覆盖所有工具）。只在终态（非 `in_progress`）下分发——进行中
+ * 态还没有 `toolResultSummary` 可供任何一个专属卡片消费，统一走 Gap 1 的进行中提示。 */
+function ToolChainStepBody({ step }: { step: Step }) {
+  switch (step.toolName) {
+    case "write_todos": return <WriteTodosCard step={step} />;
+    case "search_documents": return <SearchDocumentsCard step={step} />;
+    case "read_document": return <ReadDocumentCard step={step} />;
+    case "lookup_time": return <LookupTimeCard step={step} />;
+    default: return <GenericToolBody step={step} />;
+  }
+}
+
 function ToolChainStep({ step, index }: { step: Step; index: number }) {
-  const succeeded = step.status === "succeeded";
+  const inProgress = step.status === "in_progress";
   return (
     <li
       className="rounded-sm border border-border-subtle bg-card px-2 py-1.5"
@@ -200,24 +376,30 @@ function ToolChainStep({ step, index }: { step: Step; index: number }) {
         </p>
       ) : null}
       <div className="flex items-center gap-1.5 text-11">
-        <Wrench aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-medium text-card-foreground">
-          调用 {step.toolName ?? "未知工具"}
-        </span>
-        {succeeded ? (
-          <Badge tone="primary"><CheckCircle2 aria-hidden className="h-2.5 w-2.5" />完成</Badge>
+        {inProgress ? (
+          // #742 Gap 1：脉动图标——工具调用开始时就有真实记账（`in_progress` 步骤），
+          // 用户此刻看到的是「正在调用」，不是等到终态才第一次出现在 steps 里。
+          <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin text-muted-foreground" />
         ) : (
-          <Badge tone="danger"><XCircle aria-hidden className="h-2.5 w-2.5" />失败</Badge>
+          <Wrench aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
         )}
+        <span className="min-w-0 flex-1 truncate font-medium text-card-foreground">
+          {inProgress ? "正在调用 " : "调用 "}{step.toolName ?? "未知工具"}
+        </span>
+        <StepStatusBadge status={step.status} />
       </div>
-      {step.toolArgsSummary ? (
-        <p className="mt-1 font-mono text-10 text-muted-foreground">参数：{step.toolArgsSummary}</p>
-      ) : null}
-      {step.toolResultSummary ? (
-        <p className={cn("mt-0.5 text-10", succeeded ? "text-card-foreground" : "text-destructive")}>
-          {succeeded ? "结果" : "失败原因"}：{step.toolResultSummary}
-        </p>
-      ) : null}
+      {inProgress ? (
+        <>
+          {step.toolArgsSummary ? (
+            <p className="mt-1 font-mono text-10 text-muted-foreground">参数：{step.toolArgsSummary}</p>
+          ) : null}
+          <p className="mt-0.5 text-10 text-muted-foreground" data-testid={`agent-tool-chain-in-progress-${index}`}>
+            正在调用…结果尚未返回
+          </p>
+        </>
+      ) : (
+        <ToolChainStepBody step={step} />
+      )}
     </li>
   );
 }
