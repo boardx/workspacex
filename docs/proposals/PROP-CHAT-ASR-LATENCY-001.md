@@ -139,6 +139,94 @@ DashScope 端点在收到 `turn_detection` 参数后到底会不会认、认了�
 
 ⚠ 两个开关是否真的有效、协议是否兼容，都**只能在真实 devapp/DashScope 凭据下验证**（#802 前科）。
 
+## 七点五、2026-08-23 复查：人类再次实测反馈「文字远落后声音」+「标点符号不对」
+
+人类在 devapp 上再次实测反馈同一条延迟投诉，并新增了标点符号问题。逐层复查结论：
+
+### 复查 1：链路代码有没有偏离本文档记录的状态（无回归）
+
+对比本文档记录的 2026-08-16/17 状态与当前 SHA（`ef9dffe9`，`main` 最新）：
+
+- `apps/api/src/infrastructure/recording/configured-realtime-asr-provider.ts`：
+  自 2026-08-16 起只有 `1390c872`（"default turn silence to 400ms"，2026-08-17）
+  一次改动，`DEFAULT_ASR_TURN_SILENCE_MS = 400`、`KERNEL_ASR_TURN_SILENCE_MS` /
+  `KERNEL_ASR_MODEL` 两个环境变量开关均未变化，与文档第三、六点五节记录一致。
+  `parseDashscopeTranscriptEvent` 仍是 `text + stash` 拼接成完整快照后经
+  `onPartial` 立即转发（`configured-realtime-asr-provider.ts:126-128,241-243`），
+  没有引入任何缓冲/去抖。
+- `apps/api/src/interface/ws/asr-draft.gateway.ts`：自 2026-08-16 起**无改动**
+  （`git log --since=2026-08-15` 空）。`onPartial` 收到即用
+  `send({ type: "asr.partial", text: t.text })` 转发，无排队。
+- `apps/web/lib/live-asr-draft.ts` / `BoardxRealtimeAsrClient.ts`：均无
+  2026-08-15 之后的改动；`socket.addEventListener("message", ...)` 收到
+  `asr.partial` 即同步调用 `handlers.onPartial(frame.text)`，无 debounce/节流。
+- `apps/web/lib/PcmAudioWorklet.ts` 唯一一次改动是 `5e2065d1`
+  （2026-08-15，"batch realtime PCM frames"）——这条**早于**本文档 2026-08-16
+  的调查基线，文档第一节"浏览器仍按 80ms 聚合 16kHz PCM16LE"这句话本身就是
+  在这次改动之后写的，不是新回归。
+- `apps/web/lib/use-asr-draft.ts` 有一次改动（`8ef5c237`，2026-08-20，
+  补 connecting/stopping 中间态），只加状态机的过渡态，**没有碰**
+  `onPartial`/`onFinal` 的转发路径（`appendTranscript` 逻辑与 `onTranscriptRef.current(...)`
+  同步调用未变）。
+
+⇒ 后端到浏览器事件转发这条链路，**没有发现任何偏离文档记录状态的新回归**。
+
+### 复查 2：转录渲染是不是被今天 session 改动的文字消息组件误伤（不是）
+
+转录状态机挂载在 `apps/web/components/chat/chat-live-message-panel.tsx`
+（`useAsrDraft(...)`，第 460 行），这个组件今天 session 确实有大量改动历史，
+但逐行核对转录相关路径：
+
+- `onTranscript: (fullText) => updateDraft({ text: fullText })`（第 462 行）
+  → `updateDraft` 直接 `setText(nextText)`（第 709-717 行），是同步的
+  `React.useState` setter，**没有** `useMemo`/`React.memo`/`useDeferredValue`/
+  `setTimeout`/`debounce`/`throttle` 包裹这条路径。
+- `<Textarea value={text} ... />`（第 1432-1447 行）是普通受控输入，`value`
+  直接绑定 `text` state，没有额外的渲染门槛。
+- 全文 grep `speech\.` 只命中按钮状态展示（`connecting`/`stopping`/`listening`/
+  `error`），转录文字本身走的是 `text`/`updateDraft`，与今天改动的"过程区"、
+  "折叠头"等文字消息渲染逻辑是完全不同的代码路径，没有交叉。
+
+⇒ 前端渲染路径**没有发现**额外引入的延迟或阻塞重渲染的 bug。
+
+### 复查 3：标点符号问题——确认是模型原样输出，代码没有二次加工
+
+- 全仓 grep 转录管线相关文件（`use-asr-draft.ts`、`live-asr-draft.ts`、
+  `BoardxRealtimeAsrClient.ts`、`asr-draft.gateway.ts`、
+  `configured-realtime-asr-provider.ts`）不存在任何 `replace(/…/)` 之类的
+  正则改写、trim、全半角转换等针对转录文本的后处理。
+- `use-asr-draft.ts` 的 `appendTranscript()` 只在拼接"基线文本 + 已提交转录 +
+  当前临时转录"三段时按"结尾是否已有空白"决定要不要插一个 ASCII 空格
+  （第 72-77 行），**不触碰**每一段内部的标点字符本身。
+- `parseDashscopeTranscriptEvent()`（`configured-realtime-asr-provider.ts:116-138`）
+  把上游 `text`/`stash`/`transcript` 字段原样拼接转发，没有任何字符级改写。
+
+⇒ 标点符号是 DashScope 模型原样吐出来的，本仓代码链路上**没有**引入或损坏
+标点。这是模型本身的标点质量问题，不是代码 bug——不建议在没有先例支持的情况下
+额外发明一个"标点修正"后处理层去掩盖模型质量问题；是否要做规则修正、以及切换到
+文档第六点五节列出的 `qwen-audio-3.0-asr-flash-streaming` 是否标点更好，需要在
+真实环境里对比试用后再判断。
+
+### 复查 4：两个开关在当前 SHA 上确认仍然可用，不需要等代码
+
+- `KERNEL_ASR_TURN_SILENCE_MS`：设为正整数覆盖默认 400ms；非法值/空值回退
+  400ms 并打警告日志（`configured-realtime-asr-provider.ts:71,73,91`）——
+  与文档记录一致，**现在就能用，改环境变量 + 重启即可试**。
+- `KERNEL_ASR_MODEL`：直接拼进连接 URL 的 `?model=` 查询参数
+  （`configured-realtime-asr-provider.ts:164`），**不写死模型**——换成
+  `qwen-audio-3.0-asr-flash-streaming` 同样只需要改环境变量 + 重启，
+  零代码改动。
+
+### 结论
+
+这次复查确认：文档记录的两个"待人类在真实环境验证"的开关（VAD 静音阈值、
+换流式模型）在当前 `main` 上原样成立，代码链路没有新引入的延迟或标点回归。
+延迟问题的根因判断维持文档原结论——**卡在"需要真实 devapp/DashScope 凭据下
+验证参数是否生效"**，本 agent 在这个沙箱环境里同样没有这项凭据，无法进一步
+验证。标点问题判断为模型输出质量问题，代码链路未做任何后处理、也未引入损坏。
+
+*本节由 dev-chat-e2e worker 于 2026-08-23 复查整理，未改动任何代码。*
+
 ## 七、需要人类决定的
 
 - 是否有人能在 devapp 环境里手动验证一次 `turn_detection` 参数是否被 DashScope 接受、
