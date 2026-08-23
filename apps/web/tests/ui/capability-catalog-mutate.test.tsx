@@ -74,8 +74,16 @@ interface Recorded {
 }
 
 /**
- * 一个可编排的 fetch：GET 依次吐出 `pages` 里的下一页，POST 交给 `onMutate`。
- * 刻意**不**让 GET 复用同一份数据——②「列表来自第二次 GET」只有在两次 GET 内容不同时才可证伪。
+ * 一个可编排的 fetch：`GET /capabilities` 依次吐出 `pages` 里的下一页，POST 交给
+ * `onMutate`。刻意**不**让 GET 复用同一份数据——②「列表来自第二次 GET」只有在两次
+ * GET 内容不同时才可证伪。
+ *
+ * ⚠ #1915 起，`AgentScreen` 挂载时还会打一个独立的 `GET /agents`（`AgentDefinitionListPanel`
+ * 的 `listAgents`）——按路径分流：只有 `listCapabilities.path` 消费 `pages` 序列，
+ * 其它 GET（目前只有 `listAgents`）恒回空数组。不分流会让 `getIndex` 被两条不相关的
+ * GET 共享推进，`CapabilityCatalogScreen` 那次 GET 拿到的就不是它期望的那一页——
+ * 这正是 2026-08-24 实测撞见的那个假红（`-disable` 按钮消失，因为提前吃到了「已停用」
+ * 那一页）。
  */
 function stubFetch(options: {
   pages: readonly (readonly Listing[])[];
@@ -88,11 +96,12 @@ function stubFetch(options: {
     const method = init?.method ?? "GET";
     const body = init?.body ? (JSON.parse(String(init.body)) as Record<string, unknown>) : null;
     calls.push({ method, path: url.pathname, body });
-    if (method === "GET") {
+    if (method === "GET" && url.pathname === identity.operations.listCapabilities.path) {
       const page = options.pages[Math.min(getIndex, options.pages.length - 1)]!;
       getIndex += 1;
       return jsonResponse(page);
     }
+    if (method === "GET") return jsonResponse([]);
     return options.onMutate!(body!);
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -158,7 +167,16 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
     });
     // 二次读取存在，且发生在 mutate 之后。少了它，界面显示的就是 mutate 的回声。
     expect(listCalls(calls)).toHaveLength(2);
-    expect(calls.map((c) => c.method)).toEqual(["GET", "POST", "GET"]);
+    // ⚠ #1915 起 `AgentScreen` 还并行挂了 `AgentDefinitionListPanel`（独立的
+    // `GET /agents`），与本测试要证的「mutate 之后有没有对 /capabilities 重新 GET」
+    // 无关——过滤到本能力目录相关的两条路径（listCapabilities/mutateCapability）
+    // 再断言顺序，不再断言"全部网络调用"的裸序列。
+    const relevant = calls.filter(
+      (c) =>
+        c.path === identity.operations.listCapabilities.path ||
+        c.path === identity.operations.mutateCapability.path,
+    );
+    expect(relevant.map((c) => c.method)).toEqual(["GET", "POST", "GET"]);
   });
 
   it("新增 team-only 时携带 ownerTeamId——缺了它可见性规则无法回答", async () => {

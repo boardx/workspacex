@@ -11,6 +11,7 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { agentRuntime } from "@repo/contracts";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-edit-nav", orgRole: "admin" }));
@@ -60,7 +61,16 @@ describe("「编辑」按钮是指向独立页面的链接，不是内联展开"
   });
 
   it("agent 目录：编辑按钮 href 指向 /admin/agent/<id>", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => oneListing("agent")));
+    // ⚠ #1915 起 `AgentScreen` 还并行挂了 `AgentDefinitionListPanel`（独立的
+    // `GET /agents`）——按路径分流，避免它吃到 capability-listing 形状的夹具。
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(typeof input === "string" ? input : input.toString());
+        if (url.pathname === agentRuntime.operations.listAgents.path) return jsonResponse([]);
+        return oneListing("agent");
+      }),
+    );
     render(<AgentScreen state="default" />);
     await waitFor(() => expect(screen.getByTestId("admin-agent-list")).toBeTruthy());
     const link = await screen.findByTestId("admin-agent-row-agent-1-edit");
