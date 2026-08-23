@@ -19,7 +19,12 @@ from __future__ import annotations
 
 from deepagents import create_deep_agent
 
-from deep_agent_service.harness import build_checkpointer, build_interrupt_on, build_middleware
+from deep_agent_service.harness import (
+    build_checkpointer,
+    build_interrupt_on,
+    build_middleware,
+    build_subagents,
+)
 from deep_agent_service.model import build_chat_model
 from deep_agent_service.tools import build_tools
 
@@ -42,4 +47,7 @@ graph = create_deep_agent(
     middleware=build_middleware(_model),
     checkpointer=build_checkpointer(),
     interrupt_on=build_interrupt_on(),
+    # DA-05（#1838，rubric D5）：具名研究子代理。灰度开关未开时返回 None，
+    # 与 create_deep_agent 的参数默认值逐字一致——行为与接线前完全相同。
+    subagents=build_subagents(_model),
 )

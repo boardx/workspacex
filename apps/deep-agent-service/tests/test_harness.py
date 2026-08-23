@@ -332,3 +332,134 @@ def test_budget_thresholds_pinned():
     names = [type(m).__name__ for m in mw]
     for required in ["ToolCallLimitMiddleware", "ModelCallLimitMiddleware", "ToolRetryMiddleware"]:
         assert required in names
+
+
+# ── DA-05（#1838，rubric D5）：具名研究子代理——委托真实发生的活体反证 ──
+#
+# task 工具实测参数形状（deepagents 0.7.6，进程内 t.args 直读，不是猜的）：
+#   {"description": <给子代理的任务全文>, "subagent_type": <SubAgent["name"]>}
+# SubAgent TypedDict 必填字段：name / description / system_prompt（⚠ 不是 prompt）。
+# 下一个人照抄这个形状即可，不用再 inspect。
+
+
+def _recording_model(script):
+    """脚本化 + 记录每次模型调用收到的消息——「子代理真实执行」的证据就来自
+    这份记录：它的第二轮输入必须包含 list_org_skills 的 ToolMessage。"""
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+
+    class RecordingScriptedModel(GenericFakeChatModel):
+        seen: list = []
+
+        def bind_tools(self, tools, **kwargs):  # noqa: ANN001, ANN003
+            return self
+
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):  # noqa: ANN001, ANN003
+            type(self).seen.append(list(messages))
+            return super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+
+    # 每次构造独立的记录容器（类属性默认共享，覆盖掉）
+    model = RecordingScriptedModel(messages=iter(script))
+    type(model).seen = []
+    return model
+
+
+def test_subagents_off_by_default(monkeypatch):
+    """双轨反证：未设 DEEP_AGENT_SUBAGENTS_ENABLED 时返回 None——
+    create_deep_agent 收到 None 与参数默认值逐字一致，行为与接线前完全相同。"""
+    from deep_agent_service.harness import build_subagents
+
+    monkeypatch.delenv("DEEP_AGENT_SUBAGENTS_ENABLED", raising=False)
+    assert build_subagents(_fake_model()) is None
+    monkeypatch.setenv("DEEP_AGENT_SUBAGENTS_ENABLED", "0")
+    assert build_subagents(_fake_model()) is None
+
+
+def test_subagent_config_pinned(monkeypatch):
+    """配置钉死：名字/职责/system_prompt 指令/工具集/模型全部显式，不吃库默认。"""
+    from deep_agent_service.harness import build_subagents
+
+    monkeypatch.setenv("DEEP_AGENT_SUBAGENTS_ENABLED", "1")
+    model = _fake_model()
+    subagents = build_subagents(model)
+    assert subagents is not None and len(subagents) == 1
+    sa = subagents[0]
+    assert sa["name"] == "org-skill-researcher"
+    assert "调研" in sa["description"] and "汇总" in sa["description"]
+    assert "list_org_skills" in sa["system_prompt"]
+    assert [t.name for t in sa["tools"]] == ["list_org_skills", "call_skill"]
+    assert sa["model"] is model, "子代理模型显式钉为主模型，不吃「继承」的库默认"
+
+
+def test_task_tool_advertises_named_subagent(monkeypatch):
+    """启用后主图 task 工具的描述里必须出现具名子代理——这是主模型「知道可以
+    委托给谁」的唯一渠道；不出现，子代理就还是守着空气。"""
+    from deepagents import create_deep_agent
+    from deep_agent_service.harness import build_subagents
+
+    monkeypatch.setenv("DEEP_AGENT_SUBAGENTS_ENABLED", "1")
+    model = _fake_model()
+    graph = create_deep_agent(model=model, subagents=build_subagents(model))
+    task_tool = _task_tool(graph)
+    assert "org-skill-researcher" in task_tool.description
+    # 反向对照：不接 subagents 时 task 工具只有内建 general-purpose——基线 D5=0.3 的机械复现
+    bare = create_deep_agent(model=_fake_model())
+    assert "org-skill-researcher" not in _task_tool(bare).description
+
+
+def _task_tool(graph):
+    node = graph.nodes["tools"]
+    bound = getattr(node, "bound", node)
+    return getattr(bound, "tools_by_name", {})["task"]
+
+
+def test_subagent_delegation_really_happens(monkeypatch):
+    """D5 正证：主模型发 task 调用 → 具名子代理真实执行——三份互相独立的证据：
+    ① 子代理自己的脚本模型被消费（seen 非空，且轮数与剧本一致）；
+    ② 子代理第二轮输入里有 list_org_skills 的 ToolMessage，内容是本次运行
+       config 里种的技能清单——工具真实执行在子代理上下文内，config 真实透传；
+    ③ 子代理的最终答案归并回主线程（task 的 ToolMessage 里有它的结论），
+       主模型据此收尾。缺任何一份都可能是「task 工具执行了但子代理是空转」。"""
+    from langchain_core.messages import AIMessage
+    from deepagents import create_deep_agent
+    from deep_agent_service.harness import build_subagents
+
+    monkeypatch.setenv("DEEP_AGENT_SUBAGENTS_ENABLED", "1")
+
+    sub_model = _recording_model([
+        AIMessage(content="", tool_calls=[{"id": "s1", "name": "list_org_skills", "args": {}}]),
+        AIMessage(content="RESEARCH_DONE: 本次运行挂载 skill-a（做甲事）"),
+    ])
+    main_model = _recording_model([
+        AIMessage(content="", tool_calls=[{
+            "id": "m1",
+            "name": "task",
+            # 实测形状：description + subagent_type（= SubAgent["name"]）
+            "args": {"description": "调研本组织技能库并汇总", "subagent_type": "org-skill-researcher"},
+        }]),
+        AIMessage(content="主线程收尾：已拿到研究员结论"),
+    ])
+
+    subagents = build_subagents(sub_model)
+    graph = create_deep_agent(model=main_model, subagents=subagents)
+    result = graph.invoke(
+        {"messages": [{"role": "user", "content": "组织里有哪些技能可用？"}]},
+        {"configurable": {"org_skills": [
+            {"stable_name": "skill-a", "name": "甲技能", "content": "做甲事"},
+        ]}},
+    )
+
+    # ① 子代理的脚本模型被真实消费：两轮（发工具调用 + 汇总收尾）
+    assert len(type(sub_model).seen) == 2, (
+        f"子代理模型应被调用 2 轮，实际 {len(type(sub_model).seen)}——委托没有真实发生"
+    )
+    # ② 第二轮输入包含 list_org_skills 的真实执行结果（config 里种的技能清单）
+    second_round = " ".join(str(getattr(m, "content", "")) for m in type(sub_model).seen[1])
+    assert "skill-a" in second_round and "甲技能" in second_round, (
+        "子代理内 list_org_skills 必须真实执行且读到本次运行 config 的 org_skills"
+    )
+    # ③ 子代理结论归并回主线程：task 的 ToolMessage 带回 RESEARCH_DONE
+    tool_msgs = [m for m in result["messages"] if type(m).__name__ == "ToolMessage"]
+    task_results = [str(m.content) for m in tool_msgs if "RESEARCH_DONE" in str(m.content)]
+    assert task_results, "子代理的最终答案必须归并回主线程的 task ToolMessage"
+    final_texts = " ".join(str(getattr(m, "content", "")) for m in result["messages"])
+    assert "主线程收尾" in final_texts, "主模型必须在拿到子代理结论后继续走到终稿"
