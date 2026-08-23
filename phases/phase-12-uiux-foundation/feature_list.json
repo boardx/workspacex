@@ -130,9 +130,9 @@
       "spec_ref": "04-third-party-style-guardrail.md#R3",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-b",
       "verification": [
         "pnpm --filter web exec vitest run tests/lint-third-party-style-registry.test.ts",
         "pnpm --filter web run lint:design"
