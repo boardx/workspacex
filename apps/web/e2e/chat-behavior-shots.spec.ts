@@ -185,6 +185,11 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
     await step("点击麦克风", () => mic.click({ timeout: 15_000 }));
     await page.waitForTimeout(2500);
     await shoot("b5-mic.png", "第5项 语音输入", "⚠ 无头浏览器无真实麦克风：只证明点击后的界面反馈，不证明转录可用");
+    // ⚠ 必须再点一次把录音停掉：不停的话 loopback ASR 会持续把转录写进输入框，
+    //   把后面 markdown / 多步 / 失败三个场景刚 fill 的取证消息覆盖掉（本轮实测：
+    //   三个场景全部受阻，composer 里躺着 [loopback-asr] 转录文本）。
+    await step("停止麦克风录音", () => mic.click({ timeout: 15_000 }));
+    await page.waitForTimeout(800);
   }
 
   /* ── 首轮评分点名的取证缺口②：markdown 呈现（替身对触发词回 markdown 正文，
@@ -193,17 +198,36 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
   if (await composer2.isVisible().catch(() => false)) {
     await step("发 markdown 取证消息", async () => {
       await composer2.fill(CHAT_READ_E2E.deepAgentMarkdownTrigger);
-      await page.getByTestId("chat-message-send").click({ timeout: 20_000 });
+      await page.getByTestId("chat-message-submit").click({ timeout: 20_000 });
     });
     await page.waitForTimeout(9000);
     await shoot("b8-markdown.png", "第8项 消息呈现质量", "markdown 回复终态：标题/列表/代码块/行内 code 的真实渲染");
+
+    /* ── 第4项 真实多步能力：多步依赖链取证 ───────────────────────────────
+     * 两轮评分都因「只有单个工具调用块、看不到调用→看结果→下一步的链条」无法给分。
+     * 替身对这句触发词回 write_todos → search_documents → read_document 的剧本，
+     * 第二个工具的 args.path（A.md）逐字来自第一个工具的结果——链条本身就是证据。
+     * 展开写法照上面 b3-tool-expanded。 */
+    await step("发多步取证消息", async () => {
+      await composer2.fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+      await page.getByTestId("chat-message-submit").click({ timeout: 20_000 });
+    });
+    await page.waitForTimeout(9000);
+    await step("展开多步工具链折叠块", async () => {
+      const toggle = page.getByTestId("agent-tool-chain-toggle").last();
+      if (await toggle.isVisible().catch(() => false)) {
+        await toggle.click({ timeout: 10_000 });
+        await page.waitForTimeout(400);
+      }
+    });
+    await shoot("b4-multistep-expanded.png", "第4项 真实多步能力", "展开态显示三次工具调用的入参/结果链条：write_todos → search_documents(query) → read_document(path=A.md，path 逐字来自搜索结果)");
 
     /* ── 取证缺口③：真实失败态。FAILURE_TRIGGER 是 loopback 既有的真实失败通路
      *    （上游 run 真的以 error 终态返回，api 侧走真实失败处理与写回）——
      *    这与「伪造一张错误截图」不同：失败链路每一层都是生产代码在跑。 */
     await step("触发真实失败", async () => {
       await composer2.fill(CHAT_READ_E2E.deepAgentFailureTrigger);
-      await page.getByTestId("chat-message-send").click({ timeout: 20_000 });
+      await page.getByTestId("chat-message-submit").click({ timeout: 20_000 });
     });
     await page.waitForTimeout(12_000);
     await shoot("b7-error-real.png", "第7项 错误处理透明度", "上游 error 终态后的真实失败呈现：错误文案/状态条/可恢复入口");
