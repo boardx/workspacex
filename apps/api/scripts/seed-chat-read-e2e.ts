@@ -110,6 +110,9 @@ const ATTACHMENT_PREVIEW_THREAD_ID = required("CHAT_E2E_ATTACHMENT_PREVIEW_THREA
  * snapshot.test.ts` / `tool-trace-cross-run-context.test.ts` 两份真库单测的既有手法，
  * 只是这次要让真实浏览器发的那一条消息去触发它。
  */
+/** F05 —— chat 键盘可达性专属线程对（见 `chat-read-fixture.ts` 同名字段头注）。 */
+const KEYBOARD_THREAD_A_ID = required("CHAT_E2E_KEYBOARD_THREAD_A_ID");
+const KEYBOARD_THREAD_B_ID = required("CHAT_E2E_KEYBOARD_THREAD_B_ID");
 const L2_CHECK_THREAD_ID = required("CHAT_E2E_L2_CHECK_THREAD_ID");
 const L2_EARLY_FACT_CODE_WORD = required("CHAT_E2E_L2_EARLY_FACT_CODE_WORD");
 const TOOL_TRACE_CHECK_THREAD_ID = required("CHAT_E2E_TOOL_TRACE_CHECK_THREAD_ID");
@@ -202,6 +205,8 @@ for (const [id, title] of [
   [ATTACHMENT_PREVIEW_THREAD_ID, "Attachment preview fixture thread"],
   [L2_CHECK_THREAD_ID, "L2 rolling summary check fixture thread"],
   [TOOL_TRACE_CHECK_THREAD_ID, "Tool trace cross-run check fixture thread"],
+  [KEYBOARD_THREAD_A_ID, "Keyboard reachability check thread A"],
+  [KEYBOARD_THREAD_B_ID, "Keyboard reachability check thread B"],
 ] as const) {
   await addChatThread({
     orgId: ORG_ID,
@@ -345,6 +350,7 @@ await asApp(ORG_ID, async (client) => {
     SKILL_MOUNT_THREAD_ID, CAUSAL_CHECK_THREAD_ID, CONTEXT_CHECK_THREAD_ID, IMAGE_VISION_THREAD_ID,
     ATTACHMENT_PREVIEW_THREAD_ID,
     L2_CHECK_THREAD_ID, TOOL_TRACE_CHECK_THREAD_ID,
+    KEYBOARD_THREAD_A_ID, KEYBOARD_THREAD_B_ID,
   ]) {
     await client.query(
       "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
@@ -679,5 +685,6 @@ process.stdout.write(
   + `skillMountThread=${SKILL_MOUNT_THREAD_ID} causalCheckThread=${CAUSAL_CHECK_THREAD_ID} `
   + `contextCheckThread=${CONTEXT_CHECK_THREAD_ID} imageVisionThread=${IMAGE_VISION_THREAD_ID} `
   + `attachmentPreviewThread=${ATTACHMENT_PREVIEW_THREAD_ID} `
-  + `l2CheckThread=${L2_CHECK_THREAD_ID} toolTraceCheckThread=${TOOL_TRACE_CHECK_THREAD_ID}\n`,
+  + `l2CheckThread=${L2_CHECK_THREAD_ID} toolTraceCheckThread=${TOOL_TRACE_CHECK_THREAD_ID} `
+  + `keyboardThreadA=${KEYBOARD_THREAD_A_ID} keyboardThreadB=${KEYBOARD_THREAD_B_ID}\n`,
 );

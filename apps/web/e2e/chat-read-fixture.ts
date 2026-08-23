@@ -190,6 +190,17 @@ export const CHAT_READ_E2E = {
    * 要让真实浏览器发的那一条消息去触发它，不是在单测里直接调 `executeQueuedRuns`）。
    */
 
+  /* ══════════ F05 —— chat 键盘可达性专属线程 ══════════
+   *
+   * 同上面几条专属线程一套理由：独立、零预置消息，不与别的 spec 共写。放在
+   * `restructureProjectId` 而不是 `projectId`——`chat-read.spec.ts:41` 断言
+   * `projectId` 下只有一条会话，塞进去会把那个数字从 1 顶成 2。这里放两条
+   * （不是一条）：键盘走查的核心任务之一是"切换到另一个会话"，需要至少两条
+   * 已存在的会话可以切换，不能靠现拼一条新会话来测（那样测的是"新建"，不是"切换"）。
+   */
+  keyboardThreadAId: "thread-chat-read-e2e-keyboard-a",
+  keyboardThreadBId: "thread-chat-read-e2e-keyboard-b",
+
   /** L2 滚动摘要检查线程：种了足够多填充消息，把下面这条"早期事实"挤出 L1。 */
   l2CheckThreadId: "thread-chat-read-e2e-l2-check",
   /** 埋在 L2 检查线程最早一条消息里的代号——只有 L2 摘要真的覆盖到它才可能间接留痕。 */

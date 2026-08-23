@@ -28,6 +28,17 @@ export const SELF_SERVICE_PROFILE_E2E = {
   memberUserId: "user-ssp-e2e-member",
   memberEmail: "ssp-e2e-member@example.test",
 
+  /**
+   * F05 —— chat/profile 键盘可达性专属账号。**不**复用 `adminEmail`：admin 那条用例会
+   * 真的改掉密码（`test.describe.serial` 里"改密码后旧密码不可登录"这条反证），跟它
+   * 共用账号，账号密码被换掉之后本文件会集体登录失败——同 fixture 头注说明的道理。
+   * 键盘走查这条用例只改显示名、不碰密码，专属账号避免与 admin 用例的执行顺序耦合。
+   */
+  keyboardUserId: "user-ssp-e2e-keyboard",
+  keyboardEmail: "ssp-e2e-keyboard@example.test",
+  keyboardPassword: "Ssp-e2e-keyboard-only-1869!",
+  keyboardDisplayName: "SSP E2E Keyboard",
+
   projectId: "project-ssp-e2e",
 
   /** 种子里已存在、带一名成员的团队——"删除非空团队被拒绝"这条反证的对象。 */

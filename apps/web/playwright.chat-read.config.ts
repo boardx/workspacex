@@ -78,7 +78,13 @@ export default defineConfig({
    * `write_todos` 步骤）+ 真登录，唯一新增的断言目标是 `/chat/copilotkit-preview`
    * 这个既有路由，不需要新的 webServer 编排。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot)\.spec\.ts$/,
+  /**
+   * F05 —— 新增 `chat-keyboard-navigation.spec.ts` 同样由本 config 接住（理由与上面
+   * 几条逐字相同）：这里已经起好了真登录 + 真线程全套编排，单自建 runner 是硬瓶颈；
+   * 唯一新增的是键盘可达性这条断言维度，复用既有 `keyboardThreadAId`/`keyboardThreadBId`
+   * 两条专属线程（`chat-read-fixture.ts` 头注），不需要新的 webServer 编排。
+   */
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
@@ -280,6 +286,10 @@ export default defineConfig({
         CHAT_E2E_TOOL_TRACE_CHECK_THREAD_ID: CHAT_READ_E2E.toolTraceCheckThreadId,
         CHAT_E2E_TOOL_TRACE_TOOL_NAME: CHAT_READ_E2E.toolTraceHistoricalToolName,
         CHAT_E2E_TOOL_TRACE_RESULT_CODE: CHAT_READ_E2E.toolTraceHistoricalResultCode,
+        // F05 —— 键盘可达性专属线程对，唯一事实源在 `chat-read-fixture.ts`，种子脚本与
+        // 断言方共用同一份（同上面每一条专属线程的接线方式）。
+        CHAT_E2E_KEYBOARD_THREAD_A_ID: CHAT_READ_E2E.keyboardThreadAId,
+        CHAT_E2E_KEYBOARD_THREAD_B_ID: CHAT_READ_E2E.keyboardThreadBId,
         // The catalog schema override is intentionally test-only; production always resolves
         // the public Agent catalog. Authentication in this journey still uses a signed login.
         KERNEL_ALLOW_TEST_PRINCIPAL: "1",
