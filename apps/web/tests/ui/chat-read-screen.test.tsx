@@ -1014,7 +1014,7 @@ describe("formal Chat read path", () => {
    * （持久消息列表接管，不会短暂重复显示）；③默认（本文件从不触发任何 delta 事件的
    * 其它所有用例）从不渲染这个气泡——退化行为就是今天的样子，一个字节不多。
    */
-  it("流式增量实时追加进草稿气泡，终态一到立刻清空，交给持久消息列表接管", async () => {
+  it("流式增量实时追加进草稿气泡，持久消息落位后草稿让位——中途不消失", async () => {
     let capturedOnEvent: ((event: AgentRunStreamEvent) => void) | null = null;
     openAgentRunStream.mockImplementation(
       (_runId: string, onEvent: (event: AgentRunStreamEvent) => void) => {
@@ -1058,8 +1058,15 @@ describe("formal Chat read path", () => {
       capturedOnEvent!({ type: "final", status: "succeeded", resultMessageId: "durable-message-22" });
     });
 
-    // 草稿立刻消失——不会和随后 `loadPage` 读回的持久消息同框重复一瞬间。
-    await waitFor(() => expect(screen.queryByTestId("chat-message-row-streaming")).not.toBeInTheDocument());
+    // UX-9 Line A 行为变更（UI 评分第 1 项实锤）：final 事件**不再**立即清空
+    // 草稿——那会让用户眼看着正文消失再换终稿。草稿保留到轮询终态的 loadPage
+    // 完成、持久消息真正渲染进列表之后才让位：无缝接力，全程无空窗。
+    // 清空由轮询终态拍触发（backoff 拍点 0.4/1.0/1.9/3.25/5.3/8.3s…），最坏
+    // 要等到 ~8.3s 那拍 + loadPage 往返——timeout 给足 15s，别让节拍边界抖测试。
+    await waitFor(() => expect(screen.queryByTestId("chat-message-row-streaming")).not.toBeInTheDocument(), { timeout: 15_000 });
+    // 让位时持久消息列表必须仍然在场（loadPage soft 已完成）——草稿消失不是
+    // 退回空白，是交棒给持久列表。
+    expect(screen.getAllByTestId("chat-message-row").length).toBeGreaterThan(0);
   });
 
   it("默认（没有任何 delta 事件）从不渲染流式草稿气泡——退化到阶段2d之前的样子", async () => {

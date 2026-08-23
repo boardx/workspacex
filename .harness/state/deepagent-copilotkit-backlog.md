@@ -162,6 +162,55 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
   Reject 语义 = 不应用该 patch 并把拒绝原因回注给 agent。
 - **依赖**：DA-13、DA-15。
 
+## UX-9 冲刺（2026-08-23 人类裁决：以 UI 主卡到 9 分为目标，subagent 并行，全程无人类参与）
+
+评分循环：改代码 → shots 真栈取证（慢速档）→ 独立评分员看图 → 实锤 → 下一轮。
+两轮评分（各 1/10 证据分）已把「取证不足」与「真实缺陷」分干净，本冲刺按线并行：
+
+| 线 | 范围 | 打哪几项 | 状态 |
+|---|---|---|---|
+| **A**（coord-architecture） | 流式交接无缝（草稿活到持久消息落位）· run 过程区独立于瞬态气泡（终态留存 3/3）· 折叠头不早下结论 + 逐工具参数摘要 · 三场景取证（展开态/markdown/真实失败） | 1 / 2 / 3 / 7 / 8 | v8 自证：streaming行=true×6、规划条留存到终态 |
+| **B**（dev-chat-e2e 并行） | 一致性五处：右栏双态并存 ·「真实」等开发者词汇外泄 · 录音红色语义冲突 · agent 名称中途改写 ·（遮挡留 A） | 10 / 5 | 进行中 |
+| **C**（dev-chat-e2e 并行，stack 在 A 上） | loopback 多步剧本（第二工具参数引用第一工具结果）+ 展开态取证——「看结果→定下一步」的链条可判 | 4 / 3 | 进行中 |
+| **D**（A/B/C 合并后） | 上行上下文注入（useCopilotReadable 等价：视窗/选中→run 上下文）· DA-12 VFS · DA-13 双栏工作台 | 9 + 架构下半场 | 排队 |
+| 活体半边 | 真实模型的 4/6 质量判定、真实麦克风的 5——devapp 取证（live-evidence workflow #1823） | 4 / 5 / 6 | 需部署环境 |
+
+并行纪律：文件级禁区互斥（A 持 panel/tool-chain，B 禁入；C stack 在 A 分支）；
+机器容量上限 3 条并行（parallel-dispatch 教训：四条线 load 50）。
+
+## 研究结论落档（2026-08-23，R1 文档研究 + R2 上游仓库研究，全文见 issue 评论）
+
+**R1（Generative UI 文档 ↔ 本仓对照）**：本仓 static 类型（真实数据→预定义组件）已到文档
+描述的最好水平；到 9 分的杠杆不在加静态组件，而在 **Chat+ 面（双栏共创工作台，DA-13）**
+与**上下文同步原语（上行注入，DA-14）**。open-ended HTML 本仓刻意排除是对的（安全/品牌
+代价，文档同判）。唯一「文档点名、backlog 未立项」的缺口：通用 declarative UI schema
+（Open-JSON-UI/A2UI 类）——**需人类裁决**是否引入（与「不做假 UI」判据有张力），不自行扩。
+
+**R2（ag-ui 协议 + open-ag-ui-canvas 参考实现）**：
+- 本仓桥覆盖 12/约 30 种事件；**状态轴（STATE_SNAPSHOT/DELTA）、推理轴（REASONING_*）、
+  CUSTOM 通道整个为零**；生产 /chat 的三帧协议与 AG-UI 完全平行。
+- canvas 参考实现的双栏联动建立在 shared state（后端 emit → 前端 useCoAgent 订阅 →
+  上行回写）；**架构裁决：DA-13 两轴并用**——小而频的 UI 状态（当前文件/todos 进度）走
+  STATE_DELTA（标准 JSON Patch，省契约），文件级 delta 走 CUSTOM（可扩展），不全自建。
+- 不移植：CopilotRuntime GraphQL 拓扑（#654 已排除）、demo 级组件代码。
+
+### 新增条目
+
+**DA-17 状态与自定义事件轴（Line D2 进行中）**：桥加 STATE_SNAPSHOT/STATE_DELTA/CUSTOM
+三型 + 首个真实生产者（write_todos → snapshot.todos）；反空转纪律：无真实数据不发事件。
+DA-13/15 的传输前提。
+
+**DA-18（需人类裁决后再动）**：通用 declarative UI schema。R1 点名的方法论缺口，
+但与本仓「不做无真实后端支撑的假 UI」判据有张力——材料备好，等裁决，不自行扩。
+
+### Line D 分派（同文件热点已由 R1 核清）
+
+| 线 | 范围 | 热点 |
+|---|---|---|
+| D1 | chat-right-panel mock → 真实数据（DA-13 清障） | 无冲突，先行 |
+| D2 | DA-17 事件轴（api 侧） | 无冲突（不碰 web） |
+| D3（D1/D2 与 A 合并后） | 双栏 Active File Panel + 前端 STATE 消费 + 上行注入 | chat-live-message-panel 热点，串行 |
+
 ## 评分预期（诚实版）
 
 | 条目完成后 | 引擎分预期 | 说明 |

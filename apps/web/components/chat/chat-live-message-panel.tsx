@@ -627,6 +627,11 @@ export function ChatLiveMessagePanel({
         // 终态重读：从本地已加载列表尾部追新，不清空不弹骨架
         // （#925 ② 消灭闪烁 + `catchUpCursorRef` 头注——H3 根因修复）
         await loadPage(catchUpCursorRef.current, "soft");
+        // UX-9 Line A 修1 的另一半：持久消息已落位，草稿完成使命，此刻清空无缝。
+        // ⚠ 首版把这行写在了 `nextCursorRef`（不存在的名字）的 replace 里，静默
+        // 没命中——单测 15s 超时抓回来的。凭记忆写标识符 = DA-07b 函数体事故的
+        // 迷你重演，教训同一条。
+        setStreamingText("");
         // #728 第 10 轮 P10 —— `queuedRun` 是「已提交、等待轮询」那段过渡态的回执，
         // 到了终态（成功/失败）它就该让位给下面 `AgentRunStatus` 的权威状态文案。
         // 之前没清，评分员截到过「消息已持久化，AgentRun 已排队。」和「执行完成，
@@ -669,12 +674,13 @@ export function ChatLiveMessagePanel({
       if (cancelled) return;
       if (event.type === "delta") {
         setStreamingText((current) => current + event.text);
-      } else if (event.type === "final" || event.type === "timeout") {
-        // The persisted message list (via the status-poll effect's `loadPage`) is about
-        // to become the single source of truth for this reply -- keeping the streamed
-        // draft around after that would risk showing the SAME text twice for a moment.
-        setStreamingText("");
       }
+      // UI 复评 2026-08-23 抓到的真实缺陷（第 1 项判 0 的直接依据）：final 事件
+      // 立即清空草稿，但持久消息的 loadPage 还没返回——用户眼看着已渲染的正文
+      // 整段消失、退回打字气泡、再换一段终稿贴上。「即将成为唯一事实源」不等于
+      // 「已经是」。清空移到轮询终态分支的 loadPage **完成之后**（那里持久消息
+      // 已在列表里，草稿到终稿是无缝接力）。timeout 同理；流打开失败的 catch
+      // 分支保留立即清空——那时没有值得保的草稿。
     }, { sessionToken: bearer, signal: controller.signal }).catch(() => {
       // Streaming is a progressive enhancement, not a requirement: `runObservation`'s own
       // poll (above) is the authoritative status/result source regardless of whether this
@@ -1202,6 +1208,32 @@ export function ChatLiveMessagePanel({
                 </li>
               );
             })}
+            {/* UI 复评 2026-08-23：run 过程区（计划/审批/工具链）从瞬态气泡里独立
+                出来——此前挂在流式草稿 li 与等待动画 li 内，streamingText 一清/等待
+                一结束就整块蒸发：规划条在终态消失、计划永远看不到 3/3（第 2 项判 0
+                的第三条依据）。现在只要本轮 run 的观测还在（含终态），过程区就在。
+                换线程/新提交时 runObservation 置 null，自然收场。 */}
+            {runObservation?.view
+              // 让位纪律：持久 agent 消息（resultMessageId）已渲染进列表后，过程区
+              // 退场——计划/工具链由消息自己的 MessageThinkingChain/PlanPanel 承接
+              // （同源 steps），双份同屏是评分卡第 10 项要抓的自相矛盾。落位**之前**
+              // （含终态到 loadPage 完成的窗口）过程区留存，用户始终看得到 3/3。
+              && !(runObservation.view.resultMessageId !== null
+                   && messages.some((m) => m.id === runObservation.view!.resultMessageId)) ? (
+              <li className="flex items-start gap-2.5" data-testid="chat-run-process-area">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-panel text-11 font-semibold text-muted-foreground">
+                  AI
+                </div>
+                <div className="flex min-w-0 max-w-[85%] flex-col gap-1.5">
+                  <AgentPlanPanel steps={runObservation.view.steps} />
+                  <AgentApprovalPanel view={runObservation.view} sessionToken={bearer} />
+                  <AgentToolChain
+                    steps={runObservation.view.steps}
+                    running={!isTerminalRunStatus(runObservation.view.status)}
+                  />
+                </div>
+              </li>
+            ) : null}
             {streamingText !== "" ? (
               // #654 阶段2d —— 逐 token 追加的草稿气泡。刻意不是 `chat-message-row`
               // 这个 testid：它不是一条持久消息（没有 `message.id`，刷新即消失），
@@ -1223,11 +1255,6 @@ export function ChatLiveMessagePanel({
                   {/* 2026-08-14 重做：在途 run 的工具调用链也挂在这条流式气泡自己身上，
                       不再挂在 composer 下方——同一条 run 落库后接力给 `MessageThinkingChain`
                       （上面持久消息那条），视觉位置不因"是否还在流式中"而跳动。 */}
-                  {runObservation?.view ? <AgentPlanPanel steps={runObservation.view.steps} /> : null}
-                  {runObservation?.view ? (
-                    <AgentApprovalPanel view={runObservation.view} sessionToken={bearer} />
-                  ) : null}
-                  {runObservation?.view ? <AgentToolChain steps={runObservation.view.steps} /> : null}
                   <div className="rounded-2xl rounded-tl-sm bg-panel px-3.5 py-2.5 text-12 leading-relaxed text-card-foreground">
                     {/* 同一个 MarkdownMessage——流式草稿与落库后的最终消息渲染路径不该是两套。
                         流式期间未闭合的 ```mermaid 围栏不会被 extractMermaidBlocks 命中，故先当
@@ -1278,11 +1305,6 @@ export function ChatLiveMessagePanel({
                       </span>
                     ) : null}
                   </div>
-                  {runObservation?.view ? <AgentPlanPanel steps={runObservation.view.steps} /> : null}
-                  {runObservation?.view ? (
-                    <AgentApprovalPanel view={runObservation.view} sessionToken={bearer} />
-                  ) : null}
-                  {runObservation?.view ? <AgentToolChain steps={runObservation.view.steps} /> : null}
                   <div
                     className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-panel px-3.5 py-3"
                     role="status"

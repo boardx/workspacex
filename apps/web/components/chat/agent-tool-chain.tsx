@@ -57,31 +57,49 @@ export function deriveThinkingSeconds(steps: Step[]): number | null {
  * `seconds === 0` 与 `seconds === null`（缺失）同等处置——都退化成不带秒的文案，
  * 而不是印出一个会被读成"没思考"的数字。`> 0` 而非 `!== null` 是这处修复的全部。
  */
-export function toolChainSummaryText(steps: Step[]): string {
+export function toolChainSummaryText(steps: Step[], running = false): string {
   const seconds = deriveThinkingSeconds(steps);
   const toolSteps = steps.filter((s) => s.kind === "tool_call");
   const head = seconds !== null && seconds > 0 ? `思考了 ${seconds} 秒 · ` : "";
-  if (toolSteps.length === 0) return `${head}模型直接作答`;
+  // UI 复评 2026-08-23：run 进行中折叠头曾先说「模型直接作答」、几秒后改口
+  // 「调用了 2 个工具」——自相矛盾（第 2 项判 0 的第二条依据）。进行中零工具
+  // 只是「还没到」，不是结论；结论只在终态下。
+  if (toolSteps.length === 0) return running ? `${head}正在执行…` : `${head}模型直接作答`;
   // UI 评分 2026-08-23 第 3 项判 0 的直接依据：「调用参数摘要在任何一张图里都没
   // 露出，默认视图对用户仍是黑盒」。收起态在计数后带首个工具的 名称(参数片段)，
   // 参数截 40 字符——够认出「调的什么、拿什么调的」，不够把折叠头挤成第二个正文。
   // write_todos 这类结构化参数只显示工具名（JSON 片段对人没有信息量）。
-  const first = toolSteps[0]!;
-  const argsBrief =
-    first.toolName !== "write_todos" && first.toolArgsSummary !== null && first.toolArgsSummary !== ""
-      ? `(${first.toolArgsSummary.slice(0, 40)}${first.toolArgsSummary.length > 40 ? "…" : ""})`
-      : "";
-  const firstLabel = first.toolName !== null ? ` ${first.toolName}${argsBrief}` : "";
-  const extra = toolSteps.length > 1 ? ` 等 ${toolSteps.length} 个工具` : "";
-  return `${head}调用了${firstLabel}${extra}`;
+  // UI 复评第 3 项：「等 2 个工具」把第二个工具名吞了，且参数一个字没露。
+  // 逐个列出前两个工具的 名称(参数片段)，write_todos 显示「N 项计划」而非 JSON。
+  const label = (s0: Step): string => {
+    if (s0.toolName === null) return "工具";
+    if (s0.toolName === "write_todos") {
+      let n: number | null = null;
+      try {
+        const parsed = s0.toolArgsSummary === null ? null : (JSON.parse(s0.toolArgsSummary) as { todos?: unknown[] });
+        n = Array.isArray(parsed?.todos) ? parsed.todos.length : null;
+      } catch { /* 解析不了就只显名 */ }
+      return n === null ? "write_todos" : `write_todos(${n} 项计划)`;
+    }
+    const brief = s0.toolArgsSummary !== null && s0.toolArgsSummary !== ""
+      ? `(${s0.toolArgsSummary.slice(0, 32)}${s0.toolArgsSummary.length > 32 ? "…" : ""})`
+      : "()";
+    return `${s0.toolName}${brief}`;
+  };
+  const listed = toolSteps.slice(0, 2).map(label).join(" · ");
+  const extra = toolSteps.length > 2 ? ` 等 ${toolSteps.length} 个工具` : "";
+  return `${head}调用了 ${listed}${extra}`;
 }
 
 export function AgentToolChain({
   steps,
   defaultOpen = false,
+  running = false,
 }: {
   steps: Step[];
   defaultOpen?: boolean;
+  /** run 未终态：零工具时说「正在执行…」而非下「模型直接作答」的结论。 */
+  running?: boolean;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   // V6 与活体一致：只要 run 有任何 step 就展示折叠块，不要求有工具调用才渲染。
@@ -89,7 +107,7 @@ export function AgentToolChain({
 
   const toolSteps = steps.filter((s) => s.kind === "tool_call");
   const failCount = toolSteps.filter((s) => s.status === "failed").length;
-  const summary = toolChainSummaryText(steps);
+  const summary = toolChainSummaryText(steps, running);
 
   return (
     <div
