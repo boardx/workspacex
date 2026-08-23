@@ -26,8 +26,13 @@ grep -E "STREAM_ENABLED|LANGSMITH_TRACING|CHECKPOINT_DB" /opt/workspacex/deploy.
 log "== 1. TC-1 子集：多步任务 → SSE 原始流逐行落盘带毫秒时间戳（D1/D2/D3 唯一凭据）"
 THREAD=$(curl -sf -X POST "$BASE/threads" -H 'content-type: application/json' -d '{}' | python3 -c 'import json,sys;print(json.load(sys.stdin)["thread_id"])')
 log "探针 thread: $THREAD"
+# 2026-08-23 复盘：此前这条 POST 不带 stream_mode，LangGraph 的 join 流默认只回放
+# values（全量状态快照），D2/D3 因此长期只看到 metadata+values 两种事件——不是引擎
+# 缺逐 token/逐次工具调用事件，是这条探针从没问过要。同 apps/api 侧 deep-agent-model-provider.ts
+# 那次真实修法：创建时声明 messages-tuple（逐 token）+ updates（逐节点，含独立工具调用）。
 RUN=$(curl -sf -X POST "$BASE/threads/$THREAD/runs" -H 'content-type: application/json' -d '{
   "assistant_id": "Deep Agent",
+  "stream_mode": ["messages-tuple", "updates"],
   "input": {"messages": [{"role": "user", "content": "请先用 write_todos 列出 3 步计划，然后调用 list_org_skills 查看可用技能，最后总结你看到了什么。"}]}
 }' | python3 -c 'import json,sys;print(json.load(sys.stdin)["run_id"])')
 log "探针 run: $RUN"
