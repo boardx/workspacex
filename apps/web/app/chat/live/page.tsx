@@ -5,8 +5,9 @@
  *
  * ## 为什么是新路由，不是把 `/chat` 接上真数据
  *
- * `/chat` 是已签核的原型屏（七态门控、三栏布局、`ChatMain`/`ChatLeftPanel`/
- * `ChatRightPanel` 全部吃 mock 展示字段），与 F122 之前 `/projects` 的处境完全
+ * `/chat` 当年是已签核的原型屏（七态门控、三栏布局、`ChatMain`/`ChatLeftPanel`/
+ * `ChatRightPanel` 全部吃 mock 展示字段；其中 `ChatRightPanel` 已于 UX-9 Line D1
+ * 整体删除——无后端支撑的假转录/洞察），与 F122 之前 `/projects` 的处境完全
  * 一样——硬接会逼着现在就给一堆展示字段编出处。这里复用 F122/`/project/live`
  * 立下的先例：开一条干净路由，只证明「真实 HTTP + 真实 Postgres」这条路径成立。
  *

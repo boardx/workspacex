@@ -521,32 +521,11 @@ export const COMPOSER_STATUS = {
   output: "输出到「假设树」",
 };
 
-/* ─────────────────────────── 右栏五标签（UC-8.2 R3 步骤 13）─────────────────────────── */
-
-/**
- * 右栏标签行（展示层）。⚠ 与契约 `chat.RightTab` **同名不同义**：
- * 契约那份是**五值枚举**（标签的 key），这份是渲染一行所需的 `{key,label,count}`。
- * ⇒ 改名分离，且 `key` **就用契约那个枚举**——保证五个 key 与契约同源。
- */
-export interface RightTabView {
-  key: z.infer<typeof C.RightTab>;
-  label: string;
-  /** null = 无计数（转录）；「已完成/总数」形式用 countDisplay */
-  count: number | null;
-  countDisplay?: string;
-}
-export const RIGHT_TABS: RightTabView[] = [
-  { key: "transcript", label: "转录", count: null },
-  { key: "execution", label: "执行", count: 4, countDisplay: "2/4" },
-  { key: "insight", label: "洞察", count: 6 },
-  { key: "artifact", label: "产物", count: 3 },
-  { key: "material", label: "材料", count: 12 },
-];
-
-/** 空态：新线程五标签计数全为 0 且不隐藏（UC-8.2 V14）*/
-export const RIGHT_TABS_EMPTY: RightTabView[] = RIGHT_TABS.map((t) =>
-  t.key === "transcript" ? t : { ...t, count: 0, countDisplay: t.key === "execution" ? "0/0" : undefined },
-);
+/* ─────────────────────────── 右栏转录（UC-8.2 R3 步骤 13）─────────────────────────── */
+/* ⚠ UX-9 Line D1：右栏五标签的展示层 mock（`RightTabView` / `RIGHT_TABS` /
+ * `RIGHT_TABS_EMPTY` / `TRANSCRIPT_SESSION`）随 `chat-right-panel.tsx` 整体删除——
+ * 无后端支撑的假 UI 不留。`TRANSCRIPT_ENTRIES` 仍被 #462 台账里路由走不到的
+ * `message-stream.tsx` 引用，随那条待裁链一起处置。 */
 
 export interface TranscriptEntry {
   id: string;
@@ -564,12 +543,6 @@ export const TRANSCRIPT_ENTRIES: TranscriptEntry[] = [
   { id: "t3", speaker: "周宁", time: "28:06", text: "EPC 产能这块我担心，去年那家承诺的产能最后只兑现了六成。" },
   { id: "t4", speaker: "Ledger", time: "28:11", text: "我这边在跑三路径的现金流对比，含补贴退坡后的敏感性。", identifying: true },
 ];
-
-/** 会议进行中 · 计时（右栏头部）*/
-export const TRANSCRIPT_SESSION = {
-  status: "会议进行中 · 显示转录",
-  elapsed: "28:14",
-};
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * UC-8.3 对话产出落地 —— 三模式绑定 / 出处回链 / 未挂来源标灰 / 产物标签徽标
