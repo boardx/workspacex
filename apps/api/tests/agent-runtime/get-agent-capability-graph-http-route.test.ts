@@ -116,6 +116,45 @@ describe("跨组织读不到（fail-closed，同 findForClone 的既有语义）
   });
 });
 
+/**
+ * #1918 hotfix（#1923）回归：`initials`/`role`/`visibility`/`source`/`publish_state`/
+ * `concurrency_limit`/`degrade_policy` 七列全为 NULL 的行——真实由
+ * `pg-system-agent-repository.ts`（`ensureDefaultAgent`，即每个组织的「通用助手」）
+ * 落库时就长这样，也是 devapp 实测复现的确切形状。此前复用 `findForClone` 时，
+ * 这七列任一为 NULL 就判「不存在」⇒ 404；修复后应正常 200。
+ */
+async function seedBackfillStyleAgent(orgId: string): Promise<string> {
+  const agentId = `agent-i1923-backfill-${randomUUID()}`;
+  await asApp(orgId, (c) =>
+    c.query(
+      `INSERT INTO agents
+         (id,org_id,stable_name,name,status,creator_id,created_at,updated_at,
+          published_version_id,role_label,role_label_needs_confirmation)
+       VALUES ($1,$2,$1,$3,'enabled',$4,now(),now(),NULL,$5,false)`,
+      [agentId, orgId, `backfill-style agent ${agentId}`, ADMIN, "通用助手"],
+    ),
+  );
+  return agentId;
+}
+
+describe("补种/starter-import 残缺行（七列为 NULL，如「通用助手」）——#1918 hotfix 回归（#1923）", () => {
+  it("能力图不再 404，name/roleLabel 读得出来，skillMounts/toolWhitelist 兜底成 []", async () => {
+    await resetOrgs(ORG, OTHER_ORG);
+    await seedOrg({ orgId: ORG, projectId: "proj-i1923-backfill" });
+    await addOrgMember(ORG, ADMIN, "admin", null);
+    const agentId = await seedBackfillStyleAgent(ORG);
+
+    const response = await get(`/agents/${agentId}`, ADMIN, ORG);
+    expect(response.status).toBe(200);
+    const parsed = AR.operations.getAgentCapabilityGraph.out.parse(await response.json());
+    expect(parsed.agentId).toBe(agentId);
+    expect(parsed.name).toBe(`backfill-style agent ${agentId}`);
+    expect(parsed.roleLabel).toBe("通用助手");
+    expect(parsed.skillMounts).toEqual([]);
+    expect(parsed.toolWhitelist).toEqual([]);
+  });
+});
+
 describe("空态：没有挂载任何能力的 agent ⇒ 两个数组都是真实空数组", () => {
   it("skillMounts/toolWhitelist 均为 []，不是 null、不是省略字段", async () => {
     await resetOrgs(ORG, OTHER_ORG);

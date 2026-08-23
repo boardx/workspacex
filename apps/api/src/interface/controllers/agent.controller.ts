@@ -202,8 +202,10 @@ export class AgentController {
 
   /**
    * `GET /agents/:agentId` —— #1911，agent 详情页「能力图」的数据源。
-   * 只读，复用已注入的 `CREATE_AGENT_REPOSITORY`（`findForClone` 同一条读路径），
-   * 不新增仓储、不碰任何写路径。
+   * 只读，复用已注入的 `CREATE_AGENT_REPOSITORY`，但走的是
+   * `findForCapabilityGraph`（#1918 hotfix，#1923）——**不是** `findForClone` 那条
+   * 读路径，两者判据不同（见 `get-agent-capability-graph.ts` 头注）。不新增仓储
+   * 文件、不碰任何写路径。
    */
   @Get(C.operations.getAgentCapabilityGraph.path)
   async getCapabilityGraph(

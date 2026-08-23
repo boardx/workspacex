@@ -67,9 +67,33 @@ export interface CreateAgentInput {
 const DEFAULT_CONCURRENCY_LIMIT = 1;
 const DEFAULT_DEGRADE_POLICY: DegradePolicyName = "跟随组织级";
 
+/**
+ * #1918 hotfix（#1923）—— 能力图只读投影，字段特意收窄到「界面渲染能力图真正要用到的」
+ * 几个：`agentId`/`name`/`roleLabel`/`skillMounts`/`toolWhitelist`。**不**要求
+ * `initials`/`visibility`/`source`/`publish_state`/`concurrency_limit`/`degrade_policy`
+ * 非空——那七列只在 `createAgent` 这条写路径下才必然有值，一条由
+ * agent-starter-import / #662 迁移补种出来的默认 agent（如每个组织的「通用助手」）
+ * 天然没有这些列，但它是一个真实存在、能力图理应读得出来的 agent。
+ * 见 `pg-create-agent-repository.ts` 的 `findForCapabilityGraph`。
+ */
+export interface AgentCapabilityGraphRow {
+  readonly agentId: string;
+  readonly name: string;
+  readonly roleLabel: string;
+  readonly skillMounts: AgentDefinition["skillMounts"];
+  readonly toolWhitelist: AgentDefinition["toolWhitelist"];
+}
+
 export interface CreateAgentRepository {
   /** clone 源的存在性 + 可继承字段读取。找不到（跨组织也算找不到）⇒ null。 */
   findForClone(orgId: string, agentId: string): Promise<AgentDefinition | null>;
+  /**
+   * #1918 hotfix（#1923）—— 能力图只读路径。与 `findForClone` **不是同一判据**：
+   * `findForClone` 判的是「这一行能不能当克隆源」，本方法判的是「这一行存不存在」。
+   * 两者不能合并，否则要么克隆功能开始尝试克隆残缺行，要么能力图对补种行永远 404。
+   * 找不到（跨组织也算找不到）⇒ null。
+   */
+  findForCapabilityGraph(orgId: string, agentId: string): Promise<AgentCapabilityGraphRow | null>;
   /** 落库一个新 agent（从零新建或复制出的定义均可）。 */
   insert(definition: AgentDefinition, actorId: string): Promise<void>;
   newAgentId(): string;
