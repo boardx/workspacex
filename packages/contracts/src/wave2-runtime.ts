@@ -374,11 +374,30 @@ export const operations = {
    * DA-07c（#1749，rubric D6）：awaiting_approval 的人裁决入口。
    * 409（AGENT_RUN_NOT_AWAITING_APPROVAL）= 竞态输了：run 已被别人裁决或已终态，
    * 客户端展示真实状态，不假装自己的决定生效。
+   *
+   * UX-9 D4：三态裁决——新增 "edit"（人在线改参数后放行）。`editedArgs` 是改后的
+   * **完整**工具参数对象（不是 patch），仅 edit 时必填、其余决策禁止携带：
+   * 「approve 顺手带参数」会让"放行原样"与"放行改样"两个语义共用一个词，谁都说不清
+   * 引擎到底执行了什么。引擎侧（deepagents 0.7.6 HumanInTheLoopMiddleware）的
+   * EditDecision 形状为 {type:"edit", edited_action:{name, args}}——工具名沿用
+   * run 停住时的待批工具（pending_tool_name），本契约不允许人换工具：换工具等于
+   * 发起一次没人审过的新调用，超出「修改参数后放行」的授权范围。
    */
   decideAgentRun: {
     method: "POST",
     path: "/agent-runs/:runId/decision",
-    in: z.object({ runId: z.string().min(1), decision: z.enum(["approve", "reject"]) }).strict(),
+    in: z.object({
+      runId: z.string().min(1),
+      decision: z.enum(["approve", "edit", "reject"]),
+      editedArgs: z.record(z.unknown()).optional(),
+    }).strict().superRefine((v, ctx) => {
+      if (v.decision === "edit" && v.editedArgs === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["editedArgs"], message: "editedArgs is required when decision is \"edit\"" });
+      }
+      if (v.decision !== "edit" && v.editedArgs !== undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["editedArgs"], message: "editedArgs is only allowed when decision is \"edit\"" });
+      }
+    }),
     out: AgentRunView,
   },
   getAgentRun: {
