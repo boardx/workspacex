@@ -581,12 +581,31 @@ export class DeepAgentModelProvider implements ModelCallPort {
     // （重发会让引擎把同一条消息处理两遍）。resume 形状 {"decisions":[...]} 是 0.7.6
     // HumanInTheLoopMiddleware 的实测契约（裸列表 TypeError，见 deep-agent-service
     // 的 test_harness.py 存档）。
+    // UX-9 D4：edit 决策的实测形状（同一中间件源码的 EditDecision TypedDict）：
+    // {type:"edit", edited_action:{name:str, args:dict}}。args 在这里从存储的 JSON
+    // 文本解析并校验为普通对象——坏 JSON / 非对象抛 ModelCallError（fail closed），
+    // 绝不静默降级成 approve 放行一个没人看过的动作。
     if (input.resume !== undefined) {
+      let decision: Record<string, unknown>;
+      if (input.resume.decision === "edit") {
+        let args: unknown;
+        try {
+          args = JSON.parse(input.resume.editedAction.argsJson);
+        } catch {
+          throw new ModelCallError("MODEL_CALL_FAILED", "HITL edit resume: stored editedArgs is not valid JSON");
+        }
+        if (typeof args !== "object" || args === null || Array.isArray(args)) {
+          throw new ModelCallError("MODEL_CALL_FAILED", "HITL edit resume: stored editedArgs is not a JSON object");
+        }
+        decision = { type: "edit", edited_action: { name: input.resume.editedAction.name, args } };
+      } else {
+        decision = { type: input.resume.decision };
+      }
       const response = await fetchWithTransportErrors(`${baseUrl}/threads/${threadId}/runs`, {
         method: "POST",
         body: JSON.stringify({
           assistant_id: ASSISTANT_ID,
-          command: { resume: { decisions: [{ type: input.resume.decision }] } },
+          command: { resume: { decisions: [decision] } },
         }),
       });
       const body = (await response.json()) as { run_id?: string };

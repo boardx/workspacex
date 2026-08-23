@@ -63,6 +63,7 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore {
     failRun: async (_o, _r, _c: RunFailureCode) => {},
     async markAwaitingApproval() { throw new Error('unexpected markAwaitingApproval in this test'); },
     async approveAndRequeue() { throw new Error('unexpected approveAndRequeue in this test'); return false; },
+    async editAndRequeue() { throw new Error('unexpected editAndRequeue in this test'); return false; },
     claimWritebackPending: unused("claimWritebackPending"),
     commitWriteback: unused("commitWriteback"),
     recordWritebackAttempt: unused("recordWritebackAttempt"),

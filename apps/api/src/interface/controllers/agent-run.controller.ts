@@ -193,25 +193,42 @@ export class AgentRunController {
    */
   /**
    * DA-07b（rubric D6）：awaiting_approval 的人裁决入口。
-   * body.decision: "approve" | "reject"。404/403/409/503 语义与 retries 同一套：
+   * body.decision: "approve" | "edit" | "reject"。404/403/409/503 语义与 retries 同一套：
    * 不可见 = 404（I-3：不确认存在性）、observer/归档 = 403、状态不对 = 409。
+   *
+   * UX-9 D4：edit（人在线改参数后放行）必带 editedArgs（改后的**完整**参数对象，
+   * 不是 patch）；approve/reject 携带 editedArgs 一律 400——「放行原样」与「放行改样」
+   * 不许共用一个词（与 contracts 的 decideAgentRun superRefine 同一条规则）。
    */
   @Post("/agent-runs/:runId/decision")
   @HttpCode(200)
   async decide(
     @CurrentPrincipal() principal: Principal,
     @Param("runId") runId: string,
-    @Body() body: { decision?: unknown },
+    @Body() body: { decision?: unknown; editedArgs?: unknown },
   ) {
     assertPrincipal(principal);
     const decision = body?.decision;
-    if (decision !== "approve" && decision !== "reject") {
-      throw new BadRequestException("decision must be \"approve\" or \"reject\"");
+    if (decision !== "approve" && decision !== "edit" && decision !== "reject") {
+      throw new BadRequestException("decision must be \"approve\", \"edit\" or \"reject\"");
+    }
+    const editedArgs = body?.editedArgs;
+    if (decision === "edit") {
+      if (typeof editedArgs !== "object" || editedArgs === null || Array.isArray(editedArgs)) {
+        throw new BadRequestException("editedArgs (a JSON object) is required when decision is \"edit\"");
+      }
+    } else if (editedArgs !== undefined) {
+      throw new BadRequestException("editedArgs is only allowed when decision is \"edit\"");
     }
     try {
       return await decideAgentRun(
         { repo: this.repo, ids: this.ids, chat: this.chat, runs: this.runs, kick: (orgId) => this.executor.kick(orgId) },
-        { userId: principal.userId, orgId: toOrgId(principal.orgId), runId, decision },
+        {
+          userId: principal.userId, orgId: toOrgId(principal.orgId), runId,
+          ...(decision === "edit"
+            ? { decision, editedArgs: editedArgs as Readonly<Record<string, unknown>> }
+            : { decision }),
+        },
       );
     } catch (e) {
       if (e instanceof AgentRunNotVisibleError) throw new NotFoundException();

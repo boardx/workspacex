@@ -1011,9 +1011,23 @@ async function executeClaimed(
         {
           modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
             threadId: run.threadId,
-          // DA-07b：人已批准的 run 以 resume 方式续跑（provider 发 command.resume，
-          // 不重发用户输入）。
-          ...(run.pendingDecision === "approve" ? { resume: { decision: "approve" as const } } : {}),
+          // DA-07b：人已裁决放行的 run 以 resume 方式续跑（provider 发 command.resume，
+          // 不重发用户输入）。UX-9 D4：edit 变体把改后动作一并交给 provider——工具名
+          // 沿用待批工具，参数 JSON 由 provider 解析校验（坏数据 ModelCallError，
+          // fail closed），本层不做第二份解析副本。
+          ...(run.pendingDecision === null
+            ? {}
+            : run.pendingDecision.kind === "approve"
+              ? { resume: { decision: "approve" as const } }
+              : {
+                resume: {
+                  decision: "edit" as const,
+                  editedAction: {
+                    name: run.pendingDecision.toolName,
+                    argsJson: run.pendingDecision.editedArgsJson,
+                  },
+                },
+              }),
           history,
           // #740：deep-agent 的 `call_skill` 要拿到本轮 pin 住的 skill 正文。
           skills: toolSkills,

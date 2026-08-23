@@ -93,10 +93,18 @@ export interface ClaimedAgentRun {
   readonly modelProvider: string;
   readonly modelId: string;
   /**
-   * DA-07b：'approve' = 这是一次人批准后的续跑——execute-run 据此让 provider 走
+   * DA-07b：非 null = 这是一次人裁决后的续跑——execute-run 据此让 provider 走
    * resume（command.resume）而不是把用户输入重发一遍。普通新 run 恒为 null。
+   *
+   * UX-9 D4：三态之 edit 带着改后参数一起来（判别联合让"edit 却没有参数"在类型上
+   * 不可表示）：toolName 沿用停住时的待批工具（pending_tool_name，edit 不许换工具，
+   * 见 contracts），editedArgsJson 是人改后的完整参数对象的 JSON 文本——由 provider
+   * 解析并校验，坏 JSON 走 ModelCallError fail closed，不静默降级成 approve。
    */
-  readonly pendingDecision: "approve" | null;
+  readonly pendingDecision:
+    | { readonly kind: "approve" }
+    | { readonly kind: "edit"; readonly toolName: string; readonly editedArgsJson: string }
+    | null;
 }
 
 export interface PinnedSkillContent {
@@ -294,6 +302,14 @@ export interface AgentRunStore {
    * awaiting_approval（并发裁决/已终态），调用方按冲突处理，不重试。
    */
   approveAndRequeue(orgId: OrgId, runId: string): Promise<boolean>;
+
+  /**
+   * UX-9 D4：awaiting_approval → queued（人改参数后放行），记 pending_decision='edit'
+   * 且把改后的完整参数对象（JSON 文本）落 pending_edited_args——executor 重新领 run
+   * 时 provider 据此发 EditDecision resume。返回语义与 approveAndRequeue 完全一致：
+   * false = 输了竞态，调用方按冲突处理，不重试不覆盖。
+   */
+  editAndRequeue(orgId: OrgId, runId: string, editedArgsJson: string): Promise<boolean>;
 
   /** Runs sitting in `writeback_pending`, including ones stranded by a process restart. */
   claimWritebackPending(orgId: OrgId, limit: number): Promise<readonly PendingWriteback[]>;
@@ -538,8 +554,16 @@ export interface ModelCallInput {
    * 不是新消息。provider 见到它时向既有 thread 提交 resume 命令
    * （command.resume.decisions），绝不重发用户输入——重发会让引擎把同一条
    * 消息处理两遍。只有 deep-agent provider 关心它。
+   *
+   * UX-9 D4：edit 变体携带改后的动作——name 沿用待批工具（不许换工具），argsJson
+   * 是人改后完整参数对象的 JSON 文本。由 provider 在构造 resume body 时解析校验：
+   * 非对象/坏 JSON 抛 ModelCallError（fail closed），绝不静默降级为 approve。
+   * 引擎侧实测形状（deepagents 0.7.6 / langchain HumanInTheLoopMiddleware）：
+   * {type:"edit", edited_action:{name:str, args:dict}}。
    */
-  readonly resume?: { readonly decision: "approve" };
+  readonly resume?:
+    | { readonly decision: "approve" }
+    | { readonly decision: "edit"; readonly editedAction: { readonly name: string; readonly argsJson: string } };
   readonly system: string;
   readonly user: string;
   /**

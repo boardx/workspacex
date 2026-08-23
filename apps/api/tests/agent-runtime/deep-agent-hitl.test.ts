@@ -91,6 +91,50 @@ describe("DA-07b provider：中断与恢复（rubric D6）", () => {
     expect(body.command).toEqual({ resume: { decisions: [{ type: "approve" }] } });
     expect(body.input).toBeUndefined();
   });
+
+  it("edit resume → decisions 是 EditDecision 形状（edited_action.name/args），且绝不重发用户输入", async () => {
+    const bodies: unknown[] = [];
+    const baseUrl = await startFake({
+      runStatus: "success",
+      messages: [{ type: "ai", content: "done after edit", tool_calls: [] }],
+      onRunBody: (b) => void bodies.push(b),
+    });
+    const result = await provider(baseUrl).completeWithProgress(
+      {
+        ...base,
+        resume: { decision: "edit", editedAction: { name: "call_skill", argsJson: JSON.stringify({ skill: "safe", dry_run: true }) } },
+      } as never,
+      async () => {},
+    );
+    expect(result.text).toBe("done after edit");
+    expect(bodies).toHaveLength(1);
+    const body = bodies[0] as { command?: unknown; input?: unknown };
+    expect(body.command).toEqual({
+      resume: {
+        decisions: [{
+          type: "edit",
+          edited_action: { name: "call_skill", args: { skill: "safe", dry_run: true } },
+        }],
+      },
+    });
+    expect(body.input).toBeUndefined();
+  });
+
+  it("edit resume 的存储参数坏了（非 JSON / 非对象）→ ModelCallError fail closed，绝不发出请求", async () => {
+    for (const argsJson of ["{not json", "null", "[1,2]", "\"str\""]) {
+      const bodies: unknown[] = [];
+      const baseUrl = await startFake({ runStatus: "success", onRunBody: (b) => void bodies.push(b) });
+      await expect(
+        provider(baseUrl).completeWithProgress(
+          { ...base, resume: { decision: "edit", editedAction: { name: "call_skill", argsJson } } } as never,
+          async () => {},
+        ),
+      ).rejects.toMatchObject({ code: "MODEL_CALL_FAILED" });
+      expect(bodies).toHaveLength(0);
+      await new Promise<void>((r) => server!.close(() => r()));
+      server = undefined;
+    }
+  });
 });
 
 describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条链沿用 retryAgentRun 的既有测试）", () => {
@@ -132,6 +176,12 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
         status = "queued";
         return true;
       },
+      editAndRequeue: async (_o: unknown, _r: unknown, editedArgsJson: string) => {
+        calls.push(`edit-requeue:${editedArgsJson}`);
+        if (overrides.approveWins === false) return false;
+        status = "queued";
+        return true;
+      },
     };
     let kicked = 0;
     const deps = { runs, kick: () => { kicked += 1; } } as never;
@@ -144,6 +194,38 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
     expect(calls).toEqual(["requeue"]);
     expect(kicked()).toBe(1);
     expect(out.status).toBe("queued");
+  });
+
+  it("edit：awaiting_approval → editAndRequeue（带序列化的改后参数）+ kick，approve 通路零调用", async () => {
+    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_approval" });
+    const out = await mod.decideAgentRun(deps, {
+      userId: "u1", orgId: "o1" as never, runId: "r1",
+      decision: "edit", editedArgs: { skill: "safe", dry_run: true },
+    });
+    expect(calls).toEqual([`edit-requeue:${JSON.stringify({ skill: "safe", dry_run: true })}`]);
+    expect(kicked()).toBe(1);
+    expect(out.status).toBe("queued");
+  });
+
+  it("edit 竞态输了 → 抛 NotAwaitingApproval，绝不覆盖账本", async () => {
+    const { mod, deps, calls, kicked } = await makeDeps({ status: "awaiting_approval", approveWins: false });
+    await expect(
+      mod.decideAgentRun(deps, {
+        userId: "u1", orgId: "o1" as never, runId: "r1", decision: "edit", editedArgs: {},
+      }),
+    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingApprovalError);
+    expect(calls).toEqual(["edit-requeue:{}"]);
+    expect(kicked()).toBe(0);
+  });
+
+  it("run 还在 running 时 edit → 冲突且 requeue 零调用", async () => {
+    const { mod, deps, calls } = await makeDeps({ status: "running" });
+    await expect(
+      mod.decideAgentRun(deps, {
+        userId: "u1", orgId: "o1" as never, runId: "r1", decision: "edit", editedArgs: { a: 1 },
+      }),
+    ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingApprovalError);
+    expect(calls).toEqual([]);
   });
 
   it("reject：failRun(HITL_REJECTED)，不 kick", async () => {
@@ -175,5 +257,58 @@ describe("DA-07b decideAgentRun 三路（可见性链 mock 成 allow——那条
       mod.decideAgentRun(deps, { userId: "u1", orgId: "o1" as never, runId: "r1", decision: "reject" }),
     ).rejects.toBeInstanceOf(mod.AgentRunNotAwaitingApprovalError);
     expect(calls).toEqual([]);
+  });
+});
+
+describe("UX-9 D4 controller 入参校验（400 挡在应用层之前，应用函数零调用）", () => {
+  async function makeController() {
+    vi.resetModules();
+    const { AgentRunController } = await import("../../src/interface/controllers/agent-run.controller");
+    // decide() 在校验失败时不会碰任何依赖——传入即炸的代理钉死这一点。
+    const boom = new Proxy({}, { get: () => { throw new Error("dependency touched before validation"); } });
+    const c = new (AgentRunController as new (...a: unknown[]) => { decide: (p: unknown, r: string, b: unknown) => Promise<unknown> })(
+      boom, boom, boom, boom, boom, boom,
+    );
+    const principal = { userId: "u1", orgId: "o1" };
+    return { c, principal };
+  }
+
+  it("edit 缺 editedArgs / editedArgs 非对象 → 400", async () => {
+    const { c, principal } = await makeController();
+    for (const body of [
+      { decision: "edit" },
+      { decision: "edit", editedArgs: null },
+      { decision: "edit", editedArgs: [1, 2] },
+      { decision: "edit", editedArgs: "str" },
+    ]) {
+      await expect(c.decide(principal, "r1", body)).rejects.toMatchObject({ status: 400 });
+    }
+  });
+
+  it("approve/reject 携带 editedArgs → 400——「放行原样」与「放行改样」不共用语义", async () => {
+    const { c, principal } = await makeController();
+    for (const decision of ["approve", "reject"]) {
+      await expect(
+        c.decide(principal, "r1", { decision, editedArgs: { a: 1 } }),
+      ).rejects.toMatchObject({ status: 400 });
+    }
+  });
+
+  it("未知 decision → 400", async () => {
+    const { c, principal } = await makeController();
+    await expect(c.decide(principal, "r1", { decision: "respond" })).rejects.toMatchObject({ status: 400 });
+  });
+});
+
+describe("UX-9 D4 契约（decideAgentRun.in 的 superRefine 与控制器同一条规则）", () => {
+  it("edit 必带 editedArgs，approve/reject 禁带", async () => {
+    const { wave2Runtime } = await import("@repo/contracts");
+    const schema = wave2Runtime.operations.decideAgentRun.in;
+    expect(schema.safeParse({ runId: "r", decision: "edit", editedArgs: { a: 1 } }).success).toBe(true);
+    expect(schema.safeParse({ runId: "r", decision: "edit" }).success).toBe(false);
+    expect(schema.safeParse({ runId: "r", decision: "approve" }).success).toBe(true);
+    expect(schema.safeParse({ runId: "r", decision: "approve", editedArgs: {} }).success).toBe(false);
+    expect(schema.safeParse({ runId: "r", decision: "reject", editedArgs: {} }).success).toBe(false);
+    expect(schema.safeParse({ runId: "r", decision: "respond" }).success).toBe(false);
   });
 });

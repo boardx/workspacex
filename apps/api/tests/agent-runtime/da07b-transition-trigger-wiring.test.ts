@@ -87,3 +87,35 @@ describe("DA-07b 状态迁移触发器接线（real db）", () => {
     await expect(setStatus(runId, "awaiting_approval")).rejects.toThrow(/may not move/);
   });
 });
+
+describe("UX-9 D4 存储面（real db）：pending_decision 三态与 pending_edited_args", () => {
+  it("awaiting_approval → queued + pending_decision='edit' + 改后参数：一条 UPDATE 全过", async () => {
+    const runId = await insertRun("running");
+    await setStatus(runId, "awaiting_approval");
+    await expect(
+      asApp(ORG, (c) =>
+        c.query(
+          `UPDATE agent_runs SET status='queued', pending_decision='edit', pending_edited_args=$2 WHERE id=$1`,
+          [runId, JSON.stringify({ skill: "safe" })],
+        ),
+      ),
+    ).resolves.not.toThrow();
+    const row = await asApp(ORG, async (c) => {
+      const r = await c.query<{ pending_decision: string; pending_edited_args: string }>(
+        `SELECT pending_decision, pending_edited_args FROM agent_runs WHERE id=$1`, [runId],
+      );
+      return r.rows[0];
+    });
+    expect(row).toEqual({ pending_decision: "edit", pending_edited_args: JSON.stringify({ skill: "safe" }) });
+  });
+
+  it("CHECK 只放行 approve/edit——'respond' 之类没接的决策在 DB 层就被拒", async () => {
+    const runId = await insertRun("running");
+    await setStatus(runId, "awaiting_approval");
+    await expect(
+      asApp(ORG, (c) =>
+        c.query(`UPDATE agent_runs SET status='queued', pending_decision='respond' WHERE id=$1`, [runId]),
+      ),
+    ).rejects.toThrow(/pending_decision_check/);
+  });
+});

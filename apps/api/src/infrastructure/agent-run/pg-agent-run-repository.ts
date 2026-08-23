@@ -36,6 +36,8 @@ interface ClaimRow {
   input_text: string; agent_id: string; agent_version_id: string; instructions: string;
   skill_version_ids: unknown; model_provider: string; model_id: string;
   pending_decision?: string | null;
+  pending_tool_name?: string | null;
+  pending_edited_args?: string | null;
 }
 
 interface RunRow {
@@ -126,7 +128,8 @@ export class PgAgentRunRepository implements AgentRunStore {
                FOR UPDATE SKIP LOCKED
             )
         RETURNING r.id, r.thread_id, r.input_message_id, r.agent_id, r.agent_version_id,
-                  r.skill_version_ids, r.model_provider, r.model_id, r.pending_decision`,
+                  r.skill_version_ids, r.model_provider, r.model_id, r.pending_decision,
+                  r.pending_tool_name, r.pending_edited_args`,
         [orgId, limit],
       );
       if (claimed.rows.length === 0) return [];
@@ -173,7 +176,18 @@ export class PgAgentRunRepository implements AgentRunStore {
           skillVersionIds: toStringArray(row.skill_version_ids),
           modelProvider: row.model_provider,
           modelId: row.model_id,
-          pendingDecision: (row.pending_decision as "approve" | null | undefined) ?? null,
+          // UX-9 D4：edit 的降级路径也 fail closed——'edit' 行缺 pending_edited_args
+          // 只能来自数据损坏（editAndRequeue 单语句同写两列），editedArgsJson 传
+          // "null" 让 provider 的对象校验去报 ModelCallError，绝不静默当 approve。
+          pendingDecision: row.pending_decision === "approve"
+            ? { kind: "approve" as const }
+            : row.pending_decision === "edit"
+              ? {
+                kind: "edit" as const,
+                toolName: row.pending_tool_name ?? "unknown",
+                editedArgsJson: row.pending_edited_args ?? "null",
+              }
+              : null,
         } });
       }
       return runs;
@@ -313,6 +327,21 @@ export class PgAgentRunRepository implements AgentRunStore {
           WHERE org_id=$1 AND id=$2 AND status='awaiting_approval'
           RETURNING id`,
         [orgId, runId],
+      );
+      return updated.rows.length > 0;
+    });
+  }
+
+  async editAndRequeue(orgId: OrgId, runId: string, editedArgsJson: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      // 与 approveAndRequeue 同一条边、同一套竞态语义；单语句同写 pending_decision
+      // 与 pending_edited_args——两列永远一起出现，'edit' 行缺参数只能是数据损坏。
+      const updated = await s.query(
+        `UPDATE agent_runs
+            SET status='queued', pending_decision='edit', pending_edited_args=$3
+          WHERE org_id=$1 AND id=$2 AND status='awaiting_approval'
+          RETURNING id`,
+        [orgId, runId, editedArgsJson],
       );
       return updated.rows.length > 0;
     });
