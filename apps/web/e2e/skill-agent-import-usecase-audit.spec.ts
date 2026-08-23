@@ -75,10 +75,15 @@ test("① skill 从 GitHub 目录 URL 导入：落进目录，内容确实来自
 
   // 入口嵌两层：先开「新建 Skill」弹层，切到「从 GitHub 导入」tab，
   // 里面的 `SkillUrlImportPanel` 自己还有一个折叠头（`skill-url-import-open`）。
+  // #1941 —— 该折叠头默认已展开（`aria-expanded="true"`），只在它意外收起时才点开；
+  // 无条件点击会把默认展开的面板点成收起，导致下面找输入框超时（本条 CI 真实复现过）。
   await page.getByTestId("skill-create-open").click();
   await expect(page.getByTestId("skill-create-launcher")).toBeVisible();
   await page.getByTestId("skill-create-mode-import").click();
-  await page.getByTestId("skill-url-import-open").click();
+  const urlImportOpener = page.getByTestId("skill-url-import-open");
+  if ((await urlImportOpener.getAttribute("aria-expanded")) !== "true") {
+    await urlImportOpener.click();
+  }
   await page.getByTestId("skill-url-import-url").fill(GITHUB_SKILL_DIR_URL);
   const importedName = FULLSTACK_E2E.skillName + "_GITHUB_IMPORT";
   await page.getByTestId("skill-url-import-name").fill(importedName);
