@@ -189,9 +189,9 @@
         "F09"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-i",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/composite-breadcrumb-pagination.test.tsx",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'kitchen sink composites'"
