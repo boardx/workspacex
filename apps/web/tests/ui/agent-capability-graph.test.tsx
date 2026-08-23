@@ -70,7 +70,12 @@ describe("AgentCapabilityGraph", () => {
 
     render(<AgentCapabilityGraph orgId={ORG_ID} agentId={AGENT_ID} />);
 
-    await waitFor(() => expect(screen.getByTestId("xyflow-stub-canvas")).toBeInTheDocument());
+    // next/dynamic({ssr:false}) 懒加载 + 两个并发 fetch，负载重的机器上默认 1s 的
+    // waitFor 超时不够用（同 asset-code-editor-monaco.test.tsx 对 Monaco 懒加载的
+    // 处理）——显式放宽，不是掩盖真实慢，是给懒加载真实需要的时间。
+    await waitFor(() => expect(screen.getByTestId("xyflow-stub-canvas")).toBeInTheDocument(), {
+      timeout: 10_000,
+    });
 
     // 1 个 agent 节点 + 1 个 skill 节点 + 1 个 mcp 节点
     expect(screen.getByTestId("xyflow-stub-node-count")).toHaveTextContent("3");
@@ -99,8 +104,9 @@ describe("AgentCapabilityGraph", () => {
 
     render(<AgentCapabilityGraph orgId={ORG_ID} agentId={AGENT_ID} />);
 
-    await waitFor(() =>
-      expect(screen.getByTestId("agent-capability-graph-empty")).toBeInTheDocument(),
+    await waitFor(
+      () => expect(screen.getByTestId("agent-capability-graph-empty")).toBeInTheDocument(),
+      { timeout: 10_000 },
     );
     expect(screen.getByTestId("agent-capability-graph-empty")).toHaveTextContent(
       "还没有挂载任何能力",
@@ -116,7 +122,10 @@ describe("AgentCapabilityGraph", () => {
 
     render(<AgentCapabilityGraph orgId={ORG_ID} agentId={AGENT_ID} />);
 
-    await waitFor(() => expect(screen.getByTestId("agent-capability-graph-error")).toBeInTheDocument());
+    await waitFor(
+      () => expect(screen.getByTestId("agent-capability-graph-error")).toBeInTheDocument(),
+      { timeout: 10_000 },
+    );
     expect(screen.getByTestId("agent-capability-graph-error")).toHaveTextContent("AGENT_NOT_FOUND");
   });
 });
