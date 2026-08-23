@@ -59,12 +59,12 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
               <p className="text-10 text-muted-foreground">问卷 ID {model.survey.id} · 最近保存 18:00</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" />预览答题</Button>
-            {!readonly && <Button variant="primary" size="sm" data-testid="survey-workflow-save" onClick={() => setSaved(true)}><Save className="h-3.5 w-3.5" />保存修改</Button>}
-            <Button variant="outline" size="sm" data-testid="survey-workflow-back-to-list" onClick={() => router.push(moduleEditor ? "/studio/survey?tab=modules" : "/studio/survey")}><ArrowLeft className="h-3.5 w-3.5" />返回列表</Button>
+            <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" aria-hidden />预览答题</Button>
+            {!readonly && <Button variant="primary" size="sm" data-testid="survey-workflow-save" onClick={() => setSaved(true)}><Save className="h-3.5 w-3.5" aria-hidden />保存修改</Button>}
+            <Button variant="outline" size="sm" data-testid="survey-workflow-back-to-list" onClick={() => router.push(moduleEditor ? "/studio/survey?tab=modules" : "/studio/survey")}><ArrowLeft className="h-3.5 w-3.5" aria-hidden />返回列表</Button>
           </div>
         </div>
-        {saved && <p className="mt-2 text-right text-11 text-success" data-testid="survey-workflow-saved"><Check className="mr-1 inline h-3 w-3" />修改已保存</p>}
+        {saved && <p className="mt-2 text-right text-11 text-success" data-testid="survey-workflow-saved"><Check className="mr-1 inline h-3 w-3" aria-hidden />修改已保存</p>}
         {readonly && <p className="mt-2 rounded-md border border-border bg-muted px-3 py-2 text-11 text-muted-foreground" data-testid="survey-workflow-readonly">当前为只读预览，编辑与发布操作已隐藏。</p>}
       </header>
 
@@ -97,9 +97,9 @@ export function SurveyWorkflowShell({ surveyId, initialStep, uiState, readonly, 
 }
 
 function WorkflowMessage({ testId, title, body, danger, pulse }: { testId: string; title: string; body: string; danger?: boolean; pulse?: boolean }) {
-  return <main className="flex min-h-screen items-center justify-center bg-background p-6" data-testid={testId}><div className={`w-full max-w-lg rounded-lg border p-8 text-center shadow-sm ${danger ? "border-destructive/40 bg-destructive/5" : "border-border bg-card"} ${pulse ? "animate-pulse" : ""}`}><AlertCircle className="mx-auto mb-3 h-8 w-8 text-primary" /><h1 className="text-18 font-semibold">{title}</h1><p className="mt-2 text-12 text-muted-foreground">{body}</p></div></main>;
+  return <main className="flex min-h-screen items-center justify-center bg-background p-6" data-testid={testId}><div className={`w-full max-w-lg rounded-lg border p-8 text-center shadow-sm ${danger ? "border-destructive/40 bg-destructive/5" : "border-border bg-card"} ${pulse ? "animate-pulse" : ""}`}><AlertCircle className="mx-auto mb-3 h-8 w-8 text-primary" aria-hidden /><h1 className="text-18 font-semibold">{title}</h1><p className="mt-2 text-12 text-muted-foreground">{body}</p></div></main>;
 }
 
 export function SectionTitle({ icon, title, description }: { icon?: React.ReactNode; title: string; description?: string }) {
-  return <div className="mb-3"><div className="flex items-center gap-2 text-15 font-semibold">{icon ?? <Sparkles className="h-4 w-4 text-primary" />}{title}</div>{description && <p className="mt-1 text-11 text-muted-foreground">{description}</p>}</div>;
+  return <div className="mb-3"><div className="flex items-center gap-2 text-15 font-semibold">{icon ?? <Sparkles className="h-4 w-4 text-primary" aria-hidden />}{title}</div>{description && <p className="mt-1 text-11 text-muted-foreground">{description}</p>}</div>;
 }

@@ -68,19 +68,19 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
                 <p className="mt-1 text-12 text-muted-foreground">{copy.description}</p>
               </div>
               <div className="flex gap-2">
-                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => setCreateMode("module")}><FilePlus2 className="h-4 w-4" />从问卷模块新建</Button>}
-                {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => setCreateMode("blank")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" />新建问卷</Button>}
-                {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" />新建问卷模块</Button>}
-                {tab === "reports" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/templates/new")}><Plus className="h-4 w-4" />新建报告模块</Button>}
+                {tab === "surveys" && <Button variant="outline" size="lg" onClick={() => setCreateMode("module")}><FilePlus2 className="h-4 w-4" aria-hidden />从问卷模块新建</Button>}
+                {tab === "surveys" && <Button variant="primary" size="lg" onClick={() => setCreateMode("blank")} data-testid="survey-resource-new-survey"><Plus className="h-4 w-4" aria-hidden />新建问卷</Button>}
+                {tab === "modules" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/new?step=design&mode=module")} data-testid="survey-resource-new-module"><Plus className="h-4 w-4" aria-hidden />新建问卷模块</Button>}
+                {tab === "reports" && <Button variant="primary" size="lg" onClick={() => router.push("/studio/survey/templates/new")}><Plus className="h-4 w-4" aria-hidden />新建报告模块</Button>}
               </div>
             </div>
 
             <div className="mt-4 flex flex-col gap-3 sm:flex-row">
               <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
                 <Input className="h-10 pl-9" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={copy.search} aria-label={copy.search} data-testid="survey-resource-search" />
               </div>
-              <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" /></Button>
+              <Button variant="outline" size="lg">最近更新<ChevronDown className="h-4 w-4" aria-hidden /></Button>
             </div>
 
             {tab === "surveys" && <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="问卷标签筛选">
@@ -117,8 +117,8 @@ export function SurveyResourceLibrary({ initialTab, initialIntent, uiState }: {
 
 function ResourceBody({ uiState, tab, children }: { uiState: SurveyResourceState; tab: SurveyResourceTab; children: React.ReactNode }) {
   if (uiState === "loading") return <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="survey-resource-loading">{Array.from({ length: 6 }, (_, index) => <div key={index} className="h-56 animate-pulse rounded-lg bg-muted" />)}</div>;
-  if (uiState === "error") return <Card className="mt-4 flex min-h-56 flex-col items-center justify-center border-destructive/40 p-8 text-center" data-testid="survey-resource-error"><AlertCircle className="h-8 w-8 text-destructive" /><h3 className="mt-3 text-14 font-semibold">资源暂时无法加载</h3><p className="mt-2 text-11 text-muted-foreground">数据没有被修改，请稍后重试。</p></Card>;
-  if (uiState === "empty") return <Card className="mt-4 flex min-h-56 flex-col items-center justify-center border-dashed p-8 text-center" data-testid="survey-resource-empty"><FileText className="h-8 w-8 text-primary" /><h3 className="mt-3 text-14 font-semibold">还没有{TAB_COPY[tab].title}</h3><p className="mt-2 text-11 text-muted-foreground">当前模块暂无可用内容。</p></Card>;
+  if (uiState === "error") return <Card className="mt-4 flex min-h-56 flex-col items-center justify-center border-destructive/40 p-8 text-center" data-testid="survey-resource-error"><AlertCircle className="h-8 w-8 text-destructive" aria-hidden /><h3 className="mt-3 text-14 font-semibold">资源暂时无法加载</h3><p className="mt-2 text-11 text-muted-foreground">数据没有被修改，请稍后重试。</p></Card>;
+  if (uiState === "empty") return <Card className="mt-4 flex min-h-56 flex-col items-center justify-center border-dashed p-8 text-center" data-testid="survey-resource-empty"><FileText className="h-8 w-8 text-primary" aria-hidden /><h3 className="mt-3 text-14 font-semibold">还没有{TAB_COPY[tab].title}</h3><p className="mt-2 text-11 text-muted-foreground">当前模块暂无可用内容。</p></Card>;
   return <>{children}</>;
 }
 
@@ -130,36 +130,36 @@ function CardGrid({ empty, emptyLabel, children }: { empty: boolean; emptyLabel:
 function SurveyCard({ item, onOpen }: { item: (typeof SURVEY_LIBRARY_CARDS)[number]; onOpen: () => void }) {
   const tone = item.status === "collecting" ? "primary" : item.status === "closed" ? "primary" : "neutral";
   return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-survey-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><FileText className="h-5 w-5" /></span><Badge tone={tone}>{SURVEY_STATUS_LABEL[item.status]}</Badge></div>
+    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><FileText className="h-5 w-5" aria-hidden /></span><Badge tone={tone}>{SURVEY_STATUS_LABEL[item.status]}</Badge></div>
     <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
     <div className="mt-2 flex flex-wrap gap-1.5">{item.tags.map((tag) => <Badge key={tag} tone="neutral">{tag}</Badge>)}</div>
     <p className="mt-2 text-11 text-muted-foreground">{item.questionCount} 题 · {item.reportSectionCount} 个报告章节</p>
     <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
     {item.received !== undefined && <p className="mt-3 text-12 text-muted-foreground">已回收 <strong className="font-semibold text-primary">{item.received}</strong>{item.target ? ` / ${item.target}` : " 份"}</p>}
     {item.target && item.received !== undefined && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, item.received / item.target * 100)}%` }} /></div>}
-    <ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+    <ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
   </button>;
 }
 
 function QuestionModuleCard({ item, onOpen }: { item: (typeof SURVEY_QUESTION_MODULE_CARDS)[number]; onOpen: () => void }) {
   return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-module-${item.id}`} className="group min-h-48 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" /></span><Badge tone="primary">问题模块</Badge></div>
+    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" aria-hidden /></span><Badge tone="primary">问题模块</Badge></div>
     <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
     <p className="mt-2 text-11 text-muted-foreground">{item.description}</p>
     <p className="mt-3 text-12 text-muted-foreground">{item.questionCount} 题 · 更新于 {item.updatedAt}</p>
     <p className="mt-3 text-12 text-primary">用于新问卷</p>
-    <ChevronRight className="ml-auto mt-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+    <ChevronRight className="ml-auto mt-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
   </button>;
 }
 
 function ReportTemplateCard({ item, onOpen }: { item: (typeof SURVEY_TEMPLATE_CARDS)[number]; onOpen: () => void }) {
   return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-report-template-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" /></span><Badge tone="primary">{TEMPLATE_CATEGORY_LABEL[item.category]}</Badge></div>
+    <div className="flex items-start justify-between"><span className="rounded-md bg-accent p-2 text-primary"><ClipboardList className="h-5 w-5" aria-hidden /></span><Badge tone="primary">{TEMPLATE_CATEGORY_LABEL[item.category]}</Badge></div>
     <h3 className="mt-4 text-14 font-semibold">{item.title}</h3>
     <p className="mt-2 text-11 text-muted-foreground">{item.questionCount} 题 · {item.reportSectionCount} 个报告章节</p>
     <p className="mt-2 text-11 text-muted-foreground">最近更新　{item.updatedAt}</p>
     <p className="mt-3 text-12 text-muted-foreground">已应用于 <strong className="font-semibold text-primary">{item.surveyCount}</strong> 份问卷</p>
     <p className="mt-3 text-12 text-primary">编辑报告模块</p>
-    <ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+    <ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
   </button>;
 }

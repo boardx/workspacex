@@ -82,7 +82,7 @@ function LeftNav({ screen, href }: { screen: RsScreen; href: (o: Partial<{ scree
     <nav className="flex flex-col gap-1 p-3" data-testid="rs-left-nav">
       <span className="px-1 pb-1 text-10 uppercase tracking-wide text-muted-foreground">研究 Studio</span>
       <a href="?flow=home" data-testid="rs-nav-guided-research" data-active="false" className="mb-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-muted-foreground transition-colors hover:bg-muted">
-        <Sparkles className="h-4 w-4" /><span className="flex-1">引导式研究</span><Badge tone="ai">新</Badge>
+        <Sparkles className="h-4 w-4" aria-hidden /><span className="flex-1">引导式研究</span><Badge tone="ai">新</Badge>
       </a>
       {RS_SCREENS.map((s) => {
         const Icon = SCREEN_ICON[s];

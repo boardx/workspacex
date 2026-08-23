@@ -35,12 +35,12 @@ export function SurveyTemplateEditorShell({ templateId }: { templateId: string }
               <p className="text-10 text-muted-foreground">报告模块 ID {templateId} · {reportSectionCount} 个报告章节</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" />预览模板</Button>
-            <Button variant="primary" size="sm" onClick={() => setSaved(true)} data-testid="survey-template-save"><Save className="h-3.5 w-3.5" />保存模板</Button>
-            <Button variant="outline" size="sm" onClick={() => router.push("/studio/survey?tab=reports")} data-testid="survey-template-back-to-list"><ArrowLeft className="h-3.5 w-3.5" />返回列表</Button>
+            <Button variant="outline" size="sm"><Eye className="h-3.5 w-3.5" aria-hidden />预览模板</Button>
+            <Button variant="primary" size="sm" onClick={() => setSaved(true)} data-testid="survey-template-save"><Save className="h-3.5 w-3.5" aria-hidden />保存模板</Button>
+            <Button variant="outline" size="sm" onClick={() => router.push("/studio/survey?tab=reports")} data-testid="survey-template-back-to-list"><ArrowLeft className="h-3.5 w-3.5" aria-hidden />返回列表</Button>
           </div>
         </div>
-        {saved && <p className="mt-2 text-right text-11 text-success" data-testid="survey-template-saved"><Check className="mr-1 inline h-3 w-3" />模板已保存</p>}
+        {saved && <p className="mt-2 text-right text-11 text-success" data-testid="survey-template-saved"><Check className="mr-1 inline h-3 w-3" aria-hidden />模板已保存</p>}
       </header>
       <div className="border-b border-border bg-card px-5 py-3">
         <h2 className="text-14 font-semibold">报告模板</h2>

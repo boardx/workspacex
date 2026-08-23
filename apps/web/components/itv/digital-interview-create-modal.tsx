@@ -75,7 +75,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange }: {
               <Dialog.Title className="text-20 font-semibold tracking-tight">新建访谈</Dialog.Title>
               <Dialog.Description className="text-12 text-muted-foreground">创建后将直接进入访谈设计流程</Dialog.Description>
             </div>
-            <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label="关闭新建访谈弹窗"><X className="size-4" /></Button></Dialog.Close>
+            <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label="关闭新建访谈弹窗"><X className="size-4" aria-hidden /></Button></Dialog.Close>
           </div>
           <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
             <div className="flex flex-col gap-2">
@@ -85,7 +85,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange }: {
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3"><Label htmlFor="itv-create-tag-input" className="text-13">标签</Label><span className="text-11 text-muted-foreground">{tags.length}/5</span></div>
               <div className="flex min-h-14 flex-wrap items-center gap-2 rounded-md border border-input bg-card p-2 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
-                {tags.map((tag) => <Badge data-testid="itv-create-tag" key={tag} tone="neutral" className="gap-1 py-1">{tag}<button type="button" aria-label={`删除标签 ${tag}`} className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setTags((current) => current.filter((value) => value !== tag))}><X className="h-3 w-3" /></button></Badge>)}
+                {tags.map((tag) => <Badge data-testid="itv-create-tag" key={tag} tone="neutral" className="gap-1 py-1">{tag}<button type="button" aria-label={`删除标签 ${tag}`} className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setTags((current) => current.filter((value) => value !== tag))}><X className="h-3 w-3" aria-hidden /></button></Badge>)}
                 <Input id="itv-create-tag-input" data-testid="itv-create-tag-input" disabled={tags.length >= 5} value={tagDraft} onChange={(event) => setTagDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === "," || event.key === "，") { event.preventDefault(); addTag(); } }} placeholder={tags.length >= 5 ? "最多 5 个标签" : "添加标签，按回车确认"} className="h-8 min-w-40 flex-1 border-0 px-1 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
               </div>
               <p className="text-11 text-muted-foreground">至少添加 1 个标签，最多 5 个</p>

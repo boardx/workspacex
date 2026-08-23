@@ -200,9 +200,9 @@ export function TemplateEditor({
                       ))}
                     </div>
                     <div className="mt-1 flex items-center gap-1.5 text-10 text-muted-foreground">
-                      <button type="button" disabled={readOnly} className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 disabled:bg-disabled disabled:text-disabled-foreground"><ArrowUp className="h-3 w-3" /></button>
-                      <button type="button" disabled={readOnly} className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 disabled:bg-disabled disabled:text-disabled-foreground"><ArrowDown className="h-3 w-3" /></button>
-                      <button type="button" disabled={readOnly} className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 disabled:bg-disabled disabled:text-disabled-foreground"><Plus className="h-3 w-3" /> 分区</button>
+                      <button type="button" disabled={readOnly} className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 disabled:bg-disabled disabled:text-disabled-foreground"><ArrowUp className="h-3 w-3" aria-hidden /></button>
+                      <button type="button" disabled={readOnly} className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 disabled:bg-disabled disabled:text-disabled-foreground"><ArrowDown className="h-3 w-3" aria-hidden /></button>
+                      <button type="button" disabled={readOnly} className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 disabled:bg-disabled disabled:text-disabled-foreground"><Plus className="h-3 w-3" aria-hidden /> 分区</button>
                     </div>
                   </div>
 
@@ -260,13 +260,13 @@ export function TemplateEditor({
                         </span>
                       </div>
                       <div className="flex shrink-0 gap-1">
-                        <Button size="xs" variant="ghost" onClick={() => setToast(`演示：对比 ${v.version} 与当前草稿`)} data-testid={`tpled-version-diff-${v.version}`}><GitCompare className="h-3 w-3" /> 对比</Button>
+                        <Button size="xs" variant="ghost" onClick={() => setToast(`演示：对比 ${v.version} 与当前草稿`)} data-testid={`tpled-version-diff-${v.version}`}><GitCompare className="h-3 w-3" aria-hidden /> 对比</Button>
                         {v.canRollback && (
                           <Button
                             size="xs" variant="outline" disabled={readOnly} data-testid={`tpled-version-rollback-${v.version}`}
                             onClick={() => setConfirm({ kind: "rollback", label: `回滚到 ${v.version}`, impact: `回滚只生成新的未发布草稿覆盖当前 ${head.draftVersion}；已用出去的历史画布锁在各自版本、不受影响。回滚不改动 ${TEMPLATE_VERSIONS.find((x) => x.status === "当前发布版")?.version} 发布版。` })}
                           >
-                            <RotateCcw className="h-3 w-3" /> 回滚到此版
+                            <RotateCcw className="h-3 w-3" aria-hidden /> 回滚到此版
                           </Button>
                         )}
                       </div>

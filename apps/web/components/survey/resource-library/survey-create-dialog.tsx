@@ -77,7 +77,7 @@ export function SurveyCreateDialog({ open, mode, onOpenChange, onCreate }: {
                 {step === "metadata" ? "填写问卷名称与标签，再进入问卷设计。" : "选择一个模块作为问卷题目的起点，之后可独立修改。"}
               </Dialog.Description>
             </div>
-            <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label="关闭创建问卷弹窗"><X className="h-4 w-4" /></Button></Dialog.Close>
+            <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label="关闭创建问卷弹窗"><X className="h-4 w-4" aria-hidden /></Button></Dialog.Close>
           </div>
 
           {step === "metadata" ? (
@@ -92,7 +92,7 @@ export function SurveyCreateDialog({ open, mode, onOpenChange, onCreate }: {
                   {draft.tags.map((tag) => (
                     <span key={tag} data-testid="survey-create-tag" className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-11">
                       {tag}
-                      <button type="button" aria-label={`删除标签 ${tag}`} onClick={() => setDraft((current) => ({ ...current, tags: current.tags.filter((value) => value !== tag) }))} className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-3 w-3" /></button>
+                      <button type="button" aria-label={`删除标签 ${tag}`} onClick={() => setDraft((current) => ({ ...current, tags: current.tags.filter((value) => value !== tag) }))} className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><X className="h-3 w-3" aria-hidden /></button>
                     </span>
                   ))}
                   <Input id="survey-create-tag-input" value={tagInput} onChange={(event) => setTagInput(event.target.value)} onBlur={commitTag} onKeyDown={(event) => {
@@ -115,7 +115,7 @@ export function SurveyCreateDialog({ open, mode, onOpenChange, onCreate }: {
                   const selected = draft.sourceModuleId === module.id;
                   return (
                     <button key={module.id} type="button" aria-pressed={selected} onClick={() => setDraft((current) => ({ ...current, sourceModuleId: module.id }))} className={`rounded-lg border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "border-primary bg-accent" : "border-border hover:border-primary"}`}>
-                      <span className="flex items-center justify-between gap-3"><ClipboardList className="h-5 w-5 text-primary" />{selected && <Check className="h-4 w-4 text-primary" />}</span>
+                      <span className="flex items-center justify-between gap-3"><ClipboardList className="h-5 w-5 text-primary" aria-hidden />{selected && <Check className="h-4 w-4 text-primary" aria-hidden />}</span>
                       <span className="mt-3 block text-13 font-semibold">{module.title}</span>
                       <span className="mt-1 block text-11 text-muted-foreground">{module.description} · {module.questionCount} 题</span>
                     </button>

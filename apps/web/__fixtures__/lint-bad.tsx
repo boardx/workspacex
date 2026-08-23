@@ -1,5 +1,7 @@
 // 故意违规的样例 —— lint-design.sh 必须对它 exit 1 并报出全部类别。
 // 这个文件是门控自身的测试输入，不参与构建（tsconfig 已 exclude）。
+import Image from "next/image";
+
 export function Bad() {
   return (
     <div>
@@ -15,6 +17,8 @@ export function Bad() {
       <div className="hover:bg-muted" />
       {/* U7a img 缺 alt */}
       <img src="/x.png" />
+      {/* U7a next/image 的 Image 缺 alt（F08：U7a 扩展覆盖点） */}
+      <Image src="/y.png" width={40} height={40} />
       {/* U7b 裸 outline-none */}
       <input className="outline-none" />
       {/* §1.2 表外字号档位 */}

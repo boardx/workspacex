@@ -79,7 +79,7 @@ export function ExpertPickerDialog({
               <Dialog.Title className="text-2xl font-semibold">添加访谈专家</Dialog.Title>
               <Dialog.Description className="mt-2 text-sm text-muted-foreground">{description}</Dialog.Description>
             </div>
-            <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label="关闭专家选择"><X className="size-4" /></Button></Dialog.Close>
+            <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label="关闭专家选择"><X className="size-4" aria-hidden /></Button></Dialog.Close>
           </header>
 
           <div className="grid min-h-0 flex-1 grid-rows-[auto_auto_1fr] gap-4 p-6">
@@ -103,7 +103,7 @@ export function ExpertPickerDialog({
                     onChange={(event) => toggle(expert.expertId, event.currentTarget.checked)}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2"><strong>{expert.displayName}</strong><span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{expert.category}</span>{isOriginal && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Check className="size-3" />已添加</span>}</div>
+                    <div className="flex flex-wrap items-center gap-2"><strong>{expert.displayName}</strong><span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{expert.category}</span>{isOriginal && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Check className="size-3" aria-hidden />已添加</span>}</div>
                     <p className="mt-1 text-xs text-muted-foreground">{expert.role}</p>
                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{expert.bio}</p>
                   </div>

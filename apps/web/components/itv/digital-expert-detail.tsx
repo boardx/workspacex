@@ -22,7 +22,7 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
           href="/itv?tab=experts"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="size-4" /> 返回专家列表
+          <ArrowLeft className="size-4" aria-hidden /> 返回专家列表
         </Link>
 
         <article className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
@@ -45,7 +45,7 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
               href={`/itv/quick/new?expertId=${encodeURIComponent(expert.expertId)}`}
               className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm"
             >
-              <MessageSquare className="size-4" /> 快捷访谈
+              <MessageSquare className="size-4" aria-hidden /> 快捷访谈
             </Link>
           </div>
 

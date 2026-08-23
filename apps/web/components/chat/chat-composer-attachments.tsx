@@ -598,7 +598,7 @@ function AttachmentRow({
           }`}
           aria-hidden
         >
-          {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon aria-hidden className="h-3.5 w-3.5" />}
+          {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Icon aria-hidden className="h-3.5 w-3.5" />}
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-12 font-medium text-card-foreground" title={att.filename}>

@@ -39,7 +39,7 @@ export function DigitalInterviewCreate() {
     <main data-testid="itv-create-page" className="min-w-0 flex-1 overflow-y-auto bg-background">
       <div className="mx-auto w-full max-w-5xl px-6 py-8 lg:px-10 lg:py-10">
         <Link href="/itv?tab=history" className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
-          <ArrowLeft className="size-4" /> 返回历史访谈
+          <ArrowLeft className="size-4" aria-hidden /> 返回历史访谈
         </Link>
 
         <header className="mt-6 border-b border-border pb-6">
@@ -67,14 +67,14 @@ export function DigitalInterviewCreate() {
           </div>
 
           <div className="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2 font-medium text-foreground"><Check className="size-4 text-primary" /> 本步骤只保存访谈元数据</div>
+            <div className="flex items-center gap-2 font-medium text-foreground"><Check className="size-4 text-primary" aria-hidden /> 本步骤只保存访谈元数据</div>
             <p className="mt-1">访谈范围为独立访谈；主题在下一步明确确认后才写入。</p>
           </div>
           {error && <p role="alert" className="mt-4 text-sm text-destructive">创建失败：{error}</p>}
           <div className="mt-8 flex flex-wrap justify-end gap-3 border-t border-border pt-6">
             <Link href="/itv?tab=history" className="inline-flex h-11 items-center rounded-lg border border-border px-5 text-sm font-medium">取消</Link>
             <button data-testid="itv-create-submit" type="button" disabled={!valid || busy} onClick={submit} className="inline-flex h-11 items-center gap-2 whitespace-nowrap rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm disabled:bg-disabled disabled:text-disabled-foreground">
-              {busy ? "正在创建…" : "创建访谈"}<ArrowRight className="size-4" />
+              {busy ? "正在创建…" : "创建访谈"}<ArrowRight className="size-4" aria-hidden />
             </button>
           </div>
         </section>

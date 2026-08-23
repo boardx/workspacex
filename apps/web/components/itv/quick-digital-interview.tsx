@@ -90,7 +90,7 @@ export function QuickDigitalInterview({
               href="/itv?tab=experts"
               className="inline-flex items-center gap-2 text-sm text-muted-foreground"
             >
-              <ArrowLeft className="size-4" />
+              <ArrowLeft className="size-4" aria-hidden />
               返回专家列表
             </Link>
             <h1 className="mt-3 text-2xl font-semibold">{quick.expert.displayName}</h1>
@@ -167,7 +167,7 @@ export function QuickDigitalInterview({
             onClick={send}
             className="inline-flex h-12 items-center gap-2 self-end rounded-lg bg-primary px-5 text-sm text-primary-foreground shadow-sm disabled:bg-disabled disabled:text-disabled-foreground"
           >
-            <Send className="size-4" />
+            <Send className="size-4" aria-hidden />
             {busy ? "发送中…" : "发送"}
           </button>
         </div>

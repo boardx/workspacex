@@ -26,15 +26,15 @@ export function InterviewSkillAssistant({ draft, onSend, onApply, onUndo }: {
   return (
     <aside data-testid="itv-skill-assistant" className="border-b border-border bg-card lg:min-h-[calc(100vh-7rem)] lg:w-80 lg:shrink-0 lg:border-b-0 lg:border-r">
       <div className="sticky top-0 flex max-h-[calc(100vh-7rem)] flex-col p-5">
-        <div className="flex items-center gap-2"><MessageCircle className="size-5 text-primary" /><h2 className="font-semibold">访谈 Skill 助手</h2></div>
+        <div className="flex items-center gap-2"><MessageCircle className="size-5 text-primary" aria-hidden /><h2 className="font-semibold">访谈 Skill 助手</h2></div>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">通过对话优化当前步骤。建议只有点击应用后才会修改内容。</p>
         <div className="mt-4 flex flex-wrap gap-2">{QUICK_PROMPTS.map((prompt) => <button key={prompt} type="button" onClick={() => send(prompt)} className="rounded-full border border-border px-3 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground">{prompt}</button>)}</div>
         <div className="mt-5 min-h-40 flex-1 space-y-3 overflow-y-auto">
           {draft.skillMessages.map((message) => <div key={message.id} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-foreground"}>{message.text}</div>)}
           {draft.pendingSuggestion && <div data-testid="itv-skill-suggestion" className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs leading-5"><strong>Skill 建议</strong><p className="mt-1">{draft.pendingSuggestion.text}</p><Button data-testid="itv-skill-apply" type="button" variant="primary" size="sm" className="mt-3" onClick={onApply} disabled={draft.pendingSuggestion.applied}>应用建议</Button></div>}
         </div>
-        {draft.undoSnapshot && <Button data-testid="itv-skill-undo" type="button" variant="outline" size="sm" className="mt-3 self-start" onClick={onUndo}><Undo2 className="size-3" />撤销上次应用</Button>}
-        <div className="mt-4 flex gap-2"><input data-testid="itv-skill-input" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") send(); }} placeholder="和 Skill 讨论怎么优化…" className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" /><Button data-testid="itv-skill-send" type="button" variant="primary" size="icon" disabled={!input.trim()} onClick={() => send()}><Send className="size-4" /></Button></div>
+        {draft.undoSnapshot && <Button data-testid="itv-skill-undo" type="button" variant="outline" size="sm" className="mt-3 self-start" onClick={onUndo}><Undo2 className="size-3" aria-hidden />撤销上次应用</Button>}
+        <div className="mt-4 flex gap-2"><input data-testid="itv-skill-input" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") send(); }} placeholder="和 Skill 讨论怎么优化…" className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" /><Button data-testid="itv-skill-send" type="button" variant="primary" size="icon" disabled={!input.trim()} onClick={() => send()}><Send className="size-4" aria-hidden /></Button></div>
         <p className="mt-3 text-[10px] text-muted-foreground">Mock Skill · 不作为真实访谈证据</p>
       </div>
     </aside>
@@ -77,7 +77,7 @@ export function PersistentInterviewSkillAssistant({
 
   return <aside data-testid="itv-skill-assistant" className="border-b border-border bg-card lg:min-h-[calc(100vh-7rem)] lg:w-80 lg:shrink-0 lg:border-b-0 lg:border-r">
     <div className="sticky top-0 flex max-h-[calc(100vh-7rem)] flex-col p-5">
-      <div className="flex items-center gap-2"><MessageCircle className="size-5 text-primary" /><h2 className="font-semibold">访谈 Skill 助手</h2></div>
+      <div className="flex items-center gap-2"><MessageCircle className="size-5 text-primary" aria-hidden /><h2 className="font-semibold">访谈 Skill 助手</h2></div>
       <p className="mt-2 text-xs leading-5 text-muted-foreground">消息与建议即时保存；应用建议仍需在当前步骤明确确认。</p>
       <div className="mt-5 min-h-40 flex-1 space-y-3 overflow-y-auto">
         {view.skillMessages.map((message) => <div key={message.messageId} className={message.role === "user" ? "ml-6 rounded-lg bg-primary px-3 py-2 text-xs text-primary-foreground" : "mr-3 rounded-lg bg-muted px-3 py-2 text-xs leading-5 text-foreground"}>{message.text}</div>)}
@@ -91,7 +91,7 @@ export function PersistentInterviewSkillAssistant({
           {proposal.status === "stale" && <p className="mt-2 text-muted-foreground">建议已失效</p>}
         </div>)}
       </div>
-      <div className="mt-4 flex gap-2"><input data-testid="itv-skill-input" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void send(); }} placeholder="和 Skill 讨论怎么优化…" className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" /><Button data-testid="itv-skill-send" type="button" variant="primary" size="icon" disabled={!input.trim() || sending} onClick={() => void send()}><Send className="size-4" /></Button></div>
+      <div className="mt-4 flex gap-2"><input data-testid="itv-skill-input" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void send(); }} placeholder="和 Skill 讨论怎么优化…" className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30" /><Button data-testid="itv-skill-send" type="button" variant="primary" size="icon" disabled={!input.trim() || sending} onClick={() => void send()}><Send className="size-4" aria-hidden /></Button></div>
       <p className="mt-3 text-[10px] text-muted-foreground">持久 Skill 线程 · 建议不会自动确认业务数据</p>
     </div>
   </aside>;

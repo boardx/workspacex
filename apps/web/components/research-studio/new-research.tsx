@@ -242,7 +242,7 @@ export function NewResearchPanel({
 
         <div className="rounded-md border border-ai/20 bg-ai-tint px-3 py-2" data-testid="rs-preview">
           <p className="text-11 leading-relaxed text-ai-tint-foreground">
-            <Bot className="mr-1 inline h-3.5 w-3.5" />{preview}
+            <Bot className="mr-1 inline h-3.5 w-3.5" aria-hidden />{preview}
           </p>
         </div>
 
@@ -296,7 +296,7 @@ function CreatedDetail({ config, scoutAvailable, onRetry }: { config: RsConfig; 
           <p className="text-12 font-medium text-foreground" data-testid="rs-created-pending">待运行 · Scout 暂不可用（MODEL_UNAVAILABLE）</p>
           <p className="text-11 text-muted-foreground">研究已创建，七项配置已保存；只是这一轮没跑起来。</p>
           <Button size="xs" variant="outline" className="mt-1 w-fit" data-testid="rs-created-retry" onClick={onRetry}>
-            <RefreshCw className="h-3 w-3" />重试
+            <RefreshCw className="h-3 w-3" aria-hidden />重试
           </Button>
         </div>
       )}
