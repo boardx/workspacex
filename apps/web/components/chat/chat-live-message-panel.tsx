@@ -1338,7 +1338,27 @@ export function ChatLiveMessagePanel({
                 一结束就整块蒸发：规划条在终态消失、计划永远看不到 3/3（第 2 项判 0
                 的第三条依据）。现在只要本轮 run 的观测还在（含终态），过程区就在。
                 换线程/新提交时 runObservation 置 null，自然收场。 */}
+            {/*
+              issue #1907（用户 devapp 截图报告「通用助手出现了两次」）——run 还没
+              有任何 `tool_call` step、也不在 awaiting_approval/failed 时，
+              `AgentPlanPanel`/`AgentApprovalPanel` 都返回 null，这条过程区唯一的
+              内容就是 `AgentToolChain` 在 running=true 时给出的兜底摘要「…正在
+              执行…」（steps 非空但没有工具调用时）或者干脆是空的头像行（steps 为
+              空，`AgentToolChain` 自己 `steps.length===0` 直接返回 null）。这两种
+              情况下，同一个 in-flight run 已经由下面 `awaitingReply` 的「正在
+              思考…已用 N 秒」占位行说清楚了「在跑，没卡死」——过程区在这个窗口
+              不提供任何过程区独有的信息，只是同一件事被渲染成第二个 `<li>`，读
+              起来像两个独立的助手响应块。这里加一道「有实质过程内容才渲染」的
+              门槛：至少一次 `tool_call` step（覆盖 AgentToolChain 有话可说、以及
+              AgentPlanPanel 依赖的 write_todos 调用本身就是一次 tool_call）、
+              或者 awaiting_approval（承载审批卡片）、或者 failed（承载失败详情+
+              重试入口）——这三种情况过程区都有「正在思考」占位给不出的独有信息，
+              照常渲染；没有的时候只留一个进度块。
+            */}
             {runObservation?.view
+              && (runObservation.view.steps.some((s) => s.kind === "tool_call")
+                  || runObservation.view.status === "awaiting_approval"
+                  || runObservation.view.status === "failed")
               // 让位纪律：持久 agent 消息（resultMessageId）已渲染进列表后，过程区
               // 退场——计划/工具链由消息自己的 MessageThinkingChain/PlanPanel 承接
               // （同源 steps），双份同屏是评分卡第 10 项要抓的自相矛盾。落位**之前**
