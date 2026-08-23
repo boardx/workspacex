@@ -12,3 +12,13 @@
 
 ## 覆盖状态图例
 - ✅ 已落地并有自动化验证　⏳ feature 未开工，UC 已定义　❌ 有缺口需要处理
+
+## 门控命令映射（形态 B，签核③ 见 `domain.md` 声明）
+本束无对外 HTTP 面。下表以 R12 验收线索为行键，记录证明本束不变量成立的可执行门控命令。
+
+| V | 验收行为 | API 操作 / 门控命令 | Feature | 状态 |
+| --- | --- | --- | --- | --- |
+| V1 | chat/profile 核心任务全键盘可达 | `pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard chat'`；`pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard profile'` | F05 | 待落地 |
+| V2 | org-admin 键盘可达 + axe-core keyboard 扫描 | `pnpm --filter web exec playwright test -c playwright.config.ts -g 'keyboard org-admin'`；`pnpm --filter web exec playwright test -c playwright.config.ts -g 'axe keyboard'` | F06 | 待落地 |
+| V3 | 第三方样式覆盖登记表 + lint 关卡 | `pnpm --filter web exec vitest run tests/lint-third-party-style-registry.test.ts`；`pnpm --filter web run lint:design` | F07 | 待落地 |
+| V4 | 图片/图标可访问性标注 + axe image-alt | `pnpm --filter web exec vitest run tests/lint-image-alt-nextimage.test.ts`；`pnpm --filter web exec playwright test -c playwright.config.ts -g 'axe image-alt'` | F08 | 待落地 |

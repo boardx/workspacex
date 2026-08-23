@@ -30,3 +30,9 @@ F15（profile/org-admin 保真度评审达标）、F16（全站终验收官）�
 ## 明确不是不变量
 - 「评分应该客观公正」——过程要求，不可断言，靠 AGENTS.md「打分只由 rev-uiux 角色做」的
   流程约束保证，不写进本节。
+
+## ③ 件为什么不是 zod 契约文件（本束无对外 HTTP 面）
+`.harness/state/uiux-review-log.jsonl` 是内部治理数据，不经 `packages/contracts/` 暴露
+给前端消费，也没有对应的 HTTP 端点，因此没有 `packages/contracts/src/review-governance.ts`
+的必要。本束的「契约」是评审记录的结构化校验脚本与阈值断言，逐条落在 `coverage.md` 的
+可执行门控命令里。

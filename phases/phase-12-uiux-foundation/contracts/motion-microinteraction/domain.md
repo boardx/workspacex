@@ -28,3 +28,9 @@ F12（org-admin/canvas 微交互稽核）。对应 `requirements/02-*.md`、`req
 
 ## 明确不是不变量
 - 「动效应该让用户感觉丝滑」——体验目标，不可断言，不写进本节。
+
+## ③ 件为什么不是 zod 契约文件（本束无对外 HTTP 面）
+动效 token、编排级动效、微交互反馈全部是前端展示层行为，不经由 HTTP 端点与后端通信，
+因此没有 `packages/contracts/src/motion-microinteraction.ts` 的必要。本束的「契约」是
+`tailwind.config.ts` 的语义 token 定义与 `lint-design.sh` 的机械拦截规则，逐条落在
+`coverage.md` 的可执行门控命令里。

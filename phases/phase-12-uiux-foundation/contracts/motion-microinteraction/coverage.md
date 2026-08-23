@@ -17,3 +17,15 @@
 
 ## 覆盖状态图例
 - ✅ 已落地并有自动化验证　⏳ feature 未开工，UC 已定义　❌ 有缺口需要处理
+
+## 门控命令映射（形态 B，签核③ 见 `domain.md` 声明）
+本束无对外 HTTP 面。下表以 R12 验收线索为行键，记录证明本束不变量成立的可执行门控命令。
+
+| V | 验收行为 | API 操作 / 门控命令 | Feature | 状态 |
+| --- | --- | --- | --- | --- |
+| V1 | 动效 token 语义档位定义 + lint 拦截裸 duration/easing | `pnpm --filter web exec vitest run tests/lint-design-motion-rule.test.ts`；`pnpm --filter web run lint:design` | F03 | 待落地 |
+| V2 | 编排级动效 + reduced-motion 降级 | `pnpm --filter web exec vitest run tests/ui/motion-orchestration.test.tsx`；`pnpm --filter web exec playwright test -c playwright.config.ts -g 'reduced motion'` | F04 | 待落地 |
+| V3 | chat/profile 微交互一致性 | `pnpm --filter web exec vitest run tests/ui/microinteraction-chat-profile.test.tsx`；`pnpm --filter web run lint:design` | F11 | 待落地 |
+| V4 | org-admin/canvas 微交互一致性 | `pnpm --filter web exec vitest run tests/ui/microinteraction-orgadmin-canvas.test.tsx`；`pnpm --filter web run lint:design` | F12 | 待落地 |
+| V5 | 首屏骨架屏过渡（暂记 F17，排期未定） | `pnpm --filter web exec vitest run tests/ui/motion-skeleton-transition.test.tsx`；`pnpm --filter web exec playwright test -c playwright.config.ts -g 'reduced motion skeleton'` | F17 | 排期未定 |
+| V6 | 上传进度动效（暂记 F18，依赖后端进度事件源） | `pnpm --filter web exec vitest run tests/ui/motion-upload-progress.test.tsx`；`pnpm --filter web exec playwright test -c playwright.config.ts -g 'reduced motion upload progress'` | F18 | 排期未定 |

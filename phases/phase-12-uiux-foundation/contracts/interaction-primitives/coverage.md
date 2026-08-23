@@ -18,3 +18,14 @@
 
 ## 覆盖状态图例
 - ✅ 已落地并有自动化验证　⏳ feature 未开工，UC 已定义　❌ 有缺口需要处理
+
+## 门控命令映射（形态 B，签核③ 见 `domain.md` 声明）
+本束无对外 HTTP 面。下表以 R12 验收线索为行键，记录证明本束不变量成立的可执行门控命令。
+
+| V | 验收行为 | API 操作 / 门控命令 | Feature | 状态 |
+| --- | --- | --- | --- | --- |
+| V1 | 四个弹层原语的 token 化（无字面量色值/圆角/阴影）与关闭行为一致性 | `pnpm --filter web exec vitest run tests/ui/overlay-primitives-dialog-dropdown.test.tsx`；`pnpm --filter web run lint:design` | F01 | 待落地 |
+| V2 | 弹层键盘可达（Tab/Esc/方向键） | `pnpm --filter web exec playwright test -c playwright.config.ts -g 'overlay primitives keyboard'` | F01 | 待落地 |
+| V3 | Select/Tooltip 原语 + kitchen-sink 四组件展示区可见 | `pnpm --filter web exec vitest run tests/ui/overlay-primitives-select-tooltip.test.tsx`；`pnpm --filter web exec playwright test -c playwright.config.ts -g 'kitchen sink overlays'` | F02 | 待落地 |
+| V4 | Table/Menu 复合原语收口 | `pnpm --filter web exec vitest run tests/ui/composite-table-menu.test.tsx`；`pnpm --filter web run lint:design` | F09 | 待落地 |
+| V5 | Breadcrumb/Pagination 复合原语收口 + kitchen-sink 展示 | `pnpm --filter web exec vitest run tests/ui/composite-breadcrumb-pagination.test.tsx`；`pnpm --filter web exec playwright test -c playwright.config.ts -g 'kitchen sink composites'` | F10 | 待落地 |
