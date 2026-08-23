@@ -219,6 +219,7 @@ export default defineConfig({
         ...process.env,
         LOOPBACK_DEEP_AGENT_PROVIDER_PORT: deepAgentProviderPort,
         LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER: CHAT_READ_E2E.deepAgentFailureTrigger,
+        LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
       },
     },
     {
