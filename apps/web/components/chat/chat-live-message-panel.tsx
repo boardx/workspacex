@@ -25,8 +25,10 @@ import {
   type GetAgentPanelOut,
 } from "@/lib/live-chat";
 import {
+  describeAgentRunError,
   getAgentRun,
   isTerminalRunStatus,
+  retryAgentRun,
   type AgentRunStatus,
   type AgentRunView,
 } from "@/lib/agent-run";
@@ -298,6 +300,16 @@ export function ChatLiveMessagePanel({
     return () => clearInterval(t);
   }, [activeRunId, runStartedAt]);
   const [runObservation, setRunObservation] = React.useState<RunObservation | null>(null);
+  /**
+   * UX-9 track B 第 7 项修复——`retryAgentRun` 成功重开一个 `CHAT_WRITEBACK_FAILED`
+   * 的 run 后，`activeRunId` 不变（还是同一个 runId），下面的轮询 effect 靠
+   * `[activeRunId, bearer, loadPage]` 这组依赖不会自动重跑。这个计数器专门用来
+   * 触发那次重跑——每次重试成功就 +1，effect 依赖它一起变化，不新起一条并行的
+   * 轮询逻辑。
+   */
+  const [pollNonce, setPollNonce] = React.useState(0);
+  const [retrying, setRetrying] = React.useState(false);
+  const [retryFailure, setRetryFailure] = React.useState<string | null>(null);
   /**
    * #654 阶段2d —— 逐 token 累积的草稿文本，与上面 `runObservation` 刻意分开维护。
    *
@@ -654,7 +666,9 @@ export function ChatLiveMessagePanel({
       cancelled = true;
       if (timer !== null) clearTimeout(timer);
     };
-  }, [activeRunId, bearer, loadPage]);
+    // `pollNonce` 是本 effect 唯一不参与判断、只用来强制重跑的依赖——见其声明处头注：
+    // `retryAgentRun` 重开的是同一个 runId，`activeRunId` 不会变，靠这个计数器重新挂起轮询。
+  }, [activeRunId, bearer, loadPage, pollNonce]);
 
   /**
    * #654 阶段2d —— 逐 token 追加。与上面的状态轮询是两个独立的 effect，各自
@@ -829,29 +843,39 @@ export function ChatLiveMessagePanel({
     }
   };
 
-  const submit = async () => {
-    const normalizedText = text.trim();
-    if (normalizedText === "" || selectedAgentId === "" || archived || submitting) return;
+  /**
+   * `resend` 参数（UX-9 track B 第 7 项修复）——重试一个 `MODEL_CALL_FAILED`（或任何
+   * 不支持 `retryAgentRun` 重开的）失败 run 时用：契约的 `UNIQUE (org_id,
+   * input_message_id)` 约束（#415）不允许对同一条人类消息开第二个 run，唯一诚实的
+   * 「重试」是把原文本当**一条新消息**重新发出，产生一个全新的 run —— 不是复用当前
+   * composer 草稿（`text`/`selectedAgentId`），所以单独传参数，不依赖组件 state 的
+   * 下一次渲染。传了 `resend` 时也不带上当前 composer 里可能正挂着的附件：那些附件
+   * 属于用户正在写的下一条消息，与被重试的这条历史失败消息无关。
+   */
+  const submit = async (resend?: { text: string; agentId: string }) => {
+    const normalizedText = (resend?.text ?? text).trim();
+    const agentIdToUse = resend?.agentId ?? selectedAgentId;
+    if (normalizedText === "" || agentIdToUse === "" || archived || submitting) return;
     // #946 · V9-a F152：有附件还在上传时不发送——等它们各自到 uploaded/error 再发，
     // 否则会把还没拿到 serverId 的附件漏发。错误态的附件不阻塞发送（用户可先移除或重试）。
-    if (attach.hasUploading) return;
-    const currentAttempt = attempt && attempt.threadId === threadId &&
-      attempt.text === normalizedText && attempt.agentId === selectedAgentId
+    if (!resend && attach.hasUploading) return;
+    const currentAttempt = !resend && attempt && attempt.threadId === threadId &&
+      attempt.text === normalizedText && attempt.agentId === agentIdToUse
       ? attempt
       : {
         threadId,
         clientMessageId: newClientMessageId(),
         text: normalizedText,
-        agentId: selectedAgentId,
+        agentId: agentIdToUse,
       };
-    setAttempt(currentAttempt);
+    if (!resend) setAttempt(currentAttempt);
     setSubmitting(true);
     setSubmitFailure(null);
     setQueuedRun(null);
     setActiveRunId(null);
     setRunObservation(null);
     try {
-      const attachmentIds = attach.uploadedIds;
+      const attachmentIds = resend ? [] : attach.uploadedIds;
       const accepted = await createMessage(threadId, {
         clientMessageId: currentAttempt.clientMessageId,
         text: currentAttempt.text,
@@ -860,9 +884,11 @@ export function ChatLiveMessagePanel({
       }, bearer);
       setQueuedRun({ id: accepted.agentRunId, messageId: accepted.message.id });
       setActiveRunId(accepted.agentRunId);
-      setText("");
-      setAttempt(null);
-      attach.clear(); // 发送成功：附件已挂到该消息，清空 composer 的本地附件态
+      if (!resend) {
+        setText("");
+        setAttempt(null);
+        attach.clear(); // 发送成功：附件已挂到该消息，清空 composer 的本地附件态
+      }
       onMessageSent?.(); // #728 D9：材料随消息一起产出，此刻通知上层重读右栏「材料」
 
       // 发送后重读：从本地已加载列表尾部追新，不清空不弹骨架
@@ -881,6 +907,49 @@ export function ChatLiveMessagePanel({
       setSubmitFailure(describeMessageFailure(failure, "发送消息"));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  /**
+   * UX-9 track B 第 7 项修复——失败 run 的重试入口，两条真实路径，不是同一件事伪装成一件事：
+   *
+   * ① `error === "CHAT_WRITEBACK_FAILED"`（写回预算耗尽，模型答案其实已经生成好）——
+   *    调契约既有的 `retryAgentRun`，服务端**重开同一个 run**（同一条输入消息，不产生
+   *    第二条），重开后继续走既有轮询到终态。这是 `retryAgentRun` 唯一支持的场景
+   *    （见 `apps/api/src/application/agent-run/retry-run.ts` 的 `reopenForWritebackRetry`）。
+   * ② 其它终态错误码（如 `MODEL_CALL_FAILED`）——服务端对这些码不允许重开同一个
+   *    run（撞 409 `AGENT_RUN_NOT_RETRYABLE`，`UNIQUE (org_id, input_message_id)`
+   *    结构上也不允许），唯一诚实的重试是把原文本当一条新消息重新发出（`submit`
+   *    的 `resend` 分支），产生一个全新的 run。
+   *
+   * 两条路径都失败（网络错误、无权限等）时如实展示失败原因，不静默吞掉。
+   */
+  const retryFailedRun = async () => {
+    const view = runObservation?.view;
+    if (!view || view.status !== "failed" || retrying) return;
+    setRetrying(true);
+    setRetryFailure(null);
+    try {
+      const reopened = await retryAgentRun(view.runId, bearer);
+      setRunObservation({ runId: reopened.runId, view: reopened, failure: null, timedOut: false, authExpired: false });
+      setPollNonce((n) => n + 1); // 同一个 runId，effect 靠这个计数器重新挂起轮询
+    } catch (failure) {
+      const notRetryable = failure instanceof ApiError && failure.reasonCode === "AGENT_RUN_NOT_RETRYABLE";
+      if (notRetryable) {
+        // 这一类失败码在契约里就不支持"重开同一个 run"——见上方函数头注②。
+        // 原文本只在**当前已加载**的消息窗口里找得到时才能重发；找不到（早于翻页
+        // 窗口）就如实说做不到，不假装重试成功。
+        const original = messages.find((m) => m.id === view.inputMessageId);
+        if (!original) {
+          setRetryFailure("这类失败不支持重开原 run，且原始消息已不在当前加载窗口内，无法自动重发——请手动重新输入并发送。");
+        } else {
+          await submit({ text: original.text, agentId: view.agentId });
+        }
+      } else {
+        setRetryFailure(describeMessageFailure(failure, "重试执行"));
+      }
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -990,6 +1059,18 @@ export function ChatLiveMessagePanel({
    */
   const runPhaseLabel = runObservation?.view != null ? deriveRunPhaseLabel(runObservation.view.steps) : null;
 
+  /**
+   * UI 评分 2026-08-23 第 10 项不一致①——身份漂移：过程区头像写死「AI」、流式草稿
+   * 与思考占位两处都写死「Agent」，等消息真正落库才换成 `agentLabel` 查出来的真实
+   * 名字（如「Deep Research Agent」）。三个占位行与终态各喊各的名字，读的人看到的
+   * 是同一次回复中途换了三次身份。
+   *
+   * `runObservation.view.agentId` 是服务端权威值（一旦轮询到第一次响应就有），
+   * 在它到达前的短窗口退回 `selectedAgentId`（提交这次消息时选中的 agent）——
+   * 两者在同一次提交里指向同一个 agent，不是两个不同的事实源，只是可用的时机不同。
+   */
+  const activeAgentId = runObservation?.view?.agentId ?? (selectedAgentId || null);
+
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col"
@@ -1038,12 +1119,21 @@ export function ChatLiveMessagePanel({
             onRetry={() => void loadPage(null, "replace")}
           />
         ) : null}
-        {!loading && !listFailure && messages.length === 0 ? (
+        {/*
+          UI 评分 2026-08-23 第 10 项不一致②——原判据只看 `messages.length === 0`：
+          刚发出第一条消息、run 还没落库那 1~2 秒里，持久消息数确实是 0，于是这句
+          空态文案与「我刚发的消息去哪了」的用户直觉正面冲突（评分员截到了这一帧）。
+          `activeRunId !== null` 就是「有一个 run 正在飞」的唯一事实源（`submit()` 拿到
+          202 就置它），这里加这一个条件，不新起判据：有在途 run 时让位给下面
+          `messages.length > 0 || activeRunId !== null` 那个分支渲染的思考/流式行，
+          不再同时喊「没有消息」。
+        */}
+        {!loading && !listFailure && messages.length === 0 && activeRunId === null ? (
           <div className="grid min-h-40 place-items-center text-12 text-muted-foreground" data-testid="chat-message-list-empty">
             这条线程还没有持久消息。
           </div>
         ) : null}
-        {messages.length > 0 ? (
+        {messages.length > 0 || activeRunId !== null ? (
           <ol ref={messageListRef} className="flex flex-col gap-4" data-testid="chat-message-list">
             {messages.map((message) => {
               const isAgent = message.authorKind === "agent";
@@ -1231,16 +1321,61 @@ export function ChatLiveMessagePanel({
               && !(runObservation.view.resultMessageId !== null
                    && messages.some((m) => m.id === runObservation.view!.resultMessageId)) ? (
               <li className="flex items-start gap-2.5" data-testid="chat-run-process-area">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-panel text-11 font-semibold text-muted-foreground">
-                  AI
+                {/* 头像与身份行改用真实 agent 名（见上方 `activeAgentId` 头注），
+                    不再写死「AI」——这一行、下面流式草稿行、终态持久消息行现在
+                    读的是同一个 agentLabel(agentId, agents)，不会中途改口。 */}
+                <div
+                  aria-hidden
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"
+                >
+                  <Bot className="h-3.5 w-3.5" />
                 </div>
                 <div className="flex min-w-0 max-w-[85%] flex-col gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                    <span className="font-medium text-card-foreground">{agentLabel(activeAgentId, agents)}</span>
+                    {agentRoleLabel(activeAgentId, agents)}
+                  </div>
                   <AgentPlanPanel steps={runObservation.view.steps} />
                   <AgentApprovalPanel view={runObservation.view} sessionToken={bearer} />
                   <AgentToolChain
                     steps={runObservation.view.steps}
                     running={!isTerminalRunStatus(runObservation.view.status)}
+                    runFailed={runObservation.view.status === "failed"}
                   />
+                  {/*
+                    UI 评分 2026-08-23 第 7 项修复（回归）——失败此前只在 composer 下方
+                    一行裸错误码里出现，消息流里这条 agent 行完全没有任何失败呈现，
+                    工具折叠头（上面 `AgentToolChain`）如果没有失败的工具调用还会继续
+                    显示绿色 ✓。这里把失败态挂进这条 agent 行本身：人读文案（不是
+                    `MODEL_CALL_FAILED` 这类稳定枚举，那个原样进了 `title`）+ 可点击的
+                    重试入口。`AgentRunStatus`（composer 下方）保留一份摘要用于扫读，
+                    但完整的失败呈现首先在这里，不是只在这里之外。
+                  */}
+                  {runObservation.view.status === "failed" ? (
+                    <div
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
+                      data-testid="chat-run-process-failure"
+                    >
+                      <p className="text-11 text-destructive" title={runObservation.view.error ?? undefined}>
+                        {describeAgentRunError(runObservation.view.error)}
+                      </p>
+                      <Button
+                        size="xs"
+                        variant="outline"
+                        data-testid="chat-run-process-failure-retry"
+                        disabled={retrying}
+                        onClick={() => void retryFailedRun()}
+                      >
+                        <RefreshCw aria-hidden className="h-3 w-3" />
+                        {retrying ? "重试中…" : "重试"}
+                      </Button>
+                    </div>
+                  ) : null}
+                  {retryFailure ? (
+                    <p className="text-11 text-destructive" data-testid="chat-run-process-retry-error">
+                      {retryFailure}
+                    </p>
+                  ) : null}
                 </div>
               </li>
             ) : null}
@@ -1259,7 +1394,9 @@ export function ChatLiveMessagePanel({
                 </div>
                 <div className="flex max-w-[80%] flex-col gap-1 items-start">
                   <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
-                    <span className="font-medium">Agent</span>
+                    {/* 同 `activeAgentId`——不再写死「Agent」，与过程区/终态消息用同一份身份 */}
+                    <span className="font-medium text-card-foreground">{agentLabel(activeAgentId, agents)}</span>
+                    {agentRoleLabel(activeAgentId, agents)}
                     <Badge tone="outline">正在生成…</Badge>
                   </div>
                   {/* 2026-08-14 重做：在途 run 的工具调用链也挂在这条流式气泡自己身上，
@@ -1288,7 +1425,9 @@ export function ChatLiveMessagePanel({
                 </div>
                 <div className="flex max-w-[80%] flex-col gap-1 items-start">
                   <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
-                    <span className="font-medium">Agent</span>
+                    {/* 同 `activeAgentId`——不再写死「Agent」，与过程区/终态消息用同一份身份 */}
+                    <span className="font-medium text-card-foreground">{agentLabel(activeAgentId, agents)}</span>
+                    {agentRoleLabel(activeAgentId, agents)}
                     <Badge tone="outline">正在思考…</Badge>
                     {/*
                       gap ②：已耗时。⚠ 它每秒在动 —— "会动"本身就是"没卡死"的证据，
@@ -1731,7 +1870,16 @@ function AgentRunStatus({ observation }: { observation: RunObservation }) {
         <span className="text-muted-foreground">正在读取 AgentRun 状态…</span>
       ) : null}
       {status !== null ? <span className={statusTone(status)}>{RUN_STATUS_TEXT[status]}</span> : null}
-      {view?.error ? <span className="text-destructive">（{view.error}）</span> : null}
+      {/*
+        UI 评分 2026-08-23 第 7 项修复——这里此前直接印 `view.error` 的原值
+        （如「（MODEL_CALL_FAILED）」），是仅供排障的稳定枚举，不是给用户看的话。
+        `describeAgentRunError` 换成人读文案，原始 code 仍在 `title`（悬停/读屏可达，
+        不是被抹掉）。完整的失败呈现（含重试入口）在消息流那条 agent 行本身
+        （`chat-run-process-failure`），这里是扫读摘要，两处不重复渲染重试按钮。
+      */}
+      {view?.error ? (
+        <span className="text-destructive" title={view.error}>（{describeAgentRunError(view.error)}）</span>
+      ) : null}
       {timedOut ? (
         // 超时 ≠ 失败。run 可能还在服务端跑，界面只说自己没等到。
         <span className="text-muted-foreground">本页面已停止轮询，运行可能仍在继续。</span>

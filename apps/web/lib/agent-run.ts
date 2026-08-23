@@ -26,6 +26,32 @@ import { apiRequest } from "./api-client";
 
 export type AgentRunView = z.infer<typeof wave2Runtime.AgentRunView>;
 export type AgentRunStatus = z.infer<typeof wave2Runtime.AgentRunStatus>;
+export type AgentRunError = z.infer<typeof wave2Runtime.AgentRunError>;
+
+/**
+ * UX-9 track B 第 7 项修复（2026-08-23 回归）—— run 的终态错误码此前被原样印给用户
+ * （「执行失败（MODEL_CALL_FAILED）」），是仅供排障的稳定枚举，不是人话。
+ * 这里给每个契约枚举值一句人读文案；原始 code 仍然可取（调用方放进 `title`），
+ * 不是被抹掉，只是不再是用户第一眼看到的东西。
+ *
+ * ⚠ 这个 Record 的 key 集合与 `wave2-runtime.ts` 的 `AgentRunError` 枚举是同一件事——
+ * 新增枚举值时 TypeScript 会在这里报"缺 key"，不会静默漏译。
+ */
+const AGENT_RUN_ERROR_TEXT: Record<AgentRunError, string> = {
+  HITL_REJECTED: "已被人工拒绝执行",
+  MODEL_PROVIDER_NOT_CONFIGURED: "所选模型服务尚未配置，请联系管理员",
+  SKILL_VERSION_UNAVAILABLE: "所需的 skill 版本当前不可用",
+  AGENT_VERSION_UNAVAILABLE: "所选 Agent 版本已不可用，请重新选择 Agent 后再试",
+  MODEL_CALL_FAILED: "模型这次没能返回可用结果",
+  CHAT_WRITEBACK_FAILED: "回复已生成，但写入对话失败",
+  TOOL_LOOP_LIMIT_EXCEEDED: "工具调用次数超出上限，模型未能给出最终答案",
+};
+
+/** 终态错误码 → 人读文案。`code` 为 `null`（读不到具体原因）时给一句诚实的兜底。 */
+export function describeAgentRunError(code: AgentRunError | null): string {
+  if (code === null) return "执行失败，原因未知";
+  return AGENT_RUN_ERROR_TEXT[code] ?? `执行失败（${code}）`;
+}
 
 /**
  * run 的**终态**集合，唯一事实源取自契约的状态机
@@ -39,8 +65,9 @@ export type AgentRunStatus = z.infer<typeof wave2Runtime.AgentRunStatus>;
  * ⚠ #519 之后 `failed` 仍然是**这一轮**轮询的终点，但不再是「这个 run 永远到此为止」：
  * `CHAT_WRITEBACK_FAILED` 的 run 可以由人显式调 `retryAgentRun` 重开回
  * `writeback_pending`。上面那句注释在 #519 之前为真、现在只在「不做任何人类动作」的
- * 前提下为真。**本文件目前没有实现重试的客户端调用，UI 也没有入口** —— 见 PR #519
- * 正文的「未验证 / 未做」清单，不要把这里的沉默读成「后端也没有」。
+ * 前提下为真。**UX-9 track B 第 7 项修复**补上了这一半：`retryAgentRun`（下方薄封装）
+ * 与消息流里的重试入口（`chat-live-message-panel.tsx`）都已接上——这句注释此前说
+ * 「没有客户端调用、没有 UI 入口」，不要再把那句话读成现状。
  */
 const TERMINAL_STATUSES: ReadonlySet<string> = new Set<AgentRunStatus>(["succeeded", "failed"]);
 
@@ -55,6 +82,26 @@ export async function getAgentRun(
   return apiRequest<AgentRunView>(
     wave2Runtime.operations.getAgentRun.path.replace(":runId", encodeURIComponent(runId)),
     { method: "GET", sessionToken },
+  );
+}
+
+/**
+ * UX-9 track B 第 7 项修复 —— 契约面 `retryAgentRun`（#519）此前有实现、有服务端路由，
+ * 唯独没有客户端调用、没有 UI 入口（见本文件旧头注「本文件目前没有实现重试的客户端
+ * 调用」）。这里补上薄封装，原样交出服务端结果，不在客户端猜测重开是否成功。
+ *
+ * ⚠ 只对 `failed` + `CHAT_WRITEBACK_FAILED` 的 run 有效（服务端 `reopenForWritebackRetry`
+ * 的既有约束，见 `apps/api/src/application/agent-run/retry-run.ts`）——`MODEL_CALL_FAILED`
+ * 等其它终态错误码会撞 409 `AGENT_RUN_NOT_RETRYABLE`，调用方需要另一条路径（把原文本
+ * 当一条新消息重新发出），不是本函数的职责。
+ */
+export async function retryAgentRun(
+  runId: string,
+  sessionToken?: string,
+): Promise<AgentRunView> {
+  return apiRequest<AgentRunView>(
+    wave2Runtime.operations.retryAgentRun.path.replace(":runId", encodeURIComponent(runId)),
+    { method: "POST", sessionToken },
   );
 }
 

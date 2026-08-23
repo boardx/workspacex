@@ -95,11 +95,22 @@ export function AgentToolChain({
   steps,
   defaultOpen = false,
   running = false,
+  runFailed = false,
 }: {
   steps: Step[];
   defaultOpen?: boolean;
   /** run 未终态：零工具时说「正在执行…」而非下「模型直接作答」的结论。 */
   running?: boolean;
+  /**
+   * UX-9 track B 第 7 项修复（2026-08-23 回归）—— run 本身以 `failed` 终态收场，
+   * 但失败点可能不在任何一次工具调用上（例如 MODEL_CALL_FAILED：模型调用本身没
+   * 返回可用内容，`toolSteps` 里每一步都是 `succeeded`）。此前折叠头只看
+   * `failCount`（工具调用失败数），于是这种情况下收起态照样是绿色 ✓，与「执行
+   * 失败」的整体结论矛盾。这个 flag 让折叠头知道「这一整条 run 失败了」，
+   * 不是从 `steps` 里反推出来的——反推不出：工具全部成功、run 仍能失败，
+   * 两件事各有各的事实源。
+   */
+  runFailed?: boolean;
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   // V6 与活体一致：只要 run 有任何 step 就展示折叠块，不要求有工具调用才渲染。
@@ -136,6 +147,13 @@ export function AgentToolChain({
             <Badge tone="danger" data-testid="agent-tool-chain-fail-badge">
               <XCircle aria-hidden className="h-2.5 w-2.5" />
               {failCount} 个失败
+            </Badge>
+          ) : runFailed ? (
+            // 每一步工具调用都成功，但 run 整体仍以 failed 收场（如 MODEL_CALL_FAILED）——
+            // 绿色 ✓ 在这里是假的：它只回答了「工具调没调成」，没回答「这次执行成没成」。
+            <Badge tone="danger" data-testid="agent-tool-chain-run-failed-badge">
+              <XCircle aria-hidden className="h-2.5 w-2.5" />
+              执行失败
             </Badge>
           ) : (
             <CheckCircle2
