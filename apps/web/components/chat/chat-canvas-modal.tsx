@@ -10,6 +10,7 @@ import { describeMessageFailure, landAsArtifact } from "@/lib/live-chat";
 import type { CanvasTool } from "@/components/canvas/canvas-toolbar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatRelativeTime } from "./chat-diagram-canvas-modal";
 
 /**
@@ -202,6 +203,7 @@ export function ChatCanvasModal({
       aria-label="最大化编辑工作坊画布"
       className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-sm"
     >
+      <TooltipProvider delayDuration={200}>
       <header className="flex flex-wrap items-center gap-1 border-b border-border bg-card px-3 py-2">
         <span className="mr-2 text-13 font-semibold">编辑工作坊画布</span>
         <Badge tone="ai">fabric 可编辑</Badge>
@@ -224,16 +226,20 @@ export function ChatCanvasModal({
 
         <div className="mx-2 h-4 w-px bg-border" aria-hidden />
 
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="适应画布（回到 100%）"
-          title="适应画布"
-          onClick={() => setZoom(1)}
-          data-testid="chat-canvas-zoom-fit"
-        >
-          <Maximize aria-hidden className="h-3.5 w-3.5" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="适应画布（回到 100%）"
+              onClick={() => setZoom(1)}
+              data-testid="chat-canvas-zoom-fit"
+            >
+              <Maximize aria-hidden className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>适应画布</TooltipContent>
+        </Tooltip>
         <span className="w-10 text-center font-mono text-10 tabular-nums text-muted-foreground">
           {Math.round(zoom * 100)}%
         </span>
@@ -244,26 +250,34 @@ export function ChatCanvasModal({
               {exportError}
             </span>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="导出为 PNG"
-            title="导出为 PNG"
-            onClick={handleExportPNG}
-            data-testid="chat-canvas-export-png"
-          >
-            <ImageDown aria-hidden className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="导出为 PDF"
-            title="导出为 PDF"
-            onClick={() => void handleExportPDF()}
-            data-testid="chat-canvas-export-pdf"
-          >
-            <FileDown aria-hidden className="h-3.5 w-3.5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="导出为 PNG"
+                onClick={handleExportPNG}
+                data-testid="chat-canvas-export-png"
+              >
+                <ImageDown aria-hidden className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>导出为 PNG</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="导出为 PDF"
+                onClick={() => void handleExportPDF()}
+                data-testid="chat-canvas-export-pdf"
+              >
+                <FileDown aria-hidden className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>导出为 PDF</TooltipContent>
+          </Tooltip>
           <div className="mx-1 h-4 w-px bg-border" aria-hidden />
           {saveError && (
             <span className="text-11 text-destructive" data-testid="chat-canvas-save-error">
@@ -302,6 +316,7 @@ export function ChatCanvasModal({
           </Button>
         </div>
       </header>
+      </TooltipProvider>
 
       {savedSource && viewing === "saved" ? (
         <div

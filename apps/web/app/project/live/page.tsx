@@ -26,6 +26,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, clearStoredSessionToken, getStoredSessionToken, storeSessionToken } from "@/lib/api-client";
 import {
@@ -222,18 +223,12 @@ export default function ProjectLivePage() {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                 />
-                <select
+                <Select
                   data-testid="live-create-kind"
-                  className="h-8 rounded-md border border-input bg-card px-2.5 text-13"
+                  options={PROJECT_KIND_OPTIONS.map((k) => ({ value: k, label: k }))}
                   value={newKind}
-                  onChange={(e) => setNewKind(e.target.value as (typeof PROJECT_KIND_OPTIONS)[number])}
-                >
-                  {PROJECT_KIND_OPTIONS.map((k) => (
-                    <option key={k} value={k}>
-                      {k}
-                    </option>
-                  ))}
-                </select>
+                  onValueChange={(k) => setNewKind(k as (typeof PROJECT_KIND_OPTIONS)[number])}
+                />
                 <Button data-testid="live-create-submit" type="submit" disabled={createBusy || orgId === ""}>
                   {createBusy ? "创建中…" : "创建"}
                 </Button>

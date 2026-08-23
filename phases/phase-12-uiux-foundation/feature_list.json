@@ -30,15 +30,15 @@
         "F01"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/overlay-primitives-select-tooltip.test.tsx",
         "pnpm --filter web run lint:design",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'kitchen sink overlays'"
       ],
-      "evidence": "",
+      "evidence": "evidence/F02.verify.log @ 2026-08-23T13:23:02.301Z",
       "notes": "依据等级：[Backlog]（IT-01；原型确认缺失，同 F01）。has_ui：随 01 号需求所属契约束一并签核。R11 拆分：与 F01 同属 01 号需求（工作量 L，两 feature 合计 5 点）。playwright 断言 kitchen-sink 四个新组件展示区块可见，作为新旧弹层视觉回归的对比锚点（R4-E3）。"
     },
     {

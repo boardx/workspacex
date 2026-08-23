@@ -38,6 +38,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, clearStoredSessionToken, getStoredSessionToken, storeSessionToken } from "@/lib/api-client";
 import { login } from "@/lib/live-projects";
@@ -335,20 +336,14 @@ export default function ChatLivePage() {
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                 />
-                <select
+                <Select
                   data-testid="chat-live-create-visibility"
-                  className="h-8 rounded-md border border-input bg-card px-2.5 text-13"
+                  options={CHAT_VISIBILITY_OPTIONS.map((v) => ({ value: v, label: v }))}
                   value={newVisibility}
-                  onChange={(e) =>
-                    setNewVisibility(e.target.value as (typeof CHAT_VISIBILITY_OPTIONS)[number])
+                  onValueChange={(v) =>
+                    setNewVisibility(v as (typeof CHAT_VISIBILITY_OPTIONS)[number])
                   }
-                >
-                  {CHAT_VISIBILITY_OPTIONS.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+                />
                 <Button
                   data-testid="chat-live-create-submit"
                   type="submit"

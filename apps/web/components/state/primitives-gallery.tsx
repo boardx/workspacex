@@ -37,6 +37,12 @@ const ROLE_OPTIONS = [
   { value: "observer", label: "观察者（只读）" },
 ];
 
+/** 超长列表：验证 select.tsx 在选项很多时视口内可滚动截断，不撑爆页面。 */
+const LONG_OPTIONS = Array.from({ length: 40 }, (_, i) => ({
+  value: `member-${i + 1}`,
+  label: `成员 ${i + 1} 号 · 候选`,
+}));
+
 /**
  * 弹层原语展示区 —— 契约束 interaction-primitives（F01/F02）签核①材料的取景组件。
  * 四个原语（Dialog / Dropdown / Select / Tooltip）各自可交互，带 data-testid 供
@@ -44,6 +50,7 @@ const ROLE_OPTIONS = [
  */
 export function PrimitivesGallery() {
   const [role, setRole] = React.useState<string>("member");
+  const [longPick, setLongPick] = React.useState<string>("member-1");
 
   return (
     <div className="flex flex-col gap-6" data-testid="section-primitives">
@@ -136,6 +143,25 @@ export function PrimitivesGallery() {
               data-testid="primitive-select-trigger"
             />
           </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="primitive-select-disabled">禁用态</Label>
+            <Select
+              options={ROLE_OPTIONS}
+              value="member"
+              placeholder="不可操作"
+              disabled
+              data-testid="primitive-select-disabled"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="primitive-select-long">超长列表（{LONG_OPTIONS.length} 项，视口内可滚动截断）</Label>
+            <Select
+              options={LONG_OPTIONS}
+              value={longPick}
+              onValueChange={setLongPick}
+              data-testid="primitive-select-long-trigger"
+            />
+          </div>
         </div>
 
         {/* ── Tooltip ───────────────────────────────────────── */}
@@ -143,17 +169,30 @@ export function PrimitivesGallery() {
           <h3 className="text-13 font-semibold">Tooltip（提示气泡）</h3>
           <p className="text-11 text-muted-foreground">hover 与键盘 focus 双触发等价。</p>
           <TooltipProvider delayDuration={100}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" data-testid="primitive-tooltip-trigger">
-                  <Info aria-hidden className="h-3.5 w-3.5" />
-                  什么是 Context Pack？
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent data-testid="primitive-tooltip-content">
-                本次对话 AI 实际读取的证据集合：命中 12 条、筛除 4 条（可查看丢弃原因）。
-              </TooltipContent>
-            </Tooltip>
+            <div className="flex flex-wrap items-center gap-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" data-testid="primitive-tooltip-trigger">
+                    <Info aria-hidden className="h-3.5 w-3.5" />
+                    什么是 Context Pack？
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent data-testid="primitive-tooltip-content">
+                  本次对话 AI 实际读取的证据集合：命中 12 条、筛除 4 条（可查看丢弃原因）。
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" disabled data-testid="primitive-tooltip-disabled-trigger">
+                    <Info aria-hidden className="h-3.5 w-3.5" />
+                    禁用态
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent data-testid="primitive-tooltip-disabled-content">
+                  禁用态按钮本身不接收 hover/focus 事件，气泡不会出现。
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </TooltipProvider>
         </div>
       </div>
