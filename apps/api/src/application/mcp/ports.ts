@@ -56,6 +56,9 @@ export interface McpToolStore {
   replace(serverId: string, tools: readonly z.infer<typeof McpTool>[]): Promise<void>;
 }
 
+/** DI token. issue #1849's `createInMemoryMcpToolStore` is the first bound implementation. */
+export const MCP_TOOL_STORE = Symbol("McpToolStore");
+
 /**
  * F130 -- the write path `setToolAuthScope` needs, independent of `McpToolStore`'s
  * per-server shape (that port takes a `serverId`; the write path only has a `toolFullName`

@@ -658,6 +658,32 @@ export const McpTool = z
   })
   .strict();
 
+/**
+ * `discoverMcpTools` / `discoverRemoteMcpTools` 共用的产物形状。
+ * ⚠ 两条操作各自的 `in` 不同（前者假定服务器已注册只传 `serverId`，后者带一个待发现的
+ *   端点），但「发现出来了什么」这件事只有一份形状——**不在两处各写一遍**。
+ */
+export const McpDiscoveryResult = z
+  .object({
+    tools: z.array(McpTool),
+    added: z.array(z.string()),
+    /** ⚠ 删除的工具在引用它的 agent 上标为「工具已不存在」，**不静默消失** */
+    removed: z.array(z.string()),
+    signatureChanged: z.array(z.string()),
+    /** 🔴 F130 ⑶：本次因 `sideEffect` 变化而被**当场收紧**的工具 */
+    tightenedByCapRecheck: z.array(
+      z
+        .object({
+          toolFullName: z.string(),
+          fromAuthScope: ToolAuthScope,
+          toAuthScope: ToolAuthScope,
+          newSideEffect: ToolSideEffect,
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
 /** 放行评审记录。⚠ 理由**必填且不可删除**；`放行` 时 `authScopeSet` **必填**（I-25） */
 export const ReviewRecord = z
   .object({
@@ -1193,27 +1219,46 @@ export const operations = {
     method: "POST",
     path: "/mcp-servers/:serverId/discover",
     in: z.object({ serverId: z.string() }).strict(),
-    out: z
+    out: McpDiscoveryResult,
+    err: ["NOT_ORG_ADMIN", "MCP_SERVER_UNREACHABLE", "REQUEST_TIMEOUT"] as const,
+  },
+
+  /**
+   * issue #1849 —— 第一条**说真实 MCP 协议**的发现路径（HTTP/SSE remote transport，官方
+   * TypeScript SDK 的 `StreamableHTTPClientTransport`）。
+   *
+   * ⚠ 与 `discoverMcpTools` 的关系：那条操作假定服务器**已注册**（`serverId` 已知端点），
+   *   本操作是**注册前**「填一个远程端点、当场连上去看看有什么工具」的动作——
+   *   `registerMcpServer` 本身仍未接线（无持久化实现，见 `application/mcp/ports.ts` 头注），
+   *   这条操作不替它决定隔离期/评审等治理字段，**只做发现**；`out` 复用同一个
+   *   `McpDiscoveryResult`，不第二次声明这个形状。
+   * ⚠ **本地子进程（stdio transport）不在这条操作的范围内**——`endpoint` 恒为一个
+   *   `https://` URL，服务端只会发起出站 HTTP/SSE 连接，不执行任何命令行。
+   * ⚠ `credential` 为 `null` 表示匿名连接；非空时作为 `Authorization: Bearer <credential>`
+   *   请求头发给远程服务器——**只写不读**（I-6 同一条纪律），本操作的 `out` 里没有它的位置。
+   */
+  discoverRemoteMcpTools: {
+    method: "POST",
+    path: "/mcp-servers/discover-remote",
+    in: z
       .object({
-        tools: z.array(McpTool),
-        added: z.array(z.string()),
-        /** ⚠ 删除的工具在引用它的 agent 上标为「工具已不存在」，**不静默消失** */
-        removed: z.array(z.string()),
-        signatureChanged: z.array(z.string()),
-        /** 🔴 F130 ⑶：本次因 `sideEffect` 变化而被**当场收紧**的工具 */
-        tightenedByCapRecheck: z.array(
-          z
-            .object({
-              toolFullName: z.string(),
-              fromAuthScope: ToolAuthScope,
-              toAuthScope: ToolAuthScope,
-              newSideEffect: ToolSideEffect,
-            })
-            .strict(),
-        ),
+        serverId: z.string().min(1),
+        endpoint: z.string().min(1),
+        credential: z.string().min(1).nullable(),
       })
       .strict(),
-    err: ["NOT_ORG_ADMIN", "MCP_SERVER_UNREACHABLE", "REQUEST_TIMEOUT"] as const,
+    out: McpDiscoveryResult,
+    err: [
+      "NOT_ORG_ADMIN",
+      "MCP_SERVER_UNREACHABLE",
+      "REQUEST_TIMEOUT",
+      /* ── 出站 SSRF 门（`domain/mcp/remote-endpoint-guard.ts`），字面量阶段 ── */
+      "MCP_ENDPOINT_MALFORMED",
+      "MCP_ENDPOINT_SCHEME_FORBIDDEN",
+      "MCP_ENDPOINT_CREDENTIALS_FORBIDDEN",
+      "MCP_ENDPOINT_HOST_NOT_PUBLIC",
+      "MCP_ENDPOINT_FORBIDDEN_FOR_LOCAL_ORG",
+    ] as const,
   },
 
   /**
