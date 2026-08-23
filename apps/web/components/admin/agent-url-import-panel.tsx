@@ -19,9 +19,9 @@ import { runAgentTrialRun } from "@/lib/agent-trial-run";
  * #1415 —— agent 版的 `SkillUrlImportPanel`：从 GitHub URL 导入一个 agent，
  * 然后在同一块面板里走完"编辑指令 → 发布 → 试跑"三步，与 skill 侧
  * （`SkillUrlImportPanel` + `AgSkillEditor` 的试跑按钮）同一条主流程，
- * 只是三步收在一个面板里——agent 这一阶段没有 `listAgents` 读路径
- * （`AgentDefinitionCreatePanel.tsx` 头注同一件事：本屏没有把它列出来的读路径），
- * 导入完不把用户扔回一个找不到刚建好那个 agent 的列表页，是唯一说得通的落点。
+ * 只是三步收在一个面板里——`listAgents` 读路径 #1915 起已经接线
+ * （`AgentDefinitionListPanel`），但本面板导入成功后仍然就地展示三步，不额外跳转到
+ * 那个列表：导入完立刻编辑指令/发布/试跑是同一个操作序列，中途跳走会打断它。
  *
  * ## 为什么 `instructions` 的初始值来自导入响应，不是再读一次
  *

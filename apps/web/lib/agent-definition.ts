@@ -10,10 +10,13 @@
  * 会让"目录项"和"agent 定义"这两个不同的模型看起来是同一件事——AGENTS.md 明令的
  * "同一事实不得声明在两处"反过来也适用于"两件事不得看起来是一处"。
  *
- * ## phase-1 范围
+ * ## phase-1 范围（#1915 起已扩展）
  *
- * 只封装"从零新建"（`cloneFrom` 恒为 `null`，`source` 恒为 `"self"`）。
- * "复制一个现成的" UI 未做——见 #617 报告里的范围说明。
+ * 最初只封装"从零新建"（`cloneFrom` 恒为 `null`，`source` 恒为 `"self"`）。
+ * #1915 补了两件事：`listAgents` 读路径（`GET /agents`，本仓第一条真实实现——
+ * 见 `apps/api/src/application/agent/list-agents.ts` 头注，此前全仓零 controller 挂载）
+ * 与 `createAgent` 的 `cloneFrom` 参数化（"复制一个现成的"，契约/domain 早已支持，
+ * 只是前端一直只传 `null`）。
  */
 import { agentRuntime } from "@repo/contracts";
 import type { z } from "zod";
@@ -24,6 +27,7 @@ export type CreateAgentResult = z.infer<typeof agentRuntime.operations.createAge
 export type SelfPublishResult = z.infer<
   typeof agentRuntime.operations.selfPublishToollessAgent.out
 >;
+export type AgentListRow = z.infer<typeof agentRuntime.operations.listAgents.out>[number];
 
 export async function createAgentFromScratch(input: {
   readonly name: string;
@@ -32,6 +36,16 @@ export async function createAgentFromScratch(input: {
   /** #1705（#728 D-1，人类裁决）—— 简短角色头衔，建 agent 时必填。见 `AgentRow.roleLabel`。 */
   readonly roleLabel: string;
   readonly visibility: AgentVisibility;
+  /**
+   * #1915 —— 非 null = "复制一个现成的"（源 agent 的 id）。默认 `null`（从零新建），
+   * 向后兼容此前所有只传 4 个身份字段的调用方。⚠ 服务端 `createAgent` 用例始终把
+   * 这里传的 name/initials/role/roleLabel/visibility 当成**最终值**（不因为在克隆就
+   * 悄悄改用源的值）——`domain/agent/clone.ts` 的 `NewAgentIdentity` 字段虽然都是
+   * optional、允许"不填就继承"，但这层从不省略任何一个，所以前端必须先把源的值
+   * 预填进表单（`AgentDefinitionCreatePanel` 的克隆选择器就是这么做的），
+   * 而不是指望后端替它补全。
+   */
+  readonly cloneFrom?: string | null;
 }): Promise<CreateAgentResult> {
   return apiRequest<CreateAgentResult>(agentRuntime.operations.createAgent.path, {
     method: "POST",
@@ -41,8 +55,31 @@ export async function createAgentFromScratch(input: {
       role: input.role,
       roleLabel: input.roleLabel,
       visibility: input.visibility,
-      cloneFrom: null,
+      cloneFrom: input.cloneFrom ?? null,
       source: "self",
+    },
+  });
+}
+
+/**
+ * `listAgents`（#1915，`GET /agents`）—— F55 Agent 库的读路径。
+ *
+ * ⚠ 服务端本轮只对 org admin 放行（`ROLE_INSUFFICIENT`——见
+ * `application/agent/list-agents.ts` 头注「为什么授权是 admin」），`tag` 过滤器
+ * 传了也不生效（`agents` 表没有这一列）。本函数因此不暴露 `tag` 参数——暴露一个
+ * 恒不生效的过滤器入口，会让调用方以为自己缩小了范围。
+ */
+export async function listAgents(
+  filters: {
+    readonly publishState?: z.infer<typeof agentRuntime.operations.listAgents.in>["publishState"];
+    readonly visibility?: AgentVisibility | null;
+  } = {},
+): Promise<readonly AgentListRow[]> {
+  return apiRequest<readonly AgentListRow[]>(agentRuntime.operations.listAgents.path, {
+    method: "GET",
+    query: {
+      publishState: filters.publishState ?? undefined,
+      visibility: filters.visibility ?? undefined,
     },
   });
 }

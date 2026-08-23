@@ -2766,4 +2766,16 @@ export const KNOWN_CONTRACT_GAPS = {
    *   `pg-self-publish-agent-repository.ts` 头注）。正式化需要加一列显式的 `publish_route`。
    */
   AR12: "agent_versions has no explicit publish_route column, so 'how was this version published' (two-person review vs selfPublishToollessAgent) is carried by a semantic_label prefix as a stopgap; formalising it needs a real column",
+  /**
+   * **`listAgents` 落地时（#1915）实测发现的两处缺口，均 fail closed 而不是发明数据。**
+   *
+   * ① `AgentRow.visibility` 的「仅某组」在 phase-1 没有团队归属数据可判——`agents` 表
+   *   没有 `owner_team_id`/`group_id` 列。⇒ 本轮 `listAgents` 只对 org admin 开放
+   *   （与 `createAgent`/`updateAgentDefinition` 同一道门），不冒充一套并不存在的
+   *   可见范围判定去对普通成员放行。团队归属数据落地前，这道门不会放宽。
+   * ② `listAgents.in.tag` 过滤器没有对应的列——`agents` 表两次迁移（i617/i1705）都
+   *   没加 `tag`。传非 null 的 `tag` 时结果集不受影响（不静默假装过滤了），直到标签/
+   *   分类数据模型定案。
+   */
+  AR13: "listAgents (#1915) is admin-only because 仅某组 visibility has no team-ownership column to judge against, and its tag filter is a no-op because agents has no tag column; both are fail-closed stopgaps pending real data models",
 } as const;
