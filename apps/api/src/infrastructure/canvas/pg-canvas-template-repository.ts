@@ -33,6 +33,7 @@ import type {
   MintTemplateVersionOutcome,
   PublishOutcome,
   SegmentBindingRow,
+  UpdateDraftOutcome,
 } from "../../application/canvas/template-ports";
 import type { TemplateStatus, TemplateVersionState } from "../../domain/canvas/template-lifecycle";
 import type { VisibilityScope } from "../../domain/identity/roles";
@@ -317,6 +318,63 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           row.archived_from === null
             ? { status: row.status }
             : { status: row.status, archivedFrom: row.archived_from },
+      };
+    });
+  }
+
+  /**
+   * 2026-08-23，**待人类补签**——`WHERE status = 'draft'` 与写入在同一条语句里，
+   * 理由同 `create()`/`mintVersion()`：状态判定不能与写入隔一个窗口。
+   *
+   * 零行有两种成因，`RETURNING` 之外单独一次查询才能分清是哪一种——见 `updateDraft()`
+   * 接口文档。这条 disambiguation 查询只在失败路径上跑，不影响成功路径的单语句写入。
+   */
+  async updateDraft(cmd: {
+    readonly orgId: OrgId;
+    readonly key: string;
+    readonly version: number;
+    readonly displayName: string;
+    readonly sections: CreatedCanvasTemplate["sections"];
+    readonly visibility: VisibilityScope;
+  }): Promise<UpdateDraftOutcome> {
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      const r = await s.query<{
+        key: string;
+        version: number;
+        display_name: string;
+        status: string;
+        builtin: boolean;
+        visibility: VisibilityScope;
+        underlying_type: string;
+        sections: unknown;
+      }>(
+        `UPDATE canvas_templates
+            SET display_name = $4, sections = $5::jsonb, visibility = $6, updated_at = now()
+          WHERE org_id = $1 AND key = $2 AND version = $3 AND status = 'draft'
+         RETURNING key, version, display_name, status, builtin, visibility,
+                   underlying_type, sections`,
+        [cmd.orgId, cmd.key, cmd.version, cmd.displayName, JSON.stringify(cmd.sections), cmd.visibility],
+      );
+      const row = r.rows[0];
+      if (row === undefined) {
+        const exists = await s.query(
+          `SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2 AND version = $3`,
+          [cmd.orgId, cmd.key, cmd.version],
+        );
+        return { updated: false, reason: exists.rows[0] === undefined ? "not-found" : "not-draft" };
+      }
+      return {
+        updated: true,
+        template: {
+          key: row.key,
+          version: row.version,
+          status: assertLiteral(row.status, "draft", "status"),
+          displayName: row.display_name,
+          builtin: assertLiteral(row.builtin, false, "builtin"),
+          visibility: row.visibility,
+          underlyingType: row.underlying_type,
+          sections: row.sections as CreatedCanvasTemplate["sections"],
+        },
       };
     });
   }
