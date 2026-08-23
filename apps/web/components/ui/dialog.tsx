@@ -22,7 +22,7 @@ export const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-200",
+      "fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base",
       className,
     )}
     {...props}
@@ -50,7 +50,7 @@ export const DialogContent = React.forwardRef<
       className={cn(
         "fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4",
         "rounded-lg border border-border bg-popover p-5 text-popover-foreground shadow-lg",
-        "transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}
       {...props}
@@ -61,7 +61,7 @@ export const DialogContent = React.forwardRef<
           aria-label="关闭"
           data-testid={closeTestId}
           className={cn(
-            "absolute right-3 top-3 rounded-md p-1 text-muted-foreground transition-all duration-200",
+            "absolute right-3 top-3 rounded-md p-1 text-muted-foreground transition-all duration-base",
             "hover:bg-muted hover:text-background-foreground",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           )}

@@ -1,0 +1,208 @@
+# 动效 token 存量豁免清单（R4-E2「已知例外，不阻塞其他部分」；F03）
+#
+# 背景：requirements/02-motion-token-system.md#R5 与 lint-design.sh U10 规则的注释——
+# 全仓 167+ 处手写裸 duration/ease 不要求 F03 一次性迁移完，但也不能让新规则拦住
+# 存量代码把 lint:design 直接打红。这份文件就是那道"已知例外"的机械登记。
+#
+# 格式：一行一条，`<相对 apps/web 的路径><TAB><违规行原始文本（已去首尾空白）>`。
+# lint-design.sh 按 (path, content) **子串匹配**豁免——不是按行号：文件里增删无关行
+# 不会让豁免失效，但只要这一行文本本身变了（包括迁移完成后改成语义 token），
+# 豁免立刻失效，逼着改动者重新过一遍 U10 规则，不会被静默放行。
+#
+# 迁移完成后请把对应行从本文件删掉——一份清单只反映"当前还没迁移的"，不是历史存档。
+# 迁移优先级见同目录 motion-migration-priority.md（按目录高频程度排序）。
+#
+# 本清单由以下命令生成（可重新跑核对是否有漂移，运行前先按 lint-design.sh 里
+# duration-[0-9]+/ease-[a-z-]+ 的正则对齐）：
+#   cd apps/web && grep -rnE '\bduration-[0-9]+\b' app components lib --include='*.tsx' --include='*.ts' | grep -v __fixtures__
+#   cd apps/web && grep -rnE '\bease-[a-z-]+\b' app components lib --include='*.tsx' --include='*.ts' | grep -v __fixtures__ | grep -vE '\bease-(fast|base|slow)\b'
+#
+app/preview/agent-tool-chain/page.tsx	className={`rounded-full border px-2.5 py-1 text-11 transition-colors duration-200 ${
+app/preview/canvas-template-gallery/page.tsx	className={`rounded-full border px-2.5 py-0.5 text-11 transition-colors duration-200 ${
+app/preview/canvas-template-gallery/page.tsx	className={`rounded-full border px-2.5 py-1 text-11 transition-colors duration-200 ${
+app/preview/chat-diagram-fabric/page.tsx	className={`rounded-full border px-2.5 py-1 text-11 transition-colors duration-200 ${
+app/preview/chat-file-upload/page.tsx	className={`rounded-full border px-2.5 py-1 text-11 transition-colors duration-200 ${
+app/preview/chat-viz/page.tsx	className={`rounded-full border px-2.5 py-1 text-11 transition-colors duration-200 ${
+app/preview/live-collab-orchestration/page.tsx	className={`rounded-full border px-2.5 py-1 text-11 transition-colors duration-200 ${
+components/admin/admin-nav.tsx	"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-all duration-200",
+components/admin/admin-nav.tsx	className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-background-foreground"
+components/admin/agent-capability-graph-canvas.tsx	className={`rounded-lg border text-left transition-colors duration-200 ${VARIANT_STYLE[d.variant]}`}
+components/admin/agent-definition-create-panel.tsx	"text-card-foreground transition-all duration-200 " +
+components/admin/agent-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
+components/admin/blueprint-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
+components/admin/canvas-template-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
+components/admin/capability-edit-page.tsx	className="inline-flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors duration-200 hover:text-foreground"
+components/admin/capability-mutate.tsx	"text-card-foreground transition-all duration-200 " +
+components/admin/disable-dialog.tsx	"flex items-start gap-2 rounded-md border p-2.5 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+components/admin/mcp-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
+components/admin/mcp-screen.tsx	className={`inline-flex items-center gap-1 rounded-sm px-2 py-1 text-11 transition-colors duration-200 ${
+components/admin/members-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
+components/admin/model-screen.tsx	className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
+components/admin/usage-monitor-tab.tsx	"h-6 rounded-md px-2.5 text-11 transition-colors duration-200 " +
+components/agent-runtime/mcp-policy-screen.tsx	className={`flex flex-col items-start gap-0.5 rounded-md border px-3 py-2 text-left transition-all duration-200 hover:bg-accent hover:text-accent-foreground ${verdict === v.key ? "border-primary bg-accent text-accent-foreground" : "border-border-subtle bg-panel"}`}
+components/agent-runtime/routing-screen.tsx	className="flex items-center gap-2 rounded-md border border-border-subtle bg-panel px-2.5 py-2 text-left transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
+components/brain/context-pack.tsx	<ChevronRight aria-hidden className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-90")} />
+components/brain/context-pack.tsx	<ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-200", showMore && "rotate-90")} />
+components/brain/context-pack.tsx	className="flex w-full items-center gap-2 px-2.5 py-2 text-left transition-colors duration-200 hover:bg-muted"
+components/brain/left-rail.tsx	<div key={l.key} data-testid={`brain-nav-${l.key}`} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-200 hover:bg-muted">
+components/canvas/ai-draft-panel.tsx	className="flex items-center gap-1 self-start rounded-sm px-1 py-0.5 text-9 text-muted-foreground transition-colors duration-200 hover:bg-card disabled:bg-transparent disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+components/canvas/canvas-left-panel.tsx	"flex flex-col gap-1 rounded-md border px-2.5 py-2 transition-colors duration-200 hover:bg-muted",
+components/canvas/canvas-left-panel.tsx	className="flex flex-col gap-1 rounded-md border border-border-subtle bg-card px-2.5 py-2 transition-colors duration-200 hover:bg-muted"
+components/canvas/canvas-template-gallery.tsx	"rounded-full border px-2.5 py-0.5 text-11 transition-colors duration-200",
+components/canvas/canvas-template-gallery.tsx	"transition-all duration-200 hover:border-primary hover:shadow-sm active:scale-[0.99]",
+components/canvas/canvas-template-gallery.tsx	className="mx-1 text-primary underline-offset-2 transition-colors duration-200 hover:underline"
+components/canvas/knowledge-backflow.tsx	<label className="flex cursor-pointer items-start gap-2 rounded-md border border-border-subtle bg-panel px-2.5 py-2 transition-colors duration-200 hover:bg-muted" data-testid={`backflow-batch-item-${n.id}`}>
+components/canvas/segment-binding.tsx	"flex flex-col gap-1 rounded-md border px-2.5 py-2 text-left transition-colors duration-200 hover:bg-muted",
+components/canvas/segment-binding.tsx	className="flex items-center justify-between rounded-md border border-border-subtle bg-card px-2 py-1 text-left text-11 transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+components/canvas/template-admin.tsx	className="border-t border-border-subtle transition-colors duration-200 hover:bg-muted"
+components/canvas/template-admin.tsx	className="transition-shadow duration-200 hover:shadow-md"
+components/canvas/template-editor-panel.tsx	"flex items-center gap-1 rounded-md transition-[border-top-color] duration-150 "
+components/canvas/template-editor-panel.tsx	"min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-12 transition-colors duration-200 "
+components/chat/agent-tool-chain.tsx	className="flex w-full items-center gap-2 px-2.5 py-1.5 text-11 transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/chat/agent-tool-chain.tsx	className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", open && "rotate-90")}
+components/chat/ai-message.tsx	<ChevronRight aria-hidden className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", open && "rotate-90")} />
+components/chat/ai-message.tsx	className="flex w-full items-baseline gap-2 rounded-sm px-1 py-0.5 text-left transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/chat/ai-message.tsx	className="flex w-full items-center gap-2 px-2.5 py-1.5 text-11 transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/chat/approval-card.tsx	<ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-90")} />
+components/chat/approval-card.tsx	className="inline-flex items-center gap-1 text-11 text-muted-foreground transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/chat/chat-composer-attachments.tsx	className={`relative rounded-lg border bg-panel px-2 py-1.5 transition-colors duration-200 ${
+components/chat/chat-composer-pickers.tsx	"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+components/chat/chat-file-upload-preview.tsx	className={`relative rounded-2xl border bg-card p-1.5 shadow-sm transition-all duration-200 ${
+components/chat/chat-file-upload-preview.tsx	className={`relative rounded-lg border bg-panel px-2 py-1.5 transition-colors duration-200 ${
+components/chat/chat-left-panel.tsx	"flex flex-col gap-1 rounded-md px-2 py-1.5 transition-colors duration-200 hover:bg-muted " +
+components/chat/chat-materials-panel.tsx	className="flex items-center gap-2 rounded-md border border-border-subtle p-2 text-left transition-colors duration-200 hover:border-primary/50"
+components/chat/chat-team-panel.tsx	className="flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors duration-200 hover:bg-muted"
+components/chat/composer-settings.tsx	"inline-flex items-center gap-1 rounded-md border px-2 py-1 text-11 transition-all duration-200",
+components/chat/composer-settings.tsx	"rounded-md border px-2 py-1 text-11 transition-all duration-200",
+components/chat/landing-panel.tsx	"flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-all duration-200",
+components/chat/landing-panel.tsx	"flex w-full flex-col gap-1.5 rounded-md border p-3 text-left transition-all duration-200",
+components/chat/message-context-snapshot.tsx	className="flex w-fit items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-10 text-muted-foreground transition-colors duration-200 hover:bg-muted"
+components/chat/message-stream.tsx	<ChevronRight aria-hidden className={cn("h-3 w-3 transition-transform duration-200", expanded && "rotate-90")} />
+components/entry/consent-form.tsx	className="inline-flex items-center gap-1 self-start text-12 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+components/entry/login-form.tsx	className="absolute inset-y-0 right-0 inline-flex items-center gap-1 pr-2.5 text-11 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+components/entry/login-form.tsx	className="font-medium text-primary underline-offset-4 transition-all duration-200 hover:underline"
+components/entry/login-form.tsx	className="inline-flex items-center gap-1 self-start text-12 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+components/entry/login-form.tsx	className="text-11 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+components/entry/session-withdraw.tsx	className="inline-flex items-center gap-1 self-start text-12 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+components/feedback/feedback-button.tsx	"mt-1.5 flex w-14 flex-col items-center gap-1 rounded-md py-1.5 text-muted-foreground transition-all duration-200",
+components/files/file-preview.tsx	className="flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/files/files-app.tsx	className="rounded-sm px-2 py-1.5 text-left text-11 transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/files/files-list.tsx	"cursor-pointer border-b border-border-subtle transition-colors duration-200",
+components/files/files-list.tsx	className="inline-flex items-center gap-0.5 rounded-sm px-1 text-primary transition-all duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/files/files-tree.tsx	"flex w-full items-center gap-2 rounded-md py-1 pl-9 pr-2 text-left text-11 transition-all duration-200",
+components/files/files-tree.tsx	"group flex items-center rounded-md transition-all duration-200",
+components/files/files-tree.tsx	"mx-2 mb-1 rounded-md px-2 py-1.5 text-left text-12 transition-all duration-200",
+components/files/files-tree.tsx	<ChevronRight aria-hidden className={cn("h-3 w-3 transition-transform duration-200", isOpen && "rotate-90")} />
+components/files/files-tree.tsx	className="flex h-7 w-5 shrink-0 items-center justify-center rounded-md transition-all duration-200 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/files/ingestion-drawer.tsx	"h-1.5 flex-1 rounded-full transition-colors duration-200",
+components/files/live-files-browser.tsx	"cursor-pointer border-b border-border-subtle transition-colors duration-200 " +
+components/files/review-panel.tsx	className={`flex w-full items-start gap-2 rounded-md p-2 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${f.id === activeId ? "bg-muted" : "hover:bg-panel"}`}
+components/interview/insights-report.tsx	className="rounded-sm p-0.5 text-warning transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/interview/interview-copilot.tsx	className="flex items-start gap-1 rounded-sm p-0.5 transition-colors duration-200 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/interview/interview-copilot.tsx	className="shrink-0 rounded-sm p-0.5 text-muted-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/interview/interview-detail.tsx	"-mb-px inline-flex items-center gap-1 border-b-2 px-2.5 py-1.5 text-12 font-medium transition-all duration-200",
+components/interview/interview-outline.tsx	className="flex items-start gap-2 rounded-md border border-border-subtle bg-card p-2 transition-colors duration-200 hover:bg-muted"
+components/interview/interview-stage.tsx	"scroll-mt-4 rounded-md border p-2.5 transition-colors duration-200 " +
+components/interview/interview-stage.tsx	<div className="h-full rounded-full bg-primary transition-all duration-200" style={{ width: `${pct}%` }} />
+components/interview/interview-stage.tsx	className="inline-flex items-center gap-0.5 rounded-sm px-1 font-mono text-10 text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/interview/interview-stage.tsx	className="inline-flex items-center gap-1 self-start text-11 text-muted-foreground transition-colors duration-200 hover:text-background-foreground"
+components/interview/interview-studio.tsx	"flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-left transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+components/interview/research-design.tsx	className="rounded-sm p-0.5 transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+components/interview/research-design.tsx	className="rounded-sm p-1 text-muted-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+components/itv/digital-interview-create-modal.tsx	{tags.map((tag) => <Badge data-testid="itv-create-tag" key={tag} tone="neutral" className="gap-1 py-1">{tag}<button type="button" aria-label={`删除标签 ${tag}`} className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setTags((current) => current.filter((value) => value !== tag))}><X className="h-3 w-3" aria-hidden /></button></Badge>)}
+components/itv/interview-studio-home.tsx	<article data-testid={`itv-history-card-${item.interviewId}`} className="flex min-h-64 flex-col rounded-lg border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+components/itv/itv-chain-nav.tsx	"flex items-center justify-between rounded-md border px-2 py-1.5 text-11 transition-colors duration-200",
+components/itv/itv-chain-nav.tsx	"group flex flex-col gap-0.5 rounded-md px-2 py-1.5 transition-colors duration-200",
+components/itv/new-interview-wizard.tsx	"flex items-center gap-2 rounded-md border px-3 py-1.5 text-12 transition-colors duration-200",
+components/itv/static-switch.tsx	"inline-block h-3 w-3 rounded-full bg-card shadow-sm transition-all duration-200",
+components/itv/static-switch.tsx	"relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-all duration-200",
+components/live-collab/orchestration-preview.tsx	"flex items-center gap-2 rounded-md border px-2.5 py-2 transition-colors duration-200",
+components/live-collab/orchestration-preview.tsx	<Card className="flex flex-col gap-2 p-3.5 transition-colors duration-200 hover:bg-muted" data-testid={`lc-card-${card.id}`}>
+components/live-collab/orchestration-preview.tsx	<Card key={s.key} className="p-4 transition-colors duration-200 hover:bg-muted" data-testid={`lc-stage-subview-${s.key}`}>
+components/live-collab/orchestration-preview.tsx	<p data-testid="saved" className="rounded-md border border-success/30 bg-success/5 px-3 py-2 text-11 text-success transition-opacity duration-300">
+components/live-collab/orchestration-preview.tsx	className="flex cursor-default items-center justify-between gap-2 rounded-md px-2.5 py-2 transition-colors duration-200 hover:bg-muted"
+components/org-admin/grant-screen.tsx	"rounded-md border px-2 py-1.5 text-left text-11 transition-colors duration-200",
+components/org-admin/org-admin-app.tsx	"flex items-start gap-2 rounded-md px-2 py-1.5 transition-colors duration-200",
+components/org-admin/org-admin-screen.tsx	"flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+components/profile/profile-screen.tsx	className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3 transition-all duration-200 hover:bg-muted"
+components/project/tab-overview.tsx	className="flex items-center gap-3 rounded-md border border-border-subtle bg-panel px-3 py-2 transition-all duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/project/tab-prep.tsx	className="flex-1 truncate text-left transition-colors duration-200 hover:text-primary"
+components/project/tab-prep.tsx	className="rounded-full p-0.5 text-muted-foreground transition-colors duration-200 hover:bg-muted"
+components/project/tab-prep.tsx	className="rounded-full p-1 text-muted-foreground transition-colors duration-200 hover:bg-muted"
+components/projects/project-card.tsx	<Card data-testid={`projects-card-${project.id}`} className="transition-all duration-200 hover:shadow-md">
+components/projects/project-more-menu.tsx	"transition-colors duration-200 hover:bg-muted",
+components/projects/project-more-menu.tsx	className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 text-card-foreground transition-colors duration-200 hover:bg-muted"
+components/projects/project-more-menu.tsx	className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 text-destructive transition-colors duration-200 hover:bg-muted"
+components/projects/projects-screen.tsx	"rounded-full border px-2.5 py-0.5 text-11 transition-colors duration-200",
+components/projects/projects-screen.tsx	"transition-colors duration-200 hover:bg-muted",
+components/projects/projects-screen.tsx	<Card data-testid={`projects-card-${project.id}`} className="transition-all duration-200 hover:shadow-md">
+components/projects/projects-screen.tsx	className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-border px-2 py-0.5 text-10 text-muted-foreground transition-colors duration-200 hover:bg-muted"
+components/projects/projects-screen.tsx	className="rounded-full transition-colors duration-200 hover:bg-border"
+components/rec/create-transcription-dialog.tsx	className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/rec/live-transcript.tsx	"scroll-mt-4 rounded-md border p-2.5 transition-colors duration-200",
+components/rec/live-transcript.tsx	className="inline-flex items-center gap-0.5 rounded-sm px-1 font-mono text-10 text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/rec/retention-panel.tsx	<button type="button" onClick={() => { setConfirming(false); setAck(false); }} className="inline-flex items-center gap-1 self-start text-11 text-muted-foreground transition-colors duration-200 hover:text-background-foreground" data-testid={`rec-delete-back-${m.id}`}>
+components/rec/right-rail.tsx	"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200",
+components/rec/transcription-history.tsx	<Card data-testid={`rec-history-card-${item.id}`} className="flex min-h-64 flex-col justify-between p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
+components/rec/transcription-history.tsx	className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border bg-card p-6 text-center transition-all duration-200 hover:border-primary hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+components/research-studio/create-guided-research-dialog.tsx	<button type="button" aria-label={`移除标签 ${tag}`} className="rounded-sm transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setTags((current) => current.filter((item) => item !== tag))}>
+components/research-studio/guided-research-flow.tsx	<Card key={item.sessionId} className="flex min-h-64 h-full flex-col p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md" data-testid={`research-history-${item.sessionId}`}>
+components/research/claim-matrix.tsx	className="flex items-center gap-1 rounded-sm p-0.5 text-10 transition-colors duration-200 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/research/context-pack.tsx	<div className={"h-full rounded-full transition-all duration-200 " + (budgetPct >= 75 ? "bg-warning" : "bg-primary")} style={{ width: `${budgetPct}%` }} />
+components/research/context-pack.tsx	className="inline-flex items-center gap-1 text-10 text-primary transition-colors duration-200 hover:underline"
+components/research/research-runs.tsx	"flex w-full flex-col gap-1 rounded-md border p-2 text-left transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+components/shell/icon-rail.tsx	"mt-1.5 flex w-14 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-200",
+components/shell/mobile-tabs.tsx	"flex flex-1 flex-col items-center justify-center gap-0.5 transition-all duration-200",
+components/shell/org-menu.tsx	"flex h-8 w-8 items-center justify-center overflow-hidden rounded-md transition-all duration-200",
+components/shell/org-menu.tsx	"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+components/shell/org-menu.tsx	className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-card-foreground transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+components/shell/personal-menu.tsx	"transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+components/shell/personal-menu.tsx	className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-11 font-medium text-accent-foreground transition-all duration-200 hover:bg-accent/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/shell/personal-menu.tsx	className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-card-foreground transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+components/shell/theme-toggle.tsx	"transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+components/shell/top-bar.tsx	"flex h-11 shrink-0 items-center gap-3 border-b px-3 transition-colors duration-200",
+components/skill/skill-binding.tsx	<button key={p.id} className="flex items-center justify-between rounded-sm px-1.5 py-1 text-10 text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`skill-seg-pool-opt-${p.id}`}>
+components/skill/skill-promotion.tsx	<a href="#" className="inline-flex items-center gap-1 text-primary underline-offset-2 transition-colors duration-200 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+components/skill/skill-temp-mount.tsx	<button aria-label={`摘掉 ${m.name}`} className="ml-0.5 rounded-full p-0.5 transition-colors duration-200 hover:bg-background/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`skill-mount-remove-${m.skillId}`}>
+components/skill/skill-temp-mount.tsx	<button key={s.skillId} className="flex items-center justify-between rounded-md border border-border-subtle bg-card px-2 py-1.5 text-10 text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`skill-picker-avail-${s.skillId}`}>
+components/state/state-shell.tsx	className="inline-flex items-center gap-1 text-12 text-success transition-opacity duration-300"
+components/studio/prototype-screen.tsx	"flex w-full items-center justify-between gap-2 rounded-md border px-2.5 py-2 text-left transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+components/studio/prototype-screen.tsx	"h-1.5 flex-1 rounded-full transition-colors duration-200",
+components/survey/resource-library/survey-resource-library.tsx	<ChevronRight className="ml-auto mt-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
+components/survey/resource-library/survey-resource-library.tsx	<ChevronRight className="ml-auto mt-3 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" aria-hidden />
+components/survey/resource-library/survey-resource-library.tsx	return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-module-${item.id}`} className="group min-h-48 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+components/survey/resource-library/survey-resource-library.tsx	return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-report-template-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+components/survey/resource-library/survey-resource-library.tsx	return <button type="button" onClick={onOpen} data-testid={`survey-resource-card-survey-${item.id}`} className="group min-h-56 rounded-lg border border-border bg-card p-5 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+components/survey/survey-evidence.tsx	className="inline-flex items-center gap-1 self-start rounded-sm px-1 py-0.5 text-10 text-primary transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/survey/survey-list.tsx	"flex w-full flex-col gap-1 rounded-md border p-2 text-left transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
+components/survey/survey-workspace.tsx	<a href={`#survey-q-${c.questionId}`} className="text-10 text-primary transition-colors duration-200 hover:underline">点回原始分布</a>
+components/survey/survey-workspace.tsx	<div className="h-full rounded-full bg-primary transition-all duration-200" style={{ width: `${(o.count / max) * 100}%` }} />
+components/survey/survey-workspace.tsx	<div className="h-full rounded-full bg-primary transition-all duration-200" style={{ width: `${pct}%` }} />
+components/survey/workflow/analysis-report-step.tsx	{model.reportTemplate.sections.map((item) => <button key={item.id} type="button" data-testid={`survey-report-nav-${item.id}`} aria-current={activeId === item.id ? "location" : undefined} onClick={() => navigateTo(item.id)} className={`mb-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-12 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${activeId === item.id ? "bg-accent text-primary" : "hover:bg-muted"}`}><FileText className="h-3.5 w-3.5" aria-hidden />{item.title}</button>)}
+components/survey/workflow/publish-recovery-step.tsx	<aside className="rounded-lg border border-border bg-card p-3"><SectionTitle title="发布设置" />{["发布状态","链接设置","受访范围","回收规则","质量控制","完成页"].map((item,index) => <button key={item} type="button" className={`mb-1 w-full rounded-md px-3 py-2 text-left text-12 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${index===0?"bg-accent text-primary":"hover:bg-muted"}`}>{item}</button>)}</aside>
+components/survey/workflow/report-template-step.tsx	<aside className="border-b border-border bg-card p-4 xl:border-b-0 xl:border-r" data-testid="survey-template-section-list"><SectionTitle title="报告章节" description="定义正式报告的结构与管理问题" />{!readonly && <Button className="mb-3 w-full" variant="ai" size="sm"><Sparkles className="h-3.5 w-3.5" aria-hidden />重新生成章节</Button>}<ol className="space-y-1">{model.reportTemplate.sections.map((item, index) => <li key={item.id}><button type="button" data-testid={`survey-template-section-${item.id}`} onClick={() => setSectionId(item.id)} className={`flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left text-11 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${section.id === item.id ? "border-primary bg-accent text-primary" : "border-transparent hover:bg-muted"}`}><span className="flex h-5 w-5 items-center justify-center rounded-full border border-border">{index + 1}</span><span>{item.title}</span></button></li>)}</ol>{!readonly && <Button className="mt-4 w-full" variant="outline" size="sm"><Plus className="h-3.5 w-3.5" aria-hidden />新增章节</Button>}</aside>
+components/survey/workflow/response-review-step.tsx	<aside className="border-b border-border bg-card p-4 2xl:border-b-0 2xl:border-r"><SectionTitle title="答卷与数据" /><div className="space-y-1">{[["全部答卷",metrics.received],["今日提交",12],["需复核",metrics.needsReview],["已通过",metrics.valid]].map(([label,count],index)=><button key={label} type="button" className={`flex w-full justify-between rounded-md px-3 py-2 text-12 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${index===0?"bg-accent text-primary":"hover:bg-muted"}`}><span>{label}</span><span>{count}</span></button>)}</div><p className="mb-2 mt-6 text-11 font-semibold">按职级筛选</p>{roles.map((role)=><label key={role} className="flex items-center justify-between py-1.5 text-11"><span>{role}</span><span>{model.responses.filter((item)=>item.role===role).length}</span></label>)}</aside>
+components/survey/workflow/response-review-step.tsx	<section className="p-5"><SectionTitle title="查看答题" /><div className="grid gap-3 sm:grid-cols-4"><Metric label="答卷" value={metrics.received}/><Metric label="完成率" value="100%"/><Metric label="平均用时" value={`${Math.floor(metrics.averageDurationSeconds/60)}分${metrics.averageDurationSeconds%60}秒`}/><Metric label="需复核" value={metrics.needsReview} danger/></div><div className="mt-4 flex flex-wrap gap-2"><div className="relative min-w-60 flex-1"><Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden /><Input className="pl-8" aria-label="搜索答卷" placeholder="搜索答卷 ID / 提交者" value={query} onChange={(event)=>setQuery(event.target.value)}/></div>{["全部职级","全部员工规模","全部质量"].map((item)=><Button key={item} variant="outline" size="sm">{item}</Button>)}<Button variant="outline" size="sm">刷新</Button></div><div className="mt-4 overflow-x-auto rounded-lg border border-border" data-testid="survey-response-table"><table className="w-full min-w-[48rem] text-left text-11"><thead className="bg-muted"><tr>{["答卷ID","提交者","职级层级","员工规模","提交时间","用时","质量"].map((head)=><th key={head} className="px-3 py-2 font-medium">{head}</th>)}</tr></thead><tbody className="divide-y divide-border">{rows.map((item)=><tr key={item.id} onClick={()=>setSelectedId(item.id)} className={`cursor-pointer transition-colors duration-200 hover:bg-muted ${selectedId===item.id?"bg-accent":""}`}><td className="px-3 py-2 font-medium text-primary">{item.id}</td><td className="px-3 py-2">{item.submitter}</td><td className="px-3 py-2">{item.role}</td><td className="px-3 py-2">{item.companySize}</td><td className="px-3 py-2">{new Date(item.submittedAt).toLocaleString("zh-CN")}</td><td className="px-3 py-2">{Math.floor(item.durationSeconds/60)}分{item.durationSeconds%60}秒</td><td className="px-3 py-2"><Badge tone={item.quality==="normal"?"primary":"warning"}>{item.quality==="normal"?"正常":"需复核"}</Badge></td></tr>)}</tbody></table></div><div className="mt-4 flex items-center justify-between text-11 text-muted-foreground"><span>共 {model.responses.length} 条 · 每页 10 条</span><div className="flex gap-1"><Button size="xs" variant="primary">1</Button><Button size="xs" variant="ghost">2</Button><Button size="xs" variant="ghost">…</Button><Button size="xs" variant="ghost">7</Button></div></div></section>
+components/survey/workflow/survey-design-step.tsx	<ol className="space-y-1">{model.questions.map((question) => <li key={question.id}><button type="button" data-testid={`survey-design-nav-${question.id}`} aria-current={activeId === question.id ? "location" : undefined} onClick={() => navigateTo(question.id)} className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-11 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${activeId === question.id ? "bg-accent text-primary" : "hover:bg-muted"}`}><span className="w-5 font-medium">{question.order}.</span><span className="min-w-0 flex-1 truncate">{question.title}</span><GripVertical className="h-3 w-3 text-muted-foreground" aria-hidden /></button></li>)}</ol>
+components/survey/workflow/survey-workflow-shell.tsx	<button type="button" onClick={() => navigate(step.id)} data-testid={`survey-workflow-step-${step.id}`} className={`group flex min-w-36 items-center gap-2 border-b-2 px-4 py-3 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "border-primary bg-accent text-primary" : "border-transparent hover:bg-muted"}`}>
+components/tasks/left-rail.tsx	"flex items-center justify-between rounded-md px-2 py-1.5 text-12 transition-colors duration-200",
+components/tasks/task-card.tsx	"rounded-md border px-2 py-1 text-left text-11 transition-colors duration-200",
+components/tasks/task-card.tsx	<ChevronRight aria-hidden className={cn("h-3 w-3 transition-transform duration-200", showEvidence && "rotate-90")} />
+components/tasks/today-board.tsx	"rounded-sm px-2.5 py-1 text-11 font-medium transition-colors duration-200",
+components/tpl/apply-wizard-screen.tsx	"flex items-center gap-2 rounded-lg border p-3 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+components/tpl/blueprint-list-screen.tsx	: <Button size="xs" variant="ghost" className="text-destructive transition-colors duration-200 hover:bg-destructive/10" onClick={() => onDanger("delete")} data-testid="tpl-row-delete"><Trash2 aria-hidden className="h-3 w-3" /> 删除</Button>}
+components/tpl/blueprint-list-screen.tsx	className="flex flex-col gap-2 transition-colors duration-200 hover:border-primary/30"
+components/tpl/designer-panels.tsx	className={cn("flex flex-col items-start gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+components/tpl/designer-panels.tsx	className={cn("flex flex-col items-start gap-0.5 rounded-md border px-3 py-2 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+components/tpl/designer-screen.tsx	"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+components/ui/avatar.tsx	"inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200",
+components/ui/badge.tsx	"inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-10 font-medium transition-colors duration-200",
+components/ui/button.tsx	"transition-all duration-200 ease-in-out " +
+components/ui/checkbox.tsx	<Check aria-hidden className="pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100" />
+components/ui/checkbox.tsx	className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+components/ui/input.tsx	"placeholder:text-muted-foreground transition-all duration-200",
+components/ui/progress.tsx	<div className={cn("h-full rounded-full transition-all duration-200", bar)} style={{ width: `${pct}%` }} />
+components/ui/tabs.tsx	"transition-all duration-200 hover:text-background-foreground",
+components/ui/textarea.tsx	"placeholder:text-muted-foreground transition-all duration-200 resize-none",
+components/ui/toggle.tsx	"inline-block h-3 w-3 rounded-full bg-card shadow-sm transition-all duration-200",
+components/ui/toggle.tsx	"relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-all duration-200",

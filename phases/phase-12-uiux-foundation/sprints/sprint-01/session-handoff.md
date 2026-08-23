@@ -91,8 +91,30 @@
   area:project，phase-12 实际只有 sprint-01），`sync --apply` 的 `--remove-label` 调用
   本轮失败了，标题/labels 没清干净，body 是对的。已用 spawn_task 登记单独任务。
 
+## 本轮改动（F03）
+- `apps/web/tailwind.config.ts`：新增 `transitionDuration`/`transitionTimingFunction`
+  语义档位 fast=150ms/base=200ms/slow=300ms（三档 timing function 统一
+  `cubic-bezier(0.4, 0, 0.2, 1)`）。
+- `apps/web/app/globals.css`：新增动效 token 选值依据 + 迁移记录注释块。
+- 迁移到语义 token：`components/ui/dialog.tsx`（3 处）、`dropdown-menu.tsx`（1 处）、
+  `select.tsx`（1 处）、`components/state/primitives-gallery.tsx`（动效档位展示区本身
+  改用真实 token）、`app/kitchen-sink/page.tsx`（1 处示例）。`tooltip.tsx` 无需改
+  （迁移前没有 transition）。
+- `apps/web/scripts/lint-design.sh`：新增 U10 规则，拦截裸 `duration-<数字>`/内建
+  `ease-linear|in|out|in-out`。
+- 新建 `apps/web/scripts/motion-legacy-allowlist.txt`（189 条存量豁免，R4-E2）+
+  `contracts/motion-microinteraction/motion-migration-priority.md`（三批迁移优先级）。
+- 新增 `apps/web/tests/lint-design-motion-rule.test.ts` + `__fixtures__/lint-motion-good.tsx`/
+  `lint-motion-bad.tsx`；同步把既有 `__fixtures__/lint-good.tsx` 的裸 `duration-200`
+  改成 `duration-base`（否则会被新规则打红）。
+- F03（统一的语义化动效 token 体系 + lint 拦截裸 duration/easing）passing。两条
+  verification 命令全过，见
+  `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F03.verify.log`。
+
 ## 下一步最佳动作
-- F03（语义化动效 token 体系 + lint 拦截裸 duration/easing）。
+- F04（编排级动效：chat 消息到达 / 面板展开收起），依赖 F03 token 体系已就绪。
+- 或先做迁移优先级清单 P0 批次（`components/ui`+`components/shell` 共 21 处裸值，
+  见 `contracts/motion-microinteraction/motion-migration-priority.md`）。
 
 ## 命令
 - 启动:`pnpm -w run dev`
