@@ -51,14 +51,14 @@
         "F01"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "claude-e",
       "verification": [
         "pnpm --filter web exec vitest run tests/lint-design-motion-rule.test.ts",
         "pnpm --filter web run lint:design"
       ],
-      "evidence": "",
+      "evidence": "evidence/F03.verify.log @ 2026-08-23T22:00:05.915Z",
       "notes": "依据等级：[Backlog]（IT-02；全仓 167 处手写 transition，无语义 token——新增基础设施）。has_ui：属 has_ui 需求，需随所属契约束签核。R11 拆分：token 定义+lint 为本 feature，编排级动效为 F04。vitest 参照现有 apps/web/tests/lint-design-gate.test.ts 的写法，断言引入裸 duration/ease 时规则报红（反证），再断言合规写法放行。不引入 framer-motion，保持纯 CSS transition 路线（R6/R10）。"
     },
     {

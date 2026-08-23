@@ -16,7 +16,7 @@ export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 const itemBase =
-  "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-13 outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200 " +
+  "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-13 outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-base " +
   "data-[highlighted]:bg-muted data-[highlighted]:text-background-foreground " +
   "data-[disabled]:pointer-events-none data-[disabled]:text-disabled-foreground";
 

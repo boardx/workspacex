@@ -171,6 +171,48 @@ fi
 report "MD" "JSX 文本里残留 Markdown 加粗（**...**），应改用 <strong>" \
   "$(scan '\*\*[^*]+\*\*')"
 
+# ── U10 裸 duration/ease 未走语义动效 token（F03；motion-microinteraction I-1）──
+# 语义档位定义在 tailwind.config.ts（transitionDuration/transitionTimingFunction 的
+# fast/base/slow），取值依据写在 app/globals.css 顶部注释。裸 `duration-<数字>` 或
+# Tailwind 内建 `ease-linear|in|out|in-out` 逃过了语义化，一律拦截；本仓自己新增的
+# `ease-fast|base|slow` 是合规写法，不在拦截范围。
+#
+# 白名单（R4-E2 已知例外，不阻塞其他部分）：scripts/motion-legacy-allowlist.txt 登记
+# 全仓存量未迁移用法，一行一条 `<相对路径><TAB><行原始文本（去首尾空白）>`——按
+# **内容**而非行号匹配：文件里增删无关行不会误伤，但只要那一行文本本身变了（不论是
+# 迁移还是别的改动），豁免立刻失效，逼着改动者过一遍这条规则，不会被静默放行。
+# 迁移优先级见 phases/phase-12-uiux-foundation/contracts/motion-microinteraction/
+# motion-migration-priority.md；迁移完成后请从白名单删掉对应行。
+MOTION_ALLOWLIST_FILE="scripts/motion-legacy-allowlist.txt"
+motion_is_allowlisted() { # $1=相对路径 $2=已去首尾空白的行内容
+  [ -f "$MOTION_ALLOWLIST_FILE" ] || return 1
+  grep -qF "$(printf '%s\t%s' "$1" "$2")" "$MOTION_ALLOWLIST_FILE"
+}
+motion_scan_raw() { # $1=grep -E 模式
+  local hits
+  hits=$(grep -rnE "$1" "${TARGETS[@]}" --include="*.tsx" --include="*.ts" 2>/dev/null || true)
+  [ "$IS_FIXTURE_RUN" -eq 0 ] && hits=$(printf '%s' "$hits" | grep -v "__fixtures__" || true)
+  printf '%s' "$hits" | strip_comments
+}
+MOTION_RAW=$(motion_scan_raw '\bduration-[0-9]+\b')
+MOTION_RAW="$MOTION_RAW
+$(motion_scan_raw '\bease-[a-z-]+\b' | grep -vE '\bease-(fast|base|slow)\b' || true)"
+MOTION_HITS=""
+while IFS= read -r rec; do
+  [ -z "$rec" ] && continue
+  path="${rec%%:*}"
+  rest="${rec#*:}"
+  lineno="${rest%%:*}"
+  content="${rest#*:}"
+  trimmed=$(printf '%s' "$content" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+  if ! motion_is_allowlisted "$path" "$trimmed"; then
+    MOTION_HITS="$MOTION_HITS
+$path:$lineno:$content"
+  fi
+done <<< "$MOTION_RAW"
+report "U10" "裸 duration-<数字>/ease-<内建名>（必须用语义 token fast/base/slow，见 tailwind.config.ts；存量豁免见 scripts/motion-legacy-allowlist.txt）" \
+  "$(printf '%s' "$MOTION_HITS" | sed '/^$/d')"
+
 # ── D-35 data-testid 命名规范 ───────────────────────────────────────────────
 # 结构 <域>-<对象>-<角色>，全小写 kebab-case；禁止携带业务数据（中文 / 大写 / 下划线）。
 report "D-35" "data-testid 不合命名规范（应为小写 kebab-case，且不得携带业务数据）" \

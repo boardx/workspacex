@@ -191,3 +191,56 @@
     覆盖为 F02 内容并关闭，但 `--remove-label` 那几条 gh 调用本轮同步日志里失败了，
     标题/labels 未清干净——已用 spawn_task 登记一条独立收尾任务，不在本 PR 里顺手改。
 - 下一步最佳动作: F03（语义化动效 token 体系 + lint 拦截裸 duration/easing）。
+
+### 2026-08-24 F03 完成
+- 本轮目标: F03（语义化动效 token 体系 + lint 拦截裸 duration/easing）。
+- 已完成:
+  - `apps/web/tailwind.config.ts`：新增 `transitionDuration`/`transitionTimingFunction`
+    语义档位 fast=150ms/base=200ms/slow=300ms（数值沿用 kitchen-sink 展示区已确认过的
+    取值，未凭空拍新数字），三档 timing function 统一 `cubic-bezier(0.4, 0, 0.2, 1)`
+    （等价内建 `ease-in-out`，也是 Tailwind `transition-*` 默认曲线，全仓无证据支撑
+    拆出不同曲线）。
+  - `apps/web/app/globals.css`：新增专门的动效 token 依据注释块（选值理由 + F01/F02
+    四组件迁移记录 + 存量迁移优先级/豁免清单指路），不与 tailwind.config.ts 重复写
+    字面量（同一事实不得声明在两处）。
+  - F01/F02 四个弹层组件迁移到语义 token（示范用法）：`dialog.tsx`（Overlay/Content/
+    关闭按钮 3 处）、`dropdown-menu.tsx`（菜单项高亮态 1 处）、`select.tsx`（触发器
+    1 处）均 `duration-200 → duration-base`；`tooltip.tsx` 的 `TooltipContent` 迁移前
+    没有任何 `transition-*`，本次未新增行为。顺带把 `primitives-gallery.tsx` 的
+    「动效 token 档位对照」展示区（本身就是这三档 token 的签核材料）从裸
+    `duration-150/200/300` + `ease-in-out` 改成真正消费 `duration-fast/base/slow` +
+    `ease-base`，以及 `kitchen-sink/page.tsx` 一处示例列表项。
+  - `apps/web/scripts/lint-design.sh` 新增 U10 规则：拦截裸 `duration-<数字>` 与内建
+    `ease-linear|in|out|in-out`，放行本仓语义类名 `duration-fast/base/slow`、
+    `ease-fast/base/slow`。全仓存量 189 条未迁移用法（198 处原始命中，同文件内容
+    完全相同的重复行合并计数）登记进新建的
+    `apps/web/scripts/motion-legacy-allowlist.txt`（R4-E2 已知例外，按 `path\t行内容`
+    子串匹配豁免——不是按行号，那一行文本一变豁免立刻失效，不会被静默放行）。
+  - 迁移优先级清单：新建
+    `contracts/motion-microinteraction/motion-migration-priority.md`，按目录密度分三批
+    （P0 `components/ui`+`components/shell` 21 处最高优先级；P1 `chat`/`projects`/`files`
+    跟随功能改动顺手迁移；P2 其余领域专属组件机会性迁移），不要求本 feature 一次改完
+    （R5 明文允许分批）。
+  - 反证测试：新增 `apps/web/tests/lint-design-motion-rule.test.ts` + 专用 fixture
+    `__fixtures__/lint-motion-good.tsx`（duration-fast/base/slow + ease-fast/base/slow
+    全放行）/`__fixtures__/lint-motion-bad.tsx`（裸 `duration-500`/`ease-linear` 均被
+    U10 拦截并报出规则号与命中文本）。顺带把既有 `__fixtures__/lint-good.tsx` 里两处
+    裸 `duration-200` 改成 `duration-base`（否则新规则会让既有 `lint-design-gate.test.ts`
+    的「合规 fixture 放行」用例变红）。
+  - 未引入 framer-motion 或任何新动画库依赖，保持纯 CSS transition 路线（R6/R10）。
+- 运行过的验证:
+  - `pnpm --filter web exec vitest run tests/lint-design-motion-rule.test.ts` → 5 passed
+  - `pnpm --filter web run lint:design` → 全过（全仓扫描，含新迁移的 4 组件与新豁免清单）
+  - `pnpm --filter web exec vitest run tests/lint-design-gate.test.ts` → 12 passed（既有
+    门控回归不受影响）
+  - `pnpm --filter web exec tsc --noEmit -p .` → 无新增错误
+  - `pnpm harness verify --sprint 12/01 --feature F03` → passing（含 base verify:quick）
+- 已记录证据: `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F03.verify.log`
+- 提交记录: 见分支 `worker/claude-e-12-F03` 对应 PR（`Closes #1868`）。
+- 已知风险或未解决问题: 全仓仍有 189 条存量裸 duration/ease 用法未迁移（已登记进
+  `motion-legacy-allowlist.txt` + 优先级清单，按 R5 允许分批，不阻塞本 feature）；
+  `tooltip.tsx` 的 `TooltipContent` 目前没有任何进出场过渡（迁移前如此，本次未新增
+  行为），是否需要补一条是独立决策，不在本次「迁移存量裸值」范围内。
+- 下一步最佳动作: F04（编排级动效：候选是 chat 消息到达、面板展开/收起），依赖 F03 的
+  token 体系已就绪；或按迁移优先级清单先做 P0 批次（`components/ui`+`components/shell`
+  21 处）作为独立小 feature/PR。

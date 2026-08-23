@@ -140,7 +140,7 @@ function SampleLeftPanel() {
           <li
             key={t}
             data-testid={`demo-thread-${i}`}
-            className="cursor-pointer rounded-md px-2 py-1.5 text-12 transition-all duration-200 hover:bg-muted"
+            className="cursor-pointer rounded-md px-2 py-1.5 text-12 transition-all duration-base hover:bg-muted"
           >
             {t}
           </li>

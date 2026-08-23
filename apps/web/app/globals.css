@@ -27,6 +27,41 @@
  * ========================================================================== */
 
 /* ============================================================================
+ * 语义化动效 token —— 唯一事实源（F03；契约束 motion-microinteraction
+ * domain.md I-1，requirements/02-motion-token-system.md#R3）
+ *
+ * 三档定义在 `tailwind.config.ts`（`transitionDuration` / `transitionTimingFunction`
+ * 的 fast/base/slow），不在这里重复写字面量——本注释只记**选值依据**，token 数值
+ * 改动只改 tailwind.config.ts 一处（同一事实不得声明在两处，见 AGENTS.md）。
+ *
+ * 选值依据：
+ *   - fast = 150ms —— 微反馈档：hover 背景色变化、图标着色。快到几乎感觉不到延迟，
+ *     用户操作与视觉反馈之间不应有可感知的滞后。
+ *   - base = 200ms —— 默认档：按钮态变化、卡片 hover、弹层进出场（Dialog/DropdownMenu/
+ *     Select/Tooltip，见下方迁移记录）。这是全仓迁移前最常见的手写数值（`button.tsx`
+ *     等高频组件已在用 200ms），签核时人类确认过这个手感，定为默认档而非改动它。
+ *   - slow = 300ms —— 编排档：面板展开/收起、消息到达序列等需要让用户跟上状态变化
+ *     节奏的场景，比 base 长 50% 足以让"正在展开"被感知为一个过程而非瞬间跳变。
+ *   - timingFunction 三档统一用 `cubic-bezier(0.4, 0, 0.2, 1)`（等价 Tailwind 内建
+ *     `ease-in-out`，也是 Tailwind `transition-*` 工具类的默认曲线）——现状全仓
+ *     没有任何一处使用了不同的加速度曲线，没有证据支撑拆出三条不同曲线；
+ *     若未来某个编排时刻确有理由需要不同曲线，请连同理由一起在这里补一条，
+ *     不要在组件里悄悄改回裸 `ease-*`（会被 `lint-design.sh` U10 拦截）。
+ *
+ * F01/F02 四个弹层组件迁移记录（示范用法，裸 `duration-200` → `duration-base`）：
+ *   dialog.tsx（Overlay + Content + 关闭按钮）、dropdown-menu.tsx（菜单项高亮态）、
+ *   select.tsx（触发器 hover/焦点态）——均为 200ms，直接对应 base 档，语义不变。
+ *   tooltip.tsx 的 TooltipContent 在迁移前没有任何 transition-* 类（Radix 挂载/
+ *   卸载即时切换，无渐变），本次未新增行为，只在同束 primitives-gallery 展示区
+ *   补齐了 token 用法示范；tooltip 是否需要新增进出场过渡是另一个决策，不在
+ *   本次「迁移存量裸值」范围内。
+ *
+ * 全仓存量 167+ 处裸 `duration-<数字>` 迁移优先级见
+ * `phases/phase-12-uiux-foundation/contracts/motion-microinteraction/motion-migration-priority.md`；
+ * 本次未迁移的已知例外登记在 `apps/web/scripts/motion-legacy-allowlist.txt`（R4-E2）。
+ * ========================================================================== */
+
+/* ============================================================================
  * 设计 token —— 唯一事实源（UC-0.4 R3 步骤 2 / uiux-standards §1.1）
  *
  * ⚠ 这是全仓**唯一**允许定义色面值的地方。

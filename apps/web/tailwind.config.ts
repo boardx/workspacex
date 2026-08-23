@@ -56,6 +56,24 @@ const config: Config = {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
       },
       animation: { "fade-in": "fade-in 160ms ease-out" },
+      /**
+       * ⚠ 语义化动效 token（F03；契约束 motion-microinteraction I-1，ADR 见
+       * contracts/motion-microinteraction/domain.md）。三档 fast/base/slow 是
+       * 唯一事实源，取值依据与选值过程写在 app/globals.css 顶部注释——不要在这里
+       * 重写第二份依据说明（同一事实不得声明在两处，见 AGENTS.md）。
+       * `lint-design.sh` U10 规则拦截裸 `duration-<数字>` / 内建 `ease-linear|in|out|in-out`，
+       * 只放行这里定义的语义类名（`duration-fast/base/slow`、`ease-fast/base/slow`）。
+       */
+      transitionDuration: {
+        fast: "150ms",
+        base: "200ms",
+        slow: "300ms",
+      },
+      transitionTimingFunction: {
+        fast: "cubic-bezier(0.4, 0, 0.2, 1)",
+        base: "cubic-bezier(0.4, 0, 0.2, 1)",
+        slow: "cubic-bezier(0.4, 0, 0.2, 1)",
+      },
     },
   },
   plugins: [require("tailwindcss-animate")],

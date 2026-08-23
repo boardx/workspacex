@@ -201,9 +201,9 @@ export function PrimitivesGallery() {
 }
 
 const MOTION_TIERS = [
-  { key: "fast", cls: "duration-150", ms: "150ms", use: "微反馈：hover 背景、图标着色" },
-  { key: "base", cls: "duration-200", ms: "200ms", use: "默认档：按钮、卡片、面板切换" },
-  { key: "slow", cls: "duration-300", ms: "300ms", use: "编排：面板展开、消息到达序列" },
+  { key: "fast", cls: "duration-fast", ms: "150ms", use: "微反馈：hover 背景、图标着色" },
+  { key: "base", cls: "duration-base", ms: "200ms", use: "默认档：按钮、卡片、面板切换" },
+  { key: "slow", cls: "duration-slow", ms: "300ms", use: "编排：面板展开、消息到达序列" },
 ];
 
 /**
@@ -227,14 +227,14 @@ export function MotionTokenGallery() {
           <div
             key={tier.key}
             data-testid={`motion-tier-${tier.key}`}
-            className={`group cursor-pointer rounded-lg border border-border bg-card p-4 transition-all ${tier.cls} ease-in-out hover:-translate-y-1 hover:border-primary hover:shadow-md`}
+            className={`group cursor-pointer rounded-lg border border-border bg-card p-4 transition-all ${tier.cls} ease-base hover:-translate-y-1 hover:border-primary hover:shadow-md`}
           >
             <div className="flex items-baseline justify-between">
               <span className="text-13 font-semibold">{tier.key}</span>
               <code className="font-mono text-12 text-primary">{tier.ms}</code>
             </div>
             <p className="mt-2 text-11 text-muted-foreground">{tier.use}</p>
-            <div className={`mt-3 h-1.5 w-full origin-left rounded-full bg-muted transition-transform ${tier.cls} ease-in-out group-hover:scale-x-100`}>
+            <div className={`mt-3 h-1.5 w-full origin-left rounded-full bg-muted transition-transform ${tier.cls} ease-base group-hover:scale-x-100`}>
               <div className="h-full w-1/3 rounded-full bg-primary" />
             </div>
           </div>
