@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   buildIssueBody,
   decideClose,
+  diffLabels,
   isProjectedBody,
   partitionTitleMatches,
   projectionMarker,
@@ -152,6 +153,36 @@ describe("partitionTitleMatches (marker guard)", () => {
     const bodyWeWouldWrite = `${marker}\n...`;
     expect(isProjectedBody(bodyWeWouldWrite, phaseId, featureId)).toBe(true); // 新 body 必带 marker
     expect(isProjectedBody(manualIssue.body, phaseId, featureId)).toBe(false); // 但判定依据是现存 body
+  });
+});
+
+describe("diffLabels (#1676: sprint:*/area:* must reconcile, not just status:*)", () => {
+  const AREA_PREFIX = "area:";
+  const ALL_STATUS_LABELS = ["status:blocked", "status:in-progress", "status:merged"];
+
+  it("removes stale sprint:/area: labels left over from an issue-number collision, and adds the correct ones", () => {
+    // #1676 实况：issue 因 marker 撞号被判给了另一个 feature，旧 body 时期的
+    // sprint:12-03 + area:project 从未被 remove 过（旧逻辑只 reconcile status:* label）。
+    const current = ["status:merged", "status:in-progress", "area:project", "sprint:12-03"];
+    const desired = ["sprint:12-01", "area:component-primitives", "status:merged"];
+    const { toAdd, toRemove } = diffLabels(current, desired, AREA_PREFIX, ALL_STATUS_LABELS);
+    expect(toAdd.sort()).toEqual(["area:component-primitives", "sprint:12-01"]);
+    expect(toRemove.sort()).toEqual(["area:project", "sprint:12-03", "status:in-progress"]);
+  });
+
+  it("is a no-op once current already equals desired (idempotent)", () => {
+    const desired = ["sprint:12-01", "area:component-primitives", "status:merged"];
+    const { toAdd, toRemove } = diffLabels(desired, desired, AREA_PREFIX, ALL_STATUS_LABELS);
+    expect(toAdd).toEqual([]);
+    expect(toRemove).toEqual([]);
+  });
+
+  it("never touches labels outside the managed namespaces (manual labels survive)", () => {
+    const current = ["sprint:12-01", "area:component-primitives", "status:merged", "needs-design-review"];
+    const desired = ["sprint:12-01", "area:component-primitives", "status:merged"];
+    const { toAdd, toRemove } = diffLabels(current, desired, AREA_PREFIX, ALL_STATUS_LABELS);
+    expect(toAdd).toEqual([]);
+    expect(toRemove).toEqual([]);
   });
 });
 

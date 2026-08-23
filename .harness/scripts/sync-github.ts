@@ -34,6 +34,7 @@ export interface ProjectedIssue {
   title: string;
   body: string;
   state: string;
+  labels?: { name: string }[];
 }
 
 const PROJECTION_MARKER_PREFIX = "harness-feature:";
@@ -64,6 +65,24 @@ export function partitionTitleMatches(
   const projection = matches.find((i) => isProjectedBody(i.body, phaseId, featureId)) ?? null;
   const collisions = matches.filter((i) => !isProjectedBody(i.body, phaseId, featureId));
   return { projection, collisions };
+}
+
+/** label reconcile 的纯 diff（可单测）：#526 只 reconcile 了 status label，sprint/area label
+ *  从不参与 add/remove——issue 靠 marker 撞号到别的 feature 时（sprint 编号漂移/孤儿 sprint），
+ *  旧 sprint/area label 永久卡在创建时刻（#1676）。现在对 sprint、area_prefix、任一 status label
+ *  命名空间做完整 diff：落在这些命名空间但不在 desired 里的一律移除；desired 里有但当前没有的一律添加。 */
+export function diffLabels(
+  currentLabels: string[],
+  desiredLabels: string[],
+  areaPrefix: string,
+  allStatusLabels: string[],
+): { toAdd: string[]; toRemove: string[] } {
+  const managedNamespace = (l: string) =>
+    l.startsWith("sprint:") || l.startsWith(areaPrefix) || allStatusLabels.includes(l);
+  return {
+    toAdd: desiredLabels.filter((l) => !currentLabels.includes(l)),
+    toRemove: currentLabels.filter((l) => managedNamespace(l) && !desiredLabels.includes(l)),
+  };
 }
 
 /** close 分支的纯决策（可单测）：无投影不关、已关不重关、绝不 reopen（#526/#713）。 */
@@ -205,7 +224,7 @@ function allIssues(repo: string, apply: boolean): ProjectedIssue[] {
   if (!apply) return [];
   if (ALL_ISSUES) return ALL_ISSUES;
   const r = sh(
-    `gh issue list --repo ${JSON.stringify(repo)} --state all --limit 500 --json number,title,body,state`,
+    `gh issue list --repo ${JSON.stringify(repo)} --state all --limit 500 --json number,title,body,state,labels`,
   );
   ALL_ISSUES = r.code === 0 ? (JSON.parse(r.stdout || "[]") as ProjectedIssue[]) : [];
   return ALL_ISSUES;
@@ -215,7 +234,7 @@ function findIssuesByTitle(repo: string, title: string, apply: boolean): Project
   if (!apply) return []; // dry-run 不实际查询
   // --state all：含已关闭 issue，否则幂等检查会漏掉 closed issue 而重复创建
   const r = sh(
-    `gh issue list --repo ${JSON.stringify(repo)} --state all --search ${JSON.stringify(title)} --json number,title,body,state --limit 10`
+    `gh issue list --repo ${JSON.stringify(repo)} --state all --search ${JSON.stringify(title)} --json number,title,body,state,labels --limit 10`
   );
   if (r.code !== 0) return [];
   try {
@@ -345,17 +364,23 @@ export function syncGithub(args: Args): void {
       }
       let issueForClose: ProjectedIssue | null = null;
       if (apply && existing !== null) {
+        // #1676：existing 可能是靠 marker 匹配到的、但标题已经不属于本 feature 的旧 issue
+        // （sprint 编号漂移/孤儿 sprint 撞号场景）——body 会被下面这条 edit 覆盖成对的，
+        // 标题不带 --title 一起改，就会永久停在别的 feature 的旧标题上。
         run(
-          `gh issue edit --repo ${cfg.repo} ${existing.number} --body-file ${JSON.stringify(bodyFile)}`,
-          `更新 Issue #${existing.number} body: ${title}`
+          `gh issue edit --repo ${cfg.repo} ${existing.number} --title ${JSON.stringify(title)} --body-file ${JSON.stringify(bodyFile)}`,
+          `更新 Issue #${existing.number} title+body: ${title}`
         );
         // existing 在 edit 前就已验过 marker（partitionTitleMatches），
         // 这里只是把最新 body 带上供 close 阶段复用，不改变 marker 判定结论（#713）。
-        issueForClose = { ...existing, body };
-        // #526：存量 issue 的 label 也要 reconcile——此前 edit 只更新 body，状态 label
-        // 永远停在创建时刻（p23 的 #506-511 就是这样漏掉 status:merged 的）。
-        // 做法：加当前 status 的 label，移除 status_actions 里其它状态的 label
-        //（gh 对"移除不存在的 label"静默容忍，天然幂等）。
+        issueForClose = { ...existing, title, body };
+        // #526 + #1676：存量 issue 的 label 也要 reconcile——此前只 reconcile status:* label，
+        // sprint:*/area:* 从不参与 add/remove，导致同一现象反复出现：issue 靠 marker 撞号
+        // 到别的 feature 时，旧 sprint/area label 永久卡在创建时刻（#1676 就是 sprint:12-03
+        // + area:project 卡死在已改判给别 feature 的 issue 上，无人清理）。
+        // 现在按「本 feature 应有的 label 全集」与「issue 当前实际 label」做完整 diff：
+        // 落在 sprint:*/area_prefix/任一 status label 命名空间、但不在当前应有集合里的，一律移除；
+        // 应有但当前没有的，一律添加。（gh 对"移除不存在的 label"静默容忍，天然幂等。）
         const allStatusLabels = [
           ...new Set(
             Object.values(cfg.status_actions ?? {})
@@ -363,13 +388,14 @@ export function syncGithub(args: Args): void {
               .filter((l): l is string => !!l)
           ),
         ];
-        const stale = allStatusLabels.filter((l) => l !== statusAction.add_label);
-        const addArg = statusAction.add_label ? ` --add-label ${JSON.stringify(statusAction.add_label)}` : "";
-        const rmArg = stale.map((l) => ` --remove-label ${JSON.stringify(l)}`).join("");
+        const currentLabels = (existing.labels ?? []).map((l) => l.name);
+        const { toAdd, toRemove } = diffLabels(currentLabels, labels, cfg.labels.area_prefix, allStatusLabels);
+        const addArg = toAdd.map((l) => ` --add-label ${JSON.stringify(l)}`).join("");
+        const rmArg = toRemove.map((l) => ` --remove-label ${JSON.stringify(l)}`).join("");
         if (addArg || rmArg) {
           run(
             `gh issue edit --repo ${cfg.repo} ${existing.number}${addArg}${rmArg}`,
-            `label reconcile #${existing.number} → [${f.status}]`
+            `label reconcile #${existing.number} → [${labels.join(", ")}]`
           );
         }
       } else if (apply && collisions.length > 0) {
