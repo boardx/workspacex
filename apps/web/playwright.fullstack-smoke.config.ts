@@ -371,6 +371,16 @@ export default defineConfig({
       grep: EMPTY_DB_TAG_RE,
       dependencies: ["core-loop-reset"],
     },
+    {
+      /**
+       * F01（phase-12-uiux-foundation/interaction-primitives）—— 弹层原语键盘可达性回归。
+       * 目标页 `/kitchen-sink` 是纯静态设计系统展示页，不读 DB、不需要登录态，因此
+       * 不依赖 `seeded`/`core-loop-*` 任何一条种子链，独立成一个不带 dependencies 的
+       * project，只复用 config 顶层已经起好的 web 服务器。
+       */
+      name: "overlay-primitives-keyboard",
+      testMatch: ["overlay-primitives-keyboard.spec.ts"],
+    },
   ],
   fullyParallel: false,
   retries: 0,
