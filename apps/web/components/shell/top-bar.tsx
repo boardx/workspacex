@@ -249,7 +249,13 @@ export function TopBar({
         但共用「项目」这个字面词，普通用户看不出这层区分。改成明确列出项目内角色的名字，
         不再用「项目角色」这个会撞上「项目负责人」的泛称。
       */}
-      {!project && !local && !sh.on && (
+      {/*
+        2026-08-23 人类实测反馈：这句提示在 `/chat`（尤其个人对话，默认落地屏）上
+        纯属噪音——不在项目里本就是这个屏的常态，不需要每次都提醒。**只在 `/chat`
+        隐藏**，其余非项目路由（如设置页）这句解释仍然保留，那些地方"为什么没有项目
+        角色"确实需要说明。
+      */}
+      {!project && !local && !sh.on && pathname !== "/chat" && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
           不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
         </p>
