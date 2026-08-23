@@ -23,30 +23,45 @@
  * 不同的模板"，与页面刷新后归零，可接受。
  */
 import { registerTemplate } from "@repo/fabric-markdown";
-import { buildAutoTemplateSpec, type AutoLayoutSectionInput } from "./auto-template-layout";
+import { buildAutoTemplateSpec, type AutoLayoutCell, type AutoLayoutSectionInput } from "./auto-template-layout";
 
 export function templateEditorPreviewKey(realKey: string, realVersion: number): string {
   return `__editor-preview-${realKey}-${realVersion}`;
 }
 
+export interface TemplateEditorPreview {
+  /** 喂给 `CanvasStage` `markdown` prop 的完整围栏文本。 */
+  readonly markdown: string;
+  /**
+   * 每个分区框的场景坐标矩形（中心点 + 宽高，与引擎自己的坐标系一致）——2026-08-23
+   * 起用于「点击画布上的分区框，联动高亮/定位左侧对应的输入框」（分区框本身在引擎里
+   * 是 `locked`，fabric 不会给它们发对象级事件，只能在 `CanvasStage` 之外自己做命中
+   * 测试，见 `canvas-stage.tsx` 的 `onCanvasClick` 文档）。**用 `name` 关联**，不是
+   * `sectionId`——分区名允许重复（契约没有唯一性约束），重名时命中第一个，是已知的
+   * 粗粒度、不是 bug：真要精确关联需要把 `sectionId` 一路带到界面输入框上，而现在的
+   * 输入框只按数组下标渲染，两者不是一回事。
+   */
+  readonly cells: readonly Pick<AutoLayoutCell, "name" | "x" | "y" | "w" | "h">[];
+}
+
 /**
  * 把「显示名 + 分区名列表」注册成一个可渲染的临时 spec，返回喂给 `CanvasStage`
- * `markdown` prop 的完整围栏文本。空分区列表也能注册——引擎的 `computeAutoLayout`
- * 对空数组有定义（见 `auto-template-layout.ts` 的既有反证用例），画出来是一个只有
- * 标题、没有任何分区框的画布，不是报错态。
+ * `markdown` prop 的完整围栏文本 + 每个分区框的场景坐标。空分区列表也能注册——
+ * 引擎的 `computeAutoLayout` 对空数组有定义（见 `auto-template-layout.ts` 的既有
+ * 反证用例），画出来是一个只有标题、没有任何分区框的画布，不是报错态。
  */
 export function buildTemplateEditorPreviewMarkdown(input: {
   readonly realKey: string;
   readonly realVersion: number;
   readonly displayName: string;
   readonly sectionNames: readonly string[];
-}): string {
+}): TemplateEditorPreview {
   const previewKey = templateEditorPreviewKey(input.realKey, input.realVersion);
   const sections: AutoLayoutSectionInput[] = input.sectionNames
     .map((name, i) => ({ sectionId: `s${i + 1}`, name, order: i, required: false, capacity: null }))
     .filter((s) => s.name.trim().length > 0);
 
-  const { spec } = buildAutoTemplateSpec({
+  const { spec, layout } = buildAutoTemplateSpec({
     key: previewKey,
     displayName: input.displayName.trim().length > 0 ? input.displayName : "未命名模板",
     sections,
@@ -54,5 +69,8 @@ export function buildTemplateEditorPreviewMarkdown(input: {
   registerTemplate(spec);
 
   const lines = [`模板: ${previewKey}`, ...sections.map((s) => `## ${s.name}`)];
-  return ["```canvas", ...lines, "```"].join("\n");
+  return {
+    markdown: ["```canvas", ...lines, "```"].join("\n"),
+    cells: layout.cells.map((c) => ({ name: c.name, x: c.x, y: c.y, w: c.w, h: c.h })),
+  };
 }

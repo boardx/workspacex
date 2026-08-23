@@ -108,7 +108,7 @@ export function TemplateEditorPanel({
 
   // 预览随「显示名 + 分区名列表」实时重算——纯前端、不发请求，同 `CreateDialog` 的
   // AI 起草那段「生成后仍在这个表单里，不自动提交」同一个哲学：所见即将要提交的东西。
-  const previewMarkdown = React.useMemo(
+  const preview = React.useMemo(
     () => buildTemplateEditorPreviewMarkdown({
       realKey: row.key,
       realVersion: row.version,
@@ -117,6 +117,35 @@ export function TemplateEditorPanel({
     }),
     [row.key, row.version, displayName, sectionNames],
   );
+
+  /**
+   * 2026-08-23 ——「真正的可视化画布编辑器」（人类明确要求）第一步：点击画布上的
+   * 分区框，联动高亮 + 定位左侧对应的输入框。分区框在引擎里是锁死的（不能拖、不能
+   * 缩放——`fabric-markdown` 的 `template-engine.ts` 文件头逐字写着"locked frame"，
+   * vendor 纪律不许改），所以"真正编辑"落在能做到的那一半：点哪个框，就知道在改
+   * 哪个分区，光标直接过去，不用在一串同样长相的文本框里自己去数第几个。
+   */
+  const sectionInputRefs = React.useRef<(HTMLInputElement | null)[]>([]);
+  const [highlightedSection, setHighlightedSection] = React.useState<number | null>(null);
+  function handleCanvasClick(point: { x: number; y: number }) {
+    const hitIndex = sectionNames.findIndex((name) => {
+      const cell = preview.cells.find((c) => c.name === name);
+      if (!cell) return false;
+      // 命中测试用的是矩形范围，不是"点最近哪个中心"——分区框之间有 gutter 间隙，
+      // 点在间隙里应该"没点中任何框"，而不是被归给最近的那个（那会让点空白处
+      // 也意外跳去改某个分区，行为看起来随机）。
+      return Math.abs(point.x - cell.x) <= cell.w / 2 && Math.abs(point.y - cell.y) <= cell.h / 2;
+    });
+    if (hitIndex < 0) return;
+    setHighlightedSection(hitIndex);
+    const input = sectionInputRefs.current[hitIndex];
+    // jsdom（测试环境）没有实现 `scrollIntoView`——不是这段逻辑该在乎的事，
+    // 真浏览器里永远有，这里只是不让测试环境的空缺变成一次真崩溃。
+    if (typeof input?.scrollIntoView === "function") {
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    input?.focus();
+  }
 
   function addSection() {
     setSectionNames([...sectionNames, ""]);
@@ -276,15 +305,23 @@ export function TemplateEditorPanel({
           )}
 
           <div className="flex flex-col gap-1" data-testid="tpladmin-editor-sections">
-            <span className="text-11 text-muted-foreground">分区（导出为 ## 段落；留空即零分区）</span>
+            <span className="text-11 text-muted-foreground">
+              分区（导出为 ## 段落；留空即零分区{editable && "——也可以直接点右边画布上的框"}）
+            </span>
             {sectionNames.map((name, i) => (
               <div key={i} className="flex items-center gap-1">
                 <GripVertical aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <input
-                  className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-12 disabled:bg-disabled disabled:text-disabled-foreground"
+                  ref={(el) => { sectionInputRefs.current[i] = el; }}
+                  className={
+                    "min-w-0 flex-1 rounded-md border bg-background px-2 py-1.5 text-12 transition-colors duration-200 "
+                    + "disabled:bg-disabled disabled:text-disabled-foreground "
+                    + (highlightedSection === i ? "border-primary ring-2 ring-primary/30" : "border-border")
+                  }
                   placeholder={`分区 ${i + 1}`}
                   value={name}
                   onChange={(e) => renameSection(i, e.target.value)}
+                  onFocus={() => setHighlightedSection(i)}
                   disabled={!editable}
                   data-testid={`tpladmin-editor-section-${i}`}
                 />
@@ -329,13 +366,14 @@ export function TemplateEditorPanel({
           )}
         </div>
 
-        <div className="min-h-0 overflow-hidden bg-panel">
+        <div className="min-h-0 overflow-hidden bg-panel" data-testid="tpladmin-editor-preview">
           <CanvasStage
             readOnly
             tool="select"
             zoom={1}
-            markdown={previewMarkdown}
+            markdown={preview.markdown}
             onMarkdownChange={() => {}}
+            onCanvasClick={handleCanvasClick}
           />
         </div>
       </div>

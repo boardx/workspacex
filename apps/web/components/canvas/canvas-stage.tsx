@@ -63,6 +63,19 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   onZoomChange?: (next: number) => void;
   markdown: string;
   onMarkdownChange: (next: string) => void;
+  /**
+   * 2026-08-23（模板编辑面板要求「真正的可视化编辑器」）：只读模式下点击画布空白处
+   * 触发，回传**场景坐标**（`canvas.getPointer()`，已经按当前 viewport 换算过，
+   * 不是原始屏幕像素）。
+   *
+   * ⚠ 为什么不是"点中了哪个分区框"这种更高层的事件：分区框在 `fabric-markdown`
+   *   引擎里是 `locked: true`（`evented: false`），fabric **不会**在它们身上触发任何
+   *   对象级事件（vendor 纪律不许改这一点，见 `VENDOR.md`）。真正可行的做法是画布级
+   *   `mouse:down`（这一级事件不看 `evented`，画布本身永远收得到）配合调用方自己算的
+   *   分区矩形做命中测试——`onCanvasClick` 只负责把场景坐标原样递出去，命中测试是
+   *   调用方的事（它知道自己刚拿什么分区数据生成的这份 markdown，`CanvasStage` 不知道）。
+   */
+  onCanvasClick?: (point: { x: number; y: number }) => void;
 }>(function CanvasStage({
   readOnly,
   tool,
@@ -70,6 +83,7 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   onZoomChange,
   markdown,
   onMarkdownChange,
+  onCanvasClick,
 }, ref) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
@@ -97,6 +111,8 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   const lastEmittedRef = React.useRef<string>(markdown);
   const toolRef = React.useRef(tool);
   const readOnlyRef = React.useRef(readOnly);
+  const onCanvasClickRef = React.useRef(onCanvasClick);
+  onCanvasClickRef.current = onCanvasClick;
   const markdownRef = React.useRef(markdown);
   const onMarkdownChangeRef = React.useRef(onMarkdownChange);
   const onZoomChangeRef = React.useRef(onZoomChange);
@@ -441,6 +457,17 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
         canvas.discardActiveObject();
         canvas.requestRenderAll();
         e.preventDefault();
+        return;
+      }
+      // 只读模式下的画布点击——分区框是 `locked`（`evented: false`），fabric 不会
+      // 在它们身上触发对象级事件，所以这里用**画布级** `mouse:down`（永远收得到，
+      // 不看 evented）+ `canvas.getPointer()` 把场景坐标原样递给调用方，命中测试
+      // 交给调用方自己做（见 prop 文档）。
+      if (readOnlyRef.current && onCanvasClickRef.current) {
+        // fabric v7：`getPointer()` 已废弃，`getScenePoint()` 是场景坐标（不受
+        // viewport 平移/缩放影响）版本——分区框的 x/y 就是场景坐标，两边同一套系。
+        const p = canvas.getScenePoint(e);
+        onCanvasClickRef.current({ x: p.x, y: p.y });
       }
     });
     canvas.on("mouse:move", (opt) => {
