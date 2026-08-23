@@ -6,6 +6,7 @@ import { ArrowUpRight, Plus } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { CapabilityCatalogScreen } from "./capability-catalog-screen";
 import { AgentDefinitionCreatePanel } from "./agent-definition-create-panel";
+import { AgentDefinitionListPanel } from "./agent-definition-list-panel";
 import { AgentUrlImportPanel } from "./agent-url-import-panel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,6 +70,11 @@ export function AgentScreen({ state }: { state: UiState }) {
   const canMutate = identity?.orgRole === "admin";
   const [creating, setCreating] = React.useState(false);
   const [createMode, setCreateMode] = React.useState<CreateMode>("definition");
+  /**
+   * #1915 —— 建成/发布后递增，触发 `AgentDefinitionListPanel` 重新拉取 `listAgents`。
+   * 见该组件头注「刷新时机」：父级 state 变化驱动 refetch，不是组件间事件耦合。
+   */
+  const [agentListRefreshKey, setAgentListRefreshKey] = React.useState(0);
   return (
     <div className="flex flex-col gap-5">
       {canMutate ? (
@@ -94,11 +100,19 @@ export function AgentScreen({ state }: { state: UiState }) {
           <div className="flex flex-col gap-3" data-testid="agent-create-launcher">
             <CreateModeTabs mode={createMode} onChange={setCreateMode} />
             {createMode === "definition" ? (
-              <AgentDefinitionCreatePanel prefix="admin-agent-definition" />
+              <AgentDefinitionCreatePanel
+                prefix="admin-agent-definition"
+                onCreated={() => setAgentListRefreshKey((k) => k + 1)}
+              />
             ) : null}
             {createMode === "import" ? <AgentUrlImportPanel /> : null}
           </div>
         </Modal>
+      ) : null}
+      {canMutate ? (
+        <div className="px-6">
+          <AgentDefinitionListPanel prefix="admin-agent-definition" refreshKey={agentListRefreshKey} />
+        </div>
       ) : null}
       <div className="px-6">
         <Card>

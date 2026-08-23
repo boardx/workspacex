@@ -11,6 +11,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { agentRuntime } from "@repo/contracts";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-view-toggle", orgRole: "admin" }));
@@ -53,9 +54,16 @@ describe("Agent 目录：默认卡片视图，可切换为列表", () => {
     sessionState.orgRole = "admin";
     window.localStorage.clear();
     window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-view-toggle");
+    // ⚠ #1915 起 `AgentScreen` 还并行挂了 `AgentDefinitionListPanel`（独立的
+    // `GET /agents`）——按路径分流，避免它吃到本测试给 `/capabilities` 准备的
+    // capability-listing 形状（没有 `agentId` 字段，会在那边触发一个 React key 警告）。
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () => jsonResponse([agentRow("agent-vt-1", "视图切换测试 Agent")])),
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(typeof input === "string" ? input : input.toString());
+        if (url.pathname === agentRuntime.operations.listAgents.path) return jsonResponse([]);
+        return jsonResponse([agentRow("agent-vt-1", "视图切换测试 Agent")]);
+      }),
     );
   });
 

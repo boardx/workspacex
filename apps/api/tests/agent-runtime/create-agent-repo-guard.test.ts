@@ -85,6 +85,42 @@ describe("#660 白名单条目的前提：instructions 写路径的授权也在�
   });
 });
 
+/**
+ * #1915 —— 本文件**新增**了 `list()` 方法（`ListAgentsRepository`）。同样放在
+ * `pg-create-agent-repository.ts` 而不是新文件：白名单条目按文件登记，
+ * `lint-permission-paths.mjs` 那条条目的"#1915 listAgents ADDITION"段落
+ * 就是这里断言的三件事的散文版本。
+ */
+describe("#1915 白名单条目的前提：listAgents 的授权也在用例层、也在仓储调用之前", () => {
+  const listAgentsUseCase = readFileSync(
+    new URL("../../src/application/agent/list-agents.ts", import.meta.url),
+    "utf8",
+  );
+
+  it("用例层有 admin 组织成员判定", () => {
+    expect(listAgentsUseCase).toContain("findOrgMembership");
+    expect(listAgentsUseCase).toContain('orgRole !== "admin"');
+    expect(listAgentsUseCase).toContain('"ROLE_INSUFFICIENT"');
+  });
+
+  it("授权判定排在 deps.repository.list 调用之前", () => {
+    const authAt = listAgentsUseCase.indexOf("findOrgMembership");
+    const listAt = listAgentsUseCase.indexOf("deps.repository.list(");
+    expect(authAt).toBeGreaterThan(-1);
+    expect(listAt).toBeGreaterThan(-1);
+    expect(authAt).toBeLessThan(listAt);
+  });
+
+  /** 仓储侧 `list()` 只选契约 `AgentRow` 声明过的列，不多选 instructions/tool_whitelist。 */
+  it("仓储的 list() 查询不选 instructions / tool_whitelist / clone_from", () => {
+    const listMethod = repoSource.slice(repoSource.indexOf("async list("));
+    const selectClause = listMethod.slice(0, listMethod.indexOf("FROM agents"));
+    expect(selectClause).not.toMatch(/\binstructions\b/);
+    expect(selectClause).not.toMatch(/\btool_whitelist\b/);
+    expect(selectClause).not.toMatch(/\bclone_from\b/);
+  });
+});
+
 describe("白名单条目的前提：授权确实存在，且在仓储调用之前", () => {
   it("用例层有 admin 组织成员判定", () => {
     expect(useCaseSource).toContain("findOrgMembership");

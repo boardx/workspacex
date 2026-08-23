@@ -18,6 +18,11 @@ import { toOrgId } from "../../domain/org-id";
 import type { AgentDefinition } from "../../domain/agent/definition";
 import type { AgentCapabilityGraphRow, CreateAgentRepository } from "../../application/agent/create-agent";
 import type { SetAgentInstructionsRepository } from "../../application/agent/set-agent-instructions";
+import type {
+  AgentListRow,
+  ListAgentsFilters,
+  ListAgentsRepository,
+} from "../../application/agent/list-agents";
 
 /**
  * ⚠ #660 起，行→定义的映射被 `pg-self-publish-agent-repository.ts` 复用（`export`）。
@@ -122,7 +127,7 @@ function nextId(): string {
   return `agent-${Date.now().toString(36)}-${counter.toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export class PgCreateAgentRepository implements CreateAgentRepository {
+export class PgCreateAgentRepository implements CreateAgentRepository, ListAgentsRepository {
   constructor(private readonly db: DatabasePort) {}
 
   newAgentId(): string {
@@ -148,6 +153,11 @@ export class PgCreateAgentRepository implements CreateAgentRepository {
    * 存在（同组织），就能读出能力图要用的几个字段——`role_label`/`skill_mounts`/
    * `tool_whitelist` 允许为 NULL，分别兜底成 `""`/`[]`/`[]`，与 `toDefinition`
    * 对这几列的兜底逻辑一致（它们本就不参与那组七列判据）。
+   *
+   * ⚠ `listAgents`（#1915，下方 `list()`）与 `cloneFrom`（`findForClone` 上方）
+   * 都**不**照抄这条宽松判据——克隆源必须是「可被复制的完整定义」，`listAgents`
+   * 的整条 SQL 谓词也是同一条七列判据的 SQL 化（见 `list()` 头注），两者刻意保持
+   * 与 `toDefinition` 一致的严格口径。宽松只属于「只读展示」这一条路径。
    */
   async findForCapabilityGraph(orgId: string, agentId: string): Promise<AgentCapabilityGraphRow | null> {
     return this.db.withTenant(toOrgId(orgId), async (session) => {
@@ -166,6 +176,73 @@ export class PgCreateAgentRepository implements CreateAgentRepository {
         skillMounts: (row.skill_mounts as AgentDefinition["skillMounts"]) ?? [],
         toolWhitelist: (row.tool_whitelist as AgentDefinition["toolWhitelist"]) ?? [],
       };
+    });
+  }
+
+  /**
+   * `listAgents`（#1915）——F55 Agent 库的读路径。
+   *
+   * `WHERE initials IS NOT NULL` 起的那一段谓词与 `toDefinition` 的 null 判据同一个
+   * 理由：把一行是否经 `createAgent` 落库这件事写死在 SQL 里，而不是查出全部行、
+   * 拿到应用层再逐行判——那样会让一个 agent-starter-import 行（无 initials/role/
+   * visibility/publish_state）在中间态里被短暂当成「查出来了只是过滤掉」，
+   * 与「SQL 层面它本就不属于这条读路径」不是同一件事。
+   *
+   * ⚠ #1923 hotfix 之后新增了一条更宽松的 `findForCapabilityGraph`（上方），
+   *   本方法**刻意不复用**它——「Agent 库列表」与「克隆源」都要求一个完整、
+   *   可被复制的定义（同 `findForClone`/`toDefinition` 的七列判据），只有
+   *   「能力图只读展示」这一种场景才需要放宽到「行存在就够」。混用会让一个
+   *   `initials`/`role` 都还没配的补种行（如「通用助手」）出现在可克隆的列表里。
+   *
+   * `tag` 过滤器不接——`list-agents.ts` 头注「为什么 tag 过滤器不生效」是唯一事实源，
+   * 这里不重复第二遍理由，只重复它的结论：不查那一列，因为那一列不存在。
+   */
+  async list(orgId: string, filters: ListAgentsFilters): Promise<readonly AgentListRow[]> {
+    return this.db.withTenant(toOrgId(orgId), async (session) => {
+      const conditions = [
+        "org_id = $1",
+        "initials IS NOT NULL",
+        "role IS NOT NULL",
+        "visibility IS NOT NULL",
+        "publish_state IS NOT NULL",
+      ];
+      const params: unknown[] = [orgId];
+      if (filters.publishState !== null) {
+        params.push(filters.publishState);
+        conditions.push(`publish_state = $${params.length}`);
+      }
+      if (filters.visibility !== null) {
+        params.push(filters.visibility);
+        conditions.push(`visibility = $${params.length}`);
+      }
+      const found = await session.query<{
+        id: string;
+        initials: string;
+        name: string;
+        role: string;
+        role_label: string | null;
+        visibility: string;
+        publish_state: string;
+        model_id: string | null;
+        skill_mounts: unknown;
+      }>(
+        `SELECT id, initials, name, role, role_label, visibility, publish_state, model_id, skill_mounts
+           FROM agents
+          WHERE ${conditions.join(" AND ")}
+          ORDER BY created_at DESC`,
+        params,
+      );
+      return found.rows.map((row) => ({
+        agentId: row.id,
+        initials: row.initials,
+        name: row.name,
+        role: row.role,
+        roleLabel: row.role_label ?? "",
+        visibility: row.visibility as AgentListRow["visibility"],
+        publishState: row.publish_state as AgentListRow["publishState"],
+        modelId: row.model_id,
+        skillCount: Array.isArray(row.skill_mounts) ? row.skill_mounts.length : 0,
+      }));
     });
   }
 

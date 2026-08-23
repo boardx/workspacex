@@ -2,19 +2,31 @@
 
 /**
  * #617 —— 新建一个 F55 「执行侧」 agent 定义（不是上面 F15 能力目录的"新增"入口）。
+ * #1915 —— 补两件事：① 建成后交给外层刷新 `listAgents`（不再自己拼假记录）；
+ * ② 加"从已有 agent 克隆"选择器，接上契约/domain 早就支持、前端一直没接的 `cloneFrom`。
  *
  * 与 `capability-mutate.tsx` 的 `CapabilityCreatePanel` 同一条纪律：
  * · 没有权限判断——按钮按缓存的 `orgRole` 挂载只是降噪，真正的拒绝在服务端
- *   （`POST /agents` → `createAgent`：403 / ROLE_INSUFFICIENT）。
- * · 没有乐观更新——成功后不在本地拼一行"看起来像"的记录；这个面板本身也不维护列表
- *   （`agents` 表还没有对应的 `listAgents` 读路径挂线，见组件下方成功态的说明文字）。
+ *   （`POST /agents` → `createAgent`：403 / ROLE_INSUFFICIENT；`GET /agents` →
+ *   `listAgents` 同理，见 `list-agents.ts` 头注）。
+ * · 没有乐观更新——成功后不在本地拼一行"看起来像"的记录；建成后通过 `onCreated`
+ *   回调让**外层**（`AgentDefinitionListPanel`）打一次真实的 `listAgents` 重新拉取，
+ *   而不是本组件自己往一个本地数组里 push 一行。
  *
- * ## 范围（#617 报告里也会写一遍）
+ * ## 克隆选择器为什么是"选中后预填表单"，不是"选中就直接提交"
  *
- * 只做"从零新建"：`cloneFrom` 恒为 `null`，`source` 恒为 `"self"`。
- * "复制一个现成的"（需要一个可选源 agent 选择器）未做——契约层已经支持，
- * 但选择器需要一条"可复制的源列表从哪读"的读路径，`listAgents` 同样零挂载，
- * 留给后续把两者一起接的人。
+ * `domain/agent/clone.ts` 的 `NewAgentIdentity` 虽然把 name/initials/role/roleLabel/
+ * visibility 都设计成 optional（"不填就继承源"），但 `create-agent.ts` 这个用例从不
+ * 省略任何一个——它总是把 controller 收到的这五个字段原样传给 `cloneAgentDefinition`。
+ * 也就是说"继承"这件事在当前落地里从未真的发生过：前端不预填，克隆出来的字段
+ * 就是空字符串，不是源的值。所以选中源之后必须把它的 name/initials/role/roleLabel/
+ * visibility 复制进输入框——用户仍然可以改（"复制一个改改用"），但起点不是空白。
+ *
+ * instructions 是唯一一个服务端**真的会继承**的字段（`CLONE_INHERITED_FIELDS` 含
+ * `instructions`），`AgentRow`（`listAgents` 的返回形状）里没有这个字段（契约没暴露
+ * 指令原文），前端拿不到源的指令文本去预填，因此克隆模式下"这个 Agent 执行什么"
+ * 改为选填——留空时不发 `PATCH`，让服务端在 `createAgent` 那一步继承来的指令保持原样；
+ * 填了就按用户新写的覆盖（当场发 `PATCH`）。
  */
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -23,8 +35,10 @@ import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
 import {
   createAgentFromScratch,
+  listAgents,
   selfPublishAgent,
   setAgentInstructions,
+  type AgentListRow,
   type AgentVisibility,
   type CreateAgentResult,
 } from "@/lib/agent-definition";
@@ -59,7 +73,14 @@ function describeError(error: unknown): string {
  * `Modal`（`agent-screen.tsx`）负责；本组件只管"表单 → 提交 → 建成后发布"这条
  * 内容本身，与是否可见无关。
  */
-export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
+export function AgentDefinitionCreatePanel({
+  prefix,
+  onCreated,
+}: {
+  readonly prefix: string;
+  /** #1915 —— 建成（`createAgent` 成功）后调用，让外层的 Agent 列表重新拉取。 */
+  readonly onCreated?: () => void;
+}) {
   const [name, setName] = React.useState("");
   const [initials, setInitials] = React.useState("");
   const [role, setRole] = React.useState("");
@@ -85,6 +106,14 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
   const [publishError, setPublishError] = React.useState<string | null>(null);
   const [published, setPublished] = React.useState(false);
 
+  /* #1915 —— 克隆选择器状态。`cloneFrom` 非 null 时表单其余字段是"预填后可编辑"。 */
+  const [cloneOpen, setCloneOpen] = React.useState(false);
+  const [cloneOptions, setCloneOptions] = React.useState<readonly AgentListRow[] | null>(null);
+  const [cloneLoading, setCloneLoading] = React.useState(false);
+  const [cloneError, setCloneError] = React.useState<string | null>(null);
+  const [cloneFrom, setCloneFrom] = React.useState<string | null>(null);
+  const cloneSourceName = cloneOptions?.find((r) => r.agentId === cloneFrom)?.name ?? null;
+
   const reset = () => {
     setName("");
     setInitials("");
@@ -93,6 +122,40 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
     setInstructions("");
     setVisibility("全组织可用");
     setError(null);
+    setCloneFrom(null);
+  };
+
+  /** 懒加载——只有用户真的点开"从已有 agent 克隆"才打 `listAgents`，不在挂载时打。 */
+  const openCloneSelector = async () => {
+    setCloneOpen(true);
+    if (cloneOptions !== null || cloneLoading) return;
+    setCloneLoading(true);
+    setCloneError(null);
+    try {
+      const rows = await listAgents();
+      setCloneOptions(rows);
+    } catch (e) {
+      setCloneError(describeError(e));
+    } finally {
+      setCloneLoading(false);
+    }
+  };
+
+  const applyCloneSource = (agentId: string) => {
+    const source = cloneOptions?.find((r) => r.agentId === agentId);
+    if (!source) return;
+    setCloneFrom(agentId);
+    setName(source.name);
+    setInitials(source.initials);
+    setRole(source.role);
+    setRoleLabel(source.roleLabel);
+    setVisibility(source.visibility);
+    setError(null);
+  };
+
+  const clearCloneSource = () => {
+    setCloneFrom(null);
+    reset();
   };
 
   const submit = async () => {
@@ -105,7 +168,10 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
       setError("名称、缩写角标、职责一句话、角色头衔均不能为空。");
       return;
     }
-    if (!trimmedInstructions) {
+    // ⚠ 克隆模式下 instructions 选填——服务端在 createAgent 那一步已经把源的指令继承
+    // 过来（`CLONE_INHERITED_FIELDS` 含 instructions），留空不等于"没有可执行定义"。
+    // 从零新建仍然必填——那种情况下没有任何来源可以继承。
+    if (!trimmedInstructions && cloneFrom === null) {
       // ⚠ 前端拦一道只是降噪：服务端在发布时会用 AGENT_NO_EXECUTABLE_DEFINITION 再拦一次。
       // 不写指令的 agent 建得出来，但发不出去——与其让人建完才发现，不如现在就说。
       setError("「这个 Agent 执行什么」不能为空——没有它，agent 建出来也发布不了。");
@@ -120,15 +186,21 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
         role: trimmedRole,
         roleLabel: trimmedRoleLabel,
         visibility,
+        cloneFrom,
       });
       // ⚠ 两次请求：createAgent 不收 instructions（它是 updateAgentDefinition 的字段），
       // 所以建完立刻把指令写进去。第二步失败时**不**把 created 置上——
       // 否则界面会显示一个"建好了"的 agent，而它其实发布不了。
-      await setAgentInstructions(result.agentId, trimmedInstructions);
+      // ⚠ 克隆模式下留空 instructions ⇒ 不发 PATCH（不覆盖服务端刚继承过来的指令）。
+      if (trimmedInstructions) {
+        await setAgentInstructions(result.agentId, trimmedInstructions);
+      }
       setCreated(result);
       setPublished(false);
       setPublishError(null);
       reset();
+      setCloneOpen(false);
+      onCreated?.();
     } catch (e) {
       setError(describeError(e));
     } finally {
@@ -153,6 +225,7 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
     try {
       await selfPublishAgent(agentId);
       setPublished(true);
+      onCreated?.();
     } catch (e) {
       setPublishError(describeError(e));
     } finally {
@@ -172,7 +245,7 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
           ? `已发布 agent ${created.agentId}（运行中）。现在可以在会话的 agent 下拉里选中它并发消息。`
           : `已建成草稿 agent ${created.agentId}（${created.publishState}）。草稿发不出消息——需要发布之后才能在会话里选用。`}
         {" "}
-        本屏当前没有把它列出来的读路径——`listAgents` 尚未挂线（#617 范围之外）。
+        已同步到下方 Agent 列表（`listAgents`）。
       </p>
       {published ? null : (
         <Button
@@ -199,12 +272,74 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
         <CardHeader>
           <CardTitle>新建 Agent</CardTitle>
           <CardDescription>
-            从零新建一个 agent 定义，落草稿态。工具白名单恒为空（复制不继承权限的同一条规则也适用于&ldquo;从零新建&rdquo;）。
-            填好&ldquo;执行什么&rdquo;后可直接&ldquo;发布&rdquo;——一个不带任何工具的 agent 没有可被评审的权限面；
-            之后若要给它配工具，就必须走完整的双人评审。
+            {cloneFrom
+              ? <>从「{cloneSourceName ?? cloneFrom}」复制出一个新草稿——名称/角标/职责/头衔/可见范围已预填，可以直接改。工具白名单不继承（复制不继承权限，I-30），执行指令若留空则沿用源 agent 的指令。</>
+              : <>从零新建一个 agent 定义，落草稿态。工具白名单恒为空（复制不继承权限的同一条规则也适用于&ldquo;从零新建&rdquo;）。填好&ldquo;执行什么&rdquo;后可直接&ldquo;发布&rdquo;——一个不带任何工具的 agent 没有可被评审的权限面；之后若要给它配工具，就必须走完整的双人评审。</>}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+        {cloneFrom === null ? (
+          cloneOpen ? (
+            <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-muted/20 p-2.5">
+              <span className="text-12 font-medium">从已有 agent 克隆</span>
+              {cloneLoading ? (
+                <p className="text-11 text-muted-foreground" data-testid={`${prefix}-clone-loading`}>
+                  加载 Agent 列表中…
+                </p>
+              ) : cloneError ? (
+                <p className="text-11 text-destructive" data-testid={`${prefix}-clone-error`}>
+                  {cloneError}
+                </p>
+              ) : cloneOptions && cloneOptions.length === 0 ? (
+                <p className="text-11 text-muted-foreground" data-testid={`${prefix}-clone-empty`}>
+                  组织内还没有其它 Agent，无法克隆——先从零新建一个。
+                </p>
+              ) : (
+                <select
+                  className={SELECT_CLASS}
+                  defaultValue=""
+                  disabled={busy}
+                  onChange={(e) => e.target.value && applyCloneSource(e.target.value)}
+                  data-testid={`${prefix}-clone-select`}
+                >
+                  <option value="" disabled>
+                    选一个作为克隆源…
+                  </option>
+                  {cloneOptions?.map((row) => (
+                    <option key={row.agentId} value={row.agentId}>
+                      {row.name} · {row.roleLabel || row.role}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          ) : (
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={() => void openCloneSelector()}
+              disabled={busy}
+              data-testid={`${prefix}-clone-open`}
+            >
+              从已有 agent 克隆…
+            </Button>
+          )
+        ) : (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-border-subtle bg-muted/20 p-2.5">
+            <span className="text-12" data-testid={`${prefix}-clone-selected`}>
+              克隆自：{cloneSourceName ?? cloneFrom}
+            </span>
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={clearCloneSource}
+              disabled={busy}
+              data-testid={`${prefix}-clone-clear`}
+            >
+              改为从零新建
+            </Button>
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-12">
             <span>名称</span>
@@ -249,7 +384,7 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
             />
           </label>
           <label className="flex flex-col gap-1 text-12 sm:col-span-2">
-            <span>这个 Agent 执行什么（系统提示词）</span>
+            <span>这个 Agent 执行什么（系统提示词）{cloneFrom ? "（选填——留空则沿用源 agent 的指令）" : ""}</span>
             <textarea
               className={TEXTAREA_CLASS}
               value={instructions}
@@ -294,7 +429,7 @@ export function AgentDefinitionCreatePanel({ prefix }: { prefix: string }) {
             重置
           </Button>
           <Button size="sm" onClick={() => void submit()} disabled={busy} data-testid={`${prefix}-add-submit`}>
-            {busy ? "创建中…" : "创建"}
+            {busy ? "创建中…" : cloneFrom ? "克隆创建" : "创建"}
           </Button>
         </div>
         </CardContent>
