@@ -94,3 +94,20 @@ phases:
     # （PR #1636）二次碰撞。11 是本次修正时点确认的空闲号——见
     # phases/phase-11-research-insight-backend/AGENTS.md 顶部同款留痕。
     has_ui: false
+  - id: "12"
+    slug: uiux-foundation
+    name: uiux-foundation
+    goal: "全站 UI/UX 底座提升到十分制评分 10 分：组件原语覆盖、动效 token 体系、可访问性机制、评审证据闭环"
+    status: in_progress
+    depends_on: []
+    has_ui: true
+    # ⚠ id 冲突提醒（2026-08-23 补记）：另有一个不相关的 worker 分支
+    # （worker/usamshen-10-F01，commit dcd7c038）曾把它的 project-prep-plus 阶段
+    # renumber 成「phase-12」以避开一次 id 碰撞——那次改动**从未合入 main**，
+    # `phases/` 下目前只有本阶段这一个 phase-12 目录。若那条分支之后要合入，
+    # 需要它自己再挑一个空闲号，不要反过来占用本阶段的 12。
+    # 本条目的落地背景：`pnpm harness new-phase --id 12 --name uiux-foundation --ui`
+    # 于 2026-08-23 生成，脚手架经由 issue #1856 / PR #1857 合入 main，但 roadmap.yaml
+    # 的这条登记当时被漏提交（原始 commit ca0cc7c8 只 add 了 phases/ 下的文件），
+    # 本次在 docs/phase-12-signoff-backfill 分支补齐，否则 `harness sync`/`readiness`
+    # 都看不到这个阶段存在。
