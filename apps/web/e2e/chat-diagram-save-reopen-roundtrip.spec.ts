@@ -249,17 +249,26 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   await page.reload();
   await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
 
-  // 同上「挂载即读回」effect 本身也会在这次 reload 后立刻为**已经渲染出来的**
-  // mindmap 图发一轮请求——但图要先翻页翻出来才谈得上「挂载」，这里先翻到底
-  // （`loadAllMessagePages`），下面才轮到断言自动读回请求。
+  // 关键断言：滚入视口后**不点任何按钮**，读回请求自动发出（挂载即读回，issue
+  // #1668 修复的那条 effect）——这是「不是巧合」的直接证据，不只是看像素。
+  //
+  // 2026-08-22 修复（trace 实测钉死的根因，与 H3/#1781 无关）：这个监听器此前注册
+  // 在 `loadAllMessagePages` **之后**、`scrollIntoViewIfNeeded` 之前——但产线那条
+  // 「挂载即读回」effect 实际在图表一进入视口就立刻发请求，不等这里显式调用
+  // `scrollIntoViewIfNeeded`；图表是本例线程最新一条消息，翻页翻到底（`load-more`
+  // 把它从服务端拉回来并挂载）那一刻它就已经进入视口触发了 effect。trace 时间线
+  // 实测：`GET .../source` 响应发生在 `loadAllMessagePages` 循环内部（load-more
+  // 点击之后），比这里旧位置的 `page.waitForResponse` 注册早了近 500ms——监听器
+  // 挂上时事件已经过去，Playwright 的 `waitForResponse` 只等**未来**事件，于是
+  // 30s 后必然超时。不是产线 effect 没触发，是测试自己的监听器挂晚了。
+  // 修法：监听器提到 reload 后、`loadAllMessagePages` 之前注册——图表不论在哪一轮
+  // load-more 循环里被挂载并进入视口，请求都已经在监听范围内，不会再被错过。
+  const autoSourceRequest = page.waitForResponse((r) =>
+    r.request().method() === "GET" && /\/artifacts\/[^/]+\/source/.test(r.url()), { timeout: 30_000 });
+
   await loadAllMessagePages(page);
 
   const diagram2 = page.locator('[data-testid="chat-diagram-fabric"][data-diagram-type="mindmap"]').last();
-
-  // 关键断言：滚入视口后**不点任何按钮**，读回请求自动发出（挂载即读回，issue
-  // #1668 修复的那条 effect）——这是「不是巧合」的直接证据，不只是看像素。
-  const autoSourceRequest = page.waitForResponse((r) =>
-    r.request().method() === "GET" && /\/artifacts\/[^/]+\/source/.test(r.url()), { timeout: 30_000 });
   await diagram2.scrollIntoViewIfNeeded();
   expect((await autoSourceRequest).status()).toBe(200);
 
