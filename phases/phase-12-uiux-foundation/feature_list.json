@@ -248,9 +248,9 @@
       "spec_ref": "08-review-evidence-log.md#R3",
       "depends_on": [],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-d",
       "verification": [
         "pnpm --filter api exec vitest run tests/uiux/review-log-schema.test.ts",
         "pnpm --filter api exec vitest run tests/uiux/review-log-stats.test.ts"
