@@ -71,6 +71,14 @@ const FAILURE_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER;
 // UI 评分第 8 项取证：对这句触发词回 markdown 正文（标题/列表/代码块/行内 code）。
 // 渲染是真实生产代码在跑——这是给渲染器喂已知输入，不是伪造输出。
 const MARKDOWN_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER;
+/**
+ * UI 评分第 4 项取证（真实多步能力）：对这句触发词回一条**多步依赖链**剧本——
+ * write_todos → search_documents → read_document → 终稿，其中 read_document 的
+ * args.path 逐字来自 search_documents 的结果文本（`A.md`）。「第二步的参数可见地
+ * 引用第一步的结果」正是「调用→看结果→定下一步」这条链在 UI 上的可判形态。
+ * 触发词唯一事实源在 `apps/web/e2e/chat-read-fixture.ts` 的 `deepAgentMultiStepTrigger`。
+ */
+const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
 const MARKDOWN_REPLY = [
   "## 分析结果",
   "",
@@ -186,7 +194,11 @@ const server = createServer((req, res) => {
     const record = runs.get(threadId);
     if (!record) { sendJson(res, 404, { error: "unknown thread" }); return; }
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
-    const reply = `根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
+    // 多步剧本的流式正文要与 state 的终稿同一口径——否则截图里会出现
+    // 「已查询当前时间」这句与多步剧本（从不查时间）自相矛盾的话。
+    const reply = MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
+      ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
+      : `根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
     const pieces: string[] = [];
     for (let i = 0; i < reply.length; i += 8) pieces.push(reply.slice(i, i + 8));
     let idx = 0;
@@ -221,6 +233,50 @@ const server = createServer((req, res) => {
         { content: "组织最终回答", status: "pending" },
       ],
     };
+    // UI 评分第 4 项：多步依赖链剧本。第二个工具（read_document）的 args.path 逐字
+    // 取自第一个工具（search_documents）结果里的文件名——链条本身就是证据。
+    if (MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER) {
+      const searchCallId = `search-${threadId}`;
+      const readCallId = `read-${threadId}`;
+      const searchResult = "找到 3 份文档：A.md B.md C.md";
+      sendJson(res, 200, {
+        values: {
+          messages: [
+            { type: "human", content: record.userText },
+            {
+              type: "ai",
+              content: "",
+              tool_calls: [{
+                id: todosCallId,
+                name: "write_todos",
+                args: {
+                  todos: [
+                    { content: "搜索相关文档", status: "in_progress" },
+                    { content: "读取最相关的一份", status: "pending" },
+                    { content: "综合结论作答", status: "pending" },
+                  ],
+                },
+              }],
+            },
+            { type: "tool", tool_call_id: todosCallId, content: "todos updated" },
+            {
+              type: "ai",
+              content: "我先搜索文档库，看有哪些相关材料。",
+              tool_calls: [{ id: searchCallId, name: "search_documents", args: { query: record.userText } }],
+            },
+            { type: "tool", tool_call_id: searchCallId, content: searchResult },
+            {
+              type: "ai",
+              content: "基于搜索结果，读取最相关的 A.md。",
+              tool_calls: [{ id: readCallId, name: "read_document", args: { path: "A.md" } }],
+            },
+            { type: "tool", tool_call_id: readCallId, content: "A.md 内容：多步执行取证样例正文——搜索命中的第一份文档。" },
+            { type: "ai", content: "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。" },
+          ],
+        },
+      });
+      return;
+    }
     const toolResult = `已查询：当前时间 ${new Date().toISOString()}。用户原话："${record.userText}"`;
     const finalReply = MARKDOWN_TRIGGER !== undefined && record.userText === MARKDOWN_TRIGGER
       ? MARKDOWN_REPLY
