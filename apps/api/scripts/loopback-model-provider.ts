@@ -52,6 +52,7 @@ import {
 } from "../src/application/agent-run/file-retrieval";
 import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../src/application/agent-run/tool-trace-context";
 import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../src/application/skill/run-script-with-retries";
+import { FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT } from "../src/application/chat/generate-followup-suggestions";
 
 /**
  * F154 L2 摘要伪消息的**唯一事实源**是 `execute-run.ts` 里那一行字面量
@@ -251,6 +252,36 @@ function trialRunScriptReply(sampleInput: string): string {
   ].join("\n");
 }
 
+/**
+ * UIUX 对标 CopilotKit gap #2（issue #712）—— 同 `isTrialRunRequest` 一个纪律：
+ * 靠 system prompt 里那段唯一事实源文字识别「这是一次追问建议请求」，与其它请求互斥。
+ */
+function isFollowUpSuggestionsRequest(messages: CompletionRequest["messages"]): boolean {
+  const system = (messages ?? []).find((message) => message.role === "system")?.content;
+  return typeof system === "string" && system.includes(FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT);
+}
+
+/**
+ * 回显它在 history 里真的看到的那一轮对话正文——证明「建议随对话内容变化」不是编造的，
+ * 是这次 HTTP 请求真的带着线程正文（同文件里 `echoed` 那条「回显用户原文以证明闭环
+ * 穿过整条链」的纪律，换到这条 JSON 数组回复形状上）。
+ *
+ * `generate-followup-suggestions.ts` 发送的 `messages` 形状固定：一条 system + history
+ * 若干轮 + **最后一条是固定指令**（`user: "请基于以上对话生成追问建议。只输出 JSON 数组。"`）。
+ * 真实对话内容因此在**倒数第二条**，不是最后一条——回显最后一条只会回显那句固定指令，
+ * 对「随对话内容变化」这件事毫无证明力。
+ */
+function followUpSuggestionsReply(messages: CompletionRequest["messages"]): string {
+  const nonSystem = (messages ?? []).filter((message) => message.role !== "system");
+  const lastTurn = nonSystem.length >= 2 ? nonSystem[nonSystem.length - 2] : undefined;
+  const raw = typeof lastTurn?.content === "string" ? lastTurn.content : "";
+  const snippet = raw.replace(/[`"\\\n]/g, "").slice(0, 24) || "这段对话";
+  return JSON.stringify([
+    `能否再展开一下"${snippet}"？`,
+    "这和之前讨论的内容是什么关系？",
+  ]);
+}
+
 function readBody(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
     let text = "";
@@ -331,6 +362,8 @@ const server = createServer((req, res) => {
     // `extractScript` 只认围栏内容，混进去的前缀文字只会污染脚本语法。
     const fullText = isTrialRunRequest(parsed.messages)
       ? trialRunScriptReply(echoed)
+      : isFollowUpSuggestionsRequest(parsed.messages)
+      ? followUpSuggestionsReply(parsed.messages)
       : `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);

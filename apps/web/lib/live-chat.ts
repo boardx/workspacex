@@ -271,6 +271,29 @@ export async function summarizePersonaFromThread(
   );
 }
 
+/**
+ * UIUX 对标 CopilotKit gap #2（issue #712）—— 真实的「追问建议」推理调用，
+ * `POST /chat/threads/:threadId/followup-suggestions`。与 `summarizePersonaFromThread`
+ * 同一个薄封装形状：类型从契约推导，一律经 `apiRequest`。
+ *
+ * ⚠ 这不是本文件其它函数那种「失败即让调用方处理」的默认预期——`computeFollowUpSuggestions`
+ *   （`chat-live-message-panel.tsx`）把这条调用的任何失败（网络错误、503
+ *   `AGENT_DEPENDENCY_FAILED`、404 不可见）都当作「这次没有真实建议」，退回既有的
+ *   确定性规则兜底，不在这里预先吞掉——错误照实抛给调用方决定怎么降级。
+ */
+export type GenerateFollowUpSuggestionsOut = z.infer<typeof chat.operations.generateFollowUpSuggestions.out>;
+
+export async function generateFollowUpSuggestions(
+  threadId: string,
+  agentId: string,
+  sessionToken?: string,
+): Promise<GenerateFollowUpSuggestionsOut> {
+  return apiRequest<GenerateFollowUpSuggestionsOut>(
+    chat.operations.generateFollowUpSuggestions.path.replace(":threadId", encodeURIComponent(threadId)),
+    { method: "POST", body: { threadId, agentId }, sessionToken },
+  );
+}
+
 export async function listMessages(
   threadId: string,
   opts: { cursor?: string; limit?: number } = {},

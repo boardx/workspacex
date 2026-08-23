@@ -270,6 +270,38 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
 
   await shoot("b7-error-surface.png", "第7项 错误处理透明度", "当前会话全貌（含上方真实失败态的上下文）");
 
+  /* ── UIUX 对标 CopilotKit gap #2（issue #712）——追问建议真实性取证 ──────────────
+   * `computeFollowUpSuggestions` 此前是纯前端确定性规则（头注原话「这不是 AI 推荐」）。
+   * 现在优先请求 `POST /chat/threads/:threadId/followup-suggestions`，真实模型调用
+   * （走 `agentId` 这个**非 deep-agent** 的 `ConfiguredModelProvider` 代码路径，见
+   * `apps/api/scripts/loopback-model-provider.ts` 的 `isFollowUpSuggestionsRequest`
+   * 分支——回显的是它在 history 里真的看到的那一轮对话正文，不是套壳文案）。
+   *
+   * 两条独立的新线程、两条完全不相关的消息，各自截一张 chip 图——如果两张图上的
+   * 建议文案不同，就证明了「建议内容随对话内容变化」，不是恒定的「能否再详细说明一下？」。
+   */
+  const gap2Topics = [
+    { message: "我们下季度的能耗预算应该怎么定？", shot: "b6-followup-topic-a.png" },
+    { message: "招聘计划里生产计划员的候选人有哪些？", shot: "b6-followup-topic-b.png" },
+  ];
+  for (const topic of gap2Topics) {
+    await step(`gap#2 追问建议取证：${topic.message}`, async () => {
+      await page.goto("/chat");
+      await page.getByTestId("chat-thread-create").click({ timeout: 15_000 });
+      await page.waitForURL(/\/chat\?thread=/);
+      await page.getByTestId("chat-thread-detail").waitFor({ state: "visible", timeout: 30_000 });
+      await page.getByTestId("chat-agent-select").click({ timeout: 15_000 });
+      await page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.agentId}`).click({ timeout: 15_000 });
+      await page.getByTestId("chat-message-input").fill(topic.message);
+      await page.getByTestId("chat-message-submit").click({ timeout: 20_000 });
+      // 等到 agent 回复终态落位（触发 `computeFollowUpSuggestions` 的判据：最新一条来自
+      // agent），再等真实建议请求这一轮往返——比确定性规则慢，但比消息发送本身快得多。
+      await page.getByTestId("chat-followup-suggestions").waitFor({ state: "visible", timeout: 30_000 });
+      await page.waitForTimeout(4_000);
+    });
+    await shoot(topic.shot, "追问建议真实性（issue #712 / CopilotKit gap #2）", `发「${topic.message}」后 composer 下方的建议 chip——与另一条消息对照，判内容是否随对话变化`);
+  }
+
   writeFileSync(
     `${OUT}/MANIFEST.md`,
     [
