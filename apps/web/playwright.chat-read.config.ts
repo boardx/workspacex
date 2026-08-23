@@ -314,6 +314,11 @@ export default defineConfig({
         CHAT_E2E_DEEP_AGENT_MODEL_ID: CHAT_READ_E2E.deepAgentModelId,
         CHAT_E2E_DEEP_AGENT_DISPLAY_NAME: CHAT_READ_E2E.deepAgentDisplayName,
         KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
+        // UI 评分第 1 项（流式反馈）的取证前提：开关开着，loopback 的 /stream
+        // SSE 端点逐片发正文，前端 streamingText 才有增量可渲染。评分员 2026-08-23
+        // 的判 0 依据就是「b1-stream 相邻帧正文字数相同」——这行 + loopback 的
+        // stream 端点让那个判据在取证环境可以翻正。
+        KERNEL_DEEP_AGENT_STREAM_ENABLED: "1",
         // #728 P8 —— 确定性 ASR 上游。不配它，WS 面以 `ASR_NOT_CONFIGURED` 诚实失败
         // （`chat-live-recording-error` 显示「本组织尚未配置转写服务」），不会冒出
         // 一段编造的转录。逐字抄 `playwright.fullstack-smoke.config.ts` 的
