@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   getUsageReport, listLimitEvents,
   type GetUsageReportOut, type ListLimitEventsOut, type UsageWindowKey,
@@ -189,34 +190,34 @@ export function UsageMonitorTab() {
                     {WINDOW_LABEL[data.window]}内还没有任何模型调用。
                   </p>
                 ) : (
-                  <table className="w-full min-w-[560px] border-collapse text-11" data-testid="admin-usage-matrix">
-                    <thead>
-                      <tr className="border-b border-border bg-panel text-11 text-muted-foreground">
-                        <th className="px-3 py-2 text-left font-medium">成员</th>
+                  <Table className="w-full min-w-[560px] border-collapse text-11" data-testid="admin-usage-matrix">
+                    <TableHeader>
+                      <TableRow className="border-b border-border bg-panel text-11 text-muted-foreground">
+                        <TableHead className="px-3 py-2 text-left font-medium">成员</TableHead>
                         {data.models.map((m) => (
-                          <th key={m} className="px-2 py-2 text-right font-mono font-medium">{m}</th>
+                          <TableHead key={m} className="px-2 py-2 text-right font-mono font-medium">{m}</TableHead>
                         ))}
-                        <th className="px-2 py-2 text-right font-medium">合计</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                        <TableHead className="px-2 py-2 text-right font-medium">合计</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {data.rows.map((r) => (
-                        <tr
+                        <TableRow
                           key={r.userId}
                           className="border-b border-border-subtle"
                           data-testid={`admin-usage-matrix-row-${r.userId}`}
                         >
-                          <td className="px-3 py-2 font-medium">{r.displayName}</td>
+                          <TableCell className="px-3 py-2 font-medium">{r.displayName}</TableCell>
                           {r.perModel.map((v, i) => (
-                            <td key={data.models[i]} className="px-2 py-2 text-right font-mono text-muted-foreground">
+                            <TableCell key={data.models[i]} className="px-2 py-2 text-right font-mono text-muted-foreground">
                               {fmt(v)}
-                            </td>
+                            </TableCell>
                           ))}
-                          <td className="px-2 py-2 text-right font-mono font-medium">{fmt(r.total)}</td>
-                        </tr>
+                          <TableCell className="px-2 py-2 text-right font-mono font-medium">{fmt(r.total)}</TableCell>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 )}
               </CardContent>
             </Card>

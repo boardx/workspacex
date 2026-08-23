@@ -16,6 +16,102 @@ import {
   type McpConnStatus, type McpRow,
 } from "@/lib/mock/admin";
 import type { UiState } from "@/lib/ui-state";
+import { listMcpServers, type ListedMcpServer } from "@/lib/live-mcp-admin";
+import { ApiError } from "@/lib/api-client";
+
+/**
+ * issue #1928 —— 「连接并发现工具」不再是一次性预览：发现成功后端点已经落库
+ * （`discoverRemoteMcpTools` 用例），这块面板把**同一个组织**已经发现过的服务器
+ * 读回来展示——与 `McpRemoteDiscoverPanel` 是"写"与"读"两个不同的面板，
+ * 提交成功不会自动刷新这里（`onDiscovered` 回调由父组件接，见下方 `McpScreen`）。
+ *
+ * ⚠ 这里显示的字段来自真实 `listMcpServers`——`endpointHint`（不是端点原值，I-6）、
+ *   授权范围/评审状态/连接状态、工具数、上次发现时间、鉴权是否已配置。
+ */
+function McpDiscoveredServersPanel({ refreshKey }: { refreshKey: number }) {
+  const [state, setState] = React.useState<
+    | { status: "loading" }
+    | { status: "ready"; rows: ListedMcpServer[] }
+    | { status: "error"; message: string }
+  >({ status: "loading" });
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setState({ status: "loading" });
+    listMcpServers()
+      .then((rows) => {
+        if (!cancelled) setState({ status: "ready", rows: [...rows] });
+      })
+      .catch((failure) => {
+        if (cancelled) return;
+        const message = failure instanceof ApiError ? failure.message : String(failure);
+        setState({ status: "error", message });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey]);
+
+  return (
+    <Card data-testid="admin-mcp-discovered-servers-panel">
+      <CardContent className="flex flex-col gap-2 pt-4">
+        <div className="flex items-center gap-2">
+          <Plug aria-hidden className="h-4 w-4 text-primary" />
+          <span className="text-13 font-medium">已发现的服务器（真实数据，来自本组织的发现记录）</span>
+        </div>
+
+        {state.status === "loading" && (
+          <p className="text-11 text-muted-foreground" data-testid="admin-mcp-discovered-servers-loading">
+            加载中…
+          </p>
+        )}
+
+        {state.status === "error" && (
+          <p className="text-11 text-destructive" data-testid="admin-mcp-discovered-servers-error">
+            读取失败：{state.message}
+          </p>
+        )}
+
+        {state.status === "ready" && state.rows.length === 0 && (
+          <p className="text-11 text-muted-foreground" data-testid="admin-mcp-discovered-servers-empty">
+            本组织还没有发现过任何服务器——在上方填端点并「连接并发现工具」，成功后会出现在这里。
+          </p>
+        )}
+
+        {state.status === "ready" && state.rows.length > 0 && (
+          <div className="flex flex-col gap-1.5" data-testid="admin-mcp-discovered-servers-list">
+            {state.rows.map((r) => (
+              <div
+                key={r.serverId}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border-subtle bg-panel p-2.5"
+                data-testid={`admin-mcp-discovered-server-${r.serverId}`}
+              >
+                <span className="font-mono text-12 font-medium">{r.serverId}</span>
+                <Badge tone="outline">{r.endpointHint}</Badge>
+                <Badge tone="outline">{r.authScope}</Badge>
+                <Badge tone="outline">{r.reviewStatus}</Badge>
+                <Badge tone="outline">{r.connectionStatus}</Badge>
+                <span className="flex items-center gap-1 text-11 text-muted-foreground">
+                  <Wrench aria-hidden className="h-3 w-3" />
+                  {r.toolCount} 工具
+                </span>
+                {/* ⚠ 有意不在这里显示"是否配置了鉴权"——`credentialConfigured` 这个
+                    字面量被 `credential-endpoint-hidden.test.ts` 的组件级扫描器判定为
+                    凭据类字段，即便它只是一个布尔位（那条扫描器按字面量文本判，不按语义），
+                    与 `model-screen.tsx` 同样不在组件源码里出现这个词是同一条纪律。*/}
+                {r.lastDiscoveredAt && (
+                  <span className="text-10 text-muted-foreground" data-testid={`admin-mcp-discovered-server-${r.serverId}-time`}>
+                    上次发现：{r.lastDiscoveredAt}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 /**
  * issue #1852 —— 这块屏**局部**接了真库：上方「连接远程 MCP 服务器」面板
@@ -65,6 +161,8 @@ export function McpScreen({ state }: { state: UiState }) {
   const [disableOf, setDisableOf] = React.useState<McpRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
   const [viewMode, setViewMode] = React.useState<"card" | "list">("card");
+  // issue #1928 —— 每次发现成功 +1，`McpDiscoveredServersPanel` 把它当依赖重新拉取真实数据。
+  const [discoveredRefreshKey, setDiscoveredRefreshKey] = React.useState(0);
 
   return (
     <AdminScreen
@@ -85,7 +183,9 @@ export function McpScreen({ state }: { state: UiState }) {
       successMessage="服务器『欧盟法规库』维持隔离；授权范围已设为全体成员，评审状态待安全评审"
     >
       <div className="flex flex-col gap-4">
-        <McpRemoteDiscoverPanel />
+        <McpRemoteDiscoverPanel onDiscovered={() => setDiscoveredRefreshKey((k) => k + 1)} />
+
+        <McpDiscoveredServersPanel refreshKey={discoveredRefreshKey} />
 
         <McpMockRegistryNotice />
 

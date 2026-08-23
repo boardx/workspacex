@@ -85,4 +85,48 @@ describe("AgentApprovalPanel", () => {
     });
     resolve(view({ status: "queued" }));
   });
+
+  it("点「编辑参数」→ 文本域播种自 argsSummary，可编辑合法 JSON 后提交 edit 决策", async () => {
+    decideMock.mockResolvedValueOnce(view({ status: "queued" }));
+    const onDecided = vi.fn();
+    render(<AgentApprovalPanel view={view()} onDecided={onDecided} />);
+    fireEvent.click(screen.getByTestId("agent-approval-start-edit"));
+    const textarea = screen.getByTestId("agent-approval-edit-textarea") as HTMLTextAreaElement;
+    expect(textarea.value).toBe('{"skill":"risky"}');
+    fireEvent.change(textarea, { target: { value: '{"skill":"safe","note":"reviewed"}' } });
+    expect(screen.queryByTestId("agent-approval-edit-json-error")).toBeNull();
+    fireEvent.click(screen.getByTestId("agent-approval-edit-submit"));
+    await waitFor(() => expect(onDecided).toHaveBeenCalledTimes(1));
+    expect(decideMock).toHaveBeenCalledWith("r1", "edit", { skill: "safe", note: "reviewed" }, undefined);
+  });
+
+  it("编辑态输入非法 JSON → 就地报错，「编辑并批准」按钮禁用，不提交", () => {
+    const callsBefore = decideMock.mock.calls.length;
+    render(<AgentApprovalPanel view={view()} />);
+    fireEvent.click(screen.getByTestId("agent-approval-start-edit"));
+    const textarea = screen.getByTestId("agent-approval-edit-textarea") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "{not valid json" } });
+    expect(screen.getByTestId("agent-approval-edit-json-error").textContent).toContain("JSON");
+    expect((screen.getByTestId("agent-approval-edit-submit") as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByTestId("agent-approval-edit-submit"));
+    expect(decideMock.mock.calls.length).toBe(callsBefore); // 禁用状态下点击不触发新调用
+  });
+
+  it("编辑态输入合法但非对象的 JSON（数组）→ 同样报错并禁用提交", () => {
+    render(<AgentApprovalPanel view={view()} />);
+    fireEvent.click(screen.getByTestId("agent-approval-start-edit"));
+    const textarea = screen.getByTestId("agent-approval-edit-textarea") as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: "[1,2,3]" } });
+    expect(screen.getByTestId("agent-approval-edit-json-error").textContent).toContain("JSON 对象");
+    expect((screen.getByTestId("agent-approval-edit-submit") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("点「取消」→ 退出编辑态，回到批准/编辑/拒绝三入口", () => {
+    render(<AgentApprovalPanel view={view()} />);
+    fireEvent.click(screen.getByTestId("agent-approval-start-edit"));
+    expect(screen.getByTestId("agent-approval-edit-textarea")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("agent-approval-edit-cancel"));
+    expect(screen.queryByTestId("agent-approval-edit-textarea")).toBeNull();
+    expect(screen.getByTestId("agent-approval-start-edit")).toBeTruthy();
+  });
 });

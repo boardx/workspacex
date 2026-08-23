@@ -9,6 +9,7 @@ import type { ProjectRole } from "@/lib/identity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   FACT_NODES, CONFLICT_PAIR, METHOD_STAGES, PIPELINE_SCENARIOS, PIPELINE_GRID,
   GROUP_TREE, BATCH_CONFIRM_ITEMS, TEMPLATE_TO_STAGE_NOTE,
@@ -117,28 +118,28 @@ export function KnowledgeBackflow({ state, previewRole }: { state: UiState; prev
                   <span className="text-11 text-muted-foreground tabular-nums" data-testid="backflow-progress">进度 {doneGrid} / {totalGrid} 格 · {PIPELINE_SCENARIOS.length} 场景 × {METHOD_STAGES.length} 环节</span>
                 </div>
                 <div className="overflow-x-auto" data-allow-x-scroll="9 环节 × 场景网格需横向查看">
-                  <table className="w-full border-collapse text-9">
-                    <thead>
-                      <tr>
-                        <th className="sticky left-0 bg-card px-1.5 py-1 text-left font-medium text-muted-foreground">场景 ＼ 方法环节</th>
-                        {METHOD_STAGES.map((m) => (<th key={m} className="px-1 py-1 font-medium text-muted-foreground whitespace-nowrap">{m}</th>))}
-                      </tr>
-                    </thead>
-                    <tbody>
+                  <Table className="w-full border-collapse text-9">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="sticky left-0 bg-card px-1.5 py-1 text-left font-medium text-muted-foreground">场景 ＼ 方法环节</TableHead>
+                        {METHOD_STAGES.map((m) => (<TableHead key={m} className="px-1 py-1 font-medium text-muted-foreground whitespace-nowrap">{m}</TableHead>))}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
                       {PIPELINE_SCENARIOS.map((sc, ri) => (
-                        <tr key={sc}>
-                          <td className="sticky left-0 bg-card px-1.5 py-1 font-medium whitespace-nowrap">{sc}</td>
+                        <TableRow key={sc}>
+                          <TableCell className="sticky left-0 bg-card px-1.5 py-1 font-medium whitespace-nowrap">{sc}</TableCell>
                           {PIPELINE_GRID[ri]!.map((cell, ci) => (
-                            <td key={ci} className="p-0.5" data-testid={`backflow-cell-${ri}-${ci}`}>
+                            <TableCell key={ci} className="p-0.5" data-testid={`backflow-cell-${ri}-${ci}`}>
                               <div className={cn("rounded-sm px-1 py-1 text-center", CELL_STYLE[cell])} title={cell}>
                                 {cell === "已完成" ? "✓" : cell === "冲突停滞" ? "!" : cell === "正在讨论" ? "…" : cell === "建议下一步" ? "→" : ""}
                               </div>
-                            </td>
+                            </TableCell>
                           ))}
-                        </tr>
+                        </TableRow>
                       ))}
-                    </tbody>
-                  </table>
+                    </TableBody>
+                  </Table>
                 </div>
                 <p className="flex items-start gap-1 text-9 text-warning" data-testid="backflow-mapping-note">
                   <AlertTriangle aria-hidden className="mt-0.5 h-3 w-3 shrink-0" /> {TEMPLATE_TO_STAGE_NOTE}

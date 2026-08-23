@@ -1081,7 +1081,18 @@ describe("lint-permission-paths: counter-proof", () => {
     // `tests/agent-runtime/set-agent-role-label-repo-guard.test.ts` 机械断言
     // （a）只命名这两张表；（b）不调用 `withoutTenant`；（c）授权判定确实在仓储调用之前。
     // 删那个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(79);
+    //
+    // ⚠ Raised 79 -> 81 by issue #1928（MCP 远程发现结果持久化）：新增
+    // `pg-mcp-server-store.ts`（`mcp_servers`/`mcp_server_secrets`）与
+    // `pg-mcp-tool-store.ts`（`mcp_tools`）——同 `pg-model-pool-repository.ts` 一条论证：
+    // MCP 服务器/工具不是 `ObjectRef` 的任一种，`guard()` 硬套上去会 ALLOW EVERYONE；
+    // 谁能碰它们是 org-admin 问题，裁定挂在 `discoverRemoteMcpTools`（写）与
+    // `listMcpServers`（读）两条用例里，都在仓储调用之前。被强制的前提：
+    // `tests/mcp/pg-mcp-server-store-guard.test.ts` 机械断言（a）两个文件各自只命名
+    // 自己的租户表；（b）都不调用 `withoutTenant`；（c）`ciphertext` 只写不读；
+    // （d）两条用例的 admin 判定都在仓储调用之前。删那个测试则这两条条目须一并删。
+    // 两个条目算两次，所以是 +2 不是 +1。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(81);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

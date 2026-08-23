@@ -295,6 +295,41 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
     });
     await page.waitForTimeout(12_000);
     await shoot("b7-error-real.png", "第7项 错误处理透明度", "上游 error 终态后的真实失败呈现：错误文案/状态条/可恢复入口");
+
+    /* ── UX-9 D4 前端接入取证（gap 清单第 3 条，「Edit, then continue」HITL 模式）──
+     * 替身对 deepAgentApprovalTrigger 让 run 真的走到 awaiting_approval（DA-07b），
+     * 这里走「编辑参数 → 修改 JSON → 编辑并批准」这条此前从未有前端入口的路径，
+     * 拍下编辑态表单可见、编辑后提交、审批面板转终态三张证据。 */
+    await step("触发人工审批", async () => {
+      await composer2.fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
+      await page.getByTestId("chat-message-submit").click({ timeout: 20_000 });
+    });
+    const approvalPanelShown = await step("等待审批面板出现", async () => {
+      await page.getByTestId("agent-approval-panel").waitFor({ state: "visible", timeout: 20_000 });
+    });
+    if (approvalPanelShown) {
+      await shoot("b-hitl-1-awaiting-approval.png", "HITL edit：待批态", "run 停在 awaiting_approval，审批面板显示待批工具与只读参数摘要");
+
+      await step("点击「编辑参数」进入编辑态", async () => {
+        await page.getByTestId("agent-approval-start-edit").click({ timeout: 10_000 });
+      });
+      await shoot("b-hitl-2-edit-form.png", "HITL edit：编辑态表单可见", "文本域可编辑，播种自待批参数摘要——证明编辑态表单真的渲染出来，不是只读 pre 的替身");
+
+      await step("编辑 JSON 参数后提交", async () => {
+        const textarea = page.getByTestId("agent-approval-edit-textarea");
+        await textarea.fill('{"to":"ops@example.test","subject":"取证：已编辑","body":"人工编辑后的正文——用于核对提交的是改后的值"}');
+        await shoot("b-hitl-3-edited-json.png", "HITL edit：已编辑的 JSON", "提交前的编辑态截图，肉眼核对文本域内容确实被改过");
+        await page.getByTestId("agent-approval-edit-submit").click({ timeout: 10_000 });
+      });
+
+      await step("等待审批面板消失（run 回到 queued/running）", async () => {
+        await page.getByTestId("agent-approval-panel").waitFor({ state: "hidden", timeout: 20_000 });
+      });
+      await page.waitForTimeout(6_000);
+      await shoot("b-hitl-4-after-edit-approve.png", "HITL edit：编辑并批准后的终态", "审批面板已收起，run 按编辑后的参数继续执行——终稿应能看到编辑后的值（见 MANIFEST 说明）");
+    } else {
+      await shoot("b-hitl-0-panel-missing.png", "HITL edit：取证受阻", "审批面板未出现——awaiting_approval 链路可能未生效");
+    }
   }
 
   await shoot("b7-error-surface.png", "第7项 错误处理透明度", "当前会话全貌（含上方真实失败态的上下文）");

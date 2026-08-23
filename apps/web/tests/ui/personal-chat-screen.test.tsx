@@ -385,7 +385,7 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
     const { fireEvent } = await import("@testing-library/react");
     // 2026-08-14 重做：改名/删除现在挂在卡片自己的 hover「…」菜单里，
     // 要先点开菜单才能看到「改名」这个菜单项。
-    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.pointerDown(screen.getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-rename"));
     const input = await screen.findByTestId("chat-thread-title-input");
     fireEvent.change(input, { target: { value: "改名了" } });
@@ -413,7 +413,7 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
     await screen.findByTestId("chat-thread-detail");
 
     const { fireEvent } = await import("@testing-library/react");
-    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.pointerDown(screen.getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
     // 删除前必须先看到不可撤销 + 必填原因的二次确认，不是点一下就直接删。
     const reasonInput = await screen.findByTestId("chat-thread-delete-reason");
@@ -442,7 +442,7 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
     await screen.findByTestId("chat-thread-detail");
 
     const { fireEvent } = await import("@testing-library/react");
-    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.pointerDown(screen.getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
     fireEvent.change(await screen.findByTestId("chat-thread-delete-reason"), { target: { value: "清空测试" } });
     fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
@@ -459,7 +459,7 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
     await screen.findByTestId("chat-thread-detail");
 
     const { fireEvent } = await import("@testing-library/react");
-    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.pointerDown(screen.getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-rename"));
     fireEvent.change(await screen.findByTestId("chat-thread-title-input"), { target: { value: "改名了" } });
     fireEvent.click(screen.getByTestId("chat-thread-title-submit"));
@@ -478,7 +478,7 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
     await screen.findByTestId("chat-thread-detail");
 
     const { fireEvent } = await import("@testing-library/react");
-    fireEvent.click(screen.getByTestId("chat-thread-card-menu-trigger"));
+    fireEvent.pointerDown(screen.getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-rename"));
     await screen.findByTestId("chat-thread-title-input");
     fireEvent.click(screen.getByText("取消"));

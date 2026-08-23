@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 /**
  * 蓝本设计器**真实**可编辑面板（解开 D-05 二级 sign-off 之后的第一个实现增量）。
@@ -342,21 +343,21 @@ export function PermissionMatrixEditor({
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-roles-matrix">
         <h3 className="mb-2 text-13 font-semibold">角色权限默认值</h3>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-12" data-testid="bp-permission-matrix">
-            <thead>
-              <tr className="border-b border-border text-11 text-muted-foreground">
-                <th className="py-1.5 pr-2 text-left font-medium">能力</th>
+          <Table className="w-full border-collapse text-12" data-testid="bp-permission-matrix">
+            <TableHeader>
+              <TableRow className="border-b border-border text-11 text-muted-foreground">
+                <TableHead className="py-1.5 pr-2 text-left font-medium">能力</TableHead>
                 {PERMISSION_ROLES.map((role) => (
-                  <th key={role} className="px-2 py-1.5 text-center font-medium" data-testid="bp-roles-col">
+                  <TableHead key={role} className="px-2 py-1.5 text-center font-medium" data-testid="bp-roles-col">
                     {role}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {PERMISSION_CAPABILITIES.map((capability) => (
-                <tr key={capability} className="border-b border-border-subtle" data-testid="bp-roles-permrow">
-                  <td className="py-1.5 pr-2 font-medium">{capability}</td>
+                <TableRow key={capability} className="border-b border-border-subtle" data-testid="bp-roles-permrow">
+                  <TableCell className="py-1.5 pr-2 font-medium">{capability}</TableCell>
                   {PERMISSION_ROLES.map((role) => {
                     const locked = isLocked(capability, role);
                     const key = cellKey(capability, role);
@@ -364,7 +365,7 @@ export function PermissionMatrixEditor({
                       ? defaultCellValue(capability, role)
                       : (value.cells[key] ?? defaultCellValue(capability, role));
                     return (
-                      <td key={role} className="px-2 py-1.5 text-center" data-testid="bp-roles-cell">
+                      <TableCell key={role} className="px-2 py-1.5 text-center" data-testid="bp-roles-cell">
                         <input
                           type="checkbox"
                           checked={checked}
@@ -374,13 +375,13 @@ export function PermissionMatrixEditor({
                           data-testid={`bp-permission-cell-${capability}-${role}`}
                           className={cn(locked && "cursor-not-allowed opacity-50")}
                         />
-                      </td>
+                      </TableCell>
                     );
                   })}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <p className="mt-2 text-11 text-muted-foreground" data-testid="bp-roles-locknote">
           {LOCK_NOTE}

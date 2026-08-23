@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { DurationTierView, MeetingFormat, ConfigItem } from "@/lib/mock/tpl";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import {
   DURATION_TIERS, TIER_LABEL, AGENDA_COUNT_BY_TIER, TIER_HALF_SESSIONS,
   MEETING_FORMATS, MEETING_LANGS, ONLINE_EXTRA_SEGMENTS, MODEL_STRATEGY, QUOTA_POLICY,
@@ -290,32 +291,32 @@ export function RolesPanel({ item }: { item: ConfigItem }) {
       </Section>
       <Section title="角色权限默认值" testid="tpl-roles-matrix">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-12" data-testid="tpl-roles-perm-table">
-            <thead>
-              <tr className="border-b border-border text-11 text-muted-foreground">
-                <th className="py-1.5 pr-2 text-left font-medium">能力</th>
-                {ROLES_PANEL.roleCols.map((c) => <th key={c} className="px-2 py-1.5 text-center font-medium" data-testid="tpl-roles-col">{c}</th>)}
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full border-collapse text-12" data-testid="tpl-roles-perm-table">
+            <TableHeader>
+              <TableRow className="border-b border-border text-11 text-muted-foreground">
+                <TableHead className="py-1.5 pr-2 text-left font-medium">能力</TableHead>
+                {ROLES_PANEL.roleCols.map((c) => <TableHead key={c} className="px-2 py-1.5 text-center font-medium" data-testid="tpl-roles-col">{c}</TableHead>)}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {ROLES_PANEL.permRows.map((row) => (
-                <tr key={row.cap} className="border-b border-border-subtle" data-testid="tpl-roles-permrow">
-                  <td className="py-1.5 pr-2 font-medium">{row.cap}</td>
+                <TableRow key={row.cap} className="border-b border-border-subtle" data-testid="tpl-roles-permrow">
+                  <TableCell className="py-1.5 pr-2 font-medium">{row.cap}</TableCell>
                   {row.vals.map((v, ci) => {
                     const col = ROLES_PANEL.roleCols[ci]!;
                     const locked = row.lockedFor.includes(col);
                     return (
-                      <td key={ci} className="px-2 py-1.5 text-center" data-testid="tpl-roles-cell">
+                      <TableCell key={ci} className="px-2 py-1.5 text-center" data-testid="tpl-roles-cell">
                         {v
                           ? <Check aria-hidden className="mx-auto h-3.5 w-3.5 text-success" />
                           : <span className={cn("mx-auto flex h-3.5 w-3.5 items-center justify-center", locked ? "text-muted-foreground/40" : "text-muted-foreground")}>{locked ? <Lock aria-hidden className="h-3 w-3" /> : "—"}</span>}
-                      </td>
+                      </TableCell>
                     );
                   })}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <p className="mt-2 flex items-center gap-1.5 text-11 text-muted-foreground" data-testid="tpl-roles-locknote"><Lock aria-hidden className="h-3 w-3" />{ROLES_PANEL.lockNote}</p>
       </Section>
@@ -466,26 +467,26 @@ export function MaterialsPanel({ item }: { item: ConfigItem }) {
       <Section title={MATERIALS_PANEL.label} testid="tpl-mat-list"
         aside={<Button size="xs" variant="outline" data-testid="tpl-mat-export">导出清单</Button>}>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-12" data-testid="tpl-mat-table">
-            <thead>
-              <tr className="border-b border-border text-11 text-muted-foreground">
-                <th className="py-1.5 pr-2 text-left font-medium">物料</th>
-                <th className="px-2 py-1.5 text-left font-medium">数量</th>
-                <th className="px-2 py-1.5 text-left font-medium">用于环节</th>
-                <th className="px-2 py-1.5 text-left font-medium">谁准备</th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table className="w-full border-collapse text-12" data-testid="tpl-mat-table">
+            <TableHeader>
+              <TableRow className="border-b border-border text-11 text-muted-foreground">
+                <TableHead className="py-1.5 pr-2 text-left font-medium">物料</TableHead>
+                <TableHead className="px-2 py-1.5 text-left font-medium">数量</TableHead>
+                <TableHead className="px-2 py-1.5 text-left font-medium">用于环节</TableHead>
+                <TableHead className="px-2 py-1.5 text-left font-medium">谁准备</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {MATERIALS_PANEL.rows.map((r) => (
-                <tr key={r.name} className="border-b border-border-subtle" data-testid="tpl-mat-row">
-                  <td className="py-1.5 pr-2 font-medium">{r.name}</td>
-                  <td className="px-2 py-1.5 font-mono text-11">{r.qty}</td>
-                  <td className="px-2 py-1.5 text-11 text-muted-foreground">{r.forSeg}</td>
-                  <td className="px-2 py-1.5"><Badge tone="outline">{r.owner}</Badge></td>
-                </tr>
+                <TableRow key={r.name} className="border-b border-border-subtle" data-testid="tpl-mat-row">
+                  <TableCell className="py-1.5 pr-2 font-medium">{r.name}</TableCell>
+                  <TableCell className="px-2 py-1.5 font-mono text-11">{r.qty}</TableCell>
+                  <TableCell className="px-2 py-1.5 text-11 text-muted-foreground">{r.forSeg}</TableCell>
+                  <TableCell className="px-2 py-1.5"><Badge tone="outline">{r.owner}</Badge></TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
         <p className="mt-2 rounded-md bg-panel px-2.5 py-1.5 text-11 text-muted-foreground" data-testid="tpl-mat-footnote">{MATERIALS_PANEL.footnote}</p>
         <Button size="xs" variant="ghost" className="mt-2" data-testid="tpl-mat-add"><Plus aria-hidden className="h-3.5 w-3.5" /> 物料</Button>

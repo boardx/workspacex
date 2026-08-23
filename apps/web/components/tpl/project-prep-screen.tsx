@@ -16,6 +16,7 @@ import {
   GROUP_STATUS_LABEL, GROUP_STATUS_TONE, type ProjectGroup,
 } from "@/lib/mock/tpl";
 import { AiTag, SignoffFlag } from "./parts";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 const PREP_TABS = [
   { key: "topic", label: "定题与分组", signable: true },
@@ -186,27 +187,27 @@ function SubjectTable({ canWrite, onToast }: { canWrite: boolean; onToast: (m: s
         <Button size="xs" variant="outline" disabled={!canWrite} onClick={() => onToast("加一个访谈对象")} data-testid="tpl-subject-add"><Plus aria-hidden className="h-3 w-3" /> 加对象</Button>
       </div>
       <div className="overflow-x-auto" data-allow-x-scroll="访谈对象表六列，窄屏允许横向滚动看全">
-        <table className="w-full min-w-[640px] border-collapse text-11">
-          <thead>
-            <tr className="border-b border-border text-left text-muted-foreground">
-              {SUBJECT_COLS.map((c) => <th key={c} className="px-2 py-1 font-medium">{c}</th>)}
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="w-full min-w-[640px] border-collapse text-11">
+          <TableHeader>
+            <TableRow className="border-b border-border text-left text-muted-foreground">
+              {SUBJECT_COLS.map((c) => <TableHead key={c} className="px-2 py-1 font-medium">{c}</TableHead>)}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {INTERVIEW_SUBJECTS.map((s, i) => (
-              <tr key={i} className="border-b border-border/60" data-testid="tpl-subject-row">
-                <td className="px-2 py-1.5">{s.name}</td>
-                <td className="px-2 py-1.5 text-muted-foreground">{s.role}</td>
-                <td className="px-2 py-1.5 text-muted-foreground">{s.contact}</td>
-                <td className="px-2 py-1.5 text-muted-foreground">{s.focus}</td>
-                <td className="px-2 py-1.5">{s.method}</td>
-                <td className="px-2 py-1.5">
+              <TableRow key={i} className="border-b border-border/60" data-testid="tpl-subject-row">
+                <TableCell className="px-2 py-1.5">{s.name}</TableCell>
+                <TableCell className="px-2 py-1.5 text-muted-foreground">{s.role}</TableCell>
+                <TableCell className="px-2 py-1.5 text-muted-foreground">{s.contact}</TableCell>
+                <TableCell className="px-2 py-1.5 text-muted-foreground">{s.focus}</TableCell>
+                <TableCell className="px-2 py-1.5">{s.method}</TableCell>
+                <TableCell className="px-2 py-1.5">
                   {s.status.includes("AI") ? <Badge tone="ai">{s.status}</Badge> : <Badge tone="outline">{s.status}</Badge>}
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
       <p className="text-10 text-muted-foreground">访谈 AI 会按这张表提前预约并生成提纲；现场访谈转写自动回流到本组。（预约 / 提纲 / 回流属 06-itv，本域只落结构与填写）</p>
     </div>

@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { ButtonGallery } from "@/components/state/button-gallery";
-import { PrimitivesGallery, MotionTokenGallery } from "@/components/state/primitives-gallery";
+import { PrimitivesGallery, CompositePrimitivesGallery, MotionTokenGallery } from "@/components/state/primitives-gallery";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -100,6 +100,9 @@ export default function KitchenSinkPage({
 
         {/* ── 弹层原语（interaction-primitives F01/F02）───────────── */}
         <PrimitivesGallery />
+
+        {/* ── 复合组件（interaction-primitives F09：Table / Menu）──── */}
+        <CompositePrimitivesGallery />
 
         {/* ── 动效 token 档位（motion-microinteraction F03/F04）────── */}
         <MotionTokenGallery />

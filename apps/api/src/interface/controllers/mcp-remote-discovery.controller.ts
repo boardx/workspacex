@@ -64,6 +64,7 @@ export class McpRemoteDiscoveryController {
     }
 
     const deps = this.composeDeps({
+      orgId: principal.orgId,
       localOnlyOrg: isLocalOrg(organization.kind),
       credential: body.credential,
     });

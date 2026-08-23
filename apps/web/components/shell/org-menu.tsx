@@ -1,12 +1,15 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { Check, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import { type Identity } from "@/lib/identity";
 import { apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { updateOrganization } from "@/lib/live-org-admin";
+import {
+  Menu, MenuContent, MenuItem, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger,
+} from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,8 +22,11 @@ import { cn } from "@/lib/utils";
  * （拿不到时回落组织名首字），点击弹出菜单 = 「切换组织」区块 + 「组织管理」入口。
  * 顶栏那个独立切换器已删——同一功能不许两个入口。
  *
- * 下拉写法照 `personal-menu.tsx`（左下角个人菜单）抄，与之对称：外点关闭 + Escape
- * 关闭；菜单项是原生 button/Link，Tab/Enter/Space 原生可达。
+ * F09 起与 `personal-menu.tsx` 一起改走 `components/ui/menu.tsx`（Radix DropdownMenu 别名，
+ * 见 F01/F09）：外点关闭 + Escape 关闭 + 焦点陷阱 + ↑↓ 导航都由 Radix 原生提供，
+ * 不再手写 `document.mousedown`/`keydown` 监听。「切换组织」列表用 `MenuRadioGroup` +
+ * `MenuRadioItem`（`role="menuitemradio"`、`aria-checked`、选中态 Check 图标均由 Radix
+ * 原生渲染，语义比手写 button 更准确）。
  *
  * ## 触发器视觉与回落方案（交付说明里要求写理由）
  * - 有组织头像 ⇒ 圆角方块小图（`rounded-md`）。组织用圆角方，个人用正圆
@@ -114,8 +120,6 @@ export function OrgMenu({
   /** 移动端顶栏实例传 "-mobile"，避免与 ≥md 的 rail 实例撞 data-testid */
   testIdSuffix?: string;
 }) {
-  const [open, setOpen] = React.useState(false);
-  const containerRef = React.useRef<HTMLDivElement>(null);
   const session = useOptionalSession();
 
   // 见文件头「组织头像的读路径」：URL 首选 identity（全员、零请求）；
@@ -126,108 +130,77 @@ export function OrgMenu({
   //   `NEXT_PUBLIC_API_PATH_PREFIX`（fullstack e2e 的同源代理前缀），实测 404。
   const { src: avatarSrc } = useAuthedImageSrc(avatarUrl ? apiUrl(avatarUrl) : null);
 
-  React.useEffect(() => {
-    if (!open) return;
-    function onPointerDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
   const orgName = identity.org.name?.trim() ?? "";
   const orgInitial = orgName.charAt(0) || "X";
 
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        data-testid={`org-switcher${testIdSuffix}`}
-        aria-label={`组织菜单，当前：${orgName || "组织"}`}
-        title={orgName || "组织菜单"}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        disabled={switching}
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "flex h-8 w-8 items-center justify-center overflow-hidden rounded-md transition-all duration-200",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          switching ? "cursor-wait opacity-60" : "hover:scale-105",
-          avatarSrc ? "border border-border bg-card" : "bg-inverse text-14 font-semibold text-inverse-foreground hover:bg-inverse/90",
-        )}
-      >
-        {avatarSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- 组织头像来自后端 object store（鉴权 blob URL），非 Next 静态资源
-          <img src={avatarSrc} alt="" data-testid={`org-menu-avatar${testIdSuffix}`} className="h-full w-full object-cover" />
-        ) : (
-          <span aria-hidden>{orgInitial}</span>
-        )}
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          aria-label="组织菜单"
-          data-testid={`org-menu${testIdSuffix}`}
+    <Menu>
+      <MenuTrigger asChild>
+        <button
+          type="button"
+          data-testid={`org-switcher${testIdSuffix}`}
+          aria-label={`组织菜单，当前：${orgName || "组织"}`}
+          title={orgName || "组织菜单"}
+          disabled={switching}
           className={cn(
-            // max-h + 滚动：组织数量多（10+）时菜单不溢出视口——复核读代码起疑的预防项，
-            // 固定宽 w-52 不变，超高时列表内部滚动。
-            "absolute z-20 max-h-[70vh] w-52 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-md",
-            placement === "right" ? "left-[calc(100%+8px)] top-0" : "left-0 top-[calc(100%+4px)]",
+            "flex h-8 w-8 items-center justify-center overflow-hidden rounded-md transition-all duration-200",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            switching ? "cursor-wait opacity-60" : "hover:scale-105",
+            avatarSrc ? "border border-border bg-card" : "bg-inverse text-14 font-semibold text-inverse-foreground hover:bg-inverse/90",
           )}
         >
-          <span className="block select-none px-2 pb-1 pt-1.5 text-10 font-medium uppercase tracking-wide text-muted-foreground">
-            切换组织
-          </span>
-          {organizations.map((o) => {
-            const current = o.id === identity.org.id;
-            return (
-              <button
-                key={o.id}
-                type="button"
-                role="menuitemradio"
-                aria-checked={current}
-                data-testid={`org-switcher-option-${o.id}${testIdSuffix}`}
-                onClick={() => {
-                  setOpen(false);
-                  if (!current) onSelect(o.id);
-                }}
-                className={cn(
-                  // focus-visible 背景：纯键盘用户 Tab 到菜单项时要能看见焦点落点——复核实测
-                  // 焦点在 DOM 上推进但屏幕上无任何指示（outline 透明、无底色）。
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                  current ? "font-medium text-primary" : "text-card-foreground",
-                )}
-              >
-                <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                {current && <Check aria-hidden className="h-3.5 w-3.5 shrink-0" />}
-              </button>
-            );
-          })}
+          {avatarSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element -- 组织头像来自后端 object store（鉴权 blob URL），非 Next 静态资源
+            <img src={avatarSrc} alt="" data-testid={`org-menu-avatar${testIdSuffix}`} className="h-full w-full object-cover" />
+          ) : (
+            <span aria-hidden>{orgInitial}</span>
+          )}
+        </button>
+      </MenuTrigger>
+      <MenuContent
+        side={placement === "right" ? "right" : "bottom"}
+        align={placement === "right" ? "start" : "start"}
+        sideOffset={8}
+        aria-label="组织菜单"
+        data-testid={`org-menu${testIdSuffix}`}
+        // max-h + 滚动：组织数量多（10+）时菜单不溢出视口——复核读代码起疑的预防项，
+        // 固定宽 w-52 不变，超高时列表内部滚动。
+        className="max-h-[70vh] w-52 overflow-y-auto"
+      >
+        <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">切换组织</MenuLabel>
+        <MenuRadioGroup
+          value={identity.org.id}
+          onValueChange={(id) => {
+            if (id !== identity.org.id) onSelect(id);
+          }}
+        >
+          {organizations.map((o) => (
+            <MenuRadioItem
+              key={o.id}
+              value={o.id}
+              data-testid={`org-switcher-option-${o.id}${testIdSuffix}`}
+              className={cn(o.id === identity.org.id ? "font-medium text-primary" : "text-card-foreground")}
+            >
+              <span className="min-w-0 flex-1 truncate">{o.label}</span>
+            </MenuRadioItem>
+          ))}
+        </MenuRadioGroup>
 
-          <div className="my-1 h-px bg-border" aria-hidden />
+        <MenuSeparator />
 
-          {/* 组织功能区块：只放有真实后端支撑的入口，不发明死入口 */}
+        {/* 组织功能区块：只放有真实后端支撑的入口，不发明死入口 */}
+        <MenuItem asChild>
           <Link
             href="/org-admin"
-            role="menuitem"
             data-testid={`org-admin-entry${testIdSuffix}`}
             aria-label="组织管理"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-12 text-card-foreground transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            className="gap-2"
           >
             <Settings aria-hidden className="h-3.5 w-3.5" />
             组织管理
           </Link>
-        </div>
-      )}
-    </div>
+        </MenuItem>
+      </MenuContent>
+    </Menu>
   );
 }

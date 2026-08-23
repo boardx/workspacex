@@ -35,7 +35,7 @@ const SIDE_EFFECT_TONE: Record<DiscoveredMcpTool["sideEffect"], "primary" | "war
   写入外部: "danger",
 };
 
-export function McpRemoteDiscoverPanel() {
+export function McpRemoteDiscoverPanel({ onDiscovered }: { readonly onDiscovered?: () => void }) {
   const [serverId, setServerId] = React.useState("");
   const [endpoint, setEndpoint] = React.useState("");
   const [authToken, setAuthToken] = React.useState("");
@@ -53,6 +53,9 @@ export function McpRemoteDiscoverPanel() {
         authToken: authToken.trim() === "" ? null : authToken.trim(),
       });
       setResult({ status: "success", out });
+      // ⚠ issue #1928：发现成功即已落库（`discoverRemoteMcpTools` 用例落库在网关调用
+      //   之后、返回之前），所以这里通知父组件刷新是安全的——不会刷出一个还没写完的半截行。
+      onDiscovered?.();
     } catch (failure) {
       // ⚠ 如实显示服务端的 reasonCode，不翻译成「连接失败，请重试」——
       //   `MCP_ENDPOINT_HOST_NOT_PUBLIC`（SSRF 门）与 `MCP_SERVER_UNREACHABLE`

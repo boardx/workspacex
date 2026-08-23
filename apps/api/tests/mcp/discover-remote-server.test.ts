@@ -8,7 +8,13 @@ import {
   DiscoverRemoteMcpToolsError,
 } from "../../src/application/mcp/discover-remote-server";
 import { McpEndpointRefusedError } from "../../src/domain/mcp/remote-endpoint-guard";
-import type { DiscoveredTool, McpGateway, McpToolStore } from "../../src/application/mcp/ports";
+import type {
+  CredentialCipher,
+  DiscoveredTool,
+  McpGateway,
+  McpServerStore,
+  McpToolStore,
+} from "../../src/application/mcp/ports";
 import type { IdentityRepository } from "../../src/application/identity/ports";
 
 const READ_TOOL: DiscoveredTool = {
@@ -43,12 +49,21 @@ function gatewayOf(spy: { calls: number }): McpGateway {
   };
 }
 
+function serversOf(): McpServerStore {
+  return {
+    upsertDiscovered: async () => {},
+    listForOrg: async () => [],
+  };
+}
+
+const NOOP_CIPHER: CredentialCipher = { algorithm: "test", keyId: "test", encrypt: (p) => `sealed:${p}` };
+
 describe("discoverRemoteMcpTools：admin 门在网关调用之前", () => {
   it("非管理员 ⇒ 拒绝，且网关从未被调用（不能让非管理员触发出站请求）", async () => {
     const spy = { calls: 0 };
     await expect(
       discoverRemoteMcpTools(
-        { identities: identitiesOf("member"), gateway: gatewayOf(spy), store: storeOf(), localOnlyOrg: false },
+        { identities: identitiesOf("member"), gateway: gatewayOf(spy), store: storeOf(), servers: serversOf(), credentialCipher: NOOP_CIPHER, credential: null, localOnlyOrg: false },
         { orgId: "org-1", actorId: "u1", serverId: "s1", endpoint: "https://mcp.example.com/sse" },
       ),
     ).rejects.toBeInstanceOf(DiscoverRemoteMcpToolsError);
@@ -59,7 +74,7 @@ describe("discoverRemoteMcpTools：admin 门在网关调用之前", () => {
     const spy = { calls: 0 };
     await expect(
       discoverRemoteMcpTools(
-        { identities: identitiesOf(null), gateway: gatewayOf(spy), store: storeOf(), localOnlyOrg: false },
+        { identities: identitiesOf(null), gateway: gatewayOf(spy), store: storeOf(), servers: serversOf(), credentialCipher: NOOP_CIPHER, credential: null, localOnlyOrg: false },
         { orgId: "org-1", actorId: "u1", serverId: "s1", endpoint: "https://mcp.example.com/sse" },
       ),
     ).rejects.toBeInstanceOf(DiscoverRemoteMcpToolsError);
@@ -72,7 +87,7 @@ describe("discoverRemoteMcpTools：SSRF 字面量门在网关调用之前", () =
     const spy = { calls: 0 };
     await expect(
       discoverRemoteMcpTools(
-        { identities: identitiesOf("admin"), gateway: gatewayOf(spy), store: storeOf(), localOnlyOrg: false },
+        { identities: identitiesOf("admin"), gateway: gatewayOf(spy), store: storeOf(), servers: serversOf(), credentialCipher: NOOP_CIPHER, credential: null, localOnlyOrg: false },
         { orgId: "org-1", actorId: "u1", serverId: "s1", endpoint: "http://mcp.example.com/sse" },
       ),
     ).rejects.toBeInstanceOf(McpEndpointRefusedError);
@@ -83,7 +98,7 @@ describe("discoverRemoteMcpTools：SSRF 字面量门在网关调用之前", () =
     const spy = { calls: 0 };
     await expect(
       discoverRemoteMcpTools(
-        { identities: identitiesOf("admin"), gateway: gatewayOf(spy), store: storeOf(), localOnlyOrg: false },
+        { identities: identitiesOf("admin"), gateway: gatewayOf(spy), store: storeOf(), servers: serversOf(), credentialCipher: NOOP_CIPHER, credential: null, localOnlyOrg: false },
         { orgId: "org-1", actorId: "u1", serverId: "s1", endpoint: "https://127.0.0.1/sse" },
       ),
     ).rejects.toBeInstanceOf(McpEndpointRefusedError);
@@ -95,7 +110,7 @@ describe("discoverRemoteMcpTools：成功路径委托给既有 discoverMcpTools"
   it("管理员 + 合法端点 ⇒ 网关被调用一次，结果形状与 discoverMcpTools 一致（added 命中新工具）", async () => {
     const spy = { calls: 0 };
     const result = await discoverRemoteMcpTools(
-      { identities: identitiesOf("admin"), gateway: gatewayOf(spy), store: storeOf(), localOnlyOrg: false },
+      { identities: identitiesOf("admin"), gateway: gatewayOf(spy), store: storeOf(), servers: serversOf(), credentialCipher: NOOP_CIPHER, credential: null, localOnlyOrg: false },
       { orgId: "org-1", actorId: "u1", serverId: "s1", endpoint: "https://mcp.example.com/sse" },
     );
     expect(spy.calls).toBe(1);

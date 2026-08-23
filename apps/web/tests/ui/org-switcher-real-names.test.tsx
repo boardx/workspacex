@@ -130,7 +130,9 @@ function renderShell() {
  */
 function switcherOptions(): string[] {
   const trigger = screen.getByTestId("org-switcher");
-  if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
+  // F09：菜单改走 Radix DropdownMenu（`components/ui/menu.tsx`），trigger 靠 pointerdown
+  // 开合，不是 click（同步、便宜，跟原来的 `fireEvent.click` 一样不涉及任何异步查询）。
+  if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.pointerDown(trigger, { button: 0 });
   const menu = screen.getByTestId("org-menu");
   return Array.from(menu.querySelectorAll('[role="menuitemradio"]')).map((o) => o.textContent ?? "");
 }
