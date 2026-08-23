@@ -87,12 +87,22 @@ interface SubmissionAttempt extends CreateMessageInput {
   readonly threadId: string;
 }
 
-/** 轮询到的 run 观测值。`view` 为 null 表示「还没读到第一份服务端状态」。 */
+/**
+ * 轮询到的 run 观测值。`view` 为 null 表示「还没读到第一份服务端状态」。
+ *
+ * `authExpired`（issue #1819）—— 读 run 状态时收到 401（`ApiError.status === 401`）。
+ * 这不是「这次没读到，下次再试」的可重试失败：bearer 已经过期，接下来每一次轮询
+ * 都会撞同一个 401，继续按退避重试没有意义，唯一出路是用户重新登录。单独标出来，
+ * 好让轮询 effect 立即停手、`awaitingReply`（「正在思考…」占位）让位给下面
+ * `AgentRunStatus` 已经在展示的「登录已失效，请重新登录」文案——而不是让占位动画
+ * 与这句文案同屏矛盾地并存到 20 分钟预算耗尽为止。
+ */
 interface RunObservation {
   readonly runId: string;
   readonly view: AgentRunView | null;
   readonly failure: string | null;
   readonly timedOut: boolean;
+  readonly authExpired: boolean;
 }
 
 export function ChatLiveMessagePanel({
@@ -569,7 +579,7 @@ export function ChatLiveMessagePanel({
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const deadline = Date.now() + RUN_POLL_BUDGET_MS;
-    setRunObservation({ runId, view: null, failure: null, timedOut: false });
+    setRunObservation({ runId, view: null, failure: null, timedOut: false, authExpired: false });
 
     const poll = async (delay: number): Promise<void> => {
       if (cancelled) return;
@@ -578,19 +588,26 @@ export function ChatLiveMessagePanel({
         view = await getAgentRun(runId, bearer);
       } catch (failure) {
         if (cancelled) return;
-        // 读失败就如实说读失败。**不**把它渲染成一个 run 状态——
-        // 「读不到 run」与「run 失败了」是两件事，混起来就是在界面上撒谎。
+        // issue #1819 —— 401 是不可恢复的：bearer 已过期，这条端点接下来**每一次**
+        // 都会撞同一个 401，退避重试不会让它变好，唯一出路是用户重新登录。
+        // 单独识别出来、立即停止轮询（不受 `deadline` 支配），并把
+        // `authExpired` 标出去——下面 `awaitingReply` 靠它让「正在思考…」占位
+        // 让位给这里已经生成好的「登录已失效，请重新登录」文案，而不是让两者
+        // 同屏矛盾地并存到 20 分钟预算耗尽。
+        const authExpired = failure instanceof ApiError && failure.status === 401;
         setRunObservation({
           runId,
           view: null,
           failure: describeMessageFailure(failure, "读取 AgentRun 状态"),
           timedOut: false,
+          authExpired,
         });
-        // ⚠ 读失败**不终止轮询**（预算耗尽才停）。一次 503 或网络抖动就把状态永久冻在
-        //   「读取失败」上是错的：run 在服务端还跑着，界面却再也不会更新了。
-        //   实测见过这个形态 —— 缺了 `/agent-runs` 的 rewrite 时，首次轮询就失败并
-        //   就此停住，62 次断言重试读到的都是同一个冻住的 DOM。持续失败仍然会
-        //   一直显示失败文案，所以「如实报错」没有被削弱。
+        if (authExpired) return;
+        // ⚠ 读失败（非 401）**不终止轮询**（预算耗尽才停）。一次 503 或网络抖动就把
+        //   状态永久冻在「读取失败」上是错的：run 在服务端还跑着，界面却再也不会
+        //   更新了。实测见过这个形态 —— 缺了 `/agent-runs` 的 rewrite 时，首次轮询
+        //   就失败并就此停住，62 次断言重试读到的都是同一个冻住的 DOM。持续失败
+        //   仍然会一直显示失败文案，所以「如实报错」没有被削弱。
         if (Date.now() >= deadline) return;
         timer = setTimeout(
           () => void poll(Math.min(delay * RUN_POLL_BACKOFF, RUN_POLL_MAX_DELAY_MS)),
@@ -599,7 +616,7 @@ export function ChatLiveMessagePanel({
         return;
       }
       if (cancelled) return;
-      setRunObservation({ runId, view, failure: null, timedOut: false });
+      setRunObservation({ runId, view, failure: null, timedOut: false, authExpired: false });
       if (isTerminalRunStatus(view.status)) {
         // 终态才重读消息页：写回是在 `writeback_pending` 之后才提交的，
         // 早读会读到一个还没有助手回复的列表，并且再也不会自己刷新。
@@ -616,7 +633,7 @@ export function ChatLiveMessagePanel({
         return;
       }
       if (Date.now() >= deadline) {
-        setRunObservation({ runId, view, failure: null, timedOut: true });
+        setRunObservation({ runId, view, failure: null, timedOut: true, authExpired: false });
         return;
       }
       timer = setTimeout(() => void poll(Math.min(delay * RUN_POLL_BACKOFF, RUN_POLL_MAX_DELAY_MS)), delay);
@@ -944,9 +961,13 @@ export function ChatLiveMessagePanel({
    * - `streamingText === ""`：还没有逐字草稿（有草稿就走上面的流式气泡，二者互斥）。
    * - run 未到终态：`runObservation.view` 为 null（首次轮询还没回）或状态非终态都算在途；
    *   到终态后真实回复由 `loadPage` 接管，动画让位。
+   * - `!runObservation?.authExpired`（issue #1819）：读 run 状态撞 401 时不是「还在跑，
+   *   等着」——是不可恢复的登录过期，继续显示「正在思考…」是对用户撒谎。这种情况
+   *   让位给 `AgentRunStatus` 已经展示的「登录已失效，请重新登录」文案。
    */
   const awaitingReply = activeRunId !== null
     && streamingText === ""
+    && !(runObservation?.authExpired ?? false)
     && !(runObservation?.view != null && isTerminalRunStatus(runObservation.view.status));
 
   return (
@@ -1641,7 +1662,7 @@ function messageTime(iso: string): string {
  * committed）。它是「恰好一条回复真的落库了」在 DOM 上的投影。
  */
 function AgentRunStatus({ observation }: { observation: RunObservation }) {
-  const { runId, view, failure, timedOut } = observation;
+  const { runId, view, failure, timedOut, authExpired } = observation;
   const status: AgentRunStatus | null = view?.status ?? null;
   return (
     <div
@@ -1652,6 +1673,9 @@ function AgentRunStatus({ observation }: { observation: RunObservation }) {
       data-run-status={status ?? undefined}
       data-result-message-id={view?.resultMessageId ?? undefined}
       data-run-error={view?.error ?? undefined}
+      // issue #1819 —— 401 是「不可恢复，需重新登录」，与其它可重试失败区分开，
+      // 好让测试/未来 UI 不必靠正则匹配文案来判断是不是这一种终态。
+      data-run-auth-expired={authExpired || undefined}
     >
       {failure !== null ? <span className="text-destructive">{failure}</span> : null}
       {failure === null && status === null ? (
