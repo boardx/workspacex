@@ -13,6 +13,8 @@
  * `requireTemplateAdmin`——这条操作虽然不写库，但只有能建模板的人才有理由花一次模型调用
  * 去"起草"一个模板；给非管理员开放会让这条只读端口变成一个不需要权限就能白嫖模型调用的口子。
  */
+import { canvas } from "@repo/contracts";
+import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
@@ -20,14 +22,10 @@ import type { IdentityRepository } from "../identity/ports";
 import { extractJson } from "../research/guided-structured-json";
 import { CanvasError } from "./errors";
 import { requireTemplateAdmin } from "./template-admin";
-import { z } from "zod";
 
 export const SUGGEST_TEMPLATE_SECTIONS_MODEL_ID = "qwen3.7-plus";
 
-const SuggestionResponseSchema = z.object({
-  displayName: z.string().min(1),
-  sections: z.array(z.object({ name: z.string().min(1) })).min(2).max(12),
-}).strict();
+type ModelResponse = z.infer<typeof canvas.TemplateSectionSuggestionModelResponse>;
 
 export interface SuggestTemplateSectionsDeps {
   readonly identity: IdentityRepository;
@@ -84,9 +82,9 @@ export async function suggestTemplateSections(
     throw error;
   }
 
-  let parsed: z.infer<typeof SuggestionResponseSchema>;
+  let parsed: ModelResponse;
   try {
-    parsed = SuggestionResponseSchema.parse(extractJson(completion.text));
+    parsed = canvas.TemplateSectionSuggestionModelResponse.parse(extractJson(completion.text));
   } catch {
     throw new CanvasError("TEMPLATE_SUGGESTION_UNAVAILABLE");
   }

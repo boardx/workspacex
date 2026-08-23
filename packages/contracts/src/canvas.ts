@@ -207,6 +207,21 @@ export const SectionDef = z.object({
   capacity: z.number().int().positive().nullable(),
 }).strict();
 
+/** `suggestTemplateSections.out.sections` 里的一项——AI 只提议名字，没有 id/order/capacity。 */
+export const TemplateSectionSuggestion = z.object({ name: z.string() }).strict();
+
+/**
+ * `suggestTemplateSections` 用例解析模型原始 JSON 输出用的 schema——**不是** `out`（`out`
+ * 多了 `modelProvider`/`modelId` 两栏，那是用例自己附上的 provenance，不是模型说的话）。
+ * 单独放这里而不是让用例自己声明一个 `z.object`，是因为 `contract-single-source.test.ts`
+ * 钉死了「后端一个 z.object 都不许自己声明，形状只能来自契约」（同 `research.ts` 的
+ * `GuidedResearchOutlineGenerationResponse` 与 `GuidedResearchOutlineGeneration` 分开的理由）。
+ */
+export const TemplateSectionSuggestionModelResponse = z.object({
+  displayName: z.string().min(1),
+  sections: z.array(TemplateSectionSuggestion).min(2).max(12),
+}).strict();
+
 /** 便签。⚠ 匿名成员也能贴，`authorRef` 用临时身份标记，且该标记在导出与审计中**可追溯**（V12） */
 export const Sticky = z.object({
   stickyId: z.string(),
@@ -387,7 +402,7 @@ export const operations = {
     out: z.object({
       /** AI 提议的显示名——回填进新建表单，使用者仍可改。 */
       suggestedDisplayName: z.string(),
-      sections: z.array(z.object({ name: z.string() }).strict()).min(2).max(12),
+      sections: z.array(TemplateSectionSuggestion).min(2).max(12),
       modelProvider: z.string(),
       modelId: z.string(),
     }).strict(),
