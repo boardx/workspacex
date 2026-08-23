@@ -16,6 +16,7 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { CapabilityEditPage } from "@/components/admin/capability-edit-page";
+import { AgentCapabilityGraph } from "@/components/admin/agent-capability-graph";
 import { resolvePreviewRole } from "@/lib/identity";
 
 export default function AgentEditRoutePage({
@@ -27,7 +28,11 @@ export default function AgentEditRoutePage({
   const previewRole = resolvePreviewRole(searchParams.as);
   return (
     <AppShell previewRole={previewRole} left={<AdminNav active="agent" />}>
-      <CapabilityEditPage kind="agent" id={params.id} />
+      <CapabilityEditPage
+        kind="agent"
+        id={params.id}
+        renderEditExtra={(row) => <AgentCapabilityGraph orgId={row.orgId} agentId={row.id} />}
+      />
     </AppShell>
   );
 }
