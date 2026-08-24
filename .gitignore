@@ -82,6 +82,9 @@ test-results/
 # F15 的 profile/org-admin 截图级保真度取证图（`profile-org-fidelity.spec.ts` 的产物）。
 # 同 `.chat-shots/` 的理由：过程物，每轮重抓，不是事实源。
 .profile-org-fidelity-shots/
+# DA-19 CopilotRuntime 适配器 wire 级取证（`copilotkit-v2-runtime-adapter.spec.ts` 的
+# 产物：请求/响应字节、SSE 帧、截图）。同 `.chat-shots/` 的理由：过程物，每轮重抓。
+.copilotkit-v2-runtime-adapter/
 
 
 # CI/CD 的本机配置：主机/端口/路径/并发度。**不含密码**（密码在 GitHub Secrets 与

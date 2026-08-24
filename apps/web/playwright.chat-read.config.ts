@@ -84,7 +84,13 @@ export default defineConfig({
    * 唯一新增的是键盘可达性这条断言维度，复用既有 `keyboardThreadAId`/`keyboardThreadBId`
    * 两条专属线程（`chat-read-fixture.ts` 头注），不需要新的 webServer 编排。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|chat-keyboard-navigation)\.spec\.ts$/,
+  /**
+   * DA-19 —— 新增 `copilotkit-v2-runtime-adapter.spec.ts` 同样由本 config 接住（理由与
+   * `copilotkit-agui-state-snapshot.spec.ts` 逐字相同：同一个 deep-agent loopback 替身，
+   * 同一条真登录）。唯一新增的编排是 web webServer 多下发一个 `COPILOTKIT_V2_AGENT_ID`
+   * 环境变量（见下面那个 webServer 条目自己的注释），不需要新的进程。
+   */
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
@@ -353,7 +359,13 @@ export default defineConfig({
       },
     },
     {
-      command: `NEXT_PUBLIC_API_URL=http://127.0.0.1:${webPort} CHAT_READ_E2E_API_ORIGIN=http://127.0.0.1:${apiPort} NEXT_DIST_DIR=.next-chat-read-e2e next dev -p ${webPort}`,
+      // DA-19 —— `COPILOTKIT_V2_AGENT_ID` 是 `app/api/copilotkit/[[...slug]]/route.ts`
+      // 读的服务端专用变量（见该文件头「agentId：为什么是一个环境变量」）：不带
+      // `NEXT_PUBLIC_` 前缀，只在 Next 服务端进程里跑，指向本 config 已经起好的
+      // deep-agent loopback 替身（`CHAT_READ_E2E.deepAgentId`），复用
+      // `copilotkit-agui-state-snapshot.spec.ts` 同一条真实 `DeepAgentModelProvider`
+      // 代码路径，不是新起一条上游。
+      command: `NEXT_PUBLIC_API_URL=http://127.0.0.1:${webPort} CHAT_READ_E2E_API_ORIGIN=http://127.0.0.1:${apiPort} COPILOTKIT_V2_AGENT_ID=${CHAT_READ_E2E.deepAgentId} NEXT_DIST_DIR=.next-chat-read-e2e next dev -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
       timeout: 120_000,
       reuseExistingServer: false,
