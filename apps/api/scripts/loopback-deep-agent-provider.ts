@@ -199,6 +199,40 @@ function sendJson(res: import("node:http").ServerResponse, status: number, body:
   res.end(JSON.stringify(body));
 }
 
+/**
+ * DA-19g 真根因修复 —— 单一事实源：`FOLLOWUP_CONTEXT_TRIGGER`/`MARKDOWN_TRIGGER` 两个
+ * "特殊剧本"分支此前**只被加进了 `/state` 端点**（`finalReply` 里的
+ * `followupContextReply`/`MARKDOWN_REPLY` 判断），`/stream` 端点（供 `TEXT_MESSAGE_CONTENT`
+ * 逐片下发、真正变成用户看到的聊天气泡正文的那一份）从未同步更新，永远只判
+ * `MULTISTEP_TRIGGER`、否则回落到通用模板——这正是 DA-19g 评分第 2 轮独立复核抓到的
+ * "传输层/线程续接全部正确，但回复仍是通用模板"的真根因（wire 级实测：命中 `/state` 时
+ * `record.userText` 与 `conversationLog` 完全正确、`followupContextReply` 的条件成立，
+ * 但用户看到的聊天气泡文本来自 `/stream` 的独立计算，那份从未加过这两个分支；
+ * markdown 触发词同理，`/stream` 从未判过 `MARKDOWN_TRIGGER`）。
+ *
+ * 这个函数只负责"特殊剧本命中时该回什么"，两个端点各自的**默认**回复措辞（未命中任何
+ * 触发词时的通用模板）刻意保持各自原样、不在这里统一——`/state` 的默认模板里带
+ * `toolResult`（"已查询：当前时间…用户原话…"），`/stream` 的默认模板措辞不同
+ * （"已查询当前时间，详情见工具结果"），已有测试断言这两处**各自的**具体文案
+ * （`copilotkit-v2-runtime-adapter.spec.ts` 断言 `/stream` 侧那句），统一措辞会造成
+ * 不该有的行为变化——这不是本次要修的范围，本次只补齐两个特殊分支在两个端点间的一致性。
+ */
+function computeSpecialTurnReply(threadId: string, record: RunRecord): string | null {
+  // DA-19g：命中「记得上文」触发词时，逐字引用这条线程上一次收到的用户消息——
+  // 见 `conversationLog`/`FOLLOWUP_CONTEXT_TRIGGER` 自己的头注。`log` 至少两条
+  // （当前这轮 + 上一轮）才有"上一轮"可引用；只有当前这一轮（首轮就发触发词）时
+  // 如实说明没有上文可引用，不编造一个不存在的历史。
+  if (FOLLOWUP_CONTEXT_TRIGGER !== undefined && record.userText === FOLLOWUP_CONTEXT_TRIGGER) {
+    const log = conversationLog.get(threadId) ?? [];
+    const previousUserText = log.length >= 2 ? log[log.length - 2] : null;
+    return previousUserText === null
+      ? `${FOLLOWUP_CONTEXT_ECHO_PREFIX} 这是本线程第一轮消息，没有上一轮可引用。`
+      : `${FOLLOWUP_CONTEXT_ECHO_PREFIX} 你上一轮说的是："${previousUserText}"。`;
+  }
+  if (MARKDOWN_TRIGGER !== undefined && record.userText === MARKDOWN_TRIGGER) return MARKDOWN_REPLY;
+  return null;
+}
+
 interface CreateRunBody {
   readonly input?: { readonly messages?: { readonly role?: string; readonly content?: unknown }[] };
   /** DA-07b resume 形状：`{decisions:[{type:"approve"|"edit"|"reject", edited_action?}]}`。
@@ -323,9 +357,14 @@ const server = createServer((req, res) => {
     res.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
     // 多步剧本的流式正文要与 state 的终稿同一口径——否则截图里会出现
     // 「已查询当前时间」这句与多步剧本（从不查时间）自相矛盾的话。
+    // DA-19g 真根因修复：`FOLLOWUP_CONTEXT_TRIGGER`/`MARKDOWN_TRIGGER` 两个特殊分支改走
+    // `computeSpecialTurnReply`——与 `/state` 单一事实源，见该函数自己的头注（此前这里
+    // 从未判过这两个触发词，永远落到下面这句通用模板，是 DA-19g 评分第 2 轮抓到的真
+    // 根因）。未命中任何触发词时的默认模板原样保留，不改措辞。
     const reply = MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
-      : `根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
+      : computeSpecialTurnReply(threadId, record)
+        ?? `根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
     const pieces: string[] = [];
     for (let i = 0; i < reply.length; i += 8) pieces.push(reply.slice(i, i + 8));
     let idx = 0;
@@ -462,23 +501,10 @@ const server = createServer((req, res) => {
       return;
     }
     const toolResult = `已查询：当前时间 ${new Date().toISOString()}。用户原话："${record.userText}"`;
-    // DA-19g：命中「记得上文」触发词时，逐字引用这条线程上一次收到的用户消息——
-    // 见 `conversationLog`/`FOLLOWUP_CONTEXT_TRIGGER` 自己的头注。`log` 至少两条
-    // （当前这轮 + 上一轮）才有"上一轮"可引用；只有当前这一轮（首轮就发触发词）时
-    // 如实说明没有上文可引用，不编造一个不存在的历史。
-    const followupContextReply = (() => {
-      if (FOLLOWUP_CONTEXT_TRIGGER === undefined || record.userText !== FOLLOWUP_CONTEXT_TRIGGER) return null;
-      const log = conversationLog.get(threadId) ?? [];
-      const previousUserText = log.length >= 2 ? log[log.length - 2] : null;
-      return previousUserText === null
-        ? `${FOLLOWUP_CONTEXT_ECHO_PREFIX} 这是本线程第一轮消息，没有上一轮可引用。`
-        : `${FOLLOWUP_CONTEXT_ECHO_PREFIX} 你上一轮说的是："${previousUserText}"。`;
-    })();
-    const finalReply = followupContextReply ?? (
-      MARKDOWN_TRIGGER !== undefined && record.userText === MARKDOWN_TRIGGER
-        ? MARKDOWN_REPLY
-        : `根据查询结果回答你："${record.userText}" —— ${toolResult}`
-    );
+    // DA-19g 真根因修复：与 `/stream` 共用同一份"特殊分支"判断（`computeSpecialTurnReply`），
+    // 未命中任何触发词时的默认模板原样保留——单一事实源，见该函数自己的头注。
+    const finalReply = computeSpecialTurnReply(threadId, record)
+      ?? `根据查询结果回答你："${record.userText}" —— ${toolResult}`;
     sendJson(res, 200, {
       values: {
         messages: [
