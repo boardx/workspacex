@@ -1,8 +1,51 @@
 "use client";
 
 import * as React from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { usePathname } from "next/navigation";
+import { CopilotKit, useAgentContext } from "@copilotkit/react-core/v2";
 import { getStoredSessionToken } from "@/lib/api-client";
+
+/**
+ * DA-19f —— `useCopilotReadable`/`useAgentContext` 接线基座（issue 见 PR 描述）。
+ *
+ * 本条**只**证明"provider 级 hook 接线真的把前端状态注入到 agent 推理请求里"这件事
+ * 本身能工作——注入什么内容（该注 @ 引用文件、还是右栏视窗/选中片段）是 DA-14 的
+ * 权威范围，本文件不重复声明、不做那个产品决策。这里注入的是一个**最小、确定性**
+ * 的探针值（当前路由 pathname + 一个固定测试标记字符串），只为了在 wire 层能
+ * 无歧义地断言到——不是真实产品内容。
+ *
+ * `@copilotkit/react-core/v2` 没有导出叫 `useCopilotReadable` 的 hook（那是 legacy
+ * `@copilotkit/react-core`（v1）API）；这个包版本（1.66.4）的对应能力是
+ * `useAgentContext`（见包自带 `skills/react-core/references/agent-access.md`：
+ * "declarative push of app state to every agent run"）。任务标题沿用 DA-19f 在
+ * backlog 里的历史命名，接线的实际 hook 以这份包内文档为准，不凭记忆猜 API。
+ *
+ * 数据流（`@copilotkit/core@1.66.4` `dist/index.mjs` 实测读源码确认，不是猜测）：
+ * `useAgentContext` → `ContextStore.addContext` → `CopilotKitCore._internal
+ * .getContextForAgent(agentId)` → 每次 `copilotkit.runAgent()` 把它塞进
+ * `agentRunInput.context`（`[{description, value}]`，`value` 经 `JSON.stringify`）
+ * → 经 `ProxiedCopilotRuntimeAgent` 落进 `POST /api/copilotkit/agent/:id/run` 的
+ * 请求体 `context` 字段——这条链路本身就是"到达 agent 推理上下文"的可验证边界，
+ * wire 层断言见 `apps/web/e2e/copilotkit-v2-agent-context.spec.ts`。
+ *
+ * 必须是 `CopilotKit` 的子组件（`useAgentContext` 内部读 `useCopilotKit()` 的
+ * context），所以在这里而不是 `CopilotKitV2Providers` 外层调用；只做 provider 级
+ * 接线，不碰 `copilotkit-v2-panel.tsx` 的消息渲染（DA-19b 范围）。
+ */
+const READABLE_CONTEXT_PROBE_MARKER = "DA-19F-READABLE-CONTEXT-PROBE";
+
+function CopilotKitV2ReadableContextProbe(): null {
+  const pathname = usePathname();
+
+  const value = React.useMemo(
+    () => ({ pathname, probe: READABLE_CONTEXT_PROBE_MARKER }),
+    [pathname],
+  );
+
+  useAgentContext({ description: "DA-19f wiring probe: current route + fixed marker", value });
+
+  return null;
+}
 
 /**
  * DA-19 CopilotRuntime 适配器 —— provider，只挂在 `/chat/copilotkit-v2` 这一条路由下
@@ -77,6 +120,7 @@ export function CopilotKitV2Providers({ children }: { children: React.ReactNode 
       headers={headers}
       onError={handleCopilotError}
     >
+      <CopilotKitV2ReadableContextProbe />
       {children}
     </CopilotKit>
   );
