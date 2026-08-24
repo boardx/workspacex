@@ -321,7 +321,13 @@ test("DA-19b markdown/mermaid 消息渲染——真的渲成结构化 DOM 与 fa
     // `MarkdownMessage` 用 `ReactMarkdown` 把 `##` 标题解成真实 `<h2>`，断言这一层结构，
     // 而不是断言可见文本包含 `##`（那样反而在语法未解析时也会通过，是假阳性判据）。
     await expect(markdownNode.locator("h2")).toContainText("分析结果");
-    await expect(markdownNode.locator("code")).toContainText("pnpm harness verify");
+    // DA-19g 顺带修复：`MARKDOWN_REPLY`（`loopback-deep-agent-provider.ts`）正文里有
+    // 两个 `<code>` 节点——行内代码示例与下方 ```typescript 代码块——`.locator("code")`
+    // 不加 `.first()` 在 strict mode 下会因为匹配到 2 个元素直接报错，不是本次改动引入的
+    // 新问题，而是此前 markdown 从未真正渲染过（回复卡在通用模板），这条断言从未真的跑到
+    // 这一步、这个 bug 一直没被曝出来。这里只加 `.first()` 精确指向行内代码那个节点
+    // （`MARKDOWN_REPLY` 里行内代码在代码块之前），不改动其它任何断言。
+    await expect(markdownNode.locator("code").first()).toContainText("pnpm harness verify");
     await expect(markdownNode.locator("blockquote")).toContainText("引用块");
 
     // ── 反证② mermaid 围栏真的渲成了 fabric canvas，不是灰底代码块。
