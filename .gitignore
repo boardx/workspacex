@@ -85,6 +85,9 @@ test-results/
 # DA-19 CopilotRuntime 适配器 wire 级取证（`copilotkit-v2-runtime-adapter.spec.ts` 的
 # 产物：请求/响应字节、SSE 帧、截图）。同 `.chat-shots/` 的理由：过程物，每轮重抓。
 .copilotkit-v2-runtime-adapter/
+# DA-19f useAgentContext 接线基座 wire 级取证（`copilotkit-v2-agent-context.spec.ts`
+# 的产物：上行请求体、解析出的 context 字段）。同上，过程物，每轮重抓。
+.copilotkit-v2-agent-context/
 
 
 # CI/CD 的本机配置：主机/端口/路径/并发度。**不含密码**（密码在 GitHub Secrets 与

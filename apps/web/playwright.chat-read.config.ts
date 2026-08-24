@@ -90,7 +90,13 @@ export default defineConfig({
    * 同一条真登录）。唯一新增的编排是 web webServer 多下发一个 `COPILOTKIT_V2_AGENT_ID`
    * 环境变量（见下面那个 webServer 条目自己的注释），不需要新的进程。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|chat-keyboard-navigation)\.spec\.ts$/,
+  /**
+   * DA-19f —— 新增 `copilotkit-v2-agent-context.spec.ts` 同样由本 config 接住（理由与
+   * `copilotkit-v2-runtime-adapter.spec.ts` 逐字相同：同一条 `/chat/copilotkit-v2` 路由、
+   * 同一条真登录，唯一区别是断言目标从「回复文字」换成「上行请求体的 `context` 字段」）。
+   * 不需要新的进程或新的环境变量。
+   */
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
