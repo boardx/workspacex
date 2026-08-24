@@ -91,6 +91,9 @@ test-results/
 # DA-19d 人在环 wire 级取证（`copilotkit-v2-hitl.spec.ts` 的产物：SSE 帧、失败截图）。
 # 同上，过程物，每轮重抓。
 .copilotkit-v2-hitl/
+# DA-13 活动文件工作台 wire 级取证（`copilotkit-v2-active-file-panel.spec.ts` 的产物：
+# 原始/拼接后的 SSE 帧、渲染截图）。同上，过程物，每轮重抓。
+.copilotkit-v2-active-file-panel/
 
 
 # CI/CD 的本机配置：主机/端口/路径/并发度。**不含密码**（密码在 GitHub Secrets 与
