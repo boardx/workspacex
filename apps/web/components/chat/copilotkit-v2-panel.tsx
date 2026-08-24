@@ -1,18 +1,30 @@
 "use client";
 
 import * as React from "react";
+import { z } from "zod";
 import {
   useAgent,
   useConfigureSuggestions,
   useCopilotKit,
+  useHumanInTheLoop,
   useSuggestions,
   UseAgentUpdate,
   CopilotChatMessageView,
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
+import { Pencil } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 /**
  * DA-19 CopilotRuntime 后端适配器 —— `useAgent` 驱动的最小面板，走
@@ -81,7 +93,205 @@ import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-
  * `useRenderTool`/`useDefaultRenderTool` 注册渲染器），把 `write_todos`/`search_documents`
  * 两个工具的进行中/完成态换成贴合各自数据形状的定制卡片，其余工具走框架内置默认卡片。
  * 完整设计取舍（三态映射、协议本身不携带失败布尔信号的诚实记录）见该文件头注。
+ *
+ * ── DA-19d 人在环（issue #1987，backlog DA-19d，框架版 Gap 3）─────────────────
+ *
+ * `useHumanInTheLoop`（`@copilotkit/react-core/v2` 自带 skill
+ * `references/human-in-the-loop.md`，本节按其"Setup"范例照做，不凭记忆写 API）
+ * 替换旧手写 `agent-approval-panel.tsx`（PR #1933，走 REST `/agent-runs/:runId/
+ * decision`）——这里不是另建一套 approve/reject/edit 状态机：`respond` 由框架
+ * 合成，本组件只在三种 `status`（`"inProgress" | "executing" | "complete"`，
+ * camelCase，不是 `"in-progress"`）下渲染对应 UI，`respond()` 之外没有任何本地
+ * 状态机分支去"预测"裁决结果——同一份纪律 `agent-approval-panel.tsx` 头注写过一次
+ * （409 时如实展示服务端话术，不本地假装生效），这里由框架的 Promise 语义自动保证：
+ * 不调用 `respond` 就是"没有决定"，run 就应该一直停在 `executing`，不存在本组件
+ * 自己乐观更新出一个"已批准"的中间态。
+ *
+ * `parameters` 的 zod schema（`{to, subject, body}`）与 `name`（`"send_email"`）
+ * 逐字对齐 `loopback-deep-agent-provider.ts` 的 `APPROVAL_TOOL_NAME`/`originalArgs`
+ * 形状（该脚本头注"UX-9 D4 前端接入取证"一段）——沿用既有确定性替身的工具名，
+ * 不是本次新发明一个后端不认识的工具。UI-kit 检测规则（human-in-the-loop.md 明写）：
+ * 本仓已有 shadcn `Dialog`（`@/components/ui/dialog`，无 `AlertDialog` 分量），
+ * 复用它而不是手写一个 `position:fixed` 遮罩层。
+ *
+ * ⚠ **本轮实测发现的真实后端缺口**（如实记录，不跳过验证——完整机制与真实 wire
+ * 字节见 `e2e/copilotkit-v2-hitl.spec.ts` 头注，这里只摘要结论）：`send_email` 的
+ * `TOOL_CALL_START`/`_ARGS`/`_END` 确实会到达前端，但 `copilotkit-agui.controller.ts`
+ * 的 `writeToolCallStep` 对一个**还没被裁决**的步骤（`RunStepPublic.status ===
+ * "in_progress"`）与一个**已经成功**的步骤走同一个 `else` 分支，立刻补发一个内容
+ * 为空字符串的 `TOOL_CALL_RESULT`——`useHumanInTheLoop` 借以判定"这个工具调用还在
+ * 等人"的信号（`TOOL_CALL_END` 之后一段时间内没有配对结果）因此从未成立，客户端把
+ * 它当已完成处理，`status` 直接落 `"complete"`，从未经过 `"executing"`：`respond`
+ * 全程 `undefined`，本文件 `SendEmailApprovalDialog` 的 approve/编辑/reject 三个
+ * 按钮永远不会渲染（只会挂载成只读的"本轮已裁决，等待 run 收尾"分支）。与此同时，
+ * run 自己的**整体**状态仍卡在 `awaiting_approval`（那个步骤被提前"结清"不影响
+ * `readAgentRun` 的整体投影）——`runAguiBridgeTurn`（`apps/api/src/application/
+ * agent-run/agui-bridge.ts`）的轮询循环只认 `"succeeded"`/`"failed"` 两个终态分支，
+ * 最终耗尽 `maxPolls`（~30s）以 `RUN_ERROR`/`AGENT_RUN_TIMEOUT` 收场。也没有任何
+ * 入口能把 `respond()` 之后框架发起的 follow-up `runAgent` 请求（携带编辑后的工具
+ * 结果）路由回同一个被打断的 run 去恢复它——`bridge()` 每次 `POST` 都是"新开一个
+ * 人类消息、新开一次 run"的单轮语义（controller 文件头"single-round scope"、
+ * `resolveThreadId`/`runAguiBridgeTurn` 内 `threadId: null`）。
+ *
+ * 这与 DA-07b/PR #1960 修的 bug 不是同一层：那次修的是旧 REST 审批路径
+ * （`/agent-runs/:runId/decision`）在**已经支持**审批的前提下、resume 时撞了账本
+ * 序号唯一约束；这里是 AG-UI/CopilotRuntime 这条**新**桥接层从未实现过审批语义
+ * （`writeToolCallStep` 设计时假设收到的步骤"一定已经执行完"，`agui-bridge.ts`
+ * 自己的文档原话是"a REAL, ALREADY-EXECUTED tool_call step"——`"in_progress"` 这个
+ * 中间态变体是 #742 Gap 1 为"已完成步骤"争取一次宣布帧引入的，从未设计过覆盖"还没
+ * 执行、正在等人裁决"这种语义），不存在"撞同一个 bug"这回事——是一个未开始建的
+ * 能力，登记在案，不在本任务（仅前端 hook 接线）范围内新增后端实现。
  */
+const APPROVAL_TOOL_NAME = "send_email";
+const approvalToolParameters = z.object({
+  to: z.string(),
+  subject: z.string(),
+  body: z.string(),
+});
+
+/**
+ * 编辑态的 JSON 文本域校验纪律与 `agent-approval-panel.tsx` 的 `parsedDraft` 逐条
+ * 一致（必须是合法 JSON **对象**，不是数组/原始值）——同一份产品纪律换一层框架
+ * 实现，不因为换了 hook 就放松校验。
+ */
+function parseEditDraft(draft: string): { ok: true; value: Record<string, unknown> } | { ok: false; message: string } {
+  try {
+    const value: unknown = JSON.parse(draft);
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return { ok: false, message: "编辑后的参数必须是 JSON 对象（不能是数组或原始值）" };
+    }
+    return { ok: true, value: value as Record<string, unknown> };
+  } catch {
+    return { ok: false, message: "不是合法 JSON，请修正后再提交" };
+  }
+}
+
+/**
+ * `useHumanInTheLoop` 的 `render` —— 三态齐全（`inProgress`/`executing`/
+ * `complete`），`respond` 只在 `"executing"` 下非 `undefined`（human-in-the-loop.md
+ * "Common Mistakes" 明确警告：把它 widen 成 `any` 会静默 no-op，按钮点了但 Promise
+ * 永不 resolve）——本组件在其余两态直接 return 一段只读文案，从不把 `respond` 从
+ * 闭包外传出去，物理上排除了"在错误状态下调用它"的可能。
+ */
+function SendEmailApprovalDialog({
+  statusLabel,
+  awaitingDecision,
+  args,
+  respond,
+}: {
+  /** 只读文案 + `data-hitl-status` 探针用的原始状态字符串（`"inProgress"` /
+   *  `"executing"` / `"complete"`，直接取自 `ToolCallStatus` 枚举的字符串值，
+   *  不重新声明一份易漂移的联合类型）。 */
+  statusLabel: string;
+  /** `respond !== undefined` 的等价布尔值——在这一层拆开是为了不用把
+   *  `ToolCallStatus`（`@copilotkit/core` 的枚举类型）也吃进这个纯展示组件的
+   *  类型签名，`render` 回调里已经用真实枚举值判过一次，这里只消费判完的结果。 */
+  awaitingDecision: boolean;
+  args: Record<string, unknown>;
+  respond?: (result: unknown) => void;
+}): JSX.Element {
+  const [editing, setEditing] = React.useState(false);
+  const [draft, setDraft] = React.useState("");
+
+  const startEditing = (): void => {
+    setDraft(JSON.stringify(args, null, 2));
+    setEditing(true);
+  };
+
+  if (!awaitingDecision || respond === undefined) {
+    return (
+      <Dialog open>
+        <DialogContent data-testid="copilotkit-v2-hitl-dialog" data-hitl-status={statusLabel}>
+          <DialogHeader>
+            <DialogTitle>等待批准：发送邮件</DialogTitle>
+            <DialogDescription>
+              {statusLabel === "inProgress" ? "工具调用参数正在流式到达…" : "本轮已裁决，等待 run 收尾。"}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const parsedDraft = parseEditDraft(draft);
+
+  return (
+    <Dialog open>
+      <DialogContent data-testid="copilotkit-v2-hitl-dialog" data-hitl-status={statusLabel}>
+        <DialogHeader>
+          <DialogTitle>等待你的批准：发送邮件</DialogTitle>
+          <DialogDescription>批准前可编辑收件人/主题/正文，裁决后由框架恢复这次 run。</DialogDescription>
+        </DialogHeader>
+        {!editing ? (
+          <pre
+            className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted px-2 py-1 text-11 text-muted-foreground"
+            data-testid="copilotkit-v2-hitl-args"
+          >
+            {JSON.stringify(args, null, 2)}
+          </pre>
+        ) : (
+          <div>
+            <textarea
+              className="h-40 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-11 text-foreground"
+              data-testid="copilotkit-v2-hitl-edit-textarea"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              spellCheck={false}
+            />
+            {!parsedDraft.ok ? (
+              <p className="mt-1 text-11 text-destructive" data-testid="copilotkit-v2-hitl-edit-json-error">
+                {parsedDraft.message}
+              </p>
+            ) : null}
+          </div>
+        )}
+        <DialogFooter className="gap-2">
+          {!editing ? (
+            <>
+              <Button size="sm" data-testid="copilotkit-v2-hitl-approve" onClick={() => respond("approved")}>
+                批准并继续
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="copilotkit-v2-hitl-start-edit"
+                onClick={startEditing}
+              >
+                <Pencil aria-hidden className="h-3 w-3" />
+                编辑参数
+              </Button>
+              <Button size="sm" variant="outline" data-testid="copilotkit-v2-hitl-reject" onClick={() => respond("denied")}>
+                拒绝
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                disabled={!parsedDraft.ok}
+                data-testid="copilotkit-v2-hitl-edit-submit"
+                onClick={() => {
+                  if (parsedDraft.ok) respond(parsedDraft.value);
+                }}
+              >
+                编辑并批准
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="copilotkit-v2-hitl-edit-cancel"
+                onClick={() => setEditing(false)}
+              >
+                取消
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function CopilotKitV2Panel(): JSX.Element {
   const { copilotkit } = useCopilotKit();
   const [threadId] = React.useState(() => `copilotkit-v2-${crypto.randomUUID()}`);
@@ -93,6 +303,25 @@ export function CopilotKitV2Panel(): JSX.Element {
   });
   const [inputDraft, setInputDraft] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+
+  // DA-19d —— human-in-the-loop.md "Setup" 范例的直接应用：`render` 收到
+  // `{status, args, respond}`，本组件只负责把它交给 `SendEmailApprovalDialog`。
+  // 不传 `agentId` 时 hook 默认绑定 provider 唯一的 `"default"` agent
+  // （agent-access.md "Duplicate tool name across hooks" 一节：多 agent 场景才需要
+  // 显式 `agentId` 隔离，本面板只有一个 agent）。
+  useHumanInTheLoop({
+    name: APPROVAL_TOOL_NAME,
+    description: "Confirm sending an email before it is dispatched",
+    parameters: approvalToolParameters,
+    render: ({ status, args, respond }) => (
+      <SendEmailApprovalDialog
+        statusLabel={status}
+        awaitingDecision={respond !== undefined}
+        args={args}
+        respond={respond}
+      />
+    ),
+  });
 
   const send = React.useCallback(
     async (override?: string) => {
