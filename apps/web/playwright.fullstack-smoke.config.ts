@@ -386,12 +386,16 @@ export default defineConfig({
        * `motion-orchestration-reduced-motion.spec.ts`（消息到达编排动效的
        * `prefers-reduced-motion: reduce` 降级）同样落在 `/kitchen-sink`
        * （`MessageEntranceGallery`），同一前提，并入同一 project。
+       *
+       * F10 —— `composite-primitives-kitchen-sink.spec.ts`（Table/Menu/Pagination 复合
+       * 组件展示区完整性 + Pagination 页码/游标两种交互）同一前提，同样并入。
        */
       name: "overlay-primitives-keyboard",
       testMatch: [
         "overlay-primitives-keyboard.spec.ts",
         "overlay-primitives-kitchen-sink.spec.ts",
         "motion-orchestration-reduced-motion.spec.ts",
+        "composite-primitives-kitchen-sink.spec.ts",
       ],
     },
     {
