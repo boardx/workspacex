@@ -218,7 +218,7 @@ export function ThreadCardButton({
         onClick={onSelect}
         onDoubleClick={canMutate ? startEdit : undefined}
         className={[
-          "flex w-full flex-col gap-1 rounded-md border-l-2 px-2 py-2 pr-7 text-left transition-colors hover:bg-muted",
+          "flex w-full flex-col gap-1 rounded-md border-l-2 px-2 py-2 pr-7 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           selected ? "border-primary bg-muted" : "border-transparent",
         ].join(" ")}
       >

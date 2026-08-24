@@ -80,7 +80,7 @@ export function ChatMaterialsPanel({
               <button
                 key={item.id}
                 type="button"
-                className="flex items-center gap-2 rounded-md border border-border-subtle p-2 text-left transition-colors duration-200 hover:border-primary/50"
+                className="flex items-center gap-2 rounded-md border border-border-subtle p-2 text-left transition-colors duration-base hover:border-primary/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 data-testid={`chat-material-${item.id}`}
                 onClick={() => setPreviewing(item)}
               >
