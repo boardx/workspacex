@@ -284,6 +284,10 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
         LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: CHAT_READ_E2E.deepAgentMultiStepTrigger,
         LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER: CHAT_READ_E2E.deepAgentApprovalTrigger,
+        // DA-19g —— 多轮上下文取证开关，见 `CHAT_READ_E2E.deepAgentFollowupContextTrigger`
+        // 自己的头注。
+        LOOPBACK_DEEP_AGENT_FOLLOWUP_CONTEXT_TRIGGER: CHAT_READ_E2E.deepAgentFollowupContextTrigger,
+        LOOPBACK_DEEP_AGENT_FOLLOWUP_CONTEXT_ECHO_PREFIX: CHAT_READ_E2E.deepAgentFollowupContextEchoPrefix,
       },
     },
     {

@@ -339,3 +339,61 @@ test("DA-19b markdown/mermaid 消息渲染——真的渲成结构化 DOM 与 fa
 
   expect(sawNonEmptyAssistantText, `all ${MAX_ATTEMPTS} attempts never got a non-empty assistant bubble; last: ${lastNote}`).toBe(true);
 });
+
+/**
+ * DA-19g —— 多轮上下文真实缺陷修复的取证（chat-ux-acceptance-criteria.md 第 6 项）。
+ *
+ * ## 排查结论（写在这里，不是猜测）
+ *
+ * `copilotkit-v2-panel.tsx` 此前从未把服务端在 `RUN_STARTED` 之后回写的
+ * `CUSTOM {name:"chat_thread_id"}` 事件（`copilotkit-agui.controller.ts` "DA-19a"
+ * 一节文档的续聊通道）回传为下一轮 `forwardedProps.chatThreadId`——`runAguiBridgeTurn`
+ * 的 Chat 线程续接**唯一**依据就是这个字段，不传就每轮新建线程，`execute-run.ts` 的
+ * `history` 因此永远是空数组。这是传输层/前端接线的真实缺陷（本次 PR 已修：
+ * `copilotkit-v2-panel.tsx` 新增 `chatThreadIdRef` + `agent.subscribe` 消费），
+ * 不是 loopback 替身的问题——但替身此前也确实**设计上无法**证明"记得上文"（`RunRecord`
+ * 每轮整体覆盖 `userText`，回复模板永远只回显当前这一句），所以本次同时给替身加了
+ * `FOLLOWUP_CONTEXT_TRIGGER` 这个确定性分支（`loopback-deep-agent-provider.ts` 的
+ * `conversationLog`），让"服务端是否真的把完整历史送到了上游"这件事变得可断言。
+ *
+ * ## 本测试断言什么
+ *
+ * 同一次页面加载内连续发两条消息（不刷新页面——`threadId` 是 `useState` 惰性初始化，
+ * 刷新会拿到新值，见面板文件头注），第二条是 `deepAgentFollowupContextTrigger`。
+ * 断言第二轮回复里**逐字**出现了第一轮的用户原文——这不是"看起来记得"的泛化断言，
+ * 是具体字符串比对：如果 `forwardedProps.chatThreadId` 没有真的回传、或服务端没有真的
+ * 续接同一条 Chat 线程，`conversationLog` 里就不会有"上一轮"，替身会如实回
+ * "没有上文可引用"而不是编造，断言会如实失败，不会产生假阳性。
+ */
+test("DA-19g 多轮上下文——第二轮回复真的引用第一轮的用户原文，不是各轮互相失忆", async ({ page }) => {
+  await warmUpCopilotRuntimeRoute(page);
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await page.waitForURL(/\/projects$/);
+  await page.goto("/chat/copilotkit-v2");
+
+  const firstTurnText = "DA-19g 第一轮：记住这句暗号 ZEBRA-4471";
+
+  await page.getByTestId("copilotkit-v2-input").fill(firstTurnText);
+  await page.getByTestId("copilotkit-v2-send").click();
+  // 等第一轮真正落定（气泡出现），再发第二轮——不依赖固定 sleep 猜时序。
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(firstTurnText, { timeout: 20_000 });
+  await expect
+    .poll(async () => (await page.getByTestId("copilotkit-v2-send").isDisabled()), { timeout: 30_000 })
+    .toBe(false);
+
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentFollowupContextTrigger);
+  await page.getByTestId("copilotkit-v2-send").click();
+
+  const messages = page.getByTestId("copilotkit-v2-messages");
+  // 断言具体字符串，不是泛泛的"记得"——第一轮那句暗号必须逐字出现在第二轮回复里，
+  // 并且带着替身的确定性前缀（证明命中的是本次新增的分支，不是通用兜底回复恰好
+  // 撞上了同样的文字）。
+  await expect(messages).toContainText(CHAT_READ_E2E.deepAgentFollowupContextEchoPrefix, { timeout: 30_000 });
+  await expect(messages).toContainText(firstTurnText, { timeout: 5_000 });
+  // 反向对照：如实说明"没有上文"的分支文案不应该出现——命中的必须是真的引用到了历史，
+  // 不是回退到诚实拒绝那一支。
+  await expect(messages).not.toContainText("没有上一轮可引用");
+});

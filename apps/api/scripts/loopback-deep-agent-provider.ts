@@ -104,6 +104,41 @@ const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
  */
 const APPROVAL_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER;
 const APPROVAL_TOOL_NAME = process.env.LOOPBACK_DEEP_AGENT_APPROVAL_TOOL_NAME ?? "send_email";
+/**
+ * DA-19g —— 测试基础设施增强（不是产品代码）：确定性"记得上一轮"分支。
+ *
+ * ## 为什么加这个，以及为什么这不是造假 UI
+ *
+ * `chat-ux-acceptance-criteria.md` 第 6 项判据是"连续对话时，agent 是否真的记得前几轮
+ * 说了什么"。这个替身在设计上**从未能验证这条判据**——`RunRecord` 此前只有单个
+ * `userText: string` 字段，`POST /threads/:id/runs` 每次整体覆盖它（见文件顶部头注
+ * "state 从第一次读起就是完整的"一段），回复模板永远只回显*当前*这一句用户输入
+ * （`根据查询结果回答你："${record.userText}"...`）——不管传输层有没有真的把完整历史
+ * 送过来，这个替身自己从不使用历史，永远表现得"看起来忘了上文"，与传输层是否有 bug
+ * 无关。DA-19g 排查已确认传输层本身在这条链路上有真实 bug（`copilotkit-v2-panel.tsx`
+ * 此前从未回传 `forwardedProps.chatThreadId`，导致每轮开新 Chat 线程、`history` 永远
+ * 为空——已在同一个 PR 里修），但即便传输层完全正确，这个替身自己也没有能力证明
+ * "服务端确实拿到并利用了完整历史"——因为它压根不记。
+ *
+ * 这里新增的分支不改变默认行为（`FOLLOWUP_CONTEXT_TRIGGER` 未设置时，`conversationLog`
+ * 仍然被写入但从不被读，行为与本次改动前逐字节相同）：只有显式命中这个新触发词时，
+ * 才会去读「这条线程上一次收到的用户消息」并把它逐字嵌进回复——同一套纪律
+ * `MARKDOWN_TRIGGER`/`MULTISTEP_TRIGGER`/`APPROVAL_TRIGGER` 已经在用（见各自头注：
+ * 显式触发词命中才换分支，不影响默认路径），不是新发明一套哲学。
+ *
+ * ## 这证明什么，不证明什么
+ *
+ * 命中这个分支且回复里真的出现了上一轮原文，证明：① 传输层把「这条线程」的两轮请求
+ * 都送到了同一个远端 thread（`deriveRemoteThreadId` 对同一个 Chat 线程稳定）；
+ * ② 这个替身自己选择去读历史时是有历史可读的（`conversationLog` 非空）。它不证明
+ * 「真实 deepagents 服务的模型会不会真的利用历史」——那需要真实模型凭据，见文件头注
+ * "为什么不是起一个真的 langgraph dev 进程"，本次改动的范围边界与那里说的一致。
+ */
+const FOLLOWUP_CONTEXT_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_FOLLOWUP_CONTEXT_TRIGGER;
+const FOLLOWUP_CONTEXT_ECHO_PREFIX = process.env.LOOPBACK_DEEP_AGENT_FOLLOWUP_CONTEXT_ECHO_PREFIX ?? "[remembered:]";
+/** threadId → 该线程迄今为止收到过的用户消息，按到达顺序追加，从不覆盖（对照
+ *  `RunRecord.userText` 每次整体覆盖的既有行为——两者刻意不同，见上面头注）。 */
+const conversationLog = new Map<string, string[]>();
 const MARKDOWN_REPLY = [
   "## 分析结果",
   "",
@@ -235,7 +270,14 @@ const server = createServer((req, res) => {
         return;
       }
       const lastUser = [...(parsed.input?.messages ?? [])].reverse().find((m) => m.role === "user")?.content;
-      runs.set(threadId, { userText: typeof lastUser === "string" ? lastUser : "", statusPolls: 0, decision: null });
+      const lastUserText = typeof lastUser === "string" ? lastUser : "";
+      // DA-19g：追加进这条线程的历史记录，从不覆盖——见 `conversationLog` 自己的头注。
+      if (lastUserText !== "") {
+        const log = conversationLog.get(threadId) ?? [];
+        log.push(lastUserText);
+        conversationLog.set(threadId, log);
+      }
+      runs.set(threadId, { userText: lastUserText, statusPolls: 0, decision: null });
       // 用 thread id 直接当 run id：同一线程本进程不并发跑第二个 run，够用，
       // 不需要为了"看起来更像真服务"多维护一份映射。
       sendJson(res, 200, { run_id: threadId });
@@ -420,9 +462,23 @@ const server = createServer((req, res) => {
       return;
     }
     const toolResult = `已查询：当前时间 ${new Date().toISOString()}。用户原话："${record.userText}"`;
-    const finalReply = MARKDOWN_TRIGGER !== undefined && record.userText === MARKDOWN_TRIGGER
-      ? MARKDOWN_REPLY
-      : `根据查询结果回答你："${record.userText}" —— ${toolResult}`;
+    // DA-19g：命中「记得上文」触发词时，逐字引用这条线程上一次收到的用户消息——
+    // 见 `conversationLog`/`FOLLOWUP_CONTEXT_TRIGGER` 自己的头注。`log` 至少两条
+    // （当前这轮 + 上一轮）才有"上一轮"可引用；只有当前这一轮（首轮就发触发词）时
+    // 如实说明没有上文可引用，不编造一个不存在的历史。
+    const followupContextReply = (() => {
+      if (FOLLOWUP_CONTEXT_TRIGGER === undefined || record.userText !== FOLLOWUP_CONTEXT_TRIGGER) return null;
+      const log = conversationLog.get(threadId) ?? [];
+      const previousUserText = log.length >= 2 ? log[log.length - 2] : null;
+      return previousUserText === null
+        ? `${FOLLOWUP_CONTEXT_ECHO_PREFIX} 这是本线程第一轮消息，没有上一轮可引用。`
+        : `${FOLLOWUP_CONTEXT_ECHO_PREFIX} 你上一轮说的是："${previousUserText}"。`;
+    })();
+    const finalReply = followupContextReply ?? (
+      MARKDOWN_TRIGGER !== undefined && record.userText === MARKDOWN_TRIGGER
+        ? MARKDOWN_REPLY
+        : `根据查询结果回答你："${record.userText}" —— ${toolResult}`
+    );
     sendJson(res, 200, {
       values: {
         messages: [
