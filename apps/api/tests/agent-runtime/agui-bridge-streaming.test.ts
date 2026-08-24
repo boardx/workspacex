@@ -198,15 +198,18 @@ describe("POST /copilotkit/agui with KERNEL_MODEL_STREAM_ENABLED=1", () => {
       const { status, events } = await postBridgeTurn("Stream this, please");
       expect(status).toBe(200);
 
-      // RUN_STARTED first, THEN the streamed content, THEN a lone TEXT_MESSAGE_END --
-      // never a second CONTENT carrying the whole answer again.
+      // RUN_STARTED first, THEN DA-19a's CUSTOM chat_thread_id (every real run mints/echoes
+      // one via `onThreadResolved`, which fires unconditionally before `onStarted` -- see
+      // `agui-bridge.ts`), THEN the streamed content, THEN a lone TEXT_MESSAGE_END -- never
+      // a second CONTENT carrying the whole answer again.
       expect(events[0]?.type).toBe(EventType.RUN_STARTED);
-      expect(events[1]?.type).toBe(EventType.TEXT_MESSAGE_START);
+      expect(events[1]?.type).toBe(EventType.CUSTOM);
+      expect(events[2]?.type).toBe(EventType.TEXT_MESSAGE_START);
 
       const contentEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
       expect(contentEvents.map((e) => e.delta)).toEqual(["The ", "answer ", "streamed ", "in pieces."]);
 
-      const messageId = events[1]?.messageId as string;
+      const messageId = events[2]?.messageId as string;
       expect(contentEvents.every((e) => e.messageId === messageId)).toBe(true);
 
       const tail = events.slice(-2).map((e) => e.type);
