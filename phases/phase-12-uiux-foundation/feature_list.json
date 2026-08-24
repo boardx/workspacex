@@ -210,9 +210,9 @@
         "F09"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-j",
       "verification": [
         "pnpm --filter web run lint:design",
         "pnpm --filter web exec vitest run tests/ui/microinteraction-chat-profile.test.tsx"
