@@ -272,9 +272,17 @@ agent/错误态（DA-19a 已加固）。**这份连接层结论不作废**——
 - 依赖：DA-19a。
 
 **DA-19c 工具可见性（框架版 Gap 1/4）**——推动：D2/D9
-- `useCopilotAction` 的 `render` 替换 `agent-tool-chain.tsx` 手写的 per-tool 卡片
-  逻辑，进行中/完成态由框架状态机驱动，不是手动维护 `in_progress` 记账分支。
+- `useRenderTool`/`useDefaultRenderTool` 替换 `agent-tool-chain.tsx` 手写的
+  per-tool 卡片逻辑，进行中/完成态由框架状态机驱动，不是手动维护 `in_progress`
+  记账分支。
 - 依赖：DA-19b。
+- **状态**：✅ done —— #1990（Closes #1990），PR #1991 合并即签署，merge commit
+  `6fad0254` 已确认在 `main` 血统内（`merge-base --is-ancestor` 实测）。
+- **实测发现的真实缺口**（如实记录，登记为后续 backend 任务，不在本条范围内修）：
+  `apps/api/src/application/agent-run/agui-bridge.ts` 的步骤上报游标在 AG-UI 线上
+  丢失工具调用的终态结果文本（4/4 复现，wire 字节实测），旧轮询式 UI 用同一份数据
+  正确显示，证明是 AG-UI 桥接层特有的 bug，非前端渲染问题。已用 `spawn_task` 提出
+  独立跟进。
 
 **DA-19d 人在环（框架版 Gap 3）**——推动：D6
 - `useHumanInTheLoop`（`@copilotkit/react-core/v2` 实际导出的 hook 名——本条最初
@@ -299,10 +307,16 @@ agent/错误态（DA-19a 已加固）。**这份连接层结论不作废**——
   跟旧面板逐条对齐，一旦后端补上，不需要再改前端代码。
 
 **DA-19e 追问建议（框架版 Gap 2）**——推动：chat-ux 维度
-- `useCopilotChatSuggestions` 替换 `computeFollowUpSuggestions`——顺带解决 UX-9
-  评估发现的缺陷（deep-agent 类线程走不通 `ModelCallPort`，仍是写死模板）：框架的
-  建议生成走的是 agent 自己的连接，不需要额外适配 deep-agent 的调用形状。
+- `useConfigureSuggestions`/`useSuggestions` 替换 `computeFollowUpSuggestions`——
+  顺带解决 UX-9 评估发现的缺陷（deep-agent 类线程走不通 `ModelCallPort`，仍是写死
+  模板）：框架的建议生成走的是 agent 自己的连接，不需要额外适配 deep-agent 的调用
+  形状。
 - 依赖：DA-19b。
+- **状态**：✅ done —— #1989 合并即签署，已合入 main。
+- **实测发现的真实后端缺口**（如实记录，登记为后续 backend 任务）：
+  `copilotkit-agui.controller.ts` 忽略 `tools`/`toolChoice`/`forwardedProps`，
+  阻塞了建议机制真正走通 deep-agent 侧的工具感知建议生成。已登记，不在本任务
+  范围内新增后端实现。
 
 **DA-19f 上行注入基座**——推动：D9（目前 0.3，唯一为 0 的引擎维度）、解锁 DA-14
 - 把 `useCopilotReadable` 接进新轨道（provider 级接线，不是具体注入哪些内容——
