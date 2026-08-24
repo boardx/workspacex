@@ -597,14 +597,14 @@
       "capability": "CAP-WEB",
       "title": "取消注册邀请码，降低注册门槛：自助建新组织 + 邮箱验证（彻底移除邀请码注册路径）",
       "user_visible_behavior": "`/register` 页面不再有邀请码输入框：填工作邮箱/组织名/姓名/密码直接提交（`POST /auth/register-open`），无需任何邀请码即可建一个新组织并成为其 owner，提交后展示「验证邮件已排队」等待态；未验证邮箱登录被拒（`EMAIL_NOT_VERIFIED`），点击验证邮件里的链接完成验证后登录放行。冷启动「创建首位管理员」（`bootstrapFirstUser`）改由页面上一条显式的「这是全新部署？创建首位管理员」切换触发，不再依赖已移除的邀请码字段留空。旧的 `redeemInviteAndCreateOrg`（`POST /auth/register` 带 14 位邀请码）连同 `INVITE_CODE_INVALID` 在这条路径上的出现一并移除；组织内部成员邀请/共享邀请链接/`joinOrgWithInvite`（F22，已登录用户拿新邀请码建第二个组织）不受影响。",
-      "spec_ref": "phases/phase-00-shared-kernel/design-deltas/open-self-serve-registration/contract.md",
+      "spec_ref": "01-auth/uc-1-5-用邀请码创建组织并注册.md#R3",
       "depends_on": [
         "F19"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "05",
-      "owner": null,
+      "owner": "dev-chat-e2e",
       "verification": [
         "pnpm --filter api run typecheck",
         "pnpm --filter web run typecheck",
@@ -619,7 +619,7 @@
         "pnpm exec tsx .harness/scripts/cli.ts doctor"
       ],
       "evidence": "",
-      "notes": "【2026-08-24，design-delta open-self-serve-registration，issue #1929】design-signoff 已签核五点裁决（组织归属=自助建新组织；防滥用=邮箱验证复用既有闭环；登录闸门覆盖范围=实测核实后补反证，见 `apps/api/tests/auth/register-http-contract.test.ts`/`register-new-account-atomic.test.ts` 与 `login.ts` 对 `credentials.email_verified_at` 的检查——该检查与注册路径无关，新路径天然继承；旧邀请码路径彻底移除；本轮不做限流/人机验证）。零新增设计面之外的一处补充：design-signoff 未提及 `bootstrapFirstUser` 的 UI 触发方式，本实现发现原实现靠「邀请码留空」触发 bootstrap，邀请码字段整体移除后必须换一种触发方式才不丢失冷启动能力（`bootstrapFirstUser` 本身依人类明确指示不属于移除范围），改为显式的 `registration-bootstrap-toggle` 切换，`apps/web/e2e/core-loop.spec.ts` 步骤 1 与 `bootstrap-first-admin.test.tsx` 同步更新锚点。移除：契约操作 `redeemInviteAndCreateOrg`（`POST /auth/register`）及其在该操作上的 `INVITE_CODE_INVALID` 用法、`register-with-invite.ts`、controller 里的对应分支、`invite-code-redeem-atomic.test.ts`（由 `register-new-account-atomic.test.ts` 取代）、`one-code-one-org-concurrency.test.ts` 第 3 层原本挂在 `redeemAndCreateOrg`/`registerWithInvite` 上的部分（改挂到仍然存活的 `joinExistingUserToNewOrg`，同一条 `REDEEM_SQL` 语句）。新增：契约操作 `registerNewAccount`（`POST /auth/register-open`）、`register-new-account.ts` 用例、仓储方法 `createAccountAndOrg`、`register-new-account-atomic.test.ts`。`invite_codes` 表 / `InviteCodeValue` 类型 / `joinOrgWithInvite`（组织内部邀请）完全不动。【验证现状，2026-08-24】实现 PR 提交时机器上并行会话把 docker 网络地址池耗尽（`docker network prune` 实测可回收数为 0，29 个 wsx-* 网络全部挂着别的存活 worktree 的容器），依赖真实 Postgres 的集成测试与真实浏览器 e2e 本轮会话内跑不起来；`pnpm --filter api/web run typecheck` 与不依赖 Postgres 的前端单测（`registration-field-errors`/`bootstrap-first-admin`/`email-verification-public`/`single-source-of-truth`，共 35 条）已在会话内跑绿，`pnpm exec tsx .harness/scripts/cli.ts doctor` 0 FAIL。status 如实留 not_started，不自证 passing；下一轮机器空闲时跑 `pnpm harness verify --sprint 00/05 --feature F23` 补齐 DB 侧证据后机械转 passing。"
+      "notes": "【2026-08-24，design-delta open-self-serve-registration，issue #1929】design-signoff 已签核五点裁决（组织归属=自助建新组织；防滥用=邮箱验证复用既有闭环；登录闸门覆盖范围=实测核实后补反证，见 `apps/api/tests/auth/register-http-contract.test.ts`/`register-new-account-atomic.test.ts` 与 `login.ts` 对 `credentials.email_verified_at` 的检查——该检查与注册路径无关，新路径天然继承；旧邀请码路径彻底移除；本轮不做限流/人机验证）。零新增设计面之外的一处补充：design-signoff 未提及 `bootstrapFirstUser` 的 UI 触发方式，本实现发现原实现靠「邀请码留空」触发 bootstrap，邀请码字段整体移除后必须换一种触发方式才不丢失冷启动能力（`bootstrapFirstUser` 本身依人类明确指示不属于移除范围），改为显式的 `registration-bootstrap-toggle` 切换，`apps/web/e2e/core-loop.spec.ts` 步骤 1 与 `bootstrap-first-admin.test.tsx` 同步更新锚点。移除：契约操作 `redeemInviteAndCreateOrg`（`POST /auth/register`）及其在该操作上的 `INVITE_CODE_INVALID` 用法、`register-with-invite.ts`、controller 里的对应分支、`invite-code-redeem-atomic.test.ts`（由 `register-new-account-atomic.test.ts` 取代）、`one-code-one-org-concurrency.test.ts` 第 3 层原本挂在 `redeemAndCreateOrg`/`registerWithInvite` 上的部分（改挂到仍然存活的 `joinExistingUserToNewOrg`，同一条 `REDEEM_SQL` 语句）。新增：契约操作 `registerNewAccount`（`POST /auth/register-open`）、`register-new-account.ts` 用例、仓储方法 `createAccountAndOrg`、`register-new-account-atomic.test.ts`。`invite_codes` 表 / `InviteCodeValue` 类型 / `joinOrgWithInvite`（组织内部邀请）完全不动。【验证现状，2026-08-24】实现 PR 提交时机器上并行会话把 docker 网络地址池耗尽（`docker network prune` 实测可回收数为 0，29 个 wsx-* 网络全部挂着别的存活 worktree 的容器），依赖真实 Postgres 的集成测试与真实浏览器 e2e 本轮会话内跑不起来；`pnpm --filter api/web run typecheck` 与不依赖 Postgres 的前端单测（`registration-field-errors`/`bootstrap-first-admin`/`email-verification-public`/`single-source-of-truth`，共 35 条）已在会话内跑绿，`pnpm exec tsx .harness/scripts/cli.ts doctor` 0 FAIL。status 经 `pnpm harness claim` 机械领入 in_progress，不自证 passing；下一轮机器空闲时跑 `pnpm harness verify --sprint 00/05 --feature F23` 补齐 DB 侧证据后机械转 passing。spec_ref 复用 F19 同一份 story（`01-auth/uc-1-5-用邀请码创建组织并注册.md#R3`）——本 feature 是对该 R3 步骤「注册」这一段的签核修正（design-delta open-self-serve-registration），不是脱离原 story 的新需求；真正的规范来源是 `phases/phase-00-shared-kernel/design-deltas/open-self-serve-registration/contract.md` 与同目录 `design-signoff.md`。"
     }
   ]
 }
