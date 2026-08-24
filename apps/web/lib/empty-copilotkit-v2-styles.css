@@ -1,0 +1,8 @@
+/*
+ * DA-19 —— 占位空文件，见 `next.config.mjs` 的 `webpack()` 钩子头注。
+ * `@copilotkit/react-core/dist/v2/index.mjs` 在模块顶层无条件 `import "./index.css"`
+ * （Tailwind v4 编译产物），本仓 PostCSS 管线是 Tailwind v3 一代解析不了它
+ * （`@layer base` 缺配对 `@tailwind base` 直接报语法错，整条引用它的路由编译失败）。
+ * 用这份空文件替换掉那次 import，不影响 `useAgent`/`useCopilotKit`/`CopilotKit`
+ * provider 本身的任何运行时行为——这几个 API 都不依赖这份样式表。
+ */
