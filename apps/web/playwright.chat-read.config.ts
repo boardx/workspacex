@@ -96,7 +96,14 @@ export default defineConfig({
    * 同一条真登录，唯一区别是断言目标从「回复文字」换成「上行请求体的 `context` 字段」）。
    * 不需要新的进程或新的环境变量。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|chat-keyboard-navigation)\.spec\.ts$/,
+  /**
+   * DA-19c —— 新增 `copilotkit-v2-tool-rendering.spec.ts` 同样由本 config 接住（同一条
+   * `/chat/copilotkit-v2` 路由、同一条真登录、同一个 deep-agent loopback 替身）。断言
+   * 目标是 `useRenderTool` 注册的 `write_todos`/`search_documents` 定制卡片真的渲染出来，
+   * `search_documents` 分支复用已有的 `LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER` 环境变量
+   * （上面已经下发给替身进程），不需要新的进程或新的环境变量。
+   */
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*

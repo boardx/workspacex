@@ -10,6 +10,7 @@ import {
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
+import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
 
 /**
  * DA-19 CopilotRuntime 后端适配器 —— `useAgent` 驱动的最小面板，走
@@ -71,6 +72,13 @@ import { MarkdownMessage } from "@/components/chat/markdown-message";
  * （工具栏按钮等）读 `useCopilotChatConfiguration()`；不包这层 provider 时那个 hook
  * 返回 `null`，本仓没有验证过那条路径在这个包版本下是否处处判空安全，包一层比赌一次
  * 更诚实。
+ *
+ * ── DA-19c 工具可见性（框架版 Gap 1/4，backlog `DA-19c`）─────────────────────
+ *
+ * `<CopilotKitV2ToolRenderers />` 挂在组件树里（渲染 `null`，只负责调用
+ * `useRenderTool`/`useDefaultRenderTool` 注册渲染器），把 `write_todos`/`search_documents`
+ * 两个工具的进行中/完成态换成贴合各自数据形状的定制卡片，其余工具走框架内置默认卡片。
+ * 完整设计取舍（三态映射、协议本身不携带失败布尔信号的诚实记录）见该文件头注。
  */
 export function CopilotKitV2Panel(): JSX.Element {
   const { copilotkit } = useCopilotKit();
@@ -99,6 +107,7 @@ export function CopilotKitV2Panel(): JSX.Element {
 
   return (
     <div className="flex h-full w-full flex-col gap-3 p-4">
+      <CopilotKitV2ToolRenderers />
       <div className="text-sm font-medium">
         CopilotKit v2（DA-19 —— CopilotRuntime 适配器，走 `/api/copilotkit`）
       </div>
