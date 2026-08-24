@@ -76,7 +76,7 @@ export function MessageRating({ messageId }: { messageId: string }) {
           data-testid="chat-message-rating-up"
           aria-label="有用"
           title="有用"
-          className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:visible"
+          className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
         >
           <ThumbsUp aria-hidden className="h-3 w-3" />
         </button>
@@ -87,7 +87,7 @@ export function MessageRating({ messageId }: { messageId: string }) {
           data-testid="chat-message-rating-down"
           aria-label="待改进"
           title="待改进（可填理由）"
-          className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:visible"
+          className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
         >
           <ThumbsDown aria-hidden className="h-3 w-3" />
         </button>
@@ -108,7 +108,7 @@ export function MessageRating({ messageId }: { messageId: string }) {
             disabled={busy}
             onClick={() => void send("down", reason.trim() === "" ? null : reason.trim())}
             data-testid="chat-message-rating-reason-submit"
-            className="rounded border border-border-subtle px-1.5 py-0.5 text-10 transition-colors hover:bg-muted"
+            className="rounded border border-border-subtle px-1.5 py-0.5 text-10 transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             提交
           </button>

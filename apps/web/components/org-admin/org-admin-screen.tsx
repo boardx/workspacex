@@ -549,8 +549,13 @@ function ReviewerFunctionPicker({
   };
 
   return (
-    <div className="flex items-center gap-1.5">
-      <div className="w-36">
+    // F15 复核（issue #1877，rev-uiux 9/10 唯一扣分项）：这个外层 wrapper 此前没有
+    // `basis-full`，375px 下与姓名/徽章挤在同一行，把姓名列压到只剩 ~70px（"SSP
+    // E2…" 都读不全）。`sm:` 断点以下让它独占一行、宽度不再被固定 `w-36` 的下拉
+    // 逼出行外——把「该省的宽度」从姓名（内容，不该被牺牲）挪到这个本来就是
+    // 固定枚举值、可以随便换行的控件上。
+    <div className="flex basis-full items-center gap-1.5 sm:basis-auto">
+      <div className="w-full sm:w-36">
         <PopoverSelect
           value={current ?? ""}
           options={REVIEWER_FUNCTION_OPTIONS}
@@ -626,7 +631,16 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
           {out?.members.map((m) => (
             <li key={m.userId} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid={`org-admin-member-${m.userId}`}>
               <Avatar initials={m.displayName.slice(0, 1)} size="sm" />
-              <div className="flex min-w-0 flex-col">
+              {/*
+                F15 复核发现（issue #1877）：这个 flex 子项此前没有 `flex-1`，长显示名
+                （如种子数据里的 "SSP E2E Org Admin Keyboard Target"）在窄视口下会把
+                自己撑到内容宽度，导致整行在 `flex-wrap` 下被挤到换行——角色徽章跟着
+                掉到下一行，视觉上显得七零八落。技术上没有违反任何间距/颜色规则，
+                纯粹是这一项该收缩时没收缩。加 `flex-1` 后它会先吃掉其余兄弟元素
+                （徽章/审核职能下拉/加入日期）排完后剩下的空间，多余文字交给已有的
+                `truncate` 省略号处理，不再触发整行换行。
+              */}
+              <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-13 font-medium" data-testid={`org-admin-member-${m.userId}-name`}>{m.displayName}</span>
                 <span className="truncate text-10 text-muted-foreground">{m.email}</span>
               </div>
@@ -645,7 +659,12 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                   onChanged={handleReviewerFunctionChanged}
                 />
               )}
-              <span className="ml-auto text-10 text-muted-foreground" data-testid={`org-admin-member-${m.userId}-joined`}>
+              {/* F15 复核：同上，加入日期在窄屏也让位——basis-full 独占一行，
+                  sm 起再回到行尾 ml-auto 贴右对齐。 */}
+              <span
+                className="basis-full text-right text-10 text-muted-foreground sm:ml-auto sm:basis-auto"
+                data-testid={`org-admin-member-${m.userId}-joined`}
+              >
                 {new Date(m.joinedAt).toLocaleDateString("zh-CN")} 加入
               </span>
             </li>

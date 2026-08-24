@@ -79,6 +79,9 @@ test-results/
 # F965 的「成果沉淀」tab 真栈取证图（`pnpm run shots:project-results` 的产物）。
 # 同 `.chat-shots/` 的理由：过程物，每轮重抓，不是事实源。
 .project-results-shots/
+# F15 的 profile/org-admin 截图级保真度取证图（`profile-org-fidelity.spec.ts` 的产物）。
+# 同 `.chat-shots/` 的理由：过程物，每轮重抓，不是事实源。
+.profile-org-fidelity-shots/
 
 
 # CI/CD 的本机配置：主机/端口/路径/并发度。**不含密码**（密码在 GitHub Secrets 与

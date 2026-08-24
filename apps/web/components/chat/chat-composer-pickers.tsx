@@ -107,7 +107,7 @@ export function AgentPicker({
                 setOpen(false);
               }}
               className={[
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 agent.id === selectedAgentId ? "text-primary" : "text-card-foreground",
               ].join(" ")}
             >
@@ -180,7 +180,7 @@ export function MicDevicePicker({
             data-testid="chat-mic-device-option-default"
             onClick={() => { onSelect(null); setOpen(false); }}
             className={[
-              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               selectedDeviceId === null ? "text-primary" : "text-card-foreground",
             ].join(" ")}
           >
@@ -203,7 +203,7 @@ export function MicDevicePicker({
                 data-testid={`chat-mic-device-option-${device.deviceId}`}
                 onClick={() => { onSelect(device.deviceId); setOpen(false); }}
                 className={[
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   isSelected ? "text-primary" : "text-card-foreground",
                 ].join(" ")}
               >

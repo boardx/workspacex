@@ -114,6 +114,12 @@ export interface AssetCodeEditorProps {
   /** 传了才做 frontmatter 内联校验——只有「当前文件是根文件」时才有意义。 */
   rootFrontmatterCheck?: { assetKind: RootFrontmatterAssetKind; isRootFile: boolean };
   testid?: string;
+  /**
+   * #1971 —— 编辑器高度。默认 `320px`（原型态 `/asset-governance` 的既有节奏，不变）。
+   * 全屏场景（`/admin/skill/[id]`）传更大的值，让代码编辑器占屏幕大部分高度，
+   * 而不是被顶部说明文字挤成一小块。
+   */
+  height?: string;
 }
 
 export function AssetCodeEditor({
@@ -123,6 +129,7 @@ export function AssetCodeEditor({
   readOnly = false,
   rootFrontmatterCheck,
   testid,
+  height = "320px",
 }: AssetCodeEditorProps) {
   const language = monacoLanguageFromPath(path);
   const monacoRef = React.useRef<Monaco | null>(null);
@@ -166,7 +173,7 @@ export function AssetCodeEditor({
   return (
     <div data-testid={testid} className="overflow-hidden rounded-lg border border-border">
       <MonacoEditor
-        height="320px"
+        height={height}
         language={language}
         value={value}
         theme="vs"

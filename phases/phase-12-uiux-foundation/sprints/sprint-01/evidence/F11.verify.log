@@ -1,0 +1,578 @@
+$ pnpm --filter web run lint:design
+[exit 0]
+
+> web@0.1.0 lint:design /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web
+> ./scripts/lint-design.sh
+
+
+✅ lint-design：全部通过（扫描 app components lib）
+
+
+$ pnpm --filter web exec vitest run tests/ui/microinteraction-chat-profile.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web
+
+ ✓ tests/ui/microinteraction-chat-profile.test.tsx (56 tests) 21ms
+
+ Test Files  1 passed (1)
+      Tests  56 passed (56)
+   Start at  10:24:22
+   Duration  778ms (transform 28ms, setup 88ms, collect 11ms, tests 21ms, environment 477ms, prepare 44ms)
+
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=06b3d6a378619af514176f73cc064c56c847a880（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_71f1e328cc85c4a014ec inner_db=wsx_71f1e328cc85c4a014ec outer_compose=wsx-71f1e328cc85c4a014ec inner_compose=wsx-71f1e328cc85c4a014ec status=matched
+[stack-admission] load1=3.70 cores=10 perCore=0.37 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mt6m4kug-dd89ab30-71f1e328cc85 db=wsx_71f1e328cc85c4a014ec compose=wsx-71f1e328cc85c4a014ec pg=22736 redis=27736
+• turbo 2.10.5
+
+   • Packages in scope: //, web
+   • Running typecheck, lint, test in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs 66cbb8af076e54b4
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a98cc51815d880261/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+web:test: cache miss, executing e724935f6940a477
+web:typecheck: cache miss, executing 01868493328efedf
+web:lint: cache miss, executing c24a4ea3d47d802e
+web:test: 
+web:test: > web@0.1.0 test /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web
+web:test: > vitest run
+web:test: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+web:lint: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+web:test: 
+web:test:  RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web
+web:test: 
+web:test:  ✓ tests/ui/skill-catalog-live.test.tsx (12 tests) 1731ms
+web:test:    ✓ #520 Skill 库屏接真实 API > 新建 Skill 两条路径（F192 之后） > 默认 tab 是「从 GitHub 导入」：点 skill-create-open 后 SkillUrlImportPanel 立即可见，不需要先选 tab 444ms
+web:test:    ✓ #520 Skill 库屏接真实 API > G3：新建 Skill 是弹窗 > 点「新建 skill」后出现 role=dialog 的弹窗；点关闭按钮后消失 319ms
+web:test:  ✓ tests/ui/interview-studio-home.test.tsx (15 tests) 2634ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 默认显示历史卡，一级标签只有历史访谈与专家列表，新建按钮完整单行 375ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 仅本地 Mock 历史卡可编辑名称和标签 448ms
+web:test:    ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 删除本地 Mock 历史卡前需要确认 586ms
+web:test:  ✓ tests/ui/interview-setup-workflow.test.tsx (15 tests) 2792ms
+web:test:    ✓ F04 可点击 Mock 访谈流程 > 从专家目录弹窗搜索并多选添加专家 428ms
+web:test:    ✓ F04 可点击 Mock 访谈流程 > 往返专家步骤时保留编辑，只为新增专家补齐三问 339ms
+web:test:    ✓ F04 正式 setup 的显式确认与双层持久化验收门 > 主题与专家确认后只消费服务端返回的候选专家和默认问题 336ms
+web:test:    ✓ F04 正式 setup 的显式确认与双层持久化验收门 > dirty navigation can be cancelled or discarded without persisting the buffer 446ms
+web:test:  ✓ tests/ui/blueprint-designer-page-live.test.tsx (36 tests) 2738ms
+web:test:    ✓ D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas/blueprint-design-facet-panels/） > 分组规则：结构化编辑器显示真实已存场景清单（JSON 解析） 308ms
+web:test:  ✓ tests/ui/guided-research-flow.test.tsx (26 tests) 3535ms
+web:test:    ✓ Issue #1073 · guided deep research UI-first flow > applies a direction Skill suggestion to the live editor 459ms
+web:test:    ✓ Issue #1073 · guided deep research UI-first flow > completes the persisted demo search and report journey 663ms
+web:test:  ✓ tests/ui/personal-chat-screen.test.tsx (23 tests) 2649ms
+web:test:    ✓ PersonalChatScreen — 主路径 > 一键即建：点「新建对话」直接建线程（null 标题，服务端自动命名），落进新会话 323ms
+web:test:    ✓ PersonalChatScreen — agent 下拉（#594 后续：消灭手填 agent id 这个即时阻塞） > 组织里一个 agent 都没有 ⇒ 显示明确提示引导去后台创建，不是空白卡死 302ms
+web:test:    ✓ PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有后端，前端一直没做入口） > 选中一条线程 ⇒ 出现改名/删除入口；点改名 → 填标题 → 提交 → projectId 显式传 null，成功后重读列表 384ms
+web:test: stderr | tests/ui/capability-catalog-mutate.test.tsx > #458 Agent 目录写路径接到 POST /capabilities/mutate > 更新：op=update 只带被改动的字段，改完仍以服务端读取为准
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/ui/realtime-transcription-history.test.tsx (17 tests) 4494ms
+web:test:    ✓ 实时转录历史工作台 > 历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗 464ms
+web:test:    ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 739ms
+web:test:    ✓ 实时转录历史工作台 > 修改后按当前标签重新读取列表，不保留已不匹配的卡片 335ms
+web:test:    ✓ 实时转录历史工作台 > 遗留的转录中卡片可以结束状态，也可以直接永久删除 418ms
+web:test:    ✓ 实时转录历史工作台 > 重新打开遗留转录后，停止按钮会调用服务端恢复操作 479ms
+web:test:    ✓ 实时转录历史工作台 > 删除成功后即使标签刷新失败也关闭弹窗并保留删除结果 383ms
+web:test:  ✓ tests/session/session-provider.test.tsx (13 tests) 609ms
+web:test:    ✓ SessionProvider > starts a real identity session, switches with the signed API, and logs out locally 314ms
+web:test:  ✓ tests/ui/capability-catalog-mutate.test.tsx (10 tests) 1917ms
+web:test:    ✓ #458 Agent 目录写路径接到 POST /capabilities/mutate > team-only 却没填团队时不发请求，本地就给出可定位的字段错误 301ms
+web:test:    ✓ #458 Agent 目录写路径接到 POST /capabilities/mutate > 停用：默认 interrupt，并把服务端报出的受影响调用数原样显示 430ms
+web:test:  ✓ tests/ui/projects-screen-live.test.tsx (12 tests) 2892ms
+web:test:    ✓ F185 /projects：标签增删接真实 PATCH /projects/:id/tags > 新增标签：发出整体替换的 PATCH，成功后刷新列表看到新标签 318ms
+web:test:    ✓ F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject > 菜单四项且无删除项；未实现的三项禁用并如实说明 573ms
+web:test:    ✓ F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject > 归档要二次确认：确认前不发任何请求，取消也不发 393ms
+web:test:    ✓ F164 /projects：⋯ 菜单接真 archiveProject / unarchiveProject > 确认后发出真实 POST /projects/:id/archive（带鉴权头），成功后列表刷新并出现只读徽标 455ms
+web:test:  ✓ tests/ui/chat-live-message-panel-mic.test.tsx (11 tests) 866ms
+web:test:  ✓ tests/ui/chat-roster-mutate.test.tsx (11 tests) 1860ms
+web:test:    ✓ #467 会话内 agent 编制的增删接线 > 加一个 agent：打真实端口，并在返回后重读服务端编制（不做乐观更新） 474ms
+web:test:  ✓ tests/ui/canvas-stage-mindmap-keyboard.test.tsx (6 tests) 3164ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个非根节点后 Tab 加子节点，挂在被选中节点下 915ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个非根节点后 Enter 加兄弟节点，挂在同一父节点下 774ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：给同一个父节点连续 Tab 两次，第二个子节点排在第一个下方（追加，不是插到最前） 783ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个节点后 Delete 删除该节点及其子树、相连的边 354ms
+web:test:  ✓ tests/ui/project-prep-interview-subjects.test.tsx (10 tests) 946ms
+web:test:  ✓ tests/ui/canvas-template-live.test.tsx (42 tests) 9295ms
+web:test:    ✓ 2026-08-23 新建只问名字——分区/key/生命周期都不在这个对话框里 > 提交打的是 POST /canvas/templates，key 由显示名派生、sections 为空、visibility 默认 org-wide；建完立刻打开编辑面板 1258ms
+web:test:    ✓ D-43 已推翻：template-admin 屏重新挂上后台侧栏 AdminNav > 其它屏（如 editor）不挂 AdminNav——只有 template-admin 这一屏需要它 407ms
+web:test:    ✓ 2026-08-22 模板管理可用性改进 > ① 搜索框按名字/key 在当前筛选结果内过滤，不发新请求；清空后恢复全部 1199ms
+web:test:    ✓ 2026-08-22 模板管理可用性改进 > ⑥ draft 行的「试跑」真调 trialTemplate，成功后重读列表——不在本地把 status 改成 trial 306ms
+web:test:    ✓ 2026-08-23 AI 起草模板（suggestTemplateSections，落点在编辑面板） > 非草稿行的编辑面板是只读预览，不挂 AI 起草入口——内容不可变，AI 建议没有地方可写 334ms
+web:test:    ✓ 2026-08-23 AI 起草模板（suggestTemplateSections，落点在编辑面板） > 草稿行的编辑面板里，AI 生成成功后回填显示名与分区，且不自动保存 743ms
+web:test:    ✓ 2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑界面里管理 > 草稿行点「编辑」打开可写面板；加一个分区、改显示名、保存打的是 POST .../draft 962ms
+web:test:    ✓ 2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑界面里管理 > 非草稿行（已发布）打开的面板是只读预览——显示名/可见范围/分区全部禁用，没有保存按钮 403ms
+web:test:    ✓ 2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑界面里管理 > 迭代 2/3：拖拽分区顺序——拖第一个到第三个位置，保存时顺序真的变了 943ms
+web:test:    ✓ 2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑界面里管理 > 迭代 4/N：改了显示名，标题旁出现「有未保存的改动」；保存后消失 343ms
+web:test:  ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 1999ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 1171ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 515ms
+web:test:  ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 3212ms
+web:test:    ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 1878ms
+web:test:  ✓ tests/ui/survey-workflow-shell.test.tsx (25 tests) 5381ms
+web:test:    ✓ SurveyWorkflowShell > 新建问卷使用草稿身份进入问题设计 344ms
+web:test:    ✓ SurveyWorkflowShell > 从模块创建的是带五步流程的新问卷 351ms
+web:test:    ✓ SurveyWorkflowShell > 现有问卷忽略来源模块并保留完整题目集 500ms
+web:test:    ✓ SurveyWorkflowShell > 空白模块可以复制已有模块题目后独立修改 539ms
+web:test:    ✓ SurveyWorkflowShell > 只呈现新的五步导航并用 URL 切步 324ms
+web:test:    ✓ SurveyWorkflowShell > 返回按钮回到问卷资源列表 410ms
+web:test:    ✓ SurveyWorkflowShell > 连续呈现全部问题并让左侧目录定位题目 753ms
+web:test:  ✓ tests/ui/chat-fabric-preview-syncs-after-save.test.tsx (3 tests) 1752ms
+web:test:    ✓ 退出全屏后，气泡只读预览要跟着最后一次保存变（不是原地不动） > mermaid 图 · ChatDiagramFabric > 最大化→改内容→保存（本地演示）→关闭 —— 只读预览重新校验时吃到的是编辑后的内容 1335ms
+web:test:  ✓ tests/ui/chat-live-message-panel-agent-picker.test.tsx (9 tests) 1723ms
+web:test:    ✓ ChatLiveMessagePanel — gap #4：longrun hint 措辞按是否真的挂了 skill 区分 > 线程挂了 skill ⇒ 45 秒后显示「执行 skill 脚本时可能需要数分钟」 489ms
+web:test:    ✓ ChatLiveMessagePanel — gap #4：longrun hint 措辞按是否真的挂了 skill 区分 > 省略 hasMountedSkills（未接线的调用点）⇒ 按「没挂 skill」处理，不误导 370ms
+web:test:  ✓ tests/ui/chat-composer-attachments.test.tsx (13 tests) 2606ms
+web:test:    ✓ ChatLiveMessagePanel — composer 附件 UI（#946 V9-a F152） > 移除二次确认：点 ✕ 弹确认，点「移除」后预览条消失 604ms
+web:test:    ✓ ChatLiveMessagePanel — composer 附件 UI（#946 V9-a F152） > 面板：「取消」与关闭按钮都能关闭（复用 Modal 壳） 448ms
+web:test:    ✓ ChatLiveMessagePanel — composer 附件 UI（#946 V9-a F152） > 面板内选文件走真实上传，预览条与「本次已选」计数同步 516ms
+web:test:  ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 2078ms
+web:test:    ✓ F168 guided research home live data > asks for a name and optional tags before entering the research brief 695ms
+web:test:    ✓ F168 guided research home live data > reuses the create idempotency key after remount and clears it only after success 511ms
+web:test:  ✓ tests/ui/chat-thread-crud.test.tsx (8 tests) 3091ms
+web:test:    ✓ #460 会话增删改接入正式 /chat > 改名带上 getThread 给的 expectedVersion（并发靠它，不静默覆盖） 1358ms
+web:test:    ✓ #460 会话增删改接入正式 /chat > 删除要二次确认与原因，删完选中态回退到服务端剩下的第一条 618ms
+web:test:  ✓ tests/ui/project-overview-live-overview.test.tsx (15 tests) 1412ms
+web:test:    ✓ F362 project-overview：真实概览白名单四件块只显示真实数据 > 空态字段（非工作坊 / 空白新建 / 无回流）各自显示诚实空值，不编数据 349ms
+web:test:    ✓ F172 project-overview：没有契约出处的板块不再编造数据 > 当前环节卡接真：显示真实环节，不再有假倒计时 307ms
+web:test:  ✓ tests/ui/skill-url-import.test.tsx (7 tests) 932ms
+web:test:  ✓ tests/ui/project-prep-live.test.tsx (8 tests) 287ms
+web:test:  ✓ tests/ui/new-project-wizard.test.tsx (7 tests) 372ms
+web:lint: ✔ No ESLint warnings or errors
+web:test:  ✓ tests/ui/chat-diagram-fabric-postmount-readback-no-crash.test.tsx (2 tests) 496ms
+web:test:    ✓ 挂载即读回换来一份校验失败的保存版——只读预览不得崩页（devapp 实测回归） > ChatDiagramFabric：保存版 mermaid 语法有误 —— 不抛 removeChild，诚实转错误态 461ms
+web:test:  ✓ tests/ui/composite-table-menu.test.tsx (18 tests) 467ms
+web:test:  ✓ tests/ui/files-browser.test.tsx (13 tests) 310ms
+web:test:  ✓ tests/ui/blueprint-duration-form.test.tsx (20 tests) 1017ms
+web:test:    ✓ 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 707ms
+web:test:  ✓ tests/ui/org-switcher-real-names.test.tsx (3 tests) 828ms
+web:test:    ✓ #596 组织切换器显示真实组织名 > 两个组织都显示注册时填的名字，界面上没有任何裸组织 ID 413ms
+web:test:  ✓ tests/ui/chat-read-screen.test.tsx (44 tests) 20341ms
+web:test:    ✓ formal Chat read path > reads list, detail, roster and the contract message page with the provider bearer 958ms
+web:test:    ✓ formal Chat read path > 最新一条消息来自 agent 时显示两条规则驱动的追问建议，点击后填充输入框但不发送 755ms
+web:test:    ✓ formal Chat read path > 已归档的线程不显示建议（composer 本身已是只读） 505ms
+web:test:    ✓ formal Chat read path > 顶部 chip 与花名册面板显示同一份在场/编制计数——同一次 getAgentPanel 请求，不是第二份事实 505ms
+web:test:    ✓ formal Chat read path > 右栏「产物」面板渲染真实 listThreadArtifacts 结果，并带正确的 projectId/threadId 455ms
+web:test:    ✓ formal Chat read path > 右栏「产物」为空时显示真实空态，不编造示例产物 524ms
+web:test:    ✓ formal Chat read path > 右栏「产物」「材料」堆叠同时可见，不需要 tab 切换 329ms
+web:test:    ✓ formal Chat read path > 右栏「材料」头部「+」上传的文件走真实上传端点、出现在 composer 附件区，但不自动发消息 405ms
+web:test:    ✓ formal Chat read path > 发消息成功后立刻重读右栏「材料」列表，不需要手动刷新页面 500ms
+web:test:    ✓ formal Chat read path > 消息内联「落地为产物」调用真实 landAsArtifact 并在成功后重读右栏产物列表 630ms
+web:test:    ✓ formal Chat read path > 落地为产物失败时如实报错，不假装成功 797ms
+web:test:    ✓ formal Chat read path > posts a client UUID to the selected Agent, then refreshes from GET without an inline reply 698ms
+web:test:    ✓ formal Chat read path > 线程已翻过一页时，发送后 / run 终态后的软重读追着本地已加载列表尾部走，新消息真的渲染出来（issue #728 D6/D7 根因回归） 1087ms
+web:test:    ✓ formal Chat read path > 线程已被追到底（nextCursor 已塌成 null）后再软重读，追新起点不塌回起点重新拉第一页（issue #728 round 2 H3 阻塞回归） 475ms
+web:test:    ✓ formal Chat read path > 推进到终态前持续轮询 AgentRun，状态取自服务端而不是本地推断 1302ms
+web:test:    ✓ formal Chat read path > run 失败时如实显示 failed 与错误码，不合成回复 1280ms
+web:test:    ✓ formal Chat read path > 渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要 1912ms
+web:test:    ✓ formal Chat read path > 工具调用失败：如实显示失败状态与失败原因，不假装成功 2135ms
+web:test:    ✓ formal Chat read path > 没有任何 tool_call 步骤时不渲染步骤区域——不是黑盒，是没发生 1024ms
+web:test:    ✓ formal Chat read path > 流式增量实时追加进草稿气泡，持久消息落位后草稿让位——中途不消失 791ms
+web:test:    ✓ formal Chat read path > 默认（没有任何 delta 事件）从不渲染流式草稿气泡——退化到阶段2d之前的样子 489ms
+web:test:    ✓ formal Chat read path > 读不到 run 时报读取失败，而不是渲染一个猜出来的状态 402ms
+web:test:    ✓ formal Chat read path > keeps the same clientMessageId when a dependency failure is retried 473ms
+web:test:  ✓ tests/ui/composite-breadcrumb-pagination.test.tsx (18 tests) 222ms
+web:test: stderr | tests/ui/chat-canvas-fence.test.tsx > 与 mermaid 图表分派互不干扰 > 同一条消息里 mermaid 图表走图表分支、画布围栏走画布分支
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/packages/fabric-markdown/src/index.ts:75:13)
+web:test: 
+web:test:  ✓ tests/ui/skill-starter-import.test.tsx (5 tests) 522ms
+web:test:  ✓ tests/ui/chat-canvas-fence.test.tsx (14 tests) 3636ms
+web:test:    ✓ 工作坊画布模板围栏在 chat 里被渲染（不再是代码块） > ```canvas + 内置 persona 模板 → 走 fabric 画布分支，不落代码块、不落错误态 485ms
+web:test:    ✓ 工作坊画布模板围栏在 chat 里被渲染（不再是代码块） > ```persona 别名围栏同样渲染（lang 即模板 key） 399ms
+web:test:    ✓ 组织自建模板 → 自动布局 > 查到组织模板 → 生成几何并渲染，标记来源为 org-generated 481ms
+web:test:    ✓ 组织自建模板 → 自动布局 > 同 key 多版本取最高版本（「用这个模板」= 用它最新的样子） 398ms
+web:test:    ✓ 组织自建模板 → 自动布局 > 一条消息里多个围栏只打一次 GET（列表有缓存） 372ms
+web:test:    ✓ 诚实错误态（不崩、不静默丢、不退回 mock） > 缺 `模板:` 行 → syntax 错误态，回显原始围栏，页面不崩 499ms
+web:test:    ✓ 个人对话可用性 > 不传任何项目/产物参数时，组织自建模板也渲染（只需要 orgId，与 projectId 无关） 525ms
+web:test:    ✓ 与 mermaid 图表分派互不干扰 > 同一条消息里 mermaid 图表走图表分支、画布围栏走画布分支 351ms
+web:test:  ✓ tests/ui/admin-members-quota-live.test.tsx (8 tests) 699ms
+web:test:    ✓ F160 成员配额 tab —— 只投影真实响应 > 超分配被拒时，界面说出「还能分配多少」而不只是「超了」 306ms
+web:test:  ✓ tests/ui/skill-repo-discovery-import.test.tsx (5 tests) 470ms
+web:test:  ✓ tests/ui/files-preview.test.tsx (12 tests) 175ms
+web:test:  ✓ tests/ui/canvas-stage-edge-editability.test.tsx (5 tests) 1150ms
+web:test:    ✓ CanvasStage 连线可编辑性回归 > ① 连线工具：点起点节点再点终点节点，真的画出一条新边（此前是死按钮） 760ms
+web:test:  ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 1449ms
+web:test:    ✓ F180 signed guided-research visual contract > removes the secondary menu from guided research while retaining it for legacy Studio 487ms
+web:test:    ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 500ms
+web:test:  ✓ tests/ui/survey-resource-library.test.tsx (16 tests) 2176ms
+web:test:    ✓ SurveyResourceLibrary > 新建问卷先填写名称和标签再进入新的设计页 536ms
+web:test:    ✓ SurveyResourceLibrary > 从问卷模块新建填写元数据并选择一个模块后创建完整问卷 628ms
+web:test:  ✓ tests/ui/files-ingestion-ladder.test.tsx (10 tests) 1062ms
+web:test:    ✓ 九态阶梯：抽屉里的图例逐态渲染 label + exits（V2，DOM 断言） > 九态（含 REVIEW_PENDING）图例行数与 INGEST_PIPELINE 长度一致，每行都有非空文案 352ms
+web:test:  ✓ tests/ui/agent-self-publish-panel.test.tsx (5 tests) 484ms
+web:test:  ✓ tests/ui/research-detail-four-sections.test.tsx (15 tests) 475ms
+web:test:  ✓ tests/ui/files-version-derived.test.tsx (9 tests) 689ms
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+web:test:  ✓ tests/ui/blueprint-list-screen-live.test.tsx (8 tests) 427ms
+web:test:  ✓ tests/ui/chat-fabric-auto-readback-on-mount.test.tsx (4 tests) 571ms
+web:test:    ✓ 挂载滚入视口即读回（不必先点最大化） > A · mermaid 图 · ChatDiagramFabric > 有保存版：挂载即自动查回，只读预览校验吃到的是保存版内容 472ms
+web:test:  ✓ tests/ui/template-editor-panel-canvas-click.test.tsx (5 tests) 1110ms
+web:test:    ✓ TemplateEditorPanel —— 点击画布上的分区框，联动高亮左侧输入框 > 点第二个分区框的中心点，第二个输入框获得焦点与高亮边框 597ms
+web:test:  ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 233ms
+web:test:  ✓ tests/ui/feedback-dialog.test.tsx (10 tests) 336ms
+web:test:  ✓ tests/ui/local-org-live.test.tsx (6 tests) 286ms
+web:test:  ✓ tests/ui/join-accidents-mic.test.tsx (9 tests) 152ms
+web:test:  ✓ tests/ui/chat-live-message-panel-duplicate-progress-block.test.tsx (5 tests) 328ms
+web:test:  ✓ tests/ui/asset-file-edit-save.test.tsx (5 tests) 339ms
+web:test:  ✓ tests/ui/skill-single-screen-nav.test.tsx (7 tests) 316ms
+web:test:  ✓ tests/ui/admin-feedback-live.test.tsx (10 tests) 533ms
+web:test:  ✓ tests/ui/agent-tool-chain.test.tsx (13 tests) 189ms
+web:test:  ✓ tests/ui/admin-nav-count-unavailable.test.tsx (11 tests) 278ms
+web:test:  ✓ tests/ui/admin-limit-policy-live.test.tsx (8 tests) 552ms
+web:test:  ✓ tests/ui/capability-catalog-live.test.tsx (5 tests) 528ms
+web:test:  ✓ tests/ui/research-list-target-dash.test.tsx (13 tests) 214ms
+web:test:  ✓ tests/ui/overlay-primitives-dialog-dropdown.test.tsx (13 tests) 485ms
+web:test:  ✓ tests/ui/blueprint-designer-prototype-fidelity.test.tsx (7 tests) 44ms
+web:test:  ✓ tests/ui/admin-nav-live-counts.test.tsx (7 tests) 278ms
+web:test:  ✓ tests/lib/skill-trial-run.test.tsx (11 tests) 156ms
+web:test:  ✓ tests/ui/agent-approval-panel.test.tsx (11 tests) 187ms
+web:test:  ✓ tests/ui/chat-live-message-panel-run-phase.test.tsx (4 tests) 371ms
+web:test:  ✓ tests/ui/capability-skill-content-editor.test.tsx (3 tests) 285ms
+web:test:  ✓ tests/ui/research-new-config-defaults.test.tsx (11 tests) 291ms
+web:test:  ✓ tests/ui/skill-catalog-no-create-panel.test.tsx (5 tests) 511ms
+web:test:    ✓ F192 · /skill 库屏没有「完全新建」入口 > 打开新建弹窗后，DOM 里不存在任何触发 createSkillDraft 的按钮/面板 361ms
+web:test:  ✓ tests/ui/workflow-screen-live.test.tsx (6 tests) 280ms
+web:test:  ✓ tests/ui/chat-diagram-saved-readback.test.tsx (5 tests) 182ms
+web:test:  ✓ tests/ui/project-results-live.test.tsx (12 tests) 143ms
+web:test:  ✓ tests/ui/chat-message-rating.test.tsx (7 tests) 164ms
+web:test:  ✓ tests/ui/files-review-drawer.test.tsx (5 tests) 427ms
+web:test:  ✓ tests/ui/asset-code-editor-monaco.test.tsx (15 tests) 81ms
+web:test:  ✓ tests/ui/project-live-viewer-switcher.test.tsx (9 tests) 139ms
+web:test:  ✓ tests/ui/microinteraction-chat-profile.test.tsx (56 tests) 66ms
+web:test:  ✓ tests/ui/files-trash-queue.test.tsx (10 tests) 587ms
+web:test:  ✓ tests/ui/admin-members-usage-limits-tabs.test.tsx (5 tests) 593ms
+web:test:    ✓ ①默认态：成员配额仍是默认打开的 tab > 不切 tab 就能看到既有的 admin-members-list（不因加 tab 而回退） 335ms
+web:test:  ✓ tests/ui/admin-members-boundary-live.test.tsx (6 tests) 298ms
+web:test:  ✓ tests/ui/admin-usage-monitor-live.test.tsx (6 tests) 354ms
+web:test:  ✓ tests/ui/project-live-checkin-board.test.tsx (9 tests) 244ms
+web:test:  ✓ tests/ui/chat-fullsurface-drop-overlay.test.tsx (4 tests) 307ms
+web:test:  ✓ tests/ui/org-admin-members-reviewer-function.test.tsx (4 tests) 234ms
+web:test: stderr | tests/ui/shell-personal-menu.test.tsx > IconRail：左上角组织菜单 + 个人菜单 > 头像触发器点击后展开个人菜单：个人资料 / 个人 Brain / 主题切换三项恒在
+web:test: Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+web:test: 
+web:test: Check the render method of `Primitive.div.Slot`.
+web:test:     at ThemeToggle (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web/components/shell/theme-toggle.tsx:13:3)
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:42:15
+web:test:     at RovingFocusGroupItem (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-roving-focus@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types+reac_fehydb6ztw3ie4otm6o4224cw4/node_modules/@radix-ui/react-roving-focus/dist/index.mjs:129:7)
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:42:15
+web:test:     at MenuItemImpl (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:424:13)
+web:test:     at MenuItem (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:372:13)
+web:test:     at DropdownMenuItem (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:159:13)
+web:test:     at /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web/components/ui/dropdown-menu.tsx:47:62
+web:test:     at div
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at div
+web:test:     at PopperContent (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-popper@1.3.7_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3._n4sfxpbxdjb4wkcvd537qaeyne/node_modules/@radix-ui/react-popper/dist/index.mjs:94:7)
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at RovingFocusGroupImpl (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-roving-focus@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types+reac_fehydb6ztw3ie4otm6o4224cw4/node_modules/@radix-ui/react-roving-focus/dist/index.mjs:36:5)
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:30:15
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at CollectionProvider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:20:13)
+web:test:     at RovingFocusGroup (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-roving-focus@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types+reac_fehydb6ztw3ie4otm6o4224cw4/node_modules/@radix-ui/react-roving-focus/dist/index.mjs:31:68)
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at DismissableLayer (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-dismissable-layer@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types_vivk4t4cutqd7i6sge5vpumknm/node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs:31:7)
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at FocusScope (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-focus-scope@1.1.16_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react_7flugmadb6wvaa77mzeil6hdvi/node_modules/@radix-ui/react-focus-scope/dist/index.mjs:17:7)
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/react-remove-scroll@2.7.2_@types+react@18.3.31_react@18.3.1/node_modules/react-remove-scroll/dist/es5/UI.js:16:21
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at MenuContentImpl (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:176:7)
+web:test:     at MenuRootContentModal (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:132:56)
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:30:15
+web:test:     at Presence (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at CollectionProvider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:20:13)
+web:test:     at MenuContent (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:122:64)
+web:test:     at DropdownMenuContent (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:102:13)
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at Portal (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-portal@1.1.17_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_pckc5wna6qd2icpxam4r5udzci/node_modules/@radix-ui/react-portal/dist/index.mjs:13:24)
+web:test:     at Presence (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at MenuPortal (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:114:11)
+web:test:     at DropdownMenuPortal (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:94:11)
+web:test:     at /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web/components/ui/dropdown-menu.tsx:21:65
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at Popper (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-popper@1.3.7_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3._n4sfxpbxdjb4wkcvd537qaeyne/node_modules/@radix-ui/react-popper/dist/index.mjs:32:11)
+web:test:     at Menu (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:52:11)
+web:test:     at Provider (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at DropdownMenu (file:///Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:25:5)
+web:test:     at PersonalMenu (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web/components/shell/personal-menu.tsx:15:3)
+web:test:     at nav
+web:test:     at IconRail (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/apps/web/components/shell/icon-rail.tsx:19:3)
+web:test: 
+web:test:  ✓ tests/ui/shell-personal-menu.test.tsx (9 tests) 982ms
+web:test:    ✓ IconRail：左上角组织菜单 + 个人菜单 > 左上角触发器点开组织菜单：`org-admin-entry` 指向 `/org-admin`，带 aria-label，且只有一处 403ms
+web:test:  ✓ tests/ui/agent-clone-selector.test.tsx (4 tests) 322ms
+web:test:  ✓ tests/ui/admin-members-boundary.test.tsx (4 tests) 254ms
+web:test:  ✓ tests/ui/chat-live-message-panel-run-poll-401.test.tsx (3 tests) 361ms
+web:test:  ✓ tests/ui/admin-menu-dedup.test.tsx (9 tests) 153ms
+web:test:  ✓ tests/ui/password-reset-request.test.tsx (5 tests) 235ms
+web:test:  ✓ tests/ui/admin-feedback-view-toggle.test.tsx (4 tests) 479ms
+web:test:  ✓ tests/ui/admin-model-view-toggle.test.tsx (5 tests) 806ms
+web:test:    ✓ admin-model-view-toggle · 卡片/列表切换 > 卡片视图的启用开关是真实可交互控件：点击后状态徽标从「已启用」变「未启用」 315ms
+web:test:  ✓ tests/ui/chat-live-message-panel-attachment-mention.test.tsx (5 tests) 549ms
+web:test:  ✓ tests/ui/chat-persona-summary-trigger.test.tsx (4 tests) 371ms
+web:test:  ✓ tests/ui/canvas-stage-export.test.tsx (4 tests) 1371ms
+web:test:    ✓ 画布导出 > ① CanvasStage.exportPNG() > 空画布返回 null，不产出一张空白 PNG 冒充导出成功 444ms
+web:test:    ✓ 画布导出 > ① CanvasStage.exportPNG() > 非空画布返回真实 PNG data URL 与像素尺寸 338ms
+web:test:    ✓ 画布导出 > ② 全屏编辑器的导出按钮 > mermaid 图编辑器：点「导出为 PNG」调用 downloadDataUrl，点「导出为 PDF」调用 exportPngAsPdf 434ms
+web:test:  ✓ tests/ui/rec-fidelity-gaps.test.tsx (11 tests) 77ms
+web:test:  ✓ tests/ui/email-verification-public.test.tsx (4 tests) 556ms
+web:test:  ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 609ms
+web:test:    ✓ guided research skill assistant > only changes the editor after explicit application and restores it on undo 426ms
+web:test:  ✓ tests/ui/project-live-page.test.tsx (2 tests) 294ms
+web:test:  ✓ tests/ui/project-live-stagebar.test.tsx (8 tests) 261ms
+web:test:  ✓ tests/ui/admin-members-list.test.tsx (6 tests) 2204ms
+web:test:    ✓ 成员表：待激活行 —— 入场即带组织角色 + 团队 > ① 每一条待激活行都渲染了它被指派的角色与团队，并标着（待激活） 508ms
+web:test:    ✓ [邀请成员] 入口：填邮箱 + 指派组织角色 + 团队 > 入口在成员表上；点开后邮箱、角色三选、团队三样都在 1086ms
+web:test:    ✓ [邀请成员] 入口：填邮箱 + 指派组织角色 + 团队 > 选「管理员」时屏上出现双人复核的告知（O-28 ⑥），选顾问时没有 308ms
+web:test:  ✓ tests/ui/thread-card-button.test.tsx (7 tests) 1600ms
+web:test:    ✓ ThreadCardButton > 选中且可写 ⇒ 渲染「…」菜单入口；点开显示改名/删除两个菜单项 872ms
+web:test:  ✓ tests/ui/mcp-remote-discover-panel.test.tsx (4 tests) 469ms
+web:test:    ✓ McpRemoteDiscoverPanel：真实链路 > 成功：调用 discoverRemoteMcpTools 且展示真实工具列表（不是 mock 数据） 300ms
+web:test:  ✓ tests/ui/chat-diagram-save-gate.test.tsx (2 tests) 398ms
+web:test:    ✓ mermaid 图最大化保存 —— 跟 canLandArtifacts 同一道门 > canLandArtifacts=false（个人线程）：ChatDiagramFabric 收不到 threadId/messageId/bearer —— 退回本地演示，不会调 landAsArtifact 撞 403 352ms
+web:test:  ✓ tests/ui/chat-skill-mount-panel-auto-close.test.tsx (2 tests) 239ms
+web:test:  ✓ tests/ui/research-entry-observer-absent.test.tsx (7 tests) 123ms
+web:test:  ✓ tests/ui/research-live-empty-conflict-block.test.tsx (10 tests) 286ms
+web:test:  ✓ tests/ui/admin-agent-card-view.test.tsx (3 tests) 363ms
+web:test:  ✓ tests/ui/research-live-conflicts-no-preselect.test.tsx (8 tests) 847ms
+web:test:    ✓ F148 · N-6 三个判定动作不是预选态 > 每个冲突项都渲染出三个动作按钮，且三个按钮的 variant/className 完全相同（没有谁被高亮成默认项） 662ms
+web:test:  ✓ tests/ui/research-preview-sentence.test.tsx (9 tests) 675ms
+web:test:    ✓ F144 · 预览句是算出来的：随字段实时重算 > 默认态：句子恰好引用默认勾中的两个来源 333ms
+web:test:  ✓ tests/ui/motion-orchestration.test.tsx (4 tests) 379ms
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > blank invite means first admin: create, login immediately, and persist the real session
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > recovers login when bootstrap committed but its HTTP response was lost
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/ui/entity-view-toggle.test.tsx (4 tests) 224ms
+web:test:  ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 390ms
+web:test:  ✓ tests/ui/overlay-primitives-select-tooltip.test.tsx (12 tests) 754ms
+web:test:    ✓ Select：超长下拉列表在视口内可滚动截断 > 展开后的 content 带 max-h-* 与 overflow-y-auto，不是无限撑高 695ms
+web:test:  ✓ tests/ui/agent-capability-graph.test.tsx (3 tests) 722ms
+web:test:    ✓ AgentCapabilityGraph > 挂了 skill 与 mcp 工具时，画出节点与边，且能点击跳转 676ms
+web:test:  ✓ tests/ui/overview-mixed-state.test.tsx (6 tests) 987ms
+web:test:    ✓ #1182 总览屏混合态 > 每一个仍读 mock 的区块都带演示标记 427ms
+web:test:    ✓ #1182 总览屏混合态 > 真数据的两块带「真数据」标记 —— 否则「逐块标注」只标了一半 306ms
+web:test:  ✓ tests/ui/overview-live.test.tsx (4 tests) 483ms
+web:test:  ✓ tests/ui/asset-directory-browse.test.tsx (7 tests) 462ms
+web:test:  ✓ tests/ui/research-exit-actions-observer-absent.test.tsx (7 tests) 389ms
+web:test:    ✓ F147 · 反空转：结论区确实有三个出口动作，且与契约 R2 逐字一致 > 能写的角色下（owner / collaborator，default 态）三个动作按钮都渲染出来 316ms
+web:test:  ✓ tests/ui/registration-field-errors.test.tsx (4 tests) 313ms
+web:test:  ✓ tests/ui/chat-live-message-panel-actions-position.test.tsx (2 tests) 611ms
+web:test:    ✓ ChatLiveMessagePanel — 动作条位置（气泡下方，非身份行） > 复制/反馈/评分按钮出现在正文气泡之后（DOM 序），不在身份行（名字/时间那一排）里 541ms
+web:test:  ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 596ms
+web:test:  ✓ tests/ui/org-menu-avatar-identity.test.tsx (3 tests) 210ms
+web:test:  ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 352ms
+web:test:  ✓ tests/ui/project-live-segment-engine-consistency.test.tsx (3 tests) 232ms
+web:test:  ✓ tests/ui/consent-form.test.tsx (4 tests) 434ms
+web:test:  ✓ tests/ui/chat-live-message-panel-agent-selector-restore.test.tsx (3 tests) 452ms
+web:test:  ✓ tests/ui/ag-skill-trialrun-401.test.tsx (2 tests) 428ms
+web:test:    ✓ issue #1941 · skill 试跑撞 401 → 明确的重新登录提示 > 提交撞 401：渲染『登录已失效，请重新登录』，且标出 data-trial-run-auth-expired 348ms
+web:test:  ✓ tests/ui/agent-plan-panel.test.tsx (12 tests) 101ms
+web:test:  ✓ tests/ui/asset-preflight-blocking.test.tsx (6 tests) 306ms
+web:test:  ✓ tests/ui/capability-catalog-edit-navigation.test.tsx (3 tests) 342ms
+web:test:  ✓ tests/ui/survey-create-dialog.test.tsx (3 tests) 1633ms
+web:test:    ✓ SurveyCreateDialog > 空白问卷要求名称并提交规范化的多个标签 549ms
+web:test:    ✓ SurveyCreateDialog > 模块创建保留元数据并且只能选择一个模块 910ms
+web:test:  ✓ tests/ui/org-admin-role-scope.test.tsx (4 tests) 1160ms
+web:test:    ✓ org-admin 组织级屏不再挂项目角色视角切换器 > ① members / activate / boundary 三屏隐藏「视角」行，改显组织级说明 489ms
+web:test:    ✓ org-admin 组织级屏不再挂项目角色视角切换器 > ② invites / roster / roles / grant 四个项目级屏仍然渲染项目角色「视角」行 582ms
+web:test:  ✓ tests/ui/skill-library-prototype-fidelity.test.tsx (3 tests) 643ms
+web:test:    ✓ skill-library 原型保真度 > ①「新建 Skill」面板展示原型逐字的三市场网格，且遵守 D-06 置灰规则 426ms
+web:test:  ✓ tests/ui/admin-screen-notice.test.tsx (5 tests) 812ms
+web:test:    ✓ 成员与配额屏（#1165 的回归本体） > 页头**不出现**「型号、定价与条目为演示数据」——那条讲的是模型定价，与这块屏无关 346ms
+web:test:  ✓ tests/ui/agent-definition-list-panel.test.tsx (4 tests) 187ms
+web:test:  ✓ tests/ui/survey-app-shell.test.tsx (7 tests) 665ms
+web:test:  ✓ tests/ui/chat-live-message-panel-markdown.test.tsx (2 tests) 536ms
+web:test:    ✓ ChatLiveMessagePanel — AI 消息经 MarkdownMessage 渲染（VZ-01 live 接线） > agent 消息 → 走 MarkdownMessage：markdown 结构 + 越界 mermaid 落诚实错误态 478ms
+web:test:  ✓ tests/ui/quick-digital-interview.test.tsx (3 tests) 713ms
+web:test:    ✓ F03 快捷访谈独立页 > 是完整页面，返回专家列表并可发送问题 501ms
+web:test:  ✓ tests/ui/tasks-today-fidelity.test.tsx (4 tests) 478ms
+web:test:  ✓ tests/ui/join-verify-form.test.tsx (5 tests) 299ms
+web:test:  ✓ tests/ui/admin-mcp-card-view.test.tsx (4 tests) 1391ms
+web:test:    ✓ MCP 服务器屏：卡片 ⇄ 列表视图切换 > ① 默认卡片视图：容器与卡片网格可见，列表不渲染 308ms
+web:test:    ✓ MCP 服务器屏：卡片 ⇄ 列表视图切换 > ② 点击「列表」切到既有行式列表；再点「卡片」切回 325ms
+web:test:    ✓ MCP 服务器屏：卡片 ⇄ 列表视图切换 > ④ 卡片上的交互按钮保留：至少「配置」按钮在每张卡片上可点 521ms
+web:test:  ✓ tests/ui/use-audio-input-devices.test.ts (4 tests) 290ms
+web:test:  ✓ tests/ui/realtime-transcription-workspace.test.tsx (5 tests) 926ms
+web:test:    ✓ RealtimeTranscriptionWorkspace > treats a stopped transcription as resumable instead of completed 430ms
+web:test:  ✓ tests/ui/tpl-list-admin-nav.test.tsx (3 tests) 748ms
+web:test:    ✓ 2026-08-15 /tpl/list：后台 AdminNav 侧栏（此前压根没有） > ① AppShell 收到的 left 是 AdminNav（active="blueprint"），不是 undefined 738ms
+web:test:  ✓ tests/ui/state-shell-reserved-testid.test.tsx (4 tests) 489ms
+web:test:    ✓ StateShell —— 保留 testid 是渲染出来的事实，不只是常量表里的字符串 > 六个非默认态各自挂上自己的保留名 457ms
+web:test:  ✓ tests/ui/project-overview-live-info.test.tsx (5 tests) 1347ms
+web:test:    ✓ F353 project-overview：项目基本信息块只显示真实数据 > liveProject 为 null 时显示诚实的空态，不回退到 mock 名字 673ms
+web:test:  ✓ tests/ui/skill-catalog-view-toggle.test.tsx (2 tests) 1911ms
+web:test:    ✓ Skill 库：补上卡片 / 列表切换（此前只有卡片网格） > 默认卡片网格，切换按钮存在（此前完全没有这两个按钮） 1283ms
+web:test:    ✓ Skill 库：补上卡片 / 列表切换（此前只有卡片网格） > 点击列表切换按钮后：容器 class 从网格变成纵向排列，内容仍然可见 624ms
+web:test:  ✓ tests/lib/agui-plan-todos.test.tsx (10 tests) 625ms
+web:test:    ✓ useAguiPlanTodos > onStateSnapshotEvent 收到合法快照后更新 todos 483ms
+web:test:  ✓ tests/ui/profile-mobile-actions.test.tsx (3 tests) 1741ms
+web:test:    ✓ `/profile` 移动端顶部动作行 > 渲染出主题切换与退出两个入口，且都带 `md:hidden`（避免与桌面档下拉重复） 1286ms
+web:test:    ✓ `/profile` 移动端顶部动作行 > 点退出会调用 `session.logout` 403ms
+web:test:  ✓ tests/ui/login-signup-paths.test.tsx (4 tests) 1162ms
+web:test:    ✓ login page shows both new-user paths (#547) > keeps the existing create-org entry untouched 617ms
+web:test:  ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 1078ms
+web:test:    ✓ 邀请表单不许把校验让给浏览器原生英文气泡 > form 带 noValidate，或邮箱输入不是 type=email（二者必居其一） 1077ms
+web:test:  ✓ tests/ui/login-real-error.test.tsx (2 tests) 1610ms
+web:test:    ✓ real login failure mapping > maps INVALID_CREDENTIAL to the non-enumerating credential message 1280ms
+web:test:    ✓ real login failure mapping > does not misreport an auth dependency outage as wrong credentials 327ms
+web:test: stderr | tests/ui/markdown-message.test.tsx > MarkdownMessage > 白名单内的 mermaid 围栏 → 走 fabric 渲染路径（validating→valid，挂 fabric 容器），不落错误态
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-a5000165f9912cde8/packages/fabric-markdown/src/index.ts:75:13)
+web:test: 
+web:test:  ✓ tests/ui/markdown-message.test.tsx (3 tests) 4484ms
+web:test:    ✓ MarkdownMessage > 把 markdown 渲染成结构（标题/加粗/列表），容器带 chat-ai-markdown 364ms
+web:test:    ✓ MarkdownMessage > 越界图类型的 mermaid 围栏 → 诚实错误态（chat-ai-mermaid-error），不崩不静默丢 685ms
+web:test:    ✓ MarkdownMessage > 白名单内的 mermaid 围栏 → 走 fabric 渲染路径（validating→valid，挂 fabric 容器），不落错误态 3424ms
+web:test:  ✓ tests/ui/app-shell-panel-collapse.test.tsx (4 tests) 3461ms
+web:test:    ✓ CK-1 面板收起 > 默认两栏展开，收起钮在场 1248ms
+web:test:    ✓ CK-1 面板收起 > 点收起 → 栏消失、展开把手出现；再点 → 恢复 508ms
+web:test:    ✓ CK-1 面板收起 > 收起状态写入 localStorage（个人习惯记忆，非服务端事实） 1017ms
+web:test:    ✓ CK-1 面板收起 > 挂载时读取记忆：上次收起这次仍收起 682ms
+web:test:  ✓ tests/session/login-session-gate.test.tsx (3 tests) 132ms
+web:test:  ✓ tests/ui/interview-skill-assistant.test.tsx (1 test) 671ms
+web:test:    ✓ F04 访谈 Skill 助手 > 建议不会自动改主题，应用后生效并可撤销 651ms
+web:test:  ✓ tests/session/canvas-template-routes-no-mock.test.ts (12 tests) 240ms
+web:test:  ✓ tests/capability/mcp/three-orthogonal-fields.test.ts (24 tests) 24ms
+web:test:  ✓ tests/single-source-of-truth.test.ts (22 tests) 1225ms
+web:test:    ✓ 认证策略数值单一事实源 > 契约里的策略数值与 O-28 / O-29 裁决逐条一致 529ms
+web:test:    ✓ 筛选动作与相关度阈值单一事实源 > 契约里的五种动作与前端渲染的是同一组键（含曾漂移的那两个） 419ms
+web:test:  ✓ tests/capability/mcp/credential-endpoint-hidden.test.ts (142 tests) 507ms
+web:test:  ✓ tests/lint-no-backend-badge.test.ts (11 tests) 144ms
+web:test:  ✓ tests/ui/survey-route-layout.test.tsx (3 tests) 5843ms
+web:test:    ✓ Survey route layout > 通过路由布局同时挂载全局左栏、Survey 二级菜单和页面内容 1292ms
+web:test:    ✓ Survey route layout > 现有问卷路由忽略创建草稿参数 2413ms
+web:test:    ✓ Survey route layout > 新问卷路由解码单一创建草稿并进入完整设计 2137ms
+web:test:  ✓ tests/session/chat-dead-mock-cluster.test.ts (8 tests) 2254ms
+web:test:    ✓ #462 /chat 路由闭包禁 mock + chat 死 mock 簇台账 > 如实钉住：chat 下路由走不到、却仍吃 mock 的文件正好是这六个 1015ms
+web:test:    ✓ #462 /chat 路由闭包禁 mock + chat 死 mock 簇台账 > chat-composer-input 位于路由走不到的文件里；真实发消息锚点在 /chat 闭包内 944ms
+web:test:  ✓ tests/lib/auto-template-layout.test.ts (20 tests) 337ms
+web:test:  ✓ tests/recording/live-recording-capture.test.ts (22 tests) 106ms
+web:test:  ✓ tests/capability/mcp/tool-namespace.test.ts (21 tests) 137ms
+web:test:  ✓ tests/session/skill-create-route-no-mock.test.ts (5 tests) 226ms
+web:test:  ✓ tests/digital-interview-drafts.test.ts (11 tests) 28ms
+web:test:  ✓ tests/guided-research-skill-state.test.ts (8 tests) 7ms
+web:test:  ✓ tests/ui/survey-template-editor-shell.test.tsx (2 tests) 4111ms
+web:test:    ✓ SurveyTemplateEditorShell > 呈现独立报告模块编辑器并返回报告模块列表 1766ms
+web:test:    ✓ SurveyTemplateEditorShell > 按报告模块 ID 加载对应标题和章节数量 2335ms
+web:test:  ✓ tests/session/agent-admin-route-no-mock.test.ts (4 tests) 86ms
+web:test:  ✓ tests/session/chat-roster-route-no-mock.test.ts (6 tests) 275ms
+web:test:  ✓ tests/api-client-ws-handshake-timeout.test.ts (4 tests) 10ms
+web:test:  ✓ tests/survey/survey-mock-structure.test.ts (10 tests) 51ms
+web:test:  ✓ tests/lib/boardx-realtime-asr-client.test.ts (7 tests) 28ms
+web:test:  ✓ tests/session/copilotkit-agui-httpagent.test.ts (2 tests) 681ms
+web:test:    ✓ @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > lands the assistant's real text in agent.messages -- what the preview panel renders 447ms
+web:test:  ✓ tests/lib/pick-default-agent-id.test.ts (12 tests) 6ms
+web:test:  ✓ tests/session/api-client-non-json-error.test.ts (4 tests) 133ms
+web:test:  ✓ tests/ui/survey-workflow-model.test.ts (10 tests) 389ms
+web:test:  ✓ tests/lib/auto-template-sticky-constants.test.ts (4 tests) 8ms
+web:test:  ✓ tests/chat-roster-api.test.ts (2 tests) 242ms
+web:test:  ✓ tests/lint-third-party-style-registry.test.ts (6 tests) 3099ms
+web:test:    ✓ U9 未登记第三方组件样式覆盖门控 > 反证①：未登记的第三方覆盖被拦截（exit 1，报 U9） 1352ms
+web:test:    ✓ U9 未登记第三方组件样式覆盖门控 > 反证②：补登记 @third-party-override 后同一条覆盖放行（exit 0） 893ms
+web:test:    ✓ U9 未登记第三方组件样式覆盖门控 > 反证③：行内塞'禁用整个文件'式注释不能绕过 U9（仍 exit 1，仍报 U9） 839ms
+web:test:  ✓ tests/lib/agent-capability-graph-model.test.ts (5 tests) 26ms
+web:test:  ✓ tests/upload-attachment-xhr.test.ts (3 tests) 13ms
+web:test:  ✓ tests/chat-read-api.test.ts (1 test) 32ms
+web:test:  ✓ tests/session/covered-routes-no-mock.test.ts (14 tests) 64ms
+web:test:  ✓ tests/ui/admin-feedback-transitions-match-domain.test.ts (3 tests) 6ms
+web:test:  ✓ tests/lib/pcm-audio-worklet.test.ts (4 tests) 21ms
+web:test:  ✓ tests/api-client-url-join.test.ts (3 tests) 158ms
+web:test:  ✓ tests/e2e/personal-realtime-transcription-smoke.test.ts (1 test) 11ms
+web:test:  ✓ tests/guided-research-demo-state.test.ts (4 tests) 101ms
+web:test:  ✓ tests/lib/live-personal-transcriptions.test.ts (2 tests) 255ms
+web:test:  ✓ tests/session/session-api.test.ts (1 test) 19ms
+web:test:  ✓ tests/ui/decode-mermaid-entities.test.ts (4 tests) 32ms
+web:test:  ✓ tests/lint-design-motion-rule.test.ts (5 tests) 582ms
+web:test:    ✓ lint-design.sh U10 门控（裸 duration/easing 拦截） > 对合规 fixture（duration-fast/base/slow + ease-fast/base/slow）放行（exit 0） 579ms
+web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 596ms
+web:test:    ✓ lint-design.sh 门控 > 对合规 fixture 放行（exit 0） 591ms
+web:test:  ✓ tests/lib/live-consent.test.ts (1 test) 7ms
+web:test:  ✓ tests/ui/mermaid-diagram-type.test.ts (4 tests) 127ms
+web:test:  ✓ tests/api-client-error-envelope.test.ts (2 tests) 11ms
+web:test:  ✓ tests/research-rewrite.test.ts (1 test) 3ms
+web:test:  ✓ tests/guided-research-stage.test.ts (2 tests) 3ms
+web:test:  ✓ tests/ui/survey-creation-draft.test.ts (3 tests) 63ms
+web:test:  ✓ tests/ui/provenance-labels.test.ts (2 tests) 7ms
+web:test:  ✓ tests/ui/personal-transcription-history.test.tsx (17 tests) 19120ms
+web:test:    ✓ 实时转录历史工作台 > 历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗 3834ms
+web:test:    ✓ 实时转录历史工作台 > 提交新建转录走真实 API，保留自定义标签并立即进入该场工作台 2953ms
+web:test:    ✓ 实时转录历史工作台 > 提交时把尚未按回车确认的标签一并传给创建 API 1263ms
+web:test:    ✓ 实时转录历史工作台 > 点击 API 返回的历史卡片进入对应转录详情 1138ms
+web:test:    ✓ 实时转录历史工作台 > 详情页使用个人持久化 ASR，并按 segmentId 去重拼接 final 文本 903ms
+web:test:    ✓ 实时转录历史工作台 > 停止后等待个人 ASR 完成并重新读取持久化正文 1133ms
+web:test:    ✓ 实时转录历史工作台 > 编辑完整正文调用持久化 API 并显示服务端结果 1025ms
+web:test:    ✓ 实时转录历史工作台 > 刷新后仍从 API 读回已创建转录，不依赖组件内存 2117ms
+web:test:    ✓ 实时转录历史工作台 > 沿服务端游标读取全部历史，并把搜索与标签传给 API 1319ms
+web:test:    ✓ 实时转录历史工作台 > 标签筛选只展示当前用户 API 返回的真实标签 1151ms
+web:test:    ✓ 实时转录历史工作台 > 卡片菜单可修改名称与标签并刷新真实标签 623ms
+web:test:    ✓ 实时转录历史工作台 > 修改后按当前标签重新读取列表，不保留已不匹配的卡片 850ms
+web:test:  ✓ tests/lint-image-alt-nextimage.test.ts (3 tests) 12735ms
+web:test:    ✓ U7a 覆盖 next/image 的 <Image>（F08） > 缺 alt 的 <Image> 被 U7a 拦截 903ms
+web:test:    ✓ U7a 覆盖 next/image 的 <Image>（F08） > 带 alt 的 <Image> 与合规 <img> 一起放行（exit 0） 883ms
+web:test:    ✓ U7a 覆盖 next/image 的 <Image>（F08） > 全仓真实扫描（app/components/lib）U7a 全绿——已补齐 avatar/附件预览/组织头像的 alt 或 aria-hidden 10948ms
+web:test: 
+web:test:  Test Files  208 passed (208)
+web:test:       Tests  1816 passed (1816)
+web:test:    Start at  10:24:24
+web:test:    Duration  124.36s (transform 27.34s, setup 113.44s, collect 221.79s, tests 224.17s, environment 346.78s, prepare 49.11s)
+web:test: 
+
+ Tasks:    4 successful, 4 total
+Cached:    1 cached, 4 total
+  Time:    2m5.151s 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m5s
+  清理：0s
+  总计：2m6s
+
+[harness-verify v1 sha256=a94188fd648bdd23bc6c3a65215110791b82efb71446fbe0f3eb5961719bee3b commit=da2a997b7ddafb4445d65001bd633c31104048a0 at=2026-08-24T02:26:30.376Z]

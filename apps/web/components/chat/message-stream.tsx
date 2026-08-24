@@ -173,7 +173,7 @@ function TranscriptCard({ msg }: { msg: TranscriptMsg }) {
               aria-expanded={expanded}
               data-testid="chat-transcript-view"
             >
-              <ChevronRight aria-hidden className={cn("h-3 w-3 transition-transform duration-200", expanded && "rotate-90")} />
+              <ChevronRight aria-hidden className={cn("h-3 w-3 transition-transform duration-fast", expanded && "rotate-90")} />
               查看转录
             </Button>
             <Button size="xs" variant="ghost" onClick={() => setStopping(true)} data-testid="chat-transcript-stop">停止录音</Button>

@@ -168,9 +168,9 @@ function CallChain({ chain }: { chain: string[] }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-testid="chat-approval-callchain-toggle"
-        className="inline-flex items-center gap-1 text-11 text-muted-foreground transition-colors duration-200 hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex items-center gap-1 text-11 text-muted-foreground transition-colors duration-base hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-90")} />
+        <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 transition-transform duration-fast", open && "rotate-90")} />
         调用链 {chain.join(" → ")}
       </button>
       {open && (

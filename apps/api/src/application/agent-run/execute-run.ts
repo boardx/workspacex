@@ -601,6 +601,12 @@ async function executeClaimed(
   orgId: OrgId,
   run: ClaimedAgentRun,
 ): Promise<void> {
+  // DA-07b resume 续号（见 `ClaimedAgentRun.resumeStepSeqBase` 的文档）：一个被 HITL
+  // 中断过的 run 第二次被 `executeClaimed` 处理时，`agent_run_steps` 里已经有它第一次
+  // 执行留下的行——继续从硬编码的 1 起步会让下面的 context_built（seq=2）撞上第一次
+  // 执行时已经写在 seq=2 的那一行，`agent_run_steps_seq_uniq` 直接拒绝。缺席（全新 run）
+  // 时退回 1，与本次改动之前逐字节相同。
+  const stepSeqBase = run.resumeStepSeqBase ?? 1;
   /* ── step: context_built ── */
   const contextStartedAt = deps.clock.now();
   const contextInput = sha256(
@@ -687,7 +693,7 @@ async function executeClaimed(
       detail: e instanceof ModelCallError ? e.detail : "pinned context source unavailable",
     });
     await record(deps, orgId, {
-      runId: run.runId, seq: 2, kind: "context_built", startedAt: contextStartedAt,
+      runId: run.runId, seq: stepSeqBase + 1, kind: "context_built", startedAt: contextStartedAt,
       inputDigest: contextInput, outputDigest: null, failureCode: code,
     });
     await deps.runs.failRun(orgId, run.runId, code);
@@ -695,7 +701,7 @@ async function executeClaimed(
   }
   const systemDigest = sha256(system);
   await record(deps, orgId, {
-    runId: run.runId, seq: 2, kind: "context_built", startedAt: contextStartedAt,
+    runId: run.runId, seq: stepSeqBase + 1, kind: "context_built", startedAt: contextStartedAt,
     inputDigest: contextInput, outputDigest: systemDigest, failureCode: null,
   });
 
@@ -991,9 +997,12 @@ async function executeClaimed(
    */
   let scriptCandidates: readonly string[] = [];
   // #741: this used to be advanced by `executeToolLoop` as it recorded `tool_call` steps;
-  // with that loop retired, `model_called` is always the third step (context_built is 2,
-  // the two preceding are the run's own acceptance steps), so this is a constant again.
-  const seqCursor = { value: 3 };
+  // with that loop retired, `model_called` is the step right after context_built for a
+  // FRESH run (stepSeqBase=1 ⇒ context_built=2 ⇒ this starts at 3, the pre-existing
+  // constant). DA-07b resume continues numbering from `stepSeqBase` instead — see
+  // `ClaimedAgentRun.resumeStepSeqBase`'s own doc for why a hardcoded constant here
+  // collides with a run's own earlier (pre-interrupt) steps.
+  const seqCursor = { value: stepSeqBase + 2 };
   try {
     // #798: `completeWithProgress`'s presence alone used to be the gate, but a router-shaped
     // port (`RoutingModelCallPort`) exposes that method as soon as ANY registered provider
@@ -1269,7 +1278,7 @@ export async function executeQueuedRuns(
       // leaving the run stuck in `running` forever is the one outcome nobody can act on.
       deps.log("agent run executor defect", {
         runId: outcome.run.runId,
-        detail: e instanceof Error ? e.name : "unknown",
+        detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown",
       });
       await deps.runs.failRun(input.orgId, outcome.run.runId, "MODEL_CALL_FAILED");
     }

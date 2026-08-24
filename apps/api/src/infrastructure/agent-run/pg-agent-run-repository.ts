@@ -65,6 +65,8 @@ interface ClaimDetailRow {
   id: string; project_id: string | null; input_text: string; instructions: string;
   requester_user_id: string;
   input_attachments: unknown;
+  /** DA-07b resume 续号的唯一事实源——见 `ClaimedAgentRun.resumeStepSeqBase` 的文档。 */
+  max_step_seq: number;
 }
 
 function toStringArray(value: unknown): string[] {
@@ -143,7 +145,11 @@ export class PgAgentRunRepository implements AgentRunStore {
       const detail = await s.query<ClaimDetailRow>(
         `SELECT r.id, t.project_id, m.body AS input_text, v.instructions,
                 m.author_id AS requester_user_id,
-                ${attachmentsAggSql("r.input_message_id")} AS input_attachments
+                ${attachmentsAggSql("r.input_message_id")} AS input_attachments,
+                COALESCE(
+                  (SELECT MAX(seq) FROM agent_run_steps WHERE org_id=r.org_id AND run_id=r.id),
+                  1
+                ) AS max_step_seq
            FROM agent_runs r
            JOIN chat_threads t ON t.id=r.thread_id AND t.org_id=r.org_id
            JOIN chat_messages m ON m.id=r.input_message_id AND m.org_id=r.org_id
@@ -190,6 +196,14 @@ export class PgAgentRunRepository implements AgentRunStore {
                 editedArgsJson: row.pending_edited_args ?? "null",
               }
               : null,
+          // DA-07b resume 续号（本次修复，见 `ClaimedAgentRun.resumeStepSeqBase` 文档）：
+          // 只在真的是一次 resume 时才带上——新 run 的 `max_step_seq` 恒为 1（只有
+          // acceptance 写的那一行），与"未定义时退回旧硬编码 1"完全等价，这里仍然只在
+          // pending_decision 非空时赋值，让"从未 resume 过"的路径在类型和取值上都不可能
+          // 因为这次改动而改变一个字节。
+          ...(row.pending_decision !== null && row.pending_decision !== undefined
+            ? { resumeStepSeqBase: extra.max_step_seq }
+            : {}),
         } });
       }
       return runs;

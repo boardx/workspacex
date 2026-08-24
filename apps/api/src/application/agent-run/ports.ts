@@ -108,6 +108,28 @@ export interface ClaimedAgentRun {
     | { readonly kind: "approve" }
     | { readonly kind: "edit"; readonly toolName: string; readonly editedArgsJson: string }
     | null;
+  /**
+   * DA-07b resume 续号（HITL edit 端到端从未生效的根因修复，2026-08-24）。
+   *
+   * `executeClaimed` 给每一步一个固定的账本 seq（accepted=1 在 acceptance 事务里写；
+   * context_built=2；tool_call/model_called 从 3 起累加）——这个假设只在"一个 run 从
+   * `queued` 到终态只被 `executeClaimed` 处理一次"时成立。DA-07b 打破了它：一个停在
+   * `awaiting_approval` 的 run 已经写过 accepted/context_built/tool_call(in_progress)/
+   * model_called(等待批准) 四行，人裁决后重新入队，`executeClaimed` 会被**第二次**调用
+   * 续跑同一个 run——如果它仍从硬编码的 2/3 起步，`context_built` 那一行会撞上第一次
+   * 执行时已经写在 seq=2 的行，`agent_run_steps_seq_uniq` 唯一约束直接拒绝这次 INSERT。
+   *
+   * 这个 INSERT 失败被 `executeQueuedRuns` 的兜底 catch 吞掉、转成通用的
+   * `MODEL_CALL_FAILED`——终态卡片上看到的正是这个码，跟人到底有没有编辑参数、编辑后的
+   * 值对不对**完全无关**：`approve`（不编辑）resume 会在同一处摔在同一个约束上。
+   *
+   * `undefined` = 这是一次全新的 run（`pendingDecision === null`），`executeClaimed`
+   * 退回原来的硬编码 1（context_built=2, 首个 tool_call/model_called=3）——与本次改动
+   * 之前逐字节相同。非 undefined 时是 claim 时刻这个 run 在 `agent_run_steps` 里已有的
+   * 最大 seq（`PgAgentRunRepository.claimQueued` 用真实 `MAX(seq)` 查出来，不是猜的），
+   * `executeClaimed` 从它之后继续编号，绝不撞已经落库的行。
+   */
+  readonly resumeStepSeqBase?: number;
 }
 
 export interface PinnedSkillContent {

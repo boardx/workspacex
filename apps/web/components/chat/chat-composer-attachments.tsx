@@ -542,7 +542,7 @@ export function MessageAttachments({
             <li key={att.id}>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 rounded-lg border border-border-subtle bg-panel px-2 py-1 text-left transition-colors hover:bg-muted/60"
+                className="flex w-full items-center gap-2 rounded-lg border border-border-subtle bg-panel px-2 py-1 text-left transition-colors duration-fast hover:bg-muted/60 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 data-testid={`chat-message-attachment-${att.id}`}
                 onClick={() => setPreviewing(att)}
               >
@@ -585,7 +585,7 @@ function AttachmentRow({
   const isUploading = att.status === "uploading";
   return (
     <li
-      className={`relative rounded-lg border bg-panel px-2 py-1.5 transition-colors duration-200 ${
+      className={`relative rounded-lg border bg-panel px-2 py-1.5 transition-colors duration-base ${
         isError ? "border-destructive/40" : "border-border-subtle"
       }`}
       data-testid={`${idPrefix}-chip-${att.localId}`}
