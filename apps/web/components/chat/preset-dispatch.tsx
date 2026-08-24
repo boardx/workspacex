@@ -213,7 +213,7 @@ function PresetEditorOverlay({ onClose }: { onClose: () => void }) {
             <h2 className="text-13 font-semibold" data-testid="chat-preset-editor-title">{e.title}</h2>
             <p className="mt-0.5 text-10 text-muted-foreground">{e.context}</p>
           </div>
-          <button type="button" onClick={onClose} data-testid="chat-preset-editor-close" className="text-muted-foreground transition-colors hover:text-background-foreground">
+          <button type="button" onClick={onClose} data-testid="chat-preset-editor-close" className="rounded-sm text-muted-foreground transition-colors duration-fast hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             <X aria-hidden className="h-4 w-4" />
           </button>
         </div>
@@ -234,7 +234,7 @@ function PresetEditorOverlay({ onClose }: { onClose: () => void }) {
                   onClick={() => setStart(s.name)}
                   data-testid={`chat-preset-editor-start-${s.name}`}
                   className={cn(
-                    "flex items-start gap-2 rounded-md border px-2 py-1.5 text-left",
+                    "flex items-start gap-2 rounded-md border px-2 py-1.5 text-left transition-colors duration-base active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     s.name === start ? "border-primary bg-panel" : "border-border-subtle hover:bg-muted/60",
                   )}
                 >
@@ -264,7 +264,7 @@ function PresetEditorOverlay({ onClose }: { onClose: () => void }) {
                   {s} <X aria-hidden className="h-2.5 w-2.5 text-muted-foreground" />
                 </span>
               ))}
-              <button type="button" onClick={() => window.alert("演示：添加技能")} className="inline-flex items-center gap-0.5 rounded border border-dashed border-border px-1.5 py-0.5 text-10 text-muted-foreground" data-testid="chat-preset-editor-add-skill">
+              <button type="button" onClick={() => window.alert("演示：添加技能")} className="inline-flex items-center gap-0.5 rounded border border-dashed border-border px-1.5 py-0.5 text-10 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid="chat-preset-editor-add-skill">
                 <Plus aria-hidden className="h-2.5 w-2.5" /> 添加技能
               </button>
             </div>

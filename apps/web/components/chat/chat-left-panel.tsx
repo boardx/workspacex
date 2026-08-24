@@ -45,7 +45,7 @@ export function ChatLeftPanel() {
                     data-testid={`chat-thread-${t.id}`}
                     aria-current={t.active ? "page" : undefined}
                     className={
-                      "flex flex-col gap-1 rounded-md px-2 py-1.5 transition-colors duration-200 hover:bg-muted " +
+                      "flex flex-col gap-1 rounded-md px-2 py-1.5 transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
                       (t.active ? "bg-muted" : "")
                     }
                   >

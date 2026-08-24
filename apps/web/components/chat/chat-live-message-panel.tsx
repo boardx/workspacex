@@ -1355,7 +1355,7 @@ export function ChatLiveMessagePanel({
                         aria-label="复制消息"
                         title="复制消息"
                         onClick={() => void handleCopyMessage(message)}
-                        className="ml-0.5 inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover:visible"
+                        className="ml-0.5 inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
                       >
                         {copiedMessageId === message.id ? (
                           <Check aria-hidden className="h-3 w-3 text-primary" />
@@ -1733,7 +1733,7 @@ export function ChatLiveMessagePanel({
                     type="button"
                     data-testid={`chat-attachment-mention-option-${att.id}`}
                     onClick={() => insertAttachmentMention(att.filename)}
-                    className="rounded-full border border-border px-2 py-0.5 text-11 text-card-foreground transition-colors hover:bg-muted"
+                    className="rounded-full border border-border px-2 py-0.5 text-11 text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {att.filename}
                   </button>

@@ -117,7 +117,7 @@ export function ComposerSettings({ open, onClose }: Props) {
               aria-pressed={scopes.includes(o.id)}
               data-testid={`chat-settings-scope-${o.id}`}
               className={[
-                "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-11 transition-all duration-200",
+                "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-11 transition-all duration-base active:scale-[0.98]",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 scopes.includes(o.id)
                   ? o.danger
@@ -230,7 +230,7 @@ function AgentChip({
       aria-pressed={selected}
       data-testid={`chat-settings-agent-${agent.id}`}
       className={[
-        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-11 transition-all duration-200",
+        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-11 transition-all duration-base active:scale-[0.98]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         selected ? "border-ai bg-ai-tint text-ai-tint-foreground" : "border-border text-muted-foreground hover:bg-muted",
       ].join(" ")}
@@ -255,7 +255,7 @@ function ChipGroup({
           onClick={() => onChange(o.id)}
           data-testid={`${testid}-${o.id}`}
           className={[
-            "rounded-md border px-2 py-1 text-11 transition-all duration-200",
+            "rounded-md border px-2 py-1 text-11 transition-all duration-base active:scale-[0.98]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             value === o.id ? "border-primary bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:bg-muted",
           ].join(" ")}

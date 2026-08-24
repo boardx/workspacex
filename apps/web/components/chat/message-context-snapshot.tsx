@@ -55,7 +55,7 @@ export function ContextSnapshotBadge({ snapshot }: { snapshot: AgentRunContextSn
         type="button"
         data-testid="context-snapshot-toggle"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex w-fit items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-10 text-muted-foreground transition-colors duration-200 hover:bg-muted"
+        className="flex w-fit items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-10 text-muted-foreground transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Info className="h-3 w-3" aria-hidden />
         <span data-testid="context-snapshot-summary">{summary}</span>

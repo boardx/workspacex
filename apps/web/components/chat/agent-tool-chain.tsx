@@ -137,11 +137,11 @@ export function AgentToolChain({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-testid="agent-tool-chain-toggle"
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-11 transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-11 transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ChevronRight
           aria-hidden
-          className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", open && "rotate-90")}
+          className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-fast", open && "rotate-90")}
         />
         <span className="min-w-0 flex-1 truncate text-left font-medium" data-testid="agent-tool-chain-summary">
           {summary}

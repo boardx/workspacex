@@ -59,7 +59,7 @@ export function ChatTeamPanel() {
             <li
               key={a.id}
               data-testid={`chat-team-agent-${a.id}`}
-              className="flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors duration-200 hover:bg-muted"
+              className="flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors duration-base hover:bg-muted"
             >
               <Avatar initials={a.initials} tone={isRemoved ? "muted" : "ai"} size="sm" className="mt-0.5" />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
