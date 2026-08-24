@@ -254,8 +254,14 @@ export function TopBar({
         纯属噪音——不在项目里本就是这个屏的常态，不需要每次都提醒。**只在 `/chat`
         隐藏**，其余非项目路由（如设置页）这句解释仍然保留，那些地方"为什么没有项目
         角色"确实需要说明。
+
+        2026-08-24 人类截图实测反馈：`/admin/*` 后台管理界面同样不需要这句——后台
+        本就不在任何具体项目里，这是它的常态而不是缺失，每个后台屏都重复提醒一遍
+        纯属视觉噪音。同时排除 `/admin` 与 `/admin/`（用前缀匹配，覆盖
+        `/admin/skill/[id]` 这类多段路由，不是只排除 `/admin` 这一段路径）。
       */}
-      {!project && !local && !sh.on && pathname !== "/chat" && (
+      {!project && !local && !sh.on && pathname !== "/chat"
+        && pathname !== "/admin" && !pathname.startsWith("/admin/") && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
           不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
         </p>
