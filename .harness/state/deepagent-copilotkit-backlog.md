@@ -202,6 +202,23 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 
 ## DA-19 CopilotKit 原生 Chat 轨道（人类 2026-08-23 裁决：方案 A，灰度迁移生产服务）
 
+> ⚠ **2026-08-24 裁决更新：#654 排除 GraphQL 运行时那条被明确撤回。** DA-19a 落地
+> 后核实：`@copilotkit/react-core` 的 hooks（`useCopilotReadable`/`useCopilotAction`/
+> `useAgent` 等）在其自带 SKILL.md 里明写 `requires: copilotkit/runtime`——provider
+> 内部走 `ProxiedCopilotRuntimeAgent` 代理 `runtimeUrl`，本仓唯一装过的相关包
+> `@copilotkit/runtime-client-gql` 包名本身就带 `gql`、依赖 `graphql`。没有绕过的
+> 办法：要么撤回 #654 排除 GraphQL 那条、起 `@copilotkit/runtime` 后端适配器，
+> 要么放弃「真正用上 hooks」这个目标、继续纯手写。人类 2026-08-24 裁决：**撤回
+> #654 的排除，接受 GraphQL 运行时层**——DA-19b 起，各子任务需要新增「起
+> `@copilotkit/runtime` 适配器」这个前置步骤，原计划的其余部分不变。
+>
+> ⚠ 这条更新只改变"要不要接受 GraphQL 层"这一件事本身，`copilotkit-preview-panel.tsx`
+> 已经证明的 AG-UI 直连能力不作废——CopilotRuntime 支持把已有的 AG-UI 端点注册为
+> `remoteEndpoints`（这是 CopilotKit 官方接 LangGraph/AG-UI 后端的标准方式，
+> 不是重新对接一次），新的 GraphQL 层是**包在**现有 deep-agent-service AG-UI 连接
+> 外面的一层适配器，不是推翻重来。DA-19a 做的鉴权/续聊/多 agent/错误态加固原样保留，
+> 后端适配器要复用这些结论，不能重新发明。
+
 > **背景与裁决过程**：UX-9 冲刺三轮「找 gap→修→评」跑完第一轮（3.0/4）后，人类指出
 > 「UI 并没有多大改进」——核实后发现根因：`@copilotkit/react-core`/`react-ui` 已装
 > （`apps/web/package.json`），但生产 `/chat` 面板（`chat-live-message-panel.tsx`，
@@ -223,9 +240,11 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 
 ### 地基已经存在，不是从零开始
 `apps/web/components/chat/copilotkit-preview-panel.tsx`（`app/chat/copilotkit-preview/page.tsx`
-路由）已经证明：`useCoAgent` + AG-UI `HttpAgent` 可以直接连 deep-agent-service，
-**不需要**碰 #654 明确排除的 CopilotRuntime GraphQL 网关——那条裁决排除的是后端拓扑，
-不是前端 hooks。DA-19 是把这个「预览」升级成「灰度生产候选」，不是另起炉灶。
+路由）已经证明：直连 AG-UI `HttpAgent` 可以打通 deep-agent-service 的鉴权/续聊/多
+agent/错误态（DA-19a 已加固）。**这份连接层结论不作废**——2026-08-24 裁决更新（见本节
+顶部）撤回了 #654 排除 GraphQL 的部分，`@copilotkit/runtime` 后端适配器要把这份已验证
+的 AG-UI 连接注册为 `remoteEndpoints`，是包一层，不是推翻重连一次。DA-19 是把
+「预览」升级成「灰度生产候选」，不是另起炉灶。
 
 ### 纪律：S1=B 双轨灰度（本仓一贯做法，不是新发明）
 - 新轨道走独立 flag（暂定 `KERNEL_COPILOTKIT_CHAT_ENABLED`，默认关）。
