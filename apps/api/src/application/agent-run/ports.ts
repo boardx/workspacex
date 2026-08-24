@@ -426,6 +426,26 @@ export interface AgentRunStore {
 
   findLocator(orgId: OrgId, runId: string): Promise<RunLocator | null>;
 
+  /**
+   * DA-19g -- the AG-UI/CopilotRuntime bridge's HITL resume entry point (`copilotkit-agui.
+   * controller.ts`'s `bridge()`) receives CopilotKit's follow-up `runAgent` request as a
+   * brand-new top-level POST with NO run id on it (`respond()`'s synthesized tool-result
+   * message only carries `forwardedProps.chatThreadId`, see that controller's own doc) --
+   * unlike `/agent-runs/:runId/decision` (DA-07b), which always has one in the URL. This is
+   * the one new lookup that closes that gap: "the run this Chat thread is currently paused
+   * on", so the bridge can hand it straight to the SAME `decideAgentRun` the REST route uses,
+   * not a second decision-making implementation.
+   *
+   * A thread can have at most one `awaiting_approval` run at a time (the agent loop is
+   * strictly sequential -- a run halts entirely on interrupt, see `execute-run.ts`'s
+   * `completion.interrupted` branch), so this never has an actual "which one" ambiguity to
+   * resolve; the `ORDER BY ... LIMIT 1` is defensive tidiness, not a real tie-break. `null`
+   * covers both "no run ever paused here" and "already resolved" (approved/edited/rejected
+   * since the client's last observation, or simply a stale/duplicate follow-up) -- the caller
+   * treats both the same way: there is nothing left to resume.
+   */
+  findAwaitingApprovalRunId(orgId: OrgId, threadId: string): Promise<string | null>;
+
   readRun(orgId: OrgId, runId: string): Promise<Guarded<RunProjection> | null>;
 
   /**

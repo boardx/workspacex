@@ -564,6 +564,20 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /** DA-19g -- see `AgentRunStore.findAwaitingApprovalRunId`'s own doc for why the AG-UI
+   * bridge needs this lookup at all (its resume request carries a thread id, not a run id). */
+  findAwaitingApprovalRunId(orgId: OrgId, threadId: string): Promise<string | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const result = await s.query<{ id: string }>(
+        `SELECT id FROM agent_runs
+          WHERE org_id=$1 AND thread_id=$2 AND status='awaiting_approval'
+          ORDER BY created_at DESC LIMIT 1`,
+        [orgId, threadId],
+      );
+      return result.rows[0]?.id ?? null;
+    });
+  }
+
   async readRun(orgId: OrgId, runId: string): Promise<Guarded<RunProjection> | null> {
     const found = await this.db.withTenant(orgId, async (s) => {
       const run = await s.query<RunRow>(

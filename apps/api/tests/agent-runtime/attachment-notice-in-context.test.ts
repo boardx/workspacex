@@ -56,6 +56,7 @@ function fakeStore(run: ClaimedAgentRun, history: readonly ThreadHistoryMessage[
     reopenForWritebackRetry: unused("reopenForWritebackRetry"),
     appendWritebackFailure: unused("appendWritebackFailure"),
     findLocator: async (): Promise<RunLocator | null> => null,
+    findAwaitingApprovalRunId: async (): Promise<string | null> => null,
     readRun: async (): Promise<Guarded<RunProjection> | null> => null,
     readThreadHistory: async (): Promise<readonly ThreadHistoryMessage[]> => history,
     readThreadContextState: async () => null,

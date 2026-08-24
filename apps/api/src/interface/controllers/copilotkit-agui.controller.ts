@@ -93,7 +93,7 @@ import { randomUUID } from "node:crypto";
 import { EventType } from "@ag-ui/core";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { assertPrincipal, type Principal } from "../../domain/principal";
-import { toOrgId } from "../../domain/org-id";
+import { toOrgId, type OrgId } from "../../domain/org-id";
 import { DECISION_ID_FACTORY, IDENTITY_REPOSITORY, type DecisionIdFactory, type IdentityRepository } from "../../application/identity/ports";
 import { CHAT_REPOSITORY, type ChatRepository } from "../../application/chat/ports";
 import { AuthzUnavailableError } from "../../application/chat/resolve-visibility";
@@ -108,20 +108,31 @@ import {
   AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, type AgentRunStore, type AgentRunExecutorPort,
 } from "../../application/agent-run/ports";
 import {
-  runAguiBridgeTurn, AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
+  runAguiBridgeTurn, resumeAguiBridgeTurn, NoAwaitingApprovalRunError,
+  AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, AgentRunNotVisibleError,
-  TitleInvalidError, AguiBridgeResultUnreadableError, type RunStepPublic,
+  TitleInvalidError, AguiBridgeResultUnreadableError, AgentRunNotAwaitingApprovalError,
+  type RunStepPublic,
 } from "../../application/agent-run/agui-bridge";
 import { parseWriteTodosSnapshot, type JsonPatchOp } from "@repo/contracts/agui-state-events";
 
 /** The minimal slice of AG-UI's `RunAgentInput` this bridge reads. Everything else in a
  * real `RunAgentInput` (tools, context, state) is ignored -- Phase 1b is single-turn text
  * only (see file head). `forwardedProps` is the one exception, and only its
- * `chatThreadId` key (DA-19a, see file head "real cross-turn continuation"). */
+ * `chatThreadId` key (DA-19a, see file head "real cross-turn continuation").
+ *
+ * DA-19g -- `messages[].role` can now also be `"tool"` (with `toolCallId`/`content`), the
+ * shape `@copilotkit/core`'s frontend-tool machinery synthesizes once `useHumanInTheLoop`'s
+ * `respond(result)` resolves (see file head "HITL resume"). `toolCallId` itself is never
+ * read here -- see `isHitlResumeRequest`'s own doc for why the LAST message's role alone is
+ * already an unambiguous enough signal for this bridge's one-thread-one-pending-run
+ * invariant, without needing to correlate a specific id. */
 interface AguiRunInput {
   readonly threadId?: string;
   readonly runId?: string;
-  readonly messages?: readonly { readonly role: string; readonly content: string }[];
+  readonly messages?: readonly {
+    readonly role: string; readonly content?: string; readonly toolCallId?: string;
+  }[];
   /** DA-19a -- see file head "real cross-turn continuation". Only `chatThreadId` is read;
    * any other key a real AG-UI client puts in `forwardedProps` is ignored, same as this
    * bridge already ignores `tools`/`context`/`state` (see `AguiRunInput`'s own doc). */
@@ -167,7 +178,57 @@ type AguiEvent =
 function lastUserText(input: AguiRunInput): string | null {
   const messages = input.messages ?? [];
   for (let i = messages.length - 1; i >= 0; i -= 1) {
-    if (messages[i]?.role === "user") return messages[i]!.content;
+    if (messages[i]?.role === "user") return messages[i]!.content ?? null;
+  }
+  return null;
+}
+
+/**
+ * DA-19g -- is this request `useHumanInTheLoop`'s `respond()` follow-up, not a fresh human
+ * turn? `@copilotkit/core`'s frontend-tool machinery (`packages/react-core/src/v2/hooks/
+ * use-human-in-the-loop.tsx`, traced in this task's own research) inserts exactly ONE new
+ * `{role:"tool", toolCallId, content}` message right after the assistant's dangling tool
+ * call once `respond(result)` resolves, THEN re-invokes `runAgent` with the full, updated
+ * history -- so on a genuine resume, that tool message is always the LAST entry (nothing
+ * legitimate gets appended after a tool RESULT before the next round-trip). A `"tool"` role
+ * message can never appear on a fresh turn (阶段1b/2b never emit one, and this bridge is
+ * still single-round per `AguiRunInput`'s own doc for every OTHER field) -- so this check
+ * has no false-positive path against ordinary chat traffic.
+ *
+ * This is why `resumeAguiBridgeTurn` does not need the message's `toolCallId` for
+ * correlation (see `AguiRunInput`'s own doc): a Chat thread has at most one
+ * `awaiting_approval` run at a time (`findAwaitingApprovalRunId`'s own doc), so "the last
+ * message is a tool result" is already enough to know WHICH run this resumes, once
+ * `forwardedProps.chatThreadId` says WHICH thread.
+ */
+function isHitlResumeRequest(input: AguiRunInput): boolean {
+  const messages = input.messages ?? [];
+  return messages.length > 0 && messages[messages.length - 1]?.role === "tool";
+}
+
+/** The decision-shaped payload a "tool" role message about the ONE tool this bridge ever
+ * asks the frontend to execute (`send_email`, `SendEmailApprovalDialog`) can carry is
+ * limited to what `SendEmailApprovalDialog`'s three actions call `respond(...)` with
+ * (`copilotkit-v2-panel.tsx`): the literal strings `"approved"`/`"denied"`, or a JSON object
+ * (the edited args, already validated client-side by `parseEditDraft`). Anything else is
+ * neither -- a malformed/unexpected payload this bridge has never produced and should not
+ * guess at (fail closed, same discipline `EditDecision`'s own JSON parsing on the deep-agent
+ * provider side already uses for edited args -- see `decide-agent-run.ts` file head). */
+function parseHitlDecision(
+  content: string,
+):
+  | { readonly kind: "approve" | "reject" }
+  | { readonly kind: "edit"; readonly editedArgs: Readonly<Record<string, unknown>> }
+  | null {
+  if (content === "approved") return { kind: "approve" };
+  if (content === "denied") return { kind: "reject" };
+  try {
+    const parsed: unknown = JSON.parse(content);
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return { kind: "edit", editedArgs: parsed as Readonly<Record<string, unknown>> };
+    }
+  } catch {
+    // Falls through to `null` below -- not valid JSON, not one of the two literal strings.
   }
   return null;
 }
@@ -193,7 +254,9 @@ function lastUserText(input: AguiRunInput): string | null {
  * (this app's own persisted `chat_messages`/`agent_run_steps`) is looked up over these
  * ids, same discipline the file head already documents for the main answer's `messageId`.
  */
-function writeToolCallStep(write: (event: AguiEvent) => void, step: RunStepPublic): void {
+function writeToolCallStep(
+  write: (event: AguiEvent) => void, step: RunStepPublic, isPendingApproval: boolean,
+): void {
   const stepName = step.toolName ?? "未知工具";
   write({ type: EventType.STEP_STARTED, stepName });
 
@@ -210,6 +273,39 @@ function writeToolCallStep(write: (event: AguiEvent) => void, step: RunStepPubli
     write({ type: EventType.TOOL_CALL_ARGS, toolCallId, delta: step.toolArgsSummary });
   }
   write({ type: EventType.TOOL_CALL_END, toolCallId });
+
+  // DA-19g -- ONLY the step that IS the pending HITL interrupt (DA-07b's
+  // `awaiting_approval`, `isPendingApproval` -- see `agui-bridge.ts`'s `onStep` doc for why
+  // `step.status === "in_progress"` alone is not enough signal: an ORDINARY multi-step tool
+  // call also reports an `"in_progress"` announcement frame while the run is still plain
+  // `"running"`, #742 Gap 1's semantics apply to every tool call, not only ones that pause
+  // for a human) withholds `TOOL_CALL_RESULT`. Sending it immediately for a step that has
+  // NOT been decided yet used to be this bridge's core HITL bug: CopilotKit's
+  // `useHumanInTheLoop` treats "no result event after `TOOL_CALL_END`" as ITS signal that a
+  // tool call is still awaiting a frontend decision (`ToolCallStatus.Executing`) -- sending
+  // one immediately, even an empty one, told the client the opposite: this call already
+  // finished, nothing to wait for. An ordinary in-flight tool call (not a HITL interrupt)
+  // keeps the ORIGINAL behaviour unchanged -- real e2e regression this task's own
+  // verification caught (`copilotkit-v2-tool-rendering.spec.ts`'s `search_documents` card
+  // never reaching its `"complete"` state): that flow relies on THIS SAME immediate-result
+  // announcement to advance a generic tool-progress card, and it is not paused for anyone.
+  //
+  // ⚠ `STEP_FINISHED` is NOT held back the same way even for a genuine interrupt -- a first
+  // attempt at this fix did, and a real `@ag-ui/client` (`verify.ts`'s own protocol checker)
+  // rejected the whole stream with "Cannot send 'RUN_FINISHED' while steps are still active:
+  // <name>" the moment the bridge tried to end the turn (real browser e2e caught this, not a
+  // hypothetical). AG-UI's `STEP_STARTED`/`STEP_FINISHED` bracket is a DIFFERENT concept
+  // from the tool call's own `TOOL_CALL_START`/`_END`/`_RESULT` triplet -- a step can
+  // legitimately finish ("the model decided what to call and is done producing output for
+  // this turn") while the tool call it announced is still dangling (no `_RESULT` yet,
+  // because nothing has executed it). Only the tool-call-result half stays withheld here --
+  // that is the actual signal `useHumanInTheLoop` reads (see above), and it is what
+  // `resumeAguiBridgeTurn` supplies later once `decideAgentRun` produces a genuine terminal
+  // outcome for the step.
+  if (step.status === "in_progress" && isPendingApproval) {
+    write({ type: EventType.STEP_FINISHED, stepName });
+    return;
+  }
 
   const resultContent = step.status === "failed"
     ? (step.toolResultSummary ?? `技能「${stepName}」执行失败。`)
@@ -238,6 +334,40 @@ function writeToolCallStep(write: (event: AguiEvent) => void, step: RunStepPubli
 
 @Controller()
 export class CopilotkitAguiController {
+  /**
+   * DA-19g -- HITL resume correlation cache, keyed by the AG-UI CLIENT's own `threadId`
+   * (`AbstractAgent.threadId`, minted once per browser `HttpAgent`/`useAgent` instance and
+   * sent unconditionally on EVERY `runAgent()` call -- `prepareRunAgentInput` in `@ag-ui/
+   * client` includes `threadId: this.threadId` on every request with no way to omit it,
+   * traced directly in that package's source, not assumed).
+   *
+   * Real browser e2e (this task's own verification) found DA-19a's existing continuation
+   * channel -- `forwardedProps.chatThreadId`, echoed back by the CALLING CODE that built
+   * `copilotkit-v2-panel.tsx`'s own `send()` -- does NOT carry over to the follow-up
+   * `runAgent()` call `useHumanInTheLoop`'s `respond()` triggers: that call is made
+   * INTERNALLY by `@copilotkit/core`'s `processAgentResult` (`this.runAgent({agent, ...
+   * runId})`), which never threads `forwardedProps` through at all -- the wire capture this
+   * task ran showed `"forwardedProps":{}` on that exact request. There is no product code to
+   * fix on the CopilotKit side (it is not this bridge's package) and no hook exposed to make
+   * that internal call pass a custom `forwardedProps` -- so this bridge falls back to the one
+   * channel the framework DOES guarantee: the client's own stable `threadId`.
+   *
+   * Every successful turn/resume records `clientThreadId -> resolved Chat thread id` here;
+   * a resume with empty `forwardedProps.chatThreadId` (i.e. every real `useHumanInTheLoop`
+   * resume today) looks itself up by the SAME `clientThreadId` the wire already carries.
+   *
+   * ⚠ Known scope limitation, stated plainly: this is single-process, in-memory state. A
+   * process restart between a run entering `awaiting_approval` and the human deciding loses
+   * the correlation (the run itself is still safely parked in Postgres -- `agent_runs.
+   * status='awaiting_approval'` -- only the "which client threadId maps to it" fact is
+   * lost, and the resume falls back to `forwardedProps.chatThreadId` if present, else
+   * `NoAwaitingApprovalRunError`, an honest failure, not silent data loss). Multi-instance
+   * deployment has the same gap. Fixing this for real (persisting the correlation, or
+   * deriving it without one) is out of this task's scope -- registered as a follow-up, not
+   * silently left unstated.
+   */
+  private readonly resolvedChatThreadIdByClientThreadId = new Map<string, string>();
+
   constructor(
     @Inject(IDENTITY_REPOSITORY) private readonly repo: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly ids: DecisionIdFactory,
@@ -258,6 +388,10 @@ export class CopilotkitAguiController {
       artifactIds: this.artifactIds, commands: this.messageCommands,
       publishedAgents: this.publishedAgents, threadMounts: this.threadMounts,
       runs: this.runs, executor: this.executor,
+      // DA-19g -- `decideAgentRun` (reused verbatim by `resumeAguiBridgeTurn`, see that
+      // function's own doc) wants a plain `kick`, not the whole executor port -- same shape
+      // `agent-run.controller.ts`'s REST decision route already injects it as.
+      kick: (orgId: OrgId) => this.executor.kick(orgId),
     };
   }
 
@@ -267,6 +401,13 @@ export class CopilotkitAguiController {
    * version), and this app has no served "list agents" route yet to resolve one implicitly
    * (see `personal-chat-screen.tsx` file head -- same gap, same reason: not inventing a
    * default here silently). The CopilotKit client passes it explicitly instead.
+   *
+   * DA-19g -- one more case this route now handles: a `useHumanInTheLoop` `respond()`
+   * follow-up (`isHitlResumeRequest`). It still needs `agentId` (query-string validation
+   * happens before that branch splits off) even though the resumed run already knows its
+   * own agent -- this route has no other way to learn the caller believes it is still
+   * talking to the same published Agent, and validating it up front keeps the two branches'
+   * error shape for a missing/blank `agentId` identical rather than only enforced on one.
    */
   @Post("/copilotkit/agui")
   async bridge(
@@ -280,9 +421,25 @@ export class CopilotkitAguiController {
     if (agentId === undefined || agentId === "") {
       throw new UnprocessableEntityException("AGENT_NOT_FOUND");
     }
-    const text = lastUserText(body);
-    if (text === null || text.trim() === "") {
-      throw new UnprocessableEntityException("MESSAGE_INVALID");
+
+    // DA-19g -- see `isHitlResumeRequest`'s own doc. Checked BEFORE `lastUserText`'s
+    // MESSAGE_INVALID guard below: a resume request legitimately has no NEW user-role
+    // message at all (its last message is the synthesized tool result), so running that
+    // guard first would 422 every resume before it ever reached the branch that handles it.
+    const resumeRequest = isHitlResumeRequest(body);
+    let decision: NonNullable<ReturnType<typeof parseHitlDecision>> | null = null;
+    let text: string | null = null;
+    if (resumeRequest) {
+      const lastMessage = body.messages?.[body.messages.length - 1];
+      decision = parseHitlDecision(lastMessage?.content ?? "");
+      if (decision === null) {
+        throw new UnprocessableEntityException("HITL_DECISION_INVALID");
+      }
+    } else {
+      text = lastUserText(body);
+      if (text === null || text.trim() === "") {
+        throw new UnprocessableEntityException("MESSAGE_INVALID");
+      }
     }
 
     response.writeHead(200, {
@@ -325,14 +482,13 @@ export class CopilotkitAguiController {
     let resolvedThreadId: string | null = null;
 
     try {
-      const outcome = await runAguiBridgeTurn(this.deps, {
-        userId: principal.userId, orgId: toOrgId(principal.orgId), agentId, text,
-        clientMessageId: randomUUID(),
-        threadId: requestedChatThreadId !== undefined && requestedChatThreadId !== ""
-          ? requestedChatThreadId : null,
-        onThreadResolved: (threadId) => { resolvedThreadId = threadId; },
-        // Fires once the run genuinely exists -- see `agui-bridge.ts`'s own doc for why
-        // this, and not "before the call" or "after it resolves", is the right place:
+      // DA-19g -- both branches share the SAME `onStarted`/`onDelta`/`onStep` wire
+      // translation; only how the underlying run is reached differs (fresh turn vs.
+      // resuming one already parked on `awaiting_approval`, see `agui-bridge.ts`'s doc on
+      // `runAguiBridgeTurn` vs. `resumeAguiBridgeTurn`).
+      const sharedCallbacks = {
+        // Fires once the run genuinely exists/resumes -- see `agui-bridge.ts`'s own doc for
+        // why this, and not "before the call" or "after it resolves", is the right place:
         // a request that fails validation before a run exists (bad agent id, …) never
         // gets a RUN_STARTED at all, exactly like 阶段1b; a request that streams gets it
         // before the first `onDelta`, never after (which would arrive out of order).
@@ -344,21 +500,65 @@ export class CopilotkitAguiController {
           // client's protocol verifier requires to come first.
           if (resolvedThreadId !== null) {
             write({ type: EventType.CUSTOM, name: "chat_thread_id", value: resolvedThreadId });
+            // DA-19g -- see `resolvedChatThreadIdByClientThreadId`'s own doc: record the
+            // mapping on EVERY successful resolution (fresh turn or resume alike), so the
+            // NEXT request on this same client `threadId` -- including a `respond()`
+            // follow-up whose `forwardedProps` the framework never populates -- can still
+            // find its way back to the right Chat thread.
+            this.resolvedChatThreadIdByClientThreadId.set(clientThreadId, resolvedThreadId);
           }
         },
-        onDelta: (delta) => {
+        onDelta: (delta: string) => {
           if (!sawAnyDelta) {
             sawAnyDelta = true;
             write({ type: EventType.TEXT_MESSAGE_START, messageId, role: "assistant" });
           }
           write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta });
         },
-        // #789 -- a tool_call step arrives ALREADY COMPLETE (see `AguiEvent`'s own comment
-        // above), so it becomes one full STEP_STARTED → [planning note text] →
-        // TOOL_CALL_START/ARGS/END/RESULT → STEP_FINISHED sequence per step, not a
-        // multi-poll partial state.
-        onStep: (step) => writeToolCallStep(write, step),
-      });
+        // #789 -- a `"succeeded"`/`"failed"` tool_call step arrives ALREADY COMPLETE (see
+        // `AguiEvent`'s own comment above), so it becomes one full STEP_STARTED →
+        // [planning note text] → TOOL_CALL_START/ARGS/END/RESULT → STEP_FINISHED sequence
+        // per step. DA-19g: an `"in_progress"` one (a pending HITL interrupt) stops short of
+        // RESULT/STEP_FINISHED instead -- see `writeToolCallStep`'s own doc.
+        onStep: (step: RunStepPublic, isPendingApproval: boolean) => writeToolCallStep(write, step, isPendingApproval),
+      };
+
+      // DA-19g -- `forwardedProps.chatThreadId` is the PRIMARY source (an explicit caller
+      // like `copilotkit-preview-panel.tsx` that echoes it forward itself still wins), but a
+      // real `useHumanInTheLoop` resume never carries one (see
+      // `resolvedChatThreadIdByClientThreadId`'s own doc) -- fall back to the correlation
+      // cache keyed by this same client's stable `threadId` before giving up.
+      const resumeChatThreadId = requestedChatThreadId !== undefined && requestedChatThreadId !== ""
+        ? requestedChatThreadId
+        : this.resolvedChatThreadIdByClientThreadId.get(clientThreadId);
+      // DA-19g -- resume already KNOWS its thread id synchronously (unlike a fresh turn's
+      // `resolveThreadId`, which may still create one) -- set it before `onStarted` fires
+      // rather than threading a matching `onThreadResolved` callback through
+      // `resumeAguiBridgeTurn` for a value the caller already had in hand.
+      if (resumeRequest && resumeChatThreadId !== undefined) {
+        resolvedThreadId = resumeChatThreadId;
+      }
+      const outcome = resumeRequest
+        ? await resumeAguiBridgeTurn(this.deps, {
+          userId: principal.userId, orgId: toOrgId(principal.orgId),
+          // Resume ALWAYS needs a real Chat thread id -- there is no "create one" fallback
+          // here the way a fresh turn has (`resolveThreadId`'s `null` branch): a resume
+          // with nowhere to look up the paused run is not a request this bridge can invent
+          // an answer to. `findAwaitingApprovalRunId` throws `NoAwaitingApprovalRunError`
+          // on an empty string exactly like it would on any other thread with no pending
+          // run, so this is deliberately NOT special-cased into its own error code.
+          threadId: resumeChatThreadId ?? "",
+          decision: decision!, // non-null: validated above, `resumeRequest` implies it.
+          ...sharedCallbacks,
+        })
+        : await runAguiBridgeTurn(this.deps, {
+          userId: principal.userId, orgId: toOrgId(principal.orgId), agentId, text: text!,
+          clientMessageId: randomUUID(),
+          threadId: requestedChatThreadId !== undefined && requestedChatThreadId !== ""
+            ? requestedChatThreadId : null,
+          onThreadResolved: (threadId) => { resolvedThreadId = threadId; },
+          ...sharedCallbacks,
+        });
 
       if (outcome.kind === "succeeded") {
         if (sawAnyDelta) {
@@ -376,6 +576,16 @@ export class CopilotkitAguiController {
       } else if (outcome.kind === "failed") {
         if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
         write({ type: EventType.RUN_ERROR, message: outcome.error, code: outcome.error });
+      } else if (outcome.kind === "awaiting_approval") {
+        // DA-19g -- NOT an error. `onStep` above already wrote the dangling
+        // TOOL_CALL_START/ARGS/END triplet for the pending tool call (no RESULT, see
+        // `writeToolCallStep`'s own doc) -- ending the run normally here, exactly like a
+        // genuine AG-UI frontend-tool call, is what lets `useHumanInTheLoop` recognise
+        // `status: "executing"` and render `respond`. The NEXT `POST /copilotkit/agui` this
+        // client makes (once a human decides) is `resumeAguiBridgeTurn`'s job, not this
+        // request's -- this SSE stream's job stops at "yielded control".
+        if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
+        write({ type: EventType.RUN_FINISHED, threadId: clientThreadId, runId: clientRunId });
       } else {
         if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
         write({ type: EventType.RUN_ERROR, message: "AGENT_RUN_TIMEOUT", code: "AGENT_RUN_TIMEOUT" });
@@ -398,6 +608,19 @@ export class CopilotkitAguiController {
         write({ type: EventType.RUN_ERROR, message: "RESULT_UNREADABLE", code: "RESULT_UNREADABLE" });
       } else if (e instanceof AuthzUnavailableError) {
         write({ type: EventType.RUN_ERROR, message: "AUTHZ_UNAVAILABLE", code: "AUTHZ_UNAVAILABLE" });
+      } else if (e instanceof NoAwaitingApprovalRunError) {
+        // DA-19g -- see that error class's own doc: nothing left to resume (already
+        // decided elsewhere, or a stray/duplicate follow-up). Honest, stable code -- not
+        // folded into INTERNAL_ERROR, and not silently treated as a no-op success.
+        write({ type: EventType.RUN_ERROR, message: "NO_PENDING_APPROVAL", code: "NO_PENDING_APPROVAL" });
+      } else if (e instanceof AgentRunNotAwaitingApprovalError) {
+        // DA-19g -- `decideAgentRun` found a run id but it raced out of `awaiting_approval`
+        // between `findAwaitingApprovalRunId` and the decision itself (concurrent decision,
+        // already terminal, …) -- same "as-real" conflict the REST route already reports.
+        write({
+          type: EventType.RUN_ERROR, message: "AGENT_RUN_NOT_AWAITING_APPROVAL",
+          code: "AGENT_RUN_NOT_AWAITING_APPROVAL",
+        });
       } else {
         write({ type: EventType.RUN_ERROR, message: "INTERNAL_ERROR", code: "INTERNAL_ERROR" });
         response.end();
