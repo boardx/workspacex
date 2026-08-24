@@ -58,7 +58,6 @@ import { DATABASE_PORT } from "../../src/application/ports/database.port";
 import type { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { toOrgId } from "../../src/domain/org-id";
 import { ensureRedis } from "../support/auth";
-import { issueInviteCode, makeCode } from "../support/auth-db";
 import { dropDatabaseAfterDraining } from "../support/drop-database";
 
 process.env.KERNEL_QUIET = "1";
@@ -74,7 +73,6 @@ const ORIGINAL_DATABASE = process.env.PGDATABASE;
 const DATABASE = `wsx_i660_agent_publish_${process.pid}_${Date.now()}`;
 const THREAD_ID = `da-thread-i660-${randomUUID()}`;
 const RUN_ID = `da-run-i660-${randomUUID()}`;
-const CODE = makeCode("I660AGENTPUBLISH");
 /** 用户自己写的可执行定义。刻意与 agent 的 name/role 毫无字面重叠，见下方断言。 */
 const INSTRUCTIONS = "把用户说的每一件事整理成带编号的要点，最后一行给出下一步建议。";
 
@@ -138,7 +136,6 @@ beforeAll(async () => {
   }
   process.env.PGDATABASE = DATABASE;
   await migrate(ownerConfig(DATABASE));
-  await issueInviteCode(CODE);
 
   const { createApp } = await import("../../src/main");
   app = await createApp();
@@ -147,12 +144,12 @@ beforeAll(async () => {
   const address = app.getHttpServer().address();
   base = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}`;
 
-  /* 一个真实注册出来的用户 + 他自己的组织（他是该组织 admin）。 */
-  const register = await fetch(`${base}/auth/register`, {
+  /* 一个真实注册出来的用户 + 他自己的组织（他是该组织 admin）。
+     取消注册邀请码后（issue #1929），注册走 registerNewAccount（POST /auth/register-open）。 */
+  const register = await fetch(`${base}/auth/register-open`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      code: CODE,
       email: "founder@i660publish.test",
       password: "correct-horse-battery-staple",
       displayName: "自建 agent 的用户",
