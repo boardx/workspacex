@@ -120,33 +120,42 @@ import {
  * 本仓已有 shadcn `Dialog`（`@/components/ui/dialog`，无 `AlertDialog` 分量），
  * 复用它而不是手写一个 `position:fixed` 遮罩层。
  *
- * ⚠ **本轮实测发现的真实后端缺口**（如实记录，不跳过验证——完整机制与真实 wire
- * 字节见 `e2e/copilotkit-v2-hitl.spec.ts` 头注，这里只摘要结论）：`send_email` 的
- * `TOOL_CALL_START`/`_ARGS`/`_END` 确实会到达前端，但 `copilotkit-agui.controller.ts`
- * 的 `writeToolCallStep` 对一个**还没被裁决**的步骤（`RunStepPublic.status ===
- * "in_progress"`）与一个**已经成功**的步骤走同一个 `else` 分支，立刻补发一个内容
- * 为空字符串的 `TOOL_CALL_RESULT`——`useHumanInTheLoop` 借以判定"这个工具调用还在
- * 等人"的信号（`TOOL_CALL_END` 之后一段时间内没有配对结果）因此从未成立，客户端把
- * 它当已完成处理，`status` 直接落 `"complete"`，从未经过 `"executing"`：`respond`
- * 全程 `undefined`，本文件 `SendEmailApprovalDialog` 的 approve/编辑/reject 三个
- * 按钮永远不会渲染（只会挂载成只读的"本轮已裁决，等待 run 收尾"分支）。与此同时，
- * run 自己的**整体**状态仍卡在 `awaiting_approval`（那个步骤被提前"结清"不影响
- * `readAgentRun` 的整体投影）——`runAguiBridgeTurn`（`apps/api/src/application/
- * agent-run/agui-bridge.ts`）的轮询循环只认 `"succeeded"`/`"failed"` 两个终态分支，
- * 最终耗尽 `maxPolls`（~30s）以 `RUN_ERROR`/`AGENT_RUN_TIMEOUT` 收场。也没有任何
- * 入口能把 `respond()` 之后框架发起的 follow-up `runAgent` 请求（携带编辑后的工具
- * 结果）路由回同一个被打断的 run 去恢复它——`bridge()` 每次 `POST` 都是"新开一个
- * 人类消息、新开一次 run"的单轮语义（controller 文件头"single-round scope"、
- * `resolveThreadId`/`runAguiBridgeTurn` 内 `threadId: null`）。
+ * ⚠ **DA-19g HITL 审批语义任务修复前的真实后端缺口**（历史记录，如实保留——完整
+ * 机制与真实 wire 字节曾见 `e2e/copilotkit-v2-hitl.spec.ts` 头注旧版）：`send_email`
+ * 的 `TOOL_CALL_START`/`_ARGS`/`_END` 确实会到达前端，但 `copilotkit-agui.
+ * controller.ts` 的 `writeToolCallStep` 曾经对一个**还没被裁决**的步骤
+ * （`RunStepPublic.status === "in_progress"`）与一个**已经成功**的步骤走同一个
+ * `else` 分支，立刻补发一个内容为空字符串的 `TOOL_CALL_RESULT`——`useHumanInTheLoop`
+ * 借以判定"这个工具调用还在等人"的信号（`TOOL_CALL_END` 之后一段时间内没有配对结果）
+ * 因此从未成立，客户端把它当已完成处理，`status` 直接落 `"complete"`，从未经过
+ * `"executing"`：`respond` 全程 `undefined`，approve/编辑/reject 三个按钮永远不会
+ * 渲染；run 自己的**整体**状态仍卡在 `awaiting_approval`，`runAguiBridgeTurn` 的
+ * 轮询循环只认 `"succeeded"`/`"failed"` 两个终态分支，最终耗尽 `maxPolls`（~30s）以
+ * `RUN_ERROR`/`AGENT_RUN_TIMEOUT` 收场——也没有任何入口能把 `respond()` 之后框架
+ * 发起的 follow-up `runAgent` 请求路由回同一个被打断的 run 去恢复它。
+ *
+ * **已修复**（DA-19g HITL 审批语义任务）：`writeToolCallStep` 现在对 `"in_progress"`
+ * 步骤只发 `STEP_STARTED`→`TOOL_CALL_START/ARGS/END`，不再提前发 `RESULT`/
+ * `STEP_FINISHED`——`useHumanInTheLoop` 的"等待"信号成立，`respond` 真的落在
+ * `"executing"`。`runAguiBridgeTurn`（`apps/api/src/application/agent-run/
+ * agui-bridge.ts`）认识 `awaiting_approval` 这个中间态，以真实的 `RUN_FINISHED`
+ * （不是超时/错误）结束这一轮，与一次真正的 AG-UI 前端工具调用同一个协议约定。新增
+ * 的 `resumeAguiBridgeTurn` + `copilotkit-agui.controller.ts` 的
+ * `isHitlResumeRequest`/`parseHitlDecision` 把 `respond()` 之后的 follow-up
+ * `runAgent` 请求（`{role:"tool", toolCallId, content}` 消息 + `forwardedProps.
+ * chatThreadId`）路由回同一个被打断的 run，复用 DA-07b 的 `decideAgentRun`（旧 REST
+ * `/agent-runs/:runId/decision` 路径的同一套底层机制，不是重新发明一套）去 resume
+ * 它。本文件（`useHumanInTheLoop` 接线）没有改一行——DA-19d 当时的接线已经跟旧面板
+ * 逐条对齐，后端补上之后立刻工作。真实浏览器三条路径的证据见
+ * `e2e/copilotkit-v2-hitl.spec.ts`（approve/edit/reject 各一条用例）。
  *
  * 这与 DA-07b/PR #1960 修的 bug 不是同一层：那次修的是旧 REST 审批路径
  * （`/agent-runs/:runId/decision`）在**已经支持**审批的前提下、resume 时撞了账本
- * 序号唯一约束；这里是 AG-UI/CopilotRuntime 这条**新**桥接层从未实现过审批语义
- * （`writeToolCallStep` 设计时假设收到的步骤"一定已经执行完"，`agui-bridge.ts`
- * 自己的文档原话是"a REAL, ALREADY-EXECUTED tool_call step"——`"in_progress"` 这个
- * 中间态变体是 #742 Gap 1 为"已完成步骤"争取一次宣布帧引入的，从未设计过覆盖"还没
- * 执行、正在等人裁决"这种语义），不存在"撞同一个 bug"这回事——是一个未开始建的
- * 能力，登记在案，不在本任务（仅前端 hook 接线）范围内新增后端实现。
+ * 序号唯一约束；这里是 AG-UI/CopilotRuntime 这条**新**桥接层此前从未实现过审批语义
+ * 的问题（`writeToolCallStep` 曾经设计时假设收到的步骤"一定已经执行完"，
+ * `agui-bridge.ts` 自己的文档原话是"a REAL, ALREADY-EXECUTED tool_call step"——
+ * `"in_progress"` 这个中间态变体是 #742 Gap 1 为"已完成步骤"争取一次宣布帧引入的，
+ * 当时从未设计过覆盖"还没执行、正在等人裁决"这种语义）。
  *
  * ── DA-13 双栏联动：Chat + 活动文件工作台（backlog DA-13）─────────────────────
  *

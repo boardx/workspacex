@@ -63,11 +63,14 @@ import type {
 } from "../chat/message-command-ports";
 import { mutateThread, TitleInvalidError } from "../chat/mutate-thread";
 import { readAgentRun, AgentRunNotVisibleError } from "./read-run";
+import {
+  decideAgentRun, AgentRunNotAwaitingApprovalError, type DecideAgentRunDeps,
+} from "./decide-agent-run";
 import type { AgentRunStore, AgentRunExecutorPort } from "./ports";
 
 export { AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, AgentRunNotVisibleError,
-  TitleInvalidError };
+  TitleInvalidError, AgentRunNotAwaitingApprovalError, type DecideAgentRunDeps };
 
 /** The run reached a terminal status but has neither text nor a stable failure code. */
 export class AguiBridgeResultUnreadableError extends Error {}
@@ -146,8 +149,18 @@ export interface AguiBridgeInput {
    * writeback transaction is a later, separate step -- see `AgentRunStore.commitWriteback`'s
    * own doc). There is no read-then-read race here the way `onDelta`'s file-head comment
    * describes for deltas, because there is only ONE read.
+   *
+   * DA-19g -- the second argument is `true` only for a step reported in the SAME poll
+   * iteration where the run's overall status is `"awaiting_approval"` -- i.e., only for
+   * the ONE `"in_progress"` step that IS the pending interrupt, never for an ordinary
+   * multi-step tool call's own "announced, still executing" progress frame (a run in
+   * plain `"running"` status can ALSO report `"in_progress"` steps -- #742 Gap 1's
+   * announce-before-resolve semantics apply to every tool call, not only ones that pause
+   * for a human -- so `step.status === "in_progress"` alone is not enough signal; see
+   * `writeToolCallStep`'s own doc for why this distinction matters). `false` for every
+   * other step, matching the exact behaviour before this parameter existed.
    */
-  readonly onStep?: (step: RunStepPublic) => void;
+  readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
 }
 
 /** The subset of a `tool_call` `AppendedRunStep` an AG-UI consumer needs -- `runId`/`seq`
@@ -174,9 +187,127 @@ export type AguiBridgeOutcome =
     readonly text: string;
   }
   | { readonly kind: "failed"; readonly threadId: string; readonly runId: string; readonly error: string }
-  | { readonly kind: "timeout"; readonly threadId: string; readonly runId: string };
+  | { readonly kind: "timeout"; readonly threadId: string; readonly runId: string }
+  /**
+   * DA-19g -- the run halted on a real interrupt (DA-07b's `awaiting_approval`), not a
+   * timeout and not a failure. `onStep` already delivered the pending `tool_call` step
+   * (status `"in_progress"`) to the caller in THIS SAME poll iteration (`onStep` fires
+   * before the terminal-status branches below, same ordering discipline as `succeeded`/
+   * `failed`) -- so by the time a caller sees this outcome kind, it already knows WHICH
+   * tool call is pending. This is why the outcome itself carries no `pendingApproval`
+   * payload of its own: it would just be `projection.pendingApproval` duplicated through a
+   * second channel, and this file's own discipline elsewhere (`onDelta`/`onStep`) is "one
+   * fact, one channel".
+   */
+  | { readonly kind: "awaiting_approval"; readonly threadId: string; readonly runId: string };
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** The run reached `awaiting_approval` again immediately after a resume without ever
+ * making it back to `running` from this bridge's point of view. Not expected on the happy
+ * path (a resumed run either completes or hits a NEW interrupt further down its own logic),
+ * but a second interrupt on the very next tool call is a legitimate agent behaviour, not a
+ * bug -- `resumeAguiBridgeTurn`'s poll loop below handles it exactly like the first one. */
+
+/** Shared polling tail of both `runAguiBridgeTurn` (fresh turn) and `resumeAguiBridgeTurn`
+ * (HITL resume, DA-19g) -- everything AFTER a run genuinely exists and is executing. Kept
+ * as one function so the two entry points cannot drift on poll cadence, delta/step
+ * ordering, or the `awaiting_approval`/`succeeded`/`failed`/`timeout` outcome mapping. */
+async function pollAguiRunToOutcome(
+  deps: AguiBridgeDeps,
+  input: {
+    readonly userId: string;
+    readonly orgId: OrgId;
+    readonly threadId: string;
+    readonly runId: string;
+    readonly pollIntervalMs?: number;
+    readonly maxPolls?: number;
+    readonly onDelta?: (delta: string) => void;
+    readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
+    /**
+     * DA-19g -- where THIS call's cursors start from, not always "the beginning of the
+     * run's own history". A fresh turn (`runAguiBridgeTurn`) has nothing to skip -- the run
+     * was just created, so the defaults (`-1`/`0`, "nothing reported yet") are correct. A
+     * RESUME (`resumeAguiBridgeTurn`) is polling a run whose `steps`/deltas ALREADY include
+     * everything this bridge already streamed to the client during the turn that hit the
+     * interrupt (`RunProjection.steps`/`readModelDeltas` are the run's FULL history, not
+     * "history since this poll call started", see those ports' own docs) -- without this,
+     * a resume's first iteration would re-report the interrupt's own planning text, tool
+     * call, and every prior delta a second time (a real browser e2e bug this task's own
+     * verification caught: the pending tool call's announcement bubble and the model's
+     * initial answer chunk both duplicated in the UI after approving). Omitted = the fresh-
+     * turn defaults, unchanged from before this field existed.
+     */
+    readonly initialLastSeenDeltaSeq?: number;
+    readonly initialReportedStepCount?: number;
+  },
+): Promise<AguiBridgeOutcome> {
+  const { threadId, runId } = input;
+  const pollIntervalMs = input.pollIntervalMs ?? 400;
+  const maxPolls = input.maxPolls ?? 75; // ~30s bound at the default interval.
+  let lastSeenDeltaSeq = input.initialLastSeenDeltaSeq ?? -1;
+  let reportedStepCount = input.initialReportedStepCount ?? 0;
+
+  // See `runAguiBridgeTurn`'s file-head comment on the 2026-08-08 CI-only race this closes.
+  const flushRemainingDeltas = async (): Promise<void> => {
+    if (!input.onDelta) return;
+    const deltas = await deps.runs.readModelDeltas(input.orgId, runId, lastSeenDeltaSeq);
+    for (const delta of deltas) {
+      input.onDelta(delta.text);
+      lastSeenDeltaSeq = delta.seq;
+    }
+  };
+
+  for (let attempt = 0; attempt < maxPolls; attempt += 1) {
+    if (input.onDelta) {
+      const deltas = await deps.runs.readModelDeltas(input.orgId, runId, lastSeenDeltaSeq);
+      for (const delta of deltas) {
+        input.onDelta(delta.text);
+        lastSeenDeltaSeq = delta.seq;
+      }
+    }
+    const projection = await readAgentRun(deps, { userId: input.userId, orgId: input.orgId, runId });
+    if (input.onStep) {
+      // DA-19g -- `true` only when THIS iteration's run status is genuinely
+      // `"awaiting_approval"` -- see `AguiBridgeInput.onStep`'s own doc for why
+      // `step.status === "in_progress"` alone conflates a real interrupt with an ordinary
+      // multi-step tool call's own "announced, still executing" progress frame.
+      const isPendingApproval = projection.status === "awaiting_approval";
+      for (const step of projection.steps.slice(reportedStepCount)) {
+        if (step.kind === "tool_call") input.onStep(step, isPendingApproval);
+      }
+      reportedStepCount = projection.steps.length;
+    }
+    if (projection.status === "succeeded") {
+      await flushRemainingDeltas();
+      if (projection.resultMessageId === null) throw new AguiBridgeResultUnreadableError();
+      const page = await listMessagePage(deps, {
+        userId: input.userId, orgId: input.orgId, threadId, limit: 100,
+      });
+      const message = page.messages.find((m) => m.id === projection.resultMessageId);
+      if (message === undefined) throw new AguiBridgeResultUnreadableError();
+      return { kind: "succeeded", threadId, runId, messageId: message.id, text: message.text };
+    }
+    if (projection.status === "failed") {
+      await flushRemainingDeltas();
+      return { kind: "failed", threadId, runId, error: projection.error ?? "UNKNOWN" };
+    }
+    // DA-19g -- run halted on a real interrupt, not a failure and not "still working": the
+    // pending `tool_call` step (status `"in_progress"`) was already handed to `onStep`
+    // above, in THIS SAME iteration, before this check -- same ordering discipline
+    // `succeeded`/`failed` already get. Returning immediately here (instead of falling
+    // through to `sleep()` and re-polling until `maxPolls`) is the fix for the bug this
+    // file's own `onStep` doc used to describe as "never designed to cover this": a run
+    // parked on a human decision is not progress that should keep being polled for, and it
+    // is definitely not a timeout.
+    if (projection.status === "awaiting_approval") {
+      await flushRemainingDeltas();
+      return { kind: "awaiting_approval", threadId, runId };
+    }
+    await sleep(pollIntervalMs);
+  }
+  return { kind: "timeout", threadId, runId };
+}
 
 async function resolveThreadId(deps: AguiBridgeDeps, input: AguiBridgeInput): Promise<string> {
   if (typeof input.threadId === "string" && input.threadId.trim() !== "") return input.threadId;
@@ -202,77 +333,94 @@ export async function runAguiBridgeTurn(
   deps.executor.kick(input.orgId);
   input.onStarted?.();
 
-  const pollIntervalMs = input.pollIntervalMs ?? 400;
-  const maxPolls = input.maxPolls ?? 75; // ~30s bound at the default interval.
-  const runId = accepted.agentRunId;
-  let lastSeenDeltaSeq = -1;
-  // #789: `RunProjection.steps` is the run's FULL step list so far, oldest-first
-  // (`ORDER BY seq, started_at`, `pg-agent-run-repository.ts`'s `readRun`), append-only --
-  // a plain length cursor is enough to find "steps this poll hasn't reported yet" without
-  // needing each entry's own `seq` (which `RunProjection.steps`'s own type omits).
-  let reportedStepCount = 0;
+  return pollAguiRunToOutcome(deps, {
+    userId: input.userId, orgId: input.orgId, threadId, runId: accepted.agentRunId,
+    pollIntervalMs: input.pollIntervalMs, maxPolls: input.maxPolls,
+    onDelta: input.onDelta, onStep: input.onStep,
+  });
+}
 
-  /**
-   * ⚠ 2026-08-08 CI 实测（不是本地——本地机器上 5/5 绿，CI 上稳定红，正是竞态的
-   * 典型指纹：窗口够窄时快机器几乎踩不中，调度更粗的环境几乎每次踩中）：
-   * 「读增量、读状态」在同一轮循环里是**两次独立的 await**，中间有一个真实的时间
-   * 窗口。`execute-run.ts` 保证的只是"增量的写入顺序早于 succeeded 的写入顺序"，
-   * 不保证"本轮读增量的那一刻"与"本轮读状态的那一刻"看到的是同一个快照——如果
-   * 最后一条增量恰好在这两次读之间才提交，这一轮的增量读就已经完成、不会重试，
-   * 而这一轮的状态读却已经能看到终态，于是最后一条增量被跳过、再也没有下一轮
-   * 循环去补读它。
-   *
-   * 修复：一旦观测到终态，在真正返回之前**再补读一次**增量（`flushRemainingDeltas`）。
-   * 终态本身不会消失（`agent_runs` 状态机没有"回退"），补读只会把恰好卡在两次读
-   * 之间的那一条追上，不会引入新的竞态。
-   */
-  const flushRemainingDeltas = async (): Promise<void> => {
-    if (!input.onDelta) return;
-    const deltas = await deps.runs.readModelDeltas(input.orgId, runId, lastSeenDeltaSeq);
-    for (const delta of deltas) {
-      input.onDelta(delta.text);
-      lastSeenDeltaSeq = delta.seq;
-    }
-  };
+/** The run this Chat thread is currently paused on is not `awaiting_approval` any more --
+ * either it never was (a stray/duplicate resume call), or someone else already resolved it
+ * (double-click, a second browser tab, a retried request). Either way there is nothing left
+ * to resume, and this is NOT the same fact as `AgentRunNotAwaitingApprovalError` (that one
+ * fires once a specific run id is already in hand and its state changed out from under a
+ * `decideAgentRun` call already in flight -- this one fires before a run id was even found). */
+export class NoAwaitingApprovalRunError extends Error {}
 
-  for (let attempt = 0; attempt < maxPolls; attempt += 1) {
-    if (input.onDelta) {
-      // Read BEFORE checking status this same iteration -- see file head "ordering is
-      // load-bearing" for why a terminal status can never leave a delta MORE THAN ONE
-      // POLL INTERVAL stale here. (It does NOT, on its own, rule out losing the very
-      // last delta to the read-then-read race described above -- that is what the
-      // `flushRemainingDeltas()` calls below close.)
-      const deltas = await deps.runs.readModelDeltas(input.orgId, runId, lastSeenDeltaSeq);
-      for (const delta of deltas) {
-        input.onDelta(delta.text);
-        lastSeenDeltaSeq = delta.seq;
-      }
-    }
-    const projection = await readAgentRun(deps, { userId: input.userId, orgId: input.orgId, runId });
-    // #789: report BEFORE the terminal-status branches below -- a step that lands in the
-    // SAME poll a run turns terminal must still reach the caller before RUN_FINISHED/
-    // RUN_ERROR, same ordering discipline `onDelta` above already keeps for text.
-    if (input.onStep) {
-      for (const step of projection.steps.slice(reportedStepCount)) {
-        if (step.kind === "tool_call") input.onStep(step);
-      }
-      reportedStepCount = projection.steps.length;
-    }
-    if (projection.status === "succeeded") {
-      await flushRemainingDeltas();
-      if (projection.resultMessageId === null) throw new AguiBridgeResultUnreadableError();
-      const page = await listMessagePage(deps, {
-        userId: input.userId, orgId: input.orgId, threadId, limit: 100,
-      });
-      const message = page.messages.find((m) => m.id === projection.resultMessageId);
-      if (message === undefined) throw new AguiBridgeResultUnreadableError();
-      return { kind: "succeeded", threadId, runId, messageId: message.id, text: message.text };
-    }
-    if (projection.status === "failed") {
-      await flushRemainingDeltas();
-      return { kind: "failed", threadId, runId, error: projection.error ?? "UNKNOWN" };
-    }
-    await sleep(pollIntervalMs);
-  }
-  return { kind: "timeout", threadId, runId };
+/**
+ * DA-19g -- resumes a run the AG-UI/CopilotRuntime bridge previously reported as
+ * `awaiting_approval` (`AguiBridgeOutcome.kind === "awaiting_approval"`), driven by
+ * CopilotKit's `useHumanInTheLoop` `respond()` follow-up `runAgent` call. See
+ * `copilotkit-agui.controller.ts`'s file head for the full wire-level story of why that
+ * follow-up carries a Chat thread id (`forwardedProps.chatThreadId`) and a decision-shaped
+ * tool-result message, but no run id of its own.
+ *
+ * This DELIBERATELY reuses `decideAgentRun` (DA-07b, `decide-agent-run.ts`) -- the exact
+ * same function `POST /agent-runs/:runId/decision` calls -- rather than re-implementing
+ * approve/edit/reject against `AgentRunStore` a second time. Everything downstream of "the
+ * run is back in `queued` with a `pending_decision`" (claim, `command.resume`, resuming the
+ * SAME remote deep-agent thread, writeback) is the SAME machinery the REST path already
+ * exercises; this function's own job stops at finding the run id and handing the decision
+ * to that shared function, then polling the outcome back out with the SAME
+ * `pollAguiRunToOutcome` tail `runAguiBridgeTurn` uses for a fresh turn.
+ */
+export async function resumeAguiBridgeTurn(
+  deps: AguiBridgeDeps & DecideAgentRunDeps,
+  input: {
+    readonly userId: string;
+    readonly orgId: OrgId;
+    readonly threadId: string;
+    readonly decision:
+      | { readonly kind: "approve" | "reject" }
+      | { readonly kind: "edit"; readonly editedArgs: Readonly<Record<string, unknown>> };
+    readonly onStarted?: () => void;
+    readonly onDelta?: (delta: string) => void;
+    readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
+    readonly pollIntervalMs?: number;
+    readonly maxPolls?: number;
+  },
+): Promise<AguiBridgeOutcome> {
+  const runId = await deps.runs.findAwaitingApprovalRunId(input.orgId, input.threadId);
+  if (runId === null) throw new NoAwaitingApprovalRunError();
+
+  // DA-19g -- snapshot "what has already been reported" BEFORE `decideAgentRun` requeues
+  // and kicks the run, so `pollAguiRunToOutcome` below starts its cursors from HERE, not
+  // from the run's true beginning. A run parked on `awaiting_approval` already has the
+  // pending tool_call step (and every delta up to the interrupt) durable -- those were
+  // already streamed to the client during the turn that hit the interrupt (see
+  // `pollAguiRunToOutcome`'s own doc on `initialLastSeenDeltaSeq`/`initialReportedStepCount`
+  // for the real browser e2e bug this closes: without it, resuming re-announces the SAME
+  // pending tool call and re-streams the SAME initial answer chunk a second time). Reading
+  // this before the decision (not after) is deliberate too: `decideAgentRun` can trigger
+  // `kick` -> the executor may start producing NEW steps/deltas immediately after it
+  // returns, and this snapshot must be the boundary strictly BEFORE that, never after.
+  const preDecisionProjection = await readAgentRun(deps, { userId: input.userId, orgId: input.orgId, runId });
+  const preDecisionDeltas = input.onDelta
+    ? await deps.runs.readModelDeltas(input.orgId, runId, -1)
+    : [];
+  const initialReportedStepCount = preDecisionProjection.steps.length;
+  const initialLastSeenDeltaSeq = preDecisionDeltas.length > 0
+    ? preDecisionDeltas[preDecisionDeltas.length - 1]!.seq
+    : -1;
+
+  await decideAgentRun(deps, {
+    userId: input.userId, orgId: input.orgId, runId,
+    ...(input.decision.kind === "edit"
+      ? { decision: "edit" as const, editedArgs: input.decision.editedArgs }
+      : { decision: input.decision.kind }),
+  });
+  // `decideAgentRun` already performed the ENTIRE decision (state transition + `kick`,
+  // including `reject`'s terminal `failRun`) before returning -- unlike `runAguiBridgeTurn`'s
+  // `onStarted`, which fires right as a run begins, this fires right as one resumes. A
+  // rejected run is already `failed` by the time this poll loop's first iteration reads it;
+  // it costs one extra `readAgentRun` round trip to discover that, not a real wait.
+  input.onStarted?.();
+
+  return pollAguiRunToOutcome(deps, {
+    userId: input.userId, orgId: input.orgId, threadId: input.threadId, runId,
+    pollIntervalMs: input.pollIntervalMs, maxPolls: input.maxPolls,
+    onDelta: input.onDelta, onStep: input.onStep,
+    initialReportedStepCount, initialLastSeenDeltaSeq,
+  });
 }

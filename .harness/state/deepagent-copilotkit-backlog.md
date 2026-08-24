@@ -289,22 +289,28 @@ agent/错误态（DA-19a 已加固）。**这份连接层结论不作废**——
   写的 `renderAndWaitForResponse` 是错的，未装过这个符号）替换
   `agent-approval-panel.tsx` 手写审批面板。
 - 依赖：DA-19b。
-- **状态**：⚠ 前端接线已完成（`copilotkit-v2-panel.tsx`），**编辑生效仍验证不了**
-  ——issue #1987，PR 见该 issue。不是"顺带解决"了旧缺陷，是发现了新缺陷：本轮
-  实测（`e2e/copilotkit-v2-hitl.spec.ts`，真实浏览器 + 真实 deep-agent loopback
-  替身）证明 AG-UI/CopilotRuntime 桥接层（`agui-bridge.ts`/
-  `copilotkit-agui.controller.ts`）从未实现过审批语义：待批工具调用的
-  `TOOL_CALL_END` 后会被立刻错误地补发一个空 `TOOL_CALL_RESULT`（`writeToolCallStep`
-  把 `"in_progress"` 步骤当已完成处理），`useHumanInTheLoop` 的 `respond` 因此从不
-  出现，approve/编辑/reject 三个按钮永远不会渲染；run 整体状态仍卡在
-  `awaiting_approval`，最终以 `RUN_ERROR AGENT_RUN_TIMEOUT` 收场。这与 DA-07b/
-  PR #1960 修的 bug 不是同一层——那次修的是旧 REST 审批路径
+- **状态**：✅ done —— 前端接线（`copilotkit-v2-panel.tsx`，issue #1987）+ 后端
+  审批语义（DA-19g HITL 审批语义任务，独立 issue/PR，见下）都已合入 main。
+  DA-19d 当时只做了前端 hook 接线，随即实测（`e2e/copilotkit-v2-hitl.spec.ts` 旧版，
+  真实浏览器 + 真实 deep-agent loopback 替身）证明 AG-UI/CopilotRuntime 桥接层
+  （`agui-bridge.ts`/`copilotkit-agui.controller.ts`）当时从未实现过审批语义：
+  待批工具调用的 `TOOL_CALL_END` 后会被立刻错误地补发一个空 `TOOL_CALL_RESULT`
+  （`writeToolCallStep` 把 `"in_progress"` 步骤当已完成处理），`useHumanInTheLoop`
+  的 `respond` 因此从不出现，approve/编辑/reject 三个按钮永远不会渲染；run 整体
+  状态仍卡在 `awaiting_approval`，最终以 `RUN_ERROR AGENT_RUN_TIMEOUT` 收场。这与
+  DA-07b/PR #1960 修的 bug 不是同一层——那次修的是旧 REST 审批路径
   （`/agent-runs/:runId/decision`）在**已经支持**审批的前提下 resume 时撞的账本
-  序号冲突；这里是**新**桥接层从未实现过审批语义的任何一半，需要新增后端工作
-  （`writeToolCallStep` 的 `"in_progress"` 分支不该提前发 `TOOL_CALL_RESULT` + 需要
-  一个恢复中断 run 的入口），不在 DA-19d（仅前端 hook 接线）范围内，登记为独立
-  待办。前端接线本身（`respond()` → `parsedDraft.value` 的编辑值传递路径）已经
-  跟旧面板逐条对齐，一旦后端补上，不需要再改前端代码。
+  序号冲突；这里是**新**桥接层从未实现过审批语义的任何一半。
+  **后续修复**（DA-19g HITL 审批语义任务）：`writeToolCallStep` 的 `"in_progress"`
+  分支不再提前发 `TOOL_CALL_RESULT`/`STEP_FINISHED`；`runAguiBridgeTurn` 认识
+  `awaiting_approval` 中间态，以 `RUN_FINISHED`（不是超时）结束这一轮；新增
+  `resumeAguiBridgeTurn`（`agui-bridge.ts`）+ `isHitlResumeRequest`/
+  `parseHitlDecision`（`copilotkit-agui.controller.ts`）把 `respond()` 之后框架
+  发起的 follow-up `runAgent` 请求路由回同一个被打断的 run，复用 DA-07b 的
+  `decideAgentRun`（旧 REST 路径的同一套底层机制，未重新发明）去 resume 它——
+  前端接线（`respond()` → `parsedDraft.value` 的编辑值传递路径）当时已经跟旧面板
+  逐条对齐，后端补上后没有再改一行。真实浏览器 approve/edit/reject 三条路径证据见
+  `e2e/copilotkit-v2-hitl.spec.ts`（改写后的版本，断言修好之后的行为）。
 
 **DA-19e 追问建议（框架版 Gap 2）**——推动：chat-ux 维度
 - `useConfigureSuggestions`/`useSuggestions` 替换 `computeFollowUpSuggestions`——
