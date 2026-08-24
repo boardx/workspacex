@@ -98,6 +98,21 @@ export interface AguiBridgeInput {
   readonly pollIntervalMs?: number;
   readonly maxPolls?: number;
   /**
+   * DA-19a -- fired ONCE, right after `resolveThreadId` decides which Chat thread this turn
+   * writes into (a REUSED `input.threadId`, or a freshly `mutateThread`-created one when it
+   * was omitted) -- strictly BEFORE `acceptHumanMessage`, so a caller learns the thread id
+   * even on a turn that goes on to fail validation (bad agent id, no write role, …). This is
+   * the ONLY new plumbing DA-19a adds: the Chat thread id itself was already resolved and
+   * returned on every `AguiBridgeOutcome` branch before this hook existed (see below) -- the
+   * bridge always supported continuation via `input.threadId`, nothing upstream of the
+   * `POST /copilotkit/agui` controller was rebuilt to get it. A caller that persists this
+   * value and echoes it back as next turn's `threadId` gets real cross-turn continuation
+   * (same Chat thread → `deep-agent-model-provider.ts`'s `deriveRemoteThreadId` derives the
+   * SAME remote deep-agent thread id deterministically, so the underlying agent literally
+   * remembers prior turns) without a second id-mapping table anywhere.
+   */
+  readonly onThreadResolved?: (threadId: string) => void;
+  /**
    * #654 阶段2b. Fired ONCE, right after `acceptHumanMessage` + `kick` succeed and BEFORE
    * the poll loop's first iteration -- i.e. exactly when there is a real, running Agent
    * Run to report, never for a request that failed validation (bad agent id, thread not
@@ -178,6 +193,7 @@ export async function runAguiBridgeTurn(
   input: AguiBridgeInput,
 ): Promise<AguiBridgeOutcome> {
   const threadId = await resolveThreadId(deps, input);
+  input.onThreadResolved?.(threadId);
 
   const accepted = await acceptHumanMessage(deps, {
     userId: input.userId, orgId: input.orgId, threadId,

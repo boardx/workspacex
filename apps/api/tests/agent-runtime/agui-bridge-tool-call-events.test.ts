@@ -225,8 +225,13 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
   it("一次真实的工具调用循环，产出 STEP_STARTED → 规划文本 → TOOL_CALL_START/ARGS/END/RESULT → STEP_FINISHED，再是最终答案", async () => {
     const events = await postBridgeTurn("画一个架构图");
 
+    // DA-19a -- every real run also mints/echoes a CUSTOM chat_thread_id event right after
+    // RUN_STARTED (`onThreadResolved` fires unconditionally before `onStarted`, see
+    // agui-bridge.ts / copilotkit-agui.controller.ts's own doc); permanent fixture, not a
+    // one-off variant.
     expect(events.map((e) => e.type)).toEqual([
       EventType.RUN_STARTED,
+      EventType.CUSTOM,
       EventType.STEP_STARTED,
       EventType.TEXT_MESSAGE_START, // planning note bubble
       EventType.TEXT_MESSAGE_CONTENT,
@@ -253,7 +258,8 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
     expect(stepFinished?.stepName).toBe("call_skill");
 
     // The planning note is the model's OWN words, visible as real text -- not synthesized.
-    const planningContent = events[3];
+    // Index 4, not 3: DA-19a's CUSTOM chat_thread_id shifted every following index by one.
+    const planningContent = events[4];
     expect(planningContent?.type).toBe(EventType.TEXT_MESSAGE_CONTENT);
     expect(planningContent?.delta).toBe(PLANNING_NOTE);
 

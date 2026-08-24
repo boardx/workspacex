@@ -7,11 +7,18 @@
  * 服务器），断言 SSE wire 上出现（或**不**出现）`@ag-ui/core` 的真实事件类型——
  * 不是隔离地断言内部回调被调了。
  *
- * 三条反证（任务卡逐字）：
+ * 三条反证（任务卡逐字，「零 STATE_x/CUSTOM」范围见下方 DA-19a 说明）：
  *   1. run 含 write_todos → 流里出现 STATE_SNAPSHOT，且 snapshot.todos 与账本一致；
- *   2. run 无 write_todos（但有别的工具调用）→ 零 STATE_x / CUSTOM 事件（不发空的）；
+ *   2. run 无 write_todos（但有别的工具调用）→ 零业务态 STATE_x / CUSTOM 事件（不发空的）；
  *   3. toolArgsSummary 是坏 JSON（走生产上真实存在的 4000 字符截断路径，见
- *      deep-agent-model-provider 的 DA-06 注释）→ 零 STATE_* 事件（解析失败不编造）。
+ *      deep-agent-model-provider 的 DA-06 注释）→ 零业务态 STATE_* 事件（解析失败不编造）。
+ *
+ * DA-19a（2026-08-24 补）-- `POST /copilotkit/agui` 现在每一轮都会在 RUN_STARTED 之后
+ * 无条件发一个 `CUSTOM chat_thread_id` 事件（续聊事件，不是业务数据生产者，见
+ * `copilotkit-agui.controller.ts`）。上面「零 STATE_x/CUSTOM」的契约因此收窄为「零
+ * *业务态* STATE_x/CUSTOM 事件」——`chat_thread_id` 这一个具名例外被 `isBusinessStateEvent`
+ * 显式排除，不是放宽成"CUSTOM 事件随便发"：任何其它 name 的 CUSTOM 事件仍然会让这三条
+ * 反证失败。
  */
 import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -45,6 +52,19 @@ const TODOS = [
 const STATE_EVENT_TYPES = new Set<string>([
   EventType.STATE_SNAPSHOT, EventType.STATE_DELTA, EventType.CUSTOM,
 ]);
+
+/**
+ * DA-19a -- every real run now also mints/echoes a `CUSTOM chat_thread_id` event (see
+ * `copilotkit-agui.controller.ts`'s own doc), unconditionally, regardless of whether
+ * `write_todos` ran. It is not a DA-17 state/business producer -- it is session-continuation
+ * plumbing -- so this file's "零 STATE_x/CUSTOM 事件" contract (task-card-literal, see file
+ * head) is scoped to exclude it: the guarantee is "no business-data STATE event or CUSTOM
+ * event without a real producer", not "no CUSTOM event at all on the wire".
+ */
+function isBusinessStateEvent(event: ParsedSseEvent): boolean {
+  return STATE_EVENT_TYPES.has(event.type)
+    && !(event.type === EventType.CUSTOM && event.name === "chat_thread_id");
+}
 
 const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex");
 
@@ -212,9 +232,12 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
     expect(finishedIdx).toBeGreaterThanOrEqual(0);
     expect(snapshotIdx).toBeGreaterThan(finishedIdx);
 
-    // 本轮没有 STATE_DELTA / CUSTOM 生产者——它们不许在没有真实数据源时出现。
+    // 本轮没有 STATE_DELTA / 业务态 CUSTOM 生产者——它们不许在没有真实数据源时出现。
+    // （DA-19a 的 `CUSTOM chat_thread_id` 是每轮都有的续聊事件，不在此列——见
+    // `isBusinessStateEvent` 头注。）
     expect(events.filter((e) => e.type === EventType.STATE_DELTA)).toHaveLength(0);
-    expect(events.filter((e) => e.type === EventType.CUSTOM)).toHaveLength(0);
+    expect(events.filter((e) => e.type === EventType.CUSTOM && e.name !== "chat_thread_id"))
+      .toHaveLength(0);
 
     // 轮询循环真的被走过（不是第一次查询就判定终态）。
     expect(statusCallCount).toBeGreaterThanOrEqual(2);
@@ -226,7 +249,7 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
 
     // 工具调用序列本身照常出现（对照组是真实的，不是没跑到工具路径）。
     expect(events.some((e) => e.type === EventType.TOOL_CALL_START)).toBe(true);
-    expect(events.filter((e) => STATE_EVENT_TYPES.has(e.type))).toHaveLength(0);
+    expect(events.filter(isBusinessStateEvent)).toHaveLength(0);
   }, 30_000);
 
   it("write_todos 的 toolArgsSummary 被 4000 字符截断成坏 JSON → 零 STATE_* 事件，解析失败不编造", async () => {
@@ -240,7 +263,7 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
 
     // 工具调用序列仍然出现（step 本身是真实且成功的，只是参数摘要不可解析）。
     expect(events.some((e) => e.type === EventType.TOOL_CALL_START)).toBe(true);
-    expect(events.filter((e) => STATE_EVENT_TYPES.has(e.type))).toHaveLength(0);
+    expect(events.filter(isBusinessStateEvent)).toHaveLength(0);
     // run 正常收尾——快照缺席是「不编造」，不是 run 失败的副作用。
     expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
   }, 30_000);
