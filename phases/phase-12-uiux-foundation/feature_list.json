@@ -292,9 +292,9 @@
         "F12"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-m",
       "verification": [
         "pnpm --filter api exec vitest run tests/uiux/review-log-profile-org-threshold.test.ts",
         "pnpm --filter web exec playwright test -c playwright.self-service-profile.config.ts -g 'profile fidelity shots'"
