@@ -17,7 +17,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import { HttpAgent } from "@ag-ui/client";
+import { HttpAgent, type AgentSubscriber } from "@ag-ui/client";
 import { EventType } from "@ag-ui/core";
 
 const REPLY_TEXT = "durable AG-UI reply from a real SSE round trip";
@@ -178,8 +178,11 @@ describe("@ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format
     cleanup = stub.close;
 
     let learnedThreadId: string | null = null;
-    const subscriber = {
-      onCustomEvent: ({ event }: { event: { name: string; value: unknown } }) => {
+    // 用 `AgentSubscriber` 做上下文类型标注（而不是手写 `event` 的字面量形状）：
+    // `CustomEvent` 由 `@ag-ui/core` 的 zod schema 推导，手写的窄类型跟真实形状对不上，
+    // `runAgent()` 调用处会报 TS2345（对象字面量单独标注时不会报，直到被当实参传入才暴露）。
+    const subscriber: AgentSubscriber = {
+      onCustomEvent: ({ event }) => {
         if (event.name === "chat_thread_id" && typeof event.value === "string") learnedThreadId = event.value;
       },
     };
