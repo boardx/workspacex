@@ -535,7 +535,7 @@ export function AgGovernance({
 /* ─────────────────────────── ④/⑤ 编辑器（Skill / Agent 同构）─────────────────────────── */
 
 function Editor({
-  kind, state, view, assetId, assetLabel,
+  kind, state, view, assetId, assetLabel, compact = false,
 }: {
   kind: "skill" | "agent";
   state: UiState;
@@ -554,6 +554,16 @@ function Editor({
   assetId?: string;
   /** 配 `assetId` 一起传：显示用的真实名称，覆盖 `main.name`。不传则回退 `main.name`。 */
   assetLabel?: string;
+  /**
+   * #1971 —— 人类截图实测反馈：`/admin/skill/[id]` 全屏编辑页里，`ScreenHead`
+   * 的大标题 + 说明段落与页面自己的（更紧凑的）头部信息重复，挤占了文件树/代码
+   * 编辑器本该占大部分屏幕的空间。`compact` 时跳过 `ScreenHead`，只保留数据源
+   * 徽标 + 文件树/编辑器本体。
+   *
+   * ⚠ 默认 `false`——`/asset-governance` 原型路由（`AgSkillEditor`/`AgAgentEditor`
+   * 的其它调用点）不传，行为与既有七态演示逐字一致。
+   */
+  compact?: boolean;
 }) {
   const mockTree = kind === "skill" ? AG_SKILL_TREE : AG_AGENT_TREE;
   const main = kind === "skill" ? AG_SKILL_MAIN : AG_AGENT_MAIN;
@@ -844,9 +854,11 @@ function Editor({
 
         {editorTab === "code" ? (
           <>
-            <ScreenHead title={`${label} 编辑器`} uc={uc}>
-              左侧文件树就是发布出去的目录结构；右侧编辑 {sel}。
-            </ScreenHead>
+            {!compact && (
+              <ScreenHead title={`${label} 编辑器`} uc={uc}>
+                左侧文件树就是发布出去的目录结构；右侧编辑 {sel}。
+              </ScreenHead>
+            )}
 
             <div className="flex items-center gap-2" data-testid={`ag-${kind}-data-source`}>
               {isLive ? (
@@ -896,6 +908,8 @@ function Editor({
                         rootFrontmatterCheck={
                           liveDir ? { assetKind: kind, isRootFile: sel === liveDir.rootFile } : undefined
                         }
+                        // #1971：全屏编辑页把省下来的 chrome 空间让给代码编辑器本体。
+                        height={compact ? "62vh" : undefined}
                       />
                     ) : (
                       <CodeView body={draft} testid={`ag-${kind}-code`} />
@@ -920,8 +934,17 @@ function Editor({
   );
 }
 
-export function AgSkillEditor(p: ScreenProps & { assetId?: string; assetLabel?: string }) {
-  return <Editor kind="skill" state={p.state} view={p.view} assetId={p.assetId} assetLabel={p.assetLabel} />;
+export function AgSkillEditor(p: ScreenProps & { assetId?: string; assetLabel?: string; compact?: boolean }) {
+  return (
+    <Editor
+      kind="skill"
+      state={p.state}
+      view={p.view}
+      assetId={p.assetId}
+      assetLabel={p.assetLabel}
+      compact={p.compact}
+    />
+  );
 }
 export function AgAgentEditor(p: ScreenProps) {
   return <Editor kind="agent" state={p.state} view={p.view} />;
