@@ -137,7 +137,7 @@ function parseSse(raw: string): ParsedSseEvent[] {
 }
 
 async function postBridgeTurn(input: {
-  text: string; agentId?: string; user?: string; org?: string;
+  text: string; agentId?: string; user?: string; org?: string; chatThreadId?: string;
 }): Promise<{ status: number; contentType: string | null; events: ParsedSseEvent[] }> {
   const agentId = input.agentId === undefined ? AGENT : input.agentId;
   const url = new URL(`${BASE}/copilotkit/agui`);
@@ -148,6 +148,7 @@ async function postBridgeTurn(input: {
     body: JSON.stringify({
       threadId: randomUUID(), runId: randomUUID(),
       messages: [{ id: randomUUID(), role: "user", content: input.text }],
+      ...(input.chatThreadId !== undefined ? { forwardedProps: { chatThreadId: input.chatThreadId } } : {}),
     }),
   });
   const raw = await response.text();
@@ -275,6 +276,52 @@ describe("POST /copilotkit/agui", () => {
     });
     expect(response.status).toBe(422);
   });
+
+  it("DA-19a: RUN_STARTED is ALWAYS the first event -- CUSTOM chat_thread_id (when present) " +
+    "comes right after it, never before (a real @ag-ui/client HttpAgent rejects the whole " +
+    "stream otherwise -- see the controller file head)", async () => {
+    const { events } = await postBridgeTurn({ text: "First turn, no chatThreadId yet" });
+    expect(events[0]?.type).toBe(EventType.RUN_STARTED);
+    const custom = events.find((e) => e.type === EventType.CUSTOM && (e as { name?: string }).name === "chat_thread_id");
+    expect(custom).toBeDefined();
+    expect(events.indexOf(custom!)).toBe(1); // immediately after RUN_STARTED
+    expect(typeof (custom as { value?: unknown }).value).toBe("string");
+  }, 30_000);
+
+  it("DA-19a: reusing the CUSTOM-reported chat_thread_id on the next turn continues the " +
+    "SAME Chat thread (real cross-turn continuation, not a fresh thread every time)", async () => {
+    const before = await asApp(ORG, (c) => c.query("SELECT count(*)::int AS n FROM chat_threads WHERE org_id=$1", [ORG]));
+
+    const first = await postBridgeTurn({ text: "First message please remember 42" });
+    const firstCustom = first.events.find(
+      (e) => e.type === EventType.CUSTOM && (e as { name?: string }).name === "chat_thread_id",
+    ) as { value: string } | undefined;
+    expect(firstCustom).toBeDefined();
+    const chatThreadId = firstCustom!.value;
+
+    const afterFirst = await asApp(ORG, (c) => c.query("SELECT count(*)::int AS n FROM chat_threads WHERE org_id=$1", [ORG]));
+    expect((afterFirst.rows[0] as { n: number }).n).toBe((before.rows[0] as { n: number }).n + 1);
+
+    const second = await postBridgeTurn({ text: "Second message, same thread", chatThreadId });
+    const secondCustom = second.events.find(
+      (e) => e.type === EventType.CUSTOM && (e as { name?: string }).name === "chat_thread_id",
+    ) as { value: string } | undefined;
+    expect(secondCustom?.value).toBe(chatThreadId); // same Chat thread id echoed back
+
+    // No SECOND thread got created -- both turns landed in the one Chat thread.
+    const afterSecond = await asApp(ORG, (c) => c.query("SELECT count(*)::int AS n FROM chat_threads WHERE org_id=$1", [ORG]));
+    expect((afterSecond.rows[0] as { n: number }).n).toBe((before.rows[0] as { n: number }).n + 1);
+
+    // Both turns' messages are really persisted on the SAME thread row.
+    const messages = await asApp(ORG, (c) => c.query<{ body: string; author_kind: string }>(
+      "SELECT body, author_kind FROM chat_messages WHERE org_id=$1 AND thread_id=$2 ORDER BY created_at ASC",
+      [ORG, chatThreadId],
+    ));
+    expect(messages.rows.filter((m) => m.author_kind === "human").map((m) => m.body)).toEqual([
+      "First message please remember 42",
+      "Second message, same thread",
+    ]);
+  }, 30_000);
 
   it("422s when the AG-UI body carries no user message", async () => {
     const url = new URL(`${BASE}/copilotkit/agui`);

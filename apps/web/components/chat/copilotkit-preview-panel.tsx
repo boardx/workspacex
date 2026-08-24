@@ -28,13 +28,38 @@ import { AgentPlanPanel } from "./agent-plan-panel";
  * （`TEXT_MESSAGE_START` / `TEXT_MESSAGE_CONTENT` / `TEXT_MESSAGE_END` / `RUN_ERROR`）
  * 应用到本地消息列表——这就是"AG-UI 事件能在 UI 里显示出来"这句验收条件字面上
  * 要求的机制：一个真实的 `@ag-ui/client` agent 消费真实的 SSE 流，不是拿字符串
- * 硬拼出来的假聊天气泡。
+ * 硬拼出来的假聊天气泡。真实鉴权：`Authorization: Bearer <token>` 用的是
+ * `getStoredSessionToken()`——全仓唯一的会话 token 读口（`POST /auth/login` 写入，
+ * 见 `api-client.ts` 文件头），不是这里现造的简化值；未登录（token 为 null）时直接
+ * 阻止发送并给出提示，不把一个注定 401 的请求打出去。
  *
  * 不做：`agentId` 手填（本仓没有挂载任何"列出组织 agent 目录"的路由——见
  * `personal-chat-screen.tsx` 文件头，同一个已如实暴露的缺口，这里不重新发明）；
- * 多轮上下文持久化（后端桥接端点每次调用都开一条新的个人线程，单轮范围，
- * 见 `apps/api/src/interface/controllers/copilotkit-agui.controller.ts` 文件头）；
  * token 级真流式（后端一次性吐出整段回复，不是逐 token，阶段 2 才做）。
+ *
+ * ## DA-19a —— 真实跨会话续聊，靠 AG-UI 协议自带的 `forwardedProps` 透传
+ *
+ * 阶段 1b/2b 曾经「每次调用都开一条新的个人线程」——`runAguiBridgeTurn` 本身早就支持
+ * 复用既有 `threadId`（见 `agui-bridge.ts` 文件头），缺的只是这个面板没有把它接上。
+ * 现在：后端 `onThreadResolved` 一解出真实 Chat threadId，就通过 AG-UI 协议原生的
+ * `CUSTOM {name:"chat_thread_id"}` 事件（`EventType.CUSTOM` 的第二个真实生产者，第一个
+ * 是 DA-17 的 `STATE_SNAPSHOT`）下发；本面板订阅 `onCustomEvent`，把它存进
+ * `chatThreadId` state，下一轮发送时通过 `agent.runAgent({ forwardedProps: { chatThreadId } })`
+ * 带回去——`forwardedProps` 是 `@ag-ui/core` `RunAgentInput` 协议本就定义的「应用自定义
+ * 数据透传」字段，不是自造的 header 或者第二份 id 映射表（同一份 Chat threadId，见
+ * 控制器文件头）。同一个 Chat threadId 会让 `deep-agent-model-provider.ts` 的
+ * `deriveRemoteThreadId` 决定性推出同一个远端 deep-agent 线程——底层 agent 真的记得
+ * 上一轮说了什么，不只是本仓自己的 `chat_messages` 表多存了一行。「开始新会话」按钮
+ * 清空 `chatThreadId`（连同本地消息与计划条），下一条消息会让后端新建一条 Chat 线程。
+ *
+ * ## 多 agent 切换
+ *
+ * `agentId` 是纯文本输入，`send()` 每次都用当前 `agentIdDraft` 现造一个新的
+ * `HttpAgent`（`url` 里带 `agentId` 查询参数）——切换目标 agent 只需要改这个输入框，
+ * 不需要额外接线。后端 `acceptHumanMessage` 按「每条消息自带 agentId」的粒度接受选择
+ * （`message-roundtrip.ts` 的 `selectedAgentId`，与生产聊天页的 agent 选择器同一套语义），
+ * 所以延续同一个 `chatThreadId` 换 agent 继续发消息是后端本就支持的真实行为，不是本面板
+ * 编出来的新规则。
  *
  * ## DA-17（UX-9 Line D3）—— 这个面板也是 `STATE_SNAPSHOT` 目前唯一的真实消费点
  *
@@ -50,12 +75,40 @@ export function CopilotKitPreviewPanel(): JSX.Element {
   const [messages, setMessages] = React.useState<readonly Message[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // DA-19a -- the persisted Chat thread id, learned from the backend's `CUSTOM
+  // chat_thread_id` event (see file head). `null` = no turn has resolved one yet, or the
+  // user hit "开始新会话" -- the next send starts a fresh backend Chat thread.
+  const [chatThreadId, setChatThreadId] = React.useState<string | null>(null);
   const { todos: planTodos, onStateSnapshotEvent, reset: resetPlanTodos } = useAguiPlanTodos();
+
+  // `getStoredSessionToken()` reads `window.localStorage` -- only safe once mounted on the
+  // client (SSR always sees `null`, see that function's own guard). Read it in an effect,
+  // not at render time, so the server-rendered markup and the first client render agree
+  // (no hydration mismatch on the disabled/banner state below).
+  const [loggedIn, setLoggedIn] = React.useState(false);
+  React.useEffect(() => {
+    setLoggedIn(getStoredSessionToken() !== null);
+  }, []);
+
+  const startNewConversation = React.useCallback(() => {
+    setChatThreadId(null);
+    setMessages([]);
+    setError(null);
+    resetPlanTodos();
+  }, [resetPlanTodos]);
 
   const send = React.useCallback(async () => {
     const agentId = agentIdDraft.trim();
     const text = inputDraft.trim();
     if (agentId === "" || text === "" || busy) return;
+
+    // DA-19a -- fail closed on the client, not just on the wire: a request we already know
+    // will 401 shouldn't leave the user staring at a spinner with no explanation.
+    const token = getStoredSessionToken();
+    if (token === null) {
+      setError("AUTH_REQUIRED：未登录或会话已过期，请先登录后再发送。");
+      return;
+    }
 
     setError(null);
     setBusy(true);
@@ -66,39 +119,75 @@ export function CopilotKitPreviewPanel(): JSX.Element {
     const nextMessages: Message[] = [...messages, userMessage];
     setMessages(nextMessages);
 
-    const token = getStoredSessionToken();
     const agent = new HttpAgent({
       url: `${apiBaseUrl()}/copilotkit/agui?agentId=${encodeURIComponent(agentId)}`,
-      headers: token !== null ? { Authorization: `Bearer ${token}` } : {},
+      headers: { Authorization: `Bearer ${token}` },
     });
     agent.messages = nextMessages;
 
     try {
-      await agent.runAgent(undefined, {
-        onRunErrorEvent: ({ event }) => {
-          setError(event.message);
+      await agent.runAgent(
+        { forwardedProps: chatThreadId !== null ? { chatThreadId } : {} },
+        {
+          onRunErrorEvent: ({ event }) => {
+            setError(event.message);
+          },
+          onMessagesChanged: ({ messages: updated }) => {
+            setMessages([...updated]);
+          },
+          onStateSnapshotEvent,
+          onCustomEvent: ({ event }) => {
+            if (event.name === "chat_thread_id" && typeof event.value === "string" && event.value !== "") {
+              setChatThreadId(event.value);
+            }
+          },
         },
-        onMessagesChanged: ({ messages: updated }) => {
-          setMessages([...updated]);
-        },
-        onStateSnapshotEvent,
-      });
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "AGUI_RUN_FAILED");
+      // A connection/auth failure before any SSE bytes arrive (e.g. an expired token
+      // rejected before the stream opens) surfaces here as a rejected promise, not a
+      // RUN_ERROR event -- see `@ag-ui/client`'s `AbstractAgent.onError`, which re-throws
+      // unless a subscriber sets `stopPropagation`. Either path lands in the same visible
+      // `error` state below; neither leaves a blank screen.
+      const message = e instanceof Error ? e.message : "AGUI_RUN_FAILED";
+      setError(/fetch|network|failed to fetch/i.test(message)
+        ? `CONNECTION_FAILED：无法连接到后端（${message}）`
+        : message);
     } finally {
       setBusy(false);
     }
-  }, [agentIdDraft, inputDraft, messages, busy, onStateSnapshotEvent, resetPlanTodos]);
+  }, [agentIdDraft, inputDraft, messages, busy, chatThreadId, onStateSnapshotEvent, resetPlanTodos]);
 
   return (
     <div className="flex h-full w-full flex-col gap-3 p-4">
-      <div className="text-sm font-medium">
-        CopilotKit 预览（阶段 1b —— 直连 AG-UI SSE，`@ag-ui/client` `HttpAgent`）
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm font-medium">
+          CopilotKit 预览（直连 AG-UI SSE，`@ag-ui/client` `HttpAgent`）
+        </div>
+        <button
+          data-testid="copilotkit-preview-new-conversation"
+          type="button"
+          className="rounded border px-2 py-1 text-xs"
+          disabled={busy}
+          onClick={startNewConversation}
+        >
+          开始新会话
+        </button>
+      </div>
+      {!loggedIn ? (
+        <div data-testid="copilotkit-preview-auth-required" className="text-xs text-destructive">
+          未登录或会话已过期，请先登录后再使用本预览面板。
+        </div>
+      ) : null}
+      {/* DA-19a -- 会话延续的可见证据：非 null 时说明后端已经回过 CUSTOM chat_thread_id，
+          下一条消息会带着它继续同一条 Chat 线程（同一远端 deep-agent 线程）。 */}
+      <div data-testid="copilotkit-preview-thread-id" className="text-xs text-muted-foreground">
+        {chatThreadId !== null ? `会话线程：${chatThreadId}` : "会话线程：（尚未建立，发送第一条消息后建立）"}
       </div>
       <input
         data-testid="copilotkit-preview-agent-id"
         className="rounded border px-2 py-1 text-sm"
-        placeholder="agent id（本仓暂无目录路由，需已知已发布的 agent id）"
+        placeholder="agent id（本仓暂无目录路由，需已知已发布的 agent id；可随时切换以变更本轮对话的 agent）"
         value={agentIdDraft}
         onChange={(e) => setAgentIdDraft(e.target.value)}
       />
