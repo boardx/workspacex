@@ -457,13 +457,16 @@ export function CopilotKitV2Panel(): JSX.Element {
    * 未登录时（`null`）麦克风点击时守卫并说明原因，不发一个必然被服务端拒绝的假请求。
    *
    * ⚠ 不能只用一次性 `useState(() => getStoredSessionToken())` 就不再更新，也不能把
-   * 它直接接到 `disabled`/`title`——本轮 e2e 实测踩到：`sessionToken` 首帧在服务端
-   * 渲染为 `null`（`typeof window === "undefined"`），客户端 hydrate 时才读到真实值，
-   * 这条 SSR/CSR 分叉接到 `disabled`/`title` 会触发一次真实的 React hydration 属性
-   * 不匹配（`Server: "未登录..." Client: "开始语音输入"`），而这个包/Next dev 版本
-   * 组合下客户端没有如预期纠正回来——按钮永久停在服务端渲染出的 disabled 态。这里改用
-   * `copilotkit-v2-providers.tsx` 自己那份已验证过的自愈模式（`storage` 事件 + 轮询
-   * 兜底）读 state，但只在 `onClick` 里守卫，不接到首帧属性（见下方按钮）。
+   * 它直接接到 `disabled`/`title`——本轮 e2e 实测（`copilotkit-v2-voice-input.spec.ts`）
+   * 踩到：`sessionToken` 首帧在服务端渲染为 `null`（`typeof window === "undefined"`），
+   * 客户端 hydrate 时才读到真实值（`window.localStorage` 里确有 token，`page.evaluate`
+   * 直接读到过非空值），这条 SSR/CSR 分叉接到 `disabled`/`title` 会触发一次真实的
+   * React hydration 属性不匹配（`Server: "未登录..." Client: "开始语音输入"`），而这个
+   * 包/Next dev 版本组合下客户端没有如预期纠正回来——按钮永久停在服务端渲染出的
+   * disabled 态，与 `copilotkit-v2-providers.tsx` 文件头注记录的"首帧空档"是同一类
+   * 时序竞争。这里改用 `copilotkit-v2-providers.tsx` 自己那份已验证过的自愈模式
+   * （`storage` 事件 + 轮询兜底）读 state，但只在 `onClick` 里守卫，不接到首帧属性
+   * （见下方按钮）。
    */
   const [sessionToken, setSessionToken] = React.useState<string | null>(() => getStoredSessionToken());
   React.useEffect(() => {

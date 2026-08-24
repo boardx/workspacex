@@ -121,8 +121,19 @@ export default defineConfig({
    * 弹窗关闭后模态遮罩真的从 DOM 移除、发送按钮点击后真的发出新请求——回归
    * `.harness/state/copilotkit-v2-ux-acceptance-score.md` 判据 #10 记录的模态遮罩
    * 永久锁死界面的 bug。不需要新的进程或新的环境变量。
+   *
+   * DA-19g（另一条同名 backlog，评分循环第 1 轮第 5 项缺口——两者是同一简写号意外
+   * 撞车，互不相关，见 `copilotkit-v2-panel.tsx` 同名段落头注）—— 新增
+   * `copilotkit-v2-voice-input.spec.ts` 同样由本 config 接住（同一条 `/chat/
+   * copilotkit-v2` 路由、同一条真登录）。麦克风/假音频源/ASR loopback 三个前提
+   * （`permissions`/`launchOptions`、下面的 `loopback-asr-provider.ts` webServer
+   * 条目、`LOOPBACK_ASR_EMIT_DELTA`）本 config 早已具备（`chat-read.spec.ts` 步骤 5c
+   * 语音输入场景已在用），不需要新的进程或新的环境变量。**这条 testMatch 白名单是
+   * 手写的**（`.harness/scripts/lint-spec-gate-coverage.mjs` 头注明确警告"手写的
+   * 匹配器迟早漂移"）——新 spec 不加进这个正则就是"写了但没人跑"（#512 同一个失效
+   * 模式），加的时候留意别漏。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|chat-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
