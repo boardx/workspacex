@@ -230,14 +230,14 @@
         "F11"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "claude-k",
       "verification": [
         "pnpm --filter web run lint:design",
         "pnpm --filter web exec vitest run tests/ui/microinteraction-orgadmin-canvas.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F12.verify.log @ 2026-08-24T01:42:54.480Z",
       "notes": "依据等级：[原型]（对既有 org-admin/canvas 元素的一致性修复）。R11：与 F11 同属 07 号需求。第三方组件（如 CopilotKit 渲染内容里的链接）微交互不受本仓控制，记录为已知限制（R4-E1）。"
     },
     {

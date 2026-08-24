@@ -798,6 +798,7 @@ export function PopoverSelect({
               }}
               className={[
                 "flex w-full items-center gap-2 truncate rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
                 o.id === value ? "text-primary" : "text-popover-foreground",
               ].join(" ")}
             >

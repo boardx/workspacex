@@ -337,6 +337,7 @@ function FilterChip({
       data-active={active}
       className={cn(
         "rounded-full border px-2.5 py-0.5 text-11 transition-colors duration-200",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         active
           ? "border-primary bg-primary text-primary-foreground"
           : "border-border bg-card text-muted-foreground hover:bg-muted",
