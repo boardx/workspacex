@@ -7,6 +7,7 @@ import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Pagination, PaginationNext, PaginationPrevious, PaginationStatus } from "@/components/ui/pagination";
 import { ApiError } from "@/lib/api-client";
 import { currentOrganizationLabel } from "@/lib/org-display";
 import {
@@ -261,7 +262,7 @@ export function CapabilityCatalogScreen({
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2 text-12 text-muted-foreground">
             <span>共 {rows.length} 条组织目录记录</span>
-            <span data-testid={`${prefix}-page-status`}>第 {page + 1} / {pageCount} 页</span>
+            <PaginationStatus data-testid={`${prefix}-page-status`}>第 {page + 1} / {pageCount} 页</PaginationStatus>
           </div>
           {/*
             人类原话（2026-08-15）：「后台的管理功能…左边还是保留一个 column 显示当前的
@@ -280,26 +281,18 @@ export function CapabilityCatalogScreen({
             listContainerTestId={`${prefix}-list`}
           />
           {pageCount > 1 ? (
-            <div className="flex justify-end gap-2">
-              <Button
-                size="sm"
-                variant="outline"
+            <Pagination aria-label={`${copy.label}分页`} className="justify-end">
+              <PaginationPrevious
                 disabled={page === 0}
                 onClick={() => setPage((value) => Math.max(0, value - 1))}
                 data-testid={`${prefix}-previous-page`}
-              >
-                上一页
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
+              />
+              <PaginationNext
                 disabled={page + 1 >= pageCount}
                 onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}
                 data-testid={`${prefix}-next-page`}
-              >
-                下一页
-              </Button>
-            </div>
+              />
+            </Pagination>
           ) : null}
         </div>
       ) : null}

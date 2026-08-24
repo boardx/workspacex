@@ -350,3 +350,83 @@
   菜单实现单一事实源，但它不产生真实用户可见行为，不计入"新迁移的真实业务面"。
 - 下一步最佳动作: F03（语义化动效 token 体系 + lint 拦截裸 duration/easing），或 F10
   （breadcrumb/pagination 原语，R11 拆分的另一半）。
+
+## F10 — 复合组件收口：Breadcrumb / Pagination 原语 + kitchen-sink 展示
+- 盘点结论（2026-08-24，自己重新 grep 核对，不信任种子清单）：
+  - **Breadcrumb：不收口（BELOW_THRESHOLD）**。全仓只有 `components/canvas/canvas-main.tsx`
+    一处「面包屑」相关文案，且形状也不是层级路径导航（无 `/` 分隔多级路径，只是一行
+    「回到议程 · 议程环节 3」返回态提示 + 「画布来自 X · Y」来源说明）。远达不到 R4-A1
+    的 3 次门槛，`interaction-primitives` 束 `design-signoff.md` 已记录人类对
+    `BELOW_THRESHOLD` 默认接受「不收口」为合法结果——因此本次**没有**新增
+    `components/ui/breadcrumb.tsx`，`tests/ui/composite-breadcrumb-pagination.test.tsx`
+    用一条反向断言（`existsSync` 该文件应为 false）把这个决定钉住。
+  - **Pagination：收口（3 处业务目录重复，达到门槛）**：
+    - `components/admin/capability-catalog-screen.tsx`：页码分页（`page`/`pageCount`
+      state +「上一页」「下一页」两个按钮，边界值 `disabled` 卡住）。
+    - `components/profile/profile-screen.tsx`：游标分页（`nextCursor` + 单个
+      「加载更多」按钮，无法回退，纯追加列表）。
+    - `components/survey/workflow/response-review-step.tsx`：页码分页（原为静态原型，
+      硬编码 `<Button>1</Button><Button>2</Button>…` 页码按钮，未接真实翻页状态）。
+    三种真实用法但共享同一个「分页控件」视觉/交互模式，达到门槛，收口。
+- 设计取舍（回应 R4-E2/usecases.md UC-4「pagination 组件层只负责展示与交互，不强行统一
+  底层游标分页 vs 页码分页策略」）：`pagination.tsx` **不**内置任何分页状态机、不请求
+  数据——两种真实存在的形状各配一套拼接件，不做大一统的 `<Pagination items onPageChange>`：
+  - 页码分页：`Pagination`（容器）+ `PaginationStatus` + `PaginationPrevious`/
+    `PaginationNext` + `PaginationList`/`PaginationItem`（页码按钮）/`PaginationEllipsis`。
+  - 游标分页：`PaginationLoadMore`（单个「加载更多」按钮，`pending` 态封装禁用 + 文案
+    切换，调用方通过是否渲染本组件表达「有没有下一页」）。
+  按钮本身直接复用 `components/ui/button.tsx`（F01 标杆），不重新定义尺寸/圆角/hover 态。
+- 已完成:
+  - 新增 `apps/web/components/ui/pagination.tsx`（`Pagination`/`PaginationStatus`/
+    `PaginationList`/`PaginationPrevious`/`PaginationNext`/`PaginationItem`/
+    `PaginationEllipsis`/`PaginationLoadMore`）。
+  - 迁移 3 处业务目录：
+    - `capability-catalog-screen.tsx`：手写「上一页」「下一页」`Button` 对 →
+      `PaginationPrevious`/`PaginationNext`；页码状态文案 `<span>` → `PaginationStatus`。
+      两个 testid（`${prefix}-previous-page`/`${prefix}-next-page`/`${prefix}-page-status`）
+      原样保留，既有测试 `tests/ui/capability-catalog-live.test.tsx` 不需要跟着重写。
+    - `profile-screen.tsx`：手写「加载更多」`Button`（`disabled={loadingMore}` +
+      三元文案切换）→ `PaginationLoadMore`（`pending={loadingMore}`），testid 原样保留，
+      `tests/ui/profile-mobile-actions.test.tsx` 不需要重写。
+    - `response-review-step.tsx`：静态硬编码页码按钮行 → 真实的 `Pagination`/
+      `PaginationItem`/`PaginationEllipsis`/`PaginationStatus`（该文件此前无任何单测/
+      e2e 覆盖分页区域，迁移不影响既有测试）。
+  - `components/state/primitives-gallery.tsx` 的 `CompositePrimitivesGallery` 扩为
+    Table/Menu/Pagination 三块（`md:col-span-2` 的 Pagination 演示区含页码分页
+    可交互 demo + 游标「加载更多」可交互 demo），标题与说明文案同步更新为「F09/F10」，
+    并在函数头注写明 Breadcrumb 不收口的结论（避免下一个人看到只有两个复合组件就以为
+    Breadcrumb 是遗漏）。接入 `/kitchen-sink`。
+  - 新增 `apps/web/tests/ui/composite-breadcrumb-pagination.test.tsx`（18 用例：
+    Breadcrumb 不收口反向断言、pagination.tsx token 化(含 U10 裸 duration 检查)、
+    页码分页边界 disabled/状态文案/aria-current/navigation landmark、
+    PaginationLoadMore pending 态/自定义文案、3 处迁移文件的引用证据断言）。
+  - 新增 `apps/web/e2e/composite-primitives-kitchen-sink.spec.ts`（`kitchen sink
+    composites` describe：三个复合组件展示区块可见 + Pagination 页码/游标两种交互的
+    真实浏览器走查），并入 `playwright.fullstack-smoke.config.ts` 里
+    `overlay-primitives-keyboard` project 的 `testMatch`（与 F01/F02 同一前提：`/kitchen-sink`
+    是纯静态展示页，不需要登录/种子数据），`lint-spec-gate-coverage.mjs` 判定 `[covered]`。
+  - 375/768/1280 三档视口无横向溢出：`/kitchen-sink` 已在 `e2e/responsive.spec.ts` 的
+    `SCREENS` 清单里，本区块加入后三档实测仍全过，未新开一条重复的视口断言。
+- 运行过的验证:
+  - `pnpm --filter web exec vitest run tests/ui/composite-breadcrumb-pagination.test.tsx`
+    → 18 passed
+  - `pnpm --filter web exec playwright test -c playwright.config.ts -g 'kitchen sink
+    composites'` → 3 passed
+  - `pnpm --filter web exec playwright test -c playwright.config.ts -g '/kitchen-sink
+    无横向溢出'` → 3 passed（375/768/1280 三档）
+  - `pnpm --filter web run lint:design` → 全过
+  - `pnpm --filter web exec tsc --noEmit -p tsconfig.json` → 无错误
+  - `pnpm --filter web exec vitest run`（全量 apps/web 单测回归）→ 206 files / 1756 tests
+    全过
+  - `node .harness/scripts/lint-spec-gate-coverage.mjs` → 全绿（新 spec `[covered]`）
+  - `pnpm harness verify --sprint 12/01 --feature F10` → passing
+  - `pnpm harness doctor --phase 12` → 0 FAIL（3 WARN：证据日志/issue 关闭/readiness
+    均待本轮 PR 合入后自然清除）
+- 已记录证据: `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F10.verify.log`
+- 提交记录: 见本轮 PR（`worker/claude-i-12-F10` → main）
+- 已知风险或未解决问题: 无新增遗留。`response-review-step.tsx` 的页码按钮此前就是非
+  功能性静态原型（硬编码 1/2/…/7，未接真实分页状态），迁移后依然是静态 demo（只是换成
+  真实原语渲染），没有顺手把它接成真实分页——那是另一件事（该文件的答卷筛选/翻页联动
+  不在本 feature 范围内）。
+- 下一步最佳动作: F11（chat / profile 微交互一致性稽核与整改，依赖 F01 + F09 已
+  passing）。

@@ -34,6 +34,16 @@ import {
 } from "@/components/ui/table";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { MessageEntrance } from "@/components/chat/message-entrance";
+import {
+  Pagination,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationList,
+  PaginationLoadMore,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationStatus,
+} from "@/components/ui/pagination";
 
 const ROLE_OPTIONS = [
   { value: "facilitator", label: "引导师（可下发、可编辑）" },
@@ -211,23 +221,47 @@ const DEMO_TABLE_ROWS = [
   { id: "row-2", name: "德国工商储电价机制核查", owner: "林工", status: "待复核" },
 ];
 
+/** Pagination 页码分页演示的固定总页数——纯展示，不接真实数据源。 */
+const DEMO_PAGE_COUNT = 5;
+
 /**
- * 复合组件展示区（Table / Menu）—— 契约束 interaction-primitives（F09）签核①材料。
+ * 复合组件展示区（Table / Menu / Pagination）—— 契约束 interaction-primitives
+ * （F09 + F10）签核①材料。
  * Table 收口 19 处业务目录重复的手写 `<table>`；Menu 是 F01 `dropdown-menu.tsx` 的命名
- * 别名，收口 5 处业务目录重复的「手写 open state + document 监听」弹层实现。
+ * 别名，收口 5 处业务目录重复的「手写 open state + document 监听」弹层实现；Pagination
+ * 收口 3 处业务目录重复的分页控件（`capability-catalog-screen.tsx` 页码分页 +
+ * `profile-screen.tsx` 游标「加载更多」+ `response-review-step.tsx` 静态页码原型）。
+ *
+ * ⚠ Breadcrumb 盘点结论（F10，2026-08-24）：全仓只有 `canvas-main.tsx` 一处「回到议程」
+ * 返回态提示，形状也不是层级路径（无 `/` 分隔的多级面包屑），未达到 R4-A1 的 3 次门槛
+ * （usecases.md UC-4 `BELOW_THRESHOLD` 分支）——按人类已确认的默认值降级为不收口，
+ * 因此本区块和 `components/ui/` 下都没有 `breadcrumb.tsx`，这不是遗漏。
  */
 export function CompositePrimitivesGallery() {
   const [tableRows, setTableRows] = React.useState(DEMO_TABLE_ROWS);
+  const [page, setPage] = React.useState(0);
+  const [loadMoreCount, setLoadMoreCount] = React.useState(1);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+
+  function handleLoadMore() {
+    setLoadingMore(true);
+    // 演示用的假延迟——真实用法（profile-screen.tsx）里这里是一次真实网络请求。
+    window.setTimeout(() => {
+      setLoadMoreCount((value) => value + 1);
+      setLoadingMore(false);
+    }, 300);
+  }
 
   return (
     <div className="flex flex-col gap-6" data-testid="section-composites">
       <div className="flex flex-col gap-1">
-        <h2 className="text-16 font-semibold">复合组件（Table / Menu）</h2>
+        <h2 className="text-16 font-semibold">复合组件（Table / Menu / Pagination）</h2>
         <p className="text-12 text-muted-foreground">
-          契约束 <code className="font-mono text-11">interaction-primitives</code> · F09。
+          契约束 <code className="font-mono text-11">interaction-primitives</code> · F09/F10。
           Table 收口 19 处业务目录重复的手写表格；Menu 复用 F01 的{" "}
           <code className="font-mono text-11">dropdown-menu.tsx</code>
-          （Radix DropdownMenu），收口 5 处手写下拉菜单。
+          （Radix DropdownMenu），收口 5 处手写下拉菜单；Pagination 收口 3 处业务目录重复的
+          分页控件（页码 / 游标两种底层策略，组件层只管展示与交互）。
         </p>
       </div>
 
@@ -305,6 +339,71 @@ export function CompositePrimitivesGallery() {
               </MenuItem>
             </MenuContent>
           </Menu>
+        </div>
+
+        {/* ── Pagination ────────────────────────────────────── */}
+        <div
+          className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 md:col-span-2"
+          data-testid="primitive-pagination"
+        >
+          <div className="flex flex-col gap-1">
+            <h3 className="text-13 font-semibold">Pagination（分页）</h3>
+            <p className="text-11 text-muted-foreground">
+              两种底层策略并存：页码分页（有上一页/下一页边界）与游标分页（只有「加载更多」，
+              无法回退）——组件层不强行统一，调用方按自己的数据源形状选用。
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <p className="text-11 font-medium text-muted-foreground">页码分页</p>
+            <Pagination aria-label="演示分页" data-testid="primitive-pagination-page">
+              <PaginationStatus data-testid="primitive-pagination-status">
+                第 {page + 1} / {DEMO_PAGE_COUNT} 页
+              </PaginationStatus>
+              <div className="flex items-center gap-2">
+                <PaginationPrevious
+                  disabled={page === 0}
+                  onClick={() => setPage((value) => Math.max(0, value - 1))}
+                  data-testid="primitive-pagination-previous"
+                />
+                <PaginationList>
+                  {Array.from({ length: DEMO_PAGE_COUNT }, (_, index) => index).map((index) =>
+                    index === 2 ? (
+                      <PaginationEllipsis key="ellipsis" />
+                    ) : (
+                      <PaginationItem
+                        key={index}
+                        active={index === page}
+                        onClick={() => setPage(index)}
+                        data-testid={`primitive-pagination-item-${index}`}
+                      >
+                        {index + 1}
+                      </PaginationItem>
+                    ),
+                  )}
+                </PaginationList>
+                <PaginationNext
+                  disabled={page + 1 >= DEMO_PAGE_COUNT}
+                  onClick={() => setPage((value) => Math.min(DEMO_PAGE_COUNT - 1, value + 1))}
+                  data-testid="primitive-pagination-next"
+                />
+              </div>
+            </Pagination>
+          </div>
+
+          <div className="flex flex-col gap-2 border-t border-border-subtle pt-3">
+            <p className="text-11 font-medium text-muted-foreground">游标分页（加载更多）</p>
+            <div className="flex items-center gap-3">
+              <span className="text-12 text-muted-foreground" data-testid="primitive-pagination-loadmore-count">
+                已加载 {loadMoreCount} 批
+              </span>
+              <PaginationLoadMore
+                pending={loadingMore}
+                onClick={handleLoadMore}
+                data-testid="primitive-pagination-loadmore"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>

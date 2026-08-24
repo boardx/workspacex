@@ -139,6 +139,32 @@
 - F03（语义化动效 token 体系 + lint 拦截裸 duration/easing），或 F10（breadcrumb/
   pagination 原语，R11 拆分的另一半，依赖 F09 已 passing）。
 
+## 本轮改动（F10）
+- 新增 `apps/web/components/ui/pagination.tsx`（Pagination/PaginationStatus/
+  PaginationList/PaginationPrevious/PaginationNext/PaginationItem/PaginationEllipsis/
+  PaginationLoadMore）。
+- Breadcrumb 盘点结论为**不收口**（全仓只 1 处、非层级路径，未达 R4-A1 的 3 次门槛，
+  design-signoff.md 已记录人类对 `BELOW_THRESHOLD` 默认接受）——没有新增
+  `components/ui/breadcrumb.tsx`，反向断言钉在
+  `tests/ui/composite-breadcrumb-pagination.test.tsx`。
+- Pagination 迁移 3 处：`admin/capability-catalog-screen.tsx`（页码分页）、
+  `profile/profile-screen.tsx`（游标「加载更多」）、
+  `survey/workflow/response-review-step.tsx`（静态原型页码 → 真实原语渲染，仍是
+  demo，未接真实翻页状态——不在本 feature 范围）。所有既有 testid 原样保留，无既有
+  测试需要重写。
+- `components/state/primitives-gallery.tsx` 的 `CompositePrimitivesGallery` 扩为
+  Table/Menu/Pagination 三块展示区，接入 `/kitchen-sink`。
+- 新增 `apps/web/tests/ui/composite-breadcrumb-pagination.test.tsx`（18 用例）、
+  `apps/web/e2e/composite-primitives-kitchen-sink.spec.ts`（并入
+  `playwright.fullstack-smoke.config.ts` 的 `overlay-primitives-keyboard` project
+  testMatch，`lint-spec-gate-coverage.mjs` 判定 `[covered]`）。
+- F10（复合组件收口：Breadcrumb / Pagination 原语 + kitchen-sink 展示）passing。两条
+  verification 命令全过，见
+  `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F10.verify.log`。
+
+## 下一步最佳动作
+- F11（chat / profile 微交互一致性稽核与整改），依赖 F01 + F09 已 passing。
+
 ## 命令
 - 启动:`pnpm -w run dev`
 - 验证:`pnpm harness verify --sprint 12/01`

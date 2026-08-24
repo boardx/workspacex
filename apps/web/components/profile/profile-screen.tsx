@@ -12,6 +12,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PaginationLoadMore } from "@/components/ui/pagination";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -512,16 +513,11 @@ function ActivitySection({ refreshKey }: { refreshKey: number }) {
       </StateShell>
 
       {state === "default" && out?.nextCursor ? (
-        <Button
-          type="button"
-          size="xs"
-          variant="outline"
-          disabled={loadingMore}
+        <PaginationLoadMore
+          pending={loadingMore}
           onClick={loadMore}
           data-testid="profile-activity-load-more"
-        >
-          {loadingMore ? "加载中…" : "加载更多"}
-        </Button>
+        />
       ) : null}
     </div>
   );

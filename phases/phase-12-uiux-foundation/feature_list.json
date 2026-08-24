@@ -189,14 +189,14 @@
         "F09"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-i",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/composite-breadcrumb-pagination.test.tsx",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'kitchen sink composites'"
       ],
-      "evidence": "",
+      "evidence": "evidence/F10.verify.log @ 2026-08-24T00:14:19.672Z",
       "notes": "依据等级：[Backlog]（IT-06，同 F09）。has_ui。R11：与 F09 同属 06 号需求。pagination 组件层只负责展示与交互，不强行统一底层游标/页码分页策略（R4-E2）。playwright 验证 kitchen-sink 复合组件展示区块可见并做三档视口无溢出检查（R9）。"
     },
     {
