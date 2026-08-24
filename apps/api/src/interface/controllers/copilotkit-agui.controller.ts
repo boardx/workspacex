@@ -40,9 +40,36 @@
  * Chat `chat_threads.id`: a client-generated UUID has no membership row, no visibility
  * scope, nothing `resolveVisibility` could authorize. So the two are kept deliberately
  * separate: the client's `threadId`/`runId` from the request body are echoed verbatim in
- * every emitted event, while `runAguiBridgeTurn` always opens a FRESH personal Chat thread
- * server-side to run the message through (single-round scope, see file head) and returns
- * its own server-side ids for logging/debugging only -- they never appear on the wire.
+ * every emitted event, while `runAguiBridgeTurn` resolves the Chat thread to actually run
+ * the message through -- REUSING `body.forwardedProps.chatThreadId` when the caller sent
+ * one, or opening a fresh personal Chat thread otherwise (single-round default, see file
+ * head).
+ *
+ * ## DA-19a -- real cross-turn continuation, via AG-UI's OWN `forwardedProps` passthrough
+ *
+ * `runAguiBridgeTurn` already supported reusing an existing Chat thread
+ * (`AguiBridgeInput.threadId`) before this controller ever plumbed it through -- see that
+ * file's own doc. The gap was entirely HERE: this controller always passed `threadId: null`
+ * (阶段1b/2b's "every turn opens a fresh thread" scope), so the capability existed but no
+ * caller could reach it. DA-19a closes that gap using AG-UI's protocol-native
+ * `RunAgentInput.forwardedProps` field (`@ag-ui/core`'s own "arbitrary app data forwarded to
+ * the backend" escape hatch -- not a bespoke header or a second id-mapping table): a client
+ * that wants continuation reads the Chat thread id back off the `CUSTOM` event below and
+ * echoes it forward as `forwardedProps.chatThreadId` on the NEXT turn. Reusing the SAME Chat
+ * thread id also makes `deep-agent-model-provider.ts`'s `deriveRemoteThreadId` derive the
+ * SAME remote deep-agent thread deterministically (see that function's own doc) -- so this
+ * is genuine cross-turn memory at the underlying agent, not merely "the same row in our own
+ * `chat_messages` table".
+ *
+ * `CUSTOM {name:"chat_thread_id"}` is the SECOND real producer on the wire's already-declared
+ * `EventType.CUSTOM` variant (the first is DA-17's `STATE_SNAPSHOT` for `write_todos`) --
+ * same discipline as that one: only write it once genuinely resolved, never a placeholder.
+ * `agui-bridge.ts`'s `onThreadResolved` fires BEFORE `onStarted` (thread resolution and "a
+ * run genuinely exists" are two separate moments, see that file's own doc) -- but the id it
+ * hands back is only WRITTEN TO THE WIRE right after `RUN_STARTED`, never before: a real
+ * `@ag-ui/client` `HttpAgent` enforces "the first event on a stream must be RUN_STARTED"
+ * (`verify.ts`) and rejects the whole stream otherwise -- this file's own test caught that
+ * the naive "emit as soon as resolved" ordering breaks a real client, not a hypothetical one.
  *
  * ## Why this is a new controller, not a method on `ChatController`
  *
@@ -88,12 +115,17 @@ import {
 import { parseWriteTodosSnapshot, type JsonPatchOp } from "@repo/contracts/agui-state-events";
 
 /** The minimal slice of AG-UI's `RunAgentInput` this bridge reads. Everything else in a
- * real `RunAgentInput` (tools, context, state, forwardedProps) is ignored -- Phase 1b is
- * single-turn text only (see file head). */
+ * real `RunAgentInput` (tools, context, state) is ignored -- Phase 1b is single-turn text
+ * only (see file head). `forwardedProps` is the one exception, and only its
+ * `chatThreadId` key (DA-19a, see file head "real cross-turn continuation"). */
 interface AguiRunInput {
   readonly threadId?: string;
   readonly runId?: string;
   readonly messages?: readonly { readonly role: string; readonly content: string }[];
+  /** DA-19a -- see file head "real cross-turn continuation". Only `chatThreadId` is read;
+   * any other key a real AG-UI client puts in `forwardedProps` is ignored, same as this
+   * bridge already ignores `tools`/`context`/`state` (see `AguiRunInput`'s own doc). */
+  readonly forwardedProps?: { readonly chatThreadId?: string };
 }
 
 type AguiEvent =
@@ -277,17 +309,43 @@ export class CopilotkitAguiController {
     // #654 阶段2b -- minted here, not read off the persisted Chat message. See file head.
     const messageId = randomUUID();
     let sawAnyDelta = false;
+    // DA-19a -- the CALLER's persisted Chat thread id, echoed forward via `forwardedProps`
+    // (see file head "real cross-turn continuation"). Empty/whitespace-only is treated the
+    // same as omitted -- a client that sends `""` gets a fresh thread, not a lookup error.
+    const requestedChatThreadId = body.forwardedProps?.chatThreadId?.trim();
+    // DA-19a -- captured by `onThreadResolved` (fires before `onStarted`, see
+    // `agui-bridge.ts`'s own doc), but NOT written to the wire there: a real `@ag-ui/client`
+    // `HttpAgent` enforces "first event must be RUN_STARTED" (`verify.ts`'s own check, hit
+    // by this file's own test the first time this was tried with the naive ordering) --
+    // writing CUSTOM before RUN_STARTED would make every real client reject the whole
+    // stream. So this is buffered here and flushed by `onStarted` immediately AFTER
+    // RUN_STARTED, never before, and never at all on the failure paths where `onStarted`
+    // itself never fires (bad agent id, no write role, … -- exactly the paths that already
+    // skip RUN_STARTED, see that field's own comment below).
+    let resolvedThreadId: string | null = null;
 
     try {
       const outcome = await runAguiBridgeTurn(this.deps, {
         userId: principal.userId, orgId: toOrgId(principal.orgId), agentId, text,
-        clientMessageId: randomUUID(), threadId: null,
+        clientMessageId: randomUUID(),
+        threadId: requestedChatThreadId !== undefined && requestedChatThreadId !== ""
+          ? requestedChatThreadId : null,
+        onThreadResolved: (threadId) => { resolvedThreadId = threadId; },
         // Fires once the run genuinely exists -- see `agui-bridge.ts`'s own doc for why
         // this, and not "before the call" or "after it resolves", is the right place:
         // a request that fails validation before a run exists (bad agent id, …) never
         // gets a RUN_STARTED at all, exactly like 阶段1b; a request that streams gets it
         // before the first `onDelta`, never after (which would arrive out of order).
-        onStarted: () => write({ type: EventType.RUN_STARTED, threadId: clientThreadId, runId: clientRunId }),
+        onStarted: () => {
+          write({ type: EventType.RUN_STARTED, threadId: clientThreadId, runId: clientRunId });
+          // DA-19a -- `CUSTOM` is this event type's SECOND real producer (DA-17's
+          // `STATE_SNAPSHOT` for `write_todos` is the first) -- same discipline: only ever
+          // write it with a genuinely resolved id, right after the RUN_STARTED a real
+          // client's protocol verifier requires to come first.
+          if (resolvedThreadId !== null) {
+            write({ type: EventType.CUSTOM, name: "chat_thread_id", value: resolvedThreadId });
+          }
+        },
         onDelta: (delta) => {
           if (!sawAnyDelta) {
             sawAnyDelta = true;
