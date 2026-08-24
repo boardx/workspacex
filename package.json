@@ -55,5 +55,10 @@
     "vitest": "^2.0.0",
     "yaml": "^2.5.0",
     "@repo/coord-protocol": "workspace:*"
+  },
+  "pnpm": {
+    "overrides": {
+      "@langchain/langgraph-checkpoint-postgres>@langchain/langgraph-checkpoint": "0.1.1"
+    }
   }
 }
