@@ -235,7 +235,14 @@ const server = createServer((req, res) => {
         return;
       }
       const lastUser = [...(parsed.input?.messages ?? [])].reverse().find((m) => m.role === "user")?.content;
-      runs.set(threadId, { userText: typeof lastUser === "string" ? lastUser : "", statusPolls: 0, decision: null });
+      const lastUserText = typeof lastUser === "string" ? lastUser : "";
+      // DA-19g：追加进这条线程的历史记录，从不覆盖——见 `conversationLog` 自己的头注。
+      if (lastUserText !== "") {
+        const log = conversationLog.get(threadId) ?? [];
+        log.push(lastUserText);
+        conversationLog.set(threadId, log);
+      }
+      runs.set(threadId, { userText: lastUserText, statusPolls: 0, decision: null });
       // 用 thread id 直接当 run id：同一线程本进程不并发跑第二个 run，够用，
       // 不需要为了"看起来更像真服务"多维护一份映射。
       sendJson(res, 200, { run_id: threadId });
@@ -420,9 +427,23 @@ const server = createServer((req, res) => {
       return;
     }
     const toolResult = `已查询：当前时间 ${new Date().toISOString()}。用户原话："${record.userText}"`;
-    const finalReply = MARKDOWN_TRIGGER !== undefined && record.userText === MARKDOWN_TRIGGER
-      ? MARKDOWN_REPLY
-      : `根据查询结果回答你："${record.userText}" —— ${toolResult}`;
+    // DA-19g：命中「记得上文」触发词时，逐字引用这条线程上一次收到的用户消息——
+    // 见 `conversationLog`/`FOLLOWUP_CONTEXT_TRIGGER` 自己的头注。`log` 至少两条
+    // （当前这轮 + 上一轮）才有"上一轮"可引用；只有当前这一轮（首轮就发触发词）时
+    // 如实说明没有上文可引用，不编造一个不存在的历史。
+    const followupContextReply = (() => {
+      if (FOLLOWUP_CONTEXT_TRIGGER === undefined || record.userText !== FOLLOWUP_CONTEXT_TRIGGER) return null;
+      const log = conversationLog.get(threadId) ?? [];
+      const previousUserText = log.length >= 2 ? log[log.length - 2] : null;
+      return previousUserText === null
+        ? `${FOLLOWUP_CONTEXT_ECHO_PREFIX} 这是本线程第一轮消息，没有上一轮可引用。`
+        : `${FOLLOWUP_CONTEXT_ECHO_PREFIX} 你上一轮说的是："${previousUserText}"。`;
+    })();
+    const finalReply = followupContextReply ?? (
+      MARKDOWN_TRIGGER !== undefined && record.userText === MARKDOWN_TRIGGER
+        ? MARKDOWN_REPLY
+        : `根据查询结果回答你："${record.userText}" —— ${toolResult}`
+    );
     sendJson(res, 200, {
       values: {
         messages: [
