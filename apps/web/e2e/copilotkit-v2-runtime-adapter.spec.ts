@@ -251,3 +251,91 @@ test("CopilotRuntime 适配器真实转发 Authorization——清空 token 后�
     .join("");
   expect(fullText).not.toContain("已查询当前时间");
 });
+
+/**
+ * DA-19b 消息渲染迁移（issue 见 backlog DA-19b 节）—— 证明 `copilotkit-v2-panel.tsx`
+ * 换上的 `assistantMessage.markdownRenderer` slot（`V2MarkdownRenderer` → 生产同款
+ * `MarkdownMessage`）真的把 markdown 结构 + ```mermaid 围栏渲成了结构化 DOM/canvas，
+ * 不是继续显示一坨未解析的 markdown 语法文本。
+ *
+ * `loopback-deep-agent-provider.ts` 对 `CHAT_READ_E2E.deepAgentMarkdownTrigger`
+ * 这句触发词回一段带标题/列表/代码块 + 本轮新加的 ```mermaid 围栏（`flowchart TD\n
+ * A --> B`，白名单内、`chat-diagram-save-gate.test.tsx` 已验证过能过 `mermaid.parse`
+ * 的最简写法）的确定性正文——给渲染器喂已知输入，不是伪造渲染结果。
+ *
+ * ⚠ 与上面 test 1 头注「已知限制①」同一条已登记的上游限制：`@copilotkit/react-core/v2`
+ * 客户端对「主回答的流式增量」与「`onStep` 为工具调用步骤单独开关的 planningNote
+ * 消息」这种在 wire 上交叉重叠的 AG-UI 消息重建不完整——`agent.messages` 最终可能只剩
+ * 一条空文本的 assistant 消息，即使 wire 上的字节本身是对的（③ 已证明）。这不是本任务
+ * 要修的东西（客户端库限制，登记在 DA-19a 头注），但会让「UI 上看到渲染结果」这件事
+ * 偶发失败——用与 test 1 相同的「每次重试整页刷新」纪律：这不是放宽断言掩盖问题，
+ * 是用重复独立试验把「客户端库这次踩没踩中已知限制」与「渲染器本身接线对不对」分开——
+ * 只要有一次拿到非空 assistant 正文，就必须看到正确渲染的 markdown/mermaid，任何一次
+ * 拿到非空正文却渲染失败都直接判红（不重试掩盖真实渲染 bug）。
+ */
+test("DA-19b markdown/mermaid 消息渲染——真的渲成结构化 DOM 与 fabric canvas，不是原始语法文本", async ({ page }) => {
+  mkdirSync(OUT, { recursive: true });
+
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await page.waitForURL(/\/projects$/);
+
+  const MAX_ATTEMPTS = 4;
+  let sawNonEmptyAssistantText = false;
+  let lastNote = "";
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    await warmUpCopilotRuntimeRoute(page);
+    await page.goto("/chat/copilotkit-v2");
+    await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMarkdownTrigger);
+    await page.getByTestId("copilotkit-v2-send").click();
+
+    // 给流式 + `onStep` 交叉重叠的重建过程足够时间落定（与 test 1 的 9s 观测窗同数量级）。
+    await page.waitForTimeout(12_000);
+
+    const errorBanner = page.getByTestId("copilotkit-v2-error");
+    if ((await errorBanner.count()) > 0) {
+      lastNote = `attempt ${attempt}: error banner present: ${await errorBanner.first().textContent()}`;
+      continue;
+    }
+
+    // 已知限制①命中时，`chat-ai-markdown` 容器可能压根没有挂载（assistant 消息 content
+    // 为空，`MarkdownMessage`/`V2MarkdownRenderer` 从未被喂到任何文本）——这不是本次
+    // 重试要打的靶子，跳过重试下一轮，不是判失败。
+    const markdownNode = page.getByTestId("chat-ai-markdown").first();
+    if ((await markdownNode.count()) === 0) {
+      lastNote = `attempt ${attempt}: no chat-ai-markdown node mounted yet (known limitation① candidate)`;
+      continue;
+    }
+    const markdownText = (await markdownNode.textContent()) ?? "";
+    if (markdownText.trim() === "") {
+      lastNote = `attempt ${attempt}: chat-ai-markdown mounted but empty text`;
+      continue;
+    }
+
+    sawNonEmptyAssistantText = true;
+
+    // ── 反证① markdown 结构真的被解析——不是原始 `## 分析结果` 语法字符串原样躺在 DOM 里。
+    // `MarkdownMessage` 用 `ReactMarkdown` 把 `##` 标题解成真实 `<h2>`，断言这一层结构，
+    // 而不是断言可见文本包含 `##`（那样反而在语法未解析时也会通过，是假阳性判据）。
+    await expect(markdownNode.locator("h2")).toContainText("分析结果");
+    await expect(markdownNode.locator("code")).toContainText("pnpm harness verify");
+    await expect(markdownNode.locator("blockquote")).toContainText("引用块");
+
+    // ── 反证② mermaid 围栏真的渲成了 fabric canvas，不是灰底代码块。
+    const diagram = markdownNode.locator('[data-testid="chat-diagram-fabric"]');
+    await expect(diagram).toHaveCount(1, { timeout: 20_000 });
+    await expect(diagram.locator('[data-testid="chat-diagram-fabric-surface"]')).toHaveCount(1);
+    // mermaid 源码本身（`flowchart TD` 字面量）不该作为可见纯文本残留在气泡里——
+    // 证明围栏被"抽走喂给 fabric"而不是"markdown 分支当普通代码块显示"。
+    await expect(markdownNode).not.toContainText("flowchart TD");
+
+    writeFileSync(resolve(OUT, "markdown-mermaid-attempts.txt"), `succeeded on attempt ${attempt}/${MAX_ATTEMPTS}`, "utf8");
+    await page.screenshot({ path: resolve(OUT, "copilotkit-v2-markdown-mermaid.png") });
+    break;
+  }
+
+  expect(sawNonEmptyAssistantText, `all ${MAX_ATTEMPTS} attempts never got a non-empty assistant bubble; last: ${lastNote}`).toBe(true);
+});
