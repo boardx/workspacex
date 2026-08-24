@@ -327,6 +327,8 @@ import { AgentRunController } from "./interface/controllers/agent-run.controller
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 import { ChatFollowUpSuggestionsController } from "./interface/controllers/chat-followup-suggestions.controller";
+import { FOLLOWUP_MODEL_CONFIG } from "./application/chat/generate-followup-suggestions";
+import { readFollowUpSuggestionsModelConfig } from "./infrastructure/chat/followup-suggestions-model-config";
 import { SkillTrialRunController, SKILL_TRIALRUN_MODEL_ID } from "./interface/controllers/skill-trial-run.controller";
 import { ORG_AGENT_MODEL_READER } from "./application/skill/trial-run-skill";
 import type { OrgAgentModelReader } from "./application/skill/trial-run-skill";
@@ -1215,6 +1217,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           [BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig())],
         ]));
       },
+    },
+    {
+      // 追问建议（`ChatFollowUpSuggestionsController`）固定走这个标准 provider，不看
+      // 被选中 Agent 的 modelProvider——见 `generate-followup-suggestions.ts` 头注
+      // 「用哪个 provider 调用」（deep-agent 线程追问建议仍是模板 的根因修复）。
+      provide: FOLLOWUP_MODEL_CONFIG,
+      useFactory: () => readFollowUpSuggestionsModelConfig(),
     },
     {
       /**

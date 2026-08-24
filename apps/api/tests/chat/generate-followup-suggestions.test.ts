@@ -26,6 +26,12 @@ const ORG = "org-followup-suggestions";
 const PROJECT = "proj-followup-suggestions";
 const AGENT = "agent-followup-suggestions";
 const V1 = "agent-version-followup-suggestions-v1";
+/** 根因回归：一个 modelProvider="deep-agent" 的 Agent——不是这条用例真正要调的
+ * provider（见下方测试 ⑤）。刻意**不设** `KERNEL_DEEP_AGENT_BASE_URL`：若修复前的
+ * 代码路径复发（把这个 Agent 快照的 modelProvider 转给 complete()），会以
+ * `MODEL_PROVIDER_NOT_CONFIGURED` 503 失败，测试能抓到复发。 */
+const DEEP_AGENT = "agent-followup-suggestions-deep";
+const DEEP_AGENT_V1 = "agent-version-followup-suggestions-deep-v1";
 const FACILITATOR = "u-followup-fac";
 const OBSERVER = "u-followup-obs";
 
@@ -98,6 +104,25 @@ async function publishAgent(): Promise<void> {
   });
 }
 
+/** 根因回归夹具：一个真实发布、modelProvider="deep-agent" 的 Agent。 */
+async function publishDeepAgent(): Promise<void> {
+  await asApp(ORG, async (c) => {
+    await c.query(
+      `INSERT INTO agents (id,org_id,stable_name,name,status,creator_id,created_at,updated_at)
+       VALUES ($1,$2,$3,$4,'enabled',$5,now(),now()) ON CONFLICT DO NOTHING`,
+      [DEEP_AGENT, ORG, DEEP_AGENT, DEEP_AGENT, FACILITATOR],
+    );
+    await c.query(
+      `INSERT INTO agent_versions
+         (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
+          model_provider,model_id,tool_policy,creator_id,created_at,published_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'{}'::text[],$7,$8,'[]'::jsonb,$9,now(),now())`,
+      [DEEP_AGENT_V1, ORG, DEEP_AGENT, DEEP_AGENT_V1, sha256("followup-deep"), "You are the deep agent.", "deep-agent", "deep-agent-loopback", FACILITATOR],
+    );
+    await c.query("UPDATE agents SET published_version_id=$1 WHERE id=$2 AND org_id=$3", [DEEP_AGENT_V1, DEEP_AGENT, ORG]);
+  });
+}
+
 /* ─────────────────────────── HTTP helpers ─────────────────────────── */
 
 let app: NestExpressApplication;
@@ -126,6 +151,9 @@ beforeAll(async () => {
   process.env.KERNEL_MODEL_BASE_URL = providerBase;
   process.env.KERNEL_MODEL_API_KEY = API_KEY;
   process.env.KERNEL_AGENT_RUN_AUTOSTART = "0";
+  // 根因回归（见测试 ⑤）：不设，让 deep-agent provider 若被误用会诚实失败，而不是
+  // 悄悄连到一个真的/别的测试留下的 deep-agent 上游。
+  delete process.env.KERNEL_DEEP_AGENT_BASE_URL;
   const { createApp } = await import("../../src/main");
   app = await createApp();
   await app.listen(0);
@@ -152,6 +180,7 @@ beforeEach(async () => {
   await addProjectMember(ORG, PROJECT, FACILITATOR, "facilitator", null);
   await addProjectMember(ORG, PROJECT, OBSERVER, "observer", null);
   await publishAgent();
+  await publishDeepAgent();
 });
 
 describe("POST /chat/threads/:threadId/followup-suggestions", () => {
@@ -255,5 +284,38 @@ describe("POST /chat/threads/:threadId/followup-suggestions", () => {
     const res = await postFollowUp(thread, AGENT, OBSERVER);
     expect(res.status).toBe(404);
     expect(calls).toHaveLength(0);
+  });
+
+  it("⑤ 根因回归：选中的 Agent 是 deep-agent provider 时，追问建议仍走标准 provider 拿到真实建议——不因为快照 modelProvider=\"deep-agent\" 而 503/超时/回退模板", async () => {
+    const thread = "followup-thread-deep-agent";
+    await addChatThread({
+      orgId: ORG, id: thread, projectId: PROJECT, groupId: null,
+      visibilityScope: "plenary", createdBy: FACILITATOR,
+    });
+    await addChatMessage({
+      orgId: ORG, id: "fu-deep-1", threadId: thread, authorId: FACILITATOR,
+      body: "深度研究一下这个市场的竞争格局",
+    });
+    await addChatMessage({
+      orgId: ORG, id: "fu-deep-2", threadId: thread, authorId: DEEP_AGENT, authorKind: "agent", agentId: DEEP_AGENT,
+      body: "已完成初步竞对扫描，识别出三家头部玩家。",
+    });
+
+    const res = await postFollowUp(thread, DEEP_AGENT);
+    // 修复前：`deps.model.complete` 会把 DEEP_AGENT 快照的 modelProvider="deep-agent"
+    // 转给 RoutingModelCallPort——KERNEL_DEEP_AGENT_BASE_URL 未设（见 beforeAll），
+    // DeepAgentModelProvider.startRun 以 MODEL_PROVIDER_NOT_CONFIGURED 诚实失败，
+    // 这里会拿到 503。修复后：追问建议固定走 deps.followUpModel（标准 loopback），
+    // 与被选中的 Agent 是不是 deep-agent 无关。
+    expect(res.status).toBe(200);
+    const body = await res.json() as unknown;
+    const parsed = C.operations.generateFollowUpSuggestions.out.safeParse(body);
+    expect(parsed.success ? null : parsed.error.issues, JSON.stringify(body)).toBeNull();
+    if (!parsed.success) throw new Error("unreachable");
+    // 真实建议数组，不是空/模板占位——且请求确实落在标准 loopback（唯一起了服务的上游）。
+    expect(parsed.data.suggestions.length).toBeGreaterThan(0);
+    expect(calls).toHaveLength(1);
+    const userTurns = calls[0]!.body.messages!.filter((m) => m.role === "user").map((m) => m.content);
+    expect(userTurns.some((c) => c.includes("竞争格局"))).toBe(true);
   });
 });
