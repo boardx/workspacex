@@ -342,6 +342,48 @@ export function CopilotKitV2Panel(): JSX.Element {
     return unsubscribe;
   }, [agent, onActiveFileCustomEvent]);
 
+  /**
+   * DA-19g —— 真实缺陷修复：接上 `copilotkit-agui.controller.ts` 早就实现好的续聊通道
+   * （见该文件头 "DA-19a -- real cross-turn continuation" 一节），本面板此前从未消费过。
+   *
+   * ## 缺陷是什么（2026-08-24 排查确认，不是猜测）
+   *
+   * `runAguiBridgeTurn` 的 Chat 线程续接**唯一**依据是 `body.forwardedProps.chatThreadId`
+   * （`copilotkit-agui.controller.ts` 里 `requestedChatThreadId`）——不传就是
+   * `threadId: null`，`resolveThreadId` 每次都新建一条 Chat 线程。本面板此前的 `send()`
+   * 只调用 `copilotkit.runAgent({ agent })`，从未传 `forwardedProps`，也从未监听服务端在
+   * `RUN_STARTED` 之后立刻回写的 `CUSTOM {name:"chat_thread_id"}` 事件（同一个控制器文件
+   * 头注 "DA-19a" 一节原话："a client that wants continuation reads the Chat thread id
+   * back off the `CUSTOM` event... and echoes it forward... on the NEXT turn"）——这条线
+   * 后端接好了，前端从没接上过。结果是：**每一轮**发送都在服务端开一条全新 Chat 线程，
+   * `execute-run.ts` 的 `readThreadHistory` 因此永远读到空线程，`history` 永远是 `[]`，
+   * `deep-agent-model-provider.ts` 的 `deriveRemoteThreadId` 也因此每轮派生出不同的远端
+   * 线程——不管上游（真实 deepagents 服务或 loopback 替身）自己是否支持记忆，模型能看到的
+   * 输入本身就是「这是全新对话」，与 chat-ux-acceptance-criteria.md 第 6 项"多轮上下文"
+   * 判据（"重试一下"、"再详细一点"这类追问不需要用户重新提供背景）直接矛盾。
+   *
+   * ## 修法
+   *
+   * `agent.subscribe({onCustomEvent})` 再挂一路：见到 `chat_thread_id` 就存进
+   * `chatThreadIdRef`（`useRef`，不进 state——这个值只影响"下一次 `runAgent` 调用带什么
+   * `forwardedProps`"，不参与渲染，不需要触发重渲染）。`send()` 里，如果已经拿到过一个
+   * Chat 线程 id，就把它原样带回 `forwardedProps.chatThreadId`——`CopilotKitCoreRunAgentParams`
+   * 本来就支持这个字段（`@copilotkit/core` 的 `runAgent({agent, forwardedProps, ...})`），
+   * 不是新发明一条通道。第一轮（`chatThreadIdRef.current === null`）不传，与此前行为
+   * 逐字节相同（新建线程），只有第二轮起才会真的续接。
+   */
+  const chatThreadIdRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const { unsubscribe } = agent.subscribe({
+      onCustomEvent: ({ event }) => {
+        if (event?.name === "chat_thread_id" && typeof event.value === "string" && event.value !== "") {
+          chatThreadIdRef.current = event.value;
+        }
+      },
+    });
+    return unsubscribe;
+  }, [agent]);
+
   // DA-19d —— human-in-the-loop.md "Setup" 范例的直接应用：`render` 收到
   // `{status, args, respond}`，本组件只负责把它交给 `SendEmailApprovalDialog`。
   // 不传 `agentId` 时 hook 默认绑定 provider 唯一的 `"default"` agent
@@ -369,7 +411,14 @@ export function CopilotKitV2Panel(): JSX.Element {
       setInputDraft("");
       agent.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
       try {
-        await copilotkit.runAgent({ agent });
+        // DA-19g -- echo the resolved Chat thread id back on every turn AFTER the first
+        // (see the `chatThreadIdRef` block above for why this is the fix, not a new
+        // mechanism). Omitted entirely on turn 1 -- identical to pre-fix behaviour.
+        await copilotkit.runAgent(
+          chatThreadIdRef.current !== null
+            ? { agent, forwardedProps: { chatThreadId: chatThreadIdRef.current } }
+            : { agent },
+        );
       } catch (e) {
         setError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED");
       }
