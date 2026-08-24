@@ -306,7 +306,7 @@ export default function ChatLivePage() {
                           <button
                             type="button"
                             data-testid={`chat-live-thread-${card.id}`}
-                            className="w-full rounded-md border border-border px-3 py-2 text-left text-13 transition-colors hover:bg-muted"
+                            className="w-full rounded-md border border-border px-3 py-2 text-left text-13 transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             onClick={() => handleSelectThread(card.id)}
                           >
                             {card.title}

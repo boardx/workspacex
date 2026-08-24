@@ -78,7 +78,7 @@ export function ProfileScreen() {
         <Link
           href="/brain"
           data-testid="profile-brain-entry"
-          className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3 transition-all duration-200 hover:bg-muted"
+          className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3 transition-all duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <BrainCircuit aria-hidden className="h-5 w-5 text-muted-foreground" />
           <div className="flex flex-1 flex-col">

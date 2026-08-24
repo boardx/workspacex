@@ -126,7 +126,7 @@ function ArtifactRow({ art, selected, onSelect }: { art: LandingArtifact; select
         data-testid={`chat-landing-artifact-${art.id}`}
         aria-pressed={selected}
         className={[
-          "flex w-full flex-col gap-1.5 rounded-md border p-3 text-left transition-all duration-200",
+          "flex w-full flex-col gap-1.5 rounded-md border p-3 text-left transition-all duration-base active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           selected ? "border-primary bg-muted" : "border-border bg-card hover:bg-muted",
         ].join(" ")}
       >
@@ -197,7 +197,7 @@ function ModeSelector({ art, mode, onMode }: { art: LandingArtifact; mode: BindM
               aria-pressed={active}
               data-testid={`chat-mode-option-${spec.mode}`}
               className={[
-                "flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-all duration-200",
+                "flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-all duration-base active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 "disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground",
                 active ? "border-primary bg-muted shadow-sm" : "border-border bg-card hover:bg-muted",
               ].join(" ")}
