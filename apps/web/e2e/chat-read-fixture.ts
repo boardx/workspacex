@@ -70,6 +70,17 @@ export const CHAT_READ_E2E = {
    */
   deepAgentApprovalTrigger: "取证：请触发人工审批",
   /**
+   * DA-19g —— 多轮上下文取证（chat-ux-acceptance-criteria.md 第 6 项）。替身对这句
+   * 触发词逐字引用「这条线程上一次收到的用户消息」，命中的前提是 Chat 线程真的被续接
+   * （`copilotkit-v2-panel.tsx` 回传 `forwardedProps.chatThreadId`）——没有续接就没有
+   * 「上一轮」可引用，替身会如实说明"没有上文"而不是编造。唯一事实源在本文件，
+   * `playwright.chat-read.config.ts` 下发给替身进程，与
+   * `deepAgentMarkdownTrigger`/`deepAgentMultiStepTrigger` 同一套接线纪律。
+   */
+  deepAgentFollowupContextTrigger: "取证：还记得我上一句说的是什么吗",
+  /** 替身命中上面那句触发词时，回复正文的前缀——与 `retrievalEchoPrefix` 同一套惯例。 */
+  deepAgentFollowupContextEchoPrefix: "[remembered:]",
+  /**
    * #728 P8 —— 麦克风实时转录取证。与 `fullstack-smoke-fixture.ts` 的
    * `asrTranscriptPrefix` 同一套惯例：确定性上游回一个带前缀的转录文本，
    * 断言方（这里是取证脚本自己，肉眼加截图）能确认转录确实来自这个进程，
