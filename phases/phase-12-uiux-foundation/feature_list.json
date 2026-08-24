@@ -230,9 +230,9 @@
         "F11"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "01",
-      "owner": null,
+      "owner": "claude-k",
       "verification": [
         "pnpm --filter web run lint:design",
         "pnpm --filter web exec vitest run tests/ui/microinteraction-orgadmin-canvas.test.tsx"
