@@ -132,8 +132,15 @@ export default defineConfig({
    * 手写的**（`.harness/scripts/lint-spec-gate-coverage.mjs` 头注明确警告"手写的
    * 匹配器迟早漂移"）——新 spec 不加进这个正则就是"写了但没人跑"（#512 同一个失效
    * 模式），加的时候留意别漏。
+   *
+   * DA-19g 评分循环第 4 轮（issue #2012）—— 新增 `copilotkit-v2-stream-frame-timing.
+   * spec.ts`（第 1 项"流式反馈"UI 帧级独立复核）与 `copilotkit-v2-error-banner.spec.ts`
+   * （第 7 项"错误处理透明度"真实失败横幅断言）同样由本 config 接住：同一条 `/chat/
+   * copilotkit-v2` 路由、同一条真登录、复用既有的 `deepAgentFailureTrigger`
+   * （下面 `LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER` 早已下发给替身进程）。不需要新的
+   * 进程或新的环境变量。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|chat-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
