@@ -64,3 +64,130 @@ export function parseWriteTodosSnapshot(toolArgsSummary: string): AguiTodosSnaps
   const result = AguiTodosSnapshot.safeParse(parsed);
   return result.success ? result.data : null;
 }
+
+/**
+ * DA-15 —— 文件事件命名空间扩展（AG-UI `CUSTOM {name,value}` 通道）。
+ *
+ * ## 边界（backlog 原文）：不 fork AG-UI 协议
+ *   标准事件族（`TEXT_MESSAGE_*`/`TOOL_CALL_*`/`STATE_*`）语义不动。三个文件事件走
+ *   `CustomEventSchema` 的 `name`/`value` 两个字段——与 DA-17 落的 `STATE_DELTA` 是
+ *   同一条 `CUSTOM` 通道上的第二类载荷，不是第二套 wire 类型（复用
+ *   `copilotkit-agui.controller.ts` 已有的 `EventType.CUSTOM` 分支，见该文件
+ *   `AguiEvent` 联合类型最后一支）。
+ *
+ * ## 文件标识：复用 DA-12 的 VFS URI，不另造一套
+ *   `apps/api/src/domain/vfs/vfs-uri.ts`（DA-12）已经把「一个虚拟文件对象」寻址成
+ *   `vfs://<domain>/<id>`。三个事件的 payload 都以这个 URI 为主键，不重新发明
+ *   attachment/artifact 各自的 id 形状。**层次约束**：`packages/contracts` 是
+ *   `apps/api` 的下游依赖对象（后者 import 前者，不能反过来），所以这里不能直接
+ *   `import` `vfs-uri.ts`；`AGUI_FILE_DOMAINS` 和 `VFS_URI_PATTERN` 是该文件
+ *   `VFS_DOMAINS`/`ID_PATTERN`/`parseVfsUri` 正则的**逐字镜像**，仅用于 wire-shape
+ *   校验（"这个字符串长得像不像一个 vfs URI"），不重复它的判权/查库逻辑——权威解析
+ *   永远是 `parseVfsUri`。若 `VFS_DOMAINS` 改了枚举值，这里必须同步改（两处声明，
+ *   靠本文件顶部这条注释 + `agui-file-event-contract.test.ts` 里的显式清单对照，
+ *   机械收敛，不是本轮能做到单源的——单源需要把 `vfs-uri.ts` 下沉到
+ *   `packages/contracts`，不在本 feature 范围内）。
+ *
+ * ## 目前没有真实生产者——如实登记，不伪造
+ *   DA-13（双栏 UI 状态消费）、DA-16（文件事件的真实生产 + 消费端）都还没做。
+ *   本文件只落三个事件的**契约形状**（wire 类型 + zod 校验 + 解析纪律），供 DA-16
+ *   接入时消费。**不要**为了让这份契约"看起来已经用上了"而在任何 controller 里
+ *   造一个假的 `write({ type: CUSTOM, name: "file_created", ... })` 调用点——
+ *   本仓反空转纪律（同上，`AguiEvent` 联合类型里 STATE_DELTA/CUSTOM 的先例）。
+ *
+ * ## 三个事件为什么形状不同
+ *   · `file_created`——一次性事实（"这个文件存在了"），字段抄 DA-12 `VfsNode` 的
+ *     展示层字段（`name`/`mime`/`bytes`），加一个 `source` 说明这份文件是从本仓
+ *     哪条已知写路径产生的（`vfs-uri.ts` 文件头盘点的三条写路径之一在 wire 上的
+ *     反映，不是新枚举）。
+ *   · `file_content_delta`——复用 `TEXT_MESSAGE_CONTENT` 的"这次追加了什么"模型，
+ *     不是 `STATE_DELTA` 的 RFC 6902：JSON Patch 是为**结构化 JSON 文档**设计的
+ *     （`path` 寻址 JSON 树节点），文件内容是任意文本/字节流，套 JSON Patch 上去
+ *     没有真实语义（"给一段纯文本的第 N 个字符 replace"不是 RFC 6902 的设计场景）。
+ *     一个单调递增的 `sequence` 足够客户端按序拼接，同 `TEXT_MESSAGE_CONTENT` 没有
+ *     显式序号却靠到达顺序累加的做法一致（这里显式化是因为文件流可能比对话消息流
+ *     活得更久、更容易被打断重连，显式序号让客户端能检测丢失/乱序）。
+ *   · `file_patch_applied`——DA-16 会用到的"对已有文件做局部修改"。同样不套
+ *     RFC 6902：真实的文件补丁工具链（`git apply`/`patch`，以及 agent 沙箱产出
+ *     补丁的天然形式）产出的是 unified diff 文本，不是 JSON Patch 操作序列，让
+ *     生产端（DA-16）搬运已有格式而不是现造一套结构化 patch 表示。
+ */
+
+/** `vfs-uri.ts` 的 `VFS_DOMAINS` 镜像——见上方文件头注释的"两处声明"说明。 */
+export const AGUI_FILE_DOMAINS = ["attachment", "artifact"] as const;
+export type AguiFileDomain = (typeof AGUI_FILE_DOMAINS)[number];
+
+/** `vfs-uri.ts` 的 `SCHEME`/`ID_PATTERN` 镜像，wire-shape 校验专用。 */
+const VFS_URI_PATTERN = /^vfs:\/\/(attachment|artifact)\/[A-Za-z0-9_-]+$/;
+
+const VfsUriString = z.string().refine(
+  (s) => VFS_URI_PATTERN.test(s),
+  { message: "must be a vfs://<attachment|artifact>/<id> URI" },
+);
+
+/** 三个事件在 `CustomEventSchema.name` 上取的字面量，`CUSTOM` 事件的 `name` 字段值。 */
+export const AGUI_FILE_EVENT_NAME = {
+  FILE_CREATED: "file_created",
+  FILE_CONTENT_DELTA: "file_content_delta",
+  FILE_PATCH_APPLIED: "file_patch_applied",
+} as const;
+export type AguiFileEventName = (typeof AGUI_FILE_EVENT_NAME)[keyof typeof AGUI_FILE_EVENT_NAME];
+
+/**
+ * `file_created` 的产生来源——`vfs-uri.ts` 文件头盘点的三条既有写路径在 wire 上的
+ * 反映：对话侧直传（`uploadAttachment`）、agent 沙箱产出经写回落地为 attachment
+ * （`agent_runs.model_output_files` → `chat_message_attachments`，同一文件头注释
+ * 第三条）、业务域物化产出定版（`pin-version.ts` → `artifacts`/`artifact_versions`）。
+ * 不是新枚举，是给已知写路径起个 wire 上能读的名字。
+ */
+export const AguiFileSource = z.enum(["chat_upload", "agent_run_output", "artifact_pin"]);
+export type AguiFileSource = z.infer<typeof AguiFileSource>;
+
+export const AguiFileCreatedValue = z.object({
+  uri: VfsUriString,
+  domain: z.enum(AGUI_FILE_DOMAINS),
+  /** 展示名——`VfsNode.name` 同款字段：附件是文件名，产物是落地标题。 */
+  name: z.string().refine((s) => s.trim() !== "", "name 不得为空白"),
+  mime: z.string().nullable(),
+  bytes: z.number().int().nonnegative().nullable(),
+  source: AguiFileSource,
+});
+export type AguiFileCreatedValue = z.infer<typeof AguiFileCreatedValue>;
+
+export const AguiFileContentDeltaValue = z.object({
+  uri: VfsUriString,
+  /** 本次追加的内容片段——语义同 `TEXT_MESSAGE_CONTENT.delta`，累加得到完整内容。 */
+  delta: z.string(),
+  /** 同一 `uri` 内单调递增、从 0 起的序号；客户端靠它检测丢失/乱序重连。 */
+  sequence: z.number().int().nonnegative(),
+});
+export type AguiFileContentDeltaValue = z.infer<typeof AguiFileContentDeltaValue>;
+
+export const AguiFilePatchAppliedValue = z.object({
+  uri: VfsUriString,
+  /** unified diff 文本（`git apply`/`patch` 可消费的格式）——不是 RFC 6902 JSON
+   *  Patch，见文件头"三个事件为什么形状不同"。 */
+  patch: z.string().refine((s) => s.trim() !== "", "patch 不得为空白"),
+  /** 人类可读的变更摘要，产生端拿不到时如实置 null，不编造。 */
+  summary: z.string().nullable(),
+});
+export type AguiFilePatchAppliedValue = z.infer<typeof AguiFilePatchAppliedValue>;
+
+/**
+ * `value` 的运行期校验入口，同 `parseWriteTodosSnapshot` 一样的解析纪律：
+ * 校验失败返回 `null`，调用方不发事件——不发编造/半成形的文件事件。
+ */
+export function parseAguiFileCreatedValue(value: unknown): AguiFileCreatedValue | null {
+  const result = AguiFileCreatedValue.safeParse(value);
+  return result.success ? result.data : null;
+}
+
+export function parseAguiFileContentDeltaValue(value: unknown): AguiFileContentDeltaValue | null {
+  const result = AguiFileContentDeltaValue.safeParse(value);
+  return result.success ? result.data : null;
+}
+
+export function parseAguiFilePatchAppliedValue(value: unknown): AguiFilePatchAppliedValue | null {
+  const result = AguiFilePatchAppliedValue.safeParse(value);
+  return result.success ? result.data : null;
+}
