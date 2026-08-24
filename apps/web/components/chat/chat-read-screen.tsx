@@ -699,7 +699,8 @@ function ThreadLiveStatusChip({ roster }: { roster: GetAgentPanelOut | null }) {
   if (roster === null) return null;
   return (
     <Badge tone={roster.presentCount > 0 ? "primary" : "neutral"} data-testid="chat-thread-live-status">
-      {roster.presentCount} 个 agent 在场 · 编制 {roster.rosterCount}
+      <span className="font-mono tabular-nums">{roster.presentCount}</span> 个 agent 在场 · 编制{" "}
+      <span className="font-mono tabular-nums">{roster.rosterCount}</span>
     </Badge>
   );
 }

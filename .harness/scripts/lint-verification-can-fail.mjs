@@ -208,6 +208,23 @@ export function classify(cmd) {
     };
   }
 
+  // vitest 全量跑（不带路径）：pnpm --filter <pkg> exec vitest run
+  // 2026-08-24（F19 复核发现）：与上面 vitest-file 同一族但**不带路径参数**，跑该包
+  // 全部测试文件——本仓合理写法（token/主题这类横切改动要求"全量不回归"，不是针对
+  // 单个测试文件）。原正则要求至少一个路径参数，裸 `vitest run` 落进「未登记形态」。
+  // 必然失败变体：不能像 vitest-file 那样指向一个不存在的测试文件路径（那会变成
+  // "0 个文件匹配" 而不是全量跑），改用 `--config` 指向不存在的配置文件，vitest
+  // 找不到 config 会直接报错退出（已实测 exit 1，见 lint-verification-can-fail.test.ts）。
+  m = /^pnpm\s+--filter\s+(\S+)\s+exec\s+vitest\s+run\s*$/.exec(c);
+  if (m) {
+    const [, pkg] = m;
+    return {
+      shape: `vitest-all:${pkg}`,
+      probe: `pnpm --filter ${pkg} exec vitest run --config ${PROBE_TOKEN}.ts`,
+      checks: [{ type: "package", pkg }],
+    };
+  }
+
   // tsc 全包类型检查：pnpm --filter <pkg> exec tsc --noEmit [<flag> …]
   //
   // 2026-08-20 登记。起因：phase-10 的 F01/F03 原本写 `pnpm --filter web typecheck`，

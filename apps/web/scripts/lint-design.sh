@@ -52,6 +52,14 @@ report "U5a" "硬编码颜色（必须用语义 token，见 uiux-standards §1�
 report "U5b" "任意值像素间距（必须用 Tailwind 间距刻度，见 uiux-standards §2）" \
   "$(scan '\b(p|px|py|pt|pb|pl|pr|m|mx|my|mt|mb|ml|mr|gap|space-[xy])-\[[0-9.]+px\]')"
 
+# ── U11 任意值圆角 ──────────────────────────────────────────────────────────
+# 圆角分级 token 化（F19；契约束 visual-identity-refresh；三档定义见 tailwind.config.ts
+# borderRadius 的 control/card/container，取值依据见 app/globals.css）。裸
+# `rounded-[Npx]` 逃过了分级，一律拦截，请改用 rounded-control/rounded-card/
+# rounded-container（或历史单值 rounded-sm/md/lg，存量未强制迁移）。
+report "U11" "任意值圆角（必须用 rounded-control/rounded-card/rounded-container，见 tailwind.config.ts）" \
+  "$(scan 'rounded(-[trbl]{1,2})?-\[[0-9.]+px\]')"
+
 # ── U1.1 禁用态用 opacity ───────────────────────────────────────────────────
 # 统一透明度作用在深色实心控件上会把黑底白字压成灰对灰（§1.1 记录的真实事故）。
 report "U1.1" "disabled:opacity-*（禁用态必须用 disabled:bg-disabled + disabled:text-disabled-foreground）" \

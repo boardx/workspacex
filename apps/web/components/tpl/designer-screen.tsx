@@ -130,8 +130,10 @@ function ConfigDirectory({
                     onClick={() => onSelect(i.key)}
                     data-testid="tpl-config-item"
                     className={cn(
-                      "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      i.key === selKey ? "bg-accent text-accent-foreground" : "hover:bg-muted",
+                      "flex w-full items-center gap-1.5 rounded-md border-l-2 px-2 py-1.5 text-left text-12 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      i.key === selKey
+                        ? "border-primary bg-accent text-accent-foreground"
+                        : "border-transparent hover:bg-muted",
                     )}
                   >
                     <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", i.done ? "bg-success" : "bg-muted-foreground/40")} />

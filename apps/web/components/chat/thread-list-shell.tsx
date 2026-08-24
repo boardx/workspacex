@@ -44,9 +44,9 @@ export function ThreadListHeader({ title = "对话" }: { title?: string }) {
  */
 export function ThreadMeta({ card }: { card: ThreadCard }) {
   return (
-    <span className="flex flex-wrap items-center gap-1 text-10 text-muted-foreground">
+    <span className="flex flex-wrap items-center gap-1 text-10 font-medium text-muted-foreground">
       {card.agentSummary ? <span className="truncate">{card.agentSummary}</span> : null}
-      <span>· {shortTime(card.lastActivityAt)}</span>
+      <span className="font-mono tabular-nums">· {shortTime(card.lastActivityAt)}</span>
       {card.badges.map((badge) => (
         <Badge key={badge} tone={badge === "review-pending" ? "warning" : "outline"}>
           {THREAD_BADGE_TEXT[badge]}

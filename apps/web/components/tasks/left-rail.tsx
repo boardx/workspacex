@@ -48,8 +48,10 @@ export function TasksLeftRail() {
               aria-current={selected ? "page" : undefined}
               data-testid={`tasks-view-${v.key}`}
               className={cn(
-                "flex items-center justify-between rounded-md px-2 py-1.5 text-12 transition-colors duration-200",
-                selected ? "bg-accent text-accent-foreground" : "text-background-foreground hover:bg-muted",
+                "flex items-center justify-between rounded-md border-l-2 px-2 py-1.5 text-12 transition-colors duration-200",
+                selected
+                  ? "border-primary bg-accent text-accent-foreground"
+                  : "border-transparent text-background-foreground hover:bg-muted",
               )}
             >
               <span className={cn(selected && "font-medium")}>{v.label}</span>

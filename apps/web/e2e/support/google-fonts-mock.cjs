@@ -40,10 +40,12 @@ function css(family, weights, slug) {
 }
 
 module.exports = {
-  // app/layout.tsx: Noto_Sans_SC({ subsets:["latin"], weight:["400","500","600"], display:"swap" })
-  "https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600&display=swap": css(
+  // app/layout.tsx: Noto_Sans_SC({ subsets:["latin"], weight:["400","500","600","700"], display:"swap" })
+  // F19（契约束 visual-identity-refresh）新增 700，键必须同步改，否则 build 期
+  // `Missing mocked response for URL: ...wght@400;500;600;700...` 确定性变红。
+  "https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&display=swap": css(
     "Noto Sans SC",
-    [400, 500, 600],
+    [400, 500, 600, 700],
     "noto-sans-sc",
   ),
   // app/layout.tsx: JetBrains_Mono({ subsets:["latin"], weight:["400","500"], display:"swap" })
@@ -51,5 +53,12 @@ module.exports = {
     "JetBrains Mono",
     [400, 500],
     "jetbrains-mono",
+  ),
+  // app/layout.tsx: Bitter({ subsets:["latin"], weight:["600","700"], display:"swap" })
+  // F19（契约束 visual-identity-refresh）新增字体，品牌 wordmark 专用，只这一处消费。
+  "https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&display=swap": css(
+    "Bitter",
+    [600, 700],
+    "bitter",
   ),
 };

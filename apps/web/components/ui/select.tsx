@@ -50,7 +50,7 @@ export function Select({
         disabled={disabled}
         data-testid={testId}
         className={cn(
-          "inline-flex h-8 min-w-[12rem] items-center justify-between gap-2 rounded-md border border-border bg-card px-3 text-13 text-card-foreground",
+          "inline-flex h-8 min-w-[12rem] items-center justify-between gap-2 rounded-control border border-border bg-card px-3 text-13 text-card-foreground",
           "transition-all duration-base hover:bg-muted",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
           "disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground",

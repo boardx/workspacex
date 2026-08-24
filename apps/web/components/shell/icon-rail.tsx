@@ -39,6 +39,23 @@ export function IconRail({
       aria-label="主导航"
       className="flex w-rail min-w-rail shrink-0 flex-col items-center gap-1 border-r border-border bg-rail py-3.5"
     >
+      {/*
+        F19 品牌锚点（契约束 visual-identity-refresh；requirements/11-visual-identity-refresh.md
+        R3 步骤 4）：图标栏此前纯图标、无品牌锚点。76px 宽装不下完整 "WorkspaceX" 文本，
+        用衬线体（Bitter Semibold，`--font-display`）首字母当紧凑品牌标记，`title`/`aria-label`
+        保留完整产品名供辅助技术与 hover 识别。纯视觉展示，不绑定任何交互——不是按钮、
+        不可点击，点击 X 触发路由跳转的旧行为已在 2026-08-11 信息架构调整中移除
+        （见上方文件头注释），这里不重新引入。
+      */}
+      <div
+        aria-hidden
+        title="WorkspaceX"
+        data-testid="shell-wordmark"
+        className="mb-1 flex h-7 w-7 select-none items-center justify-center font-display text-16 font-semibold text-primary"
+      >
+        W
+      </div>
+
       <div className="mb-2">
         <OrgMenu
           identity={identity}

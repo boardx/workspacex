@@ -68,8 +68,10 @@ function SurveySectionNavContent({ activeSection }: { activeSection: (typeof SUR
             aria-current={active ? "page" : undefined}
             data-testid={`survey-section-nav-${section.id}`}
             className={cn(
-              "flex items-center gap-2 rounded-md px-2 py-2 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted",
+              "flex items-center gap-2 rounded-md border-l-2 px-2 py-2 text-12 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              active
+                ? "border-primary bg-accent text-accent-foreground"
+                : "border-transparent text-muted-foreground hover:bg-muted",
             )}
           >
             <Icon className="h-4 w-4" aria-hidden />

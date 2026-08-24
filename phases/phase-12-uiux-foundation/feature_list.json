@@ -379,6 +379,29 @@
       ],
       "evidence": "",
       "notes": "依据等级：[设计]（人类 2026-08-23 会话裁决新增，超出原 F03/F04 范围）。has_ui：同 F17，随 motion-microinteraction 束签核；本轮 UI 材料产出不覆盖本 feature。**关键约束**：依赖后端真实进度事件源是否就绪（如 DA-15 一类通道），不能抢跑前端插值伪造进度（需求 R14 业务规则）——本 feature 的实际开工时间点取决于对应后端能力的排期，不由本阶段单方面决定。verification：vitest 断言『无细粒度进度源时降级为 indeterminate、不插值』的反证；playwright 验证 reduced-motion 降级。排期：暂记 F18，最终编号/sprint 归属待定，本次只做占位登记。"
+    },
+    {
+      "id": "F19",
+      "area": "visual-identity",
+      "title": "视觉系统 token 升级：色彩分层 + 圆角/阴影分级 + 品牌锚点 + 字重层级",
+      "user_visible_behavior": "accent 色不再同时铺在背景/按钮/选中态三处，改为 surface/emphasis/action 三层分工，只有真正的动作元素（发送/主按钮）保留实心色块；圆角从单值 7px 拆成控件 6px/卡片 10px/容器 14px 三档；导航栏顶部出现 wordmark 品牌锚点；标题/正文/元信息建立真实字重台阶（700/400/500+等宽数字）；深色模式同步。主色相（青绿）本身不变，只改使用范围。",
+      "spec_ref": "11-visual-identity-refresh.md#R3",
+      "depends_on": [
+        "F01",
+        "F03",
+        "F09"
+      ],
+      "points": 3,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "claude-n",
+      "verification": [
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web exec tsc --noEmit",
+        "pnpm --filter web exec vitest run"
+      ],
+      "evidence": "evidence/F19.verify.log @ 2026-08-24T17:02:14.792Z",
+      "notes": "依据等级：[人类直接反馈]（2026-08-24/25 会话，针对真实截图诊断'平庸/不专业'，已出具对比 artifact `theme-direction.html` 并经人类确认选项 1：按提案方向落地，不换主色相）。has_ui：纯视觉 token 改动，不新增交互面；是否需要正式契约束签核由束负责人评估，人类已在会话中直接确认设计方向。R6 明确不包含：不换主色相、不改交互逻辑、不要求本轮清零全部历史字面量残留（发现即修，非地毯式扫描）。verification：lint:design 兜底 token 单源与无裸字面量；tsc 确保无类型回归；全量 vitest 确保无视觉相关测试因改动而破坏既有断言（若测试断言的是具体 px/hex 需要评估是否属于'预期变化'，逐条说明）。"
     }
   ]
 }

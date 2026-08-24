@@ -128,9 +128,11 @@ function OrgAdminNav({
             href={href({ screen: s })}
             data-testid={`org-admin-nav-${s}`}
             className={cn(
-              "flex items-start gap-2 rounded-md px-2 py-1.5 transition-colors duration-200",
+              "flex items-start gap-2 rounded-md border-l-2 px-2 py-1.5 transition-colors duration-200",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-background-foreground",
+              active
+                ? "border-primary bg-accent text-accent-foreground"
+                : "border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground",
             )}
           >
             <Icon className="mt-0.5 h-4 w-4 shrink-0" />

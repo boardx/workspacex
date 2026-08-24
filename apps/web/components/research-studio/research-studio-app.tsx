@@ -94,8 +94,10 @@ function LeftNav({ screen, href }: { screen: RsScreen; href: (o: Partial<{ scree
             data-testid={`rs-nav-${s}`}
             data-active={active}
             className={cn(
-              "flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors",
-              active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted",
+              "flex items-center gap-2 rounded-md border-l-2 px-2 py-1.5 text-12 transition-colors",
+              active
+                ? "border-primary bg-accent text-accent-foreground"
+                : "border-transparent text-muted-foreground hover:bg-muted",
             )}
           >
             <Icon className="h-4 w-4" />
