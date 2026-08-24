@@ -67,24 +67,27 @@ const apiPgPort = process.env.FULLSTACK_E2E_MODE === "database-unavailable" ? "1
 const breakController = process.env.FULLSTACK_E2E_MODE === "broken-controller-route" ? "artifacts" : "";
 const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required("COMPOSE_PROJECT_NAME")}"`;
 /**
- * API 与 web 两格的启动窗口。**默认一字未改（120s）**，只是可以被覆盖。
- *
- * 两格都会在一台**忙碌或断网**的开发机上超过 120s，而两次失败长得一模一样
- * （`Timed out waiting 120000ms from config.webServer`，不说是哪一格），
- * 于是都会被读成「服务起不来」而不是「这台机器慢」：
+ * API 与 web 两格的启动窗口。原先是 120s；2026-08-24（#1986）改成 180s——不是
+ * 「为一台慢机器放宽全队门控」的那种情形（下面仍然保留那条纪律），是**依赖体积
+ * 变了**：#1978 给 apps/web 加了 `@copilotkit/runtime`，它自己的依赖树带进一整套
+ * langchain/langgraph 生态，`next build` 要多编译这一整块，CI 有外网、栈干净的
+ * 情况下也实测连续两次卡在 `Timed out waiting 120000ms from config.webServer`
+ * （build 日志显示编译在 ~110s 才完成，`next start` 绑端口再挤一点就过界）——
+ * 这是新依赖带来的真实构建耗时增长，不是机器忙。180s 留出安全边际，仍然远低于
+ * 「没有外网时字体分片重试到放弃」那种最坏情形（下面这条历史测量保留，供比较）：
  *   · web  —— 命令是 `next build && next start`，`next/font/google` 在没有外网时
  *     对每个字体分片重试三次才放弃（构建照样成功，只是慢）。实测冷构建 3m24s。
  *   · api  —— 命令以 `docker compose up -d --wait` 打头，机器上并存几十个隔离栈时
  *     healthcheck 迟迟不转绿。实测本机同时有 38 个容器，这一格拿不到 120s 内的启动。
  *
- * CI 有外网、栈是干净的，两格都落在 120s 内，所以**默认值不动**：
- * 为一台慢机器放宽全队的门控，等于把一条会红的信号调成不会红。
- * 要在慢机器上跑就显式覆盖它。
+ * 仍然不为「单纯慢机器」放宽：那等于把一条会红的信号调成不会红，要在慢机器上跑
+ * 就显式覆盖 `FULLSTACK_E2E_SERVER_TIMEOUT_MS`。这次改的是默认值本身对应的真实
+ * 依赖重量，不是绕过信号。
  *
  * ⚠ `database-unavailable` 那条反证**不受它影响**：那一格要的就是「快速失败」，
  *   给它一个长窗口只会让反证等满。见下方 API 那格的三元。
  */
-const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 120_000);
+const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 180_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
