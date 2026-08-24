@@ -1,6 +1,10 @@
 # 会话交接 — Sprint 12/01
 
 ## 当前已验证
+- F04（1-2 处编排级动效 + prefers-reduced-motion 降级）passing。只做 UC-2「chat 消息
+  到达进场」（`components/chat/message-entrance.tsx`），UC-3「面板展开/收起」评估后
+  留给后续单独立项（理由见 `progress.md` 2026-08-24 条目）。两条 verification 命令
+  全过，见 `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F04.verify.log`。
 - F01（统一的 Dialog / Dropdown 弹层原语）passing。见
   `phases/phase-12-uiux-foundation/sprints/sprint-01/evidence/F01.verify.log`。
 - F05（chat / profile 核心任务全键盘可达）passing。两条 verification 命令全过，见

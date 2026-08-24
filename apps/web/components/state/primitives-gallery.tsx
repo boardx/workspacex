@@ -33,6 +33,7 @@ import {
   Table, TableBody, TableCaption, TableCell, TableEmpty, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { MessageEntrance } from "@/components/chat/message-entrance";
 
 const ROLE_OPTIONS = [
   { value: "facilitator", label: "引导师（可下发、可编辑）" },
@@ -349,6 +350,46 @@ export function MotionTokenGallery() {
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 编排级动效演示 —— 契约束 motion-microinteraction UC-2（F04），签核①材料同款落点。
+ * 「重放」按钮通过换 React key 强制重新 mount，让人类/playwright 能反复观察
+ * 「内容先淡入、位移后跟上」这条时间线（不是单一线性过渡），以及
+ * `prefers-reduced-motion: reduce` 下降级为瞬时终态（emulateMedia 驱动，
+ * 页面本身不读 JS matchMedia，纯 CSS `motion-reduce:` 变体响应）。
+ */
+export function MessageEntranceGallery() {
+  const [replayKey, setReplayKey] = React.useState(0);
+  return (
+    <div className="flex flex-col gap-3" data-testid="section-message-entrance">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-16 font-semibold">编排级动效 · 消息到达进场</h2>
+        <p className="text-12 text-muted-foreground">
+          契约束 <code className="font-mono text-11">motion-microinteraction</code> · F04 UC-2。
+          时间线：内容先淡入（<code className="font-mono text-11">duration-fast</code> 150ms），
+          位移随后跟上（<code className="font-mono text-11">duration-base</code> 200ms，
+          <code className="font-mono text-11">delay-150</code> 起步）。系统开启「减少动态效果」时
+          降级为瞬时切换。
+        </p>
+      </div>
+      <button
+        type="button"
+        data-testid="message-entrance-replay"
+        onClick={() => setReplayKey((k) => k + 1)}
+        className="w-fit rounded-md border border-border bg-card px-3 py-1.5 text-12 transition-colors duration-fast ease-fast hover:bg-muted"
+      >
+        重放进场动效
+      </button>
+      <div className="rounded-lg border border-border-subtle bg-panel p-4">
+        <MessageEntrance key={replayKey} testId="message-entrance-demo">
+          <div className="rounded-md border border-border bg-card px-3 py-2 text-13">
+            这是一条示例消息 —— 观察它先淡入、再轻微上移到位。
+          </div>
+        </MessageEntrance>
       </div>
     </div>
   );

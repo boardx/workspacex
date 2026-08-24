@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { MarkdownMessage } from "./markdown-message";
+import { MessageEntrance } from "./message-entrance";
 import {
   TOOL_CALL_STATUS_LABEL,
   type ChatMessage,
@@ -28,37 +29,39 @@ type BadgeTone = "neutral" | "primary" | "ai" | "warning" | "danger" | "outline"
  */
 export function AiMessage({ msg }: { msg: AiMessage }) {
   return (
-    <article
-      data-testid="chat-ai-message"
-      className="flex gap-2.5 rounded-lg bg-ai-tint/40 p-3"
-    >
-      <Avatar initials={msg.initials} tone="ai" size="md" />
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-        {/* 消息头 */}
-        <header className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Badge tone="ai">AI</Badge>
-          <span className="text-12 font-semibold">{msg.agentName} · {msg.agentRole}</span>
-          {msg.skill && (
-            <span className="text-11 text-muted-foreground" data-testid="chat-ai-skill">
-              skill: {msg.skill}
-            </span>
-          )}
-          {msg.thinking && (
-            <span className="text-11 text-muted-foreground">▸ {msg.thinking}</span>
-          )}
-          <span className="text-11 text-muted-foreground">{msg.time}</span>
-          {/* 角标标在发生它的这条消息上（UC-8.2 R7 状态 4.5）*/}
-          {msg.badges.map((b, i) => (
-            <MessageHeaderBadge key={i} badge={b} />
-          ))}
-        </header>
+    <MessageEntrance testId="chat-message-entrance-ai">
+      <article
+        data-testid="chat-ai-message"
+        className="flex gap-2.5 rounded-lg bg-ai-tint/40 p-3"
+      >
+        <Avatar initials={msg.initials} tone="ai" size="md" />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          {/* 消息头 */}
+          <header className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <Badge tone="ai">AI</Badge>
+            <span className="text-12 font-semibold">{msg.agentName} · {msg.agentRole}</span>
+            {msg.skill && (
+              <span className="text-11 text-muted-foreground" data-testid="chat-ai-skill">
+                skill: {msg.skill}
+              </span>
+            )}
+            {msg.thinking && (
+              <span className="text-11 text-muted-foreground">▸ {msg.thinking}</span>
+            )}
+            <span className="text-11 text-muted-foreground">{msg.time}</span>
+            {/* 角标标在发生它的这条消息上（UC-8.2 R7 状态 4.5）*/}
+            {msg.badges.map((b, i) => (
+              <MessageHeaderBadge key={i} badge={b} />
+            ))}
+          </header>
 
-        <MarkdownMessage text={msg.text} />
+          <MarkdownMessage text={msg.text} />
 
-        {msg.tools && <ToolCalls log={msg.tools} />}
-        {msg.citations && msg.citations.length > 0 && <CitationList citations={msg.citations} />}
-      </div>
-    </article>
+          {msg.tools && <ToolCalls log={msg.tools} />}
+          {msg.citations && msg.citations.length > 0 && <CitationList citations={msg.citations} />}
+        </div>
+      </article>
+    </MessageEntrance>
   );
 }
 

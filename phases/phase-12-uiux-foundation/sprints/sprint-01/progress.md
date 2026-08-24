@@ -4,8 +4,42 @@
 - 仓库根目录: apps/web
 - 标准启动路径: `pnpm -w run dev`
 - 标准验证路径: 见 ADR-106（`verify:quick`/`verify:harness`/`verify:release`，不确定就跑 `verify:release`）
-- 当前最高优先级未完成功能: F03（语义化动效 token 体系 + lint 拦截裸 duration/easing）
+- 当前最高优先级未完成功能: F10/F11（F03/F04 均已 passing，`pnpm harness readiness` 定夺具体取活顺序）
 - 当前 blocker: 无
+
+### 2026-08-24 F04 完成
+
+- 本轮目标: F04（1-2 处编排级动效 + prefers-reduced-motion 降级）。
+- 落点选择：只做 UC-2「chat 消息到达进场」（候选另一项 UC-3「面板展开/收起」评估后
+  暂不做——`components/shell/app-shell.tsx` 现有的收起/展开是纯布尔态显隐，改造成有
+  时间线的编排还要处理 `md:`/`xl:` 断点下的宽度过渡与 `RAPID_TOGGLE` debounce，
+  工作量明显大于消息到达这一项；R11 允许「选哪个/两个都做」，UC-3 留给后续需要时
+  再单独立项，不在本次范围内顺手做，避免范围膨胀）。
+- 新增 `apps/web/components/chat/message-entrance.tsx`（`MessageEntrance`）：两段
+  时间线——内容淡入（内层，`duration-fast` 150ms）先行，位移（外层，`duration-base`
+  200ms，`delay-150` 起步）随后跟上，不是单一线性过渡。`delay-150`/`delay-300` 用
+  Tailwind 内置刻度而非新裸值——数值恰好与 F03 的 fast/slow token 重合。
+  `HumanMessage`/`AiMessage`（`message-stream.tsx`/`ai-message.tsx`）用它包一层。
+- HIGH_FREQUENCY_ARRIVAL（UC-2 反证）：动效状态只在 mount 时的空依赖 `useEffect`
+  里翻转一次；`MessageStream` 按消息 id 做 React key，同一条消息的流式增量更新复用
+  同一个组件实例、不会重新 mount，因此逐字增量不会重复触发整条编排动效。用
+  `tests/ui/motion-orchestration.test.tsx` 里连续 4 次 `rerender` 模拟高频到达做了反证。
+- `prefers-reduced-motion: reduce`：全部用 Tailwind 内置 `motion-reduce:` 变体（CSS
+  媒体查询），不依赖 JS `matchMedia`——首帧即终态，不会有一闪而过的动画。
+- kitchen-sink 新增 `MessageEntranceGallery`（`components/state/primitives-gallery.tsx`）
+  作为签核①材料同款落点 + 无登录 e2e 取景点，带「重放」按钮（换 key 强制 remount）。
+- `apps/web/e2e/motion-orchestration-reduced-motion.spec.ts`：两个 project 级用例，
+  分别断言默认态两段 `transitionDuration` 不同（0.15s / 0.2s，证明不是单一过渡）与
+  reduce 态 `transitionProperty` 归 `none`（⚠ 踩过一次坑：Tailwind 的 `transition-none`
+  是 `transition-property: none`，不会把 `transition-duration` 这个独立 CSS 属性字面量
+  改成 `0s`——真正生效的信号是 `transitionProperty`，第一版断言 duration 实测跑红后改的）。
+  并入既有 `overlay-primitives-keyboard` project 的 testMatch（同 F01/F02 前例，
+  `/kitchen-sink` 不需要登录/DB），`lint-spec-gate-coverage.mjs` 判定 `[covered]`。
+- 验证：`pnpm --filter web exec vitest run tests/ui/motion-orchestration.test.tsx`（4/4）、
+  `pnpm --filter web exec playwright test -c playwright.config.ts -g 'reduced motion'`（2/2）、
+  `pnpm --filter web run lint:design` 全绿（无裸 `duration-<数字>`/内建 `ease-*` 漏网）。
+  `pnpm harness verify --sprint 12/01 --feature F04` 门控通过（含 `verify:quick` 206 文件
+  1742 用例全绿），见 `evidence/F04.verify.log`。
 
 ### 2026-08-23 F05 完成
 - 本轮目标: F05（chat / profile 核心任务全键盘可达）。

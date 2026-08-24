@@ -381,9 +381,18 @@ export default defineConfig({
        * F02 —— `overlay-primitives-kitchen-sink.spec.ts`（select/tooltip + kitchen-sink
        * 展示区完整性）同一前提（同一页面、同样不需要种子/登录），并入同一个 project 的
        * testMatch，不另起 project/依赖链。
+       *
+       * F04（phase-12-uiux-foundation/motion-microinteraction）——
+       * `motion-orchestration-reduced-motion.spec.ts`（消息到达编排动效的
+       * `prefers-reduced-motion: reduce` 降级）同样落在 `/kitchen-sink`
+       * （`MessageEntranceGallery`），同一前提，并入同一 project。
        */
       name: "overlay-primitives-keyboard",
-      testMatch: ["overlay-primitives-keyboard.spec.ts", "overlay-primitives-kitchen-sink.spec.ts"],
+      testMatch: [
+        "overlay-primitives-keyboard.spec.ts",
+        "overlay-primitives-kitchen-sink.spec.ts",
+        "motion-orchestration-reduced-motion.spec.ts",
+      ],
     },
     {
       /**
