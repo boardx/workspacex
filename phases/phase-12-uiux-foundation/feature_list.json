@@ -292,14 +292,14 @@
         "F12"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "claude-m",
       "verification": [
         "pnpm --filter api exec vitest run tests/uiux/review-log-profile-org-threshold.test.ts",
         "pnpm --filter web exec playwright test -c playwright.self-service-profile.config.ts -g 'profile fidelity shots'"
       ],
-      "evidence": "",
+      "evidence": "evidence/F15.verify.log @ 2026-08-24T05:00:04.130Z",
       "notes": "依据等级：[原型] + 门槛为人类已裁决收窄值（profile/org ≥9，MEMORY『uiux-acceptance-bar-nine』）。has_ui：涉可见 UI 微调，需签核。R11：与 F14 同属 09 号需求。vitest 断言日志中 profile 与 org-admin 记录总分均 ≥9；playwright 复用现有 playwright.self-service-profile.config.ts 产出截图证据（org-admin 若无专用 config 可在本 feature 内新增，config 路径不受 lint 静态存在性检查约束）。"
     },
     {
