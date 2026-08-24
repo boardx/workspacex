@@ -6,7 +6,7 @@
  * usecases.md `ActivateOrgMember`：「部分成功**禁止** —— 核销令牌、创建 org_member、
  * 写角色与团队、初始化配额必须在**同一事务**内完成（I-1）」。
  * 事务是这个方法的性质：任意两步之间的方法边界，都是将来某次重构可以放一个 commit 的地方。
- * 与 `RegistrationRepository.redeemAndCreateOrg` 同一条理由（见 ports.ts）。
+ * 与 `RegistrationRepository.createAccountAndOrg`（原 `redeemAndCreateOrg`）同一条理由（见 ports.ts）。
  *
  * ## 为什么 `activate` 收下 `untrustedClaims`
  *

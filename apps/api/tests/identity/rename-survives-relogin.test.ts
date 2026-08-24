@@ -26,14 +26,13 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { identity as I } from "@repo/contracts";
 import { ensureDatabase, migrateOnce } from "../support/db";
 import { ensureRedis } from "../support/auth";
-import { issueInviteCode, makeCode, readVerificationTokens, resetAuthFixtures, resetOrgsOwnedBy } from "../support/auth-db";
+import { readVerificationTokens, resetAuthFixtures, resetOrgsOwnedBy } from "../support/auth-db";
 
 process.env.KERNEL_QUIET = "1";
 
 const DOMAIN = "f638addendum-a.test";
 const EMAIL = `renamer@${DOMAIN}`;
 const PASSWORD = "correct-horse-battery-staple";
-const CODE = makeCode("F638ADDA");
 
 let BASE: string;
 let app: NestExpressApplication;
@@ -54,10 +53,15 @@ const patch = (path: string, body: unknown, token: string) =>
 
 const get = (path: string, token: string) => fetch(`${BASE}${path}`, { headers: { authorization: `Bearer ${token}` } });
 
-/** 注册 + 完成邮箱验证 + 登录，返回 token/userId/orgId（同 multi-org-membership.test.ts 的写法）。 */
+/**
+ * 注册 + 完成邮箱验证 + 登录，返回 token/userId/orgId（同 multi-org-membership.test.ts 的
+ * 写法）。⚠ open-self-serve-registration delta（issue #1929）：走的是开放注册
+ * `/auth/register-open`，不再需要邀请码——被移除的 `/auth/register`（邀请码建组织）
+ * 与本文件要证的"改名后读路径是否正确"无关，换成开放注册不影响本文件的证明目标。
+ */
 async function onboard(): Promise<{ userId: string; orgId: string; token: string }> {
-  const reg = await post("/auth/register", {
-    code: CODE, email: EMAIL, password: PASSWORD, displayName: "原名", orgName: "Addendum A Org",
+  const reg = await post("/auth/register-open", {
+    email: EMAIL, password: PASSWORD, displayName: "原名", orgName: "Addendum A Org",
   });
   expect(reg.status, await reg.clone().text()).toBe(201);
   const { userId, orgId } = (await reg.json()) as { userId: string; orgId: string };
@@ -92,8 +96,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  await resetAuthFixtures({ codes: [CODE], emailLike: `%@${DOMAIN}` });
-  await issueInviteCode(CODE);
+  await resetAuthFixtures({ emailLike: `%@${DOMAIN}` });
 });
 
 describe("改名之后，任何读显示名的地方都要读到新值（不是只有 PATCH 的返回值）", () => {

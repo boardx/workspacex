@@ -299,8 +299,11 @@ export const TOKEN_FACTORY = Symbol("TokenFactory");
  * 会话、锁定、重置都在里面），再把 F19 独有的搬过来——而不是二选一。
  */
 
-export interface RedeemAndCreateOrgInput {
-  readonly code: string;
+/**
+ * open-self-serve-registration delta（issue #1929）: same shape as the removed
+ * `RedeemAndCreateOrgInput`, minus `code` -- there is no invite code to check or consume.
+ */
+export interface CreateAccountAndOrgInput {
   /** Already normalized by the use case -- the repository does not re-normalize. */
   readonly email: string;
   readonly displayName: string;
@@ -316,17 +319,17 @@ export interface RedeemAndCreateOrgInput {
 }
 
 /**
- * Outcome of a redemption attempt.
+ * Outcome of an open registration attempt.
  *
- * A discriminated union rather than exceptions-for-everything: `invite-code-invalid` and
- * `email-taken` are **contracted results** (they are in the operation's `err` list), while
- * a connection failure is not. Modelling the contracted failures as values keeps the
- * boundary honest -- a caller cannot forget to handle one, because TypeScript will not let
- * it read `.orgId` off the union without narrowing.
+ * A discriminated union rather than exceptions-for-everything: `email-taken` is a
+ * **contracted result** (it is in `registerNewAccount.err`), while a connection failure is
+ * not. Modelling the contracted failure as a value keeps the boundary honest -- a caller
+ * cannot forget to handle it, because TypeScript will not let it read `.orgId` off the union
+ * without narrowing.
  */
-export type RedeemAndCreateOrgResult =
+export type CreateAccountAndOrgResult =
   | { readonly ok: true; readonly userId: string; readonly orgId: OrgId }
-  | { readonly ok: false; readonly reason: "invite-code-invalid" | "email-taken" };
+  | { readonly ok: false; readonly reason: "email-taken" };
 
 export interface BootstrapFirstUserInput {
   readonly email: string;
@@ -358,13 +361,15 @@ export interface RegistrationRepository {
   bootstrapFirstUser(input: BootstrapFirstUserInput): Promise<BootstrapFirstUserResult>;
 
   /**
-   * ⚠ **One call because it is one transaction** (I-4). Do not "helpfully" split this.
+   * open-self-serve-registration delta (issue #1929) -- takes `redeemAndCreateOrg`'s place.
    *
-   * Everything the invariant names happens inside: the conditional redemption, the
-   * organization, the owner membership, the credential, and the queued verification mail.
-   * Any failure rolls all of it back.
+   * ⚠ **One call because it is one transaction** (I-4, unchanged by dropping the invite
+   * code). Do not "helpfully" split this. Everything happens inside: the organization, the
+   * owner membership, the credential, and the queued verification mail. Any failure rolls
+   * all of it back -- there is no half organization, same as before, just without a code to
+   * also roll back.
    */
-  redeemAndCreateOrg(input: RedeemAndCreateOrgInput): Promise<RedeemAndCreateOrgResult>;
+  createAccountAndOrg(input: CreateAccountAndOrgInput): Promise<CreateAccountAndOrgResult>;
 
   /**
    * F22 / O-12: an EXISTING account spends a NEW code and gets a SECOND organization.

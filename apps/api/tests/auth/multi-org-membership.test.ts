@@ -43,9 +43,11 @@ process.env.KERNEL_QUIET = "1";
 const DOMAIN = "f22multi.test";
 const EMAIL = `founder@${DOMAIN}`;
 const PASSWORD = "correct-horse-battery-staple";
-const CODE_A = makeCode("F22MULTIA");
+// open-self-serve-registration delta (issue #1929): the initial onboarding step used to
+// spend an invite code (`/auth/register`, now removed); onboarding is now open registration
+// and needs none. CODE_B is the one code this file still spends for real, through the
+// UNTOUCHED `joinOrgWithInvite` (F22) path -- becoming admin of a SECOND org.
 const CODE_B = makeCode("F22MULTIB");
-const CODE_C = makeCode("F22MULTIC");
 const OUTSIDER_EMAIL = `outsider@${DOMAIN}`;
 
 let BASE: string;
@@ -62,10 +64,9 @@ const post = (path: string, body: unknown, token?: string) =>
     body: JSON.stringify(body),
   });
 
-/** 注册 + 完成邮箱验证 + 登录，返回 token 与 userId。 */
-async function onboard(code: string, email: string, orgName: string) {
-  const reg = await post("/auth/register", {
-    code,
+/** 开放注册 + 完成邮箱验证 + 登录，返回 token 与 userId。 */
+async function onboard(email: string, orgName: string) {
+  const reg = await post("/auth/register-open", {
     email,
     password: PASSWORD,
     displayName: "Founder",
@@ -109,15 +110,13 @@ afterAll(async () => {
 beforeEach(async () => {
   // 作用域清理，从不 TRUNCATE：vitest 并行跑文件、共用一个库，全局清理会在别的文件
   // 跑到一半时删掉它的夹具（support/db.ts 对此有长注）。
-  await resetAuthFixtures({ codes: [CODE_A, CODE_B, CODE_C], emailLike: `%@${DOMAIN}` });
-  await issueInviteCode(CODE_A);
+  await resetAuthFixtures({ codes: [CODE_B], emailLike: `%@${DOMAIN}` });
   await issueInviteCode(CODE_B);
-  await issueInviteCode(CODE_C);
 });
 
 describe("V10 ①②③：已有账号用新邀请码创建第二个组织", () => {
   it("不新建账号，只新增 org_membership，两边都是 admin", async () => {
-    const { userId, orgId: orgA, token } = await onboard(CODE_A, EMAIL, "Org A");
+    const { userId, orgId: orgA, token } = await onboard(EMAIL, "Org A");
     expect(await countCredentials(`%@${DOMAIN}`)).toBe(1);
 
     const join = await post("/auth/join-org", { code: CODE_B, orgName: "Org B" }, token);
@@ -153,7 +152,7 @@ describe("V10 ①②③：已有账号用新邀请码创建第二个组织", () 
   });
 
   it("V10 ③：重新登录时 orgs 里出现两个组织", async () => {
-    const { userId, orgId: orgA, token } = await onboard(CODE_A, EMAIL, "Org A");
+    const { userId, orgId: orgA, token } = await onboard(EMAIL, "Org A");
     const join = await post("/auth/join-org", { code: CODE_B, orgName: "Org B" }, token);
     const { orgId: orgB } = (await join.json()) as { orgId: string };
 
@@ -169,7 +168,7 @@ describe("V10 ①②③：已有账号用新邀请码创建第二个组织", () 
   });
 
   it("同一枚码不能加入两次 —— 一码一组织对这条路径同样成立（I-4）", async () => {
-    const { userId, token } = await onboard(CODE_A, EMAIL, "Org A");
+    const { userId, token } = await onboard(EMAIL, "Org A");
     const first = await post("/auth/join-org", { code: CODE_B, orgName: "Org B" }, token);
     expect(first.status).toBe(201);
 
@@ -197,7 +196,7 @@ describe("V10 ①②③：已有账号用新邀请码创建第二个组织", () 
 
 describe("V10 ④ / coverage V5：切换组织", () => {
   it("切换成功，且**会话侧**的 currentOrgId 真的变了", async () => {
-    const { userId, orgId: orgA, token } = await onboard(CODE_A, EMAIL, "Org A");
+    const { userId, orgId: orgA, token } = await onboard(EMAIL, "Org A");
     const join = await post("/auth/join-org", { code: CODE_B, orgName: "Org B" }, token);
     const { orgId: orgB } = (await join.json()) as { orgId: string };
 
@@ -226,7 +225,7 @@ describe("V10 ④ / coverage V5：切换组织", () => {
    * 而那正是应该有人来读这段注释、并把 C8 从缺口表里划掉的时刻。
    */
   it("反证 C8：/identity/switch-org 成功了，但 principal 的组织没变", async () => {
-    const { userId, orgId: orgA, token } = await onboard(CODE_A, EMAIL, "Org A");
+    const { userId, orgId: orgA, token } = await onboard(EMAIL, "Org A");
     const join = await post("/auth/join-org", { code: CODE_B, orgName: "Org B" }, token);
     const { orgId: orgB } = (await join.json()) as { orgId: string };
 
@@ -247,11 +246,10 @@ describe("V10 ④ / coverage V5：切换组织", () => {
 
   it("切到一个自己不属于的组织 → 404（不泄露它存不存在）", async () => {
     const { userId: outsiderId, orgId: orgC } = await onboard(
-      CODE_C,
       OUTSIDER_EMAIL,
       "Org C",
     );
-    const { userId, token } = await onboard(CODE_A, EMAIL, "Org A");
+    const { userId, token } = await onboard(EMAIL, "Org A");
 
     const res = await post("/auth/switch-org", { toOrgId: orgC }, token);
     expect(res.status).toBe(404);
@@ -282,7 +280,7 @@ describe("V10 ④ / coverage V5：切换组织", () => {
    *   只写第一层，两个码就是死代码；只写第二层，就假装 HTTP 上分得清。
    */
   it("会话已被吊销时切换被拒（HTTP 层：401，且 Guard 抹平了两个码）", async () => {
-    const { userId, token } = await onboard(CODE_A, EMAIL, "Org A");
+    const { userId, token } = await onboard(EMAIL, "Org A");
     const join = await post("/auth/join-org", { code: CODE_B, orgName: "Org B" }, token);
     const { orgId: orgB } = (await join.json()) as { orgId: string };
 
@@ -298,7 +296,7 @@ describe("V10 ④ / coverage V5：切换组织", () => {
   });
 
   it("会话已被吊销时切换被拒（application 层：SESSION_REVOKED，不是 SESSION_EXPIRED）", async () => {
-    const { userId, token } = await onboard(CODE_A, EMAIL, "Org A");
+    const { userId, token } = await onboard(EMAIL, "Org A");
     const join = await post("/auth/join-org", { code: CODE_B, orgName: "Org B" }, token);
     const { orgId: orgB } = (await join.json()) as { orgId: string };
     await sessions.revokeAllForUser(userId, new Date());

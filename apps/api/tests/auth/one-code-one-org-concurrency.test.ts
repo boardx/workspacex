@@ -2,6 +2,16 @@
  * Invariant I-4, the concurrency half: **two people using the same code produce EXACTLY ONE
  * organization** (UC-1.5 V7, coverage V3).
  *
+ * ⚠ open-self-serve-registration delta (issue #1929): layer 3 used to race
+ * `repo.redeemAndCreateOrg` / `registerWithInvite`, both removed along with the invite-code
+ * registration path. This invariant is NOT specific to registration, though -- it is a
+ * property of the shared `REDEEM_SQL` conditional UPDATE, and `joinExistingUserToNewOrg`
+ * (F22: an existing account spending a code for a SECOND org) still uses that exact
+ * statement and is untouched by this delta. Layer 3 now races THAT method instead, so the
+ * concurrency invariant stays proven against a real, currently-reachable code path rather
+ * than becoming a memorial to a function that no longer exists. Layers 1 and 2 test the raw
+ * SQL statement directly and needed no change.
+ *
  * ## Why this file is shaped the way it is
  *
  * Getting this wrong does not throw. It creates two organizations, both of which behave
@@ -18,32 +28,27 @@
  *   2. the same barrier with SELECT-then-UPDATE, demonstrating that the forbidden shape
  *      really does let both through. This is a permanent counter-proof: it cannot go
  *      vacuous, because it fails the moment the hazard stops existing.
- *   3. the REPOSITORY. N simultaneous real registrations, asserting one organization.
- *      Layer 1 proves the statement is safe; only this proves the code uses it.
+ *   3. the REPOSITORY. N simultaneous real `joinExistingUserToNewOrg` calls, asserting one
+ *      organization. Layer 1 proves the statement is safe; only this proves the code uses it.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import pg from "pg";
-import { InviteCodeInvalidError } from "../../src/application/auth/errors";
-import { registerWithInvite } from "../../src/application/auth/register-with-invite";
 import { PgRegistrationRepository } from "../../src/infrastructure/auth/pg-registration-repository";
-import { HmacEmailVerificationTokenCodec } from "../../src/infrastructure/auth/email-verification-token-codec";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
-import { newOrgId, newUserId, newVerificationToken } from "../../src/domain/auth/registration";
+import { newOrgId, newUserId } from "../../src/domain/auth/registration";
 import { ensureDatabase, migrateOnce } from "../support/db";
 import {
   countOrganizations,
   issueInviteCode,
   makeCode,
   orgsOwnedBy,
-  personalLocalOrgsOwnedBy,
   readInviteCode,
   resetAuthFixtures,
   resetOrgsOwnedBy,
 } from "../support/auth-db";
 
 const EMAIL_DOMAIN = "f19race.test";
-const verificationTokens = new HmacEmailVerificationTokenCodec("test-email-verification-secret-at-least-32-bytes");
 const BARRIER_CODE = makeCode("RACEBARRIER");
 const BAD_SHAPE_CODE = makeCode("RACEBADSHAP");
 /** One per round, so a round never inherits the previous round's spent code. */
@@ -63,20 +68,6 @@ const RACERS = 5;
 let db: PgDatabase;
 let repo: PgRegistrationRepository;
 const created: string[] = [];
-
-/**
- * A fixed, pre-computed bcrypt hash.
- *
- * ⚠ Deliberately NOT calling the real hasher here. A cost-12 hash takes most of a second,
- * and five of them in one single-threaded process finish hundreds of milliseconds apart --
- * which would spread the racers out and make the window this test exists to close mostly
- * absent. The hash's CORRECTNESS is asserted in `password-hash-invariant.test.ts`; what
- * this file needs is for all five transactions to arrive at the same moment.
- *
- * It is a real bcrypt cost-12 hash (of the string "not-a-real-password"), so the schema's
- * I-2 CHECK still applies -- the shortcut skips the computation, not the constraint.
- */
-const FIXED_HASH = "$2b$12$x5CA9Z/lWHcowxlNAkJj3.i7AoEfDtg74od.kgXvYoTERqGC6JRnW";
 
 beforeAll(async () => {
   ensureDatabase();
@@ -220,11 +211,17 @@ describe("2. counter-proof: SELECT-then-UPDATE really does let both through", ()
   });
 });
 
-describe("3. the repository: N simultaneous registrations create ONE organization", () => {
+describe("3. the repository: N simultaneous joinExistingUserToNewOrg calls create ONE organization", () => {
   /**
    * Runs the ROUNDS separately rather than as one big batch: five racers on five different
    * codes at once would mostly contend on connections, and each round would be a weaker
    * race than a round run alone.
+   *
+   * ⚠ `joinExistingUserToNewOrg` (F22 / O-12) rather than the removed `redeemAndCreateOrg`:
+   * it is the sole surviving caller of `REDEEM_SQL`, its "existing account, new org" shape
+   * needs no credential row (each racer is a distinct pre-existing user, simulated by a bare
+   * user id -- the method never reads `credentials`), and its contention story is identical:
+   * N callers race the SAME code, exactly one may win.
    */
   for (let round = 0; round < RACE_CODES.length; round++) {
     it(`round ${round}: exactly one of ${RACERS} wins, and the losers leave nothing`, async () => {
@@ -234,7 +231,6 @@ describe("3. the repository: N simultaneous registrations create ONE organizatio
       const candidates = Array.from({ length: RACERS }, (_, i) => ({
         userId: newUserId(),
         orgId: newOrgId(),
-        email: `racer${round}-${i}@${EMAIL_DOMAIN}`,
       }));
       created.push(...candidates.map((c) => c.userId));
 
@@ -242,18 +238,11 @@ describe("3. the repository: N simultaneous registrations create ONE organizatio
       // first resolves. `allSettled`, not `all`: four of five are SUPPOSED to fail.
       const settled = await Promise.allSettled(
         candidates.map((c) =>
-          repo.redeemAndCreateOrg({
+          repo.joinExistingUserToNewOrg({
             code,
-            email: c.email,
-            displayName: `racer ${c.email}`,
-            passwordHash: FIXED_HASH,
             userId: c.userId,
             orgId: c.orgId,
             orgName: `Contested Org ${round}`,
-            verificationChallengeId: newVerificationToken(),
-            verificationTokenDigest: verificationTokens.digest(newVerificationToken()),
-            verificationOutboxId: `outbox-${c.userId}`,
-            verificationExpiresAt: new Date(Date.now() + 3600_000),
           }),
         ),
       );
@@ -264,7 +253,7 @@ describe("3. the repository: N simultaneous registrations create ONE organizatio
       const crashed = settled.filter((s) => s.status === "rejected");
       expect(crashed, JSON.stringify(crashed)).toHaveLength(0);
 
-      const results = settled.map((s) => (s as PromiseFulfilledResult<Awaited<ReturnType<typeof repo.redeemAndCreateOrg>>>).value);
+      const results = settled.map((s) => (s as PromiseFulfilledResult<Awaited<ReturnType<typeof repo.joinExistingUserToNewOrg>>>).value);
       const winners = results.filter((r) => r.ok);
       const losers = results.filter((r) => !r.ok);
 
@@ -290,65 +279,22 @@ describe("3. the repository: N simultaneous registrations create ONE organizatio
         if (!l.ok) expect(l.reason).toBe("invite-code-invalid");
       }
 
-      // ...and it is the winner's.
+      // ...and it is the winner's. `joinExistingUserToNewOrg`'s ok-result only carries
+      // `orgId` (the caller's own userId is never echoed back, see ports.ts), so the winner's
+      // userId is recovered by matching the winning orgId against the candidate list.
       const winner = winners[0]!;
+      const winnerUserId = candidates.find((c) => winner.ok && c.orgId === winner.orgId)!.userId;
       if (winner.ok) {
-        expect(await orgsOwnedBy([winner.userId])).toEqual([winner.orgId]);
-        // F16: exactly ONE personal-local organization for the winner, even though N
-        // transactions raced. This is I-2 under the same concurrency that V3 is about -- and
-        // the interesting direction, because the local org is created without a contended
-        // invite-code row to serialise on: it is the unique index doing the work.
-        expect(await personalLocalOrgsOwnedBy([winner.userId])).toHaveLength(1);
+        expect(await orgsOwnedBy([winnerUserId])).toEqual([winner.orgId]);
         const row = await readInviteCode(code);
-        expect(row!.redeemed_by_user_id).toBe(winner.userId);
+        expect(row!.redeemed_by_user_id).toBe(winnerUserId);
         expect(row!.created_org_id).toBe(winner.orgId);
       }
 
       // The losers left no membership either -- an admin row pointing at a rolled-back org
       // is the "half organization" in its most confusing form.
-      const loserUserIds = candidates.map((c) => c.userId).filter((u) => u !== winner.userId);
+      const loserUserIds = candidates.map((c) => c.userId).filter((u) => u !== winnerUserId);
       expect(await orgsOwnedBy(loserUserIds)).toEqual([]);
-      // ...and no loser left a personal-local organization behind either. That row would be
-      // unreachable (its owner has no account) and would only surface much later, as an I-2
-      // unique-index violation on a retry.
-      expect(await personalLocalOrgsOwnedBy(loserUserIds)).toEqual([]);
     });
   }
-
-  it("the full use case behaves the same way end to end (real hashing, contracted errors)", async () => {
-    // One round through `registerWithInvite` rather than the repository, so the wiring --
-    // normalization, hashing, error mapping -- is covered by the race too. Two racers only,
-    // because each one really does compute a cost-12 hash.
-    const code = RACE_CODES[0]!;
-    await issueInviteCode(code);
-
-    const { BcryptPasswordHasher } = await import(
-      "../../src/infrastructure/auth/bcrypt-password-hasher"
-    );
-    const hasher = new BcryptPasswordHasher();
-    const settled = await Promise.allSettled(
-      ["ua", "ub"].map((who) =>
-        registerWithInvite(
-          { repo, hasher, verificationTokens },
-          {
-            code,
-            email: `${who}@${EMAIL_DOMAIN}`,
-            password: "correct-horse-battery-staple",
-            displayName: who,
-            orgName: "Use Case Race",
-          },
-        ),
-      ),
-    );
-
-    const ok = settled.filter((s) => s.status === "fulfilled");
-    const failed = settled.filter((s) => s.status === "rejected");
-    expect(ok).toHaveLength(1);
-    expect(failed).toHaveLength(1);
-    expect((failed[0] as PromiseRejectedResult).reason).toBeInstanceOf(InviteCodeInvalidError);
-
-    const winner = (ok[0] as PromiseFulfilledResult<{ userId: string; orgId: string }>).value;
-    created.push(winner.userId);
-    expect(await countOrganizations([winner.orgId])).toBe(1);
-  });
 });

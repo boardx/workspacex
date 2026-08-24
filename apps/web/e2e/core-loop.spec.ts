@@ -47,7 +47,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import {
-  EMPTY_DB_TAG, counterproofDuplicateReply, readDatabaseStat, readRunStat,
+  EMPTY_DB_TAG, counterproofDuplicateReply, readDatabaseStat, readRunStat, readVerificationToken,
 } from "./core-loop-fixture";
 
 /** 把一个字面量安全地放进正则。前缀里有 `[` `]`，不转义会变成字符类。 */
@@ -98,7 +98,10 @@ test.describe("核心闭环八步", () => {
     await page.getByTestId("login-create-org").click();
     await expect(page).toHaveURL(/\/auth\/register$/);
 
-    // 邀请码 `registration-code` **留空**——这正是「第一个用户」的路径（`bootstrapMode`）。
+    // open-self-serve-registration delta（issue #1929）：注册页默认路径是开放注册
+    // （`registerNewAccount`），不再是「邀请码留空」触发 bootstrap；「第一个用户」这条
+    // 冷启动路径改由显式的 `registration-bootstrap-toggle` 切换触发。
+    await page.getByTestId("registration-bootstrap-toggle").click();
     await page.getByTestId("registration-org-name").fill(FIRST_USER.orgName);
     await page.getByTestId("registration-display-name").fill(FIRST_USER.displayName);
     await page.getByTestId("registration-email").fill(FIRST_USER.email);
@@ -119,6 +122,60 @@ test.describe("核心闭环八步", () => {
     expect(after.orgRoles, "第一个用户在正式组织里必须是 admin").toEqual(["admin"]);
     expect(after.orgNames, "而且是表单里填的那个组织，不是别处冒出来的").toEqual([FIRST_USER.orgName]);
     expect(after.bootstrapConsumed, "一次性门必须就此关闭，不许再有第二个 seed admin").toBe(true);
+  });
+
+  /* ── open-self-serve-registration（issue #1929）：真实浏览器端到端 ──────────
+   * 不需要空库（走的是开放注册，不是"第一个用户"），留在吃种子的 `seeded` project。
+   * design-signoff 已裁的五点里，这一条覆盖④（不带邀请码走开放注册建组织成为 owner）
+   * 与②③（未验证不能登录、验证后放行——真实收发验证令牌，不是伪造）。
+   */
+  test("开放注册：不带邀请码建新组织并成为 owner；未验证不能登录，验证后放行", async ({ page }) => {
+    const unique = Date.now();
+    const user = {
+      orgName: `开放注册验收组织-${unique}`,
+      displayName: "开放注册管理员",
+      email: `core-loop-open-register-${unique}@example.test`,
+      password: "OpenRegister-1929!",
+    } as const;
+
+    await page.goto("/auth/register");
+    // ⚠ 不点 `registration-bootstrap-toggle`——默认路径就是开放注册
+    // （`registerNewAccount`），且不存在任何邀请码输入框可填。
+    await expect(page.getByTestId("registration-code")).toHaveCount(0);
+    await page.getByTestId("registration-org-name").fill(user.orgName);
+    await page.getByTestId("registration-display-name").fill(user.displayName);
+    await page.getByTestId("registration-email").fill(user.email);
+    await page.getByTestId("registration-password").fill(user.password);
+    await page.getByTestId("registration-submit").click();
+    await expect(page.getByTestId("registration-verification-queued")).toBeVisible();
+
+    // 库侧：账号已建、是新组织的 admin/owner——但还没验证。
+    const beforeVerify = readDatabaseStat(user.email);
+    expect(beforeVerify.orgRoles, "开放注册的调用者必须是新组织的 admin/owner").toEqual(["admin"]);
+    expect(beforeVerify.orgNames).toEqual([user.orgName]);
+
+    // 未验证不能登录（decision ②③）：反证钉住"未验证 + 走 registerNewAccount 注册 →
+    // 登录仍被拒"，不能凭"新路径复用了同一个 login use case"就当作已证明。
+    await page.goto("/login");
+    await page.getByTestId("login-email").fill(user.email);
+    await page.getByTestId("login-password").fill(user.password);
+    await page.getByTestId("login-submit").click();
+    await expect(page.getByTestId("login-error")).toBeVisible();
+    await expect(page).not.toHaveURL(/\/projects$/);
+
+    // 真实收发验证令牌：服务端确定性重算同一枚令牌（不是伪造/绕过），走真实的
+    // `/auth/verify-email?token=...` 确认页。
+    const { token } = readVerificationToken(user.email);
+    expect(token, "库里必须有一枚待核销的验证令牌").not.toBeNull();
+    await page.goto(`/auth/verify-email?token=${token}`);
+    await expect(page.getByTestId("email-verification-success")).toBeVisible();
+
+    // 验证后登录放行。
+    await page.goto("/login");
+    await page.getByTestId("login-email").fill(user.email);
+    await page.getByTestId("login-password").fill(user.password);
+    await page.getByTestId("login-submit").click();
+    await expect(page).toHaveURL(/\/projects$/);
   });
 
   /* ── 步骤 2：新增 Agent（已交付，#458 / PR #478）───────────────────────── */

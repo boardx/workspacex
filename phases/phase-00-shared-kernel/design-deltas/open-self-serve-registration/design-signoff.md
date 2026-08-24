@@ -1,7 +1,10 @@
 ---
 status: confirmed
 bundle: open-self-serve-registration
+base_bundle: auth
 scope: auth-registration-no-invite-code
+covers:
+  - F23
 ruling: "人类 2026-08-24 两轮会话内拍板五点：①注册后组织归属=自助建新组织；
   ②防滥用手段=邮箱验证；③登录闸门覆盖范围=实现时先核实现状，补一条反证，
   不假设复用同一 use case 自动成立；④redeemInviteAndCreateOrg 去留=彻底移除，
