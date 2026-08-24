@@ -392,15 +392,15 @@
         "F09"
       ],
       "points": 3,
-      "status": "in_progress",
-      "sprint": null,
+      "status": "passing",
+      "sprint": "01",
       "owner": "claude-n",
       "verification": [
         "pnpm --filter web run lint:design",
         "pnpm --filter web exec tsc --noEmit",
         "pnpm --filter web exec vitest run"
       ],
-      "evidence": "",
+      "evidence": "evidence/F19.verify.log @ 2026-08-24T17:02:14.792Z",
       "notes": "依据等级：[人类直接反馈]（2026-08-24/25 会话，针对真实截图诊断'平庸/不专业'，已出具对比 artifact `theme-direction.html` 并经人类确认选项 1：按提案方向落地，不换主色相）。has_ui：纯视觉 token 改动，不新增交互面；是否需要正式契约束签核由束负责人评估，人类已在会话中直接确认设计方向。R6 明确不包含：不换主色相、不改交互逻辑、不要求本轮清零全部历史字面量残留（发现即修，非地毯式扫描）。verification：lint:design 兜底 token 单源与无裸字面量；tsc 确保无类型回归；全量 vitest 确保无视觉相关测试因改动而破坏既有断言（若测试断言的是具体 px/hex 需要评估是否属于'预期变化'，逐条说明）。"
     }
   ]

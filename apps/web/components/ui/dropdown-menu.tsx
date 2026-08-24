@@ -16,7 +16,7 @@ export const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
 
 const itemBase =
-  "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-13 outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-base " +
+  "relative flex cursor-pointer select-none items-center gap-2 rounded-control px-2 py-1.5 text-13 outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-base " +
   "data-[highlighted]:bg-muted data-[highlighted]:text-background-foreground " +
   "data-[disabled]:pointer-events-none data-[disabled]:text-disabled-foreground";
 
@@ -29,7 +29,7 @@ export const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[10rem] overflow-hidden rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md",
+        "z-50 min-w-[10rem] overflow-hidden rounded-container border border-border bg-popover p-1 text-popover-foreground shadow-md",
         className,
       )}
       {...props}

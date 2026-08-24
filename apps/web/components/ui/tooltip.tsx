@@ -32,7 +32,7 @@ export const TooltipContent = React.forwardRef<
         ref={ref}
         sideOffset={sideOffset}
         className={cn(
-          "z-50 max-w-xs rounded-md bg-inverse px-2 py-1 text-11 text-inverse-foreground shadow-md",
+          "z-50 max-w-xs rounded-control bg-inverse px-2 py-1 text-11 text-inverse-foreground shadow-md",
           className,
         )}
         {...props}

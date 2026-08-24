@@ -62,6 +62,27 @@
  * ========================================================================== */
 
 /* ============================================================================
+ * 语义化圆角分级 —— 唯一事实源（F19；契约束 visual-identity-refresh；
+ * requirements/11-visual-identity-refresh.md R3 步骤 2 / R7）
+ *
+ * 三档定义在 `tailwind.config.ts`（`borderRadius` 的 control/card/container），
+ * 不在这里重复写字面量——本注释只记**选值依据**，同一事实不得声明在两处（见 AGENTS.md）。
+ *
+ * 选值依据（对照人类已确认的对比方案 `theme-direction.html`）：
+ *   - control = 6px —— 控件档：按钮、输入框、小型交互元素（checkbox/toggle/badge）。
+ *     全站最高频、最小的可点击面，圆角克制，避免"每个按钮都像个药丸"的钝感。
+ *   - card = 10px —— 卡片档：消息气泡、列表项、普通面板。比控件档明显但不过分，
+ *     用于承载内容的中等容器，是本仓最常见的"卡片感"来源。
+ *   - container = 14px —— 容器档：弹层（Dialog/Popover/DropdownMenu 的浮层内容）、
+ *     大卡片。圆角最大，视觉上标记"这是一层悬浮在页面之上的独立表面"。
+ *
+ * 历史单值 `--radius`（7px，见下方 `:root`）在 F19 之前是唯一档位，`tailwind.config.ts`
+ * 的 `lg/md/sm` 仍引用它，供未迁移的存量消费点使用，不强制本轮清零（R6：不要求本轮
+ * 把全站所有用到圆角的地方都改完，优先级见 requirements 文档）。新写代码、以及
+ * F01/F09 产出的 dialog/table/menu 等组件原语，请直接消费 control/card/container。
+ * ========================================================================== */
+
+/* ============================================================================
  * 设计 token —— 唯一事实源（UC-0.4 R3 步骤 2 / uiux-standards §1.1）
  *
  * ⚠ 这是全仓**唯一**允许定义色面值的地方。
@@ -285,13 +306,13 @@
     @apply mt-2;
   }
   .chat-markdown h1 {
-    @apply text-16 font-semibold text-card-foreground;
+    @apply text-16 font-bold text-card-foreground;
   }
   .chat-markdown h2 {
-    @apply text-14 font-semibold text-card-foreground;
+    @apply text-14 font-bold text-card-foreground;
   }
   .chat-markdown h3 {
-    @apply text-13 font-semibold text-card-foreground;
+    @apply text-13 font-bold text-card-foreground;
   }
   .chat-markdown p {
     @apply text-13 leading-relaxed text-card-foreground;

@@ -17,7 +17,7 @@ export const Checkbox = React.forwardRef<
           ref={ref}
           id={inputId}
           type="checkbox"
-          className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
+          className="peer h-4 w-4 cursor-pointer appearance-none rounded-control border border-input bg-card transition-all duration-200 checked:border-primary checked:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-disabled"
           {...props}
         />
         <Check aria-hidden className="pointer-events-none absolute left-0.5 top-0.5 h-3 w-3 text-primary-foreground opacity-0 transition-opacity duration-200 peer-checked:opacity-100" />

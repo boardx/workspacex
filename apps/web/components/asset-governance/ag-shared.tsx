@@ -179,9 +179,11 @@ export function FileTree({
             onClick={() => onSelect(r.path!)}
             data-testid={`${testidPrefix}-file`}
             className={cn(
-              "flex items-center justify-between gap-2 rounded-md px-2 py-1 text-left font-mono text-11 transition-colors",
-              r.depth ? "ml-3 border-l border-border-subtle pl-2.5" : "",
-              on ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted",
+              "flex items-center justify-between gap-2 rounded-md border-l-2 px-2 py-1 text-left font-mono text-11 transition-colors",
+              r.depth ? "ml-3 pl-2.5" : "",
+              on
+                ? "border-primary bg-accent text-accent-foreground"
+                : "border-transparent text-muted-foreground hover:bg-muted",
             )}
           >
             <span className="flex items-center gap-1.5 truncate">
