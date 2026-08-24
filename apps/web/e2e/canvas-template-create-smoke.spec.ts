@@ -119,6 +119,23 @@ async function waitForNotice(page: Page, substring: string) {
   await expect(page.getByTestId("tpladmin-notice")).toContainText(substring);
 }
 
+/**
+ * #1936 CI 复盘（`fullstack-smoke` run 32670321400 job 97270083136）：切换筛选 tab
+ * 之后立刻 `page.reload()` 是竞态，不是 sleep 能补的坑——`TemplateAdmin` 里点击
+ * 筛选按钮会同步更新 React state（tab 立刻显示选中），但地址栏 query string 是
+ * `router.replace` 异步写回的（见 `components/canvas/template-admin.tsx` 里
+ * `syncUrl`）；`reload()` 读的是**浏览器真实地址栏**，不是 React state。点击后不等
+ * URL 真的落定就刷新，命中的窗口期里地址栏还停在刷新前那个筛选值，服务端用旧
+ * query 渲染出的初始筛选就会把这一行滤掉——本机高负载下第一次就能稳定复现，
+ * CI 上则表现为偶发。同 #952 的纪律：等一个真实会变化的信号（这里是地址栏本身），
+ * 不是固定 sleep。
+ */
+async function waitForFilterUrl(page: Page, filter: "all" | "published" | "draft" | "archived") {
+  await page.waitForURL((url) =>
+    filter === "all" ? !url.searchParams.has("filter") : url.searchParams.get("filter") === filter
+  );
+}
+
 test("admin creates a canvas template in the browser; PostgreSQL keeps it across reloads, and publishing makes it usable", async ({ page }) => {
   const failures: string[] = [];
   const creates = recordCreates(page);
@@ -150,6 +167,8 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
   await page.getByTestId("tpladmin-filter-published").click();
   await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toHaveCount(0);
   await page.getByTestId("tpladmin-filter-all").click();
+  // 等地址栏真的落回「全部」（无 filter 参数）再刷新——见 waitForFilterUrl 上方注释。
+  await waitForFilterUrl(page, "all");
 
   // ── ③ 刷新后仍在 = 它在库里，不在 React state 里；分区也真的存进去了 ────────
   await page.reload();
