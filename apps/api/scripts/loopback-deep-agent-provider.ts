@@ -120,6 +120,16 @@ const MARKDOWN_REPLY = [
   "```",
   "",
   "> 引用块：以上由确定性替身生成，用于验证渲染器。",
+  "",
+  // DA-19b 消息渲染迁移取证：加一段白名单内（`flowchart`，见
+  // `apps/web/lib/mermaid-diagram-type.ts` 的 12 种白名单）的 mermaid 围栏，供
+  // `copilotkit-v2-panel.tsx` 的 markdown 渲染断言真的挂出 `ChatDiagramFabric`
+  // canvas，而不是灰底代码块。语法照抄 `chat-diagram-save-gate.test.tsx` 已验证
+  // 过能通过 `mermaid.parse` 的最简写法（`flowchart TD\n  A --> B`），不是新猜的。
+  "```mermaid",
+  "flowchart TD",
+  "  A --> B",
+  "```",
 ].join("\n");
 
 interface ApprovalDecision {
