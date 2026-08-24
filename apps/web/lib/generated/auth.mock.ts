@@ -43,15 +43,15 @@ export const validateSessionMock: z.infer<typeof auth.operations.validateSession
 /** validateSession 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const validateSessionErrors = ["SESSION_EXPIRED","SESSION_REVOKED","AUTH_SERVICE_UNAVAILABLE"] as const;
 
-/** redeemInviteAndCreateOrg 的成功响应样例（由契约生成） */
-export const redeemInviteAndCreateOrgMock: z.infer<typeof auth.operations.redeemInviteAndCreateOrg.out> = {
+/** registerNewAccount 的成功响应样例（由契约生成） */
+export const registerNewAccountMock: z.infer<typeof auth.operations.registerNewAccount.out> = {
   "userId": "userId-1",
   "orgId": "orgId-1",
   "verificationDelivery": "queued"
 };
 
-/** redeemInviteAndCreateOrg 的失败模式全集——界面的异常态必须逐个覆盖 */
-export const redeemInviteAndCreateOrgErrors = ["INVITE_CODE_INVALID","EMAIL_TAKEN"] as const;
+/** registerNewAccount 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const registerNewAccountErrors = ["EMAIL_TAKEN"] as const;
 
 /** bootstrapFirstUser 的成功响应样例（由契约生成） */
 export const bootstrapFirstUserMock: z.infer<typeof auth.operations.bootstrapFirstUser.out> = {

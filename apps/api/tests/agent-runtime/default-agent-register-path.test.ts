@@ -1,17 +1,19 @@
 /**
- * #662 直接后续 —— `/auth/register`（邀请码建组织）与 `/auth/bootstrap` 必须给出同一个
- * 承诺:新组织落地就有一个真实可聊的默认 agent。
+ * #662 直接后续 —— `/auth/register-open`（自助开放注册建组织，open-self-serve-
+ * registration delta，issue #1929 起取代原邀请码端点 `/auth/register`）与
+ * `/auth/bootstrap` 必须给出同一个承诺:新组织落地就有一个真实可聊的默认 agent。
  *
  * 为什么需要一个独立于 `default-agent-bootstrap-chat.test.ts` 的文件而不是加一个 it()：
  * `/auth/bootstrap` 是**实例级仅一次**的冷启动路径 —— 一旦本实例已有首位管理员（几乎
  * 所有真实部署,包括 devapp,从第二个组织起)，往后创建任何新组织走的**只有**
- * `/auth/register`（邀请码)这一条路。2026-08-07 devapp 上曾经真实复现:合并了
+ * `/auth/register-open`（开放注册）这一条路。2026-08-07 devapp 上曾经真实复现:合并了
  * `/auth/bootstrap` 那一侧的修复(#665)之后,用户在 devapp 上实测新建组织仍然拿到
  * 422「所选 Agent 没有可用的已发布版本」——因为 `register()` controller 从未接上
- * `ensureDefaultAgent`。这个文件就是那次真实复现的回归证据。
+ * `ensureDefaultAgent`。这个文件就是那次真实复现的回归证据；2026-08-24 随 #1929 把
+ * 端点从带邀请码的 `/auth/register` 切到 `/auth/register-open`，验证的行为不变。
  *
- * 走的旅程:`/auth/register`(带真实邀请码)→ 邮箱验证 → 登录 → 不做任何 agent 管理
- * 操作直接读 capability 目录 → 发消息 → 真实执行成功。与 #661 那份证据同一强度,只是
+ * 走的旅程:`/auth/register-open`(无邀请码开放注册)→ 邮箱验证 → 登录 → 不做任何 agent
+ * 管理操作直接读 capability 目录 → 发消息 → 真实执行成功。与 #661 那份证据同一强度,只是
  * 换了创建组织的那扇门。
  *
  * ## 2026-08-08 (#740) —— stub 换成 deepagents 的 LangGraph HTTP 形状
@@ -34,7 +36,6 @@ import { AGENT_RUN_EXECUTOR, type AgentRunExecutorPort } from "../../src/applica
 import type { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { toOrgId } from "../../src/domain/org-id";
 import { ensureRedis } from "../support/auth";
-import { issueInviteCode, makeCode } from "../support/auth-db";
 import { dropDatabaseAfterDraining } from "../support/drop-database";
 
 process.env.KERNEL_QUIET = "1";
@@ -46,7 +47,6 @@ const DATABASE = `wsx_i662_register_default_agent_${process.pid}_${Date.now()}`;
 const THREAD_ID = `da-thread-i662-register-${randomUUID()}`;
 const RUN_ID = `da-run-i662-register-${randomUUID()}`;
 const FINAL_REPLY = "你好，我是本组织的通用助手，很高兴认识你。";
-const CODE = makeCode("I662REGDEFAULT");
 
 let app: NestExpressApplication;
 let databasePort: PgDatabase;
@@ -119,7 +119,6 @@ beforeAll(async () => {
   try { await admin.query(`CREATE DATABASE ${DATABASE}`); } finally { await admin.end(); }
   process.env.PGDATABASE = DATABASE;
   await migrate(ownerConfig(DATABASE));
-  await issueInviteCode(CODE);
 
   const { createApp } = await import("../../src/main");
   app = await createApp();
@@ -142,18 +141,17 @@ afterAll(async () => {
   }
 }, 30_000);
 
-describe("#662 直接后续：/auth/register（邀请码建组织）同样给出默认 agent", () => {
-  it("邀请码注册 + 邮箱验证 + 登录，不做任何 agent 管理操作，直接能聊", async () => {
-    /* ── ① 真实 HTTP 邀请码注册出一个新用户 + 一个新组织 ── */
-    const register = await fetch(`${base}/auth/register`, {
+describe("#662 直接后续：/auth/register-open（开放自助注册建组织）同样给出默认 agent", () => {
+  it("开放注册（无邀请码）+ 邮箱验证 + 登录，不做任何 agent 管理操作，直接能聊", async () => {
+    /* ── ① 真实 HTTP 开放注册出一个新用户 + 一个新组织，不带邀请码 ── */
+    const register = await fetch(`${base}/auth/register-open`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        code: CODE,
         email: "founder@i662register.test",
         password: "correct-horse-battery-staple",
-        displayName: "邀请码建组织的第一个用户",
-        orgName: "邀请码建的组织",
+        displayName: "开放注册建组织的第一个用户",
+        orgName: "开放注册建的组织",
       }),
     });
     expect(register.status, await register.clone().text()).toBe(201);
@@ -167,7 +165,7 @@ describe("#662 直接后续：/auth/register（邀请码建组织）同样给出
      * 2026-08-07 起还会多一条"Deep Research"，同一条产品裁决延伸出的第二个系统 agent，
      * 不断言总数，断言本用例关心的那一条真实存在且已发布。 */
     /* （邮箱验证是否已完成不影响服务端是否已经写好默认 agent——那一步紧跟在
-     *  `registerWithInvite` 事务提交之后,与后续登录流程无关，见 controller 注释。） */
+     *  `registerNewAccount` 事务提交之后,与后续登录流程无关，见 controller 注释。） */
     const caps = await fetch(`${base}/capabilities?orgId=${orgId}&kind=agent`, { headers: principal });
     expect(caps.status).toBe(200);
     const listing = (await caps.json()) as { id: string; name: string; enabled: boolean }[];

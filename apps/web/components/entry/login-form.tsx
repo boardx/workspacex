@@ -9,12 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { AUTH_PROVIDERS_LATER, AUTH_POLICY, LOGIN_BRAND } from "@/lib/mock/entry";
 import {
-  bootstrapFirstUser,
-  isBootstrapUnavailable,
   isLoginRejected,
-  isRegistrationEmailTaken,
   login,
-  registerWithInvite,
   requestPasswordReset,
 } from "@/lib/auth";
 import { useSession } from "@/components/session/session-provider";
@@ -25,7 +21,8 @@ import { useSession } from "@/components/session/session-provider";
  * - D-02：三个第三方按钮**保留视觉位但 disabled 并标 later**，旁注「phase-1 暂不开放」。
  * - 防枚举：校验失败只给一条「邮箱或密码不正确」，不区分邮箱不存在 / 密码错误。
  * - `[忘记密码？]`（R8「原型待补」：按钮在、点了没屏）在此补出接线与后续屏。
- * - `[创建组织]` 进入真实 `/auth/register` 注册与邮箱验证排队流程。
+ * - `[创建组织]` 进入真实 `/auth/register-open`（开放自助注册，issue #1929 起不再需要
+ *   邀请码）注册与邮箱验证排队流程。
  * - #547：底部按**新用户身份**分岔成两条——开新组织走 `[创建组织]`；被已有组织邀请的人
  *   走管理员发出的激活链接（UC-1.6 / F10，`POST /org-invites/activate`）。后者是**说明**
  *   而不是入口，因为产品里并不存在「在登录页自助加入某组织」这条路径，见下方就地注释。

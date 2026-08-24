@@ -589,6 +589,37 @@
       ],
       "evidence": "evidence/F22.verify.log @ 2026-07-29T17:53:52.878Z",
       "notes": "【2026-07-29 自 phase-01 迁入】原 phase-01 F09。迁入理由：phase-00 十八个 feature 做完之后，devapp.boardx.us 仍然是空壳——/identity/* 一律 401，因为真实认证在 phase-01。而 phase-00 剩余的 feature 没有一个能改变这件事。选的是**最小可用切片**（选项 A）：这四件全部不带 needs_ui_signoff，绕开 ADR-003 的 UI 先行关卡，也不需要 phase-01 的整套契约设计。⚠ 原 phase-01 F03（设备与会话列表）**带 UI 签核**，故未迁入。 依据：O-12（user↔org 一对多，团队单一归属）与 O-29③（停用非删除、只读+仅管理员导出+留存期销毁）均已裁决；组织停用只读条 A1 为[设计]。切换器本体在 phase-00；本 feature 交付多组织归属数据模型与停用降级规则。org 停用只读同时覆盖 UC-1.1 R4 A1。V10/V12 对应。needs_ui_signoff=false（验证 API），只读说明条 UI 随组织切换器 phase-00 承接。\n【跨分片依赖待确认】phase-00: 顶部组织切换器控件与 org-switch 上下文清空（F15/F01）"
+    },
+    {
+      "id": "F23",
+      "priority": 1,
+      "area": "auth",
+      "capability": "CAP-WEB",
+      "title": "取消注册邀请码，降低注册门槛：自助建新组织 + 邮箱验证（彻底移除邀请码注册路径）",
+      "user_visible_behavior": "`/register` 页面不再有邀请码输入框：填工作邮箱/组织名/姓名/密码直接提交（`POST /auth/register-open`），无需任何邀请码即可建一个新组织并成为其 owner，提交后展示「验证邮件已排队」等待态；未验证邮箱登录被拒（`EMAIL_NOT_VERIFIED`），点击验证邮件里的链接完成验证后登录放行。冷启动「创建首位管理员」（`bootstrapFirstUser`）改由页面上一条显式的「这是全新部署？创建首位管理员」切换触发，不再依赖已移除的邀请码字段留空。旧的 `redeemInviteAndCreateOrg`（`POST /auth/register` 带 14 位邀请码）连同 `INVITE_CODE_INVALID` 在这条路径上的出现一并移除；组织内部成员邀请/共享邀请链接/`joinOrgWithInvite`（F22，已登录用户拿新邀请码建第二个组织）不受影响。",
+      "spec_ref": "phases/phase-00-shared-kernel/design-deltas/open-self-serve-registration/contract.md",
+      "depends_on": [
+        "F19"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": "05",
+      "owner": null,
+      "verification": [
+        "pnpm --filter api run typecheck",
+        "pnpm --filter web run typecheck",
+        "pnpm --filter api exec vitest run tests/auth/register-http-contract.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/register-new-account-atomic.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/bootstrap-first-user-usecase.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/one-code-one-org-concurrency.test.ts",
+        "pnpm --filter api exec vitest run tests/auth/multi-org-membership.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/registration-field-errors.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/bootstrap-first-admin.test.tsx",
+        "pnpm --filter web exec vitest run tests/single-source-of-truth.test.ts",
+        "pnpm exec tsx .harness/scripts/cli.ts doctor"
+      ],
+      "evidence": "",
+      "notes": "【2026-08-24，design-delta open-self-serve-registration，issue #1929】design-signoff 已签核五点裁决（组织归属=自助建新组织；防滥用=邮箱验证复用既有闭环；登录闸门覆盖范围=实测核实后补反证，见 `apps/api/tests/auth/register-http-contract.test.ts`/`register-new-account-atomic.test.ts` 与 `login.ts` 对 `credentials.email_verified_at` 的检查——该检查与注册路径无关，新路径天然继承；旧邀请码路径彻底移除；本轮不做限流/人机验证）。零新增设计面之外的一处补充：design-signoff 未提及 `bootstrapFirstUser` 的 UI 触发方式，本实现发现原实现靠「邀请码留空」触发 bootstrap，邀请码字段整体移除后必须换一种触发方式才不丢失冷启动能力（`bootstrapFirstUser` 本身依人类明确指示不属于移除范围），改为显式的 `registration-bootstrap-toggle` 切换，`apps/web/e2e/core-loop.spec.ts` 步骤 1 与 `bootstrap-first-admin.test.tsx` 同步更新锚点。移除：契约操作 `redeemInviteAndCreateOrg`（`POST /auth/register`）及其在该操作上的 `INVITE_CODE_INVALID` 用法、`register-with-invite.ts`、controller 里的对应分支、`invite-code-redeem-atomic.test.ts`（由 `register-new-account-atomic.test.ts` 取代）、`one-code-one-org-concurrency.test.ts` 第 3 层原本挂在 `redeemAndCreateOrg`/`registerWithInvite` 上的部分（改挂到仍然存活的 `joinExistingUserToNewOrg`，同一条 `REDEEM_SQL` 语句）。新增：契约操作 `registerNewAccount`（`POST /auth/register-open`）、`register-new-account.ts` 用例、仓储方法 `createAccountAndOrg`、`register-new-account-atomic.test.ts`。`invite_codes` 表 / `InviteCodeValue` 类型 / `joinOrgWithInvite`（组织内部邀请）完全不动。【验证现状，2026-08-24】实现 PR 提交时机器上并行会话把 docker 网络地址池耗尽（`docker network prune` 实测可回收数为 0，29 个 wsx-* 网络全部挂着别的存活 worktree 的容器），依赖真实 Postgres 的集成测试与真实浏览器 e2e 本轮会话内跑不起来；`pnpm --filter api/web run typecheck` 与不依赖 Postgres 的前端单测（`registration-field-errors`/`bootstrap-first-admin`/`email-verification-public`/`single-source-of-truth`，共 35 条）已在会话内跑绿，`pnpm exec tsx .harness/scripts/cli.ts doctor` 0 FAIL。status 如实留 not_started，不自证 passing；下一轮机器空闲时跑 `pnpm harness verify --sprint 00/05 --feature F23` 补齐 DB 侧证据后机械转 passing。"
     }
   ]
 }

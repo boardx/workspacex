@@ -46,7 +46,7 @@ export interface CoreLoopRunStat {
   readonly threadMessages: number;
 }
 
-type Command = "reset" | "stat" | "run-stat" | "counterproof-duplicate-reply";
+type Command = "reset" | "stat" | "run-stat" | "counterproof-duplicate-reply" | "verification-token";
 
 function run<T>(command: Command, argument: string): T {
   let stdout: string;
@@ -81,3 +81,11 @@ export const readRunStat = (runId: string): CoreLoopRunStat =>
  */
 export const counterproofDuplicateReply = (runId: string): CoreLoopRunStat =>
   run<CoreLoopRunStat>("counterproof-duplicate-reply", runId);
+
+/**
+ * open-self-serve-registration delta（issue #1929）—— 真实取回该邮箱最新未核销的邮箱
+ * 验证令牌（服务端确定性重算，不是从任何"假邮箱"里读明文；见 `core-loop-db.ts` 同名函数
+ * 的长注）。`token: null` = 该邮箱没有待核销的挑战。
+ */
+export const readVerificationToken = (email: string): { readonly token: string | null } =>
+  run<{ readonly token: string | null }>("verification-token", email);

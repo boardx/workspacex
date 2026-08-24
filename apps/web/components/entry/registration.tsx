@@ -16,8 +16,26 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type RegisterInput = typeof C.operations.redeemInviteAndCreateOrg.in._input;
-type RegisterOutput = typeof C.operations.redeemInviteAndCreateOrg.out._output;
+/**
+ * open-self-serve-registration delta（issue #1929，design-signoff 已裁①②③④⑤）——
+ * `/register` 的默认（也是唯一广告出来的）入口是自助开放注册：邮箱 + 密码 + 姓名 +
+ * 组织名，直接建一个新组织并成为其 owner，不再需要邀请码。**这不是加一条路径，是把
+ * `redeemInviteAndCreateOrg`（邀请码建组织）连同它的输入框一起移除**（design-signoff
+ * ④「彻底移除，只留开放注册」逐字照录）。
+ *
+ * ⚠ 冷启动的"创建首位管理员"（`bootstrapFirstUser`，`POST /auth/bootstrap`）**不在**本次
+ * 移除范围——它是一个独立、永久一次性的契约操作，与被移除的邀请码路径无关，本 delta
+ * 明确不动它。但它在本文件之外没有任何其他 UI 入口（全仓唯一调用点搬迁自 #452），
+ * 直接删掉会让"全新实例创建首位管理员"这条能力在界面上彻底消失——这是本 delta 没有
+ * 授权的范围。于是它保留为一条**次要、需要显式切换**的入口（下面的"创建首位管理员"
+ * 链接），而不再靠"邀请码留空"这个已经不存在的信号触发。
+ *
+ * 防滥用手段收敛为邮箱验证：未验证不能登录，复用既有闭环（`login.ts` 的
+ * `EMAIL_NOT_VERIFIED` 检查直接读 `credentials.email_verified_at`，与哪条注册路径写入
+ * 该行无关）。
+ */
+type RegisterInput = typeof C.operations.registerNewAccount.in._input;
+type RegisterOutput = typeof C.operations.registerNewAccount.out._output;
 
 /**
  * 字段级 400 的**如实**回显。
@@ -33,7 +51,6 @@ const FIELD_LABEL: Record<string, string> = {
   email: "邮箱格式不正确",
   orgName: "组织名称不能为空",
   displayName: "姓名不能为空",
-  code: `邀请码必须是 ${C.AUTH_POLICY.inviteCodeLength} 位，或完全留空`,
 };
 
 function fieldErrorMessage(error: unknown): string | null {
@@ -46,21 +63,13 @@ function fieldErrorMessage(error: unknown): string | null {
 export function Registration() {
   const session = useSession();
   const [email, setEmail] = React.useState("");
-  const [code, setCode] = React.useState("");
+  const [bootstrapMode, setBootstrapMode] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [queued, setQueued] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
   const [resending, setResending] = React.useState(false);
   const [cooling, setCooling] = React.useState(false);
   const [resendFailed, setResendFailed] = React.useState(false);
-
-  // 邀请码**完全留空 = bootstrap 模式**（冷启动建首位管理员，UC 见 ADR「第一个用户成管理员」）。
-  // 这段逻辑原本长在 `login-form.tsx` 的内联建组面板里（#452）；2026-08-04 人类裁决
-  // 「创建组织统一到 /auth/register 独立页」，于是整段搬到这里。
-  // ⚠ 搬而不是删——只把内联面板摘掉、不把 bootstrap 补进来，等于把 #452 刚上线的
-  // 「第一个账号不需要邀请码」功能回归掉，那正是人类当前卡住的那件事。
-  const trimmedCode = code.replace(/\s/g, "");
-  const bootstrapMode = trimmedCode.length === 0;
 
   React.useEffect(() => {
     if (!cooling) return;
@@ -82,22 +91,20 @@ export function Registration() {
 
     if (!bootstrapMode) {
       try {
-        const input: RegisterInput = { ...registration, code: trimmedCode };
-        await apiRequest<RegisterOutput>("/auth/register", { method: "POST", sessionToken: null, body: input });
+        const input: RegisterInput = registration;
+        await apiRequest<RegisterOutput>(C.operations.registerNewAccount.path, {
+          method: "POST", sessionToken: null, body: input,
+        });
         setCooling(true);
         setQueued(true);
       } catch (e) {
-        // ⚠ 400 INVITE_CODE_INVALID 的四种成因（不存在/已核销/过期/已撤销）在服务端被
-        // 刻意抹平成同一个响应，任何区分都会按命中率削减 14 位码的搜索空间
-        // （`auth-registration.controller.ts` 的注释是权威）。前端**不得**把它们显示成
-        // 不同文案，也不得对码格式做本地预判后给不同措辞。
-        // 而 409 EMAIL_TAKEN 反过来是**故意明确**的（UC-1.5 A2 要求引导用户去登录），
-        // 不要为了「防枚举一致性」把它也做模糊——防枚举在 login / password-reset 上做。
+        // 409 EMAIL_TAKEN 是**故意明确**的（引导用户去登录），不做模糊化——防枚举在
+        // login / password-reset 上做，注册这条路径本来就没有邀请码搜索空间要保护。
         setFormError(
           fieldErrorMessage(e)
             ?? (isRegistrationEmailTaken(e)
-              ? "该邮箱已注册，请返回登录后在组织内使用邀请码。"
-              : "邀请码无效，或注册暂时未完成，请检查信息后重试。"),
+              ? "该邮箱已注册，请返回登录。"
+              : "注册暂时未完成，请检查信息后重试。"),
         );
       } finally {
         setSubmitting(false);
@@ -105,6 +112,8 @@ export function Registration() {
       return;
     }
 
+    // ── 冷启动分支：创建本实例的首位管理员（`bootstrapFirstUser`，与本 delta 无关，
+    // 未被改动，仅仅是触发方式从「邀请码留空」换成显式切换）──
     let bootstrapped = false;
     try {
       await bootstrapFirstUser(registration);
@@ -134,7 +143,7 @@ export function Registration() {
       setFormError(
         fieldErrorMessage(e)
           ?? (isBootstrapUnavailable(e)
-            ? `已有管理员，请输入 ${C.AUTH_POLICY.inviteCodeLength} 位邀请码。`
+            ? "已有管理员，本实例的首位管理员已经创建过，请改用上方的开放注册创建新组织。"
             : isRegistrationEmailTaken(e)
               ? "该邮箱已注册，请返回登录。"
               : "创建服务暂时不可用，请稍后重试。"),
@@ -201,21 +210,8 @@ export function Registration() {
           <h1 className="text-20 font-semibold">创建组织</h1>
           <p className="mt-1 text-12 text-muted-foreground">
             {bootstrapMode
-              ? "邀请码留空 = 创建本实例的首位管理员，创建后直接登录。"
-              : "注册完成后，我们会发送一次性邮箱验证链接。"}
-          </p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="registration-code">邀请码（首位管理员请留空）</Label>
-          <Input
-            id="registration-code"
-            name="code"
-            value={code}
-            onChange={(event) => setCode(event.currentTarget.value)}
-            data-testid="registration-code"
-          />
-          <p className="text-12 text-muted-foreground">
-            已输入 {trimmedCode.length}/{C.AUTH_POLICY.inviteCodeLength} 位。留空则创建首位管理员。
+              ? "创建本实例的首位管理员，创建后直接登录。"
+              : "注册完成后，我们会发送一次性邮箱验证链接，验证后即可登录。"}
           </p>
         </div>
         <Field label="组织名称" name="orgName" required data-testid="registration-org-name" />
@@ -229,14 +225,23 @@ export function Registration() {
           type="submit"
           variant="primary"
           size="lg"
-          disabled={submitting || (!bootstrapMode && trimmedCode.length !== C.AUTH_POLICY.inviteCodeLength)}
-          title={!bootstrapMode && trimmedCode.length !== C.AUTH_POLICY.inviteCodeLength ? "邀请码必须是完整的 14 位，或完全留空" : undefined}
+          disabled={submitting}
           data-testid="registration-submit"
         >
-          {submitting ? "正在创建…" : bootstrapMode ? "创建首位管理员并登录" : "验证邀请码并创建"}
+          {submitting ? "正在创建…" : bootstrapMode ? "创建首位管理员并登录" : "创建组织"}
         </Button>
         {formError !== null ? <p role="alert" data-testid="registration-error" className="text-12 text-destructive">{formError}</p> : null}
-        <a href="/login" className="text-12 text-muted-foreground underline underline-offset-4">返回登录</a>
+        <div className="flex items-center justify-between text-12 text-muted-foreground">
+          <a href="/login" className="underline underline-offset-4">返回登录</a>
+          <button
+            type="button"
+            data-testid="registration-bootstrap-toggle"
+            className="underline underline-offset-4"
+            onClick={() => setBootstrapMode((v) => !v)}
+          >
+            {bootstrapMode ? "改为普通注册" : "这是全新部署？创建首位管理员"}
+          </button>
+        </div>
       </form>
     </main>
   );

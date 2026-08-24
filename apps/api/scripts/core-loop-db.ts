@@ -39,6 +39,10 @@
  * 复现整条门控：`CORE_LOOP_COUNTERPROOF=1 pnpm run verify:fullstack-smoke`。
  */
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
+import {
+  HmacEmailVerificationTokenCodec,
+  emailVerificationSecret,
+} from "../src/infrastructure/auth/email-verification-token-codec";
 import { asOwner, ensureDatabase, migrateOnce } from "../tests/support/db";
 
 /** 反证用的假账号。名字带 COUNTERPROOF，任何人在库里看见它都知道这是干什么的。 */
@@ -215,6 +219,35 @@ async function stat(email: string): Promise<CoreLoopDbStat> {
   });
 }
 
+/**
+ * open-self-serve-registration delta（issue #1929）—— 支撑开放注册的真实浏览器 e2e：
+ * 真实取出该邮箱**最新未核销**的邮箱验证令牌。
+ *
+ * ⚠ 不是从 `mail_outbox` 或任何"假邮件收件箱"读明文令牌——库里从不存明文
+ * （`email_verification_challenges.token_digest` 只存摘要，`registration-repo` 文件头
+ * 逐条论证过为什么）。`HmacEmailVerificationTokenCodec.tokenForChallenge(challengeId)`
+ * 是**确定性**的（challenge id + 服务端密钥的 HMAC），所以拿到 challenge id 就能在
+ * 服务端侧重算出与真实发信内容完全相同的令牌——这正是 `email-verification-public.test.ts`
+ * 等既有测试的同一手法，此处只是把它暴露给 Playwright 用，而不是新发明一条通路。
+ */
+async function verificationToken(email: string): Promise<{ readonly token: string | null }> {
+  const row = await asOwner(async (client) => {
+    const r = await client.query<{ id: string }>(
+      `SELECT c.id
+         FROM email_verification_challenges c
+         JOIN credentials cred ON cred.user_id = c.user_id
+        WHERE cred.email = $1 AND c.consumed_at IS NULL
+        ORDER BY c.expires_at DESC
+        LIMIT 1`,
+      [email],
+    );
+    return r.rows[0] ?? null;
+  });
+  if (row === null) return { token: null };
+  const codec = new HmacEmailVerificationTokenCodec(emailVerificationSecret());
+  return { token: codec.tokenForChallenge(row.id) };
+}
+
 const command = process.argv[2] ?? "";
 if (command === "reset") {
   await reset();
@@ -229,9 +262,12 @@ if (command === "reset") {
   ensureDatabase();
   await counterproofDuplicateReply(process.argv[3] ?? "");
   process.stdout.write(`__CORE_LOOP_DB__${JSON.stringify(await runStat(process.argv[3] ?? ""))}\n`);
+} else if (command === "verification-token") {
+  ensureDatabase();
+  process.stdout.write(`__CORE_LOOP_DB__${JSON.stringify(await verificationToken(process.argv[3] ?? ""))}\n`);
 } else {
   throw new Error(
-    "usage: core-loop-db.ts <reset|stat|run-stat|counterproof-duplicate-reply> [email|runId]; " +
+    "usage: core-loop-db.ts <reset|stat|run-stat|counterproof-duplicate-reply|verification-token> [email|runId]; " +
     `got ${JSON.stringify(command)}`,
   );
 }

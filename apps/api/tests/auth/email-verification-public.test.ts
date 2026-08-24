@@ -12,19 +12,19 @@ import {
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { asOwner, ensureDatabase, migrateOnce } from "../support/db";
-import { issueInviteCode, makeCode, readCredentialByEmail, resetAuthFixtures, resetOrgsOwnedBy } from "../support/auth-db";
+import { readCredentialByEmail, resetAuthFixtures, resetOrgsOwnedBy } from "../support/auth-db";
 
 process.env.KERNEL_QUIET = "1";
 process.env.EMAIL_VERIFICATION_SECRET = "i411-test-email-verification-secret-at-least-32-bytes";
 
 const EMAIL_DOMAIN = "i411verify.test";
 const PASSWORD = "correct-horse-battery-staple";
-const codes = Array.from({ length: 8 }, (_, i) => makeCode(`I411VERIFY${i}`));
+// open-self-serve-registration delta (issue #1929): onboarding used to spend an invite
+// code via the now-removed `/auth/register`; open registration needs none.
 const tokens = new HmacEmailVerificationTokenCodec(process.env.EMAIL_VERIFICATION_SECRET);
 let app: NestExpressApplication;
 let db: PgDatabase;
 let base: string;
-let codeIndex = 0;
 const users: string[] = [];
 
 async function postRaw(path: string, body: unknown, cookie?: string) {
@@ -42,10 +42,8 @@ async function post(path: string, body: unknown, cookie?: string) {
 }
 
 async function register(local: string) {
-  const code = codes[codeIndex++]!;
-  await issueInviteCode(code);
-  const { response, body } = await postRaw("/auth/register", {
-    code, email: `${local}@${EMAIL_DOMAIN}`, password: PASSWORD, displayName: local, orgName: "I411 Co",
+  const { response, body } = await postRaw("/auth/register-open", {
+    email: `${local}@${EMAIL_DOMAIN}`, password: PASSWORD, displayName: local, orgName: "I411 Co",
   });
   expect(response.status, JSON.stringify(body)).toBe(201);
   users.push(body.userId as string);
@@ -89,8 +87,7 @@ beforeAll(async () => {
 afterEach(async () => {
   await resetOrgsOwnedBy(users);
   users.length = 0;
-  codeIndex = 0;
-  await resetAuthFixtures({ codes, emailLike: `%@${EMAIL_DOMAIN}` });
+  await resetAuthFixtures({ emailLike: `%@${EMAIL_DOMAIN}` });
 });
 
 afterAll(async () => {

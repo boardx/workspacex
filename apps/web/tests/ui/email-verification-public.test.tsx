@@ -4,9 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
 
 const { apiRequest, startSession } = vi.hoisted(() => ({ apiRequest: vi.fn(), startSession: vi.fn() }));
-// Registration 现在承担 bootstrap（空邀请码建首位管理员），因此依赖会话上下文。
-// 真实运行时 SessionProvider 由 app/layout.tsx 的 Providers 全局挂载；
-// 这里的用例只渲染组件，所以按 bootstrap-first-admin.test.tsx 的同一方式打桩。
+// Registration 顶层调用 useSession（两条路径共用），因此依赖会话上下文，即使本文件只
+// 覆盖默认（非 bootstrap）路径。真实运行时 SessionProvider 由 app/layout.tsx 的
+// Providers 全局挂载；这里的用例只渲染组件，所以按 bootstrap-first-admin.test.tsx 的
+// 同一方式打桩。
 vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ startSession }) }));
 vi.mock("@/lib/api-client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api-client")>();
@@ -26,9 +27,8 @@ afterEach(() => {
 
 describe("registration verification queue", () => {
   function fillRegistration() {
-    // 标签随 bootstrap 合并改为「邀请码（首位管理员请留空）」——本用例走的是**有码**分支，
-    // 填满 14 位；空码分支的覆盖在 bootstrap-first-admin.test.tsx。
-    fireEvent.change(screen.getByLabelText("邀请码（首位管理员请留空）"), { target: { value: "ABCD1234EFGH56" } });
+    // open-self-serve-registration delta（issue #1929）：没有邀请码输入框了——默认路径
+    // 就是开放注册，bootstrap 分支的覆盖在 bootstrap-first-admin.test.tsx。
     fireEvent.change(screen.getByLabelText("组织名称"), { target: { value: "Example Org" } });
     fireEvent.change(screen.getByLabelText("你的姓名"), { target: { value: "Lin" } });
     fireEvent.change(screen.getByLabelText("工作邮箱"), { target: { value: "lin@example.test" } });
@@ -47,7 +47,7 @@ describe("registration verification queue", () => {
       await Promise.resolve();
     });
     expect(screen.getByTestId("registration-verification-queued")).toBeInTheDocument();
-    expect(apiRequest).toHaveBeenNthCalledWith(1, "/auth/register", expect.objectContaining({
+    expect(apiRequest).toHaveBeenNthCalledWith(1, "/auth/register-open", expect.objectContaining({
       method: "POST", sessionToken: null, body: expect.objectContaining({ email: "lin@example.test" }),
     }));
     expect(screen.getByTestId("registration-verification-resend")).toBeDisabled();

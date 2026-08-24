@@ -20,7 +20,7 @@ function repoWith(
   return {
     isFirstUserBootstrapAvailable: vi.fn().mockResolvedValue(available),
     bootstrapFirstUser: vi.fn().mockResolvedValue(result),
-    redeemAndCreateOrg: vi.fn(),
+    createAccountAndOrg: vi.fn(),
     // #411 把 confirmEmailVerification 从 RegistrationRepository 移到了专用的
     // EmailVerificationRepository（见 email-verification-ports.ts）——注册仓储不再承担
     // 验证态的读写。这里跟着收窄，不是删覆盖：该行为的测试在
@@ -30,15 +30,32 @@ function repoWith(
 }
 
 describe("BootstrapFirstUser completion contract", () => {
-  it("adds an independent public contract without changing invite registration", () => {
+  it("adds an independent public contract without changing open registration", () => {
     expect(C.operations.bootstrapFirstUser.method).toBe("POST");
     expect(C.operations.bootstrapFirstUser.path).toBe("/auth/bootstrap");
     expect(C.operations.bootstrapFirstUser.err).toEqual([
       "BOOTSTRAP_UNAVAILABLE",
       "EMAIL_TAKEN",
     ]);
-    expect(C.operations.redeemInviteAndCreateOrg.path).toBe("/auth/register");
-    expect(C.operations.redeemInviteAndCreateOrg.in.safeParse({
+    /**
+     * open-self-serve-registration delta (issue #1929): `redeemInviteAndCreateOrg` (and its
+     * `code`-shaped `in`) is gone. What replaced it, `registerNewAccount`, has NO `code`
+     * field AT ALL -- that is the point of the delta, not something to reject. So this is no
+     * longer a rejection assertion; it is a shape assertion: the same body that used to be
+     * rejected for MISSING a code now succeeds as a well-formed `registerNewAccount.in`,
+     * because that operation never had a `code` to miss.
+     */
+    expect(C.operations.registerNewAccount.path).toBe("/auth/register-open");
+    expect(C.operations.registerNewAccount.in.safeParse({
+      email: "first@example.com",
+      password: "correct-horse-battery-staple",
+      displayName: "First admin",
+      orgName: "First Org",
+    }).success).toBe(true);
+    // ...and a body that STILL carries a `code` field is rejected -- `.strict()` means no
+    // ghost field survives from the removed operation's shape.
+    expect(C.operations.registerNewAccount.in.safeParse({
+      code: "12345678901234",
       email: "first@example.com",
       password: "correct-horse-battery-staple",
       displayName: "First admin",
