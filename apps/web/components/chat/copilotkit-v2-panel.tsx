@@ -16,6 +16,8 @@ import {
 import { Pencil } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
+import { ActiveFilePanel } from "@/components/chat/active-file-panel";
+import { useAguiFileEvents } from "@/lib/agui-file-events";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -141,6 +143,33 @@ import {
  * 中间态变体是 #742 Gap 1 为"已完成步骤"争取一次宣布帧引入的，从未设计过覆盖"还没
  * 执行、正在等人裁决"这种语义），不存在"撞同一个 bug"这回事——是一个未开始建的
  * 能力，登记在案，不在本任务（仅前端 hook 接线）范围内新增后端实现。
+ *
+ * ── DA-13 双栏联动：Chat + 活动文件工作台（backlog DA-13）─────────────────────
+ *
+ * 左栏保持不变（上面这些 slot 组成的流式对话与决策过程）；新增右栏
+ * `ActiveFilePanel`——agent 通过 DA-15 定义的 `file_created`/`file_content_delta`
+ * `CUSTOM {name,value}` 事件"打开/写入文件"时，这里实时展开一个 tab，长文档/代码
+ * 不再塞进左栏的聊天气泡。
+ *
+ * `useAgent` 返回的 `agent` 是 `AbstractAgent`（`@ag-ui/client`）——其类型文档原话
+ * "calling `agent.subscribe(...)` is always safe"，与 `copilotkit-preview-panel.tsx`
+ * 消费 `onStateSnapshotEvent`/`onCustomEvent` 走的是同一套订阅接口，只是那个面板把
+ * 订阅参数传给单次 `runAgent()` 调用，这里的 `agent` 是跨多轮对话复用的同一个实例，
+ * 所以改成组件挂载时 `agent.subscribe(...)` 一次、整个组件生命周期内持续接收（不只
+ * 是"这一轮 runAgent 期间"）——文件是可能在某一轮工具调用里创建、后续轮次里继续追加
+ * 内容的，绑定到单次 `runAgent()` 调用会在两轮之间丢失订阅。
+ *
+ * ⚠ **没有真实生产者，如实登记**（完整原因见 `apps/web/lib/agui-file-events.ts`
+ * 文件头）：`deepagents` 的 `FilesystemMiddleware`（`harness.py` 已挂载，`write_file`/
+ * `edit_file` 是模型可以真实调用的工具）写入的是单次 run 状态内的临时虚拟文件系统，
+ * 不落 DB；DA-12 的 VFS `vfs://<attachment|artifact>/<id>` 要求 `id` 是"该 domain
+ * 自己权威表里的主键"，VFS 自己不发号、不落库。把 `FilesystemMiddleware` 的临时文件
+ * 硬套进这两个既有 domain 会谎称它们已经落库为真实的 attachment/artifact 行——本次
+ * 不做这个假映射，`copilotkit-agui.controller.ts` 因此本轮**不新增**任何
+ * `file_created`/`file_content_delta` 的真实生产逻辑。本组件是完整的消费端实现，
+ * 一旦后续任务（把 `FilesystemMiddleware` 的写入真正落地为 `chat_message_attachments`
+ * 之后再映射成 VFS URI）接上真实生产者，不需要再改前端代码。e2e 证据走协议精确的
+ * wire-level 测试夹具，见 `e2e/copilotkit-v2-active-file-panel.spec.ts` 文件头。
  */
 const APPROVAL_TOOL_NAME = "send_email";
 const approvalToolParameters = z.object({
@@ -304,6 +333,15 @@ export function CopilotKitV2Panel(): JSX.Element {
   const [inputDraft, setInputDraft] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
 
+  // DA-13 -- subscribe to the agent instance directly (not scoped to a single
+  // `runAgent()` call) so a file created in one turn keeps receiving content deltas in
+  // later turns. See the file-head comment above for why `agent.subscribe` is safe here.
+  const { files: activeFiles, onCustomEvent: onActiveFileCustomEvent } = useAguiFileEvents();
+  React.useEffect(() => {
+    const { unsubscribe } = agent.subscribe({ onCustomEvent: onActiveFileCustomEvent });
+    return unsubscribe;
+  }, [agent, onActiveFileCustomEvent]);
+
   // DA-19d —— human-in-the-loop.md "Setup" 范例的直接应用：`render` 收到
   // `{status, args, respond}`，本组件只负责把它交给 `SendEmailApprovalDialog`。
   // 不传 `agentId` 时 hook 默认绑定 provider 唯一的 `"default"` agent
@@ -340,52 +378,62 @@ export function CopilotKitV2Panel(): JSX.Element {
   );
 
   return (
-    <div className="flex h-full w-full flex-col gap-3 p-4">
-      <CopilotKitV2ToolRenderers />
-      <div className="text-sm font-medium">
-        CopilotKit v2（DA-19 —— CopilotRuntime 适配器，走 `/api/copilotkit`）
-      </div>
-      <div
-        className="flex-1 overflow-y-auto rounded border p-2"
-        data-testid="copilotkit-v2-messages"
-      >
-        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
-          <CopilotChatMessageView
-            messages={agent.messages}
-            isRunning={agent.isRunning}
-            assistantMessage={{ markdownRenderer: V2MarkdownRenderer }}
-          />
-        </CopilotChatConfigurationProvider>
-      </div>
-      {error !== null ? (
-        <div data-testid="copilotkit-v2-error" className="text-sm text-destructive">{error}</div>
-      ) : null}
-      <FollowUpSuggestions
-        agentId={threadId}
-        disabled={agent.isRunning}
-        onSelect={(text) => void send(text)}
-      />
-      <div className="flex gap-2">
-        <input
-          data-testid="copilotkit-v2-input"
-          className="flex-1 rounded border border-input px-2 py-1 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          placeholder="随便输入点什么"
-          value={inputDraft}
-          onChange={(e) => setInputDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void send();
-          }}
-        />
-        <button
-          data-testid="copilotkit-v2-send"
-          type="button"
-          className="rounded border border-border px-3 py-1 text-sm text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
-          disabled={agent.isRunning}
-          onClick={() => void send()}
+    <div className="flex h-full w-full gap-3 p-4">
+      {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
+          文件工作台，两栏各占一半宽度，右栏没有任何文件时不占位（见 ActiveFilePanel
+          自己的"缺席"纪律），左栏独占全宽。 */}
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <CopilotKitV2ToolRenderers />
+        <div className="text-sm font-medium">
+          CopilotKit v2（DA-19 —— CopilotRuntime 适配器，走 `/api/copilotkit`）
+        </div>
+        <div
+          className="flex-1 overflow-y-auto rounded border p-2"
+          data-testid="copilotkit-v2-messages"
         >
-          {agent.isRunning ? "…" : "发送"}
-        </button>
+          <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+            <CopilotChatMessageView
+              messages={agent.messages}
+              isRunning={agent.isRunning}
+              assistantMessage={{ markdownRenderer: V2MarkdownRenderer }}
+            />
+          </CopilotChatConfigurationProvider>
+        </div>
+        {error !== null ? (
+          <div data-testid="copilotkit-v2-error" className="text-sm text-destructive">{error}</div>
+        ) : null}
+        <FollowUpSuggestions
+          agentId={threadId}
+          disabled={agent.isRunning}
+          onSelect={(text) => void send(text)}
+        />
+        <div className="flex gap-2">
+          <input
+            data-testid="copilotkit-v2-input"
+            className="flex-1 rounded border border-input px-2 py-1 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            placeholder="随便输入点什么"
+            value={inputDraft}
+            onChange={(e) => setInputDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void send();
+            }}
+          />
+          <button
+            data-testid="copilotkit-v2-send"
+            type="button"
+            className="rounded border border-border px-3 py-1 text-sm text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+            disabled={agent.isRunning}
+            onClick={() => void send()}
+          >
+            {agent.isRunning ? "…" : "发送"}
+          </button>
+        </div>
       </div>
+      {activeFiles.length > 0 ? (
+        <div className="min-w-0 flex-1">
+          <ActiveFilePanel files={activeFiles} />
+        </div>
+      ) : null}
     </div>
   );
 }
