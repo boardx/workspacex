@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { AiMessage } from "./ai-message";
 import { ApprovalCard } from "./approval-card";
+import { MessageEntrance } from "./message-entrance";
 import { cn } from "@/lib/utils";
 import { TRANSCRIPT_ENTRIES, type ChatMessage } from "@/lib/mock/chat";
 
@@ -44,16 +45,18 @@ export function MessageStream({ messages }: { messages: ChatMessage[] }) {
 type Human = Extract<ChatMessage, { kind: "human" }>;
 function HumanMessage({ msg }: { msg: Human }) {
   return (
-    <article className="flex gap-2.5" data-testid="chat-human-message">
-      <Avatar initials={msg.initials} tone="human" size="md" />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <header className="flex items-center gap-2">
-          <span className="text-12 font-semibold">{msg.author}</span>
-          <span className="text-11 text-muted-foreground">{msg.time}</span>
-        </header>
-        <p className="text-13 text-card-foreground">{msg.text}</p>
-      </div>
-    </article>
+    <MessageEntrance testId="chat-message-entrance-human">
+      <article className="flex gap-2.5" data-testid="chat-human-message">
+        <Avatar initials={msg.initials} tone="human" size="md" />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <header className="flex items-center gap-2">
+            <span className="text-12 font-semibold">{msg.author}</span>
+            <span className="text-11 text-muted-foreground">{msg.time}</span>
+          </header>
+          <p className="text-13 text-card-foreground">{msg.text}</p>
+        </div>
+      </article>
+    </MessageEntrance>
   );
 }
 

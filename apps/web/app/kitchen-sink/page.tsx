@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/shell/app-shell";
 import { ButtonGallery } from "@/components/state/button-gallery";
-import { PrimitivesGallery, CompositePrimitivesGallery, MotionTokenGallery } from "@/components/state/primitives-gallery";
+import { PrimitivesGallery, CompositePrimitivesGallery, MotionTokenGallery, MessageEntranceGallery } from "@/components/state/primitives-gallery";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -106,6 +106,9 @@ export default function KitchenSinkPage({
 
         {/* ── 动效 token 档位（motion-microinteraction F03/F04）────── */}
         <MotionTokenGallery />
+
+        {/* ── 编排级动效演示（motion-microinteraction F04 UC-2）───── */}
+        <MessageEntranceGallery />
 
         {/* ── 字号档位 ─────────────────────────────────────────── */}
         <section className="flex flex-col gap-3" data-testid="section-typography">

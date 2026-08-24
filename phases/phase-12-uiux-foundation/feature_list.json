@@ -71,14 +71,14 @@
         "F03"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "claude-h",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/motion-orchestration.test.tsx",
         "pnpm --filter web exec playwright test -c playwright.config.ts -g 'reduced motion'"
       ],
-      "evidence": "",
+      "evidence": "evidence/F04.verify.log @ 2026-08-24T00:11:36.840Z",
       "notes": "依据等级：[设计]（IT-02；编排级动效无既有截图，属本阶段新设计内容，需在 UI 先行阶段产出预览并经人类签核，R8）。has_ui。R11 拆分：编排级动效独立成 feature。playwright 用 emulateMedia({ reducedMotion: 'reduce' }) 验证降级生效（R4-E1/R9）。切分最不确定之一：编排级动效的『值得编排的时刻』尚未由设计确认，落点（消息到达 vs 面板展开）可能在签核时调整。"
     },
     {
