@@ -1,0 +1,21 @@
+[
+  {
+    "type": "STATE_SNAPSHOT",
+    "snapshot": {
+      "todos": [
+        {
+          "content": "理解用户问题",
+          "status": "completed"
+        },
+        {
+          "content": "查询当前时间",
+          "status": "in_progress"
+        },
+        {
+          "content": "组织最终回答",
+          "status": "pending"
+        }
+      ]
+    }
+  }
+]
