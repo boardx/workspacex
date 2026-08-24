@@ -1,6 +1,12 @@
 /**
  * `RegistrationRepository` on PostgreSQL -- where invariant I-4 actually lives.
  *
+ * ⚠ open-self-serve-registration delta (issue #1929): `createAccountAndOrg` (the open,
+ * invite-free path this delta added) no longer touches `invite_codes` at all -- there is no
+ * code to redeem. The conditional-UPDATE statement below is now exclusively
+ * `joinExistingUserToNewOrg`'s (F22: an existing account spending a code for a SECOND org),
+ * which is untouched by this delta. The header below describes that surviving path.
+ *
  * ## The whole feature is the shape of ONE statement
  *
  * ```sql
@@ -49,10 +55,10 @@ import {
 import type {
   BootstrapFirstUserInput,
   BootstrapFirstUserResult,
+  CreateAccountAndOrgInput,
+  CreateAccountAndOrgResult,
   JoinNewOrgInput,
   JoinNewOrgResult,
-  RedeemAndCreateOrgInput,
-  RedeemAndCreateOrgResult,
   RegistrationRepository,
 } from "../../application/auth/ports";
 
@@ -73,11 +79,14 @@ class Rollback extends Error {
 }
 
 /**
- * The redemption statement, shared by both entry points (F22).
+ * The redemption statement.
  *
- * ⚠ Extracted so there is exactly ONE conditional UPDATE in this file. I-4 is a property of
- * this statement's shape -- `WHERE ... AND redeemed_by_user_id IS NULL`, assert one row --
- * and `one-code-one-org-concurrency.test.ts` layer 2 exists precisely because the forbidden
+ * ⚠ Before the open-self-serve-registration delta this was shared by TWO entry points
+ * (F19's invite registration and F22's join-second-org); now only `joinExistingUserToNewOrg`
+ * uses it. Still extracted into its own constant so there is exactly ONE conditional UPDATE
+ * in this file. I-4 is a property of this statement's shape -- `WHERE ...
+ * AND redeemed_by_user_id IS NULL`, assert one row -- and
+ * `one-code-one-org-concurrency.test.ts` layer 2 exists precisely because the forbidden
  * SELECT-then-UPDATE shape lets BOTH racers through with no error anywhere. A second copy
  * of this statement is a second chance to write that shape, in a path whose concurrency
  * nobody re-tested.
@@ -169,18 +178,23 @@ export class PgRegistrationRepository implements RegistrationRepository {
     await s.query("SELECT set_config('app.current_org', $1, true)", [input.orgId]);
   }
 
-  async redeemAndCreateOrg(input: RedeemAndCreateOrgInput): Promise<RedeemAndCreateOrgResult> {
+  /**
+   * open-self-serve-registration delta (issue #1929): the same transaction as the removed
+   * `redeemAndCreateOrg`, minus the invite-code redemption step. See `writeCreateAccountAndOrg`
+   * for what changed and why the ordering argument still holds without a code to redeem.
+   */
+  async createAccountAndOrg(input: CreateAccountAndOrgInput): Promise<CreateAccountAndOrgResult> {
     try {
       // The tenant context is the organization being CREATED. `organizations` and
       // `org_memberships` are FORCE RLS'd with `WITH CHECK (... = app.current_org)`, so the
       // inserts below are checked by the same policy that guards every other write -- the
       // registration path gets no privileged door.
-      await this.db.withTenant(input.orgId, (s) => this.writeAll(s, input));
+      await this.db.withTenant(input.orgId, (s) => this.writeCreateAccountAndOrg(s, input));
       return { ok: true, userId: input.userId, orgId: input.orgId };
     } catch (e) {
       if (e instanceof Rollback) {
-        if (e.reason === "bootstrap-unavailable") throw e;
-        return { ok: false, reason: e.reason };
+        if (e.reason === "email-taken") return { ok: false, reason: e.reason };
+        throw e;
       }
       throw e;
     }
@@ -188,15 +202,20 @@ export class PgRegistrationRepository implements RegistrationRepository {
 
   /**
    * The transaction body. Ordering is load-bearing; each step says why it is where it is.
+   *
+   * ⚠ open-self-serve-registration delta: the former step (4), the conditional UPDATE that
+   * redeemed an invite code, is GONE -- there is no code to redeem. I-4 ("credential +
+   * organization + owner membership are one transaction") still holds for what remains; it
+   * just no longer has a contended row to serialize four concurrent racers on. The only
+   * remaining contention is the `credentials_email_uniq` unique index, handled by step (1)
+   * below exactly as before.
    */
-  private async writeAll(s: TenantSession, input: RedeemAndCreateOrgInput): Promise<void> {
+  private async writeCreateAccountAndOrg(s: TenantSession, input: CreateAccountAndOrgInput): Promise<void> {
     // (1) Credential first.
     //
     // Not for correctness -- a later failure rolls this back either way -- but because
-    // `EMAIL_TAKEN` is the cheap, common, non-contended failure, and failing it here means
-    // a doomed registration never touches the invite-code row. Under concurrent load,
-    // taking the contended lock first and then discovering a duplicate email would make
-    // every other redeemer of that code wait on a transaction that was never going to win.
+    // `EMAIL_TAKEN` is the cheap, common failure, and failing it here means a doomed
+    // registration never touches `organizations` or `org_memberships` at all.
     try {
       await s.query(
         `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
@@ -258,30 +277,7 @@ export class PgRegistrationRepository implements RegistrationRepository {
     });
     await s.query("SELECT set_config('app.current_org', $1, true)", [input.orgId]);
 
-    // (4) Redemption -- the conditional UPDATE. See the file header.
-    //
-    // It is LAST because `created_org_id` references `organizations`, so the row it points
-    // at has to exist. That ordering also means both racers create their organization
-    // provisionally and exactly one commits, which is the literal statement of I-4: the
-    // loser leaves no half organization because it leaves no organization at all.
-    //
-    // ⚠ `expires_at > now()` and `revoked_at IS NULL` are in the same WHERE clause rather
-    // than checked separately, so expiry and revocation are also decided atomically, and
-    // all three failures produce the same zero-row outcome -- which is what makes V9 and
-    // V11 ("expired/revoked/absent are indistinguishable") true by construction rather than
-    // by the application remembering to collapse three branches into one message.
-    //
-    // ⚠ RETURNING + row count, not `rowCount`: `TenantSession` exposes rows only. Asserting
-    // `rows.length === 1` is the same assertion; `RETURNING code` keeps the payload to a
-    // value the caller already had.
-    const redeemed = await s.query<{ code: string }>(REDEEM_SQL, [
-      input.userId,
-      input.orgId,
-      input.code,
-    ]);
-    if (redeemed.rows.length !== 1) throw new Rollback("invite-code-invalid");
-
-    // (5) Queue the verification email, in the same transaction.
+    // (4) Queue the verification email, in the same transaction.
     //
     // This is what lets the contract's `verificationDelivery: "queued"` be honest:
     // if this write fails, everything above rolls back and no account exists (UC-1.5 V6:

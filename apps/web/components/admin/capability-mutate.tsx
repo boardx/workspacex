@@ -255,11 +255,18 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
 /* ───────────────────────────── 更新 ───────────────────────────── */
 
 export function CapabilityEditForm({
-  ctx, row, onClose, extra,
+  ctx, row, onClose, extra, compact = false,
 }: {
   ctx: MutateContext;
   row: CapabilityListing;
   onClose(): void;
+  /**
+   * #1971 —— 人类截图实测反馈：`/admin/skill/[id]` 全屏编辑页里，名称/可见范围两个
+   * 字段各占一行、字号偏大，挤占了文件树/代码编辑器的空间。`compact` 时把它们压成
+   * 一条小字号单行（`仅团队可见` 展开出的团队 ID 字段仍单独换行，本就是少数情形）。
+   * 默认 `false`——`/admin/agent/[id]` 不传，布局不变。
+   */
+  compact?: boolean;
   /**
    * #848 —— 挂在表单下方的、按 kind 定制的额外区块（目前只有 skill 目录用它挂
    * 「内容（文件树 / 代码）」面板）。
@@ -316,6 +323,62 @@ export function CapabilityEditForm({
       setBusy(false);
     }
   };
+
+  if (compact) {
+    return (
+      <div className="flex w-full min-h-0 flex-1 flex-col gap-1.5" data-testid={`${id}-compact-form`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={busy}
+            autoComplete="off"
+            data-testid={`${id}-name`}
+            aria-label="名称"
+            className="h-7 max-w-[220px] text-11"
+          />
+          <select
+            className={SELECT_CLASS.replace("h-8", "h-7").replace("text-13", "text-11") + " w-auto"}
+            value={scope}
+            disabled={busy}
+            onChange={(e) => setScope(e.target.value as VisibilityScope)}
+            data-testid={`${id}-scope`}
+            aria-label="可见范围"
+          >
+            <option value="org-wide">全组织可见</option>
+            <option value="team-only">仅团队可见</option>
+          </select>
+          <div className="ml-auto flex items-center gap-1.5">
+            <Button size="xs" variant="ghost" disabled={busy} onClick={onClose}>
+              取消
+            </Button>
+            <Button size="xs" disabled={busy} onClick={() => void save()} data-testid={`${id}-save`}>
+              {busy ? "保存中…" : "保存"}
+            </Button>
+          </div>
+        </div>
+        {scope === "team-only" ? (
+          <label className="flex flex-col gap-1 text-11">
+            <span>拥有它的团队 ID</span>
+            <Input
+              value={ownerTeamId}
+              onChange={(e) => setOwnerTeamId(e.target.value)}
+              disabled={busy}
+              autoComplete="off"
+              data-testid={`${id}-owner-team`}
+              className="h-7 max-w-[280px] text-11"
+            />
+          </label>
+        ) : null}
+        {error ? (
+          <p data-testid={`${id}-error`} className="text-11 text-destructive">
+            更新失败：{error}
+          </p>
+        ) : null}
+        {extra}
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full flex-col gap-3">

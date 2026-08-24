@@ -209,7 +209,7 @@ export function CopilotKitPreviewPanel(): JSX.Element {
       <div className="flex gap-2">
         <input
           data-testid="copilotkit-preview-input"
-          className="flex-1 rounded border px-2 py-1 text-sm"
+          className="flex-1 rounded border border-input px-2 py-1 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="随便输入点什么"
           value={inputDraft}
           onChange={(e) => setInputDraft(e.target.value)}
@@ -220,7 +220,7 @@ export function CopilotKitPreviewPanel(): JSX.Element {
         <button
           data-testid="copilotkit-preview-send"
           type="button"
-          className="rounded border px-3 py-1 text-sm"
+          className="rounded border border-border px-3 py-1 text-sm text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
           disabled={busy}
           onClick={() => void send()}
         >

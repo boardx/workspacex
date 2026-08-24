@@ -224,7 +224,7 @@ export function ChatFileUploadPreview({ scene }: { scene: UploadScene }) {
         ) : null}
 
         <div
-          className={`relative rounded-2xl border bg-card p-1.5 shadow-sm transition-all duration-200 ${
+          className={`relative rounded-2xl border bg-card p-1.5 shadow-sm transition-all duration-base ${
             dragActive ? "border-primary ring-2 ring-primary" : "border-border-subtle"
           }`}
           onDragOver={(e) => {
@@ -383,7 +383,7 @@ function AttachmentRow({
   const isUploading = att.status === "uploading";
   return (
     <li
-      className={`relative rounded-lg border bg-panel px-2 py-1.5 transition-colors duration-200 ${
+      className={`relative rounded-lg border bg-panel px-2 py-1.5 transition-colors duration-base ${
         isError ? "border-destructive/40" : "border-border-subtle"
       }`}
       data-testid={`chat-attachment-chip-${att.id}`}

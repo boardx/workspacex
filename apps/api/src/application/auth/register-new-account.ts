@@ -1,19 +1,29 @@
 /**
- * `RedeemInviteAndCreateOrg` (F19 / UC-1.5) -- the use case.
+ * `RegisterNewAccount` (open-self-serve-registration delta, issue #1929) -- the use case.
+ *
+ * Replaces the removed `registerWithInvite`/`redeemInviteAndCreateOrg`: any caller can
+ * self-serve a brand new organization and become its owner, with no invite code. See
+ * `phases/phase-00-shared-kernel/design-deltas/open-self-serve-registration/contract.md`
+ * for the signed-off decision record (5 points, all human-ruled 2026-08-24).
  *
  * Orchestration only. It knows nothing about HTTP and nothing about PostgreSQL; the
  * transaction it depends on is a property of the port's single method (see `ports.ts`).
+ *
+ * ## Anti-abuse: email verification, reusing the EXISTING closed loop
+ *
+ * Decision ②: the only anti-abuse control this delta adds is that the new account starts
+ * unverified (`email_verified_at IS NULL`, same as the old invite path) and cannot log in
+ * until it verifies -- see `login.ts`'s `EMAIL_NOT_VERIFIED` check, which reads directly off
+ * the `credentials` row and does not care which registration path wrote it. No rate limiting
+ * or CAPTCHA is added (decision ⑤ -- explicitly out of scope for this round).
  *
  * ## What is done HERE rather than inside the transaction, and why
  *
  * Password hashing. A bcrypt cost-12 hash takes hundreds of milliseconds by design -- that
  * slowness is the entire point of I-2. Doing it inside the transaction would hold the
- * invite-code row lock for that whole time, which under the concurrent-redemption case
- * (V3) means the losing transaction waits ~a second to be told the code is gone. Worse, it
- * scales: N concurrent attempts serialise into N hash-lengths of lock time.
- *
- * So: hash first, then open the transaction. The cost is a hash computed for a
- * registration that may fail -- which is CPU, not correctness.
+ * `credentials_email_uniq` contention window open for that whole time. So: hash first, then
+ * open the transaction. The cost is a hash computed for a registration that may fail --
+ * which is CPU, not correctness.
  */
 import { auth as A } from "@repo/contracts";
 import {
@@ -22,11 +32,11 @@ import {
   normalizeEmail,
 } from "../../domain/auth/registration";
 import { EMAIL_VERIFICATION_TTL_MS } from "../../domain/auth/email-verification";
-import { EmailTakenError, InviteCodeInvalidError } from "./errors";
+import { EmailTakenError } from "./errors";
 import type { PasswordHasher, RegistrationRepository } from "./ports";
 import type { EmailVerificationTokenCodec } from "./email-verification-ports";
 
-export interface RegisterDeps {
+export interface RegisterNewAccountDeps {
   readonly repo: RegistrationRepository;
   readonly hasher: PasswordHasher;
   readonly verificationTokens: EmailVerificationTokenCodec;
@@ -34,15 +44,14 @@ export interface RegisterDeps {
   readonly now?: () => Date;
 }
 
-export interface RegisterInput {
-  readonly code: string;
+export interface RegisterNewAccountInput {
   readonly email: string;
   readonly password: string;
   readonly displayName: string;
   readonly orgName: string;
 }
 
-export interface RegisterOutput {
+export interface RegisterNewAccountOutput {
   readonly userId: string;
   readonly orgId: string;
   readonly verificationDelivery: "queued";
@@ -50,37 +59,26 @@ export interface RegisterOutput {
   readonly pendingIdentityProof: string;
 }
 
-export async function registerWithInvite(
-  deps: RegisterDeps,
-  input: RegisterInput,
-): Promise<RegisterOutput> {
+export async function registerNewAccount(
+  deps: RegisterNewAccountDeps,
+  input: RegisterNewAccountInput,
+): Promise<RegisterNewAccountOutput> {
   const now = (deps.now ?? (() => new Date()))();
 
   const passwordHash = await deps.hasher.hash(input.password);
 
   /**
-   * ⚠ Self-check against the contract's own definition of "slow hash" (I-2).
-   *
-   * This is not defensive noise. The hasher is a PORT: the composition root can bind any
-   * implementation, and the failure mode of binding a wrong one is not an exception -- it
-   * is a `credentials` row with a fast hash in it, which nothing at runtime would notice.
-   * The database's CHECK constraint catches it too, but one layer later and with a message
-   * about a constraint rather than about I-2.
-   *
-   * Parsed against the contract's schema, so "what counts as a slow hash" has exactly one
-   * definition (packages/contracts/src/auth.ts `PasswordHashFormat`).
+   * ⚠ Self-check against the contract's own definition of "slow hash" (I-2). Same reasoning
+   * as the removed `registerWithInvite` -- not defensive noise, see that use case's history
+   * for the full argument.
    */
   if (!A.PasswordHashFormat.safeParse(passwordHash).success) {
-    // ⚠ Note what is NOT in this message: the hash, and obviously the password. The
-    // implementation's identity is what a maintainer needs; the value is what an attacker
-    // needs.
     throw new Error("password hasher produced a hash that violates invariant I-2");
   }
 
   const challengeId = deps.verificationTokens.newChallengeId();
   const verificationToken = deps.verificationTokens.tokenForChallenge(challengeId);
-  const result = await deps.repo.redeemAndCreateOrg({
-    code: input.code,
+  const result = await deps.repo.createAccountAndOrg({
     email: normalizeEmail(input.email),
     displayName: input.displayName,
     passwordHash,
@@ -94,8 +92,7 @@ export async function registerWithInvite(
   });
 
   if (!result.ok) {
-    if (result.reason === "email-taken") throw new EmailTakenError();
-    throw new InviteCodeInvalidError();
+    throw new EmailTakenError();
   }
 
   return {

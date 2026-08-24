@@ -47,12 +47,21 @@ type LoadState =
   | { readonly status: "ready"; readonly row: CapabilityListing };
 
 export function CapabilityEditPage({
-  kind, id, renderEditExtra,
+  kind, id, renderEditExtra, compact = false,
 }: {
   kind: EditableKind;
   id: string;
   /** 与 `capability-catalog-screen.tsx` 的同名 prop 同一份注入，见其头注。 */
   renderEditExtra?: (row: CapabilityListing) => React.ReactNode;
+  /**
+   * #1971 —— 人类截图实测反馈：`/admin/skill/[id]` 现在是全屏专注编辑模式（无左栏/
+   * 顶栏 chrome），页面上半部分（返回链接 + 大标题 + id + 名称/可见范围表单）仍占了
+   * 大段空间，把文件树 + 代码编辑器挤成不到一半屏幕。`compact` 把这段头部压成一行，
+   * 让 `extra`（`SkillContentEditorSection`）拿到大部分高度。
+   *
+   * ⚠ 默认 `false`——`/admin/agent/[id]` 不传，保持原有（非全屏）布局不变。
+   */
+  compact?: boolean;
 }) {
   const { session, identity } = useSession();
   if (!session) throw new Error("CapabilityEditPage requires an authenticated session");
@@ -98,15 +107,31 @@ export function CapabilityEditPage({
     : null;
 
   return (
-    <div className="flex flex-col gap-5 p-6" data-testid={`${prefix}-page`}>
-      <Link
-        href={backHref}
-        className="inline-flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors duration-200 hover:text-foreground"
-        data-testid={`${prefix}-back`}
-      >
-        <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
-        返回 {SINGULAR[kind]} 目录
-      </Link>
+    <div
+      className={compact ? "flex h-full min-h-0 flex-col gap-2 p-3" : "flex flex-col gap-5 p-6"}
+      data-testid={`${prefix}-page`}
+    >
+      {/* #1971：compact 时这行连同 ready 态的名称/id 一起压成一条小字头部（见下方）。 */}
+      {!compact && (
+        <Link
+          href={backHref}
+          className="inline-flex w-fit items-center gap-1 text-12 text-muted-foreground transition-colors duration-200 hover:text-foreground"
+          data-testid={`${prefix}-back`}
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
+          返回 {SINGULAR[kind]} 目录
+        </Link>
+      )}
+      {compact && state.status !== "ready" && (
+        <Link
+          href={backHref}
+          className="inline-flex w-fit items-center gap-1 text-11 text-muted-foreground transition-colors duration-base hover:text-foreground"
+          data-testid={`${prefix}-back`}
+        >
+          <ArrowLeft aria-hidden className="h-3 w-3" />
+          返回 {SINGULAR[kind]} 目录
+        </Link>
+      )}
 
       {state.status === "loading" ? (
         <div
@@ -153,10 +178,23 @@ export function CapabilityEditPage({
       ) : null}
 
       {state.status === "ready" && canMutate && ctx ? (
-        <div className="flex flex-col gap-1">
-          <h1 className="text-18 font-semibold tracking-tight">{state.row.name}</h1>
-          <p className="font-mono text-10 text-muted-foreground">{state.row.id}</p>
-          <div className="mt-3">
+        compact ? (
+          <div className="flex h-full min-h-0 flex-col gap-2" data-testid={`${prefix}-compact-header`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={backHref}
+                className="inline-flex shrink-0 items-center gap-1 text-11 text-muted-foreground transition-colors duration-base hover:text-foreground"
+                data-testid={`${prefix}-back`}
+              >
+                <ArrowLeft aria-hidden className="h-3 w-3" />
+                {SINGULAR[kind]} 目录
+              </Link>
+              <span className="h-3 w-px shrink-0 bg-border" aria-hidden />
+              <span className="truncate text-13 font-semibold tracking-tight text-foreground">
+                {state.row.name}
+              </span>
+              <span className="truncate font-mono text-9 text-muted-foreground">{state.row.id}</span>
+            </div>
             <CapabilityEditForm
               ctx={ctx}
               row={state.row}
@@ -164,9 +202,25 @@ export function CapabilityEditPage({
                 window.location.href = backHref;
               }}
               extra={renderEditExtra ? renderEditExtra(state.row) : undefined}
+              compact
             />
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <h1 className="text-18 font-semibold tracking-tight">{state.row.name}</h1>
+            <p className="font-mono text-10 text-muted-foreground">{state.row.id}</p>
+            <div className="mt-3">
+              <CapabilityEditForm
+                ctx={ctx}
+                row={state.row}
+                onClose={() => {
+                  window.location.href = backHref;
+                }}
+                extra={renderEditExtra ? renderEditExtra(state.row) : undefined}
+              />
+            </div>
+          </div>
+        )
       ) : null}
     </div>
   );

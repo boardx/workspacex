@@ -8,10 +8,13 @@ import { ApiError } from "@/lib/api-client";
  * 人类裁决「创建组织统一到 `/auth/register` 独立页」后，同一段 bootstrap 行为搬到了
  * `Registration`，本文件跟着改锚点。
  *
- * ⚠ **搬的是锚点，不是标准**：四条断言逐条保留——空邀请码走 bootstrap、
- * BOOTSTRAP_UNAVAILABLE 先试登录再要邀请码、响应丢失用 login 收敛、
- * 以及"账号已建但会话没起来"必须给可重试出口而不是把人晾在那儿。
- * 若哪天有人想删其中一条，那是**降低标准**，不是清理陈旧测试。
+ * ⚠ **搬的是锚点，不是标准**：四条断言逐条保留——BOOTSTRAP_UNAVAILABLE 先试登录再
+ * 提示已有管理员、响应丢失用 login 收敛、以及"账号已建但会话没起来"必须给可重试出口
+ * 而不是把人晾在那儿。若哪天有人想删其中一条，那是**降低标准**，不是清理陈旧测试。
+ *
+ * ⚠ open-self-serve-registration delta（issue #1929）：触发方式从「邀请码留空」换成
+ * 显式的「创建首位管理员」切换（`registration-bootstrap-toggle`）——`bootstrapFirstUser`
+ * 本身不在本 delta 移除范围，只是不再靠一个已经不存在的邀请码输入框的空值触发。
  */
 const { bootstrapFirstUser, login, startSession } = vi.hoisted(() => ({
   bootstrapFirstUser: vi.fn(),
@@ -31,7 +34,8 @@ vi.mock("@/components/session/session-provider", () => ({
 import { Registration } from "@/components/entry/registration";
 
 function fillFirstAdmin() {
-  // 邀请码一格不填 —— 空码就是 bootstrap 模式的**唯一**开关，不存在第二个"我是首位管理员"勾选框。
+  // 显式切到 bootstrap 模式 —— 不再有邀请码输入框可以留空，切换按钮是唯一开关。
+  fireEvent.click(screen.getByTestId("registration-bootstrap-toggle"));
   fireEvent.change(screen.getByTestId("registration-org-name"), { target: { value: "First Org" } });
   fireEvent.change(screen.getByTestId("registration-display-name"), { target: { value: "First Admin" } });
   fireEvent.change(screen.getByTestId("registration-email"), { target: { value: "first@example.com" } });
@@ -49,7 +53,7 @@ beforeEach(() => {
 });
 
 describe("first-user bootstrap on the real registration page", () => {
-  it("blank invite means first admin: create, login immediately, and persist the real session", async () => {
+  it("toggling to bootstrap mode creates the first admin, logs in immediately, and persists the real session", async () => {
     bootstrapFirstUser.mockResolvedValueOnce({ userId: "user_1", orgId: "org_1", emailVerified: true });
     login.mockResolvedValueOnce({ sessionToken: "opaque", session: { userId: "user_1" } });
     render(<Registration />);
@@ -69,7 +73,7 @@ describe("first-user bootstrap on the real registration page", () => {
     expect(startSession).toHaveBeenCalledWith(expect.objectContaining({ sessionToken: "opaque" }));
   });
 
-  it("once bootstrap is unavailable, tries the submitted account then asks for an invite", async () => {
+  it("once bootstrap is unavailable, tries the submitted account then points at open registration", async () => {
     bootstrapFirstUser.mockRejectedValueOnce(new ApiError(409, "BOOTSTRAP_UNAVAILABLE", {}));
     login.mockRejectedValueOnce(new ApiError(401, "LOGIN_REJECTED", {}));
     render(<Registration />);
@@ -77,7 +81,7 @@ describe("first-user bootstrap on the real registration page", () => {
     submit();
 
     await waitFor(() => expect(screen.getByTestId("registration-error")).toHaveTextContent(
-      "已有管理员，请输入 14 位邀请码",
+      "已有管理员，本实例的首位管理员已经创建过，请改用上方的开放注册创建新组织。",
     ));
     expect(login).toHaveBeenCalledWith("first@example.com", "correct-horse-battery-staple");
   });

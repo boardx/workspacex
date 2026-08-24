@@ -56,6 +56,33 @@ export default {
   // 生产门控校验用独立的 dist 目录：否则 `next dev` 与 `next build` 争抢 .next，
   // 会出现 "Cannot find module ./vendor-chunks/..." 这类假故障。
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  /**
+   * DA-19 —— `@copilotkit/react-core/dist/v2/index.mjs`（`@copilotkit/react-core/v2`
+   * 的唯一公开入口，`CopilotKit`/`useAgent`/`useCopilotKit` 都从这里导出，见
+   * `package.json` 的 `exports` 表——没有能绕开它单独拿到这些 API 的子路径）在模块
+   * 顶层无条件 `import "./index.css"`，那份 CSS 是 Tailwind v4 编译产物
+   * （`@layer properties`/`@layer base` 等语法）。本仓 `postcss.config` 走的是
+   * Tailwind v3 一代插件，处理到这份文件时报
+   * `` `@layer base` is used but no matching `@tailwind base` directive is present ``
+   * ——不是某个具体组件的 bug，是两代 Tailwind 语法在同一条 PostCSS 管线里天然不兼容，
+   * 实测（DA-19 e2e 三轮：直接删本仓自己的 import 无效，因为 import 在依赖包内部；
+   * 清空 webpack 持久化缓存无效，因为它是模块图的一部分，不是缓存伪影）。
+   *
+   * 用 `NormalModuleReplacementPlugin` 把这一个资源路径换成本仓自己的空 CSS 文件
+   * （`lib/empty-copilotkit-v2-styles.css`）——只影响这一份样式表的内容，不改变
+   * `CopilotKit`/`useAgent` 等运行时 API 的任何行为（它们都不依赖这份样式），也不
+   * 影响其它任何路由或依赖包的 CSS 处理。`@copilotkit/react-ui/styles.css`
+   * （`globals.css` 已引入的那份，见其头注）是完全独立的另一个包/文件，不受影响。
+   */
+  webpack(config, { webpack }) {
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(
+        /@copilotkit[\\/]react-core[\\/]dist[\\/]v2[\\/]index\.css$/,
+        join(__dirname, "lib/empty-copilotkit-v2-styles.css"),
+      ),
+    );
+    return config;
+  },
   async rewrites() {
     const fullstackApiOrigin = process.env.FULLSTACK_E2E_API_ORIGIN;
     const apiOrigin = fullstackApiOrigin ?? process.env.CHAT_READ_E2E_API_ORIGIN;

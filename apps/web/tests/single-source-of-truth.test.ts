@@ -81,15 +81,28 @@ describe("认证策略数值单一事实源", () => {
    * 而失败的检查，第一次误报就会被人删掉，之后真正的副本回来了也没人拦。
    * ⇒ 改成断言真正要守的性质：长度判断从契约取值，不是字面量。
    */
-  it("真实注册页的邀请码长度判断取自契约，不是字面量 14", () => {
-    const registration = readFileSync(new URL("../components/entry/registration.tsx", import.meta.url), "utf8");
-    // 2026-08-04：邀请码字段不再 `required`/`minLength`——**留空 = bootstrap 建首位管理员**
-    // （#452 的能力，人类裁决「创建组织统一到 /auth/register」后搬到本页）。所以长度判断
-    // 从 JSX 属性移到了提交禁用条件与计数回显里。**断言要守的性质没变**：长度取自契约。
-    expect(registration).toMatch(/C\.AUTH_POLICY\.inviteCodeLength/);
+  it("组织成员邀请码的长度判断取自契约，不是字面量 14", () => {
+    // ⚠ open-self-serve-registration delta（issue #1929）：注册页（`registration.tsx`）
+    // 的邀请码输入框已随 `redeemInviteAndCreateOrg` 一并移除——UC-1.5 的"用邀请码建组织"
+    // 路径不再存在，这条断言原本盯的目标文件里已经没有邀请码长度判断可读了。
+    // `invite_codes`/`InviteCodeValue` 本身**不在**移除范围（design-signoff 已明确），
+    // 组织内部成员邀请（`invites-screen.tsx`，`joinOrgWithInvite` 契约操作）仍然用同一枚
+    // 14 位邀请码——本条断言的目标随之改指向那个仍然存活的邀请码 UI，守的性质没变：
+    // 长度取自契约，不是手抄的字面量。
+    const invitesScreen = readFileSync(
+      new URL("../components/org-admin/invites-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(invitesScreen).toMatch(/AUTH_POLICY\.inviteCodeLength/);
     // 手抄的迹象：任何形式的字面量 14 比长度
-    expect(registration).not.toMatch(/minLength={14}/);
-    expect(registration).not.toMatch(/length\s*[!=]==?\s*14\b/);
+    expect(invitesScreen).not.toMatch(/minLength={14}/);
+    expect(invitesScreen).not.toMatch(/length\s*[!=]==?\s*14\b/);
+
+    // ...而注册页现在真的没有邀请码这回事了——反证一下，免得这条断言看似守住了
+    // 什么，其实注册页悄悄又长回一个手抄的邀请码字段。
+    const registration = readFileSync(new URL("../components/entry/registration.tsx", import.meta.url), "utf8");
+    expect(registration).not.toMatch(/inviteCodeLength/);
+    expect(registration).not.toMatch(/registration-code/);
   });
 });
 

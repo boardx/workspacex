@@ -91,9 +91,9 @@ function ToolCalls({ log }: { log: ToolCallLog }) {
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-testid="chat-tool-calls-toggle"
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-11 transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-11 transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-200", open && "rotate-90")} />
+        <ChevronRight aria-hidden className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-fast", open && "rotate-90")} />
         <span className="font-medium">工具调用 · {log.count}</span>
         <span className="text-muted-foreground">｜ 读了 {log.readItems} 条 · {log.tokens} token</span>
       </button>
@@ -138,7 +138,7 @@ function CitationList({ citations }: { citations: CitationView[] }) {
             onClick={() => setOpenIdx((v) => (v === c.index ? null : c.index))}
             aria-expanded={openIdx === c.index}
             data-testid="chat-citation-row"
-            className="flex w-full items-baseline gap-2 rounded-sm px-1 py-0.5 text-left transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full items-baseline gap-2 rounded-sm px-1 py-0.5 text-left transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="shrink-0 text-11 font-semibold text-primary">{c.index}</span>
             <span className="min-w-0 flex-1 text-11">

@@ -29,8 +29,11 @@ export default defineConfig({
    * 需要真登录 + 组织 admin 角色（`ReviewerFunctionPicker` 仅 admin 渲染）+ 真种子库，
    * 同样是这套编排的自然延伸。用的是独立的 `orgAdminKeyboardAdminEmail`/
    * `orgAdminKeyboardMemberEmail` 账号对（`self-service-profile-fixture.ts` 头注）。
+   *
+   * F15 —— 新增 `profile-org-fidelity.spec.ts` 同理接住：复用 admin 账号，只读
+   * 两个页面并截图 + 断言无横向溢出，不改任何写路径状态，与既有用例互不干扰。
    */
-  testMatch: /(self-service-profile|profile-keyboard-navigation|org-admin-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(self-service-profile|profile-keyboard-navigation|org-admin-keyboard-navigation|profile-org-fidelity)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   // 本文件一条用例里串了登录/改名/刷新/改密码/退出/两次重新登录/团队增改删五组动作，

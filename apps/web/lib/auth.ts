@@ -12,8 +12,9 @@ import { ApiError, apiRequest } from "./api-client";
 export type LoginOut = z.infer<typeof auth.operations.login.out>;
 export type BootstrapFirstUserIn = z.infer<typeof auth.operations.bootstrapFirstUser.in>;
 export type BootstrapFirstUserOut = z.infer<typeof auth.operations.bootstrapFirstUser.out>;
-export type RegisterWithInviteIn = z.infer<typeof auth.operations.redeemInviteAndCreateOrg.in>;
-export type RegisterWithInviteOut = z.infer<typeof auth.operations.redeemInviteAndCreateOrg.out>;
+/** open-self-serve-registration delta (issue #1929) -- replaces the removed invite-code shape. */
+export type RegisterNewAccountIn = z.infer<typeof auth.operations.registerNewAccount.in>;
+export type RegisterNewAccountOut = z.infer<typeof auth.operations.registerNewAccount.out>;
 export type RequestPasswordResetOut = z.infer<typeof auth.operations.requestPasswordReset.out>;
 
 export async function login(email: string, password: string): Promise<LoginOut> {
@@ -32,8 +33,8 @@ export async function bootstrapFirstUser(input: BootstrapFirstUserIn): Promise<B
   });
 }
 
-export async function registerWithInvite(input: RegisterWithInviteIn): Promise<RegisterWithInviteOut> {
-  return apiRequest<RegisterWithInviteOut>(auth.operations.redeemInviteAndCreateOrg.path, {
+export async function registerNewAccount(input: RegisterNewAccountIn): Promise<RegisterNewAccountOut> {
+  return apiRequest<RegisterNewAccountOut>(auth.operations.registerNewAccount.path, {
     method: "POST",
     body: input,
     sessionToken: null,

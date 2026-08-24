@@ -99,18 +99,13 @@ beforeEach(async () => {
 describe("I-2: every user has exactly one personal-local organization", () => {
   it("registration creates it in the SAME transaction as the account", async () => {
     await cleanRegistration();
-    await asOwner((c) =>
-      c.query(
-        "INSERT INTO invite_codes (code, expires_at) VALUES ($1, now() + interval '30 days')",
-        [REG_CODE],
-      ),
-    );
 
-    const r = await fetch(`${BASE}/auth/register`, {
+    // 取消注册邀请码后（issue #1929），注册走 registerNewAccount（POST /auth/register-open），
+    // 不再需要先种一条 invite_codes 行。
+    const r = await fetch(`${BASE}/auth/register-open`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        code: REG_CODE,
         email: REG_EMAIL,
         password: "a-long-enough-password-1",
         displayName: "F16 注册人",

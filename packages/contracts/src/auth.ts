@@ -13,7 +13,9 @@
  *
  * ⚠ **本文件由 F19 与 F20/F21 并行写入。** 新增只许**追加**，不许改写他人段落。
  *   F20/F21 段：`login` / `requestPasswordReset` / `completePasswordReset`
- *   F19/F22 段：`redeemInviteAndCreateOrg` / `switchOrgAtLogin`（见文件末尾占位）
+ *   F19/F22 段：`registerNewAccount`（2026-08-24 前叫 `redeemInviteAndCreateOrg`，
+ *   已被 open-self-serve-registration delta 移除并取代，见 issue #1929）/
+ *   `switchOrgAtLogin`（见文件末尾占位）
  */
 import { z } from "zod";
 /**
@@ -341,45 +343,45 @@ export const operations = {
     err: ["SESSION_EXPIRED", "SESSION_REVOKED", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 
-  /* ── F19 段（合并自并行 feature）─────────────────────────────────
+  /* ── F19 段（合并自并行 feature），2026-08-24 起被 open-self-serve-registration
+   * delta 改写：`redeemInviteAndCreateOrg` 已移除，见下方 `registerNewAccount`。
    * switchOrgAtLogin (F22): ⚠ 不重新实现切换，调 identity.switchOrganization
    */
-  redeemInviteAndCreateOrg: {
+
+  /**
+   * `RegisterNewAccount`（open-self-serve-registration delta，issue #1929）
+   * —— 取代已移除的 `redeemInviteAndCreateOrg`：不再需要邀请码，任何人直接
+   * 自助建一个新组织并成为其 owner。防滥用手段收敛为邮箱验证（未验证不能登录，
+   * 复用既有 `EMAIL_NOT_VERIFIED` 登录闸门，见 `login.ts`）。
+   *
+   * ⚠ 路径与 `/auth/register`（旧邀请码端点，已移除）刻意分开，不共用路径下
+   * 靠 body 里有没有 `code` 分支——那种分支会让"要不要建新账号"由一个可伪造的
+   * 请求体字段决定。
+   */
+  registerNewAccount: {
     method: "POST",
-    path: "/auth/register",
+    path: "/auth/register-open",
     in: z.object({
-      code: InviteCodeValue,
       email: z.string().email(),
       password: PasswordPolicy,
       displayName: z.string().min(1),
       orgName: z.string().min(1),
-    }),
+    }).strict(),
     /**
-     * ⚠ `.strict()` —— **F19 实现时发现的、影响整条 ADR-020 返回链的问题**。
-     *
-     * 硬规则 6 的落法是「每条路由的响应体在测试里 `out.safeParse()` 逐条断言」。
-     * 但 zod 的 object **默认剥离未知字段**：服务端多返回一个契约没描述的字段时，
-     * `safeParse` 依然 success ——**返回方向的门控对「多字段」是瞎的**。
-     *
-     * 这不是推测。F19 做反证时，把 `orgName` 加进响应体，`safeParse` 照样绿；
-     * 只有另写的「键集合必须恰好是这三个」那条断言拦下了它。
-     * 而「多一个字段」正是响应体最常见的漂移方向——少字段前端会崩，多字段没人会崩，
-     * 于是它一直在，直到某天那个字段是租户内容。
-     *
-     * ⇒ 本操作的 `out` 显式 strict。⚠ 其余契约束的 `out` **都还不是**，
-     * 那是本仓一处普遍缺口，F19 只能报告，不能替别的束改（那是它们各自的签核范围）。
+     * ⚠ `.strict()` —— 沿用 F19 对 `redeemInviteAndCreateOrg` 的同一条发现：
+     * 响应体最常见的漂移方向是"多一个字段"，plain zod object 默认剥离未知键，
+     * `safeParse` 对这个方向是瞎的。见 `KNOWN_CONTRACT_GAPS.C7`。
      */
     out: z
       .object({
         userId: z.string(),
-        /** [原型] 形如 `org_8f21`；⚠ 实际形态受 `domain/org-id.ts` 的 `OrgId` 约束，见 C5 */
         orgId: z.string(),
         /** 事务内可靠入队；不虚报供应商已接收。 */
         verificationDelivery: z.literal("queued"),
       })
       .strict(),
-    /** 供应商故障不回滚注册；`queued` 只陈述事务内 outbox 已落盘。 */
-    err: ["INVITE_CODE_INVALID", "EMAIL_TAKEN"] as const,
+    /** 没有 `INVITE_CODE_INVALID`——没有码可判（design-signoff 已裁）。 */
+    err: ["EMAIL_TAKEN"] as const,
   },
 
   /**

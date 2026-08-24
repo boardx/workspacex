@@ -44,7 +44,12 @@ export function TemplateEditor({
     <div className="flex h-full flex-col" data-testid="canvas-template-editor">
       {/* 头部：模板名 + 版本状态 + 危险动作（发布） */}
       <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
-        <button type="button" onClick={() => setToast("演示：返回模板列表")} className="text-11 text-muted-foreground transition-colors hover:text-background-foreground" data-testid="tpled-back">
+        <button
+          type="button"
+          onClick={() => setToast("演示：返回模板列表")}
+          className="rounded text-11 text-muted-foreground transition-colors hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          data-testid="tpled-back"
+        >
           ‹ 模板列表
         </button>
         <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -106,7 +111,13 @@ export function TemplateEditor({
                   ))}
                   <div className="mt-1 flex flex-wrap gap-1.5">
                     {DESIGN_DIALOG_QUICK.map((q) => (
-                      <button key={q} type="button" onClick={() => setToast(`演示：${q}`)} className="rounded-full border border-border px-2 py-0.5 text-10 text-muted-foreground transition-colors hover:bg-muted" data-testid={`tpled-dialog-quick-${q}`}>
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setToast(`演示：${q}`)}
+                        className="rounded-full border border-border px-2 py-0.5 text-10 text-muted-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                        data-testid={`tpled-dialog-quick-${q}`}
+                      >
                         {q}
                       </button>
                     ))}
@@ -184,7 +195,8 @@ export function TemplateEditor({
                           onClick={() => setSelectedZone(z.num)}
                           data-testid={`tpled-zone-${z.num}`}
                           className={cn(
-                            "flex items-center gap-2 rounded-md border px-2 py-1.5 text-left",
+                            "flex items-center gap-2 rounded-md border px-2 py-1.5 text-left transition-colors duration-fast",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
                             z.num === selectedZone ? "border-primary bg-panel" : "border-border-subtle hover:bg-muted/60",
                           )}
                         >
@@ -200,9 +212,9 @@ export function TemplateEditor({
                       ))}
                     </div>
                     <div className="mt-1 flex items-center gap-1.5 text-10 text-muted-foreground">
-                      <button type="button" disabled={readOnly} className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 disabled:bg-disabled disabled:text-disabled-foreground"><ArrowUp className="h-3 w-3" aria-hidden /></button>
-                      <button type="button" disabled={readOnly} className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 disabled:bg-disabled disabled:text-disabled-foreground"><ArrowDown className="h-3 w-3" aria-hidden /></button>
-                      <button type="button" disabled={readOnly} className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 disabled:bg-disabled disabled:text-disabled-foreground"><Plus className="h-3 w-3" aria-hidden /> 分区</button>
+                      <button type="button" disabled={readOnly} data-testid="tpled-zone-move-up" className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground"><ArrowUp className="h-3 w-3" aria-hidden /></button>
+                      <button type="button" disabled={readOnly} data-testid="tpled-zone-move-down" className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground"><ArrowDown className="h-3 w-3" aria-hidden /></button>
+                      <button type="button" disabled={readOnly} data-testid="tpled-zone-add" className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground"><Plus className="h-3 w-3" aria-hidden /> 分区</button>
                     </div>
                   </div>
 
