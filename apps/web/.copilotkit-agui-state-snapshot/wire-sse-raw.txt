@@ -1,0 +1,52 @@
+data: {"type":"RUN_STARTED","threadId":"38d8820d-1642-4d83-9e1b-996b9a409bff","runId":"178b5fa3-e26e-4e22-b683-fe6fbf68d22e"}
+
+data: {"type":"CUSTOM","name":"chat_thread_id","value":"thr-ecd65ff8-5935-439a-bd91-15f568154e77"}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"cc0a0d50-cd95-4402-96c3-4a2b33b66628","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"cc0a0d50-cd95-4402-96c3-4a2b33b66628","delta":"根据查询结果回答"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"cc0a0d50-cd95-4402-96c3-4a2b33b66628","delta":"你：\"现在几点？"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"cc0a0d50-cd95-4402-96c3-4a2b33b66628","delta":"\" —— 已查询"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"cc0a0d50-cd95-4402-96c3-4a2b33b66628","delta":"当前时间，详情见"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"cc0a0d50-cd95-4402-96c3-4a2b33b66628","delta":"工具结果。"}
+
+data: {"type":"STEP_STARTED","stepName":"write_todos"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"a0061430-5dcb-40dd-a612-6d446b012e80","toolCallName":"write_todos"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"a0061430-5dcb-40dd-a612-6d446b012e80","delta":"{\"todos\":[{\"content\":\"理解用户问题\",\"status\":\"completed\"},{\"content\":\"查询当前时间\",\"status\":\"in_progress\"},{\"content\":\"组织最终回答\",\"status\":\"pending\"}]}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"a0061430-5dcb-40dd-a612-6d446b012e80"}
+
+data: {"type":"TOOL_CALL_RESULT","messageId":"745b812b-0bbf-46ab-9c3a-2438ca2d6a1a","toolCallId":"a0061430-5dcb-40dd-a612-6d446b012e80","content":"todos updated","role":"tool"}
+
+data: {"type":"STEP_FINISHED","stepName":"write_todos"}
+
+data: {"type":"STATE_SNAPSHOT","snapshot":{"todos":[{"content":"理解用户问题","status":"completed"},{"content":"查询当前时间","status":"in_progress"},{"content":"组织最终回答","status":"pending"}]}}
+
+data: {"type":"STEP_STARTED","stepName":"lookup_time"}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"a1c44e37-961d-483d-9e9d-6b252af5dd4b","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"a1c44e37-961d-483d-9e9d-6b252af5dd4b","delta":"我需要先查一下当前时间，再回答这个问题。"}
+
+data: {"type":"TEXT_MESSAGE_END","messageId":"a1c44e37-961d-483d-9e9d-6b252af5dd4b"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"473ffdf1-cf8e-4c06-9435-be582a0e7945","toolCallName":"lookup_time"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"473ffdf1-cf8e-4c06-9435-be582a0e7945","delta":"{\"query\":\"现在几点？\"}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"473ffdf1-cf8e-4c06-9435-be582a0e7945"}
+
+data: {"type":"TOOL_CALL_RESULT","messageId":"592dc96a-4196-4204-be03-5e3e76542f5e","toolCallId":"473ffdf1-cf8e-4c06-9435-be582a0e7945","content":"已查询：当前时间 2026-08-24T16:39:05.571Z。用户原话：\"现在几点？\"","role":"tool"}
+
+data: {"type":"STEP_FINISHED","stepName":"lookup_time"}
+
+data: {"type":"TEXT_MESSAGE_END","messageId":"cc0a0d50-cd95-4402-96c3-4a2b33b66628"}
+
+data: {"type":"RUN_FINISHED","threadId":"38d8820d-1642-4d83-9e1b-996b9a409bff","runId":"178b5fa3-e26e-4e22-b683-fe6fbf68d22e"}
+

@@ -218,18 +218,46 @@ function SendEmailApprovalDialog({
   awaitingDecision: boolean;
   args: Record<string, unknown>;
   respond?: (result: unknown) => void;
-}): JSX.Element {
+}): JSX.Element | null {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
+
+  /**
+   * DA-19g fix（issue #1996）—— `open` must be a REAL controlled boolean, never
+   * a hardcoded literal `true`. The pre-fix version rendered `<Dialog open>`
+   * with **no** `onOpenChange` in *both* branches below; Radix has no state to
+   * flip when its default close icon / Escape / overlay-click fires, so the
+   * portal-rendered overlay (`fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm
+   * ...`, see `ui/dialog.tsx` `DialogOverlay`) stayed mounted forever. Because
+   * the `send_email` tool-call message that hosts this component is never
+   * pruned from `agent.messages`, that overlay became a permanent
+   * click-blocker over the whole panel the moment any HITL flow reached its
+   * terminal read-only branch (185-retry Playwright timeout; see
+   * `.harness/state/copilotkit-v2-ux-acceptance-score.md` 判据 #10 / #7 / #9).
+   *
+   * `dismissed` is the single source of truth for "should this component still
+   * render a blocking modal" — once set, the component returns `null` (no
+   * `Dialog`, no portal, nothing to leak) regardless of `status`/`awaitingDecision`.
+   * It is set from three independent close paths so there is no way to end up
+   * stuck again: (1) Radix's own `onOpenChange(false)` (Escape / overlay click /
+   * built-in close icon), (2) the explicit "关闭" button on the read-only
+   * terminal branch (Radix's default icon alone is not enough — see
+   * human-in-the-loop.md 提醒 "Common Mistakes"), (3) any of the interactive
+   * approve/reject/edit-submit actions, which already resolve `respond(...)`.
+   */
+  const [dismissed, setDismissed] = React.useState(false);
+  const close = React.useCallback(() => setDismissed(true), []);
 
   const startEditing = (): void => {
     setDraft(JSON.stringify(args, null, 2));
     setEditing(true);
   };
 
+  if (dismissed) return null;
+
   if (!awaitingDecision || respond === undefined) {
     return (
-      <Dialog open>
+      <Dialog open onOpenChange={(next) => { if (!next) close(); }}>
         <DialogContent data-testid="copilotkit-v2-hitl-dialog" data-hitl-status={statusLabel}>
           <DialogHeader>
             <DialogTitle>等待批准：发送邮件</DialogTitle>
@@ -237,6 +265,11 @@ function SendEmailApprovalDialog({
               {statusLabel === "inProgress" ? "工具调用参数正在流式到达…" : "本轮已裁决，等待 run 收尾。"}
             </DialogDescription>
           </DialogHeader>
+          <DialogFooter>
+            <Button size="sm" variant="outline" data-testid="copilotkit-v2-hitl-dismiss" onClick={close}>
+              关闭
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     );
@@ -245,7 +278,20 @@ function SendEmailApprovalDialog({
   const parsedDraft = parseEditDraft(draft);
 
   return (
-    <Dialog open>
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        // 用户通过 Escape/点遮罩层/默认关闭图标退出时，等价于「拒绝」——不这样
+        // 处理的话，Dialog 会正确卸载（不再残留遮罩），但框架合成的 respond
+        // Promise 永远不会 resolve（human-in-the-loop.md "No respond call →
+        // infinite hang"），run 会一直挂到后端自己的轮询超时才收场，属于
+        // "看起来关掉了、实际状态没跟上"的另一种不一致，不是本次要放行的行为。
+        if (!next) {
+          close();
+          respond("denied");
+        }
+      }}
+    >
       <DialogContent data-testid="copilotkit-v2-hitl-dialog" data-hitl-status={statusLabel}>
         <DialogHeader>
           <DialogTitle>等待你的批准：发送邮件</DialogTitle>
@@ -277,7 +323,14 @@ function SendEmailApprovalDialog({
         <DialogFooter className="gap-2">
           {!editing ? (
             <>
-              <Button size="sm" data-testid="copilotkit-v2-hitl-approve" onClick={() => respond("approved")}>
+              <Button
+                size="sm"
+                data-testid="copilotkit-v2-hitl-approve"
+                onClick={() => {
+                  close();
+                  respond("approved");
+                }}
+              >
                 批准并继续
               </Button>
               <Button
@@ -289,7 +342,15 @@ function SendEmailApprovalDialog({
                 <Pencil aria-hidden className="h-3 w-3" />
                 编辑参数
               </Button>
-              <Button size="sm" variant="outline" data-testid="copilotkit-v2-hitl-reject" onClick={() => respond("denied")}>
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="copilotkit-v2-hitl-reject"
+                onClick={() => {
+                  close();
+                  respond("denied");
+                }}
+              >
                 拒绝
               </Button>
             </>
@@ -300,7 +361,10 @@ function SendEmailApprovalDialog({
                 disabled={!parsedDraft.ok}
                 data-testid="copilotkit-v2-hitl-edit-submit"
                 onClick={() => {
-                  if (parsedDraft.ok) respond(parsedDraft.value);
+                  if (parsedDraft.ok) {
+                    close();
+                    respond(parsedDraft.value);
+                  }
                 }}
               >
                 编辑并批准
