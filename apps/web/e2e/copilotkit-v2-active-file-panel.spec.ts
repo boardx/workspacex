@@ -32,7 +32,12 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
  */
 
 const OUT = resolve(process.env.COPILOTKIT_V2_ACTIVE_FILE_PANEL_OUT ?? ".copilotkit-v2-active-file-panel");
-test.setTimeout(180_000);
+// 同 `copilotkit-v2-runtime-adapter.spec.ts` 的 4 次重试预算——但那份 spec 的常见路径
+// 是第 1 次就成功（已知空 headers flake 罕见）。本轮实测（2026-08-25）：本地机器负载下
+// 单次成功尝试就要 1.8~2 分钟，180s 的 test 级超时在触发哪怕一次重试时就会被
+// `route.fetch()` 挂起到超时收场（"Test timeout of 180000ms exceeded" 而不是单次
+// 60s 轮询超时——说明是外层 test 预算不够，不是轮询逻辑本身的 bug）。给足到 300s。
+test.setTimeout(300_000);
 
 interface AguiFrame { readonly type: string; readonly [key: string]: unknown }
 
@@ -187,9 +192,17 @@ test("ActiveFilePanel 真实解析 file_created/file_content_delta wire 帧并�
   await expect(content).toContainText("DA-13 active file panel");
 
   await page.screenshot({ path: resolve(OUT, "active-file-panel-rendered.png") });
+
+  // Playwright 提示：跨多次重试注册过的 `page.route()` 处理器，其内部 `route.fetch()`
+  // 可能在这个测试函数返回、context 即将关闭之后才收尾——不主动收口会在下一个测试
+  // 执行期间才抛出 "Test ended" 的未处理异常（被报告器错误地记到下一个测试头上）。
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });
 
 test("ActiveFilePanel 缺席纪律：没有 file_created 事件时右栏不渲染", async ({ page }) => {
+  // 防御性收口：即便上一个测试已经按自己的收尾清过，这里再收一次不会有副作用
+  // （`ignoreErrors`），确保这个断言不会被上一个测试的异步残留干扰。
+  await page.unrouteAll({ behavior: "ignoreErrors" });
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
