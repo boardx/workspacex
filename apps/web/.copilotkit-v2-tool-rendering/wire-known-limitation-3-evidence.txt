@@ -1,0 +1,80 @@
+data: {"type":"RUN_STARTED","threadId":"copilotkit-v2-3f565f38-651d-40b8-b4ad-95e848e1d8f2","runId":"2cee98c9-1c31-49f7-b89f-d6084e204650","input":{"threadId":"copilotkit-v2-3f565f38-651d-40b8-b4ad-95e848e1d8f2","runId":"2cee98c9-1c31-49f7-b89f-d6084e204650","state":{},"messages":[{"id":"c0fdadda-f972-4bff-bbb6-d41dac610816","role":"user","content":"取证：请展示多步执行"}],"tools":[{"name":"send_email","description":"Confirm sending an email before it is dispatched","parameters":{"type":"object","properties":{"to":{"type":"string"},"subject":{"type":"string"},"body":{"type":"string"}},"required":["to","subject","body"]}}],"context":[{"description":"DA-19f wiring probe: current route + fixed marker","value":"{\"pathname\":\"/chat/copilotkit-v2\",\"probe\":\"DA-19F-READABLE-CONTEXT-PROBE\"}"}],"forwardedProps":{}}}
+
+data: {"type":"CUSTOM","name":"chat_thread_id","value":"thr-042d72db-5071-41b1-a1b8-b341ba81cc10"}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":"综合 3 份文档"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":"检索与 A.md"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":" 的内容，结论是"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":"：多步依赖链已完"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":"整执行——先搜索"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":"（命中 A.md"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":"/B.md/C."}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":"md），再读取搜"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":"索结果中最相关的"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":" A.md，最后"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b","delta":"据其正文作答。"}
+
+data: {"type":"STEP_STARTED","stepName":"write_todos"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"a7d31862-2787-4137-999a-4b3251fbcb3f","toolCallName":"write_todos"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"a7d31862-2787-4137-999a-4b3251fbcb3f","delta":"{\"todos\":[{\"content\":\"搜索相关文档\",\"status\":\"in_progress\"},{\"content\":\"读取最相关的一份\",\"status\":\"pending\"},{\"content\":\"综合结论作答\",\"status\":\"pending\"}]}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"a7d31862-2787-4137-999a-4b3251fbcb3f"}
+
+data: {"type":"TOOL_CALL_RESULT","messageId":"44f0580e-20d9-4ac8-8d55-6d28a86310f9","toolCallId":"a7d31862-2787-4137-999a-4b3251fbcb3f","content":"","role":"tool"}
+
+data: {"type":"STEP_FINISHED","stepName":"write_todos"}
+
+data: {"type":"STEP_STARTED","stepName":"search_documents"}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"0f689bcb-1f26-4a92-bb38-edad2f8adff1","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"0f689bcb-1f26-4a92-bb38-edad2f8adff1","delta":"我先搜索文档库，看有哪些相关材料。"}
+
+data: {"type":"TEXT_MESSAGE_END","messageId":"0f689bcb-1f26-4a92-bb38-edad2f8adff1"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"a0828a28-ce98-4350-82f5-dc64b031fba9","toolCallName":"search_documents"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"a0828a28-ce98-4350-82f5-dc64b031fba9","delta":"{\"query\":\"取证：请展示多步执行\"}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"a0828a28-ce98-4350-82f5-dc64b031fba9"}
+
+data: {"type":"TOOL_CALL_RESULT","messageId":"5d595668-5894-4e36-979d-b77d2b75bf35","toolCallId":"a0828a28-ce98-4350-82f5-dc64b031fba9","content":"","role":"tool"}
+
+data: {"type":"STEP_FINISHED","stepName":"search_documents"}
+
+data: {"type":"STEP_STARTED","stepName":"read_document"}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"3775317a-c283-4f4a-b295-8dbb316c14aa","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"3775317a-c283-4f4a-b295-8dbb316c14aa","delta":"基于搜索结果，读取最相关的 A.md。"}
+
+data: {"type":"TEXT_MESSAGE_END","messageId":"3775317a-c283-4f4a-b295-8dbb316c14aa"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"7559b594-dca4-43a2-b9bb-f030260f4c05","toolCallName":"read_document"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"7559b594-dca4-43a2-b9bb-f030260f4c05","delta":"{\"path\":\"A.md\"}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"7559b594-dca4-43a2-b9bb-f030260f4c05"}
+
+data: {"type":"TOOL_CALL_RESULT","messageId":"109f1110-5bca-4c1f-ba84-e4fa8e027675","toolCallId":"7559b594-dca4-43a2-b9bb-f030260f4c05","content":"","role":"tool"}
+
+data: {"type":"STEP_FINISHED","stepName":"read_document"}
+
+data: {"type":"TEXT_MESSAGE_END","messageId":"8d8309e1-c8b3-454d-8dcf-0083f874a12b"}
+
+data: {"type":"RUN_FINISHED","threadId":"copilotkit-v2-3f565f38-651d-40b8-b4ad-95e848e1d8f2","runId":"2cee98c9-1c31-49f7-b89f-d6084e204650"}
+

@@ -13,11 +13,15 @@ import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Pencil } from "lucide-react";
+import { Pencil, Mic, Loader2 } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
+import { useAsrDraft } from "@/lib/use-asr-draft";
+import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
+import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
+import { getStoredSessionToken } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -170,6 +174,41 @@ import {
  * 一旦后续任务（把 `FilesystemMiddleware` 的写入真正落地为 `chat_message_attachments`
  * 之后再映射成 VFS URI）接上真实生产者，不需要再改前端代码。e2e 证据走协议精确的
  * wire-level 测试夹具，见 `e2e/copilotkit-v2-active-file-panel.spec.ts` 文件头。
+ *
+ * ── DA-19g 语音输入（评分循环第 1 轮第 5 项缺口，`.harness/state/
+ * copilotkit-v2-ux-acceptance-score.md` 第 5 项：`grep -rni "mic|voice|audio|asr"`
+ * 在这个面板零命中，浏览器内探测 `[data-testid*="mic"]`/`[aria-label*="麦克风"]` 也是
+ * 0 个元素）─────────────────────────────────────────────────────────────────
+ *
+ * **不是重新发明一套 ASR 客户端**——`chat-live-message-panel.tsx`（issue #726）已经把
+ * "composer 麦克风 → 服务端代理的 `WS /chat/asr-draft`
+ * （`apps/api/src/interface/ws/asr-draft.gateway.ts` → 阿里云百炼 `qwen3-asr-flash-
+ * realtime`，API key 只在服务端）→ 转录文字实时进输入框、可编辑、发送前不自动提交"
+ * 这一整套状态机做成了三份可直接复用的东西，本文件原样接线，不复制一份：
+ *   1. `useAsrDraft`（`lib/use-asr-draft.ts`）—— 状态机本身（idle/connecting/
+ *      listening/stopping/denied/unsupported/error），`onTranscript` 回调把拼接好的
+ *      全文交给调用方，调用方只管把它塞进自己的输入框 state（这里是 `inputDraft`）。
+ *   2. `useAudioInputDevices` + `MicDevicePicker`（`lib/use-audio-input-devices.ts` /
+ *      `components/chat/chat-composer-pickers.tsx`）—— 输入设备选择，纯 UI 状态，
+ *      不碰采音。
+ *   3. 鉴权：`useAsrDraft` 要一个 `sessionToken`——本组件与
+ *      `copilotkit-v2-providers.tsx` 读的是同一个 `getStoredSessionToken()`
+ *      （`lib/api-client.ts`），未登录时（`token === null`）麦克风按钮直接禁用并说明
+ *      原因，不发一个必然被服务端拒绝的假请求。
+ *
+ * 与旧面板的唯一差异是"基线文本从哪读、写回哪里"——旧面板用 `textRef`/`updateDraft`
+ * （线程草稿持久化的一部分），这里就是这个组件自己的 `inputDraft`/`setInputDraft`；
+ * `useAsrDraft` 的 `getBaseText`/`onTranscript` 本来就是为了让调用方在这一点上自由
+ * 接线而设计的两个纯函数参数，不需要改 hook 本身一行代码，也不需要把 `chat-recording-
+ * panel.tsx`（会话级录音归档，`chat-live-recording-*` 锚点，走 `/recording/sessions`
+ * 完全不同的契约束）牵扯进来——那是另一条产品能力（整段会话录音存档），不是"麦克风
+ * 按钮把语音实时转文字填进输入框"这条判据要的东西。
+ *
+ * ⚠ **两条"DA-19g" backlog 编号撞车**（如实记录，纯文档层面，不影响代码）：main 上
+ * 已经存在另一条同名的 `copilotkit-v2-hitl-dialog-dismiss.spec.ts`（issue #1996，
+ * HITL 终态 Dialog 遮罩泄漏修复）也自称 "DA-19g"。本节的语音输入（评分循环第 1 轮
+ * 第 5 项）与那条修复是两件互不相关的事，只是 backlog 简写号意外撞了同一个字符串，
+ * 不是同一次改动的两半。
  */
 const APPROVAL_TOOL_NAME = "send_email";
 const approvalToolParameters = z.object({
@@ -218,18 +257,46 @@ function SendEmailApprovalDialog({
   awaitingDecision: boolean;
   args: Record<string, unknown>;
   respond?: (result: unknown) => void;
-}): JSX.Element {
+}): JSX.Element | null {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState("");
+
+  /**
+   * DA-19g fix（issue #1996）—— `open` must be a REAL controlled boolean, never
+   * a hardcoded literal `true`. The pre-fix version rendered `<Dialog open>`
+   * with **no** `onOpenChange` in *both* branches below; Radix has no state to
+   * flip when its default close icon / Escape / overlay-click fires, so the
+   * portal-rendered overlay (`fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm
+   * ...`, see `ui/dialog.tsx` `DialogOverlay`) stayed mounted forever. Because
+   * the `send_email` tool-call message that hosts this component is never
+   * pruned from `agent.messages`, that overlay became a permanent
+   * click-blocker over the whole panel the moment any HITL flow reached its
+   * terminal read-only branch (185-retry Playwright timeout; see
+   * `.harness/state/copilotkit-v2-ux-acceptance-score.md` 判据 #10 / #7 / #9).
+   *
+   * `dismissed` is the single source of truth for "should this component still
+   * render a blocking modal" — once set, the component returns `null` (no
+   * `Dialog`, no portal, nothing to leak) regardless of `status`/`awaitingDecision`.
+   * It is set from three independent close paths so there is no way to end up
+   * stuck again: (1) Radix's own `onOpenChange(false)` (Escape / overlay click /
+   * built-in close icon), (2) the explicit "关闭" button on the read-only
+   * terminal branch (Radix's default icon alone is not enough — see
+   * human-in-the-loop.md 提醒 "Common Mistakes"), (3) any of the interactive
+   * approve/reject/edit-submit actions, which already resolve `respond(...)`.
+   */
+  const [dismissed, setDismissed] = React.useState(false);
+  const close = React.useCallback(() => setDismissed(true), []);
 
   const startEditing = (): void => {
     setDraft(JSON.stringify(args, null, 2));
     setEditing(true);
   };
 
+  if (dismissed) return null;
+
   if (!awaitingDecision || respond === undefined) {
     return (
-      <Dialog open>
+      <Dialog open onOpenChange={(next) => { if (!next) close(); }}>
         <DialogContent data-testid="copilotkit-v2-hitl-dialog" data-hitl-status={statusLabel}>
           <DialogHeader>
             <DialogTitle>等待批准：发送邮件</DialogTitle>
@@ -237,6 +304,11 @@ function SendEmailApprovalDialog({
               {statusLabel === "inProgress" ? "工具调用参数正在流式到达…" : "本轮已裁决，等待 run 收尾。"}
             </DialogDescription>
           </DialogHeader>
+          <DialogFooter>
+            <Button size="sm" variant="outline" data-testid="copilotkit-v2-hitl-dismiss" onClick={close}>
+              关闭
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     );
@@ -245,7 +317,20 @@ function SendEmailApprovalDialog({
   const parsedDraft = parseEditDraft(draft);
 
   return (
-    <Dialog open>
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        // 用户通过 Escape/点遮罩层/默认关闭图标退出时，等价于「拒绝」——不这样
+        // 处理的话，Dialog 会正确卸载（不再残留遮罩），但框架合成的 respond
+        // Promise 永远不会 resolve（human-in-the-loop.md "No respond call →
+        // infinite hang"），run 会一直挂到后端自己的轮询超时才收场，属于
+        // "看起来关掉了、实际状态没跟上"的另一种不一致，不是本次要放行的行为。
+        if (!next) {
+          close();
+          respond("denied");
+        }
+      }}
+    >
       <DialogContent data-testid="copilotkit-v2-hitl-dialog" data-hitl-status={statusLabel}>
         <DialogHeader>
           <DialogTitle>等待你的批准：发送邮件</DialogTitle>
@@ -277,7 +362,14 @@ function SendEmailApprovalDialog({
         <DialogFooter className="gap-2">
           {!editing ? (
             <>
-              <Button size="sm" data-testid="copilotkit-v2-hitl-approve" onClick={() => respond("approved")}>
+              <Button
+                size="sm"
+                data-testid="copilotkit-v2-hitl-approve"
+                onClick={() => {
+                  close();
+                  respond("approved");
+                }}
+              >
                 批准并继续
               </Button>
               <Button
@@ -289,7 +381,15 @@ function SendEmailApprovalDialog({
                 <Pencil aria-hidden className="h-3 w-3" />
                 编辑参数
               </Button>
-              <Button size="sm" variant="outline" data-testid="copilotkit-v2-hitl-reject" onClick={() => respond("denied")}>
+              <Button
+                size="sm"
+                variant="outline"
+                data-testid="copilotkit-v2-hitl-reject"
+                onClick={() => {
+                  close();
+                  respond("denied");
+                }}
+              >
                 拒绝
               </Button>
             </>
@@ -300,7 +400,10 @@ function SendEmailApprovalDialog({
                 disabled={!parsedDraft.ok}
                 data-testid="copilotkit-v2-hitl-edit-submit"
                 onClick={() => {
-                  if (parsedDraft.ok) respond(parsedDraft.value);
+                  if (parsedDraft.ok) {
+                    close();
+                    respond(parsedDraft.value);
+                  }
                 }}
               >
                 编辑并批准
@@ -383,6 +486,48 @@ export function CopilotKitV2Panel(): JSX.Element {
     });
     return unsubscribe;
   }, [agent]);
+
+  /**
+   * DA-19g —— `useAsrDraft` 的 `start()` 是一个稳定回调（不随每次按键重建），基线读取
+   * 必须走 ref 而不是闭包捕获的 `inputDraft`——否则会追加到"点击麦克风那一刻组件首次
+   * 渲染时的 inputDraft"，与 `chat-live-message-panel.tsx` 头注记录的同一个坑同一个修法。
+   */
+  const inputDraftRef = React.useRef(inputDraft);
+  inputDraftRef.current = inputDraft;
+  /**
+   * 与 `copilotkit-v2-providers.tsx` 读的是同一个 token（`getStoredSessionToken`）——
+   * 未登录时（`null`）麦克风点击时守卫并说明原因，不发一个必然被服务端拒绝的假请求。
+   *
+   * ⚠ 不能只用一次性 `useState(() => getStoredSessionToken())` 就不再更新，也不能把
+   * 它直接接到 `disabled`/`title`——本轮 e2e 实测（`copilotkit-v2-voice-input.spec.ts`）
+   * 踩到：`sessionToken` 首帧在服务端渲染为 `null`（`typeof window === "undefined"`），
+   * 客户端 hydrate 时才读到真实值（`window.localStorage` 里确有 token，`page.evaluate`
+   * 直接读到过非空值），这条 SSR/CSR 分叉接到 `disabled`/`title` 会触发一次真实的
+   * React hydration 属性不匹配（`Server: "未登录..." Client: "开始语音输入"`），而这个
+   * 包/Next dev 版本组合下客户端没有如预期纠正回来——按钮永久停在服务端渲染出的
+   * disabled 态，与 `copilotkit-v2-providers.tsx` 文件头注记录的"首帧空档"是同一类
+   * 时序竞争。这里改用 `copilotkit-v2-providers.tsx` 自己那份已验证过的自愈模式
+   * （`storage` 事件 + 轮询兜底）读 state，但只在 `onClick` 里守卫，不接到首帧属性
+   * （见下方按钮）。
+   */
+  const [sessionToken, setSessionToken] = React.useState<string | null>(() => getStoredSessionToken());
+  React.useEffect(() => {
+    const sync = (): void => setSessionToken(getStoredSessionToken());
+    sync();
+    window.addEventListener("storage", sync);
+    const interval = window.setInterval(sync, 2000);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.clearInterval(interval);
+    };
+  }, []);
+  const micDevices = useAudioInputDevices();
+  const speech = useAsrDraft({
+    getBaseText: () => inputDraftRef.current,
+    onTranscript: (fullText) => setInputDraft(fullText),
+    sessionToken: sessionToken ?? "",
+    deviceId: micDevices.selectedDeviceId ?? undefined,
+  });
 
   // DA-19d —— human-in-the-loop.md "Setup" 范例的直接应用：`render` 收到
   // `{status, args, respond}`，本组件只负责把它交给 `SendEmailApprovalDialog`。
@@ -467,6 +612,58 @@ export function CopilotKitV2Panel(): JSX.Element {
               if (e.key === "Enter") void send();
             }}
           />
+          {/*
+            DA-19g —— composer 麦克风，接线见本文件头注。设备选择器紧挨麦克风按钮，
+            录音中禁用（切设备要重起采音管线，同 `chat-live-message-panel.tsx` 的既有
+            约束，contract.md §7.4）。
+          */}
+          <MicDevicePicker
+            devices={micDevices.devices}
+            selectedDeviceId={micDevices.selectedDeviceId}
+            disabled={speech.listening || speech.connecting || speech.stopping}
+            onSelect={micDevices.select}
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant={speech.listening ? "destructive" : "outline"}
+            className="rounded-full"
+            data-testid="chat-mic-button"
+            data-mic-status={speech.status}
+            aria-pressed={speech.listening}
+            aria-busy={speech.connecting || speech.stopping}
+            aria-label={
+              speech.connecting ? "正在连接语音识别…"
+                : speech.stopping ? "正在停止…"
+                : speech.listening ? "停止语音输入" : "开始语音输入"
+            }
+            /*
+             * DA-19g —— `disabled`/`title` 故意**不**读 `sessionToken`（见上面 state 声明
+             * 处的完整实测记录）：只由 `speech.connecting`/`speech.stopping` 控制，两者
+             * 服务端/客户端首帧恒为 `false`，没有 SSR/CSR 分叉。"未登录"这个真实场景改到
+             * `onClick` 守卫里处理。
+             */
+            title={
+              speech.connecting ? "正在连接语音识别…"
+                : speech.stopping ? "正在停止…"
+                : speech.listening ? "停止语音输入" : "开始语音输入"
+            }
+            disabled={speech.connecting || speech.stopping}
+            onClick={() => {
+              if (sessionToken === null) {
+                setError("未登录，无法使用语音输入。");
+                return;
+              }
+              if (speech.listening) speech.stop();
+              else speech.start();
+            }}
+          >
+            {speech.connecting || speech.stopping ? (
+              <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Mic aria-hidden className="h-3.5 w-3.5" />
+            )}
+          </Button>
           <button
             data-testid="copilotkit-v2-send"
             type="button"
@@ -477,6 +674,27 @@ export function CopilotKitV2Panel(): JSX.Element {
             {agent.isRunning ? "…" : "发送"}
           </button>
         </div>
+        {speech.connecting ? (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-connecting">
+            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+            正在连接语音识别……
+          </p>
+        ) : null}
+        {speech.listening ? (
+          <p className="flex items-center gap-1.5 text-xs text-destructive" data-testid="chat-mic-listening">
+            <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
+            正在听……实时转录中，说完点击麦克风按钮停止，确认无误后再手动发送。
+          </p>
+        ) : null}
+        {speech.stopping ? (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-stopping">
+            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+            正在停止……等待最后一段转录落定。
+          </p>
+        ) : null}
+        {speech.error !== null ? (
+          <p className="text-xs text-destructive" data-testid="chat-mic-error">{speech.error}</p>
+        ) : null}
       </div>
       {activeFiles.length > 0 ? (
         <div className="min-w-0 flex-1">
