@@ -25,6 +25,12 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+
+// 真 HTTP + `x-kernel-test-principal` 头绕过真实鉴权（同目录其它 real-db 用例的既有
+// 模式，见 agent-publish-http-route.test.ts 等）——本文件之前没设这两个环境变量，
+// CI 上 401 而不是 202：不是本条修复本身的回归，是这份新测试自己漏了这一步。
+process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
+process.env.KERNEL_QUIET = "1";
 import { wave2Runtime as W } from "@repo/contracts";
 import {
   addOrgMember, addProjectMember, asApp, migrateOnce, resetOrgs, seedOrg,
