@@ -97,12 +97,25 @@ export default defineConfig({
    * 不需要新的进程或新的环境变量。
    */
   /**
+   * DA-19c —— 新增 `copilotkit-v2-tool-rendering.spec.ts` 同样由本 config 接住（同一条
+   * `/chat/copilotkit-v2` 路由、同一条真登录、同一个 deep-agent loopback 替身）。断言
+   * 目标是 `useRenderTool` 注册的 `write_todos`/`search_documents` 定制卡片真的渲染出来，
+   * `search_documents` 分支复用已有的 `LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER` 环境变量
+   * （上面已经下发给替身进程），不需要新的进程或新的环境变量。
+   *
+   * DA-19d（issue #1987）—— 新增 `copilotkit-v2-hitl.spec.ts` 同样由本 config 接住
+   * （理由与 `copilotkit-v2-runtime-adapter.spec.ts` 逐字相同：同一条 `/chat/
+   * copilotkit-v2` 路由、同一条真登录、同一个 deep-agent loopback 替身）。复用既有
+   * `LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER` 环境变量（下面那个 webServer 条目本来就
+   * 已经下发给替身进程，服务于 `chat-read.spec.ts` 的旧 REST 审批场景），不需要新的
+   * 进程或新的环境变量。
+   *
    * DA-19e —— 新增 `copilotkit-v2-suggestions.spec.ts` 同样由本 config 接住（理由与
    * `copilotkit-v2-agent-context.spec.ts` 逐字相同：同一条 `/chat/copilotkit-v2` 路由、
    * 同一条真登录，唯一区别是断言目标换成 `useConfigureSuggestions`/`useSuggestions`
    * 接线是否走了同一条 `/api/copilotkit/` 连接）。不需要新的进程或新的环境变量。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-suggestions|chat-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-suggestions|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
