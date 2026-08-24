@@ -155,15 +155,18 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 - **推动**：chat-ux 维度 8/9/10、「一切皆文件」的交互主体
 - **动作**：左栏流式对话与决策过程；右栏活动文件工作台（Active File Panel）——长文档/代码
   不再塞进聊天气泡，agent 打开/写入文件时右栏实时展开。样式服从 fidelity rubric。
-- **依赖**：DA-12 + DA-15（文件事件流）。
+- **依赖**：DA-12 + DA-15（文件事件流）+ **DA-19b**（人类 2026-08-23 裁决：落在
+  CopilotKit 原生新轨道上，不搭在即将退役的手写面板上——双栏工作台是新交互主体，
+  没理由建在旧壳子里）。
 
 ### DA-14 显式/隐式文件上下文注入 ⚠ 需 S1
 - **推动**：D9 到 1.0（上行注入是 v2 的硬指标）
 - **动作**：
   1. 显式：输入框 `@` 引用工作区文件 + Pin 关键文档；文件胶囊（chips）展示所耗 token 预算
   2. 隐式：前端捕获右栏当前视窗/选中片段，请求时作为「临时文件切片」静默注入
-     （useCopilotReadable 通路），并可在请求体中验证注入生效
-- **依赖**：DA-12、DA-13。
+     （useCopilotReadable 通路，**接线基座见 DA-19f**——本条是这条通路上具体注入
+     什么内容的权威定义，DA-19f 不重复声明），并可在请求体中验证注入生效
+- **依赖**：DA-12、DA-13、**DA-19f**（hook 接线基座）。
 
 ### DA-15 文件事件流契约（AG-UI 命名空间扩展）
 - **推动**：D2/D9、DA-13 的传输层
@@ -196,6 +199,124 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
   的路——与「不做无后端支撑假 UI」硬红线冲突。per-tool 卡片各自贴合自己的真实数据
   形状（如 DA-06 的工具调用卡、DA-17 的 todos 规划条）更安全，代价是复用度低一些，
   可接受。此条视为关闭，不再是待裁决项。
+
+## DA-19 CopilotKit 原生 Chat 轨道（人类 2026-08-23 裁决：方案 A，灰度迁移生产服务）
+
+> **背景与裁决过程**：UX-9 冲刺三轮「找 gap→修→评」跑完第一轮（3.0/4）后，人类指出
+> 「UI 并没有多大改进」——核实后发现根因：`@copilotkit/react-core`/`react-ui` 已装
+> （`apps/web/package.json`），但生产 `/chat` 面板（`chat-live-message-panel.tsx`，
+> 2247 行，已超 AGENTS.md 2000 行硬上限）**零个 CopilotKit hook**，全部手写；三轮
+> gap 修复本质是在这份手写代码里逐条**手工复刻** CopilotKit 的 UX 模式（进行中态、
+> per-tool 卡片、真实建议、HITL 编辑），不是真正接入框架——这解释了为什么分数在涨
+> （3.0/4）但用户体感没有质变：每条都是局部效果的手工重造，不是系统性能力。
+>
+> 讨论 B 方案（只换 `useCopilotReadable`/`useCoAgentStateRender` 两个 hook，壳子不动）
+> 时被人类当场否掉：这两个 hook 依赖 CopilotKit 自己的 context provider 管理实际的
+> 请求/响应循环——如果发消息的通路仍是手写轮询，`useCopilotReadable` 注入的上下文
+> 没有消费者，等于注册进一个没人读的 provider；`useCoAgentStateRender` 同理依赖
+> `useCoAgent` 管理真实的 agent 连接。局部换 hook 不做消息循环本身，得到的是两套
+> 互不相通的系统，正是「同一事实不得声明在两处」的反面。**结论：要么真正采用
+> CopilotKit（框架管消息循环本身），要么不必装这个依赖——中间态没有意义。**
+>
+> **人类裁决：方案 A**——把生产服务迁移到 CopilotKit 原生驱动的新 chat 轨道，
+> 不是继续在手写面板里打补丁。
+
+### 地基已经存在，不是从零开始
+`apps/web/components/chat/copilotkit-preview-panel.tsx`（`app/chat/copilotkit-preview/page.tsx`
+路由）已经证明：`useCoAgent` + AG-UI `HttpAgent` 可以直接连 deep-agent-service，
+**不需要**碰 #654 明确排除的 CopilotRuntime GraphQL 网关——那条裁决排除的是后端拓扑，
+不是前端 hooks。DA-19 是把这个「预览」升级成「灰度生产候选」，不是另起炉灶。
+
+### 纪律：S1=B 双轨灰度（本仓一贯做法，不是新发明）
+- 新轨道走独立 flag（暂定 `KERNEL_COPILOTKIT_CHAT_ENABLED`，默认关）。
+- 旧手写面板（`chat-live-message-panel.tsx`）**原样保留、不删不改**，直到新轨道
+  正式验收通过——本冲刺已合入的一切修复（流式交接、错误呈现、身份统一、遮挡……）
+  是旧轨道当前唯一的真实产品体验，不能在迁移期间失去。
+- 新轨道用 chat-ux-acceptance-criteria.md 十项 + CopilotKit 对标专项重新评分，
+  **只有新轨道分数 ≥ 旧轨道，才考虑把默认值翻转**；旧轨道退役是翻转之后的独立决定，
+  本条不包含退役动作。
+
+### 子任务（a 是地基，b 之后除标注依赖外可并行）
+
+**DA-19a 生产级连接**——推动：整条轨道的前提
+- 把 `copilotkit-preview-panel.tsx` 的连接方式从「预览」升级为生产可用：真实鉴权
+  （bearer token 经 AG-UI 连接正确传递，不是 loopback 桩）、真实 thread 续聊、真实
+  多 agent 切换、真实错误传播（连接失败/鉴权失败不能白屏）。
+- 验收：真实 deep-agent-service（非 loopback）走一轮完整对话，鉴权失败时有明确
+  错误态，thread 续聊后历史正确。
+- 无前置依赖，最先做。
+
+**DA-19b 消息渲染迁移**——推动：chat-ux 维度 1/2/8/9/10
+- 消息列表迁移到 CopilotKit 原生消息模型渲染，保留产品级定制点（markdown/mermaid
+  图/落地为产物按钮）——这些定制通过 CopilotKit 的自定义 render 接入，不是推翻
+  官方外观重新发明。
+- 依赖：DA-19a。
+
+**DA-19c 工具可见性（框架版 Gap 1/4）**——推动：D2/D9
+- `useCopilotAction` 的 `render` 替换 `agent-tool-chain.tsx` 手写的 per-tool 卡片
+  逻辑，进行中/完成态由框架状态机驱动，不是手动维护 `in_progress` 记账分支。
+- 依赖：DA-19b。
+
+**DA-19d 人在环（框架版 Gap 3）**——推动：D6
+- `renderAndWaitForResponse` 替换 `agent-approval-panel.tsx` 手写审批面板——顺带
+  解决 UX-9 评估发现的真实缺陷（编辑后的值端到端从未生效过，两个 SHA 复测均如此）：
+  resume 语义由框架保证，不是我们自己再排查一次持久化往返错位。
+- 依赖：DA-19b。
+
+**DA-19e 追问建议（框架版 Gap 2）**——推动：chat-ux 维度
+- `useCopilotChatSuggestions` 替换 `computeFollowUpSuggestions`——顺带解决 UX-9
+  评估发现的缺陷（deep-agent 类线程走不通 `ModelCallPort`，仍是写死模板）：框架的
+  建议生成走的是 agent 自己的连接，不需要额外适配 deep-agent 的调用形状。
+- 依赖：DA-19b。
+
+**DA-19f 上行注入基座**——推动：D9（目前 0.3，唯一为 0 的引擎维度）、解锁 DA-14
+- 把 `useCopilotReadable` 接进新轨道（provider 级接线，不是具体注入哪些内容——
+  具体注入什么、显式 `@` 引用还是隐式视窗捕获，权威定义在 **DA-14**，本条不重复
+  声明，只负责把 hook 接线打通，DA-14 在此基座上落地）。
+- 依赖：DA-19a（不依赖 b，可与 c/d/e 并行）。
+
+**DA-19g 灰度开关 + 正式验收**——推动：整条轨道能不能翻默认值
+- `KERNEL_COPILOTKIT_CHAT_ENABLED` 落地（provision.sh 模板 + 部署文档）；新轨道跑
+  完整 chat-ux-acceptance-criteria.md 十项 + CopilotKit 对标专项，独立评分员产出
+  分数，与旧轨道当前分数（track B 7/10 本地天花板）对比。
+- 依赖：DA-19b~f 全部完成。
+- **翻转默认值需要人类确认**——不是评分够了就自动翻，按 ADR-023 精神，这是产品面
+  的决定，agent 不自行改默认行为。
+
+**DA-19h 旧轨道退役**——推动：清理债务
+- 确认新轨道稳定运行、默认值已翻转一段时间后，删除 `chat-live-message-panel.tsx`
+  手写实现。
+- 依赖：DA-19g 且默认值已翻转（人类确认）。不属于本轮范围，未来单独排期。
+
+### 完整执行顺序（人类 2026-08-23 裁决：DA-12~16「一切皆文件」路线并入本轨道，持续迭代直到做完）
+
+```
+DA-19a（生产级连接，地基）
+   ├─ DA-19b（消息渲染迁移）
+   │    ├─ DA-19c（工具可见性，框架版 Gap 1/4）─┐
+   │    ├─ DA-19d（人在环，框架版 Gap 3）────────┤ 三者互相独立，可并行
+   │    ├─ DA-19e（追问建议，框架版 Gap 2）──────┘
+   │    └─ DA-12（VFS，后端为主，可与 c/d/e 同时推进）
+   │         └─ DA-13（双栏工作台，落在新轨道上）
+   │              ├─ DA-15（文件事件流契约，依赖 DA-03 已完成，无额外阻塞）
+   │              │    └─ DA-16（局部补丁 + 可视化 diff）
+   │              └─ DA-14（显式/隐式上下文注入，权威定义）
+   │                   └─ 依赖 DA-19f（hook 接线基座，与 c/d/e 同批可并行）
+   └─ DA-19f（useCopilotReadable 接线基座）
+DA-19g（灰度开关 + 正式验收，等 b~f 全部完成）
+DA-19h（旧轨道退役，等 g 且人类确认翻转默认值）
+```
+
+**不是全部做完才验收一次**——每个子任务完工即走 issue→PR→合入 main 的标准流程，
+合入即算数；DA-19g 的「正式验收」是对整条轨道的综合评分，不是任何单个子任务的
+准入门槛。持续迭代，不在中途因为「这轮该找 gap 了」停下来做表面工作。
+
+### 与三轮 gap 迭代（UX-9 CopilotKit 对标）的关系
+不作废——那三轮修的是**旧轨道**（当前生产真实运行的面板），旧轨道在 DA-19h 退役前
+仍是用户唯一能用到的版本，continue 修复真实缺陷（HITL edit 从未生效、deep-agent
+线程建议仍是模板）依然有意义，不因为决定做 DA-19 就停手上已经定位到根因的两个修复。
+但**不再派发新一轮「找 5 个 gap」**——那是对旧轨道的表面缝补，已经被 DA-19 的裁决
+取代为系统性方案，继续做等于重复投入两条不会汇合的路。
 
 ## UX-9 冲刺（2026-08-23 人类裁决：以 UI 主卡到 9 分为目标，subagent 并行，全程无人类参与）
 
