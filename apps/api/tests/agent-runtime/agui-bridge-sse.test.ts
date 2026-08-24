@@ -217,8 +217,12 @@ describe("POST /copilotkit/agui", () => {
         expect(Object.values(EventType)).toContain(event.type);
       }
 
+      // DA-19a -- every real run now also mints/echoes a `CUSTOM chat_thread_id` event
+      // right after RUN_STARTED (see `copilotkit-agui.controller.ts`'s own doc), so it's
+      // a permanent fixture of this sequence, not a one-off variant.
       expect(events.map((e) => e.type)).toEqual([
         EventType.RUN_STARTED,
+        EventType.CUSTOM,
         EventType.TEXT_MESSAGE_START,
         EventType.TEXT_MESSAGE_CONTENT,
         EventType.TEXT_MESSAGE_END,
