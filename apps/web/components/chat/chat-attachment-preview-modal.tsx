@@ -9,10 +9,11 @@
  * 尽管名字带 "Image"，实现本就是任意字节通用的：手动 fetch 带 Bearer → blob →
  * `URL.createObjectURL`）——不另写第二份同类实现。
  *
- * 内联渲染仅两类：image（`<img>`）、pdf（`<iframe>`，浏览器原生 PDF viewer）。
- * 其余类型（pptx/docx/xlsx/text/...）没有可靠的离线内联渲染器，对齐既有
+ * 内联渲染三类：image（`<img>`）、pdf（`<iframe>`，浏览器原生 PDF viewer）、
+ * slides/pptx（`ChatAttachmentSlidesPreview`，纯前端库 `pptx-preview` 渲染，见 #1980）。
+ * 其余类型（docx/xlsx/text/...）没有可靠的离线内联渲染器，对齐既有
  * `apps/web/components/files/file-preview.tsx` 的降级约定：图标 + 文件名 + 「不支持预览，
- * 请下载查看」+ 下载按钮。下载对三类（含可预览的两类）统一走同一个 blob URL，
+ * 请下载查看」+ 下载按钮。下载对四类（含可预览的三类）统一走同一个 blob URL，
  * `download` 属性触发另存，不需要再发一次 `?download=1` 请求——预览已经把字节都取回来了。
  */
 import * as React from "react";
@@ -24,11 +25,13 @@ import { apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
 import { formatBytes, iconKindForMime, type AttachmentIconKind } from "@/lib/chat-attachment-format";
 import type { ChatAttachment } from "@/lib/live-chat";
+import { ChatAttachmentSlidesPreview } from "./chat-attachment-slides-preview";
 
-/** 三种渲染态：内联图片 / 内联 PDF / 无法内联，仅给图标+下载。 */
-function previewMode(kind: AttachmentIconKind): "image" | "pdf" | "unsupported" {
+/** 四种渲染态：内联图片 / 内联 PDF / 内联 pptx / 无法内联，仅给图标+下载。 */
+function previewMode(kind: AttachmentIconKind): "image" | "pdf" | "slides" | "unsupported" {
   if (kind === "image") return "image";
   if (kind === "pdf") return "pdf";
+  if (kind === "slides") return "slides";
   return "unsupported";
 }
 
@@ -103,6 +106,8 @@ export function ChatAttachmentPreviewModal({
               className="h-[60vh] w-full rounded-md border border-border-subtle"
               data-testid="chat-attachment-preview-pdf"
             />
+          ) : mode === "slides" ? (
+            <ChatAttachmentSlidesPreview src={src} filename={attachment.filename} />
           ) : (
             <p className="text-13 text-muted-foreground" data-testid="chat-attachment-preview-unsupported">
               该文件类型不支持预览，请下载查看。
