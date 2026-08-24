@@ -7,12 +7,28 @@
  *
  * 与 `trial-run-agent.ts` 头注同一个判断：这次调用**不需要**写回某条 Chat 消息，
  * 不需要 `queued → running → succeeded` 那条状态机，只需要「读线程正文 → 拼一段
- * 简短 system prompt → 调一次 `ModelCallPort.complete`」。复用的两块与 `trialRunAgent`
- * 完全一致：`PublishedAgentReader.resolvePublished` 拿 `modelProvider`/`modelId`，
- * `ModelCallPort`（全仓唯一真的发 HTTP 请求调模型的实现）。
+ * 简短 system prompt → 调一次 `ModelCallPort.complete`」。
  *
  * `agentId` 由调用方（前端 composer）传入，同 `acceptHumanMessage.in.agentId`
  * 一样的信任级别——是这条线程当前选中的 Agent，不是本用例自己去猜的。
+ * `resolvePublished` 仍然会解析它，但**只用于存在性/授权校验**（agentId 必须是这个
+ * org 里一个真的已发布的 Agent）——见下方「用哪个 provider 调用」。
+ *
+ * ## 用哪个 provider 调用：固定的 `deps.followUpModel`，不是被选中 Agent 的快照
+ *
+ * ⚠ 曾经直接把 `resolvePublished` 拿到的快照 `modelProvider`/`modelId` 转给
+ * `ModelCallPort.complete`——这对 `ConfiguredModelProvider`（dashscope）没问题，但对
+ * `deep-agent` provider 是一个可见 bug（deep-agent 线程追问建议仍是模板 的根因）：
+ * `DeepAgentModelProvider` 会把这次调用的 `threadId` 当作真实 chat 线程 id，按 DA-04
+ * 确定性派生并复用**同一个远端 LangGraph thread**，把这段「生成追问建议」的假对话
+ * 追加进真实会话的持久化历史；且它的 `complete()` 是完整的「建 run → 轮询到终态」
+ * 执行，天然比前端 8s 的等待预算慢，于是永远触发前端兜底模板。
+ *
+ * 修法：追问建议是「读最近几轮对话提两三句追问」的轻量元任务，不需要被选中 Agent 的
+ * 推理/工具能力，固定走 `deps.followUpModel`（这个部署配置的标准单次补全 provider，
+ * `readFollowUpSuggestionsModelConfig` 的唯一事实源），并且**不传 `threadId`**——
+ * 同 `trial-run-agent.ts` 的既有先例（「A trial run has no thread」），避免任何一个
+ * provider 把这次调用误当成要接续的真实会话。这仍然是一次真实模型调用，不是回退。
  *
  * ## 可见性
  *
@@ -44,10 +60,29 @@ export class FollowUpSuggestionsDependencyFailedError extends Error {
   }
 }
 
+/**
+ * 追问建议固定使用的 provider/modelId——不是被选中 Agent 的快照。唯一实现是
+ * `readFollowUpSuggestionsModelConfig`（`infrastructure/chat/followup-suggestions-
+ * model-config.ts`），这里只声明接口形状（洋葱架构：应用层不反向 import 基础设施层），
+ * 由调用方（controller）在组装 `GenerateFollowUpSuggestionsDeps` 时注入。见本文件头注
+ * 「用哪个 provider 调用」一节。
+ */
+export interface FollowUpModelConfig {
+  readonly provider: string;
+  readonly modelId: string;
+}
+
+/** DI token for `FollowUpModelConfig`——composition root (`kernel.module.ts`) binds it
+ * to `readFollowUpSuggestionsModelConfig()`'s result; the controller injects it by this
+ * token instead of importing the infra reader directly (interface 层不得直接 import
+ * infrastructure，见 `lint-arch-deps.mjs` 的 onion architecture 门控）。 */
+export const FOLLOWUP_MODEL_CONFIG = Symbol("FollowUpModelConfig");
+
 export interface GenerateFollowUpSuggestionsDeps extends ResolveVisibilityDeps {
   readonly chat: ChatRepository;
   readonly publishedAgents: PublishedAgentReader;
   readonly model: ModelCallPort;
+  readonly followUpModel: FollowUpModelConfig;
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
 
@@ -128,6 +163,9 @@ export async function generateFollowUpSuggestions(
     content: message.body,
   }));
 
+  // 存在性/授权校验：agentId 必须是这个 org 里一个真的已发布的 Agent。
+  // 快照的 modelProvider/modelId **不**转给下面的 complete()——见本文件头注
+  // 「用哪个 provider 调用」：追问建议固定走 deps.followUpModel。
   const snapshot = await deps.publishedAgents.resolvePublished(input.orgId, input.agentId);
   if (snapshot === null) {
     throw new FollowUpSuggestionsDependencyFailedError("agent has no published version");
@@ -136,9 +174,12 @@ export async function generateFollowUpSuggestions(
   let completion: { readonly text: string };
   try {
     completion = await deps.model.complete({
-      modelProvider: snapshot.modelProvider,
-      modelId: snapshot.modelId,
-      threadId: input.threadId,
+      modelProvider: deps.followUpModel.provider,
+      modelId: deps.followUpModel.modelId,
+      // ⚠ 不传 input.threadId：同 trial-run-agent.ts 的先例（「A trial run has no
+      // thread」）。传真实 chat threadId 会让 DeepAgentModelProvider 把这次「生成
+      // 追问建议」的调用误当成要接续的真实会话（DA-04 的确定性 thread 派生+复用），
+      // 把假的 system/user turn 写进真实会话的持久化历史——这里是独立的一次性调用。
       system: FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT,
       user: "请基于以上对话生成追问建议。只输出 JSON 数组。",
       history,
@@ -148,8 +189,8 @@ export async function generateFollowUpSuggestions(
     deps.log("followup suggestions model call failed", {
       threadId: input.threadId,
       agentId: input.agentId,
-      modelProvider: snapshot.modelProvider,
-      modelId: snapshot.modelId,
+      modelProvider: deps.followUpModel.provider,
+      modelId: deps.followUpModel.modelId,
       code: e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED",
       detail,
     });

@@ -345,8 +345,17 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
    * 建议文案不同，就证明了「建议内容随对话内容变化」，不是恒定的「能否再详细说明一下？」。
    */
   const gap2Topics = [
-    { message: "我们下季度的能耗预算应该怎么定？", shot: "b6-followup-topic-a.png" },
-    { message: "招聘计划里生产计划员的候选人有哪些？", shot: "b6-followup-topic-b.png" },
+    { message: "我们下季度的能耗预算应该怎么定？", shot: "b6-followup-topic-a.png", agentId: CHAT_READ_E2E.agentId },
+    { message: "招聘计划里生产计划员的候选人有哪些？", shot: "b6-followup-topic-b.png", agentId: CHAT_READ_E2E.agentId },
+    /* ── 根因回归取证（deep-agent 线程追问建议仍是模板 的修复）─────────────────
+     * 选中 `deepAgentId`（Deep Research Agent，`model_provider="deep-agent"`）而不是
+     * 上面两条走的标准 agent。修复前：`generate-followup-suggestions.ts` 把这个 Agent
+     * 快照的 modelProvider 转给 `complete()`，`DeepAgentModelProvider` 的完整
+     * 「建 run → 轮询到终态」执行天然比前端 8s 等待预算慢，chip 永远落回
+     * `computeFollowUpSuggestions` 的确定性模板（「能否再详细说明一下？」）。
+     * 修复后：追问建议固定走标准 provider（不看被选中 Agent 是不是 deep-agent），
+     * 这条 chip 应该和上面两条一样，是随对话内容变化的真实文案。 */
+    { message: "深度研究一下这个市场的竞争格局", shot: "b6-followup-topic-deep-agent.png", agentId: CHAT_READ_E2E.deepAgentId },
   ];
   for (const topic of gap2Topics) {
     await step(`gap#2 追问建议取证：${topic.message}`, async () => {
@@ -355,7 +364,7 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
       await page.waitForURL(/\/chat\?thread=/);
       await page.getByTestId("chat-thread-detail").waitFor({ state: "visible", timeout: 30_000 });
       await page.getByTestId("chat-agent-select").click({ timeout: 15_000 });
-      await page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.agentId}`).click({ timeout: 15_000 });
+      await page.getByTestId(`chat-agent-select-option-${topic.agentId}`).click({ timeout: 15_000 });
       await page.getByTestId("chat-message-input").fill(topic.message);
       await page.getByTestId("chat-message-submit").click({ timeout: 20_000 });
       // 等到 agent 回复终态落位（触发 `computeFollowUpSuggestions` 的判据：最新一条来自
@@ -363,7 +372,7 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
       await page.getByTestId("chat-followup-suggestions").waitFor({ state: "visible", timeout: 30_000 });
       await page.waitForTimeout(4_000);
     });
-    await shoot(topic.shot, "追问建议真实性（issue #712 / CopilotKit gap #2）", `发「${topic.message}」后 composer 下方的建议 chip——与另一条消息对照，判内容是否随对话变化`);
+    await shoot(topic.shot, "追问建议真实性（issue #712 / CopilotKit gap #2）", `发「${topic.message}」（agent=${topic.agentId}）后 composer 下方的建议 chip——与其他消息对照，判内容是否随对话变化、是否仍是固定模板`);
   }
 
   writeFileSync(

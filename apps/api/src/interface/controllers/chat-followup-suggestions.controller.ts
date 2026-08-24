@@ -27,7 +27,9 @@ import { ThreadNotVisibleError } from "../../application/chat/get-thread";
 import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import {
+  FOLLOWUP_MODEL_CONFIG,
   FollowUpSuggestionsDependencyFailedError,
+  type FollowUpModelConfig,
   generateFollowUpSuggestions,
 } from "../../application/chat/generate-followup-suggestions";
 
@@ -42,6 +44,11 @@ export class ChatFollowUpSuggestionsController {
     @Inject(PUBLISHED_AGENT_READER) private readonly publishedAgents: PublishedAgentReader,
     @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    // 追问建议固定走的 provider/modelId——不是被选中 Agent 的快照，见
+    // `generate-followup-suggestions.ts` 头注「用哪个 provider 调用」一节。绑定在
+    // `kernel.module.ts`（组合根，`readFollowUpSuggestionsModelConfig()` 的唯一调用点）
+    // ——interface 层不得直接 import infrastructure（`lint-arch-deps.mjs` 门控）。
+    @Inject(FOLLOWUP_MODEL_CONFIG) private readonly followUpModel: FollowUpModelConfig,
   ) {}
 
   /** Server-side only, same adapter shape as `AgentTrialRunController`'s (never reaches a response). */
@@ -65,6 +72,7 @@ export class ChatFollowUpSuggestionsController {
           chat: this.chat,
           publishedAgents: this.publishedAgents,
           model: this.model,
+          followUpModel: this.followUpModel,
           log: this.log,
         },
         {
