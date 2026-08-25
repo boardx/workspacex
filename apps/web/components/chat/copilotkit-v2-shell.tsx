@@ -6,6 +6,8 @@ import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import {
   NewThreadButton, ThreadCardButton, ThreadListHeader,
 } from "@/components/chat/thread-list-shell";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
 import {
   createPersonalThread, listPersonalThreads, type ListThreadsOut,
@@ -125,10 +127,37 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const cards = threads?.groups.flatMap((group) => group.cards) ?? [];
   const canCreate = threads?.capabilities.includes("thread.mutate") ?? true;
 
+  /**
+   * issue #2039（UIUX 三轮迭代第 1 轮 gap #2）—— 375px 响应式。此前 `w-64 shrink-0`
+   * 侧栏在手机宽度常驻，把主区压到 ~119px（真栈实测横向溢出 313px，
+   * `.copilotkit-v2-uiux/empty-mobile-375.png` 修复前版）。修法与旧轨道
+   * `personal-chat-screen.tsx` 的 list/detail 同一心智：<md 只显示两者之一，
+   * 顶部一个仅手机可见的开关在「对话列表 ↔ 当前对话」之间切换；≥md 两栏并排不变。
+   * 路由跳转（选中线程/新建）天然重挂载本组件，`mobileListOpen` 自动归位。
+   */
+  const [mobileListOpen, setMobileListOpen] = React.useState(false);
+
   return (
-    <div className="flex h-full w-full">
-      <aside className="flex w-64 shrink-0 flex-col gap-2 border-r border-border py-2" data-testid="copilotkit-v2-thread-sidebar">
-        <ThreadListHeader title="CopilotKit 对话" />
+    <div className="flex h-full w-full min-w-0 flex-col md:flex-row">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2 md:hidden">
+        <Button
+          size="xs"
+          variant="outline"
+          data-testid="copilotkit-v2-mobile-list-toggle"
+          aria-expanded={mobileListOpen}
+          onClick={() => setMobileListOpen((v) => !v)}
+        >
+          {mobileListOpen ? "返回当前对话" : "对话列表"}
+        </Button>
+      </div>
+      <aside
+        className={cn(
+          "w-full shrink-0 flex-col gap-2 border-r border-border py-2 md:flex md:w-64",
+          mobileListOpen ? "flex" : "hidden",
+        )}
+        data-testid="copilotkit-v2-thread-sidebar"
+      >
+        <ThreadListHeader />
         <div className="px-3">
           <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} />
         </div>
@@ -151,7 +180,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           )}
         </div>
       </aside>
-      <div className="min-w-0 flex-1">
+      <div className={cn("min-w-0 flex-1", mobileListOpen ? "hidden md:block" : "block")}>
         {/*
           ⚠ `key` 用的是 `initialThreadId`（route 参数本身），不是 `selectedThreadId`
           （本组件内部状态）——两者绝大多数时候相等，但在

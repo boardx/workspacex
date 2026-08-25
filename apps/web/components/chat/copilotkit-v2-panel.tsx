@@ -673,7 +673,7 @@ export function CopilotKitV2Panel({
           共同父层：两者的浮层共享「同一时刻只开一个」互斥（`useChatPopoverSlot`），
           与旧轨道 `chat-read-screen.tsx` 同一挂法（issue #1803 gap #3）。 */}
       <ChatPopoverCoordinatorProvider>
-      <div className="flex items-center gap-2" data-testid="copilotkit-v2-agent-toolbar">
+      <div className="flex flex-wrap items-center gap-2" data-testid="copilotkit-v2-agent-toolbar">
         <AgentPicker
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           selectedAgentId={selectedAgentId ?? ""}
@@ -946,6 +946,13 @@ function CopilotKitV2PanelBody({
    */
   const [historyError, setHistoryError] = React.useState<string | null>(null);
   const hydratedRef = React.useRef(false);
+  /**
+   * issue #2039（UIUX 三轮迭代第 1 轮 gap #3 的一半，uiux-standards U1）——
+   * 历史回读在途时消息区不能是一片空白：`historyLoading` 只是上面这个既有
+   * hydration effect 的**渲染投影**（初值 = 有历史可读；effect 落定或失败时归
+   * false），不改变 hydration 逻辑本身一行。
+   */
+  const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
   React.useEffect(() => {
     if (initialChatThreadId === null || !isReady || hydratedRef.current) return;
     let cancelled = false;
@@ -975,8 +982,10 @@ function CopilotKitV2PanelBody({
           const liveIds = new Set(live.map((m) => m.id));
           agent.setMessages([...collected.filter((m) => !liveIds.has(m.id)), ...live]);
         }
+        setHistoryLoading(false);
       } catch (e) {
         if (cancelled) return;
+        setHistoryLoading(false);
         setHistoryError(e instanceof Error ? e.message : "历史消息读取失败");
       }
     })();
@@ -1130,16 +1139,37 @@ function CopilotKitV2PanelBody({
           CopilotKit v2（DA-19 —— CopilotRuntime 适配器，走 `/api/copilotkit`）
         </div>
         <div
-          className="flex-1 overflow-y-auto rounded border p-2"
+          className="flex-1 overflow-y-auto rounded-lg border border-border-subtle bg-card p-3"
           data-testid="copilotkit-v2-messages"
         >
-          <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
-            <CopilotChatMessageView
-              messages={agent.messages}
-              isRunning={agent.isRunning}
-              assistantMessage={{ markdownRenderer: V2MarkdownRenderer }}
-            />
-          </CopilotChatConfigurationProvider>
+          {/* issue #2039（第 1 轮 gap #3，uiux-standards U1/U2）——三态：
+              历史回读中 = 骨架屏；无消息 = 引导空态（此前是一整片空白）；
+              有消息 = 框架消息列表。空态只在真的没有任何消息时出现，不伪装历史。 */}
+          {historyLoading ? (
+            <div data-testid="loading" className="flex animate-pulse flex-col gap-3" aria-hidden>
+              <div className="h-10 w-2/3 rounded-lg bg-muted" />
+              <div className="ml-auto h-8 w-1/2 rounded-lg bg-muted" />
+              <div className="h-14 w-3/4 rounded-lg bg-muted" />
+            </div>
+          ) : agent.messages.length === 0 && !agent.isRunning ? (
+            <div
+              data-testid="copilotkit-v2-empty"
+              className="flex h-full flex-col items-center justify-center gap-2 py-12 text-center"
+            >
+              <p className="text-14 font-medium text-foreground">开始新的对话</p>
+              <p className="max-w-sm text-12 leading-relaxed text-muted-foreground">
+                在下方输入消息，或点麦克风语音输入；也可以拖入文件作为这轮对话的附件。
+              </p>
+            </div>
+          ) : (
+            <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+              <CopilotChatMessageView
+                messages={agent.messages}
+                isRunning={agent.isRunning}
+                assistantMessage={{ markdownRenderer: V2MarkdownRenderer }}
+              />
+            </CopilotChatConfigurationProvider>
+          )}
         </div>
         {error !== null ? (
           <div data-testid="copilotkit-v2-error" className="text-sm text-destructive">{error}</div>
@@ -1158,12 +1188,15 @@ function CopilotKitV2PanelBody({
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         <ChatAttachmentBanner banner={attach.banner} />
         <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />
-        <div className="flex gap-2">
+        {/* issue #2039（第 1 轮 gap #5）——composer 收口：placeholder 从「随便输入点什么」
+            换成明确的动作指引；发送按钮升为 primary（旧屏 composer 的发送就是主行动点）；
+            `min-w-0` 防手机宽度下输入框把整行撑溢出。 */}
+        <div className="flex min-w-0 items-center gap-2">
           <ChatAttachmentButton ctl={attach} disabled={agent.isRunning || attachmentThreadId === null} />
           <input
             data-testid="copilotkit-v2-input"
-            className="flex-1 rounded border border-input px-2 py-1 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder="随便输入点什么"
+            className="min-w-0 flex-1 rounded-md border border-input px-2.5 py-1.5 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            placeholder="输入消息，Enter 发送"
             value={inputDraft}
             onChange={(e) => {
               setInputDraft(e.target.value);
@@ -1228,15 +1261,17 @@ function CopilotKitV2PanelBody({
               <Mic aria-hidden className="h-3.5 w-3.5" />
             )}
           </Button>
-          <button
+          <Button
             data-testid="copilotkit-v2-send"
             type="button"
-            className="rounded border border-border px-3 py-1 text-sm text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+            size="sm"
+            variant="primary"
+            className="shrink-0"
             disabled={agent.isRunning || attach.hasUploading}
             onClick={() => void send()}
           >
             {agent.isRunning ? "…" : "发送"}
-          </button>
+          </Button>
         </div>
         {speech.connecting ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-connecting">

@@ -137,6 +137,22 @@ export function CopilotKitV2Providers({ children }: { children: React.ReactNode 
       useSingleEndpoint={false}
       headers={headers}
       onError={handleCopilotError}
+      /*
+       * issue #2039（UIUX 三轮迭代第 1 轮 gap #1）—— `CopilotKit` wrapper 对
+       * `showDevConsole`/`enableInspector` 的缺省值是 `isLocalhost()`（读
+       * `copilotkit-nRjRp2_5.mjs` 的 `shouldShowDevConsole`：`undefined` ⇒ 按
+       * hostname 是否 localhost/127.0.0.1 决定）——而 devapp 恰恰跑在 127.0.0.1
+       * 回环上（PROJECT.md「本机端口分配」），于是右上角的 CopilotKit Inspector
+       * 浮动按钮 + 它自带的厂商新闻弹窗（实测抓到 "The Channels SDK is live,
+       * plus CopilotKit for Angular!"，内容从 copilotkit 云端拉取）直接暴露给
+       * 真实用户。这是开发者工具漏进产品界面，不是产品功能——显式关掉，两个
+       * prop 都传 `false`（`showDevConsole` 已废弃但 wrapper 仍读它决定 usage
+       * banner/toast，`enableInspector` 决定 inspector 本体，见 wrapper 源码
+       * `shouldShowDevConsole(props.showDevConsole)` / `(props.enableInspector)`
+       * 两处独立调用）。排障入口不受影响：`onError` 的 console.error 仍在。
+       */
+      showDevConsole={false}
+      enableInspector={false}
     >
       <CopilotKitV2ReadableContextProbe />
       {children}
