@@ -3,16 +3,19 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
 /**
- * issue #2052（CK-P7 多 agent 编制）+ issue #2050（「落地为产物」入口）的真实浏览器取证。
+ * issue #2052（CK-P7 多 agent 编制 + 「落地为产物」入口）的真实浏览器取证。
  *
- * ## ① #2050 的取证是这个 spec 存在的首要理由
+ * ⚠ 「流式消息 id ≠ 落库 id」这条缺口本身与它的修法（`CUSTOM chat_message_id` 回显）
+ *   由 **CK-P3 / PR #2064** 落地并关闭 #2050，不是本 PR 的产出。本 spec 仍然断言它，
+ *   理由是「落地为产物」直接依赖它——它一旦回归，本功能就变成点了必 404 的假按钮，
+ *   而那种回归在只测编制的 spec 里是看不见的。
  *
- * issue 正文要求：**先证明**流式 assistant 消息 id 与落库 `chat_messages.id` 是不是
- * 同一个值，再决定接不接落地按钮。这里不靠读代码下结论——直接抓 `POST /copilotkit/agui`
- * 那条 SSE 流的原文，把两个 id 都从 wire 上取出来比对：
+ * ## ① 落地按钮必须挂在真实落库 id 上（依赖 #2064 的回显事件）
+ *
+ * 直接抓 `POST /copilotkit/agui` 那条 SSE 流的原文，把两个 id 都从 wire 上取出来比对：
  *
  *   - `TEXT_MESSAGE_START.messageId` —— 客户端气泡用的 id；
- *   - `CUSTOM {name:"chat_message_id"}.value.chatMessageId` —— 本次新增的映射事件，
+ *   - `CUSTOM {name:"chat_message_id"}.value.chatMessageId` —— #2064 落地的映射事件，
  *     值取自 `agui-bridge.ts` 的 `outcome.messageId`（`listMessagePage` 读回的主键）。
  *
  * ⚠ 这条 SSE **必须直连 API 取**，不能用 `page.waitForResponse` 从浏览器侧抓：v2 的
@@ -88,7 +91,7 @@ function parseSseEvents(body: string): Array<Record<string, unknown>> {
   return events;
 }
 
-test("issue #2050 + #2052：流式消息 id ≠ 落库 id（映射事件补齐）→ 落地按钮用真实 id 且产物真出现；编制加/移真落库", async ({ page }) => {
+test("issue #2052：落地按钮挂真实落库 id 且产物真出现（依赖 #2064 回显）；编制加/移真落库", async ({ page }) => {
   await warmUp(page);
   await login(page);
   await warmUpThreadRoute(page);
@@ -134,7 +137,7 @@ test("issue #2050 + #2052：流式消息 id ≠ 落库 id（映射事件补齐�
   expect(panel.rosterCount).toBe(1);
   expect(panel.agents.map((a) => a.id)).toContain(CHAT_READ_E2E.catalogOnlyAgentId);
 
-  /* ═══════════ ③ #2050 wire 取证：直连 AG-UI 端点，把两个 id 都取出来 ═══════════
+  /* ═══════════ ③ wire 取证：直连 AG-UI 端点，把两个 id 都取出来 ═══════════
      用真实的 `forwardedProps.chatThreadId` 续接上面这条线程，走的就是浏览器那条
      CopilotRuntime 背后完全相同的控制器代码路径。 */
   const aguiResponse = await page.request.post(`${API}/copilotkit/agui`, {
@@ -152,19 +155,24 @@ test("issue #2050 + #2052：流式消息 id ≠ 落库 id（映射事件补齐�
 
   const textStart = events.find((e) => e.type === "TEXT_MESSAGE_START");
   expect(textStart, "wire 上应有 TEXT_MESSAGE_START").toBeTruthy();
-  const wireMessageId = textStart!.messageId as string;
+  const streamingMessageId = textStart!.messageId as string;
 
+  // ⚠ 事件名与字段形状取自契约 `@repo/contracts/agui-state-events`
+  //   （`AGUI_CHAT_MESSAGE_ID_EVENT_NAME` / `AguiChatMessageIdValue`，CK-P3 #2064 落地），
+  //   **不是**本 spec 自己起的名字：字段是 `streamingMessageId`（不是 wire/…），
+  //   照抄一个近似名会让断言在字段缺失时静默拿到 undefined。
   const mapping = events.find((e) => e.type === "CUSTOM" && e.name === "chat_message_id");
-  expect(mapping, "run 成功后应补发 chat_message_id 映射事件（issue #2050 的修法）").toBeTruthy();
-  const mappingValue = mapping!.value as { wireMessageId: string; chatMessageId: string };
+  expect(mapping, "run 成功后应发 chat_message_id 映射事件（CK-P3 #2064 落地）").toBeTruthy();
+  const mappingValue = mapping!.value as { streamingMessageId: string; chatMessageId: string };
   const chatMessageId = mappingValue.chatMessageId;
+  expect(chatMessageId, "映射事件必须带非空 chatMessageId").toBeTruthy();
 
   // ⭐ 取证核心：两个 id **确实不同**。若哪天它们相等（比如控制器改回用真主键当
-  //    wire id），这条断言会红——那时该重新评估映射事件还有没有必要，而不是让一个
+  //    流式 id），这条断言会红——那时该重新评估映射事件还有没有必要，而不是让一个
   //    已经不成立的前提继续躺在注释里。
-  expect(chatMessageId, "映射事件里的真实 id 不应等于 wire id（#2050 取证结论）")
-    .not.toBe(wireMessageId);
-  expect(mappingValue.wireMessageId).toBe(wireMessageId);
+  expect(chatMessageId, "映射事件里的真实 id 不应等于流式聚合 id")
+    .not.toBe(streamingMessageId);
+  expect(mappingValue.streamingMessageId).toBe(streamingMessageId);
 
   // ⭐ 且 `chatMessageId` 确实是落库主键：它必须出现在 messages 读端口的返回里。
   const messagesResponse = await page.request.get(
@@ -174,8 +182,8 @@ test("issue #2050 + #2052：流式消息 id ≠ 落库 id（映射事件补齐�
   const { messages } = await messagesResponse.json() as { messages: Array<{ id: string }> };
   expect(messages.map((m) => m.id), "映射事件给的应是真实 chat_messages.id")
     .toContain(chatMessageId);
-  expect(messages.map((m) => m.id), "wire id 按定义不该在库里")
-    .not.toContain(wireMessageId);
+  expect(messages.map((m) => m.id), "流式聚合 id 按定义不该在库里")
+    .not.toContain(streamingMessageId);
 
   /* ═══════════ ④ 浏览器侧：真正走一轮 UI 对话，映射事件必须驱动出落地按钮 ═══════════
      ③ 证的是 wire 上两个 id 不同；这一步证的是**前端确实用了映射给的那个真实 id**。
@@ -201,8 +209,8 @@ test("issue #2050 + #2052：流式消息 id ≠ 落库 id（映射事件补齐�
   const landOpen = page.getByTestId(`chat-land-artifact-open-${streamedMessageId}`);
   await expect(landOpen, "流式消息的落地入口应挂在真实 chat_messages.id 上（映射事件生效）")
     .toBeVisible({ timeout: 60_000 });
-  // 反证：用 wire id 的那个按钮不存在（"点了才 404 的假按钮"没被画出来）。
-  await expect(page.getByTestId(`chat-land-artifact-open-${wireMessageId}`)).toHaveCount(0);
+  // 反证：用流式聚合 id 的那个按钮不存在（"点了才 404 的假按钮"没被画出来）。
+  await expect(page.getByTestId(`chat-land-artifact-open-${streamingMessageId}`)).toHaveCount(0);
   const chatMessageIdForLanding = streamedMessageId;
 
   const artifactTitle = `v2-落地取证-${Date.now().toString(36)}`;
