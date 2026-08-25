@@ -27,6 +27,35 @@ export interface PublishedAgentReader {
 export const PUBLISHED_AGENT_READER = Symbol("PublishedAgentReader");
 
 /**
+ * #2038 —— 「这个 org 的标准默认 agent 是谁」的读口。
+ *
+ * ## 为什么是独立接口，不是 `PublishedAgentReader` 上加一个方法
+ *
+ * `PublishedAgentReader` 已有七个消费点（message-roundtrip / agui-bridge / trial-run /
+ * followup-suggestions / quick-digital-interview …），各自的测试替身只实现
+ * `resolvePublished` 一个方法。默认解析目前只有 `copilotkit-agui.controller.ts` 一个
+ * 消费者——把方法塞进老接口会迫使所有无关替身跟着改，而它们与「默认 agent」这个
+ * 事实毫无关系。真实适配器（`PgPublishedAgentReader`）同时实现两个接口，DI 里
+ * `DEFAULT_AGENT_RESOLVER` 用 `useExisting` 指向同一个实例，不开第二条 SQL 旁路。
+ *
+ * ## 确定性规则（devapp 实测事故 #2038 的机制性修复）
+ *
+ * 返回该 org 下 enabled 且已发布的 agent 里确定性的一个：
+ * ① `stable_name = agentDefaults.DEFAULT_AGENT_STABLE_NAME`（组织 bootstrap 时
+ *    `ensureDefaultAgent` 种的「通用助手」——它存在的全部意义就是当默认）优先；
+ * ② 否则 `model_provider = 'deep-agent'` 优先（CopilotKit v2 轨道的完整能力
+ *    （计划句/工具步骤/HITL）只有 deep-agent provider 全部走通，见
+ *    `deepagent-copilotkit-backlog.md`）；
+ * ③ 同级按 `created_at ASC, id ASC`——最早建的那个，重复调用永远同一个答案。
+ * 一个都没有 → `null`，由调用方给出人类可读错误（不伪造默认）。
+ */
+export interface DefaultAgentResolver {
+  resolveDefaultAgentId(orgId: OrgId): Promise<string | null>;
+}
+
+export const DEFAULT_AGENT_RESOLVER = Symbol("DefaultAgentResolver");
+
+/**
  * #1559 —— **会话内临时挂载（F65）在 run 构建路径上的读口。**
  *
  * ## 为什么它在这里，而不是复用 `ThreadMountStorePort`

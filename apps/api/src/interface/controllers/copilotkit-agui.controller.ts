@@ -100,10 +100,12 @@ import { AuthzUnavailableError } from "../../application/chat/resolve-visibility
 import { PROVENANCE_WRITER, type ProvenanceWriter } from "../../application/provenance/ports";
 import { ID_FACTORY, type IdFactory } from "../../application/artifact/ports";
 import {
-  CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
-  type ChatMessageCommandRepository, type PublishedAgentReader,
+  CHAT_MESSAGE_COMMAND_REPOSITORY, DEFAULT_AGENT_RESOLVER, PUBLISHED_AGENT_READER,
+  THREAD_MOUNTED_SKILL_READER,
+  type ChatMessageCommandRepository, type DefaultAgentResolver, type PublishedAgentReader,
   type ThreadMountedSkillReader,
 } from "../../application/chat/message-command-ports";
+import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import {
   AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, type AgentRunStore, type AgentRunExecutorPort,
 } from "../../application/agent-run/ports";
@@ -435,6 +437,9 @@ export class CopilotkitAguiController {
     @Inject(THREAD_MOUNTED_SKILL_READER) private readonly threadMounts: ThreadMountedSkillReader,
     @Inject(AGENT_RUN_STORE) private readonly runs: AgentRunStore,
     @Inject(AGENT_RUN_EXECUTOR) private readonly executor: AgentRunExecutorPort,
+    // #2038：默认 agent 的动态解析口 + 配置错误的可观测出口，见 `resolveEffectiveAgentId`。
+    @Inject(DEFAULT_AGENT_RESOLVER) private readonly defaultAgents: DefaultAgentResolver,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
   private get deps() {
@@ -451,31 +456,63 @@ export class CopilotkitAguiController {
   }
 
   /**
-   * `agentId` travels as a query param, not in the AG-UI body: AG-UI's `RunAgentInput` has
-   * no standard field for "which Agent" in this codebase's sense (a published Agent
-   * version), and this app has no served "list agents" route yet to resolve one implicitly
-   * (see `personal-chat-screen.tsx` file head -- same gap, same reason: not inventing a
-   * default here silently). The CopilotKit client passes it explicitly instead.
+   * #2038 —— 「这次请求该用哪个 agent」的三级解析（devapp 实测事故的机制性修复：
+   * 全局单值 env `COPILOTKIT_V2_AGENT_ID` 被配成 `agent_versions.id`，未选 agent 的
+   * 首屏发消息整条轨道 AGENT_NOT_FOUND）：
    *
-   * DA-19g -- one more case this route now handles: a `useHumanInTheLoop` `respond()`
-   * follow-up (`isHitlResumeRequest`). It still needs `agentId` (query-string validation
-   * happens before that branch splits off) even though the resumed run already knows its
-   * own agent -- this route has no other way to learn the caller believes it is still
-   * talking to the same published Agent, and validating it up front keeps the two branches'
-   * error shape for a missing/blank `agentId` identical rather than only enforced on one.
+   * ① **用户手选**（`agentId` 有值且 `agentIdSource !== "env-default"`）→ 严格按选，
+   *    选了个跑不了的照旧诚实报错（不回归 #2023/#2031 已验证的 header 覆盖路径——
+   *    用户明确点了 A，静默换成 B 是伪造响应）。
+   * ② **env 兜底值**（route.ts 标记 `agentIdSource=env-default` 透传）→ 只有在**这个
+   *    org 下真实可解析**才用（向后兼容：devapp/e2e 已把它配成有效值的部署零变化）；
+   *    解析不到 = 配置有误（填成 version id / 别的 org 的 id / agent 已下线），
+   *    **日志警告 + 落到 ③**，一条配置错误不再让整条轨道死掉。
+   * ③ **org 动态默认**（`DefaultAgentResolver`，确定性规则见端口文档）→ 谁都没指定时
+   *    服务端按请求 principal 的 org 挑一个，多租户天然成立（provision.sh 注释里登记
+   *    过的"env 单值多租户不成立"边界就此关闭）。
+   * ④ org 下一个可跑的 agent 都没有 → 才 422 AGENT_NOT_FOUND（与旧行为同一错误码，
+   *    `copilotkit-v2-panel.tsx` 的人类可读文案不变）。
+   *
+   * `agentId` travels as a query param, not in the AG-UI body: AG-UI's `RunAgentInput` has
+   * no standard field for "which Agent" in this codebase's sense. A `useHumanInTheLoop`
+   * `respond()` follow-up (`isHitlResumeRequest`) passes through the same resolution
+   * (query-string validation happens before that branch splits off), keeping the two
+   * branches' error shape for an unresolvable agent identical.
    */
+  private async resolveEffectiveAgentId(
+    orgId: OrgId,
+    agentIdParam: string | undefined,
+    agentIdSource: string | undefined,
+  ): Promise<string> {
+    const requested = agentIdParam?.trim();
+    const isEnvDefault = agentIdSource?.trim() === "env-default";
+    if (requested !== undefined && requested !== "" && !isEnvDefault) return requested;
+    if (requested !== undefined && requested !== "" && isEnvDefault) {
+      const resolved = await this.publishedAgents.resolvePublished(orgId, requested);
+      if (resolved !== null) return requested;
+      this.logger.info(
+        "copilotkit-v2: COPILOTKIT_V2_AGENT_ID 配置有误——该值在本 org 下解析不到已发布 agent"
+        + "（常见错法：填成了 agent_versions.id 而不是 agents.id）。已回退到 org 动态默认。",
+        { traceId: randomUUID(), orgId, configuredAgentId: requested },
+      );
+    }
+    const fallback = await this.defaultAgents.resolveDefaultAgentId(orgId);
+    if (fallback !== null) return fallback;
+    throw new UnprocessableEntityException("AGENT_NOT_FOUND");
+  }
+
   @Post("/copilotkit/agui")
   async bridge(
     @CurrentPrincipal() principal: Principal,
     @Body() body: AguiRunInput,
     @Query("agentId") agentIdParam: string | undefined,
+    @Query("agentIdSource") agentIdSourceParam: string | undefined,
     @Res() response: Response,
   ): Promise<void> {
     assertPrincipal(principal);
-    const agentId = agentIdParam?.trim();
-    if (agentId === undefined || agentId === "") {
-      throw new UnprocessableEntityException("AGENT_NOT_FOUND");
-    }
+    const agentId = await this.resolveEffectiveAgentId(
+      toOrgId(principal.orgId), agentIdParam, agentIdSourceParam,
+    );
 
     // issue #2021 -- suggestion runs short-circuit BEFORE any thread/message machinery.
     // See `isSuggestionRequest`'s own doc: an immediately-finished empty run, no thread
