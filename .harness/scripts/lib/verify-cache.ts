@@ -51,15 +51,15 @@ export interface VerifyCredential {
 // 复用仓库既有的 lib/sh.ts（bash -c 包一层），不再自己维护第二份 execFileSync
 // 包装——两份形状相近的 shell 调用工具迟早会在行为细节上（quoting、cwd、错误
 // 处理）悄悄分叉，见 AGENTS.md「同一事实不得声明在两处」。
-function shTrimmed(cmd: string): string {
-  const r = sh(cmd, ROOT);
+function shTrimmed(cmd: string, cwd: string = ROOT): string {
+  const r = sh(cmd, cwd);
   if (r.code !== 0) throw new Error(`command failed (${r.code}): ${cmd}\n${r.stderr}`);
   return r.stdout.trim();
 }
 
-function shOrEmpty(cmd: string): string {
+function shOrEmpty(cmd: string, cwd: string = ROOT): string {
   try {
-    return shTrimmed(cmd);
+    return shTrimmed(cmd, cwd);
   } catch {
     return "";
   }
@@ -78,17 +78,20 @@ export function currentSha(): string {
  * 关键输入指纹：HEAD 相对工作树的完整 diff（含 staged/unstaged）+ 未跟踪文件的
  * 路径与内容 + lockfile 哈希。任何一处变化都会让指纹变化，即使 SHA 没变——这是
  * "代码发生变化时旧结果必须自动失效"这条要求的机械实现，不是靠约定。
+ *
+ * `root` 默认是本仓库根，生产调用方不传；测试传隔离的临时 git 仓库——指纹吃进
+ * 未跟踪文件内容，对真实仓库算指纹会与并行测试创建/删除的临时文件竞争（issue #2040）。
  */
-export function computeFingerprint(sha: string): string {
-  const diff = shOrEmpty("git diff HEAD --");
-  const untrackedFiles = shOrEmpty("git ls-files --others --exclude-standard")
+export function computeFingerprint(sha: string, root: string = ROOT): string {
+  const diff = shOrEmpty("git diff HEAD --", root);
+  const untrackedFiles = shOrEmpty("git ls-files --others --exclude-standard", root)
     .split("\n")
     .filter(Boolean)
     .sort();
   const untrackedContent = untrackedFiles
     .map((f) => {
       try {
-        return `${f}:${sha256(readFileSync(join(ROOT, f)))}`;
+        return `${f}:${sha256(readFileSync(join(root, f)))}`;
       } catch {
         return `${f}:unreadable`; // 读不到（如提交过程中被删）也要计入指纹，不能悄悄跳过
       }
@@ -96,7 +99,7 @@ export function computeFingerprint(sha: string): string {
     .join("\n");
   let lockfileHash = "no-lockfile";
   try {
-    lockfileHash = sha256(readFileSync(join(ROOT, "pnpm-lock.yaml")));
+    lockfileHash = sha256(readFileSync(join(root, "pnpm-lock.yaml")));
   } catch {
     /* lockfile 不存在时用占位符，仍然是确定性输入 */
   }
