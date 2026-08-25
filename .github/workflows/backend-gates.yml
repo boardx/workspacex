@@ -31,6 +31,32 @@
 name: backend-gates
 
 on:
+  # ⚠ 2026-08-26（#485 / #1656）：补上 `pull_request`。在此之前本 workflow 只在
+  # **合入之后**开火，后果不是「慢一点」，是这几道门**在能便宜修复的时点上完全不设防**：
+  #   · gates-fast   —— `harness doctor --strict`、`lint-contract-source`、`lint-arch-deps`
+  #   · gates-test   —— apps/api 全套单测/集成测试（4 分片）
+  #   · gates-runtime—— RLS 强制隔离反证、三道运行时门、迁移幂等
+  #   · e2e-core-loop—— 核心闭环八步（唯一接入发布门的浏览器 e2e）
+  # 其中 `lint-contract-source` **只**在本 workflow 里跑（apps/api 自己的 lint 链里没有），
+  # 所以它过去在 PR 阶段是零覆盖的。
+  #
+  # 实测后果（#485 记录）：backend-gates 在 main 上连红三次，每次都被下一个 PR 直接
+  # 盖过去；后来者不可能知道自己正在往一棵红树上合，因为红是在他合完之后才亮的。
+  # #1656 记录了另一半：跨包扫描的门（`no-builtin-capability-lists` 住在 api 却扫
+  # apps/web/lib/mock/**）被 PR 侧的 `turbo --affected` 判为「未受影响」而跳过，
+  # 违规长出来合进 main，由下一个改 api 的人替它红。本 workflow 不带 `--affected`，
+  # 因此加上 PR 触发同时补掉这个洞。
+  #
+  # 成本（用真实 run 数据核过，不是估算）：四个 gate job 互不 `needs`，并行跑，
+  # wall clock ≈ 最慢的 gates-test 分片。近三次 main run 实测 8m16s / 6m54s / 6m46s。
+  # 全部在 GitHub 托管 `ubuntu-latest` 上——本仓是 **PUBLIC**，托管 runner 的 Linux
+  # 分钟数免费且不限量。#485 原文写的「自建 runner 上每个 PR 多跑 ~11-20 分钟」是
+  # 在这些 job 还钉在自建 runner 上时写的，#615 挪走之后那条已经过期。
+  #
+  # fork PR：三个 gates job 早就带着 `if: ... head.repo.full_name == github.repository`，
+  # e2e-core-loop 本次补齐同一条。`deploy` 的 `if:` 只认 refs/heads/main 与 refs/tags/v*，
+  # PR 的 ref 是 refs/pull/N/merge ⇒ 自建 runner 与部署路径在 PR 上天然不可达。
+  pull_request:
   push:
     tags: ["v*"]
     branches: [main]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
@@ -41,9 +67,14 @@ on:
 # 做了隔离，但排队更省心，也更容易读日志。挪到托管 runner 后并发度不再受制于
 # 「只有一台机器」，这条 concurrency group 现在纯粹是同一 ref 内部的排队，不同 ref
 # （不同分支/PR）之间互不影响，各走各的托管 runner 实例。
+#
+# `cancel-in-progress` 分 ref 取值（#485）：PR 上为 true —— 同一个 PR 连推三次时，
+# 前两次的验证结果已经没人要了，掐掉省队列也省时延。main / tag 上必须保持 false ——
+# 那里每一次 run 对应一个**已经合入**的 commit，掐掉等于让那个 commit 永远没被验证过，
+# 而且 `deploy` 挂在同一条 workflow 上，掐掉可能掐掉一次真实部署。
 concurrency:
   group: backend-gates-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # #633（人类新增硬 SLA，2026-08-06）：merge→devapp < 5 分钟。实测基线 8m45s，
@@ -211,6 +242,10 @@ jobs:
   # 的 `fullstack-smoke` 早就在 `ubuntu-latest` 上跑通同一形状的浏览器 e2e——挪过去。
   e2e-core-loop:
     runs-on: ubuntu-latest
+    # 2026-08-26（#485）：与另外三个 gates job 对齐的 fork PR 守卫。本 workflow 加上
+    # `pull_request` 触发之前，这个 job 只可能被 main push / tag / 手动触发，没有 fork
+    # 这条路径，所以缺这行不会有后果；加了 PR 触发之后它就是真实敞口了，补齐。
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
