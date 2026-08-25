@@ -39,6 +39,13 @@ import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "../lib/copilotkit-v2-agent-
 // 编译窗口"纪律，只是本 spec 是套件里第一个跑的文件、独自付全部编译成本。
 test.setTimeout(300_000);
 
+// issue #2033 —— unroute 按注册时的 url 参数相等匹配：函数 matcher 配字符串 pattern
+// 卸不掉。本 spec 的 route 只做 continue()/读 header，留在同一 page 生命周期内无害，
+// 但保持「注册与卸载用同一个引用」的对称，避免被复制成下一个 flake
+//（runtime-adapter spec 的 route.fetch 版本就是这么撞上 `Test ended` 的）。
+const runRouteMatcher = (u: URL): boolean =>
+  u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info";
+
 async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page): Promise<void> {
   await expect
     .poll(
@@ -91,18 +98,15 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
   let capturedAgentHeader: string | null | undefined;
   let capturedRunUrl = "";
 
-  await page.route(
-    (u) => u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info",
-    async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-      capturedAgentHeader = await route.request().headerValue(COPILOTKIT_V2_SELECTED_AGENT_HEADER);
-      capturedRunUrl = route.request().url();
+  await page.route(runRouteMatcher, async (route) => {
+    if (route.request().method() !== "POST") {
       await route.continue();
-    },
-  );
+      return;
+    }
+    capturedAgentHeader = await route.request().headerValue(COPILOTKIT_V2_SELECTED_AGENT_HEADER);
+    capturedRunUrl = route.request().url();
+    await route.continue();
+  });
 
   await page.getByTestId("copilotkit-v2-input").fill(userText);
   await page.getByTestId("copilotkit-v2-send").click();
@@ -121,7 +125,7 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
   // 请求实际上还是打到了环境变量里那个默认 agent。
   await expect(messages).not.toContainText("已查询当前时间");
 
-  await page.unroute("**/api/copilotkit/**");
+  await page.unroute(runRouteMatcher);
 });
 
 /**
@@ -155,18 +159,15 @@ test("不做选择时不带选择 header——服务端 env 默认路径完好�
 
   let sawRunRequest = false;
   let capturedAgentHeader: string | null = null;
-  await page.route(
-    (u) => u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info",
-    async (route) => {
-      if (route.request().method() !== "POST") {
-        await route.continue();
-        return;
-      }
-      capturedAgentHeader = await route.request().headerValue(COPILOTKIT_V2_SELECTED_AGENT_HEADER);
-      sawRunRequest = true;
+  await page.route(runRouteMatcher, async (route) => {
+    if (route.request().method() !== "POST") {
       await route.continue();
-    },
-  );
+      return;
+    }
+    capturedAgentHeader = await route.request().headerValue(COPILOTKIT_V2_SELECTED_AGENT_HEADER);
+    sawRunRequest = true;
+    await route.continue();
+  });
 
   const userText = "不选择时走服务端默认";
   await page.getByTestId("copilotkit-v2-input").fill(userText);
@@ -182,5 +183,5 @@ test("不做选择时不带选择 header——服务端 env 默认路径完好�
   await expect(messages).toContainText("已查询当前时间", { timeout: 60_000 });
   await expect(page.getByTestId("copilotkit-v2-error")).toHaveCount(0);
 
-  await page.unroute("**/api/copilotkit/**");
+  await page.unroute(runRouteMatcher);
 });
