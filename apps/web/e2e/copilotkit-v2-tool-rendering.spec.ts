@@ -175,7 +175,16 @@ test("DA-19c search_documents 定制卡片——检索词参数真实渲染、�
     // 只在第一次成功抓到 wire 字节的那次落盘一份证据（已知限制③引用的原始数据），
     // 不需要每次重试都写一份。
     await page.route(runRouteMatcher, async (route) => {
-      if (route.request().method() !== "POST") { await route.continue(); return; }
+      // 与 runtime-adapter spec issue #2021 同一守卫：只对**第一条** POST（真实的
+      // 用户 run）做 route.fetch 取证，后续 POST（如 suggest）原样放行。没有这个
+      // 守卫时，真实 run 之后的 suggest POST 也会进 route.fetch —— 主流程一旦
+      // unroute/进入下一轮 goto，该响应即被 dispose，`fetched.body()` 抛
+      // "Response has been disposed"（#2033 修好 unroute 后 run3 实测暴露；此前
+      // 被卸不掉的 route + "Test ended" 吞错掩盖）。
+      if (route.request().method() !== "POST" || capturedBody !== null) {
+        await route.continue();
+        return;
+      }
       const fetched = await route.fetch();
       capturedBody = await fetched.body();
       await route.fulfill({ response: fetched });
