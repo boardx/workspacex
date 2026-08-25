@@ -490,10 +490,37 @@ DA-19h（旧轨道退役，等 g 且人类确认翻转默认值）
 - `ChatSkillMountPanel` 加 `mentionTriggerChar`（缺省 `#`，旧轨道 `/chat/legacy`
   行为零变化），v2 传 `/`。
 
-**CK-P3 消息级操作**：逐条复制、👍/👎 评分、agent 反馈（差距表 #7，组件现成）。
+**CK-P3 消息级操作**：逐条复制、👍/👎 评分、agent 反馈（差距表 #7）。
+✅ 已交付（issue #2054，PR 见该 issue）。三条取证结论修正了原判断，记在这里避免后人重走：
+- 「组件现成」只对了一半：`MessageRating`/`FeedbackButton` 确实现成，但**框架本来就有
+  一个能用的复制按钮**（`CopilotChatAssistantMessage.CopyButton` 真调 `copyToClipboard`）——
+  差距表把复制记成「全无」不准确，它缺的是本仓锚点与被验证过。
+- 接入点是 `assistantMessage` **整组件** slot（携带 `message`），不是 `markdownRenderer`
+  子 slot（只有 `content`，#2046 已排除）。这同时证实了 #2050 的调查结论。
+- ⚠ **评分曾被认为不需要 id 对齐，实测是错的**：`submit-message-rating.ts` 三道门
+  （`findMessageLocation` / 可见性 / 归因）任一不过一律 404，而 wire 上的
+  `TEXT_MESSAGE_START.messageId` 是 `copilotkit-agui.controller.ts` 的 `randomUUID()`。
+  本轮在源头补上：run `succeeded` 后回显 `CUSTOM {name:"chat_message_id"}`
+  （契约 `@repo/contracts/agui-state-events` 的 `AguiChatMessageIdValue`），前端
+  `useChatMessageIdentity` 解析不出真实 id 就不画评分按钮。
+  **副作用：#2050（「落地为产物」入口）卡住的那个前提由此解除**——`landAsArtifact`
+  走的是同一道 `findMessageLocation` 门，现在同一个索引就能给出可用的落库 id。
+  #2050 本身仍未做（本轮范围只到评分），接手时直接复用
+  `lib/copilotkit-v2-message-identity.ts`，不要重新排查 id 是否对齐。
 
-**CK-P4 Run 进度细节**：耗时计时、阶段文案、45s longrun 提示、失败重试按钮、
-上下文快照、思考链（差距表 #9 未覆盖部分）。
+**CK-P4 Run 进度细节**（差距表 #9 未覆盖部分）。
+✅ **部分交付**（issue #2054）：耗时计时、阶段文案、45s longrun 提示、失败重试按钮。
+❌ **如实登记为不做**（v2 侧没有真实数据源，逐维核实见
+`apps/web/lib/copilotkit-v2-run-progress.ts` 文件头）：
+- **上下文快照 L1-L3**（`MessageContextSnapshot`）——读的是 `AgentRunView` 上的上下文
+  层级字段，AG-UI 协议里不存在这个概念，v2 轨道不轮询 `GET /api/agent-runs/{id}`。
+- **逐条消息思考链**（`MessageThinkingChain`）——同上，依赖 run step 明细。
+- **`AgentRunStatus` 权威状态条**——v2 的状态来自 AG-UI 事件流，没有权威 run 状态查询。
+要做这三样，前置条件是「v2 轨道也拿得到 run id 并轮询 `AgentRunView`」，那是一个独立
+的接线任务（与 CK-P 其它条目无依赖），谁做谁先立项，不要在没有数据源时先画面板。
+- ⚠ longrun 提示措辞比旧轨道**收窄**：旧轨道按 `hasMountedSkills` 分岔，v2 面板 body
+  拿不到该状态（`ChatSkillMountPanel` 自持不上抛），只说通用那句。issue #1803 gap #4
+  正是被这句错归因坑过一次，宁可笼统不猜。
 
 **CK-P5 会话录音归档**（差距表 #8）—— ⛔ **契约级阻塞，本轮如实登记不做**（#2053）。
 平移做不了，两条互相独立的硬事实（读契约与路由确认，不是文件名推断）：

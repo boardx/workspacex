@@ -145,7 +145,12 @@ export function CopilotKitV2MessageExtraActions({ messageId }: { messageId: stri
           testid="chat-agent-feedback"
         />
       ) : null}
-      {chatMessageId !== null ? <MessageRating messageId={chatMessageId} /> : null}
+      {/* ⚠ `revealOnHover={false}`：框架 toolbar 链路上没有 `group` 祖先，
+          旧轨道那套 `group-hover:visible` 在这里不是"藏起来"，是「永远不出现」
+          （真栈 e2e 第一轮实测点不下去）。见 `message-rating.tsx` 该 prop 的注释。 */}
+      {chatMessageId !== null ? (
+        <MessageRating messageId={chatMessageId} revealOnHover={false} />
+      ) : null}
     </>
   );
 }

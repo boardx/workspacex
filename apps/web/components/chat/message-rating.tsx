@@ -27,7 +27,35 @@ import { rateMessage, type RatingVerdict } from "@/lib/live-message-rating";
  * 变成一次要动脑子的表单，于是大多数人不点——采集侧的样本量本来就是满意度
  * 「样本不足」的成因。
  */
-export function MessageRating({ messageId }: { messageId: string }) {
+/**
+ * CK-P3（issue #2054）—— 两个图标按钮的显形规则做成可选项，默认保持旧轨道行为。
+ *
+ * 旧轨道把它们画成 `invisible … group-hover:visible`：平时藏起来，hover 整条消息行
+ * （`chat-live-message-panel.tsx` 在最外层 `<li>` 上挂了 `group`）才显形。这套写法
+ * **依赖一个 `group` 祖先存在**——CopilotKit v2 轨道的气泡由框架
+ * （`CopilotChatAssistantMessage`）渲染，它的 toolbar 本身就是常驻可见的，链路上
+ * 没有任何 `group`。照搬过去的后果不是"藏起来"，是**永远不出现**：真栈 e2e 第一轮
+ * 当场抓到（`element is not visible`，点不下去）。
+ *
+ * 所以给一个显式开关，而不是在 v2 那边包一层假的 `group`（hover 一个 `invisible`
+ * 的元素本身就不成立，那只会把这个 bug 变得更难看出来）。
+ */
+export function MessageRating({
+  messageId,
+  revealOnHover = true,
+}: {
+  messageId: string;
+  /** `false` = 常驻可见（没有 `group` 祖先的宿主，如 CopilotKit v2 的框架 toolbar）。 */
+  revealOnHover?: boolean;
+}) {
+  const iconButtonClassName = [
+    "inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast",
+    "hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    revealOnHover ? "invisible focus-visible:visible group-hover:visible" : "",
+  ]
+    .filter((c) => c !== "")
+    .join(" ");
+
   const [submitted, setSubmitted] = React.useState<{
     verdict: RatingVerdict; attributedToSkill: boolean;
   } | null>(null);
@@ -76,7 +104,7 @@ export function MessageRating({ messageId }: { messageId: string }) {
           data-testid="chat-message-rating-up"
           aria-label="有用"
           title="有用"
-          className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
+          className={iconButtonClassName}
         >
           <ThumbsUp aria-hidden className="h-3 w-3" />
         </button>
@@ -87,7 +115,7 @@ export function MessageRating({ messageId }: { messageId: string }) {
           data-testid="chat-message-rating-down"
           aria-label="待改进"
           title="待改进（可填理由）"
-          className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast invisible hover:bg-muted hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
+          className={iconButtonClassName}
         >
           <ThumbsDown aria-hidden className="h-3 w-3" />
         </button>
