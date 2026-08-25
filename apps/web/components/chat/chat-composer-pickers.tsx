@@ -29,12 +29,19 @@ import type { GetAgentPanelOut } from "@/lib/live-chat";
  * 这不是削弱断言：它验证的还是「当前选中的 agent 是谁」，只是读取方式跟着控件形态换了。
  */
 export function AgentPicker({
-  agents, selectedAgentId, disabled, onSelect,
+  agents, selectedAgentId, disabled, onSelect, side = "up",
 }: {
   agents: GetAgentPanelOut["agents"] | null;
   selectedAgentId: string;
   disabled: boolean;
   onSelect: (agentId: string) => void;
+  /**
+   * 弹层展开方向。默认 "up"（`bottom-8`）——为旧屏底部 composer 设计，菜单向上弹。
+   * 2026-08-25 人类 devapp 实测 bug：copilotkit-v2 把本控件放进了**顶栏**，向上弹
+   * 直接出屏不可见——顶部放置传 "down"（`top-8`）向下弹。默认值保持 "up" 是为了
+   * 旧调用方（chat-live-message-panel）行为逐字节不变。
+   */
+  side?: "up" | "down";
 }) {
   const [open, setOpen] = useChatPopoverSlot("chat-agent-picker");
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -93,7 +100,7 @@ export function AgentPicker({
           role="listbox"
           aria-label="运行 Agent"
           data-testid="chat-agent-select-listbox"
-          className="absolute bottom-8 left-0 z-10 w-48 rounded-lg border border-border bg-popover p-1 shadow-md"
+          className={`absolute ${side === "down" ? "top-8" : "bottom-8"} left-0 z-10 w-48 rounded-lg border border-border bg-popover p-1 shadow-md`}
         >
           {agents.map((agent) => (
             <button
