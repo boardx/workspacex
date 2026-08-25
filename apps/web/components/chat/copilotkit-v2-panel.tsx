@@ -15,6 +15,9 @@ import {
 } from "@copilotkit/react-core/v2";
 import { Pencil, Mic, Loader2, AlertTriangle } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
+// issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
+// `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
+import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, LONG_RUN_HINT } from "@/lib/copilotkit-v2-run-progress";
@@ -22,6 +25,8 @@ import {
   CopilotKitV2MessageActionsProvider,
   CopilotKitV2CopyButton,
   CopilotKitV2MessageExtraActions,
+  CopilotKitV2MessageLanding,
+  type AssistantMessageLandingValue,
 } from "@/components/chat/copilotkit-v2-message-actions";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
@@ -84,7 +89,12 @@ import {
  * ── issue #2023（差距清单第 4 项）Agent 选择/切换 ─────────────────────────────
  *
  * 旧手写轨道有 `AgentPicker`（选发送 agent）+ 外壳 `RosterPanel`（把 agent 加进
- * 当前会话的编制，多 agent 协作）。本任务做的是前者，**不做**后者——理由：
+ * 当前会话的编制，多 agent 协作）。#2025 当时只做了前者，理由记在下面两条。
+ *
+ * ⚠ **这两条理由已于 issue #2052（CK-P7）失效，勿再据此认为编制没做**：#2028 落地了
+ *   持久化线程，外壳 `copilotkit-v2-shell.tsx` 现在持有真实 `chat_threads.id`，编制
+ *   面板已经挂上去了（共用组件 `chat-roster-panel.tsx`，与旧轨道同一份）。本节保留
+ *   原文是为了记住"当时为什么拆成两轮"，不是描述今天的状态。
  *
  *   1. 本面板此前压根没有"这条会话可以有多个 agent"的概念，`useAgent` 是单实例；
  *      `RosterPanel`（`updateAgentRoster`/乐观锁 `rosterVersion`）挂在
@@ -132,17 +142,19 @@ import {
  * 用 `React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer>` 原样
  * 取这个类型，不是手抄一份容易漂移的签名。
  *
- * 「落地为产物」（`MessageLandingControls`/`landAsArtifact`，`chat-live-message-panel.tsx`
- * 内 `threadId`/`message.id`/`bearer` 三者俱全才开放）**本轮不接入，是 TODO**——不是
- * 图省事，是这个 slot 的类型签名本身只暴露 `content: string`（加一堆 Streamdown 自己的
- * 渲染选项），不携带 `messageId`：`CopilotChatAssistantMessageProps` 的 `message` 字段
- * 停在 `CopilotChatAssistantMessage` 这一层，没有再往下透传给 `markdownRenderer` slot。
- * 要接这个功能需要在 slot 边界之外另开一个通道把 `message.id` 传进来（比如包一层
- * closure、或等 CopilotKit 未来版本把 message 也传给这个 slot），属于下一步，不在本次
- * 「消息渲染迁移」范围内画一个连自己类型都不支持的假入口。`threadId`/`bearer` 本身也
- * 未传（同一个门槛：三者必须俱全，不做"看起来能保存、点了才 403"的半成品）——
- * `MarkdownMessage`/`ChatDiagramFabric` 在缺失这三者时如实退回"本地演示"（可读可最大化，
- * 不可持久化保存），这是既有产品行为，不是本次新引入的降级。
+ * 「落地为产物」当时是 TODO，理由是 `markdownRenderer` 这个 slot 的类型签名只暴露
+ * `content: string`、不携带 `messageId`。
+ *
+ * ⚠ **issue #2052（CK-P7）已落地，这条 TODO 不再有效**：入口不在 `markdownRenderer`
+ *   这一层，而是随 CK-P3 的操作条挂在 `assistantMessage` **整组件** slot 上（那一层
+ *   才携带 `message`），见 `copilotkit-v2-message-actions.tsx`。上面关于
+ *   `markdownRenderer` 拿不到 id 的判断依然成立（那条路确实走不通），变的是绕过它的
+ *   通道已经有了。"三者俱全才开放"这条纪律没有放松，只是三件都齐了：`threadId`
+ *   （持久化线程）、`message.id`（CK-P3 的 `useChatMessageIdentity` 解析出的真实
+ *   落库主键）、`bearer`（`sessionToken`）。
+ *
+ * `MarkdownMessage`/`ChatDiagramFabric` 在缺失这三者时仍如实退回"本地演示"（可读可
+ * 最大化，不可持久化保存），那是既有产品行为，不是本次新引入的降级。
  *
  * 消息列表包在 `CopilotChatConfigurationProvider` 里——`CopilotChatMessageView` 是
  * "slot 原语"，文档（`chat-components.md` "Headless composition with slot primitives"）
@@ -630,6 +642,7 @@ export function CopilotKitV2Panel({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
   onMessageSent,
+  onArtifactLanded,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -652,6 +665,12 @@ export function CopilotKitV2Panel({
    * 外壳借此刷新右栏「材料」/「产物」计数（与旧轨道 `onMessageSent` 同名同义）。
    */
   onMessageSent?: () => void;
+  /**
+   * issue #2050 —— 一条消息被「落地为产物」之后触发，外壳据此重读右栏「产物」。
+   * 与 `onMessageSent` 分开而不是复用它：那个是"发了一条消息"，这个是"多了一条产物"，
+   * 合成一个回调会让外壳分不清自己在为什么重读（且未来两者刷新的东西可能不同）。
+   */
+  onArtifactLanded?: () => void;
   /**
    * issue #2046（CK-P2）—— `@` 引用候选：本线程已随消息发出的附件，数据与右栏
    * 「材料」面板是**同一份**（外壳 `listThreadAttachments` 读取后同时喂两处），
@@ -775,6 +794,7 @@ export function CopilotKitV2Panel({
           chatThreadId={initialChatThreadId}
           onThreadResolved={onThreadResolved}
           onMessageSent={onMessageSent}
+          onArtifactLanded={onArtifactLanded}
           threadAttachments={threadAttachments}
           archived={archived}
           canGeneratePersona={canGeneratePersona}
@@ -818,6 +838,7 @@ function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
   onMessageSent,
+  onArtifactLanded,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -834,6 +855,12 @@ function CopilotKitV2PanelBody({
   onThreadResolved?: (threadId: string) => void;
   /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   onMessageSent?: () => void;
+  /**
+   * issue #2050 —— 一条消息被「落地为产物」之后触发，外壳据此重读右栏「产物」。
+   * 与 `onMessageSent` 分开而不是复用它：那个是"发了一条消息"，这个是"多了一条产物"，
+   * 合成一个回调会让外壳分不清自己在为什么重读（且未来两者刷新的东西可能不同）。
+   */
+  onArtifactLanded?: () => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -1009,12 +1036,28 @@ function CopilotKitV2PanelBody({
    * 靠"这次浏览器会话已经聊过一轮"这个此前隐含的前提。
    */
   const chatThreadIdRef = React.useRef<string | null>(initialChatThreadId);
+
+
+  /**
+   * issue #2052（CK-P7）—— `chatThreadIdRef` 刻意是 ref（它只影响"下一次 runAgent 带什么"，
+   * 不该触发渲染），但「落地为产物」要往 `POST /chat/threads/:threadId/artifacts` 打，
+   * 必须在**渲染期**知道这条线程的真实 id。所以这里另存一份 state：同一个事实的两种
+   * 用法（一个给下一次请求、一个给这一帧渲染），两者在同一个事件处理器里一起写，
+   * 不会漂移——不是两个独立维护的来源。
+   */
+  const [resolvedChatThreadId, setResolvedChatThreadId] = React.useState<string | null>(initialChatThreadId);
+  React.useEffect(() => {
+    if (initialChatThreadId !== null) setResolvedChatThreadId(initialChatThreadId);
+  }, [initialChatThreadId]);
+
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event?.name === "chat_thread_id" && typeof event.value === "string" && event.value !== "") {
           const isNewlyResolved = chatThreadIdRef.current === null;
           chatThreadIdRef.current = event.value;
+          setResolvedChatThreadId(event.value); // issue #2052，见上面 state 的说明
+
           // issue #2021 —— 只有"这是后端第一次告诉我们它创建了一条新线程"才需要通知
           // 外壳写回地址栏；`initialChatThreadId` 非空时 `chatThreadIdRef.current` 从
           // 挂载起就已经是这个值，这个分支不会为一次续聊触发。
@@ -1182,6 +1225,37 @@ function CopilotKitV2PanelBody({
   }, [sessionToken, initialChatThreadId]);
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
   const attach = useChatAttachments({ threadId: attachmentThreadId ?? "", bearer: sessionToken ?? undefined });
+
+  /**
+   * issue #2052（CK-P7）—— 「落地为产物」状态机（与旧轨道共用 `useMessageLanding`，
+   * 不抄第二份）。传空串是 hook 的既有约定：调用方保证只在三者俱全时渲染入口，见下面
+   * `landingContext` 的 `null` 分支——空串永远不会真的被拿去发请求。
+   */
+  const landing = useMessageLanding({
+    threadId: resolvedChatThreadId ?? "",
+    bearer: sessionToken ?? "",
+    onArtifactLanded,
+  });
+
+  /**
+   * ⛔ 三者俱全才开放：真实线程 id + bearer + 这条消息的**真实落库 id**。
+   *
+   * ⚠ 第三件**不再由本文件自己维护一张映射表**：CK-P3（#2054，PR #2064）已经落地了
+   *   `useChatMessageIdentity` —— 它订阅同一个 `CUSTOM chat_message_id` 事件、并把
+   *   hydration 回灌的历史消息一并登记，`resolve()` 拿不到就返回 `null`。评分与落地
+   *   问的是**同一个问题**（"这条气泡在 `chat_messages` 里的主键是什么"），各存一份
+   *   就是同一事实两处声明。所以这里直接复用那个索引，本轮删掉了自己那份重复实现。
+   */
+  const landingContext = React.useMemo<AssistantMessageLandingValue | null>(() => {
+    if (resolvedChatThreadId === null || sessionToken === null) return null;
+    return {
+      stateFor: landing.stateFor,
+      open: landing.open,
+      updateTitle: landing.updateTitle,
+      cancel: landing.cancel,
+      submit: (message) => void landing.submit(message),
+    };
+  }, [resolvedChatThreadId, sessionToken, landing]);
   const micDevices = useAudioInputDevices();
   const speech = useAsrDraft({
     getBaseText: () => inputDraftRef.current,
@@ -1390,12 +1464,17 @@ function CopilotKitV2PanelBody({
                     `assistantMessage` slot 由框架实例化，本组件够不着它的 props。
                     ⚠ 这里换的是 slot 本身（`V2AssistantMessage` 内部仍然渲染框架的
                       `CopilotChatAssistantMessage`，`markdownRenderer` 照旧是
-                      `V2MarkdownRenderer`）——DA-19b 的 markdown/mermaid 能力没有回退。 */}
+                      `V2MarkdownRenderer`）——DA-19b 的 markdown/mermaid 能力没有回退。
+
+                    issue #2052（CK-P7）—— 「落地为产物」是同一个操作条上的第四件，
+                    经同一份 context 下发（`landing`），不另包一层 provider / 不另换一次
+                    slot：两层包装会渲染出两个气泡外壳。 */}
                 <CopilotKitV2MessageActionsProvider
                   value={{
                     identity: messageIdentity,
                     agentId: actingAgentId,
                     agentLabel: actingAgentLabel,
+                    landing: landingContext,
                   }}
                 >
                   <CopilotChatMessageView
@@ -1795,15 +1874,24 @@ function V2AssistantMessageImpl(
   props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
 ): JSX.Element {
   const messageId = props.message.id;
+  // issue #2052（CK-P7）—— 正文取自框架给的这条消息本身，与气泡里渲染的是同一份，
+  // 不另找一处读。
+  const text = typeof props.message.content === "string" ? props.message.content : "";
   return (
-    <CopilotChatAssistantMessage
-      {...props}
-      markdownRenderer={V2MarkdownRenderer}
-      copyButton={(copyProps) => (
-        <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
-      )}
-      additionalToolbarItems={<CopilotKitV2MessageExtraActions messageId={messageId} />}
-    />
+    <div className="flex flex-col gap-1.5">
+      <CopilotChatAssistantMessage
+        {...props}
+        markdownRenderer={V2MarkdownRenderer}
+        copyButton={(copyProps) => (
+          <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
+        )}
+        additionalToolbarItems={<CopilotKitV2MessageExtraActions messageId={messageId} />}
+      />
+      {/* issue #2052（CK-P7）—— 「落地为产物」是块级三态交互，进不了行内工具栏，
+          所以作为气泡的兄弟节点挂在下面。⚠ 这不是第二层 slot 包装：
+          `assistantMessage` slot 全仓只在本组件换这一次。 */}
+      <CopilotKitV2MessageLanding messageId={messageId} text={text} />
+    </div>
   );
 }
 

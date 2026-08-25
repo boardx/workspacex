@@ -53,10 +53,36 @@ import {
  */
 export interface ChatMessageIdentityIndex {
   /**
-   * 视图里那条消息的 `id` → 可安全用于 `rateMessage`/`landAsArtifact` 的真实
-   * `chat_messages.id`；拿不到真实 id（或拿得到但不可归因）时返回 `null`。
+   * **评分专用**出口：视图里那条消息的 `id` → 可安全用于 `rateMessage` 的真实
+   * `chat_messages.id`；拿不到真实 id、或拿得到但**不可归因**时返回 `null`。
    */
   readonly resolve: (viewMessageId: string) => string | null;
+  /**
+   * **落地为产物专用**出口（issue #2052 / CK-P7）：只回答"这条消息在
+   * `chat_messages` 里真实存在吗"，**不**附加归因门。
+   *
+   * ## ⚠ 为什么是两个出口，而不是一个（别把它们合并掉）
+   *
+   * 两个下游操作的**服务端门本来就不一样**，这不是前端多此一举：
+   *
+   *   · `rateMessage` → `application/skill/submit-message-rating.ts`：
+   *     `findMessageLocation` → `resolveVisibility` → **`ratings.resolveForMessage`**。
+   *     第三道从 `agent_runs` 查归因，返回 null 即 `MessageNotRateableError` → 404。
+   *     所以早于 `chat_messages.agent_run_id` 的历史消息**评不了分** ⇒ `resolve` 必须
+   *     对它们回答 `null`（否则就是画一个点了必 404 的按钮）。
+   *
+   *   · `landAsArtifact` → `application/chat/land-as-artifact.ts`：
+   *     `findMessageLocation` → `resolveVisibility`（个人线程再加一道"只能 draft"）。
+   *     **全程不碰 `agent_runs`、不要求 `agentRunId`**（读该文件确认，不是推测）。
+   *     一条没有 `agentRunId` 的历史 agent 消息**完全可以**被落地。
+   *
+   * 若落地也走 `resolve`，那种消息的入口会被**静默藏起来**——按钮就是不出现，
+   * 不报错、不留痕，属于最难被发现的那类假阴性。所以这里给同一份索引开第二个
+   * 出口，而不是第二份映射表：`streamed` 那半两者**完全共用**（本轮 run 写回的
+   * 消息必然带 `agentRunId`，两个出口对它答案相同），差别只在回灌那半要不要过
+   * `rateable` 门。同一个事实一份状态，两种读法。
+   */
+  readonly resolvePersisted: (viewMessageId: string) => string | null;
 }
 
 export interface HydratedMessageIdentity {
@@ -73,8 +99,11 @@ export interface UseChatMessageIdentityResult {
 export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIdentityResult {
   // 流式 id → 真实落库 id。
   const [streamed, setStreamed] = React.useState<ReadonlyMap<string, string>>(() => new Map());
-  // hydration 回灌的、且真的可评分的那些 id（它们的 id 本身就是真实主键）。
+  // hydration 回灌的、且真的**可评分**的那些 id（它们的 id 本身就是真实主键）。
   const [hydrated, setHydrated] = React.useState<ReadonlySet<string>>(() => new Set());
+  // issue #2052 —— 回灌的**全部**真实主键（不过 `rateable` 门）。落地为产物只要求
+  // 消息真实存在，见 `resolvePersisted` 的文档。
+  const [hydratedAll, setHydratedAll] = React.useState<ReadonlySet<string>>(() => new Set());
 
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
@@ -101,6 +130,12 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
       for (const e of entries) if (e.rateable) next.add(e.id);
       return next;
     });
+    // issue #2052 —— 同一次登记的另一半：不过 `rateable` 门，供 `resolvePersisted` 用。
+    setHydratedAll((prev) => {
+      const next = new Set(prev);
+      for (const e of entries) next.add(e.id);
+      return next;
+    });
   }, []);
 
   const index = React.useMemo<ChatMessageIdentityIndex>(
@@ -111,8 +146,15 @@ export function useChatMessageIdentity(agent: AbstractAgent): UseChatMessageIden
         // hydration 回灌的消息：id 本身就是真实主键，但只有登记为可评分的才回答。
         return hydrated.has(viewMessageId) ? viewMessageId : null;
       },
+      // issue #2052 —— 与 `resolve` 共用同一份 `streamed`（本轮 run 写回的消息必然
+      // 带 agentRunId，两者答案相同），只有回灌那半不过 `rateable` 门。
+      resolvePersisted: (viewMessageId: string) => {
+        const mapped = streamed.get(viewMessageId);
+        if (mapped !== undefined) return mapped;
+        return hydratedAll.has(viewMessageId) ? viewMessageId : null;
+      },
     }),
-    [streamed, hydrated],
+    [streamed, hydrated, hydratedAll],
   );
 
   return { index, registerHydrated };
