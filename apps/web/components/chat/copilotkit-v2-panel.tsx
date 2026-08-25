@@ -639,7 +639,7 @@ function CopilotKitV2PanelBody({
 } = {}): JSX.Element {
   const { copilotkit } = useCopilotKit();
   const [threadId] = React.useState(() => `copilotkit-v2-${crypto.randomUUID()}`);
-  const { agent } = useAgent({
+  const { agent, isReady } = useAgent({
     agentId: threadId,
     runtimeAgentId: "default",
     threadId,
@@ -768,10 +768,30 @@ function CopilotKitV2PanelBody({
    * 只在 `initialChatThreadId` 非空时跑（新对话没有历史可读）；用 `cursor` 分页跑到
    * `nextCursor` 为 `null`，不是"读一页就假装读完了"——`listMessages` 契约本身要求
    * 调用方分页（`R9`），单页上限 100。
+   *
+   * ## ⚠ 必须等 `isReady`，且依赖数组必须含 `agent`——第一版 `[]` 依赖是真 bug
+   *
+   * 第一版这个 effect 用 `[]` 空依赖"只在挂载时跑一次"，历史读回来了、
+   * `setMessages` 也调了，但视图永远空白（coordinator 合并后真栈截图实测）。根因
+   * 读 `@copilotkit/react-core/dist/v2/headless.mjs` 的 `useAgent` 源码确认：传
+   * `runtimeAgentId` 时，首次渲染返回的是一个 **provisional**（临时占位）agent 实例
+   * （`isReady: false`，存在 `provisionalAgentCache`）；`registerProxiedAgent` 的
+   * effect 完成注册后，后续渲染返回的是**另一个**真实 proxy agent 实例
+   * （`isReady: true`），provisional 那个被直接丢弃。空依赖的 effect 闭包捕获的正是
+   * 首帧那个 provisional 实例——`setMessages` 写进了一个马上被扔掉的对象，真实
+   * agent 的 `messages` 从头到尾是空的。`AbstractAgent.setMessages` 本身**会**通知
+   * `onMessagesChanged` 订阅者（读 `@ag-ui/client` dist 源码确认），不是"通知机制
+   * 不触发"——是写错了对象。
+   *
+   * 修法：依赖 `[agent, isReady, ...]`，`isReady === false` 时直接不跑（provisional
+   * 帧被跳过），`hydratedRef` 保证同一个真实实例只灌一次。apply 时若 `agent.messages`
+   * 已非空（用户在历史加载完成前就抢先发了消息——真实竞态，不是假设），把历史
+   * **前插**并按 id 去重，不整体覆盖——覆盖会杀掉在途 run 已经流进来的内容。
    */
   const [historyError, setHistoryError] = React.useState<string | null>(null);
+  const hydratedRef = React.useRef(false);
   React.useEffect(() => {
-    if (initialChatThreadId === null) return;
+    if (initialChatThreadId === null || !isReady || hydratedRef.current) return;
     let cancelled = false;
     (async () => {
       try {
@@ -791,7 +811,14 @@ function CopilotKitV2PanelBody({
           cursor = result.nextCursor;
         }
         if (cancelled) return;
-        agent.setMessages(collected);
+        hydratedRef.current = true;
+        const live = agent.messages;
+        if (live.length === 0) {
+          agent.setMessages(collected);
+        } else {
+          const liveIds = new Set(live.map((m) => m.id));
+          agent.setMessages([...collected.filter((m) => !liveIds.has(m.id)), ...live]);
+        }
       } catch (e) {
         if (cancelled) return;
         setHistoryError(e instanceof Error ? e.message : "历史消息读取失败");
@@ -800,11 +827,7 @@ function CopilotKitV2PanelBody({
     return () => {
       cancelled = true;
     };
-    // 只在挂载时按 `initialChatThreadId` 跑一次；这个值本身由
-    // `copilotkit-v2-shell.tsx` 的 `key` 保证"变了就整体 remount"，不会在同一个
-    // 组件实例存活期间变化，加进依赖数组没有额外效果。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [agent, isReady, initialChatThreadId]);
 
   /**
    * DA-19g —— `useAsrDraft` 的 `start()` 是一个稳定回调（不随每次按键重建），基线读取

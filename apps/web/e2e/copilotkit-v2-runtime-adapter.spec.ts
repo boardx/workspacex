@@ -152,7 +152,14 @@ test("CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的�
     await page.route(
       (u) => u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info",
       async (route) => {
-        if (route.request().method() !== "POST") {
+        // issue #2021 —— 只捕获**第一条** POST（真实的用户 run），后续 POST 原样放行。
+        // 此前的版本每条 POST 都覆盖 capturedBody——运气好能过，是因为紧随 run 之后
+        // 的 suggestions POST（SuggestionEngine 自动触发）要跑一整个 phantom deep-agent
+        // run（~9s），`unroute` 总是抢在它前面。后端把 suggestion 请求改成即时
+        // 短路空 run（见 `copilotkit-agui.controller.ts` `isSuggestionRequest`）之后，
+        // 那条 POST 变成毫秒级返回，稳定抢在 unroute 之前把捕获到的真实 run 响应
+        // 覆盖成空——断言目标从来就该是"第一条 run"，只是此前没有竞态逼出这个洞。
+        if (route.request().method() !== "POST" || capturedBody !== null) {
           await route.continue();
           return;
         }
