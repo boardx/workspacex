@@ -23,6 +23,7 @@ import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
 import { getStoredSessionToken } from "@/lib/api-client";
+import { listMessages } from "@/lib/live-chat";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -434,7 +435,25 @@ function SendEmailApprovalDialog({
   );
 }
 
-export function CopilotKitV2Panel(): JSX.Element {
+export function CopilotKitV2Panel({
+  chatThreadId: initialChatThreadId = null,
+  onThreadResolved,
+}: {
+  /**
+   * issue #2021 —— 持久化的后端 `chat_threads.id`（不是下面的 CopilotKit 本地
+   * `threadId`，两者是本文件头注早已记录的两个独立命名空间）。由外壳
+   * `copilotkit-v2-shell.tsx` 从 URL 路由参数传入；`null` = 一次全新对话（外壳的
+   * `/chat/copilotkit-v2` 裸路由，或"新建对话"入口）。
+   */
+  chatThreadId?: string | null;
+  /**
+   * 首次发消息、后端真正创建出一条新线程（`resolveThreadId` 的 `null` 分支）时触发
+   * 一次，交给外壳写回地址栏 + 刷新线程列表。`initialChatThreadId` 非空时（续聊一条
+   * 已存在的线程）**不会**触发——`chatThreadIdRef` 已经等于外部传入的值，见下方
+   * `onCustomEvent` 订阅里的判等。
+   */
+  onThreadResolved?: (threadId: string) => void;
+} = {}): JSX.Element {
   const { copilotkit } = useCopilotKit();
   const [threadId] = React.useState(() => `copilotkit-v2-${crypto.randomUUID()}`);
   const { agent } = useAgent({
@@ -529,17 +548,79 @@ export function CopilotKitV2Panel(): JSX.Element {
    * 不是新发明一条通道。第一轮（`chatThreadIdRef.current === null`）不传，与此前行为
    * 逐字节相同（新建线程），只有第二轮起才会真的续接。
    */
-  const chatThreadIdRef = React.useRef<string | null>(null);
+  /**
+   * issue #2021 —— 初始值不再恒为 `null`：外壳传入 `chatThreadId`（URL 里的持久化
+   * id）时，第一轮 `send()` 就带上它当 `forwardedProps.chatThreadId`，而不是像此前
+   * 那样只有第二轮起才续接。这正是"刷新页面后同一个 URL 能恢复到同一条对话"这条
+   * 判据要求的：刷新后组件重新挂载，`chatThreadIdRef` 必须从 URL 里的值起步，不能
+   * 靠"这次浏览器会话已经聊过一轮"这个此前隐含的前提。
+   */
+  const chatThreadIdRef = React.useRef<string | null>(initialChatThreadId);
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event?.name === "chat_thread_id" && typeof event.value === "string" && event.value !== "") {
+          const isNewlyResolved = chatThreadIdRef.current === null;
           chatThreadIdRef.current = event.value;
+          // issue #2021 —— 只有"这是后端第一次告诉我们它创建了一条新线程"才需要通知
+          // 外壳写回地址栏；`initialChatThreadId` 非空时 `chatThreadIdRef.current` 从
+          // 挂载起就已经是这个值，这个分支不会为一次续聊触发。
+          if (isNewlyResolved) onThreadResolved?.(event.value);
         }
       },
     });
     return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `onThreadResolved` 由外壳
+    // 用 `useCallback` 提供稳定引用；把它加进依赖数组会在外壳每次 `reloadThreads` 状态
+    // 更新时重新订阅/取消订阅，没有必要。
   }, [agent]);
+
+  /**
+   * issue #2021 —— 消息持久化的另一半：`agent.messages` 是纯内存态
+   * （`useAgent`/`@ag-ui/client` 本身不做任何持久化），组件挂载时必须从后端已经真实
+   * 落库的 `chat_messages` 回读一遍，`agent.setMessages(...)` 灌回去——不这样做的话，
+   * 即使地址栏带着正确的 `chatThreadId`、下一轮发消息也确实会续接同一条后端线程，
+   * 用户在**这一次挂载**里仍然看不到刷新前的历史，等于只修了"续聊"没修"看得见"。
+   *
+   * 只在 `initialChatThreadId` 非空时跑（新对话没有历史可读）；用 `cursor` 分页跑到
+   * `nextCursor` 为 `null`，不是"读一页就假装读完了"——`listMessages` 契约本身要求
+   * 调用方分页（`R9`），单页上限 100。
+   */
+  const [historyError, setHistoryError] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (initialChatThreadId === null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const bearer = getStoredSessionToken() ?? undefined;
+        const collected: Array<{ id: string; role: "user" | "assistant"; content: string }> = [];
+        let cursor: string | undefined;
+        for (let page = 0; page < 50; page += 1) {
+          const result = await listMessages(initialChatThreadId, { cursor, limit: 100 }, bearer);
+          for (const m of result.messages) {
+            collected.push({
+              id: m.id,
+              role: m.authorKind === "human" ? "user" : "assistant",
+              content: m.text,
+            });
+          }
+          if (result.nextCursor === null) break;
+          cursor = result.nextCursor;
+        }
+        if (cancelled) return;
+        agent.setMessages(collected);
+      } catch (e) {
+        if (cancelled) return;
+        setHistoryError(e instanceof Error ? e.message : "历史消息读取失败");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在挂载时按 `initialChatThreadId`
+    // 跑一次；这个值本身由 `copilotkit-v2-shell.tsx` 的 `key` 保证"变了就整体 remount"，
+    // 不会在同一个组件实例存活期间变化，加进依赖数组没有额外效果。
+  }, []);
 
   /**
    * DA-19g —— `useAsrDraft` 的 `start()` 是一个稳定回调（不随每次按键重建），基线读取
@@ -654,6 +735,11 @@ export function CopilotKitV2Panel(): JSX.Element {
         </div>
         {error !== null ? (
           <div data-testid="copilotkit-v2-error" className="text-sm text-destructive">{error}</div>
+        ) : null}
+        {historyError !== null ? (
+          <div data-testid="copilotkit-v2-history-error" className="text-sm text-destructive">
+            历史消息读取失败：{historyError}
+          </div>
         ) : null}
         <FollowUpSuggestions
           agentId={threadId}
