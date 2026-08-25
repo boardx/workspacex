@@ -26,6 +26,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
+import { AGUI_CHAT_MESSAGE_ID_EVENT_NAME } from "@repo/contracts/agui-state-events";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -61,9 +62,22 @@ const STATE_EVENT_TYPES = new Set<string>([
  * head) is scoped to exclude it: the guarantee is "no business-data STATE event or CUSTOM
  * event without a real producer", not "no CUSTOM event at all on the wire".
  */
+/**
+ * CK-P3（issue #2054）—— 第二个同类具名例外：`CUSTOM chat_message_id`。它在 run
+ * `succeeded` 后回显「这条 assistant 消息的真实 `chat_messages.id`」，与 `chat_thread_id`
+ * 是同一种东西——会话/消息定位的**管道事件**，不是 DA-17 那种业务态数据。
+ *
+ * ⚠ 加的是**具名**例外，不是把 CUSTOM 整类放行。任何其它 name 的 CUSTOM 事件仍然
+ *   会让下面三条反证红——「零业务态 STATE_x/CUSTOM」这条契约本身没有被放宽。
+ */
+const PLUMBING_CUSTOM_EVENT_NAMES = new Set<string>([
+  "chat_thread_id",
+  AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+]);
+
 function isBusinessStateEvent(event: ParsedSseEvent): boolean {
   return STATE_EVENT_TYPES.has(event.type)
-    && !(event.type === EventType.CUSTOM && event.name === "chat_thread_id");
+    && !(event.type === EventType.CUSTOM && PLUMBING_CUSTOM_EVENT_NAMES.has(typeof event.name === "string" ? event.name : ""));
 }
 
 const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex");
@@ -236,8 +250,9 @@ describe("POST /copilotkit/agui -- DA-17 状态轴：write_todos → STATE_SNAPS
     // （DA-19a 的 `CUSTOM chat_thread_id` 是每轮都有的续聊事件，不在此列——见
     // `isBusinessStateEvent` 头注。）
     expect(events.filter((e) => e.type === EventType.STATE_DELTA)).toHaveLength(0);
-    expect(events.filter((e) => e.type === EventType.CUSTOM && e.name !== "chat_thread_id"))
-      .toHaveLength(0);
+    expect(events.filter(
+      (e) => e.type === EventType.CUSTOM && !PLUMBING_CUSTOM_EVENT_NAMES.has(typeof e.name === "string" ? e.name : ""),
+    )).toHaveLength(0);
 
     // 轮询循环真的被走过（不是第一次查询就判定终态）。
     expect(statusCallCount).toBeGreaterThanOrEqual(2);

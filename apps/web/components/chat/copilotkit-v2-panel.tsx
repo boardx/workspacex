@@ -16,6 +16,13 @@ import {
 import { Pencil, Mic, Loader2, AlertTriangle } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
+import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
+import { useCopilotKitV2RunProgress, LONG_RUN_HINT } from "@/lib/copilotkit-v2-run-progress";
+import {
+  CopilotKitV2MessageActionsProvider,
+  CopilotKitV2CopyButton,
+  CopilotKitV2MessageExtraActions,
+} from "@/components/chat/copilotkit-v2-message-actions";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
@@ -773,6 +780,12 @@ export function CopilotKitV2Panel({
           canGeneratePersona={canGeneratePersona}
           onMentionQueryChange={setMentionQuery}
           mentionResolvedNonce={mentionResolvedNonce}
+          actingAgentId={selectedAgentId}
+          actingAgentLabel={
+            agentOptions.status === "ready"
+              ? (agentOptions.agents.find((a) => a.id === selectedAgentId)?.name ?? null)
+              : null
+          }
         />
       </div>
       {/* issue #2020 —— 挂载栏放在 composer（Body 底部）之后，与旧轨道人类裁决的
@@ -810,8 +823,14 @@ function CopilotKitV2PanelBody({
   canGeneratePersona = false,
   onMentionQueryChange,
   mentionResolvedNonce,
+  actingAgentId = null,
+  actingAgentLabel = null,
 }: {
   chatThreadId?: string | null;
+  /** CK-P3（#2054）—— 当前发送 agent 的真实 id，供逐条消息的「对 agent 提反馈」归因；
+   *  用户未选择（走服务端配置的默认 agent）时为 `null`，此时不画反馈入口。 */
+  actingAgentId?: string | null;
+  actingAgentLabel?: string | null;
   onThreadResolved?: (threadId: string) => void;
   /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   onMessageSent?: () => void;
@@ -1039,6 +1058,13 @@ function CopilotKitV2PanelBody({
    * 已非空（用户在历史加载完成前就抢先发了消息——真实竞态，不是假设），把历史
    * **前插**并按 id 去重，不整体覆盖——覆盖会杀掉在途 run 已经流进来的内容。
    */
+  /**
+   * CK-P3（issue #2054）—— 逐条消息操作要用的「视图 id → 真实 `chat_messages.id`」索引。
+   * 为什么不能直接用 `message.id`（流式那半是临时聚合 id，评分会 404）见
+   * `lib/copilotkit-v2-message-identity.ts` 文件头的完整取证。
+   */
+  const { index: messageIdentity, registerHydrated } = useChatMessageIdentity(agent);
+
   const [historyError, setHistoryError] = React.useState<string | null>(null);
   const hydratedRef = React.useRef(false);
   /**
@@ -1054,15 +1080,26 @@ function CopilotKitV2PanelBody({
     (async () => {
       try {
         const bearer = getStoredSessionToken() ?? undefined;
+        // 分页读取用 main 抽出的 `readAllPersistedMessages`（"怎么把一条线程读完"
+        // 只有一份写法），不在这里复制第二遍循环。
         const collected = await readAllPersistedMessages(initialChatThreadId, bearer);
+        // CK-P3（#2054）—— 「可评分」比「消息真实存在」多一道门：还要求它由 agent
+        // 写回且带 `agentRunId`（服务端第三道归因门，见
+        // `lib/copilotkit-v2-message-identity.ts`）。这两个判据由
+        // `readAllPersistedMessages` 一并投影出来（`rateable`），不为它再读一遍库。
+        const identities = collected.map((m) => ({ id: m.id, rateable: m.rateable }));
         if (cancelled) return;
         hydratedRef.current = true;
+        registerHydrated(identities);
+        // ⚠ 只把框架认识的三个字段喂进去：`rateable` 是本仓自己的投影，
+        //   不该混进 AG-UI 消息对象。
+        const framed = collected.map((m) => ({ id: m.id, role: m.role, content: m.content }));
         const live = agent.messages;
         if (live.length === 0) {
-          agent.setMessages(collected);
+          agent.setMessages(framed);
         } else {
           const liveIds = new Set(live.map((m) => m.id));
-          agent.setMessages([...collected.filter((m) => !liveIds.has(m.id)), ...live]);
+          agent.setMessages([...framed.filter((m) => !liveIds.has(m.id)), ...live]);
         }
         setHistoryLoading(false);
       } catch (e) {
@@ -1074,7 +1111,7 @@ function CopilotKitV2PanelBody({
     return () => {
       cancelled = true;
     };
-  }, [agent, isReady, initialChatThreadId]);
+  }, [agent, isReady, initialChatThreadId, registerHydrated]);
 
   /**
    * DA-19g —— `useAsrDraft` 的 `start()` 是一个稳定回调（不随每次按键重建），基线读取
@@ -1172,6 +1209,16 @@ function CopilotKitV2PanelBody({
     ),
   });
 
+  /**
+   * CK-P4（issue #2054）—— run 进度：已耗时 / 阶段文案 / 45s longrun 提示。
+   * 逐维「v2 侧真的拿得到什么」的核实结论写在 `lib/copilotkit-v2-run-progress.ts`
+   * 文件头（拿不到的三维如实登记为不做，没有伪造）。
+   */
+  const runProgress = useCopilotKitV2RunProgress(agent, agent.isRunning);
+
+  /** CK-P4 —— 最近一次真的发出去的用户消息，供错误横幅上的「重试」重发。 */
+  const lastSentRef = React.useRef<{ text: string; attachmentIds: readonly string[] } | null>(null);
+
   const send = React.useCallback(
     async (override?: string) => {
       const text = (override ?? inputDraft).trim();
@@ -1185,6 +1232,10 @@ function CopilotKitV2PanelBody({
       // issue #2020 —— 正文已清空，活跃 mention 一并终结（不清的话外层的候选面板
       // 会带着一个已不存在于正文里的 query 继续开着）。
       setMention(null);
+      // CK-P4（issue #2054）—— 记住这一轮的用户正文，供失败后的「重试」重发。
+      // ⚠ 存的是**已发出**的那句，不是 composer 里的当前草稿：用户看到失败横幅时
+      //   很可能已经在输入框里敲别的了，重试要重发失败的那一句。
+      lastSentRef.current = { text, attachmentIds: attach.uploadedIds };
       agent.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
       // chat-parity-attachments (issue #2022) -- 本轮已上传成功的附件 id；发送后清空
       // composer 的 pending 队列（同旧轨道语义：已发出的附件从 composer 移到"材料"）。
@@ -1334,15 +1385,50 @@ function CopilotKitV2PanelBody({
             // 横贯全屏（Claude/ChatGPT 对话列同一处理），窄屏等于全宽无影响。
             <div className="mx-auto w-full max-w-3xl">
               <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
-                <CopilotChatMessageView
-                  messages={agent.messages}
-                  isRunning={agent.isRunning}
-                  assistantMessage={{ markdownRenderer: V2MarkdownRenderer }}
-                />
+                {/* CK-P3（issue #2054）—— 逐条消息操作（复制/评分/反馈）需要的两样东西
+                    （真实落库 id 的解析索引、当前 agent 归因）经 context 下发：
+                    `assistantMessage` slot 由框架实例化，本组件够不着它的 props。
+                    ⚠ 这里换的是 slot 本身（`V2AssistantMessage` 内部仍然渲染框架的
+                      `CopilotChatAssistantMessage`，`markdownRenderer` 照旧是
+                      `V2MarkdownRenderer`）——DA-19b 的 markdown/mermaid 能力没有回退。 */}
+                <CopilotKitV2MessageActionsProvider
+                  value={{
+                    identity: messageIdentity,
+                    agentId: actingAgentId,
+                    agentLabel: actingAgentLabel,
+                  }}
+                >
+                  <CopilotChatMessageView
+                    messages={agent.messages}
+                    isRunning={agent.isRunning}
+                    assistantMessage={V2AssistantMessage}
+                  />
+                </CopilotKitV2MessageActionsProvider>
               </CopilotChatConfigurationProvider>
             </div>
           )}
         </div>
+        {/* CK-P4（issue #2054）—— run 进度行。⚠ 它每秒在动，"会动"本身就是"没卡死"
+            的证据；一句静止的「正在思考…」在第 10 秒和第 10 分钟长得一模一样
+            （旧轨道 `chat-live-message-panel.tsx` 同一段裁决）。 */}
+        {runProgress.elapsedSeconds !== null ? (
+          <div
+            className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
+            data-testid="copilotkit-v2-thinking"
+            role="status"
+          >
+            <span>正在思考…</span>
+            <span data-testid="copilotkit-v2-thinking-elapsed">
+              已用 {runProgress.elapsedSeconds} 秒
+            </span>
+            {runProgress.phaseLabel !== null ? (
+              <span data-testid="copilotkit-v2-thinking-phase">· {runProgress.phaseLabel}</span>
+            ) : null}
+            {runProgress.isLongRun ? (
+              <span data-testid="copilotkit-v2-thinking-longrun-hint">· {LONG_RUN_HINT}</span>
+            ) : null}
+          </div>
+        ) : null}
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}
@@ -1354,6 +1440,27 @@ function CopilotKitV2PanelBody({
           >
             <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0 flex-1">{error}</span>
+            {/* CK-P4（issue #2054）—— 失败重试入口。旧轨道有（`retryFailedRun`），v2
+                此前只有一条横幅，用户唯一的出路是自己把刚才那句话重新打一遍。
+                ⚠ 重发的是「已发出的那一句」（`lastSentRef`），不是 composer 里的当前
+                  草稿：看到失败横幅时用户很可能已经在输入别的了。走的就是 `send()`
+                  本身，因此它是一次货真价实的新 run（新 `runAgent` 调用、新 run id），
+                  不是把上一轮的失败状态擦掉假装成功。
+                样式跟随 issue #2039 这张 alert 卡（本轮只加入口，不动展示层）。 */}
+            {lastSentRef.current !== null && !agent.isRunning ? (
+              <button
+                type="button"
+                data-testid="copilotkit-v2-retry"
+                onClick={() => {
+                  const last = lastSentRef.current;
+                  if (last === null) return;
+                  void send(last.text);
+                }}
+                className="shrink-0 rounded border border-destructive/30 px-2 py-0.5 text-11 transition-colors duration-fast hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                重试
+              </button>
+            ) : null}
           </div>
         ) : null}
         {historyError !== null ? (
@@ -1596,7 +1703,22 @@ function CopilotKitV2PanelBody({
  *   （issue #2053 CK-P6「生成用户画像」的锚点 `messageId` 就是一个）**只能**用这一份，
  *   拿流式 id 去调只会做出一个「点了才报错」的假按钮。
  */
-type PersistedMessage = { id: string; role: "user" | "assistant"; content: string };
+type PersistedMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  /**
+   * CK-P3（issue #2054）—— 这条消息能不能调 `rateMessage`。
+   *
+   * 「id 是真实主键」只是服务端三道门里的第一道；第三道
+   * （`ratings.resolveForMessage`）要从 `agent_runs` 取归因，人自己说的话没有 agent
+   * 可归因、早于 `chat_messages.agent_run_id` 的历史消息同样归不了因，两种都 404。
+   * 判据只在这里（`listMessages` 的投影里）看得到——上面那三个字段进了
+   * `agent.setMessages` 之后就没有 `agentRunId` 了——所以就地投影出来，
+   * 而不是让调用方为了这一个布尔值再读一遍库。
+   */
+  rateable: boolean;
+};
 
 /**
  * 把一条线程的持久化消息**读完**（不是读一页就算数）。
@@ -1618,6 +1740,7 @@ async function readAllPersistedMessages(
         id: m.id,
         role: m.authorKind === "human" ? "user" : "assistant",
         content: m.text,
+        rateable: m.authorKind !== "human" && m.agentRunId !== null,
       });
     }
     if (result.nextCursor === null) break;
@@ -1639,6 +1762,62 @@ function V2MarkdownRenderer({
 }: React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer>): JSX.Element {
   return <MarkdownMessage text={content} />;
 }
+
+/**
+ * CK-P3（issue #2054）—— `assistantMessage` **整组件** slot 的替换实现。
+ *
+ * ## 为什么必须接在这一层（而不是继续用 `markdownRenderer`）
+ *
+ * `markdownRenderer` 子 slot 的 props 只有 `content`，**没有 `messageId`**——逐条操作
+ * 在那一层接不上，#2046 已把这条路排除，别再从那里进。`CopilotChatAssistantMessageProps`
+ * 在整组件这一层携带 `message`（读框架 `.d.mts` 类型确认，不是猜的）。
+ *
+ * ## 内部仍然渲染框架自己的 `CopilotChatAssistantMessage`
+ *
+ * 不另写一个气泡：那会让两条轨道的消息渲染各自漂移。这里只做三件加法——
+ *   ① `markdownRenderer` 仍换成本仓 `MarkdownMessage`（DA-19b 的 markdown + mermaid
+ *      fabric 能力不能因为多包了一层就回退）；
+ *   ② `copyButton` 换成带本仓锚点的外观（**复用框架绑好的 `onClick`**，复制这件事
+ *      本身没有第二份实现）；
+ *   ③ `additionalToolbarItems` 挂上「对 agent 提反馈」+ 👍/👎 评分。
+ *
+ * ## ⚠ 框架自带的 👍/👎 刻意不启用
+ *
+ * `CopilotChatAssistantMessage` 有 `onThumbsUp`/`onThumbsDown` 回调，看起来正好。但它们
+ * 是"点一下就完事"的形状，而本仓的 👎 允许（可选地）填一句理由——`MessageRating`
+ * 的整个交互（待改进 → 理由输入 → 提交 → 「已记录」/「未计入 skill 满意度」）塞不进
+ * 一个 onClick。接了框架回调就等于把 F176 采集侧砍成半个，所以走
+ * `additionalToolbarItems` 用完整的 `MessageRating`；框架那两个按钮不传回调也不传
+ * slot，于是（读框架实现：`(onThumbsUp || thumbsUpButton) && ...`）根本不渲染，
+ * 不会出现两套 👍/👎 并排。
+ */
+function V2AssistantMessageImpl(
+  props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
+): JSX.Element {
+  const messageId = props.message.id;
+  return (
+    <CopilotChatAssistantMessage
+      {...props}
+      markdownRenderer={V2MarkdownRenderer}
+      copyButton={(copyProps) => (
+        <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
+      )}
+      additionalToolbarItems={<CopilotKitV2MessageExtraActions messageId={messageId} />}
+    />
+  );
+}
+
+/**
+ * slot 的静态类型是 `SlotValue<typeof CopilotChatAssistantMessage>`——即它要的不只是
+ * 一个组件函数，还包括挂在同名命名空间上的那些子组件（`MarkdownRenderer`/`Toolbar`/
+ * `CopyButton`/…）。`Object.assign` 把框架那份**原样**搬到包装组件上，而不是用一个
+ * `as` 断言糊过去：断言只是让编译器闭嘴，任何真的去读 `.CopyButton` 的调用点（框架
+ * 内部就有）会在运行期拿到 `undefined`。
+ */
+const V2AssistantMessage = Object.assign(
+  V2AssistantMessageImpl,
+  CopilotChatAssistantMessage,
+) as typeof CopilotChatAssistantMessage;
 
 /**
  * ── DA-19e 追问建议（框架版 Gap 2，backlog issue #1962/#1967 系列）─────────────

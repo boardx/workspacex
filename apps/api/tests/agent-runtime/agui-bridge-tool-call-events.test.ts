@@ -244,6 +244,11 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
       EventType.TEXT_MESSAGE_START, // final answer bubble
       EventType.TEXT_MESSAGE_CONTENT,
       EventType.TEXT_MESSAGE_END,
+      // CK-P3 (issue #2054) -- `CUSTOM chat_message_id`：回显最终那条 assistant 消息的
+      // 真实 `chat_messages.id`。位置刻意在最终气泡的 TEXT_MESSAGE_END 之后、
+      // RUN_FINISHED 之前：它指的是**落库的那条最终回复**，不是中途的规划气泡
+      // （规划气泡本身不落 chat_messages，也就没有 id 可回显）。
+      EventType.CUSTOM,
       EventType.RUN_FINISHED,
     ]);
 
@@ -278,8 +283,16 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
 
     // Final answer is the REAL text the deepagents run's last AI message produced, not the
     // skill's own result text leaking through as the reply.
-    const finalContent = events[events.length - 3];
-    expect(finalContent?.type).toBe(EventType.TEXT_MESSAGE_CONTENT);
+    // ⚠ 取「最后一条 TEXT_MESSAGE_CONTENT」，不是从队尾数第 N 个。原来写的是
+    //   `events[events.length - 3]`，CK-P3（#2054）在 RUN_FINISHED 前多插一个
+    //   `CUSTOM chat_message_id` 就把它整个错开了——而这条断言真正要说的是
+    //   「最终答案气泡的正文」（本轮有两条 TEXT_MESSAGE_CONTENT：规划气泡与最终答案，
+    //   最后一条即最终答案），跟它距离流末尾几格无关。按语义定位不会因为将来又多一个
+    //   收尾事件而再红一次。上面那条逐条序列断言已经在钉「事件序列本身」了，
+    //   这里不需要第二份对位置的隐式依赖。
+    const contents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
+    const finalContent = contents[contents.length - 1];
+    expect(contents).toHaveLength(2);
     expect(finalContent?.delta).toBe(FINAL_TEXT);
 
     // 轮询循环真的被走过（不是第一次查询就判定终态）——第一次看到 running，第二次才成功。

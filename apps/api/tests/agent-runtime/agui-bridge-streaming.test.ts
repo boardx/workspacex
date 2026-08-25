@@ -212,8 +212,17 @@ describe("POST /copilotkit/agui with KERNEL_MODEL_STREAM_ENABLED=1", () => {
       const messageId = events[2]?.messageId as string;
       expect(contentEvents.every((e) => e.messageId === messageId)).toBe(true);
 
-      const tail = events.slice(-2).map((e) => e.type);
-      expect(tail).toEqual([EventType.TEXT_MESSAGE_END, EventType.RUN_FINISHED]);
+      // CK-P3（issue #2054）—— 收尾多了一个 `CUSTOM chat_message_id`（回显这条 assistant
+      // 消息的真实 `chat_messages.id`），刻意夹在 TEXT_MESSAGE_END 与 RUN_FINISHED 之间：
+      // 客户端收到它时气泡已完整，这一轮还没结束。本条用例真正要钉的
+      // 「不在末尾把整段文字再发一遍」没有变——尾巴里仍然只有一个 TEXT_MESSAGE_END，
+      // 没有第二个 TEXT_MESSAGE_CONTENT。
+      const tail = events.slice(-3).map((e) => e.type);
+      expect(tail).toEqual([
+        EventType.TEXT_MESSAGE_END, EventType.CUSTOM, EventType.RUN_FINISHED,
+      ]);
+      // 显式反证（原来只由 slice(-2) 隐含）：整段重发会多出一条 CONTENT。
+      expect(contentEvents).toHaveLength(4);
       const end = events.find((e) => e.type === EventType.TEXT_MESSAGE_END);
       expect(end?.messageId).toBe(messageId);
 

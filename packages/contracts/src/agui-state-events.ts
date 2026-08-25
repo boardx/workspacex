@@ -191,3 +191,47 @@ export function parseAguiFilePatchAppliedValue(value: unknown): AguiFilePatchApp
   const result = AguiFilePatchAppliedValue.safeParse(value);
   return result.success ? result.data : null;
 }
+
+/**
+ * CK-P3（issue #2054）—— **流式 assistant 消息 id → 真实落库 `chat_messages.id` 的回显**。
+ *
+ * ## 为什么需要它（取证结论，不是设计偏好）
+ *
+ * `copilotkit-agui.controller.ts` 里 wire 上的 `TEXT_MESSAGE_START.messageId` 是该
+ * 请求开始时 `randomUUID()` 出来的**临时 id**——它必须在第一个 delta 之前就存在，
+ * 而那时 assistant 消息还没写进 `chat_messages`（写回发生在 run 跑完之后）。真实主键
+ * 由 `agui-bridge.ts` 的 `AguiBridgeOutcome.messageId` 携带，此前**从不上 wire**。
+ *
+ * 后果是任何「按 messageId 找那条落库消息」的能力都接不上去：`rateMessage`
+ * （`submit-message-rating.ts`：`findMessageLocation` 查不到 → 404）、`landAsArtifact`
+ * （同一道 `findMessageLocation` 门）。前端只能要么不做，要么做一个点下去必然 404 的
+ * 假按钮——本仓一贯反对后者。
+ *
+ * ## 为什么是「事后回显」而不是「事前对齐」
+ *
+ * 「让流式 id 一开始就等于落库 id」要求在第一个 token 之前就把 assistant 行插进
+ * `chat_messages`，也就是**先落一条空消息再补内容**——那会让 `listMessages` 在 run
+ * 中途返回一条内容为空的 AI 消息（历史里凭空多出空气泡），并且 run 失败时留下垃圾行。
+ * 事后回显不动写回时序：临时 id 照常用于流式聚合，真实 id 在它真的存在之后才广播。
+ *
+ * ## 通道复用，不新发明
+ *
+ * 与已有的 `CUSTOM {name:"chat_thread_id"}` 回显（DA-19g）同一条 `onCustomEvent` 通道、
+ * 同一套「`value` 在协议层是 `unknown`，前端用本文件导出的 zod schema 原地再校验一次」
+ * 的解析纪律。解析失败 → 丢弃这一帧，前端就当没拿到真实 id（于是不画依赖它的按钮），
+ * 不退化成「拿临时 id 顶上」。
+ */
+export const AGUI_CHAT_MESSAGE_ID_EVENT_NAME = "chat_message_id" as const;
+
+export const AguiChatMessageIdValue = z.object({
+  /** 本轮 wire 上 `TEXT_MESSAGE_START`/`_CONTENT`/`_END` 用的那个临时 id。 */
+  streamingMessageId: z.string().min(1),
+  /** 同一条 assistant 消息在 `chat_messages` 里的真实主键。 */
+  chatMessageId: z.string().min(1),
+});
+export type AguiChatMessageIdValue = z.infer<typeof AguiChatMessageIdValue>;
+
+export function parseAguiChatMessageIdValue(value: unknown): AguiChatMessageIdValue | null {
+  const result = AguiChatMessageIdValue.safeParse(value);
+  return result.success ? result.data : null;
+}
