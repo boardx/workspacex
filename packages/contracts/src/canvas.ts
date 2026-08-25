@@ -479,6 +479,50 @@ export const operations = {
   },
 
   /**
+   * updateTemplateMetadata —— 2026-08-25，**设计增量、待人类补签**（R2，画布模板重设计
+   * 迭代计划，同 #496/#988/`updateTemplateDraft` 的先例）。
+   *
+   * ## 为什么需要它——`updateTemplateDraft` 不够
+   *
+   * `Design.pdf` §3.1「卡片」：模板库每张卡片有「改名 / 标签」这个次级动作——「打开
+   * 与新建同一个弹窗，预填现有名称与标签；保存只改元数据，不动字段与画布」。这与
+   * `updateTemplateDraft` 是**两件不同的事**：后者只对 `status==='draft'` 生效、
+   * 全量替换 `sections`（内容），前者要在**任意状态**（含 published/archived）上
+   * 生效、且**绝不碰** `sections`——改名字/标签不该被当成"改内容"，用
+   * `updateTemplateDraft` 去做这件事，会让人以为改名字也要求"仍是草稿"，
+   * 而这条限制的存在理由（已发布版本内容不可变快照）跟名字/标签完全无关。
+   *
+   * ## 没有推翻「已发布/已归档版本永远是不可变快照」
+   *
+   * 那条不变量管的是 `sections`（分区定义/内容），不是元数据。`displayName`/`tags`
+   * 是给人看的标签与筛选维度，产品上允许随时改名而不产出新版本——同一件事在
+   * 现实世界里也成立（重命名一份已发布的文档不等于发布了它的新内容）。本操作
+   * **不接受、也不返回** `sections`，物理上不可能touch内容。
+   *
+   * ## 全量替换 `displayName`/`tags`，不是 patch——同 `updateTemplateDraft` 的既有理由。
+   */
+  updateTemplateMetadata: {
+    method: "POST", path: "/canvas/templates/:key/:version/metadata",
+    in: z.object({
+      key: z.string().min(1),
+      version: z.number().int().positive(),
+      displayName: z.string().min(1),
+      tags: z.array(z.string()).optional(),
+    }).strict(),
+    out: z.object({
+      key: z.string(),
+      version: z.number().int().positive(),
+      status: TemplateStatus,
+      displayName: z.string(),
+      builtin: z.boolean(),
+      visibility: TemplateVisibility,
+      underlyingType: z.string(),
+      tags: z.array(z.string()),
+    }).strict(),
+    err: ["TEMPLATE_NOT_FOUND", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
    * suggestTemplateSections —— 2026-08-23，**设计增量、待人类补签**（同 #496/#988 的先例：
    * coord-main 在人类不在场时代裁「先做」，登记待补签，见 issue #1798 的后续跟进 issue）。
    *

@@ -79,6 +79,7 @@ import { publishTemplate } from "../../application/canvas/publish-template";
 import { restoreTemplate } from "../../application/canvas/restore-template";
 import { suggestTemplateSections } from "../../application/canvas/suggest-template-sections";
 import { updateTemplateDraft } from "../../application/canvas/update-template-draft";
+import { updateTemplateMetadata } from "../../application/canvas/update-template-metadata";
 import {
   CANVAS_TEMPLATE_REPOSITORY,
   type CanvasTemplateRepository,
@@ -108,10 +109,12 @@ export const BIND_CANVAS_TEMPLATE_SCHEMA = C.operations.bindTemplateToSegment.in
 export const MINT_CANVAS_TEMPLATE_VERSION_SCHEMA = C.operations.mintTemplateVersion.in;
 export const SUGGEST_TEMPLATE_SECTIONS_SCHEMA = C.operations.suggestTemplateSections.in;
 export const UPDATE_TEMPLATE_DRAFT_SCHEMA = C.operations.updateTemplateDraft.in;
+export const UPDATE_TEMPLATE_METADATA_SCHEMA = C.operations.updateTemplateMetadata.in;
 
 type CreateBody = z.infer<typeof C.operations.createTemplate.in>;
 type SuggestSectionsBody = z.infer<typeof C.operations.suggestTemplateSections.in>;
 type UpdateDraftBody = z.infer<typeof C.operations.updateTemplateDraft.in>;
+type UpdateMetadataBody = z.infer<typeof C.operations.updateTemplateMetadata.in>;
 type PublishBody = z.infer<typeof C.operations.publishTemplate.in>;
 type TrialBody = z.infer<typeof C.operations.trialTemplate.in>;
 type ArchiveBody = z.infer<typeof C.operations.archiveTemplate.in>;
@@ -222,6 +225,42 @@ export class CanvasTemplateController {
             displayName: body.displayName,
             sections: body.sections,
             visibility: body.visibility,
+            tags: body.tags,
+          },
+        ),
+      ),
+    );
+  }
+
+  /**
+   * 🟡 2026-08-25，**待人类补签**（R2）——原地改写 `displayName`/`tags`，**任意状态**
+   * 均可（不像 `updateDraft` 限定 draft）。**200**：没有新资源被创建。
+   */
+  @Post("/canvas/templates/:key/:version/metadata")
+  @HttpCode(HttpStatus.OK)
+  async updateMetadata(
+    @Param("key") key: string,
+    @Param("version") versionParam: string,
+    @Body(new ZodBodyPipe(UPDATE_TEMPLATE_METADATA_SCHEMA)) body: UpdateMetadataBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    this.assertKeyMatches(key, body.key);
+    // 同 `bindTemplate` 的 `agendaSegmentId` 一致性检查：路径与 body 各带一份 version，
+    // 不一致时 400，不静默挑一个——`ZodBodyPipe` 校验不了跨字段一致性。
+    if (Number(versionParam) !== body.version) {
+      throw new BadRequestException("template_version_mismatch");
+    }
+    return this.run(async () =>
+      C.operations.updateTemplateMetadata.out.parse(
+        await updateTemplateMetadata(
+          { identity: this.identity, templates: this.templates },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            key: body.key,
+            version: body.version,
+            displayName: body.displayName,
             tags: body.tags,
           },
         ),

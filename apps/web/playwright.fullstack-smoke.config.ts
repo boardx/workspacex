@@ -257,6 +257,10 @@ export default defineConfig({
         "fullstack-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",
         "canvas-template-create-smoke.spec.ts",
+        // ⚠ R2（画布模板重设计）同理排在 `seeded`：它同样用种子里的组织管理员登录，
+        //   验的是模板库屏对照 `Design.pdf` §3/§7 的实现完成度（卡片网格/A1 缩略图/
+        //   真实标签筛选/改名换标签），与上一行那个验契约行为的 spec 分工不同。
+        "canvas-template-library-design.spec.ts",
         // ⚠ #520 与 #496 同理，必须排在 `seeded` 里：它要用种子里的组织管理员登录。
         "skill-create-smoke.spec.ts",
         // ⚠ #552 同理排在 `seeded`：它要用种子里的三个账号（提交人 / 第二评审人 /

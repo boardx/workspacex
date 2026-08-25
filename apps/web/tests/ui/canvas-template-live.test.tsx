@@ -90,8 +90,24 @@ interface TemplateRow {
   builtin: boolean;
   visibility: "org-wide" | "team-only";
   underlyingType: string;
-  sections: { sectionId: string; name: string; order: number; required: boolean; capacity: number | null }[];
+  sections: {
+    sectionId: string;
+    name: string;
+    order: number;
+    required: boolean;
+    capacity: number | null;
+    // R0（#2058）新增的可选字段——夹具随契约一起扩展，否则测不到拖拽版编辑器。
+    key?: string;
+    type?: "便利贴列表" | "短文本" | "长文本";
+    aiHint?: string | null;
+    layout?: {
+      col: number; row: number; w: number; h: number;
+      cols: number; max: number; tone: number;
+      overflow: "缩小字号" | "叠放" | "截断";
+    } | null;
+  }[];
   usageCount: number;
+  tags?: string[];
 }
 
 function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
@@ -394,7 +410,10 @@ describe("2026-08-23 新建只问名字——分区/key/生命周期都不在这
     // 对话框关了、编辑面板开了——「所有的内容进入编辑的界面来管理」。
     await waitFor(() => expect(screen.queryByTestId("tpladmin-create-dialog")).toBeNull());
     const panel = await screen.findByTestId("tpladmin-editor-panel");
-    expect(within(panel).getByTestId("tpladmin-editor-name")).toHaveValue("SWOT 分析");
+    // R3 起编辑器顶栏是面包屑标题，显示名的编辑入口在模板库的「改名 / 标签」弹窗里
+    // （`Design.pdf` §3.1「保存只改元数据，不动字段与画布」）——这里断言标题上是
+    // 刚建出来的那个名字，不再找一个已经不存在的名字输入框。
+    expect(within(panel).getByTestId("tpladmin-editor-title")).toHaveTextContent("SWOT 分析");
   });
 
   it("key 撞车（TEMPLATE_KEY_CONFLICT）时自动换一段随机后缀重试，使用者看不到这次冲突", async () => {
@@ -842,8 +861,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
  * 所以这里只验前端这一半：调对了端点、回填对了字段、失败原样回显、且**不自动保存**。
  * 只读端口本身的服务端反证（模型失败/输出解析不出来映射到同一个 reasonCode、
  * 不落库）已由 `apps/api/tests/canvas/suggest-template-sections-http.test.ts` 覆盖。
- */
-describe("2026-08-23 AI 起草模板（suggestTemplateSections，落点在编辑面板）", () => {
+ */describe("2026-08-26 R3 提示词抽屉（三栏：角色与任务 / 提取字段 / 只读输出结构）", () => {
   beforeEach(() => {
     sessionState.currentOrgId = "org-ai-suggest";
     sessionState.orgRole = "admin";
@@ -855,86 +873,93 @@ describe("2026-08-23 AI 起草模板（suggestTemplateSections，落点在编辑
     vi.unstubAllGlobals();
   });
 
-  it("非草稿行的编辑面板是只读预览，不挂 AI 起草入口——内容不可变，AI 建议没有地方可写", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template({ status: "published" })] })));
-    render(<TemplateAdmin previewRole="facilitator" />);
-    await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByTestId("tpladmin-edit-persona-3"));
-    const panel = await screen.findByTestId("tpladmin-editor-panel");
-    expect(within(panel).queryByTestId("tpladmin-editor-ai-suggest")).toBeNull();
+  const draftOnly = () => jsonResponse({
+    templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })],
   });
 
-  it("草稿行的编辑面板里，AI 生成成功后回填显示名与分区，且不自动保存", async () => {
-    const posts: Record<string, unknown>[] = [];
+  async function openEditor(): Promise<HTMLElement> {
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    return screen.findByTestId("tpladmin-editor-panel");
+  }
+
+  it("空模板打开编辑器即停在第一步且自动打开提示词抽屉——空白模板没有字段可拖，必须先写提示词", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => draftOnly()));
+    const panel = await openEditor();
+    // 第一步高亮。
+    expect(within(panel).getByTestId("tpladmin-editor-step-1")).toBeInTheDocument();
+    // 左栏如实说「还没有字段」，不是画一个假的空列表。
+    expect(within(panel).getByTestId("tpladmin-editor-no-fields")).toBeInTheDocument();
+  });
+
+  it("提取字段 → 加入 → 输出结构 JSON 立刻多出对应键（Design.pdf §7 第 8 条）", async () => {
+    const posts: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       if (init?.method === "POST" && url.pathname === "/canvas/templates/suggestions") {
-        expect(JSON.parse(String(init.body))).toEqual({ prompt: "商业模式画布" });
-        posts.push({ path: url.pathname });
+        posts.push(url.pathname);
         return jsonResponse({
-          suggestedDisplayName: "商业模式画布",
+          suggestedDisplayName: "同理心地图",
           sections: [
-            { name: "关键合作伙伴" }, { name: "价值主张" }, { name: "客户细分" },
+            { name: "says", type: "便利贴列表", why: "要求记录原话" },
+            { name: "thinks", type: "便利贴列表", why: "要求写内心推测" },
           ],
           modelProvider: "test-qwen",
           modelId: "qwen3.7-plus",
         });
       }
-      return jsonResponse({ templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })] });
+      return draftOnly();
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
-    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
-    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-open-prompt"));
+    const drawer = await screen.findByTestId("tpladmin-editor-prompt-drawer");
 
-    fireEvent.change(within(panel).getByTestId("tpladmin-editor-ai-prompt"), { target: { value: "商业模式画布" } });
-    fireEvent.click(within(panel).getByTestId("tpladmin-editor-ai-generate"));
+    // 抽屉三栏都在：角色与任务 textarea、提取按钮、只读输出结构。
+    expect(within(drawer).getByTestId("tpladmin-editor-prompt-text")).toBeInTheDocument();
+    expect(within(drawer).getByTestId("tpladmin-editor-prompt-schema")).toBeInTheDocument();
 
+    fireEvent.change(within(drawer).getByTestId("tpladmin-editor-prompt-text"), {
+      target: { value: "你是工作坊引导师，记录用户说的原话与内心推测。" },
+    });
+    fireEvent.click(within(drawer).getByTestId("tpladmin-editor-prompt-extract"));
     await waitFor(() => expect(posts).toHaveLength(1));
-    // 回填——显示名与三个分区框都出现了 AI 建议的值。
-    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-name")).toHaveValue("商业模式画布"));
-    expect(within(panel).getByTestId("tpladmin-editor-section-0")).toHaveValue("关键合作伙伴");
-    expect(within(panel).getByTestId("tpladmin-editor-section-1")).toHaveValue("价值主张");
-    expect(within(panel).getByTestId("tpladmin-editor-section-2")).toHaveValue("客户细分");
 
-    // ⚠ 核心断言：只回填，不自动保存——没有任何 POST .../draft 发生，面板还开着。
-    expect(posts).toHaveLength(1);
-    expect(screen.getByTestId("tpladmin-editor-panel")).toBeInTheDocument();
-    expect(within(panel).getByTestId("tpladmin-editor-save")).not.toBeDisabled();
+    // 每条候选带**提取依据**（§4.1 点名要有）。
+    await waitFor(() => expect(within(drawer).getByTestId("tpladmin-editor-prompt-field-says")).toHaveTextContent("要求记录原话"));
+
+    // 加入之前，输出结构里没有这个键。
+    expect(within(drawer).getByTestId("tpladmin-editor-prompt-schema").textContent).not.toContain('"says"');
+    fireEvent.click(within(drawer).getByTestId("tpladmin-editor-prompt-add-all"));
+    // 加入之后立刻多出对应键——§7 第 8 条逐字要求的那条链。
+    await waitFor(() => expect(within(drawer).getByTestId("tpladmin-editor-prompt-schema").textContent).toContain('"says"'));
+    expect(within(drawer).getByTestId("tpladmin-editor-prompt-schema").textContent).toContain('"thinks"');
   });
 
-  it("AI 生成失败时原样回显 reasonCode，且不清空使用者已经填的字段", async () => {
+  it("模型不可用时原样回显 reasonCode，不降级成一份编出来的候选", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       if (init?.method === "POST" && url.pathname === "/canvas/templates/suggestions") {
         return jsonResponse({ reasonCode: "TEMPLATE_SUGGESTION_UNAVAILABLE" }, 503);
       }
-      return jsonResponse({ templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })] });
+      return draftOnly();
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
-    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
-    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-open-prompt"));
+    const drawer = await screen.findByTestId("tpladmin-editor-prompt-drawer");
+    fireEvent.change(within(drawer).getByTestId("tpladmin-editor-prompt-text"), { target: { value: "商业模式画布" } });
+    fireEvent.click(within(drawer).getByTestId("tpladmin-editor-prompt-extract"));
 
-    fireEvent.change(within(panel).getByTestId("tpladmin-editor-name"), { target: { value: "手动填的名字" } });
-    fireEvent.change(within(panel).getByTestId("tpladmin-editor-ai-prompt"), { target: { value: "商业模式画布" } });
-    fireEvent.click(within(panel).getByTestId("tpladmin-editor-ai-generate"));
-
-    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-ai-error").textContent).toContain("TEMPLATE_SUGGESTION_UNAVAILABLE"));
-    // 失败不清空使用者已经手填的东西。
-    expect(within(panel).getByTestId("tpladmin-editor-name")).toHaveValue("手动填的名字");
+    await waitFor(() => expect(within(drawer).getByTestId("tpladmin-editor-prompt-error").textContent)
+      .toContain("TEMPLATE_SUGGESTION_UNAVAILABLE"));
+    // 没有编出任何候选来充数。
+    expect(within(drawer).queryByTestId("tpladmin-editor-prompt-add-all")).toBeNull();
   });
 });
 
-/**
- * 2026-08-23 —— `TemplateEditorPanel`：`updateTemplateDraft` 唯一的前端调用点。
- * 服务端反证（已发布/已归档恒 409 TEMPLATE_NOT_DRAFT、不落库）已由
- * `apps/api/tests/canvas/update-template-draft-http.test.ts` 覆盖；这里只验前端接线。
- */
-describe("2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑界面里管理", () => {
+describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 体检", () => {
   beforeEach(() => {
     sessionState.currentOrgId = "org-editor-panel";
     sessionState.orgRole = "admin";
@@ -946,65 +971,197 @@ describe("2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑�
     vi.unstubAllGlobals();
   });
 
-  it("草稿行点「编辑」打开可写面板；加一个分区、改显示名、保存打的是 POST .../draft", async () => {
-    const posts: { path: string; body: Record<string, unknown> }[] = [];
-    let listCalls = 0;
+  /** 一个有两个字段、其中一个已放到画布上的草稿。 */
+  const withFields = () => jsonResponse({
+    templates: [template({
+      key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+      sections: [
+        {
+          sectionId: "s1", key: "says", name: "说 Says", type: "便利贴列表", aiHint: null,
+          order: 0, required: false, capacity: null,
+          layout: { col: 1, row: 2, w: 6, h: 3, cols: 5, max: 6, tone: 0, overflow: "缩小字号" },
+        },
+        {
+          sectionId: "s2", key: "gains", name: "收获 Gains", type: "便利贴列表", aiHint: null,
+          order: 1, required: false, capacity: null, layout: null,
+        },
+      ],
+    })],
+  });
+
+  async function openEditor(): Promise<HTMLElement> {
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    return screen.findByTestId("tpladmin-editor-panel");
+  }
+
+  it("左栏字段区分「已放置 / 未放置」——未放置的那个在体检面板里被点名会被丢弃", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+
+    expect(within(panel).getByTestId("tpladmin-editor-field-state-says")).toHaveTextContent("已放置");
+    expect(within(panel).getByTestId("tpladmin-editor-field-state-gains")).toHaveTextContent("未放置");
+    expect(within(panel).getByTestId("tpladmin-editor-field-summary")).toHaveTextContent("2 个 · 已放 1 个");
+
+    // 未选中区块时右栏是体检面板，点名未放置的字段（§6 规则②）。
+    expect(within(panel).getByTestId("tpladmin-editor-health-unplaced")).toHaveTextContent("gains");
+  });
+
+  it("已放置的区块渲染在画布上；点它 → 右栏出现显示设置，且 mm 实尺与容量结论同源计算", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
+    const display = await within(panel).findByTestId("tpladmin-editor-display");
+
+    // 数据来源只读展示绑定的 token 与类型（§4.3 第一条）。
+    expect(within(display).getByTestId("tpladmin-editor-display-token")).toHaveTextContent("{{says[]}}");
+    // 列数结论文案带贴纸实尺与「放得下 N 条」——数字来自 R1 的 sectionGeometryMm，
+    // 不是界面里另算一份。
+    expect(within(display).getByTestId("tpladmin-editor-col-note").textContent).toMatch(/贴纸实尺 \d+×\d+mm/);
+    expect(within(display).getByTestId("tpladmin-editor-col-note").textContent).toMatch(/放得下 \d+ 条/);
+    // 在 A1 上占多大 → mm 实尺换算。
+    expect(within(display).getByTestId("tpladmin-editor-mm-note").textContent).toMatch(/\d+ × \d+ mm 实尺/);
+  });
+
+  it("改列数 → 贴纸实尺 mm 跟着变（§7 第 5 条：实尺与容量结论实时更新且与渲染一致）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
+    const display = await within(panel).findByTestId("tpladmin-editor-display");
+
+    const before = within(display).getByTestId("tpladmin-editor-col-note").textContent;
+    fireEvent.click(within(display).getByTestId("tpladmin-editor-cols-3"));
+    await waitFor(() => {
+      expect(within(display).getByTestId("tpladmin-editor-col-note").textContent).not.toBe(before);
+    });
+    // 列数少 ⇒ 每张贴纸更大，这是物理事实，不是随便变一个数。
+    const after = within(display).getByTestId("tpladmin-editor-col-note").textContent ?? "";
+    const beforeMm = Number(/贴纸实尺 (\d+)×/.exec(before ?? "")?.[1] ?? "0");
+    const afterMm = Number(/贴纸实尺 (\d+)×/.exec(after)?.[1] ?? "0");
+    expect(afterMm).toBeGreaterThan(beforeMm);
+  });
+
+  it("「从画布移除」只删 block 不删 field——移除后该字段回到「未放置」，仍在左栏", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
+    const display = await within(panel).findByTestId("tpladmin-editor-display");
+
+    fireEvent.click(within(display).getByTestId("tpladmin-editor-remove-block"));
+
+    // 画布上没有了，但字段还在左栏、状态变成「未放置」（§4.3 原话「字段保留」）。
+    await waitFor(() => expect(within(panel).queryByTestId("tpladmin-editor-block-s1")).toBeNull());
+    expect(within(panel).getByTestId("tpladmin-editor-field-says")).toBeInTheDocument();
+    expect(within(panel).getByTestId("tpladmin-editor-field-state-says")).toHaveTextContent("未放置");
+  });
+
+  it("保存把 layout 一并提交——拖出来的位置真的落库，不是只存在于界面", async () => {
+    const posts: Record<string, unknown>[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
       if (init?.method === "POST" && url.pathname === "/canvas/templates/swot/draft") {
         const body = JSON.parse(String(init.body)) as Record<string, unknown>;
-        posts.push({ path: url.pathname, body });
+        posts.push(body);
         return jsonResponse({
           key: "swot", version: 1, status: "draft", displayName: body["displayName"],
           builtin: false, visibility: body["visibility"], underlyingType: "canvas",
-          sections: body["sections"],
+          sections: body["sections"], tags: [],
         });
       }
-      listCalls += 1;
-      return jsonResponse({ templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })] });
+      return withFields();
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
-    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
-    const panel = await screen.findByTestId("tpladmin-editor-panel");
-
-    fireEvent.change(within(panel).getByTestId("tpladmin-editor-name"), { target: { value: "SWOT 分析" } });
-    fireEvent.click(within(panel).getByTestId("tpladmin-editor-add-section"));
-    fireEvent.change(within(panel).getByTestId("tpladmin-editor-section-0"), { target: { value: "优势" } });
+    const panel = await openEditor();
+    // 改一个分区名字让面板变 dirty。
+    fireEvent.change(within(panel).getByTestId("tpladmin-editor-section-0"), { target: { value: "说 Says 改过" } });
+    expect(within(panel).getByTestId("tpladmin-editor-dirty")).toBeInTheDocument();
     fireEvent.click(within(panel).getByTestId("tpladmin-editor-save"));
 
     await waitFor(() => expect(posts).toHaveLength(1));
-    expect(posts[0]!.path).toBe("/canvas/templates/swot/draft");
-    expect(posts[0]!.body["displayName"]).toBe("SWOT 分析");
-    expect(posts[0]!.body["sections"]).toEqual([
-      { sectionId: "s1", name: "优势", order: 0, required: false, capacity: null },
-    ]);
-    expect(listCalls).toBeGreaterThan(0); // 保存后重读了列表
+    const sections = posts[0]!["sections"] as { key: string; layout: unknown }[];
+    // 已放置的那个带着完整 layout 提交；未放置的那个 layout 是 null。
+    expect(sections.find((s) => s.key === "says")?.layout).toMatchObject({ col: 1, row: 2, w: 6, h: 3, cols: 5 });
+    expect(sections.find((s) => s.key === "gains")?.layout).toBeNull();
   });
 
-  it("非草稿行（已发布）打开的面板是只读预览——显示名/可见范围/分区全部禁用，没有保存按钮", async () => {
+  it("非草稿行打开的是只读预览：没有保存按钮、没有新增字段表单，且如实说明为什么", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template({ status: "published" })] })));
     render(<TemplateAdmin previewRole="facilitator" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
-
     fireEvent.click(screen.getByTestId("tpladmin-edit-persona-3"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
-    expect(within(panel).getByTestId("tpladmin-editor-name")).toBeDisabled();
-    expect(within(panel).getByTestId("tpladmin-editor-visibility")).toBeDisabled();
+
     expect(within(panel).queryByTestId("tpladmin-editor-save")).toBeNull();
+    expect(within(panel).queryByTestId("tpladmin-editor-new-add")).toBeNull();
     expect(within(panel).getByTestId("tpladmin-editor-immutable-note")).toBeInTheDocument();
   });
 
-  it("面板里点「发布」——面板关闭，打的是既有的 publish 端点（同行上按钮走同一个函数）", async () => {
-    const posts: { path: string }[] = [];
+  it("Esc 关面板；提示词抽屉开着时 Esc 先关抽屉，不一次丢掉两层上下文", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-open-prompt"));
+    await screen.findByTestId("tpladmin-editor-prompt-drawer");
+    fireEvent.keyDown(window, { key: "Escape" });
+    // 第一次 Esc：抽屉关了，面板还在。
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-prompt-drawer")).toBeNull());
+    expect(screen.getByTestId("tpladmin-editor-panel")).toBeInTheDocument();
+    // 第二次 Esc：面板才关。
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-panel")).toBeNull());
+  });
+
+  it("网格可切 12 列 / 6 列（§4.2 末条）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+    expect(within(panel).getByTestId("tpladmin-editor-grid-12")).toBeInTheDocument();
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-grid-6"));
+    // 切到 6 列后区块仍在画布上（越界会被夹回，不是消失）。
+    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-block-s1")).toBeInTheDocument());
+  });
+});
+
+describe("2026-08-26 §6 规则⑦ / §7 第 9 条：发布前置检查 + 强制发布二次确认", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-publish-check";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-publish-check");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** 一个字段已放置、一个字段没放置的草稿——发布检查必须点名后者。 */
+  const oneUnplaced = () => jsonResponse({
+    templates: [template({
+      key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+      sections: [
+        {
+          sectionId: "s1", key: "says", name: "说", type: "便利贴列表", aiHint: null,
+          order: 0, required: false, capacity: null,
+          layout: { col: 1, row: 1, w: 6, h: 3, cols: 5, max: 6, tone: 0, overflow: "缩小字号" },
+        },
+        {
+          sectionId: "s2", key: "gains", name: "收获", type: "便利贴列表", aiHint: null,
+          order: 1, required: false, capacity: null, layout: null,
+        },
+      ],
+    })],
+  });
+
+  it("有未放置字段时点发布 → 不直接发布，先列出问题等二次确认", async () => {
+    const posts: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
-      if (init?.method === "POST" && url.pathname === "/canvas/templates/swot/publish") {
-        posts.push({ path: url.pathname });
+      if (init?.method === "POST" && url.pathname.endsWith("/publish")) {
+        posts.push(url.pathname);
         return jsonResponse({ key: "swot", version: 1, status: "published", archivedVersions: [] });
       }
-      return jsonResponse({ templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })] });
+      return oneUnplaced();
     }));
 
     render(<TemplateAdmin previewRole="facilitator" />);
@@ -1013,31 +1170,72 @@ describe("2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑�
     const panel = await screen.findByTestId("tpladmin-editor-panel");
 
     fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
-    // 面板立刻关闭——继续开着只会显示过期的 "draft" 状态。
-    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-panel")).toBeNull());
+
+    // 核心断言：**没有**发布出去，先弹二次确认并逐条列出问题。
+    const confirm = await screen.findByTestId("tpladmin-editor-publish-confirm");
+    expect(posts).toHaveLength(0);
+    expect(within(confirm).getByTestId("tpladmin-editor-publish-blocker-unplaced")).toHaveTextContent("gains");
+  });
+
+  it("二次确认里点「仍然发布」→ 真的发布（§6 规则⑦：允许强制发布，不是硬拦截）", async () => {
+    const posts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/publish")) {
+        posts.push(url.pathname);
+        return jsonResponse({ key: "swot", version: 1, status: "published", archivedVersions: [] });
+      }
+      return oneUnplaced();
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
+    const confirm = await screen.findByTestId("tpladmin-editor-publish-confirm");
+
+    fireEvent.click(within(confirm).getByTestId("tpladmin-editor-publish-force"));
     await waitFor(() => expect(posts).toHaveLength(1));
   });
 
-  it("迭代 2/3：拖拽分区顺序——拖第一个到第三个位置，保存时顺序真的变了", async () => {
-    const posts: { body: Record<string, unknown> }[] = [];
+  it("「回去修」不发布，也不关掉编辑面板——使用者要回去接着改", async () => {
+    const posts: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
-      if (init?.method === "POST" && url.pathname === "/canvas/templates/swot/draft") {
-        const body = JSON.parse(String(init.body)) as Record<string, unknown>;
-        posts.push({ body });
-        return jsonResponse({
-          key: "swot", version: 1, status: "draft", displayName: body["displayName"],
-          builtin: false, visibility: body["visibility"], underlyingType: "canvas", sections: body["sections"],
-        });
+      if (init?.method === "POST" && url.pathname.endsWith("/publish")) { posts.push(url.pathname); }
+      return oneUnplaced();
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
+    const confirm = await screen.findByTestId("tpladmin-editor-publish-confirm");
+
+    fireEvent.click(within(confirm).getByTestId("tpladmin-editor-publish-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-publish-confirm")).toBeNull());
+    expect(posts).toHaveLength(0);
+    expect(screen.getByTestId("tpladmin-editor-panel")).toBeInTheDocument();
+  });
+
+  it("全部字段都放好了 → 点发布直接发，不多一次确认（检查通过就别挡路）", async () => {
+    const posts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/publish")) {
+        posts.push(url.pathname);
+        return jsonResponse({ key: "swot", version: 1, status: "published", archivedVersions: [] });
       }
       return jsonResponse({
         templates: [template({
           key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
-          sections: [
-            { sectionId: "s1", name: "优势", order: 0, required: false, capacity: null },
-            { sectionId: "s2", name: "劣势", order: 1, required: false, capacity: null },
-            { sectionId: "s3", name: "机会", order: 2, required: false, capacity: null },
-          ],
+          sections: [{
+            sectionId: "s1", key: "says", name: "说", type: "便利贴列表", aiHint: null,
+            order: 0, required: false, capacity: null,
+            layout: { col: 1, row: 1, w: 6, h: 3, cols: 5, max: 6, tone: 0, overflow: "缩小字号" },
+          }],
         })],
       });
     }));
@@ -1046,83 +1244,74 @@ describe("2026-08-23 TemplateEditorPanel —— 内容与生命周期在编辑�
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
-    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-section-2")).toHaveValue("机会"));
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
 
-    // 拖手柄 0（优势）到行 2（机会）的位置。jsdom 没有真实拖拽物理引擎，
-    // 逐个派发 HTML5 drag 事件序列是官方推荐的测试手法。
-    const handle0 = within(panel).getByTestId("tpladmin-editor-section-0-drag");
-    const row2Target = within(panel).getByTestId("tpladmin-editor-section-2").closest("div")!;
-    fireEvent.dragStart(handle0);
-    fireEvent.dragOver(row2Target);
-    fireEvent.drop(row2Target);
-
-    // 拖完顺序是 劣势/机会/优势——优势从下标 0 挪到了下标 2。
-    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-section-0")).toHaveValue("劣势"));
-    expect(within(panel).getByTestId("tpladmin-editor-section-1")).toHaveValue("机会");
-    expect(within(panel).getByTestId("tpladmin-editor-section-2")).toHaveValue("优势");
-
-    fireEvent.click(within(panel).getByTestId("tpladmin-editor-save"));
     await waitFor(() => expect(posts).toHaveLength(1));
-    expect(posts[0]!.body["sections"]).toEqual([
-      { sectionId: "s1", name: "劣势", order: 0, required: false, capacity: null },
-      { sectionId: "s2", name: "机会", order: 1, required: false, capacity: null },
-      { sectionId: "s3", name: "优势", order: 2, required: false, capacity: null },
-    ]);
+    expect(screen.queryByTestId("tpladmin-editor-publish-confirm")).toBeNull();
+  });
+});
+
+describe("2026-08-26 §3.1 卡片上的「归档」就地二次确认（设计稿写的是删除，语义如实是归档）", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-card-archive";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-card-archive");
   });
 
-  it("迭代 3/3：Esc 关闭面板——同其它全屏编辑面板（chat-diagram-canvas-modal.tsx）既有约定", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
-      templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })],
-    })));
-
-    render(<TemplateAdmin previewRole="facilitator" />);
-    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
-    await screen.findByTestId("tpladmin-editor-panel");
-
-    fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-panel")).toBeNull());
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it("迭代 3/3：刚建出来的空白草稿打开面板，AI 起草输入框自动获得焦点", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
-      templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })],
-    })));
-
-    render(<TemplateAdmin previewRole="facilitator" />);
-    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
-    const panel = await screen.findByTestId("tpladmin-editor-panel");
-    await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-ai-prompt")).toHaveFocus());
+  const draftRow = () => jsonResponse({
+    templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })],
   });
 
-  it("迭代 4/N：改了显示名，标题旁出现「有未保存的改动」；保存后消失", async () => {
+  it("点「归档」不立刻归档，先就地问「归档？确认/取消」——不弹全屏对话框", async () => {
+    const posts: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
-      if (init?.method === "POST" && url.pathname === "/canvas/templates/swot/draft") {
-        const body = JSON.parse(String(init.body)) as Record<string, unknown>;
-        return jsonResponse({
-          key: "swot", version: 1, status: "draft", displayName: body["displayName"],
-          builtin: false, visibility: body["visibility"], underlyingType: "canvas", sections: body["sections"],
-        });
-      }
-      return jsonResponse({
-        templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })],
-      });
+      if (init?.method === "POST" && url.pathname.endsWith("/archive")) { posts.push(url.pathname); }
+      return draftRow();
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
-    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
-    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    render(<TemplateAdmin previewRole="facilitator" initialView="card" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-swot-1")).toBeInTheDocument());
 
-    // 刚打开、还没改过——不该显示「未保存」。
-    expect(within(panel).queryByTestId("tpladmin-editor-dirty")).toBeNull();
+    fireEvent.click(screen.getByTestId("tpladmin-card-archive-swot-1"));
+    // 就地确认出现，没有发出任何归档请求。
+    expect(screen.getByTestId("tpladmin-archive-confirm-swot-1")).toBeInTheDocument();
+    expect(posts).toHaveLength(0);
+    // 不是全屏对话框——编辑面板/归档对话框都没开。
+    expect(screen.queryByTestId("tpladmin-archive-dialog")).toBeNull();
+  });
 
-    fireEvent.change(within(panel).getByTestId("tpladmin-editor-name"), { target: { value: "SWOT 分析" } });
-    expect(within(panel).getByTestId("tpladmin-editor-dirty")).toBeInTheDocument();
+  it("确认后真调 archiveTemplate（confirmed:true）并重读列表；取消则什么都不发生", async () => {
+    const posts: { path: string; body: Record<string, unknown> }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/archive")) {
+        posts.push({ path: url.pathname, body: JSON.parse(String(init.body)) as Record<string, unknown> });
+        return jsonResponse({ key: "swot", version: 1, status: "archived", confirmed: true, stillBoundSegmentCount: 0 });
+      }
+      return draftRow();
+    }));
 
-    fireEvent.click(within(panel).getByTestId("tpladmin-editor-save"));
-    await waitFor(() => expect(within(panel).queryByTestId("tpladmin-editor-dirty")).toBeNull());
+    render(<TemplateAdmin previewRole="facilitator" initialView="card" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-swot-1")).toBeInTheDocument());
+
+    // 先取消一次——什么都不该发生。
+    fireEvent.click(screen.getByTestId("tpladmin-card-archive-swot-1"));
+    fireEvent.click(screen.getByTestId("tpladmin-archive-no-swot-1"));
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-archive-confirm-swot-1")).toBeNull());
+    expect(posts).toHaveLength(0);
+
+    // 再来一次并确认。
+    fireEvent.click(screen.getByTestId("tpladmin-card-archive-swot-1"));
+    fireEvent.click(screen.getByTestId("tpladmin-archive-yes-swot-1"));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    // 归档是可逆置位，不是删除——`confirmed:true` 且提示文案要说清这一点。
+    expect(posts[0]!.body["confirmed"]).toBe(true);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-notice").textContent).toContain("可逆置位"));
   });
 });

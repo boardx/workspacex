@@ -34,6 +34,7 @@ import type {
   PublishOutcome,
   SegmentBindingRow,
   UpdateDraftOutcome,
+  UpdateMetadataOutcome,
 } from "../../application/canvas/template-ports";
 import type { TemplateStatus, TemplateVersionState } from "../../domain/canvas/template-lifecycle";
 import type { VisibilityScope } from "../../domain/identity/roles";
@@ -389,6 +390,54 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           visibility: row.visibility,
           underlyingType: row.underlying_type,
           sections: row.sections as CreatedCanvasTemplate["sections"],
+          tags: [...row.tags],
+        },
+      };
+    });
+  }
+
+  /**
+   * 2026-08-25，**待人类补签**（R2）——`displayName`/`tags` 原地改写，**没有状态
+   * 限定**（不像 `updateDraft` 要求 `status='draft'`）：`WHERE` 只认 `org_id/key/
+   * version`，`sections` 完全不在 `SET` 子句里，物理上不可能被这条 SQL 改动。
+   */
+  async updateMetadata(cmd: {
+    readonly orgId: OrgId;
+    readonly key: string;
+    readonly version: number;
+    readonly displayName: string;
+    readonly tags: readonly string[];
+  }): Promise<UpdateMetadataOutcome> {
+    return this.db.withTenant(cmd.orgId, async (s) => {
+      const r = await s.query<{
+        key: string;
+        version: number;
+        display_name: string;
+        status: string;
+        builtin: boolean;
+        visibility: VisibilityScope;
+        underlying_type: string;
+        tags: readonly string[];
+      }>(
+        `UPDATE canvas_templates
+            SET display_name = $4, tags = $5::text[], updated_at = now()
+          WHERE org_id = $1 AND key = $2 AND version = $3
+         RETURNING key, version, display_name, status, builtin, visibility,
+                   underlying_type, tags`,
+        [cmd.orgId, cmd.key, cmd.version, cmd.displayName, [...cmd.tags]],
+      );
+      const row = r.rows[0];
+      if (row === undefined) return { updated: false };
+      return {
+        updated: true,
+        template: {
+          key: row.key,
+          version: row.version,
+          status: row.status as TemplateStatus,
+          displayName: row.display_name,
+          builtin: row.builtin,
+          visibility: row.visibility,
+          underlyingType: row.underlying_type,
           tags: [...row.tags],
         },
       };

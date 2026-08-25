@@ -65,6 +65,8 @@ export type TrialTemplateOut = z.infer<typeof canvas.operations.trialTemplate.ou
 export type SuggestTemplateSectionsOut = z.infer<typeof canvas.operations.suggestTemplateSections.out>;
 export type UpdateTemplateDraftIn = z.infer<typeof canvas.operations.updateTemplateDraft.in>;
 export type UpdateTemplateDraftOut = z.infer<typeof canvas.operations.updateTemplateDraft.out>;
+export type UpdateTemplateMetadataIn = z.infer<typeof canvas.operations.updateTemplateMetadata.in>;
+export type UpdateTemplateMetadataOut = z.infer<typeof canvas.operations.updateTemplateMetadata.out>;
 /** #493：「使用一个模板」的返回。`boundTemplateVersion` 是**绑定那一刻**的版本，见用例文件头。 */
 export type BindTemplateToSegmentOut = z.infer<
   typeof canvas.operations.bindTemplateToSegment.out
@@ -132,6 +134,11 @@ export async function createCanvasTemplate(input: CreateTemplateIn): Promise<Cre
       underlyingType: input.underlyingType,
       sections: input.sections,
       visibility: input.visibility,
+      // ⚠ R2：这里逐字段拼 body（不是 `...input`），所以契约每加一栏都必须在这里也加
+      //   一次——漏掉的那一栏会**静默丢失**：请求合法、服务端落一个空值、界面显示
+      //   使用者填过的东西，三者看起来都对。`tags` 就这么丢过一次，被真栈 e2e 抓到
+      //   （前端弹窗里标签胶囊在，落库回来是 `[]`）。
+      tags: input.tags ?? [],
     },
   });
 }
@@ -153,6 +160,34 @@ export async function updateCanvasTemplateDraft(input: UpdateTemplateDraftIn): P
       displayName: input.displayName,
       sections: input.sections,
       visibility: input.visibility,
+      tags: input.tags ?? [],
+    },
+  });
+}
+
+/**
+ * 2026-08-25（R2），**该契约面待人类补签**（同 `updateTemplateDraft` 的先例）。
+ *
+ * 改名 / 换标签——**任意状态**都能改（不像 `updateCanvasTemplateDraft` 只对 draft
+ * 生效）。`sections` 不在入参里：这条路由物理上碰不到内容，「已发布/已归档版本
+ * 内容不可变」那条不变量原样保留，见契约操作文件头。
+ *
+ * ⚠ 路径带两个占位符（`:key` 与 `:version`），所以**不复用** `templatePath`——
+ *   那个函数只换 `:key`，漏掉 `:version` 会打到一条不存在的路由上。
+ */
+export async function updateCanvasTemplateMetadata(
+  input: UpdateTemplateMetadataIn,
+): Promise<UpdateTemplateMetadataOut> {
+  const path = canvas.operations.updateTemplateMetadata.path
+    .replace(":key", encodeURIComponent(input.key))
+    .replace(":version", String(input.version));
+  return apiRequest<UpdateTemplateMetadataOut>(path, {
+    method: "POST",
+    body: {
+      key: input.key,
+      version: input.version,
+      displayName: input.displayName,
+      tags: input.tags ?? [],
     },
   });
 }
@@ -194,6 +229,7 @@ export async function mintCanvasTemplateVersion(
         sections: input.sections,
         visibility: input.visibility,
         ownerTeamId: input.ownerTeamId,
+        tags: input.tags ?? [],
       },
     },
   );

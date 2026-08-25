@@ -18,6 +18,7 @@ import {
   mintCanvasTemplateVersion,
   publishCanvasTemplate,
   restoreCanvasTemplate,
+  updateCanvasTemplateMetadata,
   TEMPLATE_FILTERS,
   TEMPLATE_STATUS_LABEL,
   TEMPLATE_VISIBILITY_LABEL,
@@ -31,6 +32,8 @@ import {
 import { TemplateApplyDialog } from "./template-apply-dialog";
 import { TemplateTrialDialog } from "./template-trial-dialog";
 import { TemplateEditorPanel } from "./template-editor-panel";
+import { TemplateA1Thumbnail } from "./template-a1-thumbnail";
+import { TemplateTagInput } from "./template-tag-input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 /**
@@ -235,6 +238,18 @@ export function TemplateAdmin({
    * 进入编辑的界面来管理」这句话唯一的落点。null = 面板没开。
    */
   const [editing, setEditing] = React.useState<CanvasTemplate | null>(null);
+  /** R2：正在被「改名 / 标签」的那一行。null = 对话框没开。 */
+  const [renaming, setRenaming] = React.useState<CanvasTemplate | null>(null);
+  /**
+   * R2：卡片上正在就地二次确认归档的那一行（`"<key>-<version>"`）。
+   * 只用于 draft/trial——published 走 `openArchive` 的真实预检流程，见卡片上的注释。
+   */
+  const [confirmingArchive, setConfirmingArchive] = React.useState<string | null>(null);
+  /**
+   * R2：标签筛选（`Design.pdf` §3.2）。`""` = 「全部」。**单选**：点一次筛选，
+   * 再点同一个取消——不是多选交集，那不是设计稿要的东西。
+   */
+  const [tagFilter, setTagFilter] = React.useState("");
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
 
@@ -259,6 +274,9 @@ export function TemplateAdmin({
     setMinting(null);
     setApplying(null);
     setEditing(null);
+    setRenaming(null);
+    setConfirmingArchive(null);
+    setTagFilter("");
     setActionError(null);
     setNotice(null);
     void load();
@@ -269,16 +287,43 @@ export function TemplateAdmin({
 
   // 换组织/换筛选时，渲染期就失效上一批行：effect 在 paint 之后跑，
   // 只靠它会让新条件下短暂显示旧条件的结果。
-  const visibleState: LoadState = state.sourceKey === sourceKey ? state : { sourceKey, status: "loading" };
-  const allRows = visibleState.status === "ready" ? visibleState.rows : [];
+  const visibleState: LoadState = React.useMemo(
+    () => (state.sourceKey === sourceKey ? state : { sourceKey, status: "loading" }),
+    [state, sourceKey],
+  );
+  // ⚠ `useMemo` 而不是裸三元：下面 `tagCounts` 的 `useMemo` 依赖它，而
+  //   `status !== "ready"` 分支每次渲染都会产出一个**新的空数组**，让那个 memo
+  //   永远失效（eslint react-hooks/exhaustive-deps 正是报的这个）。
+  const allRows = React.useMemo(
+    () => (visibleState.status === "ready" ? visibleState.rows : []),
+    [visibleState],
+  );
   const readOnly = previewRole === "observer";
 
   // #1：搜索按名字/key，纯前端在当前状态筛选结果内再过滤一层——不额外发请求，
   // 服务端的 `filter` 仍是唯一的状态筛选真相源，这里只加一层文本匹配。
   const trimmedQuery = query.trim().toLowerCase();
-  const queried = trimmedQuery === ""
+  const textMatched = trimmedQuery === ""
     ? allRows
     : allRows.filter((t) => t.displayName.toLowerCase().includes(trimmedQuery) || t.key.toLowerCase().includes(trimmedQuery));
+
+  /**
+   * R2（`Design.pdf` §3.2）：筛选条的标签**由现有模板的 tags 汇总得到**，不是写死的
+   * 枚举，每个标签后跟使用数量。计数基于当前状态筛选下的全部行（`allRows`），不受
+   * 搜索词与标签筛选本身影响——否则点了一个标签之后其它标签的计数会跟着变，
+   * 使用者看到的是"这个标签在当前结果里有几个"而不是"这个标签有几个模板在用"。
+   */
+  const tagCounts = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of allRows) {
+      for (const tag of tagsOf(t)) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    return counts;
+  }, [allRows]);
+
+  const queried = tagFilter === ""
+    ? textMatched
+    : textMatched.filter((t) => tagsOf(t).includes(tagFilter));
 
   // #2：`latestOnly` 开着时，每个 key 只留一行——优先已发布，其次试跑，其次草稿，
   // 最后已归档；同优先级取版本号最大的那个。**不**丢弃其它版本的数据，只是不渲染，
@@ -336,7 +381,7 @@ export function TemplateAdmin({
    *   界面上啥都没有才是「建完了」的真实样子，直接把使用者带到能填内容的地方去。
    */
   const MAX_KEY_RETRIES = 5;
-  async function createMinimal(displayName: string): Promise<void> {
+  async function createMinimal(displayName: string, tags: readonly string[]): Promise<void> {
     setActionError(null);
     setNotice(null);
     const trimmed = displayName.trim();
@@ -350,6 +395,7 @@ export function TemplateAdmin({
           underlyingType: "canvas",
           sections: [],
           visibility: "org-wide",
+          tags: [...tags],
         });
         setCreating(false);
         setNotice(`已新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
@@ -364,6 +410,47 @@ export function TemplateAdmin({
       }
     }
     throw lastError;
+  }
+
+  /**
+   * R2（2026-08-25）：「改名 / 标签」——`Design.pdf` §3.1 卡片上的次级动作，
+   * 「保存只改元数据，不动字段与画布」。走 `updateTemplateMetadata`（任意状态可改，
+   * `sections` 压根不在那条路由的入参里），不是 `updateTemplateDraft`。
+   *
+   * ⚠ 同其余写操作：成功后 `await load()` 重读列表，不把改动拼进本地 state。
+   */
+  async function renameTemplate(row: CanvasTemplate, displayName: string, tags: readonly string[]): Promise<void> {
+    setActionError(null);
+    setNotice(null);
+    const out = await updateCanvasTemplateMetadata({
+      key: row.key,
+      version: row.version,
+      displayName: displayName.trim(),
+      tags: [...tags],
+    });
+    setRenaming(null);
+    setNotice(`已更新「${out.displayName}」的名称与标签`);
+    await load();
+  }
+
+  /**
+   * R2：卡片上「归档」的就地确认路径——**只给 draft/trial**。
+   *
+   * 不走 `openArchive` 的 `confirmed:false` 预检，是因为那次预检问的是「还有几个
+   * 议程环节绑着它」，而绑定只接受 published（`domain/canvas/segment-binding.ts`）——
+   * draft/trial 的答案恒为 0，多打一次往返只是为了拿一个已知的常数。
+   * ⚠ 服务端仍然会做它自己的判断，这里只是不为一个必然为 0 的数字问一次。
+   */
+  async function archiveDirect(row: CanvasTemplate): Promise<void> {
+    setActionError(null);
+    setNotice(null);
+    try {
+      await archiveCanvasTemplate({ key: row.key, version: row.version, confirmed: true });
+      setNotice(`已归档 ${row.displayName} v${row.version} —— 归档是可逆置位，在「已归档」里随时可恢复`);
+      await load();
+    } catch (error) {
+      setActionError(describeError(error));
+    }
   }
 
   /**
@@ -560,6 +647,46 @@ export function TemplateAdmin({
         </p>
       )}
 
+      {/*
+        R2（`Design.pdf` §3.2）：标签筛选条。标签由现有模板的 tags 实时汇总（不是写死
+        枚举），每个后跟使用数量；单选，点同一个再取消。零标签时整条不渲染——一个恒空
+        的筛选条只是噪音。
+      */}
+      {tagCounts.size > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-1.5 border-b border-border-subtle bg-panel px-4 py-2"
+          data-testid="tpladmin-tag-filters"
+        >
+          <span className="text-9 font-semibold uppercase tracking-wider text-muted-foreground">标签</span>
+          <Button
+            size="xs"
+            variant={tagFilter === "" ? "primary" : "outline"}
+            aria-pressed={tagFilter === ""}
+            onClick={() => setTagFilter("")}
+            data-testid="tpladmin-tag-filter-all"
+          >
+            全部
+          </Button>
+          {[...tagCounts.entries()].map(([tag, count]) => (
+            <Button
+              key={tag}
+              size="xs"
+              variant={tagFilter === tag ? "primary" : "outline"}
+              aria-pressed={tagFilter === tag}
+              onClick={() => setTagFilter(tagFilter === tag ? "" : tag)}
+              data-testid={`tpladmin-tag-filter-${tag}`}
+            >
+              {tag} {count}
+            </Button>
+          ))}
+        </div>
+      )}
+      {tagFilter !== "" && rows.length === 0 && allRows.length > 0 && (
+        <p className="border-b border-border-subtle bg-panel px-4 py-1 text-10 text-muted-foreground" data-testid="tpladmin-tag-filter-empty">
+          这个标签下还没有模板 —— 换个标签，或新建一个。
+        </p>
+      )}
+
       <div className="min-h-0 flex-1 overflow-auto p-4">
         {visibleState.status === "loading" && (
           <p className="text-12 text-muted-foreground" data-testid="tpladmin-loading">正在读取模板注册表…</p>
@@ -616,7 +743,7 @@ export function TemplateAdmin({
                   {rows.map((t) => (
                     <TableRow
                       key={`${t.key}-${t.version}`}
-                      className="border-t border-border-subtle transition-colors duration-200 hover:bg-muted"
+                      className="border-t border-border-subtle transition-colors duration-base hover:bg-muted"
                       data-testid={`tpladmin-row-${t.key}-${t.version}`}
                     >
                       <TableCell className="px-3 py-2">
@@ -656,24 +783,84 @@ export function TemplateAdmin({
               </Table>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpladmin-cards">
+            /*
+              R2（`Design.pdf` §3.1「卡片」）：自上而下 A1 缩略图 → 模板名 + 状态徽章
+              → 一句描述 → 标签胶囊 → 「N 个字段 · M 个区块 · A1 横版」+ 操作区。
+              点卡片主体 = 打开编辑器；两个次级动作（改名/标签、归档）都必须
+              `stopPropagation`，不得顺带触发打开编辑器。
+            */
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpladmin-cards">
               {rows.map((t) => (
                 <Card
                   key={`${t.key}-${t.version}`}
-                  className="transition-shadow duration-200 hover:shadow-md"
+                  className="cursor-pointer overflow-hidden transition-shadow duration-base hover:shadow-md"
+                  onClick={() => { setEditing(t); setActionError(null); setNotice(null); }}
                   data-testid={`tpladmin-card-${t.key}-${t.version}`}
                 >
-                  <CardContent className="flex flex-col gap-2 p-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-13 font-medium">{t.displayName}</span>
-                      <Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge>
+                  <CardContent className="flex flex-col gap-2 p-0">
+                    <TemplateA1Thumbnail template={t} />
+                    <div className="flex flex-col gap-1.5 px-3 pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-13 font-semibold">{t.displayName}</span>
+                        <Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge>
+                      </div>
+                      <span className="text-11 leading-relaxed text-muted-foreground">{describeSections(t)}</span>
+                      {tagsOf(t).length > 0 && (
+                        <div className="flex flex-wrap gap-1" data-testid={`tpladmin-card-tags-${t.key}-${t.version}`}>
+                          {tagsOf(t).map((tag) => (
+                            <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-9 text-muted-foreground">{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                      <span className="text-10 text-muted-foreground">
+                        {/*
+                          「N 个字段 · M 个区块」——字段数是分区总数，区块数是「已放到画布上」
+                          的那些（`layout` 非空）。两个数不同才有信息量：它直接告诉使用者
+                          「还有几个字段没排版，生成后会被丢弃」（`Design.pdf` §6 校验规则②）。
+                        */}
+                        {t.sections.length} 个字段 · {t.sections.filter((s) => s.layout != null).length} 个区块 · A1 横版
+                        {t.builtin && " · 内置"}
+                      </span>
+                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                        {!readOnly && (
+                          <Button size="xs" variant="outline" onClick={() => { setRenaming(t); setActionError(null); setNotice(null); }} data-testid={`tpladmin-rename-${t.key}-${t.version}`}>
+                            改名 / 标签
+                          </Button>
+                        )}
+                        {/*
+                          §3.1 卡片的第二个次级动作。设计稿写的是「删除 — 就地二次确认
+                          （"删除？ 确认 / 取消"），不弹全屏对话框」。
+                          ⚠ 语义是「归档」不是「删除」：契约里没有任何 `deleteTemplate`
+                            操作（全仓 grep 零命中），能做到的最接近的事是归档——可逆
+                            置位（O-10），归档后仍在「已归档」筛选里查得到、能恢复。
+                            所以按钮就叫「归档」而不是「删除」：一个写着"删除"、
+                            实际只是隐藏的按钮，是在骗使用者。位置与就地确认的交互
+                            照设计稿实现，文案如实。
+                          ⚠ 已发布版本走的仍是既有的 `openArchive` 预检流程（要先问
+                            服务端「还有几个环节绑着它」），不能就地确认——那个数字
+                            必须来自真实预检。这里的就地确认只给 draft/trial：
+                            它们不可能已被绑定（绑定只接受 published）。
+                        */}
+                        {!readOnly && (t.status === "draft" || t.status === "trial") && (
+                          confirmingArchive === `${t.key}-${t.version}` ? (
+                            <span className="flex items-center gap-1.5" data-testid={`tpladmin-archive-confirm-${t.key}-${t.version}`}>
+                              <span className="text-10 text-destructive">归档？</span>
+                              <Button size="xs" variant="primary" className="bg-destructive" onClick={() => { setConfirmingArchive(null); void archiveDirect(t); }} data-testid={`tpladmin-archive-yes-${t.key}-${t.version}`}>
+                                确认
+                              </Button>
+                              <Button size="xs" variant="outline" onClick={() => setConfirmingArchive(null)} data-testid={`tpladmin-archive-no-${t.key}-${t.version}`}>
+                                取消
+                              </Button>
+                            </span>
+                          ) : (
+                            <Button size="xs" variant="ghost" className="text-destructive" onClick={() => setConfirmingArchive(`${t.key}-${t.version}`)} data-testid={`tpladmin-card-archive-${t.key}-${t.version}`}>
+                              归档
+                            </Button>
+                          )
+                        )}
+                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} onEdit={() => { setEditing(t); setActionError(null); setNotice(null); }} />
+                      </div>
                     </div>
-                    <span className="text-11 text-muted-foreground">{describeSections(t)}</span>
-                    <span className="font-mono text-10 text-muted-foreground">
-                      {t.key} v{t.version} · {t.underlyingType} · 被 {t.usageCount} 场
-                      {t.builtin && " · 内置模板"}
-                    </span>
-                    <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} onEdit={() => { setEditing(t); setActionError(null); setNotice(null); }} />
                   </CardContent>
                 </Card>
               ))}
@@ -683,7 +870,18 @@ export function TemplateAdmin({
       </div>
 
       {creating && (
-        <MinimalCreateDialog onClose={() => setCreating(false)} onSubmit={createMinimal} />
+        <MinimalCreateDialog onClose={() => setCreating(false)} onSubmit={createMinimal} knownTags={tagCounts} />
+      )}
+
+      {renaming && (
+        // R2：改名 / 标签——与新建**同一个弹窗组件**（`Design.pdf` §3.1 原话），
+        // 预填现有名称与标签，提交走 `updateTemplateMetadata`（只改元数据）。
+        <MinimalCreateDialog
+          renaming={renaming}
+          knownTags={tagCounts}
+          onClose={() => setRenaming(null)}
+          onSubmit={(displayName, tags) => renameTemplate(renaming, displayName, tags)}
+        />
       )}
 
       {minting && (
@@ -1056,11 +1254,21 @@ function CreateDialog({
  * 从显示名派生，`sections: []`、`visibility: "org-wide"` 都是空/默认——
  * 内容与可见范围之后在 `TemplateEditorPanel` 里定。
  */
-function MinimalCreateDialog({ onClose, onSubmit }: {
+function MinimalCreateDialog({ onClose, onSubmit, knownTags, renaming }: {
   onClose: () => void;
-  onSubmit: (displayName: string) => Promise<void>;
+  /** 新建时只有名字+标签；改名时同样这两栏——`Design.pdf` §3.1「打开与新建同一个弹窗」。 */
+  onSubmit: (displayName: string, tags: readonly string[]) => Promise<void>;
+  /** `标签 → N 个模板在用`，由调用方从真实模板列表聚合（不是写死枚举）。 */
+  knownTags: ReadonlyMap<string, number>;
+  /**
+   * 传了就是「改名 / 标签」模式（R2）：预填现有名称与标签，提交只改元数据、
+   * 不动字段与画布（走 `updateTemplateMetadata`，见该契约操作文件头）。
+   */
+  renaming?: CanvasTemplate;
 }) {
-  const [displayName, setDisplayName] = React.useState("");
+  const isRename = renaming !== undefined;
+  const [displayName, setDisplayName] = React.useState(renaming?.displayName ?? "");
+  const [tags, setTags] = React.useState<readonly string[]>(renaming ? tagsOf(renaming) : []);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [touched, setTouched] = React.useState(false);
@@ -1071,7 +1279,7 @@ function MinimalCreateDialog({ onClose, onSubmit }: {
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit(displayName);
+      await onSubmit(displayName, tags);
     } catch (e) {
       setError(describeCreateError(e));
       setSubmitting(false);
@@ -1086,21 +1294,28 @@ function MinimalCreateDialog({ onClose, onSubmit }: {
       aria-labelledby="create-title"
       data-testid="tpladmin-create-dialog"
     >
-      <div className="flex w-full max-w-sm flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-lg">
+      <div className="flex w-full max-w-md flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-lg">
         <div className="flex items-start justify-between gap-2">
-          <h2 id="create-title" className="text-14 font-semibold">新建画布模板</h2>
+          <h2 id="create-title" className="text-14 font-semibold">
+            {isRename ? "修改模板信息" : "新建画布模板"}
+          </h2>
           <Button size="icon" variant="ghost" aria-label="关闭" onClick={onClose} data-testid="tpladmin-create-close">
             <X aria-hidden className="h-3.5 w-3.5" />
           </Button>
         </div>
 
         <p className="rounded-md border border-warning/40 bg-warning/5 px-2.5 py-1.5 text-11 text-muted-foreground" data-testid="tpladmin-create-draft-note">
-          建出来的是 <strong className="text-background-foreground">空白草稿</strong>，
-          分区、可见范围都留到下一步的<strong className="text-background-foreground">编辑界面</strong>里定。
+          {isRename ? (
+            <>只改<strong className="text-background-foreground">名称与标签</strong>，
+            字段与画布内容<strong className="text-background-foreground">不受影响</strong>。</>
+          ) : (
+            <>建出来的是 <strong className="text-background-foreground">空白草稿</strong>，
+            分区、可见范围都留到下一步的<strong className="text-background-foreground">编辑界面</strong>里定。</>
+          )}
         </p>
 
         <label className="flex flex-col gap-1 text-11">
-          <span className="text-muted-foreground">显示名</span>
+          <span className="text-muted-foreground">模板名称</span>
           <input
             className="rounded-md border border-border bg-background px-2 py-1.5 text-12 aria-[invalid=true]:border-destructive"
             value={displayName}
@@ -1114,6 +1329,11 @@ function MinimalCreateDialog({ onClose, onSubmit }: {
             <span className="text-10 text-destructive" data-testid="tpladmin-create-name-hint">必填</span>
           )}
         </label>
+
+        <div className="flex flex-col gap-1 text-11">
+          <span className="text-muted-foreground">标签</span>
+          <TemplateTagInput value={tags} onChange={setTags} knownTags={knownTags} testIdPrefix="tpladmin-create-tag" />
+        </div>
 
         {error && (
           <p className="rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5 text-11 text-destructive" role="alert" data-testid="tpladmin-create-error">
@@ -1130,7 +1350,7 @@ function MinimalCreateDialog({ onClose, onSubmit }: {
             onClick={() => void submit()}
             data-testid="tpladmin-create-submit"
           >
-            {submitting ? "正在新建…" : "新建草稿"}
+            {submitting ? (isRename ? "正在保存…" : "正在新建…") : (isRename ? "保存" : "新建草稿")}
           </Button>
         </div>
       </div>
@@ -1194,6 +1414,20 @@ function slugifyTemplateKey(displayName: string): string {
     .slice(0, 40);
   const suffix = Math.random().toString(36).slice(2, 8);
   return base.length > 0 ? `${base}-${suffix}` : `tpl-${suffix}`;
+}
+
+/**
+ * 一行的标签，**永远是数组**。
+ *
+ * 契约 `listTemplates.out.templates[].tags` 是必填数组，但这里仍然兜一层，理由是
+ * **部署错位**：R2 的前端可能先于带 `tags` 的后端上线（本仓 web 与 api 是两次独立
+ * 部署），那时候服务端回来的行没有这一栏，而 `for...of undefined` 会让整个模板库
+ * 白屏——一个还没上线的新特性不该有能力打挂一个已经在用的页面。
+ * 兜的是 `undefined`，不是"标签为空"：两者渲染结果相同（不显示标签），但前者是
+ * 「这个后端还不认识标签」，后者是「这个模板没打标签」。
+ */
+function tagsOf(t: CanvasTemplate): readonly string[] {
+  return t.tags ?? [];
 }
 
 function describeSections(t: CanvasTemplate): string {
