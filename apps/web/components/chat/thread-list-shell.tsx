@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { MoreHorizontal, Pencil, Pin, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
@@ -89,7 +89,7 @@ const THREAD_BADGE_TEXT: Record<ThreadCard["badges"][number], string> = {
  * （`open={mode === "menu"}` 跟随状态机，不需要额外收口逻辑）。
  */
 export function ThreadCardButton({
-  card, selected, onSelect, onRename, onDelete, pending, failure,
+  card, selected, onSelect, onRename, onDelete, pending, failure, pinned, onTogglePin,
 }: {
   card: ThreadCard;
   selected: boolean;
@@ -98,6 +98,13 @@ export function ThreadCardButton({
   onDelete?: (reason: string) => void;
   pending?: "rename" | "delete" | null;
   failure?: string | null;
+  /**
+   * issue #2075（TW-P2-6「置顶」）—— 两者都可选：不传即完全不渲染置顶入口，
+   * 旧轨道两屏（`ChatReadScreen` / `PersonalChatScreen`）行为逐字不变。
+   * 置顶的持久化范围见 `lib/chat-pinned-threads.ts` 头注（本地，跨设备需签核）。
+   */
+  pinned?: boolean;
+  onTogglePin?: () => void;
 }) {
   const canMutate = selected && onRename !== undefined && onDelete !== undefined;
   const [mode, setMode] = React.useState<"view" | "menu" | "editing" | "deleting">("view");
@@ -215,16 +222,43 @@ export function ThreadCardButton({
         type="button"
         data-testid={`chat-thread-${card.id}`}
         aria-current={selected ? "page" : undefined}
+        /* issue #2075（TW-P2-6「选中态」）—— `aria-current="page"` 是给辅助技术的，
+           但它的值是 `"page"`，机械判定"哪一条被选中"时不能拿它当布尔量。
+           这里补一个显式的布尔投影，供门控与样式共用同一个事实（不是第二份状态：
+           两者都从同一个 `selected` prop 渲染出来）。 */
+        data-selected={selected ? "true" : "false"}
         onClick={onSelect}
         onDoubleClick={canMutate ? startEdit : undefined}
         className={[
-          "flex w-full flex-col gap-1 rounded-md border-l-2 px-2 py-2 pr-7 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "flex w-full flex-col gap-1 rounded-md border-l-2 px-2 py-2 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           selected ? "border-primary bg-muted" : "border-transparent",
         ].join(" ")}
       >
         <span className="line-clamp-2 text-12 font-medium">{card.title}</span>
         <ThreadMeta card={card} />
       </button>
+      {onTogglePin !== undefined ? (
+        /* 已置顶时**常驻可见**（那是当前状态，藏起来用户就看不出这条为什么排在最前，
+           也取消不掉）；未置顶时同「…」一样走 hover/focus 浮出。
+           `p-1.5` 而不是 `p-1`：14px 图标 + 12px 内边距 = 26px，过 TW-A11Y-2 的
+           24×24 点击区下限（`p-1` 只有 22px，是真会被屏幕阅读器/粗手指用户踩到的缺陷）。 */
+        <button
+          type="button"
+          aria-label={pinned ? `取消置顶「${card.title}」` : `置顶「${card.title}」`}
+          title={pinned ? "取消置顶（仅本浏览器）" : "置顶（仅本浏览器）"}
+          aria-pressed={pinned === true}
+          data-testid="chat-task-workbench-thread-pin"
+          data-thread-id={card.id}
+          onClick={(event) => { event.stopPropagation(); onTogglePin(); }}
+          className={[
+            "absolute right-7 top-1 rounded-md p-1.5 transition-colors focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible",
+            pinned ? "visible text-primary" : "invisible text-muted-foreground",
+            "hover:bg-panel-alt hover:text-card-foreground",
+          ].join(" ")}
+        >
+          <Pin aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
       {canMutate ? (
         <Menu open={mode === "menu"} onOpenChange={(o) => setMode(o ? "menu" : "view")}>
           <MenuTrigger asChild>
@@ -233,7 +267,10 @@ export function ThreadCardButton({
               aria-label="更多操作"
               data-testid="chat-thread-card-menu-trigger"
               onClick={(event) => event.stopPropagation()}
-              className="absolute right-1 top-1 rounded-md p-1 text-muted-foreground transition-colors invisible hover:bg-panel-alt hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
+              /* issue #2075（TW-A11Y-2）—— `p-1` 时整个按钮只有 14+8=22px，低于 24×24
+                 的点击区下限；`p-1.5` 给到 26px。这不是为了让门控变绿：22px 的悬浮小按钮
+                 在触屏与手部精细动作受限的用户那里就是点不中。 */
+              className="absolute right-1 top-1 rounded-md p-1.5 text-muted-foreground transition-colors invisible hover:bg-panel-alt hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
             >
               <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
             </button>

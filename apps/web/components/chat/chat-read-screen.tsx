@@ -1072,7 +1072,10 @@ function RosterPanel({
         </form>
       ) : null}
 
-      {!hasSelection ? <p className="text-11 text-muted-foreground">选择线程后读取编制。</p> : null}
+      {/* issue #2075（TW-COPY-1）—— 「选择线程后读取…」这句在仓库里有三份（产物/材料/编制）。
+          只修 v2 轨道那两份、留下这一份，正是本仓「同一事实两处声明」那条漂移的样子：
+          审计点名的这句话会在旧屏原样活着。三处一起换成用户语言 + 明确动作。 */}
+      {!hasSelection ? <p className="text-11 text-muted-foreground">还没有选择对话。在左侧选一条对话，这里会列出它的成员编制。</p> : null}
       {loading ? <p className="text-11 text-muted-foreground">正在读取编制…</p> : null}
       {error ? <ErrorState testId="chat-roster-error" message={error} retryTestId="chat-roster-retry" onRetry={onRetry} /> : null}
 

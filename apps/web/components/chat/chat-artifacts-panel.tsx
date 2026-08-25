@@ -4,6 +4,7 @@ import * as React from "react";
 import { Package, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ChatPanelSkeleton } from "@/components/chat/chat-panel-skeleton";
 import type { ListThreadArtifactsOut } from "@/lib/live-chat";
 
 /**
@@ -39,8 +40,17 @@ export function ChatArtifactsPanel({
       </div>
       {/* 未选线程与加载中是互斥状态，同一时刻只显一态（UI 评分 b10-entry 截图：两态并存）。
           文案不带「真实」——那是区别于 mock 的开发者词汇，不该出现在用户可见文案里。 */}
-      {!hasSelection ? <p className="p-3 text-12 text-muted-foreground">选择线程后读取产物。</p> : null}
-      {hasSelection && loading ? <p className="p-3 text-12 text-muted-foreground">正在读取产物列表…</p> : null}
+      {/* issue #2075（TW-COPY-1）—— 原文「选择线程后读取产物。」两处开发者味：
+          ①「线程」是内部概念，用户看到的东西叫「对话」；② 句子说的是「系统」要做什么
+          （"读取"），不是「用户」该做什么。换成用户语言 + 明确动作。 */}
+      {!hasSelection ? (
+        <p className="p-3 text-12 text-muted-foreground" data-testid="chat-artifacts-no-selection">
+          还没有选择对话。在左侧选一条对话，这里会列出它生成的产物。
+        </p>
+      ) : null}
+      {/* issue #2075（TW-P2-7）—— 加载态从"一行灰字"换成真骨架，理由见
+          `chat-panel-skeleton.tsx` 头注（一行字既不是 skeleton 也不是占位区）。 */}
+      {hasSelection && loading ? <ChatPanelSkeleton label="正在读取产物列表" /> : null}
       {error ? (
         <div className="flex flex-col items-start gap-2 p-3" data-testid="chat-artifacts-error">
           <p className="text-12 text-destructive">{error}</p>

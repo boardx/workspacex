@@ -24,6 +24,7 @@ import {
   CopilotKitV2MessageExtraActions,
 } from "@/components/chat/copilotkit-v2-message-actions";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
+import { ChatLiveAnnouncer, announceToChat } from "@/components/chat/chat-live-announcer";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
 import { useAsrDraft } from "@/lib/use-asr-draft";
@@ -413,12 +414,46 @@ function SendEmailApprovalDialog({
     setEditing(true);
   };
 
-  if (dismissed) return null;
+  /**
+   * issue #2075（TW-A11Y-4）—— 「需要你批准」必须被播报。这是整条链路上最需要
+   * 播报的一刻：不播报，屏幕阅读器用户根本不知道系统正在等他做决定，主观上就是卡死。
+   */
+  React.useEffect(() => {
+    if (awaitingDecision) announceToChat("需要你的批准：发送邮件。请在审批对话框中选择批准、编辑或拒绝。");
+  }, [awaitingDecision]);
+
+  /**
+   * issue #2075（TW-A11Y-5「关闭后焦点归位」）—— 真栈实测：关掉审批弹窗后
+   * `document.activeElement` 是 **`BODY`**，键盘用户被扔回文档开头，丢掉全部上下文。
+   *
+   * 根因不是 Radix 没做焦点恢复，而是**它记下的那个"原焦点"本身已经失效**：
+   * 用户点「发送」→ `agent.isRunning` 变真 → 发送按钮 `disabled` → 浏览器把焦点
+   * 从这个被禁用的按钮收回给 `body`；弹窗随后才异步出现，Radix 记下的就是 `body`。
+   * 于是"忠实地恢复原焦点"= 恢复到 body。**静态地读这段代码看不出问题**，
+   * 只有活体跑才会暴露——这条正是 #2068 基线里点名的那个真实可达性缺陷。
+   *
+   * 修法：`onCloseAutoFocus` 里接管，把焦点还给 composer 输入框——那是用户在这条
+   * 对话里"正在工作的地方"，比一个已经禁用的发送按钮更是他要回去的位置。
+   */
+  const returnFocusToComposer = React.useCallback((event: Event) => {
+    const composer = document.querySelector<HTMLElement>('[data-testid="copilotkit-v2-input"]');
+    if (composer === null) return; // 找不到就让 Radix 走它的默认恢复，别把焦点弄丢
+    event.preventDefault();
+    composer.focus();
+  }, []);
 
   if (!awaitingDecision || respond === undefined) {
     return (
-      <Dialog open onOpenChange={(next) => { if (!next) close(); }}>
-        <DialogContent data-testid="copilotkit-v2-hitl-dialog" data-hitl-status={statusLabel}>
+      /* `open={!dismissed}` 而不是 `if (dismissed) return null` + `open`：
+         直接 return null 会让 Radix 的关闭序列整个不发生，`onCloseAutoFocus` 也就
+         永远不触发（焦点归位无从谈起）。受控 `open` 同样不残留遮罩——portal 内容
+         在 `open=false` 时本来就不挂载，#1996 那条"永久点击拦截层"不会回来。 */
+      <Dialog open={!dismissed} onOpenChange={(next) => { if (!next) close(); }}>
+        <DialogContent
+          data-testid="copilotkit-v2-hitl-dialog"
+          data-hitl-status={statusLabel}
+          onCloseAutoFocus={returnFocusToComposer}
+        >
           <DialogHeader>
             <DialogTitle>等待批准：发送邮件</DialogTitle>
             <DialogDescription>
@@ -439,7 +474,7 @@ function SendEmailApprovalDialog({
 
   return (
     <Dialog
-      open
+      open={!dismissed}
       onOpenChange={(next) => {
         // 用户通过 Escape/点遮罩层/默认关闭图标退出时，等价于「拒绝」——不这样
         // 处理的话，Dialog 会正确卸载（不再残留遮罩），但框架合成的 respond
@@ -452,7 +487,11 @@ function SendEmailApprovalDialog({
         }
       }}
     >
-      <DialogContent data-testid="copilotkit-v2-hitl-dialog" data-hitl-status={statusLabel}>
+      <DialogContent
+        data-testid="copilotkit-v2-hitl-dialog"
+        data-hitl-status={statusLabel}
+        onCloseAutoFocus={returnFocusToComposer}
+      >
         <DialogHeader>
           <DialogTitle>等待你的批准：发送邮件</DialogTitle>
           <DialogDescription>批准前可编辑收件人/主题/正文，裁决后由框架恢复这次 run。</DialogDescription>
@@ -1216,6 +1255,19 @@ function CopilotKitV2PanelBody({
    */
   const runProgress = useCopilotKitV2RunProgress(agent, agent.isRunning);
 
+  /**
+   * issue #2075（TW-A11Y-4）—— agent 状态变化播报。视觉用户看得到运行状态条在动
+   * （`copilotkit-v2-running-indicator` / `copilotkit-v2-thinking`），屏幕阅读器用户
+   * 此前什么都听不到。这里只播**状态迁移**（开始/结束），不播每一帧耗时——
+   * 每秒念一次"已耗时 7 秒"会把 live region 变成噪声源。
+   */
+  const wasRunningRef = React.useRef(false);
+  React.useEffect(() => {
+    if (agent.isRunning && !wasRunningRef.current) announceToChat("正在处理你的请求……");
+    if (!agent.isRunning && wasRunningRef.current) announceToChat("回复已生成。");
+    wasRunningRef.current = agent.isRunning;
+  }, [agent.isRunning]);
+
   /** CK-P4 —— 最近一次真的发出去的用户消息，供错误横幅上的「重试」重发。 */
   const lastSentRef = React.useRef<{ text: string; attachmentIds: readonly string[] } | null>(null);
 
@@ -1351,8 +1403,19 @@ function CopilotKitV2PanelBody({
       {/* issue #2053（CK-P8）—— 归档线程不接受拖拽上传：落区与提示都不挂，
           与旧轨道 `chat-live-message-panel.tsx` 的 `{...(archived ? {} : attach.dragHandlers)}`
           逐字同套。留着落区而在提交时报错，才是骗人的那一种。 */}
-      <div className="relative flex min-w-0 flex-1 flex-col gap-3" {...(archived ? {} : attach.dragHandlers)}>
+      {/* issue #2075（TW-P2-1）—— 阅读宽度约束提到**整条中央列**上。
+          此前 `max-w-3xl` 只包着消息列表内部，composer / 追问 chips / 附件区 / 运行状态条
+          仍然横贯全屏：1920px 视口下输入框实测 1006px（验收线 720–880）。行长过宽让
+          回扫困难，也让工作台看起来像一个没有布局的容器。
+          `max-w-3xl` = 48rem = 768px，落在 720–880 区间内，且用的是 Tailwind 既有刻度，
+          不是为过门控现编的 `max-w-[880px]`（那正是 TW-P2-5 要拦的"页面自创值"）。
+          窄屏无影响：`max-w` 只封上限。 */}
+      <div className="relative mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col gap-3" {...(archived ? {} : attach.dragHandlers)}>
         {archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
+        {/* issue #2075（TW-A11Y-4）—— 工作台唯一一块 live region，常驻挂载。
+            常驻是必须的：`aria-live` 只播报「已存在」节点的内容变化，等到有话要说
+            才把节点插进 DOM，读屏软件多半一句都不会念（这是 live region 最经典的坑）。 */}
+        <ChatLiveAnnouncer />
         <CopilotKitV2ToolRenderers />
         {/* 2026-08-25 人类 devapp 实测指令：不给用户看调试字样——原来这里有一行
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
@@ -1381,9 +1444,10 @@ function CopilotKitV2PanelBody({
               </p>
             </div>
           ) : (
-            // issue #2039（第 2 轮 gap #5）——阅读宽度约束：超宽屏上消息行不再
-            // 横贯全屏（Claude/ChatGPT 对话列同一处理），窄屏等于全宽无影响。
-            <div className="mx-auto w-full max-w-3xl">
+            // issue #2039（第 2 轮 gap #5）的阅读宽度约束已由本文件中央列那一处
+            // `max-w-3xl` 统一承担（issue #2075 / TW-P2-1）——在这里再写一次就是同一个
+            // 事实声明在两处：以后调宽度会漏改一个，两处不一致且没人会发现。
+            <div className="w-full">
               <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
                 {/* CK-P3（issue #2054）—— 逐条消息操作（复制/评分/反馈）需要的两样东西
                     （真实落库 id 的解析索引、当前 agent 归因）经 context 下发：

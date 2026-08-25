@@ -258,7 +258,7 @@ describe("PersonalChatScreen — 右栏产物/材料面板（issue #1824，人�
     expect(await screen.findByTestId("chat-materials-upload-trigger")).toBeInTheDocument();
   });
 
-  it("未选中任何线程 ⇒ 右栏两个面板仍渲染（空态：'选择线程后读取…'），不是整个右栏消失", async () => {
+  it("未选中任何线程 ⇒ 右栏两个面板仍渲染（空态：'还没有选择对话…'），不是整个右栏消失", async () => {
     listPersonalThreads.mockResolvedValue({ groups: [], capabilities: ["thread.mutate"] });
 
     render(<PersonalChatScreen initialThreadId={null} />);

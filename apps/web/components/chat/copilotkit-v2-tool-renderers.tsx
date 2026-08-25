@@ -66,6 +66,30 @@ const TODO_STATUS_TEXT: Record<string, string> = {
   completed: "已完成",
 };
 
+/**
+ * issue #2075（TW-COPY-1）—— 工具的**用户可读名**。
+ *
+ * 此前三张卡片一律把裸工具名印在标题上。`write_todos` 是 #2068 审计逐字点名的那一条：
+ * 它是 deepagents 内部 middleware 的函数名，用户没有任何理由知道它。
+ *
+ * ⚠ 未知工具**照旧回退到原始名**，不编一个好听的假名字：一个没人给过中文名的工具，
+ *   印它的真名总比印一句我们瞎猜的描述诚实。真名同时留在 `title` 上（悬停可见、
+ *   不进可见文案），排障时不丢信息。
+ *
+ * ⚠ 这是**唯一**一份工具名映射，别在别处再建第二份。
+ */
+const TOOL_LABEL: Record<string, string> = {
+  write_todos: "制定执行计划",
+  search_documents: "检索文档",
+  read_document: "读取文档",
+  lookup_time: "查询当前时间",
+  send_email: "发送邮件",
+};
+
+function toolLabel(name: string): string {
+  return TOOL_LABEL[name] ?? name;
+}
+
 /** 进行中/已完成的小圆点图标——两条自定义卡片共用，避免各写一份。 */
 function ToolStatusIcon({ status }: { status: "inProgress" | "executing" | "complete" }) {
   if (status === "complete") {
@@ -93,7 +117,7 @@ function WriteTodosCard({
       <CardContent className="flex flex-col gap-1.5 p-2.5 text-11">
         <div className="flex items-center gap-1.5 font-medium text-card-foreground">
           <ToolStatusIcon status={status} />
-          <span>write_todos</span>
+          <span title="write_todos">{toolLabel("write_todos")}</span>
           {status !== "complete" ? (
             <Badge tone="neutral" data-testid="copilotkit-v2-tool-write-todos-in-progress-badge">
               进行中
@@ -169,7 +193,7 @@ function SearchDocumentsCard({
       <CardContent className="flex flex-col gap-1.5 p-2.5 text-11">
         <div className="flex items-center gap-1.5 font-medium text-card-foreground">
           <ToolStatusIcon status={status} />
-          <span>search_documents</span>
+          <span title="search_documents">{toolLabel("search_documents")}</span>
           {status !== "complete" ? (
             <Badge tone="neutral" data-testid="copilotkit-v2-tool-search-documents-in-progress-badge">
               进行中
@@ -286,7 +310,7 @@ function GenericToolCard({
       <CardContent className="flex flex-col gap-1.5 p-2.5 text-11">
         <div className="flex items-center gap-1.5 font-medium text-card-foreground">
           <ToolStatusIcon status={status} />
-          <span className="font-mono">{name}</span>
+          <span className={cn(TOOL_LABEL[name] === undefined && "font-mono")} title={name}>{toolLabel(name)}</span>
           {status !== "complete" ? <Badge tone="neutral">进行中</Badge> : null}
         </div>
         {paramsSummary !== null ? (

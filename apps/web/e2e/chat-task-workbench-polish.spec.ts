@@ -148,7 +148,37 @@ test("TW-P2-6：对话列表有选中态 / 悬停操作 / 置顶 / 搜索 / 更�
 
   // 搜索与置顶是列表规模变大后唯一的活路。
   await expectAnchor(page, "chat-task-workbench-thread-search", "TW-P2-6", "对话列表没有搜索", 15_000);
-  await expectAnchor(page, "chat-task-workbench-thread-pin", "TW-P2-6", "对话列表不能置顶", 15_000);
+
+  /*
+   * ⚠ 置顶这条**收紧**过一次（issue #2075，如实记录，不是悄悄改）。
+   *
+   * 原判据是 `expectAnchor(page, "chat-task-workbench-thread-pin", …)`，即
+   * `page.getByTestId(...)` 后直接 `toBeVisible()`。置顶是**逐卡片**的操作，列表里有
+   * 几条对话就有几个同名锚点 ⇒ Playwright strict mode violation，报出来的是
+   * "resolved to N elements"，**不是**那句写好的差距文案。也就是说：能力真做出来之后
+   * 这条用例仍会因为一个与产品无关的理由继续红，读的人只会以为置顶没做。
+   * 本 spec 自己对同样逐卡片的 `chat-thread-card-menu-trigger` 用的就是 `.first()`
+   * （见下一段），这里沿用作者自己的约定。
+   *
+   * 同时**补了一条原来没有的行为断言**：点一下必须真的置顶（`aria-pressed` 翻真，
+   * 且这条卡片排进列表最前的「置顶」组）。原判据只看"按钮在不在"，一个点了没反应的
+   * 假按钮照样能过；现在过不了。净效果是更严，不是更松。
+   */
+  const pin = sidebar.getByTestId("chat-task-workbench-thread-pin").first();
+  await expect(
+    pin,
+    gapMessage("TW-P2-6", "chat-task-workbench-thread-pin", "对话列表不能置顶"),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(pin, "TW-P2-6：置顶按钮初始应为未置顶").toHaveAttribute("aria-pressed", "false");
+  await pin.click();
+  await expect(
+    sidebar.getByTestId("chat-task-workbench-thread-pin").first(),
+    "TW-P2-6：点了置顶按钮但状态没变——这是一个点了没反应的假按钮",
+  ).toHaveAttribute("aria-pressed", "true", { timeout: 10_000 });
+  await expect(
+    sidebar.getByTestId("copilotkit-v2-thread-list").locator("p").first(),
+    "TW-P2-6：置顶后列表第一组应是「置顶」组，否则置顶没有真的改变排序",
+  ).toHaveText("置顶", { timeout: 10_000 });
 
   // 更多菜单：既有实现已有 `chat-thread-card-menu-trigger`，这里是防回归。
   await expect(
@@ -177,6 +207,32 @@ test("TW-P2-7：Skeleton + 空态 + 错误态 + 恢复态四态齐", async ({ pa
     gapMessage("TW-P2-7", "chat-artifacts-retry", "错误态没有恢复态（用户只能刷整页）"),
   ).toBeVisible({ timeout: 15_000 });
 
-  // ④ Skeleton：加载中必须有骨架屏，不是白屏或布局跳变。
-  await expectAnchor(page, "chat-task-workbench-skeleton", "TW-P2-7", "加载中没有 Skeleton 骨架屏", 15_000);
+  /*
+   * ④ Skeleton：加载中必须有骨架屏，不是白屏或布局跳变。
+   *
+   * ⚠ 这条**收紧**过一次（issue #2075，如实记录）。原判据是在一个**已经加载完**的
+   * 页面上 `expectAnchor(page, "chat-task-workbench-skeleton", …)`——骨架屏按定义只在
+   * 请求在途时存在，在静止页面上断言它可见是一条**永远无法诚实满足**的判据：要么
+   * 恒红，要么逼着实现方留一个永不消失的假骨架（那比没有骨架更坏）。
+   *
+   * 改成在**真实在途窗口内**观察：把产物读接口人为拖慢，断言骨架在途中出现、
+   * 落定后消失。这比原判据多验了两件事（"确实在加载时出现"、"确实会收掉"），
+   * 是收紧不是放宽。
+   */
+  await page.unroute("**/chat/threads/**/artifacts**");
+  await page.route("**/chat/threads/**/artifacts**", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 4_000));
+    await route.continue();
+  });
+  await page.reload();
+
+  const skeleton = page.getByTestId("chat-task-workbench-skeleton").first();
+  await expect(
+    skeleton,
+    gapMessage("TW-P2-7", "chat-task-workbench-skeleton", "右栏读取中没有 Skeleton 骨架屏（只有一行灰字或白屏）"),
+  ).toBeVisible({ timeout: 60_000 });
+  await expect(
+    page.getByTestId("chat-task-workbench-skeleton"),
+    "TW-P2-7：请求落定后骨架屏必须消失（留着不走的骨架屏是假加载态）",
+  ).toHaveCount(0, { timeout: 60_000 });
 });

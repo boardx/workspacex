@@ -11,10 +11,14 @@ import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
+import { Input } from "@/components/ui/input";
 import {
-  createPersonalThread, getThread, listPersonalThreads, listThreadArtifacts, listThreadAttachments,
+  createPersonalThread, deleteThread, getThread, listPersonalThreads, listThreadArtifacts,
+  listThreadAttachments, renameThread,
   type GetThreadOut, type ListThreadArtifactsOut, type ListThreadAttachmentsOut, type ListThreadsOut,
+  type ThreadCard,
 } from "@/lib/live-chat";
+import { readPinnedThreadIds, togglePinnedThreadId } from "@/lib/chat-pinned-threads";
 
 /**
  * issue #2021 —— CopilotKit v2（#2044 起原生住在 `/chat`）消息持久化 + 多线程管理外壳。
@@ -246,6 +250,96 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const canCreate = threads?.capabilities.includes("thread.mutate") ?? true;
 
   /**
+   * issue #2075（TW-P2-6）—— 改名 / 删除。
+   *
+   * v2 轨道此前**根本没有**这两个操作：`ThreadCardButton` 的 `canMutate` 是
+   * `selected && onRename && onDelete`，这里两个回调都没传 ⇒ 「…」菜单一次都没渲染过，
+   * 用户在 v2 上建的对话既改不了名也删不掉。这不是"视觉缺口"，是功能缺口。
+   *
+   * 乐观并发所需的 `version` 来自**已经在取的** `getThread`（`threadDetail`），
+   * 不为此新发一次请求；写法与旧轨道 `personal-chat-screen.tsx` 的
+   * `handleRename`/`handleDelete` 逐字同套（先等服务端返回再重读服务端，不做乐观更新），
+   * 不另立第二套并发纪律。
+   */
+  const [mutatePending, setMutatePending] = React.useState<"rename" | "delete" | null>(null);
+  const [mutateFailure, setMutateFailure] = React.useState<string | null>(null);
+  const selectedVersion = threadDetail?.thread.version ?? null;
+
+  const handleRename = React.useCallback(async (title: string) => {
+    if (!bearer || !selectedThreadId || selectedVersion === null) return;
+    setMutatePending("rename");
+    setMutateFailure(null);
+    try {
+      await renameThread(selectedThreadId, null, title, selectedVersion);
+      await reloadThreads();
+      await loadRightPanel(); // 标题与 version 都变了，重读详情保持一致
+    } catch (failure) {
+      setMutateFailure(failure instanceof Error ? failure.message : "改名失败");
+    } finally {
+      setMutatePending(null);
+    }
+  }, [bearer, loadRightPanel, reloadThreads, selectedThreadId, selectedVersion]);
+
+  const handleDelete = React.useCallback(async (reason: string) => {
+    if (!bearer || !selectedThreadId || selectedVersion === null) return;
+    const removed = selectedThreadId;
+    setMutatePending("delete");
+    setMutateFailure(null);
+    try {
+      await deleteThread(removed, null, selectedVersion, reason);
+      const refreshed = await listPersonalThreads({}, bearer);
+      setThreads(refreshed);
+      const next = refreshed.groups.flatMap((group) => group.cards)[0]?.id ?? null;
+      // 删掉的是当前这条 ⇒ 必须离开它的路由；一条都不剩就回 `/chat` 空状态。
+      router.replace(next ? `/chat/${next}` : "/chat");
+    } catch (failure) {
+      setMutateFailure(failure instanceof Error ? failure.message : "删除失败");
+    } finally {
+      setMutatePending(null);
+    }
+  }, [bearer, router, selectedThreadId, selectedVersion]);
+
+  /**
+   * issue #2075（TW-P2-6）—— 搜索与置顶。
+   *
+   * 搜索是纯前端过滤：`listPersonalThreads` 契约里**没有**查询参数，服务端一次返回
+   * 该用户的全部个人对话，所以在客户端过滤这份已经在手的数据是这条链路上唯一能做、
+   * 也是正确的做法——不是"先做个假的等以后接后端"。
+   *
+   * 置顶的持久化范围与它做不到的事，见 `lib/chat-pinned-threads.ts` 的头注
+   * （契约 `mutateThread.op` 是封闭枚举，跨设备置顶要签核，本 issue 不擅自加）。
+   */
+  const [query, setQuery] = React.useState("");
+  const [pinnedIds, setPinnedIds] = React.useState<readonly string[]>([]);
+  // localStorage 只在浏览器里有：首帧（SSR 与 hydration）一律空，挂载后再读，
+  // 避免 hydration mismatch（同本文件麦克风那条 SSR/CSR 首帧分叉的教训）。
+  React.useEffect(() => {
+    setPinnedIds(readPinnedThreadIds());
+  }, []);
+  const togglePin = React.useCallback((threadId: string) => {
+    setPinnedIds(togglePinnedThreadId(threadId));
+  }, []);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchesQuery = React.useCallback(
+    (card: ThreadCard) => normalizedQuery === "" || card.title.toLowerCase().includes(normalizedQuery),
+    [normalizedQuery],
+  );
+
+  /**
+   * 渲染分组 = 「置顶」组（若有）+ 服务端的时间分组（已置顶的从里面摘出去，
+   * 免得同一条对话在列表里出现两次——那正是"同一事实两处"在列表层的形态）。
+   */
+  const renderGroups: { label: string; cards: ThreadCard[] }[] = [];
+  const pinnedCards = cards.filter((card) => pinnedIds.includes(card.id)).filter(matchesQuery);
+  if (pinnedCards.length > 0) renderGroups.push({ label: "置顶", cards: pinnedCards });
+  for (const group of threads?.groups ?? []) {
+    const rest = group.cards.filter((card) => !pinnedIds.includes(card.id)).filter(matchesQuery);
+    if (rest.length > 0) renderGroups.push({ label: group.label, cards: rest });
+  }
+  const visibleCardCount = renderGroups.reduce((sum, group) => sum + group.cards.length, 0);
+
+  /**
    * issue #2039（UIUX 三轮迭代第 1 轮 gap #2）—— 375px 响应式。此前 `w-64 shrink-0`
    * 侧栏在手机宽度常驻，把主区压到 ~119px（真栈实测横向溢出 313px，
    * `.copilotkit-v2-uiux/empty-mobile-375.png` 修复前版）。修法与旧轨道
@@ -281,10 +375,23 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           {/* issue #2039（第 3 轮 gap #2，fidelity P2）——个人对话上下文如实说明，
               与旧轨道 `personal-chat-screen.tsx` 同一句文案，不画假项目名填空。 */}
           <p className="text-10 text-muted-foreground">不挂靠任何项目，仅自己可见</p>
+          {/* issue #2075（TW-P2-6）—— 搜索。纯前端过滤已经在手的这份列表，
+              理由见上面 `query` 声明处（契约里没有服务端查询参数）。 */}
+          <Input
+            type="search"
+            data-testid="chat-task-workbench-thread-search"
+            aria-label="搜索对话"
+            placeholder="搜索对话标题"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
         </div>
         {listError ? (
           <p className="px-3 text-11 text-destructive" data-testid="copilotkit-v2-thread-list-error">{listError}</p>
         ) : null}
+        {/* ⚠ 改名/删除的失败信息**只**在卡片自己的表单里显示（`ThreadCardButton` 的
+            `failure` prop，锚点 `chat-thread-mutate-error`）——在侧栏再印一份，就是同一件事
+            声明在两处，且用户会看到两条一模一样的红字。 */}
         {!canCreate ? null : null}
         <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2" data-testid="copilotkit-v2-thread-list">
           {/* issue #2039（第 2 轮 gap #2）——此前 `flatMap` 把服务端已经分好的
@@ -301,8 +408,14 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
             </div>
           ) : cards.length === 0 ? (
             <p className="px-1 py-2 text-11 text-muted-foreground">还没有对话，点上面「新建对话」开始第一次对话</p>
+          ) : visibleCardCount === 0 ? (
+            /* issue #2075（TW-P2-6）——"搜了但没搜到"必须与"一条对话都没有"分开说：
+               前者要告诉用户是「这个词」没匹配上，不是他的对话丢了。 */
+            <p className="px-1 py-2 text-11 text-muted-foreground" data-testid="chat-task-workbench-thread-search-empty">
+              没有标题含「{query.trim()}」的对话。换个词，或点上面「新建对话」。
+            </p>
           ) : (
-            (threads?.groups ?? []).map((group) => (
+            renderGroups.map((group) => (
               <React.Fragment key={group.label}>
                 <p className="px-1 pb-0.5 pt-2 text-10 font-medium text-muted-foreground">{group.label}</p>
                 {group.cards.map((card) => (
@@ -311,6 +424,12 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
                     card={card}
                     selected={card.id === selectedThreadId}
                     onSelect={() => selectThread(card.id)}
+                    pinned={pinnedIds.includes(card.id)}
+                    onTogglePin={() => togglePin(card.id)}
+                    onRename={card.id === selectedThreadId ? (title) => void handleRename(title) : undefined}
+                    onDelete={card.id === selectedThreadId ? (reason) => void handleDelete(reason) : undefined}
+                    pending={card.id === selectedThreadId ? mutatePending : null}
+                    failure={card.id === selectedThreadId ? mutateFailure : null}
                   />
                 ))}
               </React.Fragment>
