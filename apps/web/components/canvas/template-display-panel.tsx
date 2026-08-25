@@ -59,6 +59,14 @@ export function TemplateDisplayPanel({
               key 重复：{health.duplicateKeys.join("、")} —— AI 返回的 JSON 会互相覆盖
             </span>
           )}
+          {/* §6 规则③：提示词里写了字段表没有的占位符（画布那一半构造上不可能，
+              见 `TemplateHealth.danglingPlaceholders` 文档）。 */}
+          {health.danglingPlaceholders.length > 0 && (
+            <span className="text-11 text-warning-foreground" data-testid="tpladmin-editor-health-dangling">
+              提示词里有字段表没有的占位符：{health.danglingPlaceholders.map((k) => `{{${k}}}`).join("、")}
+              {" "}—— 这部分数据生成后会被丢弃
+            </span>
+          )}
           {/* §6 规则⑥：max > 容量不阻止保存，但要显式提示按 overflow 策略处理。 */}
           {health.overflowing.length > 0 && (
             <span className="text-11 text-warning-foreground" data-testid="tpladmin-editor-health-overflow">

@@ -76,7 +76,12 @@ export function TemplateEditorPanel({
   /** 非 null = 发布前置检查没过，正在等二次确认（§6 规则⑦：允许强制发布）。 */
   const [publishBlockers, setPublishBlockers] = React.useState<TemplateHealth | null>(null);
 
-  const health = React.useMemo(() => checkTemplateHealth(sections, gridCols), [sections, gridCols]);
+  // ⚠ `promptText` 必须进体检：§6 规则③ 的可达形态是「提示词里写了字段表没有的
+  //   占位符」，见 `TemplateHealth.danglingPlaceholders` 的文档。
+  const health = React.useMemo(
+    () => checkTemplateHealth(sections, gridCols, promptText),
+    [sections, gridCols, promptText],
+  );
   const selected = sections.find((s) => s.sectionId === selectedId) ?? null;
 
   const dirty = editable && (
@@ -490,6 +495,13 @@ export function TemplateEditorPanel({
                   · <strong>{publishBlockers.overflowing.length} 个区块容量不够</strong>
                   （{publishBlockers.overflowing.map((o) => `${o.section.key} 最多 ${o.max} 条 > 放得下 ${o.fits} 条`).join("；")}）
                   —— 超出的部分按各自的「超出时」策略处理。
+                </span>
+              )}
+              {publishBlockers.danglingPlaceholders.length > 0 && (
+                <span data-testid="tpladmin-editor-publish-blocker-dangling">
+                  · <strong>提示词里有 {publishBlockers.danglingPlaceholders.length} 个占位符在字段表里不存在</strong>
+                  （{publishBlockers.danglingPlaceholders.map((k) => `{{${k}}}`).join("、")}）
+                  —— AI 会被要求产出这些键，而输出结构里没有它们，那部分数据会被丢弃。
                 </span>
               )}
               {publishBlockers.duplicateKeys.length > 0 && (

@@ -1315,3 +1315,87 @@ describe("2026-08-26 §3.1 卡片上的「归档」就地二次确认（设计�
     await waitFor(() => expect(screen.getByTestId("tpladmin-notice").textContent).toContain("可逆置位"));
   });
 });
+
+describe("2026-08-26 §6 规则③：提示词里写了字段表没有的占位符", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-dangling";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-dangling");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const oneField = () => jsonResponse({
+    templates: [template({
+      key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+      sections: [{
+        sectionId: "s1", key: "says", name: "说", type: "便利贴列表", aiHint: null,
+        order: 0, required: false, capacity: null,
+        layout: { col: 1, row: 1, w: 6, h: 3, cols: 5, max: 6, tone: 0, overflow: "缩小字号" },
+      }],
+    })],
+  });
+
+  async function openEditorAndWritePrompt(text: string): Promise<HTMLElement> {
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-open-prompt"));
+    const drawer = await screen.findByTestId("tpladmin-editor-prompt-drawer");
+    fireEvent.change(within(drawer).getByTestId("tpladmin-editor-prompt-text"), { target: { value: text } });
+    fireEvent.click(within(drawer).getByTestId("tpladmin-editor-prompt-done"));
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-prompt-drawer")).toBeNull());
+    return panel;
+  }
+
+  it("体检面板点名那个悬空占位符，并说清后果（生成后会被丢弃）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => oneField()));
+    const panel = await openEditorAndWritePrompt("请整理 {{says}}，另外也写一下 {{gains}}。");
+
+    const dangling = await within(panel).findByTestId("tpladmin-editor-health-dangling");
+    expect(dangling).toHaveTextContent("{{gains}}");
+    // 字段表里有的那个不该被点名。
+    expect(dangling).not.toHaveTextContent("{{says}}");
+  });
+
+  it("发布时被拦下并列出它——与体检面板同源计算（§6 规则⑤）", async () => {
+    const posts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/publish")) { posts.push(url.pathname); }
+      return oneField();
+    }));
+
+    const panel = await openEditorAndWritePrompt("{{says}} 与 {{gains}}");
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
+
+    const confirm = await screen.findByTestId("tpladmin-editor-publish-confirm");
+    expect(within(confirm).getByTestId("tpladmin-editor-publish-blocker-dangling")).toHaveTextContent("{{gains}}");
+    expect(posts).toHaveLength(0);
+  });
+
+  it("把那个字段加进字段表后，两处警告**同时**消失——同源计算的反证（§6 规则⑤逐字要求）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => oneField()));
+    const panel = await openEditorAndWritePrompt("{{says}} 与 {{gains}}");
+    await within(panel).findByTestId("tpladmin-editor-health-dangling");
+
+    // 用左栏底部的「＋ 新增字段」补上 gains。
+    fireEvent.change(within(panel).getByTestId("tpladmin-editor-new-key"), { target: { value: "gains" } });
+    fireEvent.change(within(panel).getByTestId("tpladmin-editor-new-name"), { target: { value: "收获" } });
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-new-add"));
+
+    // ① 体检面板的警告没了。
+    await waitFor(() => expect(within(panel).queryByTestId("tpladmin-editor-health-dangling")).toBeNull());
+    // ② 发布检查里也没了——这正是「不得留静态文案」要防的事：两处若各写一份判据，
+    //    补完字段后很可能只有一处更新。
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
+    const confirm = screen.queryByTestId("tpladmin-editor-publish-confirm");
+    if (confirm) {
+      expect(within(confirm).queryByTestId("tpladmin-editor-publish-blocker-dangling")).toBeNull();
+    }
+  });
+});
