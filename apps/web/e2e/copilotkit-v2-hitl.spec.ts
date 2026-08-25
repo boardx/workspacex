@@ -5,7 +5,7 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
 
 /**
  * DA-19g HITL 审批语义（issue #1987 起点，最终修复登记在 DA-19g HITL 审批语义任务）
- * —— 真实浏览器 + 真实 deep-agent loopback 替身，走 `/chat/copilotkit-v2` 触发
+ * —— 真实浏览器 + 真实 deep-agent loopback 替身，走 `/chat` 触发
  * `deepAgentApprovalTrigger`（`CHAT_READ_E2E.deepAgentApprovalTrigger`），断言
  * `useHumanInTheLoop` 注册的 `send_email` 审批对话框的 approve/编辑/reject 三条路径
  * 真的渲染、真的生效。
@@ -93,7 +93,7 @@ async function triggerApproval(page: import("@playwright/test").Page): Promise<{
   );
 
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
 

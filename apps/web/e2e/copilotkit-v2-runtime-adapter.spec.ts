@@ -182,7 +182,7 @@ test("CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的�
     );
 
     await warmUpCopilotRuntimeRoute(page);
-    await page.goto("/chat/copilotkit-v2");
+    await page.goto("/chat");
     await page.getByTestId("copilotkit-v2-input").fill(userText);
     await page.getByTestId("copilotkit-v2-send").click();
 
@@ -237,7 +237,7 @@ test("CopilotRuntime 适配器真实转发 Authorization——清空 token 后�
   await page.waitForURL(/\/projects$/);
 
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
   // 清空已登录会话存的 token——`copilotkit-v2-providers.tsx` 把它放进 `useMemo` 的
   // `headers` prop（`useState` 驱动，`storage` 事件 + 2s 轮询同步）；清空后下一次 run
   // 必须在没有 `Authorization` 头的情况下打到 `/copilotkit/agui`，被 `assertPrincipal`
@@ -304,7 +304,7 @@ test("DA-19b markdown/mermaid 消息渲染——真的渲成结构化 DOM 与 fa
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     await warmUpCopilotRuntimeRoute(page);
-    await page.goto("/chat/copilotkit-v2");
+    await page.goto("/chat");
     await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMarkdownTrigger);
     await page.getByTestId("copilotkit-v2-send").click();
 
@@ -394,7 +394,7 @@ test("DA-19g 多轮上下文——第二轮回复真的引用第一轮的用户�
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL(/\/projects$/);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   const firstTurnText = "DA-19g 第一轮：记住这句暗号 ZEBRA-4471";
 

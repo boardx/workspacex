@@ -63,7 +63,7 @@ test("DA-19e useConfigureSuggestions/useSuggestions 接线：建议请求走同�
   });
 
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
   await page.getByTestId("copilotkit-v2-input").fill("DA-19e 追问建议接线验证");
   await page.getByTestId("copilotkit-v2-send").click();
 

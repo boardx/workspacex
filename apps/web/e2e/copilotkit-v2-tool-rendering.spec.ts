@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 
 /**
- * DA-19c 工具可见性（框架版 Gap 1/4，backlog `DA-19c`）—— 证明 `/chat/copilotkit-v2`
+ * DA-19c 工具可见性（框架版 Gap 1/4，backlog `DA-19c`）—— 证明 `/chat`
  * 路由上用 `useRenderTool` 注册的 `write_todos`/`search_documents` 定制卡片真的渲染出来
  * （`copilotkit-v2-tool-renderers.tsx`），不是只在代码里写完就算数。
  *
@@ -112,7 +112,7 @@ test("DA-19c write_todos 定制卡片——进行中/完成两态真实渲染出
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     await warmUpCopilotRuntimeRoute(page);
-    await page.goto("/chat/copilotkit-v2");
+    await page.goto("/chat");
     await page.getByTestId("copilotkit-v2-input").fill("DA-19c 取证：随便问一句触发默认剧本");
     await page.getByTestId("copilotkit-v2-send").click();
 
@@ -191,7 +191,7 @@ test("DA-19c search_documents 定制卡片——检索词参数真实渲染、�
     });
 
     await warmUpCopilotRuntimeRoute(page);
-    await page.goto("/chat/copilotkit-v2");
+    await page.goto("/chat");
     await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
     await page.getByTestId("copilotkit-v2-send").click();
 

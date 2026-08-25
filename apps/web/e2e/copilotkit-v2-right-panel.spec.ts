@@ -3,7 +3,7 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
 /**
- * issue #2046（CK-P1 + CK-P2，人类 2026-08-25 点名）—— `/chat/copilotkit-v2` 右栏
+ * issue #2046（CK-P1 + CK-P2，人类 2026-08-25 点名）—— `/chat`（#2044 路由原生化后）右栏
  * 「材料 + 产物」与 composer `@` 文件引用的真实浏览器取证。
  *
  * ## 取证链路
@@ -43,6 +43,18 @@ async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
     .toBe(200);
 }
 
+/**
+ * `/chat/[threadId]` 动态路由的编译焐热——逐字同 `copilotkit-v2-skill-mount.spec.ts`
+ * 的 `warmUpThreadRoute`（该文件头注记录了实测根因：本套件里以客户端导航首次进入
+ * 这个动态段时，Next dev 按需编译期间导航不提交，`waitForURL` 被编译时间挤爆）。
+ * 本 spec 第 4 轮实测踩到同一个坑（`chat-thread-create` 点击后 60s 不落地，错误
+ * 上下文快照显示线程其实已经建出来了），因此照抄这条既有对策，不是新发明。
+ */
+async function warmUpThreadRoute(page: Page): Promise<void> {
+  await page.goto("/chat/warmup-route-compile-only");
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+}
+
 /** 直连 API 的鉴权头（同 `blueprint-contract-gap-audit.spec.ts` 的既有规矩）。 */
 async function authHeaders(page: Page): Promise<Record<string, string>> {
   const token = await page.evaluate((key) => window.localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
@@ -64,12 +76,13 @@ const ARTIFACT_TITLE = `右栏产物取证-${Date.now().toString(36)}`;
 test("issue #2046：上传附件随消息发出后右栏「材料」出现；@ 弹出候选并插入引用；落地产物后右栏「产物」读到", async ({ page }) => {
   await warmUpCopilotRuntimeRoute(page);
   await login(page);
-  await page.goto("/chat/copilotkit-v2");
+  await warmUpThreadRoute(page);
+  await page.goto("/chat");
 
   /* ═══════════ ① 建一条持久化线程，右栏从首帧就在（空态如实） ═══════════ */
   await page.getByTestId("chat-thread-create").click();
-  await page.waitForURL(/\/chat\/copilotkit-v2\/[^/]+$/, { timeout: 60_000 });
-  const threadId = /\/chat\/copilotkit-v2\/([^/?#]+)/.exec(page.url())?.[1];
+  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
+  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId).toBeTruthy();
 
   await expect(page.getByTestId("copilotkit-v2-right-panel")).toBeVisible();

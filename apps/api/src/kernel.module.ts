@@ -262,6 +262,7 @@ import { ARTIFACT_LANDING_REPOSITORY } from "./application/chat/artifact-landing
 import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
 import {
   CHAT_MESSAGE_COMMAND_REPOSITORY,
+  DEFAULT_AGENT_RESOLVER,
   PUBLISHED_AGENT_READER,
   THREAD_MOUNTED_SKILL_READER,
 } from "./application/chat/message-command-ports";
@@ -1177,6 +1178,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           : undefined,
       ),
       inject: [DATABASE_PORT],
+    },
+    {
+      // #2038 —— 与 PUBLISHED_AGENT_READER 同一个实例（PgPublishedAgentReader 同时
+      // 实现两个接口），不开第二条 SQL 旁路；见 DefaultAgentResolver 端口文档。
+      provide: DEFAULT_AGENT_RESOLVER,
+      useExisting: PUBLISHED_AGENT_READER,
     },
     // #414. 三个 provider，职责各一：run 状态与 append-only 步骤的持久化、
     // **唯一**已配置 provider 的模型调用、以及受理后触发执行的执行器。

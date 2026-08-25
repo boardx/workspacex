@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 
 /**
- * DA-19g —— `/chat/copilotkit-v2` 语音输入（评分循环第 1 轮第 5 项缺口，
+ * DA-19g —— `/chat` 语音输入（评分循环第 1 轮第 5 项缺口，
  * `.harness/state/copilotkit-v2-ux-acceptance-score.md` 第 5 项：新面板此前完全没有
  * 麦克风入口，`grep -rni "mic|voice|audio|asr"` 零命中）。
  *
@@ -39,7 +39,7 @@ test("DA-19g 真实实测：copilotkit-v2 面板麦克风实时转录进输入�
     )
     .toBe(200);
 
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   const micButton = page.getByTestId("chat-mic-button");
   await expect(micButton).toBeVisible();

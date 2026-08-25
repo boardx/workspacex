@@ -31,7 +31,15 @@ export async function createChatWave2FixtureSchema(client: FixtureClient): Promi
       -- a production tenant table or enter the freeze-policy catalog.
       org_id text NOT NULL,
       status text NOT NULL,
-      published_version_id text NULL
+      published_version_id text NULL,
+      -- #2038: PgPublishedAgentReader.resolveDefaultAgentId ORDER BYs on these two
+      -- production columns (20260804150000_wave2_agent_starter_import.sql:9,13). Nullable /
+      -- defaulted so existing fixture INSERTs stay valid; the reader's ORDER BY is written
+      -- null-safe (COALESCE) for exactly this shape. Same strict-subset discipline as
+      -- agent_versions.instructions below. First hit for real: the chat-read e2e stack's
+      -- default-resolution turns 500ed with "column a.stable_name does not exist".
+      stable_name text NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE TABLE IF NOT EXISTS chat_wave2_fixture.agent_versions (
       id text PRIMARY KEY,
@@ -51,6 +59,8 @@ export async function createChatWave2FixtureSchema(client: FixtureClient): Promi
     -- CREATE TABLE IF NOT EXISTS is then a no-op against an older shape, so a column added
     -- here must also be added to whatever already exists.
     ALTER TABLE chat_wave2_fixture.agent_versions ADD COLUMN IF NOT EXISTS instructions text NOT NULL DEFAULT '';
+    ALTER TABLE chat_wave2_fixture.agents ADD COLUMN IF NOT EXISTS stable_name text NULL;
+    ALTER TABLE chat_wave2_fixture.agents ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT now();
     DO $$
     DECLARE t text;
     BEGIN
