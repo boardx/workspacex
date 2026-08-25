@@ -437,3 +437,148 @@ wsx-80639954f22eed43dd96 down -v` 释放，`docker ps` 复核确认该栈已完�
 （`scratchpad/wt-da19g-round4`）未对产品代码做任何改动，仅用于跑既有测试取证
 与提交本状态文件。
 
+## 第 5 轮（覆盖 `79ea2504`，issue #2012，第 1/7 两项独立复核）
+
+> ⚠ 编号说明：本节最初以 PR #2013 提交时记成"第 4 轮"（开工时基线是 `79ea2504`，
+> 尚不知道另一条同样实测 `79ea2504` 的 PR #2011 会先合入）——rebase 到 `origin/main`
+> 时发现 PR #2011（HITL approve/edit/reject 三条路径，只动第 9/10 两项）已经先落地
+> 并占用了"第 4 轮"这个编号，这里改成"第 5 轮"，基线也相应从"第 3 轮"改成
+> "第 4 轮"（`5da939b5`，即 PR #2011 的合并提交）。除了编号与对照基线，下面的实测
+> 内容与结论未变——第 1/7 两项与 PR #2011 touch 的范围（`copilotkit-agui.
+> controller.ts` 的 `writeToolCallStep`/HITL 相关改动）互不重叠，不需要重新验证。
+
+- **评分日期**：2026-08-25
+- **实测 SHA**：`79ea2504`（`origin/main` 尖端，PR #2010 的合并提交，HITL
+  approve/edit/reject 首次实现——本轮不涉及这部分改动，只是本轮开工时的基线）。
+- **方法**：独立隔离 worktree（`scratchpad/wt-da19g-streaming-error`），未碰共享
+  主目录。本轮任务是"先搞清楚是代码有真实缺陷还是只是没人做过严格验证"，对第 1/7
+  两项分别新增正式回归测试（不是临时取证脚本），跑 `pnpm --filter web exec
+  playwright test --config playwright.chat-read.config.ts <spec> --workers=1`。
+
+### 第 1 项：流式反馈的 UI 帧级独立复核 —— 结论：验证坐实，非产品缺陷
+
+新增 `copilotkit-v2-stream-frame-timing.spec.ts`：发送前用 `MutationObserver` 挂在
+`copilotkit-v2-messages` 容器上，记录 `chat-ai-markdown`（assistant 正文渲染容器）
+`textContent.length` 随时间变化的真实序列，不依赖 wire 级证据、不用固定 sleep 猜
+时序。
+
+实测采样序列（`--workers=1` 单独重跑）：`[0, 32, 72, 112, 115]`——单调递增、4 个
+真实增长点，跨约 1 秒钟真实展开，首个非零样本在总时长早期即出现（28% 处），
+没有一次跳变吃掉超过 60% 的总增量。
+
+**一个如实记录的新发现**（不是本轮要修的缺陷）：wire 级按 8 字符/80ms 切片，对
+~115 字符的回复应有 ~14 个 delta，但浏览器 DOM 实际只提交了 4 次可观察的文本
+增长——客户端确实把多个 wire delta 合并进了更少的 React 渲染批次（`@copilotkit/
+react-core/v2` 的 `useAgent` 内部用 `queueMicrotask` 做 `batchedForceUpdate`，
+`subscribeToAgentWithOptions` 的 `throttleMs` 本仓未设置、默认值为 0——排查后
+认为合批发生在更底层的消息累积逻辑，不是本仓自己代码加的节流：`copilotkit-v2-
+panel.tsx`/`markdown-message.tsx` 都没有任何 throttle/debounce/RAF 逻辑）。
+粒度比 wire 粗，但增长过程仍然是"分多步、跨约 1 秒真实展开"，不是"等生成完再
+一次性跳出"——按判据原文"token 是否真实逐个出现（不是等全部生成完再一次性
+渲染）"，这仍然算真实的渐进式反馈，只是渲染合批粒度比 wire 粗，登记为
+"值得记录但不构成本项判 0/判低分理由"的观测结果，留给未来如果要做更细粒度渲染
+优化时参考。
+
+**结论**：第 1 项此前三轮反复记录"wire 级证据扎实、UI 侧独立复核缺失"——本轮把
+这条验证缺口补上，**没有改动任何产品代码**，是纯粹的"验证坐实"，不是缺陷修复。
+
+**分数：0.6 → 0.8**（wire + UI 两级证据都补齐，仍不打满分：粒度比 wire 粗这件事
+本身值得记一笔，且没有专门验证过更长回复/更极端网络条件下这个合批粒度是否稳定）。
+
+### 第 7 项：错误处理透明度 —— 结论：发现真实缺陷，本轮已修
+
+#### ①"清空 token 后必须失败"用例：坐实为并行噪音，非功能回归
+
+`--workers=1` 单独重跑这一条用例：**真实通过**（21.2s）。本轮同时在一次全量并行跑
+里额外抓到过一次这条用例失败的完整堆栈（诊断信息比前几轮更精确）：`route.fetch()`
+报 `"Test ended"`，拦截到的**不是**测试自己在等待的那条 `run` 请求，而是同一个
+面板背景触发的 `POST /api/copilotkit/agent/default/suggest`（`useConfigureSuggestions`
+每次消息变化后台自动发起的建议请求）——测试的 `page.route()` 匹配器写的是"任何
+非 `/info` 的 `/api/copilotkit/` POST"，偏宽；`run` 请求完成、测试断言完就结束，
+但同一个页面几乎同时触发的 `suggest` 请求恰好也被同一个路由钩子截住，其
+`route.fetch()` 还没解决完，测试已经收尾——是**同一条测试自己的**背景请求与
+主请求竞态，不是"上一条用例的清理还没完成"（此前几轮的猜测方向）。这个更精确的
+根因不改变结论：不是功能回归，是这条测试自身的路由匹配器过宽导致的偶发噪音，
+本轮不在该既有测试文件改动（不在本任务范围，且改动会影响其它复用同一模式的
+测试），如实记录根因供未来需要时参考。
+
+#### ② 新增测试：真实失败场景下 UI 是否出现人类可读横幅 —— 发现真实缺陷并已修复
+
+新增 `copilotkit-v2-error-banner.spec.ts`：触发 `deepAgentFailureTrigger`（同一条
+`execute-run.ts`/`deep-agent-model-provider.ts` 管线在 `/chat` 主路径已有使用先例，
+`/chat/copilotkit-v2` 走的是同一条执行管线，只是传输层换成 AG-UI `RUN_ERROR`
+事件）。
+
+**首次运行（未修复）：真实失败**——等待 45 秒，`copilotkit-v2-error` 横幅
+**从未出现**（`toHaveCount(1)` 超时，收到 0 个元素）。排查确认真实根因：
+`copilotkit-v2-panel.tsx` 的 `send()` 只在 `await copilotkit.runAgent(...)` **自己
+抛出 JS 异常**时才 `setError(...)`——但 `copilotkit-agui.controller.ts` 把后端失败
+折成的 AG-UI `RUN_ERROR` **事件**（`outcome.error`，例如 `MODEL_CALL_FAILED`）
+走的是另一条路：`@copilotkit/core` 的 `CopilotKitCore.runAgent()`
+（`node_modules/@copilotkit/core/dist/index.mjs`）内部把这类"由已收到的 SSE 事件
+描述的失败"完全吸收掉，只经内部 `copilotkit.subscribe({ onError })` 总线广播，
+`await copilotkit.runAgent(...)` 这次调用本身**正常 resolve、不 throw**。
+这条独立的错误总线此前**从未被这个面板监听过**——不是"文案不够人话"这种表层
+问题，是这条路径压根没有把错误亮给用户看，这正是本项连续三轮卡在 0.5 分、
+"清空 token"用例本身也测不出这个缺口的真正原因（那条用例只断言 wire 字节，
+从不断言 UI 横幅）。
+
+**修复**（`copilotkit-v2-panel.tsx` 新增 `copilotkit.subscribe({ onError })`
+订阅 + `apps/web/lib/copilotkit-v2-error-copy.ts` 新增文案映射）：
+- 面板新增一个 `useEffect`，订阅 `copilotkit.subscribe({ onError })`，只处理
+  `agent_run_error_event`/`agent_run_failed_event`/`agent_run_failed`/
+  `agent_thread_locked` 四类与本 agent 运行相关的错误码（按 `context.agentId`
+  收窄到当前面板自己的 agent，不误报其它并存 agent），提取
+  `context.runtimeErrorCode`（即 `RUN_ERROR` 事件的 `code`，例如
+  `MODEL_CALL_FAILED`）译成人读文案后 `setError(...)`。
+- 新增 `describeCopilotkitV2RunError(code)`：① `wave2Runtime.AgentRunError`
+  枚举内的码复用 `apps/web/lib/agent-run.ts` 的 `describeAgentRunError`
+  （UX-9 track B 第 7 项已有先例，同一份文案单一事实源，不重开一份措辞）；
+  ② `copilotkit-agui.controller.ts` 自己额外产生的传输层码
+  （`AGENT_RUN_TIMEOUT`/`THREAD_NOT_VISIBLE`/`NO_WRITE_ROLE`/... 共 13 个）
+  单独给一份文案；③ 未登记的陌生码给诚实但不带原始枚举字面量的兜底文案。
+  既有的 `catch` 分支（真实 JS 异常场景）也改走同一份映射，不再单独拼一句可能
+  带英文技术细节的 `e.message`。
+
+**修复后复核（真实浏览器，`--workers=1`）：三项全部真实通过**——
+① `copilotkit-v2-error` 横幅真的渲染出来（不再是静默卡住）；
+② 横幅文案是人读的（`MODEL_CALL_FAILED` 译成"模型这次没能返回可用结果"，
+逐一断言横幅文本不包含 14 个已知裸枚举码字面量，全部通过）；
+③ 横幅出现后界面仍可正常使用——不是伴随一次新的死锁：`copilotkit-v2-send`
+重新可点击、输入框可编辑，紧接着发送第二条消息真实成功、真实落定
+（`agent.isRunning` 回到 `false`）。
+
+**分数：0.5 → 1.0**——本轮既坐实了"清空 token"用例失败确实是噪音（更精确的
+根因：同一测试自己的背景 `/suggest` 请求竞态，不是跨用例污染），也发现并修复了
+一个真实的、连续三轮都没被任何既有测试覆盖到的缺陷（AG-UI `RUN_ERROR` 事件从未
+被这个面板监听过，横幅永远不出现），修复后三条真实浏览器断言全部通过。
+
+### 本轮小计（仅第 1/7 两项，未重新逐项复核其余 8 项；对照基线改为第 4 轮 `5da939b5`）
+
+本轮完成新测试之后才发现 PR #2011 已先合入并占用了"第 4 轮"编号，且它把第 9/10
+两项从 0.7 分别提到了 1.0——下面的对照表改用 PR #2011 落地后的第 4 轮分数做基线
+（不是本轮开工时的第 3 轮分数），第 9/10 两项本轮未涉及，原样带入。
+
+| 项 | 第 4 轮（`5da939b5`） | 第 5 轮 | 变化 | 结论 |
+|---|---|---|---|---|
+| 1 流式反馈 | 0.6 | 0.8 | **+0.2** | 验证坐实，非产品缺陷；粒度比 wire 粗，登记但不影响判据 |
+| 7 错误处理透明度 | 0.5 | 1.0 | **+0.5** | 发现真实缺陷（RUN_ERROR 事件从未接线）并已修复，三项真实断言通过 |
+| 9 控制感 | 1.0 | 1.0（未复核） | 0 | PR #2011 已修好，本轮改动范围不触及，原样带入 |
+| 10 整体连贯性 | 1.0 | 1.0（未复核） | 0 | 同上 |
+| 其余 6 项 | 0.8/0.7/0.3/1.0/1.0/1.0 | 未复核 | — | 本轮改动范围只在 `copilotkit-v2-panel.tsx`（新增 `onError` 订阅）+
+  新增 `copilotkit-v2-error-copy.ts`，未触碰其它 8 项各自依赖的代码路径；建议下一轮
+  跑一次全量回归确认无退步（本轮已跑过一次全量 `verify:chat-read` 作为回归网——
+  40 passed + 1 个已坐实的既有"清空 token"噪音失败，未发现新回归，但未逐项重新
+  打分，仍建议下一轮正式复核一次） |
+
+若沿用第 4 轮其余 8 项分数不变，总分从 **7.5 → 8.5**
+（0.8+0.8+0.7+0.3+1.0+1.0+1.0+1.0+1.0+1.0=8.6，向下取整到 0.5 步进 → **8.5**）
+——这是**假设其余 8 项无退步**的推算值（有一次全量回归跑作为交叉验证，但未逐项
+单独打分复核），下一轮应补一次正式的全量回归逐项复核坐实。
+
+### 本轮清理
+本轮 docker compose 栈（`with-test-isolation.ts` 各次调用）均已随脚本自身
+teardown 释放。隔离 worktree（`scratchpad/wt-da19g-streaming-error`）未碰共享
+主目录。
+
+

@@ -15,6 +15,7 @@ import {
 } from "@copilotkit/react-core/v2";
 import { Pencil, Mic, Loader2 } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
+import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
@@ -445,6 +446,50 @@ export function CopilotKitV2Panel(): JSX.Element {
   const [inputDraft, setInputDraft] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
 
+  /**
+   * DA-19g -- 真实缺陷修复（chat-ux-acceptance-criteria.md 第 7 项"错误处理透明度"，
+   * `copilotkit-v2-error-banner.spec.ts` 实测抓到，见 `copilotkit-v2-error-copy.ts`
+   * 文件头完整排查记录）。
+   *
+   * `send()` 下面那句 `try { await copilotkit.runAgent(...) } catch (e) { setError(...) }`
+   * 只能捕获"这次调用本身抛出的 JS 异常"（网络层错误、`agent.detachActiveRun()` 失败等）
+   * ——它**捕获不到**"run 正常收到了一条 AG-UI `RUN_ERROR` 事件"这种失败：
+   * `@copilotkit/core` 的 `CopilotKitCore.runAgent()` 把这类失败完全在内部吸收，
+   * 只经 `copilotkit.subscribe({ onError })` 这条独立总线广播，外层 `await` 正常
+   * resolve、不 throw。`deepAgentFailureTrigger`（真实模型调用失败，`RUN_ERROR` 码为
+   * `MODEL_CALL_FAILED`）走的正是这条从未被监听过的路径——横幅因此从未出现过，
+   * 不是文案不够人话，是这条路径压根没接错误状态。
+   */
+  React.useEffect(() => {
+    const { unsubscribe } = copilotkit.subscribe({
+      onError: ({ code, error: runError, context: errorContext }) => {
+        if (
+          code !== "agent_run_error_event" &&
+          code !== "agent_run_failed_event" &&
+          code !== "agent_run_failed" &&
+          code !== "agent_thread_locked"
+        ) {
+          return;
+        }
+        const agentIdInContext =
+          typeof errorContext === "object" && errorContext !== null && "agentId" in errorContext
+            ? (errorContext as { agentId?: unknown }).agentId
+            : undefined;
+        // 只处理这个面板自己这条 agent 的失败，不误报其它并存 agent（本面板目前只有
+        // 一个，这里仍然显式收窄——防的是这份 hook 以后被复用到多 agent 场景时悄悄
+        // 越权报错，`agent-access.md` 同一条纪律）。
+        if (agentIdInContext !== undefined && agentIdInContext !== threadId) return;
+        const runtimeCode =
+          typeof errorContext === "object" && errorContext !== null && "runtimeErrorCode" in errorContext
+            ? (errorContext as { runtimeErrorCode?: unknown }).runtimeErrorCode
+            : undefined;
+        const code_ = typeof runtimeCode === "string" ? runtimeCode : runError.message;
+        setError(describeCopilotkitV2RunError(code_));
+      },
+    });
+    return unsubscribe;
+  }, [copilotkit, threadId]);
+
   // DA-13 -- subscribe to the agent instance directly (not scoped to a single
   // `runAgent()` call) so a file created in one turn keeps receiving content deltas in
   // later turns. See the file-head comment above for why `agent.subscribe` is safe here.
@@ -574,7 +619,12 @@ export function CopilotKitV2Panel(): JSX.Element {
             : { agent },
         );
       } catch (e) {
-        setError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED");
+        // DA-19g -- 与上面 `copilotkit.subscribe({ onError })` 走同一份文案映射
+        // （`copilotkit-v2-error-copy.ts`），不在这条分支单独拼一句可能带原始异常
+        // message（往往是英文技术细节，同样不是人话）。这条分支现在只兜"`runAgent()`
+        // 自己抛出 JS 异常"这种更边缘的情况——常规的 `RUN_ERROR` 事件已经被上面的
+        // `onError` 订阅接住，不会再走到这里。
+        setError(describeCopilotkitV2RunError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED"));
       }
     },
     [agent, copilotkit, inputDraft],
