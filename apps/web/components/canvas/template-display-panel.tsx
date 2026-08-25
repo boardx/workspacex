@@ -105,7 +105,7 @@ export function TemplateDisplayPanel({
                     type="button"
                     disabled={!editable}
                     onClick={() => onPatch({ cols: n })}
-                    className={`flex flex-1 flex-col items-center gap-1 rounded-card border py-1.5 transition-colors duration-fast ${on ? "border-foreground bg-warning/10" : "border-border hover:bg-muted"}`}
+                    className={`flex flex-1 flex-col items-center gap-1 rounded-card border py-1.5 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? "border-foreground bg-warning/10" : "border-border hover:bg-muted"}`}
                     data-testid={`tpladmin-editor-cols-${n}`}
                   >
                     <span className="flex gap-px">
@@ -150,7 +150,7 @@ export function TemplateDisplayPanel({
                   disabled={!editable}
                   aria-label={`贴纸颜色 ${i + 1}`}
                   onClick={() => onPatch({ tone: i })}
-                  className="h-6 w-7 rounded-md transition-transform duration-fast hover:scale-105"
+                  className="h-6 w-7 rounded-md transition-transform duration-fast hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   style={{ background: color, border: `2px solid ${layout.tone === i ? "#14130F" : "transparent"}` }}
                   data-testid={`tpladmin-editor-tone-${i}`}
                 />
@@ -220,7 +220,7 @@ function Chips<T extends string | number>({
           type="button"
           disabled={!editable}
           onClick={() => onPick(o)}
-          className={`flex-1 whitespace-nowrap rounded-lg border px-1 py-1.5 text-10 font-semibold transition-colors duration-fast ${
+          className={`flex-1 whitespace-nowrap rounded-control border px-1 py-1.5 text-10 font-semibold transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             value === o ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-muted"
           }`}
           data-testid={`${testIdPrefix}-${o}`}

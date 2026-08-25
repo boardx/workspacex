@@ -213,8 +213,10 @@ export function TemplateEditorPanel({
             <button
               key={n}
               type="button"
-              className="flex items-center gap-1.5 transition-opacity duration-fast"
-              style={{ opacity: step === n ? 1 : 0.62 }}
+              className={`flex items-center gap-1.5 rounded-control px-1 py-0.5 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                step === n ? "text-foreground" : "text-muted-foreground"
+              }`}
+              aria-current={step === n ? "step" : undefined}
               onClick={() => { setStep(n); if (n === 1) setPromptOpen(true); }}
               data-testid={`tpladmin-editor-step-${n}`}
             >
@@ -371,7 +373,7 @@ export function TemplateEditorPanel({
                     key={t}
                     type="button"
                     onClick={() => setNewField((p) => ({ ...p, type: t }))}
-                    className={`whitespace-nowrap rounded-xl border px-2 py-1 text-10 transition-colors duration-fast ${
+                    className={`whitespace-nowrap rounded-control border px-2 py-1 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       newField.type === t ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                     data-testid={`tpladmin-editor-new-type-${t}`}
@@ -399,7 +401,7 @@ export function TemplateEditorPanel({
                   key={g}
                   type="button"
                   onClick={() => setGridCols(g)}
-                  className={`rounded-xl border px-2 py-0.5 text-10 transition-colors duration-fast ${
+                  className={`rounded-control border px-2 py-0.5 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     gridCols === g ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   data-testid={`tpladmin-editor-grid-${g}`}
@@ -410,8 +412,10 @@ export function TemplateEditorPanel({
               <button
                 type="button"
                 onClick={() => setShowSample((v) => !v)}
-                className="rounded-xl border border-border px-2 py-0.5 text-10 transition-colors duration-fast"
-                style={{ background: showSample ? "#F7E96E" : "transparent" }}
+                className={`rounded-control border border-border px-2 py-0.5 text-10 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  showSample ? "bg-warning/30" : "bg-transparent"
+                }`}
+                aria-pressed={showSample}
                 data-testid="tpladmin-editor-sample-toggle"
               >
                 样例数据

@@ -116,7 +116,7 @@ export function TemplateTagInput({
             <button
               key={`${s.isNew ? "new:" : ""}${s.tag}`}
               type="button"
-              className="flex items-center gap-2 border-b border-border-subtle px-2.5 py-1.5 text-left text-11 transition-colors duration-fast last:border-b-0 hover:bg-muted"
+              className="flex items-center gap-2 border-b border-border-subtle px-2.5 py-1.5 text-left text-11 transition-colors duration-fast last:border-b-0 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => add(s.tag)}
               data-testid={`${testIdPrefix}-suggestion-${s.tag}`}
             >
