@@ -227,12 +227,33 @@ test("TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差�
     "【差距 TW-A11Y-6】语音状态节点没有文本，等于只靠颜色/动画表达状态。",
   ).toBeGreaterThan(0);
 
-  // 可访问名必须跟着状态走（读屏软件读的是它，不是 CSS 颜色）。
+  /*
+   * 可访问名必须**与当前状态一致**（读屏软件读的是它，不是 CSS 颜色）。
+   *
+   * ⚠ 这里不能简单断言「名字变了」。真栈实测（issue #2075 第五轮）落到的是
+   * `error` 态——`无法启动语音识别，请重试。`——而在 error 态下按钮回到「开始语音输入」
+   * 是**正确**的（它现在的动作就是重新开始），错误本身由 `chat-mic-error` 那个带文本的
+   * 节点承担。断言「名字必须变」会把一个正确的实现判红。
+   * 正确的判据是**名字与状态的映射一一对上**：任何一态的名字都不许说谎。
+   * 这比「名字变了」严——一个恒定为「停止语音输入」的按钮能过前者，过不了这条。
+   */
+  const status = await micButton.getAttribute("data-mic-status");
+  const EXPECTED_LABEL: Record<string, string> = {
+    connecting: "正在连接语音识别…",
+    listening: "停止语音输入",
+    stopping: "正在停止…",
+    error: "开始语音输入",
+    idle: "开始语音输入",
+  };
   const label = await micButton.getAttribute("aria-label");
   expect(
     label,
-    `【差距 TW-A11Y-6】录音中按钮的可访问名没变（仍是「${label ?? ""}」），状态只活在颜色里。`,
-  ).not.toBe("开始语音输入");
+    [
+      `【差距 TW-A11Y-6】麦克风按钮的可访问名与状态对不上：data-mic-status=${status ?? "(无)"}，`,
+      `但 aria-label 是「${label ?? ""}」。屏幕阅读器读到的状态是错的。`,
+      `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-6。`,
+    ].join("\n"),
+  ).toBe(EXPECTED_LABEL[status ?? "idle"]);
 
   // 收尾：能停就停，别把一条开着的采音管线留给后面的用例（已是错误态则无需再点）。
   if ((await micButton.getAttribute("data-mic-status")) === "listening") {
