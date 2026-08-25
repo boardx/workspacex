@@ -4,8 +4,10 @@ import type { OrgId } from "../../domain/org-id";
 import { guard } from "../../application/security/permission-filter";
 import type {
   AcceptedHumanMessage, AcceptMessageOutcome, ChatMessageCommandRepository, MessageAttachment,
-  MessagePageRow, PublishedAgentReader, PublishedAgentSnapshot,
+  DefaultAgentResolver, MessagePageRow, PublishedAgentReader, PublishedAgentSnapshot,
 } from "../../application/chat/message-command-ports";
+import { agentDefaults } from "@repo/contracts";
+import { DEEP_AGENT_PROVIDER_NAME } from "../agent-run/deep-agent-model-provider";
 import { AttachmentNotPendingError } from "../../application/chat/message-command-ports";
 
 interface AcceptedDbRow {
@@ -206,7 +208,7 @@ export class PgChatMessageCommandRepository implements ChatMessageCommandReposit
  * Narrow #417 consumer adapter. Until #417 lands, absent catalog tables fail closed as an
  * unknown/unpublished Agent; no message/run write has happened at that point.
  */
-export class PgPublishedAgentReader implements PublishedAgentReader {
+export class PgPublishedAgentReader implements PublishedAgentReader, DefaultAgentResolver {
   private readonly schema: string;
 
   constructor(private readonly db: DatabasePort, schema = "public") {
@@ -241,6 +243,34 @@ export class PgPublishedAgentReader implements PublishedAgentReader {
         modelProvider: row.model_provider, modelId: row.model_id,
         instructions: row.instructions,
       };
+    });
+  }
+
+  /**
+   * #2038 —— 见 `DefaultAgentResolver` 端口文档：三级确定性排序（系统预置「通用助手」
+   * stable_name → deep-agent provider → created_at/id 最早），与 `resolvePublished`
+   * 同一个 JOIN 形状（enabled + published_at 非空），保证解析出来的 id 回头喂给
+   * `resolvePublished` 必然命中——不会推荐一个自己都跑不了的默认。
+   */
+  resolveDefaultAgentId(orgId: OrgId): Promise<string | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const tables = await s.query<{ ready: boolean }>(
+        "SELECT to_regclass($1) IS NOT NULL AND to_regclass($2) IS NOT NULL AS ready",
+        [`${this.schema}.agents`, `${this.schema}.agent_versions`],
+      );
+      if (!tables.rows[0]?.ready) return null;
+      const result = await s.query<{ agent_id: string }>(
+        `SELECT a.id AS agent_id
+           FROM "${this.schema}".agents a JOIN "${this.schema}".agent_versions v
+             ON v.id=a.published_version_id AND v.agent_id=a.id AND v.org_id=a.org_id
+          WHERE a.org_id=$1 AND a.status='enabled' AND v.published_at IS NOT NULL
+          ORDER BY COALESCE(a.stable_name = $2, false) DESC,
+                   COALESCE(v.model_provider = $3, false) DESC,
+                   a.created_at ASC, a.id ASC
+          LIMIT 1`,
+        [orgId, agentDefaults.DEFAULT_AGENT_STABLE_NAME, DEEP_AGENT_PROVIDER_NAME],
+      );
+      return result.rows[0]?.agent_id ?? null;
     });
   }
 }
