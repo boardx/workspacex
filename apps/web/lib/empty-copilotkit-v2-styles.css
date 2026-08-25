@@ -5,4 +5,10 @@
  * （`@layer base` 缺配对 `@tailwind base` 直接报语法错，整条引用它的路由编译失败）。
  * 用这份空文件替换掉那次 import，不影响 `useAgent`/`useCopilotKit`/`CopilotKit`
  * provider 本身的任何运行时行为——这几个 API 都不依赖这份样式表。
+ *
+ * ⚠ issue #2039 曾试图把框架节点的补样式写进本文件——实测不可行：这个替换发生在
+ * webpack 模块图/持久化缓存深处，dev 编译对它的内容变化不可靠地重新发射（真栈实测
+ * 两轮，规则从未出现在任何 emitted CSS 里）。框架节点的本仓补样式在
+ * `app/chat/copilotkit-v2/copilotkit-v2.css`（由该路由 layout 正常 import，走标准
+ * PostCSS 管线），本文件保持纯空。
  */

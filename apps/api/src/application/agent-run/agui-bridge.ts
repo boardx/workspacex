@@ -323,9 +323,14 @@ async function pollAguiRunToOutcome(
 
 async function resolveThreadId(deps: AguiBridgeDeps, input: AguiBridgeInput): Promise<string> {
   if (typeof input.threadId === "string" && input.threadId.trim() !== "") return input.threadId;
+  // issue #2039（UIUX 第 2 轮 gap #1）—— 标题此前是 `CopilotKit ${ISO 时间戳}`：
+  // 厂商词 + 机器时间戳直接成为左栏线程卡的用户可见标题（#1830 同类裁决：用户可见
+  // 文案不出现开发者词汇）。传 `null` 走 `titleForPersonalCreate` 的既有默认
+  // `DEFAULT_PERSONAL_THREAD_TITLE`（「新对话」）——与旧轨道「新建对话」同一个
+  // 文案事实源，不在这里再写一份字符串。时间信息本来就在卡片副行（lastActivityAt）。
   const created = await mutateThread(deps, {
     userId: input.userId, orgId: input.orgId, op: "create", projectId: null,
-    threadId: null, groupId: null, title: `CopilotKit ${new Date().toISOString()}`,
+    threadId: null, groupId: null, title: null,
     visibilityScope: null, expectedVersion: null, reason: null,
   });
   return created.threadId;

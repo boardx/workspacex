@@ -13,7 +13,7 @@ import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Pencil, Mic, Loader2 } from "lucide-react";
+import { Pencil, Mic, Loader2, AlertTriangle } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
@@ -451,12 +451,17 @@ function SendEmailApprovalDialog({
           <DialogDescription>批准前可编辑收件人/主题/正文，裁决后由框架恢复这次 run。</DialogDescription>
         </DialogHeader>
         {!editing ? (
-          <pre
-            className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted px-2 py-1 text-11 text-muted-foreground"
-            data-testid="copilotkit-v2-hitl-args"
-          >
-            {JSON.stringify(args, null, 2)}
-          </pre>
+          <div className="flex flex-col gap-1">
+            {/* issue #2039（第 3 轮 gap #5 的一半）——参数块加一个说明标签，
+                不再是一坨无标题 JSON 直接怼在标题下面。 */}
+            <p className="text-10 font-medium text-muted-foreground">工具参数（JSON）</p>
+            <pre
+              className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border-subtle bg-muted px-2 py-1.5 text-11 text-muted-foreground"
+              data-testid="copilotkit-v2-hitl-args"
+            >
+              {JSON.stringify(args, null, 2)}
+            </pre>
+          </div>
         ) : (
           <div>
             <textarea
@@ -495,9 +500,13 @@ function SendEmailApprovalDialog({
                 <Pencil aria-hidden className="h-3 w-3" />
                 编辑参数
               </Button>
+              {/* issue #2039（第 3 轮 gap #5 的另一半）——「拒绝」带 destructive
+                  语义色（outline 形态 + 红字），与「批准并继续」的 primary 拉开
+                  层级；此前三个按钮两个长得一模一样。 */}
               <Button
                 size="sm"
                 variant="outline"
+                className="border-destructive/40 text-destructive transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive"
                 data-testid="copilotkit-v2-hitl-reject"
                 onClick={() => {
                   close();
@@ -706,7 +715,14 @@ export function CopilotKitV2Panel({
           共同父层：两者的浮层共享「同一时刻只开一个」互斥（`useChatPopoverSlot`），
           与旧轨道 `chat-read-screen.tsx` 同一挂法（issue #1803 gap #3）。 */}
       <ChatPopoverCoordinatorProvider>
-      <div className="flex items-center gap-2" data-testid="copilotkit-v2-agent-toolbar">
+      {/* issue #2039（第 3 轮 gap #4）——此前这一行只有一个裸的「选择 Agent ▾」
+          幽灵按钮浮在页顶，与消息区没有任何层级关系。补一个 muted 说明标签 +
+          行底分隔线，让它读作「这个屏的会话设置行」。 */}
+      <div
+        className="flex flex-wrap items-center gap-2 border-b border-border-subtle pb-2"
+        data-testid="copilotkit-v2-agent-toolbar"
+      >
+        <span className="text-11 text-muted-foreground">发给</span>
         <AgentPicker
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           selectedAgentId={selectedAgentId ?? ""}
@@ -1025,6 +1041,13 @@ function CopilotKitV2PanelBody({
    */
   const [historyError, setHistoryError] = React.useState<string | null>(null);
   const hydratedRef = React.useRef(false);
+  /**
+   * issue #2039（UIUX 三轮迭代第 1 轮 gap #3 的一半，uiux-standards U1）——
+   * 历史回读在途时消息区不能是一片空白：`historyLoading` 只是上面这个既有
+   * hydration effect 的**渲染投影**（初值 = 有历史可读；effect 落定或失败时归
+   * false），不改变 hydration 逻辑本身一行。
+   */
+  const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
   React.useEffect(() => {
     if (initialChatThreadId === null || !isReady || hydratedRef.current) return;
     let cancelled = false;
@@ -1041,8 +1064,10 @@ function CopilotKitV2PanelBody({
           const liveIds = new Set(live.map((m) => m.id));
           agent.setMessages([...collected.filter((m) => !liveIds.has(m.id)), ...live]);
         }
+        setHistoryLoading(false);
       } catch (e) {
         if (cancelled) return;
+        setHistoryLoading(false);
         setHistoryError(e instanceof Error ? e.message : "历史消息读取失败");
       }
     })();
@@ -1282,23 +1307,63 @@ function CopilotKitV2PanelBody({
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
             与 #1830「用户可见文案去掉开发者词汇」同一条裁决，整行移除。 */}
         <div
-          className="flex-1 overflow-y-auto rounded border p-2"
+          className="flex-1 overflow-y-auto rounded-lg border border-border-subtle bg-card p-3"
           data-testid="copilotkit-v2-messages"
         >
-          <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
-            <CopilotChatMessageView
-              messages={agent.messages}
-              isRunning={agent.isRunning}
-              assistantMessage={{ markdownRenderer: V2MarkdownRenderer }}
-            />
-          </CopilotChatConfigurationProvider>
+          {/* issue #2039（第 1 轮 gap #3，uiux-standards U1/U2）——三态：
+              历史回读中 = 骨架屏；无消息 = 引导空态（此前是一整片空白）；
+              有消息 = 框架消息列表。空态只在真的没有任何消息时出现，不伪装历史。 */}
+          {historyLoading ? (
+            <div data-testid="loading" className="flex animate-pulse flex-col gap-3" aria-hidden>
+              <div className="h-10 w-2/3 rounded-lg bg-muted" />
+              <div className="ml-auto h-8 w-1/2 rounded-lg bg-muted" />
+              <div className="h-14 w-3/4 rounded-lg bg-muted" />
+            </div>
+          ) : agent.messages.length === 0 && !agent.isRunning ? (
+            <div
+              data-testid="copilotkit-v2-empty"
+              className="flex h-full flex-col items-center justify-center gap-2 py-12 text-center"
+            >
+              <p className="text-14 font-medium text-foreground">开始新的对话</p>
+              <p className="max-w-sm text-12 leading-relaxed text-muted-foreground">
+                在下方输入消息，或点麦克风语音输入；也可以拖入文件作为这轮对话的附件。
+              </p>
+            </div>
+          ) : (
+            // issue #2039（第 2 轮 gap #5）——阅读宽度约束：超宽屏上消息行不再
+            // 横贯全屏（Claude/ChatGPT 对话列同一处理），窄屏等于全宽无影响。
+            <div className="mx-auto w-full max-w-3xl">
+              <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+                <CopilotChatMessageView
+                  messages={agent.messages}
+                  isRunning={agent.isRunning}
+                  assistantMessage={{ markdownRenderer: V2MarkdownRenderer }}
+                />
+              </CopilotChatConfigurationProvider>
+            </div>
+          )}
         </div>
+        {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
+            浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
+            一行未动，只动展示层。 */}
         {error !== null ? (
-          <div data-testid="copilotkit-v2-error" className="text-sm text-destructive">{error}</div>
+          <div
+            role="alert"
+            data-testid="copilotkit-v2-error"
+            className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-12 text-destructive"
+          >
+            <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1">{error}</span>
+          </div>
         ) : null}
         {historyError !== null ? (
-          <div data-testid="copilotkit-v2-history-error" className="text-sm text-destructive">
-            历史消息读取失败：{historyError}
+          <div
+            role="alert"
+            data-testid="copilotkit-v2-history-error"
+            className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-12 text-destructive"
+          >
+            <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1">历史消息读取失败：{historyError}</span>
           </div>
         ) : null}
         {/* issue #2053（CK-P8）—— 归档线程不给追问建议：每一条 chip 点下去都是一次
@@ -1314,6 +1379,21 @@ function CopilotKitV2PanelBody({
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
         {archived ? null : <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />}
+        {/* issue #2039（第 3 轮 gap #1，chat-ux-acceptance-criteria 第 9 项「控制感」）
+            ——run 在途时 composer 上方一条行内状态条（读真实 `agent.isRunning`，
+            不是定时器动画）；此前唯一信号是发送按钮变「…」，太隐晦。 */}
+        {agent.isRunning ? (
+          <p
+            data-testid="copilotkit-v2-running-indicator"
+            className="flex items-center gap-1.5 rounded-md border border-border-subtle bg-muted px-3 py-1.5 text-11 text-muted-foreground"
+          >
+            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+            正在生成回复……完成前发送按钮暂不可用。
+          </p>
+        ) : null}
+        {/* issue #2039（第 1 轮 gap #5）——composer 收口：placeholder 从「随便输入点什么」
+            换成明确的动作指引；发送按钮升为 primary（旧屏 composer 的发送就是主行动点）；
+            `min-w-0` 防手机宽度下输入框把整行撑溢出。 */}
         {/* issue #2046（CK-P2）—— `@` 引用本线程已上传附件的候选下拉。纯前端插入，
             testid 与旧轨道同名（`chat-attachment-mention-*`），语义相同不另造锚点；
             没有匹配项时如实显示空态，不隐藏整个下拉——用户需要分得清「@ 打对了但
@@ -1385,16 +1465,19 @@ function CopilotKitV2PanelBody({
             ) : null}
           </div>
         ) : null}
-        <div className="flex gap-2">
+        {/* 并集解（issue #2039 × #2053）：布局/字级/placeholder 用 UIUX 迭代线的版本
+            （min-w-0 防移动端溢出、rounded-md、明确动作指引），归档禁用语义用
+            CK-P8 的版本——两者正交。 */}
+        <div className="flex min-w-0 items-center gap-2">
           <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} />
           <input
             data-testid="copilotkit-v2-input"
-            className="flex-1 rounded border border-input px-2 py-1 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
+            className="min-w-0 flex-1 rounded-md border border-input px-2.5 py-1.5 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
             /* issue #2053（CK-P8）—— 归档 ⇒ 输入框本身禁用。`archived` 首帧在服务端与
                客户端都是 `false`（外壳的 `getThread` 是客户端 effect），不存在麦克风按钮
                那条 `sessionToken` 式的 SSR/CSR 首帧分叉，可以直接接到 `disabled`。 */
             disabled={archived}
-            placeholder={archived ? "该对话已归档，不能再发送消息" : "随便输入点什么"}
+            placeholder={archived ? "该对话已归档，不能再发送消息" : "输入消息，Enter 发送"}
             value={inputDraft}
             onChange={(e) => {
               setInputDraft(e.target.value);
@@ -1462,15 +1545,17 @@ function CopilotKitV2PanelBody({
               <Mic aria-hidden className="h-3.5 w-3.5" />
             )}
           </Button>
-          <button
+          <Button
             data-testid="copilotkit-v2-send"
             type="button"
-            className="rounded border border-border px-3 py-1 text-sm text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+            size="sm"
+            variant="primary"
+            className="shrink-0"
             disabled={archived || agent.isRunning || attach.hasUploading}
             onClick={() => void send()}
           >
             {agent.isRunning ? "…" : "发送"}
-          </button>
+          </Button>
         </div>
         {speech.connecting ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-connecting">

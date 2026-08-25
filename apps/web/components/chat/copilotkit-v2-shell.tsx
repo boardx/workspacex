@@ -6,6 +6,8 @@ import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import {
   NewThreadButton, ThreadCardButton, ThreadListHeader,
 } from "@/components/chat/thread-list-shell";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
@@ -243,33 +245,80 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const cards = threads?.groups.flatMap((group) => group.cards) ?? [];
   const canCreate = threads?.capabilities.includes("thread.mutate") ?? true;
 
+  /**
+   * issue #2039（UIUX 三轮迭代第 1 轮 gap #2）—— 375px 响应式。此前 `w-64 shrink-0`
+   * 侧栏在手机宽度常驻，把主区压到 ~119px（真栈实测横向溢出 313px，
+   * `.copilotkit-v2-uiux/empty-mobile-375.png` 修复前版）。修法与旧轨道
+   * `personal-chat-screen.tsx` 的 list/detail 同一心智：<md 只显示两者之一，
+   * 顶部一个仅手机可见的开关在「对话列表 ↔ 当前对话」之间切换；≥md 两栏并排不变。
+   * 路由跳转（选中线程/新建）天然重挂载本组件，`mobileListOpen` 自动归位。
+   */
+  const [mobileListOpen, setMobileListOpen] = React.useState(false);
+
   return (
-    <div className="flex h-full w-full">
-      <aside className="flex w-64 shrink-0 flex-col gap-2 border-r border-border py-2" data-testid="copilotkit-v2-thread-sidebar">
-        <ThreadListHeader title="CopilotKit 对话" />
-        <div className="px-3">
+    <div className="flex h-full w-full min-w-0 flex-col md:flex-row">
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2 md:hidden">
+        <Button
+          size="xs"
+          variant="outline"
+          data-testid="copilotkit-v2-mobile-list-toggle"
+          aria-expanded={mobileListOpen}
+          onClick={() => setMobileListOpen((v) => !v)}
+        >
+          {mobileListOpen ? "返回当前对话" : "对话列表"}
+        </Button>
+      </div>
+      <aside
+        className={cn(
+          "w-full shrink-0 flex-col gap-2 border-r border-border py-2 md:flex md:w-64",
+          mobileListOpen ? "flex" : "hidden",
+        )}
+        data-testid="copilotkit-v2-thread-sidebar"
+      >
+        <ThreadListHeader />
+        <div className="flex flex-col gap-1.5 px-3">
           <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} />
+          {/* issue #2039（第 3 轮 gap #2，fidelity P2）——个人对话上下文如实说明，
+              与旧轨道 `personal-chat-screen.tsx` 同一句文案，不画假项目名填空。 */}
+          <p className="text-10 text-muted-foreground">不挂靠任何项目，仅自己可见</p>
         </div>
         {listError ? (
           <p className="px-3 text-11 text-destructive" data-testid="copilotkit-v2-thread-list-error">{listError}</p>
         ) : null}
         {!canCreate ? null : null}
         <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2" data-testid="copilotkit-v2-thread-list">
-          {cards.length === 0 ? (
+          {/* issue #2039（第 2 轮 gap #2）——此前 `flatMap` 把服务端已经分好的
+              「今天/本周」时间分组（`listPersonalThreads.out.groups[].label`，契约
+              封闭枚举）压平丢掉了（fidelity rubric D3 明确要求分组）。这里按组渲染
+              组头；空组服务端本来就不下发，不需要前端过滤。 */}
+          {/* issue #2039（第 3 轮 gap #3，uiux-standards U1）——列表在读（threads
+              还没回来）时给骨架行，不再闪一帧「还没有对话」的假空态。 */}
+          {threads === null && listError === null ? (
+            <div data-testid="loading" className="flex animate-pulse flex-col gap-2 px-1 py-2" aria-hidden>
+              <div className="h-12 rounded-md bg-muted" />
+              <div className="h-12 rounded-md bg-muted" />
+              <div className="h-12 rounded-md bg-muted" />
+            </div>
+          ) : cards.length === 0 ? (
             <p className="px-1 py-2 text-11 text-muted-foreground">还没有对话，点上面「新建对话」开始第一次对话</p>
           ) : (
-            cards.map((card) => (
-              <ThreadCardButton
-                key={card.id}
-                card={card}
-                selected={card.id === selectedThreadId}
-                onSelect={() => selectThread(card.id)}
-              />
+            (threads?.groups ?? []).map((group) => (
+              <React.Fragment key={group.label}>
+                <p className="px-1 pb-0.5 pt-2 text-10 font-medium text-muted-foreground">{group.label}</p>
+                {group.cards.map((card) => (
+                  <ThreadCardButton
+                    key={card.id}
+                    card={card}
+                    selected={card.id === selectedThreadId}
+                    onSelect={() => selectThread(card.id)}
+                  />
+                ))}
+              </React.Fragment>
             ))
           )}
         </div>
       </aside>
-      <div className="min-w-0 flex-1">
+      <div className={cn("min-w-0 flex-1", mobileListOpen ? "hidden md:block" : "block")}>
         {/*
           ⚠ `key` 用的是 `initialThreadId`（route 参数本身），不是 `selectedThreadId`
           （本组件内部状态）——两者绝大多数时候相等，但在

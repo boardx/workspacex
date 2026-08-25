@@ -232,11 +232,70 @@ export function CopilotKitV2ToolRenderers(): null {
     },
     [],
   );
-  // 其余工具（`read_document`/`lookup_time`/未来新增的工具）没有专属卡片，走框架自带的
-  // 默认可展开卡片——`useDefaultRenderTool()` 不传 `render` 就是"用内置默认卡片"
-  // （见 rendering-tool-calls.md "Wildcard fallback with the built-in card"），不要求
-  // 覆盖所有工具，与旧手写面板 `ToolChainStepBody` 的 `default: GenericToolBody`
-  // 同一条纪律：没有专属渲染不是缺陷，是设计。
-  useDefaultRenderTool();
+  // 其余工具（`read_document`/`lookup_time`/未来新增的工具）没有专属卡片，走通用
+  // 兜底卡——与旧手写面板 `ToolChainStepBody` 的 `default: GenericToolBody` 同一条
+  // 纪律：没有专属渲染不是缺陷，是设计。
+  //
+  // issue #2039（UIUX 三轮迭代第 1 轮 gap #4）：此前这里是 `useDefaultRenderTool()`
+  // 裸调用 =「用框架内置默认卡片」——但那张卡片的样式全部来自
+  // `@copilotkit/react-core/v2` 自带的 Tailwind v4 CSS，而本仓在 `next.config.mjs`
+  // 里把那份 CSS 替换成了空文件（Tailwind v3 管线装不下它，见
+  // `app/chat/copilotkit-v2/layout.tsx` 头注）——结果是内置卡片以完全无样式的
+  // 裸 DOM 渲染：真栈截图（`.copilotkit-v2-uiux/conversation-markdown.png` 修复前版）
+  // 里 `lookup_time` 那个巨大的裸 chevron SVG + 错位文本就是它。修法不是把厂商 CSS
+  // 接回来（管线装不下，且风格孤岛），而是给 wildcard 传本仓自己的 render——与上面
+  // 两张专属卡同一套 Card/token 视觉。
+  useDefaultRenderTool(
+    {
+      render: ({ name, status, parameters, result }) => (
+        <GenericToolCard name={name} status={status} parameters={parameters} result={result} />
+      ),
+    },
+    [],
+  );
   return null;
+}
+
+/**
+ * wildcard 兜底卡——工具名 + 三态图标 + 参数摘要（一行截断）+ 完成后的结果文本。
+ * 内容与框架内置默认卡等价（name/status/params/result 四件事实），只是视觉换成
+ * 本仓 Card/token，与 `WriteTodosCard`/`SearchDocumentsCard` 同一套语言。
+ */
+function GenericToolCard({
+  name,
+  status,
+  parameters,
+  result,
+}: {
+  name: string;
+  status: "inProgress" | "executing" | "complete";
+  parameters: unknown;
+  result: string | undefined;
+}) {
+  const paramsSummary = React.useMemo(() => {
+    if (parameters === undefined || parameters === null) return null;
+    try {
+      const text = typeof parameters === "string" ? parameters : JSON.stringify(parameters);
+      return text === "{}" || text === "" ? null : text;
+    } catch {
+      return null;
+    }
+  }, [parameters]);
+  return (
+    <Card data-testid="copilotkit-v2-tool-generic" data-tool-name={name} data-tool-status={status}>
+      <CardContent className="flex flex-col gap-1.5 p-2.5 text-11">
+        <div className="flex items-center gap-1.5 font-medium text-card-foreground">
+          <ToolStatusIcon status={status} />
+          <span className="font-mono">{name}</span>
+          {status !== "complete" ? <Badge tone="neutral">进行中</Badge> : null}
+        </div>
+        {paramsSummary !== null ? (
+          <p className="truncate font-mono text-10 text-muted-foreground">{paramsSummary}</p>
+        ) : null}
+        {status === "complete" && typeof result === "string" && result.trim() !== "" ? (
+          <p className="whitespace-pre-wrap break-words text-10 text-card-foreground">{result}</p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
 }
