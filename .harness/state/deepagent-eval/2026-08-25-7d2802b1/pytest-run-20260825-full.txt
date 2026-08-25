@@ -1,0 +1,63 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /Users/shenyanbin/Documents/workspacex/apps/deep-agent-service/.venv/bin/python3
+cachedir: .pytest_cache
+rootdir: /Users/shenyanbin/Documents/workspacex/apps/deep-agent-service
+configfile: pyproject.toml
+plugins: langsmith-0.11.0, anyio-4.14.2
+collecting ... collected 47 items
+
+tests/test_deep_agent_postgres_recovery.py::test_interrupt_survives_process_restart_and_resumes PASSED [  2%]
+tests/test_deep_agent_postgres_recovery.py::test_time_travel_rollback_and_fork PASSED [  4%]
+tests/test_guided_research_graph.py::test_new_thread_interrupts_at_brief PASSED [  6%]
+tests/test_guided_research_graph.py::test_route_command_can_reconfirm_completed_upstream_node PASSED [  8%]
+tests/test_guided_research_graph.py::test_future_node_command_is_rejected PASSED [ 10%]
+tests/test_guided_research_graph.py::test_same_request_pending_resumes_without_second_effect PASSED [ 12%]
+tests/test_guided_research_graph.py::test_brief_confirm_can_be_followed_by_generated_directions_state PASSED [ 14%]
+tests/test_guided_research_postgres_recovery.py::test_same_thread_resumes_after_process_restart PASSED [ 17%]
+tests/test_harness.py::test_write_todos_present_with_harness_middleware PASSED [ 19%]
+tests/test_harness.py::test_todo_tool_absent_without_middleware PASSED   [ 21%]
+tests/test_harness.py::test_summarization_settings_pinned PASSED         [ 23%]
+tests/test_harness.py::test_checkpointer_none_without_dsn PASSED         [ 25%]
+tests/test_harness.py::test_checkpointer_fails_closed_on_bad_dsn PASSED  [ 27%]
+tests/test_harness.py::test_version_floor_matches_lock PASSED            [ 29%]
+tests/test_harness.py::test_hitl_interrupts_before_sensitive_tool PASSED [ 31%]
+tests/test_harness.py::test_hitl_resume_approve_runs_tool PASSED         [ 34%]
+tests/test_harness.py::test_hitl_resume_reject_tool_not_executed PASSED  [ 36%]
+tests/test_harness.py::test_hitl_resume_edit_uses_edited_args PASSED     [ 38%]
+tests/test_harness.py::test_hitl_off_by_default PASSED                   [ 40%]
+tests/test_harness.py::test_hitl_env_parsing PASSED                      [ 42%]
+tests/test_harness.py::test_large_tool_result_evicted_to_file PASSED     [ 44%]
+tests/test_harness.py::test_small_tool_result_stays_inline PASSED        [ 46%]
+tests/test_harness.py::test_evict_threshold_pinned PASSED                [ 48%]
+tests/test_harness.py::test_model_call_budget_ends_run_with_notice PASSED [ 51%]
+tests/test_harness.py::test_tool_call_limit_injects_correction PASSED    [ 53%]
+tests/test_harness.py::test_tool_retry_recovers_transient_failure PASSED [ 55%]
+tests/test_harness.py::test_budget_thresholds_pinned PASSED              [ 57%]
+tests/test_harness.py::test_subagents_off_by_default PASSED              [ 59%]
+tests/test_harness.py::test_subagent_config_pinned PASSED                [ 61%]
+tests/test_harness.py::test_task_tool_advertises_named_subagent PASSED   [ 63%]
+tests/test_harness.py::test_subagent_delegation_really_happens PASSED    [ 65%]
+tests/test_model.py::test_build_chat_model_fails_closed_when_base_url_missing PASSED [ 68%]
+tests/test_model.py::test_build_chat_model_fails_closed_when_api_key_missing PASSED [ 70%]
+tests/test_model.py::test_build_chat_model_uses_configured_model_id PASSED [ 72%]
+tests/test_model.py::test_build_chat_model_defaults_model_id_when_unset PASSED [ 74%]
+tests/test_tools.py::test_list_org_skills_lists_pinned_skills PASSED     [ 76%]
+tests/test_tools.py::test_list_org_skills_empty_when_none_pinned PASSED  [ 78%]
+tests/test_tools.py::test_call_skill_makes_a_real_model_call_with_skill_content_as_system_prompt PASSED [ 80%]
+tests/test_tools.py::test_call_skill_unknown_skill_never_calls_the_model PASSED [ 82%]
+tests/test_tools.py::test_call_skill_empty_content_is_a_failure_not_an_empty_reply PASSED [ 85%]
+tests/test_tools.py::test_call_skill_model_exception_returns_text_never_raises PASSED [ 87%]
+tests/test_tools.py::test_call_skill_appends_the_protocol_after_the_skill_body PASSED [ 89%]
+tests/test_tools.py::test_call_skill_without_the_protocol_sends_the_skill_body_verbatim PASSED [ 91%]
+tests/test_tools.py::test_a_blank_protocol_is_treated_as_absent_not_as_a_trailing_separator PASSED [ 93%]
+tests/test_tracing.py::test_agent_run_produces_a_real_trace_id_linked_to_thread_id PASSED [ 95%]
+tests/test_tracing.py::test_no_spans_without_tracer PASSED               [ 97%]
+tests/test_tracing.py::test_otel_disabled_env_yields_no_callbacks PASSED [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.14/site-packages/google/genai/types.py:42
+  /Users/shenyanbin/Documents/workspacex/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 47 passed, 1 warning in 4.26s =========================
