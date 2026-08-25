@@ -76,12 +76,20 @@ test("CK-P3 逐条消息操作——复制真进剪贴板、评分 POST 真被�
 
   const userText = "issue #2054 消息级操作取证";
   await page.getByTestId("copilotkit-v2-input").fill(userText);
-  await page.getByTestId("copilotkit-v2-send").click();
 
   // ── CK-P4 进度行：run 在途期间"已用 N 秒"真的出现 ────────────────────────────
-  // ⚠ 这一条必须在等回复**之前**断言：loopback 回复很快，等它落地后进度行已经收场。
-  //   拿不到就说明进度行压根没接上 `RUN_STARTED`（或者接了但被 `isRunning` 门死）。
-  await expect(page.getByTestId("copilotkit-v2-thinking-elapsed")).toBeVisible({ timeout: 30_000 });
+  // ⚠ 监听必须在 click **之前**就挂上。进度行是**瞬态**的：loopback 一轮只要一两秒，
+  //   而 `expect(...).toBeVisible()` 是"点完之后才开始轮询"——中间那段间隙里进度行
+  //   完全可能出现又收场，于是断言看到的是一个已经正确收尾的界面，却报 element not
+  //   found。第一版就是这么写的，前两轮侥幸绿、rebase 后机器慢下来当场红（不是代码
+  //   回归：`runProgress` 接线一行没动）。`waitForSelector` 在 click 前建立订阅，
+  //   没有这段间隙。
+  const thinkingAppeared = page.waitForSelector(
+    "[data-testid=\"copilotkit-v2-thinking-elapsed\"]",
+    { state: "attached", timeout: 60_000 },
+  );
+  await page.getByTestId("copilotkit-v2-send").click();
+  await thinkingAppeared;
 
   const messages = page.getByTestId("copilotkit-v2-messages");
   await expect(messages).toContainText(CHAT_READ_E2E.agentReplyPrefix, { timeout: 60_000 });
