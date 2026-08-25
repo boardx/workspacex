@@ -437,23 +437,35 @@ DA-19h（旧轨道退役，等 g 且人类确认翻转默认值）
 > 不再列。每项照旧走 issue→PR→merge-base 核验→合入 main 的完整流程。
 
 **CK-P0 路由原生化 + AppShell 框架嵌入**（人类 2026-08-25 原话「路由要改为 chat…
-潜入到整体框架」）——已派工在途。
+潜入到整体框架」）—— ✅ 已合入 main（#2044 / PR #2049）。
 
 **CK-P1 右栏：上传文件列表（材料）+ 产物栏**（人类 2026-08-25 点名「需要有右边的
-上传的文件列表和产物，现在都没有」）
-- 对应差距表 #2 的右栏部分 + #5（落地为产物 + `ChatArtifactsPanel`）。
-- 复用旧壳 `ChatMaterialsPanel`/`ChatArtifactsPanel` 与其数据链，右栏与 DA-13 的
-  `ActiveFilePanel` 共处（分页签或分区，服从 fidelity rubric，禁风格孤岛）。
-- #5 里 slot 不透传 messageId 的已知障碍：按 DA-19b 头注记录的"slot 边界外另开
-  通道"方案先做设计说明再动手，不做假入口。
+上传的文件列表和产物，现在都没有」）—— ✅ 实现完成（#2046 / PR #2048，真栈 e2e
+`copilotkit-v2-right-panel.spec.ts` 绿）。
+- 复用旧壳 `ChatMaterialsPanel`/`ChatArtifactsPanel` 与其数据链；`ActiveFilePanel`
+  （DA-13）留在面板内不动——DA-15 事件至今无真实生产者，生产环境不出现，不为一个
+  不出现的面板做布局迁移，等真实生产者落地再统一分区。
+- 材料栏头部「+」直传入口（#1758 形态）**未做**：composer 附件控制器含附件线程
+  生命周期在面板 Body 层，提升到 shell 是跨三层状态提升；📎 与全 surface 拖拽已在，
+  材料栏本轮为读侧。如实登记，不是漏做。
+- 差距表 #5「落地为产物」拆出为 **#2050**：读侧（产物栏）已随本项完成；逐条落地
+  **入口**需先取证「流式 assistant 消息 id 是否等于 `chat_messages.id`」——不取证
+  就接线会做出「点了才 404」的假按钮。`markdownRenderer` 子 slot 已确认走不通
+  （只暴露 `content`），可行通道是覆盖 `assistantMessage` 整组件 slot（该层携带
+  `message`），详见 #2050，别再从子 slot 那条路进。
+- 连带修：`[threadId]` 页上「挂载即另建附件专用线程」（#2032）与持久化线程页
+  （#2028）合成后断裂——上传落在新建线程、`send()` 用 URL 线程，`acceptHumanMessage`
+  校验 attachmentIds 必须属本线程，带附件发送必 422、右栏材料永远看不到。
 
 **CK-P2 composer 命令：`@` 文件引用 + skill 触发符 `#`→`/`**（人类 2026-08-25
-点名，`/` 对齐 Claude Code 习惯）
-- `@`：引用本线程已上传附件（旧 composer 已有同款 mention 逻辑，平移）。
-- `/`：v2 轨道 skill 挂载触发符从 `#` 改 `/`（#2034 刚落的 mention 检测改字符 +
-  spec 同步）；旧轨道 `/chat/legacy` 不动（退役在即，不折腾）。
-- ⚠ `/` 与正文首字符斜杠的误触规则：仿旧 composer 对 `#`/`@` 的"遇空白即结束、
-  取更近光标者"纪律，加"仅行首或空白后生效"约束，避免路径/URL 误触。
+点名，`/` 对齐 Claude Code 习惯）—— ✅ 实现完成（#2046 / PR #2048）。
+- 检测规则单一事实源：`apps/web/lib/composer-mention-detection.ts`（纯函数 +
+  正反例单测）。`/` 仅行首或前一字符为空白时生效（`src/components`、URL 里的斜杠
+  不误触）；`@`/`/` 取更近光标者、遇空白即结束。
+- `@` 候选与右栏「材料」是同一份数据（shell 下传），不发第二次请求；选中插
+  `@文件名 `，靠 F155 filename 检索召回，不碰 `attachmentIds`。
+- `ChatSkillMountPanel` 加 `mentionTriggerChar`（缺省 `#`，旧轨道 `/chat/legacy`
+  行为零变化），v2 传 `/`。
 
 **CK-P3 消息级操作**：逐条复制、👍/👎 评分、agent 反馈（差距表 #7，组件现成）。
 

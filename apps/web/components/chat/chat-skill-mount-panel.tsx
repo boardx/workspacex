@@ -60,6 +60,7 @@ export function ChatSkillMountPanel({
   orgId,
   bearer,
   mentionQuery,
+  mentionTriggerChar = "#",
   onMentionMounted,
   onMountsChange,
 }: {
@@ -72,8 +73,15 @@ export function ChatSkillMountPanel({
   projectId?: string;
   orgId: string;
   bearer: string;
-  /** `null`/`undefined` = composer 里没有活跃的 `#` mention。 */
+  /** `null`/`undefined` = composer 里没有活跃的 mention。 */
   mentionQuery?: string | null;
+  /**
+   * issue #2046（CK-P2）—— mention 提示里显示的触发符。旧轨道 composer 用 `#`
+   * （缺省值，行为零变化）；CopilotKit v2 轨道 2026-08-25 人类裁决改用 `/`
+   * （对齐 Claude Code 习惯）。只影响提示文案显示，检测规则在各自 composer 里，
+   * 本面板不重复声明。
+   */
+  mentionTriggerChar?: "#" | "/";
   /** 由一次 mention 触发的挂载成功后调用——composer 借此清掉输入框里的 `#query`。 */
   onMentionMounted?: () => void;
   /**
@@ -331,7 +339,7 @@ export function ChatSkillMountPanel({
         >
           {mentionQuery ? (
             <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
-              # {mentionQuery}
+              {mentionTriggerChar} {mentionQuery}
             </span>
           ) : null}
           {pool.length === 0 ? (

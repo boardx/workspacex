@@ -133,7 +133,7 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
   ).toContainText(skillEcho);
 });
 
-test("issue #2020：composer 敲 # 触发挂载候选，选中即挂载并清掉正文里的 #query", async ({ page }) => {
+test("issue #2020/#2046：composer 敲 / 触发挂载候选（路径斜杠不误触），选中即挂载并清掉正文里的 /query", async ({ page }) => {
   await warmUpCopilotRuntimeRoute(page);
   await login(page);
   await warmUpThreadRoute(page);
@@ -147,13 +147,20 @@ test("issue #2020：composer 敲 # 触发挂载候选，选中即挂载并清掉
   expect(threadId).toBeTruthy();
   await expect(page.getByTestId("chat-skill-mount-panel")).toBeVisible();
 
-  /* `#` + 名字片段：候选面板以 mention 模式打开，并按片段过滤。
-     `pressSequentially` 逐键真实敲入（onChange + onKeyUp 都会触发，与真实用户一致）。 */
+  /* issue #2046（CK-P2）反例先行：路径里的斜杠（前一字符非空白）不触发 mention——
+     没有这条，下面「/ 触发了」的断言证明不了误触规则真的存在。 */
   const input = page.getByTestId("copilotkit-v2-input");
   await input.click();
-  await input.pressSequentially("#假设");
+  await input.pressSequentially("看看 src/components 目录");
+  await expect(page.getByTestId("chat-skill-mount-picker")).toHaveCount(0);
+  await input.fill("");
+
+  /* `/`（2026-08-25 人类裁决：v2 触发符从 `#` 改 `/`，对齐 Claude Code）+ 名字片段：
+     候选面板以 mention 模式打开，并按片段过滤。
+     `pressSequentially` 逐键真实敲入（onChange + onKeyUp 都会触发，与真实用户一致）。 */
+  await input.pressSequentially("/假设");
   await expect(page.getByTestId("chat-skill-mount-picker")).toBeVisible();
-  await expect(page.getByTestId("chat-skill-mount-mention-hint")).toContainText("假设");
+  await expect(page.getByTestId("chat-skill-mount-mention-hint")).toContainText("/ 假设");
 
   const mountResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
@@ -163,8 +170,8 @@ test("issue #2020：composer 敲 # 触发挂载候选，选中即挂载并清掉
   expect((await mountResponse).ok(), "mention 触发的挂载 POST 应成功").toBe(true);
   await expect(page.getByTestId(`chat-skill-mounted-${CHAT_READ_E2E.mountableSkillId}`)).toBeVisible();
 
-  /* 挂载真的发生后，`#假设` 字面量从输入框正文里删掉——留着会让用户以为还要
-     手动发一条以 `#` 开头的消息（同旧 composer `mentionResolvedNonce` 语义）。 */
+  /* 挂载真的发生后，`/假设` 字面量从输入框正文里删掉——留着会让用户以为还要
+     手动发一条以 `/` 开头的消息（同旧 composer `mentionResolvedNonce` 语义）。 */
   await expect(input).toHaveValue("");
 
   /* 落库复核：刷新丢掉全部前端状态，挂载 chip 仍在（不是 useState 里的一帧）。 */

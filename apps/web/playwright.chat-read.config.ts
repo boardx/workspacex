@@ -177,8 +177,13 @@ export default defineConfig({
    * 逐字节向后兼容由 `copilotkit-v2-agent-switch.spec.ts` 的既有用例继续钉住，
    * 「不设 / 配错」两个 webServer 级环境差异场景由该 spec 直接打服务端解析本体
    * 取证（理由见该 spec 头注），不需要新的进程或新的环境变量。
+   *
+   * issue #2046（CK-P1+P2）—— 新增 `copilotkit-v2-right-panel.spec.ts` 同样由本
+   * config 接住：同一条 `/chat`（#2044 原生化后）路由、同一条真登录、同一个附件
+   * 上传端点与 loopback 回显替身；直连 API 落草稿产物走 `CHAT_READ_E2E_API_ORIGIN`
+   * 同源代理的既有 `/chat/artifacts|threads` rewrite。不需要新的进程或新的环境变量。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|chat-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
