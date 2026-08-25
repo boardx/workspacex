@@ -471,11 +471,14 @@ DA-19h（旧轨道退役，等 g 且人类确认翻转默认值）
 - 材料栏头部「+」直传入口（#1758 形态）**未做**：composer 附件控制器含附件线程
   生命周期在面板 Body 层，提升到 shell 是跨三层状态提升；📎 与全 surface 拖拽已在，
   材料栏本轮为读侧。如实登记，不是漏做。
-- 差距表 #5「落地为产物」拆出为 **#2050**：读侧（产物栏）已随本项完成；逐条落地
-  **入口**需先取证「流式 assistant 消息 id 是否等于 `chat_messages.id`」——不取证
-  就接线会做出「点了才 404」的假按钮。`markdownRenderer` 子 slot 已确认走不通
-  （只暴露 `content`），可行通道是覆盖 `assistantMessage` 整组件 slot（该层携带
-  `message`），详见 #2050，别再从子 slot 那条路进。
+- 差距表 #5「落地为产物」拆出为 **#2050**（id 缺口本体）+ 入口实现（CK-P7 / #2052）。
+  **id 缺口与 `CUSTOM chat_message_id` 回显由 CK-P3 / PR #2064 落地并关闭 #2050**；
+  逐条「落地为产物」入口由 CK-P7（#2052）接在同一条操作条上，复用
+  `lib/copilotkit-v2-message-identity.ts` 的同一个索引，**不再另建映射表**。
+  ⚠ 两条并行线各自独立取证出同一个结论（流式 id 是 `randomUUID()`、不是落库主键），
+  收敛时以先合入的 #2064 为准；这是"同一事实两处声明"的一次真实拦截，记在这里
+  是为了让下一个人知道该读哪一份。入口挂在 `assistantMessage` 整组件 slot；
+  `markdownRenderer` 子 slot 确认走不通（只暴露 `content`），别再从那条路进。
 - 连带修：`[threadId]` 页上「挂载即另建附件专用线程」（#2032）与持久化线程页
   （#2028）合成后断裂——上传落在新建线程、`send()` 用 URL 线程，`acceptHumanMessage`
   校验 attachmentIds 必须属本线程，带附件发送必 422、右栏材料永远看不到。
@@ -505,8 +508,8 @@ DA-19h（旧轨道退役，等 g 且人类确认翻转默认值）
   `useChatMessageIdentity` 解析不出真实 id 就不画评分按钮。
   **副作用：#2050（「落地为产物」入口）卡住的那个前提由此解除**——`landAsArtifact`
   走的是同一道 `findMessageLocation` 门，现在同一个索引就能给出可用的落库 id。
-  #2050 本身仍未做（本轮范围只到评分），接手时直接复用
-  `lib/copilotkit-v2-message-identity.ts`，不要重新排查 id 是否对齐。
+  #2050 由本轮（#2064）关闭；「落地为产物」**入口**随后由 CK-P7（#2052）接上，
+  直接复用 `lib/copilotkit-v2-message-identity.ts`，没有重新排查 id 是否对齐。
 
 **CK-P4 Run 进度细节**（差距表 #9 未覆盖部分）。
 ✅ **部分交付**（issue #2054）：耗时计时、阶段文案、45s longrun 提示、失败重试按钮。
@@ -541,8 +544,22 @@ DA-19h（旧轨道退役，等 g 且人类确认翻转默认值）
 的假按钮；这条由组件测试的反证实验实测钉住（第一版断言两份消息一模一样，把实现改成拿
 内存末条 id 照样全绿，随后重编排为「挂载后后端才多出一条」才真能判）。
 
-**CK-P7 多 agent 编制**（#2025 收窄时明确延后的另一半，`RosterPanel`/
-`updateAgentRoster`——持久化线程已就绪，可开工）。
+**CK-P7 多 agent 编制 + 「落地为产物」入口**（#2025 收窄时明确延后的另一半）
+—— ✅ 实现完成（#2052）。
+- `RosterPanel`/`ErrorState`/`describeMutateFailure` 与旧轨道收敛成共用件，不各画一份；
+  「落地为产物」的状态机/展示件（`message-landing.tsx`）同样与旧轨道共用一份。
+- 落地入口**并进** CK-P3 的 `copilotkit-v2-message-actions.tsx` 操作条（同一个
+  `assistantMessage` slot 只换一次、同一份 context、同一个 id 索引）——两条线都要包
+  这一层，先合入的 #2064 是骨架，本条把挂件并进去，不是各包一层。
+- ⚠ 开工时发现**服务端这条路对个人线程根本没通**，不是前端接一下就行：两个编制端点
+  把 `projectId` 声明成必填（没有 `getThread` 早就在用的「省略 ⇒ null ⇒ 个人线程」
+  归一化），且写权判据 `outcome.actor.projectRole` 对个人线程恒为 `null` ⇒ 线程创建者
+  被自己的线程 403。按 `land-as-artifact.ts` 2026-08-21 那条人类裁决过的个人线程豁免
+  同一条理由补齐；项目线程分支一个字没动。
+- ⚠ **验收锚点勘误**：线程卡上的「N 个 agent」**不是**编制计数。
+  `thread-badges.ts:113` 是 `new Set(speakingAgentIds).size`，`ports.ts:147` 逐字
+  定义为「在本线程**发过言**的不同 agent id」——加进编制但还没发言时那个数本就不该变。
+  真锚点用 `getAgentPanel.rosterCount` + 刷新后仍在 + 服务端复核。
 
 **CK-P8 归档线程只读态**（差距表 #11）—— ✅ 读侧接通（#2053），写侧缺口如实登记。
 `chat_threads.archived` 真实存在、`getThread.out.thread.archived` 真实下发、`getThread`

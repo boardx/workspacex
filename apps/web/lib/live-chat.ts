@@ -143,12 +143,14 @@ export async function createPersonalThread(title: string | null): Promise<Mutate
 
 export async function getAgentPanel(
   threadId: string,
-  projectId: string,
+  /** `null` = 个人线程（issue #2052 / CK-P7）——不传这个 query 参数，controller 把
+   *  缺失归一成 `null`，与 `listThreadArtifacts` 同名参数逐字同一条规则。 */
+  projectId: string | null,
   sessionToken?: string,
 ): Promise<GetAgentPanelOut> {
   return apiRequest<GetAgentPanelOut>(
     chat.operations.getAgentPanel.path.replace(":threadId", encodeURIComponent(threadId)),
-    { method: "GET", query: { projectId }, sessionToken },
+    { method: "GET", query: { projectId: projectId ?? undefined }, sessionToken },
   );
 }
 
@@ -175,7 +177,8 @@ export async function getAgentPanel(
  */
 export async function updateAgentRoster(
   threadId: string,
-  projectId: string,
+  /** `null` = 个人线程——同 `getAgentPanel`。 */
+  projectId: string | null,
   input: UpdateAgentRosterInput,
   sessionToken?: string,
 ): Promise<UpdateAgentRosterOut> {
@@ -183,7 +186,7 @@ export async function updateAgentRoster(
     chat.operations.updateAgentRoster.path.replace(":threadId", encodeURIComponent(threadId)),
     {
       method: "POST",
-      query: { projectId },
+      query: { projectId: projectId ?? undefined },
       body: { threadId, ...input },
       sessionToken,
     },
