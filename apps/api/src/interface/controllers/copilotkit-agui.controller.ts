@@ -151,13 +151,47 @@ interface AguiRunInput {
   readonly messages?: readonly {
     readonly role: string; readonly content?: string; readonly toolCallId?: string;
   }[];
-  /** DA-19a -- see file head "real cross-turn continuation". `chatThreadId` and (chat-parity-
-   * attachments, issue #2022) `attachmentIds` are the only two keys read; any other key a
-   * real AG-UI client puts in `forwardedProps` is ignored, same as this bridge already
-   * ignores `tools`/`context`/`state` (see `AguiRunInput`'s own doc). `attachmentIds` are
-   * pending attachment ids from the SAME `POST /chat/threads/:threadId/attachments` upload
-   * endpoint the REST track uses -- see `parseForwardedAttachmentIds`. */
-  readonly forwardedProps?: { readonly chatThreadId?: string; readonly attachmentIds?: unknown };
+  /** DA-19a -- see file head "real cross-turn continuation". Three keys are read --
+   * `chatThreadId`, (chat-parity-attachments, issue #2022) `attachmentIds`, and
+   * (issue #2021) `toolChoice` -- any other key a real AG-UI client puts in
+   * `forwardedProps` is ignored, same as this bridge already ignores
+   * `tools`/`context`/`state` (see `AguiRunInput`'s own doc).
+   *
+   * `attachmentIds`: pending attachment ids from the SAME
+   * `POST /chat/threads/:threadId/attachments` upload endpoint the REST track uses --
+   * see `parseForwardedAttachmentIds`.
+   *
+   * `toolChoice` is read for one purpose only: recognising `@copilotkit/core`'s
+   * `SuggestionEngine.generateSuggestions` runs (it forces
+   * `toolChoice: {type:"function", function:{name:"copilotkitSuggest"}}` on every
+   * suggestion request -- read from `dist/index.mjs`, not guessed). See
+   * `isSuggestionRequest`'s own doc for why these must be short-circuited. */
+  readonly forwardedProps?: {
+    readonly chatThreadId?: string;
+    readonly attachmentIds?: unknown;
+    readonly toolChoice?: { readonly function?: { readonly name?: string } };
+  };
+}
+
+/**
+ * issue #2021 -- a `SuggestionEngine` run, NOT a user turn. Before this guard existed,
+ * every suggestions generation (fired automatically by `CopilotKitCore.runAgent` after
+ * each real turn, see `FollowUpSuggestions` in `copilotkit-v2-panel.tsx`) arrived here as
+ * an ordinary fresh turn: no `chatThreadId` in its `forwardedProps` -> `resolveThreadId`
+ * created a brand-new `chat_threads` row AND ran the full agent -- one phantom thread per
+ * message sent, polluting the (new, issue #2021) thread list and burning a real deep-agent
+ * run whose output nobody could consume (this bridge does not implement forced tool
+ * calls, so `extractSuggestions` never finds its `copilotkitSuggest` call -- the known
+ * DA-19e gap recorded in `copilotkit-v2-suggestions.spec.ts`'s file head).
+ *
+ * Until forced-tool-call support lands, the honest response is an immediately-finished
+ * empty run: RUN_STARTED -> RUN_FINISHED, no thread created, no message persisted, no
+ * agent run. The client's suggestion list stays empty -- exactly what it got before, minus
+ * the side effects. This is detection, not implementation-by-half: the DA-19e spec's
+ * assertions (request reaches this same connection, no error banner) still hold.
+ */
+function isSuggestionRequest(body: AguiRunInput): boolean {
+  return body.forwardedProps?.toolChoice?.function?.name === "copilotkitSuggest";
 }
 
 type AguiEvent =
@@ -441,6 +475,25 @@ export class CopilotkitAguiController {
     const agentId = agentIdParam?.trim();
     if (agentId === undefined || agentId === "") {
       throw new UnprocessableEntityException("AGENT_NOT_FOUND");
+    }
+
+    // issue #2021 -- suggestion runs short-circuit BEFORE any thread/message machinery.
+    // See `isSuggestionRequest`'s own doc: an immediately-finished empty run, no thread
+    // created, no agent run. Placed before the resume/text validation so a suggestion
+    // request can never be misread as either of those two real shapes.
+    if (isSuggestionRequest(body)) {
+      response.writeHead(200, {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      });
+      const suggestionThreadId = body.threadId ?? randomUUID();
+      const suggestionRunId = body.runId ?? randomUUID();
+      response.write(`data: ${JSON.stringify({ type: EventType.RUN_STARTED, threadId: suggestionThreadId, runId: suggestionRunId })}\n\n`);
+      response.write(`data: ${JSON.stringify({ type: EventType.RUN_FINISHED, threadId: suggestionThreadId, runId: suggestionRunId })}\n\n`);
+      response.end();
+      return;
     }
 
     // DA-19g -- see `isHitlResumeRequest`'s own doc. Checked BEFORE `lastUserText`'s

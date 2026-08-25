@@ -161,6 +161,12 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
    * `@copilotkit/react-core/v2`/`@/lib/api-client`，不碰 `lib/mock/**`，贡献 0 条
    * mock 边——与 `/chat/copilotkit-preview` 同一类"独立灰度路由，不进 mock 闭包"。
    *
+   * issue #2021 新增 `/chat/copilotkit-v2/[threadId]`（消息持久化 + 多线程管理：
+   * URL 绑定的持久化 chatThreadId）：`page.tsx` 只 import
+   * `@/components/chat/copilotkit-v2-shell`，该组件的整条闭包（`copilotkit-v2-panel`
+   * / `thread-list-shell` / `lib/live-chat` / `session-provider`）同样不碰
+   * `lib/mock/**`，贡献 0 条 mock 边——与上面两条同一类。
+   *
    * 2026-08-25（#2026 默认入口翻转）新增 `/chat/legacy`：旧屏（ChatReadScreen/
    * PersonalChatScreen）的显式回退入口——渲染的组件树与正式 `/chat` 深链分支
    * 逐字相同，只是入口路径不同，因此与 `/chat` 一样贡献 0 条 mock 边。
@@ -170,6 +176,7 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
     // 反空转：所有路由都必须在场，少一条会让下面的边集合悄悄变小。
     expect(chatRoutes.sort()).toEqual([
       "app/chat/copilotkit-preview/page.tsx",
+      "app/chat/copilotkit-v2/[threadId]/page.tsx",
       "app/chat/copilotkit-v2/layout.tsx",
       "app/chat/copilotkit-v2/page.tsx",
       "app/chat/landing/page.tsx",

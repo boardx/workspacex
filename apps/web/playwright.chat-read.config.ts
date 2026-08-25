@@ -140,6 +140,12 @@ export default defineConfig({
    * （下面 `LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER` 早已下发给替身进程）。不需要新的
    * 进程或新的环境变量。
    *
+   * issue #2021 —— 新增 `copilotkit-v2-thread-persistence.spec.ts`（消息持久化 +
+   * 多线程管理：发消息→整页刷新→消息仍在；新建对话→线程列表两条→切回第一条→历史
+   * 正确恢复）同样由本 config 接住：同一条真登录、同一个 deep-agent loopback 替身
+   * （`loopback-deep-agent-provider.ts` 的用户原文回显剧本，既有 `copilotkit-v2-
+   * runtime-adapter.spec.ts` 已在用）。不需要新的进程或新的环境变量。
+   *
    * issue #2023（差距清单第 4 项，Agent 选择/切换）—— 新增
    * `copilotkit-v2-agent-switch.spec.ts` 同样由本 config 接住：同一条 `/chat/
    * copilotkit-v2` 路由、同一条真登录，复用本 config 早就种好的两个真实已发布 agent
@@ -157,7 +163,7 @@ export default defineConfig({
    * 默认回显剧本（`copilotkit-v2-runtime-adapter.spec.ts` 早已在用）。不需要新的
    * 进程或新的环境变量。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-agent-switch|copilotkit-v2-attachments|chat-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*

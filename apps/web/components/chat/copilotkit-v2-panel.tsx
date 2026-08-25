@@ -25,7 +25,7 @@ import { AgentPicker, MicDevicePicker } from "@/components/chat/chat-composer-pi
 import { getStoredSessionToken } from "@/lib/api-client";
 import { useSession } from "@/components/session/session-provider";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
-import { createPersonalThread, type GetAgentPanelOut } from "@/lib/live-chat";
+import { createPersonalThread, listMessages, type GetAgentPanelOut } from "@/lib/live-chat";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import {
   useChatAttachments, ChatAttachmentButton, ChatAttachmentList, ChatAttachmentBanner,
@@ -604,7 +604,24 @@ function useCopilotKitV2AgentOptions(orgId: string | null, bearer: string | null
  * "issue #2023 Agent 选择/切换"一节说的"切换 agent 就是发起新对话"是同一件事，不是
  * 另外发明一套"迁移历史到新 agent"的机制（那件事需要差距 #1 的持久化线程才谈得上）。
  */
-export function CopilotKitV2Panel(): JSX.Element {
+export function CopilotKitV2Panel({
+  chatThreadId: initialChatThreadId = null,
+  onThreadResolved,
+}: {
+  /**
+   * issue #2021 —— 持久化的后端 `chat_threads.id`（不是 CopilotKit 本地
+   * `threadId`，两者是本文件头注早已记录的两个独立命名空间）。由外壳
+   * `copilotkit-v2-shell.tsx` 从 URL 路由参数传入；`null` = 一次全新对话（外壳的
+   * `/chat/copilotkit-v2` 裸路由，或"新建对话"入口）。
+   */
+  chatThreadId?: string | null;
+  /**
+   * 首次发消息、后端真正创建出一条新线程（`resolveThreadId` 的 `null` 分支）时触发
+   * 一次，交给外壳写回地址栏 + 刷新线程列表。`initialChatThreadId` 非空时（续聊一条
+   * 已存在的线程）**不会**触发——`chatThreadIdRef` 已经等于外部传入的值。
+   */
+  onThreadResolved?: (threadId: string) => void;
+} = {}): JSX.Element {
   const { session } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const bearer = session?.sessionToken ?? null;
@@ -655,16 +672,32 @@ export function CopilotKitV2Panel(): JSX.Element {
             `COPILOTKIT_V2_AGENT_ID` 默认 agent（与本任务之前逐字节相同的路径）。
             key 里的 `"__server_default__"` 只是 React 重挂载边界的占位段，不会出现在
             任何请求里（header 由 `selectedAgentId === null` 时不设置来保证）。 */}
-        <CopilotKitV2PanelBody key={selectedAgentId ?? "__server_default__"} />
+        {/* ⚠ key 只含 agent 选择，刻意**不含** `initialChatThreadId`——首轮发消息后
+            外壳经 `onThreadResolved` 拿到新线程 id 时，如果 key 跟着变，Body 会在
+            run 仍在途时被整个重挂载：SSE 被杀、`agent.messages` 清空（2026-08-25
+            合成 #2021×#2023 时实测 4 条 e2e 全红抓到的真回归）。#2021 用
+            `history.replaceState` 而非 router 状态正是为了避开这次重渲染；线程
+            切换走 `[threadId]` 路由级重挂载，天然新 mount，不需要 key 参与。 */}
+        <CopilotKitV2PanelBody
+          key={selectedAgentId ?? "__server_default__"}
+          chatThreadId={initialChatThreadId}
+          onThreadResolved={onThreadResolved}
+        />
       </div>
     </div>
   );
 }
 
-function CopilotKitV2PanelBody(): JSX.Element {
+function CopilotKitV2PanelBody({
+  chatThreadId: initialChatThreadId = null,
+  onThreadResolved,
+}: {
+  chatThreadId?: string | null;
+  onThreadResolved?: (threadId: string) => void;
+} = {}): JSX.Element {
   const { copilotkit } = useCopilotKit();
   const [threadId] = React.useState(() => `copilotkit-v2-${crypto.randomUUID()}`);
-  const { agent } = useAgent({
+  const { agent, isReady } = useAgent({
     agentId: threadId,
     runtimeAgentId: "default",
     threadId,
@@ -756,17 +789,103 @@ function CopilotKitV2PanelBody(): JSX.Element {
    * 不是新发明一条通道。第一轮（`chatThreadIdRef.current === null`）不传，与此前行为
    * 逐字节相同（新建线程），只有第二轮起才会真的续接。
    */
-  const chatThreadIdRef = React.useRef<string | null>(null);
+  /**
+   * issue #2021 —— 初始值不再恒为 `null`：外壳传入 `chatThreadId`（URL 里的持久化
+   * id）时，第一轮 `send()` 就带上它当 `forwardedProps.chatThreadId`，而不是像此前
+   * 那样只有第二轮起才续接。这正是"刷新页面后同一个 URL 能恢复到同一条对话"这条
+   * 判据要求的：刷新后组件重新挂载，`chatThreadIdRef` 必须从 URL 里的值起步，不能
+   * 靠"这次浏览器会话已经聊过一轮"这个此前隐含的前提。
+   */
+  const chatThreadIdRef = React.useRef<string | null>(initialChatThreadId);
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event?.name === "chat_thread_id" && typeof event.value === "string" && event.value !== "") {
+          const isNewlyResolved = chatThreadIdRef.current === null;
           chatThreadIdRef.current = event.value;
+          // issue #2021 —— 只有"这是后端第一次告诉我们它创建了一条新线程"才需要通知
+          // 外壳写回地址栏；`initialChatThreadId` 非空时 `chatThreadIdRef.current` 从
+          // 挂载起就已经是这个值，这个分支不会为一次续聊触发。
+          if (isNewlyResolved) onThreadResolved?.(event.value);
         }
       },
     });
     return unsubscribe;
+    // `onThreadResolved` 由外壳用 `useCallback` 提供稳定引用；把它加进依赖数组会在
+    // 外壳每次 `reloadThreads` 状态更新时重新订阅/取消订阅，没有必要。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
+
+  /**
+   * issue #2021 —— 消息持久化的另一半：`agent.messages` 是纯内存态
+   * （`useAgent`/`@ag-ui/client` 本身不做任何持久化），组件挂载时必须从后端已经真实
+   * 落库的 `chat_messages` 回读一遍，`agent.setMessages(...)` 灌回去——不这样做的话，
+   * 即使地址栏带着正确的 `chatThreadId`、下一轮发消息也确实会续接同一条后端线程，
+   * 用户在**这一次挂载**里仍然看不到刷新前的历史，等于只修了"续聊"没修"看得见"。
+   *
+   * 只在 `initialChatThreadId` 非空时跑（新对话没有历史可读）；用 `cursor` 分页跑到
+   * `nextCursor` 为 `null`，不是"读一页就假装读完了"——`listMessages` 契约本身要求
+   * 调用方分页（`R9`），单页上限 100。
+   *
+   * ## ⚠ 必须等 `isReady`，且依赖数组必须含 `agent`——第一版 `[]` 依赖是真 bug
+   *
+   * 第一版这个 effect 用 `[]` 空依赖"只在挂载时跑一次"，历史读回来了、
+   * `setMessages` 也调了，但视图永远空白（coordinator 合并后真栈截图实测）。根因
+   * 读 `@copilotkit/react-core/dist/v2/headless.mjs` 的 `useAgent` 源码确认：传
+   * `runtimeAgentId` 时，首次渲染返回的是一个 **provisional**（临时占位）agent 实例
+   * （`isReady: false`，存在 `provisionalAgentCache`）；`registerProxiedAgent` 的
+   * effect 完成注册后，后续渲染返回的是**另一个**真实 proxy agent 实例
+   * （`isReady: true`），provisional 那个被直接丢弃。空依赖的 effect 闭包捕获的正是
+   * 首帧那个 provisional 实例——`setMessages` 写进了一个马上被扔掉的对象，真实
+   * agent 的 `messages` 从头到尾是空的。`AbstractAgent.setMessages` 本身**会**通知
+   * `onMessagesChanged` 订阅者（读 `@ag-ui/client` dist 源码确认），不是"通知机制
+   * 不触发"——是写错了对象。
+   *
+   * 修法：依赖 `[agent, isReady, ...]`，`isReady === false` 时直接不跑（provisional
+   * 帧被跳过），`hydratedRef` 保证同一个真实实例只灌一次。apply 时若 `agent.messages`
+   * 已非空（用户在历史加载完成前就抢先发了消息——真实竞态，不是假设），把历史
+   * **前插**并按 id 去重，不整体覆盖——覆盖会杀掉在途 run 已经流进来的内容。
+   */
+  const [historyError, setHistoryError] = React.useState<string | null>(null);
+  const hydratedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (initialChatThreadId === null || !isReady || hydratedRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const bearer = getStoredSessionToken() ?? undefined;
+        const collected: Array<{ id: string; role: "user" | "assistant"; content: string }> = [];
+        let cursor: string | undefined;
+        for (let page = 0; page < 50; page += 1) {
+          const result = await listMessages(initialChatThreadId, { cursor, limit: 100 }, bearer);
+          for (const m of result.messages) {
+            collected.push({
+              id: m.id,
+              role: m.authorKind === "human" ? "user" : "assistant",
+              content: m.text,
+            });
+          }
+          if (result.nextCursor === null) break;
+          cursor = result.nextCursor;
+        }
+        if (cancelled) return;
+        hydratedRef.current = true;
+        const live = agent.messages;
+        if (live.length === 0) {
+          agent.setMessages(collected);
+        } else {
+          const liveIds = new Set(live.map((m) => m.id));
+          agent.setMessages([...collected.filter((m) => !liveIds.has(m.id)), ...live]);
+        }
+      } catch (e) {
+        if (cancelled) return;
+        setHistoryError(e instanceof Error ? e.message : "历史消息读取失败");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [agent, isReady, initialChatThreadId]);
 
   /**
    * DA-19g —— `useAsrDraft` 的 `start()` 是一个稳定回调（不随每次按键重建），基线读取
@@ -923,6 +1042,11 @@ function CopilotKitV2PanelBody(): JSX.Element {
         </div>
         {error !== null ? (
           <div data-testid="copilotkit-v2-error" className="text-sm text-destructive">{error}</div>
+        ) : null}
+        {historyError !== null ? (
+          <div data-testid="copilotkit-v2-history-error" className="text-sm text-destructive">
+            历史消息读取失败：{historyError}
+          </div>
         ) : null}
         <FollowUpSuggestions
           agentId={threadId}
