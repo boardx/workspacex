@@ -13,7 +13,7 @@ import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Pencil, Mic, Loader2, AlertTriangle } from "lucide-react";
+import { Pencil, Mic, Loader2, AlertTriangle, ArrowDown } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
@@ -638,6 +638,19 @@ function useCopilotKitV2AgentOptions(orgId: string | null, bearer: string | null
  * "issue #2023 Agent 选择/切换"一节说的"切换 agent 就是发起新对话"是同一件事，不是
  * 另外发明一套"迁移历史到新 agent"的机制（那件事需要差距 #1 的持久化线程才谈得上）。
  */
+/**
+ * issue #2071 —— 消息区"贴底"判定的阈值，单一事实源：`handleMessagesScroll`（决定要
+ * 不要显示"回到最新"悬浮按钮 + 要不要继续自动跟随新消息）与其测试共用同一个数字，
+ * 不是各自维护一份容易漂移的 `80`。比"恰好贴底"（0px）宽松一点，避免子像素/字体
+ * 度量误差导致贴底判定抖动（滚动到底后立刻因 1px 误差被判定为"离开了底部"）。
+ */
+export const SCROLL_BOTTOM_THRESHOLD_PX = 80;
+
+/** 纯函数，供组件与单元测试共用——不依赖真实 DOM 布局，可以直接喂三个数字测。 */
+export function isScrolledNearBottom(scrollHeight: number, scrollTop: number, clientHeight: number): boolean {
+  return scrollHeight - scrollTop - clientHeight < SCROLL_BOTTOM_THRESHOLD_PX;
+}
+
 export function CopilotKitV2Panel({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
@@ -1414,6 +1427,68 @@ function CopilotKitV2PanelBody({
     }
   }, [agent, initialChatThreadId, onMessageSent, personaRunning]);
 
+  /**
+   * issue #2071 —— 消息区没有"跳到最新"手段：新消息到达时不自动贴底，长线程往上翻阅
+   * 后也没有回到底部的入口，只能手动拖滚动条。做法对齐 Slack/Discord/ChatGPT 的常见
+   * 约定（`CopilotChatView.ScrollView` 库内置的 `pin-to-bottom` 语义同款做法，本仓
+   * 选自己写而不是接那个组件——见下方"为什么不用库自带 ScrollView"）：贴底时新消息
+   * 自动跟随；一旦往上翻离开底部，自动跟随停止，改为在消息区右下角浮现"↓回到最新"
+   * 按钮；键盘 `Cmd/Ctrl+End` 随时可跳回底部，与输入框里普通 `End`（移到行尾）不冲突
+   * （只认组合键）。
+   *
+   * ## 为什么不直接接库自带的 `CopilotChatView.ScrollView`
+   *
+   * 它确实自带同款语义（`autoScroll="pin-to-bottom"` + `scrollToBottomButton` slot），
+   * 但它的测量假设（`inputContainerHeight`/`feather`）是围绕"composer 本身也在
+   * ScrollView 内"设计的，本面板 composer 在这个滚动容器**外面**自绘（下方错误横幅、
+   * composer 区块都在 `overflow-y-auto` 容器之外）——接入前没有把握它的内部布局假设
+   * 不会跟 #2039 三轮 UIUX 迭代过的布局打架。手写这套（滚动位置判定 + 条件贴底 +
+   * 悬浮按钮）改动可预期，不依赖库的内部测量逻辑。
+   */
+  const messagesContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const [isAtBottom, setIsAtBottom] = React.useState(true);
+
+  const scrollMessagesToBottom = React.useCallback((behavior: ScrollBehavior) => {
+    const el = messagesContainerRef.current;
+    // jsdom（组件测试环境）不实现 `Element.scrollTo`——与下面 `matchMedia` 同一类
+    // "真实浏览器才有、测试环境没有"的能力守卫，不是本功能的正常路径分支。
+    if (el === null || typeof el.scrollTo !== "function") return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+    setIsAtBottom(true);
+  }, []);
+
+  const prefersReducedMotion = React.useCallback((): boolean => {
+    // 与 `use-section-navigation.ts` 同一处守卫——jsdom 测试环境不提供 `matchMedia`。
+    return typeof window !== "undefined" && typeof window.matchMedia === "function"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+
+  const handleMessagesScroll = React.useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (el === null) return;
+    setIsAtBottom(isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight));
+  }, []);
+
+  // 贴底时新消息/流式增量到达自动跟随；一旦用户往上翻（`isAtBottom` 变 false），
+  // 这个 effect 直接不跑，不打断阅读——与 Slack/Discord 同一条纪律。
+  React.useEffect(() => {
+    if (!isAtBottom) return;
+    const el = messagesContainerRef.current;
+    if (el === null || typeof el.scrollTo !== "function") return;
+    el.scrollTo({ top: el.scrollHeight, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, [agent.messages, isAtBottom, prefersReducedMotion]);
+
+  // `Cmd/Ctrl+End` 跳到最新——只认组合键，不拦截输入框里普通 `End`（移到行尾）。
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key !== "End" || !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      scrollMessagesToBottom(prefersReducedMotion() ? "auto" : "smooth");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [scrollMessagesToBottom, prefersReducedMotion]);
+
   return (
     <div className="flex h-full w-full gap-3">
       {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
@@ -1432,6 +1507,8 @@ function CopilotKitV2PanelBody({
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
             与 #1830「用户可见文案去掉开发者词汇」同一条裁决，整行移除。 */}
         <div
+          ref={messagesContainerRef}
+          onScroll={handleMessagesScroll}
           className="flex-1 overflow-y-auto rounded-lg border border-border-subtle bg-card p-3"
           data-testid="copilotkit-v2-messages"
         >
@@ -1487,6 +1564,22 @@ function CopilotKitV2PanelBody({
             </div>
           )}
         </div>
+        {/* issue #2071 —— 悬浮"回到最新"按钮：只在离开底部且确实有消息可看时出现，
+            不在历史回读骨架屏/空态上叠加一个没有意义的按钮。挂在消息容器外层那个
+            `relative` div 里，定位以那个 div 为参照系，不受消息容器自身
+            `overflow-y-auto` 裁切影响。 */}
+        {!isAtBottom && !historyLoading && agent.messages.length > 0 ? (
+          <button
+            type="button"
+            data-testid="copilotkit-v2-scroll-to-bottom"
+            title="回到最新消息（Ctrl/Cmd+End）"
+            aria-label="回到最新消息"
+            onClick={() => scrollMessagesToBottom(prefersReducedMotion() ? "auto" : "smooth")}
+            className="absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ArrowDown className="h-4 w-4" aria-hidden />
+          </button>
+        ) : null}
         {/* CK-P4（issue #2054）—— run 进度行。⚠ 它每秒在动，"会动"本身就是"没卡死"
             的证据；一句静止的「正在思考…」在第 10 秒和第 10 分钟长得一模一样
             （旧轨道 `chat-live-message-panel.tsx` 同一段裁决）。 */}
