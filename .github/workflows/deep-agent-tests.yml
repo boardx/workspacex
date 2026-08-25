@@ -1,0 +1,71 @@
+# deep-agent-tests —— apps/deep-agent-service 的 pytest 门控（DA-09，issue #2051）。
+#
+# ## 为什么现在才有
+#
+# rubric（`.harness/rubrics/deepagent-capability-rubric.md`）里 TC-1~TC-5 那一节写着
+# 「场景脚本落在 apps/deep-agent-service/tests/golden/（DA-09 交付），CI 可跑其自动化
+# 子集」。2026-08-23 的评分理由书里还写过「该测试挂在 tests/（backend-gates.yml 等
+# CI 门控链路里跑的同一套 pytest），是真实 CI 门」——**那句话是错的**：本仓在此之前
+# 没有任何 workflow 跑过一行 Python 测试（`grep -rn pytest .github/` 只命中
+# live-evidence.yml 调的 shell 脚本）。这个文件把那句话变成真的。
+#
+# ## 为什么带 Postgres service
+#
+# 五条场景里 TC-5 要真 SIGKILL 一个进程再从 checkpoint 续跑，没有真 Postgres 就没有
+# 「跨进程状态」可言。本仓的纪律是缺 env 时 `pytest.fail` 而不是 `skip`（静默跳过的
+# 测试等于没有），所以 CI 必须把库准备好，否则整套是红的——这正是我们要的形状：
+# 「D4 的证据没跑」和「D4 的证据跑挂了」在 CI 上必须同样刺眼。
+# GitHub 托管 runner 上的 service container 是免费且一次性的，与 backend-gates
+# 2026-08-06 挪到托管 runner 的同一条判断。
+name: deep-agent-tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/deep-agent-service/**"
+      - ".github/workflows/deep-agent-tests.yml"
+  pull_request:
+    paths:
+      - "apps/deep-agent-service/**"
+      - ".github/workflows/deep-agent-tests.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deep-agent-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: deep_agent_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DEEP_AGENT_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/deep_agent_ci
+      GUIDED_RESEARCH_TEST_POSTGRES_URL: postgresql://postgres:postgres@127.0.0.1:5432/deep_agent_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: 全量 pytest（含 TC-1~TC-5 黄金压测场景）
+        working-directory: apps/deep-agent-service
+        run: uv run --extra dev pytest tests -v
+      - name: 归档黄金压测场景的证据
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepagent-golden-evidence
+          path: apps/deep-agent-service/.golden-evidence/
+          if-no-files-found: warn
+          retention-days: 30

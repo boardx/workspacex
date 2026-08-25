@@ -53,6 +53,66 @@ def test_summarization_settings_pinned():
     summarizer = next(m for m in mw if type(m).__name__ == "SummarizationMiddleware")
     assert summarizer.trigger == ("tokens", 60000)
     assert summarizer.keep == ("messages", 20)
+    # DA-09（#2051）：这一项此前吃库默认 4000，被 TC-4 抓出来是「静默丢弃老内容」的
+    # 真原因（一次压缩丢四万多 token，只有最后 4000 进摘要器）。钉成与触发线同值，
+    # 理由见 harness.py 的注释；把它改回小值会让 D8 悄悄退回「只有截断」。
+    assert summarizer.trim_tokens_to_summarize == 60000, (
+        "摘要输入预算必须覆盖一次压缩可能丢掉的全部内容，否则老内容根本进不了摘要"
+    )
+
+
+def test_precompletion_checklist_uses_official_middleware():
+    """D7 退出前自检：用的是 deepagents 官方 `RubricMiddleware`，不是自建私有件。
+
+    上游核实（2026-08-25，读 .venv 里锁定的 0.7.6 源码）：langchain 的 middleware
+    导出里没有 completion/checklist 语义的件；deepagents 公开导出的
+    `RubricMiddleware` 语义逐字对应「本来要结束时先对照清单评一遍，不合格就带着
+    差距说明跳回模型」。这条断言同时是升级看守：哪天它从 `deepagents` 消失，
+    这里当场红，而不是我们悄悄换成手写 hack。
+    """
+    from deepagents import RubricMiddleware
+
+    from deep_agent_service.harness import RUBRIC_MAX_ITERATIONS
+
+    mw = build_middleware(_fake_model())
+    rubric = next((m for m in mw if isinstance(m, RubricMiddleware)), None)
+    assert rubric is not None, "退出前自检必须挂在 middleware 栈上"
+    # max_iterations 显式钉死（库默认 3），同 trigger/keep 的纪律。
+    assert rubric.max_iterations == RUBRIC_MAX_ITERATIONS == 2
+
+
+def test_precompletion_checklist_seed_is_graded_rollout(monkeypatch):
+    """双轨反证（S1=B）：默认清单的播种默认关闭。
+
+    `RubricMiddleware` 本身**无条件**挂——没有 rubric 时它逐字 no-op，挂上等于零
+    行为变更。真正会改变每次收尾成本的是「往 state 里播默认清单」，那件由
+    `DEEP_AGENT_PRECOMPLETION_CHECKLIST=1` 控制；未设时 middleware 清单里不该出现
+    播种件，行为与接线前逐字相同。
+    """
+    from deep_agent_service.harness import build_precompletion_middleware
+
+    monkeypatch.delenv("DEEP_AGENT_PRECOMPLETION_CHECKLIST", raising=False)
+    off = [type(m).__name__ for m in build_precompletion_middleware(_fake_model())]
+    assert off == ["RubricMiddleware"], f"未开灰度时不该播种默认清单，实际 {off}"
+
+    monkeypatch.setenv("DEEP_AGENT_PRECOMPLETION_CHECKLIST", "1")
+    on = [type(m).__name__ for m in build_precompletion_middleware(_fake_model())]
+    assert on == ["_DefaultCompletionChecklistMiddleware", "RubricMiddleware"], (
+        f"播种件必须排在 RubricMiddleware 之前（before_agent 按列表顺序串），实际 {on}"
+    )
+
+
+def test_default_checklist_does_not_override_caller_rubric():
+    """播种只在调用方没给 rubric 时发生——`rubric` 是库声明的公开 I/O 字段，
+    调用方传了自己的判据，我们不能用默认清单把它盖掉。"""
+    from deep_agent_service.harness import (
+        DEFAULT_COMPLETION_CHECKLIST,
+        _DefaultCompletionChecklistMiddleware,
+    )
+
+    seeder = _DefaultCompletionChecklistMiddleware()
+    assert seeder.before_agent({}, None) == {"rubric": DEFAULT_COMPLETION_CHECKLIST}
+    assert seeder.before_agent({"rubric": "调用方自己的判据"}, None) is None
 
 
 def test_checkpointer_none_without_dsn(monkeypatch):

@@ -119,3 +119,7 @@ apps/deep-agent-service/uv.lock.bak
 # `next dev`/`next build` 启动时从 `node_modules/monaco-editor/min/vs` 复制而来
 # （AMD loader 版），是构建产物不是事实源，不入库。
 apps/web/public/monaco-editor/
+
+# DA-09（#2051）：黄金压测场景每次跑出来的证据目录，本地产物不进仓库——
+# 要归档就拷进 .harness/state/deepagent-eval/<date>-<sha>/。
+apps/deep-agent-service/.golden-evidence/
