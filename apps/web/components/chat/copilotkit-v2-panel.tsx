@@ -679,6 +679,8 @@ export function CopilotKitV2Panel({
           selectedAgentId={selectedAgentId ?? ""}
           disabled={agentOptions.status !== "ready"}
           onSelect={(agentId) => setSelectedAgentId(agentId)}
+          // 顶栏放置必须向下弹——2026-08-25 人类 devapp 实测：默认向上弹出屏不可见。
+          side="down"
         />
         {agentOptions.status === "error" ? (
           <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
@@ -1126,9 +1128,9 @@ function CopilotKitV2PanelBody({
       <div className="relative flex min-w-0 flex-1 flex-col gap-3" {...attach.dragHandlers}>
         <ChatFullSurfaceDropOverlay active={attach.dragActive} />
         <CopilotKitV2ToolRenderers />
-        <div className="text-sm font-medium">
-          CopilotKit v2（DA-19 —— CopilotRuntime 适配器，走 `/api/copilotkit`）
-        </div>
+        {/* 2026-08-25 人类 devapp 实测指令：不给用户看调试字样——原来这里有一行
+            「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
+            与 #1830「用户可见文案去掉开发者词汇」同一条裁决，整行移除。 */}
         <div
           className="flex-1 overflow-y-auto rounded border p-2"
           data-testid="copilotkit-v2-messages"
