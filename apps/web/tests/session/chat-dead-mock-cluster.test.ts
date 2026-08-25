@@ -160,12 +160,19 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
    * 灰度候选路由）：`layout.tsx`/`page.tsx`/`copilotkit-v2-providers.tsx` 只 import
    * `@copilotkit/react-core/v2`/`@/lib/api-client`，不碰 `lib/mock/**`，贡献 0 条
    * mock 边——与 `/chat/copilotkit-preview` 同一类"独立灰度路由，不进 mock 闭包"。
+   *
+   * issue #2021 新增 `/chat/copilotkit-v2/[threadId]`（消息持久化 + 多线程管理：
+   * URL 绑定的持久化 chatThreadId）：`page.tsx` 只 import
+   * `@/components/chat/copilotkit-v2-shell`，该组件的整条闭包（`copilotkit-v2-panel`
+   * / `thread-list-shell` / `lib/live-chat` / `session-provider`）同样不碰
+   * `lib/mock/**`，贡献 0 条 mock 边——与上面两条同一类。
    */
-  it("如实钉住：chat 六条路由的闭包里残留的 mock 边正好是这几条", () => {
+  it("如实钉住：chat 七条路由的闭包里残留的 mock 边正好是这几条", () => {
     const chatRoutes = routeEntries().filter((f) => f.startsWith("app/chat/"));
-    // 反空转：六条路由都必须在场，少一条会让下面的边集合悄悄变小。
+    // 反空转：七条路由都必须在场，少一条会让下面的边集合悄悄变小。
     expect(chatRoutes.sort()).toEqual([
       "app/chat/copilotkit-preview/page.tsx",
+      "app/chat/copilotkit-v2/[threadId]/page.tsx",
       "app/chat/copilotkit-v2/layout.tsx",
       "app/chat/copilotkit-v2/page.tsx",
       "app/chat/landing/page.tsx",
