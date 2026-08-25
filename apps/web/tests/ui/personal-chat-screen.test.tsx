@@ -447,7 +447,7 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
     fireEvent.change(await screen.findByTestId("chat-thread-delete-reason"), { target: { value: "清空测试" } });
     fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat/legacy"));
   });
 
   it("改名失败（服务端拒绝）⇒ 展示诚实错误，表单不静默消失、不假装成功", async () => {
@@ -549,7 +549,7 @@ describe("PersonalChatScreen — 手机端会话列表可达性（2026-08-07 真
     const { fireEvent } = await import("@testing-library/react");
     fireEvent.click(back);
 
-    expect(replace).toHaveBeenCalledWith("/chat");
+    expect(replace).toHaveBeenCalledWith("/chat/legacy");
     // 回到列表：会话列表内容重新出现在 main 里。
     expect(await screen.findByTestId("chat-thread-thr-mobile-1")).toBeInTheDocument();
   });

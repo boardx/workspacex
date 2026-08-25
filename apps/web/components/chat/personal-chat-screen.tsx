@@ -282,7 +282,9 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
       // 一条都不剩就清空选中，回退到"从左侧新建或选择"的空态。
       const next = remaining[0]?.id ?? null;
       setSelectedThreadId(next);
-      router.replace(next ? personalChatHref(next) : "/chat");
+      // 2026-08-25 默认入口翻转后裸 /chat redirect 到 v2——删掉最后一条线程后
+      // 必须留在旧屏世界（/chat/legacy），不能把用户弹进另一条轨道。
+      router.replace(next ? personalChatHref(next) : "/chat/legacy");
     } catch (failure) {
       setMutateFailure(describeFailure(failure));
     } finally {
