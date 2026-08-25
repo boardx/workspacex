@@ -139,6 +139,34 @@ const FOLLOWUP_CONTEXT_ECHO_PREFIX = process.env.LOOPBACK_DEEP_AGENT_FOLLOWUP_CO
 /** threadId → 该线程迄今为止收到过的用户消息，按到达顺序追加，从不覆盖（对照
  *  `RunRecord.userText` 每次整体覆盖的既有行为——两者刻意不同，见上面头注）。 */
 const conversationLog = new Map<string, string[]>();
+/**
+ * issue #2020（差距清单第 3 项，v2 Skill 挂载）—— 与 `loopback-model-provider.ts` 的
+ * `mountedSkillReachedModel` **同一条取证纪律**，搬到 deep-agent 协议面上：
+ * 「挂载的 skill 是否真的进了模型输入」在浏览器侧没有任何别的可观察信号
+ * （system prompt 不落表，`GET /agent-runs/:id` 只有 digest）。
+ * `deep-agent-model-provider.ts` 的 `createRun` 把 `buildSystemPrompt` 拼好的
+ * `input.system`（含全部 pinned skill 正文，见该文件头注 "`input.system` is still
+ * sent"）作为一条 `role:"system"` 消息发进 `POST /threads/:id/runs`——本替身只在
+ * **那条 system 消息**里真的看到哨兵时才回显（只扫 system、不扫会被回显污染的
+ * user/history，理由逐字同 `loopback-model-provider.ts`）。两个开关默认关闭：
+ * 未设置时 `skillSentinelSeen` 恒 `false`，所有既有剧本逐字节不变。
+ */
+const SKILL_SENTINEL = process.env.LOOPBACK_DEEP_AGENT_SKILL_SENTINEL || null;
+const SKILL_ECHO_PREFIX = process.env.LOOPBACK_DEEP_AGENT_SKILL_ECHO_PREFIX || null;
+
+function mountedSkillReachedUpstream(
+  messages: readonly { readonly role?: string; readonly content?: unknown }[],
+): boolean {
+  if (SKILL_SENTINEL === null || SKILL_ECHO_PREFIX === null) return false;
+  const system = messages.find((m) => m.role === "system")?.content;
+  return typeof system === "string" && system.includes(SKILL_SENTINEL);
+}
+
+/** 见 `mountedSkillReachedUpstream`——`/stream` 与 `/state` 两个端点共用同一份拼接，
+ *  不各自维护第二份（DA-19g「两个端点漂移」的真根因教训）。 */
+function skillEcho(record: RunRecord): string {
+  return record.skillSentinelSeen ? `${SKILL_ECHO_PREFIX}${SKILL_SENTINEL} ` : "";
+}
 const MARKDOWN_REPLY = [
   "## 分析结果",
   "",
@@ -180,6 +208,9 @@ interface RunRecord {
   approvalArgs?: Record<string, unknown>;
   /** resume 请求（`command.resume`）到达后记下的裁决——null = 还没被裁决过。 */
   decision: ApprovalDecision | null;
+  /** issue #2020：这一轮的 `role:"system"` 消息里真的出现了挂载 skill 哨兵——
+   *  见 `mountedSkillReachedUpstream`。开关未给全时恒 `false`。 */
+  skillSentinelSeen?: boolean;
 }
 
 const runs = new Map<string, RunRecord>();
@@ -311,7 +342,14 @@ const server = createServer((req, res) => {
         log.push(lastUserText);
         conversationLog.set(threadId, log);
       }
-      runs.set(threadId, { userText: lastUserText, statusPolls: 0, decision: null });
+      runs.set(threadId, {
+        userText: lastUserText,
+        statusPolls: 0,
+        decision: null,
+        // issue #2020：在**这一轮请求真实收到的字节**上判定，不缓存跨轮——挂载前的
+        // 轮次 system 里没有哨兵、挂载后的轮次才有，前后对照正是 e2e 的判据。
+        skillSentinelSeen: mountedSkillReachedUpstream(parsed.input?.messages ?? []),
+      });
       // 用 thread id 直接当 run id：同一线程本进程不并发跑第二个 run，够用，
       // 不需要为了"看起来更像真服务"多维护一份映射。
       sendJson(res, 200, { run_id: threadId });
@@ -364,7 +402,9 @@ const server = createServer((req, res) => {
     const reply = MULTISTEP_TRIGGER !== undefined && record.userText === MULTISTEP_TRIGGER
       ? "综合 3 份文档检索与 A.md 的内容，结论是：多步依赖链已完整执行——先搜索（命中 A.md/B.md/C.md），再读取搜索结果中最相关的 A.md，最后据其正文作答。"
       : computeSpecialTurnReply(threadId, record)
-        ?? `根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
+        // issue #2020：哨兵回显（开关未给全时 `skillEcho` 恒 ""，逐字节不变）——
+        // 只拼在默认模板上：特殊剧本各有既有断言盯着措辞，不动它们。
+        ?? `${skillEcho(record)}根据查询结果回答你："${record.userText}" —— 已查询当前时间，详情见工具结果。`;
     const pieces: string[] = [];
     for (let i = 0; i < reply.length; i += 8) pieces.push(reply.slice(i, i + 8));
     let idx = 0;
@@ -503,8 +543,9 @@ const server = createServer((req, res) => {
     const toolResult = `已查询：当前时间 ${new Date().toISOString()}。用户原话："${record.userText}"`;
     // DA-19g 真根因修复：与 `/stream` 共用同一份"特殊分支"判断（`computeSpecialTurnReply`），
     // 未命中任何触发词时的默认模板原样保留——单一事实源，见该函数自己的头注。
+    // issue #2020：与 `/stream` 同一份 `skillEcho` 拼接（单一事实源），开关未给全时恒 ""。
     const finalReply = computeSpecialTurnReply(threadId, record)
-      ?? `根据查询结果回答你："${record.userText}" —— ${toolResult}`;
+      ?? `${skillEcho(record)}根据查询结果回答你："${record.userText}" —— ${toolResult}`;
     sendJson(res, 200, {
       values: {
         messages: [

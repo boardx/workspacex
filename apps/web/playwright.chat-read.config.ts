@@ -162,8 +162,15 @@ export default defineConfig({
    * extraction.spec.ts` 早已在用同一端点）、`loopback-deep-agent-provider.ts` 的
    * 默认回显剧本（`copilotkit-v2-runtime-adapter.spec.ts` 早已在用）。不需要新的
    * 进程或新的环境变量。
+   *
+   * issue #2020（差距清单第 3 项，v2 Skill 挂载）—— 新增
+   * `copilotkit-v2-skill-mount.spec.ts` 同样由本 config 接住：同一条 `/chat/
+   * copilotkit-v2` 路由、同一条真登录、同一个可挂载 skill 种子
+   * （`CHAT_READ_E2E.mountableSkillId`，`chat-agent-skill-context.spec.ts` 早已在用）。
+   * 新增的只有 deep-agent 替身的两个哨兵回显环境变量（见该 webServer 条目），
+   * 哨兵串复用 `mountedSkillSentinel` 同一个，不是第二份事实。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|chat-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
@@ -318,6 +325,12 @@ export default defineConfig({
         // 自己的头注。
         LOOPBACK_DEEP_AGENT_FOLLOWUP_CONTEXT_TRIGGER: CHAT_READ_E2E.deepAgentFollowupContextTrigger,
         LOOPBACK_DEEP_AGENT_FOLLOWUP_CONTEXT_ECHO_PREFIX: CHAT_READ_E2E.deepAgentFollowupContextEchoPrefix,
+        // issue #2020 —— v2 Skill 挂载因果取证：deep-agent 替身在收到的 `role:"system"`
+        // 消息里真的看到这个哨兵（挂载 skill 的 SKILL.md 正文，`buildSystemPrompt`
+        // 拼进 `input.system`）时才回显。哨兵/前缀与 loopback-model-provider 用同
+        // 一对（`chat-agent-skill-context.spec.ts` 既有），两条轨道断言同一个事实。
+        LOOPBACK_DEEP_AGENT_SKILL_SENTINEL: CHAT_READ_E2E.mountedSkillSentinel,
+        LOOPBACK_DEEP_AGENT_SKILL_ECHO_PREFIX: CHAT_READ_E2E.mountedSkillEchoPrefix,
       },
     },
     {
