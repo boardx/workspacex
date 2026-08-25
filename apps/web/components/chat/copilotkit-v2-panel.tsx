@@ -89,7 +89,12 @@ import {
  * ── issue #2023（差距清单第 4 项）Agent 选择/切换 ─────────────────────────────
  *
  * 旧手写轨道有 `AgentPicker`（选发送 agent）+ 外壳 `RosterPanel`（把 agent 加进
- * 当前会话的编制，多 agent 协作）。本任务做的是前者，**不做**后者——理由：
+ * 当前会话的编制，多 agent 协作）。#2025 当时只做了前者，理由记在下面两条。
+ *
+ * ⚠ **这两条理由已于 issue #2052（CK-P7）失效，勿再据此认为编制没做**：#2028 落地了
+ *   持久化线程，外壳 `copilotkit-v2-shell.tsx` 现在持有真实 `chat_threads.id`，编制
+ *   面板已经挂上去了（共用组件 `chat-roster-panel.tsx`，与旧轨道同一份）。本节保留
+ *   原文是为了记住"当时为什么拆成两轮"，不是描述今天的状态。
  *
  *   1. 本面板此前压根没有"这条会话可以有多个 agent"的概念，`useAgent` 是单实例；
  *      `RosterPanel`（`updateAgentRoster`/乐观锁 `rosterVersion`）挂在
