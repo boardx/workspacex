@@ -471,11 +471,14 @@ DA-19h（旧轨道退役，等 g 且人类确认翻转默认值）
 - 材料栏头部「+」直传入口（#1758 形态）**未做**：composer 附件控制器含附件线程
   生命周期在面板 Body 层，提升到 shell 是跨三层状态提升；📎 与全 surface 拖拽已在，
   材料栏本轮为读侧。如实登记，不是漏做。
-- 差距表 #5「落地为产物」拆出为 **#2050**：读侧（产物栏）已随本项完成；逐条落地
-  **入口**需先取证「流式 assistant 消息 id 是否等于 `chat_messages.id`」——不取证
-  就接线会做出「点了才 404」的假按钮。`markdownRenderer` 子 slot 已确认走不通
-  （只暴露 `content`），可行通道是覆盖 `assistantMessage` 整组件 slot（该层携带
-  `message`），详见 #2050，别再从子 slot 那条路进。
+- 差距表 #5「落地为产物」拆出为 **#2050** —— ✅ 实现完成。**取证结论是「不相等」**：
+  `copilotkit-agui.controller.ts:578` 的 AG-UI `messageId` 是 `randomUUID()` 现铸的
+  wire 级关联 id（首个 delta 早于消息落库，真实主键那时还不存在），照它画按钮必是
+  「点了才 404」的假按钮。修法不动流式语义，改补一条映射通道（DA-19a `chat_thread_id`
+  的同一个先例）：run 成功后服务端发 `CUSTOM {name:"chat_message_id"}`，前端**只对
+  映射到真实 id 的消息**渲染入口（正在流的那条本就还没落库，不该能落地）。入口挂在
+  `assistantMessage` 整组件 slot；`markdownRenderer` 子 slot 确认走不通（只暴露
+  `content`），别再从那条路进。
 - 连带修：`[threadId]` 页上「挂载即另建附件专用线程」（#2032）与持久化线程页
   （#2028）合成后断裂——上传落在新建线程、`send()` 用 URL 线程，`acceptHumanMessage`
   校验 attachmentIds 必须属本线程，带附件发送必 422、右栏材料永远看不到。
@@ -541,8 +544,17 @@ DA-19h（旧轨道退役，等 g 且人类确认翻转默认值）
 的假按钮；这条由组件测试的反证实验实测钉住（第一版断言两份消息一模一样，把实现改成拿
 内存末条 id 照样全绿，随后重编排为「挂载后后端才多出一条」才真能判）。
 
-**CK-P7 多 agent 编制**（#2025 收窄时明确延后的另一半，`RosterPanel`/
-`updateAgentRoster`——持久化线程已就绪，可开工）。
+**CK-P7 多 agent 编制**（#2025 收窄时明确延后的另一半）—— ✅ 实现完成（#2052）。
+- `RosterPanel`/`ErrorState`/`describeMutateFailure` 与旧轨道收敛成共用件，不各画一份。
+- ⚠ 开工时发现**服务端这条路对个人线程根本没通**，不是前端接一下就行：两个编制端点
+  把 `projectId` 声明成必填（没有 `getThread` 早就在用的「省略 ⇒ null ⇒ 个人线程」
+  归一化），且写权判据 `outcome.actor.projectRole` 对个人线程恒为 `null` ⇒ 线程创建者
+  被自己的线程 403。按 `land-as-artifact.ts` 2026-08-21 那条人类裁决过的个人线程豁免
+  同一条理由补齐；项目线程分支一个字没动。
+- ⚠ **验收锚点勘误**：线程卡上的「N 个 agent」**不是**编制计数。
+  `thread-badges.ts:113` 是 `new Set(speakingAgentIds).size`，`ports.ts:147` 逐字
+  定义为「在本线程**发过言**的不同 agent id」——加进编制但还没发言时那个数本就不该变。
+  真锚点用 `getAgentPanel.rosterCount` + 刷新后仍在 + 服务端复核。
 
 **CK-P8 归档线程只读态**（差距表 #11）—— ✅ 读侧接通（#2053），写侧缺口如实登记。
 `chat_threads.archived` 真实存在、`getThread.out.thread.archived` 真实下发、`getThread`
