@@ -3,7 +3,7 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "../lib/copilotkit-v2-agent-header";
 
 /**
- * issue #2023（差距清单第 4 项，Agent 选择/切换）—— 证明 `/chat/copilotkit-v2` 的
+ * issue #2023（差距清单第 4 项，Agent 选择/切换）—— 证明 `/chat` 的
  * `AgentPicker` 不是一个只改 UI 状态的假选择器：选中一个**非默认**的真实已发布 agent
  * 之后，浏览器打给 `/api/copilotkit/*` 的请求真的带着那个 agent 的标识（wire 上的
  * header，不是 UI 显示"已选中"），并且回复内容真的来自该 agent 对应的下游 provider
@@ -33,7 +33,7 @@ import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "../lib/copilotkit-v2-agent-
  */
 // 预算实测记录（2026-08-25 本地，三轮）：120s 总超时在 dev 首编译 + 高负载下不够
 // （run2 两用例均在 `page.goto` 处被打断）；页面预热 90s 也不够（run3 用例 1 在预热
-// poll 超时，`/chat/copilotkit-v2` 首编译实测要 2-3 分钟）——run3 用例 2（编译已热）
+// poll 超时，`/chat` 首编译实测要 2-3 分钟）——run3 用例 2（编译已热）
 // 一路跑到最终断言，证明超出预算的只有首编译，不是链路本身。300s + 180s 预热按
 // 实测上界给足，与 `copilotkit-v2-runtime-adapter.spec.ts` 的 180s 同一条"给足首次
 // 编译窗口"纪律，只是本 spec 是套件里第一个跑的文件、独自付全部编译成本。
@@ -61,7 +61,7 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
   await expect
     .poll(
       async () => {
-        const res = await page.request.get("/chat/copilotkit-v2");
+        const res = await page.request.get("/chat");
         return res.status();
       },
       { timeout: 180_000, intervals: [1_000, 2_000, 5_000] },
@@ -77,7 +77,7 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
   await page.waitForURL(/\/projects$/);
 
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   // ── 候选列表真的列出了两个真实已发布 agent（不是硬编码的假下拉） ──────────────
   const trigger = page.getByTestId("chat-agent-select");
@@ -151,7 +151,7 @@ test("不做选择时不带选择 header——服务端 env 默认路径完好�
   await page.waitForURL(/\/projects$/);
 
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   // 选择器在场（能选），但**不点它**——这是本用例的全部前提。
   const trigger = page.getByTestId("chat-agent-select");

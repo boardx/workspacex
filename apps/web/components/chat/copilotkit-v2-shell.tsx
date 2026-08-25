@@ -12,7 +12,7 @@ import {
 } from "@/lib/live-chat";
 
 /**
- * issue #2021 —— `/chat/copilotkit-v2` 消息持久化 + 多线程管理外壳。
+ * issue #2021 —— CopilotKit v2（#2044 起原生住在 `/chat`）消息持久化 + 多线程管理外壳。
  *
  * ## 为什么是一个新组件，不是往 `copilotkit-v2-panel.tsx` 里堆
  *
@@ -95,7 +95,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       const result = await createPersonalThread(null);
       await reloadThreads();
-      router.push(`/chat/copilotkit-v2/${result.threadId}`);
+      router.push(`/chat/${result.threadId}`);
     } finally {
       setCreatePending(false);
     }
@@ -103,7 +103,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
 
   const selectThread = React.useCallback((threadId: string) => {
     if (threadId === selectedThreadId) return;
-    router.push(`/chat/copilotkit-v2/${threadId}`);
+    router.push(`/chat/${threadId}`);
   }, [router, selectedThreadId]);
 
   /**
@@ -116,7 +116,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const handleThreadResolved = React.useCallback((resolvedThreadId: string) => {
     setSelectedThreadId((prev) => {
       if (prev === resolvedThreadId) return prev;
-      window.history.replaceState(null, "", `/chat/copilotkit-v2/${resolvedThreadId}`);
+      window.history.replaceState(null, "", `/chat/${resolvedThreadId}`);
       return resolvedThreadId;
     });
     void reloadThreads();

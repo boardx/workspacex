@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 
 /**
- * issue #2021 —— `/chat/copilotkit-v2` 消息持久化 + 多线程管理。
+ * issue #2021 —— `/chat` 消息持久化 + 多线程管理。
  *
  * 复用同一份真栈编排（真登录 + 真 Postgres + deep-agent loopback 替身），见
  * `playwright.chat-read.config.ts` 文件头"为什么新 spec 挂在本 config 下"的一贯理由：
@@ -58,14 +58,14 @@ async function sendAndWaitEcho(page: Page, text: string): Promise<void> {
 test("发消息→整页刷新→消息仍在（URL 绑定的持久化 chatThreadId）", async ({ page }) => {
   await login(page);
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   const marker = `DA-2021-刷新持久化-${Date.now()}`;
   await sendAndWaitEcho(page, marker);
 
   // 地址栏必须已经从裸路由换成带真实 threadId 的那一条——`window.history.replaceState`
   // 生效的直接证据，不是靠"消息还在"反推。
-  await expect(page).toHaveURL(/\/chat\/copilotkit-v2\/[^/]+$/);
+  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
   const urlAfterFirstTurn = page.url();
 
   await page.reload();
@@ -78,17 +78,17 @@ test("发消息→整页刷新→消息仍在（URL 绑定的持久化 chatThrea
 test("新建对话→线程列表出现两条→切换回第一条→历史正确恢复", async ({ page }) => {
   await login(page);
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   const firstMarker = `DA-2021-线程一-${Date.now()}`;
   await sendAndWaitEcho(page, firstMarker);
-  await expect(page).toHaveURL(/\/chat\/copilotkit-v2\/[^/]+$/);
+  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
   const firstThreadUrl = page.url();
   const firstThreadId = firstThreadUrl.split("/").pop()!;
 
   // 新建对话：侧栏「+ 新建对话」按钮，走真实 `POST /chat/threads/mutate` + 导航。
   await page.getByTestId("chat-thread-create").click();
-  await page.waitForURL(/\/chat\/copilotkit-v2\/[^/]+$/);
+  await page.waitForURL(/\/chat\/[^/]+$/);
   await expect(page).not.toHaveURL(firstThreadUrl);
 
   const secondMarker = `DA-2021-线程二-${Date.now()}`;
