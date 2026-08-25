@@ -83,6 +83,29 @@ export default {
     );
     return config;
   },
+  /**
+   * 2026-08-25（#2026 默认入口翻转）：裸 `/chat` → `/chat/copilotkit-v2` 放在 HTTP 层
+   * 而不是页面组件里——App Router 的组件级 `redirect()` 在 dev 动态渲染下会退化成
+   * meta-refresh 客户端跳转，Playwright `page.goto("/chat")` 因原导航被新导航中止而
+   * 报 `net::ERR_ABORTED`（本轮两次实测，预热 API 路由无效，是渲染层跳转机制本身）。
+   * `missing` 匹配器保证带 `projectId`/`thread` 的深链不受影响（那两支仍由
+   * `app/chat/page.tsx` 渲染旧屏，理由见其头注）。`page.tsx` 里保留同款
+   * `redirect()` 作为兜底——两层声明的是同一个事实（裸 /chat ⇒ v2），HTTP 层是
+   * 主路径，组件层只在配置被绕过时接住，不算第二份权威。
+   */
+  async redirects() {
+    return [
+      {
+        source: "/chat",
+        missing: [
+          { type: "query", key: "projectId" },
+          { type: "query", key: "thread" },
+        ],
+        destination: "/chat/copilotkit-v2",
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     const fullstackApiOrigin = process.env.FULLSTACK_E2E_API_ORIGIN;
     const apiOrigin = fullstackApiOrigin ?? process.env.CHAT_READ_E2E_API_ORIGIN;
