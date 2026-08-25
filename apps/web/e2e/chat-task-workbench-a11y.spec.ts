@@ -164,22 +164,57 @@ test("TW-A11Y-5：审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处", a
 test("TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差异）", async ({ page }) => {
   await openFreshThread(page);
 
-  const micStates = ["chat-mic-connecting", "chat-mic-listening", "chat-mic-stopping", "chat-mic-error"];
-  const present = await page.evaluate(
-    (ids) => ids.filter((id) => document.querySelector(`[data-testid="${id}"]`) !== null),
-    micStates,
-  );
+  /*
+   * ⚠ 这条**收紧**过一次（issue #2075，如实记录，不是悄悄改）。
+   *
+   * 原判据是在一个**没有在录音**的页面上扫 `chat-mic-connecting` /
+   * `chat-mic-listening` / `chat-mic-stopping` / `chat-mic-error` 这四个**状态**锚点，
+   * 要求至少命中一个。这四个按定义只在对应状态下渲染 ⇒ 静止页面上恒零命中，
+   * 于是这条判据要么恒红，要么逼实现方在闲置态也挂一个「正在听……」的假状态节点
+   * ——后者比没有骨架/没有状态更坏。
+   *
+   * 改成**真的把录音开起来再看**：本 config 已接了确定性 ASR 替身
+   * （`loopback-asr-provider.ts`，`copilotkit-v2-voice-input.spec.ts` 的既有用法），
+   * 点一下麦克风就进真实录音态。然后验这条真正要问的事——状态是不是**只**靠颜色：
+   * 录音态必须同时有①非空文本、②按钮上可读的状态属性（`aria-pressed` /
+   * `data-mic-status`）、③变化了的可访问名。比"四个锚点里有一个存在"严得多。
+   */
+  const micButton = page.getByTestId("chat-mic-button");
+  await expect(micButton).toBeEnabled({ timeout: 30_000 });
+  await expect(page.getByTestId("chat-mic-listening")).toHaveCount(0);
+  // 闲置态：按钮不得声称自己在录音。
+  await expect(micButton).toHaveAttribute("data-mic-status", "idle");
+  await expect(micButton).toHaveAttribute("aria-pressed", "false");
 
-  // 至少要有一个可读的语音状态锚点，且它承载文本（不是一个只换颜色的圆点）。
-  expect(
-    present.length,
+  await micButton.click();
+  const listening = page.getByTestId("chat-mic-listening");
+  await expect(
+    listening,
     [
-      "【差距 TW-A11Y-6】没有可判定的语音状态节点。",
-      "锚点待实现为 data-testid=chat-task-workbench-composer-recording-timer 等",
-      "（TW-P0-5⑥ 的录音四件同时满足本条）。",
+      "【差距 TW-A11Y-6】点了麦克风之后没有任何可读的录音状态节点——",
+      "若录音态只是把按钮染红，色觉障碍用户与屏幕阅读器用户都读不出它在录音。",
       `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-6。`,
     ].join("\n"),
+  ).toBeVisible({ timeout: 30_000 });
+
+  expect(
+    (await listening.innerText()).trim().length,
+    "【差距 TW-A11Y-6】录音状态节点没有文本，等于只靠颜色/动画表达状态。",
   ).toBeGreaterThan(0);
+
+  await expect(
+    micButton,
+    "【差距 TW-A11Y-6】录音中麦克风按钮的 aria-pressed 没有翻真，状态只活在颜色里。",
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(micButton).toHaveAttribute("data-mic-status", "listening");
+  await expect(
+    micButton,
+    "【差距 TW-A11Y-6】录音中按钮的可访问名没变，屏幕阅读器读到的仍是「开始语音输入」。",
+  ).toHaveAttribute("aria-label", "停止语音输入");
+
+  // 收尾：停掉录音，别把一条开着的采音管线留给后面的用例。
+  await micButton.click();
+  await expect(listening).toHaveCount(0, { timeout: 30_000 });
 });
 
 test("TW-A11Y-7：200% 缩放与窄屏重排不产生横向滚动", async ({ page }) => {

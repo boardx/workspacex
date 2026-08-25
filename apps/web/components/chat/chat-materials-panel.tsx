@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatBytes, iconKindForMime, type AttachmentIconKind } from "@/lib/chat-attachment-format";
 import { ChatAttachmentPreviewModal } from "@/components/chat/chat-attachment-preview-modal";
+import { ChatPanelSkeleton } from "@/components/chat/chat-panel-skeleton";
 import { ChatSidebarUploadButton, type ChatAttachmentsController } from "@/components/chat/chat-composer-attachments";
 import type { ChatAttachment, ListThreadAttachmentsOut } from "@/lib/live-chat";
 
@@ -57,8 +58,15 @@ export function ChatMaterialsPanel({
       ) : null}
       {/* 未选线程与加载中是互斥状态，同一时刻只显一态（UI 评分 b10-entry 截图：两态并存）。
           文案不带「真实」——那是区别于 mock 的开发者词汇，不该出现在用户可见文案里。 */}
-      {!hasSelection ? <p className="p-3 text-12 text-muted-foreground">选择线程后读取材料。</p> : null}
-      {hasSelection && loading ? <p className="p-3 text-12 text-muted-foreground">正在读取材料列表…</p> : null}
+      {/* issue #2075（TW-COPY-1）—— 与 `chat-artifacts-panel.tsx` 同一处修法、同一条理由：
+          「线程」换成用户语言「对话」，句子说的是用户该做的动作，不是系统要做的事。 */}
+      {!hasSelection ? (
+        <p className="p-3 text-12 text-muted-foreground" data-testid="chat-materials-no-selection">
+          还没有选择对话。在左侧选一条对话，这里会列出随消息发出的文件。
+        </p>
+      ) : null}
+      {/* issue #2075（TW-P2-7）—— 同 `chat-artifacts-panel.tsx`：加载态换成真骨架。 */}
+      {hasSelection && loading ? <ChatPanelSkeleton label="正在读取材料列表" /> : null}
       {error ? (
         <div className="flex flex-col items-start gap-2 p-3" data-testid="chat-materials-error">
           <p className="text-12 text-destructive">{error}</p>
