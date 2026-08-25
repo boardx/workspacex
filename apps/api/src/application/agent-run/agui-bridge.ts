@@ -56,7 +56,7 @@ import type { IdFactory } from "../artifact/ports";
 import {
   acceptHumanMessage, listMessagePage,
   AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
-  MessageThreadArchivedError, MessageIdempotencyConflictError,
+  MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
 } from "../chat/message-roundtrip";
 import type {
   ChatMessageCommandRepository, PublishedAgentReader, ThreadMountedSkillReader,
@@ -69,7 +69,8 @@ import {
 import type { AgentRunStore, AgentRunExecutorPort } from "./ports";
 
 export { AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
-  MessageThreadArchivedError, MessageIdempotencyConflictError, AgentRunNotVisibleError,
+  MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
+  AgentRunNotVisibleError,
   TitleInvalidError, AgentRunNotAwaitingApprovalError, type DecideAgentRunDeps };
 
 /** The run reached a terminal status but has neither text nor a stable failure code. */
@@ -97,6 +98,17 @@ export interface AguiBridgeInput {
   readonly clientMessageId: string;
   /** Omitted/null = start a fresh personal thread for this AG-UI session (see file head). */
   readonly threadId?: string | null;
+  /**
+   * chat-parity-attachments (issue #2022) -- pending attachment ids (already uploaded via
+   * the SAME `POST /chat/threads/:threadId/attachments` endpoint the REST track uses,
+   * see `chat-file-upload.ts`) to attach to this turn's human message. Threaded straight
+   * into `acceptHumanMessage`'s existing `attachmentIds` parameter -- this bridge does not
+   * invent a second attachment pipeline. Once attached, the EXISTING `execute-run.ts`
+   * `withAttachmentNotice`/`readThreadHistory` machinery (already shared by both tracks)
+   * folds the extraction excerpt into the model's context automatically; nothing else in
+   * this file needs to know about attachment CONTENT, only ids.
+   */
+  readonly attachmentIds?: readonly string[];
   /** Test seam only -- production callers use the defaults. */
   readonly pollIntervalMs?: number;
   readonly maxPolls?: number;
@@ -329,6 +341,7 @@ export async function runAguiBridgeTurn(
   const accepted = await acceptHumanMessage(deps, {
     userId: input.userId, orgId: input.orgId, threadId,
     clientMessageId: input.clientMessageId, text: input.text, agentId: input.agentId,
+    attachmentIds: input.attachmentIds,
   });
   deps.executor.kick(input.orgId);
   input.onStarted?.();

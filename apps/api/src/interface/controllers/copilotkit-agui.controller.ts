@@ -110,11 +110,29 @@ import {
 import {
   runAguiBridgeTurn, resumeAguiBridgeTurn, NoAwaitingApprovalRunError,
   AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
-  MessageThreadArchivedError, MessageIdempotencyConflictError, AgentRunNotVisibleError,
+  MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
+  AgentRunNotVisibleError,
   TitleInvalidError, AguiBridgeResultUnreadableError, AgentRunNotAwaitingApprovalError,
   type RunStepPublic,
 } from "../../application/agent-run/agui-bridge";
 import { parseWriteTodosSnapshot, type JsonPatchOp } from "@repo/contracts/agui-state-events";
+import { chatFileUpload } from "@repo/contracts";
+
+/**
+ * chat-parity-attachments (issue #2022) -- validate+cap `forwardedProps.attachmentIds`
+ * the same way the REST track's contract already bounds a message's attachment count
+ * (`ATTACHMENT_LIMITS.maxAttachmentsPerMessage`, `chat-file-upload.ts`'s single source of
+ * truth) -- not a new number invented for this bridge. Malformed entries (non-string,
+ * blank) are dropped rather than rejecting the whole turn: `acceptHumanMessage` itself is
+ * still the authority (unknown/foreign/already-attached ids throw
+ * `MessageAttachmentNotPendingError`, mapped below to `ATTACHMENT_NOT_PENDING`).
+ */
+function parseForwardedAttachmentIds(value: unknown): readonly string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const ids = value.filter((v): v is string => typeof v === "string" && v.trim() !== "");
+  if (ids.length === 0) return undefined;
+  return ids.slice(0, chatFileUpload.ATTACHMENT_LIMITS.maxAttachmentsPerMessage);
+}
 
 /** The minimal slice of AG-UI's `RunAgentInput` this bridge reads. Everything else in a
  * real `RunAgentInput` (tools, context, state) is ignored -- Phase 1b is single-turn text
@@ -133,10 +151,13 @@ interface AguiRunInput {
   readonly messages?: readonly {
     readonly role: string; readonly content?: string; readonly toolCallId?: string;
   }[];
-  /** DA-19a -- see file head "real cross-turn continuation". Only `chatThreadId` is read;
-   * any other key a real AG-UI client puts in `forwardedProps` is ignored, same as this
-   * bridge already ignores `tools`/`context`/`state` (see `AguiRunInput`'s own doc). */
-  readonly forwardedProps?: { readonly chatThreadId?: string };
+  /** DA-19a -- see file head "real cross-turn continuation". `chatThreadId` and (chat-parity-
+   * attachments, issue #2022) `attachmentIds` are the only two keys read; any other key a
+   * real AG-UI client puts in `forwardedProps` is ignored, same as this bridge already
+   * ignores `tools`/`context`/`state` (see `AguiRunInput`'s own doc). `attachmentIds` are
+   * pending attachment ids from the SAME `POST /chat/threads/:threadId/attachments` upload
+   * endpoint the REST track uses -- see `parseForwardedAttachmentIds`. */
+  readonly forwardedProps?: { readonly chatThreadId?: string; readonly attachmentIds?: unknown };
 }
 
 type AguiEvent =
@@ -470,6 +491,8 @@ export class CopilotkitAguiController {
     // (see file head "real cross-turn continuation"). Empty/whitespace-only is treated the
     // same as omitted -- a client that sends `""` gets a fresh thread, not a lookup error.
     const requestedChatThreadId = body.forwardedProps?.chatThreadId?.trim();
+    // chat-parity-attachments (issue #2022) -- see `parseForwardedAttachmentIds`'s own doc.
+    const requestedAttachmentIds = parseForwardedAttachmentIds(body.forwardedProps?.attachmentIds);
     // DA-19a -- captured by `onThreadResolved` (fires before `onStarted`, see
     // `agui-bridge.ts`'s own doc), but NOT written to the wire there: a real `@ag-ui/client`
     // `HttpAgent` enforces "first event must be RUN_STARTED" (`verify.ts`'s own check, hit
@@ -556,6 +579,7 @@ export class CopilotkitAguiController {
           clientMessageId: randomUUID(),
           threadId: requestedChatThreadId !== undefined && requestedChatThreadId !== ""
             ? requestedChatThreadId : null,
+          attachmentIds: requestedAttachmentIds,
           onThreadResolved: (threadId) => { resolvedThreadId = threadId; },
           ...sharedCallbacks,
         });
@@ -602,6 +626,11 @@ export class CopilotkitAguiController {
         write({ type: EventType.RUN_ERROR, message: "AGENT_NOT_FOUND", code: "AGENT_NOT_FOUND" });
       } else if (e instanceof MessageIdempotencyConflictError) {
         write({ type: EventType.RUN_ERROR, message: "IDEMPOTENCY_CONFLICT", code: "IDEMPOTENCY_CONFLICT" });
+      } else if (e instanceof MessageAttachmentNotPendingError) {
+        // chat-parity-attachments (issue #2022) -- same fact the REST track's 422 reports
+        // (`message-roundtrip.ts` "仓储在事务内因附件不合格回滚"): an id that is not a
+        // pending attachment of THIS thread (foreign, already-attached, or unknown).
+        write({ type: EventType.RUN_ERROR, message: "ATTACHMENT_NOT_PENDING", code: "ATTACHMENT_NOT_PENDING" });
       } else if (e instanceof TitleInvalidError) {
         write({ type: EventType.RUN_ERROR, message: "TITLE_INVALID", code: "TITLE_INVALID" });
       } else if (e instanceof AguiBridgeResultUnreadableError) {

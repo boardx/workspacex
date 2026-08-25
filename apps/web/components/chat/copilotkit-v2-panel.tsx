@@ -25,8 +25,12 @@ import { AgentPicker, MicDevicePicker } from "@/components/chat/chat-composer-pi
 import { getStoredSessionToken } from "@/lib/api-client";
 import { useSession } from "@/components/session/session-provider";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
-import type { GetAgentPanelOut } from "@/lib/live-chat";
+import { createPersonalThread, type GetAgentPanelOut } from "@/lib/live-chat";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
+import {
+  useChatAttachments, ChatAttachmentButton, ChatAttachmentList, ChatAttachmentBanner,
+  ChatFullSurfaceDropOverlay,
+} from "@/components/chat/chat-composer-attachments";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -189,6 +193,60 @@ import {
  * 它。本文件（`useHumanInTheLoop` 接线）没有改一行——DA-19d 当时的接线已经跟旧面板
  * 逐条对齐，后端补上之后立刻工作。真实浏览器三条路径的证据见
  * `e2e/copilotkit-v2-hitl.spec.ts`（approve/edit/reject 各一条用例）。
+ *
+ * ── chat-parity-attachments（issue #2022，差距清单第 2 项，阻断级）────────────────
+ *
+ * 新轨道此前**零上传入口**——本节接入 📎 按钮 + 全 surface 拖拽落区，复用旧轨道
+ * `chat-composer-attachments.tsx` 的 `useChatAttachments` 状态机（上传/进度/重试/
+ * 移除三态，`POST /chat/threads/:threadId/attachments`）——不是重写一份。
+ *
+ * ## 附件内容如何真正到达 agent（不是"上传成功但看不到"的假功能）
+ *
+ * 排查确认（见 issue #2022 评论的完整调查记录）：`acceptHumanMessage`
+ * （`apps/api/src/application/chat/message-roundtrip.ts`）——REST 与 AG-UI 两条
+ * track 唯一共享的"消息落库"入口——早就支持一个可选的 `attachmentIds` 参数；一旦
+ * 附件 id 到达这里，`execute-run.ts` 的 `withAttachmentNotice`/抽取子系统（新老
+ * track 完全共用同一套）就会自动把抽取摘录拼进模型看到的 `content` 字符串。
+ * 唯一断掉的一环是：AG-UI 桥（`agui-bridge.ts`/`copilotkit-agui.controller.ts`）
+ * 此前从未把 `attachmentIds` 从请求体带到这一句调用——本任务在
+ * `AguiRunInput.forwardedProps` 新增 `attachmentIds` 这个 key（与已有的
+ * `chatThreadId` 同一套"透传字段"模式），控制器解析、限幅（复用
+ * `ATTACHMENT_LIMITS.maxAttachmentsPerMessage`，不是新造一个数）后原样传给
+ * `runAguiBridgeTurn` → `acceptHumanMessage`。之后完全是既有机制在工作，本文件
+ * 不需要、也没有另建一条"读取附件内容"的通道。
+ *
+ * ## 上传要有一个真实的 `chat_threads` 行——不是本面板原来那个"每次挂载生成的
+ * 本地随机 threadId"
+ *
+ * `POST /chat/threads/:threadId/attachments` 的 `threadId` 必须指向 DB 里真实
+ * 存在的一行（`chat_message_attachments.thread_id` 外键）；本面板原来的
+ * `threadId` state 只是本地 `useAgent` 用的关联 id，直到用户发出第一条消息、
+ * AG-UI 桥内部 `resolveThreadId` 才会（可能）建一条真的 `chat_threads` 行，
+ * 且事后才经 `chat_thread_id` CUSTOM 事件回显给前端（DA-19g，见上文"真实缺陷
+ * 修复"一节）——这条回显在"发第一条消息之前"永远不存在，附件却恰恰需要在那之前
+ * 就有地方可传。解法：`ensureAttachmentThread()` 在用户第一次点 📎 时，走与旧轨道
+ * 「新建个人对话」完全同一个端点（`createPersonalThread`，`lib/live-chat.ts`）
+ * 真建一条线程，只用于承载这一轮的附件上传；`send()` 时把它并入
+ * `forwardedProps.chatThreadId`（**只在这一轮真的带了附件时**才这样做——没有附件
+ * 的发送路径逐字节维持 DA-19g 已验证过的行为：turn 1 不传，continuation 靠
+ * `chatThreadIdRef` 回显），因为 `acceptHumanMessage` 校验 `attachmentIds` 必须
+ * 属于**这条 run 实际写入的**线程，附件所在线程与消息所在线程必须是同一个。
+ * 这条线程建成后自然而然也成为 `chatThreadIdRef` 的种子（后续轮次的回显值与它
+ * 一致），不产生第二条并行的续接机制。
+ *
+ * ## VFS（`vfs://attachment/<id>`）本轮不接——如实说明，不是漏做
+ *
+ * `active-file-panel.tsx`/`agui-file-events.ts` 头注已经登记"DA-15 事件目前没有
+ * 真实生产者"，并明确把"`FilesystemMiddleware` 写入 → 落地为
+ * `chat_message_attachments` → 真实 VFS id"列为需要另开任务评估的候选（不是本任务
+ * 范围内可以顺手做完的事——附件走的是完全独立的 REST 上传端点，从未经过
+ * `FilesystemMiddleware`/`file_created` 事件，两者本来就不是同一个产生源；把
+ * 上传的附件伪装成"agent 打开的文件"塞进 `file_created` 事件会是本仓一贯反对的
+ * 那种假映射）。本任务交付的"附件能被 agent 看到内容"这一核心功能与 VFS 集成
+ * 相互独立，不因为没做后者就打折扣。
+ *
+ * 真实浏览器 e2e 证据（上传→引用→agent 回复体现出真看到了内容）见
+ * `e2e/copilotkit-v2-attachments.spec.ts`。
  *
  * 这与 DA-07b/PR #1960 修的 bug 不是同一层：那次修的是旧 REST 审批路径
  * （`/agent-runs/:runId/decision`）在**已经支持**审批的前提下、resume 时撞了账本
@@ -744,6 +802,29 @@ function CopilotKitV2PanelBody(): JSX.Element {
       window.clearInterval(interval);
     };
   }, []);
+
+  /**
+   * chat-parity-attachments (issue #2022) —— 见本文件头注该节完整取舍。`ChatAttachmentButton`/
+   * 拖拽落区是共享组件，点击/拖入会直接触发 `ctl.pickFiles`（真实网络上传），没有
+   * "先准备好线程再允许操作"的钩子可插——所以这里在已登录时**挂载后立即**真建一条
+   * 附件专用线程（`createPersonalThread`，与旧轨道「新建个人对话」同一端点），而不是
+   * 等第一次点 📎 才建：这样 📎 按钮从第一次渲染起就可用，不需要"先点一下准备、
+   * 再点一下才真的弹出上传面板"这种两段式交互。未登录时不建（上传本来就要鉴权），
+   * 📎 按钮改为禁用态并说明原因。建失败时 `attachmentThreadId` 保持 `null`，📎 按钮
+   * 保持禁用而不是让用户点进一个必然 404/403 的上传请求。
+   */
+  const [attachmentThreadId, setAttachmentThreadId] = React.useState<string | null>(null);
+  const attachmentThreadRequestedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (sessionToken === null || attachmentThreadRequestedRef.current) return;
+    attachmentThreadRequestedRef.current = true;
+    void createPersonalThread(null)
+      .then((created) => setAttachmentThreadId(created.threadId))
+      .catch(() => {
+        attachmentThreadRequestedRef.current = false; // 允许下次 sessionToken 变化时重试
+      });
+  }, [sessionToken]);
+  const attach = useChatAttachments({ threadId: attachmentThreadId ?? "", bearer: sessionToken ?? undefined });
   const micDevices = useAudioInputDevices();
   const speech = useAsrDraft({
     getBaseText: () => inputDraftRef.current,
@@ -775,18 +856,33 @@ function CopilotKitV2PanelBody(): JSX.Element {
     async (override?: string) => {
       const text = (override ?? inputDraft).trim();
       if (text === "" || agent.isRunning) return;
+      // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
+      // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
+      // 「加入这一轮」按钮同一条禁用逻辑）。
+      if (attach.hasUploading) return;
       setError(null);
       setInputDraft("");
       agent.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
+      // chat-parity-attachments (issue #2022) -- 本轮已上传成功的附件 id；发送后清空
+      // composer 的 pending 队列（同旧轨道语义：已发出的附件从 composer 移到"材料"）。
+      const attachmentIds = attach.uploadedIds;
+      // 附件必须挂在它们实际所在的那条真实线程上（`acceptHumanMessage` 校验
+      // attachmentIds 归属），所以本轮一旦带了附件，chatThreadId 就必须是
+      // `attachmentThreadId`——即便这是 turn 1（DA-19g 原本"turn 1 不传"的前提是
+      // "还没有任何真实线程"，本轮已经因为附件而有了）。没有附件的路径完全不变。
+      const chatThreadId = chatThreadIdRef.current ?? (attachmentIds.length > 0 ? attachmentThreadId : null);
       try {
         // DA-19g -- echo the resolved Chat thread id back on every turn AFTER the first
         // (see the `chatThreadIdRef` block above for why this is the fix, not a new
-        // mechanism). Omitted entirely on turn 1 -- identical to pre-fix behaviour.
+        // mechanism). Omitted entirely on turn 1 -- identical to pre-fix behaviour, UNLESS
+        // this turn carries attachments (chat-parity-attachments, issue #2022 -- see above).
+        const forwardedProps: { chatThreadId?: string; attachmentIds?: readonly string[] } = {};
+        if (chatThreadId !== null) forwardedProps.chatThreadId = chatThreadId;
+        if (attachmentIds.length > 0) forwardedProps.attachmentIds = attachmentIds;
         await copilotkit.runAgent(
-          chatThreadIdRef.current !== null
-            ? { agent, forwardedProps: { chatThreadId: chatThreadIdRef.current } }
-            : { agent },
+          Object.keys(forwardedProps).length > 0 ? { agent, forwardedProps } : { agent },
         );
+        if (attachmentIds.length > 0) attach.clear();
       } catch (e) {
         // DA-19g -- 与上面 `copilotkit.subscribe({ onError })` 走同一份文案映射
         // （`copilotkit-v2-error-copy.ts`），不在这条分支单独拼一句可能带原始异常
@@ -796,15 +892,19 @@ function CopilotKitV2PanelBody(): JSX.Element {
         setError(describeCopilotkitV2RunError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED"));
       }
     },
-    [agent, copilotkit, inputDraft],
+    [agent, copilotkit, inputDraft, attach, attachmentThreadId],
   );
 
   return (
     <div className="flex h-full w-full gap-3">
       {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
           文件工作台，两栏各占一半宽度，右栏没有任何文件时不占位（见 ActiveFilePanel
-          自己的"缺席"纪律），左栏独占全宽。 */}
-      <div className="flex min-w-0 flex-1 flex-col gap-3">
+          自己的"缺席"纪律），左栏独占全宽。
+          chat-parity-attachments (issue #2022) -- `relative` + `dragHandlers`：全 surface
+          拖拽落区覆盖整个左栏（消息列表 + composer），与旧轨道 `ChatFullSurfaceDropOverlay`
+          同一套挂法（`chat-read-screen.tsx`）。 */}
+      <div className="relative flex min-w-0 flex-1 flex-col gap-3" {...attach.dragHandlers}>
+        <ChatFullSurfaceDropOverlay active={attach.dragActive} />
         <CopilotKitV2ToolRenderers />
         <div className="text-sm font-medium">
           CopilotKit v2（DA-19 —— CopilotRuntime 适配器，走 `/api/copilotkit`）
@@ -829,7 +929,12 @@ function CopilotKitV2PanelBody(): JSX.Element {
           disabled={agent.isRunning}
           onSelect={(text) => void send(text)}
         />
+        {/* chat-parity-attachments (issue #2022) -- composer 附件区：就地报错横幅 + 预览条，
+            复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
+        <ChatAttachmentBanner banner={attach.banner} />
+        <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />
         <div className="flex gap-2">
+          <ChatAttachmentButton ctl={attach} disabled={agent.isRunning || attachmentThreadId === null} />
           <input
             data-testid="copilotkit-v2-input"
             className="flex-1 rounded border border-input px-2 py-1 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -896,7 +1001,7 @@ function CopilotKitV2PanelBody(): JSX.Element {
             data-testid="copilotkit-v2-send"
             type="button"
             className="rounded border border-border px-3 py-1 text-sm text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
-            disabled={agent.isRunning}
+            disabled={agent.isRunning || attach.hasUploading}
             onClick={() => void send()}
           >
             {agent.isRunning ? "…" : "发送"}

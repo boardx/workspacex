@@ -53,6 +53,8 @@ const TRANSPORT_ERROR_TEXT: Record<string, string> = {
   AGENT_RUN_NOT_AWAITING_APPROVAL: "这次执行当前不处于等待审批状态",
   INTERNAL_ERROR: "系统内部出了点问题",
   COPILOTKIT_RUNTIME_RUN_FAILED: "这次请求没有成功，请重试",
+  // chat-parity-attachments (issue #2022)
+  ATTACHMENT_NOT_PENDING: "有附件已经失效或不属于这个对话，请移除后重新上传",
 };
 
 /**
