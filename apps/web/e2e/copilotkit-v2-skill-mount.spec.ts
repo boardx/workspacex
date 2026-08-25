@@ -50,6 +50,23 @@ async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
     .toBe(200);
 }
 
+/**
+ * `/chat/copilotkit-v2/[threadId]` 动态路由的编译焐热。
+ *
+ * 实测根因（本 spec 首轮 serial 复跑，trace + console 取证）：本文件是整个套件里
+ * 第一个**以客户端导航方式**进入 `[threadId]` 动态段的用例——`router.push` 触发
+ * Next dev 的按需编译（console 里 `[Fast Refresh] rebuilding` → `done in 17088ms`），
+ * 期间导航不提交、地址栏不更新，`waitForURL` 的 30s 刚好被这次编译 + 高负载挤爆
+ * （网络层证据：`POST /chat/threads/mutate` 本身 80ms 就 200 了，随后 30s 零网络
+ * 活动，页面在超时那一刻才 mount）。先用一次直接 `goto` 把这个路由段编译出来，
+ * 后面的计时步骤量的才是产品行为，不是 dev 编译器。线程 id 用一个不存在的占位值
+ * ——路由编译与 id 无关，页面对不存在的线程如实报错，不影响焐热目的。
+ */
+async function warmUpThreadRoute(page: Page): Promise<void> {
+  await page.goto("/chat/copilotkit-v2/warmup-route-compile-only");
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+}
+
 /** 挂一个 skill 并等真实 POST 落库 + chip 出现（同 `chat-agent-skill-context.spec.ts`
  *  的 `mountSkill`，只是线程 id 来自 v2 的 URL 而不是夹具常量）。 */
 async function mountSkillViaPanel(page: Page, threadId: string): Promise<void> {
@@ -72,6 +89,7 @@ const skillEcho = `${CHAT_READ_E2E.mountedSkillEchoPrefix}${CHAT_READ_E2E.mounte
 test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一轮 run 的模型输入（前后对照）", async ({ page }) => {
   await warmUpCopilotRuntimeRoute(page);
   await login(page);
+  await warmUpThreadRoute(page);
   await page.goto("/chat/copilotkit-v2");
 
   /* ═══════════ ① 新对话还没有线程：如实占位，不渲染假挂载面板 ═══════════ */
@@ -118,12 +136,13 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
 test("issue #2020：composer 敲 # 触发挂载候选，选中即挂载并清掉正文里的 #query", async ({ page }) => {
   await warmUpCopilotRuntimeRoute(page);
   await login(page);
+  await warmUpThreadRoute(page);
   await page.goto("/chat/copilotkit-v2");
 
   /* 走「新建对话」拿一条真实线程（`[threadId]` 路由挂载面板从首帧就在）——
      与上一条测试的「发首条消息 resolve 线程」互为另一条入口路径。 */
   await page.getByTestId("chat-thread-create").click();
-  await page.waitForURL(/\/chat\/copilotkit-v2\/.+$/, { timeout: 30_000 });
+  await page.waitForURL(/\/chat\/copilotkit-v2\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
   const threadId = /\/chat\/copilotkit-v2\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId).toBeTruthy();
   await expect(page.getByTestId("chat-skill-mount-panel")).toBeVisible();
