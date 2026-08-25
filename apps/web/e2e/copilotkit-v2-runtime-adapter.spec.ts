@@ -143,6 +143,15 @@ test("CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的�
   let fullText = "";
   let frames: AguiFrame[] = [];
   let lastFailureNote = "";
+  // issue #2033 —— unroute 必须拿注册时**同一个函数引用**：Playwright 按 url 参数
+  // 相等匹配要卸载的 route，函数 matcher 配字符串 pattern（此前的
+  // `unroute("**/api/copilotkit/**")`）永远卸不掉。后果不是本用例红，而是测试主体
+  // 结束后 CopilotKit 异步发出的追问建议请求（POST …/suggest）还会命中下面的
+  // `route.fetch()`，撞上 `route.fetch: Test ended`，且被 Playwright 归因到**后续
+  // 测试**名下（2026-08-25 run7 实测：错误挂在 test 4「清空 token」名下，代码帧却
+  // 指向本用例；run5 同用例绿，随机性符合竞态）。
+  const runRouteMatcher = (u: URL): boolean =>
+    u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info";
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     let capturedBody: Buffer | null = null;
     let requestBody = "";
@@ -150,7 +159,7 @@ test("CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的�
     let runOk = false;
 
     await page.route(
-      (u) => u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info",
+      runRouteMatcher,
       async (route) => {
         // issue #2021 —— 只捕获**第一条** POST（真实的用户 run），后续 POST 原样放行。
         // 此前的版本每条 POST 都覆盖 capturedBody——运气好能过，是因为紧随 run 之后
@@ -178,7 +187,7 @@ test("CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的�
     await page.getByTestId("copilotkit-v2-send").click();
 
     await expect.poll(() => capturedBody !== null, { timeout: 60_000 }).toBe(true);
-    await page.unroute("**/api/copilotkit/**");
+    await page.unroute(runRouteMatcher);
 
     /* ── 反证① 这条请求走的是 `/api/copilotkit`（CopilotRuntime 层），不是直连 AG-UI ── */
     expect(runUrl).toContain("/api/copilotkit/");
