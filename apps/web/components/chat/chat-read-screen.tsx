@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  MessageSquare, RefreshCw, Share2, Store, Users,
+  MessageSquare, Share2, Users,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -24,6 +24,11 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ApiError } from "@/lib/api-client";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
+// issue #2052（CK-P7）—— 编制面板与「读失败+重试」空态搬去共用模块，
+// CopilotKit v2 外壳复用同一份，不各画一份。
+import { RosterPanel } from "@/components/chat/chat-roster-panel";
+import { ErrorState } from "@/components/chat/chat-error-state";
+import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import {
   createThread,
   deleteThread,
@@ -949,230 +954,6 @@ function ThreadDetail({
   );
 }
 
-/**
- * ⚠ 写入口的渲染依据是 **`thread.mutate`**，因为契约里**没有** `roster.mutate` 这一档
- *   （`CHAT_WRITE_CAPABILITIES` 恰六个，见 `apps/api/src/domain/chat/thread-visibility.ts:276`）。
- *   服务端对编制的判定是 `role !== null && role !== "observer"`
- *   （`application/chat/update-agent-roster.ts` 的 `NO_WRITE_ROLE` 分支），与
- *   `thread.mutate` **同一个谓词** ⇒ 这里是**同源代理**，不是前端新造一份权限判断。
- *   缺一档专用能力已上报；服务端始终是权威（越权提交由 403 拒绝，见 API 测试）。
- */
-function RosterPanel({
-  roster, loading, error, hasSelection, canMutate, pending, mutateFailure,
-  candidates, candidatesError, onAdd, onRemove, onRetry,
-}: {
-  roster: GetAgentPanelOut | null;
-  loading: boolean;
-  error: string | null;
-  hasSelection: boolean;
-  canMutate: boolean;
-  pending: boolean;
-  mutateFailure: string | null;
-  candidates: readonly CapabilityListing[];
-  candidatesError: string | null;
-  onAdd: (agentId: string) => void;
-  onRemove: (agentId: string) => void;
-  onRetry: () => void;
-}) {
-  const [draft, setDraft] = React.useState("");
-  const writable = canMutate && hasSelection;
-
-  const [addOpen, setAddOpen] = React.useState(false);
-
-  // 换线程/候选列表变化时，之前选中的 id 可能已不再是合法候选（比如已被加进编制）。
-  React.useEffect(() => {
-    if (draft !== "" && !candidates.some((candidate) => candidate.id === draft)) setDraft("");
-  }, [candidates, draft]);
-
-  return (
-    <div className="flex flex-col gap-2 px-3 pb-3" data-testid="chat-read-roster">
-      {/* 栏头照原型：「本线程的 AI 团队 · N」。⚠ N 用的是 `rosterCount`（编制），
-          在场数另写一行 —— 契约把两个计数刻意分离（I-18），糊成一个就说谎了。 */}
-      <div className="flex items-center justify-between gap-2 pt-1">
-        <h2 className="text-11 font-medium text-muted-foreground">
-          本线程的 AI 团队{roster ? ` · ${roster.rosterCount}` : ""}
-          {roster && roster.presentCount !== roster.rosterCount
-            ? ` · 在场 ${roster.presentCount}`
-            : ""}
-        </h2>
-        {writable ? (
-          <Button
-            size="xs"
-            variant="ghost"
-            data-testid="chat-roster-edit"
-            aria-expanded={addOpen}
-            onClick={() => setAddOpen((open) => !open)}
-          >
-            编辑
-          </Button>
-        ) : (
-          <span className="text-10 text-muted-foreground">只读</span>
-        )}
-      </div>
-
-      {writable && addOpen ? (
-        <form
-          className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (draft === "") return;
-            onAdd(draft);
-            setDraft("");
-          }}
-        >
-          <label className="text-10 text-muted-foreground" htmlFor="chat-roster-add-input">
-            加入 agent（选自组织 agent 目录）
-          </label>
-          <div className="flex items-center gap-2">
-            <select
-              id="chat-roster-add-input"
-              data-testid="chat-roster-add-input"
-              className="h-7 min-w-0 flex-1 rounded-md border border-input bg-card px-2 text-11 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              disabled={pending || candidates.length === 0}
-            >
-              <option value="">
-                {candidates.length === 0 ? "组织 agent 目录里没有可加入的 agent" : "选择一个 agent…"}
-              </option>
-              {candidates.map((candidate) => (
-                <option key={candidate.id} value={candidate.id}>
-                  {candidate.name}{candidate.abbr ? `（${candidate.abbr}）` : ""}
-                </option>
-              ))}
-            </select>
-            <Button size="xs" type="submit" data-testid="chat-roster-add-submit" disabled={pending || draft === ""}>
-              {pending ? "提交中…" : "加入"}
-            </Button>
-          </div>
-          {/* #619：候选来自 `GET /capabilities?kind=agent`（`org_agents` 收敛进
-              `capability_listings` 之后，这就是"列出本线程可加的 agent"那个此前
-              缺失的读端口），不再是自由文本框。
-              ⚠ 原型的「从 Agent 市场加入」仍是另一个缺口：`marketEntry` 是服务端下发的
-              可空入口，下发了才渲染，不自己造一个死链。 */}
-          {/* #787 —— 诚实提示，纯 UI 措辞，不改数据流：
-              这份候选列表读的是 `capability_listings`（目录），与实际执行读的
-              `agents`/`agent_versions`（见 `resolvePublished`）不是同一张表。经后台
-              目录页「+」（`POST /capabilities/mutate`）创建的 agent 只写
-              `capability_listings`，不写 `agents`/`agent_versions`——加入编制之后
-              发消息会 422 `AGENT_NOT_FOUND`（`AgentNotPublishedError`）。这是已知的
-              后端数据模型裂痕（#787 记录在案，收敛方向待人类裁决），本处只如实
-              告知，不假装能在这里修掉。 */}
-          <p className="text-10 text-muted-foreground" data-testid="chat-roster-add-hint">
-            候选来自组织 agent 目录，加入编制不代表该 agent 已具备可执行的运行时——如果加入后发消息失败，是已知的后台创建路径缺口，请联系管理员确认该 agent 是否已发布。
-          </p>
-          {candidatesError ? (
-            <p className="text-10 text-destructive" data-testid="chat-roster-candidates-error">
-              agent 目录读取失败：{candidatesError}
-            </p>
-          ) : null}
-          {mutateFailure ? (
-            <p className="text-10 text-destructive" data-testid="chat-roster-mutate-error">{mutateFailure}</p>
-          ) : null}
-        </form>
-      ) : null}
-
-      {/* issue #2075（TW-COPY-1）—— 「选择线程后读取…」这句在仓库里有三份（产物/材料/编制）。
-          只修 v2 轨道那两份、留下这一份，正是本仓「同一事实两处声明」那条漂移的样子：
-          审计点名的这句话会在旧屏原样活着。三处一起换成用户语言 + 明确动作。 */}
-      {!hasSelection ? <p className="text-11 text-muted-foreground">还没有选择对话。在左侧选一条对话，这里会列出它的成员编制。</p> : null}
-      {loading ? <p className="text-11 text-muted-foreground">正在读取编制…</p> : null}
-      {error ? <ErrorState testId="chat-roster-error" message={error} retryTestId="chat-roster-retry" onRetry={onRetry} /> : null}
-
-      {roster ? (
-        <>
-          {roster.agents.length === 0 ? (
-            <p className="text-11 text-muted-foreground" data-testid="chat-roster-empty">当前编制为空。</p>
-          ) : null}
-          <ul className="flex flex-col">
-            {roster.agents.map((agent) => (
-              <li
-                key={agent.id}
-                className="flex items-start gap-2 rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted"
-                data-testid={`chat-roster-agent-${agent.id}`}
-              >
-                <Avatar initials={agent.abbr} tone="ai" size="sm" className="mt-0.5" />
-                {/*
-                  #728 D2 —— 名字与职责分两行，不再挤在同一个 `truncate` 里同归于尽。
-
-                  ⚠ #1705（#728 D-1，人类裁决 2026-08-21）之前，契约的 `agents[].duty`
-                    （`getAgentPanel.out`）是唯一一个描述性字段，原型这一区其实印了两件
-                    事：角色（「战略分析师」）+ 一句能力描述（「拆问题、标致命假设、
-                    给结论先行」），当时数据模型只有 `duty` 一个字段，不编一句话凑
-                    第二行。#1705 加了 `agents[].roleLabel`（简短头衔，来自真实的
-                    `agents` 表，不是 mock），第一行改渲染成「{name} · {roleLabel}」
-                    照原型的头衔展示位；第二行仍是 `duty`（能力描述，与 `roleLabel`
-                    是两个不同的字段，互不覆盖）。
-                */}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-12 font-medium">
-                    {agent.name}
-                    {agent.roleLabel ? <span className="text-muted-foreground"> · {agent.roleLabel}</span> : null}
-                  </p>
-                  <p className="truncate text-10 text-muted-foreground">{agent.duty}</p>
-                </div>
-                <span className={presenceTone(agent.presence)}>{PRESENCE_TEXT[agent.presence]}</span>
-                {writable ? (
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    data-testid={`chat-roster-remove-${agent.id}`}
-                    disabled={pending}
-                    onClick={() => onRemove(agent.id)}
-                  >
-                    移出
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-          {roster.marketEntry ? (
-            <Button asChild size="xs" variant="outline" className="w-full">
-              <Link href={roster.marketEntry} data-testid="chat-roster-market-entry">
-                <Store aria-hidden className="h-3 w-3" />从 Agent 市场加入
-              </Link>
-            </Button>
-          ) : null}
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * 在场态的中文投影。契约的 `AgentPresence` 是三值封闭枚举（I-17），
- * 所以这里是**穷举的 Record 而不是带 default 的函数** —— 枚举加一档时 tsc 会红，
- * 而不是静默显示成一个英文单词。原型上印的是「在场 / 跑批中 / 空闲」，
- * 但契约三值是 present/away/off，语义并不一一对应：`away`≠「跑批中」。
- * 这里按契约语义翻译，**不**为了对上原型字面而编一个原型才有的状态。
- */
-const PRESENCE_TEXT: Record<GetAgentPanelOut["agents"][number]["presence"], string> = {
-  present: "在场",
-  away: "离开",
-  off: "离线",
-};
-
-function presenceTone(presence: GetAgentPanelOut["agents"][number]["presence"]): string {
-  return presence === "present" ? "text-10 text-primary" : "text-10 text-muted-foreground";
-}
-
-function ErrorState({
-  testId, message, retryTestId, onRetry,
-}: {
-  testId: string;
-  message: string;
-  retryTestId: string;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="flex flex-col items-start gap-2 p-3" data-testid={testId}>
-      <p className="text-12 text-destructive">{message}</p>
-      <Button size="xs" variant="outline" data-testid={retryTestId} onClick={onRetry}>
-        <RefreshCw aria-hidden className="h-3 w-3" />重试
-      </Button>
-    </div>
-  );
-}
 
 function CenteredState({ children }: { children: React.ReactNode }) {
   return <div className="grid h-full place-items-center p-6 text-12 text-muted-foreground">{children}</div>;
@@ -1192,17 +973,6 @@ function describeFailure(failure: unknown): string {
  * 写操作的失败文案。**回显服务端的 reasonCode**，不把所有失败糊成一句「操作失败」——
  * `VERSION_CHANGED`（别人先改了）与 `NO_WRITE_ROLE`（你没权限）是用户要区分对待的两件事。
  */
-function describeMutateFailure(failure: unknown): string {
-  if (failure instanceof ApiError) {
-    if (failure.reasonCode === "NO_WRITE_ROLE") return "当前身份没有会话写权限（NO_WRITE_ROLE）。";
-    if (failure.reasonCode === "VERSION_CHANGED") return "这条会话已被其他人修改（VERSION_CHANGED），请刷新后重试。";
-    if (failure.reasonCode === "TITLE_INVALID") return "标题不合法（TITLE_INVALID）。";
-    if (failure.reasonCode === "THREAD_ARCHIVED_READONLY") return "会话已归档，只读（THREAD_ARCHIVED_READONLY）。";
-    return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
-  }
-  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
-}
-
 function chatHref(projectId: string, threadId: string): string {
   const query = new URLSearchParams({ projectId, thread: threadId });
   return `/chat?${query.toString()}`;

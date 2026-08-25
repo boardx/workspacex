@@ -125,3 +125,39 @@ deep_agent_gc_images() {
   done <<< "$tags"
   return 0
 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# issue #2076：引擎能力开关的 env 投影。
+#
+# 为什么需要这个函数（实测根因，不是预防性设计）：deep-agent 容器读的是 deploy.sh
+# 第 4h 步当场重写的 deep-agent.env，而那段投影原本是一份**固定三键白名单**
+# （KERNEL_MODEL_* + KERNEL_DEEP_AGENT_MODEL_ID）。于是 `DEEP_AGENT_HITL_TOOLS` /
+# `DEEP_AGENT_SUBAGENTS_ENABLED` / `DEEP_AGENT_CHECKPOINT_DB` 这三个引擎侧开关
+# （读它们的是 apps/deep-agent-service/src/deep_agent_service/harness.py 的
+# build_interrupt_on / build_subagents / build_checkpointer）**无论在 deploy.env
+# 里怎么写都到不了容器进程**——2026-08-26 devapp 实测：
+#   docker exec workspacex-deep-agent env | grep '^DEEP_AGENT'  →  零命中。
+# 这正是本仓那条铁律的形态：配置文件里有这一行 ≠ 进程真的读到了它。
+#
+# 语义刻意与 LangSmith 三件套一致——**可选投影**：deploy.env 里没设（或值为空）就
+# 一行都不写，deep-agent.env 里不留 `KEY=` 的空值假象。空值假象在这里不是洁癖问题：
+# harness.py 的三个 build_* 都用 `(os.environ.get(K) or "").strip()` 判空，投一个
+# 空串进去与不投影行为相同，但会让运维读 deep-agent.env 时误以为"开关配过了"。
+#
+# 用法：deep_agent_project_capability_env <src_env_file> <dest_env_file> <key>...
+# 投影了哪些 key 走 stderr（部署日志里可见，便于事后对账）；退出码恒 0。
+deep_agent_project_capability_env() {
+  local src=$1 dest=$2
+  shift 2
+  local key value projected=()
+  for key in "$@"; do
+    value=$(read_env_value "$src" "$key")
+    [ -n "$value" ] || continue
+    printf '%s=%s\n' "$key" "$value" >> "$dest"
+    projected+=("$key")
+  done
+  if ((${#projected[@]} > 0)); then
+    echo "  引擎能力开关已投影进 $(basename "$dest")：${projected[*]}" >&2
+  fi
+  return 0
+}

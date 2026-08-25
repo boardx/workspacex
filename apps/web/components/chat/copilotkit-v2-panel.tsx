@@ -13,8 +13,11 @@ import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Pencil, Mic, Loader2, AlertTriangle } from "lucide-react";
+import { Pencil, Mic, Loader2, AlertTriangle, ArrowDown } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
+// issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
+// `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
+import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, LONG_RUN_HINT } from "@/lib/copilotkit-v2-run-progress";
@@ -22,6 +25,9 @@ import {
   CopilotKitV2MessageActionsProvider,
   CopilotKitV2CopyButton,
   CopilotKitV2MessageExtraActions,
+  useCopilotKitV2MessageActions,
+  CopilotKitV2MessageLanding,
+  type AssistantMessageLandingValue,
 } from "@/components/chat/copilotkit-v2-message-actions";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
 import { ChatLiveAnnouncer, announceToChat } from "@/components/chat/chat-live-announcer";
@@ -85,7 +91,12 @@ import {
  * ── issue #2023（差距清单第 4 项）Agent 选择/切换 ─────────────────────────────
  *
  * 旧手写轨道有 `AgentPicker`（选发送 agent）+ 外壳 `RosterPanel`（把 agent 加进
- * 当前会话的编制，多 agent 协作）。本任务做的是前者，**不做**后者——理由：
+ * 当前会话的编制，多 agent 协作）。#2025 当时只做了前者，理由记在下面两条。
+ *
+ * ⚠ **这两条理由已于 issue #2052（CK-P7）失效，勿再据此认为编制没做**：#2028 落地了
+ *   持久化线程，外壳 `copilotkit-v2-shell.tsx` 现在持有真实 `chat_threads.id`，编制
+ *   面板已经挂上去了（共用组件 `chat-roster-panel.tsx`，与旧轨道同一份）。本节保留
+ *   原文是为了记住"当时为什么拆成两轮"，不是描述今天的状态。
  *
  *   1. 本面板此前压根没有"这条会话可以有多个 agent"的概念，`useAgent` 是单实例；
  *      `RosterPanel`（`updateAgentRoster`/乐观锁 `rosterVersion`）挂在
@@ -133,17 +144,19 @@ import {
  * 用 `React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer>` 原样
  * 取这个类型，不是手抄一份容易漂移的签名。
  *
- * 「落地为产物」（`MessageLandingControls`/`landAsArtifact`，`chat-live-message-panel.tsx`
- * 内 `threadId`/`message.id`/`bearer` 三者俱全才开放）**本轮不接入，是 TODO**——不是
- * 图省事，是这个 slot 的类型签名本身只暴露 `content: string`（加一堆 Streamdown 自己的
- * 渲染选项），不携带 `messageId`：`CopilotChatAssistantMessageProps` 的 `message` 字段
- * 停在 `CopilotChatAssistantMessage` 这一层，没有再往下透传给 `markdownRenderer` slot。
- * 要接这个功能需要在 slot 边界之外另开一个通道把 `message.id` 传进来（比如包一层
- * closure、或等 CopilotKit 未来版本把 message 也传给这个 slot），属于下一步，不在本次
- * 「消息渲染迁移」范围内画一个连自己类型都不支持的假入口。`threadId`/`bearer` 本身也
- * 未传（同一个门槛：三者必须俱全，不做"看起来能保存、点了才 403"的半成品）——
- * `MarkdownMessage`/`ChatDiagramFabric` 在缺失这三者时如实退回"本地演示"（可读可最大化，
- * 不可持久化保存），这是既有产品行为，不是本次新引入的降级。
+ * 「落地为产物」当时是 TODO，理由是 `markdownRenderer` 这个 slot 的类型签名只暴露
+ * `content: string`、不携带 `messageId`。
+ *
+ * ⚠ **issue #2052（CK-P7）已落地，这条 TODO 不再有效**：入口不在 `markdownRenderer`
+ *   这一层，而是随 CK-P3 的操作条挂在 `assistantMessage` **整组件** slot 上（那一层
+ *   才携带 `message`），见 `copilotkit-v2-message-actions.tsx`。上面关于
+ *   `markdownRenderer` 拿不到 id 的判断依然成立（那条路确实走不通），变的是绕过它的
+ *   通道已经有了。"三者俱全才开放"这条纪律没有放松，只是三件都齐了：`threadId`
+ *   （持久化线程）、`message.id`（CK-P3 的 `useChatMessageIdentity` 解析出的真实
+ *   落库主键）、`bearer`（`sessionToken`）。
+ *
+ * `MarkdownMessage`/`ChatDiagramFabric` 在缺失这三者时仍如实退回"本地演示"（可读可
+ * 最大化，不可持久化保存），那是既有产品行为，不是本次新引入的降级。
  *
  * 消息列表包在 `CopilotChatConfigurationProvider` 里——`CopilotChatMessageView` 是
  * "slot 原语"，文档（`chat-components.md` "Headless composition with slot primitives"）
@@ -435,6 +448,11 @@ function SendEmailApprovalDialog({
    * 修法：`onCloseAutoFocus` 里接管，把焦点还给 composer 输入框——那是用户在这条
    * 对话里"正在工作的地方"，比一个已经禁用的发送按钮更是他要回去的位置。
    */
+  const focusComposer = React.useCallback((): void => {
+    const composer = document.querySelector<HTMLElement>('[data-testid="copilotkit-v2-input"]');
+    composer?.focus();
+  }, []);
+
   const returnFocusToComposer = React.useCallback((event: Event) => {
     const composer = document.querySelector<HTMLElement>('[data-testid="copilotkit-v2-input"]');
     if (composer === null) return; // 找不到就让 Radix 走它的默认恢复，别把焦点弄丢
@@ -442,13 +460,30 @@ function SendEmailApprovalDialog({
     composer.focus();
   }, []);
 
+  /**
+   * ⚠ 光有 `onCloseAutoFocus` **不够**——issue #2075 第四轮真栈实测：改完之后焦点
+   * **仍然**落在 `BODY`。原因是这条链路上关闭不只有 Radix 那一条路径：Esc 触发
+   * `respond("denied")` 之后框架会把整个 tool-render 子树摘掉，`DialogContent` 是被
+   * **卸载**的，Radix 的关闭序列（连同 `onCloseAutoFocus`）根本没有机会跑完；
+   * 而 Radix 的 FocusScope 在卸载时会把焦点恢复到它记下的那个元素——那个元素正是
+   * 已经失效的 `body`。
+   *
+   * 所以再补一条与 Radix 无关的兜底：`close()` 时排两帧之后主动把焦点交回 composer。
+   * 两帧（而不是一帧）是刻意的——要落在 Radix 自己那次恢复**之后**，否则我们先设、
+   * 它后覆盖，结果和没改一样。两条路径设的是同一个目标元素，不冲突。
+   */
+  const closeAndReturnFocus = React.useCallback((): void => {
+    close();
+    requestAnimationFrame(() => requestAnimationFrame(focusComposer));
+  }, [close, focusComposer]);
+
   if (!awaitingDecision || respond === undefined) {
     return (
       /* `open={!dismissed}` 而不是 `if (dismissed) return null` + `open`：
          直接 return null 会让 Radix 的关闭序列整个不发生，`onCloseAutoFocus` 也就
          永远不触发（焦点归位无从谈起）。受控 `open` 同样不残留遮罩——portal 内容
          在 `open=false` 时本来就不挂载，#1996 那条"永久点击拦截层"不会回来。 */
-      <Dialog open={!dismissed} onOpenChange={(next) => { if (!next) close(); }}>
+      <Dialog open={!dismissed} onOpenChange={(next) => { if (!next) closeAndReturnFocus(); }}>
         <DialogContent
           data-testid="copilotkit-v2-hitl-dialog"
           data-hitl-status={statusLabel}
@@ -461,7 +496,7 @@ function SendEmailApprovalDialog({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button size="sm" variant="outline" data-testid="copilotkit-v2-hitl-dismiss" onClick={close}>
+            <Button size="sm" variant="outline" data-testid="copilotkit-v2-hitl-dismiss" onClick={closeAndReturnFocus}>
               关闭
             </Button>
           </DialogFooter>
@@ -482,7 +517,7 @@ function SendEmailApprovalDialog({
         // infinite hang"），run 会一直挂到后端自己的轮询超时才收场，属于
         // "看起来关掉了、实际状态没跟上"的另一种不一致，不是本次要放行的行为。
         if (!next) {
-          close();
+          closeAndReturnFocus();
           respond("denied");
         }
       }}
@@ -531,7 +566,7 @@ function SendEmailApprovalDialog({
                 size="sm"
                 data-testid="copilotkit-v2-hitl-approve"
                 onClick={() => {
-                  close();
+                  closeAndReturnFocus(); // 裁决完也要把焦点交回 composer（TW-A11Y-5）
                   respond("approved");
                 }}
               >
@@ -555,7 +590,7 @@ function SendEmailApprovalDialog({
                 className="border-destructive/40 text-destructive transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive"
                 data-testid="copilotkit-v2-hitl-reject"
                 onClick={() => {
-                  close();
+                  closeAndReturnFocus(); // 裁决完也要把焦点交回 composer（TW-A11Y-5）
                   respond("denied");
                 }}
               >
@@ -570,7 +605,7 @@ function SendEmailApprovalDialog({
                 data-testid="copilotkit-v2-hitl-edit-submit"
                 onClick={() => {
                   if (parsedDraft.ok) {
-                    close();
+                    closeAndReturnFocus(); // 裁决完也要把焦点交回 composer（TW-A11Y-5）
                     respond(parsedDraft.value);
                   }
                 }}
@@ -665,10 +700,24 @@ function useCopilotKitV2AgentOptions(orgId: string | null, bearer: string | null
  * "issue #2023 Agent 选择/切换"一节说的"切换 agent 就是发起新对话"是同一件事，不是
  * 另外发明一套"迁移历史到新 agent"的机制（那件事需要差距 #1 的持久化线程才谈得上）。
  */
+/**
+ * issue #2071 —— 消息区"贴底"判定的阈值，单一事实源：`handleMessagesScroll`（决定要
+ * 不要显示"回到最新"悬浮按钮 + 要不要继续自动跟随新消息）与其测试共用同一个数字，
+ * 不是各自维护一份容易漂移的 `80`。比"恰好贴底"（0px）宽松一点，避免子像素/字体
+ * 度量误差导致贴底判定抖动（滚动到底后立刻因 1px 误差被判定为"离开了底部"）。
+ */
+export const SCROLL_BOTTOM_THRESHOLD_PX = 80;
+
+/** 纯函数，供组件与单元测试共用——不依赖真实 DOM 布局，可以直接喂三个数字测。 */
+export function isScrolledNearBottom(scrollHeight: number, scrollTop: number, clientHeight: number): boolean {
+  return scrollHeight - scrollTop - clientHeight < SCROLL_BOTTOM_THRESHOLD_PX;
+}
+
 export function CopilotKitV2Panel({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
   onMessageSent,
+  onArtifactLanded,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -691,6 +740,12 @@ export function CopilotKitV2Panel({
    * 外壳借此刷新右栏「材料」/「产物」计数（与旧轨道 `onMessageSent` 同名同义）。
    */
   onMessageSent?: () => void;
+  /**
+   * issue #2050 —— 一条消息被「落地为产物」之后触发，外壳据此重读右栏「产物」。
+   * 与 `onMessageSent` 分开而不是复用它：那个是"发了一条消息"，这个是"多了一条产物"，
+   * 合成一个回调会让外壳分不清自己在为什么重读（且未来两者刷新的东西可能不同）。
+   */
+  onArtifactLanded?: () => void;
   /**
    * issue #2046（CK-P2）—— `@` 引用候选：本线程已随消息发出的附件，数据与右栏
    * 「材料」面板是**同一份**（外壳 `listThreadAttachments` 读取后同时喂两处），
@@ -814,6 +869,7 @@ export function CopilotKitV2Panel({
           chatThreadId={initialChatThreadId}
           onThreadResolved={onThreadResolved}
           onMessageSent={onMessageSent}
+          onArtifactLanded={onArtifactLanded}
           threadAttachments={threadAttachments}
           archived={archived}
           canGeneratePersona={canGeneratePersona}
@@ -857,6 +913,7 @@ function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
   onMessageSent,
+  onArtifactLanded,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -873,6 +930,12 @@ function CopilotKitV2PanelBody({
   onThreadResolved?: (threadId: string) => void;
   /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   onMessageSent?: () => void;
+  /**
+   * issue #2050 —— 一条消息被「落地为产物」之后触发，外壳据此重读右栏「产物」。
+   * 与 `onMessageSent` 分开而不是复用它：那个是"发了一条消息"，这个是"多了一条产物"，
+   * 合成一个回调会让外壳分不清自己在为什么重读（且未来两者刷新的东西可能不同）。
+   */
+  onArtifactLanded?: () => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -1048,12 +1111,28 @@ function CopilotKitV2PanelBody({
    * 靠"这次浏览器会话已经聊过一轮"这个此前隐含的前提。
    */
   const chatThreadIdRef = React.useRef<string | null>(initialChatThreadId);
+
+
+  /**
+   * issue #2052（CK-P7）—— `chatThreadIdRef` 刻意是 ref（它只影响"下一次 runAgent 带什么"，
+   * 不该触发渲染），但「落地为产物」要往 `POST /chat/threads/:threadId/artifacts` 打，
+   * 必须在**渲染期**知道这条线程的真实 id。所以这里另存一份 state：同一个事实的两种
+   * 用法（一个给下一次请求、一个给这一帧渲染），两者在同一个事件处理器里一起写，
+   * 不会漂移——不是两个独立维护的来源。
+   */
+  const [resolvedChatThreadId, setResolvedChatThreadId] = React.useState<string | null>(initialChatThreadId);
+  React.useEffect(() => {
+    if (initialChatThreadId !== null) setResolvedChatThreadId(initialChatThreadId);
+  }, [initialChatThreadId]);
+
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
       onCustomEvent: ({ event }) => {
         if (event?.name === "chat_thread_id" && typeof event.value === "string" && event.value !== "") {
           const isNewlyResolved = chatThreadIdRef.current === null;
           chatThreadIdRef.current = event.value;
+          setResolvedChatThreadId(event.value); // issue #2052，见上面 state 的说明
+
           // issue #2021 —— 只有"这是后端第一次告诉我们它创建了一条新线程"才需要通知
           // 外壳写回地址栏；`initialChatThreadId` 非空时 `chatThreadIdRef.current` 从
           // 挂载起就已经是这个值，这个分支不会为一次续聊触发。
@@ -1221,6 +1300,37 @@ function CopilotKitV2PanelBody({
   }, [sessionToken, initialChatThreadId]);
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
   const attach = useChatAttachments({ threadId: attachmentThreadId ?? "", bearer: sessionToken ?? undefined });
+
+  /**
+   * issue #2052（CK-P7）—— 「落地为产物」状态机（与旧轨道共用 `useMessageLanding`，
+   * 不抄第二份）。传空串是 hook 的既有约定：调用方保证只在三者俱全时渲染入口，见下面
+   * `landingContext` 的 `null` 分支——空串永远不会真的被拿去发请求。
+   */
+  const landing = useMessageLanding({
+    threadId: resolvedChatThreadId ?? "",
+    bearer: sessionToken ?? "",
+    onArtifactLanded,
+  });
+
+  /**
+   * ⛔ 三者俱全才开放：真实线程 id + bearer + 这条消息的**真实落库 id**。
+   *
+   * ⚠ 第三件**不再由本文件自己维护一张映射表**：CK-P3（#2054，PR #2064）已经落地了
+   *   `useChatMessageIdentity` —— 它订阅同一个 `CUSTOM chat_message_id` 事件、并把
+   *   hydration 回灌的历史消息一并登记，`resolve()` 拿不到就返回 `null`。评分与落地
+   *   问的是**同一个问题**（"这条气泡在 `chat_messages` 里的主键是什么"），各存一份
+   *   就是同一事实两处声明。所以这里直接复用那个索引，本轮删掉了自己那份重复实现。
+   */
+  const landingContext = React.useMemo<AssistantMessageLandingValue | null>(() => {
+    if (resolvedChatThreadId === null || sessionToken === null) return null;
+    return {
+      stateFor: landing.stateFor,
+      open: landing.open,
+      updateTitle: landing.updateTitle,
+      cancel: landing.cancel,
+      submit: (message) => void landing.submit(message),
+    };
+  }, [resolvedChatThreadId, sessionToken, landing]);
   const micDevices = useAudioInputDevices();
   const speech = useAsrDraft({
     getBaseText: () => inputDraftRef.current,
@@ -1392,6 +1502,68 @@ function CopilotKitV2PanelBody({
     }
   }, [agent, initialChatThreadId, onMessageSent, personaRunning]);
 
+  /**
+   * issue #2071 —— 消息区没有"跳到最新"手段：新消息到达时不自动贴底，长线程往上翻阅
+   * 后也没有回到底部的入口，只能手动拖滚动条。做法对齐 Slack/Discord/ChatGPT 的常见
+   * 约定（`CopilotChatView.ScrollView` 库内置的 `pin-to-bottom` 语义同款做法，本仓
+   * 选自己写而不是接那个组件——见下方"为什么不用库自带 ScrollView"）：贴底时新消息
+   * 自动跟随；一旦往上翻离开底部，自动跟随停止，改为在消息区右下角浮现"↓回到最新"
+   * 按钮；键盘 `Cmd/Ctrl+End` 随时可跳回底部，与输入框里普通 `End`（移到行尾）不冲突
+   * （只认组合键）。
+   *
+   * ## 为什么不直接接库自带的 `CopilotChatView.ScrollView`
+   *
+   * 它确实自带同款语义（`autoScroll="pin-to-bottom"` + `scrollToBottomButton` slot），
+   * 但它的测量假设（`inputContainerHeight`/`feather`）是围绕"composer 本身也在
+   * ScrollView 内"设计的，本面板 composer 在这个滚动容器**外面**自绘（下方错误横幅、
+   * composer 区块都在 `overflow-y-auto` 容器之外）——接入前没有把握它的内部布局假设
+   * 不会跟 #2039 三轮 UIUX 迭代过的布局打架。手写这套（滚动位置判定 + 条件贴底 +
+   * 悬浮按钮）改动可预期，不依赖库的内部测量逻辑。
+   */
+  const messagesContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const [isAtBottom, setIsAtBottom] = React.useState(true);
+
+  const scrollMessagesToBottom = React.useCallback((behavior: ScrollBehavior) => {
+    const el = messagesContainerRef.current;
+    // jsdom（组件测试环境）不实现 `Element.scrollTo`——与下面 `matchMedia` 同一类
+    // "真实浏览器才有、测试环境没有"的能力守卫，不是本功能的正常路径分支。
+    if (el === null || typeof el.scrollTo !== "function") return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+    setIsAtBottom(true);
+  }, []);
+
+  const prefersReducedMotion = React.useCallback((): boolean => {
+    // 与 `use-section-navigation.ts` 同一处守卫——jsdom 测试环境不提供 `matchMedia`。
+    return typeof window !== "undefined" && typeof window.matchMedia === "function"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+
+  const handleMessagesScroll = React.useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (el === null) return;
+    setIsAtBottom(isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight));
+  }, []);
+
+  // 贴底时新消息/流式增量到达自动跟随；一旦用户往上翻（`isAtBottom` 变 false），
+  // 这个 effect 直接不跑，不打断阅读——与 Slack/Discord 同一条纪律。
+  React.useEffect(() => {
+    if (!isAtBottom) return;
+    const el = messagesContainerRef.current;
+    if (el === null || typeof el.scrollTo !== "function") return;
+    el.scrollTo({ top: el.scrollHeight, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, [agent.messages, isAtBottom, prefersReducedMotion]);
+
+  // `Cmd/Ctrl+End` 跳到最新——只认组合键，不拦截输入框里普通 `End`（移到行尾）。
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key !== "End" || !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      scrollMessagesToBottom(prefersReducedMotion() ? "auto" : "smooth");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [scrollMessagesToBottom, prefersReducedMotion]);
+
   return (
     <div className="flex h-full w-full gap-3">
       {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
@@ -1421,6 +1593,8 @@ function CopilotKitV2PanelBody({
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
             与 #1830「用户可见文案去掉开发者词汇」同一条裁决，整行移除。 */}
         <div
+          ref={messagesContainerRef}
+          onScroll={handleMessagesScroll}
           className="flex-1 overflow-y-auto rounded-lg border border-border-subtle bg-card p-3"
           data-testid="copilotkit-v2-messages"
         >
@@ -1454,24 +1628,53 @@ function CopilotKitV2PanelBody({
                     `assistantMessage` slot 由框架实例化，本组件够不着它的 props。
                     ⚠ 这里换的是 slot 本身（`V2AssistantMessage` 内部仍然渲染框架的
                       `CopilotChatAssistantMessage`，`markdownRenderer` 照旧是
-                      `V2MarkdownRenderer`）——DA-19b 的 markdown/mermaid 能力没有回退。 */}
+                      `V2MarkdownRenderer`）——DA-19b 的 markdown/mermaid 能力没有回退。
+
+                    issue #2052（CK-P7）—— 「落地为产物」是同一个操作条上的第四件，
+                    经同一份 context 下发（`landing`），不另包一层 provider / 不另换一次
+                    slot：两层包装会渲染出两个气泡外壳。 */}
                 <CopilotKitV2MessageActionsProvider
                   value={{
                     identity: messageIdentity,
                     agentId: actingAgentId,
                     agentLabel: actingAgentLabel,
+                    landing: landingContext,
                   }}
                 >
-                  <CopilotChatMessageView
-                    messages={agent.messages}
-                    isRunning={agent.isRunning}
-                    assistantMessage={V2AssistantMessage}
-                  />
+                  {/* issue #2070 —— threadId 读的是 `chatThreadIdRef.current`（真实
+                      `chat_threads.id`，见 DA-19a 一节；ref 而非 state，读的是渲染那
+                      一刻的值，与该 ref 自己"不需要触发重渲染"的既有纪律一致，
+                      `agent.messages` 变化时本来就会重渲染这里）。 */}
+                  <ArtifactLandingCtx.Provider
+                    value={{ threadId: chatThreadIdRef.current ?? undefined, bearer: sessionToken ?? undefined }}
+                  >
+                    <CopilotChatMessageView
+                      messages={agent.messages}
+                      isRunning={agent.isRunning}
+                      assistantMessage={V2AssistantMessage}
+                    />
+                  </ArtifactLandingCtx.Provider>
                 </CopilotKitV2MessageActionsProvider>
               </CopilotChatConfigurationProvider>
             </div>
           )}
         </div>
+        {/* issue #2071 —— 悬浮"回到最新"按钮：只在离开底部且确实有消息可看时出现，
+            不在历史回读骨架屏/空态上叠加一个没有意义的按钮。挂在消息容器外层那个
+            `relative` div 里，定位以那个 div 为参照系，不受消息容器自身
+            `overflow-y-auto` 裁切影响。 */}
+        {!isAtBottom && !historyLoading && agent.messages.length > 0 ? (
+          <button
+            type="button"
+            data-testid="copilotkit-v2-scroll-to-bottom"
+            title="回到最新消息（Ctrl/Cmd+End）"
+            aria-label="回到最新消息"
+            onClick={() => scrollMessagesToBottom(prefersReducedMotion() ? "auto" : "smooth")}
+            className="absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <ArrowDown className="h-4 w-4" aria-hidden />
+          </button>
+        ) : null}
         {/* CK-P4（issue #2054）—— run 进度行。⚠ 它每秒在动，"会动"本身就是"没卡死"
             的证据；一句静止的「正在思考…」在第 10 秒和第 10 分钟长得一模一样
             （旧轨道 `chat-live-message-panel.tsx` 同一段裁决）。 */}
@@ -1639,8 +1842,20 @@ function CopilotKitV2PanelBody({
         {/* 并集解（issue #2039 × #2053）：布局/字级/placeholder 用 UIUX 迭代线的版本
             （min-w-0 防移动端溢出、rounded-md、明确动作指引），归档禁用语义用
             CK-P8 的版本——两者正交。 */}
-        <div className="flex min-w-0 items-center gap-2">
-          <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} />
+        {/*
+          issue #2075（TW-P2-1）—— composer 拆成两行。
+          单行结构下输入框要和附件/麦克风/设备选择/发送四件挤同一行：中央列即使
+          按验收线收到 768px，输入框自己实测只剩「506px」（真栈实测，issue #2075
+          第四轮），远低于 720px 下限；而把中央列撑到 1040px 去凑输入框宽度，等于
+          为了让数字好看把「中央内容不超过 880px」这条判据本身架空——那是本仓
+          最不该做的一类修法。
+          两行结构下输入框独占第一行 ⇒ 它的宽度就是中央列宽度（768px），
+          「中央内容 ≤880」与「输入框 ≥720」同时成立，不需要互相牺牲。
+
+          ⚠ 只改布局，「没有」把 `<input>` 换成 `<textarea>`：那是 TW-P0-5 的范围，
+            且会改变 Enter 的语义（换行 vs 发送），需要单独确认，不在本次顺手做。
+        */}
+        <div className="flex min-w-0 flex-col gap-2">
           <input
             data-testid="copilotkit-v2-input"
             className="min-w-0 flex-1 rounded-md border border-input px-2.5 py-1.5 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
@@ -1662,6 +1877,10 @@ function CopilotKitV2PanelBody({
               if (e.key === "Enter") void send();
             }}
           />
+          <div className="flex min-w-0 items-center gap-2">
+          <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} />
+          {/* 把右侧一组（麦克风设备 / 麦克风 / 发送）推到行尾，附件留在行首。 */}
+          <span aria-hidden className="flex-1" />
           {/*
             DA-19g —— composer 麦克风，接线见本文件头注。设备选择器紧挨麦克风按钮，
             录音中禁用（切设备要重起采音管线，同 `chat-live-message-panel.tsx` 的既有
@@ -1727,6 +1946,7 @@ function CopilotKitV2PanelBody({
           >
             {agent.isRunning ? "…" : "发送"}
           </Button>
+          </div>
         </div>
         {speech.connecting ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-connecting">
@@ -1820,12 +2040,40 @@ async function readAllPersistedMessages(
  * 只用其中的 `content`，其余 Streamdown 专属渲染选项（`shikiTheme` 等）本组件不消费，
  * 因为渲染管线换成了 `MarkdownMessage`（react-markdown + mermaid fabric），不是
  * Streamdown 的产物，这些选项对它没有意义。
+ *
+ * issue #2070 —— `threadId`/`messageId`/`bearer` 现在是可选透传参数：这条通道此前只转
+ * `content`，`MarkdownMessage → ChatCanvasFabric`/`ChatDiagramFabric` 因此拿不到落地
+ * 产物所需的三要素，画布/mermaid 图编辑保存后退回"本地演示"（只更新内存 state，从不
+ * 调 `landAsArtifact`），刷新必丢。三者由下面 `V2AssistantMessageImpl` 在 slot 边界之外
+ * 另开的通道注入；这个组件本身仍然只认 `content` 是必需的，缺失三者时原样透传
+ * `undefined` 给 `MarkdownMessage`——退回"本地演示"是它自己已有的诚实降级，这里不
+ * 重复判断一次。
  */
 function V2MarkdownRenderer({
   content,
-}: React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer>): JSX.Element {
-  return <MarkdownMessage text={content} />;
+  threadId,
+  messageId,
+  bearer,
+}: React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer> & {
+  threadId?: string;
+  messageId?: string;
+  bearer?: string;
+}): JSX.Element {
+  return <MarkdownMessage text={content} threadId={threadId} messageId={messageId} bearer={bearer} />;
 }
+
+/**
+ * issue #2070 —— `threadId`/`bearer` 供 `V2AssistantMessageImpl` 里的落地产物接线用。
+ * 单独开一个 context 而不是塞进旁边 `CopilotKitV2MessageActionsContextValue`
+ * （`copilotkit-v2-message-actions.tsx`，CK-P3 owns 的文件）：那个 context 的职责是
+ * "消息级操作"（复制/评分/反馈），落地产物是另一件事，混进去会让那个文件的读者以为
+ * 评分/反馈也要关心 threadId——两件事只是恰好都要挂在 `assistantMessage` slot 上，
+ * 不是同一份数据。
+ */
+const ArtifactLandingCtx = React.createContext<{ threadId: string | undefined; bearer: string | undefined }>({
+  threadId: undefined,
+  bearer: undefined,
+});
 
 /**
  * CK-P3（issue #2054）—— `assistantMessage` **整组件** slot 的替换实现。
@@ -1838,12 +2086,28 @@ function V2MarkdownRenderer({
  *
  * ## 内部仍然渲染框架自己的 `CopilotChatAssistantMessage`
  *
- * 不另写一个气泡：那会让两条轨道的消息渲染各自漂移。这里只做三件加法——
+ * 不另写一个气泡：那会让两条轨道的消息渲染各自漂移。这里只做四件加法——
  *   ① `markdownRenderer` 仍换成本仓 `MarkdownMessage`（DA-19b 的 markdown + mermaid
  *      fabric 能力不能因为多包了一层就回退）；
  *   ② `copyButton` 换成带本仓锚点的外观（**复用框架绑好的 `onClick`**，复制这件事
  *      本身没有第二份实现）；
- *   ③ `additionalToolbarItems` 挂上「对 agent 提反馈」+ 👍/👎 评分。
+ *   ③ `additionalToolbarItems` 挂上「对 agent 提反馈」+ 👍/👎 评分；
+ *   ④（issue #2070）`markdownRenderer` 额外注入 `threadId`/`messageId`/`bearer`，
+ *      画布/mermaid 图编辑保存才能真正落库而不是退回"本地演示"；
+ *   ⑤（issue #2052，CK-P7）气泡下方再挂一个兄弟节点 `CopilotKitV2MessageLanding`，
+ *      「落地为产物」的三态交互——块级 UI，进不了①③已占的行内 slot。
+ *
+ * ## （issue #2070）`messageId` 为什么要经 `identity.resolve`，不能直接用 `props.message.id`
+ *
+ * `props.message.id` 是 `agent.messages` 里的**视图** id——本轮流式到达的 assistant
+ * 消息，这个 id 是 wire 上的临时聚合 id，`chat_messages` 里没有这一行（见
+ * `lib/copilotkit-v2-message-identity.ts` 文件头的完整取证，CK-P3 评分入口踩过同一个
+ * 坑）。直接拿它去调 `landAsArtifact`，在"AI 刚回复完、立刻点保存"这条最常见路径上
+ * 会 404——那正是本仓反复禁止的「点了才报错的假按钮」。这里复用同一份已经接好的
+ * `useCopilotKitV2MessageActions().identity`（CK-P3 已建的索引，不是重新做一份平行的
+ * 解析逻辑），拿不到真实主键时 `resolve` 回答 `null`，`messageId` 就诚实地是
+ * `undefined`——`MarkdownMessage` 自己的 `canPersist` 判定会据此退回"本地演示"，不是
+ * 在这一层再判一次。
  *
  * ## ⚠ 框架自带的 👍/👎 刻意不启用
  *
@@ -1859,15 +2123,42 @@ function V2AssistantMessageImpl(
   props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
 ): JSX.Element {
   const messageId = props.message.id;
+  // issue #2070 —— 见上方"messageId 为什么要经 identity.resolve"一段。`actionsCtx` 在
+  // 生产路径下恒非 null（渲染点始终包在 `CopilotKitV2MessageActionsProvider` 里）；
+  // 组件测试直接渲染这个 slot、不包那层 provider 时 `useCopilotKitV2MessageActions()`
+  // 按其自身既有约定返回 null，这里同样如实退回"落不了地"，不是另造一条兜底路径。
+  const actionsCtx = useCopilotKitV2MessageActions();
+  const realMessageId = actionsCtx?.identity.resolve(messageId) ?? undefined;
+  const { threadId: artifactThreadId, bearer: artifactBearer } = React.useContext(ArtifactLandingCtx);
+  // issue #2052（CK-P7）—— 正文取自框架给的这条消息本身，与气泡里渲染的是同一份，
+  // 不另找一处读。
+  const text = typeof props.message.content === "string" ? props.message.content : "";
   return (
-    <CopilotChatAssistantMessage
-      {...props}
-      markdownRenderer={V2MarkdownRenderer}
-      copyButton={(copyProps) => (
-        <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
-      )}
-      additionalToolbarItems={<CopilotKitV2MessageExtraActions messageId={messageId} />}
-    />
+    <div className="flex flex-col gap-1.5">
+      <CopilotChatAssistantMessage
+        {...props}
+        markdownRenderer={(rendererProps) => (
+          <V2MarkdownRenderer
+            {...rendererProps}
+            threadId={artifactThreadId}
+            messageId={realMessageId}
+            bearer={artifactBearer}
+          />
+        )}
+        copyButton={(copyProps) => (
+          <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
+        )}
+        additionalToolbarItems={<CopilotKitV2MessageExtraActions messageId={messageId} />}
+      />
+      {/* issue #2052（CK-P7）—— 「落地为产物」是块级三态交互，进不了行内工具栏，
+          所以作为气泡的兄弟节点挂在下面。⚠ 这不是第二层 slot 包装：
+          `assistantMessage` slot 全仓只在本组件换这一次。
+          它的 `messageId` 传的是视图 id（不是上面 #2070 已解析出的 `realMessageId`）——
+          `CopilotKitV2MessageLanding` 内部自己经 `identity.resolvePersisted` 二次解析
+          （见 `copilotkit-v2-message-actions.tsx`），两处解析口径不同（`resolve` vs
+          `resolvePersisted`），不能共用同一个已解析结果。 */}
+      <CopilotKitV2MessageLanding messageId={messageId} text={text} />
+    </div>
   );
 }
 

@@ -34,7 +34,7 @@ export function PersonalMenu({
           type="button"
           data-testid="rail-profile-menu"
           aria-label="个人菜单"
-          className="mt-auto flex h-7 w-7 items-center justify-center rounded-full bg-accent text-11 font-medium text-accent-foreground transition-all duration-base hover:bg-accent/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mt-auto flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-11 font-medium text-accent-foreground transition-all duration-base hover:bg-accent/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span data-testid="rail-avatar" aria-hidden>{avatarInitial}</span>
         </button>

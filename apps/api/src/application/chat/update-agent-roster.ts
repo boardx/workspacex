@@ -55,7 +55,8 @@ export interface UpdateAgentRosterDeps extends ResolveVisibilityDeps {
 export interface UpdateAgentRosterInput {
   readonly userId: string;
   readonly orgId: OrgId;
-  readonly projectId: string;
+  /** issue #2052（CK-P7）—— `null` = 个人线程，同 `getAgentPanel`。 */
+  readonly projectId: string | null;
   readonly threadId: string;
   readonly add: readonly string[];
   readonly remove: readonly string[];
@@ -89,10 +90,23 @@ export async function updateAgentRoster(
     throw new ThreadArchivedReadonlyError();
   }
 
-  const role = outcome.actor.projectRole;
-  if (role === null || role === "observer") {
-    await auditRefusal(deps, input, "NO_WRITE_ROLE");
-    throw new NoWriteRoleError();
+  // issue #2052（CK-P7）—— 个人线程豁免，与 `land-as-artifact.ts` 里那条 2026-08-21
+  // 人类裁决过的分支**逐字同一条理由**（那里的注释是本分支的权威出处，不在这里复述
+  // 第二遍）：个人线程的 `outcome.actor.projectRole` 恒为 `null`，但这不是「无权限」，
+  // 是「项目角色这个维度不适用」——能走到这一行，`resolveVisibility` 已经验证过
+  // `actorUserId === thread.createdBy`（`resolvePersonalVisibility` 门②，非创建者
+  // 与「不存在」同一出口）。沿用项目线程那条 `role === null ⇒ 403` 会让线程创建者
+  // 被自己的线程拒绝，而 `PERSONAL_THREAD_CAPABILITIES` 明明已经下发 `thread.mutate`
+  // ——前端据此渲染出编制的「编辑」入口，点下去必 403，正是本仓反复判 0 的假按钮。
+  //
+  // ⚠ 项目线程分支一个字没动：那里的 `role === null` 是真的「没有项目角色」。
+  const isPersonalThread = outcome.thread.projectId === null;
+  if (!isPersonalThread) {
+    const role = outcome.actor.projectRole;
+    if (role === null || role === "observer") {
+      await auditRefusal(deps, input, "NO_WRITE_ROLE");
+      throw new NoWriteRoleError();
+    }
   }
 
   const result = await deps.chat.updateAgentRoster(

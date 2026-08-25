@@ -183,6 +183,16 @@ export default defineConfig({
    * 上传端点与 loopback 回显替身；直连 API 落草稿产物走 `CHAT_READ_E2E_API_ORIGIN`
    * 同源代理的既有 `/chat/artifacts|threads` rewrite。不需要新的进程或新的环境变量。
    *
+   * issue #2052（CK-P7 编制）+ issue #2050（落地为产物）—— 新增
+   * `copilotkit-v2-roster-landing.spec.ts` 同样由本 config 接住：同一条 `/chat` 路由、
+   * 同一条真登录、同一个 loopback 回显替身；编制用例用的 `CHAT_READ_E2E.
+   * catalogOnlyAgentId` 是该 fixture 早就为「加入一个尚不在编制里的 agent」备下的种子
+   * （`chat-read.spec.ts` 已在用），直连 AG-UI/编制/产物端点走的都是
+   * `CHAT_READ_E2E_API_ORIGIN` 同源代理的既有 rewrite。不需要新的进程或新的环境变量。
+   *
+   * ⚠ 忘了往下面这条白名单里加名字的后果是**静默的**：playwright 报
+   * `No tests found`、退出码 1，看起来像 spec 写坏了。本轮实测踩到一次。
+   *
    * issue #2068（Chat 任务工作台验收卡）—— 新增 `chat-task-workbench-*.spec.ts`
    * 共 11 个 spec 同样由本 config 接住（理由与上面几条逐字相同）：这里已经起好了
    * 这条链路需要的全部编排——真登录 + 真 Postgres + 真 API + 真 web + 确定性
@@ -200,7 +210,7 @@ export default defineConfig({
    * ⚠ 上面那条警告在这里再说一遍：**这条 testMatch 白名单是手写的**，新 spec 不加
    * 进这个正则就是「写了但没人跑」（#512 同一个失效模式），本次 11 个逐个加过。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|chat-keyboard-navigation|chat-task-workbench-empty-state|chat-task-workbench-capability-cards|chat-task-workbench-workflow-states|chat-task-workbench-inspector|chat-task-workbench-composer|chat-task-workbench-approval|chat-task-workbench-tool-events|chat-task-workbench-p1-efficiency|chat-task-workbench-polish|chat-task-workbench-a11y|chat-task-workbench-copy)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-task-workbench-empty-state|chat-task-workbench-capability-cards|chat-task-workbench-workflow-states|chat-task-workbench-inspector|chat-task-workbench-composer|chat-task-workbench-approval|chat-task-workbench-tool-events|chat-task-workbench-p1-efficiency|chat-task-workbench-polish|chat-task-workbench-a11y|chat-task-workbench-copy)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*

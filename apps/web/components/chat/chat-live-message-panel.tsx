@@ -1,12 +1,14 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, Bot, Check, Copy, FileText, Loader2, Mic, RefreshCw, Send, UserRound } from "lucide-react";
+import { ArrowDown, Bot, Check, Copy, Loader2, Mic, RefreshCw, Send, UserRound } from "lucide-react";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 // VZ-01 → live panel（coord 裁 ①+续刀）：活体 AI 消息渲染从 CopilotKit 的 Markdown
 // 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
 // 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
 import { MarkdownMessage } from "@/components/chat/markdown-message";
+// issue #2050 —— 落地为产物的状态机与展示件，与 CopilotKit v2 轨道共用同一份。
+import { MessageLandingControls, useMessageLanding } from "@/components/chat/message-landing";
 import { AgentToolChain } from "@/components/chat/agent-tool-chain";
 import { MessageThinkingChain } from "@/components/chat/message-thinking-chain";
 import { MessageContextSnapshot } from "@/components/chat/message-context-snapshot";
@@ -16,7 +18,6 @@ import {
   createMessage,
   describeMessageFailure,
   generateFollowUpSuggestions as fetchFollowUpSuggestions,
-  landAsArtifact,
   lastUsedAgentId,
   listMessages,
   pickDefaultAgentId,
@@ -327,7 +328,7 @@ export function ChatLiveMessagePanel({
    *   而 citations 的写入路径目前不存在（见 `land-as-artifact.ts` 与本组件顶部
    *   `landAsArtifact` 的引入注释），提供那两个选项会摆一个必炸的按钮。
    */
-  const [landingState, setLandingState] = React.useState<Record<string, MessageLandingState>>({});
+  const landing = useMessageLanding({ threadId, bearer, onArtifactLanded });
   const generation = React.useRef(0);
   /**
    * V1（PROP-CHAT-10ITER-001）—— 消息区自动跟随到底。
@@ -1070,54 +1071,6 @@ export function ChatLiveMessagePanel({
     }
   };
 
-  const openLandForm = (message: DurableMessage) => {
-    setLandingState((current) => ({
-      ...current,
-      [message.id]: { status: "form", title: defaultArtifactTitle(message.text) },
-    }));
-  };
-
-  const updateLandTitle = (messageId: string, title: string) => {
-    setLandingState((current) => {
-      const existing = current[messageId];
-      if (!existing || existing.status !== "form") return current;
-      return { ...current, [messageId]: { ...existing, title } };
-    });
-  };
-
-  const cancelLand = (messageId: string) => {
-    setLandingState((current) => {
-      const rest = { ...current };
-      delete rest[messageId];
-      return rest;
-    });
-  };
-
-  const submitLand = async (message: DurableMessage) => {
-    const entry = landingState[message.id];
-    if (!entry || entry.status !== "form") return;
-    const title = entry.title.trim();
-    if (title === "") return;
-    setLandingState((current) => ({ ...current, [message.id]: { status: "submitting", title } }));
-    try {
-      const result = await landAsArtifact(
-        threadId,
-        { messageId: message.id, mode: "draft", title, payloadRef: message.text },
-        bearer,
-      );
-      setLandingState((current) => ({
-        ...current,
-        [message.id]: { status: "done", title, artifactId: result.artifactId },
-      }));
-      onArtifactLanded?.();
-    } catch (failure) {
-      setLandingState((current) => ({
-        ...current,
-        [message.id]: { status: "error", title, error: describeMessageFailure(failure, "落地为产物") },
-      }));
-    }
-  };
-
   /**
    * 发送后等待动画（人类 devapp 实测：发完消息像卡死，要对标 Claude Code 的 thinking 动画）。
    * `awaitingReply` = 有一个在途 run 且还没有任何逐 token 文本可显示时——此时消息区什么都
@@ -1383,11 +1336,11 @@ export function ChatLiveMessagePanel({
                     {canLandArtifacts && isAgent ? (
                       <MessageLandingControls
                         message={message}
-                        state={landingState[message.id]}
-                        onOpen={() => openLandForm(message)}
-                        onTitleChange={(title) => updateLandTitle(message.id, title)}
-                        onCancel={() => cancelLand(message.id)}
-                        onSubmit={() => void submitLand(message)}
+                        state={landing.stateFor(message.id)}
+                        onOpen={() => landing.open(message)}
+                        onTitleChange={(title) => landing.updateTitle(message.id, title)}
+                        onCancel={() => landing.cancel(message.id)}
+                        onSubmit={() => void landing.submit(message)}
                       />
                     ) : null}
                   </div>
@@ -2024,147 +1977,14 @@ function statusTone(status: AgentRunStatus): string {
   return "text-muted-foreground";
 }
 
-/** 十项 UX 缺口第 5 项——一条消息「落地为产物（草稿）」的本地 UI 状态机。 */
-type MessageLandingState =
-  | { readonly status: "form"; readonly title: string }
-  | { readonly status: "submitting"; readonly title: string }
-  | { readonly status: "done"; readonly title: string; readonly artifactId: string }
-  | { readonly status: "error"; readonly title: string; readonly error: string };
-
-function defaultArtifactTitle(text: string): string {
-  const firstLine = text.split("\n")[0]?.trim() ?? "";
-  return firstLine.length > 40 ? `${firstLine.slice(0, 40)}…` : (firstLine || "未命名产物");
-}
-
-/**
- * 十项 UX 缺口第 5 项（issue #708）——内联「落地为产物」控件。
- * 真实调用 `landAsArtifact`（`POST /chat/threads/:threadId/artifacts`），只提供
- * `mode: "draft"`——`live`/`pinned` 要求非空 citations，而 citations 写入路径目前
- * 不存在，见本文件顶部 `landAsArtifact` 引入处的注释。
+/*
+ * issue #2050 —— 「落地为产物」的状态机 + 展示件已抽到
+ * `@/components/chat/message-landing`，本文件不再私有一份：CopilotKit v2 轨道
+ * （`copilotkit-v2-panel.tsx`）现在也要这个能力，抄第二份就是本仓硬约束点名的
+ * 「同一事实声明在两处」。此处删除的是 `MessageLandingState`/`defaultArtifactTitle`/
+ * `MessageLandingControls`/`LandedArtifactCard` 四个定义，**行为逐字未变**（新模块
+ * 里的实现是原样搬迁，含 `mode:"draft"` 的既有理由与全部 `data-testid`）。
  */
-function MessageLandingControls({
-  message, state, onOpen, onTitleChange, onCancel, onSubmit,
-}: {
-  message: DurableMessage;
-  state: MessageLandingState | undefined;
-  onOpen: () => void;
-  onTitleChange: (title: string) => void;
-  onCancel: () => void;
-  onSubmit: () => void;
-}) {
-  if (state === undefined) {
-    return (
-      <Button
-        size="xs"
-        variant="outline"
-        className="self-start text-10"
-        data-testid={`chat-land-artifact-open-${message.id}`}
-        onClick={onOpen}
-      >
-        落地为产物（草稿）
-      </Button>
-    );
-  }
-
-  if (state.status === "done") {
-    return <LandedArtifactCard messageId={message.id} title={state.title} sourceText={message.text} />;
-  }
-
-  const busy = state.status === "submitting";
-  return (
-    <form
-      className="flex w-full max-w-xs flex-col gap-1 rounded-md border border-border-subtle bg-card p-2"
-      data-testid={`chat-land-artifact-form-${message.id}`}
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit();
-      }}
-    >
-      <label className="text-10 text-muted-foreground" htmlFor={`chat-land-artifact-title-${message.id}`}>
-        产物标题（草稿，落地后仍可在右栏「产物」看到）
-      </label>
-      <input
-        id={`chat-land-artifact-title-${message.id}`}
-        data-testid={`chat-land-artifact-title-${message.id}`}
-        className="h-7 rounded-md border border-input bg-transparent px-2 text-11"
-        value={state.title}
-        disabled={busy}
-        onChange={(event) => onTitleChange(event.target.value)}
-      />
-      <div className="flex items-center gap-1">
-        <Button
-          size="xs"
-          type="submit"
-          data-testid={`chat-land-artifact-submit-${message.id}`}
-          disabled={busy || state.title.trim() === ""}
-        >
-          {busy ? "落地中…" : "确认落地"}
-        </Button>
-        <Button size="xs" type="button" variant="outline" disabled={busy} onClick={onCancel}>
-          取消
-        </Button>
-      </div>
-      {state.status === "error" ? (
-        <p className="text-10 text-destructive" data-testid={`chat-land-artifact-error-${message.id}`}>
-          {state.error}
-        </p>
-      ) : null}
-    </form>
-  );
-}
-
-/**
- * #728 D7——已落地产物的结构化卡片，取代此前纯文本的「已落地为产物（草稿）：{title}」
- * 一行字（原型是带 AI 徽标 + 展开操作的卡片，不是文本）。
- *
- * ⚠ 「展开」展开的是**这条消息本来就有的正文**（`message.text`，本地已持有，
- *   零额外请求）——不是链到一个产物详情页。本仓目前**没有**任何独立的产物查看路由
- *   （`grep app -path "*artifact*"` 零命中），链一个不存在的页面就是判据明令禁止的
- *   「没有真实数据支撑的能力」。等产物详情页真的接出来，这里再换成真链接，
- *   不提前画一个点了 404 的入口。
- */
-function LandedArtifactCard({
-  messageId, title, sourceText,
-}: {
-  messageId: string;
-  title: string;
-  sourceText: string;
-}) {
-  const [expanded, setExpanded] = React.useState(false);
-  return (
-    <div
-      className="flex w-full max-w-xs flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2"
-      data-testid={`chat-land-artifact-done-${messageId}`}
-    >
-      <div className="flex items-center gap-1.5">
-        <FileText aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <p className="min-w-0 flex-1 truncate text-11 font-medium">{title}</p>
-        <Badge tone="ai">AI</Badge>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-10 text-muted-foreground">已落地为产物（草稿）</span>
-        <Button
-          size="xs"
-          variant="ghost"
-          className="h-5 px-1.5 text-10"
-          aria-expanded={expanded}
-          data-testid={`chat-land-artifact-expand-${messageId}`}
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {expanded ? "收起" : "展开"}
-        </Button>
-      </div>
-      {expanded ? (
-        <p
-          className="whitespace-pre-wrap text-10 text-muted-foreground"
-          data-testid={`chat-land-artifact-content-${messageId}`}
-        >
-          {sourceText}
-        </p>
-      ) : null}
-    </div>
-  );
-}
 
 /** 十项 UX 缺口第 6 项——建议 chip 的形状。`id` 只用于 `data-testid`/`key`，不是服务端概念。 */
 interface FollowUpSuggestion {

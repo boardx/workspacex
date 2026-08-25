@@ -251,8 +251,16 @@ export function ThreadCardButton({
           data-thread-id={card.id}
           onClick={(event) => { event.stopPropagation(); onTogglePin(); }}
           className={[
-            "absolute right-7 top-1 rounded-md p-1.5 transition-colors focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible",
-            pinned ? "visible text-primary" : "invisible text-muted-foreground",
+            /* ⚠ 常驻可见，不做 hover 才浮出（issue #2075 真栈实测后改的）。
+               两条独立理由，任一条都足够：
+               ① `visibility:hidden` 会让这个操作在「非鼠标路径」上整个消失——读屏软件
+                  跳过它，触屏根本没有 hover 这个动作，机械门控也判它不可见；
+               ② 本仓 `lint-design.sh` 的 U1.2 明令禁止用 `opacity-*` 表达状态，
+                  所以「透明但在无障碍树里」这条折中路走不通。
+               留下的诚实做法就是常驻——用 `text-muted-foreground` 压低存在感，
+               靠 hover 的背景色而不是「有没有这个按钮」来做反馈。 */
+            "absolute right-7 top-1 rounded-md p-1.5 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            pinned ? "text-primary" : "text-muted-foreground",
             "hover:bg-panel-alt hover:text-card-foreground",
           ].join(" ")}
         >
@@ -270,7 +278,7 @@ export function ThreadCardButton({
               /* issue #2075（TW-A11Y-2）—— `p-1` 时整个按钮只有 14+8=22px，低于 24×24
                  的点击区下限；`p-1.5` 给到 26px。这不是为了让门控变绿：22px 的悬浮小按钮
                  在触屏与手部精细动作受限的用户那里就是点不中。 */
-              className="absolute right-1 top-1 rounded-md p-1.5 text-muted-foreground transition-colors invisible hover:bg-panel-alt hover:text-card-foreground focus-visible:visible focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:visible"
+              className="absolute right-1 top-1 rounded-md p-1.5 text-muted-foreground transition-colors duration-fast hover:bg-panel-alt hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
             </button>

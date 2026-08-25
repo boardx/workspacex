@@ -141,10 +141,18 @@ test("TW-P2-6：对话列表有选中态 / 悬停操作 / 置顶 / 搜索 / 更�
 
   // 选中态：当前线程必须在列表里被标出来（`aria-current` 或 `data-selected`）。
   const selected = sidebar.locator("[aria-current='true'], [data-selected='true']");
-  expect(
-    await selected.count(),
+  /*
+   * ⚠ 这条原本是 `expect(await selected.count()).toBeGreaterThan(0)` —— 一次性快照，
+   * **不重试**。真栈实测（issue #2075 第四轮）的失败截图显示：断言那一刻左栏还停在
+   * 骨架屏上（`openFreshThread` 刚 `router.push` 完，线程列表的那次 fetch 还没回来），
+   * 于是它稳定地报「没有可判定的选中态」——一句与产品无关的错话。
+   * 改成 Playwright 的自动重试断言：**同一个判据**，只是允许它等列表加载完。
+   * 这不是放宽：能力不存在时它照样在超时后红，失败文案逐字不变。
+   */
+  await expect(
+    selected,
     gapMessage("TW-P2-6", "chat-thread-<id>", "对话列表没有可判定的选中态，用户看不出自己在哪条线程上"),
-  ).toBeGreaterThan(0);
+  ).not.toHaveCount(0, { timeout: 30_000 });
 
   // 搜索与置顶是列表规模变大后唯一的活路。
   await expectAnchor(page, "chat-task-workbench-thread-search", "TW-P2-6", "对话列表没有搜索", 15_000);

@@ -619,9 +619,13 @@ export class ChatController {
   async agentPanel(
     @CurrentPrincipal() principal: Principal,
     @Param("threadId") threadId: string,
-    @Query("projectId") projectId: string,
+    // issue #2052（CK-P7）—— 省略/空串 ⇒ `null` ⇒ 个人线程，与本控制器 `getThread`
+    // 早就在用的同一句归一化（见 `rawProjectId` 那处）。此前这里声明成必填
+    // `string`，个人线程传不进来：缺的一直只是这一句，不是后端语义。
+    @Query("projectId") rawProjectId?: string,
   ) {
     assertPrincipal(principal);
+    const projectId = rawProjectId === undefined || rawProjectId === "" ? null : rawProjectId;
     try {
       return await getAgentPanel(this.deps, {
         userId: principal.userId,
@@ -649,10 +653,14 @@ export class ChatController {
   async updateRoster(
     @CurrentPrincipal() principal: Principal,
     @Param("threadId") threadId: string,
-    @Query("projectId") projectId: string,
+    /** issue #2052（CK-P7）—— 同 `agentPanel`：省略/空串 ⇒ 个人线程。 */
+    // 不写 `rawProjectId?:`——可选参数后面不能跟必填参数，而 `body` 必须保持必填。
+    // `string | undefined` 表达的是同一件事（query 缺省时 Nest 传 undefined）。
+    @Query("projectId") rawProjectId: string | undefined,
     @Body(new ZodBodyPipe(UPDATE_AGENT_ROSTER_SCHEMA)) body: UpdateAgentRosterBody,
   ) {
     assertPrincipal(principal);
+    const projectId = rawProjectId === undefined || rawProjectId === "" ? null : rawProjectId;
     try {
       return await updateAgentRoster(
         { ...this.deps, provenance: this.provenance },
