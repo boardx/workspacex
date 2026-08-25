@@ -73,20 +73,30 @@ export async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
 }
 
 /**
- * `/chat/[threadId]` 动态路由的编译焐热——逐字同
- * `copilotkit-v2-right-panel.spec.ts` / `copilotkit-v2-skill-mount.spec.ts`
- * 的既有 `warmUpThreadRoute`，不是新发明。
+ * ⚠ 这里**故意不复制**既有 spec 里的 `warmUpThreadRoute`。
+ *
+ * 那个 helper 的做法是 `goto("/chat/warmup-route-compile-only")` 然后等
+ * `copilotkit-v2-input` 可见 120s。本轮第一次真栈跑（44 tests，5 workers）**全部 44 条
+ * 以 3.0m 收场**，error-context 逐条指向同一处：
+ *
+ *     Locator: getByTestId('copilotkit-v2-input')
+ *     Timeout: 120000ms — element(s) not found
+ *
+ * 即那条 warmup 线程 id 根本不存在，`/chat/[threadId]` 对不存在的线程不渲染输入框，
+ * 这个等待**必然**走满 120s 再失败——它焐的是编译，却拿一个业务态当就绪信号。
+ * 于是每条用例都在 setup 里烧光预算，一条真实断言都没跑到，整轮零信号。
+ *
+ * 编译预热这件事**已经有单一事实源**：`chat-route-warmup.global-setup.ts` 在所有
+ * webServer ready 之后、任何 worker 起来之前，对 `/api/copilotkit/info`、`/chat`、
+ * `/chat/warmup-route-compile-only`、`/login` 各发一次真实 HTTP GET（预算 300s）。
+ * Next dev 的编译结果是**进程级**的，所有 worker 随后走的都是热路径。再在每个 spec
+ * 里复制一份等待，既是「同一事实声明在两处」，又正好是本轮零信号的直接原因。
  */
-export async function warmUpThreadRoute(page: Page): Promise<void> {
-  await page.goto("/chat/warmup-route-compile-only");
-  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
-}
 
 /** 登录 + 焐热 + 停在 `/chat` 空状态（TW-P0-1/2/4/5 的共同起点）。 */
 export async function openChatEmptyState(page: Page): Promise<void> {
   await warmUpCopilotRuntimeRoute(page);
   await login(page);
-  await warmUpThreadRoute(page);
   await page.goto("/chat");
   // `/chat` 只在没有 `?projectId=` / `?thread=` 时渲染 v2 轨道，这里正是裸路径。
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
