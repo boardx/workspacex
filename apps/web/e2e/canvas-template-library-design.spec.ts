@@ -288,3 +288,55 @@ test("Design.pdf §4：三栏拖拽编辑器 —— 拖到画布、显示设置 
 
   expect(failures).toEqual([]);
 });
+
+
+test("Design.pdf §7 第 6/7 条：纸面与内容区比值精确，且贴纸内文字不被裁切", async ({ page }) => {
+  await loginAsAdmin(page);
+  await openLibrary(page);
+
+  const stamp = String(Date.now()).slice(-6);
+  const key = await createWithTags(page, `几何验收 ${stamp}`, []);
+  await expectCardGrid(page);
+  await page.getByTestId(`tpladmin-card-${key}-1`).click();
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+
+  // 加一个列表型字段并拖到画布上。
+  await page.getByTestId("tpladmin-editor-new-key").fill("says");
+  await page.getByTestId("tpladmin-editor-new-name").fill("说 Says");
+  await page.getByTestId("tpladmin-editor-new-add").click();
+  await page.getByTestId("tpladmin-editor-field-says").dragTo(page.getByTestId("tpladmin-editor-canvas"));
+  await expect(page.locator('[data-testid^="tpladmin-editor-block-"]').first()).toBeVisible();
+
+  // §7 第 6 条：纸面比值 = 841/594（误差 ≤ 0.5%）。
+  const paperRatio = await page.getByTestId("tpladmin-editor-canvas").evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return r.width / r.height;
+  });
+  expect(Math.abs(paperRatio / (841 / 594) - 1)).toBeLessThanOrEqual(0.005);
+
+  /**
+   * §7 第 7 条：**任意贴纸内文字不被裁切**（`scrollHeight ≤ clientHeight`）。
+   *
+   * 这条是「字号由贴纸实尺推导」那个公式（§5 末段 `clamp(6.5, noteMm×0.115, 10.5)`）
+   * 唯一真正的验收方式——公式写对了没有，只有量 DOM 才知道；把字号写成固定值时
+   * 小贴纸会裁字，而那在截图上很难一眼看出来。
+   *
+   * ⚠ 逐张量，不是抽一张：容量算错时往往只有最后一行的贴纸会溢出。
+   */
+  const clipped = await page.evaluate(() => {
+    const notes = [...document.querySelectorAll('[data-testid^="tpladmin-editor-block-"] > div > div')];
+    return notes
+      .map((n, i) => ({ i, scroll: n.scrollHeight, client: n.clientHeight }))
+      .filter((n) => n.client > 0 && n.scroll > n.client + 1); // +1 容忍亚像素取整
+  });
+  expect(clipped, `这些贴纸里的文字被裁切了（scrollHeight > clientHeight）：${JSON.stringify(clipped)}`).toEqual([]);
+
+  // 切到 3 列（贴纸更大）后仍然不裁切——换一档几何再验一次，不是只在默认值下成立。
+  await page.locator('[data-testid^="tpladmin-editor-block-"]').first().click();
+  await page.getByTestId("tpladmin-editor-cols-3").click();
+  const clippedAfter = await page.evaluate(() => {
+    const notes = [...document.querySelectorAll('[data-testid^="tpladmin-editor-block-"] > div > div')];
+    return notes.filter((n) => n.clientHeight > 0 && n.scrollHeight > n.clientHeight + 1).length;
+  });
+  expect(clippedAfter).toBe(0);
+});
