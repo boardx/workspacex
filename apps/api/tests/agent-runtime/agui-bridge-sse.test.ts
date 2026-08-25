@@ -27,6 +27,10 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
 import {
+  AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+  AguiChatMessageIdValue,
+} from "@repo/contracts/agui-state-events";
+import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
 
@@ -222,14 +226,30 @@ describe("POST /copilotkit/agui", () => {
       // DA-19a -- every real run now also mints/echoes a `CUSTOM chat_thread_id` event
       // right after RUN_STARTED (see `copilotkit-agui.controller.ts`'s own doc), so it's
       // a permanent fixture of this sequence, not a one-off variant.
+      // CK-P3 (issue #2054) -- a SECOND permanent CUSTOM joins it on every succeeded run:
+      // `chat_message_id`, echoing the assistant message's real `chat_messages.id` back
+      // (the wire `messageId` is a transient aggregation id -- see the controller's own doc).
+      // It sits AFTER TEXT_MESSAGE_END and BEFORE RUN_FINISHED: by the time the client sees
+      // it the bubble is complete, and the turn is not over yet.
       expect(events.map((e) => e.type)).toEqual([
         EventType.RUN_STARTED,
         EventType.CUSTOM,
         EventType.TEXT_MESSAGE_START,
         EventType.TEXT_MESSAGE_CONTENT,
         EventType.TEXT_MESSAGE_END,
+        EventType.CUSTOM,
         EventType.RUN_FINISHED,
       ]);
+
+      // CK-P3 -- 这条回显必须指向**真实落库**的那条消息，而不是把 wire 上的临时
+      // messageId 原样回显一遍（那样等于什么都没解决）。两者必须是不同的值。
+      const idEcho = events.filter((e) => e.type === EventType.CUSTOM)
+        .find((e) => e.name === AGUI_CHAT_MESSAGE_ID_EVENT_NAME);
+      expect(idEcho).toBeDefined();
+      const echoed = AguiChatMessageIdValue.parse(idEcho?.value);
+      const streamStart = events.find((e) => e.type === EventType.TEXT_MESSAGE_START);
+      expect(echoed.streamingMessageId).toBe(streamStart?.messageId);
+      expect(echoed.chatMessageId).not.toBe(echoed.streamingMessageId);
 
       const content = events.find((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
       expect(content?.delta).toBe("durable AG-UI reply from the loopback provider");
@@ -277,9 +297,11 @@ describe("POST /copilotkit/agui", () => {
     nextReplyText = "reply from the org default agent";
     const { status, events } = await postBridgeTurn({ text: "Hello with no agent chosen", agentId: "" });
     expect(status).toBe(200);
+    // CK-P3 (issue #2054) -- 第二个 CUSTOM 是 `chat_message_id` 回显，见上一条用例的注释。
     expect(events.map((e) => e.type)).toEqual([
       EventType.RUN_STARTED, EventType.CUSTOM, EventType.TEXT_MESSAGE_START,
-      EventType.TEXT_MESSAGE_CONTENT, EventType.TEXT_MESSAGE_END, EventType.RUN_FINISHED,
+      EventType.TEXT_MESSAGE_CONTENT, EventType.TEXT_MESSAGE_END, EventType.CUSTOM,
+      EventType.RUN_FINISHED,
     ]);
     // 反证：回复是默认 agent 那次 run 的真实 writeback 字节，不是伪造的成功。
     const content = events.find((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);

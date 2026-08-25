@@ -679,20 +679,6 @@ export class CopilotkitAguiController {
         });
 
       if (outcome.kind === "succeeded") {
-        // CK-P3 (issue #2054) -- 把这条 assistant 消息的**真实** `chat_messages.id` 回显
-        // 给客户端。`messageId`（上面 `randomUUID()`）是流式聚合用的临时 id，必须在第一个
-        // delta 之前存在，而那时消息还没写回；真实主键直到现在（run 成功、`agui-bridge`
-        // 已回读到 `projection.resultMessageId`）才存在。发在 TEXT_MESSAGE_END 之后、
-        // RUN_FINISHED 之前——客户端收到它时那条气泡已经完整，收到后这一轮才结束。
-        //
-        // ⚠ 只在 `succeeded` 分支发。`failed`/`awaiting_approval` 没有一条已落库的
-        //   assistant 消息可指——发一个指向不存在的行的 id，比不发更糟。
-        //   完整理由见 `@repo/contracts/agui-state-events` 的 `AguiChatMessageIdValue`。
-        write({
-          type: EventType.CUSTOM,
-          name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
-          value: { streamingMessageId: messageId, chatMessageId: outcome.messageId },
-        });
         if (sawAnyDelta) {
           // Every fragment already went out via `onDelta` above -- resending
           // `outcome.text` here would duplicate the assistant bubble's content.
@@ -704,6 +690,26 @@ export class CopilotkitAguiController {
           write({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: outcome.text });
           write({ type: EventType.TEXT_MESSAGE_END, messageId });
         }
+        // CK-P3 (issue #2054) -- 把这条 assistant 消息的**真实** `chat_messages.id` 回显
+        // 给客户端。`messageId`（上面 `randomUUID()`）是流式聚合用的临时 id，必须在第一个
+        // delta 之前存在，而那时消息还没写回；真实主键直到现在（run 成功、`agui-bridge`
+        // 已回读到 `projection.resultMessageId`）才存在。
+        //
+        // ⚠ 位置在 if/else **之外**、`RUN_FINISHED` 之前，不是在 `succeeded` 分支开头。
+        //   写在开头时顺序只对流式那条路径成立：非流式兜底分支（`sawAnyDelta === false`，
+        //   provider 不支持流式时整段一次性返回）的 TEXT_MESSAGE_START/CONTENT/END 是在
+        //   那之后才写的，回显反而跑到整个气泡前面去了。第一版就是这么写的，被
+        //   `agui-bridge-sse.test.ts` 的逐条序列断言当场抓到。放在这里，「气泡已完整之后、
+        //   这一轮结束之前」这条不变量对两条路径都成立。
+        //
+        // ⚠ 只在 `succeeded` 分支发。`failed`/`awaiting_approval` 没有一条已落库的
+        //   assistant 消息可指——发一个指向不存在的行的 id，比不发更糟。
+        //   完整理由见 `@repo/contracts/agui-state-events` 的 `AguiChatMessageIdValue`。
+        write({
+          type: EventType.CUSTOM,
+          name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+          value: { streamingMessageId: messageId, chatMessageId: outcome.messageId },
+        });
         write({ type: EventType.RUN_FINISHED, threadId: clientThreadId, runId: clientRunId });
       } else if (outcome.kind === "failed") {
         if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
