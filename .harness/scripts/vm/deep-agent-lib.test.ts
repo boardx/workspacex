@@ -364,3 +364,81 @@ describe("DA-10 —— LangSmith 三件套投影（deploy.sh 4h 步的片段语�
     expect(deployText).toContain("却没设 LANGSMITH_API_KEY");
   });
 });
+
+/**
+ * issue #2076 —— 引擎能力开关的 env 投影。
+ *
+ * 反证纪律（本仓已九次「全绿但空转」）：这里的核心用例不是"设了就写行"，而是
+ * **不设就一行都不写**，以及 **deploy.sh 真的调了这个函数**——后者是这条 issue 的
+ * 实际根因形态（函数写好了但没人调 = devapp 上 `docker exec ... env | grep '^DEEP_AGENT'`
+ * 依旧零命中，与修之前逐字相同）。
+ */
+describe("deep_agent_project_capability_env — 引擎能力开关投影（#2076）", () => {
+  const KEYS = "DEEP_AGENT_SUBAGENTS_ENABLED DEEP_AGENT_HITL_TOOLS DEEP_AGENT_CHECKPOINT_DB";
+
+  /** 建一对 src/dest，跑投影，返回 dest 的最终内容。 */
+  function project(srcContent: string): { status: number | null; dest: string; stderr: string } {
+    const temp = tempDir();
+    const src = join(temp, "deploy.env");
+    const dest = join(temp, "deep-agent.env");
+    writeFileSync(src, srcContent);
+    writeFileSync(dest, "KERNEL_MODEL_BASE_URL=http://x\n");
+    const r = runLib(`deep_agent_project_capability_env '${src}' '${dest}' ${KEYS}`);
+    return { status: r.status, dest: readFileSync(dest, "utf8"), stderr: r.stderr };
+  }
+
+  it("三个键都设了 → 三行都投影，值逐字保留", () => {
+    const r = project(
+      "DEEP_AGENT_SUBAGENTS_ENABLED=1\n"
+      + "DEEP_AGENT_HITL_TOOLS=call_skill, execute\n"
+      + "DEEP_AGENT_CHECKPOINT_DB=postgresql://u:p@h:5432/db?sslmode=require\n",
+    );
+    expect(r.status).toBe(0);
+    expect(r.dest).toContain("DEEP_AGENT_SUBAGENTS_ENABLED=1");
+    expect(r.dest).toContain("DEEP_AGENT_HITL_TOOLS=call_skill, execute");
+    // 值里带 `=` 和 `?` 不能被截断——read_env_value 只剥前缀。
+    expect(r.dest).toContain("DEEP_AGENT_CHECKPOINT_DB=postgresql://u:p@h:5432/db?sslmode=require");
+  });
+
+  it("反证：一个都不设 → dest 逐字不变（不留 `KEY=` 的空值假象）", () => {
+    const before = "KERNEL_MODEL_BASE_URL=http://x\n";
+    const r = project("KERNEL_MODEL_BASE_URL=http://x\n");
+    expect(r.status).toBe(0);
+    expect(r.dest).toBe(before);
+    expect(r.dest).not.toContain("DEEP_AGENT_");
+  });
+
+  it("反证：设了 key 但值为空 → 同样不写行（空串投进去只会让人误以为开关配过了）", () => {
+    const r = project("DEEP_AGENT_HITL_TOOLS=\nDEEP_AGENT_SUBAGENTS_ENABLED=1\n");
+    expect(r.status).toBe(0);
+    expect(r.dest).toContain("DEEP_AGENT_SUBAGENTS_ENABLED=1");
+    expect(r.dest).not.toContain("DEEP_AGENT_HITL_TOOLS");
+  });
+
+  it("部分设置 → 只投影设了的那些，且在 stderr 报告投影了哪些（部署日志可对账）", () => {
+    const r = project("DEEP_AGENT_SUBAGENTS_ENABLED=1\n");
+    expect(r.status).toBe(0);
+    expect(r.dest).toContain("DEEP_AGENT_SUBAGENTS_ENABLED=1");
+    expect(r.dest).not.toContain("DEEP_AGENT_CHECKPOINT_DB");
+    expect(r.stderr).toContain("DEEP_AGENT_SUBAGENTS_ENABLED");
+  });
+
+  it("反证（本 issue 的实际根因形态）：deploy.sh 真的调用了它，且在 docker run 之前", () => {
+    const deployText = readFileSync(DEPLOY, "utf8");
+    const callIdx = deployText.indexOf("deep_agent_project_capability_env");
+    expect(callIdx, "deploy.sh 没调这个函数 = 开关依旧到不了容器").toBeGreaterThan(-1);
+    for (const key of KEYS.split(" ")) expect(deployText).toContain(key);
+    // 必须在容器起来之前投影完——写在 docker run 之后等于这一轮部署不生效。
+    const runIdx = deployText.indexOf("docker run -d --name workspacex-deep-agent");
+    expect(runIdx).toBeGreaterThan(-1);
+    expect(callIdx).toBeLessThan(runIdx);
+  });
+
+  it("provision.sh 模板里 DEEP_AGENT_SUBAGENTS_ENABLED 是**未注释**的真实行", () => {
+    const provisionText = readFileSync(PROVISION, "utf8");
+    expect(provisionText).toMatch(/^DEEP_AGENT_SUBAGENTS_ENABLED=1$/m);
+    // 另两个刻意保持注释态（理由见模板与 issue #2076），不能被顺手打开。
+    expect(provisionText).not.toMatch(/^DEEP_AGENT_HITL_TOOLS=/m);
+    expect(provisionText).not.toMatch(/^DEEP_AGENT_CHECKPOINT_DB=/m);
+  });
+});
