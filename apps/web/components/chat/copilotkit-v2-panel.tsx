@@ -22,10 +22,13 @@ import { useAguiFileEvents } from "@/lib/agui-file-events";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { AgentPicker, MicDevicePicker } from "@/components/chat/chat-composer-pickers";
-import { getStoredSessionToken } from "@/lib/api-client";
+import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { useSession } from "@/components/session/session-provider";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
-import { createPersonalThread, listMessages, type GetAgentPanelOut, type ListThreadAttachmentsOut } from "@/lib/live-chat";
+import {
+  createPersonalThread, listMessages, summarizePersonaFromThread,
+  type GetAgentPanelOut, type ListThreadAttachmentsOut,
+} from "@/lib/live-chat";
 import { detectComposerMention, type ComposerMention } from "@/lib/composer-mention-detection";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import {
@@ -612,6 +615,8 @@ export function CopilotKitV2Panel({
   onThreadResolved,
   onMessageSent,
   threadAttachments = null,
+  archived = false,
+  canGeneratePersona = false,
 }: {
   /**
    * issue #2021 —— 持久化的后端 `chat_threads.id`（不是 CopilotKit 本地
@@ -637,6 +642,20 @@ export function CopilotKitV2Panel({
    * 不在本组件里发第二次请求。`null` = 外壳还没读到/没有线程。
    */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
+  /**
+   * issue #2053（CK-P8，差距表 #11）—— 本线程是否已归档。事实来源是外壳的
+   * `getThread(...).thread.archived`（`chat_threads.archived` 的真实投影），
+   * 不是前端编出来的一个状态。`true` ⇒ composer 全禁 + 只读说明，语义与锚点
+   * （`chat-composer-archived`）与旧轨道 `chat-live-message-panel.tsx` 逐字同套。
+   */
+  archived?: boolean;
+  /**
+   * issue #2053（CK-P6，差距表 #6）—— 「生成用户画像」的渲染门。事实来源是外壳
+   * `getThread(...).capabilities` 是否含 `artifact.land`，与旧轨道
+   * `canLandArtifacts` **同一个**服务端能力事实：persona-summary 内部走的正是
+   * 同一条 landAsArtifact 写权门，没有这个能力摆按钮就是一枚必 403 的假按钮。
+   */
+  canGeneratePersona?: boolean;
 } = {}): JSX.Element {
   const { session } = useSession();
   const orgId = session?.currentOrgId ?? null;
@@ -734,6 +753,8 @@ export function CopilotKitV2Panel({
           onThreadResolved={onThreadResolved}
           onMessageSent={onMessageSent}
           threadAttachments={threadAttachments}
+          archived={archived}
+          canGeneratePersona={canGeneratePersona}
           onMentionQueryChange={setMentionQuery}
           mentionResolvedNonce={mentionResolvedNonce}
         />
@@ -769,6 +790,8 @@ function CopilotKitV2PanelBody({
   onThreadResolved,
   onMessageSent,
   threadAttachments = null,
+  archived = false,
+  canGeneratePersona = false,
   onMentionQueryChange,
   mentionResolvedNonce,
 }: {
@@ -778,6 +801,10 @@ function CopilotKitV2PanelBody({
   onMessageSent?: () => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
+  /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
+  archived?: boolean;
+  /** issue #2053（CK-P6）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
+  canGeneratePersona?: boolean;
   /**
    * issue #2020 —— composer 里敲 `#` 的 mention 检测上报（`null` = 没有活跃 mention）。
    * 消费方是外层的 `ChatSkillMountPanel`：它把 query 当「+」按钮的另一个触发源，
@@ -1004,20 +1031,7 @@ function CopilotKitV2PanelBody({
     (async () => {
       try {
         const bearer = getStoredSessionToken() ?? undefined;
-        const collected: Array<{ id: string; role: "user" | "assistant"; content: string }> = [];
-        let cursor: string | undefined;
-        for (let page = 0; page < 50; page += 1) {
-          const result = await listMessages(initialChatThreadId, { cursor, limit: 100 }, bearer);
-          for (const m of result.messages) {
-            collected.push({
-              id: m.id,
-              role: m.authorKind === "human" ? "user" : "assistant",
-              content: m.text,
-            });
-          }
-          if (result.nextCursor === null) break;
-          cursor = result.nextCursor;
-        }
+        const collected = await readAllPersistedMessages(initialChatThreadId, bearer);
         if (cancelled) return;
         hydratedRef.current = true;
         const live = agent.messages;
@@ -1182,6 +1196,74 @@ function CopilotKitV2PanelBody({
     [agent, copilotkit, inputDraft, attach, attachmentThreadId, onMessageSent],
   );
 
+  /**
+   * ── issue #2053 CK-P6「生成用户画像」（差距表 #6）────────────────────────────
+   *
+   * 平移旧轨道 `chat-live-message-panel.tsx` 的 `runPersonaSummary`：一次
+   * `POST /chat/threads/:threadId/persona-summary`，扫全线程产出画像，产物以一条
+   * assistant 消息（```mermaid mindmap 围栏）落回线程，走既有
+   * `MarkdownMessage → ChatDiagramFabric` 通道渲染。
+   *
+   * ## 与旧轨道**唯一**的实现差异，以及为什么必须有这个差异
+   *
+   * 旧轨道的 `messages` 本身就是 `listMessages` 读回来的持久化消息，取
+   * `messages[messages.length - 1].id` 当锚点天然就是 `chat_messages.id`。
+   * 本轨道的 `agent.messages` 是 **AG-UI 流式消息**——它里面的 id 只有"挂载时从
+   * 后端灌回的历史"那一段等于 `chat_messages.id`，本次会话里新流进来的那些是
+   * CopilotKit/AG-UI 自己生成的、后端**不认识**的 id（本文件头注早就记录过这是两个
+   * 独立命名空间）。直接拿 `agent.messages` 末条的 id 去调，在"刚发完一条消息就点
+   * 生成画像"这条最常见的路径上必然拿到一个后端查不到的锚点——那正是本仓反复禁止的
+   * 「点了才报错的假按钮」。所以这里点击时**现读一次**持久化消息
+   * （`readAllPersistedMessages`），锚点取其最后一条。
+   *
+   * 结果回显同理：用契约回给的 `out.resultMessageId` 去那份持久化读回里定位那条
+   * assistant 消息，**只追加这一条**到 `agent.messages`，不整体覆盖——覆盖会杀掉
+   * 在途 run 已经流进来的内容（与上面历史灌回那段是同一条纪律）。
+   *
+   * 失败**原样回显 reasonCode**，不糊一句「生成失败」（旧轨道同款；契约 err 有三档：
+   * NOT_VISIBLE / NO_WRITE_ROLE / STORAGE_UNAVAILABLE，用户对它们的处置完全不同）。
+   */
+  const [personaRunning, setPersonaRunning] = React.useState(false);
+  const [personaFailure, setPersonaFailure] = React.useState<string | null>(null);
+  const runPersonaSummary = React.useCallback(async () => {
+    if (initialChatThreadId === null || personaRunning) return;
+    setPersonaRunning(true);
+    setPersonaFailure(null);
+    try {
+      const bearer = getStoredSessionToken() ?? undefined;
+      const persisted = await readAllPersistedMessages(initialChatThreadId, bearer);
+      const anchor = persisted[persisted.length - 1];
+      if (anchor === undefined) {
+        setPersonaFailure("这条对话还没有已落库的消息，无法生成画像。");
+        return;
+      }
+      const out = await summarizePersonaFromThread(initialChatThreadId, anchor.id, bearer);
+      const after = await readAllPersistedMessages(initialChatThreadId, bearer);
+      const result = after.find((m) => m.id === out.resultMessageId);
+      if (result === undefined) {
+        // 服务端说写了、读回却没有——不假装成功，也不假装失败：如实说清楚现状与出路。
+        setPersonaFailure("画像已生成，但没能立刻读回那条消息。刷新页面即可看到。");
+        return;
+      }
+      if (!agent.messages.some((m) => m.id === result.id)) {
+        agent.setMessages([...agent.messages, result]);
+      }
+      // 画像同时落了一件产物（`out.artifactId`）——通知外壳刷新右栏「产物」栏，
+      // 与 `send()` 里 run settle 后那次是同一个通道、同一个理由。
+      onMessageSent?.();
+    } catch (failure) {
+      setPersonaFailure(
+        failure instanceof ApiError
+          ? `生成用户画像失败：${failure.reasonCode ?? `HTTP ${failure.status}`}`
+          : failure instanceof Error
+            ? `生成用户画像失败：${failure.message}`
+            : "生成用户画像失败。",
+      );
+    } finally {
+      setPersonaRunning(false);
+    }
+  }, [agent, initialChatThreadId, onMessageSent, personaRunning]);
+
   return (
     <div className="flex h-full w-full gap-3">
       {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
@@ -1190,8 +1272,11 @@ function CopilotKitV2PanelBody({
           chat-parity-attachments (issue #2022) -- `relative` + `dragHandlers`：全 surface
           拖拽落区覆盖整个左栏（消息列表 + composer），与旧轨道 `ChatFullSurfaceDropOverlay`
           同一套挂法（`chat-read-screen.tsx`）。 */}
-      <div className="relative flex min-w-0 flex-1 flex-col gap-3" {...attach.dragHandlers}>
-        <ChatFullSurfaceDropOverlay active={attach.dragActive} />
+      {/* issue #2053（CK-P8）—— 归档线程不接受拖拽上传：落区与提示都不挂，
+          与旧轨道 `chat-live-message-panel.tsx` 的 `{...(archived ? {} : attach.dragHandlers)}`
+          逐字同套。留着落区而在提交时报错，才是骗人的那一种。 */}
+      <div className="relative flex min-w-0 flex-1 flex-col gap-3" {...(archived ? {} : attach.dragHandlers)}>
+        {archived ? null : <ChatFullSurfaceDropOverlay active={attach.dragActive} />}
         <CopilotKitV2ToolRenderers />
         {/* 2026-08-25 人类 devapp 实测指令：不给用户看调试字样——原来这里有一行
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
@@ -1216,15 +1301,19 @@ function CopilotKitV2PanelBody({
             历史消息读取失败：{historyError}
           </div>
         ) : null}
-        <FollowUpSuggestions
-          agentId={threadId}
-          disabled={agent.isRunning}
-          onSelect={(text) => void send(text)}
-        />
+        {/* issue #2053（CK-P8）—— 归档线程不给追问建议：每一条 chip 点下去都是一次
+            发送，摆在只读线程上就是一排假按钮。 */}
+        {archived ? null : (
+          <FollowUpSuggestions
+            agentId={threadId}
+            disabled={agent.isRunning}
+            onSelect={(text) => void send(text)}
+          />
+        )}
         {/* chat-parity-attachments (issue #2022) -- composer 附件区：就地报错横幅 + 预览条，
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
-        <ChatAttachmentBanner banner={attach.banner} />
-        <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />
+        {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
+        {archived ? null : <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />}
         {/* issue #2046（CK-P2）—— `@` 引用本线程已上传附件的候选下拉。纯前端插入，
             testid 与旧轨道同名（`chat-attachment-mention-*`），语义相同不另造锚点；
             没有匹配项时如实显示空态，不隐藏整个下拉——用户需要分得清「@ 打对了但
@@ -1260,12 +1349,52 @@ function CopilotKitV2PanelBody({
             )}
           </div>
         ) : null}
+        {/* issue #2053（CK-P8，差距表 #11）—— 归档线程只读说明。锚点与文案与旧轨道
+            `chat-live-message-panel.tsx` 逐字同套（`chat-composer-archived`），不另造
+            第二份措辞：同一件事在两个轨道上必须是同一句话。 */}
+        {archived ? (
+          <p className="text-12 text-muted-foreground" data-testid="chat-composer-archived">
+            该对话已归档，只能读取，不能创建消息或运行。
+          </p>
+        ) : null}
+        {/* issue #2053（CK-P6，差距表 #6）—— 「生成用户画像」。渲染门是服务端下发的
+            `artifact.land` 能力（`canGeneratePersona`），不是前端自己判的；没有线程
+            （全新对话还没发第一条消息）时禁用而不是隐藏——入口存在这件事本身要看得见，
+            `title` 说清楚为什么现在点不了（同旧轨道对空线程的处理）。 */}
+        {canGeneratePersona ? (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              data-testid="chat-persona-summary-trigger"
+              disabled={archived || personaRunning || initialChatThreadId === null}
+              title={
+                archived ? "该对话已归档，不能再生成画像"
+                  : initialChatThreadId === null ? "先发出第一条消息，这条对话建立后才能生成画像"
+                    : "扫描整个对话，生成用户画像"
+              }
+              onClick={() => void runPersonaSummary()}
+            >
+              {personaRunning ? "生成画像中…" : "生成用户画像"}
+            </Button>
+            {personaFailure !== null ? (
+              <span className="text-11 text-destructive" data-testid="chat-persona-summary-error">
+                {personaFailure}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex gap-2">
-          <ChatAttachmentButton ctl={attach} disabled={agent.isRunning || attachmentThreadId === null} />
+          <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} />
           <input
             data-testid="copilotkit-v2-input"
-            className="flex-1 rounded border border-input px-2 py-1 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder="随便输入点什么"
+            className="flex-1 rounded border border-input px-2 py-1 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
+            /* issue #2053（CK-P8）—— 归档 ⇒ 输入框本身禁用。`archived` 首帧在服务端与
+               客户端都是 `false`（外壳的 `getThread` 是客户端 effect），不存在麦克风按钮
+               那条 `sessionToken` 式的 SSR/CSR 首帧分叉，可以直接接到 `disabled`。 */
+            disabled={archived}
+            placeholder={archived ? "该对话已归档，不能再发送消息" : "随便输入点什么"}
             value={inputDraft}
             onChange={(e) => {
               setInputDraft(e.target.value);
@@ -1287,7 +1416,7 @@ function CopilotKitV2PanelBody({
           <MicDevicePicker
             devices={micDevices.devices}
             selectedDeviceId={micDevices.selectedDeviceId}
-            disabled={speech.listening || speech.connecting || speech.stopping}
+            disabled={archived || speech.listening || speech.connecting || speech.stopping}
             onSelect={micDevices.select}
           />
           <Button
@@ -1315,7 +1444,9 @@ function CopilotKitV2PanelBody({
                 : speech.stopping ? "正在停止…"
                 : speech.listening ? "停止语音输入" : "开始语音输入"
             }
-            disabled={speech.connecting || speech.stopping}
+            /* `archived` 可以直接进 `disabled`——见输入框那处注释：它没有 sessionToken
+               那条首帧分叉。语音输入在归档线程上没有任何合法去处（转录进的输入框已禁）。 */
+            disabled={archived || speech.connecting || speech.stopping}
             onClick={() => {
               if (sessionToken === null) {
                 setError("未登录，无法使用语音输入。");
@@ -1335,7 +1466,7 @@ function CopilotKitV2PanelBody({
             data-testid="copilotkit-v2-send"
             type="button"
             className="rounded border border-border px-3 py-1 text-sm text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
-            disabled={agent.isRunning || attach.hasUploading}
+            disabled={archived || agent.isRunning || attach.hasUploading}
             onClick={() => void send()}
           >
             {agent.isRunning ? "…" : "发送"}
@@ -1370,6 +1501,44 @@ function CopilotKitV2PanelBody({
       ) : null}
     </div>
   );
+}
+
+/**
+ * 一条线程**已落库**消息的最小投影（`chat_messages` 行 → CopilotKit 消息形状）。
+ *
+ * ⚠ `id` 是 **`chat_messages.id`**，不是 `agent.messages` 里流式产生的 AG-UI 消息 id。
+ *   两者是本文件头注早就记录过的两个独立命名空间；任何要把消息 id 交回后端的操作
+ *   （issue #2053 CK-P6「生成用户画像」的锚点 `messageId` 就是一个）**只能**用这一份，
+ *   拿流式 id 去调只会做出一个「点了才报错」的假按钮。
+ */
+type PersistedMessage = { id: string; role: "user" | "assistant"; content: string };
+
+/**
+ * 把一条线程的持久化消息**读完**（不是读一页就算数）。
+ *
+ * `listMessages` 契约（R9）要求调用方分页，单页上限 100；这里跑到 `nextCursor === null`
+ * 为止。抽成模块级函数是因为它现在有两个调用方（挂载时的历史灌回、CK-P6 画像的
+ * 锚点/结果消息读取），而"怎么把一条线程读完"必须只有一份写法。
+ */
+async function readAllPersistedMessages(
+  threadId: string,
+  bearer: string | undefined,
+): Promise<PersistedMessage[]> {
+  const collected: PersistedMessage[] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < 50; page += 1) {
+    const result = await listMessages(threadId, { cursor, limit: 100 }, bearer);
+    for (const m of result.messages) {
+      collected.push({
+        id: m.id,
+        role: m.authorKind === "human" ? "user" : "assistant",
+        content: m.text,
+      });
+    }
+    if (result.nextCursor === null) break;
+    cursor = result.nextCursor;
+  }
+  return collected;
 }
 
 /**

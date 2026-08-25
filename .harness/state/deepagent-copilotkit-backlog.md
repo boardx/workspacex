@@ -495,14 +495,38 @@ DA-19h（旧轨道退役，等 g 且人类确认翻转默认值）
 **CK-P4 Run 进度细节**：耗时计时、阶段文案、45s longrun 提示、失败重试按钮、
 上下文快照、思考链（差距表 #9 未覆盖部分）。
 
-**CK-P5 会话录音归档**（差距表 #8，`ChatRecordingPanel` 平移）。
+**CK-P5 会话录音归档**（差距表 #8）—— ⛔ **契约级阻塞，本轮如实登记不做**（#2053）。
+平移做不了，两条互相独立的硬事实（读契约与路由确认，不是文件名推断）：
+① `recording.ts` 的 `startRecording.in.projectId` 是 `z.string()`（**非空**），err 含
+`NO_PROJECT_ROLE`，服务端 `requireProjectRole` 按项目角色判权；
+② v2 外壳的线程**全部**是个人线程（`createPersonalThread(null)` 建、`listPersonalThreads`
+列，`projectId === null`），带 `?projectId=` 的项目内对话在 `/chat` 上至今仍路由到旧屏
+`ChatReadScreen`（差距表第 1 项未收敛的另一半）。
+⇒ v2 轨道上不存在任何一条能合法开始录音的线程。挂一个恒不满足渲染条件的面板 = 死代码；
+挂一个不判条件的按钮 = 必然 400/`NO_PROJECT_ROLE` 的假按钮。解锁二选一、都要人类签核：
+(a) v2 接入项目线程（差距表 #1 剩余半边），录音随项目上下文自然可用；
+(b) 放宽 `startRecording` 契约让个人线程可录——授权矩阵与保留期在「无项目」时按什么
+判据解析，是需要重新签核的设计问题，不是加个 `.nullable()`。
 
-**CK-P6 生成用户画像**（差距表 #6，`summarizePersonaFromThread` 入口平移）。
+**CK-P6 生成用户画像**（差距表 #6，`summarizePersonaFromThread` 入口平移）—— ✅ 实现完成
+（#2053）。锚点 `messageId` 取**持久化** `chat_messages.id`（点击时现读 `listMessages`），
+不是 `agent.messages` 的 AG-UI 流式 id——两者是不同命名空间，拿后者会做出「点了才报错」
+的假按钮；这条由组件测试的反证实验实测钉住（第一版断言两份消息一模一样，把实现改成拿
+内存末条 id 照样全绿，随后重编排为「挂载后后端才多出一条」才真能判）。
 
 **CK-P7 多 agent 编制**（#2025 收窄时明确延后的另一半，`RosterPanel`/
 `updateAgentRoster`——持久化线程已就绪，可开工）。
 
-**CK-P8 归档线程只读态**（差距表 #11，随线程列表既有能力补齐）。
+**CK-P8 归档线程只读态**（差距表 #11）—— ✅ 读侧接通（#2053），写侧缺口如实登记。
+`chat_threads.archived` 真实存在、`getThread.out.thread.archived` 真实下发、`getThread`
+对归档线程**不**抛错 ⇒ 只读态接的是真数据，不是前端编的假状态。归档时 composer 的
+input / 发送 / 麦克风 / 设备选择器 / 📎 / 拖拽落区 / 追问建议 / 画像入口**全部**禁用或不渲染，
+提示文案与锚点（`chat-composer-archived`）与旧轨道逐字同套。
+⚠ 两处缺口需要契约新增 + 签核，本 issue 未擅自加：
+① `mutateThread.in.op` 只有 `create | rename | delete`——**契约里没有 archive 操作**，
+   用户从任何界面都归不了档（因此端到端"真归档一条线程"在产品里不存在，e2e 只能
+   把 `getThread` 真实响应里那一个布尔翻过来，证明前端对真实字段的反应）；
+② `ThreadCard`（列表项）没有 `archived` 字段 ⇒ 左栏无法给归档线程加标记。
 
 排序依据：P0-P2 人类点名 → P3/P4 用户高频感知 → P5-P8 尾部。与 UIUX 三轮视觉
 迭代、默认 agent 健壮化两条在途线并行推进；机器容量按「同时最多 3-4 条实现线」
