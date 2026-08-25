@@ -40,8 +40,31 @@ test("TW-P0-6①：审批界面三态按钮齐（approve / edit / reject）—�
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
 
-  const dialog = page.getByTestId("copilotkit-v2-hitl-dialog");
-  await expect(dialog, "TW-P0-6①：审批触发词没有弹出 HITL 决策弹窗").toBeVisible({ timeout: 120_000 });
+  /*
+   * ⚠ `copilotkit-v2-hitl-dialog` 这个 testid 在 `copilotkit-v2-panel.tsx` 上挂在
+   * **两个不同的 DialogContent** 上：`:421` 是终态/状态变体（不带任何决策按钮），
+   * `:455` 才是决策变体（approve / start-edit / reject 三个按钮都在这里）。
+   *
+   * 首轮实测本条以「缺少 approve」收场——弹窗确实出现了，但出现的是 `:421` 那个
+   * **终态**变体。当时差点据此写下「三态按钮不存在」，那会是一句错话：
+   * 按钮就在 `:455`，是我锚错了变体。这正是「同一个 testid 标两处」的代价。
+   *
+   * 因此这里按**决策语义**取弹窗（含 approve 按钮的那一个），并把终态变体单独
+   * 断言出来——若只等到终态变体，说明这一轮压根没停下来等人批，是另一个问题
+   * （run 直接跑完/失败），失败信息要说清是哪一种，不许含糊成「按钮缺失」。
+   */
+  const decisionDialog = page
+    .getByTestId("copilotkit-v2-hitl-dialog")
+    .filter({ has: page.getByTestId("copilotkit-v2-hitl-approve") });
+
+  await expect(
+    decisionDialog,
+    [
+      "TW-P0-6①：没有等到**决策**态审批弹窗。",
+      "若终态变体（copilotkit-v2-hitl-dialog @ panel:421）出现了而决策变体没有，",
+      "说明这一轮没有真的停下来等人批准，属于 HITL 未触发，不是按钮缺失。",
+    ].join("\n"),
+  ).toBeVisible({ timeout: 120_000 });
 
   // 三态都必须在。只做一个「确认」按判据封顶 0.3——这条断言就是那道门。
   await expect(page.getByTestId("copilotkit-v2-hitl-approve"), "缺少 approve").toBeVisible();

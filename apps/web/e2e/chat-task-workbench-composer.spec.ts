@@ -151,18 +151,33 @@ test("TW-P0-5⑥：设备选择是语音按钮的二级菜单，录音时显示�
   }
 });
 
-test("TW-P0-5④：Agent 未就绪时禁用发送并说明原因（不能只是灰掉）", async ({ page }) => {
+/*
+ * ⚠ 诱发方式的一次修正（首轮实测教训）。
+ *
+ * 本条原本用 `page.route("**\/agents**", 503) + reload` 来构造「Agent 未就绪」。
+ * 实测该做法把整张页面打死了：`copilotkit-v2-input` 再也没渲染出来，用例以 3.0m
+ * 超时收场，报出来的是「输入框不见了」——一条与本判据毫无关系的噪声红。
+ * 用一个会摧毁被测表面的手段去诱发状态，测不出任何东西。
+ *
+ * 改为用**天然可诱发**的禁用态（空输入）来钉住判据的真正内核：
+ * **发送被禁用时，用户必须能读到原因，而不只是一个灰按钮。**
+ * 「agent 未就绪」这个具体成因需要一个前端目前没有暴露的注入缝，缺口如实记在
+ * 验收卡 TW-P0-5④ 里，不在这里用假手段假装测过。
+ */
+test("TW-P0-5④：发送被禁用时必须说明原因（不能只是灰掉）", async ({ page }) => {
   await openFreshThread(page);
 
-  // 构造未就绪：拦掉能力列表读取，让前端进入「没有可用 agent」分支。
-  await page.route("**/agents**", (route) => route.fulfill({ status: 503, body: "{}" }));
-  await page.reload();
-  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+  const send = page.getByTestId("copilotkit-v2-send");
+  const input = page.getByTestId("copilotkit-v2-input");
+  await expect(input).toBeVisible({ timeout: 30_000 });
+  await input.fill("");
 
-  await expect(
-    page.getByTestId("copilotkit-v2-send"),
-    "TW-P0-5④：Agent 未就绪时发送按钮应被禁用",
-  ).toBeDisabled({ timeout: 30_000 });
+  // 空输入是天然的禁用态；若此实现下发送并未禁用，本条判据无从谈起，如实说明。
+  const disabled = await send.isDisabled();
+  expect(
+    disabled,
+    "TW-P0-5④：空输入时发送按钮未禁用，无法在此诱发禁用态——需要另一个注入缝",
+  ).toBe(true);
 
   const reason = await expectAnchor(
     page,

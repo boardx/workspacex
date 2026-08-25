@@ -92,11 +92,32 @@ test("TW-P2-5：颜色 / 圆角 / 阴影走设计系统语义变量，页面不�
   for (const relative of CHAT_SOURCES) {
     const absolute = join(__dirname, "..", relative);
     const source = readFileSync(absolute, "utf8");
+    let inBlockComment = false;
     source.split("\n").forEach((line, index) => {
-      // 页面自创的三种形态：裸 hex、Tailwind 任意值方括号里的颜色/圆角/阴影、内联 style 色值。
-      const bareHex = /#[0-9a-fA-F]{3,8}\b/.exec(line);
+      /*
+       * ⚠ 首轮实测这条判据是**假阳性**：原正则 `/#[0-9a-fA-F]{3,8}\b/` 把注释里的
+       * issue 号逐个当成了颜色（`#2023` / `#1987` / `#787` 全部命中），报出一堆
+       * 「裸 hex」，而它们一个都不是颜色。本仓 commit message 与代码注释里 issue 号
+       * 极其密集，这个形状注定误报。
+       *
+       * 修法：① 跳过注释行（行注释与块注释）；② 裸 hex 必须落在**颜色上下文**里
+       * ——引号内的值、CSS 属性值、或 style 对象——而不是散落在散文里。
+       */
+      const trimmed = line.trim();
+      if (inBlockComment) {
+        if (trimmed.includes("*/")) inBlockComment = false;
+        return;
+      }
+      if (trimmed.startsWith("/*")) {
+        if (!trimmed.includes("*/")) inBlockComment = true;
+        return;
+      }
+      if (trimmed.startsWith("//") || trimmed.startsWith("*")) return;
+
+      // 颜色上下文里的裸 hex：`"#fff"` / `: #fff` / `[#fff]`。
+      const bareHex = /["'`:\[(]\s*#[0-9a-fA-F]{3,8}\b/.exec(line);
       const arbitrary = /(bg|text|border|ring|shadow|rounded)-\[[^\]]+\]/.exec(line);
-      if (bareHex) offenders.push(`${relative}:${index + 1} 裸 hex ${bareHex[0]} → ${line.trim().slice(0, 100)}`);
+      if (bareHex) offenders.push(`${relative}:${index + 1} 裸 hex ${bareHex[0].trim()} → ${line.trim().slice(0, 100)}`);
       if (arbitrary) offenders.push(`${relative}:${index + 1} 任意值 ${arbitrary[0]} → ${line.trim().slice(0, 100)}`);
     });
   }
