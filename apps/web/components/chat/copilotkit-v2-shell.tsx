@@ -10,8 +10,8 @@ import { useSession } from "@/components/session/session-provider";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import {
-  createPersonalThread, listPersonalThreads, listThreadArtifacts, listThreadAttachments,
-  type ListThreadArtifactsOut, type ListThreadAttachmentsOut, type ListThreadsOut,
+  createPersonalThread, getThread, listPersonalThreads, listThreadArtifacts, listThreadAttachments,
+  type GetThreadOut, type ListThreadArtifactsOut, type ListThreadAttachmentsOut, type ListThreadsOut,
 } from "@/lib/live-chat";
 
 /**
@@ -51,6 +51,33 @@ import {
  * 任何 React 重挂载——地址栏因此始终反映"这条对话真实的持久化 id"，但当前这次
  * 流式回复不受影响；下次真正刷新页面时，浏览器按这个新地址重新加载，`[threadId]/
  * page.tsx` 才会用这个真实 id 挂载并从服务端回读历史。
+ *
+ * ## issue #2053 CK-P5「会话录音归档」为什么**没有**挂在这里（如实登记，不是漏做）
+ *
+ * 差距表 #8 要求把旧壳的 `ChatRecordingPanel`（`chat-live-recording-*` 锚点，走
+ * `POST /recording/sessions`）平移到 composer 上方。读契约与路由后确认**今天做不了**，
+ * 两条互相独立的硬事实：
+ *   1. `packages/contracts/src/recording.ts` 的 `startRecording.in.projectId` 是
+ *      `z.string()`——**非空**，且 err 含 `NO_PROJECT_ROLE`，服务端
+ *      `RecordingController.requireProjectRole` 按项目角色判权。
+ *   2. 本外壳的线程**全部**是个人线程（`createPersonalThread(null)` 建，
+ *      `listPersonalThreads` 列，`thread.projectId === null`）；带 `?projectId=` 的
+ *      项目内对话在 `/chat` 上至今仍路由到旧屏 `ChatReadScreen`（见
+ *      `app/chat/page.tsx` 头注：项目上下文是差距表第 1 项未收敛的另一半）。
+ * 两条合起来：v2 轨道上**不存在**任何一条能合法开始录音的线程。在这里挂一个
+ * 恒不满足渲染条件的面板，等于往仓库里放一段永远跑不到的代码；挂一个不判条件的
+ * 按钮，等于放一枚必然 400/`NO_PROJECT_ROLE` 的假按钮——两种都违反本仓纪律。
+ * 解锁需要二选一，且都要人类签核，不在本 issue 擅自决定：
+ *   (a) v2 轨道接入项目线程（差距表 #1 的剩余半边），录音随项目上下文自然可用；
+ *   (b) 放宽 `startRecording` 契约让个人线程可录（授权矩阵与保留期在"无项目"时
+ *       按什么判据解析，是一个需要重新签核的设计问题，不是改个 `.nullable()`）。
+ *
+ * ## issue #2053 CK-P8 的读侧接通了，写侧的缺口一并登记
+ *
+ * `chat_threads.archived` 真实存在、`getThread` 真实下发 ⇒ 只读态接的是真数据。
+ * 但 `mutateThread.in.op` 只有 `create | rename | delete`——**契约里没有 archive
+ * 操作**，用户从任何界面都归不了档；且 `ThreadCard`（列表项）没有 `archived` 字段，
+ * 左栏无法给归档线程加标记。两处缺口都需要契约新增 + 签核，本 issue 不擅自加。
  *
  * 切换到**另一条**已有线程（`selectThread`）或点"新建对话"则用真正的 `router.push`——
  * 这两种操作本来就该是"离开当前对话、开始/进入另一条"，重新挂载面板（清空
@@ -100,6 +127,23 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const rightKey = bearer && selectedThreadId ? `${bearer} ${selectedThreadId}` : null;
   const [artifactsResult, setArtifactsResult] = React.useState<{ key: string; value: ListThreadArtifactsOut } | null>(null);
   const [materialsResult, setMaterialsResult] = React.useState<{ key: string; value: ListThreadAttachmentsOut } | null>(null);
+  /**
+   * issue #2053（CK-P6 / CK-P8）—— 线程详情。这是本外壳里**唯一**一处"当前这条线程
+   * 是什么"的事实来源：`getThread` 一次调用同时给出
+   *   · `thread.archived`  ⇒ CK-P8 只读态的判据（`chat_threads.archived` 的真实投影，
+   *     不是前端编一个状态；`getThread` 对归档线程正常返回，不抛错——读 `get-thread.ts` 确认）
+   *   · `capabilities`     ⇒ CK-P6「生成用户画像」的渲染门（含 `artifact.land` 才渲染，
+   *     与旧轨道 `canLandArtifacts` 同一个服务端事实）
+   *   · `thread.projectId` ⇒ CK-P5 会话录音能不能开的判据（见下方 `personalOnlyNote`）
+   * 与「产物」/「材料」同一次 `loadRightPanel` 里取，共用同一把 key（bearer+threadId）
+   * 与同一套陈旧响应防护——不为同一条线程另起第二条读取时序。
+   *
+   * ⚠ `projectId` 传 `null` 是正确的、不是偷懒：`resolveVisibility` 见 `projectId === null`
+   *   就走个人线程分支，而本外壳的线程**全部**是个人线程（`createPersonalThread` 建、
+   *   `listPersonalThreads` 列）。带 `?projectId=` 的项目内对话在 `/chat` 上仍路由到
+   *   旧屏 `ChatReadScreen`（见 `app/chat/page.tsx` 头注），v2 轨道至今没有项目线程。
+   */
+  const [threadDetailResult, setThreadDetailResult] = React.useState<{ key: string; value: GetThreadOut } | null>(null);
   const [artifactsFailure, setArtifactsFailure] = React.useState<{ key: string; value: string } | null>(null);
   const [materialsFailure, setMaterialsFailure] = React.useState<{ key: string; value: string } | null>(null);
   const [rightLoadingKey, setRightLoadingKey] = React.useState<string | null>(null);
@@ -111,6 +155,17 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const materialsError = materialsFailure?.key === rightKey ? materialsFailure.value : null;
   const rightLoading = rightKey !== null && rightLoadingKey === rightKey;
 
+  const threadDetail = threadDetailResult?.key === rightKey ? threadDetailResult.value : null;
+  /**
+   * 详情读不到（尚未读回 / 读失败）时**保守取 `false`**：
+   * · `archived: false` ⇒ 不会因为一次读取失败就把一条正常线程锁成只读（那是把
+   *   基础设施抖动伪装成一个业务状态）；服务端仍是权威，真归档了写操作会被拒。
+   * · `canGeneratePersona: false` ⇒ 不渲染入口。宁可少一个按钮，也不摆一个
+   *   没有能力事实支撑、点下去可能 403 的按钮（同本仓「不渲染而不是渲染后禁用」纪律）。
+   */
+  const archived = threadDetail?.thread.archived ?? false;
+  const canGeneratePersona = threadDetail?.capabilities.includes("artifact.land") ?? false;
+
   const loadRightPanel = React.useCallback(async () => {
     if (!bearer || !selectedThreadId) return;
     const key = `${bearer} ${selectedThreadId}`;
@@ -119,11 +174,15 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     setRightLoadingKey(key);
     setArtifactsFailure(null);
     setMaterialsFailure(null);
-    const [nextArtifacts, nextMaterials] = await Promise.allSettled([
+    const [nextArtifacts, nextMaterials, nextDetail] = await Promise.allSettled([
       listThreadArtifacts(threadId, null, bearer),
       listThreadAttachments(threadId, null, bearer),
+      // issue #2053 —— 线程详情与右栏同批取。它自己失败**不**让右栏整体失败
+      // （契约 getThread 的"部分成功"精神），只是 archived/能力回落到保守缺省。
+      getThread(threadId, null, bearer),
     ]);
     if (generation !== rightGeneration.current) return;
+    setThreadDetailResult(nextDetail.status === "fulfilled" ? { key, value: nextDetail.value } : null);
     if (nextArtifacts.status === "fulfilled") {
       setArtifactsResult({ key, value: nextArtifacts.value });
     } else {
@@ -226,6 +285,8 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           onThreadResolved={handleThreadResolved}
           onMessageSent={() => void loadRightPanel()}
           threadAttachments={materials?.items ?? null}
+          archived={archived}
+          canGeneratePersona={canGeneratePersona}
         />
       </div>
       {/* issue #2046（CK-P1，人类 2026-08-25 原话「需要有右边的上传的文件列表和产物，
