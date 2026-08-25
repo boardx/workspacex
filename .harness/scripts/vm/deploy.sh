@@ -299,6 +299,14 @@ if [ -n "$DEEP_AGENT_LANGSMITH_TRACING" ]; then
     echo "LANGSMITH_PROJECT=${DEEP_AGENT_LANGSMITH_PROJECT:-workspacex-deep-agent}"
   } >> "$DEEP_AGENT_ENV_FILE"
 fi
+# issue #2076：引擎能力开关（harness.py 的 build_interrupt_on / build_subagents /
+# build_checkpointer 各读一个）。此前这段投影是固定白名单，这三个键**无论 deploy.env
+# 里怎么写都到不了容器**——devapp 实测 `docker exec ... env | grep '^DEEP_AGENT'` 零命中。
+# 语义与上面 LangSmith 三件套一致：deploy.env 没设就不写行，不留空值假象。
+# 逻辑抽在 deep-agent-lib.sh 由 deep-agent-lib.test.ts 覆盖（含"不设=不写行"反证）。
+deep_agent_project_capability_env "$ENV_FILE" "$DEEP_AGENT_ENV_FILE" \
+  DEEP_AGENT_SUBAGENTS_ENABLED DEEP_AGENT_HITL_TOOLS DEEP_AGENT_CHECKPOINT_DB
+
 chown "$RUN_AS":"$RUN_AS" "$DEEP_AGENT_ENV_FILE"
 
 echo "  构建镜像 ${DEEP_AGENT_IMAGE}（从当前部署源码，有出处）"
