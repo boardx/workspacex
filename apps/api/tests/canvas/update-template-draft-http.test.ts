@@ -142,6 +142,7 @@ describe("2026-08-23 · POST /canvas/templates/:key/draft", () => {
       visibility: "org-wide",
       underlyingType: "canvas",
       sections: SECTIONS_B,
+      tags: [],
     });
 
     // 持久面重新读一遍——响应体可以只是把入参回显了一遍。

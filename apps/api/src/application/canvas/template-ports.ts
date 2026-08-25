@@ -171,6 +171,8 @@ export interface CanvasTemplateRepository {
      * 由用例填创建者自己的团队；创建者无团队时为 null，那一行对所有人不可见（fail-closed）。
      */
     readonly ownerTeamId: string | null;
+    /** 落库前已由用例把 `in.tags` 的省略/`undefined` 归一成 `[]`——仓储永远收到真数组。 */
+    readonly tags: readonly string[];
   }): Promise<CreateTemplateOutcome>;
 
   /**
@@ -192,6 +194,8 @@ export interface CanvasTemplateRepository {
     readonly visibility: VisibilityScope;
     /** `team-only` 时非空——契约层 `.refine` 已经挡过一次，这里是第二道防线。 */
     readonly ownerTeamId: string | null;
+    /** 同 `create()` 的 `tags`——用例已归一成真数组。 */
+    readonly tags: readonly string[];
   }): Promise<MintTemplateVersionOutcome>;
 
   findVersion(
@@ -219,6 +223,8 @@ export interface CanvasTemplateRepository {
     readonly displayName: string;
     readonly sections: CreatedCanvasTemplate["sections"];
     readonly visibility: VisibilityScope;
+    /** 同 `create()` 的 `tags`——用例已归一成真数组，全量替换（同 sections/displayName）。 */
+    readonly tags: readonly string[];
   }): Promise<UpdateDraftOutcome>;
 
   /**

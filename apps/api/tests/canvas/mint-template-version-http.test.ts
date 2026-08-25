@@ -147,6 +147,7 @@ describe("#988 · POST /canvas/templates/:key/versions 真的铸出下一版", (
       visibility: "org-wide",
       underlyingType: "canvas",
       sections: V2_SECTIONS,
+      tags: [],
     });
 
     const rows = await readAll();

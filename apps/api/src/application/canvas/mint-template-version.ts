@@ -48,6 +48,7 @@ export interface MintTemplateVersionInput {
   readonly visibility: VisibilityScope;
   /** 契约 `.strict()` 允许省略；省略与显式 `null` 在这里同义，都不含团队。 */
   readonly ownerTeamId?: string | null | undefined;
+  readonly tags?: readonly string[];
 }
 
 export async function mintTemplateVersion(
@@ -74,6 +75,7 @@ export async function mintTemplateVersion(
     sections: input.sections,
     visibility: input.visibility,
     ownerTeamId,
+    tags: input.tags ?? [],
   });
 
   if (!outcome.minted) {

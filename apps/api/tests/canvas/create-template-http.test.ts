@@ -178,6 +178,9 @@ describe("#496 · POST /canvas/templates 真的造出一行", () => {
       visibility: "org-wide",
       underlyingType: "canvas",
       sections: SECTIONS,
+      // 2026-08-25：`createBody()` 不传 `tags`——省略与显式 `[]` 在契约层同义，
+      // 落库前用例已归一成真数组，出门永远是 `[]` 而不是 `undefined`。
+      tags: [],
     });
 
     // 持久面重新读一遍——响应体可以只是把入参回显了一遍。

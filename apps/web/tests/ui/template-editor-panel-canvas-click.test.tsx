@@ -60,6 +60,7 @@ function draftRow(overrides: Partial<CanvasTemplate> = {}): CanvasTemplate {
       { sectionId: "s3", name: "机会", order: 2, required: false, capacity: null },
     ],
     usageCount: 0,
+    tags: [],
     ...overrides,
   };
 }
