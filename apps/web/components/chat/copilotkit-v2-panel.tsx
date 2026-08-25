@@ -25,7 +25,8 @@ import { AgentPicker, MicDevicePicker } from "@/components/chat/chat-composer-pi
 import { getStoredSessionToken } from "@/lib/api-client";
 import { useSession } from "@/components/session/session-provider";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
-import { createPersonalThread, listMessages, type GetAgentPanelOut } from "@/lib/live-chat";
+import { createPersonalThread, listMessages, type GetAgentPanelOut, type ListThreadAttachmentsOut } from "@/lib/live-chat";
+import { detectComposerMention, type ComposerMention } from "@/lib/composer-mention-detection";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import {
   useChatAttachments, ChatAttachmentButton, ChatAttachmentList, ChatAttachmentBanner,
@@ -609,6 +610,8 @@ function useCopilotKitV2AgentOptions(orgId: string | null, bearer: string | null
 export function CopilotKitV2Panel({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
+  onMessageSent,
+  threadAttachments = null,
 }: {
   /**
    * issue #2021 —— 持久化的后端 `chat_threads.id`（不是 CopilotKit 本地
@@ -623,6 +626,17 @@ export function CopilotKitV2Panel({
    * 已存在的线程）**不会**触发——`chatThreadIdRef` 已经等于外部传入的值。
    */
   onThreadResolved?: (threadId: string) => void;
+  /**
+   * issue #2046（CK-P1）—— 一条消息（可能带附件）的 run settle 后触发一次，
+   * 外壳借此刷新右栏「材料」/「产物」计数（与旧轨道 `onMessageSent` 同名同义）。
+   */
+  onMessageSent?: () => void;
+  /**
+   * issue #2046（CK-P2）—— `@` 引用候选：本线程已随消息发出的附件，数据与右栏
+   * 「材料」面板是**同一份**（外壳 `listThreadAttachments` 读取后同时喂两处），
+   * 不在本组件里发第二次请求。`null` = 外壳还没读到/没有线程。
+   */
+  threadAttachments?: ListThreadAttachmentsOut["items"] | null;
 } = {}): JSX.Element {
   const { session } = useSession();
   const orgId = session?.currentOrgId ?? null;
@@ -718,6 +732,8 @@ export function CopilotKitV2Panel({
           key={selectedAgentId ?? "__server_default__"}
           chatThreadId={initialChatThreadId}
           onThreadResolved={onThreadResolved}
+          onMessageSent={onMessageSent}
+          threadAttachments={threadAttachments}
           onMentionQueryChange={setMentionQuery}
           mentionResolvedNonce={mentionResolvedNonce}
         />
@@ -731,13 +747,16 @@ export function CopilotKitV2Panel({
           orgId={orgId}
           bearer={bearer}
           mentionQuery={mentionQuery}
+          /* issue #2046（CK-P2）——v2 轨道触发符改 `/`（对齐 Claude Code），
+             旧轨道 `/chat/legacy` 缺省仍是 `#`。 */
+          mentionTriggerChar="/"
           onMentionMounted={onMentionMounted}
         />
       ) : (
         <p className="border-t border-border px-4 py-2 text-11 text-muted-foreground" data-testid="copilotkit-v2-skill-mount-placeholder">
           {bearer === null
             ? "登录后才能给对话挂载 skill。"
-            : "发出第一条消息、对话建立后，就可以在这里给本对话挂载 skill（也可以在输入框里敲 # 快速挂载）。"}
+            : "发出第一条消息、对话建立后，就可以在这里给本对话挂载 skill（也可以在输入框里敲 / 快速挂载）。"}
         </p>
       )}
       </ChatPopoverCoordinatorProvider>
@@ -748,11 +767,17 @@ export function CopilotKitV2Panel({
 function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
+  onMessageSent,
+  threadAttachments = null,
   onMentionQueryChange,
   mentionResolvedNonce,
 }: {
   chatThreadId?: string | null;
   onThreadResolved?: (threadId: string) => void;
+  /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
+  onMessageSent?: () => void;
+  /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
+  threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /**
    * issue #2020 —— composer 里敲 `#` 的 mention 检测上报（`null` = 没有活跃 mention）。
    * 消费方是外层的 `ChatSkillMountPanel`：它把 query 当「+」按钮的另一个触发源，
@@ -774,37 +799,62 @@ function CopilotKitV2PanelBody({
   const [error, setError] = React.useState<string | null>(null);
 
   /**
-   * issue #2020 —— `#` mention 检测，逻辑照抄旧 composer（`chat-live-message-panel.tsx`
-   * 的 `recomputeMentions`）里 `#` 那半：取光标前**最近**的 `#`，触发符与光标之间出现
-   * 空白/换行即结束这次 mention。v2 composer 没有旧轨道的 `@` 附件 mention，所以这里
-   * 不需要「`#` 与 `@` 谁更近」的仲裁分支——用户正文里的 `@` 不产生任何 mention。
+   * issue #2020 → #2046（CK-P2）—— composer mention 检测。#2020 首版只有 `#`
+   * （skill）；2026-08-25 人类裁决后：skill 触发符改 `/`（对齐 Claude Code，仅行首
+   * 或空白后生效，路径/URL 里的斜杠不误触），并新增 `@`（引用本线程已随消息发出的
+   * 附件，平移旧 composer `recomputeMentions` 的语义）。检测规则本体抽在
+   * `lib/composer-mention-detection.ts`（纯函数，正反例单测在
+   * `tests/ui/composer-mention-detection.test.ts`），这里只持有状态。
    */
-  const [mention, setMention] = React.useState<{ start: number; query: string } | null>(null);
+  const [mention, setMention] = React.useState<ComposerMention | null>(null);
   const recomputeMention = (value: string, caret: number | null): void => {
-    if (caret === null) { setMention(null); return; }
-    const upToCaret = value.slice(0, caret);
-    const hashIndex = upToCaret.lastIndexOf("#");
-    if (hashIndex === -1) { setMention(null); return; }
-    const between = upToCaret.slice(hashIndex + 1);
-    setMention(/\s/.test(between) ? null : { start: hashIndex, query: between });
+    setMention(detectComposerMention(value, caret));
   };
+  const skillMention = mention?.kind === "skill" ? mention : null;
+  const attachmentMention = mention?.kind === "attachment" ? mention : null;
   React.useEffect(() => {
-    onMentionQueryChange?.(mention?.query ?? null);
+    onMentionQueryChange?.(skillMention?.query ?? null);
     // `onMentionQueryChange` 是外层 setState（稳定引用），不进依赖——同旧 composer。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mention]);
-  /** 挂载真的发生了之后，把 `#query` 从正文里删掉——留着字面量会让用户以为还要
-   *  手动发送一条以 `#` 开头的消息（同旧 composer 的 `mentionResolvedNonce` 语义）。 */
+  }, [skillMention?.query]);
+  /** 挂载真的发生了之后，把 `/query` 从正文里删掉——留着字面量会让用户以为还要
+   *  手动发送一条以 `/` 开头的消息（同旧 composer 的 `mentionResolvedNonce` 语义）。 */
   const previousMentionResolvedNonce = React.useRef(mentionResolvedNonce);
   React.useEffect(() => {
     if (mentionResolvedNonce === undefined) return;
     if (previousMentionResolvedNonce.current === mentionResolvedNonce) return;
     previousMentionResolvedNonce.current = mentionResolvedNonce;
-    if (mention === null) return;
-    setInputDraft((current) => current.slice(0, mention.start) + current.slice(mention.start + 1 + mention.query.length));
+    if (skillMention === null) return;
+    setInputDraft((current) => current.slice(0, skillMention.start) + current.slice(skillMention.start + 1 + skillMention.query.length));
     setMention(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentionResolvedNonce]);
+
+  /**
+   * issue #2046（CK-P2）—— `@` 候选与插入，语义平移旧 composer：候选是本线程
+   * **已随消息发出**的附件（外壳下传的「材料」同一份数据），选中把 `@文件名 `
+   * 当纯文本插进正文——靠 F155 file-retrieval 的 `search_tsv`（filename 已编进
+   * 检索索引）自然召回，不碰 `attachmentIds`（那条路径的 `ATTACHMENT_NOT_PENDING`
+   * 校验本就不允许一个附件被两条消息重复引用）。
+   */
+  const attachmentOptions = React.useMemo(() => {
+    const byFilename = new Map<string, { id: string; filename: string }>();
+    for (const item of threadAttachments ?? []) {
+      if (!byFilename.has(item.filename)) byFilename.set(item.filename, { id: item.id, filename: item.filename });
+    }
+    return Array.from(byFilename.values());
+  }, [threadAttachments]);
+  const visibleAttachmentOptions = attachmentMention
+    ? attachmentOptions.filter((a) => a.filename.toLowerCase().includes(attachmentMention.query.toLowerCase()))
+    : [];
+  const insertAttachmentMention = (filename: string): void => {
+    if (attachmentMention === null) return;
+    setInputDraft((current) =>
+      current.slice(0, attachmentMention.start)
+      + `@${filename} `
+      + current.slice(attachmentMention.start + 1 + attachmentMention.query.length));
+    setMention(null);
+  };
 
   /**
    * DA-19g -- 真实缺陷修复（chat-ux-acceptance-criteria.md 第 7 项"错误处理透明度"，
@@ -1032,17 +1082,29 @@ function CopilotKitV2PanelBody({
    * 📎 按钮改为禁用态并说明原因。建失败时 `attachmentThreadId` 保持 `null`，📎 按钮
    * 保持禁用而不是让用户点进一个必然 404/403 的上传请求。
    */
-  const [attachmentThreadId, setAttachmentThreadId] = React.useState<string | null>(null);
+  /**
+   * issue #2046（CK-P1 连带修复）—— `initialChatThreadId` 非空（`[threadId]` 持久化
+   * 线程页面）时**直接用它**承载上传，不再另建一条线程。#2032 落地时还没有 #2028
+   * 的持久化线程页面；两者合成后，原来的「挂载即另建附件专用线程」在线程页上是
+   * 一个真实 bug：附件上传进了新建的那条线程，`send()` 的 `chatThreadId` 却是
+   * URL 线程——`acceptHumanMessage` 校验 attachmentIds 必须属本线程
+   * （`message-roundtrip.ts`，不属 → 422），带附件的发送必然失败；右栏「材料」
+   * （读 URL 线程的 `chat_message_attachments`）也永远看不到它们。
+   * 只有全新对话（`initialChatThreadId === null`）才保留原来的挂载即建逻辑。
+   */
+  const [createdAttachmentThreadId, setCreatedAttachmentThreadId] = React.useState<string | null>(null);
   const attachmentThreadRequestedRef = React.useRef(false);
   React.useEffect(() => {
+    if (initialChatThreadId !== null) return;
     if (sessionToken === null || attachmentThreadRequestedRef.current) return;
     attachmentThreadRequestedRef.current = true;
     void createPersonalThread(null)
-      .then((created) => setAttachmentThreadId(created.threadId))
+      .then((created) => setCreatedAttachmentThreadId(created.threadId))
       .catch(() => {
         attachmentThreadRequestedRef.current = false; // 允许下次 sessionToken 变化时重试
       });
-  }, [sessionToken]);
+  }, [sessionToken, initialChatThreadId]);
+  const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
   const attach = useChatAttachments({ threadId: attachmentThreadId ?? "", bearer: sessionToken ?? undefined });
   const micDevices = useAudioInputDevices();
   const speech = useAsrDraft({
@@ -1105,6 +1167,9 @@ function CopilotKitV2PanelBody({
           Object.keys(forwardedProps).length > 0 ? { agent, forwardedProps } : { agent },
         );
         if (attachmentIds.length > 0) attach.clear();
+        // issue #2046（CK-P1）—— run settle 后通知外壳刷新右栏「材料」/「产物」
+        // （消息与附件此时都已真实落库；与旧轨道 `onMessageSent` 同语义）。
+        onMessageSent?.();
       } catch (e) {
         // DA-19g -- 与上面 `copilotkit.subscribe({ onError })` 走同一份文案映射
         // （`copilotkit-v2-error-copy.ts`），不在这条分支单独拼一句可能带原始异常
@@ -1114,7 +1179,7 @@ function CopilotKitV2PanelBody({
         setError(describeCopilotkitV2RunError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED"));
       }
     },
-    [agent, copilotkit, inputDraft, attach, attachmentThreadId],
+    [agent, copilotkit, inputDraft, attach, attachmentThreadId, onMessageSent],
   );
 
   return (
@@ -1160,6 +1225,41 @@ function CopilotKitV2PanelBody({
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         <ChatAttachmentBanner banner={attach.banner} />
         <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />
+        {/* issue #2046（CK-P2）—— `@` 引用本线程已上传附件的候选下拉。纯前端插入，
+            testid 与旧轨道同名（`chat-attachment-mention-*`），语义相同不另造锚点；
+            没有匹配项时如实显示空态，不隐藏整个下拉——用户需要分得清「@ 打对了但
+            没匹配到」与「@ 还没打完」。 */}
+        {attachmentMention !== null ? (
+          <div
+            className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-card p-2"
+            data-testid="chat-attachment-mention-picker"
+          >
+            <span className="text-9 text-muted-foreground" data-testid="chat-attachment-mention-query">
+              @ {attachmentMention.query}
+            </span>
+            {attachmentOptions.length === 0 ? (
+              <span className="text-11 text-muted-foreground" data-testid="chat-attachment-mention-pool-empty">
+                这条对话还没有可引用的附件。
+              </span>
+            ) : visibleAttachmentOptions.length === 0 ? (
+              <span className="text-11 text-muted-foreground" data-testid="chat-attachment-mention-no-match">
+                没有文件名含「{attachmentMention.query}」的附件。
+              </span>
+            ) : (
+              visibleAttachmentOptions.map((att) => (
+                <button
+                  key={att.id}
+                  type="button"
+                  data-testid={`chat-attachment-mention-option-${att.id}`}
+                  onClick={() => insertAttachmentMention(att.filename)}
+                  className="rounded-full border border-border px-2 py-0.5 text-11 text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {att.filename}
+                </button>
+              ))
+            )}
+          </div>
+        ) : null}
         <div className="flex gap-2">
           <ChatAttachmentButton ctl={attach} disabled={agent.isRunning || attachmentThreadId === null} />
           <input
@@ -1174,6 +1274,7 @@ function CopilotKitV2PanelBody({
               recomputeMention(e.target.value, e.target.selectionStart);
             }}
             onKeyUp={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
+            onClick={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
             onKeyDown={(e) => {
               if (e.key === "Enter") void send();
             }}
