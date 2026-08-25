@@ -90,9 +90,13 @@ async function fillCreateForm(page: Page, name: string): Promise<string> {
   const created = await response.json() as { key: string };
 
   await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
-  await expect(page.getByTestId("tpladmin-editor-name")).toHaveValue(name);
-  await page.getByTestId("tpladmin-editor-add-section").click();
-  await page.getByTestId("tpladmin-editor-section-0").fill("优势");
+  // R3 起编辑器顶栏是面包屑标题（显示名的编辑入口搬到了模板库的「改名 / 标签」弹窗，
+  // 见 `Design.pdf` §3.1「保存只改元数据，不动字段与画布」）。
+  await expect(page.getByTestId("tpladmin-editor-title")).toContainText(name);
+  // 加分区 = 左栏底部常驻的「＋ 新增字段」（§4.1 末条）。
+  await page.getByTestId("tpladmin-editor-new-key").fill("strengths");
+  await page.getByTestId("tpladmin-editor-new-name").fill("优势");
+  await page.getByTestId("tpladmin-editor-new-add").click();
   await page.getByTestId("tpladmin-editor-save").click();
   // 保存按钮的文案在 `updateTemplateDraft` 落库后从「保存改动」变回「已保存」——
   // 用它做「这次保存真的完成了」的信号，同 #952 那条「等 notice 而不是固定 sleep」的纪律。
@@ -177,6 +181,10 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
   // 刷新没有再发一次创建请求——那一行来自 GET，不是重放。
   expect(creates).toEqual([201]);
   await page.getByTestId(`tpladmin-edit-${KEY}-1`).click();
+  // 字段卡片在（key 对上）+ 卡片里那个中文名输入框的**值**是「优势」。
+  // ⚠ 用 `toHaveValue` 而不是 `toContainText`：中文名在新编辑器里是可直接改的
+  //   `<input>`，输入框的值不进 textContent，`toContainText` 永远看不到它。
+  await expect(page.getByTestId("tpladmin-editor-field-strengths")).toBeVisible();
   await expect(page.getByTestId("tpladmin-editor-section-0")).toHaveValue("优势");
   await page.getByTestId("tpladmin-editor-close").click();
 
@@ -274,7 +282,7 @@ test("counterproof: with the create request stubbed out in the browser, the row 
 
   // 界面一度显示成功：建完自动打开的编辑面板证明了这一点（草稿的 displayName 就是它）。
   await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
-  await expect(page.getByTestId("tpladmin-editor-name")).toHaveValue(NAME);
+  await expect(page.getByTestId("tpladmin-editor-title")).toContainText(NAME);
   await page.getByTestId("tpladmin-editor-close").click();
 
   // ⚠ 关键：这一行从来没进过库。刷新之后它不在。
