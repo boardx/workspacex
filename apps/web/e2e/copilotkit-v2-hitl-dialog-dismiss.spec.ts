@@ -33,6 +33,12 @@ test.setTimeout(150_000);
 
 const OVERLAY_SELECTOR = '[data-state="open"][aria-hidden="true"].fixed.inset-0.z-50';
 
+// issue #2033 —— route/unroute 必须用同一个函数引用（字符串 pattern 卸不掉函数
+// matcher）。本 spec 的处理器只 continue()，留下无害，但保持对称避免被复制成
+// runtime-adapter/tool-rendering 那种 `route.fetch: Test ended` 泄漏。
+const runRouteMatcher = (u: URL): boolean =>
+  u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info";
+
 // 与 `copilotkit-v2-hitl.spec.ts`/`copilotkit-v2-runtime-adapter.spec.ts`/
 // `copilotkit-v2-agent-context.spec.ts` 同一个已实测过的编译预热坑：Next dev 首次
 // 编译窗口撞上 `/info` 探测会让整个 agent 被标记 `runtime_info_fetch_failed`，永久失败。
@@ -86,18 +92,15 @@ test("DA-19g 回归：HITL 对话框 Escape 退出后遮罩真的从 DOM 移除�
   // 新的 POST 打到 CopilotRuntime——不是只看按钮的 `enabled` 属性（那个在 bug 存在
   // 时也一直是 `true`）。
   let sawNewRuntimeRequest = false;
-  await page.route(
-    (u) => u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info",
-    async (route) => {
-      if (route.request().method() === "POST") sawNewRuntimeRequest = true;
-      await route.continue();
-    },
-  );
+  await page.route(runRouteMatcher, async (route) => {
+    if (route.request().method() === "POST") sawNewRuntimeRequest = true;
+    await route.continue();
+  });
 
   await page.getByTestId("copilotkit-v2-input").fill("你好，这是一条简单的问候消息");
   await page.getByTestId("copilotkit-v2-send").click({ timeout: 10_000 });
 
   await expect.poll(() => sawNewRuntimeRequest, { timeout: 20_000 }).toBe(true);
 
-  await page.unroute("**/api/copilotkit/**");
+  await page.unroute(runRouteMatcher);
 });
