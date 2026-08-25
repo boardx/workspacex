@@ -44,11 +44,27 @@ async function login(page: Page): Promise<void> {
   await page.waitForURL(/\/projects$/);
 }
 
+/**
+ * ⚠ 每次探测都要有**自己的**超时，否则这个 poll 形同虚设。
+ *
+ * 首轮实测（本文件第二条用例）栽在这里：`page.request.get()` 不带 timeout 时用的是
+ * Playwright 的默认值，Next dev server 正忙着编译路由时这一发请求可以挂很久——
+ * `expect.poll` 的 `timeout: 60_000` 管的是"重试多久"，管不了"**一次**调用卡多久"，
+ * 于是 poll 连第二次都没轮到就把整条用例 300s 的预算耗光了（报错行号指在 `.toBe(200)`，
+ * 看起来像断言失败，实际是单发请求没返回）。
+ * 每发限时 15s + 吞掉失败继续轮询，才是这个 poll 本来想表达的语义。
+ */
 async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
   await expect
     .poll(
-      async () => (await page.request.get("/api/copilotkit/info")).status(),
-      { timeout: 60_000, intervals: [500, 1_000, 2_000] },
+      async () => {
+        try {
+          return (await page.request.get("/api/copilotkit/info", { timeout: 15_000 })).status();
+        } catch {
+          return 0; // 这一发超时/失败 ⇒ 继续下一轮，不让它吃掉整条用例的预算
+        }
+      },
+      { timeout: 120_000, intervals: [500, 1_000, 2_000, 5_000] },
     )
     .toBe(200);
 }
@@ -77,6 +93,10 @@ test("CK-P6：真实线程上生成用户画像 → mindmap 消息落库，刷�
   await expect(trigger).toBeVisible({ timeout: 30_000 });
   await expect(trigger).toBeEnabled({ timeout: 30_000 });
 
+  // 反证基线：**生成之前**这条线程里一个图表块都没有（loopback 回复是纯文本）。
+  // 没有这一条，下面"生成之后有图表块"就可能是别的东西本来就在，断言等于没断。
+  await expect(page.getByTestId("chat-diagram-fabric")).toHaveCount(0);
+
   await trigger.click();
 
   // 失败横幅若出现，直接把 reasonCode 暴露在失败信息里（不让它静默）。
@@ -92,12 +112,18 @@ test("CK-P6：真实线程上生成用户画像 → mindmap 消息落库，刷�
     .toBe("settled");
   await expect(failure).toBeHidden();
 
-  // 画像正文是 mermaid mindmap 围栏 —— 它进消息流后走 MarkdownMessage 的图表通道。
+  // 画像正文是 ```mermaid mindmap 围栏 —— 它进消息流后走
+  // `MarkdownMessage → ChatDiagramFabric` 通道，被**画进 canvas**。
+  //
+  // ⚠ 因此不能断言消息区的**文字**里含 "mindmap"／"用户画像"：围栏源码渲染成图之后
+  //   根本不在 textContent 里（本轮首跑就是这样红的，实测收到的可见文字是
+  //   "fabric 渲染 · 只读预览最大化"）。要断言的是**图表块本身存在**，这也正是
+  //   "围栏被正确识别并路由到 fabric 分支"这件事的直接证据。
+  await expect(page.getByTestId("chat-diagram-fabric")).toHaveCount(1, { timeout: 60_000 });
+
   // 断言"刷新之后还在"：证明它真的落进了 chat_messages，不是只在内存里显示了一下。
   await page.goto(threadUrl);
-  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(/用户画像|mindmap/i, {
-    timeout: 60_000,
-  });
+  await expect(page.getByTestId("chat-diagram-fabric")).toHaveCount(1, { timeout: 60_000 });
 });
 
 test("CK-P8：getThread 真实响应的 archived=true ⇒ composer 全部写入口禁用 + 只读说明", async ({ page }) => {
