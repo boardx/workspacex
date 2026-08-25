@@ -31,6 +31,8 @@ import {
   useChatAttachments, ChatAttachmentButton, ChatAttachmentList, ChatAttachmentBanner,
   ChatFullSurfaceDropOverlay,
 } from "@/components/chat/chat-composer-attachments";
+import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
+import { ChatPopoverCoordinatorProvider } from "@/components/chat/chat-popover-coordinator";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -628,6 +630,34 @@ export function CopilotKitV2Panel({
   const agentOptions = useCopilotKitV2AgentOptions(orgId, bearer);
   const { selectedAgentId, setSelectedAgentId } = useCopilotKitV2AgentSelection();
 
+  /**
+   * issue #2020（差距清单第 3 项，阻断级）—— Skill 挂载入口。整个组件复用旧轨道的
+   * `ChatSkillMountPanel`（`listThreadMounts`/`mountSkills`/`unmountSkill` 三条真实
+   * 端点 + 乐观锁 version + `#` mention 联动），不重写一份挂载逻辑。
+   *
+   * ## 为什么挂在这一层（外层），不在 `CopilotKitV2PanelBody` 里
+   *
+   * `ChatSkillMountPanel` 需要的是**持久化的** `chat_threads.id`（挂载表
+   * `thread_skill_mounts.thread_id` 的外键），即本组件的 `chatThreadId` prop——
+   * 它由外壳从 URL 传入且在首轮消息 resolve 后经 `onThreadResolved` → shell →
+   * 本 prop 反应式更新。Body 里的 `chatThreadIdRef` 是刻意**不触发渲染**的 ref
+   * （见其头注），拿它当渲染依据要么读不到更新、要么得把它升级成 state 打破
+   * 那条已验证的纪律。挂载生效机制完全在服务端（`acceptHumanMessage` 读
+   * `threadMounts.activeMountedSkillVersionIds` 合进 run 快照，`agui-bridge.ts`
+   * 走同一入口）——前端不需要把挂载结果传进任何一次 `runAgent` 调用，所以这
+   * 两层之间除 mention 联动外没有数据流。
+   *
+   * ## 新对话（还没有线程）时如实显示占位，不伪造
+   *
+   * 挂载必须落在一条真实存在的 `chat_threads` 行上。`chatThreadId === null`
+   * （裸 `/chat/copilotkit-v2` 且还没发过消息）时没有任何真实的挂载对象——
+   * 显示一句诚实的说明，不渲染一个「看起来能挂、提交必然 404」的假面板。
+   * 首轮消息发出、线程 resolve 后本 prop 变为真实 id，面板自动出现。
+   */
+  const [mentionQuery, setMentionQuery] = React.useState<string | null>(null);
+  const [mentionResolvedNonce, setMentionResolvedNonce] = React.useState(0);
+  const onMentionMounted = React.useCallback(() => setMentionResolvedNonce((v) => v + 1), []);
+
   // ⚠ 刻意**不**自动选中目录第一个候选（第一版这么做过，run5 对照实验实测抓到两个
   // 真问题才改掉）：① 目录序第一恰好可能是"只进目录、从未发布"的 agent（#787 已知
   // 裂痕），自动选中它 = 用户第一条消息就 AGENT_NOT_FOUND；② 未选择时本该走
@@ -639,6 +669,10 @@ export function CopilotKitV2Panel({
 
   return (
     <div className="flex h-full w-full flex-col gap-2 p-4">
+      {/* issue #2020 —— Provider 包住 AgentPicker（Body 内）与 ChatSkillMountPanel 的
+          共同父层：两者的浮层共享「同一时刻只开一个」互斥（`useChatPopoverSlot`），
+          与旧轨道 `chat-read-screen.tsx` 同一挂法（issue #1803 gap #3）。 */}
+      <ChatPopoverCoordinatorProvider>
       <div className="flex items-center gap-2" data-testid="copilotkit-v2-agent-toolbar">
         <AgentPicker
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
@@ -682,8 +716,29 @@ export function CopilotKitV2Panel({
           key={selectedAgentId ?? "__server_default__"}
           chatThreadId={initialChatThreadId}
           onThreadResolved={onThreadResolved}
+          onMentionQueryChange={setMentionQuery}
+          mentionResolvedNonce={mentionResolvedNonce}
         />
       </div>
+      {/* issue #2020 —— 挂载栏放在 composer（Body 底部）之后，与旧轨道人类裁决的
+          位置语义一致（「挂了什么」与「要发什么」同一处视野）。个人线程 projectId
+          缺省（#1693 起服务端从线程反推授权）。 */}
+      {initialChatThreadId !== null && bearer !== null && orgId !== null ? (
+        <ChatSkillMountPanel
+          threadId={initialChatThreadId}
+          orgId={orgId}
+          bearer={bearer}
+          mentionQuery={mentionQuery}
+          onMentionMounted={onMentionMounted}
+        />
+      ) : (
+        <p className="border-t border-border px-4 py-2 text-11 text-muted-foreground" data-testid="copilotkit-v2-skill-mount-placeholder">
+          {bearer === null
+            ? "登录后才能给对话挂载 skill。"
+            : "发出第一条消息、对话建立后，就可以在这里给本对话挂载 skill（也可以在输入框里敲 # 快速挂载）。"}
+        </p>
+      )}
+      </ChatPopoverCoordinatorProvider>
     </div>
   );
 }
@@ -691,9 +746,19 @@ export function CopilotKitV2Panel({
 function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
+  onMentionQueryChange,
+  mentionResolvedNonce,
 }: {
   chatThreadId?: string | null;
   onThreadResolved?: (threadId: string) => void;
+  /**
+   * issue #2020 —— composer 里敲 `#` 的 mention 检测上报（`null` = 没有活跃 mention）。
+   * 消费方是外层的 `ChatSkillMountPanel`：它把 query 当「+」按钮的另一个触发源，
+   * 挂载逻辑仍只有它那一份（不在这里写第二份 `mount()`）。
+   */
+  onMentionQueryChange?: (query: string | null) => void;
+  /** 挂载成功后外层 +1——本组件据此把 `#query` 字面量从输入框正文里删掉。 */
+  mentionResolvedNonce?: number;
 } = {}): JSX.Element {
   const { copilotkit } = useCopilotKit();
   const [threadId] = React.useState(() => `copilotkit-v2-${crypto.randomUUID()}`);
@@ -705,6 +770,39 @@ function CopilotKitV2PanelBody({
   });
   const [inputDraft, setInputDraft] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+
+  /**
+   * issue #2020 —— `#` mention 检测，逻辑照抄旧 composer（`chat-live-message-panel.tsx`
+   * 的 `recomputeMentions`）里 `#` 那半：取光标前**最近**的 `#`，触发符与光标之间出现
+   * 空白/换行即结束这次 mention。v2 composer 没有旧轨道的 `@` 附件 mention，所以这里
+   * 不需要「`#` 与 `@` 谁更近」的仲裁分支——用户正文里的 `@` 不产生任何 mention。
+   */
+  const [mention, setMention] = React.useState<{ start: number; query: string } | null>(null);
+  const recomputeMention = (value: string, caret: number | null): void => {
+    if (caret === null) { setMention(null); return; }
+    const upToCaret = value.slice(0, caret);
+    const hashIndex = upToCaret.lastIndexOf("#");
+    if (hashIndex === -1) { setMention(null); return; }
+    const between = upToCaret.slice(hashIndex + 1);
+    setMention(/\s/.test(between) ? null : { start: hashIndex, query: between });
+  };
+  React.useEffect(() => {
+    onMentionQueryChange?.(mention?.query ?? null);
+    // `onMentionQueryChange` 是外层 setState（稳定引用），不进依赖——同旧 composer。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mention]);
+  /** 挂载真的发生了之后，把 `#query` 从正文里删掉——留着字面量会让用户以为还要
+   *  手动发送一条以 `#` 开头的消息（同旧 composer 的 `mentionResolvedNonce` 语义）。 */
+  const previousMentionResolvedNonce = React.useRef(mentionResolvedNonce);
+  React.useEffect(() => {
+    if (mentionResolvedNonce === undefined) return;
+    if (previousMentionResolvedNonce.current === mentionResolvedNonce) return;
+    previousMentionResolvedNonce.current = mentionResolvedNonce;
+    if (mention === null) return;
+    setInputDraft((current) => current.slice(0, mention.start) + current.slice(mention.start + 1 + mention.query.length));
+    setMention(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mentionResolvedNonce]);
 
   /**
    * DA-19g -- 真实缺陷修复（chat-ux-acceptance-criteria.md 第 7 项"错误处理透明度"，
@@ -981,6 +1079,9 @@ function CopilotKitV2PanelBody({
       if (attach.hasUploading) return;
       setError(null);
       setInputDraft("");
+      // issue #2020 —— 正文已清空，活跃 mention 一并终结（不清的话外层的候选面板
+      // 会带着一个已不存在于正文里的 query 继续开着）。
+      setMention(null);
       agent.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
       // chat-parity-attachments (issue #2022) -- 本轮已上传成功的附件 id；发送后清空
       // composer 的 pending 队列（同旧轨道语义：已发出的附件从 composer 移到"材料"）。
@@ -1064,7 +1165,13 @@ function CopilotKitV2PanelBody({
             className="flex-1 rounded border border-input px-2 py-1 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             placeholder="随便输入点什么"
             value={inputDraft}
-            onChange={(e) => setInputDraft(e.target.value)}
+            onChange={(e) => {
+              setInputDraft(e.target.value);
+              // issue #2020 —— 与旧 composer 同一对挂点（onChange + onKeyUp）：
+              // 光标移动（方向键/点击）不触发 onChange，只有 onKeyUp 能覆盖。
+              recomputeMention(e.target.value, e.target.selectionStart);
+            }}
+            onKeyUp={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
             onKeyDown={(e) => {
               if (e.key === "Enter") void send();
             }}
