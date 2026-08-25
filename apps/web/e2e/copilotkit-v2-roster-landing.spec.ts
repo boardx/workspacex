@@ -15,6 +15,13 @@ import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
  *   - `CUSTOM {name:"chat_message_id"}.value.chatMessageId` —— 本次新增的映射事件，
  *     值取自 `agui-bridge.ts` 的 `outcome.messageId`（`listMessagePage` 读回的主键）。
  *
+ * ⚠ 这条 SSE **必须直连 API 取**，不能用 `page.waitForResponse` 从浏览器侧抓：v2 的
+ *   浏览器打的是 Next 的 `/api/copilotkit/*`（CopilotRuntime），真正的
+ *   `POST /copilotkit/agui` 是 runtime 在**服务端**发起的（`route.ts` 里构造
+ *   `HttpAgent`，见 `copilotkit-v2-panel.tsx` 文件头），浏览器根本看不见它。
+ *   第一版就是这么写错的——`waitForResponse` 会一直等到超时，而那种红看起来像
+ *   "映射事件没发出来"，其实是取证手法本身站错了位置。
+ *
  * 断言三件事：两者**确实不同**（这就是「不能照 wire id 画按钮」的活体证据，不是
  * 注释里的说法）；`chatMessageId` **确实**出现在 `GET /chat/threads/:id/messages`
  * 的返回里（证明它是真主键）；页面上那枚落地按钮的 testid 后缀用的是**后者**。
@@ -127,16 +134,20 @@ test("issue #2050 + #2052：流式消息 id ≠ 落库 id（映射事件补齐�
   expect(panel.rosterCount).toBe(1);
   expect(panel.agents.map((a) => a.id)).toContain(CHAT_READ_E2E.catalogOnlyAgentId);
 
-  /* ═══════════ ③ #2050：发一轮对话，从 wire 上取两个 id 比对 ═══════════ */
-  const aguiResponsePromise = page.waitForResponse((response) => (
-    response.request().method() === "POST"
-    && new URL(response.url()).pathname.endsWith("/copilotkit/agui")
-  ), { timeout: 120_000 });
-
-  await page.getByTestId("copilotkit-v2-input").fill("请回答一句话，用于产物落地取证。");
-  await page.getByTestId("copilotkit-v2-send").click();
-
-  const aguiResponse = await aguiResponsePromise;
+  /* ═══════════ ③ #2050 wire 取证：直连 AG-UI 端点，把两个 id 都取出来 ═══════════
+     用真实的 `forwardedProps.chatThreadId` 续接上面这条线程，走的就是浏览器那条
+     CopilotRuntime 背后完全相同的控制器代码路径。 */
+  const aguiResponse = await page.request.post(`${API}/copilotkit/agui`, {
+    headers,
+    data: {
+      threadId: `e2e-client-${Date.now().toString(36)}`,
+      runId: `e2e-run-${Date.now().toString(36)}`,
+      messages: [{ role: "user", content: "请回答一句话，用于产物落地取证。" }],
+      forwardedProps: { chatThreadId: threadId },
+    },
+    timeout: 120_000,
+  });
+  expect(aguiResponse.ok(), `AG-UI 端点应成功：${aguiResponse.status()}`).toBe(true);
   const events = parseSseEvents(await aguiResponse.text());
 
   const textStart = events.find((e) => e.type === "TEXT_MESSAGE_START");
@@ -166,20 +177,41 @@ test("issue #2050 + #2052：流式消息 id ≠ 落库 id（映射事件补齐�
   expect(messages.map((m) => m.id), "wire id 按定义不该在库里")
     .not.toContain(wireMessageId);
 
-  /* ═══════════ ④ 落地按钮必须用真实 id，且点下去产物真的出现在右栏 ═══════════ */
-  const landOpen = page.getByTestId(`chat-land-artifact-open-${chatMessageId}`);
-  await expect(landOpen, "落地入口的 testid 后缀应是真实 chat_messages.id，不是 wire id")
+  /* ═══════════ ④ 浏览器侧：真正走一轮 UI 对话，映射事件必须驱动出落地按钮 ═══════════
+     ③ 证的是 wire 上两个 id 不同；这一步证的是**前端确实用了映射给的那个真实 id**。
+     刻意在 UI 里新发一轮（而不是刷新页面看 ③ 那条历史消息）：刷新走的是 hydration
+     路径，那条路本来就拿真实 id，证明不了映射事件有没有生效。这一轮是全新流式消息，
+     它的落地按钮**只可能**来自 `CUSTOM chat_message_id`。 */
+  const beforeIds = new Set(messages.map((m) => m.id));
+
+  await page.getByTestId("copilotkit-v2-input").fill("再回答一句，用于浏览器侧落地取证。");
+  await page.getByTestId("copilotkit-v2-send").click();
+
+  // run settle 后从服务端取"这一轮新产生的 assistant 消息"的真实 id。
+  let streamedMessageId = "";
+  await expect.poll(async () => {
+    const r = await page.request.get(`${API}/chat/threads/${threadId}/messages?limit=50`, { headers });
+    if (!r.ok()) return "";
+    const body = await r.json() as { messages: Array<{ id: string; authorKind: string }> };
+    const fresh = body.messages.filter((m) => !beforeIds.has(m.id) && m.authorKind !== "human");
+    streamedMessageId = fresh[fresh.length - 1]?.id ?? "";
+    return streamedMessageId;
+  }, { timeout: 120_000, intervals: [1_000, 2_000, 3_000] }).not.toBe("");
+
+  const landOpen = page.getByTestId(`chat-land-artifact-open-${streamedMessageId}`);
+  await expect(landOpen, "流式消息的落地入口应挂在真实 chat_messages.id 上（映射事件生效）")
     .toBeVisible({ timeout: 60_000 });
   // 反证：用 wire id 的那个按钮不存在（"点了才 404 的假按钮"没被画出来）。
   await expect(page.getByTestId(`chat-land-artifact-open-${wireMessageId}`)).toHaveCount(0);
+  const chatMessageIdForLanding = streamedMessageId;
 
   const artifactTitle = `v2-落地取证-${Date.now().toString(36)}`;
   await landOpen.click();
-  await page.getByTestId(`chat-land-artifact-title-${chatMessageId}`).fill(artifactTitle);
-  await page.getByTestId(`chat-land-artifact-submit-${chatMessageId}`).click();
+  await page.getByTestId(`chat-land-artifact-title-${chatMessageIdForLanding}`).fill(artifactTitle);
+  await page.getByTestId(`chat-land-artifact-submit-${chatMessageIdForLanding}`).click();
 
   // 成功态卡片 + 右栏「产物」真的多出这一条（`onArtifactLanded` → 重读 listThreadArtifacts）。
-  await expect(page.getByTestId(`chat-land-artifact-done-${chatMessageId}`))
+  await expect(page.getByTestId(`chat-land-artifact-done-${chatMessageIdForLanding}`))
     .toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("chat-artifacts-panel"))
     .toContainText(artifactTitle, { timeout: 60_000 });
