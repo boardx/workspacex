@@ -83,6 +83,29 @@ export default {
     );
     return config;
   },
+  /**
+   * 2026-08-25（#2026 默认入口翻转）：裸 `/chat` → `/chat/copilotkit-v2` 放在 HTTP 层
+   * 而不是页面组件里——App Router 的组件级 `redirect()` 在 dev 动态渲染下会退化成
+   * meta-refresh 客户端跳转，Playwright `page.goto("/chat")` 因原导航被新导航中止而
+   * 报 `net::ERR_ABORTED`（本轮两次实测，预热 API 路由无效，是渲染层跳转机制本身）。
+   * `missing` 匹配器保证带 `projectId`/`thread` 的深链不受影响（那两支仍由
+   * `app/chat/page.tsx` 渲染旧屏，理由见其头注）。`page.tsx` 里保留同款
+   * `redirect()` 作为兜底——两层声明的是同一个事实（裸 /chat ⇒ v2），HTTP 层是
+   * 主路径，组件层只在配置被绕过时接住，不算第二份权威。
+   */
+  async redirects() {
+    return [
+      {
+        source: "/chat",
+        missing: [
+          { type: "query", key: "projectId" },
+          { type: "query", key: "thread" },
+        ],
+        destination: "/chat/copilotkit-v2",
+        permanent: false,
+      },
+    ];
+  },
   async rewrites() {
     const fullstackApiOrigin = process.env.FULLSTACK_E2E_API_ORIGIN;
     const apiOrigin = fullstackApiOrigin ?? process.env.CHAT_READ_E2E_API_ORIGIN;
@@ -240,7 +263,22 @@ export default {
       // 两条都需要，否则 Next 会把请求接成 404 HTML，客户端表现为 Unexpected token '<'。
       { source: `${prefix}/interviews`, destination: `${apiOrigin}/interviews` },
       { source: `${prefix}/interviews/:path*`, destination: `${apiOrigin}/interviews/:path*` },
-      { source: `${prefix}/chat/:path*`, destination: `${apiOrigin}/chat/:path*` },
+      // ⚠ 2026-08-25（issue #2021 实测抓到）：这里原来是一条 `/chat/:path*` 兜底——
+      // Next 的 afterFiles rewrites 在**动态路由之前**匹配（官方文档明写的顺序：
+      // afterFiles = after pages/public files, BEFORE dynamic routes），于是新增的
+      // `/chat/copilotkit-v2/[threadId]` 页面永远轮不到：整页刷新拿到的是 API 的
+      // `{"error":"not_found"}` JSON 文档。静态路由（`/chat/copilotkit-v2` 裸段）
+      // 不受影响，这就是"发消息正常、刷新即坏"这个形态的全部成因——也是该 spec
+      // 此前从未绿过的真根因（不是机器负载）。收窄为 API 侧真实存在的 9 个
+      // `/chat/*` 命名空间（grep controllers 实测清单），每个裸路径 + `:path*`
+      // 双条目（`/capabilities`/#458 同一个坑的同一个解法）。
+      ...[
+        "approval-requests", "artifacts", "citations", "messages", "presets",
+        "projects", "tasks", "threads", "visibility",
+      ].flatMap((ns) => [
+        { source: `${prefix}/chat/${ns}`, destination: `${apiOrigin}/chat/${ns}` },
+        { source: `${prefix}/chat/${ns}/:path*`, destination: `${apiOrigin}/chat/${ns}/:path*` },
+      ]),
       // #467：对话内临时挂载 skill。`SkillMountController` 是 `@Controller()`（空前缀），
       // 路径就是裸的 `/threads/:threadId/skill-mounts` 与 `/threads/:threadId/skill-deviations`
       // —— **不在 `/chat/` 下面**，与下面 `/agent-runs` 同一个形状。

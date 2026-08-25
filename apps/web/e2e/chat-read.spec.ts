@@ -257,7 +257,7 @@ test("formal Chat with no projectId goes personal, never invents a project conte
     if (/\/chat\/projects\/[^/]+\/threads/.test(request.url())) inventedProjectRequests.push(request.url());
   });
 
-  await page.goto("/chat");
+  await page.goto("/chat/legacy");
   // 不再是"请先选择项目"的拦截空态——个人模式的左栏可见。
   // #728：栏头文案从「我的对话」改成「对话」（与项目对话共用同一个 `ThreadListHeader`，
   // 人类裁决：个人对话复用项目对话的壳，不许存在第二套视觉实现）。断言改锚在
@@ -268,6 +268,42 @@ test("formal Chat with no projectId goes personal, never invents a project conte
   // 防的洞的新形状：全程没有向任何伪造的项目路径发过请求。
   expect(inventedProjectRequests, `不该有请求打到伪造的项目路径：${inventedProjectRequests.join(", ")}`).toHaveLength(0);
   await expect(page.getByText("demo")).toHaveCount(0);
+});
+
+/**
+ * 2026-08-25 人类裁决（「直接更改，chat为新的版本copilot-kit」）：默认入口翻转的
+ * 三条反证——① 裸 `/chat` 真的落在 CopilotKit v2 轨道；② 带参数的深链没有被
+ * 误伤（仍是旧屏，理由见 app/chat/page.tsx 头注：v2 尚无 projectId/thread 概念，
+ * redirect 深链 = 功能破坏）；③ `/chat/legacy` 回退入口真实可用（上面那条个人
+ * 模式测试已从它进，这里不重复断言）。没有这条测试，redirect 被谁改掉/改错都
+ * 不会有任何门变红。
+ */
+test("默认入口翻转：裸 /chat → copilotkit-v2；带参数深链仍是旧屏", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  // 给足首次编译窗口（copilotkit-v2-runtime-adapter.spec.ts 同一先例）：redirect 目标
+  // 的 runtime 路由没预热时，dev 首编译会让 goto("/chat") 以 ERR_ABORTED 收场
+  // （本轮实测，非猜测）。先单独打一次 /api/copilotkit/info 把编译预热掉。
+  await expect
+    .poll(
+      async () => (await page.request.get("/api/copilotkit/info")).status(),
+      { timeout: 60_000, intervals: [500, 1_000, 2_000] },
+    )
+    .toBe(200);
+
+  // ① 裸 /chat redirect 到 v2 轨道，且 v2 的输入框真实渲染（不是白屏 redirect）。
+  await page.goto("/chat");
+  await expect(page).toHaveURL(/\/chat\/copilotkit-v2/);
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
+
+  // ② 项目深链没有被 redirect 误伤——仍是旧屏的线程列表。
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await expect(page).toHaveURL(new RegExp(`projectId=${CHAT_READ_E2E.projectId}`));
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
 });
 
 test("#925 ③ Enter 发送、Shift+Enter 换行（覆盖 V2 的 ⌘↵）", async ({ page }) => {

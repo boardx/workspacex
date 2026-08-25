@@ -145,8 +145,18 @@ export default defineConfig({
    * 正确恢复）同样由本 config 接住：同一条真登录、同一个 deep-agent loopback 替身
    * （`loopback-deep-agent-provider.ts` 的用户原文回显剧本，既有 `copilotkit-v2-
    * runtime-adapter.spec.ts` 已在用）。不需要新的进程或新的环境变量。
+   *
+   * issue #2023（差距清单第 4 项，Agent 选择/切换）—— 新增
+   * `copilotkit-v2-agent-switch.spec.ts` 同样由本 config 接住：同一条 `/chat/
+   * copilotkit-v2` 路由、同一条真登录，复用本 config 早就种好的两个真实已发布 agent
+   * （`CHAT_READ_E2E.agentId` 走 loopback-echo、`CHAT_READ_E2E.deepAgentId` 走
+   * deep-agent，两者都已经在 `capability_listings` 里，是本 spec 唯一需要的两个
+   * 互相区分得开的候选）——`COPILOTKIT_V2_AGENT_ID` 环境变量固定指向
+   * `deepAgentId`（见下面那个 webServer 条目），本 spec 断言的是"切到另一个
+   * agent（`agentId`）后 wire 上的请求真的带着它，回复也真的换了来源"，不需要新的
+   * 进程或新的环境变量。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|chat-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*

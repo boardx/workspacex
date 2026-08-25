@@ -21,9 +21,12 @@ import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
-import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
+import { AgentPicker, MicDevicePicker } from "@/components/chat/chat-composer-pickers";
 import { getStoredSessionToken } from "@/lib/api-client";
-import { listMessages } from "@/lib/live-chat";
+import { useSession } from "@/components/session/session-provider";
+import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
+import { listMessages, type GetAgentPanelOut } from "@/lib/live-chat";
+import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -46,11 +49,13 @@ import {
  * 不再直接持有它。这正是本任务要证明的适配层：GraphQL 协议把消息转发到
  * 已验证过的 AG-UI 端点，不是又起一条新连接。
  *
- * `runtimeAgentId` 固定为 `"default"`——CopilotRuntime 的 `agents` 记录只注册了这一个
- * key（见 `route.ts` 文件头，真实后端 agent id 由 `COPILOTKIT_V2_AGENT_ID` 环境变量
- * 决定，不在浏览器侧选择）。传 `threadId` 时 `useAgent` 强制要求同时传
- * `runtimeAgentId`（本地 `agentId` 与它分离，见该 hook 自己的运行时校验信息：一个
- * proxied per-thread 实例需要知道路由到哪个已注册 runtime agent）。
+ * `runtimeAgentId` 传给 `useAgent` 的值恒为 `"default"`——CopilotRuntime 的 `agents`
+ * 记录只注册了这一个 key，这是 CopilotKit 协议本身的路由粒度（"这个前端 agent 实例
+ * 打哪一条已注册的 remote endpoint"），跟"浏览器侧选的是哪个真实已发布 agent"是两回事
+ * （见下面「DA-19/issue #2023 agent 选择」一节，以及 `route.ts` 文件头的完整说明）。
+ * 传 `threadId` 时 `useAgent` 强制要求同时传 `runtimeAgentId`（本地 `agentId` 与它
+ * 分离，见该 hook 自己的运行时校验信息：一个 proxied per-thread 实例需要知道路由到
+ * 哪个已注册 runtime agent）。
  *
  * `threadId` 每次挂载生成一个新的随机值（`useState` 惰性初始化），不是写死常量——
  * 实测踩到：写死同一个 `threadId` 时，第二次打开这个面板（比如 e2e 重试整页刷新）
@@ -58,6 +63,40 @@ import {
  * 与全新对话的分支不是同一条代码路径，行为不可预测（本轮实测：第二次开始 wire 上的
  * `TEXT_MESSAGE_CONTENT` 变成空）。每次挂载给一个新 id 才是"用户打开这个面板发起
  * 一段新对话"该有的语义，与真实使用场景一致，不是单纯为了让测试重试变得干净。
+ *
+ * ── issue #2023（差距清单第 4 项）Agent 选择/切换 ─────────────────────────────
+ *
+ * 旧手写轨道有 `AgentPicker`（选发送 agent）+ 外壳 `RosterPanel`（把 agent 加进
+ * 当前会话的编制，多 agent 协作）。本任务做的是前者，**不做**后者——理由：
+ *
+ *   1. 本面板此前压根没有"这条会话可以有多个 agent"的概念，`useAgent` 是单实例；
+ *      `RosterPanel`（`updateAgentRoster`/乐观锁 `rosterVersion`）挂在
+ *      `chat_threads`/`chat_thread_agents` 这套持久化线程模型上——而
+ *      `chat-feature-parity-gap-2026-08-25.md` 差距 #1 已经如实记录：本面板的
+ *      `threadId` 是每次挂载的临时随机值，从不落库，没有一条真实的
+ *      `chat_thread_agents` 编制可以增删。要做"编制"必须先有差距 #1 的持久化线程，
+ *      两件事天然地按依赖顺序分成两轮，不是本轮工作量判断上的取巧。
+ *   2. 任务说明本身允许这个收窄（"如果这部分工作量明显超出本任务合理范围…可以只做
+ *      单会话选一个 agent"）。
+ *
+ * 做的这一半——`AgentPicker` 接进来，选中后**发起新对话**（`CopilotKitV2PanelBody`
+ * 用 `key={selectedAgentId}` 强制整个子树随选择重新挂载：新 `threadId`、新
+ * `useAgent` 实例、空消息列表——"切换 agent" 与"这个面板打开时已经会做的事"是
+ * 同一个语义单元，不是发明一套"迁移历史到新 agent"的机制）。
+ *
+ * 候选列表复用 `personal-chat-screen.tsx` 已验证过的 `listCapabilities(orgId,
+ * "agent")` 读端口，不新建列表接口（任务说明明确要求）——同样继承那个组件文件头
+ * 记录过的已知边界：候选来自 `capability_listings`（组织 agent 目录），与实际执行
+ * 读的 `agents`/`agent_versions`（`resolvePublished`）不是同一张表（issue #787，
+ * `chat-read-screen.tsx` 里 `RosterPanel` 的 `chat-roster-add-hint` 文案是同一个
+ * 事实的另一处如实提示）——选中一个只在目录里、从未真正发布过的 agent 会在这里
+ * 得到诚实的 `AGENT_NOT_FOUND` 错误横幅，不是本任务能力范围内要修的东西。
+ *
+ * `selectedAgentId` 经 `CopilotKitV2AgentSelectionProvider`（`layout.tsx` 挂在
+ * `CopilotKitV2Providers` 外层）向上传给 `<CopilotKit headers>`，`route.ts` 的
+ * `AgentsFactory` 据此构造这一轮请求真正打到的 `HttpAgent` URL——完整机制见
+ * `lib/copilotkit-v2-agent-header.ts`/`route.ts` 里 `resolveAgentId` 的注释，本节
+ * 不重复。
  *
  * ── DA-19b 消息渲染迁移（issue #1967 backlog DA-19b）─────────────────────────
  *
@@ -435,12 +474,84 @@ function SendEmailApprovalDialog({
   );
 }
 
+/**
+ * issue #2023 —— agent 候选列表的数据源。逐字复用
+ * `personal-chat-screen.tsx` 的 `useOrgAgentOptions`/`toAgentOption`（同一个
+ * `listCapabilities(orgId, "agent")` 读端口、同一份"只取 `enabled` 条目"的过滤规则）
+ * ——本文件不 import 那个组件内部的私有 hook（它没有导出，且那个文件是另一条并行
+ * 任务同时在改的高冲突文件，见 issue #2023 描述的"文件冲突预期"），在这里独立写一份
+ * 小的等价实现，不是重新设计一套不同的读法。
+ */
+type CopilotKitV2AgentOptionsState =
+  | { readonly status: "loading" }
+  | { readonly status: "error"; readonly message: string; readonly retry: () => void }
+  | { readonly status: "ready"; readonly agents: GetAgentPanelOut["agents"] };
+
+function copilotkitV2ToAgentOption(row: CapabilityListing): GetAgentPanelOut["agents"][number] {
+  const trimmedName = row.name.trim();
+  const abbrSource = trimmedName || row.id;
+  return {
+    id: row.id,
+    abbr: abbrSource.slice(0, 2).toUpperCase(),
+    name: trimmedName || row.id,
+    duty: "组织已配置 Agent",
+    roleLabel: "组织已配置 Agent",
+    presence: "present",
+  };
+}
+
+function useCopilotKitV2AgentOptions(orgId: string | null, bearer: string | null): CopilotKitV2AgentOptionsState {
+  const sourceKey = orgId && bearer ? `${orgId} ${bearer}` : null;
+  const [result, setResult] = React.useState<{ key: string; agents: GetAgentPanelOut["agents"] } | null>(null);
+  const [failure, setFailure] = React.useState<{ key: string; message: string } | null>(null);
+  const generation = React.useRef(0);
+
+  const load = React.useCallback(async () => {
+    if (!orgId || !bearer || !sourceKey) return;
+    const key = sourceKey;
+    const gen = ++generation.current;
+    setFailure(null);
+    try {
+      const rows = await listCapabilities(orgId, "agent");
+      if (gen !== generation.current) return;
+      setResult({ key, agents: rows.filter((row) => row.enabled).map(copilotkitV2ToAgentOption) });
+    } catch (err) {
+      if (gen !== generation.current) return;
+      setResult(null);
+      setFailure({ key, message: err instanceof Error ? err.message : "读取组织 agent 目录失败" });
+    }
+  }, [orgId, bearer, sourceKey]);
+
+  React.useEffect(() => {
+    if (sourceKey) void load();
+    return () => {
+      generation.current += 1;
+    };
+  }, [load, sourceKey]);
+
+  if (!sourceKey) return { status: "loading" };
+  if (failure?.key === sourceKey) return { status: "error", message: failure.message, retry: () => void load() };
+  if (result?.key === sourceKey) return { status: "ready", agents: result.agents };
+  return { status: "loading" };
+}
+
+/**
+ * issue #2023（差距清单第 4 项）—— 导出的外层组件。负责"选哪个 agent"这件事本身
+ * （候选列表、选中状态、切换即开新对话），真正的对话状态机（`useAgent`/流式渲染/
+ * HITL/语音输入……）全部留在下面 `CopilotKitV2PanelBody`（原来这个文件唯一的组件，
+ * 改了个名字，内部逻辑一行未动）。
+ *
+ * `key={selectedAgentId}` 是这里唯一的"新机制"：换 agent = 卸载旧的 body、挂载全新
+ * 一份（新的随机 `threadId`、新的 `useAgent` 实例、空 `agent.messages`）——与文件头注
+ * "issue #2023 Agent 选择/切换"一节说的"切换 agent 就是发起新对话"是同一件事，不是
+ * 另外发明一套"迁移历史到新 agent"的机制（那件事需要差距 #1 的持久化线程才谈得上）。
+ */
 export function CopilotKitV2Panel({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
 }: {
   /**
-   * issue #2021 —— 持久化的后端 `chat_threads.id`（不是下面的 CopilotKit 本地
+   * issue #2021 —— 持久化的后端 `chat_threads.id`（不是 CopilotKit 本地
    * `threadId`，两者是本文件头注早已记录的两个独立命名空间）。由外壳
    * `copilotkit-v2-shell.tsx` 从 URL 路由参数传入；`null` = 一次全新对话（外壳的
    * `/chat/copilotkit-v2` 裸路由，或"新建对话"入口）。
@@ -449,9 +560,81 @@ export function CopilotKitV2Panel({
   /**
    * 首次发消息、后端真正创建出一条新线程（`resolveThreadId` 的 `null` 分支）时触发
    * 一次，交给外壳写回地址栏 + 刷新线程列表。`initialChatThreadId` 非空时（续聊一条
-   * 已存在的线程）**不会**触发——`chatThreadIdRef` 已经等于外部传入的值，见下方
-   * `onCustomEvent` 订阅里的判等。
+   * 已存在的线程）**不会**触发——`chatThreadIdRef` 已经等于外部传入的值。
    */
+  onThreadResolved?: (threadId: string) => void;
+} = {}): JSX.Element {
+  const { session } = useSession();
+  const orgId = session?.currentOrgId ?? null;
+  const bearer = session?.sessionToken ?? null;
+  const agentOptions = useCopilotKitV2AgentOptions(orgId, bearer);
+  const { selectedAgentId, setSelectedAgentId } = useCopilotKitV2AgentSelection();
+
+  // ⚠ 刻意**不**自动选中目录第一个候选（第一版这么做过，run5 对照实验实测抓到两个
+  // 真问题才改掉）：① 目录序第一恰好可能是"只进目录、从未发布"的 agent（#787 已知
+  // 裂痕），自动选中它 = 用户第一条消息就 AGENT_NOT_FOUND；② 未选择时本该走
+  // `COPILOTKIT_V2_AGENT_ID`（服务端配置的可运行默认 agent）的既有路径被 header
+  // 悄悄劫持——runtime-adapter 三条"不做选择"的既有 e2e 当场红给了看。与旧轨道
+  // `pickDefaultAgentId` 的差异是结构性的：旧轨道 `createMessage` 的 `agentId` 是
+  // 必填项、不选就发不了，只能替用户选；本轨道服务端本来就有默认 agent，"不选" 是
+  // 一个真实存在且必须保持可用的状态，不需要也不应该在前端编造一个选择。
+
+  return (
+    <div className="flex h-full w-full flex-col gap-2 p-4">
+      <div className="flex items-center gap-2" data-testid="copilotkit-v2-agent-toolbar">
+        <AgentPicker
+          agents={agentOptions.status === "ready" ? agentOptions.agents : null}
+          selectedAgentId={selectedAgentId ?? ""}
+          disabled={agentOptions.status !== "ready"}
+          onSelect={(agentId) => setSelectedAgentId(agentId)}
+        />
+        {agentOptions.status === "error" ? (
+          <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
+            {agentOptions.message}
+            <button
+              type="button"
+              className="ml-1 underline"
+              data-testid="copilotkit-v2-agent-options-retry"
+              onClick={agentOptions.retry}
+            >
+              重试
+            </button>
+          </span>
+        ) : null}
+        {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
+          <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
+            这个组织还没有可用的 Agent，先去
+            <a href="/admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
+            才能发消息。
+          </span>
+        ) : null}
+      </div>
+      <div className="min-h-0 flex-1">
+        {/* 未选择（`null`）也照常渲染——这时请求不带选择 header，服务端用
+            `COPILOTKIT_V2_AGENT_ID` 默认 agent（与本任务之前逐字节相同的路径）。
+            key 里的 `"__server_default__"` 只是 React 重挂载边界的占位段，不会出现在
+            任何请求里（header 由 `selectedAgentId === null` 时不设置来保证）。 */}
+        {/* ⚠ key 只含 agent 选择，刻意**不含** `initialChatThreadId`——首轮发消息后
+            外壳经 `onThreadResolved` 拿到新线程 id 时，如果 key 跟着变，Body 会在
+            run 仍在途时被整个重挂载：SSE 被杀、`agent.messages` 清空（2026-08-25
+            合成 #2021×#2023 时实测 4 条 e2e 全红抓到的真回归）。#2021 用
+            `history.replaceState` 而非 router 状态正是为了避开这次重渲染；线程
+            切换走 `[threadId]` 路由级重挂载，天然新 mount，不需要 key 参与。 */}
+        <CopilotKitV2PanelBody
+          key={selectedAgentId ?? "__server_default__"}
+          chatThreadId={initialChatThreadId}
+          onThreadResolved={onThreadResolved}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CopilotKitV2PanelBody({
+  chatThreadId: initialChatThreadId = null,
+  onThreadResolved,
+}: {
+  chatThreadId?: string | null;
   onThreadResolved?: (threadId: string) => void;
 } = {}): JSX.Element {
   const { copilotkit } = useCopilotKit();
@@ -713,7 +896,7 @@ export function CopilotKitV2Panel({
   );
 
   return (
-    <div className="flex h-full w-full gap-3 p-4">
+    <div className="flex h-full w-full gap-3">
       {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
           文件工作台，两栏各占一半宽度，右栏没有任何文件时不占位（见 ActiveFilePanel
           自己的"缺席"纪律），左栏独占全宽。 */}

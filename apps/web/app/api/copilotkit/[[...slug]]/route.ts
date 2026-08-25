@@ -24,18 +24,21 @@
  * 里挂一个指向它的 `HttpAgent`（`@ag-ui/client`，与 `copilotkit-preview-panel.tsx`
  * 用的同一个类）。
  *
- * 不做：不重新实现鉴权或续聊逻辑；不在这层做多 agent 目录解析（本仓仍然没有
- * "列出组织 agent 目录"的路由，见 `copilotkit-agui.controller.ts` 同一个已如实
- * 暴露的缺口）——`COPILOTKIT_V2_AGENT_ID` 是本轮范围内唯一可寻址的已发布 agent。
+ * 不做：不重新实现鉴权或续聊逻辑；不做多 agent **编制**（roster——把多个 agent 同时
+ * 加进一个会话协作）——见 issue #2023 PR 说明的范围取舍，那是明显更大的一块工作。
  *
- * ## agentId：为什么是一个环境变量，不是 query 透传
+ * ## agentId：per-request header 优先，环境变量兜底（issue #2023 更新，此前固定环境变量）
  *
  * `CopilotRuntime.agents` 的 key（这里固定叫 `default`）是**前端 `useAgent({agentId})`
  * 认的那个 id**，与后端 `/copilotkit/agui?agentId=` 要求的真实已发布 agent id
  * 是两个独立的命名空间——CopilotKit 协议本身没有"把 query 参数透传给 remoteEndpoint
- * URL"的机制（`HttpAgent` 的 `url` 在构造时就固定了）。`COPILOTKIT_V2_AGENT_ID`
- * 是服务端专用变量（不带 `NEXT_PUBLIC_` 前缀——不需要进浏览器 bundle，`route.ts`
- * 只在 Next 服务端进程里跑），未设置时直接 500（诚实失败，不猜一个默认 agent id）。
+ * URL"的机制（`HttpAgent` 的 `url` 在构造时就固定了）。issue #1967 首版因此把这个真实
+ * agent id 写死进 `COPILOTKIT_V2_AGENT_ID` 环境变量——浏览器侧那时压根没有"选择 agent"
+ * 这回事。issue #2023（差距清单第 4 项）接上了 `AgentPicker`：`resolveAgentId()`
+ * 现在优先读浏览器随请求带来的 `COPILOTKIT_V2_SELECTED_AGENT_HEADER`（见
+ * `copilotkit-v2-agent-header.ts`/`resolveAgentId` 自己的文件内注释），环境变量降级为
+ * "没有选择时的默认值"——未设置且也没有选择时仍然直接抛错（诚实失败，不猜一个默认
+ * agent id），这一点没有变。
  *
  * ## 鉴权：把浏览器发来的 Authorization 头原样转发给 AG-UI 端点
  *
@@ -52,6 +55,7 @@
 import { CopilotRuntime, createCopilotRuntimeHandler, type AgentsFactory } from "@copilotkit/runtime/v2";
 import { HttpAgent } from "@ag-ui/client";
 import { apiBaseUrl } from "@/lib/api-client";
+import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "@/lib/copilotkit-v2-agent-header";
 
 const BASE_PATH = "/api/copilotkit";
 
@@ -65,8 +69,37 @@ function requiredAgentId(): string {
   return id;
 }
 
+/**
+ * issue #2023（差距清单第 4 项）—— 浏览器侧选中的 agent id 优先。
+ *
+ * `copilotkit-v2-agent-header.ts` 头注已经记录了为什么是 header、不是 query param
+ * （CopilotKit 协议没有把 query 参数透传给 remoteEndpoint URL 的机制，`HttpAgent.url`
+ * 在构造时就固定了）。这里读的是**浏览器发给 `/api/copilotkit/*` 这条请求**自己的
+ * header（`request.headers`，与下面读 `authorization` 是同一个 `Request` 对象、
+ * 同一条已验证可靠的通道），不是下游 `/copilotkit/agui` 的 query string——那条
+ * query string 仍然存在，只是它的值现在从这里派生，不再是编译期写死的环境变量。
+ *
+ * 缺失/空白时回退到 `requiredAgentId()`（未选择任何 agent，或组织没有可用 agent 时
+ * `copilotkit-v2-panel.tsx` 不会带这个 header）——与本任务之前的行为逐字节相同，
+ * 不悄悄改变"没有选择时用什么"这条既有默认语义。
+ */
+function resolveAgentId(request: Request): string {
+  const selected = request.headers.get(COPILOTKIT_V2_SELECTED_AGENT_HEADER);
+  if (selected !== null && selected.trim() !== "") return selected.trim();
+  return requiredAgentId();
+}
+
+/**
+ * ⚠ 已知边界（issue #2023 任务说明，2026-08-25 实测确认，如实登记，不在本任务内解决）：
+ * `agent_versions` 按 org RLS 隔离，一个 org 选中的 agent id 对另一个 org 可能根本不
+ * 可见/不存在——`resolvePublished(orgId, agentId)`（`copilotkit-agui.controller.ts`
+ * 下游）会诚实地 404/`AGENT_NOT_FOUND`，不会跨租户泄漏。本任务只解决"浏览器侧能不能
+ * 选、选完会不会真的路由过去"，不解决"选出来的候选列表在多租户场景下该怎么过滤"这个
+ * 更大的问题——候选本身来自 `listCapabilities(orgId, "agent")`，已经按请求方所在 org
+ * 过滤过，本层不需要也不应该重复这条判断。
+ */
 const agents: AgentsFactory = ({ request }) => {
-  const agentId = requiredAgentId();
+  const agentId = resolveAgentId(request);
   const authorization = request.headers.get("authorization");
   return {
     default: new HttpAgent({

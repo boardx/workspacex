@@ -1,4 +1,5 @@
 import { CopilotKitV2Providers } from "./copilotkit-v2-providers";
+import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
 
 /**
  * DA-19 —— 独立布局，只作用于 `/chat/copilotkit-v2` 子树（Next App Router 的布局
@@ -19,7 +20,19 @@ import { CopilotKitV2Providers } from "./copilotkit-v2-providers";
  * 更早的位置就生效了。本任务的面板（`copilotkit-v2-panel.tsx`）也确实不依赖这份
  * 样式（不渲染 `CopilotChat`/`CopilotPopup` 等官方样式化组件），所以换成空文件没有
  * 观感损失；接入那些组件是后续任务的范围。
+ *
+ * ## issue #2023 —— 新增 `CopilotKitV2AgentSelectionProvider`，包在 `CopilotKitV2Providers` 外层
+ *
+ * agent 选择状态必须比 `<CopilotKit>` 更高一层：`CopilotKitV2Providers` 内部要读
+ * "当前选中的 agent id" 来构造这一轮请求的 header（见
+ * `lib/copilotkit-v2-agent-header.ts`），选择本身发生在 `CopilotKitV2Panel`（`children`
+ * 子树里）。两者共同的父层只有这里，不是往 `CopilotKitV2Providers` 内部塞状态——那样
+ * `CopilotKitV2Panel` 就读不到了。
  */
 export default function CopilotKitV2Layout({ children }: { children: React.ReactNode }): JSX.Element {
-  return <CopilotKitV2Providers>{children}</CopilotKitV2Providers>;
+  return (
+    <CopilotKitV2AgentSelectionProvider>
+      <CopilotKitV2Providers>{children}</CopilotKitV2Providers>
+    </CopilotKitV2AgentSelectionProvider>
+  );
 }
