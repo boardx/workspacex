@@ -20,6 +20,12 @@
   用 langchain 基础版（只需 model），不用 deepagents 变体（后者还要 backend
   实例，要与 create_deep_agent 内部的 StateBackend 对齐，收益不抵耦合；
   等 DA-12 VFS 落地、卸载有真实落点时再换）。
+- `RubricMiddleware`（deepagents，DA-09/#2051）→ D7「退出前对照任务自检」：本来要
+  收尾的那一刻先对照清单评一遍，不合格带着差距说明跳回模型返工。上游官方件，
+  核实过程与灰度口径见 `build_precompletion_middleware` 上方的注释。
+  ⚠ 它在 0.7.6 里带 `@beta`（构造时会发 `LangChainBetaWarning`）——API 可能变，
+  升级时优先看它；`test_harness.py::test_precompletion_checklist_uses_official_middleware`
+  是那道看守。
 - checkpointer → D4 持久化。⚠ 分环境：`langgraph dev` / LangGraph Platform 托管
   持久层，图上**不能**自带 checkpointer（实测会 GraphLoadError，见
   guided_research_graph.py:226 的原始记录）。自托管（Docker/裸进程）时通过
@@ -47,7 +53,8 @@ from langchain.agents.middleware import (
 )
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from deepagents import FilesystemMiddleware
+from deepagents import FilesystemMiddleware, RubricMiddleware
+from deepagents.middleware.rubric import RubricState
 
 # DA-08（#1749，rubric D8②）：单个工具输出超过这个 token 数就驱逐到虚拟文件系统，
 # 正文只留文件引用（实测行为：ToolMessage 被替换为
@@ -78,6 +85,78 @@ TOOL_RESULT_EVICT_TOKENS = 1000
 RUN_MODEL_CALL_LIMIT = 25
 RUN_TOOL_CALL_LIMIT = 40
 
+# DA-09（issue #2051，rubric D7「退出前对照任务自检」）：上游**有**官方等价件。
+#
+# 核实过程（2026-08-25，读的是 .venv 里锁定的 deepagents 0.7.6 源码，不是猜的）：
+# `langchain.agents.middleware` 的 24 个导出里没有任何 completion/checklist 语义的件；
+# `deepagents.middleware.rubric.RubricMiddleware`（`deepagents.__all__` 公开导出）
+# 的语义与「PreCompletionChecklist」逐字对应——库自己的模块注释原话：
+# 「Each time the agent would otherwise finish — i.e. the model returns a response with
+# no further tool calls — the middleware invokes a separate grader sub-agent against the
+# transcript. If the grader returns `needs_revision`, its feedback is injected as a
+# `HumanMessage` and the agent loop resumes.」
+# 实现上是 `after_agent` + `@hook_config(can_jump_to=["model"])`：退出前拦一道、
+# 不合格就带着差距说明跳回模型。⇒ 按本仓纪律（用官方 middleware，不写私有 hack）
+# 直接接它，不自建。
+#
+# ⚠ 激活条件（库的公开契约）：只有调用方在 invocation state 里传了 `rubric` 才生效，
+# 否则 before_agent/after_agent 双双 no-op——所以挂上它本身是零行为变更的。
+# 「每次退出都对照默认清单自检」需要有人把默认 rubric 放进 state，那就是下面
+# `_DefaultCompletionChecklistMiddleware` 干的唯一一件事。
+RUBRIC_MAX_ITERATIONS = 2
+
+# 默认自检清单。措辞刻意贴住本仓的完成定义（AGENTS.md「没有证据 = 没有完成」）与
+# 反伪造纪律——自检的价值不在「多问一遍」，在于问的是**我们**认定的 done。
+DEFAULT_COMPLETION_CHECKLIST = """在结束前，对照下面每一条自检本次回复：
+
+1. 用户原始请求里的每一项要求都被真实处理了，没有只答其中一半就收尾。
+2. 回复里声称做过的每一个动作，都有本轮 transcript 里对应的真实工具调用结果支撑；
+   没有把没做过的事写成做过了，没有凭工具名字或既有印象编造结果。
+3. 如果本轮产生过 todo 列表，每一项都处于终态；没有留着未完成项就直接给结论。
+4. 遇到的失败、被拒绝的操作、预算超限、无法完成的部分，都如实告诉了用户，
+   不是静默省略或包装成成功。
+5. 最终回复是可以直接用的结论，不是「我接下来打算……」这样的过程陈述。
+
+任何一条不满足就判 needs_revision，并在 gap 里写清楚缺的是什么。"""
+
+
+class _DefaultCompletionChecklistMiddleware(AgentMiddleware):
+    """把 `DEFAULT_COMPLETION_CHECKLIST` 播种进 state，激活 `RubricMiddleware`。
+
+    只有一个 `before_agent`，只写 `rubric` 这一个**库自己声明为公开 I/O 的**字段
+    （`RubricState` 文档原话：「Only `rubric` is part of the public I/O schema」），
+    且调用方自带 rubric 时原样让路。不碰任何私有字段、不改库的控制流——
+    这是「按官方契约喂参数」，不是绕过框架的私有 hack（D10②）。
+
+    挂载顺序上必须排在 `RubricMiddleware` 之前：langchain factory 按 middleware
+    列表顺序串 before_agent 节点（`factory.py` 的 `middleware_w_before_agent`），
+    RubricMiddleware 的 before_agent 要读到已经播好的 rubric 才会开始记账。
+    """
+
+    state_schema = RubricState
+
+    def before_agent(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        if state.get("rubric"):
+            # 调用方显式传了自己的 rubric——用他的，不覆盖。
+            return None
+        return {"rubric": DEFAULT_COMPLETION_CHECKLIST}
+
+
+def build_precompletion_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
+    """D7 退出前自检的两件（顺序有意义，见上面的挂载顺序说明）。
+
+    灰度（S1=B 纪律）：`RubricMiddleware` **无条件**挂——没有 rubric 时它逐字 no-op，
+    挂上等于零行为变更，同时让任何调用方传 `rubric` 就能用上这条能力。
+    而「每次退出都跑一遍默认清单」会给每次收尾多加一次 grader 模型调用（成本与延迟
+    都真实变化），所以默认清单的播种由 `DEEP_AGENT_PRECOMPLETION_CHECKLIST=1` 打开；
+    未设时行为与接线前逐字相同。
+    """
+    enabled = (os.environ.get("DEEP_AGENT_PRECOMPLETION_CHECKLIST") or "").strip() == "1"
+    seed: list[AgentMiddleware] = [_DefaultCompletionChecklistMiddleware()] if enabled else []
+    # max_iterations 显式钉死不吃库默认（库默认 3）——同 Summarization trigger/keep
+    # 的纪律：升级时默认值漂移不得悄悄改变我们的重试预算。2 = 最多返工一次。
+    return [*seed, RubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
+
 
 def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
@@ -87,13 +166,32 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """
     return [
         TodoListMiddleware(),
-        SummarizationMiddleware(model=model, trigger=("tokens", 60000), keep=("messages", 20)),
+        SummarizationMiddleware(
+            model=model,
+            trigger=("tokens", 60000),
+            keep=("messages", 20),
+            # DA-09（#2051）：这一项此前吃的是库默认 4000，而 TC-4 把它抓了出来——
+            # 触发线 60000、保留最近 20 条，意味着一次压缩要丢掉的那一段可能有
+            # 四万多 token；`_trim_messages_for_summary` 却用
+            # `trim_messages(max_tokens=4000, strategy="last")` 只把**最后 4000 token**
+            # 交给摘要器，更老的内容**根本没进摘要就没了**。
+            # 实测（TC-4 第一版红的存档）：30 轮对话触发一次摘要，摘要器只收到第 15 轮
+            # 一轮的内容，第 2 轮种下的事实在摘要输入里查无此句——那不是「滚动语义摘要」，
+            # 是「把尾巴摘一下、其余静默丢弃」，正是 rubric D8 0.3 档写的「只有截断」。
+            # 钉成与触发线同值：要丢掉的那一段按定义不超过触发线，60000 就是「不静默
+            # 丢内容」所需的确切预算。代价是每次压缩有一次大输入的摘要调用——这是这条
+            # 能力真正生效的价格，不是可以省掉的开销。
+            trim_tokens_to_summarize=60000,
+        ),
         # by-name override（0.7 机制）：同名实例替换 create_deep_agent 内建的默认
         # FilesystemMiddleware，不是叠第二份——文件工具仍只有一套。
         FilesystemMiddleware(tool_token_limit_before_evict=TOOL_RESULT_EVICT_TOKENS),
         ToolCallLimitMiddleware(run_limit=RUN_TOOL_CALL_LIMIT, exit_behavior="continue"),
         ModelCallLimitMiddleware(run_limit=RUN_MODEL_CALL_LIMIT, exit_behavior="end"),
         ToolRetryMiddleware(max_retries=2),
+        # DA-09（#2051，D7③退出前自检）：放在最后——它的 after_agent 是「本来要
+        # 结束时」的最后一道拦截，语义上就属于队尾。
+        *build_precompletion_middleware(model),
     ]
 
 

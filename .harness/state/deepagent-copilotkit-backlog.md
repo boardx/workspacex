@@ -162,6 +162,29 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
   这是 `deepagent-capability-rubric.md` 2026-08-23 评分史自己点名的缺口
   （"TC-1~TC-5 黄金压测脚本目录仍不存在，未临时补写脚本凑数"），backlog 正文
   此前没有对应到具体状态，在此补记为**真实剩余待办**，不是漂移。
+- **状态更新（2026-08-25 晚，issue #2051）：四点全部落地，本条收口。**
+  - **第 1 点**：上游**有**官方等价件——`deepagents.RubricMiddleware`（0.7.6 公开导出，
+    带 `@beta`）。库自己的语义就是「本来要结束时先请 grader 对照 rubric 评一遍，
+    判 `needs_revision` 就把差距说明注入回去跳回模型」，与
+    「PreCompletionChecklist」逐字对应。按本仓纪律接官方件、不自建：`harness.py`
+    的 `build_precompletion_middleware`。middleware 本身无条件挂（无 rubric 时逐字
+    no-op），**默认清单的播种**由 `DEEP_AGENT_PRECOMPLETION_CHECKLIST=1` 灰度
+    （每次收尾多一次 grader 调用，成本真实变化）。活体反证：TC-3 里 grader 判
+    needs_revision → 真的跳回模型返工一轮；关掉开关同一剧本的不合格答复直接成终稿。
+  - **第 4 点**：`apps/deep-agent-service/tests/golden/` 五条场景 + 三条反证，
+    实测 9/9 通过（TC-5 是真 `SIGKILL` 一个子进程再从 Postgres checkpoint 续跑，
+    账本证明第一步没重跑）。**自动化分级表**（哪条 TC 不覆盖什么）写在该目录的
+    `README.md`，rubric 已回指。CI 门：`.github/workflows/deep-agent-tests.yml`
+    ——⚠ 顺带纠正一条旧的错误记录：2026-08-23 的评分理由书称 pytest「挂在
+    backend-gates 等 CI 门控链路里」，实测在此之前**没有任何 workflow 跑过一行
+    Python 测试**，那句话是错的，现在才是真的。
+  - **顺手抓出来的真问题**（这批脚本的第一份收益）：`SummarizationMiddleware` 的
+    `trim_tokens_to_summarize` 此前吃库默认 4000，而触发线是 60000——一次压缩要丢掉
+    的四万多 token 里只有最后 4000 会进摘要器，更老的内容**根本没进摘要就没了**
+    （实测：30 轮对话触发一次摘要，摘要器只收到第 15 轮一轮的内容）。那不是滚动
+    语义摘要，是 rubric D8 0.3 档写的「只有截断」。已钉成与触发线同值，
+    `test_harness.py` 有断言看守。**D8 应据此重评**，但按「实现者不自评」纪律，
+    本条只登记事实，不改分。
 
 ### DA-10 guided_research 平行 loop 的裁决
 - **推动**：D10

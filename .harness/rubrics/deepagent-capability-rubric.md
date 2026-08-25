@@ -120,6 +120,20 @@
 
 场景脚本落在 `apps/deep-agent-service/tests/golden/`（DA-09 交付），CI 可跑其自动化子集。
 
+**2026-08-25（issue #2051）：五条脚本已交付**，此前三轮评分（5.0 / 6.5 / 7.5）记录里
+「TC 脚本目录不存在」的缺口到此为止。评分时照这两条走：
+
+- 一键跑完五条并产出逐场景证据：`bash apps/deep-agent-service/scripts/verify-golden-scenarios.sh`
+  （自动起一次性 Postgres 给 TC-5，退出即销毁）。证据落在
+  `apps/deep-agent-service/.golden-evidence/<utc>/`，整目录拷进本次评分的证据目录即可。
+  CI 上同一套跑在 `.github/workflows/deep-agent-tests.yml`（带 Postgres service container）。
+- ⚠ **自动化子集的边界必须一并读**：`apps/deep-agent-service/tests/golden/README.md`
+  的分级表逐条写明了每个 TC **不覆盖**什么。五条全部用脚本化假模型，证明的是
+  **引擎行为**；凡本文件里写着「前端可见 / 前端逐个渲染」的档位（D1 D2 D9），
+  以及需要判断模型输出质量的部分（D3 token 流、D8 摘要质量、D7「不编造成功」），
+  **不得**用这些脚本的绿灯顶替，仍须另取活体证据。拿 TC 绿灯充当前端证据，
+  属于本文件「反伪造一票否决」条款下的冒充。
+
 ## 物理证据闭环（每次评分强制归档）
 
 评分史每行必须附证据目录（`.harness/state/deepagent-eval/<date>-<sha>/`），至少包含：
