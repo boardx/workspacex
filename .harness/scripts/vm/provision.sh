@@ -202,6 +202,24 @@ else
 fi
 cat > /etc/caddy/Caddyfile <<EOF
 ${PUBLIC_DOMAIN} {
+	# ⚠ 2026-08-25（#2026 默认入口翻转实测）：/api/copilotkit* 是 Next.js 自己的
+	# route handler（apps/web/app/api/copilotkit/[[...slug]]/route.ts，CopilotRuntime
+	# 适配器），不是 NestJS 路由——必须在下面 /api/* 兜底之前截住转给 web，否则
+	# 请求被剥前缀送进 NestJS，稳定拿到 {"error":"not_found"}，/chat 整页不可用。
+	# Caddy 的 handle 块按出现顺序互斥匹配，本条必须排在 handle_path /api/* 之前。
+	#
+	# ⚠ 再往前还有一条更细的例外（同日第二轮实测）：/api/copilotkit/agui 是 NestJS
+	# 的 AG-UI 桥端点（copilotkit-agui.controller.ts），Next 的 route handler 在
+	# 服务端用公网同源 apiBaseUrl() 打它——不剥前缀转给 API 的话，这个请求会被下面
+	# 的 copilotkit 兜底送回 Next 自己，拿到 404 HTML，用户侧表现为发消息即
+	# RUN_ERROR。三层匹配顺序：agui → copilotkit 其余 → /api 其余。
+	handle /api/copilotkit/agui* {
+		uri strip_prefix /api
+		reverse_proxy 127.0.0.1:${APP_API_PORT}
+	}
+	handle /api/copilotkit* {
+		reverse_proxy 127.0.0.1:${APP_WEB_PORT}
+	}
 	# /api/* 剥前缀转发给 NestJS —— 它的路由挂在根路径（/healthz 不是 /api/healthz），
 	# 且代码里没有开 CORS，所以路由必须同源，不能走独立子域名。
 	handle_path /api/* {
