@@ -156,6 +156,28 @@ KERNEL_DEEP_AGENT_BASE_URL=http://127.0.0.1:2025
 # 1 = provider 消费 langgraph /runs/stream SSE 并写 delta 账本，前端 streamingText
 # 逐 token 渲染；任何流路失败自动回退轮询（S1=B 双轨）。关掉即回到纯轮询。
 KERNEL_DEEP_AGENT_STREAM_ENABLED=1
+# ── deep-agent 引擎能力开关（issue #2076）────────────────────────────────────
+# 这三个键由 deploy.sh 第 4h 步投影进 /opt/workspacex/deep-agent.env 给容器
+# （deep_agent_project_capability_env）。⚠ 只写在这里不够也不多余：容器读的是
+# deep-agent.env，不是本文件；没设/空值 = 不投影 = 引擎侧行为与开关存在前逐字相同。
+#
+# DA-05（#1838，rubric D5 子代理委派）：1 = 注册具名子代理 org-skill-researcher，
+# 主模型的 task 工具从此有真实可委托对象（harness.py build_subagents）。委托发生时
+# 前端经既有链路渲染出一张 task 工具卡（桥不按工具名过滤），用户能看见"它把活分出去了"。
+DEEP_AGENT_SUBAGENTS_ENABLED=1
+# DA-07（#1749，rubric D6 人在环）：逗号分隔的**引擎真实工具名**（call_skill 等），
+# 列出的工具每次调用前 interrupt 等人裁决（harness.py build_interrupt_on）。
+# ⚠ 现在**故意留空**：前端 copilotkit-v2-panel.tsx 的审批对话框写死注册在
+# "send_email" 上（该名字来自 loopback 替身，真实引擎从不发它），名字对不上 ⇒
+# 审批按钮不渲染 ⇒ run 停在 awaiting_approval 没人能裁决，打开只会让体验更差。
+# 前端工具名对齐后再填。机制更正见 issue #2017 的评论。
+# DEEP_AGENT_HITL_TOOLS=
+# DA-04（rubric D4 持久化/时间旅行）：Postgres DSN，显式启用 PostgresSaver
+# （harness.py build_checkpointer）。⚠ 现在**故意留空**：容器跑的是 langgraph dev
+# （见 apps/deep-agent-service/Dockerfile 末行），平台自带持久化层，自带 checkpointer
+# 与它是否冲突尚未实测；且 apps/web 全树没有任何检查点/恢复 UI，打开没有用户可见面。
+# 验证 + 做出可见面之后再填，不凭"设上就有"。
+# DEEP_AGENT_CHECKPOINT_DB=
 # DA-10（rubric D10④）：LangSmith tracing，可选。三行都填才生效（deploy.sh 4h 步
 # 会在设了 TRACING 却缺 API_KEY 时红退）。默认注释 = 关闭。
 # LANGSMITH_TRACING=true

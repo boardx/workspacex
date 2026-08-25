@@ -705,6 +705,9 @@ export class CopilotkitAguiController {
         // ⚠ 只在 `succeeded` 分支发。`failed`/`awaiting_approval` 没有一条已落库的
         //   assistant 消息可指——发一个指向不存在的行的 id，比不发更糟。
         //   完整理由见 `@repo/contracts/agui-state-events` 的 `AguiChatMessageIdValue`。
+        //
+        // issue #2052（CK-P7）—— 「落地为产物」入口消费的正是这**同一个**事件，不另发
+        //   第二个同义事件（那会让同一个事实在控制器里声明两处）。
         write({
           type: EventType.CUSTOM,
           name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
