@@ -65,7 +65,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
   await shoot("chat-main-default.png", "chat-read-thread-list");
 
-  await page.goto("/chat");
+  await page.goto("/chat/legacy");
   await shoot("chat-main-personal.png", "chat-read-thread-list");
 
   // 375 档锚点换成 `chat-thread-detail`：AppShell 的左栏是 `hidden md:block`
@@ -201,7 +201,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
    * （P4/P5 报告原话）。这里把这两个状态实际走一遍并抓下来，不是新写功能。
    */
   await page.setViewportSize(DESKTOP);
-  await page.goto("/chat");
+  await page.goto("/chat/legacy");
   // 2026-08-14：#1179 把个人对话「新建」改成一键创建（`personal-chat-screen.tsx`
   // 直接 `handleCreate(null)`），不再弹标题表单——旧版这里等 `chat-thread-title-input`
   // 会永远超时。创建走真实 mutateThread，成功后用 `router.replace` 把新线程 id
@@ -415,7 +415,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   // 375 档·列表态：裸 `/chat`（无 thread 参数）在窄屏下 `showThreadListInMain` 为真，
   // 会话列表渲进主区域（personal-chat-screen.tsx:260/264）。
   await page.setViewportSize(MOBILE);
-  await page.goto("/chat");
+  await page.goto("/chat/legacy");
   await shoot("chat-main-personal-mobile-list.png", "chat-read-thread-list");
 
   // 375 档·详情态：带 thread 参数直接进入详情，此时应看到「返回列表」按钮。

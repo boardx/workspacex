@@ -80,7 +80,7 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
   await page.waitForURL(/\/projects$/);
 
   /* ── 进入个人对话（不带 projectId，devapp 的默认落地屏）─────────────── */
-  await page.goto("/chat");
+  await page.goto("/chat/legacy");
   await page.getByTestId("chat-read-thread-list").waitFor({ state: "visible", timeout: 60_000 });
   await shoot("b10-entry.png", "第10项 整体连贯性", "进入 /chat 的首屏，用于检查有无假按钮/死链/孤岛组件");
 
@@ -359,7 +359,7 @@ test("capture chat behaviour evidence for CLR track B", async ({ page }) => {
   ];
   for (const topic of gap2Topics) {
     await step(`gap#2 追问建议取证：${topic.message}`, async () => {
-      await page.goto("/chat");
+      await page.goto("/chat/legacy");
       await page.getByTestId("chat-thread-create").click({ timeout: 15_000 });
       await page.waitForURL(/\/chat\?thread=/);
       await page.getByTestId("chat-thread-detail").waitFor({ state: "visible", timeout: 30_000 });

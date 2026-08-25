@@ -421,7 +421,10 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
           onRetry={() => void loadSelectedThread()}
           onBackMobile={!isDesktop ? () => {
             setSelectedThreadId(null);
-            router.replace("/chat");
+            // 2026-08-25 默认入口翻转后，裸 `/chat` redirect 到 CopilotKit v2——
+            // 移动端「返回线程列表」必须留在旧屏世界，否则一次返回就把用户
+            // 踢出正在用的旧轨道。
+            router.replace("/chat/legacy");
           } : undefined}
           onThreadSettled={() => void loadThreads()}
           onArtifactLanded={() => void loadSelectedThread()}
