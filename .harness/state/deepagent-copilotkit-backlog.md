@@ -51,6 +51,10 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 - **推动**：D2/D3 的可验证性（e2e 网关下端点可达）
 - **动作**：next.config.mjs 加 `/copilotkit` 前缀 rewrite；补 e2e 断言。
 - **规模**：估 <30 行。**无签署依赖，可立即做。**
+- **状态**：✅ done——早于本 backlog 成文（#695，2026-08-08），本条从写下第一天起
+  就是过时描述。`apps/web/next.config.mjs:266` 现有 `${prefix}/copilotkit/:path*`
+  rewrite 即为证据（`git blame` 核对）。2026-08-25 复核时发现的 backlog 漂移，
+  在此补记，不再是待办。
 
 ### DA-02 引擎现代化：middleware 全开 + Postgres checkpointer
 - **推动**：D1（规划）、D4（持久上下文）、D8（上下文工程）、D10（架构健康）
@@ -60,17 +64,35 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
   3. `pyproject.toml` 地板提到 `deepagents>=0.7,<0.8`，加 CI 门：地板与 uv.lock major.minor 一致才绿
 - **验收**：向端点发多步任务，事件流里出现 `write_todos` 工具调用与 todos 状态更新；重启服务后线程可续。
 - **无签署依赖**（deep-agent-service 是 #654 已授权范围）。
+- **状态**：✅ done —— #1752「harness 现代化——middleware 全开 + 分环境 checkpointer +
+  版本地板门」，已合入 main。`apps/deep-agent-service/src/deep_agent_service/
+  graph.py` 的 `create_deep_agent(...)` 调用现接了 `build_middleware`/
+  `build_checkpointer`/`build_interrupt_on`/`build_subagents`（`harness.py` 单一
+  事实源）。2026-08-25 复核时发现本条在 backlog 里从未标记完成，属于**评分卡
+  已经反映真相、backlog 文本未同步**的漂移——`deepagent-capability-rubric.md`
+  2026-08-23 评分史（6.5/10，SHA `3d327c13`）D1/D4/D8 各分项的依据本就建立在
+  这条工作之上，backlog 正文的缺失是纯文档滞后，不是重新发现的缺口。
 
 ### DA-03 真流式桥：deepagents 原生 AG-UI 端点替换 agui-bridge 的假流式
 - **推动**：D3（0.3→目标 1.0）、D2、D9
 - **动作**：deep-agent-service 起官方 AG-UI 端点（`add_langgraph_fastapi_endpoint` 或 langgraph 平台等价物 + CopilotKitMiddleware），逐事件流出 TEXT_MESSAGE_CONTENT / TOOL_CALL_* / STATE_DELTA；`agui-bridge.ts` 改为纯代理或退役（保留 AgentRun 记账钩子——每个 tool_call 步仍走 `record()`，#742 的账本约束不变）。
 - **验收**：curl 事件流，用时间戳证明逐步；`agent_run_steps` 账本无缺步。
 - **依赖**：DA-02。**无签署依赖**（还没碰生产 /chat）。
+- **状态**：✅ done —— #1755「deep-agent 通路真流式——SSE + 灰度开关 + 轮询回退」，
+  已合入 main。`deepagent-capability-rubric.md` D3=1.0（本仓十维里唯一满分项）
+  即为这条工作的评分证据。同 DA-02，backlog 正文漂移，2026-08-25 复核补记。
 
 ### DA-04 修「每次开新线程」约束：AG-UI 桥支持既有 threadId 续聊
 - **推动**：D4、chat-ux 维度 6
 - **动作**：桥/端点接受 threadId 复用 checkpointer 线程；无则新建。
 - **依赖**：DA-02（有真 checkpointer 才有真线程）。
+- **状态**：✅ done —— #1757「deep-agent 线程连续性——Chat thread 决定性映射远端
+  thread」，已合入 main。⚠ 注意区分：这条修的是**旧手写轮询面板**这条通路的续聊；
+  DA-19g（本会话今天完成）修的是 **CopilotKit 原生新轨道**（`/chat/copilotkit-v2`）
+  的续聊——`copilotkit-v2-panel.tsx` 的 `chatThreadIdRef`/`forwardedProps.
+  chatThreadId`。两条通路各自独立实现、各自需要各自的续聊修复，不是同一个工作
+  被记了两次（本仓"同一事实不得声明在两处"的边界在这里是"同一能力、两条独立
+  传输通路，各自的实现各自算数"，不是重复）。
 
 ### DA-05 前端切换 —— **改判（2026-08-22 实测）：架构已被 #654 阶段2d 完成，剩余是一个部署开关**
 - **状态**：done（改判 + 开关落模板）
@@ -92,17 +114,35 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 - **动作**：`useDefaultTool` 渲染工具卡（名称/参数摘要/状态/结果）；todos 状态流渲染成规划条。
   样式服从 chat-main-fidelity-rubric（不引入风格孤岛）。
 - **依赖**：DA-05。
+- **状态**：✅ done（旧手写轮询面板通路）—— #1763「规划条 AgentPlanPanel——
+  write_todos 前端可见化」。⚠ 这是旧 `chat-live-message-panel.tsx` 通路的实现；
+  CopilotKit 新轨道的等价能力是 DA-19c（`useRenderTool` 定制卡片，✅ done，见上）
+  ——两条通路各自独立落地，不是重复声明同一件事。
 
 ### DA-07 人在环：interrupt_on 敏感技能审批
 - **推动**：D6（0→1）、chat-ux 维度 9
 - **动作**：`call_skill` 按技能风险配置 interrupt_on；前端渲染批准/拒绝/改参三态。
 - **依赖**：DA-05。
+- **状态**：✅ done（旧手写轮询面板通路 + 引擎侧全链路）—— #1766「人在环
+  interrupt_on 引擎侧全链路」+ #1776「人在环 api 传输链——awaiting_approval +
+  decision 端点 + resume」+ #1778「人在环前端审批条 AgentApprovalPanel」，三层
+  全通。⚠ 与 DA-19d/DA-19g（今天完成）的关系：那两条修的是 **CopilotKit 新轨道**
+  （AG-UI/CopilotRuntime 桥接层）的 HITL——此前那条桥接层从未实现过审批语义，
+  是全新工作，不是重做这条已完成的旧通路；`resumeAguiBridgeTurn` 复用的正是
+  本条（DA-07b，#1776）的 `decideAgentRun` 函数，两条通路共享同一个底层恢复
+  机制，只是各自的触发入口不同。
 
 ### DA-08 错误透明与恢复
 - **推动**：D7、chat-ux 维度 7
 - **动作**：RUN_ERROR / tool 失败逐条渲染；agent 侧失败重试策略（deepagents retry 口径）；
   前端失败态持久可见 + 可重试。
 - **依赖**：DA-05。
+- **状态**：✅ done（工具结果卸载部分，即 rubric D8②）—— #1783「大工具结果驱逐到
+  虚拟文件系统，阈值 4KB 口径」。D7（错误恢复/死循环/预算熔断）部分见 DA-09。
+  ⚠ 与本次 DA-19g 第 5 轮（今天完成，issue #2012/PR #2013）的关系：那次修的是
+  **CopilotKit 新轨道**面板从未订阅 `copilotkit.subscribe({onError})` 总线导致
+  `RUN_ERROR` 事件被 `@copilotkit/core` 内部吞掉、错误横幅从不渲染——是新轨道
+  自己独立的传输层缺陷，不是这条 DA-08 的重复工作。
 
 ### DA-09 harness engineering：PreCompletionChecklist + 死循环/预算熔断 + 黄金压测场景
 - **推动**：D7（v2 扩充后的三件套）、chat-ux 维度 4
@@ -113,6 +153,15 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
   4. **TC-1~TC-5 黄金压测场景脚本**落在 `apps/deep-agent-service/tests/golden/`，
      CI 跑自动化子集——rubric v2 规定每次正式评分必须跑完五场景，这条是评分客观化的地基
 - **依赖**：DA-02。
+- **状态**：⚠ 部分完成，2026-08-25 复核核实——**第 2/3 点（LoopDetection 等价 +
+  预算熔断）已做**：#1813「D7 三件套 + D4 Postgres 恢复实证」，`harness.py` 已接
+  `ToolCallLimitMiddleware`/`ModelCallLimitMiddleware`/`ToolRetryMiddleware`。
+  **第 1 点（`PreCompletionChecklistMiddleware`）未做**——`apps/deep-agent-service`
+  全仓 grep 零命中。**第 4 点（TC-1~TC-5 黄金压测脚本）未做**——
+  `apps/deep-agent-service/tests/golden/` 目录不存在（2026-08-25 复核确认）。
+  这是 `deepagent-capability-rubric.md` 2026-08-23 评分史自己点名的缺口
+  （"TC-1~TC-5 黄金压测脚本目录仍不存在，未临时补写脚本凑数"），backlog 正文
+  此前没有对应到具体状态，在此补记为**真实剩余待办**，不是漂移。
 
 ### DA-10 guided_research 平行 loop 的裁决
 - **推动**：D10
@@ -141,6 +190,13 @@ CopilotKit 前端      react-core/react-ui 1.66.4 已装；runtime 未装（#654
 ### DA-11 子代理委托可见化
 - **推动**：D5（0→1）
 - **动作**：SubagentMiddleware 启用 + 前端渲染「委托给 X」嵌套卡片。
+- **状态**：⚠ 部分完成，2026-08-25 复核核实——**引擎侧已做**：#1843「具名研究
+  子代理 org-skill-researcher——task 工具不再守着空气」，`build_subagents` 真实
+  接线，委托真实发生（PR body 里的删线反证：关掉开关时 `task` 工具报"子代理不
+  存在"，证明不是摆设）。**前端"委托给 X"嵌套卡片渲染未做**——`deepagent-
+  capability-rubric.md` D5=0.7 的判据文字（"委托真实但前端不可见"）与此完全对应，
+  是评分卡已经记录、backlog 正文此前没有对应到具体状态的同一个真实缺口，不是
+  新发现。
 - **依赖**：DA-06。
 
 ### DA-12 应用层虚拟文件系统（VFS）⚠ 需 S1
