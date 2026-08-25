@@ -9,12 +9,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
+import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
+import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import {
-  createPersonalThread, listPersonalThreads, type ListThreadsOut,
+  createPersonalThread, listPersonalThreads, listThreadArtifacts, listThreadAttachments,
+  type ListThreadArtifactsOut, type ListThreadAttachmentsOut, type ListThreadsOut,
 } from "@/lib/live-chat";
 
 /**
- * issue #2021 —— `/chat/copilotkit-v2` 消息持久化 + 多线程管理外壳。
+ * issue #2021 —— CopilotKit v2（#2044 起原生住在 `/chat`）消息持久化 + 多线程管理外壳。
  *
  * ## 为什么是一个新组件，不是往 `copilotkit-v2-panel.tsx` 里堆
  *
@@ -89,6 +92,62 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     if (sourceKey) void reloadThreads();
   }, [sourceKey, reloadThreads]);
 
+  /**
+   * issue #2046（CK-P1）—— 右栏「产物」/「材料」，key/loading/failure 纪律与
+   * `personal-chat-screen.tsx` #1824 那份逐字同套（key = bearer+threadId，防陈旧
+   * 响应写进已切换的线程视图）。`projectId` 显式传 `null`：这些是个人线程。
+   * 「材料」这份数据同时下传给消息面板作 `@` 引用候选（CK-P2）——同一份事实，
+   * 不让面板发第二次请求。
+   */
+  const rightKey = bearer && selectedThreadId ? `${bearer} ${selectedThreadId}` : null;
+  const [artifactsResult, setArtifactsResult] = React.useState<{ key: string; value: ListThreadArtifactsOut } | null>(null);
+  const [materialsResult, setMaterialsResult] = React.useState<{ key: string; value: ListThreadAttachmentsOut } | null>(null);
+  const [artifactsFailure, setArtifactsFailure] = React.useState<{ key: string; value: string } | null>(null);
+  const [materialsFailure, setMaterialsFailure] = React.useState<{ key: string; value: string } | null>(null);
+  const [rightLoadingKey, setRightLoadingKey] = React.useState<string | null>(null);
+  const rightGeneration = React.useRef(0);
+
+  const artifacts = artifactsResult?.key === rightKey ? artifactsResult.value : null;
+  const materials = materialsResult?.key === rightKey ? materialsResult.value : null;
+  const artifactsError = artifactsFailure?.key === rightKey ? artifactsFailure.value : null;
+  const materialsError = materialsFailure?.key === rightKey ? materialsFailure.value : null;
+  const rightLoading = rightKey !== null && rightLoadingKey === rightKey;
+
+  const loadRightPanel = React.useCallback(async () => {
+    if (!bearer || !selectedThreadId) return;
+    const key = `${bearer} ${selectedThreadId}`;
+    const threadId = selectedThreadId;
+    const generation = ++rightGeneration.current;
+    setRightLoadingKey(key);
+    setArtifactsFailure(null);
+    setMaterialsFailure(null);
+    const [nextArtifacts, nextMaterials] = await Promise.allSettled([
+      listThreadArtifacts(threadId, null, bearer),
+      listThreadAttachments(threadId, null, bearer),
+    ]);
+    if (generation !== rightGeneration.current) return;
+    if (nextArtifacts.status === "fulfilled") {
+      setArtifactsResult({ key, value: nextArtifacts.value });
+    } else {
+      setArtifactsResult(null);
+      setArtifactsFailure({ key, value: nextArtifacts.reason instanceof Error ? nextArtifacts.reason.message : "产物列表读取失败" });
+    }
+    if (nextMaterials.status === "fulfilled") {
+      setMaterialsResult({ key, value: nextMaterials.value });
+    } else {
+      setMaterialsResult(null);
+      setMaterialsFailure({ key, value: nextMaterials.reason instanceof Error ? nextMaterials.reason.message : "材料列表读取失败" });
+    }
+    setRightLoadingKey(null);
+  }, [bearer, selectedThreadId]);
+
+  React.useEffect(() => {
+    if (rightKey) void loadRightPanel();
+    return () => {
+      rightGeneration.current += 1;
+    };
+  }, [rightKey, loadRightPanel]);
+
   const [createPending, setCreatePending] = React.useState(false);
 
   const handleCreate = React.useCallback(async () => {
@@ -97,7 +156,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       const result = await createPersonalThread(null);
       await reloadThreads();
-      router.push(`/chat/copilotkit-v2/${result.threadId}`);
+      router.push(`/chat/${result.threadId}`);
     } finally {
       setCreatePending(false);
     }
@@ -105,7 +164,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
 
   const selectThread = React.useCallback((threadId: string) => {
     if (threadId === selectedThreadId) return;
-    router.push(`/chat/copilotkit-v2/${threadId}`);
+    router.push(`/chat/${threadId}`);
   }, [router, selectedThreadId]);
 
   /**
@@ -118,7 +177,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const handleThreadResolved = React.useCallback((resolvedThreadId: string) => {
     setSelectedThreadId((prev) => {
       if (prev === resolvedThreadId) return prev;
-      window.history.replaceState(null, "", `/chat/copilotkit-v2/${resolvedThreadId}`);
+      window.history.replaceState(null, "", `/chat/${resolvedThreadId}`);
       return resolvedThreadId;
     });
     void reloadThreads();
@@ -214,8 +273,42 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           key={initialThreadId ?? "new"}
           chatThreadId={selectedThreadId}
           onThreadResolved={handleThreadResolved}
+          onMessageSent={() => void loadRightPanel()}
+          threadAttachments={materials?.items ?? null}
         />
       </div>
+      {/* issue #2046（CK-P1，人类 2026-08-25 原话「需要有右边的上传的文件列表和产物，
+          现在都没有」）—— 右栏原样复用旧壳的「产物 + 材料」堆叠（`personal-chat-screen.tsx`
+          #1824 同一布局、同一份组件、同一套空态/加载态/错误态），不另造第二份视觉。
+          `uploadCtl` 传 `null`：composer 的附件控制器（含附件线程生命周期）在面板
+          Body 层，上传入口已有 📎/全 surface 拖拽——材料栏本轮是读侧，不为一个
+          跨三层的状态提升画一个半通的「+」。DA-13 的 `ActiveFilePanel` 仍在面板内
+          （DA-15 事件至今没有真实生产者，生产环境不出现；等生产者落地再统一分区）。 */}
+      <aside
+        className="hidden w-72 shrink-0 flex-col border-l border-border md:flex"
+        data-testid="copilotkit-v2-right-panel"
+      >
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-b border-border-subtle">
+          <ChatArtifactsPanel
+            hasSelection={selectedThreadId !== null}
+            artifacts={artifacts}
+            loading={rightLoading}
+            error={artifactsError}
+            onRetry={() => void loadRightPanel()}
+          />
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <ChatMaterialsPanel
+            hasSelection={selectedThreadId !== null}
+            threadId={selectedThreadId}
+            materials={materials}
+            loading={rightLoading}
+            error={materialsError}
+            onRetry={() => void loadRightPanel()}
+            uploadCtl={null}
+          />
+        </div>
+      </aside>
     </div>
   );
 }

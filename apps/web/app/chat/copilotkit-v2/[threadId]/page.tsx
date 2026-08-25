@@ -1,6 +1,9 @@
 import { CopilotKitV2Shell } from "@/components/chat/copilotkit-v2-shell";
 
 /**
+ * ⚠ #2044 起本路由已由 next.config redirects 薄跳转到 `/chat/[threadId]`（新地址），
+ * 此文件保留仅为兼容书签/在途 PR，正常流量到不了这棵树；正式承载见
+ * `app/chat/[threadId]/page.tsx`。
  * issue #2021 —— 消息持久化 + 多线程管理：`threadId` 是后端真实持久化的
  * `chat_threads.id`（同一张表 `PersonalChatScreen`/`ChatReadScreen` 也在读写，见
  * `copilotkit-v2-shell.tsx` 文件头"为什么复用同一张表"一节）。这个路由段存在，

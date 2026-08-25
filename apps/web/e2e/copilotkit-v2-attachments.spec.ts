@@ -3,7 +3,7 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
 
 /**
  * chat-parity-attachments（issue #2022，差距清单第 2 项，阻断级）—— 真实浏览器证明
- * `/chat/copilotkit-v2` 的附件上传不是"上传成功、UI 显示已就绪，但 agent 从来看不到
+ * `/chat` 的附件上传不是"上传成功、UI 显示已就绪，但 agent 从来看不到
  * 这个附件内容"的假功能。
  *
  * ## 取证链路，与 `chat-attachment-image-vision-extraction.spec.ts`（旧轨道）同一套纪律
@@ -57,7 +57,7 @@ test(
   async ({ page }) => {
     await warmUpCopilotRuntimeRoute(page);
     await login(page);
-    await page.goto("/chat/copilotkit-v2");
+    await page.goto("/chat");
 
     /* ═══════════ ① 📎 入口从零到有——先前差距清单第 2 项的核心断言 ═══════════ */
 

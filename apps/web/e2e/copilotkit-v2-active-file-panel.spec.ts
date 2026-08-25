@@ -153,7 +153,7 @@ test("ActiveFilePanel 真实解析 file_created/file_content_delta wire 帧并�
     );
 
     await warmUpCopilotRuntimeRoute(page);
-    await page.goto("/chat/copilotkit-v2");
+    await page.goto("/chat");
     await page.getByTestId("copilotkit-v2-input").fill(userText);
     await page.getByTestId("copilotkit-v2-send").click();
 
@@ -210,7 +210,7 @@ test("ActiveFilePanel 缺席纪律：没有 file_created 事件时右栏不渲�
   await page.waitForURL(/\/projects$/);
 
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   // 没有发送任何消息、没有任何 CUSTOM 帧到达——面板不应该以任何形式出现在 DOM 里
   // （不是"隐藏但存在"，是根本不渲染，见 `ActiveFilePanel` 自己的"缺席"纪律）。

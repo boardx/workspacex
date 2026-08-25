@@ -1,9 +1,7 @@
 import { CopilotKitV2Providers } from "./copilotkit-v2-providers";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
-// issue #2039 —— 框架消息节点的本仓补样式（见该文件头注：不能写进被
-// NormalModuleReplacementPlugin 替换的那份 CSS，替换模块的内容变化在 dev 缓存下
-// 不可靠地重新发射；这里走标准 import 管线）。
-import "./copilotkit-v2.css";
+// issue #2039 —— 框架消息节点的本仓补样式改由 `./copilotkit-v2-providers.tsx`
+// import（#2044 起正式承载树不经过本 layout，providers 是两棵树唯一共用挂点）。
 
 /**
  * DA-19 —— 独立布局，只作用于 `/chat/copilotkit-v2` 子树（Next App Router 的布局

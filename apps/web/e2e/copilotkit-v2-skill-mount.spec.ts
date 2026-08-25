@@ -2,7 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 
 /**
- * issue #2020（差距清单第 3 项，阻断级）—— `/chat/copilotkit-v2` 的 Skill 挂载入口。
+ * issue #2020（差距清单第 3 项，阻断级）—— `/chat` 的 Skill 挂载入口。
  *
  * ## 取证链路：挂载 → run 快照 → 模型输入，前后对照
  *
@@ -51,7 +51,7 @@ async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
 }
 
 /**
- * `/chat/copilotkit-v2/[threadId]` 动态路由的编译焐热。
+ * `/chat/[threadId]` 动态路由的编译焐热。
  *
  * 实测根因（本 spec 首轮 serial 复跑，trace + console 取证）：本文件是整个套件里
  * 第一个**以客户端导航方式**进入 `[threadId]` 动态段的用例——`router.push` 触发
@@ -63,7 +63,7 @@ async function warmUpCopilotRuntimeRoute(page: Page): Promise<void> {
  * ——路由编译与 id 无关，页面对不存在的线程如实报错，不影响焐热目的。
  */
 async function warmUpThreadRoute(page: Page): Promise<void> {
-  await page.goto("/chat/copilotkit-v2/warmup-route-compile-only");
+  await page.goto("/chat/warmup-route-compile-only");
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
 }
 
@@ -90,7 +90,7 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
   await warmUpCopilotRuntimeRoute(page);
   await login(page);
   await warmUpThreadRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   /* ═══════════ ① 新对话还没有线程：如实占位，不渲染假挂载面板 ═══════════ */
   await expect(page.getByTestId("copilotkit-v2-skill-mount-placeholder")).toBeVisible();
@@ -110,8 +110,8 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
 
   /* ═══════════ ③ 首条消息 resolve 出真实线程后，挂载面板自动出现 ═══════════ */
   // 线程 id 经 CUSTOM {chat_thread_id} 事件回显 → 外壳 history.replaceState 写回地址栏。
-  await page.waitForURL(/\/chat\/copilotkit-v2\/.+$/, { timeout: 30_000 });
-  const threadId = /\/chat\/copilotkit-v2\/([^/?#]+)/.exec(page.url())?.[1];
+  await page.waitForURL(/\/chat\/.+$/, { timeout: 30_000 });
+  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId, "首条消息后地址栏应带上持久化线程 id").toBeTruthy();
   await expect(page.getByTestId("chat-skill-mount-panel")).toBeVisible();
   await expect(page.getByTestId("copilotkit-v2-skill-mount-placeholder")).toHaveCount(0);
@@ -133,27 +133,34 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
   ).toContainText(skillEcho);
 });
 
-test("issue #2020：composer 敲 # 触发挂载候选，选中即挂载并清掉正文里的 #query", async ({ page }) => {
+test("issue #2020/#2046：composer 敲 / 触发挂载候选（路径斜杠不误触），选中即挂载并清掉正文里的 /query", async ({ page }) => {
   await warmUpCopilotRuntimeRoute(page);
   await login(page);
   await warmUpThreadRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   /* 走「新建对话」拿一条真实线程（`[threadId]` 路由挂载面板从首帧就在）——
      与上一条测试的「发首条消息 resolve 线程」互为另一条入口路径。 */
   await page.getByTestId("chat-thread-create").click();
-  await page.waitForURL(/\/chat\/copilotkit-v2\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
-  const threadId = /\/chat\/copilotkit-v2\/([^/?#]+)/.exec(page.url())?.[1];
+  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
+  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId).toBeTruthy();
   await expect(page.getByTestId("chat-skill-mount-panel")).toBeVisible();
 
-  /* `#` + 名字片段：候选面板以 mention 模式打开，并按片段过滤。
-     `pressSequentially` 逐键真实敲入（onChange + onKeyUp 都会触发，与真实用户一致）。 */
+  /* issue #2046（CK-P2）反例先行：路径里的斜杠（前一字符非空白）不触发 mention——
+     没有这条，下面「/ 触发了」的断言证明不了误触规则真的存在。 */
   const input = page.getByTestId("copilotkit-v2-input");
   await input.click();
-  await input.pressSequentially("#假设");
+  await input.pressSequentially("看看 src/components 目录");
+  await expect(page.getByTestId("chat-skill-mount-picker")).toHaveCount(0);
+  await input.fill("");
+
+  /* `/`（2026-08-25 人类裁决：v2 触发符从 `#` 改 `/`，对齐 Claude Code）+ 名字片段：
+     候选面板以 mention 模式打开，并按片段过滤。
+     `pressSequentially` 逐键真实敲入（onChange + onKeyUp 都会触发，与真实用户一致）。 */
+  await input.pressSequentially("/假设");
   await expect(page.getByTestId("chat-skill-mount-picker")).toBeVisible();
-  await expect(page.getByTestId("chat-skill-mount-mention-hint")).toContainText("假设");
+  await expect(page.getByTestId("chat-skill-mount-mention-hint")).toContainText("/ 假设");
 
   const mountResponse = page.waitForResponse((response) => (
     response.request().method() === "POST"
@@ -163,8 +170,8 @@ test("issue #2020：composer 敲 # 触发挂载候选，选中即挂载并清掉
   expect((await mountResponse).ok(), "mention 触发的挂载 POST 应成功").toBe(true);
   await expect(page.getByTestId(`chat-skill-mounted-${CHAT_READ_E2E.mountableSkillId}`)).toBeVisible();
 
-  /* 挂载真的发生后，`#假设` 字面量从输入框正文里删掉——留着会让用户以为还要
-     手动发一条以 `#` 开头的消息（同旧 composer `mentionResolvedNonce` 语义）。 */
+  /* 挂载真的发生后，`/假设` 字面量从输入框正文里删掉——留着会让用户以为还要
+     手动发一条以 `/` 开头的消息（同旧 composer `mentionResolvedNonce` 语义）。 */
   await expect(input).toHaveValue("");
 
   /* 落库复核：刷新丢掉全部前端状态，挂载 chip 仍在（不是 useState 里的一帧）。 */

@@ -47,7 +47,7 @@ test.beforeAll(() => {
 test("空态 + 移动端宽度：桌面/375px 两档截图，375 不横向溢出", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
   // 让线程列表/agent 目录读完再抓（空态或列表都算稳态；这里等 toolbar 出现即可）。
   await expect(page.getByTestId("copilotkit-v2-agent-toolbar")).toBeVisible();
@@ -63,7 +63,7 @@ test("空态 + 移动端宽度：桌面/375px 两档截图，375 不横向溢出
 test("多轮对话 + markdown 回复 + 追问建议：桌面截图", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
   const input = page.getByTestId("copilotkit-v2-input");
   await input.fill("你好，请介绍一下你自己");
   await page.getByTestId("copilotkit-v2-send").click();
@@ -83,7 +83,7 @@ test("多轮对话 + markdown 回复 + 追问建议：桌面截图", async ({ pa
 test("工具调用卡（多步剧本）：桌面截图", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
   await expect
@@ -96,7 +96,7 @@ test("工具调用卡（多步剧本）：桌面截图", async ({ page }) => {
 test("错误横幅：真实失败链路下的视觉层级截图", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentFailureTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
   await expect(page.getByTestId("copilotkit-v2-error")).toHaveCount(1, { timeout: 60_000 });
@@ -106,7 +106,7 @@ test("错误横幅：真实失败链路下的视觉层级截图", async ({ page 
 test("HITL 审批弹窗：等待裁决态截图", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
   const dialog = page.getByTestId("copilotkit-v2-hitl-dialog");

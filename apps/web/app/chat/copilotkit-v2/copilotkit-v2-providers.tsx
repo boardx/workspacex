@@ -1,5 +1,10 @@
 "use client";
 
+// issue #2039 —— 框架消息节点的本仓补样式（用户气泡/工具条等，见该 CSS 头注）。
+// import 放在本文件而不是旧灰度路由的 layout.tsx：#2044 起正式承载树
+// （app/chat/copilotkit-v2-experience.tsx）不经过那个 layout，两棵树唯一共用的
+// 挂点就是本 provider 组件——单一声明点，样式随 provider 走到哪棵树都在。
+import "./copilotkit-v2.css";
 import * as React from "react";
 import { usePathname } from "next/navigation";
 import { CopilotKit, useAgentContext } from "@copilotkit/react-core/v2";

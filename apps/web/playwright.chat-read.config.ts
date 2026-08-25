@@ -92,31 +92,31 @@ export default defineConfig({
    */
   /**
    * DA-19f —— 新增 `copilotkit-v2-agent-context.spec.ts` 同样由本 config 接住（理由与
-   * `copilotkit-v2-runtime-adapter.spec.ts` 逐字相同：同一条 `/chat/copilotkit-v2` 路由、
+   * `copilotkit-v2-runtime-adapter.spec.ts` 逐字相同：同一条 `/chat` 路由、
    * 同一条真登录，唯一区别是断言目标从「回复文字」换成「上行请求体的 `context` 字段」）。
    * 不需要新的进程或新的环境变量。
    */
   /**
    * DA-19c —— 新增 `copilotkit-v2-tool-rendering.spec.ts` 同样由本 config 接住（同一条
-   * `/chat/copilotkit-v2` 路由、同一条真登录、同一个 deep-agent loopback 替身）。断言
+   * `/chat` 路由、同一条真登录、同一个 deep-agent loopback 替身）。断言
    * 目标是 `useRenderTool` 注册的 `write_todos`/`search_documents` 定制卡片真的渲染出来，
    * `search_documents` 分支复用已有的 `LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER` 环境变量
    * （上面已经下发给替身进程），不需要新的进程或新的环境变量。
    *
    * DA-19d（issue #1987）—— 新增 `copilotkit-v2-hitl.spec.ts` 同样由本 config 接住
-   * （理由与 `copilotkit-v2-runtime-adapter.spec.ts` 逐字相同：同一条 `/chat/
-   * copilotkit-v2` 路由、同一条真登录、同一个 deep-agent loopback 替身）。复用既有
+   * （理由与 `copilotkit-v2-runtime-adapter.spec.ts` 逐字相同：同一条 `/chat`
+   *  路由、同一条真登录、同一个 deep-agent loopback 替身）。复用既有
    * `LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER` 环境变量（下面那个 webServer 条目本来就
    * 已经下发给替身进程，服务于 `chat-read.spec.ts` 的旧 REST 审批场景），不需要新的
    * 进程或新的环境变量。
    *
    * DA-19e —— 新增 `copilotkit-v2-suggestions.spec.ts` 同样由本 config 接住（理由与
-   * `copilotkit-v2-agent-context.spec.ts` 逐字相同：同一条 `/chat/copilotkit-v2` 路由、
+   * `copilotkit-v2-agent-context.spec.ts` 逐字相同：同一条 `/chat` 路由、
    * 同一条真登录，唯一区别是断言目标换成 `useConfigureSuggestions`/`useSuggestions`
    * 接线是否走了同一条 `/api/copilotkit/` 连接）。不需要新的进程或新的环境变量。
    *
    * DA-19g（issue #1996）—— 新增 `copilotkit-v2-hitl-dialog-dismiss.spec.ts` 同样由
-   * 本 config 接住（同一条 `/chat/copilotkit-v2` 路由、同一条真登录、复用既有的
+   * 本 config 接住（同一条 `/chat` 路由、同一条真登录、复用既有的
    * `deepAgentApprovalTrigger` 触发词）。断言目标是 `SendEmailApprovalDialog` 终态
    * 弹窗关闭后模态遮罩真的从 DOM 移除、发送按钮点击后真的发出新请求——回归
    * `.harness/state/copilotkit-v2-ux-acceptance-score.md` 判据 #10 记录的模态遮罩
@@ -124,8 +124,8 @@ export default defineConfig({
    *
    * DA-19g（另一条同名 backlog，评分循环第 1 轮第 5 项缺口——两者是同一简写号意外
    * 撞车，互不相关，见 `copilotkit-v2-panel.tsx` 同名段落头注）—— 新增
-   * `copilotkit-v2-voice-input.spec.ts` 同样由本 config 接住（同一条 `/chat/
-   * copilotkit-v2` 路由、同一条真登录）。麦克风/假音频源/ASR loopback 三个前提
+   * `copilotkit-v2-voice-input.spec.ts` 同样由本 config 接住（同一条 `/chat`
+   *  路由、同一条真登录）。麦克风/假音频源/ASR loopback 三个前提
    * （`permissions`/`launchOptions`、下面的 `loopback-asr-provider.ts` webServer
    * 条目、`LOOPBACK_ASR_EMIT_DELTA`）本 config 早已具备（`chat-read.spec.ts` 步骤 5c
    * 语音输入场景已在用），不需要新的进程或新的环境变量。**这条 testMatch 白名单是
@@ -135,8 +135,8 @@ export default defineConfig({
    *
    * DA-19g 评分循环第 4 轮（issue #2012）—— 新增 `copilotkit-v2-stream-frame-timing.
    * spec.ts`（第 1 项"流式反馈"UI 帧级独立复核）与 `copilotkit-v2-error-banner.spec.ts`
-   * （第 7 项"错误处理透明度"真实失败横幅断言）同样由本 config 接住：同一条 `/chat/
-   * copilotkit-v2` 路由、同一条真登录、复用既有的 `deepAgentFailureTrigger`
+   * （第 7 项"错误处理透明度"真实失败横幅断言）同样由本 config 接住：同一条 `/chat`
+   *  路由、同一条真登录、复用既有的 `deepAgentFailureTrigger`
    * （下面 `LOOPBACK_DEEP_AGENT_FAILURE_TRIGGER` 早已下发给替身进程）。不需要新的
    * 进程或新的环境变量。
    *
@@ -147,8 +147,8 @@ export default defineConfig({
    * runtime-adapter.spec.ts` 已在用）。不需要新的进程或新的环境变量。
    *
    * issue #2023（差距清单第 4 项，Agent 选择/切换）—— 新增
-   * `copilotkit-v2-agent-switch.spec.ts` 同样由本 config 接住：同一条 `/chat/
-   * copilotkit-v2` 路由、同一条真登录，复用本 config 早就种好的两个真实已发布 agent
+   * `copilotkit-v2-agent-switch.spec.ts` 同样由本 config 接住：同一条 `/chat`
+   *  路由、同一条真登录，复用本 config 早就种好的两个真实已发布 agent
    * （`CHAT_READ_E2E.agentId` 走 loopback-echo、`CHAT_READ_E2E.deepAgentId` 走
    * deep-agent，两者都已经在 `capability_listings` 里，是本 spec 唯一需要的两个
    * 互相区分得开的候选）——`COPILOTKIT_V2_AGENT_ID` 环境变量固定指向
@@ -157,15 +157,15 @@ export default defineConfig({
    * 进程或新的环境变量。
    *
    * chat-parity-attachments（issue #2022）—— 新增 `copilotkit-v2-attachments.spec.ts`
-   * 同样由本 config 接住：同一条 `/chat/copilotkit-v2` 路由、同一条真登录、真实
+   * 同样由本 config 接住：同一条 `/chat` 路由、同一条真登录、真实
    * `POST /chat/threads/:id/attachments` 上传端点（`chat-attachment-image-vision-
    * extraction.spec.ts` 早已在用同一端点）、`loopback-deep-agent-provider.ts` 的
    * 默认回显剧本（`copilotkit-v2-runtime-adapter.spec.ts` 早已在用）。不需要新的
    * 进程或新的环境变量。
    *
    * issue #2020（差距清单第 3 项，v2 Skill 挂载）—— 新增
-   * `copilotkit-v2-skill-mount.spec.ts` 同样由本 config 接住：同一条 `/chat/
-   * copilotkit-v2` 路由、同一条真登录、同一个可挂载 skill 种子
+   * `copilotkit-v2-skill-mount.spec.ts` 同样由本 config 接住：同一条 `/chat`
+   *  路由、同一条真登录、同一个可挂载 skill 种子
    * （`CHAT_READ_E2E.mountableSkillId`，`chat-agent-skill-context.spec.ts` 早已在用）。
    * 新增的只有 deep-agent 替身的两个哨兵回显环境变量（见该 webServer 条目），
    * 哨兵串复用 `mountedSkillSentinel` 同一个，不是第二份事实。
@@ -177,8 +177,13 @@ export default defineConfig({
    * 逐字节向后兼容由 `copilotkit-v2-agent-switch.spec.ts` 的既有用例继续钉住，
    * 「不设 / 配错」两个 webServer 级环境差异场景由该 spec 直接打服务端解析本体
    * 取证（理由见该 spec 头注），不需要新的进程或新的环境变量。
+   *
+   * issue #2046（CK-P1+P2）—— 新增 `copilotkit-v2-right-panel.spec.ts` 同样由本
+   * config 接住：同一条 `/chat`（#2044 原生化后）路由、同一条真登录、同一个附件
+   * 上传端点与 loopback 回显替身；直连 API 落草稿产物走 `CHAT_READ_E2E_API_ORIGIN`
+   * 同源代理的既有 `/chat/artifacts|threads` rewrite。不需要新的进程或新的环境变量。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-uiux-shots|chat-keyboard-navigation)\.spec\.ts$/,
+  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-uiux-shots|chat-keyboard-navigation)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   /*
@@ -213,6 +218,15 @@ export default defineConfig({
   timeout: 120_000,
   expect: { timeout: 30_000 },
   reporter: "list",
+  /**
+   * #2044 —— `/chat` 首编译只付一次。v2 体验原生搬进 `/chat` 后，该路由的模块图
+   * 同时含 CopilotKit v2 provider 树与旧屏两支，Next dev 按路由（不按渲染分支）
+   * 编译；5 个 worker 各撞一次首编译，实测把 18 个用例打成 goto 超时／ERR_ABORTED
+   * （连不碰 v2 的旧屏深链 spec 也一起红，因为共用同一个 page 模块）。
+   * globalSetup 在 webServer 全部 ready 之后、worker 起来之前跑一次，编译结果是
+   * Next dev 进程级的。完整推理与预算实测依据见该文件头注。
+   */
+  globalSetup: "./e2e/chat-route-warmup.global-setup.ts",
   use: {
     baseURL: `http://127.0.0.1:${webPort}`,
     ...devices["Desktop Chrome"],

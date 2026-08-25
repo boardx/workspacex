@@ -271,22 +271,23 @@ test("formal Chat with no projectId goes personal, never invents a project conte
 });
 
 /**
- * 2026-08-25 人类裁决（「直接更改，chat为新的版本copilot-kit」）：默认入口翻转的
- * 三条反证——① 裸 `/chat` 真的落在 CopilotKit v2 轨道；② 带参数的深链没有被
- * 误伤（仍是旧屏，理由见 app/chat/page.tsx 头注：v2 尚无 projectId/thread 概念，
- * redirect 深链 = 功能破坏）；③ `/chat/legacy` 回退入口真实可用（上面那条个人
- * 模式测试已从它进，这里不重复断言）。没有这条测试，redirect 被谁改掉/改错都
- * 不会有任何门变红。
+ * 2026-08-25 人类裁决两连：先「直接更改，chat为新的版本copilot-kit」（#2026），再
+ * 「路由要改为 chat，不要 chat/copilotkit-v2，潜入到整体框架」（#2044）。反证——
+ * ① 裸 `/chat` **原生渲染** CopilotKit v2（URL 不再跳走，输入框真实可见）；
+ * ② 带参数的深链没有被误伤（仍是旧屏，理由见 app/chat/page.tsx 头注：v2 尚无
+ * projectId/thread 概念，切走深链 = 功能破坏）；③ `/chat/legacy` 回退入口真实
+ * 可用（上面那条个人模式测试已从它进，这里不重复断言）。没有这条测试，入口
+ * 形态被谁改掉/改错都不会有任何门变红。
  */
-test("默认入口翻转：裸 /chat → copilotkit-v2；带参数深链仍是旧屏", async ({ page }) => {
+test("默认入口：裸 /chat 原生渲染 copilotkit v2；带参数深链仍是旧屏", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/projects$/);
 
-  // 给足首次编译窗口（copilotkit-v2-runtime-adapter.spec.ts 同一先例）：redirect 目标
-  // 的 runtime 路由没预热时，dev 首编译会让 goto("/chat") 以 ERR_ABORTED 收场
+  // 给足首次编译窗口（copilotkit-v2-runtime-adapter.spec.ts 同一先例）：v2 的
+  // runtime 路由没预热时，dev 首编译会让 goto("/chat") 以 ERR_ABORTED 收场
   // （本轮实测，非猜测）。先单独打一次 /api/copilotkit/info 把编译预热掉。
   await expect
     .poll(
@@ -295,15 +296,48 @@ test("默认入口翻转：裸 /chat → copilotkit-v2；带参数深链仍是�
     )
     .toBe(200);
 
-  // ① 裸 /chat redirect 到 v2 轨道，且 v2 的输入框真实渲染（不是白屏 redirect）。
+  // ① 裸 /chat 原生渲染 v2：URL 停在 /chat（#2044 之前这里是 307 到
+  //    /chat/copilotkit-v2，redirect 语义已删），输入框真实可见（不是白屏），
+  //    且包在 AppShell 整体框架里（app-shell 骨架在场）。
   await page.goto("/chat");
-  await expect(page).toHaveURL(/\/chat\/copilotkit-v2/);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
+  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page.getByTestId("app-shell")).toBeVisible();
 
-  // ② 项目深链没有被 redirect 误伤——仍是旧屏的线程列表。
+  // ② 项目深链没有被误伤——仍是旧屏的线程列表。
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
   await expect(page).toHaveURL(new RegExp(`projectId=${CHAT_READ_E2E.projectId}`));
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.threadId}`)).toContainText("Controlled fixture thread");
+});
+
+/**
+ * #2044 —— AppShell 嵌入后的响应式反证：`/chat` 从「独立全屏裸页」变成「壳内一屏」，
+ * 壳自带图标栏/顶栏/底部 tab，v2 自己的线程列表（w-64 固定宽 aside）成了壳内二级栏
+ * ——两层固定宽度叠在 375px 上正是 uiux-standards U8「三档都不得横向溢出」最容易被
+ * 破坏的形态。没有这条断言，溢出只会以「手机上要左右拖」的形式被人类实测撞见。
+ *
+ * 判据用 `scrollWidth <= clientWidth`（文档级真实溢出）而不是截图比对：溢出是一个
+ * 布局事实，不是观感问题。
+ */
+test("#2044 响应式：375px 下 /chat（AppShell 内）不横向溢出", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await expect(page).toHaveURL(/\/projects$/);
+
+  await page.goto("/chat");
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
+
+  // 反空转：先证明这台尺子在同一页上确实读到了 375 宽的真实文档，否则下面的
+  // `<=` 可能只是两个 0 相等。
+  const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+  }));
+  expect(clientWidth).toBe(375);
+  expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
 });
 
 test("#925 ③ Enter 发送、Shift+Enter 换行（覆盖 V2 的 ⌘↵）", async ({ page }) => {
