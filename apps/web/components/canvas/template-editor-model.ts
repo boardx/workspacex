@@ -164,12 +164,42 @@ export interface TemplateHealth {
   readonly overflowing: readonly { readonly section: SectionDraft; readonly max: number; readonly fits: number }[];
   /** key 重复的分区（§6 规则①：模板内唯一）。 */
   readonly duplicateKeys: readonly string[];
+  /**
+   * 提示词正文里写了、但字段表里没有的占位符（§6 规则③）。
+   *
+   * ⚠ 规则③ 的字面表述是「**画布上**出现字段表里没有的占位符」——那一半在本实现里
+   *   **构造上不可能**：设计稿 §2.2 把 `fields[]` 与 `blocks[]` 分成两个数组、block
+   *   用 `fieldKey` 引用字段，于是「删了字段没删 block」会留下悬空引用；本实现把两者
+   *   合并成同一个对象（`SectionDraft` + 可选 `layout`），区块不可能没有字段——
+   *   非法状态在类型上就表达不出来，这比运行时报警更强。
+   *
+   *   但**同一个失效模式**在这里另有一条真实可达的路径：顾问在提示词正文（§4.1 那个
+   *   自由文本框）里写 `{{gains}}`，而字段表里没有 `gains`。后果与规则③ 描述的完全
+   *   一致——AI 被要求产出这个键，而输出结构（由字段表派生）不声明它，数据静默丢失。
+   *   所以规则③ 落在这里，不落在画布上。
+   */
+  readonly danglingPlaceholders: readonly string[];
   /** 可以发布吗（§6 规则⑦：无溢出、无未放置字段——不满足时允许强制发布但要二次确认）。 */
   readonly publishClean: boolean;
 }
 
+/**
+ * 从提示词正文里抽出所有 `{{token}}` / `{{token[]}}` 占位符的 key。
+ *
+ * 只认 §2.1 规定的 key 形状（小写英文 + 下划线）——顾问在正文里写的 `{{注意}}`
+ * 这类中文花括号内容不是占位符，不该被当成"未定义字段"来报警。
+ */
+export function extractPromptPlaceholders(promptText: string): string[] {
+  const found = new Set<string>();
+  for (const m of promptText.matchAll(/\{\{\s*([a-z][a-z0-9_]*)\s*(?:\[\s*\])?\s*\}\}/g)) {
+    const key = m[1];
+    if (key !== undefined) found.add(key);
+  }
+  return [...found];
+}
+
 export function checkTemplateHealth(
-  drafts: readonly SectionDraft[], gridCols: 6 | 12,
+  drafts: readonly SectionDraft[], gridCols: 6 | 12, promptText = "",
 ): TemplateHealth {
   const named = drafts.filter((d) => d.name.trim().length > 0);
   const unplaced = named.filter((d) => d.layout === null);
@@ -185,13 +215,19 @@ export function checkTemplateHealth(
     if (seen.has(d.key)) duplicateKeys.push(d.key);
     seen.add(d.key);
   }
+  // §6 规则③：提示词里提到、字段表里没有的占位符（见 `danglingPlaceholders` 文档）。
+  const knownKeys = new Set(named.map((d) => d.key));
+  const danglingPlaceholders = extractPromptPlaceholders(promptText).filter((k) => !knownKeys.has(k));
+
   return {
     fieldCount: named.length,
     placedCount: named.length - unplaced.length,
     unplaced,
     overflowing,
     duplicateKeys,
-    publishClean: unplaced.length === 0 && overflowing.length === 0 && duplicateKeys.length === 0,
+    danglingPlaceholders,
+    publishClean: unplaced.length === 0 && overflowing.length === 0
+      && duplicateKeys.length === 0 && danglingPlaceholders.length === 0,
   };
 }
 
