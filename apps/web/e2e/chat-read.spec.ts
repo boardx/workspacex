@@ -285,6 +285,16 @@ test("默认入口翻转：裸 /chat → copilotkit-v2；带参数深链仍是�
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/projects$/);
 
+  // 给足首次编译窗口（copilotkit-v2-runtime-adapter.spec.ts 同一先例）：redirect 目标
+  // 的 runtime 路由没预热时，dev 首编译会让 goto("/chat") 以 ERR_ABORTED 收场
+  // （本轮实测，非猜测）。先单独打一次 /api/copilotkit/info 把编译预热掉。
+  await expect
+    .poll(
+      async () => (await page.request.get("/api/copilotkit/info")).status(),
+      { timeout: 60_000, intervals: [500, 1_000, 2_000] },
+    )
+    .toBe(200);
+
   // ① 裸 /chat redirect 到 v2 轨道，且 v2 的输入框真实渲染（不是白屏 redirect）。
   await page.goto("/chat");
   await expect(page).toHaveURL(/\/chat\/copilotkit-v2/);
