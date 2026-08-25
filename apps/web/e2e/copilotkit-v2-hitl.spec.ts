@@ -2,12 +2,15 @@ import { test, expect } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
 
 /**
  * DA-19g HITL 审批语义（issue #1987 起点，最终修复登记在 DA-19g HITL 审批语义任务）
  * —— 真实浏览器 + 真实 deep-agent loopback 替身，走 `/chat` 触发
  * `deepAgentApprovalTrigger`（`CHAT_READ_E2E.deepAgentApprovalTrigger`），断言
- * `useHumanInTheLoop` 注册的 `send_email` 审批对话框的 approve/编辑/reject 三条路径
+ * `useHumanInTheLoop` 注册的审批对话框的 approve/编辑/reject 三条路径
+ * （工具名与参数形状取自 `@repo/contracts` 的 `deep-agent-hitl.ts`，替身与真实引擎
+ * 共用同一份声明——issue #2017 修掉了"两边各写死一个 `send_email`"的旧形态）
  * 真的渲染、真的生效。
  *
  * ## 这条测试曾经断言的坏行为，与它为什么被替换（如实记录，不是凭空重写）
@@ -113,16 +116,29 @@ test("DA-19g approve：三个交互按钮真的渲染，点击「批准并继续
   await expect(startEditButton).toBeVisible();
   await expect(rejectButton).toBeVisible();
 
+  // ── issue #2017 的核心断言：**线上真的发的那个工具名，就是契约里的那个** ──
+  //
+  // 这条以前不存在，正是这套 e2e 长期"全绿但空转"的原因：它只断言"审批卡出现了"，
+  // 而审批卡出现只证明 loopback 替身发的名字与前端注册的名字一致——当年这两处都写死
+  // 同一个 `send_email`，于是恒真；真实引擎发 `call_skill`，前端不认，生产恒红，
+  // 而这套 e2e 一路绿。断言"卡片出现了"守不住工具名，必须直接断言 wire 上的名字。
+  const toolCallNames = capturedBodies
+    .flatMap((b) => parseSseFrames(b.toString("utf8")))
+    .filter((f) => f.type === "TOOL_CALL_START")
+    .map((f) => f["toolCallName"]);
+  expect(toolCallNames, "事件流里没有任何 TOOL_CALL_START").not.toHaveLength(0);
+  expect(toolCallNames).toContain(DEEP_AGENT_HITL_TOOL_NAME);
+
   const args = await page.getByTestId("copilotkit-v2-hitl-args").textContent();
-  expect(args).toContain("ops@example.test");
-  expect(args).toContain("原始正文（未编辑）");
+  expect(args).toContain("quarterly-report");
+  expect(args).toContain("原始参数，未编辑");
 
   await approveButton.click();
 
   // 对话框立刻卸载（`close()` 在 `respond()` 之前同步调用）——不是等 run 收尾才关。
   await expect(page.getByTestId("copilotkit-v2-hitl-dialog")).toHaveCount(0);
 
-  // ── 反证②：run 真的继续执行完成，最终答案里能看到「已按原参数发送」——不是卡在
+  // ── 反证②：run 真的继续执行完成，最终答案里能看到「已按原参数执行」——不是卡在
   // `awaiting_approval` 直到 30s 超时收场（旧行为：`RUN_ERROR AGENT_RUN_TIMEOUT`） ──
   // `agent.isRunning` (this button's `disabled`) already flips back to `false` the moment
   // TURN ONE's `RUN_FINISHED` lands, BEFORE the human decides anything -- see
@@ -132,7 +148,7 @@ test("DA-19g approve：三个交互按钮真的渲染，点击「批准并继续
   await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled({ timeout: 30_000 });
   await expect.poll(() => capturedBodies.length, { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
   await expect(page.locator('[data-testid="copilotkit-v2-messages"]')).toContainText(
-    "已按原参数发送", { timeout: 30_000 },
+    "已按原参数执行", { timeout: 30_000 },
   );
 
   writeFileSync(
@@ -161,9 +177,8 @@ test("DA-19g edit：编辑后的参数值真的生效——不是表单能编辑
 
   const textarea = page.getByTestId("copilotkit-v2-hitl-edit-textarea");
   await expect(textarea).toBeVisible();
-  const EDITED_SUBJECT = "已编辑：请今日发出（DA-19g 实测）";
-  const EDITED_BODY = "人工编辑后的正文（DA-19g 实测）";
-  const edited = { to: "ops@example.test", subject: EDITED_SUBJECT, body: EDITED_BODY };
+  const EDITED_TASK = "人工编辑后的任务描述（issue #2017 实测）";
+  const edited = { skill_stable_name: "quarterly-report", task: EDITED_TASK };
   await textarea.fill(JSON.stringify(edited));
 
   const submitButton = page.getByTestId("copilotkit-v2-hitl-edit-submit");
@@ -179,8 +194,8 @@ test("DA-19g edit：编辑后的参数值真的生效——不是表单能编辑
   // 核心断言：最终答案里出现的是编辑后的正文，不是原始正文——这正是 UX-9 评估当年
   // 发现、DA-19d backlog 条目提过"这次要顺带解决"的那条真实缺陷。
   const messages = page.locator('[data-testid="copilotkit-v2-messages"]');
-  await expect(messages).toContainText(EDITED_BODY, { timeout: 30_000 });
-  await expect(messages).not.toContainText("原始正文（未编辑）");
+  await expect(messages).toContainText(EDITED_TASK, { timeout: 30_000 });
+  await expect(messages).not.toContainText("原始参数，未编辑");
 });
 
 test("DA-19g reject：run 真的以 HITL_REJECTED 收场，不是卡在超时也不是静默成功", async ({ page }) => {
