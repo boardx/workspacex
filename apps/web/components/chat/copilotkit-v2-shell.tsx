@@ -12,9 +12,15 @@ import { useSession } from "@/components/session/session-provider";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import {
-  createPersonalThread, getThread, listPersonalThreads, listThreadArtifacts, listThreadAttachments,
-  type GetThreadOut, type ListThreadArtifactsOut, type ListThreadAttachmentsOut, type ListThreadsOut,
+  createPersonalThread, getAgentPanel, getThread, listPersonalThreads, listThreadArtifacts,
+  listThreadAttachments, updateAgentRoster,
+  type GetAgentPanelOut, type GetThreadOut, type ListThreadArtifactsOut,
+  type ListThreadAttachmentsOut, type ListThreadsOut,
 } from "@/lib/live-chat";
+// issue #2052（CK-P7）—— 编制面板与旧轨道共用同一份组件，不重画。
+import { RosterPanel } from "@/components/chat/chat-roster-panel";
+import { describeMutateFailure } from "@/lib/chat-failure-copy";
+import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 
 /**
  * issue #2021 —— CopilotKit v2（#2044 起原生住在 `/chat`）消息持久化 + 多线程管理外壳。
@@ -207,6 +213,105 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     };
   }, [rightKey, loadRightPanel]);
 
+  /* ── issue #2052（CK-P7）本会话的 agent 编制 ────────────────────────────────
+   * #2025 把这半边明确延后，理由是"v2 的 threadId 是每次挂载的临时随机值，没有一条
+   * 真实的 `chat_thread_agents` 可以增删"。#2028 落地持久化线程之后这个前提不成立了：
+   * 这里的 `selectedThreadId` 就是 `chat_threads.id` 本身。
+   *
+   * ⚠ 与 `AgentPicker`（#2025，选"这条消息用哪个 agent 发"）语义不同，见面板栏头文案。
+   *
+   * ⚠ `projectId` 恒传 `null`：v2 外壳管的全是个人线程（`createPersonalThread`）。
+   *   服务端这条路本轮才打通（controller 归一化 + `update-agent-roster.ts` 的
+   *   `isPersonalThread` 豁免），不是一直就能用。
+   *
+   * 纪律照抄旧轨道 `chat-read-screen.tsx`：**先等服务端返回，再重读服务端**，不做乐观
+   * 更新；`expectedRosterVersion` 只来自读端口 `getAgentPanel.out.rosterVersion`
+   * （#513：本地存一份版本号就是第二个事实源，刷新后必 409），读不回来就**不提交**。
+   */
+  const [rosterResult, setRosterResult] = React.useState<{ key: string; value: GetAgentPanelOut } | null>(null);
+  const [rosterFailure, setRosterFailure] = React.useState<{ key: string; value: string } | null>(null);
+  const [rosterPending, setRosterPending] = React.useState(false);
+  const [rosterMutateFailure, setRosterMutateFailure] = React.useState<string | null>(null);
+  const rosterGeneration = React.useRef(0);
+
+  const roster = rosterResult?.key === rightKey ? rosterResult.value : null;
+  const rosterError = rosterFailure?.key === rightKey ? rosterFailure.value : null;
+  const rosterLoading = rightKey !== null && roster === null && rosterError === null;
+
+  const loadRoster = React.useCallback(async () => {
+    if (!bearer || !selectedThreadId) return;
+    const key = `${bearer} ${selectedThreadId}`;
+    const generation = ++rosterGeneration.current;
+    try {
+      const result = await getAgentPanel(selectedThreadId, null, bearer);
+      if (generation !== rosterGeneration.current) return;
+      setRosterResult({ key, value: result });
+      setRosterFailure(null);
+    } catch (failure) {
+      if (generation !== rosterGeneration.current) return;
+      setRosterResult(null);
+      setRosterFailure({ key, value: failure instanceof Error ? failure.message : "编制读取失败" });
+    }
+  }, [bearer, selectedThreadId]);
+
+  React.useEffect(() => {
+    if (rightKey) void loadRoster();
+    setRosterMutateFailure(null); // 换线程 ⇒ 上一条线程的错误提示作废
+  }, [rightKey, loadRoster]);
+
+  const [agentCatalog, setAgentCatalog] = React.useState<CapabilityListing[] | null>(null);
+  const [agentCatalogError, setAgentCatalogError] = React.useState<string | null>(null);
+  const currentOrgId = session?.currentOrgId ?? null;
+
+  React.useEffect(() => {
+    if (!currentOrgId || !bearer) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await listCapabilities(currentOrgId, "agent");
+        if (cancelled) return;
+        setAgentCatalog(result);
+        setAgentCatalogError(null);
+      } catch (failure) {
+        if (cancelled) return;
+        setAgentCatalog(null);
+        setAgentCatalogError(failure instanceof Error ? failure.message : "agent 目录读取失败");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentOrgId, bearer]);
+
+  const agentCandidates = React.useMemo(() => {
+    const mounted = new Set((roster?.agents ?? []).map((agent) => agent.id));
+    return (agentCatalog ?? []).filter((listing) => listing.enabled && !mounted.has(listing.id));
+  }, [agentCatalog, roster]);
+
+  const runRosterMutation = React.useCallback(async (
+    change: { readonly add: readonly string[]; readonly remove: readonly string[] },
+  ) => {
+    // ⛔ 版本号读不回来就不提交（#513）——不传 0、不传 -1、不省略。乐观锁的意义
+    //    就是拒绝盲写，兜底等于把锁摘了。
+    const rosterVersion = roster?.rosterVersion ?? null;
+    if (!bearer || !selectedThreadId || rosterVersion === null) return;
+    setRosterPending(true);
+    setRosterMutateFailure(null);
+    try {
+      await updateAgentRoster(
+        selectedThreadId,
+        null,
+        { add: [...change.add], remove: [...change.remove], expectedRosterVersion: rosterVersion },
+        bearer,
+      );
+      // 重读服务端：界面上的编制**和下一次要用的版本号**都来自 `getAgentPanel`，
+      // 不把写端口的响应体直接画上去，也不本地拼一个（#513 之后版本号只有一个事实源）。
+      await loadRoster();
+    } catch (failure) {
+      setRosterMutateFailure(describeMutateFailure(failure));
+    } finally {
+      setRosterPending(false);
+    }
+  }, [bearer, loadRoster, roster, selectedThreadId]);
+
   const [createPending, setCreatePending] = React.useState(false);
 
   const handleCreate = React.useCallback(async () => {
@@ -286,6 +391,35 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           <p className="px-3 text-11 text-destructive" data-testid="copilotkit-v2-thread-list-error">{listError}</p>
         ) : null}
         {!canCreate ? null : null}
+        {/* issue #2052（CK-P7）—— 本会话编制。放在线程列表**之上**、与旧轨道
+            （`chat-read-screen.tsx` 按 #728 D2 把编制搬进左栏）同一个位置语义：
+            "这条对话有谁在" 属于会话上下文，不是消息操作。 */}
+        {selectedThreadId !== null ? (
+          <div className="border-b border-border-subtle pb-2">
+            <RosterPanel
+              roster={roster}
+              loading={rosterLoading}
+              error={rosterError}
+              hasSelection={selectedThreadId !== null}
+              // rebase 注：main 在这之后合入了 CK-P8（归档只读态，`getThread` 真实下发
+              // `thread.archived`）。服务端 `update-agent-roster.ts` 本就对归档线程拒绝
+              // （`THREAD_ARCHIVED_READONLY`），但按「按钮不渲染 且 接口拒绝」的既有
+              // 纪律，编辑入口也不该在归档线程上渲染——不是新增能力，是让前端诚实
+              // 反映服务端已经在拒的事。
+              canMutate={canCreate && !archived}
+              pending={rosterPending}
+              mutateFailure={rosterMutateFailure}
+              candidates={agentCandidates}
+              candidatesError={agentCatalogError}
+              onAdd={(agentId) => {
+                const trimmed = agentId.trim();
+                if (trimmed !== "") void runRosterMutation({ add: [trimmed], remove: [] });
+              }}
+              onRemove={(agentId) => void runRosterMutation({ add: [], remove: [agentId] })}
+              onRetry={() => void loadRoster()}
+            />
+          </div>
+        ) : null}
         <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2" data-testid="copilotkit-v2-thread-list">
           {/* issue #2039（第 2 轮 gap #2）——此前 `flatMap` 把服务端已经分好的
               「今天/本周」时间分组（`listPersonalThreads.out.groups[].label`，契约
@@ -333,6 +467,8 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           chatThreadId={selectedThreadId}
           onThreadResolved={handleThreadResolved}
           onMessageSent={() => void loadRightPanel()}
+          /* issue #2050 —— 落地成功后重读右栏「产物」，让新产物真的出现在栏里。 */
+          onArtifactLanded={() => void loadRightPanel()}
           threadAttachments={materials?.items ?? null}
           archived={archived}
           canGeneratePersona={canGeneratePersona}

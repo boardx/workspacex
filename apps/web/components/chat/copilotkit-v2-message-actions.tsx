@@ -4,6 +4,9 @@ import { Copy, Check } from "lucide-react";
 import { MessageRating } from "@/components/chat/message-rating";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import type { ChatMessageIdentityIndex } from "@/lib/copilotkit-v2-message-identity";
+import {
+  MessageLandingControls, type MessageLandingState,
+} from "@/components/chat/message-landing";
 
 /**
  * CK-P3（issue #2054）—— v2 轨道逐条 AI 消息的操作条：复制 / 👍👎 评分 / 对 agent 提反馈。
@@ -48,11 +51,29 @@ import type { ChatMessageIdentityIndex } from "@/lib/copilotkit-v2-message-ident
  * 同一个 agent，对不上就不采集，不塞一个 `"default"` 之类的占位。
  */
 
+/**
+ * issue #2052（CK-P7）—— 「落地为产物」这一件的状态机接口。
+ *
+ * `null` = 这次挂载不具备落地条件（没有真实线程 id 或没有 bearer）⇒ 入口整个不渲染。
+ * ⚠ 这里**没有** id 解析函数：那件事由上面同一个 context 里的 `identity` 回答。
+ *   评分与落地问的是同一个问题（"这条气泡在 `chat_messages` 里的主键是什么"），
+ *   各存一份就是同一事实两处声明。
+ */
+export interface AssistantMessageLandingValue {
+  readonly stateFor: (chatMessageId: string) => MessageLandingState | undefined;
+  readonly open: (message: { readonly id: string; readonly text: string }) => void;
+  readonly updateTitle: (chatMessageId: string, title: string) => void;
+  readonly cancel: (chatMessageId: string) => void;
+  readonly submit: (message: { readonly id: string; readonly text: string }) => void;
+}
+
 export interface CopilotKitV2MessageActionsContextValue {
   readonly identity: ChatMessageIdentityIndex;
   /** 当前发送 agent 的真实 id；用户未选择（走服务端默认）时为 `null`。 */
   readonly agentId: string | null;
   readonly agentLabel: string | null;
+  /** issue #2052（CK-P7）—— 「落地为产物」；`null` = 本次挂载不具备落地条件。 */
+  readonly landing: AssistantMessageLandingValue | null;
 }
 
 const Ctx = React.createContext<CopilotKitV2MessageActionsContextValue | null>(null);
@@ -152,5 +173,51 @@ export function CopilotKitV2MessageExtraActions({ messageId }: { messageId: stri
         <MessageRating messageId={chatMessageId} revealOnHover={false} />
       ) : null}
     </>
+  );
+}
+
+/**
+ * issue #2052（CK-P7）—— 逐条 AI 消息的「落地为产物（草稿）」。
+ *
+ * ## 为什么在这个文件里，而不是自己再换一次 `assistantMessage` slot
+ *
+ * CK-P3（#2054）已经为了复制/评分/反馈换过一次这个 slot 了。同一个 slot 换两次
+ * 会渲染出**两个气泡外壳**——两条并行线撞在同一层的既知风险，先合入的那份是骨架，
+ * 后来的挂件并进去。所以这里只是那条操作条上的第四件，与它们共用同一份 context。
+ *
+ * ## 为什么它不进 `additionalToolbarItems`
+ *
+ * 那一组是**行内**工具栏图标（反馈、👍👎）。落地的完整交互是「按钮 → 标题表单 →
+ * 已落地卡片」三态，是块级的，塞进行内工具栏会把工具栏撑变形。所以它作为气泡的
+ * **兄弟节点**渲染在下方（见 `V2AssistantMessageImpl`），不是第二层包装。
+ *
+ * ## 渲染门（与评分同一条纪律，不是新发明的）
+ *
+ * 三者俱全才画：真实线程 id + bearer（两者合成 `ctx.landing !== null`）+ 这条消息的
+ * 真实落库 id（`ctx.identity.resolve(...)`）。缺任何一件都不渲染——正在流的那条消息
+ * 还没落库，它本来就不该能被落地；画出来点了必 404 才是本仓反复判 0 的那种假入口。
+ */
+export function CopilotKitV2MessageLanding({
+  messageId,
+  text,
+}: {
+  messageId: string;
+  text: string;
+}): JSX.Element | null {
+  const ctx = useCopilotKitV2MessageActions();
+  if (ctx === null || ctx.landing === null) return null;
+  const chatMessageId = ctx.identity.resolve(messageId);
+  if (chatMessageId === null || text === "") return null;
+  const landing = ctx.landing;
+  const message = { id: chatMessageId, text };
+  return (
+    <MessageLandingControls
+      message={message}
+      state={landing.stateFor(chatMessageId)}
+      onOpen={() => landing.open(message)}
+      onTitleChange={(title) => landing.updateTitle(chatMessageId, title)}
+      onCancel={() => landing.cancel(chatMessageId)}
+      onSubmit={() => landing.submit(message)}
+    />
   );
 }

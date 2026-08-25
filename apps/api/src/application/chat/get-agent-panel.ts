@@ -44,7 +44,14 @@ export interface GetAgentPanelDeps extends ResolveVisibilityDeps {
 export interface GetAgentPanelInput {
   readonly userId: string;
   readonly orgId: OrgId;
-  readonly projectId: string;
+  /**
+   * issue #2052（CK-P7）—— `null` = 个人线程（无项目），与 `getThread` 早已支持的
+   * 同一个取值域。`resolveVisibility` 本来就按 `projectId === null` 分岔到
+   * `resolvePersonalVisibility`（见该文件 95-97 行），此前这里把类型收窄成
+   * `string`，等于在**类型层**把个人线程挡在读编制之外——不是后端不支持，是这一层
+   * 少写了一个 `| null`。
+   */
+  readonly projectId: string | null;
   readonly threadId: string;
 }
 
