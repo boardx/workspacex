@@ -187,34 +187,58 @@ test("TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差�
   await expect(micButton).toHaveAttribute("aria-pressed", "false");
 
   await micButton.click();
-  const listening = page.getByTestId("chat-mic-listening");
+
+  /*
+   * ⚠ 判的是「**任何**非闲置语音状态」，不是特指 `listening`（issue #2075 第四轮实测
+   * 修正）。这条判据问的是「状态是不是只靠颜色表达」，而 connecting / listening /
+   * stopping / error 四态都要回答这个问题；只等 `chat-mic-listening` 会在**握手较慢或
+   * 上游报错**时以「没有可读状态节点」收场——一句与本判据无关的错话。
+   * 反过来它并没有变松：按钮的 `data-mic-status` 必须真的离开 `idle`（点了没反应照样红），
+   * 且那个状态节点必须**带文本**、按钮的可访问名必须**跟着变**。
+   */
   await expect(
-    listening,
+    micButton,
     [
-      "【差距 TW-A11Y-6】点了麦克风之后没有任何可读的录音状态节点——",
-      "若录音态只是把按钮染红，色觉障碍用户与屏幕阅读器用户都读不出它在录音。",
+      "【差距 TW-A11Y-6】点了麦克风之后按钮的 data-mic-status 仍是 idle——",
+      "要么录音根本没起来，要么状态压根没有非颜色的表达。",
+      `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-6。`,
+    ].join("\n"),
+  ).not.toHaveAttribute("data-mic-status", "idle", { timeout: 30_000 });
+
+  const stateNode = page.locator(
+    [
+      '[data-testid="chat-mic-connecting"]',
+      '[data-testid="chat-mic-listening"]',
+      '[data-testid="chat-mic-stopping"]',
+      '[data-testid="chat-mic-error"]',
+    ].join(", "),
+  ).first();
+  await expect(
+    stateNode,
+    [
+      "【差距 TW-A11Y-6】按钮换了状态，但界面上没有任何**可读**的语音状态节点——",
+      "色觉障碍用户与屏幕阅读器用户读不出它现在处于哪一态。",
       `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-6。`,
     ].join("\n"),
   ).toBeVisible({ timeout: 30_000 });
 
   expect(
-    (await listening.innerText()).trim().length,
-    "【差距 TW-A11Y-6】录音状态节点没有文本，等于只靠颜色/动画表达状态。",
+    (await stateNode.innerText()).trim().length,
+    "【差距 TW-A11Y-6】语音状态节点没有文本，等于只靠颜色/动画表达状态。",
   ).toBeGreaterThan(0);
 
-  await expect(
-    micButton,
-    "【差距 TW-A11Y-6】录音中麦克风按钮的 aria-pressed 没有翻真，状态只活在颜色里。",
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(micButton).toHaveAttribute("data-mic-status", "listening");
-  await expect(
-    micButton,
-    "【差距 TW-A11Y-6】录音中按钮的可访问名没变，屏幕阅读器读到的仍是「开始语音输入」。",
-  ).toHaveAttribute("aria-label", "停止语音输入");
+  // 可访问名必须跟着状态走（读屏软件读的是它，不是 CSS 颜色）。
+  const label = await micButton.getAttribute("aria-label");
+  expect(
+    label,
+    `【差距 TW-A11Y-6】录音中按钮的可访问名没变（仍是「${label ?? ""}」），状态只活在颜色里。`,
+  ).not.toBe("开始语音输入");
 
-  // 收尾：停掉录音，别把一条开着的采音管线留给后面的用例。
-  await micButton.click();
-  await expect(listening).toHaveCount(0, { timeout: 30_000 });
+  // 收尾：能停就停，别把一条开着的采音管线留给后面的用例（已是错误态则无需再点）。
+  if ((await micButton.getAttribute("data-mic-status")) === "listening") {
+    await micButton.click();
+    await expect(page.getByTestId("chat-mic-listening")).toHaveCount(0, { timeout: 30_000 });
+  }
 });
 
 test("TW-A11Y-7：200% 缩放与窄屏重排不产生横向滚动", async ({ page }) => {

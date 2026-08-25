@@ -448,6 +448,11 @@ function SendEmailApprovalDialog({
    * 修法：`onCloseAutoFocus` 里接管，把焦点还给 composer 输入框——那是用户在这条
    * 对话里"正在工作的地方"，比一个已经禁用的发送按钮更是他要回去的位置。
    */
+  const focusComposer = React.useCallback((): void => {
+    const composer = document.querySelector<HTMLElement>('[data-testid="copilotkit-v2-input"]');
+    composer?.focus();
+  }, []);
+
   const returnFocusToComposer = React.useCallback((event: Event) => {
     const composer = document.querySelector<HTMLElement>('[data-testid="copilotkit-v2-input"]');
     if (composer === null) return; // 找不到就让 Radix 走它的默认恢复，别把焦点弄丢
@@ -455,13 +460,30 @@ function SendEmailApprovalDialog({
     composer.focus();
   }, []);
 
+  /**
+   * ⚠ 光有 `onCloseAutoFocus` **不够**——issue #2075 第四轮真栈实测：改完之后焦点
+   * **仍然**落在 `BODY`。原因是这条链路上关闭不只有 Radix 那一条路径：Esc 触发
+   * `respond("denied")` 之后框架会把整个 tool-render 子树摘掉，`DialogContent` 是被
+   * **卸载**的，Radix 的关闭序列（连同 `onCloseAutoFocus`）根本没有机会跑完；
+   * 而 Radix 的 FocusScope 在卸载时会把焦点恢复到它记下的那个元素——那个元素正是
+   * 已经失效的 `body`。
+   *
+   * 所以再补一条与 Radix 无关的兜底：`close()` 时排两帧之后主动把焦点交回 composer。
+   * 两帧（而不是一帧）是刻意的——要落在 Radix 自己那次恢复**之后**，否则我们先设、
+   * 它后覆盖，结果和没改一样。两条路径设的是同一个目标元素，不冲突。
+   */
+  const closeAndReturnFocus = React.useCallback((): void => {
+    close();
+    requestAnimationFrame(() => requestAnimationFrame(focusComposer));
+  }, [close, focusComposer]);
+
   if (!awaitingDecision || respond === undefined) {
     return (
       /* `open={!dismissed}` 而不是 `if (dismissed) return null` + `open`：
          直接 return null 会让 Radix 的关闭序列整个不发生，`onCloseAutoFocus` 也就
          永远不触发（焦点归位无从谈起）。受控 `open` 同样不残留遮罩——portal 内容
          在 `open=false` 时本来就不挂载，#1996 那条"永久点击拦截层"不会回来。 */
-      <Dialog open={!dismissed} onOpenChange={(next) => { if (!next) close(); }}>
+      <Dialog open={!dismissed} onOpenChange={(next) => { if (!next) closeAndReturnFocus(); }}>
         <DialogContent
           data-testid="copilotkit-v2-hitl-dialog"
           data-hitl-status={statusLabel}
@@ -474,7 +496,7 @@ function SendEmailApprovalDialog({
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button size="sm" variant="outline" data-testid="copilotkit-v2-hitl-dismiss" onClick={close}>
+            <Button size="sm" variant="outline" data-testid="copilotkit-v2-hitl-dismiss" onClick={closeAndReturnFocus}>
               关闭
             </Button>
           </DialogFooter>
@@ -495,7 +517,7 @@ function SendEmailApprovalDialog({
         // infinite hang"），run 会一直挂到后端自己的轮询超时才收场，属于
         // "看起来关掉了、实际状态没跟上"的另一种不一致，不是本次要放行的行为。
         if (!next) {
-          close();
+          closeAndReturnFocus();
           respond("denied");
         }
       }}
@@ -544,7 +566,7 @@ function SendEmailApprovalDialog({
                 size="sm"
                 data-testid="copilotkit-v2-hitl-approve"
                 onClick={() => {
-                  close();
+                  closeAndReturnFocus(); // 裁决完也要把焦点交回 composer（TW-A11Y-5）
                   respond("approved");
                 }}
               >
@@ -568,7 +590,7 @@ function SendEmailApprovalDialog({
                 className="border-destructive/40 text-destructive transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive"
                 data-testid="copilotkit-v2-hitl-reject"
                 onClick={() => {
-                  close();
+                  closeAndReturnFocus(); // 裁决完也要把焦点交回 composer（TW-A11Y-5）
                   respond("denied");
                 }}
               >
@@ -583,7 +605,7 @@ function SendEmailApprovalDialog({
                 data-testid="copilotkit-v2-hitl-edit-submit"
                 onClick={() => {
                   if (parsedDraft.ok) {
-                    close();
+                    closeAndReturnFocus(); // 裁决完也要把焦点交回 composer（TW-A11Y-5）
                     respond(parsedDraft.value);
                   }
                 }}
@@ -1820,8 +1842,20 @@ function CopilotKitV2PanelBody({
         {/* 并集解（issue #2039 × #2053）：布局/字级/placeholder 用 UIUX 迭代线的版本
             （min-w-0 防移动端溢出、rounded-md、明确动作指引），归档禁用语义用
             CK-P8 的版本——两者正交。 */}
-        <div className="flex min-w-0 items-center gap-2">
-          <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} />
+        {/*
+          issue #2075（TW-P2-1）—— composer 拆成两行。
+          单行结构下输入框要和附件/麦克风/设备选择/发送四件挤同一行：中央列即使
+          按验收线收到 768px，输入框自己实测只剩「506px」（真栈实测，issue #2075
+          第四轮），远低于 720px 下限；而把中央列撑到 1040px 去凑输入框宽度，等于
+          为了让数字好看把「中央内容不超过 880px」这条判据本身架空——那是本仓
+          最不该做的一类修法。
+          两行结构下输入框独占第一行 ⇒ 它的宽度就是中央列宽度（768px），
+          「中央内容 ≤880」与「输入框 ≥720」同时成立，不需要互相牺牲。
+
+          ⚠ 只改布局，「没有」把 `<input>` 换成 `<textarea>`：那是 TW-P0-5 的范围，
+            且会改变 Enter 的语义（换行 vs 发送），需要单独确认，不在本次顺手做。
+        */}
+        <div className="flex min-w-0 flex-col gap-2">
           <input
             data-testid="copilotkit-v2-input"
             className="min-w-0 flex-1 rounded-md border border-input px-2.5 py-1.5 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
@@ -1843,6 +1877,10 @@ function CopilotKitV2PanelBody({
               if (e.key === "Enter") void send();
             }}
           />
+          <div className="flex min-w-0 items-center gap-2">
+          <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} />
+          {/* 把右侧一组（麦克风设备 / 麦克风 / 发送）推到行尾，附件留在行首。 */}
+          <span aria-hidden className="flex-1" />
           {/*
             DA-19g —— composer 麦克风，接线见本文件头注。设备选择器紧挨麦克风按钮，
             录音中禁用（切设备要重起采音管线，同 `chat-live-message-panel.tsx` 的既有
@@ -1908,6 +1946,7 @@ function CopilotKitV2PanelBody({
           >
             {agent.isRunning ? "…" : "发送"}
           </Button>
+          </div>
         </div>
         {speech.connecting ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-connecting">

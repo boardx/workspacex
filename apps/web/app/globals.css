@@ -130,6 +130,15 @@
     /* @contrast neutral */
     --primary: 170 83% 28%;              /* #0C8371 ← 实测 #0E8F7C（4.0:1 不过线），调暗至 4.67:1 */
     --primary-foreground: 0 0% 100%;
+    /*
+     * issue #2075（TW-A11Y-1）—— 悬停底色是**一个独立的事实**，必须自己过对比度。
+     * 此前按钮写的是 `hover:bg-primary/90`：90% 不透明度会把 primary 与身后的白底
+     * 混合，实测得到 #248F7D，白字上只有 **3.96:1**（axe 真栈实锤，锚在
+     * `chat-thread-create`）。上面那行 `--primary` 被精心调到 4.67:1，一个 `/90`
+     * 就把它抵消掉了——「同一事实两处声明」的配色版：真正决定对比度的值并不在 token 里。
+     * 悬停一律**朝对比更高的方向**走：浅色主题调暗，深色主题提亮（见下面 .dark 那份）。
+     */
+    --primary-hover: 170 83% 23%;
 
     /* @contrast neutral */
     --disabled: 60 6% 93.7%;             /* #F0F0EE 禁用底 */
@@ -212,6 +221,9 @@
     /* @contrast neutral */
     --primary: 170 79% 37.3%;
     --primary-foreground: 170 70% 8.4%;
+    /* 深色主题的 primary 前景是**深**色（170 70% 8.4%），所以这里悬停要**提亮**
+       才是「朝对比更高的方向」——与浅色主题相反，同一条规则的两个方向。 */
+    --primary-hover: 170 79% 44%;
 
     /* @contrast neutral */
     --disabled: 240 5% 17.3%;
