@@ -85,7 +85,7 @@ export function TemplateTagInput({
             {!disabled && (
               <button
                 type="button"
-                className="opacity-70 transition-opacity duration-150 hover:opacity-100"
+                className="text-background/70 transition-colors duration-fast hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={`移除标签 ${tag}`}
                 onClick={() => remove(tag)}
                 data-testid={`${testIdPrefix}-remove-${tag}`}
@@ -96,7 +96,7 @@ export function TemplateTagInput({
           </span>
         ))}
         <input
-          className="min-w-32 flex-1 bg-transparent text-12 outline-none disabled:cursor-not-allowed"
+          className="min-w-32 flex-1 rounded-control bg-transparent text-12 outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
           placeholder={value.length === 0 ? "输入标签，回车确认" : ""}
           value={draft}
           disabled={disabled}
@@ -116,7 +116,7 @@ export function TemplateTagInput({
             <button
               key={`${s.isNew ? "new:" : ""}${s.tag}`}
               type="button"
-              className="flex items-center gap-2 border-b border-border-subtle px-2.5 py-1.5 text-left text-11 transition-colors duration-150 last:border-b-0 hover:bg-muted"
+              className="flex items-center gap-2 border-b border-border-subtle px-2.5 py-1.5 text-left text-11 transition-colors duration-fast last:border-b-0 hover:bg-muted"
               onClick={() => add(s.tag)}
               data-testid={`${testIdPrefix}-suggestion-${s.tag}`}
             >

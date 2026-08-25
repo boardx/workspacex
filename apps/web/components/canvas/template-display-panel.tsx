@@ -28,14 +28,14 @@ export function TemplateDisplayPanel({
   if (!section || !section.layout) {
     return (
       <div className="flex flex-1 flex-col gap-2.5 overflow-auto p-3.5" data-testid="tpladmin-editor-health">
-        <div className="rounded-[10px] border border-dashed border-border p-3.5 text-11 leading-relaxed text-muted-foreground">
+        <div className="rounded-card border border-dashed border-border p-3.5 text-11 leading-relaxed text-muted-foreground">
           先在画布上点一个区块，这里会出现它的显示设置：列数、最多条数、颜色、在 A1 上的占位。
         </div>
-        <div className="flex flex-col gap-2 rounded-[10px] border border-border p-3">
+        <div className="flex flex-col gap-2 rounded-card border border-border p-3">
           <span className="text-11 font-bold">模板体检</span>
           <div className="h-1.5 overflow-hidden rounded bg-muted">
             <div
-              className="h-full bg-foreground transition-[width] duration-300"
+              className="h-full bg-foreground transition-[width] duration-slow"
               style={{ width: `${health.fieldCount === 0 ? 0 : Math.round((health.placedCount / health.fieldCount) * 100)}%` }}
               data-testid="tpladmin-editor-health-bar"
             />
@@ -82,8 +82,8 @@ export function TemplateDisplayPanel({
   return (
     <div className="flex flex-1 flex-col gap-3.5 overflow-auto p-3.5" data-testid="tpladmin-editor-display">
       <Group label="数据来源">
-        <div className="flex flex-col gap-0.5 rounded-[9px] border border-border bg-panel px-2.5 py-2">
-          <span className="font-mono text-11 font-bold text-[#1F5FD0]" data-testid="tpladmin-editor-display-token">
+        <div className="flex flex-col gap-0.5 rounded-card border border-border bg-panel px-2.5 py-2">
+          <span className="font-mono text-11 font-bold text-primary" data-testid="tpladmin-editor-display-token">
             {`{{${section.key}${isList ? "[]" : ""}}}`}
           </span>
           <span className="text-11 text-muted-foreground">
@@ -105,12 +105,16 @@ export function TemplateDisplayPanel({
                     type="button"
                     disabled={!editable}
                     onClick={() => onPatch({ cols: n })}
-                    className={`flex flex-1 flex-col items-center gap-1 rounded-[9px] border py-1.5 transition-colors duration-150 ${on ? "border-foreground bg-warning/10" : "border-border hover:bg-muted"}`}
+                    className={`flex flex-1 flex-col items-center gap-1 rounded-card border py-1.5 transition-colors duration-fast ${on ? "border-foreground bg-warning/10" : "border-border hover:bg-muted"}`}
                     data-testid={`tpladmin-editor-cols-${n}`}
                   >
                     <span className="flex gap-px">
                       {Array.from({ length: Math.min(n, 6) }, (_, i) => (
-                        <span key={i} className="h-3 rounded-sm" style={{ width: Math.max(2, Math.round(24 / Math.min(n, 6))), background: on ? "#14130F" : "#C9C5BB" }} />
+                        <span
+                          key={i}
+                          className={`h-3 rounded-sm ${on ? "bg-foreground" : "bg-border"}`}
+                          style={{ width: Math.max(2, Math.round(24 / Math.min(n, 6))) }}
+                        />
                       ))}
                     </span>
                     <span className={`text-10 font-bold ${on ? "text-foreground" : "text-muted-foreground"}`}>{n} 列</span>
@@ -146,7 +150,7 @@ export function TemplateDisplayPanel({
                   disabled={!editable}
                   aria-label={`贴纸颜色 ${i + 1}`}
                   onClick={() => onPatch({ tone: i })}
-                  className="h-6 w-7 rounded-md transition-transform duration-150 hover:scale-105"
+                  className="h-6 w-7 rounded-md transition-transform duration-fast hover:scale-105"
                   style={{ background: color, border: `2px solid ${layout.tone === i ? "#14130F" : "transparent"}` }}
                   data-testid={`tpladmin-editor-tone-${i}`}
                 />
@@ -216,7 +220,7 @@ function Chips<T extends string | number>({
           type="button"
           disabled={!editable}
           onClick={() => onPick(o)}
-          className={`flex-1 whitespace-nowrap rounded-lg border px-1 py-1.5 text-10 font-semibold transition-colors duration-150 ${
+          className={`flex-1 whitespace-nowrap rounded-lg border px-1 py-1.5 text-10 font-semibold transition-colors duration-fast ${
             value === o ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-muted"
           }`}
           data-testid={`${testIdPrefix}-${o}`}

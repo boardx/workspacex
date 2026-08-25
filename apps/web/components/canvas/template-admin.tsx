@@ -241,6 +241,11 @@ export function TemplateAdmin({
   /** R2：正在被「改名 / 标签」的那一行。null = 对话框没开。 */
   const [renaming, setRenaming] = React.useState<CanvasTemplate | null>(null);
   /**
+   * R2：卡片上正在就地二次确认归档的那一行（`"<key>-<version>"`）。
+   * 只用于 draft/trial——published 走 `openArchive` 的真实预检流程，见卡片上的注释。
+   */
+  const [confirmingArchive, setConfirmingArchive] = React.useState<string | null>(null);
+  /**
    * R2：标签筛选（`Design.pdf` §3.2）。`""` = 「全部」。**单选**：点一次筛选，
    * 再点同一个取消——不是多选交集，那不是设计稿要的东西。
    */
@@ -270,6 +275,7 @@ export function TemplateAdmin({
     setApplying(null);
     setEditing(null);
     setRenaming(null);
+    setConfirmingArchive(null);
     setTagFilter("");
     setActionError(null);
     setNotice(null);
@@ -425,6 +431,26 @@ export function TemplateAdmin({
     setRenaming(null);
     setNotice(`已更新「${out.displayName}」的名称与标签`);
     await load();
+  }
+
+  /**
+   * R2：卡片上「归档」的就地确认路径——**只给 draft/trial**。
+   *
+   * 不走 `openArchive` 的 `confirmed:false` 预检，是因为那次预检问的是「还有几个
+   * 议程环节绑着它」，而绑定只接受 published（`domain/canvas/segment-binding.ts`）——
+   * draft/trial 的答案恒为 0，多打一次往返只是为了拿一个已知的常数。
+   * ⚠ 服务端仍然会做它自己的判断，这里只是不为一个必然为 0 的数字问一次。
+   */
+  async function archiveDirect(row: CanvasTemplate): Promise<void> {
+    setActionError(null);
+    setNotice(null);
+    try {
+      await archiveCanvasTemplate({ key: row.key, version: row.version, confirmed: true });
+      setNotice(`已归档 ${row.displayName} v${row.version} —— 归档是可逆置位，在「已归档」里随时可恢复`);
+      await load();
+    } catch (error) {
+      setActionError(describeError(error));
+    }
   }
 
   /**
@@ -717,7 +743,7 @@ export function TemplateAdmin({
                   {rows.map((t) => (
                     <TableRow
                       key={`${t.key}-${t.version}`}
-                      className="border-t border-border-subtle transition-colors duration-200 hover:bg-muted"
+                      className="border-t border-border-subtle transition-colors duration-base hover:bg-muted"
                       data-testid={`tpladmin-row-${t.key}-${t.version}`}
                     >
                       <TableCell className="px-3 py-2">
@@ -767,7 +793,7 @@ export function TemplateAdmin({
               {rows.map((t) => (
                 <Card
                   key={`${t.key}-${t.version}`}
-                  className="cursor-pointer overflow-hidden transition-shadow duration-200 hover:shadow-md"
+                  className="cursor-pointer overflow-hidden transition-shadow duration-base hover:shadow-md"
                   onClick={() => { setEditing(t); setActionError(null); setNotice(null); }}
                   data-testid={`tpladmin-card-${t.key}-${t.version}`}
                 >
@@ -788,7 +814,7 @@ export function TemplateAdmin({
                       )}
                       <span className="text-10 text-muted-foreground">
                         {/*
-                          「N 个字段 · M 个区块」——字段数是分区总数，区块数是**已放到画布上**
+                          「N 个字段 · M 个区块」——字段数是分区总数，区块数是「已放到画布上」
                           的那些（`layout` 非空）。两个数不同才有信息量：它直接告诉使用者
                           「还有几个字段没排版，生成后会被丢弃」（`Design.pdf` §6 校验规则②）。
                         */}
@@ -800,6 +826,37 @@ export function TemplateAdmin({
                           <Button size="xs" variant="outline" onClick={() => { setRenaming(t); setActionError(null); setNotice(null); }} data-testid={`tpladmin-rename-${t.key}-${t.version}`}>
                             改名 / 标签
                           </Button>
+                        )}
+                        {/*
+                          §3.1 卡片的第二个次级动作。设计稿写的是「删除 — 就地二次确认
+                          （"删除？ 确认 / 取消"），不弹全屏对话框」。
+                          ⚠ 语义是「归档」不是「删除」：契约里没有任何 `deleteTemplate`
+                            操作（全仓 grep 零命中），能做到的最接近的事是归档——可逆
+                            置位（O-10），归档后仍在「已归档」筛选里查得到、能恢复。
+                            所以按钮就叫「归档」而不是「删除」：一个写着"删除"、
+                            实际只是隐藏的按钮，是在骗使用者。位置与就地确认的交互
+                            照设计稿实现，文案如实。
+                          ⚠ 已发布版本走的仍是既有的 `openArchive` 预检流程（要先问
+                            服务端「还有几个环节绑着它」），不能就地确认——那个数字
+                            必须来自真实预检。这里的就地确认只给 draft/trial：
+                            它们不可能已被绑定（绑定只接受 published）。
+                        */}
+                        {!readOnly && (t.status === "draft" || t.status === "trial") && (
+                          confirmingArchive === `${t.key}-${t.version}` ? (
+                            <span className="flex items-center gap-1.5" data-testid={`tpladmin-archive-confirm-${t.key}-${t.version}`}>
+                              <span className="text-10 text-destructive">归档？</span>
+                              <Button size="xs" variant="primary" className="bg-destructive" onClick={() => { setConfirmingArchive(null); void archiveDirect(t); }} data-testid={`tpladmin-archive-yes-${t.key}-${t.version}`}>
+                                确认
+                              </Button>
+                              <Button size="xs" variant="outline" onClick={() => setConfirmingArchive(null)} data-testid={`tpladmin-archive-no-${t.key}-${t.version}`}>
+                                取消
+                              </Button>
+                            </span>
+                          ) : (
+                            <Button size="xs" variant="ghost" className="text-destructive" onClick={() => setConfirmingArchive(`${t.key}-${t.version}`)} data-testid={`tpladmin-card-archive-${t.key}-${t.version}`}>
+                              归档
+                            </Button>
+                          )
                         )}
                         <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} onEdit={() => { setEditing(t); setActionError(null); setNotice(null); }} />
                       </div>

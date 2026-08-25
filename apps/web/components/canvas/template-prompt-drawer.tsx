@@ -76,7 +76,7 @@ export function TemplatePromptDrawer({
           <div className="flex w-[430px] flex-none flex-col gap-2.5 border-r border-border p-4">
             <span className="text-9 font-bold uppercase tracking-wider text-muted-foreground">角色与任务（顾问写这一段）</span>
             <textarea
-              className="flex-1 resize-none rounded-[10px] border border-border bg-background p-3 text-12 leading-relaxed outline-none disabled:bg-disabled"
+              className="flex-1 resize-none rounded-card border border-border bg-background p-3 text-12 leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled"
               value={promptText}
               disabled={!editable}
               onChange={(e) => { onPromptChange(e.target.value); setExtracted(null); }}
@@ -116,9 +116,9 @@ export function TemplatePromptDrawer({
               {(extracted ?? []).map((f) => {
                 const exists = existingKeys.has(f.key);
                 return (
-                  <div key={f.key} className="flex flex-col gap-1 rounded-[9px] border border-border p-2" data-testid={`tpladmin-editor-prompt-field-${f.key}`}>
+                  <div key={f.key} className="flex flex-col gap-1 rounded-card border border-border p-2" data-testid={`tpladmin-editor-prompt-field-${f.key}`}>
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-10 font-bold text-[#1F5FD0]">{`{{${f.key}${f.type === "便利贴列表" ? "[]" : ""}}}`}</span>
+                      <span className="font-mono text-10 font-bold text-primary">{`{{${f.key}${f.type === "便利贴列表" ? "[]" : ""}}}`}</span>
                       <span className="text-11 font-semibold">{f.name}</span>
                       <Button
                         size="xs"
@@ -143,7 +143,7 @@ export function TemplatePromptDrawer({
           <div className="flex min-w-0 flex-1 flex-col gap-2 bg-panel p-4">
             <span className="text-9 font-bold uppercase tracking-wider text-muted-foreground">输出结构（自动生成 · 只读）</span>
             <pre
-              className="flex-1 overflow-auto whitespace-pre rounded-[10px] border border-border bg-background p-3 font-mono text-11 leading-relaxed"
+              className="flex-1 overflow-auto whitespace-pre rounded-card border border-border bg-background p-3 font-mono text-11 leading-relaxed"
               data-testid="tpladmin-editor-prompt-schema"
             >
               {buildOutputSchemaText(sections)}

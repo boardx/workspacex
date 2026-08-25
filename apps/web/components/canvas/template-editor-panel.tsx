@@ -15,7 +15,7 @@ import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-dra
 import {
   toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth,
   FIELD_TYPES,
-  type SectionDraft, type SectionFieldType, type SectionLayoutDraft,
+  type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 
 /**
@@ -73,6 +73,8 @@ export function TemplateEditorPanel({
   const [newField, setNewField] = React.useState<{ key: string; name: string; type: SectionFieldType }>(
     { key: "", name: "", type: "便利贴列表" },
   );
+  /** 非 null = 发布前置检查没过，正在等二次确认（§6 规则⑦：允许强制发布）。 */
+  const [publishBlockers, setPublishBlockers] = React.useState<TemplateHealth | null>(null);
 
   const health = React.useMemo(() => checkTemplateHealth(sections, gridCols), [sections, gridCols]);
   const selected = sections.find((s) => s.sectionId === selectedId) ?? null;
@@ -148,6 +150,22 @@ export function TemplateEditorPanel({
     });
   }
 
+  /**
+   * 发布前置检查（`Design.pdf` §6 规则⑦ / §7 第 9 条）。
+   *
+   * 「画布无溢出、无未放置字段——未满足时**列出**，允许强制发布但需**二次确认**」。
+   * ⚠ 判据来自 `checkTemplateHealth`，与右栏体检面板**同一个函数**（§6 规则⑤逐字要求
+   *   「体检、发布检查同源计算，不得留静态文案」）——绑定一个字段之后，两处的警告
+   *   必然同时消失，因为它们读的是同一份计算结果。
+   */
+  function requestPublish(): void {
+    if (health.publishClean) {
+      onPublish();
+      return;
+    }
+    setPublishBlockers(health);
+  }
+
   async function save(): Promise<void> {
     setSaving(true);
     setError(null);
@@ -175,7 +193,7 @@ export function TemplateEditorPanel({
         <Button size="icon" variant="ghost" aria-label="返回模板库" onClick={onClose} data-testid="tpladmin-editor-close">
           <X aria-hidden className="h-3.5 w-3.5" />
         </Button>
-        <button type="button" className="text-11 text-muted-foreground hover:text-foreground" onClick={onClose}>模板库 ／</button>
+        <button type="button" className="rounded-control text-11 text-muted-foreground transition-colors duration-fast hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={onClose}>模板库 ／</button>
         <h1 id="tpladmin-editor-title" data-testid="tpladmin-editor-title" className="truncate text-14 font-bold">
           {row.displayName} · 模板编辑
         </h1>
@@ -195,7 +213,7 @@ export function TemplateEditorPanel({
             <button
               key={n}
               type="button"
-              className="flex items-center gap-1.5 transition-opacity duration-150"
+              className="flex items-center gap-1.5 transition-opacity duration-fast"
               style={{ opacity: step === n ? 1 : 0.62 }}
               onClick={() => { setStep(n); if (n === 1) setPromptOpen(true); }}
               data-testid={`tpladmin-editor-step-${n}`}
@@ -215,7 +233,7 @@ export function TemplateEditorPanel({
             </Button>
           )}
           {!readOnly && (row.status === "draft" || row.status === "trial") && (
-            <Button size="sm" variant="primary" onClick={onPublish} data-testid="tpladmin-editor-publish">发布模板</Button>
+            <Button size="sm" variant="primary" onClick={requestPublish} data-testid="tpladmin-editor-publish">发布模板</Button>
           )}
           {!readOnly && row.status === "draft" && (
             <Button size="sm" variant="outline" onClick={onTrial} data-testid="tpladmin-editor-trial">试跑</Button>
@@ -269,7 +287,7 @@ export function TemplateEditorPanel({
                     setStep(2);
                   }}
                   onClick={() => { setSelectedId(s.sectionId); if (isPlaced) setStep(3); }}
-                  className="flex cursor-pointer flex-col gap-1 rounded-[10px] border p-2.5 transition-colors duration-150"
+                  className="flex cursor-pointer flex-col gap-1 rounded-card border p-2.5 transition-colors duration-fast"
                   style={{
                     borderColor: isPlaced ? "var(--border, #E3E1DA)" : "#E6C765",
                     background: selectedId === s.sectionId ? "#FBF7DC" : "var(--card, #fff)",
@@ -278,7 +296,7 @@ export function TemplateEditorPanel({
                 >
                   <div className="flex items-center gap-1.5">
                     <GripVertical aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
-                    <span className="font-mono text-10 font-bold text-[#1F5FD0]">
+                    <span className="font-mono text-10 font-bold text-primary">
                       {`{{${s.key}${s.type === "便利贴列表" ? "[]" : ""}}}`}
                     </span>
                     <span
@@ -294,7 +312,7 @@ export function TemplateEditorPanel({
                   </div>
                   <div className="flex items-center gap-1.5">
                     <input
-                      className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-11 font-semibold outline-none focus:border-border focus:bg-background disabled:cursor-default"
+                      className="min-w-0 flex-1 rounded-control border border-transparent bg-transparent px-1 py-0.5 text-11 font-semibold outline-none transition-colors duration-fast focus:border-border focus:bg-background focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
                       value={s.name}
                       disabled={!editable}
                       onChange={(e) => patchSection(s.sectionId, { name: e.target.value })}
@@ -308,7 +326,7 @@ export function TemplateEditorPanel({
                     {editable && (
                       <button
                         type="button"
-                        className="text-muted-foreground transition-colors duration-150 hover:text-destructive"
+                        className="text-muted-foreground transition-colors duration-fast hover:text-destructive"
                         aria-label={`删除字段 ${s.name}`}
                         onClick={(e) => { e.stopPropagation(); setSections((prev) => prev.filter((x) => x.sectionId !== s.sectionId)); }}
                         data-testid={`tpladmin-editor-section-${i}-remove`}
@@ -321,7 +339,7 @@ export function TemplateEditorPanel({
               );
             })}
             {sections.length === 0 && (
-              <p className="rounded-[10px] border border-dashed border-border p-3 text-11 leading-relaxed text-muted-foreground" data-testid="tpladmin-editor-no-fields">
+              <p className="rounded-card border border-dashed border-border p-3 text-11 leading-relaxed text-muted-foreground" data-testid="tpladmin-editor-no-fields">
                 还没有字段 —— 点右上角「提示词」，写清要 AI 干什么，再从提示词里提取字段。
               </p>
             )}
@@ -333,14 +351,14 @@ export function TemplateEditorPanel({
               <span className="text-11 font-bold">＋ 新增字段</span>
               <div className="flex gap-1.5">
                 <input
-                  className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-1.5 font-mono text-10 text-[#1F5FD0] outline-none"
+                  className="min-w-0 flex-1 rounded-control border border-border bg-background px-2 py-1.5 font-mono text-10 text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   placeholder="key，如 gains"
                   value={newField.key}
                   onChange={(e) => setNewField((p) => ({ ...p, key: e.target.value }))}
                   data-testid="tpladmin-editor-new-key"
                 />
                 <input
-                  className="w-20 rounded-lg border border-border bg-background px-2 py-1.5 text-11 outline-none"
+                  className="w-20 rounded-control border border-border bg-background px-2 py-1.5 text-11 outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   placeholder="中文名"
                   value={newField.name}
                   onChange={(e) => setNewField((p) => ({ ...p, name: e.target.value }))}
@@ -353,7 +371,7 @@ export function TemplateEditorPanel({
                     key={t}
                     type="button"
                     onClick={() => setNewField((p) => ({ ...p, type: t }))}
-                    className={`whitespace-nowrap rounded-xl border px-2 py-1 text-10 transition-colors duration-150 ${
+                    className={`whitespace-nowrap rounded-xl border px-2 py-1 text-10 transition-colors duration-fast ${
                       newField.type === t ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                     data-testid={`tpladmin-editor-new-type-${t}`}
@@ -381,7 +399,7 @@ export function TemplateEditorPanel({
                   key={g}
                   type="button"
                   onClick={() => setGridCols(g)}
-                  className={`rounded-xl border px-2 py-0.5 text-10 transition-colors duration-150 ${
+                  className={`rounded-xl border px-2 py-0.5 text-10 transition-colors duration-fast ${
                     gridCols === g ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   data-testid={`tpladmin-editor-grid-${g}`}
@@ -392,7 +410,7 @@ export function TemplateEditorPanel({
               <button
                 type="button"
                 onClick={() => setShowSample((v) => !v)}
-                className="rounded-xl border border-border px-2 py-0.5 text-10 transition-colors duration-150"
+                className="rounded-xl border border-border px-2 py-0.5 text-10 transition-colors duration-fast"
                 style={{ background: showSample ? "#F7E96E" : "transparent" }}
                 data-testid="tpladmin-editor-sample-toggle"
               >
@@ -444,6 +462,57 @@ export function TemplateEditorPanel({
         <p className="flex-none border-t border-destructive/40 bg-destructive/5 px-5 py-2 text-11 text-destructive" role="alert" data-testid="tpladmin-editor-error">
           {error}
         </p>
+      )}
+
+      {/*
+        发布前置检查没过时的二次确认（§6 规则⑦ / §7 第 9 条）。
+        ⚠ 是「列出问题 + 允许强制发布」，不是「禁止发布」——规则原文是
+        「允许强制发布但需二次确认」。把它做成硬拦截会让使用者在一个明知故犯的
+        合理场景（先发布占位、之后再补齐）里无路可走。
+      */}
+      {publishBlockers && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" data-testid="tpladmin-editor-publish-confirm">
+          <div className="flex w-full max-w-md flex-col gap-3 rounded-lg border border-border bg-card p-5 shadow-lg">
+            <h2 className="text-14 font-bold">这个模板还有问题，确定要发布吗？</h2>
+            <div className="flex flex-col gap-1.5 rounded-md border border-warning/40 bg-warning/5 px-3 py-2.5 text-11 leading-relaxed">
+              {publishBlockers.unplaced.length > 0 && (
+                <span data-testid="tpladmin-editor-publish-blocker-unplaced">
+                  · <strong>{publishBlockers.unplaced.length} 个字段没放到画布上</strong>
+                  （{publishBlockers.unplaced.map((s) => s.key).join("、")}）—— AI 生成后这些数据会被丢弃。
+                </span>
+              )}
+              {publishBlockers.overflowing.length > 0 && (
+                <span data-testid="tpladmin-editor-publish-blocker-overflow">
+                  · <strong>{publishBlockers.overflowing.length} 个区块容量不够</strong>
+                  （{publishBlockers.overflowing.map((o) => `${o.section.key} 最多 ${o.max} 条 > 放得下 ${o.fits} 条`).join("；")}）
+                  —— 超出的部分按各自的「超出时」策略处理。
+                </span>
+              )}
+              {publishBlockers.duplicateKeys.length > 0 && (
+                <span data-testid="tpladmin-editor-publish-blocker-dup">
+                  · <strong>key 重复</strong>（{publishBlockers.duplicateKeys.join("、")}）
+                  —— AI 返回的 JSON 里这些键会互相覆盖。
+                </span>
+              )}
+            </div>
+            <p className="text-11 text-muted-foreground">
+              发布之后这一版的内容就是不可变快照了，要改只能「基于此开新版」。
+            </p>
+            <div className="flex items-center justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setPublishBlockers(null)} data-testid="tpladmin-editor-publish-cancel">
+                回去修
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => { setPublishBlockers(null); onPublish(); }}
+                data-testid="tpladmin-editor-publish-force"
+              >
+                仍然发布
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {promptOpen && (

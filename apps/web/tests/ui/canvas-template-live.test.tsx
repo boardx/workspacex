@@ -1122,3 +1122,196 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     await waitFor(() => expect(within(panel).getByTestId("tpladmin-editor-block-s1")).toBeInTheDocument());
   });
 });
+
+describe("2026-08-26 §6 规则⑦ / §7 第 9 条：发布前置检查 + 强制发布二次确认", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-publish-check";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-publish-check");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** 一个字段已放置、一个字段没放置的草稿——发布检查必须点名后者。 */
+  const oneUnplaced = () => jsonResponse({
+    templates: [template({
+      key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+      sections: [
+        {
+          sectionId: "s1", key: "says", name: "说", type: "便利贴列表", aiHint: null,
+          order: 0, required: false, capacity: null,
+          layout: { col: 1, row: 1, w: 6, h: 3, cols: 5, max: 6, tone: 0, overflow: "缩小字号" },
+        },
+        {
+          sectionId: "s2", key: "gains", name: "收获", type: "便利贴列表", aiHint: null,
+          order: 1, required: false, capacity: null, layout: null,
+        },
+      ],
+    })],
+  });
+
+  it("有未放置字段时点发布 → 不直接发布，先列出问题等二次确认", async () => {
+    const posts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/publish")) {
+        posts.push(url.pathname);
+        return jsonResponse({ key: "swot", version: 1, status: "published", archivedVersions: [] });
+      }
+      return oneUnplaced();
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
+
+    // 核心断言：**没有**发布出去，先弹二次确认并逐条列出问题。
+    const confirm = await screen.findByTestId("tpladmin-editor-publish-confirm");
+    expect(posts).toHaveLength(0);
+    expect(within(confirm).getByTestId("tpladmin-editor-publish-blocker-unplaced")).toHaveTextContent("gains");
+  });
+
+  it("二次确认里点「仍然发布」→ 真的发布（§6 规则⑦：允许强制发布，不是硬拦截）", async () => {
+    const posts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/publish")) {
+        posts.push(url.pathname);
+        return jsonResponse({ key: "swot", version: 1, status: "published", archivedVersions: [] });
+      }
+      return oneUnplaced();
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
+    const confirm = await screen.findByTestId("tpladmin-editor-publish-confirm");
+
+    fireEvent.click(within(confirm).getByTestId("tpladmin-editor-publish-force"));
+    await waitFor(() => expect(posts).toHaveLength(1));
+  });
+
+  it("「回去修」不发布，也不关掉编辑面板——使用者要回去接着改", async () => {
+    const posts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/publish")) { posts.push(url.pathname); }
+      return oneUnplaced();
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
+    const confirm = await screen.findByTestId("tpladmin-editor-publish-confirm");
+
+    fireEvent.click(within(confirm).getByTestId("tpladmin-editor-publish-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-editor-publish-confirm")).toBeNull());
+    expect(posts).toHaveLength(0);
+    expect(screen.getByTestId("tpladmin-editor-panel")).toBeInTheDocument();
+  });
+
+  it("全部字段都放好了 → 点发布直接发，不多一次确认（检查通过就别挡路）", async () => {
+    const posts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/publish")) {
+        posts.push(url.pathname);
+        return jsonResponse({ key: "swot", version: 1, status: "published", archivedVersions: [] });
+      }
+      return jsonResponse({
+        templates: [template({
+          key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+          sections: [{
+            sectionId: "s1", key: "says", name: "说", type: "便利贴列表", aiHint: null,
+            order: 0, required: false, capacity: null,
+            layout: { col: 1, row: 1, w: 6, h: 3, cols: 5, max: 6, tone: 0, overflow: "缩小字号" },
+          }],
+        })],
+      });
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-publish"));
+
+    await waitFor(() => expect(posts).toHaveLength(1));
+    expect(screen.queryByTestId("tpladmin-editor-publish-confirm")).toBeNull();
+  });
+});
+
+describe("2026-08-26 §3.1 卡片上的「归档」就地二次确认（设计稿写的是删除，语义如实是归档）", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-card-archive";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-card-archive");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const draftRow = () => jsonResponse({
+    templates: [template({ key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0, sections: [] })],
+  });
+
+  it("点「归档」不立刻归档，先就地问「归档？确认/取消」——不弹全屏对话框", async () => {
+    const posts: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/archive")) { posts.push(url.pathname); }
+      return draftRow();
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" initialView="card" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-swot-1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("tpladmin-card-archive-swot-1"));
+    // 就地确认出现，没有发出任何归档请求。
+    expect(screen.getByTestId("tpladmin-archive-confirm-swot-1")).toBeInTheDocument();
+    expect(posts).toHaveLength(0);
+    // 不是全屏对话框——编辑面板/归档对话框都没开。
+    expect(screen.queryByTestId("tpladmin-archive-dialog")).toBeNull();
+  });
+
+  it("确认后真调 archiveTemplate（confirmed:true）并重读列表；取消则什么都不发生", async () => {
+    const posts: { path: string; body: Record<string, unknown> }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (init?.method === "POST" && url.pathname.endsWith("/archive")) {
+        posts.push({ path: url.pathname, body: JSON.parse(String(init.body)) as Record<string, unknown> });
+        return jsonResponse({ key: "swot", version: 1, status: "archived", confirmed: true, stillBoundSegmentCount: 0 });
+      }
+      return draftRow();
+    }));
+
+    render(<TemplateAdmin previewRole="facilitator" initialView="card" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-swot-1")).toBeInTheDocument());
+
+    // 先取消一次——什么都不该发生。
+    fireEvent.click(screen.getByTestId("tpladmin-card-archive-swot-1"));
+    fireEvent.click(screen.getByTestId("tpladmin-archive-no-swot-1"));
+    await waitFor(() => expect(screen.queryByTestId("tpladmin-archive-confirm-swot-1")).toBeNull());
+    expect(posts).toHaveLength(0);
+
+    // 再来一次并确认。
+    fireEvent.click(screen.getByTestId("tpladmin-card-archive-swot-1"));
+    fireEvent.click(screen.getByTestId("tpladmin-archive-yes-swot-1"));
+    await waitFor(() => expect(posts).toHaveLength(1));
+    // 归档是可逆置位，不是删除——`confirmed:true` 且提示文案要说清这一点。
+    expect(posts[0]!.body["confirmed"]).toBe(true);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-notice").textContent).toContain("可逆置位"));
+  });
+});

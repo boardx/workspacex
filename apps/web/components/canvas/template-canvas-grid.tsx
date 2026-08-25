@@ -110,7 +110,7 @@ export function TemplateCanvasGrid({
         {Array.from({ length: gridCols * GRID_ROWS }, (_, i) => (
           <div
             key={i}
-            className="rounded-[6px] border border-dashed transition-colors duration-150"
+            className="rounded-control border border-dashed transition-colors duration-fast"
             style={{ borderColor: dragging ? "#C9C5BB" : "#F0EEE7" }}
           />
         ))}
@@ -143,7 +143,7 @@ export function TemplateCanvasGrid({
               }}
               onDragEnd={() => setDragging(null)}
               onClick={() => onSelect(s.sectionId)}
-              className="flex cursor-pointer flex-col gap-1.5 overflow-hidden rounded-[10px] bg-white p-2"
+              className="flex cursor-pointer flex-col gap-1.5 overflow-hidden rounded-card bg-card p-2"
               style={{
                 gridColumn: `${layout.col} / span ${layout.w}`,
                 gridRow: `${layout.row} / span ${layout.h}`,
@@ -153,7 +153,7 @@ export function TemplateCanvasGrid({
             >
               <div className="flex items-center gap-1.5">
                 <span className="text-11 font-bold">{s.name || "未命名"}</span>
-                <span className="font-mono text-9 text-[#1F5FD0]">
+                <span className="font-mono text-9 text-primary">
                   {`{{${s.key}${isList ? "[]" : ""}}}`}
                 </span>
                 <span className="ml-auto whitespace-nowrap text-9 text-muted-foreground">
@@ -167,7 +167,7 @@ export function TemplateCanvasGrid({
                 {Array.from({ length: noteCount }, (_, i) => (
                   <div
                     key={i}
-                    className="overflow-hidden rounded-[3px] px-1 py-0.5 leading-tight"
+                    className="overflow-hidden rounded-control px-1 py-0.5 leading-tight"
                     style={{
                       background: showSample && isList ? TONE_COLORS[layout.tone] ?? TONE_COLORS[0] : "transparent",
                       border: showSample && isList ? "none" : "1px dashed #C9C5BB",

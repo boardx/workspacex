@@ -40,7 +40,7 @@ export function TemplateA1Thumbnail({ template }: { readonly template: CanvasTem
       data-testid={`tpladmin-thumb-${template.key}-${template.version}`}
     >
       <div
-        className="grid gap-[3px] rounded-sm border border-border bg-background p-1.5"
+        className="grid gap-0.5 rounded-sm border border-border bg-background p-1.5"
         style={{
           // 841/594 是 A1 横版的真实比值（不是 √2 ≈ 1.4142，见 Design.pdf §5「纸面」
           // 那行的强调），缩略图沿用同一个比值，卡片上看到的形状就是纸的形状。
@@ -57,7 +57,7 @@ export function TemplateA1Thumbnail({ template }: { readonly template: CanvasTem
             return (
               <div
                 key={s.sectionId || i}
-                className="rounded-[2px] border border-border-subtle"
+                className="rounded-control border border-border-subtle"
                 style={{
                   gridColumn: `${layout.col} / span ${layout.w}`,
                   gridRow: `${layout.row} / span ${layout.h}`,
