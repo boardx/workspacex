@@ -31,7 +31,13 @@ import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "../lib/copilotkit-v2-agent-
  *    这是「不是断言 UI 显示选中，而是断言 wire 上请求真的路由到了选中的 agent」
  *    这条判据要求的因果闭环，不只是"header 存在"这一半。
  */
-test.setTimeout(120_000);
+// 预算实测记录（2026-08-25 本地，三轮）：120s 总超时在 dev 首编译 + 高负载下不够
+// （run2 两用例均在 `page.goto` 处被打断）；页面预热 90s 也不够（run3 用例 1 在预热
+// poll 超时，`/chat/copilotkit-v2` 首编译实测要 2-3 分钟）——run3 用例 2（编译已热）
+// 一路跑到最终断言，证明超出预算的只有首编译，不是链路本身。300s + 180s 预热按
+// 实测上界给足，与 `copilotkit-v2-runtime-adapter.spec.ts` 的 180s 同一条"给足首次
+// 编译窗口"纪律，只是本 spec 是套件里第一个跑的文件、独自付全部编译成本。
+test.setTimeout(300_000);
 
 async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page): Promise<void> {
   await expect
@@ -41,6 +47,17 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
         return res.status();
       },
       { timeout: 60_000, intervals: [500, 1_000, 2_000] },
+    )
+    .toBe(200);
+  // 页面路由本身的首次编译也要预热掉（同上一条实测记录）：`page.request.get` 只触发
+  // 服务端编译，不占页面帧，编译完成后真正的 `page.goto` 走的就是热路径。
+  await expect
+    .poll(
+      async () => {
+        const res = await page.request.get("/chat/copilotkit-v2");
+        return res.status();
+      },
+      { timeout: 180_000, intervals: [1_000, 2_000, 5_000] },
     )
     .toBe(200);
 }
@@ -108,20 +125,21 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
 });
 
 /**
- * 反向对照：**不做任何选择**时，行为必须与本任务之前逐字节相同——回退到
- * `COPILOTKIT_V2_AGENT_ID` 环境变量指向的 deep-agent（本 config 固定设成
- * `CHAT_READ_E2E.deepAgentId`）。这条不是新行为，是"新增的选择能力必须不破坏
- * 没有选择时的既有默认路径"这条向后兼容判据。
+ * 反向对照（向后兼容判据）：**不做任何选择**时，行为必须与本任务之前逐字节相同——
+ * 请求**不带**选择 header，服务端回退到 `COPILOTKIT_V2_AGENT_ID` 环境变量指向的
+ * deep-agent（本 config 固定设成 `CHAT_READ_E2E.deepAgentId`），回复带着 deep-agent
+ * loopback 替身的确定性签名。
  *
- * `CopilotKitV2Panel` 会在候选列表就绪后自动选中第一个 agent（见
- * `copilotkit-v2-panel.tsx` 的自动选择 `useEffect`）——"不做任何选择"因此改成断言
- * "什么都不点，face 面板自己选出的第一个候选 = 组织 agent 目录里第一条记录"，而不是
- * 断言"选择器永远为空"（那与本任务新增的"有得选就默认选中一个"这条产品纪律矛盾）。
- * 这里改为验证：只要曾经选中过某个 agent，请求就必须真的带着那个 agent 的 id，
- * 而不是不管选了什么都固定打环境变量默认值——这才是这条回归判据在有自动选择行为下
- * 仍然成立的正确形式。
+ * ## 为什么是"不带 header"而不是"自动选中第一个候选"（run5 对照实验的教训）
+ *
+ * 第一版面板在候选列表就绪后自动选中目录第一个 agent——run5 同栈对照实验抓到它是
+ * 一个真回归：目录序第一恰好是 `catalogOnlyAgentId`（#467 种的"只进目录、从未发布"
+ * agent），自动选中它 = 所有"不做选择"的既有用例（runtime-adapter 三条）的请求被
+ * header 改道到一个必然 `AGENT_NOT_FOUND` 的 agent，env 默认路径被劫持，三条当场红。
+ * 面板已改为不自动选择（`copilotkit-v2-panel.tsx` 的注释记录了同一段实测）；本用例
+ * 断言的就是这条"不选 = 不带 header = 服务端默认"的既有路径完好无损。
  */
-test("自动选中的默认候选也真实路由——不是选择器摆设，UI 之外没有第二套隐藏默认值", async ({ page }) => {
+test("不做选择时不带选择 header——服务端 env 默认路径完好，回复来自默认 deep-agent", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
@@ -131,12 +149,12 @@ test("自动选中的默认候选也真实路由——不是选择器摆设，UI
   await warmUpCopilotRuntimeRoute(page);
   await page.goto("/chat/copilotkit-v2");
 
+  // 选择器在场（能选），但**不点它**——这是本用例的全部前提。
   const trigger = page.getByTestId("chat-agent-select");
   await expect(trigger).toBeVisible({ timeout: 20_000 });
-  // 自动选择生效后触发器不应该再显示"没有可选 Agent"/"选择 Agent" 占位文案。
-  await expect(trigger).not.toHaveText(/没有可选 Agent|选择 Agent/, { timeout: 20_000 });
 
-  let capturedAgentHeader: string | null | undefined;
+  let sawRunRequest = false;
+  let capturedAgentHeader: string | null = null;
   await page.route(
     (u) => u.pathname.includes("/api/copilotkit/") && u.pathname !== "/api/copilotkit/info",
     async (route) => {
@@ -145,16 +163,24 @@ test("自动选中的默认候选也真实路由——不是选择器摆设，UI
         return;
       }
       capturedAgentHeader = await route.request().headerValue(COPILOTKIT_V2_SELECTED_AGENT_HEADER);
+      sawRunRequest = true;
       await route.continue();
     },
   );
 
-  await page.getByTestId("copilotkit-v2-input").fill("自动选中的候选也要真实路由");
+  const userText = "不选择时走服务端默认";
+  await page.getByTestId("copilotkit-v2-input").fill(userText);
   await page.getByTestId("copilotkit-v2-send").click();
 
-  await expect.poll(() => capturedAgentHeader !== undefined, { timeout: 30_000 }).toBe(true);
-  // 必须是这两个真实候选之一——不是 undefined/空字符串，也不是编造的第三个 id。
-  expect([CHAT_READ_E2E.agentId, CHAT_READ_E2E.deepAgentId]).toContain(capturedAgentHeader);
+  await expect.poll(() => sawRunRequest, { timeout: 30_000 }).toBe(true);
+  // ── 反证① 请求上**没有**选择 header——前端没有编造一个选择去劫持服务端默认。
+  expect(capturedAgentHeader).toBeNull();
+
+  // ── 反证② 回复真的来自 env 默认的 deep-agent（loopback 替身确定性签名），
+  //    而不是无回复/错误——默认路径不只是"没被改道"，还得真的能用。
+  const messages = page.getByTestId("copilotkit-v2-messages");
+  await expect(messages).toContainText("已查询当前时间", { timeout: 60_000 });
+  await expect(page.getByTestId("copilotkit-v2-error")).toHaveCount(0);
 
   await page.unroute("**/api/copilotkit/**");
 });

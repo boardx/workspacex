@@ -553,17 +553,14 @@ export function CopilotKitV2Panel(): JSX.Element {
   const agentOptions = useCopilotKitV2AgentOptions(orgId, bearer);
   const { selectedAgentId, setSelectedAgentId } = useCopilotKitV2AgentSelection();
 
-  // 候选列表首次就绪、且用户还没有做过任何选择时，默认选第一个——与
-  // `chat-live-message-panel.tsx` 的 `pickDefaultAgentId(agents, ...)` 同一条产品
-  // 纪律（有得选的时候不强迫用户先点一次才能开始对话），但这里不需要那份函数的
-  // "换线程时优先记住上次用过的 agent"那一半——本面板没有线程概念（差距 #1），
-  // 每次挂载都是新对话，"上一次用过谁"无处持久化，选第一个是唯一诚实的默认值。
-  React.useEffect(() => {
-    if (selectedAgentId !== null) return;
-    if (agentOptions.status !== "ready" || agentOptions.agents.length === 0) return;
-    const firstAgentId = agentOptions.agents[0]?.id;
-    if (firstAgentId !== undefined) setSelectedAgentId(firstAgentId);
-  }, [selectedAgentId, agentOptions, setSelectedAgentId]);
+  // ⚠ 刻意**不**自动选中目录第一个候选（第一版这么做过，run5 对照实验实测抓到两个
+  // 真问题才改掉）：① 目录序第一恰好可能是"只进目录、从未发布"的 agent（#787 已知
+  // 裂痕），自动选中它 = 用户第一条消息就 AGENT_NOT_FOUND；② 未选择时本该走
+  // `COPILOTKIT_V2_AGENT_ID`（服务端配置的可运行默认 agent）的既有路径被 header
+  // 悄悄劫持——runtime-adapter 三条"不做选择"的既有 e2e 当场红给了看。与旧轨道
+  // `pickDefaultAgentId` 的差异是结构性的：旧轨道 `createMessage` 的 `agentId` 是
+  // 必填项、不选就发不了，只能替用户选；本轨道服务端本来就有默认 agent，"不选" 是
+  // 一个真实存在且必须保持可用的状态，不需要也不应该在前端编造一个选择。
 
   return (
     <div className="flex h-full w-full flex-col gap-2 p-4">
@@ -596,13 +593,11 @@ export function CopilotKitV2Panel(): JSX.Element {
         ) : null}
       </div>
       <div className="min-h-0 flex-1">
-        {selectedAgentId !== null ? (
-          <CopilotKitV2PanelBody key={selectedAgentId} />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground" data-testid="copilotkit-v2-no-agent-selected">
-            选择一个 Agent 开始对话。
-          </div>
-        )}
+        {/* 未选择（`null`）也照常渲染——这时请求不带选择 header，服务端用
+            `COPILOTKIT_V2_AGENT_ID` 默认 agent（与本任务之前逐字节相同的路径）。
+            key 里的 `"__server_default__"` 只是 React 重挂载边界的占位段，不会出现在
+            任何请求里（header 由 `selectedAgentId === null` 时不设置来保证）。 */}
+        <CopilotKitV2PanelBody key={selectedAgentId ?? "__server_default__"} />
       </div>
     </div>
   );
