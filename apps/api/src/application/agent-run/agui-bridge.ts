@@ -63,6 +63,7 @@ import type {
 } from "../chat/message-command-ports";
 import { mutateThread, TitleInvalidError } from "../chat/mutate-thread";
 import { readAgentRun, AgentRunNotVisibleError } from "./read-run";
+import { DEFAULT_RUN_POLL_INTERVAL_MS, DEFAULT_RUN_MAX_POLLS } from "./poll-budget";
 import {
   decideAgentRun, AgentRunNotAwaitingApprovalError, type DecideAgentRunDeps,
 } from "./decide-agent-run";
@@ -255,8 +256,11 @@ async function pollAguiRunToOutcome(
   },
 ): Promise<AguiBridgeOutcome> {
   const { threadId, runId } = input;
-  const pollIntervalMs = input.pollIntervalMs ?? 400;
-  const maxPolls = input.maxPolls ?? 75; // ~30s bound at the default interval.
+  const pollIntervalMs = input.pollIntervalMs ?? DEFAULT_RUN_POLL_INTERVAL_MS;
+  // See `poll-budget.ts` -- this used to default to 75 (~30s), independently of
+  // `stream-run.ts`'s ~90s budget, and a slower run (e.g. a multi-block canvas template)
+  // could time out here well before it actually finished server-side.
+  const maxPolls = input.maxPolls ?? DEFAULT_RUN_MAX_POLLS;
   let lastSeenDeltaSeq = input.initialLastSeenDeltaSeq ?? -1;
   let reportedStepCount = input.initialReportedStepCount ?? 0;
 
