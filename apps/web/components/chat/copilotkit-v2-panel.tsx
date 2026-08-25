@@ -570,9 +570,9 @@ export function CopilotKitV2Panel({
       },
     });
     return unsubscribe;
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `onThreadResolved` 由外壳
-    // 用 `useCallback` 提供稳定引用；把它加进依赖数组会在外壳每次 `reloadThreads` 状态
-    // 更新时重新订阅/取消订阅，没有必要。
+    // `onThreadResolved` 由外壳用 `useCallback` 提供稳定引用；把它加进依赖数组会在
+    // 外壳每次 `reloadThreads` 状态更新时重新订阅/取消订阅，没有必要。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
 
   /**
@@ -617,9 +617,10 @@ export function CopilotKitV2Panel({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在挂载时按 `initialChatThreadId`
-    // 跑一次；这个值本身由 `copilotkit-v2-shell.tsx` 的 `key` 保证"变了就整体 remount"，
-    // 不会在同一个组件实例存活期间变化，加进依赖数组没有额外效果。
+    // 只在挂载时按 `initialChatThreadId` 跑一次；这个值本身由
+    // `copilotkit-v2-shell.tsx` 的 `key` 保证"变了就整体 remount"，不会在同一个
+    // 组件实例存活期间变化，加进依赖数组没有额外效果。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
