@@ -31,7 +31,12 @@ import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "../lib/copilotkit-v2-agent-
  *    这是「不是断言 UI 显示选中，而是断言 wire 上请求真的路由到了选中的 agent」
  *    这条判据要求的因果闭环，不只是"header 存在"这一半。
  */
-test.setTimeout(120_000);
+// 180s 对齐 `copilotkit-v2-runtime-adapter.spec.ts`——首次实测（2026-08-25 本地）120s
+// 在 dev server 首编译窗口 + 高负载下不够：登录 + `/api/copilotkit/info` 预热之后，
+// `page.goto("/chat/copilotkit-v2")` 还要触发该页面自己的首次编译，两条用例都在这一步
+// 被 120s 测试超时打断（`net::ERR_ABORTED; maybe frame was detached`，日志里 webServer
+// 正在编译 `[[...slug]]/route.ts`）。不是断言失败，是预算问题。
+test.setTimeout(180_000);
 
 async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page): Promise<void> {
   await expect
@@ -41,6 +46,17 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
         return res.status();
       },
       { timeout: 60_000, intervals: [500, 1_000, 2_000] },
+    )
+    .toBe(200);
+  // 页面路由本身的首次编译也要预热掉（同上一条实测记录）：`page.request.get` 只触发
+  // 服务端编译，不占页面帧，编译完成后真正的 `page.goto` 走的就是热路径。
+  await expect
+    .poll(
+      async () => {
+        const res = await page.request.get("/chat/copilotkit-v2");
+        return res.status();
+      },
+      { timeout: 90_000, intervals: [1_000, 2_000, 5_000] },
     )
     .toBe(200);
 }
