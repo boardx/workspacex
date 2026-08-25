@@ -41,8 +41,12 @@ test("profile fidelity shots", async ({ page }) => {
 
   await page.setViewportSize(DESKTOP);
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(SELF_SERVICE_PROFILE_E2E.adminEmail);
-  await page.getByTestId("login-password").fill(SELF_SERVICE_PROFILE_E2E.adminPassword);
+  // ⚠ 用专属的 `fidelityEmail`，**不要**换回 `adminEmail`（#2086）：那个账号会被
+  // 并行 worker 上的 `self-service-profile.spec.ts` 真的改掉密码并 logout，
+  // 使这里已经登录成功的会话失效，随后 `/profile` 被踢回登录页、
+  // `profile-screen` 永不出现——这正是本条曾连红十次的原因。
+  await page.getByTestId("login-email").fill(SELF_SERVICE_PROFILE_E2E.fidelityEmail);
+  await page.getByTestId("login-password").fill(SELF_SERVICE_PROFILE_E2E.fidelityPassword);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/projects$/);
 

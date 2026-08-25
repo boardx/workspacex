@@ -30,8 +30,15 @@ export default defineConfig({
    * 同样是这套编排的自然延伸。用的是独立的 `orgAdminKeyboardAdminEmail`/
    * `orgAdminKeyboardMemberEmail` 账号对（`self-service-profile-fixture.ts` 头注）。
    *
-   * F15 —— 新增 `profile-org-fidelity.spec.ts` 同理接住：复用 admin 账号，只读
-   * 两个页面并截图 + 断言无横向溢出，不改任何写路径状态，与既有用例互不干扰。
+   * F15 —— 新增 `profile-org-fidelity.spec.ts` 同理接住：用**独立的 `fidelityEmail`
+   * 账号**（org admin 角色），不复用 admin。
+   *
+   * ⚠ 这里原先写的是「复用 admin 账号，只读两个页面……与既有用例互不干扰」，
+   * 那个推理是反的，代价是 e2e-full 连红十次（#2086）：危险的不是本 spec 写，
+   * 是本 spec **读的时候 `self-service-profile.spec.ts` 在改 admin 的密码**。
+   * 下面的 `fullyParallel: false` **只保证同一个文件内的用例串行**，不阻止不同
+   * spec 文件被分到不同 worker 并行——CI 日志逐字 `Running 4 tests using 2 workers`。
+   * 「只读」从来不是共用账号的理由，只有专属账号是。
    */
   testMatch: /(self-service-profile|profile-keyboard-navigation|org-admin-keyboard-navigation|profile-org-fidelity)\.spec\.ts$/,
   fullyParallel: false,
@@ -93,6 +100,11 @@ export default defineConfig({
         SSP_E2E_ORG_ADMIN_KEYBOARD_MEMBER_USER_ID: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardMemberUserId,
         SSP_E2E_ORG_ADMIN_KEYBOARD_MEMBER_EMAIL: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardMemberEmail,
         SSP_E2E_ORG_ADMIN_KEYBOARD_MEMBER_DISPLAY_NAME: SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardMemberDisplayName,
+        // F15 —— 截图保真度专属账号，唯一事实源在 `self-service-profile-fixture.ts`。
+        SSP_E2E_FIDELITY_USER_ID: SELF_SERVICE_PROFILE_E2E.fidelityUserId,
+        SSP_E2E_FIDELITY_EMAIL: SELF_SERVICE_PROFILE_E2E.fidelityEmail,
+        SSP_E2E_FIDELITY_PASSWORD: SELF_SERVICE_PROFILE_E2E.fidelityPassword,
+        SSP_E2E_FIDELITY_DISPLAY_NAME: SELF_SERVICE_PROFILE_E2E.fidelityDisplayName,
         // #548：不供这一条，API 进程起不来（`credentialCipherFromEnv()` 抛错）。
         MODEL_CREDENTIAL_KEY: "self-service-profile-e2e-credential-key-not-a-secret",
       },
