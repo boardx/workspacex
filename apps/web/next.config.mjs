@@ -84,24 +84,30 @@ export default {
     return config;
   },
   /**
-   * 2026-08-25（#2026 默认入口翻转）：裸 `/chat` → `/chat/copilotkit-v2` 放在 HTTP 层
-   * 而不是页面组件里——App Router 的组件级 `redirect()` 在 dev 动态渲染下会退化成
-   * meta-refresh 客户端跳转，Playwright `page.goto("/chat")` 因原导航被新导航中止而
-   * 报 `net::ERR_ABORTED`（本轮两次实测，预热 API 路由无效，是渲染层跳转机制本身）。
-   * `missing` 匹配器保证带 `projectId`/`thread` 的深链不受影响（那两支仍由
-   * `app/chat/page.tsx` 渲染旧屏，理由见其头注）。`page.tsx` 里保留同款
-   * `redirect()` 作为兜底——两层声明的是同一个事实（裸 /chat ⇒ v2），HTTP 层是
-   * 主路径，组件层只在配置被绕过时接住，不算第二份权威。
+   * 2026-08-25（#2044，人类原话「路由要改为 chat，不要 chat/copilotkit-v2，潜入到
+   * 整体框架」）：方向对 #2026 翻转过来——CopilotKit v2 体验现在**原生**住在
+   * `/chat`（`app/chat/page.tsx` 直接渲染，不再 redirect），旧灰度地址
+   * `/chat/copilotkit-v2{,/:threadId}` 反向薄跳转到新地址（路由文件保留，兼容
+   * 书签/在途 PR，下一轮再清）。
+   *
+   * 仍放 HTTP 层而不是页面组件里——#2026 两次实测的教训原样适用：App Router 的
+   * 组件级 `redirect()` 在 dev 动态渲染下退化成 meta-refresh 客户端跳转，
+   * Playwright `page.goto()` 因原导航被新导航中止而报 `net::ERR_ABORTED`
+   * （预热 API 路由无效，是渲染层跳转机制本身）。
+   *
+   * 裸 `/chat` 那条 307（#2026）已删除：v2 原生住进 `/chat` 后它失去意义；带
+   * `projectId`/`thread` 的深链继续由 `app/chat/page.tsx` 分支渲染旧屏（见其头注）。
    */
   async redirects() {
     return [
       {
-        source: "/chat",
-        missing: [
-          { type: "query", key: "projectId" },
-          { type: "query", key: "thread" },
-        ],
-        destination: "/chat/copilotkit-v2",
+        source: "/chat/copilotkit-v2",
+        destination: "/chat",
+        permanent: false,
+      },
+      {
+        source: "/chat/copilotkit-v2/:threadId",
+        destination: "/chat/:threadId",
         permanent: false,
       },
     ];

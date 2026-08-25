@@ -62,7 +62,7 @@ test("DA-19g 回归：HITL 对话框 Escape 退出后遮罩真的从 DOM 移除�
   await page.waitForURL(/\/projects$/);
 
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();

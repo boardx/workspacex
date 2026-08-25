@@ -82,7 +82,7 @@ test("useAgentContext 探针真的出现在 /api/copilotkit/agent/:id/run 的上
     );
 
     await warmUpCopilotRuntimeRoute(page);
-    await page.goto("/chat/copilotkit-v2");
+    await page.goto("/chat");
     await page.getByTestId("copilotkit-v2-input").fill(userText);
     await page.getByTestId("copilotkit-v2-send").click();
 
@@ -138,5 +138,5 @@ test("useAgentContext 探针真的出现在 /api/copilotkit/agent/:id/run 的上
     probe?: string;
   };
   expect(parsedValue.probe).toBe("DA-19F-READABLE-CONTEXT-PROBE");
-  expect(parsedValue.pathname).toBe("/chat/copilotkit-v2");
+  expect(parsedValue.pathname).toBe("/chat");
 });

@@ -81,7 +81,7 @@ test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长
   await page.waitForURL(/\/projects$/);
 
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   // 用一段足够长、不撞任何既有触发词字面量的用户输入——`loopback-deep-agent-provider.ts`
   // 的默认模板把用户原话整体嵌入回复正文两次（"根据查询结果回答你：\"...\" —— 已查询

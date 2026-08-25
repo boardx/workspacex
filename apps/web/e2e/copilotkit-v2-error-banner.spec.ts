@@ -16,7 +16,7 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
  * `deepAgentFailureTrigger`（`chat-read-fixture.ts`）在 `/chat`（`chat-main-shots.spec.ts`）
  * 那条路径上已有使用先例：`loopback-deep-agent-provider.ts` 收到这句触发词时，
  * 轮询到的 run 终态是 `"error"`（不是 `"success"`），经 `execute-run.ts` 落到 `failed` +
- * `MODEL_CALL_FAILED`。`/chat/copilotkit-v2` 走的是同一条 `execute-run.ts`/
+ * `MODEL_CALL_FAILED`。`/chat` 走的是同一条 `execute-run.ts`/
  * `deep-agent-model-provider.ts` 执行管线，只是传输层换成 `runAguiBridgeTurn` 轮询后
  * 由 `copilotkit-agui.controller.ts` 折成 AG-UI `RUN_ERROR` 事件（
  * `write({ type: EventType.RUN_ERROR, message: outcome.error, code: outcome.error })`，
@@ -46,7 +46,7 @@ test("DA-19g 错误处理透明度——真实失败场景下 UI 出现人类可
   await page.waitForURL(/\/projects$/);
 
   await warmUpCopilotRuntimeRoute(page);
-  await page.goto("/chat/copilotkit-v2");
+  await page.goto("/chat");
 
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentFailureTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
