@@ -153,7 +153,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       </aside>
       <div className="min-w-0 flex-1">
         {/*
-          ⚠ `key` 用的是 `initialThreadId`（route 参数本身），**不是** `selectedThreadId`
+          ⚠ `key` 用的是 `initialThreadId`（route 参数本身），不是 `selectedThreadId`
           （本组件内部状态）——两者绝大多数时候相等，但在
           "新建对话即发第一条消息、`handleThreadResolved` 异步写回真实 id" 这条路径上
           刻意不相等：那次只应该更新地址栏 + 侧栏高亮，不能触发 remount（见上面
