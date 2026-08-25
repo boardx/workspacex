@@ -4,6 +4,8 @@ import * as React from "react";
 import { usePathname } from "next/navigation";
 import { CopilotKit, useAgentContext } from "@copilotkit/react-core/v2";
 import { getStoredSessionToken } from "@/lib/api-client";
+import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
+import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "@/lib/copilotkit-v2-agent-header";
 
 /**
  * DA-19f —— `useCopilotReadable`/`useAgentContext` 接线基座（issue 见 PR 描述）。
@@ -75,6 +77,20 @@ function CopilotKitV2ReadableContextProbe(): null {
  * object props rebuilt every render"给出的推荐模式）后，反证①（真实回合，需要
  * token 生效）稳定通过——这是本仓唯一确认过在这个包版本上真实可靠的鉴权接线方式。
  */
+/**
+ * issue #2023（差距清单第 4 项）—— 补的一段：`headers` useMemo 现在还带上
+ * `COPILOTKIT_V2_SELECTED_AGENT_HEADER`，值来自 `useCopilotKitV2AgentSelection()`
+ * （`CopilotKitV2AgentSelectionProvider` 包在本组件外层，见 `layout.tsx`）。
+ *
+ * 复用的正是上面这段头注刚验证过的机制——"prop-derived headers, full overwrite"，
+ * `Authorization` 已经证明这条通道对这个包版本可靠；这里只是往同一个 `useMemo` 里
+ * 多塞一个 key，不是另开一条新通道。依赖数组多了 `selectedAgentId`：用户切换 agent
+ * 时这个 memo 换新引用，provider 判定"prop 变了"，下一次请求带上新值。
+ *
+ * `selectedAgentId === null`（agent 列表还没加载完，或组织没有可用 agent）时不带这个
+ * header——`route.ts` 的 `AgentsFactory` 对缺失时的行为是回退到 `COPILOTKIT_V2_AGENT_ID`
+ * 环境变量（与本任务之前的行为逐字节相同），不是本层猜一个默认值。
+ */
 export function CopilotKitV2Providers({ children }: { children: React.ReactNode }): JSX.Element {
   // `useState(() => getStoredSessionToken())` —— 惰性初始化，值在**首次渲染就**
   // 同步读到，不是 `useState(null)` 再靠 `useEffect` 在下一帧才补上。实测（本轮 e2e，
@@ -85,6 +101,7 @@ export function CopilotKitV2Providers({ children }: { children: React.ReactNode 
   // 靠 `page.waitForTimeout` 加大延迟也压不住（等的是错误的东西）。惰性初始化让首帧
   // 就是最终值，消灭这个空档本身，而不是试图跑赢它。
   const [token, setToken] = React.useState<string | null>(() => getStoredSessionToken());
+  const { selectedAgentId } = useCopilotKitV2AgentSelection();
 
   React.useEffect(() => {
     const sync = (): void => setToken(getStoredSessionToken());
@@ -101,8 +118,9 @@ export function CopilotKitV2Providers({ children }: { children: React.ReactNode 
   const headers = React.useMemo<Record<string, string>>(() => {
     const h: Record<string, string> = {};
     if (token !== null) h.Authorization = `Bearer ${token}`;
+    if (selectedAgentId !== null) h[COPILOTKIT_V2_SELECTED_AGENT_HEADER] = selectedAgentId;
     return h;
-  }, [token]);
+  }, [token, selectedAgentId]);
 
   return (
     <CopilotKit
