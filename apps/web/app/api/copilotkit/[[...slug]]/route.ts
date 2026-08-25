@@ -59,6 +59,23 @@ import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "@/lib/copilotkit-v2-agent-h
 
 const BASE_PATH = "/api/copilotkit";
 
+/**
+ * 2026-08-25（#2026 翻转后 devapp 实测）：本 handler 在**服务端**给 `HttpAgent` 的
+ * 出站地址。生产同机拓扑（Caddy 同源反代）下不能用 `apiBaseUrl()`（= 公网
+ * `NEXT_PUBLIC_API_URL`）——那会让 Next 服务端绕公网打回同一台 Caddy，而
+ * `/api/copilotkit/*` 恰好整段是本 handler 自己的 basePath，Caddy 把请求送回
+ * Next 自己，稳定拿到 404 HTML，用户侧表现为发消息即 RUN_ERROR（真实事故，
+ * wire 抓包定位）。deploy.env 里现成的 `APP_API_PORT`（provision.sh 单一声明处，
+ * systemd EnvironmentFile 注入）就是内网 NestJS 端口——存在时直连 127.0.0.1
+ * 回环，一跳到位，不经 Caddy。e2e / 本地 dev 不设这个变量，行为与之前逐字节
+ * 相同（`apiBaseUrl()` 直连测试 API 端口）。
+ */
+function aguiOrigin(): string {
+  const internalPort = process.env.APP_API_PORT?.trim();
+  if (internalPort) return `http://127.0.0.1:${internalPort}`;
+  return apiBaseUrl();
+}
+
 function requiredAgentId(): string {
   const id = process.env.COPILOTKIT_V2_AGENT_ID;
   if (id === undefined || id.trim() === "") {
@@ -103,7 +120,7 @@ const agents: AgentsFactory = ({ request }) => {
   const authorization = request.headers.get("authorization");
   return {
     default: new HttpAgent({
-      url: `${apiBaseUrl()}/copilotkit/agui?agentId=${encodeURIComponent(agentId)}`,
+      url: `${aguiOrigin()}/copilotkit/agui?agentId=${encodeURIComponent(agentId)}`,
       // 真实转发浏览器请求自带的 Authorization 头；未登录请求没有这个头，
       // 下游 `copilotkit-agui.controller.ts` 的 `assertPrincipal` 会如实 401，
       // 不在这一层伪造一个 header 掩盖过去。
