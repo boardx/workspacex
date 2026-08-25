@@ -49,6 +49,26 @@ const PHASE_BY_KIND: Readonly<Record<string, string>> = {
 const FALLBACK_PHASE = "正在处理…";
 
 /**
+ * CK-P4（issue #2054）—— 上面这张映射表是**阶段文案的唯一事实源**。CopilotKit v2 轨道
+ * 的数据来源不同（AG-UI 事件流，不是 `AgentRunView.steps` 轮询），但用户看到的措辞
+ * 必须是同一套：两条轨道各写一份"正在执行技能脚本…"就是本仓 AGENTS.md 点名的
+ * 「同一事实声明在两处」，改一处另一处静默漂移。所以 v2 侧
+ * （`copilotkit-v2-run-progress.ts`）从这里取词，不复制字符串。
+ *
+ * `toolName` 为 `null`（AG-UI 事件里工具名缺失）或表里没有的名字，一律落
+ * `DEFAULT_TOOL_PHASE`——与 `phaseForStep` 逐字同一条兜底纪律。
+ */
+export function phaseLabelForToolName(toolName: string | null): string {
+  if (toolName === null) return DEFAULT_TOOL_PHASE;
+  return TOOL_PHASE_BY_NAME[toolName] ?? DEFAULT_TOOL_PHASE;
+}
+
+/** 同上：按 `AgentRunStepKind` 取词，供 v2 轨道映射自己的等价事件。 */
+export function phaseLabelForKind(kind: string): string {
+  return PHASE_BY_KIND[kind] ?? FALLBACK_PHASE;
+}
+
+/**
  * 取 `steps` 里最新一条，翻译成阶段文案。`steps` 为空（run 刚提交，第一条
  * `accepted` 还没落库）返回 `null`——调用方保留原来纯计时器的「正在思考…」，
  * 不显示一个不存在的阶段。

@@ -117,7 +117,11 @@ import {
   TitleInvalidError, AguiBridgeResultUnreadableError, AgentRunNotAwaitingApprovalError,
   type RunStepPublic,
 } from "../../application/agent-run/agui-bridge";
-import { parseWriteTodosSnapshot, type JsonPatchOp } from "@repo/contracts/agui-state-events";
+import {
+  parseWriteTodosSnapshot,
+  AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+  type JsonPatchOp,
+} from "@repo/contracts/agui-state-events";
 import { chatFileUpload } from "@repo/contracts";
 
 /**
@@ -675,6 +679,20 @@ export class CopilotkitAguiController {
         });
 
       if (outcome.kind === "succeeded") {
+        // CK-P3 (issue #2054) -- 把这条 assistant 消息的**真实** `chat_messages.id` 回显
+        // 给客户端。`messageId`（上面 `randomUUID()`）是流式聚合用的临时 id，必须在第一个
+        // delta 之前存在，而那时消息还没写回；真实主键直到现在（run 成功、`agui-bridge`
+        // 已回读到 `projection.resultMessageId`）才存在。发在 TEXT_MESSAGE_END 之后、
+        // RUN_FINISHED 之前——客户端收到它时那条气泡已经完整，收到后这一轮才结束。
+        //
+        // ⚠ 只在 `succeeded` 分支发。`failed`/`awaiting_approval` 没有一条已落库的
+        //   assistant 消息可指——发一个指向不存在的行的 id，比不发更糟。
+        //   完整理由见 `@repo/contracts/agui-state-events` 的 `AguiChatMessageIdValue`。
+        write({
+          type: EventType.CUSTOM,
+          name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+          value: { streamingMessageId: messageId, chatMessageId: outcome.messageId },
+        });
         if (sawAnyDelta) {
           // Every fragment already went out via `onDelta` above -- resending
           // `outcome.text` here would duplicate the assistant bubble's content.
