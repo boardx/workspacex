@@ -206,7 +206,14 @@ export function CopilotKitV2MessageLanding({
 }): JSX.Element | null {
   const ctx = useCopilotKitV2MessageActions();
   if (ctx === null || ctx.landing === null) return null;
-  const chatMessageId = ctx.identity.resolve(messageId);
+  // ⚠ 用 `resolvePersisted` 而**不是** `resolve`：后者额外过一道归因门（`agentRunId`），
+  //   那是**评分**的服务端判据（`submit-message-rating.ts` 第三道
+  //   `ratings.resolveForMessage`）。落地为产物的服务端门里没有这一条
+  //   （`land-as-artifact.ts` 只做 `findMessageLocation` + 可见性），用 `resolve` 会把
+  //   一条合法可落地、只是没有 `agentRunId` 的历史消息的入口**静默藏掉**——按钮不
+  //   出现、不报错、不留痕，是最难被发现的那种假阴性。两个出口的完整依据见
+  //   `lib/copilotkit-v2-message-identity.ts` 的 `resolvePersisted` 文档。
+  const chatMessageId = ctx.identity.resolvePersisted(messageId);
   if (chatMessageId === null || text === "") return null;
   const landing = ctx.landing;
   const message = { id: chatMessageId, text };

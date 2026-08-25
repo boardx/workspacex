@@ -1466,7 +1466,7 @@ function CopilotKitV2PanelBody({
                       `CopilotChatAssistantMessage`，`markdownRenderer` 照旧是
                       `V2MarkdownRenderer`）——DA-19b 的 markdown/mermaid 能力没有回退。
 
-                    issue #2052（CK-P7）—— 「落地为产物」是**同一个操作条上的第四件**，
+                    issue #2052（CK-P7）—— 「落地为产物」是同一个操作条上的第四件，
                     经同一份 context 下发（`landing`），不另包一层 provider / 不另换一次
                     slot：两层包装会渲染出两个气泡外壳。 */}
                 <CopilotKitV2MessageActionsProvider
@@ -1888,7 +1888,7 @@ function V2AssistantMessageImpl(
         additionalToolbarItems={<CopilotKitV2MessageExtraActions messageId={messageId} />}
       />
       {/* issue #2052（CK-P7）—— 「落地为产物」是块级三态交互，进不了行内工具栏，
-          所以作为气泡的**兄弟节点**挂在下面。⚠ 这不是第二层 slot 包装：
+          所以作为气泡的兄弟节点挂在下面。⚠ 这不是第二层 slot 包装：
           `assistantMessage` slot 全仓只在本组件换这一次。 */}
       <CopilotKitV2MessageLanding messageId={messageId} text={text} />
     </div>
