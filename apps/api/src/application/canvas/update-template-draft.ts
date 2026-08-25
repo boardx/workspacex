@@ -29,6 +29,7 @@ export interface UpdateTemplateDraftInput {
   readonly displayName: string;
   readonly sections: CreatedCanvasTemplate["sections"];
   readonly visibility: VisibilityScope;
+  readonly tags?: readonly string[];
 }
 
 export async function updateTemplateDraft(
@@ -45,6 +46,7 @@ export async function updateTemplateDraft(
     displayName: input.displayName,
     sections: input.sections,
     visibility: input.visibility,
+    tags: input.tags ?? [],
   });
 
   if (!outcome.updated) {

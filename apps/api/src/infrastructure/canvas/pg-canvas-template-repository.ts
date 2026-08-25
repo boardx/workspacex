@@ -51,6 +51,7 @@ interface TemplateSqlRow {
   underlying_type: string;
   sections: unknown;
   usage_count: string;
+  tags: readonly string[];
 }
 
 /**
@@ -82,7 +83,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     return this.db.withTenant(query.orgId, async (s) => {
       const r = await s.query<TemplateSqlRow>(
         `SELECT t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
-                t.visibility, t.owner_team_id, t.underlying_type, t.sections,
+                t.visibility, t.owner_team_id, t.underlying_type, t.sections, t.tags,
                 (SELECT count(*) FROM canvas_template_bindings b
                   WHERE b.org_id = t.org_id
                     AND b.template_key = t.key
@@ -126,6 +127,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly sections: CreatedCanvasTemplate["sections"];
     readonly visibility: VisibilityScope;
     readonly ownerTeamId: string | null;
+    readonly tags: readonly string[];
   }): Promise<CreateTemplateOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -137,17 +139,18 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         visibility: VisibilityScope;
         underlying_type: string;
         sections: unknown;
+        tags: readonly string[];
       }>(
         `INSERT INTO canvas_templates
            (org_id, key, version, display_name, status, archived_from, builtin,
-            visibility, owner_team_id, underlying_type, sections)
-         SELECT $1, $2, 1, $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb
+            visibility, owner_team_id, underlying_type, sections, tags)
+         SELECT $1, $2, 1, $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[]
           WHERE NOT EXISTS (
             SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
           )
          ON CONFLICT (org_id, key, version) DO NOTHING
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections`,
+                   underlying_type, sections, tags`,
         [
           cmd.orgId,
           cmd.key,
@@ -156,6 +159,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           cmd.ownerTeamId,
           cmd.underlyingType,
           JSON.stringify(cmd.sections),
+          [...cmd.tags],
         ],
       );
       const row = r.rows[0];
@@ -175,6 +179,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           underlyingType: row.underlying_type,
           // jsonb 回来的是已解析的 JS 值；形状由契约在控制器出门时二次校验（`.strict()`）。
           sections: row.sections as CreatedCanvasTemplate["sections"],
+          tags: [...row.tags],
         },
       };
     });
@@ -198,6 +203,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly sections: CreatedCanvasTemplate["sections"];
     readonly visibility: VisibilityScope;
     readonly ownerTeamId: string | null;
+    readonly tags: readonly string[];
   }): Promise<MintTemplateVersionOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -209,20 +215,21 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         visibility: VisibilityScope;
         underlying_type: string;
         sections: unknown;
+        tags: readonly string[];
       }>(
         `INSERT INTO canvas_templates
            (org_id, key, version, display_name, status, archived_from, builtin,
-            visibility, owner_team_id, underlying_type, sections)
+            visibility, owner_team_id, underlying_type, sections, tags)
          SELECT $1, $2,
                 (SELECT coalesce(max(version), 0) + 1
                    FROM canvas_templates WHERE org_id = $1 AND key = $2),
-                $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb
+                $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[]
           WHERE EXISTS (
             SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
           )
          ON CONFLICT (org_id, key, version) DO NOTHING
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections`,
+                   underlying_type, sections, tags`,
         [
           cmd.orgId,
           cmd.key,
@@ -231,6 +238,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           cmd.ownerTeamId,
           cmd.underlyingType,
           JSON.stringify(cmd.sections),
+          [...cmd.tags],
         ],
       );
       const row = r.rows[0];
@@ -254,6 +262,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           visibility: row.visibility,
           underlyingType: row.underlying_type,
           sections: row.sections as CreatedCanvasTemplate["sections"],
+          tags: [...row.tags],
         },
       };
     });
@@ -285,6 +294,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           // 而不是被前端在联调时发现。
           sections: row.sections as CanvasTemplateListing["sections"],
           usageCount: Number(row.usage_count),
+          tags: [...row.tags],
         },
       ),
     };
@@ -336,6 +346,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly displayName: string;
     readonly sections: CreatedCanvasTemplate["sections"];
     readonly visibility: VisibilityScope;
+    readonly tags: readonly string[];
   }): Promise<UpdateDraftOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -347,13 +358,17 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         visibility: VisibilityScope;
         underlying_type: string;
         sections: unknown;
+        tags: readonly string[];
       }>(
         `UPDATE canvas_templates
-            SET display_name = $4, sections = $5::jsonb, visibility = $6, updated_at = now()
+            SET display_name = $4, sections = $5::jsonb, visibility = $6, tags = $7::text[], updated_at = now()
           WHERE org_id = $1 AND key = $2 AND version = $3 AND status = 'draft'
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections`,
-        [cmd.orgId, cmd.key, cmd.version, cmd.displayName, JSON.stringify(cmd.sections), cmd.visibility],
+                   underlying_type, sections, tags`,
+        [
+          cmd.orgId, cmd.key, cmd.version, cmd.displayName,
+          JSON.stringify(cmd.sections), cmd.visibility, [...cmd.tags],
+        ],
       );
       const row = r.rows[0];
       if (row === undefined) {
@@ -374,6 +389,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           visibility: row.visibility,
           underlyingType: row.underlying_type,
           sections: row.sections as CreatedCanvasTemplate["sections"],
+          tags: [...row.tags],
         },
       };
     });

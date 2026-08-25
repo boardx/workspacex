@@ -52,12 +52,18 @@ beforeAll(async () => {
     response.setHeader("content-type", "application/json");
     const content = modelMode === "malformed"
       ? "not json at all"
+      // 2026-08-25：`TemplateSectionSuggestion.type` 转为必填字段（提示词要求模型
+      // 一起给出类型判断），mock 上游同步带上，否则响应解析不出来会误报成
+      // `TEMPLATE_SUGGESTION_UNAVAILABLE`——这条 mock 不该测出「契约变了没跟上」
+      // 之外的任何东西。
       : JSON.stringify({
         displayName: "商业模式画布",
         sections: [
-          { name: "关键合作伙伴" }, { name: "关键业务" }, { name: "价值主张" },
-          { name: "客户关系" }, { name: "渠道" }, { name: "客户细分" },
-          { name: "收入来源" }, { name: "成本结构" }, { name: "关键资源" },
+          { name: "关键合作伙伴", type: "便利贴列表" }, { name: "关键业务", type: "便利贴列表" },
+          { name: "价值主张", type: "便利贴列表" }, { name: "客户关系", type: "便利贴列表" },
+          { name: "渠道", type: "便利贴列表" }, { name: "客户细分", type: "便利贴列表" },
+          { name: "收入来源", type: "便利贴列表" }, { name: "成本结构", type: "便利贴列表" },
+          { name: "关键资源", type: "便利贴列表" },
         ],
       });
     response.end(JSON.stringify({

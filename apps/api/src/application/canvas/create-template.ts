@@ -51,6 +51,8 @@ export interface CreateTemplateInput {
   readonly underlyingType: string;
   readonly sections: CreatedCanvasTemplate["sections"];
   readonly visibility: VisibilityScope;
+  /** `undefined`（省略）与显式 `[]` 在契约层同义——这里统一归一，仓储只收真数组。 */
+  readonly tags?: readonly string[];
 }
 
 export async function createTemplate(
@@ -72,6 +74,7 @@ export async function createTemplate(
     // ⚠ 不要在这里给它编一个默认团队去「修好」这个后果：那会把一个契约缺口变成一条
     //   没人评审过的可见性规则，而缺口本身就此看不见了。后果如实留着，等人类补签时裁。
     ownerTeamId: membership.teamId,
+    tags: input.tags ?? [],
   });
 
   if (!outcome.created) {

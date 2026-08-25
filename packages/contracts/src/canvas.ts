@@ -200,17 +200,72 @@ export const CanvasError = z.enum([
 
 /* ─────────────────────────────── 值对象 ─────────────────────────────── */
 
-/** 模板分区定义。`capacity` 可空——留白规则①对 `null` 容量的分区**目前断言不出来**（[待定 D-a]） */
+/**
+ * 分区的数据类型——决定它在画布上怎么渲染：便利贴列表 → 每条一张方形贴纸；
+ * 短文本 → 单行；长文本 → 段落框。见 `Design.pdf` §2.1 Field。
+ */
+export const SectionFieldType = z.enum(["便利贴列表", "短文本", "长文本"]);
+
+/**
+ * 分区在画布上的显式布局——2026-08-25，**设计增量、待人类补签**（同 `updateTemplateDraft`
+ * 等先例）。人类提供的画布模板重设计（`Design.pdf` + claude.ai/design 项目
+ * 「模板编辑器 拖拽版」）要求分区位置由使用者拖拽指定，而不是现有 `computeAutoLayout`
+ * 纯算法自动排布——`layout` 就是「使用者手动放好的那个位置」。
+ *
+ * `col/row` 是网格左上角坐标（1 起），`w/h` 是列/行跨度；`cols`/`max`/`tone`/`overflow`
+ * 是「显示方式」，只影响呈现，不影响字段定义本身（`Design.pdf` §2.2 Block 原话）。
+ */
+export const SectionLayout = z.object({
+  col: z.number().int().min(1).max(12),
+  row: z.number().int().min(1).max(8),
+  w: z.number().int().min(1).max(12),
+  h: z.number().int().min(1).max(8),
+  /** 贴纸横向列数，仅列表型有效。 */
+  cols: z.number().int().min(3).max(8),
+  /** 最多渲染条数，同时是提示词的条数上限。 */
+  max: z.number().int().min(3).max(9),
+  /** 贴纸色：0 黄 / 1 粉 / 2 绿 / 3 蓝。 */
+  tone: z.number().int().min(0).max(3),
+  overflow: z.enum(["缩小字号", "叠放", "截断"]),
+}).strict();
+
+/**
+ * 模板分区定义。`capacity` 可空——留白规则①对 `null` 容量的分区**目前断言不出来**（[待定 D-a]）。
+ *
+ * ⚠ `key`/`type`/`aiHint`/`layout` 四个 2026-08-25 新增字段全部 `.optional()`——**纯增量**，
+ *   不是把 `SectionDef` 换成另一个形状。理由：现有内置模板（19 个，`sections` 由
+ *   `apps/api/scripts/backfill-canvas-builtin-templates.ts` 从 fabric-markdown 的
+ *   spec 推导，只有 `name`）与既有 org 模板的存量数据完全没有这四栏，`sections` 是
+ *   `jsonb` 存储（无 schema 迁移可言）——若把它们改成必填，老数据在 `listTemplates.out`
+ *   出门校验时会当场炸。新编辑器（拖拽版）写入时会带全这四栏；旧数据/旧路径不带，
+ *   `layout` 缺失（或为 `null`）就按既有的 `computeAutoLayout` 自动布局兜底渲染——
+ *   两条渲染路径共存，不强制迁移存量数据。
+ */
 export const SectionDef = z.object({
   sectionId: z.string(),
+  /** AI 返回 JSON 的键名；模板内唯一，小写英文+下划线。新编辑器写入时必填，旧数据可空。 */
+  key: z.string().regex(/^[a-z][a-z0-9_]*$/).optional(),
   name: z.string(),
+  type: SectionFieldType.optional(),
+  /** 给 AI 的一句写法说明，拼进提示词。 */
+  aiHint: z.string().nullable().optional(),
   order: z.number().int().nonnegative(),
   required: z.boolean(),
   capacity: z.number().int().positive().nullable(),
+  /** `null`/缺失 = 未放置到画布上（沿用既有自动布局兜底渲染）。 */
+  layout: SectionLayout.nullable().optional(),
 }).strict();
 
-/** `suggestTemplateSections.out.sections` 里的一项——AI 只提议名字，没有 id/order/capacity。 */
-export const TemplateSectionSuggestion = z.object({ name: z.string() }).strict();
+/**
+ * `suggestTemplateSections.out.sections` 里的一项——AI 提议名字+类型+提取依据，
+ * 没有 id/order/capacity/layout（这些是使用者在编辑器里定的，不是 AI 该决定的事）。
+ */
+export const TemplateSectionSuggestion = z.object({
+  name: z.string(),
+  type: SectionFieldType,
+  /** 为什么建议这个字段——`Design.pdf` §4.1「提取依据」，如"要求记录原话"。 */
+  why: z.string().optional(),
+}).strict();
 
 /**
  * `suggestTemplateSections` 用例解析模型原始 JSON 输出用的 schema——**不是** `out`（`out`
@@ -351,6 +406,13 @@ export const operations = {
       underlyingType: z.string().min(1),
       sections: z.array(SectionDef),
       visibility: TemplateVisibility,
+      /**
+       * 2026-08-25，**设计增量、待人类补签**——自由标签，用于模板库筛选（`Design.pdf`
+       * §2 数据模型：「自由标签，无固定枚举」）。`.optional()` 不是 `.default([])`：
+       * 省略与显式传 `[]` 在契约层是同一件事，应用层落库前才统一成空数组，
+       * 不在契约边界替调用方决定默认值。
+       */
+      tags: z.array(z.string()).optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -364,6 +426,8 @@ export const operations = {
       visibility: TemplateVisibility,
       underlyingType: z.string(),
       sections: z.array(SectionDef),
+      /** 出门永远是真实数组（落库时已经把省略/`null` 归一成 `[]`），不是可选。 */
+      tags: z.array(z.string()),
     }).strict(),
     err: ["TEMPLATE_KEY_CONFLICT", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
@@ -397,6 +461,8 @@ export const operations = {
       displayName: z.string().min(1),
       sections: z.array(SectionDef),
       visibility: TemplateVisibility,
+      /** 同 `createTemplate.in.tags`——全量替换（同本操作 displayName/sections 的既有语义）。 */
+      tags: z.array(z.string()).optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -407,6 +473,7 @@ export const operations = {
       visibility: TemplateVisibility,
       underlyingType: z.string(),
       sections: z.array(SectionDef),
+      tags: z.array(z.string()),
     }).strict(),
     err: ["TEMPLATE_NOT_FOUND", "TEMPLATE_NOT_DRAFT", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
@@ -525,6 +592,8 @@ export const operations = {
        * 见上方「不在契约边界判」）。
        */
       ownerTeamId: z.string().nullable().optional(),
+      /** 同 `createTemplate.in.tags`——开新版时可带上一版的标签，或改一份新的。 */
+      tags: z.array(z.string()).optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -536,6 +605,7 @@ export const operations = {
       visibility: TemplateVisibility,
       underlyingType: z.string(),
       sections: z.array(SectionDef),
+      tags: z.array(z.string()),
     }).strict(),
     err: [
       "TEMPLATE_NOT_FOUND", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE",
@@ -567,6 +637,7 @@ export const operations = {
         underlyingType: z.string(),
         sections: z.array(SectionDef),
         usageCount: z.number().int().nonnegative(),
+        tags: z.array(z.string()),
       }).strict()),
     }).strict(),
     err: ["NO_PROJECT_ROLE", "DEPENDENCY_UNAVAILABLE"] as const,

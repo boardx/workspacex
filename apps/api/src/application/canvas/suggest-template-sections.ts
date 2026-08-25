@@ -41,7 +41,11 @@ export interface SuggestTemplateSectionsInput {
 
 export interface SuggestedTemplateSections {
   readonly suggestedDisplayName: string;
-  readonly sections: readonly { readonly name: string }[];
+  readonly sections: readonly {
+    readonly name: string;
+    readonly type: z.infer<typeof canvas.SectionFieldType>;
+    readonly why?: string;
+  }[];
   readonly modelProvider: string;
   readonly modelId: typeof SUGGEST_TEMPLATE_SECTIONS_MODEL_ID;
 }
@@ -66,9 +70,14 @@ export async function suggestTemplateSections(
       system: [
         "You help draft workshop canvas templates (like Business Model Canvas, SWOT, PESTEL).",
         "The user names a commonly known template or framework, possibly in Chinese.",
-        "Propose a displayName and an ordered list of section names for that template.",
+        "Propose a displayName and an ordered list of sections for that template.",
+        "Each section needs: name (Chinese section label), type (one of \"便利贴列表\" for",
+        "a repeatable list of short notes / \"短文本\" for a single short value / \"长文本\"",
+        "for a paragraph), and why (one short sentence explaining what in the prompt implies",
+        "this section, e.g. \"要求记录原话\").",
         "Return JSON only. Do not include markdown, prose, or comments.",
-        "The response schema is exactly: {\"displayName\":string,\"sections\":[{\"name\":string}]}",
+        "The response schema is exactly:",
+        "{\"displayName\":string,\"sections\":[{\"name\":string,\"type\":string,\"why\":string}]}",
         "Generate 2 to 9 sections. Use the same language as the user's prompt.",
         "If the prompt names a well-known framework (e.g. Business Model Canvas / SWOT / PESTEL),",
         "use that framework's standard sections. Otherwise propose a reasonable generic structure.",
