@@ -22,6 +22,7 @@ import {
   CopilotKitV2MessageActionsProvider,
   CopilotKitV2CopyButton,
   CopilotKitV2MessageExtraActions,
+  useCopilotKitV2MessageActions,
 } from "@/components/chat/copilotkit-v2-message-actions";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
@@ -1398,11 +1399,19 @@ function CopilotKitV2PanelBody({
                     agentLabel: actingAgentLabel,
                   }}
                 >
-                  <CopilotChatMessageView
-                    messages={agent.messages}
-                    isRunning={agent.isRunning}
-                    assistantMessage={V2AssistantMessage}
-                  />
+                  {/* issue #2070 —— threadId 读的是 `chatThreadIdRef.current`（真实
+                      `chat_threads.id`，见 DA-19a 一节；ref 而非 state，读的是渲染那
+                      一刻的值，与该 ref 自己"不需要触发重渲染"的既有纪律一致，
+                      `agent.messages` 变化时本来就会重渲染这里）。 */}
+                  <ArtifactLandingCtx.Provider
+                    value={{ threadId: chatThreadIdRef.current ?? undefined, bearer: sessionToken ?? undefined }}
+                  >
+                    <CopilotChatMessageView
+                      messages={agent.messages}
+                      isRunning={agent.isRunning}
+                      assistantMessage={V2AssistantMessage}
+                    />
+                  </ArtifactLandingCtx.Provider>
                 </CopilotKitV2MessageActionsProvider>
               </CopilotChatConfigurationProvider>
             </div>
@@ -1756,12 +1765,40 @@ async function readAllPersistedMessages(
  * 只用其中的 `content`，其余 Streamdown 专属渲染选项（`shikiTheme` 等）本组件不消费，
  * 因为渲染管线换成了 `MarkdownMessage`（react-markdown + mermaid fabric），不是
  * Streamdown 的产物，这些选项对它没有意义。
+ *
+ * issue #2070 —— `threadId`/`messageId`/`bearer` 现在是可选透传参数：这条通道此前只转
+ * `content`，`MarkdownMessage → ChatCanvasFabric`/`ChatDiagramFabric` 因此拿不到落地
+ * 产物所需的三要素，画布/mermaid 图编辑保存后退回"本地演示"（只更新内存 state，从不
+ * 调 `landAsArtifact`），刷新必丢。三者由下面 `V2AssistantMessageImpl` 在 slot 边界之外
+ * 另开的通道注入；这个组件本身仍然只认 `content` 是必需的，缺失三者时原样透传
+ * `undefined` 给 `MarkdownMessage`——退回"本地演示"是它自己已有的诚实降级，这里不
+ * 重复判断一次。
  */
 function V2MarkdownRenderer({
   content,
-}: React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer>): JSX.Element {
-  return <MarkdownMessage text={content} />;
+  threadId,
+  messageId,
+  bearer,
+}: React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer> & {
+  threadId?: string;
+  messageId?: string;
+  bearer?: string;
+}): JSX.Element {
+  return <MarkdownMessage text={content} threadId={threadId} messageId={messageId} bearer={bearer} />;
 }
+
+/**
+ * issue #2070 —— `threadId`/`bearer` 供 `V2AssistantMessageImpl` 里的落地产物接线用。
+ * 单独开一个 context 而不是塞进旁边 `CopilotKitV2MessageActionsContextValue`
+ * （`copilotkit-v2-message-actions.tsx`，CK-P3 owns 的文件）：那个 context 的职责是
+ * "消息级操作"（复制/评分/反馈），落地产物是另一件事，混进去会让那个文件的读者以为
+ * 评分/反馈也要关心 threadId——两件事只是恰好都要挂在 `assistantMessage` slot 上，
+ * 不是同一份数据。
+ */
+const ArtifactLandingCtx = React.createContext<{ threadId: string | undefined; bearer: string | undefined }>({
+  threadId: undefined,
+  bearer: undefined,
+});
 
 /**
  * CK-P3（issue #2054）—— `assistantMessage` **整组件** slot 的替换实现。
@@ -1779,7 +1816,21 @@ function V2MarkdownRenderer({
  *      fabric 能力不能因为多包了一层就回退）；
  *   ② `copyButton` 换成带本仓锚点的外观（**复用框架绑好的 `onClick`**，复制这件事
  *      本身没有第二份实现）；
- *   ③ `additionalToolbarItems` 挂上「对 agent 提反馈」+ 👍/👎 评分。
+ *   ③ `additionalToolbarItems` 挂上「对 agent 提反馈」+ 👍/👎 评分；
+ *   ④（issue #2070）`markdownRenderer` 额外注入 `threadId`/`messageId`/`bearer`，
+ *      画布/mermaid 图编辑保存才能真正落库而不是退回"本地演示"。
+ *
+ * ## （issue #2070）`messageId` 为什么要经 `identity.resolve`，不能直接用 `props.message.id`
+ *
+ * `props.message.id` 是 `agent.messages` 里的**视图** id——本轮流式到达的 assistant
+ * 消息，这个 id 是 wire 上的临时聚合 id，`chat_messages` 里没有这一行（见
+ * `lib/copilotkit-v2-message-identity.ts` 文件头的完整取证，CK-P3 评分入口踩过同一个
+ * 坑）。直接拿它去调 `landAsArtifact`，在"AI 刚回复完、立刻点保存"这条最常见路径上
+ * 会 404——那正是本仓反复禁止的「点了才报错的假按钮」。这里复用同一份已经接好的
+ * `useCopilotKitV2MessageActions().identity`（CK-P3 已建的索引，不是重新做一份平行的
+ * 解析逻辑），拿不到真实主键时 `resolve` 回答 `null`，`messageId` 就诚实地是
+ * `undefined`——`MarkdownMessage` 自己的 `canPersist` 判定会据此退回"本地演示"，不是
+ * 在这一层再判一次。
  *
  * ## ⚠ 框架自带的 👍/👎 刻意不启用
  *
@@ -1795,10 +1846,24 @@ function V2AssistantMessageImpl(
   props: React.ComponentProps<typeof CopilotChatAssistantMessage>,
 ): JSX.Element {
   const messageId = props.message.id;
+  // issue #2070 —— 见上方"messageId 为什么要经 identity.resolve"一段。`actionsCtx` 在
+  // 生产路径下恒非 null（渲染点始终包在 `CopilotKitV2MessageActionsProvider` 里）；
+  // 组件测试直接渲染这个 slot、不包那层 provider 时 `useCopilotKitV2MessageActions()`
+  // 按其自身既有约定返回 null，这里同样如实退回"落不了地"，不是另造一条兜底路径。
+  const actionsCtx = useCopilotKitV2MessageActions();
+  const realMessageId = actionsCtx?.identity.resolve(messageId) ?? undefined;
+  const { threadId: artifactThreadId, bearer: artifactBearer } = React.useContext(ArtifactLandingCtx);
   return (
     <CopilotChatAssistantMessage
       {...props}
-      markdownRenderer={V2MarkdownRenderer}
+      markdownRenderer={(rendererProps) => (
+        <V2MarkdownRenderer
+          {...rendererProps}
+          threadId={artifactThreadId}
+          messageId={realMessageId}
+          bearer={artifactBearer}
+        />
+      )}
       copyButton={(copyProps) => (
         <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
       )}
