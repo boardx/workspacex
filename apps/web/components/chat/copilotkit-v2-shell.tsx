@@ -166,16 +166,25 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         ) : null}
         {!canCreate ? null : null}
         <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2" data-testid="copilotkit-v2-thread-list">
+          {/* issue #2039（第 2 轮 gap #2）——此前 `flatMap` 把服务端已经分好的
+              「今天/本周」时间分组（`listPersonalThreads.out.groups[].label`，契约
+              封闭枚举）压平丢掉了（fidelity rubric D3 明确要求分组）。这里按组渲染
+              组头；空组服务端本来就不下发，不需要前端过滤。 */}
           {cards.length === 0 ? (
             <p className="px-1 py-2 text-11 text-muted-foreground">还没有对话，点上面「新建对话」开始第一次对话</p>
           ) : (
-            cards.map((card) => (
-              <ThreadCardButton
-                key={card.id}
-                card={card}
-                selected={card.id === selectedThreadId}
-                onSelect={() => selectThread(card.id)}
-              />
+            (threads?.groups ?? []).map((group) => (
+              <React.Fragment key={group.label}>
+                <p className="px-1 pb-0.5 pt-2 text-10 font-medium text-muted-foreground">{group.label}</p>
+                {group.cards.map((card) => (
+                  <ThreadCardButton
+                    key={card.id}
+                    card={card}
+                    selected={card.id === selectedThreadId}
+                    onSelect={() => selectThread(card.id)}
+                  />
+                ))}
+              </React.Fragment>
             ))
           )}
         </div>

@@ -1,67 +1,14 @@
 /*
- * DA-19 —— 替换 `@copilotkit/react-core/v2` 自带 CSS 的本仓文件，见
- * `next.config.mjs` 的 `webpack()` 钩子头注。
+ * DA-19 —— 占位空文件，见 `next.config.mjs` 的 `webpack()` 钩子头注。
  * `@copilotkit/react-core/dist/v2/index.mjs` 在模块顶层无条件 `import "./index.css"`
  * （Tailwind v4 编译产物），本仓 PostCSS 管线是 Tailwind v3 一代解析不了它
  * （`@layer base` 缺配对 `@tailwind base` 直接报语法错，整条引用它的路由编译失败）。
- * 用本文件替换掉那次 import，不影响 `useAgent`/`useCopilotKit`/`CopilotKit`
- * provider 本身的任何运行时行为。
+ * 用这份空文件替换掉那次 import，不影响 `useAgent`/`useCopilotKit`/`CopilotKit`
+ * provider 本身的任何运行时行为——这几个 API 都不依赖这份样式表。
  *
- * issue #2039（UIUX 三轮迭代第 1 轮 gap #4 的另一半）—— 此前本文件是**纯空**的：
- * 面板确实不渲染 `CopilotChat` 等官方样式化大组件，但 DA-19b 起用上的
- * `CopilotChatMessageView` 的消息**工具条**（复制按钮等，
- * `data-testid="copilot-assistant-toolbar"` / `copilot-user-toolbar`）与消息容器
- * 用的全部是那份被替换掉的 CSS 里的类（`cpk:*` / `copilotKitMessage`），空文件让
- * 它们以裸 DOM 渲染——真栈截图里复制图标以原始 24px 尺寸错位堆叠。这里补的是
- * **最小、只覆盖本仓真的在用的那几个框架节点**的样式，颜色全部走 globals.css 的
- * HSL 语义 token（uiux-standards §1），不引第二套色板、不整体复刻厂商主题。
+ * ⚠ issue #2039 曾试图把框架节点的补样式写进本文件——实测不可行：这个替换发生在
+ * webpack 模块图/持久化缓存深处，dev 编译对它的内容变化不可靠地重新发射（真栈实测
+ * 两轮，规则从未出现在任何 emitted CSS 里）。框架节点的本仓补样式在
+ * `app/chat/copilotkit-v2/copilotkit-v2.css`（由该路由 layout 正常 import，走标准
+ * PostCSS 管线），本文件保持纯空。
  */
-
-/* 消息之间的垂直节奏（框架自己的 spacing 类已失效） */
-[data-testid="copilot-assistant-message"],
-[data-testid="copilot-user-message"] {
-  margin-bottom: 0.75rem;
-}
-
-/* 消息工具条：紧凑一行小图标，默认弱化、hover 强调 */
-[data-testid="copilot-assistant-toolbar"],
-[data-testid="copilot-user-toolbar"] {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  margin-top: 0.125rem;
-}
-
-[data-testid="copilot-assistant-toolbar"] button,
-[data-testid="copilot-user-toolbar"] button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0;
-  border: none;
-  border-radius: 0.375rem;
-  background: transparent;
-  color: hsl(var(--muted-foreground));
-  cursor: pointer;
-  transition: background-color 150ms ease, color 150ms ease;
-}
-
-[data-testid="copilot-assistant-toolbar"] button:hover,
-[data-testid="copilot-user-toolbar"] button:hover {
-  background: hsl(var(--muted));
-  color: hsl(var(--foreground));
-}
-
-[data-testid="copilot-assistant-toolbar"] button:focus-visible,
-[data-testid="copilot-user-toolbar"] button:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px hsl(var(--ring));
-}
-
-[data-testid="copilot-assistant-toolbar"] button svg,
-[data-testid="copilot-user-toolbar"] button svg {
-  width: 0.875rem;
-  height: 0.875rem;
-}

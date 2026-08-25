@@ -13,7 +13,7 @@ import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Pencil, Mic, Loader2 } from "lucide-react";
+import { Pencil, Mic, Loader2, AlertTriangle } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
@@ -1164,21 +1164,40 @@ function CopilotKitV2PanelBody({
               </p>
             </div>
           ) : (
-            <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
-              <CopilotChatMessageView
-                messages={agent.messages}
-                isRunning={agent.isRunning}
-                assistantMessage={{ markdownRenderer: V2MarkdownRenderer }}
-              />
-            </CopilotChatConfigurationProvider>
+            // issue #2039（第 2 轮 gap #5）——阅读宽度约束：超宽屏上消息行不再
+            // 横贯全屏（Claude/ChatGPT 对话列同一处理），窄屏等于全宽无影响。
+            <div className="mx-auto w-full max-w-3xl">
+              <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+                <CopilotChatMessageView
+                  messages={agent.messages}
+                  isRunning={agent.isRunning}
+                  assistantMessage={{ markdownRenderer: V2MarkdownRenderer }}
+                />
+              </CopilotChatConfigurationProvider>
+            </div>
           )}
         </div>
+        {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
+            浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
+            一行未动，只动展示层。 */}
         {error !== null ? (
-          <div data-testid="copilotkit-v2-error" className="text-sm text-destructive">{error}</div>
+          <div
+            role="alert"
+            data-testid="copilotkit-v2-error"
+            className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-12 text-destructive"
+          >
+            <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1">{error}</span>
+          </div>
         ) : null}
         {historyError !== null ? (
-          <div data-testid="copilotkit-v2-history-error" className="text-sm text-destructive">
-            历史消息读取失败：{historyError}
+          <div
+            role="alert"
+            data-testid="copilotkit-v2-history-error"
+            className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-12 text-destructive"
+          >
+            <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span className="min-w-0 flex-1">历史消息读取失败：{historyError}</span>
           </div>
         ) : null}
         <FollowUpSuggestions
