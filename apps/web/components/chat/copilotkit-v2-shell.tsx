@@ -158,8 +158,11 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         data-testid="copilotkit-v2-thread-sidebar"
       >
         <ThreadListHeader />
-        <div className="px-3">
+        <div className="flex flex-col gap-1.5 px-3">
           <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} />
+          {/* issue #2039（第 3 轮 gap #2，fidelity P2）——个人对话上下文如实说明，
+              与旧轨道 `personal-chat-screen.tsx` 同一句文案，不画假项目名填空。 */}
+          <p className="text-10 text-muted-foreground">不挂靠任何项目，仅自己可见</p>
         </div>
         {listError ? (
           <p className="px-3 text-11 text-destructive" data-testid="copilotkit-v2-thread-list-error">{listError}</p>
@@ -170,7 +173,15 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
               「今天/本周」时间分组（`listPersonalThreads.out.groups[].label`，契约
               封闭枚举）压平丢掉了（fidelity rubric D3 明确要求分组）。这里按组渲染
               组头；空组服务端本来就不下发，不需要前端过滤。 */}
-          {cards.length === 0 ? (
+          {/* issue #2039（第 3 轮 gap #3，uiux-standards U1）——列表在读（threads
+              还没回来）时给骨架行，不再闪一帧「还没有对话」的假空态。 */}
+          {threads === null && listError === null ? (
+            <div data-testid="loading" className="flex animate-pulse flex-col gap-2 px-1 py-2" aria-hidden>
+              <div className="h-12 rounded-md bg-muted" />
+              <div className="h-12 rounded-md bg-muted" />
+              <div className="h-12 rounded-md bg-muted" />
+            </div>
+          ) : cards.length === 0 ? (
             <p className="px-1 py-2 text-11 text-muted-foreground">还没有对话，点上面「新建对话」开始第一次对话</p>
           ) : (
             (threads?.groups ?? []).map((group) => (

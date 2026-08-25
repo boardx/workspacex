@@ -447,12 +447,17 @@ function SendEmailApprovalDialog({
           <DialogDescription>批准前可编辑收件人/主题/正文，裁决后由框架恢复这次 run。</DialogDescription>
         </DialogHeader>
         {!editing ? (
-          <pre
-            className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted px-2 py-1 text-11 text-muted-foreground"
-            data-testid="copilotkit-v2-hitl-args"
-          >
-            {JSON.stringify(args, null, 2)}
-          </pre>
+          <div className="flex flex-col gap-1">
+            {/* issue #2039（第 3 轮 gap #5 的一半）——参数块加一个说明标签，
+                不再是一坨无标题 JSON 直接怼在标题下面。 */}
+            <p className="text-10 font-medium text-muted-foreground">工具参数（JSON）</p>
+            <pre
+              className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-md border border-border-subtle bg-muted px-2 py-1.5 text-11 text-muted-foreground"
+              data-testid="copilotkit-v2-hitl-args"
+            >
+              {JSON.stringify(args, null, 2)}
+            </pre>
+          </div>
         ) : (
           <div>
             <textarea
@@ -491,9 +496,13 @@ function SendEmailApprovalDialog({
                 <Pencil aria-hidden className="h-3 w-3" />
                 编辑参数
               </Button>
+              {/* issue #2039（第 3 轮 gap #5 的另一半）——「拒绝」带 destructive
+                  语义色（outline 形态 + 红字），与「批准并继续」的 primary 拉开
+                  层级；此前三个按钮两个长得一模一样。 */}
               <Button
                 size="sm"
                 variant="outline"
+                className="border-destructive/40 text-destructive transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive"
                 data-testid="copilotkit-v2-hitl-reject"
                 onClick={() => {
                   close();
@@ -673,7 +682,14 @@ export function CopilotKitV2Panel({
           共同父层：两者的浮层共享「同一时刻只开一个」互斥（`useChatPopoverSlot`），
           与旧轨道 `chat-read-screen.tsx` 同一挂法（issue #1803 gap #3）。 */}
       <ChatPopoverCoordinatorProvider>
-      <div className="flex flex-wrap items-center gap-2" data-testid="copilotkit-v2-agent-toolbar">
+      {/* issue #2039（第 3 轮 gap #4）——此前这一行只有一个裸的「选择 Agent ▾」
+          幽灵按钮浮在页顶，与消息区没有任何层级关系。补一个 muted 说明标签 +
+          行底分隔线，让它读作「这个屏的会话设置行」。 */}
+      <div
+        className="flex flex-wrap items-center gap-2 border-b border-border-subtle pb-2"
+        data-testid="copilotkit-v2-agent-toolbar"
+      >
+        <span className="text-11 text-muted-foreground">发给</span>
         <AgentPicker
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           selectedAgentId={selectedAgentId ?? ""}
@@ -1209,6 +1225,18 @@ function CopilotKitV2PanelBody({
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         <ChatAttachmentBanner banner={attach.banner} />
         <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />
+        {/* issue #2039（第 3 轮 gap #1，chat-ux-acceptance-criteria 第 9 项「控制感」）
+            ——run 在途时 composer 上方一条行内状态条（读真实 `agent.isRunning`，
+            不是定时器动画）；此前唯一信号是发送按钮变「…」，太隐晦。 */}
+        {agent.isRunning ? (
+          <p
+            data-testid="copilotkit-v2-running-indicator"
+            className="flex items-center gap-1.5 rounded-md border border-border-subtle bg-muted px-3 py-1.5 text-11 text-muted-foreground"
+          >
+            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+            正在生成回复……完成前发送按钮暂不可用。
+          </p>
+        ) : null}
         {/* issue #2039（第 1 轮 gap #5）——composer 收口：placeholder 从「随便输入点什么」
             换成明确的动作指引；发送按钮升为 primary（旧屏 composer 的发送就是主行动点）；
             `min-w-0` 防手机宽度下输入框把整行撑溢出。 */}
