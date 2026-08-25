@@ -41,6 +41,7 @@
  */
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
 
 const port = Number(process.env.LOOPBACK_DEEP_AGENT_PROVIDER_PORT ?? "");
 if (!Number.isInteger(port) || port <= 0) {
@@ -103,7 +104,17 @@ const MULTISTEP_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER;
  * 是编辑后的值」而不是原样通过。
  */
 const APPROVAL_TRIGGER = process.env.LOOPBACK_DEEP_AGENT_APPROVAL_TRIGGER;
-const APPROVAL_TOOL_NAME = process.env.LOOPBACK_DEEP_AGENT_APPROVAL_TOOL_NAME ?? "send_email";
+/**
+ * ⚠ **替身必须与真实引擎发同一个工具名**，所以这里从契约取，不再有
+ * `?? "send_email"` 兜底，也不再吃 `LOOPBACK_DEEP_AGENT_APPROVAL_TOOL_NAME`
+ * 环境变量覆盖（那个变量全仓从未被设过，唯一效果是让替身可以**悄悄**发一个与真实引擎
+ * 不同的名字）。
+ *
+ * issue #2017 的根因就是这条：替身发 `send_email`、前端也认 `send_email`，两边对齐 ⇒
+ * **e2e 恒绿**；真实引擎发 `call_skill` ⇒ **生产恒红**。替身的职责是让真实链路在确定性
+ * 条件下可取证，不是让测试更容易通过——名字一旦允许分叉，这套 e2e 就退化成自证。
+ */
+const APPROVAL_TOOL_NAME = DEEP_AGENT_HITL_TOOL_NAME;
 /**
  * DA-19g —— 测试基础设施增强（不是产品代码）：确定性"记得上一轮"分支。
  *
@@ -500,7 +511,12 @@ const server = createServer((req, res) => {
     // 是两件事——`editedArgs`（若有）必须能在终稿里被肉眼核对，不是「按了编辑就白按」。
     if (APPROVAL_TRIGGER !== undefined && record.userText === APPROVAL_TRIGGER) {
       const approvalCallId = `approval-${threadId}`;
-      const originalArgs = { to: "ops@example.test", subject: "取证：待批邮件", body: "原始正文（未编辑）" };
+      // 形状必须是 `call_skill` 的真实参数（契约 `DeepAgentHitlToolArgs`），不是 send_email
+      // 的 `{to, subject, body}`——审批卡照着契约 schema 渲染，形状不符就渲染不出字段。
+      const originalArgs = {
+        skill_stable_name: "quarterly-report",
+        task: "取证：待批技能调用（原始参数，未编辑）",
+      };
       record.approvalArgs = originalArgs;
       const pendingApprovalAi = {
         type: "ai",
@@ -523,11 +539,12 @@ const server = createServer((req, res) => {
       const usedArgs = record.decision.type === "edit" && record.decision.editedArgs !== undefined
         ? record.decision.editedArgs
         : originalArgs;
-      const toolResultText = `已发送邮件（${record.decision.type === "edit" ? "编辑后" : "原样"}参数）：`
+      // 文案跟着工具语义走：现在待批的是 `call_skill`（执行一个技能），不是发邮件。
+      const toolResultText = `已执行技能（${record.decision.type === "edit" ? "编辑后" : "原样"}参数）：`
         + JSON.stringify(usedArgs);
       const finalReplyText = record.decision.type === "edit"
-        ? `已按你编辑后的参数发送：${JSON.stringify(usedArgs)}`
-        : `已按原参数发送：${JSON.stringify(usedArgs)}`;
+        ? `已按你编辑后的参数执行：${JSON.stringify(usedArgs)}`
+        : `已按原参数执行：${JSON.stringify(usedArgs)}`;
       sendJson(res, 200, {
         values: {
           messages: [

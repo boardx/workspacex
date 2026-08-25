@@ -138,6 +138,19 @@ export type UpdateDraftOutcome =
   | { readonly updated: true; readonly template: UpdatedCanvasTemplateDraft }
   | { readonly updated: false; readonly reason: "not-found" | "not-draft" };
 
+/** `updateTemplateMetadata.out` 逐字派生——见该操作契约文件头。 */
+export type UpdatedCanvasTemplateMetadata = z.infer<
+  typeof canvas.operations.updateTemplateMetadata.out
+>;
+
+/**
+ * `updateMetadata()` 的结果。只有一种「没改成」——目标 key/version 压根不存在
+ * （不像 `updateDraft`，本操作**没有**状态限制，不存在「存在但状态不对」这个分支）。
+ */
+export type UpdateMetadataOutcome =
+  | { readonly updated: true; readonly template: UpdatedCanvasTemplateMetadata }
+  | { readonly updated: false };
+
 export interface PublishOutcome {
   /** 本次发布顺带归档掉的同 key 旧版（I-4 前半）。 */
   readonly archivedVersions: readonly { readonly key: string; readonly version: number }[];
@@ -226,6 +239,20 @@ export interface CanvasTemplateRepository {
     /** 同 `create()` 的 `tags`——用例已归一成真数组，全量替换（同 sections/displayName）。 */
     readonly tags: readonly string[];
   }): Promise<UpdateDraftOutcome>;
+
+  /**
+   * 2026-08-25，**设计增量、待人类补签**（R2）——原地改写 `displayName`/`tags`，
+   * **任意状态**均可（不像 `updateDraft` 限定 `status='draft'`）。`sections` 不在
+   * 入参里，物理上不可能被本方法改动——「已发布/已归档版本内容永远是不可变快照」
+   * 这条不变量管的是 `sections`，与元数据无关，见契约文件头完整论证。
+   */
+  updateMetadata(cmd: {
+    readonly orgId: OrgId;
+    readonly key: string;
+    readonly version: number;
+    readonly displayName: string;
+    readonly tags: readonly string[];
+  }): Promise<UpdateMetadataOutcome>;
 
   /**
    * **一个事务**：把同 key 的其它 published 版本归档 + 把本版本置为 published。

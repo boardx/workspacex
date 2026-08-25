@@ -83,6 +83,7 @@
  * 由读端按 `toolCallId` 折叠回一张卡片，不是同一行被原地改写。
  */
 import { createHash } from "node:crypto";
+import { DEEP_AGENT_HITL_TOOL_NAME, DEEP_AGENT_HITL_ARGS_MAX_CHARS } from "@repo/contracts/deep-agent-hitl";
 
 import type {
   ModelCallCompletion,
@@ -233,7 +234,16 @@ function extractToolCallEvents(
         // 直接瞎掉。todos 由 TodoListMiddleware 生成、条目数有实际上限，4000 字符
         // 足够容纳而不至于失控（DB 列是 text，无长度约束）。其他工具保持 500 截断
         // 纪律不变——它们的 argsSummary 是给人读的摘要，不是给程序解析的数据。
-        const maxChars = name === "write_todos" ? 4000 : undefined;
+        // issue #2017：待批工具（HITL）的 args 与 write_todos 同理——**要被前端
+        // `JSON.parse`**，不是给人读的摘要。审批卡要显示真实参数、edit 决策要把参数
+        // 改了再提交，两件事都要求这个 delta 是合法 JSON；而 500 字符截断会在尾部接一个
+        // `…` 把它切成非法 JSON。`call_skill` 的 `task` 是自由文本、天然会超 500 字符
+        // （其 docstring 明确要求"写清全部上下文"），所以短任务 e2e 会绿、真实长任务会坏。
+        // 上限取自契约，与工具名同一个事实源。
+        const maxChars =
+          name === "write_todos" || name === DEEP_AGENT_HITL_TOOL_NAME
+            ? Math.max(4000, DEEP_AGENT_HITL_ARGS_MAX_CHARS)
+            : undefined;
         const argsSummary = call.args === undefined
           ? null
           : summarizeProgressText(JSON.stringify(call.args), maxChars);

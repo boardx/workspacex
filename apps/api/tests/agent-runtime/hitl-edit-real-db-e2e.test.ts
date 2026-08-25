@@ -41,6 +41,7 @@ import {
 } from "../../src/application/agent-run/ports";
 import { toOrgId } from "../../src/domain/org-id";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
+import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
 
 const ORG = "org-hitl-edit-e2e";
 const PROJECT = "proj-hitl-edit-e2e";
@@ -49,7 +50,10 @@ const ACTOR = "u-hitl-edit-e2e-actor";
 const AGENT = "agent-hitl-edit-e2e";
 const AGENT_VERSION = "agent-version-hitl-edit-e2e-v1";
 
-const APPROVAL_TOOL_NAME = "send_email";
+// issue #2017：工具名的唯一事实源在 `@repo/contracts` 的 deep-agent-hitl.ts。
+// 这里曾经又写死一份 `"send_email"`——桥本身是工具名无关的，所以这份副本不会让
+// 测试变红，只会在真实工具名换掉时**静默**地继续测一个不存在的工具。
+const APPROVAL_TOOL_NAME = DEEP_AGENT_HITL_TOOL_NAME;
 const ORIGINAL_ARGS = { to: "ops@example.test", subject: "待批邮件", body: "原始正文（未编辑）" };
 /** 人类在审批面板里编辑后提交的值——与 `ORIGINAL_ARGS` 每个字段都不同，
  *  这样"原样通过"和"编辑生效"在断言里不会撞车。 */

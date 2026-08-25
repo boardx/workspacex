@@ -20,6 +20,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
+import { DEEP_AGENT_HITL_TOOL_NAME } from "@repo/contracts/deep-agent-hitl";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -34,7 +35,10 @@ const ACTOR = "u-agui-hitl-actor";
 const AGENT = "agent-agui-hitl";
 const AGENT_VERSION = "agent-version-agui-hitl-v1";
 
-const APPROVAL_TOOL_NAME = "send_email";
+// issue #2017：工具名的唯一事实源在 `@repo/contracts` 的 deep-agent-hitl.ts。
+// 这里曾经又写死一份 `"send_email"`——桥本身是工具名无关的，所以这份副本不会让
+// 测试变红，只会在真实工具名换掉时**静默**地继续测一个不存在的工具。
+const APPROVAL_TOOL_NAME = DEEP_AGENT_HITL_TOOL_NAME;
 const ORIGINAL_ARGS = { to: "ops@example.test", subject: "待批邮件", body: "原始正文（未编辑）" };
 const EDITED_ARGS = { to: "ops@example.test", subject: "已编辑：请今日发出", body: "人工编辑后的正文" };
 const TRIGGER_TEXT = "触发人工审批";

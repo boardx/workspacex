@@ -434,11 +434,15 @@ describe("deep_agent_project_capability_env — 引擎能力开关投影（#2076
     expect(callIdx).toBeLessThan(runIdx);
   });
 
-  it("provision.sh 模板里 DEEP_AGENT_SUBAGENTS_ENABLED 是**未注释**的真实行", () => {
+  it("provision.sh 模板里 DEEP_AGENT_SUBAGENTS_ENABLED / DEEP_AGENT_HITL_TOOLS 是**未注释**的真实行", () => {
     const provisionText = readFileSync(PROVISION, "utf8");
     expect(provisionText).toMatch(/^DEEP_AGENT_SUBAGENTS_ENABLED=1$/m);
-    // 另两个刻意保持注释态（理由见模板与 issue #2076），不能被顺手打开。
-    expect(provisionText).not.toMatch(/^DEEP_AGENT_HITL_TOOLS=/m);
+    // issue #2017 —— 此前 DEEP_AGENT_HITL_TOOLS 也刻意留空，理由是前端审批对话框
+    // 写死注册在假工具名上、名字对不上打开比不打开更糟；#2017 已把前端与 loopback
+    // 替身都改成从 @repo/contracts 的 deep-agent-hitl.ts 取同一份真实工具名，
+    // 前提消除，这一行随之从"刻意留白"转正为模板默认值（见 provision.sh 本行上方
+    // 的完整取证注释）。DEEP_AGENT_CHECKPOINT_DB 的留白理由不受影响，仍保持注释态。
+    expect(provisionText).toMatch(/^DEEP_AGENT_HITL_TOOLS=call_skill$/m);
     expect(provisionText).not.toMatch(/^DEEP_AGENT_CHECKPOINT_DB=/m);
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { z } from "zod";
+import { deepAgentHitl } from "@repo/contracts";
 import {
   useAgent,
   useConfigureSuggestions,
@@ -345,12 +345,24 @@ import {
  * 第 5 项）与那条修复是两件互不相关的事，只是 backlog 简写号意外撞了同一个字符串，
  * 不是同一次改动的两半。
  */
-const APPROVAL_TOOL_NAME = "send_email";
-const approvalToolParameters = z.object({
-  to: z.string(),
-  subject: z.string(),
-  body: z.string(),
-});
+/**
+ * ⚠ **这两个值不在本文件声明** —— 唯一事实源是 `@repo/contracts` 的 `deep-agent-hitl.ts`
+ * （issue #2017）。这里只是把它取出来用。
+ *
+ * 曾经这里写死 `"send_email"` 加 `{to, subject, body}`。那个名字在
+ * `apps/deep-agent-service` 全树 grep **零命中**——它只是 e2e 确定性替身
+ * （`loopback-deep-agent-provider.ts`）自己的剧本。真实引擎中断在
+ * `call_skill` 上，桥原样转发引擎的真实工具名（`copilotkit-agui.controller.ts`
+ * 的 `writeToolCallStep`，`toolCallName: step.toolName`，不改名不过滤），于是
+ * 名字对不上 ⇒ `useHumanInTheLoop` 不认领这次调用 ⇒ 渲染成普通工具卡、
+ * `respond` 恒 `undefined` ⇒ 三个决策按钮永远不出现 ⇒ run 停在
+ * `awaiting_approval` 无人能裁决。这就是 `DEEP_AGENT_HITL_TOOLS` 此前不敢打开的原因。
+ *
+ * 修法**不是**把写死的错名字换成写死的对名字（那是下一次漂移的种子），而是让前端、
+ * e2e 替身、部署开关三处全部从契约派生。改名字请改契约文件，不要改这里。
+ */
+const APPROVAL_TOOL_NAME = deepAgentHitl.DEEP_AGENT_HITL_TOOL_NAME;
+const approvalToolParameters = deepAgentHitl.DeepAgentHitlToolArgs;
 
 /**
  * 编辑态的 JSON 文本域校验纪律与 `agent-approval-panel.tsx` 的 `parsedDraft` 逐条
@@ -403,7 +415,7 @@ function SendEmailApprovalDialog({
    * flip when its default close icon / Escape / overlay-click fires, so the
    * portal-rendered overlay (`fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm
    * ...`, see `ui/dialog.tsx` `DialogOverlay`) stayed mounted forever. Because
-   * the `send_email` tool-call message that hosts this component is never
+   * the HITL tool-call message that hosts this component is never
    * pruned from `agent.messages`, that overlay became a permanent
    * click-blocker over the whole panel the moment any HITL flow reached its
    * terminal read-only branch (185-retry Playwright timeout; see
@@ -1346,7 +1358,7 @@ function CopilotKitV2PanelBody({
   // 显式 `agentId` 隔离，本面板只有一个 agent）。
   useHumanInTheLoop({
     name: APPROVAL_TOOL_NAME,
-    description: "Confirm sending an email before it is dispatched",
+    description: "在真正执行这个技能之前，请人确认参数",
     parameters: approvalToolParameters,
     render: ({ status, args, respond }) => (
       <SendEmailApprovalDialog

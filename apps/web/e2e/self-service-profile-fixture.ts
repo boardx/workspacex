@@ -62,6 +62,25 @@ export const SELF_SERVICE_PROFILE_E2E = {
   orgAdminKeyboardMemberEmail: "ssp-e2e-org-admin-keyboard-target@example.test",
   orgAdminKeyboardMemberDisplayName: "SSP E2E Org Admin Keyboard Target",
 
+  /**
+   * F15 —— profile/org-admin 截图保真度专属账号（issue #1877，红因见 #2086）。
+   * **不**复用 `adminEmail`：`profile-org-fidelity.spec.ts` 自己确实只读，但
+   * `fullyParallel: false` 只保证**同一个文件内**的用例串行，**不阻止不同 spec 文件
+   * 被分到不同 worker 并行**——CI 日志逐字是 `Running 4 tests using 2 workers`，
+   * 且每轮都是 `[3/4] profile-org-fidelity` 与 `[4/4] self-service-profile` 同时起跑。
+   * 后者会真的把 admin 的密码改掉并 logout，使前者**已经登录成功**的会话失效，
+   * 于是它跳 `/profile` 时被踢回登录页，`profile-screen` 永不出现。
+   * 危险的不是本 spec 写，是本 spec **读的时候别人在写**——所以专属账号是必须的，
+   * 同 `keyboardEmail` / `orgAdminKeyboardAdminEmail` 两条头注的道理。
+   *
+   * 带**组织 admin 角色**：本 spec 要截 `/org-admin` 的团队页与成员页，
+   * `org-admin-screen.tsx` 的 `isAdmin` 判断不满足时那两块根本不渲染。
+   */
+  fidelityUserId: "user-ssp-e2e-fidelity",
+  fidelityEmail: "ssp-e2e-fidelity@example.test",
+  fidelityPassword: "Ssp-e2e-fidelity-only-1877!",
+  fidelityDisplayName: "SSP E2E Fidelity",
+
   projectId: "project-ssp-e2e",
 
   /** 种子里已存在、带一名成员的团队——"删除非空团队被拒绝"这条反证的对象。 */

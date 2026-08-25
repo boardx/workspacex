@@ -268,7 +268,8 @@ function isHitlResumeRequest(input: AguiRunInput): boolean {
 }
 
 /** The decision-shaped payload a "tool" role message about the ONE tool this bridge ever
- * asks the frontend to execute (`send_email`, `SendEmailApprovalDialog`) can carry is
+ * asks the frontend to execute (the HITL tool named by `@repo/contracts`'s
+ * `DEEP_AGENT_HITL_TOOL_NAME`, rendered by `SendEmailApprovalDialog`) can carry is
  * limited to what `SendEmailApprovalDialog`'s three actions call `respond(...)` with
  * (`copilotkit-v2-panel.tsx`): the literal strings `"approved"`/`"denied"`, or a JSON object
  * (the edited args, already validated client-side by `parseEditDraft`). Anything else is

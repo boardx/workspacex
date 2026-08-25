@@ -273,8 +273,11 @@ test.describe("核心闭环八步", () => {
 
     // 建完自动打开编辑面板（草稿态）——分区在这里加、保存，同 #1897 的既定流程。
     await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
-    await page.getByTestId("tpladmin-editor-add-section").click();
-    await page.getByTestId("tpladmin-editor-section-0").fill("优势");
+    // R3（2026-08-26）起编辑器是三栏拖拽版：加分区走左栏底部常驻的「＋ 新增字段」
+    // （key + 中文名 + 类型），不再是旧版那个「加一个分区」按钮 + 裸输入框。
+    await page.getByTestId("tpladmin-editor-new-key").fill("strengths");
+    await page.getByTestId("tpladmin-editor-new-name").fill("优势");
+    await page.getByTestId("tpladmin-editor-new-add").click();
     await page.getByTestId("tpladmin-editor-save").click();
     await expect(page.getByTestId("tpladmin-editor-save")).toHaveText("已保存");
     await page.getByTestId("tpladmin-editor-close").click();
