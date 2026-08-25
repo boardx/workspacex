@@ -164,19 +164,17 @@ KERNEL_DEEP_AGENT_STREAM_ENABLED=1
 # ⚠ 必填、无默认值（coord-main 裁决，PR #941）：deep-agent-service 调模型用的模型 ID，
 # 每环境显式填写。留空则 deploy.sh 第 4h 步显式红退并指回这里补。
 KERNEL_DEEP_AGENT_MODEL_ID=
-# DA-19（2026-08-25 实测发现、补录）：CopilotKit v2 适配器（`app/api/copilotkit/
-# [[...slug]]/route.ts`）要求的已发布 Agent 版本 id（`agent_versions.id`，
-# `model_provider='deep-agent'` 那条）——缺失时该路由每个请求都抛
-# "COPILOTKIT_V2_AGENT_ID is required..."，`GET /api/copilotkit/info` 表现为 404。
-# ⚠ **已知的单租户限制，不是本条的疏漏**：`agent_versions` 按 org 隔离（RLS），
-# 这里只能填一个全局值，对应一个组织——其余组织的用户访问 `/chat/copilotkit-v2`
-# 时会被 RLS 拒绝。真正的多租户支持需要这条路由按请求 principal 的 org 动态解析
-# 对应的已发布 agent 版本，不是静态环境变量；这是 DA-19 系列已知的后续工作，
-# 登记在 `deepagent-copilotkit-backlog.md`，本行只负责让单租户/开发环境能跑起来。
-# 留空则该路由在被访问时才会报错（不是部署时红退——这是本次实测发现的一个
-# 部署清单缺口，之前从未被 deploy.sh 的红退检查覆盖过，见同一条记录里的后续
-# 补救）。每环境需要显式填一个真实存在、已发布、model_provider=deep-agent 的
-# agent_versions.id。
+# DA-19 / issue #2038（2026-08-25 devapp 实测事故后改为**可选**）：CopilotKit v2
+# 适配器（`app/api/copilotkit/[[...slug]]/route.ts`）「未选 agent 时」的默认 agent。
+# ⚠ 本条注释的上一版教人填 `agent_versions.id`——那正是 devapp 事故的直接来源：
+# 服务端解析（`copilotkit-agui.controller.ts`）要的是 **`agents.id`**，填成版本 id
+# 后未选 agent 的首屏发消息整条轨道 AGENT_NOT_FOUND。
+# 现在（#2038）：
+# - **留空即可（推荐）**：服务端按请求 principal 的 org 动态解析默认 agent
+#   （系统预置「通用助手」优先 → deep-agent provider 优先 → 最早创建），多租户
+#   天然成立——上一版登记的「单租户限制」已由这条 org 级解析关闭。
+# - 若要显式指定：填 **`agents.id`**（已发布、enabled）。填错不再全挂——服务端
+#   会在该 org 下验证，验不过落回动态默认并在 API 日志里警告配置有误。
 COPILOTKIT_V2_AGENT_ID=
 EOF
   chown "${APP_USER}:${APP_USER}" "$ENV_FILE"

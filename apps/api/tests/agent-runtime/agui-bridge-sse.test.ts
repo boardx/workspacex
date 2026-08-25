@@ -137,11 +137,13 @@ function parseSse(raw: string): ParsedSseEvent[] {
 }
 
 async function postBridgeTurn(input: {
-  text: string; agentId?: string; user?: string; org?: string; chatThreadId?: string;
+  text: string; agentId?: string; agentIdSource?: string; user?: string; org?: string;
+  chatThreadId?: string;
 }): Promise<{ status: number; contentType: string | null; events: ParsedSseEvent[] }> {
   const agentId = input.agentId === undefined ? AGENT : input.agentId;
   const url = new URL(`${BASE}/copilotkit/agui`);
   if (agentId !== "") url.searchParams.set("agentId", agentId);
+  if (input.agentIdSource !== undefined) url.searchParams.set("agentIdSource", input.agentIdSource);
   const response = await fetch(url, {
     method: "POST",
     headers: principal(input.user ?? ACTOR, input.org ?? ORG),
@@ -269,10 +271,51 @@ describe("POST /copilotkit/agui", () => {
     expect(events[0]?.code).toBe("AGENT_NOT_FOUND");
   }, 30_000);
 
-  it("422s before opening the stream when no agentId is given at all", async () => {
+  // #2038 —— 「没带 agentId = 服务端按 org 解析动态默认」取代了旧的「没带就 422」。
+  // devapp 实测事故：默认靠全局单值 env，配错（填成 agent_versions.id）整条轨道死掉。
+  it("#2038: no agentId at all -> resolves the org's deterministic default and completes a REAL turn", async () => {
+    nextReplyText = "reply from the org default agent";
+    const { status, events } = await postBridgeTurn({ text: "Hello with no agent chosen", agentId: "" });
+    expect(status).toBe(200);
+    expect(events.map((e) => e.type)).toEqual([
+      EventType.RUN_STARTED, EventType.CUSTOM, EventType.TEXT_MESSAGE_START,
+      EventType.TEXT_MESSAGE_CONTENT, EventType.TEXT_MESSAGE_END, EventType.RUN_FINISHED,
+    ]);
+    // 反证：回复是默认 agent 那次 run 的真实 writeback 字节，不是伪造的成功。
+    const content = events.find((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
+    expect(content?.delta).toBe("reply from the org default agent");
+    expect(providerCalls).toBe(1);
+  }, 30_000);
+
+  it("#2038: a MISCONFIGURED env default (agentIdSource=env-default, unresolvable id) falls back " +
+    "to the org default instead of killing the whole track -- the devapp incident's exact shape", async () => {
+    nextReplyText = "fallback saved this turn";
+    const { status, events } = await postBridgeTurn({
+      text: "env default is a version id by mistake",
+      agentId: "agent-version-5c3eb303-misconfigured", agentIdSource: "env-default",
+    });
+    expect(status).toBe(200);
+    expect(events.map((e) => e.type)).toContain(EventType.RUN_FINISHED);
+    const content = events.find((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
+    expect(content?.delta).toBe("fallback saved this turn");
+    expect(providerCalls).toBe(1);
+  }, 30_000);
+
+  it("#2038: a VALID env default (agentIdSource=env-default) is used as-is -- back-compat, no fallback", async () => {
+    nextReplyText = "env default still honoured";
+    const { status, events } = await postBridgeTurn({
+      text: "env default is valid", agentId: AGENT, agentIdSource: "env-default",
+    });
+    expect(status).toBe(200);
+    const content = events.find((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
+    expect(content?.delta).toBe("env default still honoured");
+  }, 30_000);
+
+  it("#2038: an org with NO published agent at all still 422s honestly (nothing to default to)", async () => {
+    await addOrgMember(OTHER_ORG, ACTOR, "consultant", null);
     const response = await fetch(`${BASE}/copilotkit/agui`, {
       method: "POST",
-      headers: principal(ACTOR, ORG),
+      headers: principal(ACTOR, OTHER_ORG),
       body: JSON.stringify({
         threadId: randomUUID(), runId: randomUUID(),
         messages: [{ id: randomUUID(), role: "user", content: "Hello" }],

@@ -34,11 +34,12 @@
  * 是两个独立的命名空间——CopilotKit 协议本身没有"把 query 参数透传给 remoteEndpoint
  * URL"的机制（`HttpAgent` 的 `url` 在构造时就固定了）。issue #1967 首版因此把这个真实
  * agent id 写死进 `COPILOTKIT_V2_AGENT_ID` 环境变量——浏览器侧那时压根没有"选择 agent"
- * 这回事。issue #2023（差距清单第 4 项）接上了 `AgentPicker`：`resolveAgentId()`
- * 现在优先读浏览器随请求带来的 `COPILOTKIT_V2_SELECTED_AGENT_HEADER`（见
- * `copilotkit-v2-agent-header.ts`/`resolveAgentId` 自己的文件内注释），环境变量降级为
- * "没有选择时的默认值"——未设置且也没有选择时仍然直接抛错（诚实失败，不猜一个默认
- * agent id），这一点没有变。
+ * 这回事。issue #2023（差距清单第 4 项）接上了 `AgentPicker`：优先读浏览器随请求
+ * 带来的 `COPILOTKIT_V2_SELECTED_AGENT_HEADER`（见 `copilotkit-v2-agent-header.ts`），
+ * 环境变量降级为"没有选择时的默认值"。issue #2038（devapp 实测事故：env 被配成
+ * `agent_versions.id`，未选 agent 首屏发消息整条轨道 AGENT_NOT_FOUND）再往前一步：
+ * env 不再是必填也不再被盲信——见下面 `resolveAgentQuery` 的头注，默认 agent 的
+ * 真正解析权移到了服务端（它有 principal/org 上下文，这层只有 header 和 env）。
  *
  * ## 鉴权：把浏览器发来的 Authorization 头原样转发给 AG-UI 端点
  *
@@ -56,6 +57,7 @@ import { CopilotRuntime, createCopilotRuntimeHandler, type AgentsFactory } from 
 import { HttpAgent } from "@ag-ui/client";
 import { apiBaseUrl } from "@/lib/api-client";
 import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "@/lib/copilotkit-v2-agent-header";
+import { buildAguiAgentQuery } from "@/lib/copilotkit-v2-agent-query";
 
 const BASE_PATH = "/api/copilotkit";
 
@@ -76,34 +78,36 @@ function aguiOrigin(): string {
   return apiBaseUrl();
 }
 
-function requiredAgentId(): string {
-  const id = process.env.COPILOTKIT_V2_AGENT_ID;
-  if (id === undefined || id.trim() === "") {
-    throw new Error(
-      "COPILOTKIT_V2_AGENT_ID is required for the DA-19 CopilotRuntime adapter — see app/api/copilotkit/route.ts file head.",
-    );
-  }
-  return id;
-}
-
 /**
- * issue #2023（差距清单第 4 项）—— 浏览器侧选中的 agent id 优先。
+ * issue #2023（差距清单第 4 项）—— 浏览器侧选中的 agent id 优先；
+ * issue #2038 —— env 缺失/配错不再是整条轨道的死刑。
  *
  * `copilotkit-v2-agent-header.ts` 头注已经记录了为什么是 header、不是 query param
  * （CopilotKit 协议没有把 query 参数透传给 remoteEndpoint URL 的机制，`HttpAgent.url`
  * 在构造时就固定了）。这里读的是**浏览器发给 `/api/copilotkit/*` 这条请求**自己的
  * header（`request.headers`，与下面读 `authorization` 是同一个 `Request` 对象、
  * 同一条已验证可靠的通道），不是下游 `/copilotkit/agui` 的 query string——那条
- * query string 仍然存在，只是它的值现在从这里派生，不再是编译期写死的环境变量。
+ * query string 仍然存在，只是它的值现在从这里派生。
  *
- * 缺失/空白时回退到 `requiredAgentId()`（未选择任何 agent，或组织没有可用 agent 时
- * `copilotkit-v2-panel.tsx` 不会带这个 header）——与本任务之前的行为逐字节相同，
- * 不悄悄改变"没有选择时用什么"这条既有默认语义。
+ * 三种产出（devapp 实测事故 #2038 后的形状，服务端解析逻辑见
+ * `copilotkit-agui.controller.ts` 的 `resolveEffectiveAgentId`）：
+ * - header 有选择 → `?agentId=<选中>`（严格：用户点了谁就是谁，选错诚实报错）；
+ * - 没选择但 env 配了 → `?agentId=<env>&agentIdSource=env-default`——**标记来源**，
+ *   让服务端知道这个值是配置兜底而非用户意志：在请求方 org 下解析得到就用
+ *   （向后兼容），解析不到（devapp 真实事故：被配成 `agent_versions.id`）落到
+ *   org 动态默认并记警告日志，而不是把配置错误变成用户可见故障；
+ * - 两者都没有 → 空 query，服务端按请求 principal 的 org 解析动态默认（原先这里
+ *   直接 throw "COPILOTKIT_V2_AGENT_ID is required"，等于强制每个部署配一个
+ *   全局单值——多租户天然不成立，现已由服务端 org 级解析取代）。
+ *
+ * 三态分支的纯函数本体在 `@/lib/copilotkit-v2-agent-query`（route.ts 不允许导出
+ * 额外名字，单测在 `tests/copilotkit-v2-agent-query.test.ts`）。
  */
-function resolveAgentId(request: Request): string {
-  const selected = request.headers.get(COPILOTKIT_V2_SELECTED_AGENT_HEADER);
-  if (selected !== null && selected.trim() !== "") return selected.trim();
-  return requiredAgentId();
+function resolveAgentQuery(request: Request): string {
+  return buildAguiAgentQuery(
+    request.headers.get(COPILOTKIT_V2_SELECTED_AGENT_HEADER),
+    process.env.COPILOTKIT_V2_AGENT_ID,
+  );
 }
 
 /**
@@ -116,11 +120,11 @@ function resolveAgentId(request: Request): string {
  * 过滤过，本层不需要也不应该重复这条判断。
  */
 const agents: AgentsFactory = ({ request }) => {
-  const agentId = resolveAgentId(request);
+  const agentQuery = resolveAgentQuery(request);
   const authorization = request.headers.get("authorization");
   return {
     default: new HttpAgent({
-      url: `${aguiOrigin()}/copilotkit/agui?agentId=${encodeURIComponent(agentId)}`,
+      url: `${aguiOrigin()}/copilotkit/agui${agentQuery}`,
       // 真实转发浏览器请求自带的 Authorization 头；未登录请求没有这个头，
       // 下游 `copilotkit-agui.controller.ts` 的 `assertPrincipal` 会如实 401，
       // 不在这一层伪造一个 header 掩盖过去。
