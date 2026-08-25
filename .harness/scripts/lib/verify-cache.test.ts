@@ -86,19 +86,17 @@ describe("verify-cache", () => {
       execFileSync("git", ["add", "."], { cwd: tmp });
       execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: tmp });
 
-      // computeFingerprint 读的是"当前进程 cwd 所在仓库根"的 git 状态——
-      // verify-cache.ts 内部用 ROOT（本仓库路径）跑 git 命令，跟这个临时仓库
-      // 不是同一个 git 上下文，所以这条用例改为直接用 execFileSync 复刻同一段
-      // 逻辑做隔离验证，而不是调用被测函数本身（它硬编码了 ROOT）。
+      // computeFingerprint 接受 root 参数（issue #2040），直接对这个临时仓库
+      // 调用被测函数本身，不再复刻逻辑——复刻的那份和真函数迟早分叉。
       const shaClean = execFileSync("git", ["rev-parse", "HEAD"], { cwd: tmp, encoding: "utf8" }).trim();
-      const diffClean = execFileSync("git", ["diff", "HEAD", "--"], { cwd: tmp, encoding: "utf8" });
+      const fpClean = computeFingerprint(shaClean, tmp);
 
       writeFileSync(join(tmp, "a.txt"), "hello, changed\n");
       const shaDirty = execFileSync("git", ["rev-parse", "HEAD"], { cwd: tmp, encoding: "utf8" }).trim();
-      const diffDirty = execFileSync("git", ["diff", "HEAD", "--"], { cwd: tmp, encoding: "utf8" });
+      const fpDirty = computeFingerprint(shaDirty, tmp);
 
       expect(shaClean).toBe(shaDirty); // SHA 没变
-      expect(diffClean).not.toBe(diffDirty); // 但 diff 变了——这正是指纹要吃进去的信号
+      expect(fpClean).not.toBe(fpDirty); // 但工作树变了——指纹必须跟着变
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
@@ -193,10 +191,35 @@ describe("verify-cache", () => {
     expect(sha).toMatch(/^[0-9a-f]{40}$/);
   });
 
-  it("computeFingerprint 在真实仓库上下文里对同一状态是确定性的（同输入同输出）", () => {
-    const sha = currentSha();
-    const fp1 = computeFingerprint(sha);
-    const fp2 = computeFingerprint(sha);
-    expect(fp1).toBe(fp2);
+  // ⚠ 不要把这条改回对真实仓库算指纹（issue #2040 的 CI 随机红就是那么来的）：
+  // 指纹吃进未跟踪文件内容，vitest 并行的兄弟测试在仓库根下创建/删除临时文件，
+  // 两次调用之间树变化 → fp1≠fp2。那不是被测逻辑的 bug——「树变了指纹必须变」
+  // 正是它的职责——是测试没有隔离共享资源。修法是消除共享（隔离临时仓库），
+  // 不是加锁串行，见 AGENTS.md「加一层串行永远不够」。
+  it("computeFingerprint 对同一仓库状态是确定性的（同输入同输出，含未跟踪文件路径）", () => {
+    const tmp = mkdtempSync(join(tmpdir(), "verify-cache-det-"));
+    try {
+      execFileSync("git", ["init", "-q"], { cwd: tmp });
+      execFileSync("git", ["config", "user.email", "t@example.com"], { cwd: tmp });
+      execFileSync("git", ["config", "user.name", "t"], { cwd: tmp });
+      writeFileSync(join(tmp, "a.txt"), "hello\n");
+      execFileSync("git", ["add", "."], { cwd: tmp });
+      execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: tmp });
+      // 未提交改动 + 未跟踪文件 + lockfile 三条输入路径都摆上，确定性要覆盖全部分支
+      writeFileSync(join(tmp, "a.txt"), "hello, dirty\n");
+      writeFileSync(join(tmp, "untracked.txt"), "not committed\n");
+      writeFileSync(join(tmp, "pnpm-lock.yaml"), "lockfileVersion: 9\n");
+
+      const sha = execFileSync("git", ["rev-parse", "HEAD"], { cwd: tmp, encoding: "utf8" }).trim();
+      const fp1 = computeFingerprint(sha, tmp);
+      const fp2 = computeFingerprint(sha, tmp);
+      expect(fp1).toBe(fp2);
+
+      // 反证：未跟踪文件内容一变，指纹必须变——确认隔离没把敏感性一起隔掉
+      writeFileSync(join(tmp, "untracked.txt"), "changed\n");
+      expect(computeFingerprint(sha, tmp)).not.toBe(fp1);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });
