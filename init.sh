@@ -65,8 +65,47 @@ HOOK
   echo "  ✓ pre-commit hook（active-features / lockfile 9.0 / 巨量提交 防线）"
 }
 
-# pre-push: 轻量门控，与 CI 的快速迭代策略对齐（见 .github/workflows/harness-verify.yml）——
-# 只对受本次改动影响的模块跑 typecheck/lint/test（turbo --affected，通常 <2 分钟）。
+# pre-push: 快速反馈门，与 CI 的快速迭代策略对齐（见 .github/workflows/harness-verify.yml）——
+# 只对受本次改动影响的模块跑 typecheck/lint（turbo --affected）。
+#
+# ─── 2026-08-26（#504）：从 typecheck/lint/test 收窄为 typecheck/lint ───
+# 这是**收窄，不是削弱**。收窄前本地跑的每一项，云端都在跑，且更强：
+#
+#   本地 pre-push（收窄前）           云端等价物                        强度
+#   ────────────────────────────────  ────────────────────────────────  ──────────
+#   harness doctor --phase <改动的>   harness-verify / verify-control-  云端更强
+#                                     plane 跑全阶段不过滤；backend-
+#                                     gates / gates-fast 还带 --strict
+#   turbo run typecheck lint test     harness-verify / verify-affected  逐字节
+#     --affected                      「受影响模块 typecheck/lint/test」同一条命令
+#
+# ⇒ 本地那份 `test` 买不到任何云端没有的门控强度，是纯重复。而它的代价是实打实的：
+#   `test` 是唯一需要真 postgres 的一项，为它必须套 with-test-isolation.ts 外壳，
+#   那个外壳要走 stack-admission 排队 + docker compose 起一次性栈。于是 pre-push 的
+#   耗时不取决于你改了多少，而取决于**当时有几个 agent 在抢 docker 槽位**；它同时
+#   也是本机 load 的主要来源，把并行的几条开发线串成一条。收窄掉 `test` 之后整个
+#   外壳可以一起去掉——typecheck/lint 是纯静态的，不碰 DB、不碰 docker、不占槽位。
+#
+#   实测（2026-08-26，同一 commit、同一改动面 = 只改 apps/web 一个文件）：
+#     收窄前  508s（8m28s），本机 load(1min) 11.88 → 23.20
+#     收窄后   39s（冷缓存 --force）/ 6s（热缓存），load 19.90 → 19.68（基本不动）
+#
+# 为什么留下 typecheck + lint 而不是只留 typecheck（#504 原提案）：
+#   两者都是秒级静态检查，且 `lint` 在本仓不是「代码风格」——apps/api 的 lint 链里
+#   挂着 lint-error-leak / lint-permission-paths / lint-no-builtin-capabilities /
+#   lint-naming-single-source / lint-arch-deps 等**架构与安全断言**；web 的 lint 是
+#   `next lint --max-warnings 0 && ./scripts/lint-design.sh`（设计 token 单源门）。
+#   ⚠ 这两段必须整条跑：只跑 `next lint` 半段是假绿。turbo 调的是包的 `lint` 脚本
+#   （整条 && 链），不是 `next lint`，所以这里天然是整条；改本文件时不要「优化」成
+#   直接调 next lint。反证见 #504 的 CP2。
+#
+# 为什么不干脆整条删掉本地门（"CI 才是真门"）：
+#   pre-push 的价值不在门控强度（那由 CI 给），在**反馈时延**——把 typo 级错误在
+#   push 之前几十秒内挡住，比几分钟后从 CI 日志里读出来便宜。它是「快速反馈」，
+#   不是「权威判定」。权威在 CI。
+#
+# ⚠ 不要因为「本地过了」就认为 CI 会过：本地**不跑** test、不跑 backend-gates 那套
+#   （RLS 反证 / 运行时门 / 迁移幂等 / 契约单源 / 洋葱分层 / core-loop e2e）。
 # 全量回归（web build + 全量 e2e）不在 push 时跑：由 CI 定时任务（烟测每小时按需、
 # e2e 每 3 小时）+ feature 转 passing 前的 pnpm harness verify / verify:full 承担。
 # 跳过用 git push --no-verify；push 前想跑全量：pnpm -w run verify:full。
@@ -76,9 +115,13 @@ install_pre_push_hook() {
   mkdir -p "$(dirname "${hook_path}")"
   cat > "${hook_path}" << 'HOOK'
 #!/usr/bin/env bash
-# harness-hook (pre-push): 轻量门控（受影响模块 typecheck/lint/test，对齐 CI）
+# harness-hook (pre-push): 快速反馈门（受影响模块 typecheck/lint，对齐 CI）
 # 全量验证不在这里：CI 定时回归 + 标 passing 前的 verify:full 负责。
-echo "==> [harness] pre-push: 受影响模块 typecheck/lint/test（turbo --affected；跳过用 git push --no-verify）"
+# 2026-08-26（#504）：`test` 已移交 CI —— 见 init.sh 里本 hook 上方的收窄说明与
+# 「本地 vs 云端」对照表。一句话：本地这份 test 与 harness-verify 的 `verify-affected`
+# 是逐字节同一条命令，纯重复；而它是唯一要起 docker/postgres 的一项，代价
+# （stack-admission 排队 + 本机 load）远大于它买到的强度（零）。
+echo "==> [harness] pre-push: 受影响模块 typecheck/lint（turbo --affected；跳过用 git push --no-verify）"
 # --affected 相对 origin/main 计算改动面。用解析后的单一 merge-base SHA 而非
 # origin/main 引用：分支含 merge commit 时 turbo 内部 git 会报
 # "fatal: multiple merge bases found"（git merge-base 命令本身总返回单个最优解）。
@@ -120,13 +163,17 @@ for PHASE_ID in ${CHANGED_PHASES}; do
   fi
 done
 export TURBO_SCM_BASE="${BASE_SHA}"
-if ! pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm turbo run typecheck lint test --affected; then
-  echo "✗ [harness] 受影响模块验证失败，push 中止。修复后再推，或 git push --no-verify 临时跳过。"
+# 不套 with-test-isolation.ts：typecheck 与 lint 是纯静态检查，不连 postgres、
+# 不起 docker、不占 stack-admission 槽位。外壳只有 `test` 需要，而 test 已移交 CI。
+if ! pnpm turbo run typecheck lint --affected; then
+  echo "✗ [harness] 受影响模块 typecheck/lint 失败，push 中止。修复后再推，或 git push --no-verify 临时跳过。"
   exit 1
 fi
+echo "  ℹ 本地只跑了 typecheck/lint。单元测试与 backend-gates（RLS 反证 / 运行时门 /"
+echo "    迁移幂等 / 契约单源 / 洋葱分层 / core-loop e2e）在 PR 的 CI 上跑——本地绿 ≠ CI 绿。"
 HOOK
   chmod +x "${hook_path}"
-  echo "  ✓ pre-push hook（受影响模块轻量门控，对齐 CI 快速迭代策略）"
+  echo "  ✓ pre-push hook（受影响模块 typecheck/lint 快速反馈门；test 与重门控在 CI，见 #504）"
 }
 
 # reference-transaction: 见 ADR-005（共享主 checkout 隔离）——只在共享主 checkout
