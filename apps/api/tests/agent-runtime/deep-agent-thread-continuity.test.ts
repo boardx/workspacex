@@ -135,9 +135,11 @@ describe("DA-06 write_todos 参数完整性（rubric D1）", () => {
             { type: "ai", content: "", tool_calls: [
               { id: "c1", name: "write_todos", args: todos },
               { id: "c2", name: "call_skill", args: JSON.parse(otherArgs) },
+              { id: "c3", name: "list_org_skills", args: JSON.parse(otherArgs) },
             ] },
             { type: "tool", tool_call_id: "c1", content: "ok" },
             { type: "tool", tool_call_id: "c2", content: "ok" },
+            { type: "tool", tool_call_id: "c3", content: "ok" },
             { type: "ai", content: "done", tool_calls: [] },
           ] } }));
           return;
@@ -162,8 +164,19 @@ describe("DA-06 write_todos 参数完整性（rubric D1）", () => {
     // 核心断言：完整、可 parse、逐字等于原始 JSON——前端规划条靠它活着。
     expect(todoEvent!.toolArgsSummary).toBe(argsJson);
     expect(() => JSON.parse(todoEvent!.toolArgsSummary!)).not.toThrow();
-    // 反向：其他工具保持 500 截断纪律（尾带省略号，长度 501）。
-    const other = events.find((e) => e.toolName === "call_skill");
+    // issue #2017 —— `call_skill` 现在也不许截断：它是 HITL 待批工具，审批卡要显示
+    // 真实参数、edit 决策要改完再提交，两件事都要求这个 delta 能被 `JSON.parse`。
+    // ⚠ 这条曾经断言的是**相反**的行为（call_skill 截断到 501）——那正是"改完工具名
+    // 仍然不通"的第二个坑：短任务 e2e 全绿，真实长任务把 args 切成非法 JSON。
+    const hitl = events.find((e) => e.toolName === "call_skill");
+    expect(hitl).toBeDefined();
+    expect(hitl!.toolArgsSummary).toBe(otherArgs);
+    expect(() => JSON.parse(hitl!.toolArgsSummary!)).not.toThrow();
+    expect(hitl!.toolArgsSummary!.endsWith("…")).toBe(false);
+
+    // 反向对照仍然保留：**非**待批、非 write_todos 的普通工具照旧 500 截断
+    // （尾带省略号，长度 501）。没有这条，"不截断"就可能是全局放开而不是按工具豁免。
+    const other = events.find((e) => e.toolName === "list_org_skills");
     expect(other!.toolArgsSummary!.length).toBe(501);
     expect(other!.toolArgsSummary!.endsWith("…")).toBe(true);
   });
