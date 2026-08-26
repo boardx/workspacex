@@ -62,14 +62,29 @@ describe("白名单条目前提 ③：写路径（appendEngineSnapshot）只从�
   });
 });
 
-describe("白名单条目前提 ④：读路径（getPlanLedger）本 feature 未接 HTTP controller", () => {
-  it("src/interface/ 下没有文件引用 get-plan-ledger 用例——一旦 F977 之后接了真实 GET 路由，" +
-     "那个 controller 必须先过 chat UC-0 的可见性判定再调这个仓储（usecases.md UC-1 的 pre 条款），" +
-     "而不是把这条豁免继续续下去；接线那天这条断言会先红，提醒改掉这条豁免", () => {
+describe("白名单条目前提 ④（F977 更新版）：读路径（getPlanLedger）只从 plan-control.controller.ts 触达，且该 controller 先过 chat UC-0 的可见性判定再调这个仓储", () => {
+  // F973 的原始前提是「本 feature 未接 HTTP controller」——那条陷阱已经如期触发：
+  // F977 接了真实 GET 路由。这条断言现在核的是接线那天承诺要满足的条件本身
+  // （usecases.md UC-1 的 pre 条款：可见性判定委托 chat 束，不在本仓储重复定义），
+  // 不是继续假装「没接」。
+  it("src/interface/ 下只有 plan-control.controller.ts 引用 get-plan-ledger 用例", () => {
     const offenders = filesUnder(interfaceDir).filter((f) => {
       const text = readFileSync(f, "utf8");
       return text.includes("get-plan-ledger") || text.includes("getPlanLedger(");
     });
-    expect(offenders).toEqual([]);
+    expect(offenders.map((f) => f.split("/src/interface/")[1]?.replace(/^\/+/, ""))).toEqual([
+      "controllers/plan-control.controller.ts",
+    ]);
+  });
+
+  it("plan-control.controller.ts 在调用 getPlanLedger 之前先调用 getThread（chat 束既有可见性判定，同 chat.controller.ts 的 GET /chat/threads/:threadId 复用同一个用例，不重新发明第二套）", () => {
+    const text = readFileSync(
+      new URL("../../src/interface/controllers/plan-control.controller.ts", import.meta.url), "utf8",
+    );
+    const getThreadIdx = text.indexOf("getThread(");
+    const getPlanLedgerIdx = text.indexOf("getPlanLedger(");
+    expect(getThreadIdx, "controller 里找不到 getThread 调用").toBeGreaterThan(-1);
+    expect(getPlanLedgerIdx, "controller 里找不到 getPlanLedger 调用").toBeGreaterThan(-1);
+    expect(getThreadIdx).toBeLessThan(getPlanLedgerIdx);
   });
 });

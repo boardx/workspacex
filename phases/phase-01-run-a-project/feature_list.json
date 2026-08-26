@@ -5355,14 +5355,14 @@
         "F973"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "22",
-      "owner": null,
+      "owner": "dev-chat-e2e-f977",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/plan-control-phase-indicator.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/plan-control-panel-readonly.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F977.verify.log @ 2026-08-26T23:25:35.567Z",
       "notes": "覆盖 ui.md S1（六态指示器）+ S2（只读态）；判据 V1/V1a/V2；不变量 I-7（phase 派生前端不重算）/I-15（不暴露 write_todos）。锚点 chat-task-workbench-phase-indicator / chat-task-workbench-plan-step（ui.md 四节，data-testid 单源在 chat-task-workbench-acceptance.md）。UI 断言可用：本束已定 data-testid 命名规范且 ui-preview/plan-control 八屏已交付（G-01/G-05）。依据等级 [设计]（八屏已人类核对，design-signoff 末节机械核对已过）。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
     },
     {
