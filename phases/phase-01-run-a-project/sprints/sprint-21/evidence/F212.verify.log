@@ -1,0 +1,85 @@
+$ pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/schema.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f212-verify/packages/contracts
+
+ ✓ tests/agent-interrupts/schema.test.ts (12 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  01:08:53
+   Duration  301ms (transform 74ms, setup 0ms, collect 72ms, tests 4ms, environment 0ms, prepare 49ms)
+
+
+
+$ pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/cross-lang-tool-parity.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f212-verify/packages/contracts
+
+ ✓ tests/agent-interrupts/cross-lang-tool-parity.test.ts (4 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  01:08:54
+   Duration  239ms (transform 37ms, setup 0ms, collect 35ms, tests 3ms, environment 0ms, prepare 39ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/agent-interrupts/args-max-chars-exempt.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f212-verify/apps/api
+
+[db-isolation] db=wsx_25ab4e1a630661504e71 capacity=100 current=6 required=32
+ ✓ tests/agent-interrupts/args-max-chars-exempt.test.ts (3 tests) 52ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  01:08:54
+   Duration  4.64s (transform 89ms, setup 0ms, collect 60ms, tests 52ms, environment 0ms, prepare 55ms)
+
+[db-isolation] db=wsx_25ab4e1a630661504e71 peak_connections=1
+
+
+$ pnpm --filter @repo/contracts run typecheck
+[exit 0]
+
+> @repo/contracts@0.0.0 typecheck /private/tmp/f212-verify/packages/contracts
+> tsc --noEmit
+
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /private/tmp/f212-verify
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=b6ee07a41d874838fa1a610aa7af79967916bba2（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_25ab4e1a630661504e71 inner_db=wsx_25ab4e1a630661504e71 outer_compose=wsx-25ab4e1a630661504e71 inner_compose=wsx-25ab4e1a630661504e71 status=matched
+[stack-admission] load1=6.56 cores=10 perCore=0.66 running=2/2
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 5s
+[test-isolation] id=run-mtaclsws-93c2b9bd-25ab4e1a6306 db=wsx_25ab4e1a630661504e71 compose=wsx-25ab4e1a630661504e71 pg=23642 redis=28642
+• turbo 2.10.5
+
+   • Packages in scope: //
+   • Running typecheck, lint, test in 1 packages
+   • Remote caching disabled, using shared worktree cache
+
+ WARNING  No tasks were executed as part of this run.
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    826ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：5s
+  命令执行：1s
+  清理：1s
+  总计：7s
+
+[harness-verify v1 sha256=ffb96ae4d7365dc2943de8b9ad12947a9ebd2427f68cbc087fcc37cbecbaf932 commit=b6ee07a41d874838fa1a610aa7af79967916bba2 at=2026-08-26T17:09:12.920Z]

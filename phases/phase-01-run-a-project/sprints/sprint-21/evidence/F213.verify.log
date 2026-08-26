@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/agent-interrupts/confirm-intent-gates-tools.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /private/tmp/f212-verify/apps/api
+
+filter:  tests/agent-interrupts/confirm-intent-gates-tools.test.ts
+include: tests/**/*.test.ts
+exclude:  tests/recording/personal-transcription-persistence.test.ts
+
+No test files found, exiting with code 1
+undefined
+/private/tmp/f212-verify/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-interrupts/confirm-intent-gates-tools.test.ts
+
+[harness-verify v1 sha256=296db3a82d99d9f38dedcb88fb3ae7dd7f82f381eb92d79bc3858124af132530 commit=b6ee07a41d874838fa1a610aa7af79967916bba2 at=2026-08-26T17:09:13.360Z]
