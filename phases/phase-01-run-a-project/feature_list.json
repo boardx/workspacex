@@ -5233,6 +5233,162 @@
       ],
       "evidence": "",
       "notes": "契约束已签核（confirmed）。横切 feature：三张卡共享的决策守卫只做一遍，不在 F213/F214/F215 各做一次（权限判定委托 chat UC-0、审计留痕、8 错误码枚举）。covers usecases.md 统一失败枚举 AgentInterruptError。decision-guard-errors.test 逐一构造 8 码的 fail-closed 路径（kind mismatch / stale / malformed / audit-sink 等），断言均非 0 处置、不静默放行。⚠ XC-59 反证（design-coherence.md 2026-08-26 交叉复核明确要求，非可选项）：plan-phase-not-approving-for-interrupts.test 断言『仅有 agent-interrupts 类中断、无 call_skill 审批』时 PlanPhase !== 'approving'——plan-control I-7 的『是否有待决审批』判定若不按 toolName 过滤（只认 call_skill 白名单，排除本束三个新工具名），三种新中断会误触发『审批』派生态，用户看到『目标复述卡』却被贴上『审批』文案（真实 UX/语义 bug）。本条是两束共同实现期待办在本束侧的反证落点。依据等级 [Backlog]（纯新能力）。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。 ⚠ XC-59 反证归属（coord-main 2026-08-26 确认，双向对齐 plan-control 线）：这条测试的权威修复点在 plan-control 的 PlanPhase 派生函数——F216 只负责『断言』（仅 agent-interrupts 中断、无 call_skill 审批时 PlanPhase≠approving），不负责实现该派生函数里按 toolName 过滤的逻辑本身。plan-control 线的 F21x 系列谁先落地 PlanPhase 派生函数，必须同时满足这条断言；即两束分开实现时，谁先做完 PlanPhase 谁就要让本断言通过，责任方明确、不会被对方反证意外测红却找不到归属。"
+    },
+    {
+      "id": "F972",
+      "priority": 1,
+      "area": "plan-control",
+      "capability": "CAP-API",
+      "title": "计划账本契约单源与 append-only 存储：(thread_id,revision) 唯一、派生态不可写",
+      "user_visible_behavior": "开发/运维层可见：packages/contracts/src/plan-control.ts 成为 zod 单一事实源（PlanStepStatus 与 AguiPlanTodoStatus 逐字相同、PlanPhase 六值与中文文案映射单源、17 个 PlanControlError 码），前端类型/后端 DTO/mock 由它生成而非手写；chat_plan_ledgers 与 chat_plan_orphan_constraints 两张表按 thread_id 继承 chat_threads 的 RLS，(thread_id,revision) 唯一且 append-only（无 UPDATE 路径、无 order 列），任一 threadId 恒有唯一最大 revision 版本。",
+      "spec_ref": "contracts/plan-control#confirmed",
+      "depends_on": [],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/plan-control/plan-control-schema-single-source.test.ts",
+        "pnpm --filter api exec vitest run tests/plan-control/ledger-append-only-unique.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 domain.md I-1/I-2/I-3/I-4/I-7 结构面 + design-signoff ③ 3.2 迁移/3.6 错误码跨束一致/3.7 out schema .strict() 拒多余字段。依据等级 [设计]（束 design-signoff 已 confirmed）。裁决：mutateThread.op 一个字不动（A 独立操作集，3.1）。第一批可开工（无前置）。契约面 XC-A/XC-F：PlanStepStatus 必须 z.infer 自 agui-state-events，不是第二份副本。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
+    },
+    {
+      "id": "F973",
+      "priority": 1,
+      "area": "plan-control",
+      "capability": "CAP-API",
+      "title": "计划账本读模型与引擎快照落账：零计划是正常态、stepId 内容继承、phase/gate/progress 服务端派生",
+      "user_visible_behavior": "计划面板唯一数据来源 getPlanLedger 返回 steps + 派生 phase/gate/progress/pendingApplyAtNextRun/activeRunId；新线程返回 revision:0 / steps:[] / phase:'preparing' / gate:{required:false,reason:'no-plan'}（不报 PLAN_NOT_FOUND）；引擎每次 write_todos 成功经既有生产者落账，engineEpoch 递增、内容逐字相等的步骤继承 stepId、否则新发（I-6 启发式），origin='engine' 版本 constraints 恒空。",
+      "spec_ref": "contracts/plan-control#confirmed",
+      "depends_on": [
+        "F972"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/plan-control/ingest-engine-snapshot.test.ts",
+        "pnpm --filter api exec vitest run tests/plan-control/get-plan-ledger-derived.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 UC-1 getPlanLedger + UC-2 ingestEnginePlanSnapshot；不变量 I-6/I-7/I-9。⚠ 依据不足项：I-6「content 逐字相等即继承 stepId」是刻意的、已知会误判的启发式（引擎 payload 无 id，agui-state-events.ts:38-41 实测），人类签核时已明确接受（design-signoff ② 节）——依据等级 [设计]，风险已登记为 coverage 缺口 7，孤儿约束 I-8 兜底。UC-2 复用 copilotkit-agui.controller.ts:389 既有 STATE_SNAPSHOT 生产者，不新建触发路径。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
+    },
+    {
+      "id": "F974",
+      "priority": 1,
+      "area": "plan-control",
+      "capability": "CAP-API",
+      "title": "三个编辑动作 + 并发不静默覆盖 + 孤儿约束可见：调序/删步/加约束/撤约束",
+      "user_visible_behavior": "用户对计划做四种编辑：调序（toIndex 越界钳制不报错，stepId 集合不变）、删步（删到 0 步被拒 PLAN_EMPTY_NOT_ALLOWED，删 completed 步允许，带约束的步删除后约束转孤儿且 orphanedConstraintIds 如实返回、不静默删）、加约束（空白/超 500 字被拒）、撤约束（含孤儿）；每次编辑必带 basedOnRevision，与当前最大 revision 不符即拒 PLAN_REVISION_CHANGED（不静默覆盖，账本只多一行）；有活跃 run 时编辑只落账本 appliedTo='ledger-only'，不写引擎 state。",
+      "spec_ref": "contracts/plan-control#confirmed",
+      "depends_on": [
+        "F973"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/plan-control/plan-edit-actions.test.ts",
+        "pnpm --filter api exec vitest run tests/plan-control/plan-edit-concurrency-orphan.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 UC-3/UC-4/UC-5/UC-6；不变量 I-3/I-5/I-8/I-11。产品判断（人类已签）：删 completed 步允许（UC-4 末）、UC-6 撤约束是本束主动补的（TW 卡未要求，coverage 五节）。I-11 断言 POST /threads/:id/state 未被调用（mid-run 写引擎不可靠，design-signoff 3.3/domain ③）。依据等级 [设计]。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
+    },
+    {
+      "id": "F975",
+      "priority": 1,
+      "area": "plan-control",
+      "capability": "CAP-API",
+      "title": "条件性确认门与计划送达：简单提问永不加门、复杂任务确认后 digest 可断言送达",
+      "user_visible_behavior": "确认门判定为服务端纯函数 evaluatePlanGate（todoCount 0→no-plan/false、1→single-step/false、≥2→multi-step/true、userForced→true），前端只渲染结果；确认并执行 confirmPlan 要求 gate.required===true，返回 deliveredPlanDigest = 实际送进 POST /threads/:id/runs 请求体那段计划正文的哈希、与账本当前 revision 序列化逐字一致；送达失败即不创建 run（fail closed，PLAN_DELIVERY_FAILED）。",
+      "spec_ref": "contracts/plan-control#confirmed",
+      "depends_on": [
+        "F973"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/plan-control/evaluate-plan-gate-table.test.ts",
+        "pnpm --filter api exec vitest run tests/plan-control/confirm-plan-delivery-digest.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 UC-8 evaluatePlanGate + UC-7 confirmPlan + UC-12 deliverPlanToRun；不变量 I-10；判据 V4 + V4′（反证：简单提问 todoCount 恒 0 ⇒ required:false，判定不依赖阈值——生产者只有 write_todos 一个）。⚠ 待定项 domain ④：single/multi-step 阈值(≥2)无依据、是设计者定的，但反证与阈值无关故不阻塞；数值型 AC 不写死，本 feature 只断言表驱动判定与送达 digest 结构性性质。送达通路 A system 注入（只改 Node 侧，design-signoff 3.4）。⚠ 排期：注入点在 execute-run.ts 组装 messages 处，须排在可视化提示词那条在飞线之后（domain ③⚠）。依据等级 [设计]。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
+    },
+    {
+      "id": "F976",
+      "priority": 1,
+      "area": "plan-control",
+      "capability": "CAP-API",
+      "title": "执行控制：暂停（可恢复）/ 恢复续跑 / 重试单步，每个动作留审计",
+      "user_visible_behavior": "有活跃 run 时可暂停（cancel?action=interrupt，保留已完成步骤，run 转终态；无活跃 run 报 NO_ACTIVE_RUN）；暂停后可恢复（在同一线程创建不传 checkpoint_id、input:null 的新 run 自动从最新检查点续跑，不重跑已完成步骤；无可续跑态报 NO_PAUSED_STATE）；某步失败可重试该步（把该步及后续置回 pending、经送达路径起新一轮 run）；四个控制动作各产生一条审计事件，越权尝试同样留痕。",
+      "spec_ref": "contracts/plan-control#confirmed",
+      "depends_on": [
+        "F975",
+        "F974"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/plan-control/pause-resume-run.test.ts",
+        "pnpm --filter api exec vitest run tests/plan-control/retry-step-and-control-audit.test.ts"
+      ],
+      "evidence": "",
+      "notes": "覆盖 UC-9 pausePlanRun + UC-13 resumePlanRun + UC-10 retryPlanStep；不变量 I-12/I-13。⚠ 裁决 (c)：不含 restoreCheckpoint（UC-11 已删），verification 不要求第三个恢复动作——TW-P0-3 如实封顶 0.7。暂停/恢复是 LangGraph 标准原语（langgraph-api==0.12.4 实测），本束写规则不发明协议。⚠ 实现期探针 P-2（domain ⑤/coverage 缺口 3）：远端 run_id 是否已持久化到 agent_runs 未核实，开工第一件事跑；若无先补一条 run_id 记账。审计复用 agent-runtime ProvenanceWriter（XC-D）。依据等级 [设计]。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
+    },
+    {
+      "id": "F977",
+      "priority": 1,
+      "area": "plan-control",
+      "capability": "CAP-WEB",
+      "title": "六态指示器与计划面板只读态：当前态可读不靠颜色、不暴露 write_todos",
+      "user_visible_behavior": "/chat 消息流顶部常驻六态指示器（准备›计划›执行›审批›完成），当前态同时有文本高亮 + aria-current='step' + role='status' 播报，去掉 CSS 后仍能读出在哪一态（data-phase ∈ 六值，来自 getPlanLedger.phase，前端不重算）；计划面板只读态每行一条步骤，三种状态（completed/in_progress/pending）各有 aria-label 不只靠图标，约束缩进挂在宿主步骤下，全程不出现 write_todos 字样。",
+      "spec_ref": "contracts/plan-control#confirmed",
+      "depends_on": [
+        "F973"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/plan-control-phase-indicator.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/plan-control-panel-readonly.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "覆盖 ui.md S1（六态指示器）+ S2（只读态）；判据 V1/V1a/V2；不变量 I-7（phase 派生前端不重算）/I-15（不暴露 write_todos）。锚点 chat-task-workbench-phase-indicator / chat-task-workbench-plan-step（ui.md 四节，data-testid 单源在 chat-task-workbench-acceptance.md）。UI 断言可用：本束已定 data-testid 命名规范且 ui-preview/plan-control 八屏已交付（G-01/G-05）。依据等级 [设计]（八屏已人类核对，design-signoff 末节机械核对已过）。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
+    },
+    {
+      "id": "F978",
+      "priority": 1,
+      "area": "plan-control",
+      "capability": "CAP-WEB",
+      "title": "编辑态 + 确认门 + 执行/失败态界面：确认门条件性从不入 DOM、失败态只两个恢复动作",
+      "user_visible_behavior": "计划面板编辑态一屏内含调序把手/移除/加约束/撤约束四控件（删后浮出「已移除·撤销」而非二次确认弹窗），并发时顶部浮 chat-task-workbench-plan-stale-banner、执行中常驻 chat-task-workbench-plan-pending-apply 告知条、孤儿约束显 chat-task-workbench-plan-orphan-constraint；确认门 chat-task-workbench-plan-confirm 仅当 gate.required===true 才进入 DOM（简单提问路径从不进入 DOM，不是 display:none）；执行态 chat-task-workbench-run-progress + 暂停/恢复为同一控件两态（run-pause↔run-resume）；失败态只渲染两个恢复动作（重试该步 / 修改输入），chat-task-workbench-failure-restore-checkpoint 锚点不存在于 DOM。",
+      "spec_ref": "contracts/plan-control#confirmed",
+      "depends_on": [
+        "F977",
+        "F974",
+        "F975",
+        "F976"
+      ],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/plan-control-edit-mode.test.tsx",
+        "pnpm --filter web exec vitest run tests/ui/plan-control-gate-and-recovery.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "覆盖 ui.md S3/S4/S5/S6/S7/S8；判据 V3(前端)/V4′/V5/V6；不变量 I-5/I-8/I-11 的界面面。⚠ 裁决 (c)：restore-checkpoint 按钮不渲染——测试断言该锚点缺席（present 断言 queryByTestId 为 null，不是 test.skip；skip 掉的差距等于不存在）。⚠ V4′ 反证断言写成「确认门从未进入 DOM」的结构面（component 层 gate.required=false ⇒ queryByTestId(chat-task-workbench-plan-confirm) 为 null）；完整「走真实引擎全程从未闪现」的持续断言 e2e 由后续 e2e 补，见 usecases UC-8 反证 ③（本 feature 提供结构面，e2e 层不在 vitest verification 内）。五个新增锚点（constraint-remove/stale-banner/pending-apply/orphan-constraint/run-resume）不进 TW 卡，登记在 ui.md 四节。依据等级 [设计]。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
     }
   ]
 }
