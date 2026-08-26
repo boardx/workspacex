@@ -379,7 +379,7 @@ export function TemplateEditorPanel({
                     type="button"
                     onClick={() => setNewField((p) => ({ ...p, type: t }))}
                     className={`whitespace-nowrap rounded-control border px-2 py-1 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                      newField.type === t ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-muted"
+                      newField.type === t ? "border-inverse bg-inverse text-inverse-foreground" : "border-border text-muted-foreground hover:bg-muted"
                     }`}
                     data-testid={`tpladmin-editor-new-type-${t}`}
                   >
@@ -407,7 +407,7 @@ export function TemplateEditorPanel({
                   type="button"
                   onClick={() => setGridCols(g)}
                   className={`rounded-control border px-2 py-0.5 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    gridCols === g ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-muted"
+                    gridCols === g ? "border-inverse bg-inverse text-inverse-foreground" : "border-border text-muted-foreground hover:bg-muted"
                   }`}
                   data-testid={`tpladmin-editor-grid-${g}`}
                 >
