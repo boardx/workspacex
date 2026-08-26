@@ -1576,6 +1576,31 @@ function CopilotKitV2PanelBody({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [scrollMessagesToBottom, prefersReducedMotion]);
 
+  /**
+   * issue #2096（真实 devapp 实测：打字/滚动时消息区画布内容闪烁）—— 根因：两个
+   * context provider（`CopilotKitV2MessageActionsProvider`/`ArtifactLandingCtx.Provider`）
+   * 的 `value` 此前都是内联对象字面量，每次这个组件重渲染（composer 打字触发的
+   * `inputDraft` 更新、`handleMessagesScroll` 的 `setIsAtBottom`……几乎每个用户
+   * 交互都会）都会创建一个**新**对象——即使里面每个字段的值都没变，React context
+   * 按引用比较，identity 一变，**订阅这两个 context 的每一条消息**（`V2AssistantMessageImpl`）
+   * 都被迫重渲染，包括其中的 `ChatDiagramFabric`/`ChatCanvasFabric`——那正是用户看到
+   * 的"画布内容闪烁"。`landingContext`/`messageIdentity` 本身已经各自 memo 过
+   * （见 `useChatMessageIdentity`/上面的 `landingContext`），问题出在**外面这层包装
+   * 对象**没有跟着 memo。
+   */
+  const messageActionsContextValue = React.useMemo(
+    () => ({ identity: messageIdentity, agentId: actingAgentId, agentLabel: actingAgentLabel, landing: landingContext }),
+    [messageIdentity, actingAgentId, actingAgentLabel, landingContext],
+  );
+  // `chatThreadIdRef.current` 有意读取渲染时刻的值（ref 本身不触发渲染，见该 ref
+  // 自己的既有纪律）：只有当它恰好在别的原因引发的渲染之间真的变了，下面这个 memo
+  // 才应该重建对象；lint 规则不认识"读 ref 当依赖是有意为之"这个既有模式，下一行禁用。
+  const artifactLandingContextValue = React.useMemo(
+    () => ({ threadId: chatThreadIdRef.current ?? undefined, bearer: sessionToken ?? undefined }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chatThreadIdRef.current, sessionToken],
+  );
+
   return (
     <div className="flex h-full w-full gap-3">
       {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
@@ -1607,7 +1632,7 @@ function CopilotKitV2PanelBody({
         <div
           ref={messagesContainerRef}
           onScroll={handleMessagesScroll}
-          className="flex-1 overflow-y-auto rounded-lg border border-border-subtle bg-card p-3"
+          className="relative flex-1 overflow-y-auto rounded-lg border border-border-subtle bg-card p-3"
           data-testid="copilotkit-v2-messages"
         >
           {/* issue #2039（第 1 轮 gap #3，uiux-standards U1/U2）——三态：
@@ -1645,21 +1670,15 @@ function CopilotKitV2PanelBody({
                     issue #2052（CK-P7）—— 「落地为产物」是同一个操作条上的第四件，
                     经同一份 context 下发（`landing`），不另包一层 provider / 不另换一次
                     slot：两层包装会渲染出两个气泡外壳。 */}
-                <CopilotKitV2MessageActionsProvider
-                  value={{
-                    identity: messageIdentity,
-                    agentId: actingAgentId,
-                    agentLabel: actingAgentLabel,
-                    landing: landingContext,
-                  }}
-                >
+                <CopilotKitV2MessageActionsProvider value={messageActionsContextValue}>
                   {/* issue #2070 —— threadId 读的是 `chatThreadIdRef.current`（真实
                       `chat_threads.id`，见 DA-19a 一节；ref 而非 state，读的是渲染那
                       一刻的值，与该 ref 自己"不需要触发重渲染"的既有纪律一致，
-                      `agent.messages` 变化时本来就会重渲染这里）。 */}
-                  <ArtifactLandingCtx.Provider
-                    value={{ threadId: chatThreadIdRef.current ?? undefined, bearer: sessionToken ?? undefined }}
-                  >
+                      `agent.messages` 变化时本来就会重渲染这里）。
+                      issue #2096 —— `value` 现在是上面 memo 过的对象，不是内联字面量：
+                      两个 provider 的 value identity 只在真实值变化时才变，避免每次
+                      打字/滚动都强制重渲染全部消息（含画布）。 */}
+                  <ArtifactLandingCtx.Provider value={artifactLandingContextValue}>
                     <CopilotChatMessageView
                       messages={agent.messages}
                       isRunning={agent.isRunning}
@@ -1670,23 +1689,28 @@ function CopilotKitV2PanelBody({
               </CopilotChatConfigurationProvider>
             </div>
           )}
+          {/* issue #2096（真实 devapp 实测：悬浮按钮与右侧发送区重叠）—— 此前挂在
+              最外层 `relative` 包装 div 里（那个 div 从消息区一路延伸到 composer/
+              发送按钮），`absolute bottom-3 right-3` 因此贴着整个左栏的右下角，与
+              发送区的图标重叠，不是贴着消息可视区的右下角。现在这个消息容器 div
+              自己是 `relative`，按钮是它的子节点：`bottom-3` 相对消息可视区自身，
+              不再随 composer 高度漂移；水平方向按人类实测反馈从贴右改成贴底居中
+              （`left-1/2 -translate-x-1/2`，Slack/ChatGPT 同款"回到最新"位置），
+              不会被右侧材料/产物栏或任何一侧内容遮挡。只在离开底部且确实有消息可看
+              时出现，不在历史回读骨架屏/空态上叠加一个没有意义的按钮。 */}
+          {!isAtBottom && !historyLoading && agent.messages.length > 0 ? (
+            <button
+              type="button"
+              data-testid="copilotkit-v2-scroll-to-bottom"
+              title="回到最新消息（Ctrl/Cmd+End）"
+              aria-label="回到最新消息"
+              onClick={() => scrollMessagesToBottom(prefersReducedMotion() ? "auto" : "smooth")}
+              className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowDown className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
         </div>
-        {/* issue #2071 —— 悬浮"回到最新"按钮：只在离开底部且确实有消息可看时出现，
-            不在历史回读骨架屏/空态上叠加一个没有意义的按钮。挂在消息容器外层那个
-            `relative` div 里，定位以那个 div 为参照系，不受消息容器自身
-            `overflow-y-auto` 裁切影响。 */}
-        {!isAtBottom && !historyLoading && agent.messages.length > 0 ? (
-          <button
-            type="button"
-            data-testid="copilotkit-v2-scroll-to-bottom"
-            title="回到最新消息（Ctrl/Cmd+End）"
-            aria-label="回到最新消息"
-            onClick={() => scrollMessagesToBottom(prefersReducedMotion() ? "auto" : "smooth")}
-            className="absolute bottom-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ArrowDown className="h-4 w-4" aria-hidden />
-          </button>
-        ) : null}
         {/* CK-P4（issue #2054）—— run 进度行。⚠ 它每秒在动，"会动"本身就是"没卡死"
             的证据；一句静止的「正在思考…」在第 10 秒和第 10 分钟长得一模一样
             （旧轨道 `chat-live-message-panel.tsx` 同一段裁决）。 */}
