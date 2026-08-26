@@ -5224,14 +5224,14 @@
         "F212"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "21",
-      "owner": null,
+      "owner": "dev-ai-runtime-f216",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-interrupts/decision-guard-errors.test.ts",
         "pnpm --filter api exec vitest run tests/agent-interrupts/plan-phase-not-approving-for-interrupts.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F216.verify.log @ 2026-08-26T19:39:00.817Z",
       "notes": "契约束已签核（confirmed）。横切 feature：三张卡共享的决策守卫只做一遍，不在 F213/F214/F215 各做一次（权限判定委托 chat UC-0、审计留痕、8 错误码枚举）。covers usecases.md 统一失败枚举 AgentInterruptError。decision-guard-errors.test 逐一构造 8 码的 fail-closed 路径（kind mismatch / stale / malformed / audit-sink 等），断言均非 0 处置、不静默放行。⚠ XC-59 反证（design-coherence.md 2026-08-26 交叉复核明确要求，非可选项）：plan-phase-not-approving-for-interrupts.test 断言『仅有 agent-interrupts 类中断、无 call_skill 审批』时 PlanPhase !== 'approving'——plan-control I-7 的『是否有待决审批』判定若不按 toolName 过滤（只认 call_skill 白名单，排除本束三个新工具名），三种新中断会误触发『审批』派生态，用户看到『目标复述卡』却被贴上『审批』文案（真实 UX/语义 bug）。本条是两束共同实现期待办在本束侧的反证落点。依据等级 [Backlog]（纯新能力）。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。 ⚠ XC-59 反证归属（coord-main 2026-08-26 确认，双向对齐 plan-control 线）：这条测试的权威修复点在 plan-control 的 PlanPhase 派生函数——F216 只负责『断言』（仅 agent-interrupts 中断、无 call_skill 审批时 PlanPhase≠approving），不负责实现该派生函数里按 toolName 过滤的逻辑本身。plan-control 线的 F21x 系列谁先落地 PlanPhase 派生函数，必须同时满足这条断言；即两束分开实现时，谁先做完 PlanPhase 谁就要让本断言通过，责任方明确、不会被对方反证意外测红却找不到归属。"
     },
     {
