@@ -36,9 +36,10 @@ import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import { capabilitiesFor, observerMayReadMessage } from "../../domain/chat/thread-visibility";
 import {
-  threadAgentSummary,
   threadBadgeState,
+  threadCardStatus,
   toContractBadges,
+  type AgentRunStatusFact,
 } from "../../domain/chat/thread-badges";
 import { THREAD_GROUP_ORDER, threadGroupLabel } from "../../domain/chat/thread-grouping";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
@@ -91,6 +92,15 @@ export async function listThreads(
   const now = deps.clock.now();
   const byLabel = new Map<string, ThreadCard[]>();
 
+  // 🔴 #2094：状态与产物数**批量取一次**。逐线程查会给这条已经有 `findMessages`
+  // N+1 的路径再叠两个 N+1。在可见性过滤之前按候选集取事实是安全的：取回来的东西
+  // 只会被过滤后仍在的卡片读到，判权仍然逐条经 `resolveVisibility`。
+  const candidateIds = candidates.map((row) => row.threadId);
+  const [latestRunStatuses, artifactCounts] = await Promise.all([
+    deps.chat.latestRunStatusByThread(input.orgId, candidateIds),
+    deps.chat.countArtifactsByThread(input.orgId, candidateIds, input.userId),
+  ]);
+
   for (const row of candidates) {
     // 分组先算：本周之前的线程没有可归的组（待裁决第 11 条），
     // 那就没必要为它跑一次判权。⚠ 顺序反过来也正确，只是慢。
@@ -107,7 +117,10 @@ export async function listThreads(
     // 返回「还有 N 条你看不到」就是 uc-8-5 V9 禁止的那种泄露。
     if (outcome.kind !== "allow") continue;
 
-    const card = await buildCard(deps, input.orgId, row, outcome, projectName);
+    const card = await buildCard(deps, input.orgId, row, outcome, projectName, {
+      latestRunStatus: (latestRunStatuses.get(row.threadId) ?? null) as AgentRunStatusFact | null,
+      artifactCount: artifactCounts.get(row.threadId) ?? 0,
+    });
     if (card === null) continue;
     const bucket = byLabel.get(label) ?? [];
     bucket.push(card);
@@ -137,6 +150,8 @@ async function buildCard(
   row: Awaited<ReturnType<ChatRepository["listProjectThreads"]>>[number],
   outcome: Extract<Awaited<ReturnType<typeof resolveVisibility>>, { kind: "allow" }>,
   projectName: string | null,
+  /** 🔴 #2094：批量取回的两个事实，见调用点。 */
+  facts: { readonly latestRunStatus: AgentRunStatusFact | null; readonly artifactCount: number },
 ): Promise<ThreadCard | null> {
   // 正文经守卫读路径取出，交的是**刚刚那次判定**——不是现造一个 allow。
   const guarded = await deps.chat.findMessages(orgId, row.threadId);
@@ -150,18 +165,11 @@ async function buildCard(
     outcome.actor.projectRole === "observer" ? observerMayReadMessage(m, row) : true,
   );
 
-  const speakingAgentIds = row.agentPrivate
-    ? [] // O-24：私聊不计入 `N 个 agent`。
-    : await deps.chat.findSpeakingAgentIds(orgId, row.threadId);
-
   const state = threadBadgeState({
     messages: visible,
     transcribing: row.transcribing,
     archived: row.archived,
-    speakingAgentIds,
   });
-
-  const lastAgent = visible.filter((m) => m.authorKind === "agent").at(-1)?.agentId ?? null;
 
   return {
     id: row.threadId,
@@ -173,12 +181,14 @@ async function buildCard(
     // 属于这个项目）时留空，不拼一句"未知项目"之类的假文案。
     subtitle: projectName ?? "",
     badges: toContractBadges(state),
-    agentSummary: threadAgentSummary({
-      state,
-      agentPrivate: row.agentPrivate,
-      lastAgentLabel: lastAgent,
-      lastActivityLabel: row.lastActivityAt,
+    // 🔴 #2094：`agentSummary` 已删除，取而代之的是这两个结构化字段。
+    // ⚠ `hasMessages` 用**可见**消息判定（观察者过滤之后），不是仓储里的原始条数：
+    //   一条全部消息都对本人不可见的线程，在本人眼里就是「还没开始」。
+    status: threadCardStatus({
+      hasMessages: visible.length > 0,
+      latestRunStatus: facts.latestRunStatus,
     }),
+    artifactCount: facts.artifactCount,
     lastActivityAt: row.lastActivityAt,
     visibilityScope: row.visibilityScope,
   };

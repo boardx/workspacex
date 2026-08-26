@@ -59,7 +59,7 @@ import { ChatReadScreen } from "@/components/chat/chat-read-screen";
 
 function card(id: string, title: string) {
   return {
-    id, title, subtitle: "", badges: [], agentSummary: "agent-real",
+    id, title, subtitle: "", badges: [], status: "done", artifactCount: 0,
     lastActivityAt: "2026-08-04T00:00:00.000Z", visibilityScope: "plenary",
   };
 }

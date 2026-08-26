@@ -71,7 +71,7 @@ export const TEAM_PRESENT_COUNT = TEAM_AGENTS.filter((a) => a.presence === "pres
 export type ThreadBadgeKind = "transcribing" | "review" | "archived" | "agents" | "time";
 /**
  * 线程卡（展示层）。⚠ 与契约 `chat.ThreadCard` **同名不同义**：
- * 契约那份是线上载荷 `{id,title,subtitle,badges[],agentSummary,lastActivityAt,visibilityScope}`，
+ * 契约那份是线上载荷 `{id,title,subtitle,badges[],status,artifactCount,lastActivityAt,visibilityScope}`，
  * 这份是**渲染后的列表行**（单个已选好的徽标 + 合成的 meta 串 + 选中态）。
  * 结构不同、取值不冲突 ⇒ 改名分离即可，无需人类裁决。
  */

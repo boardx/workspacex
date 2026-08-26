@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 import { chat as C } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import { observerMayReadMessage } from "../../domain/chat/thread-visibility";
+// 🔴 #2094：自动命名。规则在 domain 层（纯函数），默认名的字面量单源于 `mutate-thread.ts`
+// ——在这里再写一遍 `"新对话"` 就是「同一事实声明在两处」，而漂移那天没人会收到通知。
+import { deriveThreadTitle } from "../../domain/chat/thread-title";
+import { DEFAULT_PERSONAL_THREAD_TITLE } from "./mutate-thread";
 import type { ResolveVisibilityDeps } from "./resolve-visibility";
 import { resolveVisibility } from "./resolve-visibility";
 import type {
@@ -147,7 +151,65 @@ export async function acceptHumanMessage(
   if (!isDisclosed(disclosedOutcome)) throw new MessageThreadNotVisibleError();
   const outcome = disclosedOutcome.payload;
   if (outcome.kind === "conflict") throw new MessageIdempotencyConflictError();
+
+  await autoTitleFromFirstMessage(deps, {
+    orgId: input.orgId,
+    threadId: input.threadId,
+    text: input.text,
+  });
+
   return outcome.accepted;
+}
+
+/**
+ * 🔴 #2094：**自动命名** —— 人类裁决落地（回指 #2068）。命名规则与「为什么截断
+ * 而不是让模型生成摘要」在 `domain/chat/thread-title.ts` 的文件头，这里只讲
+ * **为什么挂在这一行**。
+ *
+ * ## 为什么在 `acceptHumanMessage` 里，而不是别处
+ *
+ * 这是人类消息进入 chat 的**唯一入口**：REST 的 `POST /chat/threads/:id/messages`
+ * （`chat.controller.ts`）与 CopilotKit v2 轨道的 `runAguiBridgeTurn`
+ * （`agent-run/agui-bridge.ts`）都经过它。挂在这里，两条轨道自动是同一个答案；
+ * 挂在任何一条轨道上，另一条就得再写一份规则——那正是本仓五次漂移的形状。
+ *
+ * ## 为什么在写入**之后**，且失败不回滚整条消息
+ *
+ * 顺序是先落消息再起名。反过来会在写入失败时留下一条顶着任务标题、却一条消息
+ * 都没有的线程——那比「新对话」更难理解。
+ *
+ * 起名失败**不抛**：用户的消息已经落库了，为了一个标题把成功变成 500，是拿
+ * 「装饰性的没做成」否定「实质性的已做成」。失败的后果是标题停在「新对话」，
+ * 正是本 issue 之前的状态，不会更糟。
+ *
+ * ## 幂等重发不会重复起名
+ *
+ * 幂等命中在上面 `if (existing)` 处就 return 了，走不到这里。即便走到，
+ * `autoTitleThreadIfDefault` 的 `WHERE title = $default` 也会命中 0 行。
+ *
+ * ## 项目线程为什么天然不受影响
+ *
+ * 项目线程的标题由用户在创建时必填（`normalizeTitle` 拒绝空标题），不可能等于
+ * `DEFAULT_PERSONAL_THREAD_TITLE`，于是这条 UPDATE 对它们恒为 no-op。
+ * 这不是加了 `if`，是条件本身就排除了它们。
+ */
+async function autoTitleFromFirstMessage(
+  deps: Deps,
+  input: { readonly orgId: OrgId; readonly threadId: string; readonly text: string },
+): Promise<void> {
+  const title = deriveThreadTitle(input.text);
+  // 正文全是空白 ⇒ 没有可用输入。留着「新对话」，不编一个。
+  if (title === null) return;
+  try {
+    await deps.chat.autoTitleThreadIfDefault(
+      input.orgId,
+      input.threadId,
+      title,
+      DEFAULT_PERSONAL_THREAD_TITLE,
+    );
+  } catch {
+    // 见上：消息已落库，标题失败不该把整个请求打红。
+  }
 }
 
 // 编码实现单源于 `packages/contracts/src/chat.ts` 的 `encodeMessageCursor`——见那份

@@ -52,7 +52,8 @@ const listThreads = (userId: string, query = "") =>
 const readThread = (userId: string, threadId: string) =>
   fetch(`${BASE}/chat/threads/${threadId}?projectId=${PROJECT}`, { headers: as(userId) });
 
-type ListOut = { groups: { label: string; cards: { id: string; badges: string[]; agentSummary: string }[] }[] };
+// 🔴 #2094：`agentSummary` 已被 `status` + `artifactCount` 取代（人类裁决，回指 #2068）。
+type ListOut = { groups: { label: string; cards: { id: string; badges: string[]; status: string; artifactCount: number }[] }[] };
 type MutateOut = {
   threadId: string;
   version: number;
