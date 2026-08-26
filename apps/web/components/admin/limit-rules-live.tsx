@@ -233,7 +233,7 @@ export function LimitRulesLive() {
                     <>
                       <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
                         <div
-                          className={`h-full rounded-full ${pct >= 90 ? "bg-destructive" : "bg-foreground"}`}
+                          className={`h-full rounded-full ${pct >= 90 ? "bg-destructive" : "bg-inverse"}`}
                           style={{ width: `${Math.min(100, pct)}%` }}
                         />
                       </div>
