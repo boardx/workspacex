@@ -1,15 +1,14 @@
 # 契约束 `plan-control` — ① UI（签核面第 ① 件）
 
-> **自检：本文件引用 0 张截图，`ui-preview/plan-control/` 目录下实际 0 张。N == M == 0。**
+> **自检：本文件引用 8 张截图，`ui-preview/plan-control/` 目录下实际 8 张。N == M == 8。**（2026-08-26 ui-prototyper 交付）
 
-# 🔴 截图尚未产出：第 ① 件**当前不具备完整签核条件**
+# ✅ 八屏已产出：第 ① 件**材料齐备**，`status` 仍待人类 Approve
 
-本束是 2026-08-26 新建的束，`ui-prototyper` 尚未交付任何截图。
-**`lint-ui-material.mjs` 会对本束报判定④「目录不存在 / 0 张 png」——那是正确的红**，
-与 `asset-governance`（2026-07-30）、`research`（2026-07-30）、phase-12 四束（2026-08-15）
-三次先例同形：**材料确实还没有，不该被静默跳过。**
-`ui-material-map.json` 的映射行已在同一 PR 里补上——不补的话门控报的是判定③「未声明」，
-**报错理由就不对了**（真实情况是「已声明、待产出」，不是「有人忘了声明」）。
+本束的 8 屏（G-01 ～ G-08）已由 `ui-prototyper` 用 `apps/web` 真实组件 + mock 数据产出，
+截图落在 `ui-preview/plan-control/`（见下方第三节「已产出」表）。
+**`lint-ui-material.mjs` 对本束的判定④「目录 0 张 png」已随之回绿**——材料从「已声明、待产出」
+转为「已产出、待人类核对」。⚠ 材料齐备 ≠ 签核通过：`design-signoff.md` 的
+`status` / `confirmed_*` / `confirmed_via` 在人类 Approve 之前继续留空（ADR-023 决策五）。
 
 ## ✅ 已裁决（人类，2026-08-26）：**八屏全补齐再签**
 
@@ -173,13 +172,29 @@ TW-P0-3 的分数如实封顶 **0.7**。所以 **G-08 那张图按两个恢复�
 | **G-07** | 执行态进度 + 暂停；以及执行中编辑的告知条 | S5 / S8 | I-11 的告知是产品承诺，要看措辞 |
 | **G-08** | 失败态 + **两个**恢复动作（重试该步 / 修改输入）。**不画「恢复检查点」** | S6 | 裁决 (c) 已定：第三个动作本轮不做，按钮不渲染 |
 
+### 已产出（2026-08-26 ui-prototyper 交付，`ui-preview/plan-control/`）
+
+> 预览路由 `/preview/plan-control?screen=g01..g08`（纯 mock，不接后端）；
+> 组件 `apps/web/components/plan-control/plan-control-screens.tsx`，落点在 `/chat` 三栏骨架内。
+
+| # | 截图 | 对应 ui.md 哪一条 |
+|---|---|---|
+| **G-01** | `g-01-plan-readonly-three-status.png` | 2.1 只读态（S2）：三种步骤状态同屏 + 约束缩进，无 write_todos（判据二） |
+| **G-02** | `g-02-plan-edit-actions.png` | 2.1 编辑态（S3）：调序/删步/加约束/撤约束四动作 + 删后「撤销」浮条 |
+| **G-03** | `g-03-plan-reorder-dragging.png` | 2.1 调序中间态（S3，UC-3）：抬起 + 落点高亮 |
+| **G-04** | `g-04-constraint-inline-input.png` | 2.1 加约束就地输入 + 已挂载一条；附 S7 孤儿约束（I-8）与 I-5 陈旧横条 |
+| **G-05** | `g-05-phase-indicator-six-states.png` | 2.3 六态指示器（S1，判据一）：六联，failed 替换整条 |
+| **G-06** | `g-06-confirm-gate-vs-simple.png` | 2.4 确认门（S4，判据四）：required=true 对照 required=false（简单提问节点不入 DOM） |
+| **G-07** | `g-07-run-progress-and-pending-apply.png` | 2.5 执行态（S5，UC-9）+ 2.2 执行中编辑告知条（S8，I-11） |
+| **G-08** | `g-08-failure-two-recovery.png` | 2.5 失败态（S6，判据六）：仅两个恢复动作，「恢复检查点」按钮不渲染（裁决 c） |
+
 ### 缺口小结（可机械核对）
 
 | | |
 |---|---|
-| 本文件引用的截图 | **0** |
-| `ui-preview/plan-control/` 实存 | **0** |
-| 点名的缺口 | **8**（G-01 ～ G-08） |
+| 本文件引用的截图 | **8** |
+| `ui-preview/plan-control/` 实存 | **8** |
+| 点名的缺口 | **0**（G-01 ～ G-08 已全部产出） |
 
 ---
 
