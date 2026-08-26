@@ -85,11 +85,21 @@ function StatusIcon({ status }: { status: PlanTodo["status"] }) {
 export function AgentPlanPanel({
   steps,
   stateSnapshotTodos = null,
+  panelTestId = "agent-plan-panel",
+  stepTestId = null,
 }: {
   steps: readonly Step[];
   /** DA-17／Line D3 -- STATE_SNAPSHOT 已解析好的 todos，非 null 时优先于 `steps` 派生。
    *  null（默认）= 尚未收到快照（或该消费方压根没接 AG-UI 事件流），退回旧路径。 */
   stateSnapshotTodos?: PlanTodo[] | null;
+  /** issue #2068（TW-P0-3②）—— 验收卡为「任务工作台」这一层另立了一套锚点
+   *  （`chat-task-workbench-plan-panel` / `-plan-step`）。**渲染只有这一份**：
+   *  右栏 Inspector 的「进度」页签复用本组件、只换锚点，不复制第二份计划视图
+   *  （本仓「同一事实不得声明在两处」纪律）。默认值 = 消息流里既有的锚点，
+   *  既有调用方一个字都不用改。 */
+  panelTestId?: string;
+  /** 非 null 时，每个步骤额外挂这个 testid（既有的 `agent-plan-item-{i}` 不变）。 */
+  stepTestId?: string | null;
 }) {
   const todos = stateSnapshotTodos ?? derivePlanTodos(steps);
   if (todos === null) return null;
@@ -97,7 +107,7 @@ export function AgentPlanPanel({
   return (
     <div
       className="rounded-md border border-border-subtle bg-card px-2.5 py-1.5"
-      data-testid="agent-plan-panel"
+      data-testid={panelTestId}
       data-plan-total={todos.length}
       data-plan-done={done}
     >
@@ -109,7 +119,8 @@ export function AgentPlanPanel({
           <li
             key={`${i}-${todo.content}`}
             className="flex items-center gap-2 text-11"
-            data-testid={`agent-plan-item-${i}`}
+            data-testid={stepTestId ?? `agent-plan-item-${i}`}
+            data-plan-index={i}
             data-plan-status={todo.status}
           >
             <StatusIcon status={todo.status} />

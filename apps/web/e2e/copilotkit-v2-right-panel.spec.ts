@@ -85,8 +85,18 @@ test("issue #2046：上传附件随消息发出后右栏「材料」出现；@ �
   const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId).toBeTruthy();
 
-  await expect(page.getByTestId("copilotkit-v2-right-panel")).toBeVisible();
+  /* issue #2068（TW-P0-4）—— 右栏从「产物 + 材料」固定两段堆叠换成了四页签
+     Inspector（`chat-task-inspector.tsx`），空态默认折叠成 40px 图标栏。本 spec 的
+     每一条**实质**断言（上传落在本线程 / 材料栏读到文件 / 产物栏读到落地产物 /
+     `@` 引用同一份材料数据）一条未删、一条未放宽——变的只是"先点到那个页签"。
+     ⚠ 这是跟着一次**有意的重设计**走，不是把用例改松去迁就实现：旧锚点
+     `copilotkit-v2-right-panel` 已经不存在，留着它只会红成"元素找不到"，
+     掩盖掉后面那些真正在验证读写链路的断言。 */
+  const inspector = page.getByTestId("chat-task-workbench-inspector");
+  await expect(inspector).toBeVisible();
+  await page.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
   await expect(page.getByTestId("chat-artifacts-empty")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("chat-task-workbench-inspector-tab-materials").click();
   await expect(page.getByTestId("chat-materials-empty")).toBeVisible();
 
   /* ═══════════ ② 上传附件 → 随消息发出 → 材料列表出现该文件 ═══════════ */
@@ -117,6 +127,8 @@ test("issue #2046：上传附件随消息发出后右栏「材料」出现；@ �
   await page.getByTestId("copilotkit-v2-input").fill("请看这份材料");
   await page.getByTestId("copilotkit-v2-send").click();
   // run settle → onMessageSent → 右栏刷新：材料列表出现该文件（不刷新页面）。
+  // 发消息会让 Inspector 自动切到「进度」（TW-P0-4②），这里显式点回「材料」。
+  await page.getByTestId("chat-task-workbench-inspector-tab-materials").click();
   await expect(page.getByTestId("chat-materials-panel")).toContainText(FILE_NAME, { timeout: 60_000 });
 
   /* ═══════════ ③ `@` 引用：候选来自同一份材料数据，点击即插入 ═══════════ */
@@ -157,5 +169,6 @@ test("issue #2046：上传附件随消息发出后右栏「材料」出现；@ �
   // 落地发生在面板刷新时机之外（直连 API），刷新页面走 shell 的首载读取——
   // 断言的是「产物栏接的是真实 listThreadArtifacts 读路径」。
   await page.reload();
+  await page.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
   await expect(page.getByTestId("chat-artifacts-panel")).toContainText(ARTIFACT_TITLE, { timeout: 30_000 });
 });
