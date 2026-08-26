@@ -32,10 +32,21 @@
  *
  * `PLAN_APPROVAL_TOOL_WHITELIST` 是这条过滤的**唯一事实源**：只有工具名落在这个
  * 白名单里的待决中断才会把 `PlanPhase` 判成 `"approving"`。`agent-interrupts`
- * 三个工具名**故意不在这里**——见本文件末尾的表驱动反证
- * `tests/plan-control/plan-phase-approving-excludes-interrupts.test.ts`
- * （XC-59 的权威实现方；`agent-interrupts` F216 那条线断言同一件事，但本文件才是
- * 修复点，两边不得各自维护一份白名单）。
+ * 三个工具名**故意不在这里**——表驱动反证见
+ * `packages/contracts/tests/plan-control/plan-control-schema-single-source.test.ts`
+ * 的「XC-59 反证」describe 块（XC-59 的权威实现方；`agent-interrupts` F216 那条线
+ * 断言同一件事，但本文件才是修复点，两边不得各自维护一份白名单）。
+ *
+ * ## 命名注记：`planStepId`，不是原稿的裸词写法
+ *
+ * `domain.md` / `usecases.md` 原文的字段名是 `step` 紧接 `Id`（驼峰）。这里改成
+ * `planStepId` 是**机械改名，不是语义偏离**——`apps/api/scripts/lib/
+ * naming-single-source-patterns.mjs`（F121 Q-3 B①）把那个裸词形式定为全仓败选名
+ * （与议程环节 `agendaSegmentId` 的历史命名混淆问题相关，`lint-naming-single-source.mjs`
+ * 门控该正则**不分域**地扫描 `packages/contracts/src` 全文本，本注释自己写出那个
+ * 词都会被挡，所以这里刻意拆开两个词不连写），与本束的计划步骤是完全不同的领域
+ * 概念也照挡不误。`planStepId` 保留了原文「计划步骤的 id」这个语义、只是加了
+ * `plan` 前缀避开那个全局黑名单——落地时对照 `domain.md`/`usecases.md` 里的原字段名读。
  */
 import { z } from "zod";
 import { AguiPlanTodoStatus } from "./agui-state-events";
@@ -109,7 +120,7 @@ export type PlanAppliedTo = z.infer<typeof PlanAppliedTo>;
 /** `PlanConstraint` —— 约束（值对象，`domain.md` 一·3）。文案 ≤ 500 字符、非空白。 */
 export const PlanConstraint = z.object({
   constraintId: z.string(),
-  stepId: z.string(),
+  planStepId: z.string(),
   text: z.string(),
   authorId: z.string(),
   createdAt: z.string(),
@@ -124,9 +135,9 @@ export const PlanConstraintView = z.object({
 }).strict();
 export type PlanConstraintView = z.infer<typeof PlanConstraintView>;
 
-/** `PlanStep` —— 计划步骤（值对象，`domain.md` 一·2）。`stepId` 生命周期内稳定（I-3）。 */
+/** `PlanStep` —— 计划步骤（值对象，`domain.md` 一·2）。`planStepId` 生命周期内稳定（I-3）。 */
 export const PlanStep = z.object({
-  stepId: z.string(),
+  planStepId: z.string(),
   content: z.string(),
   status: PlanStepStatus,
   constraints: z.array(PlanConstraintView),
@@ -237,7 +248,7 @@ export const planControl = {
     in: z.object({
       ...CommonPre,
       basedOnRevision: z.number().int().nonnegative(),
-      stepId: z.string(),
+      planStepId: z.string(),
       toIndex: z.number().int(),
     }).strict(),
     out: z.object({
@@ -258,7 +269,7 @@ export const planControl = {
     in: z.object({
       ...CommonPre,
       basedOnRevision: z.number().int().nonnegative(),
-      stepId: z.string(),
+      planStepId: z.string(),
     }).strict(),
     out: z.object({
       revision: z.number().int().nonnegative(),
@@ -282,7 +293,7 @@ export const planControl = {
     in: z.object({
       ...CommonPre,
       basedOnRevision: z.number().int().nonnegative(),
-      stepId: z.string(),
+      planStepId: z.string(),
       text: z.string(),
     }).strict(),
     out: z.object({
@@ -393,7 +404,7 @@ export const planControl = {
    */
   retryPlanStep: {
     method: "POST", path: "/plan-control/threads/:threadId/steps/retry",
-    in: z.object({ threadId: z.string(), stepId: z.string() }).strict(),
+    in: z.object({ threadId: z.string(), planStepId: z.string() }).strict(),
     out: z.object({ runId: z.string(), auditEventId: z.string() }).strict(),
     err: [
       "NOT_VISIBLE", "NO_WRITE_ROLE", "PLAN_STEP_NOT_FOUND", "NO_ACTIVE_RUN",

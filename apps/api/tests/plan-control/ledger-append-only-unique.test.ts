@@ -64,7 +64,7 @@ async function insertLedgerRow(
       [
         threadId, orgId, revision, revision, origin,
         origin === "user" ? (opts.basedOnRevision ?? revision - 1) : null,
-        JSON.stringify([{ stepId: "s1", content: "第一步", status: "pending", constraints: [] }]),
+        JSON.stringify([{ planStepId: "s1", content: "第一步", status: "pending", constraints: [] }]),
         origin === "user" ? (opts.createdBy ?? "u-author") : null,
       ],
     ),

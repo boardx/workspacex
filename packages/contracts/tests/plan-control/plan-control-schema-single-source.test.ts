@@ -178,7 +178,7 @@ describe("F972 · 11 个独立操作（design-signoff.md 3.1 已裁决 A，不�
   });
 
   it("reorderPlanStep.in.strict() 拒绝多余字段", () => {
-    const base = { threadId: "t1", basedOnRevision: 0, stepId: "s1", toIndex: 2 };
+    const base = { threadId: "t1", basedOnRevision: 0, planStepId: "s1", toIndex: 2 };
     expect(planControl.reorderPlanStep.in.safeParse(base).success).toBe(true);
     expect(planControl.reorderPlanStep.in.safeParse({ ...base, extra: 1 }).success).toBe(false);
   });
@@ -193,7 +193,7 @@ describe("F972 · PlanStep / PlanConstraint 形状（domain.md 一·2/3）", () 
 
   it("PlanConstraint.text 与 authorId 存在（I-9：约束只可能由人产生）", () => {
     const parsed = PlanConstraint.safeParse({
-      constraintId: "c1", stepId: "s1", text: "别调用外部 API",
+      constraintId: "c1", planStepId: "s1", text: "别调用外部 API",
       authorId: "u1", createdAt: new Date().toISOString(),
     });
     expect(parsed.success).toBe(true);
