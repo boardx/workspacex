@@ -5037,7 +5037,7 @@
         "F29"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "19",
       "owner": "dev-chat-e2e",
       "verification": [
@@ -5047,7 +5047,7 @@
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api run migrate:check",
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash apps/api/scripts/verify-rls.sh"
       ],
-      "evidence": "evidence/F970.verify.log（in_progress，非 passing——高风险档需要的 pnpm -w run verify:release 卡在与本 feature 无关的仓库级 lint-ui-material 红灯，见 session-handoff.md）",
+      "evidence": "evidence/F970.verify.log @ 2026-08-26T13:23:32.872Z",
       "notes": "issue #1667 勘探：F23（templates.applyBlueprint）/F29（templates.submitBlueprintChangeRequest/computeDeviations）两个契约 operation 的应用层用例代码完整、单测齐全，此前零 controller、零 infra——F23/F29 早已标 passing，但没有任何 HTTP 路由指向它们，用户实际不可达；apps/web/e2e/blueprint-contract-gap-audit.spec.ts 的两条『断言仍是 404』缺口门控实测证实。本 feature 补齐两条能力的真实接线：ApplyBlueprintController（复用既有 PROJECT_REPOSITORY 的唯一创建路径，不新开第二个 INSERT INTO projects）+ PgApplyBlueprintResolver/PgApplyBlueprintRepository；BlueprintChangeRequestController + PgComputeDeviationsRepository/PgSubmitChangeRequestRepository/PgListPendingChangesRepository；新迁移放开 agenda_segments.duration 的 NOT NULL（未填=空）、给 blueprint_bindings 补 project_id/version_id、新建 blueprint_pending_changes 表。⚠ 已知登记的非原子性缺口：ApplyBlueprintRepository.apply() 里项目容器创建与 agenda_segments 写入是两个事务（不是一个），见 pg-apply-blueprint-repository.ts 文件头注。⚠ computeDeviations 今天只对 flow-agenda 一项有真实项目侧数据源（读 agenda_segments），其余设计配置项尚无项目侧独立编辑存储，如实原样返回快照值（不产生偏离），是诚实的空态不是缺陷。不依赖 #1681（workflow-screen 真实 projectId）；/project/new 前端选蓝本入口若尚未接线，留给该 issue 范围，本 feature 只保证后端真实可达。不碰 F23/F29 的 status/passing（AGENTS.md 硬约束）。 ⚠ 2026-08-22（issue #1767）：F23 真实回归——blueprint_bindings 从未 GRANT UPDATE（自建表起只 SELECT/INSERT），applyBlueprint 的 UPDATE 回填 project_id/version_id 因此恒 500（Postgres 42501）；新迁移 20260822090000 补列级 UPDATE 授权。同时修了 blueprint-contract-gap-audit.spec.ts 里 F23/F29 用例自身的两处 bug（POST body 误带 orgId/blueprintId 被 Zod 拒收；用 admin 登录被 canApplyBlueprint 的 lead-only 判据 403）。7/7 e2e 现在全绿。"
     },
     {
@@ -5062,9 +5062,9 @@
         "F26"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "20",
-      "owner": "dev-chat-e2e",
+      "owner": null,
       "verification": [
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/tpl/workflow-orchestration-persists-real-db.test.ts",
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/tpl/workflow-orchestration-repo-guard.test.ts",
@@ -5086,9 +5086,9 @@
         "I1680"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "20",
-      "owner": "dev-chat-e2e",
+      "owner": null,
       "verification": [
         "pnpm --filter web run typecheck",
         "pnpm --filter api run typecheck",
@@ -5108,9 +5108,9 @@
       "spec_ref": "08-chat/uc-8-3-对话产出落地.md#R3",
       "depends_on": [],
       "points": 2,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "20",
-      "owner": "dev-chat-e2e",
+      "owner": null,
       "verification": [
         "pnpm --filter web run typecheck",
         "pnpm --filter api run typecheck",
