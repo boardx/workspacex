@@ -46,9 +46,11 @@ PLAN_CONTENT_BLANK          步骤正文全为空白（与 AguiPlanTodo 的 refi
 PLAN_DELIVERY_FAILED        计划/约束未能随下一轮 run 送达引擎 ⇒ 该轮 run 不创建（I-10）
 NO_ACTIVE_RUN               没有活跃 run，pause / retry-step 无对象（I-12）
 RUN_ALREADY_TERMINAL        目标 run 已是终态
-CHECKPOINT_UNAVAILABLE      引擎侧没有可恢复的 checkpoint
-RESTORE_NOT_IMPLEMENTED     见 domain.md 第三节 ②——本束当前不提供，签核时人类可选删除此码
 ```
+
+⚠ **原稿里的 `CHECKPOINT_UNAVAILABLE` / `RESTORE_NOT_IMPLEMENTED` 两个码已删除**，
+随 `UC-11` 一起 —— **人类 2026-08-26 裁决 (c)**（`domain.md` 三·②）。
+留一个恒返回 `RESTORE_NOT_IMPLEMENTED` 的错误码，等于留一个假装存在的能力。
 
 ---
 
@@ -146,6 +148,12 @@ err: NOT_VISIBLE | NO_WRITE_ROLE | THREAD_ARCHIVED_READONLY
    | PLAN_CONSTRAINT_BLANK | PLAN_CONSTRAINT_TOO_LONG | AUDIT_SINK_UNAVAILABLE
 ```
 
+⚠ **约束怎么进入下一轮：已裁决（人类 2026-08-26）——「A system 注入」**，
+即在 run 创建时组装 `messages` 的地方，把计划正文 + 约束作为一段 system 文本前置。
+**只改 Node 侧，不碰 `apps/deep-agent-service`。**
+已知并被接受的代价：**约束到不了 `call_skill` 发起的子模型调用**
+（那次调用的 system prompt 是 skill 正文）。见 `domain.md` 三·① 与 `UC-12`。
+
 ### UC-6 `removePlanConstraint` —— 撤掉一条约束（含孤儿）
 
 ```
@@ -242,7 +250,10 @@ err: NOT_VISIBLE | NO_WRITE_ROLE | NO_ACTIVE_RUN | RUN_ALREADY_TERMINAL
 ⚠ **语义是「中止当前 run」，不是「冻结」**（I-12）。UI 文案必须与之一致——
 写「已暂停，可随时继续」而实现是中止，就是写死文案。
 ⚠ 落点：引擎侧 `POST /threads/{id}/runs/{run_id}/cancel`
-（`langgraph_api/api/runs.py:1006` 实测存在）。
+（`langgraph_api/api/runs.py:1006` 实测存在，2026-08-26）。
+**判据五「可暂停」的传输原语因此是现成的——不需要发明协议**，
+本仓只是一行都还没接。要写的是规则（谁能暂停、暂停后账本停在哪一版、
+文案与 I-12 的真实语义是否一致），不是协议。
 ⚠ **依赖一个未核实的前提（P-2）**：远端 `run_id` 是否被持久化。见 `domain.md` 第三节 ⑤。
 
 ### UC-10 `retryPlanStep` —— 重试某一步（判据六 ①）
@@ -258,25 +269,29 @@ err: NOT_VISIBLE | NO_WRITE_ROLE | PLAN_STEP_NOT_FOUND | NO_ACTIVE_RUN
 ⚠ 实现语义：把该 step 及其后续置回 `pending`，写回账本，起新一轮 run（经 UC-7 的送达路径）。
 **不是引擎级的「从那个节点继续」**——那需要 checkpoint，见 UC-11。这一点必须对用户如实措辞。
 
-### UC-11 `restoreCheckpoint` —— 恢复检查点（判据六 ③）🔴 **本轮可能不做**
+### ~~UC-11 `restoreCheckpoint`~~ —— ✅ **本轮明确不做（人类 2026-08-26 裁决 (c)）**
 
-```
-in:  { threadId, checkpointId }
-out: { revision, runId, auditEventId }
-pre: 调用者有写权；引擎侧存在该 checkpoint
-err: NOT_VISIBLE | NO_WRITE_ROLE | CHECKPOINT_UNAVAILABLE
-   | RESTORE_NOT_IMPLEMENTED | AUDIT_SINK_UNAVAILABLE
-```
+**这条 UC 已整条删除，不留形状、不留恒失败的错误码。**
 
-🔴 **这个 UC 是三个候选之一，等人类裁决**，见 `domain.md` 第三节 ②。
-- 若选 (a)：本 UC 生效，且 `agent-runtime` 束需要一次 design-delta（checkpoint 是它的实体）。
-- 若选 (b)：本 UC 删除，**同时改验收卡**（人类的动作）。
-- 若选 (c)（我的推荐）：本 UC 保留形状但恒返回 `RESTORE_NOT_IMPLEMENTED`，
-  UI **不渲染这个按钮**（渲染一个恒失败的按钮 = 反伪造条款的死按钮，判 0）。
-  TW-P0-3 记 **0.7 不是 1.0**，如实。
+**裁决逐字**：「**(c) 先记 0.7，不做**（采纳你的推荐；**TW-P0-3 封顶 0.7 是他知情后接受的**）」。
 
-⚠ **注意 (c) 与「死按钮判 0」的关系**：(c) 之所以不判 0，
-是因为按钮**不渲染**，缺口如实登记；渲染一个点了报错的按钮才判 0。
+裁决是在知情状态下做的——摆在人类面前的是这三条实测事实：
+`agent-runtime` 的 `replayAgentRun` **不是**「从 checkpoint 继续跑」；
+那个束**自己**把这条标成 `coverage.md:249` 的缺口 25；
+引擎侧原语实存（`langgraph_api/api/threads.py:555-575`）但本仓一行没接，
+接它要触碰已签核的 `agent-runtime` 束。
+
+⇒ **落地形态**：
+- `RunControlAction` 三值，无 `restore-checkpoint`（`domain.md` 一·7）。
+- `ui.md` 的 `chat-task-workbench-failure-restore-checkpoint` **按钮不渲染**。
+  ⚠ **不是渲染一个点了报错的按钮**——那是反伪造条款的死按钮，判 0。
+- e2e 用例**不许 `test.skip`**：该锚点不存在这件事要作为**失败**被报出来，
+  失败信息里写明「该能力本轮明确不做（人类 2026-08-26 裁决 (c)），
+  缺口登记在 coverage.md 缺口 4」。**skip 掉的差距等于不存在。**
+- TW-P0-3 的分数如实封顶 **0.7**。
+
+⚠ **判据六没有被改松。** 它仍然要求三个恢复动作；变的是我们**明确选择不做第三个**。
+不要把这一节读成「判据六只有两个恢复动作」。
 
 ---
 
@@ -293,8 +308,11 @@ pre: —（由 UC-7 / UC-10 / 正常轮次创建路径调用）
 err: PLAN_DELIVERY_FAILED
 ```
 
-⚠ **通路选择见 `domain.md` 第三节 ①（A/B 两案，等人类裁）**。
-无论选哪个，`digest` 的定义不变：**实际送出去的那段正文的哈希**，
+✅ **通路已裁决（人类 2026-08-26）：A —— system 消息注入。**
+逐字：「**A system 注入**（采纳你的推荐；他知道代价是约束到不了 `call_skill` 的子模型调用）」。
+⇒ 只改 Node 侧；`configurable` 那条（B）留作决策档案，见 `domain.md` 三·①。
+
+`digest` 的定义与通路无关：**实际送出去的那段正文的哈希**，
 不是「本该送出去的」——这两者的区别正是本仓「静态痕迹 ≠ 动态事实」那条纪律。
 
 ⚠ **与在飞的线冲突**：注入点落在 run 创建时组装 `messages` 的地方，
@@ -309,6 +327,6 @@ err: PLAN_DELIVERY_FAILED
 |---|---|---|
 | `PlanLedgerRepository` | 账本读写；`(thread_id, revision)` 唯一；append-only（I-2） | PostgreSQL 新表，见 `design-signoff.md` ③ 节 |
 | `PlanDeliveryGateway` | UC-12；把计划正文送进下一轮 run 并返回真实 digest | 扩 `deep-agent-model-provider` 的 run 创建路径 |
-| `EngineRunController` | UC-9 的 cancel；（若选 (a)）UC-11 的 history + state 恢复 | `POST /threads/:id/runs/:run_id/cancel` 等 |
+| `EngineRunController` | **只有 `UC-9` 的 cancel**。checkpoint 恢复本轮不做（裁决 (c)），故该端口不含 history/state 恢复 | `POST /threads/:id/runs/:run_id/cancel` |
 | `EngineStateReader` | 读回引擎 `values.todos`（**当前读不到**，见 ③ 节） | 扩 `ThreadStateResponse`（`deep-agent-model-provider.ts:166-168`） |
 | `ProvenanceWriter` | I-13 的审计写入 | 复用 `agent-runtime` 束既有端口，**不另建** |
