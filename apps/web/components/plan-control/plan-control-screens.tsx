@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   PLAN_STEPS, PLAN_PHASE_LABEL, PHASE_LINE, STEP_STATUS_LABEL, ORPHAN_CONSTRAINT,
   GATE_REQUIRED, GATE_NOT_REQUIRED, RUN_PROGRESS, RUN_FAILURE, formatElapsed,
-  type PlanStep, type PlanStepStatus, type PlanPhase, type PlanControlScreenKey,
+  type PlanStepPreview, type PlanStepStatus, type PlanPhase, type PlanControlScreenKey,
 } from "@/lib/mock/plan-control";
 
 /**
@@ -119,7 +119,7 @@ function ScreenReadOnly() {
 function EditStepRow({
   step, index, total, dragging, showConstraintInput,
 }: {
-  step: PlanStep;
+  step: PlanStepPreview;
   index: number;
   total: number;
   dragging?: boolean;
@@ -226,7 +226,7 @@ function UndoToast() {
 }
 
 function ScreenDragging() {
-  const reordered = [0, 2, 1, 3, 4].map((i) => PLAN_STEPS[i]).filter((s): s is PlanStep => Boolean(s));
+  const reordered = [0, 2, 1, 3, 4].map((i) => PLAN_STEPS[i]).filter((s): s is PlanStepPreview => Boolean(s));
   return (
     <ScreenFrame title="G-03 · 调序进行中（S3）" note="第 3 步被抬起、落点高亮。调序是唯一有中间态的动作。键盘等价：Alt+↑ / Alt+↓（TW-A11Y-8）。">
       <PlanPanel mode="edit">

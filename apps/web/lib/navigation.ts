@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   MessagesSquare, FolderKanban, Search, Mic, ClipboardList, LayoutTemplate,
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
+  MessageSquareWarning, ListChecks,
 } from "lucide-react";
 
 /**
@@ -213,6 +214,23 @@ export const NAV_SEGMENTS: NavSegment[] = [
           //   的兜底处理。href 留在此数组只为满足 lint-nav-reachability 的文本扫描；
           //   真要下线整条路由，记入后续 issue，需要先确认零依赖。
           { key: "asset-governance", label: "资产", href: "/asset-governance", icon: Boxes, ucRefs: ["23-asset/uc-23-1"], isPrototype: true },
+          // 束: agent-interrupts（三种新 HITL 中断：目标复述卡/参数补全表单/多方案对比，
+          //   #2136 已签核，`design-signoff.md` status: confirmed）。
+          // ⚠ 本轮只出契约（`packages/contracts/src/agent-interrupts.ts`），未接实现——
+          //   三张卡片届时会挂在 `/chat` 消息流里（同 call_skill 审批卡插槽），不是独立页面。
+          //   `/preview/agent-interrupts` 是签核用的 v2 静态原型屏（ui-prototyper 交付，
+          //   PR #2140，25 张截图对应 ui.md 三屏），供 lint-nav-reachability 判可达用；
+          //   接线落地后这一行应改指向 `/chat`（同 chat/chat-file-upload 先例），非遗漏。
+          // ucRefs 如实留空：本束是纯契约束（无 requirements/ 锚点，见 design-signoff.md），
+          // 不像 asset-governance 有一份真实 UC 文档可引——编一个假引用比留空更糟。
+          { key: "agent-interrupts", label: "中断卡预览", href: "/preview/agent-interrupts", icon: MessageSquareWarning, ucRefs: [], isPrototype: true },
+          // 束: plan-control（TW-P0-3 六态工作流与可编辑计划，#2116 已签核）。
+          // ⚠ 同上：本轮只出契约（`packages/contracts/src/plan-control.ts`），未接实现——
+          //   落地后计划面板挂在 `/chat` 任务工作台里，不是独立页面。
+          //   `/preview/plan-control` 是签核用的 v2 静态原型屏，供 lint-nav-reachability
+          //   判可达用；接线落地后改指向 `/chat`。
+          // ucRefs 如实留空：同上，判据单一事实源是 TW-P0-3（acceptance 卡），不是 requirements/。
+          { key: "plan-control", label: "计划面板预览", href: "/preview/plan-control", icon: ListChecks, ucRefs: [], isPrototype: true },
           // 束: canvas（画布 hub，六屏切换，默认落在 `template-admin`）
           // ✅ 已从后台导航移除（与「画布模板」`/admin/canvasadmin` 去重）。原型本来的设计
           //   就说"画布从议程进，不占一级"——即它天然应该是**项目内上下文入口**，不是全局

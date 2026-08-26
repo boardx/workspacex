@@ -5,12 +5,17 @@
  * ⚠ 数据即事实源投影：这里的 phase / gate / progress 全都模拟「读账本」（getPlanLedger, UC-1），
  *   **不是**前端重算（I-7）。前端只渲染 mock 给它的派生值。
  * ⚠ 步骤/约束数量、字段完整度按真实竞品分析任务的量级铺，不是三行假数据。
+ *
+ * `PlanStepStatus`/`PlanPhase` 直接复用契约的单一事实源
+ * `@repo/contracts/plan-control`（签核③），不重新声明这两个封闭枚举（ADR-020）。
+ * `PlanStepPreview`/`PlanConstraintPreview` 是**这份预览专属**的形状（`id`/
+ * `hostStepId` 等字段名与契约的 `PlanStep`/`PlanConstraint` 不同——契约用
+ * `constraintId`/`planStepId`），所以特意不与契约同名，避免「看着像同一份契约、
+ * 实际字段对不上」的误导；真正接线时以契约字段名为准，这份 mock 类型会被替换掉。
  */
+import type { PlanPhase, PlanStepStatus } from "@repo/contracts/plan-control";
 
-export type PlanStepStatus = "pending" | "in_progress" | "completed";
-
-/** 六态 · 封闭枚举六值（domain.md 第一节 5）。data-phase 取这六个字面量。 */
-export type PlanPhase = "preparing" | "planning" | "executing" | "approving" | "done" | "failed";
+export type { PlanPhase, PlanStepStatus };
 
 export const PLAN_PHASE_LABEL: Record<PlanPhase, string> = {
   preparing: "准备",
@@ -30,7 +35,7 @@ export const STEP_STATUS_LABEL: Record<PlanStepStatus, string> = {
   pending: "待执行",
 };
 
-export interface PlanConstraint {
+export interface PlanConstraintPreview {
   readonly id: string;
   readonly text: string;
   /** 悬挂的宿主步骤 id；null = 孤儿约束（I-8） */
@@ -39,18 +44,18 @@ export interface PlanConstraint {
   readonly formerHostLabel?: string;
 }
 
-export interface PlanStep {
+export interface PlanStepPreview {
   readonly id: string;
   readonly content: string;
   readonly status: PlanStepStatus;
-  readonly constraints: PlanConstraint[];
+  readonly constraints: PlanConstraintPreview[];
 }
 
 /**
  * 主 mock：一份真实量级的竞品分析计划（5 步，含一条已挂载约束）。
  * 第 3 步 in_progress，前两步 completed，后两步 pending —— 三种步骤状态同屏（G-01）。
  */
-export const PLAN_STEPS: PlanStep[] = [
+export const PLAN_STEPS: PlanStepPreview[] = [
   { id: "s1", content: "澄清目标客群与调研问题", status: "completed", constraints: [] },
   { id: "s2", content: "检索三家主要竞品的公开资料", status: "completed", constraints: [] },
   { id: "s3", content: "逐项对比功能矩阵与定价", status: "in_progress", constraints: [] },
@@ -66,7 +71,7 @@ export const PLAN_STEPS: PlanStep[] = [
 ];
 
 /** 孤儿约束场景（I-8 / S7）：宿主步骤「生成报告」被删，约束 c1 变孤儿。 */
-export const ORPHAN_CONSTRAINT: PlanConstraint = {
+export const ORPHAN_CONSTRAINT: PlanConstraintPreview = {
   id: "c1",
   text: "只用公开可引用的来源",
   hostStepId: null,

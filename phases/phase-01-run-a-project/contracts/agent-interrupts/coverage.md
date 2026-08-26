@@ -5,6 +5,21 @@
 > 因此下表不是「UC → feature」而是「原始需求描述 → UC → API 操作 → 前端消费点」——
 > feature 编号由 `requirement-author` 在签核后生成，届时本文件需要补一栏 `feature`。
 
+## 〇、R12 映射表（签核第 ③ 件的落点，`packages/contracts/src/agent-interrupts.ts`）
+
+| V | 一句话 | API 操作 | 前端消费点 | feature |
+|---|---|---|---|---|
+| V1 | 目标复述卡：理解 + ≥2 条假设，未确认不执行任何工具 | `confirmTaskIntent`（`AgentInterruptKind.confirm_intent`，`operations.confirmTaskIntent`，内部端口，宿主 `POST /copilotkit`） | `agent-interrupt-confirm-intent-*` | F213 |
+| V2 | 参数补全表单：AI 猜测字段高亮 + 依据，逐字段可改 | `fillRunParams`（`operations.fillRunParams`） | `agent-interrupt-fill-params-*` | F214 |
+| V2a | 改动只重跑受影响下游 | `fillRunParams.out.appliedTo` | 同上 | F214 |⚠ **缺口 AI-1**（依赖 checkpoint fork 未证实，降级为 full-rerun/ledger-only 两态，见第一节）
+| V3 | 多方案对比：2–3 张等宽卡，固定三项对照，选中即 resume | `chooseExecutionOption`（`operations.chooseExecutionOption`） | `agent-interrupt-choose-option-*` | F215 |
+| V4 | 中断决策统一守卫（8 错误码 fail-closed） | `AgentInterruptError`（`packages/contracts/src/agent-interrupts.ts`，9 值：8 码 + 占位码 `FIELD_REQUIRED_BLANK`，见五、审计与错误语义跨束一致性） | —（API 层验收：`pnpm --filter api exec vitest run tests/agent-interrupts/decision-guard-errors.test.ts`） | F216 |
+| V5 | 跨语言边界：Python `@tool` 与 TS 契约逐字一致 | `AGENT_INTERRUPT_TOOL_NAMES` 常量表 | —（门控层验收：`pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/cross-lang-tool-parity.test.ts`） | F212 |⚠ **缺口 AI-4**（该测试本轮未产出，见第三节，登记为实现期第一件事）
+
+反向覆盖：本束不新开 HTTP 路由（`usecases.md` 顶部已声明），三个具名虚拟工具与三个 `operations` 端口一一对应，无孤儿（见第二节既有的正向表）。
+
+---
+
 ## 一、原始需求 → UC（正向：需求是否都有落点）
 
 | 原始需求描述 | UC | 状态 |

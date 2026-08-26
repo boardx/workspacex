@@ -4,11 +4,22 @@
  * 数据形状逐字对齐 `phases/phase-01-run-a-project/contracts/agent-interrupts/domain.md`
  * 的三个值对象（ParamField / OptionCard）与实体（InterruptRequest.args）。
  * ⚠ 这里只是**预览用假数据**，不是契约本身——契约的单一事实源是
- *   `packages/contracts/src/agent-interrupts.ts`（签核③，尚未创建）。
+ *   `packages/contracts/src/agent-interrupts.ts`（签核③）。`ConfirmIntentArgs`/
+ *   `OptionCard` 直接复用该文件的类型；`ParamFieldPreview` 是在契约 `ParamField`
+ *   基础上 `&` 一份纯 UI 层的渲染提示（`kind`/`options`，契约里没有、只是预览用来选
+ *   控件）——特意不叫 `ParamField`，避免看着像契约本身（ADR-020：同一事实两处声明
+ *   会漂移，`&` 扩展不算重新声明，但同名会误导）。
  *
  * mock 刻意做到「像真的」：字段数量、依据文案、选项对照都取一个真实的
  * 「生成 7 月增长月报」场景，而不是三行占位符——信息密度问题要在截图里看得出来。
  */
+import type {
+  ConfirmIntentArgs,
+  OptionCard,
+  ParamField as ContractParamField,
+} from "@repo/contracts/agent-interrupts";
+
+export type { ConfirmIntentArgs, OptionCard };
 
 /* ── 视角（R5 委托 chat UC-0 的角色语义；观察者恒无写权）───────────────── */
 export type InterruptRole = "facilitator" | "lead" | "member" | "observer";
@@ -50,12 +61,6 @@ export function resolveScreen(raw: string | string[] | undefined): InterruptScre
 }
 
 /* ── UC-1 confirm_intent ─────────────────────────────────────────────────── */
-export interface ConfirmIntentArgs {
-  readonly understanding: string;
-  /** I-2：长度 ≥ 2 */
-  readonly assumptions: readonly string[];
-}
-
 export const MOCK_CONFIRM_INTENT: ConfirmIntentArgs = {
   understanding:
     "你希望我基于 7 月的渠道与转化数据，生成一份面向管理层的增长月度复盘，" +
@@ -68,22 +73,18 @@ export const MOCK_CONFIRM_INTENT: ConfirmIntentArgs = {
 };
 
 /* ── UC-2 fill_params ────────────────────────────────────────────────────── */
-export interface ParamField {
-  readonly name: string;
-  readonly label: string;
-  /** null = AI 没能猜，必须人填（此时无高亮）*/
-  readonly aiGuess: unknown | null;
-  /** I-3：aiGuess 非 null 时 rationale 不得为 null */
-  readonly rationale: string | null;
-  readonly required: boolean;
-  /** 未决策前等于 aiGuess */
-  readonly currentValue: unknown | null;
+/**
+ * 契约字段（name/label/aiGuess/rationale/required/currentValue）来自
+ * `@repo/contracts/agent-interrupts` 的 `ParamFieldPreview`；`kind`/`options` 是纯 UI 层的
+ * 渲染提示，契约里没有这两个字段，只在预览里用来选控件类型。
+ */
+export type ParamFieldPreview = ContractParamField & {
   /** 预览用：值类型，决定渲染哪种控件 */
   readonly kind: "text" | "select" | "boolean";
   readonly options?: readonly { value: string; label: string }[];
-}
+};
 
-export const MOCK_FILL_PARAMS: readonly ParamField[] = [
+export const MOCK_FILL_PARAMS: readonly ParamFieldPreview[] = [
   {
     name: "compare_baseline",
     label: "对比基准",
@@ -143,17 +144,6 @@ export const MOCK_FILL_PARAMS: readonly ParamField[] = [
 ];
 
 /* ── UC-3 choose_option ──────────────────────────────────────────────────── */
-export interface OptionCard {
-  readonly optionId: string;
-  readonly title: string;
-  /** 三项固定对照之一：投入 */
-  readonly effort: "低" | "中" | "高";
-  /** 三项固定对照之一：见效 */
-  readonly timeToValue: string;
-  /** 三项固定对照之一：预计收益 */
-  readonly expectedReturn: string;
-}
-
 export const MOCK_OPTIONS_3: readonly OptionCard[] = [
   {
     optionId: "opt-quickwin",

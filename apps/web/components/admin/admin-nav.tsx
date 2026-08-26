@@ -90,8 +90,21 @@ const ALL_NAV_KEYS: AdminModuleKey[] = ADMIN_NAV.flatMap((g) => g.items.map((i) 
  * 新落点：「成员配额」屏内的 `[打开组织成员管理]` 链接（`admin-members-open-org-admin`）
  * —— 与上面五项同一形态：入口只留一个，且留在与它语义最近的那块屏里。
  */
+/*
+ * 2026-08-26：`agent-interrupts` / `plan-control` 加入本集合——但理由与上面六项**不同**，
+ * 不要误读成「又发现两个重复入口」：
+ *
+ * 这两个键**不是**「能力域·全生命周期」组的重复项，它们是签核用的 v2 静态原型屏
+ * （`/preview/agent-interrupts`、`/preview/plan-control`，ADR-023 第①件材料），本轮
+ * 只出契约（`packages/contracts/src/{agent-interrupts,plan-control}.ts`），未接实现——
+ * 落地后会挂进 `/chat`，不属于后台「治理」范畴，从一开始就不该在这里画出一个菜单项。
+ * 留在 `ADMIN_SECOND_LEVEL` 数组里的理由与上面六项一样：`lint-nav-reachability.mjs`
+ * 判「束的现行路由是否可达」唯一会扫描的文本来源在那个数组，删掉会让门控把这两个
+ * 预览屏判成不可达。见 `lib/navigation.ts` 里这两项各自的注释。
+ */
 const MERGED_SECOND_LEVEL_KEYS = new Set<string>([
   "templates", "skills", "agent-runtime", "asset-governance", "canvas", "org-admin",
+  "agent-interrupts", "plan-control",
 ]);
 
 export function AdminNav({
