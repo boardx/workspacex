@@ -25,7 +25,16 @@ let server: Server | undefined;
 const seenRunBodies: { stream_mode?: unknown }[] = [];
 afterEach(() => new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve())));
 
-function startFake(opts: { streamStatus: number; chunks: readonly string[]; gapMs: number }): Promise<string> {
+/** issue #2098 —— 帧分隔符的行尾。`"lf"` 是本套件历史上唯一说过的方言（`\n\n`）；
+ * `"crlf"` 才是真上游 sse-starlette 3.3.4 的默认（`\r\n\r\n`）。这个参数存在的
+ * 唯一理由：解析器必须对**两种**都成立，而此前它只对 LF 成立，于是替身全绿、
+ * 真引擎零 delta。 */
+type LineEnding = "lf" | "crlf";
+
+function startFake(
+  opts: { streamStatus: number; chunks: readonly string[]; gapMs: number; lineEnding?: LineEnding },
+): Promise<string> {
+  const eol = opts.lineEnding === "crlf" ? "\r\n" : "\n";
   server = createServer(async (req, res) => {
     const url = req.url ?? "";
     if (req.method === "POST" && url === "/threads") {
@@ -46,7 +55,7 @@ function startFake(opts: { streamStatus: number; chunks: readonly string[]; gapM
       }
       res.writeHead(200, { "content-type": "text/event-stream" });
       for (const c of opts.chunks) {
-        res.write(`event: messages\ndata: [{"content": ${JSON.stringify(c)}, "type": "AIMessageChunk"}, {}]\n\n`);
+        res.write(`event: messages${eol}data: [{"content": ${JSON.stringify(c)}, "type": "AIMessageChunk"}, {}]${eol}${eol}`);
         await new Promise((r) => setTimeout(r, opts.gapMs));
       }
       res.end();
@@ -100,6 +109,37 @@ describe("DA-03 真流式（rubric D3）", () => {
     );
     expect(arrivals.map((a) => a.delta)).toEqual(["He", "llo ", "world"]);
     // 三个片段间隔 2×25ms：首尾到达时间差必须体现真实间隔（留余量断 >=30ms）。
+    expect(arrivals[2]!.at - arrivals[0]!.at).toBeGreaterThanOrEqual(30);
+    expect(result.text).toBe("Hello world");
+  });
+
+  /**
+   * issue #2098 —— 真根因的反证。上游 `apps/deep-agent-service` 用 sse-starlette
+   * 3.3.4，默认行尾是 **CRLF**，帧分隔符因此是 `\r\n\r\n`——里面**不含** `\n\n`
+   * 子串。解析器此前按 `indexOf("\n\n")` 切帧，对真引擎字节一帧都切不出来：整条流
+   * 读完、零 delta、`tryStreamRun` 照样返回 true，于是整段答案走终稿一次性下发
+   * （前端表现＝空白十几秒后整段一次性出现）。
+   *
+   * 上面那条「delta 逐个到达且时刻分散」的断言**通过了这一整年**，因为本套件与
+   * `loopback-deep-agent-provider.ts` 说的都是 LF——替身的方言不是上游的方言。
+   * 这条用例把同一份断言换成 CRLF 再跑一遍；去掉解析器里的行尾归一化，它必红。
+   *
+   * 实测锚点：`.harness/state/deepagent-eval/2026-08-23-3d327c13/sse-and-thread-
+   * state-evidence-v2/01-sse-stream.txt`（真引擎原始采集，345 行全部以 `0d0a` 结尾）
+   * 逐帧回放本解析器 —— CRLF 原样 0 个 delta，仅剥掉 `\r` 得 34 个。
+   */
+  it("上游说 CRLF（sse-starlette 默认）时同样逐 token 出 delta——真引擎的帧分隔符是 \\r\\n\\r\\n，不含 \\n\\n", async () => {
+    const baseUrl = await startFake({
+      streamStatus: 200, chunks: ["He", "llo ", "world"], gapMs: 25, lineEnding: "crlf",
+    });
+    const arrivals: { delta: string; at: number }[] = [];
+    const result = await provider(baseUrl, true).completeWithProgress(
+      INPUT,
+      async () => {},
+      async (delta) => void arrivals.push({ delta, at: performance.now() }),
+    );
+    // 逐字节等价于 LF 那条用例：内容、顺序、到达时刻分散度，一条都不放松。
+    expect(arrivals.map((a) => a.delta)).toEqual(["He", "llo ", "world"]);
     expect(arrivals[2]!.at - arrivals[0]!.at).toBeGreaterThanOrEqual(30);
     expect(result.text).toBe("Hello world");
   });
