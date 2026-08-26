@@ -76,6 +76,7 @@ import {
 } from "../../application/canvas/errors";
 import { listTemplates } from "../../application/canvas/list-templates";
 import { publishTemplate } from "../../application/canvas/publish-template";
+import { adoptTemplate } from "../../application/canvas/adopt-template";
 import { restoreTemplate } from "../../application/canvas/restore-template";
 import { suggestTemplateSections } from "../../application/canvas/suggest-template-sections";
 import { updateTemplateDraft } from "../../application/canvas/update-template-draft";
@@ -102,6 +103,7 @@ import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 export const CREATE_CANVAS_TEMPLATE_SCHEMA = C.operations.createTemplate.in;
 export const LIST_CANVAS_TEMPLATES_SCHEMA = C.operations.listTemplates.in;
 export const PUBLISH_CANVAS_TEMPLATE_SCHEMA = C.operations.publishTemplate.in;
+export const ADOPT_CANVAS_TEMPLATE_SCHEMA = C.operations.adoptTemplate.in;
 export const TRIAL_CANVAS_TEMPLATE_SCHEMA = C.operations.trialTemplate.in;
 export const ARCHIVE_CANVAS_TEMPLATE_SCHEMA = C.operations.archiveTemplate.in;
 export const RESTORE_CANVAS_TEMPLATE_SCHEMA = C.operations.restoreTemplate.in;
@@ -116,6 +118,7 @@ type SuggestSectionsBody = z.infer<typeof C.operations.suggestTemplateSections.i
 type UpdateDraftBody = z.infer<typeof C.operations.updateTemplateDraft.in>;
 type UpdateMetadataBody = z.infer<typeof C.operations.updateTemplateMetadata.in>;
 type PublishBody = z.infer<typeof C.operations.publishTemplate.in>;
+type AdoptBody = z.infer<typeof C.operations.adoptTemplate.in>;
 type TrialBody = z.infer<typeof C.operations.trialTemplate.in>;
 type ArchiveBody = z.infer<typeof C.operations.archiveTemplate.in>;
 type RestoreBody = z.infer<typeof C.operations.restoreTemplate.in>;
@@ -339,6 +342,36 @@ export class CanvasTemplateController {
       // 只是与现实不符（`contract-response.test.ts` 存在的原因）。
       return C.operations.listTemplates.out.parse(out);
     });
+  }
+
+  /**
+   * 「加入我的组织」——把平台母版复制成本组织自己的模板（B2 用时 fork）。
+   *
+   * ⚠ **201，不是上面那几条的 200**：这一条与它们不同型——它**真的创建了一行**
+   *   （本组织多出一份自己的模板）。跟着上面写 200，会让调用方以为什么都没新建，
+   *   而那正是上面那段注释想避免的误读的反面。
+   */
+  @Post("/canvas/templates/:key/adopt")
+  async adopt(
+    @Param("key") key: string,
+    @Body(new ZodBodyPipe(ADOPT_CANVAS_TEMPLATE_SCHEMA)) body: AdoptBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    this.assertKeyMatches(key, body.key);
+    return this.run(async () =>
+      C.operations.adoptTemplate.out.parse(
+        await adoptTemplate(
+          { identity: this.identity, templates: this.templates, ids: this.decisions },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            key: body.key,
+            displayName: body.displayName,
+          },
+        ),
+      ),
+    );
   }
 
   // ⚠ 200，不是 Nest 对 POST 的缺省 201。这四条都是**状态转移**，没有任何资源被创建——

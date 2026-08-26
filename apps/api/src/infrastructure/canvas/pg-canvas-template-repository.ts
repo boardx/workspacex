@@ -39,8 +39,10 @@ import type {
 import type { TemplateStatus, TemplateVersionState } from "../../domain/canvas/template-lifecycle";
 import type { VisibilityScope } from "../../domain/identity/roles";
 import type { OrgId } from "../../domain/org-id";
+import { PLATFORM_ORG_ID, isPlatformOwned } from "../../domain/canvas/platform-org";
 
 interface TemplateSqlRow {
+  org_id: string;
   key: string;
   version: number;
   display_name: string;
@@ -85,7 +87,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
 
     return this.db.withTenant(query.orgId, async (s) => {
       const r = await s.query<TemplateSqlRow>(
-        `SELECT t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
+        `SELECT t.org_id, t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
                 t.visibility, t.owner_team_id, t.underlying_type, t.sections, t.tags,
                 t.title, t.footer,
                 (SELECT count(*) FROM canvas_template_bindings b
@@ -93,9 +95,9 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
                     AND b.template_key = t.key
                     AND b.template_version = t.version)::text AS usage_count
            FROM canvas_templates t
-          WHERE t.org_id = $1 AND t.status = ANY($2::text[])
+          WHERE (t.org_id = $1 OR t.org_id = $3) AND t.status = ANY($2::text[])
           ORDER BY t.key, t.version`,
-        [query.orgId, [...query.statuses]],
+        [query.orgId, [...query.statuses], PLATFORM_ORG_ID],
       );
       return r.rows.map((row) => this.toGuarded(row));
     });
@@ -301,6 +303,10 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           tags: [...row.tags],
           title: row.title,
           footer: row.footer,
+          // ⚠ 判据是**这一行落在哪个 org**，不是 `builtin`：组织 fork 走一份之后它仍然
+          //   是 builtin key，却已经是自己的行了。两者合成一个字段，「已加入我的组织的
+          //   用户画像」与「还没加入的平台用户画像」在响应体上就完全同形。
+          platform: isPlatformOwned(row.org_id),
         },
       ),
     };
