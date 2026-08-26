@@ -10,6 +10,7 @@
   "//5b": "research（第 12 束，2026-07-30 建；D-20 已裁 21 点却三个 phase 都没有该模块，见 phases/phase-01-run-a-project/requirements/SCOPE-DELTA-2026-07-30.md）同 asset-governance：声明了目录但目录尚未产出，门控报判定④「目录不存在/0 张 png」——那是正确的红。ui-prototyper 交付后此红自动消。",
   "//6": "为什么 project 指向 project-v2：v1（project/ 19 张，只有概览拿到七态、无四视角对照）已被推翻——补齐两层界面（列表 + 工作台）× 七态 × 四视角、修好「客户分享链接默认反了」等保真度错误，见 project-v2/V1-WAS-WRONG.md。旧目录不删，留痕。",
   "phase-01-run-a-project": {
+    "agent-interrupts": "ui-preview/agent-interrupts",
     "agent-runtime": "ui-preview/agent-runtime-v2",
     "asset-governance": "ui-preview/asset-governance",
     "canvas": "ui-preview/canvas-v2",
