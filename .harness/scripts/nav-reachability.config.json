@@ -24,7 +24,9 @@
       "org-admin": "/org-admin/preview",
       "asset-governance": "/asset-governance",
       "research": "/research",
-      "files": "/projects/demo/files"
+      "files": "/projects/demo/files",
+      "agent-interrupts": "/preview/agent-interrupts",
+      "plan-control": "/preview/plan-control"
     },
     "allowRoutes": [
       "/studio/survey",
