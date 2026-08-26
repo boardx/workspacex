@@ -27,6 +27,27 @@ export interface AsrDraftStreamHandlers {
   readonly onFinal: (text: string) => void;
   readonly onError: (reason: AsrDraftErrorReason) => void;
   readonly onFinished: () => void;
+  /**
+   * TW-P0-5⑥ —— composer 录音态的「音量指示」。每一帧真实采到的 PCM16
+   * （`capture.onFrame`，见下方）都会算一次 RMS 并回调一次，不是伪造的动画曲线。
+   * 可选：不传（既有调用方 `use-asr-draft.ts` 之外的任何调用方）行为逐字节不变。
+   */
+  readonly onLevel?: (level: number) => void;
+}
+
+/**
+ * 从一帧真实 PCM16 采样算一个 0..1 的电平值（RMS，乘 4 放大到可视范围并夹顶）。
+ * 纯函数，供 `openAsrDraftStream` 与其单测共用——不是在渲染层现算一个假动画。
+ */
+export function pcm16Level(frame: Int16Array): number {
+  if (frame.length === 0) return 0;
+  let sumSquares = 0;
+  for (let i = 0; i < frame.length; i += 1) {
+    const normalized = frame[i]! / 0x8000;
+    sumSquares += normalized * normalized;
+  }
+  const rms = Math.sqrt(sumSquares / frame.length);
+  return Math.max(0, Math.min(1, rms * 4));
 }
 
 export interface AsrDraftStreamHandle {
@@ -94,6 +115,7 @@ export async function openAsrDraftStream(
 
   socket.send(JSON.stringify({ type: "asr.start" }));
   capture.onFrame((frame) => {
+    handlers.onLevel?.(pcm16Level(frame));
     if (socket.readyState !== WebSocket.OPEN) return;
     socket.send(frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength));
   });

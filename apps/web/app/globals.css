@@ -188,8 +188,16 @@
 
     --radius: 0.4375rem;                 /* 7px —— 实测主导圆角 */
 
+    /*
+     * issue #2130 —— 人类导入新 UX 设计裁决：阴影档位由三档收敛为两档
+     * （resting/`sm` 与 elevated/`lg`）。**不删** `--shadow-md` 这个变量名
+     * （tailwind.config.ts 的 `boxShadow.md` 仍映射到它，全仓 ~80 处
+     * `shadow-md` 消费点不因此改名/断裂），只把它的值改成与 `--shadow-lg`
+     * 相同——`md`/`lg` 现在渲染完全一致（同一档"elevated"），`sm` 保留独立的
+     * 「静止态」轻阴影。三个 Tailwind 类名都还在，视觉档位收敛成两个。
+     */
     --shadow-sm: 0 1px 2px 0 hsl(240 6% 8.4% / 0.04);
-    --shadow-md: 0 1px 2px 0 hsl(240 6% 8.4% / 0.04), 0 10px 28px 0 hsl(240 6% 8.4% / 0.06);
+    --shadow-md: 0 6px 24px 0 hsl(0 0% 0% / 0.22);
     --shadow-lg: 0 6px 24px 0 hsl(0 0% 0% / 0.22);
   }
 
@@ -271,8 +279,9 @@
     --input: 240 5% 20%;
     --ring: 170 79% 37.3%;
 
+    /* 同上（light 块）注释：三档收敛为两档，`--shadow-md` 值改等于 `--shadow-lg`。 */
     --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.4);
-    --shadow-md: 0 1px 2px 0 hsl(0 0% 0% / 0.4), 0 10px 28px 0 hsl(0 0% 0% / 0.36);
+    --shadow-md: 0 6px 24px 0 hsl(0 0% 0% / 0.6);
     --shadow-lg: 0 6px 24px 0 hsl(0 0% 0% / 0.6);
   }
 }

@@ -80,16 +80,23 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
   await page.goto("/chat");
 
   // ── 候选列表真的列出了两个真实已发布 agent（不是硬编码的假下拉） ──────────────
-  const trigger = page.getByTestId("chat-agent-select");
+  // issue #2130（TW-P0-2）—— 入口从裸的 `AgentPicker`（`chat-agent-select`）
+  // 换成了「选择能力」（`chat-task-workbench-capability-picker`），同一个真实
+  // 下拉，只是重命名 + 加了披露信息；候选项现在共用一个字面量 testid
+  // （判据要求），按真实 agent id 精确点中用 `data-agent-id`（同一个真实按钮
+  // 多一个可查询属性，见 `chat-task-workbench-capability-picker.tsx` 头注）。
+  const trigger = page.getByTestId("chat-task-workbench-capability-picker");
   await expect(trigger).toBeVisible({ timeout: 20_000 });
   await trigger.click();
   const listbox = page.getByTestId("chat-agent-select-listbox");
   await expect(listbox).toBeVisible();
-  await expect(page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.agentId}`)).toBeVisible();
-  await expect(page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.deepAgentId}`)).toBeVisible();
+  const optionFor = (agentId: string) =>
+    page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${agentId}"]`);
+  await expect(optionFor(CHAT_READ_E2E.agentId)).toBeVisible();
+  await expect(optionFor(CHAT_READ_E2E.deepAgentId)).toBeVisible();
 
   // ── 选中非默认的 loopback agent ────────────────────────────────────────────
-  await page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.agentId}`).click();
+  await optionFor(CHAT_READ_E2E.agentId).click();
   await expect(listbox).toBeHidden();
 
   // 切换 agent = 发起新对话（`key={selectedAgentId}` 强制重挂载），composer 应该是空的、
@@ -154,7 +161,7 @@ test("不做选择时不带选择 header——服务端 env 默认路径完好�
   await page.goto("/chat");
 
   // 选择器在场（能选），但**不点它**——这是本用例的全部前提。
-  const trigger = page.getByTestId("chat-agent-select");
+  const trigger = page.getByTestId("chat-task-workbench-capability-picker");
   await expect(trigger).toBeVisible({ timeout: 20_000 });
 
   let sawRunRequest = false;

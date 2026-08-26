@@ -51,6 +51,10 @@ vi.mock("@/lib/use-asr-draft", () => ({
   useAsrDraft: () => ({
     status: "idle", listening: false, connecting: false, stopping: false, error: null,
     start: vi.fn(), stop: vi.fn(),
+    // issue #2130（TW-P0-5⑥）—— `cancel`/`elapsedSeconds`/`level` 是新增字段
+    // （`ComposerMicControl` 的录音态面板消费），补进 mock 保持形状与真实 hook
+    // 一致；本测试的场景都不触发录音态，值本身不影响这里的断言。
+    cancel: vi.fn(), elapsedSeconds: 0, level: 0,
   }),
 }));
 vi.mock("@/lib/use-audio-input-devices", () => ({
@@ -201,7 +205,7 @@ describe("CK-P8 归档线程只读态（issue #2053）", () => {
 
     expect((screen.getByTestId("copilotkit-v2-input") as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByTestId("copilotkit-v2-send") as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByTestId("chat-mic-button") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("chat-task-workbench-composer-mic") as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByTestId("chat-persona-summary-trigger") as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -211,7 +215,11 @@ describe("CK-P8 归档线程只读态（issue #2053）", () => {
 
     expect(screen.queryByTestId("chat-composer-archived")).toBeNull();
     expect((screen.getByTestId("copilotkit-v2-input") as HTMLInputElement).disabled).toBe(false);
+    // issue #2130（TW-P0-5④）—— 发送按钮现在多一条真实禁用理由（空输入），
+    // 与这里要证明的事（archived=false 本身不禁用）正交：先填字，只隔离
+    // "archived 这一个变量"对 disabled 的影响，不隔离"输入是否为空"。
+    fireEvent.change(screen.getByTestId("copilotkit-v2-input"), { target: { value: "hi" } });
     expect((screen.getByTestId("copilotkit-v2-send") as HTMLButtonElement).disabled).toBe(false);
-    expect((screen.getByTestId("chat-mic-button") as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId("chat-task-workbench-composer-mic") as HTMLButtonElement).disabled).toBe(false);
   });
 });

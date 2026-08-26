@@ -41,7 +41,7 @@ test("DA-19g 真实实测：copilotkit-v2 面板麦克风实时转录进输入�
 
   await page.goto("/chat");
 
-  const micButton = page.getByTestId("chat-mic-button");
+  const micButton = page.getByTestId("chat-task-workbench-composer-mic");
   await expect(micButton).toBeVisible();
   await expect(micButton).toBeEnabled();
 

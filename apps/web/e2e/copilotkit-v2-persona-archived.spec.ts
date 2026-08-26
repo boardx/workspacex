@@ -159,7 +159,7 @@ test("CK-P8：getThread 真实响应的 archived=true ⇒ composer 全部写入�
   await expect(page.getByTestId("chat-composer-archived")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("copilotkit-v2-input")).toBeDisabled();
   await expect(page.getByTestId("copilotkit-v2-send")).toBeDisabled();
-  await expect(page.getByTestId("chat-mic-button")).toBeDisabled();
+  await expect(page.getByTestId("chat-task-workbench-composer-mic")).toBeDisabled();
   await expect(page.getByTestId("chat-persona-summary-trigger")).toBeDisabled();
 
   // 反证：历史消息仍然读得到——归档是"只读"，不是"看不见"。
