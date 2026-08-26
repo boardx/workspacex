@@ -1,16 +1,808 @@
 $ pnpm --filter web exec vitest run tests/ui/plan-control-edit-mode.test.tsx
-[exit 1]
+[exit 0]
 [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
- RUN  v2.1.9 /private/tmp/f976-merge/apps/web
+ RUN  v2.1.9 /private/tmp/f978-merge/apps/web
 
-filter:  tests/ui/plan-control-edit-mode.test.tsx
-include: tests/**/*.test.ts, tests/**/*.test.tsx
-exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+ ✓ tests/ui/plan-control-edit-mode.test.tsx (9 tests) 49ms
 
-No test files found, exiting with code 1
-undefined
-/private/tmp/f976-merge/apps/web:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/plan-control-edit-mode.test.tsx
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  08:38:57
+   Duration  10.13s (transform 47ms, setup 77ms, collect 92ms, tests 49ms, environment 9.71s, prepare 73ms)
 
-[harness-verify v1 sha256=dca46aed8728f05a5619faaf3e603a697dba6f355dcd1fd11ff778008a838163 commit=ca6d50c5412fc77deb5c5e3603ae88fd1da8fa65 at=2026-08-27T00:13:24.230Z]
+
+
+$ pnpm --filter web exec vitest run tests/ui/plan-control-gate-and-recovery.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/f978-merge/apps/web
+
+ ✓ tests/ui/plan-control-gate-and-recovery.test.tsx (11 tests) 30ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  08:39:08
+   Duration  536ms (transform 36ms, setup 44ms, collect 68ms, tests 30ms, environment 219ms, prepare 19ms)
+
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /private/tmp/f978-merge
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=bc3f4e250d74c44d4ad8159c94c7001d759e00b0（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_9e8c0313f4c9f10b7177 inner_db=wsx_9e8c0313f4c9f10b7177 outer_compose=wsx-9e8c0313f4c9f10b7177 inner_compose=wsx-9e8c0313f4c9f10b7177 status=matched
+[stack-admission] load1=2.25 cores=10 perCore=0.22 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtasol9h-42786b49-9e8c0313f4c9 db=wsx_9e8c0313f4c9f10b7177 compose=wsx-9e8c0313f4c9f10b7177 pg=20955 redis=25955
+• turbo 2.10.5
+
+   • Packages in scope: //, web
+   • Running typecheck, lint, test in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs 66cbb8af076e54b4
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /private/tmp/wt-arch-prepush/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+web:test: cache miss, executing aaa02e5ddff1dee8
+web:typecheck: cache miss, executing 9c4406f4a7ad19bf
+web:lint: cache miss, executing da0ff9d579cfa906
+web:lint: 
+web:lint: > web@0.1.0 lint /private/tmp/f978-merge/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+web:lint: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /private/tmp/f978-merge/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:test: 
+web:test: > web@0.1.0 test /private/tmp/f978-merge/apps/web
+web:test: > vitest run
+web:test: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+web:test: 
+web:test:  RUN  v2.1.9 /private/tmp/f978-merge/apps/web
+web:test: 
+web:test:  ✓ tests/ui/skill-catalog-live.test.tsx (12 tests) 489ms
+web:test:  ✓ tests/ui/interview-studio-home.test.tsx (15 tests) 1107ms
+web:test:  ✓ tests/ui/interview-setup-workflow.test.tsx (15 tests) 1282ms
+web:test:  ✓ tests/ui/guided-research-flow.test.tsx (26 tests) 1420ms
+web:test:  ✓ tests/ui/blueprint-designer-page-live.test.tsx (36 tests) 1279ms
+web:test:  ✓ tests/ui/personal-chat-screen.test.tsx (23 tests) 1078ms
+web:test: stderr | tests/ui/capability-catalog-mutate.test.tsx > #458 Agent 目录写路径接到 POST /capabilities/mutate > 更新：op=update 只带被改动的字段，改完仍以服务端读取为准
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/session/session-provider.test.tsx (13 tests) 202ms
+web:test:  ✓ tests/ui/realtime-transcription-history.test.tsx (17 tests) 1969ms
+web:test:  ✓ tests/ui/capability-catalog-mutate.test.tsx (10 tests) 473ms
+web:test:  ✓ tests/ui/projects-screen-live.test.tsx (12 tests) 979ms
+web:test:  ✓ tests/ui/chat-roster-mutate.test.tsx (11 tests) 827ms
+web:test:  ✓ tests/ui/chat-live-message-panel-mic.test.tsx (11 tests) 441ms
+web:test:  ✓ tests/ui/canvas-stage-mindmap-keyboard.test.tsx (6 tests) 1405ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个非根节点后 Tab 加子节点，挂在被选中节点下 546ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个非根节点后 Enter 加兄弟节点，挂在同一父节点下 364ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：给同一个父节点连续 Tab 两次，第二个子节点排在第一个下方（追加，不是插到最前） 380ms
+web:test:  ✓ tests/ui/canvas-template-live.test.tsx (58 tests) 2967ms
+web:test:    ✓ 2026-08-22 模板管理可用性改进 > ① 搜索框按名字/key 在当前筛选结果内过滤，不发新请求；清空后恢复全部 305ms
+web:test:  ✓ tests/ui/project-prep-interview-subjects.test.tsx (10 tests) 383ms
+web:test:  ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 1071ms
+web:test:    ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 699ms
+web:test:  ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 786ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 463ms
+web:test:  ✓ tests/ui/survey-workflow-shell.test.tsx (25 tests) 1424ms
+web:test:  ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 459ms
+web:test:  ✓ tests/ui/chat-thread-crud.test.tsx (8 tests) 653ms
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/chat-fabric-preview-syncs-after-save.test.tsx (3 tests) 548ms
+web:test:    ✓ 退出全屏后，气泡只读预览要跟着最后一次保存变（不是原地不动） > mermaid 图 · ChatDiagramFabric > 最大化→改内容→保存（本地演示）→关闭 —— 只读预览重新校验时吃到的是编辑后的内容 461ms
+web:test:  ✓ tests/ui/chat-live-message-panel-agent-picker.test.tsx (9 tests) 382ms
+web:test:  ✓ tests/ui/project-overview-live-overview.test.tsx (15 tests) 391ms
+web:test:  ✓ tests/ui/chat-composer-attachments.test.tsx (13 tests) 726ms
+web:test:  ✓ tests/ui/skill-url-import.test.tsx (7 tests) 246ms
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ①没有 artifact.land 能力 ⇒ 入口根本不渲染（不是渲染后禁用）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ②全新对话（还没有持久化线程）⇒ 入口渲染但禁用，title 说清为什么
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id，不是流式 id
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id，不是流式 id
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ④失败原样回显 reasonCode，不糊成「生成失败」
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P8 归档线程只读态（issue #2053） > 归档 ⇒ 只读提示 + composer 全部写入口禁用（逐个断言，不是只看提示在不在）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P8 归档线程只读态（issue #2053） > 未归档 ⇒ 同样这些控件可用（反证：上一条不是因为组件根本没渲染出来才「禁用」）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-persona-archived.test.tsx (6 tests) 542ms
+web:test:  ✓ tests/ui/project-prep-live.test.tsx (8 tests) 195ms
+web:test:  ✓ tests/ui/composite-table-menu.test.tsx (18 tests) 391ms
+web:test:  ✓ tests/ui/new-project-wizard.test.tsx (7 tests) 272ms
+web:test:  ✓ tests/ui/chat-diagram-fabric-postmount-readback-no-crash.test.tsx (2 tests) 387ms
+web:test:    ✓ 挂载即读回换来一份校验失败的保存版——只读预览不得崩页（devapp 实测回归） > ChatDiagramFabric：保存版 mermaid 语法有误 —— 不抛 removeChild，诚实转错误态 368ms
+web:test:  ✓ tests/ui/org-switcher-real-names.test.tsx (3 tests) 395ms
+web:test:  ✓ tests/ui/chat-read-screen.test.tsx (44 tests) 6891ms
+web:test:    ✓ formal Chat read path > reads list, detail, roster and the contract message page with the provider bearer 446ms
+web:test:    ✓ formal Chat read path > 推进到终态前持续轮询 AgentRun，状态取自服务端而不是本地推断 649ms
+web:test:    ✓ formal Chat read path > 渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要 454ms
+web:test:    ✓ formal Chat read path > 工具调用失败：如实显示失败状态与失败原因，不假装成功 349ms
+web:test:    ✓ formal Chat read path > 没有任何 tool_call 步骤时不渲染步骤区域——不是黑盒，是没发生 366ms
+web:test:    ✓ formal Chat read path > 流式增量实时追加进草稿气泡，持久消息落位后草稿让位——中途不消失 598ms
+web:test:  ✓ tests/ui/blueprint-duration-form.test.tsx (20 tests) 613ms
+web:test:    ✓ 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 480ms
+web:test:  ✓ tests/ui/files-browser.test.tsx (13 tests) 135ms
+web:test:  ✓ tests/ui/microinteraction-orgadmin-canvas.test.tsx (7 tests) 25ms
+web:test:  ✓ tests/ui/composite-breadcrumb-pagination.test.tsx (18 tests) 136ms
+web:test:  ✓ tests/ui/skill-starter-import.test.tsx (5 tests) 304ms
+web:test:  ✓ tests/ui/canvas-stage-edge-editability.test.tsx (5 tests) 555ms
+web:test:    ✓ CanvasStage 连线可编辑性回归 > ① 连线工具：点起点节点再点终点节点，真的画出一条新边（此前是死按钮） 324ms
+web:test: stderr | tests/ui/chat-canvas-fence.test.tsx > 与 mermaid 图表分派互不干扰 > 同一条消息里 mermaid 图表走图表分支、画布围栏走画布分支
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/private/tmp/f978-merge/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/private/tmp/f978-merge/packages/fabric-markdown/src/index.ts:75:13)
+web:test: 
+web:test:  ✓ tests/ui/admin-members-quota-live.test.tsx (8 tests) 385ms
+web:test:  ✓ tests/ui/files-preview.test.tsx (12 tests) 116ms
+web:test:  ✓ tests/ui/chat-canvas-fence.test.tsx (14 tests) 2141ms
+web:test:    ✓ 工作坊画布模板围栏在 chat 里被渲染（不再是代码块） > ```canvas + 内置 persona 模板 → 走 fabric 画布分支，不落代码块、不落错误态 367ms
+web:test:    ✓ 诚实错误态（不崩、不静默丢、不退回 mock） > 缺 `模板:` 行 → syntax 错误态，回显原始围栏，页面不崩 339ms
+web:test:    ✓ 与 mermaid 图表分派互不干扰 > 同一条消息里 mermaid 图表走图表分支、画布围栏走画布分支 468ms
+web:test:  ✓ tests/ui/skill-repo-discovery-import.test.tsx (5 tests) 273ms
+web:test:  ✓ tests/ui/files-ingestion-ladder.test.tsx (10 tests) 525ms
+web:test:  ✓ tests/ui/agent-self-publish-panel.test.tsx (5 tests) 165ms
+web:test:  ✓ tests/ui/survey-resource-library.test.tsx (16 tests) 1150ms
+web:test:  ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 920ms
+web:test:    ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 370ms
+web:test:  ✓ tests/ui/files-version-derived.test.tsx (9 tests) 406ms
+web:test:  ✓ tests/ui/research-detail-four-sections.test.tsx (15 tests) 326ms
+web:test:  ✓ tests/ui/blueprint-list-screen-live.test.tsx (8 tests) 264ms
+web:test:  ✓ tests/ui/chat-fabric-auto-readback-on-mount.test.tsx (4 tests) 390ms
+web:test:    ✓ 挂载滚入视口即读回（不必先点最大化） > A · mermaid 图 · ChatDiagramFabric > 有保存版：挂载即自动查回，只读预览校验吃到的是保存版内容 347ms
+web:test:  ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 111ms
+web:lint: ✔ No ESLint warnings or errors
+web:test:  ✓ tests/ui/local-org-live.test.tsx (6 tests) 156ms
+web:test:  ✓ tests/ui/feedback-dialog.test.tsx (10 tests) 177ms
+web:test:  ✓ tests/ui/chat-live-message-panel-duplicate-progress-block.test.tsx (5 tests) 258ms
+web:test:  ✓ tests/ui/join-accidents-mic.test.tsx (9 tests) 94ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/asset-file-edit-save.test.tsx (5 tests) 328ms
+web:test:  ✓ tests/ui/skill-single-screen-nav.test.tsx (7 tests) 182ms
+web:test:  ✓ tests/ui/admin-feedback-live.test.tsx (10 tests) 357ms
+web:test:  ✓ tests/ui/admin-limit-policy-live.test.tsx (8 tests) 387ms
+web:test:  ✓ tests/ui/agent-tool-chain.test.tsx (13 tests) 79ms
+web:test:  ✓ tests/ui/admin-nav-count-unavailable.test.tsx (11 tests) 167ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx > CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > assistant 消息经 CopilotChatMessageView 渲染：markdown 结构 + mermaid 围栏路由到 ChatDiagramFabric
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx > CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > user 消息不经这个 slot（slot 只挂在 assistantMessage 上）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-panel-markdown.test.tsx (2 tests) 338ms
+web:test:    ✓ CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > assistant 消息经 CopilotChatMessageView 渲染：markdown 结构 + mermaid 围栏路由到 ChatDiagramFabric 309ms
+web:test:  ✓ tests/ui/capability-catalog-live.test.tsx (5 tests) 314ms
+web:test:  ✓ tests/ui/research-list-target-dash.test.tsx (13 tests) 166ms
+web:test:  ✓ tests/ui/overlay-primitives-dialog-dropdown.test.tsx (13 tests) 363ms
+web:test:  ✓ tests/ui/agent-interrupt-confirm-intent-card.test.tsx (17 tests) 155ms
+web:test:  ✓ tests/ui/chat-attachment-preview-modal.test.tsx (5 tests) 260ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/blueprint-designer-prototype-fidelity.test.tsx (7 tests) 34ms
+web:test:  ✓ tests/ui/admin-nav-live-counts.test.tsx (7 tests) 171ms
+web:test:  ✓ tests/lib/skill-trial-run.test.tsx (11 tests) 118ms
+web:test:  ✓ tests/ui/chat-live-message-panel-run-phase.test.tsx (4 tests) 268ms
+web:test:  ✓ tests/ui/agent-approval-panel.test.tsx (11 tests) 132ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 贴底时不显示悬浮按钮；往上翻离开底部后按钮出现，点击后回到底部且状态复位
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test:  ✓ tests/ui/capability-skill-content-editor.test.tsx (3 tests) 191ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > Ctrl+End 跳到最新：往上翻后按快捷键，等价于点击按钮
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 普通 End（无修饰键）不触发跳转——不能吞掉输入框里「移到行尾」的原生行为
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx (6 tests) 449ms
+web:test:    ✓ CopilotKitV2Panel 消息区跳到最新（issue #2071） > 贴底时不显示悬浮按钮；往上翻离开底部后按钮出现，点击后回到底部且状态复位 343ms
+web:test:  ✓ tests/ui/research-new-config-defaults.test.tsx (11 tests) 184ms
+web:test:  ✓ tests/ui/skill-catalog-no-create-panel.test.tsx (5 tests) 376ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 可归因的 agent 消息：三者非 undefined，且 messageId 是解析出的真实 chat_messages.id
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test:  ✓ tests/ui/workflow-screen-live.test.tsx (6 tests) 161ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 不可归因的历史消息（agentRunId 为 null）：messageId 如实是 undefined，不冒充一个会 404 的假可保存态
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 不可归因的历史消息（agentRunId 为 null）：messageId 如实是 undefined，不冒充一个会 404 的假可保存态
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 新对话（chatThreadId=null，还没有真实线程）：threadId 如实是 undefined
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx (3 tests) 400ms
+web:test:    ✓ copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 可归因的 agent 消息：三者非 undefined，且 messageId 是解析出的真实 chat_messages.id 328ms
+web:test:  ✓ tests/ui/project-results-live.test.tsx (12 tests) 128ms
+web:test:  ✓ tests/ui/chat-diagram-saved-readback.test.tsx (5 tests) 124ms
+web:test:  ✓ tests/ui/files-review-drawer.test.tsx (5 tests) 398ms
+web:test:  ✓ tests/ui/chat-message-rating.test.tsx (7 tests) 98ms
+web:test:  ✓ tests/ui/asset-code-editor-monaco.test.tsx (15 tests) 61ms
+web:test:  ✓ tests/ui/project-live-viewer-switcher.test.tsx (9 tests) 95ms
+web:test:  ✓ tests/ui/microinteraction-chat-profile.test.tsx (56 tests) 58ms
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+web:test:  ✓ tests/ui/files-trash-queue.test.tsx (10 tests) 353ms
+web:test:  ✓ tests/ui/admin-usage-monitor-live.test.tsx (6 tests) 144ms
+web:test:  ✓ tests/ui/admin-members-usage-limits-tabs.test.tsx (5 tests) 257ms
+web:test: stderr | tests/ui/shell-personal-menu.test.tsx > IconRail：左上角组织菜单 + 个人菜单 > 头像触发器点击后展开个人菜单：个人资料 / 个人 Brain / 主题切换三项恒在
+web:test: Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+web:test: 
+web:test: Check the render method of `Primitive.div.Slot`.
+web:test:     at ThemeToggle (/private/tmp/f978-merge/apps/web/components/shell/theme-toggle.tsx:13:3)
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:42:15
+web:test:     at RovingFocusGroupItem (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-roving-focus@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types+reac_fehydb6ztw3ie4otm6o4224cw4/node_modules/@radix-ui/react-roving-focus/dist/index.mjs:129:7)
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:42:15
+web:test:     at MenuItemImpl (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:424:13)
+web:test:     at MenuItem (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:372:13)
+web:test:     at DropdownMenuItem (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:159:13)
+web:test:     at /private/tmp/f978-merge/apps/web/components/ui/dropdown-menu.tsx:47:62
+web:test:     at div
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at div
+web:test:     at PopperContent (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-popper@1.3.7_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3._n4sfxpbxdjb4wkcvd537qaeyne/node_modules/@radix-ui/react-popper/dist/index.mjs:94:7)
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at RovingFocusGroupImpl (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-roving-focus@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types+reac_fehydb6ztw3ie4otm6o4224cw4/node_modules/@radix-ui/react-roving-focus/dist/index.mjs:36:5)
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:30:15
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at CollectionProvider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:20:13)
+web:test:     at RovingFocusGroup (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-roving-focus@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types+reac_fehydb6ztw3ie4otm6o4224cw4/node_modules/@radix-ui/react-roving-focus/dist/index.mjs:31:68)
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at DismissableLayer (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-dismissable-layer@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types_vivk4t4cutqd7i6sge5vpumknm/node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs:31:7)
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at FocusScope (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-focus-scope@1.1.16_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react_7flugmadb6wvaa77mzeil6hdvi/node_modules/@radix-ui/react-focus-scope/dist/index.mjs:17:7)
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at /private/tmp/f978-merge/node_modules/.pnpm/react-remove-scroll@2.7.2_@types+react@18.3.31_react@18.3.1/node_modules/react-remove-scroll/dist/es5/UI.js:16:21
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at MenuContentImpl (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:176:7)
+web:test:     at MenuRootContentModal (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:132:56)
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:30:15
+web:test:     at Presence (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at CollectionProvider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:20:13)
+web:test:     at MenuContent (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:122:64)
+web:test:     at DropdownMenuContent (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:102:13)
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at Portal (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-portal@1.1.17_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_pckc5wna6qd2icpxam4r5udzci/node_modules/@radix-ui/react-portal/dist/index.mjs:13:24)
+web:test:     at Presence (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at MenuPortal (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:114:11)
+web:test:     at DropdownMenuPortal (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:94:11)
+web:test:     at /private/tmp/f978-merge/apps/web/components/ui/dropdown-menu.tsx:21:65
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at Popper (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-popper@1.3.7_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3._n4sfxpbxdjb4wkcvd537qaeyne/node_modules/@radix-ui/react-popper/dist/index.mjs:32:11)
+web:test:     at Menu (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:52:11)
+web:test:     at Provider (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at DropdownMenu (file:///private/tmp/f978-merge/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:25:5)
+web:test:     at PersonalMenu (/private/tmp/f978-merge/apps/web/components/shell/personal-menu.tsx:15:3)
+web:test:     at nav
+web:test:     at IconRail (/private/tmp/f978-merge/apps/web/components/shell/icon-rail.tsx:19:3)
+web:test: 
+web:test:  ✓ tests/ui/shell-personal-menu.test.tsx (9 tests) 469ms
+web:test:  ✓ tests/ui/org-admin-members-reviewer-function.test.tsx (4 tests) 106ms
+web:test:  ✓ tests/ui/project-live-checkin-board.test.tsx (9 tests) 87ms
+web:test:  ✓ tests/ui/admin-members-boundary-live.test.tsx (6 tests) 169ms
+web:test:  ✓ tests/ui/agent-clone-selector.test.tsx (4 tests) 148ms
+web:test:  ✓ tests/ui/chat-fullsurface-drop-overlay.test.tsx (4 tests) 189ms
+web:test:  ✓ tests/ui/admin-members-boundary.test.tsx (4 tests) 121ms
+web:test:  ✓ tests/ui/admin-menu-dedup.test.tsx (9 tests) 78ms
+web:test:  ✓ tests/ui/password-reset-request.test.tsx (5 tests) 121ms
+web:test:  ✓ tests/ui/chat-live-message-panel-run-poll-401.test.tsx (3 tests) 168ms
+web:test:  ✓ tests/ui/admin-feedback-view-toggle.test.tsx (4 tests) 249ms
+web:test:  ✓ tests/ui/chat-persona-summary-trigger.test.tsx (4 tests) 162ms
+web:test:  ✓ tests/ui/admin-model-view-toggle.test.tsx (5 tests) 374ms
+web:test:  ✓ tests/ui/chat-live-message-panel-attachment-mention.test.tsx (5 tests) 259ms
+web:test:  ✓ tests/ui/admin-skill-edit-fullscreen.test.tsx (4 tests) 127ms
+web:test:  ✓ tests/ui/canvas-stage-export.test.tsx (4 tests) 757ms
+web:test:    ✓ 画布导出 > ① CanvasStage.exportPNG() > 空画布返回 null，不产出一张空白 PNG 冒充导出成功 381ms
+web:test:  ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 224ms
+web:test:  ✓ tests/ui/rec-fidelity-gaps.test.tsx (11 tests) 21ms
+web:test:  ✓ tests/ui/project-live-page.test.tsx (2 tests) 90ms
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > toggling to bootstrap mode creates the first admin, logs in immediately, and persists the real session
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > recovers login when bootstrap committed but its HTTP response was lost
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/ui/email-verification-public.test.tsx (4 tests) 179ms
+web:test:  ✓ tests/ui/project-live-stagebar.test.tsx (8 tests) 111ms
+web:test:  ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 126ms
+web:test:  ✓ tests/ui/admin-members-list.test.tsx (6 tests) 306ms
+web:test:  ✓ tests/ui/tpl-designer-primitive-adoption.test.tsx (24 tests) 107ms
+web:test:  ✓ tests/ui/agent-interrupt-choose-option-card.test.tsx (15 tests) 120ms
+web:test:  ✓ tests/ui/thread-card-button.test.tsx (7 tests) 347ms
+web:test:  ✓ tests/ui/plan-control-gate-and-recovery.test.tsx (11 tests) 86ms
+web:test:  ✓ tests/ui/chat-diagram-save-gate.test.tsx (2 tests) 134ms
+web:test:  ✓ tests/ui/chat-skill-mount-panel-auto-close.test.tsx (2 tests) 66ms
+web:test:  ✓ tests/ui/plan-control-edit-mode.test.tsx (9 tests) 137ms
+web:test:  ✓ tests/ui/research-entry-observer-absent.test.tsx (7 tests) 99ms
+web:test:  ✓ tests/ui/mcp-remote-discover-panel.test.tsx (4 tests) 141ms
+web:test:  ✓ tests/ui/research-live-empty-conflict-block.test.tsx (10 tests) 93ms
+web:test:  ✓ tests/ui/admin-agent-card-view.test.tsx (3 tests) 115ms
+web:test:  ✓ tests/ui/motion-orchestration.test.tsx (4 tests) 49ms
+web:test:  ✓ tests/ui/research-preview-sentence.test.tsx (9 tests) 165ms
+web:test:  ✓ tests/ui/entity-view-toggle.test.tsx (4 tests) 69ms
+web:test:  ✓ tests/ui/research-live-conflicts-no-preselect.test.tsx (8 tests) 269ms
+web:test:  ✓ tests/ui/agent-interrupt-fill-params-card.test.tsx (14 tests) 221ms
+web:test:  ✓ tests/ui/overlay-primitives-select-tooltip.test.tsx (12 tests) 297ms
+web:test:  ✓ tests/ui/agent-capability-graph.test.tsx (3 tests) 131ms
+web:test:  ✓ tests/ui/overview-mixed-state.test.tsx (6 tests) 121ms
+web:test:  ✓ tests/ui/overview-live.test.tsx (4 tests) 98ms
+web:test:  ✓ tests/ui/asset-directory-browse.test.tsx (7 tests) 123ms
+web:test:  ✓ tests/ui/research-exit-actions-observer-absent.test.tsx (7 tests) 115ms
+web:test:  ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 119ms
+web:test:  ✓ tests/ui/chat-live-message-panel-actions-position.test.tsx (2 tests) 175ms
+web:test:  ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 103ms
+web:test:  ✓ tests/ui/org-menu-avatar-identity.test.tsx (3 tests) 52ms
+web:test:  ✓ tests/ui/registration-field-errors.test.tsx (5 tests) 106ms
+web:test:  ✓ tests/ui/project-live-segment-engine-consistency.test.tsx (3 tests) 65ms
+web:test:  ✓ tests/ui/consent-form.test.tsx (4 tests) 126ms
+web:test:  ✓ tests/ui/chat-live-message-panel-agent-selector-restore.test.tsx (3 tests) 158ms
+web:test:  ✓ tests/ui/agent-plan-panel.test.tsx (12 tests) 58ms
+web:test:  ✓ tests/ui/ag-skill-trialrun-401.test.tsx (2 tests) 164ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/asset-preflight-blocking.test.tsx (6 tests) 118ms
+web:test:  ✓ tests/ui/capability-catalog-edit-navigation.test.tsx (3 tests) 143ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx > copilotkit-v2-panel 打字时消息里的画布不被重新挂载（issue #2132） > 敲 5 个字符后，画布探针的真实挂载次数仍是 1（不是随按键次数增长）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:15141:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/private/tmp/f978-merge/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9911:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10640:25)
+web:test:       at fetch (node:internal/deps/undici/undici:15139:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///private/tmp/f978-merge/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx > copilotkit-v2-panel 打字时消息里的画布不被重新挂载（issue #2132） > 敲 5 个字符后，画布探针的真实挂载次数仍是 1（不是随按键次数增长）
+web:test: Agent default not found
+web:test: 
+web:test:  ✓ tests/ui/skill-library-prototype-fidelity.test.tsx (3 tests) 200ms
+web:test:  ✓ tests/ui/survey-create-dialog.test.tsx (3 tests) 519ms
+web:test:  ✓ tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx (1 test) 374ms
+web:test:    ✓ copilotkit-v2-panel 打字时消息里的画布不被重新挂载（issue #2132） > 敲 5 个字符后，画布探针的真实挂载次数仍是 1（不是随按键次数增长） 359ms
+web:test:  ✓ tests/ui/admin-screen-notice.test.tsx (5 tests) 259ms
+web:test:  ✓ tests/ui/survey-app-shell.test.tsx (7 tests) 248ms
+web:test:  ✓ tests/ui/org-admin-role-scope.test.tsx (4 tests) 425ms
+web:test:  ✓ tests/ui/chat-live-message-panel-markdown.test.tsx (2 tests) 201ms
+web:test:  ✓ tests/ui/agent-definition-list-panel.test.tsx (4 tests) 82ms
+web:test:  ✓ tests/ui/quick-digital-interview.test.tsx (3 tests) 295ms
+web:test:  ✓ tests/ui/tasks-today-fidelity.test.tsx (4 tests) 117ms
+web:test:  ✓ tests/ui/join-verify-form.test.tsx (5 tests) 81ms
+web:test:  ✓ tests/ui/plan-control-panel-readonly.test.tsx (9 tests) 61ms
+web:test:  ✓ tests/ui/use-audio-input-devices.test.ts (4 tests) 233ms
+web:test:  ✓ tests/ui/admin-mcp-card-view.test.tsx (4 tests) 388ms
+web:test:  ✓ tests/ui/realtime-transcription-workspace.test.tsx (5 tests) 249ms
+web:test:  ✓ tests/ui/tpl-list-admin-nav.test.tsx (3 tests) 61ms
+web:test:  ✓ tests/ui/project-overview-live-info.test.tsx (5 tests) 81ms
+web:test:  ✓ tests/ui/chat-artifact-preview-dialog.test.tsx (3 tests) 236ms
+web:test:  ✓ tests/ui/state-shell-reserved-testid.test.tsx (4 tests) 29ms
+web:test:  ✓ tests/ui/plan-control-phase-indicator.test.tsx (15 tests) 168ms
+web:test:  ✓ tests/ui/profile-mobile-actions.test.tsx (3 tests) 96ms
+web:test:  ✓ tests/ui/skill-catalog-view-toggle.test.tsx (2 tests) 129ms
+web:test:  ✓ tests/lib/agui-plan-todos.test.tsx (10 tests) 19ms
+web:test:  ✓ tests/ui/topbar-admin-hint-hidden.test.tsx (5 tests) 36ms
+web:test: stderr | tests/ui/markdown-message.test.tsx > MarkdownMessage > 白名单内的 mermaid 围栏 → 走 fabric 渲染路径（validating→valid，挂 fabric 容器），不落错误态
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/private/tmp/f978-merge/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/private/tmp/f978-merge/packages/fabric-markdown/src/index.ts:75:13)
+web:test: 
+web:test:  ✓ tests/ui/markdown-message.test.tsx (3 tests) 207ms
+web:test:  ✓ tests/ui/login-signup-paths.test.tsx (4 tests) 49ms
+web:test:  ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 47ms
+web:test:  ✓ tests/ui/interview-skill-assistant.test.tsx (1 test) 72ms
+web:test:  ✓ tests/ui/app-shell-panel-collapse.test.tsx (4 tests) 143ms
+web:test:  ✓ tests/ui/login-real-error.test.tsx (2 tests) 88ms
+web:test:  ✓ tests/single-source-of-truth.test.ts (22 tests) 103ms
+web:test:  ✓ tests/session/login-session-gate.test.tsx (3 tests) 39ms
+web:test:  ✓ tests/ui/survey-route-layout.test.tsx (3 tests) 379ms
+web:test:  ✓ tests/session/canvas-template-routes-no-mock.test.ts (12 tests) 55ms
+web:test:  ✓ tests/capability/mcp/three-orthogonal-fields.test.ts (24 tests) 9ms
+web:test:  ✓ tests/capability/mcp/credential-endpoint-hidden.test.ts (142 tests) 13ms
+web:test: stderr | tests/session/copilotkit-agui-httpagent.test.ts > @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > DA-19a: an HTTP 401 rejected before any SSE bytes (missing/expired bearer token) makes runAgent() REJECT -- not resolve silently with no assistant reply and no error
+web:test: Agent execution failed: Error: HTTP 401: {"statusCode":401,"message":"Unauthorized"}
+web:test:     at file:///private/tmp/f978-merge/node_modules/.pnpm/@ag-ui+client@0.0.57/node_modules/@ag-ui/client/src/run/http-request.ts:37:34
+web:test:     at doInnerSub (/private/tmp/f978-merge/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/operators/mergeInternals.ts:71:15)
+web:test:     at outerNext (/private/tmp/f978-merge/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/operators/mergeInternals.ts:53:58)
+web:test:     at OperatorSubscriber._this._next (/private/tmp/f978-merge/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/operators/OperatorSubscriber.ts:70:13)
+web:test:     at OperatorSubscriber.Subscriber.next (/private/tmp/f978-merge/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/Subscriber.ts:75:12)
+web:test:     at /private/tmp/f978-merge/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/observable/innerFrom.ts:90:24
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5) {
+web:test:   status: 401,
+web:test:   payload: { statusCode: 401, message: 'Unauthorized' }
+web:test: }
+web:test: 
+web:test:  ✓ tests/session/copilotkit-agui-httpagent.test.ts (4 tests) 103ms
+web:test:  ✓ tests/lint-no-backend-badge.test.ts (11 tests) 25ms
+web:test:  ✓ tests/lib/auto-template-layout.test.ts (20 tests) 10ms
+web:test:  ✓ tests/capability/mcp/tool-namespace.test.ts (21 tests) 7ms
+web:test:  ✓ tests/recording/live-recording-capture.test.ts (22 tests) 12ms
+web:test:  ✓ tests/lib/template-dry-run.test.ts (19 tests) 3ms
+web:test:  ✓ tests/ui/survey-template-editor-shell.test.tsx (2 tests) 281ms
+web:test:  ✓ tests/session/skill-create-route-no-mock.test.ts (5 tests) 35ms
+web:test:  ✓ tests/session/chat-dead-mock-cluster.test.ts (8 tests) 553ms
+web:test:  ✓ tests/lib/template-editor-published-editable.test.ts (9 tests) 3ms
+web:test:  ✓ tests/lib/explicit-template-layout.test.ts (15 tests) 5ms
+web:test:  ✓ tests/digital-interview-drafts.test.ts (11 tests) 10ms
+web:test:  ✓ tests/guided-research-skill-state.test.ts (8 tests) 5ms
+web:test:  ✓ tests/session/agent-admin-route-no-mock.test.ts (4 tests) 19ms
+web:test:  ✓ tests/session/chat-roster-route-no-mock.test.ts (6 tests) 64ms
+web:test:  ✓ tests/survey/survey-mock-structure.test.ts (10 tests) 4ms
+web:test:  ✓ tests/lib/template-a1-thumbnail-geometry.test.ts (8 tests) 6ms
+web:test:  ✓ tests/ui/chat-task-inspector-tabs.test.ts (19 tests) 4ms
+web:test:  ✓ tests/e2e/self-service-profile-account-isolation.test.ts (4 tests) 4ms
+web:test:  ✓ tests/api-client-ws-handshake-timeout.test.ts (4 tests) 13ms
+web:test:  ✓ tests/lib/template-dangling-placeholders.test.ts (10 tests) 5ms
+web:test:  ✓ tests/lib/pick-default-agent-id.test.ts (12 tests) 2ms
+web:test:  ✓ tests/session/api-client-non-json-error.test.ts (4 tests) 4ms
+web:test:  ✓ tests/lib/boardx-realtime-asr-client.test.ts (7 tests) 8ms
+web:test:  ✓ tests/session/canvas-template-body-completeness.test.ts (5 tests) 3ms
+web:test:  ✓ tests/ui/survey-workflow-model.test.ts (10 tests) 40ms
+web:test:  ✓ tests/chat-roster-api.test.ts (2 tests) 6ms
+web:test:  ✓ tests/upload-attachment-xhr.test.ts (3 tests) 3ms
+web:test:  ✓ tests/lib/agent-capability-graph-model.test.ts (5 tests) 4ms
+web:test:  ✓ tests/chat-read-api.test.ts (1 test) 6ms
+web:test:  ✓ tests/lib/auto-template-sticky-constants.test.ts (4 tests) 3ms
+web:test:  ✓ tests/session/covered-routes-no-mock.test.ts (14 tests) 11ms
+web:test:  ✓ tests/api-client-url-join.test.ts (3 tests) 15ms
+web:test:  ✓ tests/lib/pcm-audio-worklet.test.ts (4 tests) 3ms
+web:test:  ✓ tests/copilotkit-v2-agent-query.test.ts (3 tests) 2ms
+web:test:  ✓ tests/ui/admin-feedback-transitions-match-domain.test.ts (3 tests) 2ms
+web:test:  ✓ tests/ui/composer-mention-detection.test.ts (7 tests) 3ms
+web:test:  ✓ tests/ui/personal-transcription-history.test.tsx (17 tests) 1177ms
+web:test:  ✓ tests/e2e/personal-realtime-transcription-smoke.test.ts (1 test) 3ms
+web:test:  ✓ tests/lint-third-party-style-registry.test.ts (6 tests) 798ms
+web:test:  ✓ tests/guided-research-demo-state.test.ts (4 tests) 3ms
+web:test:  ✓ tests/lib/live-personal-transcriptions.test.ts (2 tests) 12ms
+web:test:  ✓ tests/ui/decode-mermaid-entities.test.ts (4 tests) 1ms
+web:test:  ✓ tests/session/session-api.test.ts (1 test) 5ms
+web:test:  ✓ tests/lib/live-consent.test.ts (1 test) 3ms
+web:test:  ✓ tests/api-client-error-envelope.test.ts (2 tests) 6ms
+web:test:  ✓ tests/research-rewrite.test.ts (1 test) 2ms
+web:test:  ✓ tests/ui/mermaid-diagram-type.test.ts (4 tests) 2ms
+web:test:  ✓ tests/guided-research-stage.test.ts (2 tests) 2ms
+web:test:  ✓ tests/ui/provenance-labels.test.ts (2 tests) 4ms
+web:test:  ✓ tests/ui/survey-creation-draft.test.ts (3 tests) 1ms
+web:test:  ✓ tests/lint-design-motion-rule.test.ts (5 tests) 180ms
+web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 193ms
+web:test:  ✓ tests/lint-image-alt-nextimage.test.ts (3 tests) 2730ms
+web:test:    ✓ U7a 覆盖 next/image 的 <Image>（F08） > 全仓真实扫描（app/components/lib）U7a 全绿——已补齐 avatar/附件预览/组织头像的 alt 或 aria-hidden 2256ms
+web:test: 
+web:test:  Test Files  235 passed (235)
+web:test:       Tests  2085 passed (2085)
+web:test:    Start at  08:39:11
+web:test:    Duration  36.31s (transform 8.63s, setup 24.51s, collect 77.56s, tests 70.32s, environment 95.82s, prepare 9.73s)
+web:test: 
+
+ Tasks:    4 successful, 4 total
+Cached:    1 cached, 4 total
+  Time:    36.737s 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：0s
+  命令执行：38s
+  清理：0s
+  总计：38s
+
+[harness-verify v1 sha256=986806e4601b24173584396f6c985d7cd5e0be2b6851d69e8993f1a56a687830 commit=ed729c15154588e0e87fe724de8e1dda0f65b968 at=2026-08-27T00:39:47.797Z]

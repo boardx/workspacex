@@ -5380,14 +5380,14 @@
         "F976"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "22",
-      "owner": null,
+      "owner": "dev-chat-e2e-f978",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/plan-control-edit-mode.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/plan-control-gate-and-recovery.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F978.verify.log @ 2026-08-27T00:39:47.797Z",
       "notes": "覆盖 ui.md S3/S4/S5/S6/S7/S8；判据 V3(前端)/V4′/V5/V6；不变量 I-5/I-8/I-11 的界面面。⚠ 裁决 (c)：restore-checkpoint 按钮不渲染——测试断言该锚点缺席（present 断言 queryByTestId 为 null，不是 test.skip；skip 掉的差距等于不存在）。⚠ V4′ 反证断言写成「确认门从未进入 DOM」的结构面（component 层 gate.required=false ⇒ queryByTestId(chat-task-workbench-plan-confirm) 为 null）；完整「走真实引擎全程从未闪现」的持续断言 e2e 由后续 e2e 补，见 usecases UC-8 反证 ③（本 feature 提供结构面，e2e 层不在 vitest verification 内）。五个新增锚点（constraint-remove/stale-banner/pending-apply/orphan-constraint/run-resume）不进 TW 卡，登记在 ui.md 四节。依据等级 [设计]。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
     }
   ]
