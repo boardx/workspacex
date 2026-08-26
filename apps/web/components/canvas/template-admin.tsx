@@ -164,8 +164,21 @@ function parseInitialFilter(raw: string | undefined): ListTemplatesFilter {
     ? (raw as ListTemplatesFilter)
     : "all";
 }
+/**
+ * 默认视图。
+ *
+ * ⚠ 2026-08-26 起默认是**卡片网格**，不是表格：`Design.pdf` §3 逐字写着模板库
+ *   「主体为三列卡片网格」，设计稿里根本没有表格这一形态。R2（#2085）重做卡片视图
+ *   时把默认值留在了 `list`，结果使用者刷新后台看到的仍是旧表格、以为什么都没变
+ *   ——新设计只在一个要主动切过去才看得到的视图里，等于没上线。
+ *
+ * 表格视图**保留**（不是删掉）：25 个模板、每个多版本时，一屏能看到 key/版本/状态/
+ * 绑定数的密集列表有真实价值，这是设计稿之外的增量，不与它冲突。但它是**可选的
+ * 第二视图**，不是默认落点。URL 里显式带 `view=list` 仍然回到表格（既有的
+ * 「筛选/视图/搜索写进 URL」行为不变）。
+ */
 function parseInitialView(raw: string | undefined): "list" | "card" {
-  return raw === "card" ? "card" : "list";
+  return raw === "list" ? "list" : "card";
 }
 
 export function TemplateAdmin({

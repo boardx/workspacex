@@ -158,7 +158,7 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
 
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
     expect(screen.getByTestId("tpladmin-row-swot-2")).toBeInTheDocument();
@@ -171,7 +171,7 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
   it("空响应 = 真实空态，不塞任何示例模板", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
 
     await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
     expect(screen.queryByTestId("tpladmin-table")).toBeNull();
@@ -181,7 +181,7 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
   it("读取失败回显后端真实信封：reasonCode + HTTP 状态，不糊成一句「加载失败」", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ reasonCode: "DEPENDENCY_UNAVAILABLE" }, 503)));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
 
     const error = await screen.findByTestId("tpladmin-error");
     expect(error.textContent).toContain("DEPENDENCY_UNAVAILABLE");
@@ -198,7 +198,7 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
       return jsonResponse({ templates: [template()] });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-filter-archived"));
@@ -216,7 +216,7 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
       return jsonResponse({ templates: [template()] });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-archive-persona-3"));
@@ -239,7 +239,7 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
       return jsonResponse({ templates: [template()] });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-archive-persona-3"));
 
@@ -262,7 +262,7 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
       return jsonResponse({ templates: [template({ key: "esg", displayName: "ESG", version: 1, status: "archived", builtin: false })] });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-esg-1")).toBeInTheDocument());
     expect(listCalls).toBe(1);
 
@@ -277,7 +277,7 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
   it("观察者视角不挂写入口——降噪；真正的拒绝仍在服务端", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
 
-    render(<TemplateAdmin previewRole="observer" />);
+    render(<TemplateAdmin previewRole="observer" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
     expect(screen.queryByTestId("tpladmin-archive-persona-3")).toBeNull();
   });
@@ -352,7 +352,7 @@ describe("2026-08-23 新建只问名字——分区/key/生命周期都不在这
 
   it("对话框只有显示名一个输入框——没有 key、没有分区列表、没有可见范围", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-create"));
@@ -389,7 +389,7 @@ describe("2026-08-23 新建只问名字——分区/key/生命周期都不在这
       });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-create"));
@@ -433,7 +433,7 @@ describe("2026-08-23 新建只问名字——分区/key/生命周期都不在这
       return jsonResponse({ templates: [] });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-create"));
@@ -449,7 +449,7 @@ describe("2026-08-23 新建只问名字——分区/key/生命周期都不在这
 
   it("显示名留空并失焦才提示必填——刚打开对话框时不是一片红", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-create"));
@@ -465,7 +465,7 @@ describe("2026-08-23 新建只问名字——分区/key/生命周期都不在这
 
   it("观察者视角不挂新建入口（降噪，不是权限 —— 真正的拒绝在服务端）", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [] })));
-    render(<TemplateAdmin previewRole="observer" />);
+    render(<TemplateAdmin previewRole="observer" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-empty")).toBeInTheDocument());
     expect(screen.queryByTestId("tpladmin-create")).toBeNull();
   });
@@ -499,7 +499,7 @@ describe("#496 画布模板发布/状态机（已签核契约面的既有行为�
       });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-publish-swot-1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-publish-swot-1"));
@@ -511,7 +511,7 @@ describe("#496 画布模板发布/状态机（已签核契约面的既有行为�
 
   it("已发布的行没有发布按钮 —— 状态机不由界面重述一遍", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
     expect(screen.queryByTestId("tpladmin-publish-persona-3")).toBeNull();
     expect(screen.getByTestId("tpladmin-archive-persona-3")).toBeInTheDocument();
@@ -539,14 +539,14 @@ describe("#988 「基于此开新版」——本束「编辑」的真实入口",
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
       templates: [template({ key: "swot", version: 1, status: "draft", builtin: false, usageCount: 0 })],
     })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
     expect(screen.queryByTestId("tpladmin-mint-version-swot-1")).toBeNull();
   });
 
   it("published 行有「基于此开新版」按钮，点击打开对话框且 key 被锁定、字段预填来源版本的值", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-mint-version-persona-3")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-mint-version-persona-3"));
@@ -586,7 +586,7 @@ describe("#988 「基于此开新版」——本束「编辑」的真实入口",
       });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-mint-version-persona-3")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-mint-version-persona-3"));
 
@@ -613,7 +613,7 @@ describe("#988 「基于此开新版」——本束「编辑」的真实入口",
       return jsonResponse({ templates: [template()] });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-mint-version-persona-3")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-mint-version-persona-3"));
     const dialog = await screen.findByTestId("tpladmin-mint-dialog");
@@ -695,7 +695,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
       });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
     expect(screen.getByTestId("tpladmin-row-swot-2")).toBeInTheDocument();
     expect(listCalls).toBe(1);
@@ -712,7 +712,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
 
   it("① 搜不到任何模板时显示「没有匹配」空态，不是「组织里没有模板」那句", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
 
     fireEvent.change(screen.getByTestId("tpladmin-search"), { target: { value: "找不到的名字" } });
@@ -727,7 +727,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
         template({ key: "persona", displayName: "用户画像", version: 2, status: "published" }),
       ],
     })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-1")).toBeInTheDocument());
     expect(screen.getByTestId("tpladmin-row-persona-2")).toBeInTheDocument();
 
@@ -742,7 +742,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
 
   it("④ 内置模板显示「内置模板」，不再暗示别的模板可以被删除；页头有「不支持永久删除」说明", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template({ builtin: true })] })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     const row = await waitFor(() => screen.getByTestId("tpladmin-row-persona-3"));
     expect(within(row).getByText("内置模板")).toBeInTheDocument();
     expect(within(row).queryByText(/不可删/)).toBeNull();
@@ -768,7 +768,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
       });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
     expect(screen.getByTestId("tpladmin-row-persona-3").textContent).toContain("草稿");
 
@@ -810,7 +810,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
       });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-mint-version-swot-1"));
@@ -828,7 +828,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
 
   it("⑨ 切换筛选 tab / 视图 / 搜索词都调用 router.replace 把状态写进 URL", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("tpladmin-filter-published"));
@@ -878,7 +878,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
   });
 
   async function openEditor(): Promise<HTMLElement> {
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
     return screen.findByTestId("tpladmin-editor-panel");
@@ -990,7 +990,7 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
   });
 
   async function openEditor(): Promise<HTMLElement> {
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
     return screen.findByTestId("tpladmin-editor-panel");
@@ -1088,7 +1088,7 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
 
   it("非草稿行打开的是只读预览：没有保存按钮、没有新增字段表单，且如实说明为什么", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template({ status: "published" })] })));
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-persona-3")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-persona-3"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
@@ -1164,7 +1164,7 @@ describe("2026-08-26 §6 规则⑦ / §7 第 9 条：发布前置检查 + 强制
       return oneUnplaced();
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
@@ -1188,7 +1188,7 @@ describe("2026-08-26 §6 规则⑦ / §7 第 9 条：发布前置检查 + 强制
       return oneUnplaced();
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
@@ -1207,7 +1207,7 @@ describe("2026-08-26 §6 规则⑦ / §7 第 9 条：发布前置检查 + 强制
       return oneUnplaced();
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
@@ -1240,7 +1240,7 @@ describe("2026-08-26 §6 规则⑦ / §7 第 9 条：发布前置检查 + 强制
       });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
@@ -1340,7 +1340,7 @@ describe("2026-08-26 §6 规则③：提示词里写了字段表没有的占位�
   });
 
   async function openEditorAndWritePrompt(text: string): Promise<HTMLElement> {
-    render(<TemplateAdmin previewRole="facilitator" />);
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-row-swot-1")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-swot-1"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
@@ -1397,5 +1397,44 @@ describe("2026-08-26 §6 规则③：提示词里写了字段表没有的占位�
     if (confirm) {
       expect(within(confirm).queryByTestId("tpladmin-editor-publish-blocker-dangling")).toBeNull();
     }
+  });
+});
+
+describe("2026-08-26 模板库默认视图 = 卡片网格（Design.pdf §3「主体为三列卡片网格」）", () => {
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-default-view";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-default-view");
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template()] })));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /**
+   * ⚠ 这条守的是一个**真实上线事故**：R2（#2085）把模板库重做成卡片网格，但默认视图
+   * 仍留在旧表格。使用者刷新后台看到的还是旧界面、以为什么都没变——新设计只存在于
+   * 一个要主动切过去才看得到的视图里，等于没上线。而当时的 e2e 因为自己先点了一下
+   * 「卡片视图」按钮，全绿。
+   *
+   * 所以这里**不传 initialView**：测的正是缺省值本身。
+   */
+  it("不传 initialView 时渲染卡片网格，不是表格", async () => {
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
+    expect(screen.queryByTestId("tpladmin-table")).toBeNull();
+  });
+
+  it("URL 显式带 view=list 仍回到表格——表格是保留的第二视图，不是被删掉", async () => {
+    render(<TemplateAdmin previewRole="facilitator" initialView="list" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-table")).toBeInTheDocument());
+    expect(screen.queryByTestId("tpladmin-cards")).toBeNull();
+  });
+
+  it("无法识别的 view 值退回卡片网格，不是退回表格——缺省值只有一个", async () => {
+    render(<TemplateAdmin previewRole="facilitator" initialView="garbage" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
   });
 });

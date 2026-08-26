@@ -38,8 +38,10 @@ async function loginAsAdmin(page: Page): Promise<void> {
 async function openLibrary(page: Page): Promise<void> {
   await page.goto("/canvas?screen=template-admin");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
-  // 设计稿的模板库是**卡片网格**（`Design.pdf` §3「主体为三列卡片网格」）。
-  await page.getByTestId("tpladmin-view-card").click();
+  // ⚠ 这里**不手动切视图**：`Design.pdf` §3「主体为三列卡片网格」——卡片网格是
+  //   模板库的默认形态，进来就该是它。手动点一下再断言会把「默认值是对的」这件事
+  //   测没了（2026-08-26 之前默认落在旧表格，使用者刷新后台看到的仍是旧界面，
+  //   而当时的 e2e 因为自己先点了一下卡片视图，全绿）。
 }
 
 /**
@@ -49,7 +51,6 @@ async function openLibrary(page: Page): Promise<void> {
  *   压根不存在——这不是缺陷，空网格与"没有模板"是两种不同的东西，界面选择说后者。
  */
 async function expectCardGrid(page: Page): Promise<void> {
-  await page.getByTestId("tpladmin-view-card").click();
   await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
 }
 
@@ -87,6 +88,25 @@ async function createWithTags(page: Page, name: string, tags: readonly string[])
   await expect(page.getByTestId("tpladmin-editor-panel")).toHaveCount(0);
   return created.key;
 }
+
+test("Design.pdf §3：模板库**默认**就是卡片网格，不需要先切视图", async ({ page }) => {
+  await loginAsAdmin(page);
+  await openLibrary(page);
+
+  const stamp = String(Date.now()).slice(-6);
+  await createWithTags(page, `默认视图验收 ${stamp}`, []);
+
+  // 一进来就是卡片网格——不点任何视图切换按钮。
+  // 这条守的是 2026-08-26 修掉的那个真实问题：新设计只做在卡片视图里、默认值仍是
+  // 旧表格，使用者刷新后台看到的还是旧界面，而 e2e 因为自己先点了一下卡片视图全绿。
+  await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
+  await expect(page.getByTestId("tpladmin-table")).toHaveCount(0);
+
+  // 表格仍是可用的第二视图（不是删掉），显式带 view=list 能回到它。
+  await page.goto("/canvas?screen=template-admin&view=list");
+  await expect(page.getByTestId("tpladmin-table")).toBeVisible();
+  await expect(page.getByTestId("tpladmin-cards")).toHaveCount(0);
+});
 
 test("模板库对照 Design.pdf §3：卡片网格 + A1 缩略图 + 真实标签筛选 + 改名换标签", async ({ page }) => {
   const failures: string[] = [];
