@@ -50,6 +50,15 @@ on:
         description: "跑全量浏览器 e2e（e2e-full）"
         type: boolean
         default: true
+      # issue #2114 —— Chat 任务工作台记分牌车道的开关。默认 false：这批 11 个
+      # `chat-task-workbench-*.spec.ts`（#2068）设计上就该大面积红（把人类对 /chat
+      # 的界面审计转成断言，不是回归门），跑它不是为了看绿灯，是为了拿分数——默认
+      # 关掉，免得每次为 e2e-full 手动 dispatch 的人顺带多付这一趟钱；真要拿分数时
+      # 显式勾选。
+      run_chat_task_workbench:
+        description: "跑 Chat 任务工作台记分牌车道（chat-task-workbench，11 个设计上会红的验收断言，仅供打分）"
+        type: boolean
+        default: false
 
 jobs:
   # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
@@ -457,4 +466,47 @@ jobs:
           path: |
             phases/phase-01-run-a-project/evidence/ci/
             apps/web/test-results/
+          if-no-files-found: error
+
+  # issue #2114 —— Chat 任务工作台记分牌车道。**不阻塞任何合并路径**：不在
+  # `pull_request` / `push` / `schedule` 上跑，只在人类显式 `workflow_dispatch` 且勾选
+  # `run_chat_task_workbench` 时跑（默认 false，见上面 workflow_dispatch.inputs 的注释）。
+  #
+  # 为什么独立成一个 job 而不是塞进 `e2e-full` 里再加一步（`e2e-full` 内 chat-read /
+  # self-service 那两步是"塞进同一 job"的先例）：
+  #   · 那两步是**阻塞门的组成部分**，本来就要和 `e2e-full` 同生共死；这批 spec 恰恰
+  #     相反——**必须能独立于 `e2e-full` 触发**，且默认不跑，混进同一个 job 做不到
+  #     "默认不跑"这件事（`e2e-full` 一旦被 dispatch 就会跑完整个 job 体）。
+  #   · 这批 spec 是记分牌，红是预期状态；`e2e-full` 的 chat-read/self-service 两步是
+  #     回归门，红是意外状态——两种"红"的含义不同，混在同一个 job 的日志/artifact 里
+  #     会让人误以为 `e2e-full` 真的坏了。
+  #   · 本仓其余 job 都跑在 `ubuntu-latest` 托管 runner 上（`e2e-full` 头注提到的"自建
+  #     runner 单一瓶颈"是历史论据，当前 `runs-on` 全部是托管机；新 job 由 GitHub
+  #     另起一台 VM，不与 `e2e-full` 排队），加一个 job 不复制这里说的排队顾虑。
+  #
+  # webServer 编排完全复用 `playwright.chat-read.config.ts`（真登录 + 真 Postgres + 真
+  # API + 真 web + 确定性 deep-agent 替身）——`--project=chat-task-workbench` 只切换
+  # testMatch，不新起任何进程，见该 config 文件头注 issue #2114 那一段。
+  chat-task-workbench:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute Chat task workbench scorecard (own isolation scope)
+        run: pnpm run verify:chat-task-workbench
+      - name: Upload chat-task-workbench evidence (success or failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase-01-chat-task-workbench-evidence-${{ github.run_id }}
+          path: apps/web/test-results/
           if-no-files-found: error
