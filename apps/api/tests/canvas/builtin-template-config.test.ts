@@ -74,6 +74,30 @@ describe("内置模板配置推演", () => {
     expect(overlaps).toEqual([]);
   });
 
+  /**
+   * 人类 2026-08-26 截图实测：「对于 A1 的模板，需要 100% 全面覆盖，分配完，
+   * 目前中间留了一些，不美观」。
+   *
+   * ⚠ 断言的是**逐格数出来的真实覆盖率**，不是"算法应该能填满"。填满由两道工序合成
+   *   （压缩-摊开吃整行整列的空带，生长收零散边角），两道都**不保证** 100%——
+   *   4 格宽的区块长不进只空 1 格的地方。所以这条必须是数格子，不是信算法。
+   *   实测过程：只有压缩-摊开时 empathy/freytag 停在 70.8%、three-horizons 89.6%。
+   */
+  it("19 个模板每一个都 96/96 格全占满，一格不剩", () => {
+    const under: string[] = [];
+    for (const t of specs) {
+      const filled = new Set<string>();
+      for (const sec of buildBuiltinSections(t as never)) {
+        const { col, row, w, h } = sec.layout;
+        for (let c = col; c < col + w; c += 1) {
+          for (let r = row; r < row + h; r += 1) filled.add(`${c},${r}`);
+        }
+      }
+      if (filled.size !== 96) under.push(`${t.key}: ${filled.size}/96`);
+    }
+    expect(under).toEqual([]);
+  });
+
   it("推演是确定性的——同一份 spec 推两次结果逐字相同", () => {
     for (const t of specs) {
       expect(buildBuiltinSections(t as never)).toEqual(buildBuiltinSections(t as never));
@@ -100,22 +124,24 @@ describe("用户画像（人类点名的那一个）", () => {
   });
 
   /**
-   * ⚠ 中间第 5 行是**空的**，这不是漏算——原图上下两带之间本来就有一道间隙，
-   *   边界吸附把它原样保留了下来。若改成"两带各占 3.5 行、消掉间隙"，画出来的
-   *   就不再是这个模板，而是一个看起来更整齐的别的模板。
+   * ⚠ 这条原先断言的是「中间第 5 行**空着**」——当时我判断那是原图本来就有的间隙，
+   *   保留它才忠实。人类 2026-08-26 看到真实渲染后否掉了这个判断（「目前中间留了一些，
+   *   不美观」），空带的份额还给了上面那一带（4 行）。断言跟着改，理由留在原处，
+   *   不假装从来没那样想过。
    */
-  it("6 个正文分区推成原图那样的 3 列 × 2 行（第 1 行让给表头）", () => {
+  it("6 个正文分区推成原图那样的 3 列 × 2 行，且铺满到底（第 1 行让给表头）", () => {
     const body = built.filter((s) => s.type === "便利贴列表");
     expect(body.map((s) => [s.name, s.key, s.layout.col, s.layout.row, s.layout.w, s.layout.h])).toEqual([
-      ["用户描述", "description", 1, 2, 4, 3],
-      ["目标和需求", "goals", 5, 2, 4, 3],
-      ["行为与偏好", "behaviors", 9, 2, 4, 3],
+      ["用户描述", "description", 1, 2, 4, 4],
+      ["目标和需求", "goals", 5, 2, 4, 4],
+      ["行为与偏好", "behaviors", 9, 2, 4, 4],
       ["痛点和挑战", "pains", 1, 6, 4, 3],
       ["动机", "motivation", 5, 6, 4, 3],
       ["影响因素", "factors", 9, 6, 4, 3],
     ]);
-    // 三列并排、末行贴到网格底 ⇒ 整张 A1 用满，没有溢出。
+    // 上下两带首尾相接（4 结束于第 5 行，痛点从第 6 行起）⇒ 中间没有空行。
     expect(Math.max(...body.map((s) => s.layout.row + s.layout.h - 1))).toBe(8);
+    expect(body[0]!.layout.row + body[0]!.layout.h).toBe(body[3]!.layout.row);
   });
 
   it("表头字段是短文本、正文是便利贴列表——两者不混", () => {

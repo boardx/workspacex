@@ -252,6 +252,9 @@ export interface CanvasTemplateRepository {
     readonly version: number;
     readonly displayName: string;
     readonly tags: readonly string[];
+    /** 版面装帧（A1 纸上的大标题 / 底部署名）。省略在契约层已归一成空串。 */
+    readonly title: string;
+    readonly footer: string;
   }): Promise<UpdateMetadataOutcome>;
 
   /**

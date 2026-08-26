@@ -30,6 +30,7 @@ const GRID_ROWS = 8;
 
 export function TemplateCanvasGrid({
   sections, gridCols, showSample, runData, selectedId, editable,
+  title, footer,
   onSelect, onPlace, onMove,
 }: {
   readonly sections: readonly SectionDraft[];
@@ -42,6 +43,15 @@ export function TemplateCanvasGrid({
   readonly runData: Readonly<Record<string, unknown>> | null;
   readonly selectedId: string | null;
   readonly editable: boolean;
+  /**
+   * A1 纸上的双语大标题与底部署名（人类 2026-08-26：「需要有一个功能是可以放 Title，
+   * 页脚也有一些版权的信息，需要可以预留这个空间」）。
+   *
+   * ⚠ 空串 = **不画那一带**，那一带的高度还给内容网格。留一条空白带比不留更糟：
+   *   它让每张没起标题的模板都白丢一截纸，而使用者看不出那截是干什么的。
+   */
+  readonly title: string;
+  readonly footer: string;
   readonly onSelect: (sectionId: string) => void;
   /** 从左栏拖一个未放置的字段进来。 */
   readonly onPlace: (sectionId: string, col: number, row: number) => void;
@@ -49,13 +59,18 @@ export function TemplateCanvasGrid({
   readonly onMove: (sectionId: string, col: number, row: number) => void;
 }) {
   const [dragging, setDragging] = React.useState<{ id: string; kind: "field" | "block" } | null>(null);
-  const paperRef = React.useRef<HTMLDivElement>(null);
+  /**
+   * ⚠ 落点换算的基准是**内容区**，不是整张纸。加了标题带/页脚带之后两者不再重合：
+   *   继续拿纸的 rect 去算比例，拖到哪都会整体往下偏一个标题带的高度，而且
+   *   **有没有标题**会让偏移量变化——那种错位看起来像"拖拽不准"，查不到原因。
+   */
+  const contentRef = React.useRef<HTMLDivElement>(null);
 
   const placed = sections.filter((s) => s.layout !== null);
 
   /** 指针 → 网格坐标。按比例换算（见文件头），不是像素常量。 */
   function cellFrom(e: React.DragEvent): { col: number; row: number } | null {
-    const el = paperRef.current;
+    const el = contentRef.current;
     if (!el) return null;
     const r = el.getBoundingClientRect();
     if (r.width <= 0 || r.height <= 0) return null;
@@ -84,9 +99,11 @@ export function TemplateCanvasGrid({
 
   return (
     <div
-      ref={paperRef}
       className="relative grid w-full shadow-sm"
       style={{
+        // 标题/页脚字号用 `cqw`（纸宽的百分比）而不是 px：编辑器画布会随窗口变宽变窄，
+        // 固定 px 在窄屏上会让标题占掉大半张纸。`cqw` 需要一个容器查询上下文。
+        containerType: "inline-size",
         // A1 横版真实比值，同缩略图与 mm 计算共用一个来源（`Design.pdf` §5「纸面」）。
         aspectRatio: "841 / 594",
         background: "#fff",
@@ -94,12 +111,37 @@ export function TemplateCanvasGrid({
         // 四边 10mm 页边距，按比例实现：10/841 = 1.189%（`Design.pdf` §5「页边距」原话）。
         padding: "1.189%",
         gridTemplateColumns: "1fr",
-        gridTemplateRows: "1fr",
+        // 标题带 / 内容 / 页脚带。两条 `auto` 在对应文本为空时**塌成 0 高**（那一行
+        // 根本不渲染），内容网格自动吃掉全部剩余高度——这就是"空串 = 不画那一带"。
+        gridTemplateRows: "auto 1fr auto",
+        rowGap: "0.72%",
       }}
       onDragOver={(e) => { if (editable) e.preventDefault(); }}
       onDrop={onDrop}
       data-testid="tpladmin-editor-canvas"
     >
+      {/*
+        标题带。参照人类给的三张设计图（PESTEL / 用户画像 / AI 战略画布）：双语大标题
+        顶格左对齐，占一条窄带，下面才是内容。空串时这一行整个不渲染（`auto` 塌成 0）。
+      */}
+      {title !== "" && (
+        <div
+          // ⚠ 颜色用行内 `#14130F` 而不是 `text-*` token：这行字画在一张**白纸**上，
+          //   而 token 会随明暗主题翻转——深色模式下 `card-foreground` 变浅色，
+          //   印在恒白的纸上就看不见了。同下面区块边框 `2px solid #14130F` 的理由。
+          className="font-bold leading-tight"
+          // 字号随纸宽缩放（`cqw` = 容器宽度的 %），不是设计系统的字号档位——那张表是
+          // 给屏幕上的 UI 用的，而这行字画在一张会随窗口缩放的"纸"上，档位在这里
+          // 表达不了。同下面贴纸字号由实尺推导的理由（`Design.pdf` §5 末段）。
+          style={{ fontSize: "2.2cqw", paddingBottom: "0.6%", color: "#14130F" }}
+          data-testid="tpladmin-editor-canvas-title"
+        >
+          {title}
+        </div>
+      )}
+
+      {/* 内容区：网格线层与区块层叠在这里，落点换算也以它为基准（见 `contentRef`）。 */}
+      <div ref={contentRef} className="relative grid min-h-0" style={{ gridTemplateColumns: "1fr", gridTemplateRows: "1fr" }}>
       {/* 网格幽灵层：拖动中才显形（`Design.pdf` §4.2「拖动中画布网格线显形」）。 */}
       <div
         className="pointer-events-none"
@@ -121,7 +163,7 @@ export function TemplateCanvasGrid({
         ))}
       </div>
 
-      {/* 区块层 */}
+      {/* 内容区：网格线层与区块层都叠在它里面，落点换算也以它为基准 */}
       <div
         style={{
           gridArea: "1 / 1",
@@ -161,21 +203,37 @@ export function TemplateCanvasGrid({
               }}
               data-testid={`tpladmin-editor-block-${s.sectionId}`}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="text-11 font-bold">{s.name || "未命名"}</span>
-                <span className="font-mono text-9 text-primary">
-                  {`{{${s.key}${isList ? "[]" : ""}}}`}
+              {/*
+                标题「独占一行」，不与 key / 元信息挤在同一条 flex 里。
+
+                ⚠ 原先三者同行且标题没有 `whitespace-nowrap`：窄区块（1-2 格宽）里 flex 会把
+                  标题压到 min-content，也就是「一个字一行的竖排」——人类 2026-08-26 截图
+                  实测原话「模板的 title 有点问题，不要是竖的，美观有问题」。同一行里那个
+                  `{{key}}` 徽章也会被裁掉半截（截图里 `{{resource_considera` 断在中间）。
+
+                  加 `whitespace-nowrap` 治不了根：1 格宽 ≈ 68mm/12，「核心合作伙伴」六个字
+                  横排本来就放不下，只会从竖排变成溢出。真正的修法是「分行」——参照设计里
+                  （PESTEL / 用户画像 / AI 战略画布）标题也都是独占一行、说明文字在它下面。
+              */}
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-11 font-bold leading-tight" title={s.name || "未命名"}>
+                  {s.name || "未命名"}
                 </span>
-                <span
-                  className={`ml-auto whitespace-nowrap text-9 ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
-                  data-testid={overflowed ? `tpladmin-editor-overflow-${s.sectionId}` : undefined}
-                >
-                  {overflowed
-                    ? `装不下：${values!.length} 条 / 位置只够 ${capacity} 条`
-                    : isList
-                      ? `${layout.cols} 列 · 最多 ${layout.max} 条`
-                      : "文本"}
-                </span>
+                <div className="flex min-w-0 items-baseline gap-1.5">
+                  <span className="truncate font-mono text-9 text-primary" title={`{{${s.key}${isList ? "[]" : ""}}}`}>
+                    {`{{${s.key}${isList ? "[]" : ""}}}`}
+                  </span>
+                  <span
+                    className={`ml-auto shrink-0 whitespace-nowrap text-9 ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
+                    data-testid={overflowed ? `tpladmin-editor-overflow-${s.sectionId}` : undefined}
+                  >
+                    {overflowed
+                      ? `装不下：${values!.length} 条 / 位置只够 ${capacity} 条`
+                      : isList
+                        ? `${layout.cols} 列 · ${layout.max} 条`
+                        : "文本"}
+                  </span>
+                </div>
               </div>
               <div
                 className="grid flex-1 content-start gap-1 overflow-hidden"
@@ -203,6 +261,23 @@ export function TemplateCanvasGrid({
           );
         })}
       </div>
+
+      </div>
+
+      {/*
+        页脚带：署名 / 版权行。⚠ 老 spec 里「没有」这件事实，19 个内置模板回填一律留空
+        （见 `backfill-canvas-builtin-templates.ts` 文件头）——照着参照图把某个署名写进
+        代码等于凭空断言作品出处。由人在编辑器里自己填。
+      */}
+      {footer !== "" && (
+        <div
+          className="leading-tight"
+          style={{ fontSize: "1.2cqw", paddingTop: "0.6%", color: "#6B6862" }}
+          data-testid="tpladmin-editor-canvas-footer"
+        >
+          {footer}
+        </div>
+      )}
 
       {placed.length === 0 && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

@@ -27,6 +27,13 @@ export interface UpdateTemplateMetadataInput {
   readonly version: number;
   readonly displayName: string;
   readonly tags?: readonly string[];
+  /**
+   * 版面装帧。⚠ 省略与空串在这里**同义**，都表示"不画那一带"——但两者在 HTTP 上是
+   * 不同的请求体，所以归一必须发生在这一层，仓储永远收到真字符串。同 `tags` 的
+   * `?? []`：让仓储去判 undefined 就等于把同一件事在两处各判一遍。
+   */
+  readonly title?: string;
+  readonly footer?: string;
 }
 
 export async function updateTemplateMetadata(
@@ -42,6 +49,8 @@ export async function updateTemplateMetadata(
     version: input.version,
     displayName: input.displayName,
     tags: input.tags ?? [],
+    title: input.title ?? "",
+    footer: input.footer ?? "",
   });
 
   if (!outcome.updated) {
