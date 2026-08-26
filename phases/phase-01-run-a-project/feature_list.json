@@ -5333,14 +5333,14 @@
         "F974"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "22",
-      "owner": null,
+      "owner": "dev-chat-e2e-f976",
       "verification": [
         "pnpm --filter api exec vitest run tests/plan-control/pause-resume-run.test.ts",
         "pnpm --filter api exec vitest run tests/plan-control/retry-step-and-control-audit.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F976.verify.log @ 2026-08-27T00:13:23.780Z",
       "notes": "覆盖 UC-9 pausePlanRun + UC-13 resumePlanRun + UC-10 retryPlanStep；不变量 I-12/I-13。⚠ 裁决 (c)：不含 restoreCheckpoint（UC-11 已删），verification 不要求第三个恢复动作——TW-P0-3 如实封顶 0.7。暂停/恢复是 LangGraph 标准原语（langgraph-api==0.12.4 实测），本束写规则不发明协议。⚠ 实现期探针 P-2（domain ⑤/coverage 缺口 3）：远端 run_id 是否已持久化到 agent_runs 未核实，开工第一件事跑；若无先补一条 run_id 记账。审计复用 agent-runtime ProvenanceWriter（XC-D）。依据等级 [设计]。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
     },
     {

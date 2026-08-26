@@ -2,7 +2,7 @@ $ pnpm --filter web exec vitest run tests/ui/plan-control-edit-mode.test.tsx
 [exit 1]
 [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
 
- RUN  v2.1.9 /private/tmp/f977-merge/apps/web
+ RUN  v2.1.9 /private/tmp/f976-merge/apps/web
 
 filter:  tests/ui/plan-control-edit-mode.test.tsx
 include: tests/**/*.test.ts, tests/**/*.test.tsx
@@ -10,7 +10,7 @@ exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,out
 
 No test files found, exiting with code 1
 undefined
-/private/tmp/f977-merge/apps/web:
+/private/tmp/f976-merge/apps/web:
  ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/plan-control-edit-mode.test.tsx
 
-[harness-verify v1 sha256=328e0d30cb8944e29c6d604991aaf07c1b6fd3f20b2a3ad121cf8d654dfcdb27 commit=3201b124dbab8b1c20a8c92dca1c12f73c760583 at=2026-08-26T23:25:36.041Z]
+[harness-verify v1 sha256=dca46aed8728f05a5619faaf3e603a697dba6f355dcd1fd11ff778008a838163 commit=ca6d50c5412fc77deb5c5e3603ae88fd1da8fa65 at=2026-08-27T00:13:24.230Z]

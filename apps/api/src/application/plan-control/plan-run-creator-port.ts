@@ -14,6 +14,13 @@ export interface PlanRunCreatorInput {
   readonly orgId: OrgId;
   readonly threadId: string;
   readonly actorId: string;
+  /**
+   * F976 —— UC-13 `resumePlanRun` / UC-10 `retryPlanStep` reuse this SAME "start the next
+   * turn" mechanism with different synthetic wording (not a free-text field a user typed --
+   * neither UC's `in` shape has one). Omitted ⇒ the confirm-plan wording (F975's original,
+   * unchanged default).
+   */
+  readonly messageText?: string;
 }
 
 export interface PlanRunCreatorOutput {
@@ -22,10 +29,11 @@ export interface PlanRunCreatorOutput {
 
 export interface PlanRunCreator {
   /**
-   * Starts the next turn on this thread as "the user confirmed the plan, proceed" (I-10's
-   * "下一轮 run"). Throws on any failure -- `confirm-plan.ts` maps that to
-   * `PLAN_DELIVERY_FAILED` (fail closed, I-10: a run that could not be created is not a
-   * half-delivered one, it is simply not created).
+   * Starts the next turn on this thread (I-10's "下一轮 run" for UC-7 `confirmPlan`; the
+   * same mechanism F976 reuses, with different wording, for UC-13/UC-10). Throws on any
+   * failure -- callers map that to their own fail-closed error (`confirm-plan.ts` ->
+   * `PLAN_DELIVERY_FAILED`; a run that could not be created is not a half-delivered one,
+   * it is simply not created).
    */
   createConfirmedRun(input: PlanRunCreatorInput): Promise<PlanRunCreatorOutput>;
 }
