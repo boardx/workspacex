@@ -1092,7 +1092,18 @@ describe("lint-permission-paths: counter-proof", () => {
     // 自己的租户表；（b）都不调用 `withoutTenant`；（c）`ciphertext` 只写不读；
     // （d）两条用例的 admin 判定都在仓储调用之前。删那个测试则这两条条目须一并删。
     // 两个条目算两次，所以是 +2 不是 +1。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(81);
+    //
+    // ⚠ Raised 81 -> 82 by F973（plan-control 契约束，UC-1 getPlanLedger + UC-2
+    // ingestEnginePlanSnapshot）：新增 `pg-plan-ledger-repository.ts`（`chat_plan_ledgers`/
+    // `chat_plan_orphan_constraints`/`agent_runs`）。写路径（`ingestEnginePlanSnapshot`）
+    // 只从 `copilotkit-agui.controller.ts` 已经过 `acceptHumanMessage` 授权判定的轮次内部
+    // 触达，不是第二道未判定的门；读路径（`getPlanLedger`）本 feature 未接任何 HTTP
+    // controller。被强制的前提：`tests/plan-control/plan-ledger-repo-guard.test.ts`
+    // 机械断言（a）只命名这三张表；（b）不调用 `withoutTenant`；（c）`src/interface/`
+    // 下只有 `copilotkit-agui.controller.ts` 引用写路径；（d）没有任何 `src/interface/`
+    // 文件引用读路径（一旦 F977 之后接了真实 GET 路由，这条会先红，提醒改掉这条豁免）。
+    // 删那个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(82);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
