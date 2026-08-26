@@ -1137,6 +1137,14 @@ function CopilotKitV2PanelBody({
     if (initialChatThreadId !== null) setResolvedChatThreadId(initialChatThreadId);
   }, [initialChatThreadId]);
 
+  /**
+   * issue #2101（真实 devapp 实测：新对话第一条消息瞬时出现两条重复气泡，AI 回复
+   * 到达后又恢复正常）—— 见下面 hydration effect 的守卫。这里只负责在"本轮第一次
+   * 把线程 id 从 `null` resolve 出来"那一刻置位，供那个 effect 判断"这条线程是不是
+   * 我自己这一轮刚建的、内存态本来就是最新的，不需要回读"。
+   */
+  const resolvedDuringThisSessionRef = React.useRef(false);
+
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
       onCustomEvent: ({ event }) => {
@@ -1148,7 +1156,14 @@ function CopilotKitV2PanelBody({
           // issue #2021 —— 只有"这是后端第一次告诉我们它创建了一条新线程"才需要通知
           // 外壳写回地址栏；`initialChatThreadId` 非空时 `chatThreadIdRef.current` 从
           // 挂载起就已经是这个值，这个分支不会为一次续聊触发。
-          if (isNewlyResolved) onThreadResolved?.(event.value);
+          if (isNewlyResolved) {
+            // issue #2101 —— 必须在 `onThreadResolved` 之前（同步）置位：那个回调会让
+            // 外壳把 `selectedThreadId` 写回，进而让 `initialChatThreadId` prop 从 null
+            // 变成真实 id、触发下面 hydration effect 重跑——这个 ref 得先于那次重渲染
+            // 就是 true，effect 才能在第一次因依赖变化执行时就看到它。
+            resolvedDuringThisSessionRef.current = true;
+            onThreadResolved?.(event.value);
+          }
         }
       },
     });
@@ -1205,7 +1220,21 @@ function CopilotKitV2PanelBody({
    */
   const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
   React.useEffect(() => {
-    if (initialChatThreadId === null || !isReady || hydratedRef.current) return;
+    if (
+      initialChatThreadId === null || !isReady || hydratedRef.current
+      // issue #2101 —— `initialChatThreadId` 从 `null` 变成真实 id 有两种截然不同的
+      // 原因：① 外壳传入一条**既有**线程（用户点开历史对话/刷新页面）——这时内存里
+      // `agent.messages` 是空的，必须回读；② **本轮**（`send()` 里乐观插入用户消息之
+      // 后）后端才把线程 id resolve 出来并经 `onCustomEvent` 回显——这时内存里已经有
+      // 这条刚发的用户消息（乐观插入，客户端随机 id），若仍然回读，`readAllPersisted
+      // Messages` 一旦跑得比 `acceptHumanMessage` 落库快，会读到同一句用户消息的
+      // **另一个** id（真实主键），而下面的按 id 去重（`liveIds`）认不出这是同一条
+      // ——两个 id 都进了 `agent.messages`，UI 上瞬间两条重复气泡（AI 回复到达后
+      // "看起来正常"只是巧合：那次读取时机赶在落库之后，不是这条 race 被修好了）。
+      // `resolvedDuringThisSessionRef` 精确标记情形②，只在情形②跳过——情形①从不
+      // 触碰这个 ref，行为不变。
+      || resolvedDuringThisSessionRef.current
+    ) return;
     let cancelled = false;
     (async () => {
       try {
