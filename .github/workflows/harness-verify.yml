@@ -339,9 +339,28 @@ jobs:
     # ⚠ 代价要说清楚：**PR 上不再跑全量单测**（4500+ 条）。一个只被 e2e-full 覆盖的
     #   回归，现在最早在 tag 发布或下一个 3 小时定时才会暴露，而不是在 PR 上。
     #   这是刻意换来的速度，不是疏忽 —— 谁要改回去，改这一行即可。
+    #
+    # ⚠ 2026-08-26（#2084）：补上第三段——让 `workflow_dispatch` 的 `run_e2e_full`
+    # 输入**真的起作用**。在此之前它是个**不通电的开关**：有名字、有描述、有
+    # `default: true`，但全文没有任何 `if:` 读它（`grep -n run_e2e_full` 只命中它
+    # 自己的声明那一行）。dispatch 能满足本条件，纯粹是因为它既不是 `pull_request`
+    # 也不是 `schedule` —— **把框勾掉照跑**。
+    #
+    # 为什么是"接上"而不是"删掉"：dispatch 上只有两个 job 会跑（其余四个都带
+    # `!= 'workflow_dispatch'` 或 `== 'pull_request'`，实测 run 32913279810 印证：
+    # 只有 `e2e-full` 与 `fullstack-smoke` 执行）。所以关掉 `e2e-full` 之后**还剩
+    # `fullstack-smoke`（实测 ~7 min）** —— 那是一个真能力：「在我自己分支上只跑
+    # 7 分钟 smoke，不付 60 分钟的 e2e-full」。删掉 input 等于把这个能力一起删了。
+    #
+    # ⚠⚠ 必须用 `inputs.run_e2e_full`，**不能**写成 `github.event.inputs.run_e2e_full`：
+    # 后者对 `type: boolean` 返回的是**字符串** `"false"`，而非空字符串在 `if` 里是
+    # **truthy** ⇒ 条件照样恒真 ⇒ **改完的行为和没改一模一样，但看起来改过了**。
+    # 这个修复自带假绿陷阱，改本行前先读这段。反证见 #2084：不是验"设 true 会跑"
+    # （那和现状一样，什么都证明不了），而是**在真实 dispatch 上验"设 false 真的不跑"**。
     if: >-
       github.event_name != 'pull_request' &&
-      (github.event_name != 'schedule' || github.event.schedule == '30 */3 * * *')
+      (github.event_name != 'schedule' || github.event.schedule == '30 */3 * * *') &&
+      (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
     runs-on: ubuntu-latest
     # ⚠ 2026-08-26（#2084）：35 → 75。**这不是"给它多一点余量"，是 35 从来就没有可行过。**
     #
