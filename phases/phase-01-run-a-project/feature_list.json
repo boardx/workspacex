@@ -5355,9 +5355,9 @@
         "F973"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "22",
-      "owner": null,
+      "owner": "dev-chat-e2e-f977",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/plan-control-phase-indicator.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/plan-control-panel-readonly.test.tsx"

@@ -329,6 +329,7 @@ import { RoutingModelCallPort } from "./infrastructure/agent-run/routing-model-c
 import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor";
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
+import { PlanControlController } from "./interface/controllers/plan-control.controller";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 import { ChatFollowUpSuggestionsController } from "./interface/controllers/chat-followup-suggestions.controller";
 import { FOLLOWUP_MODEL_CONFIG } from "./application/chat/generate-followup-suggestions";
@@ -745,6 +746,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     RecordingController,
     AgentRunController,
     CopilotkitAguiController,
+    // F977 (plan-control 契约束).
+    PlanControlController,
     AgentTrialRunController,
     SkillTrialRunController,
     AgentController,
