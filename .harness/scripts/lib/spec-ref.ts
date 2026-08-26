@@ -19,9 +19,56 @@ import { join } from "node:path";
 import { findPhaseDir } from "./paths";
 import { loadRoadmap } from "./roadmap";
 import { renderTemplateFile } from "./render";
+import { parseFrontmatter, frontmatterString } from "./frontmatter";
 
 const SPEC_REF_RE = /^([^#]+\.md)#(R\d+)$/;
 const SECTION_HEADING_RE = (id: string) => new RegExp(`^##\\s+${id}\\b`, "m");
+
+// ── 契约束锚点（2026-08-26，人类裁决方案 3）──────────────────────────────
+// 背景：契约先行的束（`plan-control` / `agent-interrupts`）先签核、后生成
+// `requirements/` 里的 story——这是流程顺序决定的，不是缺失。此前两条线各自
+// 撞上「spec_ref 必须指向 requirements/*.md#R<n>」这道门：一条留空诚实登记
+// （agent-interrupts，PR #2146），一条借用了无关 feature 的锚点（plan-control
+// 借 08-chat/uc-8-2，导致那个 feature 的估点漂移检查跟着假红）。
+//
+// 方案 3：教 `resolveSpecRef` 认「已签核的契约束本身」为等价锚点，格式：
+//   `contracts/<bundle>#confirmed`
+// 与 `requirements/<file>.md#R<n>` 形式（下面的 SPEC_REF_RE）在语法上互斥
+// （不含 `.md`，`#` 后固定是字面量 `confirmed` 而不是 `R\d+`），不会互相误判。
+//
+// 解析规则（三层，任一层失败都判不可解析——与 requirements 锚点同一纪律）：
+//   1. `phases/<phase>/contracts/<bundle>/design-signoff.md` 必须存在；
+//   2. 必须能解析出 frontmatter；
+//   3. frontmatter 的 `status` 必须恰好是 `confirmed`——`pending` 或缺失都判红，
+//      不能因为路径存在就放行（本仓「签了才算数」纪律的延伸）。
+const CONTRACT_REF_RE = /^contracts\/([^/#]+)#confirmed$/;
+
+function resolveContractRef(phaseId: string, bundle: string): SpecRefResult {
+  let dir: string;
+  try {
+    dir = findPhaseDir(phaseId);
+  } catch (e) {
+    return { ok: false, reason: `找不到 Phase ${phaseId} 的目录：${(e as Error).message}` };
+  }
+  const signoffPath = join(dir, "contracts", bundle, "design-signoff.md");
+  if (!existsSync(signoffPath)) {
+    return {
+      ok: false,
+      reason: `spec_ref 指向的契约束 design-signoff.md 不存在：phases/phase-${phaseId}-*/contracts/${bundle}/design-signoff.md`,
+    };
+  }
+  const fm = parseFrontmatter(signoffPath);
+  const status = frontmatterString(fm, "status");
+  if (status !== "confirmed") {
+    return {
+      ok: false,
+      reason:
+        `spec_ref 指向的契约束「${bundle}」尚未签核（status: ${status || "（缺失）"}）—— ` +
+        `只有 status: confirmed 才能当锚点，这是人的动作，不能靠路径存在放行`,
+    };
+  }
+  return { ok: true };
+}
 
 /** 某份需求文档是不是刚 scaffold 出来、没人碰过的裸模板。 */
 function isUnfilledTemplate(phaseId: string, body: string): boolean {
@@ -77,9 +124,19 @@ export function resolveSpecRef(phaseId: string, specRef: string | undefined | nu
   if (!specRef || !specRef.trim()) {
     return { ok: false, reason: "缺少 spec_ref（每个 feature 必须指向 requirements/ 下的一个 story 章节）" };
   }
-  const m = SPEC_REF_RE.exec(specRef.trim());
+  const trimmed = specRef.trim();
+  const cm = CONTRACT_REF_RE.exec(trimmed);
+  if (cm) {
+    return resolveContractRef(phaseId, cm[1]!);
+  }
+  const m = SPEC_REF_RE.exec(trimmed);
   if (!m) {
-    return { ok: false, reason: `spec_ref 格式不对："${specRef}"，应为 "<文件名>.md#R<n>"（如 auth.md#R3）` };
+    return {
+      ok: false,
+      reason:
+        `spec_ref 格式不对："${specRef}"，应为 "<文件名>.md#R<n>"（如 auth.md#R3）` +
+        `或 "contracts/<束>#confirmed"（已签核的契约束锚点）`,
+    };
   }
   const [, file, sectionId] = m as unknown as [string, string, string];
   let dir: string;

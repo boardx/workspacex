@@ -29,7 +29,9 @@ export function claim(args: Args): void {
       die(
         `${featureId} 不能认领：${r.reason}\n` +
           `  先在 phases/phase-${phaseId}-*/requirements/ 下补一份 story（用 .harness/templates/requirements.template.md），` +
-          `再把 feature_list.json 里 ${featureId} 的 spec_ref 填成 "<文件名>.md#R<n>"。`
+          `再把 feature_list.json 里 ${featureId} 的 spec_ref 填成 "<文件名>.md#R<n>"；` +
+          `若本 feature 属于契约先行的束（先签核、后补 requirements story），` +
+          `可改填 "contracts/<束>#confirmed"（前提：该束 design-signoff.md 的 status 已是 confirmed）。`
       );
     }
   }

@@ -5129,6 +5129,7 @@
       "capability": "CAP-API",
       "title": "三种 HITL 中断的契约内核：agent-interrupts.ts zod 骨架 + 跨语言工具名门控 + ARGS_MAX_CHARS 豁免 + 部署投影扩容",
       "user_visible_behavior": "对用户不是一块独立界面，而是让后面三张中断卡能真实工作的共享内核：① 三个具名虚拟工具（confirm_task_intent / fill_run_params / choose_execution_option）的 args 形状与统一失败枚举 AgentInterruptError（8 码）在 packages/contracts/src/agent-interrupts.ts 有唯一 zod 事实源；② fill_params 多字段 + choose_option 2–3 张选项卡的长 args 不再被默认 500 字符截断成非法 JSON（三个工具名进入 ARGS_MAX_CHARS 豁免清单）；③ Python 侧 @tool 三个函数名/参数名与 TS 契约逐字一致（跨语言门控测试守，任一处漂移即红）；④ DEEP_AGENT_HITL_TOOLS 环境变量投影链扩到四个工具名。",
+      "spec_ref": "contracts/agent-interrupts#confirmed",
       "depends_on": [],
       "points": 3,
       "status": "not_started",
@@ -5150,6 +5151,7 @@
       "capability": "CAP-CHAT",
       "title": "目标复述卡（confirm_intent）：执行前复述理解+≥2条假设，未确认不执行任何工具；可继续或改假设",
       "user_visible_behavior": "AI 在执行前于对话流内弹出一张「目标复述卡」（与既有 call_skill 审批卡同一插槽），显示一句「理解」文本 + ≥2 条只读假设列表，卡片下方有一条「后续步骤未开始」门控说明条；用户点「继续」→ approve resume，任务继续；点「改假设」→ 每条假设变可编辑文本框（可增删），提交 → edit resume，用编辑后的完整假设列表重新确认一次；在用户确认之前，该 run 不执行任何后续工具调用（未确认不往下走）。",
+      "spec_ref": "contracts/agent-interrupts#confirmed",
       "depends_on": [
         "F212"
       ],
@@ -5171,6 +5173,7 @@
       "capability": "CAP-CHAT",
       "title": "参数补全表单（fill_params）：AI 猜测字段高亮+依据，逐字段可改；改动走 full-rerun/ledger-only 两态（诚实降级）",
       "user_visible_behavior": "AI 需要参数时弹出「参数补全表单」，每个字段一行：AI 猜过的字段单独高亮 + 「AI 建议」徽标 + 一句依据文案（有猜测必有依据）；纯人工必填字段（aiGuess=null）不带高亮，走既有「必填未填」校验态；提交按钮文案随是否有改动切换——全部未改显示「接受」（approve），有改动显示「应用」（edit）；有改动时出现 full-rerun / ledger-only 二选一，选 ledger-only 时显示提示「本步骤执行中，改动将在完成后生效」。⚠ 明确不是「精确子集重跑」：编辑一个字段可能触发比预期更大范围的全量重跑（诚实降级，文案如实告知）。",
+      "spec_ref": "contracts/agent-interrupts#confirmed",
       "depends_on": [
         "F212"
       ],
@@ -5193,6 +5196,7 @@
       "capability": "CAP-CHAT",
       "title": "多方案对比卡（choose_option）：2–3 张等宽卡固定三项对照，选中即 resume（optionId 回指）",
       "user_visible_behavior": "AI 给出 2–3 个执行方案时弹出「多方案对比」：等宽卡横排，每张卡固定三行对照（见效 / 投入 / 预计收益，顺序固定）；点整张卡即选中（黑描边+勾标）并立即 resume（不设二次确认）；resume 载荷用 optionId 回指（不用数组下标，避免并发/重渲染重排时静默选错）；提供「都不要」逃生口（reject）；若选中的 optionId 不在原始选项集合里，返回 SELECTED_OPTION_NOT_FOUND，不静默执行错误方案。",
+      "spec_ref": "contracts/agent-interrupts#confirmed",
       "depends_on": [
         "F212"
       ],
@@ -5215,6 +5219,7 @@
       "capability": "CAP-API",
       "title": "中断决策统一守卫：8 错误码 fail-closed（权限/kind不符/失效/畸形/审计写不进）+ XC-59 反证 PlanPhase 不被误判为审批",
       "user_visible_behavior": "对任意一张中断卡做决策时，共享一套 fail-closed 守卫：观察者/无写权→拒绝（NO_WRITE_ROLE，观察者恒无写权）；对该线程无可见权→NOT_VISIBLE；当前线程无本束任一 pending 中断→NO_ACTIVE_INTERRUPT；决策载荷隐含 kind 与当前 pending 中断 kind 不符（如对 confirm_intent 发 choose_option 形状）→INTERRUPT_KIND_MISMATCH；中断已被另一标签页决策→STALE_INTERRUPT；resume 载荷既非已知字面量也非合法 JSON→MALFORMED_RESUME_PAYLOAD；决策写不进审计→整个 resume 失败（AUDIT_SINK_UNAVAILABLE，与 ProvenanceWriter 同 fail-closed 纪律）。且当线程仅有 agent-interrupts 三种中断、没有 call_skill 审批时，用户不会看到被误贴的「审批」文案。",
+      "spec_ref": "contracts/agent-interrupts#confirmed",
       "depends_on": [
         "F212"
       ],
