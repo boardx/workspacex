@@ -341,7 +341,24 @@ describe("设计 token 单一事实源", () => {
     const declared = [...root.matchAll(/--([a-z0-9-]+)\s*:\s*[\d.]+\s+[\d.]+%\s+[\d.]+%/g)].map((m) => m[1]!);
     const bases = declared.filter((k) => !k.endsWith("-foreground"));
     const structural = new Set(["border", "border-subtle", "input", "ring"]);
+    /*
+     * issue #2075 —— **状态变体**（`<base>-hover`）不是一个新色面：它和基础 token
+     * 共用同一份前景色。给它单独配一份 `--<base>-hover-foreground` 恰恰是本仓最忌讳的
+     * 「同一事实声明在两处」——两份前景色迟早会各改各的。
+     *
+     * 但豁免不能白给，否则一个拼错的 `--primry-hover` 会从这个口子溜过去。代价是
+     * 状态变体必须证明**它的基础 token 真的存在、且那个基础 token 自己有配对前景色**。
+     * 净效果比原来严：原判据只查 `-foreground` 在不在，不查 token 名有没有拼错。
+     */
+    const STATE_SUFFIXES = ["-hover"];
     bases.filter((b) => !structural.has(b)).forEach((b) => {
+      const suffix = STATE_SUFFIXES.find((s) => b.endsWith(s));
+      if (suffix !== undefined) {
+        const base = b.slice(0, -suffix.length);
+        expect(declared, `--${b} 是状态变体，但基础 token --${base} 不存在（拼错了？）`).toContain(base);
+        expect(declared, `--${b} 的基础 token --${base} 必须有配对 --${base}-foreground`).toContain(`${base}-foreground`);
+        return;
+      }
       expect(declared, `--${b} 缺少配对 --${b}-foreground`).toContain(`${b}-foreground`);
     });
   });
