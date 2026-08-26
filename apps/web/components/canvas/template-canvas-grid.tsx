@@ -29,12 +29,17 @@ import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-edi
 const GRID_ROWS = 8;
 
 export function TemplateCanvasGrid({
-  sections, gridCols, showSample, selectedId, editable,
+  sections, gridCols, showSample, runData, selectedId, editable,
   onSelect, onPlace, onMove,
 }: {
   readonly sections: readonly SectionDraft[];
   readonly gridCols: 6 | 12;
   readonly showSample: boolean;
+  /**
+   * 试运行数据：AI 输出 JSON 的形状（`{ [key]: string | string[] }`）。
+   * 非 null 时**压过**样例开关——人类既然给了真数据，就不该再看见占位文案。
+   */
+  readonly runData: Readonly<Record<string, unknown>> | null;
   readonly selectedId: string | null;
   readonly editable: boolean;
   readonly onSelect: (sectionId: string) => void;
@@ -132,7 +137,12 @@ export function TemplateCanvasGrid({
           const isList = s.type === "便利贴列表";
           // 实际渲染几条：受"最多条数"与"这块地方放得下几条"双重约束——
           // 画出来的东西不能比物理上放得下的还多，那是在骗人。
-          const noteCount = isList ? Math.min(layout.max, Math.max(0, geom.fits)) : 1;
+          const capacity = isList ? Math.min(layout.max, Math.max(0, geom.fits)) : 1;
+          // 试运行时条数由**数据**决定（但仍夹在物理容量内）——这正是试运行要回答的问题：
+          // 「我这条数据放进去，装得下吗？」预置成容量上限就永远装得下，等于没问。
+          const values = runData === null ? null : valuesFor(s, runData);
+          const noteCount = values === null ? capacity : Math.min(capacity, Math.max(1, values.length));
+          const overflowed = values !== null && values.length > capacity;
           return (
             <div
               key={s.sectionId}
@@ -156,8 +166,15 @@ export function TemplateCanvasGrid({
                 <span className="font-mono text-9 text-primary">
                   {`{{${s.key}${isList ? "[]" : ""}}}`}
                 </span>
-                <span className="ml-auto whitespace-nowrap text-9 text-muted-foreground">
-                  {isList ? `${layout.cols} 列 · 最多 ${layout.max} 条` : "文本"}
+                <span
+                  className={`ml-auto whitespace-nowrap text-9 ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
+                  data-testid={overflowed ? `tpladmin-editor-overflow-${s.sectionId}` : undefined}
+                >
+                  {overflowed
+                    ? `装不下：${values!.length} 条 / 位置只够 ${capacity} 条`
+                    : isList
+                      ? `${layout.cols} 列 · 最多 ${layout.max} 条`
+                      : "文本"}
                 </span>
               </div>
               <div
@@ -169,8 +186,8 @@ export function TemplateCanvasGrid({
                     key={i}
                     className="overflow-hidden rounded-control px-1 py-0.5 leading-tight"
                     style={{
-                      background: showSample && isList ? TONE_COLORS[layout.tone] ?? TONE_COLORS[0] : "transparent",
-                      border: showSample && isList ? "none" : "1px dashed #C9C5BB",
+                      background: (showSample || values !== null) && isList ? TONE_COLORS[layout.tone] ?? TONE_COLORS[0] : "transparent",
+                      border: (showSample || values !== null) && isList ? "none" : "1px dashed #C9C5BB",
                       // 字号由贴纸实尺推导（`Design.pdf` §5 末段：不能写成固定值，
                       // 否则小贴纸会裁字）。
                       fontSize: `${noteFontSizePx(geom.noteMm, isList)}px`,
@@ -178,7 +195,7 @@ export function TemplateCanvasGrid({
                       minHeight: isList ? 0 : 18,
                     }}
                   >
-                    {showSample ? sampleTextFor(s, i) : ""}
+                    {values !== null ? values[i] ?? "" : showSample ? sampleTextFor(s, i) : ""}
                   </div>
                 ))}
               </div>
@@ -196,6 +213,27 @@ export function TemplateCanvasGrid({
       )}
     </div>
   );
+}
+
+/**
+ * 试运行数据里属于这个分区的那几条。
+ *
+ * ## 缺 key 与"给了空数组"是**两回事**
+ *
+ * 分区没有 `key`（人类还没填）⇒ 数据里根本没有它的位置 ⇒ 返回**空数组**，画布上是空贴纸。
+ * 这与"给了 `[]`"渲染成同一个样子，是刻意的：两种情况下这块地方**确实**没有内容可显示，
+ * 而在画布上编一个"未配置"的红字会把排版预览变成一张错误清单。缺 key 的告警归
+ * `checkTemplateHealth`（右栏那块），不归这里——同一件事不在两处声明。
+ *
+ * ⚠ 非数组的值（人类给列表分区填了一个字符串）**不静默丢弃**，包成单条。丢掉它会让
+ *   试运行显示"这条数据装得下"，而实际上那条数据压根没进来过。
+ */
+function valuesFor(s: SectionDraft, data: Readonly<Record<string, unknown>>): readonly string[] {
+  if (!s.key) return [];
+  const raw = data[s.key];
+  if (raw === undefined || raw === null) return [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  return list.map((v) => (typeof v === "string" ? v : JSON.stringify(v)));
 }
 
 /**

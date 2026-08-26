@@ -360,3 +360,61 @@ test("Design.pdf §7 第 6/7 条：纸面与内容区比值精确，且贴纸内
   });
   expect(clippedAfter).toBe(0);
 });
+
+/**
+ * 人类 2026-08-26 原话：「在编辑界面需要有一个试运行的按钮，用户输入数据需要可以渲染出来结果」。
+ *
+ * ⚠ 本用例断言的是**画布上真的出现了那几个字**，不是"按钮点得动"。试运行最容易做成
+ *   一个点了有反应、但渲染路径根本没接上的按钮——那种实现下按钮态、抽屉、校验全都对，
+ *   只有贴纸上是空的，而空贴纸与"数据还没渲染"在截图上完全同形。
+ */
+test("Design.pdf 补充 · 试运行：填一份数据，画布上渲染出真实内容", async ({ page }) => {
+  const failures: string[] = [];
+  page.on("pageerror", (e) => failures.push(`page error: ${e.message}`));
+
+  await loginAsAdmin(page);
+  await openLibrary(page);
+
+  const stamp = String(Date.now()).slice(-6);
+  const key = await createWithTags(page, `试运行验收 ${stamp}`, []);
+  await expectCardGrid(page);
+  await page.getByTestId(`tpladmin-card-${key}-1`).click();
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+
+  // 加一个字段并拖到画布上——没有已放置的区块，试运行没有可渲染的地方。
+  await page.getByTestId("tpladmin-editor-new-key").fill("pains");
+  await page.getByTestId("tpladmin-editor-new-name").fill("痛点");
+  await page.getByTestId("tpladmin-editor-new-add").click();
+  await page.getByTestId("tpladmin-editor-field-pains").dragTo(page.getByTestId("tpladmin-editor-canvas"));
+  const block = page.getByTestId("tpladmin-editor-block-pains");
+  await expect(block).toBeVisible();
+
+  // 打开试运行：抽屉出现，且**自动填好骨架**（空文本框等于把"要什么形状"丢回给人类）。
+  await page.getByTestId("tpladmin-editor-dryrun-toggle").click();
+  const drawer = page.getByTestId("tpladmin-editor-dryrun-drawer");
+  await expect(drawer).toBeVisible();
+  const input = page.getByTestId("tpladmin-editor-dryrun-input");
+  expect(JSON.parse(await input.inputValue())).toHaveProperty("pains");
+
+  // 填**自己的**数据并渲染 —— 断言这几个字真的出现在画布区块里。
+  await input.fill('{"pains": ["排队太久", "找不到入口", "价格看不懂"]}');
+  await page.getByTestId("tpladmin-editor-dryrun-run").click();
+  await expect(block).toContainText("排队太久");
+  await expect(block).toContainText("找不到入口");
+  await expect(block).toContainText("价格看不懂");
+
+  // 形状不对当场说，不静默渲染成空画布。
+  await input.fill("[1,2,3]");
+  await expect(page.getByTestId("tpladmin-editor-dryrun-error")).toContainText("顶层要是一个对象");
+  await expect(page.getByTestId("tpladmin-editor-dryrun-run")).toBeDisabled();
+
+  // 模板里没有的字段：明说"画不出来"，而不是让人类对着少一块的画布猜。
+  await input.fill('{"pains": ["A"], "nope": ["B"]}');
+  await expect(page.getByTestId("tpladmin-editor-dryrun-unknown")).toContainText("nope");
+
+  // 「还原」回到无数据态：那三条内容必须真的消失，不是被新数据盖住。
+  await page.getByTestId("tpladmin-editor-dryrun-clear").click();
+  await expect(block).not.toContainText("排队太久");
+
+  expect(failures).toEqual([]);
+});
