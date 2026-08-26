@@ -297,13 +297,50 @@ export const Citation = z.object({
   }).strict(),
 }).strict();
 
+/**
+ * 线程卡上的**任务状态** —— 五值封闭。
+ *
+ * 🔴 issue #2094（人类裁决落地，回指 #2068）：线程卡此前的第二行是 `agentSummary`，
+ * 一个自由字符串，取值由 `threadAgentSummary()` 产出 `` `${agentCount} 个 agent` ``。
+ * 人类 2026-08-26 审计原话：
+ *
+ * > 对话列表不可辨认——大量「新对话」，只显示 `0 个 agent`，无法寻找历史任务。
+ * > 改进方向：自动生成任务标题、状态、产物数量和更新时间。
+ *
+ * 裁决把那一行换成**三个结构化事实**：`title`（自动命名）、`status`（本枚举）、
+ * `artifactCount`。**不再是自由字符串**——自由字符串正是「0 个 agent」能长期活在
+ * 屏幕上、而没有任何门控发现它的原因（`ThreadCard.agentSummary` 是 `z.string()`，
+ * 装什么都合法）。
+ *
+ * ⚠ 五个取值**全部有真实数据源**，没有一个是画出来给人看的：
+ *   · `not-started` ⇐ 该线程一条消息都没有（devapp 实测 58 条线程里 36 条如此）
+ *   · `running` ⇐ 最近一次 `agent_runs.status ∈ {queued, running, writeback_pending}`
+ *   · `awaiting-approval` ⇐ 最近一次 run `status = awaiting_approval`（HITL 停在人这里）
+ *   · `failed` ⇐ 最近一次 run `status = failed`
+ *   · `done` ⇐ 最近一次 run `status = succeeded`；或有消息但一次 run 都没有
+ *
+ * ⚠ 枚举值是**领域取值，不是界面文案**。文案的唯一一处映射在
+ *   `apps/web/components/chat/thread-list-shell.tsx` 的 `THREAD_STATUS_LABEL`——
+ *   裸枚举词直接印上界面已被验收卡 `TW-COPY-1` 黑名单挡住（本仓 #728 栽过一次）。
+ */
+export const ThreadCardStatus = z.enum([
+  "not-started",
+  "running",
+  "awaiting-approval",
+  "failed",
+  "done",
+]);
+
 /** 线程卡。研究阶段与现场分组返回**完全一致的字段结构**，只有数据不同（AC1） */
 export const ThreadCard = z.object({
   id: z.string(),
   title: z.string(),
   subtitle: z.string(),
   badges: z.array(MessageBadge),
-  agentSummary: z.string(),
+  /** 🔴 #2094：取代 `agentSummary`。见 `ThreadCardStatus` 头注。 */
+  status: ThreadCardStatus,
+  /** 🔴 #2094：本线程已落地的产物数 ⇐ `chat_artifact_landings`，按调用者可见性过滤后计数。 */
+  artifactCount: z.number().int().nonnegative(),
   lastActivityAt: z.string(),
   visibilityScope: ChatVisibility,
 }).strict();

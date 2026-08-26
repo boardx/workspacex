@@ -51,7 +51,7 @@ export function OrchestrationPreview({
   return (
     <div
       data-testid="lc-orchestration-preview"
-      className="mx-auto flex min-h-screen max-w-6xl flex-col gap-3 bg-background p-4 text-foreground md:p-6"
+      className="mx-auto flex min-h-screen max-w-6xl flex-col gap-3 bg-background p-4 text-background-foreground md:p-6"
     >
       <MockBanner />
       <ViewerSwitcher role={role} screen={screen} />

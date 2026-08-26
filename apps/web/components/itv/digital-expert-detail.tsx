@@ -61,7 +61,7 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
           </div>
 
           <div className="mt-5 rounded-xl bg-muted/60 p-4 text-xs leading-6 text-muted-foreground">
-            <span className="font-medium text-foreground">使用边界：</span>{expert.materialBoundary}
+            <span className="font-medium text-background-foreground">使用边界：</span>{expert.materialBoundary}
           </div>
         </article>
       </div>

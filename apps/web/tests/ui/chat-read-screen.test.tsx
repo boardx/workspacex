@@ -169,7 +169,7 @@ function threadList(id: string, title: string) {
         title,
         subtitle: "",
         badges: [],
-        agentSummary: "agent-real",
+        status: "done", artifactCount: 0,
         lastActivityAt: "2026-08-04T00:00:00.000Z",
         visibilityScope: "plenary",
       }],

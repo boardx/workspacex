@@ -21,7 +21,7 @@ export default function ChatVizPreviewPage({
   const scene = resolveVizScene(searchParams.scene);
   const messages = vizMessages(scene);
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-background-foreground">
       <nav
         className="flex flex-wrap items-center gap-1.5 border-b border-border px-4 py-3"
         data-testid="chat-viz-scene-nav"

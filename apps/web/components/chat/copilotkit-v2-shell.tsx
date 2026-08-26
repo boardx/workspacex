@@ -9,9 +9,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
-import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatArtifactPreviewDialog } from "@/components/chat/chat-artifact-preview-dialog";
-import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
+import { ChatTaskInspector } from "@/components/chat/chat-task-inspector";
+import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { Input } from "@/components/ui/input";
 import {
   createPersonalThread, deleteThread, getAgentPanel, getThread, listPersonalThreads,
@@ -320,17 +320,40 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
 
   const [createPending, setCreatePending] = React.useState(false);
 
+  /**
+   * 🔴 issue #2094：**已有空线程时复用它，不再建第二条**（人类裁决的配套半边）。
+   *
+   * 裁决的主体是「把 `0 个 agent` 换成自动标题 + 状态 + 产物数」，但自动命名对
+   * **空线程**没有输入——一条没发过消息的线程叫什么都是编的。devapp 实测：
+   * 58 条线程里 **36 条是空的**，全都长着一模一样的「新对话」。也就是说人类抱怨的
+   * 「一屏全是新对话」有一多半根本不是命名问题，是**空线程在无限累积**。
+   *
+   * 所以这一半从源头掐：点「新建对话」时，如果已经有一条 `not-started` 的线程
+   * （服务端判定，见 `apps/api/src/domain/chat/thread-badges.ts` 的 `threadCardStatus`），
+   * 就直接进那一条。用户要的是「一个干净的地方开始」，不是「一条新纪录」。
+   *
+   * ⚠ **不做自动删除**。清掉旧空线程是删用户数据，而且空线程可能是用户故意留着
+   *   待会儿用的。复用是可逆的（发一条消息它就变成真线程），删除不是。
+   * ⚠ 判据用服务端下发的 `status`，**不在前端重算**「有没有消息」——前端手里根本
+   *   没有消息数据，重算只能靠猜，而且那就是第二处判定。
+   */
   const handleCreate = React.useCallback(async () => {
     if (!bearer) return;
     setCreatePending(true);
     try {
+      const reusable = (threads?.groups.flatMap((group) => group.cards) ?? [])
+        .find((card) => card.status === "not-started");
+      if (reusable) {
+        router.push(`/chat/${reusable.id}`);
+        return;
+      }
       const result = await createPersonalThread(null);
       await reloadThreads();
       router.push(`/chat/${result.threadId}`);
     } finally {
       setCreatePending(false);
     }
-  }, [bearer, reloadThreads, router]);
+  }, [bearer, reloadThreads, router, threads]);
 
   const selectThread = React.useCallback((threadId: string) => {
     if (threadId === selectedThreadId) return;
@@ -454,6 +477,24 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 顶部一个仅手机可见的开关在「对话列表 ↔ 当前对话」之间切换；≥md 两栏并排不变。
    * 路由跳转（选中线程/新建）天然重挂载本组件，`mobileListOpen` 自动归位。
    */
+  /**
+   * issue #2068（TW-P0-3 读半 / TW-P0-4）—— 右栏 Inspector 需要的三样「面板 body 里
+   * 才拿得到」的真实状态，由 `CopilotKitV2Panel` 经回调上抛。
+   *
+   * ⚠ 为什么是回调而不是把 `agent` 提上来：`agent` 由 `CopilotKit` provider 在面板
+   * 内部经 `useAgent()` 取得，提上来要么把 provider 边界推到外壳（会 remount 整条
+   * SSE 连接），要么在外壳再建一个第二实例（两条连接，两份 run 状态）。既有的
+   * `onMessageSent` / `onArtifactLanded` 已经是同一套「面板向外壳上报真实事件」的
+   * 模式，这三个是它的延续，不是新机制。
+   */
+  const [planTodos, setPlanTodos] = React.useState<readonly PlanTodo[] | null>(null);
+  const [runState, setRunState] = React.useState<{
+    readonly isRunning: boolean;
+    readonly phaseLabel: string | null;
+    readonly startedAt: number | null;
+  }>({ isRunning: false, phaseLabel: null, startedAt: null });
+  const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
+
   const [mobileListOpen, setMobileListOpen] = React.useState(false);
 
   return (
@@ -587,47 +628,53 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           key={initialThreadId ?? "new"}
           chatThreadId={selectedThreadId}
           onThreadResolved={handleThreadResolved}
-          onMessageSent={() => void loadRightPanel()}
+          /* 🔴 issue #2094 —— 除右栏外还要重读左栏线程列表。
+             自动命名与卡片状态都发生在服务端（首条消息落库时改 `chat_threads.title`，
+             `status` 由最近一次 run 派生），而侧栏此前只在挂载与增删线程时取一次。
+             于是服务端已经把标题改成任务名了，屏幕上那张卡还写着「新对话」——
+             真栈实测 `TW-P1-1` 红在这里，红的并不是服务端那一半
+             （`tests/chat/thread-card-projection.test.ts` 5 条全绿，证明起名真的发生了）。
+             ⚠ 复用既有的 `onMessageSent`，不新加 prop：panel 那侧是在途高冲突区
+             （#2072），而这个回调本来就是「一轮对话有动静了」这个事实，不是右栏专用的。 */
+          onMessageSent={() => {
+            void loadRightPanel();
+            void reloadThreads();
+          }}
           /* issue #2050 —— 落地成功后重读右栏「产物」，让新产物真的出现在栏里。 */
           onArtifactLanded={() => void loadRightPanel()}
+          /* issue #2068 —— 见上面三个 state 的注释：面板向外壳上报真实运行/计划状态。 */
+          onPlanTodosChange={setPlanTodos}
+          onRunStateChange={setRunState}
+          onPendingMaterialsChange={setPendingMaterialsCount}
           threadAttachments={materials?.items ?? null}
           archived={archived}
           canGeneratePersona={canGeneratePersona}
         />
       </div>
-      {/* issue #2046（CK-P1，人类 2026-08-25 原话「需要有右边的上传的文件列表和产物，
-          现在都没有」）—— 右栏原样复用旧壳的「产物 + 材料」堆叠（`personal-chat-screen.tsx`
-          #1824 同一布局、同一份组件、同一套空态/加载态/错误态），不另造第二份视觉。
-          `uploadCtl` 传 `null`：composer 的附件控制器（含附件线程生命周期）在面板
-          Body 层，上传入口已有 📎/全 surface 拖拽——材料栏本轮是读侧，不为一个
-          跨三层的状态提升画一个半通的「+」。DA-13 的 `ActiveFilePanel` 仍在面板内
-          （DA-15 事件至今没有真实生产者，生产环境不出现；等生产者落地再统一分区）。 */}
-      <aside
-        className="hidden w-72 shrink-0 flex-col border-l border-border md:flex"
-        data-testid="copilotkit-v2-right-panel"
-      >
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-b border-border-subtle">
-          <ChatArtifactsPanel
-            hasSelection={selectedThreadId !== null}
-            artifacts={artifacts}
-            loading={rightLoading}
-            error={artifactsError}
-            onRetry={() => void loadRightPanel()}
-            onOpen={(item) => setOpenArtifact({ artifactId: item.artifactId, title: item.title })}
-          />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          <ChatMaterialsPanel
-            hasSelection={selectedThreadId !== null}
-            threadId={selectedThreadId}
-            materials={materials}
-            loading={rightLoading}
-            error={materialsError}
-            onRetry={() => void loadRightPanel()}
-            uploadCtl={null}
-          />
-        </div>
-      </aside>
+      {/* issue #2068（TW-P0-4）—— 右栏从「产物 + 材料」固定两段堆叠换成四页签动态
+          Inspector（进度 / 材料 / 产物 / 运行详情），按真实信号自动切换、无内容折叠成
+          40px 图标栏。产物/材料两块仍是原来那两个组件（`ChatArtifactsPanel` /
+          `ChatMaterialsPanel`），只是移进页签里——不另造第二份视觉。
+          页签选择规则抽在 `lib/chat-task-inspector-tabs.ts`（有 vitest 逐条钉死）。
+          issue #2099（真实 devapp 实测：条目点了没反应）—— `onOpenArtifact` 打开下面
+          的只读预览弹窗；`ChatTaskInspector` 内部把它原样转给 `ChatArtifactsPanel`
+          的 `onOpen`，不在这一层重新实现点击逻辑。 */}
+      <ChatTaskInspector
+        hasSelection={selectedThreadId !== null}
+        threadId={selectedThreadId}
+        artifacts={artifacts}
+        materials={materials}
+        loading={rightLoading}
+        artifactsError={artifactsError}
+        materialsError={materialsError}
+        onRetry={() => void loadRightPanel()}
+        onOpenArtifact={(item) => setOpenArtifact({ artifactId: item.artifactId, title: item.title })}
+        pendingMaterialsCount={pendingMaterialsCount}
+        planTodos={planTodos}
+        isRunning={runState.isRunning}
+        runPhaseLabel={runState.phaseLabel}
+        runStartedAt={runState.startedAt}
+      />
       {/* issue #2099 —— 只读预览弹窗，Radix `Dialog` 自己 portal 到 body，挂在这个
           位置纯粹是"逻辑上属于这棵组件树"，不影响实际渲染层级。个人线程恒
           `projectId=null`（本壳从不传 projectId，与 `landAsArtifact`/`listThread

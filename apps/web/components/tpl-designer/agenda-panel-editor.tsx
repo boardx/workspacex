@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
 import { GripVertical } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -296,27 +298,24 @@ export function AgendaPanelEditor({
                   <GripVertical aria-hidden className="h-3.5 w-3.5" />
                 </span>
                 <span className="w-6 shrink-0 text-11 font-mono text-muted-foreground">{seg.no}</span>
-                <input
+                <Input
                   type="text"
-                  className="min-w-0 flex-1 rounded-md border border-border bg-background p-1 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="min-w-0 flex-1 text-12 font-medium"
                   value={seg.title}
                   onChange={(e) => updateSegment(i, { title: e.target.value })}
                   onBlur={() => void persist(value)}
                   placeholder="环节名称"
                   data-testid={`bp-agenda-segment-title-${i}`}
                 />
-                <label className="flex items-center gap-1 text-11" data-testid={`bp-agenda-segment-optional-wrap-${i}`}>
-                  <input
-                    type="checkbox"
-                    checked={seg.optional}
-                    onChange={() => toggleOptional(i)}
-                    data-testid={`bp-agenda-segment-optional-${i}`}
-                  />
-                  可选
-                </label>
-                <input
+                <Checkbox
+                  checked={seg.optional}
+                  onChange={() => toggleOptional(i)}
+                  label="可选"
+                  data-testid={`bp-agenda-segment-optional-${i}`}
+                />
+                <Input
                   type="number"
-                  className="w-16 rounded-md border border-border bg-background p-1 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-16 text-12"
                   value={seg.min}
                   onChange={(e) => updateSegment(i, { min: Number(e.target.value) || 0 })}
                   onBlur={() => void persist(value)}
@@ -324,9 +323,9 @@ export function AgendaPanelEditor({
                   data-testid={`bp-agenda-segment-min-${i}`}
                 />
                 <span className="text-11 text-muted-foreground">分钟</span>
-                <input
+                <Input
                   type="text"
-                  className="w-40 rounded-md border border-dashed border-border bg-background p-1 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-40 border-dashed text-11 text-muted-foreground"
                   value={seg.boardSkill}
                   onChange={(e) => updateSegment(i, { boardSkill: e.target.value })}
                   onBlur={() => void persist(value)}

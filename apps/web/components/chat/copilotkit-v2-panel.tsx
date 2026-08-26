@@ -13,7 +13,7 @@ import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Pencil, Mic, Loader2, AlertTriangle, ArrowDown } from "lucide-react";
+import { Pencil, Mic, Loader2, AlertTriangle, ArrowDown, ListChecks } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
@@ -33,6 +33,8 @@ import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-
 import { ChatLiveAnnouncer, announceToChat } from "@/components/chat/chat-live-announcer";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
+import { useAguiPlanTodos, currentPlanStep } from "@/lib/agui-plan-todos";
+import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { AgentPicker, MicDevicePicker } from "@/components/chat/chat-composer-pickers";
@@ -730,6 +732,9 @@ export function CopilotKitV2Panel({
   onThreadResolved,
   onMessageSent,
   onArtifactLanded,
+  onPlanTodosChange,
+  onRunStateChange,
+  onPendingMaterialsChange,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -758,6 +763,29 @@ export function CopilotKitV2Panel({
    * 合成一个回调会让外壳分不清自己在为什么重读（且未来两者刷新的东西可能不同）。
    */
   onArtifactLanded?: () => void;
+  /**
+   * issue #2068（TW-P0-3 读半 / TW-P0-4）—— 面板向外壳上报右栏 Inspector 需要的
+   * 真实状态。三个都只上报**已经存在于本组件里的事实**，没有一个是为了填页面编的：
+   *   · `onPlanTodosChange` —— `STATE_SNAPSHOT{todos}` 解析后的计划快照（见上面
+   *     `useAguiPlanTodos` 那段），null = 本轮还没有计划。
+   *   · `onRunStateChange` —— `agent.isRunning` + `useCopilotKitV2RunProgress` 的
+   *     阶段/耗时，即 composer 上方那条进度行读的同一份数据，不是第二个计时器。
+   *   · `onPendingMaterialsChange` —— composer 里已上传但还没随消息发出的附件条数。
+   *     外壳的 `listThreadAttachments` 只看得到**已随消息落库**的材料，看不到这一段；
+   *     少了它，「上传材料 → 右栏自动开材料页」这条链在用户真实操作顺序上是断的。
+   */
+  onPlanTodosChange?: (todos: readonly PlanTodo[] | null) => void;
+  onRunStateChange?: (state: {
+    readonly isRunning: boolean;
+    readonly phaseLabel: string | null;
+    /** `RUN_STARTED` 到达的时刻（epoch ms）；**每轮只变一次**。
+     *  ⚠ 刻意不上报 `elapsedSeconds`：那个每秒变一次，上抛给外壳等于每秒
+     *  `setState` 一次外壳 → 外壳重渲染 → 整棵消息树（含画布）跟着重渲染一次。
+     *  issue #2096 刚为同一类重渲染风暴做过一轮修复，不能在这里重新引入。
+     *  秒数由右栏 Inspector 自己从这个时间戳派生，重渲染只落在它那一小棵子树上。 */
+    readonly startedAt: number | null;
+  }) => void;
+  onPendingMaterialsChange?: (count: number) => void;
   /**
    * issue #2046（CK-P2）—— `@` 引用候选：本线程已随消息发出的附件，数据与右栏
    * 「材料」面板是**同一份**（外壳 `listThreadAttachments` 读取后同时喂两处），
@@ -828,14 +856,18 @@ export function CopilotKitV2Panel({
           共同父层：两者的浮层共享「同一时刻只开一个」互斥（`useChatPopoverSlot`），
           与旧轨道 `chat-read-screen.tsx` 同一挂法（issue #1803 gap #3）。 */}
       <ChatPopoverCoordinatorProvider>
-      {/* issue #2039（第 3 轮 gap #4）——此前这一行只有一个裸的「选择 Agent ▾」
-          幽灵按钮浮在页顶，与消息区没有任何层级关系。补一个 muted 说明标签 +
-          行底分隔线，让它读作「这个屏的会话设置行」。 */}
+      {/* issue #2132（真实 devapp 实测：想去掉 chat 最上面的 header）—— 这一行是唯一的
+          "切换发送 agent" 入口（`selectedAgentId` 同时是 `CopilotKitV2PanelBody` 的
+          remount key），不能直接删掉，否则用户永久锁死在挂载时选中的那个 agent。
+          #2039 第 3 轮当时把它做成"带说明标签 + 行底分隔线"的样子，是为了让它
+          "读作一个独立设置行"（该轮 gap #4 原话）——但那正是这次被诚实反馈成
+          "看起来像一个页面 header"的原因。这里把它收敛成不占独立视觉层级的小控件：
+          去掉「发给」标签与分隔线，右对齐、与消息区共享同一层视觉密度，功能
+          （选择/错误提示/无 agent 提示）一行未删。 */}
       <div
-        className="flex flex-wrap items-center gap-2 border-b border-border-subtle pb-2"
+        className="flex flex-wrap items-center justify-end gap-2"
         data-testid="copilotkit-v2-agent-toolbar"
       >
-        <span className="text-11 text-muted-foreground">发给</span>
         <AgentPicker
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           selectedAgentId={selectedAgentId ?? ""}
@@ -881,6 +913,9 @@ export function CopilotKitV2Panel({
           chatThreadId={initialChatThreadId}
           onThreadResolved={onThreadResolved}
           onMessageSent={onMessageSent}
+          onPlanTodosChange={onPlanTodosChange}
+          onRunStateChange={onRunStateChange}
+          onPendingMaterialsChange={onPendingMaterialsChange}
           onArtifactLanded={onArtifactLanded}
           threadAttachments={threadAttachments}
           archived={archived}
@@ -926,6 +961,9 @@ function CopilotKitV2PanelBody({
   onThreadResolved,
   onMessageSent,
   onArtifactLanded,
+  onPlanTodosChange,
+  onRunStateChange,
+  onPendingMaterialsChange,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -948,6 +986,19 @@ function CopilotKitV2PanelBody({
    * 合成一个回调会让外壳分不清自己在为什么重读（且未来两者刷新的东西可能不同）。
    */
   onArtifactLanded?: () => void;
+  /** issue #2068 —— 见外层 `CopilotKitV2Panel` 同名三个 prop。 */
+  onPlanTodosChange?: (todos: readonly PlanTodo[] | null) => void;
+  onRunStateChange?: (state: {
+    readonly isRunning: boolean;
+    readonly phaseLabel: string | null;
+    /** `RUN_STARTED` 到达的时刻（epoch ms）；**每轮只变一次**。
+     *  ⚠ 刻意不上报 `elapsedSeconds`：那个每秒变一次，上抛给外壳等于每秒
+     *  `setState` 一次外壳 → 外壳重渲染 → 整棵消息树（含画布）跟着重渲染一次。
+     *  issue #2096 刚为同一类重渲染风暴做过一轮修复，不能在这里重新引入。
+     *  秒数由右栏 Inspector 自己从这个时间戳派生，重渲染只落在它那一小棵子树上。 */
+    readonly startedAt: number | null;
+  }) => void;
+  onPendingMaterialsChange?: (count: number) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -1080,10 +1131,28 @@ function CopilotKitV2PanelBody({
   // `runAgent()` call) so a file created in one turn keeps receiving content deltas in
   // later turns. See the file-head comment above for why `agent.subscribe` is safe here.
   const { files: activeFiles, onCustomEvent: onActiveFileCustomEvent } = useAguiFileEvents();
+  /**
+   * issue #2068（第一件）—— `write_todos` 的结构化计划**早就在 wire 上**：
+   * `copilotkit-agui.controller.ts` 的 `writeToolCallStep` 在 `write_todos` 成功后
+   * 下发 `STATE_SNAPSHOT { snapshot: { todos } }`，消费 hook（`lib/agui-plan-todos.ts`）
+   * 与渲染组件（`agent-plan-panel.tsx`）也都在 main 上——此前只接在**预览**面板
+   * （`copilotkit-preview-panel.tsx`），活体面板从没订阅过它。这里补上。
+   *
+   * ⚠ 挂在与 DA-13 文件事件**同一个** `agent.subscribe` 上（跨轮持久订阅），不是挂在
+   * 单次 `runAgent()` 的订阅参数上：预览面板那边是一次性 run，这里的 `agent` 跨多轮
+   * 复用，绑到单次调用会在两轮之间丢订阅（同上面那段注释的推理）。
+   *
+   * ⚠ 不新增任何事件名：用的就是已有的 `STATE_SNAPSHOT{todos}`。
+   * `agui-bridge-state-events.test.ts` 守着的封闭白名单一个字没动——这是纯前端接线。
+   */
+  const { todos: planTodos, onStateSnapshotEvent } = useAguiPlanTodos();
   React.useEffect(() => {
-    const { unsubscribe } = agent.subscribe({ onCustomEvent: onActiveFileCustomEvent });
+    const { unsubscribe } = agent.subscribe({
+      onCustomEvent: onActiveFileCustomEvent,
+      onStateSnapshotEvent,
+    });
     return unsubscribe;
-  }, [agent, onActiveFileCustomEvent]);
+  }, [agent, onActiveFileCustomEvent, onStateSnapshotEvent]);
 
   /**
    * DA-19g —— 真实缺陷修复：接上 `copilotkit-agui.controller.ts` 早就实现好的续聊通道
@@ -1137,6 +1206,14 @@ function CopilotKitV2PanelBody({
     if (initialChatThreadId !== null) setResolvedChatThreadId(initialChatThreadId);
   }, [initialChatThreadId]);
 
+  /**
+   * issue #2101（真实 devapp 实测：新对话第一条消息瞬时出现两条重复气泡，AI 回复
+   * 到达后又恢复正常）—— 见下面 hydration effect 的守卫。这里只负责在"本轮第一次
+   * 把线程 id 从 `null` resolve 出来"那一刻置位，供那个 effect 判断"这条线程是不是
+   * 我自己这一轮刚建的、内存态本来就是最新的，不需要回读"。
+   */
+  const resolvedDuringThisSessionRef = React.useRef(false);
+
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
       onCustomEvent: ({ event }) => {
@@ -1148,7 +1225,14 @@ function CopilotKitV2PanelBody({
           // issue #2021 —— 只有"这是后端第一次告诉我们它创建了一条新线程"才需要通知
           // 外壳写回地址栏；`initialChatThreadId` 非空时 `chatThreadIdRef.current` 从
           // 挂载起就已经是这个值，这个分支不会为一次续聊触发。
-          if (isNewlyResolved) onThreadResolved?.(event.value);
+          if (isNewlyResolved) {
+            // issue #2101 —— 必须在 `onThreadResolved` 之前（同步）置位：那个回调会让
+            // 外壳把 `selectedThreadId` 写回，进而让 `initialChatThreadId` prop 从 null
+            // 变成真实 id、触发下面 hydration effect 重跑——这个 ref 得先于那次重渲染
+            // 就是 true，effect 才能在第一次因依赖变化执行时就看到它。
+            resolvedDuringThisSessionRef.current = true;
+            onThreadResolved?.(event.value);
+          }
         }
       },
     });
@@ -1205,7 +1289,21 @@ function CopilotKitV2PanelBody({
    */
   const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
   React.useEffect(() => {
-    if (initialChatThreadId === null || !isReady || hydratedRef.current) return;
+    if (
+      initialChatThreadId === null || !isReady || hydratedRef.current
+      // issue #2101 —— `initialChatThreadId` 从 `null` 变成真实 id 有两种截然不同的
+      // 原因：① 外壳传入一条**既有**线程（用户点开历史对话/刷新页面）——这时内存里
+      // `agent.messages` 是空的，必须回读；② **本轮**（`send()` 里乐观插入用户消息之
+      // 后）后端才把线程 id resolve 出来并经 `onCustomEvent` 回显——这时内存里已经有
+      // 这条刚发的用户消息（乐观插入，客户端随机 id），若仍然回读，`readAllPersisted
+      // Messages` 一旦跑得比 `acceptHumanMessage` 落库快，会读到同一句用户消息的
+      // **另一个** id（真实主键），而下面的按 id 去重（`liveIds`）认不出这是同一条
+      // ——两个 id 都进了 `agent.messages`，UI 上瞬间两条重复气泡（AI 回复到达后
+      // "看起来正常"只是巧合：那次读取时机赶在落库之后，不是这条 race 被修好了）。
+      // `resolvedDuringThisSessionRef` 精确标记情形②，只在情形②跳过——情形①从不
+      // 触碰这个 ref，行为不变。
+      || resolvedDuringThisSessionRef.current
+    ) return;
     let cancelled = false;
     (async () => {
       try {
@@ -1376,6 +1474,60 @@ function CopilotKitV2PanelBody({
    * 文件头（拿不到的三维如实登记为不做，没有伪造）。
    */
   const runProgress = useCopilotKitV2RunProgress(agent, agent.isRunning);
+
+  /**
+   * issue #2068 —— 把上面三样真实状态上报给外壳的右栏 Inspector。
+   *
+   * ⚠ 三个各自一个 effect、依赖数组精确到值，不合成一个大 effect：合起来的话任意一维
+   * 变化（比如每秒推进的 `elapsedSeconds`）都会把另外两个回调也重放一遍，外壳侧的
+   * `setState` 每秒被叫三次。计时器本来就每秒 tick，这一点不能再放大。
+   */
+  React.useEffect(() => {
+    onPlanTodosChange?.(planTodos);
+  }, [planTodos, onPlanTodosChange]);
+  const runIsRunning = agent.isRunning;
+  const runPhaseLabel = runProgress.phaseLabel;
+  const runStartedAt = runProgress.startedAt;
+  React.useEffect(() => {
+    onRunStateChange?.({
+      isRunning: runIsRunning,
+      phaseLabel: runPhaseLabel,
+      startedAt: runStartedAt,
+    });
+  }, [runIsRunning, runPhaseLabel, runStartedAt, onRunStateChange]);
+  const planStep = React.useMemo(() => currentPlanStep(planTodos), [planTodos]);
+  const pendingMaterialsCount = attach.uploadedIds.length;
+  React.useEffect(() => {
+    onPendingMaterialsChange?.(pendingMaterialsCount);
+  }, [pendingMaterialsCount, onPendingMaterialsChange]);
+
+  /**
+   * issue #2068（第二件，人类 2026-08-26 实测原话）—— 「正在思考…」与「正在生成
+   * 回复……」两处 loading 同屏，两处都不要，换成**在 AI 回复应该出现的位置**的一个。
+   *
+   * ## 这个 loading 主要覆盖的不是「正文在生成」，是**工具阶段**
+   *
+   * 另一条线用真引擎原始 SSE 逐帧回放，拿到 14.44s 一轮的分项时间线：
+   * `+0.00~5.84s` 模型第 1 轮 53 个空 content chunk（在流工具调用参数，无正文）→
+   * `+5.86s` / `+9.97s` 两批工具落地 → `+12.30s` **第一个正文 token** →
+   * `+14.41s` 最后一个正文 token。**工具阶段占前 85%，正文只占最后 2.1 秒。**
+   *
+   * 所以这里显示的不是一个转圈：那 12.3 秒里 agent 在做具体的事（写计划、列技能），
+   * 是**有内容可展示**的。合并后的这一条同时承载：
+   *   ① 阶段文案（`onToolCallStartEvent` 翻译出的"正在…"，真实工具事件驱动）；
+   *   ② 已用秒数（`RUN_STARTED` 起算——"会动"本身就是"没卡死"的证据，
+   *      #2064 那条裁决**没有被取消**，只是搬了位置、并进了这一条）；
+   *   ③ 45s longrun 提示；
+   *   ④ **当前在计划的第几步**（`STATE_SNAPSHOT{todos}`）——这是工具阶段真正
+   *      回答"它在干嘛"的那一维，右栏「进度」页签是它的完整版。
+   *
+   * ## 与右栏计划面板的关系（不是两个各转各的）
+   *
+   * 同一份 `planTodos`，两处**不同粒度**：气泡里是**一行**「第 2/4 步 · 对比竞品」，
+   * 眼睛不用离开正在读的位置；右栏是**全量**步骤清单，要看全貌时才看。不是复制——
+   * 复制的话两处会在同一帧显示不同的步数（本仓"同一事实两处"翻过五次车）。
+   * 数据只有一份、派生规则只有 `currentPlanStep` 这一个纯函数。
+   */
 
   /**
    * issue #2075（TW-A11Y-4）—— agent 状态变化播报。视觉用户看得到运行状态条在动
@@ -1689,6 +1841,57 @@ function CopilotKitV2PanelBody({
               </CopilotChatConfigurationProvider>
             </div>
           )}
+          {/* issue #2068（第二件）—— 合并后的**唯一** loading，落在「AI 回复应该出现的
+              位置」：消息列表末尾、用户那句话下面，不是 composer 上方两条各说各的。
+              设计推理（含真引擎 14.44s 一轮的分项时间线、以及它与右栏计划面板的分工）
+              见上面 `runProgress` 那一段长注释，这里不复述。
+
+              ⚠ testid 沿用 `copilotkit-v2-running-indicator`（容器）与
+                `copilotkit-v2-thinking*`（内部各段）：这两组锚点被
+                `chat-task-workbench-fixture.ts` 的 `sendAndSettle`、
+                `chat-task-workbench-inspector.spec.ts`、
+                `copilotkit-v2-message-actions.spec.ts` 当成"这一轮跑完了没有"的信号
+                在用。语义一个字没变（在跑=在，跑完=不在），变的只有位置与形态；
+                改名会把三处既有断言变成"元素不存在 ⇒ 立即通过"的静默假绿。 */}
+          {!historyLoading && agent.isRunning ? (
+            <div
+              data-testid="copilotkit-v2-running-indicator"
+              role="status"
+              aria-live="polite"
+              className="mt-3 flex w-fit max-w-full flex-col gap-1 rounded-lg border border-border-subtle bg-muted/60 px-3 py-2"
+            >
+              <span
+                className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
+                data-testid="copilotkit-v2-thinking"
+              >
+                <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin" />
+                <span data-testid="copilotkit-v2-thinking-phase">
+                  {runProgress.phaseLabel ?? "正在思考…"}
+                </span>
+                {runProgress.elapsedSeconds !== null ? (
+                  <span data-testid="copilotkit-v2-thinking-elapsed">
+                    · 已用 {runProgress.elapsedSeconds} 秒
+                  </span>
+                ) : null}
+                {runProgress.isLongRun ? (
+                  <span data-testid="copilotkit-v2-thinking-longrun-hint">· {LONG_RUN_HINT}</span>
+                ) : null}
+              </span>
+              {/* 工具阶段（真引擎实测占一轮的前 85%）里真正回答"它在干嘛"的那一行。
+                  没有计划时不渲染——编一句"正在处理第 1 步"就是假进度。 */}
+              {planStep !== null ? (
+                <span
+                  className="flex min-w-0 items-center gap-1.5 text-11 text-card-foreground"
+                  data-testid="copilotkit-v2-thinking-plan-step"
+                >
+                  <ListChecks aria-hidden className="h-3 w-3 shrink-0 text-primary" />
+                  <span className="min-w-0 truncate">
+                    第 {planStep.index}/{planStep.total} 步 · {planStep.content}
+                  </span>
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           {/* issue #2096（真实 devapp 实测：悬浮按钮与右侧发送区重叠）—— 此前挂在
               最外层 `relative` 包装 div 里（那个 div 从消息区一路延伸到 composer/
               发送按钮），`absolute bottom-3 right-3` 因此贴着整个左栏的右下角，与
@@ -1711,27 +1914,6 @@ function CopilotKitV2PanelBody({
             </button>
           ) : null}
         </div>
-        {/* CK-P4（issue #2054）—— run 进度行。⚠ 它每秒在动，"会动"本身就是"没卡死"
-            的证据；一句静止的「正在思考…」在第 10 秒和第 10 分钟长得一模一样
-            （旧轨道 `chat-live-message-panel.tsx` 同一段裁决）。 */}
-        {runProgress.elapsedSeconds !== null ? (
-          <div
-            className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
-            data-testid="copilotkit-v2-thinking"
-            role="status"
-          >
-            <span>正在思考…</span>
-            <span data-testid="copilotkit-v2-thinking-elapsed">
-              已用 {runProgress.elapsedSeconds} 秒
-            </span>
-            {runProgress.phaseLabel !== null ? (
-              <span data-testid="copilotkit-v2-thinking-phase">· {runProgress.phaseLabel}</span>
-            ) : null}
-            {runProgress.isLongRun ? (
-              <span data-testid="copilotkit-v2-thinking-longrun-hint">· {LONG_RUN_HINT}</span>
-            ) : null}
-          </div>
-        ) : null}
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}
@@ -1789,18 +1971,6 @@ function CopilotKitV2PanelBody({
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
         {archived ? null : <ChatAttachmentList ctl={attach} disabled={agent.isRunning} />}
-        {/* issue #2039（第 3 轮 gap #1，chat-ux-acceptance-criteria 第 9 项「控制感」）
-            ——run 在途时 composer 上方一条行内状态条（读真实 `agent.isRunning`，
-            不是定时器动画）；此前唯一信号是发送按钮变「…」，太隐晦。 */}
-        {agent.isRunning ? (
-          <p
-            data-testid="copilotkit-v2-running-indicator"
-            className="flex items-center gap-1.5 rounded-md border border-border-subtle bg-muted px-3 py-1.5 text-11 text-muted-foreground"
-          >
-            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-            正在生成回复……完成前发送按钮暂不可用。
-          </p>
-        ) : null}
         {/* issue #2039（第 1 轮 gap #5）——composer 收口：placeholder 从「随便输入点什么」
             换成明确的动作指引；发送按钮升为 primary（旧屏 composer 的发送就是主行动点）；
             `min-w-0` 防手机宽度下输入框把整行撑溢出。 */}
@@ -2169,21 +2339,57 @@ function V2AssistantMessageImpl(
   // issue #2052（CK-P7）—— 正文取自框架给的这条消息本身，与气泡里渲染的是同一份，
   // 不另找一处读。
   const text = typeof props.message.content === "string" ? props.message.content : "";
+  /**
+   * issue #2132（真实 devapp 实测：打字/滚动时消息区画布内容闪烁，续 #2096）—— 这是
+   * #2096 那次 memo 化之外**另一处、更严重**的同类根因，不是同一个 bug 的残留。
+   *
+   * `markdownRenderer`/`copyButton` 这两个 slot 的静态类型是 `SlotValue<C> = C |
+   * string | Partial<ComponentProps<C>>`——直接传一个箭头函数（不是一个"部分 props"
+   * 对象）落在 `C` 这个分支：框架把它当作**整个 slot 的替换组件本身**，内部执行的是
+   * `const MarkdownRenderer = markdownRenderer ?? Default; <MarkdownRenderer {...} />`
+   * 这类"把 slot 值当组件类型用"的写法（读框架 `CopilotChatAssistantMessage` 源码
+   * 确认，不是猜测）。此前这里每次 `V2AssistantMessageImpl` 重渲染（打字/滚动/任何
+   * 会让这条消息重渲染的状态变化）都创建一个**新的箭头函数**——对 React 来说这是
+   * "组件类型变了"，不是"props 变了"：reconciler 判定为整棵子树需要卸载重建，不是
+   * 更新。子树里正是 `ChatDiagramFabric`/`ChatCanvasFabric` 渲染出的 fabric canvas
+   * ——每次都被真的销毁、重新建一个新 canvas、重新解析一遍 mermaid，这才是用户看到
+   * 的"画布内容闪烁"里最直接、最剧烈的那一层（#2096 修的 context value 引用稳定性
+   * 只解决了"这条消息组件要不要重渲染"，没有解决"重渲染之后这两个 slot 组件的身份
+   * 还是不是同一个"——两处是同一类问题的两层，缺一不成立）。
+   *
+   * 修法：`useCallback` 稳定这两个函数的引用身份，只在真正相关的值
+   * （`artifactThreadId`/`realMessageId`/`artifactBearer`/`messageId`）变化时才
+   * 重建——多数情况下这条消息重渲染时这些值都没变，两个 slot 组件因此维持"同一个
+   * 组件类型"，React 走更新路径而不是卸载重建，canvas 不再被销毁重造。
+   */
+  const markdownRenderer = React.useCallback(
+    (rendererProps: React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer>) => (
+      <V2MarkdownRenderer
+        {...rendererProps}
+        threadId={artifactThreadId}
+        messageId={realMessageId}
+        bearer={artifactBearer}
+      />
+    ),
+    [artifactThreadId, realMessageId, artifactBearer],
+  );
+  const copyButton = React.useCallback(
+    (copyProps: React.ComponentProps<typeof CopilotChatAssistantMessage.CopyButton>) => (
+      <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
+    ),
+    [messageId],
+  );
   return (
-    <div className="flex flex-col gap-1.5">
+    // issue #2132（真实 devapp 实测：消息操作条位置不对）—— `gap-1` 收紧自
+    // 此前的 `gap-1.5`：框架自己的 toolbar（复制/反馈/评分）与下面「落地为产物」
+    // 是两个物理上分开的节点（CK-P3/CK-P7 各自的加法，见下方注释），够不着把两者
+    // 塞进同一个 flex 容器统一对齐——但把间距收紧到跟框架 toolbar 内部同一量级，
+    // 至少让它们读作"同一条消息下的连续操作区"，不是两个不相关的独立区块。
+    <div className="flex flex-col gap-1">
       <CopilotChatAssistantMessage
         {...props}
-        markdownRenderer={(rendererProps) => (
-          <V2MarkdownRenderer
-            {...rendererProps}
-            threadId={artifactThreadId}
-            messageId={realMessageId}
-            bearer={artifactBearer}
-          />
-        )}
-        copyButton={(copyProps) => (
-          <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
-        )}
+        markdownRenderer={markdownRenderer}
+        copyButton={copyButton}
         additionalToolbarItems={<CopilotKitV2MessageExtraActions messageId={messageId} />}
       />
       {/* issue #2052（CK-P7）—— 「落地为产物」是块级三态交互，进不了行内工具栏，

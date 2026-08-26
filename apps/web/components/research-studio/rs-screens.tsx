@@ -30,7 +30,7 @@ function Head({
     <div className="flex flex-wrap items-start justify-between gap-2" data-testid={testid}>
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-20 font-semibold tracking-tight text-foreground">{title}</h1>
+          <h1 className="text-20 font-semibold tracking-tight text-background-foreground">{title}</h1>
           <Badge tone="outline">{uc}</Badge>
         </div>
         {sub && <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">{sub}</p>}
@@ -71,7 +71,7 @@ function Stat({ label, value, note, testid }: { label: string; value: React.Reac
   return (
     <div className="flex flex-1 flex-col gap-1 rounded-lg border border-border bg-card p-3" data-testid={testid}>
       <span className="text-11 text-muted-foreground">{label}</span>
-      <span className="text-20 font-semibold tabular-nums text-foreground">{value}</span>
+      <span className="text-20 font-semibold tabular-nums text-background-foreground">{value}</span>
       <span className="text-10 text-muted-foreground">{note}</span>
     </div>
   );
@@ -84,7 +84,7 @@ function Confidence({ value, low }: { value: number | null; low: boolean }) {
   }
   return (
     <span
-      className={cn("inline-flex items-center gap-1 font-mono text-12 tabular-nums", low ? "text-warning" : "text-foreground")}
+      className={cn("inline-flex items-center gap-1 font-mono text-12 tabular-nums", low ? "text-warning" : "text-background-foreground")}
       data-testid={low ? "rs-conf-low" : "rs-conf"}
     >
       {value.toFixed(1)}
@@ -197,7 +197,7 @@ export function RsListScreen({
                     {it.pinned && <Badge tone="warning" data-testid={`rs-card-${it.id}-pinned`}><Pin className="h-3 w-3" aria-hidden />关键 · 置顶</Badge>}
                     <Badge tone={it.status === "已完成" ? "primary" : it.status === "待复核" ? "warning" : "neutral"} data-testid={`rs-card-${it.id}-status`}>{it.status}</Badge>
                   </div>
-                  <h3 className="text-14 font-medium text-foreground">{it.title}</h3>
+                  <h3 className="text-14 font-medium text-background-foreground">{it.title}</h3>
                 </div>
               </div>
               <div className="flex flex-col gap-1 text-11 text-muted-foreground">
@@ -225,7 +225,7 @@ export function RsListScreen({
           <div className="flex flex-col divide-y divide-border-subtle">
             {RS_SIDEBAR.map((s, i) => (
               <div key={i} className="flex flex-col gap-0.5 py-1.5" data-testid={`rs-sidebar-${i}`}>
-                <span className="text-12 text-foreground">{s.title}</span>
+                <span className="text-12 text-background-foreground">{s.title}</span>
                 <span className="text-10 text-muted-foreground">{s.state}</span>
               </div>
             ))}
@@ -268,7 +268,7 @@ export function RsPlanScreen({ state, view, sub }: { state: UiState; view: RsVie
               <div className="bg-muted/40 px-3 py-1 text-10 font-medium text-muted-foreground">{g.q}</div>
               {g.rows.map((e) => (
                 <div key={e.id} className="grid grid-cols-[2fr_1.2fr_0.8fr_0.9fr] gap-2 border-b border-border-subtle px-3 py-2 text-12" data-testid={`rs-ev-${e.id}`}>
-                  <span className="text-foreground">{e.claim}</span>
+                  <span className="text-background-foreground">{e.claim}</span>
                   <span className="text-muted-foreground">{e.sourceShort}</span>
                   <Confidence value={e.confidence} low={e.confidence !== null && e.confidence <= 0.3} />
                   {/* Q-12 未裁：去向文案原样摆，反对证据高亮 */}
@@ -316,7 +316,7 @@ export function RsNewScreen({ state, view, sub }: { state: UiState; view: RsView
         <div className="mx-auto w-full max-w-2xl rounded-xl border border-border bg-card shadow-lg" data-testid="rs-new-modal">
           <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
             <div className="flex flex-col gap-1">
-              <h2 className="text-16 font-semibold text-foreground">新建深度研究</h2>
+              <h2 className="text-16 font-semibold text-background-foreground">新建深度研究</h2>
               <p className="max-w-lg text-11 leading-relaxed text-muted-foreground">
                 先说清要查什么场景下的什么问题，研究模块据此决定检索路数与来源。
               </p>
@@ -325,10 +325,10 @@ export function RsNewScreen({ state, view, sub }: { state: UiState; view: RsView
           </div>
           <div className="flex flex-col gap-4 px-4 py-4">
             <Field n={1} label="研究场景" hint="在什么处境下要这个答案">
-              <textarea data-testid="rs-input-scene" defaultValue={c.scene} rows={2} className="rounded-md border border-border bg-background px-2.5 py-1.5 text-12 text-foreground" />
+              <textarea data-testid="rs-input-scene" defaultValue={c.scene} rows={2} className="rounded-md border border-border bg-background px-2.5 py-1.5 text-12 text-background-foreground" />
             </Field>
             <Field n={2} label="要回答的问题" hint="一句话，可判定">
-              <textarea data-testid="rs-input-question" defaultValue={c.question} rows={2} className="rounded-md border border-border bg-background px-2.5 py-1.5 text-12 text-foreground" />
+              <textarea data-testid="rs-input-question" defaultValue={c.question} rows={2} className="rounded-md border border-border bg-background px-2.5 py-1.5 text-12 text-background-foreground" />
             </Field>
             <Field n={3} label="研究类型">
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4" data-testid="rs-input-kind">
@@ -345,7 +345,7 @@ export function RsNewScreen({ state, view, sub }: { state: UiState; view: RsView
                 {RS_DEPTHS.map((d) => (
                   <button key={d.code} data-testid={`rs-depth-${d.code}`} data-selected={c.depth === d.code}
                     className={cn("flex flex-col gap-0.5 rounded-md border px-2 py-1.5 text-left", c.depth === d.code ? "border-primary bg-accent" : "border-border hover:bg-muted")}>
-                    <span className="text-12 font-medium text-foreground">{d.label}</span>
+                    <span className="text-12 font-medium text-background-foreground">{d.label}</span>
                     <span className="text-10 text-muted-foreground">{d.note}</span>
                   </button>
                 ))}
@@ -423,7 +423,7 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
           {/* 左半：深度对话 */}
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3" data-testid="rs-dialog">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-1.5 text-13 font-medium text-foreground"><Bot className="h-4 w-4 text-ai" aria-hidden />深度对话 · Scout</span>
+              <span className="flex items-center gap-1.5 text-13 font-medium text-background-foreground"><Bot className="h-4 w-4 text-ai" aria-hidden />深度对话 · Scout</span>
               <span className="text-11 text-muted-foreground">41 分钟 · 3 轮</span>
             </div>
             {RS_DIALOG.map((r, i) => (
@@ -444,21 +444,21 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
           {/* 右半：四段结果 */}
           <div className="flex flex-col gap-3">
             <section className="rounded-lg border border-border bg-card p-3" data-testid="rs-sec-findings">
-              <h3 className="mb-1.5 text-12 font-semibold text-foreground">① 关键发现</h3>
-              <ul className="flex flex-col gap-1">{RS_RESULT.keyFindings.map((f, i) => <li key={i} className="text-12 text-foreground">· {f}</li>)}</ul>
+              <h3 className="mb-1.5 text-12 font-semibold text-background-foreground">① 关键发现</h3>
+              <ul className="flex flex-col gap-1">{RS_RESULT.keyFindings.map((f, i) => <li key={i} className="text-12 text-background-foreground">· {f}</li>)}</ul>
             </section>
             <section className="rounded-lg border border-warning/30 bg-warning/5 p-3" data-testid="rs-sec-disputed">
               <h3 className="mb-1.5 flex items-center gap-1 text-12 font-semibold text-warning"><AlertTriangle className="h-3.5 w-3.5" aria-hidden />② 争议 / 不确定</h3>
-              {RS_RESULT.disputed.map((d, i) => <p key={i} className="mb-1 text-11 leading-relaxed text-foreground">{d}</p>)}
+              {RS_RESULT.disputed.map((d, i) => <p key={i} className="mb-1 text-11 leading-relaxed text-background-foreground">{d}</p>)}
               <Badge tone="warning" data-testid="rs-disputed-flag">此段永不进洞察库（N-2）</Badge>
             </section>
             <section className="rounded-lg border border-border bg-card p-3" data-testid="rs-sec-sources">
-              <h3 className="mb-1.5 text-12 font-semibold text-foreground">③ 外部来源 · 14</h3>
+              <h3 className="mb-1.5 text-12 font-semibold text-background-foreground">③ 外部来源 · 14</h3>
               <div className="flex flex-col divide-y divide-border-subtle">
                 {RS_EXTERNAL_SOURCES.map((s, i) => (
                   <div key={i} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 py-1" data-testid={`rs-src-${i}`}>
                     <Badge tone="outline">{s.category}</Badge>
-                    <span className="truncate text-11 text-foreground">
+                    <span className="truncate text-11 text-background-foreground">
                       {s.fromTranscript && view === "collaborator" ? <span className="inline-flex items-center gap-1 text-muted-foreground"><EyeOff className="h-3 w-3" aria-hidden />来自本场转写（原文脱敏）</span> : s.name}
                     </span>
                     <Confidence value={s.confidence} low={s.low} />
@@ -468,9 +468,9 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
               <p className="mt-1 text-10 text-muted-foreground">低置信来源完整列出、不过滤（N-3）；本场转写对无授权视角脱敏（X-B）。</p>
             </section>
             <section className="rounded-lg border border-border bg-card p-3" data-testid="rs-sec-conclusion">
-              <h3 className="mb-1.5 text-12 font-semibold text-foreground">④ 研究结论</h3>
+              <h3 className="mb-1.5 text-12 font-semibold text-background-foreground">④ 研究结论</h3>
               {RS_RESULT.conclusion
-                ? <p className="mb-2 text-12 leading-relaxed text-foreground">{RS_RESULT.conclusion}</p>
+                ? <p className="mb-2 text-12 leading-relaxed text-background-foreground">{RS_RESULT.conclusion}</p>
                 : <p className="mb-2 rounded bg-muted px-2 py-1.5 text-11 text-muted-foreground" data-testid="rs-conclusion-datareq">零来源：这里是数据需求说明，不是结论（E2）。</p>}
               {/* 出口三按钮（UC-24.4）*/}
               <div className="flex flex-wrap items-center gap-1.5" data-testid="rs-conclusion-actions">
@@ -484,7 +484,7 @@ export function RsDetailScreen({ state, view, sub }: { state: UiState; view: RsV
                 <div className="mt-2 flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/5 p-2.5" role="alert" data-testid="rs-promote-blocked">
                   <span className="flex items-center gap-1 text-12 font-medium text-destructive"><XCircle className="h-3.5 w-3.5" aria-hidden />{block.title}</span>
                   <span className="font-mono text-10 text-destructive">{block.code}</span>
-                  <span className="text-11 text-foreground">{block.detail}</span>
+                  <span className="text-11 text-background-foreground">{block.detail}</span>
                   <span className="text-11 text-muted-foreground">{block.fix}</span>
                 </div>
               )}
@@ -535,14 +535,14 @@ export function RsLiveScreen({ state, view, sub }: { state: UiState; view: RsVie
         />
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3" data-testid="rs-live-tasks">
           <div className="flex items-center justify-between">
-            <span className="text-12 font-medium text-foreground">本场研究任务</span>
+            <span className="text-12 font-medium text-background-foreground">本场研究任务</span>
             <span className="text-11 text-muted-foreground" data-testid="rs-live-counts">{cnt.total} 个 · {cnt.ready} 个已就绪</span>
           </div>
           <div className="flex flex-col divide-y divide-border-subtle">
             {tasks.map((t, i) => (
               <div key={i} className="grid grid-cols-[auto_1fr_auto_auto_auto] items-center gap-2 py-1.5 text-12" data-testid={`rs-task-${i}`}>
                 <span className="font-mono text-11 text-muted-foreground">{t.time}</span>
-                <span className="truncate text-foreground">{t.question}</span>
+                <span className="truncate text-background-foreground">{t.question}</span>
                 <span className="text-11 text-muted-foreground" data-testid={`rs-task-${i}-proposer`}>{t.proposer} · {t.metric}</span>
                 <Badge tone={t.failed ? "danger" : t.status === "已就绪" ? "primary" : t.status === "待判定" ? "warning" : "neutral"} data-testid={`rs-task-${i}-status`}>{t.failed ? "失败 · 可重试" : t.status}</Badge>
                 <Button size="xs" variant="outline" data-testid={`rs-task-${i}-open`}>打开<ChevronRight className="h-3 w-3" aria-hidden /></Button>
@@ -553,7 +553,7 @@ export function RsLiveScreen({ state, view, sub }: { state: UiState; view: RsVie
         {/* 冲突待判定区（冲突为 0 时区块仍在，显示空态）*/}
         <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3" data-testid="rs-conflict-zone">
           <div className="flex flex-col gap-0.5">
-            <span className="text-12 font-medium text-foreground">冲突待判定</span>
+            <span className="text-12 font-medium text-background-foreground">冲突待判定</span>
             <span className="text-10 text-muted-foreground">两条结论互相矛盾时，先标不确定再上台讨论</span>
           </div>
           {conflicts.length === 0 ? (
@@ -561,7 +561,7 @@ export function RsLiveScreen({ state, view, sub }: { state: UiState; view: RsVie
           ) : (
             conflicts.map((c) => (
               <div key={c.id} className="flex flex-col gap-2 rounded-md border border-warning/30 bg-warning/5 p-2.5" data-testid={`rs-conflict-${c.id}`}>
-                <p className="text-12 text-foreground">{c.statement}</p>
+                <p className="text-12 text-background-foreground">{c.statement}</p>
                 <p className="text-11 text-muted-foreground">{c.suggestion}<span className="ml-1 text-10 text-warning">（建议 ≠ 默认执行，N-6）</span></p>
                 {canResolve ? (
                   <div className="flex flex-wrap items-center gap-1.5" data-testid={`rs-conflict-${c.id}-actions`}>

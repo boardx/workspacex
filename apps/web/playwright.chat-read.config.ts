@@ -194,7 +194,10 @@ export default defineConfig({
    * `No tests found`、退出码 1，看起来像 spec 写坏了。本轮实测踩到一次。
    *
    * issue #2068（Chat 任务工作台验收卡）—— 新增 `chat-task-workbench-*.spec.ts`
-   * 共 11 个 spec 同样由本 config 接住（理由与上面几条逐字相同）：这里已经起好了
+   * 共 11 个 spec（**实测 `playwright --list`，不是数出来的**——本 config 自己的头注
+   * 曾写错成 11，issue #2114 复述时又笔误成 12；两处口径不一致本身就是本仓那条
+   * 「同一事实不得声明在两处」纪律要挡的失效，这里以 Playwright `--list` 的真实
+   * 输出为准）同样由本 config 接住（理由与上面几条逐字相同）：这里已经起好了
    * 这条链路需要的全部编排——真登录 + 真 Postgres + 真 API + 真 web + 确定性
    * deep-agent 替身（`deepAgentMultiStepTrigger` / `deepAgentApprovalTrigger` /
    * `deepAgentFailureTrigger` 三个触发词本 config 早已下发给替身进程），单自建
@@ -209,8 +212,38 @@ export default defineConfig({
    *
    * ⚠ 上面那条警告在这里再说一遍：**这条 testMatch 白名单是手写的**，新 spec 不加
    * 进这个正则就是「写了但没人跑」（#512 同一个失效模式），本次 11 个逐个加过。
+   *
+   * issue #2114（2026-08-26）—— 这 11 个 spec **设计上就该大面积红**（记分牌，不是
+   * 回归门：本 PR 实测全量跑完 20 通过 / 24 失败，零条死在 setup。issue 正文引用的
+   * 更早一次实测是 14/30——两次数字不同是因为期间已有其它 PR（如 #2097/#2103）修了
+   * 部分 chat 界面缺陷，属正常漂移，不是判据变了）。#2108 把 `e2e-full`
+   * 的超时从 35 提到 75 之后它第一次真的能跑完，于是这批必红的记分牌会把 `e2e-full`
+   * 从"跑不完"变成"跑得完但永远红"——本仓对"恒红的门"有案底（#848，
+   * `.harness/scripts/lib/pr-queue.ts:116`：「恒红的门比没有门更糟，因为它同时消耗
+   * 信任并训练所有人跳过它」）。摘出阻塞路径的做法是**同一个 config、同一套已经起
+   * 好的 webServer 编排，只把 testMatch 切成两个 project**——不新建 config、不复制
+   * webServer：`chat-read` project 跑其余全部（阻塞 e2e-full），`chat-task-workbench`
+   * project 只跑这 11 条（只在 workflow_dispatch 手动车道跑，见
+   * `.github/workflows/harness-verify.yml` 的 `chat-task-workbench` job 与根
+   * `package.json` 的 `verify:chat-task-workbench` 脚本）。两个 project 共享本文件
+   * 下面的 webServer 数组，互不重复起进程。
    */
-  testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-task-workbench-empty-state|chat-task-workbench-capability-cards|chat-task-workbench-workflow-states|chat-task-workbench-inspector|chat-task-workbench-composer|chat-task-workbench-approval|chat-task-workbench-tool-events|chat-task-workbench-p1-efficiency|chat-task-workbench-polish|chat-task-workbench-a11y|chat-task-workbench-copy)\.spec\.ts$/,
+  projects: [
+    {
+      name: "chat-read",
+      testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
+    },
+    {
+      /**
+       * issue #2114 —— 记分牌车道。只被 `pnpm run verify:chat-task-workbench`
+       * （`--project=chat-task-workbench`）与 workflow_dispatch 的
+       * `chat-task-workbench` job 显式点名，不在 `chat-read` 默认项目里，因此不会
+       * 随 `verify:chat-read`（`e2e-full` 阻塞路径）一起跑。
+       */
+      name: "chat-task-workbench",
+      testMatch: /chat-task-workbench-(empty-state|capability-cards|workflow-states|inspector|composer|approval|tool-events|p1-efficiency|polish|a11y|copy)\.spec\.ts$/,
+    },
+  ],
   fullyParallel: false,
   retries: 0,
   /*

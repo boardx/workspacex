@@ -45,7 +45,18 @@ export function ThreadListHeader({ title = "对话" }: { title?: string }) {
 export function ThreadMeta({ card }: { card: ThreadCard }) {
   return (
     <span className="flex flex-wrap items-center gap-1 text-10 font-medium text-muted-foreground">
-      {card.agentSummary ? <span className="truncate">{card.agentSummary}</span> : null}
+      <span
+        data-testid="chat-task-workbench-thread-status"
+        data-status={card.status}
+        className="truncate"
+      >
+        {THREAD_STATUS_LABEL[card.status]}
+      </span>
+      {card.artifactCount > 0 ? (
+        <span data-testid="chat-task-workbench-thread-artifact-count" className="truncate">
+          · {card.artifactCount} 份产物
+        </span>
+      ) : null}
       <span className="font-mono tabular-nums">· {shortTime(card.lastActivityAt)}</span>
       {card.badges.map((badge) => (
         <Badge key={badge} tone={badge === "review-pending" ? "warning" : "outline"}>
@@ -55,6 +66,43 @@ export function ThreadMeta({ card }: { card: ThreadCard }) {
     </span>
   );
 }
+
+/**
+ * 🔴 issue #2094（人类裁决落地，回指 #2068）：卡片副行 = **状态 · 产物数 · 更新时间**。
+ *
+ * 这里此前是 `{card.agentSummary}`，一个来自服务端的自由字符串，实际取值是
+ * `` `${agentCount} 个 agent` ``。人类 2026-08-26 审计原话：
+ *
+ * > 对话列表不可辨认——大量「新对话」，只显示 `0 个 agent`，无法寻找历史任务。
+ * > 改进方向：自动生成任务标题、状态、产物数量和更新时间。
+ *
+ * ## 为什么文案映射在这里，而不在服务端
+ *
+ * 服务端返回的是领域枚举（契约 `ThreadCardStatus`），**不是**中文串。分工是刻意的：
+ *   · 「这条线程处于什么状态」是**领域判定**，唯一一处在
+ *     `apps/api/src/domain/chat/thread-badges.ts` 的 `threadCardStatus`；
+ *   · 「那个状态叫什么」是**界面文案**，唯一一处就是下面这张表。
+ *
+ * 反过来（服务端直接返中文串）正是 `0 个 agent` 当年的形状：文案漂在一个
+ * `z.string()` 里，契约管不着、验收卡的文案黑名单也扫不到它的来源，
+ * 于是它在屏幕上活了很久都没有任何门控发现。
+ *
+ * ⚠ **穷举 `Record` 而不是 `switch` + default**：枚举加一档时 tsc 当场红，而不是
+ *   静默把 `not-started` 这种裸枚举词吐给用户——验收卡 `TW-COPY-1` 的黑名单里
+ *   逐字列着裸状态枚举，本仓 #728 已经因此被抓过一次。
+ * ⚠ `not-started` 是**「还没开始」，不是「已完成」**：devapp 实测 58 条线程里 36 条
+ *   一条消息都没有。把它们显示成已完成是撒谎，显示成空白则与「字段没取到」无法区分。
+ * ⚠ 文案全部是**用户语言**，没有一个开发者词：`failed` → 「未能完成」而不是「失败」，
+ *   `awaiting-approval` → 「等待你确认」而不是「等待审批」——后者说的是系统在等，
+ *   前者说的是**该用户动手了**，而这一条正是审计要的「用户语言 + 明确动作」。
+ */
+const THREAD_STATUS_LABEL: Record<ThreadCard["status"], string> = {
+  "not-started": "还没开始",
+  running: "进行中",
+  "awaiting-approval": "等待你确认",
+  failed: "未能完成",
+  done: "已完成",
+};
 
 const THREAD_BADGE_TEXT: Record<ThreadCard["badges"][number], string> = {
   degraded: "已降级",
@@ -234,7 +282,13 @@ export function ThreadCardButton({
           selected ? "border-primary bg-muted" : "border-transparent",
         ].join(" ")}
       >
-        <span className="line-clamp-2 text-12 font-medium">{card.title}</span>
+        {/* 🔴 #2094：`chat-task-workbench-thread-title` 是验收卡 TW-P1-1 的锚点
+            （自动命名：线程列表不得一屏全是「新对话」）。锚在标题这一个 span 上，
+            不是整张卡：断言读的是标题文本，锚整张卡会把副行的状态/时间也读进来，
+            于是「标题还叫新对话」这条会被副行的文字冲淡成绿的。 */}
+        <span data-testid="chat-task-workbench-thread-title" className="line-clamp-2 text-12 font-medium">
+          {card.title}
+        </span>
         <ThreadMeta card={card} />
       </button>
       {onTogglePin !== undefined ? (

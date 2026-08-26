@@ -89,7 +89,7 @@ export function SkillTryRun({ state, view }: { state: UiState; view: SkillView }
                     {TRYRUN_PARAMS.map((p) => (
                       <div key={p.key} className="flex items-center gap-2 text-10">
                         <span className="flex-1 text-muted-foreground">{p.key}</span>
-                        <span className="font-mono text-foreground">{p.value}</span>
+                        <span className="font-mono text-background-foreground">{p.value}</span>
                       </div>
                     ))}
                   </div>
@@ -128,7 +128,7 @@ export function SkillTryRun({ state, view }: { state: UiState; view: SkillView }
                 {/* 输出 */}
                 <div className="overflow-hidden rounded-lg border border-border-subtle" data-testid="skill-tryrun-output">
                   <div className="border-b border-border-subtle bg-panel px-3 py-2 font-mono text-10 text-muted-foreground">输出</div>
-                  <pre className="whitespace-pre-wrap p-3 font-mono text-10 leading-relaxed text-foreground">{TRYRUN_OUTPUT}</pre>
+                  <pre className="whitespace-pre-wrap p-3 font-mono text-10 leading-relaxed text-background-foreground">{TRYRUN_OUTPUT}</pre>
                 </div>
                 {/* 自动校验（4 条） */}
                 <div className="rounded-lg border border-border-subtle p-3" data-testid="skill-tryrun-checks">
@@ -137,7 +137,7 @@ export function SkillTryRun({ state, view }: { state: UiState; view: SkillView }
                     {TRYRUN_CHECKS.map((c, i) => (
                       <div key={i} className="flex items-center gap-2 text-10" data-testid={`skill-tryrun-check-${i}`}>
                         <Badge tone={c.pass ? "primary" : "danger"} className="font-mono">{c.pass ? "PASS" : "FAIL"}</Badge>
-                        <span className="min-w-0 flex-1 text-foreground">{c.label}</span>
+                        <span className="min-w-0 flex-1 text-background-foreground">{c.label}</span>
                         <span className="shrink-0 text-muted-foreground">{c.detail}</span>
                       </div>
                     ))}

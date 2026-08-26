@@ -49,7 +49,7 @@ export default function AgentRuntimePreviewPage({
   const Screen = SCREENS[screen];
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-background-foreground">
       <Screen role={role} state={state} />
     </main>
   );

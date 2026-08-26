@@ -1,5 +1,8 @@
 "use client";
 import * as React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -170,27 +173,25 @@ export function PrintPanelEditor({
                 </div>
                 <div className="flex-1">
                   <div className="mb-1 flex items-center gap-1.5">
-                    <input
+                    <Input
                       type="text"
-                      className="flex-1 rounded-md border border-border bg-background p-1 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex-1 text-12 font-medium"
                       value={it.name}
                       onChange={(e) => updateItem(i, { name: e.target.value })}
                       onBlur={() => void persist(value)}
                       placeholder="打印件名（如「HMW 画布」）"
                       data-testid={`bp-print-name-${i}`}
                     />
-                    <label className="flex shrink-0 items-center gap-1 text-11 text-muted-foreground">
-                      <input
-                        type="checkbox"
-                        checked={it.ai}
-                        onChange={() => commitItem(i, { ai: !it.ai })}
-                        data-testid={`bp-print-ai-${i}`}
-                      />
-                      AI 生成
-                    </label>
-                    <input
+                    <Checkbox
+                      className="shrink-0"
+                      checked={it.ai}
+                      onChange={() => commitItem(i, { ai: !it.ai })}
+                      label="AI 生成"
+                      data-testid={`bp-print-ai-${i}`}
+                    />
+                    <Input
                       type="text"
-                      className="w-24 shrink-0 rounded-md border border-border bg-background p-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="w-24 shrink-0 text-11"
                       value={it.qty}
                       onChange={(e) => updateItem(i, { qty: e.target.value })}
                       onBlur={() => void persist(value)}
@@ -208,8 +209,8 @@ export function PrintPanelEditor({
                       ✕
                     </button>
                   </div>
-                  <textarea
-                    className="min-h-10 w-full rounded-md border border-border bg-background p-1 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  <Textarea
+                    className="min-h-10 w-full text-11 text-muted-foreground"
                     value={it.detail}
                     onChange={(e) => updateItem(i, { detail: e.target.value })}
                     onBlur={() => void persist(value)}

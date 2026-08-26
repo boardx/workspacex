@@ -148,7 +148,7 @@ export function NewProjectFlow() {
                   : blueprints !== null && blueprints.length > 0
                     ? `已有 ${blueprints.length} 个蓝本，但还没有可套用的已发布版本（发布版本端点未实现），下面的蓝本目录暂不可选。`
                     : "这个组织还没有人建过蓝本，下面暂时没有目录可看。"}{" "}
-              本版一律以<strong className="font-medium text-foreground">空白骨架</strong>创建项目：
+              本版一律以<strong className="font-medium text-background-foreground">空白骨架</strong>创建项目：
               不套用蓝本时六类初始化会整体跳过，而不是写入空值。
             </span>
           </div>
@@ -286,7 +286,7 @@ export function NewProjectFlow() {
             </div>
 
             <p data-testid="project-new-unpersisted-note" className="text-10 leading-relaxed text-muted-foreground">
-              关联研究来源、时长档位、日期时间、参与人数<strong className="font-medium text-foreground">本版不写入后端</strong> —— 创建项目的契约
+              关联研究来源、时长档位、日期时间、参与人数<strong className="font-medium text-background-foreground">本版不写入后端</strong> —— 创建项目的契约
               （POST /projects）只收组织、名称、容器类型与蓝本版本四项。这几项各自的写入路径
               还没有契约出处，先如实标注为不可编辑，不做「填了像存了」的假输入框。
             </p>
@@ -308,7 +308,7 @@ export function NewProjectFlow() {
             ))}
           </ul></Card>
           <p className="mt-1.5 text-10 text-muted-foreground">
-            以空白骨架创建时这六类<strong className="font-medium text-foreground">整体跳过</strong>，项目建成后为空 —— 不写入空值占位。
+            以空白骨架创建时这六类<strong className="font-medium text-background-foreground">整体跳过</strong>，项目建成后为空 —— 不写入空值占位。
           </p>
         </section>
 

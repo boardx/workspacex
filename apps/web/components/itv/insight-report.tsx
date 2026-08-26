@@ -44,7 +44,7 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
   return (
     <section className="flex flex-col gap-4 p-5" data-testid="itv-insight-report">
       <header className="flex flex-col gap-1">
-        <h1 className="text-20 font-semibold text-foreground">洞察与报告</h1>
+        <h1 className="text-20 font-semibold text-background-foreground">洞察与报告</h1>
         <p className="text-12 text-muted-foreground">
           子标签：单场复盘 ｜ 主题与证据矩阵 {MATRIX_HEADER.sessions} ｜ 研究报告 草稿（当前：矩阵 + 报告）
         </p>
@@ -63,7 +63,7 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
           {/* 证据矩阵 */}
           <Card className="p-4" data-testid="itv-matrix">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-13 font-medium text-foreground">
+              <span className="text-13 font-medium text-background-foreground">
                 主题与证据矩阵 · {MATRIX_HEADER.sessions} 场 · {MATRIX_HEADER.respondents} 位受访者
               </span>
               <div className="flex items-center gap-1.5">
@@ -101,7 +101,7 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
                     {MATRIX_COLUMNS.map((c) => (
                       <TableHead key={c.id} className="p-1.5 text-center" data-testid={`itv-matrix-col-${c.id}`}>
                         <span className="flex flex-col items-center gap-0.5">
-                          <span className={cn("font-mono text-10", c.kind === "virtual" ? "text-ai-tint-foreground" : "text-foreground")}>
+                          <span className={cn("font-mono text-10", c.kind === "virtual" ? "text-ai-tint-foreground" : "text-background-foreground")}>
                             {c.id}
                           </span>
                           {c.kind === "virtual" ? (
@@ -123,7 +123,7 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
                     return (
                       <TableRow key={row.theme} data-testid={`itv-matrix-row-${row.theme}`}>
                         <TableCell className="p-1.5">
-                          <span className="text-11 text-foreground">{row.theme}</span>
+                          <span className="text-11 text-background-foreground">{row.theme}</span>
                           <span
                             className={cn("ml-1 text-10", belowThreshold ? "text-warning" : "text-success")}
                             data-testid={`itv-matrix-strong-${row.theme}`}
@@ -156,7 +156,7 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
 
             {/* 写作约束 */}
             <div className="mt-3 flex flex-col gap-1.5">
-              <p className="flex gap-1.5 rounded-md border border-warning/30 bg-warning/5 px-2 py-1.5 text-10 text-foreground" data-testid="itv-guard-emotion">
+              <p className="flex gap-1.5 rounded-md border border-warning/30 bg-warning/5 px-2 py-1.5 text-10 text-background-foreground" data-testid="itv-guard-emotion">
                 <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
                 别把少数高情绪当普遍结论：{MATRIX_WRITING_GUARDS.emotionVsEvidence}
               </p>
@@ -169,7 +169,7 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
           {/* 候选洞察 + 来源分布 */}
           <div className="grid gap-3 xl:grid-cols-[1fr_260px]">
             <Card className="p-4" data-testid="itv-candidates">
-              <span className="text-13 font-medium text-foreground">核心发现 · 每条都能点回原始证据</span>
+              <span className="text-13 font-medium text-background-foreground">核心发现 · 每条都能点回原始证据</span>
               <div className="mt-2 flex flex-col gap-2">
                 {INSIGHT_CANDIDATES.map((c) => (
                   <div
@@ -196,7 +196,7 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
                       {c.status === "confirmed" && <Badge tone="neutral"><CheckCircle2 aria-hidden className="h-3 w-3" />已确认</Badge>}
                       {c.status === "counter-kept" && <Badge tone="danger">反例 · 必须保留</Badge>}
                     </div>
-                    <p className="mt-1 text-12 text-foreground">{c.text}</p>
+                    <p className="mt-1 text-12 text-background-foreground">{c.text}</p>
                     <p className="mt-1 text-10 text-muted-foreground">证据：{c.evidence}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       <Button size="xs" variant="outline" disabled={!canWrite}>看原始证据</Button>
@@ -219,11 +219,11 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
             </Card>
 
             <Card className="p-4" data-testid="itv-source-mix">
-              <span className="text-12 font-medium text-foreground">洞察来源分布</span>
+              <span className="text-12 font-medium text-background-foreground">洞察来源分布</span>
               <div className="mt-2 flex flex-col gap-1.5">
                 {INSIGHT_SOURCE_MIX.items.map((s) => (
                   <div key={s.label} className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-11 text-foreground">
+                    <span className="flex items-center gap-1 text-11 text-background-foreground">
                       {s.canStrong ? (
                         <User aria-hidden className="h-3 w-3 text-muted-foreground" />
                       ) : (
@@ -242,7 +242,7 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
           {/* 洞察报告：套报告模板逐章生成 */}
           <Card className="p-4" data-testid="itv-report">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="flex items-center gap-2 text-13 font-medium text-foreground">
+              <span className="flex items-center gap-2 text-13 font-medium text-background-foreground">
                 <FileText aria-hidden className="h-4 w-4 text-muted-foreground" />
                 洞察报告 · 套报告模板「{rt.name}」逐章生成
               </span>
@@ -268,7 +268,7 @@ export function InsightReport({ state, view }: { state: UiState; view: ItvView }
                   <span className="mt-0.5 text-10 font-semibold text-muted-foreground">{c.no}</span>
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-12 text-foreground">{c.title}</span>
+                      <span className="text-12 text-background-foreground">{c.title}</span>
                       <Badge tone={c.authoring === "human" ? "outline" : "ai"}>
                         {c.authoring === "human" ? "必须人写" : "AI 起草"}
                       </Badge>

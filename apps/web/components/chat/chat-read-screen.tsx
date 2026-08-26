@@ -436,7 +436,7 @@ export function ChatReadScreen({
 
   if (!projectId) {
     return (
-      <AppShell previewRole={null}>
+      <AppShell previewRole={null} hideTopBar>
         <div className="grid h-full place-items-center p-6" data-testid="chat-missing-project-context">
           <div className="flex max-w-md flex-col items-center gap-3 text-center">
             <MessageSquare aria-hidden className="h-8 w-8 text-muted-foreground" />
@@ -458,6 +458,7 @@ export function ChatReadScreen({
     <>
       <AppShell
         previewRole={null}
+        hideTopBar
         left={(
           <ThreadList
             groups={threads?.groups ?? null}

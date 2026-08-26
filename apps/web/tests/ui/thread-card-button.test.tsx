@@ -20,7 +20,7 @@ async function nextTick() {
 }
 
 const CARD: ThreadCard = {
-  id: "thr-a", title: "对话 A", subtitle: "", badges: [], agentSummary: "",
+  id: "thr-a", title: "对话 A", subtitle: "", badges: [], status: "done", artifactCount: 0,
   lastActivityAt: "2026-08-14T00:00:00.000Z", visibilityScope: "private",
 };
 

@@ -190,7 +190,7 @@ export function CapabilityEditPage({
                 {SINGULAR[kind]} 目录
               </Link>
               <span className="h-3 w-px shrink-0 bg-border" aria-hidden />
-              <span className="truncate text-13 font-semibold tracking-tight text-foreground">
+              <span className="truncate text-13 font-semibold tracking-tight text-background-foreground">
                 {state.row.name}
               </span>
               <span className="truncate font-mono text-9 text-muted-foreground">{state.row.id}</span>

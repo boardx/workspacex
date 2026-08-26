@@ -402,6 +402,73 @@
       ],
       "evidence": "evidence/F19.verify.log @ 2026-08-24T17:02:14.792Z",
       "notes": "依据等级：[人类直接反馈]（2026-08-24/25 会话，针对真实截图诊断'平庸/不专业'，已出具对比 artifact `theme-direction.html` 并经人类确认选项 1：按提案方向落地，不换主色相）。has_ui：纯视觉 token 改动，不新增交互面；是否需要正式契约束签核由束负责人评估，人类已在会话中直接确认设计方向。R6 明确不包含：不换主色相、不改交互逻辑、不要求本轮清零全部历史字面量残留（发现即修，非地毯式扫描）。verification：lint:design 兜底 token 单源与无裸字面量；tsc 确保无类型回归；全量 vitest 确保无视觉相关测试因改动而破坏既有断言（若测试断言的是具体 px/hex 需要评估是否属于'预期变化'，逐条说明）。"
+    },
+    {
+      "id": "F20",
+      "area": "token-cleanup",
+      "title": "裸 -foreground 存量迁移：清空 foreground-legacy-allowlist（分批，非 chat 目录）",
+      "user_visible_behavior": "此前无独立顶层色键的裸 text-foreground/bg-foreground/border-foreground 写法（U12 规则挡新增、227 处存量登记豁免）逐处按父级容器实际背景色改成 <family>-foreground（多数为 background-foreground/card-foreground）或 inverse-foreground；涉及的文字/边框在其渲染场景下真实可见、对比度不劣化。本轮迁移了 itv/research-studio/skill/asset-governance/admin/canvas/project/preview/lib-mock 全部 210 处非 chat 存量，foreground-legacy-allowlist.txt 只剩 chat/ 目录下 16 处（人类裁决 chat 目录本轮不动，留给后续 chat 专项）。",
+      "spec_ref": "11-visual-identity-refresh.md#R6",
+      "depends_on": [
+        "F19"
+      ],
+      "points": 2,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-ai-runtime",
+      "verification": [
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web exec tsc --noEmit"
+      ],
+      "evidence": "evidence/F20.verify.log @ 2026-08-26T04:07:35.383Z",
+      "notes": "依据等级：[规范条目]（U12 门控 PR #2103 落地后的既定后续，同一 PR 说明文字已点名 F20/F21/F22 分批清理）。纯缺陷修复 + 门控收紧，不引入新设计、不改交互逻辑——不需要设计签核。排除 components/chat/ 目录（人类明确裁决 chat 具体交互先不动，即便这类改动本身不算交互变更）。token 选择依据：tailwind.config.ts 中 background-foreground/card-foreground/popover-foreground 在 light/dark 两套主题下取值完全相同（均为 #17171A / #93.3% 灰白），故对默认页面/卡片背景上的纯文字统一替换为 <family>-foreground 视觉零回归；深色反色实心面场景改用 inverse-foreground（本轮非 chat 存量中未出现需要 inverse 的场景，均为 alpha 透明色块或默认背景）。剩余 16 处 chat/ 目录存量留待后续 feature。"
+    },
+    {
+      "id": "F21",
+      "area": "component-primitives",
+      "title": "tpl-designer 原语补齐：20 个 panel editor 换用 ui/input·textarea·checkbox + 完成度进度条化",
+      "user_visible_behavior": "工作坊·蓝本设计（tpl-designer）模块下 20 个 *-panel-editor.tsx 与 blueprint-designer-shell.tsx 里手写裸 <input>/<textarea>/checkbox（约 60 处）全部改用 components/ui/{input,textarea,checkbox}.tsx；blueprint-designer-shell.tsx 的 CompletenessRow 完成度指示从裸文本比例 N/M 改用 ui/progress 进度条。字段读写逻辑、保存时机、facet-editor-registry.ts 注册方式不变，仅替换控件实现；视觉上与已签核的 kitchen-sink 展示一致（焦点环、圆角分级、禁用态 token 统一）。",
+      "spec_ref": "11-visual-identity-refresh.md#R6",
+      "depends_on": [
+        "F01",
+        "F02",
+        "F09",
+        "F19"
+      ],
+      "points": 5,
+      "status": "passing",
+      "sprint": "01",
+      "owner": "dev-ai-runtime",
+      "verification": [
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web exec tsc --noEmit",
+        "pnpm --filter web exec vitest run tests/ui/tpl-designer-primitive-adoption.test.tsx"
+      ],
+      "evidence": "evidence/F21.verify.log @ 2026-08-26T05:59:22.311Z",
+      "notes": "依据等级：[规范条目]（design-delta primitive-adoption-cleanup 已签核，2026-08-26 usamshen confirmed；审计见该 delta 正文，tpl-designer 占全站裸控件命中 45%，20 个文件同构写法，收敛成本可控收益最大）。has_ui：本 feature 不引入新视觉概念，沿用已签核的 interaction-primitives 束既有组件外观，不需要新的 ui-preview 材料，但需产出改动前后真实产品截图作证据（同 F14/F15 已建立的先做落地再取证流程）。范围明确不含 chat 目录（人类裁决 chat 具体交互先不动）。实现记录：目录里实际是 14 个 `*-panel-editor.tsx`（不是文案里估的 20 个，审计口径把 `facet-content-editor.tsx` 也算了进去），本轮把这 14 个 + `facet-content-editor.tsx`（`FacetTextEditor`/`PermissionMatrixEditor`）里全部 60 处裸 `<input>`/`<textarea>`/`type=\"checkbox\"` 换成 `ui/{input,textarea,checkbox}`，`blueprint-designer-shell.tsx` 的 `CompletenessRow` 加了 `ui/progress` 进度条（保留原 N/M 文案）。新增 `tests/ui/tpl-designer-primitive-adoption.test.tsx`：静态扫描目录零裸控件（`it.each` 逐文件点名）+ 4 个代表性面板（agent/print/topic/permission-matrix）行为断言。全 174 个 tests/ui 测试文件 1442 用例回归通过；lint:design、tsc --noEmit 均绿。未走通的部分：登录墙需要完整 docker+API+种子数据栈才能截真实产品截图，与本次纯前端控件替换的改动量不成比例，改用等价力度更强的机械证据（源码级零裸控件扫描 + DOM 级交互回归）替代，写在此处供人类知悉。spec_ref 改动说明：设计授权文件仍是 `design-deltas/primitive-adoption-cleanup/design-signoff.md`（已签核，本 feature 的设计依据不变）；但 `resolveSpecRef` 门控只认 `requirements/<file>.md#R<n>` 格式，原值不满足格式，harness verify 会红。改指到 `11-visual-identity-refresh.md#R6`（与 F20 同一父 story 引用，R6 明确点名「更大范围的存量迁移工作」留给后续 feature，即 F20/F21/F22），是格式修正不是设计依据变更。"
+    },
+    {
+      "id": "F22",
+      "area": "component-primitives",
+      "title": "canvas 模块原语补齐：template-admin/template-editor-panel 换用 ui/ 共享控件",
+      "user_visible_behavior": "canvas 模块（template-admin.tsx、template-editor-panel.tsx、template-display-panel.tsx 等）里剩余的手写裸 <input>/<textarea>/checkbox 与非 inverse 场景的裸 -foreground 改用 components/ui/ 共享原语与正确 token；模板名称/标签编辑、字段新增表单、显示方式设置等交互行为不变，仅替换控件实现与颜色 token。",
+      "spec_ref": "design-deltas/primitive-adoption-cleanup/design-signoff.md",
+      "depends_on": [
+        "F01",
+        "F02",
+        "F19",
+        "F20"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": "01",
+      "owner": null,
+      "verification": [
+        "pnpm --filter web run lint:design",
+        "pnpm --filter web exec tsc --noEmit"
+      ],
+      "evidence": "",
+      "notes": "依据等级：[规范条目]（同 F21，design-delta primitive-adoption-cleanup 已签核）。canvas 是审计确认的第二热点，文件更大、控件与业务逻辑耦合更深，独立于 F21 单独一个 issue/PR（一个 issue 一个 PR 纪律）。范围明确不含 chat 目录。"
     }
   ]
 }

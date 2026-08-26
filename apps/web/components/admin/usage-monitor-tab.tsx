@@ -115,7 +115,7 @@ export function UsageMonitorTab() {
               className={
                 "h-6 rounded-md px-2.5 text-11 transition-colors duration-200 " +
                 (windowKey === w
-                  ? "bg-foreground text-background"
+                  ? "bg-inverse text-inverse-foreground"
                   : "text-muted-foreground hover:text-background-foreground")
               }
             >
@@ -239,7 +239,7 @@ export function UsageMonitorTab() {
                         <span className="font-mono text-10">{pct}%</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-foreground" style={{ width: `${pct}%` }} />
+                        <div className="h-full rounded-full bg-inverse" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );

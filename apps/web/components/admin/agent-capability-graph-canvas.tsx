@@ -42,9 +42,9 @@ interface CapabilityNodeData extends Record<string, unknown> {
 }
 
 const VARIANT_STYLE: Record<NodeVariant, string> = {
-  agent: "border-primary bg-primary/10 text-foreground font-semibold",
-  skill: "border-border bg-card text-foreground hover:bg-muted",
-  mcp: "border-border bg-card text-foreground hover:bg-muted",
+  agent: "border-primary bg-primary/10 text-background-foreground font-semibold",
+  skill: "border-border bg-card text-background-foreground hover:bg-muted",
+  mcp: "border-border bg-card text-background-foreground hover:bg-muted",
 };
 
 function CapabilityNode({ data }: NodeProps) {

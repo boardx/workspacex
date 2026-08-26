@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import type { DesignFacetCatalog } from "@/lib/generated/design-facet-catalog";
 import type { FacetSaveFn } from "./facet-content-editor";
@@ -366,6 +367,13 @@ function CompletenessRow({
         >
           {`${completeness.done}/${completeness.denominator}`}
         </Button>
+      </div>
+      <div className="mx-1" data-testid="bp-designer-completeness-bar">
+        <Progress
+          value={completeness.done}
+          max={Math.max(completeness.denominator, 1)}
+          label={`已放置 ${completeness.done}/${completeness.denominator} 个字段`}
+        />
       </div>
       {hasTarget ? null : (
         <p className="px-1 text-11 text-muted-foreground" data-testid="bp-designer-completeness-no-target">

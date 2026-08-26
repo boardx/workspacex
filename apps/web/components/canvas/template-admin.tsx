@@ -107,7 +107,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
  * 本屏当时被点名的问题是「模板一多就不好管」。这一轮实施的六项、全部前端内可独立完成、
  * 不改契约形状：
  *  ① **按名字/key 搜索**——`query` 状态，纯前端在当前筛选结果内再过滤一层。
- *  ② **同 key 多版本分组**——默认仍展示全部行（`tpladmin-row-*` 语义不变，
+ *  ② **同 key 多版本分组**——默认仍展示全部行（`tpladmin-card-*` 语义不变，
  *     `canvas-template-create-smoke.spec.ts` 的「reload 后 v1/v2 都在」断言压着这条），
  *     新增「只看每个 key 的当前版本」开关，默认关闭。
  *  ④ 「内置 · 不可删」→「内置模板」+ 一句通栏说明：**没有任何模板支持真删除**，
@@ -164,17 +164,12 @@ function parseInitialFilter(raw: string | undefined): ListTemplatesFilter {
     ? (raw as ListTemplatesFilter)
     : "all";
 }
-function parseInitialView(raw: string | undefined): "list" | "card" {
-  return raw === "card" ? "card" : "list";
-}
-
 export function TemplateAdmin({
-  previewRole, initialFilter, initialView, initialQuery,
+  previewRole, initialFilter, initialQuery,
 }: {
   previewRole: ProjectRole | null;
   /** #9：`/canvas?screen=template-admin&filter=...&view=...&q=...` 的初值，见 `canvas/page.tsx`。 */
   initialFilter?: string;
-  initialView?: string;
   initialQuery?: string;
 }) {
   const { session } = useSession();
@@ -183,7 +178,6 @@ export function TemplateAdmin({
   const router = useRouter();
 
   const [filter, setFilterState] = React.useState<ListTemplatesFilter>(() => parseInitialFilter(initialFilter));
-  const [view, setViewState] = React.useState<"list" | "card">(() => parseInitialView(initialView));
   const [query, setQueryState] = React.useState(initialQuery ?? "");
   /** #2：默认展示每个 key 的**全部**版本（既有行为，e2e 依赖它）；开着才折叠成每 key 一行。 */
   const [latestOnly, setLatestOnly] = React.useState(false);
@@ -193,26 +187,24 @@ export function TemplateAdmin({
    * 不留历史记录（`scroll:false`）。⚠ 只在浏览器里执行（`window` 存在时）：
    * 服务端渲染这一步不需要，且 `window.location.search` 本来就是浏览器专属状态。
    */
-  const syncUrl = React.useCallback((next: { filter?: ListTemplatesFilter; view?: "list" | "card"; q?: string }) => {
+  const syncUrl = React.useCallback((next: { filter?: ListTemplatesFilter; q?: string }) => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const nextFilter = next.filter ?? filter;
-    const nextView = next.view ?? view;
     const nextQuery = next.q ?? query;
     if (nextFilter === "all") params.delete("filter"); else params.set("filter", nextFilter);
-    if (nextView === "list") params.delete("view"); else params.set("view", nextView);
     if (nextQuery.trim() === "") params.delete("q"); else params.set("q", nextQuery);
+    // 2026-08-26：`view` 不再进 URL——模板库只有卡片网格这一种形态
+    //（`Design.pdf` §3「主体为三列卡片网格」，表格视图已整个撤掉）。
+    //   旧链接里残留的 `?view=list` 会被这里清掉，不会渲染出一个已经不存在的视图。
+    params.delete("view");
     const qs = params.toString();
     router.replace(qs.length > 0 ? `?${qs}` : "?", { scroll: false });
-  }, [filter, view, query, router]);
+  }, [filter, query, router]);
 
   const setFilter = React.useCallback((f: ListTemplatesFilter) => {
     setFilterState(f);
     syncUrl({ filter: f });
-  }, [syncUrl]);
-  const setView = React.useCallback((v: "list" | "card") => {
-    setViewState(v);
-    syncUrl({ view: v });
   }, [syncUrl]);
   const setQuery = React.useCallback((q: string) => {
     setQueryState(q);
@@ -631,14 +623,6 @@ export function TemplateAdmin({
           >
             只看每个模板的当前版本
           </Button>
-          <div className="flex items-center gap-0.5">
-            <Button size="icon" variant={view === "list" ? "secondary" : "ghost"} aria-label="列表视图" onClick={() => setView("list")} data-testid="tpladmin-view-list">
-              <List aria-hidden className="h-3.5 w-3.5" />
-            </Button>
-            <Button size="icon" variant={view === "card" ? "secondary" : "ghost"} aria-label="卡片视图" onClick={() => setView("card")} data-testid="tpladmin-view-card">
-              <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
-            </Button>
-          </div>
         </div>
       </div>
       {latestOnly && hiddenVersionCount > 0 && (
@@ -725,64 +709,6 @@ export function TemplateAdmin({
         )}
 
         {visibleState.status === "ready" && rows.length > 0 && (
-          view === "list" ? (
-            <div className="overflow-hidden rounded-lg border border-border" data-testid="tpladmin-table">
-              <Table className="w-full text-left text-12">
-                <TableHeader className="bg-panel text-11 text-muted-foreground">
-                  <TableRow>
-                    <TableHead className="px-3 py-2 font-medium">模板</TableHead>
-                    <TableHead className="px-3 py-2 font-medium">状态</TableHead>
-                    <TableHead className="hidden px-3 py-2 font-medium lg:table-cell">分区</TableHead>
-                    <TableHead className="px-3 py-2 font-medium">key vN</TableHead>
-                    <TableHead className="hidden px-3 py-2 font-medium md:table-cell">类型 · 可见性</TableHead>
-                    <TableHead className="px-3 py-2 font-medium">被 N 场</TableHead>
-                    <TableHead className="px-3 py-2 font-medium">操作</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((t) => (
-                    <TableRow
-                      key={`${t.key}-${t.version}`}
-                      className="border-t border-border-subtle transition-colors duration-base hover:bg-muted"
-                      data-testid={`tpladmin-row-${t.key}-${t.version}`}
-                    >
-                      <TableCell className="px-3 py-2">
-                        <div className="flex flex-col">
-                          <span className="font-medium">{t.displayName}</span>
-                          {t.builtin && <span className="text-9 text-muted-foreground">内置模板</span>}
-                          {/*
-                            #10：窄屏下「分区」「类型 · 可见性」两列整列隐藏（`lg:`/`md:` 断点），
-                            信息不能就这么消失——收进名字下面的一行小字，宽屏时这两列各自可见，
-                            这里就 `lg:hidden` 掉，不重复显示同一份信息。
-                          */}
-                          <span className="text-9 text-muted-foreground lg:hidden">{describeSections(t)}</span>
-                          <span className="text-9 text-muted-foreground md:hidden">
-                            {t.underlyingType} · {TEMPLATE_VISIBILITY_LABEL[t.visibility]}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-3 py-2"><Badge tone={STATUS_TONE[t.status]}>{TEMPLATE_STATUS_LABEL[t.status]}</Badge></TableCell>
-                      <TableCell className="hidden px-3 py-2 text-11 text-muted-foreground lg:table-cell">{describeSections(t)}</TableCell>
-                      <TableCell className="px-3 py-2"><span className="font-mono text-11">{t.key} v{t.version}</span></TableCell>
-                      <TableCell className="hidden px-3 py-2 text-11 text-muted-foreground md:table-cell">
-                        {t.underlyingType} · {TEMPLATE_VISIBILITY_LABEL[t.visibility]}
-                      </TableCell>
-                      {/*
-                        #493：这一格是「模板被用了几次」的服务端事实——`usageCount` 是
-                        `COUNT(*) FROM canvas_template_bindings` 现查的（库里没有可写的计数列，
-                        见迁移 20260805030000 的文件头）。第 8c 步靠它区分「绑定进了 PostgreSQL」
-                        与「绑定只进了 React state」，所以它需要一个能被断言锚住的 testid。
-                      */}
-                      <TableCell className="px-3 py-2 text-11 tabular-nums" data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</TableCell>
-                      <TableCell className="px-3 py-2">
-                        <RowActions row={t} readOnly={readOnly} onArchive={() => void openArchive(t)} onRestore={() => void restore(t)} onPublish={() => void publish(t)} onApply={() => { setApplying(t); setActionError(null); setNotice(null); }} onMintVersion={() => { setMinting(t); setActionError(null); setNotice(null); }} onTrial={() => { setTrialing(t); setActionError(null); setNotice(null); }} onEdit={() => { setEditing(t); setActionError(null); setNotice(null); }} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
             /*
               R2（`Design.pdf` §3.1「卡片」）：自上而下 A1 缩略图 → 模板名 + 状态徽章
               → 一句描述 → 标签胶囊 → 「N 个字段 · M 个区块 · A1 横版」+ 操作区。
@@ -820,6 +746,19 @@ export function TemplateAdmin({
                         */}
                         {t.sections.length} 个字段 · {t.sections.filter((s) => s.layout != null).length} 个区块 · A1 横版
                         {t.builtin && " · 内置"}
+                        {" · 被 "}
+                        {/*
+                          ⚠ 这一格随表格视图一起消失过一次（PR #2123），`core-loop.spec.ts`
+                            第 8c 步当场红——它锚的就是这个 testid。撤掉一个视图时，**挂在
+                            它上面的事实**要跟着搬到留下的那个视图上，不能跟着容器一起删：
+                            「这个模板被几场会用着」是使用者决定要不要归档它的唯一依据，
+                            与它显示在表格里还是卡片里无关。
+                          ⚠ `usageCount` 契约逐字要求「真实统计，不得估算」（服务端现查
+                            COUNT(*)，见 canvas_template_registry 迁移文件头）——这里
+                            原样显示，不做任何"大于 99 显示 99+"之类的加工。
+                        */}
+                        <span data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</span>
+                        {" 场使用"}
                       </span>
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         {!readOnly && (
@@ -865,7 +804,6 @@ export function TemplateAdmin({
                 </Card>
               ))}
             </div>
-          )
         )}
       </div>
 

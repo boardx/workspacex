@@ -1,0 +1,38 @@
+# 裸 -foreground 存量豁免清单（U12；phase-12 design-delta primitive-adoption-cleanup）
+#
+# 背景：tailwind.config.ts 的颜色配置里，`foreground` 从来不是一个独立的顶层键——
+# 只有 background/card/popover/muted/secondary/accent/primary/disabled/destructive/
+# success/warning/ai/ai-tint/rail/panel/panel-alt/inverse 各自的 `{ DEFAULT, foreground }`
+# 子键。裸写 `bg-foreground`/`text-foreground`/`border-foreground` 等，Tailwind 找不到
+# 这个类，**不生成任何 CSS**——不是报错，是静默什么都不做。多数场合恰好因为父级本来
+# 就是深色文字而“看起来没坏”，但只要用在反色实心面（chip/进度条填充/选中态描边）上，
+# 就是文字或描边真的不可见——2026-08-26 人类实测「选中的tag都看不到文字」正是这个根因，
+# 当场修的 9 个文件、约 43 处已经改成 bg-inverse/text-inverse-foreground/border-inverse。
+#
+# 这份清单是**其余存量**（未确认每处的正确修法前，先挡住新增，不阻塞其他部分——
+# 同 F03 motion-legacy-allowlist.txt 的先例）。多数条目应该改成 `text-background-foreground`
+# （所在容器是 bg-background 时）或该容器对应的 `<family>-foreground`，少数深色反色场景
+# 改成 `inverse`/`inverse-foreground`——逐条需要按父级容器实际背景色判断，不能盲目批量替换，
+# 这正是留给 phase-12 design-delta「primitive-adoption-cleanup」F21 跟进 feature 的原因。
+#
+# 格式：一行一条，`<相对 apps/web 的路径><TAB><违规行原始文本（已去首尾空白）>`。
+# 按 (path, content) **子串匹配**豁免——不是按行号：文件里增删无关行不会让豁免失效，
+# 但只要这一行文本本身变了（包括迁移完成后改成正确 token），豁免立刻失效，逼着改动者
+# 重新过一遍 U12 规则，不会被静默放行。
+
+components/chat/active-file-panel.tsx	? "bg-muted text-foreground"
+components/chat/active-file-panel.tsx	<pre className="whitespace-pre-wrap break-words font-mono text-11 text-foreground" data-testid="active-file-plaintext">
+components/chat/chat-skill-mount-panel.tsx	<span className="text-11 text-foreground">{named}</span>
+components/chat/preset-dispatch.tsx	<p className="mb-2 flex items-center gap-1.5 text-11 font-medium text-foreground">
+components/chat/preset-dispatch.tsx	<p className="text-11 font-medium text-foreground">{a.q}</p>
+components/chat/preset-dispatch.tsx	<p className="mt-1 text-11 text-foreground">{a.answer}</p>
+components/chat/preset-dispatch.tsx	<div className="font-medium text-foreground">{preset.name}</div>
+components/chat/preset-dispatch.tsx	className="inline-flex items-center gap-0.5 rounded border border-border px-1.5 py-0.5 text-10 text-foreground"
+components/chat/preset-dispatch.tsx	<div className="text-11 font-medium text-foreground">{p.name}</div>
+components/chat/preset-dispatch.tsx	<span className="block text-11 font-medium text-foreground">{s.name}</span>
+components/chat/preset-dispatch.tsx	className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-11 text-foreground outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring"
+components/chat/preset-dispatch.tsx	<span key={s} className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-10 text-foreground">
+components/chat/agent-approval-panel.tsx	className="h-32 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-10 text-foreground"
+components/chat/copilotkit-v2-panel.tsx	className="h-40 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-11 text-foreground"
+components/chat/copilotkit-v2-panel.tsx	<p className="text-14 font-medium text-foreground">开始新的对话</p>
+components/chat/copilotkit-v2-panel.tsx	className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

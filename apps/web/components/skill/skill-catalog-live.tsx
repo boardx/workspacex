@@ -408,9 +408,9 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
 
       <p className="text-12 text-muted-foreground">
         skill 是一份声明式契约（提示词模板 ＋ 输入输出 schema ＋ 数据范围声明）。新建出来的是
-        <strong className="text-foreground">草稿</strong>：要变成「已启用」，得先过安全扫描（自动），
-        再由<strong className="text-foreground">另一位</strong>方法论审核人批准 —— 打开「查看契约」
-        里的门禁面板走这两步。这里<strong className="text-foreground">没有</strong>「启用」按钮：
+        <strong className="text-background-foreground">草稿</strong>：要变成「已启用」，得先过安全扫描（自动），
+        再由<strong className="text-background-foreground">另一位</strong>方法论审核人批准 —— 打开「查看契约」
+        里的门禁面板走这两步。这里<strong className="text-background-foreground">没有</strong>「启用」按钮：
         没有第二个评审人，就没有「已启用」。
       </p>
 
@@ -866,7 +866,7 @@ function GatePanel({
         双重门禁 · 版本 {versionId}
       </span>
       <p className="text-11 text-muted-foreground">
-        安全扫描（自动）与方法论审核（人工）是<strong className="text-foreground">并列</strong>的两道门，
+        安全扫描（自动）与方法论审核（人工）是<strong className="text-background-foreground">并列</strong>的两道门，
         不是「先提交再补扫描」。「已启用」只由另一位方法论审核人的批准产生 —— 这里没有、也不会有
         「启用」按钮。
       </p>
@@ -994,7 +994,7 @@ function Block({ label, body }: { label: string; body: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-md border border-border-subtle bg-panel p-3">
       <span className="text-10 uppercase tracking-wide text-muted-foreground">{label}</span>
-      <pre className="whitespace-pre-wrap font-mono text-11 text-foreground">{body}</pre>
+      <pre className="whitespace-pre-wrap font-mono text-11 text-background-foreground">{body}</pre>
     </div>
   );
 }

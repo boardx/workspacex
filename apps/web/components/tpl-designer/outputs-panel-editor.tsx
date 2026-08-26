@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -166,24 +168,22 @@ export function OutputsPanelEditor({
                         : "h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40"
                     }
                   />
-                  <input
+                  <Input
                     type="text"
-                    className="flex-1 rounded-md border border-border bg-background p-1 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex-1 text-12 font-medium"
                     value={r.name}
                     onChange={(e) => updateRow(i, { name: e.target.value })}
                     onBlur={() => void persist(value)}
                     placeholder="产出名（如「3 个可推进题目（含依据）」）"
                     data-testid={`bp-out-name-${i}`}
                   />
-                  <label className="flex shrink-0 items-center gap-1 text-11 text-destructive">
-                    <input
-                      type="checkbox"
-                      checked={r.required}
-                      onChange={() => toggleRequired(i)}
-                      data-testid={`bp-out-required-${i}`}
-                    />
-                    必须
-                  </label>
+                  <Checkbox
+                    className="shrink-0"
+                    checked={r.required}
+                    onChange={() => toggleRequired(i)}
+                    label="必须"
+                    data-testid={`bp-out-required-${i}`}
+                  />
                   <button
                     type="button"
                     onClick={() => removeRow(i)}
@@ -195,9 +195,9 @@ export function OutputsPanelEditor({
                   </button>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <input
+                  <Input
                     type="text"
-                    className="flex-1 rounded-md border border-border bg-background p-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex-1 text-11"
                     value={r.gen}
                     onChange={(e) => updateRow(i, { gen: e.target.value })}
                     onBlur={() => void persist(value)}
@@ -207,9 +207,9 @@ export function OutputsPanelEditor({
                   <span aria-hidden className="shrink-0 text-muted-foreground">
                     ›
                   </span>
-                  <input
+                  <Input
                     type="text"
-                    className="flex-1 rounded-md border border-dashed border-border bg-background p-1 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex-1 border-dashed text-11 text-muted-foreground"
                     value={r.to}
                     onChange={(e) => updateRow(i, { to: e.target.value })}
                     onBlur={() => void persist(value)}

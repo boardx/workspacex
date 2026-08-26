@@ -103,7 +103,7 @@ describe("PersonalChatScreen — 主路径", () => {
 
   it("一键即建：点「新建对话」直接建线程（null 标题，服务端自动命名），落进新会话", async () => {
     listPersonalThreads.mockResolvedValueOnce(EMPTY_LIST).mockResolvedValueOnce({
-      groups: [{ label: "今天", cards: [{ id: "thr-new", title: "新对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      groups: [{ label: "今天", cards: [{ id: "thr-new", title: "新对话", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
       capabilities: ["thread.mutate"],
     });
     createPersonalThread.mockResolvedValue({ threadId: "thr-new", version: 0, auditEventId: "ev-1", impactScope: null });
@@ -129,7 +129,7 @@ describe("PersonalChatScreen — 主路径", () => {
 
   it("一键即建没有中间表单——旧的「填标题 → 确认」两步已删（防回归）", async () => {
     listPersonalThreads.mockResolvedValueOnce(EMPTY_LIST).mockResolvedValueOnce({
-      groups: [{ label: "今天", cards: [{ id: "thr-blank", title: "新对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      groups: [{ label: "今天", cards: [{ id: "thr-blank", title: "新对话", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
       capabilities: ["thread.mutate"],
     });
     createPersonalThread.mockResolvedValue({ threadId: "thr-blank", version: 0, auditEventId: "ev-2", impactScope: null });
@@ -166,7 +166,7 @@ describe("🔴 PersonalChatScreen — 跨用户隔离（前端不得替后端的
    */
   it("getThread 返回 404（模拟另一用户的个人线程）⇒ 展示诚实的错误态，不展示任何会话内容", async () => {
     listPersonalThreads.mockResolvedValue({
-      groups: [{ label: "今天", cards: [{ id: "thr-not-mine", title: "看起来像别人的线程 id", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      groups: [{ label: "今天", cards: [{ id: "thr-not-mine", title: "看起来像别人的线程 id", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
       capabilities: ["thread.mutate"],
     });
     getThread.mockRejectedValue(new ApiError(404, "NOT_FOUND", {}));
@@ -184,7 +184,7 @@ describe("🔴 PersonalChatScreen — 跨用户隔离（前端不得替后端的
 
   it("换一个用户（sessionKey 变化）⇒ 上一个用户的列表结果不残留，重新发起请求", async () => {
     listPersonalThreads.mockResolvedValueOnce({
-      groups: [{ label: "今天", cards: [{ id: "thr-user-a", title: "A 的对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      groups: [{ label: "今天", cards: [{ id: "thr-user-a", title: "A 的对话", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
       capabilities: ["thread.mutate"],
     });
     const { rerender } = render(<PersonalChatScreen initialThreadId={null} />);
@@ -193,7 +193,7 @@ describe("🔴 PersonalChatScreen — 跨用户隔离（前端不得替后端的
     // 模拟切到另一个用户的会话（sessionState 的 currentOrgId/bearer 在真实场景下
     // 会随 session 变化；这里直接换 mock 返回值 + 强制重渲染来逼近同一效果）。
     listPersonalThreads.mockResolvedValueOnce({
-      groups: [{ label: "今天", cards: [{ id: "thr-user-b", title: "B 的对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      groups: [{ label: "今天", cards: [{ id: "thr-user-b", title: "B 的对话", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
       capabilities: ["thread.mutate"],
     });
     sessionState.userId = "user-b";
@@ -213,7 +213,7 @@ describe("🔴 PersonalChatScreen — 跨用户隔离（前端不得替后端的
  */
 describe("PersonalChatScreen — 右栏产物/材料面板（issue #1824，人类实测发现缺失）", () => {
   const THREAD_LIST_WITH_ONE = {
-    groups: [{ label: "今天", cards: [{ id: "thr-right", title: "对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+    groups: [{ label: "今天", cards: [{ id: "thr-right", title: "对话", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
     capabilities: ["thread.mutate"],
   };
   const THREAD_DETAIL = {
@@ -274,7 +274,7 @@ describe("PersonalChatScreen — 右栏产物/材料面板（issue #1824，人�
 
 describe("PersonalChatScreen — agent 下拉（#594 后续：消灭手填 agent id 这个即时阻塞）", () => {
   const THREAD_LIST_WITH_ONE = {
-    groups: [{ label: "今天", cards: [{ id: "thr-1", title: "对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+    groups: [{ label: "今天", cards: [{ id: "thr-1", title: "对话", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
     capabilities: ["thread.mutate"],
   };
   const THREAD_DETAIL = {
@@ -356,8 +356,8 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
 
   const THREAD_LIST_TWO = {
     groups: [{ label: "今天", cards: [
-      { id: "thr-a", title: "对话 A", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
-      { id: "thr-b", title: "对话 B", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
+      { id: "thr-a", title: "对话 A", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
+      { id: "thr-b", title: "对话 B", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
     ] }],
     capabilities: ["thread.mutate"],
   };
@@ -402,7 +402,7 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
   it("点删除 → 二次确认（必填原因）→ 提交 → 删完自动选中列表里剩下的那条", async () => {
     listPersonalThreads.mockResolvedValueOnce(THREAD_LIST_TWO).mockResolvedValueOnce({
       groups: [{ label: "今天", cards: [
-        { id: "thr-b", title: "对话 B", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
+        { id: "thr-b", title: "对话 B", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
       ] }],
       capabilities: ["thread.mutate"],
     });
@@ -431,7 +431,7 @@ describe("PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有�
   it("删完一条不剩 ⇒ 选中态清空，回退到 /chat（空态，不是卡在一个已删线程的详情页）", async () => {
     listPersonalThreads.mockResolvedValueOnce({
       groups: [{ label: "今天", cards: [
-        { id: "thr-only", title: "唯一一条", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
+        { id: "thr-only", title: "唯一一条", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" },
       ] }],
       capabilities: ["thread.mutate"],
     }).mockResolvedValueOnce(EMPTY_LIST);
@@ -512,7 +512,7 @@ function mockMatchMedia(matches: boolean) {
 
 describe("PersonalChatScreen — 手机端会话列表可达性（2026-08-07 真实 bug 报告）", () => {
   const THREAD_LIST_WITH_ONE = {
-    groups: [{ label: "今天", cards: [{ id: "thr-mobile-1", title: "手机对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+    groups: [{ label: "今天", cards: [{ id: "thr-mobile-1", title: "手机对话", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
     capabilities: ["thread.mutate"],
   };
   const THREAD_DETAIL = {
@@ -580,7 +580,7 @@ describe("PersonalChatScreen — 手机端会话列表可达性（2026-08-07 真
 describe("个人对话的 skill 挂载入口（人类 2026-08-21 裁决）", () => {
   it("选中一条个人线程 ⇒ 真实挂载面板被渲染，且用 undefined 的 projectId 去读挂载列表", async () => {
     listPersonalThreads.mockResolvedValue({
-      groups: [{ label: "今天", cards: [{ id: "thr-sk", title: "新对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      groups: [{ label: "今天", cards: [{ id: "thr-sk", title: "新对话", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
       capabilities: ["thread.mutate"],
     });
     getThread.mockResolvedValue({
@@ -617,7 +617,7 @@ describe("个人对话的 skill 挂载入口（人类 2026-08-21 裁决）", () 
 describe("挂载态显示 skill 名称，不是 UUID（人类 2026-08-22）", () => {
   it("有挂载时 ⇒ 正文是名称，UUID 收进 title 仍可追溯", async () => {
     listPersonalThreads.mockResolvedValue({
-      groups: [{ label: "今天", cards: [{ id: "thr-n", title: "新对话", subtitle: "", badges: [], agentSummary: null, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
+      groups: [{ label: "今天", cards: [{ id: "thr-n", title: "新对话", subtitle: "", badges: [], status: "done", artifactCount: 0, lastActivityAt: "2026-08-06T00:00:00.000Z", visibilityScope: "private" }] }],
       capabilities: ["thread.mutate"],
     });
     getThread.mockResolvedValue({

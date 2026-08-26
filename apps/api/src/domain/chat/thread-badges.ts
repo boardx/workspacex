@@ -39,11 +39,26 @@
  * 塞进 `subtitle` 之类的自由字符串里冒充结构化字段，也**不**改契约——
  * 契约由人改（ADR-020），agent 不许改 `packages/contracts/src/**`。
  * ⇒ 缺口原样上报，见 PR 正文。`toContractBadges()` 只投影契约表达得了的那部分。
+ *
+ * ⚠ **上面那条「agent 不许改契约」在本次改动里被合法地跨过了一次，如实记录**：
+ *   issue #2094 改了 `ThreadCard`（删 `agentSummary`，加 `status` + `artifactCount`）。
+ *   依据是人类 2026-08-26 的**明示裁决**，且裁决本身即签核动作
+ *   （`design-signoff.md` S-06 那条待裁决项由它了结）。这**不是**先例：
+ *   没有人类逐条裁决时，这条禁令照旧。
  */
-import { chat as C } from "@repo/contracts";
+import { chat as C, wave2Runtime as W } from "@repo/contracts";
 import type { z } from "zod";
 
 export type MessageBadge = z.infer<typeof C.MessageBadge>;
+/** 🔴 #2094：线程卡状态的取值域**引用契约**，不在这里另抄一份字面量联合。 */
+export type ThreadCardStatus = z.infer<typeof C.ThreadCardStatus>;
+/**
+ * 🔴 #2094：最近一次 run 的状态。**引用 `AgentRunStatus` 契约**——
+ * 在这里抄一份 `"queued" | "running" | ...` 就是「同一事实声明在两处」，
+ * 而漂移的那天（有人往 `agent_runs.status` 的 CHECK 里加了第六个值）不会有人收到通知。
+ * 现在那一天会变成 `threadCardStatus()` 里 `never` 那一行的编译错。
+ */
+export type AgentRunStatusFact = z.infer<typeof W.AgentRunStatus>;
 
 /** 徽标计算要用到的一条消息。刻意只有这两个字段——多给一个字段就多一种推断的可能。 */
 export interface BadgeMessageFacts {
@@ -84,25 +99,20 @@ export interface ThreadBadgeState {
   readonly transcribing: boolean;
   /** `已归档`。归档线程只读、默认筛选不返回（I-15）。 */
   readonly archived: boolean;
-  /**
-   * `N 个 agent` 的 N。
-   *
-   * ⚠ 取自**该线程内发过言的不同 agent 数**，不是 AI 团队面板的在场数/编制数——
-   *   那两个数属 F110（`AgentPresence`），且「在场数是否含跑批中」是
-   *   `domain.md` 待裁决第 4 条，**未裁**。这里不预支那个裁决。
-   * ⚠ O-24：私聊线程**不计入在场态**。本实现里私聊线程的 `agentCount` 恒为 0，
-   *   且 `summary` 走 uc-8-1 R7 允许的第二种形态（`最近发言 agent · 时间`）。
-   */
-  readonly agentCount: number;
 }
 
+/**
+ * 🔴 #2094：`agentCount` / `speakingAgentIds` 已删除，不是改名。
+ *
+ * 它们**唯一的消费者**是已删除的 `threadAgentSummary()`。留着一个没人读的计数，
+ * 下一个人会以为它是权威并在第二处消费它——本仓「同一事实声明在两处」的标准起手式。
+ * 连带 `findSpeakingAgentIds` 的每线程一次查询也一并省掉（列表页 N 条线程少 N 次查询）。
+ */
 export interface ThreadBadgeInput {
   readonly messages: readonly BadgeMessageFacts[];
   /** 该线程是否有未停止的转录会话。**事实，不是推断**（I-14）。 */
   readonly transcribing: boolean;
   readonly archived: boolean;
-  /** 在本线程发过言的不同 agent id。私聊线程由调用方传空——见 `agentCount` 注释。 */
-  readonly speakingAgentIds: readonly string[];
 }
 
 export function threadBadgeState(input: ThreadBadgeInput): ThreadBadgeState {
@@ -110,7 +120,6 @@ export function threadBadgeState(input: ThreadBadgeInput): ThreadBadgeState {
     reviewPending: reviewPendingCount(input.messages),
     transcribing: input.transcribing,
     archived: input.archived,
-    agentCount: new Set(input.speakingAgentIds).size,
   };
 }
 
@@ -127,24 +136,65 @@ export function toContractBadges(state: ThreadBadgeState): MessageBadge[] {
 }
 
 /**
- * `ThreadCard.agentSummary` —— uc-8-1 R7「参与摘要」的两种形态之一。
+ * `ThreadCard.status` —— **唯一的一处判定**（🔴 issue #2094，人类裁决落地，回指 #2068）。
  *
- * R7 逐字给了两种：`N 个 agent` **或** `最近发言 agent · 时间`。这里的选择规则是
- * 唯一的一处，且规则本身来自 O-24 而不是审美：
+ * ## 它取代了什么，以及为什么
  *
- *   · 私聊线程（`agentPrivate`）⇒ 走第二种形态。O-24 明写「私聊**不计入**卡片上的
- *     `N 个 agent` 在场态计数」，而一个印着「1 个 agent」的私聊卡就是在计入。
- *   · 其余 ⇒ `N 个 agent`；N = 本线程内发过言的不同 agent 数（见 `agentCount`）。
+ * 这里此前是 `threadAgentSummary()`，返回 `` `${agentCount} 个 agent` ``。
+ * 三件事同时成立，所以它必须走：
  *
- * ⚠ `lastAgentLabel` 为空（没有 agent 发过言）时退化为 `最近发言 —`，不是空串：
- *   空串会在界面上与「字段没取到」无法区分。
+ *   ① **人类审计点名**（2026-08-26，看自己的 `/chat` 截图）：
+ *      「对话列表不可辨认——大量『新对话』，只显示 `0 个 agent`，无法寻找历史任务」。
+ *      活体实测逐字复现：侧栏连续三条「新对话 0 个 agent · 01:14」。
+ *   ② **它连自己名义上那个意思都没准确表达**：`agentCount` 数的是**已发过言的**
+ *      agent（旧的 `speakingAgentIds`，已随本次改动一并删除），不是编制成员——于是一条刚建好、
+ *      编制里明明有 agent 的线程恒显示 `0 个 agent`。
+ *   ③ **它从来没被签核过**。`design-signoff.md` 的 S-06 至今是未勾选的 `[ ]`：
+ *      「『在场 4 / 编制 6』…它同时决定线程卡上的『N 个 agent』是哪个数——UC 没写」，
+ *      `domain.md` I-18 亦自述「裁决后可能要改」。本函数即那条裁决的落地。
+ *
+ * ## 五个取值都从**事实**算，不从推断算
+ *
+ * 与 I-14（`● 转录中` 不许按时间推断）同一条纪律：本函数**不接收** `lastActivityAt`，
+ * 也不接收任何时间戳——一个拿不到时间的函数不可能按「多久没动了」猜状态。
+ * 它只接收两个真实事实：这条线程有没有消息、最近一次 run 的 `status` 是什么。
+ *
+ *   · 没有消息            ⇒ `not-started`（devapp 实测 58 条线程 36 条如此。
+ *                            这不是「已完成」，把它显示成已完成就是撒谎）
+ *   · 有消息、没有 run     ⇒ `done`（消息已落地，没有在跑的东西）
+ *   · 最近 run `queued` / `running` / `writeback_pending` ⇒ `running`
+ *   · 最近 run `awaiting_approval` ⇒ `awaiting-approval`
+ *   · 最近 run `failed`    ⇒ `failed`
+ *   · 最近 run `succeeded` ⇒ `done`
+ *
+ * ⚠ **返回领域枚举，不返回中文串**。返回串会把「状态是什么」和「状态叫什么」
+ *   焊死在一处，而那正是 `0 个 agent` 当年的形状：文案漂在自由字符串里，
+ *   没有任何门控看得见它。文案映射的唯一一处在 web 侧的 `THREAD_STATUS_LABEL`。
  */
-export function threadAgentSummary(input: {
-  readonly state: ThreadBadgeState;
-  readonly agentPrivate: boolean;
-  readonly lastAgentLabel: string | null;
-  readonly lastActivityLabel: string;
-}): string {
-  if (!input.agentPrivate) return `${input.state.agentCount} 个 agent`;
-  return `${input.lastAgentLabel ?? "—"} · ${input.lastActivityLabel}`;
+export function threadCardStatus(input: {
+  /** 该线程有没有任何可见消息。 */
+  readonly hasMessages: boolean;
+  /** 该线程最近一次 `agent_runs` 的 status；从来没跑过则为 `null`。 */
+  readonly latestRunStatus: AgentRunStatusFact | null;
+}): ThreadCardStatus {
+  if (!input.hasMessages) return "not-started";
+  switch (input.latestRunStatus) {
+    case "queued":
+    case "running":
+    case "writeback_pending":
+      return "running";
+    case "awaiting_approval":
+      return "awaiting-approval";
+    case "failed":
+      return "failed";
+    case "succeeded":
+    case null:
+    case undefined:
+      return "done";
+    default: {
+      // 枚举被加了新取值却没在这里处理时，这一行是编译期的红。
+      const exhaustive: never = input.latestRunStatus;
+      return exhaustive;
+    }
+  }
 }

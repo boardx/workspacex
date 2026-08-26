@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -164,18 +166,18 @@ export function ReportPanelEditor({
                 <span className="w-6 shrink-0 font-mono text-11 text-muted-foreground">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <input
+                <Input
                   type="text"
-                  className="flex-1 rounded-md border border-border bg-background p-1 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex-1 text-12"
                   value={c.title}
                   onChange={(e) => updateChapter(i, { title: e.target.value })}
                   onBlur={() => void persist(value)}
                   placeholder="章节标题（如「一页纸结论：3 个题目与推进顺序」）"
                   data-testid={`bp-report-title-${i}`}
                 />
-                <input
+                <Input
                   type="text"
-                  className="w-24 shrink-0 rounded-md border border-dashed border-border bg-background p-1 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-24 shrink-0 border-dashed text-11 text-muted-foreground"
                   value={c.by}
                   onChange={(e) => updateChapter(i, { by: e.target.value })}
                   onBlur={() => void persist(value)}
@@ -183,15 +185,13 @@ export function ReportPanelEditor({
                   aria-label="由谁写"
                   data-testid={`bp-report-by-${i}`}
                 />
-                <label className="flex shrink-0 items-center gap-1 text-11 text-destructive">
-                  <input
-                    type="checkbox"
-                    checked={c.humanRequired}
-                    onChange={() => toggleHumanRequired(i)}
-                    data-testid={`bp-report-human-${i}`}
-                  />
-                  必须人写
-                </label>
+                <Checkbox
+                  className="shrink-0"
+                  checked={c.humanRequired}
+                  onChange={() => toggleHumanRequired(i)}
+                  label="必须人写"
+                  data-testid={`bp-report-human-${i}`}
+                />
                 <button
                   type="button"
                   onClick={() => removeChapter(i)}

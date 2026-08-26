@@ -72,7 +72,7 @@ export function NewResearchEntry({
 function Field({ n, label, hint, children }: { n: number; label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5" data-testid={`rs-field-${n}`}>
-      <label className="text-12 font-medium text-foreground">
+      <label className="text-12 font-medium text-background-foreground">
         {n}. {label}{hint && <span className="ml-1 font-normal text-muted-foreground">· {hint}</span>}
       </label>
       {children}
@@ -134,7 +134,7 @@ export function NewResearchPanel({
     <div className="mx-auto w-full max-w-2xl rounded-xl border border-border bg-card shadow-lg" data-testid="rs-new-panel">
       <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
         <div className="flex flex-col gap-1">
-          <h2 className="text-16 font-semibold text-foreground">新建深度研究</h2>
+          <h2 className="text-16 font-semibold text-background-foreground">新建深度研究</h2>
           <p className="max-w-lg text-11 leading-relaxed text-muted-foreground">
             先说清要查什么场景下的什么问题，研究模块据此决定检索路数与来源。
           </p>
@@ -148,7 +148,7 @@ export function NewResearchPanel({
           <textarea
             data-testid="rs-input-scene" rows={2} value={config.scene}
             onChange={(e) => patch({ scene: e.target.value })}
-            className="rounded-md border border-border bg-background px-2.5 py-1.5 text-12 text-foreground"
+            className="rounded-md border border-border bg-background px-2.5 py-1.5 text-12 text-background-foreground"
           />
         </Field>
 
@@ -156,7 +156,7 @@ export function NewResearchPanel({
           <textarea
             data-testid="rs-input-question" rows={2} value={config.question}
             onChange={(e) => patch({ question: e.target.value })}
-            className="rounded-md border border-border bg-background px-2.5 py-1.5 text-12 text-foreground"
+            className="rounded-md border border-border bg-background px-2.5 py-1.5 text-12 text-background-foreground"
           />
           {submitted && errors.question && (
             /* `err-` 是七态里 invalid 的保留前缀（`RESERVED_STATE_TESTID.invalid`）。 */
@@ -188,7 +188,7 @@ export function NewResearchPanel({
                 className={cn("flex flex-col gap-0.5 rounded-md border px-2 py-1.5 text-left",
                   config.depth === d.code ? "border-primary bg-accent" : "border-border hover:bg-muted")}
               >
-                <span className="text-12 font-medium text-foreground">{d.label}</span>
+                <span className="text-12 font-medium text-background-foreground">{d.label}</span>
                 {/* 卡片串 `note`；预览句用的是 `depthL`。两串并存 = Q-1 未裁 */}
                 <span className="text-10 text-muted-foreground">{d.note}</span>
               </button>
@@ -280,7 +280,7 @@ function CreatedDetail({ config, scoutAvailable, onRetry }: { config: RsConfig; 
       <div className="rounded-md border border-primary/30 bg-accent px-3 py-2" role="status" data-testid="rs-created-toast">
         <p className="text-12 text-accent-foreground">{researchCreatedToast(config, scoutAvailable)}</p>
       </div>
-      <h2 className="text-16 font-semibold text-foreground">{config.question}</h2>
+      <h2 className="text-16 font-semibold text-background-foreground">{config.question}</h2>
       <p className="text-11 text-muted-foreground">{config.scene}</p>
       {/* 七项配置已固化到该研究上——它是执行契约，不是文案（R6 后置条件 / N-12）。 */}
       <p className="text-11 leading-relaxed text-muted-foreground" data-testid="rs-created-contract">
@@ -293,7 +293,7 @@ function CreatedDetail({ config, scoutAvailable, onRetry }: { config: RsConfig; 
          * 契约面：`createResearch.err` 里没有 `MODEL_UNAVAILABLE`（它在 `runResearch`）。
          */
         <div className="flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/5 p-2.5" role="alert" data-testid="dep-failed">
-          <p className="text-12 font-medium text-foreground" data-testid="rs-created-pending">待运行 · Scout 暂不可用（MODEL_UNAVAILABLE）</p>
+          <p className="text-12 font-medium text-background-foreground" data-testid="rs-created-pending">待运行 · Scout 暂不可用（MODEL_UNAVAILABLE）</p>
           <p className="text-11 text-muted-foreground">研究已创建，七项配置已保存；只是这一轮没跑起来。</p>
           <Button size="xs" variant="outline" className="mt-1 w-fit" data-testid="rs-created-retry" onClick={onRetry}>
             <RefreshCw className="h-3 w-3" aria-hidden />重试

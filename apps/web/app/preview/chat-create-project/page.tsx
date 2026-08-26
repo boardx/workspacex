@@ -64,7 +64,7 @@ export default function ChatCreateProjectPreviewPage({
   const meta = VARIANTS[variant];
 
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground" data-testid="chat-create-project-preview">
+    <main className="min-h-screen bg-background p-6 text-background-foreground" data-testid="chat-create-project-preview">
       <nav className="mb-4 flex flex-wrap items-center gap-2 text-11">
         <span className="text-muted-foreground">候选：</span>
         {(Object.keys(VARIANTS) as VariantKey[]).map((k) => (
@@ -91,7 +91,7 @@ export default function ChatCreateProjectPreviewPage({
         <p className="text-12 text-muted-foreground">它的代价：{meta.cost}</p>
         {/* 签核材料上最该被看见的一句话，不能用低对比色——初版用 text-warning-foreground
             在浅底上几乎隐形，截图里读不出来 */}
-        <p className="mt-1 self-start rounded border border-warning/40 bg-warning/10 px-2 py-1 text-11 font-medium text-foreground">
+        <p className="mt-1 self-start rounded border border-warning/40 bg-warning/10 px-2 py-1 text-11 font-medium text-background-foreground">
           原型材料 · 纯 mock 不接后端 · 未改动任何生产屏
         </p>
       </header>

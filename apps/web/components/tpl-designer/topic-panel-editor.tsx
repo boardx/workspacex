@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -165,8 +167,8 @@ export function TopicPanelEditor({
             </span>
           ))}
         </div>
-        <textarea
-          className="min-h-16 w-full rounded-md border border-border bg-background p-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        <Textarea
+          className="min-h-16 w-full text-12"
           value={value.themeStatementText}
           onChange={(e) => updateStatement(e.target.value)}
           onBlur={() => void persist(value)}
@@ -187,18 +189,18 @@ export function TopicPanelEditor({
                   <span className="flex-1 text-11 text-muted-foreground">{b.hint}</span>
                   <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">{b.source}</span>
                 </div>
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-border bg-background p-1.5 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full text-12"
                   value={row.content}
                   onChange={(e) => updateBackground(b.element, { content: e.target.value })}
                   onBlur={() => void persist(value)}
                   placeholder={`填写"${b.element}"…`}
                   data-testid={`bp-topic-bg-content-${b.element}`}
                 />
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-dashed border-border bg-background p-1.5 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full border-dashed text-11 text-muted-foreground"
                   value={row.citedFrom}
                   onChange={(e) => updateBackground(b.element, { citedFrom: e.target.value })}
                   onBlur={() => void persist(value)}

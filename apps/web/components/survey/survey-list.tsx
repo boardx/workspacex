@@ -68,14 +68,14 @@ export function SurveyList({ activeId = "sv-1" }: { activeId?: string }) {
       <div className="flex flex-wrap items-center gap-1.5" data-testid="survey-status-filter">
         <button
           type="button" onClick={() => setStatusFilter("all")} data-testid="survey-status-filter-all"
-          className={"rounded-full px-2.5 py-1 text-10 " + (statusFilter === "all" ? "bg-foreground text-background" : "border border-border-subtle text-muted-foreground")}
+          className={"rounded-full px-2.5 py-1 text-10 " + (statusFilter === "all" ? "bg-inverse text-inverse-foreground" : "border border-border-subtle text-muted-foreground")}
         >
           全部 {SURVEY_LIST.length}
         </button>
         {(Object.keys(SURVEY_STATUS_LABEL) as SurveyStatus[]).map((st) => (
           <button
             key={st} type="button" onClick={() => setStatusFilter(st)} data-testid={`survey-status-filter-${st}`}
-            className={"rounded-full border px-2.5 py-1 text-10 " + (statusFilter === st ? "border-foreground bg-foreground text-background" : "border-border-subtle text-muted-foreground")}
+            className={"rounded-full border px-2.5 py-1 text-10 " + (statusFilter === st ? "border-inverse bg-inverse text-inverse-foreground" : "border-border-subtle text-muted-foreground")}
           >
             {SURVEY_STATUS_LABEL[st]} {counts[st]}
           </button>

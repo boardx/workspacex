@@ -32,7 +32,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
     <section className="flex flex-col gap-4 p-5" data-testid="itv-virtual-persona">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col gap-1">
-          <h1 className="flex items-center gap-2 text-20 font-semibold text-foreground">
+          <h1 className="flex items-center gap-2 text-20 font-semibold text-background-foreground">
             <Bot aria-hidden className="h-5 w-5 text-ai-tint-foreground" />
             虚拟画像推演访谈
           </h1>
@@ -85,7 +85,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
                       <span className="flex h-6 w-6 items-center justify-center rounded-sm bg-ai-tint font-mono text-10 text-ai-tint-foreground">
                         {e.id}
                       </span>
-                      <span className="text-12 font-medium text-foreground">{e.role}</span>
+                      <span className="text-12 font-medium text-background-foreground">{e.role}</span>
                     </div>
                     <Badge tone={e.state === "enabled" ? "ai" : "warning"} data-testid={`itv-expert-cap-${e.id}`}>
                       {e.state === "enabled" ? CONFIDENCE_CAP_LABEL[e.confidenceCap] : "材料不足"}
@@ -94,7 +94,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
                   <p className="mt-1.5 text-10 text-muted-foreground">构造依据：{e.basis}</p>
                   {e.state === "enabled" ? (
                     <div className="mt-2 flex flex-col gap-1 text-10">
-                      <p className="text-foreground">立场偏好：{e.stance}</p>
+                      <p className="text-background-foreground">立场偏好：{e.stance}</p>
                       <p className="text-muted-foreground">已知局限：{e.limits}</p>
                       <p className="text-warning">不可用于：{e.notFor}</p>
                     </div>
@@ -111,7 +111,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
           {/* 提问与推演 */}
           <div className="grid gap-3 xl:grid-cols-[280px_1fr]" data-testid="itv-virtual-deduction">
             <Card className="p-3">
-              <span className="text-12 font-medium text-foreground">问题清单 · 来自 RQ</span>
+              <span className="text-12 font-medium text-background-foreground">问题清单 · 来自 RQ</span>
               <p className="mb-2 text-10 text-muted-foreground">只需要问题与文字推演，不模拟对话过程、不生成语音。</p>
               <div className="flex flex-col gap-1.5">
                 {VIRTUAL_QUESTIONS.map((q, i) => (
@@ -123,7 +123,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
                       i === 0 ? "border-primary/40 bg-accent" : "border-border-subtle bg-panel",
                     )}
                   >
-                    <p className="text-11 text-foreground">{q.question}</p>
+                    <p className="text-11 text-background-foreground">{q.question}</p>
                     <div className="mt-1 flex items-center gap-1.5">
                       <Badge tone="outline">{q.rq}</Badge>
                       <span className="text-10 text-muted-foreground">{q.progress}</span>
@@ -142,7 +142,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
                 <span className="flex h-6 w-6 items-center justify-center rounded-sm bg-ai-tint font-mono text-10 text-ai-tint-foreground">
                   {VIRTUAL_DEDUCTION.expertId}
                 </span>
-                <span className="text-12 font-medium text-foreground">{VIRTUAL_DEDUCTION.expertRole}</span>
+                <span className="text-12 font-medium text-background-foreground">{VIRTUAL_DEDUCTION.expertRole}</span>
                 <Badge tone="ai">虚拟推演 · 探索性</Badge>
                 <span className="text-10 text-muted-foreground">{VIRTUAL_DEDUCTION.steps}</span>
               </div>
@@ -169,7 +169,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
               <div className="mt-3 rounded-md border border-border-subtle bg-panel p-2">
                 <p className="text-10 uppercase tracking-wide text-muted-foreground">三位专家的分歧 · 分歧本身就是要去问真人的地方</p>
                 {VIRTUAL_DISAGREEMENT.map((d) => (
-                  <p key={d.expert} className="mt-1 text-10 text-foreground">
+                  <p key={d.expert} className="mt-1 text-10 text-background-foreground">
                     <span className="font-mono text-ai-tint-foreground">{d.expert}</span> {d.claim}
                   </p>
                 ))}
@@ -179,7 +179,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
 
           {/* 采纳与标注 */}
           <Card className="p-3" data-testid="itv-virtual-adopt">
-            <span className="text-12 font-medium text-foreground">采纳与标注 · 待你判断（推演结论不会自动进任何地方）</span>
+            <span className="text-12 font-medium text-background-foreground">采纳与标注 · 待你判断（推演结论不会自动进任何地方）</span>
             <div className="mt-2 flex flex-col gap-2">
               {VIRTUAL_ADOPT_QUEUE.map((a, i) => (
                 <div
@@ -191,7 +191,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
                     <span className="font-mono text-10 text-ai-tint-foreground">{a.expertId}</span>
                     <Badge tone="ai">{a.tag}</Badge>
                   </div>
-                  <p className="mt-1 text-11 text-foreground">{a.claim}</p>
+                  <p className="mt-1 text-11 text-background-foreground">{a.claim}</p>
                   {a.note && (
                     <p className="mt-1 flex gap-1 text-10 text-warning">
                       <Ban aria-hidden className="mt-0.5 h-3 w-3 shrink-0" />
@@ -209,7 +209,7 @@ export function VirtualPersona({ state, view }: { state: UiState; view: ItvView 
             <div className="mt-3 rounded-md border border-border-subtle bg-card p-2" data-testid="itv-adopt-destinations">
               <p className="text-10 uppercase tracking-wide text-muted-foreground">已采纳的去向</p>
               {VIRTUAL_ADOPTED_DESTINATIONS.map((d, i) => (
-                <p key={i} className="mt-1 text-10 text-foreground">· {d}</p>
+                <p key={i} className="mt-1 text-10 text-background-foreground">· {d}</p>
               ))}
             </div>
           </Card>

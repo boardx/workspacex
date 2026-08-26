@@ -20,7 +20,7 @@ export function ResearchDesign({ state, view }: { state: UiState; view: ItvView 
     <section className="flex flex-col gap-4 p-5" data-testid="itv-research-design">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-20 font-semibold text-foreground">研究设计</h1>
+          <h1 className="text-20 font-semibold text-background-foreground">研究设计</h1>
           <span
             className="flex w-fit items-center gap-1.5 rounded-md border border-ai/20 bg-ai-tint px-2 py-1 text-11 text-ai-tint-foreground"
             data-testid="itv-design-status"
@@ -46,7 +46,7 @@ export function ResearchDesign({ state, view }: { state: UiState; view: ItvView 
         <div className="flex flex-col gap-4">
           {/* 上下文三要素 */}
           <Card className="p-4" data-testid="itv-design-context">
-            <span className="text-13 font-medium text-foreground">上下文 · 为什么做这轮访谈</span>
+            <span className="text-13 font-medium text-background-foreground">上下文 · 为什么做这轮访谈</span>
             <div className="mt-2 grid gap-2 md:grid-cols-3">
               {[
                 { k: "谁", v: d.context.who },
@@ -55,7 +55,7 @@ export function ResearchDesign({ state, view }: { state: UiState; view: ItvView 
               ].map((f) => (
                 <div key={f.k} className="rounded-md border border-border-subtle bg-panel p-2">
                   <p className="text-10 text-muted-foreground">{f.k}</p>
-                  <p className="text-12 text-foreground">{f.v}</p>
+                  <p className="text-12 text-background-foreground">{f.v}</p>
                 </div>
               ))}
             </div>
@@ -74,7 +74,7 @@ export function ResearchDesign({ state, view }: { state: UiState; view: ItvView 
           {/* 访谈大纲 */}
           <Card className="p-4" data-testid="itv-design-outline">
             <div className="flex items-center justify-between">
-              <span className="text-13 font-medium text-foreground">访谈大纲 · 合计 {total} 分钟</span>
+              <span className="text-13 font-medium text-background-foreground">访谈大纲 · 合计 {total} 分钟</span>
               <Badge tone="warning" data-testid="itv-design-quality-hint">{d.qualityHint}</Badge>
             </div>
             <p className="mb-2 text-10 text-muted-foreground">每段先说要问出什么，再给开场问法（≥2 条）</p>
@@ -86,12 +86,12 @@ export function ResearchDesign({ state, view }: { state: UiState; view: ItvView 
                   className="rounded-md border border-border-subtle bg-panel p-2.5"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-11 font-semibold text-foreground">{sg.no}</span>
+                    <span className="text-11 font-semibold text-background-foreground">{sg.no}</span>
                     <div className="flex items-center gap-1">
                       <Button size="icon" variant="ghost" disabled={!canWrite} aria-label="减时长">
                         <Minus aria-hidden className="h-3 w-3" />
                       </Button>
-                      <span className="text-11 text-foreground">{sg.minutes} 分</span>
+                      <span className="text-11 text-background-foreground">{sg.minutes} 分</span>
                       <Button size="icon" variant="ghost" disabled={!canWrite} aria-label="加时长">
                         <Plus aria-hidden className="h-3 w-3" />
                       </Button>
@@ -101,7 +101,7 @@ export function ResearchDesign({ state, view }: { state: UiState; view: ItvView 
                       <X aria-hidden className="h-3 w-3 text-destructive" />
                     </Button>
                   </div>
-                  <p className="mt-1 text-12 text-foreground">要问出什么：{sg.goal}</p>
+                  <p className="mt-1 text-12 text-background-foreground">要问出什么：{sg.goal}</p>
                   <ul className="mt-1 flex flex-col gap-0.5">
                     {sg.openers.map((q, i) => (
                       <li key={i} className="text-11 text-muted-foreground">「{q}」</li>
@@ -115,7 +115,7 @@ export function ResearchDesign({ state, view }: { state: UiState; view: ItvView 
 
           {/* 研究计划参数（四行） */}
           <Card className="p-4" data-testid="itv-design-plan">
-            <span className="text-13 font-medium text-foreground">研究计划参数</span>
+            <span className="text-13 font-medium text-background-foreground">研究计划参数</span>
             <div className="mt-2 grid gap-2 md:grid-cols-2">
               {[
                 { label: "建议场次", value: d.plan.sessions },
@@ -124,13 +124,13 @@ export function ResearchDesign({ state, view }: { state: UiState; view: ItvView 
               ].map((r) => (
                 <div key={r.label} className="rounded-md border border-border-subtle bg-panel p-2">
                   <p className="text-10 text-muted-foreground">{r.label}</p>
-                  <p className="text-12 text-foreground">{r.value}</p>
+                  <p className="text-12 text-background-foreground">{r.value}</p>
                 </div>
               ))}
               <div className="rounded-md border border-border-subtle bg-panel p-2" data-testid="itv-plan-retention">
                 <p className="text-10 text-muted-foreground">数据保留 · {d.plan.retentionParamLabel}</p>
-                <p className="text-12 text-foreground">{d.plan.retentionValueSource}</p>
-                <span className="mt-1.5 flex items-center gap-1.5 text-11 text-foreground">
+                <p className="text-12 text-background-foreground">{d.plan.retentionValueSource}</p>
+                <span className="mt-1.5 flex items-center gap-1.5 text-11 text-background-foreground">
                   <StaticSwitch on={d.plan.noTraining} label="禁止用于训练" testId="itv-plan-no-training" />
                   禁止用于训练（独立开关）
                 </span>

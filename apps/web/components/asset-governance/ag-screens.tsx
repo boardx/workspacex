@@ -85,8 +85,8 @@ export function AgDashboard({ state, view }: ScreenProps) {
 
         <Panel testid="ag-dashboard-quota">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-12 font-medium text-foreground">本月组织额度</span>
-            <span className="font-mono text-13 font-semibold text-foreground">{AG_ORG_QUOTA.pct}%</span>
+            <span className="text-12 font-medium text-background-foreground">本月组织额度</span>
+            <span className="font-mono text-13 font-semibold text-background-foreground">{AG_ORG_QUOTA.pct}%</span>
           </div>
           <Meter value={AG_ORG_QUOTA.pct} max={100} tone="warning" testid="ag-dashboard-quota-meter" />
           <p className="mt-1.5 font-mono text-10 text-muted-foreground">
@@ -98,20 +98,20 @@ export function AgDashboard({ state, view }: ScreenProps) {
           {AG_DASHBOARD_TILES.map((t) => (
             <Panel key={t.k} testid="ag-dashboard-tile">
               <p className="text-10 text-muted-foreground">{t.k}</p>
-              <p className="mt-1 text-20 font-semibold text-foreground">{t.v}</p>
+              <p className="mt-1 text-20 font-semibold text-background-foreground">{t.v}</p>
               <p className="mt-0.5 text-9 text-muted-foreground">{t.sub}</p>
             </Panel>
           ))}
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-11 font-medium text-foreground">六种资产 · 一套公共治理机制</p>
+          <p className="text-11 font-medium text-background-foreground">六种资产 · 一套公共治理机制</p>
           <div className="grid grid-cols-2 gap-2 xl:grid-cols-3">
             {AG_ASSET_NAV.map((a) => (
               <Panel key={a.kind} testid="ag-dashboard-asset">
                 <div className="flex items-center gap-2">
                   <span className="grid h-6 w-6 place-items-center rounded-md bg-muted font-mono text-9 text-muted-foreground">{a.icon}</span>
-                  <span className="text-12 font-medium text-foreground">{a.label}</span>
+                  <span className="text-12 font-medium text-background-foreground">{a.label}</span>
                   <Badge tone="outline" className="ml-auto font-mono">{a.count}</Badge>
                 </div>
                 <p className="mt-1.5 text-9 leading-relaxed text-muted-foreground">{a.govHint}</p>
@@ -149,7 +149,7 @@ export function AgBlueprint({ state, view }: ScreenProps) {
 
         <div className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
-            <span className="text-13 font-medium text-foreground">{h.sectionTitle}</span>
+            <span className="text-13 font-medium text-background-foreground">{h.sectionTitle}</span>
           </div>
           <p className="text-10 leading-relaxed text-muted-foreground">{h.sectionSub}</p>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -170,7 +170,7 @@ export function AgBlueprint({ state, view }: ScreenProps) {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex min-w-0 flex-col gap-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-13 font-medium text-foreground">{b.title}</span>
+                      <span className="truncate text-13 font-medium text-background-foreground">{b.title}</span>
                       {b.status === "published" ? (
                         <Badge tone="primary" className="font-mono">已发布 {b.version}</Badge>
                       ) : (
@@ -209,7 +209,7 @@ export function AgBlueprint({ state, view }: ScreenProps) {
                     confirmLabel="仍要删除此蓝本"
                     impact={
                       <>
-                        <span className="font-medium text-foreground">影响范围：删除「{b.title}」</span>
+                        <span className="font-medium text-background-foreground">影响范围：删除「{b.title}」</span>
                         <span>· 已用它开过 {b.used.replace("用过 ", "").replace(" 次", "")} 个项目——那些项目锁在自己的版本上，不受影响。</span>
                         <span>· 新建项目将无法再套用它。此操作不可撤销。</span>
                       </>
@@ -242,10 +242,10 @@ export function AgNewSkill({ state, view }: ScreenProps) {
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
           {AG_NEWSKILL_PATHS.map((p, i) => (
-            <Panel key={p.id} testid="ag-newskill-path" className={cn("flex flex-col gap-2", i === 1 && "border-foreground")}>
+            <Panel key={p.id} testid="ag-newskill-path" className={cn("flex flex-col gap-2", i === 1 && "border-inverse")}>
               <div className="flex items-center gap-2">
                 {p.id === "import" && <Github aria-hidden className="h-4 w-4 text-muted-foreground" />}
-                <span className="text-12 font-medium text-foreground">{p.label}</span>
+                <span className="text-12 font-medium text-background-foreground">{p.label}</span>
               </div>
               <p className="text-10 leading-relaxed text-muted-foreground">{p.desc}</p>
               {p.id === "import" && (
@@ -268,11 +268,11 @@ export function AgNewSkill({ state, view }: ScreenProps) {
         </p>
 
         <div className="flex flex-col gap-2">
-          <span className="text-11 font-medium text-foreground">或从市场挑一个改</span>
+          <span className="text-11 font-medium text-background-foreground">或从市场挑一个改</span>
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
             {AG_MARKET_CARDS.map((m) => (
               <Panel key={m.id} testid="ag-newskill-market" className="flex flex-col gap-1.5">
-                <span className="text-12 font-medium text-foreground">{m.name}</span>
+                <span className="text-12 font-medium text-background-foreground">{m.name}</span>
                 <span className="font-mono text-9 text-muted-foreground">{m.total} 个 · 已同步 {m.synced}</span>
                 <Button size="xs" variant="outline" data-testid="ag-newskill-browse">浏览</Button>
               </Panel>
@@ -332,7 +332,7 @@ export function AgGates({ state, view }: ScreenProps) {
             <Panel key={g.no} testid="ag-gate-row" className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-9 text-muted-foreground">{g.no}</span>
-                <span className="text-12 font-medium text-foreground">{g.name}</span>
+                <span className="text-12 font-medium text-background-foreground">{g.name}</span>
                 <span className="ml-auto"><VerdictBadge verdict={g.verdict} /></span>
               </div>
               <p className="text-11 leading-relaxed text-muted-foreground">{g.detail}</p>
@@ -342,11 +342,11 @@ export function AgGates({ state, view }: ScreenProps) {
 
         {/* 第 04 关 · 查重分歧 */}
         <Panel testid="ag-gate-dedup" className="flex flex-col gap-3 border-destructive/30 bg-destructive/5">
-          <span className="text-12 font-medium text-foreground">第 04 关 · 查重分歧，需要你判断</span>
+          <span className="text-12 font-medium text-background-foreground">第 04 关 · 查重分歧，需要你判断</span>
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
             {[AG_DEDUP.existing, AG_DEDUP.incoming].map((c, i) => (
               <div key={i} className="flex flex-col gap-1 rounded-md border border-border bg-card p-2.5">
-                <span className="text-11 font-medium text-foreground">{c.title}</span>
+                <span className="text-11 font-medium text-background-foreground">{c.title}</span>
                 <p className="text-10 leading-relaxed text-muted-foreground">{c.desc}</p>
                 <p className="font-mono text-9 text-muted-foreground">{c.calls} · {c.satisfaction}</p>
               </div>
@@ -362,7 +362,7 @@ export function AgGates({ state, view }: ScreenProps) {
                   confirmLabel="确认放弃本次导入"
                   impact={
                     <>
-                      <span className="font-medium text-foreground">影响范围：放弃导入 Jobs-to-be-done</span>
+                      <span className="font-medium text-background-foreground">影响范围：放弃导入 Jobs-to-be-done</span>
                       <span>· 已跑完的前 3 关结果一并丢弃，下次导入需重跑。草稿不保留。</span>
                     </>
                   }
@@ -378,7 +378,7 @@ export function AgGates({ state, view }: ScreenProps) {
 
         {/* 第 03 关建议 · 原文与改写对照 */}
         <Panel testid="ag-gate-diff" className="flex flex-col gap-2">
-          <span className="text-11 font-medium text-foreground">原文与改写对照 · {AG_REWRITE_DIFF.hint}</span>
+          <span className="text-11 font-medium text-background-foreground">原文与改写对照 · {AG_REWRITE_DIFF.hint}</span>
           <div className="flex flex-col gap-1 font-mono text-10">
             <div className="rounded-md bg-destructive/10 px-2 py-1 text-destructive">－ 原文 {AG_REWRITE_DIFF.before}</div>
             <div className="rounded-md bg-success/10 px-2 py-1 text-success">＋ 改写为 {AG_REWRITE_DIFF.after}</div>
@@ -421,7 +421,7 @@ export function AgGovernance({
                 confirmLabel="确认灰度发布"
                 impact={
                   <>
-                    <span className="font-medium text-foreground">发布方式：灰度</span>
+                    <span className="font-medium text-background-foreground">发布方式：灰度</span>
                     <span>· {AG_RELEASE.note}</span>
                     <span>· 回退：灰度期内任一异常，一键撤回，不触达其余 43 人。</span>
                   </>
@@ -429,12 +429,12 @@ export function AgGovernance({
               />
             </>
           }>
-          这一步六种资产完全一样：<strong className="font-medium text-foreground">谁能用、出问题谁负责、什么时候重新检查</strong>。三个都填完才能发布。
+          这一步六种资产完全一样：<strong className="font-medium text-background-foreground">谁能用、出问题谁负责、什么时候重新检查</strong>。三个都填完才能发布。
         </ScreenHead>
 
         {/* 可见范围 */}
         <Panel testid="ag-gov-visibility" className="flex flex-col gap-2">
-          <span className="text-11 font-medium text-foreground">可见范围</span>
+          <span className="text-11 font-medium text-background-foreground">可见范围</span>
           <div className="flex flex-col gap-1.5">
             {AG_VISIBILITY.map((v) => (
               <button
@@ -444,13 +444,13 @@ export function AgGovernance({
                 data-testid="ag-gov-visibility-option"
                 className={cn(
                   "flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition-colors",
-                  vis === v.id ? "border-foreground bg-muted" : "border-border hover:bg-muted",
+                  vis === v.id ? "border-inverse bg-muted" : "border-border hover:bg-muted",
                 )}
               >
-                <span className={cn("grid h-3.5 w-3.5 place-items-center rounded-full border", vis === v.id ? "border-foreground" : "border-border")}>
-                  {vis === v.id && <span className="h-1.5 w-1.5 rounded-full bg-foreground" />}
+                <span className={cn("grid h-3.5 w-3.5 place-items-center rounded-full border", vis === v.id ? "border-inverse" : "border-border")}>
+                  {vis === v.id && <span className="h-1.5 w-1.5 rounded-full bg-inverse" />}
                 </span>
-                <span className="text-11 font-medium text-foreground">{v.label}</span>
+                <span className="text-11 font-medium text-background-foreground">{v.label}</span>
                 <span className="text-10 text-muted-foreground">{v.detail}</span>
                 {v.needsCosign && vis === v.id && <Badge tone="warning" className="ml-auto">需联签</Badge>}
               </button>
@@ -460,7 +460,7 @@ export function AgGovernance({
 
         {/* 谁能改它 */}
         <Panel testid="ag-gov-editors" className="flex flex-col gap-2">
-          <span className="text-11 font-medium text-foreground">谁能改它</span>
+          <span className="text-11 font-medium text-background-foreground">谁能改它</span>
           <div className="flex flex-wrap items-center gap-1.5">
             {AG_EDITORS.map((e) => (
               <Badge key={e} tone={e.startsWith("＋") ? "outline" : "neutral"} className="font-normal">{e}</Badge>
@@ -470,10 +470,10 @@ export function AgGovernance({
 
         {/* 责任与复核 */}
         <Panel testid="ag-gov-review" className="flex flex-col gap-2">
-          <span className="text-11 font-medium text-foreground">责任与复核</span>
+          <span className="text-11 font-medium text-background-foreground">责任与复核</span>
           <div className="flex items-center gap-2">
             <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-11 text-primary-foreground">{AG_OWNER.initial}</span>
-            <span className="text-11 text-foreground">负责人 {AG_OWNER.name} · {AG_OWNER.team}</span>
+            <span className="text-11 text-background-foreground">负责人 {AG_OWNER.name} · {AG_OWNER.team}</span>
           </div>
           <div className="flex flex-col gap-1.5">
             <span className="text-10 text-muted-foreground">复核周期</span>
@@ -493,7 +493,7 @@ export function AgGovernance({
         {/* 发布前检查 -- 派生视图：每一条都带 sourceRef，可追回来源（F136, domain I-22） */}
         <Panel testid="ag-gov-checklist" className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <span className="text-11 font-medium text-foreground">发布前检查</span>
+            <span className="text-11 font-medium text-background-foreground">发布前检查</span>
             {redOpen && <Badge tone="danger">{blockingItems.length} 项未完成</Badge>}
           </div>
           <div className="flex flex-col gap-1.5">
@@ -742,7 +742,7 @@ function Editor({
         <div className="flex flex-wrap items-center justify-between gap-2" data-testid={`ag-${kind}-editor-top`}>
           <div className="flex items-center gap-2">
             <Button size="xs" variant="ghost" data-testid={`ag-${kind}-back`}>‹ {label} 列表</Button>
-            <span className="text-13 font-medium text-foreground">{liveAssetLabel}</span>
+            <span className="text-13 font-medium text-background-foreground">{liveAssetLabel}</span>
             <Badge tone="outline" className="font-mono">{liveAssetId}</Badge>
             {"model" in main && <Badge tone="ai" className="font-mono">{(main as typeof AG_AGENT_MAIN).model}</Badge>}
             {/* #881：只在**真的**有未保存改动时显示。此前这段是写死的，永远显示。 */}
@@ -770,7 +770,7 @@ function Editor({
               } : undefined}
               impact={
                 <>
-                  <span className="font-medium text-foreground">影响范围：发布 {liveAssetLabel} 新版本</span>
+                  <span className="font-medium text-background-foreground">影响范围：发布 {liveAssetLabel} 新版本</span>
                   <span>· 已建实例锁定在旧版本、不因发新版漂移。</span>
                   <span>· 新绑定将使用新版本；发布需先过一次无阻断试跑。</span>
                 </>
@@ -968,7 +968,7 @@ export function AgTryRun({ state, view }: ScreenProps) {
           {/* 左：输入 */}
           <div className="flex flex-col gap-3">
             <Panel testid="ag-tryrun-scenarios" className="flex flex-col gap-2">
-              <span className="text-11 font-medium text-foreground">测试场景</span>
+              <span className="text-11 font-medium text-background-foreground">测试场景</span>
               {AG_TRYRUN_SCENARIOS.map((s) => (
                 <button
                   key={s.id}
@@ -977,10 +977,10 @@ export function AgTryRun({ state, view }: ScreenProps) {
                   data-testid="ag-tryrun-scenario"
                   className={cn(
                     "flex flex-col gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors",
-                    scene === s.id ? "border-foreground bg-muted" : "border-border hover:bg-muted",
+                    scene === s.id ? "border-inverse bg-muted" : "border-border hover:bg-muted",
                   )}
                 >
-                  <span className="text-11 font-medium text-foreground">{s.label}</span>
+                  <span className="text-11 font-medium text-background-foreground">{s.label}</span>
                   <span className="text-9 text-muted-foreground">{s.desc}</span>
                 </button>
               ))}
@@ -988,18 +988,18 @@ export function AgTryRun({ state, view }: ScreenProps) {
 
             <Panel testid="ag-tryrun-input" className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-11 font-medium text-foreground">输入材料</span>
+                <span className="text-11 font-medium text-background-foreground">输入材料</span>
                 <Button size="xs" variant="ghost" data-testid="ag-tryrun-swap">换一批材料</Button>
               </div>
               <p className="text-10 leading-relaxed text-muted-foreground">{AG_TRYRUN_INPUT}</p>
             </Panel>
 
             <Panel testid="ag-tryrun-params" className="flex flex-col gap-1.5">
-              <span className="text-11 font-medium text-foreground">运行参数</span>
+              <span className="text-11 font-medium text-background-foreground">运行参数</span>
               {AG_TRYRUN_PARAMS.map((p) => (
                 <div key={p.k} className="flex items-center justify-between text-10">
                   <span className="text-muted-foreground">{p.k}</span>
-                  <span className="font-mono text-foreground">{p.v}</span>
+                  <span className="font-mono text-background-foreground">{p.v}</span>
                 </div>
               ))}
               <div className="mt-1 flex items-center gap-1.5">
@@ -1013,7 +1013,7 @@ export function AgTryRun({ state, view }: ScreenProps) {
           <div className="flex flex-col gap-3">
             <Panel testid="ag-tryrun-result" className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <span className="text-11 font-medium text-foreground">运行结果</span>
+                <span className="text-11 font-medium text-background-foreground">运行结果</span>
                 <span className="font-mono text-9 text-muted-foreground">{AG_TRYRUN_COST}</span>
               </div>
 
@@ -1023,7 +1023,7 @@ export function AgTryRun({ state, view }: ScreenProps) {
                   <div key={i} className="flex items-start gap-2" data-testid="ag-tryrun-trace">
                     <Check aria-hidden className="mt-0.5 h-3 w-3 shrink-0 text-success" />
                     <div className="flex flex-col">
-                      <span className="text-10 text-foreground">{t.label}</span>
+                      <span className="text-10 text-background-foreground">{t.label}</span>
                       <span className={cn("font-mono text-9", t.danger ? "text-destructive" : "text-muted-foreground")}>{t.meta}</span>
                     </div>
                   </div>
@@ -1040,7 +1040,7 @@ export function AgTryRun({ state, view }: ScreenProps) {
                 {AG_TRYRUN_CHECKS.map((c, i) => (
                   <div key={i} className="flex items-center gap-2" data-testid="ag-tryrun-check">
                     <Badge tone="primary" className="font-mono text-9">PASS</Badge>
-                    <span className="text-10 text-foreground">{c.label}</span>
+                    <span className="text-10 text-background-foreground">{c.label}</span>
                     <span className="ml-auto font-mono text-9 text-muted-foreground">{c.meta}</span>
                   </div>
                 ))}

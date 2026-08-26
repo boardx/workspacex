@@ -145,7 +145,7 @@ export interface ModelDistributionRow {
 }
 
 export const MODEL_DISTRIBUTION: ModelDistributionRow[] = [
-  { key: "opus", label: "claude-opus-4.6", pct: 47, colorVar: "bg-foreground" },
+  { key: "opus", label: "claude-opus-4.6", pct: 47, colorVar: "bg-background-foreground" },
   { key: "sonnet", label: "claude-sonnet-4.6", pct: 26, colorVar: "bg-muted-foreground" },
   { key: "deepseek", label: "deepseek-v4（自托管）", pct: 15, colorVar: "bg-success" },
   { key: "gpt", label: "gpt-5.2", pct: 9, colorVar: "bg-primary" },

@@ -199,14 +199,40 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(workflow).toMatch(/^  e2e-full:\n/m);
     expect(workflow).toContain("pnpm run verify:fullstack-smoke");
     expect(workflow).toContain("TURBO_FORCE=true pnpm run verify:full");
-    // 本条要的是「两个证据上传步骤在失败时也跑」。此前写成 `if: always()` 在全文里
+    // 本条要的是「每个真正的证据上传步骤在失败时也跑」。此前写成 `if: always()` 在全文里
     // 恰好出现 2 次 —— 那是意图的代用品，而不是意图本身：#512 给 e2e-full 加了一个
     // 独立信号步骤（Chat 链路，同样要 always()），代用品当场误报，而真正要守的两个
     // 上传步骤一个都没动。改成把 always() 直接绑在 upload-artifact 上，比数数更严。
-    expect(workflow.match(/if: always\(\)\n\s+uses: actions\/upload-artifact@v4/g)).toHaveLength(2);
+    //
+    // 2026-08-26（issue #2114）：3 —— 新增第三个 job `chat-task-workbench`（记分牌车道，
+    // 只在 workflow_dispatch 手动勾选时跑，不在 pull_request/push/schedule 上跑），
+    // 它自己的证据上传步骤同样需要 always()（记分牌红了也要能看到 test-results 截图），
+    // 是真实新增的第三个「always() + upload-artifact」配对，不是漂移或误加。
+    expect(workflow.match(/if: always\(\)\n\s+uses: actions\/upload-artifact@v4/g)).toHaveLength(3);
     expect(workflow).toContain("phase-01-fullstack-smoke-evidence");
     expect(workflow).toContain("phase-01-e2e-full-evidence");
+    expect(workflow).toContain("phase-01-chat-task-workbench-evidence");
     expect(read(".harness/scripts/verify-readiness-evidence.ts")).toContain("manifest.commit !== target");
+  });
+
+  it("keeps the chat-task-workbench scorecard lane opt-in and off the blocking path (issue #2114)", () => {
+    const workflow = read(".github/workflows/harness-verify.yml");
+    expect(workflow).toMatch(/^  chat-task-workbench:\n/m);
+    // 只认 workflow_dispatch 且显式勾选，默认 false：不会随普通 dispatch（比如只想跑
+    // e2e-full）顺带被拉起,也绝不会出现在 pull_request/push/schedule 触发的运行里。
+    expect(workflow).toContain("run_chat_task_workbench:");
+    expect(workflow).toContain("default: false");
+    expect(workflow).toContain("if: github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench");
+    // ⚠⚠ 同 run_e2e_full 那个坑（#2121）：必须是 `inputs.x`，不能是
+    // `github.event.inputs.x`（后者对 boolean 输入返回字符串 "false"，在 `if` 里恒真）。
+    expect(workflow).not.toContain("github.event.inputs.run_chat_task_workbench");
+    expect(workflow).toContain("pnpm run verify:chat-task-workbench");
+    // 阻塞路径（verify:chat-read:raw，被 e2e-full 的 `pnpm run verify:chat-read` 调用）
+    // 必须显式收窄到 chat-read project，否则记分牌会继续随 e2e-full 一起跑、白拆。
+    const scripts = JSON.parse(read("package.json")) as { scripts: Record<string, string> };
+    expect(scripts.scripts["verify:chat-read:raw"]).toContain("--project=chat-read");
+    expect(scripts.scripts["verify:chat-task-workbench:raw"]).toContain("--project=chat-task-workbench");
+    expect(scripts.scripts["verify:chat-task-workbench"]).toContain("with-test-isolation.ts");
   });
 
   it.each([

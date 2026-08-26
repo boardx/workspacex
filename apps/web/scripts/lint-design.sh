@@ -221,6 +221,40 @@ done <<< "$MOTION_RAW"
 report "U10" "裸 duration-<数字>/ease-<内建名>（必须用语义 token fast/base/slow，见 tailwind.config.ts；存量豁免见 scripts/motion-legacy-allowlist.txt）" \
   "$(printf '%s' "$MOTION_HITS" | sed '/^$/d')"
 
+# ── U12 裸 -foreground（`foreground` 从来不是独立顶层色键，一律不生成 CSS）──────
+# 2026-08-26 人类实测「选中的tag都看不到文字」坐实：`bg-foreground`/`text-background`/
+# `border-foreground` 这类写法里的 `foreground`，tailwind.config.ts 里只以
+# `<family>.foreground` 子键形式存在（如 `background.foreground`），裸用不生成任何
+# CSS——多数场合因父级本来就是深色文字而"看起来没坏"，但用在反色实心面（chip/进度条
+# 填充/选中态描边）上就是文字或描边真的不可见。
+#
+# 存量豁免（R4-E2 已知例外，不阻塞其他部分，同 U10 motion 先例）：
+# scripts/foreground-legacy-allowlist.txt 登记全仓存量未迁移用法，按 (path, content)
+# 子串匹配——文件里增删无关行不误伤，但那一行文本本身一变（含改成正确 token），豁免
+# 立刻失效。迁移见 phases/phase-12-uiux-foundation/design-deltas/primitive-adoption-cleanup/。
+FOREGROUND_ALLOWLIST_FILE="scripts/foreground-legacy-allowlist.txt"
+foreground_is_allowlisted() { # $1=相对路径 $2=已去首尾空白的行内容
+  [ -f "$FOREGROUND_ALLOWLIST_FILE" ] || return 1
+  grep -qF "$(printf '%s\t%s' "$1" "$2")" "$FOREGROUND_ALLOWLIST_FILE"
+}
+FOREGROUND_RAW=$(scan '\b(bg|text|border|ring|fill|stroke|divide|outline|decoration|caret|from|via|to)-foreground\b' \
+  | grep -vE -- '-(background|primary|muted|accent|card|popover|secondary|disabled|destructive|success|warning|ai|ai-tint|rail|panel|panel-alt|inverse)-foreground\b' || true)
+FOREGROUND_HITS=""
+while IFS= read -r rec; do
+  [ -z "$rec" ] && continue
+  path="${rec%%:*}"
+  rest="${rec#*:}"
+  lineno="${rest%%:*}"
+  content="${rest#*:}"
+  trimmed=$(printf '%s' "$content" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+  if ! foreground_is_allowlisted "$path" "$trimmed"; then
+    FOREGROUND_HITS="$FOREGROUND_HITS
+$path:$lineno:$content"
+  fi
+done <<< "$FOREGROUND_RAW"
+report "U12" "裸 -foreground（不是独立顶层色键，不生成 CSS；必须用 <family>-foreground 或 inverse/inverse-foreground；存量豁免见 scripts/foreground-legacy-allowlist.txt）" \
+  "$(printf '%s' "$FOREGROUND_HITS" | sed '/^$/d')"
+
 # ── D-35 data-testid 命名规范 ───────────────────────────────────────────────
 # 结构 <域>-<对象>-<角色>，全小写 kebab-case；禁止携带业务数据（中文 / 大写 / 下划线）。
 report "D-35" "data-testid 不合命名规范（应为小写 kebab-case，且不得携带业务数据）" \

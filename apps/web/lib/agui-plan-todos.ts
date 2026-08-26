@@ -58,3 +58,22 @@ export function useAguiPlanTodos(): {
 
   return { todos, onStateSnapshotEvent, reset };
 }
+
+/**
+ * issue #2068（第二件）—— 「现在在计划的第几步」。**唯一**的派生规则：合并后的
+ * loading 气泡（一行摘要）与右栏「进度」页签（全量清单）都从这里取，不各算一份。
+ *
+ * 规则：优先取第一条 `in_progress`；没有 `in_progress`（引擎刚把上一步标完、还没
+ * 开下一步）时取第一条 `pending`。两者都没有 = 全部完成，返回 null（调用方不显示
+ * "第 n/n 步"——那一刻它已经不是"在跑第几步"了）。
+ */
+export function currentPlanStep(
+  todos: readonly PlanTodo[] | null,
+): { readonly index: number; readonly total: number; readonly content: string } | null {
+  if (todos === null || todos.length === 0) return null;
+  const i = todos.findIndex((t) => t.status === "in_progress");
+  const j = i >= 0 ? i : todos.findIndex((t) => t.status === "pending");
+  const step = j < 0 ? undefined : todos[j];
+  if (step === undefined) return null;
+  return { index: j + 1, total: todos.length, content: step.content };
+}

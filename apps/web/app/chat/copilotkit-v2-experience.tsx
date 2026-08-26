@@ -43,7 +43,7 @@ export function CopilotKitV2Experience({ initialThreadId }: { initialThreadId: s
   return (
     <CopilotKitV2AgentSelectionProvider>
       <CopilotKitV2Providers>
-        <AppShell previewRole={null}>
+        <AppShell previewRole={null} hideTopBar>
           <CopilotKitV2Shell initialThreadId={initialThreadId} />
         </AppShell>
       </CopilotKitV2Providers>
