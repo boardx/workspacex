@@ -1,7 +1,7 @@
 $ pnpm --filter api exec vitest run tests/plan-control/pause-resume-run.test.ts
 [exit 1]
 
- RUN  v2.1.9 /private/tmp/f975-merge/apps/api
+ RUN  v2.1.9 /private/tmp/f977-merge/apps/api
 
 filter:  tests/plan-control/pause-resume-run.test.ts
 include: tests/**/*.test.ts
@@ -9,7 +9,7 @@ exclude:  tests/recording/personal-transcription-persistence.test.ts
 
 No test files found, exiting with code 1
 undefined
-/private/tmp/f975-merge/apps/api:
+/private/tmp/f977-merge/apps/api:
  ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/plan-control/pause-resume-run.test.ts
 
-[harness-verify v1 sha256=21f7bd640666bb9cf3a753a74815327e36c058e96764e85ff1ed9e63ecb74b78 commit=d381e83f758a44023ec728ce161744d46e63cc1e at=2026-08-26T22:59:09.615Z]
+[harness-verify v1 sha256=b9d6f2c6bc660414fa385bed4c1ed773e3bbcd82f6105c28d871fafda121fc2d commit=3201b124dbab8b1c20a8c92dca1c12f73c760583 at=2026-08-26T23:14:15.156Z]
