@@ -167,6 +167,14 @@ export interface BundleSignoff {
   features: string[];
   /** `covers:` 是否被声明过。未声明 ≠ 覆盖 0 个，前者是格式缺陷 */
   coversDeclared: boolean;
+  /**
+   * 「已签核，但 feature 尚未生成」的**显式理由**（frontmatter `covers_pending:`）。
+   *
+   * 空字符串 = 没声明。见 `covers: []` 那条判定里的长注释——它是把这种状态从
+   * 「一个空壳束冒充签核」里分出来的**唯一**依据，所以必须是人写的一句理由，
+   * 不是一个 `true`。
+   */
+  coversPending: string;
   confirmedBy: string;
   confirmedByRaw: string | null;
   confirmedAt: string;
@@ -228,6 +236,7 @@ export function readBundleSignoffs(phaseId: string): BundleSignoff[] {
         status: statusOf(fm),
         features: (covers ?? []).map((s) => s.trim()).filter(Boolean),
         coversDeclared: covers !== null,
+        coversPending: fmString(fm, "covers_pending"),
         confirmedBy: fmString(fm, "confirmed_by"),
         confirmedByRaw: fmRawString(signoffPath, "confirmed_by"),
         confirmedAt: fmString(fm, "confirmed_at"),
@@ -426,6 +435,42 @@ export function auditSignoff(
         `契约束「${b.bundle}」的 design-signoff.md frontmatter 缺 \`covers: [F01, F02, …]\` —— ` +
           `束↔feature 的映射权威在这里，不在 coverage.md 正文（ADR-023 决策三）。文件：${b.signoffPath}`,
       );
+    } else if (b.features.length === 0 && b.status === "confirmed" && b.coversPending !== "") {
+      /*
+        「人类已签核、feature 尚未生成」——这是 `contract-design.md` 自己写的流程
+        （「签核通过后由 requirement-author 生成 feature 再追加」），不是缺陷。
+
+        ## 为什么原先无条件红，而现在分出这一支
+
+        原判定的理由（保留在下面那支里）是：空 covers 会让「本束覆盖的 feature 全部
+        已评审」因集合为空而**平凡为真**。那条担心成立，但它针对的是**空壳束冒充
+        签核**，不是这一种：人类真的签了（`status: confirmed` + `confirmed_by` +
+        `confirmed_at`），只是流程规定 feature 在签核之后才生成。
+
+        两者在磁盘上曾经完全同形，所以原先只能一律判红。现在用 `covers_pending:`
+        这句**人写的理由**把它们分开。
+
+        ## 这条放行**没有**打开开工闸门
+
+        束↔feature 的链接只有 `covers:` 一条：feature 的 `spec_ref` 指向 requirements
+        文档而不是束目录（本阶段 218 条 feature 逐条查过，指向 `contracts/` 的为 0）。
+        所以空 covers **解锁不了任何 feature**，不存在"靠一份没看过它的复核开工"。
+        风险只剩一种：束长期空着没人管。用 WARN 每次都打印那句理由压住它，
+        而不是默默放行。
+
+        ⚠ 判据三条缺一不可：声明了 `covers`、人类已签核、写了待生成的理由。
+          只写 `covers_pending` 而 `status: pending` 仍然判红——那正是"空壳束"本身。
+
+        起因：2026-08-26 `agent-interrupts` 与 `plan-control` 两个**已签核**束卡住
+        `gates-fast`，而 `deploy` 的 `needs` 里有它 ⇒ **CD 从 `b97ecda5` 起停摆**，
+        main 上所有已合并的改动都到不了 devapp。人类当日裁决按本方案放行。
+      */
+      warns.push(
+        `契约束「${b.bundle}」已签核但 \`covers: []\`（feature 尚未生成）：${b.coversPending}\n` +
+          `    ⚠ 这不是绿灯：本束目前**不覆盖任何 feature**，「它覆盖的 feature 都已评审」` +
+          `是平凡为真。等 requirement-author 生成 feature 后按「covers 追加规则」填进去，` +
+          `本条才会消失。文件：${b.signoffPath}`,
+      );
     } else if (b.features.length === 0) {
       fails.push(
         `契约束「${b.bundle}」声明了 \`covers: []\`（空）—— 一个不覆盖任何 feature 的束不成立，` +
@@ -438,6 +483,9 @@ export function auditSignoff(
           `（本仓九次「全绿但空转」的形状）。\n` +
           `    修法只有两条：⑴ 裁决完成 → requirement-author 生成 feature → 填进 \`covers:\`；` +
           `⑵ 该域确实不该有束 → 删掉束目录。**不要为了消红而随手填一个 feature 编号。**\n` +
+          `    ⚠ 若人类**确实已签核**、只是 feature 还没生成：加 frontmatter ` +
+          `\`covers_pending: "<理由>"\` 降为 WARN（2026-08-26 人类裁决）。` +
+          `它同时要求 \`status: confirmed\`，所以补不了一个没人签过的空壳束。\n` +
           `    文件：${b.signoffPath}`,
       );
     }
