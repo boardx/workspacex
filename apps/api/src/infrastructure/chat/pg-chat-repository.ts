@@ -279,14 +279,55 @@ export class PgChatRepository implements ChatRepository {
     });
   }
 
-  async findSpeakingAgentIds(orgId: OrgId, threadId: string): Promise<readonly string[]> {
+  /**
+   * 🔴 #2094：一次查询拿全部线程的最近 run 状态。见 `ports.ts` 同名方法头注。
+   *
+   * `DISTINCT ON (thread_id)` + `ORDER BY thread_id, created_at DESC, id DESC` 正好走
+   * `agent_runs_thread_idx (org_id, thread_id, created_at, id)`。`id DESC` 是**并列打破**，
+   * 不是装饰：同一毫秒建的两条 run 若没有它，返回哪条取决于物理行序，
+   * 于是同一份数据两次请求可能给出不同状态。
+   */
+  async latestRunStatusByThread(
+    orgId: OrgId,
+    threadIds: readonly string[],
+  ): Promise<ReadonlyMap<string, string>> {
+    if (threadIds.length === 0) return new Map();
     return this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<{ agent_id: string }>(
-        `SELECT DISTINCT agent_id FROM chat_messages
-          WHERE thread_id = $1 AND org_id = $2 AND author_kind = 'agent' AND agent_id IS NOT NULL`,
-        [threadId, orgId],
+      const r = await s.query<{ thread_id: string; status: string }>(
+        `SELECT DISTINCT ON (thread_id) thread_id, status
+           FROM agent_runs
+          WHERE org_id = $1 AND thread_id = ANY($2::text[])
+          ORDER BY thread_id, created_at DESC, id DESC`,
+        [orgId, [...threadIds]],
       );
-      return r.rows.map((row) => row.agent_id);
+      return new Map(r.rows.map((row) => [row.thread_id, row.status]));
+    });
+  }
+
+  /**
+   * 🔴 #2094：一次查询拿全部线程的产物数。见 `ports.ts` 同名方法头注。
+   *
+   * ⚠ `mode <> 'draft' OR created_by = $3` 是 `list-thread-artifacts.ts:66` 那条
+   *   `r.mode !== "draft" || r.createdBy === userId`（I-36 草稿仅创建者可见）的
+   *   **逐字同一条规则**。两处会不会漂移不靠人盯：
+   *   `tests/chat/thread-card-projection.test.ts` 断言两者的答案数值相等。
+   */
+  async countArtifactsByThread(
+    orgId: OrgId,
+    threadIds: readonly string[],
+    viewerId: string,
+  ): Promise<ReadonlyMap<string, number>> {
+    if (threadIds.length === 0) return new Map();
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ thread_id: string; n: string }>(
+        `SELECT thread_id, count(*)::text AS n
+           FROM chat_artifact_landings
+          WHERE org_id = $1 AND thread_id = ANY($2::text[])
+            AND (mode <> 'draft' OR created_by = $3)
+          GROUP BY thread_id`,
+        [orgId, [...threadIds], viewerId],
+      );
+      return new Map(r.rows.map((row) => [row.thread_id, Number(row.n)]));
     });
   }
 
@@ -323,6 +364,35 @@ export class PgChatRepository implements ChatRepository {
         [title, threadId, orgId, expectedVersion],
       );
       return r.rows[0]?.version ?? null;
+    });
+  }
+
+  /**
+   * 🔴 #2094：自动命名。见 `ports.ts` 同名方法头注（为什么条件必须在 SQL 里）。
+   *
+   * ⚠ 与 `renameThread` 的两处**故意不同**，都不是笔误：
+   *   · 条件是 `title = $4`（还叫默认名）而不是 `version = $n`——自动命名没有
+   *     调用方持有的期望版本，它的前提是「用户还没给它起过名」。
+   *   · **不写 `last_activity_at`**：起名不是活动。写了会把线程顶到列表最前，
+   *     而触发它的那条消息本来就已经更新过 `last_activity_at`。
+   */
+  async autoTitleThreadIfDefault(
+    orgId: OrgId,
+    threadId: string,
+    title: string,
+    defaultTitle: string,
+  ): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      // ⚠ 用 `RETURNING id` + `rows.length` 判命中，不用 `rowCount`：本仓的
+      //   `query()` 返回类型上没有 `rowCount`（同 `renameThread` 用 `RETURNING version`）。
+      const r = await s.query<{ id: string }>(
+        `UPDATE chat_threads
+            SET title = $1, version = version + 1
+          WHERE id = $2 AND org_id = $3 AND title = $4
+      RETURNING id`,
+        [title, threadId, orgId, defaultTitle],
+      );
+      return r.rows.length > 0;
     });
   }
 

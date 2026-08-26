@@ -182,6 +182,34 @@ Segment 精确到消息、anchor 为 `messageId`。
 › 怎么断言：`expect(presentCount).toBe(agents.filter(a=>a.presence==="present").length)`；
 并构造一个「跑批中 + 空闲」的场景断言两数不等。
 ⚠ **这条口径是实现选的，UC 没写**——见「待人类裁决」第 4 条（S-06）。
+⚠ **2026-08-26 人类裁决（issue #2094，回指 #2068）：S-06 里「它连带决定线程卡上的
+『N 个 agent』是哪个数」这半边已经**不存在**了——线程卡不再印任何 agent 计数。
+`presentCount` / `rosterCount` 的分离（本条正文）仍然有效，那是 **AI 团队面板**的事；
+线程卡改印 **I-40** 的任务状态。两者从此无关，别再互相引用。
+
+**I-40** 线程卡的第二行是**三个结构化事实**：`status`（`ThreadCardStatus` 五值封闭）
+· `artifactCount` · `lastActivityAt`，**不是自由字符串**。
+› 为什么：此前是 `agentSummary: z.string()`，实际装的是 `` `${agentCount} 个 agent` ``。
+自由字符串意味着契约管不着内容、文案门控也扫不到来源——人类 2026-08-26 审计逐字
+点名「只显示 `0 个 agent`，无法寻找历史任务」，而在此之前没有任何门控发现过它。
+› `status` 的判定**只有一处**：`apps/api/src/domain/chat/thread-badges.ts` 的
+`threadCardStatus`，输入只有「有没有可见消息」+「最近一次 `agent_runs.status`」两个
+**事实**，不接收任何时间戳（同 I-14 的纪律：拿不到时间就不可能按时间推断）。
+› `status` 的**文案**映射也只有一处：`apps/web/components/chat/thread-list-shell.tsx`
+的 `THREAD_STATUS_LABEL`。领域返枚举、界面译文案，两处职责不同、各自唯一。
+› 怎么断言：`tests/chat/thread-title-and-status.test.ts` 逐档钉 `threadCardStatus`
+（含「没有可见消息时即便有 succeeded 的 run 也仍是 `not-started`」这条反证）；
+真栈由 `apps/web/e2e/chat-task-workbench-copy.spec.ts` 的黑名单扫描兜底。
+
+**I-41** 个人线程在**首条用户消息落库时自动命名**，来源是该消息正文的截断
+（`domain/chat/thread-title.ts` 的 `deriveThreadTitle`，纯函数）。
+› 自动命名**永不覆盖用户改过的名字**：条件写在 SQL 的 `WHERE title = $默认名` 里，
+不是写在调用方的约定里（先 SELECT 再 UPDATE 之间的窗口正是并发改名会落进去的地方，
+同 `renameThread` 那条乐观并发纪律）。同一条件顺带保证了「只有首条消息起名」。
+› 用户改名走**既有**通路 `mutateThread` 的 `op: "rename"`，本条不新造改名能力。
+› **空线程没有输入，就不起名**——`deriveThreadTitle` 对空白正文返回 `null`，标题留在
+默认名，卡片靠 I-40 的 `not-started` 与真实任务区分。空线程累积由前端「新建对话时
+复用已有空线程」从源头掐（`copilotkit-v2-shell.tsx`），**不做自动删除**。
 
 **I-19** AI **主动发言**（`proactive === true`）的消息，其 `citations` 恒非空。
 取不到来源 ⇒ **不产生消息**（不是产生一条空来源消息）。
@@ -335,11 +363,16 @@ uc-8-5 说观察者「已发布产出与脱敏聚合可见」；实现在 `/chat
 「滤掉批准卡与转录卡，不渲染输入区/改派条/分享，**只留 AI 发言与产物卡**」。
 **「已发布产出的只读展示」要不要保留没有答案**——它决定 F108 的投影函数少返回还是多返回一块。
 
-### 4. 「在场数」是否包含跑批中的 agent（S-06）
+### 4. 「在场数」是否包含跑批中的 agent（S-06）—— ✅ **线程卡那半边已于 2026-08-26 裁决**
 
 原型同时有「团队 **4**」与「AI 团队 · **6**」。实现选了「在场 = present（4 个），
 跑批中与空闲不计入」。它连带决定线程卡上的「N 个 agent」是哪个数。**UC 没写。**
 I-18 目前按实现口径写，裁决后可能要改。
+
+✅ **「线程卡上的 N 个 agent 是哪个数」这半边已了结**（人类 2026-08-26 裁决，
+issue #2094 落地）：答案是**都不是**——线程卡不再印 agent 计数，改印任务状态
+（I-40）与自动标题（I-41）。**面板侧的「在场 4 / 编制 6 是否可同屏」仍未裁**，
+那是 F110 的事，与线程卡无关了。
 
 ### 5. 「高影响动作」的完整判定表（O-26，未在本轮裁决范围）
 

@@ -144,10 +144,65 @@ export interface ChatRepository {
     opts: { includeArchived: boolean },
   ): Promise<readonly ThreadListRow[]>;
 
-  /** 在本线程发过言的不同 agent id（`agentCount` 的事实来源）。 */
-  findSpeakingAgentIds(orgId: OrgId, threadId: string): Promise<readonly string[]>;
+  /**
+   * 🔴 #2094：一批线程各自**最近一次** `agent_runs` 的 status —— `ThreadCard.status`
+   * 的事实来源（判定本身在 `domain/chat/thread-badges.ts` 的 `threadCardStatus`，
+   * 这里只取事实，不给结论，同 I-13）。
+   *
+   * ⚠ **批量**，不是逐线程一次。列表页有 N 条线程，逐条查就是 N+1；本仓
+   * `list-threads.ts` 已经因为 `findMessages` 逐条查而有一个 N+1，再加一个
+   * 就是两个。`agent_runs (org_id, thread_id, created_at, id)` 索引正好支持
+   * `DISTINCT ON (thread_id) … ORDER BY thread_id, created_at DESC, id DESC`。
+   *
+   * @returns `threadId → status`；从来没跑过 run 的线程**不在 map 里**（不是 `null` 值）。
+   */
+  latestRunStatusByThread(
+    orgId: OrgId,
+    threadIds: readonly string[],
+  ): Promise<ReadonlyMap<string, string>>;
+
+  /**
+   * 🔴 #2094：一批线程各自的**产物数** —— `ThreadCard.artifactCount` 的事实来源。
+   *
+   * ⚠ 草稿（`mode = 'draft'`）**只有创建者算得进自己的数**——与
+   * `list-thread-artifacts.ts` 的过滤规则逐字同一条。两处不许答案不同：
+   * `tests/chat/thread-card-projection.test.ts` 用「同一线程同一用户，
+   * `artifactCount === listThreadArtifacts().items.length`」把它钉成值相等的断言。
+   *
+   * ⚠ 同样是**批量**，理由同 `latestRunStatusByThread`。
+   *
+   * @returns `threadId → count`；一个产物都没有的线程**不在 map 里**（调用方按 0 处理）。
+   */
+  countArtifactsByThread(
+    orgId: OrgId,
+    threadIds: readonly string[],
+    viewerId: string,
+  ): Promise<ReadonlyMap<string, number>>;
 
   createThread(input: NewThreadInput): Promise<void>;
+
+  /**
+   * 🔴 #2094：**自动命名** —— 仅当标题仍是默认名时才写入（`WHERE title = $defaultTitle`）。
+   *
+   * 「不覆盖用户改过的名字」这条由 **SQL 的 WHERE 保证，不由调用方的约定保证**：
+   * 调用方先 SELECT 看一眼再 UPDATE，两句之间有窗口，而并发改名正好落在那个窗口里
+   * （同 `renameThread` 头注那条乐观并发纪律）。
+   *
+   * 也顺带保证了「只有首条消息起名」：第二条消息进来时标题已不是默认名，UPDATE 命中 0 行。
+   *
+   * ⚠ `version` 照常自增——自动命名**是**一次真实修改。不自增会让并发的手动改名
+   *   拿着过期版本号却比对成功，把自动名默默盖掉且无人知道。
+   * ⚠ **不动 `last_activity_at`**：起名不是活动，不该把线程顶到列表最前
+   *   （触发它的那条消息本身已经更新过 `last_activity_at` 了）。
+   *
+   * @returns 是否真的改了名（命中 0 行 = 标题已被用户改过，或线程不存在）。
+   */
+  autoTitleThreadIfDefault(
+    orgId: OrgId,
+    threadId: string,
+    title: string,
+    defaultTitle: string,
+  ): Promise<boolean>;
 
   /**
    * 改名 / 删除。乐观并发：`expectedVersion` 不匹配返回 `null`，**不静默覆盖**（V7）。
