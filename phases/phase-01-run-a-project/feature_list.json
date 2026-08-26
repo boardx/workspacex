@@ -5310,14 +5310,14 @@
         "F973"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "22",
-      "owner": null,
+      "owner": "dev-chat-e2e-f975",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/plan-control/evaluate-plan-gate-table.test.ts",
         "pnpm --filter api exec vitest run tests/plan-control/confirm-plan-delivery-digest.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F975.verify.log @ 2026-08-26T22:59:09.275Z",
       "notes": "覆盖 UC-8 evaluatePlanGate + UC-7 confirmPlan + UC-12 deliverPlanToRun；不变量 I-10；判据 V4 + V4′（反证：简单提问 todoCount 恒 0 ⇒ required:false，判定不依赖阈值——生产者只有 write_todos 一个）。⚠ 待定项 domain ④：single/multi-step 阈值(≥2)无依据、是设计者定的，但反证与阈值无关故不阻塞；数值型 AC 不写死，本 feature 只断言表驱动判定与送达 digest 结构性性质。送达通路 A system 注入（只改 Node 侧，design-signoff 3.4）。⚠ 排期：注入点在 execute-run.ts 组装 messages 处，须排在可视化提示词那条在飞线之后（domain ③⚠）。依据等级 [设计]。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
     },
     {

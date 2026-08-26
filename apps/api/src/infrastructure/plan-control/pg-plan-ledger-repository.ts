@@ -190,9 +190,9 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
   async getLatestRun(orgId: OrgId, threadId: string): Promise<PlanRunSnapshot | null> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
-        id: string; status: string; pending_tool_name: string | null; created_at: Date;
+        id: string; status: string; pending_tool_name: string | null; created_at: Date; agent_id: string;
       }>(
-        `SELECT id, status, pending_tool_name, created_at
+        `SELECT id, status, pending_tool_name, created_at, agent_id
            FROM agent_runs
           WHERE thread_id = $1
           ORDER BY created_at DESC, id DESC
@@ -206,6 +206,7 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
         status: toRunStatusForPhase(row.status),
         pendingToolName: row.status === "awaiting_approval" ? row.pending_tool_name : null,
         createdAt: row.created_at.toISOString(),
+        agentId: row.agent_id,
       };
     });
   }
