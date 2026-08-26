@@ -2261,3 +2261,166 @@ XC-06 · XC-09（推荐 B）· XC-12 · XC-16 · XC-19 · XC-22 · XC-23 · XC-2
 ### 处置汇总
 
 XC-38～XC-42 均无冲突，前提是实现严格保持“个人新路径 + 旧项目路径兼容并存”。采纳后，人类把 `personal-realtime-transcription` 加入 frontmatter `covers_bundles`，更新 `confirmed_by/confirmed_at`；若不采纳，应把 F158–F160 保持 blocked 并逐条写明不同意的交叉约束。
+
+## 2026-08-26 增补（草稿，待人类采纳）：plan-control 交叉约束复核（XC-43…XC-52）
+
+> 复核人：coord-architecture（agent 代核，**尚未获得人类「采纳」裁决——本节是草稿**，
+> 依 F149 先例：agent 只做复核、不代改 frontmatter `covers_bundles`）。
+> 材料依据：`contracts/plan-control/{design-signoff,ui,usecases,domain,coverage}.md` 全读，
+> 对照 `chat` 束（`domain.md`/`usecases.md`/`packages/contracts/src/chat.ts`，2026-08-26 实测
+> `origin/signoff/plan-editing` @ `beaf27c8`）与 `agent-runtime` 束（同批实测）。
+> 起因：`plan-control` 是 phase-01 唯一 `status: pending` 的新束，`covers: []` 是**结构性**的——
+> 该域 feature 尚未由 requirement-author 生成（见 `design-signoff.md` frontmatter 注释），
+> 这与 `covers_bundles` 门控无关，是另一件事，见本文件正文末尾 coord-architecture 附注。
+> 本节只查跨束交叉约束，不判 `covers: []` 是否可放行——那由 `doctor.ts` 的独立门控管，
+> 与「一致性复核是否覆盖了这个束」是两件不同的事（详见附注）。
+
+### XC-43 `mutateThread.op` 独立操作集，不扩 `chat` 已签核的封闭枚举
+
+- 证据：`chat.ts:545` `mutateThread.in.op` 是 `z.enum(["create","rename","delete"])`，
+  注释只声明「新建 / 改名 / 删除」，**全文（`domain.md`/`usecases.md`）没有任何一条不变量
+  主张「线程的全部可变操作都必须经 `mutateThread`」**——它是一个具名端口，不是唯一写入口的声明。
+- 核对：`plan-control` 走独立契约 `plan-control.ts`（11 个操作，`design-signoff.md` 3.1
+  人类已裁 A），`mutateThread.op` 三值原样不动。
+- 结论：**无冲突**。不触发 `chat` 束的 delta 或重签——这与 `design-signoff.md` 3.1 自己的
+  结论一致，本次是独立验证，不是转述。
+
+### XC-44 并发版本语义：`basedOnRevision`/`PLAN_REVISION_CHANGED` 与 `chat` 的 `expectedVersion`/`VERSION_CHANGED` 同形不同名
+
+- 证据：`chat.ts:547` `mutateThread.in.expectedVersion` 与 `err` 里的 `VERSION_CHANGED`
+  是**线程**版本；`plan-control` 的 `basedOnRevision`/`PLAN_REVISION_CHANGED`
+  （`design-signoff.md` 3.3 冲突表）是**计划账本**版本，两张表的 `(thread_id, revision)`
+  主键各自独立（`chat_threads` 无 `revision` 列，`chat_plan_ledgers` 才有）。
+- 核对：两个方向都不静默：改标题不动计划版本，改计划不动线程版本；共用字段名才会让两条
+  独立时间线互相污染。
+- 结论：**无冲突**，同形不同名是**故意的**（对应 `design-signoff.md` 自报的 XC-A）。
+
+### XC-45 「加约束」走 system 消息注入，不占用 `agent-runtime` 已签核的 `configurable` 通道
+
+- 证据：`configurable` 上现有的 `org_skills` / `script_protocol` 两个键**不在**
+  `contracts/agent-runtime/{domain,usecases}.md` 任何一处出现（全文 grep 零命中）——
+  它是运行时代码事实（`deep-agent-model-provider.ts`），**不属于 `agent-runtime` 束已签核的
+  契约面**。system prompt 组装顺序/来源同样没有被该束的域不变量声明过。
+- 核对：新加一层 system 注入既不改 `agent-runtime.ts` 的 operations，也不新增/挤占
+  `configurable` 键（仍只有两个，`design-signoff.md` 3.4 人类已裁 A）。
+- 结论：**无冲突**——因为被担心会撞上的那条约束根本不在 `agent-runtime` 已签核的边界内，
+  这条本身也是需要留痕的发现（担心点不成立，不等于没查）。
+
+### XC-46 `cancel(action=interrupt)` + 新 run 不带 `checkpoint_id` 的暂停/恢复用法，不在 `agent-runtime` 已签核的 run 生命周期声明范围内
+
+- 证据：`contracts/agent-runtime/{domain,usecases}.md` 全文只有 `DisableMode`
+  的 `"interrupt"/"drain"` 二值（`agent-runtime.ts:64`，管理员停用能力的语义），
+  **没有任何 `RunControlAction`/checkpoint 恢复相关的已签契约**；`replayAgentRun`
+  （`usecases.md:753`，I-49）是「重放已结束的 run」，本身与「续跑」是两件事，
+  且该束自己把「续跑」标成 `coverage.md:249` 缺口 25——即该束承认自己没管这件事。
+- 核对：`plan-control` 的 `UC-13 resumePlanRun` 是**全新**用例，落在 `plan-control.ts`，
+  不改 `agent-runtime.ts` 任何一个 operation；`restoreCheckpoint`（会真正触碰
+  `agent-runtime` 领域）已被人类裁决 (c) **明确不做**，`design-signoff.md` 3.3 已如实登记为
+  0.7 封顶的已知缺口，不是被藏起来的代价。
+- 结论：**无冲突**，前提是 (c) 的裁决不变——若日后决定做 `restoreCheckpoint`（候选 (a)），
+  它才会真正触碰 `agent-runtime` 领域，届时需要那个束的 delta 或重签（对应
+  `design-signoff.md` 自报的 XC-C，本次结论：**当前范围内不适用，非「无冲突」而是「未触发」**）。
+
+### XC-47 `STATE_SNAPSHOT{todos}` 事件通道被同时用于只读展示与可编辑态，`chat` 束未对它做过限定其用途的声明
+
+- 证据：`STATE_SNAPSHOT.snapshot` 的唯一生产形状定义在共享契约文件
+  `packages/contracts/src/agui-state-events.ts:44`（`{ todos: [...] }`），
+  **不在 `chat` 束目录下**；`contracts/chat/*.md` 全文对 `STATE_SNAPSHOT`
+  **零提及**——`chat` 束从未声明它只用于只读展示，因此不存在「消费方假设被打破」的冲突。
+- 核对：`plan-control` 的 `UC-2`（`design-signoff.md` 3.5）复用**既有**生产者
+  （`copilotkit-agui.controller.ts:389-392`），不建第二条触发路径，「倾向不新增」是它自己的结论。
+- 结论：**无冲突**。`chat` 束不是这个事件的所有者，谈不上要求它「跟着改」。
+
+### XC-48 编排边界：`plan-control` I-11「mid-run 不写引擎」与 `agent-runtime` 已签的「LangGraph 只用于深度研究/HITL/多阶段生成…两者不可混用」
+
+- 证据：`usecases.md:788-791`（`agent-runtime` 束）原话是摄取流水线/规则求值/并发排队/审计写入
+  与 LangGraph **不可混用**；`plan-control` I-11 的处置是 mid-run 编辑**只落本仓账本**
+  （`chat_plan_ledgers`，一张业务表，不是持久任务系统），不越过引擎写 state。
+- 核对：两者管的是不同的东西——`agent-runtime` 那条边界挡的是「拿 LangGraph 做本该用持久任务
+  系统做的事」，`plan-control` 挡的是「拿引擎 state 做本该用业务表做的并发写」，方向一致，
+  没有一条被违反。
+- 结论：**无冲突**，`plan-control` 遵守而非改写那条边界（对应自报 XC-B）。
+
+### XC-49 审计写入复用 `ProvenanceWriter`，不另建审计面
+
+- 证据：`ProvenanceWriter` 是 `agent-runtime` + phase-00 `identity` 已有的审计写入面
+  （`design-signoff.md` I-13 引用）；`plan-control` 未在 `domain.md`/`coverage.md`
+  声明任何独立的审计表或写入路径。
+- 结论：**无冲突**，前提是实现期真的调用同一个 writer 而非另起一张审计表——这是实现期机械
+  可断言的点（同一 writer 实例/同一表名），签核时无法从文档层面进一步核实，留作 verification 项。
+
+### XC-50 可见性与写权判定：`plan-control` 全部 `pre` 委托 `chat` 的 UC-0
+
+- 证据：`chat/usecases.md:13-14`「每一个读端口都先过 `resolveVisibility`（UC-0），没有例外」，
+  且 `chat` 束内多个 UC（如 `mutateThread`）本身就复用 UC-0 的判定形状；`plan-control` 的
+  `NOT_VISIBLE`/`NO_WRITE_ROLE`/`THREAD_ARCHIVED_READONLY`/`AUDIT_SINK_UNAVAILABLE` 四个错误码
+  与 `chat.ts:561-562` 的 `mutateThread.err` 逐字同码同义（`design-signoff.md` 3.6 已声明）。
+- 核对：`plan-control` 不另立角色枚举，委托是**同一套 `acl_bindings`**（与 `chat` 束
+  `getThreadMessagesFile` 对 UC-0 的复用方式同形，`usecases.md:115-116`）。
+- 结论：**无冲突**，前提是实现期在 API 层真的调用同一个判定函数而非前端不渲染式的假委托——
+  这条与 `chat` 束自己对 `getThreadMessagesFile` 的纪律（「若它自己判一次权，就是第二份
+  可见性实现」）同理，留作 verification 项。
+
+### XC-51 `PlanStepStatus` 与共享契约 `AguiPlanTodoStatus` 逐字同枚举
+
+- 证据：`agui-state-events.ts:35` `AguiPlanTodoStatus = z.enum(["pending","in_progress","completed"])`；
+  `plan-control/domain.md:52-53` 声明 `PlanStepStatus` 三值封闭且与它「逐字相同」。
+- 核对：`plan-control.ts` **尚未创建**（`design-signoff.md` ③ 节自述「本轮只产出骨架」），
+  因此现在无法核实第二处是否真的用 `z.infer<typeof AguiPlanTodoStatus>` 派生而非手抄一份
+  字符串字面量——这正是本仓「同一事实两处声明」的高发形状（XC-06 已登记的同类问题）。
+- 结论：**当前文档层面无冲突**，但**签核通过、开工写 `plan-control.ts` 时必须是类型引用
+  而非拷贝**，建议把这一条写进该 feature 的 verification（`typecheck` 断言二者同一类型），
+  不要留到实现期才发现是第二份副本。
+
+### XC-52 TW-P0-3 判据的单一事实源
+
+- 证据：`design-signoff.md` 开篇逐字「覆盖判据：`.harness/instructions/
+  chat-task-workbench-acceptance.md` **TW-P0-3**……那份卡是判据的单一事实源，本文件只引用
+  编号，不重抄正文」；全文检索未发现判据正文被抄进 `contracts/plan-control/` 任何一份文件。
+- 结论：**无冲突**，符合本仓「同一事实不得声明在两处」的纪律。
+
+### 处置汇总
+
+XC-43～XC-52 共十条，**八条无冲突（43/44/45/47/48/49/50/52），一条当前范围内未触发
+（46，restoreCheckpoint 若日后启用需另议），一条留实现期机械验证而非文档层面冲突
+（51，类型引用 vs 拷贝）**。**没有一条要求重签 `chat` 或 `agent-runtime`。**
+
+⚠ **这十条不是「签核」，是复核结论草稿**——按 F149 先例，agent 不得据此自行把
+`plan-control` 加进 frontmatter `covers_bundles` 或改 `status`。人类采纳后（逐字裁决，
+仿 2026-08-11 先例的记法），由人类或经人类明确指示的 agent 代抄：
+① 把 `plan-control` 加进 frontmatter `covers_bundles`；
+② 刷新 `confirmed_by`/`confirmed_at`；
+③ 若不采纳，应逐条写明不同意的交叉约束，`plan-control` 所属 feature（尚待生成）继续 blocked。
+
+⚠⚠ **本节的通过不等于 PR #2116 的两条门控红能同时解开**——见下方「coord-architecture 附注」：
+`covers: []` 那条红有独立于本节的成因和修法。
+
+### coord-architecture 附注（2026-08-26）：`covers: []` 那条红不是本节能解开的
+
+`doctor.ts`（`.harness/scripts/lib/design-signoff.ts:424-443`）对 `covers: []`
+的判据与 `status`（pending/confirmed）**完全无关**——它是一条独立于「一致性复核有没有
+覆盖这个束」的门。读代码后的结论：
+
+1. **这不是边界 case，是主路径**。该判据的错误信息里逐字写着「最常见的原因：该能力域的
+   feature 还没生成——束目录先建好了，而 `feature_list.json` 里还没有属于它的条目」——
+   `plan-control` 现在的状态**正是它描述的那个场景**，不是脚本没预料到的边界输入。
+   **不应该为此登记 issue**：脚本行为符合它自己的设计意图，档案文字（错误信息本身）
+   已经把设计意图写清楚了，不存在「静默失败」或「没文档的边界」问题。
+2. **修法是脚本本身写的那两条**：⑴ requirement-author 为 `plan-control` 生成 feature、
+   填进 `covers:`；⑵ 该域不该有束 → 删掉束目录。**人类在对话里说「采纳」不能让这条红消失**——
+   `status: confirmed` 本身也不能，因为 `!b.coversDeclared`/`features.length === 0`
+   两条判据在 `status` 分支**之前**就已经 fail，且与 `status` 取值无关（第 424/429 行，
+   `status` 相关检查在 455 行才开始，是另一段代码）。
+3. **两条红的性质不同，不能用同一个动作解开**：
+   - 「一致性复核没覆盖 `plan-control`」（本文件这条红）：本节 XC-43～52 是它的复核结论草稿，
+     人类采纳 + 把束名加进 `covers_bundles` 即可解开，**这是本会话已经做的部分**。
+   - 「`covers: []` 不可签核」（`design-signoff.md` 的红）：**不受本节影响**，需要
+     requirement-author 先跑起来、`feature_list.json` 里出现 `plan-control` 的 feature、
+     `covers:` 从 `[]` 变成非空。**这一步在本次任务范围之外**（本轮只动治理文档，
+     不建 feature），需要人类决定下一步是否触发 requirement-author。
+
+⇒ **PR #2116 即使人类现在就「采纳」本节 XC-43～52 并签核 `plan-control` 的
+`design-signoff.md`，`gates-fast`/`verify-control-plane` 的 `covers: []` 那条红仍然会红**——
+这不是本会话能绕过或不该绕过的东西，是签核顺序被 UI 先行流程（TW-P0-3 先出八屏原型再定契约）
+天然拉开的一步，需要人类知情后决定：现在就跑 requirement-author 生成 feature，
+还是让 PR 先带着这条红等下一轮。
