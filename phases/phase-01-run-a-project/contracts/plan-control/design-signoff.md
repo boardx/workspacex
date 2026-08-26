@@ -7,6 +7,13 @@ phase: "01"
 #   签核通过后由 requirement-author 生成 feature 再追加；追加规则见
 #   .harness/instructions/contract-design.md「covers 追加规则」三条件。
 covers: []
+# 2026-08-26 人类裁决：已签核但 feature 尚未生成 ⇒ `harness doctor` 由 FAIL 降为 WARN。
+# ⚠ 这**不是**绿灯：本束目前不覆盖任何 feature，「它覆盖的 feature 都已评审」是平凡为真。
+#   降级判据三条缺一不可（声明了 covers / status 字段为 confirmed / 本行理由非空），
+#   ⚠ 上一行刻意不写成 `status:` 的键值形态：注释里出现那个字面量，会让按字符串
+#     替换的工具命中注释而不是真正的字段（2026-08-26 实测把我自己的反证骗过一次）。
+#   所以它补不了一个没人签过的空壳束。判定见 .harness/scripts/lib/design-signoff.ts 该分支注释。
+covers_pending: "本束的 feature 尚未生成——TW-P0-3（六态工作流与可编辑计划）在 feature_list.json 里没有编号（2026-08-26 实测 218 条 feature 中 grep `workbench|todo|计划|write_todos|TW-P0` 零命中），待 requirement-author 生成后按「covers 追加规则」填入"
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: usamshen             # 确认人（姓名/邮箱）
 confirmed_at: "2026-08-26T07:32:57Z"             # ISO 8601，且不得晚于签核当下
