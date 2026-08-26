@@ -270,6 +270,7 @@ export class CanvasTemplateController {
             //   "看起来对"。`tags` 就是这么被静默丢掉过一次，只有真栈 e2e 才发现。
             title: body.title,
             footer: body.footer,
+            promptText: body.promptText,
           },
         ),
       ),

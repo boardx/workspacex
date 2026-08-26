@@ -194,6 +194,7 @@ export async function updateCanvasTemplateMetadata(
       //   断言契约 `in` 的每个键都在本函数源码里出现过。
       title: input.title ?? "",
       footer: input.footer ?? "",
+      promptText: input.promptText ?? "",
     },
   });
 }

@@ -108,6 +108,17 @@ interface TemplateRow {
   }[];
   usageCount: number;
   tags?: string[];
+  /**
+   * 2026-08-26 契约随 R2/B2 扩出这三个字段（title/footer 装帧、platform 平台母版标记）
+   * 与本轮的 promptText。这份 `TemplateRow` 是本文件手写的独立夹具类型，不是从契约
+   * 自动推导——不补齐会让夹具悄悄漏字段，而 TS 在这里管不住（响应体走 `jsonResponse`
+   * 塞进 `Response`，不经过任何 `CanvasTemplate` 类型检查），只有运行时才会炸
+   * （2026-08-26 实测：`promptText.trim()` 读 undefined）。
+   */
+  title?: string;
+  footer?: string;
+  promptText?: string;
+  platform?: boolean;
 }
 
 function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
@@ -121,6 +132,7 @@ function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
     underlyingType: "canvas",
     sections: [{ sectionId: "s1", name: "基本信息", order: 0, required: true, capacity: null }],
     usageCount: 41,
+    title: "", footer: "", promptText: "", platform: false,
     ...overrides,
   };
 }

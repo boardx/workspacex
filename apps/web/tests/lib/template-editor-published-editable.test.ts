@@ -65,3 +65,45 @@ describe("已发布模板的编辑走铸新版，不改快照", () => {
     expect(line).toContain("!readOnly");
   });
 });
+
+/**
+ * 2026-08-26 第二轮实测反馈：「编辑以后保存，刷新再次打开发现没有保存成功数据」。
+ *
+ * ## 数据没丢——铸出来的新版本默认是草稿，人类刷新后点开的还是旧的「已发布」卡片
+ *
+ * 铸新版本本身没有 bug（`mint-template-version-http.test.ts` 已在真库验证）。真正的
+ * 问题是体感：点「保存」得到一个看不见生效的草稿。修法是内容干净时铸完立即发布——
+ * `publishTemplate` 自动归档旧版是既有行为，所以 I-4（已发布内容不可变快照）没有被拆：
+ * 旧版本内容原封不动，只是不再被标为「当前」，刷新后只有一张「已发布」卡片，
+ * 不再有两张卡片让人分不清哪个是最新的。
+ *
+ * 这份测试反证的是**两种**相反的假实现：
+ * 1. 无条件自动发布——一份有溢出/未放置字段的东西被静默推上线。
+ * 2. 从不自动发布——体感问题原样保留，"编辑已发布模板"看起来还是没生效。
+ */
+describe("保存已发布模板：内容干净才自动发布，不静默推上线", () => {
+  it("铸完新版之后调用了 publishCanvasTemplate", () => {
+    expect(CODE).toContain("publishCanvasTemplate(");
+  });
+
+  it("判据是 health.publishClean —— 与显式发布按钮同一份体检结果（§6 规则⑤）", () => {
+    const save = CODE.slice(CODE.indexOf("async function save("));
+    expect(save).toContain("if (health.publishClean)");
+  });
+
+  it("publish 调用在 mint 之后、判据之内——不是先发布再判断", () => {
+    const save = CODE.slice(CODE.indexOf("async function save("));
+    const mintAt = save.indexOf("mintCanvasTemplateVersion(");
+    const branchAt = save.indexOf("if (health.publishClean)");
+    const publishAt = save.indexOf("publishCanvasTemplate(");
+    expect(mintAt).toBeLessThan(branchAt);
+    expect(branchAt).toBeLessThan(publishAt);
+  });
+
+  it("不干净的分支里没有 publishCanvasTemplate 调用（反证：两支不能共用同一次发布）", () => {
+    const save = CODE.slice(CODE.indexOf("async function save("));
+    const elseAt = save.indexOf("} else {");
+    const elseBlock = save.slice(elseAt, save.indexOf("}", save.indexOf("onSaved(", elseAt)) + 1);
+    expect(elseBlock).not.toContain("publishCanvasTemplate(");
+  });
+});

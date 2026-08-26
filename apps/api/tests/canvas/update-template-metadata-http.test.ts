@@ -49,12 +49,13 @@ interface StoredTemplate {
   tags: string[];
   title: string;
   footer: string;
+  prompt_text: string;
 }
 
 async function readRow(key: string, version: number): Promise<StoredTemplate | undefined> {
   return asApp(ORG, async (c) => {
     const r = await c.query<StoredTemplate>(
-      `SELECT key, version, display_name, status, visibility, sections, tags, title, footer
+      `SELECT key, version, display_name, status, visibility, sections, tags, title, footer, prompt_text
          FROM canvas_templates WHERE org_id = $1 AND key = $2 AND version = $3`,
       [ORG, key, version],
     );
@@ -169,6 +170,30 @@ describe("2026-08-25 R2 · POST /canvas/templates/:key/:version/metadata", () =>
     expect(JSON.stringify(after?.sections)).toBe(JSON.stringify(before?.sections));
   });
 
+  /**
+   * 2026-08-26 第三轮：提示词（编辑器①「角色与任务」）也走这条操作，与 title/footer
+   * 同一套理由——不进 sections、对任何状态生效。
+   *
+   * ⚠ 这条本身是一次真实回归的反证：`promptText` 曾经在编辑器里读的是一个恒为 `""`
+   *   的本地 state（从没读过 `row.promptText`），人类实测发现「历史数据没有提示词」。
+   *   本用例走真库确认它现在**确实**落进那一列，而不是又一次"响应体对、界面上却
+   *   显示空白"。
+   */
+  it("⑨ 提示词真的落库，对已发布行同样生效", async () => {
+    const res = await updateMetadata(metaBody({
+      key: "tpl-published", displayName: "已发布的", tags: ["旧标签"],
+      promptText: "你是工作坊引导师，请基于访谈记录产出 SWOT 分析。",
+    }));
+    expect(res.status).toBe(200);
+
+    const parsed = C.operations.updateTemplateMetadata.out.parse(await res.json());
+    expect(parsed.promptText).toBe("你是工作坊引导师，请基于访谈记录产出 SWOT 分析。");
+
+    const after = await readRow("tpl-published", 1);
+    expect(after?.prompt_text).toBe("你是工作坊引导师，请基于访谈记录产出 SWOT 分析。");
+    expect(after?.status).toBe("published");
+  });
+
   it("① draft：改名 + 换标签，库里真的变了，sections 一个字节没动", async () => {
     const before = await readRow("tpl-draft", 1);
     const res = await updateMetadata(metaBody());
@@ -187,6 +212,7 @@ describe("2026-08-25 R2 · POST /canvas/templates/:key/:version/metadata", () =>
       // 装帧字段：本次请求没带，服务端归一成空串（省略与显式空串同义）。
       title: "",
       footer: "",
+      promptText: "",
     });
 
     const after = await readRow("tpl-draft", 1);

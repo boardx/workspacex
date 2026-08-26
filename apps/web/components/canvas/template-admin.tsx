@@ -393,8 +393,9 @@ export function TemplateAdmin({
         setNotice(`已新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
         await load();
         // 立刻打开编辑面板——`usageCount` 恒为 0（刚造出来的行不可能已被绑定），
-        // `title`/`footer` 恒为空串（`createTemplate` 不收装帧，新模板还没起标题）。
-        setEditing({ ...out, usageCount: 0, title: "", footer: "" });
+        // `title`/`footer`/`promptText` 恒为空串（`createTemplate` 不收装帧，新模板
+        // 还没起标题/写过提示词），`platform` 恒为 false（刚造出来的必然是本组织自有行）。
+        setEditing({ ...out, usageCount: 0, title: "", footer: "", promptText: "", platform: false });
         return;
       } catch (error) {
         lastError = error;

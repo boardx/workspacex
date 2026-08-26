@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api-client";
 import {
   updateCanvasTemplateDraft,
   mintCanvasTemplateVersion,
+  publishCanvasTemplate,
   updateCanvasTemplateMetadata,
   TEMPLATE_STATUS_LABEL,
   type CanvasTemplate,
@@ -33,13 +34,21 @@ import {
  * 断言）。所以这里连注释都称呼包装函数的名字——写裸端点名会让那条门控红，而它红得对：
  * 一个知道端点长什么样的组件，离自己手抄一条路径只差一步。
  *
- * ## 已发布的也能编，改动落到**新版本**上
+ * ## 已发布的也能编，改动落到**新版本**、内容干净就当场发布
  *
  * 人类 2026-08-26 截图实测：「画布模板的配置，对于已发布的模板也需要可以编辑」。
  * 表单对 draft / trial / published 一律开放，`save()` 按状态分岔到两条真实写路径：
  * 草稿走 `updateCanvasTemplateDraft` 原地改，非草稿走 `mintCanvasTemplateVersion` 把改完的内容
  * 铸成下一版草稿。已发布那一版原封不动——它的 `sections` 是不可变快照（I-4），
  * 原地改会让**已经用它开过的画布**在下次渲染时悄悄换版式，那是历史篡改不是编辑。
+ *
+ * ⚠ 2026-08-26 第二轮实测反馈：「编辑以后保存，刷新再次打开发现没有保存成功数据。
+ *   对于旧的已经发布的版本，可以修改」——铸出的新版本本身没丢数据（真库测试验证过），
+ *   丢的是「体感」：它默认是草稿，需要再点一次发布才生效，刷新后人类多半点开的还是
+ *   熟悉的旧「已发布」卡片。修法是 `save()` 铸完新版后若 `health.publishClean` 就
+ *   **立即发布**——`publishTemplate` 会自动归档旧版（既有行为），所以这不是把 I-4
+ *   拆了：旧版本内容仍然是不可变快照，只是不再被标为「当前」。编辑已发布模板在体感上
+ *   因此等同直接改。内容不干净（有溢出/未放置字段）时仍然停在草稿，不静默发布。
  *
  * ⚠ 归档行仍然只读：在被主动收起来的东西上开新版，会让「归档」这个动作失去意义。
  *   要改先「恢复」，那是个显式动作。
@@ -87,6 +96,10 @@ export function TemplateEditorPanel({
   // 「AI 要填什么」，装帧是纸本身长什么样。混进去模型会试图去"填标题"。
   const [title, setTitle] = React.useState(row.title);
   const [footer, setFooter] = React.useState(row.footer);
+  // ⚠ 提示词从这里初始化，**不是**从下面那个后来才声明的 `promptText` state 起点 `""`
+  //   ——2026-08-26 第三轮实测反馈「现有的历史数据，我看还没有提示词」，根因就是这里
+  //   原先恒等于空串，从没读过 `row.promptText`：编辑器打开一次，提示词就"看起来"是空的，
+  //   而库里其实存着（或者也是空的，因为写入端同样从没把它存过——两头都空）。
   const [sections, setSections] = React.useState<SectionDraft[]>(() => toDraft(row));
   const [step, setStep] = React.useState<1 | 2 | 3>(() => (toDraft(row).some((s) => s.layout) ? 2 : 1));
   const [gridCols, setGridCols] = React.useState<6 | 12>(12);
@@ -98,7 +111,10 @@ export function TemplateEditorPanel({
   const [dryRunData, setDryRunData] = React.useState<Record<string, unknown> | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [promptOpen, setPromptOpen] = React.useState(false);
-  const [promptText, setPromptText] = React.useState("");
+  // `?? ""` 是防御性兜底，不是常态：契约 `.strict()` 保证服务端一定给这个字段。
+  // 留着这一手是为了不让"响应体缺一个字段"从一次异常变成整个编辑面板崩溃——
+  // `template-prompt-drawer.tsx` 会对它调用 `.trim()`。
+  const [promptText, setPromptText] = React.useState(row.promptText ?? "");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [newField, setNewField] = React.useState<{ key: string; name: string; type: SectionFieldType }>(
@@ -119,6 +135,7 @@ export function TemplateEditorPanel({
     displayName !== row.displayName
     || title !== row.title
     || footer !== row.footer
+    || promptText !== row.promptText
     || JSON.stringify(toContractSections(sections)) !== JSON.stringify(row.sections)
   );
 
@@ -237,12 +254,15 @@ export function TemplateEditorPanel({
    *   而清空不会报错，只会让筛选栏少一类。
    */
   async function saveChrome(version = row.version): Promise<void> {
-    if (title === row.title && footer === row.footer && version === row.version) return;
+    if (
+      title === row.title && footer === row.footer
+      && promptText === row.promptText && version === row.version
+    ) return;
     await updateCanvasTemplateMetadata({
       key: row.key, version,
       displayName: displayName.trim(),
       tags: [...(row.tags ?? [])],
-      title, footer,
+      title, footer, promptText,
     });
   }
 
@@ -261,7 +281,13 @@ export function TemplateEditorPanel({
           tags: [...(row.tags ?? [])],
         });
         await saveChrome();
-        await onSaved(`已保存「${out.displayName}」的改动`, { ...out, usageCount: 0, title, footer });
+        await onSaved(
+          `已保存「${out.displayName}」的改动`,
+          // ⚠ `platform: false` 是写死的字面量，不是从响应里读来的：这个面板打开的
+          //   永远是本组织自己的行（`listTemplates` 用 `platform` 区分平台母版与
+          //   组织自有行，平台母版对本组件不可编辑，走不到这条保存路径）。
+          { ...out, usageCount: 0, title, footer, promptText, platform: false },
+        );
         return;
       }
 
@@ -274,13 +300,50 @@ export function TemplateEditorPanel({
         tags: [...(row.tags ?? [])],
       });
       await saveChrome(minted.version);
-      await onSaved(
-        // 如实说清发生了什么：使用者点的是「保存」，得到的是一个**新版本**。
-        // 含糊成「已保存」会让人以为刚才那份已发布的被改掉了。
-        `已基于 v${row.version} 开出 v${minted.version} 草稿并保存改动——` +
-        `v${row.version} 保持原样（已发布版本是不可变快照）。改好后记得发布 v${minted.version}。`,
-        { ...minted, usageCount: 0, title, footer },
-      );
+
+      /*
+       * 人类 2026-08-26 实测反馈：「编辑以后保存，刷新再次打开发现没有保存成功数据。
+       * 对于旧的已经发布的版本，可以修改。」
+       *
+       * ## 数据其实没丢——问题是「保存」把改动放进了一个看不见的地方
+       *
+       * 铸新版本本身没有 bug（`mint-template-version-http.test.ts` 已经在真库上验证过）。
+       * 真正的问题是语义：铸出来的 vN+1 是**草稿**，默认不发布。人类点的是「保存」，
+       * 得到的却是一份需要再点一次「发布」才会生效的东西；刷新页面后，默认视图里
+       * 新旧两个版本的卡片并存，人类多半点开的还是那张熟悉的「已发布」旧卡片——
+       * 看起来就是「编辑没生效」。
+       *
+       * ## 修法：内容干净就**当场发布**，让「编辑已发布模板」在体感上等于直接改
+       *
+       * `publishTemplate` 发布新版本时会**自动归档旧版**（三段发布流程既有行为）——
+       * 所以这里不是把 I-4「已发布内容不可变快照」这条不变量拆了：已经用旧版本
+       * 开过的画布，实例数据仍然指着那个不可变的旧版本号，不受影响；变的只是
+       * 「哪个版本被标记为当前活跃版本」。旧版本变成「已归档」，与新的「已发布」
+       * 版本不再靠版本号才分得清谁是谁——这也顺带解决了「刷新后分不清点哪张卡」。
+       *
+       * ⚠ 只有 `health.publishClean` 时才自动发布：与显式点「发布」按钮的
+       *   `requestPublish()` 走的是同一份体检结果（§6 规则⑤同源计算），不健康的
+       *   内容不会被静默推上线——那种情况仍然停在草稿，并把原因如实说清楚，
+       *   而不是自动发布一份有溢出/未放置字段的东西。
+       */
+      if (health.publishClean) {
+        await publishCanvasTemplate({ key: minted.key, version: minted.version, visibility: row.visibility });
+        await onSaved(
+          `已保存并发布为 v${minted.version}——v${row.version} 已自动归档` +
+          `（不可变快照，用它开过的画布不受影响）。`,
+          { ...minted, status: "published", usageCount: 0, title, footer, promptText, platform: false },
+        );
+      } else {
+        const reasons = [
+          ...health.unplaced.map((s) => `「${s.name}」未放到画布上`),
+          ...health.overflowing.map((o) => `「${o.section.name}」装不下（最多 ${o.max} 条，位置只够 ${o.fits} 条）`),
+        ];
+        await onSaved(
+          `已铸出 v${minted.version} 草稿并保存改动，但「未发布」——` +
+          `${reasons.join("；")}。修好后再点「发布模板」，v${row.version} 保持原样。`,
+          { ...minted, usageCount: 0, title, footer, promptText, platform: false },
+        );
+      }
     } catch (e) {
       setError(e instanceof ApiError ? `${e.reasonCode ?? "无 reasonCode"}（HTTP ${e.status}）` : String(e));
     } finally {
@@ -367,8 +430,8 @@ export function TemplateEditorPanel({
         <p className="flex-none border-b border-warning/40 bg-warning/5 px-5 py-1.5 text-11 text-muted-foreground" data-testid="tpladmin-editor-immutable-note">
           {row.status === "archived"
             ? "已归档版本只能预览。要改先「恢复」，那是个显式动作。"
-            : `v${row.version} 已发布，它的内容是不可变快照（已经用它开过的画布不会被改动）。`
-              + `你在这里的改动，保存时会自动铸成 v${row.version + 1} 草稿。`}
+            : `v${row.version} 已发布。你在这里的改动保存时会自动铸成 v${row.version + 1} ` +
+              `并立即发布（旧版内容作为不可变快照自动归档，已经用它开过的画布不受影响）。`}
         </p>
       )}
 

@@ -255,6 +255,7 @@ export interface CanvasTemplateRepository {
     /** 版面装帧（A1 纸上的大标题 / 底部署名）。省略在契约层已归一成空串。 */
     readonly title: string;
     readonly footer: string;
+    readonly promptText: string;
   }): Promise<UpdateMetadataOutcome>;
 
   /**

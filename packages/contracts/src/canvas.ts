@@ -520,6 +520,13 @@ export const operations = {
        * 空串 = 不画页脚带。
        */
       footer: z.string().optional(),
+      /**
+       * 编辑器①「角色与任务」——给顾问看的自由文本，帮他理解这个模板要 AI 产出什么，
+       * 辅助提取字段。**不进** `sections`，也不发给运行时模型（`buildCanvasTemplateGuidance`
+       * 注入 chat 的是分区/字段名，不读这一栏）。同 title/footer：装帧材料，不是内容，
+       * 因此对任何状态生效。空串 = 未写。
+       */
+      promptText: z.string().optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -532,6 +539,7 @@ export const operations = {
       tags: z.array(z.string()),
       title: z.string(),
       footer: z.string(),
+      promptText: z.string(),
     }).strict(),
     err: ["TEMPLATE_NOT_FOUND", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
@@ -759,6 +767,8 @@ export const operations = {
         title: z.string(),
         /** 见 `updateTemplateMetadata.in.footer`。空串 = 不画页脚带。 */
         footer: z.string(),
+        /** 见 `updateTemplateMetadata.in.promptText`。空串 = 未写。 */
+        promptText: z.string(),
         /**
          * 这一条来自**平台模板库**（B2 全局母版），不是本组织自己的行。
          *
