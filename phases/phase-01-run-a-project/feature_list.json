@@ -5178,15 +5178,15 @@
         "F212"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "21",
-      "owner": null,
+      "owner": "dev-ai-runtime-f214",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/fill-params-guess-rationale.test.ts",
         "pnpm --filter api exec vitest run tests/agent-interrupts/fill-params-applied-to.test.ts",
         "pnpm --filter web exec vitest run tests/ui/agent-interrupt-fill-params-card.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F214.verify.log @ 2026-08-26T18:56:24.174Z",
       "notes": "契约束已签核（confirmed）。covers usecases.md UC-2 + domain.md I-3 + 缺口 AI-1。依据等级 [Backlog]（纯新能力）。⚠ 知情降级（裁决①，design-signoff §六）：appliedTo 只做 full-rerun/ledger-only 两态，不承诺 I-4「只重跑受影响下游」（依赖 checkpoint fork，本仓未证实，agent-runtime 缺口25 的延伸；恢复完整能力是未来待办，不是本轮）。guess-rationale.test 断言 I-3：∀field，aiGuess≠null ⇒ rationale≠null（zod refine）。applied-to.test 断言 appliedTo∈{full-rerun,ledger-only} 且 ledger-only 在 run 活跃时只落账本、下一轮送达。⚠ 必填校验错误码用 FIELD_REQUIRED_BLANK，不是 PLAN_CONSTRAINT_BLANK——XC-60（design-coherence.md 2026-08-26）实测确认 plan-control 的 PLAN_CONSTRAINT_BLANK 是 PlanConstraint 实体的字符串空值校验，与本束任意值类型必填字段不同类，占位脚注已正确预判，此为复核确定结论非待裁决。UI testid（ui.md 屏二）：agent-interrupt-fill-params-{card,field-*,input-*,ai-badge-*,rationale-*,applied-full-rerun,applied-ledger-only,ledger-hint,submit}；截图 uc-2-fill-params-*.png。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。"
     },
     {
