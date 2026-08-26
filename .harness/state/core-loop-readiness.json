@@ -82,26 +82,32 @@
       ],
       "max": 10,
       "score": 0,
-      "scored_sha": "4212e503bc31f4b0b15158b55c287e87e44cdb64",
+      "scored_sha": "b6ee07a41d874838fa1a610aa7af79967916bba2",
       "scored_by": "rev-uiux",
       "implemented_by": "dev-chat-e2e",
       "evidence": [
-        "sha:4212e503bc31f4b0b15158b55c287e87e44cdb64",
+        "sha:b6ee07a41d874838fa1a610aa7af79967916bba2",
         "authority:.harness/rubrics/chat-main-fidelity-rubric.md#硬门不满足则总分直接判-0不进逐维打分",
-        "verdict:取证环境：/private/tmp/wsx-rev-vdvp-4212e503 独立 detached worktree，git status 全空，./init.sh exit 0，非本次任何 chat 改动的实现者",
-        "verdict:H1 ✅：4 张实产图均含真实内容，非空图/非停在 /login",
-        "verdict:H2 ❌（决定性，连跑两次结果完全一致，非flake）：pnpm run shots:chat-main 退出码1，18张只产出4张，根因是 chat-main-shots.spec.ts:130 的 toContainText(\"工具\") 与 agent-tool-chain.tsx toolChainSummaryText() 现文案不匹配（工具数≤2时逐个列名不出现「工具」二字），断言由 PR #1801 写入，此后 e14f6081/71b60e30/83a19223 数轮改写摘要文案未同步 -> 已登记 #1921 并修复（本轮同一 SHA 上另行提交）",
-        "verdict:H3 ❌：verify:chat-read 绿(24 passed/3.7m)，verify:base 退出码1，唯一失败 tests/recording/personal-realtime-asr-gateway.test.ts:186（负载敏感竞态，隔离单跑7/7过，判定既有flaky非本轮回归，但按判据字面不予自行豁免）-> 已登记 #1922",
-        "verdict:H4 ✅：git diff --stat 348f889a..origin/main -- ui-preview/chat-main-ref/ 与 WorkspaceX Standalone.html 输出为空",
-        "verdict:结论：H2 单独即决定总分为0，与H3是否豁免无关；D1-D10 本轮不产出逐维分数",
-        "https://github.com/boardx/workspacex/issues/1921",
-        "https://github.com/boardx/workspacex/issues/1922"
+        "verdict:取证环境：/private/tmp/wsx-rev-vdvp-b6ee07a4 独立 detached worktree（./init.sh exit 0，评分前后 `git status --porcelain` 均为空），评分人 rev-uiux，非 implemented_by(dev-chat-e2e)，非自评",
+        "verdict:H2 ❌（第一层·机械可证，与负载无关）：`pnpm run shots:chat-main` 不再运行取证脚本本身。daa17e61（PR #2131）给 playwright.chat-read.config.ts 加了 projects:[chat-read, chat-task-workbench]，而 playwright.chat-shots.config.ts 用 spread 继承它、只覆盖顶层 testMatch —— Playwright 里 project 级 testMatch 覆盖顶层，于是 shots 命令实际跑的是 108 个 chat-read/chat-task-workbench 用例（`--list` 实测：Total: 108 tests in 39 files，chat-main-shots.spec.ts 命中 0 次），产出 0 张截图（apps/web/.chat-shots 不存在）",
+        "verdict:H2 ❌（第二层·功能真红）：把 spec 强制选中后（临时 control config，跑完即删、git status 复检为空）它仍失败——chat-main-shots.spec.ts:367 `chat-mic-listening` 10s 内不可见，产品界面上直接印出红字「无法启动语音识别，请重试。」（见失败截图 apps/web/test-results/chat-main-shots-capture-ch-44e1b-.../test-failed-1.png）。18 张只产出 12 张，缺 chat-main-personal-mic-{listening,partial,transcribed}.png / chat-main-personal-failure.png / chat-main-personal-mobile-{list,detail}.png，恰好是 P5/P8/P9 的取证图",
+        "verdict:语音断裂非负载假红：load≈20 的整套跑里 copilotkit-v2-voice-input.spec.ts:26 亦为 ✘，load≈9 的定向 control 复现同一红，两次独立复现",
+        "verdict:H3 未完整取证（H2 已单独决定总分 0，不再消耗真栈跑 verify:base/verify:chat-read）；#1922（ASR gateway 竞态）仍 OPEN",
+        "verdict:H4 ✅：git diff --stat 4212e503..b6ee07a4 -- phases/phase-01-run-a-project/ui-preview/chat-main-ref/ 与 'phases/requirements/WorkspaceX Standalone.html' 输出为空；rubric 本身的两处改动是人类裁决经 PR #2024 合入，不属 H4 管辖",
+        "verdict:按评分卡「硬门不满足则总分直接判 0，不进逐维打分」，本轮不产出 D1-D10 / P1-P10 逐维分数",
+        "shots:/private/tmp/wsx-rev-vdvp-shots/（本轮 control 实抓 12 张，2026-08-27 01:43；上一轮同名目录的 08-24 旧图已先行删除，避免拿陈图当新证据）",
+        "verdict:V-D 侧附注（非计分，供下一轮参考）：12 张实抓图里项目对话主屏确有内容——右侧栏「产物(N)/材料(N)」已堆叠同时可见、AI 团队编制区与「从 Agent 市场加入」在位、agent 消息带角色 chip 与工具调用折叠块；但硬门未过，这些一律不折算成分数",
+        "https://github.com/boardx/workspacex/issues/2173",
+        "https://github.com/boardx/workspacex/issues/2090"
       ],
       "watch": [
         "apps/web/components/chat/**",
         "apps/web/app/chat/**"
       ],
-      "blocking_issues": []
+      "blocking_issues": [
+        2173,
+        2090
+      ]
     },
     "V-P": {
       "name": "个人对话屏（PersonalChatScreen）",
@@ -111,23 +117,33 @@
       ],
       "max": 10,
       "score": 0,
-      "scored_sha": "4212e503bc31f4b0b15158b55c287e87e44cdb64",
+      "scored_sha": "b6ee07a41d874838fa1a610aa7af79967916bba2",
       "scored_by": "rev-uiux",
       "implemented_by": "dev-chat-e2e",
       "evidence": [
-        "sha:4212e503bc31f4b0b15158b55c287e87e44cdb64",
+        "sha:b6ee07a41d874838fa1a610aa7af79967916bba2",
         "authority:.harness/rubrics/chat-main-fidelity-rubric.md#个人对话屏personalchatscreen十维",
-        "verdict:同一道硬门 H2 红导致 V-P 与 V-D 同批判 0，详见 tracks.V-D 该 SHA 的 evidence（H1✅/H2❌/H3❌/H4✅，取证环境、根因、登记的 #1921/#1922 均相同）",
-        "verdict:P4-P10（个人侧新建/流式/工具/语音/失败态/移动端 list-detail）取证图因 H2 断言过期全部缺失，本轮无法产出逐维分数",
-        "https://github.com/boardx/workspacex/issues/1921",
-        "https://github.com/boardx/workspacex/issues/1922"
+        "verdict:取证环境：/private/tmp/wsx-rev-vdvp-b6ee07a4 独立 detached worktree（./init.sh exit 0，评分前后 `git status --porcelain` 均为空），评分人 rev-uiux，非 implemented_by(dev-chat-e2e)，非自评",
+        "verdict:H2 ❌（第一层·机械可证，与负载无关）：`pnpm run shots:chat-main` 不再运行取证脚本本身。daa17e61（PR #2131）给 playwright.chat-read.config.ts 加了 projects:[chat-read, chat-task-workbench]，而 playwright.chat-shots.config.ts 用 spread 继承它、只覆盖顶层 testMatch —— Playwright 里 project 级 testMatch 覆盖顶层，于是 shots 命令实际跑的是 108 个 chat-read/chat-task-workbench 用例（`--list` 实测：Total: 108 tests in 39 files，chat-main-shots.spec.ts 命中 0 次），产出 0 张截图（apps/web/.chat-shots 不存在）",
+        "verdict:H2 ❌（第二层·功能真红）：把 spec 强制选中后（临时 control config，跑完即删、git status 复检为空）它仍失败——chat-main-shots.spec.ts:367 `chat-mic-listening` 10s 内不可见，产品界面上直接印出红字「无法启动语音识别，请重试。」（见失败截图 apps/web/test-results/chat-main-shots-capture-ch-44e1b-.../test-failed-1.png）。18 张只产出 12 张，缺 chat-main-personal-mic-{listening,partial,transcribed}.png / chat-main-personal-failure.png / chat-main-personal-mobile-{list,detail}.png，恰好是 P5/P8/P9 的取证图",
+        "verdict:语音断裂非负载假红：load≈20 的整套跑里 copilotkit-v2-voice-input.spec.ts:26 亦为 ✘，load≈9 的定向 control 复现同一红，两次独立复现",
+        "verdict:H3 未完整取证（H2 已单独决定总分 0，不再消耗真栈跑 verify:base/verify:chat-read）；#1922（ASR gateway 竞态）仍 OPEN",
+        "verdict:H4 ✅：git diff --stat 4212e503..b6ee07a4 -- phases/phase-01-run-a-project/ui-preview/chat-main-ref/ 与 'phases/requirements/WorkspaceX Standalone.html' 输出为空；rubric 本身的两处改动是人类裁决经 PR #2024 合入，不属 H4 管辖",
+        "verdict:按评分卡「硬门不满足则总分直接判 0，不进逐维打分」，本轮不产出 D1-D10 / P1-P10 逐维分数",
+        "shots:/private/tmp/wsx-rev-vdvp-shots/（本轮 control 实抓 12 张，2026-08-27 01:43；上一轮同名目录的 08-24 旧图已先行删除，避免拿陈图当新证据）",
+        "verdict:V-P 受损更重：缺的 6 张取证图全部落在个人对话屏，P5（手机端 list/detail 切换）、P8（语音输入）、P9（错误处理透明度）三维在本 SHA 上无图可判，且 P8 已被实测证伪（红字「无法启动语音识别，请重试。」）",
+        "https://github.com/boardx/workspacex/issues/2173",
+        "https://github.com/boardx/workspacex/issues/2090"
       ],
       "watch": [
         "apps/web/components/chat/personal-chat-screen.tsx",
         "apps/web/components/chat/thread-list-shell.tsx",
         "apps/web/app/chat/**"
       ],
-      "blocking_issues": []
+      "blocking_issues": [
+        2173,
+        2090
+      ]
     }
   },
   "_readiness_queue_fix_750_vp_20260815": "coord-main 2026-08-15 消息称已把 V-P 的 blocking_issues 从 [728,750] 改成 [728]（V-D 那份确实已经是 [728]），但实测 origin/main da31b2e8 上 V-P 这里仍是 [728,750]——`gh issue view 750` 是 CLOSED。同型于 `_readiness_queue_fix_877_20260814`/`_readiness_queue_fix_750_20260815`：这里再摘一次，与之前那次一样，blocking_issues 名义归 coord-main 维护，此处代改仅因门红；有不同安排可直接覆盖。",
@@ -159,5 +175,6 @@
   "_rev_e2e_track_r_round4_20260824": "track R 重评（死条目修复后派出的独立重评）= **10/10**（上一轮 round3_20260815 记 7/10，本轮 R7/R8/R10 从 0 转 1），实测 origin/main `4212e503bc31f4b0b15158b55c287e87e44cdb64`（rev-e2e，非自评，本轮实现全部来自非本人的多个 worker）。R watch 四条 `348f889a..4212e503` diff 208 files / 20192+ / 797-（跨 403 commits），旧分早已按 G2 过期，本轮独立重新取证，非沿用。`pnpm run verify:core-loop` 3 次独立尝试：R2/R3/R5/R6a/R6b/R6c/R7/R8a/R9/R10 三次结果一致通过；R4（新增 canvas 模板）三次一致失败——溯源到 PR #1897（2026-08-23，人类原话直接指令的合法 UX 简化）把「新建模板」改成只问显示名，`core-loop.spec.ts` 步骤4的测试锚点未跟进，30s 超时，且因 `core-loop-empty-db` project 对 `core-loop-seeded` 的硬依赖，这一步失败连带阻塞了 R1（空库注册）本轮从未被动态复跑到——已登记 #1916 并当场修复（同一 SHA 上另行提交），修复后 `verify:core-loop` 真栈两次独立跑通 13/13 全绿（含 R1）。R7（consent-form.tsx 真实提交 setConsentDecision）/R8（org-admin-screen.tsx 真实任命审核人 + skill-catalog-live.tsx 真实审核链路）/R10（tab-prep.tsx RealAgendaSegment 真实创建议程环节）三条此前「后端已补、界面零调用方」的历史缺口，本轮逐条 grep 真实产品调用方 + `gh issue view` 核对 #854/#852/#853 均已 CLOSED（closing PR 均 merge-base --is-ancestor 确认在 4212e503 血统内），三条从 0 转 1。核心闭环 epic #624 与三条历史替代阻塞项本轮全部关闭，R 组十项首次全部拿到真实产品路径确认。",
   "_rev_e2e_track_b_round_blocked_20260824": "track B 本轮**未能产出新鲜分数**（非重新评了低分，是取证受阻）：实测 origin/main `4212e503`，B watch 六条 `348f889a..4212e503` diff 44 files / 6916+ / 903-，旧分 6@348f889a 已按 G2 过期不可沿用，但 `pnpm run shots:chat-behavior` 因机器持续被并发 agent 占满两个隔离栈准入槽位、长时间排队未能取得新鲜真栈截图（rev-e2e，非自评）。分数字段本轮未改动，仍显示旧值 6，但会在 `readiness` 计算里因 G2 判过期计 0——如实登记，等待下一轮低负载时段补跑。",
   "_rev_uiux_track_vd_vp_round_20260824": "V-D/V-P 重评（死条目修复后派出的独立重评）：实测 origin/main `4212e503bc31f4b0b15158b55c287e87e44cdb64`（rev-uiux，非自评，独立 detached worktree 取证，`git status --porcelain` 全空，`./init.sh` exit 0）。**V-D = 0/10，V-P = 0/10**，硬门 H2 决定性失败：`pnpm run shots:chat-main` 退出码 1（连跑两次结果完全一致，非 flake），18 张里只产出 4 张。根因是 `chat-main-shots.spec.ts:130/341` 的 `toContainText(\"工具\")` 断言与 `agent-tool-chain.tsx` 现行摘要文案脱节——工具数 ≤2 时逐个列 `名称(参数片段)`，不出现「工具」二字，只有 >2 才走「等 N 个工具」分支；断言由 PR #1801 写入，此后经 e14f6081/71b60e30/83a19223 数轮摘要文案改写未同步。H3 亦未过（verify:base 唯一失败是 `personal-realtime-asr-gateway.test.ts` 的既有负载敏感竞态，隔离单跑 7/7 过，判定非本轮回归，但按判据字面不予自行豁免）；H1/H4 均过。两个新缺口已登记 #1921（P0，直接阻断评分）与 #1922（P1）。**本轮 H2 已由 #1921 当场修复并真栈复验通过（18/18 张全部产出，含修复过程中额外发现的一处过期断言：PR #1829 人类本人已把「落地为产物」按钮刻意收窄为只挂 agent 消息，`toHaveCount(2)` 应改为 `toHaveCount(1)`）——但硬门修复后的十维逐维重新打分不在本条职责范围，需下一轮 rev-uiux 独立现场评分，不得由实现者沿用本条的 D1-D10/P1-P10（本条压根没有产出逐维分数，硬门未过直接总分判0）。",
-  "_readiness_evidence_gaps_fixed_20260824": "本轮死条目修复（`_readiness_queue_dead_entries_fix_20260824`）之后连带发现并修复了三个真实缺口，均已合入 main：#1916（core-loop 步骤4测试锚点跟进 #1897 UX 简化，PR #1920）、#1921（shots:chat-main 两处过期断言，PR 待合并）。#1922（ASR gateway 竞态测试）尚未修，留给下一轮。track R 已在 4212e503 上拿到新鲜 10/10；V-D/V-P 硬门 H2 的取证脚本已修好，但两条 track 的十维分数仍需下一轮 rev-uiux 在 H2 修复后的 SHA 上重新独立评分——本条不是那次评分，只记录「阻塞硬门的取证脚本本身已修好」这个事实，供下一轮评分员参考起点。"
+  "_readiness_evidence_gaps_fixed_20260824": "本轮死条目修复（`_readiness_queue_dead_entries_fix_20260824`）之后连带发现并修复了三个真实缺口，均已合入 main：#1916（core-loop 步骤4测试锚点跟进 #1897 UX 简化，PR #1920）、#1921（shots:chat-main 两处过期断言，PR 待合并）。#1922（ASR gateway 竞态测试）尚未修，留给下一轮。track R 已在 4212e503 上拿到新鲜 10/10；V-D/V-P 硬门 H2 的取证脚本已修好，但两条 track 的十维分数仍需下一轮 rev-uiux 在 H2 修复后的 SHA 上重新独立评分——本条不是那次评分，只记录「阻塞硬门的取证脚本本身已修好」这个事实，供下一轮评分员参考起点。",
+  "_rev_uiux_track_vd_vp_round_20260827": "V-D/V-P 重评（PR #2157 合入后的新鲜 SHA）：实测 origin/main `b6ee07a41d874838fa1a610aa7af79967916bba2`，rev-uiux 独立 detached worktree 取证，非自评。**V-D = 0/10，V-P = 0/10，硬门 H2 两层独立失败**。第一层是取证通路本身断了：daa17e61（PR #2131，2026-08-26）为拆 e2e-full 恒红车道给 `playwright.chat-read.config.ts` 加了 `projects` 数组，`playwright.chat-shots.config.ts` 是 spread 继承那份 config 只换顶层 `testMatch` 的——Playwright 里 project 级 `testMatch` 压过顶层，于是 `pnpm run shots:chat-main` 变成跑 108 个 chat-read/chat-task-workbench 用例、一张截图都不产。这是 2026-08-24 那轮 #1921 修好断言之后**新长出来的第二个空转口**，与上一轮根因不同：上一轮是断言过期，这一轮是脚本压根没被选中。`lint-spec-gate-coverage.mjs` 没拦住它——被 config 文件 grep 到就算「有人跑」，但「config 里能 import 到」≠「project testMatch 选得中」，判据要收紧成按 `--list` 的实际选中集判。第二层是功能真红：把 spec 强制选中后仍在 `chat-main-shots.spec.ts:367` 挂掉，界面上直出红字「无法启动语音识别，请重试。」，18 张只出 12 张，缺的 6 张正是 P5/P8/P9 的图；load≈20 与 load≈9 两次独立复现，`copilotkit-v2-voice-input.spec.ts` 亦同步红，非负载假红。H4 ✅（参照图与原型 html 逐字节未动）；H3 未完整取证——H2 已单独决定总分 0，不再占真栈。与上一轮（4212e503，同为 0/10）比：分数无变化，但**根因换了人**，不是同一个缺陷没修——上一轮的 #1921 确已修复并关闭。 两个阻塞缺口：#2173（取证通路 wiring，本轮新开）与 #2090（麦克风不进 listening，既有 OPEN）。**只修 #2173 不够**——它只是让 spec 重新被选中，spec 选中后仍会在 #2090 上红，H2 要两个都修好才真过。"
 }
