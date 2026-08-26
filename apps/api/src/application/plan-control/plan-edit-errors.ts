@@ -1,5 +1,6 @@
 /**
- * Shared error shape for the four F974 edit use cases (UC-3/4/5/6).
+ * Shared error shape for the F974 edit use cases (UC-3/4/5/6) and F975's `confirmPlan`
+ * (UC-7).
  *
  * `usecases.md`'s per-UC `err` arrays are a SUBSET of `PlanControlError`
  * (`packages/contracts/src/plan-control.ts`) — this class carries exactly one of those
@@ -12,7 +13,7 @@ export type PlanEditErrorCode = Extract<
   PlanControlError,
   | "PLAN_NOT_FOUND" | "PLAN_REVISION_CHANGED" | "PLAN_STEP_NOT_FOUND"
   | "PLAN_EMPTY_NOT_ALLOWED" | "PLAN_CONSTRAINT_BLANK" | "PLAN_CONSTRAINT_TOO_LONG"
-  | "AUDIT_SINK_UNAVAILABLE"
+  | "AUDIT_SINK_UNAVAILABLE" | "PLAN_DELIVERY_FAILED"
 >;
 
 export class PlanEditError extends Error {

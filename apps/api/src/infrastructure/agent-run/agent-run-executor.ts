@@ -31,6 +31,7 @@ import type { CanvasTemplateGuidancePort } from "../../application/agent-run/can
 import type { RunImagePort } from "../../application/agent-run/run-image-input";
 import type { SkillSandboxPort } from "../../application/skill/skill-sandbox-port";
 import type { ObjectStore } from "../../application/artifact/ports";
+import type { PlanLedgerRepository } from "../../application/plan-control/ports";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
 
@@ -92,6 +93,13 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      */
     private readonly sandbox?: SkillSandboxPort,
     private readonly objects?: ObjectStore,
+    /**
+     * F975 (`plan-control` 契约束, UC-12 `deliverPlanToRun`)。可选，与上面每一个同一条
+     * 既有理由：既有构造点不必都改，生产合成必定注入。不注入，或线程没有账本/账本为空
+     * ⇒ system prompt 与 F975 之前逐字节相同。见 `execute-run.ts`
+     * `ExecuteAgentRunDeps.planLedger` 的完整文档。
+     */
+    private readonly planLedger?: PlanLedgerRepository,
   ) {}
 
   /**
@@ -120,6 +128,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       canvasTemplates: this.canvasTemplates,
       runImages: this.runImages,
       sandbox: this.sandbox, objects: this.objects,
+      planLedger: this.planLedger,
     }, { orgId });
     await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
     return executed;

@@ -70,6 +70,8 @@ import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-scrip
 import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
 import type { VisionInputStatus } from "./context-snapshot";
+import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
+import type { PlanLedgerRepository } from "../plan-control/ports";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -455,6 +457,21 @@ export interface ExecuteAgentRunDeps {
    * 这是刻意的——「这次部署有没有图像通道」是合成期的一个明确选择，不是运行期的偶然。
    */
   readonly runImages?: RunImagePort;
+  /**
+   * F975 (`plan-control` 契约束, UC-12 `deliverPlanToRun`) —— I-10 的唯一注入点。
+   * **可选**，与本接口其余字段同一条既有先例：既有测试与不需要计划送达的执行路径
+   * （`trial-run-agent` 一类）不必都改，生产合成（`kernel.module.ts` → `AgentRunExecutor`）
+   * 必定注入。缺省不注入，或该线程还没有任何账本（`getLatest` 返回 `null`）/账本为空
+   * （`serializePlanForDelivery` 返回 `null`）⇒ `system` 与 F975 之前**逐字节相同**——
+   * 同一纪律，`canvasTemplates`/`sandbox` 等字段的头注已经把这条讲过很多遍。
+   *
+   * ⚠ 读失败是 log + 继续（不 fail 这个已经被 claim 的 run）——I-10 的 fail-closed
+   * 语义应用在 `confirmPlan`（F975 自己的 UC-7）**创建这轮 run 之前**的那次读，不是这里：
+   * 这个 run 的 `agent_runs` 行已经存在（`executeClaimed` 处理的是已 claim 的行），
+   * 读计划失败并不能"不创建"一个已经创建的东西，把它变成整轮 run 失败会让一次账本读
+   * 抖动变成用户可见的失败，这不是 I-10 要保护的性质。
+   */
+  readonly planLedger?: PlanLedgerRepository;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -712,6 +729,24 @@ async function executeClaimed(
        *   `run-script-with-retries.ts`，协议文本必须与它同源。
        */
       scriptProtocol = RUN_SCRIPT_PROTOCOL_PROMPT;
+    }
+
+    // F975 UC-12 `deliverPlanToRun` -- the one real injection point (`domain.md` 三·①:
+    // "A system 注入"). Appended AFTER the sandbox/script-protocol block, same "own
+    // instructions first, capability/plan context after" ordering the comment two blocks
+    // up already documents for that block. See `ExecuteAgentRunDeps.planLedger`'s own doc
+    // for why a read failure here is log-and-continue, not a run failure.
+    if (deps.planLedger) {
+      try {
+        const ledger = await deps.planLedger.getLatest(orgId, run.threadId);
+        const planText = ledger ? serializePlanForDelivery(ledger) : null;
+        if (planText !== null) system = `${system}\n\n---\n\n${planText}`;
+      } catch (e) {
+        deps.log("plan-control: reading the plan ledger for delivery failed, continuing without it", {
+          runId: run.runId,
+          detail: e instanceof Error ? e.message : "unexpected plan ledger read failure",
+        });
+      }
     }
   } catch (e) {
     // Every way of not getting the pinned context is the same fact for a client: the run
