@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
+import { ChatArtifactPreviewDialog } from "@/components/chat/chat-artifact-preview-dialog";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import { Input } from "@/components/ui/input";
 import {
@@ -104,6 +105,9 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   React.useEffect(() => {
     setSelectedThreadId(initialThreadId);
   }, [initialThreadId]);
+
+  /** issue #2099 —— 右栏「产物」点击查看：非 null 时打开预览弹窗。 */
+  const [openArtifact, setOpenArtifact] = React.useState<{ artifactId: string; title: string } | null>(null);
 
   const [threads, setThreads] = React.useState<ListThreadsOut | null>(null);
   const [listError, setListError] = React.useState<string | null>(null);
@@ -609,6 +613,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
             loading={rightLoading}
             error={artifactsError}
             onRetry={() => void loadRightPanel()}
+            onOpen={(item) => setOpenArtifact({ artifactId: item.artifactId, title: item.title })}
           />
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -623,6 +628,20 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           />
         </div>
       </aside>
+      {/* issue #2099 —— 只读预览弹窗，Radix `Dialog` 自己 portal 到 body，挂在这个
+          位置纯粹是"逻辑上属于这棵组件树"，不影响实际渲染层级。个人线程恒
+          `projectId=null`（本壳从不传 projectId，与 `landAsArtifact`/`listThread
+          Artifacts` 等同一约定）。 */}
+      {openArtifact !== null && selectedThreadId !== null ? (
+        <ChatArtifactPreviewDialog
+          threadId={selectedThreadId}
+          projectId={null}
+          artifactId={openArtifact.artifactId}
+          title={openArtifact.title}
+          bearer={bearer ?? undefined}
+          onClose={() => setOpenArtifact(null)}
+        />
+      ) : null}
     </div>
   );
 }
