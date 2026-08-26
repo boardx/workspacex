@@ -8,7 +8,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { PlanStep } from "@repo/contracts/plan-control";
-import type { DatabasePort } from "../../application/ports/database.port";
+import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
   OrphanedConstraintRow,
   PlanLedgerRepository,
@@ -126,6 +126,65 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
       );
       return { revision, engineEpoch };
     });
+  }
+
+  async getLatestWithin(session: TenantSession, threadId: string): Promise<PlanLedgerRow | null> {
+    const r = await session.query<LedgerRow>(
+      `SELECT revision, engine_epoch, origin, based_on_revision, steps, created_by, created_at
+         FROM chat_plan_ledgers
+        WHERE thread_id = $1
+        ORDER BY revision DESC
+        LIMIT 1`,
+      [threadId],
+    );
+    const row = r.rows[0];
+    return row ? toLedgerRow(row) : null;
+  }
+
+  async appendUserEditWithin(session: TenantSession, input: {
+    readonly orgId: OrgId; readonly threadId: string; readonly basedOnRevision: number;
+    readonly engineEpoch: number; readonly steps: PlanStep[]; readonly createdBy: string;
+  }): Promise<{ revision: number }> {
+    const revision = input.basedOnRevision + 1;
+    await session.query(
+      `INSERT INTO chat_plan_ledgers
+         (thread_id, org_id, revision, engine_epoch, origin, based_on_revision, steps, created_by)
+       VALUES ($1,$2,$3,$4,'user',$5,$6,$7)`,
+      [
+        input.threadId, input.orgId, revision, input.engineEpoch, input.basedOnRevision,
+        JSON.stringify(input.steps), input.createdBy,
+      ],
+    );
+    return { revision };
+  }
+
+  async insertOrphanedConstraintsWithin(session: TenantSession, input: {
+    readonly orgId: OrgId; readonly threadId: string; readonly orphanedAtRevision: number;
+    readonly formerStepContent: string;
+    readonly constraints: ReadonlyArray<{ readonly constraintId: string; readonly text: string }>;
+  }): Promise<void> {
+    for (const c of input.constraints) {
+      await session.query(
+        `INSERT INTO chat_plan_orphan_constraints
+           (constraint_id, thread_id, org_id, text, former_step_content, orphaned_at_revision)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [c.constraintId, input.threadId, input.orgId, c.text, input.formerStepContent, input.orphanedAtRevision],
+      );
+    }
+  }
+
+  async deleteOrphanedConstraintWithin(
+    session: TenantSession, orgId: OrgId, threadId: string, constraintId: string,
+  ): Promise<boolean> {
+    // `TenantSession.query`'s `QueryResult<R>` only exposes `rows`, not `pg`'s own
+    // `rowCount` -- so "did this actually delete anything" is read off a `RETURNING`
+    // clause rather than a driver field this port's shape does not carry.
+    const r = await session.query<{ constraint_id: string }>(
+      `DELETE FROM chat_plan_orphan_constraints WHERE thread_id = $1 AND constraint_id = $2
+       RETURNING constraint_id`,
+      [threadId, constraintId],
+    );
+    return r.rows.length > 0;
   }
 
   async getLatestRun(orgId: OrgId, threadId: string): Promise<PlanRunSnapshot | null> {

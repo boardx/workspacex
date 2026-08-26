@@ -12,6 +12,7 @@
  */
 import type { OrgId } from "../../domain/org-id";
 import type { PlanOrigin, PlanStep, RunStatusForPhase } from "@repo/contracts/plan-control";
+import type { TenantSession } from "../ports/database.port";
 
 /** 一条计划账本行（`domain.md` 一·1 `PlanLedger`），infrastructure 读出来的形状。 */
 export interface PlanLedgerRow {
@@ -67,6 +68,43 @@ export interface PlanLedgerRepository {
     readonly threadId: string;
     readonly steps: PlanStep[];
   }): Promise<{ readonly revision: number; readonly engineEpoch: number }>;
+
+  /**
+   * F974 —— the four edit use cases (UC-3/4/5/6) all share this one write shape:
+   * a new `origin='user'` revision, `engineEpoch` UNCHANGED (only engine writes bump it,
+   * I-6), `basedOnRevision` carried from the caller's already-validated `PLAN_REVISION_CHANGED`
+   * check. Takes an explicit `TenantSession` so the caller can run it inside the SAME
+   * transaction as the audit write (`ProvenanceWriter.appendWithin`) -- I-13's fail-closed
+   * audit requirement means "the ledger row exists but nobody can prove it was authorised"
+   * must not be a reachable state, and that is only true if both writes commit atomically.
+   */
+  appendUserEditWithin(session: TenantSession, input: {
+    readonly orgId: OrgId;
+    readonly threadId: string;
+    readonly basedOnRevision: number;
+    readonly engineEpoch: number;
+    readonly steps: PlanStep[];
+    readonly createdBy: string;
+  }): Promise<{ readonly revision: number }>;
+
+  /** Same-transaction read, for the check-then-write the four edit use cases all need. */
+  getLatestWithin(session: TenantSession, threadId: string): Promise<PlanLedgerRow | null>;
+
+  /** UC-4 (I-8): a deleted step's constraints become orphans, in the SAME transaction. */
+  insertOrphanedConstraintsWithin(session: TenantSession, input: {
+    readonly orgId: OrgId;
+    readonly threadId: string;
+    readonly orphanedAtRevision: number;
+    readonly formerStepContent: string;
+    readonly constraints: ReadonlyArray<{ readonly constraintId: string; readonly text: string }>;
+  }): Promise<void>;
+
+  /** UC-6: removing an orphaned constraint is a real DELETE (I-8's "not silent" only covers
+   * the step-deletion path; explicitly asking to remove one is the user's own undo). Returns
+   * whether a row was actually deleted -- UC-6 treats "already gone" as a no-op success. */
+  deleteOrphanedConstraintWithin(
+    session: TenantSession, orgId: OrgId, threadId: string, constraintId: string,
+  ): Promise<boolean>;
 }
 
 /**
