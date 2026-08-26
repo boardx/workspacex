@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Maximize2 } from "lucide-react";
+import { Maximize2, Save, Check } from "lucide-react";
 import { Canvas as FabricCanvas } from "fabric";
 import {
   markdownToCanvas,
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChatDiagramCanvasModal, type DiagramSavedSource } from "./chat-diagram-canvas-modal";
 import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
+import { landAsArtifact, describeMessageFailure } from "@/lib/live-chat";
 
 /**
  * 单个 ```mermaid 围栏在 AI 气泡内的 **fabric 渲染**（VZ-02，替换 VZ-01 的静态 SVG）。
@@ -137,6 +138,51 @@ export function ChatDiagramFabric({
   }, [openingReadback, threadId, messageId, projectId, bearer]);
 
   /**
+   * issue #2132（真实 devapp 实测："可视化图表可以单独保存为产物"）—— 调查确认
+   * 单独保存这个图表本身的能力**已经存在**：`ChatDiagramCanvasModal` 的「保存」
+   * 按钮真的调 `landAsArtifact`，只用这一张图的 mermaid 源，不依赖 CK-P7（#2052）
+   * 那种"整条消息落地"。缺口不在能力，在**可发现性**——这个入口此前只能靠先点
+   * "最大化"进全屏编辑器才能看到，用户在气泡层面完全看不到"可以单独存"这件事。
+   *
+   * 这里在气泡预览层直接加一个一键"保存"按钮，**不**打开编辑器、**不**碰上面
+   * `DiagramCanvasBody` 那套为避免 fabric/React reconciler 崩溃而精心设计的
+   * canvas 挂载状态机（本文件头注整段）——`landAsArtifact` 的 payload 只是纯
+   * mermaid 文本，不需要真的把图形跑进 fabric canvas 才能存。存的是当前
+   * `previewCode`（这次会话里最新的版本，见上方 `previewCode` 定义），不是重新
+   * 从画布反序列化——因为这条路径从未经过 fabric 的 canvasToMarkdown 往返，也就
+   * 不需要 modal `handleSave` 里那道 `decodeMermaidEntities` 反转义（那是专门
+   * 对付 fabric 序列化引入的 HTML 转义，这里的源从始至终是原始文本）。
+   *
+   * 门控与全仓一致：`threadId`/`messageId`/`bearer` 三者俱全才渲染这个按钮——
+   * 缺任何一个就是"没有稳定身份可挂"，不画一个点了必然失败的入口（`canPersist`
+   * 与 `ChatDiagramCanvasModal`/`ChatCanvasModal` 同一条判据）。
+   */
+  const canQuickSave = threadId !== undefined && messageId !== undefined && bearer !== undefined;
+  const [quickSaveState, setQuickSaveState] = React.useState<
+    { status: "idle" } | { status: "saving" } | { status: "done" } | { status: "error"; message: string }
+  >({ status: "idle" });
+  const quickSaveDoneTimerRef = React.useRef<number | null>(null);
+  React.useEffect(
+    () => () => {
+      if (quickSaveDoneTimerRef.current !== null) window.clearTimeout(quickSaveDoneTimerRef.current);
+    },
+    [],
+  );
+  const handleQuickSave = React.useCallback(async () => {
+    if (!canQuickSave || quickSaveState.status === "saving") return;
+    setQuickSaveState({ status: "saving" });
+    try {
+      const title = `对话图 · ${new Date().toLocaleString("zh-CN", { hour12: false })}`;
+      await landAsArtifact(threadId!, { messageId: messageId!, mode: "draft", title, payloadRef: previewCode }, bearer);
+      setQuickSaveState({ status: "done" });
+      if (quickSaveDoneTimerRef.current !== null) window.clearTimeout(quickSaveDoneTimerRef.current);
+      quickSaveDoneTimerRef.current = window.setTimeout(() => setQuickSaveState({ status: "idle" }), 2_000);
+    } catch (failure) {
+      setQuickSaveState({ status: "error", message: describeMessageFailure(failure, "保存") });
+    }
+  }, [canQuickSave, quickSaveState.status, threadId, messageId, bearer, previewCode]);
+
+  /**
    * 挂载即读回（design-delta chat-diagram-artifact-reference，issue #1668）：此前
    * G1 读回只挂在「点最大化」这一个触发点上——`savedSource` 在那之前恒为 `null`，
    * 只读小图（气泡里的预览）永远画 `code`（消息原文）。真机实测复现：编辑保存
@@ -206,6 +252,9 @@ export function ChatDiagramFabric({
         containerRef={containerRef}
         openMaximized={openMaximized}
         openingReadback={openingReadback}
+        canQuickSave={canQuickSave}
+        quickSaveState={quickSaveState}
+        onQuickSave={handleQuickSave}
       />
 
       {maximized && (
@@ -238,12 +287,18 @@ export function ChatDiagramFabric({
  */
 function DiagramCanvasBody({
   previewCode, inView, containerRef, openMaximized, openingReadback,
+  canQuickSave, quickSaveState, onQuickSave,
 }: {
   previewCode: string;
   inView: boolean;
   containerRef: React.RefObject<HTMLDivElement>;
   openMaximized: () => void;
   openingReadback: boolean;
+  /** issue #2132 —— 见 `ChatDiagramFabric` 里 `canQuickSave` 的定义与理由。 */
+  canQuickSave: boolean;
+  quickSaveState:
+    | { status: "idle" } | { status: "saving" } | { status: "done" } | { status: "error"; message: string };
+  onQuickSave: () => void;
 }) {
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
   const fabricRef = React.useRef<FabricCanvas | null>(null);
@@ -355,19 +410,49 @@ function DiagramCanvasBody({
       <div className="pointer-events-none absolute left-2 top-2 z-10">
         <Badge tone="outline">fabric 渲染 · 只读预览</Badge>
       </div>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => void openMaximized()}
-        data-testid="chat-diagram-maximize"
-        className="absolute right-2 top-2 z-10"
-        aria-label="最大化并编辑此图"
-        disabled={status.phase !== "valid" || openingReadback}
-      >
-        <Maximize2 aria-hidden className="h-3.5 w-3.5" />
-        {openingReadback ? "读取保存版…" : "最大化"}
-      </Button>
+      <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+        {/* issue #2132 —— 一键"保存为产物"，不依赖先"最大化"进编辑器。缺三要素
+            （见 `ChatDiagramFabric` 的 `canQuickSave`）时不渲染，与全仓"点了必然
+            失败的入口不画"同一条纪律；成功后 2 秒内显对勾反馈（同 CK-P3 复制按钮
+            同一套时序）。 */}
+        {canQuickSave ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onQuickSave}
+            data-testid="chat-diagram-quick-save"
+            aria-label="保存为产物"
+            title={quickSaveState.status === "error" ? quickSaveState.message : "保存为产物"}
+            disabled={status.phase !== "valid" || quickSaveState.status === "saving"}
+          >
+            {quickSaveState.status === "done" ? (
+              <Check aria-hidden className="h-3.5 w-3.5 text-primary" />
+            ) : (
+              <Save aria-hidden className="h-3.5 w-3.5" />
+            )}
+            {quickSaveState.status === "saving"
+              ? "保存中…"
+              : quickSaveState.status === "done"
+                ? "已保存"
+                : quickSaveState.status === "error"
+                  ? "保存失败"
+                  : "保存"}
+          </Button>
+        ) : null}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void openMaximized()}
+          data-testid="chat-diagram-maximize"
+          aria-label="最大化并编辑此图"
+          disabled={status.phase !== "valid" || openingReadback}
+        >
+          <Maximize2 aria-hidden className="h-3.5 w-3.5" />
+          {openingReadback ? "读取保存版…" : "最大化"}
+        </Button>
+      </div>
 
       {/* <canvas> 只有校验通过（valid）才挂——错误内容永不触碰 fabric（见文件头注释）。 */}
       {status.phase === "valid" ? (
