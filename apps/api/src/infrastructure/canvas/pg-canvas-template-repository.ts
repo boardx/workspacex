@@ -39,8 +39,10 @@ import type {
 import type { TemplateStatus, TemplateVersionState } from "../../domain/canvas/template-lifecycle";
 import type { VisibilityScope } from "../../domain/identity/roles";
 import type { OrgId } from "../../domain/org-id";
+import { PLATFORM_ORG_ID, isPlatformOwned } from "../../domain/canvas/platform-org";
 
 interface TemplateSqlRow {
+  org_id: string;
   key: string;
   version: number;
   display_name: string;
@@ -55,6 +57,7 @@ interface TemplateSqlRow {
   tags: readonly string[];
   title: string;
   footer: string;
+  prompt_text: string;
 }
 
 /**
@@ -85,17 +88,17 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
 
     return this.db.withTenant(query.orgId, async (s) => {
       const r = await s.query<TemplateSqlRow>(
-        `SELECT t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
+        `SELECT t.org_id, t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
                 t.visibility, t.owner_team_id, t.underlying_type, t.sections, t.tags,
-                t.title, t.footer,
+                t.title, t.footer, t.prompt_text,
                 (SELECT count(*) FROM canvas_template_bindings b
                   WHERE b.org_id = t.org_id
                     AND b.template_key = t.key
                     AND b.template_version = t.version)::text AS usage_count
            FROM canvas_templates t
-          WHERE t.org_id = $1 AND t.status = ANY($2::text[])
+          WHERE (t.org_id = $1 OR t.org_id = $3) AND t.status = ANY($2::text[])
           ORDER BY t.key, t.version`,
-        [query.orgId, [...query.statuses]],
+        [query.orgId, [...query.statuses], PLATFORM_ORG_ID],
       );
       return r.rows.map((row) => this.toGuarded(row));
     });
@@ -301,6 +304,11 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           tags: [...row.tags],
           title: row.title,
           footer: row.footer,
+          promptText: row.prompt_text,
+          // ⚠ 判据是**这一行落在哪个 org**，不是 `builtin`：组织 fork 走一份之后它仍然
+          //   是 builtin key，却已经是自己的行了。两者合成一个字段，「已加入我的组织的
+          //   用户画像」与「还没加入的平台用户画像」在响应体上就完全同形。
+          platform: isPlatformOwned(row.org_id),
         },
       ),
     };
@@ -415,6 +423,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     /** 版面装帧。空串 = 不画那一带，与 NULL 同义（见迁移文件头）。 */
     readonly title: string;
     readonly footer: string;
+    readonly promptText: string;
   }): Promise<UpdateMetadataOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -428,15 +437,16 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         tags: readonly string[];
         title: string;
         footer: string;
+        prompt_text: string;
       }>(
         // ⚠ `sections` 仍然不在 SET 里——本操作对任何状态生效，靠的就是它物理上碰不到
         //   内容。加进来会让「改装帧」变成一条能绕过不可变快照的路径。
         `UPDATE canvas_templates
-            SET display_name = $4, tags = $5::text[], title = $6, footer = $7, updated_at = now()
+            SET display_name = $4, tags = $5::text[], title = $6, footer = $7, prompt_text = $8, updated_at = now()
           WHERE org_id = $1 AND key = $2 AND version = $3
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, tags, title, footer`,
-        [cmd.orgId, cmd.key, cmd.version, cmd.displayName, [...cmd.tags], cmd.title, cmd.footer],
+                   underlying_type, tags, title, footer, prompt_text`,
+        [cmd.orgId, cmd.key, cmd.version, cmd.displayName, [...cmd.tags], cmd.title, cmd.footer, cmd.promptText],
       );
       const row = r.rows[0];
       if (row === undefined) return { updated: false };
@@ -453,6 +463,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           tags: [...row.tags],
           title: row.title,
           footer: row.footer,
+          promptText: row.prompt_text,
         },
       };
     });

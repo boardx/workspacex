@@ -520,6 +520,13 @@ export const operations = {
        * 空串 = 不画页脚带。
        */
       footer: z.string().optional(),
+      /**
+       * 编辑器①「角色与任务」——给顾问看的自由文本，帮他理解这个模板要 AI 产出什么，
+       * 辅助提取字段。**不进** `sections`，也不发给运行时模型（`buildCanvasTemplateGuidance`
+       * 注入 chat 的是分区/字段名，不读这一栏）。同 title/footer：装帧材料，不是内容，
+       * 因此对任何状态生效。空串 = 未写。
+       */
+      promptText: z.string().optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -532,8 +539,68 @@ export const operations = {
       tags: z.array(z.string()),
       title: z.string(),
       footer: z.string(),
+      promptText: z.string(),
     }).strict(),
     err: ["TEMPLATE_NOT_FOUND", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * adoptTemplate —— 把**平台模板库**里的一份母版复制成本组织自己的模板（B2 的「用时 fork」）。
+   *
+   * ## 🟡 本操作**尚未经人类签核**（design-delta，登记待补签）
+   *
+   * 人类 2026-08-26 裁决「新建的模板是给所有的组织使用的」，并在 B1（库里一份大家共享）
+   * 与 B2（全局母版 + 用时 fork）之间选定 **B2**。人类同时同意「等实现做完、连真实界面
+   * 一起签」，所以本操作与 `listTemplates.out.platform` 一并待签。
+   *
+   * ## 为什么必须是复制，而不是直接用母版
+   *
+   * `canvas_template_bindings` 对模板的引用是**复合外键，引用列含 `org_id`**：
+   *
+   *     FOREIGN KEY (org_id, template_key, template_version)
+   *       REFERENCES canvas_templates (org_id, key, version)
+   *
+   * 绑定行的 `org_id` 是**使用它的那个真实组织**。母版落在平台组织下，两边 `org_id`
+   * 不相等 ⇒ 这条外键指不到目标行 ⇒ **绑定根本插不进去**。B1 因此必须把 `org_id` 从
+   * 外键里拆掉，等于把「绑定指向一个真实存在的模板版本」从数据库保证降级成应用层承诺。
+   *
+   * B2 下绑定永远指向 fork 出来的组织自有行，**那条外键一个字都不用改**。
+   *
+   * ## 它不是第 N 个写入口，是 create + publish 的编排
+   *
+   * 实现走**已有的** `createTemplate` → `publishTemplate` 两个用例，与
+   * `backfill-canvas-builtin-templates.ts` 完全同一条路径。⚠ 不新增仓储方法：
+   * 「把一行抄成另一行」若下沉成 SQL，就绕开了 key 占用判定、发布前置校验与鉴权，
+   * 而那三样正是它必须照走一遍的东西。
+   *
+   * ## 错误码
+   *
+   * · `TEMPLATE_NOT_FOUND` —— 平台库里没有这个 key 的**已发布**母版。
+   * · `TEMPLATE_KEY_CONFLICT` —— 本组织已经有这个 key 了（已经加过，或自建同名）。
+   *   ⚠ 这一条是**幂等的正确形状**，不是失败：再点一次「加入我的组织」得到它，
+   *   前端据此提示「已在你的库里」而不是报错弹窗。
+   */
+  adoptTemplate: {
+    method: "POST", path: "/canvas/templates/:key/adopt",
+    in: z.object({
+      key: BuiltinTemplateKeyEnum.or(z.string().min(1)),
+      /** 复制后在本组织里的展示名。省略则沿用母版的 `displayName`。 */
+      displayName: z.string().min(1).optional(),
+    }).strict(),
+    out: z.object({
+      key: z.string(),
+      version: z.number().int().positive(),
+      status: TemplateStatus,
+      displayName: z.string(),
+      /** 复制出来的行**永远属于调用者的组织**，所以恒为 false。 */
+      platform: z.literal(false),
+    }).strict(),
+    err: [
+      "TEMPLATE_NOT_FOUND",
+      "TEMPLATE_KEY_CONFLICT",
+      "ROLE_INSUFFICIENT",
+      "DEPENDENCY_UNAVAILABLE",
+    ] as const,
   },
 
   /**
@@ -700,6 +767,21 @@ export const operations = {
         title: z.string(),
         /** 见 `updateTemplateMetadata.in.footer`。空串 = 不画页脚带。 */
         footer: z.string(),
+        /** 见 `updateTemplateMetadata.in.promptText`。空串 = 未写。 */
+        promptText: z.string(),
+        /**
+         * 这一条来自**平台模板库**（B2 全局母版），不是本组织自己的行。
+         *
+         * ⚠ 与 `builtin` **不是**同一件事，两者都要留着：`builtin` 说的是「这个 key 在
+         *   `BUILTIN_CANVAS_TEMPLATES` 里」，而组织把它加进自己的库之后，它**仍然**是
+         *   builtin key、却已经是组织自有行了。合成一个字段会让「已加入我的组织的
+         *   用户画像」与「还没加入的平台用户画像」在响应体上完全同形。
+         *
+         * `platform: true` 的行对本组织**只读**——那是 RLS 策略层面的事实
+         * （`canvas_templates_platform_read` 只放 SELECT），不是前端的一句 if。
+         * 要改它得先 `adoptTemplate` 复制成自己的一份。
+         */
+        platform: z.boolean(),
       }).strict()),
     }).strict(),
     err: ["NO_PROJECT_ROLE", "DEPENDENCY_UNAVAILABLE"] as const,

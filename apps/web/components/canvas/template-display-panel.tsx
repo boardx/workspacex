@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
-  COLS_OPTIONS, MAX_OPTIONS, WIDTH_OPTIONS, HEIGHT_OPTIONS, OVERFLOW_OPTIONS, TONE_COLORS,
+  COLS_OPTIONS, MAX_OPTIONS, OVERFLOW_OPTIONS, TONE_COLORS,
   classifyNoteSize, sectionGeometryMmOf, clamp,
   type SectionDraft, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
@@ -103,7 +103,9 @@ export function TemplateDisplayPanel({
       {isList && (
         <>
           <Group label="列数 —— 一条数据一张方形贴纸（76mm 标准）">
-            <div className="flex gap-1.5">
+            {/* flex-wrap，不是 flex-1 平分：8 个候选（1–8 列）挤在 276px 定宽栏里
+                平分会窄到点不准，换行成两排更好按。 */}
+            <div className="flex flex-wrap gap-1.5">
               {COLS_OPTIONS.map((n) => {
                 const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, gridCols }).noteMm;
                 const on = layout.cols === n;
@@ -113,7 +115,7 @@ export function TemplateDisplayPanel({
                     type="button"
                     disabled={!editable}
                     onClick={() => onPatch({ cols: n })}
-                    className={`flex flex-1 flex-col items-center gap-1 rounded-card border py-1.5 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? "border-inverse bg-warning/10" : "border-border hover:bg-muted"}`}
+                    className={`flex w-[63px] flex-col items-center gap-1 rounded-card border py-1.5 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? "border-inverse bg-warning/10" : "border-border hover:bg-muted"}`}
                     data-testid={`tpladmin-editor-cols-${n}`}
                   >
                     <span className="flex gap-px">
@@ -169,13 +171,29 @@ export function TemplateDisplayPanel({
       )}
 
       <Group label="在 A1 上占多大">
+        {/*
+          人类 2026-08-26 实测反馈：「宽和高要有更多的选项，目前高 1 到 4 不够，要有所有的
+          选项」——原先是 Chips（固定候选 [3,4,6,12] / [1,2,3,4]），网格明明是 12×8，
+          却挑不出「宽 8」「高 6」这类合法值。
+
+          ⚠ 换成步进器而不是把 Chips 的候选塞满 1..12：这一栏在右栏固定 276px 里，
+            12 个 chip 每个只有 ~15px 宽，数字挤成一团点不准。步进器覆盖「全部」合法值
+            （不再是候选子集），上限跟着当前列/行位置与画布列数动态收窄——与原来
+            `clamp(w, 1, gridCols - layout.col + 1)` 同一条规则，只是交互换了个形状。
+        */}
         <div className="flex items-center gap-2">
           <span className="w-6 text-11 text-muted-foreground">宽</span>
-          <Chips options={WIDTH_OPTIONS} value={layout.w} editable={editable} onPick={(w) => onPatch({ w: clamp(w, 1, gridCols - layout.col + 1) })} testIdPrefix="tpladmin-editor-w" />
+          <Stepper
+            value={layout.w} min={1} max={gridCols - layout.col + 1} editable={editable}
+            onChange={(w) => onPatch({ w })} testIdPrefix="tpladmin-editor-w"
+          />
         </div>
         <div className="flex items-center gap-2">
           <span className="w-6 text-11 text-muted-foreground">高</span>
-          <Chips options={HEIGHT_OPTIONS} value={layout.h} editable={editable} onPick={(h) => onPatch({ h: clamp(h, 1, 8 - layout.row + 1) })} testIdPrefix="tpladmin-editor-h" />
+          <Stepper
+            value={layout.h} min={1} max={8 - layout.row + 1} editable={editable}
+            onChange={(h) => onPatch({ h })} testIdPrefix="tpladmin-editor-h"
+          />
         </div>
         <span className="text-10 text-muted-foreground" data-testid="tpladmin-editor-mm-note">
           {geom.wMm} × {geom.hMm} mm 实尺（A1 841×594，四边留 10mm）
@@ -206,6 +224,56 @@ function Group({ label, children }: { readonly label: string; readonly children:
     <div className="flex flex-col gap-1.5">
       <span className="text-9 font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
       {children}
+    </div>
+  );
+}
+
+/**
+ * −/+ 步进器，覆盖 [min, max] 全部整数——用于「在 A1 上占多大」的宽/高。
+ *
+ * ⚠ 不是文本输入框：数字输入允许打出界外值（如宽=99），要么静默夹紧（用户以为生效了
+ *   实际被改写）要么报错打断输入。步进器每次只挪一格，永远停在合法范围内，两种坏结果
+ *   都不会发生。
+ */
+function Stepper({
+  value, min, max, editable, onChange, testIdPrefix,
+}: {
+  readonly value: number;
+  readonly min: number;
+  readonly max: number;
+  readonly editable: boolean;
+  readonly onChange: (v: number) => void;
+  readonly testIdPrefix: string;
+}) {
+  const clamped = clamp(value, min, max);
+  return (
+    <div className="flex flex-1 items-center gap-1">
+      <button
+        type="button"
+        disabled={!editable || clamped <= min}
+        onClick={() => onChange(clamped - 1)}
+        className="flex h-7 w-7 items-center justify-center rounded-control border border-border text-12 font-bold text-muted-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:border-disabled disabled:bg-disabled disabled:text-disabled-foreground"
+        data-testid={`${testIdPrefix}-dec`}
+        aria-label="减小"
+      >
+        −
+      </button>
+      <span
+        className="flex-1 text-center text-11 font-semibold tabular-nums"
+        data-testid={`${testIdPrefix}-value`}
+      >
+        {clamped}
+      </span>
+      <button
+        type="button"
+        disabled={!editable || clamped >= max}
+        onClick={() => onChange(clamped + 1)}
+        className="flex h-7 w-7 items-center justify-center rounded-control border border-border text-12 font-bold text-muted-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:border-disabled disabled:bg-disabled disabled:text-disabled-foreground"
+        data-testid={`${testIdPrefix}-inc`}
+        aria-label="增大"
+      >
+        +
+      </button>
     </div>
   );
 }

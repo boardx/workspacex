@@ -21,6 +21,7 @@ import {
   deriveKey,
   keyDictionaryCoverage,
   buildBuiltinSections,
+  coversFullGrid,
 } from "../../src/domain/canvas/builtin-template-config";
 
 const specs = listTemplates();
@@ -148,5 +149,35 @@ describe("用户画像（人类点名的那一个）", () => {
     expect(built.filter((s) => s.type === "短文本").map((s) => s.name)).toEqual(persona.fields);
     expect(deriveKey("姓名", "field")).toBe("name");
     expect(deriveKey("姓名", "section")).toBe(null);
+  });
+});
+
+describe("coversFullGrid：判据是「铺满」，不是「有没有 layout」", () => {
+  const FULL = [
+    { layout: { col: 1, row: 1, w: 12, h: 8 } },
+  ];
+  const GAPPY = [
+    { layout: { col: 1, row: 1, w: 6, h: 8 } },
+    // 只填了半张纸——这正是 2026-08-26 实测事故里的形状：每个分区都有 layout，
+    // 但union起来盖不满 96 格。旧判据（"每个分区都有 layout"）会把这判成"已完成"。
+  ];
+
+  it("真铺满 ⇒ true", () => {
+    expect(coversFullGrid(FULL)).toBe(true);
+  });
+
+  it("有 layout 但铺不满 ⇒ false（这正是旧判据漏掉的那种情况）", () => {
+    expect(coversFullGrid(GAPPY)).toBe(false);
+  });
+
+  it("任何一个分区缺 layout ⇒ false", () => {
+    expect(coversFullGrid([{ layout: null }, ...FULL])).toBe(false);
+  });
+
+  it("19 个内置模板的真实推演结果，每一个都铺满（不是抽样，是全量）", () => {
+    for (const t of listTemplates()) {
+      const built = buildBuiltinSections(t as never);
+      expect(coversFullGrid(built), t.key).toBe(true);
+    }
   });
 });

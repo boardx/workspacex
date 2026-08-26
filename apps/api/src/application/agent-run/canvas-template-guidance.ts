@@ -40,7 +40,6 @@
  * 因为模板表抖动一下就让整轮聊天失败。
  */
 import type { OrgId } from "../../domain/org-id";
-import { getTemplate } from "@repo/fabric-markdown/templates";
 import { listTemplates, type ListTemplatesDeps } from "../canvas/list-templates";
 
 /** prompt 拼接只需要这四个字段——不是 `CanvasTemplateListing` 的全部（`version`/`status`/
@@ -48,18 +47,36 @@ import { listTemplates, type ListTemplatesDeps } from "../canvas/list-templates"
 export interface CanvasTemplateGuidanceInfo {
   readonly key: string;
   readonly displayName: string;
-  /** 分区名——现查现拼，不是写死的常量。见文件头「动态」那节。 */
-  readonly sections: readonly { readonly name: string }[];
   /**
-   * 表头字段名（如 persona 的「姓名/性别/年龄…」）。**只有内置模板有**——`SectionDef[]`
-   * 是本仓画布模板契约的唯一模型，字段清单从来没进过它（组织自建模板走
-   * `auto-template-layout.ts` 的自动排版器，同样没有字段概念）。内置模板的字段清单
-   * 唯一权威在 `@repo/fabric-markdown` 每个 `TemplateSpec.fields`——`undefined`/空数组
-   * 时不提字段，模型只按分区产出，与改动前完全一致。
+   * 分区——现查现拼，不是写死的常量。见文件头「动态」那节。
    *
-   * 这条线不接的后果是真实 bug，不是纸面推演：没有这段指引，模型产出的 persona 围栏
-   * 只有便签、没有表头字段值，前端渲染出的画像卡片姓名/年龄/职位等一律空白——
-   * 2026-08-19 人类实测在 chat 里生成的 persona 画布复现了这个问题。
+   * ⚠ `type` 决定它是**正文分区**还是**表头字段**：`短文本` 是表头（persona 的
+   *   姓名/年龄/职位…），其余（便利贴列表 / 长文本）是正文。2026-08-26 之前库里
+   *   没有这个事实，所以表头只能去 `@repo/fabric-markdown` 单独取；现在它在库里，
+   *   见下方 `listPublished` 的注释。
+   */
+  readonly sections: readonly { readonly name: string; readonly type?: string }[];
+  /**
+   * 表头字段名（如 persona 的「姓名/性别/年龄…」）。
+   *
+   * 这条线不接的后果是真实 bug：没有这段指引，模型产出的 persona 围栏只有便签、
+   * 没有表头字段值，前端渲染出的画像卡片姓名/年龄/职位一律空白——2026-08-19 人类
+   * 实测复现过。
+   *
+   * ## 2026-08-26：来源从 package 改为**库里的 `短文本` 分区**
+   *
+   * 原先它取 `@repo/fabric-markdown` 的 `TemplateSpec.fields`。当时那是唯一有这份
+   * 事实的地方：契约的 `SectionDef[]` 里没有字段概念。
+   *
+   * ⚠ 那天的回填把表头字段**落成了 `type: "短文本"` 的分区**（为了让人类能查看和
+   *   修改它们）。于是同一批名字同时出现在两处，拼出来的指引变成
+   *   `persona〔姓名/…/用户描述/…〕，表头字段〔姓名/…〕`——而格式说明要求分区写
+   *   `## 姓名`、表头写 `姓名: 值`，模型会两边都写或者选错一边。**产出结构错了，
+   *   而指引本身读起来完全通顺**，这正是它难被发现的原因。
+   *
+   * 所以改成从 `短文本` 分区推。**不再读 package**：同一件事实两处声明是本仓已经
+   * 栽过五次的形状，而这次两处还会打架。副作用是组织自建模板也能有表头字段了
+   * （只要它有短文本分区）——那是对的，不是意外。
    */
   readonly fields?: readonly string[];
 }
@@ -77,25 +94,21 @@ export interface CanvasTemplateGuidancePort {
  * `kernel.module.ts` 用与 `CanvasTemplateController` 完全相同的三个依赖
  * （`IdentityRepository` / `CanvasTemplateRepository` / `DecisionIdFactory`）构造它。
  *
- * `fields` 从 `@repo/fabric-markdown/templates`（`templates-entry.ts`，纯 Node 安全，
- * 不碰 fabric/mermaid——与 `persona-summary.ts`/`export-canvas-source.ts` 同一条既有
- * 导入纪律）现查现拼：`getTemplate(t.key)` 命中即内置模板，取其 `fields`；组织自建
- * 模板的 key 在那份注册表里查不到，`getTemplate` 返回 `undefined`，`fields` 随之
- * 缺省——不是遗漏，是「组织自建模板确实没有字段」这条既有事实的如实反映。
+ * ⚠ 2026-08-26 起**不再读** `@repo/fabric-markdown` 取 `fields`：那份事实现在在库里
+ *   （表头字段 = `type: "短文本"` 的分区）。同一件事实两处声明是本仓栽过五次的形状，
+ *   而回填之后这两处还会打架——见 `CanvasTemplateGuidanceInfo.fields` 的注释。
  */
 export function createCanvasTemplateGuidancePort(deps: ListTemplatesDeps): CanvasTemplateGuidancePort {
   return {
     listPublished: async (orgId, userId) => {
       const { templates } = await listTemplates(deps, { userId, orgId, filter: "published" });
-      return templates.map((t) => {
-        const fields = getTemplate(t.key)?.fields;
-        return {
-          key: t.key,
-          displayName: t.displayName,
-          sections: t.sections,
-          ...(fields && fields.length > 0 ? { fields } : {}),
-        };
-      });
+      // ⚠ 原样透传 `sections`（含 `type`）。表头/正文的切分交给 `buildCanvasTemplateGuidance`
+      //   一处做——在这里先切一遍、拼接处再切一遍，就是同一条规则的第二份副本。
+      return templates.map((t) => ({
+        key: t.key,
+        displayName: t.displayName,
+        sections: t.sections,
+      }));
     },
   };
 }
@@ -129,8 +142,15 @@ export function buildCanvasTemplateGuidance(
       + "分区」组织时才用；单纯讲清楚一个流程或结构，仍然优先用 mermaid 图表。",
     "本组织已配置（已发布）的协作模板：",
     ...templates.map((t) => {
-      const fieldsNote = t.fields && t.fields.length > 0 ? `，表头字段〔${t.fields.join("/")}〕` : "";
-      return `- ${t.key}〔${t.sections.map((s) => s.name).join("/")}〕${fieldsNote}`;
+      // 表头 vs 正文的**唯一**切分处。判据是分区自己的 `type`（库里的事实），
+      // 不是另一份清单——见 `CanvasTemplateGuidanceInfo.fields` 的注释。
+      const header = t.sections.filter((s) => s.type === "短文本").map((s) => s.name);
+      const body = t.sections.filter((s) => s.type !== "短文本").map((s) => s.name);
+      // 兼容 2026-08-26 回填之前建的模板：它们的分区没有 `type`，全部落进 `body`，
+      // 于是 `fields` 仍可由调用方显式给（老路径），拼接行为与改动前逐字一致。
+      const fields = header.length > 0 ? header : (t.fields ?? []);
+      const fieldsNote = fields.length > 0 ? `，表头字段〔${fields.join("/")}〕` : "";
+      return `- ${t.key}〔${body.join("/")}〕${fieldsNote}`;
     }),
     "格式：",
     "```canvas",

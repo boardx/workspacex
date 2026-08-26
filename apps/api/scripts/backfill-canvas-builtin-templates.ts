@@ -80,7 +80,7 @@ import { toOrgId } from "../src/domain/org-id";
 import { mintTemplateVersion } from "../src/application/canvas/mint-template-version";
 import { listTemplates as listOrgTemplates } from "../src/application/canvas/list-templates";
 import { updateTemplateMetadata } from "../src/application/canvas/update-template-metadata";
-import { buildBuiltinSections } from "../src/domain/canvas/builtin-template-config";
+import { buildBuiltinSections, coversFullGrid, generateDefaultPromptText } from "../src/domain/canvas/builtin-template-config";
 import { listTemplates } from "@repo/fabric-markdown/templates";
 import { canvas } from "@repo/contracts";
 import pg from "pg";
@@ -117,6 +117,13 @@ async function setChrome(
   version: number,
   displayName: string,
   tags: readonly string[],
+  /**
+   * 已有的提示词（若人类已经在编辑器里写过，原样带回去）。**永不覆盖非空值**——
+   * 空串才用 `generateDefaultPromptText` 补一份机械默认，理由同 footer：
+   * 一旦有人写过，那就是产品数据，回填脚本没有资格拿一份生成文案盖掉它。
+   */
+  existingPromptText: string,
+  sectionsForPrompt: readonly { readonly name: string; readonly type: "便利贴列表" | "短文本" }[],
 ): Promise<void> {
   await updateTemplateMetadata(
     { identity, templates },
@@ -125,6 +132,9 @@ async function setChrome(
       displayName, tags: [...tags],
       title: spec.title ?? "",
       footer: "",
+      promptText: existingPromptText !== ""
+        ? existingPromptText
+        : generateDefaultPromptText(displayName, sectionsForPrompt),
     },
   );
 }
@@ -217,9 +227,16 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
 
           合成一个判据会让「只缺标题」的行白白多铸一个版本；合成一个动作则会让
           「只缺标题」变成改不了（因为 published 不能改 sections）。
+
+          ⚠ 「配置齐不齐」判的是**铺满**（`coversFullGrid`），不是「有没有 layout」——
+            后者在 fillGrid 铺满算法上线前就已经满足（每个分区当时就有一个带空洞的
+            layout），算法改进后永远判不出"需要重来"，见该函数文档。
         */
-        const enriched = current.sections.every((sec) => sec.layout !== undefined);
-        const chromed = current.title === (spec.title ?? "");
+        const enriched = coversFullGrid(current.sections);
+        // ⚠ 同「enriched 只看 layout 存在」的坑：只判 title 相等，`promptText` 永久
+        //   留空也会被判「已装帧」而跳过。见文件头 2026-08-26 那条实测教训——门槛必须
+        //   覆盖本函数会写的每一样东西。
+        const chromed = current.title === (spec.title ?? "") && current.promptText !== "";
 
         if (enriched && chromed) {
           console.log(`[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} 已带配置与标题，跳过（幂等）`);
@@ -231,6 +248,7 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
           await setChrome(
             identity, templates, org, actorId, spec,
             current.version, current.displayName, current.tags,
+            current.promptText, sections,
           );
           chromeFilled += 1;
           console.log(
@@ -252,7 +270,7 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
         );
         // 装帧走 `updateTemplateMetadata`（对任何状态生效，物理上碰不到 sections），
         // 所以放在 publish 之后也照样写得进去。
-        await setChrome(identity, templates, org, actorId, spec, minted.version, displayName, current.tags);
+        await setChrome(identity, templates, org, actorId, spec, minted.version, displayName, current.tags, current.promptText, sections);
         upgraded += 1;
         console.log(
           `[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} ` +
@@ -291,7 +309,7 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
         { identity, templates },
         { userId: actorId, orgId: org, key: spec.key, version: outcome.version, visibility: "org-wide" },
       );
-      await setChrome(identity, templates, org, actorId, spec, outcome.version, displayName, []);
+      await setChrome(identity, templates, org, actorId, spec, outcome.version, displayName, [], "", sections);
       published += 1;
       console.log(`[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} published`);
     }

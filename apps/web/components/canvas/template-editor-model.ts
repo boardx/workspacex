@@ -44,7 +44,12 @@ export interface SectionDraft {
 export const TONE_COLORS = ["#F7E96E", "#F2C6C2", "#CFE3D2", "#CBD8EE"] as const;
 
 /** 契约允许的档位，逐字对应 `Design.pdf` §2.2 的取值列。 */
-export const COLS_OPTIONS = [3, 4, 5, 6, 8] as const;
+/**
+ * 列数候选。⚠ 2026-08-26 实测反馈：「列数现在不能是 1 列、2 列，只能三列起也要改正」——
+ * 原先是 `[3,4,5,6,8]`，1/2/7 都选不到。改成 1–8 全量：一条数据一张贴纸，列数纯粹是
+ * 排版偏好（1 列＝竖排长列表，8 列＝密集小方格），没有理由从 3 起。
+ */
+export const COLS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 export const MAX_OPTIONS = [3, 4, 6, 9] as const;
 export const WIDTH_OPTIONS = [3, 4, 6, 12] as const;
 export const HEIGHT_OPTIONS = [1, 2, 3, 4] as const;

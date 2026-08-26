@@ -34,6 +34,7 @@ export interface UpdateTemplateMetadataInput {
    */
   readonly title?: string;
   readonly footer?: string;
+  readonly promptText?: string;
 }
 
 export async function updateTemplateMetadata(
@@ -51,6 +52,7 @@ export async function updateTemplateMetadata(
     tags: input.tags ?? [],
     title: input.title ?? "",
     footer: input.footer ?? "",
+    promptText: input.promptText ?? "",
   });
 
   if (!outcome.updated) {

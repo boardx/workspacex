@@ -440,3 +440,60 @@ export function buildBuiltinSections(spec: {
 
   return [...header, ...body];
 }
+
+/**
+ * 这批分区**在网格上是否 100% 铺满、零重叠**（12×8 = 96 格）。
+ *
+ * ## 为什么回填的幂等判据需要它，而不是只看「有没有 layout」
+ *
+ * 2026-08-26 实测事故：回填脚本原先只判「每个分区是否有 layout」。`fillGrid`
+ * 铺满算法上线**之前**跑过的那次回填已经给每个分区一个（有空洞的）layout——
+ * 于是"有没有"这个判据在算法改进之后判成"已经好了"，铺满算法从此再也不会被
+ * 应用到已经回填过的组织。脚本还打印「已带配置，跳过（幂等）」，读起来像一切正常，
+ * 实际上界面上（人类截图为证）商业模式画布下方明显留着一整行空白。
+ *
+ * ## 判据是「铺满」而不是「与最新推演逐字节相等」
+ *
+ * 后者更严格，但会把「模板配色/列数被人类在编辑器里手动调过」也判成"需要重来"，
+ * 而那些改动是人类要保留的，不该被回填覆盖。铺满与否是几何上可独立验证的事实，
+ * 不需要引用"最新算法应该长什么样"，因此不会跟人类的手动调整打架。
+ */
+export function coversFullGrid(
+  sections: readonly { readonly layout?: { readonly col: number; readonly row: number; readonly w: number; readonly h: number } | null }[],
+): boolean {
+  const occupied = new Set<string>();
+  for (const s of sections) {
+    if (!s.layout) return false;
+    const { col, row, w, h } = s.layout;
+    for (let c = col; c < col + w; c += 1) {
+      for (let r = row; r < row + h; r += 1) occupied.add(`${c},${r}`);
+    }
+  }
+  return occupied.size === GRID_COLS * GRID_ROWS;
+}
+
+/**
+ * 从真实结构机械生成一份**功能性默认提示词**（编辑器①「角色与任务」）。
+ *
+ * 人类 2026-08-26 第三轮实测反馈：「现有的历史数据，我看还没有提示词，这个也是问题，
+ * 需要修复所有的历史数据」。19 个内置模板没有一份可信的"原始提示词"原文可抄——
+ * 与其编一句听起来像原话的文案，不如像推演分区坐标/分区类型那样，**从模板已有的
+ * 真实结构**（展示名 + 分区名 + 表头字段名）机械拼出一份能直接用的默认说明。
+ *
+ * ⚠ 这不是「恢复」，是「生成」。措辞刻意通用（「请基于访谈记录或对话上下文」），
+ *   不假装知道每个模板具体的访谈场景——那部分事实本仓确实没有，编了就是虚构。
+ */
+export function generateDefaultPromptText(
+  displayName: string,
+  sections: readonly { readonly name: string; readonly type: "便利贴列表" | "短文本" }[],
+): string {
+  const header = sections.filter((s) => s.type === "短文本").map((s) => s.name);
+  const body = sections.filter((s) => s.type !== "短文本").map((s) => s.name);
+  const lines = [
+    `你是工作坊引导师。请基于访谈记录或对话上下文，为「${displayName}」产出结构化内容。`,
+  ];
+  if (header.length > 0) lines.push(`先填写表头信息：${header.join("、")}。`);
+  lines.push("围绕以下分区逐条产出要点（每条一句简洁的话，紧扣该分区的含义）：");
+  for (const name of body) lines.push(`- ${name}`);
+  return lines.join("\n");
+}
