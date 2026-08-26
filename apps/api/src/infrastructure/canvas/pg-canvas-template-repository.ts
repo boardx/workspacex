@@ -53,6 +53,8 @@ interface TemplateSqlRow {
   sections: unknown;
   usage_count: string;
   tags: readonly string[];
+  title: string;
+  footer: string;
 }
 
 /**
@@ -85,6 +87,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
       const r = await s.query<TemplateSqlRow>(
         `SELECT t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
                 t.visibility, t.owner_team_id, t.underlying_type, t.sections, t.tags,
+                t.title, t.footer,
                 (SELECT count(*) FROM canvas_template_bindings b
                   WHERE b.org_id = t.org_id
                     AND b.template_key = t.key
@@ -296,6 +299,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           sections: row.sections as CanvasTemplateListing["sections"],
           usageCount: Number(row.usage_count),
           tags: [...row.tags],
+          title: row.title,
+          footer: row.footer,
         },
       ),
     };
@@ -407,6 +412,9 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly version: number;
     readonly displayName: string;
     readonly tags: readonly string[];
+    /** 版面装帧。空串 = 不画那一带，与 NULL 同义（见迁移文件头）。 */
+    readonly title: string;
+    readonly footer: string;
   }): Promise<UpdateMetadataOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -418,13 +426,17 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         visibility: VisibilityScope;
         underlying_type: string;
         tags: readonly string[];
+        title: string;
+        footer: string;
       }>(
+        // ⚠ `sections` 仍然不在 SET 里——本操作对任何状态生效，靠的就是它物理上碰不到
+        //   内容。加进来会让「改装帧」变成一条能绕过不可变快照的路径。
         `UPDATE canvas_templates
-            SET display_name = $4, tags = $5::text[], updated_at = now()
+            SET display_name = $4, tags = $5::text[], title = $6, footer = $7, updated_at = now()
           WHERE org_id = $1 AND key = $2 AND version = $3
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, tags`,
-        [cmd.orgId, cmd.key, cmd.version, cmd.displayName, [...cmd.tags]],
+                   underlying_type, tags, title, footer`,
+        [cmd.orgId, cmd.key, cmd.version, cmd.displayName, [...cmd.tags], cmd.title, cmd.footer],
       );
       const row = r.rows[0];
       if (row === undefined) return { updated: false };
@@ -439,6 +451,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           visibility: row.visibility,
           underlyingType: row.underlying_type,
           tags: [...row.tags],
+          title: row.title,
+          footer: row.footer,
         },
       };
     });

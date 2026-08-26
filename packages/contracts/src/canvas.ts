@@ -508,6 +508,18 @@ export const operations = {
       version: z.number().int().positive(),
       displayName: z.string().min(1),
       tags: z.array(z.string()).optional(),
+      /**
+       * A1 纸上那行双语大标题（如「用户画像 User Persona」）。**与 `displayName` 是
+       * 两件事实**：这个画在纸上，`displayName` 是后台列表里的名字。合成一个会让
+       * 「改了列表名，纸上的标题跟着变」，而那两处本来就该能分别改。
+       * 空串 = 不画标题带，那一带的空间还给内容网格。
+       */
+      title: z.string().optional(),
+      /**
+       * A1 纸底部的署名/版权行（如「本工具基于 Bizzuka 的 AI 战略画布」）。
+       * 空串 = 不画页脚带。
+       */
+      footer: z.string().optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -518,6 +530,8 @@ export const operations = {
       visibility: TemplateVisibility,
       underlyingType: z.string(),
       tags: z.array(z.string()),
+      title: z.string(),
+      footer: z.string(),
     }).strict(),
     err: ["TEMPLATE_NOT_FOUND", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
@@ -682,6 +696,10 @@ export const operations = {
         sections: z.array(SectionDef),
         usageCount: z.number().int().nonnegative(),
         tags: z.array(z.string()),
+        /** 见 `updateTemplateMetadata.in.title`。空串 = 这个模板还没起标题。 */
+        title: z.string(),
+        /** 见 `updateTemplateMetadata.in.footer`。空串 = 不画页脚带。 */
+        footer: z.string(),
       }).strict()),
     }).strict(),
     err: ["NO_PROJECT_ROLE", "DEPENDENCY_UNAVAILABLE"] as const,

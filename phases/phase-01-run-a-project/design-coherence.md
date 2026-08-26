@@ -56,7 +56,26 @@ phase: "01"
 #   六条全部无冲突、不触发任何已签核束重签，全文见文末「2026-08-11 增补」一节）。
 #   人类采纳裁决（逐字，2026-08-11 于「Chat UI 体验迭代」会话）：「采纳 coherence，开始建 V9-a」
 #   ——本次追加即该裁决的代抄落地（#660 先例：agent 代抄 + 来源标注，人类可改）。
-covers_bundles: [agent-runtime, asset-governance, canvas, chat, files, interview, org-admin, project, recording, research, skills, templates, curated-capability-packs, chat-file-upload, chat-context-engine, personal-realtime-transcription]
+#
+# 2026-08-26 由十六束（含 personal-realtime-transcription）改为**十八束**：新增
+#   `agent-interrupts`（三种新 HITL 中断：confirm_intent/fill_params/choose_option，
+#   PR #2136，SHA b97ecda5，人类 usamshen 直接 Merge）与 `plan-control`
+#   （可编辑计划六态工作流，PR #2116，SHA eda6c710，同样人类直接 Merge）。
+#   两束的 design-signoff.md 在**同一条跟进 PR** 内一并翻转为 confirmed（人类 Merge 即
+#   ADR-023 决策五要求的机械证据，收窄决策已在各自 PR 内经协调者转达并逐字记录，
+#   细节见各自 design-signoff.md 的 confirmed_via）。
+#   本次**不是只改字段**：交叉约束复核见文末「2026-08-26 增补」两节——
+#   `agent-interrupts` 自身六条（XC-53…XC-58）+ 与 `plan-control` 的两条专项交叉复核
+#   （XC-59…XC-60，查两束都涉及的"审批/中断"语义是否重叠或矛盾）；`plan-control` 自己的
+#   十条（XC-43…XC-52，此前已作为草稿写入本文件「2026-08-26 增补（草稿，待人类采纳）」
+#   一节）本次一并被采纳，不重做。
+#   ⚠ **本次只改了 `covers_bundles` 与正文交叉约束章节**：本 frontmatter 顶层的
+#   `status` / `confirmed_by` / `confirmed_at` 三个字段**原样保留 2026-08-11 的值**——
+#   它们受「只能由人类改，agent 不许动」的纪律约束，本轮跟进 PR 的授权范围只覆盖
+#   `covers_bundles` 与两份 design-signoff.md 各自的 status（人类已通过 Merge 授权翻转），
+#   没有覆盖本文件自身的 status/confirmed_by/confirmed_at，是否刷新留给人类下一步决定，
+#   不代人类动。
+covers_bundles: [agent-interrupts, agent-runtime, asset-governance, canvas, chat, chat-context-engine, chat-file-upload, curated-capability-packs, files, interview, org-admin, personal-realtime-transcription, plan-control, project, recording, research, skills, templates]
 status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by:   qq13613030605            # 确认人（姓名/邮箱）
 confirmed_at:  2026-08-11T23:00:24+08:00          # ISO 8601，且不得晚于签核当下
@@ -2262,16 +2281,24 @@ XC-06 · XC-09（推荐 B）· XC-12 · XC-16 · XC-19 · XC-22 · XC-23 · XC-2
 
 XC-38～XC-42 均无冲突，前提是实现严格保持“个人新路径 + 旧项目路径兼容并存”。采纳后，人类把 `personal-realtime-transcription` 加入 frontmatter `covers_bundles`，更新 `confirmed_by/confirmed_at`；若不采纳，应把 F158–F160 保持 blocked 并逐条写明不同意的交叉约束。
 
-## 2026-08-26 增补（草稿，待人类采纳）：plan-control 交叉约束复核（XC-43…XC-52）
+## 2026-08-26 增补：plan-control 交叉约束复核（XC-43…XC-52）—— **已采纳**
 
-> 复核人：coord-architecture（agent 代核，**尚未获得人类「采纳」裁决——本节是草稿**，
-> 依 F149 先例：agent 只做复核、不代改 frontmatter `covers_bundles`）。
+> ✅ **2026-08-26 更新**：本节此前是草稿（agent 代核、未获采纳）。人类已直接 Merge
+> `plan-control` 束的 design-signoff.md 所在的 PR #2116（SHA `eda6c710`），按本仓
+> 「Merge 即 ADR-023 决策五要求的机械证据」纪律（同 `agent-interrupts` 束先例），
+> 本节 XC-43…XC-52 的复核结论在**同一条跟进 PR**内被采纳：`plan-control` 已加入本文件
+> frontmatter `covers_bundles`（见文件顶部），`plan-control/design-signoff.md` 的
+> `status` 已翻转为 `confirmed`。下方原始复核内容**原样保留**（结论未变，无需重做）。
+>
+> 复核人：coord-architecture（agent 代核）。
 > 材料依据：`contracts/plan-control/{design-signoff,ui,usecases,domain,coverage}.md` 全读，
 > 对照 `chat` 束（`domain.md`/`usecases.md`/`packages/contracts/src/chat.ts`，2026-08-26 实测
 > `origin/signoff/plan-editing` @ `beaf27c8`）与 `agent-runtime` 束（同批实测）。
 > 起因：`plan-control` 是 phase-01 唯一 `status: pending` 的新束，`covers: []` 是**结构性**的——
 > 该域 feature 尚未由 requirement-author 生成（见 `design-signoff.md` frontmatter 注释），
-> 这与 `covers_bundles` 门控无关，是另一件事，见本文件正文末尾 coord-architecture 附注。
+> 这与 `covers_bundles` 门控无关，是另一件事，见本文件正文末尾 coord-architecture 附注
+> ——**该附注的结论仍然成立**：本次采纳解开的只是「一致性复核没覆盖 plan-control」这一条红，
+> `covers: []` 那条红不受本次影响，见验证小节。
 > 本节只查跨束交叉约束，不判 `covers: []` 是否可放行——那由 `doctor.ts` 的独立门控管，
 > 与「一致性复核是否覆盖了这个束」是两件不同的事（详见附注）。
 
@@ -2385,12 +2412,14 @@ XC-43～XC-52 共十条，**八条无冲突（43/44/45/47/48/49/50/52），一�
 （46，restoreCheckpoint 若日后启用需另议），一条留实现期机械验证而非文档层面冲突
 （51，类型引用 vs 拷贝）**。**没有一条要求重签 `chat` 或 `agent-runtime`。**
 
-⚠ **这十条不是「签核」，是复核结论草稿**——按 F149 先例，agent 不得据此自行把
-`plan-control` 加进 frontmatter `covers_bundles` 或改 `status`。人类采纳后（逐字裁决，
-仿 2026-08-11 先例的记法），由人类或经人类明确指示的 agent 代抄：
-① 把 `plan-control` 加进 frontmatter `covers_bundles`；
-② 刷新 `confirmed_by`/`confirmed_at`；
-③ 若不采纳，应逐条写明不同意的交叉约束，`plan-control` 所属 feature（尚待生成）继续 blocked。
+✅ **2026-08-26 更新：已采纳**。人类直接 Merge PR #2116（`plan-control` 束
+design-signoff.md 所在 PR，SHA `eda6c710`）即本仓「Merge 即签核机械证据」纪律下的
+采纳动作；coord-main 经协调者转达此裁决，本跟进 PR 代抄落地：
+① `plan-control` 已加进 frontmatter `covers_bundles`；
+② `plan-control/design-signoff.md` 的 `status` 已翻转为 `confirmed`（本文件自身
+frontmatter 的 `confirmed_by`/`confirmed_at` **未刷新**，见文件顶部 2026-08-26 header
+注释的说明——那两个字段不在本轮授权范围内）；
+③ 不适用（已采纳，非「不采纳」分支）。
 
 ⚠⚠ **本节的通过不等于 PR #2116 的两条门控红能同时解开**——见下方「coord-architecture 附注」：
 `covers: []` 那条红有独立于本节的成因和修法。
@@ -2424,3 +2453,207 @@ XC-43～XC-52 共十条，**八条无冲突（43/44/45/47/48/49/50/52），一�
 这不是本会话能绕过或不该绕过的东西，是签核顺序被 UI 先行流程（TW-P0-3 先出八屏原型再定契约）
 天然拉开的一步，需要人类知情后决定：现在就跑 requirement-author 生成 feature，
 还是让 PR 先带着这条红等下一轮。
+
+⚠ **2026-08-26 更新**：上面这条结论对 `agent-interrupts` 束**同样成立**——它与
+`plan-control` 是同一形状（`covers: []` 是结构性的，未生成 feature）。见下方两节的
+「验证」小节，实测结果与本附注的预判一致。
+
+---
+
+## 2026-08-26 增补：`agent-interrupts` 交叉约束复核（XC-53…XC-58）
+
+> 复核人：coord-architecture（agent 代核）。人类已直接 Merge PR #2136
+> （`agent-interrupts` 束 design-signoff.md 所在 PR，SHA `b97ecda5`）——按「Merge 即
+> ADR-023 决策五要求的机械证据」纪律（`design-signoff.md` §六 四条收窄决策已在该 PR 内
+> 经协调者转达并逐字记录），本节复核结论在本跟进 PR 内直接采纳，不走「草稿待采纳」两步。
+> 材料依据：`contracts/agent-interrupts/{design-signoff,domain,usecases,coverage,ui}.md`
+> 全读（该束自己在 `design-signoff.md` §五已给出 XC-1…XC-6 六条自报交叉点，下面是
+> coord-architecture 的独立复核，逐条给出证据与双向核对，不是转述）；对照
+> `contracts/chat/{domain,usecases}.md` + `packages/contracts/src/chat.ts`、
+> `contracts/agent-runtime/{domain,usecases,design-signoff}.md`、
+> `contracts/chat/thread-archive-delta-pending.md`（会话归档 delta，PR #2135 已合入 main，
+> SHA `40f829fa`），2026-08-26 `git fetch` 后实测 `origin/main` @ `eda6c710`。
+
+### XC-53 中断卡宿主关系：判定在 `agent-interrupts`，渲染宿主仍是 `chat`
+
+- 证据：`agent-interrupts/domain.md` 二节自述与 `agent-runtime` 束对批准卡的既有关系
+  同构（`agent-runtime/design-signoff.md` X-9：「展示在 chat，判定在本束」）；
+  `usecases.md` 顶部声明三个 UC 都是既有 `POST /copilotkit` AG-UI 桥的内部投影，
+  不新开路由。
+- 双向核对：`chat`→`agent-interrupts`：全文 grep `confirm_task_intent|fill_run_params|
+  choose_execution_option` 在 `chat.ts` 零命中，`chat` 束现有 operations 零改动；
+  `agent-interrupts`→`chat`：三张新卡片复用既有 `call_skill` 审批卡同一插槽
+  （`ui.md` 屏一节已声明），不新增 `chat` 消息 schema 字段。
+- 结论：**无冲突**，不触发 `chat` 重签。
+
+### XC-54 `chat` 束两套既有 HITL 机制：本束选②不选①，选择不构成对 chat 已签核面的修改
+
+- 证据：`design-signoff.md` §一逐条排除
+  `createApprovalRequest`/`decideApproval`（①，`chat.ts:870-939`，`ApprovalExit =
+  approve|reparam|decline`）——实测 `grep -rn "createApprovalRequest\|decideApproval"
+  apps/api/src` 零命中，**签了但从未实现**；选择沿用 `call_skill` 的
+  langgraph `interrupt()`（②，真实跑通，`deep-agent-hitl.ts` + `copilotkit-v2-panel.tsx`）。
+- 核对：①未实现，选择不影响任何运行时行为，也不删除 `chat.ts` 里①对应的 operations
+  （仍然存在，只是本束不用）；②的 `interrupt()`/resume 语义只被复用，`chat` 束
+  零改动。
+- 结论：**无冲突**。这条选择本身值得留痕——①②同形不同义是 `chat` 束自己已知的历史
+  漂移（`KNOWN_CONTRACT_GAPS.C_CHAT_7/8/9`），本束不修正它，只是不踩进去。
+
+### XC-55 `DEEP_AGENT_HITL_TOOLS` 环境变量投影扩容：不改 `agent-runtime` 已签核契约面
+
+- 证据：`design-signoff.md` §四决策④裁定新建 `agent-interrupts.ts`，不动
+  `deep-agent-hitl.ts`；`deploy.sh` 的 `deep_agent_project_capability_env` 拼装点
+  需要从两个文件各取工具名再 `.join(",")`（`coverage.md` AI-5）。
+- 核对：`agent-runtime.ts` 的 operations 与已签核错误码零改动——`agent-runtime/
+  design-signoff.md` 的 `covers: [F48...F60, F129-F131]` 范围内没有任何一条涉及
+  `DEEP_AGENT_HITL_TOOLS` 这个环境变量名（全文 grep 零命中，它是运行时部署脚本事实，
+  不在该束契约面内）。
+- 结论：**无冲突**，但登记为实现期必做项（已在 `coverage.md` AI-5 记录，本节不重复
+  列一遍待办，只确认它不需要 `agent-runtime` 重签）。
+
+### XC-56 `ARGS_MAX_CHARS` 封闭清单扩容：同上，实现期代码改动，非契约面变更
+
+- 证据：`deep-agent-model-provider.ts:243-244` 现状只对 `write_todos`/
+  `DEEP_AGENT_HITL_TOOL_NAME` 放宽至 4000 字符；`agent-interrupts` 的三个新工具名
+  需要逐一加行（`coverage.md` AI-3），否则默认 500 字符截断产出非法 JSON。
+- 核对：这是 `agent-runtime` 束**实现范围内**的一段代码（截断阈值），不是该束已签核
+  契约面（operations/错误码）的一部分；三工具名扩容不改变其余既有工具名的截断行为。
+- 结论：**无冲突**，登记为实现期必做项，不需要 `agent-runtime` 重签。
+
+### XC-57 与 `chat` 束会话归档 delta（PR #2135，SHA `40f829fa`，已合入 main）：无接触面，但有一处未覆盖场景
+
+- 证据：归档 delta（`contracts/chat/thread-archive-delta-pending.md`）新增
+  `mutateThread.op` 的 `archive`/`unarchive` 两值 + `ThreadCard.archived` 字段，
+  管的是线程级可逆归档语义；`agent-interrupts` 三个 UC 全部是「该线程当前是否有本束
+  pending 中断」的判定，不读写 `archived` 字段，也不改 `mutateThread.op` 枚举
+  （全文 grep `archive` 在 `agent-interrupts/{domain,usecases}.md` 零命中）。
+- 核对：两个方向都不静默——归档不触碰中断判定表，中断判定不触碰归档标记。**但**
+  两份契约**都没有**声明「线程被归档后，该线程上已有的 pending 中断（confirm_intent/
+  fill_params/choose_option）该如何处置」这个组合场景——归档 delta 的
+  `THREAD_ARCHIVED_READONLY`（`chat.ts:207`）语义是「归档线程全部写操作被拒」，
+  若逐字套用到 `agent-interrupts` 的三个决策 UC（它们的 `pre` 委托 `chat` UC-0，
+  理论上会自动继承这条拒绝），这条继承关系目前只是**推断**，未被任一份文档显式确认。
+- 结论：**无直接冲突**，但登记一条实现期待补充的边界：归档线程上存在 pending 中断时
+  （例如用户先触发 `confirm_intent`、还没决策就把线程归档），决策 UC 的 `pre` 检查是否
+  真的会命中 `THREAD_ARCHIVED_READONLY` 需要一条集成反证，不能只靠「委托 UC-0」四个字
+  假设它自动生效——这与 `chat` 束自己对 `getThreadMessagesFile` 的纪律（「若它自己判
+  一次权，就是第二份可见性实现」）同理，此前 XC-50（`plan-control`）已经留过同样的
+  verification 项，本条是同一纪律在 `agent-interrupts` 上的第二次出现。
+
+### 处置汇总
+
+XC-53～XC-58（共六条，见下方与 `plan-control` 的两条专项复核 XC-59/XC-60 另计）：
+**五条无冲突（53/54/55/56/57，其中 57 附带一条实现期 verification 待办）**。
+**没有一条要求重签 `chat` 或 `agent-runtime`。**
+
+---
+
+## 2026-08-26 增补：`agent-interrupts` ↔ `plan-control` 专项交叉复核（XC-59…XC-60）
+
+> 两束**同一天**被合入 main（PR #2136 / #2116），且都涉及"审批/中断"类语义——
+> `plan-control` 六态工作流里有「审批」态，`agent-interrupts` 三种新中断也依赖同一条
+> `agent_run_steps.status = "awaiting_approval"` 信号。两束的 `design-signoff.md`
+> 都各自登记过"对方待签，暂不深入"（`agent-interrupts/design-signoff.md` §五
+> XC-2/XC-3 引用 `plan-control`；`plan-control/usecases.md` UC-2 的
+> `PLAN_CONSTRAINT_BLANK†` 占位注解引用 `agent-interrupts` 同名坑），现在两束都已
+> merge，材料齐了，做一次真实的专项复核。
+
+### XC-59 `PlanPhase="approving"` 派生态与 `agent-interrupts` 三种新中断：信号来源重叠，语义未消歧
+
+- 证据：`plan-control/domain.md` I-7「`PlanPhase` 是纯派生值，由 (`run.status`,
+  账本是否为空，**是否有待决审批**，是否有失败步骤) 唯一决定」；同文件「四、这个域
+  不负责什么」明写「本束只在 `PlanPhase="approving"` 这一个派生态上与
+  [TW-P0-6 三态决策审批卡] 相接」——即 `plan-control` 写下这条不变量时，「待决审批」
+  在它的心智模型里**特指** TW-P0-6 的 approve/edit/reject 审批卡（旧的 `call_skill`
+  单工具场景）。
+  `agent-interrupts/domain.md` 四节：`InterruptRequest`「是 `agent_run_steps` 里一条
+  `status = "awaiting_approval"`、`toolName` 属于本束三个具名工具之一的行的投影」
+  ——**同一张表、同一个 `status` 值**，只是 `toolName` 换成三个新名字。
+- 双向核对：`plan-control`→`agent-interrupts`：I-7 的判定条件「是否有待决审批」若在
+  实现期按字面写成「`agent_run_steps` 存在任意一行 `status='awaiting_approval'`」
+  （不按 `toolName` 过滤），则用户触发 `confirm_task_intent`/`fill_run_params`/
+  `choose_execution_option` 中的任意一个时，`PlanPhase` 也会被判成 `"approving"`，
+  前端渲染中文文案「审批」——但用户实际看到的卡片是「目标复述卡」「参数补全表单」
+  或「多方案对比」，**没有一张是「审批」**（三态决策+风险分级+五项披露，
+  `agent-interrupts` 自己在 `domain.md` 一节的对照表里明确排除了这层语义）。
+  `agent-interrupts`→`plan-control`：三个 UC 的失败枚举、`ui.md` 三屏设计说明，
+  都没有引用 `PlanPhase` 或提及自己会驱动六态工作流的态迁移——这件事完全是从
+  `plan-control` I-7 的判定条件反推出来的，**不是 `agent-interrupts` 自己声明的行为**。
+- 结论：**这是一条真实的、未消歧的跨束歧义，不是「无冲突」**。两份契约文档目前都
+  没有显式回答「`PlanPhase` 的『待决审批』判定要不要按 `toolName` 过滤，只认
+  `call_skill`（TW-P0-6），还是四个工具名（含本束三个）一起算」这个问题——各自的
+  措辞（`plan-control` 的「三态决策」定语 vs `agent-interrupts` 的「不专属于
+  plan-control 的『审批』态」）暗示答案应该是**前者（按 toolName 过滤，只认
+  call_skill）**，但两份文档都没有把这条过滤条件写成可判定的不变量。**这是本次
+  复核发现的实现期必做缺口，不是文档层面已经闭环的结论**：`plan-control` 的
+  `PlanPhase` 派生函数实现时，「是否有待决审批」这一项必须显式声明它只统计
+  `toolName = 既有 call_skill 白名单` 的行，排除 `agent-interrupts` 三个新工具名——
+  否则「审批」文案会被三种不是审批的中断card错误触发，是一个真实的 UX/语义 bug，
+  不是无害的巧合。登记为两束共同的实现期待办，建议落在
+  `plan-control` 的 verification（六态判定的表驱动测试需要覆盖「仅有
+  `agent-interrupts` 类中断、无 `call_skill` 审批」这一输入组合，断言此时
+  `PlanPhase !== "approving"`）。
+- 处置建议：不阻塞两束签核（两束的契约文本本身互不矛盾，只是留了一个共同盲区），
+  但**必须**在两束任一方开工实现前，由实现该 feature 的 agent 把这条过滤条件
+  写进 `PlanPhase` 派生函数并配表驱动测试——本条复核结论就是那份测试要覆盖的
+  反证用例来源。
+
+### XC-60 `appliedTo`/错误码两处"故意同构"的自述，实测后发现**并非同一类型**
+
+- 证据（`appliedTo`）：`agent-interrupts/usecases.md` UC-2 自述
+  `appliedTo: "full-rerun" | "ledger-only"`「`ledger-only` 复用 `plan-control` 束
+  已验证的『run 活跃时只落账本，下一轮送达』范式（`plan-control/usecases.md` I-11
+  同构）」。**实测** `plan-control/usecases.md:114`：该束的 `appliedTo` 实际枚举是
+  `"ledger-only" | "ledger-and-engine"`——**不是** `"full-rerun" | "ledger-only"`。
+  两边共享字符串字面量 `"ledger-only"`，但配对的另一个值完全不同：`plan-control`
+  的第二态是「立即落引擎（用户先暂停后编辑）」，`agent-interrupts` 的第二态是
+  「全量重跑整个下游图」——这不是同一个二值类型的两个实例，是**两个独立定义、
+  恰好共享一个字符串值**的类型。
+- 证据（错误码）：`agent-interrupts/usecases.md` UC-2 的 `err` 列表里
+  `PLAN_CONSTRAINT_BLANK†` 标了占位脚注：「复用 plan-control 同名码的语义，若
+  plan-control 未签核前实现本束，改用等价的 `FIELD_REQUIRED_BLANK`」。**实测**
+  `plan-control/usecases.md:42`：`PLAN_CONSTRAINT_BLANK` 的语义是「[`PlanConstraint`
+  实体的] 约束正文全为空白」——一个**字符串类型**、**特定实体**（`PlanConstraint`）
+  的空值校验；`agent-interrupts` 的 `ParamField.required` 校验对象是**任意值类型**
+  （`unknown`）的通用必填字段，与 `PlanConstraint` 无关。
+- 双向核对：`plan-control`→`agent-interrupts`：`plan-control` 现在**已签核**
+  （本 PR 一并翻转），`PLAN_CONSTRAINT_BLANK` 是它已签核契约面的一部分，实测证实
+  其语义确实**不能**平移给 `agent-interrupts` 的必填字段校验（实体不同、值类型不同）。
+  `agent-interrupts`→`plan-control`：`agent-interrupts` 的占位脚注本身已经预判了
+  这条路径（「若 plan-control 未签核前实现...改用等价的 FIELD_REQUIRED_BLANK」），
+  现在 `plan-control` 已签核，实测确认占位脚注描述的分支**成立**——应该用
+  `FIELD_REQUIRED_BLANK`，不是 `PLAN_CONSTRAINT_BLANK`。
+- 结论：**两处都不是「无冲突」也不是「有冲突」，是「自述的『同构』经实测证实不成立，
+  已被占位注解正确预判」**——`agent-interrupts` 的 `usecases.md`/`coverage.md`
+  AI-6（错误码）需要在实现期把占位码 `PLAN_CONSTRAINT_BLANK†` 正式改成
+  `FIELD_REQUIRED_BLANK`（不是待裁决，是本次复核已经给出确定结论）；`appliedTo`
+  的「同构」表述建议在实现期改写文档措辞为「同一处置范式（run 执行中改动只落账本、
+  不旁路写引擎），但类型独立定义，不是共享同一个 zod 联合类型」，避免实现者以为
+  两处可以 import 同一个类型定义。**这条不阻塞签核**（两束契约本身内部自洽，问题
+  只在于互相引用时的措辞不够精确），登记为两束各自实现期第一件事的一部分（
+  `agent-interrupts/coverage.md` AI-6 相应更新为确定结论而非待裁决）。
+
+### 处置汇总
+
+XC-59～XC-60 共两条：**一条是真实的未消歧跨束歧义（59，登记为两束共同实现期必做的
+表驱动测试缺口，不阻塞签核）；一条是"自述同构"经实测证伪、且已被占位注解正确预判
+（60，明确 `agent-interrupts` 该用 `FIELD_REQUIRED_BLANK` 而非
+`PLAN_CONSTRAINT_BLANK`）**。**没有一条要求重签 `chat` 或 `agent-runtime`；两条都不
+要求 `agent-interrupts`/`plan-control` 任一方回退已完成的签核动作**——它们是实现期
+必须遵守的具体化约束，性质与 XC-51（`PlanStepStatus` 类型引用 vs 拷贝）相同。
+
+### 验证（本次跟进 PR 范围内的实测结果，不是预测）
+
+`pnpm harness doctor --phase 01 --strict` 在本次改动前后的对比：
+
+- **改动前**（`origin/main` @ `eda6c710`）：4 FAIL——
+  `agent-interrupts`/`plan-control` 各自的 `covers: []` 两条 + 「一致性复核没覆盖
+  agent-interrupts plan-control」一条（该条合并列出两个束名，doctor 按「一条消息」计）。
+- **改动后**（本 PR）：「一致性复核没覆盖……」这一条消失（`covers_bundles` 已补齐两个
+  束名，本节 + 上一节的交叉复核已实际做过，不是只改字段）；`covers: []` 那两条**依旧
+  FAIL**——这是本文件正文附注（`### coord-architecture 附注（2026-08-26）`）已经如实
+  预判的结果，不是本次遗漏：`covers: []` 的判据与 `status`/一致性复核**完全无关**
+  （`doctor.ts`/`design-signoff.ts:424-443`），只能靠 requirement-author 为两束生成
+  feature、把 `covers:` 填非空才能解开，且**任务边界明确排除了这一步**（「不要碰
+  `covers: []`」）。⇒ **实测：4 FAIL → 2 FAIL，不是 0 FAIL**——若需要 0 FAIL，
+  下一步是人类决定是否触发 requirement-author 为这两束生成 feature。

@@ -103,7 +103,7 @@ export function deriveTemplateLayouts(
   const cellW = frameW > 0 ? frameW / GRID_COLS : 1;
   const cellH = frameH > 0 ? frameH / usableRows : 1;
 
-  return sections.map((s, i) => {
+  const raw: readonly DerivedLayout[] = sections.map((s, i) => {
     const startCol = clamp(Math.round((s.x - s.w / 2 - left) / cellW) + 1, 1, GRID_COLS);
     const endCol = clamp(Math.round((s.x + s.w / 2 - left) / cellW), startCol, GRID_COLS);
     const startRow = clamp(Math.round((s.y - s.h / 2 - top) / cellH) + 1 + rowOffset, 1 + rowOffset, GRID_ROWS);
@@ -127,6 +127,148 @@ export function deriveTemplateLayouts(
       overflow: "缩小字号" as const,
     };
   });
+
+  return fillGrid(raw, rowOffset);
+}
+
+/**
+ * 把推演结果**铺满**整张 A1 —— 人类 2026-08-26 截图实测：「对于 A1 的模板，需要 100%
+ * 全面覆盖，分配完，目前中间留了一些，不美观」。
+ *
+ * ## 这推翻了此前「保留原图间隙」的决定
+ *
+ * 边界吸附会把老 spec 里那些**整行/整列的空带**原样带进来（persona 的第 5 行、bmc 的
+ * 第 7 行都是这么空出来的）。当时我判断那是"原图本来就有的间隙，保留它才忠实"——
+ * 人类看到真实渲染后否掉了这个判断。这里如实改，并把理由留在原处，不假装从来没那样想过。
+ *
+ * ## 做法：先压掉空带，再按比例摊回 12×8
+ *
+ * ⚠ **不**用"让相邻区块朝空处长大"那种贪心：一个 4 格宽的区块要长进只空 1 格的地方就
+ *   长不了，于是有些洞永远填不上，而算法本身不会告诉你哪里没填上——它只会安静地留个洞。
+ *
+ * 压缩-摊开是**闭式**的：
+ *   ① 找出真正被占用的行（列同理），空行整行删掉，坐标压成连续的 1..H。
+ *   ② 再把 H 行按比例摊回 8 行：第 i 行 → `[round((i-1)*8/H)+1, round(i*8/H)]`。
+ *      相邻两行的边界共用同一个 round，所以**不重叠也不留缝**——这是它能保证铺满的原因。
+ *
+ * 相对版式完全保留：三列还是三列、通栏条还是通栏条，只是把空带的份额还给了实体区块。
+ *
+ * ⚠ 铺满是"竖直方向上没有空行、水平方向上没有空列"，**不等于**每一格都被占。若某个
+ *   模板的某一格确实没人占（老 spec 里就缺一块），这里不会去编一个区块把它填上——
+ *   那是发明。`builtin-template-config.test.ts` 逐格断言 19 个模板的真实覆盖率。
+ */
+function fillGrid(raw: readonly DerivedLayout[], rowOffset: number): readonly DerivedLayout[] {
+  if (raw.length === 0) return raw;
+
+  const rowLo = 1 + rowOffset;
+  const cols = remap(raw.map((l) => [l.col, l.col + l.w - 1] as const), 1, GRID_COLS);
+  const rows = remap(raw.map((l) => [l.row, l.row + l.h - 1] as const), rowLo, GRID_ROWS);
+
+  const spread = raw.map((l, i) => ({
+    ...l,
+    col: cols[i]![0], row: rows[i]![0],
+    w: cols[i]![1] - cols[i]![0] + 1,
+    h: rows[i]![1] - rows[i]![0] + 1,
+  }));
+
+  return grow(spread, rowLo).map((l) => {
+    const A1_CONTENT_W_MM = 821;
+    const GAP_MM = 6;
+    const widthMm = (l.w / GRID_COLS) * A1_CONTENT_W_MM - GAP_MM;
+    // `cols`（贴纸列数）由**最终**宽度重算——铺满后区块变宽了，还用老宽度算出来的
+    // 列数会让贴纸比该有的小一号，而那正是 §4.2 那条公式要避免的事。
+    return { ...l, cols: clamp(Math.round(widthMm / 82), 3, 8) };
+  });
+}
+
+/**
+ * 收尾：把压缩-摊开填不掉的**零散空格**交给相邻区块长过去。
+ *
+ * 压缩-摊开只处理**整行/整列**的空带。交错版式（同理心地图的十字、freytag 的阶梯、
+ * 三视界的斜切）空出来的是零散格子，整行整列都不空，压不掉——实测这三个模板停在
+ * 70.8% / 70.8% / 89.6%。
+ *
+ * 所以再补一道生长：每个区块轮流朝四个方向各试探一格，**整条边都空着**才长过去
+ * （长半条会切进别人身体里）。反复跑到没有任何区块还能长为止。
+ *
+ * ⚠ 这一道**不保证**能填到 100%：一个 4 格宽的区块要长进只空 1 格的地方就长不了。
+ *   所以它不是"填满算法"，是"把band 压缩之后剩下的边角尽量收掉"。真实覆盖率由
+ *   `builtin-template-config.test.ts` 逐格数出来断言，不靠这里承诺。
+ *
+ * ⚠ 顺序固定（按 sections 原序、方向固定为 下→右→上→左），所以同一份 spec 每次长出
+ *   完全一样的结果。换成"哪个区块小先长"之类的启发式会让推演不再确定，
+ *   而不确定的推演意味着**同一个模板两次回填得到两种版式**。
+ */
+function grow(
+  blocks: readonly DerivedLayout[],
+  rowLo: number,
+): readonly DerivedLayout[] {
+  const out = blocks.map((b) => ({ ...b }));
+  const taken = new Set<string>();
+  const cellsOf = (b: DerivedLayout): string[] => {
+    const cs: string[] = [];
+    for (let c = b.col; c < b.col + b.w; c += 1) {
+      for (let r = b.row; r < b.row + b.h; r += 1) cs.push(`${c},${r}`);
+    }
+    return cs;
+  };
+  for (const b of out) for (const c of cellsOf(b)) taken.add(c);
+
+  const freeSlice = (cs: readonly string[]): boolean => cs.every((c) => !taken.has(c));
+  const claim = (cs: readonly string[]): void => { for (const c of cs) taken.add(c); };
+
+  // 上限是格子总数：每一轮至少填掉一格，否则 `moved` 为假直接停。不会转不出来。
+  for (let guard = 0; guard < GRID_COLS * GRID_ROWS; guard += 1) {
+    let moved = false;
+    for (const b of out) {
+      // 下
+      if (b.row + b.h <= GRID_ROWS) {
+        const slice = Array.from({ length: b.w }, (_, i) => `${b.col + i},${b.row + b.h}`);
+        if (freeSlice(slice)) { claim(slice); b.h += 1; moved = true; }
+      }
+      // 右
+      if (b.col + b.w <= GRID_COLS) {
+        const slice = Array.from({ length: b.h }, (_, i) => `${b.col + b.w},${b.row + i}`);
+        if (freeSlice(slice)) { claim(slice); b.w += 1; moved = true; }
+      }
+      // 上（不越过让给表头的那几行）
+      if (b.row - 1 >= rowLo) {
+        const slice = Array.from({ length: b.w }, (_, i) => `${b.col + i},${b.row - 1}`);
+        if (freeSlice(slice)) { claim(slice); b.row -= 1; b.h += 1; moved = true; }
+      }
+      // 左
+      if (b.col - 1 >= 1) {
+        const slice = Array.from({ length: b.h }, (_, i) => `${b.col - 1},${b.row + i}`);
+        if (freeSlice(slice)) { claim(slice); b.col -= 1; b.w += 1; moved = true; }
+      }
+    }
+    if (!moved) break;
+  }
+  return out;
+}
+
+/**
+ * 一维的「压掉空带 + 按比例摊回」。入参是每个区块的 `[起, 止]` 闭区间（1-based），
+ * 出参同型，保证并集恰好覆盖 `[lo, hi]`。
+ */
+function remap(
+  spans: readonly (readonly [number, number])[],
+  lo: number,
+  hi: number,
+): readonly (readonly [number, number])[] {
+  const occupied = new Set<number>();
+  for (const [a, b] of spans) for (let i = a; i <= b; i += 1) occupied.add(i);
+
+  // 压缩：被占用的刻度按升序编号 1..n；空刻度整格消失。
+  const kept = [...occupied].sort((x, y) => x - y);
+  const index = new Map(kept.map((v, i) => [v, i + 1]));
+  const n = kept.length;
+  const total = hi - lo + 1;
+
+  // 摊开：第 i 个压缩刻度 → [lo + round((i-1)*total/n), lo + round(i*total/n) - 1]。
+  // 相邻刻度共用同一个 round 边界 ⇒ 首尾相接，既不重叠也不留缝。
+  const start = (i: number): number => lo + Math.round(((i - 1) * total) / n);
+  return spans.map(([a, b]) => [start(index.get(a)!), start(index.get(b)! + 1) - 1] as const);
 }
 
 /**

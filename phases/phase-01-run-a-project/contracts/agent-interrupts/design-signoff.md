@@ -7,11 +7,11 @@ phase: "01"
 #   `apps/deep-agent-service`/`packages` 零命中（2026-08-26 实测 origin/main d88e7693）。
 #   签核通过后由 requirement-author 生成 feature 再追加；追加规则见
 #   .harness/instructions/contract-design.md「covers 追加规则」三条件。
-covers: []
-status: confirmed
-confirmed_by: usamshen
-confirmed_at: "2026-08-26T07:20:23Z"
-confirmed_via: "人类 手工"
+covers: [F212, F213, F214, F215, F216]  # 回填 2026-08-26 by requirement-author（PR 见本次）；F212 契约内核、F213 confirm_intent、F214 fill_params、F215 choose_option、F216 决策守卫+XC-59 反证
+status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+confirmed_by: usamshen               # 确认人（姓名/邮箱）
+confirmed_at: "2026-08-26T07:20:23Z"                # ISO 8601，且不得晚于签核当下
+confirmed_via: "人类 2026-08-26 直接 Merge PR #2136（跳过 GitHub Review 步骤，Merge 动作本身即人类决策打包流程定义的签核机械证据），四项契约决策已在同一 PR 内经协调者转达并逐字记录，见本文件 §六"
 ---
 
 # 契约束 `agent-interrupts` 设计签核

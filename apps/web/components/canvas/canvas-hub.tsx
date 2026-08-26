@@ -54,6 +54,22 @@ export function CanvasHub({
   return (
     <AppShell
       previewRole={previewRole}
+      /*
+        人类 2026-08-26 截图实测：「后台的 admin 的界面，去掉上面的 header，多余的」。
+
+        `template-admin` 屏挂的是 `AdminNav`——它就是治理后台，与 `/admin/*` 是同一个面，
+        只是因为历史原因路由在 `/canvas` 下。顶栏在这里逐项都是重复的：组织名与角色
+        左栏已经写着（`治理后台 · AI 能力与组织的管理面`），组织 id 页头还写了一遍，
+        而「不在具体项目里」那句提示本就已经在 `/admin/*` 上被判为噪音隐藏掉了
+        （`top-bar.tsx` 的 F1971）——只是那条判定看 `pathname`，而本屏的 pathname
+        是 `/canvas`，于是同一个后台的同一句提示，换个路由就又冒出来了。
+
+        ⚠ 不去给 `top-bar.tsx` 的路由清单再加一条 `/canvas`：那会让"哪些屏算后台"
+          这件事在「两个地方」各写一份（pathname 清单 与 这里的 `isTemplateAdmin`），
+          而本项目已五次因同一事实声明在两处而漂移。这里用既有的 `hideTopBar`
+          （`/admin/skill/[id]` 的沉浸式工作台先例），判据只有 `isTemplateAdmin` 一处。
+      */
+      hideTopBar={isTemplateAdmin}
       left={
         isEditor ? <CanvasLeftPanel />
         : isTemplateAdmin ? <AdminNav active="canvasadmin" />

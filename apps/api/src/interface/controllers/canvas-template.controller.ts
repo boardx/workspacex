@@ -262,6 +262,11 @@ export class CanvasTemplateController {
             version: body.version,
             displayName: body.displayName,
             tags: body.tags,
+            // ⚠ 这里逐字段透传，漏一个**不会报错**：请求体合法（`.strict()` 只挡多余的键，
+            //   不挡少传的可选键）、服务端存默认值、前端显示的是本地 state ——三处都
+            //   "看起来对"。`tags` 就是这么被静默丢掉过一次，只有真栈 e2e 才发现。
+            title: body.title,
+            footer: body.footer,
           },
         ),
       ),
