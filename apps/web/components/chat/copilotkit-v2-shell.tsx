@@ -9,8 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
-import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
-import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
+import { ChatTaskInspector } from "@/components/chat/chat-task-inspector";
+import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { Input } from "@/components/ui/input";
 import {
   createPersonalThread, deleteThread, getAgentPanel, getThread, listPersonalThreads,
@@ -450,6 +450,24 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 顶部一个仅手机可见的开关在「对话列表 ↔ 当前对话」之间切换；≥md 两栏并排不变。
    * 路由跳转（选中线程/新建）天然重挂载本组件，`mobileListOpen` 自动归位。
    */
+  /**
+   * issue #2068（TW-P0-3 读半 / TW-P0-4）—— 右栏 Inspector 需要的三样「面板 body 里
+   * 才拿得到」的真实状态，由 `CopilotKitV2Panel` 经回调上抛。
+   *
+   * ⚠ 为什么是回调而不是把 `agent` 提上来：`agent` 由 `CopilotKit` provider 在面板
+   * 内部经 `useAgent()` 取得，提上来要么把 provider 边界推到外壳（会 remount 整条
+   * SSE 连接），要么在外壳再建一个第二实例（两条连接，两份 run 状态）。既有的
+   * `onMessageSent` / `onArtifactLanded` 已经是同一套「面板向外壳上报真实事件」的
+   * 模式，这三个是它的延续，不是新机制。
+   */
+  const [planTodos, setPlanTodos] = React.useState<readonly PlanTodo[] | null>(null);
+  const [runState, setRunState] = React.useState<{
+    readonly isRunning: boolean;
+    readonly phaseLabel: string | null;
+    readonly elapsedSeconds: number | null;
+  }>({ isRunning: false, phaseLabel: null, elapsedSeconds: null });
+  const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
+
   const [mobileListOpen, setMobileListOpen] = React.useState(false);
 
   return (
@@ -586,43 +604,35 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           onMessageSent={() => void loadRightPanel()}
           /* issue #2050 —— 落地成功后重读右栏「产物」，让新产物真的出现在栏里。 */
           onArtifactLanded={() => void loadRightPanel()}
+          /* issue #2068 —— 见上面三个 state 的注释：面板向外壳上报真实运行/计划状态。 */
+          onPlanTodosChange={setPlanTodos}
+          onRunStateChange={setRunState}
+          onPendingMaterialsChange={setPendingMaterialsCount}
           threadAttachments={materials?.items ?? null}
           archived={archived}
           canGeneratePersona={canGeneratePersona}
         />
       </div>
-      {/* issue #2046（CK-P1，人类 2026-08-25 原话「需要有右边的上传的文件列表和产物，
-          现在都没有」）—— 右栏原样复用旧壳的「产物 + 材料」堆叠（`personal-chat-screen.tsx`
-          #1824 同一布局、同一份组件、同一套空态/加载态/错误态），不另造第二份视觉。
-          `uploadCtl` 传 `null`：composer 的附件控制器（含附件线程生命周期）在面板
-          Body 层，上传入口已有 📎/全 surface 拖拽——材料栏本轮是读侧，不为一个
-          跨三层的状态提升画一个半通的「+」。DA-13 的 `ActiveFilePanel` 仍在面板内
-          （DA-15 事件至今没有真实生产者，生产环境不出现；等生产者落地再统一分区）。 */}
-      <aside
-        className="hidden w-72 shrink-0 flex-col border-l border-border md:flex"
-        data-testid="copilotkit-v2-right-panel"
-      >
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-b border-border-subtle">
-          <ChatArtifactsPanel
-            hasSelection={selectedThreadId !== null}
-            artifacts={artifacts}
-            loading={rightLoading}
-            error={artifactsError}
-            onRetry={() => void loadRightPanel()}
-          />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          <ChatMaterialsPanel
-            hasSelection={selectedThreadId !== null}
-            threadId={selectedThreadId}
-            materials={materials}
-            loading={rightLoading}
-            error={materialsError}
-            onRetry={() => void loadRightPanel()}
-            uploadCtl={null}
-          />
-        </div>
-      </aside>
+      {/* issue #2068（TW-P0-4）—— 右栏从「产物 + 材料」固定两段堆叠换成四页签动态
+          Inspector（进度 / 材料 / 产物 / 运行详情），按真实信号自动切换、无内容折叠成
+          40px 图标栏。产物/材料两块仍是原来那两个组件（`ChatArtifactsPanel` /
+          `ChatMaterialsPanel`），只是移进页签里——不另造第二份视觉。
+          页签选择规则抽在 `lib/chat-task-inspector-tabs.ts`（有 vitest 逐条钉死）。 */}
+      <ChatTaskInspector
+        hasSelection={selectedThreadId !== null}
+        threadId={selectedThreadId}
+        artifacts={artifacts}
+        materials={materials}
+        loading={rightLoading}
+        artifactsError={artifactsError}
+        materialsError={materialsError}
+        onRetry={() => void loadRightPanel()}
+        pendingMaterialsCount={pendingMaterialsCount}
+        planTodos={planTodos}
+        isRunning={runState.isRunning}
+        runPhaseLabel={runState.phaseLabel}
+        runElapsedSeconds={runState.elapsedSeconds}
+      />
     </div>
   );
 }
