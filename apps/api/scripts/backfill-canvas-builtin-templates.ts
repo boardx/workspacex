@@ -94,6 +94,8 @@ export interface CanvasTemplateBackfillReport {
   readonly published: number;
   /** 已存在但缺 `layout`，本次铸了新版本补上配置的模板数。 */
   readonly upgraded: number;
+  /** 已带配置、只缺纸面标题，本次原地补上的模板数（不铸新版本）。 */
+  readonly chromeFilled: number;
 }
 
 /**
@@ -161,6 +163,8 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
     let created = 0;
     let published = 0;
     let upgraded = 0;
+    /** 只缺纸面标题、原地补上（不铸新版本）的模板数。 */
+    let chromeFilled = 0;
 
     // 一次读全（含 archived），下面逐条判定"这个 key 现在是什么状况"。
     //
@@ -197,9 +201,42 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
       // ── 已存在：判断它需不需要升级 ────────────────────────────────────────────
       const current = latestByKey.get(spec.key);
       if (current !== undefined) {
+        /*
+          幂等判据必须**逐项覆盖本脚本会写的每一样东西**，而不是只看其中一项。
+
+          ⚠ 这条是 2026-08-26 实测踩出来的：判据原先只看 `layout`。加了 `title` 之后
+            重跑，19 个模板因为「已有 layout」全部被跳过，标题一个都没灌进去——
+            脚本还打印「已带配置，跳过（幂等）」，读起来像一切正常。
+            少写一项判据的表现，与「本来就不需要做」完全同形。
+
+          ## 两件事分开判、分开做
+
+          · `sections`（内容）—— published 是不可变快照，只能铸新版本。
+          · `title`/`footer`（装帧）—— 走 `updateTemplateMetadata`，对任何状态生效、
+            物理上碰不到 sections，**不需要**新版本。
+
+          合成一个判据会让「只缺标题」的行白白多铸一个版本；合成一个动作则会让
+          「只缺标题」变成改不了（因为 published 不能改 sections）。
+        */
         const enriched = current.sections.every((sec) => sec.layout !== undefined);
+        const chromed = current.title === (spec.title ?? "");
+
+        if (enriched && chromed) {
+          console.log(`[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} 已带配置与标题，跳过（幂等）`);
+          continue;
+        }
+
+        // 只缺装帧：原地补，不铸新版本。
         if (enriched) {
-          console.log(`[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} 已带配置，跳过（幂等）`);
+          await setChrome(
+            identity, templates, org, actorId, spec,
+            current.version, current.displayName, current.tags,
+          );
+          chromeFilled += 1;
+          console.log(
+            `[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} v${current.version} ` +
+            `补齐纸面标题「${spec.title ?? ""}」（不铸新版本——装帧不动内容快照）`,
+          );
           continue;
         }
         const minted = await mintTemplateVersion(
@@ -263,9 +300,9 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
     console.log(
       `[backfill-canvas-builtin-templates] 完成：org=${orgId} 共 ${specs.length} 个内置模板，` +
       `新建 ${created} 个（其中发布 ${published} 个），补齐配置 ${upgraded} 个，` +
-      `已存在跳过 ${alreadyExisted - upgraded} 个。`,
+      `补齐标题 ${chromeFilled} 个，已存在跳过 ${alreadyExisted - upgraded - chromeFilled} 个。`,
     );
-    return { orgId, actorId, total: specs.length, created, alreadyExisted, published, upgraded };
+    return { orgId, actorId, total: specs.length, created, alreadyExisted, published, upgraded, chromeFilled };
   } finally {
     await db.close();
   }
