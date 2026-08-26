@@ -84,6 +84,7 @@
  */
 import { createHash } from "node:crypto";
 import { DEEP_AGENT_HITL_TOOL_NAME, DEEP_AGENT_HITL_ARGS_MAX_CHARS } from "@repo/contracts/deep-agent-hitl";
+import { AguiTodosSnapshot } from "@repo/contracts/agui-state-events";
 
 import type {
   ModelCallCompletion,
@@ -163,8 +164,61 @@ interface RunStatusResponse {
   readonly status?: string;
 }
 
+/** One entry of the deepagents `TodoListMiddleware`'s `state.todos` -- real shape confirmed
+ * against a live run's `GET /threads/:id/state` capture (`.harness/state/deepagent-eval/
+ * 2026-08-23-3d327c13/sse-and-thread-state-evidence-v2/02-thread-state.json`, `.values.todos`).
+ * Read as `unknown` here, same discipline `ThreadMessage`'s own fields use -- validated for
+ * real by `AguiTodosSnapshot` (imported above) before anything downstream trusts it. */
+interface ThreadStateTodo {
+  readonly content?: unknown;
+  readonly status?: unknown;
+}
+
+/** One value of the deepagents `FilesystemMiddleware`'s `state.files` dict (keyed by an
+ * in-sandbox path, e.g. `/large_tool_results/<call_id>`) -- shape is `deepagents==0.7.6`'s
+ * own `FileData` (`deepagents/backends/protocol.py`, verified by extracting the published
+ * wheel: `content`/`encoding` required, `created_at`/`modified_at` optional). NOT the same
+ * namespace as this deployment's own VFS (`apps/api/src/domain/vfs/vfs-uri.ts`'s
+ * `vfs://<attachment|artifact>/<id>`) -- see that file's own header and this provider's
+ * DA-16 investigation notes for why the two are not interchangeable. Declared here for
+ * type-level correctness of what `readState` actually reads back; not yet consumed by any
+ * producer (no downstream feature depends on this shape yet -- see PR body). */
+interface ThreadStateFileData {
+  readonly content?: unknown;
+  readonly encoding?: unknown;
+  readonly created_at?: unknown;
+  readonly modified_at?: unknown;
+}
+
 interface ThreadStateResponse {
-  readonly values?: { readonly messages?: readonly ThreadMessage[] };
+  readonly values?: {
+    readonly messages?: readonly ThreadMessage[];
+    readonly todos?: readonly ThreadStateTodo[];
+    readonly files?: { readonly [path: string]: ThreadStateFileData };
+  };
+}
+
+/**
+ * DA-16 -- the write_todos tool-call event's `toolArgsSummary` used to be a re-serialization
+ * of the model's own `tool_calls[].args` (what the model ASKED to set). This reads the
+ * REAL post-write state instead (`state.values.todos`, populated by deepagents'
+ * `TodoListMiddleware` from that same call) -- ground truth, not a reconstruction of the
+ * request that produced it. In the happy path the two are byte-for-byte the same JSON
+ * (`TodoListMiddleware` applies the call's args verbatim), so this is not a behaviour
+ * change for `parseWriteTodosSnapshot`'s consumers; it stops being true only if something
+ * OTHER than the write_todos call itself could still be reflected in args but not state
+ * (there is no such path in deepagents 0.7.6), or if the args were truncated/malformed
+ * before reaching state (the real state read is immune to that by construction).
+ *
+ * Returns `null` -- not a guess, not the args fallback -- when `values.todos` is absent or
+ * fails `AguiTodosSnapshot` validation (same "parse failure ⇒ no event" discipline
+ * `parseWriteTodosSnapshot` itself documents). Caller decides whether to keep the
+ * args-derived summary in that case (see `emitNewToolEvents`).
+ */
+function realTodosSummary(todos: readonly ThreadStateTodo[] | undefined): string | null {
+  if (todos === undefined) return null;
+  const result = AguiTodosSnapshot.safeParse({ todos });
+  return result.success ? JSON.stringify(result.data) : null;
 }
 
 const PROGRESS_SUMMARY_MAX_CHARS = 500;
@@ -436,8 +490,16 @@ export class DeepAgentModelProvider implements ModelCallPort {
   ): Promise<void> {
     const state = await this.readState(baseUrl, threadId);
     const messages = state.values?.messages ?? [];
+    // DA-16: ground-truth override -- see `realTodosSummary`'s own doc. `undefined` (real
+    // state validation failed or todos absent) leaves the completed write_todos event's
+    // args-derived `toolArgsSummary` exactly as `extractToolCallEvents` built it -- this is
+    // additive, never a new way for the event to go missing.
+    const realTodos = realTodosSummary(state.values?.todos);
     for (const { id, phase, event } of extractToolCallEvents(messages, emitted)) {
-      await onProgress(event);
+      const withRealTodos = phase === "complete" && event.toolName === "write_todos" && realTodos !== null
+        ? { ...event, toolArgsSummary: realTodos }
+        : event;
+      await onProgress(withRealTodos);
       (phase === "in_progress" ? emitted.inProgress : emitted.complete).add(id);
     }
   }
