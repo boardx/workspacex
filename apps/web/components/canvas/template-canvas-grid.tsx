@@ -111,8 +111,14 @@ export function TemplateCanvasGrid({
         // 四边 10mm 页边距，按比例实现：10/841 = 1.189%（`Design.pdf` §5「页边距」原话）。
         padding: "1.189%",
         gridTemplateColumns: "1fr",
-        // 标题带 / 内容 / 页脚带。两条 `auto` 在对应文本为空时**塌成 0 高**（那一行
-        // 根本不渲染），内容网格自动吃掉全部剩余高度——这就是"空串 = 不画那一带"。
+        // 标题带 / 内容 / 页脚带。空文本时那一行**不渲染**，高度塌成 0。
+        //
+        // ⚠ 三个子元素必须**各自显式声明 `gridRow`**，不能靠出现顺序自动排。
+        //   隐式排布下，标题为空时内容区会成为第一个子元素、落进第 1 行（`auto`）——
+        //   于是它的高度变成"内容高"而不是 `1fr`，塌成几乎为 0。而 `cellFrom` 用
+        //   `contentRef` 的 rect 算落点比例：`r.height ≈ 0` ⇒ `ratioY` 远大于 1 ⇒
+        //   行号被夹到第 8 行，那正是 `geom.fits === 0` 的一行 ⇒ 拖进去的区块
+        //   一张贴纸都画不出来。2026-08-26 CI 实测撞到这条，症状是"试运行没反应"。
         gridTemplateRows: "auto 1fr auto",
         rowGap: "0.72%",
       }}
@@ -133,7 +139,7 @@ export function TemplateCanvasGrid({
           // 字号随纸宽缩放（`cqw` = 容器宽度的 %），不是设计系统的字号档位——那张表是
           // 给屏幕上的 UI 用的，而这行字画在一张会随窗口缩放的"纸"上，档位在这里
           // 表达不了。同下面贴纸字号由实尺推导的理由（`Design.pdf` §5 末段）。
-          style={{ fontSize: "2.2cqw", paddingBottom: "0.6%", color: "#14130F" }}
+          style={{ gridRow: 1, fontSize: "2.2cqw", paddingBottom: "0.6%", color: "#14130F" }}
           data-testid="tpladmin-editor-canvas-title"
         >
           {title}
@@ -141,7 +147,11 @@ export function TemplateCanvasGrid({
       )}
 
       {/* 内容区：网格线层与区块层叠在这里，落点换算也以它为基准（见 `contentRef`）。 */}
-      <div ref={contentRef} className="relative grid min-h-0" style={{ gridTemplateColumns: "1fr", gridTemplateRows: "1fr" }}>
+      <div
+        ref={contentRef}
+        className="relative grid min-h-0"
+        style={{ gridRow: 2, gridTemplateColumns: "1fr", gridTemplateRows: "1fr" }}
+      >
       {/* 网格幽灵层：拖动中才显形（`Design.pdf` §4.2「拖动中画布网格线显形」）。 */}
       <div
         className="pointer-events-none"
@@ -272,7 +282,7 @@ export function TemplateCanvasGrid({
       {footer !== "" && (
         <div
           className="leading-tight"
-          style={{ fontSize: "1.2cqw", paddingTop: "0.6%", color: "#6B6862" }}
+          style={{ gridRow: 3, fontSize: "1.2cqw", paddingTop: "0.6%", color: "#6B6862" }}
           data-testid="tpladmin-editor-canvas-footer"
         >
           {footer}

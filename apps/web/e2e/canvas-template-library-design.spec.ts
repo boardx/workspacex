@@ -419,6 +419,12 @@ test("Design.pdf 补充 · 试运行：填一份数据，画布上渲染出真�
   // 填**自己的**数据并渲染 —— 断言这几个字真的出现在画布区块里。
   await input.fill('{"pains": ["排队太久", "找不到入口", "价格看不懂"]}');
   await page.getByTestId("tpladmin-editor-dryrun-run").click();
+
+  // ⚠ 先断言**没有**「装不下」——这一条是 2026-08-26 那次事故补上的。
+  //   当时的失败信息只说"找不到入口 缺失"，而真相是区块容量塌成了 0、只画得下一张；
+  //   两者在报错里完全同形，害我先去查渲染链路，绕了一圈才回 CI 日志看到
+  //   `位置只够 0 条`。把容量本身断言出来，下次这类塌陷会**指名道姓**地红。
+  await expect(block).not.toContainText("装不下");
   await expect(block).toContainText("排队太久");
   await expect(block).toContainText("找不到入口");
   await expect(block).toContainText("价格看不懂");
