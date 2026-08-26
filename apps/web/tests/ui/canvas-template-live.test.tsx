@@ -1084,16 +1084,40 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     expect(sections.find((s) => s.key === "gains")?.layout).toBeNull();
   });
 
-  it("非草稿行打开的是只读预览：没有保存按钮、没有新增字段表单，且如实说明为什么", async () => {
+  /**
+   * ⚠ 这条原先断言的是**相反**的行为（「非草稿行打开的是只读预览：没有保存按钮」）。
+   *   人类 2026-08-26 截图实测要求「对于已发布的模板也需要可以编辑」，行为因此翻转，
+   *   断言跟着翻。留着旧断言会让一次正当的产品变更**看起来像实现坏了**。
+   *   改动落到哪里由 `save()` 分岔（草稿原地改 / 非草稿铸新版），见
+   *   `tests/lib/template-editor-published-editable.test.ts`。
+   */
+  it("已发布行照样能编，但提前说清改动会铸成下一版", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template({ status: "published" })] })));
     render(<TemplateAdmin previewRole="facilitator" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-card-persona-3")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-persona-3"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
 
+    expect(within(panel).getByTestId("tpladmin-editor-save")).toBeInTheDocument();
+    expect(within(panel).getByTestId("tpladmin-editor-new-add")).toBeInTheDocument();
+    // 说明条仍在，但说的是"改动会铸成 v4"，不再是"这里只能预览"。
+    const note = within(panel).getByTestId("tpladmin-editor-immutable-note");
+    expect(note).toHaveTextContent("v4");
+    expect(note).not.toHaveTextContent("只能预览");
+  });
+
+  it("已归档行仍然只读——在被主动收起来的东西上开新版会让「归档」失去意义", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({ status: "archived" })],
+    })));
+    render(<TemplateAdmin previewRole="facilitator" initialFilter="archived" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-persona-3")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-persona-3"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+
     expect(within(panel).queryByTestId("tpladmin-editor-save")).toBeNull();
     expect(within(panel).queryByTestId("tpladmin-editor-new-add")).toBeNull();
-    expect(within(panel).getByTestId("tpladmin-editor-immutable-note")).toBeInTheDocument();
+    expect(within(panel).getByTestId("tpladmin-editor-immutable-note")).toHaveTextContent("只能预览");
   });
 
   it("Esc 关面板；提示词抽屉开着时 Esc 先关抽屉，不一次丢掉两层上下文", async () => {
