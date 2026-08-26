@@ -413,14 +413,14 @@
         "F19"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "dev-ai-runtime",
       "verification": [
         "pnpm --filter web run lint:design",
         "pnpm --filter web exec tsc --noEmit"
       ],
-      "evidence": "lint:design U12 全绿 + tsc --noEmit 0 错误（本地实测，见 PR 描述）。phase 级 verify:quick（全仓 turbo affected：typecheck+lint+test）当前不绿，但 4 个失败用例（tests/ui/chat-read-screen.test.tsx、tests/ui/chat-live-message-panel-markdown.test.tsx、tests/ui/nav-ia-two-levels.test.tsx 等）均不在本 feature 改动范围内（未触碰 chat/ 目录与 nav-ia 相关组件），coord-main 已独立跑过一遍（/tmp/webvitest.log，Duration 1015s，Test Files 4 failed | 218 passed）确认同样 4 处失败、与本次 -foreground token 替换无关，判定为既有基线问题，非本 feature 引入。verify:quick 是全仓聚合判定，被与本 feature 无关的失败拖累——这是门控粒度问题，留给 harness 维护者评估是否应按 feature 改动范围收窄判定，不在本 feature 范围内修。",
+      "evidence": "evidence/F20.verify.log @ 2026-08-26T04:07:35.383Z",
       "notes": "依据等级：[规范条目]（U12 门控 PR #2103 落地后的既定后续，同一 PR 说明文字已点名 F20/F21/F22 分批清理）。纯缺陷修复 + 门控收紧，不引入新设计、不改交互逻辑——不需要设计签核。排除 components/chat/ 目录（人类明确裁决 chat 具体交互先不动，即便这类改动本身不算交互变更）。token 选择依据：tailwind.config.ts 中 background-foreground/card-foreground/popover-foreground 在 light/dark 两套主题下取值完全相同（均为 #17171A / #93.3% 灰白），故对默认页面/卡片背景上的纯文字统一替换为 <family>-foreground 视觉零回归；深色反色实心面场景改用 inverse-foreground（本轮非 chat 存量中未出现需要 inverse 的场景，均为 alpha 透明色块或默认背景）。剩余 16 处 chat/ 目录存量留待后续 feature。"
     },
     {
