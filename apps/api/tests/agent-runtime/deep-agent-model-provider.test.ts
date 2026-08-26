@@ -401,4 +401,86 @@ describe("DeepAgentModelProvider.completeWithProgress (#783, #742 Gap 1 in_progr
       async () => { throw new Error("run store append failed"); },
     )).rejects.toThrow("run store append failed");
   });
+
+  // DA-16 -- write_todos's toolArgsSummary sources real `state.values.todos`, not a
+  // re-serialization of the call's own args (see `realTodosSummary`'s own doc).
+  it("write_todos 完成时 toolArgsSummary 取自真实 values.todos（账本 ground truth），与工具调用参数本身不同也不受影响", async () => {
+    threadId = `thread-${randomUUID()}`;
+    runId = `run-${randomUUID()}`;
+    statusSequence = ["success"];
+    stateSequence = [
+      {
+        values: {
+          messages: [
+            {
+              type: "ai", content: "",
+              // The call's OWN args ask for only two todos, both pending.
+              tool_calls: [{ id: "call-1", name: "write_todos", args: { todos: [{ content: "画架构图", status: "pending" }] } }],
+            },
+            { type: "tool", tool_call_id: "call-1", content: "已更新 todo 列表" },
+            { type: "ai", content: "计划已更新。" },
+          ],
+          // But the REAL post-write state has a different (ground-truth) snapshot -- e.g.
+          // TodoListMiddleware already advanced a prior item to completed in this same
+          // write. If the event's toolArgsSummary still echoed the args above, a client
+          // would render a stale/wrong plan.
+          todos: [
+            { content: "分析需求", status: "completed" },
+            { content: "画架构图", status: "in_progress" },
+          ],
+        },
+      },
+    ];
+
+    const events: { toolName: string; toolArgsSummary: string | null; phase?: string }[] = [];
+    await provider().completeWithProgress(
+      { modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "m1", system: "s", user: "u" },
+      async (event) => { events.push(event); },
+    );
+
+    const complete = events.find((e) => e.phase === "complete");
+    expect(complete?.toolArgsSummary).toBe(JSON.stringify({
+      todos: [
+        { content: "分析需求", status: "completed" },
+        { content: "画架构图", status: "in_progress" },
+      ],
+    }));
+    // The in_progress event (announced before the tool result exists, hence before
+    // `values.todos` could reflect it) is untouched -- ground truth only overrides the
+    // COMPLETED event, never a still-pending announcement.
+    const inProgress = events.find((e) => e.phase === "in_progress");
+    expect(inProgress?.toolArgsSummary).toBe('{"todos":[{"content":"画架构图","status":"pending"}]}');
+  });
+
+  it("values.todos 缺失或校验不过时，write_todos 的 toolArgsSummary 回落到调用参数本身，不是零值也不是崩溃", async () => {
+    threadId = `thread-${randomUUID()}`;
+    runId = `run-${randomUUID()}`;
+    statusSequence = ["success"];
+    stateSequence = [
+      {
+        values: {
+          messages: [
+            {
+              type: "ai", content: "",
+              tool_calls: [{ id: "call-1", name: "write_todos", args: { todos: [{ content: "画架构图", status: "pending" }] } }],
+            },
+            { type: "tool", tool_call_id: "call-1", content: "已更新 todo 列表" },
+            { type: "ai", content: "计划已更新。" },
+          ],
+          // Real state present but fails `AguiTodosSnapshot` validation (empty content) --
+          // `realTodosSummary` must return null, not a fabricated/empty snapshot.
+          todos: [{ content: "", status: "pending" }],
+        },
+      },
+    ];
+
+    const events: { toolName: string; toolArgsSummary: string | null; phase?: string }[] = [];
+    await provider().completeWithProgress(
+      { modelProvider: DEEP_AGENT_PROVIDER_NAME, modelId: "m1", system: "s", user: "u" },
+      async (event) => { events.push(event); },
+    );
+
+    const complete = events.find((e) => e.phase === "complete");
+    expect(complete?.toolArgsSummary).toBe('{"todos":[{"content":"画架构图","status":"pending"}]}');
+  });
 });

@@ -120,9 +120,15 @@ import {
 import {
   parseWriteTodosSnapshot,
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+  AGUI_FILE_EVENT_NAME,
   type JsonPatchOp,
 } from "@repo/contracts/agui-state-events";
 import { chatFileUpload } from "@repo/contracts";
+import {
+  CHAT_ATTACHMENT_COMMAND_REPOSITORY, type AttachmentCommandRepository,
+} from "../../application/chat/upload-attachment";
+import { listThreadAttachments } from "../../application/chat/list-thread-attachments";
+import { buildFileCreatedEvents } from "../../application/agent-run/agui-file-events";
 
 /**
  * chat-parity-attachments (issue #2022) -- validate+cap `forwardedProps.attachmentIds`
@@ -445,6 +451,10 @@ export class CopilotkitAguiController {
     // #2038：默认 agent 的动态解析口 + 配置错误的可观测出口，见 `resolveEffectiveAgentId`。
     @Inject(DEFAULT_AGENT_RESOLVER) private readonly defaultAgents: DefaultAgentResolver,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    // DA-16 -- read-only: `file_created`'s real producer (`agui-file-events.ts`) reads
+    // this same thread's already-materialized attachments (`listThreadAttachments`), it
+    // never writes through this port.
+    @Inject(CHAT_ATTACHMENT_COMMAND_REPOSITORY) private readonly attachments: AttachmentCommandRepository,
   ) {}
 
   private get deps() {
@@ -714,6 +724,24 @@ export class CopilotkitAguiController {
           name: AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
           value: { streamingMessageId: messageId, chatMessageId: outcome.messageId },
         });
+        // DA-16 -- real `file_created` producer (see `agui-file-events.ts`'s own doc for
+        // why this reads `chat_message_attachments` via the existing `listThreadAttachments`
+        // use case rather than the deepagents engine's own ephemeral `values.files`).
+        // AFTER the chat_message_id echo (a consumer resolving "which real message do these
+        // files belong to" needs that id already on the wire) and, like it, ONLY on the
+        // `succeeded` branch -- `failed`/`awaiting_approval` never reach `commitWriteback`,
+        // so there is no result message any attachment could be filed under.
+        //
+        // `/copilotkit/agui` only ever creates personal threads (`projectId: null`, see
+        // `agui-bridge.ts`'s file head "op:create, projectId:null") -- this bridge has no
+        // project-scoped variant, so this is not a narrowed special case of a wider one.
+        const producedFiles = await listThreadAttachments(
+          { repo: this.repo, ids: this.ids, chat: this.chat, attachments: this.attachments },
+          { userId: principal.userId, orgId: toOrgId(principal.orgId), projectId: null, threadId: outcome.threadId },
+        );
+        for (const value of buildFileCreatedEvents(producedFiles.items, outcome.messageId)) {
+          write({ type: EventType.CUSTOM, name: AGUI_FILE_EVENT_NAME.FILE_CREATED, value });
+        }
         write({ type: EventType.RUN_FINISHED, threadId: clientThreadId, runId: clientRunId });
       } else if (outcome.kind === "failed") {
         if (sawAnyDelta) write({ type: EventType.TEXT_MESSAGE_END, messageId });
