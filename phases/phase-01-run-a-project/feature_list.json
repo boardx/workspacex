@@ -5201,15 +5201,15 @@
         "F212"
       ],
       "points": 2,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "21",
-      "owner": null,
+      "owner": "dev-ai-runtime-f215",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/choose-option-schema.test.ts",
         "pnpm --filter api exec vitest run tests/agent-interrupts/choose-option-optionid-refers.test.ts",
         "pnpm --filter web exec vitest run tests/ui/agent-interrupt-choose-option-card.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F215.verify.log @ 2026-08-26T19:22:54.110Z",
       "notes": "契约束已签核（confirmed）。covers usecases.md UC-3 + domain.md I-5/I-6。依据等级 [Backlog]（纯新能力）。⚠ 裁决②（design-signoff §六）：choose_option 走 edit 决策类型，前端以 {selectedOptionId} 当 edit 载荷 resume，零桥接层代码改动（不生成假设『原生支持 choose/respond』的用例——respond 在本仓 parseHitlDecision 封闭三态里不可达，缺口 AI-2，本束绕开而非解决）。allowedDecisions=['edit','reject']。schema.test 断言 I-5（options∈[2,3]）与 edit editedArgs 形状={selectedOptionId}（不是下标）。optionid-refers.test 断言 I-6：selectedOptionId∉原始 options[].optionId ⇒ SELECTED_OPTION_NOT_FOUND；选项数组重排后仍按 id 命中正确项。UI testid（ui.md 屏三）：agent-interrupt-choose-option-{card,option-*,selected-mark-*,decline}；截图 uc-3-choose-option-*.png（含 two/selected 变体）。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。"
     },
     {
