@@ -856,14 +856,18 @@ export function CopilotKitV2Panel({
           共同父层：两者的浮层共享「同一时刻只开一个」互斥（`useChatPopoverSlot`），
           与旧轨道 `chat-read-screen.tsx` 同一挂法（issue #1803 gap #3）。 */}
       <ChatPopoverCoordinatorProvider>
-      {/* issue #2039（第 3 轮 gap #4）——此前这一行只有一个裸的「选择 Agent ▾」
-          幽灵按钮浮在页顶，与消息区没有任何层级关系。补一个 muted 说明标签 +
-          行底分隔线，让它读作「这个屏的会话设置行」。 */}
+      {/* issue #2132（真实 devapp 实测：想去掉 chat 最上面的 header）—— 这一行是唯一的
+          "切换发送 agent" 入口（`selectedAgentId` 同时是 `CopilotKitV2PanelBody` 的
+          remount key），不能直接删掉，否则用户永久锁死在挂载时选中的那个 agent。
+          #2039 第 3 轮当时把它做成"带说明标签 + 行底分隔线"的样子，是为了让它
+          "读作一个独立设置行"（该轮 gap #4 原话）——但那正是这次被诚实反馈成
+          "看起来像一个页面 header"的原因。这里把它收敛成不占独立视觉层级的小控件：
+          去掉「发给」标签与分隔线，右对齐、与消息区共享同一层视觉密度，功能
+          （选择/错误提示/无 agent 提示）一行未删。 */}
       <div
-        className="flex flex-wrap items-center gap-2 border-b border-border-subtle pb-2"
+        className="flex flex-wrap items-center justify-end gap-2"
         data-testid="copilotkit-v2-agent-toolbar"
       >
-        <span className="text-11 text-muted-foreground">发给</span>
         <AgentPicker
           agents={agentOptions.status === "ready" ? agentOptions.agents : null}
           selectedAgentId={selectedAgentId ?? ""}
@@ -2335,21 +2339,57 @@ function V2AssistantMessageImpl(
   // issue #2052（CK-P7）—— 正文取自框架给的这条消息本身，与气泡里渲染的是同一份，
   // 不另找一处读。
   const text = typeof props.message.content === "string" ? props.message.content : "";
+  /**
+   * issue #2132（真实 devapp 实测：打字/滚动时消息区画布内容闪烁，续 #2096）—— 这是
+   * #2096 那次 memo 化之外**另一处、更严重**的同类根因，不是同一个 bug 的残留。
+   *
+   * `markdownRenderer`/`copyButton` 这两个 slot 的静态类型是 `SlotValue<C> = C |
+   * string | Partial<ComponentProps<C>>`——直接传一个箭头函数（不是一个"部分 props"
+   * 对象）落在 `C` 这个分支：框架把它当作**整个 slot 的替换组件本身**，内部执行的是
+   * `const MarkdownRenderer = markdownRenderer ?? Default; <MarkdownRenderer {...} />`
+   * 这类"把 slot 值当组件类型用"的写法（读框架 `CopilotChatAssistantMessage` 源码
+   * 确认，不是猜测）。此前这里每次 `V2AssistantMessageImpl` 重渲染（打字/滚动/任何
+   * 会让这条消息重渲染的状态变化）都创建一个**新的箭头函数**——对 React 来说这是
+   * "组件类型变了"，不是"props 变了"：reconciler 判定为整棵子树需要卸载重建，不是
+   * 更新。子树里正是 `ChatDiagramFabric`/`ChatCanvasFabric` 渲染出的 fabric canvas
+   * ——每次都被真的销毁、重新建一个新 canvas、重新解析一遍 mermaid，这才是用户看到
+   * 的"画布内容闪烁"里最直接、最剧烈的那一层（#2096 修的 context value 引用稳定性
+   * 只解决了"这条消息组件要不要重渲染"，没有解决"重渲染之后这两个 slot 组件的身份
+   * 还是不是同一个"——两处是同一类问题的两层，缺一不成立）。
+   *
+   * 修法：`useCallback` 稳定这两个函数的引用身份，只在真正相关的值
+   * （`artifactThreadId`/`realMessageId`/`artifactBearer`/`messageId`）变化时才
+   * 重建——多数情况下这条消息重渲染时这些值都没变，两个 slot 组件因此维持"同一个
+   * 组件类型"，React 走更新路径而不是卸载重建，canvas 不再被销毁重造。
+   */
+  const markdownRenderer = React.useCallback(
+    (rendererProps: React.ComponentProps<typeof CopilotChatAssistantMessage.MarkdownRenderer>) => (
+      <V2MarkdownRenderer
+        {...rendererProps}
+        threadId={artifactThreadId}
+        messageId={realMessageId}
+        bearer={artifactBearer}
+      />
+    ),
+    [artifactThreadId, realMessageId, artifactBearer],
+  );
+  const copyButton = React.useCallback(
+    (copyProps: React.ComponentProps<typeof CopilotChatAssistantMessage.CopyButton>) => (
+      <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
+    ),
+    [messageId],
+  );
   return (
-    <div className="flex flex-col gap-1.5">
+    // issue #2132（真实 devapp 实测：消息操作条位置不对）—— `gap-1` 收紧自
+    // 此前的 `gap-1.5`：框架自己的 toolbar（复制/反馈/评分）与下面「落地为产物」
+    // 是两个物理上分开的节点（CK-P3/CK-P7 各自的加法，见下方注释），够不着把两者
+    // 塞进同一个 flex 容器统一对齐——但把间距收紧到跟框架 toolbar 内部同一量级，
+    // 至少让它们读作"同一条消息下的连续操作区"，不是两个不相关的独立区块。
+    <div className="flex flex-col gap-1">
       <CopilotChatAssistantMessage
         {...props}
-        markdownRenderer={(rendererProps) => (
-          <V2MarkdownRenderer
-            {...rendererProps}
-            threadId={artifactThreadId}
-            messageId={realMessageId}
-            bearer={artifactBearer}
-          />
-        )}
-        copyButton={(copyProps) => (
-          <CopilotKitV2CopyButton onClick={copyProps.onClick} messageId={messageId} />
-        )}
+        markdownRenderer={markdownRenderer}
+        copyButton={copyButton}
         additionalToolbarItems={<CopilotKitV2MessageExtraActions messageId={messageId} />}
       />
       {/* issue #2052（CK-P7）—— 「落地为产物」是块级三态交互，进不了行内工具栏，
