@@ -107,12 +107,16 @@ describe("B2 平台模板母版", () => {
     // 以 ORG_A 的租户上下文去改平台那一行：RLS 的 USING 只放 SELECT，
     // 写策略仍然严格按 app.current_org ⇒ 影响 0 行。
     const affected = await db.withTenant(toOrgId(ORG_A), async (s) => {
-      const r = await s.query(
+      // ⚠ `s.query` 的返回类型没有 `rowCount`（会话封装只暴露 `rows`），所以用
+      //   `RETURNING` 把被改的行数变成**行**——这比 rowCount 更直接：它同时证明
+      //   「哪一行被改了」，而 rowCount 只给一个数字。
+      const r = await s.query<{ key: string }>(
         `UPDATE canvas_templates SET display_name = '被别的组织改了'
-          WHERE org_id = $1 AND key = $2`,
+          WHERE org_id = $1 AND key = $2
+       RETURNING key`,
         [PLATFORM_ORG_ID, KEY],
       );
-      return r.rowCount ?? 0;
+      return r.rows.length;
     });
     expect(affected).toBe(0);
 
