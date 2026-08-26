@@ -5062,9 +5062,9 @@
         "F26"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "20",
-      "owner": "dev-chat-e2e",
+      "owner": null,
       "verification": [
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/tpl/workflow-orchestration-persists-real-db.test.ts",
         "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/tpl/workflow-orchestration-repo-guard.test.ts",
@@ -5086,9 +5086,9 @@
         "I1680"
       ],
       "points": 2,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "20",
-      "owner": "dev-chat-e2e",
+      "owner": null,
       "verification": [
         "pnpm --filter web run typecheck",
         "pnpm --filter api run typecheck",
@@ -5108,9 +5108,9 @@
       "spec_ref": "08-chat/uc-8-3-对话产出落地.md#R3",
       "depends_on": [],
       "points": 2,
-      "status": "in_progress",
+      "status": "not_started",
       "sprint": "20",
-      "owner": "dev-chat-e2e",
+      "owner": null,
       "verification": [
         "pnpm --filter web run typecheck",
         "pnpm --filter api run typecheck",
