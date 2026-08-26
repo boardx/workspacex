@@ -1,0 +1,46 @@
+$ pnpm --filter web run lint:design
+[exit 0]
+
+> web@0.1.0 lint:design /private/tmp/wt-f20-verify/apps/web
+> ./scripts/lint-design.sh
+
+
+✅ lint-design：全部通过（扫描 app components lib）
+
+
+$ pnpm --filter web exec tsc --noEmit
+[exit 0]
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /private/tmp/wt-f20-verify
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=d9c1cf0fea74ef00fc140d639a895cdafccc249f（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_d906f1fb7678d9dd34a4 inner_db=wsx_d906f1fb7678d9dd34a4 outer_compose=wsx-d906f1fb7678d9dd34a4 inner_compose=wsx-d906f1fb7678d9dd34a4 status=matched
+[stack-admission] load1=2.97 cores=10 perCore=0.30 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mt9kopb9-140c2a76-d906f1fb7678 db=wsx_d906f1fb7678d9dd34a4 compose=wsx-d906f1fb7678d9dd34a4 pg=21035 redis=26035
+• turbo 2.10.5
+
+   • Packages in scope: 
+   • Running typecheck, lint, test in 0 packages
+   • Remote caching disabled, using shared worktree cache
+
+ WARNING  No tasks were executed as part of this run.
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    580ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s
+
+[harness-verify v1 sha256=50cdd3b356867d966f8e3a16491a818dab611edec0d6b0cff276a200b5bc101d commit=d9c1cf0fea74ef00fc140d639a895cdafccc249f at=2026-08-26T04:07:35.383Z]
