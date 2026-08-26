@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ApiError } from "@/lib/api-client";
 import {
   updateCanvasTemplateDraft,
+  mintCanvasTemplateVersion,
+  updateCanvasTemplateMetadata,
   TEMPLATE_STATUS_LABEL,
   type CanvasTemplate,
 } from "@/lib/live-canvas";
@@ -25,12 +27,23 @@ import {
  * 顶栏：面包屑「模板库 / {模板名} · 模板编辑」+ A1 规格徽章 + 三步指示器 + 「发布模板」。
  * 三栏布局固定 **290 / 自适应 / 276**（§4 原话）。
  *
- * ## 只有草稿可编内容，这是刻意的
+ * ## 本组件只认识 `lib/live-canvas.ts` 的客户端包装，不认识端点
  *
- * `updateTemplateDraft`（唯一的内容写入口）只对 `status === "draft"` 生效——已发布/
- * 已归档版本仍是不可变快照。非草稿行是**只读预览 + 生命周期动作**；改内容只能先
- * 「基于此开新版」开出一个新草稿。
- * ⚠ 改**名字与标签**不受此限（走 `updateTemplateMetadata`，R2），那是元数据不是内容。
+ * 契约端点的路径拼接**全仓只有一个出口**（`canvas-template-routes-no-mock.test.ts` 机械
+ * 断言）。所以这里连注释都称呼包装函数的名字——写裸端点名会让那条门控红，而它红得对：
+ * 一个知道端点长什么样的组件，离自己手抄一条路径只差一步。
+ *
+ * ## 已发布的也能编，改动落到**新版本**上
+ *
+ * 人类 2026-08-26 截图实测：「画布模板的配置，对于已发布的模板也需要可以编辑」。
+ * 表单对 draft / trial / published 一律开放，`save()` 按状态分岔到两条真实写路径：
+ * 草稿走 `updateCanvasTemplateDraft` 原地改，非草稿走 `mintCanvasTemplateVersion` 把改完的内容
+ * 铸成下一版草稿。已发布那一版原封不动——它的 `sections` 是不可变快照（I-4），
+ * 原地改会让**已经用它开过的画布**在下次渲染时悄悄换版式，那是历史篡改不是编辑。
+ *
+ * ⚠ 归档行仍然只读：在被主动收起来的东西上开新版，会让「归档」这个动作失去意义。
+ *   要改先「恢复」，那是个显式动作。
+ * ⚠ 改**名字与标签**一直不受此限（走 `updateTemplateMetadata`，R2），那是元数据不是内容。
  *
  * ## 三步是"跳转"不是"向导"
  *
@@ -59,9 +72,21 @@ export function TemplateEditorPanel({
   readonly onMintVersion: () => void;
 }) {
   const isDraft = row.status === "draft";
-  const editable = isDraft && !readOnly;
+  /**
+   * 能不能编内容。**已发布/已试跑的行也能编**（人类 2026-08-26：「对于已发布的模板
+   * 也需要可以编辑」）——改动落到哪里由 `save()` 分岔：草稿原地改，非草稿铸新版。
+   *
+   * ⚠ 归档行仍然不可编：它是被主动收起来的东西，在它上面开新版会让「归档」这个动作
+   *   失去意义（刚归档就冒出一个新草稿）。要改先「恢复」，那是个显式动作。
+   * ⚠ `readOnly`（观察者视角）压过一切，与原先一致。
+   */
+  const editable = row.status !== "archived" && !readOnly;
 
   const [displayName, setDisplayName] = React.useState(row.displayName);
+  // 版面装帧（A1 纸上的大标题 / 底部署名）。⚠ 它们**不进** `sections`：sections 是
+  // 「AI 要填什么」，装帧是纸本身长什么样。混进去模型会试图去"填标题"。
+  const [title, setTitle] = React.useState(row.title);
+  const [footer, setFooter] = React.useState(row.footer);
   const [sections, setSections] = React.useState<SectionDraft[]>(() => toDraft(row));
   const [step, setStep] = React.useState<1 | 2 | 3>(() => (toDraft(row).some((s) => s.layout) ? 2 : 1));
   const [gridCols, setGridCols] = React.useState<6 | 12>(12);
@@ -92,6 +117,8 @@ export function TemplateEditorPanel({
 
   const dirty = editable && (
     displayName !== row.displayName
+    || title !== row.title
+    || footer !== row.footer
     || JSON.stringify(toContractSections(sections)) !== JSON.stringify(row.sections)
   );
 
@@ -177,19 +204,83 @@ export function TemplateEditorPanel({
     setPublishBlockers(health);
   }
 
+  /**
+   * 保存 —— 人类 2026-08-26 截图实测：「画布模板的配置，对于已发布的模板也需要可以编辑」。
+   *
+   * ## 已发布也能编，但**不是**去改那份已发布的快照
+   *
+   * 已发布版本的 `sections` 是不可变快照（I-4：已建实例不被改动）。真去原地改它，
+   * 所有**已经用这个模板开过的画布**会在下一次渲染时悄悄换掉版式——那是一次没人
+   * 察觉的历史篡改，而不是一次编辑。
+   *
+   * 所以这里按行的状态分岔，**同一个「保存」按钮，两条真实写路径**：
+   *
+   * · `draft` → `updateTemplateDraft`，原地改这份草稿。
+   * · 其余（published / trial / archived）→ `mintCanvasTemplateVersion`，把**改完的内容**
+   *   直接铸成下一个版本的草稿。已发布的那一版原封不动留着。
+   *
+   * ⚠ 铸新版**不是**"先开一个空版本再保存两次"：那条端点的 `in` 本来就收
+   *   `sections`，所以这是一次请求。分两步做会在中间留下一个内容为空的版本，
+   *   而那个版本在别人眼里是一个真实存在的、坏掉的草稿。
+   *
+   * 使用者感受到的是「我编辑了这个已发布的模板」，而库里发生的是一次合法的开新版——
+   * 与人类手点「基于此开新版」完全同一条路径，不是给它开的后门。
+   */
+  /**
+   * 装帧走 `updateTemplateMetadata`，与内容分开写。
+   *
+   * ⚠ 两条写路径**不能合并**：改内容的那两条端点的 `in` 里
+   *   没有 `title`/`footer`（它们不是内容），而 `updateTemplateMetadata` 物理上碰不到
+   *   `sections`（它对任何状态生效正是靠这一点）。硬塞进任何一边，都会让"改装帧"
+   *   与"改内容"之一获得对方的状态限制。
+   * ⚠ `tags` 必须原样带回去——本操作是**全量替换**不是 patch，省略等于清空标签，
+   *   而清空不会报错，只会让筛选栏少一类。
+   */
+  async function saveChrome(version = row.version): Promise<void> {
+    if (title === row.title && footer === row.footer && version === row.version) return;
+    await updateCanvasTemplateMetadata({
+      key: row.key, version,
+      displayName: displayName.trim(),
+      tags: [...(row.tags ?? [])],
+      title, footer,
+    });
+  }
+
   async function save(): Promise<void> {
     setSaving(true);
     setError(null);
     try {
-      const out = await updateCanvasTemplateDraft({
+      const contractSections = toContractSections(sections);
+      if (isDraft) {
+        const out = await updateCanvasTemplateDraft({
+          key: row.key,
+          version: row.version,
+          displayName: displayName.trim(),
+          sections: contractSections,
+          visibility: row.visibility,
+          tags: [...(row.tags ?? [])],
+        });
+        await saveChrome();
+        await onSaved(`已保存「${out.displayName}」的改动`, { ...out, usageCount: 0, title, footer });
+        return;
+      }
+
+      const minted = await mintCanvasTemplateVersion({
         key: row.key,
-        version: row.version,
         displayName: displayName.trim(),
-        sections: toContractSections(sections),
+        underlyingType: row.underlyingType,
+        sections: contractSections,
         visibility: row.visibility,
         tags: [...(row.tags ?? [])],
       });
-      await onSaved(`已保存「${out.displayName}」的改动`, { ...out, usageCount: 0 });
+      await saveChrome(minted.version);
+      await onSaved(
+        // 如实说清发生了什么：使用者点的是「保存」，得到的是一个**新版本**。
+        // 含糊成「已保存」会让人以为刚才那份已发布的被改掉了。
+        `已基于 v${row.version} 开出 v${minted.version} 草稿并保存改动——` +
+        `v${row.version} 保持原样（已发布版本是不可变快照）。改好后记得发布 v${minted.version}。`,
+        { ...minted, usageCount: 0, title, footer },
+      );
     } catch (e) {
       setError(e instanceof ApiError ? `${e.reasonCode ?? "无 reasonCode"}（HTTP ${e.status}）` : String(e));
     } finally {
@@ -268,9 +359,16 @@ export function TemplateEditorPanel({
         {STEP_HINTS[step]}
       </p>
 
+      {/*
+        非草稿行照样能编，但要「提前」说清改动会落到哪里——等人点了保存才发现"怎么多出
+        一个 v3"，那是一次意外而不是一次编辑。归档行仍然只读，文案分开写。
+      */}
       {!isDraft && (
         <p className="flex-none border-b border-warning/40 bg-warning/5 px-5 py-1.5 text-11 text-muted-foreground" data-testid="tpladmin-editor-immutable-note">
-          已发布/已归档版本是不可变快照——这里只能预览，改内容请先「基于此开新版」。
+          {row.status === "archived"
+            ? "已归档版本只能预览。要改先「恢复」，那是个显式动作。"
+            : `v${row.version} 已发布，它的内容是不可变快照（已经用它开过的画布不会被改动）。`
+              + `你在这里的改动，保存时会自动铸成 v${row.version + 1} 草稿。`}
         </p>
       )}
 
@@ -457,6 +555,34 @@ export function TemplateEditorPanel({
               </button>
             </div>
           </div>
+          {/*
+            版面装帧的两个入口，紧挨着画布放——它们改的是「这张纸」长什么样，
+            放进右栏「显示方式」会让人以为是选中区块的属性（那一栏是按区块作用的）。
+
+            ⚠ 留空就是"不画那一带"，占位符里明说，免得人以为忘填了。
+          */}
+          <div className="flex flex-none items-center gap-2 border-b border-border px-4 py-2">
+            <label className="shrink-0 text-11 text-muted-foreground" htmlFor="tpl-title">纸面标题</label>
+            <input
+              id="tpl-title"
+              value={title}
+              disabled={!editable}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="如：用户画像 User Persona（留空则不画标题带）"
+              className="min-w-0 flex-1 rounded-control border border-border bg-background px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-muted disabled:text-muted-foreground"
+              data-testid="tpladmin-editor-title-input"
+            />
+            <label className="shrink-0 text-11 text-muted-foreground" htmlFor="tpl-footer">页脚署名</label>
+            <input
+              id="tpl-footer"
+              value={footer}
+              disabled={!editable}
+              onChange={(e) => setFooter(e.target.value)}
+              placeholder="如：本工具基于 XXX（留空则不画页脚带）"
+              className="min-w-0 flex-1 rounded-control border border-border bg-background px-2 py-1 text-11 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-muted disabled:text-muted-foreground"
+              data-testid="tpladmin-editor-footer-input"
+            />
+          </div>
           <div className="flex min-h-0 flex-1 justify-center overflow-auto p-4">
             <div className="w-full max-w-4xl">
               <TemplateCanvasGrid
@@ -464,6 +590,8 @@ export function TemplateEditorPanel({
                 gridCols={gridCols}
                 showSample={showSample}
                 runData={dryRunData}
+                title={title}
+                footer={footer}
                 selectedId={selectedId}
                 editable={editable}
                 onSelect={(id) => { setSelectedId(id); setStep(3); }}

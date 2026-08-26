@@ -188,6 +188,12 @@ export async function updateCanvasTemplateMetadata(
       version: input.version,
       displayName: input.displayName,
       tags: input.tags ?? [],
+      // ⚠ 这个函数逐字段拼请求体，漏一个**不会报错**——请求合法、服务端存默认值、
+      //   界面显示的是本地 state，三处都"看起来对"。`tags` 就是这么被静默丢掉过一次
+      //   （只有真栈 e2e 才发现）。`canvas-template-body-completeness.test.ts` 机械
+      //   断言契约 `in` 的每个键都在本函数源码里出现过。
+      title: input.title ?? "",
+      footer: input.footer ?? "",
     },
   });
 }

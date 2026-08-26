@@ -1023,6 +1023,71 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     expect(within(display).getByTestId("tpladmin-editor-mm-note").textContent).toMatch(/\d+ × \d+ mm 实尺/);
   });
 
+  /**
+   * 2026-08-26 CI `fullstack-smoke` 的**真因**反证。
+   *
+   * 那次收到的文本逐字是：`痛点{{pains[]}}装不下：3 条 / 位置只够 0 条` ——
+   * 容量真的是 **0**，区块渲染了**零张**贴纸，人类填的三条数据全部消失。
+   *
+   * ⚠ 上面那条「试运行渲染得出来」用的是夹具里 6×3 的大区块，**复现不了**这个缺陷：
+   *   撤掉修法它照样绿（实测过）。所以必须专门造一个容量为 0 的区块——落在第 8 行、
+   *   高度 1 行时 `geom.fits === 0`（`defaultLayoutAt` 在 row 8 的实测值）。
+   *
+   * ⚠ 断言"至少画出一张"**不是**在骗人说装得下：装不下由旁边那行标红的「装不下」
+   *   如实交代。一张画不出来的预览没有任何信息量。
+   */
+  it("容量为 0 的区块：仍画出一张并标红「装不下」，不是一张都不画", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({
+        key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+        sections: [{
+          sectionId: "s1", key: "says", name: "说 Says", type: "便利贴列表", aiHint: null,
+          order: 0, required: false, capacity: null,
+          // 第 8 行 + 高 1 行 ⇒ 物理上一张 76mm 贴纸都放不下。
+          layout: { col: 1, row: 8, w: 6, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+        }],
+      })],
+    })));
+    const panel = await openEditor();
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-dryrun-toggle"));
+    const input = await within(panel).findByTestId("tpladmin-editor-dryrun-input");
+    fireEvent.change(input, { target: { value: '{"says": ["排队太久", "找不到入口"]}' } });
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-dryrun-run"));
+
+    const block = within(panel).getByTestId("tpladmin-editor-block-s1");
+    // ① 第一条数据真的画出来了（撤掉 `visibleNoteCount` 的下限，这一行会红）。
+    await waitFor(() => expect(block).toHaveTextContent("排队太久"));
+    // ② 同时如实说「装不下」——两者必须**同时**成立，只有前者是在骗人。
+    expect(block).toHaveTextContent("装不下：2 条 / 位置只够 0 条");
+  });
+
+  /**
+   * 2026-08-26 CI `fullstack-smoke` 实测红：试运行点了「渲染」之后，画布上那个区块
+   * **还在但是空的**，人类填进去的三条数据一条都没出现。看起来像"按钮没反应"。
+   *
+   * ⚠ 这条在 jsdom 里复现同一条路径（开抽屉 → 填数据 → 渲染 → 断言画布上有那几个字），
+   *   而不是只对 `visibleNoteCount` 那个纯函数打单测——纯函数绿了、链路断在别处，
+   *   两者在单测层面完全同形。
+   */
+  it("试运行：填一份数据点渲染，画布区块里真的出现那几个字", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-dryrun-toggle"));
+    const input = await within(panel).findByTestId("tpladmin-editor-dryrun-input");
+    fireEvent.change(input, { target: { value: '{"says": ["排队太久", "找不到入口"]}' } });
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-dryrun-run"));
+
+    const block = within(panel).getByTestId("tpladmin-editor-block-s1");
+    await waitFor(() => expect(block).toHaveTextContent("排队太久"));
+    expect(block).toHaveTextContent("找不到入口");
+
+    // 「还原」回到无数据态：那几个字必须真的消失，不是被新数据盖住。
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-dryrun-clear"));
+    await waitFor(() => expect(block).not.toHaveTextContent("排队太久"));
+  });
+
   it("改列数 → 贴纸实尺 mm 跟着变（§7 第 5 条：实尺与容量结论实时更新且与渲染一致）", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => withFields()));
     const panel = await openEditor();
@@ -1084,16 +1149,40 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     expect(sections.find((s) => s.key === "gains")?.layout).toBeNull();
   });
 
-  it("非草稿行打开的是只读预览：没有保存按钮、没有新增字段表单，且如实说明为什么", async () => {
+  /**
+   * ⚠ 这条原先断言的是**相反**的行为（「非草稿行打开的是只读预览：没有保存按钮」）。
+   *   人类 2026-08-26 截图实测要求「对于已发布的模板也需要可以编辑」，行为因此翻转，
+   *   断言跟着翻。留着旧断言会让一次正当的产品变更**看起来像实现坏了**。
+   *   改动落到哪里由 `save()` 分岔（草稿原地改 / 非草稿铸新版），见
+   *   `tests/lib/template-editor-published-editable.test.ts`。
+   */
+  it("已发布行照样能编，但提前说清改动会铸成下一版", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: [template({ status: "published" })] })));
     render(<TemplateAdmin previewRole="facilitator" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-card-persona-3")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("tpladmin-edit-persona-3"));
     const panel = await screen.findByTestId("tpladmin-editor-panel");
 
+    expect(within(panel).getByTestId("tpladmin-editor-save")).toBeInTheDocument();
+    expect(within(panel).getByTestId("tpladmin-editor-new-add")).toBeInTheDocument();
+    // 说明条仍在，但说的是"改动会铸成 v4"，不再是"这里只能预览"。
+    const note = within(panel).getByTestId("tpladmin-editor-immutable-note");
+    expect(note).toHaveTextContent("v4");
+    expect(note).not.toHaveTextContent("只能预览");
+  });
+
+  it("已归档行仍然只读——在被主动收起来的东西上开新版会让「归档」失去意义", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({ status: "archived" })],
+    })));
+    render(<TemplateAdmin previewRole="facilitator" initialFilter="archived" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-persona-3")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("tpladmin-edit-persona-3"));
+    const panel = await screen.findByTestId("tpladmin-editor-panel");
+
     expect(within(panel).queryByTestId("tpladmin-editor-save")).toBeNull();
     expect(within(panel).queryByTestId("tpladmin-editor-new-add")).toBeNull();
-    expect(within(panel).getByTestId("tpladmin-editor-immutable-note")).toBeInTheDocument();
+    expect(within(panel).getByTestId("tpladmin-editor-immutable-note")).toHaveTextContent("只能预览");
   });
 
   it("Esc 关面板；提示词抽屉开着时 Esc 先关抽屉，不一次丢掉两层上下文", async () => {

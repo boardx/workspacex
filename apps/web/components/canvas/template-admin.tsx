@@ -392,8 +392,9 @@ export function TemplateAdmin({
         setCreating(false);
         setNotice(`已新建草稿 ${out.displayName} v${out.version} —— 还需发布才能被环节使用`);
         await load();
-        // 立刻打开编辑面板——`usageCount` 恒为 0（刚造出来的行不可能已被绑定）。
-        setEditing({ ...out, usageCount: 0 });
+        // 立刻打开编辑面板——`usageCount` 恒为 0（刚造出来的行不可能已被绑定），
+        // `title`/`footer` 恒为空串（`createTemplate` 不收装帧，新模板还没起标题）。
+        setEditing({ ...out, usageCount: 0, title: "", footer: "" });
         return;
       } catch (error) {
         lastError = error;

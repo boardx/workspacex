@@ -46,11 +46,26 @@
  * `publishTemplate` 这条合法路径，与人类在后台点「编辑」得到的完全是同一条路径。
  * 已经带 `layout` 的行跳过 ⇒ 整个脚本仍然幂等，可安全重跑。
  *
- * ## displayName 的权威
+ * ## displayName 与 title 是**两件**事实，现在两件都落地了
  *
- * 唯一来源是 `packages/contracts/src/canvas.ts` 的 `BUILTIN_CANVAS_TEMPLATES`（O-09 单点
- * 事实源）——不读 fabric-markdown 的 `TemplateSpec.title`（那是画布内标题，中英双语，不是
- * 后台列表要的 displayName，两者是不同的展示层事实）。
+ * `displayName`（后台列表里的「用户画像」）唯一来源是 `packages/contracts/src/canvas.ts`
+ * 的 `BUILTIN_CANVAS_TEMPLATES`（O-09 单点事实源）。
+ *
+ * `title`（画在 A1 纸上的双语大标题「用户画像 User Persona」）唯一来源是
+ * fabric-markdown 的 `TemplateSpec.title`。
+ *
+ * ⚠ 这里原先写着「**不读** `TemplateSpec.title`」——那句话对，但当时的做法是把它**丢掉**，
+ *   因为库里没地方放。人类 2026-08-26 截图实测要求纸上能放 Title，
+ *   `20260826140000_canvas_template_title_footer.sql` 给了它一列，于是它有地方落了。
+ *   两件事实仍然各走各的来源，没有合并。
+ *
+ * ## `footer`（署名/版权行）一律留空
+ *
+ * 老 spec 里**没有**这件事实（`TemplateSpec` 的字段是 key/pdfPage/title/fields/
+ * headerRect/fieldsPerRow/titleNameFields/sections，逐个查过，没有 footer/credit/source）。
+ * 人类给的参照图上 AI 战略画布底部确实有一行「本工具基于 Bizzuka 的 AI 战略画布」，
+ * 但那是图上的像素，不是数据。**照着图把它写进代码，等于凭空断言某个作品的出处**——
+ * 19 个模板一起编就更糟。留空，由人在编辑器里自己填。
  *
  * 用法：`pnpm --filter api exec tsx scripts/backfill-canvas-builtin-templates.ts <orgId>`
  */
@@ -64,6 +79,7 @@ import { CanvasError } from "../src/application/canvas/errors";
 import { toOrgId } from "../src/domain/org-id";
 import { mintTemplateVersion } from "../src/application/canvas/mint-template-version";
 import { listTemplates as listOrgTemplates } from "../src/application/canvas/list-templates";
+import { updateTemplateMetadata } from "../src/application/canvas/update-template-metadata";
 import { buildBuiltinSections } from "../src/domain/canvas/builtin-template-config";
 import { listTemplates } from "@repo/fabric-markdown/templates";
 import { canvas } from "@repo/contracts";
@@ -83,6 +99,34 @@ export interface CanvasTemplateBackfillReport {
 /**
  * 导出成函数（不是裸顶层 `await`），供测试直接调用同一份逻辑，不重实现第二份 SQL/编排。
  */
+/**
+ * 写这一版的版面装帧：`title` 取自 spec，`footer` 留空（见文件头）。
+ *
+ * ⚠ `tags` 必须原样带回去：`updateTemplateMetadata` 是**全量替换**不是 patch，
+ *   省略它等于把这个模板已有的标签清空——而清空标签不会报错，只会让筛选栏里
+ *   少一类，没有人会注意到。
+ */
+async function setChrome(
+  identity: PgIdentityRepository,
+  templates: PgCanvasTemplateRepository,
+  org: ReturnType<typeof toOrgId>,
+  actorId: string,
+  spec: { readonly key: string; readonly title?: string },
+  version: number,
+  displayName: string,
+  tags: readonly string[],
+): Promise<void> {
+  await updateTemplateMetadata(
+    { identity, templates },
+    {
+      userId: actorId, orgId: org, key: spec.key, version,
+      displayName, tags: [...tags],
+      title: spec.title ?? "",
+      footer: "",
+    },
+  );
+}
+
 export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<CanvasTemplateBackfillReport> {
   // 找这个组织最早的 admin 作为 actor —— 与 `backfill-default-agents.ts` 同一个理由：
   // 跨租户读（谁是这个组织的 admin）RLS 对 app 角色故意封，只有 OWNER 连接能读。
@@ -169,6 +213,9 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
           { identity, templates },
           { userId: actorId, orgId: org, key: spec.key, version: minted.version, visibility: "org-wide" },
         );
+        // 装帧走 `updateTemplateMetadata`（对任何状态生效，物理上碰不到 sections），
+        // 所以放在 publish 之后也照样写得进去。
+        await setChrome(identity, templates, org, actorId, spec, minted.version, displayName, current.tags);
         upgraded += 1;
         console.log(
           `[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} ` +
@@ -207,6 +254,7 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
         { identity, templates },
         { userId: actorId, orgId: org, key: spec.key, version: outcome.version, visibility: "org-wide" },
       );
+      await setChrome(identity, templates, org, actorId, spec, outcome.version, displayName, []);
       published += 1;
       console.log(`[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} published`);
     }
