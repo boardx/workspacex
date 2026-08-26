@@ -124,10 +124,10 @@ export function QuickDigitalInterview({
             </div>
             <p className="mt-3 text-sm leading-7 text-muted-foreground">{mockExpert.bio}</p>
             <p className="mt-3 text-xs leading-6 text-muted-foreground">
-              <span className="font-medium text-foreground">典型建议：</span>{mockExpert.typicalAdvice}
+              <span className="font-medium text-background-foreground">典型建议：</span>{mockExpert.typicalAdvice}
             </p>
             <p className="mt-2 text-xs leading-6 text-muted-foreground">
-              <span className="font-medium text-foreground">使用边界：</span>{mockExpert.materialBoundary}
+              <span className="font-medium text-background-foreground">使用边界：</span>{mockExpert.materialBoundary}
             </p>
           </article>
         )}

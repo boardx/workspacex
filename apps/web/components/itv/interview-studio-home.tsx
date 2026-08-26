@@ -131,7 +131,7 @@ export function InterviewStudioHome({
         <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-11 font-medium text-muted-foreground">Studio&nbsp;&nbsp;/&nbsp;&nbsp;访谈</p>
-            <h1 className="mt-2 text-24 font-semibold tracking-tight text-foreground">访谈 Studio</h1>
+            <h1 className="mt-2 text-24 font-semibold tracking-tight text-background-foreground">访谈 Studio</h1>
             <p className="mt-2 text-12 text-muted-foreground">
               回看或继续历史访谈，也可以选择一位数字专家快速开始对话。
             </p>
@@ -238,7 +238,7 @@ function TabButton({ active, testId, onClick, children }: {
       data-testid={testId}
       onClick={onClick}
       className={cn("-mb-px border-b-2 px-1 pb-4 text-sm transition-colors", active
-        ? "border-foreground font-semibold text-foreground"
+        ? "border-background-foreground font-semibold text-background-foreground"
         : "border-transparent text-muted-foreground hover:text-foreground")}
     >{children}</button>
   );
@@ -292,7 +292,7 @@ function HistoryCard({ item, onChanged }: { item: DigitalInterviewHistoryRow; on
           <time>{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <Link href={action.href} className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
+          <Link href={action.href} className="inline-flex items-center gap-2 text-sm font-medium text-background-foreground">
             {action.label}<ArrowRight className="size-4" aria-hidden />
           </Link>
           <InterviewHistoryCardActions item={item} onChanged={onChanged} />
@@ -335,13 +335,13 @@ function ExpertContent({ state, preview = false }: { state: LoadState<DigitalExp
             </div>
           </div>
           <div className="mt-5 rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">材料边界：</span>{expert.materialBoundary}
+            <span className="font-medium text-background-foreground">材料边界：</span>{expert.materialBoundary}
           </div>
           <div className="mt-5 flex items-center gap-3">
             <Link data-testid={`itv-quick-${expert.expertId}`} href={`/itv/quick/new?expertId=${encodeURIComponent(expert.expertId)}`} className="inline-flex h-9 items-center rounded-lg bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90">
               快捷访谈
             </Link>
-            <Link href={`/itv/experts/${expert.expertId}`} className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-medium text-foreground">
+            <Link href={`/itv/experts/${expert.expertId}`} className="inline-flex h-9 items-center rounded-lg border border-border px-4 text-xs font-medium text-background-foreground">
               查看专家
             </Link>
           </div>

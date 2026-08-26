@@ -35,7 +35,7 @@ export function InterviewList({
   return (
     <section className="flex flex-col gap-4 p-5" data-testid="itv-interview-list">
       <header className="flex flex-col gap-1">
-        <h1 className="text-20 font-semibold text-foreground">访谈 · {c.total} 场</h1>
+        <h1 className="text-20 font-semibold text-background-foreground">访谈 · {c.total} 场</h1>
         <p className="text-12 text-muted-foreground">
           范围：{scopeLabel} —— 打开任意一场进入全屏管理：时间、提纲、要收集的数据、洞察。
         </p>
@@ -83,7 +83,7 @@ export function InterviewList({
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-13 font-medium text-foreground">{r.subject}</span>
+                    <span className="text-13 font-medium text-background-foreground">{r.subject}</span>
                     {r.source === "virtual" && (
                       <Badge tone="ai" data-testid={`itv-row-virtual-${r.id}`}>
                         <Bot aria-hidden className="h-3 w-3" />数字人 · 探索性

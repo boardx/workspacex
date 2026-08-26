@@ -16,7 +16,7 @@ export function SkillTempMount({ state, view }: { state: UiState; view: SkillVie
   return (
     <div className="flex flex-col gap-4">
       <ScreenHead title="对话里临时加减 skill" uc="UC-3.3 R3 · F65">
-        引导师/组长在对话输入区上方 ＋加技能：只对<strong className="text-foreground">当前这条对话</strong>生效、不改蓝本。
+        引导师/组长在对话输入区上方 ＋加技能：只对<strong className="text-background-foreground">当前这条对话</strong>生效、不改蓝本。
         组员默认不可自加（服务端拒），临时挂载在复盘里可「提交回蓝本」。
       </ScreenHead>
 
@@ -92,7 +92,7 @@ export function SkillTempMount({ state, view }: { state: UiState; view: SkillVie
                 <section className="flex flex-col gap-1">
                   <span className="text-10 uppercase tracking-wide text-muted-foreground">可临时加载（可选）</span>
                   {TEMP_PICKER.available.map((s) => (
-                    <button key={s.skillId} className="flex items-center justify-between rounded-md border border-border-subtle bg-card px-2 py-1.5 text-10 text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`skill-picker-avail-${s.skillId}`}>
+                    <button key={s.skillId} className="flex items-center justify-between rounded-md border border-border-subtle bg-card px-2 py-1.5 text-10 text-background-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`skill-picker-avail-${s.skillId}`}>
                       <span>{s.name} <span className="font-mono opacity-60">{s.version}</span></span>
                       <Plus aria-hidden className="h-3 w-3" />
                     </button>

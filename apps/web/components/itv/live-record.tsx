@@ -23,7 +23,7 @@ export function LiveRecord({ state, view }: { state: UiState; view: ItvView }) {
   return (
     <section className="flex flex-col gap-3 p-5" data-testid="itv-live-record">
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-20 font-semibold text-foreground">质性访谈现场 · 访谈 10</h1>
+        <h1 className="text-20 font-semibold text-background-foreground">质性访谈现场 · 访谈 10</h1>
         <Badge tone="primary">
           <Sparkles aria-hidden className="h-3 w-3" />{cp.running}
         </Badge>
@@ -41,7 +41,7 @@ export function LiveRecord({ state, view }: { state: UiState; view: ItvView }) {
         <div className="grid gap-3 xl:grid-cols-[220px_1fr_300px]">
           {/* 左：提纲 + 覆盖度 */}
           <Card className="p-3" data-testid="itv-record-coverage">
-            <span className="text-12 font-medium text-foreground">提纲 · 覆盖度</span>
+            <span className="text-12 font-medium text-background-foreground">提纲 · 覆盖度</span>
             <div className="mt-2 flex flex-col gap-1.5">
               {RECORD_COVERAGE.map((c) => (
                 <div key={c.rq} className="flex items-start gap-1.5">
@@ -53,7 +53,7 @@ export function LiveRecord({ state, view }: { state: UiState; view: ItvView }) {
                     <Circle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   )}
                   <div className="flex flex-col">
-                    <span className="text-11 text-foreground">
+                    <span className="text-11 text-background-foreground">
                       {c.rq} {c.label}
                     </span>
                     <span className="text-10 text-muted-foreground">{c.evidence}</span>
@@ -65,7 +65,7 @@ export function LiveRecord({ state, view }: { state: UiState; view: ItvView }) {
 
           {/* 中：逐字稿 */}
           <Card className="p-3" data-testid="itv-record-transcript">
-            <span className="text-12 font-medium text-foreground">逐字稿</span>
+            <span className="text-12 font-medium text-background-foreground">逐字稿</span>
             <div className="mt-2 flex flex-col gap-2">
               {RECORD_TRANSCRIPT.map((l, i) => (
                 <div
@@ -78,7 +78,7 @@ export function LiveRecord({ state, view }: { state: UiState; view: ItvView }) {
                 >
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="text-10 font-mono text-muted-foreground">{l.time}</span>
-                    <span className="text-11 font-medium text-foreground">{l.speaker}</span>
+                    <span className="text-11 font-medium text-background-foreground">{l.speaker}</span>
                     {l.aiOptOut && (
                       <Badge tone="danger" data-testid={`itv-transcript-optout-${i}`}>
                         <ShieldOff aria-hidden className="h-3 w-3" />拒绝 AI 分析 · 仅原文引述
@@ -90,7 +90,7 @@ export function LiveRecord({ state, view }: { state: UiState; view: ItvView }) {
                       </Badge>
                     )}
                   </div>
-                  <p className="mt-1 text-12 text-foreground">{l.text}</p>
+                  <p className="mt-1 text-12 text-background-foreground">{l.text}</p>
                 </div>
               ))}
             </div>
@@ -98,13 +98,13 @@ export function LiveRecord({ state, view }: { state: UiState; view: ItvView }) {
 
           {/* 右：AI 副驾驶 */}
           <Card className="p-3" data-testid="itv-record-copilot">
-            <span className="text-12 font-medium text-foreground">AI 副驾驶 · 后台的 worker</span>
+            <span className="text-12 font-medium text-background-foreground">AI 副驾驶 · 后台的 worker</span>
             <div className="mt-2 flex flex-col gap-3">
               <div>
                 <p className="text-10 uppercase tracking-wide text-muted-foreground">识别的主题</p>
                 {cp.themes.map((t) => (
                   <div key={t.name} className="mt-1 flex items-center gap-1.5">
-                    <span className="text-11 text-foreground">{t.name}</span>
+                    <span className="text-11 text-background-foreground">{t.name}</span>
                     <Badge tone="neutral">{t.quotes} 条 · {t.strength}</Badge>
                   </div>
                 ))}
@@ -123,7 +123,7 @@ export function LiveRecord({ state, view }: { state: UiState; view: ItvView }) {
                 {cp.highValueFollowups.map((f, i) => (
                   <div key={i} className="mt-1 flex items-start gap-1.5">
                     <Badge tone="primary">高</Badge>
-                    <span className="text-10 text-foreground">{f}</span>
+                    <span className="text-10 text-background-foreground">{f}</span>
                   </div>
                 ))}
                 <Button size="xs" variant="outline" className="mt-2" disabled={view !== "researcher"}>

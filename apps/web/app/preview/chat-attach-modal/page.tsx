@@ -55,7 +55,7 @@ function mockCtl(attachments: LiveAttachment[]): ChatAttachmentsController {
 export default function ChatAttachModalPreviewPage() {
   const [scene, setScene] = React.useState<keyof typeof SCENES>("mix");
   return (
-    <main className="min-h-screen bg-background p-6 text-foreground">
+    <main className="min-h-screen bg-background p-6 text-background-foreground">
       {/* 场景切换器：z 高于面板（面板 z-40），签核时逐态点选核对 */}
       <nav className="fixed left-4 top-4 z-50 flex gap-1.5" data-testid="chat-attach-modal-scene-nav">
         {(Object.keys(SCENES) as Array<keyof typeof SCENES>).map((s) => (

@@ -28,7 +28,7 @@ export function SkillLibrary({ state, view }: { state: UiState; view: SkillView 
     <div className="flex flex-col gap-4">
       <ScreenHead title="Skill 库与市场" uc="UC-3.1 R3/R7 · F61 F62">
         每个 skill 是一份声明式契约（提示词模板 ＋ 输入输出 schema ＋ 数据范围声明），
-        经<strong className="text-foreground">安全扫描 + 方法论审核</strong>双门禁发布。来源标记由系统按入口自动打标，提交人不可改写。
+        经<strong className="text-background-foreground">安全扫描 + 方法论审核</strong>双门禁发布。来源标记由系统按入口自动打标，提交人不可改写。
       </ScreenHead>
 
       <RoleGate view={view} allow={["maintainer", "reviewer", "facilitator"]} what="Skill 库">
@@ -48,7 +48,7 @@ export function SkillLibrary({ state, view }: { state: UiState; view: SkillView 
         >
           {view === "facilitator" && (
             <p className="mb-3 rounded-md border border-border-subtle bg-panel px-3 py-2 text-11 text-muted-foreground">
-              引导师视角：只读浏览<strong className="text-foreground">已启用且可见性范围覆盖你</strong>的 skill，用于在蓝本里绑定（UC-3.2）。
+              引导师视角：只读浏览<strong className="text-background-foreground">已启用且可见性范围覆盖你</strong>的 skill，用于在蓝本里绑定（UC-3.2）。
               不能改契约、不能发布、看不到待审核队列。
             </p>
           )}
@@ -233,7 +233,7 @@ function ContractEditor({ onClose }: { onClose: () => void }) {
         </div>
         <p className="rounded-md border border-border-subtle bg-panel px-2 py-1.5 text-10 text-muted-foreground">
           提交后系统跑静态契约校验（必填齐全、schema 可解析自洽、数据范围不越权）与安全扫描，
-          结论三态：通过 / 有风险项待确认 / 拒绝。<strong className="text-foreground">声明读原始转写但未授权 → 校验失败、不进待审核队列。</strong>
+          结论三态：通过 / 有风险项待确认 / 拒绝。<strong className="text-background-foreground">声明读原始转写但未授权 → 校验失败、不进待审核队列。</strong>
         </p>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="primary" data-testid="skill-editor-submit">提交校验</Button>
@@ -244,11 +244,11 @@ function ContractEditor({ onClose }: { onClose: () => void }) {
             与「导入契约（社区）」同受 D-06 支配，phase-1 仍是置灰展示——完整画出签核意图，
             不因为暂不接后端就从签核材料里消失。 */}
         <div className="mt-1 rounded-md border border-border-subtle bg-panel-alt p-3" data-testid="skill-market-picks">
-          <p className="mb-2 text-11 font-medium text-foreground">或从市场挑一个改</p>
+          <p className="mb-2 text-11 font-medium text-background-foreground">或从市场挑一个改</p>
           <div className="grid gap-2 sm:grid-cols-3">
             {MARKET_PICKS.map((m) => (
               <div key={m.id} className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2.5" data-testid={`skill-market-${m.id}`}>
-                <span className="text-11 font-medium text-foreground">{m.name}</span>
+                <span className="text-11 font-medium text-background-foreground">{m.name}</span>
                 <span className="text-9 text-muted-foreground">{m.countLabel}</span>
                 <Button size="xs" variant="outline" disabled={COMMUNITY_DISABLED} title={COMMUNITY_DISABLED ? "社区市场浏览 phase-1 不实现（D-06），入口置灰" : undefined} data-testid={`skill-market-browse-${m.id}`}>
                   浏览
@@ -282,7 +282,7 @@ function ContractBlock({ label, body }: { label: string; body: string }) {
   return (
     <div className="flex flex-col gap-1 rounded-md border border-border-subtle bg-panel p-3">
       <span className="text-10 uppercase tracking-wide text-muted-foreground">{label}</span>
-      <pre className="whitespace-pre-wrap font-mono text-11 text-foreground">{body}</pre>
+      <pre className="whitespace-pre-wrap font-mono text-11 text-background-foreground">{body}</pre>
     </div>
   );
 }
@@ -299,7 +299,7 @@ function TryRunPanel({ bad }: { bad: boolean }) {
         </div>
       ) : (
         <div className="flex flex-col gap-1">
-          <pre className="whitespace-pre-wrap font-mono text-10 text-foreground">{TRY_RUN_SAMPLE.ok.output}</pre>
+          <pre className="whitespace-pre-wrap font-mono text-10 text-background-foreground">{TRY_RUN_SAMPLE.ok.output}</pre>
           <p className="text-9 text-muted-foreground">{TRY_RUN_SAMPLE.ok.note}</p>
         </div>
       )}

@@ -19,15 +19,15 @@ export function SkillPromotion({ state, view }: { state: UiState; view: SkillVie
     <div className="flex flex-col gap-4">
       <ScreenHead title="方法晋升生成 skill" uc="UC-3.5 R3 · F67（接收端）">
         方法类知识被 [批准并推给全员] 后，Skill 库自动生成一条来源=「晋升生成」的 skill——
-        但<strong className="text-foreground">自动生成 ≠ 自动发布</strong>，落待审核。skill 与源知识双向关联，详情页显著展示「来自组织大脑」。
+        但<strong className="text-background-foreground">自动生成 ≠ 自动发布</strong>，落待审核。skill 与源知识双向关联，详情页显著展示「来自组织大脑」。
       </ScreenHead>
 
       {/* phase 边界待裁决横幅 */}
       <div className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/5 p-3" data-testid="skill-promotion-boundary">
         <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
         <p className="text-10 leading-relaxed text-muted-foreground">
-          <strong className="text-foreground">边界待裁决：</strong>触发端「组织大脑 · 晋升队列」在 14-brain（phase-3，D-24），
-          与本能力域的重叠边界 UC 未写清。本原型按 R10 处置②只做<strong className="text-foreground">接收端</strong>（来源取值 / 双向关联字段 /
+          <strong className="text-background-foreground">边界待裁决：</strong>触发端「组织大脑 · 晋升队列」在 14-brain（phase-3，D-24），
+          与本能力域的重叠边界 UC 未写清。本原型按 R10 处置②只做<strong className="text-background-foreground">接收端</strong>（来源取值 / 双向关联字段 /
           自动生成≠自动发布门禁路径），触发端就位后接通。触发侧界面（下方晋升队列）仅示意，非本 phase 交付。
         </p>
       </div>
@@ -121,7 +121,7 @@ function BrainLine({ label, value, link }: { label: string; value: string; link?
           <Link2 aria-hidden className="h-3 w-3" />{value}
         </a>
       ) : (
-        <span className="text-foreground">{value}</span>
+        <span className="text-background-foreground">{value}</span>
       )}
     </div>
   );
@@ -150,7 +150,7 @@ function ApproveDialog({ onClose }: { onClose: () => void }) {
         <div className="flex flex-col gap-1 rounded-md border border-ai/30 bg-ai-tint/40 p-2" data-testid="skill-promotion-draft-preview">
           <span className="text-9 uppercase tracking-wide text-muted-foreground">将生成的 skill 草稿预览</span>
           <span className="text-10">名称：{d.name} · 目标 agent：{d.targetAgent}</span>
-          <pre className="whitespace-pre-wrap font-mono text-9 text-foreground">{d.template}</pre>
+          <pre className="whitespace-pre-wrap font-mono text-9 text-background-foreground">{d.template}</pre>
           <span className="text-9 text-muted-foreground">schema in: {d.io.input.join(", ")} → out: {d.io.output.join(", ")}</span>
           <span className="text-9 text-muted-foreground">数据范围：{d.dataScope} · 已过脱敏闸门</span>
         </div>

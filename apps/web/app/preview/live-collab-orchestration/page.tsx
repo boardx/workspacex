@@ -26,7 +26,7 @@ export default function LiveCollabOrchestrationPreviewPage({
     `/preview/live-collab-orchestration?screen=${next.screen ?? screen}&state=${next.state ?? state}&as=${next.as ?? role}`;
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-background-foreground">
       <div className="flex flex-col gap-2 border-b border-border px-4 py-3" data-testid="lc-preview-nav">
         <NavRow label="屏">
           {LC_SCREENS.map((s) => (

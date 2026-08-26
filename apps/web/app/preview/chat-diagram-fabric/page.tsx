@@ -28,7 +28,7 @@ export default function ChatDiagramFabricPreviewPage({
   const scene = resolveFabricScene(searchParams.scene);
   const messages = fabricMessages(scene);
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <main className="min-h-screen bg-background text-background-foreground">
       <nav
         className="flex flex-wrap items-center gap-1.5 border-b border-border px-4 py-3"
         data-testid="chat-diagram-fabric-scene-nav"

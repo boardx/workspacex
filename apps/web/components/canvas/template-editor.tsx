@@ -102,7 +102,7 @@ export function TemplateEditor({
                       <div className={cn("flex max-w-[85%] flex-col gap-1.5 rounded-lg px-2.5 py-1.5 text-12", t.from === "ai" ? "bg-panel text-foreground" : "bg-primary text-primary-foreground")}>
                         <span>{t.text}</span>
                         {t.parsed && (
-                          <span className="flex items-center gap-1 rounded bg-card/80 px-1.5 py-0.5 text-10 text-foreground" data-testid={`tpled-dialog-parsed-${i}`}>
+                          <span className="flex items-center gap-1 rounded bg-card/80 px-1.5 py-0.5 text-10 text-background-foreground" data-testid={`tpled-dialog-parsed-${i}`}>
                             <FileCode2 aria-hidden className="h-3 w-3" /> {t.parsed.file} · {t.parsed.result}
                           </span>
                         )}
@@ -142,7 +142,7 @@ export function TemplateEditor({
                   </span>
                 </div>
                 <div className="p-3">
-                  <pre className="max-h-44 overflow-auto rounded-md bg-panel p-2.5 text-10 leading-relaxed text-foreground" data-testid="tpled-mermaid">
+                  <pre className="max-h-44 overflow-auto rounded-md bg-panel p-2.5 text-10 leading-relaxed text-background-foreground" data-testid="tpled-mermaid">
                     <code>{CANVAS_MARKDOWN_SYNC.mermaid}</code>
                   </pre>
                   <Button size="xs" variant="outline" className="mt-2" disabled={readOnly} data-testid="tpled-rebuild">
@@ -170,7 +170,7 @@ export function TemplateEditor({
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {INFO_BAR_FIELDS.map((f) => (
-                        <span key={f} className="rounded border border-border px-1.5 py-0.5 text-10 text-foreground">{f}</span>
+                        <span key={f} className="rounded border border-border px-1.5 py-0.5 text-10 text-background-foreground">{f}</span>
                       ))}
                       <span className="rounded border border-dashed border-border px-1.5 py-0.5 text-10 text-muted-foreground">＋</span>
                     </div>
@@ -202,7 +202,7 @@ export function TemplateEditor({
                         >
                           <GripVertical aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                           <span className="w-5 text-10 text-muted-foreground">{z.num}</span>
-                          <span className="flex-1 text-11 text-foreground">{z.name}</span>
+                          <span className="flex-1 text-11 text-background-foreground">{z.name}</span>
                           <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: z.color }} aria-hidden />
                           {z.required && <Badge tone="warning">必填</Badge>}
                           <span className="w-10 text-right text-10 text-muted-foreground" data-testid={`tpled-zone-fill-${z.num}`}>
@@ -242,11 +242,11 @@ export function TemplateEditor({
                         <Bot aria-hidden className="h-3 w-3" /> AI 能不能动这一区
                       </p>
                       <div className="flex items-center justify-between text-11">
-                        <span className="text-foreground">允许 AI 补便签</span>
+                        <span className="text-background-foreground">允许 AI 补便签</span>
                         <StaticSwitch on={zone.aiAddSticky} label="允许 AI 补便签" testId={`tpled-zone-ai-add-${zone.num}`} />
                       </div>
                       <div className="mt-1 flex items-center justify-between text-11">
-                        <span className="text-foreground">允许 AI 改人写的便签</span>
+                        <span className="text-background-foreground">允许 AI 改人写的便签</span>
                         <StaticSwitch on={zone.aiEditHuman} label="允许 AI 改人写的便签" testId={`tpled-zone-ai-edit-${zone.num}`} />
                       </div>
                     </div>
@@ -266,7 +266,7 @@ export function TemplateEditor({
                     <div key={v.version} className="flex items-start gap-2 rounded-md border border-border-subtle px-2.5 py-1.5" data-testid={`tpled-version-${v.version}`}>
                       <Badge tone={v.status === "当前发布版" ? "primary" : v.status === "未发布" ? "warning" : "neutral"}>{v.version}</Badge>
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                        <span className="text-11 text-foreground">{v.note}</span>
+                        <span className="text-11 text-background-foreground">{v.note}</span>
                         <span className="text-10 text-muted-foreground">
                           {v.by} · {v.when} · {v.status}{v.usage ? ` · ${v.usage}` : ""}
                         </span>
@@ -294,7 +294,7 @@ export function TemplateEditor({
                   {TEMPLATE_ZONES.filter((z) => z.fillRate !== null).map((z) => (
                     <div key={z.num} data-testid={`tpled-fill-${z.num}`}>
                       <div className="mb-0.5 flex items-center justify-between text-10">
-                        <span className="text-foreground">{z.name}</span>
+                        <span className="text-background-foreground">{z.name}</span>
                         <span className={cn("tabular-nums", (z.fillRate ?? 0) < 30 ? "text-destructive" : "text-muted-foreground")}>{z.fillRate}%</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
@@ -358,7 +358,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-2">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right text-foreground">{value}</dd>
+      <dd className="text-right text-background-foreground">{value}</dd>
     </div>
   );
 }

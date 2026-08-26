@@ -24,7 +24,7 @@ export function ItvChainNav({
   return (
     <nav data-testid="itv-chain-nav" className="flex flex-col gap-4 p-3">
       <div className="flex flex-col gap-1">
-        <span className="text-13 font-semibold text-foreground">访谈 · 用户洞察</span>
+        <span className="text-13 font-semibold text-background-foreground">访谈 · 用户洞察</span>
         <span className="text-10 text-muted-foreground">独立发起，不依赖项目</span>
       </div>
 

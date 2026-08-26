@@ -303,7 +303,7 @@ function PageHeading({ eyebrow, title, description, action }: { eyebrow: string;
     <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
       <div className="space-y-1">
         <p className="text-11 font-medium uppercase tracking-wider text-primary">{eyebrow}</p>
-        <h1 className="text-24 font-semibold tracking-tight text-foreground">{title}</h1>
+        <h1 className="text-24 font-semibold tracking-tight text-background-foreground">{title}</h1>
         <p className="max-w-2xl text-13 leading-relaxed text-muted-foreground">{description}</p>
       </div>
       {action}
@@ -327,7 +327,7 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
       <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
         <div className="space-y-1">
           <p className="text-11 font-medium text-muted-foreground">Studio&nbsp;&nbsp;/&nbsp;&nbsp;研究</p>
-          <h1 className="text-24 font-semibold tracking-tight text-foreground">研究</h1>
+          <h1 className="text-24 font-semibold tracking-tight text-background-foreground">研究</h1>
           <p className="max-w-2xl text-12 leading-relaxed text-muted-foreground">从一个明确的问题开始，让 AI 帮你拆方向、定大纲、检索资料并生成带引用的完整报告。</p>
         </div>
         <Button variant="primary" size="lg" onClick={() => setCreateOpen(true)} data-testid="research-create"><Plus className="h-4 w-4" aria-hidden />创建研究</Button>
@@ -946,5 +946,5 @@ function ReportScreen({
 }
 
 function ReportSection({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  return <section id={id} className="space-y-3"><h3 className="text-17 font-semibold">{title}</h3><div className="space-y-3 text-13 leading-7 text-foreground">{children}</div></section>;
+  return <section id={id} className="space-y-3"><h3 className="text-17 font-semibold">{title}</h3><div className="space-y-3 text-13 leading-7 text-background-foreground">{children}</div></section>;
 }

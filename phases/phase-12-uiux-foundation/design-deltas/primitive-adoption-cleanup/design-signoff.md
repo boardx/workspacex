@@ -1,5 +1,5 @@
 ---
-status: draft
+status: confirmed
 bundle: primitive-adoption-cleanup
 base_bundle: interaction-primitives
 scope: swap-existing-primitives-plus-token-hotfix
@@ -8,9 +8,9 @@ covers:
   - F21
   - F22
 ruling: "人类在会话内看到 tpl-designer「工作坊·蓝本设计」页真实截图后反馈'整体的tokens感觉并没有改变？左边的nav bar上方的icon是错误的W'，Claude 逐点列出 8 处具体不专业观感问题。人类回复'对整个系统做一次重构，使用新的设计，并解决以上的问题'。Claude 随后做了全站审计，确认规模集中在 tpl-designer（45%）+ canvas/chat 两个次热点。**在审计与方案草拟期间，人类又发来一张真实截图，指出'选中的tag都看不到文字，我们的所有的UI没有遵循基础的UIUX的架构在实施，请统一全系统的UIUX架构和标准，避免这个事情再次发生'**——Claude 定位到根因：`tailwind.config.ts` 里 `foreground` 从来不是独立顶层色键，`bg-foreground`/`text-background`/`border-foreground` 这类写法不生成任何 CSS，全仓 270 处、60 个文件命中，其中约 43 处是真实可见的失效（chip/进度条填充/选中态描边不可见）。Claude 已将这 43 处**作为紧急缺陷修复**直接改用已存在的 `inverse`/`inverse-foreground` token（不引入新设计，只是把坏掉的写法换成本来就该用的、已经签核过的 token），并新增 lint 规则 U12 + 存量豁免登记表挡住新增、追踪剩余 227 处待迁移——这部分不需要本 delta 签核（是缺陷修复，不是新设计）。本 delta 待签核的是**后续的系统性方案**：F20（门控收紧节奏）、F21（tpl-designer 主攻）、F22（canvas 跟进）、以及 227 处 `text-foreground` 类存量的分批迁移安排。"
-confirmed_by: null
-confirmed_at: null
-confirmed_via: null
+confirmed_by: usamshen
+confirmed_at: 2026-08-26
+confirmed_via: usamshen
 ---
 
 # 共享原语补齐 + token 失效清理 —— 设计签核（草案，待人类确认）

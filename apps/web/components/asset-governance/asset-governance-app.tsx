@@ -160,7 +160,7 @@ function RightRail({ screen }: { screen: AgScreen }) {
   return (
     <div className="flex flex-col gap-3 p-3" data-testid="ag-right-rail">
       <div className="flex flex-col gap-1 rounded-lg border border-border-subtle bg-panel-alt p-3">
-        <p className="text-12 font-medium text-foreground">{n.title}</p>
+        <p className="text-12 font-medium text-background-foreground">{n.title}</p>
         <p className="text-11 leading-relaxed text-muted-foreground">{n.body}</p>
       </div>
       <div className="flex flex-col gap-1 rounded-lg border border-warning/30 bg-warning/5 p-3">

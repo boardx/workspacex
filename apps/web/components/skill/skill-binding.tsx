@@ -32,7 +32,7 @@ export function SkillBinding({ state, view }: { state: UiState; view: SkillView 
   return (
     <div className="flex flex-col gap-4">
       <ScreenHead title="工作流编排 · 绑定到环节与角色" uc="UC-3.2 R3/R7 · F63 F64">
-        项目 → 设置 → 工作流编排：在<strong className="text-foreground">议程环节 × 三角色</strong>矩阵上把 skill 挂上去。
+        项目 → 设置 → 工作流编排：在<strong className="text-background-foreground">议程环节 × 三角色</strong>矩阵上把 skill 挂上去。
         实例级改动只影响这场项目、不回写后台模板本体。
       </ScreenHead>
 
@@ -60,7 +60,7 @@ export function SkillBinding({ state, view }: { state: UiState; view: SkillView 
                 </p>
                 <p className="rounded-md border border-border-subtle bg-panel px-2 py-1.5 text-10 text-muted-foreground">
                   套用后可在「议程与材料」里改时长、增删环节、换绑模板与 skill。
-                  <strong className="text-foreground">改动只影响这场项目，不会动后台模板本体。</strong>
+                  <strong className="text-background-foreground">改动只影响这场项目，不会动后台模板本体。</strong>
                   每条绑定记录 skill 版本，现场运行时用项目快照锁定的版本，不因发新版漂移（D-30）。
                 </p>
                 {view === "facilitator" && (
@@ -82,7 +82,7 @@ export function SkillBinding({ state, view }: { state: UiState; view: SkillView 
               <SegmentNamingNote />
             </div>
             <p className="text-10 text-muted-foreground">
-              编排一次，三套视图与待办自动生成——这张表是三视角首屏与角色待办的<strong className="text-foreground">单一来源</strong>。
+              编排一次，三套视图与待办自动生成——这张表是三视角首屏与角色待办的<strong className="text-background-foreground">单一来源</strong>。
             </p>
 
             {/* 表头 */}
@@ -185,7 +185,7 @@ function MatrixRow({
             <div className="flex flex-col gap-1 rounded-md border border-border-subtle bg-panel p-2" data-testid={`skill-seg-pool-${seg.segmentRef}`}>
               <span className="text-9 uppercase tracking-wide text-muted-foreground">可绑定池（已启用 ∩ 可见性覆盖你）</span>
               {BINDABLE_POOL.map((p) => (
-                <button key={p.id} className="flex items-center justify-between rounded-sm px-1.5 py-1 text-10 text-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`skill-seg-pool-opt-${p.id}`}>
+                <button key={p.id} className="flex items-center justify-between rounded-sm px-1.5 py-1 text-10 text-background-foreground transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" data-testid={`skill-seg-pool-opt-${p.id}`}>
                   <span>{p.name} <span className="font-mono opacity-60">{p.version}</span></span>
                   <span className="opacity-60">{SKILL_SOURCE_LABEL[p.source]}</span>
                 </button>
@@ -220,7 +220,7 @@ function ThreeViewProjection({ view }: { view: SkillView }) {
       </div>
       <p className="text-10 text-muted-foreground">
         组长切换环节状态后，引导师/组长/组员三种视角首屏在 1 秒内跟着换；
-        当前环节 <strong className="text-foreground">{current.index} {current.name}</strong> 挂载的 skill 显示「因环节 {current.index} 载入」。
+        当前环节 <strong className="text-background-foreground">{current.index} {current.name}</strong> 挂载的 skill 显示「因环节 {current.index} 载入」。
       </p>
       <Card>
         <CardContent className="flex flex-col gap-2 pt-4">
@@ -251,11 +251,11 @@ function SaveAsDialog({ onClose }: { onClose: () => void }) {
   return (
     <ModalShell testid="skill-saveas-dialog" title="另存为组织模板" onClose={onClose}>
       <p className="text-11 text-muted-foreground">
-        将以<strong className="text-foreground">当前项目实例编排</strong>新建一个组织级工作流模板。<strong className="text-foreground">不回写原模板本体。</strong>
+        将以<strong className="text-background-foreground">当前项目实例编排</strong>新建一个组织级工作流模板。<strong className="text-background-foreground">不回写原模板本体。</strong>
       </p>
       <p className="rounded-md border border-warning/30 bg-warning/5 p-2 text-10 text-muted-foreground">
         协同引导师 = 引导师多实例（O-03）。切模板 / 另存为组织模板涉及「最终确认」，
-        <strong className="text-foreground">须由主持人确认</strong>。当前非主持人时此动作转为「请求主持人确认」。
+        <strong className="text-background-foreground">须由主持人确认</strong>。当前非主持人时此动作转为「请求主持人确认」。
       </p>
       <div className="flex items-center gap-2">
         <Button size="sm" variant="primary" onClick={onClose} data-testid="skill-saveas-confirm">确认另存</Button>
@@ -275,7 +275,7 @@ function OrphanDialog({ templateName, onClose }: { templateName: string; onClose
   return (
     <ModalShell testid="skill-orphan-dialog" title={`改用「${templateName}」将替换整张环节表`} onClose={onClose} danger>
       <p className="text-11 text-muted-foreground">
-        切换会替换整张环节链，以下<strong className="text-foreground">实例级绑定与分工将失去宿主</strong>。确认前不执行，没有绑定条目被静默丢弃（AC6）。
+        切换会替换整张环节链，以下<strong className="text-background-foreground">实例级绑定与分工将失去宿主</strong>。确认前不执行，没有绑定条目被静默丢弃（AC6）。
       </p>
       <ul className="flex flex-col gap-1 rounded-md border border-destructive/30 bg-destructive/5 p-2" data-testid="skill-orphan-list">
         {orphans.map((o) => (
