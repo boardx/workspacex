@@ -5156,14 +5156,14 @@
         "F212"
       ],
       "points": 3,
-      "status": "not_started",
+      "status": "passing",
       "sprint": "21",
-      "owner": null,
+      "owner": "dev-ai-runtime-f213",
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-interrupts/confirm-intent-gates-tools.test.ts",
         "pnpm --filter web exec vitest run tests/ui/agent-interrupt-confirm-intent-card.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F213.verify.log @ 2026-08-26T18:14:24.530Z",
       "notes": "契约束已签核（confirmed）。covers usecases.md UC-1 + domain.md I-1/I-2。依据等级 [Backlog]（纯新能力）。最重要不变量是 I-1「未确认不执行任何工具」——按 usecases UC-1 反证节写成查询即断言（不靠计时器）：confirm-intent-gates-tools.test 断言 agent_run_steps 里 toolName='confirm_task_intent' 且 status='awaiting_approval' 的行之后，同一 runId 不存在 createdAt 更晚且 status≠awaiting_approval 的工具调用行。UI 断言锚定真实 testid（ui.md 屏一）：agent-interrupt-confirm-intent-{card,continue,edit-toggle,edit-submit,gated-notice,assumption-*}；截图 ui-preview/agent-interrupts/uc-1-confirm-intent-*.png（PR #2140/ui-prototyper 交付 25 张，ui.md 已定 testid，不等截图文件本体）。「改假设」= 用新假设重新确认一次（EditDecision 标准语义），非第二轮 UI 流程。边界：AI 何时决定调用 confirm_task_intent 属 skill/prompt 工程，不在本契约（coverage 边界声明）。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。"
     },
     {
