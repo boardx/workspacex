@@ -36,7 +36,7 @@
 | V3c | 加进去的约束撤得掉 | `UC-6 removePlanConstraint` | `chat-task-workbench-plan-constraint-remove` | ✅ 契约闭合（**TW 卡未要求，本束补的**） |
 | **V4** | 确认门**条件性**：复杂任务先确认 | `UC-8 evaluatePlanGate` → `required: true` + `UC-7 confirmPlan` | `chat-task-workbench-plan-confirm` | ✅ 契约闭合 |
 | **V4′** | **反证**：简单提问不得被加确认门（否则 0.3 封顶） | `UC-8` → `reason: "no-plan"`，`required: false`；**判定不依赖阈值**（生产者只有 `write_todos` 一个） | `chat-task-workbench-plan-confirm` **从未进入 DOM** | ✅ 契约闭合（判定见 `usecases.md` UC-8 反证） |
-| **V5** | 执行态：当前步骤 / 完成比例 / 耗时 / **可暂停** | `UC-1 getPlanLedger.progress` + `UC-9 pausePlanRun`（**传输原语现成**：`POST /threads/{id}/runs/{run_id}/cancel`，`langgraph_api/api/runs.py:1006` 实测，本仓未接） | `chat-task-workbench-run-progress`、`chat-task-workbench-run-pause` | ⚠ **缺口 3**（`pause` 依赖远端 `run_id` 是否持久化，探针 P-2 未跑） |
+| **V5** | 执行态：当前步骤 / 完成比例 / 耗时 / **可暂停（且可恢复）** | `UC-1 getPlanLedger.progress` + `UC-9 pausePlanRun`（`cancel?action=interrupt`）+ `UC-13 resumePlanRun`（新 run，续跑）——**均实测确认为标准 LangGraph Platform 原语**（`langgraph-api==0.12.4`，`uv.lock:1112` 锁定版本一致） | `chat-task-workbench-run-progress`、`chat-task-workbench-run-pause` | ⚠ **缺口 3**（`pause` 依赖远端 `run_id` 是否持久化，探针 P-2 未跑）；**新增缺口 9**（暂停后线程状态被其它编辑覆盖时 `resume` 该怎么办，未定） |
 | **V6** | 失败态：失败步骤 + **判据要求三个**恢复动作 | `UC-10 retryPlanStep` / `UC-3-5`+`UC-7`（修改输入） / ~~`UC-11`~~ | `chat-task-workbench-failure-{retry-step,edit-input}`；第三个锚点**不渲染** | ⚠ **缺口 4 —— 已知情裁决：明确不做第三个**（人类 2026-08-26 选 (c)）。**判据没变**，是我们选择不做 ⇒ TW-P0-3 如实封顶 **0.7** |
 
 ---
@@ -68,6 +68,7 @@
 | **6** | 第 ① 件零截图（G-01 ～ G-08） | **材料缺口**，✅ **处置已裁（人类 2026-08-26）：八屏全补齐再签** | `ui-prototyper` 交付 8 屏**到同一分支** `signoff/plan-editing`，人类一次性 Approve。补齐后 `lint-ui-material` 应回绿——**由本束核对**：① 门控退出码直接取；② G-01～G-08 描述与实际截图逐张对得上 |
 | **7** | `stepId` 继承靠「content 逐字相等」的启发式，已知会误判 | **契约不够，但无更好方案** | 引擎侧 payload 无 id（`agui-state-events.ts:38-41` 实测）。I-8 是兜底。**要人类明确接受** |
 | **8** | 本束尚无 feature 编号 | **流程缺口** | `covers:` 当前为空；签核后由 `requirement-author` 生成 feature 再追加（追加规则见 `contract-design.md` 「covers 追加规则」三条件） |
+| **9** | 「恢复」（`resume`，续跑暂停的 run）与「恢复检查点」（`restoreCheckpoint`，跳回任意历史检查点，已裁决 (c) 不做）**是两件不同的事，容易被读混** | **命名 + 边界需要在签核时确认没被混淆** | `resume` 是 `pause` 的配对动作（`UC-13`），只能续跑「刚被暂停的那个 run」；`restoreCheckpoint` 是跳到*任意*历史点，本轮不做。`NO_PAUSED_STATE`（`resume` 找不到可续跑状态时报错）与「恢复检查点整条不存在」是两个独立的失败面，**不要在实现时把 `resume` 悄悄扩成通用检查点恢复**——那等于变相绕过了裁决 (c) |
 
 ---
 
@@ -110,6 +111,7 @@
 | `UC-7 confirmPlan` | V4 | 必需 |
 | `UC-8 evaluatePlanGate` | V4 V4′ | 必需，且 V4′ 的可判定性全靠它 |
 | `UC-9 pausePlanRun` | V5 | 必需 |
+| `UC-13 resumePlanRun` | V5（「可暂停」隐含「可恢复」，人类 2026-08-26 明确裁决） | 必需——**没有它「可暂停」这句话不成立**：暂停了但恢复不了等于「停止」，与人类的裁决相反 |
 | `UC-10 retryPlanStep` | V6① | 必需 |
 | ~~`UC-11 restoreCheckpoint`~~ | V6③ | ✅ **已删除**（人类 2026-08-26 裁决 (c)）。不留一个恒失败的接口——留着就是一个假装存在的能力 |
 | `UC-12 deliverPlanToRun` | I-10（V3b 的实质） | 必需——**没有它，「加约束」就是一个只写数据库的假功能** |

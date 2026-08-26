@@ -46,6 +46,7 @@ PLAN_CONTENT_BLANK          步骤正文全为空白（与 AguiPlanTodo 的 refi
 PLAN_DELIVERY_FAILED        计划/约束未能随下一轮 run 送达引擎 ⇒ 该轮 run 不创建（I-10）
 NO_ACTIVE_RUN               没有活跃 run，pause / retry-step 无对象（I-12）
 RUN_ALREADY_TERMINAL        目标 run 已是终态
+NO_PAUSED_STATE              线程当前不处于「已暂停可恢复」态（UC-13 新增，2026-08-26）
 ```
 
 ⚠ **原稿里的 `CHECKPOINT_UNAVAILABLE` / `RESTORE_NOT_IMPLEMENTED` 两个码已删除**，
@@ -247,14 +248,61 @@ err: NOT_VISIBLE | NO_WRITE_ROLE | NO_ACTIVE_RUN | RUN_ALREADY_TERMINAL
    | AUDIT_SINK_UNAVAILABLE
 ```
 
-⚠ **语义是「中止当前 run」，不是「冻结」**（I-12）。UI 文案必须与之一致——
-写「已暂停，可随时继续」而实现是中止，就是写死文案。
-⚠ 落点：引擎侧 `POST /threads/{id}/runs/{run_id}/cancel`
-（`langgraph_api/api/runs.py:1006` 实测存在，2026-08-26）。
-**判据五「可暂停」的传输原语因此是现成的——不需要发明协议**，
-本仓只是一行都还没接。要写的是规则（谁能暂停、暂停后账本停在哪一版、
-文案与 I-12 的真实语义是否一致），不是协议。
+## ✅ 已核实（2026-08-26）：语义是「可恢复的中止」，不是「冻结」也不是「不可逆停止」
+
+**人类裁决：「暂停，且必须可恢复继续」（不是「停止后重开」）。**
+原稿这里写的是「语义是中止当前 run，不是冻结」，并把「可恢复」列为文案层面
+二选一的取舍——那个判断是在**没有核实检查点是否可续跑**的情况下写的。
+已用本仓 `uv.lock:1112` 锁定的精确版本（`langgraph-api==0.12.4`，PyPI 官方 wheel
+实测，2026-08-26）核实：**可以做到「可恢复」，而且不需要发明新协议**。
+
+**实现**：
+```
+POST /threads/{threadId}/runs/{runId}/cancel?action=interrupt
+```
+`action` 显式传 `"interrupt"`（**不依赖它当前是默认值这件事长期不变**——
+`langgraph_api/api/runs.py:661-665` 实测 2026-08-26 时默认确实是 `"interrupt"`，
+但显式传参更稳）。`"interrupt"` 与 `RunCreateDict.multitask_strategy` 共用同一份
+语义：「Interrupt the current run, **keeping steps completed until now**」
+（`langgraph_api/models/run.py:92-93`）——**不是**丢弃进度的 `"rollback"`。
+配合 `checkpoint_during` 默认异步落盘（`langgraph_api/models/run.py:299-300`），
+暂停时刻的检查点就是「打断前最后完成的步骤」，不是「run 开始前」。
+
+⚠ UI 文案可以写「暂停，可随时继续」——**这不再是写死文案，是真实语义**。
+⚠ 落点：`POST /threads/{id}/runs/{run_id}/cancel`
+（`langgraph_api/api/runs.py:1006`，`langgraph-api==0.12.4` 实测确认，2026-08-26；
+本仓已装的运行时版本与此一致，`apps/deep-agent-service/uv.lock:1112` 锁定同一版本）。
+本仓一行没接，要写的是规则（谁能暂停、暂停后账本停在哪一版），不是协议。
 ⚠ **依赖一个未核实的前提（P-2）**：远端 `run_id` 是否被持久化。见 `domain.md` 第三节 ⑤。
+⚠ **恢复见 `UC-13 resumePlanRun`**——暂停与恢复是一对，缺一个「暂停」的承诺就不成立。
+
+### UC-13 `resumePlanRun` —— 恢复（暂停的另一半，P1-5「恢复」的载体）
+
+**新增（2026-08-26），随「暂停必须可恢复」的裁决一起加。**
+
+```
+in:  { threadId }
+out: { runId, resumedFromStepId: string | null, auditEventId }
+pre: 调用者有写权；线程处于已暂停态（存在被 `pausePlanRun` cancel 过、
+     且之后没有新 run 覆盖过的检查点）
+err: NOT_VISIBLE | NO_WRITE_ROLE | NO_PAUSED_STATE | AUDIT_SINK_UNAVAILABLE
+```
+
+**不是新协议**：底层是「在同一 `threadId` 上创建一轮新 run，不传 `checkpoint_id`
+（默认取最新），`input: null`」——`RunCreateDict.checkpoint_id` 文档逐字
+「Defaults to the latest checkpoint」，`RunCreateDict.input` 文档逐字
+「Pass null to resume from the current state of the thread」
+（均见 `langgraph_api/models/run.py:68-71`）。引擎自己从检查点续跑，
+本束不需要读检查点内容、不需要自己拼装续跑用的 messages。
+
+⚠ **`NO_PAUSED_STATE` 是新码**：区分「这条线程从未暂停过」与
+「暂停后已经被别的动作（例如一次 `deletePlanStep`）产生了新状态」——
+后一种情况下 `resume` 该做什么（继续旧 run 还是基于新账本重新起一轮）
+**是待定项**，见 `coverage.md` 缺口 9。
+
+⚠ **granularity 提醒**：LangGraph 检查点颗粒度是节点/步骤边界。恢复后大概率是
+被打断的那一步**从头重新执行**，不是从步骤内部续传。前端「当前步骤」的语义
+应按步骤级理解，不要暗示「精确到某一句话」。
 
 ### UC-10 `retryPlanStep` —— 重试某一步（判据六 ①）
 
@@ -327,6 +375,6 @@ err: PLAN_DELIVERY_FAILED
 |---|---|---|
 | `PlanLedgerRepository` | 账本读写；`(thread_id, revision)` 唯一；append-only（I-2） | PostgreSQL 新表，见 `design-signoff.md` ③ 节 |
 | `PlanDeliveryGateway` | UC-12；把计划正文送进下一轮 run 并返回真实 digest | 扩 `deep-agent-model-provider` 的 run 创建路径 |
-| `EngineRunController` | **只有 `UC-9` 的 cancel**。checkpoint 恢复本轮不做（裁决 (c)），故该端口不含 history/state 恢复 | `POST /threads/:id/runs/:run_id/cancel` |
+| `EngineRunController` | `UC-9` 的 cancel（`action=interrupt`）+ `UC-13` 的续跑（新 run，不传 `checkpoint_id`）。checkpoint **手动**恢复（`restoreCheckpoint`）本轮不做（裁决 (c)），该端口不含 history/state 恢复；「恢复」= 正常续跑，与「恢复检查点」是两件不同的事，见 `coverage.md` 缺口 9 的辨析 | `POST /threads/:id/runs/:run_id/cancel`、`POST /threads/:id/runs` |
 | `EngineStateReader` | 读回引擎 `values.todos`（**当前读不到**，见 ③ 节） | 扩 `ThreadStateResponse`（`deep-agent-model-provider.ts:166-168`） |
 | `ProvenanceWriter` | I-13 的审计写入 | 复用 `agent-runtime` 束既有端口，**不另建** |

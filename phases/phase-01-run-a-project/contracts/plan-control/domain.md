@@ -113,18 +113,24 @@ PlanGateDecision {
 
 ### 7. `RunControlAction`（执行控制动作 · **封闭枚举，四值**）
 
-TW-P0-3 判据五「可暂停」与判据六「三个恢复动作」的载体。
+TW-P0-3 判据五「可暂停」与判据六「三个恢复动作」的载体，外加 P1-5 明确要求的
+「恢复」这个独立控制动作。
 
 ```
-"pause" | "retry-step" | "edit-input"
+"pause" | "resume" | "retry-step" | "edit-input"
 ```
 
-⚠ **本枚举只有三值，因为 `restore-checkpoint` 本轮明确不做**——
+⚠ **本枚举没有 `restore-checkpoint`，因为它本轮明确不做**——
 **人类 2026-08-26 裁决 (c)**，见第三节 ②。
-
 ⚠ **判据六没有变，它仍然要求三个恢复动作。** 变的是我们**明确选择不做第三个**，
 并把缺口留在明处（`coverage.md` 缺口 4）。**不要把这里读成「判据六只有两个恢复动作」**——
 那是把一次知情的取舍改写成一条被降低的标准。
+
+⚠ **`resume` 是本轮新增（2026-08-26，随「暂停必须可恢复」的裁决一起加）。**
+它**不是新协议**：底层就是「在同一线程上创建一轮新 run，不传 `checkpoint_id`，
+`input: null`」——LangGraph Platform 的标准续跑语义（证据见 I-12）。
+本束把它包一层显式端口（`usecases.md` UC-13），是为了让「暂停之后怎么继续」
+有一个可测试、可审计（I-13）的入口，而不是让前端自己拼一个「无输入创建 run」的调用。
 
 ---
 
@@ -219,15 +225,63 @@ UI 有对应的可见提示元素。
 ⚠ **这条是本束最重要的一条诚实**。理由见第三节 ③——mid-run 写引擎 state 会被
 引擎自己的下一次 `write_todos` 覆盖，做出来是个会随机失效的功能，正是反伪造条款要挡的东西。
 
-**I-12** `pause` 只在存在**活跃 run** 时可用；它的语义是**中止当前 run**，
-不是「冻结」。暂停后账本保持在暂停时刻的 revision，可编辑。
-› 怎么断言：无活跃 run 时调用 `pause` → `NO_ACTIVE_RUN`；
-有活跃 run 时调用后，run 状态转终态且 `POST /threads/:id/runs/:run_id/cancel` 被调用一次。
+**I-12** `pause` 只在存在**活跃 run** 时可用。
 
-⚠ **判据五「可暂停」的传输原语是现成的，不用发明协议。**
-`POST /threads/{id}/runs/{run_id}/cancel` 已存在于本仓 `apps/deep-agent-service` 装着的
-`langgraph_api`（`langgraph_api/api/runs.py:1006` 实测，2026-08-26），**本仓一行没接**。
-要写的是**规则**（谁能暂停、暂停后账本停在哪一版、文案与语义是否一致），不是协议。
+## ✅ 已核实（2026-08-26）：「暂停」可以是真正可恢复的语义，不是「中止后重开」
+
+**人类裁决（2026-08-26）：「暂停，且必须可恢复继续」（不是「停止后重开」）。**
+原稿在这里写的是「语义是中止当前 run，不是冻结」，并把「可恢复」列为需要人类在
+`stop` 和 `pause` 两个文案之间二选一才能兜底的东西——**那个判断是不完整信息下的判断，
+现已用精确版本的源码核实并推翻**。
+
+**证据链（三段，缺一不成立）**：
+
+1. **cancel 默认不丢进度。**
+   `POST /threads/{id}/runs/{run_id}/cancel` 的 `action` 查询参数**默认就是
+   `"interrupt"`**，不是 `"rollback"`（`langgraph_api/api/runs.py:661-665` 实测）。
+   `"interrupt"` 与 `RunCreateDict.multitask_strategy` 共用同一个词、同一份语义
+   （`langgraph_api/models/run.py:92-93` 逐字：「Interrupt the current run,
+   **keeping steps completed until now**, and start a new one」）——即**默认动作
+   就保留已完成的步骤**，`"rollback"` 才是丢弃进度的那个，且必须显式传参才会触发。
+2. **进度在执行途中就已经落盘，不是只在成功收尾时才落盘。**
+   `checkpoint_during` 默认 `None`/`True` ⇒ `durability = "async"`
+   （`langgraph_api/models/run.py:299-300` 实测）——即**每一步都异步持久化检查点**，
+   不是「run 成功结束才写一次」。所以 cancel 打断的那一刻，检查点已经反映了
+   「打断前最后完成的步骤」，不是「run 开始前的原始状态」。
+3. **恢复不需要新协议，只需要不带 `checkpoint_id` 地开一轮新 run。**
+   `RunCreateDict.checkpoint_id` 的字段文档逐字：「Checkpoint ID to start from.
+   **Defaults to the latest checkpoint.**」（`langgraph_api/models/run.py:68-69`）；
+   `RunCreateDict.input` 的字段文档逐字：「Input to the run. **Pass null to resume
+   from the current state of the thread.**」（`:71`）。⇒ 暂停后要继续，只需要在
+   同一 `thread_id` 上**创建一轮新 run、不传 `checkpoint_id`（默认取最新）、
+   `input` 传空**，引擎自己会从暂停时的检查点继续，**不需要任何新的暂停/恢复专属协议**。
+
+⇒ **暂停 = `cancel(action=interrupt)`（显式传参，不依赖默认值长期不变）。
+恢复 = 在同一线程上创建一轮新 run（`input: null`，不传 `checkpoint_id`）。**
+两者都是**已有的标准 LangGraph Platform 原语**，本束不需要发明状态回写协议——
+这与 I-11（mid-run 编辑不可靠、需要 fail closed）是**两件不同的事**：
+I-11 说的是「run 还在跑的时候旁路写 state 不可靠」，这里说的是「run 已经被
+cancel 打断之后再起新 run」，属于 LangGraph 官方支持的**线程续跑**场景，不受
+I-11 那条限制。
+
+⚠ **granularity 提醒（不是反对意见，是实现要知道的边界）**：LangGraph 的检查点
+颗粒度是**节点/步骤边界**，不是节点内部的任意指令。若暂停发生在某个 step 执行到
+一半，恢复后大概率是**该 step 从头重新执行**，不是从 step 内部断点续传。
+计划账本对用户展示的「当前步骤」应按「步骤级」理解这个语义，不要暗示「精确到某一句」。
+
+**判据五「可暂停」与恢复的传输原语都是现成的，不用发明协议。**
+`POST /threads/{id}/runs/{run_id}/cancel`（`action=interrupt`）与
+`POST /threads/{id}/runs`（不传 `checkpoint_id`，`input: null`）
+都是本仓已装的 `langgraph_api` 的标准路由。实测出处见 `langgraph-api==0.12.4`（`apps/deep-agent-service/uv.lock:1112` 锁定的精确版本，
+经 PyPI 官方 wheel `langgraph_api-0.12.4-py3-none-any.whl` 实测确认，2026-08-26）。
+本仓**一行没接**，要写的是**规则**（谁能暂停、暂停后账本停在哪一版、
+恢复时是否需要用户显式点「恢复」还是自动续跑），不是协议。
+
+› 怎么断言：无活跃 run 时调用 `pause` → `NO_ACTIVE_RUN`；
+有活跃 run 时调用后，run 状态转终态且
+`POST /threads/:id/runs/:run_id/cancel?action=interrupt` 被调用一次；
+随后调用 `resumePlanRun`（见 `usecases.md` UC-13）应使同一线程续跑，
+断言恢复后的 run **不重新执行已完成的步骤**（只重跑被打断的那一步）。
 
 **I-13** 任何 `RunControlAction` 都产生**一条审计事件**，越权尝试同样产生。
 › 怎么断言：四个动作各调一次，审计表各多一行；无权限的调用者调用后被拒且审计表仍多一行。

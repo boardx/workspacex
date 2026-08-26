@@ -127,13 +127,26 @@
 
 ### 2.5 执行态（S5，判据五）与失败态（S6，判据六）
 
-**S5**：`当前步骤：对比竞品 · 2/3 · 已用 1 分 12 秒`，右侧一个「暂停」。
-- 锚点 `chat-task-workbench-run-progress`、`chat-task-workbench-run-pause`（**UC-9**）。
+**S5**：`当前步骤：对比竞品 · 2/3 · 已用 1 分 12 秒`，右侧一个「暂停」；
+暂停后原地变为「恢复」（同一个按钮位切换，不是两个并存的按钮）。
+
+## ✅ 已裁决（人类 2026-08-26）：「暂停」，且必须可恢复继续 —— 已核实可做到
+
+- 锚点 `chat-task-workbench-run-progress`、`chat-task-workbench-run-pause`（**UC-9**，
+  暂停时触发）、`chat-task-workbench-run-resume`（**UC-13**，恢复时触发；
+  与 `run-pause` 是同一控件在两种状态下的呈现，不是并列的第二个按钮）。
 - ⚠ 「耗时」必须是真实的 run 起止差（`getPlanLedger.progress.elapsedMs`），
-  不是前端起的一个计时器——刷新后它必须还是对的。
-- ⚠ 「暂停」的文案与 I-12 的真实语义（中止当前 run）必须一致。
-  若人类接受「暂停 = 中止后可重开一轮」，文案建议直接写**「停止」**，不写「暂停」。
-  **这条请人类拍**（`design-signoff.md` ① 节）。
+  不是前端起的一个计时器——刷新后它必须还是对的。**暂停期间耗时应停止累加**，
+  恢复后从暂停点继续累加，不是清零重算。
+- **文案「暂停」是真实语义，不是写死的**：已用本仓锁定的精确版本
+  `langgraph-api==0.12.4`（`apps/deep-agent-service/uv.lock:1112`）核实——
+  `cancel(action=interrupt)` 默认保留已完成步骤，检查点在执行途中已异步落盘，
+  新起一轮不传 `checkpoint_id` 的 run 会自动从最新检查点续跑。
+  证据链与行号见 `domain.md` I-12、`usecases.md` UC-9/UC-13。
+  ⇒ **不需要把文案改成「停止」**，原稿那条「二选一」的顾虑已解除。
+- ⚠ **颗粒度提示（措辞要注意，不要过度承诺）**：恢复后大概率是被打断的那一步
+  **从头重新执行**，不是从步骤内部精确断点续传。「当前步骤：对比竞品」这类文案
+  按「步骤级」理解，不要写成暗示逐字断点续传的措辞（例如不要写「从刚才那句话继续」）。
 
 **S6**：`第 3 步「生成报告」失败：目标文件无权限`，下面三个动作：
 
@@ -215,17 +228,23 @@ chat-task-workbench-run-progress
 chat-task-workbench-run-pause
 chat-task-workbench-failure-retry-step
 chat-task-workbench-failure-edit-input
-chat-task-workbench-failure-restore-checkpoint
 ```
 
-本束**新增**四个（TW 卡未列，因为它们是 I-5 / I-8 / I-11 的界面面，
-卡上只写了判据不写不变量的告知面）：
+⚠ `chat-task-workbench-failure-restore-checkpoint` 是 TW 卡列出的锚点，但**本束不渲染它**
+（人类 2026-08-26 裁决 (c)，见 2.5 节）——TW 卡是判据单一事实源，本文件不改它的文字，
+只在这里如实注明本束的落地状态：这个锚点**不存在于 DOM**，e2e 用例要断言它缺席并给出
+「本轮明确不做」的失败信息，不许 `test.skip`。
+
+本束**新增**五个（原四个是 I-5 / I-8 / I-11 的界面面，TW 卡未列；
+第五个 `run-resume` 是本轮新增，随「暂停必须可恢复」的裁决一起加，
+卡上只写了判据不写不变量的告知面，也没写「恢复」这个配对动作）：
 
 ```
 chat-task-workbench-plan-constraint-remove   （UC-6）
 chat-task-workbench-plan-stale-banner        （I-5）
 chat-task-workbench-plan-pending-apply       （I-11）
 chat-task-workbench-plan-orphan-constraint   （I-8）
+chat-task-workbench-run-resume               （UC-13，2026-08-26 新增；与 run-pause 同一控件的两态）
 ```
 
 ⚠ 这四个是**新增锚点**，签核时请一并确认；它们**不进 TW 卡**
@@ -236,8 +255,10 @@ chat-task-workbench-plan-orphan-constraint   （I-8）
 ## 五、这一件签核时要看什么
 
 - [x] ~~零截图签不签~~ —— **已裁决：八屏全补齐再签**（人类 2026-08-26，见本文件顶部）。
-- [ ] **删步骤不做二次确认、改用「已移除 · 撤销」**（2.1 末尾）。
-- [ ] **「暂停」还是「停止」**——文案必须与 I-12 的真实语义一致（2.5）。
+- [x] ~~删步骤不做二次确认、改用「已移除 · 撤销」~~ —— **已确认（人类 2026-08-26）**：
+      就是 `ui-preview/plan-control/g-02-plan-edit-actions.png` 已画的那版，不用重画。
+- [x] ~~「暂停」还是「停止」~~ —— **已确认（人类 2026-08-26）：「暂停」，且必须可恢复继续**。
+      技术上已核实可行（见 2.5 节的证据链），不需要退回「停止后重开」。
 - [x] ~~「恢复检查点」按钮渲不渲染~~ —— **已裁决 (c)：不渲染**（人类 2026-08-26）。
 - [ ] **执行中编辑的告知文案**（2.2）——这是 I-11 那条产品行为对用户的唯一出口。
-- [ ] **四个新增锚点**（第四节末）是否接受。
+- [ ] **五个新增锚点**（第四节末；本轮因「恢复」新增了 `run-resume`，从四个变五个）是否接受。
