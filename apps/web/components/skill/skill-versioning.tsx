@@ -113,7 +113,7 @@ function DisableDialog({ onClose }: { onClose: () => void }) {
   return (
     <DialogShell testid="skill-disable-dialog" title={`停用「${target.name}」`} onClose={onClose}>
       <p className="text-11 text-muted-foreground">
-        停用后：新蓝本 / 新项目 / 新对话不再能选到它；<strong className="text-foreground">进行中的继续按锁定版本跑完</strong>。确认前不执行。
+        停用后：新蓝本 / 新项目 / 新对话不再能选到它；<strong className="text-background-foreground">进行中的继续按锁定版本跑完</strong>。确认前不执行。
       </p>
       <div className="grid grid-cols-3 gap-2" data-testid="skill-disable-refs">
         <RefCol title="进行中项目" n={refs.projects} sample={["欧洲市场进入", "能源转型咨询"]} />
@@ -144,7 +144,7 @@ function HardDeleteDialog({ onClose }: { onClose: () => void }) {
   return (
     <DialogShell testid="skill-harddelete-dialog" title="硬删除被永久拒绝" onClose={onClose} danger>
       <p className="text-11 text-destructive" role="alert">
-        「{target.name}」存在引用（含历史项目），硬删被<strong className="text-foreground">永久拒绝</strong>——历史项目在保留期内必须能解析其当时使用的契约。
+        「{target.name}」存在引用（含历史项目），硬删被<strong className="text-background-foreground">永久拒绝</strong>——历史项目在保留期内必须能解析其当时使用的契约。
       </p>
       <p className="rounded-md border border-border-subtle bg-panel p-2 text-10 text-muted-foreground">
         返回的引用清单：进行中项目 {target.refs.projects} · 蓝本 {target.refs.blueprints} · agent 挂载 {target.refs.agents}。

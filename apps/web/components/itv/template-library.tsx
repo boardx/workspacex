@@ -26,7 +26,7 @@ export function TemplateLibrary({ state, view }: { state: UiState; view: ItvView
     <section className="flex flex-col gap-4 p-5" data-testid="itv-template-library">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <h1 className="text-20 font-semibold text-foreground">
+          <h1 className="text-20 font-semibold text-background-foreground">
             访谈模板 · {h.count}
           </h1>
           <p className="text-12 text-muted-foreground">{h.blurb}</p>
@@ -70,7 +70,7 @@ export function TemplateLibrary({ state, view }: { state: UiState; view: ItvView
                   <div className="flex min-w-0 flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <FileText aria-hidden className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-14 font-medium text-foreground">{t.name}</span>
+                      <span className="text-14 font-medium text-background-foreground">{t.name}</span>
                       <Badge tone="primary" data-testid={`itv-template-usedcount-${t.id}`}>
                         用过 {t.usedCount} 次
                       </Badge>
@@ -114,7 +114,7 @@ export function TemplateLibrary({ state, view }: { state: UiState; view: ItvView
                         data-testid={`itv-template-report-${t.id}`}
                       >
                         <Link2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-11 text-foreground">配套报告模板：{rt.name}</span>
+                        <span className="text-11 text-background-foreground">配套报告模板：{rt.name}</span>
                         <Badge tone="outline">{rt.chapters.length} 章</Badge>
                         <Button asChild size="xs" variant="ghost" data-testid={`itv-template-report-open-${t.id}`}>
                           <a href={navHref({ screen: "template-editor", view, state: "default" })}>看报告模板</a>
@@ -126,7 +126,7 @@ export function TemplateLibrary({ state, view }: { state: UiState; view: ItvView
                         data-testid={`itv-template-report-missing-${t.id}`}
                       >
                         <AlertCircle aria-hidden className="h-3.5 w-3.5 text-warning" />
-                        <span className="text-11 text-foreground">未定义报告模板 —— 访谈结束后无法一键出洞察报告</span>
+                        <span className="text-11 text-background-foreground">未定义报告模板 —— 访谈结束后无法一键出洞察报告</span>
                         <Button asChild size="xs" variant="outline" data-testid={`itv-template-report-define-${t.id}`}>
                           <a href={navHref({ screen: "template-editor", view, state: "default" })}>定义报告模板</a>
                         </Button>

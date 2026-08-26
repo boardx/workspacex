@@ -34,7 +34,7 @@ export function NewInterviewWizard({
   return (
     <section className="flex flex-col gap-4 p-5" data-testid="itv-new-wizard">
       <header className="flex flex-col gap-1">
-        <h1 className="text-20 font-semibold text-foreground">新建访谈 · 选模板 → 选对象 → 生成提纲</h1>
+        <h1 className="text-20 font-semibold text-background-foreground">新建访谈 · 选模板 → 选对象 → 生成提纲</h1>
         <p className="text-12 text-muted-foreground">范围默认继承当前切换器取值，向导内可改为「不属于任何项目」。</p>
       </header>
 
@@ -50,7 +50,7 @@ export function NewInterviewWizard({
                 s.no === step
                   ? "border-primary bg-primary text-primary-foreground"
                   : s.no < step
-                    ? "border-border bg-card text-foreground hover:bg-muted"
+                    ? "border-border bg-card text-background-foreground hover:bg-muted"
                     : "border-border-subtle bg-panel text-muted-foreground hover:bg-muted",
               )}
             >
@@ -96,7 +96,7 @@ function StepTemplate({ view, state }: { view: ItvView; state: UiState }) {
               <div className="flex flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <FileText aria-hidden className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-13 font-medium text-foreground">{t.name}</span>
+                  <span className="text-13 font-medium text-background-foreground">{t.name}</span>
                   {i === 0 && <Badge tone="primary">推荐</Badge>}
                 </div>
                 <p className="text-11 text-muted-foreground">
@@ -116,7 +116,7 @@ function StepTemplate({ view, state }: { view: ItvView; state: UiState }) {
       <Card className="border-dashed p-4" data-testid="itv-wizard-blank">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-13 font-medium text-foreground">空白提纲</p>
+            <p className="text-13 font-medium text-background-foreground">空白提纲</p>
             <p className="text-11 text-muted-foreground">不用模板，让助手按这场场景直接生成</p>
           </div>
           <Button asChild size="sm" variant="ghost">
@@ -137,7 +137,7 @@ function StepObjects() {
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-12 font-medium text-foreground">
+                <span className="text-12 font-medium text-background-foreground">
                   {o.id} {o.name}
                 </span>
                 <Badge tone="outline">{o.role}</Badge>
@@ -163,7 +163,7 @@ function StepObjects() {
           </div>
         </Card>
       ))}
-      <p className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-11 text-foreground">
+      <p className="rounded-md border border-warning/30 bg-warning/5 px-3 py-2 text-11 text-background-foreground">
         <AlertTriangle aria-hidden className="mr-1 inline h-3.5 w-3.5 text-warning" />
         P-10 与 P-11 是上下级（同公司）——默认<strong>拆成两场</strong>，避免下属附和污染证据（同组织不超过 2 人）。
       </p>
@@ -183,16 +183,16 @@ function StepOutline() {
         <Button size="xs" variant="outline" data-testid="itv-wizard-regen">重新生成大纲</Button>
       </div>
       <Card className="p-4">
-        <p className="mb-2 text-12 font-medium text-foreground">生成的大纲草案（含模板分段 + 对象背景，均可改）</p>
+        <p className="mb-2 text-12 font-medium text-background-foreground">生成的大纲草案（含模板分段 + 对象背景，均可改）</p>
         <div className="flex flex-col gap-2">
           {RESEARCH_DESIGN.segments.map((sg) => (
             <div key={sg.no} className="rounded-md border border-border-subtle bg-panel p-2.5">
               <div className="flex items-center gap-2">
-                <span className="text-11 font-semibold text-foreground">{sg.no}</span>
+                <span className="text-11 font-semibold text-background-foreground">{sg.no}</span>
                 <Badge tone="neutral">{sg.minutes} 分</Badge>
                 {sg.needsRewrite && <Badge tone="warning">需改问法</Badge>}
               </div>
-              <p className="mt-1 text-12 text-foreground">要问出什么：{sg.goal}</p>
+              <p className="mt-1 text-12 text-background-foreground">要问出什么：{sg.goal}</p>
             </div>
           ))}
         </div>

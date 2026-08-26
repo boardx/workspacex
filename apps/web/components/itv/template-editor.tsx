@@ -31,7 +31,7 @@ export function TemplateEditor({ state, view }: { state: UiState; view: ItvView 
     <section className="flex flex-col gap-4 p-5" data-testid="itv-template-editor">
       <header className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-20 font-semibold text-foreground">编辑模板 · {tpl.name}</h1>
+          <h1 className="text-20 font-semibold text-background-foreground">编辑模板 · {tpl.name}</h1>
           <Badge tone="primary">用过 {tpl.usedCount} 次</Badge>
         </div>
         <p className="text-12 text-muted-foreground">
@@ -53,7 +53,7 @@ export function TemplateEditor({ state, view }: { state: UiState; view: ItvView 
           <div className="flex flex-col gap-3">
             <Card className="p-4" data-testid="itv-editor-outline">
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-13 font-medium text-foreground">访谈提纲 · 合计 55 分</span>
+                <span className="text-13 font-medium text-background-foreground">访谈提纲 · 合计 55 分</span>
                 <Button size="xs" variant="outline" disabled={!canWrite} data-testid="itv-editor-add-segment">
                   <Plus aria-hidden className="h-3 w-3" />加一段
                 </Button>
@@ -68,11 +68,11 @@ export function TemplateEditor({ state, view }: { state: UiState; view: ItvView 
                     <GripVertical aria-hidden className="mt-0.5 h-4 w-4 shrink-0 cursor-grab text-muted-foreground" />
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-11 font-semibold text-foreground">{sg.no}</span>
+                        <span className="text-11 font-semibold text-background-foreground">{sg.no}</span>
                         <Badge tone="neutral">{sg.minutes} 分</Badge>
                         {sg.needsRewrite && <Badge tone="warning">需改问法</Badge>}
                       </div>
-                      <p className="text-12 text-foreground">要问出什么：{sg.goal}</p>
+                      <p className="text-12 text-background-foreground">要问出什么：{sg.goal}</p>
                       <ul className="flex flex-col gap-0.5">
                         {sg.openers.map((q, i) => (
                           <li key={i} className="text-11 text-muted-foreground">「{q}」</li>
@@ -95,7 +95,7 @@ export function TemplateEditor({ state, view }: { state: UiState; view: ItvView 
             </Card>
 
             <Card className="p-4" data-testid="itv-editor-fields">
-              <span className="text-13 font-medium text-foreground">要收集的数据字段</span>
+              <span className="text-13 font-medium text-background-foreground">要收集的数据字段</span>
               <p className="mb-2 text-10 text-muted-foreground">每个字段将成为洞察阶段证据矩阵的一列（UC-6.5）</p>
               <div className="flex flex-wrap gap-1.5">
                 {tpl.dataFields.map((f) => (
@@ -115,7 +115,7 @@ export function TemplateEditor({ state, view }: { state: UiState; view: ItvView 
             <Card className="p-4" data-testid="itv-editor-report-template">
               <div className="mb-2 flex items-center gap-2">
                 <FileText aria-hidden className="h-4 w-4 text-muted-foreground" />
-                <span className="text-13 font-medium text-foreground">配套报告模板 · {rt.name}</span>
+                <span className="text-13 font-medium text-background-foreground">配套报告模板 · {rt.name}</span>
               </div>
               <p className="mb-3 rounded-md border border-border-subtle bg-panel px-2 py-1.5 text-11 text-muted-foreground">
                 {rt.rule}
@@ -137,7 +137,7 @@ export function TemplateEditor({ state, view }: { state: UiState; view: ItvView 
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {rt.toggles.map((tg) => (
-                    <span key={tg.key} className="flex items-center gap-1.5 text-11 text-foreground">
+                    <span key={tg.key} className="flex items-center gap-1.5 text-11 text-background-foreground">
                       <StaticSwitch on={tg.on} label={tg.label} testId={`itv-report-toggle-${tg.key}`} />
                       {tg.label}
                     </span>
@@ -147,7 +147,7 @@ export function TemplateEditor({ state, view }: { state: UiState; view: ItvView 
 
               {/* 报告章节（骨架写死，映射数据来源） */}
               <div className="flex items-center justify-between">
-                <span className="text-12 font-medium text-foreground">报告章节 · {rt.chapters.length}</span>
+                <span className="text-12 font-medium text-background-foreground">报告章节 · {rt.chapters.length}</span>
                 {missingChapters > 0 && (
                   <Badge tone="warning" data-testid="itv-report-missing-count">
                     {missingChapters} 章缺来源 · 发布被阻断
@@ -164,7 +164,7 @@ export function TemplateEditor({ state, view }: { state: UiState; view: ItvView 
                     <span className="mt-0.5 text-11 font-semibold text-muted-foreground">{c.no}</span>
                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-12 text-foreground">{c.title}</span>
+                        <span className="text-12 text-background-foreground">{c.title}</span>
                         <Badge tone={c.authoring === "human" ? "outline" : "ai"}>
                           {c.authoring === "human" ? (
                             <UserPen aria-hidden className="h-3 w-3" />

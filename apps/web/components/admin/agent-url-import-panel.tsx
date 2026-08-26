@@ -122,7 +122,7 @@ function ImportedAgentPanel({
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border p-3" data-testid="agent-url-import-post-panel">
       <div className="flex flex-col gap-1">
-        <p className="text-11 font-medium text-foreground">① 编辑导入的指令（草稿态，未发布前可反复改）</p>
+        <p className="text-11 font-medium text-background-foreground">① 编辑导入的指令（草稿态，未发布前可反复改）</p>
         <textarea
           data-testid="agent-url-import-instructions"
           className="min-h-[140px] w-full rounded-md border border-input bg-card px-2.5 py-2 text-13 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -152,7 +152,7 @@ function ImportedAgentPanel({
       </div>
 
       <div className="flex flex-col gap-1 border-t border-border-subtle pt-2">
-        <p className="text-11 font-medium text-foreground">② 发布（草稿 → 运行中，发布后指令铸成不可变快照）</p>
+        <p className="text-11 font-medium text-background-foreground">② 发布（草稿 → 运行中，发布后指令铸成不可变快照）</p>
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -171,7 +171,7 @@ function ImportedAgentPanel({
       </div>
 
       <div className="flex flex-col gap-1 border-t border-border-subtle pt-2">
-        <p className="text-11 font-medium text-foreground">③ 试跑（需先发布——试跑读的是已发布版本，不是草稿）</p>
+        <p className="text-11 font-medium text-background-foreground">③ 试跑（需先发布——试跑读的是已发布版本，不是草稿）</p>
         <Input
           data-testid="agent-url-import-trialrun-scenario"
           value={scenario}
@@ -191,7 +191,7 @@ function ImportedAgentPanel({
           </Button>
         </div>
         {trialRun.status === "done" ? (
-          <div data-testid="agent-url-import-trialrun-result" className="flex flex-col gap-1 text-12 text-foreground">
+          <div data-testid="agent-url-import-trialrun-result" className="flex flex-col gap-1 text-12 text-background-foreground">
             {trialRun.steps.map((step) => (
               <p key={step.ordinal} className="font-mono text-11">{step.ordinal}. {step.text}</p>
             ))}

@@ -46,7 +46,7 @@ export function SkillContentEditorSection({ id, row }: { id: string; row: Capabi
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-1.5 border-t border-border-subtle pt-2">
       <details className="group text-10 text-muted-foreground" data-testid={`${id}-content-hint`}>
-        <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-11 font-medium text-foreground">
+        <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-11 font-medium text-background-foreground">
           内容（文件树 / 代码）
           <span className="text-9 text-muted-foreground">ⓘ 说明</span>
         </summary>

@@ -67,7 +67,7 @@ export function DigitalInterviewCreate() {
           </div>
 
           <div className="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2 font-medium text-foreground"><Check className="size-4 text-primary" aria-hidden /> 本步骤只保存访谈元数据</div>
+            <div className="flex items-center gap-2 font-medium text-background-foreground"><Check className="size-4 text-primary" aria-hidden /> 本步骤只保存访谈元数据</div>
             <p className="mt-1">访谈范围为独立访谈；主题在下一步明确确认后才写入。</p>
           </div>
           {error && <p role="alert" className="mt-4 text-sm text-destructive">创建失败：{error}</p>}

@@ -115,7 +115,7 @@ export function RecVerify({ state, view }: { state: UiState; view: RecView }) {
                 {it.kind === "plain" && (
                   <div className="min-w-0 flex-1">
                     {it.speaker && <p className="mb-1 text-10 font-medium">{it.speaker}</p>}
-                    <p className="text-11 leading-relaxed text-foreground">{it.text}</p>
+                    <p className="text-11 leading-relaxed text-background-foreground">{it.text}</p>
                   </div>
                 )}
                 {it.kind === "low-confidence" && it.lowConf && (

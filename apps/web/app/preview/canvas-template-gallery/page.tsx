@@ -23,7 +23,7 @@ export default function CanvasTemplateGalleryPreviewPage({
   const previewRole = resolvePreviewRole(searchParams.as);
 
   return (
-    <main className="flex min-h-screen flex-col bg-background text-foreground">
+    <main className="flex min-h-screen flex-col bg-background text-background-foreground">
       {/* 界面态切换器 */}
       <nav className="flex flex-wrap items-center gap-1.5 border-b border-border px-4 py-2.5" data-testid="canvas-tpl-state-nav">
         <span className="mr-1 text-11 font-medium text-muted-foreground">界面态</span>

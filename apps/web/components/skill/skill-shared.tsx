@@ -15,7 +15,7 @@ export function ScreenHead({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-background-foreground">{title}</h1>
         <Badge tone="outline">{uc}</Badge>
       </div>
       {children && <p className="text-12 text-muted-foreground">{children}</p>}

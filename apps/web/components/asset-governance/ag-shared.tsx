@@ -22,7 +22,7 @@ export function ScreenHead({
     <div className="flex flex-wrap items-start justify-between gap-2" data-testid="ag-screen-head">
       <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-20 font-semibold tracking-tight text-foreground">{title}</h1>
+          <h1 className="text-20 font-semibold tracking-tight text-background-foreground">{title}</h1>
           <Badge tone="outline">{uc}</Badge>
         </div>
         {children && <p className="text-12 text-muted-foreground">{children}</p>}
@@ -277,7 +277,7 @@ export function DangerConfirm({
         >
           <div className="flex items-start gap-2">
             <AlertTriangle aria-hidden className={cn("mt-0.5 h-4 w-4 shrink-0", danger ? "text-destructive" : "text-warning")} />
-            <div className="flex flex-col gap-1 text-11 leading-relaxed text-foreground">{impact}</div>
+            <div className="flex flex-col gap-1 text-11 leading-relaxed text-background-foreground">{impact}</div>
           </div>
           <div className="flex items-center gap-2">
             <Button
