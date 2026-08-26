@@ -8,10 +8,10 @@ phase: "01"
 #   签核通过后由 requirement-author 生成 feature 再追加；追加规则见
 #   .harness/instructions/contract-design.md「covers 追加规则」三条件。
 covers: []
-status: pending            # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by:               # 确认人（姓名/邮箱）
-confirmed_at:                # ISO 8601，且不得晚于签核当下
-confirmed_via:                # ⚠ 逐字转写人类给出的选择依据，不得替人类归纳或美化
+status: confirmed
+confirmed_by: usamshen
+confirmed_at: "2026-08-26T07:20:23Z"
+confirmed_via: "人类 手工"
 ---
 
 # 契约束 `agent-interrupts` 设计签核
