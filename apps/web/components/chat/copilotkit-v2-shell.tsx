@@ -606,13 +606,13 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           key={initialThreadId ?? "new"}
           chatThreadId={selectedThreadId}
           onThreadResolved={handleThreadResolved}
-          /* 🔴 issue #2094 —— 除右栏外**还要重读左栏线程列表**。
+          /* 🔴 issue #2094 —— 除右栏外还要重读左栏线程列表。
              自动命名与卡片状态都发生在服务端（首条消息落库时改 `chat_threads.title`，
              `status` 由最近一次 run 派生），而侧栏此前只在挂载与增删线程时取一次。
              于是服务端已经把标题改成任务名了，屏幕上那张卡还写着「新对话」——
-             真栈实测 `TW-P1-1` 红在这里，红的**不是**服务端那一半
+             真栈实测 `TW-P1-1` 红在这里，红的并不是服务端那一半
              （`tests/chat/thread-card-projection.test.ts` 5 条全绿，证明起名真的发生了）。
-             ⚠ 复用既有的 `onMessageSent`，**不新加 prop**：panel 那侧是在途高冲突区
+             ⚠ 复用既有的 `onMessageSent`，不新加 prop：panel 那侧是在途高冲突区
              （#2072），而这个回调本来就是「一轮对话有动静了」这个事实，不是右栏专用的。 */
           onMessageSent={() => {
             void loadRightPanel();
