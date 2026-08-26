@@ -238,7 +238,7 @@ test.describe("核心闭环八步", () => {
   // 真实入口在**模板库屏**而不是后台屏，这是 #496 的刻意取舍：后台
   // `/admin/canvasadmin` 只做清单与去向，两处各放一个新建按钮 = 两个写入口。
   // testid 来源实测：`components/canvas/template-admin.tsx` 的 `tpladmin-create`
-  // 与 `tpladmin-row-<key>-<version>`，与 `canvas-template-create-smoke.spec.ts` 同一批。
+  // 与 `tpladmin-card-<key>-<version>`，与 `canvas-template-create-smoke.spec.ts` 同一批。
   //
   // ⚠ 2026-08-24 改版（#1916）：PR #1897（2026-08-23，人类原话「新建画布，不要放
   //   分区设计，也不要放key，只需要一个名字就可以」）把「新建」对话框改成只问
@@ -283,11 +283,11 @@ test.describe("核心闭环八步", () => {
     await page.getByTestId("tpladmin-editor-close").click();
     await expect(page.getByTestId("tpladmin-editor-panel")).toHaveCount(0);
 
-    await expect(page.getByTestId(`tpladmin-row-${created.key}-1`)).toContainText(name);
+    await expect(page.getByTestId(`tpladmin-card-${created.key}-1`)).toContainText(name);
 
     // 「刷新仍在」才是这一步的全部意义：重新加载页面区分「写进了库」与「写进了 React state」。
     await page.reload();
-    await expect(page.getByTestId(`tpladmin-row-${created.key}-1`)).toContainText(name);
+    await expect(page.getByTestId(`tpladmin-card-${created.key}-1`)).toContainText(name);
   });
 
   /* ── 步骤 5：登录已有用户（已交付，#387）──────────────────────────────── */

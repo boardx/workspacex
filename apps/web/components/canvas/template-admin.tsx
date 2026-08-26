@@ -107,7 +107,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@
  * 本屏当时被点名的问题是「模板一多就不好管」。这一轮实施的六项、全部前端内可独立完成、
  * 不改契约形状：
  *  ① **按名字/key 搜索**——`query` 状态，纯前端在当前筛选结果内再过滤一层。
- *  ② **同 key 多版本分组**——默认仍展示全部行（`tpladmin-row-*` 语义不变，
+ *  ② **同 key 多版本分组**——默认仍展示全部行（`tpladmin-card-*` 语义不变，
  *     `canvas-template-create-smoke.spec.ts` 的「reload 后 v1/v2 都在」断言压着这条），
  *     新增「只看每个 key 的当前版本」开关，默认关闭。
  *  ④ 「内置 · 不可删」→「内置模板」+ 一句通栏说明：**没有任何模板支持真删除**，
@@ -746,6 +746,19 @@ export function TemplateAdmin({
                         */}
                         {t.sections.length} 个字段 · {t.sections.filter((s) => s.layout != null).length} 个区块 · A1 横版
                         {t.builtin && " · 内置"}
+                        {" · 被 "}
+                        {/*
+                          ⚠ 这一格随表格视图一起消失过一次（PR #2123），`core-loop.spec.ts`
+                            第 8c 步当场红——它锚的就是这个 testid。撤掉一个视图时，**挂在
+                            它上面的事实**要跟着搬到留下的那个视图上，不能跟着容器一起删：
+                            「这个模板被几场会用着」是使用者决定要不要归档它的唯一依据，
+                            与它显示在表格里还是卡片里无关。
+                          ⚠ `usageCount` 契约逐字要求「真实统计，不得估算」（服务端现查
+                            COUNT(*)，见 canvas_template_registry 迁移文件头）——这里
+                            原样显示，不做任何"大于 99 显示 99+"之类的加工。
+                        */}
+                        <span data-testid={`canvas-template-usage-${t.key}-${t.version}`}>{t.usageCount}</span>
+                        {" 场使用"}
                       </span>
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         {!readOnly && (
