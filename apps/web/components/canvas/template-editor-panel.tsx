@@ -10,6 +10,7 @@ import {
   type CanvasTemplate,
 } from "@/lib/live-canvas";
 import { TemplateCanvasGrid } from "./template-canvas-grid";
+import { TemplateDryRunDrawer, buildDryRunSkeleton } from "./template-dry-run-drawer";
 import { TemplateDisplayPanel } from "./template-display-panel";
 import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-drawer";
 import {
@@ -65,6 +66,11 @@ export function TemplateEditorPanel({
   const [step, setStep] = React.useState<1 | 2 | 3>(() => (toDraft(row).some((s) => s.layout) ? 2 : 1));
   const [gridCols, setGridCols] = React.useState<6 | 12>(12);
   const [showSample, setShowSample] = React.useState(true);
+  // 试运行是**两个**状态，不是一个：抽屉开着 ≠ 已经渲染。人类可以开着抽屉边改边看，
+  // 也可以关掉抽屉留着渲染结果继续调版式——合成一个状态就会让"关抽屉"顺手把结果清掉。
+  const [dryRunOpen, setDryRunOpen] = React.useState(false);
+  const [dryRunText, setDryRunText] = React.useState("");
+  const [dryRunData, setDryRunData] = React.useState<Record<string, unknown> | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [promptOpen, setPromptOpen] = React.useState(false);
   const [promptText, setPromptText] = React.useState("");
@@ -269,7 +275,13 @@ export function TemplateEditorPanel({
       )}
 
       {/* 三栏：290 / 自适应 / 276 */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[290px_1fr_276px]">
+      {/* ⚠ 栏定义必须跟着抽屉变：容器是**固定**三栏网格，多出来的第 4 个子元素会被塞进
+          隐式列，宽度不受控（实测抽屉会把 ③ 挤出可视区）。开抽屉时它是自成一栏的第 4 列。 */}
+      <div
+        className={`grid min-h-0 flex-1 grid-cols-1 ${
+          dryRunOpen ? "lg:grid-cols-[290px_1fr_320px_276px]" : "lg:grid-cols-[290px_1fr_276px]"
+        }`}
+      >
         {/* ① 字段 */}
         <div className="flex min-h-0 flex-col border-b border-border bg-card lg:border-b-0 lg:border-r">
           <div className="flex flex-none items-center gap-2 px-3.5 pb-2 pt-3">
@@ -425,6 +437,24 @@ export function TemplateEditorPanel({
               >
                 样例数据
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // 首次打开时把骨架填好——空文本框加一句"请输入 JSON"等于把
+                  // 「它要什么形状」这个问题原样丢回给人类，而答案就在模板里。
+                  setDryRunOpen((v) => {
+                    if (!v && dryRunText.trim() === "") setDryRunText(buildDryRunSkeleton(sections));
+                    return !v;
+                  });
+                }}
+                className={`rounded-control border border-border px-2 py-0.5 text-10 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  dryRunOpen ? "bg-primary text-primary-foreground" : "bg-transparent"
+                }`}
+                aria-pressed={dryRunOpen}
+                data-testid="tpladmin-editor-dryrun-toggle"
+              >
+                试运行
+              </button>
             </div>
           </div>
           <div className="flex min-h-0 flex-1 justify-center overflow-auto p-4">
@@ -433,6 +463,7 @@ export function TemplateEditorPanel({
                 sections={sections}
                 gridCols={gridCols}
                 showSample={showSample}
+                runData={dryRunData}
                 selectedId={selectedId}
                 editable={editable}
                 onSelect={(id) => { setSelectedId(id); setStep(3); }}
@@ -442,6 +473,16 @@ export function TemplateEditorPanel({
             </div>
           </div>
         </div>
+
+        {dryRunOpen && (
+          <TemplateDryRunDrawer
+            sections={sections}
+            text={dryRunText}
+            onTextChange={setDryRunText}
+            onRun={setDryRunData}
+            onClose={() => setDryRunOpen(false)}
+          />
+        )}
 
         {/* ③ 显示方式 */}
         <div className="flex min-h-0 flex-col border-t border-border bg-card lg:border-l lg:border-t-0">

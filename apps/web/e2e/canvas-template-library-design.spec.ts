@@ -38,8 +38,10 @@ async function loginAsAdmin(page: Page): Promise<void> {
 async function openLibrary(page: Page): Promise<void> {
   await page.goto("/canvas?screen=template-admin");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
-  // 设计稿的模板库是**卡片网格**（`Design.pdf` §3「主体为三列卡片网格」）。
-  await page.getByTestId("tpladmin-view-card").click();
+  // ⚠ 这里**不手动切视图**：`Design.pdf` §3「主体为三列卡片网格」——卡片网格是
+  //   模板库的默认形态，进来就该是它。手动点一下再断言会把「默认值是对的」这件事
+  //   测没了（2026-08-26 之前默认落在旧表格，使用者刷新后台看到的仍是旧界面，
+  //   而当时的 e2e 因为自己先点了一下卡片视图，全绿）。
 }
 
 /**
@@ -49,7 +51,6 @@ async function openLibrary(page: Page): Promise<void> {
  *   压根不存在——这不是缺陷，空网格与"没有模板"是两种不同的东西，界面选择说后者。
  */
 async function expectCardGrid(page: Page): Promise<void> {
-  await page.getByTestId("tpladmin-view-card").click();
   await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
 }
 
@@ -87,6 +88,31 @@ async function createWithTags(page: Page, name: string, tags: readonly string[])
   await expect(page.getByTestId("tpladmin-editor-panel")).toHaveCount(0);
   return created.key;
 }
+
+test("Design.pdf §3：模板库**默认**就是卡片网格，不需要先切视图", async ({ page }) => {
+  await loginAsAdmin(page);
+  await openLibrary(page);
+
+  const stamp = String(Date.now()).slice(-6);
+  await createWithTags(page, `默认视图验收 ${stamp}`, []);
+
+  // 一进来就是卡片网格——不点任何视图切换按钮。
+  // 这条守的是 2026-08-26 修掉的那个真实问题：新设计只做在卡片视图里、默认值仍是
+  // 旧表格，使用者刷新后台看到的还是旧界面，而 e2e 因为自己先点了一下卡片视图全绿。
+  await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
+  await expect(page.getByTestId("tpladmin-table")).toHaveCount(0);
+
+  // 表格视图**已整个撤掉**（人类 2026-08-26：「默认显示 card 不要显示列表」），
+  // 所以旧链接里残留的 `?view=list` 也不能把它变回来——那会让"撤掉"变成"藏起来"。
+  //
+  // ⚠ 这三行原本断言的是相反的事（「表格仍是可用的第二视图，显式 view=list 能回到它」）：
+  //   spec 写于表格还在的时候，后来表格被撤，vitest 那份跟着改了、**这份没改**。
+  //   一份陈旧的 e2e 断言不会因为它过时而变红——它会因为**产品是对的**而变红，
+  //   于是看起来像是实现坏了。判红因时先看断言本身是哪一天写的。
+  await page.goto("/canvas?screen=template-admin&view=list");
+  await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
+  await expect(page.getByTestId("tpladmin-table")).toHaveCount(0);
+});
 
 test("模板库对照 Design.pdf §3：卡片网格 + A1 缩略图 + 真实标签筛选 + 改名换标签", async ({ page }) => {
   const failures: string[] = [];
@@ -339,4 +365,65 @@ test("Design.pdf §7 第 6/7 条：纸面与内容区比值精确，且贴纸内
     return notes.filter((n) => n.clientHeight > 0 && n.scrollHeight > n.clientHeight + 1).length;
   });
   expect(clippedAfter).toBe(0);
+});
+
+/**
+ * 人类 2026-08-26 原话：「在编辑界面需要有一个试运行的按钮，用户输入数据需要可以渲染出来结果」。
+ *
+ * ⚠ 本用例断言的是**画布上真的出现了那几个字**，不是"按钮点得动"。试运行最容易做成
+ *   一个点了有反应、但渲染路径根本没接上的按钮——那种实现下按钮态、抽屉、校验全都对，
+ *   只有贴纸上是空的，而空贴纸与"数据还没渲染"在截图上完全同形。
+ */
+test("Design.pdf 补充 · 试运行：填一份数据，画布上渲染出真实内容", async ({ page }) => {
+  const failures: string[] = [];
+  page.on("pageerror", (e) => failures.push(`page error: ${e.message}`));
+
+  await loginAsAdmin(page);
+  await openLibrary(page);
+
+  const stamp = String(Date.now()).slice(-6);
+  const key = await createWithTags(page, `试运行验收 ${stamp}`, []);
+  await expectCardGrid(page);
+  await page.getByTestId(`tpladmin-card-${key}-1`).click();
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+
+  // 加一个字段并拖到画布上——没有已放置的区块，试运行没有可渲染的地方。
+  await page.getByTestId("tpladmin-editor-new-key").fill("pains");
+  await page.getByTestId("tpladmin-editor-new-name").fill("痛点");
+  await page.getByTestId("tpladmin-editor-new-add").click();
+  await page.getByTestId("tpladmin-editor-field-pains").dragTo(page.getByTestId("tpladmin-editor-canvas"));
+  // ⚠ 区块的 testid 是 `tpladmin-editor-block-<sectionId>`，**不是 `<key>`**——两者是
+  //   不同的东西（key 是 AI JSON 的键名，人类随时可改；sectionId 是这一条的身份）。
+  //   按 key 锚会找不到，而报错长得像"拖拽没生效"。同 §4 那条用前缀匹配。
+  const block = page.locator('[data-testid^="tpladmin-editor-block-"]').first();
+  await expect(block).toBeVisible();
+
+  // 打开试运行：抽屉出现，且**自动填好骨架**（空文本框等于把"要什么形状"丢回给人类）。
+  await page.getByTestId("tpladmin-editor-dryrun-toggle").click();
+  const drawer = page.getByTestId("tpladmin-editor-dryrun-drawer");
+  await expect(drawer).toBeVisible();
+  const input = page.getByTestId("tpladmin-editor-dryrun-input");
+  expect(JSON.parse(await input.inputValue())).toHaveProperty("pains");
+
+  // 填**自己的**数据并渲染 —— 断言这几个字真的出现在画布区块里。
+  await input.fill('{"pains": ["排队太久", "找不到入口", "价格看不懂"]}');
+  await page.getByTestId("tpladmin-editor-dryrun-run").click();
+  await expect(block).toContainText("排队太久");
+  await expect(block).toContainText("找不到入口");
+  await expect(block).toContainText("价格看不懂");
+
+  // 形状不对当场说，不静默渲染成空画布。
+  await input.fill("[1,2,3]");
+  await expect(page.getByTestId("tpladmin-editor-dryrun-error")).toContainText("顶层要是一个对象");
+  await expect(page.getByTestId("tpladmin-editor-dryrun-run")).toBeDisabled();
+
+  // 模板里没有的字段：明说"画不出来"，而不是让人类对着少一块的画布猜。
+  await input.fill('{"pains": ["A"], "nope": ["B"]}');
+  await expect(page.getByTestId("tpladmin-editor-dryrun-unknown")).toContainText("nope");
+
+  // 「还原」回到无数据态：那三条内容必须真的消失，不是被新数据盖住。
+  await page.getByTestId("tpladmin-editor-dryrun-clear").click();
+  await expect(block).not.toContainText("排队太久");
+
+  expect(failures).toEqual([]);
 });

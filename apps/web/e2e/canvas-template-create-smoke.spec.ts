@@ -63,7 +63,7 @@ function recordCreates(page: Page): number[] {
 }
 
 async function openTemplateAdmin(page: Page) {
-  await page.goto("/canvas?screen=template-admin");
+  await page.goto("/canvas?screen=template-admin&view=list");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 }
 
@@ -160,7 +160,7 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
   // ── ① 新建（只填名字）+ 在编辑面板里加分区、保存 ────────────────────────────
   const KEY = await fillCreateForm(page, NAME);
 
-  const row = page.getByTestId(`tpladmin-row-${KEY}-1`);
+  const row = page.getByTestId(`tpladmin-card-${KEY}-1`);
   await expect(row).toBeVisible();
   await expect(row).toContainText(NAME);
   // 201，不是 200：这条路由真的造出了一行资源（其余四条模板路由都是 200 的状态转移）。
@@ -169,14 +169,14 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
   // ── ② 建出来的是草稿，还不能用 ──────────────────────────────────────────
   await expect(row).toContainText("草稿");
   await page.getByTestId("tpladmin-filter-published").click();
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toHaveCount(0);
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toHaveCount(0);
   await page.getByTestId("tpladmin-filter-all").click();
   // 等地址栏真的落回「全部」（无 filter 参数）再刷新——见 waitForFilterUrl 上方注释。
   await waitForFilterUrl(page, "all");
 
   // ── ③ 刷新后仍在 = 它在库里，不在 React state 里；分区也真的存进去了 ────────
   await page.reload();
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toBeVisible();
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toBeVisible();
   await expect(page.getByTestId("tpladmin-empty")).toHaveCount(0);
   // 刷新没有再发一次创建请求——那一行来自 GET，不是重放。
   expect(creates).toEqual([201]);
@@ -193,15 +193,15 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
   // #952：先等 publish 的 mutation 真正落库（notice 是它落库后才回填的信号），
   // 再切筛选器——否则切筛选器发出的 GET 可能赢过还没落库的 publish。
   await waitForNotice(page, "已发布");
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText("已发布");
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toContainText("已发布");
 
   await page.getByTestId("tpladmin-filter-published").click();
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toBeVisible();
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toBeVisible();
 
   // 发布也是持久的，不是屏上一次乐观更新。
   await page.reload();
   await page.getByTestId("tpladmin-filter-published").click();
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText("已发布");
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toContainText("已发布");
 
   // ── ⑤ 归档语义不变（O-10）：置位，不是删除 ──────────────────────────────
   await page.getByTestId("tpladmin-filter-all").click();
@@ -215,13 +215,13 @@ test("admin creates a canvas template in the browser; PostgreSQL keeps it across
 
   await page.getByTestId("tpladmin-filter-archived").click();
   // 归档后它**还在**——查得到、能恢复。删除的话这里会是空的。
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText("已归档");
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toContainText("已归档");
   await page.getByTestId(`tpladmin-restore-${KEY}-1`).click();
   // #952：restore 也是同一形状的竞态——等它自己的 notice 落库信号，
   // 再切到「已发布」筛选断言，而不是打完 restore 立刻切。
   await waitForNotice(page, "已恢复");
   await page.getByTestId("tpladmin-filter-published").click();
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText("已发布");
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toContainText("已发布");
 
   expect(failures).toEqual([]);
 });
@@ -295,7 +295,7 @@ test("counterproof: with the create request stubbed out in the browser, the row 
   await expect(page.getByTestId("tpladmin-loading")).toHaveCount(0);
   await expect(page.getByTestId("tpladmin-error")).toHaveCount(0);
 
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toHaveCount(0);
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toHaveCount(0);
   await expect(page.getByText(NAME)).toHaveCount(0);
 });
 
@@ -343,7 +343,7 @@ test("admin mints a new draft version from a published template; the v2 draft su
     }
   });
 
-  const sourceRow = page.getByTestId(`tpladmin-row-${KEY}-1`);
+  const sourceRow = page.getByTestId(`tpladmin-card-${KEY}-1`);
   await expect(sourceRow).toBeVisible();
   await expect(sourceRow).toContainText("草稿");
 
@@ -378,7 +378,7 @@ test("admin mints a new draft version from a published template; the v2 draft su
   expect(mints).toEqual([201]);
 
   await page.getByTestId("tpladmin-filter-draft").click();
-  const mintedRow = page.getByTestId(`tpladmin-row-${KEY}-2`);
+  const mintedRow = page.getByTestId(`tpladmin-card-${KEY}-2`);
   await expect(mintedRow).toBeVisible();
   await expect(mintedRow).toContainText(MINTED);
   await expect(mintedRow).toContainText("草稿");
@@ -386,15 +386,15 @@ test("admin mints a new draft version from a published template; the v2 draft su
   await expect(mintedRow).toContainText("劣势");
 
   await page.getByTestId("tpladmin-filter-all").click();
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText("已发布");
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-1`)).toContainText(SOURCE);
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toContainText("已发布");
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-1`)).toContainText(SOURCE);
 
   // ── ⑤ reload 后 v2 草稿行仍在 = 在库里，不在 React state 里 ───────────────────
   await page.reload();
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
   await page.getByTestId("tpladmin-filter-draft").click();
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-2`)).toContainText(MINTED);
-  await expect(page.getByTestId(`tpladmin-row-${KEY}-2`)).toContainText("劣势");
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-2`)).toContainText(MINTED);
+  await expect(page.getByTestId(`tpladmin-card-${KEY}-2`)).toContainText("劣势");
   // reload 没有重放开新版请求——那一行来自 GET。
   expect(mints).toEqual([201]);
 

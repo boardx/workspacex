@@ -38,7 +38,6 @@ export default function CanvasPage({
       screen={screen}
       initialConflict={initialConflict}
       tplFilter={searchParams.filter}
-      tplView={searchParams.view}
       tplQuery={searchParams.q}
     />
   );
