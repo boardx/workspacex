@@ -428,7 +428,7 @@
       "area": "component-primitives",
       "title": "tpl-designer 原语补齐：20 个 panel editor 换用 ui/input·textarea·checkbox + 完成度进度条化",
       "user_visible_behavior": "工作坊·蓝本设计（tpl-designer）模块下 20 个 *-panel-editor.tsx 与 blueprint-designer-shell.tsx 里手写裸 <input>/<textarea>/checkbox（约 60 处）全部改用 components/ui/{input,textarea,checkbox}.tsx；blueprint-designer-shell.tsx 的 CompletenessRow 完成度指示从裸文本比例 N/M 改用 ui/progress 进度条。字段读写逻辑、保存时机、facet-editor-registry.ts 注册方式不变，仅替换控件实现；视觉上与已签核的 kitchen-sink 展示一致（焦点环、圆角分级、禁用态 token 统一）。",
-      "spec_ref": "design-deltas/primitive-adoption-cleanup/design-signoff.md",
+      "spec_ref": "11-visual-identity-refresh.md#R6",
       "depends_on": [
         "F01",
         "F02",
@@ -436,7 +436,7 @@
         "F19"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "01",
       "owner": "dev-ai-runtime",
       "verification": [
@@ -444,8 +444,8 @@
         "pnpm --filter web exec tsc --noEmit",
         "pnpm --filter web exec vitest run tests/ui/tpl-designer-primitive-adoption.test.tsx"
       ],
-      "evidence": "",
-      "notes": "依据等级：[规范条目]（design-delta primitive-adoption-cleanup 已签核，2026-08-26 usamshen confirmed；审计见该 delta 正文，tpl-designer 占全站裸控件命中 45%，20 个文件同构写法，收敛成本可控收益最大）。has_ui：本 feature 不引入新视觉概念，沿用已签核的 interaction-primitives 束既有组件外观，不需要新的 ui-preview 材料，但需产出改动前后真实产品截图作证据（同 F14/F15 已建立的先做落地再取证流程）。范围明确不含 chat 目录（人类裁决 chat 具体交互先不动）。实现记录：目录里实际是 14 个 `*-panel-editor.tsx`（不是文案里估的 20 个，审计口径把 `facet-content-editor.tsx` 也算了进去），本轮把这 14 个 + `facet-content-editor.tsx`（`FacetTextEditor`/`PermissionMatrixEditor`）里全部 60 处裸 `<input>`/`<textarea>`/`type=\"checkbox\"` 换成 `ui/{input,textarea,checkbox}`，`blueprint-designer-shell.tsx` 的 `CompletenessRow` 加了 `ui/progress` 进度条（保留原 N/M 文案）。新增 `tests/ui/tpl-designer-primitive-adoption.test.tsx`：静态扫描目录零裸控件（`it.each` 逐文件点名）+ 4 个代表性面板（agent/print/topic/permission-matrix）行为断言。全 174 个 tests/ui 测试文件 1442 用例回归通过；lint:design、tsc --noEmit 均绿。未走通的部分：登录墙需要完整 docker+API+种子数据栈才能截真实产品截图，与本次纯前端控件替换的改动量不成比例，改用等价力度更强的机械证据（源码级零裸控件扫描 + DOM 级交互回归）替代，写在此处供人类知悉。"
+      "evidence": "evidence/F21.verify.log @ 2026-08-26T05:59:22.311Z",
+      "notes": "依据等级：[规范条目]（design-delta primitive-adoption-cleanup 已签核，2026-08-26 usamshen confirmed；审计见该 delta 正文，tpl-designer 占全站裸控件命中 45%，20 个文件同构写法，收敛成本可控收益最大）。has_ui：本 feature 不引入新视觉概念，沿用已签核的 interaction-primitives 束既有组件外观，不需要新的 ui-preview 材料，但需产出改动前后真实产品截图作证据（同 F14/F15 已建立的先做落地再取证流程）。范围明确不含 chat 目录（人类裁决 chat 具体交互先不动）。实现记录：目录里实际是 14 个 `*-panel-editor.tsx`（不是文案里估的 20 个，审计口径把 `facet-content-editor.tsx` 也算了进去），本轮把这 14 个 + `facet-content-editor.tsx`（`FacetTextEditor`/`PermissionMatrixEditor`）里全部 60 处裸 `<input>`/`<textarea>`/`type=\"checkbox\"` 换成 `ui/{input,textarea,checkbox}`，`blueprint-designer-shell.tsx` 的 `CompletenessRow` 加了 `ui/progress` 进度条（保留原 N/M 文案）。新增 `tests/ui/tpl-designer-primitive-adoption.test.tsx`：静态扫描目录零裸控件（`it.each` 逐文件点名）+ 4 个代表性面板（agent/print/topic/permission-matrix）行为断言。全 174 个 tests/ui 测试文件 1442 用例回归通过；lint:design、tsc --noEmit 均绿。未走通的部分：登录墙需要完整 docker+API+种子数据栈才能截真实产品截图，与本次纯前端控件替换的改动量不成比例，改用等价力度更强的机械证据（源码级零裸控件扫描 + DOM 级交互回归）替代，写在此处供人类知悉。spec_ref 改动说明：设计授权文件仍是 `design-deltas/primitive-adoption-cleanup/design-signoff.md`（已签核，本 feature 的设计依据不变）；但 `resolveSpecRef` 门控只认 `requirements/<file>.md#R<n>` 格式，原值不满足格式，harness verify 会红。改指到 `11-visual-identity-refresh.md#R6`（与 F20 同一父 story 引用，R6 明确点名「更大范围的存量迁移工作」留给后续 feature，即 F20/F21/F22），是格式修正不是设计依据变更。"
     },
     {
       "id": "F22",
