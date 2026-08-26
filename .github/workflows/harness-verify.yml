@@ -343,7 +343,38 @@ jobs:
       github.event_name != 'pull_request' &&
       (github.event_name != 'schedule' || github.event.schedule == '30 */3 * * *')
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # ⚠ 2026-08-26（#2084）：35 → 75。**这不是"给它多一点余量"，是 35 从来就没有可行过。**
+    #
+    # 实测预算（run 32913279810，workflow_dispatch，逐步骤取 startedAt/completedAt）：
+    #   步骤 1-6  checkout/setup/install/playwright install     ~1.5 min
+    #   步骤 7    未缓存的 trusted full gate（TURBO_FORCE=true
+    #             pnpm run verify:full）                        24.1 min（另一次实测 32.1 min）
+    #   步骤 8    verify:chat-read（108 条）                      被杀时跑到第 60 条，耗时 14.4 min
+    #             ⇒ 108 条外推 ≈ 26 min
+    #   步骤 9    verify:self-service-profile                    ~1.4 min
+    #   ────────────────────────────────────────────────────────────────
+    #   跑完一趟绿所需 ≈ 1.5 + 32 + 26 + 1.4 ≈ 61 min，而预算是 35。
+    #
+    # ⇒ **光是步骤 1-7 就吃掉 26/35 = 四分之三预算**，`verify:chat-read` 还没开始就只剩
+    #   9 分钟。它不是"偶尔超时"，是结构上跑不完：main push 上 10/10 被 SIGTERM（exit 143）
+    #   杀掉，与并发组无关（本 workflow 没有 `concurrency:` 块）。
+    #
+    # 为什么这件事藏了 39 小时：GitHub 对 job 超时的语义是 **cancel**，于是这些 run 的
+    # conclusion 是 `cancelled` —— 读起来像「有人手动取消了」，没有人想到要去点开。
+    # （⚠ 不是"没有日志"：cancelled 丢的只是 artifact 上传，原始 Actions job 日志一直可取，
+    #   `gh api .../actions/jobs/<id>/logs` 退出 0。是语义骗人，不是无从查证。）
+    #
+    # 75 的取法：61 min 实测 + 托管 runner 抖动余量。超时上限本身不花钱（公开仓库免费），
+    # 定得偏松的代价只是"真卡死时晚一点被杀"，而定得偏紧的代价是**每一次都把结论丢掉**。
+    #
+    # ⚠ 这只是止血，不是终局。真正的问题是步骤 7 与本 job 其余部分共用同一个时钟，而它
+    # 与 `verify-full-compile`（全仓 typecheck/lint/build）、`fullstack-smoke`
+    # （同一条 verify:fullstack-smoke）、`backend-gates` 的 `gates-test`（api 全套）
+    # 大面积重叠——重复的门把**唯一**跑 chat-read / self-service 的那部分挤死了。
+    # 拆 job 的结构性修法见 #2084；拆之前必须同步改
+    # `.harness/scripts/fullstack-smoke.test.ts`，它断言本文件里
+    # `if: always()` + `upload-artifact` 恰好出现 **2** 次、且存在名为 `e2e-full` 的 job。
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
