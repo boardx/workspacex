@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -156,18 +157,18 @@ export function PreTasksPanelEditor({
             {value.tasks.map((t, i) => (
               <li key={i} className="rounded-md border border-border p-2.5" data-testid={`bp-hw-task-${i}`}>
                 <div className="mb-1 flex items-center gap-1.5">
-                  <input
+                  <Input
                     type="text"
-                    className="flex-1 rounded-md border border-border bg-background p-1 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex-1 text-12 font-medium"
                     value={t.title}
                     onChange={(e) => updateTask(i, { title: e.target.value })}
                     onBlur={() => void persist(value)}
                     placeholder="任务标题（如「带 2 个你亲历的失败案例」）"
                     data-testid={`bp-hw-title-${i}`}
                   />
-                  <input
+                  <Input
                     type="text"
-                    className="w-24 shrink-0 rounded-md border border-border bg-background p-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-24 shrink-0 text-11"
                     value={t.seg}
                     onChange={(e) => updateTask(i, { seg: e.target.value })}
                     onBlur={() => void persist(value)}
@@ -201,18 +202,18 @@ export function PreTasksPanelEditor({
                     </button>
                   ))}
                 </div>
-                <input
+                <Input
                   type="text"
-                  className="mb-1 w-full rounded-md border border-border bg-background p-1 text-11 text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="mb-1 w-full text-11 text-destructive"
                   value={t.ifNot}
                   onChange={(e) => updateTask(i, { ifNot: e.target.value })}
                   onBlur={() => void persist(value)}
                   placeholder="不做会怎样（必填——写不出来的任务就该删掉）"
                   data-testid={`bp-hw-ifnot-${i}`}
                 />
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-dashed border-border bg-background p-1 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full border-dashed text-11 text-muted-foreground"
                   value={t.due}
                   onChange={(e) => updateTask(i, { due: e.target.value })}
                   onBlur={() => void persist(value)}

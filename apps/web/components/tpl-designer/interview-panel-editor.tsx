@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -174,18 +176,18 @@ export function InterviewPanelEditor({
             {value.roles.map((r, i) => (
               <li key={i} className="flex flex-col gap-1 p-2.5" data-testid={`bp-itv-role-row-${i}`}>
                 <div className="flex items-center gap-1.5">
-                  <input
+                  <Input
                     type="text"
-                    className="w-36 shrink-0 rounded-md border border-border bg-background p-1 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-36 shrink-0 text-12 font-medium"
                     value={r.role}
                     onChange={(e) => updateRole(i, { role: e.target.value })}
                     onBlur={() => void persist(value)}
                     placeholder="角色（如「客户方决策人」）"
                     data-testid={`bp-itv-role-name-${i}`}
                   />
-                  <input
+                  <Input
                     type="number"
-                    className="w-16 rounded-md border border-border bg-background p-1 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-16 text-12"
                     value={r.quota}
                     onChange={(e) => updateRole(i, { quota: Number(e.target.value) || 0 })}
                     onBlur={() => void persist(value)}
@@ -202,18 +204,18 @@ export function InterviewPanelEditor({
                     删除
                   </button>
                 </div>
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-border bg-background p-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full text-11"
                   value={r.ask}
                   onChange={(e) => updateRole(i, { ask: e.target.value })}
                   onBlur={() => void persist(value)}
                   placeholder="要问出什么"
                   data-testid={`bp-itv-role-ask-${i}`}
                 />
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-dashed border-border bg-background p-1 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full border-dashed text-11 text-muted-foreground"
                   value={r.guide}
                   onChange={(e) => updateRole(i, { guide: e.target.value })}
                   onBlur={() => void persist(value)}
@@ -239,28 +241,20 @@ export function InterviewPanelEditor({
         <h3 className="mb-2 text-13 font-semibold">默认授权设置</h3>
         <ul className="flex flex-col gap-1.5">
           <li>
-            <label className="flex items-start gap-2 text-12 text-muted-foreground">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={value.auth.recordAndTranscribeByDefault}
-                onChange={() => toggleAuth("recordAndTranscribeByDefault")}
-                data-testid="bp-itv-auth-record"
-              />
-              默认请求录音与转录 · 发受访者自助同意链接
-            </label>
+            <Checkbox
+              checked={value.auth.recordAndTranscribeByDefault}
+              onChange={() => toggleAuth("recordAndTranscribeByDefault")}
+              label="默认请求录音与转录 · 发受访者自助同意链接"
+              data-testid="bp-itv-auth-record"
+            />
           </li>
           <li>
-            <label className="flex items-start gap-2 text-12 text-muted-foreground">
-              <input
-                type="checkbox"
-                className="mt-0.5"
-                checked={value.auth.requestAiAnalysisByDefault}
-                onChange={() => toggleAuth("requestAiAnalysisByDefault")}
-                data-testid="bp-itv-auth-ai"
-              />
-              默认请求 AI 分析（建议逐人问）
-            </label>
+            <Checkbox
+              checked={value.auth.requestAiAnalysisByDefault}
+              onChange={() => toggleAuth("requestAiAnalysisByDefault")}
+              label="默认请求 AI 分析（建议逐人问）"
+              data-testid="bp-itv-auth-ai"
+            />
           </li>
           <li className="flex items-start gap-2 text-12 text-warning-foreground" data-testid="bp-itv-auth-hardlimit">
             <span aria-hidden className="mt-0.5">

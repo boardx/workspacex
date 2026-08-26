@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -175,24 +177,22 @@ export function AgentPanelEditor({
             {value.agents.map((a, i) => (
               <li key={i} className="flex flex-col gap-1 p-2.5" data-testid={`bp-agent-row-${i}`}>
                 <div className="flex items-center gap-1.5">
-                  <input
+                  <Input
                     type="text"
-                    className="w-28 shrink-0 rounded-md border border-border bg-background p-1 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-28 shrink-0 text-12 font-medium"
                     value={a.name}
                     onChange={(e) => updateAgent(i, { name: e.target.value })}
                     onBlur={() => void persist(value)}
                     placeholder="Facilitator"
                     data-testid={`bp-agent-name-${i}`}
                   />
-                  <label className="flex shrink-0 items-center gap-1 text-11 text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={a.canSpeak}
-                      onChange={() => commitAgent(i, { canSpeak: !a.canSpeak })}
-                      data-testid={`bp-agent-canspeak-${i}`}
-                    />
-                    可主动发言
-                  </label>
+                  <Checkbox
+                    className="shrink-0"
+                    checked={a.canSpeak}
+                    onChange={() => commitAgent(i, { canSpeak: !a.canSpeak })}
+                    label="可主动发言"
+                    data-testid={`bp-agent-canspeak-${i}`}
+                  />
                   <div className="flex shrink-0 gap-0.5">
                     {AGENT_STATES.map((s) => (
                       <button
@@ -221,18 +221,18 @@ export function AgentPanelEditor({
                     ✕
                   </button>
                 </div>
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-border bg-background p-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full text-11"
                   value={a.does}
                   onChange={(e) => updateAgent(i, { does: e.target.value })}
                   onBlur={() => void persist(value)}
                   placeholder="做什么（如「推进议程、识别重复议题、提议收敛」）"
                   data-testid={`bp-agent-does-${i}`}
                 />
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-dashed border-border bg-background p-1 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full border-dashed text-11 text-muted-foreground"
                   value={a.segs}
                   onChange={(e) => updateAgent(i, { segs: e.target.value })}
                   onBlur={() => void persist(value)}
@@ -257,9 +257,9 @@ export function AgentPanelEditor({
         <h3 className="mb-2 text-13 font-semibold">介入尺度</h3>
         <label className="flex items-center gap-2 text-12 font-medium">
           提议收敛的触发阈值：重复
-          <input
+          <Input
             type="number"
-            className="w-16 rounded-md border border-border bg-background p-1 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-16 text-12"
             value={value.repeatThreshold}
             onChange={(e) => setValue((v) => ({ ...v, repeatThreshold: Number(e.target.value) || 0 }))}
             onBlur={() => void persist(value)}
