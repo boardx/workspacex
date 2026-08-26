@@ -191,8 +191,9 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
         id: string; status: string; pending_tool_name: string | null; created_at: Date; agent_id: string;
+        remote_run_id: string | null; paused_at: Date | null;
       }>(
-        `SELECT id, status, pending_tool_name, created_at, agent_id
+        `SELECT id, status, pending_tool_name, created_at, agent_id, remote_run_id, paused_at
            FROM agent_runs
           WHERE thread_id = $1
           ORDER BY created_at DESC, id DESC
@@ -207,8 +208,22 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
         pendingToolName: row.status === "awaiting_approval" ? row.pending_tool_name : null,
         createdAt: row.created_at.toISOString(),
         agentId: row.agent_id,
+        remoteRunId: row.remote_run_id,
+        pausedAt: row.paused_at ? row.paused_at.toISOString() : null,
       };
     });
+  }
+
+  async recordRemoteRunId(orgId: OrgId, runId: string, remoteRunId: string): Promise<void> {
+    await this.db.withTenant(orgId, (s) =>
+      s.query("UPDATE agent_runs SET remote_run_id = $1 WHERE id = $2", [remoteRunId, runId]),
+    );
+  }
+
+  async markRunPaused(orgId: OrgId, runId: string): Promise<void> {
+    await this.db.withTenant(orgId, (s) =>
+      s.query("UPDATE agent_runs SET paused_at = now() WHERE id = $1", [runId]),
+    );
   }
 }
 

@@ -5333,9 +5333,9 @@
         "F974"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "22",
-      "owner": null,
+      "owner": "dev-chat-e2e-f976",
       "verification": [
         "pnpm --filter api exec vitest run tests/plan-control/pause-resume-run.test.ts",
         "pnpm --filter api exec vitest run tests/plan-control/retry-step-and-control-audit.test.ts"
