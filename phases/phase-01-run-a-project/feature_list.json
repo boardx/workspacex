@@ -5310,9 +5310,9 @@
         "F973"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "22",
-      "owner": null,
+      "owner": "dev-chat-e2e-f975",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/plan-control/evaluate-plan-gate-table.test.ts",
         "pnpm --filter api exec vitest run tests/plan-control/confirm-plan-delivery-digest.test.ts"
