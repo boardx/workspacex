@@ -495,7 +495,33 @@ export class DeepAgentModelProvider implements ModelCallPort {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        // issue #2098 —— **归一化行尾，再找帧边界**。SSE 规范（WHATWG）允许行以
+        // CRLF / CR / LF 结束，而上游 `apps/deep-agent-service` 用的 sse-starlette
+        // 3.3.4 默认就是 **CRLF**：真实帧分隔符是 `\r\n\r\n`，里面**不含** `\n\n`
+        // 子串。所以下面那句 `indexOf("\n\n")` 对真引擎的字节**一帧都切不出来**——
+        // 整条流被读完却一个事件都没解析出来，`tryStreamRun` 仍返回 true（流确实
+        // 正常读完了），调用方于是直接走终态 → `readCompletion` 取整段终稿，
+        // `agui-bridge` 零 delta → 控制器 `sawAnyDelta === false` → 前端收到**一条**
+        // 装着整段答案的 `TEXT_MESSAGE_CONTENT`。这正是「全空十几秒后整段一次性出现、
+        // 同时工具卡才冒出来」的真根因（工具卡同理：`emitNewToolEvents` 只剩终态那
+        // 一次兜底调用）。
+        //
+        // ⚠ 这个 bug 能活下来，是因为**所有替身都说 LF**：`loopback-deep-agent-
+        //   provider.ts:428` 与本目录反证套件 `deep-agent-stream.test.ts` 写的都是
+        //   `\n\n`，于是「逐 token 真流式」的反证测试全绿，而真引擎零 delta。
+        //   取证：`.harness/state/deepagent-eval/2026-08-23-3d327c13/sse-and-thread-
+        //   state-evidence-v2/01-sse-stream.txt` 345 行**全部**以 `0d0a` 结尾；把
+        //   那份原始字节逐帧回放给本解析器，CRLF 原样 → onDelta 0 次，仅把 `\r`
+        //   剥掉 → onDelta 34 次（243 字符，+12.31s~+14.42s）。一位之差。
+        //
+        // 归一化放在**每轮对整个剩余 buffer** 做，而不是只对本次 decode 的分片做：
+        // 一个 `\r\n` 可能被 TCP 分片从中间劈开（`\r` 落在上一片尾、`\n` 落在下一片
+        // 头），只归一化分片会漏掉它；对整个 buffer 重复归一化是幂等的，那个残留的
+        // `\r` 会在下一轮与新到的 `\n` 合并后被正确吃掉。
+        //
+        // 逐行解析那侧不需要动：`l.slice(5).trim()` 本来就会把行尾残留的 `\r` 吃掉，
+        // 坏掉的**只有帧边界**这一处。
+        buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
         let sep: number;
         while ((sep = buffer.indexOf("\n\n")) >= 0) {
           const rawEvent = buffer.slice(0, sep);
