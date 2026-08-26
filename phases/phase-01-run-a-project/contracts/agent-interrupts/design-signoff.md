@@ -7,14 +7,7 @@ phase: "01"
 #   `apps/deep-agent-service`/`packages` 零命中（2026-08-26 实测 origin/main d88e7693）。
 #   签核通过后由 requirement-author 生成 feature 再追加；追加规则见
 #   .harness/instructions/contract-design.md「covers 追加规则」三条件。
-covers: []
-# 2026-08-26 人类裁决：已签核但 feature 尚未生成 ⇒ `harness doctor` 由 FAIL 降为 WARN。
-# ⚠ 这**不是**绿灯：本束目前不覆盖任何 feature，「它覆盖的 feature 都已评审」是平凡为真。
-#   降级判据三条缺一不可（声明了 covers / status 字段为 confirmed / 本行理由非空），
-#   ⚠ 上一行刻意不写成 `status:` 的键值形态：注释里出现那个字面量，会让按字符串
-#     替换的工具命中注释而不是真正的字段（2026-08-26 实测把我自己的反证骗过一次）。
-#   所以它补不了一个没人签过的空壳束。判定见 .harness/scripts/lib/design-signoff.ts 该分支注释。
-covers_pending: "本束的 feature 尚未生成——三种 HITL 中断（confirm_intent / fill_params / choose_option）的 UC 已签核，但 feature_list.json 里还没有属于它的条目，待 requirement-author 生成后按「covers 追加规则」填入"
+covers: [F212, F213, F214, F215, F216]  # 回填 2026-08-26 by requirement-author（PR 见本次）；F212 契约内核、F213 confirm_intent、F214 fill_params、F215 choose_option、F216 决策守卫+XC-59 反证
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: usamshen               # 确认人（姓名/邮箱）
 confirmed_at: "2026-08-26T07:20:23Z"                # ISO 8601，且不得晚于签核当下

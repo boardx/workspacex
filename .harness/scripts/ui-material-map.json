@@ -11,6 +11,7 @@
   "//7": "plan-control（2026-08-26 建，TW-P0-3 可编辑计划与六态工作流）同 asset-governance/research 先例：声明了目录但 ui-prototyper 尚未产出，门控报判定④「目录不存在/0 张 png」——那是正确的红，材料确实还没有。不补这一行的话报的是判定③「未声明」，报错理由就不对了。缺哪 8 屏逐条记名在该束 ui.md 第三节 G-01～G-08；ui-prototyper 交付后此红自动消。",
   "//6": "为什么 project 指向 project-v2：v1（project/ 19 张，只有概览拿到七态、无四视角对照）已被推翻——补齐两层界面（列表 + 工作台）× 七态 × 四视角、修好「客户分享链接默认反了」等保真度错误，见 project-v2/V1-WAS-WRONG.md。旧目录不删，留痕。",
   "phase-01-run-a-project": {
+    "agent-interrupts": "ui-preview/agent-interrupts",
     "agent-runtime": "ui-preview/agent-runtime-v2",
     "asset-governance": "ui-preview/asset-governance",
     "canvas": "ui-preview/canvas-v2",

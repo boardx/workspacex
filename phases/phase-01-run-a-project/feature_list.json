@@ -5121,6 +5121,113 @@
       ],
       "evidence": "evidence/I1668.verify.log",
       "notes": "issue #1668 勘探结论：这不是新缺口，是 chat-persona-roundtrip（G1，confirmed 2026-08-18）读回机制唯一没接上的一个触发时机——`fetchLatestSavedDiagramSource` 此前只在用户点「最大化」时调用，组件挂载（含整页刷新后的重新挂载）时 `savedSource` 恒为初始值 `null`，只读预览因此恒画消息原文，直到用户主动点过一次最大化。人类 2026-08-21 裁决：不回写消息 text（维持不可变性），图表继续独立存储/版本化，只读预览改接已建好的引用解析。实现：`ChatDiagramFabric`/`ChatCanvasFabric` 各新增一条 `React.useEffect`（依赖 inView+savedSource+threadId+messageId+projectId+bearer），`inView` 为真且 `savedSource===null` 且三个身份参数俱全时调用既有的 `fetchLatestSavedDiagramSource`（不新起端口，`packages/contracts/src/chat.ts` 零改动），命中则 `setSavedSource`，既有的 `previewCode = savedSource?.markdown ?? code` 链路自动接管渲染；`onSaved` 回调核实后确认已由 `onClose(result)`（PR #1696）实现，无需改动。真栈 e2e 直接反证 issue 描述现象：`apps/web/e2e/chat-diagram-save-reopen-roundtrip.spec.ts` 新增一条用例——保存后不刷新（气泡像素级对照）→ 整页 reload 不点最大化（断言自动 GET .../artifacts/:id/source 请求 + 像素级与保存后截图字节相等）。设计材料：`design-deltas/chat-diagram-artifact-reference/{contract.md,design-signoff.md}`（status: confirmed，零新增契约字段）。"
+    },
+    {
+      "id": "F212",
+      "priority": 1,
+      "area": "agent-interrupts",
+      "capability": "CAP-API",
+      "title": "三种 HITL 中断的契约内核：agent-interrupts.ts zod 骨架 + 跨语言工具名门控 + ARGS_MAX_CHARS 豁免 + 部署投影扩容",
+      "user_visible_behavior": "对用户不是一块独立界面，而是让后面三张中断卡能真实工作的共享内核：① 三个具名虚拟工具（confirm_task_intent / fill_run_params / choose_execution_option）的 args 形状与统一失败枚举 AgentInterruptError（8 码）在 packages/contracts/src/agent-interrupts.ts 有唯一 zod 事实源；② fill_params 多字段 + choose_option 2–3 张选项卡的长 args 不再被默认 500 字符截断成非法 JSON（三个工具名进入 ARGS_MAX_CHARS 豁免清单）；③ Python 侧 @tool 三个函数名/参数名与 TS 契约逐字一致（跨语言门控测试守，任一处漂移即红）；④ DEEP_AGENT_HITL_TOOLS 环境变量投影链扩到四个工具名。",
+      "depends_on": [],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/schema.test.ts",
+        "pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/cross-lang-tool-parity.test.ts",
+        "pnpm --filter api exec vitest run tests/agent-interrupts/args-max-chars-exempt.test.ts",
+        "pnpm --filter @repo/contracts run typecheck"
+      ],
+      "evidence": "",
+      "notes": "契约束 agent-interrupts 已签核（design-signoff.md status: confirmed by usamshen 2026-08-26，PR #2136 Merge 即机械证据）。本 feature 是签核第③件 API 契约的落点（domain.md 二/三/四节 + coverage.md AI-3/AI-4/AI-5）。依据等级：全部为 [Backlog]（纯新能力，全仓 grep confirm_intent|fill_params|choose_option 零命中，基线 origin/main d88e7693），设计已随束签核评审。裁决④（design-signoff §六）：新建 agent-interrupts.ts 平行文件，不动 deep-agent-hitl.ts 单工具语义；DEEP_AGENT_HITL_TOOLS 拼装点（deploy.sh）改为从两文件各取工具名再 .join。跨语言门控仿 packages/contracts/tests/deep-agent-hitl.test.ts 读 .py 源码断言签名一致（coverage AI-4，跨语言边界靠门控不靠 import）。schema.test 覆盖不变量 I-2（assumptions.min(2)）、I-5（options 长度∈[2,3]）、I-3（aiGuess≠null⇒rationale≠null）与 8 个错误码枚举完整性。被合并的横切：三个工具的 args/error 声明只写一份，不在三张卡 feature 里各写一遍。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。"
+    },
+    {
+      "id": "F213",
+      "priority": 1,
+      "area": "agent-interrupts",
+      "capability": "CAP-CHAT",
+      "title": "目标复述卡（confirm_intent）：执行前复述理解+≥2条假设，未确认不执行任何工具；可继续或改假设",
+      "user_visible_behavior": "AI 在执行前于对话流内弹出一张「目标复述卡」（与既有 call_skill 审批卡同一插槽），显示一句「理解」文本 + ≥2 条只读假设列表，卡片下方有一条「后续步骤未开始」门控说明条；用户点「继续」→ approve resume，任务继续；点「改假设」→ 每条假设变可编辑文本框（可增删），提交 → edit resume，用编辑后的完整假设列表重新确认一次；在用户确认之前，该 run 不执行任何后续工具调用（未确认不往下走）。",
+      "depends_on": [
+        "F212"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-interrupts/confirm-intent-gates-tools.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/agent-interrupt-confirm-intent-card.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约束已签核（confirmed）。covers usecases.md UC-1 + domain.md I-1/I-2。依据等级 [Backlog]（纯新能力）。最重要不变量是 I-1「未确认不执行任何工具」——按 usecases UC-1 反证节写成查询即断言（不靠计时器）：confirm-intent-gates-tools.test 断言 agent_run_steps 里 toolName='confirm_task_intent' 且 status='awaiting_approval' 的行之后，同一 runId 不存在 createdAt 更晚且 status≠awaiting_approval 的工具调用行。UI 断言锚定真实 testid（ui.md 屏一）：agent-interrupt-confirm-intent-{card,continue,edit-toggle,edit-submit,gated-notice,assumption-*}；截图 ui-preview/agent-interrupts/uc-1-confirm-intent-*.png（PR #2140/ui-prototyper 交付 25 张，ui.md 已定 testid，不等截图文件本体）。「改假设」= 用新假设重新确认一次（EditDecision 标准语义），非第二轮 UI 流程。边界：AI 何时决定调用 confirm_task_intent 属 skill/prompt 工程，不在本契约（coverage 边界声明）。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。"
+    },
+    {
+      "id": "F214",
+      "priority": 1,
+      "area": "agent-interrupts",
+      "capability": "CAP-CHAT",
+      "title": "参数补全表单（fill_params）：AI 猜测字段高亮+依据，逐字段可改；改动走 full-rerun/ledger-only 两态（诚实降级）",
+      "user_visible_behavior": "AI 需要参数时弹出「参数补全表单」，每个字段一行：AI 猜过的字段单独高亮 + 「AI 建议」徽标 + 一句依据文案（有猜测必有依据）；纯人工必填字段（aiGuess=null）不带高亮，走既有「必填未填」校验态；提交按钮文案随是否有改动切换——全部未改显示「接受」（approve），有改动显示「应用」（edit）；有改动时出现 full-rerun / ledger-only 二选一，选 ledger-only 时显示提示「本步骤执行中，改动将在完成后生效」。⚠ 明确不是「精确子集重跑」：编辑一个字段可能触发比预期更大范围的全量重跑（诚实降级，文案如实告知）。",
+      "depends_on": [
+        "F212"
+      ],
+      "points": 3,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/fill-params-guess-rationale.test.ts",
+        "pnpm --filter api exec vitest run tests/agent-interrupts/fill-params-applied-to.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/agent-interrupt-fill-params-card.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约束已签核（confirmed）。covers usecases.md UC-2 + domain.md I-3 + 缺口 AI-1。依据等级 [Backlog]（纯新能力）。⚠ 知情降级（裁决①，design-signoff §六）：appliedTo 只做 full-rerun/ledger-only 两态，不承诺 I-4「只重跑受影响下游」（依赖 checkpoint fork，本仓未证实，agent-runtime 缺口25 的延伸；恢复完整能力是未来待办，不是本轮）。guess-rationale.test 断言 I-3：∀field，aiGuess≠null ⇒ rationale≠null（zod refine）。applied-to.test 断言 appliedTo∈{full-rerun,ledger-only} 且 ledger-only 在 run 活跃时只落账本、下一轮送达。⚠ 必填校验错误码用 FIELD_REQUIRED_BLANK，不是 PLAN_CONSTRAINT_BLANK——XC-60（design-coherence.md 2026-08-26）实测确认 plan-control 的 PLAN_CONSTRAINT_BLANK 是 PlanConstraint 实体的字符串空值校验，与本束任意值类型必填字段不同类，占位脚注已正确预判，此为复核确定结论非待裁决。UI testid（ui.md 屏二）：agent-interrupt-fill-params-{card,field-*,input-*,ai-badge-*,rationale-*,applied-full-rerun,applied-ledger-only,ledger-hint,submit}；截图 uc-2-fill-params-*.png。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。"
+    },
+    {
+      "id": "F215",
+      "priority": 1,
+      "area": "agent-interrupts",
+      "capability": "CAP-CHAT",
+      "title": "多方案对比卡（choose_option）：2–3 张等宽卡固定三项对照，选中即 resume（optionId 回指）",
+      "user_visible_behavior": "AI 给出 2–3 个执行方案时弹出「多方案对比」：等宽卡横排，每张卡固定三行对照（见效 / 投入 / 预计收益，顺序固定）；点整张卡即选中（黑描边+勾标）并立即 resume（不设二次确认）；resume 载荷用 optionId 回指（不用数组下标，避免并发/重渲染重排时静默选错）；提供「都不要」逃生口（reject）；若选中的 optionId 不在原始选项集合里，返回 SELECTED_OPTION_NOT_FOUND，不静默执行错误方案。",
+      "depends_on": [
+        "F212"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/choose-option-schema.test.ts",
+        "pnpm --filter api exec vitest run tests/agent-interrupts/choose-option-optionid-refers.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/agent-interrupt-choose-option-card.test.tsx"
+      ],
+      "evidence": "",
+      "notes": "契约束已签核（confirmed）。covers usecases.md UC-3 + domain.md I-5/I-6。依据等级 [Backlog]（纯新能力）。⚠ 裁决②（design-signoff §六）：choose_option 走 edit 决策类型，前端以 {selectedOptionId} 当 edit 载荷 resume，零桥接层代码改动（不生成假设『原生支持 choose/respond』的用例——respond 在本仓 parseHitlDecision 封闭三态里不可达，缺口 AI-2，本束绕开而非解决）。allowedDecisions=['edit','reject']。schema.test 断言 I-5（options∈[2,3]）与 edit editedArgs 形状={selectedOptionId}（不是下标）。optionid-refers.test 断言 I-6：selectedOptionId∉原始 options[].optionId ⇒ SELECTED_OPTION_NOT_FOUND；选项数组重排后仍按 id 命中正确项。UI testid（ui.md 屏三）：agent-interrupt-choose-option-{card,option-*,selected-mark-*,decline}；截图 uc-3-choose-option-*.png（含 two/selected 变体）。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。"
+    },
+    {
+      "id": "F216",
+      "priority": 1,
+      "area": "agent-interrupts",
+      "capability": "CAP-API",
+      "title": "中断决策统一守卫：8 错误码 fail-closed（权限/kind不符/失效/畸形/审计写不进）+ XC-59 反证 PlanPhase 不被误判为审批",
+      "user_visible_behavior": "对任意一张中断卡做决策时，共享一套 fail-closed 守卫：观察者/无写权→拒绝（NO_WRITE_ROLE，观察者恒无写权）；对该线程无可见权→NOT_VISIBLE；当前线程无本束任一 pending 中断→NO_ACTIVE_INTERRUPT；决策载荷隐含 kind 与当前 pending 中断 kind 不符（如对 confirm_intent 发 choose_option 形状）→INTERRUPT_KIND_MISMATCH；中断已被另一标签页决策→STALE_INTERRUPT；resume 载荷既非已知字面量也非合法 JSON→MALFORMED_RESUME_PAYLOAD；决策写不进审计→整个 resume 失败（AUDIT_SINK_UNAVAILABLE，与 ProvenanceWriter 同 fail-closed 纪律）。且当线程仅有 agent-interrupts 三种中断、没有 call_skill 审批时，用户不会看到被误贴的「审批」文案。",
+      "depends_on": [
+        "F212"
+      ],
+      "points": 2,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter api exec vitest run tests/agent-interrupts/decision-guard-errors.test.ts",
+        "pnpm --filter api exec vitest run tests/agent-interrupts/plan-phase-not-approving-for-interrupts.test.ts"
+      ],
+      "evidence": "",
+      "notes": "契约束已签核（confirmed）。横切 feature：三张卡共享的决策守卫只做一遍，不在 F213/F214/F215 各做一次（权限判定委托 chat UC-0、审计留痕、8 错误码枚举）。covers usecases.md 统一失败枚举 AgentInterruptError。decision-guard-errors.test 逐一构造 8 码的 fail-closed 路径（kind mismatch / stale / malformed / audit-sink 等），断言均非 0 处置、不静默放行。⚠ XC-59 反证（design-coherence.md 2026-08-26 交叉复核明确要求，非可选项）：plan-phase-not-approving-for-interrupts.test 断言『仅有 agent-interrupts 类中断、无 call_skill 审批』时 PlanPhase !== 'approving'——plan-control I-7 的『是否有待决审批』判定若不按 toolName 过滤（只认 call_skill 白名单，排除本束三个新工具名），三种新中断会误触发『审批』派生态，用户看到『目标复述卡』却被贴上『审批』文案（真实 UX/语义 bug）。本条是两束共同实现期待办在本束侧的反证落点。依据等级 [Backlog]（纯新能力）。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。 ⚠ XC-59 反证归属（coord-main 2026-08-26 确认，双向对齐 plan-control 线）：这条测试的权威修复点在 plan-control 的 PlanPhase 派生函数——F216 只负责『断言』（仅 agent-interrupts 中断、无 call_skill 审批时 PlanPhase≠approving），不负责实现该派生函数里按 toolName 过滤的逻辑本身。plan-control 线的 F21x 系列谁先落地 PlanPhase 派生函数，必须同时满足这条断言；即两束分开实现时，谁先做完 PlanPhase 谁就要让本断言通过，责任方明确、不会被对方反证意外测红却找不到归属。"
     }
   ]
 }
