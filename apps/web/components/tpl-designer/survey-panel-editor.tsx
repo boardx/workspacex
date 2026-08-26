@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -167,9 +169,9 @@ export function SurveyPanelEditor({
           {value.surveys.map((s, i) => (
             <li key={i} className="rounded-lg border border-border p-4" data-testid={`bp-survey-card-${i}`}>
               <div className="mb-2 flex items-center gap-1.5">
-                <input
+                <Input
                   type="text"
-                  className="flex-1 rounded-md border border-border bg-background p-1.5 text-13 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex-1 text-13 font-semibold"
                   value={s.name}
                   onChange={(e) => updateSurvey(i, { name: e.target.value })}
                   onBlur={() => void persist(value)}
@@ -185,17 +187,17 @@ export function SurveyPanelEditor({
                   删除
                 </button>
               </div>
-              <input
+              <Input
                 type="text"
-                className="mb-2 w-full rounded-md border border-dashed border-border bg-background p-1.5 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="mb-2 w-full border-dashed text-11 text-muted-foreground"
                 value={s.timing}
                 onChange={(e) => updateSurvey(i, { timing: e.target.value })}
                 onBlur={() => void persist(value)}
                 placeholder="发放时机（如「开始前 5 天发 · 60% 阻断开始」）"
                 data-testid={`bp-survey-timing-${i}`}
               />
-              <textarea
-                className="mb-2 min-h-10 w-full rounded-md border border-border bg-background p-1.5 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              <Textarea
+                className="mb-2 min-h-10 w-full text-11 text-muted-foreground"
                 value={s.purpose}
                 onChange={(e) => updateSurvey(i, { purpose: e.target.value })}
                 onBlur={() => void persist(value)}
@@ -205,9 +207,9 @@ export function SurveyPanelEditor({
               <ul className="flex flex-col gap-1">
                 {s.skeleton.map((q, qi) => (
                   <li key={qi} className="flex items-center gap-1.5" data-testid={`bp-survey-question-row-${i}-${qi}`}>
-                    <input
+                    <Input
                       type="text"
-                      className="flex-1 rounded-md bg-panel px-2.5 py-1.5 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="flex-1 rounded-md bg-panel px-2.5 py-1.5 text-12"
                       value={q}
                       onChange={(e) => updateQuestion(i, qi, e.target.value)}
                       onBlur={() => void persist(value)}

@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -157,9 +158,9 @@ export function VenuePanelEditor({
           {VENUE_SPACE_FIELDS.map((f) => (
             <li key={f} className="flex items-center gap-2 p-2.5" data-testid={`bp-venue-space-row-${f}`}>
               <span className="w-24 shrink-0 text-12 font-medium">{f}</span>
-              <input
+              <Input
                 type="text"
-                className="flex-1 rounded-md border border-border bg-background p-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex-1 text-11"
                 value={value.space[f] ?? ""}
                 onChange={(e) => updateSpace(f, e.target.value)}
                 onBlur={() => void persist(value)}

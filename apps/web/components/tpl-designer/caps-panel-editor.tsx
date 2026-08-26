@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -165,21 +167,18 @@ export function CapsPanelEditor({
             const on = isOn(value, c);
             return (
               <li key={c.name} className="flex items-center gap-2 p-2.5" data-testid={`bp-caps-item-${c.name}`}>
-                <label className="flex w-32 shrink-0 items-center gap-1.5 text-12 font-medium">
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    disabled={c.mustKeep}
-                    onChange={() => toggleCap(c)}
-                    aria-label={`${c.name}${c.mustKeep ? "（必留）" : ""}`}
-                    data-testid={`bp-caps-toggle-${c.name}`}
-                    className={c.mustKeep ? "cursor-not-allowed opacity-50" : undefined}
-                  />
-                  {c.name}
-                </label>
-                <input
+                <Checkbox
+                  className="w-32 shrink-0"
+                  checked={on}
+                  disabled={c.mustKeep}
+                  onChange={() => toggleCap(c)}
+                  aria-label={`${c.name}${c.mustKeep ? "（必留）" : ""}`}
+                  data-testid={`bp-caps-toggle-${c.name}`}
+                  label={c.name}
+                />
+                <Input
                   type="text"
-                  className="flex-1 rounded-md border border-border bg-background p-1 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex-1 text-11 text-muted-foreground"
                   value={value.uses[c.name] ?? ""}
                   onChange={(e) => updateUse(c.name, e.target.value)}
                   onBlur={() => void persist(value)}

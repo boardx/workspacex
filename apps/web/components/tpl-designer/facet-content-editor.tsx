@@ -1,7 +1,9 @@
 "use client";
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * 蓝本设计器**真实**可编辑面板（解开 D-05 二级 sign-off 之后的第一个实现增量）。
@@ -81,8 +83,8 @@ export function FacetTextEditor({
         <h3 className="text-13 font-semibold">内容</h3>
         <SaveStatusBadge status={status} />
       </div>
-      <textarea
-        className="min-h-24 w-full rounded-md border border-border bg-background p-2 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      <Textarea
+        className="min-h-24 w-full text-12"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onBlur={() => void handleBlur()}
@@ -366,14 +368,13 @@ export function PermissionMatrixEditor({
                       : (value.cells[key] ?? defaultCellValue(capability, role));
                     return (
                       <TableCell key={role} className="px-2 py-1.5 text-center" data-testid="bp-roles-cell">
-                        <input
-                          type="checkbox"
+                        <Checkbox
+                          className="justify-center"
                           checked={checked}
                           disabled={locked}
                           onChange={() => toggle(capability, role)}
                           aria-label={`${capability} · ${role}${locked ? "（锁定）" : ""}`}
                           data-testid={`bp-permission-cell-${capability}-${role}`}
-                          className={cn(locked && "cursor-not-allowed opacity-50")}
                         />
                       </TableCell>
                     );

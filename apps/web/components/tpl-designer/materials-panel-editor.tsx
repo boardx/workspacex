@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import type { FacetSaveFn } from "./facet-content-editor";
+import { Input } from "@/components/ui/input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 /**
@@ -161,9 +162,9 @@ export function MaterialsPanelEditor({
                 {value.rows.map((r, i) => (
                   <TableRow key={i} className="border-b border-border-subtle" data-testid={`bp-mat-row-${i}`}>
                     <TableCell className="py-1.5 pr-2">
-                      <input
+                      <Input
                         type="text"
-                        className="w-full rounded-md border border-border bg-background p-1 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="w-full text-12 font-medium"
                         value={r.name}
                         onChange={(e) => updateRow(i, { name: e.target.value })}
                         onBlur={() => void persist(value)}
@@ -172,9 +173,9 @@ export function MaterialsPanelEditor({
                       />
                     </TableCell>
                     <TableCell className="px-2 py-1.5">
-                      <input
+                      <Input
                         type="text"
-                        className="w-20 rounded-md border border-border bg-background p-1 font-mono text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="w-20 font-mono text-11"
                         value={r.qty}
                         onChange={(e) => updateRow(i, { qty: e.target.value })}
                         onBlur={() => void persist(value)}
@@ -183,9 +184,9 @@ export function MaterialsPanelEditor({
                       />
                     </TableCell>
                     <TableCell className="px-2 py-1.5">
-                      <input
+                      <Input
                         type="text"
-                        className="w-20 rounded-md border border-border bg-background p-1 text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="w-20 text-11"
                         value={r.forSeg}
                         onChange={(e) => updateRow(i, { forSeg: e.target.value })}
                         onBlur={() => void persist(value)}

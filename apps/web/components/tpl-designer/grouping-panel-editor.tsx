@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -182,9 +183,9 @@ export function GroupingPanelEditor({
                   <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">
                     第 {i + 1} 组
                   </span>
-                  <input
+                  <Input
                     type="text"
-                    className="flex-1 rounded-md border border-border bg-background p-1.5 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex-1 text-12 font-medium"
                     value={s.name}
                     onChange={(e) => updateScenario(i, { name: e.target.value })}
                     onBlur={() => void persist(value)}
@@ -200,18 +201,18 @@ export function GroupingPanelEditor({
                     删除
                   </button>
                 </div>
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-border bg-background p-1.5 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full text-12"
                   value={s.ask}
                   onChange={(e) => updateScenario(i, { ask: e.target.value })}
                   onBlur={() => void persist(value)}
                   placeholder="这组要回答什么"
                   data-testid={`bp-grouping-scenario-question-${i}`}
                 />
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-dashed border-border bg-background p-1.5 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full border-dashed text-11 text-muted-foreground"
                   value={s.leadProfile}
                   onChange={(e) => updateScenario(i, { leadProfile: e.target.value })}
                   onBlur={() => void persist(value)}

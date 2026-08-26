@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { Input } from "@/components/ui/input";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -172,9 +173,9 @@ export function SkillPanelEditor({
                 data-testid={`bp-skill-row-${i}`}
               >
                 <div className="flex items-center gap-1.5">
-                  <input
+                  <Input
                     type="text"
-                    className="w-14 shrink-0 rounded-md border border-border bg-background p-1 text-center text-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="w-14 shrink-0 text-center text-11"
                     value={s.seg}
                     onChange={(e) => updateBinding(i, { seg: e.target.value })}
                     onBlur={() => void persist(value)}
@@ -182,12 +183,12 @@ export function SkillPanelEditor({
                     aria-label="绑在哪个环节"
                     data-testid={`bp-skill-seg-${i}`}
                   />
-                  <input
+                  <Input
                     type="text"
                     className={
                       s.degraded
-                        ? "flex-1 rounded-md border border-border bg-background p-1 text-12 font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        : "flex-1 rounded-md border border-border bg-background p-1 text-12 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        ? "flex-1 text-12 font-medium text-muted-foreground"
+                        : "flex-1 text-12 font-medium"
                     }
                     value={s.name}
                     onChange={(e) => updateBinding(i, { name: e.target.value })}
@@ -213,9 +214,9 @@ export function SkillPanelEditor({
                     ✕
                   </button>
                 </div>
-                <input
+                <Input
                   type="text"
-                  className="w-full rounded-md border border-dashed border-border bg-background p-1 text-11 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full border-dashed text-11 text-muted-foreground"
                   value={s.desc}
                   onChange={(e) => updateBinding(i, { desc: e.target.value })}
                   onBlur={() => void persist(value)}
