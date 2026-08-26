@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/plan-control/plan-edit-actions.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /private/tmp/f212-verify/apps/api
+
+filter:  tests/plan-control/plan-edit-actions.test.ts
+include: tests/**/*.test.ts
+exclude:  tests/recording/personal-transcription-persistence.test.ts
+
+No test files found, exiting with code 1
+undefined
+/private/tmp/f212-verify/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/plan-control/plan-edit-actions.test.ts
+
+[harness-verify v1 sha256=30ba885f427523d59f0bd859d5b740c22762fe0aa52c60589b42ecac688ce405 commit=b6ee07a41d874838fa1a610aa7af79967916bba2 at=2026-08-26T17:20:12.807Z]

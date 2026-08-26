@@ -1,0 +1,183 @@
+$ pnpm --filter @repo/contracts exec vitest run tests/plan-control/plan-control-schema-single-source.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f212-verify/packages/contracts
+
+ ✓ tests/plan-control/plan-control-schema-single-source.test.ts (31 tests) 10ms
+
+ Test Files  1 passed (1)
+      Tests  31 passed (31)
+   Start at  01:09:28
+   Duration  506ms (transform 100ms, setup 0ms, collect 104ms, tests 10ms, environment 0ms, prepare 96ms)
+
+
+
+$ pnpm --filter api exec vitest run tests/plan-control/ledger-append-only-unique.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /private/tmp/f212-verify/apps/api
+
+[db-isolation] db=wsx_b26de861d5351c79721e capacity=100 current=6 required=32
+ ✓ tests/plan-control/ledger-append-only-unique.test.ts (12 tests) 11913ms
+   ✓ RLS：两张表按 org 隔离，继承 chat_threads 判权的同一套机制 > 孤儿约束表同样按 org 隔离，且允许 DELETE（UC-6 主动撤销） 443ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  01:09:29
+   Duration  18.62s (transform 126ms, setup 0ms, collect 79ms, tests 11.91s, environment 0ms, prepare 174ms)
+
+[db-isolation] db=wsx_b26de861d5351c79721e peak_connections=2
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /private/tmp/f212-verify
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=b6ee07a41d874838fa1a610aa7af79967916bba2（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_b26de861d5351c79721e inner_db=wsx_b26de861d5351c79721e outer_compose=wsx-b26de861d5351c79721e inner_compose=wsx-b26de861d5351c79721e status=matched
+[stack-admission] load1=9.18 cores=10 perCore=0.92 running=2/2
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 115s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 120s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 125s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 130s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 135s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 140s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 145s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 151s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 156s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 161s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 166s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 171s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 176s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 181s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 186s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 191s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 196s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 201s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 206s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 211s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 216s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 221s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 226s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 231s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 236s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 241s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 246s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 251s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 256s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 261s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 266s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 271s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 276s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 281s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 286s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 291s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 296s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 301s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 306s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 312s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 317s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 322s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 327s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 332s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 337s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 342s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 347s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 352s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 357s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 362s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 367s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 372s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 377s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 382s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 387s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 392s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 397s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 402s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 407s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 412s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 417s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 422s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 427s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 432s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 437s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 442s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 447s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 452s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 458s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 463s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 468s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 473s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 478s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 483s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 488s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 493s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 498s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 503s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 508s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 513s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 518s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 523s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 528s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 533s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 538s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 543s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 548s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 553s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 558s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 563s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 568s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 573s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 578s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 583s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 588s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 593s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：已有 2 个隔离栈在跑（上限 2）。已等 598s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+! [stack-admission] 已排队 10 分钟仍未轮到（已有 2 个隔离栈在跑（上限 2））。放行以免把 CI 卡死，但机器确实在超额运行 —— 请减少并行度，别把这条当默认路径。
+[test-isolation] id=run-mtacmji9-ece127c9-b26de861d535 db=wsx_b26de861d5351c79721e compose=wsx-b26de861d5351c79721e pg=22361 redis=27361
+• turbo 2.10.5
+
+   • Packages in scope: //
+   • Running typecheck, lint, test in 1 packages
+   • Remote caching disabled, using shared worktree cache
+
+ WARNING  No tasks were executed as part of this run.
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    819ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  环境预留：0s
+  等待资源：10m3s
+  命令执行：2s
+  清理：6s
+  总计：10m12s
+
+[harness-verify v1 sha256=fa6a472154693fafd3859a5ab915306ff5c807b2b96ca1a3507b259c2bfe227c commit=b6ee07a41d874838fa1a610aa7af79967916bba2 at=2026-08-26T17:20:05.323Z]

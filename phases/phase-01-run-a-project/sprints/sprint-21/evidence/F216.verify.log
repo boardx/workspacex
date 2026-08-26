@@ -1,0 +1,15 @@
+$ pnpm --filter api exec vitest run tests/agent-interrupts/decision-guard-errors.test.ts
+[exit 1]
+
+ RUN  v2.1.9 /private/tmp/f212-verify/apps/api
+
+filter:  tests/agent-interrupts/decision-guard-errors.test.ts
+include: tests/**/*.test.ts
+exclude:  tests/recording/personal-transcription-persistence.test.ts
+
+No test files found, exiting with code 1
+undefined
+/private/tmp/f212-verify/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-interrupts/decision-guard-errors.test.ts
+
+[harness-verify v1 sha256=3db9ffb5aab3aa3f8e9418afa982cfda8a5dbbf2399b14696bf07607e115f721 commit=b6ee07a41d874838fa1a610aa7af79967916bba2 at=2026-08-26T17:09:14.564Z]

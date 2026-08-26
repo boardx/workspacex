@@ -1,0 +1,16 @@
+$ pnpm --filter web exec vitest run tests/ui/plan-control-phase-indicator.test.tsx
+[exit 1]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/f212-verify/apps/web
+
+filter:  tests/ui/plan-control-phase-indicator.test.tsx
+include: tests/**/*.test.ts, tests/**/*.test.tsx
+exclude:  **/node_modules/**, **/dist/**, **/cypress/**, **/.{idea,git,cache,output,temp}/**, **/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build,eslint,prettier}.config.*
+
+No test files found, exiting with code 1
+undefined
+/private/tmp/f212-verify/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/plan-control-phase-indicator.test.tsx
+
+[harness-verify v1 sha256=ed76eaf063289ec1dc4996e183b73004ad6ab1115ad5383c136c62db6f423dee commit=b6ee07a41d874838fa1a610aa7af79967916bba2 at=2026-08-26T17:20:22.615Z]

@@ -5132,8 +5132,8 @@
       "spec_ref": "contracts/agent-interrupts#confirmed",
       "depends_on": [],
       "points": 3,
-      "status": "in_progress",
-      "sprint": null,
+      "status": "passing",
+      "sprint": "21",
       "owner": "dev-ai-runtime-f212",
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/schema.test.ts",
@@ -5141,7 +5141,7 @@
         "pnpm --filter api exec vitest run tests/agent-interrupts/args-max-chars-exempt.test.ts",
         "pnpm --filter @repo/contracts run typecheck"
       ],
-      "evidence": "phases/phase-01-run-a-project/evidence/F212.md（4 条 verification 逐条实测通过；harness verify --phase 01 --feature F212 当前被 owner dev-chat-e2e 的既存 4-in_progress 不变量违反挡住，与本 feature 无关，见证据文件末节）",
+      "evidence": "evidence/F212.verify.log @ 2026-08-26T17:09:12.920Z",
       "notes": "契约束 agent-interrupts 已签核（design-signoff.md status: confirmed by usamshen 2026-08-26，PR #2136 Merge 即机械证据）。本 feature 是签核第③件 API 契约的落点（domain.md 二/三/四节 + coverage.md AI-3/AI-4/AI-5）。依据等级：全部为 [Backlog]（纯新能力，全仓 grep confirm_intent|fill_params|choose_option 零命中，基线 origin/main d88e7693），设计已随束签核评审。裁决④（design-signoff §六）：新建 agent-interrupts.ts 平行文件，不动 deep-agent-hitl.ts 单工具语义；DEEP_AGENT_HITL_TOOLS 拼装点（deploy.sh）改为从两文件各取工具名再 .join。跨语言门控仿 packages/contracts/tests/deep-agent-hitl.test.ts 读 .py 源码断言签名一致（coverage AI-4，跨语言边界靠门控不靠 import）。schema.test 覆盖不变量 I-2（assumptions.min(2)）、I-5（options 长度∈[2,3]）、I-3（aiGuess≠null⇒rationale≠null）与 8 个错误码枚举完整性。被合并的横切：三个工具的 args/error 声明只写一份，不在三张卡 feature 里各写一遍。spec_ref 无：本束是纯新能力契约束（coord-main 交办任务原文为判据单一事实源，requirements/ 下无对应 story 章节，本 agent 硬边界禁止创建 requirements md），权威 UC 见 contracts/agent-interrupts/{usecases,domain,ui,coverage}.md。⇒ 这些 feature 在有 requirements story 锚点（或 harness 放宽契约束 spec_ref 门）之前无法被 claim，是已知结构性待办，登记在此不静默。"
     },
     {
@@ -5157,7 +5157,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "21",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-interrupts/confirm-intent-gates-tools.test.ts",
@@ -5179,7 +5179,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "21",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/fill-params-guess-rationale.test.ts",
@@ -5202,7 +5202,7 @@
       ],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "21",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts/choose-option-schema.test.ts",
@@ -5225,7 +5225,7 @@
       ],
       "points": 2,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "21",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/agent-interrupts/decision-guard-errors.test.ts",
@@ -5244,14 +5244,14 @@
       "spec_ref": "contracts/plan-control#confirmed",
       "depends_on": [],
       "points": 3,
-      "status": "not_started",
-      "sprint": null,
+      "status": "passing",
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/plan-control/plan-control-schema-single-source.test.ts",
         "pnpm --filter api exec vitest run tests/plan-control/ledger-append-only-unique.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F972.verify.log @ 2026-08-26T17:20:05.326Z",
       "notes": "覆盖 domain.md I-1/I-2/I-3/I-4/I-7 结构面 + design-signoff ③ 3.2 迁移/3.6 错误码跨束一致/3.7 out schema .strict() 拒多余字段。依据等级 [设计]（束 design-signoff 已 confirmed）。裁决：mutateThread.op 一个字不动（A 独立操作集，3.1）。第一批可开工（无前置）。契约面 XC-A/XC-F：PlanStepStatus 必须 z.infer 自 agui-state-events，不是第二份副本。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
     },
     {
@@ -5267,7 +5267,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/plan-control/ingest-engine-snapshot.test.ts",
@@ -5289,7 +5289,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/plan-control/plan-edit-actions.test.ts",
@@ -5311,7 +5311,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/plan-control/evaluate-plan-gate-table.test.ts",
@@ -5334,7 +5334,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/plan-control/pause-resume-run.test.ts",
@@ -5356,7 +5356,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/plan-control-phase-indicator.test.tsx",
@@ -5381,7 +5381,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/plan-control-edit-mode.test.tsx",

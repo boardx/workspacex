@@ -442,7 +442,12 @@ describe("deep_agent_project_capability_env — 引擎能力开关投影（#2076
     // 替身都改成从 @repo/contracts 的 deep-agent-hitl.ts 取同一份真实工具名，
     // 前提消除，这一行随之从"刻意留白"转正为模板默认值（见 provision.sh 本行上方
     // 的完整取证注释）。DEEP_AGENT_CHECKPOINT_DB 的留白理由不受影响，仍保持注释态。
-    expect(provisionText).toMatch(/^DEEP_AGENT_HITL_TOOLS=call_skill$/m);
+    // F212（#2154）把 agent-interrupts 束的三个具名虚拟工具名并进这个投影点——
+    // provision.sh 模板值随契约实现同步扩容，否则这条断言会先于真实契约漂移
+    // （正是本条测试在 #2172 上第一次红的原因）。
+    expect(provisionText).toMatch(
+      /^DEEP_AGENT_HITL_TOOLS=call_skill,confirm_task_intent,fill_run_params,choose_execution_option$/m,
+    );
     expect(provisionText).not.toMatch(/^DEEP_AGENT_CHECKPOINT_DB=/m);
   });
 });
