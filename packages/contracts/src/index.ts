@@ -52,3 +52,4 @@ export * as liveCollabStageAggregation from "./live-collab-stage-aggregation";
 /* ── UX-9 冲刺（AG-UI 桥扩展轴）──────────────────────────────────── */
 export * as aguiStateEvents from "./agui-state-events";
 export * as deepAgentHitl from "./deep-agent-hitl";
+export * as agentInterrupts from "./agent-interrupts";

@@ -78,15 +78,20 @@ describe("issue #2017 HITL 工具名单一事实源", () => {
     expect(readPy(HARNESS_PY)).toContain("DEEP_AGENT_HITL_TOOLS");
   });
 
-  it("deploy.env 模板（provision.sh）里那一行，逐字等于契约给的值", () => {
+  it("deploy.env 模板（provision.sh）里那一行，以契约给的值开头（F212 起追加了 agent-interrupts 的工具名）", () => {
     // bash 没法 import TS，所以 provision.sh 里那一行是契约在部署侧的**投影**。
     // 凡投影就会漂，所以这条门控直接读那个 .sh 断言逐字一致。
+    //
+    // F212（agent-interrupts 束）起，这一行不再是本契约的单一事实源——它是
+    // `deep-agent-hitl.ts` 与 `agent-interrupts.ts` 两个文件各自工具名的并集
+    // （design-signoff.md §四表 + §六 决策⑤）。本测试只断言"本契约那一段没漂"，
+    // 完整并集断言见 `packages/contracts/tests/agent-interrupts.test.ts`。
     const sh = readPy(PROVISION_SH);
     const line = sh
       .split("\n")
       .find((l) => l.startsWith("DEEP_AGENT_HITL_TOOLS="));
     expect(line, "provision.sh 里没有生效的 DEEP_AGENT_HITL_TOOLS= 行（被注释掉了？）").toBeDefined();
-    expect(line).toBe(`DEEP_AGENT_HITL_TOOLS=${DEEP_AGENT_HITL_TOOLS_ENV_VALUE}`);
+    expect(line?.startsWith(`DEEP_AGENT_HITL_TOOLS=${DEEP_AGENT_HITL_TOOLS_ENV_VALUE},`)).toBe(true);
   });
 
   it("该键在 deploy.sh 的容器 env 投影白名单里——否则写了也到不了引擎", () => {
