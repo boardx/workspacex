@@ -177,7 +177,18 @@ DEEP_AGENT_SUBAGENTS_ENABLED=1
 # ⚠ 这一行是那份契约在 bash 侧的投影，bash 没法 import TS ⇒ 由
 # packages/contracts/tests/deep-agent-hitl.test.ts 直接读**本文件**断言两者逐字一致，
 # 改了这里而没改契约（或反之）测试会红。别手改成别的值。
-DEEP_AGENT_HITL_TOOLS=call_skill
+#
+# F212（agent-interrupts 契约束，design-signoff.md §四表 + §六 决策⑤）：三个新虚拟
+# 工具名（confirm_task_intent/fill_run_params/choose_execution_option，
+# @repo/contracts 的 agent-interrupts.ts）追加进来。⚠ **惰性安全，不是提前启用功能**：
+# `HumanInTheLoopMiddleware`（langchain 0.7.6 实测，`human_in_the_loop.py:429`）只在
+# 真实工具调用发生时按名字查 interrupt_on 字典，不会在初始化时校验键是否对应已注册
+# 工具——这三个名字在 `apps/deep-agent-service` 的 `tools.py` 落地对应 `@tool` 函数前，
+# 模型永远无法调用它们，因而这三个键永远不会被触发（AI-4b：Python 侧 `@tool` 实现是
+# 独立于本轮的后续 feature，不在这次变更范围内）。
+# packages/contracts/tests/agent-interrupts.test.ts 断言这一行 = `call_skill` +
+# 本束三个工具名逗号拼接，同 deep-agent-hitl.test.ts 同一门控纪律。
+DEEP_AGENT_HITL_TOOLS=call_skill,confirm_task_intent,fill_run_params,choose_execution_option
 # DA-04（rubric D4 持久化/时间旅行）：Postgres DSN，显式启用 PostgresSaver
 # （harness.py build_checkpointer）。⚠ 保持留空，理由不变：容器跑的是 langgraph dev
 # （见 apps/deep-agent-service/Dockerfile 末行），平台自带持久化层，自带 checkpointer

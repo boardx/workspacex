@@ -1,9 +1,27 @@
 # 契约束 `agent-interrupts` — 支撑材料 `coverage.md`（UC 覆盖证明）
 
 > 横切材料，双向检查。**不在签核面里，但不许删**（`contract-design.md` §一）。
-> ⚠ 本束尚无 `feature_list.json` 条目（`design-signoff.md` frontmatter `covers: []`），
-> 因此下表不是「UC → feature」而是「原始需求描述 → UC → API 操作 → 前端消费点」——
-> feature 编号由 `requirement-author` 在签核后生成，届时本文件需要补一栏 `feature`。
+> `design-signoff.md` frontmatter `covers: [F212, F213, F214, F215, F216]` 已回填
+> （2026-08-26）——本文件的映射表随之补上 `feature` 落点。
+
+## 〇、UC 验收线索映射表（F212 契约内核落点 + 门控命令）
+
+| 行键 | UC 验收线索 | API 操作 / 门控命令 | 前端消费点 | 状态 |
+|---|---|---|---|---|
+| V1 | UC-1 `confirmTaskIntent`：目标复述卡 in/out 形状（`ConfirmIntentArgs`/`ConfirmIntentDecision`）+ 不变量 I-2（assumptions ≥2） | `packages/contracts/src/agent-interrupts.ts`（`ConfirmIntentArgs`/`ConfirmIntentDecision`）；`pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts.test.ts` | F213（前端卡片，未开工） | ✅ 契约已落地，前端待 F213 |
+| V2 | UC-1 反证：未确认前不执行任何工具（I-1） | 契约层不产出该断言（需要真实 run 数据）——e2e 断言点见 `usecases.md` UC-1 反证节（`agent_run_steps` 查询即断言） | F213/F216（HITL 决策守卫，未开工） | ⚠ **缺口**：本轮只出契约类型，运行时反证留给 F216（`usecases.md` 已给出可复跑的查询形式，非本轮遗漏） |
+| V3 | UC-2 `fillRunParams`：`FillParamsArgs`/`ParamField` + 不变量 I-3（aiGuess 非 null ⇒ rationale 非 null，`.refine` 已表达） | `packages/contracts/src/agent-interrupts.ts`（`FillParamsArgs`/`ParamField`）；同上 vitest 命令 | F214（前端表单，未开工） | ✅ |
+| V4 | UC-2 `appliedTo` 两态降级（design-signoff §六 决策①：知情降级） | `packages/contracts/src/agent-interrupts.ts`（`FillParamsAppliedTo`/`FillParamsDecision`） | F214 | ✅ 契约已如实标注两态，非「精确子集重跑」 |
+| V5 | UC-3 `chooseExecutionOption`：`ChooseOptionArgs`/`OptionCard` + 不变量 I-5（2–3 项）I-6（optionId 回指） | `packages/contracts/src/agent-interrupts.ts`（`ChooseOptionArgs`/`OptionCard`） | F215（前端对比卡，未开工） | ✅ |
+| V6 | UC-3 decision 选 `edit`（design-signoff §六 决策②），`allowedDecisions=["edit","reject"]` | `packages/contracts/src/agent-interrupts.ts`（`ChooseOptionDecision`/`CHOOSE_OPTION_ALLOWED_DECISIONS`） | F215 | ✅ 零桥接层改动，`apps/api` 侧 `parseHitlDecision` 未碰 |
+| V7 | 统一失败枚举 `AgentInterruptError`（8 码 + 占位码） | `packages/contracts/src/agent-interrupts.ts`（`AgentInterruptError`） | F213/F214/F215 各自错误态 UI（未开工） | ⚠ `FIELD_REQUIRED_BLANK` 待与 `plan-control` 一致性复核裁定正式码（AI-6，非本轮阻塞） |
+| V8 | 跨语言边界：三个工具名是否需要 Python `@tool` 真实存在 | `pnpm --filter @repo/contracts exec vitest run tests/agent-interrupts.test.ts`（如实断言现状 + 环境变量投影链条） | —（无前端消费点，工程门控） | ⚠ **缺口 AI-4b**（新增，见下表）：Python 侧 `@tool` 未落地，已确认为独立 feature，本轮只做「如实反向锚点」 |
+| V9 | `ARGS_MAX_CHARS` 豁免清单加三个工具名（AI-3） | `apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts`；同 vitest 命令覆盖常量导出 | —（API 层验收，事件流不截断） | ✅ 本轮已加行 |
+| V10 | `DEEP_AGENT_HITL_TOOLS` 环境变量投影扩容（AI-5） | `.harness/scripts/vm/provision.sh` 静态值 + `packages/contracts/tests/deep-agent-hitl.test.ts` 断言更新 | —（部署配置，无前端消费点） | ✅ 本轮已扩容，惰性安全（见 `agent-interrupts.ts` 文件头） |
+
+**两个方向都要查**：
+- **UC → API**：V1/V3/V5/V6/V7 均落在本文件已建的 `agent-interrupts.ts`；V2 的运行时反证留给 F216（不是本轮遗漏，是分批交付）。
+- **API → UC**：`agent-interrupts.ts` 的每个 export 都能追回上表某一行，无孤儿导出。
 
 ## 〇、R12 映射表（签核第 ③ 件的落点，`packages/contracts/src/agent-interrupts.ts`）
 
@@ -54,9 +72,10 @@
 |---|---|---|---|
 | AI-1 | 「只重跑受影响下游」依赖 checkpoint fork，未证实 | 🟠 产品期望降级 | 若要恢复该能力，先探测 LangGraph Server REST 面是否支持节点粒度选择性重放（`agent-runtime` 缺口 25 的延伸调查，不在本束单方面做） |
 | AI-2 | `respond` decision 在桥接层 `parseHitlDecision` 不可达 | 🟢 已绕开，非阻塞 | 无需动作（设计已选 `edit` 路径） |
-| AI-3 | `ARGS_MAX_CHARS` 豁免表是封闭清单，需逐一加行 | 🟡 实现期必做，否则真实长任务下 JSON 截断 | `deep-agent-model-provider.ts:243-244` 加三个工具名；`deep-agent-hitl.ts` 或新文件导出对应 `*_ARGS_MAX_CHARS` 常量 |
-| AI-4 | 跨语言边界（Python 工具定义 vs TS 契约）无门控测试 | 🟡 实现期必做 | 仿 `deep-agent-hitl.test.ts`，新建 `agent-interrupts.test.ts` 逐字比对三个 `@tool` 函数签名 |
-| AI-5 | `DEEP_AGENT_HITL_TOOLS` 环境变量与 `deploy.sh` 投影白名单需要扩容 | 🟡 实现期必做 | `deep-agent.env` 的该键改为四工具逗号分隔；确认 `deploy_project_capability_env` 白名单已含新键（大概率不需要改白名单本身，只改值） |
+| AI-3 | `ARGS_MAX_CHARS` 豁免表是封闭清单，需逐一加行 | ✅ 本轮（F212）已做 | `deep-agent-model-provider.ts` 豁免条件加 `AGENT_INTERRUPTS_TOOL_NAME_LIST.includes(name)`；`agent-interrupts.ts` 导出 `AGENT_INTERRUPTS_ARGS_MAX_CHARS` |
+| AI-4 | 跨语言边界（Python 工具定义 vs TS 契约）无门控测试 | ✅ 本轮（F212）已建，但内容随 AI-4b 现状调整 | `packages/contracts/tests/agent-interrupts.test.ts`——环境变量投影链条 + ARGS_MAX_CHARS + **如实断言三个工具名此刻在 `tools.py` 里还不存在**（反向锚点，见 AI-4b） |
+| AI-4b | **新增（F212 实现期实测发现）**：三个工具名要真正触发 `interrupt()`，必须在 Python 侧 `tools.py` 有对应 `@tool` 函数并被 `build_tools()` 注册——**实测确认不是纯前端约定**（`harness.py` `build_interrupt_on` 只是按工具名开中断开关，模型只能调用真实注册的工具） | 🔴 **超出本轮范围，已登记后续 feature** | Python 侧新增三个 `@tool` 函数（`confirm_task_intent`/`fill_run_params`/`choose_execution_option`），需要新 feature（不在 F212-F216 范围内，登记为后续任务） |
+| AI-5 | `DEEP_AGENT_HITL_TOOLS` 环境变量投影需要扩容 | ✅ 本轮（F212）已做，惰性安全 | `provision.sh` 静态值改为 `call_skill,confirm_task_intent,fill_run_params,choose_execution_option`；`deploy.sh` 白名单本身无需改（`DEEP_AGENT_HITL_TOOLS` 键已在其中，只是值变化）；`deep-agent-hitl.test.ts` 对应断言同步更新。⚠ 惰性安全的理由见 `agent-interrupts.ts` 文件头：`interrupt_on` 不校验键是否对应已注册工具，AI-4b 落地前这三个名字永远不会被调用 |
 | AI-6 | `fill_params`/`plan-control` 的 `appliedTo` 错误码是否共用 | 🟠 待两束一致性复核 | `usecases.md` UC-2 已用占位码 `FIELD_REQUIRED_BLANK`，正式码留给一致性复核裁决 |
 
 ## 四、CUSTOM/STATE 事件名——结论：不新增

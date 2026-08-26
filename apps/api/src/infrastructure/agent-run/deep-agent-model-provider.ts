@@ -84,6 +84,10 @@
  */
 import { createHash } from "node:crypto";
 import { DEEP_AGENT_HITL_TOOL_NAME, DEEP_AGENT_HITL_ARGS_MAX_CHARS } from "@repo/contracts/deep-agent-hitl";
+import {
+  AGENT_INTERRUPTS_TOOL_NAME_LIST,
+  AGENT_INTERRUPTS_ARGS_MAX_CHARS,
+} from "@repo/contracts/agent-interrupts";
 import { AguiTodosSnapshot } from "@repo/contracts/agui-state-events";
 
 import type {
@@ -294,9 +298,16 @@ function extractToolCallEvents(
         // `…` 把它切成非法 JSON。`call_skill` 的 `task` 是自由文本、天然会超 500 字符
         // （其 docstring 明确要求"写清全部上下文"），所以短任务 e2e 会绿、真实长任务会坏。
         // 上限取自契约，与工具名同一个事实源。
+        // F212（agent-interrupts 契约内核）：三个新 HITL 虚拟工具（confirm_task_intent/
+        // fill_run_params/choose_execution_option）与 call_skill 同一个坑——
+        // fill_params 多字段+依据文案、choose_option 2-3 张选项卡三项对照，都大概率
+        // 超过 500 字符默认截断。豁免清单是封闭清单，不能整类放行，逐一加名字
+        // （`domain.md` 缺口 AI-3，`agent-interrupts.ts` 文件头同一纪律）。
         const maxChars =
-          name === "write_todos" || name === DEEP_AGENT_HITL_TOOL_NAME
-            ? Math.max(4000, DEEP_AGENT_HITL_ARGS_MAX_CHARS)
+          name === "write_todos" ||
+          name === DEEP_AGENT_HITL_TOOL_NAME ||
+          AGENT_INTERRUPTS_TOOL_NAME_LIST.includes(name)
+            ? Math.max(4000, DEEP_AGENT_HITL_ARGS_MAX_CHARS, AGENT_INTERRUPTS_ARGS_MAX_CHARS)
             : undefined;
         const argsSummary = call.args === undefined
           ? null
