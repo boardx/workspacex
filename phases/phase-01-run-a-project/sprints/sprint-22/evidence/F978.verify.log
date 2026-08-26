@@ -1,0 +1,199 @@
+$ pnpm --filter web exec vitest run tests/ui/plan-control-edit-mode.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9/apps/web
+
+ ✓ tests/ui/plan-control-edit-mode.test.tsx (9 tests) 51ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  04:30:41
+   Duration  703ms (transform 41ms, setup 46ms, collect 87ms, tests 51ms, environment 229ms, prepare 21ms)
+
+
+
+$ pnpm --filter web exec vitest run tests/ui/plan-control-gate-and-recovery.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9/apps/web
+
+ ✓ tests/ui/plan-control-gate-and-recovery.test.tsx (11 tests) 31ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  04:30:42
+   Duration  528ms (transform 42ms, setup 46ms, collect 70ms, tests 31ms, environment 231ms, prepare 32ms)
+
+
+
+
+[BASE VERIFY] (risk=high_risk; matched: apps/api/migrations/20260827030000_f976_plan_control_run_control.sql⟵apps/api/migrations/**, packages/contracts/tests/plan-control/evaluate-plan-gate-table.test.ts⟵packages/contracts/**) $ pnpm -w run verify:release
+[exit 1]
+
+> agentic-harness-template@ verify:release /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9
+> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:base:raw
+
+[harness-isolation] outer_db=wsx_29fe56cbeec604887e4f inner_db=wsx_29fe56cbeec604887e4f outer_compose=wsx-29fe56cbeec604887e4f inner_compose=wsx-29fe56cbeec604887e4f status=matched
+[stack-admission] load1=11.37 cores=10 perCore=1.14 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtajtcis-2853c284-29fe56cbeec6 db=wsx_29fe56cbeec604887e4f compose=wsx-29fe56cbeec604887e4f pg=24219 redis=29219
+
+> agentic-harness-template@ verify:base:raw /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9
+> pnpm run verify:harness:raw && turbo run typecheck lint --continue && turbo run test --continue --concurrency=1
+
+
+> agentic-harness-template@ verify:harness:raw /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9
+> pnpm run lint:ui-material && pnpm run lint:third-artifact && pnpm run lint:verification && pnpm run lint:nav-reachability && pnpm run lint:rewrite-coverage && pnpm run lint:body-path-param-leak && pnpm run lint:spec-gate-coverage && pnpm run lint:templates-doctor && pnpm run lint:role-freeze-doctor && pnpm run lint:graph-authority-doctor && pnpm run lint:readiness && pnpm run lint:skills-doctor && pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness
+
+
+> agentic-harness-template@ lint:ui-material /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9
+> node .harness/scripts/lint-ui-material.mjs
+
+  ✓ phase-01-run-a-project/agent-interrupts   25/25  (ui-preview/agent-interrupts)
+  ✓ phase-01-run-a-project/agent-runtime      49/49  (ui-preview/agent-runtime-v2)
+  ✓ phase-01-run-a-project/asset-governance   64/64  (ui-preview/asset-governance)
+  ✓ phase-01-run-a-project/canvas             51/51  (ui-preview/canvas-v2)
+  ✓ phase-01-run-a-project/chat               20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/chat-file-upload   12/12  (ui-preview/chat-file-upload)
+  ✓ phase-01-run-a-project/files              15/15  (ui-preview/files)
+  ✓ phase-01-run-a-project/interview          62/62  (ui-preview/itv-v2)
+  ✓ phase-01-run-a-project/org-admin          48/48  (ui-preview/org-admin)
+  ✓ phase-01-run-a-project/personal-realtime-transcription   3/3   (ui-preview/realtime-transcription)
+  ✓ phase-01-run-a-project/plan-control        8/8   (ui-preview/plan-control)
+  ✓ phase-01-run-a-project/project            92/92  (ui-preview/project-v2)
+  ✓ phase-01-run-a-project/recording          56/56  (ui-preview/rec-v2)
+  ✓ phase-01-run-a-project/research           49/49  (ui-preview/research)
+  ✓ phase-01-run-a-project/skills             67/67  (ui-preview/skill-v2)
+  ✓ phase-01-run-a-project/templates          41/41  (ui-preview/tpl-v2)
+  ✓ phase-02-visible-outcomes/survey           6/6   (ui-preview/survey-v2)
+  ✓ phase-03-reuse-and-governance/feedback-loop   9/9   (ui-preview/feedback-loop)
+  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview  10/10  (ui-preview/digital-expert-interview)
+  ✓ phase-05-studio-style-unification/studio-style   3/3   (ui-preview/studio-style)
+  ✓ phase-06-deep-research/deep-research       7/7   (ui-preview/deep-research)
+  ✓ phase-07-user-research/user-research       1/1   (ui-preview/user-research)
+  ✓ phase-08-transcription/transcription       1/1   (ui-preview/transcription)
+  ✓ phase-09-survey/survey                     1/1   (ui-preview/survey)
+  ✓ phase-10-live-collaboration-orchestration/group-checkin   3/3   (ui-preview/group-checkin)
+  ✓ phase-10-live-collaboration-orchestration/module-routing   5/5   (ui-preview/module-routing)
+  ✓ phase-10-live-collaboration-orchestration/segment-engine   4/4   (ui-preview/segment-engine)
+  ✓ phase-10-live-collaboration-orchestration/stage-aggregation   5/5   (ui-preview/stage-aggregation)
+  ✓ phase-10-live-collaboration-orchestration/viewer-role   5/5   (ui-preview/viewer-role)
+  ✓ phase-12-uiux-foundation/accessibility-guardrails   4/4   (ui-preview/accessibility-guardrails)
+  ✓ phase-12-uiux-foundation/interaction-primitives   5/5   (ui-preview/interaction-primitives)
+  ✓ phase-12-uiux-foundation/motion-microinteraction   4/4   (ui-preview/motion-microinteraction)
+  ✓ phase-12-uiux-foundation/review-governance   3/3   (ui-preview/review-governance)
+  ✓ phase-01-run-a-project/chat-context-engine  20/20  (ui-preview/chat-v2)
+  ✓ phase-01-run-a-project/curated-capability-packs  67/67  (ui-preview/skill-v2)
+✅ lint-ui-material: 35 个契约束的 ui.md 引用集合 == ui-preview 实存集合（共 825 张截图，无死链、无孤图）
+
+> agentic-harness-template@ lint:third-artifact /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9
+> node .harness/scripts/lint-third-artifact.mjs
+
+  ✓ phase-00-shared-kernel/api-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-00-shared-kernel/artifact              形态 A  R12   8 行  packages/contracts/src/artifact.ts
+  ✓ phase-00-shared-kernel/auth                  形态 A  R12  12 行  packages/contracts/src/auth.ts
+  ✓ phase-00-shared-kernel/context-pack          形态 A  R12  13 行  packages/contracts/src/context-pack.ts
+  ✓ phase-00-shared-kernel/identity              形态 A  R12  23 行  packages/contracts/src/identity.ts
+  ✓ phase-00-shared-kernel/web-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-01-run-a-project/agent-interrupts      形态 A  R12  16 行  packages/contracts/src/agent-interrupts.ts
+  ✓ phase-01-run-a-project/agent-runtime         形态 A  R12 160 行  packages/contracts/src/agent-runtime.ts
+  ✓ phase-01-run-a-project/asset-governance      形态 A  R12 108 行  packages/contracts/src/asset-governance.ts
+  ✓ phase-01-run-a-project/canvas                形态 A  R12  57 行  packages/contracts/src/canvas.ts
+  ✓ phase-01-run-a-project/chat                  形态 A  R12  67 行  packages/contracts/src/chat.ts
+  ✓ phase-01-run-a-project/chat-context-engine   形态 B  R12   7 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-01-run-a-project/chat-file-upload      形态 A  R12   7 行  packages/contracts/src/chat-file-upload.ts
+  ✓ phase-01-run-a-project/curated-capability-packs 形态 A  R12  12 行  packages/contracts/src/curated-capability-packs.ts
+  ✓ phase-01-run-a-project/files                 形态 A  R12  50 行  packages/contracts/src/files.ts
+  ✓ phase-01-run-a-project/interview             形态 A  R12 105 行  packages/contracts/src/interview.ts
+  ✓ phase-01-run-a-project/org-admin             形态 A  R12  61 行  packages/contracts/src/org-admin.ts
+  ✓ phase-01-run-a-project/personal-realtime-transcription 形态 A  R12   9 行  packages/contracts/src/personal-realtime-transcription.ts
+  ✓ phase-01-run-a-project/plan-control          形态 A  R12  10 行  packages/contracts/src/plan-control.ts
+  ✓ phase-01-run-a-project/project               形态 A  R12  38 行  packages/contracts/src/project.ts
+  ✓ phase-01-run-a-project/recording             形态 A  R12  48 行  packages/contracts/src/recording.ts
+  ✓ phase-01-run-a-project/research              形态 A  R12  41 行  packages/contracts/src/research.ts
+  ✓ phase-01-run-a-project/skills                形态 A  R12  77 行  packages/contracts/src/skills.ts
+  ✓ phase-01-run-a-project/templates             形态 A  R12  64 行  packages/contracts/src/templates.ts
+  ✓ phase-02-visible-outcomes/survey             形态 A  R12   7 行  packages/contracts/src/survey.ts
+  ✓ phase-03-reuse-and-governance/feedback-loop  形态 A  R12  12 行  packages/contracts/src/feedback-loop.ts
+  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview 形态 A  R12   9 行  packages/contracts/src/interview.ts
+  ✓ phase-05-studio-style-unification/studio-style 形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-06-deep-research/deep-research         形态 A  R12   4 行  packages/contracts/src/research.ts
+  ✓ phase-07-user-research/user-research         形态 A  R12   3 行  packages/contracts/src/research.ts
+  ✓ phase-08-transcription/transcription         形态 A  R12   4 行  packages/contracts/src/recording.ts
+  ✓ phase-09-survey/survey                       形态 A  R12   7 行  packages/contracts/src/survey.ts
+  ✓ phase-10-live-collaboration-orchestration/group-checkin 形态 A  R12   7 行  packages/contracts/src/org-admin.ts
+  ✓ phase-10-live-collaboration-orchestration/module-routing 形态 A  R12   7 行  packages/contracts/src/live-collab-module-routing.ts
+  ✓ phase-10-live-collaboration-orchestration/segment-engine 形态 A  R12   7 行  packages/contracts/src/project.ts
+  ✓ phase-10-live-collaboration-orchestration/stage-aggregation 形态 A  R12   9 行  packages/contracts/src/live-collab-stage-aggregation.ts
+  ✓ phase-10-live-collaboration-orchestration/viewer-role 形态 A  R12  11 行  packages/contracts/src/viewer-role.ts
+  ✓ phase-12-uiux-foundation/accessibility-guardrails 形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-12-uiux-foundation/interaction-primitives 形态 B  R12   5 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-12-uiux-foundation/motion-microinteraction 形态 B  R12   6 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-12-uiux-foundation/review-governance   形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+✅ lint-third-artifact: 41 个契约束的第 ③ 件均成立（形态 A 33 束 / 形态 B 8 束）
+
+> agentic-harness-template@ lint:verification /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9
+> node .harness/scripts/lint-verification-can-fail.mjs
+
+  · 00                                   23 feature / 157 条 verification
+  · 01                                  230 feature / 781 条 verification
+  · 02                                   46 feature / 128 条 verification
+  · 03                                   49 feature / 143 条 verification
+  · 04                                    7 feature / 14 条 verification
+  · 05                                    1 feature / 5 条 verification
+  · 06                                    6 feature / 12 条 verification
+  · 07                                    5 feature / 10 条 verification
+  · 08                                    4 feature / 8 条 verification
+  · 09                                    7 feature / 20 条 verification
+  · 10                                   10 feature / 30 条 verification
+  · 11                                    5 feature / 8 条 verification
+  · 12                                   22 feature / 51 条 verification
+  ~ 形态 pnpm-script                  无动态探针（见文件头：换脚本名恰恰 exit 0，靠 ② 静态兜住）
+  ✓ 形态 vitest-file:api              必然失败变体 exit 1
+  ✓ 形态 script-file:direct           必然失败变体 exit 127
+  ✓ 形态 script-file:node             必然失败变体 exit 1
+  ✓ 形态 vitest-file:web              必然失败变体 exit 1
+  ✓ 形态 script-file:pnpm exec tsx    必然失败变体 exit 1
+  ✓ 形态 script-file:bash             必然失败变体 exit 127
+  ✓ 形态 vitest-file:@repo/contracts  必然失败变体 exit 1
+  ✓ 形态 grep                         必然失败变体 exit 1
+  ✓ 形态 pytest-file:pytest           必然失败变体 exit 127
+  ✓ 形态 turbo-task:typecheck         必然失败变体 exit 1
+  ✓ 形态 pytest-file:uv-run-pytest    必然失败变体 exit 2
+  ✓ 形态 root-pnpm-script             必然失败变体 exit 1
+  ✓ 形态 vitest-file:@repo/skill-sandbox 必然失败变体 exit 1
+  ✓ 形态 pnpm-script-arg:web:e2e      必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:playwright.live-collab-shots.config.ts 必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:playwright.config.ts 必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:playwright.chat-shots.config.ts 必然失败变体 exit 1
+  ✓ 形态 playwright-grep:web:playwright.self-service-profile.config.ts 必然失败变体 exit 1
+  ✓ 形态 tsc-noemit:web               必然失败变体 exit 1
+  ✓ 形态 vitest-all:web               必然失败变体 exit 1
+✅ lint-verification-can-fail: 1367 条 verification 全部属于已登记形态，20 种形态实测「指向物不存在时会非 0 退出」
+
+> agentic-harness-template@ lint:nav-reachability /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9
+> node .harness/scripts/lint-nav-reachability.mjs
+
+  ✓ phase-01-run-a-project         束可达 18/18 · 导航项 18
+✅ lint-nav-reachability: 每个契约束的现行屏都能从 navigation.ts 直接走到，且导航里没有指向非束/旧骨架屏的入口，无死链。
+
+> agentic-harness-template@ lint:rewrite-coverage /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-aeed1284a194c92d9
+> pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs
+
+✗ [rewrite-coverage] 1 条路由前端够不到：
+   · /plan-control/threads/:threadId/ledger  —— 会被 Next 接住返回 404 HTML（前端拿到 Unexpected token '<'）
+     在 apps/web/next.config.mjs 补：{ source: `${prefix}/plan-control/:path*`, destination: `${apiOrigin}/plan-control/:path*` }
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+ ELIFECYCLE  Command failed with exit code 1.
+[timing] pnpm run verify:base:raw
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m1s
+  清理：1s
+  总计：2m2s
+ ELIFECYCLE  Command failed with exit code 1.
+
+[harness-verify v1 sha256=97ae40eabcc6f10dc7c1f9c9b1010161e028722b4c4b2c9729cf7c35f10894a0 commit=828658f9b277be498d5695fd2ad9f62afdbf86b2 at=2026-08-26T20:32:46.092Z]

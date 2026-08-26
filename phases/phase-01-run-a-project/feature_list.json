@@ -5380,9 +5380,9 @@
         "F976"
       ],
       "points": 5,
-      "status": "not_started",
+      "status": "in_progress",
       "sprint": "22",
-      "owner": null,
+      "owner": "dev-chat-e2e-f978",
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/plan-control-edit-mode.test.tsx",
         "pnpm --filter web exec vitest run tests/ui/plan-control-gate-and-recovery.test.tsx"
