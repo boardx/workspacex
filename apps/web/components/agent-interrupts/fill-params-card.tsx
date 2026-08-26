@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { InterruptCardShell } from "@/components/agent-interrupts/interrupt-card-shell";
-import type { ParamField } from "@/lib/mock/agent-interrupts";
+import type { ParamFieldPreview } from "@/lib/mock/agent-interrupts";
 import { cn } from "@/lib/utils";
 
 /**
@@ -31,7 +31,7 @@ export function FillParamsCard({
   state,
   canWrite,
 }: {
-  fields: readonly ParamField[];
+  fields: readonly ParamFieldPreview[];
   state: UiState;
   canWrite: boolean;
 }) {
