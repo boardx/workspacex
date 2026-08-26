@@ -139,3 +139,51 @@ describe("backfillCanvasBuiltinTemplates：给一个明确指定的组织加载 
     await expect(backfillCanvasBuiltinTemplates(ORG_NO_ADMIN)).rejects.toThrow(/没有任何 admin 成员/);
   });
 });
+
+/**
+ * `pickCurrentRowByKey`——2026-08-26 devapp 实测事故的反证。
+ *
+ * 原判据按纯版本号最大选「当前行」，devapp 上 `ai-bmc` 真的撞上：v4 是发布中的，
+ * v6 是一次早前测试留下的、从没发布过的草稿。脚本选中 v6 写了标题/提示词，自己
+ * 打印「完成」，真正在用的 v4 一个字没变——库里查证过，19 个 key 里只有它一个中招。
+ *
+ * 这里直接**复刻 devapp 的真实数据形状**（键名、版本号、状态一一对应），不是编一个
+ * 简化过的假场景。
+ */
+describe("pickCurrentRowByKey：按状态优先级选「当前行」，不是按版本号最大", () => {
+  it("复刻 devapp ai-bmc 的真实撞车：v6 草稿必须让位给 v4 已发布", async () => {
+    const { pickCurrentRowByKey } = await import("../../scripts/backfill-canvas-builtin-templates");
+    const rows = [
+      { key: "ai-bmc", version: 1, status: "archived" },
+      { key: "ai-bmc", version: 2, status: "draft" },
+      { key: "ai-bmc", version: 3, status: "archived" },
+      { key: "ai-bmc", version: 4, status: "published" },
+      { key: "ai-bmc", version: 5, status: "archived" },
+      { key: "ai-bmc", version: 6, status: "draft" },
+    ];
+    const picked = pickCurrentRowByKey(rows);
+    expect(picked.get("ai-bmc")).toEqual({ key: "ai-bmc", version: 4, status: "published" });
+  });
+
+  it("没有已发布版本时退而求其次：trial > draft > archived", async () => {
+    const { pickCurrentRowByKey } = await import("../../scripts/backfill-canvas-builtin-templates");
+    expect(
+      pickCurrentRowByKey([
+        { key: "k", version: 1, status: "archived" },
+        { key: "k", version: 5, status: "draft" },
+        { key: "k", version: 3, status: "trial" },
+      ]).get("k"),
+    ).toEqual({ key: "k", version: 3, status: "trial" });
+  });
+
+  it("同优先级内取版本号最大——同一状态出现多次时不是「先到先得」", async () => {
+    const { pickCurrentRowByKey } = await import("../../scripts/backfill-canvas-builtin-templates");
+    expect(
+      pickCurrentRowByKey([
+        { key: "k", version: 2, status: "archived" },
+        { key: "k", version: 7, status: "archived" },
+        { key: "k", version: 5, status: "archived" },
+      ]).get("k"),
+    ).toEqual({ key: "k", version: 7, status: "archived" });
+  });
+});

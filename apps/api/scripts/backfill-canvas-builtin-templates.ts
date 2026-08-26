@@ -139,6 +139,43 @@ async function setChrome(
   );
 }
 
+/**
+ * 同一个 key 有多个版本时，挑出脚本要读/写的那**一行**——「当前行」。
+ *
+ * ## 2026-08-26 实测事故：原先按纯版本号最大选，devapp 上真的选错过
+ *
+ * 原判据是 `row.version > prev.version`（不看 status）。devapp 上 `ai-bmc` 有 6 个
+ * 版本——v4 是真正在用的已发布版，v6 是早前一轮测试留下的、从没发布过的草稿。回填
+ * 脚本选中了 v6，把标题/提示词写了进去，脚本自己打印「完成」，而真正在用的 v4 一个字
+ * 都没变。库里查证：19 个 key 里只有 `ai-bmc` 一个受影响（其余 18 个 key 的 max 版本号
+ * 恰好等于已发布版本号，纯属巧合没暴露这条 bug）。
+ *
+ * ## 判据：与 `template-admin.tsx` 的 `latestOnly` 视图**同一套优先级**
+ *
+ * published > trial > draft > archived，同优先级内取版本号最大。"当前行"应该是
+ * 使用者在后台看到、chat 里真正会用到的那一行，不是"曾经存在过的最大编号"。
+ *
+ * 导出为独立纯函数（不是内联在主流程里），因为它是这次事故唯一的根因，值得被单独
+ * 单测锁住——不需要起真库就能证明"选对了哪一行"。
+ */
+export function pickCurrentRowByKey<T extends { readonly key: string; readonly status: string; readonly version: number }>(
+  rows: readonly T[],
+): Map<string, T> {
+  const STATUS_PRIORITY: Record<string, number> = { published: 0, trial: 1, draft: 2, archived: 3 };
+  const byKey = new Map<string, T>();
+  for (const row of rows) {
+    const prev = byKey.get(row.key);
+    if (
+      prev === undefined
+      || STATUS_PRIORITY[row.status]! < STATUS_PRIORITY[prev.status]!
+      || (STATUS_PRIORITY[row.status] === STATUS_PRIORITY[prev.status] && row.version > prev.version)
+    ) {
+      byKey.set(row.key, row);
+    }
+  }
+  return byKey;
+}
+
 export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<CanvasTemplateBackfillReport> {
   // 找这个组织最早的 admin 作为 actor —— 与 `backfill-default-agents.ts` 同一个理由：
   // 跨租户读（谁是这个组织的 admin）RLS 对 app 角色故意封，只有 OWNER 连接能读。
@@ -186,11 +223,7 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
       { identity, templates, ids: { next: () => `backfill-${orgId}` } },
       { userId: actorId, orgId: org, filter: "all" },
     );
-    const latestByKey = new Map<string, (typeof existing)[number]>();
-    for (const row of existing) {
-      const prev = latestByKey.get(row.key);
-      if (prev === undefined || row.version > prev.version) latestByKey.set(row.key, row);
-    }
+    const latestByKey = pickCurrentRowByKey(existing);
 
     for (const spec of specs) {
       const displayName = (canvas.BUILTIN_CANVAS_TEMPLATES as Record<string, string>)[spec.key];
