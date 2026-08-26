@@ -134,6 +134,15 @@ export function buildIssueBody(
   const storyLine = (() => {
     const r = resolveSpecRef(phaseId, f.spec_ref);
     if (!r.ok) return `⚠ 缺少可追溯的 story（${r.reason}）——历史存量，新 feature 已被 claim/verify 强制要求`;
+    // 契约束锚点（`contracts/<bundle>#confirmed`，2026-08-26 方案 3）指向的不是
+    // requirements/ 下的文件，链接要对着 contracts/<bundle>/design-signoff.md，
+    // 否则会拼出一个 requirements/contracts/... 的死链。
+    const contractMatch = /^contracts\/([^/#]+)#confirmed$/.exec(f.spec_ref!.trim());
+    if (contractMatch) {
+      const bundle = contractMatch[1];
+      const path = `phases/${phaseDir}/contracts/${bundle}/design-signoff.md`;
+      return `[contracts/${bundle}/design-signoff.md](${blob(path)}) — 契约束签核（status: confirmed）`;
+    }
     const [file, section] = f.spec_ref!.split("#");
     return `[requirements/${file}](${blob(`phases/${phaseDir}/requirements/${file}`)}) — 章节 \`${section}\``;
   })();

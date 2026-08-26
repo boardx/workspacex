@@ -156,10 +156,20 @@ for (const phaseId of process.argv.slice(2)) {
   // 两处必然漂移——本次就查出三处：uc-0-5（13 vs 20，我加 F17 时没回头改头部）、
   // uc-11-1（3 vs 5，O-27 已裁但头部漏改）、uc-13-4（5 vs 8，O-30 同理）。
   // 与 token / 字号 / 丢弃原因 / 撤回链是同一种失效模式，故同样上机械门控。
+  //
+  // ⚠ `contracts/<bundle>#confirmed` 锚点（2026-08-26，方案 3）没有「UC 头部估点」
+  //   这个概念可对账——契约束是签核材料，不是带估点头部的 requirements 文档。
+  //   这条检查的 key 是 spec_ref 的 `#` 前半段：requirements 锚点是 `<file>.md`，
+  //   会落在 `requirements/<file>.md`；契约锚点是 `contracts/<bundle>`，
+  //   在 `requirements/` 目录下永远不存在，天然被下面的 existsSync 挡掉——
+  //   但为了不依赖「恰好不存在」这种隐式行为，这里显式跳过，语义更清楚，
+  //   也不会因为将来有人手滑建了同名文件而悄悄误判。
   {
     const byUc = new Map<string, number>();
     for (const f of feats) {
-      const file = (f.spec_ref ?? "").split("#")[0];
+      const ref = (f.spec_ref ?? "").trim();
+      if (ref.startsWith("contracts/")) continue; // 契约束锚点：没有头部估点可对账
+      const file = ref.split("#")[0];
       if (file) byUc.set(file, (byUc.get(file) ?? 0) + (f.points ?? 0));
     }
     for (const [rel, sum] of byUc) {
