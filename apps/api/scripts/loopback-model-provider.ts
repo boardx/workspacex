@@ -298,10 +298,17 @@ interface CompletionRequest {
 }
 
 /**
- * `ConfiguredModelProvider.streamImpl` 解码的是逐个 `data: {...}\n\n` 帧，字段形状
+ * `ConfiguredModelProvider.streamImpl` 解码的是逐个 `data: {...}` 帧，字段形状
  * 是 OpenAI 兼容的 `chat.completion.chunk`（`choices[0].delta.content`）——与
  * `configured-model-provider.ts` 里 `CompletionChunk` 那个接口逐字对齐,不是猜的。
+ *
+ * issue #2104 —— 行尾由 `LOOPBACK_MODEL_SSE_LINE_ENDING` 选（`lf` 默认 / `crlf`）。
+ * SSE 规范（WHATWG）允许 CRLF / CR / LF 三种，而这个替身此前**只会说 LF**。#2098 那个
+ * 「CRLF 上游零 delta」的 bug 能活下来，正是因为所有替身都只说 LF：一整套显式断言
+ * token 级流式的反证测试全绿，真上游一个 delta 都没有。替身的方言窄于规范，反证就是假的。
  */
+const SSE_EOL = process.env.LOOPBACK_MODEL_SSE_LINE_ENDING === "crlf" ? "\r\n" : "\n";
+
 async function writeStreamResponse(
   res: import("node:http").ServerResponse,
   fullText: string,
@@ -312,7 +319,7 @@ async function writeStreamResponse(
     connection: "keep-alive",
   });
   const write = (chunk: Record<string, unknown>): void => {
-    res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    res.write(`data: ${JSON.stringify(chunk)}${SSE_EOL}${SSE_EOL}`);
   };
   for (let i = 0; i < fullText.length; i += STREAM_CHUNK_SIZE) {
     const delta = fullText.slice(i, i + STREAM_CHUNK_SIZE);
@@ -321,7 +328,7 @@ async function writeStreamResponse(
     if (i + STREAM_CHUNK_SIZE < fullText.length) await sleep(STREAM_CHUNK_DELAY_MS);
   }
   write({ choices: [{ delta: {}, finish_reason: "stop" }] });
-  res.write("data: [DONE]\n\n");
+  res.write(`data: [DONE]${SSE_EOL}${SSE_EOL}`);
   res.end();
 }
 

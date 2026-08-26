@@ -494,7 +494,25 @@ export class ConfiguredModelProvider implements ModelCallPort {
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
-        buffer += decoder.decode(value, { stream: true });
+        // issue #2104 —— **先归一化行尾，再找帧边界**。SSE 规范（WHATWG）允许行以
+        // CRLF / CR / LF 结束；上游一旦说 CRLF（任何基于 sse-starlette 的实现，其默认
+        // 分隔符就是 `\r\n`），真实帧分隔符是 `\r\n\r\n`——里面**不含** `\n\n` 子串。
+        // 下面那句 `indexOf("\n\n")` 于是一帧都切不出来：整条流被读完却零个事件被解析，
+        // 不抛错也不告警（HTTP 200、body 正常读完、reader 正常 done），流式静默降级成
+        // 一次性整段回复。这与 #2098 在 `deep-agent-model-provider.ts` 上的根因同形。
+        //
+        // ⚠ 今天这里没炸，只是因为现接的 OpenAI 兼容上游都发 LF——那是「只对一种方言
+        //   正确」，不是「正确」。#2098 那个 bug 能在一套**显式断言 token 级流式**的反证
+        //   套件下存活整年，正是因为所有替身都只说 LF。
+        //
+        // 归一化放在**每轮对整个剩余 buffer** 做，而不是只对本次 decode 的分片做：
+        // 一个 `\r\n` 可能被 TCP 分片从中间劈开（`\r` 落在上一片尾、`\n` 落在下一片头），
+        // 只归一化分片会漏掉它；对整个 buffer 重复归一化是幂等的，那个残留的 `\r` 会在
+        // 下一轮与新到的 `\n` 合并后被正确吃掉。
+        //
+        // 逐行解析那侧不需要动：`line.trim()` 本来就会吃掉行尾残留的 `\r`，坏掉的
+        // **只有帧边界**这一处。
+        buffer = (buffer + decoder.decode(value, { stream: true })).replace(/\r\n/g, "\n");
         // SSE frames are separated by a blank line; a frame may still be incomplete at the
         // end of `buffer` (the socket delivered a partial frame), so only fully-terminated
         // ones are consumed here and the remainder stays for the next read.
