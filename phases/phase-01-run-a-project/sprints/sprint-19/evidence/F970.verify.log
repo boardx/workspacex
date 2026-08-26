@@ -1,7 +1,7 @@
 $ pnpm --filter api run typecheck
 [exit 0]
 
-> @repo/api@0.0.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c/apps/api
+> @repo/api@0.0.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/b73a69f9-155c-4e1f-a080-a911500aba77/scratchpad/worktrees/dead-chat-e2e-2158/apps/api
 > tsc --noEmit
 
 
@@ -9,7 +9,7 @@ $ pnpm --filter api run typecheck
 $ pnpm --filter web run typecheck
 [exit 0]
 
-> web@0.1.0 typecheck /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c/apps/web
+> web@0.1.0 typecheck /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/b73a69f9-155c-4e1f-a080-a911500aba77/scratchpad/worktrees/dead-chat-e2e-2158/apps/web
 > tsc --noEmit
 
 
@@ -19,8 +19,8 @@ $ pnpm exec tsx .harness/scripts/cli.ts doctor
 ⚠ [00] F01 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免）——跑 pnpm harness verify --sprint 00/03 --backfill-evidence 补上后把它从名单里删掉
 ⚠ [00] F14 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免）——跑 pnpm harness verify --sprint 00/01 --backfill-evidence 补上后把它从名单里删掉
 ⚠ [00] F18 的 evidence 日志没有 verify 指纹（指纹门控上线前的历史存量，已在 evidence-legacy.json 豁免）——跑 pnpm harness verify --sprint 00/02 --backfill-evidence 补上后把它从名单里删掉
-⚠ [00] runtime/E2E readiness：runtime/E2E NOT READY: 22/22 features passing; passing count is not readiness
-⚠ [01] runtime/E2E readiness：runtime/E2E NOT READY: 195/215 features passing; passing count is not readiness
+⚠ [00] runtime/E2E readiness：runtime/E2E NOT READY: 22/23 features passing; passing count is not readiness
+⚠ [01] runtime/E2E readiness：runtime/E2E NOT READY: 195/230 features passing; passing count is not readiness
 ⚠ [02] runtime/E2E readiness：runtime/E2E NOT READY: 0/46 features passing; passing count is not readiness
 ⚠ [03] runtime/E2E readiness：runtime/E2E NOT READY: 0/49 features passing; passing count is not readiness
 ⚠ [04] runtime/E2E readiness：runtime/E2E NOT READY: 3/7 features passing; passing count is not readiness
@@ -29,59 +29,59 @@ $ pnpm exec tsx .harness/scripts/cli.ts doctor
 ⚠ [07] runtime/E2E readiness：runtime/E2E NOT READY: 0/5 features passing; passing count is not readiness
 ⚠ [08] runtime/E2E readiness：runtime/E2E NOT READY: 0/4 features passing; passing count is not readiness
 ⚠ [09] runtime/E2E readiness：runtime/E2E NOT READY: 0/7 features passing; passing count is not readiness
-⚠ [10] runtime/E2E readiness：runtime/E2E NOT READY: 1/10 features passing; passing count is not readiness
+⚠ [10] runtime/E2E readiness：runtime/E2E NOT READY: 4/10 features passing; passing count is not readiness
 ⚠ [11] runtime/E2E readiness：runtime/E2E NOT READY: 1/5 features passing; passing count is not readiness
-doctor：体检 12 个 phase — 0 FAIL / 15 WARN
+⚠ [12] runtime/E2E readiness：runtime/E2E NOT READY: 17/22 features passing; passing count is not readiness
+doctor：体检 13 个 phase — 0 FAIL / 16 WARN
 ✓ 审计链完整：所有 passing 都有真实非空证据、有对应 issue 且已合入 main，派生视图与源一致，已开工的 feature 都在一份真正复核过它的签核范围内；phase runtime/E2E readiness 已按独立状态与证据门审计（不会由 passing 数量推断）。
 
 
 $ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api run migrate:check
 [exit 0]
-[harness-isolation] outer_db=wsx_329ab6135c0e951f0aa0 inner_db=wsx_329ab6135c0e951f0aa0 outer_compose=wsx-329ab6135c0e951f0aa0 inner_compose=wsx-329ab6135c0e951f0aa0 status=matched
-[stack-admission] load1=9.67 cores=10 perCore=0.97 running=0/2
+[harness-isolation] outer_db=wsx_8e0da49256dc2c23ea81 inner_db=wsx_8e0da49256dc2c23ea81 outer_compose=wsx-8e0da49256dc2c23ea81 inner_compose=wsx-8e0da49256dc2c23ea81 status=matched
+[stack-admission] load1=4.67 cores=10 perCore=0.47 running=0/2
 [stack-admission] 排到了，等了 0s
-[test-isolation] id=run-mt26b2fo-6880432d-329ab6135c0e db=wsx_329ab6135c0e951f0aa0 compose=wsx-329ab6135c0e951f0aa0 pg=24955 redis=29955
+[test-isolation] id=run-mta4iniw-b8d0a229-8e0da49256dc db=wsx_8e0da49256dc2c23ea81 compose=wsx-8e0da49256dc2c23ea81 pg=23770 redis=28770
 
-> @repo/api@0.0.0 migrate:check /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c/apps/api
+> @repo/api@0.0.0 migrate:check /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/b73a69f9-155c-4e1f-a080-a911500aba77/scratchpad/worktrees/dead-chat-e2e-2158/apps/api
 > ./scripts/verify-migrations.sh
 
- Network wsx-329ab6135c0e951f0aa0_default Creating 
- Network wsx-329ab6135c0e951f0aa0_default Created 
- Container wsx-329ab6135c0e951f0aa0-postgres-1 Creating 
- Container wsx-329ab6135c0e951f0aa0-postgres-1 Created 
- Container wsx-329ab6135c0e951f0aa0-postgres-1 Starting 
- Container wsx-329ab6135c0e951f0aa0-postgres-1 Started 
-NOTICE:  database "wsx_329ab6135c0e951f0aa0" does not exist, skipping
-  applied 141 migration(s) to an empty database
+ Network wsx-8e0da49256dc2c23ea81_default Creating 
+ Network wsx-8e0da49256dc2c23ea81_default Created 
+ Container wsx-8e0da49256dc2c23ea81-postgres-1 Creating 
+ Container wsx-8e0da49256dc2c23ea81-postgres-1 Created 
+ Container wsx-8e0da49256dc2c23ea81-postgres-1 Starting 
+ Container wsx-8e0da49256dc2c23ea81-postgres-1 Started 
+NOTICE:  database "wsx_8e0da49256dc2c23ea81" does not exist, skipping
+  applied 152 migration(s) to an empty database
   ✓ force replay re-ran every file (not silently skipped by the version table)
   ✓ schema digest identical after replay
   ✓ every file in migrations/ is recorded in the version table
-  (migrations dir: /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c/apps/api/migrations/)
+  (migrations dir: /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/b73a69f9-155c-4e1f-a080-a911500aba77/scratchpad/worktrees/dead-chat-e2e-2158/apps/api/migrations/)
 ✅ migrate:check: migrations rebuild from empty and are individually replayable
 [timing] pnpm --filter api run migrate:check
   环境预留：0s
   等待资源：0s
-  命令执行：10s
+  命令执行：8s
   清理：1s
-  总计：10s
+  总计：8s
 
 
 $ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- bash apps/api/scripts/verify-rls.sh
 [exit 0]
-[harness-isolation] outer_db=wsx_329ab6135c0e951f0aa0 inner_db=wsx_329ab6135c0e951f0aa0 outer_compose=wsx-329ab6135c0e951f0aa0 inner_compose=wsx-329ab6135c0e951f0aa0 status=matched
-[stack-admission] load1=9.33 cores=10 perCore=0.93 running=0/2
-[stack-admission] 排到了，等了 0s
-[test-isolation] id=run-mt26b2fo-6880432d-329ab6135c0e db=wsx_329ab6135c0e951f0aa0 compose=wsx-329ab6135c0e951f0aa0 pg=24955 redis=29955
+[harness-isolation] outer_db=wsx_8e0da49256dc2c23ea81 inner_db=wsx_8e0da49256dc2c23ea81 outer_compose=wsx-8e0da49256dc2c23ea81 inner_compose=wsx-8e0da49256dc2c23ea81 status=matched
+[stack-admission] load1=4.85 cores=10 perCore=0.49 running=0/2
+[test-isolation] id=run-mta4iniw-b8d0a229-8e0da49256dc db=wsx_8e0da49256dc2c23ea81 compose=wsx-8e0da49256dc2c23ea81 pg=23770 redis=28770
 == bringing up postgres, resetting to an empty database ==
- Network wsx-329ab6135c0e951f0aa0_default Creating 
- Network wsx-329ab6135c0e951f0aa0_default Created 
- Container wsx-329ab6135c0e951f0aa0-postgres-1 Creating 
- Container wsx-329ab6135c0e951f0aa0-postgres-1 Created 
- Container wsx-329ab6135c0e951f0aa0-postgres-1 Starting 
- Container wsx-329ab6135c0e951f0aa0-postgres-1 Started 
-NOTICE:  database "wsx_329ab6135c0e951f0aa0" does not exist, skipping
+ Network wsx-8e0da49256dc2c23ea81_default Creating 
+ Network wsx-8e0da49256dc2c23ea81_default Created 
+ Container wsx-8e0da49256dc2c23ea81-postgres-1 Creating 
+ Container wsx-8e0da49256dc2c23ea81-postgres-1 Created 
+ Container wsx-8e0da49256dc2c23ea81-postgres-1 Starting 
+ Container wsx-8e0da49256dc2c23ea81-postgres-1 Started 
+NOTICE:  database "wsx_8e0da49256dc2c23ea81" does not exist, skipping
 == applying migrations as the owner ==
-applied 141 migration(s), skipped 0
+applied 152 migration(s), skipped 0
   + 0001-kernel-roles.sql
   + 0002-rls-probe.sql
   + 0003-identity.sql
@@ -221,8 +221,19 @@ applied 141 migration(s), skipped 0
   + 20260820090000_f01_insight_write_path.sql
   + 20260820090000_i1624_agent_run_output_files.sql
   + 20260820160000_f04_theme_organize_revert.sql
+  + 20260821090000_f26_workflow_orchestration.sql
   + 20260821090000_i1667_apply_blueprint_infra.sql
   + 20260821091500_i1667_blueprint_pending_changes.sql
+  + 20260821180000_i1705_agent_role_label.sql
+  + 20260822090000_i1667_blueprint_bindings_update_grant.sql
+  + 20260822120000_da07b_hitl_awaiting_approval.sql
+  + 20260822130000_i1787_fix_orphan_agent_runs_trigger.sql
+  + 20260822200000_da07b_fix_transition_trigger_wiring.sql
+  + 20260823100000_ux9d4_hitl_edit_decision.sql
+  + 20260824000000_i742_tool_call_in_progress.sql
+  + 20260824090000_i1928_mcp_server_persistence.sql
+  + 20260825000000_canvas_template_tags.sql
+  + 20260826140000_canvas_template_title_footer.sql
 
 == 1-4: role and table properties ==
   ✓ app_rw owns no table (= 0)
@@ -230,7 +241,7 @@ applied 141 migration(s), skipped 0
   ✓ app_rw cannot run DDL in public (= f)
   ✓ every RLS-enabled table is FORCEd (= 0)
   ✓ every tenant-carrying table is ENABLE+FORCE RLS with a tenant policy (catalog-derived) (= 0)
-  ✓ audit is not idle: 173 tenant tables classified ok (floor 105)
+  ✓ audit is not idle: 178 tenant tables classified ok (floor 105)
   ✓ no table is readable by the runtime role without either a tenant key or a written exemption (= 0)
   ✓ rls_probe exists (assertion 8: the evidence table is a kernel asset) (= 1)
   ✓ no table missing its project-archive freeze policy (issue #342) (= 0)
@@ -246,75 +257,40 @@ RLS-ASSERT-OK
 [timing] bash apps/api/scripts/verify-rls.sh
   环境预留：0s
   等待资源：0s
-  命令执行：10s
-  清理：1s
-  总计：10s
+  命令执行：7s
+  清理：0s
+  总计：8s
 
 
 
-[BASE VERIFY] (risk=high_risk; matched: apps/api/migrations/20260821090000_i1667_apply_blueprint_infra.sql⟵apps/api/migrations/**, apps/api/migrations/20260821091500_i1667_blueprint_pending_changes.sql⟵apps/api/migrations/**, packages/contracts/src/project.ts⟵packages/contracts/**) $ pnpm -w run verify:release
-[exit 1]
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
 
-> agentic-harness-template@ verify:release /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c
-> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:base:raw
+> agentic-harness-template@ verify:quick /private/tmp/claude-501/-Users-shenyanbin-Documents-workspacex/b73a69f9-155c-4e1f-a080-a911500aba77/scratchpad/worktrees/dead-chat-e2e-2158
+> pnpm exec tsx .harness/scripts/verify-quick.ts
 
-[harness-isolation] outer_db=wsx_329ab6135c0e951f0aa0 inner_db=wsx_329ab6135c0e951f0aa0 outer_compose=wsx-329ab6135c0e951f0aa0 inner_compose=wsx-329ab6135c0e951f0aa0 status=matched
-[stack-admission] load1=8.70 cores=10 perCore=0.87 running=0/2
-[test-isolation] id=run-mt26b2fo-6880432d-329ab6135c0e db=wsx_329ab6135c0e951f0aa0 compose=wsx-329ab6135c0e951f0aa0 pg=24955 redis=29955
+[verify:quick] base=b14b65abb3d3a87bb3fc8b98217a20abb89bdfeb（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_8e0da49256dc2c23ea81 inner_db=wsx_8e0da49256dc2c23ea81 outer_compose=wsx-8e0da49256dc2c23ea81 inner_compose=wsx-8e0da49256dc2c23ea81 status=matched
+[stack-admission] load1=4.73 cores=10 perCore=0.47 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mta4iniw-b8d0a229-8e0da49256dc db=wsx_8e0da49256dc2c23ea81 compose=wsx-8e0da49256dc2c23ea81 pg=23770 redis=28770
+• turbo 2.10.5
 
-> agentic-harness-template@ verify:base:raw /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c
-> pnpm run verify:harness:raw && turbo run typecheck lint --continue && turbo run test --continue --concurrency=1
+   • Packages in scope: //
+   • Running typecheck, lint, test in 1 packages
+   • Remote caching disabled, using shared worktree cache
 
+ WARNING  No tasks were executed as part of this run.
 
-> agentic-harness-template@ verify:harness:raw /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c
-> pnpm run lint:ui-material && pnpm run lint:third-artifact && pnpm run lint:verification && pnpm run lint:nav-reachability && pnpm run lint:rewrite-coverage && pnpm run lint:body-path-param-leak && pnpm run lint:spec-gate-coverage && pnpm run lint:templates-doctor && pnpm run lint:role-freeze-doctor && pnpm run lint:graph-authority-doctor && pnpm run lint:readiness && pnpm run lint:skills-doctor && pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    98ms 
 
-
-> agentic-harness-template@ lint:ui-material /Users/shenyanbin/Documents/workspacex/.claude/worktrees/agent-ad258c4be7c283e8c
-> node .harness/scripts/lint-ui-material.mjs
-
-  ✓ phase-01-run-a-project/agent-runtime      49/49  (ui-preview/agent-runtime-v2)
-  ✓ phase-01-run-a-project/asset-governance   64/64  (ui-preview/asset-governance)
-  ✓ phase-01-run-a-project/canvas             51/51  (ui-preview/canvas-v2)
-  ✓ phase-01-run-a-project/chat               20/20  (ui-preview/chat-v2)
-  ✓ phase-01-run-a-project/chat-file-upload   12/12  (ui-preview/chat-file-upload)
-  ✓ phase-01-run-a-project/files              15/15  (ui-preview/files)
-  ✓ phase-01-run-a-project/interview          62/62  (ui-preview/itv-v2)
-  ✓ phase-01-run-a-project/org-admin          48/48  (ui-preview/org-admin)
-  ✓ phase-01-run-a-project/personal-realtime-transcription   3/3   (ui-preview/realtime-transcription)
-  ✓ phase-01-run-a-project/project            92/92  (ui-preview/project-v2)
-  ✓ phase-01-run-a-project/recording          56/56  (ui-preview/rec-v2)
-  ✓ phase-01-run-a-project/research           49/49  (ui-preview/research)
-  ✓ phase-01-run-a-project/skills             67/67  (ui-preview/skill-v2)
-  ✓ phase-01-run-a-project/templates          41/41  (ui-preview/tpl-v2)
-  ✓ phase-02-visible-outcomes/survey           6/6   (ui-preview/survey-v2)
-  ✓ phase-03-reuse-and-governance/feedback-loop   9/9   (ui-preview/feedback-loop)
-  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview  10/10  (ui-preview/digital-expert-interview)
-  ✓ phase-05-studio-style-unification/studio-style   3/3   (ui-preview/studio-style)
-  ✓ phase-06-deep-research/deep-research       7/7   (ui-preview/deep-research)
-  ✓ phase-07-user-research/user-research       1/1   (ui-preview/user-research)
-  ✓ phase-08-transcription/transcription       1/1   (ui-preview/transcription)
-  ✓ phase-09-survey/survey                     1/1   (ui-preview/survey)
-  ✓ phase-01-run-a-project/chat-context-engine  20/20  (ui-preview/chat-v2)
-  ✓ phase-01-run-a-project/curated-capability-packs  67/67  (ui-preview/skill-v2)
-
-✗ [未声明] phase-10-live-collaboration-orchestration/group-checkin/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
-✗ [未声明] phase-10-live-collaboration-orchestration/module-routing/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
-✗ [未声明] phase-10-live-collaboration-orchestration/segment-engine/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
-✗ [未声明] phase-10-live-collaboration-orchestration/stage-aggregation/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
-✗ [未声明] phase-10-live-collaboration-orchestration/viewer-role/ui.md 存在，但 .harness/scripts/ui-material-map.json 里没有声明它的截图目录或复用目标。
-
-❌ lint-ui-material: 5 处材料不一致。
-   签核第 ① 件的材料就是这批截图：ui.md 引用的集合 与 ui-preview/ 实存的集合必须逐张相等。
- ELIFECYCLE  Command failed with exit code 1.
- ELIFECYCLE  Command failed with exit code 1.
- ELIFECYCLE  Command failed with exit code 1.
-[timing] pnpm run verify:base:raw
+[timing] pnpm turbo run typecheck lint test --affected
   环境预留：0s
   等待资源：0s
-  命令执行：1s
+  命令执行：0s
   清理：0s
-  总计：1s
- ELIFECYCLE  Command failed with exit code 1.
+  总计：0s
 
-[harness-verify v1 sha256=86036f9379b8af114ee1343890a6efaa99d4a4e9af1af795dbd3928507453f9c commit=b3deb4f487ba452821307b482fd1d681ea8196fe at=2026-08-20T23:51:41.237Z]
+[harness-verify v1 sha256=28eb2638a0d9ece3d443c1e4fe879561386084981dcd45989c6cfae14114635a commit=3296103989b80548f3457ee0009b595961dd420f at=2026-08-26T13:23:32.872Z]
