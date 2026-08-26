@@ -1138,7 +1138,7 @@ function CopilotKitV2PanelBody({
   }, [initialChatThreadId]);
 
   /**
-   * issue #2098（真实 devapp 实测：新对话第一条消息瞬时出现两条重复气泡，AI 回复
+   * issue #2101（真实 devapp 实测：新对话第一条消息瞬时出现两条重复气泡，AI 回复
    * 到达后又恢复正常）—— 见下面 hydration effect 的守卫。这里只负责在"本轮第一次
    * 把线程 id 从 `null` resolve 出来"那一刻置位，供那个 effect 判断"这条线程是不是
    * 我自己这一轮刚建的、内存态本来就是最新的，不需要回读"。
@@ -1157,7 +1157,7 @@ function CopilotKitV2PanelBody({
           // 外壳写回地址栏；`initialChatThreadId` 非空时 `chatThreadIdRef.current` 从
           // 挂载起就已经是这个值，这个分支不会为一次续聊触发。
           if (isNewlyResolved) {
-            // issue #2098 —— 必须在 `onThreadResolved` 之前（同步）置位：那个回调会让
+            // issue #2101 —— 必须在 `onThreadResolved` 之前（同步）置位：那个回调会让
             // 外壳把 `selectedThreadId` 写回，进而让 `initialChatThreadId` prop 从 null
             // 变成真实 id、触发下面 hydration effect 重跑——这个 ref 得先于那次重渲染
             // 就是 true，effect 才能在第一次因依赖变化执行时就看到它。
@@ -1222,7 +1222,7 @@ function CopilotKitV2PanelBody({
   React.useEffect(() => {
     if (
       initialChatThreadId === null || !isReady || hydratedRef.current
-      // issue #2098 —— `initialChatThreadId` 从 `null` 变成真实 id 有两种截然不同的
+      // issue #2101 —— `initialChatThreadId` 从 `null` 变成真实 id 有两种截然不同的
       // 原因：① 外壳传入一条**既有**线程（用户点开历史对话/刷新页面）——这时内存里
       // `agent.messages` 是空的，必须回读；② **本轮**（`send()` 里乐观插入用户消息之
       // 后）后端才把线程 id resolve 出来并经 `onCustomEvent` 回显——这时内存里已经有
