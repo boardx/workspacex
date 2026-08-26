@@ -62,7 +62,9 @@ export interface ChatTaskInspectorProps {
   readonly isRunning: boolean;
   /** 当前阶段文案（`copilotkit-v2-run-progress.ts`），无可翻译事件时为 null。 */
   readonly runPhaseLabel: string | null;
-  readonly runElapsedSeconds: number | null;
+  /** `RUN_STARTED` 时刻（epoch ms）；秒数在本组件内派生——见 panel 侧同名 prop 的注释：
+   *  每秒变一次的值不上抛，重渲染只落在这棵子树上。 */
+  readonly runStartedAt: number | null;
 }
 
 const TAB_META: Record<InspectorTab, { label: string; Icon: typeof ListChecks }> = {
@@ -76,8 +78,21 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, pendingMaterialsCount,
-    planTodos, isRunning, runPhaseLabel, runElapsedSeconds,
+    planTodos, isRunning, runPhaseLabel, runStartedAt,
   } = props;
+
+  /** ⚠ 计时器只在真的有一轮在跑时才起（同 `copilotkit-v2-run-progress.ts` 的纪律）：
+   *  常驻 `setInterval` 会让完全空闲的页面每秒重渲染一次右栏。 */
+  const [nowTick, setNowTick] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    if (runStartedAt === null) return;
+    setNowTick(Date.now());
+    const id = window.setInterval(() => setNowTick(Date.now()), 1_000);
+    return () => window.clearInterval(id);
+  }, [runStartedAt]);
+  const runElapsedSeconds = runStartedAt === null
+    ? null
+    : Math.floor(Math.max(0, nowTick - runStartedAt) / 1_000);
 
   const materialsCount = (materials?.items.length ?? 0) + pendingMaterialsCount;
   const artifactsCount = artifacts?.items.length ?? 0;

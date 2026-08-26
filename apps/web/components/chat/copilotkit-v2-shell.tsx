@@ -464,8 +464,8 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const [runState, setRunState] = React.useState<{
     readonly isRunning: boolean;
     readonly phaseLabel: string | null;
-    readonly elapsedSeconds: number | null;
-  }>({ isRunning: false, phaseLabel: null, elapsedSeconds: null });
+    readonly startedAt: number | null;
+  }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
 
   const [mobileListOpen, setMobileListOpen] = React.useState(false);
@@ -631,7 +631,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         planTodos={planTodos}
         isRunning={runState.isRunning}
         runPhaseLabel={runState.phaseLabel}
-        runElapsedSeconds={runState.elapsedSeconds}
+        runStartedAt={runState.startedAt}
       />
     </div>
   );

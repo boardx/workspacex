@@ -778,7 +778,12 @@ export function CopilotKitV2Panel({
   onRunStateChange?: (state: {
     readonly isRunning: boolean;
     readonly phaseLabel: string | null;
-    readonly elapsedSeconds: number | null;
+    /** `RUN_STARTED` 到达的时刻（epoch ms）；**每轮只变一次**。
+     *  ⚠ 刻意不上报 `elapsedSeconds`：那个每秒变一次，上抛给外壳等于每秒
+     *  `setState` 一次外壳 → 外壳重渲染 → 整棵消息树（含画布）跟着重渲染一次。
+     *  issue #2096 刚为同一类重渲染风暴做过一轮修复，不能在这里重新引入。
+     *  秒数由右栏 Inspector 自己从这个时间戳派生，重渲染只落在它那一小棵子树上。 */
+    readonly startedAt: number | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
   /**
@@ -982,7 +987,12 @@ function CopilotKitV2PanelBody({
   onRunStateChange?: (state: {
     readonly isRunning: boolean;
     readonly phaseLabel: string | null;
-    readonly elapsedSeconds: number | null;
+    /** `RUN_STARTED` 到达的时刻（epoch ms）；**每轮只变一次**。
+     *  ⚠ 刻意不上报 `elapsedSeconds`：那个每秒变一次，上抛给外壳等于每秒
+     *  `setState` 一次外壳 → 外壳重渲染 → 整棵消息树（含画布）跟着重渲染一次。
+     *  issue #2096 刚为同一类重渲染风暴做过一轮修复，不能在这里重新引入。
+     *  秒数由右栏 Inspector 自己从这个时间戳派生，重渲染只落在它那一小棵子树上。 */
+    readonly startedAt: number | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -1473,14 +1483,14 @@ function CopilotKitV2PanelBody({
   }, [planTodos, onPlanTodosChange]);
   const runIsRunning = agent.isRunning;
   const runPhaseLabel = runProgress.phaseLabel;
-  const runElapsedSeconds = runProgress.elapsedSeconds;
+  const runStartedAt = runProgress.startedAt;
   React.useEffect(() => {
     onRunStateChange?.({
       isRunning: runIsRunning,
       phaseLabel: runPhaseLabel,
-      elapsedSeconds: runElapsedSeconds,
+      startedAt: runStartedAt,
     });
-  }, [runIsRunning, runPhaseLabel, runElapsedSeconds, onRunStateChange]);
+  }, [runIsRunning, runPhaseLabel, runStartedAt, onRunStateChange]);
   const planStep = React.useMemo(() => currentPlanStep(planTodos), [planTodos]);
   const pendingMaterialsCount = attach.uploadedIds.length;
   React.useEffect(() => {
