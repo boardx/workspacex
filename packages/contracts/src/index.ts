@@ -53,3 +53,6 @@ export * as liveCollabStageAggregation from "./live-collab-stage-aggregation";
 export * as aguiStateEvents from "./agui-state-events";
 export * as deepAgentHitl from "./deep-agent-hitl";
 export * as agentInterrupts from "./agent-interrupts";
+
+/* ── TW-P0-3 计划编辑与执行控制（F972）─────────────────────────────── */
+export * as planControl from "./plan-control";
