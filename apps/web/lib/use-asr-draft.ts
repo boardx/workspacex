@@ -48,7 +48,18 @@ export interface UseAsrDraftResult {
   readonly stopping: boolean;
   readonly error: string | null;
   readonly start: () => void;
+  /** 停止并**保留**已转录的文字（追加进输入框）——TW-P0-5⑥ 的「确认」。 */
   readonly stop: () => void;
+  /**
+   * TW-P0-5⑥ —— 停止并**丢弃**这一段录音期间产生的转录，把输入框内容还原到开始
+   * 录音那一刻（`baseTextRef`）。仍然真的调用底层 `handle.stop()` 收尾采音/WS，
+   * 只是不把随后到达的 `onPartial`/`onFinal` 写回输入框——真实取消，不是假装。
+   */
+  readonly cancel: () => void;
+  /** 本轮录音已进行的整数秒数；未在录音时为 0。纯本地计时，不是伪造进度条。 */
+  readonly elapsedSeconds: number;
+  /** 0..1，来自 `pcm16Level()` 对真实采到的帧求 RMS；未在录音时为 0。 */
+  readonly level: number;
 }
 
 const ERROR_TEXT: Record<AsrDraftErrorReason, string> = {
@@ -79,6 +90,8 @@ function appendTranscript(base: string, addition: string): string {
 export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId }: UseAsrDraftOptions): UseAsrDraftResult {
   const [status, setStatus] = React.useState<AsrDraftStatus>("idle");
   const [error, setError] = React.useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
+  const [level, setLevel] = React.useState(0);
   const handleRef = React.useRef<{ stop: () => Promise<void> } | null>(null);
   const startingRef = React.useRef(false);
   // 防"停止过程中又点了开始"：UI 层已经在 stopping 态禁用按钮，这里是第二道防线
@@ -92,11 +105,19 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
   // 设备，而不是闭包捕获的旧值——否则空闲时换设备不会生效。
   const deviceIdRef = React.useRef(deviceId);
   deviceIdRef.current = deviceId;
+  /**
+   * TW-P0-5⑥ —— `cancel()` 与 `stop()` 共用同一条底层收尾路径，唯一区别是这个标记：
+   * 置位后 `onPartial`/`onFinal` 到达时不再写回输入框，`onFinished` 把输入框强制
+   * 复原到 `baseTextRef`（开始录音那一刻的文本）。不是另起一条采音/WS 逻辑。
+   */
+  const discardRef = React.useRef(false);
 
-  const stop = React.useCallback(() => {
+  const endSession = React.useCallback((discard: boolean) => {
     const handle = handleRef.current;
     handleRef.current = null;
     if (handle === null) return; // 还没连上（connecting）或已经停了——没有一条真实句柄可停。
+    discardRef.current = discard;
+    if (discard) onTranscriptRef.current(baseTextRef.current);
     // 同步置位：`handle.stop()` 要等上游确认收尾（真实上游下不是 0 秒），界面必须
     // 立刻说"正在停止"，不能等到 promise resolve 才有反应——那正是 devapp 实测反馈的
     // "终止转录也不能正常终止"（不是真没终止，是终止过程中界面看起来像没反应）。
@@ -104,6 +125,9 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     stoppingRef.current = true;
     void handle.stop();
   }, []);
+
+  const stop = React.useCallback(() => endSession(false), [endSession]);
+  const cancel = React.useCallback(() => endSession(true), [endSession]);
 
   const start = React.useCallback(() => {
     if (handleRef.current !== null || startingRef.current || stoppingRef.current) return; // 已经在录/正在连/正在停，忽略重复点击。
@@ -114,7 +138,10 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     }
     baseTextRef.current = getBaseText();
     committedRef.current = "";
+    discardRef.current = false;
     setError(null);
+    setElapsedSeconds(0);
+    setLevel(0);
     startingRef.current = true;
     // 同步置位：真实上游的采音权限弹窗 + WS 握手不是 0 秒，界面必须立刻说"正在连接"，
     // 不能等到 openAsrDraftStream 的 promise resolve 才有反应——那正是 devapp 实测反馈的
@@ -124,9 +151,11 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     void openAsrDraftStream(
       {
         onPartial: (text) => {
+          if (discardRef.current) return;
           onTranscriptRef.current(appendTranscript(baseTextRef.current, appendTranscript(committedRef.current, text)));
         },
         onFinal: (text) => {
+          if (discardRef.current) return;
           committedRef.current = appendTranscript(committedRef.current, text);
           onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));
         },
@@ -139,8 +168,13 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
         onFinished: () => {
           handleRef.current = null;
           stoppingRef.current = false;
+          if (discardRef.current) onTranscriptRef.current(baseTextRef.current);
+          setLevel(0);
           setStatus((current) => (current === "error" || current === "denied" ? current : "idle"));
         },
+        // TW-P0-5⑥ —— 真实音量指示：每一帧真实采到的 PCM16 求一次 RMS，
+        // 不是渲染层自己画的假动画（见 `pcm16Level()` 头注）。
+        onLevel: (value) => setLevel(value),
       },
       { sessionToken, deviceId: deviceIdRef.current },
     ).then((handle) => {
@@ -164,6 +198,14 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
 
   React.useEffect(() => () => { void handleRef.current?.stop(); }, []);
 
+  // TW-P0-5⑥ —— 录音计时：`listening` 期间每秒 +1，不在录音时归零。纯本地
+  // `setInterval`，不依赖服务端回传的任何时间戳（上游没有提供，也不需要）。
+  React.useEffect(() => {
+    if (status !== "listening") return;
+    const timer = window.setInterval(() => setElapsedSeconds((s) => s + 1), 1_000);
+    return () => window.clearInterval(timer);
+  }, [status]);
+
   return {
     status,
     listening: status === "listening",
@@ -172,5 +214,8 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     error,
     start,
     stop,
+    cancel,
+    elapsedSeconds,
+    level,
   };
 }

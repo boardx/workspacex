@@ -54,11 +54,15 @@ async function loginAndOpenChat(page: Page): Promise<void> {
 }
 
 async function selectLoopbackAgent(page: Page): Promise<void> {
-  const trigger = page.getByTestId("chat-agent-select");
+  // issue #2130（TW-P0-2）—— 入口从裸的 `AgentPicker`（`chat-agent-select`）换成
+  // 「选择能力」（`chat-task-workbench-capability-picker`），同一个真实下拉；
+  // 候选项现在共用一个字面量 testid（判据要求），按真实 agent id 精确点中用
+  // `data-agent-id`，见 `chat-task-workbench-capability-picker.tsx` 头注。
+  const trigger = page.getByTestId("chat-task-workbench-capability-picker");
   await expect(trigger).toBeVisible({ timeout: 20_000 });
   await trigger.click();
   await expect(page.getByTestId("chat-agent-select-listbox")).toBeVisible();
-  await page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.agentId}`).click();
+  await page.locator(`[data-testid="chat-task-workbench-capability-card"][data-agent-id="${CHAT_READ_E2E.agentId}"]`).click();
   await expect(page.getByTestId("chat-agent-select-listbox")).toBeHidden();
 }
 

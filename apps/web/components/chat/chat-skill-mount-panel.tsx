@@ -63,8 +63,22 @@ export function ChatSkillMountPanel({
   mentionTriggerChar = "#",
   onMentionMounted,
   onMountsChange,
+  variant = "row",
 }: {
   threadId: string;
+  /**
+   * issue #2130（TW-4，Skills 交互重设计，纯前端）—— 两种排布，**同一份状态/
+   * 端点逻辑**，只是 JSX/className 不同：
+   * - `"row"`（默认，legacy）—— composer 下方常驻一整条：标签 + 内联挂载 chip +
+   *   「加 skill」按钮。`chat-read-screen.tsx`/`personal-chat-screen.tsx` 用这个，
+   *   逐字节保持此前的视觉与结构，不因为本轮改动受影响。
+   * - `"pill"`（新增，仅 `copilotkit-v2-panel.tsx` 用）—— 单一胶囊入口（同级于
+   *   Agent/麦克风/附件），点击展开挂载浮层；已挂载 skill 收进触发器下方的小
+   *   chip 列表，不再占满一整条。**全部 testid 与两条真实 e2e
+   *   （`copilotkit-v2-skill-mount.spec.ts`/`chat-agent-skill-context.spec.ts`）
+   *   依赖的锚点逐字不变**——变的只是排布，不是这个组件对外暴露的契约。
+   */
+  variant?: "row" | "pill";
   /**
    * ⚠ **可选**：个人对话没有项目（人类 2026-08-21 裁决「个人对话必须要可以使用
    * 公共的 skills」）。#1693 起服务端已不把 `?projectId=` 当授权输入——授权从
@@ -245,6 +259,166 @@ export function ChatSkillMountPanel({
     }
   };
 
+  const pill = variant === "pill";
+
+  /** 挂载态一个 chip——row/pill 两种排布共用同一份渲染，只是外层容器尺寸不同。 */
+  const mountedChip = (entry: ThreadSkillMount) => {
+    /*
+      ⚠ 显示「名称」，不是 `skillId`。名字本来就在手边——`pool` 里的
+      `item.name` 正是候选列表显示的那一份。此前挂载后退回显示
+      `sk_9c652f24-…` 这样的 UUID，等于用户选完就不知道自己挂的是什么，
+      而且两条并排时肉眼几乎无法区分（都以 `sk_` 开头）⇒ 误卸载风险。
+
+      ⚠ 读不到名字时「回落到 id」，不显示「未知 skill」：挂载列表与候选池
+      是两次独立的读，池子还没到（或该 skill 已不在可见范围）时，
+      一个真实的 id 比一个编出来的占位词更有用。
+    */
+    const named = pool.find((s) => s.skillId === entry.skillId)?.name ?? entry.skillId;
+    return (
+      <span
+        key={entry.mountId}
+        className={`inline-flex items-center gap-0.5 border border-border bg-muted/40 py-0.5 pl-2 pr-0.5 ${pill ? "rounded-pill" : "rounded-full"}`}
+        data-testid={`chat-skill-mounted-${entry.skillId}`}
+        title={`skill id：${entry.skillId}`}
+      >
+        <span className="text-11 text-foreground">{named}</span>
+        {/*
+          FB-2 —— 对「这个 skill 本身」提反馈。挂在挂载态的 chip 上而不是选择器里：
+          有意见的前提是用过它，而选择器里的那些还没被用过。
+          传的是真实 `skillId`（不是版本 id）——见契约 `FeedbackTarget` 里
+          「skill 只带 skillId，不带 skillVersionId」那条注释。
+          ⚠ `targetLabel` 传名字：它会进反馈弹层的标题，UUID 对提交反馈的人没有意义。
+        */}
+        <FeedbackButton
+          target={{ kind: "skill", skillId: entry.skillId }}
+          targetLabel={named}
+          testid={`chat-skill-feedback-${entry.skillId}`}
+        />
+        {/*
+          ⚠ 只留图标、去掉「卸载」二字：此前同一个动作有 `✕` 和「卸载」两个
+          可点区域，占双倍宽度却不增加信息。语义交给 `aria-label` / `title`，
+          不靠可见文字撑——屏幕阅读器读得到，视觉上不再重复。
+        */}
+        <Button
+          size="xs"
+          variant="ghost"
+          className={`h-5 w-5 p-0 ${pill ? "rounded-pill" : "rounded-full"}`}
+          disabled={pending}
+          aria-label={`卸载 ${named}`}
+          title={`卸载 ${named}`}
+          data-testid={`chat-skill-unmount-${entry.skillId}`}
+          onClick={() => void unmount(entry.mountId)}
+        >
+          <X aria-hidden className="h-3 w-3" />
+        </Button>
+      </span>
+    );
+  };
+
+  /** 挂载浮层——row/pill 两种排布共用同一份，`pill` 下是 `absolute` 覆盖层。 */
+  const picker = picking ? (
+    <div
+      className={
+        pill
+          ? "absolute left-0 top-full z-20 mt-1 flex w-64 flex-wrap items-center gap-1.5 rounded-md border border-border bg-popover p-2 shadow-md"
+          : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
+      }
+      data-testid="chat-skill-mount-picker"
+    >
+      {mentionQuery ? (
+        <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
+          {mentionTriggerChar} {mentionQuery}
+        </span>
+      ) : null}
+      {pool.length === 0 ? (
+        <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
+          本组织没有「已启用」的 skill 可挂载。
+        </span>
+      ) : visiblePool.length === 0 ? (
+        <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
+          没有名字含「{mentionQuery}」的已启用 skill。
+        </span>
+      ) : (
+        visiblePool.map((item) => (
+          <Button
+            key={item.skillId}
+            size="xs"
+            variant="outline"
+            disabled={pending}
+            data-testid={`chat-skill-mount-option-${item.skillId}`}
+            onClick={() => void mount(item.skillId)}
+          >
+            {item.name}
+          </Button>
+        ))
+      )}
+      <Button
+        size="xs"
+        variant="ghost"
+        data-testid="chat-skill-mount-cancel"
+        onClick={() => setPicking(false)}
+      >
+        取消
+      </Button>
+    </div>
+  ) : null;
+
+  /** 失败横幅——同上，`pill` 下也是 `absolute`，不撑开 composer 图标行的高度。 */
+  const failureBanner = failure ? (
+    <div
+      className={
+        pill
+          ? "absolute left-0 top-full z-20 mt-1 flex w-64 items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 shadow-md"
+          : "flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
+      }
+      data-testid="chat-skill-mount-failure"
+    >
+      <p className="text-11 text-destructive">{failure}</p>
+      <Button size="xs" variant="outline" data-testid="chat-skill-mount-retry" onClick={() => void reload()}>
+        <RefreshCw aria-hidden className="h-3 w-3" />重试
+      </Button>
+    </div>
+  ) : null;
+
+  if (pill) {
+    // issue #2130（TW-4）—— 单一胶囊入口：状态徽标 + 「加 skill」是同一个按钮
+    // （复用 `chat-skill-mount` 这个既有 testid/onClick，两条真实 e2e 靠它驱动挂载），
+    // 已挂载的 skill 收进触发器下方的小 chip 列表，不再占满一整条。
+    return (
+      <div className="relative inline-flex flex-col items-start gap-1" data-testid="chat-skill-mount-panel">
+        <Button
+          size="xs"
+          variant="outline"
+          className="gap-1 rounded-pill px-2"
+          /** ⚠ 版本号读不到就不给提交入口——不是禁用「挂载」这个能力，是拒绝盲写。 */
+          disabled={pending || version === null}
+          data-testid="chat-skill-mount"
+          aria-label="管理本对话挂载的 skill"
+          title="管理本对话挂载的 skill"
+          onClick={() => void openPicker(false)}
+        >
+          <Wrench aria-hidden className="h-3 w-3" />
+          <span className="text-9">技能{mounts.length > 0 ? ` ${mounts.length}` : ""}</span>
+          <Plus aria-hidden className="h-2.5 w-2.5" />
+        </Button>
+        {loading ? (
+          <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-loading">
+            正在读取…
+          </span>
+        ) : mounts.length === 0 ? (
+          // ⚠ 真实空态。这里**不**塞任何示例 skill（契约 A1/V10）。
+          <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-empty">
+            还没有挂载任何 skill
+          </span>
+        ) : (
+          <div className="flex flex-wrap items-center gap-1">{mounts.map(mountedChip)}</div>
+        )}
+        {picker}
+        {failureBanner}
+      </div>
+    );
+  }
+
   return (
     <section
       className="flex flex-col gap-2 border-t border-border px-4 py-2"
@@ -265,58 +439,7 @@ export function ChatSkillMountPanel({
             还没有挂载任何 skill
           </span>
         ) : (
-          mounts.map((entry) => {
-            /*
-              ⚠ 显示「名称」，不是 `skillId`。名字本来就在手边——`pool` 里的
-              `item.name` 正是候选列表显示的那一份。此前挂载后退回显示
-              `sk_9c652f24-…` 这样的 UUID，等于用户选完就不知道自己挂的是什么，
-              而且两条并排时肉眼几乎无法区分（都以 `sk_` 开头）⇒ 误卸载风险。
-
-              ⚠ 读不到名字时「回落到 id」，不显示「未知 skill」：挂载列表与候选池
-              是两次独立的读，池子还没到（或该 skill 已不在可见范围）时，
-              一个真实的 id 比一个编出来的占位词更有用。
-            */
-            const named = pool.find((s) => s.skillId === entry.skillId)?.name ?? entry.skillId;
-            return (
-              <span
-                key={entry.mountId}
-                className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/40 py-0.5 pl-2 pr-0.5"
-                data-testid={`chat-skill-mounted-${entry.skillId}`}
-                title={`skill id：${entry.skillId}`}
-              >
-                <span className="text-11 text-foreground">{named}</span>
-                {/*
-                  FB-2 —— 对「这个 skill 本身」提反馈。挂在挂载态的 chip 上而不是选择器里：
-                  有意见的前提是用过它，而选择器里的那些还没被用过。
-                  传的是真实 `skillId`（不是版本 id）——见契约 `FeedbackTarget` 里
-                  「skill 只带 skillId，不带 skillVersionId」那条注释。
-                  ⚠ `targetLabel` 传名字：它会进反馈弹层的标题，UUID 对提交反馈的人没有意义。
-                */}
-                <FeedbackButton
-                  target={{ kind: "skill", skillId: entry.skillId }}
-                  targetLabel={named}
-                  testid={`chat-skill-feedback-${entry.skillId}`}
-                />
-                {/*
-                  ⚠ 只留图标、去掉「卸载」二字：此前同一个动作有 `✕` 和「卸载」两个
-                  可点区域，占双倍宽度却不增加信息。语义交给 `aria-label` / `title`，
-                  不靠可见文字撑——屏幕阅读器读得到，视觉上不再重复。
-                */}
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  className="h-5 w-5 rounded-full p-0"
-                  disabled={pending}
-                  aria-label={`卸载 ${named}`}
-                  title={`卸载 ${named}`}
-                  data-testid={`chat-skill-unmount-${entry.skillId}`}
-                  onClick={() => void unmount(entry.mountId)}
-                >
-                  <X aria-hidden className="h-3 w-3" />
-                </Button>
-              </span>
-            );
-          })
+          mounts.map(mountedChip)
         )}
 
         <Button
@@ -332,60 +455,8 @@ export function ChatSkillMountPanel({
         </Button>
       </div>
 
-      {picking ? (
-        <div
-          className="flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
-          data-testid="chat-skill-mount-picker"
-        >
-          {mentionQuery ? (
-            <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
-              {mentionTriggerChar} {mentionQuery}
-            </span>
-          ) : null}
-          {pool.length === 0 ? (
-            <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
-              本组织没有「已启用」的 skill 可挂载。
-            </span>
-          ) : visiblePool.length === 0 ? (
-            <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
-              没有名字含「{mentionQuery}」的已启用 skill。
-            </span>
-          ) : (
-            visiblePool.map((item) => (
-              <Button
-                key={item.skillId}
-                size="xs"
-                variant="outline"
-                disabled={pending}
-                data-testid={`chat-skill-mount-option-${item.skillId}`}
-                onClick={() => void mount(item.skillId)}
-              >
-                {item.name}
-              </Button>
-            ))
-          )}
-          <Button
-            size="xs"
-            variant="ghost"
-            data-testid="chat-skill-mount-cancel"
-            onClick={() => setPicking(false)}
-          >
-            取消
-          </Button>
-        </div>
-      ) : null}
-
-      {failure ? (
-        <div
-          className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
-          data-testid="chat-skill-mount-failure"
-        >
-          <p className="text-11 text-destructive">{failure}</p>
-          <Button size="xs" variant="outline" data-testid="chat-skill-mount-retry" onClick={() => void reload()}>
-            <RefreshCw aria-hidden className="h-3 w-3" />重试
-          </Button>
-        </div>
-      ) : null}
+      {picker}
+      {failureBanner}
     </section>
   );
 }

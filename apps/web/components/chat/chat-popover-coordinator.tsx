@@ -19,7 +19,14 @@ import * as React from "react";
  *   `AgentPicker`/`ChatSkillMountPanel` 的隔离单测不必额外包一层 Provider。
  */
 
-export type ChatPopoverId = "chat-agent-picker" | "chat-skill-mount";
+/**
+ * issue #2130（TW-P0-2/P0-5）—— 新增两个槽位：
+ *  - `chat-capability-picker`：把工具栏「选择能力」入口纳入同一互斥组
+ *    （原来的 `chat-agent-picker` 是它的前身，见 `chat-task-workbench-capability-picker.tsx`）。
+ *  - `chat-composer-mic-devices`：麦克风按钮的二级设备菜单，与上面两个下拉同属
+ *    「同一时刻只开一个浮层」的既有纪律，不新开一套互斥逻辑。
+ */
+export type ChatPopoverId = "chat-agent-picker" | "chat-skill-mount" | "chat-capability-picker" | "chat-composer-mic-devices";
 
 type ChatPopoverContextValue = {
   readonly activeId: ChatPopoverId | null;

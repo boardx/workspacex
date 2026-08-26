@@ -179,7 +179,7 @@ test("TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差�
    * 录音态必须同时有①非空文本、②按钮上可读的状态属性（`aria-pressed` /
    * `data-mic-status`）、③变化了的可访问名。比"四个锚点里有一个存在"严得多。
    */
-  const micButton = page.getByTestId("chat-mic-button");
+  const micButton = page.getByTestId("chat-task-workbench-composer-mic");
   await expect(micButton).toBeEnabled({ timeout: 30_000 });
   await expect(page.getByTestId("chat-mic-listening")).toHaveCount(0);
   // 闲置态：按钮不得声称自己在录音。

@@ -55,14 +55,22 @@ const config: Config = {
         control: "6px",
         card: "10px",
         container: "14px",
+        // issue #2130 —— 人类导入新 UX 设计裁决：命名的胶囊圆角 token。composer
+        // 里那类「小圆胶囊按钮/chip」（Agent 选择器、麦克风设备菜单、附件按钮…）
+        // 之前各自写字面量 `rounded-full`（99999px，视觉上与 99px 等效但不是
+        // 同一个可复用事实）。这里给它一个名字，本轮碰到的 composer 胶囊组件
+        // 迁移过来；其余散落的 `rounded-full` 不强制全仓替换（`lint-design.sh`
+        // 的 U11 只拦 `rounded-[Npx]` 任意值，不拦内建 `rounded-full`，两者不冲突）。
+        pill: "99px",
       },
       boxShadow: {
         sm: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
       },
-      // 实测骨架尺寸（原型 computed style）：图标栏 76 / 左栏 272 / 右栏 300
-      width: { rail: "76px", panel: "272px", "panel-alt": "300px" },
+      // 实测骨架尺寸（原型 computed style）：图标栏 76 / 左栏 272 / 右栏 316
+      // （issue #2130 —— 右栏 300 → 316，人类导入新 UX 设计裁决的取值）
+      width: { rail: "76px", panel: "272px", "panel-alt": "316px" },
       minWidth: { rail: "76px" },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },

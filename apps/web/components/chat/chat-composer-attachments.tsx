@@ -351,7 +351,9 @@ export function ChatAttachmentButton({ ctl, disabled }: { ctl: ChatAttachmentsCo
         type="button"
         size="icon"
         variant="outline"
-        className="rounded-full"
+        // issue #2130 —— 命名胶囊圆角 token（`tailwind.config.ts` 的
+        // `borderRadius.pill`），composer 胶囊类控件本轮统一迁移。
+        className="rounded-pill"
         data-testid="chat-attachment-input"
         aria-label="添加附件"
         aria-haspopup="dialog"
