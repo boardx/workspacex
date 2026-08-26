@@ -19,6 +19,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { asOwner, resetOrgs, seedOrg, addOrgMember, ensureDatabase, migrateOnce } from "../support/db";
+import { backfillPlatformOrg } from "../../scripts/backfill-platform-org";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgIdentityRepository } from "../../src/infrastructure/identity/pg-identity-repository";
@@ -58,6 +59,10 @@ beforeAll(async () => {
   //   `relation "organizations" does not exist`，读起来像"库坏了"，实际是没建。
   ensureDatabase();
   await migrateOnce();
+  // ⚠ 平台组织**不**由迁移种（2026-08-26 实测事故：种在迁移里会让每个新迁移出来的
+  //   测试库都多一个"有 admin 的组织"，把别的 backfill 脚本的单测计数顶偏）。
+  //   同 `backfill-canvas-builtin-templates.ts` 那条纪律，显式跑一次。
+  await backfillPlatformOrg();
   db = new PgDatabase(appConfig());
   deps = {
     identity: new PgIdentityRepository(db),

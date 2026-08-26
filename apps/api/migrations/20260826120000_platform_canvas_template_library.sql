@@ -61,43 +61,28 @@ BEGIN
   END IF;
 END $$;
 
--- ── ② 平台组织本体 ──────────────────────────────────────────────────────────────
+-- ── ② 平台组织本体：**这里没有 INSERT** ─────────────────────────────────────────
 --
--- 唯一的一行，id 写死。`owner_user_id` 必须为 NULL（`organizations_owner_iff_personal_local`
--- 要求 owner 有且仅有 personal-local 才有），`model_policy='any'`（那条 CHECK 只约束
--- personal-local）。它**没有任何成员**——没有人"属于"平台，也不该有人能以它的身份登录。
-INSERT INTO organizations (id, name, kind, status, model_policy)
-VALUES ('org-platform', '平台模板库', 'platform', 'active', 'any')
-ON CONFLICT (id) DO NOTHING;
+-- 2026-08-26 实测事故：本节原先在这里直接 `INSERT INTO organizations` +
+-- `INSERT INTO org_memberships`，把 `org-platform` 无条件种进**每一个跑过这份迁移
+-- 的数据库**——包括每一次测试用的隔离库。后果不是"多了一行没人用的数据"：
+-- `backfill-default-agents.ts`/`backfill-deep-research-agent.ts`/
+-- `backfill-image-gen-agent.ts` 三个脚本都是 `FROM organizations o`（**不限定哪个
+-- 组织**）+ `WHERE ... org_role = 'admin'` 找"有 admin 的组织"逐个种默认 agent——
+-- 一个新迁移出来的库，从此**永远**多一个"有 admin 的组织"（org-platform 自己），
+-- 于是这三个脚本各自的单测断言（"这个库里该有 1 个符合条件的组织"）全部变成 2，
+-- 三个 shard 一起红。这与 `20260805030000_canvas_template_registry.sql` 文件头
+-- 那条纪律是同一件事——本仓已经为了同一个理由不在迁移里 seed 内置模板，这里
+-- 犯了一次一模一样的错。
+--
+-- 平台组织本体与它的服务身份（成员行、无凭据行，结构上不可登录，理由见旧版本
+-- 该节注释）现在由 `apps/api/scripts/backfill-platform-org.ts` 显式创建——
+-- 与 `backfill-canvas-builtin-templates.ts` 同一条纪律：**不自动跑给每个环境**，
+-- 只在真人明确要求平台模板库上线时手动跑一次。
 
--- 恰好一个平台组织。第二行会让「哪一个是母版库」变成一个要靠约定回答的问题。
+-- 恰好一个平台组织。索引留在这里（schema 约束），种数据的时机移到上面那个脚本。
 CREATE UNIQUE INDEX IF NOT EXISTS organizations_single_platform
   ON organizations ((kind)) WHERE kind = 'platform';
-
--- ── ②b 维护母版的那个身份：有成员行、**无凭据行** ────────────────────────────────
---
--- 上面写着「它没有任何成员」——那句话说早了。母版要能被写，而**所有**写路径都过
--- `requireTemplateAdmin`（org admin 成员身份）。没有成员 ⇒ 平台库永远是空的，
--- 或者只能靠裸 INSERT 绕开鉴权/占用判定/发布校验，而那正是回填脚本刻意不做的事。
---
--- 所以给它**恰好一个** admin 成员。它不是一个人：
---
--- ⚠ `org_memberships.user_id` **没有外键**指向任何用户表，而登录凭据在另一张表
---   `auth_credentials`（`password_hash NOT NULL`，见 0010）。因此一个只有成员行、
---   **没有凭据行**的 user_id 在结构上**无法登录**——不是"我们不给它设密码"这种约定，
---   是登录路径根本查不到它。这就是服务身份的干净形态。
---
--- ⚠ 谁能加它进来：只有这份迁移。产品里没有任何路径能给 platform 组织加成员
---   （加成员走组织后台，而 platform 组织不出现在任何人的组织列表里——它 kind 不是
---   'organization'）。
-INSERT INTO org_memberships (user_id, org_id, org_role, team_id)
-VALUES ('svc-platform-templates', 'org-platform', 'admin', NULL)
-ON CONFLICT (user_id, org_id) DO NOTHING;
-
-COMMENT ON TABLE org_memberships IS
-  '组织成员。⚠ 含一行服务身份 svc-platform-templates@org-platform：它维护平台模板母版，'
-  '有 admin 成员行但**没有** auth_credentials 行，因此结构上不可登录。'
-  '见 20260826120000_platform_canvas_template_library.sql 第 ②b 节。';
 
 -- ── ③ 只放宽读 ──────────────────────────────────────────────────────────────────
 --
