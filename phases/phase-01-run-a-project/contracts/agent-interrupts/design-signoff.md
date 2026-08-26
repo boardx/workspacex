@@ -104,8 +104,9 @@ I-7 kind 与工具名一一对应）互相依赖，且**只调用**上述三束�
 
 - [ ] 三屏设计说明（复述卡 / 参数表单 / 对比卡）是否符合原始需求，见 `ui.md`。
 - [ ] `choose_option` 要不要「都不要」的逃生口按钮（契约层已允许 `reject`）。
-- [ ] **先签设计说明再补图，还是与 `plan-control` 同标准零截图不许签**——
-      见本文件末尾「收窄决策 ③」。
+- [x] ~~先签设计说明再补图，还是与 `plan-control` 同标准零截图不许签~~ ——
+      **已裁决（人类，2026-08-26）：A，先签设计，截图后补**，见「收窄决策 ③」。
+      coord-main 已同步派 `ui-prototyper` 在同分支补三屏原型，本包不等待。
 
 ---
 
@@ -119,13 +120,12 @@ I-7 kind 与工具名一一对应）互相依赖，且**只调用**上述三束�
 
 - [ ] **UC-1 反证**（未确认不执行任何工具）是否写成了可判定的形式——
       `usecases.md` UC-1 反证节给的是「查询即断言」的机制事实，不是靠计时器猜。
-- [ ] **UC-2 的「只重跑受影响下游」被降级**（`domain.md` 缺口 AI-1）——
-      技术上未证实存在选择性重跑能力，本轮只做 `full-rerun` / `ledger-only` 两态。
-      这是「本来要求的能力做不到」的诚实登记，**不是把判据改松**：若你要求的就是
-      精确的「只重跑受影响节点」，这条需要你知情后决定接受降级还是暂缓这一整个
-      fill_params 能力（见下方「收窄决策 ①」）。
-- [ ] **UC-3 的 decision 类型选择**（`edit` 而非 `respond`，`usecases.md` UC-3
-      逐条排除表）——这是本包的核心设计决策，见下方「收窄决策 ②」。
+- [x] ~~UC-2 的「只重跑受影响下游」被降级（`domain.md` 缺口 AI-1）~~ ——
+      **已裁决（人类，2026-08-26）：A，知情降级，先做两态**，`full-rerun` /
+      `ledger-only` 保持原样不返工，见「收窄决策 ①」。
+- [x] ~~UC-3 的 decision 类型选择（`edit` 而非 `respond`）~~ ——
+      **已裁决（人类，2026-08-26）：A，`edit`，`{selectedOptionId}` 载荷**，
+      见「收窄决策 ②」。
 - [ ] **`FIELD_REQUIRED_BLANK` 是占位码**，正式码等两束（本束 + `plan-control`）
       都签核后的一致性复核裁决（`coverage.md` AI-6）。
 
@@ -145,9 +145,13 @@ packages/contracts/src/agent-interrupts.ts     ← 尚未创建，本轮只产�
 
 ### 需要连带修订的既有文件（签核通过、实现期开工时的必做项，本轮不动）
 
+⚠ **随下方「收窄决策 ④」裁定（A：新文件，不动 `deep-agent-hitl.ts`）已收窄**——
+下表不再列 `deep-agent-hitl.ts` 本体的改动，只列它「保持不变但要被别处一起拼装」这件事。
+
 | 文件 | 改什么 | 为什么必须改，不能绕开 |
 |---|---|---|
-| `packages/contracts/src/deep-agent-hitl.ts` | `DEEP_AGENT_HITL_TOOL_NAME`（单值）改造成支持多值（该文件目前是「单一工具名=单一种中断」的单例设计，新增三个工具名需要它从单例变集合，或本束另建 `agent-interrupts.ts` 平行导出，两案对比见 `usecases.md` UC 与下方决策） | 它是 `DEEP_AGENT_HITL_TOOLS` 环境变量与 `build_interrupt_on` 的唯一事实源 |
+| `packages/contracts/src/agent-interrupts.ts`（新建） | 声明三个新工具名 + 各自 args 形状 + 各自 `ARGS_MAX_CHARS` 常量 | 本束的签核③落点，`deep-agent-hitl.ts` 单例语义不动 |
+| `deploy.sh` 的 `deep_agent_project_capability_env` | `DEEP_AGENT_HITL_TOOLS` 的拼装点从只读 `deep-agent-hitl.ts` 一处，改成同时读 `agent-interrupts.ts` 再 `.join(",")` | 两个文件各自是各自工具名的唯一事实源，环境变量需要两者的并集 |
 | `apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts:243-244` | `ARGS_MAX_CHARS` 豁免清单加三个工具名 | 封闭清单，不加行就被默认 500 字符截断成非法 JSON（`coverage.md` AI-3） |
 | `apps/deep-agent-service` 侧 `harness.py` 的 `DEEP_AGENT_HITL_TOOLS` 部署值 | 逗号分隔值从一个扩到四个 | 同上，环境变量投影链条 |
 | Python `@tool` 三个新工具定义 | 新建 | 契约的实现主体 |
@@ -157,8 +161,8 @@ packages/contracts/src/agent-interrupts.ts     ← 尚未创建，本轮只产�
 
 ### 签核前请重点确认
 
-- [ ] **`deep-agent-hitl.ts` 单例改集合，还是新建独立 `agent-interrupts.ts` 平行文件**
-      ——见下方「收窄决策 ④」。
+- [x] ~~`deep-agent-hitl.ts` 单例改集合，还是新建独立 `agent-interrupts.ts` 平行文件~~ ——
+      **已裁决（人类，2026-08-26）：A，新文件，`deep-agent-hitl.ts` 不动**，见下方「收窄决策 ④」。
 - [ ] **错误码 `FIELD_REQUIRED_BLANK` 待跨束裁决**（同上，AI-6）。
 - [ ] **响应体也要被契约校验**（`contract-design.md` 硬规则 6）：三个 UC 的 `out`
       在实现期都需要 `safeParse()` 反向断言，并特别覆盖拒绝路径——本轮骨架未含代码，
@@ -183,6 +187,25 @@ packages/contracts/src/agent-interrupts.ts     ← 尚未创建，本轮只产�
 
 > 按 `human-decision-packaging.md` 规则一收窄，每条 2-4 个候选，硬上限 4。
 
+### ✅ 四条均已裁决（人类，经 coord-main 转达，2026-08-26）
+
+> ⚠ **这是转达，不是我直接见证的签核动作**——按「跨会话人类裁决」纪律，
+> 逐字转写 coord-main 发来的原话，不代人类归纳或美化：
+>
+> 「PR #2136 已开，人类四个决策都定了（全部你推荐的选项）：
+> ① `fill_params` 诚实降级为两态（full-rerun/ledger-only）先发，不等 checkpoint-fork 验证
+> ② `choose_option` 走 `edit`，前端以 `{selectedOptionId}` 当 edit 载荷 resume，零桥代码改动
+> ③ UI 签核门槛：先签设计，截图后补
+> ④ 三个虚拟工具名放新文件 `agent-interrupts.ts`，不动 `deep-agent-hitl.ts` 现有单工具名形状」
+>
+> **四条全部是本包给出的推荐选项（A）**，逐条落地见下方四张表后新增的裁决行。
+>
+> ⚠⚠ **这四条裁的是「设计该怎么定」，不是本文件 frontmatter 的 `status`**——
+> 两者是两件事（`contract-design.md` §四、`plan-control` 先例同一纪律）。
+> `status` / `confirmed_by` / `confirmed_at` / `confirmed_via` **继续留空**，
+> 不因为四条决策都有答案就松动 ADR-023 决策五的信任边界。这四条决策解决的是
+> 「往哪个方向写契约」，人类还没有对**写出来的契约本身**做过 Review。
+
 ### ① `fill_params` 的「只重跑受影响下游」做不到，怎么办
 
 | | **A（推荐）：知情降级，先做两态** | **B：暂缓整个 fill_params，等 checkpoint fork 能力先补** | **C：本束自己实现选择性重跑** |
@@ -190,6 +213,16 @@ packages/contracts/src/agent-interrupts.ts     ← 尚未创建，本轮只产�
 | 内容 | `appliedTo: "full-rerun" \| "ledger-only"`，如实标注「不是精确子集重跑」 | 只交付 `confirm_intent` / `choose_option` 两种中断，`fill_params` 缺席直到底层能力就绪 | 本束新增节点粒度重放逻辑，直接实现选择性重跑 |
 | 支持理由 | 三种中断按同一节奏交付，用户先拿到能力，代价是文案要如实说"可能会重跑更多" | 不发布做不到承诺的功能 | 满足原始需求字面 |
 | 代价 | 用户体验比理想弱（编辑一个字段可能触发比预期更大范围的重跑） | 三种能力变成不同批次交付，协调成本增加 | **触碰 `agent-runtime` 已签核束的 run/checkpoint 领域**（与 `plan-control` 候选(a)同一形状代价），且需要探测 LangGraph Server REST 面是否支持——本轮未验证是否存在这个原语，可能做了才发现根本不可行 |
+
+#### ✅ 裁决（人类，经 coord-main 转达，2026-08-26）：**A —— 知情降级，先做两态**
+
+> 逐字：「`fill_params` 诚实降级为两态（full-rerun/ledger-only）先发，不等 checkpoint-fork 验证」。
+
+⇒ `usecases.md` UC-2 的 `appliedTo: "full-rerun" | "ledger-only"` 与 `domain.md` 缺口 AI-1
+的降级登记**保持原样，不需要改**——本包写的时候已经按这个方向落地，人类的裁决是
+对**已经这样写**的方向的确认，不是要求返工。`coverage.md` 缺口清单 AI-1 的
+「实现期第一件事」一栏（若要恢复完整能力，先做 checkpoint fork 探测）依旧有效，
+作为**已知的、未来可能被重新提起的**待办，不是本轮要做的事。
 
 ### ② `choose_option` 的 decision 类型：`edit` 还是碰桥接层做 `respond`
 
@@ -199,6 +232,17 @@ packages/contracts/src/agent-interrupts.ts     ← 尚未创建，本轮只产�
 | 支持理由 | 不碰 `apps/api` 实现代码（本轮硬边界要求）；语义上 `edit` 并非完全错误（把 args 编辑成"以选中项执行"） | 语义上 `respond`（人代答，工具不执行）更贴近"选择"这个动作的本意 |
 | 代价 | `edit` 语义有一点点勉强（原始 args 是菜单，编辑后 args 是单一选择，"编辑"一词不完全准确），需要在代码注释里讲清楚这条约定 | 触碰 `apps/api/src/interface/controllers/copilotkit-agui.controller.ts`，且需要同步改 `EditDecision` 之外的 `RespondDecision` 在中间件里被消费的路径（本轮未验证该路径实现细节），代价面更大 |
 
+#### ✅ 裁决（人类，经 coord-main 转达，2026-08-26）：**A —— `edit`，零桥接层改动**
+
+> 逐字：「`choose_option` 走 `edit`，前端以 `{selectedOptionId}` 当 edit 载荷 resume，
+> 零桥代码改动」——与本包 `usecases.md` UC-3 的推导逐字一致，`edit` 的 `editedArgs`
+> 形状确认为 `{ selectedOptionId }`（`domain.md` I-6 已经要求 optionId 回指，不用下标）。
+
+⇒ `usecases.md` UC-3 / `domain.md` I-6 保持原样。实现期不需要触碰
+`apps/api/src/interface/controllers/copilotkit-agui.controller.ts` 的 `parseHitlDecision`
+（`domain.md` 缺口 AI-2 记录的桥接层限制**继续存在，但不再是本束的阻塞项**——
+选 A 就是绕开它，不是解决它；`respond` 若将来真的需要，AI-2 的分析仍然有效）。
+
 ### ③ UI 材料：先签设计说明，还是零截图不许签（同 `plan-control` 标准）
 
 | | **A（推荐）：先签设计说明，`ui-prototyper` 随后补图，图定后再走一次核对** | **B：与 `plan-control` 同标准，八屏（三屏）全补齐再签** |
@@ -206,12 +250,39 @@ packages/contracts/src/agent-interrupts.ts     ← 尚未创建，本轮只产�
 | 支持理由 | 三种中断的交互细节依赖②的裁决结果，先画图再等裁决可能要重画；契约设计本身已经可以独立评审 | 与近期先例（`plan-control` 2026-08-26 人类裁决"八屏全补齐再签"）一致，避免"看设计说明签字，图出来才发现不对"的返工 |
 | 代价 | 签核后如果截图与设计说明不符仍需二次核对（`ui.md` 已埋好"核不过不许说补好了"的检查点） | 本包签核往后推一轮，等 `ui-prototyper` 进场 |
 
+#### ✅ 裁决（人类，经 coord-main 转达，2026-08-26）：**A —— 先签设计，截图后补**
+
+> 逐字：「UI 签核门槛：先签设计，截图后补」。
+
+⇒ **与 `plan-control` 的「八屏全补齐再签」标准不同**——那是那束自己的裁决，
+不构成本束的默认基线。本束按 A 走：`ui.md` 的三屏文字设计说明现在就可以作为
+签核第 ① 件被审阅，**不必等 `ui-prototyper` 交图**。
+
+⚠ **coord-main 已确认**：三屏原型（目标复述卡 / 参数补全表单含 AI 猜测高亮态 /
+多方案对比卡）现在就派 `ui-prototyper` 去画，**用同一分支 `signoff/agent-interrupts`**，
+依据是本包 `ui.md` 里已经写好的文字说明——**这条不在本轮范围内做**，由 coord-main
+另行派工，本 agent 不等待、不重复劳动。截图落地后，`ui.md` 顶部「交给谁画」一节与
+本节的「零截图」现状描述需要更新（那是后续一轮的动作，不在本次编辑里做，
+避免与 `ui-prototyper` 的产出冲突/抢跑）。
+
 ### ④ `deep-agent-hitl.ts` 改造：单例扩集合，还是新建平行契约文件
 
 | | **A（推荐）：`deep-agent-hitl.ts` 保留 `call_skill` 单例语义不动，新建 `agent-interrupts.ts` 平行声明三个新工具名 + 各自 `ARGS_MAX_CHARS`** | **B：把 `DEEP_AGENT_HITL_TOOL_NAME` 改造成 `DEEP_AGENT_HITL_TOOL_NAMES`（集合），四个工具共用一份声明文件** |
 |---|---|---|
 | 支持理由 | 不触碰已有文件的既有语义与其头注释里"唯一事实源"的单例论证；符合本轮"新建束不改已签契约面"的一贯纪律 | 更少文件，`DEEP_AGENT_HITL_TOOLS` 环境变量的拼装逻辑天然是"所有 HITL 工具名的并集"，理论上应该只有一处 |
 | 代价 | `DEEP_AGENT_HITL_TOOLS` 环境变量的拼装点（`deploy.sh`）需要知道去两个文件各取一份再拼接，多一道装配逻辑 | 触碰 `deep-agent-hitl.ts`——它虽不在"不许碰"的硬边界清单里，但改一个已经被其他实现引用的单例契约文件，等于让本轮"只出新契约"的边界变得模糊 |
+
+#### ✅ 裁决（人类，经 coord-main 转达，2026-08-26）：**A —— 新文件 `agent-interrupts.ts`，不动 `deep-agent-hitl.ts`**
+
+> 逐字：「三个虚拟工具名放新文件 `agent-interrupts.ts`，不动 `deep-agent-hitl.ts` 现有
+> 单工具名形状」。
+
+⇒ 「④ API 契约」一节上方「需要连带修订的既有文件」表的第一行需要相应收窄——
+`deep-agent-hitl.ts` **不在实现期必改清单内**，`DEEP_AGENT_HITL_TOOLS` 环境变量的
+拼装点（`deploy.sh` 的 `deep_agent_project_capability_env`）改为从
+`deep-agent-hitl.ts` 与新的 `agent-interrupts.ts` 两处各取工具名再 `.join(",")`，
+这条装配逻辑本身是实现期待办，不是本轮设计要解决的分歧（decision ④ 上方表格里
+「代价」一栏已经预告了这条，现在是确认要接受它）。
 
 ---
 
