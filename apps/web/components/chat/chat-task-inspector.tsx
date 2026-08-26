@@ -55,6 +55,9 @@ export interface ChatTaskInspectorProps {
   readonly artifactsError: string | null;
   readonly materialsError: string | null;
   readonly onRetry: () => void;
+  /** issue #2099 —— 产物条目点击回调；不传时「产物」页签的条目诚实退回不可点
+   *  （见 `ChatArtifactsPanel` 自己的 `onOpen` 可选约定），不是这里另造一条规则。 */
+  readonly onOpenArtifact?: (item: ListThreadArtifactsOut["items"][number]) => void;
   /** 已上传但还没随消息发出的材料条数（composer 附件区），与已落库材料一起算「材料」。 */
   readonly pendingMaterialsCount: number;
   /** `STATE_SNAPSHOT` 解析出的计划快照；null = 本轮还没有计划。 */
@@ -77,7 +80,7 @@ const TAB_META: Record<InspectorTab, { label: string; Icon: typeof ListChecks }>
 export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const {
     hasSelection, threadId, artifacts, materials, loading,
-    artifactsError, materialsError, onRetry, pendingMaterialsCount,
+    artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
     planTodos, isRunning, runPhaseLabel, runStartedAt,
   } = props;
 
@@ -228,6 +231,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               loading={loading}
               error={artifactsError}
               onRetry={onRetry}
+              onOpen={onOpenArtifact}
             />
           ) : (
             <RunDetailsTab

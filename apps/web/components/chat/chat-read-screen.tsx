@@ -11,6 +11,7 @@ import {
   NewThreadButton, ThreadCardButton, ThreadListHeader,
 } from "@/components/chat/thread-list-shell";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
+import { ChatArtifactPreviewDialog } from "@/components/chat/chat-artifact-preview-dialog";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
 import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel";
 import { useChatAttachments, type ChatAttachmentsController } from "@/components/chat/chat-composer-attachments";
@@ -90,6 +91,8 @@ export function ChatReadScreen({
   const sourceKey = projectId && bearer && currentOrgId
     ? `${projectId}\u0000${currentOrgId}\u0000${bearer}`
     : null;
+  /** issue #2099 —— 右栏「产物」点击查看：非 null 时打开预览弹窗。 */
+  const [openArtifact, setOpenArtifact] = React.useState<{ artifactId: string; title: string } | null>(null);
   const [threadResult, setThreadResult] = React.useState<Sourced<ListThreadsOut> | null>(null);
   const [listLoadingKey, setListLoadingKey] = React.useState<string | null>(null);
   const [listFailure, setListFailure] = React.useState<Sourced<string> | null>(null);
@@ -452,105 +455,120 @@ export function ChatReadScreen({
   const selectedCard = cards.find((card) => card.id === selectedThreadId) ?? null;
 
   return (
-    <AppShell
-      previewRole={null}
-      hideTopBar
-      left={(
-        <ThreadList
-          groups={threads?.groups ?? null}
-          roster={(
-            <RosterPanel
-              roster={roster}
-              loading={rosterLoading}
-              error={rosterError}
-              hasSelection={selectedThreadId !== null}
-              canMutate={canMutate}
-              pending={rosterPending}
-              mutateFailure={rosterMutateFailure}
-              // #619 × #728 D2：编制面板已被 #728 移到左栏，选择器的候选自然也要跟到这里。
-              // ⚠ 这两个 prop 必须跟着 `RosterPanel` 走——它在仓里只有**一个**渲染点，
-              //   rebase 时若把它们落在旧的右栏实例上，`candidates` 就是 undefined。
-              candidates={agentCandidates}
-              candidatesError={agentCatalogError}
-              onAdd={handleRosterAdd}
-              onRemove={handleRosterRemove}
-              onRetry={() => void loadSelectedThread()}
-            />
-          )}
-          loading={listLoading}
-          error={listError}
-          selectedThreadId={selectedThreadId}
-          canMutate={canMutate}
-          mutatePending={mutatePending}
-          mutateFailure={mutateFailure}
-          mutateFailureOp={mutateFailureOp}
-          onCreate={handleCreate}
-          onRename={handleRename}
-          onDelete={handleDelete}
-          onRetry={() => void loadThreads()}
-          onSelect={(threadId) => {
-            if (sourceKey) {
-              setSelection({ sourceKey, routeThreadId: initialThreadId, threadId });
-            }
-            router.replace(chatHref(projectId, threadId));
-          }}
+    <>
+      <AppShell
+        previewRole={null}
+        hideTopBar
+        left={(
+          <ThreadList
+            groups={threads?.groups ?? null}
+            roster={(
+              <RosterPanel
+                roster={roster}
+                loading={rosterLoading}
+                error={rosterError}
+                hasSelection={selectedThreadId !== null}
+                canMutate={canMutate}
+                pending={rosterPending}
+                mutateFailure={rosterMutateFailure}
+                // #619 × #728 D2：编制面板已被 #728 移到左栏，选择器的候选自然也要跟到这里。
+                // ⚠ 这两个 prop 必须跟着 `RosterPanel` 走——它在仓里只有**一个**渲染点，
+                //   rebase 时若把它们落在旧的右栏实例上，`candidates` 就是 undefined。
+                candidates={agentCandidates}
+                candidatesError={agentCatalogError}
+                onAdd={handleRosterAdd}
+                onRemove={handleRosterRemove}
+                onRetry={() => void loadSelectedThread()}
+              />
+            )}
+            loading={listLoading}
+            error={listError}
+            selectedThreadId={selectedThreadId}
+            canMutate={canMutate}
+            mutatePending={mutatePending}
+            mutateFailure={mutateFailure}
+            mutateFailureOp={mutateFailureOp}
+            onCreate={handleCreate}
+            onRename={handleRename}
+            onDelete={handleDelete}
+            onRetry={() => void loadThreads()}
+            onSelect={(threadId) => {
+              if (sourceKey) {
+                setSelection({ sourceKey, routeThreadId: initialThreadId, threadId });
+              }
+              router.replace(chatHref(projectId, threadId));
+            }}
+          />
+        )}
+        /* `right` 只放**这场对话的产出**（产物 + 材料，issue #728 D9 人类 2026-08-21 裁决）。
+           原型的右栏是五标签（转录/执行/洞察/产物/材料），本轮只画「产物」「材料」两个有真实
+           数据支撑的标签：「转录」控件本来就不在右栏（`ChatRecordingPanel` 挂在消息面板上方，
+           裁决明确不搬）；「执行/洞察」在后端没有任何真实数据支撑（`get-thread.ts` 的
+           `rightTabs()` 硬编码为 0），待后端建模，本轮不做——画一个永远显示「0」的标签
+           比不做还坏（编造一个「有数据源」的假象）。
+           ⚠ 编制（`RosterPanel`）已按 #728 D2 搬进左栏，这里不再渲染第二份 ——
+             两处渲染同一份编制就是「同一事实两处声明」（AGENTS.md 硬约束）。
+  
+           issue #1758（人类给参考截图后裁决）—— 从「产物/材料」两个 tab 切换看，改成两个
+           区块上下堆叠、同时可见（更接近参考截图的「输出内容 + 来源」布局）。两个区块
+           各自 `flex-1 overflow-y-auto` 内部滚动，不让整个右栏被撑爆；不改各自内部的
+           空态/加载态/错误态/点击预览逻辑，只是外层容器从 `Tabs` 换成纵向 `flex`。 */
+        right={(
+          <div className="flex h-full flex-col" data-testid="chat-right-panel-stack">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-b border-border-subtle">
+              <ChatArtifactsPanel
+                hasSelection={selectedThreadId !== null}
+                artifacts={artifacts}
+                loading={artifactsLoading}
+                error={artifactsError}
+                onRetry={() => void loadSelectedThread()}
+                onOpen={(item) => setOpenArtifact({ artifactId: item.artifactId, title: item.title })}
+              />
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+              <ChatMaterialsPanel
+                hasSelection={selectedThreadId !== null}
+                threadId={selectedThreadId}
+                materials={materials}
+                loading={materialsLoading}
+                error={materialsError}
+                onRetry={() => void loadSelectedThread()}
+                // issue #1758：没有真实 bearer 就没有可用的上传通道，不渲染入口。
+                uploadCtl={bearer ? attach : null}
+              />
+            </div>
+          </div>
+        )}
+      >
+        <ThreadDetail
+          projectId={projectId}
+          currentOrgId={currentOrgId}
+          userId={userId}
+          card={selectedCard}
+          detail={detail}
+          bearer={bearer}
+          roster={roster}
+          loading={detailLoading}
+          error={detailError}
+          attach={attach}
+          onRetry={() => void loadSelectedThread()}
+          onArtifactLanded={() => void loadSelectedThread()}
+          onMessageSent={() => void loadSelectedThread()}
         />
-      )}
-      /* `right` 只放**这场对话的产出**（产物 + 材料，issue #728 D9 人类 2026-08-21 裁决）。
-         原型的右栏是五标签（转录/执行/洞察/产物/材料），本轮只画「产物」「材料」两个有真实
-         数据支撑的标签：「转录」控件本来就不在右栏（`ChatRecordingPanel` 挂在消息面板上方，
-         裁决明确不搬）；「执行/洞察」在后端没有任何真实数据支撑（`get-thread.ts` 的
-         `rightTabs()` 硬编码为 0），待后端建模，本轮不做——画一个永远显示「0」的标签
-         比不做还坏（编造一个「有数据源」的假象）。
-         ⚠ 编制（`RosterPanel`）已按 #728 D2 搬进左栏，这里不再渲染第二份 ——
-           两处渲染同一份编制就是「同一事实两处声明」（AGENTS.md 硬约束）。
-
-         issue #1758（人类给参考截图后裁决）—— 从「产物/材料」两个 tab 切换看，改成两个
-         区块上下堆叠、同时可见（更接近参考截图的「输出内容 + 来源」布局）。两个区块
-         各自 `flex-1 overflow-y-auto` 内部滚动，不让整个右栏被撑爆；不改各自内部的
-         空态/加载态/错误态/点击预览逻辑，只是外层容器从 `Tabs` 换成纵向 `flex`。 */
-      right={(
-        <div className="flex h-full flex-col" data-testid="chat-right-panel-stack">
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto border-b border-border-subtle">
-            <ChatArtifactsPanel
-              hasSelection={selectedThreadId !== null}
-              artifacts={artifacts}
-              loading={artifactsLoading}
-              error={artifactsError}
-              onRetry={() => void loadSelectedThread()}
-            />
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <ChatMaterialsPanel
-              hasSelection={selectedThreadId !== null}
-              threadId={selectedThreadId}
-              materials={materials}
-              loading={materialsLoading}
-              error={materialsError}
-              onRetry={() => void loadSelectedThread()}
-              // issue #1758：没有真实 bearer 就没有可用的上传通道，不渲染入口。
-              uploadCtl={bearer ? attach : null}
-            />
-          </div>
-        </div>
-      )}
-    >
-      <ThreadDetail
-        projectId={projectId}
-        currentOrgId={currentOrgId}
-        userId={userId}
-        card={selectedCard}
-        detail={detail}
-        bearer={bearer}
-        roster={roster}
-        loading={detailLoading}
-        error={detailError}
-        attach={attach}
-        onRetry={() => void loadSelectedThread()}
-        onArtifactLanded={() => void loadSelectedThread()}
-        onMessageSent={() => void loadSelectedThread()}
-      />
-    </AppShell>
+      </AppShell>
+      {/* issue #2099 —— 只读预览弹窗，Radix `Dialog` 自己 portal 到 body，挂在这个
+          位置纯粹是"逻辑上属于这棵组件树"，不影响实际渲染层级。 */}
+      {openArtifact !== null && selectedThreadId !== null ? (
+        <ChatArtifactPreviewDialog
+          threadId={selectedThreadId}
+          projectId={projectId}
+          artifactId={openArtifact.artifactId}
+          title={openArtifact.title}
+          bearer={bearer ?? undefined}
+          onClose={() => setOpenArtifact(null)}
+        />
+      ) : null}
+    </>
   );
 }
 

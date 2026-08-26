@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
+import { ChatArtifactPreviewDialog } from "@/components/chat/chat-artifact-preview-dialog";
 import { ChatTaskInspector } from "@/components/chat/chat-task-inspector";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { Input } from "@/components/ui/input";
@@ -104,6 +105,9 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   React.useEffect(() => {
     setSelectedThreadId(initialThreadId);
   }, [initialThreadId]);
+
+  /** issue #2099 —— 右栏「产物」点击查看：非 null 时打开预览弹窗。 */
+  const [openArtifact, setOpenArtifact] = React.useState<{ artifactId: string; title: string } | null>(null);
 
   const [threads, setThreads] = React.useState<ListThreadsOut | null>(null);
   const [listError, setListError] = React.useState<string | null>(null);
@@ -651,7 +655,10 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           Inspector（进度 / 材料 / 产物 / 运行详情），按真实信号自动切换、无内容折叠成
           40px 图标栏。产物/材料两块仍是原来那两个组件（`ChatArtifactsPanel` /
           `ChatMaterialsPanel`），只是移进页签里——不另造第二份视觉。
-          页签选择规则抽在 `lib/chat-task-inspector-tabs.ts`（有 vitest 逐条钉死）。 */}
+          页签选择规则抽在 `lib/chat-task-inspector-tabs.ts`（有 vitest 逐条钉死）。
+          issue #2099（真实 devapp 实测：条目点了没反应）—— `onOpenArtifact` 打开下面
+          的只读预览弹窗；`ChatTaskInspector` 内部把它原样转给 `ChatArtifactsPanel`
+          的 `onOpen`，不在这一层重新实现点击逻辑。 */}
       <ChatTaskInspector
         hasSelection={selectedThreadId !== null}
         threadId={selectedThreadId}
@@ -661,12 +668,27 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         artifactsError={artifactsError}
         materialsError={materialsError}
         onRetry={() => void loadRightPanel()}
+        onOpenArtifact={(item) => setOpenArtifact({ artifactId: item.artifactId, title: item.title })}
         pendingMaterialsCount={pendingMaterialsCount}
         planTodos={planTodos}
         isRunning={runState.isRunning}
         runPhaseLabel={runState.phaseLabel}
         runStartedAt={runState.startedAt}
       />
+      {/* issue #2099 —— 只读预览弹窗，Radix `Dialog` 自己 portal 到 body，挂在这个
+          位置纯粹是"逻辑上属于这棵组件树"，不影响实际渲染层级。个人线程恒
+          `projectId=null`（本壳从不传 projectId，与 `landAsArtifact`/`listThread
+          Artifacts` 等同一约定）。 */}
+      {openArtifact !== null && selectedThreadId !== null ? (
+        <ChatArtifactPreviewDialog
+          threadId={selectedThreadId}
+          projectId={null}
+          artifactId={openArtifact.artifactId}
+          title={openArtifact.title}
+          bearer={bearer ?? undefined}
+          onClose={() => setOpenArtifact(null)}
+        />
+      ) : null}
     </div>
   );
 }

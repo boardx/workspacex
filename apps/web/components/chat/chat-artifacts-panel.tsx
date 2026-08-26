@@ -22,15 +22,23 @@ import type { ListThreadArtifactsOut } from "@/lib/live-chat";
  * 数据来自 `listThreadArtifacts`（`GET /chat/threads/:threadId/artifacts`），
  * 由 `chat-read-screen.tsx` 顶层读取（与 `roster` 同一套 key/loading/failure 纪律），
  * 这里只负责渲染，不发第二次请求。
+ *
+ * issue #2099（真实 devapp 实测：条目点了没反应）—— `onOpen` 是可选的：不传时条目
+ * 保持纯展示（`<div>`），与此前行为逐字节相同；两条轨道（`copilotkit-v2-shell.tsx`/
+ * `chat-read-screen.tsx`）都已经接上，传的是打开 `ChatArtifactPreviewDialog` 的回调
+ * （见调用点）。可选而不是强制，是因为这是个"读时才知道"的能力位——万一未来出现
+ * 一个没有产物预览权限的调用场景，不传 `onOpen` 就能诚实退回不可点，不必改这个
+ * 组件本身。
  */
 export function ChatArtifactsPanel({
-  hasSelection, artifacts, loading, error, onRetry,
+  hasSelection, artifacts, loading, error, onRetry, onOpen,
 }: {
   hasSelection: boolean;
   artifacts: ListThreadArtifactsOut | null;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
+  onOpen?: (item: ListThreadArtifactsOut["items"][number]) => void;
 }) {
   return (
     <div className="flex flex-col" data-testid="chat-artifacts-panel">
@@ -66,22 +74,39 @@ export function ChatArtifactsPanel({
               这条线程还没有落地的产物。
             </p>
           ) : null}
-          {artifacts.items.map((item) => (
-            <div
-              key={item.artifactId}
-              className="rounded-md border border-border-subtle p-2"
-              data-testid={`chat-artifact-${item.artifactId}`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="min-w-0 flex-1 truncate text-11 font-medium">{item.title}</p>
-                <Badge tone={item.mode === "pinned" ? "primary" : "neutral"}>{ARTIFACT_MODE_TEXT[item.mode]}</Badge>
+          {artifacts.items.map((item) => {
+            const body = (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="min-w-0 flex-1 truncate text-11 font-medium">{item.title}</p>
+                  <Badge tone={item.mode === "pinned" ? "primary" : "neutral"}>{ARTIFACT_MODE_TEXT[item.mode]}</Badge>
+                </div>
+                <p className="mt-1 text-10 text-muted-foreground">
+                  {item.hasSource ? "已挂出处" : "未挂出处"}
+                  {item.version !== null ? ` · 版本 ${item.version}` : ""}
+                </p>
+              </>
+            );
+            return onOpen ? (
+              <button
+                key={item.artifactId}
+                type="button"
+                onClick={() => onOpen(item)}
+                className="rounded-md border border-border-subtle p-2 text-left transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                data-testid={`chat-artifact-${item.artifactId}`}
+              >
+                {body}
+              </button>
+            ) : (
+              <div
+                key={item.artifactId}
+                className="rounded-md border border-border-subtle p-2"
+                data-testid={`chat-artifact-${item.artifactId}`}
+              >
+                {body}
               </div>
-              <p className="mt-1 text-10 text-muted-foreground">
-                {item.hasSource ? "已挂出处" : "未挂出处"}
-                {item.version !== null ? ` · 版本 ${item.version}` : ""}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
     </div>
