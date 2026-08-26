@@ -40,6 +40,9 @@ vi.mock("@/lib/use-asr-draft", () => ({
   useAsrDraft: () => ({
     status: "idle", listening: false, connecting: false, stopping: false, error: null,
     start: vi.fn(), stop: vi.fn(),
+    // issue #2130（TW-P0-5⑥）—— 补齐新字段，形状与真实 hook 一致；本测试场景
+    // 不触发录音态，值本身不影响这里的断言。
+    cancel: vi.fn(), elapsedSeconds: 0, level: 0,
   }),
 }));
 vi.mock("@/lib/use-audio-input-devices", () => ({

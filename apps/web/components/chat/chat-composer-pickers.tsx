@@ -82,7 +82,7 @@ export function AgentPicker({
         type="button"
         size="xs"
         variant="ghost"
-        className="max-w-40 justify-start gap-1.5 rounded-full px-2"
+        className="max-w-40 justify-start gap-1.5 rounded-pill px-2"
         data-testid="chat-agent-select"
         disabled={disabled}
         aria-haspopup="listbox"
@@ -158,7 +158,7 @@ export function MicDevicePicker({
         type="button"
         size="xs"
         variant="ghost"
-        className="max-w-40 justify-start gap-1.5 rounded-full px-2"
+        className="max-w-40 justify-start gap-1.5 rounded-pill px-2"
         data-testid="chat-mic-device-select"
         data-selected-device={selectedDeviceId ?? ""}
         disabled={disabled}
