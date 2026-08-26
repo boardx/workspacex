@@ -206,6 +206,54 @@ apps/api/src/
 加上既有七道（typecheck / lint-design / lint-dead-controls / lint-omission-reason /
 lint-withdrawal-flow / check-token-contrast / verify-ui-states）与 `validate-fl`。
 
+### 补一份「物化③时会连带撞上的门」清单（2026-08-26，PR #2152 踩出来）
+
+背景：一次单纯的「给 `agent-interrupts`/`plan-control` 两束补第③件契约文件」的任务，
+实测连续撞上 **5 层互不相关的红**（`design-signoff.ts` 的 covers 判定 →
+`lint-third-artifact.mjs` → `lint-nav-reachability.mjs` → `lint-contract-source.mjs` →
+`admin-menu-dedup.test.tsx`），每层都要读日志、诊断、改代码、重推才能看见下一层。
+**每个门控本身都没错**——问题是「物化③」这一个动作实际牵连的文件，散在这 5 道互不
+知情的门控各自的判定逻辑里，没有任何一处把它们列成一张清单。下面把踩出来的坑补全，
+免得下一个 agent（或人类）再用 CI 一层层撞出来：
+
+在**新建或修改** `packages/contracts/src/<bundle>.ts` 时，除了本节三道门控，还要检查：
+
+1. **`.harness/scripts/nav-reachability.config.json` 的 `bundleRoutes`** 是否已经给
+   这个束配了一行现行路由。判据①（键集合必须与 `ui-material-map.json` 的束集合逐个
+   相等）——新建契约文件本身不会触发这条红，但如果这个束之前从未接过导航（常见于
+   「先出①②③签核材料，后接产品实现」的束），这里大概率也是空的，一起补。
+2. **`apps/web/lib/navigation.ts`**：`bundleRoutes` 指向的路由必须**直接出现**在这个
+   文件的某个 `href` 里（判据②），否则 ①「导航必须到达签核屏」直接落空。
+   若该束还没有真实产品导航位置（只有 `/preview/<bundle>` 这类签核用静态原型屏），
+   在 `admin.children`（`ADMIN_SECOND_LEVEL`）里加一条 `isPrototype: true` 的占位项，
+   照抄 `asset-governance` 那条的写法与注释。
+3. **`apps/web/components/admin/admin-nav.tsx` 的 `MERGED_SECOND_LEVEL_KEYS`**：
+   第 2 步加进 `ADMIN_SECOND_LEVEL` 的新键，如果不该在后台左栏画出一个真实菜单项
+   （多数情况是——它只是给门控②扫描用的路由声明），必须同步加进这个集合，否则
+   `tests/ui/admin-menu-dedup.test.tsx` 那条「`ADMIN_SECOND_LEVEL` 每一项都不再渲染」
+   的全称断言会被新键绊倒（它遍历整个数组，不是只查已知的六个旧键）。
+4. **`apps/web/lib/mock/*.ts`**：UI 先行原型阶段（ui-prototyper，第①件材料）常常会
+   在契约还不存在时，照着预期形状先写一份本地 `interface`/字面量类型（文件头注一般
+   会写「契约的单一事实源是 `packages/contracts/src/<bundle>.ts`（签核③，尚未创建）」
+   这类话，那就是信号）。契约文件一旦落地，这些类型名会跟契约同名，撞上
+   `lint-contract-source.mjs`（ADR-020 单源）。逐个判断：
+   - mock 字段与契约**逐字相同** ⇒ 删掉本地声明，直接 `import type` 契约的类型
+     （`@repo/contracts/<bundle>`）并 `export type { X }` 转发；
+   - mock 比契约**多了纯 UI 层字段**（例如渲染控件类型提示）⇒ 改名（建议加
+     `Preview` 后缀）避免撞名，用 `type XPreview = ContractX & { ...额外字段 }` 扩展；
+   - mock 字段名与契约**根本不同**（例如 UI 阶段先起的字段名，后来契约定案时改了名）
+     ⇒ 同样改名避免撞名——**同名但字段对不上比不同名更误导**，会让人以为两者是
+     同一份契约的两次声明。
+
+跑一遍下面四条，比等 CI 逐层告诉你快：
+
+```
+node .harness/scripts/lint-nav-reachability.mjs
+node .harness/scripts/lint-third-artifact.mjs
+pnpm --filter api run lint          # 含 lint-contract-source
+pnpm --filter web exec vitest run tests/ui/admin-menu-dedup.test.tsx
+```
+
 ---
 
 ## 四、签核流程（人类的动作，agent 不许代劳）
