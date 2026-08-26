@@ -391,7 +391,18 @@ test("Design.pdf 补充 · 试运行：填一份数据，画布上渲染出真�
   await page.getByTestId("tpladmin-editor-new-key").fill("pains");
   await page.getByTestId("tpladmin-editor-new-name").fill("痛点");
   await page.getByTestId("tpladmin-editor-new-add").click();
-  await page.getByTestId("tpladmin-editor-field-pains").dragTo(page.getByTestId("tpladmin-editor-canvas"));
+  // ⚠ 落点必须**显式指定**，不能用 `dragTo` 的默认（目标元素中心）。
+  //   2026-08-26 CI 实测：默认落点掉到了 `geom.fits === 0` 的位置，区块渲染零张贴纸，
+  //   收到的文本是 `痛点{{pains[]}}装不下：3 条 / 位置只够 0 条`。那**同时**暴露了两件事：
+  //   ① 一个真缺陷（容量 0 时数据凭空消失，已修，见 `visibleNoteCount`）；
+  //   ② 这条 spec 自己的脆弱——"中心落在第几行"随纸面结构（有没有标题带）而变，
+  //      而它变了之后本条断言会以一种与实现坏掉完全同形的方式红。
+  //   按比例落在左上区域（第 1-2 行），那里 fits = 10，三条数据都画得下。
+  const canvasEl = page.getByTestId("tpladmin-editor-canvas");
+  const box = (await canvasEl.boundingBox())!;
+  await page.getByTestId("tpladmin-editor-field-pains").dragTo(canvasEl, {
+    targetPosition: { x: box.width * 0.15, y: box.height * 0.2 },
+  });
   // ⚠ 区块的 testid 是 `tpladmin-editor-block-<sectionId>`，**不是 `<key>`**——两者是
   //   不同的东西（key 是 AI JSON 的键名，人类随时可改；sectionId 是这一条的身份）。
   //   按 key 锚会找不到，而报错长得像"拖拽没生效"。同 §4 那条用前缀匹配。

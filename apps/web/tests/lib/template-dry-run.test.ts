@@ -18,6 +18,7 @@ import {
   parseDryRunInput,
   unknownKeysOf,
 } from "../../components/canvas/template-dry-run-drawer";
+import { visibleNoteCount } from "../../components/canvas/template-canvas-grid";
 import type { SectionDraft } from "../../components/canvas/template-editor-model";
 
 function draft(over: Partial<SectionDraft>): SectionDraft {
@@ -105,5 +106,44 @@ describe("buildDryRunSkeleton", () => {
     const after = JSON.parse(buildDryRunSkeleton([draft({ key: "new" })]));
     expect(Object.keys(before)).toEqual(["old"]);
     expect(Object.keys(after)).toEqual(["new"]);
+  });
+});
+
+/**
+ * 试运行到底渲不渲染得出来 —— 2026-08-26 CI `fullstack-smoke` 实测红：区块能找到，
+ * 但里面**没有**填进去的文字。
+ *
+ * ## 根因：`noteCount` 会被容量夹成 0
+ *
+ * ```ts
+ * const capacity = Math.min(layout.max, Math.max(0, geom.fits));
+ * const noteCount = Math.min(capacity, Math.max(1, values.length));
+ * ```
+ *
+ * `geom.fits` 是「这块地方物理上放得下几张贴纸」。区块小到放不下**一张**时 `fits === 0`
+ * ⇒ `capacity === 0` ⇒ `noteCount === 0` ⇒ **一张贴纸都不渲染**，人类填的数据凭空消失。
+ *
+ * ⚠ 这不是"装不下所以少画几张"，是"装不下所以一张都不画"——而画布上那个区块**还在**，
+ *   只是空的。看起来像"试运行按钮没反应"，而真正的原因在两层之外的几何计算里。
+ *
+ * ⚠ 修法不是把 `fits` 调大（那是在骗人：地方确实不够），而是**至少画一张**并如实标红
+ *   「装不下」。一张画不出来的预览没有任何信息量；一张画出来了、旁边写着装不下的
+ *   预览，才回答了试运行要回答的那个问题。
+ */
+describe("noteCount：地方再小也要画出至少一张，否则数据凭空消失", () => {
+  it("容量为 0 时仍渲染 1 张（而不是 0 张）", () => {
+    expect(visibleNoteCount(0, 3)).toBe(1);
+  });
+
+  it("容量够用时按数据条数画", () => {
+    expect(visibleNoteCount(6, 3)).toBe(3);
+  });
+
+  it("数据比容量多时画到容量为止（多出来的由「装不下」提示交代）", () => {
+    expect(visibleNoteCount(2, 5)).toBe(2);
+  });
+
+  it("没有试运行数据时用容量（样例数据模式的既有行为不受影响）", () => {
+    expect(visibleNoteCount(4, null)).toBe(4);
   });
 });

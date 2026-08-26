@@ -47,12 +47,14 @@ interface StoredTemplate {
   visibility: string;
   sections: unknown;
   tags: string[];
+  title: string;
+  footer: string;
 }
 
 async function readRow(key: string, version: number): Promise<StoredTemplate | undefined> {
   return asApp(ORG, async (c) => {
     const r = await c.query<StoredTemplate>(
-      `SELECT key, version, display_name, status, visibility, sections, tags
+      `SELECT key, version, display_name, status, visibility, sections, tags, title, footer
          FROM canvas_templates WHERE org_id = $1 AND key = $2 AND version = $3`,
       [ORG, key, version],
     );
@@ -122,6 +124,51 @@ beforeEach(async () => {
 });
 
 describe("2026-08-25 R2 · POST /canvas/templates/:key/:version/metadata", () => {
+  /**
+   * 2026-08-26：版面装帧（A1 纸上的大标题 / 底部署名）也走这条操作。
+   *
+   * ## 为什么必须**回读库**，静态门控不够
+   *
+   * `controller-body-passthrough.test.ts` 判的是"控制器源码里有没有 `body.title`"——
+   * 它挡的是「作者新加字段忘了接线」，而**接线接错地方**（比如 title 传成了 footer、
+   * 或者传给了一个用例不读的参数名）它一个字都看不出来。那种缺陷的表现是：
+   * 响应体字段齐全、状态码 200、界面上一切正常，只有库里存错了。
+   *
+   * ⚠ 所以这里断言两处：响应体回的值，**以及库里那一行**。只断言响应体不够——
+   *   响应体是从 `RETURNING` 回来的，与库同源，但如果用例把两个字段接反了，
+   *   响应体也会跟着"一致地错"。库里那行加上人类肉眼可辨的不同取值才判得出来。
+   */
+  it("⑦ 装帧：title / footer 真的落库，且两者没有接反", async () => {
+    const res = await updateMetadata(metaBody({
+      title: "用户画像 User Persona",
+      footer: "本工具基于某某方法论",
+    }));
+    expect(res.status).toBe(200);
+
+    const parsed = C.operations.updateTemplateMetadata.out.parse(await res.json());
+    expect(parsed.title).toBe("用户画像 User Persona");
+    expect(parsed.footer).toBe("本工具基于某某方法论");
+
+    const after = await readRow("tpl-draft", 1);
+    expect(after?.title).toBe("用户画像 User Persona");
+    expect(after?.footer).toBe("本工具基于某某方法论");
+  });
+
+  it("⑧ 装帧对**已发布**行同样生效——改纸面标题不必开新版（I-4 仍成立）", async () => {
+    const before = await readRow("tpl-published", 1);
+    const res = await updateMetadata(metaBody({
+      key: "tpl-published", displayName: "已发布的", tags: ["旧标签"],
+      title: "商业模式画布 Business Model Canvas",
+    }));
+    expect(res.status).toBe(200);
+
+    const after = await readRow("tpl-published", 1);
+    expect(after?.title).toBe("商业模式画布 Business Model Canvas");
+    expect(after?.status).toBe("published");
+    // 装帧改了，**内容快照一个字节没动**——这正是它能对任何状态生效的理由。
+    expect(JSON.stringify(after?.sections)).toBe(JSON.stringify(before?.sections));
+  });
+
   it("① draft：改名 + 换标签，库里真的变了，sections 一个字节没动", async () => {
     const before = await readRow("tpl-draft", 1);
     const res = await updateMetadata(metaBody());
@@ -137,6 +184,9 @@ describe("2026-08-25 R2 · POST /canvas/templates/:key/:version/metadata", () =>
       visibility: "org-wide",
       underlyingType: "canvas",
       tags: ["用户研究", "同理心"],
+      // 装帧字段：本次请求没带，服务端归一成空串（省略与显式空串同义）。
+      title: "",
+      footer: "",
     });
 
     const after = await readRow("tpl-draft", 1);

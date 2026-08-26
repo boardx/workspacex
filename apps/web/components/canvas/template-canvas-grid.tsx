@@ -183,7 +183,7 @@ export function TemplateCanvasGrid({
           // 试运行时条数由**数据**决定（但仍夹在物理容量内）——这正是试运行要回答的问题：
           // 「我这条数据放进去，装得下吗？」预置成容量上限就永远装得下，等于没问。
           const values = runData === null ? null : valuesFor(s, runData);
-          const noteCount = values === null ? capacity : Math.min(capacity, Math.max(1, values.length));
+          const noteCount = visibleNoteCount(capacity, values === null ? null : values.length);
           const overflowed = values !== null && values.length > capacity;
           return (
             <div
@@ -288,6 +288,28 @@ export function TemplateCanvasGrid({
       )}
     </div>
   );
+}
+
+/**
+ * 实际画几张贴纸。
+ *
+ * ## 为什么要有下限 1
+ *
+ * `capacity` 是「这块地方物理上放得下几张」（`geom.fits` 夹上 `layout.max`）。区块小到
+ * 放不下**一张**时它是 0，直接用它当条数就是**一张都不画**——人类填进去的数据凭空
+ * 消失，而画布上那个区块还在、只是空的。看起来像"试运行按钮没反应"，
+ * 而真正的原因在两层之外的几何计算里。2026-08-26 CI `fullstack-smoke` 实测撞到这条。
+ *
+ * ⚠ 下限**不是**在骗人说"装得下"：装不下这件事由旁边那行标红的「装不下：N 条 /
+ *   位置只够 M 条」如实交代（`overflowed`）。一张画不出来的预览没有任何信息量；
+ *   一张画出来了、旁边写着装不下的预览，才回答了试运行要回答的那个问题。
+ *
+ * ⚠ 下限只在**有数据**时生效。没有试运行数据（样例数据模式）时照旧用容量——
+ *   那时候画 0 张是对的：它如实表示"这块地方一张都放不下"。
+ */
+export function visibleNoteCount(capacity: number, dataLength: number | null): number {
+  if (dataLength === null) return capacity;
+  return Math.max(1, Math.min(capacity, dataLength));
 }
 
 /**
