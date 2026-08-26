@@ -30,6 +30,7 @@ import {
   type AssistantMessageLandingValue,
 } from "@/components/chat/copilotkit-v2-message-actions";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
+import { CopilotKitV2AgentInterrupts } from "@/components/chat/copilotkit-v2-agent-interrupts";
 import { ChatLiveAnnouncer, announceToChat } from "@/components/chat/chat-live-announcer";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
@@ -1822,6 +1823,11 @@ function CopilotKitV2PanelBody({
             才把节点插进 DOM，读屏软件多半一句都不会念（这是 live region 最经典的坑）。 */}
         <ChatLiveAnnouncer />
         <CopilotKitV2ToolRenderers />
+        {/* issue #2179 —— F212/F213 三张 HITL 中断卡接入真实聊天渲染树。挂载位置/
+            理由见该文件头注：与 `CopilotKitV2ToolRenderers` 同一条"渲染 null、
+            仅用于登记 hook"纪律，不需要跟下面的 `useHumanInTheLoop`（send_email）
+            挤进同一个组件。 */}
+        <CopilotKitV2AgentInterrupts />
         {/* 2026-08-25 人类 devapp 实测指令：不给用户看调试字样——原来这里有一行
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
             与 #1830「用户可见文案去掉开发者词汇」同一条裁决，整行移除。 */}

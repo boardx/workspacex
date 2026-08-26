@@ -30,13 +30,30 @@ export function FillParamsCard({
   fields,
   state,
   canWrite,
+  onSubmit,
 }: {
   fields: readonly ParamField[];
   state: UiState;
   canWrite: boolean;
+  /** UC-2 的两个分支合成一次调用：未改动 → `{decision:"approve"}`；有改动 →
+   *  `{decision:"edit", fields, appliedTo}`（`fields` 只携带当前值，逐字段
+   *  `{name, value}`，与 `FillParamsDecision.editedArgs.fields` 同形）。
+   *  不传（预览路由）时按钮保留旧行为——纯展示、无副作用。 */
+  onSubmit?: (
+    payload:
+      | { decision: "approve" }
+      | { decision: "edit"; fields: { name: string; value: unknown }[]; appliedTo: AppliedTo },
+  ) => void;
 }) {
   const [dirty, setDirty] = React.useState(false);
   const [appliedTo, setAppliedTo] = React.useState<AppliedTo>("full-rerun");
+  // 逐字段当前值——受控读数，提交时原样带走。初值取 `currentValue`，与各控件的
+  // `defaultValue`/`defaultChecked` 逻辑上是同一份初值，这里另存一份是因为
+  // uncontrolled 输入的运行时值读不到（DOM 以外没有第二个事实源），提交要拿到
+  // 真实值只能自己记账，不是重复状态。
+  const [values, setValues] = React.useState<Record<string, unknown>>(() =>
+    Object.fromEntries(fields.map((f) => [f.name, f.currentValue])),
+  );
 
   const effectiveState: UiState = !canWrite && state === "default" ? "denied" : state;
   const forceInvalid = state === "invalid";
@@ -97,7 +114,10 @@ export function FillParamsCard({
                       data-testid={`${TID}-input-${f.name}`}
                       defaultValue={(f.currentValue as string) ?? ""}
                       placeholder={f.aiGuess === null ? "请填写…" : undefined}
-                      onChange={() => setDirty(true)}
+                      onChange={(e) => {
+                        setDirty(true);
+                        setValues((v) => ({ ...v, [f.name]: e.target.value }));
+                      }}
                       className={cn("h-7 text-12", blankRequired && "border-destructive focus-visible:ring-destructive")}
                       aria-invalid={blankRequired || undefined}
                     />
@@ -109,7 +129,10 @@ export function FillParamsCard({
                         f.options?.find((o) => o.label === (f.currentValue as string))?.value ??
                         f.options?.[0]?.value
                       }
-                      onValueChange={() => setDirty(true)}
+                      onValueChange={(v) => {
+                        setDirty(true);
+                        setValues((prev) => ({ ...prev, [f.name]: v }));
+                      }}
                       className="h-7"
                     />
                   ) : (
@@ -117,7 +140,10 @@ export function FillParamsCard({
                       id={`${TID}-input-${f.name}`}
                       data-testid={`${TID}-input-${f.name}`}
                       defaultChecked={Boolean(f.currentValue)}
-                      onChange={() => setDirty(true)}
+                      onChange={(e) => {
+                        setDirty(true);
+                        setValues((v) => ({ ...v, [f.name]: e.target.checked }));
+                      }}
                       label={<span className="text-12">{f.currentValue ? "包含" : "不包含"}</span>}
                     />
                   )}
@@ -170,6 +196,15 @@ export function FillParamsCard({
               className="bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
               data-testid={`${TID}-submit`}
               disabled={!canWrite}
+              onClick={() =>
+                dirty
+                  ? onSubmit?.({
+                      decision: "edit",
+                      fields: fields.map((f) => ({ name: f.name, value: values[f.name] })),
+                      appliedTo,
+                    })
+                  : onSubmit?.({ decision: "approve" })
+              }
             >
               {dirty ? "应用" : "接受"}
             </Button>
