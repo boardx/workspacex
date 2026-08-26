@@ -102,10 +102,16 @@ test("Design.pdf §3：模板库**默认**就是卡片网格，不需要先切�
   await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
   await expect(page.getByTestId("tpladmin-table")).toHaveCount(0);
 
-  // 表格仍是可用的第二视图（不是删掉），显式带 view=list 能回到它。
+  // 表格视图**已整个撤掉**（人类 2026-08-26：「默认显示 card 不要显示列表」），
+  // 所以旧链接里残留的 `?view=list` 也不能把它变回来——那会让"撤掉"变成"藏起来"。
+  //
+  // ⚠ 这三行原本断言的是相反的事（「表格仍是可用的第二视图，显式 view=list 能回到它」）：
+  //   spec 写于表格还在的时候，后来表格被撤，vitest 那份跟着改了、**这份没改**。
+  //   一份陈旧的 e2e 断言不会因为它过时而变红——它会因为**产品是对的**而变红，
+  //   于是看起来像是实现坏了。判红因时先看断言本身是哪一天写的。
   await page.goto("/canvas?screen=template-admin&view=list");
-  await expect(page.getByTestId("tpladmin-table")).toBeVisible();
-  await expect(page.getByTestId("tpladmin-cards")).toHaveCount(0);
+  await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
+  await expect(page.getByTestId("tpladmin-table")).toHaveCount(0);
 });
 
 test("模板库对照 Design.pdf §3：卡片网格 + A1 缩略图 + 真实标签筛选 + 改名换标签", async ({ page }) => {
@@ -386,7 +392,10 @@ test("Design.pdf 补充 · 试运行：填一份数据，画布上渲染出真�
   await page.getByTestId("tpladmin-editor-new-name").fill("痛点");
   await page.getByTestId("tpladmin-editor-new-add").click();
   await page.getByTestId("tpladmin-editor-field-pains").dragTo(page.getByTestId("tpladmin-editor-canvas"));
-  const block = page.getByTestId("tpladmin-editor-block-pains");
+  // ⚠ 区块的 testid 是 `tpladmin-editor-block-<sectionId>`，**不是 `<key>`**——两者是
+  //   不同的东西（key 是 AI JSON 的键名，人类随时可改；sectionId 是这一条的身份）。
+  //   按 key 锚会找不到，而报错长得像"拖拽没生效"。同 §4 那条用前缀匹配。
+  const block = page.locator('[data-testid^="tpladmin-editor-block-"]').first();
   await expect(block).toBeVisible();
 
   // 打开试运行：抽屉出现，且**自动填好骨架**（空文本框等于把"要什么形状"丢回给人类）。
