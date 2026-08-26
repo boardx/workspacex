@@ -364,6 +364,7 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   return (
     <AppShell
       previewRole={null}
+      hideTopBar
       left={isDesktop ? threadListPanel : undefined}
       /* issue #1824 —— 个人对话之前完全没有右栏。原样复用 `chat-read-screen.tsx`
          D9 之后的模式（产物 + 材料两个堆叠区块），同一份组件、同一套空态/加载态/
