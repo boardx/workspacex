@@ -5266,14 +5266,14 @@
         "F972"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "passing",
+      "sprint": "22",
+      "owner": "dev-chat-e2e-f973",
       "verification": [
         "pnpm --filter api exec vitest run tests/plan-control/ingest-engine-snapshot.test.ts",
         "pnpm --filter api exec vitest run tests/plan-control/get-plan-ledger-derived.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F973.verify.log @ 2026-08-26T18:41:20.410Z",
       "notes": "覆盖 UC-1 getPlanLedger + UC-2 ingestEnginePlanSnapshot；不变量 I-6/I-7/I-9。⚠ 依据不足项：I-6「content 逐字相等即继承 stepId」是刻意的、已知会误判的启发式（引擎 payload 无 id，agui-state-events.ts:38-41 实测），人类签核时已明确接受（design-signoff ② 节）——依据等级 [设计]，风险已登记为 coverage 缺口 7，孤儿约束 I-8 兜底。UC-2 复用 copilotkit-agui.controller.ts:389 既有 STATE_SNAPSHOT 生产者，不新建触发路径。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
     },
     {
@@ -5289,7 +5289,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/plan-control/plan-edit-actions.test.ts",
@@ -5311,7 +5311,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter @repo/contracts exec vitest run tests/plan-control/evaluate-plan-gate-table.test.ts",
@@ -5334,7 +5334,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter api exec vitest run tests/plan-control/pause-resume-run.test.ts",
@@ -5356,7 +5356,7 @@
       ],
       "points": 3,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/plan-control-phase-indicator.test.tsx",
@@ -5381,7 +5381,7 @@
       ],
       "points": 5,
       "status": "not_started",
-      "sprint": null,
+      "sprint": "22",
       "owner": null,
       "verification": [
         "pnpm --filter web exec vitest run tests/ui/plan-control-edit-mode.test.tsx",

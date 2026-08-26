@@ -144,6 +144,9 @@ import { EvidenceWithdrawalController } from "./interface/controllers/evidence-w
 import { PgContentRepository } from "./infrastructure/content/pg-content-repository";
 import { PgProvenanceRepository } from "./infrastructure/provenance/pg-provenance-repository";
 import type { DatabasePort } from "./application/ports/database.port";
+// F973 (plan-control 契约束).
+import { PLAN_LEDGER_REPOSITORY, PLAN_RUN_STATUS_READER } from "./application/plan-control/ports";
+import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-ledger-repository";
 // F19 (auth bundle). Kept as one contiguous block so the parallel auth features can add
 // their providers next to it without three-way merges in the middle of an existing list.
 import { REGISTRATION_REPOSITORY } from "./application/auth/ports";
@@ -797,6 +800,18 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: PROVENANCE_WRITER,
       useFactory: (db: DatabasePort) => new PgProvenanceRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // F973 (plan-control 契约束) -- one instance behind both tokens: `PlanLedgerRepository`
+    // and `PlanRunStatusReader` are two views of the same class, same discipline as
+    // `PROVENANCE_WRITER` above.
+    {
+      provide: PLAN_LEDGER_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgPlanLedgerRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: PLAN_RUN_STATUS_READER,
+      useExisting: PLAN_LEDGER_REPOSITORY,
     },
     {
       provide: PROVENANCE_READER,
