@@ -48,7 +48,7 @@ export function LimitPolicyTab() {
                 <span className="font-mono">已用 {DEGRADE_TIERS.org.triggerPct}%</span>
               </div>
               <div className="h-1 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-foreground" style={{ width: `${DEGRADE_TIERS.org.triggerPct}%` }} />
+                <div className="h-full rounded-full bg-inverse" style={{ width: `${DEGRADE_TIERS.org.triggerPct}%` }} />
               </div>
               <div className="flex items-center justify-between text-11">
                 <span className="text-muted-foreground">降级到</span>
@@ -68,7 +68,7 @@ export function LimitPolicyTab() {
                 <span className="font-mono">已用 {DEGRADE_TIERS.member.triggerPct}%</span>
               </div>
               <div className="h-1 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-foreground" style={{ width: `${DEGRADE_TIERS.member.triggerPct}%` }} />
+                <div className="h-full rounded-full bg-inverse" style={{ width: `${DEGRADE_TIERS.member.triggerPct}%` }} />
               </div>
               <p className="text-10 leading-relaxed text-muted-foreground">
                 {DEGRADE_TIERS.member.note} · <span className="text-primary">{DEGRADE_TIERS.member.noteLink}</span>

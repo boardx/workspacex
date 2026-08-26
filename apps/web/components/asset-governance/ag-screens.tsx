@@ -242,7 +242,7 @@ export function AgNewSkill({ state, view }: ScreenProps) {
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
           {AG_NEWSKILL_PATHS.map((p, i) => (
-            <Panel key={p.id} testid="ag-newskill-path" className={cn("flex flex-col gap-2", i === 1 && "border-foreground")}>
+            <Panel key={p.id} testid="ag-newskill-path" className={cn("flex flex-col gap-2", i === 1 && "border-inverse")}>
               <div className="flex items-center gap-2">
                 {p.id === "import" && <Github aria-hidden className="h-4 w-4 text-muted-foreground" />}
                 <span className="text-12 font-medium text-foreground">{p.label}</span>
@@ -444,11 +444,11 @@ export function AgGovernance({
                 data-testid="ag-gov-visibility-option"
                 className={cn(
                   "flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-left transition-colors",
-                  vis === v.id ? "border-foreground bg-muted" : "border-border hover:bg-muted",
+                  vis === v.id ? "border-inverse bg-muted" : "border-border hover:bg-muted",
                 )}
               >
-                <span className={cn("grid h-3.5 w-3.5 place-items-center rounded-full border", vis === v.id ? "border-foreground" : "border-border")}>
-                  {vis === v.id && <span className="h-1.5 w-1.5 rounded-full bg-foreground" />}
+                <span className={cn("grid h-3.5 w-3.5 place-items-center rounded-full border", vis === v.id ? "border-inverse" : "border-border")}>
+                  {vis === v.id && <span className="h-1.5 w-1.5 rounded-full bg-inverse" />}
                 </span>
                 <span className="text-11 font-medium text-foreground">{v.label}</span>
                 <span className="text-10 text-muted-foreground">{v.detail}</span>
@@ -977,7 +977,7 @@ export function AgTryRun({ state, view }: ScreenProps) {
                   data-testid="ag-tryrun-scenario"
                   className={cn(
                     "flex flex-col gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors",
-                    scene === s.id ? "border-foreground bg-muted" : "border-border hover:bg-muted",
+                    scene === s.id ? "border-inverse bg-muted" : "border-border hover:bg-muted",
                   )}
                 >
                   <span className="text-11 font-medium text-foreground">{s.label}</span>

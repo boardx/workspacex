@@ -78,14 +78,14 @@ export function TemplateTagInput({
         {value.map((tag) => (
           <span
             key={tag}
-            className="flex items-center gap-1 rounded-full bg-foreground px-2 py-0.5 text-10 font-medium text-background"
+            className="flex items-center gap-1 rounded-full bg-inverse px-2 py-0.5 text-10 font-medium text-inverse-foreground"
             data-testid={`${testIdPrefix}-chip-${tag}`}
           >
             {tag}
             {!disabled && (
               <button
                 type="button"
-                className="text-background/70 transition-colors duration-fast hover:text-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="text-inverse-foreground/70 transition-colors duration-fast hover:text-inverse-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={`移除标签 ${tag}`}
                 onClick={() => remove(tag)}
                 data-testid={`${testIdPrefix}-remove-${tag}`}

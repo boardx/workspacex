@@ -346,7 +346,7 @@ export function TemplateEditor({
         </div>
       )}
       {toast && (
-        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-foreground px-3 py-1.5 text-11 text-background shadow-lg" data-testid="tpled-toast" onAnimationEnd={() => setToast(null)}>
+        <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md bg-inverse px-3 py-1.5 text-11 text-inverse-foreground shadow-lg" data-testid="tpled-toast" onAnimationEnd={() => setToast(null)}>
           {toast}
         </div>
       )}

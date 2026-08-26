@@ -35,7 +35,7 @@ export function TemplateDisplayPanel({
           <span className="text-11 font-bold">模板体检</span>
           <div className="h-1.5 overflow-hidden rounded bg-muted">
             <div
-              className="h-full bg-foreground transition-[width] duration-slow"
+              className="h-full bg-inverse transition-[width] duration-slow"
               style={{ width: `${health.fieldCount === 0 ? 0 : Math.round((health.placedCount / health.fieldCount) * 100)}%` }}
               data-testid="tpladmin-editor-health-bar"
             />
@@ -113,14 +113,14 @@ export function TemplateDisplayPanel({
                     type="button"
                     disabled={!editable}
                     onClick={() => onPatch({ cols: n })}
-                    className={`flex flex-1 flex-col items-center gap-1 rounded-card border py-1.5 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? "border-foreground bg-warning/10" : "border-border hover:bg-muted"}`}
+                    className={`flex flex-1 flex-col items-center gap-1 rounded-card border py-1.5 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? "border-inverse bg-warning/10" : "border-border hover:bg-muted"}`}
                     data-testid={`tpladmin-editor-cols-${n}`}
                   >
                     <span className="flex gap-px">
                       {Array.from({ length: Math.min(n, 6) }, (_, i) => (
                         <span
                           key={i}
-                          className={`h-3 rounded-sm ${on ? "bg-foreground" : "bg-border"}`}
+                          className={`h-3 rounded-sm ${on ? "bg-inverse" : "bg-border"}`}
                           style={{ width: Math.max(2, Math.round(24 / Math.min(n, 6))) }}
                         />
                       ))}
@@ -229,7 +229,7 @@ function Chips<T extends string | number>({
           disabled={!editable}
           onClick={() => onPick(o)}
           className={`flex-1 whitespace-nowrap rounded-control border px-1 py-1.5 text-10 font-semibold transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-            value === o ? "border-foreground bg-foreground text-background" : "border-border text-muted-foreground hover:bg-muted"
+            value === o ? "border-inverse bg-inverse text-inverse-foreground" : "border-border text-muted-foreground hover:bg-muted"
           }`}
           data-testid={`${testIdPrefix}-${o}`}
         >
