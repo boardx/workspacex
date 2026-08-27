@@ -56,6 +56,9 @@ function orgTemplate(key: string, over: Record<string, unknown> = {}) {
     visibility: "org-wide",
     underlyingType: "canvas",
     usageCount: 3,
+    // 非内置 key 的 layoutSource 值不影响渲染判据（resolver 只在 key 是内置 key 时才
+    // 检查这一栏），这里给个默认值只是为了满足契约的 `.strict()` 形状。
+    layoutSource: "user-edited",
     sections: [
       { sectionId: "a", name: "做得好", order: 0, required: true, capacity: 6 },
       { sectionId: "b", name: "做得差", order: 1, required: true, capacity: 6 },
@@ -69,6 +72,9 @@ function orgTemplate(key: string, over: Record<string, unknown> = {}) {
 beforeEach(() => {
   __resetFenceTemplateCache();
   listCanvasTemplates.mockReset();
+  // #2221 之后，内置 key 也会查一次组织模板库——默认没有任何自定义行，
+  // 让没有显式 mock 的测试（各条纯内置模板断言）不因 `.then` on undefined 而炸。
+  listCanvasTemplates.mockResolvedValue({ templates: [] });
   currentOrgId = "org-personal-1";
 });
 
@@ -94,10 +100,12 @@ describe("工作坊画布模板围栏在 chat 里被渲染（不再是代码块�
     expect(el.getAttribute("data-template-source")).toBe("builtin");
   });
 
-  it("内置 key 用原生几何：**不去查**组织模板库（自动布局只服务组织自建模板）", async () => {
+  it("内置 key 会查一次组织模板库（判断是否被自定义过）；没有自定义行时仍用原生几何——" +
+    "#2221 回归钉子：组织库里没有该 key 的自定义行时，不能因为「查了」就误判成已自定义", async () => {
     render(<MarkdownMessage text={PERSONA_FENCE} />);
-    await screen.findByTestId("chat-canvas-fabric");
-    expect(listCanvasTemplates).not.toHaveBeenCalled();
+    const el = await screen.findByTestId("chat-canvas-fabric");
+    expect(el.getAttribute("data-template-source")).toBe("builtin");
+    expect(listCanvasTemplates).toHaveBeenCalledWith({ orgId: "org-personal-1" });
   });
 });
 

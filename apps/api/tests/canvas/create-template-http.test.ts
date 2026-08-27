@@ -181,6 +181,8 @@ describe("#496 · POST /canvas/templates 真的造出一行", () => {
       // 2026-08-25：`createBody()` 不传 `tags`——省略与显式 `[]` 在契约层同义，
       // 落库前用例已归一成真数组，出门永远是 `[]` 而不是 `undefined`。
       tags: [],
+      // #2221：新建这一行恒为 builtin-derived——服务端写死，创建这一刻还没有内容可言。
+      layoutSource: "builtin-derived",
     });
 
     // 持久面重新读一遍——响应体可以只是把入参回显了一遍。

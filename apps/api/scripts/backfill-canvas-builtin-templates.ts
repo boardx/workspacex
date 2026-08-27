@@ -310,6 +310,9 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
             userId: actorId, orgId: org, key: spec.key, displayName,
             underlyingType: "canvas", sections: [...sections], visibility: "org-wide",
           },
+          // #2221：这是 backfill 推算出的默认配置，不是真人编辑——层写 'builtin-derived'
+          // （除非这个 key 已经被真人标过 'user-edited'，那种情况下仓储层强制保持不退回）。
+          { fromBackfill: true },
         );
         await publishTemplate(
           { identity, templates },

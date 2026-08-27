@@ -209,6 +209,17 @@ export interface CanvasTemplateRepository {
     readonly ownerTeamId: string | null;
     /** 同 `create()` 的 `tags`——用例已归一成真数组。 */
     readonly tags: readonly string[];
+    /**
+     * #2221：这次铸版本要不要把 `layout_source` 写成 `builtin-derived`——只有
+     * `backfill-canvas-builtin-templates.ts` 会传 `true`（不进契约 `in`，外部 HTTP
+     * 调用方无法伪造，用例层 `mintTemplateVersion` 的额外可选参数才能设它）。真实
+     * HTTP 调用（编辑器「基于此开新版」）恒为 `false` ⇒ 写 `user-edited`。
+     *
+     * ⚠ **一旦该 key 此前已是 `user-edited`，本仓储实现必须保持不退回**——即便这次
+     *   传的是 `true`：backfill 脚本对一个真人已经编辑过的模板重跑「补齐配置」时，
+     *   不能把人类的自定义悄悄标回默认值。单调不可退回的判定在这里做，不在调用方。
+     */
+    readonly builtinDerived: boolean;
   }): Promise<MintTemplateVersionOutcome>;
 
   findVersion(

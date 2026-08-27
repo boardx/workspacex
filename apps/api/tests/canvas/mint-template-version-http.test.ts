@@ -148,6 +148,8 @@ describe("#988 · POST /canvas/templates/:key/versions 真的铸出下一版", (
       underlyingType: "canvas",
       sections: V2_SECTIONS,
       tags: [],
+      // #2221：真实 HTTP「基于此开新版」调用（没有 backfill 内部标记）恒写 user-edited。
+      layoutSource: "user-edited",
     });
 
     const rows = await readAll();
