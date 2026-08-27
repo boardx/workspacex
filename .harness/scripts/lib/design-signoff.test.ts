@@ -616,4 +616,34 @@ describe("design-delta aware gate (PROP-HARNESS-SIGNOFF-002)", () => {
     writeDelta("quota", { covers: ["F90"], status: "confirmed", baseBundle: "identity" });
     expect(auditSignoff(PHASE_ID, ["F90"], NOW).fails.join("\n")).toMatch(/被多处 covers 同时声明/);
   });
+
+  /* ── 零契约束 + design-delta 旁路（2026-08-27 实测复现）───────────────────
+   *
+   * `bundles.length === 0` 分支此前无条件把整个阶段判 `applicable: false`，
+   * 完全不看这个阶段是否存在 design-delta——`readDeltaSignoffs` 根本没被调用到。
+   * 后果：一个还没建 contracts/ 的新阶段，只要挂一个 `status: pending` 的
+   * design-delta 声明 `covers`，claim 照样静默放行，签核门形同虚设。 */
+  it("反证：零契约束 + has_ui:false + pending delta 覆盖某 feature → claim 必须 FAIL，不能被短路放行", () => {
+    expect(existsSync(CONTRACTS)).toBe(false); // 前提：这个阶段确实一个契约束都没建
+    writeDelta("canvas-layout-source", { covers: ["F01"], status: "pending", baseBundle: "identity" });
+    const r = auditSignoff(PHASE_ID, ["F01"], NOW);
+    // 修复前：applicable 为 false、fails 为空，delta 完全没被看过就放行。
+    expect(r.applicable).toBe(true);
+    expect(r.fails.join("\n")).toMatch(/design-delta「canvas-layout-source」尚未签核/);
+  });
+
+  it("正向：同样零契约束场景，delta 已 confirmed 但 base_bundle 在本阶段 contracts/ 里不存在 → 仍然 FAIL（不能凭空立户）", () => {
+    expect(existsSync(CONTRACTS)).toBe(false);
+    writeDelta("canvas-layout-source", { covers: ["F01"], status: "confirmed", baseBundle: "identity" });
+    const r = auditSignoff(PHASE_ID, ["F01"], NOW);
+    expect(r.applicable).toBe(true);
+    expect(r.fails.join("\n")).toMatch(/不存在.*不能凭空立户/s);
+  });
+
+  it("零契约束 + 零 design-delta（无关对照组）→ 仍然不适用，放行（确认修复没有误伤原有逃生口）", () => {
+    expect(existsSync(CONTRACTS)).toBe(false);
+    const r = auditSignoff(PHASE_ID, ["F01"], NOW);
+    expect(r.applicable).toBe(false);
+    expect(r.fails).toEqual([]);
+  });
 });
