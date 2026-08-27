@@ -8,6 +8,12 @@ import chatReadConfig from "./playwright.chat-read.config";
 
 export default defineConfig({
   ...chatReadConfig,
-  testMatch: "chat-main-shots.spec.ts",
+  // issue #2173 —— `chatReadConfig` 自 #2131 起带了 `projects`（每个 project 自带
+  // 自己的 `testMatch` 正则）。Playwright 存在 `projects` 时按 project 级
+  // `testMatch` 发现用例，顶层 `testMatch` 会被静默忽略——只覆盖顶层这一行曾经
+  // 让本 config 实际跑出 `chat-read`/`chat-task-workbench` 两个 project 的全部
+  // 108 个不相关用例，目标 spec 一次都没被选中。这里必须显式覆盖整个
+  // `projects` 数组为单一 project，不能只设顶层 `testMatch`。
+  projects: [{ name: "chat-shots", testMatch: /chat-main-shots\.spec\.ts$/ }],
   reporter: "list",
 });
