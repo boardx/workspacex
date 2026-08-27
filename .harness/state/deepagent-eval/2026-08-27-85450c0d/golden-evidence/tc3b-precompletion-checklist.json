@@ -1,0 +1,18 @@
+{
+  "tc": "tc3b-precompletion-checklist",
+  "collected_at_utc": "2026-08-27T15:26:09.326649+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "退出前对照清单自检（RubricMiddleware，官方等价件）",
+  "dimensions": [
+    "D7 退出前自检"
+  ],
+  "upstream_component": "deepagents.RubricMiddleware（0.7.6，beta 标记）",
+  "grader_verdicts_in_order": [
+    "needs_revision",
+    "satisfied"
+  ],
+  "injected_revision_feedback": [
+    "A grader reviewed your work against the rubric and asked for revisions before we can finish.\n\nGrader feedback: 第 5 条不满足：只有过程陈述，没有结论\n\nCriteria that still need work:\n- 最终回复是可直接使用的结论: 回复只写了『我接下来打算……』，没有给出结论\n\nPlease address every failing criterion and respond when you believe the rubric is satisfied."
+  ],
+  "final_answer": "结论：建议先做市场扫描再做风险复核，理由如下……"
+}

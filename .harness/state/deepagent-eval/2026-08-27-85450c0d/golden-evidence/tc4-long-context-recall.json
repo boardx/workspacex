@@ -1,0 +1,22 @@
+{
+  "tc": "tc4-long-context-recall",
+  "collected_at_utc": "2026-08-27T15:26:10.005242+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "30 轮超长上下文，第 30 轮追问第 2 轮细节",
+  "dimensions": [
+    "D8①",
+    "D8 条件召回",
+    "D4 跨轮次状态"
+  ],
+  "not_covered_here": [
+    "摘要质量（需真模型）",
+    "D4 跨进程恢复与时间旅行（见 TC-5）"
+  ],
+  "rounds": 30,
+  "summarizations_triggered": 1,
+  "summarization_trigger_pinned": "tokens=60000（harness.build_middleware，未 monkeypatch）",
+  "visible_messages_at_round_30": 32,
+  "fact_planted_at_round": 2,
+  "fact_recalled": true,
+  "final_answer": "你在第 2 轮说过：阿尔法项目的季度预算是 730 万元。"
+}

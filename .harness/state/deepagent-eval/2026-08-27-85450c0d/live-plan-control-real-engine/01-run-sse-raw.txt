@@ -1,0 +1,71 @@
+采集方式：browser_batch 真实登录（chat-read-e2e@example.test）→ /chat/copilotkit-v2
+→ 开启「任务模式（先计划后执行）」→ 发送真实自然语言多步任务 →
+read_network_requests 抓 POST /api/copilotkit/agent/default/run 的原始 SSE 响应体
+（浏览器发起的真实请求，非 curl 构造，非测试专用分支）。
+上游：KERNEL_DEEP_AGENT_BASE_URL 已临时指向 http://127.0.0.1:2029（本会话起的真实
+`uv run --extra dev langgraph dev`，真实 deepagents 0.7.x + 真实 DashScope qwen3.8-max
+模型，assistant_id="Deep Agent"），非 loopback 替身。
+
+用户消息：请先给出计划，经确认后再执行：请帮我制定一份新产品上市的调研计划：
+先看竞品定价，再看渠道选择，最后给出定价建议。
+
+=== raw SSE (data: 行，逐字节，未编辑) ===
+
+data: {"type":"RUN_STARTED","threadId":"copilotkit-v2-b5f0a063-4959-40dc-ba3e-1fede43f7856","runId":"82c491a6-f03f-434e-b1ac-0a81f5b76f9e","input":{"threadId":"copilotkit-v2-b5f0a063-4959-40dc-ba3e-1fede43f7856","runId":"82c491a6-f03f-434e-b1ac-0a81f5b76f9e","state":{},"messages":[{"id":"11f90629-e2d1-45f0-9493-0c5fe4156308","role":"user","content":"请先给出计划，经确认后再执行：请帮我制定一份新产品上市的调研计划：先看竞品定价，再看渠道选择，最后给出定价建议。"}],"tools":[{"name":"confirm_task_intent","description":"执行前复述对任务的理解与假设，等待用户确认或修改假设","parameters":{"...":"..."}},{"name":"fill_run_params","description":"开始前请人补全/确认 AI 猜测的运行参数","parameters":{"...":"..."}},{"name":"choose_execution_option","description":"展示 2-3 条推进方案，等待用户选择其中一条或都不选","parameters":{"...":"..."}},{"name":"call_skill","description":"在真正执行这个技能之前，请人确认参数","parameters":{"skill_stable_name":"...","task":"..."}}],"context":[{"description":"DA-19f wiring probe: current route + fixed marker","value":"{\"pathname\":\"/chat/thr-75aed777-55c6-4747-b04c-0787d54e00ec\",\"probe\":\"DA-19F-READABLE-CONTEXT-PROBE\"}"}],"forwardedProps":{"chatThreadId":"thr-75aed777-55c6-4747-b04c-0787d54e00ec"}}}
+
+data: {"type":"CUSTOM","name":"chat_thread_id","value":"thr-75aed777-55c6-4747-b04c-0787d54e00ec"}
+
+data: {"type":"STEP_STARTED","stepName":"list_org_skills"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"0e86af94-eda2-4f9c-8f52-d25cae7fcb78","toolCallName":"list_org_skills"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"0e86af94-eda2-4f9c-8f52-d25cae7fcb78","delta":"{}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"0e86af94-eda2-4f9c-8f52-d25cae7fcb78"}
+
+data: {"type":"TOOL_CALL_RESULT","messageId":"0ceada1c-b2c5-407e-bd5f-50ee66300792","toolCallId":"0e86af94-eda2-4f9c-8f52-d25cae7fcb78","content":"本次运行没有挂载任何技能，直接依靠已有知识回答即可。","role":"tool"}
+
+data: {"type":"STEP_FINISHED","stepName":"list_org_skills"}
+
+data: {"type":"STEP_STARTED","stepName":"write_todos"}
+
+data: {"type":"TOOL_CALL_START","toolCallId":"3faea223-5f3c-4135-9912-85d47091acab","toolCallName":"write_todos"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"3faea223-5f3c-4135-9912-85d47091acab","delta":"{\"todos\":[{\"content\":\"竞品定价调研：列出 3-5 个主要竞品，收集其价格区间、版本/套餐结构、促销与折扣策略，整理成对比表\",\"status\":\"pending\"},{\"content\":\"渠道选择调研：梳理线上（电商、官网直销、社交电商）与线下（经销、零售、直营）候选渠道，按成本、触达目标客群、竞品布局评估并给出优先级\",\"status\":\"pending\"},{\"content\":\"定价建议：综合竞品价格带与选定渠道的成本结构，给出建议定价区间、定价策略（撇脂/渗透/价值定价）及上市初期促销方案\",\"status\":\"pending\"}]}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"3faea223-5f3c-4135-9912-85d47091acab"}
+
+data: {"type":"TOOL_CALL_RESULT","messageId":"a9d20363-f40c-424c-b24c-48f693c31c8d","toolCallId":"3faea223-5f3c-4135-9912-85d47091acab","content":"Updated todo list to [...]","role":"tool"}
+
+data: {"type":"STEP_FINISHED","stepName":"write_todos"}
+
+data: {"type":"STATE_SNAPSHOT","snapshot":{"todos":[{"content":"竞品定价调研：...","status":"pending"},{"content":"渠道选择调研：...","status":"pending"},{"content":"定价建议：...","status":"pending"}]}}
+
+data: {"type":"TEXT_MESSAGE_START","messageId":"0b424ec8-92da-4df6-bf28-e840c5251ace","role":"assistant"}
+
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"0b424ec8-92da-4df6-bf28-e840c5251ace","delta":"我已把调研计划"}
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"0b424ec8-92da-4df6-bf28-e840c5251ace","delta":"写"}
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"0b424ec8-92da-4df6-bf28-e840c5251ace","delta":"成了三步待办"}
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"0b424ec8-92da-4df6-bf28-e840c5251ace","delta":"，请您"}
+data: {"type":"TEXT_MESSAGE_CONTENT","messageId":"0b424ec8-92da-4df6-bf28-e840c5251ace","delta":"确认：\n\n**"}
+... （逐 token/词分片，见完整字节；下方省略，全文见浏览器截图 02/03/04）
+
+=== 结论 ===
+1. #2224（提示词侧要求任务模式必须调用 write_todos）在本次真实模型交互中命中：
+   任务模式开关拼接的中文指令触发了真实 write_todos 工具调用，产生结构化 3 步 todo
+   （非纯文本"第一步/第二步"）。这是本轮相对 issue #2220/#2224 诊断的直接正面证据——
+   但仍是单次交互，不能排除概率性（#2220 原话："改动小但效果概率性，不保证 100%"）。
+2. list_org_skills / write_todos 两个工具各自产生独立的
+   TOOL_CALL_START→ARGS→END→RESULT 事件序列，STEP_STARTED/STEP_FINISHED 包裹，
+   经生产 `/copilotkit/agui` → `/api/copilotkit/agent/default/run` 桥接层转译。
+3. TEXT_MESSAGE_CONTENT 逐 delta（词/短语级）流式输出，与 D3 既有结论一致。
+4. RUN_STARTED 的 input.tools 里能看到浏览器端把 confirm_task_intent/fill_run_params/
+   choose_execution_option/call_skill 四个 schema 都发了过去（`@copilotkit/react-core`
+   的 useHumanInTheLoop 注册行为）——但 `copilotkit-agui.controller.ts` 的
+   `AguiRunInput` 接口文档自证只读 messages/forwardedProps.chatThreadId，`tools`
+   字段被丢弃，从不转发进真实 LangGraph 图。真实 `apps/deep-agent-service` 的
+   `tools.py` 里也确认不存在这三个工具的 `@tool` 定义（`grep` 零命中）。
+   ⇒ F212-F216（agent-interrupts 三张新 HITL 卡）与既有 issue #2017（send_email）
+   是同一类架构缺口：前端 `useHumanInTheLoop` 注册 + 真实聊天面板渲染树接线属实，
+   但**真实引擎永远不会调用这三个工具名**，因此这三张卡在真实引擎链路上
+   不可能被触发——不计入本轮 D2/D6 引擎能力分（与 #2017 处理方式一致）。

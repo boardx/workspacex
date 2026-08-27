@@ -1,0 +1,77 @@
+{
+  "tc": "tc1-long-chain-research",
+  "collected_at_utc": "2026-08-27T15:26:05.756127+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "长链综合调研（≥5 步、≥2 次子代理委托）",
+  "dimensions": [
+    "D1",
+    "D2",
+    "D5"
+  ],
+  "not_covered_here": [
+    "D3 token 级流式（需真模型活体 SSE）",
+    "D1/D2 前端可见性"
+  ],
+  "tool_calls_in_order": [
+    "write_todos",
+    "task",
+    "task",
+    "write_todos"
+  ],
+  "ai_turns": 5,
+  "delegations": 2,
+  "stream_update_node_sequence": [
+    "PatchToolCallsMiddleware.before_agent",
+    "RubricMiddleware.before_agent",
+    "SummarizationMiddleware.before_model",
+    "ModelCallLimitMiddleware.before_model",
+    "model",
+    "ModelCallLimitMiddleware.after_model",
+    "ToolCallLimitMiddleware.after_model",
+    "TodoListMiddleware.after_model",
+    "tools",
+    "SummarizationMiddleware.before_model",
+    "ModelCallLimitMiddleware.before_model",
+    "model",
+    "ModelCallLimitMiddleware.after_model",
+    "ToolCallLimitMiddleware.after_model",
+    "TodoListMiddleware.after_model",
+    "tools",
+    "SummarizationMiddleware.before_model",
+    "ModelCallLimitMiddleware.before_model",
+    "model",
+    "ModelCallLimitMiddleware.after_model",
+    "ToolCallLimitMiddleware.after_model",
+    "TodoListMiddleware.after_model",
+    "tools",
+    "SummarizationMiddleware.before_model",
+    "ModelCallLimitMiddleware.before_model",
+    "model",
+    "ModelCallLimitMiddleware.after_model",
+    "ToolCallLimitMiddleware.after_model",
+    "TodoListMiddleware.after_model",
+    "tools",
+    "SummarizationMiddleware.before_model",
+    "ModelCallLimitMiddleware.before_model",
+    "model",
+    "ModelCallLimitMiddleware.after_model",
+    "ToolCallLimitMiddleware.after_model",
+    "TodoListMiddleware.after_model",
+    "RubricMiddleware.after_agent"
+  ],
+  "final_todos": [
+    {
+      "content": "盘点组织技能库",
+      "status": "completed"
+    },
+    {
+      "content": "委托子代理做风险面调研",
+      "status": "completed"
+    },
+    {
+      "content": "汇总成结论",
+      "status": "in_progress"
+    }
+  ],
+  "final_answer": "综合调研结论：技能库覆盖市场扫描与风险复核，建议先扫描后复核。"
+}

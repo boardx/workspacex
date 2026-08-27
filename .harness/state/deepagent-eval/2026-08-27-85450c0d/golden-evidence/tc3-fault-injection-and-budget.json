@@ -1,0 +1,21 @@
+{
+  "tc": "tc3-fault-injection-and-budget",
+  "collected_at_utc": "2026-08-27T15:26:09.172672+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "连续故障注入 + 会循环的任务",
+  "dimensions": [
+    "D7①",
+    "D7②",
+    "D7③"
+  ],
+  "not_covered_here": [
+    "失败事件的前端逐条渲染",
+    "「不编造成功」的语义判断（需真模型）"
+  ],
+  "flaky_attempts": 3,
+  "stable_calls": 24,
+  "model_call_budget": 25,
+  "ai_turns": 26,
+  "budget_notice": "Model call limits exceeded: run limit (25/25)",
+  "recursion_limit_used": 200
+}
