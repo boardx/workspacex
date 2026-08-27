@@ -175,6 +175,35 @@ export const A1_CONTENT_MM = {
   w: A1_PAPER_MM.w - A1_MARGIN_MM * 2, // 821
   h: A1_PAPER_MM.h - A1_MARGIN_MM * 2, // 574
 } as const;
+
+/**
+ * 纸张尺寸预设——2026-08-27 人类原话：「模板可以选择 A1，A3，A4 等大小」。
+ * ISO 216 标准值，横版（宽 > 高）。首批只落这三档，不含自定义宽高（人类裁决
+ * 「先只加预设」，见契约 `canvas.PaperSize` 文件头）。
+ *
+ * ⚠ **页边距固定 10mm，不随纸张尺寸缩放**——这是刻意的，不是漏改：现实世界的印刷/
+ *   装订安全边距通常是一个固定物理量，不会因为纸变小而跟着缩小（A4 影印件的边距
+ *   与 A1 海报的边距，业界惯例都是"看装订/打孔需要"，不是按纸面比例算）。所以三档
+ *   共用同一个 `A1_MARGIN_MM` 常量，内容区 = 纸面 - 2×10mm，不是纸面 × 固定比例。
+ *
+ * ⚠ A1/A3/A4 恰好共享同一个宽高比（√2:1，ISO 系列的定义性质），所以画布的
+ *   `aspectRatio` 视觉上三档几乎不变——但仍从这张表算，不手写字面量，理由见
+ *   `template-canvas-grid.tsx`/`template-a1-thumbnail.tsx` 引用处的注释。
+ */
+export const PAPER_SIZE_MM = {
+  A1: A1_PAPER_MM,
+  A3: { w: 420, h: 297 },
+  A4: { w: 297, h: 210 },
+} as const;
+
+export type PaperSizeKey = keyof typeof PAPER_SIZE_MM;
+
+/** 给定尺寸的内容区 mm（纸面 - 四边页边距）。`sectionGeometryMm` 用它替代硬编码的 `A1_CONTENT_MM`。 */
+export function contentMmFor(size: PaperSizeKey): { readonly w: number; readonly h: number } {
+  const paper = PAPER_SIZE_MM[size];
+  return { w: paper.w - A1_MARGIN_MM * 2, h: paper.h - A1_MARGIN_MM * 2 };
+}
+
 /** 网格间距，`Design.pdf` 原话「间距 6mm（gap: 0.72%）」。 */
 export const GRID_GAP_MM = 6;
 /** 标题占位高度，容量公式的 22mm 来源见 `Design.pdf` §5「容量」行。 */
@@ -185,6 +214,8 @@ export interface SectionGeometryMmInput {
   readonly h: number;
   readonly cols: number;
   readonly gridCols: 6 | 12;
+  /** 纸张尺寸——决定内容区物理 mm 数。缺省 `"A1"`，兼容既有调用方（历史数据的默认尺寸）。 */
+  readonly size?: PaperSizeKey;
 }
 
 export interface SectionGeometryMm {
@@ -209,8 +240,9 @@ export interface SectionGeometryMm {
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
   const rowSpanDenominator = 8; // 网格恒 8 行，列数才切 6/12。
-  const wMm = (input.w / input.gridCols) * A1_CONTENT_MM.w - GRID_GAP_MM;
-  const hMm = (input.h / rowSpanDenominator) * A1_CONTENT_MM.h - GRID_GAP_MM;
+  const contentMm = contentMmFor(input.size ?? "A1");
+  const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
+  const hMm = (input.h / rowSpanDenominator) * contentMm.h - GRID_GAP_MM;
   const noteMm = (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols;
   const rows = Math.max(0, Math.floor((hMm - TITLE_RESERVE_MM) / (noteMm + GRID_GAP_MM)));
   return {

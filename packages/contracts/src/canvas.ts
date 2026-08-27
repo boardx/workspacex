@@ -32,6 +32,24 @@ export const TemplateStatus = z.enum(["draft", "trial", "published", "archived"]
 export const TemplateVisibility = z.enum(["org-wide", "team-only"]);
 
 /**
+ * 纸张尺寸——2026-08-27，**设计增量、待人类补签**（同 #496/#988 系列先例）。
+ *
+ * 人类原话：「模板可以选择 A1，A3，A4 等大小」。首批只落 A1/A3/A4 三个 ISO 横版
+ * 预设，不含自定义宽高（人类裁决「先只加预设」——自定义尺寸会让 12×8 网格与实际
+ * 物理比例脱钩，需要重新设计排版算法，留作后续独立范围）。
+ *
+ * ⚠ `size` 是**内容相关**字段，不是装帧（同 `sections`，不是 `title`/`footer`）：
+ *   纸张尺寸决定内容区的物理 mm 数，直接影响每个区块「贴纸装不装得下」的体检结果——
+ *   与 `updateTemplateMetadata` 承诺「绝不碰内容」矛盾，所以它跟 `sections` 一样只能
+ *   在 `createTemplate`/`updateTemplateDraft`/`mintTemplateVersion` 里改，不进
+ *   `updateTemplateMetadata`。
+ *
+ * 三个尺寸的 mm 常量见 `apps/web/lib/canvas/explicit-template-layout.ts` 的
+ * `PAPER_SIZE_MM`——那里才是这些数字的权威（ISO 216 标准值），本文件只声明枚举成员。
+ */
+export const PaperSize = z.enum(["A1", "A3", "A4"]);
+
+/**
  * 一行模板的几何/呈现内容是「组织真的编辑过」还是「只是 backfill 推算出来的默认值」——
  * 单一事实源（#2221）。**不是**「DB 里有没有行」：`backfill-canvas-builtin-templates.ts`
  * 给每个开通过的组织把 19 个内置 key 的行都建好了，"有行"对内置 key 恒真，不能拿它当
@@ -441,6 +459,12 @@ export const operations = {
        * 不在契约边界替调用方决定默认值。
        */
       tags: z.array(z.string()).optional(),
+      /**
+       * 2026-08-27，**设计增量、待人类补签**——见 `PaperSize` 文件头。同 `tags` 的
+       * `.optional()` 理由：省略与显式传 `"A1"` 在契约层不是同一件事，应用层落库前
+       * 才把省略归一成 `"A1"`（既有 19 个内置模板与所有历史行的既有物理尺寸）。
+       */
+      size: PaperSize.optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -456,6 +480,8 @@ export const operations = {
       sections: z.array(SectionDef),
       /** 出门永远是真实数组（落库时已经把省略/`null` 归一成 `[]`），不是可选。 */
       tags: z.array(z.string()),
+      /** 出门永远是真实枚举值（落库时已经把省略归一成 `"A1"`），不是可选。 */
+      size: PaperSize,
       /**
        * #2221：新建的这一行**恒为** `builtin-derived`——创建路径不接受这一栏，服务端写死。
        * 「组织真的自定义过」这件事只能由后续一次真实编辑（`updateTemplateDraft`/
@@ -497,6 +523,8 @@ export const operations = {
       visibility: TemplateVisibility,
       /** 同 `createTemplate.in.tags`——全量替换（同本操作 displayName/sections 的既有语义）。 */
       tags: z.array(z.string()).optional(),
+      /** 同 `createTemplate.in.size`——`.optional()` 省略时应用层落库前归一成 `"A1"`。 */
+      size: PaperSize.optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -508,6 +536,7 @@ export const operations = {
       underlyingType: z.string(),
       sections: z.array(SectionDef),
       tags: z.array(z.string()),
+      size: PaperSize,
       /**
        * #2221：本操作就是「编辑器保存草稿的分区/几何」，恒写 `user-edited`（一旦落这个值，
        * 不可退回 `builtin-derived`——见 `TemplateLayoutSource` 的完整语义）。
@@ -803,6 +832,12 @@ export const operations = {
       ownerTeamId: z.string().nullable().optional(),
       /** 同 `createTemplate.in.tags`——开新版时可带上一版的标签，或改一份新的。 */
       tags: z.array(z.string()).optional(),
+      /**
+       * 同 `createTemplate.in.size`——开新版时可带上一版的尺寸，或改一个新的。
+       * 留空**不**继承上一版——应用层落库前归一成 `"A1"`（同 `createTemplate` 的
+       * 既有归一规则，没有「继承上一版」这种隐式默认值，见下方用例实现）。
+       */
+      size: PaperSize.optional(),
     }).strict(),
     out: z.object({
       key: z.string(),
@@ -815,6 +850,7 @@ export const operations = {
       underlyingType: z.string(),
       sections: z.array(SectionDef),
       tags: z.array(z.string()),
+      size: PaperSize,
       /**
        * #2221：真实 HTTP 调用（编辑器「基于此开新版」）恒写 `user-edited`——铸新版本
        * 本身就是一次真实编辑。只有 `backfill-canvas-builtin-templates.ts` 走的内部
@@ -860,6 +896,8 @@ export const operations = {
         footer: z.string(),
         /** 见 `updateTemplateMetadata.in.promptText`。空串 = 未写。 */
         promptText: z.string(),
+        /** 见 `PaperSize`。既有历史行（本字段上线前建的）落库时归一成 `"A1"`。 */
+        size: PaperSize,
         /**
          * 这一条来自**平台模板库**（B2 全局母版），不是本组织自己的行。
          *

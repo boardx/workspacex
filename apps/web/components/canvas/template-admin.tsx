@@ -713,7 +713,8 @@ export function TemplateAdmin({
         {visibleState.status === "ready" && rows.length > 0 && (
             /*
               R2（`Design.pdf` §3.1「卡片」）：自上而下 A1 缩略图 → 模板名 + 状态徽章
-              → 一句描述 → 标签胶囊 → 「N 个字段 · M 个区块 · A1 横版」+ 操作区。
+              → 一句描述 → 标签胶囊 → 「N 个字段 · M 个区块 · {尺寸} 横版」+ 操作区
+              （尺寸随每个模板的 `size` 走，见 2026-08-27 纸张尺寸预设）。
               点卡片主体 = 打开编辑器；两个次级动作（改名/标签、归档）都必须
               `stopPropagation`，不得顺带触发打开编辑器。
             */
@@ -746,7 +747,7 @@ export function TemplateAdmin({
                           的那些（`layout` 非空）。两个数不同才有信息量：它直接告诉使用者
                           「还有几个字段没排版，生成后会被丢弃」（`Design.pdf` §6 校验规则②）。
                         */}
-                        {t.sections.length} 个字段 · {t.sections.filter((s) => s.layout != null).length} 个区块 · A1 横版
+                        {t.sections.length} 个字段 · {t.sections.filter((s) => s.layout != null).length} 个区块 · {t.size} 横版
                         {t.builtin && " · 内置"}
                         {" · 被 "}
                         {/*

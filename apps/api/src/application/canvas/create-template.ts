@@ -36,6 +36,7 @@ import { requireTemplateAdmin } from "./template-admin";
 import type {
   CanvasTemplateRepository,
   CreatedCanvasTemplate,
+  PaperSize,
 } from "./template-ports";
 
 export interface CreateTemplateDeps {
@@ -53,6 +54,8 @@ export interface CreateTemplateInput {
   readonly visibility: VisibilityScope;
   /** `undefined`（省略）与显式 `[]` 在契约层同义——这里统一归一，仓储只收真数组。 */
   readonly tags?: readonly string[];
+  /** `undefined`（省略）在契约层归一成 `"A1"`——这里统一归一，仓储只收真枚举值。 */
+  readonly size?: PaperSize;
 }
 
 export async function createTemplate(
@@ -75,6 +78,7 @@ export async function createTemplate(
     //   没人评审过的可见性规则，而缺口本身就此看不见了。后果如实留着，等人类补签时裁。
     ownerTeamId: membership.teamId,
     tags: input.tags ?? [],
+    size: input.size ?? "A1",
   });
 
   if (!outcome.created) {
