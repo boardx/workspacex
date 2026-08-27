@@ -1,4 +1,48 @@
-"""The two dynamic, org-scoped tools (#739 -- architecture decided in #738).
+"""The dynamic, org-scoped tools (#739 -- architecture decided in #738), plus the three
+named virtual HITL tools from the `agent-interrupts` contract bundle (issue #2252).
+
+## #2252 -- `confirm_task_intent` / `fill_run_params` / `choose_execution_option`
+
+`packages/contracts/src/agent-interrupts.ts` is the single source of truth for these three
+tool names and their initial-call arg shapes (`ConfirmIntentArgs` / `FillParamsArgs` /
+`ChooseOptionArgs`) -- that file's header explicitly deferred the Python `@tool` bodies as
+"the next feature, out of scope for this issue"; this is that next feature.
+
+Same architectural shape as `call_skill` (issue #2017's own conclusion): `interrupt_on`
+(`harness.py::build_interrupt_on`) is only a "should this tool name pause before running"
+switch -- the model can only call tools that are REALLY registered in the `tools` list
+handed to `create_deep_agent`. Registering these three names in `DEEP_AGENT_HITL_TOOLS`
+without a matching `@tool` here would keep the cards permanently unreachable, exactly the
+gap #2252 was filed to close.
+
+### Why every parameter below is `| None` (not the contract's required shape)
+
+`HumanInTheLoopMiddleware` (0.7.6, `human_in_the_loop.py:429`, confirmed against the vendored
+source, same as `deep-agent-hitl.ts`'s own citation) intercepts the tool call BEFORE this
+function body ever runs, and re-invokes the SAME underlying function once a decision resumes
+the run:
+
+- `approve` -- resumes with the ORIGINAL proposed args verbatim (`decide-agent-run.ts`'s
+  `approveAndRequeue` path never touches `editedArgs`) -- e.g. `confirm_task_intent` gets its
+  full `{requestId, understanding, assumptions}` back.
+- `edit` -- resumes with `edited_action.args` set to the DECISION's `editedArgs`, which is
+  a narrower, DIFFERENT shape than the tool's own initial-call args (by contract design,
+  confirmed in `packages/contracts/src/agent-interrupts.ts` and consumed by
+  `apps/api/src/application/agent-interrupts/{fill-params,choose-option}-decision.ts`):
+  `ConfirmIntentDecision.editedArgs = {assumptions}` (no `understanding`/`requestId`),
+  `FillParamsDecision.editedArgs = {fields: [{name, value}]}` (not the full `ParamField`
+  shape with `aiGuess`/`rationale`/...), `ChooseOptionDecision.editedArgs =
+  {selectedOptionId}` (no `requestId`/`options` at all).
+- `choose_execution_option` never receives `approve` at all -- its contract only allows
+  `edit`/`reject` (`CHOOSE_OPTION_ALLOWED_DECISIONS`), and `reject` never re-invokes the
+  tool (the run fails with `HITL_REJECTED` instead, same as any other rejected HITL tool).
+
+So each function below has to tolerate being called with either its full initial shape
+(the `approve` path) or a reduced edited shape (the `edit` path) -- optional keyword
+parameters with the body branching on which fields are actually present is how that is
+made possible without a second, parallel "edited" tool definition. The docstring on each
+function (what the MODEL reads) still documents the full initial-call contract shape,
+since that is the only shape the model itself is ever expected to supply.
 
 ## Why two GENERIC tools instead of one tool per Skill
 
@@ -153,4 +197,95 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
             # deep agent only sees that the call failed, not why.
             return f"技能「{skill['name']}」执行失败。"
 
-    return [list_org_skills, call_skill]
+    @tool
+    def confirm_task_intent(
+        requestId: str | None = None,
+        understanding: str | None = None,
+        assumptions: list[str] | None = None,
+    ) -> str:
+        """当用户的请求存在歧义、缺少关键上下文，或你需要依赖若干未经确认的假设才能
+        继续时，调用这个工具向用户复述你对任务的理解，并列出你依赖的假设（至少两条），
+        等待用户确认或修改这些假设后再继续执行。`requestId` 用一个新的唯一字符串标识
+        本次确认请求；`understanding` 是你对任务目标的复述；`assumptions` 是你为了完成
+        任务而依赖的假设清单（至少两条，每条都要具体、可核实）。不要在用户已经把目标
+        说得很清楚、且不需要额外假设时调用这个工具——那只会制造不必要的等待。"""
+        # `assumptions` 缺失或为空：既不是合法的初始提案，也不是合法的编辑结果——
+        # 两条路径都要求非空的假设清单（契约 I-2：assumptions >= 2 条）。
+        if not assumptions:
+            return "没有收到有效的假设清单，无法确认任务目标，请重新给出理解与至少两条假设后再次调用。"
+        if understanding is not None:
+            # approve 路径：resume 时原样收到完整的初始提案。
+            return (
+                f"用户已确认对任务的理解：{understanding}。"
+                f"确认的假设：{'；'.join(assumptions)}。请据此继续执行任务。"
+            )
+        # edit 路径：resume 只带回了改过的 assumptions（`ConfirmIntentDecision.editedArgs`
+        # 不含 understanding/requestId，见本文件头部说明）。
+        return f"用户修改了假设为：{'；'.join(assumptions)}。请据此继续执行任务，不要再使用你最初提出的假设。"
+
+    @tool
+    def fill_run_params(
+        requestId: str | None = None,
+        fields: list[dict] | None = None,
+    ) -> str:
+        """当继续执行任务需要若干运行参数、但用户尚未提供全部取值时，调用这个工具列出
+        需要补全的每个参数——包括你对该参数的 AI 猜测值（没有把握就填 null）、给出这个
+        猜测的依据、该参数是否必填、以及当前已知值，交给用户逐项确认或修改，然后再继续
+        执行。`requestId` 用一个新的唯一字符串标识本次请求；`fields` 是参数字段清单，
+        每项包含 `name`（参数名）、`label`（人类可读标签）、`aiGuess`（你的猜测值，
+        没把握则为 null）、`rationale`（给出该猜测的依据，`aiGuess` 非 null 时必须提供）、
+        `required`（是否必填）、`currentValue`（当前已知值，没有则为 null）。不要在所有
+        必填参数已经明确时调用这个工具。"""
+        if not fields:
+            return "没有收到需要补全的参数字段，无法继续，请重新列出参数字段后再次调用。"
+        resolved: list[str] = []
+        for field in fields:
+            if not isinstance(field, dict):
+                continue
+            name = field.get("name", "?")
+            if "value" in field:
+                # edit 路径：resume 只带回了 {name, value} 精简形状
+                # （`FillParamsDecision.editedArgs.fields`，不是完整的 ParamField）。
+                resolved.append(f"{name}={field.get('value')!r}")
+            else:
+                # approve 路径：resume 原样收到完整 ParamField，采纳 AI 猜测
+                # （没有猜测时退回当前已知值）。
+                guess = field.get("aiGuess")
+                current = field.get("currentValue")
+                resolved.append(f"{name}={guess if guess is not None else current!r}")
+        if not resolved:
+            return "参数字段格式无法识别，无法继续，请重新列出参数字段后再次调用。"
+        return "参数已确认：" + "，".join(resolved) + "。请据此继续执行任务。"
+
+    @tool
+    def choose_execution_option(
+        requestId: str | None = None,
+        options: list[dict] | None = None,
+        selectedOptionId: str | None = None,
+    ) -> str:
+        """当完成任务存在多个（2-3 个）可行方案、且各方案在投入/见效时间/预期收益上有
+        实质差异时，调用这个工具把方案摆出来交给用户对比选择，不要替用户擅自决定。
+        `requestId` 用一个新的唯一字符串标识本次请求；`options` 是 2 到 3 个方案卡片，
+        每项包含 `optionId`（方案唯一标识）、`title`（方案标题）、`effort`（投入：
+        低/中/高）、`timeToValue`（预计见效时间）、`expectedReturn`（预期收益）。
+        只有一个可行方案、或方案之间没有实质取舍时，不要调用这个工具。"""
+        if not selectedOptionId:
+            # 唯一能真正走到这里执行的路径是 edit（见本文件头部说明：这个工具没有
+            # approve 分支，reject 从不重新调用工具），selectedOptionId 缺失说明
+            # resume 载荷不合法。
+            return "没有收到用户选择的方案，无法继续，请重新列出可选方案后再次调用。"
+        chosen_title = selectedOptionId
+        if options:
+            for option in options:
+                if isinstance(option, dict) and option.get("optionId") == selectedOptionId:
+                    chosen_title = option.get("title", selectedOptionId)
+                    break
+        return f"用户选择了方案「{chosen_title}」，请据此继续执行任务，不要再考虑其它方案。"
+
+    return [
+        list_org_skills,
+        call_skill,
+        confirm_task_intent,
+        fill_run_params,
+        choose_execution_option,
+    ]

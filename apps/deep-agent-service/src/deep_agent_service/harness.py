@@ -222,8 +222,15 @@ def build_subagents(model: BaseChatModel) -> list[dict] | None:
     task 工具一直存在，但可用类型只有内建 general-purpose——「task 工具守着空气」，
     D5 = 0.3。本函数注册一个具名 `org-skill-researcher`：调研组织技能库并汇总，
     system_prompt 指示它先用 list_org_skills 探查、再汇总；tools 复用主图同一套
-    org skills 工具（build_tools(model)），model 显式钉为主模型——不吃「继承主
-    agent 模型」的库默认，升级时默认继承策略漂移不得悄悄改变子代理用哪个模型。
+    org skills 工具（build_tools(model) 里的 `list_org_skills`/`call_skill` 两个，
+    见下方按名字过滤），model 显式钉为主模型——不吃「继承主 agent 模型」的库默认，
+    升级时默认继承策略漂移不得悄悄改变子代理用哪个模型。
+
+    ⚠（#2252）`build_tools(model)` 现在还返回三个具名 HITL 虚拟工具
+    （`confirm_task_intent`/`fill_run_params`/`choose_execution_option`）——那三个是
+    面向主对话、需要人在环裁决的中断点语义，不是"调研组织技能库"这个子代理该有的
+    能力，所以这里按名字显式挑选，不是把 `build_tools()` 的返回值整体转发。新增/
+    改名工具名单需要跟着改这里的过滤集合，不会因为忘记而静默混进子代理。
 
     deepagents 0.7.6 实测契约（inspect，不是猜的）：
     - SubAgent 是 TypedDict：必填 name/description/system_prompt（⚠ 是
@@ -239,6 +246,10 @@ def build_subagents(model: BaseChatModel) -> list[dict] | None:
     # 延迟导入与 tools.py 的依赖，避免 harness 模块在无关路径上加载它。
     from deep_agent_service.tools import build_tools
 
+    # #2252：只挑选调研子代理该有的两个工具，显式按名字过滤——不整体转发
+    # build_tools() 的返回值（见上方模块注释）。
+    org_skill_tools = [t for t in build_tools(model) if t.name in ("list_org_skills", "call_skill")]
+
     return [
         {
             "name": "org-skill-researcher",
@@ -253,7 +264,7 @@ def build_subagents(model: BaseChatModel) -> list[dict] | None:
                 "调研发现汇总成结构化结论：有哪些技能、各自适合什么任务、与任务的匹配"
                 "建议。只汇报你真实探查到的内容，不要凭技能名字编造能力。"
             ),
-            "tools": build_tools(model),
+            "tools": org_skill_tools,
             "model": model,
         }
     ]
