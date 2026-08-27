@@ -262,4 +262,26 @@ export const CHAT_READ_E2E = {
    * `[近期工具调用记录` 前缀）时，回显进回复的前缀。
    */
   toolTraceEchoPrefix: "[tool-trace-seen:]",
+
+  /* ══════════ 5 点迭代要求第②条 —— 真实生产 chat「基于上下文生成可视化」 ══════════
+   *
+   * 与「后台 chat 模拟」（`canvas-template-simulate-smoke.spec.ts`）验的是**两件不同的
+   * 事**：那条走的是模拟专用只读端点 `POST /canvas/templates/:key/simulate`，不经过
+   * `execute-run.ts`/`buildCanvasTemplateGuidance` 这条真实 agent-run 注入链路；这里要
+   * 验的是人类要求的「前端 chat」——真实发一条消息，真实 `execute-run.ts` 把已发布模板
+   * 的指引拼进 system prompt，模型（确定性替身）真的看到它、产出围栏，前端真实渲染成
+   * `ChatCanvasFabric`。两条链路在生产代码里完全不共享执行路径，一条绿不能替另一条作证。
+   *
+   * 种子脚本（`seed-chat-read-e2e.ts`）走与 `backfill-canvas-builtin-templates.ts` 相同的
+   * 「真实 create/publish 用例，不裸 INSERT」纪律，见该脚本本节头注。
+   */
+  /** 独立线程，零预置消息，不与别的用例共写（同上面每一条专属线程的既有理由）。 */
+  canvasGuidanceThreadId: "thread-chat-read-e2e-canvas-guidance",
+  /** 种进本夹具组织、发布状态的画布模板 key——唯一事实源，种子脚本与断言方共用。 */
+  canvasTemplateKey: "chat-read-e2e-canvas",
+  canvasTemplateDisplayName: "会话画布验收模板",
+  /** 表头字段（`type: "短文本"` 分区）中文名，格式见 `buildCanvasTemplateGuidance` 的 `字段名: 字段值`。 */
+  canvasHeaderFieldName: "姓名",
+  /** 正文分区（便利贴列表）中文名，格式见 `buildCanvasTemplateGuidance` 的 `## 分区名`。 */
+  canvasSectionName: "要点",
 } as const;

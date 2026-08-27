@@ -53,6 +53,7 @@ import {
 import { TOOL_TRACE_MESSAGE_HEADER_PREFIX } from "../src/application/agent-run/tool-trace-context";
 import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../src/application/skill/run-script-with-retries";
 import { FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT } from "../src/application/chat/generate-followup-suggestions";
+import { CANVAS_GUIDANCE_HEADER } from "../src/application/agent-run/canvas-template-guidance";
 
 /**
  * F154 L2 摘要伪消息的**唯一事实源**是 `execute-run.ts` 里那一行字面量
@@ -282,6 +283,60 @@ function followUpSuggestionsReply(messages: CompletionRequest["messages"]): stri
   ]);
 }
 
+/**
+ * 人类原话（issue 见 `AGENTS.md` 5 点迭代要求第②条）：「你需要在前端的 chat 来测试，
+ * 看如何基于上下文生成可视化」——即真实生产 chat（不是后台的 chat 模拟弹窗）拿到
+ * `buildCanvasTemplateGuidance` 注入的指引后，模型是否真的产出可解析的 `canvas` 围栏。
+ *
+ * ## 默认关闭的开关，同 `SKILL_SENTINEL` 一条纪律
+ *
+ * `LOOPBACK_MODEL_CANVAS_TEMPLATE_KEY` 未设置时这条分支恒不命中，`fullstack-smoke`/
+ * `core-loop` 两条链路不下发这个变量，行为逐字节不变。
+ *
+ * ## 判定用**两个**信号，不是一个
+ *
+ * 只查 `CANVAS_GUIDANCE_HEADER`（生产常量，任何组织只要配了任意一个已发布画布模板都会
+ * 出现）证明不了「是我这次种的那个模板」；再加一个只查 `system.includes(模板 key)`——
+ * 一旦这个 key 出现在 system prompt 里，`buildCanvasTemplateGuidance` 的固定格式保证它
+ * 一定嵌在 `CANVAS_GUIDANCE_HEADER` 那一段里（拼接函数每个 key 都在同一段落里逐条列出，
+ * 不会出现在别处），单独查 key 已经足够、两者合取只是双保险，两个条件都命中才回显。
+ */
+const CANVAS_TEMPLATE_KEY = process.env.LOOPBACK_MODEL_CANVAS_TEMPLATE_KEY || null;
+const CANVAS_HEADER_FIELD_NAME = process.env.LOOPBACK_MODEL_CANVAS_HEADER_FIELD_NAME || null;
+const CANVAS_SECTION_NAME = process.env.LOOPBACK_MODEL_CANVAS_SECTION_NAME || null;
+
+function canvasGuidanceReachedModel(messages: CompletionRequest["messages"]): boolean {
+  if (CANVAS_TEMPLATE_KEY === null) return false;
+  const system = (messages ?? []).find((message) => message.role === "system")?.content;
+  return typeof system === "string"
+    && system.includes(CANVAS_GUIDANCE_HEADER)
+    && system.includes(CANVAS_TEMPLATE_KEY);
+}
+
+/**
+ * 回复严格按 `buildCanvasTemplateGuidance` 自己写给模型的格式说明产出（`模板: <key>` →
+ * 表头字段行 → `## 分区名` → 要点），这样真实 chat 的围栏解析器（`checkCanvasFence`/
+ * `ensureCanvasFenceTemplate`）拿它当真实模型产出去解析，不需要为测试放宽格式。
+ *
+ * 表头字段值与要点内容用**用户这条消息的原文**（`userText`）——与本文件其余「回显真收到
+ * 的东西」同一条取证纪律：证明画布内容确实随这次真实请求变化，不是写死的固定串。
+ *
+ * ⚠ 整段回复必须以 ```canvas 起始（不能像通用分支那样前面拼 `REPLY_PREFIX `），
+ *   `extractMermaidBlocks` 只认**行首**的围栏分隔符——见 `template-simulate-dialog.tsx`
+ *   同名坑的头注。这条分支直接替换 `fullText`，不参与 `REPLY_PREFIX` 拼接，天然满足。
+ */
+function canvasGuidanceReply(userText: string): string {
+  const value = userText.replace(/[`\n]/g, "").trim().slice(0, 80) || "loopback canvas";
+  return [
+    "```canvas",
+    `模板: ${CANVAS_TEMPLATE_KEY}`,
+    ...(CANVAS_HEADER_FIELD_NAME ? [`${CANVAS_HEADER_FIELD_NAME}: ${value}`] : []),
+    `## ${CANVAS_SECTION_NAME}`,
+    `- ${value}`,
+    "```",
+  ].join("\n");
+}
+
 function readBody(stream: NodeJS.ReadableStream): Promise<string> {
   return new Promise((resolve, reject) => {
     let text = "";
@@ -371,6 +426,8 @@ const server = createServer((req, res) => {
       ? trialRunScriptReply(echoed)
       : isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)
+      : canvasGuidanceReachedModel(parsed.messages)
+      ? canvasGuidanceReply(echoed)
       : `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);
