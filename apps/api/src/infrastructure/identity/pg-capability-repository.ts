@@ -31,6 +31,7 @@ import type {
 import { guard } from "../../application/security/permission-filter";
 import type { CapabilityKind, CapabilityListing } from "../../domain/identity/capability-listing";
 import type { VisibilityScope } from "../../domain/identity/roles";
+import { PLATFORM_ORG_ID } from "../../domain/org-id";
 import type { OrgId } from "../../domain/org-id";
 
 interface Row {
@@ -81,13 +82,22 @@ function toGuarded(row: Row): GuardedCapability {
 export class PgCapabilityRepository implements CapabilityRepository {
   constructor(private readonly db: DatabasePort) {}
 
+  /**
+   * design-delta `platform-owned-skills` -- every read here also matches rows owned by
+   * `PLATFORM_ORG_ID` (the four official Skills' `capability_listings` row), not just the
+   * caller's own org. RLS's `capability_listings_platform_read` policy is what actually
+   * permits reading them; this `OR` is what makes them show up in results instead of just
+   * being technically-readable-but-never-queried. Today only `kind='skill'` rows exist
+   * under the platform org, so this has no effect on agents/MCP/other kinds -- it would
+   * naturally extend to those too if the platform ever owns one.
+   */
   async listByKind(orgId: OrgId, kind: CapabilityKind): Promise<readonly GuardedCapability[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
         `SELECT ${COLUMNS} FROM capability_listings
-          WHERE org_id = $1 AND kind = $2
+          WHERE (org_id = $1 OR org_id = $3) AND kind = $2
           ORDER BY name`,
-        [orgId, kind],
+        [orgId, kind, PLATFORM_ORG_ID],
       );
       return r.rows.map(toGuarded);
     });
@@ -96,8 +106,10 @@ export class PgCapabilityRepository implements CapabilityRepository {
   async listAll(orgId: OrgId): Promise<readonly GuardedCapability[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
-        `SELECT ${COLUMNS} FROM capability_listings WHERE org_id = $1 ORDER BY kind, name`,
-        [orgId],
+        `SELECT ${COLUMNS} FROM capability_listings
+          WHERE org_id = $1 OR org_id = $2
+          ORDER BY kind, name`,
+        [orgId, PLATFORM_ORG_ID],
       );
       return r.rows.map(toGuarded);
     });
@@ -106,8 +118,9 @@ export class PgCapabilityRepository implements CapabilityRepository {
   async findById(orgId: OrgId, id: string): Promise<GuardedCapability | null> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
-        `SELECT ${COLUMNS} FROM capability_listings WHERE org_id = $1 AND id = $2`,
-        [orgId, id],
+        `SELECT ${COLUMNS} FROM capability_listings
+          WHERE (org_id = $1 OR org_id = $3) AND id = $2`,
+        [orgId, id, PLATFORM_ORG_ID],
       );
       const row = r.rows[0];
       return row ? toGuarded(row) : null;

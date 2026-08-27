@@ -31,6 +31,11 @@ import {
   type IdentityRepository,
 } from "../../src/application/identity/ports";
 import { toOrgId } from "../../src/domain/org-id";
+import { OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
+
+/** design-delta `platform-owned-skills`：kind=skill 恒含这四个官方 skill，见
+ *  no-builtin-capability-lists.test.ts 同名常量的头注。 */
+const PLATFORM_SKILL_IDS = OFFICIAL_SKILLS.map((s) => `cap-skill-platform-${s.stableName}`).sort();
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -210,7 +215,12 @@ describe("hard rule 6: F15's routes return what the contract describes", () => {
   });
 
   it("GET /capabilities -- empty, which is the case V1 is about", async () => {
-    const body = await get(BOTH, ORG_A, "skill").then((r) => r.json());
+    // design-delta `platform-owned-skills`: kind=skill is no longer a valid stand-in for
+    // "unconfigured returns []" -- it now always carries the four platform skills (see
+    // no-builtin-capability-lists.test.ts, which owns that assertion). Swapped to `mcp`,
+    // still genuinely empty here, so this test keeps testing what V1 actually claims: the
+    // endpoint has an empty case and it round-trips the contract shape.
+    const body = await get(BOTH, ORG_A, "mcp").then((r) => r.json());
     const parsed = C.operations.listCapabilities.out.safeParse(body);
     expect(parsed.success ? null : parsed.error.issues, JSON.stringify(body)).toBeNull();
     expect(body).toEqual([]);

@@ -23,6 +23,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
+import { PLATFORM_ORG_ID } from "../../domain/org-id";
 import type { OrgId } from "../../domain/org-id";
 import { guard, type Guarded } from "../../application/security/permission-filter";
 import type {
@@ -219,6 +220,17 @@ export class PgAgentRunRepository implements AgentRunStore {
       // #725: also read the Skill's `stable_name`/`name` -- the tool identity/description
       // `tool-definitions.ts` builds from a pinned Skill. Same join shape as before, one
       // more table (`skills`) for the two extra columns.
+      //
+      // design-delta `platform-owned-skills` -- `f.org_id = $1 OR f.org_id = PLATFORM_
+      // ORG_ID`, not just `$1`. This is the ONE query that actually reads a Skill's
+      // executable content for a run (`execute-run.ts`'s `buildSystemPrompt` call) --
+      // every other platform-visibility change (`listAll`/`loadMountableRow`/capability
+      // listing) only affects whether a Skill can be SEEN or MOUNTED. Missing this one
+      // specific OR clause produces the most confusing failure mode in the whole delta:
+      // an org can see the Skill in its catalog, mount it onto a thread successfully,
+      // and then have every run against it fail `SKILL_VERSION_UNAVAILABLE` ("pinned 1,
+      // retrieved 0") the moment it actually tries to use it -- contract.md §4③ calls
+      // this out by name as the easiest spot to forget.
       const result = await s.query<{
         version_id: string; content: Buffer; stable_name: string; name: string;
       }>(
@@ -226,9 +238,9 @@ export class PgAgentRunRepository implements AgentRunStore {
            FROM skill_version_files f
            JOIN skill_versions v ON v.id=f.version_id AND v.org_id=f.org_id
            JOIN skills sk ON sk.id=v.skill_id AND sk.org_id=v.org_id
-          WHERE f.org_id=$1 AND f.version_id = ANY($2::text[])
+          WHERE (f.org_id=$1 OR f.org_id=$3) AND f.version_id = ANY($2::text[])
             AND f.path='SKILL.md' AND v.published`,
-        [orgId, versionIds],
+        [orgId, versionIds, PLATFORM_ORG_ID],
       );
       const byVersion = new Map(
         result.rows.map((row) => [
