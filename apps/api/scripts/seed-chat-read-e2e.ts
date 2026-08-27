@@ -381,6 +381,11 @@ await asApp(ORG_ID, async (client) => {
     ATTACHMENT_PREVIEW_THREAD_ID, DIAGRAM_ROUNDTRIP_THREAD_ID,
     L2_CHECK_THREAD_ID, TOOL_TRACE_CHECK_THREAD_ID,
     KEYBOARD_THREAD_A_ID, KEYBOARD_THREAD_B_ID,
+    // 5 点迭代要求第②条 —— 真栈 E2E 第一轮实测踩出的真实缺口：漏种这一行，编制里
+    // 没有在场 agent，`chat-live-message-panel.tsx` 默认选不出发送目标，发送按钮
+    // 永久 disabled——不是网络抖动，是本条线程从未进过编制，180s 超时如实反映了
+    // 「这条线程发不出消息」这件事，不是本仓其余部分的锅。
+    CANVAS_GUIDANCE_THREAD_ID,
   ]) {
     await client.query(
       "INSERT INTO chat_thread_agents (thread_id, org_id, agent_id, presence) VALUES ($1,$2,$3,'present')",
