@@ -109,6 +109,12 @@ test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长
     "DA-19g 第 1 项流式反馈帧级复核——请返回一段足够长的确定性回复内容，" +
     "用于在浏览器内独立采样 DOM 文本长度随时间变化的真实序列，不依赖 wire 级证据。";
 
+  // issue #2206：`goto("/chat")` 之后页面还在客户端渲染，`copilotkit-v2-messages`
+  // 容器不是立即挂载的——之前直接在下面 `page.evaluate` 里同步 querySelector，
+  // 挂载竞态时会抛 "container not mounted yet"（setup 阶段偶发/在部分负载下稳定抛错）。
+  // 显式等它挂载完，不是等某条业务数据，纯粹是 DOM 存在性门。
+  await page.waitForSelector('[data-testid="copilotkit-v2-messages"]', { state: "attached" });
+
   // 在点击发送之前先挂好观测器，避免错过最早的几个分片。
   await page.evaluate(() => {
     const container = document.querySelector('[data-testid="copilotkit-v2-messages"]');
