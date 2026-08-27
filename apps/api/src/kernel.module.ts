@@ -146,7 +146,8 @@ import { PgProvenanceRepository } from "./infrastructure/provenance/pg-provenanc
 import type { DatabasePort } from "./application/ports/database.port";
 // F973 (plan-control 契约束).
 import {
-  PLAN_LEDGER_REPOSITORY, PLAN_RUN_STATUS_READER, type PlanRunStatusReader,
+  PLAN_LEDGER_REPOSITORY, PLAN_RUN_STATUS_READER,
+  type PlanLedgerRepository, type PlanRunStatusReader,
 } from "./application/plan-control/ports";
 import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-ledger-repository";
 // F975/F976 (plan-control 契约束) —— UC-7/UC-9/UC-10/UC-13 的两个横切端口。两个 infra 实现
@@ -832,20 +833,26 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // F975/F976 (plan-control 契约束) —— 见上方 import 处的注记：这两个 infra 实现早就
     // 写好，只是从没绑进容器。`AcceptMessagePlanRunCreator` 复用既有的「人类消息入口」
     // 依赖集合（与 `ChatController.messageDeps` 同一组 token），不新造第二套。
+    // issue #2250 -- 额外注入 `AGENT_RUN_STORE`/`LOGGER_PORT`：confirm/resume/retry 触发的
+    // 续跑不再是纯 fire-and-forget 的 `kick`，还需要回读这条 run 自己的 steps 把
+    // `write_todos` 结果喂回 `chat_plan_ledgers`（见该类文件头长注）。`runs` 的类型加宽到
+    // `PlanLedgerRepository & PlanRunStatusReader`——`PLAN_RUN_STATUS_READER` 这个 token
+    // 背后就是同一个 `PgPlanLedgerRepository` 实例（本文件上面 `useExisting` 那行的
+    // 注记），不是新绑一个 provider。
     {
       provide: PLAN_RUN_CREATOR,
       useFactory: (
         repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository,
         commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
         threadMounts: ThreadMountedSkillReader, executor: AgentRunExecutorPort,
-        runs: PlanRunStatusReader,
+        runs: PlanLedgerRepository & PlanRunStatusReader, agentRunStore: AgentRunStore, logger: LoggerPort,
       ) => new AcceptMessagePlanRunCreator({
-        repo, ids, chat, commands, publishedAgents, threadMounts, executor, runs,
+        repo, ids, chat, commands, publishedAgents, threadMounts, executor, runs, agentRunStore, logger,
       }),
       inject: [
         IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
         CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
-        AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER,
+        AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER, AGENT_RUN_STORE, LOGGER_PORT,
       ],
     },
     {
