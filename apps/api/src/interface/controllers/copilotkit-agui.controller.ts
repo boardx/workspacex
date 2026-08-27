@@ -107,8 +107,15 @@ import {
 } from "../../application/chat/message-command-ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import {
-  AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, type AgentRunStore, type AgentRunExecutorPort,
+  AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, MODEL_CALL_PORT,
+  type AgentRunStore, type AgentRunExecutorPort, type ModelCallPort,
 } from "../../application/agent-run/ports";
+// 2026-08-27：自动命名叠加模型摘要（`generate-thread-title.ts`），同 REST 轨道
+// （`chat.controller.ts`）的既有先例——两条轨道都过 `acceptHumanMessage`，
+// 缺一条就是两份规则。
+import {
+  THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig,
+} from "../../application/chat/generate-thread-title";
 import {
   runAguiBridgeTurn, resumeAguiBridgeTurn, NoAwaitingApprovalRunError,
   AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
@@ -129,11 +136,6 @@ import {
 } from "../../application/chat/upload-attachment";
 import { listThreadAttachments } from "../../application/chat/list-thread-attachments";
 import { buildFileCreatedEvents } from "../../application/agent-run/agui-file-events";
-import {
-  PLAN_LEDGER_REPOSITORY, type PlanLedgerRepository,
-} from "../../application/plan-control/ports";
-import { ingestEnginePlanSnapshot } from "../../application/plan-control/ingest-engine-plan-snapshot";
-import type { PlanStepStatus } from "@repo/contracts/plan-control";
 
 /**
  * chat-parity-attachments (issue #2022) -- validate+cap `forwardedProps.attachmentIds`
@@ -329,11 +331,6 @@ function parseHitlDecision(
  */
 function writeToolCallStep(
   write: (event: AguiEvent) => void, step: RunStepPublic, isPendingApproval: boolean,
-  // F973 (UC-2 `ingestEnginePlanSnapshot`) -- fired at the SAME判定点 as `STATE_SNAPSHOT`
-  // below, not a second trigger path (`usecases.md` UC-2 requires exactly this). Optional
-  // and fire-and-forget from this function's point of view: the caller (`bridge()`) owns
-  // awaiting/logging, this function only decides WHEN to call it, not how failures behave.
-  onPlanSnapshot?: (todos: ReadonlyArray<{ readonly content: string; readonly status: PlanStepStatus }>) => void,
 ): void {
   const stepName = step.toolName ?? "未知工具";
   write({ type: EventType.STEP_STARTED, stepName });
@@ -406,8 +403,6 @@ function writeToolCallStep(
     const snapshot = parseWriteTodosSnapshot(step.toolArgsSummary);
     if (snapshot !== null) {
       write({ type: EventType.STATE_SNAPSHOT, snapshot });
-      // F973 UC-2 -- 同一判定点，落 `chat_plan_ledgers`（不新建第二条触发路径）。
-      onPlanSnapshot?.(snapshot.todos);
     }
   }
 }
@@ -467,9 +462,14 @@ export class CopilotkitAguiController {
     // this same thread's already-materialized attachments (`listThreadAttachments`), it
     // never writes through this port.
     @Inject(CHAT_ATTACHMENT_COMMAND_REPOSITORY) private readonly attachments: AttachmentCommandRepository,
-    // F973 UC-2 -- `chat_plan_ledgers` 的写入端口，见 `writeToolCallStep`'s `onPlanSnapshot`。
-    @Inject(PLAN_LEDGER_REPOSITORY) private readonly planLedger: PlanLedgerRepository,
+    @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
+    @Inject(THREAD_TITLE_MODEL_CONFIG) private readonly titleModel: ThreadTitleModelConfig,
   ) {}
+
+  /** Server-side only, same adapter shape as `ChatFollowUpSuggestionsController`'s. */
+  private readonly log = (message: string, detail: Record<string, unknown>): void => {
+    this.logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+  };
 
   private get deps() {
     return {
@@ -481,6 +481,7 @@ export class CopilotkitAguiController {
       // function's own doc) wants a plain `kick`, not the whole executor port -- same shape
       // `agent-run.controller.ts`'s REST decision route already injects it as.
       kick: (orgId: OrgId) => this.executor.kick(orgId),
+      model: this.model, titleModel: this.titleModel, log: this.log,
     };
   }
 
@@ -662,27 +663,7 @@ export class CopilotkitAguiController {
         // [planning note text] → TOOL_CALL_START/ARGS/END/RESULT → STEP_FINISHED sequence
         // per step. DA-19g: an `"in_progress"` one (a pending HITL interrupt) stops short of
         // RESULT/STEP_FINISHED instead -- see `writeToolCallStep`'s own doc.
-        onStep: (step: RunStepPublic, isPendingApproval: boolean) => writeToolCallStep(
-          write, step, isPendingApproval,
-          (todos) => {
-            // F973 UC-2 -- `resolvedThreadId` is set by `onThreadResolved`, which fires
-            // BEFORE `onStarted`/any `onStep` in this same turn (see that field's own doc
-            // above) -- so it is always non-null by the time a real `write_todos` step
-            // reaches here. Fire-and-forget + logged, not awaited: `usecases.md` UC-2 says
-            // a failed ingest should fail the whole run, but doing that FOR REAL needs
-            // `agui-bridge.ts`'s poll loop to await `onStep` -- a change to an already
-            // signed-off, cross-bundle file this feature's scope does not cover. Scoped,
-            // stated compromise (see this PR's description), not a silent gap.
-            if (resolvedThreadId === null) return;
-            void ingestEnginePlanSnapshot(this.planLedger, {
-              orgId: toOrgId(principal.orgId), threadId: resolvedThreadId, todos,
-            }).catch((err: unknown) => {
-              this.logger.error("plan-control: ingestEnginePlanSnapshot failed", {
-                traceId: randomUUID(), threadId: resolvedThreadId, err,
-              });
-            });
-          },
-        ),
+        onStep: (step: RunStepPublic, isPendingApproval: boolean) => writeToolCallStep(write, step, isPendingApproval),
       };
 
       // DA-19g -- `forwardedProps.chatThreadId` is the PRIMARY source (an explicit caller

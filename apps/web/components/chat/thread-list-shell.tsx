@@ -286,7 +286,7 @@ export function ThreadCardButton({
             （自动命名：线程列表不得一屏全是「新对话」）。锚在标题这一个 span 上，
             不是整张卡：断言读的是标题文本，锚整张卡会把副行的状态/时间也读进来，
             于是「标题还叫新对话」这条会被副行的文字冲淡成绿的。 */}
-        <span data-testid="chat-task-workbench-thread-title" className="line-clamp-2 text-12 font-medium">
+        <span data-testid="chat-task-workbench-thread-title" className="truncate text-12 font-medium">
           {card.title}
         </span>
         <ThreadMeta card={card} />

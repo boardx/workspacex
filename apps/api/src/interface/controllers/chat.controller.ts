@@ -12,6 +12,7 @@
  *   它是内部判定记录与审计里的字段；放进响应体，I-3 就白做了——
  *   「组织层拒的」与「项目层拒的」这两种回答本身就能反推出资源存在。
  */
+import { randomUUID } from "node:crypto";
 import {
   BadRequestException, Body, ConflictException, Controller, ForbiddenException, Get, GoneException, HttpCode,
   HttpStatus, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException,
@@ -168,8 +169,12 @@ import {
   MessageThreadNotVisibleError,
 } from "../../application/chat/message-roundtrip";
 import {
-  AGENT_RUN_EXECUTOR, type AgentRunExecutorPort,
+  AGENT_RUN_EXECUTOR, MODEL_CALL_PORT, type AgentRunExecutorPort, type ModelCallPort,
 } from "../../application/agent-run/ports";
+import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import {
+  THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig,
+} from "../../application/chat/generate-thread-title";
 
 export const RESOLVE_VISIBILITY_SCHEMA = C.operations.resolveVisibility.in;
 export const ADMIN_AUDIT_READ_SCHEMA = C.operations.adminAuditRead.in;
@@ -273,16 +278,28 @@ export class ChatController {
     @Inject(AGENT_RUN_EXECUTOR) private readonly agentRuns: AgentRunExecutorPort,
     // #728 D4：线程卡副行读项目名，见 `application/project/ports.ts` 该端口文件头。
     @Inject(PROJECT_NAME_LOOKUP) private readonly projectNames: ProjectNameLookupPort,
+    // 2026-08-27：自动命名叠加模型摘要（`generate-thread-title.ts`）。固定走这个部署
+    // 配置的标准 provider，不是被选中 Agent 的快照——同 `ChatFollowUpSuggestionsController`
+    // 的既有先例。
+    @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    @Inject(THREAD_TITLE_MODEL_CONFIG) private readonly titleModel: ThreadTitleModelConfig,
   ) {}
 
   private get deps() {
     return { repo: this.repo, ids: this.ids, chat: this.chat };
   }
 
+  /** Server-side only, same adapter shape as `ChatFollowUpSuggestionsController`'s. */
+  private readonly log = (message: string, detail: Record<string, unknown>): void => {
+    this.logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+  };
+
   private get messageDeps() {
     return {
       ...this.deps, commands: this.messageCommands, publishedAgents: this.publishedAgents,
       threadMounts: this.threadMounts,
+      model: this.model, titleModel: this.titleModel, log: this.log,
     };
   }
 

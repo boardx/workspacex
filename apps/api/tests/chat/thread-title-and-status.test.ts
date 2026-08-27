@@ -11,7 +11,9 @@
  * ⚠ 本文件**不重复** e2e 已经证明的东西。两处证同一件事就是「同一事实声明在两处」。
  */
 import { describe, expect, it } from "vitest";
-import { AUTO_TITLE_MAX_LENGTH, deriveThreadTitle } from "../../src/domain/chat/thread-title";
+import {
+  AUTO_TITLE_MAX_LENGTH, clampModelGeneratedTitle, deriveThreadTitle,
+} from "../../src/domain/chat/thread-title";
 import { threadCardStatus } from "../../src/domain/chat/thread-badges";
 
 describe("deriveThreadTitle —— 自动命名（#2094）", () => {
@@ -52,6 +54,34 @@ describe("deriveThreadTitle —— 自动命名（#2094）", () => {
   it("正文全是空白 ⇒ 返回 null，不编一个标题", () => {
     expect(deriveThreadTitle("")).toBeNull();
     expect(deriveThreadTitle("   \n\t  ")).toBeNull();
+  });
+});
+
+/**
+ * `clampModelGeneratedTitle`（2026-08-27，`generate-thread-title.ts` 叠加模型摘要）——
+ * 与 `deriveThreadTitle` 共用同一段 `collapseAndClamp`，这里只钉「模型输出不可信任」
+ * 这一件事：模型可能带多余空白/换行，也可能不老实守住 prompt 里要求的长度。
+ */
+describe("clampModelGeneratedTitle —— 模型摘要的收尾（不信任模型已经产出干净短标题）", () => {
+  it("干净的模型输出原样成为标题", () => {
+    expect(clampModelGeneratedTitle("周报撰写协助")).toBe("周报撰写协助");
+  });
+
+  it("模型带多余空白/换行——同 deriveThreadTitle 一样折叠成单个空格", () => {
+    expect(clampModelGeneratedTitle("\n  周报撰写协助  \n")).toBe("周报撰写协助");
+  });
+
+  it("模型没守住长度要求——仍按同一上限与码点纪律截断，不是第二份规则", () => {
+    const overLong = "一份非常详尽的关于国内协同白板产品竞品格局分析报告草案";
+    const title = clampModelGeneratedTitle(overLong);
+    expect(title).not.toBeNull();
+    expect(Array.from(title as string)).toHaveLength(AUTO_TITLE_MAX_LENGTH);
+    expect(title?.endsWith("…")).toBe(true);
+  });
+
+  it("模型回复全是空白 ⇒ 返回 null（调用点据此落回 deriveThreadTitle）", () => {
+    expect(clampModelGeneratedTitle("")).toBeNull();
+    expect(clampModelGeneratedTitle("   \n\t  ")).toBeNull();
   });
 });
 

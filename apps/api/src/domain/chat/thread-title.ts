@@ -23,6 +23,14 @@
  * ⚠ 这里**故意留了缝**给将来的模型摘要：`deriveThreadTitle` 是纯函数且是唯一入口，
  *   将来若要叠模型，只需在调用点先试模型、失败落回本函数，**不必**再写第二份截断规则。
  *
+ * ## 2026-08-27 更新：模型摘要已落地（人类裁决，接受代价）
+ *
+ * 见 `application/chat/generate-thread-title.ts` 头注——`message-roundtrip.ts` 的调用点
+ * 现在先试模型，模型不可用/超时/空结果时落回本文件的 `deriveThreadTitle`。**本文件
+ * 一行没改**：`deriveThreadTitle` 仍是纯函数、仍是唯一的截断规则来源，落地的只是
+ * `clampModelGeneratedTitle`——它与 `deriveThreadTitle` 共用同一段折叠/码点截断逻辑
+ * （`collapseAndClamp`），不是第二份规则。
+ *
  * ## 生成时机：服务端，首条用户消息落库时
  *
  * 在 `acceptHumanMessage`（`application/chat/message-roundtrip.ts`）里、消息写入成功
@@ -71,11 +79,31 @@ const ELLIPSIS = "…";
  *          那比留着「新对话」更糟：用户看不出是没起名还是起名失败。
  */
 export function deriveThreadTitle(body: string): string | null {
-  const collapsed = body.replace(/\s+/gu, " ").trim();
+  return collapseAndClamp(body);
+}
+
+/**
+ * 折叠/截断的共享实现——`deriveThreadTitle`（首条消息截断）与
+ * `clampModelGeneratedTitle`（模型摘要的收尾处理）**必须**共用同一段规则，
+ * 不能各写一份：那会是「同一事实声明在两处」，两处上限/码点纪律迟早漂移。
+ */
+function collapseAndClamp(text: string): string | null {
+  const collapsed = text.replace(/\s+/gu, " ").trim();
   if (collapsed.length === 0) return null;
 
   // `Array.from` 按码点切分；`slice` 直接按 code unit 会劈开代理对。
   const points = Array.from(collapsed);
   if (points.length <= AUTO_TITLE_MAX_LENGTH) return collapsed;
   return points.slice(0, AUTO_TITLE_MAX_LENGTH - 1).join("") + ELLIPSIS;
+}
+
+/**
+ * 模型生成的标题落地前的收尾——**不信任模型已经产出一个干净的短标题**：模型可能
+ * 带换行/多余空白，也可能超出 `AUTO_TITLE_MAX_LENGTH`（prompt 只是要求，不是约束）。
+ * 复用 `collapseAndClamp`，与 `deriveThreadTitle` 逐字同一套折叠/截断规则——见本文件
+ * 「2026-08-27 更新」一节。空白/空结果同样返回 `null`，调用点据此落回
+ * `deriveThreadTitle(首条消息原文)`，而不是把一个空标题写进 `title` 列。
+ */
+export function clampModelGeneratedTitle(text: string): string | null {
+  return collapseAndClamp(text);
 }

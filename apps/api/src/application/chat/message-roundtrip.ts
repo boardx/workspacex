@@ -6,6 +6,9 @@ import { observerMayReadMessage } from "../../domain/chat/thread-visibility";
 // ——在这里再写一遍 `"新对话"` 就是「同一事实声明在两处」，而漂移那天没人会收到通知。
 import { deriveThreadTitle } from "../../domain/chat/thread-title";
 import { DEFAULT_PERSONAL_THREAD_TITLE } from "./mutate-thread";
+// 2026-08-27：自动命名叠加模型摘要，见 `generate-thread-title.ts` 头注。
+import type { GenerateThreadTitleDeps } from "./generate-thread-title";
+import { generateThreadTitle } from "./generate-thread-title";
 import type { ResolveVisibilityDeps } from "./resolve-visibility";
 import { resolveVisibility } from "./resolve-visibility";
 import type {
@@ -24,7 +27,7 @@ export class InvalidMessageCursorError extends Error {}
 /** #946 · V9-a F151：attachmentIds 有不属本线程/已挂过/不存在的 id。→ 控制器 422。 */
 export class MessageAttachmentNotPendingError extends Error {}
 
-interface Deps extends ResolveVisibilityDeps {
+interface Deps extends ResolveVisibilityDeps, GenerateThreadTitleDeps {
   readonly commands: ChatMessageCommandRepository;
   readonly publishedAgents: PublishedAgentReader;
   /**
@@ -192,13 +195,19 @@ export async function acceptHumanMessage(
  * 项目线程的标题由用户在创建时必填（`normalizeTitle` 拒绝空标题），不可能等于
  * `DEFAULT_PERSONAL_THREAD_TITLE`，于是这条 UPDATE 对它们恒为 no-op。
  * 这不是加了 `if`，是条件本身就排除了它们。
+ *
+ * ## 2026-08-27 更新：先试模型，失败落回截断
+ *
+ * 见 `generate-thread-title.ts` 头注——`deriveThreadTitle` 一行没改，仍是失败/超时
+ * 时唯一的落地点；这里只是多了一步"先问一次模型"。
  */
 async function autoTitleFromFirstMessage(
   deps: Deps,
   input: { readonly orgId: OrgId; readonly threadId: string; readonly text: string },
 ): Promise<void> {
-  const title = deriveThreadTitle(input.text);
-  // 正文全是空白 ⇒ 没有可用输入。留着「新对话」，不编一个。
+  const modelTitle = await generateThreadTitle(deps, { firstMessageText: input.text }).catch(() => null);
+  const title = modelTitle ?? deriveThreadTitle(input.text);
+  // 正文全是空白 ⇒ 没有可用输入（模型也不可能凭空产出）。留着「新对话」，不编一个。
   if (title === null) return;
   try {
     await deps.chat.autoTitleThreadIfDefault(
