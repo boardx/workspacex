@@ -24,10 +24,32 @@
  * 个 key 的写死几何兜底——呼应 5 点要求第④条「任何组织都可以使用这个能力」：本用例的
  * 组织不是任何特殊组织，模板也不是内置模板，key 不在 `BUILTIN_CANVAS_TEMPLATES` 里。
  */
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 
 const PROOF_TEXT = "帮我记一下这次负责人信息，代号 E2E-CANVAS-6031";
+
+/**
+ * 真栈 E2E 第三轮实测踩出的坑，与前两轮同一个根因（run 落终态那一刻的软刷新窗口）：
+ * `data-ready`/`data-template-source` 断言只保证围栏组件本身的 DOM 已经稳定，不保证
+ * 「点一下就一定弹出弹窗」这个动作在软刷新的间隙里不会被吞——`click()` 本身不重试，
+ * 一撞上那个瞬间弹窗就是没弹出来，`chat-canvas-modal` 30s 超时。同
+ * `chat-diagram-save-reopen-roundtrip.spec.ts` 里 `loadAllMessagePages` 那个既有 helper
+ * 一套思路：点击这个动作本身允许重试，不是只重试断言。
+ */
+async function clickMaximizeUntilModalVisible(canvasFence: Locator, page: Page): Promise<void> {
+  const modal = page.getByTestId("chat-canvas-modal");
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    await canvasFence.getByTestId("chat-canvas-maximize").click();
+    try {
+      await expect(modal).toBeVisible({ timeout: 10_000 });
+      return;
+    } catch {
+      // 这一次点击被软刷新吞了：再试一轮。
+    }
+  }
+  await expect(modal).toBeVisible();
+}
 
 test("真实 chat 一轮对话后，模型产出的 canvas 围栏真的渲染成工作坊画布", async ({ page }) => {
   test.setTimeout(180_000);
@@ -80,10 +102,9 @@ test("真实 chat 一轮对话后，模型产出的 canvas 围栏真的渲染成
 
   // ── 结构性证明②：内容确实随这次真实请求变化——打开编辑器看围栏源，含证明串 ──
   // 走到这里 DOM 已经稳定（上面的属性断言已经成功过一次），`click()` 本身也会自动把
-  // 目标滚进视口，不需要再单独调用 `scrollIntoViewIfNeeded`。
-  await canvasFence.getByTestId("chat-canvas-maximize").click();
-  const modal = page.getByTestId("chat-canvas-modal");
-  await expect(modal).toBeVisible();
+  // 目标滚进视口，不需要再单独调用 `scrollIntoViewIfNeeded`；点击本身仍可能撞上软刷新
+  // 窗口被吞，见 `clickMaximizeUntilModalVisible` 头注。
+  await clickMaximizeUntilModalVisible(canvasFence, page);
   // 弹窗里的编辑器是 `canvas-stage.tsx`（拖拽版编辑器同一个组件），不是消息气泡内联
   // 预览那个只读 `chat-canvas-fabric-surface`——两者共享 fabric.js 但是两份 DOM 节点。
   await expect(page.getByTestId("canvas-fabric-surface")).toBeVisible({ timeout: 30_000 });
