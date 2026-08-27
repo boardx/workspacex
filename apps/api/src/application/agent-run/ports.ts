@@ -146,6 +146,20 @@ export interface PinnedSkillContent {
   readonly name: string;
 }
 
+/**
+ * The one deep-agent provider name (#740). Declared here, not in
+ * `infrastructure/agent-run/deep-agent-model-provider.ts` where it originally lived,
+ * because design-delta `skill-lazy-loading` needs to compare `run.modelProvider` against
+ * it from `application/agent-run/execute-run.ts` -- an `application`-layer file may only
+ * import `domain`, never `infrastructure` (`lint-arch-deps.mjs`, ADR-020). Moving the ONE
+ * declaration to the layer both sides can reach, rather than adding a second `const` with
+ * the same string in `execute-run.ts`, keeps this a single-source fact (AGENTS.md: "同一
+ * 事实不得声明在两处"). `deep-agent-model-provider.ts` re-exports it so its existing
+ * importers (`kernel.module.ts`, `pg-chat-message-command-repository.ts`,
+ * `pg-default-agent-repository.ts`) do not need their import paths touched.
+ */
+export const DEEP_AGENT_PROVIDER_NAME = "deep-agent";
+
 export interface AppendedRunStep {
   readonly runId: string;
   readonly seq: number;

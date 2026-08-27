@@ -26,7 +26,7 @@ describe("VZ-02 buildSystemPrompt 追加可视化指引", () => {
   });
 
   it("顺序：指令 → skills → 可视化指引（指引在最后，不抢 skill 位）", () => {
-    const sys = buildSystemPrompt("INSTR", [{ versionId: "v1", content: "SKILL-A" }]);
+    const sys = buildSystemPrompt("INSTR", [{ versionId: "v1", stableName: "skill-a", content: "SKILL-A" }]);
     expect(sys.indexOf("INSTR")).toBeLessThan(sys.indexOf("SKILL-A"));
     expect(sys.indexOf("SKILL-A")).toBeLessThan(sys.indexOf("## 可视化"));
   });

@@ -31,8 +31,8 @@ describe("issue #1493 buildCanvasTemplateGuidance", () => {
 
 describe("issue #1493 buildSystemPrompt 的可选 canvasGuidance 参数", () => {
   it("不传第三参数 —— 与本次改动之前逐字节相同（既有调用点 trial-run-agent/quick-digital-interview 不受影响）", () => {
-    const withoutArg = buildSystemPrompt("INSTR", [{ versionId: "v1", content: "SKILL-A" }]);
-    const withUndefined = buildSystemPrompt("INSTR", [{ versionId: "v1", content: "SKILL-A" }], undefined);
+    const withoutArg = buildSystemPrompt("INSTR", [{ versionId: "v1", stableName: "skill-a", content: "SKILL-A" }]);
+    const withUndefined = buildSystemPrompt("INSTR", [{ versionId: "v1", stableName: "skill-a", content: "SKILL-A" }], undefined);
     expect(withoutArg).toBe(withUndefined);
     expect(withoutArg).toBe(["INSTR", "SKILL-A", VISUALIZATION_GUIDANCE].join("\n\n"));
   });
