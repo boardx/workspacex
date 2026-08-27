@@ -145,8 +145,18 @@ import { PgContentRepository } from "./infrastructure/content/pg-content-reposit
 import { PgProvenanceRepository } from "./infrastructure/provenance/pg-provenance-repository";
 import type { DatabasePort } from "./application/ports/database.port";
 // F973 (plan-control 契约束).
-import { PLAN_LEDGER_REPOSITORY, PLAN_RUN_STATUS_READER } from "./application/plan-control/ports";
+import {
+  PLAN_LEDGER_REPOSITORY, PLAN_RUN_STATUS_READER, type PlanRunStatusReader,
+} from "./application/plan-control/ports";
 import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-ledger-repository";
+// F975/F976 (plan-control 契约束) —— UC-7/UC-9/UC-10/UC-13 的两个横切端口。两个 infra 实现
+// （AcceptMessagePlanRunCreator / DeepAgentEngineRunController）在合入时就已写好，只是从未
+// 被绑进这个容器——issue（本 PR 描述）：接线 copilotkit-v2-panel 时发现除 UC-1 外的全部
+// plan-control 写操作在真实 app 里没有 HTTP 面，只在测试里手工 new 过依赖。
+import { PLAN_RUN_CREATOR } from "./application/plan-control/plan-run-creator-port";
+import { ENGINE_RUN_CONTROLLER } from "./application/plan-control/engine-run-controller-port";
+import { AcceptMessagePlanRunCreator } from "./infrastructure/plan-control/accept-message-plan-run-creator";
+import { DeepAgentEngineRunController } from "./infrastructure/plan-control/deep-agent-engine-run-controller";
 // F19 (auth bundle). Kept as one contiguous block so the parallel auth features can add
 // their providers next to it without three-way merges in the middle of an existing list.
 import { REGISTRATION_REPOSITORY } from "./application/auth/ports";
@@ -260,7 +270,7 @@ import {
 } from "./infrastructure/interview/pg-consent-token-repository";
 // F108（phase-01 chat 束）：对话可见性。⚠ 只有**读**端口——线程的新建/改名/删除属 F109，
 // 这里没有它们的 provider，是因为给一个不存在的能力留绑定，会让下一个人以为它已经在跑了。
-import { CHAT_PRESET_REPOSITORY, CHAT_REPOSITORY } from "./application/chat/ports";
+import { CHAT_PRESET_REPOSITORY, CHAT_REPOSITORY, type ChatRepository } from "./application/chat/ports";
 import { ARTIFACT_LANDING_REPOSITORY } from "./application/chat/artifact-landing-ports";
 import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
 import {
@@ -268,6 +278,9 @@ import {
   DEFAULT_AGENT_RESOLVER,
   PUBLISHED_AGENT_READER,
   THREAD_MOUNTED_SKILL_READER,
+  type ChatMessageCommandRepository,
+  type PublishedAgentReader,
+  type ThreadMountedSkillReader,
 } from "./application/chat/message-command-ports";
 import {
   PgChatMessageCommandRepository,
@@ -303,7 +316,7 @@ import { ChatController } from "./interface/controllers/chat.controller";
 // 快照来自 #415 在受理时写下的 run 行；本束不解析 Agent head，也不做 provider fallback。
 import {
   AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT, TOKEN_USAGE_METER,
-  type AgentRunStore, type ModelCallPort, type TokenUsageMeterPort,
+  type AgentRunExecutorPort, type AgentRunStore, type ModelCallPort, type TokenUsageMeterPort,
 } from "./application/agent-run/ports";
 import { PgAgentRunRepository } from "./infrastructure/agent-run/pg-agent-run-repository";
 import { AGENT_RUN_CONTEXT_SNAPSHOT } from "./application/agent-run/context-snapshot";
@@ -815,6 +828,29 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PLAN_RUN_STATUS_READER,
       useExisting: PLAN_LEDGER_REPOSITORY,
+    },
+    // F975/F976 (plan-control 契约束) —— 见上方 import 处的注记：这两个 infra 实现早就
+    // 写好，只是从没绑进容器。`AcceptMessagePlanRunCreator` 复用既有的「人类消息入口」
+    // 依赖集合（与 `ChatController.messageDeps` 同一组 token），不新造第二套。
+    {
+      provide: PLAN_RUN_CREATOR,
+      useFactory: (
+        repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository,
+        commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
+        threadMounts: ThreadMountedSkillReader, executor: AgentRunExecutorPort,
+        runs: PlanRunStatusReader,
+      ) => new AcceptMessagePlanRunCreator({
+        repo, ids, chat, commands, publishedAgents, threadMounts, executor, runs,
+      }),
+      inject: [
+        IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
+        CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
+        AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER,
+      ],
+    },
+    {
+      provide: ENGINE_RUN_CONTROLLER,
+      useFactory: () => new DeepAgentEngineRunController(),
     },
     {
       provide: PROVENANCE_READER,
