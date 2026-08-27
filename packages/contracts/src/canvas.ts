@@ -32,6 +32,22 @@ export const TemplateStatus = z.enum(["draft", "trial", "published", "archived"]
 export const TemplateVisibility = z.enum(["org-wide", "team-only"]);
 
 /**
+ * 一行模板的几何/呈现内容是「组织真的编辑过」还是「只是 backfill 推算出来的默认值」——
+ * 单一事实源（#2221）。**不是**「DB 里有没有行」：`backfill-canvas-builtin-templates.ts`
+ * 给每个开通过的组织把 19 个内置 key 的行都建好了，"有行"对内置 key 恒真，不能拿它当
+ * "用户真的改过"的判据，否则 chat 围栏渲染永远读不到模板编辑器里发布的自定义（根因见 issue）。
+ *
+ * · `builtin-derived`——这一行的内容来自 backfill 推算（或从未被真人在编辑器里改动过）。
+ *   对 19 个内置 key，`fence-template-resolver.ts` 在这种情况下**仍用** `fabric-markdown`
+ *   包内原生几何，不采用这一行——避免"库里有行就当已自定义"的误判。
+ * · `user-edited`——真人在模板编辑器里通过 `mintTemplateVersion`/`updateTemplateDraft`
+ *   改过 sections/几何并保存过。**一旦某个 key 的某一行被标过一次 `user-edited`，
+ *   不可退回 `builtin-derived`**——语义是"人类介入过"，不是"当前内容是否等于默认值"，
+ *   刻意不用内容比对做判据（比对脆弱：改完又改回默认值，不代表"从没被人碰过"）。
+ */
+export const TemplateLayoutSource = z.enum(["builtin-derived", "user-edited"]);
+
+/**
  * 19 个内置《工作坊模板 A0》的 `key → displayName` —— **本仓这一列的唯一事实源**（O-09 / I-2）。
  *
  * ⚠ 三件事必须同时成立，否则本表就是缺陷而不是契约：
@@ -440,6 +456,12 @@ export const operations = {
       sections: z.array(SectionDef),
       /** 出门永远是真实数组（落库时已经把省略/`null` 归一成 `[]`），不是可选。 */
       tags: z.array(z.string()),
+      /**
+       * #2221：新建的这一行**恒为** `builtin-derived`——创建路径不接受这一栏，服务端写死。
+       * 「组织真的自定义过」这件事只能由后续一次真实编辑（`updateTemplateDraft`/
+       * `mintTemplateVersion`）产生，新建这一刻还没有内容可言。
+       */
+      layoutSource: z.literal("builtin-derived"),
     }).strict(),
     err: ["TEMPLATE_KEY_CONFLICT", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
@@ -486,6 +508,11 @@ export const operations = {
       underlyingType: z.string(),
       sections: z.array(SectionDef),
       tags: z.array(z.string()),
+      /**
+       * #2221：本操作就是「编辑器保存草稿的分区/几何」，恒写 `user-edited`（一旦落这个值，
+       * 不可退回 `builtin-derived`——见 `TemplateLayoutSource` 的完整语义）。
+       */
+      layoutSource: z.literal("user-edited"),
     }).strict(),
     err: ["TEMPLATE_NOT_FOUND", "TEMPLATE_NOT_DRAFT", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
@@ -788,6 +815,13 @@ export const operations = {
       underlyingType: z.string(),
       sections: z.array(SectionDef),
       tags: z.array(z.string()),
+      /**
+       * #2221：真实 HTTP 调用（编辑器「基于此开新版」）恒写 `user-edited`——铸新版本
+       * 本身就是一次真实编辑。只有 `backfill-canvas-builtin-templates.ts` 走的内部
+       * 标记路径（不进本契约 `in`，外部调用方无法伪造）才写 `builtin-derived`，且仅当
+       * 该 key 此前从未被标过 `user-edited`（一旦标过不可退回）。
+       */
+      layoutSource: TemplateLayoutSource,
     }).strict(),
     err: [
       "TEMPLATE_NOT_FOUND", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE",
@@ -839,6 +873,11 @@ export const operations = {
          * 要改它得先 `adoptTemplate` 复制成自己的一份。
          */
         platform: z.boolean(),
+        /**
+         * #2221：chat 围栏渲染据此判断「这一行算不算组织真的自定义过」。
+         * 见 `TemplateLayoutSource` 的完整语义与不可退回规则。
+         */
+        layoutSource: TemplateLayoutSource,
       }).strict()),
     }).strict(),
     err: ["NO_PROJECT_ROLE", "DEPENDENCY_UNAVAILABLE"] as const,

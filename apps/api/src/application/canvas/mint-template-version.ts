@@ -22,6 +22,15 @@
  *   `createTemplate` 唯一的行为差异：`create-template.ts` 在这一步是静默 fail-closed
  *   （建完看不见），本操作是造之前就当场拒绝。两种颗粒度并存于同一个束是签核材料
  *   明确允许的（`design-signoff.md`「人类可以逐件独立勾选签核」）。
+ *
+ * ## `layoutSource`（#2221）
+ *
+ * 第三个参数 `options.fromBackfill` 是**内部标记，不进契约 `in`**——只有
+ * `backfill-canvas-builtin-templates.ts` 会显式传 `true`，任何走 HTTP 控制器进来的
+ * 真实调用（编辑器「基于此开新版」）永远拿到 `undefined`/`false`，因为控制器不读、
+ * 也不可能读到这个 TS 层面的第三参数。真实编辑 ⇒ `layout_source` 写 `user-edited`；
+ * backfill ⇒ 写 `builtin-derived`（除非该 key 已经被标过 `user-edited`，那种情况下
+ * 仓储层强制保持不退回——见 `template-ports.ts` 的 `mintVersion.builtinDerived`）。
  */
 import type { OrgId } from "../../domain/org-id";
 import type { VisibilityScope } from "../../domain/identity/roles";
@@ -51,9 +60,18 @@ export interface MintTemplateVersionInput {
   readonly tags?: readonly string[];
 }
 
+export interface MintTemplateVersionOptions {
+  /**
+   * #2221：仅供 `backfill-canvas-builtin-templates.ts` 调用——不进契约 `in`，HTTP
+   * 控制器不读、也读不到这个 TS 层面的第三参数，外部调用方无法伪造。
+   */
+  readonly fromBackfill?: boolean;
+}
+
 export async function mintTemplateVersion(
   deps: MintTemplateVersionDeps,
   input: MintTemplateVersionInput,
+  options?: MintTemplateVersionOptions,
 ): Promise<MintedCanvasTemplateVersion> {
   const membership = await requireTemplateAdmin({ identity: deps.identity }, input);
 
@@ -76,6 +94,7 @@ export async function mintTemplateVersion(
     visibility: input.visibility,
     ownerTeamId,
     tags: input.tags ?? [],
+    builtinDerived: options?.fromBackfill === true,
   });
 
   if (!outcome.minted) {

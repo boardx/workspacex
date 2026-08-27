@@ -58,6 +58,8 @@ interface TemplateSqlRow {
   title: string;
   footer: string;
   prompt_text: string;
+  /** #2221——见 `template-ports.ts` 的 `layoutSource`/`builtinDerived` 完整语义。 */
+  layout_source: "builtin-derived" | "user-edited";
 }
 
 /**
@@ -90,7 +92,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
       const r = await s.query<TemplateSqlRow>(
         `SELECT t.org_id, t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
                 t.visibility, t.owner_team_id, t.underlying_type, t.sections, t.tags,
-                t.title, t.footer, t.prompt_text,
+                t.title, t.footer, t.prompt_text, t.layout_source,
                 (SELECT count(*) FROM canvas_template_bindings b
                   WHERE b.org_id = t.org_id
                     AND b.template_key = t.key
@@ -147,17 +149,18 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         underlying_type: string;
         sections: unknown;
         tags: readonly string[];
+        layout_source: string;
       }>(
         `INSERT INTO canvas_templates
            (org_id, key, version, display_name, status, archived_from, builtin,
-            visibility, owner_team_id, underlying_type, sections, tags)
-         SELECT $1, $2, 1, $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[]
+            visibility, owner_team_id, underlying_type, sections, tags, layout_source)
+         SELECT $1, $2, 1, $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[], 'builtin-derived'
           WHERE NOT EXISTS (
             SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
           )
          ON CONFLICT (org_id, key, version) DO NOTHING
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections, tags`,
+                   underlying_type, sections, tags, layout_source`,
         [
           cmd.orgId,
           cmd.key,
@@ -176,7 +179,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         template: {
           key: row.key,
           displayName: row.display_name,
-          // ⚠ 断言而不是转型：这三栏是上面 SQL 写死的字面量，回来的值与契约的
+          // ⚠ 断言而不是转型：这四栏是上面 SQL 写死的字面量，回来的值与契约的
           //   `z.literal(...)` 对不上时，是 SQL 被人改过 —— 那要在这里当场炸，
           //   而不是靠控制器出门时的 `out.parse` 去发现（那时已经查不到是哪一行 SQL）。
           version: assertLiteral(row.version, 1, "version"),
@@ -187,6 +190,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           // jsonb 回来的是已解析的 JS 值；形状由契约在控制器出门时二次校验（`.strict()`）。
           sections: row.sections as CreatedCanvasTemplate["sections"],
           tags: [...row.tags],
+          layoutSource: assertLiteral(row.layout_source, "builtin-derived", "layout_source"),
         },
       };
     });
@@ -211,6 +215,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly visibility: VisibilityScope;
     readonly ownerTeamId: string | null;
     readonly tags: readonly string[];
+    readonly builtinDerived: boolean;
   }): Promise<MintTemplateVersionOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -223,20 +228,33 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         underlying_type: string;
         sections: unknown;
         tags: readonly string[];
+        layout_source: string;
       }>(
         `INSERT INTO canvas_templates
            (org_id, key, version, display_name, status, archived_from, builtin,
-            visibility, owner_team_id, underlying_type, sections, tags)
+            visibility, owner_team_id, underlying_type, sections, tags, layout_source)
          SELECT $1, $2,
                 (SELECT coalesce(max(version), 0) + 1
                    FROM canvas_templates WHERE org_id = $1 AND key = $2),
-                $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[]
+                $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[],
+                -- #2221：单调不可退回——该 key 若已有任一版本是 'user-edited'，
+                -- 无论这次调用方传的是什么，都保持 'user-edited'。只有从没被标过的
+                -- key，backfill 传 $9=true 才落 'builtin-derived'；真实编辑器调用
+                -- （$9=false）恒落 'user-edited'。
+                CASE
+                  WHEN EXISTS (
+                    SELECT 1 FROM canvas_templates
+                     WHERE org_id = $1 AND key = $2 AND layout_source = 'user-edited'
+                  ) THEN 'user-edited'
+                  WHEN $9::boolean THEN 'builtin-derived'
+                  ELSE 'user-edited'
+                END
           WHERE EXISTS (
             SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
           )
          ON CONFLICT (org_id, key, version) DO NOTHING
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections, tags`,
+                   underlying_type, sections, tags, layout_source`,
         [
           cmd.orgId,
           cmd.key,
@@ -246,6 +264,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           cmd.underlyingType,
           JSON.stringify(cmd.sections),
           [...cmd.tags],
+          cmd.builtinDerived,
         ],
       );
       const row = r.rows[0];
@@ -270,6 +289,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           underlyingType: row.underlying_type,
           sections: row.sections as CreatedCanvasTemplate["sections"],
           tags: [...row.tags],
+          layoutSource: row.layout_source === "user-edited" ? "user-edited" : "builtin-derived",
         },
       };
     });
@@ -305,6 +325,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           title: row.title,
           footer: row.footer,
           promptText: row.prompt_text,
+          layoutSource: row.layout_source,
           // ⚠ 判据是**这一行落在哪个 org**，不是 `builtin`：组织 fork 走一份之后它仍然
           //   是 builtin key，却已经是自己的行了。两者合成一个字段，「已加入我的组织的
           //   用户画像」与「还没加入的平台用户画像」在响应体上就完全同形。
@@ -373,12 +394,16 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         underlying_type: string;
         sections: unknown;
         tags: readonly string[];
+        layout_source: string;
       }>(
+        // #2221：本操作是「编辑器保存草稿的分区/几何」，恒写 'user-edited'——不需要
+        // 单调不可退回的 CASE（backfill 不走这条路径，见 `update-template-draft.ts`）。
         `UPDATE canvas_templates
-            SET display_name = $4, sections = $5::jsonb, visibility = $6, tags = $7::text[], updated_at = now()
+            SET display_name = $4, sections = $5::jsonb, visibility = $6, tags = $7::text[],
+                layout_source = 'user-edited', updated_at = now()
           WHERE org_id = $1 AND key = $2 AND version = $3 AND status = 'draft'
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections, tags`,
+                   underlying_type, sections, tags, layout_source`,
         [
           cmd.orgId, cmd.key, cmd.version, cmd.displayName,
           JSON.stringify(cmd.sections), cmd.visibility, [...cmd.tags],
@@ -404,6 +429,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           underlyingType: row.underlying_type,
           sections: row.sections as CreatedCanvasTemplate["sections"],
           tags: [...row.tags],
+          layoutSource: assertLiteral(row.layout_source, "user-edited", "layout_source"),
         },
       };
     });
