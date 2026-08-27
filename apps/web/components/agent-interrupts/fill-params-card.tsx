@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { InterruptCardShell } from "@/components/agent-interrupts/interrupt-card-shell";
-import type { ParamField } from "@/lib/mock/agent-interrupts";
+import type { ParamField } from "@/lib/agent-interrupts-types";
 import { cn } from "@/lib/utils";
 
 /**

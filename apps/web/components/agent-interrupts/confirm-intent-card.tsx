@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { InterruptCardShell } from "@/components/agent-interrupts/interrupt-card-shell";
-import type { ConfirmIntentArgs } from "@/lib/mock/agent-interrupts";
+import type { ConfirmIntentArgs } from "@/lib/agent-interrupts-types";
 
 /**
  * 屏一：目标复述卡（confirm_intent）—— ui.md「屏一」。

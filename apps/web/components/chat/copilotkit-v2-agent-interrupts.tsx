@@ -7,7 +7,7 @@ import { ConfirmIntentCard } from "@/components/agent-interrupts/confirm-intent-
 import { FillParamsCard } from "@/components/agent-interrupts/fill-params-card";
 import { ChooseOptionCard } from "@/components/agent-interrupts/choose-option-card";
 import { InterruptCardShell } from "@/components/agent-interrupts/interrupt-card-shell";
-import type { ParamField as PreviewParamField } from "@/lib/mock/agent-interrupts";
+import type { ParamField as PreviewParamField } from "@/lib/agent-interrupts-types";
 import type { UiState } from "@/components/state/state-shell";
 
 /**

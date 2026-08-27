@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { InterruptCardShell } from "@/components/agent-interrupts/interrupt-card-shell";
-import type { OptionCard as OptionCardT } from "@/lib/mock/agent-interrupts";
+import type { OptionCard as OptionCardT } from "@/lib/agent-interrupts-types";
 import { cn } from "@/lib/utils";
 
 /**
