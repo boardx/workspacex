@@ -40,13 +40,15 @@ describe("toolChainSummaryText / deriveThinkingSeconds", () => {
     const steps = toolChainSteps("collapsed"); // 三工具成功链，时间可解析
     expect(deriveThinkingSeconds(steps)).not.toBeNull();
     // UI 评分 2026-08-23 第 3 项：收起态必须带首个工具名+参数片段（默认视图不再黑盒）
-    expect(toolChainSummaryText(steps)).toMatch(/^思考了 [\d.]+ 秒 · 调用了 \S+.* 等 3 个工具$/);
+    // D6：折叠头新增「· N 步」计数（`steps.length`，含非工具调用步骤），插在秒数之后、
+    // 工具摘要之前——`^` 起点仍是"思考了…"，只是中间多了一截。
+    expect(toolChainSummaryText(steps)).toMatch(/^思考了 [\d.]+ 秒 · \d+ 步 · 调用了 \S+.* 等 3 个工具$/);
   });
 
-  it("耗时无法解析：退化为不带秒的摘要，绝不编一个耗时", () => {
+  it("耗时无法解析：退化为不带秒的摘要，但仍带步骤数（steps.length 真实可得，不随秒数一起退化）", () => {
     const steps = [undatedToolStep()];
     expect(deriveThinkingSeconds(steps)).toBeNull();
-    expect(toolChainSummaryText(steps)).toMatch(/^调用了 \S+/);
+    expect(toolChainSummaryText(steps)).toMatch(/^1 步 · 调用了 \S+/);
   });
 
   /**
@@ -61,7 +63,7 @@ describe("toolChainSummaryText / deriveThinkingSeconds", () => {
       endedAt: "2026-01-01T00:00:00.000Z",
     };
     expect(deriveThinkingSeconds([zeroStep])).toBe(0);
-    expect(toolChainSummaryText([zeroStep])).toMatch(/^调用了 \S+/);
+    expect(toolChainSummaryText([zeroStep])).toMatch(/^1 步 · 调用了 \S+/);
     expect(toolChainSummaryText([zeroStep])).not.toContain("0 秒");
   });
 
@@ -70,6 +72,15 @@ describe("toolChainSummaryText / deriveThinkingSeconds", () => {
     expect(steps.length).toBeGreaterThan(0);
     expect(steps.every((s) => s.kind !== "tool_call")).toBe(true);
     expect(toolChainSummaryText(steps)).toContain("模型直接作答");
+  });
+
+  /**
+   * D6（chat-main-fidelity-rubric.md）—— 折叠头补「· N 步」计数。`steps.length`
+   * 是全部步骤（含非工具调用的规划步骤），不是 `toolSteps.length` 的重复表达。
+   */
+  it("D6：摘要带真实步骤总数（steps.length），不是工具调用数的重复", () => {
+    const steps = toolChainSteps("collapsed");
+    expect(toolChainSummaryText(steps)).toContain(`${steps.length} 步`);
   });
 });
 
@@ -102,6 +113,21 @@ describe("AgentToolChain 渲染", () => {
     render(<AgentToolChain steps={toolChainSteps("collapsed")} />);
     expect(screen.getByTestId("agent-tool-chain-ok")).toBeInTheDocument();
     expect(screen.queryByTestId("agent-tool-chain-fail-badge")).toBeNull();
+  });
+
+  /** D6（chat-main-fidelity-rubric.md）—— 展开体顶部「工具调用 · N」块头。 */
+  it("D6：展开态顶部有「工具调用 · N」块头，N 与折叠态收起头的工具计数一致", () => {
+    const steps = toolChainSteps("collapsed");
+    const toolCount = steps.filter((s) => s.kind === "tool_call").length;
+    render(<AgentToolChain steps={steps} />);
+    fireEvent.click(screen.getByTestId("agent-tool-chain-toggle"));
+    expect(screen.getByTestId("agent-tool-chain-count-header")).toHaveTextContent(`工具调用 · ${toolCount}`);
+  });
+
+  it("D6：零工具调用时不渲染「工具调用 · N」块头（避免印一个「· 0」）", () => {
+    render(<AgentToolChain steps={toolChainSteps("no-tools")} />);
+    fireEvent.click(screen.getByTestId("agent-tool-chain-toggle"));
+    expect(screen.queryByTestId("agent-tool-chain-count-header")).toBeNull();
   });
 });
 
