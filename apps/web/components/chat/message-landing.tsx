@@ -138,9 +138,16 @@ export function MessageLandingControls({
 }): JSX.Element {
   if (state === undefined) {
     return (
+      // issue #2126（A续，真实 devapp 实测）—— 这个入口按钮此前是 `variant="outline"`
+      // （带边框 + 卡片底色），与紧挨着它的框架自带 复制/反馈/评分 toolbar（那三个都是
+      // 无边框的行内图标按钮）视觉上不对齐，读成两个不相关的区块。#2132/#2133 已经把
+      // 外层容器间距从 `gap-1.5` 收紧到 `gap-1`（见 `copilotkit-v2-panel.tsx` 里
+      // `V2AssistantMessageImpl` 的注释），但按钮本身的 variant 当时没有一并改——这里
+      // 补上 issue 原文明确要求的那一半：换成 `ghost`（无边框、无底色，只在 hover 时
+      // 才出现背景），视觉上更贴近"同一组操作的延续"而不是另起一个独立区块。
       <Button
         size="xs"
-        variant="outline"
+        variant="ghost"
         className="self-start text-10"
         data-testid={`chat-land-artifact-open-${message.id}`}
         onClick={onOpen}
