@@ -62,7 +62,16 @@ export function deriveThinkingSeconds(steps: Step[]): number | null {
 export function toolChainSummaryText(steps: Step[], running = false): string {
   const seconds = deriveThinkingSeconds(steps);
   const toolSteps = steps.filter((s) => s.kind === "tool_call");
-  const head = seconds !== null && seconds > 0 ? `思考了 ${seconds} 秒 · ` : "";
+  /*
+   * D6（chat-main-fidelity-rubric.md）—— 参照图折叠头带「· N 步」计数（如
+   * 「思考了 8.2 秒 · 4 步」）。`steps.length` 是这个 run 的**全部**步骤
+   * （含非工具调用的规划步骤），与下面只统计 `tool_call` 的 `toolSteps.length`
+   * 是两个不同但都真实的计数——参照图两者都要（"4 步" 与 "工具调用 · 3" 分列两处），
+   * 这里不拿其中一个冒充另一个。`steps.length === 0` 时不带这一截（上面已经
+   * return 掉了这种情况的调用方，这里仅是防御）。
+   */
+  const stepCount = steps.length > 0 ? `${steps.length} 步 · ` : "";
+  const head = (seconds !== null && seconds > 0 ? `思考了 ${seconds} 秒 · ` : "") + stepCount;
   // UI 复评 2026-08-23：run 进行中折叠头曾先说「模型直接作答」、几秒后改口
   // 「调用了 2 个工具」——自相矛盾（第 2 项判 0 的第二条依据）。进行中零工具
   // 只是「还没到」，不是结论；结论只在终态下。
@@ -182,11 +191,21 @@ export function AgentToolChain({
               本次没有工具调用，模型直接作答。
             </p>
           ) : (
-            <ol className="flex flex-col gap-1.5">
-              {toolSteps.map((step, i) => (
-                <ToolChainStep key={i} step={step} index={i} />
-              ))}
-            </ol>
+            <>
+              {/*
+                D6（chat-main-fidelity-rubric.md）—— 参照图展开体顶部有「工具调用 · N」
+                块头。`toolSteps.length` 是已经算出的同一个计数（收起态摘要用的那个），
+                这里只是多渲染一行块头，不是第二次计数。
+              */}
+              <p className="px-1 pb-1 text-10 font-medium text-muted-foreground" data-testid="agent-tool-chain-count-header">
+                工具调用 · {toolSteps.length}
+              </p>
+              <ol className="flex flex-col gap-1.5">
+                {toolSteps.map((step, i) => (
+                  <ToolChainStep key={i} step={step} index={i} />
+                ))}
+              </ol>
+            </>
           )}
         </div>
       )}
