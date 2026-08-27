@@ -266,10 +266,21 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
             layout），算法改进后永远判不出"需要重来"，见该函数文档。
         */
         const enriched = coversFullGrid(current.sections);
-        // ⚠ 同「enriched 只看 layout 存在」的坑：只判 title 相等，`promptText` 永久
-        //   留空也会被判「已装帧」而跳过。见文件头 2026-08-26 那条实测教训——门槛必须
-        //   覆盖本函数会写的每一样东西。
-        const chromed = current.title === (spec.title ?? "") && current.promptText !== "";
+        /*
+         * ⚠ 同「enriched 只看 layout 存在」的坑：只判 title 相等，`promptText` 永久
+         *   留空也会被判「已装帧」而跳过。见文件头 2026-08-26 那条实测教训——门槛必须
+         *   覆盖本函数会写的每一样东西。
+         *
+         * ⚠ 2026-08-26 又加一项：`displayName`。契约把 19 个内置模板的
+         *   `BUILTIN_CANVAS_TEMPLATES` 从英文 slug 改成了中文短名（devapp 实测：
+         *   后台卡片显示 `business-model`，与纸面双语标题不一致）——已经创建过的行
+         *   不会自动跟着契约变，`displayName` 只在**创建那一刻**写入过一次。
+         *   不加这一项，契约改名后重跑本脚本会看到"enriched && title 都对"就跳过，
+         *   19 张卡片的标题永远停在旧英文名，"改了契约"与"数据库同步了"是两件事。
+         */
+        const chromed = current.title === (spec.title ?? "")
+          && current.promptText !== ""
+          && current.displayName === displayName;
 
         if (enriched && chromed) {
           console.log(`[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} 已带配置与标题，跳过（幂等）`);
@@ -277,16 +288,19 @@ export async function backfillCanvasBuiltinTemplates(orgId: string): Promise<Can
         }
 
         // 只缺装帧：原地补，不铸新版本。
+        // ⚠ 传 `displayName`（刚从契约取的新值），不是 `current.displayName`
+        //   （那是这一行现在库里存的旧值）——传错这一个词，devapp 实测过整个"改
+        //   displayName"的意图会原样落空：脚本跑完打印"完成"，卡片标题一个字没变。
         if (enriched) {
           await setChrome(
             identity, templates, org, actorId, spec,
-            current.version, current.displayName, current.tags,
+            current.version, displayName, current.tags,
             current.promptText, sections,
           );
           chromeFilled += 1;
           console.log(
             `[backfill-canvas-builtin-templates] org=${orgId} key=${spec.key} v${current.version} ` +
-            `补齐纸面标题「${spec.title ?? ""}」（不铸新版本——装帧不动内容快照）`,
+            `补齐纸面标题「${spec.title ?? ""}」/ 展示名「${displayName}」（不铸新版本——装帧不动内容快照）`,
           );
           continue;
         }
