@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { InterruptCardShell } from "@/components/agent-interrupts/interrupt-card-shell";
-import type { OptionCard as OptionCardT } from "@/lib/mock/agent-interrupts";
+import type { OptionCard as OptionCardT } from "@/lib/agent-interrupts-types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -31,12 +31,19 @@ export function ChooseOptionCard({
   canWrite,
   showDecline = true,
   initialSelectedId,
+  onSelectConfirm,
+  onDecline,
 }: {
   options: readonly OptionCardT[];
   state: UiState;
   canWrite: boolean;
   showDecline?: boolean;
   initialSelectedId?: string;
+  /** 「选中即 resume」（ui.md「屏三」）——点击选项卡后立即触发，不是单独一步确认。
+   *  不传（预览路由）时按钮保留旧行为——只切换本地高亮，无副作用。 */
+  onSelectConfirm?: (optionId: string) => void;
+  /** 逃生口「都不要」= UC-3 的 reject 分支。 */
+  onDecline?: () => void;
 }) {
   const [selected, setSelected] = React.useState<string | undefined>(initialSelectedId);
 
@@ -73,7 +80,10 @@ export function ChooseOptionCard({
                   disabled={!canWrite}
                   data-testid={`${TID}-option-${o.optionId}`}
                   data-selected={isSel || undefined}
-                  onClick={() => setSelected(o.optionId)}
+                  onClick={() => {
+                    setSelected(o.optionId);
+                    onSelectConfirm?.(o.optionId);
+                  }}
                   className={cn(
                     "flex flex-col gap-2 rounded-md border p-2.5 text-left transition-all duration-base",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
@@ -118,6 +128,7 @@ export function ChooseOptionCard({
                 variant="outline"
                 data-testid={`${TID}-decline`}
                 disabled={!canWrite}
+                onClick={() => onDecline?.()}
                 className="border-destructive/40 text-destructive transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive"
               >
                 都不要

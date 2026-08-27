@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { InterruptCardShell } from "@/components/agent-interrupts/interrupt-card-shell";
-import type { ConfirmIntentArgs } from "@/lib/mock/agent-interrupts";
+import type { ConfirmIntentArgs } from "@/lib/agent-interrupts-types";
 
 /**
  * 屏一：目标复述卡（confirm_intent）—— ui.md「屏一」。
@@ -21,11 +21,18 @@ export function ConfirmIntentCard({
   state,
   canWrite,
   initialEditing = false,
+  onContinue,
+  onEditSubmit,
 }: {
   args: ConfirmIntentArgs;
   state: UiState;
   canWrite: boolean;
   initialEditing?: boolean;
+  /** 「继续」= UC-1 的 approve 分支。不传（预览路由）时按钮保留旧行为——纯展示、无副作用。 */
+  onContinue?: () => void;
+  /** 「用新假设继续」= UC-1 的 edit 分支，传出已过滤空行的假设数组（≥2 条，由下方
+   *  `nonBlank < 2` 的 disabled 判据保证调用时刻已经满足）。 */
+  onEditSubmit?: (assumptions: string[]) => void;
 }) {
   const [editing, setEditing] = React.useState(initialEditing);
   const [drafts, setDrafts] = React.useState<string[]>([...args.assumptions]);
@@ -155,6 +162,7 @@ export function ConfirmIntentCard({
                   className="bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
                   data-testid={`${TID}-continue`}
                   disabled={!canWrite}
+                  onClick={() => onContinue?.()}
                 >
                   继续
                 </Button>
@@ -178,6 +186,7 @@ export function ConfirmIntentCard({
                   className="bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
                   data-testid={`${TID}-edit-submit`}
                   disabled={!canWrite || nonBlank < 2}
+                  onClick={() => onEditSubmit?.(shownDrafts.filter((d) => d.trim().length > 0))}
                 >
                   用新假设继续
                 </Button>
