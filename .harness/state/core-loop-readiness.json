@@ -78,7 +78,7 @@
         "apps/api/src/application/agent-run/**",
         "apps/api/src/infrastructure/agent-run/**"
       ],
-      "blocking_issues": [2206]
+      "blocking_issues": []
     },
     "V-D": {
       "name": "项目对话主屏原型保真（ChatReadScreen）",
@@ -125,8 +125,6 @@
         "apps/web/app/chat/**"
       ],
       "blocking_issues": [
-        2208,
-        2206,
         1610
       ]
     },
@@ -177,8 +175,6 @@
         "apps/web/app/chat/**"
       ],
       "blocking_issues": [
-        2208,
-        2206,
         1610
       ]
     }
