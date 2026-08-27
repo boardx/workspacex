@@ -553,6 +553,14 @@ export function ChatReadScreen({
           loading={detailLoading}
           error={detailError}
           attach={attach}
+          /*
+            issue #2284（D8 剩余第三项）—— composer 顶部「已引用 N 项上下文」需要
+            线程已经真实持有的材料数。`materials` 是本组件已经在读的
+            `listThreadAttachments` 结果（同一份数据也喂给右栏「材料」面板），
+            这里只转发计数，`ThreadDetail`/`ChatLiveMessagePanel` 都不重读、
+            不维护第二份材料计数。
+          */
+          materialsCount={materials?.items.length ?? 0}
           onRetry={() => void loadSelectedThread()}
           onArtifactLanded={() => void loadSelectedThread()}
           onMessageSent={() => void loadSelectedThread()}
@@ -830,7 +838,7 @@ function ThreadWriteForm({
 
 function ThreadDetail({
   projectId, currentOrgId, userId, card, detail, bearer, roster, loading, error, onRetry,
-  attach, onArtifactLanded, onMessageSent, onRunSettled,
+  attach, materialsCount, onArtifactLanded, onMessageSent, onRunSettled,
 }: {
   projectId: string;
   currentOrgId: string | null;
@@ -844,6 +852,13 @@ function ThreadDetail({
   onRetry: () => void;
   /** issue #1758 —— composer 附件控制器，与右栏「材料」面板头部的上传入口共享同一份。 */
   attach: ChatAttachmentsController;
+  /**
+   * issue #2284（D8 剩余第三项）—— 转发给 `ChatLiveMessagePanel` 的
+   * composer 顶部「已引用 N 项上下文」计数里，线程已经真实持有的材料这一半。
+   * 单一事实源仍是 `ChatReadScreen` 的 `listThreadAttachments` 结果，
+   * 本组件只透传，不重读。
+   */
+  materialsCount: number;
   onArtifactLanded: () => void;
   /** issue #728 D9 —— 一条消息（可能带附件）成功发出后触发，刷新右栏「材料」计数。 */
   onMessageSent: () => void;
@@ -991,6 +1006,14 @@ function ThreadDetail({
             hasMountedSkills={mountedSkillCount > 0}
             skillMounts={skillMounts}
             skillNames={skillNames}
+            /*
+              issue #2284（D8 剩余第三项）—— composer 顶部「已引用 N 项上下文」
+              需要把线程已经真实持有的材料算进去，不能只看草稿附件。`materialsCount`
+              是父组件（`ChatReadScreen`）转发下来的 `listThreadAttachments` 结果
+              计数（同一份数据也喂给右栏「材料」面板），本组件只再转发一层，不重读、
+              不维护第二份材料数。
+            */
+            materialsCount={materialsCount}
             /*
               #728 D10 —— 会话录音（#466 步骤 7）从「消息面板之上」挪到
               「输入框正上方」，照原型的「进行中」状态卡位置。`userId` 是
