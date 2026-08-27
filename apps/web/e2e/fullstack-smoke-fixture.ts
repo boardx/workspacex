@@ -100,6 +100,16 @@ export const FULLSTACK_E2E = {
   /** 开新版时改掉的显示名——带 MINTED 前缀，断言「改过的名字」不会误配来源行。 */
   mintedDisplayName: `FULLSTACK_MINTED_V2_${scope}`,
 
+  /**
+   * chat 模拟（`TemplateSimulateDialog`，`POST /canvas/templates/:key/simulate`）的
+   * 真实浏览器门控用来源模板——现场建、现场加一个短文本表头字段 + 一个便利贴列表
+   * 正文分区，与 #496/#988 那两条同一条理由：不往种子里塞 published 行，避免打红
+   * 管理员空态反空转断言。
+   */
+  canvasSimulateName: `FULLSTACK_SIMULATE_${scope}`,
+  /** 反证用例的独立来源模板——不复用上面那个，避免两条测试互相踩同一行的编辑状态。 */
+  canvasSimulateCounterproofName: `FULLSTACK_SIMULATE_CP_${scope}`,
+
   skillName: `FULLSTACK_SKILL_${scope}`,
   skillCounterproofName: `FULLSTACK_SKILL_CP_${scope}`,
 
