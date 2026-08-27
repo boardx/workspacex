@@ -40,7 +40,7 @@ import { deriveRunPhaseLabel } from "@/lib/agent-run-phase";
 import type { ThreadSkillMount } from "@/lib/live-skill-mount";
 import { openAgentRunStream } from "@/lib/agent-run-stream";
 import { chat as ChatContract } from "@repo/contracts";
-import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
+import { AgentPlanPanel, derivePlanTodos } from "@/components/chat/agent-plan-panel";
 import { AgentApprovalPanel } from "@/components/chat/agent-approval-panel";
 import { ApiError } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
@@ -1599,6 +1599,9 @@ export function ChatLiveMessagePanel({
       </div>
 
       {aboveComposer}
+      {/* issue #2285（D10 前半）—— 进行中态行内卡，紧挨在 composer 上方，与
+          `aboveComposer`（转录中卡）叠成参照图那两张堆叠的卡片。 */}
+      {runObservation ? <AgentRunStatus observation={runObservation} onViewProgress={scrollToLatest} /> : null}
       <div className="border-t border-border p-3" data-testid="chat-composer">
         {archived ? (
           <p className="mb-2 text-12 text-muted-foreground" data-testid="chat-composer-archived">
@@ -1923,16 +1926,20 @@ export function ChatLiveMessagePanel({
         ) : null}
         {/*
           2026-08-19 人类实测反馈（#1589）：`消息已持久化，AgentRun 已排队。` 这一行 +
-          紧跟着的 `AgentRunStatus`（`正在执行`/…）读起来是同一件事说了两遍——`queuedRun`
-          与 `runObservation` 在提交后几乎同一时刻都非空（`submit()` 拿到 202 就立刻两个
-          都置了值，中间没有只有前者的可观察窗口），不是"排队中"到"执行中"两个先后
-          阶段，纯粹是同一条状态的重复文案。`data-testid="chat-message-queued"` 曾经
-          承担的机器可断言职责（"服务端已确认持久化+建了 run"）完全被
-          `chat-live-agent-run-status` 的 `data-run-id` 覆盖，删掉这一行不丢信息，
-          只是不再对人眼说两遍。保留 `queuedRun` 这个 state 本身（`submitting` 等
-          别处逻辑仍要用），只是不再渲这段文字。
+          composer 上方的 `AgentRunStatus`（`正在执行`/…）读起来是同一件事说了两遍——
+          `queuedRun` 与 `runObservation` 在提交后几乎同一时刻都非空（`submit()` 拿到
+          202 就立刻两个都置了值，中间没有只有前者的可观察窗口），不是"排队中"到
+          "执行中"两个先后阶段，纯粹是同一条状态的重复文案。
+          `data-testid="chat-message-queued"` 曾经承担的机器可断言职责（"服务端已确认
+          持久化+建了 run"）完全被 `chat-live-agent-run-status` 的 `data-run-id` 覆盖，
+          删掉这一行不丢信息，只是不再对人眼说两遍。保留 `queuedRun` 这个 state 本身
+          （`submitting` 等别处逻辑仍要用），只是不再渲这段文字。
+
+          issue #2285（D10 前半，rev-uiux 复评）—— `AgentRunStatus`（进行中状态 + 「查看
+          进度」）此前渲在这里，DOM 上必然落在输入框下方；参照图要求它是输入区上方的
+          行内卡。渲染挪到下面 `{aboveComposer}` 之后、composer 之前，本行只保留失败
+          横幅——两者共用的 `runObservation` state 不变，纯粹是渲染位置。
         */}
-        {runObservation ? <AgentRunStatus observation={runObservation} onViewProgress={scrollToLatest} /> : null}
         {submitFailure ? (
           <div className="mt-2" data-testid="chat-message-submit-error">
             <FailureState message={submitFailure} onRetry={() => void submit()} />
@@ -2047,12 +2054,22 @@ function messageTime(iso: string): string {
  * 调查结论：**「暂停」在本仓没有真实能力可接**——`execute-run.ts` 等后端路径没有
  * 任何取消/暂停 run 的操作，契约（`packages/contracts`）里也没有对应端点。做一个
  * 点了没反应（或客户端假装暂停、服务端其实继续跑）的按钮，比不做还坏——那是
- * AGENTS.md 明令禁止的"假交互"。已开数据缺口 issue 跟踪，不在这里伪造。
+ * AGENTS.md 明令禁止的"假交互"。已开数据缺口 issue 跟踪（#2281），不在这里伪造。
  *
  * 「查看进度」**有真实、可连接的行为**：run 进行中时，这条消息自己的思考/工具
  * 调用链（`MessageThinkingChain`/`AgentToolChain`）就渲染在消息流里，点击滚到
  * 最新消息（复用已有的 `scrollToLatest`，与右下角「回到最新」是同一个真实滚动
  * 动作，不是新造一份），用户由此看到实时进度——这不是假按钮。
+ *
+ * issue #2285（rev-uiux 复评）补两件：
+ * 1. **落点**：这张卡此前渲在 composer 内部（`<Textarea>` 之后），DOM 上必然落在
+ *    输入框下方。调用点已挪到 `{aboveComposer}` 之后、composer div 之前（见上方
+ *    render 调用处），这里只是把外层容器从一条裸文字行换成卡片样式，与
+ *    `ChatRecordingPanel` 挂在同一个「输入区上方」位置语义一致。
+ * 2. **进度计数**：`derivePlanTodos` 与消息流里「计划 N/M」（`agent-plan-panel.tsx`）
+ *    读的是**同一个** `view.steps`——`write_todos` 落的账本本来就在这条 run 的
+ *    steps 里，不是新数据源。解析不出计划（模型直接作答、还没调用过 write_todos）
+ *    时不显示计数，不编一个 0/0。
  */
 function AgentRunStatus({
   observation, onViewProgress,
@@ -2063,9 +2080,12 @@ function AgentRunStatus({
   const { runId, view, failure, timedOut, authExpired } = observation;
   const status: AgentRunStatus | null = view?.status ?? null;
   const inProgress = status !== null && status !== "succeeded" && status !== "failed";
+  const planTodos = view ? derivePlanTodos(view.steps) : null;
+  const planDone = planTodos?.filter((t) => t.status === "completed").length ?? null;
+  const planTotal = planTodos?.length ?? null;
   return (
     <div
-      className="mt-2 flex flex-wrap items-center gap-1.5 text-11"
+      className="mb-2 flex flex-wrap items-center gap-1.5 rounded-md border border-border-subtle bg-card px-2.5 py-1.5 text-11"
       data-testid="chat-live-agent-run-status"
       data-run-id={runId}
       // 读不到状态时**不填**这个属性，而不是填一个猜的值。
@@ -2081,6 +2101,25 @@ function AgentRunStatus({
         <span className="text-muted-foreground">正在读取 AgentRun 状态…</span>
       ) : null}
       {status !== null ? <span className={statusTone(status)}>{RUN_STATUS_TEXT[status]}</span> : null}
+      {inProgress && planTotal !== null && planTotal > 0 ? (
+        <span
+          className="inline-flex items-center gap-1 text-10 text-muted-foreground"
+          data-testid="chat-live-agent-run-plan-progress"
+          data-plan-done={planDone}
+          data-plan-total={planTotal}
+        >
+          {planDone}/{planTotal}
+          <span className="flex items-center gap-0.5" aria-hidden>
+            {Array.from({ length: planTotal }).map((_, i) => (
+              <span
+                // eslint-disable-next-line react/no-array-index-key -- 纯装饰性进度块，无稳定业务 key
+                key={i}
+                className={`h-1 w-3 rounded-full ${i < (planDone ?? 0) ? "bg-primary" : "bg-muted"}`}
+              />
+            ))}
+          </span>
+        </span>
+      ) : null}
       {inProgress ? (
         <Button
           type="button"
