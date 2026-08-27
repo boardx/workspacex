@@ -2,6 +2,16 @@
 
 > 每条门控配一条反证（本仓九次栽在"全绿但空转"）。
 
+⚠ **V7 的真栈测试当场抓出一个假绿**：`skill-lazy-loading.test.ts`（内存 fake，V1-V6）
+全绿的实现，接进真实 `RoutingModelCallPort` 后本优化**从未真正生效过**——原实现按
+`deps.model.completeStream === undefined` 判断"这个 run 会不会走流式"，但生产接线里
+`deps.model` 是路由器，`completeStream` 方法**恒存在**（对不支持流式的叶子 provider
+内部退回 `complete()`，见 `routing-model-call-port.ts` 头注），按存在性判断永远是
+`false`。内存 fake 里 `deps.model` 直接就是叶子 port，测不出这层路由包装，所以 V1-V6
+全绿掩盖了这个问题。已改成只按 `isDeepAgentRun` 判断（见 `execute-run.ts` 对应注释），
+`chat-skill-mount-produces-pptx-real-stack.test.ts` 的 T6 补上真栈门控防止再退回。
+这正是本仓"真栈测试 vs 内存 fake"的又一次真实印证，不是理论提醒。
+
 ## V1 — 未挂 skill：system prompt 逐字节不变（T2 纪律延续）
 
 断言：`buildSystemPrompt(instructions, [], canvasGuidance)` 的输出，在本 delta 前后逐字节相同。

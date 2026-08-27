@@ -476,6 +476,24 @@ export interface ExecuteAgentRunDeps {
    * 抖动变成用户可见的失败，这不是 I-10 要保护的性质。
    */
   readonly planLedger?: PlanLedgerRepository & PlanRunStatusReader;
+  /**
+   * design-delta `skill-lazy-loading` —— 这个部署有没有真的把 `KERNEL_MODEL_STREAM_ENABLED`
+   * 打开（`configured-model-provider.ts` 在合成期读一次的**同一个**旗标，这里只是把它的值
+   * 带过来，不重新读环境变量、不第二次声明这件事——单一事实源仍是那个文件）。
+   *
+   * ⚠ **为什么不能用 `deps.model.completeStream` 是否存在来判断**——这是本 delta 真栈测试
+   * （T6，`chat-skill-mount-produces-pptx-real-stack.test.ts`）踩过的一个真实坑:生产接线里
+   * `deps.model` 是 `RoutingModelCallPort`，它的 `completeStream` **恒存在**（对不支持流式
+   * 的叶子 provider 内部退回 `complete()`，见 `routing-model-call-port.ts` 头注），按方法
+   * 存在性判断在真实接线下永远拿到"有"，会让"只在非流式部署生效"这条排除条件形同虚设。
+   *
+   * 缺省 `undefined`（当 `false` 处理）⇒ 与 `KERNEL_MODEL_STREAM_ENABLED` 默认关的行为
+   * 逐字节相同——渐进式加载正常生效。只有显式传 `true`（生产合成
+   * `kernel.module.ts` → `AgentRunExecutor` 按环境变量注入）时，`useLazySkillLoading` 才会
+   * 因为"这个部署真的会流式"而排除渐进式加载——流式 + 渐进式加载如何共存是明确的后续工作
+   * （`contract.md` 附加说明），不是这里假装处理了。
+   */
+  readonly streamingEnabled?: boolean;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -686,15 +704,31 @@ async function executeClaimed(
    */
   let scriptProtocol: string | undefined;
   /*
-   * design-delta `skill-lazy-loading` §1 —— 只对非 deep-agent、非流式的 run 走目录 +
-   * 按需展开：deep-agent provider 已经有自己的按需执行机制（`call_skill` 真实工具
-   * 调用，见 `deep-agent-model-provider.ts` 头注"input.system is still sent... not a
-   * mistake"那段，`contract.md` §1 明确不碰）；流式（`deps.model.completeStream`
-   * 存在）时中间轮的 `read_skill` 请求文本会被当作真实增量推给用户，本 delta 明确
-   * 排除在范围外（`contract.md` 附加说明），而不是假装处理了流式场景。
+   * design-delta `skill-lazy-loading` §1 —— 只对非 deep-agent、非流式部署的 run 走
+   * 目录 + 按需展开:
+   *
+   * ① deep-agent provider 已经有自己的按需执行机制（`call_skill` 真实工具调用，见
+   *   `deep-agent-model-provider.ts` 头注"input.system is still sent... not a
+   *   mistake"那段，`contract.md` §1 明确不碰）。
+   *
+   * ② 流式部署（`deps.streamingEnabled`）排除在外：渐进式加载的中间轮（read_skill
+   *   请求/展开）不该被当作真实增量推给用户，本 delta 不处理这个交互，见
+   *   `deps.streamingEnabled` 自己的头注。
+   *
+   * ⚠ **不**按 `deps.model.completeStream === undefined` 判断②——最初这么写过，被
+   * 这个文件自己的真栈测试（T6，`chat-skill-mount-produces-pptx-real-stack.test.ts`）
+   * 当场证伪:生产接线里 `deps.model` 是 `RoutingModelCallPort`，它的 `completeStream`
+   * **恒存在**（`routing-model-call-port.ts` 自己的头注:"ALWAYS defined on the
+   * router itself... dispatch always succeeds"，对不支持流式的叶子 provider 内部退回
+   * `complete()`)。按存在性判断在真实接线下永远拿到"有"，这条排除条件形同虚设——
+   * 本优化在生产里**从未真正按预期排除过流式部署**，也**从未真正对非流式部署生效
+   * 过**（两处判断用的是同一个坏条件），只在内存 fake 单测里（`deps.model` 直接就是
+   * 叶子 port，没有路由包装）看起来对。改成显式的 `deps.streamingEnabled`——由合成
+   * 期（`kernel.module.ts`）按**同一个** `KERNEL_MODEL_STREAM_ENABLED` 环境变量注入,
+   * 不重新探测运行时对象形状。
    */
   const isDeepAgentRun = run.modelProvider === DEEP_AGENT_PROVIDER_NAME;
-  const useLazySkillLoading = !isDeepAgentRun && deps.model.completeStream === undefined
+  const useLazySkillLoading = !isDeepAgentRun && !deps.streamingEnabled
     && run.skillVersionIds.length > 0;
   try {
     const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);

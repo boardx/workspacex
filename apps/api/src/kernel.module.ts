@@ -1420,6 +1420,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // F975 (plan-control 契约束, UC-12)：与上面每一个同一条既有先例——生产合成必定
           // 注入，"这次 run 会不会带上计划送达" 因此是合成期的选择，不是运行期的偶然。
           new PgPlanLedgerRepository(db),
+          // design-delta `skill-lazy-loading`：与本文件其它地方判断"这个部署要不要流式"
+          // 用的是**同一个** `readModelProviderConfig()`（本文件 1273/1300/1318/1364 行
+          // 已经这么调），不在这里重新解析 `KERNEL_MODEL_STREAM_ENABLED` 造第二份读法。
+          readModelProviderConfig().streamEnabled,
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,
