@@ -11,6 +11,16 @@
  *
  * 覆盖 G2 路径（verification：「两条路径至少覆盖一条，覆盖 G2 路径者优先」）：
  * mermaid 消息由「生成用户画像」真实产生（assistant mindmap 围栏），不是种进去的。
+ *
+ * issue #1610 —— 本文件两条用例共用 `CHAT_READ_E2E.diagramRoundtripThreadId` 这条
+ * **专属**线程（放在 `restructureProjectId`，零预置消息），不再复用
+ * `chat-read.spec.ts` 也依赖的共享 `threadId`（51 条消息夹具线程）。此前共写同一条
+ * 线程时，本文件字母序排在 `chat-read.spec.ts` 之前、单 worker 串行执行，本文件落地
+ * 的产物会撑高共享线程的消息区总高度，让 `chat-read.spec.ts:4`
+ * 「发消息后自动滚到底」那条断言是否变红取决于两个 spec 之间的执行时刻间隔——一场
+ * 侥幸通过的时序竞态，不是真正的隔离。给每个关注点一条专属线程零预置消息，是
+ * #1324 起确立的既有惯例（`skillMountThreadId`/`causalCheckThreadId`/
+ * `attachmentPreviewThreadId` 等同一套模式），这里第一次把它接到本文件。
  */
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
@@ -51,20 +61,20 @@ async function loadAllMessagePages(page: Page): Promise<void> {
 test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版提示条 → 回到原始版", async ({ page }) => {
   test.setTimeout(240_000);
 
-  // ── 登录并进入夹具线程 ────────────────────────────────────────────────
+  // ── 登录并进入专属线程（issue #1610：不再复用 chat-read.spec.ts 共写的 threadId）──
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/projects$/);
-  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
-  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.diagramRoundtripThreadId}`);
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
 
   // ── 种画像素材：persona 文本语法逐字进线程正文（发真实消息，不注入 DB）──
   const input = page.getByRole("textbox", { name: "消息内容" });
   await input.fill("姓名: 陈静\n## 目标和需求\n- 确保订单准时交付率稳定在95%以上");
   const accepted = page.waitForResponse((r) =>
-    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/messages`));
+    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.diagramRoundtripThreadId}/messages`));
   await page.getByTestId("chat-message-submit").click();
   expect((await accepted).status()).toBe(202);
 
@@ -81,7 +91,7 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
 
   // ── G2：触发「生成用户画像」，assistant mindmap 消息进入线程并渲染 ──────
   const personaResponse = page.waitForResponse((r) =>
-    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/persona-summary`));
+    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.diagramRoundtripThreadId}/persona-summary`));
   await page.getByTestId("chat-persona-summary-trigger").click();
   const personaOut = await (await personaResponse).json() as { resultMessageId: string; sufficient: boolean };
   expect(personaOut.sufficient).toBe(true);
@@ -113,7 +123,7 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   await expect(page.getByTestId("chat-diagram-dirty")).toBeVisible();
 
   const landResponse = page.waitForResponse((r) =>
-    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/artifacts`));
+    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.diagramRoundtripThreadId}/artifacts`));
   await page.getByTestId("chat-diagram-save").click();
   expect((await landResponse).status()).toBe(200);
   await expect(page.getByTestId("chat-diagram-saved")).toBeVisible();
@@ -123,7 +133,11 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   // ── 关闭 modal，**整页 reload**（穿透前端内存态）────────────────────────
   await page.getByTestId("chat-diagram-close").click();
   await page.reload();
-  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+  // 这条线程零预置消息（issue #1610 隔离），锚点换成 reload 后专属线程会话卡仍可见 +
+  // 本用例自己发的第一条真实消息，而不是共享夹具线程才有的
+  // "Controlled fixture message 01"。
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
+  await expect(page.getByTestId("chat-message-list")).toContainText("陈静");
   // 整页 reload 后是全新挂载（前端内存态清零）：分页从第一页重新开始，还没有任何
   // 软重读追新过，按钮这次理应存在——仍用 `loadAllMessagePages` 而不是裸
   // `.click()`，翻页过程中偶发的瞬时 detach 由它的重试外壳吃掉。
@@ -196,18 +210,23 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/projects$/);
-  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
-  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.diagramRoundtripThreadId}`);
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
+  // 这条专属线程从零预置消息开始，跨用例状态在同一 spec 文件内持久（issue #1610
+  // 隔离的是「与别的 spec 文件共写」，不是「同一 spec 文件内的用例互相独立」）——
+  // 上面那条用例已经把画像素材种进了这条线程，这里可以直接复用。
+  await expect(page.getByTestId("chat-message-list")).toContainText("陈静");
 
   // ── G2：再触发一次「生成用户画像」，产出一条新的 mindmap 消息（可编辑保存）──
   const personaResponse = page.waitForResponse((r) =>
-    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/persona-summary`));
+    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.diagramRoundtripThreadId}/persona-summary`));
   await page.getByTestId("chat-persona-summary-trigger").click();
   const personaOut = await (await personaResponse).json() as { resultMessageId: string; sufficient: boolean };
   expect(personaOut.sufficient).toBe(true);
 
-  // 夹具线程有 51+ 条种子消息（本文件跨用例累加，实测已过百条），首页只显示最老的
-  // 50 条——翻到底才能确定这条用例自己刚生成的新消息已经加载（见 `loadAllMessagePages`）。
+  // 这条专属线程消息数远不到 50 条分页阈值（上一条用例只发了几条消息），这里仍走
+  // `loadAllMessagePages`——按钮不存在就立即返回（见该 helper 头注），不依赖具体
+  // 消息数，翻页/不翻页两种情况都能正确定位到最新消息。
   await loadAllMessagePages(page);
 
   const diagram = page.locator('[data-testid="chat-diagram-fabric"][data-diagram-type="mindmap"]').last();
@@ -230,7 +249,7 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   await expect(page.getByTestId("chat-diagram-dirty")).toBeVisible();
 
   const landResponse = page.waitForResponse((r) =>
-    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.threadId}/artifacts`));
+    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.diagramRoundtripThreadId}/artifacts`));
   await page.getByTestId("chat-diagram-save").click();
   expect((await landResponse).status()).toBe(200);
   await expect(page.getByTestId("chat-diagram-saved")).toBeVisible();
@@ -247,7 +266,8 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
 
   // ── 整页 reload（穿透前端内存态）────────────────────────────────────────
   await page.reload();
-  await expect(page.getByTestId("chat-message-list")).toContainText("Controlled fixture message 01");
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
+  await expect(page.getByTestId("chat-message-list")).toContainText("陈静");
 
   // 关键断言：滚入视口后**不点任何按钮**，读回请求自动发出（挂载即读回，issue
   // #1668 修复的那条 effect）——这是「不是巧合」的直接证据，不只是看像素。

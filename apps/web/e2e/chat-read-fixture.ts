@@ -199,6 +199,26 @@ export const CHAT_READ_E2E = {
    * 消息」的道理，见上面 #1324 三条线程的头注。
    */
   attachmentPreviewThreadId: "thread-chat-read-e2e-attachment-preview",
+  /**
+   * issue #1610 —— `chat-diagram-save-reopen-roundtrip.spec.ts` 的专属线程。
+   *
+   * 该 spec 此前复用共享的 `threadId`（`chat-read.spec.ts` 也依赖的那条 51 条消息
+   * 夹具线程），并在上面真实落地产物（`POST /chat/threads/:threadId/artifacts`）。
+   * `playwright.chat-read.config.ts` 是 `fullyParallel: false` 单 worker、跨 spec 按
+   * 字母序串行执行——`chat-diagram-save-reopen-roundtrip.spec.ts` 字母序排在
+   * `chat-read.spec.ts` 之前，它落地的产物卡会撑高共享线程的消息区总高度，让
+   * `chat-read.spec.ts:4`「发消息后自动滚到底（distanceFromBottom<=80）」那条断言
+   * 是否变红取决于两个 spec 之间的执行时刻间隔——这是一场侥幸通过的时序竞态，不是
+   * 真正的隔离（本轮实测复现：字母序间插入新 spec 文件、拉长间隔后断言稳定变红，
+   * `Received: 184`，详见 issue 正文）。
+   *
+   * 修法与上面 `attachmentPreviewThreadId` 等专属线程同一套 #1324 起确立的惯例：
+   * 给它一条独立的、放在 `restructureProjectId`（不是 `projectId`，理由同上面
+   * #1324 三条线程头注——`chat-read.spec.ts:41` 断言 `projectId` 下只有一条会话）
+   * 下的专属线程，零预置消息——该 spec 的两条用例都会自己先发一条消息种画像素材，
+   * 不依赖任何预置历史，也不需要 `chat-messages-load-more` 分页。
+   */
+  diagramRoundtripThreadId: "thread-chat-read-e2e-diagram-roundtrip",
   /* ══════════ context-engine 浏览器 e2e（L2 滚动摘要 + F190 工具轨迹回喂）══════════
    *
    * 与上面几条专属线程同一套理由：各自独立、不共享其它用例的历史，唯一不同是这两条
