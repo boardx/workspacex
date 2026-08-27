@@ -274,10 +274,14 @@ mock 也无从生成。按 ADR-023 决策一，这属于「第 ③ 件的第一�
 ## ④ 待评审的设计增量提案（2026-08-27，尚未实现，与③-补性质不同）
 
 ⚠ 与上面「③-补」8 处**不一样**：那 8 处是已经在生产流量里跑、事后补登记签核的
-既成事实；下面这条是**开工前**的提案——按本文件「确认动作」一节的规则，
-`F1681`（`phases/phase-01-run-a-project/feature_list.json`）在这一条被人类确认前
-不得进 sprint claim，同 F100–F107 的既有门控。issue：
-https://github.com/boardx/workspacex/issues/2221
+既成事实；下面这条是**开工前**的提案。issue：https://github.com/boardx/workspacex/issues/2221
+
+⚠ **2026-08-27 补记**：`assertDesignSignedOff` 机械门控实际读的是
+`design-deltas/<slug>/design-signoff.md` 的 frontmatter `covers:`（ADR-023 决策三），
+不是本文件正文——本节内容已原样搬到独立的
+[`design-deltas/canvas-layout-source/design-signoff.md`](../../design-deltas/canvas-layout-source/design-signoff.md)
+（同 `skill-office-docs-node-runtime` 先例的目录形状），`F1681` 的开工门控以
+**那个文件**的 `status` 为准。本节保留作历史记录，不再是签核落点。
 
 ### 9. `layoutSource`：内置 canvas 模板 chat 渲染判据改为「组织是否自定义过」
 
