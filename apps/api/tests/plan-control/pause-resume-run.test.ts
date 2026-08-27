@@ -31,6 +31,9 @@ import type {
 } from "../../src/application/chat/message-command-ports";
 import { AGENT_RUN_EXECUTOR } from "../../src/application/agent-run/ports";
 import type { AgentRunExecutorPort } from "../../src/application/agent-run/ports";
+import { MODEL_CALL_PORT } from "../../src/application/agent-run/ports";
+import type { ModelCallPort } from "../../src/application/agent-run/ports";
+import { THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig } from "../../src/application/chat/generate-thread-title";
 import { toOrgId } from "../../src/domain/org-id";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -150,6 +153,17 @@ let provenance: ProvenanceWriter;
 let engine: DeepAgentEngineRunController;
 let runCreator: AcceptMessagePlanRunCreator;
 
+/** 同 confirm-plan-delivery-digest.test.ts 的既有先例：轮询而非固定 sleep，避免
+ *  machine 负载高时 executor.kick() 这个 fire-and-forget 还没到达就先断言。 */
+async function waitForNewRunBody(sinceCount: number, timeoutMs = 10_000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (deepAgent.runBodies.length > sinceCount) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`no new run body captured within ${String(timeoutMs)}ms (had ${String(sinceCount)})`);
+}
+
 beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
@@ -174,6 +188,9 @@ beforeAll(async () => {
     threadMounts: app.get<ThreadMountedSkillReader>(THREAD_MOUNTED_SKILL_READER),
     executor: app.get<AgentRunExecutorPort>(AGENT_RUN_EXECUTOR),
     runs: planLedger,
+    model: app.get<ModelCallPort>(MODEL_CALL_PORT),
+    titleModel: app.get<ThreadTitleModelConfig>(THREAD_TITLE_MODEL_CONFIG),
+    log: () => {},
   });
 }, 180_000);
 
@@ -287,8 +304,9 @@ describe("UC-13 resumePlanRun（暂停的配对动作）", () => {
     expect(out.auditEventId).toBeTruthy();
 
     // 独立核实：替身确实收到了新一轮 run 的创建请求（"恢复=起新一轮"的机制事实）。
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(deepAgent.runBodies.length).toBeGreaterThan(beforeCount);
+    // executor.kick() 是 fire-and-forget，固定 50ms sleep 在机器负载高时会先于它到达
+    // 就断言——同 confirm-plan-delivery-digest.test.ts 的既有先例，改轮询。
+    await waitForNewRunBody(beforeCount);
   }, 30_000);
 
   it("从未暂停过 -> NO_PAUSED_STATE", async () => {
