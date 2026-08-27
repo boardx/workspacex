@@ -13,6 +13,7 @@ import {
   type InspectorTab,
 } from "@/lib/chat-task-inspector-tabs";
 import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/live-chat";
+import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 
 /**
  * issue #2068（TW-P0-4）—— 右栏动态 Inspector。
@@ -36,6 +37,18 @@ import type { ListThreadArtifactsOut, ListThreadAttachmentsOut } from "@/lib/liv
  * `STATE_SNAPSHOT`），消费 hook（`lib/agui-plan-todos.ts`）与渲染组件
  * （`agent-plan-panel.tsx`）也都在 main 上——此前只接在预览面板
  * （`copilotkit-preview-panel.tsx`），活体面板从没接过。这里是它的活体落点。
+ *
+ * ⚠ **issue #2260 更正：计划快照的权威数据源改成账本，不是 AG-UI SSE 快照。**
+ * `planTodos`（父组件订阅 `useAguiPlanTodos` 的 `STATE_SNAPSHOT`）只在**实时
+ * AG-UI 桥**这一条通路上更新——`confirmPlan`/`resumePlanRun`/`retryPlanStep`
+ * 触发的续跑（issue #2250）走的是 queued/tick 通路，对浏览器不可见
+ * （`accept-message-plan-run-creator.ts` 头注），永远不会推一次新的
+ * `STATE_SNAPSHOT`。于是「确认并执行」之后，本页签曾经停在确认前的旧计划
+ * 快照上，而顶部阶段指示器（`copilotkit-v2-plan-control.tsx`，读同一张账本）
+ * 正确跟着 run 推进到 `完成`——两处矛盾。账本（`getPlanLedger`）在两条通路上
+ * 都会被写入（`ingestEnginePlanSnapshot` 的两个调用点），因此改为本组件也
+ * `usePlanLedgerPolling(threadId)` 读同一张账本；账本有步骤时优先于
+ * `planTodos`（后者只作为账本还没取到第一帧时的短暂占位，不再是稳态来源）。
  *
  * ⚠ **只做「读」这半边。** 计划的可编辑（调顺序 / 删步骤 / 加约束，验收卡 TW-P0-3③）
  * 当前**没有任何写入通路**：`mutateThread.in.op` 是封闭枚举 `["create","rename","delete"]`
@@ -104,6 +117,16 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     [materialsCount, artifactsCount, isRunning],
   );
 
+  // issue #2260 —— 账本是唯一在 AG-UI 实时桥与 confirm/resume/retry 触发的
+  // queued/tick 续跑两条通路下都跟得上真实进度的数据源（文件头注）。账本一旦
+  // 有步骤（`ledger.steps.length > 0`），一律以它为准，不再信 `planTodos`：
+  // 后者只在实时桥通路上更新，续跑通路下会停在陈旧值，正是本 issue 的症状。
+  const { ledger: planLedger } = usePlanLedgerPolling(threadId);
+  const ledgerTodos: readonly PlanTodo[] | null = planLedger !== null && planLedger.steps.length > 0
+    ? planLedger.steps.map((s) => ({ content: s.content, status: s.status }))
+    : null;
+  const effectivePlanTodos = ledgerTodos ?? planTodos;
+
   const [activeTab, setActiveTab] = React.useState<InspectorTab>("progress");
   /** 用户手动展开过就不再自动折叠回去——折叠是"没内容"的默认值，不是一道锁。 */
   const [manuallyExpanded, setManuallyExpanded] = React.useState(false);
@@ -115,7 +138,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     setActiveTab((current) => nextInspectorTab(prev, signals, current));
   }, [signals]);
 
-  const hasPlan = planTodos !== null && planTodos.length > 0;
+  const hasPlan = effectivePlanTodos !== null && effectivePlanTodos.length > 0;
   const hasRunDetails = runPhaseLabel !== null || runElapsedSeconds !== null;
   const collapsed = !manuallyExpanded && isInspectorCollapsed(signals, hasPlan, hasRunDetails);
 
@@ -209,7 +232,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         >
           {activeTab === "progress" ? (
             <ProgressTab
-              planTodos={planTodos}
+              planTodos={effectivePlanTodos}
               isRunning={isRunning}
               runPhaseLabel={runPhaseLabel}
               runElapsedSeconds={runElapsedSeconds}
