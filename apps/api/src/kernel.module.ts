@@ -705,6 +705,7 @@ import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/perso
 import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
+import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-ledger-repository";
 
 @Module({
   controllers: [
