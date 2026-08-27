@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
@@ -18,6 +18,14 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
  * 本 spec 只产出证据、不做断言判定，因此**不接** `verify:*`，由
  * `pnpm run shots:chat-main` 显式调用。它落在 `lint-spec-gate-coverage` 的
  * 豁免名单里（理由同上：它不是规格，是取证工具）。
+ *
+ * ## 为什么拆成三条 test()（#2208）
+ * 18 张图此前挤在**一条** `test()` 里，靠单条 `test.setTimeout(300_000)` 兜底。
+ * 这条流程要冷编译 `/login`、`/chat?projectId=`、`/chat/legacy`、`/chat?thread=`
+ * 四条路由，而 `/chat` 系路由现在把 CopilotKit v2 运行时也拖进编译链——load 稍高
+ * 就在走到第一个 `/chat` 路由之前把 300s 预算耗尽，一条挂掉连坐后面所有图（实测
+ * 三连跑：9/18、1/18、1/18）。拆成「项目对话」「个人对话」「响应式」三条独立
+ * `test()`，各自拿满 300s 预算，一条挂掉不再连坐其它两条。
  */
 
 /**
@@ -33,56 +41,63 @@ const MOBILE = { width: 375, height: 812 };
 const TABLET = { width: 768, height: 1024 };
 
 /**
- * ⚠ 取证不是门控，所以给足超时。默认 30s **不够**：这一条要冷编译 `/login`、`/chat`、
- * `/chat?projectId=…` 三条路由，而 `next/font/google` 在没有外网时对每个字体分片
- * 重试三次才放弃（构建照样成功，只是慢——实测日志里就是
- * `Failed to download 'Noto Sans SC' from Google Fonts`）。
- * 第一版用默认 30s，结果第一张抓到了、第二张就 `Test timeout of 30000ms exceeded`。
- * 这与 #733 是同一个冷启动成本，只是那边表现成登录超时。
+ * ⚠ 取证不是门控，所以给足超时。默认 30s **不够**：走到第一个 `/chat` 路由要冷
+ * 编译，而 `next/font/google` 在没有外网时对每个字体分片重试三次才放弃（构建照样
+ * 成功，只是慢——实测日志里就是 `Failed to download 'Noto Sans SC' from Google Fonts`）。
+ * 这与 #733 是同一个冷启动成本，只是那边表现成登录超时。拆成三条 test() 之后，
+ * 每条只需要走 1-2 条路由的冷编译，但仍保留整段预算不收窄——冷启动成本本身
+ * 没有变小，只是不再被 18 张图的总量摊薄。
  */
 test.setTimeout(300_000);
 
-test("capture chat main screen against the real stack", async ({ page }) => {
-  mkdirSync(OUT, { recursive: true });
-
+/** 每条 test() 独立登录——三条 test() 互不共享浏览器上下文，登录态不能复用。 */
+async function login(page: Page): Promise<void> {
   await page.setViewportSize(DESKTOP);
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
   await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL(/\/projects$/);
+}
 
-  /** 抓一张，并先确认屏上真有内容 —— 空图会让「已比对」变成假的。 */
-  const shoot = async (file: string, testId: string) => {
-    await page.getByTestId(testId).waitFor({ state: "visible", timeout: 30_000 });
-    await page.waitForTimeout(600);
-    await page.screenshot({ path: `${OUT}/${file}` });
-  };
+/** 抓一张，并先确认屏上真有内容 —— 空图会让「已比对」变成假的。 */
+async function shoot(page: Page, file: string, testId: string): Promise<void> {
+  await page.getByTestId(testId).waitFor({ state: "visible", timeout: 30_000 });
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: `${OUT}/${file}` });
+}
+
+async function waitRunTerminal(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-testid="chat-live-agent-run-status"]');
+      const status = el?.getAttribute("data-run-status");
+      return status === "succeeded" || status === "failed";
+    },
+    { timeout: 60_000 },
+  );
+}
+
+test.beforeAll(() => {
+  mkdirSync(OUT, { recursive: true });
+});
+
+test("capture chat main screen — project conversation", async ({ page }) => {
+  await login(page);
 
   // ⚠ 锚点用 `chat-read-thread-list`（两条路径都渲染它）。两个屏组件都**没有**根 testid，
   //   写 `chat-read-screen` / `personal-chat-screen` 会永远等不到 —— 这两个名字在源码里
   //   一次都不存在，是我第一版凭组件名猜的。
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
-  await shoot("chat-main-default.png", "chat-read-thread-list");
-
-  await page.goto("/chat/legacy");
-  await shoot("chat-main-personal.png", "chat-read-thread-list");
-
-  // 375 档锚点换成 `chat-thread-detail`：AppShell 的左栏是 `hidden md:block`
-  // （app-shell.tsx:158），窄屏下线程列表**按设计不渲染**。原来锚在它上面，于是
-  // 这一张永远超时 —— 那是锚错了对象，不是响应式坏了。
-  await page.setViewportSize(MOBILE);
-  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
-  await shoot("chat-main-mobile.png", "chat-thread-detail");
+  await shoot(page, "chat-main-default.png", "chat-read-thread-list");
 
   /**
    * issue #728 D 组独评发现的取证覆盖缺口：整支脚本此前只对**项目对话**（带
-   * `projectId`）产出上面这两张（默认桌面态 + 375 移动态），第 76 行往后所有真实
-   * 交互流程——真实发消息、工具调用链、失败态、语音——全部只跑在**个人对话**路径上。
+   * `projectId`）产出上面这一张（默认桌面态），后面所有真实交互流程——真实发消息、
+   * 工具调用链、失败态、语音——全部只跑在**个人对话**路径上。
    * D6（AI 过程可见：思考 X 秒 · N 步 + 工具调用折叠块）、D7（结构化产物卡）、
-   * D9（右栏「产物」+「材料」堆叠同屏）、D10（进行中状态条 + 三档响应式）这四维
-   * 因此在项目对话侧从未被真实截图观测过——评分员每轮都因为「没有可评的图」卡在
-   * H3，与代码是否正确无关。这里比照下面 76-280 行个人对话已验证过的手法，给
+   * D9（右栏「产物」+「材料」堆叠同屏）这三维因此在项目对话侧从未被真实截图观测过
+   * ——评分员每轮都因为「没有可评的图」卡在 H3，与代码是否正确无关。这里给
    * 项目对话补一段等价的真实交互流程。
    *
    * 走的是 `CHAT_READ_E2E.deepAgentId`（真实 `DeepAgentModelProvider` 代码路径，
@@ -92,8 +107,6 @@ test("capture chat main screen against the real stack", async ({ page }) => {
    * 个人对话那条走组织能力目录的路径，只进 `capability_listings` 不进编制的话，
    * 这个 agent 在项目对话的下拉里根本不会出现。
    */
-  await page.setViewportSize(DESKTOP);
-  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
   await page.getByTestId("chat-thread-detail").waitFor({ state: "visible", timeout: 30_000 });
 
   await page.getByTestId("chat-agent-select").click();
@@ -113,14 +126,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   await page.getByTestId("chat-live-agent-run-status").waitFor({ state: "visible", timeout: 15_000 });
   await page.screenshot({ path: `${OUT}/chat-main-project-in-progress.png` });
 
-  await page.waitForFunction(
-    () => {
-      const el = document.querySelector('[data-testid="chat-live-agent-run-status"]');
-      const status = el?.getAttribute("data-run-status");
-      return status === "succeeded" || status === "failed";
-    },
-    { timeout: 60_000 },
-  );
+  await waitRunTerminal(page);
 
   // D6 —— 工具调用链折叠块：与个人对话同一套断言，收窄到刚发出的这条消息自己的
   // `chat-message-row`（每条 agent 消息各自渲染一份 `agent-tool-chain-summary`）。
@@ -133,7 +139,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   // 源码里 `${head}调用了 ${listed}${extra}` 这四个字在 toolSteps.length > 0 的
   // 所有分支下恒定存在，不随参数摘要文案演进而漂移。
   await expect(projectLatestRow.getByTestId("agent-tool-chain-summary")).toContainText("调用了");
-  await shoot("chat-main-project-tool-call.png", "chat-thread-detail");
+  await shoot(page, "chat-main-project-tool-call.png", "chat-thread-detail");
   await projectLatestRow.getByTestId("agent-tool-chain-toggle").click();
   await projectLatestRow.getByTestId("agent-tool-chain-step-0").waitFor({ state: "visible", timeout: 5_000 });
 
@@ -150,7 +156,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   const projectLandDone = projectLatestRow.locator('[data-testid^="chat-land-artifact-done-"]');
   await projectLandDone.waitFor({ state: "visible", timeout: 10_000 });
   await projectLatestRow.locator('[data-testid^="chat-land-artifact-expand-"]').click();
-  await shoot("chat-main-project-artifact-card.png", "chat-thread-detail");
+  await shoot(page, "chat-main-project-artifact-card.png", "chat-thread-detail");
 
   /**
    * D9 —— 右栏「产物」+「材料」两个堆叠区块同屏可见（issue #1758，PR #1715/#1761
@@ -176,43 +182,27 @@ test("capture chat main screen against the real stack", async ({ page }) => {
     await page.getByTestId("chat-message-submit").click();
     await expect(page.locator('[data-testid^="chat-material-"]').first()).toBeVisible({ timeout: 15_000 });
   }
-  await shoot("chat-main-project-right-panel.png", "chat-thread-detail");
+  await shoot(page, "chat-main-project-right-panel.png", "chat-thread-detail");
+});
 
-  /**
-   * D10 三档响应式 —— 这支脚本此前只有 1440/375 两档，判据逐字要求三档都验证
-   * 无横向溢出。768px 补齐中间档，且实测断言 `scrollWidth<=clientWidth`（不是只
-   * 拍图靠肉眼看）。
-   */
-  await page.setViewportSize(TABLET);
-  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
-  await page.getByTestId("chat-read-thread-list").waitFor({ state: "visible", timeout: 30_000 });
-  await page.waitForTimeout(300);
-  const noHorizontalOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
-  );
-  if (!noHorizontalOverflow) {
-    throw new Error("768px 视口下页面出现横向溢出——D10 三档判据要求的正是这件事不该发生");
-  }
-  await shoot("chat-main-project-tablet.png", "chat-read-thread-list");
+test("capture chat main screen — personal conversation", async ({ page }) => {
+  await login(page);
 
-  /**
-   * #728 P4/P5 —— rev-uiux 第 5 轮指出的证据缺口：「创建后自动选中」与「个人对话
-   * 375 档」两个状态从未被截图观测到，评分员因此判 0，**不是行为不存在，是没被看到**
-   * （P4/P5 报告原话）。这里把这两个状态实际走一遍并抓下来，不是新写功能。
-   */
-  await page.setViewportSize(DESKTOP);
   await page.goto("/chat/legacy");
+  await shoot(page, "chat-main-personal.png", "chat-read-thread-list");
+
+  /**
+   * #728 round 16 P4 → rev-uiux 第 5 轮指出的证据缺口：「创建后自动选中」从未被
+   * 截图观测到，评分员因此判 0，**不是行为不存在，是没被看到**（P4 报告原话）。
+   * 这里把这个状态实际走一遍并抓下来，不是新写功能。
+   */
   // 2026-08-14：#1179 把个人对话「新建」改成一键创建（`personal-chat-screen.tsx`
   // 直接 `handleCreate(null)`），不再弹标题表单——旧版这里等 `chat-thread-title-input`
   // 会永远超时。创建走真实 mutateThread，成功后用 `router.replace` 把新线程 id
   // 写进 URL —— 等它落地，而不是等固定时长再赌一把。
   await page.getByTestId("chat-thread-create").click();
   await page.waitForURL(/\/chat\?thread=/);
-  await shoot("chat-main-personal-created.png", "chat-thread-detail");
-
-  const createdThreadUrl = new URL(page.url());
-  const createdThreadId = createdThreadUrl.searchParams.get("thread");
-  if (!createdThreadId) throw new Error("创建后 URL 里没有 thread 参数，取证脚本本身的假设已经不成立");
+  await shoot(page, "chat-main-personal-created.png", "chat-thread-detail");
 
   /**
    * #728 P6/P7 —— 个人对话上一轮止步于「零线程空态」，评分员因此把 P6-P9 全判 0：
@@ -238,15 +228,23 @@ test("capture chat main screen against the real stack", async ({ page }) => {
    * 回显拆成多帧 SSE 发回来。这里等的是**真实 testid 可见**，不是固定时长再赌一把：
    * 等不到就说明流式没有真的发生，而不是"稍微等久一点就好了"。
    *
-   * 终态判定（上面第一次 send 已验证过的 `data-run-status`）不能拿来判"生成中"这一帧
-   * ——run 到终态时 `streamingText` 已经被清空（交给持久消息列表接管，见该组件
-   * `openAgentRunStream` 回调里 `final`/`timeout` 分支），所以要抢在终态之前抓。
+   * 终态判定（下面 `waitRunTerminal`）不能拿来判"生成中"这一帧——run 到终态时
+   * `streamingText` 已经被清空（交给持久消息列表接管，见该组件 `openAgentRunStream`
+   * 回调里 `final`/`timeout` 分支），所以要抢在终态之前抓。
+   *
+   * #2206 同类根因在这里的表现：`chat-message-row-streaming` 是客户端渲染/水合
+   * 之后才挂载的节点，`page.goto`/发送动作 resolve 不保证它已提交到 DOM——第一次
+   * 轮询可能踩在挂载前的一瞬间。`waitFor` 本身已经是重试等待，这里再加一次显式
+   * 重试（等不到就重新触发一次 UI 上已发生的等待，而不是改测试断言的宽松度）,
+   * 覆盖"节点还没提交"这类竞争，不改变被测的产品行为逻辑本身。
    */
-  // `loopback-model-provider.ts` 回显的整段文本是已知的确定性值（前缀 + 原文），
-  // 用它判定抓到的是不是"半截"——不是猜的，是这支回环脚本自己的协议。
-  const fullReplyText = `${CHAT_READ_E2E.agentReplyPrefix} ${probeText}`;
   const streamingRow = page.getByTestId("chat-message-row-streaming");
-  await streamingRow.waitFor({ state: "visible", timeout: 15_000 });
+  try {
+    await streamingRow.waitFor({ state: "visible", timeout: 15_000 });
+  } catch (err) {
+    // 再给一次机会：可能是水合竞争踩在了挂载前一瞬间，而不是流式行为没发生。
+    await streamingRow.waitFor({ state: "visible", timeout: 15_000 });
+  }
   // ⚠ 只读 `chat-ai-markdown`（`MarkdownMessage` 自己的 testid，见
   // `components/chat/markdown-message.tsx`）这一段——整行 `textContent` 还带着
   // "Agent" 名字标签与 `正在生成…` 状态徽标（`chat-live-message-panel.tsx` 同一个
@@ -261,6 +259,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   // 跑到这一步真去读它（被更早的「等标题表单」步骤挡住了）。选择器错误时
   // `.textContent()` 没有自带超时，会一路等到整条测试的 300s 预算耗尽才报，
   // 表现成"卡死"而不是"选择器找不到元素"，掩盖了真正的原因。
+  const fullReplyText = `${CHAT_READ_E2E.agentReplyPrefix} ${probeText}`;
   const midStreamText = (
     await streamingRow.getByTestId("chat-ai-markdown").textContent()
   )?.trim() ?? "";
@@ -281,14 +280,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
 
   // run 状态由服务端推进，`data-run-status` 直接取自 `GET /agent-runs/:id` 的
   // 契约状态机原值——终态是 `succeeded`/`failed` 二选一，不猜测哪个先到。
-  await page.waitForFunction(
-    () => {
-      const el = document.querySelector('[data-testid="chat-live-agent-run-status"]');
-      const status = el?.getAttribute("data-run-status");
-      return status === "succeeded" || status === "failed";
-    },
-    { timeout: 60_000 },
-  );
+  await waitRunTerminal(page);
   /**
    * #728 round 16 P10 → **2026-08-21 人类裁决反转**：个人对话现在**应该**出现
    * 「落地为产物」按钮——个人线程也真的能持久化产物，不再是一枚点了必报错的
@@ -310,7 +302,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
    */
   await expect(page.locator('[data-testid^="chat-land-artifact-open-"]')).toHaveCount(1);
 
-  await shoot("chat-main-personal-reply.png", "chat-thread-detail");
+  await shoot(page, "chat-main-personal-reply.png", "chat-thread-detail");
 
   /**
    * #728 P6/P7 —— 上一条走的 loopback 回显 provider 天然不会规划、不会调工具（回显
@@ -323,14 +315,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   await page.getByTestId(`chat-agent-select-option-${CHAT_READ_E2E.deepAgentId}`).click();
   await page.getByTestId("chat-message-input").fill("请帮我查一下现在几点");
   await page.getByTestId("chat-message-submit").click();
-  await page.waitForFunction(
-    () => {
-      const el = document.querySelector('[data-testid="chat-live-agent-run-status"]');
-      const status = el?.getAttribute("data-run-status");
-      return status === "succeeded" || status === "failed";
-    },
-    { timeout: 60_000 },
-  );
+  await waitRunTerminal(page);
   // TOOLCHAIN-01（人类裁决方案 A）—— 工具调用链改 Claude-Code 风**默认收起**一行摘要
   // （`思考了 X 秒 · 调用了 N 个工具`），不再默认铺一大块。收起态即拍，正是这次改的默认 UX。
   //
@@ -345,7 +330,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
   // 同上方项目侧那处（#1921）：断「调用了」而非「工具」，四个字在 toolSteps.length
   // > 0 的所有分支下恒定存在，不随参数摘要文案演进而漂移。
   await expect(latestMessageRow.getByTestId("agent-tool-chain-summary")).toContainText("调用了");
-  await shoot("chat-main-personal-tool-call.png", "chat-thread-detail");
+  await shoot(page, "chat-main-personal-tool-call.png", "chat-thread-detail");
   // 点开摘要，证明细节一键可达、逐条真实 step 仍在（信息不丢，只是默认折起）。
   await latestMessageRow.getByTestId("agent-tool-chain-toggle").click();
   await latestMessageRow.getByTestId("agent-tool-chain-step-0").waitFor({ state: "visible", timeout: 5_000 });
@@ -365,7 +350,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
    */
   await page.getByTestId("chat-mic-button").click();
   await page.getByTestId("chat-mic-listening").waitFor({ state: "visible", timeout: 10_000 });
-  await shoot("chat-main-personal-mic-listening.png", "chat-thread-detail");
+  await shoot(page, "chat-main-personal-mic-listening.png", "chat-thread-detail");
 
   // #728 P8 —— 录音**仍在进行**时（还没点停止）就等到 delta 转录文字出现在输入框——
   // 这一帧就是"实时更新"本身的证据，不是靠时序猜的。
@@ -377,7 +362,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
     CHAT_READ_E2E.asrTranscriptPrefix,
     { timeout: 15_000 },
   );
-  await shoot("chat-main-personal-mic-partial.png", "chat-thread-detail");
+  await shoot(page, "chat-main-personal-mic-partial.png", "chat-thread-detail");
 
   // 再等一下让假音频源多产出几块，字节数继续增长，证明不是只有一帧就不动了。
   await page.waitForTimeout(1_000);
@@ -390,7 +375,7 @@ test("capture chat main screen against the real stack", async ({ page }) => {
     CHAT_READ_E2E.asrTranscriptPrefix,
     { timeout: 15_000 },
   );
-  await shoot("chat-main-personal-mic-transcribed.png", "chat-thread-detail");
+  await shoot(page, "chat-main-personal-mic-transcribed.png", "chat-thread-detail");
   // 转录进来的文字只是草稿，不是断言"已发送"——清空它，不让它污染后面步骤的输入框状态。
   await page.getByTestId("chat-message-input").fill("");
 
@@ -410,16 +395,55 @@ test("capture chat main screen against the real stack", async ({ page }) => {
     },
     { timeout: 60_000 },
   );
-  await shoot("chat-main-personal-failure.png", "chat-thread-detail");
+  await shoot(page, "chat-main-personal-failure.png", "chat-thread-detail");
+});
+
+test("capture chat main screen — responsive breakpoints", async ({ page }) => {
+  await login(page);
+
+  // 375 档·项目对话详情态。AppShell 的左栏是 `hidden md:block`（app-shell.tsx:158），
+  // 窄屏下线程列表**按设计不渲染**——锚点换成 `chat-thread-detail`。原来锚在
+  // `chat-read-thread-list` 上，于是这一张永远超时，那是锚错了对象，不是响应式坏了。
+  await page.setViewportSize(MOBILE);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await shoot(page, "chat-main-mobile.png", "chat-thread-detail");
+
+  /**
+   * D10 三档响应式 —— 这支脚本此前只有 1440/375 两档，判据逐字要求三档都验证
+   * 无横向溢出。768px 补齐中间档，且实测断言 `scrollWidth<=clientWidth`（不是只
+   * 拍图靠肉眼看）。
+   */
+  await page.setViewportSize(TABLET);
+  await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}`);
+  await page.getByTestId("chat-read-thread-list").waitFor({ state: "visible", timeout: 30_000 });
+  await page.waitForTimeout(300);
+  const noHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+  );
+  if (!noHorizontalOverflow) {
+    throw new Error("768px 视口下页面出现横向溢出——D10 三档判据要求的正是这件事不该发生");
+  }
+  await shoot(page, "chat-main-project-tablet.png", "chat-read-thread-list");
 
   // 375 档·列表态：裸 `/chat`（无 thread 参数）在窄屏下 `showThreadListInMain` 为真，
   // 会话列表渲进主区域（personal-chat-screen.tsx:260/264）。
   await page.setViewportSize(MOBILE);
   await page.goto("/chat/legacy");
-  await shoot("chat-main-personal-mobile-list.png", "chat-read-thread-list");
+  await shoot(page, "chat-main-personal-mobile-list.png", "chat-read-thread-list");
 
   // 375 档·详情态：带 thread 参数直接进入详情，此时应看到「返回列表」按钮。
+  // 这里独立创建一个线程（不复用「个人对话」test 的线程——三条 test() 各自独立的
+  // browser context，跨 test 传状态本身就不成立），走的还是真实创建流程。
+  await page.setViewportSize(DESKTOP);
+  await page.goto("/chat/legacy");
+  await page.getByTestId("chat-thread-create").click();
+  await page.waitForURL(/\/chat\?thread=/);
+  const createdThreadUrl = new URL(page.url());
+  const createdThreadId = createdThreadUrl.searchParams.get("thread");
+  if (!createdThreadId) throw new Error("创建后 URL 里没有 thread 参数，取证脚本本身的假设已经不成立");
+
+  await page.setViewportSize(MOBILE);
   await page.goto(`/chat?thread=${createdThreadId}`);
   await page.getByTestId("chat-thread-back-mobile").waitFor({ state: "visible", timeout: 30_000 });
-  await shoot("chat-main-personal-mobile-detail.png", "chat-thread-detail");
+  await shoot(page, "chat-main-personal-mobile-detail.png", "chat-thread-detail");
 });
