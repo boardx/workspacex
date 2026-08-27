@@ -41,35 +41,45 @@ export const TemplateVisibility = z.enum(["org-wide", "team-only"]);
  *      `apps/api/tests/canvas/template-registry-19-key-displayname.test.ts`。
  *      少一个、多一个、改一个字母都会红，且断言逐 key 点名差集——
  *      **不是 `toHaveLength(19)`**，长度断言会挡住正当的 ADR 新增，且换成另外 19 个 key 照样绿。
- *   ② **`displayName` 只活在这里**。它承载 proto-03 的原型显示名，是展示层事实，
+ *   ② **`displayName` 只活在这里**。它承载后台卡片列表要显示的名字，是展示层事实，
  *      不回灌进上游库源码——回灌就变成「同一事实声明在两处」。
  *   ③ **一切绑定 / 实例固化 / ```` ```canvas ```` 围栏 / 图谱回流 / 契约测试引用的是 key**（I-3）。
  *      改 `displayName` 不得影响任何既有绑定。
  *
- * 五处差异（其余 14 条 `displayName === key`）：
- *   `empathy`→`empathy-map` · `journey-map`→`user-journey` · `bmc`→`business-model` ·
- *   `burger`→`burger-comm` · `ai-bmc`→`ai-business-model`
+ * ## 2026-08-26：从「英文 slug」改成中文短名
+ *
+ * 原先 19 条里有 14 条 `displayName === key`（纯英文），其余 5 条也是英文 slug
+ * （如 `bmc`→`business-model`）。devapp 实测：后台卡片标题因此显示成
+ * `business-model`/`ai-business-model` 这类英文，与画布纸面上那行双语大标题（`title`
+ * 字段，「商业模式画布 Business Model Canvas」）不一致，人类裁决改成中文。
+ *
+ * ⚠ 不是发明——19 个中文名逐字取自 `@repo/fabric-markdown` 每个 `TemplateSpec.title`
+ *   的中文前缀（该字段本就是「中文 English」双语拼接，这里只是取前半段）。`title` 字段
+ *   本身不受影响，纸上仍然是完整双语。
+ * ⚠ 这次改动使 **19 条全部** `displayName !== key`——`binding-uses-key-not-displayname.test.ts`
+ *   的判据是「差异集合非空」，动态派生自本表，不需要跟着改；旧版「五处差异之外其余
+ *   displayName===key」那条断言已随本次改动一并重写（见下方 I-36 测试文件）。
  */
 export const BUILTIN_CANVAS_TEMPLATES = {
-  persona: "persona",
-  pestel: "pestel",
-  swot: "swot",
-  empathy: "empathy-map",
-  jtbd: "jtbd",
-  "journey-map": "user-journey",
-  "value-proposition": "value-proposition",
-  adlib: "adlib",
-  bmc: "business-model",
-  mvp: "mvp",
-  freytag: "freytag",
-  burger: "burger-comm",
-  "three-horizons": "three-horizons",
-  hmw: "hmw",
-  "golden-circle": "golden-circle",
-  "three-lenses": "three-lenses",
-  storyboard: "storyboard",
-  "ai-strategy": "ai-strategy",
-  "ai-bmc": "ai-business-model",
+  persona: "用户画像",
+  pestel: "PESTEL 分析",
+  swot: "SWOT 分析",
+  empathy: "同理心地图",
+  jtbd: "待完成工作画布",
+  "journey-map": "用户旅程图",
+  "value-proposition": "价值主张画布",
+  adlib: "价值主张宣言",
+  bmc: "商业模式画布",
+  mvp: "MVP 实验画布",
+  freytag: "戏剧结构金字塔",
+  burger: "汉堡沟通模型",
+  "three-horizons": "三地平线模型",
+  hmw: "HMW 问题陈述",
+  "golden-circle": "黄金圈法则",
+  "three-lenses": "三视角模型",
+  storyboard: "故事板",
+  "ai-strategy": "AI 战略画布",
+  "ai-bmc": "AI 商业模型画布",
 } as const satisfies Record<string, string>;
 
 /** 内置模板 key 的联合类型。**不另写一份清单**——由上表推导 */

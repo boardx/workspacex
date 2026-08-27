@@ -99,34 +99,46 @@ describe("F100 · 内置模板注册表（I-2 / I-36）", () => {
     expect(blanks, `缺 displayName 的 key：${blanks.join(", ")}`).toEqual([]);
   });
 
-  it("五处 key≠displayName 的差异逐字一致（O-09）", () => {
-    // 逐字点名。写成表格是为了失败时一眼看出是哪一条被改了，而不是「有 5 处差异」这种计数。
+  /**
+   * ⚠ 2026-08-26 以前这里是两条断言（「五处英文差异逐字一致」+「其余 14 条
+   *   displayName===key」）——那是英文 slug 年代的形状。devapp 实测后台卡片标题
+   *   显示成 `business-model`/`ai-business-model`，与纸面双语大标题不一致，人类
+   *   裁决全部改成中文。19 个中文名逐字取自 `TemplateSpec.title` 的中文前缀，
+   *   不是发明；改动后**全部 19 条**都与 key 不同，原先「其余 14 条相等」那句话
+   *   不再成立，两条测试合并重写成一张完整表格。
+   */
+  it("19 个 key→displayName 逐字一致（O-09，2026-08-26 改中文短名）", () => {
+    // 逐字点名，写成表格是为了失败时一眼看出是哪一条被改了。
     const verbatim: ReadonlyArray<readonly [string, string]> = [
-      ["empathy", "empathy-map"],
-      ["journey-map", "user-journey"],
-      ["bmc", "business-model"],
-      ["burger", "burger-comm"],
-      ["ai-bmc", "ai-business-model"],
+      ["persona", "用户画像"],
+      ["pestel", "PESTEL 分析"],
+      ["swot", "SWOT 分析"],
+      ["empathy", "同理心地图"],
+      ["jtbd", "待完成工作画布"],
+      ["journey-map", "用户旅程图"],
+      ["value-proposition", "价值主张画布"],
+      ["adlib", "价值主张宣言"],
+      ["bmc", "商业模式画布"],
+      ["mvp", "MVP 实验画布"],
+      ["freytag", "戏剧结构金字塔"],
+      ["burger", "汉堡沟通模型"],
+      ["three-horizons", "三地平线模型"],
+      ["hmw", "HMW 问题陈述"],
+      ["golden-circle", "黄金圈法则"],
+      ["three-lenses", "三视角模型"],
+      ["storyboard", "故事板"],
+      ["ai-strategy", "AI 战略画布"],
+      ["ai-bmc", "AI 商业模型画布"],
     ];
+    // 反空转：这张表本身必须真的覆盖全部 19 个 key，漏抄一条不会被下面的循环发现。
+    expect(verbatim.map(([k]) => k).sort()).toEqual([...declaredKeys].sort());
     for (const [key, displayName] of verbatim) {
-      expect(canvas.builtinDisplayName(key), `key=${key} 的 displayName 不是 ${displayName}`).toBe(
+      expect(canvas.builtinDisplayName(key), `key=${key} 的 displayName 不是「${displayName}」`).toBe(
         displayName,
       );
-      // 这一条保证「差异」是真差异：若某天有人把 displayName 改回等于 key，
-      // 上面那条断言会红，但把清单一起改掉就不会——所以额外钉住「它必须不同」。
-      expect(displayName, `${key} 的 displayName 与 key 同值，那它就不是差异项了`).not.toBe(key);
+      // 全部 19 条现在都是差异项——保证没有一条被误改回等于 key。
+      expect(displayName, `${key} 的 displayName 与 key 同值`).not.toBe(key);
     }
-  });
-
-  it("除那五条外，其余内置模板 displayName === key（不许再冒出第六处差异）", () => {
-    const knownDiff = new Set(["empathy", "journey-map", "bmc", "burger", "ai-bmc"]);
-    const unexpected = declaredKeys
-      .filter((k) => !knownDiff.has(k))
-      .filter((k) => canvas.builtinDisplayName(k) !== k)
-      .map((k) => `${k} → ${canvas.builtinDisplayName(k)}`);
-    expect(unexpected, `未登记在 O-09 的新差异：${unexpected.join(", ")}`).toEqual([]);
-    // 非空前置：如果 declaredKeys 空了，上面这条 filter 结果也空，会平凡为真。
-    expect(declaredKeys.length, "declaredKeys 为空 —— 本条断言会平凡为真").toBeGreaterThan(0);
   });
 
   it("zod 枚举取值 ≡ 声明表的 key（枚举不是第二份手抄清单）", () => {
