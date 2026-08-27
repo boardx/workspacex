@@ -12,6 +12,7 @@
  * backdoor around the layering check: "put the code in a directory with no layer name"
  * would evade the gate, and nothing would report it.
  */
+import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
@@ -347,6 +348,8 @@ import { AgentTrialRunController } from "./interface/controllers/agent-trial-run
 import { ChatFollowUpSuggestionsController } from "./interface/controllers/chat-followup-suggestions.controller";
 import { FOLLOWUP_MODEL_CONFIG } from "./application/chat/generate-followup-suggestions";
 import { readFollowUpSuggestionsModelConfig } from "./infrastructure/chat/followup-suggestions-model-config";
+import { THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig } from "./application/chat/generate-thread-title";
+import { readThreadTitleModelConfig } from "./infrastructure/chat/thread-title-model-config";
 import { SkillTrialRunController, SKILL_TRIALRUN_MODEL_ID } from "./interface/controllers/skill-trial-run.controller";
 import { ORG_AGENT_MODEL_READER } from "./application/skill/trial-run-skill";
 import type { OrgAgentModelReader } from "./application/skill/trial-run-skill";
@@ -705,7 +708,6 @@ import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/perso
 import { PgPersonalTranscriptionRepository } from "./infrastructure/recording/pg-personal-transcription-repository";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/recording/pg-realtime-asr-repository";
-import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-ledger-repository";
 
 @Module({
   controllers: [
@@ -839,14 +841,21 @@ import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-le
         repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository,
         commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
         threadMounts: ThreadMountedSkillReader, executor: AgentRunExecutorPort,
-        runs: PlanRunStatusReader,
+        runs: PlanRunStatusReader, model: ModelCallPort, titleModel: ThreadTitleModelConfig,
+        logger: LoggerPort,
       ) => new AcceptMessagePlanRunCreator({
         repo, ids, chat, commands, publishedAgents, threadMounts, executor, runs,
+        model, titleModel,
+        // 同 ChatController.log 的既有先例（server-side only 适配器）。
+        log: (message: string, detail: Record<string, unknown>) => {
+          logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+        },
       }),
       inject: [
         IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
         CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
-        AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER,
+        AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER, MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG,
+        LOGGER_PORT,
       ],
     },
     {
@@ -1286,6 +1295,13 @@ import { PgPlanLedgerRepository } from "./infrastructure/plan-control/pg-plan-le
       // 「用哪个 provider 调用」（deep-agent 线程追问建议仍是模板 的根因修复）。
       provide: FOLLOWUP_MODEL_CONFIG,
       useFactory: () => readFollowUpSuggestionsModelConfig(),
+    },
+    {
+      // 线程自动命名的模型摘要（`chat.controller.ts` / `copilotkit-agui.controller.ts`
+      // 都经由 `acceptHumanMessage`）固定走这个标准 provider，同上一条 FOLLOWUP_MODEL_CONFIG
+      // 的理由——见 `generate-thread-title.ts` 头注「固定走 deps.titleModel」。
+      provide: THREAD_TITLE_MODEL_CONFIG,
+      useFactory: () => readThreadTitleModelConfig(),
     },
     {
       /**

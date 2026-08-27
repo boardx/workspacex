@@ -150,6 +150,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app?.close();
+  // ③ 的挂起用例故意不 respond，那条连接的 socket 因此永远打开——graceful `close()`
+  // 会等它，在这里挂到 hook 超时。`closeAllConnections()`（Node ≥18.2）先把仍打开的
+  // 连接砍断，`close()` 才能真的 resolve。
+  providerServer.closeAllConnections();
   await new Promise<void>((resolve) => providerServer.close(() => resolve()));
   await asOwner((c) => c.query("DROP SCHEMA IF EXISTS chat_wave2_fixture CASCADE"));
   delete process.env.KERNEL_MODEL_PROVIDER;
@@ -165,6 +169,13 @@ afterEach(() => {
 });
 
 beforeEach(async () => {
+  // 同 message-write-roundtrip.test.ts 的既有先例：chat_wave2_fixture 是本文件
+  // beforeAll 建的固定 schema（同名，非按测试隔离），resetOrgs 只清标准 org 表，
+  // 不会带上这两张 fixture 表——不先清，第二个用例的 publishAgent() 就撞主键。
+  await asOwner(async (c) => {
+    await c.query("DELETE FROM chat_wave2_fixture.agent_versions");
+    await c.query("DELETE FROM chat_wave2_fixture.agents");
+  });
   await resetOrgs(ORG);
   const fx = await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", fx.teams.energy!);
