@@ -1704,8 +1704,18 @@ export function ChatLiveMessagePanel({
             人类这轮明确说项目对话先不做）——这里先只放 Agent 选择器，skill 入口
             留给项目对话那一轮再接进来，不在两边都不存在的东西上造一个空位。
           */}
-          <div className="flex items-center justify-between gap-2 px-1.5 pb-0.5">
-            <div className="flex items-center gap-2">
+          {/* issue #2248（P0，实测 SHA 014a47d9）—— 375/768 两档视口下这一行此前是纯
+              `flex justify-between`（不换行、子项也不收缩）：左侧「Agent 选择器 + 📎 +
+              生成用户画像」与右侧「麦克风设备下拉 + 麦克风 + 发送」合计宽度在窄屏下
+              超过可用宽度，flex 子项默认不收缩到内容宽度以下，于是整行内容宽度超出
+              容器——右侧发送按钮被真实挤出视口（375 档完全在屏外，768 档发送按钮圆形
+              被切一半），不是视觉裁切，是主操作不可达。
+              加 `flex-wrap` 让这一行在放不下时真实换行（左侧分组整体掉到第二行），
+              发送按钮所在的右侧分组作为一个整体要么完整留在第一行、要么完整掉到
+              下一行，不会被沿途裁断；右侧分组另加 `shrink-0` 兜底，即使换行后同一行
+              仍放不下左右两组，也优先保住发送/麦克风不被压缩变形。 */}
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-1.5 pb-0.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <AgentPicker
                 agents={agents}
                 selectedAgentId={selectedAgentId}
@@ -1741,7 +1751,7 @@ export function ChatLiveMessagePanel({
                 </span>
               ) : null}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex shrink-0 items-center gap-1.5">
               {/*
                 realtime-asr 增补 A（contract.md §7）：麦克风设备下拉，紧挨麦克风按钮。
                 录音中禁用——切设备要重起采音管线，不在本增补范围（§7.4 只排除了
