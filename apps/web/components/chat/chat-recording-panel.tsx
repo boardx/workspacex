@@ -105,6 +105,16 @@ export function ChatRecordingPanel({
   const [segments, setSegments] = React.useState<readonly TranscriptSegment[]>([]);
   const streamRef = React.useRef<AsrStreamHandle | null>(null);
   /**
+   * issue #2285（D10 前半 ④）—— 「转录中」行内卡的计时。存的是**开始时刻**，
+   * 不是一个每秒自增的计数器：计数器在标签页被浏览器节流后台化时会漂移，
+   * 「结束时刻 - 开始时刻」不会。`tick` 只用来强制这一段每秒重渲染一次，
+   * 真正的数字每次都从 `recordingStartedAt` 重新算。
+   */
+  const [recordingStartedAt, setRecordingStartedAt] = React.useState<number | null>(null);
+  const [tick, setTick] = React.useState(0);
+  /** 「查看转录」——折叠态只显示一行摘要，展开后复用下面既有的完整转录区。 */
+  const [transcriptExpanded, setTranscriptExpanded] = React.useState(false);
+  /**
    * ⚠ 失败是**粘性**的：`onError` 在异步回调里发生，而 `stop()` 之后我们会去
    *   重读转录。用 ref 记住「这一场已经失败过」，否则一次成功的空读会把
    *   刚显示出来的失败原因抹掉，用户看见的是「什么都没发生」。
@@ -143,6 +153,8 @@ export function ChatRecordingPanel({
     setFailure(null);
     setSegments([]);
     setPartial("");
+    setRecordingStartedAt(null);
+    setTranscriptExpanded(false);
     failedRef.current = false;
     const remembered = readRememberedSession(threadId);
     setSessionId(remembered);
@@ -219,6 +231,7 @@ export function ChatRecordingPanel({
         onFinished: () => setPartial(""),
       }, { sessionToken: bearer });
       setPhase("recording");
+      setRecordingStartedAt(Date.now());
     } catch (e) {
       failedRef.current = true;
       setPhase("failed");
@@ -247,74 +260,157 @@ export function ChatRecordingPanel({
           : "停止录音时出错，转录可能不完整。",
       );
     }
+    setRecordingStartedAt(null);
+    setTranscriptExpanded(false);
     setPhase(failedRef.current ? "failed" : "idle");
   }, [bearer, refresh, sessionId]);
 
   const busy = phase === "starting" || phase === "stopping";
 
+  /**
+   * 每秒重渲染一次——只在 `phase === "recording"` 时挂计时器，收尾/未开始时
+   * 不空转。真正的耗时永远从 `recordingStartedAt` 重算（见其上方注释）。
+   */
+  React.useEffect(() => {
+    if (phase !== "recording") return undefined;
+    const id = window.setInterval(() => setTick((t) => t + 1), 1_000);
+    return () => window.clearInterval(id);
+  }, [phase]);
+
+  const elapsedLabel = React.useMemo(
+    () => formatElapsed(recordingStartedAt === null ? 0 : Date.now() - recordingStartedAt),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `tick` 只是重算触发器，值本身不使用
+    [recordingStartedAt, tick],
+  );
+
+  /** 最新一句：优先中间结果（还在说的那句），没有就是最后一条已落库的段落。 */
+  const latestLine = partial !== "" ? partial : (segments[segments.length - 1]?.text ?? null);
+
+  /**
+   * D10（chat-main-fidelity-rubric.md）—— 参照图在转录中于输入区上方给一张行内卡
+   * （"● 会议转录中 28:14 周宁：客户董事会给的窗口是十八个月… [查看转录][停止录音]"）。
+   * 此前本组件恒显空闲态那一行（会话录音 / 未在录音 / 本会话还没有转录），
+   * `phase === "recording"` 时视觉上和什么都没发生一样。这里只换展示层：
+   * 计时/最新一句/停止动作全部读同一份已经真实存在的状态
+   * （`recordingStartedAt`/`partial`/`segments`/既有 `stop()`），不新增数据源。
+   */
   return (
     <section className="border-b border-border px-4 py-3" data-testid="chat-recording-panel">
-      <div className="flex flex-wrap items-center gap-2">
-        <Mic className="size-3.5 text-muted-foreground" aria-hidden />
-        <span className="text-11 font-medium">会话录音</span>
-        <div className="flex-1" />
-        <Button
-          size="xs"
-          variant="outline"
-          data-testid={TESTID.start}
-          disabled={busy || phase === "recording"}
-          onClick={() => void start()}
+      {phase === "recording" ? (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-card px-2.5 py-1.5"
+          data-testid="chat-recording-active-card"
         >
-          开始录音
-        </Button>
-        <Button
-          size="xs"
-          variant="destructive"
-          data-testid={TESTID.stop}
-          disabled={phase !== "recording"}
-          onClick={() => void stop()}
-        >
-          <Square className="size-3" aria-hidden /> 停止
-        </Button>
-      </div>
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-destructive" />
+          <span className="text-11 font-medium">会话转录中</span>
+          <span className="font-mono text-10 text-muted-foreground" data-testid="chat-recording-elapsed">
+            {elapsedLabel}
+          </span>
+          <span
+            className="min-w-0 flex-1 truncate text-11 text-muted-foreground"
+            data-testid="chat-recording-latest-line"
+          >
+            {latestLine ?? "正在等待第一段转写…"}
+          </span>
+          <Button
+            size="xs"
+            variant="outline"
+            data-testid="chat-recording-view-transcript"
+            aria-expanded={transcriptExpanded}
+            onClick={() => setTranscriptExpanded((v) => !v)}
+          >
+            查看转录
+          </Button>
+          <Button
+            size="xs"
+            variant="destructive"
+            data-testid={TESTID.stop}
+            onClick={() => void stop()}
+          >
+            <Square className="size-3" aria-hidden /> 停止录音
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <Mic className="size-3.5 text-muted-foreground" aria-hidden />
+          <span className="text-11 font-medium">会话录音</span>
+          <div className="flex-1" />
+          <Button
+            size="xs"
+            variant="outline"
+            data-testid={TESTID.start}
+            disabled={busy}
+            onClick={() => void start()}
+          >
+            开始录音
+          </Button>
+          <Button
+            size="xs"
+            variant="destructive"
+            data-testid={TESTID.stop}
+            disabled
+            title="没有正在进行的录音"
+            onClick={() => void stop()}
+          >
+            <Square className="size-3" aria-hidden /> 停止
+          </Button>
+        </div>
+      )}
 
       {/*
         状态锚点。它显示的是「阶段」，不是「有没有出错」——把两者揉进一句话，
         e2e 就只能断言「有文字」，而那种断言在功能全坏时照样绿。
+
+        ⚠ 这一段不跟着 `transcriptExpanded` 折叠——`data-phase` 是
+        `core-loop.spec.ts` 步骤 7（发布门唯一浏览器 e2e）断言 starting→recording→
+        idle 状态流转的锚点，任何时候都必须在 DOM 里，折叠的只应该是下面的转录
+        详情本身（本仓栽过这个坑：真回归 vs 抓拍时机，这次是真回归）。
       */}
       <p className="mt-2 text-11 text-muted-foreground" data-testid={TESTID.status} data-phase={phase}>
         {STATUS_TEXT[phase]}
         {sessionId !== null ? <span className="ml-1 font-mono text-10">会话 {sessionId}</span> : null}
       </p>
 
-      {failure !== null ? (
-        <p className="mt-1 text-11 text-destructive" data-testid="chat-live-recording-error">{failure}</p>
-      ) : null}
+      {phase !== "recording" || transcriptExpanded ? (
+        <>
+          {failure !== null ? (
+            <p className="mt-1 text-11 text-destructive" data-testid="chat-live-recording-error">{failure}</p>
+          ) : null}
 
-      <div className="mt-2" data-testid={TESTID.transcript}>
-        {segments.length === 0 && partial === "" ? (
-          <p className="text-11 text-muted-foreground" data-testid="chat-live-transcript-empty">
-            本会话还没有转录。
-          </p>
-        ) : null}
-        {segments.map((segment) => (
-          <p key={segment.id} className="text-12" data-testid={`chat-live-transcript-${segment.id}`}>
-            {segment.text}
-            {segment.lowConfidence ? <Badge tone="neutral">低置信度</Badge> : null}
-          </p>
-        ))}
-        {/*
-          中间结果单独一行且带自己的 testid：它不落库，绝不能与已落库的段落
-          混在同一个断言里，否则「转录进了数据库」会被一段还没写库的文字满足。
-        */}
-        {partial !== "" ? (
-          <p className="text-12 italic text-muted-foreground" data-testid="chat-live-transcript-partial">
-            {partial}
-          </p>
-        ) : null}
-      </div>
+          <div className="mt-2" data-testid={TESTID.transcript}>
+            {segments.length === 0 && partial === "" ? (
+              <p className="text-11 text-muted-foreground" data-testid="chat-live-transcript-empty">
+                本会话还没有转录。
+              </p>
+            ) : null}
+            {segments.map((segment) => (
+              <p key={segment.id} className="text-12" data-testid={`chat-live-transcript-${segment.id}`}>
+                {segment.text}
+                {segment.lowConfidence ? <Badge tone="neutral">低置信度</Badge> : null}
+              </p>
+            ))}
+            {/*
+              中间结果单独一行且带自己的 testid：它不落库，绝不能与已落库的段落
+              混在同一个断言里，否则「转录进了数据库」会被一段还没写库的文字满足。
+            */}
+            {partial !== "" ? (
+              <p className="text-12 italic text-muted-foreground" data-testid="chat-live-transcript-partial">
+                {partial}
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </section>
   );
+}
+
+/** `ms` → `mm:ss`（超过一小时会自然溢出成三位分钟数，本仓录音场景不会跑那么久）。 */
+function formatElapsed(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 /**
