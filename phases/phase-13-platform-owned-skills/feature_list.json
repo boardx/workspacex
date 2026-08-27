@@ -4,18 +4,19 @@
     {
       "id": "F01",
       "priority": 1,
-      "area": "orchestrator",
-      "title": "示例:健康检查端点",
-      "user_visible_behavior": "GET /api/health 返回 200 且 body 为 {\"ok\": true}",
+      "area": "skill",
+      "title": "平台级 skill 全局可见——四个官方 skill 对所有 org 默认可用",
+      "user_visible_behavior": "一个从未导入过任何 skill 的全新 org，在 chat `#` 挂载候选面板与后台 skill 目录里都能直接看到 pptx-create/docx-create/xlsx-create/pdf-create 四个官方 skill，无需先逐个 org 导入；挂载后能真实执行、真的产出对应格式的文件；写路径（UPDATE/DELETE）依然被 RLS 严格拒绝，只有 SELECT 对所有 org 放开。",
       "status": "not_started",
       "sprint": null,
       "owner": null,
-      "capability": "CAP-WEB",
+      "capability": "CAP-SKILL",
+      "spec_ref": "phases/phase-13-platform-owned-skills/design-deltas/platform-owned-skills/contract.md",
       "verification": [
-        "curl -sf http://localhost:3000/api/health | jq -e '.ok == true'"
+        "pnpm --filter @repo/api exec vitest run tests/skill/platform-owned-skills-real-stack.test.ts"
       ],
       "evidence": "",
-      "notes": "把示例替换成你自己的功能。粒度=一次会话能完成。"
+      "notes": "design-deltas/platform-owned-skills/verification.md 的 V1-V7 全部由 platform-owned-skills-real-stack.test.ts 覆盖（V7 端到端另需 devapp/本地真栈人工复核，脚本测不到界面）。"
     }
   ]
 }

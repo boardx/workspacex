@@ -18,6 +18,25 @@
  * It comes from `kernel_tenant_table_audit()`. When F04 adds the artifact tables, they are
  * covered by this file the day they are created -- nobody has to remember to extend it.
  * That matters more than it sounds: the table that leaks is always the newest one.
+ *
+ * ## One documented exception: rows the platform itself publishes to everyone
+ *
+ * `PLATFORM_ORG_ID` (`org-platform`) is a real row in `organizations`, and a small,
+ * deliberately-reviewed set of `_platform_read` policies (`20260826120000_platform_
+ * canvas_template_library.sql`, `20260827200000_platform_owned_skills.sql`) grant every
+ * tenant `FOR SELECT` on rows it owns in specific tables -- currently `canvas_templates`,
+ * `skills`, `skill_versions`, `skill_version_files`, `capability_listings`. That is not a
+ * leak: it is the policy working as designed, on rows nobody scoped to a tenant in the
+ * first place (a global template library / four official Skills every org gets by
+ * default). I-4's actual claim is "no OTHER tenant's data crosses the boundary" -- this
+ * file excludes `org-platform`'s own rows from both zero-leak assertions below rather
+ * than asserting a stronger invariant the schema was never designed to hold. Skill
+ * versions/files are the reason this needed a real fix rather than just "delete the test
+ * fixture between files": once `published`, `wave2_skill_immutable_trg`
+ * (`20260804031000_wave2_skill_starter_import.sql`) refuses UPDATE/DELETE on them --
+ * matching production, where a published Skill version never goes away -- so the platform
+ * skill rows `backfillPlatformSkills()` writes are meant to persist across every test file
+ * that shares this database, the same way `org-platform` itself does.
  */
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -31,6 +50,7 @@ import {
   resetOrgs,
   seedOrg,
 } from "../support/db";
+import { PLATFORM_ORG_ID } from "../../src/domain/org-id";
 
 const A = "org-f02-leak-a";
 const B = "org-f02-leak-b";
@@ -76,7 +96,12 @@ describe("I-4: reads", () => {
     const foreign = await asApp(A, async (c) => {
       const out: string[] = [];
       for (const { table, col } of tables) {
-        const r = await c.query<{ n: string }>(`SELECT count(*)::text AS n FROM ${table} WHERE ${col} <> $1`, [A]);
+        // 见本文件头注「一处已记录的例外」：`org-platform` 自己的行不算跨租户
+        // 泄漏——`_platform_read` 策略就是设计成让每个租户都看得到它们。
+        const r = await c.query<{ n: string }>(
+          `SELECT count(*)::text AS n FROM ${table} WHERE ${col} <> $1 AND ${col} <> $2`,
+          [A, PLATFORM_ORG_ID],
+        );
         if (r.rows[0]!.n !== "0") out.push(`${table}=${r.rows[0]!.n}`);
       }
       return out;
@@ -111,8 +136,14 @@ describe("I-4: reads", () => {
     const tables = await tenantTables();
     const nonEmpty = await asApp(null, async (c) => {
       const out: string[] = [];
-      for (const { table } of tables) {
-        const r = await c.query<{ n: string }>(`SELECT count(*)::text AS n FROM ${table}`);
+      for (const { table, col } of tables) {
+        // 同上一条：`_platform_read` 策略不看 `app.current_org`（它的 USING 子句只问
+        // "这行是不是 org-platform 的"），所以即使完全没设租户上下文，platform 行
+        // 依然会被这个策略放行——这是设计如此，不是 fail-closed 出了缺口。
+        const r = await c.query<{ n: string }>(
+          `SELECT count(*)::text AS n FROM ${table} WHERE ${col} <> $1`,
+          [PLATFORM_ORG_ID],
+        );
         if (r.rows[0]!.n !== "0") out.push(`${table}=${r.rows[0]!.n}`);
       }
       return out;

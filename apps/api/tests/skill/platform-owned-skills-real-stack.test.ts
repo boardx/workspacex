@@ -133,6 +133,15 @@ afterAll(async () => {
   await app?.close();
   await new Promise<void>((resolve) => modelServer.close(() => resolve()));
   await sandbox?.close();
+  // ⚠ 不在这里清理 `backfillPlatformSkills()` 写进 org-platform 的行：
+  // `skill_versions`/`skill_version_files` 一旦 `published` 就被
+  // `wave2_skill_immutable_trg`（20260804031000_wave2_skill_starter_import.sql）
+  // 拒绝 DELETE/UPDATE，逐字同生产——"发布过的 Skill 版本不可变"不是这份测试的
+  // 权限问题，是这张表故意的约束。org-platform 是全局共享事实（同
+  // skill-contract-crud.test.ts 头注、`backfillPlatformOrg()`/`backfillPlatformSkills()`
+  // 与 canvas 模板同一先例），这几张表在 org-platform 下的行本来就该跨测试文件
+  // 常驻——rls-cross-tenant-zero-leak.test.ts 需要知道这一点（那份测试已经按
+  // design-delta `platform-owned-skills` 更新，见其头注）。
 });
 
 /* ═══════════════════════════════ V1 ═══════════════════════════════ */
