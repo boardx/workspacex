@@ -278,9 +278,14 @@ export default {
       // 此前从未绿过的真根因（不是机器负载）。收窄为 API 侧真实存在的 9 个
       // `/chat/*` 命名空间（grep controllers 实测清单），每个裸路径 + `:path*`
       // 双条目（`/capabilities`/#458 同一个坑的同一个解法）。
+      // issue #2090：上面这份枚举是「grep controllers 实测清单」——`AsrDraftGateway`
+      // 是 `WS @WebSocketGateway`，不是 `@Controller()`，没被那次 grep 扫到，
+      // `/chat/asr-draft` 漏出了枚举表。浏览器发起的 `WS /chat/asr-draft` 握手落在
+      // Next dev 自己身上（没有这个路由），`waitForSocketOpen` 走 error 分支 reject，
+      // composer 麦克风表现为"点了没反应，紧接着报『无法启动语音识别，请重试』"。
       ...[
         "approval-requests", "artifacts", "citations", "messages", "presets",
-        "projects", "tasks", "threads", "visibility",
+        "projects", "tasks", "threads", "visibility", "asr-draft",
       ].flatMap((ns) => [
         { source: `${prefix}/chat/${ns}`, destination: `${apiOrigin}/chat/${ns}` },
         { source: `${prefix}/chat/${ns}/:path*`, destination: `${apiOrigin}/chat/${ns}/:path*` },
