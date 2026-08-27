@@ -16,6 +16,7 @@ import { cycleReport } from "./cycle-report";
 import { tick } from "./tick";
 import { depGraph } from "./dep-graph";
 import { doctor } from "./doctor";
+import { archivePassing } from "./archive-passing";
 import { phaseReadiness } from "./phase-readiness";
 import { coreLoopReadiness } from "./core-loop-readiness-doctor";
 import { roleScorecard } from "./role-scorecard";
@@ -57,6 +58,7 @@ async function main(): Promise<void> {
     case "dep-graph":      depGraph(args); break;
     case "graph":          graphCommand(args); break;
     case "doctor":         doctor(args); break;
+    case "archive-passing": archivePassing(args); break;
     case "phase-readiness": phaseReadiness(args); break;
     case "readiness":      coreLoopReadiness(args); break;
     case "scorecard":      roleScorecard(args); break;
@@ -131,6 +133,7 @@ async function main(): Promise<void> {
       log.info("  pnpm harness sweep-worktrees [--threshold-minutes N]   # 巡检未提交改动的 worker worktree（默认阈值 60）");
       log.info("  pnpm harness sweep-docker [--apply]                    # 巡检孤儿 docker compose 栈（ADR-007）；--apply 实际清理");
       log.info("  pnpm harness dep-graph                                 # 生成 .harness/state/dep-graph.md 依赖图快照");
+      log.info("  pnpm harness archive-passing --phase NN [--dry-run]   # 把已 passing 的 feature 挪进 feature_list.archive.json，缩小 live 文件体量");
       log.info("  pnpm harness graph compile [--no-cache]               # 从权威源确定性编译 Graph Snapshot");
       log.info("  pnpm harness graph validate [--no-cache]              # 校验类型、引用、端点与依赖环");
       log.info("  pnpm harness doctor [--phase NN]                       # 审计链体检：passing 证据真实性 + 派生视图一致性（ADR-012）");

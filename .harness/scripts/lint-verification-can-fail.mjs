@@ -395,7 +395,18 @@ export function lintVerificationCanFail({
       .filter((d) => (only.length ? only.includes(d) : true))
       .map((d) => ({ dir: d, fl: join(phasesRoot, d, "feature_list.json") }))
       .filter((x) => existsSync(x.fl))
-      .map((x) => ({ phase: x.dir, ...JSON.parse(readFileSync(x.fl, "utf8")) }));
+      .map((x) => {
+        const parsed = { phase: x.dir, ...JSON.parse(readFileSync(x.fl, "utf8")) };
+        // 已 passing 的 feature 可能被 `harness archive-passing` 挪进同目录的
+        // feature_list.archive.json（只是搬家，不是第二份事实源）——这条门控要对
+        // 「全部曾经写过的 verification 命令」持续生效，归档不该让它们逃出扫描范围。
+        const archivePath = join(phasesRoot, x.dir, "feature_list.archive.json");
+        if (existsSync(archivePath)) {
+          const archive = JSON.parse(readFileSync(archivePath, "utf8"));
+          parsed.features = [...(archive.features ?? []), ...(parsed.features ?? [])];
+        }
+        return parsed;
+      });
 
   if (lists.length === 0) {
     errors.push(

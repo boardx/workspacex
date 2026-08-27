@@ -30,6 +30,13 @@ export function phaseFeatureListPath(id: string): string {
   return join(findPhaseDir(id), "feature_list.json");
 }
 
+/** 已 passing 且被归档的 feature 存这里；只读合并进 loadFeatureList，永不由常规写路径回写。
+ *  见 .harness/instructions/core-loop-readiness-standard.md 附近关于 feature_list 体量的讨论
+ *  ——passing 不可逆，归档只是搬家，不是复制第二份事实来源。 */
+export function phaseFeatureArchivePath(id: string): string {
+  return join(findPhaseDir(id), "feature_list.archive.json");
+}
+
 export function sprintDir(phaseId: string, sprintId: string): string {
   return join(findPhaseDir(phaseId), "sprints", `sprint-${sprintId}`);
 }

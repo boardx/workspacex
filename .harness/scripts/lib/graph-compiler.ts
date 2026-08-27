@@ -137,7 +137,16 @@ function compileFeature(
 
 export interface RepositoryGraphInput {
   project: string;
-  phases: Array<{ phase: RoadmapPhase; featureList?: FeatureList; featurePath?: string }>;
+  phases: Array<{
+    phase: RoadmapPhase;
+    featureList?: FeatureList;
+    featurePath?: string;
+    /** `harness archive-passing` 挪出的已 passing feature（见 archive-passing.ts）。
+     *  独立的 featureList/featurePath 对，保证 source 指针指向它们真正所在的文件，
+     *  而不是把归档记录的 provenance 假称成 live 文件里的某个下标。 */
+    archiveFeatureList?: FeatureList;
+    archiveFeaturePath?: string;
+  }>;
   roadmapPath?: string;
 }
 
@@ -177,9 +186,15 @@ export function compileGraphInput(input: RepositoryGraphInput, sourceRevision: s
         source(roadmapPath, `/phases/${phaseIndex}/depends_on/${dependencyIndex}`)
       );
     }
-    if (!item.featureList || !item.featurePath) continue;
-    for (const [featureIndex, feature] of item.featureList.features.entries()) {
-      compileFeature(phase, feature, featureIndex, item.featurePath, nodes, edges);
+    if (item.featureList && item.featurePath) {
+      for (const [featureIndex, feature] of item.featureList.features.entries()) {
+        compileFeature(phase, feature, featureIndex, item.featurePath, nodes, edges);
+      }
+    }
+    if (item.archiveFeatureList && item.archiveFeaturePath) {
+      for (const [featureIndex, feature] of item.archiveFeatureList.features.entries()) {
+        compileFeature(phase, feature, featureIndex, item.archiveFeaturePath, nodes, edges);
+      }
     }
   }
 
@@ -219,10 +234,26 @@ export function compileRepositoryGraph(repoRoot: string, sourceRevision = reposi
     if (!Array.isArray(featureList.features)) {
       throw new Error(`${relative(repoRoot, absoluteFeaturePath)} 结构非法`);
     }
+    // 已 passing 的 feature 可能被 `harness archive-passing` 挪进同目录的
+    // feature_list.archive.json（只是搬家，不是第二份事实源）——图快照必须把它们也
+    // 编译进来，否则归档一次，Feature/Verification 节点就凭空消失一批（HGC 完整性门就是
+    // 靠这些节点数兜底的，见 graph-integration.test.ts）。
+    const absoluteArchivePath = join(phaseDirectory, "feature_list.archive.json");
+    let archiveFeatureList: FeatureList | undefined;
+    let archiveFeaturePath: string | undefined;
+    if (existsSync(absoluteArchivePath)) {
+      archiveFeatureList = JSON.parse(readFileSync(absoluteArchivePath, "utf8")) as FeatureList;
+      if (!Array.isArray(archiveFeatureList.features)) {
+        throw new Error(`${relative(repoRoot, absoluteArchivePath)} 结构非法`);
+      }
+      archiveFeaturePath = relative(repoRoot, absoluteArchivePath);
+    }
     return {
       phase,
       featureList,
       featurePath: relative(repoRoot, absoluteFeaturePath),
+      archiveFeatureList,
+      archiveFeaturePath,
     };
   });
   return compileGraphInput(

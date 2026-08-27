@@ -53,6 +53,14 @@ for (const phaseId of process.argv.slice(2)) {
   const fl = JSON.parse(
     readFileSync(join(dir, "feature_list.json"), "utf8"),
   ) as { features: Feature[] };
+  // 已 passing 的 feature 可能被 `harness archive-passing` 挪进同目录的
+  // feature_list.archive.json（只是搬家，不是第二份事实源）——覆盖矩阵要按阶段全部
+  // feature 校验（见下方④），漏并回来会把已归档的 feature 误判成「不属于任何契约束」。
+  const archivePath = join(dir, "feature_list.archive.json");
+  if (existsSync(archivePath)) {
+    const archiveFl = JSON.parse(readFileSync(archivePath, "utf8")) as { features: Feature[] };
+    fl.features = [...archiveFl.features, ...fl.features];
+  }
 
   /* ── ① 材料齐全 + 签核合法性：复用签核链的唯一判定实现 ────────── */
   // featureIds 传 []：这里只做结构性检查，「谁能开工」是 new-sprint/claim/doctor 的事。

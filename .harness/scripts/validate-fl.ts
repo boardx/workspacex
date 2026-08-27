@@ -63,7 +63,15 @@ for (const phaseId of process.argv.slice(2)) {
   }
 
   const fl = JSON.parse(readFileSync(flPath, "utf8")) as { phase?: string; features: Feature[] };
-  const feats = fl.features ?? [];
+  let feats = fl.features ?? [];
+  // 已 passing 的 feature 可能被 `harness archive-passing` 挪进同目录的
+  // feature_list.archive.json（只是搬家，不是第二份事实源）——本文件下面的估点对账、
+  // id 唯一性等检查都要按阶段全量算，漏并回来会把归档记录的估点/id 从总数里丢掉。
+  const archivePath = join(dir, "feature_list.archive.json");
+  if (existsSync(archivePath)) {
+    const archive = JSON.parse(readFileSync(archivePath, "utf8")) as { features: Feature[] };
+    feats = [...(archive.features ?? []), ...feats];
+  }
   const ids = new Set(feats.map((f) => f.id));
   let bad = 0;
   const say = (msg: string) => {

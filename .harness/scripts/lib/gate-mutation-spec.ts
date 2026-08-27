@@ -201,6 +201,22 @@ export function replaceOnce(rel: string, from: string, to: string): Mutation["ap
   };
 }
 
+/** 同 replaceOnce，但依次尝试多个候选路径，命中第一个「存在且包含 from」的就打那个。
+ *  用于打的目标可能已经被搬家过的场景（例如 feature_list.json → feature_list.archive.json
+ *  的 passing 归档）——探针不该因为记录换了文件就变成"这次没改动任何东西"。 */
+export function replaceOnceAcross(rels: readonly string[], from: string, to: string): Mutation["apply"] {
+  return (_root, io) => {
+    for (const rel of rels) {
+      if (!io.exists(rel)) continue;
+      const before = io.read(rel);
+      if (!before.includes(from)) continue;
+      io.write(rel, before.replace(from, to));
+      return true;
+    }
+    return false;
+  };
+}
+
 /** 新建一个文件并强制加进 git 索引（用于"投影路径不得被追踪"这类检查）。 */
 export function trackNewFile(rel: string, content: string): Mutation["apply"] {
   return (_root, io) => {
@@ -219,6 +235,10 @@ const NAV = "apps/web/lib/navigation.ts";
 const REWRITE_ALLOWLIST = ".harness/state/rewrite-coverage-allowlist.json";
 const CONTRACT_TS = "packages/contracts/src/skills.ts";
 const FL_01 = "phases/phase-01-run-a-project/feature_list.json";
+// `harness archive-passing` 会把已 passing 的 feature（含它的 verification 字符串）
+// 从 FL_01 搬进这个归档文件——探针要打的 device-session-30d 那条随时可能已经搬家，
+// 见下面 replaceOnceAcross。
+const FL_01_ARCHIVE = "phases/phase-01-run-a-project/feature_list.archive.json";
 
 const cli = (...rest: string[]) => ["tsx", ".harness/scripts/cli.ts", ...rest] as const;
 const node = (script: string) => ["node", script] as const;
@@ -290,8 +310,11 @@ export const GATE_SPECS: readonly GateSpec[] = [
     mutations: [
       {
         name: "把一条 verification 改成未登记形态",
-        apply: replaceOnce(
-          FL_01,
+        // 目标 feature（device-session-30d）一旦 passing 就可能被
+        // `harness archive-passing` 挪进 FL_01_ARCHIVE——两个路径都试一遍，
+        // 不因为记录搬了家就让这条探针假性判 INEFFECTIVE。
+        apply: replaceOnceAcross(
+          [FL_01, FL_01_ARCHIVE],
           "pnpm --filter api exec vitest run tests/auth/device-session-30d.test.ts",
           "echo probe-bogus-verification",
         ),

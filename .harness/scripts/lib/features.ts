@@ -1,17 +1,37 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { phaseFeatureListPath, sprintDir } from "./paths";
+import { phaseFeatureListPath, phaseFeatureArchivePath, sprintDir } from "./paths";
 import type { Feature, FeatureList, FeatureStatus } from "./types";
 
+/** 读归档文件的 id 集合（不存在则返回空集）。saveFeatureList 用它过滤，防止归档记录被写回 live 文件。 */
+function loadArchivedIds(phaseId: string): Set<string> {
+  const p = phaseFeatureArchivePath(phaseId);
+  if (!existsSync(p)) return new Set();
+  const archive = JSON.parse(readFileSync(p, "utf8")) as FeatureList;
+  if (!Array.isArray(archive.features)) throw new Error(`feature_list 归档结构非法: ${p}`);
+  return new Set(archive.features.map((f) => f.id));
+}
+
+/** 合并 live + archive 两个文件的只读视图。archive 只在这里被读入内存，
+ *  永不通过 saveFeatureList 写回——它是已冻结（passing）记录的搬家结果，不是第二份可变事实源。 */
 export function loadFeatureList(phaseId: string): FeatureList {
   const p = phaseFeatureListPath(phaseId);
   const fl = JSON.parse(readFileSync(p, "utf8")) as FeatureList;
   if (!Array.isArray(fl.features)) throw new Error(`feature_list 结构非法: ${p}`);
-  return fl;
+  const archivePath = phaseFeatureArchivePath(phaseId);
+  if (!existsSync(archivePath)) return fl;
+  const archive = JSON.parse(readFileSync(archivePath, "utf8")) as FeatureList;
+  if (!Array.isArray(archive.features)) throw new Error(`feature_list 归档结构非法: ${archivePath}`);
+  return { ...fl, features: [...archive.features, ...fl.features] };
 }
 
+/** 只写 live 文件。任何 id 已在归档里的 feature 会被剔除，不回写进 live——
+ *  归档记录只能由专门的归档脚本搬动，常规调用方（claim/verify/sweep-unblock…）不需要、
+ *  也不应该关心这个过滤;它们照常 load → 改字段 → save 即可。 */
 export function saveFeatureList(phaseId: string, fl: FeatureList): void {
-  writeFileSync(phaseFeatureListPath(phaseId), JSON.stringify(fl, null, 2) + "\n", "utf8");
+  const archived = loadArchivedIds(phaseId);
+  const live = archived.size === 0 ? fl.features : fl.features.filter((f) => !archived.has(f.id));
+  writeFileSync(phaseFeatureListPath(phaseId), JSON.stringify({ ...fl, features: live }, null, 2) + "\n", "utf8");
 }
 
 export function featuresForSprint(fl: FeatureList, sprintId: string): Feature[] {
