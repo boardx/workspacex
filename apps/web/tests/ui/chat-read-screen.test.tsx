@@ -410,6 +410,28 @@ describe("formal Chat read path", () => {
   });
 
   /**
+   * D4（chat-main-fidelity-rubric.md）—— 线程头部此前只有一个 `disabled` 的
+   * 「侧栏」按钮（原型遗留说明："折叠交互属应用外壳（AppShell）布局层，未在本屏接线"）。
+   * 现在真的接上：点击应发出 `requestShellRightPanelToggle` 用的那个 window 事件
+   * （`AppShell` 是被 mock 掉的，本用例断言的是"发出了正确的触发信号"这条契约，
+   * 真正的折叠效果由 `app-shell-panel-collapse.test.tsx` 与真栈 e2e 验证）。
+   */
+  it("D4：线程头部「侧栏」按钮真实可点，发出右栏折叠切换事件", async () => {
+    const { SHELL_RIGHT_PANEL_TOGGLE_EVENT } = await import("@/lib/shell-panel-events");
+    const onToggle = vi.fn();
+    window.addEventListener(SHELL_RIGHT_PANEL_TOGGLE_EVENT, onToggle);
+    try {
+      render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+      const button = await screen.findByTestId("chat-thread-sidebar-toggle");
+      expect(button).not.toBeDisabled();
+      fireEvent.click(button);
+      expect(onToggle).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(SHELL_RIGHT_PANEL_TOGGLE_EVENT, onToggle);
+    }
+  });
+
+  /**
    * 十项 UX 缺口第 9 项 —— 顶部实时状态 chip。
    *
    * 单一事实源：这个 chip 与 `RosterPanel` 里"在场 N · 编制 M"读的是**同一个**
