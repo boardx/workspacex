@@ -4,12 +4,12 @@ phase: "01"
 covers: [F100, F101, F102, F103, F104, F105, F106, F107]   # 束↔feature 映射的权威（ADR-023 决策三）；改它等于改评审范围
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: "yanbin shen"
-confirmed_at: "2026-08-26T13:07:46Z"
+confirmed_at: "2026-08-27T04:38:15Z"
 # ⚠ 原始签核时间是 **2026-07-31T16:40:49+08:00**（人类 yanbin shen），未丢，见下方
-#   `scope_note` 与正文「③-补」一节。本次刷新的原因是 2026-07-31 之后契约面长出了
-#   6 处设计增量，人类 2026-08-26 裁决「一次性全部补签」。
-scope_note: "2026-07-31 首次签核范围含 createTemplate（人类手写，原话未改）；2026-08-26 追加补签 ③-补 一节列出的 6 处设计增量"
-confirmed_via: "人类 2026-08-26 在 coordinator 收窄的选择题上选定「一次性全部补签」，并 Merge 本签核 PR —— 按 .harness/instructions/human-decision-packaging.md 规则二第 4 条，Merge 动作本身即人类 review 过这 6 处增量的机械证据。补签的具体条目逐条列在正文「③-补」一节。"
+#   `scope_note` 与正文「③-补」一节。2026-08-26 刷新过一次（6 处设计增量，「一次性
+#   全部补签」）；本次（2026-08-27）再刷新，覆盖追加的第 7、8 两条。
+scope_note: "2026-07-31 首次签核范围含 createTemplate（人类手写，原话未改）；2026-08-26 追加补签 ③-补 第 1-6 条；2026-08-27 追加补签 ③-补 第 7-8 条（B2 平台模板母版 + chat 模拟）"
+confirmed_via: "人类 2026-08-26 在 coordinator 收窄的选择题上选定「一次性全部补签」，并 Merge 该次签核 PR；2026-08-27 人类 Merge #2204（新增第 7、8 条）—— 按 .harness/instructions/human-decision-packaging.md 规则二第 4 条，Merge 动作本身即人类 review 过这些增量的机械证据。补签的具体条目逐条列在正文「③-补」一节。"
 ---
 
 # 契约束 `canvas` 设计签核
