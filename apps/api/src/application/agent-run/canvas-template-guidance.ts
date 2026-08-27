@@ -129,12 +129,21 @@ export function createCanvasTemplateGuidancePort(deps: ListTemplatesDeps): Canva
  * 因此本段标题刻意不用「可视化」三个字（那是 mermaid 那段的标题词），并在正文第一句就点出
  * 「不是图表，是协作模板」这条边界，两段指引在 `buildSystemPrompt` 里各自成段、彼此独立。
  */
+/**
+ * 稳定哨兵行，抽成常量而不是内联字面量——`loopback-model-provider.ts` 需要判定
+ * 「这段指引真的被拼进了 system prompt」，与 `RUN_SCRIPT_PROTOCOL_PROMPT` /
+ * `FOLLOWUP_SUGGESTIONS_SYSTEM_PROMPT` 同一条既有纪律：唯一事实源是产品代码里的
+ * 这一个常量，判定方 import 它，不在测试侧另抄一份字面量（本仓已因字面量重复漂移过
+ * 五次，见 AGENTS.md「同一事实不得声明在两处」）。
+ */
+export const CANVAS_GUIDANCE_HEADER = "## 工作坊协作画布（canvas 围栏）";
+
 export function buildCanvasTemplateGuidance(
   templates: readonly CanvasTemplateGuidanceInfo[],
 ): string | null {
   if (templates.length === 0) return null;
   const lines = [
-    "## 工作坊协作画布（canvas 围栏）",
+    CANVAS_GUIDANCE_HEADER,
     "除了 mermaid 图表（flowchart / 时序图 / 思维导图等标准图表，单人产出、渲染即完成），"
       + "你还可以用 ```canvas 围栏产出**工作坊协作画布**——这是团队用便签协作填写的结构化模板，"
       + "不是另一种画图方式，也不是普通图表。canvas 围栏是它的产出语法：把内容按模板的分区整理成"

@@ -17,6 +17,20 @@ import {
 import { addChatMessage, addChatThread } from "../tests/support/chat-db";
 import { addCapability } from "../tests/support/db";
 import { createChatWave2FixtureSchema } from "../tests/support/chat-wave2-fixture-schema";
+/**
+ * 5 点迭代要求第②条的画布模板种子——与 `backfill-canvas-builtin-templates.ts` 同一条
+ * 纪律（该脚本文件头「走的是真实 create/publish 用例，不是裸 INSERT」）：写入必须走
+ * `PgDatabase` + 真实 application 用例，逐条模拟「组织 admin 在后台点了一次新建、点了
+ * 一次发布」，鉴权（`requireTemplateAdmin` = org admin）与状态机全部照走一遍，不给
+ * `canvas_templates` 这张不变量复杂的表另开一条裸写路径。
+ */
+import { appConfig } from "../src/infrastructure/db/pg-config";
+import { PgDatabase } from "../src/infrastructure/db/pg-database";
+import { PgIdentityRepository } from "../src/infrastructure/identity/pg-identity-repository";
+import { PgCanvasTemplateRepository } from "../src/infrastructure/canvas/pg-canvas-template-repository";
+import { createTemplate } from "../src/application/canvas/create-template";
+import { publishTemplate } from "../src/application/canvas/publish-template";
+import { toOrgId } from "../src/domain/org-id";
 
 if (process.env.CHAT_E2E_FIXTURE !== "1") {
   throw new Error("CHAT_E2E_FIXTURE=1 is required");
@@ -123,6 +137,15 @@ const L2_EARLY_FACT_CODE_WORD = required("CHAT_E2E_L2_EARLY_FACT_CODE_WORD");
 const TOOL_TRACE_CHECK_THREAD_ID = required("CHAT_E2E_TOOL_TRACE_CHECK_THREAD_ID");
 const TOOL_TRACE_TOOL_NAME = required("CHAT_E2E_TOOL_TRACE_TOOL_NAME");
 const TOOL_TRACE_RESULT_CODE = required("CHAT_E2E_TOOL_TRACE_RESULT_CODE");
+/**
+ * 5 点迭代要求第②条 —— 真实生产 chat「基于上下文生成可视化」专属线程（见
+ * `chat-read-fixture.ts` 同名字段头注：与后台 chat 模拟验的是两条不共享执行路径的链路）。
+ */
+const CANVAS_GUIDANCE_THREAD_ID = required("CHAT_E2E_CANVAS_GUIDANCE_THREAD_ID");
+const CANVAS_TEMPLATE_KEY = required("CHAT_E2E_CANVAS_TEMPLATE_KEY");
+const CANVAS_TEMPLATE_DISPLAY_NAME = required("CHAT_E2E_CANVAS_TEMPLATE_DISPLAY_NAME");
+const CANVAS_HEADER_FIELD_NAME = required("CHAT_E2E_CANVAS_HEADER_FIELD_NAME");
+const CANVAS_SECTION_NAME = required("CHAT_E2E_CANVAS_SECTION_NAME");
 
 /** 撑满字符预算，逼 `trimHistoryToBudget` 把早期轮次赶出 L1——与
  *  `agent-run-context-snapshot.test.ts` 的 `pad()` 同一个公式。 */
@@ -213,6 +236,7 @@ for (const [id, title] of [
   [TOOL_TRACE_CHECK_THREAD_ID, "Tool trace cross-run check fixture thread"],
   [KEYBOARD_THREAD_A_ID, "Keyboard reachability check thread A"],
   [KEYBOARD_THREAD_B_ID, "Keyboard reachability check thread B"],
+  [CANVAS_GUIDANCE_THREAD_ID, "Canvas guidance in real chat check thread"],
 ] as const) {
   await addChatThread({
     orgId: ORG_ID,
@@ -685,6 +709,73 @@ for (let index = 1; index <= 30; index += 1) {
   });
 }
 
+/**
+ * 5 点迭代要求第②条 —— 真实生产 chat「基于上下文生成可视化」的前置条件：本组织
+ * 需要有一个**真实、已发布**的画布模板，`buildCanvasTemplateGuidance` 才有东西可注入。
+ *
+ * ## 为什么用一个**独立**的 actor，不复用 `USER_ID`
+ *
+ * `requireTemplateAdmin` 只放行 org admin（`canMutateCapabilities`），而 `USER_ID` 在本
+ * 夹具里恒是 `addOrgMember(..., "lead", null)`——改它的角色会动到本文件其余全部用例的
+ * RBAC 前提（谁能不能挂 skill/发消息全部现由 "lead" 这个角色跑），影响面远超「加一个
+ * 模板」这一件事。所以另开一个**只用于本次种子写入、从不参与登录/断言**的专属 admin，
+ * 与 `backfill-canvas-builtin-templates.ts` 「找不到 admin 就抛错」不同的是——这里既然
+ * 是从零建组织，直接现造一个即可，不必去库里现查。
+ */
+const CANVAS_TEMPLATE_ADMIN_ID = `${USER_ID}-canvas-admin`;
+await addOrgMember(ORG_ID, CANVAS_TEMPLATE_ADMIN_ID, "admin", null);
+await asOwner(async (client) => {
+  await client.query(
+    `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
+     VALUES ($1,$2,$3,$4,now())`,
+    [CANVAS_TEMPLATE_ADMIN_ID, `canvas-admin+${ORG_ID}@example.invalid`, "Canvas Template Seed Admin", passwordHash],
+  );
+});
+
+{
+  const db = new PgDatabase(appConfig());
+  try {
+    const identity = new PgIdentityRepository(db);
+    const templates = new PgCanvasTemplateRepository(db);
+    const org = toOrgId(ORG_ID);
+    const deps = { identity, templates };
+    const actor = { userId: CANVAS_TEMPLATE_ADMIN_ID, orgId: org };
+
+    const created = await createTemplate(deps, {
+      ...actor,
+      key: CANVAS_TEMPLATE_KEY,
+      displayName: CANVAS_TEMPLATE_DISPLAY_NAME,
+      underlyingType: "canvas",
+      visibility: "org-wide",
+      sections: [
+        {
+          sectionId: "header-field-1",
+          key: "name",
+          name: CANVAS_HEADER_FIELD_NAME,
+          type: "短文本",
+          order: 0,
+          required: true,
+          capacity: null,
+          layout: { col: 1, row: 1, w: 12, h: 1, cols: 3, max: 3, tone: 0, overflow: "截断" },
+        },
+        {
+          sectionId: "section-1",
+          key: "points",
+          name: CANVAS_SECTION_NAME,
+          type: "便利贴列表",
+          order: 1,
+          required: false,
+          capacity: 6,
+          layout: { col: 1, row: 2, w: 12, h: 7, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
+        },
+      ],
+    });
+    await publishTemplate(deps, { ...actor, key: CANVAS_TEMPLATE_KEY, version: created.version, visibility: "org-wide" });
+  } finally {
+    await db.close();
+  }
+}
+
 process.stdout.write(
   `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 `
   + `roster=1 publishedAgent=1 catalogOnlyAgent=1 deepAgent=1 mountableSkill=1 retrievableAttachment=1 `
@@ -693,5 +784,6 @@ process.stdout.write(
   + `attachmentPreviewThread=${ATTACHMENT_PREVIEW_THREAD_ID} `
   + `diagramRoundtripThread=${DIAGRAM_ROUNDTRIP_THREAD_ID} `
   + `l2CheckThread=${L2_CHECK_THREAD_ID} toolTraceCheckThread=${TOOL_TRACE_CHECK_THREAD_ID} `
-  + `keyboardThreadA=${KEYBOARD_THREAD_A_ID} keyboardThreadB=${KEYBOARD_THREAD_B_ID}\n`,
+  + `keyboardThreadA=${KEYBOARD_THREAD_A_ID} keyboardThreadB=${KEYBOARD_THREAD_B_ID} `
+  + `canvasGuidanceThread=${CANVAS_GUIDANCE_THREAD_ID} canvasTemplate=${CANVAS_TEMPLATE_KEY}\n`,
 );

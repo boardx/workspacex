@@ -231,7 +231,7 @@ export default defineConfig({
   projects: [
     {
       name: "chat-read",
-      testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
+      testMatch: /(chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation)\.spec\.ts$/,
     },
     {
       /**
@@ -383,6 +383,16 @@ export default defineConfig({
         LOOPBACK_MODEL_L2_SUMMARY_ECHO_PREFIX: CHAT_READ_E2E.l2SummaryEchoPrefix,
         LOOPBACK_MODEL_TOOL_TRACE_ECHO_PREFIX: CHAT_READ_E2E.toolTraceEchoPrefix,
         LOOPBACK_MODEL_TOOL_TRACE_SENTINEL: CHAT_READ_E2E.toolTraceHistoricalResultCode,
+        /**
+         * 5 点迭代要求第②条 —— 打开替身进程「system prompt 里真的看到本组织已发布画布
+         * 模板的指引，就产出可解析的 canvas 围栏」这个**默认关闭**的开关（见
+         * `loopback-model-provider.ts` 里 `canvasGuidanceReachedModel` 的头注）。
+         * `fullstack-smoke.config.ts` / `core-loop` 不下发这三个变量，那两条链路行为
+         * 逐字节不变。
+         */
+        LOOPBACK_MODEL_CANVAS_TEMPLATE_KEY: CHAT_READ_E2E.canvasTemplateKey,
+        LOOPBACK_MODEL_CANVAS_HEADER_FIELD_NAME: CHAT_READ_E2E.canvasHeaderFieldName,
+        LOOPBACK_MODEL_CANVAS_SECTION_NAME: CHAT_READ_E2E.canvasSectionName,
       },
     },
     /**
@@ -473,6 +483,14 @@ export default defineConfig({
         // 断言方共用同一份（同上面每一条专属线程的接线方式）。
         CHAT_E2E_KEYBOARD_THREAD_A_ID: CHAT_READ_E2E.keyboardThreadAId,
         CHAT_E2E_KEYBOARD_THREAD_B_ID: CHAT_READ_E2E.keyboardThreadBId,
+        // 5 点迭代要求第②条 —— 真实 chat「基于上下文生成可视化」的专属线程 + 真实已
+        // 发布画布模板，唯一事实源在 `chat-read-fixture.ts`，种子脚本 / 替身进程 / 断言方
+        // 三处共用同一份（同上面每一条专属线程的接线方式）。
+        CHAT_E2E_CANVAS_GUIDANCE_THREAD_ID: CHAT_READ_E2E.canvasGuidanceThreadId,
+        CHAT_E2E_CANVAS_TEMPLATE_KEY: CHAT_READ_E2E.canvasTemplateKey,
+        CHAT_E2E_CANVAS_TEMPLATE_DISPLAY_NAME: CHAT_READ_E2E.canvasTemplateDisplayName,
+        CHAT_E2E_CANVAS_HEADER_FIELD_NAME: CHAT_READ_E2E.canvasHeaderFieldName,
+        CHAT_E2E_CANVAS_SECTION_NAME: CHAT_READ_E2E.canvasSectionName,
         // The catalog schema override is intentionally test-only; production always resolves
         // the public Agent catalog. Authentication in this journey still uses a signed login.
         KERNEL_ALLOW_TEST_PRINCIPAL: "1",
