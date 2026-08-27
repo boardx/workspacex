@@ -36,6 +36,11 @@ FROM node:22-slim
 # first」；而且 `network: none` 下容器根本出不了网，装不了包 —— 两件事自洽
 # （contract §4 末尾）。⚠ 别把它改成运行时安装：那会同时违反 skill 原文与网络边界。
 #
+# F979（design-delta skill-office-docs-node-runtime）—— 同一条纪律扩到三个新库：
+# docx（Word 从零创建）、exceljs（Excel 从零创建）、pdf-lib（PDF 从零创建）。三者均为
+# 独立 MIT 许可的开源 Node 库，不是 Anthropic 官方或任何 fork skill 的代码/提示词——
+# 完整授权结论见该 delta contract.md §0。同样预装进镜像、同样不允许运行时安装。
+#
 # ⚠ 装成**扁平真实目录树**（npm 的默认布局，每个包都是真目录、不是软链）。
 #   这不是风格选择：Node 权限模型不递归解析软链，pnpm 那种二层软链布局下
 #   即使把链条上每段真实路径全部授权也依然被拒（#1583 实测）。
@@ -45,7 +50,10 @@ COPY package.json ./
 RUN npm install --omit=dev --no-package-lock \
  && npm cache clean --force \
  # 自检：预装真的成功了才让镜像构建通过，而不是等运行时才发现 MODULE_NOT_FOUND。
- && node -e "require.resolve('pptxgenjs'); console.log('pptxgenjs preinstalled OK')"
+ && node -e "require.resolve('pptxgenjs'); console.log('pptxgenjs preinstalled OK')" \
+ && node -e "require.resolve('docx'); console.log('docx preinstalled OK')" \
+ && node -e "require.resolve('exceljs'); console.log('exceljs preinstalled OK')" \
+ && node -e "require.resolve('pdf-lib'); console.log('pdf-lib preinstalled OK')"
 
 COPY --from=build /build/dist ./dist
 
