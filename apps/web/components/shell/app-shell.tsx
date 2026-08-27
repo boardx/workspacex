@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import { IconRail } from "./icon-rail";
 import { TopBar } from "./top-bar";
 import { MobileTabs } from "./mobile-tabs";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useOptionalSession, type SessionContextValue } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
+import { SHELL_RIGHT_PANEL_TOGGLE_EVENT } from "@/lib/shell-panel-events";
 
 /**
  * 三栏骨架 —— 尺寸来自原型实测：
@@ -197,6 +199,20 @@ function ShellChrome({
     try { window.localStorage.setItem(`shell.${side}Collapsed`, next ? "1" : "0"); } catch { /* 同上 */ }
   };
 
+  /*
+   * D4（chat-main-fidelity-rubric.md）—— 业务屏（线程头部）没有办法触发这里的折叠
+   * 状态：此前只有本组件自己画的 `shell-right-collapse` 按钮能切换右栏，参照原型
+   * 要求线程头部本身也要有一枚可辨识的「侧栏」按钮。两边不共享 React 树（`AppShell`
+   * 在部分单测里整体被 mock），改听一个 `window` 自定义事件——见
+   * `lib/shell-panel-events.ts` 头注，事件只是"触发点"，折叠状态本身仍只活在这里。
+   */
+  React.useEffect(() => {
+    const handler = () => togglePanel("right");
+    window.addEventListener(SHELL_RIGHT_PANEL_TOGGLE_EVENT, handler);
+    return () => window.removeEventListener(SHELL_RIGHT_PANEL_TOGGLE_EVENT, handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rightCollapsed]);
+
   return (
     <FeedbackProvider>
     <div data-testid="app-shell" className="flex h-dvh w-full overflow-hidden bg-background">
@@ -258,14 +274,22 @@ function ShellChrome({
               data-testid="shell-right-panel"
               className={cn("relative hidden w-panel-alt shrink-0 overflow-y-auto border-l border-border bg-panel-alt xl:block")}
             >
+              {/*
+                D9（chat-main-fidelity-rubric.md）—— 此前这颗按钮画在 `left-1 top-1`，
+                与 `ChatArtifactsPanel` 头部左侧的「产物」包裹图标（`Package` + 文字）
+                同一格重叠，放大截图后判不出任何「›」/「×」字形（两个小图标叠在一起
+                互相吃掉了可辨识的轮廓）。挪到右上角，避开任何面板自己的头部图标；
+                字符「›」换成 lucide `X`（真的 × 字形，明确表达「关闭/收起整个右栏」），
+                加边框与背景保证在任何面板底色上都有对比度。
+              */}
               <button
                 type="button"
                 aria-label="收起右栏"
                 data-testid="shell-right-collapse"
                 onClick={() => togglePanel("right")}
-                className="absolute left-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground xl:flex"
+                className="absolute right-1 top-1 z-10 hidden h-6 w-6 items-center justify-center rounded border border-border bg-panel-alt text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground xl:flex"
               >
-                ›
+                <X aria-hidden className="h-3.5 w-3.5" />
               </button>
               {right}
             </aside>

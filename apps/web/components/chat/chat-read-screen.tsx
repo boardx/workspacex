@@ -4,8 +4,9 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  MessageSquare, Share2, Users,
+  MessageSquare, PanelRight, Share2, Users,
 } from "lucide-react";
+import { requestShellRightPanelToggle } from "@/lib/shell-panel-events";
 import { Avatar } from "@/components/ui/avatar";
 import {
   NewThreadButton, ThreadCardButton, ThreadListHeader,
@@ -928,9 +929,8 @@ function ThreadDetail({
             ))}
           </span>
         ) : null}
-        {/* 「团队 N」本轮只呈现编制人数，「不挂任何点击行为」。
-            原型里它会打开侧栏，但本轮没有自建侧栏（产物面板走 AppShell 的 `right` 槽），
-            给它挂一个什么都不做的 onClick 就是死控件。等 D9 真做侧栏分页签时再接上。 */}
+        {/* 「团队 N」本轮只呈现编制人数，「不挂任何点击行为」——打开侧栏改由下面
+            独立的「侧栏」按钮承担（D4），不需要把这个纯展示计数也变成可点。 */}
         <span className="inline-flex items-center gap-1 text-11 text-muted-foreground" data-testid="chat-thread-team">
           <Users aria-hidden className="h-3 w-3" />团队 {roster?.rosterCount ?? 0}
         </span>
@@ -938,6 +938,23 @@ function ThreadDetail({
             宁可显式禁用并说明，也不放一个点了没反应的按钮（见 admin「未接入后端」标识）。*/}
         <Button size="xs" variant="ghost" disabled title="分享尚未接入后端（契约里没有分享线程操作）">
           <Share2 aria-hidden className="h-3 w-3" />分享
+        </Button>
+        {/*
+          D4（chat-main-fidelity-rubric.md）—— 参照原型线程头部右上角有一枚明确的
+          「侧栏」按钮。此前这个位置的按钮是 `disabled`（见 `chat-main.tsx` 原型里
+          "折叠交互属应用外壳（AppShell）布局层，未在本屏接线" 的说明）——现在真的接上：
+          点击发一个 `window` 事件请求 `AppShell` 切换右栏折叠态（两者不共享 React
+          树，见 `lib/shell-panel-events.ts` 头注），不复述折叠状态本身。
+        */}
+        <Button
+          size="xs"
+          variant="ghost"
+          data-testid="chat-thread-sidebar-toggle"
+          aria-label="切换侧栏"
+          title="展开/收起右侧栏（产物 · 材料）"
+          onClick={() => requestShellRightPanelToggle()}
+        >
+          <PanelRight aria-hidden className="h-3 w-3" />侧栏
         </Button>
         {detail.thread.archived ? <Badge tone="neutral">已归档</Badge> : null}
         <ThreadLiveStatusChip roster={roster} />
