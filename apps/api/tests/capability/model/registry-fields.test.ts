@@ -151,7 +151,13 @@ describe("the divergences stay registered until a human rules on them", () => {
     // contract nor the mock's Chinese labels as a stored value -- the mock renders
     // `disabled` as 未启用 while the contract stores 已停用. Three spellings of one state.
     expect(C.ModelStatus.safeParse("未启用").success).toBe(false);
-    expect(readFileSync(featureListPath(), "utf8")).toContain("已启用/未启用/待测试");
+    // F48 itself is `passing` and may have been relocated into `feature_list.archive.json`
+    // by the archiving script (`.harness/scripts/archive-passing.ts`) -- that relocation is
+    // meant to be lossless bookkeeping (slim the actively-worked file, keep the history),
+    // not a deletion. This test's whole point is "the divergence stays visible until a human
+    // rules on it", so it has to keep finding F48's prose regardless of which of the two
+    // files currently holds it.
+    expect(readFeatureListAndArchive()).toContain("已启用/未启用/待测试");
   });
 });
 
@@ -209,4 +215,28 @@ function featureListPath(): string {
       import.meta.url,
     ),
   );
+}
+
+function featureListArchivePath(): string {
+  return fileURLToPath(
+    new URL(
+      "../../../../../phases/phase-01-run-a-project/feature_list.archive.json",
+      import.meta.url,
+    ),
+  );
+}
+
+/**
+ * Concatenated content of the live feature list and its archive (if one exists yet --
+ * older checkouts/branches predating the archiving script have none). A `passing` feature
+ * moving from one file to the other is bookkeeping, not a content change; any assertion
+ * that scans feature prose for a still-open concern needs to see both.
+ */
+function readFeatureListAndArchive(): string {
+  const live = readFileSync(featureListPath(), "utf8");
+  try {
+    return live + readFileSync(featureListArchivePath(), "utf8");
+  } catch {
+    return live;
+  }
 }

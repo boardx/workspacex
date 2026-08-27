@@ -52,6 +52,9 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - **仓库即唯一事实来源**:你看不到的东西就不存在。所有上下文进仓库。
 - **功能清单是权威**:`phases/<phase>/feature_list.json` 是该阶段唯一权威来源。
   sprint 的 `active-features.json` 是脚本派生的只读视图,**禁止手改**。
+  同目录 `feature_list.archive.json`(若存在)存放已 `harness archive-passing` 搬出的
+  passing feature——只是搬家,不是第二份事实源;一律用 `lib/features.ts` 的
+  `loadFeatureList`/`saveFeatureList` 读写,不要手改任意一个文件或直接 `readFileSync`。
 - **一次只做一个 feature**:每个 owner 同一时刻最多一个 `in_progress`。
   无 owner(`owner: null`)时退化为全局只能有一个(单 agent 兼容)。
   由 `assertSingleInProgress` 门控,见 ADR-001。

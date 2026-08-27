@@ -69,7 +69,17 @@ for (const name of readdirSync(phasesDir).sort()) {
   const p = join(phasesDir, name, "feature_list.json");
   if (!existsSync(p)) continue;
   let fl; try { fl = JSON.parse(readFileSync(p, "utf8")); } catch { continue; }
-  const fs = Array.isArray(fl) ? fl : fl.features ?? [];
+  let fs = Array.isArray(fl) ? fl : fl.features ?? [];
+  // 已 passing 的 feature 可能被 `harness archive-passing` 挪进了同目录的
+  // feature_list.archive.json（只是搬家，不是第二份事实源）——数分布/总数时要把它并回来，
+  // 否则一归档，看板上的 passing 计数和总数就凭空消失。
+  const archiveP = join(phasesDir, name, "feature_list.archive.json");
+  if (existsSync(archiveP)) {
+    try {
+      const archiveFl = JSON.parse(readFileSync(archiveP, "utf8"));
+      fs = [...(archiveFl.features ?? []), ...fs];
+    } catch { /* 归档文件损坏时忽略，不阻塞看板其余部分 */ }
+  }
   const by = { not_started: 0, in_progress: 0, blocked: 0, passing: 0 };
   const slots = [];
   for (const f of fs) {
@@ -259,14 +269,20 @@ function checkTrackP() {
   }
   // P10 成员管理：F125 状态
   {
-    const raw = sh("git", ["show", "origin/main:phases/phase-01-run-a-project/feature_list.json"]);
+    // F125 可能已被 `harness archive-passing` 挪进 feature_list.archive.json——
+    // 先查 live，查不到再落到 archive，避免归档后这条检查假性回退成 NONE（静态痕迹陷阱）。
     let f125passing = false;
-    if (raw) {
+    for (const path of [
+      "phases/phase-01-run-a-project/feature_list.json",
+      "phases/phase-01-run-a-project/feature_list.archive.json",
+    ]) {
+      const raw = sh("git", ["show", `origin/main:${path}`]);
+      if (!raw) continue;
       try {
         const data = JSON.parse(raw);
         const f = (data.features ?? []).find((x) => x.id === "F125");
-        f125passing = f?.status === "passing";
-      } catch { /* leave false */ }
+        if (f) { f125passing = f.status === "passing"; break; }
+      } catch { /* try next path */ }
     }
     dims.push({
       id: "P10", label: "成员管理", state: f125passing ? "BACKEND" : "NONE",
