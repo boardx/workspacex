@@ -267,7 +267,28 @@
 
 | 日期 | SHA | P0-1 | P0-2 | P0-3 | P0-4 | P0-5 | P0-6 | P0-7 | P1 | P2/A11Y/COPY | 总分 | 证据 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-08-26 | 48fb9889 | 0.0 | 0.3 | 0.3 | 0.3 | 0.3 | 0.7 | 0.3 | 0.0 | 0.4 | **2.5** | 真栈 `playwright.chat-read.config.ts`，44 tests：run2（5 workers）40 failed / 4 passed，run3（2 workers，复跑 run2 里 8 条基础设施噪声 + 3 条 spec 自身缺陷修复后）9 failed / 3 passed。合并后 **7 通过 / 37 真实缺口**。日志见 issue #2068 评论。|
+| 2026-08-27 | `89d826b9` | 未重测 | 未重测 | 未重测 | 未重测 | 未重测 | 未重测 | 未重测 | 未重测 | **1.5（15/15 通过）** | 不重算 | issue #2075——本轮只重新实测 **P2 精致度 + 无障碍 + 文案** 三份 spec（`chat-task-workbench-polish/a11y/copy.spec.ts`，共 15 条，非 #2068 首轮说的 11 条——中途 spec 数量已变化），真栈 `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-task-workbench <三个 spec> --workers=1`：两轮实测（第一轮 14/15，TW-P2-7 因 spec 自身缺陷收紧后二轮 5/5 单跑复核）合并 **15 通过 / 0 差距**。**P0/P1 本轮不在范围内、沿用上次数值未重测，因此总分不重新算**——只有把 P0-P7 全部重跑才能诚实给出新的总分，那不是本 issue 的范围。判据与三条 spec 自身缺陷修法见下方新增说明。|
+
+> **本轮说明（2026-08-27）：`0 个 agent` 结论核实**
+>
+> issue #2075 登记跳过 `0 个 agent`（`apps/api/src/domain/chat/thread-badges.ts`，已签
+> uc-8-1 R7，需人类裁决）。核对现状：该字符串已在别的 issue（#2094）里被删除——
+> 文件头注写着「🔴 #2094：`agentCount` / `speakingAgentIds` 已删除，不是改名」。
+> 本轮**仍未去动**这段契约相关代码（不在本 issue 授权范围内），只如实记录：`TW-COPY-1①`
+> 的黑名单扫描本来就没有断言这个具体字面量（v2 空态渲染的是
+> `copilotkit-v2-no-agents-hint`，spec 头注已写明这处与审计原文的分歧），所以这条
+> carve-out 不影响本轮 15/15 的结果，也没有被本 PR 悄悄绕过。
+
+> **本轮记录在案的一条 spec 自身缺陷（issue #2075，不是产品缺口，已修，留作反例）**：
+> `TW-P2-7①` 原判据在 `openFreshThread` 后直接断言 `chat-artifacts-empty` 可见，隐含
+> 假设「产物」面板默认就在视口里。但 `TW-P0-4`（右栏动态 Inspector，
+> `chat-task-workbench-inspector.spec.ts`）已经把右栏做成「四页签 + 零信号时默认折叠」
+> ——人类原话「不许常驻占六分之一屏」——折叠态下 tabpanel 根本不挂载。一条刚建好、
+> 零产物零材料零运行的线程，右栏合上是**已签的正确行为**，不是缺陷；原判据问的其实
+> 是「Inspector 有没有做折叠」，这件事已经被 `TW-P0-4③` 覆盖，`TW-P2-7①` 真正该问的
+> 是「产物面板本身有没有空态」。修法：像真实用户一样先点开「产物」页签
+> （`chat-task-workbench-inspector-tab-artifacts`，点击会一并展开 Inspector）再断言
+> 面板内部四态——断言内容一字不变，只是先做了它本该做的那次交互，是收紧不是放宽。
 
 > **首轮基线说明（2026-08-26，实测 SHA `48fb9889`）**
 >

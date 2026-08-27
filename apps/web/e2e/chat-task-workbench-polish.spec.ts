@@ -198,6 +198,22 @@ test("TW-P2-6：对话列表有选中态 / 悬停操作 / 置顶 / 搜索 / 更�
 test("TW-P2-7：Skeleton + 空态 + 错误态 + 恢复态四态齐", async ({ page }) => {
   await openFreshThread(page);
 
+  /*
+   * ⚠ 这条**收紧**过一次（issue #2075，如实记录）。原判据在 `openFreshThread` 之后
+   * 直接断言 `chat-artifacts-empty` 可见，隐含假设「产物」面板默认就在视口里。
+   * 但 TW-P0-4（`chat-task-workbench-inspector.spec.ts`，人类审计原话「不许常驻占
+   * 六分之一屏」）已经把右栏 Inspector 做成**四页签 + 无内容时默认折叠**——一条刚建好、
+   * 零产物零材料零运行的线程，右栏合上是**已签的正确行为**，不是缺陷。折叠态下
+   * tabpanel 根本不挂载（`chat-task-inspector.tsx`），此时断言 `chat-artifacts-empty`
+   * 可见，问的其实是「Inspector 是不是没做折叠」——与 TW-P2-7 要问的「产物面板本身
+   * 有没有空态」是两件事，前者已经被 TW-P0-4③ 覆盖。
+   *
+   * 改法：像真实用户一样先点开「产物」页签（`selectTab` 会一并把 Inspector
+   * 展开），再断言面板内部的四态。这比原判据更贴近真实 DOM 结构，不是放宽——
+   * 断言的内容一字不变，只是先做了它本该做的那次交互。
+   */
+  await page.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
+
   // ① 空态（既有 `chat-artifacts-empty` / `chat-materials-empty` 已具备，防回归）。
   await expect(page.getByTestId("chat-artifacts-empty")).toBeVisible({ timeout: 30_000 });
 
@@ -205,6 +221,7 @@ test("TW-P2-7：Skeleton + 空态 + 错误态 + 恢复态四态齐", async ({ pa
   await page.route("**/chat/threads/**/artifacts**", (route) => route.fulfill({ status: 500, body: "{}" }));
   await page.reload();
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+  await page.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
 
   await expect(
     page.getByTestId("chat-artifacts-error"),
@@ -233,6 +250,9 @@ test("TW-P2-7：Skeleton + 空态 + 错误态 + 恢复态四态齐", async ({ pa
     await route.continue();
   });
   await page.reload();
+  // 同上：`reload()` 之后 Inspector 的 `manuallyExpanded` 重置，默认回到折叠——
+  // 必须重新点开「产物」页签，骨架屏才挂载得到 DOM 上。
+  await page.getByTestId("chat-task-workbench-inspector-tab-artifacts").click();
 
   const skeleton = page.getByTestId("chat-task-workbench-skeleton").first();
   await expect(
