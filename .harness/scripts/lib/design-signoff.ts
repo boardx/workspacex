@@ -281,8 +281,14 @@ export function auditSignoff(
   mode: "gate" | "audit" = "gate",
 ): SignoffAudit {
   const bundles = readBundleSignoffs(phaseId);
-  if (bundles.length === 0) {
-    if (!phaseHasUi(phaseId)) return { fails: [], warns: [], applicable: false };
+  const deltas = readDeltaSignoffs(phaseId);
+  /* ⚠ 零契约束 ∧ 零 design-delta ⇒ 该阶段还没采用契约设计流程，直接放行。
+   * 但零契约束 ∧ **存在** design-delta 时不能放行到这里——那正是 delta 想挂靠
+   * 一个尚不存在的束、或用一个 pending 的 delta 冒充签核的入口，必须落到下面
+   * 主体逻辑里的 ② 走 delta 校验（confirmed 状态 + base_bundle 存在且已签）。
+   * has_ui 阶段零契约束的「无处可签」判断则不看 delta 是否存在——UI 的签核材料
+   * 位置是束级 ui.md，delta 不提供这个位置，故沿用原判断。 */
+  if (bundles.length === 0 && phaseHasUi(phaseId)) {
     const msg =
       `Phase ${phaseId} 在 roadmap.yaml 里标了 \`has_ui: true\`，却没有任何契约束` +
       `（phases/phase-${phaseId}-*/contracts/<束>/）——按 ADR-023 决策一，UI 签核是束级` +
@@ -329,6 +335,14 @@ export function auditSignoff(
       };
     }
     return { applicable: true, warns: [], fails: [msg] };
+  }
+
+  /* 零契约束 ∧ 零 design-delta ∧ 非 has_ui：该阶段确实还没采用契约设计流程，放行。
+   * 必须放在 has_ui 判断**之后**——has_ui 阶段零束是硬失败，不能被这里短路掉；
+   * 而放在 has_ui 判断之前会重新引入本函数要修的那个洞：零束 + 存在 pending
+   * delta 时会被这条直接判 applicable:false，delta 完全没被看过就放行开工。 */
+  if (bundles.length === 0 && deltas.length === 0) {
+    return { fails: [], warns: [], applicable: false };
   }
 
   const fails: string[] = [];
@@ -464,7 +478,6 @@ export function auditSignoff(
    *   （PROP-HARNESS-SIGNOFF-002，2026-08-12 人类 Accept：#953 只立了评审侧，
    *    claim 侧漏了——delta 覆盖的 feature 此前永远 claim 不了）。
    *   三条不可放宽约束逐条落在下面，反证见 design-signoff.test.ts。 */
-  const deltas = readDeltaSignoffs(phaseId);
   for (const fid of featureIds) {
     const bundleOwners = bundles.filter((b) => b.features.includes(fid));
     const deltaOwners = deltas.filter((d) => d.features.includes(fid));
