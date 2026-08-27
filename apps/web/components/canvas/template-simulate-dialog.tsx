@@ -114,6 +114,11 @@ export function TemplateSimulateDialog({
       <DialogContent
         className="flex max-h-[88vh] w-full max-w-4xl flex-col gap-3 overflow-y-auto"
         data-testid="tpladmin-editor-simulate-dialog"
+        // ⚠ 不传就是 `DialogContent` 的默认值 "dialog-close"——真栈 E2E 实测发现的真实
+        //   缺口：写测试时想当然认为这里已经有一个 `tpladmin-editor-simulate-close`，
+        //   实际上从没显式传过，`getByTestId` 稳定超时。见该 prop 的文件头「多个 Dialog
+        //   同屏共存……需要各自可寻址」。
+        closeTestId="tpladmin-editor-simulate-close"
       >
         <DialogHeader>
           <DialogTitle>chat 模拟</DialogTitle>
