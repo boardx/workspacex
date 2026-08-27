@@ -357,17 +357,22 @@ export function ChatRecordingPanel({
         </div>
       )}
 
+      {/*
+        状态锚点。它显示的是「阶段」，不是「有没有出错」——把两者揉进一句话，
+        e2e 就只能断言「有文字」，而那种断言在功能全坏时照样绿。
+
+        ⚠ 这一段不跟着 `transcriptExpanded` 折叠——`data-phase` 是
+        `core-loop.spec.ts` 步骤 7（发布门唯一浏览器 e2e）断言 starting→recording→
+        idle 状态流转的锚点，任何时候都必须在 DOM 里，折叠的只应该是下面的转录
+        详情本身（本仓栽过这个坑：真回归 vs 抓拍时机，这次是真回归）。
+      */}
+      <p className="mt-2 text-11 text-muted-foreground" data-testid={TESTID.status} data-phase={phase}>
+        {STATUS_TEXT[phase]}
+        {sessionId !== null ? <span className="ml-1 font-mono text-10">会话 {sessionId}</span> : null}
+      </p>
+
       {phase !== "recording" || transcriptExpanded ? (
         <>
-          {/*
-            状态锚点。它显示的是「阶段」，不是「有没有出错」——把两者揉进一句话，
-            e2e 就只能断言「有文字」，而那种断言在功能全坏时照样绿。
-          */}
-          <p className="mt-2 text-11 text-muted-foreground" data-testid={TESTID.status} data-phase={phase}>
-            {STATUS_TEXT[phase]}
-            {sessionId !== null ? <span className="ml-1 font-mono text-10">会话 {sessionId}</span> : null}
-          </p>
-
           {failure !== null ? (
             <p className="mt-1 text-11 text-destructive" data-testid="chat-live-recording-error">{failure}</p>
           ) : null}

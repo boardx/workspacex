@@ -84,6 +84,12 @@ describe("ChatRecordingPanel — D10 转录中行内卡（issue #2285）", () =>
     expect(card).toBeInTheDocument();
     expect(screen.getByTestId("chat-recording-elapsed")).toHaveTextContent(/^\d{2}:\d{2}$/);
 
+    // 回归钉子：`core-loop.spec.ts` 步骤 7（唯一接入发布门的浏览器 e2e）在折叠态
+    // （`transcriptExpanded` 默认 false）断言 `chat-live-recording-status` 的
+    // `data-phase` 转到 "recording"——这个状态锚点绝不能被行内卡的折叠逻辑一并
+    // 折叠掉，否则该 e2e 会在「起了没等到状态」这一行超时（真实回归过一次）。
+    expect(screen.getByTestId("chat-live-recording-status")).toHaveAttribute("data-phase", "recording");
+
     // 计时真的在走，不是写死的字符串。
     const before = screen.getByTestId("chat-recording-elapsed").textContent;
     await act(async () => { await vi.advanceTimersByTimeAsync(3_000); });
