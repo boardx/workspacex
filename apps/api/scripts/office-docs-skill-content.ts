@@ -103,6 +103,59 @@ wb.xlsx.writeFile(process.env.SKILL_SANDBOX_OUT_DIR + '/output.xlsx');
 ${COMMON_PREAMBLE("exceljs")}
 `;
 
+/**
+ * design-delta `platform-owned-skills`（2026-08-27）—— 与上面三份同一条纪律：不碰
+ * Anthropic 官方或社区 fork 的代码/提示词原文，用开源库（pptxgenjs，MIT 许可）原创
+ * 撰写。F962（`skill-sandbox-execution`）已经交付了 pptx skill 的沙箱执行/隔离机制，
+ * 但当时的 `SKILL.md` 正文是内联在测试/starter-pack 里的（见
+ * `chat-skill-mount-produces-pptx-real-stack.test.ts` 的 `seedSkillVersion`），没有
+ * 单独抽成常量——本次 backfill 是第一次需要一份"生产会真的用到"的正文，照同一份纪律
+ * 补上，不重复声明一份不同的版本（测试夹具那份是精简过的最小正文，专供测试用，
+ * 两者用途不同，不算同一事实两处声明）。
+ */
+export const PPTX_CREATE_SKILL_MD = `# 演示文稿生成（pptx-create）
+
+用这个 skill 从零创建一份 PowerPoint 演示文稿（\`.pptx\`），适合汇报、提案、课件
+这类以标题 + 要点 + 简单图形为主的幻灯片内容。
+
+## 什么时候用
+
+用户要一份可以在 PowerPoint/WPS/Keynote 里直接打开、演示的幻灯片文件，而不是
+聊天里的一段大纲或 Markdown 列表。
+
+## 怎么做
+
+用 \`pptxgenjs\` 库（预装，Node.js）逐页拼幻灯片，写进
+\`process.env.SKILL_SANDBOX_OUT_DIR\`，文件名以 \`.pptx\` 结尾。基本形状：
+
+\`\`\`js
+const PptxGenJS = require('pptxgenjs');
+const pres = new PptxGenJS();
+
+const slide1 = pres.addSlide();
+slide1.addText('标题页', { x: 0.5, y: 0.5, fontSize: 32, bold: true });
+
+const slide2 = pres.addSlide();
+slide2.addText('要点一\\n要点二\\n要点三', { x: 0.5, y: 0.5, fontSize: 18 });
+
+pres.writeFile({ fileName: process.env.SKILL_SANDBOX_OUT_DIR + '/output.pptx' });
+\`\`\`
+
+支持：多页幻灯片、标题/正文文本框、基础形状与文本框样式（字号/加粗/颜色/对齐）、
+简单表格（\`addTable\`）、内嵌图片（PNG/JPG）。
+
+## 明确做不到的事
+
+- 不能编辑已存在的 \`.pptx\`（只能从零创建一份新的）。
+- 不支持幻灯片切换动画、母版模板复用、演讲者备注之外的复杂版式。
+- 不做图表数据可视化（如果用户需要图表，说明这个 skill 只能画简单表格/文本，
+  建议改用更适合数据展示的方式）。
+
+## 预装说明
+
+${COMMON_PREAMBLE("pptxgenjs")}
+`;
+
 export const PDF_CREATE_SKILL_MD = `# PDF 文档生成（pdf-create）
 
 用这个 skill 从零创建一份 PDF 文件（\`.pdf\`），适合排版好的说明文档、简单报告、

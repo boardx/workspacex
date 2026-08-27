@@ -17,5 +17,6 @@
 | 10 | 现场协作编排 | in_progress | 6 | 0 | 0 | 4 |
 | 11 | research-insight-backend | in_progress | 0 | 4 | 0 | 1 |
 | 12 | uiux-foundation | in_progress | 5 | 0 | 0 | 17 |
+| 13 | platform-owned-skills | not_started | 1 | 0 | 0 | 0 |
 
-_最近聚合:2026-08-27T09:43:42.414Z_
+_最近聚合:2026-08-27T14:16:39.877Z_

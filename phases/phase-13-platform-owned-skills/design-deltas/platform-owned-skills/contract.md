@@ -70,6 +70,17 @@ docx-create/xlsx-create/pdf-create（F979）。**用户/组织自己通过 URL �
      漏了这处会让"能看到、能挂上，但一执行就 `SKILL_VERSION_UNAVAILABLE`"，是最容易
      漏掉、也最难在人工测试里发现的一处）。
    - `pg-capability-repository.ts`：`listByKind()`、`listAll()`、`findById()`。
+   - ⚠ **实测才发现的第五处**：`pg-thread-mounted-skill-reader.ts` 的
+     `activeMountedSkillVersionIds()`——原查询用 `v.org_id = m.org_id`（挂载行的
+     org 等于版本行的 org）JOIN `skill_versions`，这个假设对平台 skill 不成立
+     （挂载行 `org_id` 是挂载方自己的组织，版本行 `org_id` 是 `org-platform`）。
+     这一处的静态审查完全没预见到——写这份 contract 时以为"三处 OR 子句就够了"，
+     直到 `platform-owned-skills-real-stack.test.ts` V3（挂载+真实执行）跑起来才
+     现形：run 状态 `succeeded`、**不报任何错**，只是 `model_output_files` 恒为
+     空——比 `SKILL_VERSION_UNAVAILABLE` 更隐蔽，因为它连一个能定位问题的失败码
+     都没有。这是本 delta "必须用真栈端到端测试，不能只信静态审查"这条纪律的一次
+     直接印证，记在这里防止以后重蹈——改法与其它四处同一个模式
+     （`v.org_id = m.org_id OR v.org_id = PLATFORM_ORG_ID`）。
 4. **`SkillVisibilityPort.visibleTo()` / `loadMountableRow()` 的可见性判定**：确认平台行
    的 `visibility`/`status` 映射与既有 wave2 行一致（`org-wide`/`已启用`），不需要新增
    判据分支——它们已经是"能查到就能挂"，平台行只是多了一个能查到的来源。

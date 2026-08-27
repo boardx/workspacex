@@ -14,7 +14,7 @@
  */
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
-import { toOrgId } from "../../domain/org-id";
+import { PLATFORM_ORG_ID, toOrgId } from "../../domain/org-id";
 import type { DeclarativeContract } from "../../domain/skill/declarative-contract";
 import type { SkillLifecycleStatus } from "../../domain/skill/skill-status";
 import { isSkillStatus } from "../../domain/skill/skill-status";
@@ -299,15 +299,19 @@ export class ScopedPgSkillContractRepository
         `SELECT ${ROW_COLUMNS} FROM skill_contracts WHERE org_id = $1 ORDER BY created_at DESC, id`,
         [orgId],
       );
+      // design-delta `platform-owned-skills` —— 官方四个 skill 活在 `org_id =
+      // PLATFORM_ORG_ID` 的行里，任何组织都要能在自己的目录里看到它们，不需要
+      // 逐个导入（RLS 侧的对应放行是 `skill_versions_platform_read` 等四条
+      // `_platform_read` 策略）。
       const wave2Rows = await s.query<{ id: string; name: string; current_version_id: string | null }>(
         `SELECT sk.id, sk.name,
                 (SELECT sv.id FROM skill_versions sv
                   WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
                   ORDER BY sv.created_at DESC LIMIT 1) AS current_version_id
            FROM skills sk
-          WHERE sk.org_id = $1 AND sk.status = 'enabled'
+          WHERE (sk.org_id = $1 OR sk.org_id = $2) AND sk.status = 'enabled'
           ORDER BY sk.created_at DESC, sk.id`,
-        [orgId],
+        [orgId, PLATFORM_ORG_ID],
       );
       const fromContracts = contractRows.rows.map((raw) => toGuarded(toRow(raw)));
       const fromWave2 = wave2Rows.rows.map((raw) => toGuarded(toRow({
@@ -440,14 +444,17 @@ export class ScopedPgSkillContractRepository
       const row = contract.rows[0];
       if (row !== undefined) return toGuarded(toRow(row));
 
+      // design-delta `platform-owned-skills` —— 挂载判定也要认得平台行，否则
+      // `listAll()` 里能看到的官方 skill 一挂就 `SKILL_NOT_FOUND`（能看到但挂不上，
+      // 比"看不到"更让人困惑）。
       const wave2 = await s.query<{ id: string; name: string; current_version_id: string | null }>(
         `SELECT sk.id, sk.name,
                 (SELECT sv.id FROM skill_versions sv
                   WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
                   ORDER BY sv.created_at DESC LIMIT 1) AS current_version_id
            FROM skills sk
-          WHERE sk.org_id = $1 AND sk.id = $2 AND sk.status = 'enabled'`,
-        [orgId, skillId],
+          WHERE (sk.org_id = $1 OR sk.org_id = $3) AND sk.id = $2 AND sk.status = 'enabled'`,
+        [orgId, skillId, PLATFORM_ORG_ID],
       );
       const w = wave2.rows[0];
       if (w === undefined) return null;

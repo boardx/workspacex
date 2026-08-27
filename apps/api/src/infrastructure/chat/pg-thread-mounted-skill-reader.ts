@@ -45,6 +45,7 @@
  *   属性（`execute-run.ts` 的 `buildSystemPrompt` 头注），所以它必须是确定的。
  */
 import type { DatabasePort } from "../../application/ports/database.port";
+import { PLATFORM_ORG_ID } from "../../domain/org-id";
 import type { OrgId } from "../../domain/org-id";
 import { guard } from "../../application/security/permission-filter";
 import type { ThreadMountedSkillReader } from "../../application/chat/message-command-ports";
@@ -62,13 +63,24 @@ export class PgThreadMountedSkillReader implements ThreadMountedSkillReader {
         //   真正属于的 skill」钉成同一个。#1534 删掉库级外键时说的「引用完整性归应用层」
         //   指的就是这一句——少了它，一条 skill_id 与 version_id 对不上的挂载会被
         //   当作有效注入，而没有任何东西会红。
+        //
+        // design-delta `platform-owned-skills`（实测补上，不是原设计就有）—— `v.org_id
+        // = m.org_id` 原本假设一条挂载引用的版本永远和挂载行同一个 org，但一条挂载
+        // `org-platform` 名下 skill 的行，`m.org_id` 是挂载方自己的组织、`v.org_id` 是
+        // `org-platform`，两者天生不相等，原 JOIN 条件让平台 skill 的挂载**永远 join
+        // 不上任何版本行**——读出来的 `mountedVersionIds` 悄悄少了这一条，run 的
+        // `skillVersionIds` 因此为空，`execute-run.ts` 的执行判据（`skills.length > 0`）
+        // 从不成立，脚本从不执行，且**不报任何错**（run 正常 succeeded，只是模型的话
+        // 里没有任何文件）——这是四处该加 OR 子句的地方里最隐蔽的一处，真栈测试
+        // （`platform-owned-skills-real-stack.test.ts` V3）跑起来才第一次现形，
+        // 之前的静态审查（contract.md §4）完全没预见到这第五个点。
         `SELECT m.version_id
            FROM thread_skill_mounts m
-           JOIN skill_versions v ON v.id = m.version_id AND v.org_id = m.org_id
+           JOIN skill_versions v ON v.id = m.version_id AND (v.org_id = m.org_id OR v.org_id = $3)
            JOIN skills sk ON sk.id = v.skill_id AND sk.org_id = v.org_id AND sk.id = m.skill_id
           WHERE m.org_id = $1 AND m.thread_id = $2 AND m.removed_at IS NULL
           ORDER BY m.mounted_at ASC, m.mount_id ASC`,
-        [orgId, input.threadId],
+        [orgId, input.threadId, PLATFORM_ORG_ID],
       );
       return rows.map((row) => row.version_id) as readonly string[];
     });

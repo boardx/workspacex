@@ -177,8 +177,13 @@ describe("#521 listSkills 判成员资格（接线，不是 decide() 本身）",
     const body = parsed.success ? parsed.data : null!;
 
     // 非空，且就是上面那条 skill——「接口整体挂了」「过滤恒 false」在这里会红。
-    expect(body.items.map((i) => i.skillId)).toContain(skillId);
-    expect(body.items[0]?.name).toBe(SKILL_NAME);
-    expect(body.total).toBe(1);
+    // ⚠ design-delta `platform-owned-skills`：在册成员现在还会看到四个官方 skill，
+    // 与本文件要守的"成员资格过滤"这件事无关（那四个走的是平台可见性，不受组织
+    // 成员判定影响）——精确定位到刚种的那一条再断言，不再假设它是 items[0] 或
+    // 唯一条目。
+    const seeded = body.items.find((i) => i.skillId === skillId);
+    expect(seeded, JSON.stringify(body.items)).toBeDefined();
+    expect(seeded!.name).toBe(SKILL_NAME);
+    expect(body.total).toBe(body.items.length);
   });
 });
