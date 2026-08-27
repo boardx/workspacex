@@ -132,6 +132,22 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
 
   // ── 关闭 modal，**整页 reload**（穿透前端内存态）────────────────────────
   await page.getByTestId("chat-diagram-close").click();
+  // issue #2283 根因修复：本文件改用专属零预置消息线程（e85cf9b3/#2261）之后，
+  // reload 后线程里只有寥寥几条消息，mindmap 图不再需要翻页/滚动才能进视口——
+  // 它在整页刷新后几乎立刻满足 `chat-diagram-fabric.tsx`「挂载即读回」effect 的
+  // `IntersectionObserver`（`rootMargin: 200px`）条件，自己发一次
+  // `GET .../artifacts/:id/source`，读回成功后用 `key={previewCode}` 把
+  // `DiagramCanvasBody` 整个换挂一次（该文件头注释「根因修复」一节）。旧的共享
+  // 夹具线程有 51+ 条消息，这张图要靠 `loadAllMessagePages` 的多轮点击才能翻到
+  // 视口，天然给了这次异步读回+换挂充分的时间窗；专属线程去掉了这个天然缓冲，
+  // 换挂随时可能撞上 `diagram2.scrollIntoViewIfNeeded()` 正在操作的那个元素实例
+  // （`Element is not attached to the DOM`，issue #2283 记录的 `:61` 红）。
+  // 修法：把这次挂载即读回的 GET 显式等到位（与下面第二个用例同一根因、同一
+  // 修法：监听器必须在触发它的导航/操作之前注册，才能追上这个几乎立即发生的
+  // 请求），确认换挂已经落定，再去定位/操作 `diagram2`——不是给这一步加重试或
+  // 放宽超时掩盖竞态，是让测试真正等到那个会导致 DOM 换挂的异步副作用完成。
+  const mountReadback = page.waitForResponse((r) =>
+    r.request().method() === "GET" && /\/artifacts\/[^/]+\/source/.test(r.url()), { timeout: 30_000 });
   await page.reload();
   // 这条线程零预置消息（issue #1610 隔离），锚点换成 reload 后专属线程会话卡仍可见 +
   // 本用例自己发的第一条真实消息，而不是共享夹具线程才有的
@@ -142,6 +158,8 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
   // 软重读追新过，按钮这次理应存在——仍用 `loadAllMessagePages` 而不是裸
   // `.click()`，翻页过程中偶发的瞬时 detach 由它的重试外壳吃掉。
   await loadAllMessagePages(page);
+  // 挂载即读回的换挂已经完成——现在再去抓 `diagram2` 拿到的是换挂后稳定的实例。
+  await mountReadback;
 
   // ── 重开同一消息的最大化 ⇒ 保存版初始化 + 读回提示条 ──────────────────
   const diagram2 = page.locator('[data-testid="chat-diagram-fabric"][data-diagram-type="mindmap"]').last();
@@ -265,10 +283,7 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   expect(afterSaveNoReloadScreenshot.equals(originalScreenshot)).toBe(false);
 
   // ── 整页 reload（穿透前端内存态）────────────────────────────────────────
-  await page.reload();
-  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
-  await expect(page.getByTestId("chat-message-list")).toContainText("陈静");
-
+  //
   // 关键断言：滚入视口后**不点任何按钮**，读回请求自动发出（挂载即读回，issue
   // #1668 修复的那条 effect）——这是「不是巧合」的直接证据，不只是看像素。
   //
@@ -281,16 +296,39 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   // 点击之后），比这里旧位置的 `page.waitForResponse` 注册早了近 500ms——监听器
   // 挂上时事件已经过去，Playwright 的 `waitForResponse` 只等**未来**事件，于是
   // 30s 后必然超时。不是产线 effect 没触发，是测试自己的监听器挂晚了。
-  // 修法：监听器提到 reload 后、`loadAllMessagePages` 之前注册——图表不论在哪一轮
-  // load-more 循环里被挂载并进入视口，请求都已经在监听范围内，不会再被错过。
+  //
+  // issue #2283 二次根因（同一症状，新的时机来源）：#2261 把本文件改成专属零
+  // 预置消息线程之后，reload 时线程消息数很少，这张图**在初始渲染时就已经在
+  // 视口内**（`IntersectionObserver` `rootMargin: 200px` 立即命中），不需要
+  // `loadAllMessagePages` 翻页/点击才能把它带进视口——`GET .../artifacts/:id/
+  // source` 可能在 `page.reload()` 触发的这次导航刚完成、`chat-message-list`
+  // 断言刚轮询到文本命中的那一瞬间就已经发出甚至已经收到响应，比上面 2026-08-22
+  // 那次修复把监听器放的位置（`page.reload()` 之后两个 `expect` 之后）还要早。
+  // 旧的共享夹具线程有 51+ 条消息，这张图天然要靠 `loadAllMessagePages` 的多轮
+  // 点击才能翻到视口，把这次请求推迟到监听器已经就位之后——专属线程去掉了这个
+  // 天然缓冲。修法：把监听器再往前挪到 `page.reload()` 之前注册——不论请求发生
+  // 在导航期间、reload 后的断言轮询期间、还是 `loadAllMessagePages` 循环内部，
+  // 全部落在监听范围内。不是加超时或 retry，是让监听器真正先于它要等的事件存在。
   const autoSourceRequest = page.waitForResponse((r) =>
     r.request().method() === "GET" && /\/artifacts\/[^/]+\/source/.test(r.url()), { timeout: 30_000 });
 
+  await page.reload();
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
+  await expect(page.getByTestId("chat-message-list")).toContainText("陈静");
+
   await loadAllMessagePages(page);
+
+  // 挂载即读回不需要等这里显式调用 `scrollIntoViewIfNeeded`——`IntersectionObserver`
+  // 的 `rootMargin: 200px` 会在图表进入「视口附近」（不必真的完全可见）时就提前
+  // 命中，专属线程消息很少，这几乎在 reload 后立刻发生。先把这次读回等到位（连带
+  // 它触发的 `key={previewCode}` 换挂一起等完），再去定位/滚动 `diagram2`——避免
+  // `scrollIntoViewIfNeeded` 抓到的元素在操作过程中被换挂摘掉（issue #2283
+  // 记录的 `:61`「Element is not attached to the DOM」，与上面第一个用例同一
+  // 根因、同一修法：不是给这一步加重试，是把顺序换成先等异步副作用完成）。
+  expect((await autoSourceRequest).status()).toBe(200);
 
   const diagram2 = page.locator('[data-testid="chat-diagram-fabric"][data-diagram-type="mindmap"]').last();
   await diagram2.scrollIntoViewIfNeeded();
-  expect((await autoSourceRequest).status()).toBe(200);
 
   await expect(diagram2).toHaveAttribute("data-ready", "true", { timeout: 30_000 });
   // 自动读回命中后，`savedSource` 更新会让画布**重新**校验+渲染一轮（先是原始
