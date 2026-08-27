@@ -30,10 +30,10 @@ import {
 import type {
   ChatMessageCommandRepository, PublishedAgentReader, ThreadMountedSkillReader,
 } from "../../src/application/chat/message-command-ports";
-import { AGENT_RUN_EXECUTOR } from "../../src/application/agent-run/ports";
-import type { AgentRunExecutorPort } from "../../src/application/agent-run/ports";
-import { MODEL_CALL_PORT } from "../../src/application/agent-run/ports";
-import type { ModelCallPort } from "../../src/application/agent-run/ports";
+import { AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT } from "../../src/application/agent-run/ports";
+import type { AgentRunExecutorPort, AgentRunStore, ModelCallPort } from "../../src/application/agent-run/ports";
+import { LOGGER_PORT } from "../../src/application/ports/logger.port";
+import type { LoggerPort } from "../../src/application/ports/logger.port";
 import { THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig } from "../../src/application/chat/generate-thread-title";
 import { toOrgId } from "../../src/domain/org-id";
 import {
@@ -168,6 +168,8 @@ beforeAll(async () => {
     threadMounts: app.get<ThreadMountedSkillReader>(THREAD_MOUNTED_SKILL_READER),
     executor: app.get<AgentRunExecutorPort>(AGENT_RUN_EXECUTOR),
     runs: planLedger,
+    agentRunStore: app.get<AgentRunStore>(AGENT_RUN_STORE),
+    logger: app.get<LoggerPort>(LOGGER_PORT),
     model: app.get<ModelCallPort>(MODEL_CALL_PORT),
     titleModel: app.get<ThreadTitleModelConfig>(THREAD_TITLE_MODEL_CONFIG),
     log: () => {},

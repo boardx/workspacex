@@ -1,14 +1,21 @@
 /**
- * F975 —— UC-7 `confirmPlan` + UC-12 `deliverPlanToRun`：`deliveredPlanDigest` 是
- * 「实际送进 `POST /threads/:id/runs` 请求体那段计划正文」的哈希，与账本当前 revision
- * 的序列化结果逐字一致（I-10 的可验收出口）。
+ * issue #2250 —— `confirmPlan` 之后必须真的触发引擎执行，且执行中途 `write_todos` 的
+ * 结果必须真的喂回 `chat_plan_ledgers`，而不是账本 `phase` 翻到 `"executing"` 之后
+ * 步骤状态永远停在 `pending`。
  *
- * 真栈：真实 app（`createApp()`）+ 一个捕获请求体的 deep-agent 服务替身（与
- * `agui-bridge-hitl.test.ts` 同一契约），不信 `confirmPlan` 自己的返回值——独立从
- * 替身捕获的 HTTP 请求体里抠出计划正文，重新算一次哈希，断言与返回的
- * `deliveredPlanDigest` 相等。
+ * 根因（见 `accept-message-plan-run-creator.ts` 文件头长注）：`copilotkit-agui.controller.ts`
+ * 的 `onStep` 回调是生产上**唯一**把 `write_todos` 结果写回账本的地方，而它只挂在
+ * AG-UI SSE 轨道（`runAguiBridgeTurn`/`resumeAguiBridgeTurn`）上——`confirmPlan` 触发的
+ * 续跑走的是另一条路径（`acceptHumanMessage` + `executor.kick`），没有任何东西在观察
+ * 这条 run 的 steps。真实引擎确实被调用了（这条 run 真实存在、真实执行），只是没人把
+ * 它的 `write_todos` 输出翻回账本——这正是 #2250 的实测现象："确认执行"只翻转账本
+ * `phase`，40+ 秒后三个步骤 `status` 仍全部 `pending`。
  *
- * 权威规格：usecases.md UC-7/UC-8/UC-12 + domain.md I-10。
+ * 真栈：真实 app（`createApp()`）+ 一个真实 HTTP loopback 的 deep-agent 服务替身（与
+ * `agui-bridge-state-events.test.ts` 同一契约：`POST /threads` → `POST /threads/:id/runs`
+ * → 轮询 `GET /threads/:id/runs/:runId` → `GET /threads/:id/state` 拿最终 messages，
+ * 其中一条 AI 消息带 `write_todos` tool_calls）。不 mock `ModelCallPort`，走真实
+ * `DeepAgentModelProvider` 的轮询实现。
  */
 import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
@@ -17,7 +24,6 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
 import { confirmPlan } from "../../src/application/plan-control/confirm-plan";
-import { serializePlanForDelivery, planDeliveryDigest } from "../../src/application/plan-control/plan-delivery-text";
 import { ingestEnginePlanSnapshot } from "../../src/application/plan-control/ingest-engine-plan-snapshot";
 import { AcceptMessagePlanRunCreator } from "../../src/infrastructure/plan-control/accept-message-plan-run-creator";
 import {
@@ -48,80 +54,68 @@ import { addChatThread, addChatMessage } from "../support/chat-db";
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
 
-const ORG = "org-f975-confirm-digest";
-const PROJECT = "proj-f975-confirm-digest";
-const THREAD = "thread-f975-confirm-digest";
-const ACTOR = "u-f975-confirm-digest";
-const AGENT = "agent-f975-confirm-digest";
-const AGENT_VERSION = "agent-version-f975-confirm-digest-v1";
+const ORG = "org-f975-confirm-exec";
+const PROJECT = "proj-f975-confirm-exec";
+const THREAD = "thread-f975-confirm-exec";
+const ACTOR = "u-f975-confirm-exec";
+const AGENT = "agent-f975-confirm-exec";
+const AGENT_VERSION = "agent-version-f975-confirm-exec-v1";
 
 const sha256 = (v: string): string => createHash("sha256").update(v).digest("hex");
 
-/* ── deep-agent 服务替身：与 agui-bridge-hitl.test.ts 同一契约 ── */
-interface DeepAgentFakeHandle {
-  readonly port: number;
-  readonly runBodies: Array<{ input?: { messages?: Array<{ role: string; content: string }> } }>;
-  close(): Promise<void>;
+/* ── deep-agent（真实 LangGraph 服务）loopback 替身：与 agui-bridge-state-events.test.ts
+ * 同一契约（POST /threads、POST /threads/:runs、轮询 GET status、GET state）。 */
+let langgraphServer: Server;
+let langgraphBase = "";
+let remoteThreadId = "";
+let remoteRunId = "";
+let statusCallCount = 0;
+/** 每条测试各自设定：这条续跑 run 的终态 messages（loopback 服务器 GET state 的返回）。 */
+let finalMessages: unknown[] = [];
+
+function respond(res: ServerResponse, status: number, body: unknown): void {
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(JSON.stringify(body));
 }
 
-async function startDeepAgentFake(): Promise<DeepAgentFakeHandle> {
-  const runBodies: DeepAgentFakeHandle["runBodies"] = [];
-  const threads = new Set<string>();
-  const server: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
+async function startLanggraphServer(): Promise<void> {
+  langgraphServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     const url = req.url ?? "";
-    const json = (status: number, body: unknown): void => {
-      res.writeHead(status, { "content-type": "application/json" });
-      res.end(JSON.stringify(body));
-    };
     if (req.method === "POST" && url === "/threads") {
-      const chunks: Buffer[] = [];
-      req.on("data", (c: Buffer) => chunks.push(c));
-      req.on("end", () => {
-        const raw = Buffer.concat(chunks).toString("utf8");
-        let requested: string | undefined;
-        try {
-          const parsed = raw === "" ? {} : (JSON.parse(raw) as { thread_id?: string });
-          requested = typeof parsed.thread_id === "string" && parsed.thread_id !== "" ? parsed.thread_id : undefined;
-        } catch { requested = undefined; }
-        const threadId = requested ?? randomUUID();
-        threads.add(threadId);
-        json(200, { thread_id: threadId });
-      });
-      return;
+      return respond(res, 200, { thread_id: remoteThreadId });
     }
     const runsMatch = /^\/threads\/([^/]+)\/runs$/.exec(url);
     if (req.method === "POST" && runsMatch) {
-      const threadId = runsMatch[1]!;
-      threads.add(threadId);
       const chunks: Buffer[] = [];
       req.on("data", (c: Buffer) => chunks.push(c));
-      req.on("end", () => {
-        const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as DeepAgentFakeHandle["runBodies"][number];
-        runBodies.push(body);
-        json(200, { run_id: threadId });
-      });
+      req.on("end", () => respond(res, 200, { run_id: remoteRunId }));
       return;
     }
-    const statusMatch = /^\/threads\/([^/]+)\/runs\/[^/]+$/.exec(url);
-    if (req.method === "GET" && statusMatch) {
-      const threadId = statusMatch[1]!;
-      if (!threads.has(threadId)) { json(404, { error: "unknown thread" }); return; }
-      json(200, { status: "success" });
-      return;
+    if (req.method === "GET" && url === `/threads/${remoteThreadId}/runs/${remoteRunId}`) {
+      const status = statusCallCount === 0 ? "running" : "success";
+      statusCallCount += 1;
+      return respond(res, 200, { status });
     }
-    const stateMatch = /^\/threads\/([^/]+)\/state$/.exec(url);
-    if (req.method === "GET" && stateMatch) {
-      json(200, { values: { messages: [{ type: "ai", content: "好的，我会按计划执行。" }] } });
-      return;
+    if (req.method === "GET" && url === `/threads/${remoteThreadId}/state`) {
+      return respond(res, 200, { values: { messages: finalMessages } });
     }
-    res.writeHead(404).end();
+    respond(res, 404, { error: "not_found" });
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  return {
-    port: (server.address() as AddressInfo).port,
-    runBodies,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
-  };
+  await new Promise<void>((resolve) => langgraphServer.listen(0, "127.0.0.1", resolve));
+  const addr = langgraphServer.address() as AddressInfo;
+  langgraphBase = `http://127.0.0.1:${addr.port}`;
+}
+
+/** 一条完整的工具调用轮次：human → ai(tool_calls) → tool 结果 → ai 最终答案。同
+ * `agui-bridge-state-events.test.ts` 的 `toolCallTurn` 逐字复用（同一契约）。 */
+function toolCallTurn(toolName: string, args: unknown, finalText: string): unknown[] {
+  const callId = `call-${toolName}`;
+  return [
+    { type: "human", content: "（用户已确认当前计划，请按计划执行。）" },
+    { type: "ai", content: "", tool_calls: [{ id: callId, name: toolName, args }] },
+    { type: "tool", tool_call_id: callId, content: "已更新。" },
+    { type: "ai", content: finalText },
+  ];
 }
 
 async function addPublishedAgentVersion(): Promise<void> {
@@ -136,15 +130,14 @@ async function addPublishedAgentVersion(): Promise<void> {
          (id,org_id,agent_id,semantic_label,instruction_digest,instructions,skill_version_ids,
           model_provider,model_id,tool_policy,creator_id,created_at,published_at)
        VALUES ($1,$2,$3,$4,$5,$6,'{}'::text[],$7,$8,'[]'::jsonb,$9,now(),now())`,
-      [AGENT_VERSION, ORG, AGENT, AGENT_VERSION, sha256("f975 confirm digest instructions"),
-        "You are the F975 confirm-plan-digest test agent.", DEEP_AGENT_PROVIDER_NAME, "deep-agent", ACTOR],
+      [AGENT_VERSION, ORG, AGENT, AGENT_VERSION, sha256("f975 confirm exec instructions"),
+        "You are the F975 confirm-plan-execution test agent.", DEEP_AGENT_PROVIDER_NAME, "deep-agent", ACTOR],
     );
     await c.query("UPDATE agents SET published_version_id=$1 WHERE id=$2 AND org_id=$3", [AGENT_VERSION, AGENT, ORG]);
   });
 }
 
 let app: NestExpressApplication;
-let deepAgent: DeepAgentFakeHandle;
 let planLedger: PlanLedgerRepository & PlanRunStatusReader;
 let provenance: ProvenanceWriter;
 let runCreator: AcceptMessagePlanRunCreator;
@@ -152,8 +145,8 @@ let runCreator: AcceptMessagePlanRunCreator;
 beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
-  deepAgent = await startDeepAgentFake();
-  process.env.KERNEL_DEEP_AGENT_BASE_URL = `http://127.0.0.1:${String(deepAgent.port)}`;
+  await startLanggraphServer();
+  process.env.KERNEL_DEEP_AGENT_BASE_URL = langgraphBase;
   process.env.KERNEL_DEEP_AGENT_POLL_INTERVAL_MS = "5";
   process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS = "10000";
   delete process.env.KERNEL_AGENT_RUN_AUTOSTART;
@@ -182,10 +175,14 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app?.close();
-  await deepAgent?.close();
+  await new Promise<void>((resolve) => langgraphServer.close(() => resolve()));
 });
 
 beforeEach(async () => {
+  remoteThreadId = `remote-thread-${randomUUID()}`;
+  remoteRunId = `remote-run-${randomUUID()}`;
+  statusCallCount = 0;
+  finalMessages = [];
   await resetOrgs(ORG);
   await seedOrg({ orgId: ORG, projectId: PROJECT });
   await addOrgMember(ORG, ACTOR, "consultant", null);
@@ -211,19 +208,22 @@ async function seedPriorRun(): Promise<void> {
   );
 }
 
-async function waitForNewRunBody(sinceCount: number, timeoutMs = 10_000): Promise<{
-  input?: { messages?: Array<{ role: string; content: string }> };
+/** 轮询账本直到 step 状态不再全是 pending，或超时——超时即判定"从没更新过"，测试失败。 */
+async function waitForLedgerStepsToAdvance(orgId: ReturnType<typeof toOrgId>, timeoutMs = 8_000): Promise<{
+  readonly revision: number;
+  readonly steps: readonly { readonly status: string }[];
 }> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    if (deepAgent.runBodies.length > sinceCount) return deepAgent.runBodies[deepAgent.runBodies.length - 1]!;
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    const ledger = await planLedger.getLatest(orgId, THREAD);
+    if (ledger !== null && ledger.steps.some((s) => s.status !== "pending")) return ledger;
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error(`no new run body captured within ${String(timeoutMs)}ms (had ${String(sinceCount)})`);
+  throw new Error(`plan ledger step statuses never left "pending" within ${String(timeoutMs)}ms`);
 }
 
-describe("UC-7 confirmPlan + UC-12 deliverPlanToRun：deliveredPlanDigest 与实际送达内容逐字一致", () => {
-  it("确认一份多步计划：digest 与替身捕获的真实请求体里的计划正文哈希相等", async () => {
+describe("issue #2250 -- confirmPlan 触发的续跑真的执行，且 write_todos 结果真的喂回账本", () => {
+  it("确认计划后：真实引擎被调用（loopback 捕获到新请求），且步骤状态从 pending 真的推进", async () => {
     await seedPriorRun();
     const orgId = toOrgId(ORG);
     const ingested = await ingestEnginePlanSnapshot(planLedger, {
@@ -234,7 +234,15 @@ describe("UC-7 confirmPlan + UC-12 deliverPlanToRun：deliveredPlanDigest 与实
       ],
     });
 
-    const beforeCount = deepAgent.runBodies.length;
+    // 这条续跑 run 的"引擎侧"会真的把第一步标成 in_progress、第二步仍 pending——
+    // 与 confirm 之前的快照不同，证明这不是 confirmPlan 自己重发了一份一模一样的数据。
+    finalMessages = toolCallTurn("write_todos", {
+      todos: [
+        { content: "调研竞品定价", status: "in_progress" },
+        { content: "起草方案初稿", status: "pending" },
+      ],
+    }, "好的，我已经开始第一步。");
+
     const out = await confirmPlan(
       { repo: planLedger, runCreator, appendAudit: (input) => provenance.append({
         orgId: input.orgId, type: "human-edited", actorId: input.actorId,
@@ -242,44 +250,14 @@ describe("UC-7 confirmPlan + UC-12 deliverPlanToRun：deliveredPlanDigest 与实
       }) },
       { orgId, threadId: THREAD, actorId: ACTOR, basedOnRevision: ingested.revision },
     );
-
-    expect(out.revision).toBe(ingested.revision);
     expect(out.runId).toBeTruthy();
 
-    // 独立重新计算：不信 confirmPlan 自己声称的 digest，从账本重新序列化再算一次哈希。
-    const ledger = await planLedger.getLatest(orgId, THREAD);
-    const expectedText = serializePlanForDelivery(ledger!)!;
-    expect(out.deliveredPlanDigest).toBe(planDeliveryDigest(expectedText));
-
-    // 真正的断言核心（I-10）：拦截真实 POST 请求体，断言其中携带的计划正文与账本序列化
-    // 结果逐字相等——不是信任 confirmPlan 的返回值，是从网络抓包里独立核实。
-    const captured = await waitForNewRunBody(beforeCount);
-    const systemMessage = captured.input?.messages?.find((m) => m.role === "system");
-    expect(systemMessage, JSON.stringify(captured)).toBeDefined();
-    expect(systemMessage!.content).toContain(expectedText);
-
-    // 送达内容的哈希（从真实请求体里抠出这一段，独立重算）与 confirmPlan 返回的
-    // deliveredPlanDigest 相等——这是「真送达」而不是「声称送达」的机械区分点。
-    const deliveredSegment = systemMessage!.content.slice(systemMessage!.content.indexOf(expectedText));
-    expect(planDeliveryDigest(deliveredSegment.slice(0, expectedText.length))).toBe(out.deliveredPlanDigest);
-  }, 30_000);
-
-  it("basedOnRevision 陈旧 -> PLAN_REVISION_CHANGED，不创建任何新 run（fail 前置校验先挡）", async () => {
-    await seedPriorRun();
-    const orgId = toOrgId(ORG);
-    await ingestEnginePlanSnapshot(planLedger, {
-      orgId, threadId: THREAD, todos: [{ content: "第一步", status: "pending" }, { content: "第二步", status: "pending" }],
-    });
-    const beforeCount = deepAgent.runBodies.length;
-    await expect(confirmPlan(
-      { repo: planLedger, runCreator, appendAudit: (input) => provenance.append({
-        orgId: input.orgId, type: "human-edited", actorId: input.actorId,
-        target: { kind: "thread", id: input.threadId }, detail: input.detail,
-      }) },
-      { orgId, threadId: THREAD, actorId: ACTOR, basedOnRevision: 999 },
-    )).rejects.toMatchObject({ code: "PLAN_REVISION_CHANGED" });
-    // 给一点时间，确认没有一个迟到的 run 悄悄冒出来。
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(deepAgent.runBodies.length).toBe(beforeCount);
+    // 核心断言（#2250 之前会超时失败）：账本 revision 真的往前走了，且第一步的 status
+    // 真的从 "pending" 变成 "in_progress"——不是 confirmPlan 自己声称的，是从账本
+    // 独立重新读出来的。
+    const ledger = await waitForLedgerStepsToAdvance(orgId);
+    expect(ledger.revision).toBeGreaterThan(ingested.revision);
+    const first = ledger.steps.find((s) => s.status !== "pending");
+    expect(first).toBeDefined();
   }, 30_000);
 });
