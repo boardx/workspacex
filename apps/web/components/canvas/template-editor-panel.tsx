@@ -18,7 +18,7 @@ import { TemplateSimulateDialog } from "./template-simulate-dialog";
 import { TemplateDisplayPanel } from "./template-display-panel";
 import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-drawer";
 import {
-  toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth,
+  toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth, autoFillLayout,
   FIELD_TYPES,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
@@ -591,6 +591,21 @@ export function TemplateEditorPanel({
                   {g} 列
                 </button>
               ))}
+              {/*
+                「不要手工排版」（2026-08-27 人类原话）。全量重排——覆盖所有已放置区块的
+                位置，不是只补未放置的（见 `autoFillLayout` 文件头「全量重排，不是补齐」）。
+                只在 `editable` 时给：只读态（已归档/无权限）不该有任何会改数据的按钮。
+              */}
+              {editable && (
+                <button
+                  type="button"
+                  onClick={() => setSections((prev) => autoFillLayout(prev, gridCols))}
+                  className="rounded-control border border-border px-2 py-0.5 text-10 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  data-testid="tpladmin-editor-autolayout"
+                >
+                  一键排版
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowSample((v) => !v)}
