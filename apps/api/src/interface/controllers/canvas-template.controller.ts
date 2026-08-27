@@ -4,6 +4,7 @@
  *
  *   POST /canvas/templates                     造一行（#496 → #988，已签核）
  *   POST /canvas/templates/suggestions         AI 提议分区名，只读不落库（2026-08-23，待补签）
+ *   POST /canvas/templates/:key/simulate       chat 模拟：真调模型跑一次当前草稿（2026-08-26，待补签）
  *   POST /canvas/templates/:key/draft          原地改写仍是 draft 的版本（2026-08-23，待补签）
  *   GET  /canvas/templates                     后台模板库 / 绑定选择器（共用一个端口，I-5）
  *   POST /canvas/templates/:key/publish        三段发布流程第三段（I-4）
@@ -79,6 +80,7 @@ import { publishTemplate } from "../../application/canvas/publish-template";
 import { adoptTemplate } from "../../application/canvas/adopt-template";
 import { restoreTemplate } from "../../application/canvas/restore-template";
 import { suggestTemplateSections } from "../../application/canvas/suggest-template-sections";
+import { simulateTemplateRun } from "../../application/canvas/simulate-template-run";
 import { updateTemplateDraft } from "../../application/canvas/update-template-draft";
 import { updateTemplateMetadata } from "../../application/canvas/update-template-metadata";
 import {
@@ -110,11 +112,13 @@ export const RESTORE_CANVAS_TEMPLATE_SCHEMA = C.operations.restoreTemplate.in;
 export const BIND_CANVAS_TEMPLATE_SCHEMA = C.operations.bindTemplateToSegment.in;
 export const MINT_CANVAS_TEMPLATE_VERSION_SCHEMA = C.operations.mintTemplateVersion.in;
 export const SUGGEST_TEMPLATE_SECTIONS_SCHEMA = C.operations.suggestTemplateSections.in;
+export const SIMULATE_TEMPLATE_RUN_SCHEMA = C.operations.simulateTemplateRun.in;
 export const UPDATE_TEMPLATE_DRAFT_SCHEMA = C.operations.updateTemplateDraft.in;
 export const UPDATE_TEMPLATE_METADATA_SCHEMA = C.operations.updateTemplateMetadata.in;
 
 type CreateBody = z.infer<typeof C.operations.createTemplate.in>;
 type SuggestSectionsBody = z.infer<typeof C.operations.suggestTemplateSections.in>;
+type SimulateRunBody = z.infer<typeof C.operations.simulateTemplateRun.in>;
 type UpdateDraftBody = z.infer<typeof C.operations.updateTemplateDraft.in>;
 type UpdateMetadataBody = z.infer<typeof C.operations.updateTemplateMetadata.in>;
 type PublishBody = z.infer<typeof C.operations.publishTemplate.in>;
@@ -198,6 +202,36 @@ export class CanvasTemplateController {
         await suggestTemplateSections(
           { identity: this.identity, model: this.model },
           { userId: principal.userId, orgId: principal.orgId, prompt: body.prompt },
+        ),
+      ),
+    );
+  }
+
+  /**
+   * 🟡 2026-08-26，**待人类补签**——见用例文件头。只读，不落库、不产版本。**200**，
+   * 没有资源被创建。`key` 只在路径里，body 里也带一份（契约要求），两者不一致时 400，
+   * 与其余四条 POST 同一条理由。
+   */
+  @Post("/canvas/templates/:key/simulate")
+  @HttpCode(HttpStatus.OK)
+  async simulateRun(
+    @Param("key") key: string,
+    @Body(new ZodBodyPipe(SIMULATE_TEMPLATE_RUN_SCHEMA)) body: SimulateRunBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    assertPrincipal(principal);
+    this.assertKeyMatches(key, body.key);
+    return this.run(async () =>
+      C.operations.simulateTemplateRun.out.parse(
+        await simulateTemplateRun(
+          { identity: this.identity, model: this.model },
+          {
+            userId: principal.userId,
+            orgId: principal.orgId,
+            key: body.key,
+            prompt: body.prompt,
+            sections: body.sections,
+          },
         ),
       ),
     );
@@ -558,6 +592,10 @@ export class CanvasTemplateController {
         }
         if (e.reasonCode === "TEMPLATE_SUGGESTION_UNAVAILABLE") {
           // 503 同上一条——模型调用失败/输出解析不出来，都不是权限裁定。
+          throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
+        }
+        if (e.reasonCode === "TEMPLATE_SIMULATION_UNAVAILABLE") {
+          // 503 同上一条——模型调用失败，不是权限裁定。
           throw new ServiceUnavailableException({ reasonCode: e.reasonCode });
         }
         if (e.reasonCode === "TEMPLATE_NOT_DRAFT") {

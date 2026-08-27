@@ -206,6 +206,8 @@ export const CanvasError = z.enum([
   "TEMPLATE_SUGGESTION_UNAVAILABLE",
   /** `updateTemplateDraft`：目标版本不是 `draft`——已发布/已归档版本仍是不可变快照。 */
   "TEMPLATE_NOT_DRAFT",
+  /** `simulateTemplateRun`：模型调用失败——同 `TEMPLATE_SUGGESTION_UNAVAILABLE` 的理由。 */
+  "TEMPLATE_SIMULATION_UNAVAILABLE",
 ]);
 
 /* ─────────────────────────────── 值对象 ─────────────────────────────── */
@@ -658,6 +660,51 @@ export const operations = {
      * ——「这次没建议出来，手动填或再试一次」，不需要在界面上分两种文案，见用例实现的说明。
      */
     err: ["TEMPLATE_SUGGESTION_UNAVAILABLE", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * simulateTemplateRun —— 2026-08-26，**设计增量、待人类补签**（同 #496/#988 的先例）。
+   *
+   * ## 人类原话：「需要有一个 chat 界面模拟，输出过程，可以输入一段提示词，需要出来
+   * 实际的结果」「你需要在前端的 chat 来测试，看如何基于上下文生成可视化」
+   *
+   * 这**不是** `TemplateDryRunDrawer`（试运行）的替代——试运行喂的是使用者手填的
+   * JSON，跳过模型，只验证「这份数据画布装得下吗」。这条操作走的是**真实 chat 生成
+   * 会走的那条路**：同一段 system 指引（`buildCanvasTemplateGuidance`，注入分区/
+   * 表头字段清单与 ```` ```canvas ```` 围栏格式说明）+ 使用者的自然语言提示词 → 真实模型
+   * → 一段可能含 ```` ```canvas ```` 围栏的文本。回答的是「模型看着这份模板结构，
+   * 真的会写出对得上的围栏吗」，而不是「我手填的数据装得下吗」。
+   *
+   * ## `sections` 由前端传入，不从库里读——这是刻意的
+   *
+   * 编辑器里正在改的分区（拖拽出来的 layout、刚加的字段）在点「保存」之前**只存在于
+   * 前端 state**。若这里从库里查已发布/已存的版本，模拟出来的是"上一次保存的样子"，
+   * 而使用者想验证的恰恰是"我现在正在改的这版，AI 认得吗"。所以 `sections` 与
+   * `updateTemplateDraft.in.sections` 同一副本 —— 前端把当前草稿原样带过来。
+   *
+   * ## 只读，不产生任何副作用
+   *
+   * 与 `suggestTemplateSections` 同一条纪律：这里不写库、不产版本、不动 `promptText`——
+   * 纯粹是「拿当前编辑器状态问一次模型」。使用者满意了要不要把这段提示词存进
+   * `promptText`，走既有的 `updateTemplateMetadata`，是使用者自己的下一步动作。
+   */
+  simulateTemplateRun: {
+    method: "POST", path: "/canvas/templates/:key/simulate",
+    in: z.object({
+      key: z.string().min(1),
+      /** 使用者在①栏写的角色与任务，或临时想试的一句话。 */
+      prompt: z.string().min(1).max(4000),
+      /** 编辑器当前的分区草稿——不是库里已存的那一版，见文件头。 */
+      sections: z.array(SectionDef),
+    }).strict(),
+    out: z.object({
+      /** 模型的原始回复文本（可能含 ```` ```canvas ```` 围栏，也可能模型没照格式写）。 */
+      text: z.string(),
+      modelProvider: z.string(),
+      modelId: z.string(),
+    }).strict(),
+    /** 同 `suggestTemplateSections`：模型调用失败对使用者是一件事，不拆两个码。 */
+    err: ["TEMPLATE_SIMULATION_UNAVAILABLE", "ROLE_INSUFFICIENT", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /**

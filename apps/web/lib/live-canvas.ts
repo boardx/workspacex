@@ -63,6 +63,7 @@ export type RestoreTemplateOut = z.infer<typeof canvas.operations.restoreTemplat
 export type PublishTemplateOut = z.infer<typeof canvas.operations.publishTemplate.out>;
 export type TrialTemplateOut = z.infer<typeof canvas.operations.trialTemplate.out>;
 export type SuggestTemplateSectionsOut = z.infer<typeof canvas.operations.suggestTemplateSections.out>;
+export type SimulateTemplateRunOut = z.infer<typeof canvas.operations.simulateTemplateRun.out>;
 export type UpdateTemplateDraftIn = z.infer<typeof canvas.operations.updateTemplateDraft.in>;
 export type UpdateTemplateDraftOut = z.infer<typeof canvas.operations.updateTemplateDraft.out>;
 export type UpdateTemplateMetadataIn = z.infer<typeof canvas.operations.updateTemplateMetadata.in>;
@@ -213,6 +214,29 @@ export async function suggestCanvasTemplateSections(
     method: "POST",
     body: { prompt: input.prompt },
   });
+}
+
+/**
+ * 2026-08-26，**该契约面待人类补签**（同 `createTemplate` 的先例）。
+ *
+ * chat 模拟：真调模型跑一次编辑器**当前的**分区草稿（不是库里已存的版本，见契约文件头）——
+ * 使用者输一段提示词，看模型真的会写出什么。只读，不落库、不产版本、不动 `promptText`。
+ * ⚠ `sections` 原样透传编辑器当前 state，调用方负责传当前正在改的那一份，不是重新去查库。
+ */
+export async function simulateCanvasTemplateRun(
+  input: {
+    readonly key: string;
+    readonly prompt: string;
+    readonly sections: readonly TemplateSection[];
+  },
+): Promise<SimulateTemplateRunOut> {
+  return apiRequest<SimulateTemplateRunOut>(
+    templatePath(canvas.operations.simulateTemplateRun, input.key),
+    {
+      method: "POST",
+      body: { key: input.key, prompt: input.prompt, sections: input.sections },
+    },
+  );
 }
 
 /**
