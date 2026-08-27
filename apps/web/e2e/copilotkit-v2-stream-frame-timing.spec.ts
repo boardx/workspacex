@@ -113,27 +113,55 @@ test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长
   // 容器不是立即挂载的——之前直接在下面 `page.evaluate` 里同步 querySelector，
   // 挂载竞态时会抛 "container not mounted yet"（setup 阶段偶发/在部分负载下稳定抛错）。
   // 显式等它挂载完，不是等某条业务数据，纯粹是 DOM 存在性门。
-  await page.waitForSelector('[data-testid="copilotkit-v2-messages"]', { state: "attached" });
+  //
+  // issue #2247 —— 这道门本身在部分负载下**仍然**稳定复现同一条错误：本 config
+  // 的 web `webServer` 跑的是 `next dev`（非生产构建），且 `next.config.mjs` 开着
+  // `reactStrictMode: true`——React 18 严格模式在**首次挂载**时会对该组件树做一次
+  // "挂载 → 卸载 → 再挂载"的验证性循环（用来暴露没写 effect 清理的缺陷），这个循环
+  // 发生在同一个事件循环内、之间没有真实的浏览器绘制帧。`waitForSelector` 一旦在
+  // 第一次挂载时命中就立刻 resolve，但如果 resolve 之后到下面 `page.evaluate`
+  // 同步执行之间恰好落在"验证性卸载"那个极短窗口内，`querySelector` 就会读到
+  // `null`——不是产品缺陷，是这道门本身只查了一次瞬时状态，没有容忍严格模式这次
+  // 已知的一次性双挂载。
+  //
+  // 修法：把"等容器 attached + 挂 MutationObserver"这一整段包进一个有限重试外壳
+  // （与 `chat-diagram-save-reopen-roundtrip.spec.ts` 的 `loadAllMessagePages`
+  // 同一条"吃掉瞬时 detach、下一轮重新定位再试"纪律，不是发明新写法），而不是加一个
+  // 猜时长的固定 `waitForTimeout`——严格模式这次验证性卸载在真实机器上只占极小的
+  // 时间窗，重试 1-2 次即可稳定跨过去，超过预算次数仍失败才真的报错。
+  async function armStreamObserver(): Promise<void> {
+    const maxAttempts = 8;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      await page.waitForSelector('[data-testid="copilotkit-v2-messages"]', { state: "attached" });
+      try {
+        await page.evaluate(() => {
+          const container = document.querySelector('[data-testid="copilotkit-v2-messages"]');
+          if (container === null) throw new Error("copilotkit-v2-messages container not mounted yet");
+          (window as unknown as { __streamSamples: StreamSample[] }).__streamSamples = [];
+          const record = (): void => {
+            const node = document.querySelector('[data-testid="chat-ai-markdown"]');
+            const len = node === null ? 0 : (node.textContent ?? "").length;
+            (window as unknown as { __streamSamples: StreamSample[] }).__streamSamples.push({
+              t: performance.now(),
+              len,
+            });
+          };
+          const observer = new MutationObserver(record);
+          observer.observe(container, { childList: true, subtree: true, characterData: true });
+          (window as unknown as { __streamObserver: MutationObserver }).__streamObserver = observer;
+          // 记一个 t=0 的基线点（此时 chat-ai-markdown 还不存在，len 应为 0）。
+          record();
+        });
+        return;
+      } catch (failure) {
+        if (attempt === maxAttempts) throw failure;
+        await page.waitForTimeout(100);
+      }
+    }
+  }
 
   // 在点击发送之前先挂好观测器，避免错过最早的几个分片。
-  await page.evaluate(() => {
-    const container = document.querySelector('[data-testid="copilotkit-v2-messages"]');
-    if (container === null) throw new Error("copilotkit-v2-messages container not mounted yet");
-    (window as unknown as { __streamSamples: StreamSample[] }).__streamSamples = [];
-    const record = (): void => {
-      const node = document.querySelector('[data-testid="chat-ai-markdown"]');
-      const len = node === null ? 0 : (node.textContent ?? "").length;
-      (window as unknown as { __streamSamples: StreamSample[] }).__streamSamples.push({
-        t: performance.now(),
-        len,
-      });
-    };
-    const observer = new MutationObserver(record);
-    observer.observe(container, { childList: true, subtree: true, characterData: true });
-    (window as unknown as { __streamObserver: MutationObserver }).__streamObserver = observer;
-    // 记一个 t=0 的基线点（此时 chat-ai-markdown 还不存在，len 应为 0）。
-    record();
-  });
+  await armStreamObserver();
 
   await page.getByTestId("copilotkit-v2-input").fill(userText);
   await page.getByTestId("copilotkit-v2-send").click();

@@ -43,7 +43,23 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   // （`chat-thread-actions` / `-create` / `-rename` / `-delete`）与会话卡
   // `chat-thread-${card.id}` **共用同一前缀**，前缀匹配数出来是 5 不是 1。
   // （这一步我先写错过一次，实测 `Received: 5` 才发现是自己起的名撞了命名空间。）
-  await expect(page.getByTestId("chat-thread-card-list").getByRole("button")).toHaveCount(1);
+  //
+  // issue #2247 —— 上面那段历史断言在 #1179（`975ce9a8`，会话改名/删除重做为
+  // 「hover "…" 菜单」）之后又红了一次，根因与之前那次（#460/#489）是**同一类**、
+  // 但触发点不同：#1179 把改名/删除菜单从"容器外的写入口"搬成了"卡片内部的
+  // hover 菜单触发按钮"（`chat-thread-card-menu-trigger`，`thread-list-shell.tsx`
+  // 的 `ThreadCardButton`），这个按钮渲染在 `chat-thread-card-list` **容器内部**
+  // （每张被选中且有 `thread.mutate` 能力的卡片都会带一个），不再落在旧写法防的
+  // 那五个前缀命名空间里，`getByRole("button")` 数到的是「选中卡的主按钮」+
+  // 「它的"…"更多操作触发器」= 2，不是 1。夹具用户是 facilitator、唯一线程默认
+  // 选中，因此这条回归稳定复现，不是偶发。
+  // 修法延续同一条原则（收窄到真实出口，不放宽数字）：显式排掉这个已有独立 testid
+  // 的「更多操作」触发按钮（`core-loop.spec.ts`/`chat-task-workbench-polish.spec.ts`
+  // 已经在用这同一个 testid 精确定位它，不是这里新起的名字），只数卡片自己的选中
+  // /打开按钮。
+  await expect(
+    page.getByTestId("chat-thread-card-list").locator('button:not([data-testid="chat-thread-card-menu-trigger"])'),
+  ).toHaveCount(1);
   await expect(page.getByRole("textbox", { name: "消息内容" })).toBeVisible();
   await page.getByRole("textbox", { name: "消息内容" }).fill("Browser durable message");
 

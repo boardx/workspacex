@@ -19,6 +19,25 @@ const OUT = resolve(process.env.COPILOTKIT_V2_UIUX_OUT ?? ".copilotkit-v2-uiux")
 
 test.setTimeout(180_000);
 
+/**
+ * issue #2247 —— 与 #2201（Closes #2175）诊断的四项同一根因，本文件此前未被那轮扫到
+ * 的第 5 个实例。`isDisabled()===false` 隐含"没有别的原因会让按钮 disabled"这条假设，
+ * 在 issue #2130（TW-P0-5④，`49cda935`）之后不再成立：composer 在 `send()` 成功清空后
+ * 只剩"输入为空"这条独立、合法的禁用理由（`copilotkit-v2-panel.tsx` 的
+ * `sendDisabledReason`），下面两条断言点上 composer 恰好都已被清空——原判据因此永远
+ * 等不到 `false`，60s/90s 超时后稳定红，与流式渲染/多步执行本身是否健康无关。
+ *
+ * 换成读 `title` 是否还等于"运行中"这条禁用理由（与"输入为空"独立理由分开判断），
+ * 与 `copilotkit-v2-stream-frame-timing.spec.ts` 的 `expectSendNotBlockedOnRun`
+ * 逐字同一套写法，不是发明第二份判据。
+ */
+const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
+async function expectSendNotBlockedOnRun(page: Page, timeoutMs = 30_000): Promise<void> {
+  await expect
+    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
+    .not.toBe(RUNNING_DISABLED_REASON);
+}
+
 async function login(page: Page): Promise<void> {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
@@ -68,14 +87,10 @@ test("多轮对话 + markdown 回复 + 追问建议：桌面截图", async ({ pa
   await input.fill("你好，请介绍一下你自己");
   await page.getByTestId("copilotkit-v2-send").click();
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("你好，请介绍一下你自己", { timeout: 30_000 });
-  await expect
-    .poll(async () => await page.getByTestId("copilotkit-v2-send").isDisabled(), { timeout: 60_000 })
-    .toBe(false);
+  await expectSendNotBlockedOnRun(page, 60_000);
   await input.fill(CHAT_READ_E2E.deepAgentMarkdownTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-  await expect
-    .poll(async () => await page.getByTestId("copilotkit-v2-send").isDisabled(), { timeout: 60_000 })
-    .toBe(false);
+  await expectSendNotBlockedOnRun(page, 60_000);
   await page.waitForTimeout(1_000);
   await page.screenshot({ path: resolve(OUT, "conversation-markdown.png"), fullPage: true });
 });
@@ -86,9 +101,7 @@ test("工具调用卡（多步剧本）：桌面截图", async ({ page }) => {
   await page.goto("/chat");
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-  await expect
-    .poll(async () => await page.getByTestId("copilotkit-v2-send").isDisabled(), { timeout: 90_000 })
-    .toBe(false);
+  await expectSendNotBlockedOnRun(page, 90_000);
   await page.waitForTimeout(1_000);
   await page.screenshot({ path: resolve(OUT, "tool-cards.png"), fullPage: true });
 });
