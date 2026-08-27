@@ -554,6 +554,20 @@ export function ChatReadScreen({
           onRetry={() => void loadSelectedThread()}
           onArtifactLanded={() => void loadSelectedThread()}
           onMessageSent={() => void loadSelectedThread()}
+          /*
+            issue #1609（#728 round 9 遗留缺口）—— run 到终态时重读服务端权威
+            线程列表，让左栏「N 个 agent」badge（`thread-badges.ts` 的
+            `threadAgentSummary`）跟着刷新。`personal-chat-screen.tsx` 早就这样
+            接了（`onThreadSettled` → `loadThreads`），本屏一直没接，评分员截到过
+            「0 个 agent」与刚说完话的 agent 回复同屏出现的自相矛盾画面。
+            不新造一条刷新路径——`loadThreads` 本身已经是"先等服务端再重读"的
+            唯一权威读法（#460 的既有纪律）：数据未变时 `setSelection` 返回同一个
+            对象引用不触发多余渲染，`groups` 只在真拿到新结果时才换引用，
+            而 `ThreadList` 的骨架态判据是 `loading && groups === null`——本屏
+            走到这里 `groups` 早已非空，不会重新闪出骨架屏（#1607 撞到的竞态是
+            `chat-read.spec.ts` 里另一条不同断言，未在本次改动范围内触发）。
+          */
+          onRunSettled={() => void loadThreads()}
         />
       </AppShell>
       {/* issue #2099 —— 只读预览弹窗，Radix `Dialog` 自己 portal 到 body，挂在这个
@@ -814,7 +828,7 @@ function ThreadWriteForm({
 
 function ThreadDetail({
   projectId, currentOrgId, userId, card, detail, bearer, roster, loading, error, onRetry,
-  attach, onArtifactLanded, onMessageSent,
+  attach, onArtifactLanded, onMessageSent, onRunSettled,
 }: {
   projectId: string;
   currentOrgId: string | null;
@@ -831,6 +845,12 @@ function ThreadDetail({
   onArtifactLanded: () => void;
   /** issue #728 D9 —— 一条消息（可能带附件）成功发出后触发，刷新右栏「材料」计数。 */
   onMessageSent: () => void;
+  /**
+   * issue #1609 —— 透传给 `ChatLiveMessagePanel` 的 `onRunSettled`（run 到终态时
+   * 通知调用方重读服务端权威线程列表），由 `ChatReadScreen` 传入自己的
+   * `loadThreads`，本组件不持有左栏数据。见调用点注释。
+   */
+  onRunSettled?: () => void;
 }) {
   /**
    * composer 里敲 `#` → `ChatSkillMountPanel` 开面板/过滤/真挂载 → 挂载成功后
@@ -932,6 +952,8 @@ function ThreadDetail({
             canLandArtifacts={detail.capabilities.includes("artifact.land")}
             /* G1 读回 + G2 画像判权用；个人线程 projectId 为 null ⇒ 缺省，读回关闭。 */
             projectId={projectId ?? undefined}
+            /* issue #1609 —— 见本组件 props 上 `onRunSettled` 的注释与调用点注释。 */
+            onRunSettled={onRunSettled}
             onArtifactLanded={onArtifactLanded}
             onMessageSent={onMessageSent}
             hasMountedSkills={mountedSkillCount > 0}
