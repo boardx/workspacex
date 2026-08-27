@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, Bot, Check, Copy, Loader2, Mic, RefreshCw, Send, UserRound } from "lucide-react";
+import {
+  ArrowDown, Bot, Check, Copy, Loader2, Mic, MoreHorizontal, Paperclip, RefreshCw, Send, UserRound, Wrench,
+} from "lucide-react";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 // VZ-01 → live panel（coord 裁 ①+续刀）：活体 AI 消息渲染从 CopilotKit 的 Markdown
 // 换成本仓 `MarkdownMessage`——同样渲 markdown，且识别 ```mermaid 围栏渲成图（白名单闸门 +
@@ -43,6 +45,7 @@ import { AgentApprovalPanel } from "@/components/chat/agent-approval-panel";
 import { ApiError } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -1601,7 +1604,57 @@ export function ChatLiveMessagePanel({
           <p className="mb-2 text-12 text-muted-foreground" data-testid="chat-composer-archived">
             该对话已归档，只能读取，不能创建消息或运行。
           </p>
-        ) : null}
+        ) : (
+          /*
+            D8（chat-main-fidelity-rubric.md）—— 输入区顶部上下文行。参照图要求
+            「参与 agent 头像串 + skill + 已引用上下文 + 输出落点 + 更多设置」五项，
+            这里只接了有真实数据支撑的三项，如实标注剩余两项的数据缺口，不伪造：
+            - 参与 agent 头像串：复用编制 `agents`（与线程头部同一份数据）。
+            - skill：`hasMountedSkills` 是调用方已经从 `listThreadMounts` 读到的真实
+              布尔值（同一事实源，见该 prop 的文档注释）——这里只显示"是否挂了"，
+              不显示具体名字，避免在没有名字解析管线的前提下编一个名字出来。
+            - 已引用上下文：`attach.attachments.length`——composer 当前草稿真实挂着
+              的附件数（下一条消息真的会带着它们发出去），不是猜测值。
+            - 「输出落点」（参照图"输出落到「假设树」"）：本仓没有"技能结构化输出槽位"
+              这个概念（`landAsArtifact` 是通用落地动作，不挂靠具体技能的输出契约），
+              没有真实数据源，不在这里画一个假的落点选择器——已开 data-gap issue 跟踪。
+            - 「更多设置」：暂无可配置项，显式禁用 + 说明（同「分享」按钮的既有纪律：
+              宁可显式禁用并说明，也不放一个点了没反应的按钮）。
+          */
+          <div
+            className="mb-2 flex flex-wrap items-center gap-2 text-10 text-muted-foreground"
+            data-testid="chat-composer-context-line"
+          >
+            {agents && agents.length > 0 ? (
+              <span className="flex items-center -space-x-1" aria-hidden data-testid="chat-composer-context-agents">
+                {agents.slice(0, 4).map((agent) => (
+                  <Avatar key={agent.id} initials={agent.abbr} tone="ai" size="sm" className="ring-1 ring-background" />
+                ))}
+              </span>
+            ) : null}
+            {hasMountedSkills ? (
+              <span className="inline-flex items-center gap-1" data-testid="chat-composer-context-skill">
+                <Wrench aria-hidden className="h-3 w-3" />已挂载 skill
+              </span>
+            ) : null}
+            {attach.attachments.length > 0 ? (
+              <span className="inline-flex items-center gap-1" data-testid="chat-composer-context-attachments">
+                <Paperclip aria-hidden className="h-3 w-3" />已引用 {attach.attachments.length} 项上下文
+              </span>
+            ) : null}
+            <span className="flex-1" />
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              disabled
+              title="更多设置尚未接入（暂无可配置项）"
+              data-testid="chat-composer-context-more"
+            >
+              <MoreHorizontal aria-hidden className="h-3 w-3" />更多设置
+            </Button>
+          </div>
+        )}
         {/*
           #728 P10 —— 无 agent 可选时，整个composer 的「发送类」控件（追问建议 / 麦克风）
           此前只看 `archived`/`submitting`，不看「有没有 agent 可以发」，于是在
