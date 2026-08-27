@@ -132,6 +132,7 @@ export function ChatLiveMessagePanel({
   hasMountedSkills = false,
   skillMounts = EMPTY_SKILL_MOUNTS,
   skillNames = EMPTY_SKILL_NAMES,
+  materialsCount = 0,
 }: {
   threadId: string;
   bearer: string;
@@ -235,6 +236,15 @@ export function ChatLiveMessagePanel({
   skillMounts?: readonly ThreadSkillMount[];
   /** skillId → 展示名，同样转发自 `ChatSkillMountPanel`（`listSkills` 已读到的池子）。 */
   skillNames?: ReadonlyMap<string, string>;
+  /**
+   * issue #2284（D8 剩余第三项）—— composer 顶部「已引用 N 项上下文」里，
+   * 「线程已经真实持有的材料」这一半。单一事实源是 `listThreadAttachments`
+   * （`chat-read-screen.tsx` 的 `materials.items.length`），本组件不重读、
+   * 不在本地维护第二份材料计数——同 `onArtifactLanded`/`onMessageSent` 那批
+   * prop 一样的纪律。省略时按 0 处理（草稿附件数仍然照算，不因缺这个 prop
+   * 就整行不渲染）。
+   */
+  materialsCount?: number;
 }) {
   const sourceKey = `${threadId}\u0000${bearer}`;
   const [messages, setMessages] = React.useState<DurableMessage[]>([]);
@@ -1124,6 +1134,24 @@ export function ChatLiveMessagePanel({
    */
   const activeAgentId = runObservation?.view?.agentId ?? (selectedAgentId || null);
 
+  /**
+   * issue #2284（D8 剩余第三项）—— composer 顶部上下文行两个数据源，随每次渲染
+   * 重新求值，不是挂载时算一次就定住：
+   * - 「已挂载 skill」具体名字：复用 D5 消息身份行同一套 `resolveActiveSkillMount`
+   *   逻辑，只是查的时间点是「此刻」而非某条历史消息的 `createdAt`——`skillMounts`/
+   *   `skillNames` 省略时（如 `personal-chat-screen.tsx` 尚未接入这两个 prop）
+   *   解不出名字，落回 `hasMountedSkills` 驱动的泛化文案，不编名字。
+   * - 「已引用 N 项上下文」总数：composer 草稿里**尚未发送**的附件
+   *   （`attach.attachments.length`）+ 线程已经真实持有的材料（`materialsCount`，
+   *   调用方转发自 `listThreadAttachments`）——两者都是「下一条消息发出后仍在
+   *   这场对话上下文里」的真实条目，不是互斥的两种口径。
+   */
+  const activeSkillName = (() => {
+    const active = resolveActiveSkillMount(new Date().toISOString(), skillMounts);
+    return active ? skillNames.get(active.skillId) : undefined;
+  })();
+  const referencedContextCount = materialsCount + attach.attachments.length;
+
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col"
@@ -1608,13 +1636,19 @@ export function ChatLiveMessagePanel({
           /*
             D8（chat-main-fidelity-rubric.md）—— 输入区顶部上下文行。参照图要求
             「参与 agent 头像串 + skill + 已引用上下文 + 输出落点 + 更多设置」五项，
-            这里只接了有真实数据支撑的三项，如实标注剩余两项的数据缺口，不伪造：
+            这里接了有真实数据支撑的三项，如实标注剩余两项的数据缺口，不伪造：
             - 参与 agent 头像串：复用编制 `agents`（与线程头部同一份数据）。
-            - skill：`hasMountedSkills` 是调用方已经从 `listThreadMounts` 读到的真实
-              布尔值（同一事实源，见该 prop 的文档注释）——这里只显示"是否挂了"，
-              不显示具体名字，避免在没有名字解析管线的前提下编一个名字出来。
-            - 已引用上下文：`attach.attachments.length`——composer 当前草稿真实挂着
-              的附件数（下一条消息真的会带着它们发出去），不是猜测值。
+            - skill：优先显示「此刻」处于挂载状态的具体名字（`activeSkillName`，
+              见本组件顶部计算处的注释与 D5 `resolveActiveSkillMount`）；解不出
+              名字时（`skillMounts`/`skillNames` 未传，或挂载刚发生名字还没到）
+              回落到 `hasMountedSkills` 驱动的泛化文案「已挂载 skill」——两种都
+              是真实状态的忠实投影，不编不属实的名字（issue #2284）。
+            - 已引用上下文：`referencedContextCount` = composer 当前草稿真实挂着
+              的附件数（`attach.attachments.length`）+ 线程已经真实持有的材料数
+              （`materialsCount`，调用方转发自 `listThreadAttachments`）。此前
+              只算前者，草稿为空、材料非零时整行会跟着不渲染，与参照图不符
+              （issue #2284：右栏「材料」当场就列着真上传的附件，是同一份真实
+              事实源，只是此前没接进composer这一行）。
             - 「输出落点」（参照图"输出落到「假设树」"）：本仓没有"技能结构化输出槽位"
               这个概念（`landAsArtifact` 是通用落地动作，不挂靠具体技能的输出契约），
               没有真实数据源，不在这里画一个假的落点选择器——已开 data-gap issue 跟踪。
@@ -1634,12 +1668,12 @@ export function ChatLiveMessagePanel({
             ) : null}
             {hasMountedSkills ? (
               <span className="inline-flex items-center gap-1" data-testid="chat-composer-context-skill">
-                <Wrench aria-hidden className="h-3 w-3" />已挂载 skill
+                <Wrench aria-hidden className="h-3 w-3" />{activeSkillName ? `skill: ${activeSkillName}` : "已挂载 skill"}
               </span>
             ) : null}
-            {attach.attachments.length > 0 ? (
+            {referencedContextCount > 0 ? (
               <span className="inline-flex items-center gap-1" data-testid="chat-composer-context-attachments">
-                <Paperclip aria-hidden className="h-3 w-3" />已引用 {attach.attachments.length} 项上下文
+                <Paperclip aria-hidden className="h-3 w-3" />已引用 {referencedContextCount} 项上下文
               </span>
             ) : null}
             <span className="flex-1" />
@@ -1988,14 +2022,19 @@ const EMPTY_SKILL_NAMES: ReadonlyMap<string, string> = new Map();
  * 不编一个名字出来，也不回落显示裸 `skillId`（那对用户没有意义，且会被误认成又
  * 一个"查不到就显示原值"的角色 chip）。
  */
-function agentSkillLabel(
-  createdAt: string,
+/**
+ * 「在 `atIso` 这一刻处于挂载状态的 skill」——D5（消息身份行）按消息 `createdAt`
+ * 回查，issue #2284（composer 顶部上下文行）按「此刻」（`new Date().toISOString()`）
+ * 回查，是同一条时间窗判定逻辑，只是喂进去的时间点不同，抽成一个函数避免两处
+ * 各写一份、日后改判定规则时只改一处。
+ */
+function resolveActiveSkillMount(
+  atIso: string,
   skillMounts: readonly ThreadSkillMount[],
-  skillNames: ReadonlyMap<string, string>,
-): React.ReactNode {
-  const at = Date.parse(createdAt);
-  if (Number.isNaN(at)) return null;
-  const active = skillMounts
+): ThreadSkillMount | undefined {
+  const at = Date.parse(atIso);
+  if (Number.isNaN(at)) return undefined;
+  return skillMounts
     .filter((mount) => {
       const mountedAt = Date.parse(mount.mountedAt);
       if (Number.isNaN(mountedAt) || mountedAt > at) return false;
@@ -2004,6 +2043,14 @@ function agentSkillLabel(
       return Number.isNaN(removedAt) ? true : removedAt > at;
     })
     .sort((a, b) => Date.parse(a.mountedAt) - Date.parse(b.mountedAt))[0];
+}
+
+function agentSkillLabel(
+  createdAt: string,
+  skillMounts: readonly ThreadSkillMount[],
+  skillNames: ReadonlyMap<string, string>,
+): React.ReactNode {
+  const active = resolveActiveSkillMount(createdAt, skillMounts);
   if (!active) return null;
   const name = skillNames.get(active.skillId);
   if (!name) return null;
