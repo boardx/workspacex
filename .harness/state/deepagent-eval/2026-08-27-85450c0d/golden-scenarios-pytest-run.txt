@@ -1,0 +1,35 @@
+ Network wsx-da09-golden-58104_default Creating 
+ Network wsx-da09-golden-58104_default Created 
+ Container wsx-da09-golden-58104-postgres-1 Creating 
+ Container wsx-da09-golden-58104-postgres-1 Created 
+ Container wsx-da09-golden-58104-postgres-1 Starting 
+ Container wsx-da09-golden-58104-postgres-1 Started 
+============================= test session starts ==============================
+platform darwin -- Python 3.14.7, pytest-9.1.1, pluggy-1.6.0 -- /Users/shenyanbin/Documents/workspacex-wt/deepagent-rescore-0827/apps/deep-agent-service/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /Users/shenyanbin/Documents/workspacex-wt/deepagent-rescore-0827/apps/deep-agent-service
+configfile: pyproject.toml
+plugins: langsmith-0.11.0, anyio-4.14.2
+collecting ... collected 9 items
+
+tests/golden/test_tc1_long_chain_research.py::test_tc1_long_chain_research PASSED [ 11%]
+tests/golden/test_tc2_sensitive_skill_hitl.py::test_tc2_sensitive_skill_interrupt_then_edit_and_approve PASSED [ 22%]
+tests/golden/test_tc2_sensitive_skill_hitl.py::test_tc2_counterproof_without_hitl_env_skill_runs_unattended PASSED [ 33%]
+tests/golden/test_tc3_fault_injection_and_budget.py::test_tc3_fault_injection_then_loop_hits_budget_with_notice PASSED [ 44%]
+tests/golden/test_tc3_fault_injection_and_budget.py::test_tc3_precompletion_checklist_forces_a_revision PASSED [ 55%]
+tests/golden/test_tc3_fault_injection_and_budget.py::test_tc3_counterproof_checklist_off_lets_bad_answer_stand PASSED [ 66%]
+tests/golden/test_tc4_long_context_recall.py::test_tc4_round30_recalls_round2_detail_through_summary PASSED [ 77%]
+tests/golden/test_tc4_long_context_recall.py::test_tc4_counterproof_fact_is_not_in_the_recent_window PASSED [ 88%]
+tests/golden/test_tc5_checkpoint_kill_recovery.py::test_tc5_sigkill_midrun_then_resume_and_time_travel PASSED [100%]
+
+=============================== warnings summary ===============================
+tests/golden/test_tc1_long_chain_research.py::test_tc1_long_chain_research
+  /Users/shenyanbin/Documents/workspacex-wt/deepagent-rescore-0827/apps/deep-agent-service/.venv/lib/python3.14/site-packages/google/genai/types.py:42: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+tests/golden/test_tc1_long_chain_research.py::test_tc1_long_chain_research
+  /Users/shenyanbin/Documents/workspacex-wt/deepagent-rescore-0827/apps/deep-agent-service/src/deep_agent_service/harness.py:158: LangChainBetaWarning: The middleware `RubricMiddleware` is in beta. It is actively being worked on, so the API may change.
+    return [*seed, RubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 9 passed, 2 warnings in 21.63s ========================

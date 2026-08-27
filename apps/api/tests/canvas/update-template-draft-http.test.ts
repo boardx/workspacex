@@ -145,6 +145,8 @@ describe("2026-08-23 · POST /canvas/templates/:key/draft", () => {
       tags: [],
       // #2221：保存草稿分区/几何恒写 user-edited——本操作本身就是一次真实编辑。
       layoutSource: "user-edited",
+      // 2026-08-27：请求体不传 `size`——省略在契约层归一成 `"A1"`。
+      size: "A1",
     });
 
     // 持久面重新读一遍——响应体可以只是把入参回显了一遍。

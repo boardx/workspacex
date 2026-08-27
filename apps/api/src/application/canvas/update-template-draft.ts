@@ -13,6 +13,7 @@ import { requireTemplateAdmin } from "./template-admin";
 import type {
   CanvasTemplateRepository,
   CreatedCanvasTemplate,
+  PaperSize,
   UpdatedCanvasTemplateDraft,
 } from "./template-ports";
 
@@ -30,6 +31,8 @@ export interface UpdateTemplateDraftInput {
   readonly sections: CreatedCanvasTemplate["sections"];
   readonly visibility: VisibilityScope;
   readonly tags?: readonly string[];
+  /** 省略在契约层归一成 `"A1"`，全量替换（同 sections/displayName 的既有语义）。 */
+  readonly size?: PaperSize;
 }
 
 export async function updateTemplateDraft(
@@ -47,6 +50,7 @@ export async function updateTemplateDraft(
     sections: input.sections,
     visibility: input.visibility,
     tags: input.tags ?? [],
+    size: input.size ?? "A1",
   });
 
   if (!outcome.updated) {

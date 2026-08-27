@@ -36,6 +36,7 @@ import { ApiError } from "@/lib/api-client";
 import { TemplateCanvasGrid } from "./template-canvas-grid";
 import type { SectionDraft } from "./template-editor-model";
 import { toContractSections } from "./template-editor-model";
+import type { PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 模型原始回复文本 → `TemplateCanvasGrid` 认的 `runData`（按分区 `key` 存，不是中文名）。
@@ -67,7 +68,7 @@ export function fenceTextToRunData(
 }
 
 export function TemplateSimulateDialog({
-  templateKey, sections, gridCols, title, footer, promptText, onClose,
+  templateKey, sections, gridCols, title, footer, promptText, onClose, paperSize = "A1",
 }: {
   readonly templateKey: string;
   readonly sections: readonly SectionDraft[];
@@ -77,6 +78,8 @@ export function TemplateSimulateDialog({
   /** ①栏当前的提示词正文——打开弹窗时用来预填。 */
   readonly promptText: string;
   readonly onClose: () => void;
+  /** 纸张尺寸——渲染结果按这个尺寸的 mm 数走，缺省 `"A1"`。 */
+  readonly paperSize?: PaperSizeKey;
 }) {
   const [prompt, setPrompt] = React.useState(promptText);
   const [running, setRunning] = React.useState(false);
@@ -165,6 +168,7 @@ export function TemplateSimulateDialog({
                   footer={footer}
                   selectedId={null}
                   editable={false}
+                  paperSize={paperSize}
                   onSelect={() => {}}
                   onPlace={() => {}}
                   onMove={() => {}}

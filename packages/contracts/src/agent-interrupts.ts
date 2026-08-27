@@ -21,36 +21,31 @@
  * | `fill_run_params` | `fill_params` | UC-2 `fillRunParams` |
  * | `choose_execution_option` | `choose_option` | UC-3 `chooseExecutionOption` |
  *
- * ## ⚠ 本轮未做的事——已核实，报回，不擅自扩大范围
+ * ## Python 侧 `@tool` 实现现状（issue #2252，已落地）
  *
  * 三个工具名要真正触发 `interrupt()`，**必须**在 Python 侧（`apps/deep-agent-service`）
  * 存在对应的 `@tool` 函数，并被 `tools.py` 的 `build_tools()` 注册进 `graph.py` 传给
  * `create_deep_agent(tools=..., interrupt_on=build_interrupt_on())` 的 `tools` 列表——
- * **实测**（`harness.py:198-214` `build_interrupt_on` + `graph.py:44-50`）：
- * `interrupt_on` 只是「这个工具名被调用时要不要中断」的开关字典，模型只能调用真实注册
- * 在 `tools` 列表里的工具；`confirm_task_intent`/`fill_run_params`/`choose_execution_option`
- * 三个名字**不是**纯前端约定，也**不是**只需要出现在 `DEEP_AGENT_HITL_TOOLS` 环境变量
- * 投影里就够——它们必须是 Python 侧真实存在的 `@tool` 函数，模型才有东西可调用。
- * （复核方式同 `HumanInTheLoopMiddleware.__init__`，langchain 0.7.6 实测：`interrupt_on`
- * 字典本身不校验键是否对应已注册工具，所以提前把名字投影进环境变量是**惰性安全**的——
- * 在 Python 侧工具落地前，这三个名字永远不会被调用，因而永远不会真的触发中断；
- * 但它们**终究需要 Python 实现**，这超出本轮「只出契约内核」的边界。）
+ * 这一点在本文件最初写下时（F212）尚未成立，已由 #2252 补上：`tools.py` 现在真实定义
+ * `confirm_task_intent`/`fill_run_params`/`choose_execution_option` 三个 `@tool` 函数
+ * 并注册进 `build_tools()`，`graph.py` 的 `SYSTEM_PROMPT` 也补了这三个工具各自的触发
+ * 时机说明（同 `write_todos` 的 #2224 先例）。
  *
- * ⇒ Python 侧 `@tool` 定义是**下一个 feature**（不在本 issue 范围内），已通过
- * `mcp__ccd_session__spawn_task` 登记为后续任务，不在本次 PR 里做。
+ * ⚠ Python 侧函数签名**不是**逐字等于下面的 `*Args` 契约形状：`HumanInTheLoopMiddleware`
+ * 的 `edit` 决策会用各自 `*Decision.editedArgs`（比初始调用参数更窄的形状，例如
+ * `ChooseOptionDecision.editedArgs` 只有 `selectedOptionId`，没有 `requestId`/`options`）
+ * 重新调用**同一个** Python 函数，所以每个参数在 Python 侧都是可选的，函数体按"哪些
+ * 字段实际有值"区分是 approve 路径（原始完整参数）还是 edit 路径（精简后的参数）。
+ * 详见 `apps/deep-agent-service/src/deep_agent_service/tools.py` 该段落的模块注释。
  *
- * ## 跨语言边界现状（不同于 `deep-agent-hitl.ts` 的先例）
+ * ## 跨语言边界门控
  *
- * `deep-agent-hitl.test.ts` 能直接读 `tools.py` 断言 `@tool def call_skill(` 存在，
- * 是因为该工具**已经**在 Python 侧实现。本束的三个工具**尚未**实现，逐字比对函数签名
- * 这条门控现在**没有对象可比**——写一条断言「tools.py 里有 `@tool def confirm_task_intent(`」
- * 现在只会是故意的红，不是真的门控（而且会挡住这个 PR 合并，与「只出契约内核」的边界
- * 矛盾）。`tests/agent-interrupts.test.ts` 因此改为断言**当前确实需要为真、且现在就能
- * 为真**的部分：环境变量投影链条（`AGENT_INTERRUPTS_HITL_TOOLS_ENV_VALUE` 的构成、
- * `provision.sh`/`deploy.sh` 的静态投影）、`ARGS_MAX_CHARS` 豁免、以及**如实**断言
- * 三个工具名此刻在 `tools.py` 里**还不存在**（反向锚点：一旦 Python 侧工具落地，
- * 这条断言会变红，提醒把「还不存在」这句话删掉、换成 `deep-agent-hitl.test.ts` 同款
- * 的逐字签名比对——不是本轮遗忘，是把「Python 侧尚未实现」这件事做成会被看见的形状）。
+ * `packages/contracts/tests/agent-interrupts/cross-lang-tool-parity.test.ts` 直接读
+ * `tools.py` 源码，断言：① 三个 `@tool` 函数真实存在；② 每个函数的 Python 参数集合
+ * 等于"契约 `*Args` 字段 ∪ 该工具已知的 `editedArgs` 字段"这个并集（不是逐字相等，
+ * 理由见上一节）——契约字段一个都不能在 Python 侧丢失，Python 侧也不能有找不到出处
+ * 的多余参数。与 `deep-agent-hitl.test.ts` 对 `call_skill` 的逐字比对是同一纪律在
+ * "存在多种恢复形状"这个额外约束下的对应形式，不是放松。
  */
 import { z } from "zod";
 
@@ -252,10 +247,9 @@ export const AGENT_INTERRUPTS_TOOL_NAME_LIST: readonly string[] = [
  * （design-signoff §六 决策④：两个文件各自是各自工具名的唯一事实源，不互相 import
  * 造出一个隐藏的耦合面；由消费方在自己的层做拼接）。
  *
- * ⚠ 该值现在被写进部署投影**是安全的空转**，不是提前启用了功能——见文件头「本轮未做的事」：
- * `interrupt_on` 字典本身不校验键是否对应已注册工具，三个名字在 Python `@tool` 落地前
- * 永远不会被模型调用，因而永远不会真的触发中断。这条注释与 `deep-agent-hitl.ts` 的
- * `DEEP_AGENT_HITL_TOOLS_ENV_VALUE` 头注释同一纪律：写在这里的是「契约要求的值」，
- * 不是「运行时已经生效的值」，两者的差距由「Python 侧 `@tool` 是否已落地」决定。
+ * #2252 之前，该值被写进部署投影只是**安全的空转**（`interrupt_on` 字典本身不校验
+ * 键是否对应已注册工具，Python `@tool` 落地前这三个名字永远不会被模型调用）——#2252
+ * 已经把 Python 侧 `@tool` 补上（见文件头一节），这条投影现在是**真正生效**的配置，
+ * 不再只是占位。
  */
 export const AGENT_INTERRUPTS_HITL_TOOLS_ENV_VALUE = AGENT_INTERRUPTS_TOOL_NAME_LIST.join(",");

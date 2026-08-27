@@ -12,6 +12,9 @@ import {
   sectionGeometryMm,
   classifyNoteSize,
   A1_CONTENT_MM,
+  A1_PAPER_MM,
+  PAPER_SIZE_MM,
+  contentMmFor,
   type ExplicitLayoutSectionInput,
 } from "@/lib/canvas/explicit-template-layout";
 import { A0_FRAME, GRID_TOP } from "@/lib/canvas/auto-template-layout";
@@ -107,6 +110,43 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.rows).toBeGreaterThanOrEqual(0);
     expect(Number.isFinite(g.rows)).toBe(true);
     expect(g.fits).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("PAPER_SIZE_MM / contentMmFor —— 纸张尺寸预设（2026-08-27）", () => {
+  it("A1 恰好等于既有的 A1_PAPER_MM 常量——不是碰巧一致，是同一份数字", () => {
+    expect(PAPER_SIZE_MM.A1).toEqual(A1_PAPER_MM);
+  });
+
+  it("A3/A4 是 ISO 216 横版标准值，宽 > 高", () => {
+    expect(PAPER_SIZE_MM.A3).toEqual({ w: 420, h: 297 });
+    expect(PAPER_SIZE_MM.A4).toEqual({ w: 297, h: 210 });
+  });
+
+  it("三档共用同一个固定 10mm 页边距，不按纸张比例缩放——A4 的内容区 = 297-20, 210-20", () => {
+    expect(contentMmFor("A4")).toEqual({ w: 277, h: 190 });
+    expect(contentMmFor("A1")).toEqual(A1_CONTENT_MM);
+  });
+
+  it("A1/A3/A4 共享同一个宽高比（ISO 系列的定义性质）——不是巧合，是这三个数字的数学性质", () => {
+    const ratio = (s: { w: number; h: number }) => s.w / s.h;
+    expect(ratio(PAPER_SIZE_MM.A1)).toBeCloseTo(ratio(PAPER_SIZE_MM.A3), 2);
+    expect(ratio(PAPER_SIZE_MM.A1)).toBeCloseTo(ratio(PAPER_SIZE_MM.A4), 2);
+  });
+});
+
+describe("sectionGeometryMm —— size 参数按纸张切换内容区 mm 数（缺省仍是 A1，不破坏既有调用方）", () => {
+  it("省略 size 与显式传 'A1' 结果逐字相同", () => {
+    const withoutSize = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
+    const withA1 = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12, size: "A1" });
+    expect(withA1).toEqual(withoutSize);
+  });
+
+  it("同一份网格坐标，A4 纸算出的 mm 数比 A1 小得多——不是同一个数字换了个标签", () => {
+    const onA1 = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12, size: "A1" });
+    const onA4 = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12, size: "A4" });
+    expect(onA4.wMm).toBeLessThan(onA1.wMm);
+    expect(onA4.hMm).toBeLessThan(onA1.hMm);
   });
 });
 

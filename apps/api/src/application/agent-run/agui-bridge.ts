@@ -68,6 +68,10 @@ import {
   decideAgentRun, AgentRunNotAwaitingApprovalError, type DecideAgentRunDeps,
 } from "./decide-agent-run";
 import type { AgentRunStore, AgentRunExecutorPort } from "./ports";
+// 2026-08-27：`acceptHumanMessage` 的自动命名叠加模型摘要，见 `generate-thread-title.ts`
+// 头注。这条轨道（AG-UI bridge）与 REST 轨道（`chat.controller.ts`）共用同一份
+// `acceptHumanMessage`，缺这三个字段编译期就会红——不是运行时才发现漏注入。
+import type { GenerateThreadTitleDeps } from "../chat/generate-thread-title";
 
 export { AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
@@ -77,7 +81,7 @@ export { AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRol
 /** The run reached a terminal status but has neither text nor a stable failure code. */
 export class AguiBridgeResultUnreadableError extends Error {}
 
-export interface AguiBridgeDeps {
+export interface AguiBridgeDeps extends GenerateThreadTitleDeps {
   readonly repo: IdentityRepository;
   readonly ids: DecisionIdFactory;
   readonly chat: ChatRepository;

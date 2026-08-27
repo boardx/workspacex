@@ -52,8 +52,15 @@ import type {
   PlanRunCreator, PlanRunCreatorInput, PlanRunCreatorOutput,
 } from "../../application/plan-control/plan-run-creator-port";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../../application/plan-control/ports";
+// 2026-08-27：`acceptHumanMessage` 的自动命名叠加模型摘要，见 `generate-thread-title.ts`
+// 头注。这条通路也过 `acceptHumanMessage`，缺这三个字段编译期就会红。计划确认消息是
+// 固定合成文案，不是真实用户输入——但 `autoTitleFromFirstMessage` 只在这是线程**首条**
+// 消息时才会真正调用模型（`WHERE title=$默认名`），而 `createConfirmedRun` 的前置条件
+// 是"线程上已有过一次真实 run"，也就必然已有过一条真实的首条消息，这里的模型调用
+// 实践中恒是 no-op（`autoTitleThreadIfDefault` 命中 0 行）。
+import type { GenerateThreadTitleDeps } from "../../application/chat/generate-thread-title";
 
-export interface AcceptMessagePlanRunCreatorDeps {
+export interface AcceptMessagePlanRunCreatorDeps extends GenerateThreadTitleDeps {
   readonly repo: IdentityRepository;
   readonly ids: DecisionIdFactory;
   readonly chat: ChatRepository;

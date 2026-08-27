@@ -40,6 +40,7 @@ import { requireTemplateAdmin } from "./template-admin";
 import type {
   CanvasTemplateRepository,
   MintedCanvasTemplateVersion,
+  PaperSize,
 } from "./template-ports";
 
 export interface MintTemplateVersionDeps {
@@ -58,6 +59,8 @@ export interface MintTemplateVersionInput {
   /** 契约 `.strict()` 允许省略；省略与显式 `null` 在这里同义，都不含团队。 */
   readonly ownerTeamId?: string | null | undefined;
   readonly tags?: readonly string[];
+  /** 省略在契约层归一成 `"A1"`——**不**继承上一版，见契约 `mintTemplateVersion.in.size` 文件头。 */
+  readonly size?: PaperSize;
 }
 
 export interface MintTemplateVersionOptions {
@@ -95,6 +98,7 @@ export async function mintTemplateVersion(
     ownerTeamId,
     tags: input.tags ?? [],
     builtinDerived: options?.fromBackfill === true,
+    size: input.size ?? "A1",
   });
 
   if (!outcome.minted) {

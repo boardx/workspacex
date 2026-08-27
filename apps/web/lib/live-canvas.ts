@@ -140,6 +140,7 @@ export async function createCanvasTemplate(input: CreateTemplateIn): Promise<Cre
       //   使用者填过的东西，三者看起来都对。`tags` 就这么丢过一次，被真栈 e2e 抓到
       //   （前端弹窗里标签胶囊在，落库回来是 `[]`）。
       tags: input.tags ?? [],
+      size: input.size,
     },
   });
 }
@@ -162,6 +163,7 @@ export async function updateCanvasTemplateDraft(input: UpdateTemplateDraftIn): P
       sections: input.sections,
       visibility: input.visibility,
       tags: input.tags ?? [],
+      size: input.size,
     },
   });
 }
@@ -261,6 +263,7 @@ export async function mintCanvasTemplateVersion(
         visibility: input.visibility,
         ownerTeamId: input.ownerTeamId,
         tags: input.tags ?? [],
+        size: input.size,
       },
     },
   );

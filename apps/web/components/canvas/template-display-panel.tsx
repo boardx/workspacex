@@ -6,7 +6,7 @@ import {
   classifyNoteSize, sectionGeometryMmOf, clamp,
   type SectionDraft, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
-import { sectionGeometryMm } from "@/lib/canvas/explicit-template-layout";
+import { sectionGeometryMm, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 第三步 · 显示方式（R5，2026-08-26）——`Design.pdf` §4.3 右栏逐条实现。
@@ -16,7 +16,7 @@ import { sectionGeometryMm } from "@/lib/canvas/explicit-template-layout";
  * `Design.pdf` §5 开头那句「所有 mm 换算必须与屏幕渲染同源，不能两套数」。
  */
 export function TemplateDisplayPanel({
-  section, gridCols, health, editable, onPatch, onRemove,
+  section, gridCols, health, editable, onPatch, onRemove, paperSize = "A1",
 }: {
   readonly section: SectionDraft | null;
   readonly gridCols: 6 | 12;
@@ -24,6 +24,8 @@ export function TemplateDisplayPanel({
   readonly editable: boolean;
   readonly onPatch: (patch: Partial<SectionLayoutDraft>) => void;
   readonly onRemove: () => void;
+  /** 纸张尺寸——决定这里显示的 mm 数。缺省 `"A1"`，兼容既有调用方。 */
+  readonly paperSize?: PaperSizeKey;
 }) {
   if (!section || !section.layout) {
     return (
@@ -80,7 +82,7 @@ export function TemplateDisplayPanel({
 
   const layout = section.layout;
   const isList = section.type === "便利贴列表";
-  const geom = sectionGeometryMmOf(section, gridCols);
+  const geom = sectionGeometryMmOf(section, gridCols, paperSize);
   const sizeClass = classifyNoteSize(geom.noteMm);
   const sizeNote = sizeClass === "standard" ? "≈ 标准 76mm 方形贴纸 ✓"
     : sizeClass === "compact" ? "≈ 小号 51mm 贴纸"
@@ -107,7 +109,7 @@ export function TemplateDisplayPanel({
                 平分会窄到点不准，换行成两排更好按。 */}
             <div className="flex flex-wrap gap-1.5">
               {COLS_OPTIONS.map((n) => {
-                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, gridCols }).noteMm;
+                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, gridCols, size: paperSize }).noteMm;
                 const on = layout.cols === n;
                 return (
                   <button
@@ -196,7 +198,7 @@ export function TemplateDisplayPanel({
           />
         </div>
         <span className="text-10 text-muted-foreground" data-testid="tpladmin-editor-mm-note">
-          {geom.wMm} × {geom.hMm} mm 实尺（A1 841×594，四边留 10mm）
+          {geom.wMm} × {geom.hMm} mm 实尺（{paperSize} 纸，四边留 10mm）
         </span>
       </Group>
 

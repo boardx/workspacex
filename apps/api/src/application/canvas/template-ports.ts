@@ -49,6 +49,9 @@ export type CanvasTemplateListing = z.infer<
   typeof canvas.operations.listTemplates.out
 >["templates"][number];
 
+/** 纸张尺寸——逐字派生自契约 `PaperSize`，不在这里另声明一份枚举。 */
+export type PaperSize = z.infer<typeof canvas.PaperSize>;
+
 /** 判定所需，永不披露。 */
 export interface CanvasTemplateScopeFacts {
   readonly key: string;
@@ -186,6 +189,8 @@ export interface CanvasTemplateRepository {
     readonly ownerTeamId: string | null;
     /** 落库前已由用例把 `in.tags` 的省略/`undefined` 归一成 `[]`——仓储永远收到真数组。 */
     readonly tags: readonly string[];
+    /** 落库前已由用例把 `in.size` 的省略归一成 `"A1"`——仓储永远收到真枚举值。 */
+    readonly size: PaperSize;
   }): Promise<CreateTemplateOutcome>;
 
   /**
@@ -220,6 +225,8 @@ export interface CanvasTemplateRepository {
      *   不能把人类的自定义悄悄标回默认值。单调不可退回的判定在这里做，不在调用方。
      */
     readonly builtinDerived: boolean;
+    /** 同 `create()` 的 `size`——用例已归一成真枚举值，留空不继承上一版（见契约文件头）。 */
+    readonly size: PaperSize;
   }): Promise<MintTemplateVersionOutcome>;
 
   findVersion(
@@ -249,6 +256,8 @@ export interface CanvasTemplateRepository {
     readonly visibility: VisibilityScope;
     /** 同 `create()` 的 `tags`——用例已归一成真数组，全量替换（同 sections/displayName）。 */
     readonly tags: readonly string[];
+    /** 同 `create()` 的 `size`——用例已归一成真枚举值，全量替换（同 sections/displayName）。 */
+    readonly size: PaperSize;
   }): Promise<UpdateDraftOutcome>;
 
   /**

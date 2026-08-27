@@ -31,6 +31,7 @@ import type {
   GuardedCanvasTemplate,
   ListCanvasTemplatesQuery,
   MintTemplateVersionOutcome,
+  PaperSize,
   PublishOutcome,
   SegmentBindingRow,
   UpdateDraftOutcome,
@@ -60,6 +61,7 @@ interface TemplateSqlRow {
   prompt_text: string;
   /** #2221——见 `template-ports.ts` 的 `layoutSource`/`builtinDerived` 完整语义。 */
   layout_source: "builtin-derived" | "user-edited";
+  size: PaperSize;
 }
 
 /**
@@ -92,7 +94,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
       const r = await s.query<TemplateSqlRow>(
         `SELECT t.org_id, t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
                 t.visibility, t.owner_team_id, t.underlying_type, t.sections, t.tags,
-                t.title, t.footer, t.prompt_text, t.layout_source,
+                t.title, t.footer, t.prompt_text, t.layout_source, t.size,
                 (SELECT count(*) FROM canvas_template_bindings b
                   WHERE b.org_id = t.org_id
                     AND b.template_key = t.key
@@ -137,6 +139,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly visibility: VisibilityScope;
     readonly ownerTeamId: string | null;
     readonly tags: readonly string[];
+    readonly size: PaperSize;
   }): Promise<CreateTemplateOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -150,17 +153,18 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         sections: unknown;
         tags: readonly string[];
         layout_source: string;
+        size: PaperSize;
       }>(
         `INSERT INTO canvas_templates
            (org_id, key, version, display_name, status, archived_from, builtin,
-            visibility, owner_team_id, underlying_type, sections, tags, layout_source)
-         SELECT $1, $2, 1, $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[], 'builtin-derived'
+            visibility, owner_team_id, underlying_type, sections, tags, layout_source, size)
+         SELECT $1, $2, 1, $3, 'draft', NULL, false, $4, $5, $6, $7::jsonb, $8::text[], 'builtin-derived', $9
           WHERE NOT EXISTS (
             SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
           )
          ON CONFLICT (org_id, key, version) DO NOTHING
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections, tags, layout_source`,
+                   underlying_type, sections, tags, layout_source, size`,
         [
           cmd.orgId,
           cmd.key,
@@ -170,6 +174,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           cmd.underlyingType,
           JSON.stringify(cmd.sections),
           [...cmd.tags],
+          cmd.size,
         ],
       );
       const row = r.rows[0];
@@ -191,6 +196,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           sections: row.sections as CreatedCanvasTemplate["sections"],
           tags: [...row.tags],
           layoutSource: assertLiteral(row.layout_source, "builtin-derived", "layout_source"),
+          size: row.size,
         },
       };
     });
@@ -216,6 +222,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly ownerTeamId: string | null;
     readonly tags: readonly string[];
     readonly builtinDerived: boolean;
+    readonly size: PaperSize;
   }): Promise<MintTemplateVersionOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -229,10 +236,11 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         sections: unknown;
         tags: readonly string[];
         layout_source: string;
+        size: PaperSize;
       }>(
         `INSERT INTO canvas_templates
            (org_id, key, version, display_name, status, archived_from, builtin,
-            visibility, owner_team_id, underlying_type, sections, tags, layout_source)
+            visibility, owner_team_id, underlying_type, sections, tags, layout_source, size)
          SELECT $1, $2,
                 (SELECT coalesce(max(version), 0) + 1
                    FROM canvas_templates WHERE org_id = $1 AND key = $2),
@@ -248,13 +256,14 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
                   ) THEN 'user-edited'
                   WHEN $9::boolean THEN 'builtin-derived'
                   ELSE 'user-edited'
-                END
+                END,
+                $10
           WHERE EXISTS (
             SELECT 1 FROM canvas_templates WHERE org_id = $1 AND key = $2
           )
          ON CONFLICT (org_id, key, version) DO NOTHING
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections, tags, layout_source`,
+                   underlying_type, sections, tags, layout_source, size`,
         [
           cmd.orgId,
           cmd.key,
@@ -265,6 +274,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           JSON.stringify(cmd.sections),
           [...cmd.tags],
           cmd.builtinDerived,
+          cmd.size,
         ],
       );
       const row = r.rows[0];
@@ -290,6 +300,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           sections: row.sections as CreatedCanvasTemplate["sections"],
           tags: [...row.tags],
           layoutSource: row.layout_source === "user-edited" ? "user-edited" : "builtin-derived",
+          size: row.size,
         },
       };
     });
@@ -326,6 +337,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           footer: row.footer,
           promptText: row.prompt_text,
           layoutSource: row.layout_source,
+          size: row.size,
           // ⚠ 判据是**这一行落在哪个 org**，不是 `builtin`：组织 fork 走一份之后它仍然
           //   是 builtin key，却已经是自己的行了。两者合成一个字段，「已加入我的组织的
           //   用户画像」与「还没加入的平台用户画像」在响应体上就完全同形。
@@ -382,6 +394,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
     readonly sections: CreatedCanvasTemplate["sections"];
     readonly visibility: VisibilityScope;
     readonly tags: readonly string[];
+    readonly size: PaperSize;
   }): Promise<UpdateDraftOutcome> {
     return this.db.withTenant(cmd.orgId, async (s) => {
       const r = await s.query<{
@@ -395,18 +408,19 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         sections: unknown;
         tags: readonly string[];
         layout_source: string;
+        size: PaperSize;
       }>(
         // #2221：本操作是「编辑器保存草稿的分区/几何」，恒写 'user-edited'——不需要
         // 单调不可退回的 CASE（backfill 不走这条路径，见 `update-template-draft.ts`）。
         `UPDATE canvas_templates
             SET display_name = $4, sections = $5::jsonb, visibility = $6, tags = $7::text[],
-                layout_source = 'user-edited', updated_at = now()
+                layout_source = 'user-edited', size = $8, updated_at = now()
           WHERE org_id = $1 AND key = $2 AND version = $3 AND status = 'draft'
          RETURNING key, version, display_name, status, builtin, visibility,
-                   underlying_type, sections, tags, layout_source`,
+                   underlying_type, sections, tags, layout_source, size`,
         [
           cmd.orgId, cmd.key, cmd.version, cmd.displayName,
-          JSON.stringify(cmd.sections), cmd.visibility, [...cmd.tags],
+          JSON.stringify(cmd.sections), cmd.visibility, [...cmd.tags], cmd.size,
         ],
       );
       const row = r.rows[0];
@@ -430,6 +444,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           sections: row.sections as CreatedCanvasTemplate["sections"],
           tags: [...row.tags],
           layoutSource: assertLiteral(row.layout_source, "user-edited", "layout_source"),
+          size: row.size,
         },
       };
     });

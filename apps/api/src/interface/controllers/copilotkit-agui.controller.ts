@@ -107,8 +107,15 @@ import {
 } from "../../application/chat/message-command-ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import {
-  AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, type AgentRunStore, type AgentRunExecutorPort,
+  AGENT_RUN_STORE, AGENT_RUN_EXECUTOR, MODEL_CALL_PORT,
+  type AgentRunStore, type AgentRunExecutorPort, type ModelCallPort,
 } from "../../application/agent-run/ports";
+// 2026-08-27：自动命名叠加模型摘要（`generate-thread-title.ts`），同 REST 轨道
+// （`chat.controller.ts`）的既有先例——两条轨道都过 `acceptHumanMessage`，
+// 缺一条就是两份规则。
+import {
+  THREAD_TITLE_MODEL_CONFIG, type ThreadTitleModelConfig,
+} from "../../application/chat/generate-thread-title";
 import {
   runAguiBridgeTurn, resumeAguiBridgeTurn, NoAwaitingApprovalRunError,
   AgentNotPublishedError, MessageThreadNotVisibleError, MessageNoWriteRoleError,
@@ -469,7 +476,14 @@ export class CopilotkitAguiController {
     @Inject(CHAT_ATTACHMENT_COMMAND_REPOSITORY) private readonly attachments: AttachmentCommandRepository,
     // F973 UC-2 -- `chat_plan_ledgers` 的写入端口，见 `writeToolCallStep`'s `onPlanSnapshot`。
     @Inject(PLAN_LEDGER_REPOSITORY) private readonly planLedger: PlanLedgerRepository,
+    @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
+    @Inject(THREAD_TITLE_MODEL_CONFIG) private readonly titleModel: ThreadTitleModelConfig,
   ) {}
+
+  /** Server-side only, same adapter shape as `ChatFollowUpSuggestionsController`'s. */
+  private readonly log = (message: string, detail: Record<string, unknown>): void => {
+    this.logger.error(message, { traceId: randomUUID(), err: detail.detail ?? message, ...detail });
+  };
 
   private get deps() {
     return {
@@ -481,6 +495,7 @@ export class CopilotkitAguiController {
       // function's own doc) wants a plain `kick`, not the whole executor port -- same shape
       // `agent-run.controller.ts`'s REST decision route already injects it as.
       kick: (orgId: OrgId) => this.executor.kick(orgId),
+      model: this.model, titleModel: this.titleModel, log: this.log,
     };
   }
 

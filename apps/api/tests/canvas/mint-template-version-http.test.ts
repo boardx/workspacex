@@ -150,6 +150,8 @@ describe("#988 · POST /canvas/templates/:key/versions 真的铸出下一版", (
       tags: [],
       // #2221：真实 HTTP「基于此开新版」调用（没有 backfill 内部标记）恒写 user-edited。
       layoutSource: "user-edited",
+      // 2026-08-27：请求体不传 `size`——省略**不继承上一版**，归一成 `"A1"`。
+      size: "A1",
     });
 
     const rows = await readAll();

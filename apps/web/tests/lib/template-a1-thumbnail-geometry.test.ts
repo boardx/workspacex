@@ -16,6 +16,7 @@ function tpl(sections: Section[]): CanvasTemplate {
     key: "t", displayName: "T", version: 1, status: "draft", builtin: false,
     visibility: "org-wide", underlyingType: "canvas", sections, usageCount: 0, tags: [],
     title: "", footer: "", promptText: "", platform: false, layoutSource: "builtin-derived",
+    size: "A1",
   } as CanvasTemplate;
 }
 

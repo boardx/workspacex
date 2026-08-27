@@ -3,6 +3,7 @@ import * as React from "react";
 import type { CanvasTemplate } from "@/lib/live-canvas";
 import { computeAutoLayout } from "@/lib/canvas/auto-template-layout";
 import { TONE_COLORS } from "./template-editor-model";
+import { PAPER_SIZE_MM, A1_MARGIN_MM } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 模板库卡片顶部的 **A1 缩略图**（R2；R8 2026-08-26 补上"所有模板都有真实预览"）。
@@ -56,10 +57,12 @@ export function TemplateA1Thumbnail({ template }: { readonly template: CanvasTem
       <div
         className="relative overflow-hidden rounded-control border border-border bg-background"
         style={{
-          // A1 横版真实比值（`Design.pdf` §5 特意强调不是 √2）。
-          aspectRatio: "841 / 594",
-          // 四边 10mm 页边距按比例实现：10/841 = 1.189%。
-          padding: "1.189%",
+          // 纸面真实比值——从 `PAPER_SIZE_MM` 算，不手写字面量。A1/A3/A4 恰好同一个
+          // 宽高比（√2:1），所以三档视觉上几乎不变，见该常量文件头「先只加预设」。
+          aspectRatio: `${PAPER_SIZE_MM[template.size].w} / ${PAPER_SIZE_MM[template.size].h}`,
+          // 四边 10mm 页边距按比例实现——页边距固定不随纸张缩放，百分比按这张纸
+          // 自己的宽度算（A4 上 10mm 占比比 A1 大得多，写死 1.189% 会显得偏小）。
+          padding: `${(A1_MARGIN_MM / PAPER_SIZE_MM[template.size].w) * 100}%`,
         }}
         aria-hidden
       >

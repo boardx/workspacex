@@ -1,0 +1,28 @@
+{
+  "tc": "tc5-checkpoint-kill-recovery",
+  "collected_at_utc": "2026-08-27T15:26:18.876633+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "执行中途 SIGKILL → 重启从 checkpoint 续跑 → 回溯历史节点",
+  "dimensions": [
+    "D4",
+    "D7"
+  ],
+  "requires": "真 Postgres（DEEP_AGENT_TEST_POSTGRES_URL）",
+  "thread_id": "tc5-kill-1450901b",
+  "worker_returncode": -9,
+  "ledger_after_kill": [
+    "step_one",
+    "step_two"
+  ],
+  "ledger_after_resume": [
+    "step_one",
+    "step_two",
+    "step_two"
+  ],
+  "step_one_executions": 1,
+  "checkpoints_in_history": 8,
+  "replayed_checkpoint_id": "1f1a22ba-68fc-6dfe-8002-23bb51daf8d9",
+  "messages_at_replayed_checkpoint": 2,
+  "messages_at_final": 6,
+  "final_answer": "两步都完成了。"
+}

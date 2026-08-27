@@ -1,0 +1,21 @@
+{
+  "tc": "tc2-sensitive-skill-hitl",
+  "collected_at_utc": "2026-08-27T15:26:05.826022+00:00",
+  "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
+  "scenario": "敏感技能中断 → 修改参数后放行",
+  "dimensions": [
+    "D6",
+    "D2"
+  ],
+  "not_covered_here": [
+    "前端 HITL 交互（CopilotKit 新轨道，issue #2017）"
+  ],
+  "hitl_tools_env": "DEEP_AGENT_HITL_TOOLS=call_skill",
+  "model_proposed_skill": "market-scan",
+  "human_edited_skill": "risk-review",
+  "skill_executions_observed": [
+    "风险复核"
+  ],
+  "interrupt_payload_excerpt": "[Interrupt(value={'action_requests': [{'name': 'call_skill', 'args': {'skill_stable_name': 'market-scan', 'task': '对本季度方案做一次评估'}, 'description': \"Tool execution requires approval\\n\\nTool: call_skill\\nArgs: {'skill_stable_name': 'market-scan', 'task': '对本季度方案做一次评估'}\"}], 'review_configs': [{'action_name': 'call_skill', 'allowed_decisions': ['approve', 'edit', 'reject', 'respond']}]}, id='0f308327f3a5f339bd0eda8ef94a017b')]",
+  "final_answer": "技能已执行，结论已汇总。"
+}
