@@ -10,6 +10,15 @@ import {
   seedOrg,
 } from "../support/db";
 import { seedCredential } from "../support/auth";
+import { OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
+
+/** 同 no-builtin-capability-lists.test.ts 的 withoutPlatformSkills 头注：
+ *  design-delta `platform-owned-skills` 之后，kind=skill 是否含四个平台官方 skill
+ *  取决于同一个 DB 里有没有别的文件先跑过 backfillPlatformSkills()——不能假设恒有
+ *  或恒无，过滤掉再断言"这个 org 自己什么都没配置"。 */
+const PLATFORM_SKILL_IDS = new Set(OFFICIAL_SKILLS.map((s) => `cap-skill-platform-${s.stableName}`));
+const withoutPlatformSkills = <T extends { id: string }>(items: readonly T[]): T[] =>
+  items.filter((c) => !PLATFORM_SKILL_IDS.has(c.id));
 
 /**
  * Responses are validated against the contract too -- not just requests.
@@ -168,7 +177,10 @@ describe("every response conforms to the contract's `out` schema", () => {
     // Empty because this organization has configured nothing -- F15's acceptance V1. The
     // resolution is real now (F15): the configured direction is asserted in
     // no-builtin-capability-lists.test.ts, which is what stops "always []" from passing.
-    expect((body as { capabilities: unknown[] }).capabilities).toEqual([]);
+    // design-delta `platform-owned-skills`: the four platform skills (if backfilled
+    // anywhere in this shared DB) ride along in `capabilities` too -- set aside first,
+    // see `withoutPlatformSkills`'s own comment.
+    expect(withoutPlatformSkills((body as { capabilities: { id: string }[] }).capabilities)).toEqual([]);
   });
 });
 
