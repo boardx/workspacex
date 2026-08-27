@@ -14,6 +14,7 @@ import {
 } from "@/lib/live-canvas";
 import { TemplateCanvasGrid } from "./template-canvas-grid";
 import { TemplateDryRunDrawer, buildDryRunSkeleton } from "./template-dry-run-drawer";
+import { TemplateSimulateDrawer } from "./template-simulate-drawer";
 import { TemplateDisplayPanel } from "./template-display-panel";
 import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-drawer";
 import {
@@ -109,6 +110,9 @@ export function TemplateEditorPanel({
   const [dryRunOpen, setDryRunOpen] = React.useState(false);
   const [dryRunText, setDryRunText] = React.useState("");
   const [dryRunData, setDryRunData] = React.useState<Record<string, unknown> | null>(null);
+  // chat 模拟抽屉——与试运行是独立的一对开关（两件不同的事，见 `TemplateSimulateDrawer`
+  // 文件头），不共用 `dryRunOpen`。
+  const [simulateOpen, setSimulateOpen] = React.useState(false);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [promptOpen, setPromptOpen] = React.useState(false);
   // `?? ""` 是防御性兜底，不是常态：契约 `.strict()` 保证服务端一定给这个字段。
@@ -440,7 +444,9 @@ export function TemplateEditorPanel({
           隐式列，宽度不受控（实测抽屉会把 ③ 挤出可视区）。开抽屉时它是自成一栏的第 4 列。 */}
       <div
         className={`grid min-h-0 flex-1 grid-cols-1 ${
-          dryRunOpen ? "lg:grid-cols-[290px_1fr_320px_276px]" : "lg:grid-cols-[290px_1fr_276px]"
+          dryRunOpen || simulateOpen
+            ? "lg:grid-cols-[290px_1fr_320px_276px]"
+            : "lg:grid-cols-[290px_1fr_276px]"
         }`}
       >
         {/* ① 字段 */}
@@ -605,6 +611,7 @@ export function TemplateEditorPanel({
                   // 「它要什么形状」这个问题原样丢回给人类，而答案就在模板里。
                   setDryRunOpen((v) => {
                     if (!v && dryRunText.trim() === "") setDryRunText(buildDryRunSkeleton(sections));
+                    if (!v) setSimulateOpen(false);
                     return !v;
                   });
                 }}
@@ -615,6 +622,23 @@ export function TemplateEditorPanel({
                 data-testid="tpladmin-editor-dryrun-toggle"
               >
                 试运行
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  // 与试运行互斥：第 4 列同一时刻只画一个抽屉，见上方栏定义的注释。
+                  setSimulateOpen((v) => {
+                    if (!v) setDryRunOpen(false);
+                    return !v;
+                  });
+                }}
+                className={`rounded-control border border-border px-2 py-0.5 text-10 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  simulateOpen ? "bg-primary text-primary-foreground" : "bg-transparent"
+                }`}
+                aria-pressed={simulateOpen}
+                data-testid="tpladmin-editor-simulate-toggle"
+              >
+                chat 模拟
               </button>
             </div>
           </div>
@@ -672,6 +696,15 @@ export function TemplateEditorPanel({
             onTextChange={setDryRunText}
             onRun={setDryRunData}
             onClose={() => setDryRunOpen(false)}
+          />
+        )}
+
+        {simulateOpen && (
+          <TemplateSimulateDrawer
+            templateKey={row.key}
+            sections={sections}
+            promptText={promptText}
+            onClose={() => setSimulateOpen(false)}
           />
         )}
 
