@@ -154,6 +154,83 @@ function slideIndex(name: string): number {
   return Number(/slide(\d+)\.xml$/.exec(name)![1]);
 }
 
+/**
+ * F979（design-delta skill-office-docs-node-runtime）—— docx/xlsx 都是 OOXML zip，
+ * 复用上面同一套 `unzip`/`assertParsableXml`，只是各自的 `[Content_Types].xml` 声明
+ * 与正文文本节点位置不同。同一条纪律：不用"文件大小 > 0"/"后缀是 .docx"这类断言，
+ * 真的解 zip、解 XML、读文本节点（对应 V1-docx/V1-xlsx 反证）。
+ */
+export interface DocxInspection {
+  /** `word/document.xml` 里所有 `<w:t>` 文本节点，按文档顺序拍平。 */
+  readonly textRuns: readonly string[];
+}
+
+export function inspectDocx(buffer: Buffer): DocxInspection {
+  const entries = unzip(buffer);
+  const byName = new Map(entries.map((e) => [e.name, e.bytes]));
+
+  const contentTypes = byName.get("[Content_Types].xml");
+  if (!contentTypes) throw new Error("not OOXML: [Content_Types].xml missing");
+  const contentTypesXml = contentTypes.toString("utf8");
+  assertParsableXml("[Content_Types].xml", contentTypesXml);
+  if (!contentTypesXml.includes("wordprocessingml.document.main+xml")) {
+    throw new Error(
+      "not a Word document: [Content_Types].xml does not declare wordprocessingml.document.main+xml",
+    );
+  }
+
+  const documentXmlBytes = byName.get("word/document.xml");
+  if (!documentXmlBytes) throw new Error("no word/document.xml entry");
+  const documentXml = documentXmlBytes.toString("utf8");
+  assertParsableXml("word/document.xml", documentXml);
+
+  const textRuns: string[] = [];
+  for (const m of documentXml.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)) {
+    textRuns.push(decodeXmlEntities(m[1]!));
+  }
+  return { textRuns };
+}
+
+export interface XlsxInspection {
+  readonly sheetCount: number;
+  /** `xl/sharedStrings.xml` 里所有 `<t>` 文本节点——exceljs 默认把字符串写进共享
+   *  字符串表，不是内联在 sheet XML 里。 */
+  readonly sharedStrings: readonly string[];
+}
+
+export function inspectXlsx(buffer: Buffer): XlsxInspection {
+  const entries = unzip(buffer);
+  const byName = new Map(entries.map((e) => [e.name, e.bytes]));
+
+  const contentTypes = byName.get("[Content_Types].xml");
+  if (!contentTypes) throw new Error("not OOXML: [Content_Types].xml missing");
+  const contentTypesXml = contentTypes.toString("utf8");
+  assertParsableXml("[Content_Types].xml", contentTypesXml);
+  if (!contentTypesXml.includes("spreadsheetml.sheet.main+xml")) {
+    throw new Error(
+      "not an Excel workbook: [Content_Types].xml does not declare spreadsheetml.sheet.main+xml",
+    );
+  }
+
+  const sheetNames = entries.map((e) => e.name).filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  if (sheetNames.length === 0) throw new Error("no xl/worksheets/sheetN.xml entries");
+  for (const name of sheetNames) {
+    assertParsableXml(name, byName.get(name)!.toString("utf8"));
+  }
+
+  const sharedStrings: string[] = [];
+  const sharedStringsXml = byName.get("xl/sharedStrings.xml");
+  if (sharedStringsXml) {
+    const xml = sharedStringsXml.toString("utf8");
+    assertParsableXml("xl/sharedStrings.xml", xml);
+    for (const m of xml.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)) {
+      sharedStrings.push(decodeXmlEntities(m[1]!));
+    }
+  }
+
+  return { sheetCount: sheetNames.length, sharedStrings };
+}
+
 function decodeXmlEntities(text: string): string {
   return text
     .replace(/&lt;/g, "<")
