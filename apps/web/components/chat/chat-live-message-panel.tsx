@@ -1932,7 +1932,7 @@ export function ChatLiveMessagePanel({
           只是不再对人眼说两遍。保留 `queuedRun` 这个 state 本身（`submitting` 等
           别处逻辑仍要用），只是不再渲这段文字。
         */}
-        {runObservation ? <AgentRunStatus observation={runObservation} /> : null}
+        {runObservation ? <AgentRunStatus observation={runObservation} onViewProgress={scrollToLatest} /> : null}
         {submitFailure ? (
           <div className="mt-2" data-testid="chat-message-submit-error">
             <FailureState message={submitFailure} onRetry={() => void submit()} />
@@ -2040,9 +2040,29 @@ function messageTime(iso: string): string {
  * （`wave2-runtime.ts:195` 原文：Non-null only once #413's writeback transaction has
  * committed）。它是「恰好一条回复真的落库了」在 DOM 上的投影。
  */
-function AgentRunStatus({ observation }: { observation: RunObservation }) {
+/**
+ * D10（chat-main-fidelity-rubric.md）—— 参照图在 agent 跑批中于输入区上方给一张
+ * 行内操作卡（"Ava 正在重排致命假设优先级 2/4 …查看进度/暂停"）。
+ *
+ * 调查结论：**「暂停」在本仓没有真实能力可接**——`execute-run.ts` 等后端路径没有
+ * 任何取消/暂停 run 的操作，契约（`packages/contracts`）里也没有对应端点。做一个
+ * 点了没反应（或客户端假装暂停、服务端其实继续跑）的按钮，比不做还坏——那是
+ * AGENTS.md 明令禁止的"假交互"。已开数据缺口 issue 跟踪，不在这里伪造。
+ *
+ * 「查看进度」**有真实、可连接的行为**：run 进行中时，这条消息自己的思考/工具
+ * 调用链（`MessageThinkingChain`/`AgentToolChain`）就渲染在消息流里，点击滚到
+ * 最新消息（复用已有的 `scrollToLatest`，与右下角「回到最新」是同一个真实滚动
+ * 动作，不是新造一份），用户由此看到实时进度——这不是假按钮。
+ */
+function AgentRunStatus({
+  observation, onViewProgress,
+}: {
+  observation: RunObservation;
+  onViewProgress: () => void;
+}) {
   const { runId, view, failure, timedOut, authExpired } = observation;
   const status: AgentRunStatus | null = view?.status ?? null;
+  const inProgress = status !== null && status !== "succeeded" && status !== "failed";
   return (
     <div
       className="mt-2 flex flex-wrap items-center gap-1.5 text-11"
@@ -2061,6 +2081,17 @@ function AgentRunStatus({ observation }: { observation: RunObservation }) {
         <span className="text-muted-foreground">正在读取 AgentRun 状态…</span>
       ) : null}
       {status !== null ? <span className={statusTone(status)}>{RUN_STATUS_TEXT[status]}</span> : null}
+      {inProgress ? (
+        <Button
+          type="button"
+          size="xs"
+          variant="ghost"
+          data-testid="chat-live-agent-run-view-progress"
+          onClick={onViewProgress}
+        >
+          查看进度
+        </Button>
+      ) : null}
       {/*
         UI 评分 2026-08-23 第 7 项修复——这里此前直接印 `view.error` 的原值
         （如「（MODEL_CALL_FAILED）」），是仅供排障的稳定枚举，不是给用户看的话。
