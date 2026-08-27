@@ -105,6 +105,23 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
     .toBe(200);
 }
 
+/**
+ * issue #2175 复核 —— `isDisabled()===false` 隐含"没有别的原因会让按钮 disabled"这条
+ * 假设，在 issue #2130（TW-P0-5④，`49cda935`）之后不再成立：composer 在 `send()` 成功
+ * 清空后只剩"输入为空"这条独立、合法的禁用理由（`sendDisabledReason`），与"第一轮 run
+ * 是否已经落定"无关——原判据在这道"发第二轮之前先等第一轮落定"的门上永远等不到
+ * `false`。见 `copilotkit-v2-hitl.spec.ts` 里同名 helper 的头注。
+ */
+const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
+async function expectSendNotBlockedOnRun(
+  page: import("@playwright/test").Page,
+  timeoutMs = 30_000,
+): Promise<void> {
+  await expect
+    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
+    .not.toBe(RUNNING_DISABLED_REASON);
+}
+
 test("CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的回复文字可核对", async ({ page }) => {
   mkdirSync(OUT, { recursive: true });
 
@@ -402,9 +419,9 @@ test("DA-19g 多轮上下文——第二轮回复真的引用第一轮的用户�
   await page.getByTestId("copilotkit-v2-send").click();
   // 等第一轮真正落定（气泡出现），再发第二轮——不依赖固定 sleep 猜时序。
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(firstTurnText, { timeout: 20_000 });
-  await expect
-    .poll(async () => (await page.getByTestId("copilotkit-v2-send").isDisabled()), { timeout: 30_000 })
-    .toBe(false);
+  // issue #2175 -- composer is empty here (cleared by the first `send()`); only assert
+  // "not stuck on run", not raw `isDisabled()===false`. See `expectSendNotBlockedOnRun`'s doc.
+  await expectSendNotBlockedOnRun(page);
 
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentFollowupContextTrigger);
   await page.getByTestId("copilotkit-v2-send").click();

@@ -64,6 +64,34 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
     .toBe(200);
 }
 
+/**
+ * issue #2175 复核 -- 三条测试原来的 `await expect(sendButton).toBeEnabled()` 断言
+ * 隐含假设"没有别的原因会让发送按钮保持 disabled"。这条假设在 issue #2130（TW-P0-5④，
+ * commit `49cda935`）之后不再成立：composer 在 `send()` 成功后会清空
+ * （`copilotkit-v2-panel.tsx` 的 `setInputDraft("")`），而 `sendDisabledReason` 现在
+ * 对"输入为空"单独给一条禁用理由（"请先输入任务目标"）——这是 TW-P0-5④ 刻意加的、
+ * 独立于 `agent.isRunning` 的合法禁用态，不是本文件要覆盖的行为。
+ *
+ * 三条测试真正要证明的是"resume 之后 run 不再卡在 `awaiting_approval`（`agent.isRunning`
+ * 不再让按钮卡死）"，不是"composer 恰好非空所以按钮恰好可点"——这三条测试从未在断言
+ * 这一步往输入框里填过字，`toBeEnabled()` 断言的其实是一个从未被它们自己满足过的前提。
+ * 直接读 `title`（`sendDisabledReason` 的镜像，见 `copilotkit-v2-panel.tsx`
+ * `title={sendDisabledReason ?? undefined}`）比对是不是还停在"Agent 正在处理上一条
+ * 消息"这一条，是唯一不与"输入为空"这条独立、合法的禁用理由混在一起的判据
+ * （本轮独立复验：把这条换成 `not.toBe(RUNNING_DISABLED_REASON)` 后，
+ * 三条测试全部通过，且 wire 级/最终文案断言原样保留、未被削弱——证明 resume 机制
+ * 本身没有问题，问题在断言选错了信号源）。
+ */
+const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
+async function expectSendNotBlockedOnRun(
+  page: import("@playwright/test").Page,
+  timeoutMs = 30_000,
+): Promise<void> {
+  await expect
+    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
+    .not.toBe(RUNNING_DISABLED_REASON);
+}
+
 /** Every test starts identically: log in, warm the runtime route, land on the v2 panel,
  * capture EVERY `POST /api/copilotkit/*` request's response body (both the turn that trips
  * the interrupt AND the resume turn `respond()` triggers), send the approval trigger, wait
@@ -145,7 +173,12 @@ test("DA-19g approve：三个交互按钮真的渲染，点击「批准并继续
   // `copilotkit-v2-hitl.spec.ts`'s reject test for the full explanation. Waiting on the
   // actual network-level fact (a second `POST` having round-tripped) is what really proves
   // the resume happened, before asserting on its rendered content.
-  await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled({ timeout: 30_000 });
+  //
+  // issue #2175 -- 不能直接断言 `toBeEnabled()`：这个 composer 在 `triggerApproval`
+  // 里发过一次消息后已经清空，"输入为空"本身就是一条独立、合法的禁用理由（TW-P0-5④，
+  // `sendDisabledReason`），与"是不是还卡在 run 里"无关。见 `expectSendNotBlockedOnRun`
+  // 头注（本轮独立复验：换成这条判据后三个 HITL 测试全部通过，wire/文案断言未削弱）。
+  await expectSendNotBlockedOnRun(page);
   await expect.poll(() => capturedBodies.length, { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
   await expect(page.locator('[data-testid="copilotkit-v2-messages"]')).toContainText(
     "已按原参数执行", { timeout: 30_000 },
@@ -188,7 +221,9 @@ test("DA-19g edit：编辑后的参数值真的生效——不是表单能编辑
   await expect(page.getByTestId("copilotkit-v2-hitl-dialog")).toHaveCount(0);
   // See the reject test's own comment: this flips to enabled right after turn one's
   // `RUN_FINISHED`, before the human decides -- not a signal the resume completed.
-  await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled({ timeout: 30_000 });
+  // issue #2175 -- see `expectSendNotBlockedOnRun`'s own doc: composer is empty here
+  // ("请先输入任务目标" is its own legitimate disabled reason, unrelated to the resume).
+  await expectSendNotBlockedOnRun(page);
   await expect.poll(() => capturedBodies.length, { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
 
   // 核心断言：最终答案里出现的是编辑后的正文，不是原始正文——这正是 UX-9 评估当年
@@ -214,7 +249,8 @@ test("DA-19g reject：run 真的以 HITL_REJECTED 收场，不是卡在超时也
   // true almost immediately after `triggerApproval` returns, NOT a signal that the resume
   // turn has completed -- polling `capturedBodies.length` (the actual network-level fact of
   // a SECOND `POST` having round-tripped) below is what really waits for the resume.
-  await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled({ timeout: 30_000 });
+  // issue #2175 -- see `expectSendNotBlockedOnRun`'s own doc: composer is empty here too.
+  await expectSendNotBlockedOnRun(page);
   await expect.poll(() => capturedBodies.length, { timeout: 30_000 }).toBeGreaterThanOrEqual(2);
 
   writeFileSync(

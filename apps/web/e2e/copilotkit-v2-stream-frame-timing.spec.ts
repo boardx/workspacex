@@ -71,6 +71,24 @@ interface StreamSample {
   readonly len: number;
 }
 
+/**
+ * issue #2175 复核 —— `isDisabled()===false` 隐含"没有别的原因会让按钮 disabled"这条
+ * 假设，在 issue #2130（TW-P0-5④，`49cda935`）之后不再成立：composer 在 `send()` 成功
+ * 清空后只剩"输入为空"这条独立、合法的禁用理由（`sendDisabledReason`），与"run 是否
+ * 已经落定"无关——原判据在这条门上永远等不到 `false`，本文件真正要验的流式采样断言
+ * 因此从未被跑到过（本轮独立复验：换成这条判据后，下面的流式断言真的执行且全部通过，
+ * 证明这条从来不是流式渲染本身的缺陷，是这道等待门选错了信号源）。
+ */
+const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
+async function expectSendNotBlockedOnRun(
+  page: import("@playwright/test").Page,
+  timeoutMs = 30_000,
+): Promise<void> {
+  await expect
+    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
+    .not.toBe(RUNNING_DISABLED_REASON);
+}
+
 test.setTimeout(120_000);
 
 test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长度随时间逐步增长，不是一次性跳变", async ({ page }) => {
@@ -114,11 +132,10 @@ test("DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长
   await page.getByTestId("copilotkit-v2-input").fill(userText);
   await page.getByTestId("copilotkit-v2-send").click();
 
-  // 等这段回复真的落定：发送按钮重新可点击（`agent.isRunning` 回到 false），
-  // 与 DA-19g 多轮上下文测试用的同一条落定信号，不是固定 sleep 猜时序。
-  await expect
-    .poll(async () => await page.getByTestId("copilotkit-v2-send").isDisabled(), { timeout: 30_000 })
-    .toBe(false);
+  // 等这段回复真的落定：`agent.isRunning` 回到 false（不直接判发送按钮
+  // `isDisabled()===false`——issue #2175 复核：composer 此时已清空，"输入为空"是
+  // 独立的合法禁用理由，见 `expectSendNotBlockedOnRun` 头注），不是固定 sleep 猜时序。
+  await expectSendNotBlockedOnRun(page);
   // 再给最后一帧的 DOM 提交留一点余量。
   await page.waitForTimeout(500);
 

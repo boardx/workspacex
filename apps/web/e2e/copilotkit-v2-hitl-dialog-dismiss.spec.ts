@@ -54,6 +54,24 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
     .toBe(200);
 }
 
+/**
+ * issue #2175 复核 —— `toBeEnabled()` 隐含"没有别的原因会让按钮 disabled"这条假设，
+ * 在 issue #2130（TW-P0-5④，`49cda935`）之后不再成立：composer 在 approval trigger
+ * 发出后已清空，"输入为空"是 `sendDisabledReason` 独立给出的合法禁用理由，与"是否还
+ * 卡在 run 里"无关。这里只判"不再卡在 run"这一条真正要验的信号（见
+ * `copilotkit-v2-hitl.spec.ts` 里同名 helper 的头注——本轮独立复验过，换成这条后
+ * 三条 HITL 测试全部通过，核心断言未被削弱）。
+ */
+const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
+async function expectSendNotBlockedOnRun(
+  page: import("@playwright/test").Page,
+  timeoutMs = 30_000,
+): Promise<void> {
+  await expect
+    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
+    .not.toBe(RUNNING_DISABLED_REASON);
+}
+
 test("DA-19g 回归：HITL 对话框 Escape 退出后遮罩真的从 DOM 移除，发送按钮真的可点击且真的发出新请求", async ({ page }) => {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
@@ -86,7 +104,10 @@ test("DA-19g 回归：HITL 对话框 Escape 退出后遮罩真的从 DOM 移除�
   // Escape 等价于拒绝（`onOpenChange(false)` → `respond("denied")`）——run 应该很快
   // 以 `HITL_REJECTED` 收场（不是本次改动之前那种 ~30s 的 `AGENT_RUN_TIMEOUT`），
   // 发送按钮随之重新可用。
-  await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled({ timeout: 30_000 });
+  // issue #2175 -- see `expectSendNotBlockedOnRun`'s own doc: composer is empty here
+  // ("请先输入任务目标" is its own legitimate disabled reason, unrelated to the resume);
+  // the actual "really usable again" claim is proven below by a real new POST landing.
+  await expectSendNotBlockedOnRun(page);
 
   // 核心断言②（真正的回归点）：发一条无关的简单消息，点击"发送"之后必须真的有
   // 新的 POST 打到 CopilotRuntime——不是只看按钮的 `enabled` 属性（那个在 bug 存在
