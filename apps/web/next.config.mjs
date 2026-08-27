@@ -364,6 +364,12 @@ export default {
       // 不遮挡任何前端路由。
       { source: `${prefix}/org-invites`, destination: `${apiOrigin}/org-invites` },
       { source: `${prefix}/org-invites/:path*`, destination: `${apiOrigin}/org-invites/:path*` },
+      // F977：`PlanControlController` 是 `@Controller()`（空前缀），路径是裸的
+      // `GET /plan-control/threads/:threadId/ledger` —— 与上面 `/agent-runs`、
+      // `/threads`、`/copilotkit` 同一个形状、同一个坑（lint-rewrite-coverage 实测
+      // 标红：不补这条，Next 会把请求接成 404 HTML 而不是 API 的响应）。
+      // 只有一个子路径、没有裸集合路由，只需要 `:path*`。
+      { source: `${prefix}/plan-control/:path*`, destination: `${apiOrigin}/plan-control/:path*` },
     ];
   },
 };

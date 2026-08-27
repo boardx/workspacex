@@ -650,6 +650,15 @@ export interface ModelCallInput {
   readonly resume?:
     | { readonly decision: "approve" }
     | { readonly decision: "edit"; readonly editedAction: { readonly name: string; readonly argsJson: string } };
+  /**
+   * F976 (`plan-control` 契约束, UC-9 `pausePlanRun`) —— P-2 探针的落点。OPTIONAL,
+   * 与 `threadId`/`resume` 同一条既有先例：只有 `DeepAgentModelProvider` 关心它,
+   * 别的 provider 完全忽略。远端 run 创建成功后立即回调一次，携带远端 `run_id`——
+   * 那个 id 此前只活在 `createRun` 方法内的局部变量里，从未有任何调用方能读到,
+   * `pausePlanRun` 需要它来调用 `POST /threads/:id/runs/:run_id/cancel`。
+   * 不注入 ⇒ 行为逐字节不变（回调不存在，不调用）。
+   */
+  readonly onRemoteRunStarted?: (remoteRunId: string) => void;
   readonly system: string;
   readonly user: string;
   /**

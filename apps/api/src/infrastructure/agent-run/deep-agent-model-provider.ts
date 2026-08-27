@@ -797,6 +797,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       if (!response.ok || !body.run_id) {
         throw new ModelCallError("MODEL_CALL_FAILED", `deep agent resume failed with HTTP ${response.status}`);
       }
+      input.onRemoteRunStarted?.(body.run_id);
       return body.run_id;
     }
 
@@ -851,6 +852,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
     if (!response.ok || !body.run_id) {
       throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run submission failed with HTTP ${response.status}`);
     }
+    input.onRemoteRunStarted?.(body.run_id);
     return body.run_id;
   }
 

@@ -71,7 +71,7 @@ import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-ima
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
 import type { VisionInputStatus } from "./context-snapshot";
 import { serializePlanForDelivery } from "../plan-control/plan-delivery-text";
-import type { PlanLedgerRepository } from "../plan-control/ports";
+import type { PlanLedgerRepository, PlanRunStatusReader } from "../plan-control/ports";
 
 /**
  * #709 -- token-budget-aware multi-turn context.
@@ -471,7 +471,7 @@ export interface ExecuteAgentRunDeps {
    * 读计划失败并不能"不创建"一个已经创建的东西，把它变成整轮 run 失败会让一次账本读
    * 抖动变成用户可见的失败，这不是 I-10 要保护的性质。
    */
-  readonly planLedger?: PlanLedgerRepository;
+  readonly planLedger?: PlanLedgerRepository & PlanRunStatusReader;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -1118,6 +1118,18 @@ async function executeClaimed(
           // P2（#1561）：只有 `supportsVision` 明确报 true 的 provider 才拿得到这个字段
           // （`gatherVisionImages` 的门），所以空数组恒等于"这轮没有图要给你看"。
           ...(vision.images.length > 0 ? { images: vision.images } : {}),
+          // F976 UC-9 pausePlanRun 的 P-2 落点：远端 run_id 创建成功后立即持久化，
+          // 好让暂停能找到它去调 cancel。可选依赖，缺省 no-op（同 planLedger 附近的
+          // 既有先例）——写失败只 log，不影响这轮回复本身。
+          ...(deps.planLedger ? {
+            onRemoteRunStarted: (remoteRunId: string) => {
+              void deps.planLedger!.recordRemoteRunId(orgId, run.runId, remoteRunId).catch((e: unknown) => {
+                deps.log("plan-control: failed to persist remote_run_id (pausePlanRun will be unable to cancel this run)", {
+                  runId: run.runId, detail: e instanceof Error ? e.message : "unexpected write failure",
+                });
+              });
+            },
+          } : {}),
         },
         async (event) => {
           const stepStartedAt = deps.clock.now();

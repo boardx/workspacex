@@ -65,7 +65,7 @@ export class AcceptMessagePlanRunCreator implements PlanRunCreator {
     const clientMessageId = randomUUID();
     const accepted = await acceptHumanMessage(this.deps, {
       userId: input.actorId, orgId: input.orgId, threadId: input.threadId,
-      clientMessageId, text: PLAN_CONFIRMATION_MESSAGE_TEXT, agentId: latestRun.agentId,
+      clientMessageId, text: input.messageText ?? PLAN_CONFIRMATION_MESSAGE_TEXT, agentId: latestRun.agentId,
     });
     this.deps.executor.kick(input.orgId);
     return { runId: accepted.agentRunId };

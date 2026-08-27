@@ -31,7 +31,7 @@ import type { CanvasTemplateGuidancePort } from "../../application/agent-run/can
 import type { RunImagePort } from "../../application/agent-run/run-image-input";
 import type { SkillSandboxPort } from "../../application/skill/skill-sandbox-port";
 import type { ObjectStore } from "../../application/artifact/ports";
-import type { PlanLedgerRepository } from "../../application/plan-control/ports";
+import type { PlanLedgerRepository, PlanRunStatusReader } from "../../application/plan-control/ports";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
 
@@ -99,7 +99,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * ⇒ system prompt 与 F975 之前逐字节相同。见 `execute-run.ts`
      * `ExecuteAgentRunDeps.planLedger` 的完整文档。
      */
-    private readonly planLedger?: PlanLedgerRepository,
+    private readonly planLedger?: PlanLedgerRepository & PlanRunStatusReader,
   ) {}
 
   /**

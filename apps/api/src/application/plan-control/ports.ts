@@ -42,6 +42,10 @@ export interface PlanRunSnapshot {
   readonly createdAt: string;
   /** F975 UC-7 `confirmPlan`：续跑用哪个 agent，取自「产出这份计划的那次 run」用的 agent。 */
   readonly agentId: string;
+  /** F976 UC-9：远端（LangGraph）run id，P-2 探针落点。创建阶段的短暂窗口内可能仍是 `null`。 */
+  readonly remoteRunId: string | null;
+  /** F976 UC-9/UC-13：这条 run 是否已被 `pausePlanRun` 打断过，及打断时刻。 */
+  readonly pausedAt: string | null;
 }
 
 /**
@@ -116,6 +120,15 @@ export interface PlanLedgerRepository {
 export interface PlanRunStatusReader {
   /** 该线程「最近一条」run（若存在），按 `created_at DESC` 取第一条。 */
   getLatestRun(orgId: OrgId, threadId: string): Promise<PlanRunSnapshot | null>;
+
+  /**
+   * F976 —— P-2 探针的写入点。`execute-run.ts` 的 `ModelCallInput.onRemoteRunStarted`
+   * 回调在远端 run 创建成功后立即调用它。可重复调用是安全的（同一 `runId` 幂等覆盖）。
+   */
+  recordRemoteRunId(orgId: OrgId, runId: string, remoteRunId: string): Promise<void>;
+
+  /** UC-9 `pausePlanRun` 的落点：标记这条本地 run 行「已被暂停」，不改写 `status`。 */
+  markRunPaused(orgId: OrgId, runId: string): Promise<void>;
 }
 
 export const PLAN_LEDGER_REPOSITORY = Symbol("PlanLedgerRepository");
