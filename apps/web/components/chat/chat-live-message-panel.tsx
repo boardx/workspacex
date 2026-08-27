@@ -35,6 +35,7 @@ import {
   type AgentRunView,
 } from "@/lib/agent-run";
 import { deriveRunPhaseLabel } from "@/lib/agent-run-phase";
+import type { ThreadSkillMount } from "@/lib/live-skill-mount";
 import { openAgentRunStream } from "@/lib/agent-run-stream";
 import { chat as ChatContract } from "@repo/contracts";
 import { AgentPlanPanel } from "@/components/chat/agent-plan-panel";
@@ -126,6 +127,8 @@ export function ChatLiveMessagePanel({
   mentionResolvedNonce,
   attach: attachProp,
   hasMountedSkills = false,
+  skillMounts = EMPTY_SKILL_MOUNTS,
+  skillNames = EMPTY_SKILL_NAMES,
 }: {
   threadId: string;
   bearer: string;
@@ -221,6 +224,14 @@ export function ChatLiveMessagePanel({
    * 与此前只用一句通用文案相比更保守，不会新增误导。
    */
   hasMountedSkills?: boolean;
+  /**
+   * D5（chat-main-fidelity-rubric.md）—— 完整挂载时间窗（`mountedAt`/`removedAt`），
+   * 供 `agentSkillLabel` 按消息 `createdAt` 回查「那一刻」处于挂载状态的 skill。
+   * 单一事实源仍是 `ChatSkillMountPanel` 的 `listThreadMounts`，本组件不重读。
+   */
+  skillMounts?: readonly ThreadSkillMount[];
+  /** skillId → 展示名，同样转发自 `ChatSkillMountPanel`（`listSkills` 已读到的池子）。 */
+  skillNames?: ReadonlyMap<string, string>;
 }) {
   const sourceKey = `${threadId}\u0000${bearer}`;
   const [messages, setMessages] = React.useState<DurableMessage[]>([]);
@@ -1213,6 +1224,7 @@ export function ChatLiveMessagePanel({
                         {isAgent ? agentLabel(message.agentId, agents) : "我"}
                       </span>
                       {isAgent ? agentRoleLabel(message.agentId, agents) : null}
+                      {isAgent ? agentSkillLabel(message.createdAt, skillMounts, skillNames) : null}
                       <span>{messageTime(message.createdAt)}</span>
                     </div>
                     {/*
@@ -1901,6 +1913,48 @@ function agentRoleLabel(
 ): React.ReactNode {
   const roleLabel = agentId === null ? undefined : agents?.find((a) => a.id === agentId)?.roleLabel;
   return roleLabel ? <Badge tone="ai">{roleLabel}</Badge> : null;
+}
+
+const EMPTY_SKILL_MOUNTS: readonly ThreadSkillMount[] = [];
+const EMPTY_SKILL_NAMES: ReadonlyMap<string, string> = new Map();
+
+/**
+ * D5（chat-main-fidelity-rubric.md）—— agent 消息身份行的 skill chip。
+ *
+ * ⚠ 这不是"当前挂了什么"（那是 `hasMountedSkills` 在别处做的事），是"这条消息
+ * **发出那一刻**哪个 skill 处于挂载状态"——挂载会被摘除（`removedAt`），把"现在"
+ * 的挂载状态套在一条历史消息上会在摘除后变成误导（消息底下印着一个此刻已经不在
+ * 挂载列表里的 skill 名字，像是编出来的）。用消息 `createdAt` 落在哪个挂载的
+ * `[mountedAt, removedAt)` 时间窗里来判定，是这条消息发出时**真实**处于挂载状态
+ * 的 skill，不是近似值。
+ *
+ * 同一时刻可能有多个 skill 同时挂载——参照图一次只示范一个，这里也只取第一个匹配
+ * （按 `mountedAt` 最早的），不在寸土寸金的身份行里塞一整串。
+ *
+ * 找不到匹配挂载、或该 skill 的名字还没解析出来（`skillNames` 里没有）时不渲染——
+ * 不编一个名字出来，也不回落显示裸 `skillId`（那对用户没有意义，且会被误认成又
+ * 一个"查不到就显示原值"的角色 chip）。
+ */
+function agentSkillLabel(
+  createdAt: string,
+  skillMounts: readonly ThreadSkillMount[],
+  skillNames: ReadonlyMap<string, string>,
+): React.ReactNode {
+  const at = Date.parse(createdAt);
+  if (Number.isNaN(at)) return null;
+  const active = skillMounts
+    .filter((mount) => {
+      const mountedAt = Date.parse(mount.mountedAt);
+      if (Number.isNaN(mountedAt) || mountedAt > at) return false;
+      if (mount.removedAt === null) return true;
+      const removedAt = Date.parse(mount.removedAt);
+      return Number.isNaN(removedAt) ? true : removedAt > at;
+    })
+    .sort((a, b) => Date.parse(a.mountedAt) - Date.parse(b.mountedAt))[0];
+  if (!active) return null;
+  const name = skillNames.get(active.skillId);
+  if (!name) return null;
+  return <Badge tone="neutral">skill: {name}</Badge>;
 }
 
 /**

@@ -63,6 +63,7 @@ export function ChatSkillMountPanel({
   mentionTriggerChar = "#",
   onMentionMounted,
   onMountsChange,
+  onMountsSnapshotChange,
   variant = "row",
 }: {
   threadId: string;
@@ -104,6 +105,20 @@ export function ChatSkillMountPanel({
    * 单一事实源仍是这里的 `listThreadMounts`）。
    */
   onMountsChange?: (count: number) => void;
+  /**
+   * D5（chat-main-fidelity-rubric.md）—— 把完整挂载列表（含 `mountedAt`/`removedAt`
+   * 时间窗）与已解析的 skill 名称一并转发，供 `ChatLiveMessagePanel` 按「某条消息
+   * 发出那一刻哪个 skill 处于挂载状态」渲染身份行的 skill chip。
+   *
+   * ⚠ 不是转发「当前挂了什么」给消息用——历史消息发出时的挂载状态可能已经变化
+   * （挂载会被摘除，`removedAt` 就是为此存在），单一事实源仍是这里的
+   * `listThreadMounts`，本回调只是把已经读到的同一份数据**多转发一份**给需要
+   * 按时间窗回查的调用方，不是第二次请求、不是第二份状态。
+   */
+  onMountsSnapshotChange?: (
+    mounts: readonly ThreadSkillMount[],
+    skillNames: ReadonlyMap<string, string>,
+  ) => void;
 }) {
   const [mounts, setMounts] = React.useState<readonly ThreadSkillMount[]>([]);
   /**
@@ -152,6 +167,12 @@ export function ChatSkillMountPanel({
   React.useEffect(() => {
     onMountsChange?.(mounts.length);
   }, [mounts.length, onMountsChange]);
+
+  React.useEffect(() => {
+    if (!onMountsSnapshotChange) return;
+    const names = new Map(pool.map((item) => [item.skillId, item.name] as const));
+    onMountsSnapshotChange(mounts, names);
+  }, [mounts, pool, onMountsSnapshotChange]);
 
   /**
    * ⚠ 挂载态要显示**名称**，而名称只存在于 `pool`（`listSkills`）里——而 `pool`

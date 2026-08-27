@@ -80,3 +80,102 @@ describe("ChatLiveMessagePanel — D5 消息气泡角色 chip（issue #2233）",
     expect(row.querySelector(".bg-ai-tint")).toBeNull();
   });
 });
+
+/**
+ * issue #2271（D5 后半）—— agent 消息身份行的 skill chip。真实数据源是
+ * `ThreadSkillMount` 的挂载时间窗（`mountedAt`/`removedAt`），按消息 `createdAt`
+ * 回查「那一刻」处于挂载状态的 skill，不是"当前挂了什么"。
+ */
+describe("ChatLiveMessagePanel — D5 消息身份行 skill chip（issue #2271）", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createMessage.mockResolvedValue({ message: msg({ id: "m-h" }), agentRunId: "r", runStatus: "queued" });
+  });
+
+  const agents = [
+    { id: "agent-real", abbr: "AR", name: "真实 Agent", duty: "只读研究", roleLabel: "战略分析师", presence: "present" as const },
+  ];
+
+  function mount(over: Record<string, unknown>) {
+    return {
+      mountId: "mount-1", threadId: "t", skillId: "sk-mece", versionId: "v1",
+      mountedAt: "2026-01-01T00:00:00.000Z", removedAt: null, ...over,
+    };
+  }
+
+  it("消息 createdAt 落在挂载时间窗内 → 渲染已解析的 skill 名字", async () => {
+    listMessages.mockResolvedValue({
+      messages: [msg({
+        id: "m-ai", authorKind: "agent", agentId: "agent-real", text: "结论已给出",
+        createdAt: "2026-01-01T00:05:00.000Z",
+      })],
+      nextCursor: null,
+    });
+    render(
+      <ChatLiveMessagePanel
+        threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false}
+        skillMounts={[mount({})]}
+        skillNames={new Map([["sk-mece", "MECE 假设拆解"]])}
+      />,
+    );
+    const row = await screen.findByTestId("chat-message-row");
+    await waitFor(() => expect(row.textContent).toContain("skill: MECE 假设拆解"));
+  });
+
+  it("消息发出时该 skill 已被摘除（removedAt 早于 createdAt）→ 不渲染", async () => {
+    listMessages.mockResolvedValue({
+      messages: [msg({
+        id: "m-ai", authorKind: "agent", agentId: "agent-real", text: "结论已给出",
+        createdAt: "2026-01-01T02:00:00.000Z",
+      })],
+      nextCursor: null,
+    });
+    render(
+      <ChatLiveMessagePanel
+        threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false}
+        skillMounts={[mount({ removedAt: "2026-01-01T01:00:00.000Z" })]}
+        skillNames={new Map([["sk-mece", "MECE 假设拆解"]])}
+      />,
+    );
+    const row = await screen.findByTestId("chat-message-row");
+    await waitFor(() => expect(row.textContent).toContain("真实 Agent"));
+    expect(row.textContent).not.toContain("skill:");
+  });
+
+  it("挂载存在但名字还没解析出来（skillNames 里没有）→ 不编一个名字出来", async () => {
+    listMessages.mockResolvedValue({
+      messages: [msg({
+        id: "m-ai", authorKind: "agent", agentId: "agent-real", text: "结论已给出",
+        createdAt: "2026-01-01T00:05:00.000Z",
+      })],
+      nextCursor: null,
+    });
+    render(
+      <ChatLiveMessagePanel
+        threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false}
+        skillMounts={[mount({})]}
+        skillNames={new Map()}
+      />,
+    );
+    const row = await screen.findByTestId("chat-message-row");
+    await waitFor(() => expect(row.textContent).toContain("真实 Agent"));
+    expect(row.textContent).not.toContain("skill:");
+  });
+
+  it("人类消息不渲染 skill chip（该维度只针对 agent 侧）", async () => {
+    listMessages.mockResolvedValue({
+      messages: [msg({ id: "m-h2", createdAt: "2026-01-01T00:05:00.000Z" })],
+      nextCursor: null,
+    });
+    render(
+      <ChatLiveMessagePanel
+        threadId="t" bearer="b" agents={agents} archived={false} canLandArtifacts={false}
+        skillMounts={[mount({})]}
+        skillNames={new Map([["sk-mece", "MECE 假设拆解"]])}
+      />,
+    );
+    const row = await screen.findByTestId("chat-message-row");
+    await waitFor(() => expect(row.textContent).toContain("我"));
+    expect(row.textContent).not.toContain("skill:");
+  });
+});
