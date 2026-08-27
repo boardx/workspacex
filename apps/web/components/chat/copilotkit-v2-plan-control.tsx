@@ -9,10 +9,10 @@ import { PlanConfirmGate } from "@/components/plan-control/plan-confirm-gate";
 import { PlanRunProgress } from "@/components/plan-control/plan-run-progress";
 import { PlanFailureRecovery } from "@/components/plan-control/plan-failure-recovery";
 import {
-  addPlanConstraint, confirmPlan, deletePlanStep, fetchPlanLedger, pausePlanRun,
+  addPlanConstraint, confirmPlan, deletePlanStep, pausePlanRun,
   planControlErrorCode, removePlanConstraint, reorderPlanStep, resumePlanRun, retryPlanStep,
-  type PlanLedgerView,
 } from "@/lib/plan-control-api";
+import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
 
 /**
  * F972-F978（plan-control 契约束）接入 `copilotkit-v2-panel.tsx` 真实聊天渲染树。
@@ -32,7 +32,10 @@ import {
  * （`copilotkit-agui.controller.ts:389-392`），前端拿不到这个写入的实时推送——
  * 与 `copilotkit-v2-run-progress.ts` 现有的"轮询兜底"是同一类取舍（`sessionToken`
  * 自愈同样用 `window.setInterval`，`copilotkit-v2-panel.tsx:1371`）。3 秒轮询，
- * 卸载/threadId 变化时清理，不在无线程时空转。
+ * 卸载/threadId 变化时清理，不在无线程时空转。轮询逻辑本身抽在
+ * `lib/use-plan-ledger-polling.ts`（issue #2260）——右侧任务检查器
+ * （`chat-task-inspector.tsx`）的「进度」页签共用同一个 hook，读同一张账本，
+ * 不再各自维护一套"现在到哪一步了"的判断。
  *
  * ## 已发现、如实登记、没有硬套的三处设计缺口（不在本轮范围内擅自补）
  *
@@ -53,8 +56,6 @@ import {
  *    `reason` 给一句如实的通用文案，不编一个看似精确实则编造的原因。
  */
 
-const POLL_INTERVAL_MS = 3000;
-
 export const PLAN_CONTROL_EDIT_TOGGLE_TESTID = "chat-task-workbench-plan-edit-toggle";
 
 export interface CopilotKitV2PlanControlProps {
@@ -66,7 +67,7 @@ export interface CopilotKitV2PlanControlProps {
 }
 
 export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlProps): React.JSX.Element | null {
-  const [ledger, setLedger] = React.useState<PlanLedgerView | null>(null);
+  const { ledger, refetch } = usePlanLedgerPolling(threadId);
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [actionErrorCode, setActionErrorCode] = React.useState<string | null>(null);
@@ -79,23 +80,6 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
    * 是哪个"，不是真正跨会话/多端一致的服务端状态——如实是一个近似，不是编造。
    */
   const [pausedLocally, setPausedLocally] = React.useState(false);
-
-  const refetch = React.useCallback(async (): Promise<void> => {
-    if (threadId === null) { setLedger(null); return; }
-    try {
-      setLedger(await fetchPlanLedger(threadId));
-    } catch {
-      // 读失败静默重试（下一轮轮询）——主消息流自己的错误横幅已经覆盖了
-      // "这条线程出问题了"，这里不需要再叠一层独立的错误态。
-    }
-  }, [threadId]);
-
-  React.useEffect(() => {
-    void refetch();
-    if (threadId === null) return;
-    const interval = window.setInterval(() => { void refetch(); }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(interval);
-  }, [threadId, refetch]);
 
   // 离开 executing 态（完成/失败/新一轮重新进入 planning）时清掉本地"暂停"近似值——
   // 不让上一轮 run 的暂停印记残留到下一轮。
