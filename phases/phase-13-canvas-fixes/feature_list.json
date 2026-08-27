@@ -1,0 +1,27 @@
+{
+  "phase": "13",
+  "features": [
+    {
+      "id": "F01",
+      "priority": 1,
+      "area": "canvas",
+      "capability": "CAP-WEB",
+      "title": "内置 canvas 模板 chat 渲染改按 layoutSource 判据读组织自定义，不再对 19 个内置 key 恒用包内原生几何",
+      "user_visible_behavior": "组织在模板编辑器里改过某个内置模板（如 persona）的分区几何/贴纸列数并发布后，chat 里 `模板: persona` 围栏渲染出的是组织自定义的样子；组织从未编辑过的内置 key（含 backfill 建好但未改过的行），chat 渲染仍是 fabric-markdown 包内原生几何，逐坐标不变；DB 查询失败时优雅退回原生几何，不炸围栏渲染；一条消息多个内置围栏 / 30 秒缓存窗口内多条消息只打一次 listCanvasTemplates。",
+      "spec_ref": "01-canvas-layout-source.md#R3",
+      "depends_on": [],
+      "points": 5,
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "verification": [
+        "pnpm --filter web exec vitest run tests/ui/chat-canvas-fence-layout-source.test.tsx",
+        "pnpm --filter api exec vitest run tests/canvas/layout-source-write-path.test.ts",
+        "pnpm --filter api exec vitest run tests/canvas/fence-template-resolver-layout-source.test.ts",
+        "pnpm --filter api run typecheck"
+      ],
+      "evidence": "",
+      "notes": "issue https://github.com/boardx/workspacex/issues/2221（含完整方案）。根因：apps/web/lib/canvas/fence-template-resolver.ts 的 ensureCanvasFenceTemplate 只要 getTemplate(key) 命中内置注册表就直接用原生几何，从不查组织的 canvas_templates 行——而 backfill-canvas-builtin-templates.ts 已给每个开通组织把 19 个内置 key 的行都建好（layout 字段也已推算齐全），所以「DB 里有一行」对内置 key 恒真，不能拿它当「用户真的改过」的判据。\n方案：canvas_templates 新增列 layout_source ('builtin-derived' | 'user-edited')，默认 builtin-derived；backfill 脚本与用户在编辑器里真正改动 sections/layout 触发的 mintTemplateVersion 分别显式写两个值，判定放应用层（mint-template-version.ts）一处，不靠 actorId/内容比对区分；一旦标过 user-edited 不可退回。契约（packages/contracts/src/canvas.ts）listTemplates.out 等模板行输出加 layoutSource 字段。resolver 判据从「key 是否内置」改成「组织是否有该 key 的 user-edited 行」，查询失败/无 orgId/未自定义时退回内置原生几何。\n⚠ 本 feature 2026-08-27 由人类裁决单独落在 phase-13-canvas-fixes（新开，仅装本 feature），不在 phase-01-run-a-project 上继续加任何新 feature——phase-01 已 232 个 feature，本次是「跨切面渲染缺陷修复」类工作往后统一挪到独立小 phase 的第一例（与 phase-01 canvas 束 F100/F104 有依赖关系但不共享编号空间，depends_on 留空是因为跨 phase 依赖，harness 的 depends_on 校验只在同 phase 内解析——F100/F104 均已 passing，不构成实际阻塞）。\n开工前置：design-delta 规格见 phases/phase-13-canvas-fixes/design-deltas/canvas-layout-source/{design-signoff,contract,verification}.md，其 design-signoff.md status 为 confirmed 前本 feature 不得进入 sprint claim（pnpm harness claim 机械门控）。"
+    }
+  ]
+}

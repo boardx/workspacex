@@ -5391,26 +5391,6 @@
       "notes": "覆盖 ui.md S3/S4/S5/S6/S7/S8；判据 V3(前端)/V4′/V5/V6；不变量 I-5/I-8/I-11 的界面面。⚠ 裁决 (c)：restore-checkpoint 按钮不渲染——测试断言该锚点缺席（present 断言 queryByTestId 为 null，不是 test.skip；skip 掉的差距等于不存在）。⚠ V4′ 反证断言写成「确认门从未进入 DOM」的结构面（component 层 gate.required=false ⇒ queryByTestId(chat-task-workbench-plan-confirm) 为 null）；完整「走真实引擎全程从未闪现」的持续断言 e2e 由后续 e2e 补，见 usecases UC-8 反证 ③（本 feature 提供结构面，e2e 层不在 vitest verification 内）。五个新增锚点（constraint-remove/stale-banner/pending-apply/orphan-constraint/run-resume）不进 TW 卡，登记在 ui.md 四节。依据等级 [设计]。权威规格：contracts/plan-control/{usecases,domain,ui,coverage}.md + 判据单一事实源 .harness/instructions/chat-task-workbench-acceptance.md TW-P0-3。spec_ref 锚 contracts/plan-control#confirmed（方案 3，harness #2147：已签核契约束 design-signoff.md status:confirmed 即等价锚点）——本束契约先行（ADR-023），requirements/ 无对应 UC，权威就是本束四件材料，不借用 uc-8-2。"
     },
     {
-      "id": "F1681",
-      "title": "内置 canvas 模板 chat 渲染改按 layoutSource 判据读组织自定义，不再对 19 个内置 key 恒用包内原生几何",
-      "user_visible_behavior": "组织在模板编辑器里改过某个内置模板（如 persona）的分区几何/贴纸列数并发布后，chat 里 `模板: persona` 围栏渲染出的是组织自定义的样子；组织从未编辑过的内置 key（含 backfill 建好但未改过的行），chat 渲染仍是 fabric-markdown 包内原生几何，逐坐标不变；DB 查询失败时优雅退回原生几何，不炸围栏渲染；一条消息多个内置围栏 / 30 秒缓存窗口内多条消息只打一次 listCanvasTemplates。",
-      "spec_ref": "contracts/canvas#confirmed",
-      "depends_on": [
-        "F100",
-        "F104"
-      ],
-      "points": 5,
-      "status": "not_started",
-      "owner": null,
-      "verification": [
-        "pnpm --filter web exec vitest run tests/ui/chat-canvas-fence-layout-source.test.tsx",
-        "pnpm --filter api exec vitest run tests/canvas/layout-source-write-path.test.ts",
-        "pnpm --filter api run typecheck"
-      ],
-      "evidence": "",
-      "notes": "issue https://github.com/boardx/workspacex/issues/2221（含完整方案）。根因：apps/web/lib/canvas/fence-template-resolver.ts 的 ensureCanvasFenceTemplate 只要 getTemplate(key) 命中内置注册表就直接用原生几何，从不查组织的 canvas_templates 行——而 backfill-canvas-builtin-templates.ts 已给每个开通组织把 19 个内置 key 的行都建好（layout 字段也已推算齐全），所以「DB 里有一行」对内置 key 恒真，不能拿它当「用户真的改过」的判据。\n方案：canvas_templates 新增列 layout_source ('builtin-derived' | 'user-edited')，默认 builtin-derived；backfill 脚本与用户在编辑器里真正改动 sections/layout 触发的 mintTemplateVersion 分别显式写两个值，判定放应用层（mint-template-version.ts）一处，不靠 actorId/内容比对区分；一旦标过 user-edited 不可退回。契约（packages/contracts/src/canvas.ts）listTemplates.out 等模板行输出加 layoutSource 字段。resolver 判据从「key 是否内置」改成「组织是否有该 key 的 user-edited 行」，查询失败/无 orgId/未自定义时退回内置原生几何。\n⚠ **开工前置**：这是本束（canvas）已签核契约 design-signoff.md 之上的一处新增 API 契约面（新增 DB 列 + 新增契约字段 + 改写路径判定），按 #496/#988/updateTemplateDraft 等先例属于「设计增量、待人类补签」——已在 design-signoff.md 追加「③-补 第 9 条」草案，本 feature 在该条被人类签核（status 保持 confirmed 且该条不再标『待补签』）之前不得进入 sprint claim（同 F100–F107 的既有门控）。\n⚠ 范围边界：仅覆盖上面 user_visible_behavior 四句话；backfill 脚本本身要不要为存量组织的 19 行统一补写 layout_source='builtin-derived'（否则新列 NOT NULL 迁移时旧行取什么默认值）在 verification 的 write-path 测试里一并断言，不单独开 feature。"
-    },
-    {
       "id": "F979",
       "title": "Word/PDF/Excel 从零生成 skill：挂载后在对话里产出可下载的 .docx/.xlsx/.pdf 真文件",
       "user_visible_behavior": "组织成员在 chat 里挂载 docx-create / xlsx-create / pdf-create 三个新 skill 之一并用一句自然语言提需求（如「生成一份含这几个要点的项目周报 Word」）后，模型写出对应 Node 脚本（docx / exceljs / pdf-lib，库已预装、脚本不 npm install），脚本在既有沙箱（network:none 容器 + Node 权限模型两层隔离，与 pptx skill 同一套边界）里真实执行，产出一个可下载的真实文件作为聊天附件：.docx 能被 Word 打开、.xlsx 能被 Excel 打开（含写入的 SUM/AVERAGE 公式文本，不做求值）、.pdf 能被阅读器打开，内容与需求逐条对应。用户要求「编辑一份已有的 docx/xlsx/pdf」时系统如实告知这是范围外能力，不做「看着能点、点了才失败」的假入口。三个 skill 各自经 starter-pack 导入 + 安全扫描 + 方法论审核（提交人 ≠ 审核人）后进入「已启用」，可挂载到对话；失败沿用 pptx 的三个失败码，SCRIPT_FAILED_AFTER_RETRIES 原样带回最后一次真实 stderr。",
