@@ -422,9 +422,18 @@ describe("executing a queued run", () => {
     expect(call.authorization).toBe(`Bearer ${API_KEY}`);
     const system = call.body.messages!.find((m) => m.role === "system")!.content;
     expect(system).toContain("You are the pinned v1 agent.");
-    // Ordered, and in the snapshot's order -- not alphabetical, not insertion order.
-    expect(system.indexOf("# Skill A")).toBeGreaterThan(-1);
-    expect(system.indexOf("# Skill B")).toBeGreaterThan(system.indexOf("# Skill A"));
+    /*
+     * design-delta `skill-lazy-loading`: this run is pinned to a non-deep-agent provider
+     * with 2 Skills mounted, so `execute-run.ts` now builds the system prompt in catalog
+     * mode -- the literal Skill body ("# Skill A") is deliberately NOT pasted in anymore
+     * (that is the whole point of the delta), only a one-line summary per Skill, in a
+     * `- <stableName>: <summary>` catalog entry. Order is still meaningful and still
+     * checked here -- just via the catalog's stable-name order, not the raw heading text.
+     */
+    expect(system.indexOf(SKILL_A)).toBeGreaterThan(-1);
+    expect(system.indexOf(SKILL_B)).toBeGreaterThan(system.indexOf(SKILL_A));
+    expect(system).not.toContain("# Skill A");
+    expect(system).not.toContain("# Skill B");
     expect(call.body.messages!.find((m) => m.role === "user")!.content)
       .toBe("Ordered context please");
   });

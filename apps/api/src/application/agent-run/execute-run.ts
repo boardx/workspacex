@@ -53,7 +53,7 @@ import type {
   PinnedSkillContent, ReportedUsage, RunFailureCode, RunStepKind, RunStepStatus,
   ThreadHistoryMessage, TokenUsageMeterPort,
 } from "./ports";
-import { ModelCallError, isModelCallImageMime } from "./ports";
+import { DEEP_AGENT_PROVIDER_NAME, ModelCallError, isModelCallImageMime } from "./ports";
 import type { ModelCallImage } from "./ports";
 import {
   buildFileContextMessage, FILE_RETRIEVAL_MAX_HITS, type FileRetrievalPort,
@@ -67,6 +67,10 @@ import type { SkillSandboxPort } from "../skill/skill-sandbox-port";
 import type { ObjectStore } from "../artifact/ports";
 import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
+import {
+  appendSkillFullContent, appendSkillNotMountedNotice, buildSkillCatalogBlock,
+  MAX_READ_SKILL_ROUNDS, tryExtractReadSkillRequest,
+} from "./skill-catalog";
 import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
 import type { VisionInputStatus } from "./context-snapshot";
@@ -472,6 +476,24 @@ export interface ExecuteAgentRunDeps {
    * 抖动变成用户可见的失败，这不是 I-10 要保护的性质。
    */
   readonly planLedger?: PlanLedgerRepository & PlanRunStatusReader;
+  /**
+   * design-delta `skill-lazy-loading` —— 这个部署有没有真的把 `KERNEL_MODEL_STREAM_ENABLED`
+   * 打开（`configured-model-provider.ts` 在合成期读一次的**同一个**旗标，这里只是把它的值
+   * 带过来，不重新读环境变量、不第二次声明这件事——单一事实源仍是那个文件）。
+   *
+   * ⚠ **为什么不能用 `deps.model.completeStream` 是否存在来判断**——这是本 delta 真栈测试
+   * （T6，`chat-skill-mount-produces-pptx-real-stack.test.ts`）踩过的一个真实坑:生产接线里
+   * `deps.model` 是 `RoutingModelCallPort`，它的 `completeStream` **恒存在**（对不支持流式
+   * 的叶子 provider 内部退回 `complete()`，见 `routing-model-call-port.ts` 头注），按方法
+   * 存在性判断在真实接线下永远拿到"有"，会让"只在非流式部署生效"这条排除条件形同虚设。
+   *
+   * 缺省 `undefined`（当 `false` 处理）⇒ 与 `KERNEL_MODEL_STREAM_ENABLED` 默认关的行为
+   * 逐字节相同——渐进式加载正常生效。只有显式传 `true`（生产合成
+   * `kernel.module.ts` → `AgentRunExecutor` 按环境变量注入）时，`useLazySkillLoading` 才会
+   * 因为"这个部署真的会流式"而排除渐进式加载——流式 + 渐进式加载如何共存是明确的后续工作
+   * （`contract.md` 附加说明），不是这里假装处理了。
+   */
+  readonly streamingEnabled?: boolean;
   /** Server-side only. Provider detail goes here and nowhere near a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
@@ -556,13 +578,25 @@ export const VISUALIZATION_GUIDANCE = [
  * `execute-run.ts` 自己的生产路径会算出这段动态指引再传进来。拼接顺序与 `VISUALIZATION_GUIDANCE`
  * 同级、紧随其后：两者都是「除了纯文字，你还可以用某种围栏产出结构化内容」这一类附加指引，
  * canvas 指引依赖 mermaid 指引已经建立的「围栏语法」认知，放在它后面顺理成章。
+ *
+ * `mode`（design-delta `skill-lazy-loading`，默认 `"full"`）—— `"full"` 是本次改动
+ * 之前唯一的行为：每个挂载 skill 的全文直接拼进去，`trial-run-agent.ts`/
+ * `quick-digital-interview.ts`（不传这个参数）与 `execute-run.ts` 对 deep-agent
+ * provider 的 run，行为与本次改动之前逐字节相同（verification.md V5）。`"catalog"`
+ * 只由 `execute-run.ts` 对非 deep-agent 的 run 传入：把每个 skill 的全文换成目录里
+ * 一行摘要 + 按需请求协议说明（`skill-catalog.ts`），`skills.length === 0` 时两种
+ * 模式的输出完全相同（没有目录可拼）。
  */
 export function buildSystemPrompt(
   instructions: string,
-  skills: readonly { readonly versionId: string; readonly content: string }[],
+  skills: readonly { readonly versionId: string; readonly stableName: string; readonly content: string }[],
   canvasGuidance?: string | null,
+  mode: "full" | "catalog" = "full",
 ): string {
-  const parts = [instructions, ...skills.map((s) => s.content), VISUALIZATION_GUIDANCE];
+  const skillParts = mode === "catalog" && skills.length > 0
+    ? [buildSkillCatalogBlock(skills)]
+    : skills.map((s) => s.content);
+  const parts = [instructions, ...skillParts, VISUALIZATION_GUIDANCE];
   if (canvasGuidance) parts.push(canvasGuidance);
   return parts.join("\n\n");
 }
@@ -669,6 +703,33 @@ async function executeClaimed(
    * 由下面那道**已有的**门赋值，与它给 `system` 追加协议文本用的是同一个条件。
    */
   let scriptProtocol: string | undefined;
+  /*
+   * design-delta `skill-lazy-loading` §1 —— 只对非 deep-agent、非流式部署的 run 走
+   * 目录 + 按需展开:
+   *
+   * ① deep-agent provider 已经有自己的按需执行机制（`call_skill` 真实工具调用，见
+   *   `deep-agent-model-provider.ts` 头注"input.system is still sent... not a
+   *   mistake"那段，`contract.md` §1 明确不碰）。
+   *
+   * ② 流式部署（`deps.streamingEnabled`）排除在外：渐进式加载的中间轮（read_skill
+   *   请求/展开）不该被当作真实增量推给用户，本 delta 不处理这个交互，见
+   *   `deps.streamingEnabled` 自己的头注。
+   *
+   * ⚠ **不**按 `deps.model.completeStream === undefined` 判断②——最初这么写过，被
+   * 这个文件自己的真栈测试（T6，`chat-skill-mount-produces-pptx-real-stack.test.ts`）
+   * 当场证伪:生产接线里 `deps.model` 是 `RoutingModelCallPort`，它的 `completeStream`
+   * **恒存在**（`routing-model-call-port.ts` 自己的头注:"ALWAYS defined on the
+   * router itself... dispatch always succeeds"，对不支持流式的叶子 provider 内部退回
+   * `complete()`)。按存在性判断在真实接线下永远拿到"有"，这条排除条件形同虚设——
+   * 本优化在生产里**从未真正按预期排除过流式部署**，也**从未真正对非流式部署生效
+   * 过**（两处判断用的是同一个坏条件），只在内存 fake 单测里（`deps.model` 直接就是
+   * 叶子 port，没有路由包装）看起来对。改成显式的 `deps.streamingEnabled`——由合成
+   * 期（`kernel.module.ts`）按**同一个** `KERNEL_MODEL_STREAM_ENABLED` 环境变量注入,
+   * 不重新探测运行时对象形状。
+   */
+  const isDeepAgentRun = run.modelProvider === DEEP_AGENT_PROVIDER_NAME;
+  const useLazySkillLoading = !isDeepAgentRun && !deps.streamingEnabled
+    && run.skillVersionIds.length > 0;
   try {
     const skills = await deps.runs.readPinnedSkills(orgId, run.skillVersionIds);
     if (skills.length !== run.skillVersionIds.length) {
@@ -702,7 +763,7 @@ async function executeClaimed(
         });
       }
     }
-    system = buildSystemPrompt(run.instructions, skills, canvasGuidance);
+    system = buildSystemPrompt(run.instructions, skills, canvasGuidance, useLazySkillLoading ? "catalog" : "full");
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
      *
@@ -1183,6 +1244,48 @@ async function executeClaimed(
       reportedPrompt = completion.promptTokens;
       reportedCompletion = completion.completionTokens;
       // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
+      scriptCandidates = completion.scriptCandidates ?? [];
+    } else if (useLazySkillLoading) {
+      /*
+       * design-delta `skill-lazy-loading` §2.2 —— `system` 此刻是目录模式（见上面
+       * `buildSystemPrompt` 调用点）。循环里每一轮：调一次 `complete()`，若回复里有
+       * `read_skill` 请求且没到轮数上限，把对应 skill 的全文（或"未挂载"提示）追加进
+       * `system` 再问一次；否则把这一轮的回复当最终答案。`system` 在循环里被**重新
+       * 赋值**（不是局部变量）：循环结束后，本函数后面的 `regenerate`（run_script
+       * 失败回喂）与 `record()` 的 `systemDigest` 都还在用同一个变量名，让"这次已经
+       * 展开过的 skill 全文"在脚本重试时依然在场——否则模型改脚本时会"忘记"skill
+       * 指令，比"根本没有渐进式披露"还差。
+       *
+       * ⚠ `useLazySkillLoading` 已经保证 `deps.model.completeStream === undefined`，
+       * 这个分支只会走一次性的 `complete()`，不需要再判断走不走流式。
+       */
+      let rounds = 0;
+      let completion = await deps.model.complete({
+        modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
+        history, skills: toolSkills,
+        ...(vision.images.length > 0 ? { images: vision.images } : {}),
+      });
+      while (completion.text.trim() !== "" && rounds < MAX_READ_SKILL_ROUNDS) {
+        const requested = tryExtractReadSkillRequest(completion.text);
+        if (requested === null) break;
+        rounds += 1;
+        const target = toolSkills.find((s) => s.stableName === requested);
+        system = target
+          ? appendSkillFullContent(system, target)
+          : appendSkillNotMountedNotice(system, requested);
+        completion = await deps.model.complete({
+          modelProvider: run.modelProvider, modelId: run.modelId, system, user: userText,
+          history, skills: toolSkills,
+          ...(vision.images.length > 0 ? { images: vision.images } : {}),
+        });
+      }
+      if (completion.text.trim() === "") {
+        throw new ModelCallError("MODEL_CALL_FAILED", "provider returned empty content");
+      }
+      text = completion.text;
+      reportedTokens = completion.tokens;
+      reportedPrompt = completion.promptTokens;
+      reportedCompletion = completion.completionTokens;
       scriptCandidates = completion.scriptCandidates ?? [];
     } else {
       // #654 阶段2a: when the configured port supports streaming, use it and persist each

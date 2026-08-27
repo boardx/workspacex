@@ -100,6 +100,13 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * `ExecuteAgentRunDeps.planLedger` 的完整文档。
      */
     private readonly planLedger?: PlanLedgerRepository & PlanRunStatusReader,
+    /**
+     * design-delta `skill-lazy-loading`。可选，与上面每一个同一条既有理由：既有构造点
+     * 不必都改，生产合成注入这个部署实际的 `KERNEL_MODEL_STREAM_ENABLED` 值。缺省
+     * `undefined`（当 `false` 处理）⇒ 渐进式加载正常生效，与该 delta 的默认行为
+     * 逐字节相同。见 `execute-run.ts` `ExecuteAgentRunDeps.streamingEnabled` 的完整文档。
+     */
+    private readonly streamingEnabled?: boolean,
   ) {}
 
   /**
@@ -129,6 +136,7 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       runImages: this.runImages,
       sandbox: this.sandbox, objects: this.objects,
       planLedger: this.planLedger,
+      streamingEnabled: this.streamingEnabled,
     }, { orgId });
     await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
     return executed;

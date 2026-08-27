@@ -96,9 +96,20 @@ import type {
   ModelCallProgressEvent,
   PinnedSkillContent,
 } from "../../application/agent-run/ports";
-import { ModelCallError, type ModelCallPort } from "../../application/agent-run/ports";
+import {
+  DEEP_AGENT_PROVIDER_NAME,
+  ModelCallError,
+  type ModelCallPort,
+} from "../../application/agent-run/ports";
 
-export const DEEP_AGENT_PROVIDER_NAME = "deep-agent";
+/**
+ * Re-exported, not declared here anymore -- design-delta `skill-lazy-loading` moved the
+ * one declaration to `application/agent-run/ports.ts` so `execute-run.ts` (an
+ * `application`-layer file, may not import `infrastructure`) can reach it too. See that
+ * constant's own doc comment for the full reasoning. Existing importers of this module
+ * keep working unchanged.
+ */
+export { DEEP_AGENT_PROVIDER_NAME };
 /** Must match `langgraph.json`'s `graphs` key in `apps/deep-agent-service` verbatim. */
 const ASSISTANT_ID = "Deep Agent";
 
