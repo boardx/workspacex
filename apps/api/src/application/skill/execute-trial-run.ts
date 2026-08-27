@@ -47,9 +47,16 @@ import type {
 /** 沙箱单次执行的 wall-clock 上限。比模型调用短得多——脚本不该跑几分钟。 */
 const SCRIPT_TIMEOUT_MS = 120_000;
 
-/** 按扩展名给 mime。产物目前只可能是 .pptx（§2 首个切片只做创建 deck）。 */
+/**
+ * 按扩展名给 mime。F979（design-delta skill-office-docs-node-runtime）新增
+ * docx/xlsx/pdf 三个扩展——与 `run-skill-script.ts` 的表同形（已知重复，见该文件
+ * 同名常量的注释）。
+ */
 const MIME_BY_EXTENSION: Readonly<Record<string, string>> = {
   ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".pdf": "application/pdf",
 };
 
 export interface ExecuteTrialRunDeps {

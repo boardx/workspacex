@@ -13,6 +13,9 @@
     "start": "tsx src/main.ts"
   },
   "dependencies": {
+    "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
+    "pdf-lib": "^1.17.1",
     "pptxgenjs": "^4.0.1"
   },
   "devDependencies": {
