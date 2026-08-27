@@ -94,6 +94,18 @@ test("formal Chat writes and cursor-lists durable messages through real signed A
   await expect(page.getByText("Browser durable message")).toHaveCount(1);
 
   /**
+   * issue #2233（D5 回归钉子）—— `#1705`/PR #1764 同时接线了 D2（编制区第一行，
+   * 上面 19-20 行已断言）与 D5（消息气泡身份行的角色 chip）。D5 此前完全没有
+   * e2e 断言钉住，`chat-live-message-panel.tsx` 经约 18 次重写也不会有任何测试
+   * 因此变红。这里补上：agent 回复的消息气泡身份行必须带 D2 同一个 `roleLabel`
+   * （"引导协作助手"），不只是名字。取 loopback 回复所在的那一行，
+   * 而不是任取第一行——第一行可能是刚发的人类消息（不该有 agent 角色 chip）。
+   */
+  const agentReplyRow = page.getByTestId("chat-message-row").filter({ hasText: CHAT_READ_E2E.agentReplyPrefix }).first();
+  await expect(agentReplyRow).toContainText("Read Agent");
+  await expect(agentReplyRow).toContainText("引导协作助手");
+
+  /**
    * V1（PROP-CHAT-10ITER-001）—— 发消息后消息区自动跟随到底：滚动容器停在底部
    * （scrollTop 到达 scrollHeight − clientHeight；内容不溢出时两值相等、断言仍成立，
    * 这是「自动跟随生效、视口没被留在上方」的守卫。真正的溢出跟随由 shots 截图佐证）。
