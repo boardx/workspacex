@@ -227,6 +227,67 @@ DashScope 端点在收到 `turn_detection` 参数后到底会不会认、认了�
 
 *本节由 dev-chat-e2e worker 于 2026-08-23 复查整理，未改动任何代码。*
 
+## 七点二五、2026-08-27 issue #2217：CDP 实测本仓链路真实往返延迟（首次拿到硬数字）
+
+人类在 devapp 再次实测反馈"延迟很严重"（issue #2217），并明确点名三个待查方向：
+`use-asr-draft.ts` 有没有节流、`asr-draft.gateway.ts` 有没有攒批、以及 **#2090
+刚修的 rewrite 路径是不是多绕了一跳**（这是此前六轮复查都没有的新变量——#2090
+把 `/chat/asr-draft` 加回 Next `rewrites()` 枚举表，这之前 WS 握手直接失败，
+现在握手改走 Next dev 的 rewrite 代理转发）。
+
+此前六轮复查（本文档第一～七节）全部是"逐层读源码，没找到 debounce/攒批"，
+从未拿到过一个真实毫秒数——这正是 issue #2217 明确要求补的证据。本轮用
+**Chrome DevTools Protocol（`Network.webSocketFrameSent`/`webSocketFrameReceived`）**
+给 `apps/web/e2e/copilotkit-v2-voice-input.spec.ts` 临时接上逐帧时间戳采集
+（验证完已 `git checkout` 撤回，不在这次 PR 的 diff 里），跑一次真实
+`pnpm run verify:chat-read -g "voice-input"`（真 Postgres + 真 API + 真 Next dev
++ `LOOPBACK_ASR_EMIT_DELTA=1` 确定性 ASR 替身，`--use-fake-device-for-media-stream`
+喂假音频源，采音/WS 客户端/网关/适配器全部是真实生产代码，只有最上游换成
+可预测的替身），量出**每一个二进制音频帧发出 → 下一条 `asr.partial`/`asr.final`
+文本帧收到**之间的真实间隔：
+
+```
+wsUrl=ws://127.0.0.1:45198/chat/asr-draft（经 Next rewrite 代理，非直连 API）
+totalFrames=45 binSent=15 textRecv=17 n=15
+p50=1ms p95=4ms max=4ms
+all=[0,0,1,1,1,1,1,1,1,1,1,1,1,2,4]
+```
+
+### 结论：本仓代码链路（含 #2090 新增的 Next 代理跳）往返延迟 ≤4ms，不是延迟来源
+
+- `wsUrl` 落在 `webPort`（浏览器 `page.goto("/chat")` 所在的同一个 Next dev
+  端口），确认这次测的就是**经过 #2090 那条 rewrite 代理**的完整路径，不是
+  绕开它直连 API——**#2090 引入的额外一跳被实测覆盖，往返延迟仍在个位数
+  毫秒**，不是"多绕一圈导致变慢"的候选根因。
+- 15 个音频帧样本里 p50=1ms、p95=4ms、max=4ms，全部单帧延迟落在
+  0-4ms 区间，量级上不可能是人类感知到的"延迟很严重"（那种投诉对应的通常是
+  几百毫秒到数秒）。这与第一～七节"逐层读代码没找到 debounce/攒批"的结论
+  第一次有了硬数字支撑，而不再只是"读代码觉得应该没问题"。
+- 与此前六轮结论完全一致：`use-asr-draft.ts`/`live-asr-draft.ts`/
+  `asr-draft.gateway.ts`/`configured-realtime-asr-provider.ts` 四层没有任何
+  一层引入可感知延迟——这次是**实测**证实，不是又读一遍代码。
+
+### 局限：这条实测路径上，"上游"是确定性替身，不是真实 DashScope
+
+`LOOPBACK_ASR_EMIT_DELTA=1` 驱动的 `loopback-asr-provider.ts` 收到音频后**立刻**
+回 `asr.partial`，没有真实 DashScope 的网络 RTT、模型推理时间、也没有真实
+`turn_detection.silence_duration_ms`（VAD 断句静音判定）那种"要等用户停顿一段
+时间才判定一句话结束"的行为。这次实测**排除了本仓代码链路**是延迟来源，
+但**排除不了**"人类感知到的延迟其实来自真实 DashScope 上游"这个可能性——
+这一点上，第四、五、六点五节记录的判断没有变：**验证真实 DashScope 端到端
+延迟需要真实 `KERNEL_ASR_API_KEY` 凭据**，本 agent 在这个沙箱环境（无网络出口
+到 `dashscope.aliyuncs.com`、`env | grep -i asr` 为空、无 `.env` 文件、也没有
+devapp 登录态）里同样拿不到，与此前历次复查卡点一致。
+
+⇒ **issue #2217 的结论**：本仓代码链路（前端状态机、WS 客户端、网关转发、
+适配器转发、以及 #2090 新增的 Next 代理跳）经实测往返延迟 ≤4ms，不是延迟
+来源，也不能再靠"多读一遍代码"进一步排查——唯一剩下的候选是真实 DashScope
+上游本身的响应/断句延迟，这需要真实凭据 + 真实网络出口才能测，是本仓代码
+改不了的外部依赖。按 issue 验收标准"能修的修，不能修的如实记录并关闭"，
+这条判定为**已诊断、非本仓可控**，随本节归档关闭。
+
+*本节由 dev-chat-e2e worker 于 2026-08-27 用 CDP 逐帧计时实测整理。*
+
 ## 七、需要人类决定的
 
 - 是否有人能在 devapp 环境里手动验证一次 `turn_detection` 参数是否被 DashScope 接受、
