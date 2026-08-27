@@ -596,6 +596,38 @@ describe("formal Chat read path", () => {
   });
 
   /**
+   * issue #1609（#728 round 9 遗留缺口，从未修）—— run 到终态后左栏必须重读服务端权威
+   * 线程列表，让会话卡的 `status`/`artifactCount`/`lastActivityAt`（`ThreadMeta`，
+   * 单一事实源 `thread-badges.ts`）跟着刷新，不然评分员会截到「卡片仍显示"进行中"，
+   * 但消息区刚说完话」这种同屏自相矛盾画面。`personal-chat-screen.tsx` 早就这样接了
+   * （`onThreadSettled` → `loadThreads`），`chat-read-screen.tsx` 一直没接，这里补上并钉住。
+   *
+   * ⚠ issue 原文写的是「N 个 agent」badge——那是 #2094（2026-08-26 人类裁决）之前的旧
+   * 措辞，`agentSummary` 字段已被删除（见 `thread-card-projection.test.ts`），现在卡片副行
+   * 是 `status`/`artifactCount`/`lastActivityAt` 三个结构化字段。同一个「run 落定后左栏
+   * 不刷新」的架构缺口原样留到了新字段上，本用例断言的是当下真实存在的这版。
+   */
+  it("run 到终态后左栏重读服务端权威线程列表，会话卡跟着刷新（issue #1609）", async () => {
+    listThreads
+      .mockResolvedValueOnce(threadList("thread-real", "真实线程")) // 首次进入线程
+      .mockResolvedValueOnce(threadList("thread-real", "真实线程")); // run 到终态后的重读
+    render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
+
+    await screen.findByTestId("chat-composer");
+    expect(listThreads).toHaveBeenCalledTimes(1);
+
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "跑一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
+
+    await waitFor(() => expect(createMessage).toHaveBeenCalledTimes(1));
+    // run 到终态（`getAgentRun` 默认 mock 为 "succeeded"）后：左栏必须重读，
+    // 不是停在发消息那一刻的旧快照上。
+    await waitFor(() => expect(listThreads).toHaveBeenCalledTimes(2));
+  });
+
+  /**
    * 十项 UX 缺口第 5 项（issue #708）—— 消息内联「落地为产物」端到端：
    * 打开表单 → 填标题 → 提交 → 真实调用 `landAsArtifact`（`mode: "draft"`，
    * `payloadRef` = 该消息的真实 `text`）→ 成功后触发右栏重读。
