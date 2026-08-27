@@ -29,14 +29,24 @@ import { addCapability, addOrgMember, asApp, ensureDatabase, migrateOnce, resetO
 import { OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
 
 /**
- * design-delta `platform-owned-skills`（2026-08-27）：kind=skill 不再是"没配置就是
- * 空"——四个官方 skill（`backfillPlatformSkills()`）对每一个 org 恒可见，与该 org
- * 自己是否配置过任何 skill 无关。这不是本文件要守的"无内置清单"被破了：那四个是
- * `org-platform` 下真实存在的**数据行**，不是产品源码里的硬编码列表（本文件静态
- * 半的门控查的是那个）——只是这份数据现在恒非空,下面两条"未配置=空"的断言需要把
- * skill 这一种单独摘出来核对。
+ * design-delta `platform-owned-skills`（2026-08-27）：kind=skill 不再保证"没配置就是
+ * 空"——`backfillPlatformSkills()` 一旦跑过，四个官方 skill 就对每一个 org 可见，与
+ * 该 org 自己是否配置过任何 skill 无关。这不是本文件要守的"无内置清单"被破了：那
+ * 四个是 `org-platform` 下真实存在的**数据行**，不是产品源码里的硬编码列表（本文件
+ * 静态半的门控查的是那个）。
+ *
+ * ⚠ **是否已 backfill 因 CI 运行方式而异，不能假设"恒存在"或"恒不存在"**：
+ * `gates-test` 分片下每个测试文件各自独立隔离 DB（本文件自己没调用
+ * `backfillPlatformSkills()`，那四行就不存在）；`verify-affected` 全仓共享一个 DB
+ * （某个跑在前面的文件调过，那四行就在，且因 `wave2_skill_immutable_trg` 删不掉，
+ * 对后面每个文件都在）。断言写死"必须有四个"在 gates-test 分片下红，写死"必须没有"
+ * 在 verify-affected 下红——第一次改这个文件时就在这两头各撞过一次。唯一站得住的
+ * 写法：把这四个（如果存在）从结果里过滤掉，再核对"过滤之后"是不是这个 org 自己
+ * 配置的那些——不关心 backfill 有没有跑过，两种运行方式下都成立。
  */
-const PLATFORM_SKILL_IDS = OFFICIAL_SKILLS.map((s) => `cap-skill-platform-${s.stableName}`).sort();
+const PLATFORM_SKILL_IDS = new Set(OFFICIAL_SKILLS.map((s) => `cap-skill-platform-${s.stableName}`));
+const withoutPlatformSkills = <T extends { id: string }>(items: readonly T[]): T[] =>
+  items.filter((c) => !PLATFORM_SKILL_IDS.has(c.id));
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -208,14 +218,11 @@ const list = (org: string, kind: string): Promise<unknown> =>
   );
 
 describe("V1 runtime, BOTH directions", () => {
-  it("an organization with no configuration returns [] for every one of the six kinds (skill: the four platform ones, not a default set)", async () => {
+  it("an organization with no configuration returns [] for every one of the six kinds, once the four platform skills (if backfilled) are set aside", async () => {
     for (const kind of C.CapabilityKind.options) {
       const body = (await list(EMPTY_ORG, kind)) as { id: string }[];
-      if (kind === "skill") {
-        expect(body.map((c) => c.id).sort(), JSON.stringify(body)).toEqual(PLATFORM_SKILL_IDS);
-      } else {
-        expect(body, `kind ${kind} must be empty, not a default set`).toEqual([]);
-      }
+      const ownRows = kind === "skill" ? withoutPlatformSkills(body) : body;
+      expect(ownRows, `kind ${kind} must be empty, not a default set`).toEqual([]);
       // The empty array still has to be the contract's shape.
       const parsed = C.operations.listCapabilities.out.safeParse(body);
       expect(parsed.success ? null : parsed.error.issues).toBeNull();
@@ -248,37 +255,35 @@ describe("V1 runtime, BOTH directions", () => {
 
     // And the kinds nobody configured are still empty in the SAME organization -- so the
     // emptiness is per-kind data, not a global switch. skill is the one documented
-    // exception (see PLATFORM_SKILL_IDS's own comment) -- still not this org's OWN
-    // configuration, so it belongs in this same "no extras beyond what's expected" check.
+    // exception (see PLATFORM_SKILL_IDS's own comment): set the platform four aside
+    // first, since they're not this org's OWN configuration either way.
     const skills = (await list(CONFIGURED_ORG, "skill")) as { id: string }[];
-    expect(skills.map((c) => c.id).sort(), JSON.stringify(skills)).toEqual(PLATFORM_SKILL_IDS);
+    expect(withoutPlatformSkills(skills), JSON.stringify(skills)).toEqual([]);
     for (const kind of ["mcp", "canvas-template", "blueprint"]) {
       expect(await list(CONFIGURED_ORG, kind), `kind ${kind}`).toEqual([]);
     }
   });
 
-  it("switch-org into an unconfigured organization hands back the four platform skills (and nothing else), and into a configured one adds its own", async () => {
+  it("switch-org into an unconfigured organization hands back [], and into a configured one hands back its own (platform skills set aside either way)", async () => {
     await addCapability({ orgId: CONFIGURED_ORG, id: "cap-s1", kind: "skill", name: "cashflow" });
 
-    // design-delta `platform-owned-skills`: "unconfigured org" no longer means "[]" for
-    // this response either -- it carries whatever `switch-org`'s own capability set is,
-    // and the four platform skills are in that set the same as everywhere else `kind:
-    // "skill"` is read. See PLATFORM_SKILL_IDS's own comment.
+    // design-delta `platform-owned-skills`: this response can carry the four platform
+    // skills too, same as everywhere else `kind: "skill"` is read -- see
+    // `withoutPlatformSkills`'s own comment for why that can't be asserted as either
+    // always-present or always-absent.
     const empty = await fetch(`${BASE}/identity/switch-org`, {
       method: "POST",
       headers: { ...authFor(EMPTY_ORG), "content-type": "application/json" },
       body: JSON.stringify({ toOrgId: EMPTY_ORG }),
     }).then((r) => r.json() as Promise<{ capabilities: { id: string }[] }>);
-    expect(empty.capabilities.map((c) => c.id).sort(), JSON.stringify(empty.capabilities)).toEqual(PLATFORM_SKILL_IDS);
+    expect(withoutPlatformSkills(empty.capabilities), JSON.stringify(empty.capabilities)).toEqual([]);
 
     const configured = await fetch(`${BASE}/identity/switch-org`, {
       method: "POST",
       headers: { ...authFor(CONFIGURED_ORG), "content-type": "application/json" },
       body: JSON.stringify({ toOrgId: CONFIGURED_ORG }),
     }).then((r) => r.json() as Promise<{ capabilities: { id: string; name: string }[] }>);
-    expect(configured.capabilities.map((c) => c.name).sort()).toEqual(
-      [...OFFICIAL_SKILLS.map((s) => s.displayName), "cashflow"].sort(),
-    );
+    expect(withoutPlatformSkills(configured.capabilities).map((c) => c.name)).toEqual(["cashflow"]);
   });
 
   it("the six kinds are the contract's, and an undeclared kind is refused", () => {
