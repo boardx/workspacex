@@ -121,6 +121,110 @@ function blockWidthMm(w: number, gridCols: 6 | 12): number {
   return (w / gridCols) * A1_CONTENT_MM.w - GRID_GAP_MM;
 }
 
+const AUTO_LAYOUT_GRID_ROWS = 8;
+
+/**
+ * 「不要手工排版」——2026-08-27 人类原话：「在编辑界面因该有一个按钮，可以根据字段
+ * 一键生成，中间的模板，而不需要人来手工排版」。
+ *
+ * ## 全量重排，不是「补齐未放置的」
+ *
+ * 一键生成替代的是手工拖拽本身，不是拖拽的补充——所以这里**忽略**所有已有 `layout`，
+ * 按当前字段顺序重新铺满整张画布。想保留某个区块的手动位置，就不点这个按钮，改单独
+ * 拖它；点了就是「这版我全交给算法」。
+ *
+ * ## 铺满是构造出来的，不是碰运气凑出来的
+ *
+ * 后端 `backfill-canvas-builtin-templates.ts` 的 `fillGrid`/`grow` 组合是从**既有的
+ * px 坐标**反推 12×8 网格，天然带着"压缩空带 + 尽量长满"两步，且自己承认
+ * "不保证 100%"（交错版式会剩零散格）。这里没有任何既有坐标要保留——从空白开始，
+ * 于是可以选一种**保证** 100% 覆盖、零重叠的构造法：
+ *
+ *   ① 表头字段（`短文本`）铺一条顶带，每个占 1 行、宽度在 `gridCols` 里**整除分配**
+ *      （余数分给最后几个，误差最多 1 格，不会累加）。字段数超过一行能放的数量时
+ *      顺延到下一条表头带。
+ *   ② 剩下的行全部给正文分区（`便利贴列表`/`长文本`）。选一个「每行几个」的份数，
+ *      分区按顺序分组进每一行，行数 = ⌈正文数 / 每行个数⌉，且行数不会超过剩余可用行数
+ *      （行数超限时改为按「剩余行数」反推每行份数，保证放得下）。
+ *   ③ 每一行内部：宽度在 `gridCols` 里整除分配给这一行的各个分区；行之间：高度在
+ *      「剩余行数」里整除分配给各行。两处分配都用同一个 `distribute()`，性质相同：
+ *      和恒等于总量，因此**不会**在网格里凭空多出或少掉一格。
+ *
+ * 这不是"抽象上更优雅"，是这道题在"从空白构造"这个前提下唯一不需要事后补洞的做法——
+ * 后端那条路径事后要补洞，恰恰是因为它被约束在"保留已有坐标的相对版式"，这里没有
+ * 这条约束。
+ */
+export function autoFillLayout(
+  drafts: readonly SectionDraft[],
+  gridCols: 6 | 12,
+): SectionDraft[] {
+  const named = drafts.filter((d) => d.name.trim().length > 0);
+  const header = named.filter((d) => d.type === "短文本");
+  const body = named.filter((d) => d.type !== "短文本");
+
+  const placements = new Map<string, SectionLayoutDraft>();
+  let row = 1;
+
+  // ① 表头带：每行最多 gridCols 个（每个至少 1 列宽），需要几行铺几行。
+  for (let i = 0; i < header.length; i += gridCols) {
+    const rowFields = header.slice(i, i + gridCols);
+    const widths = distribute(gridCols, rowFields.length);
+    let col = 1;
+    rowFields.forEach((d, j) => {
+      const w = widths[j]!;
+      placements.set(d.sectionId, {
+        col, row, w, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号",
+      });
+      col += w;
+    });
+    row += 1;
+  }
+
+  // ② 正文：剩余的行全部铺满，不留白带。
+  const remainingRows = Math.max(1, AUTO_LAYOUT_GRID_ROWS - (row - 1));
+  if (body.length > 0) {
+    // 每行份数：优先 3 个一行（与内置模板的常见版式一致），但不能让所需行数
+    // 超过剩余可用行数——超过时改为「按剩余行数反推」，保证放得下。
+    const perRowByDefault = Math.min(gridCols, body.length, 3);
+    const rowsNeeded = Math.ceil(body.length / perRowByDefault);
+    const bodyRows = Math.min(remainingRows, rowsNeeded);
+    const perRow = Math.ceil(body.length / bodyRows);
+
+    const rowHeights = distribute(remainingRows, bodyRows);
+    let bodyRow = row;
+    for (let r = 0; r < bodyRows; r += 1) {
+      const items = body.slice(r * perRow, (r + 1) * perRow);
+      if (items.length === 0) continue;
+      const h = rowHeights[r]!;
+      const widths = distribute(gridCols, items.length);
+      let col = 1;
+      items.forEach((d, j) => {
+        const w = widths[j]!;
+        const isList = d.type === "便利贴列表";
+        placements.set(d.sectionId, {
+          col, row: bodyRow, w, h,
+          cols: isList ? clamp(Math.round(blockWidthMm(w, gridCols) / 82), 3, 8) : 3,
+          max: 6,
+          tone: r % 4,
+          overflow: "缩小字号",
+        });
+        col += w;
+      });
+      bodyRow += h;
+    }
+  }
+
+  return drafts.map((d) => (placements.has(d.sectionId) ? { ...d, layout: placements.get(d.sectionId)! } : d));
+}
+
+/** 把 `total` 拆成 `count` 份正整数，和恒等于 `total`——余数分给靠前的几份。 */
+function distribute(total: number, count: number): number[] {
+  if (count <= 0) return [];
+  const base = Math.floor(total / count);
+  const rem = total % count;
+  return Array.from({ length: count }, (_, i) => base + (i < rem ? 1 : 0));
+}
+
 export function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
