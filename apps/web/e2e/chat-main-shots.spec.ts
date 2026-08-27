@@ -183,6 +183,21 @@ test("capture chat main screen — project conversation", async ({ page }) => {
     await expect(page.locator('[data-testid^="chat-material-"]').first()).toBeVisible({ timeout: 15_000 });
   }
   await shoot(page, "chat-main-project-right-panel.png", "chat-thread-detail");
+
+  /**
+   * D5 后半（chat-main-fidelity-rubric.md）—— agent 消息身份行的 skill chip。
+   * 真挂载 `CHAT_READ_E2E.mountableSkillId`（种子已发布、已启用），再发一条新消息，
+   * 断言这条**新**回复的身份行带着 `skill: {mountableSkillName}`——不是断言"面板
+   * 显示挂了什么"，是断言"这条消息发出那一刻处于挂载状态的 skill 真的显示出来了"
+   * （`agentSkillLabel` 按 `mountedAt`/`removedAt` 时间窗回查，见组件头注）。
+   */
+  await page.getByTestId("chat-skill-mount").click();
+  await page.getByTestId(`chat-skill-mount-option-${CHAT_READ_E2E.mountableSkillId}`).click();
+  await page.getByTestId(`chat-skill-mounted-${CHAT_READ_E2E.mountableSkillId}`).waitFor({ state: "visible", timeout: 10_000 });
+  await page.getByTestId("chat-message-input").fill("D5 取证：这条消息发出时应挂着 skill");
+  await page.getByTestId("chat-message-submit").click();
+  await expect(page.getByText(`skill: ${CHAT_READ_E2E.mountableSkillName}`).first()).toBeVisible({ timeout: 20_000 });
+  await shoot(page, "chat-main-project-skill-chip.png", "chat-thread-detail");
 });
 
 test("capture chat main screen — personal conversation", async ({ page }) => {

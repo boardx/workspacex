@@ -17,6 +17,7 @@ import { ChatLiveMessagePanel } from "@/components/chat/chat-live-message-panel"
 import { useChatAttachments, type ChatAttachmentsController } from "@/components/chat/chat-composer-attachments";
 import { ChatRecordingPanel } from "@/components/chat/chat-recording-panel";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
+import type { ThreadSkillMount } from "@/lib/live-skill-mount";
 import { ChatPopoverCoordinatorProvider } from "@/components/chat/chat-popover-coordinator";
 import { AppShell } from "@/components/shell/app-shell";
 import { useSession } from "@/components/session/session-provider";
@@ -865,6 +866,20 @@ function ThreadDetail({
    * `ChatLiveMessagePanel` 的 longrun hint 判断措辞，不重读第二份。
    */
   const [mountedSkillCount, setMountedSkillCount] = React.useState(0);
+  /**
+   * D5（chat-main-fidelity-rubric.md）—— 同上，多转发一份完整挂载时间窗 +
+   * 已解析的 skill 名称，供 `ChatLiveMessagePanel` 按消息 `createdAt` 回查
+   * 「那一刻」处于挂载状态的 skill，渲染身份行的 skill chip。
+   */
+  const [skillMounts, setSkillMounts] = React.useState<readonly ThreadSkillMount[]>([]);
+  const [skillNames, setSkillNames] = React.useState<ReadonlyMap<string, string>>(new Map());
+  const onSkillMountsSnapshotChange = React.useCallback(
+    (mounts: readonly ThreadSkillMount[], names: ReadonlyMap<string, string>) => {
+      setSkillMounts(mounts);
+      setSkillNames(names);
+    },
+    [],
+  );
 
   if (loading && detail === null) return <CenteredState>正在读取线程详情…</CenteredState>;
   if (error) return <ErrorState testId="chat-thread-detail-error" message={error} retryTestId="chat-thread-detail-retry" onRetry={onRetry} />;
@@ -957,6 +972,8 @@ function ThreadDetail({
             onArtifactLanded={onArtifactLanded}
             onMessageSent={onMessageSent}
             hasMountedSkills={mountedSkillCount > 0}
+            skillMounts={skillMounts}
+            skillNames={skillNames}
             /*
               #728 D10 —— 会话录音（#466 步骤 7）从「消息面板之上」挪到
               「输入框正上方」，照原型的「进行中」状态卡位置。`userId` 是
@@ -988,6 +1005,7 @@ function ThreadDetail({
             mentionQuery={mentionQuery}
             onMentionMounted={() => setMentionResolvedNonce((v) => v + 1)}
             onMountsChange={setMountedSkillCount}
+            onMountsSnapshotChange={onSkillMountsSnapshotChange}
           />
         ) : null}
       </ChatPopoverCoordinatorProvider>
