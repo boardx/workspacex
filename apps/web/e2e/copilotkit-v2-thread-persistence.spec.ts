@@ -111,3 +111,36 @@ test("新建对话→线程列表出现两条→切换回第一条→历史正�
   // 具体线程 id 隔离，不是"读到了点什么就当作对"。
   await expect(page.getByTestId("copilotkit-v2-messages")).not.toContainText(secondMarker);
 });
+
+/**
+ * issue #2259 —— rev-e2e 真栈实测：`/chat` **裸路由落地**（`selectedThreadId`
+ * 初始为 `null`，不是"已经在某条线程页面上再切到另一条"）时点击侧栏已有对话，
+ * 主面板不切换、地址栏不变。
+ *
+ * 上面那条「新建对话→切换回第一条」用例**不会**复现这个缺口：它两次点击发生时
+ * 当前地址栏都**已经带着某条线程 id**（`selectedThreadId` 非空）。真实用户最常见
+ * 的路径反而是"打开 `/chat` 主入口 → 侧栏里全是历史对话 → 点一条进去"——落地那一刻
+ * `initialThreadId === null`。这里专门复现这条路径：先建一条线程留下痕迹，
+ * 再显式 `page.goto("/chat")` 回到裸路由（不是 SPA 内导航），然后点侧栏那条卡片。
+ */
+test("裸路由 /chat 落地（未选中任何线程）时点击侧栏已有对话 ⇒ 真实导航切换到该线程", async ({ page }) => {
+  await login(page);
+  await warmUpCopilotRuntimeRoute(page);
+  await page.goto("/chat");
+
+  const marker = `DA-2259-裸路由点击-${Date.now()}`;
+  await sendAndWaitEcho(page, marker);
+  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
+  const threadUrl = page.url();
+  const threadId = threadUrl.split("/").pop()!;
+
+  // 显式回到裸路由——`initialThreadId` 由 `/chat/page.tsx` 传 `null`，
+  // `selectedThreadId` 因此初始为 `null`，这正是 issue #2259 复现的落地态。
+  await page.goto("/chat");
+  await expect(page).toHaveURL(/\/chat$/);
+  await expect(page.getByTestId(`chat-thread-${threadId}`)).toBeVisible();
+
+  await page.getByTestId(`chat-thread-${threadId}`).click();
+  await page.waitForURL(threadUrl, { timeout: 15_000 });
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(marker, { timeout: 30_000 });
+});
