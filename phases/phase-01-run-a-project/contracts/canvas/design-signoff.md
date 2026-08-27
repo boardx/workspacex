@@ -271,6 +271,43 @@ mock 也无从生成。按 ADR-023 决策一，这属于「第 ③ 件的第一�
       没有 `auth_credentials` 行，结构上不能登录）？如果平台模板需要人工运营，
       这是下一步要补的缺口，不在本次范围内。
 
+## ④ 待评审的设计增量提案（2026-08-27，尚未实现，与③-补性质不同）
+
+⚠ 与上面「③-补」8 处**不一样**：那 8 处是已经在生产流量里跑、事后补登记签核的
+既成事实；下面这条是**开工前**的提案——按本文件「确认动作」一节的规则，
+`F1681`（`phases/phase-01-run-a-project/feature_list.json`）在这一条被人类确认前
+不得进 sprint claim，同 F100–F107 的既有门控。issue：
+https://github.com/boardx/workspacex/issues/2221
+
+### 9. `layoutSource`：内置 canvas 模板 chat 渲染判据改为「组织是否自定义过」
+
+**问题**：`fence-template-resolver.ts` 的 `ensureCanvasFenceTemplate` 对 19 个内置
+模板 key 恒用 `fabric-markdown` 包内原生几何，从不查组织的 `canvas_templates` 行——
+模板编辑器里对内置模板发布的自定义从未真正影响 chat 渲染（详见 issue）。
+
+**提案**：`canvas_templates` 新增列 `layout_source: 'builtin-derived' | 'user-edited'`，
+默认 `builtin-derived`；`backfill-canvas-builtin-templates.ts` 写入时显式传
+`builtin-derived`，编辑器里真人改动 sections/layout 触发的 `mintTemplateVersion`
+写 `user-edited`（判定放应用层一处，不靠 actorId/内容比对——理由见 issue「核心难点」
+一节：backfill 也是拿真实管理员账号跑的，两者在「谁提交的」上无法区分）。一旦某 key
+被标过一次 `user-edited` 不可退回。契约 `listTemplates.out` 等模板行输出加
+`layoutSource` 字段。`ensureCanvasFenceTemplate` 判据从「key 是否内置」改成
+「组织是否有该 key 的 `user-edited` 行」，查询失败/无 orgId/未自定义时退回内置
+原生几何兜底。
+
+**风险面**：这条改动是 chat 里**所有**内置 canvas 围栏渲染的唯一入口，任何组织
+的任何一条历史消息重新渲染都会经过它——不是新增一个功能，是改一条已有生产路径
+的判据。出错的后果是内置模板在 chat 里普遍渲染错（不是某一个组织的孤立故障）。
+
+**开工前请确认**：
+- [ ] 认可用「显式列 + 一次性不可退回」而不是「内容比对」或「actorId」做判据吗？
+- [ ] 认可未自定义/查询失败时静默退回内置原生几何（不报错、不提示用户），
+      而不是让围栏渲染失败吗？
+- [ ] 认可存量组织的 19 行 backfill 数据在这次迁移里统一补写
+      `layout_source = 'builtin-derived'`（即：迁移前已发布的任何内容一律视为
+      「未自定义」，哪怕运营侧手工改过库但没走 mint 流程——如实登记为已知限制，
+      不追溯重建）吗？
+
 ## 支撑材料（不在签核面，但脚本强制存在）
 
 - `domain.md` —— 36 条不变量（含 4 条跨束 🔗）+ 7 条 [待定 —— 需人类裁决]
