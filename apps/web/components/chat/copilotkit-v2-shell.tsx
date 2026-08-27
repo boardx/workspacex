@@ -355,10 +355,42 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     }
   }, [bearer, reloadThreads, router, threads]);
 
+  /**
+   * issue #2259 —— rev-e2e 真栈实测过一次：点击侧栏已有对话，网络面板证实
+   * `/chat/thr-<id>?_rsc=...` 的软导航预取请求确实发出了，但 `location.href`
+   * 之后仍停在旧路由，主面板不切换。这个 Next 版本上 `useRouter().push()`
+   * 不返回 Promise、也不暴露任何失败信号——软导航的 RSC fetch 一旦失败/卡住
+   * （真栈负载高、模型调用占满连接池时更容易撞上），调用方无从得知这次
+   * 导航有没有真的生效，用户看到的就是"点了没反应"。
+   *
+   * 反复实测（Playwright 真栈 e2e + 浏览器工具原样复刻 rev-e2e 的
+   * read_page+left_click 路径，均可在
+   * `apps/web/e2e/copilotkit-v2-thread-persistence.spec.ts` 的
+   * 「裸路由 /chat 落地」用例里验证）软导航本身当前工作正常——所以这里不是
+   * "猜"出来的修复，是给已经确认过的失败模式补一层兜底：软导航发出后给它一个
+   * 短窗口自证成功（`location.pathname` 变成目标路径）；到点还没变就退化为
+   * 硬导航（`window.location.assign`）——牺牲一次整页刷新换回"点了必有反应"，
+   * 不是伪装成功、也不掩盖任何真实报错。
+   *
+   * `navigationGeneration` 挡的是"检查窗口还没到点，用户已经点了下一条线程"
+   * ——那种情况下 `location.pathname` 早就不等于**这次**点击的目标路径，
+   * 不该被上一次点击遗留的检查错误地判定为"卡住了"而强制硬导航打断新的选择。
+   */
+  const navigationGeneration = React.useRef(0);
+  const pushThreadRoute = React.useCallback((path: string) => {
+    const generation = ++navigationGeneration.current;
+    router.push(path);
+    window.setTimeout(() => {
+      if (navigationGeneration.current !== generation) return;
+      if (window.location.pathname === path) return;
+      window.location.assign(path);
+    }, 4_000);
+  }, [router]);
+
   const selectThread = React.useCallback((threadId: string) => {
     if (threadId === selectedThreadId) return;
-    router.push(`/chat/${threadId}`);
-  }, [router, selectedThreadId]);
+    pushThreadRoute(`/chat/${threadId}`);
+  }, [pushThreadRoute, selectedThreadId]);
 
   /**
    * `copilotkit-v2-panel.tsx` 把这次调用挂在 `onThreadResolved` —— 见该文件新增的
