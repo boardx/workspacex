@@ -32,6 +32,7 @@ import {
   interview,
   orgAdmin,
   personalRealtimeTranscription,
+  planControl,
   project,
   research,
   recording,
@@ -465,7 +466,24 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    * 另一个操作。
    */
   const agentRuntimeError = agentRuntime.AgentRuntimeError.safeParse(raw);
-  return agentRuntimeError.success ? { reasonCode: agentRuntimeError.data } : {};
+  if (agentRuntimeError.success) return { reasonCode: agentRuntimeError.data };
+
+  /**
+   * 本 PR（plan-control 契约束 UC-3…UC-10/UC-13 补 HTTP 面）：`PlanControlError`
+   * ——第十六个闭集枚举，**同一个 bug 又一次**（第八次），实测撞见的方式与
+   * `#595 SkillUrlImportError`、`orgAdmin` 那几条完全一样：先写完 controller，
+   * 真实 HTTP 往返测试断言 `reasonCode`，收到 `undefined`——这份文件是**允许列表**，
+   * 没登记的码会被静默丢弃，`PLAN_REVISION_CHANGED`/`PLAN_CONSTRAINT_BLANK`/
+   * `NO_ACTIVE_RUN`… 一律只剩一个光秃秃的 `{"error":"conflict"}`。
+   *
+   * `plan-edit-support.ts`/`confirm-plan.ts`/`pause-plan-run.ts` 等应用层函数
+   * 抛出的 `PlanEditError` 携带的码本就是 `PlanControlError` 的子集
+   * （`plan-edit-errors.ts` 的 `PlanEditErrorCode` 用 `Extract<PlanControlError, …>`
+   * 定义），controller 层 `HttpException({reasonCode: e.code}, status)` 直接透传，
+   * 这里只是把它接进既有闭集校验，不引入新码、不放开枚举外的任意字符串。
+   */
+  const planControlError = planControl.PlanControlError.safeParse(raw);
+  return planControlError.success ? { reasonCode: planControlError.data } : {};
 }
 
 function researchConflictDetailOf(exception: HttpException): { latestProjection?: unknown } {

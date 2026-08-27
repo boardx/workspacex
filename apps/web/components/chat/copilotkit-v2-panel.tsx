@@ -31,6 +31,7 @@ import {
 } from "@/components/chat/copilotkit-v2-message-actions";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
 import { CopilotKitV2AgentInterrupts } from "@/components/chat/copilotkit-v2-agent-interrupts";
+import { CopilotKitV2PlanControl } from "@/components/chat/copilotkit-v2-plan-control";
 import { ChatLiveAnnouncer, announceToChat } from "@/components/chat/chat-live-announcer";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
@@ -1828,6 +1829,15 @@ function CopilotKitV2PanelBody({
             仅用于登记 hook"纪律，不需要跟下面的 `useHumanInTheLoop`（send_email）
             挤进同一个组件。 */}
         <CopilotKitV2AgentInterrupts />
+        {/* 本 PR —— F972-F978（plan-control 契约束）接入真实聊天渲染树，见
+            `copilotkit-v2-plan-control.tsx` 文件头注（挂载理由、数据源、已发现的三处
+            设计缺口）。`ui.md` S1 写"六态指示器落在消息流顶部"——放在
+            `messagesContainerRef` 这个可滚动容器外面（不随消息滚走），是这里对
+            "顶部常驻"的读法：计划状态是横跨整条对话的态，不是某一条消息，用户不该
+            因为往下翻消息就看不见当前在哪一态。`threadId={null}` 时（新对话尚未发出
+            第一条消息）组件自己返回 `null`，不占位——与下面 `resolvedChatThreadId`
+            state 的既有语义一致（issue #2052）。 */}
+        <CopilotKitV2PlanControl threadId={resolvedChatThreadId} />
         {/* 2026-08-25 人类 devapp 实测指令：不给用户看调试字样——原来这里有一行
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
             与 #1830「用户可见文案去掉开发者词汇」同一条裁决，整行移除。 */}
