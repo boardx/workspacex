@@ -90,6 +90,13 @@ export async function generateThreadTitle(
   deps: GenerateThreadTitleDeps,
   input: { readonly firstMessageText: string },
 ): Promise<string | null> {
+  // ⚠ `readThreadTitleModelConfig` 在开关关闭时把 `provider` 读成 `""`——这里就地
+  // 短路，不去碰 `deps.model.complete`。这条路径挂在 `acceptHumanMessage` 上，是
+  // **每一条线程首条消息**都会走的通路：没有这个短路，任何用同一个 mock provider
+  // 断言"模型被调用几次/带了什么内容"的既有测试，只要发的是线程首条消息，调用计数
+  // 就会被这次额外的起名调用污染——这不是假设，是 `KERNEL_THREAD_TITLE_MODEL_ENABLED`
+  // 上线前实测踩出来的（gates-test shard 1/4）。
+  if (deps.titleModel.provider === "") return null;
   let completion: { readonly text: string };
   try {
     completion = await Promise.race([

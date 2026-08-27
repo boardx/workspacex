@@ -138,6 +138,10 @@ beforeAll(async () => {
   await migrateOnce();
   await asOwner((c) => createChatWave2FixtureSchema(c));
   await startProvider();
+  // 本文件是仅有的两个真调这条路径的文件之一（另一个是
+  // thread-title-and-status.test.ts）——默认关，见 `thread-title-model-config.ts`
+  // 头注：不这样开，`readThreadTitleModelConfig` 读到的 provider 恒为 `""`。
+  process.env.KERNEL_THREAD_TITLE_MODEL_ENABLED = "1";
   process.env.KERNEL_MODEL_PROVIDER = PROVIDER;
   process.env.KERNEL_MODEL_BASE_URL = providerBase;
   process.env.KERNEL_MODEL_API_KEY = API_KEY;
@@ -156,6 +160,7 @@ afterAll(async () => {
   providerServer.closeAllConnections();
   await new Promise<void>((resolve) => providerServer.close(() => resolve()));
   await asOwner((c) => c.query("DROP SCHEMA IF EXISTS chat_wave2_fixture CASCADE"));
+  delete process.env.KERNEL_THREAD_TITLE_MODEL_ENABLED;
   delete process.env.KERNEL_MODEL_PROVIDER;
   delete process.env.KERNEL_MODEL_BASE_URL;
   delete process.env.KERNEL_MODEL_API_KEY;
