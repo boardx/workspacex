@@ -36,6 +36,24 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
     .toBe(200);
 }
 
+/**
+ * issue #2175 复核 —— `toBeEnabled()` 隐含"没有别的原因会让按钮 disabled"这条假设，
+ * 在 issue #2130（TW-P0-5④，`49cda935`）之后不再成立：composer 在触发词发出后已清空，
+ * "输入为空"是 `sendDisabledReason` 独立给出的合法禁用理由，与"是否还卡在 run 里"无关。
+ * 这里只判"不再卡在 run"这一条真正要验的信号（见 `copilotkit-v2-hitl.spec.ts` 里同名
+ * helper 的头注——本轮独立复验过，换成这条后本文件断言的"横幅之后界面仍可用"仍然
+ * 由紧随其后真正 fill+send 第二轮消息坐实，未被削弱）。
+ */
+const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
+async function expectSendNotBlockedOnRun(
+  page: import("@playwright/test").Page,
+  timeoutMs = 30_000,
+): Promise<void> {
+  await expect
+    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
+    .not.toBe(RUNNING_DISABLED_REASON);
+}
+
 test.setTimeout(120_000);
 
 test("DA-19g 错误处理透明度——真实失败场景下 UI 出现人类可读的失败横幅，且横幅之后界面仍可用", async ({ page }) => {
@@ -90,7 +108,9 @@ test("DA-19g 错误处理透明度——真实失败场景下 UI 出现人类可
   // 这里验证的是"非 HITL 相关的普通失败"这条路径本身是否干净：HITL 终态死锁已经在
   // PR #2000 修过（`copilotkit-v2-hitl-dialog-dismiss.spec.ts` 覆盖），本测试触发的
   // 是一次完全不涉及 HITL 的普通模型调用失败。
-  await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled({ timeout: 10_000 });
+  // issue #2175 -- see `expectSendNotBlockedOnRun`'s own doc: composer is empty here
+  // ("请先输入任务目标" is its own legitimate disabled reason, unrelated to the run failure).
+  await expectSendNotBlockedOnRun(page, 10_000);
   await expect(page.getByTestId("copilotkit-v2-input")).toBeEditable();
 
   const secondTurnText = "DA-19g 错误横幅之后的第二轮——界面应当仍可正常发送新消息";
@@ -99,7 +119,8 @@ test("DA-19g 错误处理透明度——真实失败场景下 UI 出现人类可
 
   const messages = page.getByTestId("copilotkit-v2-messages");
   await expect(messages).toContainText(secondTurnText, { timeout: 20_000 });
-  await expect
-    .poll(async () => await page.getByTestId("copilotkit-v2-send").isDisabled(), { timeout: 30_000 })
-    .toBe(false);
+  // issue #2175 -- same fix as above: composer is empty again after this second send
+  // succeeds ("请先输入任务目标" would make a raw `isDisabled()===false` poll time out
+  // forever even though the run itself finished cleanly); only assert "not stuck on run".
+  await expectSendNotBlockedOnRun(page);
 });
