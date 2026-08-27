@@ -2,6 +2,7 @@
 import * as React from "react";
 import type { SectionDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -30,12 +31,14 @@ const GRID_ROWS = 8;
 
 export function TemplateCanvasGrid({
   sections, gridCols, showSample, runData, selectedId, editable,
-  title, footer,
+  title, footer, paperSize = "A1",
   onSelect, onPlace, onMove,
 }: {
   readonly sections: readonly SectionDraft[];
   readonly gridCols: 6 | 12;
   readonly showSample: boolean;
+  /** 纸张尺寸——决定纸面比例/页边距/mm 换算。缺省 `"A1"`，兼容既有调用方。 */
+  readonly paperSize?: PaperSizeKey;
   /**
    * 试运行数据：AI 输出 JSON 的形状（`{ [key]: string | string[] }`）。
    * 非 null 时**压过**样例开关——人类既然给了真数据，就不该再看见占位文案。
@@ -104,12 +107,17 @@ export function TemplateCanvasGrid({
         // 标题/页脚字号用 `cqw`（纸宽的百分比）而不是 px：编辑器画布会随窗口变宽变窄，
         // 固定 px 在窄屏上会让标题占掉大半张纸。`cqw` 需要一个容器查询上下文。
         containerType: "inline-size",
-        // A1 横版真实比值，同缩略图与 mm 计算共用一个来源（`Design.pdf` §5「纸面」）。
-        aspectRatio: "841 / 594",
+        // 纸面真实比值，同缩略图与 mm 计算共用一个来源（`Design.pdf` §5「纸面」）。
+        // ⚠ 从 `PAPER_SIZE_MM` 算，不手写字面量——A1/A3/A4 恰好同一个宽高比（√2:1，
+        //   ISO 系列的定义性质），所以三档视觉上几乎不变，但仍是"算出来的"不是
+        //   "碰巧对"，见 `explicit-template-layout.ts` 的 `PAPER_SIZE_MM` 文件头。
+        aspectRatio: `${PAPER_SIZE_MM[paperSize].w} / ${PAPER_SIZE_MM[paperSize].h}`,
         background: "#fff",
         border: "1px solid var(--border, #D6D3CA)",
-        // 四边 10mm 页边距，按比例实现：10/841 = 1.189%（`Design.pdf` §5「页边距」原话）。
-        padding: "1.189%",
+        // 四边 10mm 页边距，按比例实现——⚠ 页边距固定 10mm 不随纸张缩放，所以百分比
+        //   要按**这张纸自己的宽度**算，不能沿用 A1 的 1.189%（A4 纸上 10mm 占比
+        //   远大于 A1，写死会让 A4 画布的页边距看起来"缺了一截"）。
+        padding: `${(A1_MARGIN_MM / PAPER_SIZE_MM[paperSize].w) * 100}%`,
         gridTemplateColumns: "1fr",
         // 标题带 / 内容 / 页脚带。空文本时那一行**不渲染**，高度塌成 0。
         //
@@ -185,7 +193,7 @@ export function TemplateCanvasGrid({
       >
         {placed.map((s) => {
           const layout = s.layout!;
-          const geom = sectionGeometryMmOf(s, gridCols);
+          const geom = sectionGeometryMmOf(s, gridCols, paperSize);
           const isList = s.type === "便利贴列表";
           // 实际渲染几条：受"最多条数"与"这块地方放得下几条"双重约束——
           // 画出来的东西不能比物理上放得下的还多，那是在骗人。

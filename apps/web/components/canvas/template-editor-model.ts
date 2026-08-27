@@ -10,7 +10,8 @@
  */
 import type { CanvasTemplate } from "@/lib/live-canvas";
 import {
-  sectionGeometryMm, classifyNoteSize, A1_CONTENT_MM, GRID_GAP_MM,
+  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM,
+  type PaperSizeKey,
   type SectionGeometryMm,
 } from "@/lib/canvas/explicit-template-layout";
 
@@ -100,7 +101,7 @@ export function toContractSections(drafts: readonly SectionDraft[]): CanvasTempl
 
 /** 新放到画布上的区块的默认布局（`Design.pdf` §4.2「落点即位置」那几条）。 */
 export function defaultLayoutAt(
-  type: SectionFieldType, col: number, row: number, gridCols: 6 | 12,
+  type: SectionFieldType, col: number, row: number, gridCols: 6 | 12, size: PaperSizeKey = "A1",
 ): SectionLayoutDraft {
   // 新区块默认宽度为半幅（12 列制下 6 列），越界时夹回画布内。
   const w = Math.min(gridCols === 12 ? 6 : 3, gridCols - col + 1);
@@ -110,15 +111,15 @@ export function defaultLayoutAt(
     col, row, w, h,
     // 默认 cols 由物理宽度推出：round(区块宽mm / 82)，夹在 3-8，
     // 使贴纸落在 76mm 标准附近（`Design.pdf` §4.2 原话）。
-    cols: type === "便利贴列表" ? clamp(Math.round(blockWidthMm(w, gridCols) / 82), 3, 8) : 3,
+    cols: type === "便利贴列表" ? clamp(Math.round(blockWidthMm(w, gridCols, size) / 82), 3, 8) : 3,
     max: 6,
     tone: 0,
     overflow: "缩小字号",
   };
 }
 
-function blockWidthMm(w: number, gridCols: 6 | 12): number {
-  return (w / gridCols) * A1_CONTENT_MM.w - GRID_GAP_MM;
+function blockWidthMm(w: number, gridCols: 6 | 12, size: PaperSizeKey = "A1"): number {
+  return (w / gridCols) * contentMmFor(size).w - GRID_GAP_MM;
 }
 
 const AUTO_LAYOUT_GRID_ROWS = 8;
@@ -157,6 +158,7 @@ const AUTO_LAYOUT_GRID_ROWS = 8;
 export function autoFillLayout(
   drafts: readonly SectionDraft[],
   gridCols: 6 | 12,
+  size: PaperSizeKey = "A1",
 ): SectionDraft[] {
   const named = drafts.filter((d) => d.name.trim().length > 0);
   const header = named.filter((d) => d.type === "短文本");
@@ -203,7 +205,7 @@ export function autoFillLayout(
         const isList = d.type === "便利贴列表";
         placements.set(d.sectionId, {
           col, row: bodyRow, w, h,
-          cols: isList ? clamp(Math.round(blockWidthMm(w, gridCols) / 82), 3, 8) : 3,
+          cols: isList ? clamp(Math.round(blockWidthMm(w, gridCols, size) / 82), 3, 8) : 3,
           max: 6,
           tone: r % 4,
           overflow: "缩小字号",
@@ -241,10 +243,12 @@ export function clampLayout(layout: SectionLayoutDraft, gridCols: 6 | 12): Secti
   };
 }
 
-export function sectionGeometryMmOf(s: SectionDraft, gridCols: 6 | 12): SectionGeometryMm {
+export function sectionGeometryMmOf(
+  s: SectionDraft, gridCols: 6 | 12, size: PaperSizeKey = "A1",
+): SectionGeometryMm {
   const layout = s.layout;
   if (!layout) return { wMm: 0, hMm: 0, noteMm: 0, rows: 0, fits: 0 };
-  return sectionGeometryMm({ w: layout.w, h: layout.h, cols: layout.cols, gridCols });
+  return sectionGeometryMm({ w: layout.w, h: layout.h, cols: layout.cols, gridCols, size });
 }
 
 /**
@@ -308,14 +312,14 @@ export function extractPromptPlaceholders(promptText: string): string[] {
 }
 
 export function checkTemplateHealth(
-  drafts: readonly SectionDraft[], gridCols: 6 | 12, promptText = "",
+  drafts: readonly SectionDraft[], gridCols: 6 | 12, promptText = "", size: PaperSizeKey = "A1",
 ): TemplateHealth {
   const named = drafts.filter((d) => d.name.trim().length > 0);
   const unplaced = named.filter((d) => d.layout === null);
   const overflowing: { section: SectionDraft; max: number; fits: number }[] = [];
   for (const d of named) {
     if (!d.layout || d.type !== "便利贴列表") continue;
-    const geom = sectionGeometryMmOf(d, gridCols);
+    const geom = sectionGeometryMmOf(d, gridCols, size);
     if (d.layout.max > geom.fits) overflowing.push({ section: d, max: d.layout.max, fits: geom.fits });
   }
   const seen = new Set<string>();

@@ -183,6 +183,8 @@ describe("#496 · POST /canvas/templates 真的造出一行", () => {
       tags: [],
       // #2221：新建这一行恒为 builtin-derived——服务端写死，创建这一刻还没有内容可言。
       layoutSource: "builtin-derived",
+      // 2026-08-27：`createBody()` 不传 `size`——省略在契约层归一成 `"A1"`。
+      size: "A1",
     });
 
     // 持久面重新读一遍——响应体可以只是把入参回显了一遍。

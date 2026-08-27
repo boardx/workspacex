@@ -99,6 +99,10 @@ export async function adoptTemplate(
     sections: master.sections.map((sec) => ({ ...sec })),
     visibility: "org-wide",
     tags: [...master.tags],
+    // 母版的纸张尺寸原样带过来——「加入我的组织」复制的是母版当前的样子，
+    // 不该让 fork 出来的行悄悄退回默认 A1（母版若是 A3/A4，分区坐标是按那个
+    // 尺寸摆的，换成 A1 会让贴纸容量/mm 体检结果与母版实际长相对不上）。
+    size: master.size,
   });
 
   await publishTemplate(deps, {

@@ -22,6 +22,7 @@ import {
   FIELD_TYPES,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
+import { PAPER_SIZE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 模板编辑器（R3-R5，2026-08-26）——`Design.pdf` §4「界面二：拖拽式画布编辑器」。
@@ -104,6 +105,9 @@ export function TemplateEditorPanel({
   const [sections, setSections] = React.useState<SectionDraft[]>(() => toDraft(row));
   const [step, setStep] = React.useState<1 | 2 | 3>(() => (toDraft(row).some((s) => s.layout) ? 2 : 1));
   const [gridCols, setGridCols] = React.useState<6 | 12>(12);
+  // 纸张尺寸——2026-08-27 人类原话：「模板可以选择 A1，A3，A4 等大小」。内容相关
+  // 字段（同 sections），不是装帧：影响 mm 换算，因此进体检、进脏检查、进保存。
+  const [paperSize, setPaperSize] = React.useState<PaperSizeKey>((row.size ?? "A1") as PaperSizeKey);
   const [showSample, setShowSample] = React.useState(true);
   // 试运行是**两个**状态，不是一个：抽屉开着 ≠ 已经渲染。人类可以开着抽屉边改边看，
   // 也可以关掉抽屉留着渲染结果继续调版式——合成一个状态就会让"关抽屉"顺手把结果清掉。
@@ -130,8 +134,8 @@ export function TemplateEditorPanel({
   // ⚠ `promptText` 必须进体检：§6 规则③ 的可达形态是「提示词里写了字段表没有的
   //   占位符」，见 `TemplateHealth.danglingPlaceholders` 的文档。
   const health = React.useMemo(
-    () => checkTemplateHealth(sections, gridCols, promptText),
-    [sections, gridCols, promptText],
+    () => checkTemplateHealth(sections, gridCols, promptText, paperSize),
+    [sections, gridCols, promptText, paperSize],
   );
   const selected = sections.find((s) => s.sectionId === selectedId) ?? null;
 
@@ -140,6 +144,7 @@ export function TemplateEditorPanel({
     || title !== row.title
     || footer !== row.footer
     || promptText !== row.promptText
+    || paperSize !== (row.size ?? "A1")
     || JSON.stringify(toContractSections(sections)) !== JSON.stringify(row.sections)
   );
 
@@ -169,7 +174,7 @@ export function TemplateEditorPanel({
   function place(sectionId: string, col: number, row_: number): void {
     setSections((prev) => prev.map((s) => {
       if (s.sectionId !== sectionId) return s;
-      return { ...s, layout: clampLayout(defaultLayoutAt(s.type, col, row_, gridCols), gridCols) };
+      return { ...s, layout: clampLayout(defaultLayoutAt(s.type, col, row_, gridCols, paperSize), gridCols) };
     }));
     // 放下后自动选中该区块并跳到第三步（§4.2 原话）。
     setSelectedId(sectionId);
@@ -283,6 +288,7 @@ export function TemplateEditorPanel({
           sections: contractSections,
           visibility: row.visibility,
           tags: [...(row.tags ?? [])],
+          size: paperSize,
         });
         await saveChrome();
         await onSaved(
@@ -302,6 +308,7 @@ export function TemplateEditorPanel({
         sections: contractSections,
         visibility: row.visibility,
         tags: [...(row.tags ?? [])],
+        size: paperSize,
       });
       await saveChrome(minted.version);
 
@@ -367,8 +374,36 @@ export function TemplateEditorPanel({
           {row.displayName} · 模板编辑
         </h1>
         <span className="whitespace-nowrap rounded-xl bg-muted px-2 py-0.5 text-10 font-semibold text-muted-foreground" data-testid="tpladmin-editor-a1-badge">
-          A1 横版 841×594mm · 内容区 821×574
+          {paperSize} 横版 {PAPER_SIZE_MM[paperSize].w}×{PAPER_SIZE_MM[paperSize].h}mm ·
+          内容区 {PAPER_SIZE_MM[paperSize].w - 20}×{PAPER_SIZE_MM[paperSize].h - 20}
         </span>
+        {/*
+          纸张尺寸选择器——2026-08-27 人类原话：「模板可以选择 A1，A3，A4 等大小」。
+          只在 `editable` 时给：只读态（已归档/无权限）不该有任何会改数据的控件。
+          ⚠ 切尺寸不会自动重排现有区块——12×8 网格坐标不变，变的只是每格代表的
+          物理 mm 数（同一个 col/row/w/h，在 A4 上贴纸实尺比 A1 上小）。若切完之后
+          贴纸装不下，体检会如实报「溢出」，不会静默吞掉——这与"选择了这个尺寸就必须
+          覆盖这个区域"并不矛盾：网格本身恒是 12×8 全覆盖，缺的是"贴得下多少内容"，
+          不是"占不占得满网格"，两件事分开由体检各自的规则判。
+        */}
+        {editable && (
+          <div className="flex items-center gap-1" data-testid="tpladmin-editor-papersize-picker">
+            {(Object.keys(PAPER_SIZE_MM) as PaperSizeKey[]).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setPaperSize(s)}
+                className={`rounded-control border px-2 py-0.5 text-10 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  paperSize === s ? "border-inverse bg-inverse text-inverse-foreground" : "border-border text-muted-foreground hover:bg-muted"
+                }`}
+                aria-pressed={paperSize === s}
+                data-testid={`tpladmin-editor-papersize-${s}`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
         <Badge tone={row.status === "published" ? "primary" : row.status === "draft" ? "warning" : row.status === "trial" ? "outline" : "neutral"}>
           {TEMPLATE_STATUS_LABEL[row.status]}
         </Badge>
@@ -599,7 +634,7 @@ export function TemplateEditorPanel({
               {editable && (
                 <button
                   type="button"
-                  onClick={() => setSections((prev) => autoFillLayout(prev, gridCols))}
+                  onClick={() => setSections((prev) => autoFillLayout(prev, gridCols, paperSize))}
                   className="rounded-control border border-border px-2 py-0.5 text-10 transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   data-testid="tpladmin-editor-autolayout"
                 >
@@ -686,6 +721,7 @@ export function TemplateEditorPanel({
                 footer={footer}
                 selectedId={selectedId}
                 editable={editable}
+                paperSize={paperSize}
                 onSelect={(id) => { setSelectedId(id); setStep(3); }}
                 onPlace={place}
                 onMove={move}
@@ -712,6 +748,7 @@ export function TemplateEditorPanel({
             title={title}
             footer={footer}
             promptText={promptText}
+            paperSize={paperSize}
             onClose={() => setSimulateOpen(false)}
           />
         )}
@@ -729,6 +766,7 @@ export function TemplateEditorPanel({
             gridCols={gridCols}
             health={health}
             editable={editable}
+            paperSize={paperSize}
             onPatch={(patch) => { if (selectedId) patchLayout(selectedId, patch); }}
             onRemove={() => {
               if (!selectedId) return;

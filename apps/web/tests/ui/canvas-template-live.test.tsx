@@ -119,6 +119,12 @@ interface TemplateRow {
   footer?: string;
   promptText?: string;
   platform?: boolean;
+  /**
+   * 2026-08-27 纸张尺寸预设——同上面那段注释的既有纪律：夹具随契约一起扩展，
+   * 不补齐会在运行时读 `PAPER_SIZE_MM[undefined]` 炸掉（`template-admin.tsx`
+   * 卡片上「{t.size} 横版」那行），2026-08-27 实测确认过。
+   */
+  size?: "A1" | "A3" | "A4";
 }
 
 function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
@@ -132,7 +138,7 @@ function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
     underlyingType: "canvas",
     sections: [{ sectionId: "s1", name: "基本信息", order: 0, required: true, capacity: null }],
     usageCount: 41,
-    title: "", footer: "", promptText: "", platform: false,
+    title: "", footer: "", promptText: "", platform: false, size: "A1",
     ...overrides,
   };
 }
@@ -386,6 +392,7 @@ describe("2026-08-23 新建只问名字——分区/key/生命周期都不在这
         return jsonResponse({
           key: body["key"], displayName: body["displayName"], version: 1, status: "draft",
           builtin: false, visibility: "org-wide", underlyingType: "canvas", sections: [],
+          size: "A1",
         }, 201);
       }
       listCalls += 1;
@@ -440,6 +447,7 @@ describe("2026-08-23 新建只问名字——分区/key/生命周期都不在这
         return jsonResponse({
           key: body.key, displayName: "撞名", version: 1, status: "draft",
           builtin: false, visibility: "org-wide", underlyingType: "canvas", sections: [],
+          size: "A1",
         }, 201);
       }
       return jsonResponse({ templates: [] });
@@ -582,6 +590,7 @@ describe("#988 「基于此开新版」——本束「编辑」的真实入口",
           key: "persona", displayName: "用户画像 v4", version: 4, status: "draft",
           builtin: false, visibility: "org-wide", underlyingType: "canvas",
           sections: [{ sectionId: "s1", name: "基本信息", order: 0, required: true, capacity: null }],
+          size: "A1",
         }, 201);
       }
       listCalls += 1;
@@ -812,6 +821,7 @@ describe("2026-08-22 模板管理可用性改进", () => {
         return jsonResponse({
           key: "swot", displayName: "另一个用户画像", version: 2, status: "draft",
           builtin: false, visibility: "org-wide", underlyingType: "canvas", sections: [],
+          size: "A1",
         }, 201);
       }
       listCalls += 1;
@@ -1142,7 +1152,7 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
         return jsonResponse({
           key: "swot", version: 1, status: "draft", displayName: body["displayName"],
           builtin: false, visibility: body["visibility"], underlyingType: "canvas",
-          sections: body["sections"], tags: [],
+          sections: body["sections"], tags: [], size: "A1",
         });
       }
       return withFields();
