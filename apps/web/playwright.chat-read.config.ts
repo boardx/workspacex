@@ -458,6 +458,10 @@ export default defineConfig({
         // #1584 e2e —— 附件预览/下载弹窗的专属线程，不与上面那条共写（曾经共写过，
         // `verify:chat-read` 整套跑时互相污染，见 `chat-read-fixture.ts` 同名字段头注）。
         CHAT_E2E_ATTACHMENT_PREVIEW_THREAD_ID: CHAT_READ_E2E.attachmentPreviewThreadId,
+        // issue #1610 —— `chat-diagram-save-reopen-roundtrip.spec.ts` 的专属线程，不再
+        // 与 `chat-read.spec.ts` 共写 `CHAT_E2E_THREAD_ID`，见 `chat-read-fixture.ts`
+        // 同名字段头注。
+        CHAT_E2E_DIAGRAM_ROUNDTRIP_THREAD_ID: CHAT_READ_E2E.diagramRoundtripThreadId,
         // context-engine 浏览器 e2e —— L2 滚动摘要 / F190 工具轨迹回喂的两条专属线程，
         // 见 `chat-read-fixture.ts` 同名字段与 `seed-chat-read-e2e.ts` 的头注。
         CHAT_E2E_L2_CHECK_THREAD_ID: CHAT_READ_E2E.l2CheckThreadId,

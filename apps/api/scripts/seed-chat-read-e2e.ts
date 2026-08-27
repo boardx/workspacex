@@ -104,6 +104,11 @@ const IMAGE_VISION_THREAD_ID = required("CHAT_E2E_IMAGE_VISION_THREAD_ID");
  */
 const ATTACHMENT_PREVIEW_THREAD_ID = required("CHAT_E2E_ATTACHMENT_PREVIEW_THREAD_ID");
 /**
+ * issue #1610 —— `chat-diagram-save-reopen-roundtrip.spec.ts` 的专属线程（见
+ * `chat-read-fixture.ts` 同名字段的头注）。零预置消息，同一套 #1324 起确立的隔离惯例。
+ */
+const DIAGRAM_ROUNDTRIP_THREAD_ID = required("CHAT_E2E_DIAGRAM_ROUNDTRIP_THREAD_ID");
+/**
  * context-engine 浏览器 e2e —— 两条专属线程，**不是**零预置消息：L2 滚动摘要与 F190
  * 工具轨迹回喂都要求"早期内容已经被挤出 L1 近端窗口"这个前提成立，下面会为它们各自
  * 灌入足够多的填充消息（见 `pad()`），同 `apps/api/tests/chat/agent-run-context-
@@ -203,6 +208,7 @@ for (const [id, title] of [
   [CONTEXT_CHECK_THREAD_ID, "Context check fixture thread"],
   [IMAGE_VISION_THREAD_ID, "Image vision extraction fixture thread"],
   [ATTACHMENT_PREVIEW_THREAD_ID, "Attachment preview fixture thread"],
+  [DIAGRAM_ROUNDTRIP_THREAD_ID, "Diagram save/reopen roundtrip fixture thread"],
   [L2_CHECK_THREAD_ID, "L2 rolling summary check fixture thread"],
   [TOOL_TRACE_CHECK_THREAD_ID, "Tool trace cross-run check fixture thread"],
   [KEYBOARD_THREAD_A_ID, "Keyboard reachability check thread A"],
@@ -348,7 +354,7 @@ await asApp(ORG_ID, async (client) => {
   // 先走「加进编制」那一步，`chat-live-message-panel.tsx` 默认选中唯一在场的 agent。
   for (const threadId of [
     SKILL_MOUNT_THREAD_ID, CAUSAL_CHECK_THREAD_ID, CONTEXT_CHECK_THREAD_ID, IMAGE_VISION_THREAD_ID,
-    ATTACHMENT_PREVIEW_THREAD_ID,
+    ATTACHMENT_PREVIEW_THREAD_ID, DIAGRAM_ROUNDTRIP_THREAD_ID,
     L2_CHECK_THREAD_ID, TOOL_TRACE_CHECK_THREAD_ID,
     KEYBOARD_THREAD_A_ID, KEYBOARD_THREAD_B_ID,
   ]) {
@@ -685,6 +691,7 @@ process.stdout.write(
   + `skillMountThread=${SKILL_MOUNT_THREAD_ID} causalCheckThread=${CAUSAL_CHECK_THREAD_ID} `
   + `contextCheckThread=${CONTEXT_CHECK_THREAD_ID} imageVisionThread=${IMAGE_VISION_THREAD_ID} `
   + `attachmentPreviewThread=${ATTACHMENT_PREVIEW_THREAD_ID} `
+  + `diagramRoundtripThread=${DIAGRAM_ROUNDTRIP_THREAD_ID} `
   + `l2CheckThread=${L2_CHECK_THREAD_ID} toolTraceCheckThread=${TOOL_TRACE_CHECK_THREAD_ID} `
   + `keyboardThreadA=${KEYBOARD_THREAD_A_ID} keyboardThreadB=${KEYBOARD_THREAD_B_ID}\n`,
 );
