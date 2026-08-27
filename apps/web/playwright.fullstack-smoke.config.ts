@@ -306,6 +306,11 @@ export default defineConfig({
         //   可挂载 skill / 可运行 agent——同 `chat-vision-honest-degrade.spec.ts` 的理由，
         //   复用现成夹具，不重新发明 chat 链路。
         "feedback-loop-smoke.spec.ts",
+        // ⚠ 2026-08-27 chat 模拟（`TemplateSimulateDialog`）同理排在 `seeded`：它同样
+        //   要用种子里的组织管理员（`FULLSTACK_E2E.adminEmail`，唯一有权改模板的角色）。
+        //   来源模板现场建 + 发布（复用 #496 已门控的路径），不往种子里塞——理由同
+        //   `mintSourceKey` 那段：往种子里加一条 published 行会打红管理员空态反空转断言。
+        "canvas-template-simulate-smoke.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
