@@ -26,6 +26,17 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { identity as C } from "@repo/contracts";
 import { addCapability, addOrgMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
+
+/**
+ * design-delta `platform-owned-skills`（2026-08-27）：kind=skill 不再是"没配置就是
+ * 空"——四个官方 skill（`backfillPlatformSkills()`）对每一个 org 恒可见，与该 org
+ * 自己是否配置过任何 skill 无关。这不是本文件要守的"无内置清单"被破了：那四个是
+ * `org-platform` 下真实存在的**数据行**，不是产品源码里的硬编码列表（本文件静态
+ * 半的门控查的是那个）——只是这份数据现在恒非空,下面两条"未配置=空"的断言需要把
+ * skill 这一种单独摘出来核对。
+ */
+const PLATFORM_SKILL_IDS = OFFICIAL_SKILLS.map((s) => `cap-skill-platform-${s.stableName}`).sort();
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -197,10 +208,14 @@ const list = (org: string, kind: string): Promise<unknown> =>
   );
 
 describe("V1 runtime, BOTH directions", () => {
-  it("an organization with no configuration returns [] for every one of the six kinds", async () => {
+  it("an organization with no configuration returns [] for every one of the six kinds (skill: the four platform ones, not a default set)", async () => {
     for (const kind of C.CapabilityKind.options) {
-      const body = await list(EMPTY_ORG, kind);
-      expect(body, `kind ${kind} must be empty, not a default set`).toEqual([]);
+      const body = (await list(EMPTY_ORG, kind)) as { id: string }[];
+      if (kind === "skill") {
+        expect(body.map((c) => c.id).sort(), JSON.stringify(body)).toEqual(PLATFORM_SKILL_IDS);
+      } else {
+        expect(body, `kind ${kind} must be empty, not a default set`).toEqual([]);
+      }
       // The empty array still has to be the contract's shape.
       const parsed = C.operations.listCapabilities.out.safeParse(body);
       expect(parsed.success ? null : parsed.error.issues).toBeNull();
@@ -232,28 +247,38 @@ describe("V1 runtime, BOTH directions", () => {
     expect(models.map((m) => m.name)).toEqual(["local-llm"]);
 
     // And the kinds nobody configured are still empty in the SAME organization -- so the
-    // emptiness is per-kind data, not a global switch.
-    for (const kind of ["skill", "mcp", "canvas-template", "blueprint"]) {
+    // emptiness is per-kind data, not a global switch. skill is the one documented
+    // exception (see PLATFORM_SKILL_IDS's own comment) -- still not this org's OWN
+    // configuration, so it belongs in this same "no extras beyond what's expected" check.
+    const skills = (await list(CONFIGURED_ORG, "skill")) as { id: string }[];
+    expect(skills.map((c) => c.id).sort(), JSON.stringify(skills)).toEqual(PLATFORM_SKILL_IDS);
+    for (const kind of ["mcp", "canvas-template", "blueprint"]) {
       expect(await list(CONFIGURED_ORG, kind), `kind ${kind}`).toEqual([]);
     }
   });
 
-  it("switch-org into an unconfigured organization hands back [], and into a configured one hands back its own", async () => {
+  it("switch-org into an unconfigured organization hands back the four platform skills (and nothing else), and into a configured one adds its own", async () => {
     await addCapability({ orgId: CONFIGURED_ORG, id: "cap-s1", kind: "skill", name: "cashflow" });
 
+    // design-delta `platform-owned-skills`: "unconfigured org" no longer means "[]" for
+    // this response either -- it carries whatever `switch-org`'s own capability set is,
+    // and the four platform skills are in that set the same as everywhere else `kind:
+    // "skill"` is read. See PLATFORM_SKILL_IDS's own comment.
     const empty = await fetch(`${BASE}/identity/switch-org`, {
       method: "POST",
       headers: { ...authFor(EMPTY_ORG), "content-type": "application/json" },
       body: JSON.stringify({ toOrgId: EMPTY_ORG }),
-    }).then((r) => r.json() as Promise<{ capabilities: unknown[] }>);
-    expect(empty.capabilities).toEqual([]);
+    }).then((r) => r.json() as Promise<{ capabilities: { id: string }[] }>);
+    expect(empty.capabilities.map((c) => c.id).sort(), JSON.stringify(empty.capabilities)).toEqual(PLATFORM_SKILL_IDS);
 
     const configured = await fetch(`${BASE}/identity/switch-org`, {
       method: "POST",
       headers: { ...authFor(CONFIGURED_ORG), "content-type": "application/json" },
       body: JSON.stringify({ toOrgId: CONFIGURED_ORG }),
-    }).then((r) => r.json() as Promise<{ capabilities: { name: string }[] }>);
-    expect(configured.capabilities.map((c) => c.name)).toEqual(["cashflow"]);
+    }).then((r) => r.json() as Promise<{ capabilities: { id: string; name: string }[] }>);
+    expect(configured.capabilities.map((c) => c.name).sort()).toEqual(
+      [...OFFICIAL_SKILLS.map((s) => s.displayName), "cashflow"].sort(),
+    );
   });
 
   it("the six kinds are the contract's, and an undeclared kind is refused", () => {
