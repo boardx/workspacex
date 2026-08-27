@@ -259,6 +259,207 @@ def test_hitl_resume_reject_tool_not_executed(monkeypatch):
     )
 
 
+# ── #2252：三个具名虚拟工具的真编译图反证（build_tools() 注册 + interrupt_on 真中断）──
+#
+# 与上面 `_hitl_graph`（合成的 `dangerous_tool`）不同，这里用的是
+# `deep_agent_service.tools.build_tools()` 真实注册的
+# `confirm_task_intent`/`fill_run_params`/`choose_execution_option`——证明的不是
+# "HumanInTheLoopMiddleware 机制通"（那件事上面已经证过），而是"这三个具名工具
+# 真的在 `tools` 列表里、真的会被真实图拦下、真的能用 resume 载荷推进"，也就是
+# #2252 判定"永远不会被触发"这件事已经被堵上。
+
+
+def _named_tool_graph(monkeypatch, tool_name: str, proposed_args: dict):
+    """带 `build_interrupt_on()`（真实读 `DEEP_AGENT_HITL_TOOLS`）+
+    `build_tools()`（真实注册的三个 #2252 工具，连同既有的 `list_org_skills`/
+    `call_skill`）的真编译图。脚本化模型第一轮提议对指定工具的调用，第二轮直接作答。"""
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+    from langchain_core.messages import AIMessage
+    from langgraph.checkpoint.memory import MemorySaver
+
+    from deepagents import create_deep_agent
+    from deep_agent_service.harness import build_interrupt_on
+    from deep_agent_service.tools import build_tools
+
+    monkeypatch.setenv("DEEP_AGENT_HITL_TOOLS", tool_name)
+
+    class ScriptedToolCallingModel(GenericFakeChatModel):
+        def bind_tools(self, tools, **kwargs):  # noqa: ANN001, ANN003
+            return self
+
+    model = ScriptedToolCallingModel(messages=iter([
+        AIMessage(content="", tool_calls=[{"id": "c1", "name": tool_name, "args": proposed_args}]),
+        AIMessage(content="done after decision"),
+    ]))
+    tools = build_tools(model)
+    assert tool_name in {t.name for t in tools}, f"{tool_name} 必须真实存在于 build_tools() 返回的工具列表里"
+    return create_deep_agent(
+        model=model,
+        tools=tools,
+        interrupt_on=build_interrupt_on(),
+        checkpointer=MemorySaver(),
+    )
+
+
+def test_confirm_task_intent_registered_and_interrupts(monkeypatch):
+    """`confirm_task_intent` 真实注册进 `tools`，且列入 `DEEP_AGENT_HITL_TOOLS` 后
+    模型一发起调用 run 就真的停在 interrupt——这正是 #2252 报告"模型没有东西可调用，
+    三张卡片永远不会被触发"的反面：现在模型有东西可调用，且真的会被拦下。"""
+    graph = _named_tool_graph(
+        monkeypatch,
+        "confirm_task_intent",
+        {"requestId": "req-1", "understanding": "生成复盘", "assumptions": ["a", "b"]},
+    )
+    config = {"configurable": {"thread_id": "confirm-interrupt"}}
+    result = graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    assert "__interrupt__" in result, "confirm_task_intent 必须在真实图里真的触发中断"
+    interrupt_payload = str(result["__interrupt__"])
+    assert "confirm_task_intent" in interrupt_payload
+    assert "生成复盘" in interrupt_payload
+
+
+def test_confirm_task_intent_resume_approve_uses_original_understanding(monkeypatch):
+    from langgraph.types import Command
+
+    graph = _named_tool_graph(
+        monkeypatch,
+        "confirm_task_intent",
+        {"requestId": "req-1", "understanding": "生成复盘", "assumptions": ["同比", "截至7月底"]},
+    )
+    config = {"configurable": {"thread_id": "confirm-approve"}}
+    graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    result = graph.invoke(Command(resume={"decisions": [{"type": "approve"}]}), config)
+    texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
+    assert any("用户已确认对任务的理解：生成复盘" in t for t in texts)
+
+
+def test_confirm_task_intent_resume_edit_uses_edited_assumptions_only(monkeypatch):
+    """前端只会带回 `{assumptions}`（`ConfirmIntentDecision.editedArgs`，无
+    `understanding`/`requestId`）——真实图上 resume 的是这个精简形状，不是完整原始参数。"""
+    from langgraph.types import Command
+
+    graph = _named_tool_graph(
+        monkeypatch,
+        "confirm_task_intent",
+        {"requestId": "req-1", "understanding": "生成复盘", "assumptions": ["同比", "截至7月底"]},
+    )
+    config = {"configurable": {"thread_id": "confirm-edit"}}
+    graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    result = graph.invoke(
+        Command(resume={"decisions": [{
+            "type": "edit",
+            "edited_action": {"name": "confirm_task_intent", "args": {"assumptions": ["环比", "只看付费渠道"]}},
+        }]}),
+        config,
+    )
+    texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
+    assert any("用户修改了假设为：环比；只看付费渠道" in t for t in texts)
+
+
+def test_fill_run_params_registered_and_interrupts(monkeypatch):
+    graph = _named_tool_graph(
+        monkeypatch,
+        "fill_run_params",
+        {"requestId": "req-2", "fields": [
+            {"name": "region", "label": "地区", "aiGuess": "华东", "rationale": "上次提到过", "required": True, "currentValue": None},
+        ]},
+    )
+    config = {"configurable": {"thread_id": "fill-interrupt"}}
+    result = graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    assert "__interrupt__" in result, "fill_run_params 必须在真实图里真的触发中断"
+    assert "fill_run_params" in str(result["__interrupt__"])
+
+
+def test_fill_run_params_resume_edit_uses_name_value_pairs_only(monkeypatch):
+    """前端 `full-rerun` 分支只带回 `{fields:[{name,value}]}`
+    （`planFillParamsResume` 的 `resume-with-edits`），不是完整 `ParamField`。"""
+    from langgraph.types import Command
+
+    graph = _named_tool_graph(
+        monkeypatch,
+        "fill_run_params",
+        {"requestId": "req-2", "fields": [
+            {"name": "region", "label": "地区", "aiGuess": "华东", "rationale": "上次提到过", "required": True, "currentValue": None},
+        ]},
+    )
+    config = {"configurable": {"thread_id": "fill-edit"}}
+    graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    result = graph.invoke(
+        Command(resume={"decisions": [{
+            "type": "edit",
+            "edited_action": {"name": "fill_run_params", "args": {"fields": [{"name": "region", "value": "华南"}]}},
+        }]}),
+        config,
+    )
+    texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
+    assert any("region='华南'" in t for t in texts)
+
+
+def test_choose_execution_option_registered_and_interrupts(monkeypatch):
+    graph = _named_tool_graph(
+        monkeypatch,
+        "choose_execution_option",
+        {"requestId": "req-3", "options": [
+            {"optionId": "opt-1", "title": "方案A", "effort": "低", "timeToValue": "1周", "expectedReturn": "小幅提升"},
+            {"optionId": "opt-2", "title": "方案B", "effort": "高", "timeToValue": "1月", "expectedReturn": "大幅提升"},
+        ]},
+    )
+    config = {"configurable": {"thread_id": "choose-interrupt"}}
+    result = graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    assert "__interrupt__" in result, "choose_execution_option 必须在真实图里真的触发中断"
+    assert "choose_execution_option" in str(result["__interrupt__"])
+
+
+def test_choose_execution_option_resume_edit_selected_option_id_only(monkeypatch):
+    """`choose_execution_option` 没有 approve 分支——唯一真正会重新调用工具的路径是
+    `edit`，且只带回 `{selectedOptionId}`（`ChooseOptionDecision.editedArgs`）——**实测**：
+    真编译图 resume 时 `edited_action.args` 就是这个精简载荷本身，`options` 不会跟着
+    一起送回来，所以工具只能按 id 原样回显（与 `test_tools.py` 的
+    `test_choose_execution_option_without_options_falls_back_to_the_raw_id` 同一事实，
+    这里是它在真图 resume 路径上的反证）。"""
+    from langgraph.types import Command
+
+    graph = _named_tool_graph(
+        monkeypatch,
+        "choose_execution_option",
+        {"requestId": "req-3", "options": [
+            {"optionId": "opt-1", "title": "方案A", "effort": "低", "timeToValue": "1周", "expectedReturn": "小幅提升"},
+            {"optionId": "opt-2", "title": "方案B", "effort": "高", "timeToValue": "1月", "expectedReturn": "大幅提升"},
+        ]},
+    )
+    config = {"configurable": {"thread_id": "choose-edit"}}
+    graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    result = graph.invoke(
+        Command(resume={"decisions": [{
+            "type": "edit",
+            "edited_action": {"name": "choose_execution_option", "args": {"selectedOptionId": "opt-2"}},
+        }]}),
+        config,
+    )
+    texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
+    assert any("opt-2" in t for t in texts)
+
+
+def test_choose_execution_option_reject_never_re_invokes_the_tool(monkeypatch):
+    """`reject` 是「都不要」的逃生口——run 必须优雅收尾，工具绝不能带着模型最初提议的
+    参数被重新执行（`ChooseOptionDecision` 判别联合根本没有 approve 分支）。"""
+    from langgraph.types import Command
+
+    graph = _named_tool_graph(
+        monkeypatch,
+        "choose_execution_option",
+        {"requestId": "req-3", "options": [
+            {"optionId": "opt-1", "title": "方案A", "effort": "低", "timeToValue": "1周", "expectedReturn": "小幅提升"},
+        ]},
+    )
+    config = {"configurable": {"thread_id": "choose-reject"}}
+    graph.invoke({"messages": [{"role": "user", "content": "go"}]}, config)
+    result = graph.invoke(Command(resume={"decisions": [{"type": "reject"}]}), config)
+    texts = [str(getattr(m, "content", "")) for m in result.get("messages", [])]
+    assert not any("方案A" in t for t in texts), "拒绝后不能出现工具真实执行的确认文案"
+    assert "__interrupt__" not in result, "拒绝后 run 必须走到终稿"
+
+
 def test_hitl_resume_edit_uses_edited_args(monkeypatch):
     """D6 改参数放行：这条能力存在的核心价值——人改过的参数必须是实际执行时
     用的参数，不是模型原始提议的参数。
