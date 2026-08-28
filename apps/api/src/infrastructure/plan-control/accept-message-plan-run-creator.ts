@@ -127,8 +127,9 @@ export class AcceptMessagePlanRunCreator implements PlanRunCreator {
    * (same poll budget, same `parseWriteTodosSnapshot` → `ingestEnginePlanSnapshot` hookup
    * `copilotkit-agui.controller.ts` already uses for the live AG-UI track), scoped to the
    * plan-control-triggered continuation run this class itself just created. Bounded by the
-   * SAME `DEFAULT_RUN_MAX_POLLS`/`DEFAULT_RUN_POLL_INTERVAL_MS` (~90s) budget as every other
-   * run-polling consumer in this codebase -- not a second, independently-tuned timeout.
+   * SAME `DEFAULT_RUN_MAX_POLLS`/`DEFAULT_RUN_POLL_INTERVAL_MS` budget as every other
+   * run-polling consumer in this codebase (see that file's header for the current total and
+   * why it moves) -- not a second, independently-tuned timeout.
    */
   private async watchPlanProgress(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly threadId: string; readonly runId: string;
