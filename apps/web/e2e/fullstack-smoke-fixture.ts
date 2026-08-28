@@ -109,6 +109,10 @@ export const FULLSTACK_E2E = {
   canvasSimulateName: `FULLSTACK_SIMULATE_${scope}`,
   /** 反证用例的独立来源模板——不复用上面那个，避免两条测试互相踩同一行的编辑状态。 */
   canvasSimulateCounterproofName: `FULLSTACK_SIMULATE_CP_${scope}`,
+  /** 「fabric 引擎真的可以修改」用例的独立来源模板——见 `canvas-template-simulate-smoke.spec.ts` 同名用例。 */
+  canvasSimulateEditName: `FULLSTACK_SIMULATE_EDIT_${scope}`,
+  /** 503 诚实失败态用例的独立来源模板——见同一文件的错误路径用例。 */
+  canvasSimulateErrorName: `FULLSTACK_SIMULATE_ERR_${scope}`,
 
   skillName: `FULLSTACK_SKILL_${scope}`,
   skillCounterproofName: `FULLSTACK_SKILL_CP_${scope}`,

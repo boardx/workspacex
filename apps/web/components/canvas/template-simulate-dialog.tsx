@@ -94,6 +94,14 @@ export function TemplateSimulateDialog({
   const [markdown, setMarkdown] = React.useState("");
   const [tool, setTool] = React.useState<CanvasTool>("select");
   const [zoom, setZoom] = React.useState(1);
+  /**
+   * 「可以修改」这条要求（人类原话）此前只验证到"canvas 挂载了、工具条在"，没有验证
+   * 过在画布上真的拖/加/删有没有效果——`CanvasStage` 的 `onMarkdownChange` 只在
+   * fabric 场景真的发生变化（新增/挪动/删除对象 → 序列化回写）时才触发，同
+   * `chat-canvas-modal.tsx` 的 `dirty`/`chat-canvas-dirty` 同一条既有信号，这里照抄
+   * 同一个信号，而不是新发明一套判据。
+   */
+  const [edited, setEdited] = React.useState(false);
 
   const previewKey = `${templateKey}${PREVIEW_KEY_SUFFIX}`;
 
@@ -123,6 +131,7 @@ export function TemplateSimulateDialog({
         });
         registerTemplate(spec);
         setMarkdown(wrapAsMermaidBlock(rewriteTemplateKeyLine(block.code, previewKey), block.lang));
+        setEdited(false);
         setResult({ text: out.text, hasCanvas: true });
       } else {
         setMarkdown("");
@@ -222,6 +231,14 @@ export function TemplateSimulateDialog({
                   <span className="w-10 text-center font-mono text-10 tabular-nums text-muted-foreground">
                     {Math.round(zoom * 100)}%
                   </span>
+                  {edited && (
+                    <span
+                      className="ml-2 text-10 text-muted-foreground"
+                      data-testid="tpladmin-editor-simulate-edited"
+                    >
+                      已编辑
+                    </span>
+                  )}
                 </div>
                 <div className="relative h-[480px] flex-none overflow-hidden rounded-control border border-border">
                   <CanvasStage
@@ -230,7 +247,7 @@ export function TemplateSimulateDialog({
                     zoom={zoom}
                     onZoomChange={setZoom}
                     markdown={markdown}
-                    onMarkdownChange={setMarkdown}
+                    onMarkdownChange={(next) => { setMarkdown(next); setEdited(true); }}
                   />
                 </div>
               </>
