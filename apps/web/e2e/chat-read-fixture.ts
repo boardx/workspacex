@@ -284,4 +284,18 @@ export const CHAT_READ_E2E = {
   canvasHeaderFieldName: "姓名",
   /** 正文分区（便利贴列表）中文名，格式见 `buildCanvasTemplateGuidance` 的 `## 分区名`。 */
   canvasSectionName: "要点",
+  /**
+   * issue #2295 —— `buildCanvasTemplateGuidance` 把组织下**全部**已发布模板列进该组织
+   * **每一条线程、每一次 run** 的 system prompt，原判定只查 system prompt 里有没有
+   * `CANVAS_GUIDANCE_HEADER` + 模板 key 这两个信号，在本夹具组织种下这一个已发布模板后
+   * 对同组织其余 10 条用例的请求恒为真，把它们的 `fullText` 整体顶成画布围栏。
+   *
+   * 这个哨兵只出现在 `chat-canvas-guidance-render.spec.ts` 发的那一条用户消息正文里
+   * （全仓别处零命中，同 `mountedSkillSentinel` 一套隔离纪律），由
+   * `playwright.chat-read.config.ts` 下发给 `loopback-model-provider.ts` 的
+   * `canvasGuidanceReachedModel`，作为「这次请求确实来自那条专属画布线程」的第三个
+   * 判定信号——前两个 system prompt 信号继续保留，证明的是注入链路本身；这个哨兵证明
+   * 的是这次请求的范围，不是替代前两者。
+   */
+  canvasGuidanceSentinel: "E2E-CANVAS-GUIDANCE-6031",
 } as const;
