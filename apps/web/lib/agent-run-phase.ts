@@ -63,6 +63,26 @@ export function phaseLabelForToolName(toolName: string | null): string {
   return TOOL_PHASE_BY_NAME[toolName] ?? DEFAULT_TOOL_PHASE;
 }
 
+/**
+ * issue #2321 round 3 -- 真实 devapp 场景里一个线程可能同时挂了 pdf-create/
+ * docx-create/xlsx-create 好几个技能，"正在执行技能脚本…" 不说是哪一个，用户在
+ * 等待期间分不清自己要的 PDF 是不是真的在跑。`call_skill(skill_stable_name, task)`
+ * 的第一个参数就是被调用技能的 stable_name（`apps/deep-agent-service/.../tools.py`
+ * 的 `call_skill` 签名），这是一段真实从 wire 上收到的字符串，不是编出来的——
+ * 原样回显，不额外维护一张"stable_name → 人类可读名"的第二张表（那张表会漂移，
+ * 参照文件头「写死映射表」那条纪律：只回显观测到的事实，不猜一个可能过时的译名）。
+ *
+ * `CALL_SKILL_TOOL_NAME` 与上面 `TOOL_PHASE_BY_NAME.call_skill` 的 key 必须是
+ * 同一个字符串——这里用常量而不是重复字面量，避免这张表改名时这条分支悄悄失配。
+ */
+export const CALL_SKILL_TOOL_NAME = "call_skill";
+
+export function phaseLabelForCallSkillArgs(skillStableName: string): string {
+  const trimmed = skillStableName.trim();
+  return trimmed === "" ? TOOL_PHASE_BY_NAME[CALL_SKILL_TOOL_NAME] ?? DEFAULT_TOOL_PHASE
+    : `正在执行技能脚本（${trimmed}）…`;
+}
+
 /** 同上：按 `AgentRunStepKind` 取词，供 v2 轨道映射自己的等价事件。 */
 export function phaseLabelForKind(kind: string): string {
   return PHASE_BY_KIND[kind] ?? FALLBACK_PHASE;
