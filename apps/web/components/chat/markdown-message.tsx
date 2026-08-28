@@ -24,7 +24,7 @@ import { isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fen
 type Segment =
   | { kind: "md"; text: string; key: string }
   | { kind: "mermaid"; code: string; key: string }
-  | { kind: "canvas"; code: string; lang: CanvasFenceLang; key: string };
+  | { kind: "canvas"; code: string; lang: CanvasFenceLang; key: string; closed: boolean };
 
 /**
  * 放行哪些围栏进 fabric 渲染分支。
@@ -60,7 +60,7 @@ function segment(text: string): Segment[] {
     }
     out.push(
       isCanvasFenceLang(b.lang)
-        ? { kind: "canvas", code: b.code, lang: b.lang, key: `cvs-${i}` }
+        ? { kind: "canvas", code: b.code, lang: b.lang, key: `cvs-${i}`, closed: b.closed }
         : { kind: "mermaid", code: b.code, key: `mmd-${i}` },
     );
     cursor = b.end;
@@ -106,6 +106,12 @@ export function MarkdownMessage({
             key={s.key}
             code={s.code}
             lang={s.lang}
+            // 围栏是否已经闭合（issue #2298）：流式增量文本里，模型还没写到闭合
+            // ``` 之前，`extractMermaidBlocks` 会吐出「到文档结尾为止」的半截
+            // `code`（哪怕才收到半个模板 key，一个「## 分区」标题都还没有）。
+            // 这不是格式错误，是内容还没写完——`closed=false` 时组件必须保持
+            // 加载态，不能把半截内容当终态去跑 `checkCanvasFence`。
+            closed={s.closed}
             threadId={threadId}
             messageId={messageId}
             bearer={bearer}

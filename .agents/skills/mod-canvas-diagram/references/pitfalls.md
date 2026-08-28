@@ -62,3 +62,20 @@ round-trip 断言（渲染→提取→坐标应与输入一致）再动手，而
 本轮调研范围内未发现其他需要特别记录的真实踩坑（结构性冲突合并
 `conflict-resolution.ts`/`backflow.ts` 未深入逐行读取，留给实际改动那块代码时
 再补充）。
+
+## 8. 流式增量文本里的围栏必然经历「半截」中间态——校验前先看 `closed`
+
+issue #2298（真实截图证据）：`extractMermaidBlocks`（`packages/fabric-markdown/
+src/markdown.ts`）对**未闭合**的围栏（逐 token 流式过程中随时可能是这个状态）
+返回「到文档结尾为止」的半截 `code`，哪怕只收到半个模板 key、一个「## 分区」
+标题都还没有。任何拿这段 `code` 当**已完成文档**去跑格式校验的调用方（如
+`checkCanvasFence`/`mermaid.parse`），都会把「还没写完」误判成「写完了但格式
+错」，在流式尚未结束时把用户带向终态红色报错卡——报错文案里的截断值（比如
+`模板「ch」`）会暴露这是个中间态,而不是真的格式错误。
+
+修法：`MermaidBlock` 现在带 `closed: boolean`；渲染组件（`ChatCanvasFabric`/
+未来任何消费 `extractMermaidBlocks` 输出的新渲染分支）必须在 `closed === false`
+时**跳过校验**、停在加载态，只有围栏真正闭合后才允许判定格式对错。新写一条
+围栏消费路径时，检查它有没有读这个字段——`ChatDiagramFabric`（mermaid 分支）
+截至本条写下时**尚未**接这个字段，同样的中间态误判风险原则上也存在，只是还
+没有被截图实测证实，改 mermaid 分支时留意。

@@ -61,6 +61,23 @@ import { fetchLatestSavedDiagramSource } from "@/lib/chat/diagram-readback";
  * 文件头注释。G1 读回（`fetchLatestSavedDiagramSource`）与围栏语言无关，直接复用
  * mermaid 路径同一份逻辑。
  *
+ * ── 流式中间态不判定格式（issue #2298，2026-08-28）───────────────────────────
+ * 真实截图证据：`模板「ch」的围栏里没有任何「## 分区」标题` 这个终态红色报错，
+ * 出现在同一条消息的「正在生成…」chip **仍在显示**的时候——`模板「ch」` 正是
+ * 模板 key `chat-read-e2e-canvas` 流到第二个字符时的截断值。根因是
+ * `checkCanvasFence` 把「围栏还没写完」和「围栏写完了但格式真的错」两件事
+ * 当成同一件事：`markdownToCanvas`/`extractMermaidBlocks` 对未闭合围栏返回
+ * 「到文档结尾为止」的半截 `code`，而本组件此前对这段半截内容照样立刻起跑
+ * 校验，必然经历「没有模板 key」「有 key 但没有分区标题」这些中间态，每一个
+ * 都被判成终态错误。
+ * 修法：`extractMermaidBlocks` 现在吐出 `closed: boolean`（围栏是否真的闭合），
+ * `markdown-message.tsx` 原样透传给本组件的 `closed` prop。`closed === false`
+ * 时校验 effect 整个跳过，状态机停在 "validating"（渲成「解析工作坊画布模板
+ * 中…」loading 态，不进错误分支）——直到围栏闭合（`closed` 变 true，因为
+ * `previewCode` 也变了，`key={previewCode}` 使实例整个重挂，从干净的
+ * "validating" 重新起跑）才真正跑 `checkCanvasFence`。围栏闭合后格式确实有
+ * 误，报错逻辑原样保留，不受影响。
+ *
  * ── 根因修复（issue #1668 引入的回归，与 `ChatDiagramFabric` 同款，同一次 devapp
  * 崩溃排查，2026-08-22）──────────────────────────────────────────────────────
  * 挂载即读回把 `previewCode` 换成保存版这一步，如果发生在「已经挂了 fabric
@@ -84,10 +101,17 @@ const ERROR_TITLE: Record<Extract<Status, { phase: "error" }>["reason"], string>
 };
 
 export function ChatCanvasFabric({
-  code, lang, threadId, messageId, bearer, projectId,
+  code, lang, closed = true, threadId, messageId, bearer, projectId,
 }: {
   code: string;
   lang: CanvasFenceLang;
+  /**
+   * 围栏是否已闭合（issue #2298）。`false` = 流式增量文本里这个围栏还没收到
+   * 闭合 ``` ——`code` 是「到目前为止」的半截内容，不是作者的最终产出，校验
+   * 必须整个跳过、停在加载态。默认 `true`（历史调用方/测试直传固定字符串，
+   * 视为已完成的最终内容，行为与改动前一致）。
+   */
+  closed?: boolean;
   /** 「最大化」后真实持久化保存所需——三者俱全才接 `landAsArtifact`，见
    * `ChatCanvasModal` 文件头注释。原样透传，本组件不判断。 */
   threadId?: string;
@@ -189,6 +213,10 @@ export function ChatCanvasFabric({
         lang={lang}
         orgId={orgId}
         inView={inView}
+        // 有 `savedSource` 时 `previewCode` 已经是落库的最终内容（G1 读回或
+        // modal 保存回填），恒当「已闭合」处理——`closed` 只描述**原始消息
+        // 流式片段**是否收全，不适用于保存版。
+        closed={savedSource !== null ? true : closed}
         containerRef={containerRef}
         openMaximized={openMaximized}
         openingReadback={openingReadback}
@@ -222,12 +250,14 @@ export function ChatCanvasFabric({
  * 文件头大注释。
  */
 function CanvasFabricBody({
-  previewCode, lang, orgId, inView, containerRef, openMaximized, openingReadback,
+  previewCode, lang, orgId, inView, closed, containerRef, openMaximized, openingReadback,
 }: {
   previewCode: string;
   lang: CanvasFenceLang;
   orgId: string | null;
   inView: boolean;
+  /** 见 `ChatCanvasFabric` 同名 prop 注释（issue #2298）：`false` 时校验 effect 整个跳过。 */
+  closed: boolean;
   containerRef: React.RefObject<HTMLDivElement>;
   openMaximized: () => void;
   openingReadback: boolean;
@@ -241,6 +271,9 @@ function CanvasFabricBody({
   // 即换 key、换实例）；`orgId` 理论上可能因为登录状态变化而变，沿用既有依赖数组。
   React.useEffect(() => {
     if (!inView) return;
+    // 围栏还没闭合（issue #2298）：流式增量文本里的半截内容，不是作者的最终
+    // 产出——跳过校验，状态机停在 "validating"（渲成加载态），不判定格式。
+    if (!closed) return;
     const check = checkCanvasFence(previewCode, lang);
     if (!check.ok) {
       setStatus({ phase: "error", reason: "syntax", detail: check.detail });
@@ -268,7 +301,7 @@ function CanvasFabricBody({
     return () => {
       cancelled = true;
     };
-  }, [previewCode, lang, orgId, inView]);
+  }, [previewCode, lang, orgId, inView, closed]);
 
   // 阶段二：仅当 valid（<canvas> 已挂）时建 FabricCanvas 并渲染（只读）。
   React.useEffect(() => {
@@ -359,7 +392,7 @@ function CanvasFabricBody({
           data-testid="chat-canvas-loading"
           className="flex h-40 items-center justify-center text-11 text-muted-foreground"
         >
-          {inView ? "解析工作坊画布模板中…" : "滚动到此处即渲染"}
+          {!inView ? "滚动到此处即渲染" : !closed ? "画布内容生成中…" : "解析工作坊画布模板中…"}
         </div>
       )}
       {status.phase === "valid" && !ready && (

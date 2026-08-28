@@ -17,6 +17,15 @@ export interface MermaidBlock {
   fence: string;
   /** Leading indentation of the opening fence line. */
   indent: string;
+  /**
+   * Whether a matching closing fence line was found before end of document.
+   * `false` means the document ended (or streaming has not yet produced) the
+   * closing fence line — the block's `code` is a partial, in-progress capture,
+   * not the author's final content. Callers that validate/parse `code` as a
+   * finished document (e.g. the canvas/persona template grammar) must treat
+   * `closed: false` as "still arriving", not "malformed" — see issue #2298.
+   */
+  closed: boolean;
 }
 
 const FENCE_RE = /^( {0,3})(`{3,}|~{3,})[ \t]*(mermaid|persona|canvas|usecase)[ \t]*$/;
@@ -57,7 +66,7 @@ export function extractMermaidBlocks(markdown: string): MermaidBlock[] {
       j++;
     }
     if (!closed) end = markdown.length;
-    blocks.push({ code: codeLines.join('\n'), lang, start, end, fence, indent });
+    blocks.push({ code: codeLines.join('\n'), lang, start, end, fence, indent, closed });
     offset = end + 1;
     i = j + 1;
   }
