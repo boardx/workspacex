@@ -84,13 +84,23 @@ docx-create/xlsx-create/pdf-create（F979）。**用户/组织自己通过 URL �
 4. **`SkillVisibilityPort.visibleTo()` / `loadMountableRow()` 的可见性判定**：确认平台行
    的 `visibility`/`status` 映射与既有 wave2 行一致（`org-wide`/`已启用`），不需要新增
    判据分支——它们已经是"能查到就能挂"，平台行只是多了一个能查到的来源。
-5. **backfill 脚本**：`apps/api/scripts/backfill-platform-skills.ts`（同
-   `backfill-platform-org.ts`/`backfill-canvas-builtin-templates.ts` 先例：幂等、
-   人类显式触发、不 wire 进任何自动流程），直接在 `org-platform` 下创建四个 skill 的
-   `skills`/`skill_versions`/`skill_version_files`/`capability_listings` 行（内容复用
-   F979 的 `apps/api/scripts/office-docs-skill-content.ts` 三份 + 新写一份 pptx 的
+5. **backfill 脚本**：`apps/api/scripts/backfill-platform-skills.ts`（幂等），
+   直接在 `org-platform` 下创建四个 skill 的 `skills`/`skill_versions`/
+   `skill_version_files`/`capability_listings` 行（内容复用 F979 的
+   `apps/api/scripts/office-docs-skill-content.ts` 三份 + 新写一份 pptx 的
    `SKILL.md`），跳过 starter-pack 导入流程（那条路径要求一个真实 org admin 身份，
    平台组织唯一成员结构上不可登录）。
+   ⚠ **实测纠正**：本条最初写的是"同 `backfill-platform-org.ts`/`backfill-canvas-
+   builtin-templates.ts` 先例，人类显式触发、不 wire 进任何自动流程"——PR 合并后
+   2026-08-28 人类在真实 devapp 后台核实，Skill 目录里确实没有这四个官方 skill：
+   没人记得手动 SSH 上去跑这一步。复查 `deploy.sh` 才发现更贴切的先例其实是
+   4c-4f 那五个 backfill 步骤（`backfill-default-agents.ts` 等）——"某些行本该
+   存在但不会自己长出来"这同一类问题，它们的解法是 wire 进 `deploy.sh`、每次
+   部署自愈，不是留给人记。`backfill-platform-org.ts`/`backfill-canvas-builtin-
+   templates.ts` 不进 deploy.sh 是因为它们防的是"**migrate-cli.ts** 对所有环境
+   无差别执行"（含每次测试隔离库）这个面——deploy.sh 的步骤只在 devapp 这一台
+   真实 VM 上、只在真实部署时跑，不触达任何测试库，不是同一类风险。改为
+   deploy.sh 第 4i/4j 步，与 4c-4f 同一形状。
 
 ## §5 明确不做
 

@@ -357,6 +357,30 @@ echo "  deep-agent-service ${DEEP_AGENT_IMAGE} 已就绪（/ok → 200 且 graph
 # 单个失败只打日志——不然每次部署 +500MB，磁盘迟早撑爆。
 deep_agent_gc_images deep-agent-service "$DEEP_AGENT_SHA" ${DEEP_AGENT_PREV_TAG:+"$DEEP_AGENT_PREV_TAG"}
 
+step "4i. 平台组织补种（design-delta platform-owned-skills —— 四个官方 skill 挂靠的服务组织）"
+# ⚠ 与 4c-4f 不同的是：`backfill-platform-org.ts`/`backfill-platform-skills.ts`
+# 最初设计成"人工显式触发一次，不进任何自动化流程"（同 2026-08-26 canvas 模板
+# 那次事故的教训——那次是**迁移里** seed 数据，污染了每一个跑过迁移的库，包括
+# 每次测试用的隔离库）。但那条教训针对的是"migrate-cli.ts 对所有环境无差别执行"
+# 这个面；deploy.sh 的这些 4x 步骤只在 devapp 这一台真实 VM 上、只在真实部署时
+# 跑，不触达任何测试隔离库——与 4c-4f（同样"某些行本该存在却不会自己长出来"）
+# 是同一类问题、同一种解法，不是同一类风险。
+#
+# 起因：合并后忘了手动 SSH 上 devapp 跑一次，2026-08-28 人类在 devapp 后台
+# Skill 目录里真实发现四个官方 skill（pdf/word/excel/pptx）不在列——这一步
+# 补上，之后每次部署自愈，不再依赖"有没有人记得手动跑"。
+# `backfillPlatformOrg` 幂等（`ON CONFLICT DO NOTHING`）；平台组织只有一个，
+# 唯一索引兜底。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-platform-org.ts
+
+step "4j. 平台级官方 skill 补种（design-delta platform-owned-skills —— pptx/docx/xlsx/pdf 四个 skill）"
+# 必须在 4i 之后：四个 skill 的 org_id 挂在 4i 建的平台组织下，外键会诚实拒绝
+# 顺序反过来的调用。幂等：四个 skill id 写死，`ON CONFLICT DO NOTHING`，
+# 见 `backfill-platform-skills.ts` 自己的 `OFFICIAL_SKILLS` 常量（唯一事实源）。
+sudo -u "$RUN_AS" env $(grep -v '^#' "$ENV_FILE" | grep -v '^$' | xargs) \
+  pnpm --filter api exec tsx scripts/backfill-platform-skills.ts
+
 step "5. 构建前端"
 # ⚠ 必须带上 $ENV_FILE。`NEXT_PUBLIC_*` 是 Next.js 在**构建期**内联进客户端 bundle 的，
 # 构建时读不到就永远读不到——重启服务、重跑迁移、改 Caddy 都救不回来。
