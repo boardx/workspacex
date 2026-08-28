@@ -256,18 +256,29 @@ test("R2：结果画布真的可以编辑——点「＋便签」工具落一张
   await expect(page.getByTestId("tpladmin-editor-simulate-edited")).toHaveCount(0);
 
   await page.getByTestId("tpladmin-editor-simulate-tool-sticky").click();
-  // ⚠ 真栈 E2E 第一轮实测踩出的坑：`chat-diagram-save-reopen-roundtrip.spec.ts` 那条
+  // ⚠ 真栈 E2E 两轮实测踩出的两层坑，缺一不可：
+  //
+  // ① `canvas-fabric-surface` 这个 testid 挂在 fabric 的 **lower-canvas**（渲染层）
+  //   上，但 fabric 真正监听指针事件的是它上面**另起一层**的 `upper-canvas`
+  //   （`class="upper-canvas"`，同一个 `<canvas-container>` 里的兄弟节点，绝对定位
+  //   叠在 lower-canvas 正上方）——`locator.click({position})` 走的是"这个元素真的
+  //   可点击"的可达性检查，第一轮实测超时报的正是
+  //   `<canvas class="upper-canvas"> intercepts pointer events`，检查如实挡下了这次
+  //   点击，不是查漏了。`page.mouse.click(x, y)` 不做元素归属检查，只在给定的绝对
+  //   像素坐标上找当前最上层的元素派发事件——那正好就是 upper-canvas，是唯一能真的
+  //   触发 fabric `mouse:down` 处理器的点法。
+  //
+  // ② 但绝对坐标本身也不能瞎给：`chat-diagram-save-reopen-roundtrip.spec.ts` 那条
   //   既有先例点 80%/80% 处是安全的，因为那个编辑器是 `fixed inset-0` 铺满整个视口
   //   （见 `chat-canvas-modal.tsx`）——视口内任何一点都必然落在它里面。本弹窗是
-  //   Radix `Dialog`，一个有边界的卡片，不是铺满视口；`canvas-fabric-surface` 的
-  //   `boundingBox()` 量出来的矩形边缘可能已经超出弹窗卡片实际可见范围——点在那
-  //   （尤其是右下角附近）会落在弹窗外的遮罩层上，Radix 判定为"点了外面"直接把
-  //   弹窗关掉。实测复现：断言超时时截图看到的是弹窗已经整个消失，不是画布没反应。
-  //   改成点 `canvas-fabric-surface` 自身左上角附近的一个小偏移量（相对元素坐标，
-  //   不是 boundingBox 算出来的绝对坐标百分比），稳稳落在元素内部、也稳稳落在
-  //   弹窗卡片可见范围内。
+  //   Radix `Dialog`，一个有边界的卡片，不是铺满视口；`boundingBox()` 量出来的矩形
+  //   边缘可能已经超出弹窗卡片实际可见范围——点在那（尤其是右下角附近）会落在弹窗
+  //   外的遮罩层上，Radix 判定为"点了外面"直接把弹窗关掉（第零轮实测：断言超时时
+  //   截图看到的是弹窗已经整个消失）。改成左上角一个小偏移量，稳稳落在弹窗卡片
+  //   可见范围内。
   const surface = page.getByTestId("canvas-fabric-surface");
-  await surface.click({ position: { x: 40, y: 40 } });
+  const box = (await surface.boundingBox())!;
+  await page.mouse.click(box.x + 40, box.y + 40);
 
   // 真的落了一张便签——`onMarkdownChange` 真的被 fabric 场景变化触发过。
   await expect(page.getByTestId("tpladmin-editor-simulate-edited")).toBeVisible();
