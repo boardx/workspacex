@@ -120,6 +120,23 @@ export type AguiFileDomain = (typeof AGUI_FILE_DOMAINS)[number];
 /** `vfs-uri.ts` 的 `SCHEME`/`ID_PATTERN` 镜像，wire-shape 校验专用。 */
 const VFS_URI_PATTERN = /^vfs:\/\/(attachment|artifact)\/[A-Za-z0-9_-]+$/;
 
+/**
+ * issue #2321 round 4 —— 反方向：`ActiveFilePanel`（`apps/web/components/chat/
+ * active-file-panel.tsx`）收到一个 `source: "agent_run_output"` 的 `file_created`
+ * 事件后，要把 `uri` 还原回 `chat_message_attachments.id` 才能拼下载路由
+ * （`GET /chat/threads/:threadId/attachments/:attachmentId/content`，与
+ * `chat-attachment-preview-modal.tsx` 同一条路由，不新造）。用同一条
+ * `VFS_URI_PATTERN` 解析，不是第三份正则——`domain`/`id` 与 `parseVfsUri`（权威，
+ * `apps/api` 侧）逐字同构；这里只做 wire-shape 拆分，不做判权/查库。
+ */
+export function parseVfsUriString(uri: string): { readonly domain: AguiFileDomain; readonly id: string } | null {
+  const match = VFS_URI_PATTERN.exec(uri);
+  if (match === null) return null;
+  const domain = match[1];
+  if (domain !== "attachment" && domain !== "artifact") return null;
+  return { domain, id: uri.slice(`vfs://${domain}/`.length) };
+}
+
 const VfsUriString = z.string().refine(
   (s) => VFS_URI_PATTERN.test(s),
   { message: "must be a vfs://<attachment|artifact>/<id> URI" },

@@ -46,6 +46,10 @@ export interface ActiveFile {
   readonly name: string;
   readonly mime: string | null;
   readonly source: AguiFileCreatedValue["source"];
+  /** issue #2321 round 4 —— `AguiFileCreatedValue.bytes` 原样透传，供
+   *  `active-file-panel.tsx` 的 `source === "agent_run_output"` 下载卡片显示人读文件
+   *  大小；未知时为 `null`（同源字段的 nullable 语义，不是本文件新造的口径）。 */
+  readonly bytes: number | null;
   /** 按 `sequence` 顺序累加的内容；`file_created` 到达但还没有任何 delta 时是空字符串。 */
   readonly content: string;
   /** 下一帧期望的 `sequence`（已处理到的最大值 + 1）——用于按序丢弃乱序/重复帧。 */
@@ -74,6 +78,7 @@ export function useAguiFileEvents(): {
           name: parsed.name,
           mime: parsed.mime,
           source: parsed.source,
+          bytes: parsed.bytes,
           content: "",
           nextSequence: 0,
         });
