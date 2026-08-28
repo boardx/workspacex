@@ -19,23 +19,39 @@
  *
  * 修法：**编辑态**（②③栏拖拽画布）继续走 HTML/CSS 网格 `TemplateCanvasGrid`，一个字不动；
  * 只有**这个弹窗的结果预览**改回真实 `CanvasStage`（fabric.js，可编辑，同生产 chat 最大化
- * 编辑用的组件）。R1 的顾虑（"内置模板不认未保存改动"）本来就只发生在**内置** key 上——
- * 本弹窗只会对着组织自建模板跑（`templateKey` 来自后台正在编辑的这一行，不可能是内置
- * key），组织自建模板的 fabric 渲染走 `buildAutoTemplateSpec`（自动布局，与生产 chat
- * 对组织自建模板的渲染是**同一个函数**），本来就不读写死几何——R1 头注那个"更大范围的
- * 既有缺口"（拖拽版显式 `layout` 坐标在生产 chat 里从未被 fabric 引擎读取过，只有
- * `computeAutoLayout` 起效）不因这次改动而变化，也不因这次改动而被引入：用同一个自动
- * 布局函数，反而让「chat 模拟看到的」与「保存发布后真实 chat 会渲染的」**完全一致**——
- * 这正是"模拟"这个功能该给的保证。
+ * 编辑用的组件）。
  *
- * ⚠ 注册进 `fabric-markdown` 全局模板表时**不用真实 key**，用一个命名空间化的
- *   `${templateKey}__simulate-preview`——原因见 `rewriteTemplateKeyLine` 头注。
+ * ## ⚠ R2.1（2026-08-28，同日复核发现）：内置模板必须走真实几何，不能套自动布局
+ *
+ * R2 落地时头注写着「本弹窗只会对着组织自建模板跑，不可能是内置 key」——**这句话是错
+ * 的**，复核时对着 `template-admin.tsx` 卡片列表实测发现：内置模板（`t.builtin===true`）
+ * 与组织自建模板走的是**同一张卡片列表、同一个编辑器、同一个「chat 模拟」按钮**，
+ * 没有任何一行代码把内置模板排除在外（`template-editor-panel.tsx` 全文搜不到
+ * `builtin` 这个词）。人类原话（同日）：「设计好的 html 模板可以通过提示词渲染出来
+ * fabricjs 的画布并保持 ratio 和大小的一致」——如果对内置模板也套 `buildAutoTemplateSpec`
+ * 自动布局，画出来的位置/比例会与那 19 个模板真实的手工排版（`packages/fabric-markdown/
+ * src/diagrams/templates-*.ts` 里的 `registerTemplate({...})`）完全对不上，正是这句话
+ * 点名要防止的事。
+ *
+ * 修法：先判定 `templateKey` 是不是内置 key（`canvas.builtinDisplayName`，与
+ * `fence-template-resolver.ts` 判定"内置恒赢"用的**同一个**函数，不是另写一份枚举）。
+ * 是内置 ⇒ 不注册任何东西、不重写围栏里的 `模板:` 行——19 个内置 spec 在
+ * `@repo/fabric-markdown` 模块加载时已经用它们**真实的 key** 自行 `registerTemplate`
+ * 过了（见 `templates-entry.ts`），原样喂给 `CanvasStage` 就会解析到那份真实几何。
+ * 只有非内置（组织自建）key 才用 `buildAutoTemplateSpec` 现拼一份 spec——那条路径的
+ * 理由不变：与生产 chat 对组织自建模板的渲染是同一个函数，用当前编辑器里的草稿分区
+ * 结构，让「chat 模拟看到的」与「保存发布后真实 chat 会渲染的」保持一致。
+ *
+ * ⚠ 组织自建 key 的分支里，注册进 `fabric-markdown` 全局模板表时**不用真实 key**，
+ *   用一个命名空间化的 `${templateKey}__simulate-preview`——原因见
+ *   `rewriteTemplateKeyLine` 头注。内置 key 的分支不走这条路径，天然不受影响。
  */
 
 import * as React from "react";
 import { MousePointer2, StickyNote, Trash2, Maximize } from "lucide-react";
 import { extractMermaidBlocks, wrapAsMermaidBlock, registerTemplate } from "@repo/fabric-markdown";
 import { isCanvasFenceLang } from "@/lib/canvas/canvas-fence";
+import { canvas } from "@repo/contracts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { simulateCanvasTemplateRun } from "@/lib/live-canvas";
 import { ApiError } from "@/lib/api-client";
@@ -71,6 +87,16 @@ const TOOLS: { readonly key: CanvasTool; readonly label: string; readonly icon: 
  */
 export function rewriteTemplateKeyLine(fenceBody: string, previewKey: string): string {
   return fenceBody.replace(/^(\s*模板\s*:\s*).+$/m, `$1${previewKey}`);
+}
+
+/**
+ * 见文件头 R2.1——单独导出成一个纯函数，不内联在 `run()` 里，是为了能在不起真栈的
+ * 情况下直接单测覆盖全部 19 个内置 key（`tests/lib/template-simulate-dialog.test.ts`）：
+ * 「内置模板永远不走自动布局分支」这条不变量，机械门控住，不必每加一个新内置模板
+ * 都重新手工验证一遍 chat 模拟。
+ */
+export function usesAutoLayoutSpec(templateKey: string): boolean {
+  return canvas.builtinDisplayName(templateKey) === undefined;
 }
 
 export function TemplateSimulateDialog({
@@ -119,18 +145,24 @@ export function TemplateSimulateDialog({
       });
       const block = extractMermaidBlocks(out.text).find((b) => isCanvasFenceLang(b.lang));
       if (block) {
-        // 用**当前**（含未保存改动的）分区结构现拼一份 spec——与生产 chat 对组织自建
-        // 模板的渲染同一个函数（`buildAutoTemplateSpec`），只是数据源从"库里已发布的
-        // 版本"换成"这一刻编辑器里的草稿"，见文件头 R2。
-        const { spec } = buildAutoTemplateSpec({
-          key: previewKey,
-          displayName: title || templateKey,
-          sections: sections.map((s) => ({
-            sectionId: s.sectionId, name: s.name, order: s.order, required: s.required, capacity: s.capacity,
-          })),
-        });
-        registerTemplate(spec);
-        setMarkdown(wrapAsMermaidBlock(rewriteTemplateKeyLine(block.code, previewKey), block.lang));
+        // 见文件头 R2.1：内置模板走真实几何（模块加载时已用真实 key 自行注册过），
+        // 不套自动布局、不重写围栏里的 key。
+        if (usesAutoLayoutSpec(templateKey)) {
+          // 组织自建：用**当前**（含未保存改动的）分区结构现拼一份 spec——与生产
+          // chat 对组织自建模板的渲染同一个函数（`buildAutoTemplateSpec`），只是
+          // 数据源从"库里已发布的版本"换成"这一刻编辑器里的草稿"。
+          const { spec } = buildAutoTemplateSpec({
+            key: previewKey,
+            displayName: title || templateKey,
+            sections: sections.map((s) => ({
+              sectionId: s.sectionId, name: s.name, order: s.order, required: s.required, capacity: s.capacity,
+            })),
+          });
+          registerTemplate(spec);
+          setMarkdown(wrapAsMermaidBlock(rewriteTemplateKeyLine(block.code, previewKey), block.lang));
+        } else {
+          setMarkdown(wrapAsMermaidBlock(block.code, block.lang));
+        }
         setEdited(false);
         setResult({ text: out.text, hasCanvas: true });
       } else {
