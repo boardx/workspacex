@@ -5,7 +5,7 @@ import { MessageRating } from "@/components/chat/message-rating";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import type { ChatMessageIdentityIndex } from "@/lib/copilotkit-v2-message-identity";
 import {
-  MessageLandingControls, type MessageLandingState,
+  MessageLandingTrigger, MessageLandingPanel, type MessageLandingState,
 } from "@/components/chat/message-landing";
 
 /**
@@ -185,19 +185,43 @@ export function CopilotKitV2MessageExtraActions({ messageId }: { messageId: stri
  * 会渲染出**两个气泡外壳**——两条并行线撞在同一层的既知风险，先合入的那份是骨架，
  * 后来的挂件并进去。所以这里只是那条操作条上的第四件，与它们共用同一份 context。
  *
- * ## 为什么它不进 `additionalToolbarItems`
+ * ## 2026-08-27：入口拆成 Trigger（进 `additionalToolbarItems`）+ Panel（仍是兄弟节点）
  *
- * 那一组是**行内**工具栏图标（反馈、👍👎）。落地的完整交互是「按钮 → 标题表单 →
- * 已落地卡片」三态，是块级的，塞进行内工具栏会把工具栏撑变形。所以它作为气泡的
- * **兄弟节点**渲染在下方（见 `V2AssistantMessageImpl`），不是第二层包装。
+ * 此前整块（含"未打开"态的整行文字按钮）都作为气泡的兄弟节点挂在下方，人类反馈
+ * 这个入口应该读作"消息操作条上的一个图标"，不是自成一行的文字按钮（对照 Claude
+ * Design 原型）。落地的完整交互仍然是「触发 → 标题表单 → 已落地卡片」三态，后两态
+ * 需要的宽度（输入框/错误文案/结构化卡片）塞不进行内工具栏，所以只有**触发器**
+ * 这一态挪进 `additionalToolbarItems`（与复制/反馈/评分同一排），表单/完成态仍是
+ * 块级兄弟节点渲染在下方（见 `V2AssistantMessageImpl`）——不是把整个三态交互塞进
+ * 工具栏撑变形。
  *
  * ## 渲染门（与评分同一条纪律，不是新发明的）
  *
  * 三者俱全才画：真实线程 id + bearer（两者合成 `ctx.landing !== null`）+ 这条消息的
  * 真实落库 id（`ctx.identity.resolve(...)`）。缺任何一件都不渲染——正在流的那条消息
  * 还没落库，它本来就不该能被落地；画出来点了必 404 才是本仓反复判 0 的那种假入口。
+ *
+ * ⚠ 用 `resolvePersisted` 而**不是** `resolve`：后者额外过一道归因门（`agentRunId`），
+ *   那是**评分**的服务端判据（`submit-message-rating.ts` 第三道
+ *   `ratings.resolveForMessage`）。落地为产物的服务端门里没有这一条
+ *   （`land-as-artifact.ts` 只做 `findMessageLocation` + 可见性），用 `resolve` 会把
+ *   一条合法可落地、只是没有 `agentRunId` 的历史消息的入口**静默藏掉**——按钮不
+ *   出现、不报错、不留痕，是最难被发现的那种假阴性。两个出口的完整依据见
+ *   `lib/copilotkit-v2-message-identity.ts` 的 `resolvePersisted` 文档。
  */
-export function CopilotKitV2MessageLanding({
+function resolveLandableMessage(
+  ctx: CopilotKitV2MessageActionsContextValue,
+  messageId: string,
+  text: string,
+): { chatMessageId: string; message: { id: string; text: string } } | null {
+  if (ctx.landing === null) return null;
+  const chatMessageId = ctx.identity.resolvePersisted(messageId);
+  if (chatMessageId === null || text === "") return null;
+  return { chatMessageId, message: { id: chatMessageId, text } };
+}
+
+/** 消息动作条里的图标触发器——与 `CopilotKitV2MessageExtraActions` 同一排。 */
+export function CopilotKitV2MessageLandingTrigger({
   messageId,
   text,
 }: {
@@ -205,23 +229,38 @@ export function CopilotKitV2MessageLanding({
   text: string;
 }): JSX.Element | null {
   const ctx = useCopilotKitV2MessageActions();
-  if (ctx === null || ctx.landing === null) return null;
-  // ⚠ 用 `resolvePersisted` 而**不是** `resolve`：后者额外过一道归因门（`agentRunId`），
-  //   那是**评分**的服务端判据（`submit-message-rating.ts` 第三道
-  //   `ratings.resolveForMessage`）。落地为产物的服务端门里没有这一条
-  //   （`land-as-artifact.ts` 只做 `findMessageLocation` + 可见性），用 `resolve` 会把
-  //   一条合法可落地、只是没有 `agentRunId` 的历史消息的入口**静默藏掉**——按钮不
-  //   出现、不报错、不留痕，是最难被发现的那种假阴性。两个出口的完整依据见
-  //   `lib/copilotkit-v2-message-identity.ts` 的 `resolvePersisted` 文档。
-  const chatMessageId = ctx.identity.resolvePersisted(messageId);
-  if (chatMessageId === null || text === "") return null;
-  const landing = ctx.landing;
-  const message = { id: chatMessageId, text };
+  if (ctx === null) return null;
+  const resolved = resolveLandableMessage(ctx, messageId, text);
+  if (resolved === null) return null;
+  const landing = ctx.landing!;
+  const { chatMessageId, message } = resolved;
   return (
-    <MessageLandingControls
+    <MessageLandingTrigger
       message={message}
       state={landing.stateFor(chatMessageId)}
       onOpen={() => landing.open(message)}
+    />
+  );
+}
+
+/** 打开后的表单/提交中/出错/完成四态——仍是气泡下方的块级兄弟节点。 */
+export function CopilotKitV2MessageLandingPanel({
+  messageId,
+  text,
+}: {
+  messageId: string;
+  text: string;
+}): JSX.Element | null {
+  const ctx = useCopilotKitV2MessageActions();
+  if (ctx === null) return null;
+  const resolved = resolveLandableMessage(ctx, messageId, text);
+  if (resolved === null) return null;
+  const landing = ctx.landing!;
+  const { chatMessageId, message } = resolved;
+  return (
+    <MessageLandingPanel
+      message={message}
+      state={landing.stateFor(chatMessageId)}
       onTitleChange={(title) => landing.updateTitle(chatMessageId, title)}
       onCancel={() => landing.cancel(chatMessageId)}
       onSubmit={() => landing.submit(message)}

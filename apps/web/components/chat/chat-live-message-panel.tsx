@@ -10,7 +10,9 @@ import { FeedbackButton } from "@/components/feedback/feedback-button";
 // 诚实错误态）。原型侧（ai-message.tsx）已随 #1020 落档，这里让它在**可达面**对用户生效。
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 // issue #2050 —— 落地为产物的状态机与展示件，与 CopilotKit v2 轨道共用同一份。
-import { MessageLandingControls, useMessageLanding } from "@/components/chat/message-landing";
+// 2026-08-27 起展示件拆成 Trigger（图标，进消息动作条）+ Panel（表单/完成态，仍是块级），
+// 见 `message-landing.tsx` 文件头。
+import { MessageLandingTrigger, MessageLandingPanel, useMessageLanding } from "@/components/chat/message-landing";
 import { AgentToolChain } from "@/components/chat/agent-tool-chain";
 import { MessageThinkingChain } from "@/components/chat/message-thinking-chain";
 import { MessageContextSnapshot } from "@/components/chat/message-context-snapshot";
@@ -1368,6 +1370,17 @@ export function ChatLiveMessagePanel({
                           同样归不了因。给它画一个点了必然失败的按钮，比不画更糟。
                       */}
                       {isAgent && message.agentRunId ? <MessageRating messageId={message.id} /> : null}
+                      {/* 2026-08-27（对照 Claude Design 原型）—— 「落地为产物」触发器
+                          与复制/反馈/评分同一排，改图标、不再自成一行；打开后的表单/
+                          完成态仍是块级，见下方 `MessageLandingPanel`（同一处渲染门，
+                          UI 评分 2026-08-23 第 10 项不一致②：只挂 agent 消息）。 */}
+                      {canLandArtifacts && isAgent ? (
+                        <MessageLandingTrigger
+                          message={message}
+                          state={landing.stateFor(message.id)}
+                          onOpen={() => landing.open(message)}
+                        />
+                      ) : null}
                     </div>
                     {/* #946 · V9-a F152：消息挂的附件（listMessages 投影）。#1584 起点击可预览/下载。 */}
                     {message.attachments && message.attachments.length > 0 ? (
@@ -1377,10 +1390,9 @@ export function ChatLiveMessagePanel({
                         气泡下（右对齐悬浮），语义错位——落地为产物的对象是 agent 的
                         产出，不是用户自己的话。只挂 agent 消息。 */}
                     {canLandArtifacts && isAgent ? (
-                      <MessageLandingControls
+                      <MessageLandingPanel
                         message={message}
                         state={landing.stateFor(message.id)}
-                        onOpen={() => landing.open(message)}
                         onTitleChange={(title) => landing.updateTitle(message.id, title)}
                         onCancel={() => landing.cancel(message.id)}
                         onSubmit={() => void landing.submit(message)}

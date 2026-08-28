@@ -64,14 +64,19 @@
  * issue #2039（UIUX 三轮迭代第 2 轮 gap #4，fidelity rubric D5）——人机消息视觉区分。
  * 此前用户消息与 assistant 消息同为左对齐裸文本，一眼分不出谁说的（截图实锤
  * `.copilotkit-v2-uiux/r1-before/conversation-markdown.png`）。用户消息改为右侧
- * 气泡（muted 底 + 圆角，与旧屏「人的消息右侧气泡」同一心智）；assistant 保持
- * 左侧全宽正文。颜色仍全部走语义 token。
+ * 气泡（圆角），与旧屏「人的消息右侧气泡」同一心智；assistant 保持左侧全宽正文。
+ * 颜色仍全部走语义 token。
+ *
+ * 2026-08-27 人类反馈（对照 Claude Design 原型 `design.dc.html`）：底色从
+ * `--muted`（#F2F2EF）换成 `--secondary`（#F0EFEC）——两者都是既有 token，不是新增
+ * 字面量；`--secondary` 与原型实测的用户气泡底色逐字节一致，`--muted` 更适合骨架屏/
+ * 次级信息底这类"结构性弱化"场景，两者语义不同，此前是选错了 token 而不是需要新调色。
  */
 [data-testid="copilot-user-message"] {
   margin-left: auto;
   width: fit-content;
   max-width: 85%;
-  background: hsl(var(--muted));
+  background: hsl(var(--secondary));
   border-radius: 0.75rem;
   border-bottom-right-radius: 0.25rem;
   padding: 0.5rem 0.75rem;

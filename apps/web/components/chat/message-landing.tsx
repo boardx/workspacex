@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { FileText } from "lucide-react";
+import { FileOutput, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { describeMessageFailure, landAsArtifact } from "@/lib/live-chat";
@@ -16,8 +16,10 @@ import { describeMessageFailure, landAsArtifact } from "@/lib/live-chat";
  * 这个能力，而本仓硬约束写得很清楚：**同一事实不得声明在两处**。把状态机原样抄第二份
  * 到 v2 面板里，两条轨道的「落地」行为就会各自漂移（标题默认值、错误措辞、`mode`
  * 取值、成功后要不要重读右栏……全是会分叉的点）。所以这里抽成两条轨道**共用的一份**：
- * 展示件 `MessageLandingControls` + 状态机 `useMessageLanding`，两个都不含任何一条
- * 轨道自己的概念（不认识 `DurableMessage`，只认 `LandableMessage` 这个最小形状）。
+ * 展示件 `MessageLandingTrigger`（未打开时的入口，2026-08-27 起是图标）+
+ * `MessageLandingPanel`（打开后的表单/提交中/出错/完成四态）+ 状态机
+ * `useMessageLanding`，三者都不含任何一条轨道自己的概念（不认识 `DurableMessage`，
+ * 只认 `LandableMessage` 这个最小形状）。
  *
  * ## 只提供 `mode: "draft"`
  *
@@ -123,39 +125,69 @@ export function useMessageLanding(input: {
 }
 
 /**
- * 十项 UX 缺口第 5 项（issue #708）——内联「落地为产物」控件。
- * 真实调用 `landAsArtifact`（`POST /chat/threads/:threadId/artifacts`）。
+ * 十项 UX 缺口第 5 项（issue #708）——内联「落地为产物」触发按钮。
+ *
+ * 2026-08-27 人类反馈（对照 Claude Design 原型）：此前这是一个独占一整行的
+ * outline 文字按钮（"落地为产物（草稿）"），在消息动作条（复制/反馈/评分）之外
+ * 另起一行，读作与那一排不相关的东西。原型里这类附加动作是与复制/评分同一排的
+ * 小图标——所以这里拆成两块：**未打开**时只是这个图标触发器，调用方把它塞进与
+ * 复制/反馈同一个 flex 行；一旦打开（表单/提交中/出错/完成）交给下面
+ * `MessageLandingPanel` 渲染，那三态需要的宽度（标题输入框、错误文案、结构化卡片）
+ * 塞不进一排小图标，所以仍然是块级、挂在气泡下方——两个组件对应"未打开"与"已打开"
+ * 两种互斥状态，不是重复渲染同一件事。
+ *
+ * 图标选 `FileOutput`（"产出一个文件"的直观语义），与 `LandedArtifactCard` 里
+ * 表示"已经是一个产物"的 `FileText` 区分开，读者能从图标本身分辨"这是入口"还是
+ * "这是结果"。
  */
-export function MessageLandingControls({
-  message, state, onOpen, onTitleChange, onCancel, onSubmit,
+export function MessageLandingTrigger({
+  message, state, onOpen,
 }: {
   message: LandableMessage;
   state: MessageLandingState | undefined;
   onOpen: () => void;
+}): JSX.Element | null {
+  // 一旦进入表单/提交中/出错/完成任一态，块级的 `MessageLandingPanel` 接管展示，
+  // 这个触发器不再需要（避免同一操作出现两个可点入口）。
+  if (state !== undefined) return null;
+  return (
+    <button
+      type="button"
+      data-testid={`chat-land-artifact-open-${message.id}`}
+      aria-label="落地为产物（草稿）"
+      title="落地为产物（草稿）"
+      onClick={onOpen}
+      className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <FileOutput aria-hidden className="h-3 w-3" />
+    </button>
+  );
+}
+
+/**
+ * 「落地为产物」表单/提交中/出错/完成四态的块级展示——只在 `state !== undefined`
+ * （即 `MessageLandingTrigger` 已被点开）时渲染，需要的宽度比一排小图标大得多
+ * （标题输入框、行内错误文案、结构化的已完成卡片），所以仍是气泡下方的独立块，
+ * 不塞进消息动作条。
+ */
+export function MessageLandingPanel({
+  message, state, onTitleChange, onCancel, onSubmit,
+}: {
+  message: LandableMessage;
+  state: MessageLandingState | undefined;
   onTitleChange: (title: string) => void;
   onCancel: () => void;
   onSubmit: () => void;
-}): JSX.Element {
-  if (state === undefined) {
-    return (
-      // issue #2126（A续，真实 devapp 实测）—— 这个入口按钮此前是 `variant="outline"`
-      // （带边框 + 卡片底色），与紧挨着它的框架自带 复制/反馈/评分 toolbar（那三个都是
-      // 无边框的行内图标按钮）视觉上不对齐，读成两个不相关的区块。#2132/#2133 已经把
-      // 外层容器间距从 `gap-1.5` 收紧到 `gap-1`（见 `copilotkit-v2-panel.tsx` 里
-      // `V2AssistantMessageImpl` 的注释），但按钮本身的 variant 当时没有一并改——这里
-      // 补上 issue 原文明确要求的那一半：换成 `ghost`（无边框、无底色，只在 hover 时
-      // 才出现背景），视觉上更贴近"同一组操作的延续"而不是另起一个独立区块。
-      <Button
-        size="xs"
-        variant="ghost"
-        className="self-start text-10"
-        data-testid={`chat-land-artifact-open-${message.id}`}
-        onClick={onOpen}
-      >
-        落地为产物（草稿）
-      </Button>
-    );
-  }
+}): JSX.Element | null {
+  // 2026-08-27（issue #2132 续）—— "未打开"态的入口已经不在这个组件里渲染：
+  // 此前这里（以及更早、main 上 issue #2126 修过一次视觉的那版）画的是一个
+  // outline/ghost 文字按钮"落地为产物（草稿）"，自成一行，与复制/反馈/评分不在
+  // 同一视觉层级。#2126 当时只把它的 variant 从 outline 换成 ghost，缓解了边框
+  // 不对齐的问题，但没解决"自成一行"本身——对照 Claude Design 原型，这类附加
+  // 动作应该是消息操作条上的一个小图标，见上面 `MessageLandingTrigger`（进
+  // `additionalToolbarItems`，与复制/反馈/评分同一排）。这个组件现在只负责
+  // "已打开"之后的三态（表单/提交中/出错/完成），未打开时不渲染任何东西。
+  if (state === undefined) return null;
 
   if (state.status === "done") {
     return <LandedArtifactCard messageId={message.id} title={state.title} sourceText={message.text} />;
