@@ -2494,6 +2494,36 @@ function V2AssistantMessageImpl(
   // 不另找一处读。
   const text = typeof props.message.content === "string" ? props.message.content : "";
   /**
+   * issue #2307（3/3 稳定复现，#2300 引入的回归）—— 框架 `CopilotChatAssistantMessage`
+   * 内部有一条我们够不着的门：`shouldShowToolbar = toolbarVisible && hasContent &&
+   * !(isRunning && isLatestAssistantMessage)`（读框架编译产物
+   * `copilotkit-nRjRp2_5.mjs` 确认，不是猜测）。这条门是**整个 toolbar 容器**的
+   * mount/unmount 开关，为 false 时 `additionalToolbarItems`（含下面
+   * `CopilotKitV2MessageLandingTrigger`）连 DOM 都不进去，不是 CSS 隐藏。
+   *
+   * #2300 之前，「落地为产物」的入口是气泡下方一个独立的兄弟节点，不经过这条门，
+   * 所以从不受它影响。#2300 把入口挪进了 `additionalToolbarItems`（人类反馈：应该
+   * 和复制/反馈/评分同一排），这条耦合就第一次生效——而它与后端协议的时序对不上：
+   * `chat_message_id` 映射事件（`lib/copilotkit-v2-message-identity.ts` 文件头）是
+   * 在 run **succeeded 之后、`RUN_FINISHED` 之前**发的，也就是说"这条消息已经真实
+   * 落库、可以被落地为产物"这件事，可能发生在客户端 `agent.isRunning` 还没翻回
+   * `false` 的那个窗口内——恰好是 `isRunning && isLatestAssistantMessage` 为真、
+   * 框架判定"整条 toolbar 都不该出现"的那一刻。真实实测里这不是"稍等一下就出现"的
+   * 抖动：只要期间没有别的状态变化触发这条消息重渲染，它会一直卡在"已经可以落地、
+   * 但入口没画"这个状态，用户看到的就是 issue 描述的"入口整个消失"。
+   *
+   * 修法：`isRunning` 只应该表达"这条消息的正文还在流式变化，此刻操作它不安全"，
+   * 而 `resolvePersisted` 已经是本文件既有的、更权威的"这条消息是否已经是一行真实
+   * `chat_messages` 记录"的判据（CK-P7 落地入口自己就用它，见
+   * `copilotkit-v2-message-actions.tsx` 的 `resolveLandableMessage`）。一旦这条消息
+   * 已经解析出真实落库 id，就不该再被"协议层的 RUN_FINISHED 还没到"卡住——内容和
+   * 落库 id 都已经是终态，继续隐藏整条 toolbar（连复制都点不了）不是保护用户，是
+   * 一个纯粹的时序假象。这里只对**这一条消息**改写 `isRunning`，不影响 `agent`
+   * 本身的运行状态（composer 的禁用、"…"文案等别处读的仍是原始 `agent.isRunning`）。
+   */
+  const persistedMessageId = actionsCtx?.identity.resolvePersisted(messageId) ?? null;
+  const effectiveIsRunning = props.isRunning && persistedMessageId === null;
+  /**
    * issue #2132（真实 devapp 实测：打字/滚动时消息区画布内容闪烁，续 #2096）—— 这是
    * #2096 那次 memo 化之外**另一处、更严重**的同类根因，不是同一个 bug 的残留。
    *
@@ -2542,6 +2572,10 @@ function V2AssistantMessageImpl(
     <div className="flex flex-col gap-1">
       <CopilotChatAssistantMessage
         {...props}
+        // issue #2307 —— 见上方 `effectiveIsRunning` 的完整推理：只对这一条消息
+        // 覆盖框架自己的"是否还在跑"判断，落库 id 一旦解析出来就不再让协议层
+        // `RUN_FINISHED` 的到达时序卡住整条 toolbar（含下面的落地入口）。
+        isRunning={effectiveIsRunning}
         markdownRenderer={markdownRenderer}
         copyButton={copyButton}
         additionalToolbarItems={
