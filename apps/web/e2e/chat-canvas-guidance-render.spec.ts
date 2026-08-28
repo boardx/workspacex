@@ -27,7 +27,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 
-const PROOF_TEXT = "帮我记一下这次负责人信息，代号 E2E-CANVAS-6031";
+/**
+ * issue #2295 —— 证明串**必须**带上 `CHAT_READ_E2E.canvasGuidanceSentinel`：这是
+ * `loopback-model-provider.ts` 的 `canvasGuidanceReachedModel` 判定这条请求确实来自
+ * 本专属线程的第三个信号（唯一事实源在 `chat-read-fixture.ts`），不是随手嵌进正文的
+ * 装饰性代号——少了它，这条分支不会命中，会退回通用回显分支。
+ */
+const PROOF_TEXT = `帮我记一下这次负责人信息，代号 ${CHAT_READ_E2E.canvasGuidanceSentinel}`;
 
 /**
  * 真栈 E2E 第三轮实测踩出的坑，与前两轮同一个根因（run 落终态那一刻的软刷新窗口）：

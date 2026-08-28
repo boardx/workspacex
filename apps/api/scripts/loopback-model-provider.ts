@@ -293,24 +293,44 @@ function followUpSuggestionsReply(messages: CompletionRequest["messages"]): stri
  * `LOOPBACK_MODEL_CANVAS_TEMPLATE_KEY` 未设置时这条分支恒不命中，`fullstack-smoke`/
  * `core-loop` 两条链路不下发这个变量，行为逐字节不变。
  *
- * ## 判定用**两个**信号，不是一个
+ * ## issue #2295 —— 「system prompt 里有没有这个 key」不是这条分支专属的信号
  *
- * 只查 `CANVAS_GUIDANCE_HEADER`（生产常量，任何组织只要配了任意一个已发布画布模板都会
- * 出现）证明不了「是我这次种的那个模板」；再加一个只查 `system.includes(模板 key)`——
- * 一旦这个 key 出现在 system prompt 里，`buildCanvasTemplateGuidance` 的固定格式保证它
- * 一定嵌在 `CANVAS_GUIDANCE_HEADER` 那一段里（拼接函数每个 key 都在同一段落里逐条列出，
- * 不会出现在别处），单独查 key 已经足够、两者合取只是双保险，两个条件都命中才回显。
+ * 原判定只查两个 system prompt 信号（`CANVAS_GUIDANCE_HEADER` + 模板 key）。这在
+ * `chat-read.spec.ts` 夹具还只有一个已发布画布模板、且只有一条线程会触发注入时成立，
+ * 但 `buildCanvasTemplateGuidance` 把**组织下全部已发布模板**列进**该组织每一条线程、
+ * 每一次 run** 的 system prompt——这个信号一旦组织里有任意已发布模板就恒为真，与
+ * 「这次请求是不是那条专属画布线程发出来的」完全无关。结果是同一夹具组织下另外 10 条
+ * 用例的请求也命中这条分支，`fullText` 被整体换成画布围栏，`[loopback]` 回显前缀
+ * 连同这些用例真正要断言的内容一起被顶掉（这批用例断言的都是「确定性上游收到了什么就
+ * 回显什么」，不是画布内容本身）。
+ *
+ * 修法**不改变 system prompt 侧的两个既有信号**（它们仍然是「注入链路真的把指引拼进
+ * system prompt」这件事本身唯一站得住脚的证据），只是再加第三个信号把分支收窄到**这一
+ * 条专属请求**：`LOOPBACK_MODEL_CANVAS_GUIDANCE_SENTINEL`——只出现在
+ * `chat-canvas-guidance-render.spec.ts` 发的那一条用户消息正文里（`chat-read-fixture.ts`
+ * 的 `canvasGuidanceSentinel`，全仓别处零命中，同 `mountedSkillSentinel` 一套隔离纪律）。
+ * 三个信号必须同时命中——`ModelCallInput`/`CompletionRequest` 的 wire 形状里没有 threadId
+ * 字段（`configured-model-provider.ts` 的 `buildMessages` 只拼 system/history/user 三段），
+ * 把「专属线程」这件事在不改产品 wire 契约的前提下变成可判定信号，只能落在**这次请求真的
+ * 带着这条线程会发的那句话**上——不是查线程 id（请求里根本没有），是查这次请求的用户
+ * 原文里有没有专属哨兵，与其余每一条「哨兵串」判据（`SKILL_SENTINEL`/
+ * `TOOL_TRACE_SENTINEL`/`L2_EARLY_FACT_CODE_WORD`）同一个形状。
  */
 const CANVAS_TEMPLATE_KEY = process.env.LOOPBACK_MODEL_CANVAS_TEMPLATE_KEY || null;
 const CANVAS_HEADER_FIELD_NAME = process.env.LOOPBACK_MODEL_CANVAS_HEADER_FIELD_NAME || null;
 const CANVAS_SECTION_NAME = process.env.LOOPBACK_MODEL_CANVAS_SECTION_NAME || null;
+const CANVAS_GUIDANCE_SENTINEL = process.env.LOOPBACK_MODEL_CANVAS_GUIDANCE_SENTINEL || null;
 
-function canvasGuidanceReachedModel(messages: CompletionRequest["messages"]): boolean {
-  if (CANVAS_TEMPLATE_KEY === null) return false;
+function canvasGuidanceReachedModel(messages: CompletionRequest["messages"], userText: string): boolean {
+  if (CANVAS_TEMPLATE_KEY === null || CANVAS_GUIDANCE_SENTINEL === null) return false;
   const system = (messages ?? []).find((message) => message.role === "system")?.content;
-  return typeof system === "string"
+  const systemGotGuidance = typeof system === "string"
     && system.includes(CANVAS_GUIDANCE_HEADER)
     && system.includes(CANVAS_TEMPLATE_KEY);
+  // 三个条件全部命中才回显：前两个证明「注入链路真的把这个组织的指引拼进了 system
+  // prompt」，第三个证明「这次请求是那条专属画布线程发出来的」——少了第三个，任何一条
+  // 同组织线程的请求都会因为前两个恒真而被误判（issue #2295 的根因）。
+  return systemGotGuidance && userText.includes(CANVAS_GUIDANCE_SENTINEL);
 }
 
 /**
@@ -426,7 +446,7 @@ const server = createServer((req, res) => {
       ? trialRunScriptReply(echoed)
       : isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)
-      : canvasGuidanceReachedModel(parsed.messages)
+      : canvasGuidanceReachedModel(parsed.messages, echoed)
       ? canvasGuidanceReply(echoed)
       : `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
     if (parsed.stream === true) {

@@ -387,12 +387,20 @@ export default defineConfig({
          * 5 点迭代要求第②条 —— 打开替身进程「system prompt 里真的看到本组织已发布画布
          * 模板的指引，就产出可解析的 canvas 围栏」这个**默认关闭**的开关（见
          * `loopback-model-provider.ts` 里 `canvasGuidanceReachedModel` 的头注）。
-         * `fullstack-smoke.config.ts` / `core-loop` 不下发这三个变量，那两条链路行为
-         * 逐字节不变。
+         * `fullstack-smoke.config.ts` / `core-loop` 不下发下面这四个变量，那两条链路
+         * 行为逐字节不变。
          */
         LOOPBACK_MODEL_CANVAS_TEMPLATE_KEY: CHAT_READ_E2E.canvasTemplateKey,
         LOOPBACK_MODEL_CANVAS_HEADER_FIELD_NAME: CHAT_READ_E2E.canvasHeaderFieldName,
         LOOPBACK_MODEL_CANVAS_SECTION_NAME: CHAT_READ_E2E.canvasSectionName,
+        /**
+         * issue #2295 —— 第三个判定信号（前两个是上面 system prompt 的两个信号），
+         * 收窄 `canvasGuidanceReachedModel` 只认这一条专属画布线程发出的请求，见该
+         * 函数与 `chat-read-fixture.ts` 的 `canvasGuidanceSentinel` 头注。没有它，
+         * system prompt 里那两个信号在本夹具
+         * 组织下对同组织其余用例的请求恒为真，会把它们的回复整体顶成画布围栏。
+         */
+        LOOPBACK_MODEL_CANVAS_GUIDANCE_SENTINEL: CHAT_READ_E2E.canvasGuidanceSentinel,
       },
     },
     /**
