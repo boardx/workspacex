@@ -6,7 +6,8 @@
  * NestJS `POST /canvas/templates/:key/simulate` → `simulateTemplateRun` 用例 →
  * `ModelCallPort.complete` → 确定性上游 `loopback-model-provider.ts`
  * （见该脚本文件头，本仓 E2E 全程不接真实外部模型——同 `chat-vision-honest-degrade.spec.ts`
- * 的既有纪律）→ 响应体原样回到浏览器 → 解析成 `runData` → `TemplateCanvasGrid` 渲染。
+ * 的既有纪律）→ 响应体原样回到浏览器 → 解析成围栏 → 真实 `CanvasStage`（fabric.js，
+ * `template-simulate-dialog.tsx` R2）渲染。
  *
  * ## 「回显即证明」——不是伪造证据，是复用这条仓库既有的确定性取证手段
  *
@@ -14,10 +15,16 @@
  * 脚本 `REPLY_PREFIX` 常量）。本用例利用这一点：提示词本身就写成一份合法的
  * ```canvas 围栏（`模板: <key>` + 表头字段 + `## 分区名` 正文），模型原样回显它
  * （多出来的前缀文字不影响围栏被 `extractMermaidBlocks` 识别——它扫的是围栏定界符，
- * 不要求消息以定界符开头）。断言检查的是**回显内容真的被解析并渲染出来**：
- * 表头字段值、正文分区里的贴纸文字都是这次提示词里写的原文，不是一段写死在界面上的
- * 占位符——这正是「模拟结果反映的是这次真实的网络响应，不是本地假数据」的取证点，
- * 与 `chat-vision-honest-degrade.spec.ts`「回显真实收到的 userText」同一条纪律。
+ * 不要求消息以定界符开头）。
+ *
+ * ## 内容断言走的是哪条通道
+ *
+ * fabric 画布画的是像素，肉眼/自动化都读不到画布里的文字——`toContainText` 断言的
+ * 是弹窗里那段常驻的「模型原始回复」诊断区（`tpladmin-editor-simulate-source`，
+ * `template-simulate-dialog.tsx` R2 头注「fabric 画的是像素……靠这段兜底」），它显示
+ * 的就是 `/simulate` 响应体原文，不是本地编造。真正证明"fabric 引擎确实跑起来了"的
+ * 是 `canvas-fabric-surface`（`CanvasStage` 唯一的 `<canvas>` 元素）变为可见——两条
+ * 断言合起来才是完整的证明链：**内容**来自网络响应 + **渲染**真的用了 fabric 引擎。
  *
  * ⚠ 来源模板现场建 + 加字段，不往种子里塞——理由同 `mintSourceKey`（#988）：往种子里加
  *   一条模板行会打红 `canvas-template-create-smoke.spec.ts` 的管理员空态反空转断言。
@@ -115,9 +122,15 @@ test("admin types a prompt into chat 模拟, gets a real model round trip back, 
   expect(simulateBody.text).toContain(ECHOED_NAME_VALUE);
   expect(simulateBody.text).toContain(ECHOED_POINT_VALUE);
 
-  // ── 渲染结果：不是「原文回退」态，是解析出来的真实画布网格 ─────────────────
+  // ── 渲染结果：不是「原文回退」态，真的起了一个 fabric.js 画布 ─────────────────
   await expect(page.getByTestId("tpladmin-editor-simulate-result")).toBeVisible();
   await expect(page.getByTestId("tpladmin-editor-simulate-raw")).toHaveCount(0);
+  // fabric 引擎真的跑了一次解析并挂了一张 `<canvas>`——不是仍停在占位态。
+  await expect(page.getByTestId("canvas-fabric-surface")).toBeVisible({ timeout: 30_000 });
+  // 工具条也在——「可以修改」这条要求的可见证据（人类原话：「必须用 fabricjs 来渲染，
+  // 这样的话可以修改」）。
+  await expect(page.getByTestId("tpladmin-editor-simulate-tool-select")).toBeVisible();
+  await expect(page.getByTestId("tpladmin-editor-simulate-tool-sticky")).toBeVisible();
   const result = page.getByTestId("tpladmin-editor-simulate-result");
   await expect(result).toContainText(ECHOED_NAME_VALUE);
   await expect(result).toContainText(ECHOED_POINT_VALUE);
@@ -184,6 +197,7 @@ test("counterproof: the rendered result reflects the network response body, not 
   await page.getByTestId("tpladmin-editor-simulate-run").click();
 
   await expect(page.getByTestId("tpladmin-editor-simulate-result")).toBeVisible();
+  await expect(page.getByTestId("canvas-fabric-surface")).toBeVisible({ timeout: 30_000 });
   expect(intercepted).toBe(1);
   // 界面上出现的是桩数据里的字，不是我们打的提示词原文——渲染的是网络响应。
   await expect(page.getByTestId("tpladmin-editor-simulate-result")).toContainText(STUBBED_VALUE);

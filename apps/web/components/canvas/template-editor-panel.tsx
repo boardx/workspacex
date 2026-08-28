@@ -744,11 +744,8 @@ export function TemplateEditorPanel({
           <TemplateSimulateDialog
             templateKey={row.key}
             sections={sections}
-            gridCols={gridCols}
             title={title}
-            footer={footer}
             promptText={promptText}
-            paperSize={paperSize}
             onClose={() => setSimulateOpen(false)}
           />
         )}
