@@ -380,10 +380,22 @@ export function shortTime(iso: string): string {
  *   **禁用**——空态引导文案明明写着「点上面「新建会话」开始第一次对话」，指向的却是一个
  *   点不动的按钮（rev-uiux 第 3/4 轮各抓到一次）。两个问题根子相同：没有共用这个组件。
  */
-export function NewThreadButton({ onClick, disabled }: { onClick: () => void; disabled: boolean }) {
+export function NewThreadButton({
+  onClick, disabled, label = "新建对话",
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  /**
+   * 2026-08-29 Claude Design 重设计稿（copilotkit-v2 左栏）——该屏的语境是"把一件事
+   * 交给 AI"，不只是"开一条新对话"，文案跟着换成「交一件事给 AI」。默认值不变：
+   * `chat-read-screen.tsx`/`personal-chat-screen.tsx` 两条旧轨道逐字节不变，
+   * 只有传了这个 prop 的调用方才看得到新文案——不是全仓统一改名。
+   */
+  label?: string;
+}) {
   return (
     <Button className="w-full" size="sm" variant="primary" data-testid="chat-thread-create" disabled={disabled} onClick={onClick}>
-      <Plus aria-hidden className="h-3.5 w-3.5" />新建对话
+      <Plus aria-hidden className="h-3.5 w-3.5" />{label}
     </Button>
   );
 }

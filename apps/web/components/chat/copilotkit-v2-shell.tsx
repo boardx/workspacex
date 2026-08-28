@@ -549,9 +549,12 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         )}
         data-testid="copilotkit-v2-thread-sidebar"
       >
-        <ThreadListHeader />
+        {/* 2026-08-29 Claude Design 重设计稿——这个左栏在该稿里叫「工作」，不是「对话」：
+            它承载的不只是聊天记录，还是"把一件事交给 AI"的入口。`ThreadListHeader`
+            默认值（"对话"）留给旧轨道两屏，这里显式覆盖，不动共用组件的默认行为。 */}
+        <ThreadListHeader title="工作" />
         <div className="flex flex-col gap-1.5 px-3">
-          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} />
+          <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="交一件事给 AI" />
           {/* issue #2039（第 3 轮 gap #2，fidelity P2）——个人对话上下文如实说明，
               与旧轨道 `personal-chat-screen.tsx` 同一句文案，不画假项目名填空。 */}
           <p className="text-10 text-muted-foreground">不挂靠任何项目，仅自己可见</p>
