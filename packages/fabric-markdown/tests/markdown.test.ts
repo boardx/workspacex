@@ -50,6 +50,19 @@ describe('extractMermaidBlocks', () => {
     expect(blocks[0]!.end).toBe(md.length);
   });
 
+  it('flags unclosed fences as closed:false (issue #2298 — streaming mid-state)', () => {
+    const md = 'text\n```canvas\n模板: chat-read-e2e-canvas\n## 分区 A';
+    const blocks = extractMermaidBlocks(md);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.closed).toBe(false);
+  });
+
+  it('flags properly terminated fences as closed:true', () => {
+    const blocks = extractMermaidBlocks(DOC);
+    expect(blocks[0]!.closed).toBe(true);
+    expect(blocks[1]!.closed).toBe(true);
+  });
+
   it('returns empty for documents without mermaid', () => {
     expect(extractMermaidBlocks('# nothing here')).toHaveLength(0);
   });
