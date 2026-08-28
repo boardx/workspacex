@@ -54,20 +54,33 @@ describe("rewriteTemplateKeyLine", () => {
  * 画出来的位置/比例与真实 chat 渲染同一个 key 会对不上（人类原话：「设计好的 html
  * 模板可以通过提示词渲染出来 fabricjs 的画布并保持 ratio 和大小的一致」）。
  *
+ * R2.2（2026-08-29 人类实测反馈）——判据补上 `layoutSource`：一个内置模板一旦被
+ * 组织自定义过（保存/铸新版本恒写 `"user-edited"`，不可退回），chat 模拟就该用
+ * 当前分区结构而不是 package 里那份原始几何，否则「改了模板保存后，测试功能用的
+ * 还是旧模板」——判据与 `fence-template-resolver.ts` 第 163 行逐字同一个条件。
+ *
  * 这里不手写一份「19 个 key」的清单去比对——那正是本仓「同一事实不得声明在两处」
  * 已经栽过五次的形状。直接遍历契约自己的 `BUILTIN_CANVAS_TEMPLATES`（唯一事实源，
  * `canvas.builtinDisplayName` 也读的这张表），新增/删除内置模板时本测试自动跟着
  * 覆盖到新的清单，不需要有人记得同步改这里。
  */
-describe("usesAutoLayoutSpec（R2.1：内置模板永不套自动布局）", () => {
+describe("usesAutoLayoutSpec（R2.1/R2.2：未自定义的内置模板不套自动布局，自定义过的都套）", () => {
   const builtinKeys = Object.keys(canvas.BUILTIN_CANVAS_TEMPLATES);
 
   it("契约的内置模板清单非空——防止这条测试因为清单意外读成空数组而恒真", () => {
     expect(builtinKeys.length).toBeGreaterThan(0);
   });
 
-  it.each(builtinKeys)("内置 key「%s」—— usesAutoLayoutSpec 恒为 false", (key) => {
-    expect(usesAutoLayoutSpec(key)).toBe(false);
+  it.each(builtinKeys)("内置 key「%s」+ layoutSource 未定义（老数据/从未定制过）—— usesAutoLayoutSpec 为 false", (key) => {
+    expect(usesAutoLayoutSpec(key, undefined)).toBe(false);
+  });
+
+  it.each(builtinKeys)("内置 key「%s」+ layoutSource=\"builtin-derived\"（backfill 默认值，未定制）—— usesAutoLayoutSpec 为 false", (key) => {
+    expect(usesAutoLayoutSpec(key, "builtin-derived")).toBe(false);
+  });
+
+  it.each(builtinKeys)("内置 key「%s」+ layoutSource=\"user-edited\"（组织真的定制过）—— usesAutoLayoutSpec 为 true", (key) => {
+    expect(usesAutoLayoutSpec(key, "user-edited")).toBe(true);
   });
 
   it.each(builtinKeys)("内置 key「%s」—— fabric-markdown 引擎里真的注册了一份可渲染的 spec（不是空壳）", (key) => {
@@ -81,7 +94,9 @@ describe("usesAutoLayoutSpec（R2.1：内置模板永不套自动布局）", () 
     }
   });
 
-  it("组织自建（非内置）key —— usesAutoLayoutSpec 为 true，走自动布局分支", () => {
-    expect(usesAutoLayoutSpec("some-org-custom-key-not-in-builtin-list")).toBe(true);
+  it("组织自建（非内置）key —— usesAutoLayoutSpec 恒为 true，走自动布局分支，与 layoutSource 无关", () => {
+    expect(usesAutoLayoutSpec("some-org-custom-key-not-in-builtin-list", undefined)).toBe(true);
+    expect(usesAutoLayoutSpec("some-org-custom-key-not-in-builtin-list", "builtin-derived")).toBe(true);
+    expect(usesAutoLayoutSpec("some-org-custom-key-not-in-builtin-list", "user-edited")).toBe(true);
   });
 });

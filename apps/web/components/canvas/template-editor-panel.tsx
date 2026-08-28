@@ -743,6 +743,7 @@ export function TemplateEditorPanel({
         {simulateOpen && (
           <TemplateSimulateDialog
             templateKey={row.key}
+            layoutSource={row.layoutSource}
             sections={sections}
             title={title}
             promptText={promptText}
