@@ -202,3 +202,148 @@ test("counterproof: the rendered result reflects the network response body, not 
   // 界面上出现的是桩数据里的字，不是我们打的提示词原文——渲染的是网络响应。
   await expect(page.getByTestId("tpladmin-editor-simulate-result")).toContainText(STUBBED_VALUE);
 });
+
+/**
+ * 🟢 R2 补测（2026-08-28，人类原话「必须用 fabricjs 来渲染，这样的话可以修改」）——
+ * 此前只验证到「canvas 挂载了、工具条按钮在」，从没验证过在画布上真的点一下有没有
+ * 效果。这条用「＋便签」工具在画布上点一下，断言 `tpladmin-editor-simulate-edited`
+ * 出现——这个信号只有 `CanvasStage` 的 `onMarkdownChange` 真的被 fabric 场景变化
+ * 触发过一次才会出现（`template-simulate-dialog.tsx` 同名 state 头注），不是猜的。
+ *
+ * 点击手法照抄 `chat-diagram-save-reopen-roundtrip.spec.ts` 既有先例（拿
+ * `boundingBox()` 后点 80%/80% 处，不点正中心）。
+ */
+test("R2：结果画布真的可以编辑——点「＋便签」工具落一张便签，画布状态真的变了", async ({ page }) => {
+  const { canvasSimulateEditName: NAME } = FULLSTACK_E2E;
+
+  await loginAsAdmin(page);
+  await page.goto("/canvas?screen=template-admin&view=list");
+  await expect(page.getByTestId("tpladmin-root")).toBeVisible();
+
+  const createResponsePromise = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === `${API}/canvas/templates` && r.request().method() === "POST",
+  );
+  await page.getByTestId("tpladmin-create").click();
+  await expect(page.getByTestId("tpladmin-create-dialog")).toBeVisible();
+  await page.getByTestId("tpladmin-create-name").fill(NAME);
+  await page.getByTestId("tpladmin-create-submit").click();
+  const created = await (await createResponsePromise).json() as { key: string };
+  const KEY = created.key;
+
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+  await page.getByTestId("tpladmin-editor-new-key").fill("points");
+  await page.getByTestId("tpladmin-editor-new-name").fill("要点");
+  await page.getByTestId("tpladmin-editor-new-add").click();
+  await page.getByTestId("tpladmin-editor-autolayout").click();
+  await expect(page.getByTestId("tpladmin-editor-field-points")).toBeVisible();
+  await page.getByTestId("tpladmin-editor-save").click();
+  await expect(page.getByTestId("tpladmin-editor-save")).toHaveText("已保存");
+
+  await page.getByTestId("tpladmin-editor-simulate-toggle").click();
+  await expect(page.getByTestId("tpladmin-editor-simulate-dialog")).toBeVisible();
+
+  // 同主用例的手法：提示词本身就是一份合法围栏，loopback 原样回显。
+  const prompt = ["", "```canvas", `模板: ${KEY}`, "## 要点", "- 编辑前的要点"].join("\n") + "\n```";
+  await page.getByTestId("tpladmin-editor-simulate-input").fill(prompt);
+  const simulateResponsePromise = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === `${API}/canvas/templates/${KEY}/simulate` && r.request().method() === "POST",
+  );
+  await page.getByTestId("tpladmin-editor-simulate-run").click();
+  expect((await simulateResponsePromise).status()).toBe(200);
+  await expect(page.getByTestId("canvas-fabric-surface")).toBeVisible({ timeout: 30_000 });
+
+  // 编辑前：不该出现「已编辑」标记——还没碰过画布。
+  await expect(page.getByTestId("tpladmin-editor-simulate-edited")).toHaveCount(0);
+
+  await page.getByTestId("tpladmin-editor-simulate-tool-sticky").click();
+  // ⚠ 真栈 E2E 两轮实测踩出的两层坑，缺一不可：
+  //
+  // ① `canvas-fabric-surface` 这个 testid 挂在 fabric 的 **lower-canvas**（渲染层）
+  //   上，但 fabric 真正监听指针事件的是它上面**另起一层**的 `upper-canvas`
+  //   （`class="upper-canvas"`，同一个 `<canvas-container>` 里的兄弟节点，绝对定位
+  //   叠在 lower-canvas 正上方）——`locator.click({position})` 走的是"这个元素真的
+  //   可点击"的可达性检查，第一轮实测超时报的正是
+  //   `<canvas class="upper-canvas"> intercepts pointer events`，检查如实挡下了这次
+  //   点击，不是查漏了。`page.mouse.click(x, y)` 不做元素归属检查，只在给定的绝对
+  //   像素坐标上找当前最上层的元素派发事件——那正好就是 upper-canvas，是唯一能真的
+  //   触发 fabric `mouse:down` 处理器的点法。
+  //
+  // ② 但绝对坐标本身也不能瞎给：`chat-diagram-save-reopen-roundtrip.spec.ts` 那条
+  //   既有先例点 80%/80% 处是安全的，因为那个编辑器是 `fixed inset-0` 铺满整个视口
+  //   （见 `chat-canvas-modal.tsx`）——视口内任何一点都必然落在它里面。本弹窗是
+  //   Radix `Dialog`，一个有边界的卡片，不是铺满视口；`boundingBox()` 量出来的矩形
+  //   边缘可能已经超出弹窗卡片实际可见范围——点在那（尤其是右下角附近）会落在弹窗
+  //   外的遮罩层上，Radix 判定为"点了外面"直接把弹窗关掉（第零轮实测：断言超时时
+  //   截图看到的是弹窗已经整个消失）。改成左上角一个小偏移量，稳稳落在弹窗卡片
+  //   可见范围内。
+  const surface = page.getByTestId("canvas-fabric-surface");
+  const box = (await surface.boundingBox())!;
+  await page.mouse.click(box.x + 40, box.y + 40);
+
+  // 真的落了一张便签——`onMarkdownChange` 真的被 fabric 场景变化触发过。
+  await expect(page.getByTestId("tpladmin-editor-simulate-edited")).toBeVisible();
+
+  await page.getByTestId("tpladmin-editor-simulate-close").click();
+  await expect(page.getByTestId("tpladmin-editor-simulate-dialog")).toHaveCount(0);
+});
+
+/**
+ * 🟢 R2 补测——`simulateTemplateRun` 用例契约里的 `TEMPLATE_SIMULATION_UNAVAILABLE`
+ * 已经在 `apps/api/tests/canvas/simulate-template-run-http.test.ts` 真库测过（503 +
+ * 该 reasonCode、不落库），但从没在真实浏览器里验证过：这条失败到了前端会不会被
+ * 诚实地展示出来，还是被静默吞掉、界面停在「运行中」转圈。
+ */
+test("R2：模型调不通时，浏览器里看到的是诚实的错误提示，不是卡死或假成功", async ({ page }) => {
+  const { canvasSimulateErrorName: NAME } = FULLSTACK_E2E;
+
+  await loginAsAdmin(page);
+  await page.goto("/canvas?screen=template-admin&view=list");
+  await expect(page.getByTestId("tpladmin-root")).toBeVisible();
+
+  const createResponsePromise = page.waitForResponse(
+    (r) => new URL(r.url()).pathname === `${API}/canvas/templates` && r.request().method() === "POST",
+  );
+  await page.getByTestId("tpladmin-create").click();
+  await expect(page.getByTestId("tpladmin-create-dialog")).toBeVisible();
+  await page.getByTestId("tpladmin-create-name").fill(NAME);
+  await page.getByTestId("tpladmin-create-submit").click();
+  const created = await (await createResponsePromise).json() as { key: string };
+  const KEY = created.key;
+
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+  await page.getByTestId("tpladmin-editor-new-key").fill("points");
+  await page.getByTestId("tpladmin-editor-new-name").fill("要点");
+  await page.getByTestId("tpladmin-editor-new-add").click();
+  await page.getByTestId("tpladmin-editor-autolayout").click();
+  await expect(page.getByTestId("tpladmin-editor-field-points")).toBeVisible();
+  await page.getByTestId("tpladmin-editor-save").click();
+  await expect(page.getByTestId("tpladmin-editor-save")).toHaveText("已保存");
+
+  // 拦截成契约真实会产出的 503 信封——不是编一个前端从没见过的形状。
+  await page.route(`**${API}/canvas/templates/${KEY}/simulate`, async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: "TEMPLATE_SIMULATION_UNAVAILABLE",
+        traceId: "e2e-stub-trace",
+        reasonCode: "TEMPLATE_SIMULATION_UNAVAILABLE",
+      }),
+    });
+  });
+
+  await page.getByTestId("tpladmin-editor-simulate-toggle").click();
+  await expect(page.getByTestId("tpladmin-editor-simulate-dialog")).toBeVisible();
+  await page.getByTestId("tpladmin-editor-simulate-input").fill("帮我画一份用户画像");
+  await page.getByTestId("tpladmin-editor-simulate-run").click();
+
+  // 诚实错误提示出现，且是契约点名的那句人话（不是"undefined"或裸 JSON）。
+  await expect(page.getByTestId("tpladmin-editor-simulate-error")).toBeVisible();
+  await expect(page.getByTestId("tpladmin-editor-simulate-error")).toContainText("模型暂时调不通");
+  // 运行按钮回到可点状态——没有卡在"运行中…"转圈（诚实失败必须能重试，不是死锁）。
+  await expect(page.getByTestId("tpladmin-editor-simulate-run")).toHaveText("运行");
+  await expect(page.getByTestId("tpladmin-editor-simulate-run")).toBeEnabled();
+  // 没有半渲染出一个空/坏画布——失败态就该没有结果区。
+  await expect(page.getByTestId("tpladmin-editor-simulate-result")).toHaveCount(0);
+});

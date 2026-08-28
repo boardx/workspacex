@@ -94,6 +94,14 @@ export function TemplateSimulateDialog({
   const [markdown, setMarkdown] = React.useState("");
   const [tool, setTool] = React.useState<CanvasTool>("select");
   const [zoom, setZoom] = React.useState(1);
+  /**
+   * 「可以修改」这条要求（人类原话）此前只验证到"canvas 挂载了、工具条在"，没有验证
+   * 过在画布上真的拖/加/删有没有效果——`CanvasStage` 的 `onMarkdownChange` 只在
+   * fabric 场景真的发生变化（新增/挪动/删除对象 → 序列化回写）时才触发，同
+   * `chat-canvas-modal.tsx` 的 `dirty`/`chat-canvas-dirty` 同一条既有信号，这里照抄
+   * 同一个信号，而不是新发明一套判据。
+   */
+  const [edited, setEdited] = React.useState(false);
 
   const previewKey = `${templateKey}${PREVIEW_KEY_SUFFIX}`;
 
@@ -123,6 +131,7 @@ export function TemplateSimulateDialog({
         });
         registerTemplate(spec);
         setMarkdown(wrapAsMermaidBlock(rewriteTemplateKeyLine(block.code, previewKey), block.lang));
+        setEdited(false);
         setResult({ text: out.text, hasCanvas: true });
       } else {
         setMarkdown("");
@@ -222,16 +231,37 @@ export function TemplateSimulateDialog({
                   <span className="w-10 text-center font-mono text-10 tabular-nums text-muted-foreground">
                     {Math.round(zoom * 100)}%
                   </span>
+                  {edited && (
+                    <span
+                      className="ml-2 text-10 text-muted-foreground"
+                      data-testid="tpladmin-editor-simulate-edited"
+                    >
+                      已编辑
+                    </span>
+                  )}
                 </div>
-                <div className="relative h-[480px] flex-none overflow-hidden rounded-control border border-border">
-                  <CanvasStage
-                    readOnly={false}
-                    tool={tool}
-                    zoom={zoom}
-                    onZoomChange={setZoom}
-                    markdown={markdown}
-                    onMarkdownChange={setMarkdown}
-                  />
+                {/*
+                  ⚠ 真栈 E2E 实测踩出的坑：`CanvasStage` 自己的根节点是
+                  `flex-1 overflow-auto`（`canvas-stage.tsx`），`flex-1` 只在**父级是
+                  flex 容器**时才生效——外层原先只有 `h-[480px]`，没有 `flex`，
+                  `flex-1` 在这样的父级下不生效（CSS 规范：flex 属性只对 flex item
+                  有意义），画布高度退回到浏览器算出的某个不可预期的值，导致
+                  `boundingBox()` 量出来的尺寸与视觉上实际可见区域对不上——"点画布真的
+                  会加便签"这条 E2E 断言首次实测就撞上了（见同 PR 的 R2 补测）。
+                  照抄 `chat-canvas-modal.tsx` 证明可用的既有结构：`flex min-h-0` 的
+                  外层 + `flex flex-col` 的内层，两层都是真 flex 容器，`flex-1` 才吃得上。
+                */}
+                <div className="flex h-[480px] min-h-0 flex-none overflow-hidden rounded-control border border-border">
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <CanvasStage
+                      readOnly={false}
+                      tool={tool}
+                      zoom={zoom}
+                      onZoomChange={setZoom}
+                      markdown={markdown}
+                      onMarkdownChange={(next) => { setMarkdown(next); setEdited(true); }}
+                    />
+                  </div>
                 </div>
               </>
             ) : (
