@@ -13,7 +13,7 @@ import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Pencil, Mic, Loader2, AlertTriangle, ArrowDown, ListChecks, AtSign, Sparkles } from "lucide-react";
+import { Pencil, Mic, Loader2, AlertTriangle, ArrowDown, ListChecks, Sparkles } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
@@ -26,7 +26,8 @@ import {
   CopilotKitV2CopyButton,
   CopilotKitV2MessageExtraActions,
   useCopilotKitV2MessageActions,
-  CopilotKitV2MessageLanding,
+  CopilotKitV2MessageLandingTrigger,
+  CopilotKitV2MessageLandingPanel,
   type AssistantMessageLandingValue,
 } from "@/components/chat/copilotkit-v2-message-actions";
 import { CopilotKitV2ToolRenderers } from "@/components/chat/copilotkit-v2-tool-renderers";
@@ -57,7 +58,7 @@ import {
 } from "@/components/chat/chat-composer-attachments";
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { listThreadMounts } from "@/lib/live-skill-mount";
-import { ChatPopoverCoordinatorProvider, useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
+import { ChatPopoverCoordinatorProvider } from "@/components/chat/chat-popover-coordinator";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -857,51 +858,20 @@ export function CopilotKitV2Panel({
           共同父层：两者的浮层共享「同一时刻只开一个」互斥（`useChatPopoverSlot`），
           与旧轨道 `chat-read-screen.tsx` 同一挂法（issue #1803 gap #3）。 */}
       <ChatPopoverCoordinatorProvider>
-      {/* issue #2132（真实 devapp 实测：想去掉 chat 最上面的 header）—— 这一行是唯一的
-          "切换发送 agent" 入口（`selectedAgentId` 同时是 `CopilotKitV2PanelBody` 的
-          remount key），不能直接删掉，否则用户永久锁死在挂载时选中的那个 agent。
-          #2039 第 3 轮当时把它做成"带说明标签 + 行底分隔线"的样子，是为了让它
-          "读作一个独立设置行"（该轮 gap #4 原话）——但那正是这次被诚实反馈成
-          "看起来像一个页面 header"的原因。这里把它收敛成不占独立视觉层级的小控件：
-          去掉「发给」标签与分隔线，右对齐、与消息区共享同一层视觉密度，功能
-          （选择/错误提示/无 agent 提示）一行未删。 */}
-      <div
-        className="flex flex-wrap items-center justify-end gap-2"
-        data-testid="copilotkit-v2-agent-toolbar"
-      >
-        {/* issue #2130（TW-P0-2①②，回指 #2068）—— 入口从裸的「选择 Agent」下拉
-            换成「选择能力」+ 六项披露卡片；判据、范围裁决见
-            `chat-task-workbench-capability-picker.tsx` 文件头注。 */}
-        <CapabilityPicker
-          listings={agentOptions.status === "ready" ? agentOptions.listings : null}
-          status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
-          selectedAgentId={selectedAgentId}
-          disabled={agentOptions.status !== "ready"}
-          onSelect={(agentId) => setSelectedAgentId(agentId)}
-          // 顶栏放置必须向下弹——2026-08-25 人类 devapp 实测：默认向上弹出屏不可见。
-          side="down"
-        />
-        {agentOptions.status === "error" ? (
-          <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
-            {agentOptions.message}
-            <button
-              type="button"
-              className="ml-1 underline"
-              data-testid="copilotkit-v2-agent-options-retry"
-              onClick={agentOptions.retry}
-            >
-              重试
-            </button>
-          </span>
-        ) : null}
-        {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
-          <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
-            这个组织还没有可用的 Agent，先去
-            <a href="/admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
-            才能发消息。
-          </span>
-        ) : null}
-      </div>
+      {/* issue #2132（2026-08-27，人类对照 Claude Design 原型反馈 bug #5 "Agent 选择器
+          位置不对，应该贴着 composer"）—— 这里此前挂着 `copilotkit-v2-agent-toolbar`
+          （`CapabilityPicker` + 错误/空态提示），独立一行浮在消息区上方，读作页面
+          header、且视觉上与它下面的 composer 脱节。issue #2130（TW-P0-2）已经在同一
+          位置把裸的 `AgentPicker` 换成更完整的 `CapabilityPicker`（六项披露卡片），
+          但没有解决"位置在哪"——composer 那颗 `chat-task-workbench-composer-mention-agent`
+          「@Agent」按钮实际打开的还是这个挂在最上面的实例（共享同一个
+          `chat-capability-picker` 互斥槽），点开后弹出的卡片自然对不上composer，这正是
+          bug #5 截图里"Agent/Skills 选择卡片飘在页面中间"的根因。
+          现在把 `CapabilityPicker` 本体真正搬进 composer（见 `CopilotKitV2PanelBody`
+          内 `chat-task-workbench-composer-mention-agent` 原来的位置），`copilotkit-v2-
+          agent-toolbar` 这个 testid 容器与错误/空态提示原样跟过去（e2e
+          `chat-task-workbench-capability-cards.spec.ts`/`copilotkit-v2-uiux-shots.spec.ts`
+          只断言它「可见」+ 读 innerText，不断言它在页面里的位置，搬家不影响这两条）。 */}
       <div className="min-h-0 flex-1">
         {/* 未选择（`null`）也照常渲染——这时请求不带选择 header，服务端用
             `COPILOTKIT_V2_AGENT_ID` 默认 agent（与本任务之前逐字节相同的路径）。
@@ -934,6 +904,12 @@ export function CopilotKitV2Panel({
               ? (agentOptions.agents.find((a) => a.id === selectedAgentId)?.name ?? null)
               : null
           }
+          // issue #2132（2026-08-27 续）—— AgentPicker 从顶部独立行搬进 composer，
+          // 数据源仍是这一层的 `agentOptions`/`selectedAgentId`（唯一事实源，见上方
+          // `useCopilotKitV2AgentOptions` 头注），只是把渲染位置下移到 Body 内部。
+          agentOptions={agentOptions}
+          selectedAgentId={selectedAgentId}
+          onSelectAgent={setSelectedAgentId}
         />
       </div>
       </ChatPopoverCoordinatorProvider>
@@ -955,12 +931,25 @@ function CopilotKitV2PanelBody({
   orgId = null,
   actingAgentId = null,
   actingAgentLabel = null,
+  agentOptions,
+  selectedAgentId = null,
+  onSelectAgent,
 }: {
   chatThreadId?: string | null;
   /** CK-P3（#2054）—— 当前发送 agent 的真实 id，供逐条消息的「对 agent 提反馈」归因；
    *  用户未选择（走服务端配置的默认 agent）时为 `null`，此时不画反馈入口。 */
   actingAgentId?: string | null;
   actingAgentLabel?: string | null;
+  /**
+   * issue #2132（2026-08-27 续）—— composer 里的 `AgentPicker` 需要的三样东西，
+   * 唯一事实源仍是外层 `CopilotKitV2Panel` 的 `useCopilotKitV2AgentOptions`/
+   * `useCopilotKitV2AgentSelection`（同一份数据同时决定这个组件的 remount key），
+   * 这里只接收、不重新读取——两处各读一次会出现"顶层已经选中，composer 里还在
+   * loading"这类不一致。
+   */
+  agentOptions: CopilotKitV2AgentOptionsState;
+  selectedAgentId?: string | null;
+  onSelectAgent: (agentId: string) => void;
   onThreadResolved?: (threadId: string) => void;
   /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   onMessageSent?: () => void;
@@ -995,7 +984,10 @@ function CopilotKitV2PanelBody({
    * 首帧），此时挂载入口如实禁用，不渲染一个必然 404 的假入口。
    */
   orgId?: string | null;
-} = {}): JSX.Element {
+  onMentionQueryChange?: (query: string | null) => void;
+  /** 挂载成功后外层 +1——本组件据此把 `#query` 字面量从输入框正文里删掉。 */
+  mentionResolvedNonce?: number;
+}): JSX.Element {
   const { copilotkit } = useCopilotKit();
   const [threadId] = React.useState(() => `copilotkit-v2-${crypto.randomUUID()}`);
   const { agent, isReady } = useAgent({
@@ -1020,15 +1012,10 @@ function CopilotKitV2PanelBody({
    * 是一个用户需要主动选择的能力，不是悄悄改变已验证过的默认路径。
    */
   const [taskMode, setTaskMode] = React.useState(false);
-  /**
-   * issue #2130（TW-P0-2②，回指 #2068）—— composer 里的「@Agent」快捷入口
-   * 与工具栏「选择能力」入口共享同一个互斥槽（`ChatPopoverCoordinatorProvider`
-   * 包住了 Body 与工具栏，两处各自调用这个 hook 读到的是同一份 context 状态）。
-   * 这里只需要它的 setter：composer 按钮点击时把这个槽打开，工具栏那份
-   * `CapabilityPicker` 自己订阅同一个 id，会随之展开——不是在这里重新渲染一份
-   * 能力卡列表（那会是同一件事的第二份实现）。
-   */
-  const [, setCapabilityPickerOpen] = useChatPopoverSlot("chat-capability-picker");
+  /* issue #2132（2026-08-27 续，bug #5）—— 此前这里持有一个 `chat-capability-picker`
+     互斥槽的 setter，给 composer 里一个"只开、不渲染"的快捷按钮用（真正的
+     `CapabilityPicker` 当时还渲染在页面最上面）。现在 `CapabilityPicker` 本体
+     已经搬进 composer 自己订阅这个槽，不再需要composer 这一层单独持有 setter。 */
 
   /**
    * issue #2020 → #2046（CK-P2）—— composer mention 检测。#2020 首版只有 `#`
@@ -1841,10 +1828,16 @@ function CopilotKitV2PanelBody({
         {/* 2026-08-25 人类 devapp 实测指令：不给用户看调试字样——原来这里有一行
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
             与 #1830「用户可见文案去掉开发者词汇」同一条裁决，整行移除。 */}
+        {/* issue #2132（2026-08-27 续，人类反馈 bug #6 “对话框有 border 看起来奇怪”）——
+            此前这层套了一圈 `rounded-lg border border-border-subtle bg-card`，把整条
+            消息流框成一张独立卡片，对照 Claude Design 原型：消息区是直接铺在页面底色
+            上的纯滚动区，不该有第二层"卡片边框"把它和composer/工具栏再框一次
+            （气泡本身已经是各自的卡片/气泡，这一层外框纯属多余的视觉噪音）。去掉
+            border/圆角/卡片底色，改用页面本底色，只留 `p-3` 内边距不动。 */}
         <div
           ref={messagesContainerRef}
           onScroll={handleMessagesScroll}
-          className="relative flex-1 overflow-y-auto rounded-lg border border-border-subtle bg-card p-3"
+          className="relative flex-1 overflow-y-auto bg-background p-3"
           data-testid="copilotkit-v2-messages"
         >
           {/* issue #2039（第 1 轮 gap #3，uiux-standards U1/U2）——三态：
@@ -2125,6 +2118,29 @@ function CopilotKitV2PanelBody({
           （附件/`@Agent`/`/技能`/任务模式）右（麦克风+发送）。
         */}
         <div className="flex min-w-0 flex-col gap-2" data-testid="chat-task-workbench-composer">
+          {/* issue #2132（2026-08-27 续，bug #5）—— 顶部 `copilotkit-v2-agent-toolbar`
+              的错误/空态提示随 `CapabilityPicker` 一起挪到 composer 第二行左侧（见下面
+              「@Agent」按钮旁），这里只是它们紧贴输入框上方的落点，功能一行未删。 */}
+          {agentOptions.status === "error" ? (
+            <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
+              {agentOptions.message}
+              <button
+                type="button"
+                className="ml-1 underline"
+                data-testid="copilotkit-v2-agent-options-retry"
+                onClick={agentOptions.retry}
+              >
+                重试
+              </button>
+            </span>
+          ) : null}
+          {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
+            <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
+              这个组织还没有可用的 Agent，先去
+              <a href="/admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
+              才能发消息。
+            </span>
+          ) : null}
           <textarea
             ref={composerInputRef}
             data-testid="copilotkit-v2-input"
@@ -2160,23 +2176,33 @@ function CopilotKitV2PanelBody({
               <div data-testid="chat-task-workbench-composer-attach">
                 <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} />
               </div>
-              {/* issue #2130（TW-P0-5②）—— 「@Agent」快捷入口：composer 的 `@` 已经
-                  用于引用本线程附件（issue #2046），这里不新开第二套 mention 语法，
-                  而是复用「同一个」选择能力入口（与工具栏那个共享同一份
-                  `chat-capability-picker` 浮层互斥槽）——点开、选中，效果与工具栏
-                  入口完全一致，是真实的"选择本轮发送 Agent"，不是装饰。 */}
-              <button
-                type="button"
-                data-testid="chat-task-workbench-composer-mention-agent"
-                aria-label="选择 @Agent"
-                title="选择本轮发送的 Agent（同工具栏「选择能力」）"
-                disabled={archived}
-                onClick={() => setCapabilityPickerOpen(true)}
-                className="flex items-center gap-1 rounded-pill border border-border-subtle px-2 py-1 text-9 text-muted-foreground transition-colors duration-fast hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground"
+              {/* issue #2132（2026-08-27 续，bug #5）—— 此前这里只是一个打开
+                  `chat-capability-picker` 共享槽的小按钮，真正的 `CapabilityPicker`
+                  （六项披露卡片，issue #2130 TW-P0-2）仍然渲染在页面最上面那个
+                  `copilotkit-v2-agent-toolbar` 里——点开的卡片自然出现在页面顶部，
+                  跟 composer 视觉脱节，这正是 bug #5 截图里"选择卡片飘在页面中间"
+                  的根因。现在把 `CapabilityPicker` 本体真正搬到这里（`side="up"`，
+                  向上弹向输入框方向），`chat-task-workbench-composer-mention-agent`/
+                  `copilotkit-v2-agent-toolbar` 两个 testid 都原样保留在这个容器上——
+                  前者是 TW-P0-5②判据锚点，后者是 TW-P0-2③"主界面不泄漏技术信息"
+                  判据读取 innerText 的目标，都只断言"可见 + 内容"，不断言页面位置，
+                  搬家不影响任何既有 e2e。不再需要单独的快捷按钮：`CapabilityPicker`
+                  自己就是"选 agent"的入口，两个按钮做同一件事只会读作重复。 */}
+              <div
+                className="shrink-0"
+                data-testid="copilotkit-v2-agent-toolbar"
               >
-                <AtSign aria-hidden className="h-3 w-3" />
-                Agent
-              </button>
+                <div data-testid="chat-task-workbench-composer-mention-agent">
+                  <CapabilityPicker
+                    listings={agentOptions.status === "ready" ? agentOptions.listings : null}
+                    status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
+                    selectedAgentId={selectedAgentId}
+                    disabled={agentOptions.status !== "ready" || archived}
+                    onSelect={(agentId) => onSelectAgent(agentId)}
+                    side="up"
+                  />
+                </div>
+              </div>
               {/*
                 issue #2130（TW-P0-5②「/技能」入口 + TW-4 Skills 交互重设计）——
                 这两件是同一个真实控件：`ChatSkillMountPanel`（`variant="pill"`）
@@ -2518,16 +2544,24 @@ function V2AssistantMessageImpl(
         {...props}
         markdownRenderer={markdownRenderer}
         copyButton={copyButton}
-        additionalToolbarItems={<CopilotKitV2MessageExtraActions messageId={messageId} />}
+        additionalToolbarItems={
+          <>
+            <CopilotKitV2MessageExtraActions messageId={messageId} />
+            {/* 2026-08-27（对照 Claude Design 原型）—— 「落地为产物」的触发器现在是
+                与复制/反馈/评分同一排的小图标，不再自成一行。真正打开后的表单/完成态
+                仍然是块级，见下方 `CopilotKitV2MessageLandingPanel`。 */}
+            <CopilotKitV2MessageLandingTrigger messageId={messageId} text={text} />
+          </>
+        }
       />
-      {/* issue #2052（CK-P7）—— 「落地为产物」是块级三态交互，进不了行内工具栏，
-          所以作为气泡的兄弟节点挂在下面。⚠ 这不是第二层 slot 包装：
-          `assistantMessage` slot 全仓只在本组件换这一次。
-          它的 `messageId` 传的是视图 id（不是上面 #2070 已解析出的 `realMessageId`）——
-          `CopilotKitV2MessageLanding` 内部自己经 `identity.resolvePersisted` 二次解析
-          （见 `copilotkit-v2-message-actions.tsx`），两处解析口径不同（`resolve` vs
-          `resolvePersisted`），不能共用同一个已解析结果。 */}
-      <CopilotKitV2MessageLanding messageId={messageId} text={text} />
+      {/* issue #2052（CK-P7）—— 打开后的表单/提交中/出错/完成四态，需要的宽度进不了
+          行内工具栏，所以仍作为气泡的兄弟节点挂在下面（未打开时它自己不渲染任何东西，
+          见 `MessageLandingPanel`）。⚠ 这不是第二层 slot 包装：`assistantMessage` slot
+          全仓只在本组件换这一次。它的 `messageId` 传的是视图 id（不是上面 #2070 已解析
+          出的 `realMessageId`）——`CopilotKitV2MessageLandingPanel`/`Trigger` 内部自己经
+          `identity.resolvePersisted` 二次解析（见 `copilotkit-v2-message-actions.tsx`），
+          两处解析口径不同（`resolve` vs `resolvePersisted`），不能共用同一个已解析结果。 */}
+      <CopilotKitV2MessageLandingPanel messageId={messageId} text={text} />
     </div>
   );
 }
