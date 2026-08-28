@@ -26,6 +26,66 @@
   margin-top: 0.125rem;
 }
 
+/*
+ * 2026-08-28 人类反馈（devapp 实测截图：message 下方图标"分成了两行"）——根因见框架
+ * 源码（`@copilotkit/react-core/v2` dist，`CopilotChatAssistantMessage`/
+ * `CopilotChatUserMessage` 的 `Toolbar` slot）：真正装着复制/反馈/评分/落地为产物这些
+ * 按钮的，是 `[data-testid="copilot-*-toolbar"]` **内部再套一层**的 `<div>`
+ * （框架代码里写的类名是 `cpk:flex cpk:items-center cpk:gap-1`）——`cpk:` 是框架自带
+ * Tailwind v4 构建产出的前缀类，而本仓 `next.config.mjs` 把那份样式表整个替换成空文件
+ * （本文件头注已经记录过这条背景），所以 `cpk:flex` 等类在我们的构建里**不存在任何
+ * 对应规则**，浏览器当作未知类名忽略——这层内层 div 实际是一个没有 flex 的裸 `<div>`，
+ * 它的按钮/图标子节点按默认块内联流排布，容器一窄就换行，读起来像"图标分成了两行"。
+ * 外层 `[data-testid="copilot-*-toolbar"]` 虽然本文件已经补了 `display:flex`，但那只
+ * 让"内层 div 作为外层的一个 flex item"排对了，内层 div 自己仍然不是 flex 容器，救不了
+ * 它里面那一排图标。选择器用 `>` 直接锚定这个唯一的直接子 div，不额外发明新类名/新锚点
+ * ——修的是"这个节点该有的布局"，不是加一层新包装。
+ */
+[data-testid="copilot-assistant-toolbar"] > div,
+[data-testid="copilot-user-toolbar"] > div {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/*
+ * 2026-08-28 人类反馈（同上，"参考最佳实践，只有在 hover 的时候才显示图标"）——常驻
+ * 显示复制/反馈/评分/落地为产物这一排图标，在"一屏多条消息"的场景里视觉噪音很大
+ * （ChatGPT/Claude 等主流产品都是 hover 才现）。`[data-testid="copilot-assistant-
+ * message"]`/`[data-testid="copilot-user-message"]` 是框架渲染的消息根节点，正文与
+ * 工具条是它的直接子树（同一份框架源码确认），不需要我们自己再包一层 `.group`——
+ * 直接用这两个既有、稳定的 `data-testid` 做 hover 触发范围。
+ *
+ * ⚠ 用 `opacity`，不是 `visibility`/`display`——本仓大量真实 e2e（`chat-message-copy`/
+ *   `chat-agent-feedback`/评分星标/`chat-land-artifact-open-*`……）直接对工具条里的
+ *   按钮 `.click()`，从不先手动 `.hover()` 父容器。Playwright 的 actionability 检查
+ *   在**移动鼠标之前**就要求目标"visible"，而它对"visible"的定义明确不看
+ *   `opacity`、只看 `display:none`/`visibility:hidden`/零尺寸包围盒——`visibility:
+ *   hidden` 或 `display:none` 会让这些既有断言在真正触发 hover 之前就卡死在等待
+ *   "元素可见"这一步，永远等不到（自己不会先 hover 自己）。`opacity:0` 则始终满足
+ *   Playwright 的可见性判定，`.click()` 照常先移动鼠标（这一步顺带触发真实
+ *   `:hover`）再点击，行为不变；肉眼观感上不 hover 时依旧是"看不见"。
+ * `:focus-within` 兜底键盘用户——Tab 到工具条里的按钮时必须能看见焦点在哪，不能因为
+ *   鼠标没悬停就把它藏起来（uiux-standards §5 焦点可见性硬约束）。`MessageRating`
+ *   自己的 `revealOnHover` 继续保持 `false`（见 `copilotkit-v2-message-actions.tsx`
+ *   的既有说明）：那是它内部另一套基于 `.group` 类的 hover 机制，在这里从来没生效过；
+ *   现在"整条工具条 hover 才显示"已经由这里统一接管，不需要再叠加一层各自为政的
+ *   显隐逻辑。
+ */
+[data-testid="copilot-assistant-toolbar"],
+[data-testid="copilot-user-toolbar"] {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+[data-testid="copilot-assistant-message"]:hover [data-testid="copilot-assistant-toolbar"],
+[data-testid="copilot-assistant-message"]:focus-within [data-testid="copilot-assistant-toolbar"],
+[data-testid="copilot-user-message"]:hover [data-testid="copilot-user-toolbar"],
+[data-testid="copilot-user-message"]:focus-within [data-testid="copilot-user-toolbar"] {
+  opacity: 1;
+}
+
 [data-testid="copilot-assistant-toolbar"] button,
 [data-testid="copilot-user-toolbar"] button {
   display: inline-flex;
