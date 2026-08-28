@@ -1,7 +1,9 @@
 "use client";
 import * as React from "react";
 import type { AbstractAgent } from "@ag-ui/client";
-import { phaseLabelForKind, phaseLabelForToolName } from "./agent-run-phase";
+import {
+  phaseLabelForKind, phaseLabelForToolName, phaseLabelForCallSkillArgs, CALL_SKILL_TOOL_NAME,
+} from "./agent-run-phase";
 
 /**
  * CK-P4（issue #2054）—— v2 轨道的 run 进度透明度：已耗时 / 阶段文案 / 45s longrun 提示。
@@ -27,6 +29,15 @@ import { phaseLabelForKind, phaseLabelForToolName } from "./agent-run-phase";
  *   · **阶段文案** —— ✅ 真实可得，但来源不同：`onToolCallStartEvent`（工具名）、
  *     `onRunStartedEvent`、`onTextMessageStartEvent`。措辞从 `agent-run-phase.ts`
  *     取词，不复制第二份字符串（见那边 `phaseLabelForToolName` 的注释）。
+ *     issue #2321 round 3 —— 一个线程可能同时挂了 pdf-create/docx-create/
+ *     xlsx-create 好几个技能，"正在执行技能脚本…" 不说是哪一个。`call_skill`
+ *     这条 TOOL_CALL_START 之后紧跟的 `TOOL_CALL_ARGS`
+ *     （`copilotkit-agui.controller.ts` 把整段 `toolArgsSummary` 一次性当
+ *     `delta` 发出，不是逐 token 流式——见该文件 `write` 那处调用点）带的就是
+ *     `{skill_stable_name, task}` 那段真实 JSON，`onToolCallArgsEvent` 解析出
+ *     `skill_stable_name` 后把阶段文案加细成"正在执行技能脚本（pdf-create）…"。
+ *     解析失败（非 call_skill 工具、JSON 形状不对）一律保留 START 时已经设好的
+ *     那句通用文案，不猜、不报错。
  *   · **上下文快照 L1-L3（`MessageContextSnapshot`）/ 逐条思考链
  *     （`MessageThinkingChain`）/ `AgentRunStatus` 权威状态条** —— ❌ v2 侧**没有**
  *     真实数据源：这三样读的都是 `AgentRunView` 上 AG-UI 协议里根本不存在的字段
@@ -63,17 +74,38 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
   const [startedAt, setStartedAt] = React.useState<number | null>(null);
   const [phaseLabel, setPhaseLabel] = React.useState<string | null>(null);
   const [nowTick, setNowTick] = React.useState(() => Date.now());
+  // issue #2321 round 3 -- `TOOL_CALL_ARGS` carries only `toolCallId` (see
+  // `ToolCallArgsEventSchema`), not the tool's name; remember it from the matching
+  // `TOOL_CALL_START` so we know whether an incoming args delta is worth parsing.
+  const toolCallNameByIdRef = React.useRef(new Map<string, string>());
 
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
       onRunStartedEvent: () => {
         setStartedAt(Date.now());
+        toolCallNameByIdRef.current.clear();
         // "accepted" 是旧轨道 run 生命周期里的第一条 step，语义与 `RUN_STARTED`
         // 对应（服务端受理了这一轮），取同一句词。
         setPhaseLabel(phaseLabelForKind("accepted"));
       },
       onToolCallStartEvent: ({ event }) => {
+        toolCallNameByIdRef.current.set(event.toolCallId, event.toolCallName);
         setPhaseLabel(phaseLabelForToolName(event.toolCallName ?? null));
+      },
+      // issue #2321 round 3 -- `call_skill(skill_stable_name, task)`'s real args,
+      // echoed verbatim (see this file's head doc for why this refines rather than
+      // replaces the START label, and never fabricates on a parse miss).
+      onToolCallArgsEvent: ({ event }) => {
+        if (toolCallNameByIdRef.current.get(event.toolCallId) !== CALL_SKILL_TOOL_NAME) return;
+        try {
+          const parsed: unknown = JSON.parse(event.delta);
+          const skillStableName = (parsed as { skill_stable_name?: unknown } | null)?.skill_stable_name;
+          if (typeof skillStableName === "string" && skillStableName.trim() !== "") {
+            setPhaseLabel(phaseLabelForCallSkillArgs(skillStableName));
+          }
+        } catch {
+          // 非 JSON / 形状不对：保留 START 时已经设好的通用文案，不猜、不报错。
+        }
       },
       onTextMessageStartEvent: () => {
         setPhaseLabel(REPLYING_PHASE_LABEL);
