@@ -4,14 +4,26 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { ensureReservedTestIsolation } from "./lib/test-isolation";
 import { acquireStackSlot, type AcquireOptions, type StackSlot } from "./lib/stack-admission";
+import {
+  acquireHeavySuiteLock,
+  type AcquireHeavySuiteLockOptions,
+  type HeavySuiteLockHandle,
+} from "./lib/heavy-suite-lock";
 import { Stopwatch, printReport, recordRun } from "./lib/verify-timing";
 
 export interface TestIsolationRuntime {
   acquireSlot: (options: AcquireOptions) => Promise<StackSlot>;
+  /**
+   * 可选——省略时退回生产实现（真的会去抢机器全局互斥锁）。既有调用方
+   * （如 `fixtures/with-test-isolation-fixture.ts`）只关心 `acquireSlot` 这一个
+   * 假件，不该因为加了 #2258 这道新门就都得回来补一个字段。
+   */
+  acquireHeavyLock?: (options: AcquireHeavySuiteLockOptions) => Promise<HeavySuiteLockHandle>;
 }
 
 const productionRuntime: TestIsolationRuntime = {
   acquireSlot: acquireStackSlot,
+  acquireHeavyLock: acquireHeavySuiteLock,
 };
 
 export async function runWithTestIsolation(
@@ -25,15 +37,25 @@ export async function runWithTestIsolation(
     return 2;
   }
 
-  // 耗时统计（ADR-106 batch-1/6，#1278）：本文件能直接观察四段——环境预留 / 等待
-  // 资源（stack-admission 排队）/ 命令执行（内层命令整体墙钟）/ 清理。四段之和会
-  // 略小于总计（脚本自身启动开销、Promise 调度间隙未计入任何命名阶段），但足以
-  // 交叉核对报告有没有漏掉一大块时间——上一版只测两段时，实测跑一次 `true` 命令
-  // 总计 135ms、两段之和却只有 4ms，131ms 不知去向；这版补上环境预留/清理两段后
-  // 差值应该收窄到个位数毫秒（dogfood 见 commit message）。内层命令自己的子阶段
-  // （19 个 lint doctor 各多久、turbo typecheck 多久）仍是黑盒，没拆，见
-  // lib/verify-timing.ts 顶部说明，这里不重复。
+  // 耗时统计（ADR-106 batch-1/6，#1278）：本文件能直接观察五段——等待重e2e互斥锁
+  // （#2258，非重 e2e 命令这段恒为 0）/ 环境预留 / 等待资源（stack-admission 排队）/
+  // 命令执行（内层命令整体墙钟）/ 清理。五段之和会略小于总计（脚本自身启动开销、
+  // Promise 调度间隙未计入任何命名阶段），但足以交叉核对报告有没有漏掉一大块时间——
+  // 上一版只测两段时，实测跑一次 `true` 命令总计 135ms、两段之和却只有 4ms，131ms
+  // 不知去向；这版补上环境预留/清理两段后差值应该收窄到个位数毫秒（dogfood 见
+  // commit message）。内层命令自己的子阶段（19 个 lint doctor 各多久、turbo
+  // typecheck 多久）仍是黑盒，没拆，见 lib/verify-timing.ts 顶部说明，这里不重复。
   const timing = new Stopwatch();
+
+  // 重 e2e 套件互斥锁（#2258）：`playwright test` 类命令在这里排队，同一台机器
+  // 同一时刻只放行一个，避免两个真实浏览器 e2e 套件抢 CPU/IO 把彼此的超时判定
+  // 冲垮（rev-uiux 三轮独立跑、失败交集为空，定位到就是这个）。非重 e2e 命令
+  // （`verify:base` 之类的 turbo/vitest）不受影响，直接放行。放在最前面——
+  // 排在端口预留/栈准入之前，免得排队时白占着端口占位监听。
+  timing.start("等待重e2e互斥锁");
+  const acquireHeavyLock = runtime.acquireHeavyLock ?? acquireHeavySuiteLock;
+  const heavyLock = await acquireHeavyLock({ command });
+  timing.stop();
 
   // #468：端口不再靠哈希猜，而是真的向 OS 预留（探到即持有），起栈前才释放。
   timing.start("环境预留");
@@ -107,6 +129,10 @@ export async function runWithTestIsolation(
   const cleanupError = cleanup();
   timing.stop();
   slot.release();
+  // 重 e2e 互斥锁最后释放——docker compose down -v 之后再放行下一个排队者，
+  // 收窄"两个重 e2e 套件的 docker/端口收尾期"重叠的窗口（与 #2286 端口哈希碰撞
+  // 是相邻但不同的根因，见本 PR 说明；这里只是顺手让窗口更窄，不是修 #2286 本身）。
+  heavyLock.release();
 
   const run = timing.finish(command.join(" "), isolation.WORKSPACEX_ISOLATION_ID);
   printReport(run);

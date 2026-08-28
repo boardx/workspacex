@@ -104,7 +104,11 @@ export function leaseDir(env: NodeJS.ProcessEnv = process.env): string {
   return join(os.tmpdir(), "workspacex-stack-leases");
 }
 
-function alive(pid: number): boolean {
+/**
+ * PID 活性探测 —— `heavy-suite-lock.ts`（#2258）复用同一份实现，不再抄一份。
+ * 「同一事实不得声明在两处」（AGENTS.md）：判定"这个 PID 还活着"只应该有一处权威。
+ */
+export function alive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
