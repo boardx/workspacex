@@ -405,35 +405,46 @@ export function ChatSkillMountPanel({
     // issue #2130（TW-4）—— 单一胶囊入口：状态徽标 + 「加 skill」是同一个按钮
     // （复用 `chat-skill-mount` 这个既有 testid/onClick，两条真实 e2e 靠它驱动挂载），
     // 已挂载的 skill 收进触发器下方的小 chip 列表，不再占满一整条。
+    //
+    // 2026-08-28 人类反馈（devapp 实测截图）—— 之前"没挂任何 skill"时会在触发器下方
+    // 单独出一行灰字「还没有挂载任何 skill」，composer 这一排本来就挤（附件/@Agent/
+    // 技能/任务模式一整行），常驻一行说"什么都没有"的文字比不说更占地方、更显眼。
+    // 触发器按钮本身已经用 `技能{count}` 带出数量（0 时不带数字），"有没有挂"这件事
+    // 改成用**颜色**表达：有挂载 → 边框/底色/文字染成 primary 色调（同「任务模式」
+    // 开启态那条既有规则，见下方 composer 里 `chat-task-workbench-composer-task-mode`
+    // 的同款 `border-primary/50 bg-primary/10 text-primary`），没挂 → 维持 outline
+    // 默认灰调，不再额外画一行字；`data-mounted-count` 供 e2e 机械读取真实数量，
+    // 不必再靠这行文案的有无判断空态（`chat-skill-mount-empty` testid 随之移除，
+    // 判空态直接读这个 data 属性或 `mounts.length`）。
+    const hasMounts = mounts.length > 0;
     return (
       <div className="relative inline-flex flex-col items-start gap-1" data-testid="chat-skill-mount-panel">
         <Button
           size="xs"
           variant="outline"
-          className="gap-1 rounded-pill px-2"
+          className={[
+            "gap-1 rounded-pill px-2",
+            hasMounts ? "border-primary/50 bg-primary/10 text-primary" : "",
+          ].join(" ")}
           /** ⚠ 版本号读不到就不给提交入口——不是禁用「挂载」这个能力，是拒绝盲写。 */
           disabled={pending || version === null}
           data-testid="chat-skill-mount"
+          data-mounted-count={mounts.length}
           aria-label="管理本对话挂载的 skill"
           title="管理本对话挂载的 skill"
           onClick={() => void openPicker(false)}
         >
           <Wrench aria-hidden className="h-3 w-3" />
-          <span className="text-9">技能{mounts.length > 0 ? ` ${mounts.length}` : ""}</span>
+          <span className="text-9">技能{hasMounts ? ` ${mounts.length}` : ""}</span>
           <Plus aria-hidden className="h-2.5 w-2.5" />
         </Button>
         {loading ? (
           <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-loading">
             正在读取…
           </span>
-        ) : mounts.length === 0 ? (
-          // ⚠ 真实空态。这里**不**塞任何示例 skill（契约 A1/V10）。
-          <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-empty">
-            还没有挂载任何 skill
-          </span>
-        ) : (
+        ) : hasMounts ? (
           <div className="flex flex-wrap items-center gap-1">{mounts.map(mountedChip)}</div>
-        )}
+        ) : null}
         {picker}
         {failureBanner}
       </div>

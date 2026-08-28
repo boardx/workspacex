@@ -116,7 +116,11 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
   await expect(page.getByTestId("chat-skill-mount-panel")).toBeVisible();
   await expect(page.getByTestId("copilotkit-v2-skill-mount-placeholder")).toHaveCount(0);
   // 前提：现在一个都没挂。没有这条，「挂上了」的断言可能一开始就是真的。
-  await expect(page.getByTestId("chat-skill-mount-empty")).toBeVisible();
+  // 2026-08-28 起空态不再单独画一行文字（devapp 实测反馈：composer 这排本来就挤，
+  // 常驻一行"什么都没有"的文字比不说更占地方）——改用触发器上的真实数量
+  // `data-mounted-count` 断言，语义不变，只是读的锚点从"有没有这行字"换成
+  // "这个数字是不是 0"（见 `chat-skill-mount-panel.tsx` pill 分支的同轮注释）。
+  await expect(page.getByTestId("chat-skill-mount")).toHaveAttribute("data-mounted-count", "0");
 
   /* ═══════════ ④ 挂上那个 skill（真实 POST，落 thread_skill_mounts） ═══════════ */
   await mountSkillViaPanel(page, threadId!);
