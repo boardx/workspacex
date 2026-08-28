@@ -158,6 +158,37 @@ function parseForwardedAttachmentIds(value: unknown): readonly string[] | undefi
   return ids.slice(0, chatFileUpload.ATTACHMENT_LIMITS.maxAttachmentsPerMessage);
 }
 
+/**
+ * issue #2321 round 2 -- 真实 devapp 证据：`agui-bridge.ts` 的"超时"是「中继放弃
+ * 轮询，后端 run 还活着」，从来不是「run 真的失败」（见 `poll-budget.ts` 文件头）。
+ * 此前这条轨道对每一次 HTTP 调用都用 `randomUUID()` 现铸 `clientMessageId`（见本
+ * 文件下方 `runAguiBridgeTurn` 调用点），`acceptHumanMessage` 里本来就有的
+ * `(actorId, threadId, clientMessageId)` 幂等去重因此对这条轨道完全失效——用户点
+ * 「重试」重发同一句话时会创建一个全新的人类消息 + 全新的 agent run，而第一个 run
+ * （真实 skill 调用，例如 PDF 生成）仍在服务端跑，两个 run 互不知情，最终可能各自
+ * 写回一条回复、各自真的生成一次文件，白白多花一次真实模型调用与 skill 执行成本。
+ *
+ * 修复不是"取消旧 run"或"加一把新锁"——是让「重试」用回它本该有的那把幂等钥匙：
+ * 前端把它已经在用的、稳定的用户消息 id（`agent.addMessage` 的 `id`）通过
+ * `forwardedProps.clientMessageId` 带过来，重试时复用同一个 id 而不是重新生成。
+ * `acceptHumanMessage` 收到相同 `(actorId, threadId, clientMessageId)` 且文本/
+ * agentId 相同时直接把已存在的那次 accept 原样返回（`samePayload` 检查），这条
+ * 轨道随后照常对**同一个** run 发起一轮全新的轮询——不新建 run，只是重新愿意等它。
+ * 没带（旧版前端、`copilotkit-preview-panel.tsx` 等未升级的调用方）时退回原有
+ * 行为：现铸一个随机 id，行为与升级前逐字节一致，不是破坏性变更。
+ *
+ * ⚠ 校验成 UUID 形状，不是随便一个非空字符串——REST 轨道的
+ *   `packages/contracts/src/chat.ts` 早就把 `clientMessageId` 定成
+ *   `z.string().uuid()`；这条轨道此前用 `randomUUID()` 现铸，天然满足，现在读
+ *   调用方传入值时补上同一条约束，形状不对就当没传（退回现铸），不拒绝整轮——
+ *   与 `parseForwardedAttachmentIds` 丢弃畸形条目、不因此整体拒绝同一条纪律。 */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function parseForwardedClientMessageId(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return UUID_PATTERN.test(trimmed) ? trimmed : undefined;
+}
+
 /** The minimal slice of AG-UI's `RunAgentInput` this bridge reads. Everything else in a
  * real `RunAgentInput` (tools, context, state) is ignored -- Phase 1b is single-turn text
  * only (see file head). `forwardedProps` is the one exception, and only its
@@ -175,11 +206,11 @@ interface AguiRunInput {
   readonly messages?: readonly {
     readonly role: string; readonly content?: string; readonly toolCallId?: string;
   }[];
-  /** DA-19a -- see file head "real cross-turn continuation". Three keys are read --
-   * `chatThreadId`, (chat-parity-attachments, issue #2022) `attachmentIds`, and
-   * (issue #2021) `toolChoice` -- any other key a real AG-UI client puts in
-   * `forwardedProps` is ignored, same as this bridge already ignores
-   * `tools`/`context`/`state` (see `AguiRunInput`'s own doc).
+  /** DA-19a -- see file head "real cross-turn continuation". Four keys are read --
+   * `chatThreadId`, (chat-parity-attachments, issue #2022) `attachmentIds`,
+   * (issue #2021) `toolChoice`, and (issue #2321 round 2) `clientMessageId` -- any other
+   * key a real AG-UI client puts in `forwardedProps` is ignored, same as this bridge
+   * already ignores `tools`/`context`/`state` (see `AguiRunInput`'s own doc).
    *
    * `attachmentIds`: pending attachment ids from the SAME
    * `POST /chat/threads/:threadId/attachments` upload endpoint the REST track uses --
@@ -189,11 +220,18 @@ interface AguiRunInput {
    * `SuggestionEngine.generateSuggestions` runs (it forces
    * `toolChoice: {type:"function", function:{name:"copilotkitSuggest"}}` on every
    * suggestion request -- read from `dist/index.mjs`, not guessed). See
-   * `isSuggestionRequest`'s own doc for why these must be short-circuited. */
+   * `isSuggestionRequest`'s own doc for why these must be short-circuited.
+   *
+   * `clientMessageId`: (issue #2321 round 2) an OPTIONAL stable id the caller wants this
+   * turn's human message accepted under -- see `parseForwardedClientMessageId`'s own doc
+   * for why this restores `acceptHumanMessage`'s idempotency guard for a retried turn.
+   * Omitted entirely by callers that have not been upgraded yet; this bridge falls back
+   * to minting a fresh `randomUUID()` exactly as it always has. */
   readonly forwardedProps?: {
     readonly chatThreadId?: string;
     readonly attachmentIds?: unknown;
     readonly toolChoice?: { readonly function?: { readonly name?: string } };
+    readonly clientMessageId?: unknown;
   };
 }
 
@@ -627,6 +665,8 @@ export class CopilotkitAguiController {
     const requestedChatThreadId = body.forwardedProps?.chatThreadId?.trim();
     // chat-parity-attachments (issue #2022) -- see `parseForwardedAttachmentIds`'s own doc.
     const requestedAttachmentIds = parseForwardedAttachmentIds(body.forwardedProps?.attachmentIds);
+    // issue #2321 round 2 -- see `parseForwardedClientMessageId`'s own doc.
+    const requestedClientMessageId = parseForwardedClientMessageId(body.forwardedProps?.clientMessageId);
     // DA-19a -- captured by `onThreadResolved` (fires before `onStarted`, see
     // `agui-bridge.ts`'s own doc), but NOT written to the wire there: a real `@ag-ui/client`
     // `HttpAgent` enforces "first event must be RUN_STARTED" (`verify.ts`'s own check, hit
@@ -730,7 +770,12 @@ export class CopilotkitAguiController {
         })
         : await runAguiBridgeTurn(this.deps, {
           userId: principal.userId, orgId: toOrgId(principal.orgId), agentId, text: text!,
-          clientMessageId: randomUUID(),
+          // issue #2321 round 2 -- reuse the caller's stable id when it sent one (a retry
+          // of the SAME turn) so `acceptHumanMessage`'s idempotency guard can recognise it
+          // and hand back the ALREADY-RUNNING run instead of creating a duplicate. Falls
+          // back to a fresh id for callers that have not been upgraded yet -- identical to
+          // this bridge's behaviour before this fix.
+          clientMessageId: requestedClientMessageId ?? randomUUID(),
           threadId: requestedChatThreadId !== undefined && requestedChatThreadId !== ""
             ? requestedChatThreadId : null,
           attachmentIds: requestedAttachmentIds,
