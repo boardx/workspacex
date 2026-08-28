@@ -311,6 +311,17 @@ export default defineConfig({
         //   来源模板现场建 + 发布（复用 #496 已门控的路径），不往种子里塞——理由同
         //   `mintSourceKey` 那段：往种子里加一条 published 行会打红管理员空态反空转断言。
         "canvas-template-simulate-smoke.spec.ts",
+        // ⚠ 五条核心旅程里，不往目录/模板库留下持久污染的三条排在这里：
+        //   ①用户注册（走的是全新组织，不碰种子组织的任何空态断言）、
+        //   ②组织管理（团队/邀请是种子组织自己的写路径，同样不影响别的 spec 的空态）、
+        //   ⑤语音+skill+跨渠道上下文（复用种子里已经存在的可挂载 skill/可运行 agent/
+        //   录音线程，不新造任何会被别的 spec 断言"应为空"的持久资源）。
+        //   另外两条（③ skill 导入、④ canvas 模板新建）**不能**排在这里——理由见下面
+        //   `seeded-github-import` project 头注，它们跟着 `skill-agent-import-
+        //   usecase-audit.spec.ts` 一起排在那个"跑在 seeded 之后"的 project 里。
+        "core-journey-01-registration.spec.ts",
+        "core-journey-02-org-management.spec.ts",
+        "core-journey-05-voice-skill-multichannel-context.spec.ts",
       ],
       grepInvert: EMPTY_DB_TAG_RE,
     },
@@ -338,9 +349,20 @@ export default defineConfig({
        * 断言继续对着一个真空目录跑，`skill-agent-import-usecase-audit` 的导入
        * 断言继续对着真实 GitHub 内容跑，只是执行顺序从"字典序巧合"变成
        * "Playwright dependency graph 显式保证"。
+       *
+       * ⚠ 核心旅程③（`core-journey-03-skill-lifecycle-chat.spec.ts`）同理排在这里：
+       *   它同样会真实导入一个 GitHub skill 并留在目录里。核心旅程④
+       *   （`core-journey-04-canvas-template-lifecycle-chat.spec.ts`）也排在这里，
+       *   理由是同一类问题的镜像版：`canvas-template-create-smoke.spec.ts` 断言
+       *   `tpladmin-empty` 在**任何模板创建之前**必须可见（模板目录的反空转起点），
+       *   旅程④会真实建一个持久模板留在目录里，混进 `seeded` 会同样打红那条断言。
        */
       name: "seeded-github-import",
-      testMatch: ["skill-agent-import-usecase-audit.spec.ts"],
+      testMatch: [
+        "skill-agent-import-usecase-audit.spec.ts",
+        "core-journey-03-skill-lifecycle-chat.spec.ts",
+        "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
+      ],
       grepInvert: EMPTY_DB_TAG_RE,
       dependencies: ["seeded"],
     },
