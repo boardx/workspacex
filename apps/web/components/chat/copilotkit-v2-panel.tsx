@@ -1549,11 +1549,20 @@ function CopilotKitV2PanelBody({
     wasRunningRef.current = agent.isRunning;
   }, [agent.isRunning]);
 
-  /** CK-P4 —— 最近一次真的发出去的用户消息，供错误横幅上的「重试」重发。 */
-  const lastSentRef = React.useRef<{ text: string; attachmentIds: readonly string[] } | null>(null);
+  /** CK-P4 —— 最近一次真的发出去的用户消息，供错误横幅上的「重试」重发。
+   *
+   * issue #2321 round 2 -- 现在还存那一轮的 `clientMessageId`，不只是文本/附件：
+   * 「重试」要复用同一个 id（见下面 `send` 的 `opts.clientMessageId`），不是重新
+   * 生成一个。真实证据见 `copilotkit-agui.controller.ts` 的
+   * `parseForwardedClientMessageId` 头注——不复用会让后端把重试当成一次全新的
+   * 人类消息 + 全新的 agent run，而原来那个 run（真实 skill 调用，例如 PDF 生成）
+   * 可能仍在服务端跑，两边互不知情，各自写回一条回复、各自真的生成一次文件。 */
+  const lastSentRef = React.useRef<
+    { text: string; attachmentIds: readonly string[]; clientMessageId: string } | null
+  >(null);
 
   const send = React.useCallback(
-    async (override?: string) => {
+    async (override?: string, opts?: { readonly clientMessageId?: string }) => {
       const rawText = (override ?? inputDraft).trim();
       if (rawText === "" || agent.isRunning) return;
       // issue #2130（TW-P0-5②）—— 任务模式开启时真的改变发出的正文（见 `taskMode`
@@ -1568,11 +1577,14 @@ function CopilotKitV2PanelBody({
       // issue #2020 —— 正文已清空，活跃 mention 一并终结（不清的话外层的候选面板
       // 会带着一个已不存在于正文里的 query 继续开着）。
       setMention(null);
+      // issue #2321 round 2 -- 有 `opts.clientMessageId` 时（重试）复用它；否则
+      // （正常发送/追问/建议候选）现铸一个新的，语义与升级前一致。
+      const clientMessageId = opts?.clientMessageId ?? crypto.randomUUID();
       // CK-P4（issue #2054）—— 记住这一轮的用户正文，供失败后的「重试」重发。
       // ⚠ 存的是**已发出**的那句，不是 composer 里的当前草稿：用户看到失败横幅时
       //   很可能已经在输入框里敲别的了，重试要重发失败的那一句。
-      lastSentRef.current = { text, attachmentIds: attach.uploadedIds };
-      agent.addMessage({ id: crypto.randomUUID(), role: "user", content: text });
+      lastSentRef.current = { text, attachmentIds: attach.uploadedIds, clientMessageId };
+      agent.addMessage({ id: clientMessageId, role: "user", content: text });
       // chat-parity-attachments (issue #2022) -- 本轮已上传成功的附件 id；发送后清空
       // composer 的 pending 队列（同旧轨道语义：已发出的附件从 composer 移到"材料"）。
       const attachmentIds = attach.uploadedIds;
@@ -1586,12 +1598,14 @@ function CopilotKitV2PanelBody({
         // (see the `chatThreadIdRef` block above for why this is the fix, not a new
         // mechanism). Omitted entirely on turn 1 -- identical to pre-fix behaviour, UNLESS
         // this turn carries attachments (chat-parity-attachments, issue #2022 -- see above).
-        const forwardedProps: { chatThreadId?: string; attachmentIds?: readonly string[] } = {};
+        // issue #2321 round 2 -- `clientMessageId` always forwarded now (see this
+        // callback's own `opts` doc + `lastSentRef`'s head comment for why).
+        const forwardedProps: {
+          chatThreadId?: string; attachmentIds?: readonly string[]; clientMessageId: string;
+        } = { clientMessageId };
         if (chatThreadId !== null) forwardedProps.chatThreadId = chatThreadId;
         if (attachmentIds.length > 0) forwardedProps.attachmentIds = attachmentIds;
-        await copilotkit.runAgent(
-          Object.keys(forwardedProps).length > 0 ? { agent, forwardedProps } : { agent },
-        );
+        await copilotkit.runAgent({ agent, forwardedProps });
         if (attachmentIds.length > 0) attach.clear();
         // issue #2046（CK-P1）—— run settle 后通知外壳刷新右栏「材料」/「产物」
         // （消息与附件此时都已真实落库；与旧轨道 `onMessageSent` 同语义）。
@@ -1980,9 +1994,14 @@ function CopilotKitV2PanelBody({
                 此前只有一条横幅，用户唯一的出路是自己把刚才那句话重新打一遍。
                 ⚠ 重发的是「已发出的那一句」（`lastSentRef`），不是 composer 里的当前
                   草稿：看到失败横幅时用户很可能已经在输入别的了。走的就是 `send()`
-                  本身，因此它是一次货真价实的新 run（新 `runAgent` 调用、新 run id），
-                  不是把上一轮的失败状态擦掉假装成功。
-                样式跟随 issue #2039 这张 alert 卡（本轮只加入口，不动展示层）。 */}
+                  本身，会发起一次新的 `runAgent` 调用（新 client-side run id）——但
+                  issue #2321 round 2 起，复用同一个 `clientMessageId`：一次真正
+                  「失败」的 run（`RUN_ERROR`）在后端 `acceptHumanMessage` 里本来就
+                  会走到"同一 key、直接返回已存在的那条"分支且行为等价于新建，
+                  而一次「超时」（中继放弃轮询，run 其实还活着，见 `poll-budget.ts`）
+                  会命中同一条幂等分支返回同一个 run，重试因此只是对它重新开一轮
+                  轮询，不会在后端并行再跑一次同样的 skill 调用（例如再生成一次
+                  PDF）。样式跟随 issue #2039 这张 alert 卡（本轮只加入口，不动展示层）。 */}
             {lastSentRef.current !== null && !agent.isRunning ? (
               <button
                 type="button"
@@ -1990,7 +2009,7 @@ function CopilotKitV2PanelBody({
                 onClick={() => {
                   const last = lastSentRef.current;
                   if (last === null) return;
-                  void send(last.text);
+                  void send(last.text, { clientMessageId: last.clientMessageId });
                 }}
                 className="shrink-0 rounded border border-destructive/30 px-2 py-0.5 text-11 transition-colors duration-fast hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
