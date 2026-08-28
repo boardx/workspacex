@@ -15,6 +15,7 @@ import {
   parseAguiFileCreatedValue,
   parseAguiFileContentDeltaValue,
   parseAguiFilePatchAppliedValue,
+  parseVfsUriString,
 } from "../src/agui-state-events";
 
 describe("DA-15 file event contract", () => {
@@ -170,5 +171,28 @@ it("does NOT cross-check domain/uri agreement at this layer (documented gap)", (
 
   it("AguiFileSource enumerates exactly the three known VFS write paths", () => {
     expect(AguiFileSource.options).toEqual(["chat_upload", "agent_run_output", "artifact_pin"]);
+  });
+
+  // issue #2321 round 4 -- `active-file-panel.tsx`'s download card needs the reverse
+  // direction: pull the raw attachment id back out of a `vfs://attachment/<id>` uri to
+  // build the existing `GET /chat/threads/:threadId/attachments/:id/content` route.
+  describe("parseVfsUriString", () => {
+    it("splits a valid attachment uri into domain + id", () => {
+      expect(parseVfsUriString("vfs://attachment/att_123")).toEqual({ domain: "attachment", id: "att_123" });
+    });
+
+    it("splits a valid artifact uri into domain + id", () => {
+      expect(parseVfsUriString("vfs://artifact/artifact-abc-1")).toEqual({ domain: "artifact", id: "artifact-abc-1" });
+    });
+
+    it.each([
+      ["wrong scheme", "http://attachment/att_123"],
+      ["unknown domain", "vfs://document/att_123"],
+      ["missing id", "vfs://attachment/"],
+      ["id with a slash", "vfs://attachment/att/123"],
+      ["not a uri at all", "att_123"],
+    ])("returns null, not a guess, for: %s", (_name, input) => {
+      expect(parseVfsUriString(input)).toBeNull();
+    });
   });
 });

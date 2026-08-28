@@ -1,9 +1,14 @@
 "use client";
 import * as React from "react";
-import { FileText } from "lucide-react";
+import { FileText, Download } from "lucide-react";
+import { parseVfsUriString } from "@repo/contracts/agui-state-events";
 import { cn } from "@/lib/utils";
+import { apiUrl } from "@/lib/api-client";
+import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
+import { formatBytes, iconKindForMime, type AttachmentIconKind } from "@/lib/chat-attachment-format";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { AssetCodeEditor, monacoLanguageFromPath } from "@/components/asset-governance/asset-code-editor";
+import { Button } from "@/components/ui/button";
 import type { ActiveFile } from "@/lib/agui-file-events";
 
 /**
@@ -30,6 +35,18 @@ import type { ActiveFile } from "@/lib/agui-file-events";
  * · 两者都不认得的内容（未知后缀、纯文本）退回 `<pre>` 原样展示，不假装是代码或
  *   markdown。
  *
+ * issue #2321 round 4 —— `source === "agent_run_output"`（`run-skill-script.ts` 的
+ * 沙箱产出，真实的 PDF/DOCX/XLSX 二进制文件，不是 agent 拿来临时编辑的文本/代码）走
+ * 第四条渲染分支，且**先于**上面三条判断：`file_content_delta` 目前没有任何生产者
+ * 会对这类来源的文件发出（真实产物是二进制字节，从来就不该被当文本流式），所以
+ * `file.content` 对这类文件永远是空字符串——此前会一路落到 `<pre>` 分支，渲染出一个
+ * 看起来"生成完了却什么都没有"的空白 tab，用户找不到刚生成的 PDF 在哪。这个来源改成
+ * 图标 + 文件名 + 字节数 + 下载按钮，复用 `chat-attachment-preview-modal.tsx` 同一条
+ * 已鉴权路由与同一个 `useAuthedImageSrc`（尽管名字带 Image，本就是任意字节通用的）
+ * ——不新造第二套下载机制。`threadId` 由调用方（`copilotkit-v2-panel.tsx`）传入：这类
+ * 文件必然已经挂在一条真实线程上（产物落库时线程已经存在），`null` 只应该出现在还没
+ * 解析出线程 id 的极短窗口，此时禁用按钮而不是拼一个指向不存在线程的 URL。
+ *
  * 没有任何文件时整块不渲染（`null`）——与 `AgentPlanPanel` 同一条纪律：面板的缺席
  * 不该被"空状态占位"伪装成"agent 什么都没做"以外的东西。
  */
@@ -44,7 +61,9 @@ function isMarkdownFile(file: ActiveFile): boolean {
   return MARKDOWN_EXTENSIONS.has(base.slice(dot + 1).toLowerCase());
 }
 
-export function ActiveFilePanel({ files }: { files: readonly ActiveFile[] }): JSX.Element | null {
+export function ActiveFilePanel(
+  { files, threadId }: { files: readonly ActiveFile[]; threadId: string | null },
+): JSX.Element | null {
   const [selectedUri, setSelectedUri] = React.useState<string | null>(null);
 
   // 新文件到达且此前没有任何选中 tab（或选中的 tab 已经不在列表里，理论上不会发生，
@@ -89,13 +108,16 @@ export function ActiveFilePanel({ files }: { files: readonly ActiveFile[] }): JS
         ))}
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-2" data-testid="active-file-content">
-        <ActiveFileContent file={selected} />
+        <ActiveFileContent file={selected} threadId={threadId} />
       </div>
     </div>
   );
 }
 
-function ActiveFileContent({ file }: { file: ActiveFile }): JSX.Element {
+function ActiveFileContent({ file, threadId }: { file: ActiveFile; threadId: string | null }): JSX.Element {
+  if (file.source === "agent_run_output") {
+    return <ProducedFileDownloadCard file={file} threadId={threadId} />;
+  }
   if (isMarkdownFile(file)) {
     return <MarkdownMessage text={file.content} />;
   }
@@ -117,4 +139,52 @@ function ActiveFileContent({ file }: { file: ActiveFile }): JSX.Element {
       {file.content}
     </pre>
   );
+}
+
+/** issue #2321 round 4 —— 见本文件头注该节。`useAuthedImageSrc` 拿 `url === null` 时
+ *  什么都不拉（它自己的实现），所以 `threadId`/`attachmentId` 任一缺失时安全地停在
+ *  「按钮禁用」态，不会拼出一个指向不存在资源的请求。 */
+function ProducedFileDownloadCard({ file, threadId }: { file: ActiveFile; threadId: string | null }): JSX.Element {
+  const parsed = parseVfsUriString(file.uri);
+  const attachmentId = parsed?.domain === "attachment" ? parsed.id : null;
+  const downloadUrl = threadId !== null && attachmentId !== null
+    ? apiUrl(`/chat/threads/${threadId}/attachments/${attachmentId}/content`)
+    : null;
+  const { src, failed } = useAuthedImageSrc(downloadUrl);
+  const iconKind: AttachmentIconKind = file.mime !== null ? iconKindForMime(file.mime) : "file";
+
+  return (
+    <div
+      data-testid="active-file-produced-download-card"
+      className="flex flex-col items-center justify-center gap-2 py-8 text-center"
+    >
+      <FileIconFor kind={iconKind} />
+      <span className="max-w-full truncate text-13 font-medium text-card-foreground">{file.name}</span>
+      {file.bytes !== null ? (
+        <span className="text-11 text-muted-foreground">{formatBytes(file.bytes)}</span>
+      ) : null}
+      {failed ? (
+        <span className="text-11 text-destructive" data-testid="active-file-produced-download-failed">
+          下载失败，请稍后重试。
+        </span>
+      ) : (
+        <Button asChild size="sm" variant="outline" disabled={src === null}>
+          <a
+            href={src ?? undefined}
+            download={file.name}
+            data-testid="active-file-produced-download-link"
+            aria-disabled={src === null}
+          >
+            <Download aria-hidden className="h-3.5 w-3.5" />
+            下载
+          </a>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** 复用 `chat-attachment-preview-modal.tsx` 同一套图标族——不是本文件自己发明的映射。 */
+function FileIconFor({ kind }: { kind: AttachmentIconKind }): JSX.Element {
+  return <FileText aria-hidden className={cn("h-8 w-8 shrink-0", kind === "file" ? "text-muted-foreground" : "text-primary")} />;
 }

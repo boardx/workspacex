@@ -2351,7 +2351,11 @@ function CopilotKitV2PanelBody({
       </div>
       {activeFiles.length > 0 ? (
         <div className="min-w-0 flex-1">
-          <ActiveFilePanel files={activeFiles} />
+          {/* issue #2321 round 4 -- 见 `active-file-panel.tsx` 文件头「下载卡片」那节：
+              `source: "agent_run_output"` 的文件要拼下载路由，需要真实线程 id。
+              `chatThreadIdRef.current` 是渲染时刻的值（ref 不触发重渲染，见该 ref
+              自己的头注），与上面 `artifactLandingContextValue` 同一条读法。 */}
+          <ActiveFilePanel files={activeFiles} threadId={chatThreadIdRef.current} />
         </div>
       ) : null}
     </div>
