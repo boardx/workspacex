@@ -256,9 +256,18 @@ test("R2：结果画布真的可以编辑——点「＋便签」工具落一张
   await expect(page.getByTestId("tpladmin-editor-simulate-edited")).toHaveCount(0);
 
   await page.getByTestId("tpladmin-editor-simulate-tool-sticky").click();
+  // ⚠ 真栈 E2E 第一轮实测踩出的坑：`chat-diagram-save-reopen-roundtrip.spec.ts` 那条
+  //   既有先例点 80%/80% 处是安全的，因为那个编辑器是 `fixed inset-0` 铺满整个视口
+  //   （见 `chat-canvas-modal.tsx`）——视口内任何一点都必然落在它里面。本弹窗是
+  //   Radix `Dialog`，一个有边界的卡片，不是铺满视口；`canvas-fabric-surface` 的
+  //   `boundingBox()` 量出来的矩形边缘可能已经超出弹窗卡片实际可见范围——点在那
+  //   （尤其是右下角附近）会落在弹窗外的遮罩层上，Radix 判定为"点了外面"直接把
+  //   弹窗关掉。实测复现：断言超时时截图看到的是弹窗已经整个消失，不是画布没反应。
+  //   改成点 `canvas-fabric-surface` 自身左上角附近的一个小偏移量（相对元素坐标，
+  //   不是 boundingBox 算出来的绝对坐标百分比），稳稳落在元素内部、也稳稳落在
+  //   弹窗卡片可见范围内。
   const surface = page.getByTestId("canvas-fabric-surface");
-  const box = (await surface.boundingBox())!;
-  await page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.8);
+  await surface.click({ position: { x: 40, y: 40 } });
 
   // 真的落了一张便签——`onMarkdownChange` 真的被 fabric 场景变化触发过。
   await expect(page.getByTestId("tpladmin-editor-simulate-edited")).toBeVisible();
