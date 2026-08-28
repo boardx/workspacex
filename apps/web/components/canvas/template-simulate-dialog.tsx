@@ -45,6 +45,23 @@
  * ⚠ 组织自建 key 的分支里，注册进 `fabric-markdown` 全局模板表时**不用真实 key**，
  *   用一个命名空间化的 `${templateKey}__simulate-preview`——原因见
  *   `rewriteTemplateKeyLine` 头注。内置 key 的分支不走这条路径，天然不受影响。
+ *
+ * ## ⚠ R2.2（2026-08-29，人类实测反馈）：内置模板一旦被组织自定义过，也要用当前分区
+ *
+ * R2.1 漏了一件事：内置 key**可以被组织自定义**（编辑器允许对着一个内置模板加/删
+ * 字段、改布局，保存后铸新版本），`fence-template-resolver.ts` 用 `layoutSource` 这一列
+ * 判定"这一行是不是真被人改过"（`"user-edited"` vs `"builtin-derived"`，issue #2221）。
+ * R2.1 只查了 key 是不是内置，没有查这一列——于是人类改了一个内置模板（如「价值主张
+ * 宣言」`adlib`）、保存发布后，chat 模拟仍然回退到 package 里那份**原始**几何（19 个
+ * 字段/布局都是发布时写死的），编辑器里刚加的新字段在 chat 模拟里完全不出现。人类原话：
+ * 「我更改了模板，保存了，之后用测试功能，发现用的还是旧的模板」。
+ *
+ * 修法：判据从"是不是内置 key"改成与 `fence-template-resolver.ts` 第 163 行**逐字同一个
+ * 条件**：`isBuiltinKey && layoutSource !== "user-edited"` 才用 package 静态几何；
+ * 只要这一行被标成 `"user-edited"`（不管是不是内置 key），都用当前分区结构现拼 spec。
+ * `layoutSource` 由调用方（`template-editor-panel.tsx`）透传 `row.layoutSource`
+ * （`listTemplates.out` 契约字段），不是本组件自己查库——与"编辑面板已经有这份数据，
+ * 不重新发起一次请求"同一条既有纪律。
  */
 
 import * as React from "react";
@@ -90,19 +107,29 @@ export function rewriteTemplateKeyLine(fenceBody: string, previewKey: string): s
 }
 
 /**
- * 见文件头 R2.1——单独导出成一个纯函数，不内联在 `run()` 里，是为了能在不起真栈的
- * 情况下直接单测覆盖全部 19 个内置 key（`tests/lib/template-simulate-dialog.test.ts`）：
- * 「内置模板永远不走自动布局分支」这条不变量，机械门控住，不必每加一个新内置模板
- * 都重新手工验证一遍 chat 模拟。
+ * 见文件头 R2.1/R2.2——单独导出成一个纯函数，不内联在 `run()` 里，是为了能在不起真栈
+ * 的情况下直接单测覆盖全部 19 个内置 key（`tests/lib/template-simulate-dialog.test.ts`）：
+ * 「未被自定义过的内置模板永远不走自动布局分支，被自定义过的（不管是不是内置 key）
+ * 永远走」这条不变量，机械门控住，不必每加一个新内置模板都重新手工验证一遍 chat 模拟。
+ *
+ * ⚠ 判据必须与 `fence-template-resolver.ts` 第 163 行逐字同一个条件——同一件事实两处
+ *   声明是本仓已经栽过五次的形状，这里不是巧合对齐，是刻意抄同一行判断。
  */
-export function usesAutoLayoutSpec(templateKey: string): boolean {
-  return canvas.builtinDisplayName(templateKey) === undefined;
+export function usesAutoLayoutSpec(templateKey: string, layoutSource: string | undefined): boolean {
+  const isBuiltinKey = canvas.builtinDisplayName(templateKey) !== undefined;
+  return !(isBuiltinKey && layoutSource !== "user-edited");
 }
 
 export function TemplateSimulateDialog({
-  templateKey, sections, title, promptText, onClose,
+  templateKey, layoutSource, sections, title, promptText, onClose,
 }: {
   readonly templateKey: string;
+  /**
+   * `row.layoutSource`（`listTemplates.out` 契约字段）——决定内置模板要不要用当前
+   * 分区结构，见文件头 R2.2。组织自建模板恒 `usesAutoLayoutSpec` 为真，这个值传
+   * 什么都不影响它（`canvas.builtinDisplayName` 对非内置 key 恒返回 `undefined`）。
+   */
+  readonly layoutSource: string | undefined;
   readonly sections: readonly SectionDraft[];
   readonly title: string;
   /** ①栏当前的提示词正文——打开弹窗时用来预填。 */
@@ -145,9 +172,10 @@ export function TemplateSimulateDialog({
       });
       const block = extractMermaidBlocks(out.text).find((b) => isCanvasFenceLang(b.lang));
       if (block) {
-        // 见文件头 R2.1：内置模板走真实几何（模块加载时已用真实 key 自行注册过），
-        // 不套自动布局、不重写围栏里的 key。
-        if (usesAutoLayoutSpec(templateKey)) {
+        // 见文件头 R2.1/R2.2：未被自定义过的内置模板走真实几何（模块加载时已用真实
+        // key 自行注册过），不套自动布局、不重写围栏里的 key；被自定义过的（不管
+        // 是不是内置 key）都用当前分区结构。
+        if (usesAutoLayoutSpec(templateKey, layoutSource)) {
           // 组织自建：用**当前**（含未保存改动的）分区结构现拼一份 spec——与生产
           // chat 对组织自建模板的渲染同一个函数（`buildAutoTemplateSpec`），只是
           // 数据源从"库里已发布的版本"换成"这一刻编辑器里的草稿"。
@@ -180,7 +208,7 @@ export function TemplateSimulateDialog({
     } finally {
       setRunning(false);
     }
-  }, [prompt, running, templateKey, sections, title, previewKey]);
+  }, [prompt, running, templateKey, layoutSource, sections, title, previewKey]);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
