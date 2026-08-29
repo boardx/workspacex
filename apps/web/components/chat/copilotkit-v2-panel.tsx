@@ -13,7 +13,7 @@ import {
   CopilotChatAssistantMessage,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Pencil, Mic, Loader2, AlertTriangle, ArrowDown, ListChecks, Sparkles } from "lucide-react";
+import { Pencil, Mic, Loader2, AlertTriangle, ArrowDown, ArrowUp, ListChecks, Sparkles } from "lucide-react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
@@ -2136,7 +2136,21 @@ function CopilotKitV2PanelBody({
           容器：第一行多行任务输入（`textarea`，不再是单行 `input`），第二行左
           （附件/`@Agent`/`/技能`/任务模式）右（麦克风+发送）。
         */}
-        <div className="flex min-w-0 flex-col gap-2" data-testid="chat-task-workbench-composer">
+        {/*
+          2026-08-29 Claude Design 重设计稿——composer 在设计稿里是一整张有边框、
+          有投影的悬浮卡片（输入区与操作行视觉上属于同一个容器），不是"一个裸
+          textarea + 下面松散一行按钮"。这里只加壳（边框/圆角/投影/焦点态），
+          内部结构、每个控件的 testid 与行为一个字不动——`focus-within` 而不是
+          设计稿里那种恒定黑边：与本文件其余控件的 `focus-visible:ring-ring`
+          语言保持同一套"默认低调、聚焦才强调"的规则，不是抄错了颜色。
+        */}
+        <div
+          className={[
+            "flex min-w-0 flex-col gap-2 rounded-lg border p-2.5 shadow-sm transition-colors duration-fast",
+            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel focus-within:border-primary/60",
+          ].join(" ")}
+          data-testid="chat-task-workbench-composer"
+        >
           {/* issue #2132（2026-08-27 续，bug #5）—— 顶部 `copilotkit-v2-agent-toolbar`
               的错误/空态提示随 `CapabilityPicker` 一起挪到 composer 第二行左侧（见下面
               「@Agent」按钮旁），这里只是它们紧贴输入框上方的落点，功能一行未删。 */}
@@ -2164,7 +2178,11 @@ function CopilotKitV2PanelBody({
             ref={composerInputRef}
             data-testid="copilotkit-v2-input"
             rows={2}
-            className="min-w-0 flex-1 resize-none rounded-md border border-input px-2.5 py-1.5 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"
+            /* 边框/圆角挪到外层卡片壳（见上面那条注释），焦点环仍然留在 textarea
+               自己身上（`lint-design.sh` U7b 门控要求原生 outline 必须配一圈
+               focus-visible:ring-*，见下面 className）：卡片壳的 focus-within
+               边框只是氛围强调，不能替代真正的可见焦点环，两者都要有。 */
+            className="min-w-0 flex-1 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
             /* issue #2053（CK-P8）—— 归档 ⇒ 输入框本身禁用。`archived` 首帧在服务端与
                客户端都是 `false`（外壳的 `getThread` 是客户端 effect），不存在麦克风按钮
                那条 `sessionToken` 式的 SSR/CSR 首帧分叉，可以直接接到 `disabled`。 */
@@ -2193,7 +2211,7 @@ function CopilotKitV2PanelBody({
             {/* 第二行左：附件/材料、@Agent、/技能、任务模式。 */}
             <div className="flex min-w-0 items-center gap-1.5">
               <div data-testid="chat-task-workbench-composer-attach">
-                <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} />
+                <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} showLabel />
               </div>
               {/* issue #2132（2026-08-27 续，bug #5）—— 此前这里只是一个打开
                   `chat-capability-picker` 共享槽的小按钮，真正的 `CapabilityPicker`
@@ -2298,6 +2316,7 @@ function CopilotKitV2PanelBody({
                 selectedDeviceId={micDevices.selectedDeviceId}
                 onSelectDevice={micDevices.select}
                 disabled={archived}
+                idleLabel="语音"
                 onRequireSession={() => {
                   if (sessionToken === null) {
                     setError("未登录，无法使用语音输入。");
@@ -2306,17 +2325,26 @@ function CopilotKitV2PanelBody({
                   return true;
                 }}
               />
+              {/* 2026-08-29 Claude Design 重设计稿——发送是一个纯图标的圆角方形按钮
+                  （↑），不是文字按钮。testid/disabled/title 逐字不动，只换视觉与
+                  可访问性标签（图标按钮必须有 `aria-label`，之前的可见文字"发送"
+                  本身兼职当了这个角色，现在要显式补上）。 */}
               <Button
                 data-testid="copilotkit-v2-send"
                 type="button"
-                size="sm"
+                size="icon"
                 variant="primary"
-                className="shrink-0"
+                className="shrink-0 rounded-md"
                 disabled={sendDisabled}
-                title={sendDisabledReason ?? undefined}
+                title={sendDisabledReason ?? (agent.isRunning ? "正在运行…" : "发送")}
+                aria-label={agent.isRunning ? "正在运行…" : "发送"}
                 onClick={() => void send()}
               >
-                {agent.isRunning ? "…" : "发送"}
+                {agent.isRunning ? (
+                  <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ArrowUp aria-hidden className="h-3.5 w-3.5" />
+                )}
               </Button>
             </div>
           </div>

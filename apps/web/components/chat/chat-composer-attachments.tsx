@@ -341,7 +341,18 @@ export function ChatAttachmentList({
  * 由面板里的「从本机文件选择」才触发隐藏 input。拖拽落区行为不变（仍在 composer 上）。
  * 隐藏 input 留在这里渲染，供面板经 `ctl.openFileDialog` 复用。
  */
-export function ChatAttachmentButton({ ctl, disabled }: { ctl: ChatAttachmentsController; disabled?: boolean }) {
+export function ChatAttachmentButton({
+  ctl, disabled, showLabel = false,
+}: {
+  ctl: ChatAttachmentsController;
+  disabled?: boolean;
+  /**
+   * 2026-08-29 Claude Design 重设计稿——composer 里的这颗按钮是带"材料"二字的
+   * 胶囊，不是纯图标。默认 `false`：其余调用方（若有）与既有截图/快照不受影响，
+   * 只有显式要这份视觉的调用方才看得到文字。
+   */
+  showLabel?: boolean;
+}) {
   const [open, setOpen] = React.useState(false);
   // 线程归档 / 提交中途 → 关面板，避免停在一个不能操作的壳上。
   React.useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
@@ -349,11 +360,11 @@ export function ChatAttachmentButton({ ctl, disabled }: { ctl: ChatAttachmentsCo
     <div className="flex items-center gap-1.5">
       <Button
         type="button"
-        size="icon"
+        size={showLabel ? "xs" : "icon"}
         variant="outline"
         // issue #2130 —— 命名胶囊圆角 token（`tailwind.config.ts` 的
         // `borderRadius.pill`），composer 胶囊类控件本轮统一迁移。
-        className="rounded-pill"
+        className={showLabel ? "gap-1 rounded-pill" : "rounded-pill"}
         data-testid="chat-attachment-input"
         aria-label="添加附件"
         aria-haspopup="dialog"
@@ -363,6 +374,7 @@ export function ChatAttachmentButton({ ctl, disabled }: { ctl: ChatAttachmentsCo
         onClick={() => setOpen(true)}
       >
         <Paperclip aria-hidden className="h-3.5 w-3.5" />
+        {showLabel ? <span>材料</span> : null}
       </Button>
       <input
         ref={ctl.fileInputRef}

@@ -62,6 +62,13 @@ export interface ComposerMicControlProps {
   readonly onSelectDevice: (deviceId: string | null) => void;
   readonly disabled: boolean;
   readonly onRequireSession: () => boolean;
+  /**
+   * 2026-08-29 Claude Design 重设计稿——静止态是一颗带"语音"二字的胶囊，不是纯
+   * 图标圆钮。默认 `undefined`（不显示文字，逐字节保留此前的纯图标外观）——
+   * 这是本仓唯一调用方，但仍然选可选 prop 而不是直接改死：不确定的调用方
+   * 比确定的样式更值钱，改死了下一个想要纯图标版本的人只能复制整个组件。
+   */
+  readonly idleLabel?: string;
 }
 
 function formatElapsed(totalSeconds: number): string {
@@ -72,7 +79,7 @@ function formatElapsed(totalSeconds: number): string {
 
 export function ComposerMicControl({
   status, listening, connecting, stopping, elapsedSeconds, level,
-  start, stop, cancel, devices, selectedDeviceId, onSelectDevice, disabled, onRequireSession,
+  start, stop, cancel, devices, selectedDeviceId, onSelectDevice, disabled, onRequireSession, idleLabel,
 }: ComposerMicControlProps): JSX.Element {
   const recording = connecting || listening || stopping;
   const [devicesOpen, setDevicesOpen] = useChatPopoverSlot("chat-composer-mic-devices");
@@ -88,10 +95,10 @@ export function ComposerMicControl({
     <div className="relative flex items-center">
       <Button
         type="button"
-        size="icon"
+        size={idleLabel !== undefined ? "xs" : "icon"}
         variant={listening ? "destructive" : "outline"}
         // issue #2130 —— 命名胶囊圆角 token，composer 胶囊类控件本轮统一迁移。
-        className="rounded-pill"
+        className={idleLabel !== undefined ? "gap-1 rounded-pill" : "rounded-pill"}
         data-testid="chat-task-workbench-composer-mic"
         data-mic-status={status}
         aria-pressed={listening}
@@ -118,6 +125,8 @@ export function ComposerMicControl({
         ) : (
           <Mic aria-hidden className="h-3.5 w-3.5" />
         )}
+        {idleLabel !== undefined && !listening && !connecting && !stopping ? <span>{idleLabel}</span> : null}
+        {idleLabel !== undefined && listening ? <span>正在听…</span> : null}
       </Button>
       {recording ? (
         <div
