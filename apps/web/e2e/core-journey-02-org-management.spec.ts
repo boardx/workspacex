@@ -31,16 +31,27 @@ test("旅程②：组织管理员建团队 → 邀请一位新成员 → 受邀�
   await page.goto("/org-admin");
   await expect(page.getByTestId("org-admin-screen")).toBeVisible();
 
-  /* ── ① 建一个团队（复用 self-service-profile.spec.ts 已验证过的写路径，这里只当
-        脚手架，好让下面邀请成员时能把这位新人分进一个真实团队，而不是"不分团队"） ── */
+  /* ── ① 建一个团队（复用 self-service-profile.spec.ts 已验证过的写路径） ──
+        下面第②步会把新成员真的分进这个团队（选中 `org-admin-invite-team` 里对应
+        的 teamId），第⑤步核对团队成员数真的从 0 变成 1——不是建完就晾在一边的
+        摆设脚手架。 */
   const teamName = `旅程②团队-${unique}`;
   await page.getByTestId("org-admin-tab-teams").click();
   await expect(page.getByTestId("org-admin-team-list")).toBeVisible();
+  const createTeamResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === "POST" && /\/organizations\/[^/]+\/teams\/create$/.test(response.url())
+  ));
   await page.getByTestId("org-admin-create-team-input").fill(teamName);
   await page.getByTestId("org-admin-create-team").click();
+  const createdTeam = await (await createTeamResponsePromise).json() as { teamId: string; name: string };
+  const teamId = createdTeam.teamId;
+  expect(teamId, "建团队必须拿到真实 teamId，后面选团队要用它").toBeTruthy();
   await expect(page.getByTestId("org-admin-team-banner")).toContainText("已创建");
   const teamRow = page.getByTestId("org-admin-team-list").locator("li", { hasText: teamName });
   await expect(teamRow).toBeVisible();
+  // 反空转基线：新建的团队此刻真的是 0 人，下面才能证明"邀请分进了这个团队"
+  // 让这个数从 0 变成了 1，而不是它本来就非零、断言巧合对上。
+  await expect(page.getByTestId(`org-admin-team-${teamId}-member-count`)).toContainText("0");
 
   /* ── ② 邀请一位新成员到这个团队 ────────────────────────────────────────
      ⚠ 邀请角色用非 admin（默认 `member`）：邀请 admin 需要双人复核
@@ -54,6 +65,11 @@ test("旅程②：组织管理员建团队 → 邀请一位新成员 → 受邀�
   await page.getByTestId("org-admin-tab-invites").click();
   await expect(page.getByTestId("org-admin-invite-form")).toBeVisible();
   await page.getByTestId("org-admin-invite-email").fill(inviteEmail);
+  // 真的选中第①步建的那个团队——不选的话 `teamId` 默认是 `NO_TEAM`，第①步的团队
+  // 就成了从未被用上的摆设（实测钉住过这个坑，见本文件 git blame 的修复记录）。
+  await page.getByTestId("org-admin-invite-team").click();
+  await page.getByTestId(`org-admin-invite-team-option-${teamId}`).click();
+  await expect(page.getByTestId("org-admin-invite-team")).toHaveAttribute("aria-label", new RegExp(teamName));
   const inviteResponsePromise = page.waitForResponse((response) => (
     response.request().method() === "POST" && /\/organizations\/[^/]+\/invites(\?|$)/.test(response.url())
   ));
@@ -107,4 +123,9 @@ test("旅程②：组织管理员建团队 → 邀请一位新成员 → 受邀�
   await page.reload();
   await page.getByTestId("org-admin-tab-members").click();
   await expect(page.getByTestId("org-admin-member-list")).toContainText(inviteeName);
+
+  // ── 反证收口：这个人真的分进了第①步那个团队，不是"邀请表单选了团队但服务端
+  //    没接住"——团队人数要从 0 真的变成 1，而不是停在成员列表里"看起来存在"。
+  await page.getByTestId("org-admin-tab-teams").click();
+  await expect(page.getByTestId(`org-admin-team-${teamId}-member-count`)).toContainText("1");
 });

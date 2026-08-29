@@ -77,15 +77,27 @@ test("旅程④：管理员新建画布模板 → 加字段（测试）→ 发�
 
   /* ── ② 编辑/测试：加一个字段，保存 ── */
   await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
-  await page.getByTestId("tpladmin-editor-new-key").fill("journey4Field");
+  await page.getByTestId("tpladmin-editor-new-key").fill("journey4_field");
   await page.getByTestId("tpladmin-editor-new-name").fill("旅程④字段");
   await page.getByTestId("tpladmin-editor-new-add").click();
   await expect(page.getByTestId("tpladmin-editor-dirty")).toBeVisible();
+  // ⚠ 真实实测踩过的坑：按钮离开"正在保存…"这个瞬时态，不代表这次请求真的成功——
+  //   之前这里只等按钮文案，`POST .../draft` 服务端 400（真实实测：字段 key 用了
+  //   `journey4Field` 这种带大写字母的驼峰，撞上契约 `key: z.string().regex(/^[a-z]
+  //   [a-z0-9_]*$/)`）时按钮一样会离开"正在保存…"，让这条用例两次"通过"都是假的——
+  //   直到下面 ③ 重开编辑面板核对字段真的还在，才第一次真正测出保存从未成功过。
+  //   现在直接断言响应状态，不给这类假绿留空子。
+  const saveResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === "POST" && /\/canvas\/templates\/[^/]+\/draft(\?|$)/.test(response.url())
+  ));
   await page.getByTestId("tpladmin-editor-save").click();
+  const saveResponse = await saveResponsePromise;
+  expect(saveResponse.status(), `保存字段应当 2xx，实际 ${saveResponse.status()}：${await saveResponse.text()}`)
+    .toBeLessThan(300);
   // 不赛跑保存按钮文案（"正在保存…"→"已保存"）：实测这个派生态（本地字段与
   // `row` 服务端快照逐项比对）偶尔在保存成功后又短暂判回"保存改动"，不是保存本身
-  // 失败。真正的"存进去了"由下面 ③ 刷新后卡片内容仍在这件事独立证明。这里只等
-  // 按钮离开"正在保存…"这个瞬时态，代表这次请求（无论后续文案怎么判）已经有了结果。
+  // 失败——但那是**在确认请求已经 2xx 之后**的文案时序问题，与上面的响应状态断言
+  // 不是同一件事，两者都要留着。
   await expect(page.getByTestId("tpladmin-editor-save")).not.toHaveText("正在保存…", { timeout: 10_000 });
   await page.getByTestId("tpladmin-editor-close").click();
   await expect(page.getByTestId("tpladmin-editor-panel")).toHaveCount(0);
@@ -93,6 +105,24 @@ test("旅程④：管理员新建画布模板 → 加字段（测试）→ 发�
   // 刷新仍在 = 写进了库（同 core-loop.spec.ts 步骤 4）。
   await page.reload();
   await expect(page.getByTestId(`tpladmin-card-${key}-1`)).toContainText(name);
+  // 模板卡片包含名字这件事从创建那一刻起就为真，不能证明"加字段"这一步本身写
+  // 对了——重新打开编辑面板，核对刚才加的那个字段真的还在，才是本节"编辑（测试）"
+  // 真正要验的东西：字段真的持久化了，不是本地 state 顺手保存了模板的 displayName
+  // 却没碰 sections 数组。
+  await page.getByTestId(`tpladmin-card-${key}-1`).click();
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+  const savedField = page.getByTestId("tpladmin-editor-field-journey4_field");
+  await expect(savedField).toBeVisible();
+  // 真实实测：新字段默认类型是「便利贴列表」，key 徽标会带 `[]` 后缀渲染成
+  // `{{journey4_field[]}}`（`template-editor-panel.tsx` 对 `type === "便利贴列表"`
+  // 的专门处理）——只认前缀，不依赖默认类型这个随时可能变的细节。
+  await expect(savedField).toContainText("{{journey4_field");
+  // 中文名渲染成一个可编辑的 `<input value>`，不是纯文本节点——`toContainText`
+  // 读不到 value，必须用 `toHaveValue` 才是真的核对到了这个字段的中文名也存对了，
+  // 不是只核对到 key 字面量。
+  await expect(savedField.locator("input")).toHaveValue("旅程④字段");
+  await page.getByTestId("tpladmin-editor-close").click();
+  await expect(page.getByTestId("tpladmin-editor-panel")).toHaveCount(0);
   // 建完只能是**草稿**——发布之前不该出现在"已发布"筛选里，否则下面"发布真的
   // 起了作用"就无法证明（同 canvas-template-create-smoke.spec.ts 的既有纪律）。
   await page.getByTestId("tpladmin-filter-published").click();
