@@ -280,7 +280,9 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
       return jsonResponse({ templates: [template({ key: "esg", displayName: "ESG", version: 1, status: "archived", builtin: false })] });
     }));
 
-    render(<TemplateAdmin previewRole="facilitator" />);
+    // 「全部」筛选下已归档行默认不显示（见「已归档默认不进『全部』」那条测试）——
+    // 这里要测的是恢复动作本身，用 `initialFilter="archived"` 直接落在会显示它的标签页。
+    render(<TemplateAdmin previewRole="facilitator" initialFilter="archived" />);
     await waitFor(() => expect(screen.getByTestId("tpladmin-card-esg-1")).toBeInTheDocument());
     expect(listCalls).toBe(1);
 
@@ -742,9 +744,12 @@ describe("2026-08-22 模板管理可用性改进", () => {
   });
 
   it("② 「只看当前版本」默认关闭时两个版本都在；打开后同 key 只留状态优先级最高的那个", async () => {
+    // v1 用 "draft" 而不是 "archived"：「全部」筛选下已归档的行不进 `allRows`
+    // （见下面「已归档默认不进『全部』」那条测试），这条测试关心的是 latestOnly
+    // 的状态优先级排序，跟归档可见性是两回事，换一个不会被那条规则挡住的状态。
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
       templates: [
-        template({ key: "persona", displayName: "用户画像", version: 1, status: "archived" }),
+        template({ key: "persona", displayName: "用户画像", version: 1, status: "draft" }),
         template({ key: "persona", displayName: "用户画像", version: 2, status: "published" }),
       ],
     })));
@@ -754,10 +759,27 @@ describe("2026-08-22 模板管理可用性改进", () => {
 
     fireEvent.click(screen.getByTestId("tpladmin-latest-only-toggle"));
     await waitFor(() => expect(screen.queryByTestId("tpladmin-card-persona-1")).toBeNull());
-    // published（v2）比 archived（v1）优先级高，留下的是 v2。
+    // published（v2）比 draft（v1）优先级高，留下的是 v2。
     expect(screen.getByTestId("tpladmin-card-persona-2")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("tpladmin-latest-only-toggle"));
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-persona-1")).toBeInTheDocument());
+  });
+
+  it("已归档默认不进「全部」，切到「已归档」标签页仍能看到", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [
+        template({ key: "persona", displayName: "用户画像", version: 1, status: "archived" }),
+        template({ key: "swot", displayName: "SWOT", version: 2, status: "published" }),
+      ],
+    })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-card-swot-2")).toBeInTheDocument());
+    // 归档快照没有从服务端结果里消失（swot 那行照常在），只是不在「全部」这个
+    // 总览里占位——不是把请求本身也筛掉了。
+    expect(screen.queryByTestId("tpladmin-card-persona-1")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("tpladmin-filter-archived"));
     await waitFor(() => expect(screen.getByTestId("tpladmin-card-persona-1")).toBeInTheDocument());
   });
 

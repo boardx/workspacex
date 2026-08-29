@@ -286,9 +286,17 @@ export function TemplateAdmin({
   // ⚠ `useMemo` 而不是裸三元：下面 `tagCounts` 的 `useMemo` 依赖它，而
   //   `status !== "ready"` 分支每次渲染都会产出一个**新的空数组**，让那个 memo
   //   永远失效（eslint react-hooks/exhaustive-deps 正是报的这个）。
+  //
+  // 人类要求「已归档的数据，不要在全部显示」：`filter === "all"` 时在前端把
+  // `status === "archived"` 的行滤掉——数据仍完整留在服务端与「已归档」筛选里，
+  // 「归档是可逆置位」（页头那句话）没有变，只是「全部」这个总览默认不再堆着
+  // 一批使用者大概率不关心的历史快照。切到「已归档」标签页时 `filter` 变成
+  // `"archived"`，不落进这个分支，行为不受影响。
   const allRows = React.useMemo(
-    () => (visibleState.status === "ready" ? visibleState.rows : []),
-    [visibleState],
+    () => (visibleState.status === "ready"
+      ? (filter === "all" ? visibleState.rows.filter((t) => t.status !== "archived") : visibleState.rows)
+      : []),
+    [visibleState, filter],
   );
   const readOnly = previewRole === "observer";
 
