@@ -1830,15 +1830,6 @@ function CopilotKitV2PanelBody({
             仅用于登记 hook"纪律，不需要跟下面的 `useHumanInTheLoop`（send_email）
             挤进同一个组件。 */}
         <CopilotKitV2AgentInterrupts />
-        {/* 本 PR —— F972-F978（plan-control 契约束）接入真实聊天渲染树，见
-            `copilotkit-v2-plan-control.tsx` 文件头注（挂载理由、数据源、已发现的三处
-            设计缺口）。`ui.md` S1 写"六态指示器落在消息流顶部"——放在
-            `messagesContainerRef` 这个可滚动容器外面（不随消息滚走），是这里对
-            "顶部常驻"的读法：计划状态是横跨整条对话的态，不是某一条消息，用户不该
-            因为往下翻消息就看不见当前在哪一态。`threadId={null}` 时（新对话尚未发出
-            第一条消息）组件自己返回 `null`，不占位——与下面 `resolvedChatThreadId`
-            state 的既有语义一致（issue #2052）。 */}
-        <CopilotKitV2PlanControl threadId={resolvedChatThreadId} />
         {/* 2026-08-25 人类 devapp 实测指令：不给用户看调试字样——原来这里有一行
             「CopilotKit v2（DA-19 —— CopilotRuntime 适配器，…）」开发者标题，
             与 #1830「用户可见文案去掉开发者词汇」同一条裁决，整行移除。 */}
@@ -1979,6 +1970,15 @@ function CopilotKitV2PanelBody({
             </button>
           ) : null}
         </div>
+        {/* issue #2350（人类 2026-08-29 直接反馈）—— plan-control 面板从消息列表
+            顶部搬到这里（消息容器外、composer 上方）：仍然不随消息滚走（同一条
+            `ui.md` S1"计划态跨整条对话"的不变量没有变），但离用户当前正在看/打字
+            的地方更近，不再固定占用可视区顶部。搬到独立折叠开关（默认展开、
+            `gate.required`/`failed` 转入时自动展开）之后，"简化界面"这条反馈也在
+            同一次改动里落地——细节见 `copilotkit-v2-plan-control.tsx` 文件头注。
+            `threadId={null}` 时（新对话尚未发出第一条消息）组件自己返回 `null`，
+            不占位——与 `resolvedChatThreadId` state 的既有语义一致（issue #2052）。 */}
+        <CopilotKitV2PlanControl threadId={resolvedChatThreadId} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}
