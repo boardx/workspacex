@@ -37,10 +37,7 @@ import type { GetAgentPanelOut } from "@/lib/live-chat";
  *   2026-08-21 人类裁决的同一条理由），`PERSONAL_THREAD_CAPABILITIES` 含
  *   `thread.mutate` ⇒ 这里的同源代理关系对个人线程同样成立，不需要第二套判断。
  */
-export function RosterPanel({
-  roster, loading, error, hasSelection, canMutate, pending, mutateFailure,
-  candidates, candidatesError, onAdd, onRemove, onRetry,
-}: {
+export interface RosterPanelProps {
   roster: GetAgentPanelOut | null;
   loading: boolean;
   error: string | null;
@@ -53,7 +50,12 @@ export function RosterPanel({
   onAdd: (agentId: string) => void;
   onRemove: (agentId: string) => void;
   onRetry: () => void;
-}) {
+}
+
+export function RosterPanel({
+  roster, loading, error, hasSelection, canMutate, pending, mutateFailure,
+  candidates, candidatesError, onAdd, onRemove, onRetry,
+}: RosterPanelProps) {
   const [draft, setDraft] = React.useState("");
   const writable = canMutate && hasSelection;
 

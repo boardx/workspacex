@@ -103,7 +103,18 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
   // 折叠开关：默认展开。needsDecision 从 false→true 的那次转变自动展开——
   // 用户上一轮手动折叠，不该让 ta 错过下一次真正需要确认/处理失败的时刻。
   const [collapsed, setCollapsed] = React.useState(false);
-  const needsDecision = ledger !== null && (ledger.phase === "failed" || (ledger.gate.required && ledger.phase !== "executing"));
+  //
+  // ⚠ 合并注：原写法是 `gate.required && phase !== "executing"`，与下面渲染
+  // `PlanConfirmGate` 的条件（`phase === "planning"`）不是同一个判据——`gate.
+  // required` 在 `phase:"done"` 之后仍恒为 true（见下面确认门那段头注：
+  // `evaluatePlanGate` 只看 todoCount，不知道 run 跑完没跑完），会导致任务
+  // 已经完成、用户手动折叠了面板，却又被这里强制重新展开成一个没有确认门、
+  // 只剩只读步骤列表的面板——比原来的"卡片残留"轻，但仍是同一个根因的余震。
+  // 改成与确认门渲染条件同源：只有「计划阶段确实要确认」或「失败态确实要处理」
+  // 才算需要决策，"done" 不再触发强制展开。
+  const needsDecision = ledger !== null && (
+    ledger.phase === "failed" || (ledger.phase === "planning" && ledger.gate.required)
+  );
   const prevNeedsDecisionRef = React.useRef(needsDecision);
   React.useEffect(() => {
     if (needsDecision && !prevNeedsDecisionRef.current) setCollapsed(false);
@@ -243,7 +254,30 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
         />
       ))}
 
-      {!collapsed && (
+      {/*
+       * 🔴 真栈实测发现的缺口（如实登记，不是硬套契约）：`evaluatePlanGate`
+       * （`packages/contracts/src/plan-control.ts` UC-8）按契约**只看 `todoCount`**，
+       * 完全不知道这一轮 run 有没有已经跑完——一个 4 步计划的 `gate.required` 从
+       * 确认前到执行中到 `phase:"done"` 之后**恒为 `true`**，因为 `todoCount` 从
+       * 头到尾没变过。契约本身没错（它就是纯函数、UC-8 反证只要求"简单提问不加
+       * 确认门"），错在这里：`gate` 是"要不要在**开始执行前**问一下"的判定，
+       * 不是"现在还要不要显示这张卡"，而组件此前不加区分地把它渲染在每个 phase 下，
+       * 于是任务做完了、卡片却和执行前长得一模一样，用户以为"没结束"。
+       *
+       * 修法是**只在 `phase === "planning"`**（即 `derivePlanPhase` 里那个
+       * "有计划、run 还没起、没有失败、没有待审批"的态）渲染确认门——这正是
+       * UC-8 判据四原本要挡的那个时刻：执行开始之前。一旦进了 `executing`/
+       * `approving`/`done`/`failed`，"确认并执行"这个动作本身就不再有意义
+       * （run 已经在跑或已经跑完），继续渲染这张卡是界面在说谎，不是加了一层
+       * 保险。不改 `evaluatePlanGate` 本身——它仍然如实回答"这份计划要不要
+       * 确认"，只是本组件不再对着一个已经过去的阶段问这个问题。
+       *
+       * `!collapsed` 是折叠开关（同一批合入 main 的独立改动）：折叠态下整块
+       * 都不渲染，与 `phase === "planning"` 是两个独立的必要条件，不是二选一
+       * ——`needsDecision` 已经保证 gate.required 时不会停在折叠态上，这里
+       * 只是同时满足"没折叠"与"确实到了该问的那个阶段"。
+       */}
+      {!collapsed && ledger.phase === "planning" && (
         <PlanConfirmGate
           gate={ledger.gate}
           onConfirmRun={handleConfirm}
