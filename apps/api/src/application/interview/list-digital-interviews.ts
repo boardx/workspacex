@@ -75,6 +75,15 @@ export async function listDigitalExperts(
       bio: row.role,
       location: "未指定",
       typicalAdvice: "暂无典型建议",
+      age: 0,
+      occupation: row.role,
+      goals: [],
+      interests: [],
+      painPoints: [],
+      motivations: [],
+      influences: [],
+      personalityTraits: { introvertExtrovert: 5, analyticalCreative: 5, busyTimeRich: 5 },
+      serviceValue: "暂无服务价值说明",
     })),
   };
 }

@@ -30,6 +30,15 @@ const expertCandidate = {
   bio: "长期研究企业采购决策链与供应商评估。",
   location: "德国",
   typicalAdvice: "先识别最终否决权，再设计访谈问题。",
+  age: 48,
+  occupation: "企业采购决策顾问",
+  goals: ["识别采购决策链"],
+  interests: ["供应商评估"],
+  painPoints: ["最终否决权不透明"],
+  motivations: ["提高采购决策质量"],
+  influences: ["德国工业采购实践"],
+  personalityTraits: { introvertExtrovert: 5, analyticalCreative: 7, busyTimeRich: 4 },
+  serviceValue: "采购决策链诊断与访谈指导",
   materialContextPackId: "context-pack-f04",
   materialVersion: "material-version-f04",
   materialBoundary: "仅使用当前有权读取的材料",
@@ -369,6 +378,8 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(Object.keys(confirmBody.addedExperts[0]!)).toEqual([
       "expertId", "agentDefinitionId", "agentVersion", "initials", "displayName", "role", "domains",
       "category", "bio", "location", "typicalAdvice",
+      "age", "occupation", "goals", "interests", "painPoints", "motivations", "influences",
+      "personalityTraits", "serviceValue",
       "materialContextPackId", "materialVersion", "materialBoundary", "exploratory",
     ]);
     expect(confirmBody.addedExperts[0]).toMatchObject({
@@ -376,6 +387,9 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
       bio: expect.any(String),
       location: expect.any(String),
       typicalAdvice: expect.any(String),
+      age: expect.any(Number), occupation: expect.any(String), goals: expect.any(Array), interests: expect.any(Array),
+      painPoints: expect.any(Array), motivations: expect.any(Array), influences: expect.any(Array),
+      personalityTraits: expect.any(Object), serviceValue: expect.any(String),
     });
     expect(transport.requests("POST", "/questions/confirm")[0]!.body).toMatchObject({ questions: [defaultQuestion] });
   });
@@ -397,6 +411,14 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(within(dialog).getByTestId("itv-expert-detail-location")).toHaveTextContent(expertCandidate.location);
     expect(within(dialog).getByTestId("itv-expert-detail-bio")).toHaveTextContent(expertCandidate.bio);
     expect(within(dialog).getByTestId("itv-expert-detail-advice")).toHaveTextContent(expertCandidate.typicalAdvice);
+    expect(within(dialog).getByTestId("itv-expert-detail-occupation")).toHaveTextContent(expertCandidate.occupation);
+    expect(within(dialog).getByTestId("itv-expert-detail-age")).toHaveTextContent(String(expertCandidate.age));
+    expect(within(dialog).getByTestId("itv-expert-detail-goals")).toHaveTextContent(expertCandidate.goals[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-interests")).toHaveTextContent(expertCandidate.interests[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-pain-points")).toHaveTextContent(expertCandidate.painPoints[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-motivations")).toHaveTextContent(expertCandidate.motivations[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-influences")).toHaveTextContent(expertCandidate.influences[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-service-value")).toHaveTextContent(expertCandidate.serviceValue);
     expect(screen.getByLabelText(`删除专家 ${expertCandidate.displayName}`)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-expert-detail-close"));
 
@@ -412,6 +434,8 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(within(dialog).getByTestId("itv-expert-detail-location")).toHaveTextContent(staticExpert.location);
     expect(within(dialog).getByTestId("itv-expert-detail-bio")).toHaveTextContent(staticExpert.bio);
     expect(within(dialog).getByTestId("itv-expert-detail-advice")).toHaveTextContent(staticExpert.typicalAdvice);
+    expect(within(dialog).getByTestId("itv-expert-detail-goals")).toHaveTextContent(staticExpert.goals[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-service-value")).toHaveTextContent(staticExpert.serviceValue);
     fireEvent.click(screen.getByTestId("itv-expert-detail-close"));
     expect(screen.getByLabelText(`删除专家 ${staticExpert.displayName}`)).toBeInTheDocument();
   });

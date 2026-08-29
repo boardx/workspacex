@@ -376,9 +376,14 @@ export async function readDigitalInterviewWorkflow(
       initials: string; display_name: string; role: string; domains: string[];
       material_context_pack_id: string | null; material_version: string | null;
       category: string; bio: string; location: string; typical_advice: string;
+      age: number; occupation: string; goals: string[]; interests: string[]; pain_points: string[];
+      motivations: string[]; influences: string[];
+      personality_traits: { introvertExtrovert: number; analyticalCreative: number; busyTimeRich: number };
+      service_value: string;
     }>(
       `SELECT expert_id,agent_definition_id,agent_version,initials,display_name,role,domains,
-              material_context_pack_id,material_version,category,bio,location,typical_advice
+              material_context_pack_id,material_version,category,bio,location,typical_advice,
+              age,occupation,goals,interests,pain_points,motivations,influences,personality_traits,service_value
          FROM digital_interview_expert_candidates
         WHERE org_id=$1 AND revision_id=$2 ORDER BY ordinal`,
       [orgId, row.revision_id],
@@ -452,6 +457,15 @@ export async function readDigitalInterviewWorkflow(
       bio: candidate.bio,
       location: candidate.location,
       typicalAdvice: candidate.typical_advice,
+      age: candidate.age,
+      occupation: candidate.occupation,
+      goals: candidate.goals,
+      interests: candidate.interests,
+      painPoints: candidate.pain_points,
+      motivations: candidate.motivations,
+      influences: candidate.influences,
+      personalityTraits: candidate.personality_traits,
+      serviceValue: candidate.service_value,
       materialBoundary: candidate.material_context_pack_id === null
         ? "未绑定 Context Pack 材料版本"
         : `Context Pack ${candidate.material_context_pack_id} · ${candidate.material_version}`,
