@@ -259,9 +259,10 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
 
   async confirmExperts(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string; readonly expertIds: readonly string[];
+    readonly addedExperts: readonly z.infer<typeof interview.DigitalExpertCatalogRow>[];
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    return this.resumeConfirmation(input, { kind: "confirm_experts", expertIds: input.expertIds,
+    return this.resumeConfirmation(input, { kind: "confirm_experts", expertIds: input.expertIds, addedExperts: input.addedExperts,
       expectedVersion: input.expectedVersion, requestId: input.requestId });
   }
 

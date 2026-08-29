@@ -7,7 +7,7 @@ export type DigitalInterviewQuestion = z.infer<typeof interview.DigitalInterview
 
 export type DigitalInterviewCommand =
   | { readonly kind: "confirm_topic"; readonly topic: string; readonly expectedVersion: number; readonly requestId: string }
-  | { readonly kind: "confirm_experts"; readonly expertIds: readonly string[]; readonly expectedVersion: number; readonly requestId: string }
+  | { readonly kind: "confirm_experts"; readonly expertIds: readonly string[]; readonly addedExperts: readonly z.infer<typeof interview.DigitalExpertCatalogRow>[]; readonly expectedVersion: number; readonly requestId: string }
   | { readonly kind: "confirm_questions"; readonly questions: readonly DigitalInterviewQuestion[]; readonly expectedVersion: number; readonly requestId: string }
   | { readonly kind: "skill_refine"; readonly originStep: DigitalInterviewStep; readonly expectedVersion: number; readonly requestId: string };
 

@@ -697,6 +697,7 @@ export const operations = {
     in: z.object({
       interviewId: z.string().min(1),
       expertIds: z.array(z.string().min(1)).min(1).superRefine(validateUniqueExpertIds),
+      addedExperts: z.array(DigitalExpertCatalogRow).default([]),
       expectedVersion: z.number().int().positive(),
       requestId: z.string().min(1),
     }).strict(),

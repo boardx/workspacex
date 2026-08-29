@@ -126,6 +126,7 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
     if (method === "POST" && url.pathname.endsWith("/experts/confirm")) {
       view = {
         ...view,
+        expertCandidates: [...view.expertCandidates, ...(body.addedExperts ?? [])],
         selectedExpertIds: body.expertIds,
         status: "questions_pending",
         currentStep: "questions",
@@ -332,25 +333,30 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(transport.requests("GET", `/interviews/digital/${persistedInterview.interviewId}`)).toHaveLength(2);
   });
 
-  it("主题与专家确认后只消费服务端返回的候选专家和默认问题", async () => {
+  it("添加专家展示静态专家列表，并把勾选快照随确认命令提交", async () => {
     const transport = installLiveFetch();
     render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
     fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证服务端候选" } });
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
 
     expect(await screen.findByText(expertCandidate.displayName)).toBeInTheDocument();
-    expect(screen.queryByText(/mock/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-add-expert"));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("添加访谈专家")).toBeInTheDocument();
-    expect(screen.getAllByText(expertCandidate.displayName).length).toBeGreaterThan(1);
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.queryAllByText(expertCandidate.displayName)).toHaveLength(1);
+    fireEvent.change(screen.getByTestId("itv-expert-picker-search"), { target: { value: "陈宇轩" } });
+    fireEvent.click(screen.getByLabelText("选择专家 陈宇轩"));
+    fireEvent.click(screen.getByTestId("itv-expert-picker-confirm"));
+    expect(await screen.findByText("陈宇轩")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-confirm-experts"));
     expect(await screen.findByDisplayValue(defaultQuestion.text)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-confirm-questions"));
 
     await waitFor(() => expect(transport.requests("POST", "/experts/confirm")).toHaveLength(1));
-    expect(transport.requests("POST", "/experts/confirm")[0]!.body).toMatchObject({ expertIds: [expertCandidate.expertId] });
+    expect(transport.requests("POST", "/experts/confirm")[0]!.body).toMatchObject({
+      expertIds: [expertCandidate.expertId, expect.stringMatching(/^mock-persona:/)],
+      addedExperts: [expect.objectContaining({ displayName: "陈宇轩", expertId: expect.stringMatching(/^mock-persona:/) })],
+    });
     expect(transport.requests("POST", "/questions/confirm")[0]!.body).toMatchObject({ questions: [defaultQuestion] });
   });
 
