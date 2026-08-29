@@ -41,10 +41,35 @@
  *   把这条关系钉成一条真实读值比较的断言（读 `readDeepAgentProviderConfig()`
  *   的真实默认值，不是重复抄一遍这段注释里的数字），下次两边任何一个改动导致
  *   再次不够长，这条测试会先变红，不必等下一次真实用户在 devapp 撞见。
+ *
+ * ## 2026-08-29 第二次真实证据 -- 320s 还是不够：漏算了模型调用之后的沙箱执行
+ *
+ * 上面那次修复只把预算提到刚好盖过 `KERNEL_DEEP_AGENT_TIMEOUT_MS`（一次模型调用的
+ * 预算）。但真实的"生成 PDF"这类 run 不是"模型调用完就结束"——`execute-run.ts`
+ * 在模型调用**之后**还会调 `maybeRunSkillScript`（`run-skill-script.ts`），真的在
+ * 沙箱里跑模型写出来的脚本，失败会回喂 stderr 再问模型要一版、最多重试
+ * `MAX_SCRIPT_ATTEMPTS`（3）次，每次沙箱执行自己的预算是 `CHAT_SCRIPT_TIMEOUT_MS`
+ * （120_000ms）。这一段时间完全在 `KERNEL_DEEP_AGENT_TIMEOUT_MS` 之外——模型调用
+ * 计时器早就停了，沙箱执行的时钟才刚开始走。人类实测：一次真实 PDF 生成，聊天里
+ * 先看到 `call_skill` 工具结果里的脚本文本，紧接着就是"这次执行超时了"——run 仍在
+ * 服务端老老实实跑沙箱，只是 320s 这层预算又一次先到期。
+ *
+ * ⇒ 预算改为覆盖"一次模型调用 + 完整一轮沙箱重试循环"：
+ *   `KERNEL_DEEP_AGENT_TIMEOUT_MS`（300s）+ `MAX_SCRIPT_ATTEMPTS` × `CHAT_SCRIPT_
+ *   TIMEOUT_MS`（3 × 120s = 360s）= 660s，再留安全余量到 900s（15 分钟）。
+ *   ⚠ 刻意不计入失败回喂时的 `regenerate` 调用本身耗时（那也是一次模型调用，
+ *   理论上限同样是 `KERNEL_DEEP_AGENT_TIMEOUT_MS`）——三次回喂全部卡满模型自己的
+ *   最长预算是一种病理场景（同一个 provider 连续 3 次全部最慢），不是这里要为之
+ *   设计的常规路径；把这类极端情况也吃进预算会把这一层的等待时间推到接近半小时，
+ *   代价（一个 HTTP/SSE 连接占用更久）大于收益。900s 覆盖的是"模型正常响应 + 完整
+ *   沙箱重试循环"这个更常见也更值得覆盖的情形。
+ *   `tests/agent-runtime/poll-budget-covers-deep-agent-timeout.test.ts` 同步更新为
+ *   读 `CHAT_SCRIPT_TIMEOUT_MS`/`MAX_SCRIPT_ATTEMPTS` 的真实值参与比较，不是只比
+ *   模型调用那一段。
  */
 export const DEFAULT_RUN_POLL_INTERVAL_MS = 400;
 
-/** ~320s bound at the default poll interval -- see this file's 2026-08-29 note above for
- *  why 90s (225 polls) was raised: it must exceed `KERNEL_DEEP_AGENT_TIMEOUT_MS`'s own
- *  300s default, not just "feel like enough". */
-export const DEFAULT_RUN_MAX_POLLS = 800;
+/** ~900s（15 分钟）bound at the default poll interval -- 见本文件 2026-08-29 第二次
+ *  证据那节：必须覆盖"一次模型调用（300s）+ 完整一轮沙箱重试循环（3×120s=360s）"，
+ *  不是只覆盖模型调用本身。 */
+export const DEFAULT_RUN_MAX_POLLS = 2250;
