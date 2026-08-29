@@ -171,7 +171,7 @@ export function CapabilityPicker({
                 </span>
                 {/*
                   issue #2340 —— 三项「暂缺该项披露」原先各占一整行、逐字重复同一句免责文案，
-                  视觉噪音大（人类反馈「描述太长，要简化」）。这里只做**视觉**合并：三项仍是三个
+                  视觉噪音大（人类反馈「描述太长，要简化」）。这里只做视觉合并：三项仍是三个
                   独立 `data-testid`（`e2e/chat-task-workbench-capability-cards.spec.ts`，issue #2068
                   已签核判据要求三项分别可见），免责文案只在行尾说一次，不再逐项重复。
                 */}
