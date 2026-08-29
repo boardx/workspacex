@@ -20,12 +20,13 @@
  * 永远看不到产物自动弹出来。
  */
 
-export type InspectorTab = "progress" | "materials" | "artifacts" | "run-details";
+export type InspectorTab = "progress" | "materials" | "artifacts" | "roster" | "run-details";
 
 export const INSPECTOR_TABS: readonly InspectorTab[] = [
   "progress",
   "materials",
   "artifacts",
+  "roster",
   "run-details",
 ];
 
@@ -58,20 +59,28 @@ export function nextInspectorTab(
 /**
  * 折叠判据（验收卡 TW-P0-4③：无内容时折叠，不常驻占屏）。
  *
- * ⚠ 「无内容」按**四个页签各自有没有真东西可看**判，不是按"有没有选中线程"判：
- * 一条刚建好、什么都没发生的线程，四个页签全是空态，这时右栏占六分之一屏就是
+ * ⚠ 「无内容」按**各页签各自有没有真东西可看**判，不是按"有没有选中线程"判：
+ * 一条刚建好、什么都没发生的线程，其余页签全是空态，这时右栏占六分之一屏就是
  * 人类批评的那件事。计划存在 = 进度页有内容；有 run 在跑 = 进度/运行详情有内容。
+ *
+ * `hasRoster`（2026-08-29 新增，CK-P7 编制面板从左栏搬进「编制」页签之后）与其余
+ * 四个信号同一套判据——编制非空同样算"有真东西可看"，不折叠。空编制不撑开：
+ * 折叠态下五个页签本身仍以图标形式常驻可点（见 `chat-task-inspector.tsx` 文件头
+ * 注），编制入口并不会因为折叠而不可达。默认 `false`，既有的 3 参数调用（本文件
+ * 之外的测试）行为不变，不是悄悄改了旧调用点的语义。
  */
 export function isInspectorCollapsed(
   signals: InspectorSignals,
   hasPlan: boolean,
   hasRunDetails: boolean,
+  hasRoster = false,
 ): boolean {
   return (
     signals.materialsCount === 0 &&
     signals.artifactsCount === 0 &&
     !signals.isRunning &&
     !hasPlan &&
-    !hasRunDetails
+    !hasRunDetails &&
+    !hasRoster
   );
 }

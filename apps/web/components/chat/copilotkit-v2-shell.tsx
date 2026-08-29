@@ -19,8 +19,6 @@ import {
   type GetAgentPanelOut, type GetThreadOut, type ListThreadArtifactsOut,
   type ListThreadAttachmentsOut, type ListThreadsOut, type ThreadCard,
 } from "@/lib/live-chat";
-// issue #2052（CK-P7）—— 编制面板与旧轨道共用同一份组件，不重画。
-import { RosterPanel } from "@/components/chat/chat-roster-panel";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import { readPinnedThreadIds, togglePinnedThreadId } from "@/lib/chat-pinned-threads";
@@ -576,35 +574,15 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
             `failure` prop，锚点 `chat-thread-mutate-error`）——在侧栏再印一份，就是同一件事
             声明在两处，且用户会看到两条一模一样的红字。 */}
         {!canCreate ? null : null}
-        {/* issue #2052（CK-P7）—— 本会话编制。放在线程列表**之上**、与旧轨道
-            （`chat-read-screen.tsx` 按 #728 D2 把编制搬进左栏）同一个位置语义：
-            "这条对话有谁在" 属于会话上下文，不是消息操作。 */}
-        {selectedThreadId !== null ? (
-          <div className="border-b border-border-subtle pb-2">
-            <RosterPanel
-              roster={roster}
-              loading={rosterLoading}
-              error={rosterError}
-              hasSelection={selectedThreadId !== null}
-              // rebase 注：main 在这之后合入了 CK-P8（归档只读态，`getThread` 真实下发
-              // `thread.archived`）。服务端 `update-agent-roster.ts` 本就对归档线程拒绝
-              // （`THREAD_ARCHIVED_READONLY`），但按「按钮不渲染 且 接口拒绝」的既有
-              // 纪律，编辑入口也不该在归档线程上渲染——不是新增能力，是让前端诚实
-              // 反映服务端已经在拒的事。
-              canMutate={canCreate && !archived}
-              pending={rosterPending}
-              mutateFailure={rosterMutateFailure}
-              candidates={agentCandidates}
-              candidatesError={agentCatalogError}
-              onAdd={(agentId) => {
-                const trimmed = agentId.trim();
-                if (trimmed !== "") void runRosterMutation({ add: [trimmed], remove: [] });
-              }}
-              onRemove={(agentId) => void runRosterMutation({ add: [], remove: [agentId] })}
-              onRetry={() => void loadRoster()}
-            />
-          </div>
-        ) : null}
+        {/* 2026-08-29 Claude Design 重设计稿——左栏不再画「本线程的 AI 团队」编制卡
+            （人类原话「去掉本线程的AI团队 当前编制为空,从agent市场加入 这一块」）。
+            issue #2052（CK-P7）的编制读写能力**没有被移除，换了入口**：`roster`/
+            `runRosterMutation`/`agentCandidates` 这些状态原样保留，改传给右栏
+            `ChatTaskInspector` 的 `roster` prop，渲染成新增的「编制」页签（见下面
+            该组件调用处）。人类 2026-08-29 明确选择「移到右栏 Inspector 里」而不是
+            彻底去掉入口——这不是本次重设计的默认选项，是就地问过之后的裁决。
+            `copilotkit-v2-roster-landing.spec.ts`（CK-P7 e2e 验收）同步改成先点开
+            「编制」页签，不再断言左栏常驻可见。 */}
         <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2" data-testid="copilotkit-v2-thread-list">
           {/* issue #2039（第 2 轮 gap #2）——此前 `flatMap` 把服务端已经分好的
               「今天/本周」时间分组（`listPersonalThreads.out.groups[].label`，契约
@@ -709,6 +687,32 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         isRunning={runState.isRunning}
         runPhaseLabel={runState.phaseLabel}
         runStartedAt={runState.startedAt}
+        /* 2026-08-29——CK-P7 编制搬进右栏「编制」页签（见上面移除左栏 `RosterPanel`
+           那处的头注）。只在选中了一条线程时传，未选中时整个 prop 是 `undefined`，
+           `ChatTaskInspector` 因此完全不渲染这个页签——与此前"未选中线程时左栏
+           也不画编制卡片"是同一条规则，只是换了地方生效。 */
+        roster={selectedThreadId === null ? undefined : {
+          roster,
+          loading: rosterLoading,
+          error: rosterError,
+          hasSelection: selectedThreadId !== null,
+          // rebase 注：main 在这之后合入了 CK-P8（归档只读态，`getThread` 真实下发
+          // `thread.archived`）。服务端 `update-agent-roster.ts` 本就对归档线程拒绝
+          // （`THREAD_ARCHIVED_READONLY`），但按「按钮不渲染 且 接口拒绝」的既有
+          // 纪律，编辑入口也不该在归档线程上渲染——不是新增能力，是让前端诚实
+          // 反映服务端已经在拒的事。
+          canMutate: canCreate && !archived,
+          pending: rosterPending,
+          mutateFailure: rosterMutateFailure,
+          candidates: agentCandidates,
+          candidatesError: agentCatalogError,
+          onAdd: (agentId) => {
+            const trimmed = agentId.trim();
+            if (trimmed !== "") void runRosterMutation({ add: [trimmed], remove: [] });
+          },
+          onRemove: (agentId) => void runRosterMutation({ add: [], remove: [agentId] }),
+          onRetry: () => void loadRoster(),
+        }}
       />
       {/* issue #2099 —— 只读预览弹窗，Radix `Dialog` 自己 portal 到 body，挂在这个
           位置纯粹是"逻辑上属于这棵组件树"，不影响实际渲染层级。个人线程恒
