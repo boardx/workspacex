@@ -195,7 +195,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const advanced = await recreated.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [replay.expertCandidates[0]!.expertId], expectedVersion: replay.version, requestId: "experts-after-generation-crash",
+      expertIds: [replay.expertCandidates[0]!.expertId], addedExperts: [], expectedVersion: replay.version, requestId: "experts-after-generation-crash",
     });
     expect(advanced).toMatchObject({ currentStep: "questions", selectedExpertIds: [replay.expertCandidates[0]!.expertId], version: 3 });
     expect(advanced.questionCandidates).toHaveLength(3);
@@ -215,7 +215,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const experts = await first.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [topic.expertCandidates[0]!.expertId], expectedVersion: topic.version, requestId: "experts-terminal-crash",
+      expertIds: [topic.expertCandidates[0]!.expertId], addedExperts: [], expectedVersion: topic.version, requestId: "experts-terminal-crash",
     });
     const command = {
       kind: "confirm_questions" as const,
@@ -286,7 +286,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       materialContextPackId: null, materialVersion: null,
     });
     const experts = await setup.runtime.confirmExperts({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [generatedExpertId], expectedVersion: 2, requestId: "experts-revision-1" });
+      expertIds: [generatedExpertId], addedExperts: [], expectedVersion: 2, requestId: "experts-revision-1" });
     expect(experts.questionCandidates).toHaveLength(3);
     expect(new Set(experts.questionCandidates.map((item) => item.expertId))).toEqual(new Set([generatedExpertId]));
     const snapshot = await asOwner((client) => client.query<{
@@ -313,7 +313,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const revisedExperts = await setup.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [generatedExpertId], expectedVersion: 4, requestId: "experts-revision-2",
+      expertIds: [generatedExpertId], addedExperts: [], expectedVersion: 4, requestId: "experts-revision-2",
     });
     expect(revisedExperts.revisionId).not.toBe(questions.revisionId);
     expect(revisedExperts.questionCandidates).toEqual(editedQuestions);

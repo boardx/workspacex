@@ -245,6 +245,28 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         );
         nextStatus = "experts_pending";
       } else if (input.nodeName === "confirm_experts" && input.command.kind === "confirm_experts") {
+        const selectedIds = new Set(input.command.expertIds);
+        if (input.command.addedExperts.some((expert) => !selectedIds.has(expert.expertId) || !expert.expertId.startsWith("mock-persona:"))) {
+          throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
+        }
+        const nextOrdinal = await session.query<{ ordinal: string }>(
+          `SELECT (coalesce(max(ordinal),0)+1)::text AS ordinal
+             FROM digital_interview_expert_candidates WHERE org_id=$1 AND revision_id=$2`,
+          [input.orgId, activeRevisionId],
+        );
+        let ordinal = Number(nextOrdinal.rows[0]?.ordinal ?? 1);
+        for (const expert of input.command.addedExperts) {
+          await session.query(
+            `INSERT INTO digital_interview_expert_candidates
+               (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
+                material_context_pack_id,material_version)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+             ON CONFLICT (org_id,revision_id,expert_id) DO NOTHING`,
+            [input.orgId, activeRevisionId, expert.expertId, expert.agentDefinitionId, expert.agentVersion,
+              ordinal++, expert.initials, expert.displayName, expert.role, [...expert.domains],
+              expert.materialContextPackId, expert.materialVersion],
+          );
+        }
         const candidateIds = await session.query<{ expert_id: string }>(
           `SELECT expert_id
              FROM digital_interview_expert_candidates

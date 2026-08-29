@@ -302,15 +302,30 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
       expect.objectContaining({ displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队" }),
     ]));
     expect(topicView.expertCandidates.every((expert) => expert.expertId.startsWith("itv-generated-expert"))).toBe(true);
+    const staticExpert = {
+      expertId: "mock-persona:chen-yuxuan",
+      agentDefinitionId: "mock-persona:chen-yuxuan",
+      agentVersion: "static-v1",
+      initials: "陈宇",
+      displayName: "陈宇轩",
+      role: "区域足球青训体系设计者",
+      domains: ["青训体系", "校园足球"],
+      materialContextPackId: null,
+      materialVersion: null,
+      materialBoundary: "未绑定 Context Pack 材料版本",
+      exploratory: true as const,
+    };
+    const selectedExpertIds = [topicView.expertCandidates[0]!.expertId, staticExpert.expertId];
 
     const experts = await fetch(`${base}/interviews/digital/${created.interviewId}/experts/confirm`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ expertIds: [topicView.expertCandidates[0]!.expertId], expectedVersion: 2, requestId: "experts-complete-f04" }),
+      body: JSON.stringify({ expertIds: selectedExpertIds, addedExperts: [staticExpert], expectedVersion: 2, requestId: "experts-complete-f04" }),
     });
     expect(experts.status).toBe(201);
     const expertView = await experts.json() as DigitalInterviewResponse;
-    expect(expertView).toMatchObject({ currentStep: "questions", selectedExpertIds: [topicView.expertCandidates[0]!.expertId], version: 3 });
-    expect(expertView.questionCandidates).toHaveLength(3);
+    expect(expertView).toMatchObject({ currentStep: "questions", selectedExpertIds, version: 3 });
+    expect(expertView.expertCandidates).toEqual(expect.arrayContaining([expect.objectContaining(staticExpert)]));
+    expect(expertView.questionCandidates).toHaveLength(6);
 
     const generatedQuestions = expertView.questionCandidates;
     const questions = await fetch(`${base}/interviews/digital/${created.interviewId}/questions/confirm`, {
@@ -377,7 +392,7 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     const restoredView = await restored.json() as DigitalInterviewResponse;
     expect(restoredView).toMatchObject({
       version: 8,
-      selectedExpertIds: [topicView.expertCandidates[0]!.expertId],
+      selectedExpertIds,
       questions: generatedQuestions,
       skillMessages: [{ role: "user" }, { role: "assistant" }, { role: "user" }, { role: "assistant" }],
       skillProposals: expect.arrayContaining([
