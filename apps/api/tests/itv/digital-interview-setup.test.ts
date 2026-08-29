@@ -94,9 +94,9 @@ beforeAll(async () => {
       };
       const patch = context.operation === "generate_interview_experts"
         ? { experts: [
-          { displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队", domains: ["青训", "人才培养"] },
-          { displayName: "职业联赛运营专家", role: "分析俱乐部经营、赛事运营与商业化", domains: ["职业联赛", "体育商业"] },
-          { displayName: "江西足球史研究者", role: "追踪地方足球历史、文化与政策环境", domains: ["足球史", "地方体育政策"] },
+          { displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队", domains: ["青训", "人才培养"], category: "青训体系", bio: "长期参与江西青少年梯队建设。", location: "江西", typicalAdvice: "先建立稳定的人才输送路径。" },
+          { displayName: "职业联赛运营专家", role: "分析俱乐部经营、赛事运营与商业化", domains: ["职业联赛", "体育商业"], category: "职业足球", bio: "熟悉职业俱乐部经营与赛事商业化。", location: "中国", typicalAdvice: "竞技目标必须匹配可持续经营能力。" },
+          { displayName: "江西足球史研究者", role: "追踪地方足球历史、文化与政策环境", domains: ["足球史", "地方体育政策"], category: "体育研究", bio: "研究江西地方足球历史与政策演变。", location: "江西", typicalAdvice: "用历史脉络解释当前结构性问题。" },
         ] }
         : context.currentStep === "topic"
         ? { topic: "建议聚焦最终否决权" }
@@ -299,7 +299,7 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(topicView).toMatchObject({ currentStep: "experts", version: 2 });
     expect(topicView.expertCandidates).toHaveLength(3);
     expect(topicView.expertCandidates).toEqual(expect.arrayContaining([
-      expect.objectContaining({ displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队" }),
+      expect.objectContaining({ displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队", category: "青训体系", bio: "长期参与江西青少年梯队建设。", location: "江西", typicalAdvice: "先建立稳定的人才输送路径。" }),
     ]));
     expect(topicView.expertCandidates.every((expert) => expert.expertId.startsWith("itv-generated-expert"))).toBe(true);
     const staticExpert = {
@@ -310,6 +310,10 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
       displayName: "陈宇轩",
       role: "区域足球青训体系设计者",
       domains: ["青训体系", "校园足球"],
+      category: "青训体系",
+      bio: "江西省足球青训体系设计者。",
+      location: "江西",
+      typicalAdvice: "青训建设要形成长期人才输送机制。",
       materialContextPackId: null,
       materialVersion: null,
       materialBoundary: "未绑定 Context Pack 材料版本",

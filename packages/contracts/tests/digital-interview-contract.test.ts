@@ -35,6 +35,7 @@ describe("数字专家访谈契约", () => {
     expertCandidates: [{
       expertId: "expert-1", agentDefinitionId: "agent-definition-1", agentVersion: "agent-version-1",
       initials: "DE", displayName: "德国采购总监", role: "采购决策", domains: ["采购"],
+      category: "采购", bio: "长期研究采购决策链。", location: "德国", typicalAdvice: "先确认最终否决权。",
       materialContextPackId: "context-pack-1", materialVersion: "material-v1",
       materialBoundary: "材料版本 v1", exploratory: true,
     }],
