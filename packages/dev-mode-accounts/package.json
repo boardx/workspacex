@@ -1,0 +1,27 @@
+{
+  "name": "@repo/dev-mode-accounts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "开发模式预设账号/角色的唯一事实源——供 apps/api 的种子脚本与 apps/web 的 e2e 登录 helper 共同引用，避免两处声明同一份预设账号（CLAUDE.md 反复强调的漂移形状）。这不是 API 契约，只是测试/开发夹具数据，因此不放进 @repo/contracts。",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "echo 'lint: ok'"
+  },
+  "dependencies": {
+    "@repo/contracts": "workspace:*",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "*",
+    "@types/node": "*"
+  }
+}
