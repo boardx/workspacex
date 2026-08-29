@@ -302,7 +302,6 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
       expect.objectContaining({ displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队" }),
     ]));
     expect(topicView.expertCandidates.every((expert) => expert.expertId.startsWith("itv-generated-expert"))).toBe(true);
-
     const staticExpert = {
       expertId: "mock-persona:chen-yuxuan",
       agentDefinitionId: "mock-persona:chen-yuxuan",

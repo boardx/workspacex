@@ -169,14 +169,19 @@ export function CapabilityPicker({
                 <span className="text-11 text-muted-foreground" data-testid="chat-task-workbench-capability-facet-strengths">
                   擅长：{strengths}
                 </span>
-                <span className="text-11 text-muted-foreground" data-testid="chat-task-workbench-capability-facet-tools">
-                  可用工具与技能：暂缺该项披露（后端目前未提供）
-                </span>
-                <span className="text-11 text-muted-foreground" data-testid="chat-task-workbench-capability-facet-materials">
-                  能读哪些材料：暂缺该项披露（后端目前未提供）
-                </span>
-                <span className="text-11 text-muted-foreground" data-testid="chat-task-workbench-capability-facet-writes">
-                  是否写文件/调外部服务：暂缺该项披露（后端目前未提供）
+                {/*
+                  issue #2340 —— 三项「暂缺该项披露」原先各占一整行、逐字重复同一句免责文案，
+                  视觉噪音大（人类反馈「描述太长，要简化」）。这里只做视觉合并：三项仍是三个
+                  独立 `data-testid`（`e2e/chat-task-workbench-capability-cards.spec.ts`，issue #2068
+                  已签核判据要求三项分别可见），免责文案只在行尾说一次，不再逐项重复。
+                */}
+                <span className="flex flex-wrap items-baseline gap-x-1 text-11 text-muted-foreground">
+                  <span data-testid="chat-task-workbench-capability-facet-tools">可用工具与技能</span>
+                  <span aria-hidden>／</span>
+                  <span data-testid="chat-task-workbench-capability-facet-materials">能读哪些材料</span>
+                  <span aria-hidden>／</span>
+                  <span data-testid="chat-task-workbench-capability-facet-writes">是否写文件/调外部服务</span>
+                  <span>：均暂未披露（后端目前未提供）</span>
                 </span>
                 <span
                   className="text-11 text-muted-foreground"
