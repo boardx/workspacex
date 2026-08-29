@@ -92,8 +92,12 @@ beforeAll(async () => {
         currentStep?: string;
         operation?: string;
       };
-      const patch = context.operation === "recommend_interview_experts"
-        ? { expertIds: [EXPERT] }
+      const patch = context.operation === "generate_interview_experts"
+        ? { experts: [
+          { displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队", domains: ["青训", "人才培养"] },
+          { displayName: "职业联赛运营专家", role: "分析俱乐部经营、赛事运营与商业化", domains: ["职业联赛", "体育商业"] },
+          { displayName: "江西足球史研究者", role: "追踪地方足球历史、文化与政策环境", domains: ["足球史", "地方体育政策"] },
+        ] }
         : context.currentStep === "topic"
         ? { topic: "建议聚焦最终否决权" }
         : context.currentStep === "experts"
@@ -214,7 +218,7 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(await changedPayload.json()).toMatchObject({ reasonCode: "IDEMPOTENCY_KEY_REUSED" });
   });
 
-  it("专家推荐模型不可用时仍进入专家审核，并保留目录供用户手动选择", async () => {
+  it("模型不可用时保留第一步输入并返回可重试错误，不用专家目录伪造生成结果", async () => {
     const created = await createInterview("create-model-unavailable-f04");
     providerFailureStatus = 503;
 
@@ -228,14 +232,10 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
       }),
     });
 
-    expect(response.status).toBe(201);
-    expect(await response.json()).toMatchObject({
-      status: "experts_pending",
-      currentStep: "experts",
-      version: 2,
-      selectedExpertIds: [],
-      expertCandidates: [expect.objectContaining({ expertId: EXPERT })],
-    });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ reasonCode: "AI_GENERATION_UNAVAILABLE" });
+    const restored = await fetch(`${base}/interviews/digital/${created.interviewId}`, { headers: auth });
+    expect(await restored.json()).toMatchObject({ topic: "江西足球的崛起", version: 2, expertCandidates: [] });
   });
 
   it("陈旧 expectedVersion 冲突，且不会把已确认主题覆盖掉", async () => {
@@ -297,23 +297,19 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(topic.status).toBe(201);
     const topicView = await topic.json() as DigitalInterviewResponse;
     expect(topicView).toMatchObject({ currentStep: "experts", version: 2 });
-    expect(topicView.expertCandidates).toEqual([
-      expect.objectContaining({
-        expertId: EXPERT,
-        agentDefinitionId: EXPERT,
-        agentVersion: EXPERT_VERSION,
-        materialContextPackId: null,
-        materialVersion: null,
-      }),
-    ]);
+    expect(topicView.expertCandidates).toHaveLength(3);
+    expect(topicView.expertCandidates).toEqual(expect.arrayContaining([
+      expect.objectContaining({ displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队" }),
+    ]));
+    expect(topicView.expertCandidates.every((expert) => expert.expertId.startsWith("itv-generated-expert"))).toBe(true);
 
     const experts = await fetch(`${base}/interviews/digital/${created.interviewId}/experts/confirm`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ expertIds: [EXPERT], expectedVersion: 2, requestId: "experts-complete-f04" }),
+      body: JSON.stringify({ expertIds: [topicView.expertCandidates[0]!.expertId], expectedVersion: 2, requestId: "experts-complete-f04" }),
     });
     expect(experts.status).toBe(201);
     const expertView = await experts.json() as DigitalInterviewResponse;
-    expect(expertView).toMatchObject({ currentStep: "questions", selectedExpertIds: [EXPERT], version: 3 });
+    expect(expertView).toMatchObject({ currentStep: "questions", selectedExpertIds: [topicView.expertCandidates[0]!.expertId], version: 3 });
     expect(expertView.questionCandidates).toHaveLength(3);
 
     const generatedQuestions = expertView.questionCandidates;
@@ -381,7 +377,7 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     const restoredView = await restored.json() as DigitalInterviewResponse;
     expect(restoredView).toMatchObject({
       version: 8,
-      selectedExpertIds: [EXPERT],
+      selectedExpertIds: [topicView.expertCandidates[0]!.expertId],
       questions: generatedQuestions,
       skillMessages: [{ role: "user" }, { role: "assistant" }, { role: "user" }, { role: "assistant" }],
       skillProposals: expect.arrayContaining([

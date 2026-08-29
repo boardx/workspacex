@@ -210,7 +210,7 @@ export class DigitalInterviewController {
   private translate(error:unknown):never {
     if(error instanceof DigitalInterviewWorkflowError) {
       if(error.code === "NO_INTERVIEW_ACCESS") throw new NotFoundException();
-      if(error.code === "DEPENDENCY_UNAVAILABLE") throw new ServiceUnavailableException({reasonCode:error.code});
+      if(error.code === "DEPENDENCY_UNAVAILABLE" || error.code === "AI_GENERATION_UNAVAILABLE") throw new ServiceUnavailableException({reasonCode:error.code});
       if(error.code === "DIGITAL_INTERVIEW_INPUT_INVALID") throw new BadRequestException({reasonCode:error.code});
       throw new ConflictException({reasonCode:error.code});
     }

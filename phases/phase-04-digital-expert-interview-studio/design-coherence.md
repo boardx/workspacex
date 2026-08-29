@@ -17,7 +17,7 @@ confirmed_at: 2026-08-11T23:53:35+08:00
 
 ## XC-02 · 数字专家目录为快照，不是第二身份
 
-- [ ] 专家候选来自现有 Agent Definition 与 Context Pack；访谈仅保存 `DigitalExpertSnapshot` 和版本来源。
+- [ ] 首批专家候选由模型根据访谈输入直接生成并保存为访谈内 `DigitalExpertSnapshot`；现有 Agent Definition 与 Context Pack 只用于用户在第二步从专家库人工追加的专家。
 - [ ] 材料正文只经 Context API 按当前权限读取，应用层不直读 segment、embedding、向量库或对象存储。
 
 ## XC-03 · 探索性结果边界

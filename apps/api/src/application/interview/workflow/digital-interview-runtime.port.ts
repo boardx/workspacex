@@ -29,6 +29,7 @@ export class DigitalInterviewWorkflowError extends Error {
       | "CONCURRENT_MODIFICATION"
       | "IDEMPOTENCY_KEY_REUSED"
       | "PERMISSION_REVOKED_MIDWAY"
+      | "AI_GENERATION_UNAVAILABLE"
       | "DEPENDENCY_UNAVAILABLE",
   ) {
     super(code);
