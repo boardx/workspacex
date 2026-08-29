@@ -62,6 +62,72 @@ describe("F65 · 并发挂载：存储层唯一索引挡下第二条活跃行", 
     expect(mounts.savesByThread.has("thread-race")).toBe(false);
   });
 
+  it("issue #2350 追加：赢家写进去的正是这次也想要的那一行 ⇒ 改判成功，不报假冲突", async () => {
+    // `initial` 模拟"赢家已经把这一行提交进去"：同一 skillId、同一 versionId、
+    // 仍然活跃（removedAt: null）——这次调用的目标其实已经达成，只是不是由这次
+    // 写操作亲手达成的。真实证据：`skill-agent-import-usecase-audit.spec.ts` ④
+    // 等四个 fullstack-smoke spec 并发挂同一个种子 skill 到同一条默认线程，
+    // "慢的那一个"此前会被判 `SKILL_VERSION_CHANGED`，即便它想要的状态已经存在。
+    const mounts = threadMountStore({
+      "thread-race": [
+        {
+          mountId: "mount-winner", threadId: "thread-race", skillId: "sk-mece",
+          versionId: "v3", mountedAt: "2026-08-01T00:00:00Z", removedAt: null,
+        },
+      ],
+    });
+    const racingSave: typeof mounts.save = async () => {
+      throw new ThreadMountConcurrentMountError("sk-mece");
+    };
+
+    const result = await mountSkillToThread(baseInput(), {
+      mounts: { ...mounts, save: racingSave },
+      skills: visibility({ "sk-mece": { status: "已启用", currentVersionId: "v3" } }),
+      audit: collectAudit(),
+      fingerprintOf: (m) => JSON.stringify(m),
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      // 回的是赢家那一行的真实 mountId（"mount-winner"），不是这次调用自己
+      // 想写的那个（"mount-0"，来自 `baseInput` 的 `mountIdFor`）——诚实反映
+      // 是谁真的写进去的，不伪造一条这次请求自己从未真正插入过的记录。
+      mounts: [{
+        mountId: "mount-winner", threadId: "thread-race", skillId: "sk-mece",
+        versionId: "v3", mountedAt: "2026-08-01T00:00:00Z", removedAt: null,
+      }],
+    });
+  });
+
+  it("赢家写进去的是别的东西（版本不一样）⇒ 仍然诚实报冲突，不吞掉真正的分歧", async () => {
+    // 与上一条唯一的差异：`initial` 里活跃的是 v9，不是这次调用想要的 v3——
+    // 目标没有达成，不能改判成功。
+    const mounts = threadMountStore({
+      "thread-race": [
+        {
+          mountId: "mount-someone-else", threadId: "thread-race", skillId: "sk-mece",
+          versionId: "v9", mountedAt: "2026-08-01T00:00:00Z", removedAt: null,
+        },
+      ],
+    });
+    const racingSave: typeof mounts.save = async () => {
+      throw new ThreadMountConcurrentMountError("sk-mece");
+    };
+
+    const result = await mountSkillToThread(baseInput(), {
+      mounts: { ...mounts, save: racingSave },
+      skills: visibility({ "sk-mece": { status: "已启用", currentVersionId: "v3" } }),
+      audit: collectAudit(),
+      fingerprintOf: (m) => JSON.stringify(m),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      code: "SKILL_VERSION_CHANGED",
+      reason: "挂载列表已被他人改动：与另一次并发挂载冲突，不得静默产生重复挂载",
+    });
+  });
+
   it("非并发冲突的其它异常仍然原样上抛，不被这里悄悄吞掉", async () => {
     const boom = new Error("db 掉线");
     const mounts = threadMountStore();
