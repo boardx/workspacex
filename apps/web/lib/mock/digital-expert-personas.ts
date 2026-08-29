@@ -37,6 +37,23 @@ export function findMockDigitalExpert(expertId: string): MockDigitalExpertPerson
   return MOCK_DIGITAL_EXPERTS.find((expert) => expert.expertId === expertId);
 }
 
+/** Strip picker-only metadata before crossing the strict interview API boundary. */
+export function toDigitalExpertCatalogRow(expert: MockDigitalExpertPersona): DigitalExpertCatalogRow {
+  return {
+    expertId: expert.expertId,
+    agentDefinitionId: expert.agentDefinitionId,
+    agentVersion: expert.agentVersion,
+    initials: expert.initials,
+    displayName: expert.displayName,
+    role: expert.role,
+    domains: expert.domains,
+    materialContextPackId: expert.materialContextPackId,
+    materialVersion: expert.materialVersion,
+    materialBoundary: expert.materialBoundary,
+    exploratory: expert.exploratory,
+  };
+}
+
 function toCatalogRow(source: PersonaSource): MockDigitalExpertPersona {
   return {
     expertId: `${MOCK_EXPERT_ID_PREFIX}${source.id}`,

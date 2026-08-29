@@ -18,7 +18,7 @@ import {
   type DigitalExpertCatalogRow,
   type DigitalInterviewSkillDraftContext,
 } from "@/lib/interview-api";
-import { MOCK_DIGITAL_EXPERTS, findMockDigitalExpert } from "@/lib/mock/digital-expert-personas";
+import { MOCK_DIGITAL_EXPERTS, findMockDigitalExpert, toDigitalExpertCatalogRow } from "@/lib/mock/digital-expert-personas";
 import { ExpertPickerDialog } from "./expert-picker-dialog";
 import { InterviewSkillAssistant, PersistentInterviewSkillAssistant } from "./interview-skill-assistant";
 import { reconcileMockInterviewQuestions, updateMockDigitalInterviewDraft, type MockDigitalInterviewDraft, type MockInterviewStep, type MockSkillSuggestion } from "@/lib/mock/digital-interview-drafts";
@@ -185,7 +185,9 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   async function confirmExperts() {
     if (!buffers.expertIds.length) return;
     const knownCandidateIds = new Set(view.expertCandidates.map((expert) => expert.expertId));
-    const addedExperts = MOCK_DIGITAL_EXPERTS.filter((expert) => buffers.expertIds.includes(expert.expertId) && !knownCandidateIds.has(expert.expertId));
+    const addedExperts = MOCK_DIGITAL_EXPERTS
+      .filter((expert) => buffers.expertIds.includes(expert.expertId) && !knownCandidateIds.has(expert.expertId))
+      .map(toDigitalExpertCatalogRow);
     const payload = { expertIds: buffers.expertIds, addedExperts, expectedVersion: view.version };
     const operation = "confirm-experts";
     try {
