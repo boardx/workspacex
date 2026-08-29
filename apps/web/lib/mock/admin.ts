@@ -102,16 +102,8 @@ export const ADMIN_MODULE_META: Record<AdminModuleKey, AdminModuleMeta> = Object
 ) as Record<AdminModuleKey, AdminModuleMeta>;
 
 // ─────────────────────────────────────────────────────────────────────────
-// 组织概况（顶部额度条）
+// 组织概况（顶部额度条）—— 已改读真实数据源，见 admin-header.tsx 的文档注释。
 // ─────────────────────────────────────────────────────────────────────────
-export const ORG_HEADER = {
-  name: "远洋咨询",
-  orgId: "org_8f21",
-  quotaUsedWan: 4820, // 万 token
-  quotaTotalWan: 6200,
-  quotaPct: 78,
-  daysLeft: 6,
-} as const;
 
 // ─────────────────────────────────────────────────────────────────────────
 // 枚举 ①：可见性范围（agent / skill / 画布模板）
