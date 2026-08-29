@@ -45,6 +45,28 @@ function serializeModel(model: DiagramModel): { code: string; lang: string } {
   return { code: modelToMermaid(model), lang: "mermaid" };
 }
 
+/**
+ * 补回 `serializeTemplate` 为 `key === "persona"` 省掉的「模板: persona」行——
+ * 那条省略只对**隐式**围栏（```persona，key 由围栏语言本身声明）成立；一条
+ * ```canvas 围栏（本仓 AI 产出 persona 画布时恒用的写法，见
+ * `canvas-template-guidance.ts` 的「格式：```canvas / 模板: <key>」指引）里 key
+ * 只能靠这行文字声明，省了它围栏就变成「canvas 语言 + 没有模板 key」，
+ * `checkCanvasFence` 判失败，正是「首次生成正常、编辑一次保存后就不能渲染」这个
+ * 线上 bug 的根因：`replaceMermaidBlock` 保留的是原围栏的 `lang`（`canvas`），
+ * 不会因为这次序列化算出的 `lang` 是 `persona` 就把围栏语言换掉，两者一旦不一致，
+ * 唯一还能声明 key 的这行文字却被吞掉了。
+ */
+function withExplicitTemplateKeyIfNeeded(
+  code: string,
+  fenceLang: string,
+  model: DiagramModel,
+): string {
+  if (fenceLang === "persona" || model.kind !== "template") return code;
+  const key = model.meta?.templateKey;
+  if (!key || /^\s*(模板|template)\s*[:：]/im.test(code)) return code;
+  return `模板: ${key}\n${code}`;
+}
+
 /** 签名与上游 `canvasToMarkdown` 一致，`CanvasStage` 可直接替换调用点。 */
 export function serializeCanvasMarkdown(
   canvas: FabricCanvas,
@@ -56,7 +78,13 @@ export function serializeCanvasMarkdown(
   if (originalMarkdown !== undefined) {
     const blocks = extractMermaidBlocks(originalMarkdown);
     const block = blocks[blockIndex];
-    if (block) return replaceMermaidBlock(originalMarkdown, block, code);
+    if (block) {
+      // 围栏语言以原来这条围栏用的为准（`replaceMermaidBlock` 的既有行为）——
+      // 编辑一次不该把作者/AI 选的 ```canvas 显式写法悄悄换成 ```persona 隐式
+      // 写法；但保留 `canvas` 语言时必须确保「模板:」行还在，见上面的说明。
+      const fixedCode = withExplicitTemplateKeyIfNeeded(code, block.lang ?? "mermaid", model);
+      return replaceMermaidBlock(originalMarkdown, block, fixedCode);
+    }
     const sep = originalMarkdown.endsWith("\n") ? "" : "\n";
     return originalMarkdown + sep + "\n" + wrapAsMermaidBlock(code, lang) + "\n";
   }
