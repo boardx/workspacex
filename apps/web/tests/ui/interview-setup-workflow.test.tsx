@@ -1,6 +1,6 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { interview } from "@repo/contracts";
 import type { z } from "zod";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
@@ -10,6 +10,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
 
 import { DigitalInterviewSetup } from "@/components/itv/digital-interview-setup";
 import { createMockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
+import { MOCK_DIGITAL_EXPERTS } from "@/lib/mock/digital-expert-personas";
 
 type LiveInterview = z.infer<typeof interview.DigitalInterviewWorkflowView>;
 
@@ -25,6 +26,19 @@ const expertCandidate = {
   displayName: "服务端候选专家",
   role: "采购决策顾问",
   domains: ["采购"],
+  category: "采购",
+  bio: "长期研究企业采购决策链与供应商评估。",
+  location: "德国",
+  typicalAdvice: "先识别最终否决权，再设计访谈问题。",
+  age: 48,
+  occupation: "企业采购决策顾问",
+  goals: ["识别采购决策链"],
+  interests: ["供应商评估"],
+  painPoints: ["最终否决权不透明"],
+  motivations: ["提高采购决策质量"],
+  influences: ["德国工业采购实践"],
+  personalityTraits: { introvertExtrovert: 5, analyticalCreative: 7, busyTimeRich: 4 },
+  serviceValue: "采购决策链诊断与访谈指导",
   materialContextPackId: "context-pack-f04",
   materialVersion: "material-version-f04",
   materialBoundary: "仅使用当前有权读取的材料",
@@ -126,6 +140,7 @@ function installLiveFetch(initial: LiveInterview = topicPendingInterview, option
     if (method === "POST" && url.pathname.endsWith("/experts/confirm")) {
       view = {
         ...view,
+        expertCandidates: [...view.expertCandidates, ...(body.addedExperts ?? [])],
         selectedExpertIds: body.expertIds,
         status: "questions_pending",
         currentStep: "questions",
@@ -332,26 +347,97 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(transport.requests("GET", `/interviews/digital/${persistedInterview.interviewId}`)).toHaveLength(2);
   });
 
-  it("主题与专家确认后只消费服务端返回的候选专家和默认问题", async () => {
+  it("添加专家展示静态专家列表，并把勾选快照随确认命令提交", async () => {
     const transport = installLiveFetch();
     render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
     fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证服务端候选" } });
     fireEvent.click(screen.getByTestId("itv-confirm-topic"));
 
     expect(await screen.findByText(expertCandidate.displayName)).toBeInTheDocument();
-    expect(screen.queryByText(/mock/i)).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-add-expert"));
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("添加访谈专家")).toBeInTheDocument();
-    expect(screen.getAllByText(expertCandidate.displayName).length).toBeGreaterThan(1);
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.queryAllByText(expertCandidate.displayName)).toHaveLength(1);
+    fireEvent.change(screen.getByTestId("itv-expert-picker-search"), { target: { value: "陈宇轩" } });
+    fireEvent.click(screen.getByLabelText("选择专家 陈宇轩"));
+    fireEvent.click(screen.getByTestId("itv-expert-picker-confirm"));
+    expect(await screen.findByText("陈宇轩")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-confirm-experts"));
     expect(await screen.findByDisplayValue(defaultQuestion.text)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-confirm-questions"));
 
     await waitFor(() => expect(transport.requests("POST", "/experts/confirm")).toHaveLength(1));
-    expect(transport.requests("POST", "/experts/confirm")[0]!.body).toMatchObject({ expertIds: [expertCandidate.expertId] });
+    const confirmBody = interview.operations.confirmDigitalInterviewExperts.in.parse({
+      interviewId: topicPendingInterview.interviewId,
+      ...transport.requests("POST", "/experts/confirm")[0]!.body as Record<string, unknown>,
+    });
+    expect(confirmBody).toMatchObject({
+      expertIds: [expertCandidate.expertId, expect.stringMatching(/^mock-persona:/)],
+      addedExperts: [expect.objectContaining({ displayName: "陈宇轩", expertId: expect.stringMatching(/^mock-persona:/) })],
+    });
+    expect(Object.keys(confirmBody.addedExperts[0]!)).toEqual([
+      "expertId", "agentDefinitionId", "agentVersion", "initials", "displayName", "role", "domains",
+      "category", "bio", "location", "typicalAdvice",
+      "age", "occupation", "goals", "interests", "painPoints", "motivations", "influences",
+      "personalityTraits", "serviceValue",
+      "materialContextPackId", "materialVersion", "materialBoundary", "exploratory",
+    ]);
+    expect(confirmBody.addedExperts[0]).toMatchObject({
+      category: "技术专家",
+      bio: expect.any(String),
+      location: expect.any(String),
+      typicalAdvice: expect.any(String),
+      age: expect.any(Number), occupation: expect.any(String), goals: expect.any(Array), interests: expect.any(Array),
+      painPoints: expect.any(Array), motivations: expect.any(Array), influences: expect.any(Array),
+      personalityTraits: expect.any(Object), serviceValue: expect.any(String),
+    });
     expect(transport.requests("POST", "/questions/confirm")[0]!.body).toMatchObject({ questions: [defaultQuestion] });
+  });
+
+  it("模型生成专家和静态专家都可查看详情，且查看操作不触发删除", async () => {
+    installLiveFetch();
+    render(<DigitalInterviewSetup interviewId={topicPendingInterview.interviewId} />);
+    fireEvent.change(await screen.findByTestId("itv-topic-input"), { target: { value: "验证专家详情" } });
+    fireEvent.click(screen.getByTestId("itv-confirm-topic"));
+
+    fireEvent.click(await screen.findByLabelText(`查看专家详情 ${expertCandidate.displayName}`));
+    let dialog = await screen.findByTestId("itv-expert-detail-dialog");
+    expect(within(dialog).getByText(expertCandidate.displayName)).toBeInTheDocument();
+    expect(within(dialog).getByTestId("itv-expert-detail-role")).toHaveTextContent(expertCandidate.role);
+    expect(within(dialog).getByTestId("itv-expert-detail-domains")).toHaveTextContent("采购");
+    expect(within(dialog).getByTestId("itv-expert-detail-boundary")).toHaveTextContent(expertCandidate.materialBoundary);
+    expect(within(dialog).getByText("模型生成专家档案")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("itv-expert-detail-category")).toHaveTextContent(expertCandidate.category);
+    expect(within(dialog).getByTestId("itv-expert-detail-location")).toHaveTextContent(expertCandidate.location);
+    expect(within(dialog).getByTestId("itv-expert-detail-bio")).toHaveTextContent(expertCandidate.bio);
+    expect(within(dialog).getByTestId("itv-expert-detail-advice")).toHaveTextContent(expertCandidate.typicalAdvice);
+    expect(within(dialog).getByTestId("itv-expert-detail-occupation")).toHaveTextContent(expertCandidate.occupation);
+    expect(within(dialog).getByTestId("itv-expert-detail-age")).toHaveTextContent(String(expertCandidate.age));
+    expect(within(dialog).getByTestId("itv-expert-detail-goals")).toHaveTextContent(expertCandidate.goals[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-interests")).toHaveTextContent(expertCandidate.interests[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-pain-points")).toHaveTextContent(expertCandidate.painPoints[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-motivations")).toHaveTextContent(expertCandidate.motivations[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-influences")).toHaveTextContent(expertCandidate.influences[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-service-value")).toHaveTextContent(expertCandidate.serviceValue);
+    expect(screen.getByLabelText(`删除专家 ${expertCandidate.displayName}`)).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("itv-expert-detail-close"));
+
+    const staticExpert = MOCK_DIGITAL_EXPERTS.find((expert) => expert.displayName === "陈宇轩")!;
+    fireEvent.click(screen.getByTestId("itv-add-expert"));
+    fireEvent.change(screen.getByTestId("itv-expert-picker-search"), { target: { value: staticExpert.displayName } });
+    fireEvent.click(screen.getByLabelText(`选择专家 ${staticExpert.displayName}`));
+    fireEvent.click(screen.getByTestId("itv-expert-picker-confirm"));
+    fireEvent.click(await screen.findByLabelText(`查看专家详情 ${staticExpert.displayName}`));
+
+    dialog = await screen.findByTestId("itv-expert-detail-dialog");
+    expect(within(dialog).getByText("静态专家档案")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("itv-expert-detail-location")).toHaveTextContent(staticExpert.location);
+    expect(within(dialog).getByTestId("itv-expert-detail-bio")).toHaveTextContent(staticExpert.bio);
+    expect(within(dialog).getByTestId("itv-expert-detail-advice")).toHaveTextContent(staticExpert.typicalAdvice);
+    expect(within(dialog).getByTestId("itv-expert-detail-goals")).toHaveTextContent(staticExpert.goals[0]!);
+    expect(within(dialog).getByTestId("itv-expert-detail-service-value")).toHaveTextContent(staticExpert.serviceValue);
+    fireEvent.click(screen.getByTestId("itv-expert-detail-close"));
+    expect(screen.getByLabelText(`删除专家 ${staticExpert.displayName}`)).toBeInTheDocument();
   });
 
   it("在未确认主题时切换步骤会警告用户，而不是默默丢弃或保存", async () => {

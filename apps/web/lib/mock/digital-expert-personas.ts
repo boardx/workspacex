@@ -9,16 +9,22 @@ interface PersonaSource {
   readonly category: string;
   readonly specialty: string;
   readonly bio: string;
-  readonly personality: { readonly locations: string };
+  readonly personality: { readonly locations: string; readonly age: number; readonly occupation: string };
+  readonly goals: readonly string[];
+  readonly interests: readonly string[];
+  readonly pain_points: readonly string[];
+  readonly motivations: readonly string[];
+  readonly influences: readonly string[];
+  readonly personality_traits: {
+    readonly introvert_extrovert: number;
+    readonly analytical_creative: number;
+    readonly busy_time_rich: number;
+  };
+  readonly service_value: string;
   readonly typical_advice: string;
 }
 
-export interface MockDigitalExpertPersona extends DigitalExpertCatalogRow {
-  readonly category: string;
-  readonly bio: string;
-  readonly location: string;
-  readonly typicalAdvice: string;
-}
+export interface MockDigitalExpertPersona extends DigitalExpertCatalogRow {}
 
 /**
  * Complete temporary projection of the supplied legacy `experts_persona.json`.
@@ -35,6 +41,36 @@ export const MOCK_EXPERT_CATEGORIES = Array.from(
 
 export function findMockDigitalExpert(expertId: string): MockDigitalExpertPersona | undefined {
   return MOCK_DIGITAL_EXPERTS.find((expert) => expert.expertId === expertId);
+}
+
+/** Project the static source through the same complete profile contract used by generated experts. */
+export function toDigitalExpertCatalogRow(expert: MockDigitalExpertPersona): DigitalExpertCatalogRow {
+  return {
+    expertId: expert.expertId,
+    agentDefinitionId: expert.agentDefinitionId,
+    agentVersion: expert.agentVersion,
+    initials: expert.initials,
+    displayName: expert.displayName,
+    role: expert.role,
+    domains: expert.domains,
+    materialContextPackId: expert.materialContextPackId,
+    materialVersion: expert.materialVersion,
+    materialBoundary: expert.materialBoundary,
+    exploratory: expert.exploratory,
+    category: expert.category,
+    bio: expert.bio,
+    location: expert.location,
+    typicalAdvice: expert.typicalAdvice,
+    age: expert.age,
+    occupation: expert.occupation,
+    goals: expert.goals,
+    interests: expert.interests,
+    painPoints: expert.painPoints,
+    motivations: expert.motivations,
+    influences: expert.influences,
+    personalityTraits: expert.personalityTraits,
+    serviceValue: expert.serviceValue,
+  };
 }
 
 function toCatalogRow(source: PersonaSource): MockDigitalExpertPersona {
@@ -54,5 +90,18 @@ function toCatalogRow(source: PersonaSource): MockDigitalExpertPersona {
     bio: source.bio.replace(/\s+/g, " ").trim(),
     location: source.personality.locations,
     typicalAdvice: source.typical_advice,
+    age: source.personality.age,
+    occupation: source.personality.occupation,
+    goals: [...source.goals],
+    interests: [...source.interests],
+    painPoints: [...source.pain_points],
+    motivations: [...source.motivations],
+    influences: [...source.influences],
+    personalityTraits: {
+      introvertExtrovert: source.personality_traits.introvert_extrovert,
+      analyticalCreative: source.personality_traits.analytical_creative,
+      busyTimeRich: source.personality_traits.busy_time_rich,
+    },
+    serviceValue: source.service_value,
   };
 }

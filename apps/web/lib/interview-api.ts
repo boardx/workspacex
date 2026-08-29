@@ -95,12 +95,13 @@ export function confirmDigitalInterviewTopic(input: {
 export function confirmDigitalInterviewExperts(input: {
   readonly interviewId: string;
   readonly expertIds: readonly string[];
+  readonly addedExperts: readonly DigitalExpertCatalogRow[];
   readonly expectedVersion: number;
   readonly requestId: string;
 }) {
   return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/experts/confirm`, {
     method: "POST",
-    body: { expertIds: input.expertIds, expectedVersion: input.expectedVersion, requestId: input.requestId },
+    body: { expertIds: input.expertIds, addedExperts: input.addedExperts, expectedVersion: input.expectedVersion, requestId: input.requestId },
   });
 }
 

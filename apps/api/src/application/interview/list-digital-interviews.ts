@@ -71,6 +71,19 @@ export async function listDigitalExperts(
         : `Context Pack ${row.materialContextPackId} · ${row.materialVersion}`,
       // 数字专家结论恒为探索性；绑定材料只增强可追溯性，不把推演升级为真人证据。
       exploratory: true,
+      category: row.domains[0] ?? "未分类",
+      bio: row.role,
+      location: "未指定",
+      typicalAdvice: "暂无典型建议",
+      age: 0,
+      occupation: row.role,
+      goals: [],
+      interests: [],
+      painPoints: [],
+      motivations: [],
+      influences: [],
+      personalityTraits: { introvertExtrovert: 5, analyticalCreative: 5, busyTimeRich: 5 },
+      serviceValue: "暂无服务价值说明",
     })),
   };
 }

@@ -23,6 +23,8 @@ const ORG = "org-skill-listing-backfill";
 const ACTOR = "u-skill-listing-backfill-actor";
 const SKILL_MISSING_LISTING = "sk-missing-listing";
 const SKILL_HAS_LISTING = "sk-has-listing";
+const SKILL_DUPLICATE_NAME = "sk-duplicate-name";
+const EXISTING_DUPLICATE_NAME_LISTING = "listing-duplicate-name";
 
 function ownerConfig(database: string) {
   return { ...migrationConfig(), database };
@@ -58,9 +60,19 @@ beforeAll(async () => {
       [SKILL_HAS_LISTING, ORG, ACTOR],
     );
     await owner.query(
+      `INSERT INTO skills (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
+       VALUES ($1,$2,$1,'已存在同名目录的 skill','enabled',$3,now(),now())`,
+      [SKILL_DUPLICATE_NAME, ORG, ACTOR],
+    );
+    await owner.query(
       `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
        VALUES ($1,$2,'skill','修复后导入的 skill','org-wide',NULL,true,NULL)`,
       [SKILL_HAS_LISTING, ORG],
+    );
+    await owner.query(
+      `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
+       VALUES ($1,$2,'skill','已存在同名目录的 skill','org-wide',NULL,true,NULL)`,
+      [EXISTING_DUPLICATE_NAME_LISTING, ORG],
     );
   } finally {
     await owner.end();
@@ -78,7 +90,7 @@ afterAll(async () => {
 }, 30_000);
 
 describe("backfillSkillCapabilityListings：补种既有 URL 导入 skill 缺失的目录行", () => {
-  it("只补缺失的那一行，不动已经有目录行的那一行，且幂等", async () => {
+  it("只补真正缺失的行，跳过同 id 或同组织同名目录，且幂等", async () => {
     const { backfillSkillCapabilityListings } = await import("../../scripts/backfill-skill-capability-listings");
 
     const first = await backfillSkillCapabilityListings();
@@ -92,11 +104,13 @@ describe("backfillSkillCapabilityListings：补种既有 URL 导入 skill 缺失
         "SELECT id, name, kind, enabled FROM capability_listings WHERE org_id = $1 ORDER BY id",
         [ORG],
       );
-      expect(rows.rows).toHaveLength(2);
+      expect(rows.rows).toHaveLength(3);
       const backfilled = rows.rows.find((r) => r.id === SKILL_MISSING_LISTING);
       expect(backfilled?.name).toBe("修复前导入的 skill");
       expect(backfilled?.kind).toBe("skill");
       expect(backfilled?.enabled).toBe(true);
+      expect(rows.rows.some((row) => row.id === SKILL_DUPLICATE_NAME)).toBe(false);
+      expect(rows.rows.some((row) => row.id === EXISTING_DUPLICATE_NAME_LISTING)).toBe(true);
     } finally {
       await owner.end();
     }

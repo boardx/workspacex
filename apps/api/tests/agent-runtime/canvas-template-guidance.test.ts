@@ -27,6 +27,15 @@ describe("issue #1493 buildCanvasTemplateGuidance", () => {
     expect(guidance).toContain("```canvas");
     expect(guidance).toContain("模板: <key>");
   });
+
+  it("issue #2341 —— 强调「模板: <key> 必须是围栏首行」，明说漏写的后果", () => {
+    const guidance = buildCanvasTemplateGuidance([
+      { key: "persona", displayName: "用户画像", sections: [{ name: "用户描述" }] },
+    ]);
+    expect(guidance).not.toBeNull();
+    expect(guidance).toContain("必须是 ```canvas 围栏内的第一行");
+    expect(guidance).toContain("用户只会看到一条报错");
+  });
 });
 
 describe("issue #1493 buildSystemPrompt 的可选 canvasGuidance 参数", () => {

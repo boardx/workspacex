@@ -104,7 +104,10 @@ export class DigitalInterviewController {
     const input = this.parse(C.operations.confirmDigitalInterviewExperts.in, this.withPath(body, { interviewId }));
     try {
       return C.operations.confirmDigitalInterviewExperts.out.parse(
-        await this.workflow.confirmExperts({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+        await this.workflow.confirmExperts({
+          orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input,
+          addedExperts: input.addedExperts ?? [],
+        }),
       );
     } catch (error) {
       return this.translate(error);

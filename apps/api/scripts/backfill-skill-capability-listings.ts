@@ -29,7 +29,8 @@ export async function backfillSkillCapabilityListings(): Promise<SkillListingBac
         WHERE sk.status = 'enabled'
           AND NOT EXISTS (
                 SELECT 1 FROM capability_listings cl
-                 WHERE cl.id = sk.id AND cl.org_id = sk.org_id
+                 WHERE cl.org_id = sk.org_id
+                   AND (cl.id = sk.id OR (cl.kind = 'skill' AND cl.name = sk.name))
               )`,
     );
     let created = 0;
@@ -38,7 +39,7 @@ export async function backfillSkillCapabilityListings(): Promise<SkillListingBac
         `INSERT INTO capability_listings
            (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
          VALUES ($1,$2,'skill',$3,'org-wide',NULL,true,NULL)
-         ON CONFLICT (id) DO NOTHING`,
+         ON CONFLICT DO NOTHING`,
         [row.id, row.org_id, row.name],
       );
       if ((result.rowCount ?? 0) > 0) created += 1;

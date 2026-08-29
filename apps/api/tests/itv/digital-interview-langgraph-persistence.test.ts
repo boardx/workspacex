@@ -29,9 +29,9 @@ const model: ModelCallPort = { complete: async (input) => {
   const context = JSON.parse(input.user) as { currentStep?: string; operation?: string };
   return { text: JSON.stringify(context.operation === "generate_interview_experts"
     ? { experts: [
-      { displayName: "采购决策专家", role: "分析采购决策链", domains: ["采购"] },
-      { displayName: "财务风控专家", role: "评估预算与财务风险", domains: ["财务", "风控"] },
-      { displayName: "交付运营专家", role: "评估实施与交付约束", domains: ["运营", "交付"] },
+      { displayName: "采购决策专家", role: "分析采购决策链", domains: ["采购"], category: "采购", bio: "研究采购决策与供应商选择。", location: "德国", typicalAdvice: "先定位最终否决权。", age: 48, occupation: "采购顾问", goals: ["优化采购"], interests: ["供应商管理"], painPoints: ["决策不透明"], motivations: ["提升质量"], influences: ["工业采购实践"], personalityTraits: { introvertExtrovert: 5, analyticalCreative: 7, busyTimeRich: 4 }, serviceValue: "采购决策咨询" },
+      { displayName: "财务风控专家", role: "评估预算与财务风险", domains: ["财务", "风控"], category: "财务", bio: "研究预算约束与财务风险。", location: "欧洲", typicalAdvice: "先量化风险敞口。", age: 44, occupation: "财务风控顾问", goals: ["控制风险"], interests: ["风险模型"], painPoints: ["风险不可见"], motivations: ["提高稳健性"], influences: ["国际会计准则"], personalityTraits: { introvertExtrovert: 4, analyticalCreative: 8, busyTimeRich: 4 }, serviceValue: "财务风险评估" },
+      { displayName: "交付运营专家", role: "评估实施与交付约束", domains: ["运营", "交付"], category: "运营", bio: "研究复杂项目实施与交付。", location: "中国", typicalAdvice: "先验证关键交付约束。", age: 41, occupation: "交付运营顾问", goals: ["保障交付"], interests: ["项目运营"], painPoints: ["资源冲突"], motivations: ["提高交付成功率"], influences: ["精益运营"], personalityTraits: { introvertExtrovert: 6, analyticalCreative: 6, busyTimeRich: 3 }, serviceValue: "交付约束诊断" },
     ] }
     : context.currentStep === "topic" ? { topic: "更聚焦的主题" } : { expertIds: [EXPERT] }) };
 } };
@@ -162,6 +162,12 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     expect(recovered).toMatchObject({ version: 2, topic: command.topic, currentStep: "experts" });
     expect(recovered.expertCandidates).toHaveLength(3);
+    expect(recovered.expertCandidates[0]).toMatchObject({
+      age: 48, occupation: "采购顾问", goals: ["优化采购"], interests: ["供应商管理"],
+      painPoints: ["决策不透明"], motivations: ["提升质量"], influences: ["工业采购实践"],
+      personalityTraits: { introvertExtrovert: 5, analyticalCreative: 7, busyTimeRich: 4 },
+      serviceValue: "采购决策咨询",
+    });
     await first.checkpointer.end();
     await recreated.checkpointer.end();
   });
@@ -195,7 +201,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const advanced = await recreated.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [replay.expertCandidates[0]!.expertId], expectedVersion: replay.version, requestId: "experts-after-generation-crash",
+      expertIds: [replay.expertCandidates[0]!.expertId], addedExperts: [], expectedVersion: replay.version, requestId: "experts-after-generation-crash",
     });
     expect(advanced).toMatchObject({ currentStep: "questions", selectedExpertIds: [replay.expertCandidates[0]!.expertId], version: 3 });
     expect(advanced.questionCandidates).toHaveLength(3);
@@ -215,7 +221,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const experts = await first.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [topic.expertCandidates[0]!.expertId], expectedVersion: topic.version, requestId: "experts-terminal-crash",
+      expertIds: [topic.expertCandidates[0]!.expertId], addedExperts: [], expectedVersion: topic.version, requestId: "experts-terminal-crash",
     });
     const command = {
       kind: "confirm_questions" as const,
@@ -284,16 +290,26 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     expect(topic.expertCandidates[0]).toMatchObject({
       agentDefinitionId: generatedExpertId, agentVersion: generatedExpertId,
       materialContextPackId: null, materialVersion: null,
+      age: 48, occupation: "采购顾问", goals: ["优化采购"], interests: ["供应商管理"],
+      painPoints: ["决策不透明"], motivations: ["提升质量"], influences: ["工业采购实践"],
+      personalityTraits: { introvertExtrovert: 5, analyticalCreative: 7, busyTimeRich: 4 },
+      serviceValue: "采购决策咨询",
     });
     const experts = await setup.runtime.confirmExperts({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [generatedExpertId], expectedVersion: 2, requestId: "experts-revision-1" });
+      expertIds: [generatedExpertId], addedExperts: [], expectedVersion: 2, requestId: "experts-revision-1" });
     expect(experts.questionCandidates).toHaveLength(3);
     expect(new Set(experts.questionCandidates.map((item) => item.expertId))).toEqual(new Set([generatedExpertId]));
     const snapshot = await asOwner((client) => client.query<{
       agent_definition_id: string; agent_version: string;
       material_context_pack_id: string | null; material_version: string | null;
+      age: number; occupation: string; goals: string[]; interests: string[]; pain_points: string[];
+      motivations: string[]; influences: string[];
+      personality_traits: { introvertExtrovert: number; analyticalCreative: number; busyTimeRich: number };
+      service_value: string;
     }>(
-      `SELECT s.agent_definition_id,s.agent_version,s.material_context_pack_id,s.material_version
+      `SELECT s.agent_definition_id,s.agent_version,s.material_context_pack_id,s.material_version,
+              s.age,s.occupation,s.goals,s.interests,s.pain_points,s.motivations,s.influences,
+              s.personality_traits,s.service_value
          FROM digital_interview_expert_snapshots s
          JOIN digital_interview_expert_snapshot_versions v
            ON v.org_id=s.org_id AND v.id=s.version_id
@@ -303,6 +319,10 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     expect(snapshot.rows).toEqual([{
       agent_definition_id: generatedExpertId, agent_version: generatedExpertId,
       material_context_pack_id: null, material_version: null,
+      age: 48, occupation: "采购顾问", goals: ["优化采购"], interests: ["供应商管理"],
+      pain_points: ["决策不透明"], motivations: ["提升质量"], influences: ["工业采购实践"],
+      personality_traits: { introvertExtrovert: 5, analyticalCreative: 7, busyTimeRich: 4 },
+      service_value: "采购决策咨询",
     }]);
     const editedQuestions = experts.questionCandidates.map((question, index) => index === 0
       ? { ...question, text: "用户编辑后保留的问题" }
@@ -313,7 +333,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const revisedExperts = await setup.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [generatedExpertId], expectedVersion: 4, requestId: "experts-revision-2",
+      expertIds: [generatedExpertId], addedExperts: [], expectedVersion: 4, requestId: "experts-revision-2",
     });
     expect(revisedExperts.revisionId).not.toBe(questions.revisionId);
     expect(revisedExperts.questionCandidates).toEqual(editedQuestions);

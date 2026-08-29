@@ -3,8 +3,9 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Plus, Play, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Eye, Plus, Play, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   appendDigitalInterviewSkillMessage,
   applyDigitalInterviewSkillProposal,
@@ -18,7 +19,7 @@ import {
   type DigitalExpertCatalogRow,
   type DigitalInterviewSkillDraftContext,
 } from "@/lib/interview-api";
-import { MOCK_DIGITAL_EXPERTS, findMockDigitalExpert } from "@/lib/mock/digital-expert-personas";
+import { MOCK_DIGITAL_EXPERTS, findMockDigitalExpert, toDigitalExpertCatalogRow } from "@/lib/mock/digital-expert-personas";
 import { ExpertPickerDialog } from "./expert-picker-dialog";
 import { InterviewSkillAssistant, PersistentInterviewSkillAssistant } from "./interview-skill-assistant";
 import { reconcileMockInterviewQuestions, updateMockDigitalInterviewDraft, type MockDigitalInterviewDraft, type MockInterviewStep, type MockSkillSuggestion } from "@/lib/mock/digital-interview-drafts";
@@ -184,7 +185,11 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
 
   async function confirmExperts() {
     if (!buffers.expertIds.length) return;
-    const payload = { expertIds: buffers.expertIds, expectedVersion: view.version };
+    const knownCandidateIds = new Set(view.expertCandidates.map((expert) => expert.expertId));
+    const addedExperts = MOCK_DIGITAL_EXPERTS
+      .filter((expert) => buffers.expertIds.includes(expert.expertId) && !knownCandidateIds.has(expert.expertId))
+      .map(toDigitalExpertCatalogRow);
+    const payload = { expertIds: buffers.expertIds, addedExperts, expectedVersion: view.version };
     const operation = "confirm-experts";
     try {
       const next = await confirmDigitalInterviewExperts({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
@@ -271,14 +276,24 @@ function LiveTopicStep({ topic, onChange, onConfirm }: { readonly topic: string;
 
 function LiveExpertStep({ expertIds, candidates, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly onChange: (expertIds: readonly string[]) => void; readonly onConfirm: () => void }) {
   const [pickerOpen, setPickerOpen] = React.useState(false);
-  const pickerExperts = candidates.map((expert) => ({
-    expertId: expert.expertId,
-    displayName: expert.displayName,
-    role: expert.role,
-    category: expert.domains[0] ?? "未分类",
-    bio: expert.materialBoundary,
-  }));
-  return <div data-testid="itv-expert-step"><h2 className="text-xl font-semibold">确认访谈专家</h2><p className="mt-2 text-sm text-muted-foreground">调整仅保存在本地草稿，确认后才生成下一步问题。</p><div className="mt-5 grid gap-3">{expertIds.map((expertId) => { const expert = candidates.find((candidate) => candidate.expertId === expertId); return <article key={expertId} className="flex items-center justify-between rounded-lg border border-border p-4"><div><strong>{expert?.displayName ?? expertId}</strong>{expert && <p className="mt-1 text-xs text-muted-foreground">{expert.role} · {expert.materialBoundary}</p>}</div><button type="button" disabled={expertIds.length <= 1} aria-label={`删除专家 ${expert?.displayName ?? expertId}`} onClick={() => onChange(expertIds.filter((id) => id !== expertId))} className="rounded-md p-2 text-muted-foreground disabled:cursor-not-allowed disabled:text-disabled-foreground"><Trash2 className="size-4" aria-hidden /></button></article>; })}</div><div className="mt-5 flex flex-wrap gap-3"><Button data-testid="itv-add-expert" type="button" variant="outline" onClick={() => setPickerOpen(true)}><Plus className="size-4" aria-hidden />添加专家</Button><Button data-testid="itv-confirm-experts" type="button" variant="primary" disabled={!expertIds.length} onClick={onConfirm}>确认并生成问题</Button></div><ExpertPickerDialog open={pickerOpen} selectedExpertIds={expertIds} onOpenChange={setPickerOpen} onConfirm={onChange} experts={pickerExperts} description="从当前组织可用的数字专家中选择，本次选择会追加到访谈。" /></div>;
+  const [detailExpertId, setDetailExpertId] = React.useState<string | null>(null);
+  const detailExpert = detailExpertId
+    ? candidates.find((candidate) => candidate.expertId === detailExpertId) ?? findMockDigitalExpert(detailExpertId)
+    : undefined;
+  return <div data-testid="itv-expert-step"><h2 className="text-xl font-semibold">确认访谈专家</h2><p className="mt-2 text-sm text-muted-foreground">审核模型生成的专家，也可以从静态专家列表添加互补角色。</p><div className="mt-5 grid gap-3">{expertIds.map((expertId) => { const expert = candidates.find((candidate) => candidate.expertId === expertId) ?? findMockDigitalExpert(expertId); const name = expert?.displayName ?? expertId; return <article key={expertId} className="flex items-center justify-between gap-3 rounded-lg border border-border p-4"><div className="min-w-0"><strong>{name}</strong>{expert && <p className="mt-1 text-xs text-muted-foreground">{expert.role} · {expert.materialBoundary}</p>}</div><div className="flex shrink-0 items-center gap-1"><button data-testid={`itv-expert-detail-trigger-${expertId}`} type="button" aria-label={`查看专家详情 ${name}`} onClick={() => setDetailExpertId(expertId)} className="inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"><Eye className="size-4" aria-hidden />查看详情</button><button type="button" disabled={expertIds.length <= 1} aria-label={`删除专家 ${name}`} onClick={() => onChange(expertIds.filter((id) => id !== expertId))} className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:text-disabled-foreground"><Trash2 className="size-4" aria-hidden /></button></div></article>; })}</div><div className="mt-5 flex flex-wrap gap-3"><Button data-testid="itv-add-expert" type="button" variant="outline" onClick={() => setPickerOpen(true)}><Plus className="size-4" aria-hidden />添加专家</Button><Button data-testid="itv-confirm-experts" type="button" variant="primary" disabled={!expertIds.length} onClick={onConfirm}>确认并生成问题</Button></div><ExpertPickerDialog open={pickerOpen} selectedExpertIds={expertIds} onOpenChange={setPickerOpen} onConfirm={onChange} experts={MOCK_DIGITAL_EXPERTS} description="从静态专家列表中选择，本次选择会追加到访谈。" /><ExpertDetailDialog expert={detailExpert} open={Boolean(detailExpertId)} onOpenChange={(open) => { if (!open) setDetailExpertId(null); }} /></div>;
+}
+
+function ExpertDetailDialog({ expert, open, onOpenChange }: { readonly expert: DigitalExpertCatalogRow | undefined; readonly open: boolean; readonly onOpenChange: (open: boolean) => void }) {
+  const staticExpert = expert ? findMockDigitalExpert(expert.expertId) : undefined;
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent data-testid="itv-expert-detail-dialog" closeTestId="itv-expert-detail-close" className="max-h-[85vh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>{expert?.displayName ?? "专家详情"}</DialogTitle><DialogDescription>{staticExpert ? "静态专家档案" : "模型生成专家档案"}</DialogDescription></DialogHeader>{expert && <div className="space-y-4 text-sm"><DetailField testId="itv-expert-detail-role" label="角色" value={expert.role} /><DetailField testId="itv-expert-detail-category" label="分类" value={expert.category} /><DetailField testId="itv-expert-detail-occupation" label="职业" value={expert.occupation} /><DetailField testId="itv-expert-detail-age" label="年龄" value={`${expert.age} 岁`} /><div data-testid="itv-expert-detail-domains"><p className="text-xs font-medium text-muted-foreground">领域</p><div className="mt-2 flex flex-wrap gap-2">{expert.domains.map((domain) => <span key={domain} className="rounded-full bg-muted px-2.5 py-1 text-xs">{domain}</span>)}</div></div><DetailField testId="itv-expert-detail-location" label="地区" value={expert.location} /><DetailField testId="itv-expert-detail-bio" label="简介" value={expert.bio} /><DetailList testId="itv-expert-detail-goals" label="目标" values={expert.goals} /><DetailList testId="itv-expert-detail-interests" label="兴趣" values={expert.interests} /><DetailList testId="itv-expert-detail-pain-points" label="痛点" values={expert.painPoints} /><DetailList testId="itv-expert-detail-motivations" label="动机" values={expert.motivations} /><DetailList testId="itv-expert-detail-influences" label="影响来源" values={expert.influences} /><DetailField testId="itv-expert-detail-traits" label="性格维度" value={`内外向 ${expert.personalityTraits.introvertExtrovert}/10 · 分析创造 ${expert.personalityTraits.analyticalCreative}/10 · 忙闲程度 ${expert.personalityTraits.busyTimeRich}/10`} /><DetailField testId="itv-expert-detail-service-value" label="服务价值" value={expert.serviceValue} /><DetailField testId="itv-expert-detail-advice" label="典型建议" value={expert.typicalAdvice} /><DetailField testId="itv-expert-detail-boundary" label="材料边界" value={expert.materialBoundary} /></div>}</DialogContent></Dialog>;
+}
+
+function DetailField({ testId, label, value }: { readonly testId: string; readonly label: string; readonly value: string }) {
+  return <div data-testid={testId}><p className="text-xs font-medium text-muted-foreground">{label}</p><p className="mt-1 leading-6">{value}</p></div>;
+}
+
+function DetailList({ testId, label, values }: { readonly testId: string; readonly label: string; readonly values: readonly string[] }) {
+  return <div data-testid={testId}><p className="text-xs font-medium text-muted-foreground">{label}</p><ul className="mt-1 list-disc space-y-1 pl-5 leading-6">{values.map((value) => <li key={value}>{value}</li>)}</ul></div>;
 }
 
 function LiveQuestionStep({ expertIds, candidates, questions, onChange, onConfirm }: { readonly expertIds: readonly string[]; readonly candidates: readonly DigitalExpertCatalogRow[]; readonly questions: readonly DigitalInterviewQuestion[]; readonly onChange: (questions: readonly DigitalInterviewQuestion[]) => void; readonly onConfirm: () => void }) {

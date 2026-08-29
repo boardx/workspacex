@@ -94,9 +94,9 @@ beforeAll(async () => {
       };
       const patch = context.operation === "generate_interview_experts"
         ? { experts: [
-          { displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队", domains: ["青训", "人才培养"] },
-          { displayName: "职业联赛运营专家", role: "分析俱乐部经营、赛事运营与商业化", domains: ["职业联赛", "体育商业"] },
-          { displayName: "江西足球史研究者", role: "追踪地方足球历史、文化与政策环境", domains: ["足球史", "地方体育政策"] },
+          { displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队", domains: ["青训", "人才培养"], category: "青训体系", bio: "长期参与江西青少年梯队建设。", location: "江西", typicalAdvice: "先建立稳定的人才输送路径。", age: 46, occupation: "足球青训教练", goals: ["完善人才梯队"], interests: ["青少年培养"], painPoints: ["人才流失"], motivations: ["提升本地足球水平"], influences: ["欧洲青训体系"], personalityTraits: { introvertExtrovert: 6, analyticalCreative: 7, busyTimeRich: 4 }, serviceValue: "青训体系诊断与设计" },
+          { displayName: "职业联赛运营专家", role: "分析俱乐部经营、赛事运营与商业化", domains: ["职业联赛", "体育商业"], category: "职业足球", bio: "熟悉职业俱乐部经营与赛事商业化。", location: "中国", typicalAdvice: "竞技目标必须匹配可持续经营能力。", age: 42, occupation: "职业联赛运营顾问", goals: ["提升联赛经营质量"], interests: ["赛事商业化"], painPoints: ["收入结构单一"], motivations: ["建设可持续联赛"], influences: ["国际职业联赛"], personalityTraits: { introvertExtrovert: 7, analyticalCreative: 6, busyTimeRich: 3 }, serviceValue: "俱乐部经营与赛事运营咨询" },
+          { displayName: "江西足球史研究者", role: "追踪地方足球历史、文化与政策环境", domains: ["足球史", "地方体育政策"], category: "体育研究", bio: "研究江西地方足球历史与政策演变。", location: "江西", typicalAdvice: "用历史脉络解释当前结构性问题。", age: 53, occupation: "地方足球史研究者", goals: ["整理地方足球史"], interests: ["体育文化"], painPoints: ["史料分散"], motivations: ["保存地方足球记忆"], influences: ["地方体育档案"], personalityTraits: { introvertExtrovert: 4, analyticalCreative: 7, busyTimeRich: 6 }, serviceValue: "历史脉络与政策环境研究" },
         ] }
         : context.currentStep === "topic"
         ? { topic: "建议聚焦最终否决权" }
@@ -299,18 +299,48 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     expect(topicView).toMatchObject({ currentStep: "experts", version: 2 });
     expect(topicView.expertCandidates).toHaveLength(3);
     expect(topicView.expertCandidates).toEqual(expect.arrayContaining([
-      expect.objectContaining({ displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队" }),
+      expect.objectContaining({
+        displayName: "江西足球青训教练", role: "长期观察本地青训体系与人才梯队",
+        category: "青训体系", bio: "长期参与江西青少年梯队建设。", location: "江西",
+        typicalAdvice: "先建立稳定的人才输送路径。", age: 46, occupation: "足球青训教练",
+        goals: ["完善人才梯队"], interests: ["青少年培养"], painPoints: ["人才流失"],
+        motivations: ["提升本地足球水平"], influences: ["欧洲青训体系"],
+        personalityTraits: { introvertExtrovert: 6, analyticalCreative: 7, busyTimeRich: 4 },
+        serviceValue: "青训体系诊断与设计",
+      }),
     ]));
     expect(topicView.expertCandidates.every((expert) => expert.expertId.startsWith("itv-generated-expert"))).toBe(true);
+    const staticExpert = {
+      expertId: "mock-persona:chen-yuxuan",
+      agentDefinitionId: "mock-persona:chen-yuxuan",
+      agentVersion: "static-v1",
+      initials: "陈宇",
+      displayName: "陈宇轩",
+      role: "区域足球青训体系设计者",
+      domains: ["青训体系", "校园足球"],
+      category: "青训体系",
+      bio: "江西省足球青训体系设计者。",
+      location: "江西",
+      typicalAdvice: "青训建设要形成长期人才输送机制。",
+      age: 45, occupation: "足球青训体系设计者", goals: ["完善青训体系"], interests: ["校园足球"],
+      painPoints: ["人才输送断层"], motivations: ["培养本地球员"], influences: ["欧洲青训体系"],
+      personalityTraits: { introvertExtrovert: 6, analyticalCreative: 7, busyTimeRich: 4 }, serviceValue: "青训体系设计与咨询",
+      materialContextPackId: null,
+      materialVersion: null,
+      materialBoundary: "未绑定 Context Pack 材料版本",
+      exploratory: true as const,
+    };
+    const selectedExpertIds = [topicView.expertCandidates[0]!.expertId, staticExpert.expertId];
 
     const experts = await fetch(`${base}/interviews/digital/${created.interviewId}/experts/confirm`, {
       method: "POST", headers: { ...auth, "content-type": "application/json" },
-      body: JSON.stringify({ expertIds: [topicView.expertCandidates[0]!.expertId], expectedVersion: 2, requestId: "experts-complete-f04" }),
+      body: JSON.stringify({ expertIds: selectedExpertIds, addedExperts: [staticExpert], expectedVersion: 2, requestId: "experts-complete-f04" }),
     });
     expect(experts.status).toBe(201);
     const expertView = await experts.json() as DigitalInterviewResponse;
-    expect(expertView).toMatchObject({ currentStep: "questions", selectedExpertIds: [topicView.expertCandidates[0]!.expertId], version: 3 });
-    expect(expertView.questionCandidates).toHaveLength(3);
+    expect(expertView).toMatchObject({ currentStep: "questions", selectedExpertIds, version: 3 });
+    expect(expertView.expertCandidates).toEqual(expect.arrayContaining([expect.objectContaining(staticExpert)]));
+    expect(expertView.questionCandidates).toHaveLength(6);
 
     const generatedQuestions = expertView.questionCandidates;
     const questions = await fetch(`${base}/interviews/digital/${created.interviewId}/questions/confirm`, {
@@ -377,7 +407,7 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     const restoredView = await restored.json() as DigitalInterviewResponse;
     expect(restoredView).toMatchObject({
       version: 8,
-      selectedExpertIds: [topicView.expertCandidates[0]!.expertId],
+      selectedExpertIds,
       questions: generatedQuestions,
       skillMessages: [{ role: "user" }, { role: "assistant" }, { role: "user" }, { role: "assistant" }],
       skillProposals: expect.arrayContaining([

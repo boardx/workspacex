@@ -54,6 +54,25 @@ interface GeneratedInterviewExpert {
   readonly displayName: string;
   readonly role: string;
   readonly domains: readonly string[];
+  readonly category: string;
+  readonly bio: string;
+  readonly location: string;
+  readonly typicalAdvice: string;
+  readonly age: number;
+  readonly occupation: string;
+  readonly goals: readonly string[];
+  readonly interests: readonly string[];
+  readonly painPoints: readonly string[];
+  readonly motivations: readonly string[];
+  readonly influences: readonly string[];
+  readonly personalityTraits: { readonly introvertExtrovert: number; readonly analyticalCreative: number; readonly busyTimeRich: number };
+  readonly serviceValue: string;
+}
+
+function parseStringList(value: unknown): readonly string[] {
+  return Array.isArray(value)
+    ? Array.from(new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)))
+    : [];
 }
 
 function parseGeneratedInterviewExperts(text: string): readonly GeneratedInterviewExpert[] {
@@ -65,10 +84,32 @@ function parseGeneratedInterviewExperts(text: string): readonly GeneratedIntervi
     const candidate = value as Record<string, unknown>;
     const displayName = typeof candidate.displayName === "string" ? candidate.displayName.trim() : "";
     const role = typeof candidate.role === "string" ? candidate.role.trim() : "";
-    const domains = Array.isArray(candidate.domains)
-      ? Array.from(new Set(candidate.domains.filter((domain): domain is string => typeof domain === "string").map((domain) => domain.trim()).filter(Boolean)))
+    const category = typeof candidate.category === "string" ? candidate.category.trim() : "";
+    const bio = typeof candidate.bio === "string" ? candidate.bio.trim() : "";
+    const location = typeof candidate.location === "string" ? candidate.location.trim() : "";
+    const typicalAdvice = typeof candidate.typicalAdvice === "string" ? candidate.typicalAdvice.trim() : "";
+    const occupation = typeof candidate.occupation === "string" ? candidate.occupation.trim() : "";
+    const serviceValue = typeof candidate.serviceValue === "string" ? candidate.serviceValue.trim() : "";
+    const age = typeof candidate.age === "number" && Number.isInteger(candidate.age) && candidate.age > 0 ? candidate.age : 0;
+    const domains = parseStringList(candidate.domains);
+    const goals = parseStringList(candidate.goals);
+    const interests = parseStringList(candidate.interests);
+    const painPoints = parseStringList(candidate.painPoints);
+    const motivations = parseStringList(candidate.motivations);
+    const influences = parseStringList(candidate.influences);
+    const traits = candidate.personalityTraits && typeof candidate.personalityTraits === "object"
+      ? candidate.personalityTraits as Record<string, unknown> : {};
+    const personalityTraits = {
+      introvertExtrovert: traits.introvertExtrovert,
+      analyticalCreative: traits.analyticalCreative,
+      busyTimeRich: traits.busyTimeRich,
+    };
+    const validTraits = Object.values(personalityTraits).every((score) => typeof score === "number" && Number.isInteger(score) && score >= 1 && score <= 10);
+    return displayName && role && domains.length && category && bio && location && typicalAdvice && age && occupation
+      && goals.length && interests.length && painPoints.length && motivations.length && influences.length && validTraits && serviceValue
+      ? [{ displayName, role, domains, category, bio, location, typicalAdvice, age, occupation, goals, interests,
+        painPoints, motivations, influences, personalityTraits: personalityTraits as GeneratedInterviewExpert["personalityTraits"], serviceValue }]
       : [];
-    return displayName && role && domains.length ? [{ displayName, role, domains }] : [];
   });
   if (experts.length < 3 || experts.length > 5) throw new SyntaxError("experts must contain 3 to 5 valid entries");
   return experts;
@@ -245,6 +286,32 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         );
         nextStatus = "experts_pending";
       } else if (input.nodeName === "confirm_experts" && input.command.kind === "confirm_experts") {
+        const selectedIds = new Set(input.command.expertIds);
+        if (input.command.addedExperts.some((expert) => !selectedIds.has(expert.expertId) || !expert.expertId.startsWith("mock-persona:"))) {
+          throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
+        }
+        const nextOrdinal = await session.query<{ ordinal: string }>(
+          `SELECT (coalesce(max(ordinal),0)+1)::text AS ordinal
+             FROM digital_interview_expert_candidates WHERE org_id=$1 AND revision_id=$2`,
+          [input.orgId, activeRevisionId],
+        );
+        let ordinal = Number(nextOrdinal.rows[0]?.ordinal ?? 1);
+        for (const expert of input.command.addedExperts) {
+          await session.query(
+            `INSERT INTO digital_interview_expert_candidates
+               (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
+                material_context_pack_id,material_version,category,bio,location,typical_advice,
+                age,occupation,goals,interests,pain_points,motivations,influences,personality_traits,service_value)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
+             ON CONFLICT (org_id,revision_id,expert_id) DO NOTHING`,
+            [input.orgId, activeRevisionId, expert.expertId, expert.agentDefinitionId, expert.agentVersion,
+              ordinal++, expert.initials, expert.displayName, expert.role, [...expert.domains],
+              expert.materialContextPackId, expert.materialVersion, expert.category, expert.bio,
+              expert.location, expert.typicalAdvice, expert.age, expert.occupation, [...expert.goals],
+              [...expert.interests], [...expert.painPoints], [...expert.motivations], [...expert.influences],
+              expert.personalityTraits, expert.serviceValue],
+          );
+        }
         const candidateIds = await session.query<{ expert_id: string }>(
           `SELECT expert_id
              FROM digital_interview_expert_candidates
@@ -270,9 +337,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
           await session.query(
             `INSERT INTO digital_interview_expert_snapshots
                (org_id,version_id,expert_id,agent_definition_id,agent_version,ordinal,
-                initials,display_name,role,domains,material_context_pack_id,material_version)
+                initials,display_name,role,domains,material_context_pack_id,material_version,
+                category,bio,location,typical_advice,age,occupation,goals,interests,pain_points,
+                motivations,influences,personality_traits,service_value)
              SELECT org_id,$2,expert_id,agent_definition_id,agent_version,$4,
-                    initials,display_name,role,domains,material_context_pack_id,material_version
+                    initials,display_name,role,domains,material_context_pack_id,material_version,
+                    category,bio,location,typical_advice,age,occupation,goals,interests,pain_points,
+                    motivations,influences,personality_traits,service_value
                FROM digital_interview_expert_candidates
               WHERE org_id=$1 AND revision_id=$3 AND expert_id=$5`,
             [input.orgId, committedVersionId, activeRevisionId, index + 1, expertId],
@@ -390,7 +461,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       const response = await this.model.complete({
         modelProvider: this.modelProvider,
         modelId: this.modelId,
-        system: "你是访谈研究助手。根据访谈主题直接创建 3 至 5 位视角互补的虚拟专家，而不是从已有专家列表选择。只返回 JSON：{\"experts\":[{\"displayName\":\"姓名或称谓\",\"role\":\"具体身份与观察视角\",\"domains\":[\"专业领域\"]}]}。",
+        system: "你是访谈研究助手。根据访谈主题直接创建 3 至 5 位视角互补的虚拟专家，而不是从已有专家列表选择。每位专家必须是与专家列表一致的完整 Persona 档案，数组字段各给出 2 至 4 条，性格分值为 1 至 10 的整数。只返回 JSON：{\"experts\":[{\"displayName\":\"姓名或称谓\",\"role\":\"具体身份与观察视角\",\"domains\":[\"专业领域\"],\"category\":\"专家分类\",\"bio\":\"专业经历简介\",\"location\":\"所在地区\",\"age\":45,\"occupation\":\"职业描述\",\"goals\":[\"目标\"],\"interests\":[\"兴趣\"],\"painPoints\":[\"痛点\"],\"motivations\":[\"动机\"],\"influences\":[\"影响来源\"],\"personalityTraits\":{\"introvertExtrovert\":5,\"analyticalCreative\":7,\"busyTimeRich\":4},\"serviceValue\":\"服务价值说明\",\"typicalAdvice\":\"代表性的建议\"}]}。",
         user: JSON.stringify({ operation: "generate_interview_experts", topic }),
       });
       experts = parseGeneratedInterviewExperts(response.text);
@@ -421,11 +492,15 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         await session.query(
           `INSERT INTO digital_interview_expert_candidates
              (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
-              material_context_pack_id,material_version)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+              material_context_pack_id,material_version,category,bio,location,typical_advice,
+              age,occupation,goals,interests,pain_points,motivations,influences,personality_traits,service_value)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
           [input.orgId, input.revisionId, expertId, expertId,
             expertId, index + 1, initialsFor(expert.displayName),
-            expert.displayName, expert.role, [...expert.domains], null, null],
+            expert.displayName, expert.role, [...expert.domains], null, null,
+            expert.category, expert.bio, expert.location, expert.typicalAdvice, expert.age, expert.occupation,
+            [...expert.goals], [...expert.interests], [...expert.painPoints], [...expert.motivations],
+            [...expert.influences], expert.personalityTraits, expert.serviceValue],
         );
       }
       await session.query(
@@ -623,9 +698,15 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       expert_id: string; agent_definition_id: string; agent_version: string; ordinal: number;
       initials: string; display_name: string; role: string; domains: string[];
       material_context_pack_id: string | null; material_version: string | null;
+      category: string; bio: string; location: string; typical_advice: string;
+      age: number; occupation: string; goals: string[]; interests: string[]; pain_points: string[];
+      motivations: string[]; influences: string[];
+      personality_traits: GeneratedInterviewExpert["personalityTraits"]; service_value: string;
     }>(
       `SELECT s.expert_id,s.agent_definition_id,s.agent_version,s.ordinal,s.initials,
-              s.display_name,s.role,s.domains,s.material_context_pack_id,s.material_version
+              s.display_name,s.role,s.domains,s.material_context_pack_id,s.material_version,
+              s.category,s.bio,s.location,s.typical_advice,s.age,s.occupation,s.goals,s.interests,
+              s.pain_points,s.motivations,s.influences,s.personality_traits,s.service_value
          FROM digital_interview_expert_snapshots s
          JOIN digital_interview_expert_snapshot_versions v
            ON v.org_id=s.org_id AND v.id=s.version_id
@@ -678,9 +759,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     await session.query(
       `INSERT INTO digital_interview_expert_candidates
          (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
-          material_context_pack_id,material_version)
+          material_context_pack_id,material_version,category,bio,location,typical_advice,
+          age,occupation,goals,interests,pain_points,motivations,influences,personality_traits,service_value)
        SELECT org_id,$3,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
-              material_context_pack_id,material_version
+              material_context_pack_id,material_version,category,bio,location,typical_advice,
+              age,occupation,goals,interests,pain_points,motivations,influences,personality_traits,service_value
          FROM digital_interview_expert_candidates
         WHERE org_id=$1 AND revision_id=$2`,
       [input.orgId, current.revision_id, revisionId],
@@ -726,11 +809,16 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         await session.query(
           `INSERT INTO digital_interview_expert_snapshots
              (org_id,version_id,expert_id,agent_definition_id,agent_version,ordinal,
-              initials,display_name,role,domains,material_context_pack_id,material_version)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+              initials,display_name,role,domains,material_context_pack_id,material_version,
+              category,bio,location,typical_advice,age,occupation,goals,interests,pain_points,
+              motivations,influences,personality_traits,service_value)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
           [input.orgId, expertVersionId, expert.expert_id, expert.agent_definition_id,
             expert.agent_version, expert.ordinal, expert.initials, expert.display_name,
-            expert.role, expert.domains, expert.material_context_pack_id, expert.material_version],
+            expert.role, expert.domains, expert.material_context_pack_id, expert.material_version,
+            expert.category, expert.bio, expert.location, expert.typical_advice, expert.age, expert.occupation,
+            expert.goals, expert.interests, expert.pain_points, expert.motivations, expert.influences,
+            expert.personality_traits, expert.service_value],
         );
       }
     }
