@@ -23,10 +23,23 @@
  *
  * 覆盖当前契约里全部 5 个 `kind`；`tool_call` 再按 `toolName` 细分
  * `list_org_skills`/`call_skill`（deep-agent 通用助手两个真实工具名，
- * 见 `apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts`）。
- * 未识别的 `kind`（未来契约新增值）或未识别的 `toolName` 一律落一句不特指的
- * 「正在处理…」兜底，绝不因为遇到没见过的值就报错或留空——参照同一份文件里
- * `hasMountedSkills` 分支的既有纪律：宁可笼统，不可编造归因。
+ * 见 `apps/api/src/infrastructure/agent-run/deep-agent-model-provider.ts`），以及
+ * `ls`/`glob`/`grep`/`read_file`/`write_file`/`edit_file`（`deepagents` 的
+ * `FilesystemMiddleware` 内置工具名，见该模块 `harness.py` 挂载处的既有文件头
+ * 记录）。未识别的 `kind`（未来契约新增值）一律落一句不特指的「正在处理…」兜底，
+ * 绝不因为遇到没见过的值就报错或留空——参照同一份文件里 `hasMountedSkills` 分支
+ * 的既有纪律：宁可笼统，不可编造归因。
+ *
+ * ## 真实工具名不在表里时，仍然回显工具名，不是一句静止不变的兜底文案
+ *
+ * issue #2321 追加（人类实测：`ls` → `glob` 连续两次真实工具调用，指示条全程停在
+ * 同一句「正在调用工具…」69 秒不变，读起来像卡死，而不是「换了一个动作」）。
+ * `DEFAULT_TOOL_PHASE`（`toolName` 为 `null`——AG-UI 事件里工具名本身缺失，没有
+ * 任何真实信息可显示）与「工具名是真实字符串、只是这张写死的表还没收录它」是两件
+ * 不同的事：前者只能兜底，后者手里明明有一个真实观测到的名字，兜成同一句静态文案
+ * 反而把可用的信息藏起来了。`phaseLabelForUnknownTool` 原样回显该工具名，不猜它
+ * 是什么、不编一句翻译——同 round 3 `phaseLabelForCallSkillArgs` 回显
+ * `skill_stable_name` 的同一条纪律，只是这次回显的是工具名本身。
  */
 import type { AgentRunView } from "./agent-run";
 
@@ -35,9 +48,22 @@ type Step = AgentRunView["steps"][number];
 const TOOL_PHASE_BY_NAME: Readonly<Record<string, string>> = {
   list_org_skills: "正在准备技能…",
   call_skill: "正在执行技能脚本…",
+  ls: "正在查看沙箱文件…",
+  glob: "正在搜索文件…",
+  grep: "正在搜索文件内容…",
+  read_file: "正在读取文件…",
+  write_file: "正在写入文件…",
+  edit_file: "正在编辑文件…",
 };
 
+/** `toolName` 为 `null`（AG-UI 事件里工具名本身缺失）时唯一可用的兜底——见文件头
+ *  「真实工具名不在表里时」那节，这与「有名字但表里没收录」不是同一种情况。 */
 const DEFAULT_TOOL_PHASE = "正在调用工具…";
+
+/** 表里没收录、但真的有一个观测到的工具名时用这句——原样回显，不编译名。 */
+function phaseLabelForUnknownTool(toolName: string): string {
+  return `正在调用工具（${toolName}）…`;
+}
 
 const PHASE_BY_KIND: Readonly<Record<string, string>> = {
   accepted: "正在准备…",
@@ -55,12 +81,13 @@ const FALLBACK_PHASE = "正在处理…";
  * 「同一事实声明在两处」，改一处另一处静默漂移。所以 v2 侧
  * （`copilotkit-v2-run-progress.ts`）从这里取词，不复制字符串。
  *
- * `toolName` 为 `null`（AG-UI 事件里工具名缺失）或表里没有的名字，一律落
- * `DEFAULT_TOOL_PHASE`——与 `phaseForStep` 逐字同一条兜底纪律。
+ * `toolName` 为 `null`（AG-UI 事件里工具名缺失）落 `DEFAULT_TOOL_PHASE`；有真实
+ * 名字但表里没收录时落 `phaseLabelForUnknownTool`（原样回显该名字）——与
+ * `phaseForStep` 逐字同一条纪律。
  */
 export function phaseLabelForToolName(toolName: string | null): string {
   if (toolName === null) return DEFAULT_TOOL_PHASE;
-  return TOOL_PHASE_BY_NAME[toolName] ?? DEFAULT_TOOL_PHASE;
+  return TOOL_PHASE_BY_NAME[toolName] ?? phaseLabelForUnknownTool(toolName);
 }
 
 /**
@@ -102,7 +129,7 @@ export function deriveRunPhaseLabel(steps: readonly Step[]): string | null {
 function phaseForStep(step: Step): string {
   if (step.kind === "tool_call") {
     if (step.toolName === null) return DEFAULT_TOOL_PHASE;
-    return TOOL_PHASE_BY_NAME[step.toolName] ?? DEFAULT_TOOL_PHASE;
+    return TOOL_PHASE_BY_NAME[step.toolName] ?? phaseLabelForUnknownTool(step.toolName);
   }
   return PHASE_BY_KIND[step.kind] ?? FALLBACK_PHASE;
 }
