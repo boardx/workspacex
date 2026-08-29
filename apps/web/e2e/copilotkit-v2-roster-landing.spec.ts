@@ -42,6 +42,16 @@ import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
  *
  * 真锚点用编制自己的权威计数（`getAgentPanel` 的 `rosterCount`，栏头「本线程的
  * AI 团队 · N」渲染的就是它）+ **刷新后仍在**（证明真落库，不是本地 state）。
+ *
+ * ## 2026-08-29 更新：编制面板搬进右栏「编制」页签
+ *
+ * Claude Design 重设计稿把左栏这张常驻编制卡拿掉（人类原话「去掉本线程的AI团队
+ * 当前编制为空,从agent市场加入 这一块」），就地问过之后人类选择「移到右栏
+ * Inspector 里」，不是彻底去掉入口——`chat-read-roster` 这个组件与它全部
+ * `data-testid` 逐字未变，只是现在挂在 `chat-task-workbench-inspector` 的
+ * `roster` 页签下，默认折叠/未选中时不可见，需要先点开页签
+ * （`chat-task-workbench-inspector-tab-roster`）。下面每处用到
+ * `chat-read-roster` 之前都补了这一步。
  */
 
 test.setTimeout(240_000);
@@ -106,6 +116,8 @@ test("issue #2052：落地按钮挂真实落库 id 且产物真出现（依赖 #
   /* ═══════════ ② #2052 编制：加入一个「只在目录里、不在编制里」的 agent ═══════════
      用 `catalogOnlyAgentId` 而不是随便一个 agent：它一开始就不在编制里，所以一个
      什么都没做的实现不会碰巧变绿（这条理由是 fixture 自己写下的，照用）。 */
+  // 2026-08-29——编制页签默认折叠/不选中，先点开才看得到面板（见文件头注更新）。
+  await page.getByTestId("chat-task-workbench-inspector-tab-roster").click();
   const rosterPanel = page.getByTestId("chat-read-roster");
   await expect(rosterPanel).toBeVisible({ timeout: 30_000 });
   // 新建的个人线程编制为空——如实空态，不是"读不出来所以不画"。
@@ -124,7 +136,11 @@ test("issue #2052：落地按钮挂真实落库 id 且产物真出现（依赖 #
   await expect(rosterPanel).toContainText("本线程的 AI 团队 · 1");
 
   // ⭐ 真落库的判据：整页刷新后仍在。只改本地 state 的实现会在这一步红。
+  // ⚠ 刷新后 Inspector 的 `activeTab` 回到默认值「进度」（组件重挂载，不是
+  //   状态回滚成假的）——编制非空会让面板自动展开（`hasRoster` 撑开折叠态），
+  //   但显示的仍是「进度」页签，需要重新点一次「编制」才能看到面板内容。
   await page.reload();
+  await page.getByTestId("chat-task-workbench-inspector-tab-roster").click();
   await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.catalogOnlyAgentId}`))
     .toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId("chat-read-roster")).toContainText("本线程的 AI 团队 · 1");
@@ -224,7 +240,11 @@ test("issue #2052：落地按钮挂真实落库 id 且产物真出现（依赖 #
   await expect(page.getByTestId("chat-artifacts-panel"))
     .toContainText(artifactTitle, { timeout: 60_000 });
 
-  /* ═══════════ ⑤ #2052 移出：反向也真的改数据 ═══════════ */
+  /* ═══════════ ⑤ #2052 移出：反向也真的改数据 ═══════════
+     ④ 落地产物触发了 Inspector 的自动切换规则（产物变多 → 切「产物」页签，
+     见 `lib/chat-task-inspector-tabs.ts` 的 `nextInspectorTab`），此刻显示的
+     不是「编制」页签，重新点回去才能看到「移出」按钮。 */
+  await page.getByTestId("chat-task-workbench-inspector-tab-roster").click();
   await page.getByTestId(`chat-roster-remove-${CHAT_READ_E2E.catalogOnlyAgentId}`).click();
   await expect(page.getByTestId(`chat-roster-agent-${CHAT_READ_E2E.catalogOnlyAgentId}`))
     .toHaveCount(0, { timeout: 30_000 });

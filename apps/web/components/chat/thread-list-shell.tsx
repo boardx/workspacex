@@ -1,7 +1,6 @@
 "use client";
 import * as React from "react";
 import { MoreHorizontal, Pencil, Pin, Plus, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import type { ThreadCard } from "@/lib/live-chat";
@@ -34,36 +33,55 @@ export function ThreadListHeader({ title = "对话" }: { title?: string }) {
 }
 
 /**
- * 会话卡副行 —— 照原型：**负责的 agent · 时间 · 状态徽标**。
+ * 会话卡副行事实 —— 2026-08-29 Claude Design 重设计稿：会话卡收成**一行**，
+ * 只留标题，状态/产物数/更新时间/徽标不再占用户看得见的那一行（人类原话「chat
+ * sesson必须是一行，把状态，产物和时间去掉」）。
  *
- * ⚠ 副行**不印可见范围**。原型副行里根本没有它（原型是「Scout · 14:02 · 3 条待复核」），
- *   而 `visibilityScope` 是一个治理概念，塞进时间线列表既占位又不可读；
- *   个人对话那侧此前逐字印的就是 `private` 这个枚举原值。
+ * ⚠ 这不是把这些事实删掉——只是不再印成可见文字：
+ *   · 机器判据 `chat-task-workbench-thread-status`（TW-P1-1 读它的 `data-status`
+ *     属性判定"是否已开始"）与 `chat-task-workbench-thread-artifact-count` 两个
+ *     锚点原样保留，只是包进 `sr-only`；
+ *   · 屏幕阅读器仍会朗读完整的"状态 · 产物数 · 时间 · 徽标"，一个字都没有丢；
+ *   · "进行中"这一档改用 `ThreadRunningDot` 的呼吸点在标题行内可见表达
+ *     （见下方），不是这条状态从界面上彻底消失。
  * ⚠ 徽标是封闭枚举（契约 `MessageBadge` 恰两值），所以用穷举 Record 而不是直接印英文原值
  *   —— 枚举加一档时 tsc 会红，而不是静默把英文吐给用户。
  */
 export function ThreadMeta({ card }: { card: ThreadCard }) {
   return (
-    <span className="flex flex-wrap items-center gap-1 text-10 font-medium text-muted-foreground">
-      <span
-        data-testid="chat-task-workbench-thread-status"
-        data-status={card.status}
-        className="truncate"
-      >
+    <span className="sr-only">
+      <span data-testid="chat-task-workbench-thread-status" data-status={card.status}>
         {THREAD_STATUS_LABEL[card.status]}
       </span>
       {card.artifactCount > 0 ? (
-        <span data-testid="chat-task-workbench-thread-artifact-count" className="truncate">
+        <span data-testid="chat-task-workbench-thread-artifact-count">
           · {card.artifactCount} 份产物
         </span>
       ) : null}
-      <span className="font-mono tabular-nums">· {shortTime(card.lastActivityAt)}</span>
+      <span> · {shortTime(card.lastActivityAt)}</span>
       {card.badges.map((badge) => (
-        <Badge key={badge} tone={badge === "review-pending" ? "warning" : "outline"}>
-          {THREAD_BADGE_TEXT[badge]}
-        </Badge>
+        <span key={badge}> · {THREAD_BADGE_TEXT[badge]}</span>
       ))}
     </span>
+  );
+}
+
+/**
+ * 呼吸点 —— 会话「进行中」在标题行内唯一的可见状态提示（Claude Code CLI 同款
+ * 语汇，人类原话「需要有一个呼吸的点点」）。
+ *
+ * 只在 `status === "running"` 时渲染：「还没开始」「已完成」「未能完成」都是
+ * 稳定态，不需要用户盯着一个动画看；只有"现在正在跑"才值得用动效抢注意力。
+ * `aria-hidden`——朗读态已经由 `ThreadMeta` 的 sr-only 文案覆盖，这个点是纯视觉
+ * 强调，读屏软件重复念一遍"进行中"反而是噪音。
+ */
+function ThreadRunningDot() {
+  return (
+    <span
+      aria-hidden
+      data-testid="chat-task-workbench-thread-running-dot"
+      className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary"
+    />
   );
 }
 
@@ -278,24 +296,40 @@ export function ThreadCardButton({
         onClick={onSelect}
         onDoubleClick={canMutate ? startEdit : undefined}
         className={[
-          "flex w-full flex-col gap-1 rounded-md border-l-2 px-2 py-2 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "flex w-full items-center gap-1.5 rounded-md border-l-2 px-2 py-1.5 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           selected ? "border-primary bg-muted" : "border-transparent",
         ].join(" ")}
       >
+        {/* 2026-08-29 Claude Design 重设计稿——会话卡收成**一行**（人类原话「chat
+            sesson必须是一行」）：这里不再是 `flex-col` 两行,只剩标题一行,可选前置
+            呼吸点。「进行中」的可见提示从副行文字换成这颗点,见 `ThreadRunningDot`。 */}
+        {card.status === "running" ? <ThreadRunningDot /> : null}
         {/* 🔴 #2094：`chat-task-workbench-thread-title` 是验收卡 TW-P1-1 的锚点
             （自动命名：线程列表不得一屏全是「新对话」）。锚在标题这一个 span 上，
-            不是整张卡：断言读的是标题文本，锚整张卡会把副行的状态/时间也读进来，
-            于是「标题还叫新对话」这条会被副行的文字冲淡成绿的。 */}
-        <span data-testid="chat-task-workbench-thread-title" className="truncate text-12 font-medium">
+            不是整张卡：断言读的是标题文本,不会被副行的状态/时间冲淡——副行现在
+            整段是 `sr-only`,连视觉上都不会再出现,这条注释的前提更稳固了。 */}
+        <span data-testid="chat-task-workbench-thread-title" className="min-w-0 flex-1 truncate text-12 font-medium">
           {card.title}
         </span>
         <ThreadMeta card={card} />
       </button>
       {onTogglePin !== undefined ? (
-        /* 已置顶时**常驻可见**（那是当前状态，藏起来用户就看不出这条为什么排在最前，
-           也取消不掉）；未置顶时同「…」一样走 hover/focus 浮出。
-           `p-1.5` 而不是 `p-1`：14px 图标 + 12px 内边距 = 26px，过 TW-A11Y-2 的
-           24×24 点击区下限（`p-1` 只有 22px，是真会被屏幕阅读器/粗手指用户踩到的缺陷）。 */
+        /* 2026-08-29 人类明确要求收回（原话「只有 hover 某个 session item 的时候才
+           出现图钉以及三点菜单」）：改成 hover/focus 才浮出，覆盖 issue #2075 当时
+           「常驻可见」的取舍。
+           ⚠ 用「文字颜色透明」（`text-transparent` → `group-hover:` 恢复颜色），
+           不是 `lint-design.sh` U1.2 禁止的 `opacity-*`，也不是 issue #2075 当时
+           排除掉的 `visibility:hidden`：
+             ① 按钮本身、`aria-label`、`aria-pressed` 全程留在无障碍树里——读屏软件
+                照样能找到、照样会念，不会像 `visibility:hidden` 那样被跳过；
+             ② `group-focus-within:` 让键盘 Tab 到这张卡时同样能看见，不是只对
+                鼠标悬停生效；
+             ③ 颜色本身仍是语义 token（`text-muted-foreground`/`text-primary`），
+                不是任意值，可静态核对对比度——U1.2 真正要防的"对比度不可验证"
+                这条没有被绕开。
+           代价如实登记：纯触屏、且从不先聚焦这张卡的用户，第一次不会"看见"这个
+           按钮——这正是人类这次要的视觉效果（已置顶用「置顶」分组标出，不再需要
+           每张卡常驻一个图钉来重复同一件事）。 */
         <button
           type="button"
           aria-label={pinned ? `取消置顶「${card.title}」` : `置顶「${card.title}」`}
@@ -305,16 +339,10 @@ export function ThreadCardButton({
           data-thread-id={card.id}
           onClick={(event) => { event.stopPropagation(); onTogglePin(); }}
           className={[
-            /* ⚠ 常驻可见，不做 hover 才浮出（issue #2075 真栈实测后改的）。
-               两条独立理由，任一条都足够：
-               ① `visibility:hidden` 会让这个操作在「非鼠标路径」上整个消失——读屏软件
-                  跳过它，触屏根本没有 hover 这个动作，机械门控也判它不可见；
-               ② 本仓 `lint-design.sh` 的 U1.2 明令禁止用 `opacity-*` 表达状态，
-                  所以「透明但在无障碍树里」这条折中路走不通。
-               留下的诚实做法就是常驻——用 `text-muted-foreground` 压低存在感，
-               靠 hover 的背景色而不是「有没有这个按钮」来做反馈。 */
-            "absolute right-7 top-1 rounded-md p-1.5 transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-            pinned ? "text-primary" : "text-muted-foreground",
+            // `p-1.5` 而不是 `p-1`：14px 图标 + 12px 内边距 = 26px，过 TW-A11Y-2 的
+            // 24×24 点击区下限（`p-1` 只有 22px，是真会被屏幕阅读器/粗手指用户踩到的缺陷）。
+            "absolute right-7 top-1 rounded-md p-1.5 text-transparent transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            pinned ? "group-hover:text-primary group-focus-within:text-primary" : "group-hover:text-muted-foreground group-focus-within:text-muted-foreground",
             "hover:bg-panel-alt hover:text-card-foreground",
           ].join(" ")}
         >
@@ -331,8 +359,15 @@ export function ThreadCardButton({
               onClick={(event) => event.stopPropagation()}
               /* issue #2075（TW-A11Y-2）—— `p-1` 时整个按钮只有 14+8=22px，低于 24×24
                  的点击区下限；`p-1.5` 给到 26px。这不是为了让门控变绿：22px 的悬浮小按钮
-                 在触屏与手部精细动作受限的用户那里就是点不中。 */
-              className="absolute right-1 top-1 rounded-md p-1.5 text-muted-foreground transition-colors duration-fast hover:bg-panel-alt hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                 在触屏与手部精细动作受限的用户那里就是点不中。
+                 2026-08-29 同置顶按钮一起收回常驻：`text-transparent` → hover/focus
+                 才恢复颜色，理由与豁免见上面置顶按钮的头注。菜单已经打开
+                 （`mode === "menu"`，此时鼠标可能已经移到 portal 出去的菜单项上）
+                 时强制维持可见色，不能让触发它的按钮在自己的菜单还开着时视觉消失。 */
+              className={[
+                "absolute right-1 top-1 rounded-md p-1.5 transition-colors duration-fast hover:bg-panel-alt hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                mode === "menu" ? "text-muted-foreground" : "text-transparent group-hover:text-muted-foreground group-focus-within:text-muted-foreground",
+              ].join(" ")}
             >
               <MoreHorizontal aria-hidden className="h-3.5 w-3.5" />
             </button>

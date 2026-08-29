@@ -1,9 +1,10 @@
 "use client";
 import * as React from "react";
-import { ListChecks, FolderOpen, Package, Settings2, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ListChecks, FolderOpen, Package, Settings2, Users, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatArtifactsPanel } from "@/components/chat/chat-artifacts-panel";
 import { ChatMaterialsPanel } from "@/components/chat/chat-materials-panel";
+import { RosterPanel, type RosterPanelProps } from "@/components/chat/chat-roster-panel";
 import { AgentPlanPanel, type PlanTodo } from "@/components/chat/agent-plan-panel";
 import {
   INSPECTOR_TABS,
@@ -81,12 +82,22 @@ export interface ChatTaskInspectorProps {
   /** `RUN_STARTED` 时刻（epoch ms）；秒数在本组件内派生——见 panel 侧同名 prop 的注释：
    *  每秒变一次的值不上抛，重渲染只落在这棵子树上。 */
   readonly runStartedAt: number | null;
+  /**
+   * 2026-08-29 Claude Design 重设计稿——CK-P7 本会话编制从左栏搬进这里的「编制」
+   * 页签（人类明确要求左栏拿掉「本线程的 AI 团队」卡片；同一份能力换个入口，
+   * 不是撤掉。见 `copilotkit-v2-shell.tsx` 对应改动的头注）。整个 prop 可选：
+   * `chat-read-screen.tsx`/`personal-chat-screen.tsx` 两条旧轨道各自仍在别处画
+   * 自己的编制面板，不传这个 prop 时「编制」页签完全不渲染、不占页签栏一个位置
+   * ——不是"渲染了一个空白页签"。
+   */
+  readonly roster?: RosterPanelProps;
 }
 
 const TAB_META: Record<InspectorTab, { label: string; Icon: typeof ListChecks }> = {
   progress: { label: "进度", Icon: ListChecks },
   materials: { label: "材料", Icon: FolderOpen },
   artifacts: { label: "产物", Icon: Package },
+  roster: { label: "编制", Icon: Users },
   "run-details": { label: "运行详情", Icon: Settings2 },
 };
 
@@ -94,7 +105,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
-    planTodos, isRunning, runPhaseLabel, runStartedAt,
+    planTodos, isRunning, runPhaseLabel, runStartedAt, roster,
   } = props;
 
   /** ⚠ 计时器只在真的有一轮在跑时才起（同 `copilotkit-v2-run-progress.ts` 的纪律）：
@@ -140,7 +151,14 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
 
   const hasPlan = effectivePlanTodos !== null && effectivePlanTodos.length > 0;
   const hasRunDetails = runPhaseLabel !== null || runElapsedSeconds !== null;
-  const collapsed = !manuallyExpanded && isInspectorCollapsed(signals, hasPlan, hasRunDetails);
+  const hasRoster = (roster?.roster?.agents.length ?? 0) > 0;
+  const collapsed = !manuallyExpanded && isInspectorCollapsed(signals, hasPlan, hasRunDetails, hasRoster);
+
+  // roster 是可选能力：调用方没传（旧轨道两屏）就不占页签栏一个位置。
+  const visibleTabs = INSPECTOR_TABS.filter((tab) => tab !== "roster" || roster !== undefined);
+  React.useEffect(() => {
+    if (activeTab === "roster" && roster === undefined) setActiveTab("progress");
+  }, [activeTab, roster]);
 
   const selectTab = React.useCallback((tab: InspectorTab) => {
     setActiveTab(tab);
@@ -167,7 +185,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
           collapsed ? "flex-col items-center gap-0.5 py-1.5" : "flex-row items-stretch",
         )}
       >
-        {INSPECTOR_TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const { label, Icon } = TAB_META[tab];
           const selected = tab === activeTab && !collapsed;
           return (
@@ -256,6 +274,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               onRetry={onRetry}
               onOpen={onOpenArtifact}
             />
+          ) : activeTab === "roster" && roster !== undefined ? (
+            <RosterPanel {...roster} />
           ) : (
             <RunDetailsTab
               threadId={threadId}
