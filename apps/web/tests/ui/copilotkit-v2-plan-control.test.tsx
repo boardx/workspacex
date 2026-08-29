@@ -36,7 +36,7 @@ import { PLAN_PHASE_INDICATOR_TESTID } from "@/components/plan-control/plan-phas
 import { PLAN_PANEL_TESTID, PLAN_STEP_TESTID } from "@/components/plan-control/plan-panel-readonly";
 import { PLAN_STEP_DELETE_TESTID, PLAN_STEP_REORDER_TESTID } from "@/components/plan-control/plan-panel-edit";
 import { PLAN_CONFIRM_RUN_TESTID } from "@/components/plan-control/plan-confirm-gate";
-import { PLAN_CONTROL_EDIT_TOGGLE_TESTID } from "@/components/chat/copilotkit-v2-plan-control";
+import { PLAN_CONTROL_EDIT_TOGGLE_TESTID, PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID } from "@/components/chat/copilotkit-v2-plan-control";
 
 function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
   return {
@@ -191,6 +191,59 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
 
     await waitFor(() => expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy());
     expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
+  });
+
+  it("折叠开关：默认展开，点击后收起步骤/确认门，只留六态指示器一行；再点一次展开回来", async () => {
+    api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps());
+    render(<CopilotKitV2PlanControl threadId="t-9" />);
+
+    await waitFor(() => expect(screen.getByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeTruthy());
+    const toggle = screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
+    expect(screen.queryByTestId(PLAN_PANEL_TESTID)).toBeNull();
+    // 折叠态仍然保留六态指示器——不是把计划的存在与否也藏起来。
+    expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeTruthy();
+  });
+
+  it("折叠后从「不需要决策」转入「失败态」时自动重新展开，不让用户错过恢复入口", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      api.fetchPlanLedger.mockResolvedValue(
+        ledgerWithSteps({ phase: "executing", gate: { required: false, reason: "no-plan" }, activeRunId: "run-1" }),
+      );
+      render(<CopilotKitV2PlanControl threadId="t-10" />);
+      await waitFor(() => expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy());
+
+      fireEvent.click(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
+      expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID).getAttribute("aria-expanded")).toBe("false");
+
+      // 轮询窗口内引擎把账本翻成失败态——不是用户手动刷新触发的。
+      api.fetchPlanLedger.mockResolvedValue(
+        ledgerWithSteps({
+          phase: "failed",
+          steps: [
+            { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
+            { planStepId: "s2", content: "起草方案初稿", status: "pending", constraints: [] },
+          ],
+        }),
+      );
+      await vi.advanceTimersByTimeAsync(3000);
+
+      await waitFor(() =>
+        expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID).getAttribute("aria-expanded")).toBe("true"),
+      );
+      expect(await screen.findByTestId("chat-task-workbench-failure-retry-step")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("PLAN_REVISION_CHANGED：操作失败后立即重取账本，界面提示刷新而不是静默丢弃", async () => {
