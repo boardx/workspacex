@@ -26,6 +26,7 @@ let base = "";
 let db: PgDatabase;
 let provider: Server;
 let providerHook: (() => Promise<void>) | null = null;
+let providerFailureStatus: number | null = null;
 
 async function startApp() {
   const { createApp } = await import("../../src/main");
@@ -79,6 +80,11 @@ beforeAll(async () => {
     request.on("data", (chunk) => chunks.push(chunk));
     request.on("end", async () => {
       await providerHook?.();
+      if (providerFailureStatus !== null) {
+        response.writeHead(providerFailureStatus, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: { message: "simulated provider failure" } }));
+        return;
+      }
       const body = JSON.parse(Buffer.concat(chunks).toString()) as {
         messages: Array<{ role: string; content: string }>;
       };
@@ -116,6 +122,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   providerHook = null;
+  providerFailureStatus = null;
   await resetOrgs(ORG, OTHER_ORG);
   const fixture = await seedOrg({ orgId: ORG, projectId: "proj-f04" });
   await addOrgMember(ORG, USER, "consultant", fixture.teams.energy!);
@@ -205,6 +212,30 @@ describe("F04 批量数字专家访谈 — HTTP 持久化验收门", () => {
     const changedPayload = await confirm("同一 key 不能悄悄覆盖成另一个主题");
     expect(changedPayload.status).toBe(409);
     expect(await changedPayload.json()).toMatchObject({ reasonCode: "IDEMPOTENCY_KEY_REUSED" });
+  });
+
+  it("专家推荐模型不可用时仍进入专家审核，并保留目录供用户手动选择", async () => {
+    const created = await createInterview("create-model-unavailable-f04");
+    providerFailureStatus = 503;
+
+    const response = await fetch(`${base}/interviews/digital/${created.interviewId}/topic/confirm`, {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({
+        topic: "江西足球的崛起",
+        requestId: "confirm-topic-model-unavailable-f04",
+        expectedVersion: created.version,
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      status: "experts_pending",
+      currentStep: "experts",
+      version: 2,
+      selectedExpertIds: [],
+      expertCandidates: [expect.objectContaining({ expertId: EXPERT })],
+    });
   });
 
   it("陈旧 expectedVersion 冲突，且不会把已确认主题覆盖掉", async () => {
