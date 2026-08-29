@@ -261,7 +261,6 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string; readonly expertIds: readonly string[];
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    await this.assertExpertsVisible(input.orgId, input.actorId, input.expertIds);
     return this.resumeConfirmation(input, { kind: "confirm_experts", expertIds: input.expertIds,
       expectedVersion: input.expectedVersion, requestId: input.requestId });
   }
@@ -484,11 +483,4 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     if (!membership.orgRole) throw new DigitalInterviewWorkflowError("NO_INTERVIEW_ACCESS");
   }
 
-  private async assertExpertsVisible(orgId: OrgId, actorId: string, expertIds: readonly string[]): Promise<void> {
-    const visible = await this.deps.repo.listVisibleExperts({ orgId, viewerUserId: actorId });
-    const ids = new Set(visible.map((expert) => expert.expertId));
-    if (expertIds.some((expertId) => !ids.has(expertId))) {
-      throw new DigitalInterviewWorkflowError("NO_INTERVIEW_ACCESS");
-    }
-  }
 }

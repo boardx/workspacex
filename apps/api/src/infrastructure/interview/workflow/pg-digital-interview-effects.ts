@@ -50,6 +50,35 @@ interface LockedInterviewRow {
   revision_number: number;
 }
 
+interface GeneratedInterviewExpert {
+  readonly displayName: string;
+  readonly role: string;
+  readonly domains: readonly string[];
+}
+
+function parseGeneratedInterviewExperts(text: string): readonly GeneratedInterviewExpert[] {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text.trim());
+  const parsed = JSON.parse(fenced?.[1]?.trim() ?? text) as { experts?: unknown };
+  if (!Array.isArray(parsed.experts)) throw new SyntaxError("experts must be an array");
+  const experts = parsed.experts.flatMap((value): GeneratedInterviewExpert[] => {
+    if (value === null || typeof value !== "object") return [];
+    const candidate = value as Record<string, unknown>;
+    const displayName = typeof candidate.displayName === "string" ? candidate.displayName.trim() : "";
+    const role = typeof candidate.role === "string" ? candidate.role.trim() : "";
+    const domains = Array.isArray(candidate.domains)
+      ? Array.from(new Set(candidate.domains.filter((domain): domain is string => typeof domain === "string").map((domain) => domain.trim()).filter(Boolean)))
+      : [];
+    return displayName && role && domains.length ? [{ displayName, role, domains }] : [];
+  });
+  if (experts.length < 3 || experts.length > 5) throw new SyntaxError("experts must contain 3 to 5 valid entries");
+  return experts;
+}
+
+function initialsFor(displayName: string): string {
+  const compact = displayName.replace(/\s+/g, "");
+  return Array.from(compact).slice(0, 2).join("").toUpperCase();
+}
+
 const EXPECTED_STATUS = {
   confirm_topic: "topic_pending",
   confirm_experts: "experts_pending",
@@ -347,12 +376,6 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       return true;
     });
     if (replayed) return;
-    const experts = await this.repo.listVisibleExperts({
-      orgId: toOrgId(input.orgId), viewerUserId: input.actorId,
-    });
-    if (!experts.length || !this.modelProvider || !this.modelId) {
-      throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
-    }
     const topic = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
       const result = await session.query<{ topic: string | null }>(
         "SELECT topic FROM interview_sessions WHERE org_id=$1 AND id=$2",
@@ -361,37 +384,19 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       return result.rows[0]?.topic?.trim() ?? "";
     });
     if (!topic) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
-    let recommendedExpertIds: readonly string[];
+    if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+    let experts: readonly GeneratedInterviewExpert[];
     try {
       const response = await this.model.complete({
         modelProvider: this.modelProvider,
         modelId: this.modelId,
-        system: "你是访谈研究助手。只能从候选数字专家中推荐与主题最相关且视角互补的 3 至 5 位。只返回 JSON：{\"expertIds\":[\"id\"]}。",
-        user: JSON.stringify({
-          operation: "recommend_interview_experts",
-          topic,
-          experts: experts.map((expert) => ({
-            expertId: expert.expertId,
-            displayName: expert.displayName,
-            role: expert.role,
-            domains: expert.domains,
-          })),
-        }),
+        system: "你是访谈研究助手。根据访谈主题直接创建 3 至 5 位视角互补的虚拟专家，而不是从已有专家列表选择。只返回 JSON：{\"experts\":[{\"displayName\":\"姓名或称谓\",\"role\":\"具体身份与观察视角\",\"domains\":[\"专业领域\"]}]}。",
+        user: JSON.stringify({ operation: "generate_interview_experts", topic }),
       });
-      const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(response.text.trim());
-      const parsed = JSON.parse(fenced?.[1]?.trim() ?? response.text) as { expertIds?: unknown };
-      const visibleIds = new Set(experts.map((expert) => expert.expertId));
-      recommendedExpertIds = Array.isArray(parsed.expertIds)
-        ? Array.from(new Set(parsed.expertIds.filter((id): id is string => typeof id === "string" && visibleIds.has(id))))
-        : [];
+      experts = parseGeneratedInterviewExperts(response.text);
     } catch (error) {
-      if (error instanceof ModelCallError || error instanceof SyntaxError) {
-        throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
-      }
-      throw error;
-    }
-    if (!recommendedExpertIds.length) {
-      throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+      if (!(error instanceof ModelCallError || error instanceof SyntaxError)) throw error;
+      throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
     }
     await this.db.withTenant(toOrgId(input.orgId), async (session) => {
       await this.lockRequest(
@@ -409,21 +414,23 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         "DELETE FROM digital_interview_expert_candidates WHERE org_id=$1 AND revision_id=$2",
         [input.orgId, input.revisionId],
       );
+      const generatedExpertIds: string[] = [];
       for (const [index, expert] of experts.entries()) {
+        const expertId = this.ids.next("itv-generated-expert");
+        generatedExpertIds.push(expertId);
         await session.query(
           `INSERT INTO digital_interview_expert_candidates
              (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
               material_context_pack_id,material_version)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-          [input.orgId, input.revisionId, expert.expertId, expert.agentDefinitionId,
-            expert.agentVersion, index + 1, expert.initials,
-            expert.displayName, expert.role, [...expert.domains], expert.materialContextPackId,
-            expert.materialVersion],
+          [input.orgId, input.revisionId, expertId, expertId,
+            expertId, index + 1, initialsFor(expert.displayName),
+            expert.displayName, expert.role, [...expert.domains], null, null],
         );
       }
       await session.query(
         "UPDATE interview_sessions SET selected_expert_ids=$3 WHERE org_id=$1 AND id=$2",
-        [input.orgId, input.interviewId, [...recommendedExpertIds]],
+        [input.orgId, input.interviewId, generatedExpertIds],
       );
       const workflow = await this.requireWorkflow(session, toOrgId(input.orgId), input.interviewId);
       await this.writeReceipt(session, {

@@ -18,7 +18,7 @@
 | `startQuickDigitalInterview` | expertId | persisted quick interview | `DIGITAL_EXPERT_NOT_AVAILABLE` |
 | `convertQuickInterviewToBatch` | quickInterviewId, editable metadata | draft with source reference | `NO_INTERVIEW_ACCESS`, `DIGITAL_INTERVIEW_INPUT_INVALID` |
 
-`listDigitalExperts` 与主题确认时的专家候选都通过 `DigitalExpertCatalogPort` 消费现有 Agent Definition 与 Context Pack；返回并保存 `DigitalExpertSnapshot`，不创建或修改组织级专家对象。
+`confirmDigitalInterviewTopic` 必须由后端模型根据本次访谈名称、标签与主题直接生成 3–5 位结构化、互补的虚拟专家，并保存为只属于本次访谈的 `DigitalExpertSnapshot`；不得从专家目录取 ID 冒充生成结果，也不创建或修改组织级 Agent。`listDigitalExperts` 仅用于第二步“从专家库添加”的人工补充路径。
 
 ## 二、HTTP 面
 

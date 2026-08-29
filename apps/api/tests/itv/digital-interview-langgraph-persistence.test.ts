@@ -27,8 +27,12 @@ let modelCalls: Array<Parameters<ModelCallPort["complete"]>[0]> = [];
 const model: ModelCallPort = { complete: async (input) => {
   modelCalls.push(input);
   const context = JSON.parse(input.user) as { currentStep?: string; operation?: string };
-  return { text: JSON.stringify(context.operation === "recommend_interview_experts"
-    ? { expertIds: [EXPERT] }
+  return { text: JSON.stringify(context.operation === "generate_interview_experts"
+    ? { experts: [
+      { displayName: "采购决策专家", role: "分析采购决策链", domains: ["采购"] },
+      { displayName: "财务风控专家", role: "评估预算与财务风险", domains: ["财务", "风控"] },
+      { displayName: "交付运营专家", role: "评估实施与交付约束", domains: ["运营", "交付"] },
+    ] }
     : context.currentStep === "topic" ? { topic: "更聚焦的主题" } : { expertIds: [EXPERT] }) };
 } };
 
@@ -113,8 +117,9 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       topic: "谁拥有否决权", expectedVersion: 1, requestId: "topic-1",
     });
     expect(confirmed).toMatchObject({ version: 2, currentStep: "experts", topicVersionId: expect.any(String) });
-    expect(confirmed.selectedExpertIds).toEqual([EXPERT]);
-    expect(modelCalls.some((call) => JSON.parse(call.user).operation === "recommend_interview_experts")).toBe(true);
+    expect(confirmed.selectedExpertIds).toHaveLength(3);
+    expect(confirmed.selectedExpertIds.every((id) => id.startsWith("itv-generated-expert"))).toBe(true);
+    expect(modelCalls.some((call) => JSON.parse(call.user).operation === "generate_interview_experts")).toBe(true);
 
     const replay = await first.runtime.confirmTopic({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
@@ -156,7 +161,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       topic: command.topic, expectedVersion: 1, requestId: command.requestId,
     });
     expect(recovered).toMatchObject({ version: 2, topic: command.topic, currentStep: "experts" });
-    expect(recovered.expertCandidates.map((candidate) => candidate.expertId)).toEqual([EXPERT]);
+    expect(recovered.expertCandidates).toHaveLength(3);
     await first.checkpointer.end();
     await recreated.checkpointer.end();
   });
@@ -190,9 +195,9 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const advanced = await recreated.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [EXPERT], expectedVersion: replay.version, requestId: "experts-after-generation-crash",
+      expertIds: [replay.expertCandidates[0]!.expertId], expectedVersion: replay.version, requestId: "experts-after-generation-crash",
     });
-    expect(advanced).toMatchObject({ currentStep: "questions", selectedExpertIds: [EXPERT], version: 3 });
+    expect(advanced).toMatchObject({ currentStep: "questions", selectedExpertIds: [replay.expertCandidates[0]!.expertId], version: 3 });
     expect(advanced.questionCandidates).toHaveLength(3);
     await first.checkpointer.end();
     await recreated.checkpointer.end();
@@ -210,7 +215,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const experts = await first.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [EXPERT], expectedVersion: topic.version, requestId: "experts-terminal-crash",
+      expertIds: [topic.expertCandidates[0]!.expertId], expectedVersion: topic.version, requestId: "experts-terminal-crash",
     });
     const command = {
       kind: "confirm_questions" as const,
@@ -261,8 +266,8 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     ]);
     expect(firstConfirmed.interviewId).toBe(first.interviewId);
     expect(secondConfirmed.interviewId).toBe(second.interviewId);
-    expect(firstConfirmed.expertCandidates.map((item) => item.expertId)).toEqual([EXPERT]);
-    expect(secondConfirmed.expertCandidates.map((item) => item.expertId)).toEqual([EXPERT]);
+    expect(firstConfirmed.expertCandidates).toHaveLength(3);
+    expect(secondConfirmed.expertCandidates).toHaveLength(3);
     await setup.checkpointer.end();
   });
 
@@ -274,15 +279,16 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const topic = await setup.runtime.confirmTopic({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
       topic: "旧主题", expectedVersion: 1, requestId: "topic-revision-1" });
-    expect(topic.expertCandidates.map((item) => item.expertId)).toEqual([EXPERT]);
+    expect(topic.expertCandidates).toHaveLength(3);
+    const generatedExpertId = topic.expertCandidates[0]!.expertId;
     expect(topic.expertCandidates[0]).toMatchObject({
-      agentDefinitionId: EXPERT, agentVersion: EXPERT_VERSION,
+      agentDefinitionId: generatedExpertId, agentVersion: generatedExpertId,
       materialContextPackId: null, materialVersion: null,
     });
     const experts = await setup.runtime.confirmExperts({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [EXPERT], expectedVersion: 2, requestId: "experts-revision-1" });
+      expertIds: [generatedExpertId], expectedVersion: 2, requestId: "experts-revision-1" });
     expect(experts.questionCandidates).toHaveLength(3);
-    expect(new Set(experts.questionCandidates.map((item) => item.expertId))).toEqual(new Set([EXPERT]));
+    expect(new Set(experts.questionCandidates.map((item) => item.expertId))).toEqual(new Set([generatedExpertId]));
     const snapshot = await asOwner((client) => client.query<{
       agent_definition_id: string; agent_version: string;
       material_context_pack_id: string | null; material_version: string | null;
@@ -295,7 +301,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       [ORG, created.interviewId],
     ));
     expect(snapshot.rows).toEqual([{
-      agent_definition_id: EXPERT, agent_version: EXPERT_VERSION,
+      agent_definition_id: generatedExpertId, agent_version: generatedExpertId,
       material_context_pack_id: null, material_version: null,
     }]);
     const editedQuestions = experts.questionCandidates.map((question, index) => index === 0
@@ -307,7 +313,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     });
     const revisedExperts = await setup.runtime.confirmExperts({
       orgId: ORG, actorId: USER, interviewId: created.interviewId,
-      expertIds: [EXPERT], expectedVersion: 4, requestId: "experts-revision-2",
+      expertIds: [generatedExpertId], expectedVersion: 4, requestId: "experts-revision-2",
     });
     expect(revisedExperts.revisionId).not.toBe(questions.revisionId);
     expect(revisedExperts.questionCandidates).toEqual(editedQuestions);
