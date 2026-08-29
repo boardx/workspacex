@@ -350,7 +350,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     const experts = await this.repo.listVisibleExperts({
       orgId: toOrgId(input.orgId), viewerUserId: input.actorId,
     });
-    if (!experts.length || !this.modelProvider || !this.modelId) {
+    if (!experts.length) {
       throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
     }
     const topic = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
@@ -361,37 +361,43 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       return result.rows[0]?.topic?.trim() ?? "";
     });
     if (!topic) throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
-    let recommendedExpertIds: readonly string[];
-    try {
-      const response = await this.model.complete({
-        modelProvider: this.modelProvider,
-        modelId: this.modelId,
-        system: "你是访谈研究助手。只能从候选数字专家中推荐与主题最相关且视角互补的 3 至 5 位。只返回 JSON：{\"expertIds\":[\"id\"]}。",
-        user: JSON.stringify({
-          operation: "recommend_interview_experts",
-          topic,
-          experts: experts.map((expert) => ({
-            expertId: expert.expertId,
-            displayName: expert.displayName,
-            role: expert.role,
-            domains: expert.domains,
-          })),
-        }),
-      });
-      const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(response.text.trim());
-      const parsed = JSON.parse(fenced?.[1]?.trim() ?? response.text) as { expertIds?: unknown };
-      const visibleIds = new Set(experts.map((expert) => expert.expertId));
-      recommendedExpertIds = Array.isArray(parsed.expertIds)
-        ? Array.from(new Set(parsed.expertIds.filter((id): id is string => typeof id === "string" && visibleIds.has(id))))
-        : [];
-    } catch (error) {
-      if (error instanceof ModelCallError || error instanceof SyntaxError) {
-        throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    let recommendedExpertIds: readonly string[] = [];
+    if (this.modelProvider && this.modelId) {
+      try {
+        const response = await this.model.complete({
+          modelProvider: this.modelProvider,
+          modelId: this.modelId,
+          system: "你是访谈研究助手。只能从候选数字专家中推荐与主题最相关且视角互补的 3 至 5 位。只返回 JSON：{\"expertIds\":[\"id\"]}。",
+          user: JSON.stringify({
+            operation: "recommend_interview_experts",
+            topic,
+            experts: experts.map((expert) => ({
+              expertId: expert.expertId,
+              displayName: expert.displayName,
+              role: expert.role,
+              domains: expert.domains,
+            })),
+          }),
+        });
+        const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(response.text.trim());
+        const parsed = JSON.parse(fenced?.[1]?.trim() ?? response.text) as { expertIds?: unknown };
+        const visibleIds = new Set(experts.map((expert) => expert.expertId));
+        recommendedExpertIds = Array.isArray(parsed.expertIds)
+          ? Array.from(new Set(parsed.expertIds.filter((id): id is string => typeof id === "string" && visibleIds.has(id))))
+          : [];
+      } catch (error) {
+        if (!(error instanceof ModelCallError || error instanceof SyntaxError)) {
+          throw error;
+        }
+        console.warn("Digital interview expert recommendation unavailable; continuing with manual selection", {
+          interviewId: input.interviewId,
+          reason: error instanceof ModelCallError ? error.code : "INVALID_MODEL_RESPONSE",
+        });
       }
-      throw error;
-    }
-    if (!recommendedExpertIds.length) {
-      throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    } else {
+      console.warn("Digital interview expert recommendation is not configured; continuing with manual selection", {
+        interviewId: input.interviewId,
+      });
     }
     await this.db.withTenant(toOrgId(input.orgId), async (session) => {
       await this.lockRequest(
