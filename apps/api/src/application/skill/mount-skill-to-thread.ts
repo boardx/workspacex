@@ -20,10 +20,15 @@
  * ⚠ 临时挂载**不构成提权**（R9）：本用例不引入任何新的数据范围判定，
  *   运行时读数据仍然只能走 `ContextApiPort`（I-25），与蓝本绑定同一条通路、同一套三层权限。
  */
-import { mountOne, type ThreadSkillMount } from "../../domain/skill/thread-mount";
+import { activeMounts, mountOne, type ThreadSkillMount } from "../../domain/skill/thread-mount";
 import type { ThreadMountAuthorization } from "./authorize-thread-mount";
 import type { SkillErrorCode } from "../../domain/skill/declarative-contract";
-import type { SecurityAuditPort, SkillVisibilityPort, ThreadMountStorePort } from "./ports";
+import {
+  ThreadMountConcurrentMountError,
+  type SecurityAuditPort,
+  type SkillVisibilityPort,
+  type ThreadMountStorePort,
+} from "./ports";
 
 export interface MountSkillToThreadInput {
   readonly threadId: string;
@@ -132,6 +137,44 @@ export async function mountSkillToThread(
     newlyMounted.push(mounted);
   }
 
-  await deps.mounts.save(input.threadId, next);
+  try {
+    await deps.mounts.save(input.threadId, next);
+  } catch (error) {
+    // 内存里的乐观锁比对（上面 `expectedFingerprint`）只挡得住「先后到达」的写，
+    // 挡不住「同时到达」的写——两个请求都读到同一份 `current`、都通过了比对。
+    // `ThreadMountConcurrentMountError` 是存储层唯一索引替它们分出的先后：
+    // 慢的那一个在这里落地成客户端已经认识、已经会重新弹出选择器的冲突码，
+    // 而不是让重复的活跃挂载真的写进去。
+    if (error instanceof ThreadMountConcurrentMountError) {
+      // issue #2350 追加实测（fullstack-smoke `skill-agent-import-usecase-audit.
+      // spec.ts` ④ 等四个 spec 并发挂同一个种子 skill 到同一条默认线程，真实撞见
+      // 这条路径）——「慢的那一个」不一定真的与赢家冲突：如果赢家写进去的**正是**
+      // 这次请求自己也想要的那一行（同一 skillId、同一 versionId、仍然活跃），
+      // 这次调用的目标其实已经达成，只是不是由这次写操作亲手达成的。原样报
+      // `SKILL_VERSION_CHANGED` 会让调用方（真实用户或另一个并发标签页）看到一个
+      // 「请重新选择」的假冲突——它此刻已经拥有它想要的那个挂载状态，没有任何
+      // 東西需要它重新选。这里重读一次当前状态，只有当**全部**目标 skill 都已经
+      // 以相同版本活跃时才把这次调用改判成功；只要有一个对不上（真的是别人动了
+      // 别的东西），仍然诚实报冲突，不吞掉真正需要用户重新确认的情形。
+      const settled = activeMounts(await deps.mounts.load(input.threadId));
+      const achieved = newlyMounted.every((wanted) => settled.some(
+        (m) => m.skillId === wanted.skillId && m.versionId === wanted.versionId,
+      ));
+      if (achieved) {
+        return {
+          ok: true,
+          mounts: newlyMounted.map((wanted) => settled.find(
+            (m) => m.skillId === wanted.skillId && m.versionId === wanted.versionId,
+          )!),
+        };
+      }
+      return {
+        ok: false,
+        code: "SKILL_VERSION_CHANGED",
+        reason: "挂载列表已被他人改动：与另一次并发挂载冲突，不得静默产生重复挂载",
+      };
+    }
+    throw error;
+  }
   return { ok: true, mounts: newlyMounted };
 }
