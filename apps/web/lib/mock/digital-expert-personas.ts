@@ -9,7 +9,18 @@ interface PersonaSource {
   readonly category: string;
   readonly specialty: string;
   readonly bio: string;
-  readonly personality: { readonly locations: string };
+  readonly personality: { readonly locations: string; readonly age: number; readonly occupation: string };
+  readonly goals: readonly string[];
+  readonly interests: readonly string[];
+  readonly pain_points: readonly string[];
+  readonly motivations: readonly string[];
+  readonly influences: readonly string[];
+  readonly personality_traits: {
+    readonly introvert_extrovert: number;
+    readonly analytical_creative: number;
+    readonly busy_time_rich: number;
+  };
+  readonly service_value: string;
   readonly typical_advice: string;
 }
 
@@ -50,6 +61,15 @@ export function toDigitalExpertCatalogRow(expert: MockDigitalExpertPersona): Dig
     bio: expert.bio,
     location: expert.location,
     typicalAdvice: expert.typicalAdvice,
+    age: expert.age,
+    occupation: expert.occupation,
+    goals: expert.goals,
+    interests: expert.interests,
+    painPoints: expert.painPoints,
+    motivations: expert.motivations,
+    influences: expert.influences,
+    personalityTraits: expert.personalityTraits,
+    serviceValue: expert.serviceValue,
   };
 }
 
@@ -70,5 +90,18 @@ function toCatalogRow(source: PersonaSource): MockDigitalExpertPersona {
     bio: source.bio.replace(/\s+/g, " ").trim(),
     location: source.personality.locations,
     typicalAdvice: source.typical_advice,
+    age: source.personality.age,
+    occupation: source.personality.occupation,
+    goals: [...source.goals],
+    interests: [...source.interests],
+    painPoints: [...source.pain_points],
+    motivations: [...source.motivations],
+    influences: [...source.influences],
+    personalityTraits: {
+      introvertExtrovert: source.personality_traits.introvert_extrovert,
+      analyticalCreative: source.personality_traits.analytical_creative,
+      busyTimeRich: source.personality_traits.busy_time_rich,
+    },
+    serviceValue: source.service_value,
   };
 }
