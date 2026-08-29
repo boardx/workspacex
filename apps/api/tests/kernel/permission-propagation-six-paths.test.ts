@@ -1103,7 +1103,19 @@ describe("lint-permission-paths: counter-proof", () => {
     // 下只有 `copilotkit-agui.controller.ts` 引用写路径；（d）没有任何 `src/interface/`
     // 文件引用读路径（一旦 F977 之后接了真实 GET 路由，这条会先红，提醒改掉这条豁免）。
     // 删那个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(82);
+    //
+    // ⚠ Raised 82 -> 83 by issue #2346（平台 skill 目录种子改成 API 进程启动自愈）：
+    // 新增 `ensure-platform-skill-catalog.ts`（`organizations`/`org_memberships`/
+    // `skills`/`skill_versions`/`skill_version_files`/`capability_listings`）。这个
+    // 逻辑此前活在不被这条 lint 扫描的 `apps/api/scripts/` 目录（`backfill-platform-
+    // org.ts`/`backfill-platform-skills.ts`），行为逐字未变，只是搬进 `src/
+    // infrastructure/` 后第一次被扫到。比其余条目的保证更强：没有一个导出函数接受
+    // org id 参数，每条 SQL 语句的 org id 实参都是唯一写死的 `PLATFORM_ORG_ID`，不
+    // 存在"哪个租户"这个问题。被强制的前提：`tests/skill/ensure-platform-skill-
+    // catalog-guard.test.ts` 机械断言（a）只命名上述六张表；（b）没有导出函数签名里
+    // 出现 orgId/tenantId 形参；（c）SQL 参数数组里没有可疑的调用方可控标识符；（d）
+    // 豁免条目确实存在于本文件。删那个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(83);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),
