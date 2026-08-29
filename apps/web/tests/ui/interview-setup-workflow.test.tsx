@@ -353,10 +353,22 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     fireEvent.click(screen.getByTestId("itv-confirm-questions"));
 
     await waitFor(() => expect(transport.requests("POST", "/experts/confirm")).toHaveLength(1));
-    expect(transport.requests("POST", "/experts/confirm")[0]!.body).toMatchObject({
+    const confirmBody = interview.operations.confirmDigitalInterviewExperts.in.parse({
+      interviewId: topicPendingInterview.interviewId,
+      ...transport.requests("POST", "/experts/confirm")[0]!.body as Record<string, unknown>,
+    });
+    expect(confirmBody).toMatchObject({
       expertIds: [expertCandidate.expertId, expect.stringMatching(/^mock-persona:/)],
       addedExperts: [expect.objectContaining({ displayName: "陈宇轩", expertId: expect.stringMatching(/^mock-persona:/) })],
     });
+    expect(Object.keys(confirmBody.addedExperts[0]!)).toEqual([
+      "expertId", "agentDefinitionId", "agentVersion", "initials", "displayName", "role", "domains",
+      "materialContextPackId", "materialVersion", "materialBoundary", "exploratory",
+    ]);
+    expect(confirmBody.addedExperts[0]).not.toHaveProperty("category");
+    expect(confirmBody.addedExperts[0]).not.toHaveProperty("bio");
+    expect(confirmBody.addedExperts[0]).not.toHaveProperty("location");
+    expect(confirmBody.addedExperts[0]).not.toHaveProperty("typicalAdvice");
     expect(transport.requests("POST", "/questions/confirm")[0]!.body).toMatchObject({ questions: [defaultQuestion] });
   });
 
