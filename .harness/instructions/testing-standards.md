@@ -72,6 +72,12 @@ config 覆盖，否则 `lint-spec-gate-coverage.mjs` 会挡：一个没人跑的
 纯取证/截图脚本（不承担 gate 职责）可以登记进该脚本的 `EXEMPTIONS` 并写明理由
 （先例：`chat-main-shots.spec.ts` / `vz-fabric-shots.spec.ts`）。
 
+**登录/账号**：新 spec 若不需要断言严格权限边界矩阵、也不需要与其它 feature 隔离账号，
+优先用开发模式预设账号（`pnpm harness dev-mode seed` 种一次 + `apps/web/e2e/dev-mode-login.ts`
+的 `loginAsDevRole(page, role)`），不要在文件里再复制一份 `loginAs(page, email, password)`。
+需要严格权限矩阵/并发隔离的场景，仍然走 `fullstack-smoke-fixture.ts` 那套专属账号——两者
+的取舍与边界见 `.harness/instructions/dev-mode-testing.md`。
+
 ## 假阳性防护
 - 避免只检查"进程没崩";要检查"产出符合预期"。
 - 验证脚本失败时保留输出到 sprint 的 `evidence/`,便于复盘。

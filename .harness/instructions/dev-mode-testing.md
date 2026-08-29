@@ -30,8 +30,11 @@ repo 提交，共用同一个组织（`Dev Mode Org`）。
 ### 1. 种账号（只需跑一次，幂等，已存在的邮箱会跳过）
 
 ```bash
-WORKSPACEX_DEV_MODE=1 pnpm --filter api exec tsx scripts/seed-dev-mode-accounts.ts
+pnpm harness dev-mode seed
 ```
+
+（等价于直接跑 `WORKSPACEX_DEV_MODE=1 pnpm --filter api exec tsx scripts/seed-dev-mode-accounts.ts`——
+harness 命令只是包了一层，方便发现，门控/幂等逻辑仍在种子脚本本身。）
 
 生产环境（`NODE_ENV=production`）直接抛错退出，不种任何东西——与
 `KERNEL_ALLOW_TEST_PRINCIPAL` 同一套硬门约定。不传 `WORKSPACEX_DEV_MODE=1`

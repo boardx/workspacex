@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { identity } from "@repo/contracts";
 import {
   DEV_MODE_ACCOUNTS,
@@ -7,6 +7,10 @@ import {
   getDevModeAccount,
   isDevModeEnabled,
 } from "../src/index";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("DEV_MODE_ACCOUNTS", () => {
   it("有且仅有一个账号对应每一个 OrgRole——4 个,不多不少", () => {
@@ -39,42 +43,24 @@ describe("DEV_MODE_ACCOUNTS", () => {
 
 describe("生产环境硬门", () => {
   it("NODE_ENV=production 时 assertDevModeAllowed 抛错", () => {
-    const prev = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
-    try {
-      expect(() => assertDevModeAllowed()).toThrow(/production/);
-    } finally {
-      process.env.NODE_ENV = prev;
-    }
+    vi.stubEnv("NODE_ENV", "production");
+    expect(() => assertDevModeAllowed()).toThrow(/production/);
   });
 
   it("非 production 时 assertDevModeAllowed 不抛错", () => {
-    const prev = process.env.NODE_ENV;
-    process.env.NODE_ENV = "test";
-    try {
-      expect(() => assertDevModeAllowed()).not.toThrow();
-    } finally {
-      process.env.NODE_ENV = prev;
-    }
+    vi.stubEnv("NODE_ENV", "test");
+    expect(() => assertDevModeAllowed()).not.toThrow();
   });
 
   it("isDevModeEnabled 要求显式开关 + 非 production 同时成立", () => {
-    const prevEnv = process.env.NODE_ENV;
-    const prevFlag = process.env.WORKSPACEX_DEV_MODE;
-    try {
-      process.env.NODE_ENV = "test";
-      delete process.env.WORKSPACEX_DEV_MODE;
-      expect(isDevModeEnabled()).toBe(false);
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("WORKSPACEX_DEV_MODE", "");
+    expect(isDevModeEnabled()).toBe(false);
 
-      process.env.WORKSPACEX_DEV_MODE = "1";
-      expect(isDevModeEnabled()).toBe(true);
+    vi.stubEnv("WORKSPACEX_DEV_MODE", "1");
+    expect(isDevModeEnabled()).toBe(true);
 
-      process.env.NODE_ENV = "production";
-      expect(isDevModeEnabled()).toBe(false);
-    } finally {
-      process.env.NODE_ENV = prevEnv;
-      if (prevFlag === undefined) delete process.env.WORKSPACEX_DEV_MODE;
-      else process.env.WORKSPACEX_DEV_MODE = prevFlag;
-    }
+    vi.stubEnv("NODE_ENV", "production");
+    expect(isDevModeEnabled()).toBe(false);
   });
 });

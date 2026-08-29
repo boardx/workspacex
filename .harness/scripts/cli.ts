@@ -31,6 +31,7 @@ import { gateMutationProbe } from "./gate-mutation-probe";
 import { lockStatus, lockAcquire, lockHeartbeat, lockRelease } from "./coordinator-lock";
 import { moduleLockStatus, moduleLockAcquire, moduleLockHeartbeat, moduleLockRelease } from "./module-lock";
 import { graphCommand } from "./graph-command";
+import { devMode } from "./dev-mode";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -57,6 +58,7 @@ async function main(): Promise<void> {
     case "sweep-docker":    sweepDocker(args); break;
     case "dep-graph":      depGraph(args); break;
     case "graph":          graphCommand(args); break;
+    case "dev-mode":       devMode(args); break;
     case "doctor":         doctor(args); break;
     case "archive-passing": archivePassing(args); break;
     case "phase-readiness": phaseReadiness(args); break;
