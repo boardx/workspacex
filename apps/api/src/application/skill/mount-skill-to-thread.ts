@@ -23,7 +23,12 @@
 import { mountOne, type ThreadSkillMount } from "../../domain/skill/thread-mount";
 import type { ThreadMountAuthorization } from "./authorize-thread-mount";
 import type { SkillErrorCode } from "../../domain/skill/declarative-contract";
-import type { SecurityAuditPort, SkillVisibilityPort, ThreadMountStorePort } from "./ports";
+import {
+  ThreadMountConcurrentMountError,
+  type SecurityAuditPort,
+  type SkillVisibilityPort,
+  type ThreadMountStorePort,
+} from "./ports";
 
 export interface MountSkillToThreadInput {
   readonly threadId: string;
@@ -132,6 +137,22 @@ export async function mountSkillToThread(
     newlyMounted.push(mounted);
   }
 
-  await deps.mounts.save(input.threadId, next);
+  try {
+    await deps.mounts.save(input.threadId, next);
+  } catch (error) {
+    // 内存里的乐观锁比对（上面 `expectedFingerprint`）只挡得住「先后到达」的写，
+    // 挡不住「同时到达」的写——两个请求都读到同一份 `current`、都通过了比对。
+    // `ThreadMountConcurrentMountError` 是存储层唯一索引替它们分出的先后：
+    // 慢的那一个在这里落地成客户端已经认识、已经会重新弹出选择器的冲突码，
+    // 而不是让重复的活跃挂载真的写进去。
+    if (error instanceof ThreadMountConcurrentMountError) {
+      return {
+        ok: false,
+        code: "SKILL_VERSION_CHANGED",
+        reason: "挂载列表已被他人改动：与另一次并发挂载冲突，不得静默产生重复挂载",
+      };
+    }
+    throw error;
+  }
   return { ok: true, mounts: newlyMounted };
 }

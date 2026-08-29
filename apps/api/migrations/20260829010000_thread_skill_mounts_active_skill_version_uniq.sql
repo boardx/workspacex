@@ -1,0 +1,35 @@
+-- 修：`mountSkillToThread`（F65）的乐观并发检查是纯内存比对（load → 算指纹 → 比对
+-- → save，见 `application/skill/mount-skill-to-thread.ts`），两次真正并发的请求都能
+-- 在同一份 `current` 上通过检查，然后各自 INSERT 一条新的 `thread_skill_mounts` 行——
+-- 结果是同一条线程上出现两条 `removed_at IS NULL` 的行、且 `skill_id`（连同当时解析出
+-- 的 `version_id`）相同。
+--
+-- 复现路径：`skill-agent-import-usecase-audit.spec.ts` ④ 与另外几个 fullstack-smoke
+-- spec（`core-journey-05-voice-skill-multichannel-context.spec.ts` /
+-- `feedback-loop-smoke.spec.ts` / `skill-review-gate.spec.ts`）都会挂载同一个种子 skill
+-- （`FULLSTACK_E2E.mountableSkillId`），且都用 `?projectId=` 不带 `thread=` 打开 chat——
+-- 落到同一条默认线程。Playwright 按文件分 worker 并行跑，这几个 spec 文件的挂载请求
+-- 因此可能真正并发落在同一条线程、同一个 skill（同一个当时生效的版本）上，触发上面
+-- 那条竞态。前端 `ChatSkillMountPanel` 按 `entry.skillId` 出 `data-testid`（`key` 用的是
+-- `entry.mountId`，两者不是一回事），两条挂载记录 ⇒ 两个共享同一个 testid 的 chip ⇒
+-- `getByTestId(...)` 撞上 Playwright strict mode violation。
+--
+-- 这不只是测试并发的巧合：任何两个客户端（两个标签页、两次几乎同时的双击）
+-- 都能触发同一条竞态，是一个真实的产品级并发 bug，不是测试专属的假象。
+--
+-- ⚠ 唯一键覆盖 `skill_id + version_id`，**不是**只覆盖 `skill_id`：#1559 的真库回归
+--   （`thread-mount-run-injection-real-db.test.ts` ③）故意用原始 SQL 写过一条
+--   「同一 skill_id、不同 version_id」的活跃挂载，模拟 #1534 删掉外键之后可能出现的
+--   历史脏数据，用来验证注入读口那道 JOIN 会把版本对不上的行过滤掉——那是一条读口
+--   要能容忍的既有数据形状，不是本次要挡的竞态（本次竞态里两个并发请求解析出的
+--   `currentVersionId` 在正常情况下相同，因为两次请求之间没有人重新发布这个 skill）。
+--
+-- 修法：把「同一条线程上，同一个 skill 的同一个版本至多一条活跃挂载」这条不变量
+-- 下沉到数据库约束——应用层的乐观锁负责「大多数情况下给用户一个干净的冲突提示」，
+-- 数据库这道部分唯一索引负责「即使两次请求真的并发到同一微秒，也不可能都插入成功」。
+-- `pg-thread-mount-store.ts` 捕获这条约束的唯一键冲突，转成
+-- `ThreadMountConcurrentMountError`，用例把它映射回已有的 `SKILL_VERSION_CHANGED`
+-- 错误码（客户端已经会对这个码重新弹出选择器、显示错误、可重试——不需要新错误码）。
+CREATE UNIQUE INDEX IF NOT EXISTS thread_skill_mounts_active_skill_version_uniq
+  ON thread_skill_mounts (org_id, thread_id, skill_id, version_id)
+  WHERE removed_at IS NULL;

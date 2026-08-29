@@ -418,6 +418,22 @@ export interface ThreadMountStorePort {
   save(threadId: string, mounts: readonly ThreadSkillMount[]): Promise<void>;
 }
 
+/**
+ * `save()` 抛这个：两个真正并发的挂载请求都在同一份 `load()` 快照上通过了
+ * 用例层的乐观锁比对（那道比对只在内存里发生），实现层的唯一索引
+ * （`thread_skill_mounts_active_skill_uniq`）替它们分出了先后。
+ *
+ * ⚠ 定义在 application 层，不是 infrastructure 层：这条错误要被
+ *   `mount-skill-to-thread.ts`（application）捕获并翻译成 `SkillErrorCode`，
+ *   而 application 不能 import infrastructure（洋葱方向）。实现（`pg-thread-mount-store.ts`）
+ *   反过来 import 这里，方向对了。
+ */
+export class ThreadMountConcurrentMountError extends Error {
+  constructor(readonly skillId: string) {
+    super(`skill ${skillId} 已被另一次并发请求挂载到同一线程，拒绝写入第二条活跃挂载`);
+  }
+}
+
 /* ═══════════════════ F66：版本链 / 引用枚举 / 停用恢复 / 硬删 ═══════════════════ */
 
 /**
