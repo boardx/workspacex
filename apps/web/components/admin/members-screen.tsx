@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ArrowUpRight, EyeOff, ScrollText, FileClock, Gauge, UserPlus } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
-import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
+import { AdminModal, Toast, Field } from "./panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,17 +14,21 @@ import { UsageMonitorTab } from "./usage-monitor-tab";
 import { LimitPolicyTab } from "./limit-policy-tab";
 import { MemberQuotaTab } from "./member-quota-tab";
 import { AdminBoundaryLive } from "./admin-boundary-live";
-import {
-  MEMBERS, ADMIN_ACCESS_LOGS, ADMIN_PROJECT_ACCESS_COUNT, type MemberRow,
-} from "@/lib/mock/admin";
 /**
  * F10：待激活行与 `[邀请成员]` 入口的数据取自 `lib/mock/org-admin.ts`，
  * **不在这里再抄一份成员名单**。
  *
- * ⚠ 这一层仍有一处既存的重复：本屏的配额区读 `lib/mock/admin.MEMBERS`（F06 的），
- *   而邀请/待激活区读 `lib/mock/org-admin.ORG_MEMBERS`（原型那份）。
- *   两份名单的**人**不一样，所以现在不是同一事实的两个副本；但它们迟早会被要求一致。
- *   这一点作为发现记在这里，收敛属于 F11（成员表整并）的范围，不在 F10 里顺手做。
+ * ⚠ 这一层仍有一处既存的重复：邀请/待激活区读 `lib/mock/org-admin.ORG_MEMBERS`
+ *   （原型那份），配额区已由 `MemberQuotaTab` 接真栈。收敛属于 F11（成员表整并）
+ *   的范围，不在这里顺手做。
+ *
+ * ⚠ 死代码清理（管理后台 mock 审查）：本文件原来还从 `lib/mock/admin` 引入
+ *   `MEMBERS`/`ADMIN_ACCESS_LOGS`/`ADMIN_PROJECT_ACCESS_COUNT`，分别喂给「单独提额」
+ *   弹层（`quotaOf`/`openQuota`）与「我的访问记录」抽屉（`accessOpen`）——但全文件
+ *   搜不到任何调用点会把 `openQuota` 或 `setAccessOpen(true)` 真正调用一次，两块 UI
+ *   永远不可达，是纯粹的死代码。它们的真实等价物已经分别落在 `MemberQuotaTab`
+ *   （F160，真实提额）与 `AdminBoundaryLive`（F163，真实 `listMyAccessLog`）里，
+ *   一并删除，不再从 `lib/mock/admin` 读任何东西。
  */
 import {
   ORG_MEMBERS, ORG_MEMBER_ACTIVE, ORG_MEMBER_TOTAL, ORG_ROLES_INVITABLE, TEAMS,
@@ -32,12 +36,6 @@ import {
 } from "@/lib/mock/org-admin";
 import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import type { UiState } from "@/lib/ui-state";
-
-function quotaTone(pct: number): "primary" | "warning" | "destructive" {
-  if (pct >= 95) return "destructive";
-  if (pct >= 80) return "warning";
-  return "primary";
-}
 
 /**
  * 待激活行 = 名单里**不是** `active` 的那些。
@@ -80,13 +78,7 @@ export function MembersScreen({ state }: { state: UiState }) {
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [inviteRole, setInviteRole] = React.useState<OrgRole>("consultant");
   const [inviteTeam, setInviteTeam] = React.useState<Team>(TEAMS[0]);
-  const [limits, setLimits] = React.useState<Record<string, number>>({});
-  const [quotaOf, setQuotaOf] = React.useState<MemberRow | null>(null);
-  const [newLimit, setNewLimit] = React.useState("");
-  const [accessOpen, setAccessOpen] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
-
-  const openQuota = (m: MemberRow) => { setQuotaOf(m); setNewLimit((limits[m.id] ?? m.limitM).toFixed(1)); };
 
   return (
     <AdminScreen
@@ -295,67 +287,6 @@ export function MembersScreen({ state }: { state: UiState }) {
             )}
           </div>
         </AdminModal>
-      )}
-
-      {/* 单独提额 */}
-      {quotaOf && (
-        <AdminModal
-          testid="admin-member-quota-dialog"
-          title={`给 ${quotaOf.name} 单独提额`}
-          subtitle={`当前 ${quotaOf.usedM.toFixed(1)}/${(limits[quotaOf.id] ?? quotaOf.limitM).toFixed(1)}M · ${quotaOf.orgRole} · ${quotaOf.team}`}
-          onClose={() => setQuotaOf(null)}
-          footer={
-            <>
-              <Button size="sm" variant="ghost" onClick={() => setQuotaOf(null)} data-testid="admin-member-quota-cancel">取消</Button>
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => {
-                  const v = parseFloat(newLimit);
-                  if (!Number.isFinite(v) || v <= 0) return;
-                  setLimits((p) => ({ ...p, [quotaOf.id]: v }));
-                  setToast(`已为 ${quotaOf.name} 单独提额至 ${v.toFixed(1)}M；本次操作已记入审计`);
-                  setQuotaOf(null);
-                }}
-                data-testid="admin-member-quota-save"
-              >
-                确认提额
-              </Button>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            <Field
-              id="admin-member-quota-input"
-              label="新的月度额度（百万 token）"
-              type="number"
-              value={newLimit}
-              onChange={(e) => setNewLimit(e.currentTarget.value)}
-            />
-            <p className="text-11 text-muted-foreground">
-              提额不会绕过个人层封闭：即便你调高他的额度，仍看不到他个人层的内容，只看得到计数与用量。
-            </p>
-          </div>
-        </AdminModal>
-      )}
-
-      {/* 我的访问记录抽屉 */}
-      {accessOpen && (
-        <AdminDrawer testid="admin-members-access-drawer" title="我的项目层访问记录" subtitle="每一条都对该项目负责人可见，不可删除" onClose={() => setAccessOpen(false)}>
-          <div className="flex flex-col gap-2" data-testid="admin-members-access-full">
-            <p className="text-11 text-muted-foreground">本月共 {ADMIN_ACCESS_LOGS.length} 次升到项目层读取内容。升项目层是获取内容的唯一路径。</p>
-            {ADMIN_ACCESS_LOGS.map((log) => (
-              <div key={log.id} className="flex flex-col gap-1 rounded-md border border-border-subtle bg-panel p-2.5" data-testid="admin-members-access-item">
-                <div className="flex items-center gap-2">
-                  <span className="text-12 font-medium">{log.project}</span>
-                  <Badge tone="primary">对负责人 {log.lead} 可见</Badge>
-                  <span className="ml-auto text-11 text-muted-foreground">{log.when}</span>
-                </div>
-                <p className="text-11 text-muted-foreground">读取范围：项目库文档与转写（不含任何成员个人层）。理由已随访问写入审计。</p>
-              </div>
-            ))}
-          </div>
-        </AdminDrawer>
       )}
 
       <Toast message={toast} testid="admin-members-toast" onDismiss={() => setToast(null)} />

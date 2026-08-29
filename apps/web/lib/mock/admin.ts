@@ -426,20 +426,10 @@ export const MEMBERS: MemberRow[] = [
   { id: "mb-hejing", name: "何静", orgRole: "合规负责人", team: "平台组", usedM: 0.6, limitM: 2.0, privateEntries: 9 },
 ];
 
-/** 管理员本月的项目层访问记录（可读但必留痕、对负责人可见） */
-export interface AdminAccessLog {
-  id: string;
-  project: string;
-  lead: string;
-  when: string;
-  visibleToLead: boolean;
-}
-export const ADMIN_ACCESS_LOGS: AdminAccessLog[] = [
-  { id: "al-1", project: "欧洲市场进入", lead: "周衡", when: "今天 09:14", visibleToLead: true },
-  { id: "al-2", project: "华东仓网优化", lead: "陈宇", when: "昨天 16:02", visibleToLead: true },
-  { id: "al-3", project: "储能资质尽调", lead: "周衡", when: "3 天前", visibleToLead: true },
-];
-export const ADMIN_PROJECT_ACCESS_COUNT = 3;
+// ⚠ 死代码清理（管理后台 mock 审查）：此前这里还有 `AdminAccessLog`/`ADMIN_ACCESS_LOGS`/
+// `ADMIN_PROJECT_ACCESS_COUNT`，喂给 members-screen.tsx 里一个永远打不开的「我的访问
+// 记录」抽屉（无任何调用点会把它打开，见该文件的清理说明）。真实等价物是
+// `AdminBoundaryLive` 组件读的 `GET /admin-access-log/mine`（F163），已删除这三个死引用。
 
 // ─────────────────────────────────────────────────────────────────────────
 // 反馈与迭代（UC-17.6）
