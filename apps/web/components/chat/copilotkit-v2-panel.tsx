@@ -2259,6 +2259,11 @@ function CopilotKitV2PanelBody({
                 {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
                   <ChatSkillMountPanel
                     variant="pill"
+                    /* issue #2321 追加 —— composer 贴着视口底部，浮层往下开
+                       （默认值）会开到视口外/被裁掉，用户看不见。同一行的
+                       `CapabilityPicker` 上面就传了 `side="up"` 解决同一个问题，
+                       这里补上对称的口子。 */
+                    pickerSide="up"
                     threadId={initialChatThreadId}
                     orgId={orgId}
                     bearer={sessionToken}
