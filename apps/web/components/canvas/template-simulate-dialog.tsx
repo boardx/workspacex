@@ -62,6 +62,26 @@
  * `layoutSource` 由调用方（`template-editor-panel.tsx`）透传 `row.layoutSource`
  * （`listTemplates.out` 契约字段），不是本组件自己查库——与"编辑面板已经有这份数据，
  * 不重新发起一次请求"同一条既有纪律。
+ *
+ * ## ⚠ R2.3（2026-08-29，人类实测反馈）：还没保存过的改动也要算数
+ *
+ * `layoutSource` 是**持久化**字段——只在保存成功那一刻才可能翻成 `"user-edited"`。
+ * 一个从没被定制过的内置模板（`layoutSource` 仍是 `"builtin-derived"` 或
+ * `undefined`），在编辑器里当场拖动/新增/删除区块、**还没点保存**，此时弹窗顶部
+ * 文案明明写着「结果按当前分区结构渲染（含未保存的分区改动）」——但 R2.2 的判据
+ * 只认持久化的 `layoutSource`，会照样走 package 里那份原始几何，把这一刻刚做的
+ * 改动整个吃掉。人类原话：「我在②画布里的改动没生效」，另外也点出了同一根因的
+ * 两个外显症状——「⇄连接符号缺失」「配色/样式对不上」：那两者其实是「真实几何走
+ * fabric.js 手工排版+专属装饰」与「当前草稿走 `buildAutoTemplateSpec` 通用网格」
+ * 两条本就不同的渲染路径，只有当误判成"没改过"、错误地选中了前一条路径时，才会
+ * 显得"和②画布里看到的不一样"——一旦按下面这条判据走上正确的路径，两边就都是
+ * 同一份 `buildAutoTemplateSpec` 产出，天然一致。
+ *
+ * 修法：新增 `sectionsDirty` 参数——调用方（`template-editor-panel.tsx`）传入
+ * "当前草稿分区结构是否已经偏离 `row.sections`"（与顶部「有未保存的改动」横幅
+ * 复用同一次 `JSON.stringify` 比较，不是另起一套判据）。`sectionsDirty` 为真时，
+ * 不管 `layoutSource` 是什么，都走当前分区结构那条分支——这与"这一行迟早会在保存后
+ * 变成 `user-edited`"是同一件事实的两个时间点，提前生效不是新发明的规则。
  */
 
 import * as React from "react";
@@ -113,15 +133,22 @@ export function rewriteTemplateKeyLine(fenceBody: string, previewKey: string): s
  * 永远走」这条不变量，机械门控住，不必每加一个新内置模板都重新手工验证一遍 chat 模拟。
  *
  * ⚠ 判据必须与 `fence-template-resolver.ts` 第 163 行逐字同一个条件——同一件事实两处
- *   声明是本仓已经栽过五次的形状，这里不是巧合对齐，是刻意抄同一行判断。
+ *   声明是本仓已经栽过五次的形状，这里不是巧合对齐，是刻意抄同一行判断。`sectionsDirty`
+ *   是这条判据之外**唯一**加的一层（见文件头 R2.3）：它不改变"内置且未定制过 ⇒ 用真实
+ *   几何"这条基线，只是把"未定制过"的时间窗口从"从未保存过"提前到"这一刻的草稿也没
+ *   偏离已保存版本"。
  */
-export function usesAutoLayoutSpec(templateKey: string, layoutSource: string | undefined): boolean {
+export function usesAutoLayoutSpec(
+  templateKey: string,
+  layoutSource: string | undefined,
+  sectionsDirty = false,
+): boolean {
   const isBuiltinKey = canvas.builtinDisplayName(templateKey) !== undefined;
-  return !(isBuiltinKey && layoutSource !== "user-edited");
+  return sectionsDirty || !(isBuiltinKey && layoutSource !== "user-edited");
 }
 
 export function TemplateSimulateDialog({
-  templateKey, layoutSource, sections, title, promptText, onClose,
+  templateKey, layoutSource, sectionsDirty, sections, title, promptText, onClose,
 }: {
   readonly templateKey: string;
   /**
@@ -130,6 +157,11 @@ export function TemplateSimulateDialog({
    * 什么都不影响它（`canvas.builtinDisplayName` 对非内置 key 恒返回 `undefined`）。
    */
   readonly layoutSource: string | undefined;
+  /**
+   * 当前草稿分区结构是否已经偏离 `row.sections`（见文件头 R2.3）——调用方直接复用
+   * 顶部「有未保存的改动」横幅那次比较，不是本组件另起一套判据。
+   */
+  readonly sectionsDirty: boolean;
   readonly sections: readonly SectionDraft[];
   readonly title: string;
   /** ①栏当前的提示词正文——打开弹窗时用来预填。 */
@@ -175,7 +207,7 @@ export function TemplateSimulateDialog({
         // 见文件头 R2.1/R2.2：未被自定义过的内置模板走真实几何（模块加载时已用真实
         // key 自行注册过），不套自动布局、不重写围栏里的 key；被自定义过的（不管
         // 是不是内置 key）都用当前分区结构。
-        if (usesAutoLayoutSpec(templateKey, layoutSource)) {
+        if (usesAutoLayoutSpec(templateKey, layoutSource, sectionsDirty)) {
           // 组织自建：用**当前**（含未保存改动的）分区结构现拼一份 spec——与生产
           // chat 对组织自建模板的渲染同一个函数（`buildAutoTemplateSpec`），只是
           // 数据源从"库里已发布的版本"换成"这一刻编辑器里的草稿"。
@@ -208,7 +240,7 @@ export function TemplateSimulateDialog({
     } finally {
       setRunning(false);
     }
-  }, [prompt, running, templateKey, layoutSource, sections, title, previewKey]);
+  }, [prompt, running, templateKey, layoutSource, sectionsDirty, sections, title, previewKey]);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>

@@ -100,3 +100,36 @@ describe("usesAutoLayoutSpec（R2.1/R2.2：未自定义的内置模板不套自�
     expect(usesAutoLayoutSpec("some-org-custom-key-not-in-builtin-list", "user-edited")).toBe(true);
   });
 });
+
+/**
+ * R2.3（2026-08-29，人类实测反馈：「我在②画布里的改动没生效」）——`layoutSource` 只在
+ * 保存成功那一刻才可能翻成 `"user-edited"`，一个从没被定制过的内置模板当场拖动/新增/
+ * 删除区块、还没点保存，这时不该照样走 package 里那份原始几何。`sectionsDirty` 是
+ * 调用方传入的"当前草稿是否已偏离已保存版本"，不看 `layoutSource`，只要为真就该走
+ * 当前分区结构那条分支。
+ */
+describe("usesAutoLayoutSpec（R2.3：sectionsDirty 让未保存的改动提前生效）", () => {
+  const builtinKeys = Object.keys(canvas.BUILTIN_CANVAS_TEMPLATES);
+
+  it.each(builtinKeys)(
+    "内置 key「%s」+ layoutSource 未定制 + sectionsDirty=true —— usesAutoLayoutSpec 为 true（当前草稿生效）",
+    (key) => {
+      expect(usesAutoLayoutSpec(key, "builtin-derived", true)).toBe(true);
+      expect(usesAutoLayoutSpec(key, undefined, true)).toBe(true);
+    },
+  );
+
+  it.each(builtinKeys)(
+    "内置 key「%s」+ layoutSource 未定制 + sectionsDirty=false（默认值）—— usesAutoLayoutSpec 仍为 false",
+    (key) => {
+      expect(usesAutoLayoutSpec(key, "builtin-derived", false)).toBe(false);
+      expect(usesAutoLayoutSpec(key, "builtin-derived")).toBe(false);
+    },
+  );
+
+  it("已经是 user-edited 时，sectionsDirty 不管真假都不影响结果（仍为 true）", () => {
+    const key = builtinKeys[0]!;
+    expect(usesAutoLayoutSpec(key, "user-edited", false)).toBe(true);
+    expect(usesAutoLayoutSpec(key, "user-edited", true)).toBe(true);
+  });
+});

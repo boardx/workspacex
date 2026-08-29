@@ -23,6 +23,7 @@ import {
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { PAPER_SIZE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { canvas } from "@repo/contracts";
 
 /**
  * 模板编辑器（R3-R5，2026-08-26）——`Design.pdf` §4「界面二：拖拽式画布编辑器」。
@@ -139,13 +140,28 @@ export function TemplateEditorPanel({
   );
   const selected = sections.find((s) => s.sectionId === selectedId) ?? null;
 
+  // 分区结构（含布局）是否已经偏离已保存的版本——`dirty` 的一个子集，单独抽出来是
+  // 因为「chat 模拟」只关心这一件事（见 `template-simulate-dialog.tsx` 文件头 R2.3）：
+  // 标题/页脚/提示词这些改动不影响画布几何，不该逼一个从没改过布局的内置模板提前
+  // 切到自动布局分支。
+  const sectionsDirty = JSON.stringify(toContractSections(sections)) !== JSON.stringify(row.sections);
+
+  // 「②画布」这块是分区结构的示意网格（`buildAutoTemplateSpec` 通用布局 + 4 色轮转），
+  // 不是像素预览——一个从未被定制过的内置模板，「chat 模拟」渲染的是它在
+  // `packages/fabric-markdown` 里那份手工排版的真实几何（颜色/专属装饰如 ⇄ 都来自那份
+  // spec，见 `template-simulate-dialog.tsx` 文件头 R2.1/R2.3）。两条路径本就不同源，
+  // 只在这里当场提醒，不去假装网格能画出真实像素效果。
+  const showsSampleGeometryOnly = canvas.builtinDisplayName(row.key) !== undefined
+    && row.layoutSource !== "user-edited"
+    && !sectionsDirty;
+
   const dirty = editable && (
     displayName !== row.displayName
     || title !== row.title
     || footer !== row.footer
     || promptText !== row.promptText
     || paperSize !== (row.size ?? "A1")
-    || JSON.stringify(toContractSections(sections)) !== JSON.stringify(row.sections)
+    || sectionsDirty
   );
 
   // Esc 关面板——同 `chat-diagram-canvas-modal.tsx` 等其它全屏编辑面板的既定约定。
@@ -611,6 +627,15 @@ export function TemplateEditorPanel({
           <div className="flex flex-none items-center gap-2 border-b border-border bg-card px-4 py-2">
             <span className="text-12 font-bold">② 画布</span>
             <span className="text-11 text-muted-foreground">拖动区块换位置 · 点选区块调显示</span>
+            {showsSampleGeometryOnly && (
+              <span
+                className="text-11 text-muted-foreground"
+                data-testid="tpladmin-editor-sample-geometry-hint"
+                title="这里是分区结构的示意网格，不是像素预览；颜色/专属装饰（如价值主张画布中间的 ⇄）以「chat 模拟」的真实渲染为准"
+              >
+                ·仅示意结构，真实版式见「chat 模拟」
+              </span>
+            )}
             <div className="ml-auto flex items-center gap-1.5">
               <span className="text-11 text-muted-foreground">网格</span>
               {([12, 6] as const).map((g) => (
@@ -744,6 +769,7 @@ export function TemplateEditorPanel({
           <TemplateSimulateDialog
             templateKey={row.key}
             layoutSource={row.layoutSource}
+            sectionsDirty={sectionsDirty}
             sections={sections}
             title={title}
             promptText={promptText}

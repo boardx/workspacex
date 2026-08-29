@@ -75,57 +75,71 @@ registerTemplate({
 });
 
 // ---------------------------------------------------------------------------
-// 用户旅程图 User Journey Map — 左端色块标识各泳道
+// 用户旅程图 User Journey Map — x 轴固定 5 个阶段（Phase 1~5），左端色块标识各泳道
 // ---------------------------------------------------------------------------
+// 2026-08-29 改版：旧版把"旅程阶段"也当成一条普通泳道——阶段名和下面四条泳道的
+// 便利贴之间没有任何数据关联，列分隔线只是画出来的装饰，同一列里放的内容其实互不
+// 相干（人类反馈「x轴应该分为若干阶段，每个阶段有不同的内容」）。改版把 5 个阶段
+// 做成表头字段（`fields`），下面 4 条泳道各自按阶段拆成 5 个独立分区
+// （如「行为 · 阶段1」…「行为 · 阶段5」），阶段列因此是**结构性的**：同一列的
+// 内容天然属于同一个阶段，而不是靠人眼对齐虚线。
+//
 // Rows are tall enough (h:220) to stack TWO rows of stickies before the
 // geometric section-membership check could misfire on export (the earlier
 // h:150 rows only fit a single sticky row, so a second one would spill
 // outside the box and round-trip into the wrong row — see the MVP bandaid
-// fix for the same class of bug). Stage columns line up across all five
-// rows because every row shares the same x/width/sticky-grid math, so a
-// sticky's index-within-row already puts it in a stage-aligned column; the
-// only missing piece was drawing that alignment as a visible grid.
+// fix for the same class of bug).
 const JOURNEY_ROW_H = 220;
-const JOURNEY_ROWS = [
-  { name: '旅程阶段', y: 170 },
+const JOURNEY_PHASES = ['阶段1', '阶段2', '阶段3', '阶段4', '阶段5'];
+const JOURNEY_CATEGORY_ROWS = [
   { name: '行为', y: 410 },
   { name: '触点', y: 650 },
   { name: '痛点', y: 890 },
   { name: '机会', y: 1130 },
 ];
+const JOURNEY_HEADER = { name: '旅程阶段', y: 170 };
 const JOURNEY_BOX = { x: 895, w: 1370 };
-const JOURNEY_STICKY = { w: 230, h: 70, perRow: 5 };
+const JOURNEY_STICKY = { w: 200, h: 60, perRow: 1 };
 
-// Vertical divider x for the boundary AFTER column `c` (0-based, c from 0 to
-// perRow-2) — derived from the exact same left-edge/gap math the engine uses
-// to place stickies, so the lines land exactly between adjacent columns.
+// Column `c` (0-based, 0..4) center x — same left-edge/gap math for the
+// header cells, the body phase-columns, and the divider lines, so all three
+// line up pixel-for-pixel.
+const JOURNEY_COL_STEP = JOURNEY_STICKY.w + 42;
+const JOURNEY_LEFT_EDGE = JOURNEY_BOX.x - JOURNEY_BOX.w / 2 + 14;
+function journeyColCenterX(c: number): number {
+  return JOURNEY_LEFT_EDGE + c * JOURNEY_COL_STEP + JOURNEY_COL_STEP / 2;
+}
+// Divider x for the boundary AFTER column `c` (0-based, c from 0 to
+// perRow-2) — the midpoint between column c and c+1's centers.
 function journeyColDividerX(c: number): number {
-  const leftEdge = JOURNEY_BOX.x - JOURNEY_BOX.w / 2 + 14;
-  const step = JOURNEY_STICKY.w + 12;
-  return leftEdge + (c + 1) * step - 6;
+  return (journeyColCenterX(c) + journeyColCenterX(c + 1)) / 2;
 }
 
-const journeyGridTop = JOURNEY_ROWS[0]!.y - JOURNEY_ROW_H / 2;
-const journeyGridBottom = JOURNEY_ROWS[JOURNEY_ROWS.length - 1]!.y + JOURNEY_ROW_H / 2;
+const journeyGridTop = JOURNEY_HEADER.y - JOURNEY_ROW_H / 2;
+const journeyGridBottom =
+  JOURNEY_CATEGORY_ROWS[JOURNEY_CATEGORY_ROWS.length - 1]!.y + JOURNEY_ROW_H / 2;
 
 registerTemplate({
   key: 'journey-map',
   pdfPage: 6,
   title: '用户旅程图 User Journey Map',
-  // Printed layout: a left header column with the five row names and a
-  // shaded top row (旅程阶段) acting as the horizontal header. Row names live
-  // in the header cells, so in-box title bars are disabled.
+  // 阶段名放在表头（每列一个短文本），正文泳道靠左端色块标注行名，所以框内标题条禁用。
   titleBars: false,
-  sections: JOURNEY_ROWS.map((r, i) => ({
-    name: r.name,
-    x: JOURNEY_BOX.x,
-    y: r.y,
-    w: JOURNEY_BOX.w,
-    h: JOURNEY_ROW_H,
-    ...(i === 0 ? { fill: '#f1f5f9' } : {}),
-  })),
+  fields: JOURNEY_PHASES,
+  fieldsPerRow: JOURNEY_PHASES.length,
+  headerRect: { x: JOURNEY_BOX.x, y: JOURNEY_HEADER.y, w: JOURNEY_BOX.w, h: JOURNEY_ROW_H },
+  // 4 条泳道 × 5 个阶段 = 20 个独立分区，同一阶段的内容天然落在同一列。
+  sections: JOURNEY_CATEGORY_ROWS.flatMap((r) =>
+    JOURNEY_PHASES.map((phase, c) => ({
+      name: `${r.name} · ${phase}`,
+      x: journeyColCenterX(c),
+      y: r.y,
+      w: JOURNEY_STICKY.w + 30,
+      h: JOURNEY_ROW_H,
+    })),
+  ),
   decorations: [
-    ...JOURNEY_ROWS.flatMap((r, i) => [
+    ...[JOURNEY_HEADER, ...JOURNEY_CATEGORY_ROWS].flatMap((r, i) => [
       {
         id: `journey-lane-${i}`,
         label: '',
@@ -134,7 +148,7 @@ registerTemplate({
         y: r.y,
         width: 145,
         height: JOURNEY_ROW_H,
-        data: { locked: true, color: '#e2e8f0', stroke: '#1f2937' },
+        data: { locked: true, color: i === 0 ? '#f1f5f9' : '#e2e8f0', stroke: '#1f2937' },
       },
       {
         id: `journey-lane-label-${i}`,
@@ -147,9 +161,9 @@ registerTemplate({
         data: { locked: true, fontSize: 14, bold: true, color: '#1f2937' },
       },
     ]),
-    // Stage-column dividers spanning every row, so the journey visually
-    // reads as a grid of (stage × row) cells rather than plain stripes.
-    ...Array.from({ length: JOURNEY_STICKY.perRow - 1 }, (_, c) => ({
+    // Stage-column dividers spanning the header + every lane, so the journey
+    // visually reads as a grid of (stage × lane) cells rather than plain stripes.
+    ...Array.from({ length: JOURNEY_PHASES.length - 1 }, (_, c) => ({
       id: `journey-col-${c}`,
       label: '',
       shape: 'rect' as const,
@@ -331,27 +345,35 @@ export const USER_SAMPLES: Record<string, string> = {
 
 \`\`\`canvas
 模板: journey-map
+阶段1: 发现需求
+阶段2: 对比选型
+阶段3: 首次使用
+阶段4: 持续使用
+阶段5: 推荐他人
 
-## 旅程阶段
-- 发现需求
-- 对比选型
-- 首次使用
-
-## 行为
+## 行为 · 阶段1
 - 在搜索引擎查找解决方案
+
+## 行为 · 阶段2
 - 试用三款竞品并记录感受
 
-## 触点
-- 官网首页与产品对比页
+## 触点 · 阶段1
+- 行业社群里的推荐帖
+
+## 触点 · 阶段2
 - 销售顾问的在线咨询
 
-## 痛点
-- 注册流程要填的信息太多
-- 新手引导太长，找不到跳过按钮
+## 痛点 · 阶段1
+- 不确定自己的场景是否适用
 
-## 机会
-- 提供一键导入历史数据的能力
+## 痛点 · 阶段3
+- 注册流程要填的信息太多
+
+## 机会 · 阶段3
 - 首次使用即可看到可量化的效果
+
+## 机会 · 阶段5
+- 提供裂变奖励，鼓励老用户拉新
 \`\`\`
 `,
   '价值主张画布': `# 价值主张画布示例
