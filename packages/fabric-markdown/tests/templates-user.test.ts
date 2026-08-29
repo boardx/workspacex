@@ -25,7 +25,7 @@ const CASES: Case[] = [
     section: '核心任务',
     fieldLines: ['执行者: 一线运营专员', '关键约束: 预算不超过5000元'],
   },
-  { key: 'journey-map', sectionCount: 5, section: '触点' },
+  { key: 'journey-map', sectionCount: 20, section: '触点 · 阶段1' },
   { key: 'value-proposition', sectionCount: 6, section: '用户任务' },
   { key: 'adlib', sectionCount: 6, section: '想要实现' },
   {

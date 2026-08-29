@@ -313,8 +313,19 @@ const SECTION_KEYS: Readonly<Record<string, string>> = {
   // ── JTBD ──
   "情境触发": "situation", "核心任务": "core_job", "期望成果": "desired_outcomes",
   "内在驱动": "motivations", "痛点阻力": "frictions", "成功标准": "success_criteria",
-  // ── 用户旅程 ──
-  "旅程阶段": "journey_stages", "行为": "actions", "触点": "touchpoints",
+  // ── 用户旅程（x 轴固定 5 个阶段，见 templates-user.ts 2026-08-29 改版） ──
+  "行为 · 阶段1": "actions_phase_1", "行为 · 阶段2": "actions_phase_2",
+  "行为 · 阶段3": "actions_phase_3", "行为 · 阶段4": "actions_phase_4",
+  "行为 · 阶段5": "actions_phase_5",
+  "触点 · 阶段1": "touchpoints_phase_1", "触点 · 阶段2": "touchpoints_phase_2",
+  "触点 · 阶段3": "touchpoints_phase_3", "触点 · 阶段4": "touchpoints_phase_4",
+  "触点 · 阶段5": "touchpoints_phase_5",
+  "痛点 · 阶段1": "pains_phase_1", "痛点 · 阶段2": "pains_phase_2",
+  "痛点 · 阶段3": "pains_phase_3", "痛点 · 阶段4": "pains_phase_4",
+  "痛点 · 阶段5": "pains_phase_5",
+  "机会 · 阶段1": "opportunities_phase_1", "机会 · 阶段2": "opportunities_phase_2",
+  "机会 · 阶段3": "opportunities_phase_3", "机会 · 阶段4": "opportunities_phase_4",
+  "机会 · 阶段5": "opportunities_phase_5",
   // ── 价值主张画布 ──
   "收益创造": "gain_creators", "痛点缓解": "pain_relievers",
   "产品与服务": "products_and_services", "用户任务": "customer_jobs",
@@ -354,6 +365,9 @@ const FIELD_KEYS: Readonly<Record<string, string>> = {
   "我们可以如何": "how_might_we", "为给": "for_whom", "以便": "so_that",
   // ── 故事 ──
   "故事主角": "protagonist", "故事主题": "theme",
+  // ── 用户旅程（x 轴固定 5 个阶段的表头） ──
+  "阶段1": "phase_1_name", "阶段2": "phase_2_name", "阶段3": "phase_3_name",
+  "阶段4": "phase_4_name", "阶段5": "phase_5_name",
 };
 
 /**
