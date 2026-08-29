@@ -54,6 +54,10 @@ interface GeneratedInterviewExpert {
   readonly displayName: string;
   readonly role: string;
   readonly domains: readonly string[];
+  readonly category: string;
+  readonly bio: string;
+  readonly location: string;
+  readonly typicalAdvice: string;
 }
 
 function parseGeneratedInterviewExperts(text: string): readonly GeneratedInterviewExpert[] {
@@ -65,10 +69,16 @@ function parseGeneratedInterviewExperts(text: string): readonly GeneratedIntervi
     const candidate = value as Record<string, unknown>;
     const displayName = typeof candidate.displayName === "string" ? candidate.displayName.trim() : "";
     const role = typeof candidate.role === "string" ? candidate.role.trim() : "";
+    const category = typeof candidate.category === "string" ? candidate.category.trim() : "";
+    const bio = typeof candidate.bio === "string" ? candidate.bio.trim() : "";
+    const location = typeof candidate.location === "string" ? candidate.location.trim() : "";
+    const typicalAdvice = typeof candidate.typicalAdvice === "string" ? candidate.typicalAdvice.trim() : "";
     const domains = Array.isArray(candidate.domains)
       ? Array.from(new Set(candidate.domains.filter((domain): domain is string => typeof domain === "string").map((domain) => domain.trim()).filter(Boolean)))
       : [];
-    return displayName && role && domains.length ? [{ displayName, role, domains }] : [];
+    return displayName && role && domains.length && category && bio && location && typicalAdvice
+      ? [{ displayName, role, domains, category, bio, location, typicalAdvice }]
+      : [];
   });
   if (experts.length < 3 || experts.length > 5) throw new SyntaxError("experts must contain 3 to 5 valid entries");
   return experts;
@@ -259,12 +269,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
           await session.query(
             `INSERT INTO digital_interview_expert_candidates
                (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
-                material_context_pack_id,material_version)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+                material_context_pack_id,material_version,category,bio,location,typical_advice)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
              ON CONFLICT (org_id,revision_id,expert_id) DO NOTHING`,
             [input.orgId, activeRevisionId, expert.expertId, expert.agentDefinitionId, expert.agentVersion,
               ordinal++, expert.initials, expert.displayName, expert.role, [...expert.domains],
-              expert.materialContextPackId, expert.materialVersion],
+              expert.materialContextPackId, expert.materialVersion, expert.category, expert.bio,
+              expert.location, expert.typicalAdvice],
           );
         }
         const candidateIds = await session.query<{ expert_id: string }>(
@@ -292,9 +303,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
           await session.query(
             `INSERT INTO digital_interview_expert_snapshots
                (org_id,version_id,expert_id,agent_definition_id,agent_version,ordinal,
-                initials,display_name,role,domains,material_context_pack_id,material_version)
+                initials,display_name,role,domains,material_context_pack_id,material_version,
+                category,bio,location,typical_advice)
              SELECT org_id,$2,expert_id,agent_definition_id,agent_version,$4,
-                    initials,display_name,role,domains,material_context_pack_id,material_version
+                    initials,display_name,role,domains,material_context_pack_id,material_version,
+                    category,bio,location,typical_advice
                FROM digital_interview_expert_candidates
               WHERE org_id=$1 AND revision_id=$3 AND expert_id=$5`,
             [input.orgId, committedVersionId, activeRevisionId, index + 1, expertId],
@@ -412,7 +425,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       const response = await this.model.complete({
         modelProvider: this.modelProvider,
         modelId: this.modelId,
-        system: "你是访谈研究助手。根据访谈主题直接创建 3 至 5 位视角互补的虚拟专家，而不是从已有专家列表选择。只返回 JSON：{\"experts\":[{\"displayName\":\"姓名或称谓\",\"role\":\"具体身份与观察视角\",\"domains\":[\"专业领域\"]}]}。",
+        system: "你是访谈研究助手。根据访谈主题直接创建 3 至 5 位视角互补的虚拟专家，而不是从已有专家列表选择。每位专家必须是完整档案。只返回 JSON：{\"experts\":[{\"displayName\":\"姓名或称谓\",\"role\":\"具体身份与观察视角\",\"domains\":[\"专业领域\"],\"category\":\"专家分类\",\"bio\":\"专业经历简介\",\"location\":\"所在地区\",\"typicalAdvice\":\"代表性的建议\"}]}。",
         user: JSON.stringify({ operation: "generate_interview_experts", topic }),
       });
       experts = parseGeneratedInterviewExperts(response.text);
@@ -443,11 +456,12 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         await session.query(
           `INSERT INTO digital_interview_expert_candidates
              (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
-              material_context_pack_id,material_version)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+              material_context_pack_id,material_version,category,bio,location,typical_advice)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
           [input.orgId, input.revisionId, expertId, expertId,
             expertId, index + 1, initialsFor(expert.displayName),
-            expert.displayName, expert.role, [...expert.domains], null, null],
+            expert.displayName, expert.role, [...expert.domains], null, null,
+            expert.category, expert.bio, expert.location, expert.typicalAdvice],
         );
       }
       await session.query(
@@ -645,9 +659,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       expert_id: string; agent_definition_id: string; agent_version: string; ordinal: number;
       initials: string; display_name: string; role: string; domains: string[];
       material_context_pack_id: string | null; material_version: string | null;
+      category: string; bio: string; location: string; typical_advice: string;
     }>(
       `SELECT s.expert_id,s.agent_definition_id,s.agent_version,s.ordinal,s.initials,
-              s.display_name,s.role,s.domains,s.material_context_pack_id,s.material_version
+              s.display_name,s.role,s.domains,s.material_context_pack_id,s.material_version,
+              s.category,s.bio,s.location,s.typical_advice
          FROM digital_interview_expert_snapshots s
          JOIN digital_interview_expert_snapshot_versions v
            ON v.org_id=s.org_id AND v.id=s.version_id
@@ -700,9 +716,9 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     await session.query(
       `INSERT INTO digital_interview_expert_candidates
          (org_id,revision_id,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
-          material_context_pack_id,material_version)
+          material_context_pack_id,material_version,category,bio,location,typical_advice)
        SELECT org_id,$3,expert_id,agent_definition_id,agent_version,ordinal,initials,display_name,role,domains,
-              material_context_pack_id,material_version
+              material_context_pack_id,material_version,category,bio,location,typical_advice
          FROM digital_interview_expert_candidates
         WHERE org_id=$1 AND revision_id=$2`,
       [input.orgId, current.revision_id, revisionId],
@@ -748,11 +764,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         await session.query(
           `INSERT INTO digital_interview_expert_snapshots
              (org_id,version_id,expert_id,agent_definition_id,agent_version,ordinal,
-              initials,display_name,role,domains,material_context_pack_id,material_version)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+              initials,display_name,role,domains,material_context_pack_id,material_version,
+              category,bio,location,typical_advice)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
           [input.orgId, expertVersionId, expert.expert_id, expert.agent_definition_id,
             expert.agent_version, expert.ordinal, expert.initials, expert.display_name,
-            expert.role, expert.domains, expert.material_context_pack_id, expert.material_version],
+            expert.role, expert.domains, expert.material_context_pack_id, expert.material_version,
+            expert.category, expert.bio, expert.location, expert.typical_advice],
         );
       }
     }

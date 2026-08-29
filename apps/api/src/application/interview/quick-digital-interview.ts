@@ -51,6 +51,10 @@ function presentQuick(stored: StoredQuickInterview) {
         ? "未绑定 Context Pack 材料版本"
         : `Context Pack ${stored.expert.materialContextPackId} · ${stored.expert.materialVersion}`,
       exploratory: true,
+      category: stored.expert.domains[0] ?? "未分类",
+      bio: stored.expert.role,
+      location: "未指定",
+      typicalAdvice: "暂无典型建议",
     },
     messages: stored.messages.map((message) => ({ ...message, exploratory: true })),
   });

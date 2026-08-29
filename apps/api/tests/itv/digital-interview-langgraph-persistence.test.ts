@@ -29,9 +29,9 @@ const model: ModelCallPort = { complete: async (input) => {
   const context = JSON.parse(input.user) as { currentStep?: string; operation?: string };
   return { text: JSON.stringify(context.operation === "generate_interview_experts"
     ? { experts: [
-      { displayName: "采购决策专家", role: "分析采购决策链", domains: ["采购"] },
-      { displayName: "财务风控专家", role: "评估预算与财务风险", domains: ["财务", "风控"] },
-      { displayName: "交付运营专家", role: "评估实施与交付约束", domains: ["运营", "交付"] },
+      { displayName: "采购决策专家", role: "分析采购决策链", domains: ["采购"], category: "采购", bio: "研究采购决策与供应商选择。", location: "德国", typicalAdvice: "先定位最终否决权。" },
+      { displayName: "财务风控专家", role: "评估预算与财务风险", domains: ["财务", "风控"], category: "财务", bio: "研究预算约束与财务风险。", location: "欧洲", typicalAdvice: "先量化风险敞口。" },
+      { displayName: "交付运营专家", role: "评估实施与交付约束", domains: ["运营", "交付"], category: "运营", bio: "研究复杂项目实施与交付。", location: "中国", typicalAdvice: "先验证关键交付约束。" },
     ] }
     : context.currentStep === "topic" ? { topic: "更聚焦的主题" } : { expertIds: [EXPERT] }) };
 } };

@@ -13,12 +13,7 @@ interface PersonaSource {
   readonly typical_advice: string;
 }
 
-export interface MockDigitalExpertPersona extends DigitalExpertCatalogRow {
-  readonly category: string;
-  readonly bio: string;
-  readonly location: string;
-  readonly typicalAdvice: string;
-}
+export interface MockDigitalExpertPersona extends DigitalExpertCatalogRow {}
 
 /**
  * Complete temporary projection of the supplied legacy `experts_persona.json`.
@@ -37,7 +32,7 @@ export function findMockDigitalExpert(expertId: string): MockDigitalExpertPerson
   return MOCK_DIGITAL_EXPERTS.find((expert) => expert.expertId === expertId);
 }
 
-/** Strip picker-only metadata before crossing the strict interview API boundary. */
+/** Project the static source through the same complete profile contract used by generated experts. */
 export function toDigitalExpertCatalogRow(expert: MockDigitalExpertPersona): DigitalExpertCatalogRow {
   return {
     expertId: expert.expertId,
@@ -51,6 +46,10 @@ export function toDigitalExpertCatalogRow(expert: MockDigitalExpertPersona): Dig
     materialVersion: expert.materialVersion,
     materialBoundary: expert.materialBoundary,
     exploratory: expert.exploratory,
+    category: expert.category,
+    bio: expert.bio,
+    location: expert.location,
+    typicalAdvice: expert.typicalAdvice,
   };
 }
 

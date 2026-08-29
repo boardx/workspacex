@@ -26,6 +26,10 @@ const expertCandidate = {
   displayName: "服务端候选专家",
   role: "采购决策顾问",
   domains: ["采购"],
+  category: "采购",
+  bio: "长期研究企业采购决策链与供应商评估。",
+  location: "德国",
+  typicalAdvice: "先识别最终否决权，再设计访谈问题。",
   materialContextPackId: "context-pack-f04",
   materialVersion: "material-version-f04",
   materialBoundary: "仅使用当前有权读取的材料",
@@ -364,12 +368,15 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     });
     expect(Object.keys(confirmBody.addedExperts[0]!)).toEqual([
       "expertId", "agentDefinitionId", "agentVersion", "initials", "displayName", "role", "domains",
+      "category", "bio", "location", "typicalAdvice",
       "materialContextPackId", "materialVersion", "materialBoundary", "exploratory",
     ]);
-    expect(confirmBody.addedExperts[0]).not.toHaveProperty("category");
-    expect(confirmBody.addedExperts[0]).not.toHaveProperty("bio");
-    expect(confirmBody.addedExperts[0]).not.toHaveProperty("location");
-    expect(confirmBody.addedExperts[0]).not.toHaveProperty("typicalAdvice");
+    expect(confirmBody.addedExperts[0]).toMatchObject({
+      category: "技术专家",
+      bio: expect.any(String),
+      location: expect.any(String),
+      typicalAdvice: expect.any(String),
+    });
     expect(transport.requests("POST", "/questions/confirm")[0]!.body).toMatchObject({ questions: [defaultQuestion] });
   });
 
@@ -385,7 +392,11 @@ describe("F04 正式 setup 的显式确认与双层持久化验收门", () => {
     expect(within(dialog).getByTestId("itv-expert-detail-role")).toHaveTextContent(expertCandidate.role);
     expect(within(dialog).getByTestId("itv-expert-detail-domains")).toHaveTextContent("采购");
     expect(within(dialog).getByTestId("itv-expert-detail-boundary")).toHaveTextContent(expertCandidate.materialBoundary);
-    expect(within(dialog).getByText("模型生成专家快照")).toBeInTheDocument();
+    expect(within(dialog).getByText("模型生成专家档案")).toBeInTheDocument();
+    expect(within(dialog).getByTestId("itv-expert-detail-category")).toHaveTextContent(expertCandidate.category);
+    expect(within(dialog).getByTestId("itv-expert-detail-location")).toHaveTextContent(expertCandidate.location);
+    expect(within(dialog).getByTestId("itv-expert-detail-bio")).toHaveTextContent(expertCandidate.bio);
+    expect(within(dialog).getByTestId("itv-expert-detail-advice")).toHaveTextContent(expertCandidate.typicalAdvice);
     expect(screen.getByLabelText(`删除专家 ${expertCandidate.displayName}`)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("itv-expert-detail-close"));
 
