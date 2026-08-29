@@ -97,3 +97,10 @@ phases:
     goal: "四个官方 skill（pptx/docx/xlsx/pdf-create）对所有 org 默认可见可挂载，复用 canvas 模板已有的 platform-org RLS 先例，不需要逐个 org 导入"
     status: not_started
     depends_on: []
+  - id: "14"
+    slug: chat-agentic-runtime-parity
+    name: chat-agentic-runtime-parity
+    goal: "对齐华东区归因 mockup：成本预算追踪、持久授权审批、主动补信息卡、待处理侧栏"
+    status: not_started
+    depends_on: []
+    has_ui: true
