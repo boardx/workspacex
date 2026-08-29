@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { Store } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { AgentMarketDialog } from "@/components/chat/chat-agent-market-dialog";
 import { ErrorState } from "@/components/chat/chat-error-state";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 import type { GetAgentPanelOut } from "@/lib/live-chat";
@@ -60,6 +60,7 @@ export function RosterPanel({
   const writable = canMutate && hasSelection;
 
   const [addOpen, setAddOpen] = React.useState(false);
+  const [marketOpen, setMarketOpen] = React.useState(false);
 
   // 换线程/候选列表变化时，之前选中的 id 可能已不再是合法候选（比如已被加进编制）。
   React.useEffect(() => {
@@ -130,8 +131,10 @@ export function RosterPanel({
           {/* #619：候选来自 `GET /capabilities?kind=agent`（`org_agents` 收敛进
               `capability_listings` 之后，这就是"列出本线程可加的 agent"那个此前
               缺失的读端口），不再是自由文本框。
-              ⚠ 原型的「从 Agent 市场加入」仍是另一个缺口：`marketEntry` 是服务端下发的
-              可空入口，下发了才渲染，不自己造一个死链。 */}
+              ⚠ 「从 Agent 市场加入」现在是下面的弹窗（`AgentMarketDialog`，2026-08-29
+              人类原话），读的是同一份 `candidates`；`marketEntry` 仍是服务端下发的
+              可空入口，只是降级成弹窗里「在后台管理完整 Agent 目录」的二级链接，
+              下发了才渲染，不自己造一个死链。 */}
           {/* #787 —— 诚实提示，纯 UI 措辞，不改数据流：
               这份候选列表读的是 `capability_listings`（目录），与实际执行读的
               `agents`/`agent_versions`（见 `resolvePublished`）不是同一张表。经后台
@@ -211,11 +214,27 @@ export function RosterPanel({
             ))}
           </ul>
           {roster.marketEntry ? (
-            <Button asChild size="xs" variant="outline" className="w-full">
-              <Link href={roster.marketEntry} data-testid="chat-roster-market-entry">
+            <>
+              <Button
+                size="xs"
+                variant="outline"
+                className="w-full"
+                data-testid="chat-roster-market-entry"
+                onClick={() => setMarketOpen(true)}
+              >
                 <Store aria-hidden className="h-3 w-3" />从 Agent 市场加入
-              </Link>
-            </Button>
+              </Button>
+              <AgentMarketDialog
+                open={marketOpen}
+                onOpenChange={setMarketOpen}
+                candidates={candidates}
+                candidatesError={candidatesError}
+                pending={pending}
+                mutateFailure={mutateFailure}
+                marketEntry={roster.marketEntry}
+                onAdd={onAdd}
+              />
+            </>
           ) : null}
         </>
       ) : null}
