@@ -576,7 +576,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         {!canCreate ? null : null}
         {/* 2026-08-29 Claude Design 重设计稿——左栏不再画「本线程的 AI 团队」编制卡
             （人类原话「去掉本线程的AI团队 当前编制为空,从agent市场加入 这一块」）。
-            issue #2052（CK-P7）的编制读写能力**没有被移除，换了入口**：`roster`/
+            issue #2052（CK-P7）的编制读写能力「没有被移除，换了入口」：`roster`/
             `runRosterMutation`/`agentCandidates` 这些状态原样保留，改传给右栏
             `ChatTaskInspector` 的 `roster` prop，渲染成新增的「编制」页签（见下面
             该组件调用处）。人类 2026-08-29 明确选择「移到右栏 Inspector 里」而不是

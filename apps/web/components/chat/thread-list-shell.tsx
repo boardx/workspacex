@@ -317,7 +317,7 @@ export function ThreadCardButton({
         /* 2026-08-29 人类明确要求收回（原话「只有 hover 某个 session item 的时候才
            出现图钉以及三点菜单」）：改成 hover/focus 才浮出，覆盖 issue #2075 当时
            「常驻可见」的取舍。
-           ⚠ 用**文字颜色透明**（`text-transparent` → `group-hover:` 恢复颜色），
+           ⚠ 用「文字颜色透明」（`text-transparent` → `group-hover:` 恢复颜色），
            不是 `lint-design.sh` U1.2 禁止的 `opacity-*`，也不是 issue #2075 当时
            排除掉的 `visibility:hidden`：
              ① 按钮本身、`aria-label`、`aria-pressed` 全程留在无障碍树里——读屏软件
