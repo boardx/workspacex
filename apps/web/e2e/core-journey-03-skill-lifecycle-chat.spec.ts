@@ -162,12 +162,19 @@ test("旅程③：管理员从 GitHub 导入 skill（=立即上线）→ 挂进 
   const messageList = page.getByTestId("chat-message-list");
   await expect(messageList).toContainText(marker);
   // 真实实测：挂了 skill 之后，这条 run 走的不是 core-loop.spec.ts 8b 那条纯 echo
-  // 的 loopback 路径，而是真的经由 deep-agent + skill 沙箱执行——回复里带着沙箱
-  // 真实产出（这次实测生成了一份 deck.pptx），不再是 `[loopback]` 前缀那种简单回显。
-  // 这本身就是"skill 真的被用上了"更强的证据（core-loop 8b 的 exactly-once 只证明
-  // "回了一条"，这里额外证明"回的是真实的 skill 产出"）。exactly-once 的纪律不丢：
-  // 断言总行数恰好 2（human 一条 + agent 一条），同 core-loop.spec.ts 8b `runStat
-  // .threadMessages` 检查同一件事，只是从 API 读改成从 DOM 数——这里没有 runId
-  // 可直接查库，DOM 计数是本条唯一够得到的等价证据。
+  // 的 loopback 路径，而是真的经由 deep-agent + skill 沙箱执行。对照
+  // `execute-run.ts`（挂了 skill 且沙箱/对象存储都注入时，system prompt 会拼上
+  // `RUN_SCRIPT_PROTOCOL_PROMPT`）与 `loopback-model-provider.ts`
+  // 的 `isTrialRunRequest`/`trialRunScriptReply`（命中该协议就确定性地回一段写
+  // `deck.pptx` 的脚本，不掺随机）——这条链路对"挂了 skill 的普通 chat 消息"同样
+  // 成立，不是只在试跑页才触发。`run-skill-script.ts` 的 `renderSuccess` 在真的
+  // 产出文件时，会把"已在沙箱中执行上面的脚本，生成以下文件（见本条消息的附件）："
+  // 与文件名逐字拼进回复正文——断言这段文字与文件名，而不是只数消息行数，才能把
+  // "真的执行了 skill"与"agent 只是简单回显了一句"区分开：后者不会产出这段文字。
+  await expect(messageList).toContainText("已在沙箱中执行上面的脚本，生成以下文件");
+  await expect(messageList).toContainText("deck.pptx");
+  // exactly-once 的纪律不丢：断言总行数恰好 2（human 一条 + agent 一条），同
+  // core-loop.spec.ts 8b `runStat.threadMessages` 检查同一件事，只是从 API 读改成
+  // 从 DOM 数——这里没有 runId 可直接查库，DOM 计数是本条唯一够得到的等价证据。
   await expect(messageList.getByTestId("chat-message-row")).toHaveCount(2);
 });
