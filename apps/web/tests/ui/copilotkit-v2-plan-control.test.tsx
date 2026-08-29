@@ -172,6 +172,27 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     await waitFor(() => expect(api.retryPlanStep).toHaveBeenCalledWith("t-7", { planStepId: "s2" }));
   });
 
+  it("phase='done'（任务已跑完）不再渲染确认门——即使 gate.required 仍是 true，也不能让用户以为还没结束", async () => {
+    // ⚠ 这不是假设：`evaluatePlanGate` 按契约只看 `todoCount`（UC-8），todoCount
+    // 从确认前到跑完都没变过，所以真实后端在 phase='done' 时 gate.required 仍是
+    // true。这条用例钉的正是「组件层面要不要拿它来渲染」，不是重新定义契约本身。
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        phase: "done",
+        gate: { required: true, reason: "multi-step" },
+        steps: [
+          { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
+          { planStepId: "s2", content: "起草方案初稿", status: "completed", constraints: [] },
+        ],
+        progress: { completed: 2, total: 2, elapsedMs: 8000 },
+      }),
+    );
+    render(<CopilotKitV2PlanControl threadId="t-9" />);
+
+    await waitFor(() => expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy());
+    expect(screen.queryByTestId(PLAN_CONFIRM_RUN_TESTID)).toBeNull();
+  });
+
   it("PLAN_REVISION_CHANGED：操作失败后立即重取账本，界面提示刷新而不是静默丢弃", async () => {
     api.fetchPlanLedger.mockResolvedValue(ledgerWithSteps());
     api.confirmPlan.mockRejectedValue(new Error("stale"));

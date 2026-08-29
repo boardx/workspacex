@@ -210,11 +210,31 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
         />
       ))}
 
-      <PlanConfirmGate
-        gate={ledger.gate}
-        onConfirmRun={handleConfirm}
-        onContinueEditing={() => setEditing(true)}
-      />
+      {/*
+       * 🔴 真栈实测发现的缺口（如实登记，不是硬套契约）：`evaluatePlanGate`
+       * （`packages/contracts/src/plan-control.ts` UC-8）按契约**只看 `todoCount`**，
+       * 完全不知道这一轮 run 有没有已经跑完——一个 4 步计划的 `gate.required` 从
+       * 确认前到执行中到 `phase:"done"` 之后**恒为 `true`**，因为 `todoCount` 从
+       * 头到尾没变过。契约本身没错（它就是纯函数、UC-8 反证只要求"简单提问不加
+       * 确认门"），错在这里：`gate` 是"要不要在**开始执行前**问一下"的判定，
+       * 不是"现在还要不要显示这张卡"，而组件此前不加区分地把它渲染在每个 phase 下，
+       * 于是任务做完了、卡片却和执行前长得一模一样，用户以为"没结束"。
+       *
+       * 修法是**只在 `phase === "planning"`**（即 `derivePlanPhase` 里那个
+       * "有计划、run 还没起、没有失败、没有待审批"的态）渲染确认门——这正是
+       * UC-8 判据四原本要挡的那个时刻：执行开始之前。一旦进了 `executing`/
+       * `approving`/`done`/`failed`，"确认并执行"这个动作本身就不再有意义
+       * （run 已经在跑或已经跑完），继续渲染这张卡是界面在说谎，不是加了一层
+       * 保险。不改 `evaluatePlanGate` 本身——它仍然如实回答"这份计划要不要
+       * 确认"，只是本组件不再对着一个已经过去的阶段问这个问题。
+       */}
+      {ledger.phase === "planning" && (
+        <PlanConfirmGate
+          gate={ledger.gate}
+          onConfirmRun={handleConfirm}
+          onContinueEditing={() => setEditing(true)}
+        />
+      )}
 
       {busy && <span className="sr-only" role="status">计划操作处理中…</span>}
     </div>
