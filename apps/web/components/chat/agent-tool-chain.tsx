@@ -6,6 +6,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { AgentRunView } from "@/lib/agent-run";
+import { ToolResultQuantities } from "@/components/chat/tool-result-quantities";
+import type { ToolResultSummary } from "@/lib/tool-result-summary";
 
 /**
  * agent-tool-chain（TOOLCHAIN-01：活体 run 工具调用链折叠式内联展示）—— 活体生产组件。
@@ -28,6 +30,14 @@ import type { AgentRunView } from "@/lib/agent-run";
  * 吃 `AgentRunView["steps"]`（活体轮询里已有，无新接口）。`toolName` /
  * `toolArgsSummary` / `toolResultSummary` / `planningNote` 任一为 `null` 就**不渲染那行**，
  * 绝不用占位文案顶替（沿用活体既有纪律）。
+ *
+ * ## Phase 14 · 需求 2 —— 工具结果结构化摘要（可选、优雅回退）
+ * 新增 **可选** `resultSummaries` 入参：一份按 `tool_call` step 顺序对齐的量化摘要数组
+ * （`{ rows?, bytes?, hits? }`）。有值的 step 在其展开卡片下方多渲染一行量化 chip
+ * （「41,208 行 · 8.4 MB」）；无值（数组未传、该位为 null、或三字段全空）就**什么都不加**，
+ * per-step 卡片逐字保持现状。这个入参默认 `undefined`——生产在后端协议扩展落地前**不传**，
+ * 于是行为与本次改动前完全一致（回退即默认）。协议扩展本身属于后端契约变更，不在本 UI
+ * 原型范围（见 `lib/tool-result-summary.ts` 头注）。
  */
 
 type Step = AgentRunView["steps"][number];
@@ -107,6 +117,7 @@ export function AgentToolChain({
   defaultOpen = false,
   running = false,
   runFailed = false,
+  resultSummaries,
 }: {
   steps: Step[];
   defaultOpen?: boolean;
@@ -122,6 +133,13 @@ export function AgentToolChain({
    * 两件事各有各的事实源。
    */
   runFailed?: boolean;
+  /**
+   * Phase 14 · 需求 2（可选）—— 按 `tool_call` step 顺序对齐的结构化量化摘要。
+   * 第 i 个 tool step 的量化摘要在 `resultSummaries[i]`；某位为 `null`/`undefined` 或
+   * 整个数组未传，则该 step 不显示量化 chip（回退到现有纯文字）。生产在后端协议扩展
+   * 落地前不传此参，行为与本改动前一致。
+   */
+  resultSummaries?: readonly (ToolResultSummary | null | undefined)[];
 }) {
   const [open, setOpen] = React.useState(defaultOpen);
   // V6 与活体一致：只要 run 有任何 step 就展示折叠块，不要求有工具调用才渲染。
@@ -202,7 +220,7 @@ export function AgentToolChain({
               </p>
               <ol className="flex flex-col gap-1.5">
                 {toolSteps.map((step, i) => (
-                  <ToolChainStep key={i} step={step} index={i} />
+                  <ToolChainStep key={i} step={step} index={i} summary={resultSummaries?.[i] ?? null} />
                 ))}
               </ol>
             </>
@@ -379,7 +397,14 @@ function ToolChainStepBody({ step }: { step: Step }) {
   }
 }
 
-function ToolChainStep({ step, index }: { step: Step; index: number }) {
+function ToolChainStep({
+  step, index, summary,
+}: {
+  step: Step;
+  index: number;
+  /** Phase 14 · 需求 2：该 step 的结构化量化摘要，`null` 表示无——回退到纯文字。 */
+  summary?: ToolResultSummary | null;
+}) {
   const inProgress = step.status === "in_progress";
   return (
     <li
@@ -417,7 +442,16 @@ function ToolChainStep({ step, index }: { step: Step; index: number }) {
           </p>
         </>
       ) : (
-        <ToolChainStepBody step={step} />
+        <>
+          <ToolChainStepBody step={step} />
+          {/*
+            Phase 14 · 需求 2：量化摘要行。`summary` 有值（且至少一个字段）时，在结果文字下方
+            补一行量化 chip（「41,208 行 · 8.4 MB」）；否则 `ToolResultQuantities` 自己 return
+            null，本 step 卡片与改动前逐字一致——这就是「字段缺失优雅回退」。只在终态渲染：
+            in_progress 分支在上面，还没有结果可量化。
+          */}
+          <ToolResultQuantities summary={summary} data-testid={`agent-tool-chain-quantities-${index}`} />
+        </>
       )}
     </li>
   );
