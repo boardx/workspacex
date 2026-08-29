@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Pencil } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PlanPhaseIndicator } from "@/components/plan-control/plan-phase-indicator";
 import { PlanPanelReadOnly } from "@/components/plan-control/plan-panel-readonly";
@@ -54,9 +54,22 @@ import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
  *    completed`，不含 `failed`）。`PlanFailureRecovery` 需要 `failedStepIndex`/
  *    `failedStepLabel`/`reason` 三个 prop——这里用"第一个未完成的步骤"做尽力猜测、
  *    `reason` 给一句如实的通用文案，不编一个看似精确实则编造的原因。
+ *
+ * ## 人类 2026-08-29 直接反馈：挂载位置改到 composer 上方 + 加折叠
+ *
+ * `ui.md` S1 原文"落在消息流顶部"的读法是"计划态跨整条对话、不该随消息滚走"——
+ * 这条不变量没有变。人类当场反馈的是**顶部固定占屏**这一件具体呈现：改到贴着
+ * composer（消息列表下方、输入框上方），同样不随消息滚动，但离用户当前视线
+ * （正在打字/正在看的地方）更近；并加一个折叠开关，默认展开，折叠只留
+ * `PlanPhaseIndicator` 一行——这是"简化界面"的落点：折叠态不隐藏计划存在与否，
+ * 只收起步骤明细/编辑/确认门这些只在需要决策时才用得上的内容。**需要用户决策的
+ * 状态（`gate.required` 或 `phase === "failed"`）从别的态转入时自动展开**，不让
+ * 用户因为上一轮手动折叠而错过下一次真正需要确认/处理失败的时刻。挂载点搬动见
+ * `copilotkit-v2-panel.tsx` 对应改动的注释。
  */
 
 export const PLAN_CONTROL_EDIT_TOGGLE_TESTID = "chat-task-workbench-plan-edit-toggle";
+export const PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID = "chat-task-workbench-plan-collapse-toggle";
 
 export interface CopilotKitV2PlanControlProps {
   /** 真实 `chat_threads.id`——`copilotkit-v2-panel.tsx` 里的 `resolvedChatThreadId`
@@ -86,6 +99,16 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
   React.useEffect(() => {
     if (ledger?.phase !== "executing") setPausedLocally(false);
   }, [ledger?.phase]);
+
+  // 折叠开关：默认展开。needsDecision 从 false→true 的那次转变自动展开——
+  // 用户上一轮手动折叠，不该让 ta 错过下一次真正需要确认/处理失败的时刻。
+  const [collapsed, setCollapsed] = React.useState(false);
+  const needsDecision = ledger !== null && (ledger.phase === "failed" || (ledger.gate.required && ledger.phase !== "executing"));
+  const prevNeedsDecisionRef = React.useRef(needsDecision);
+  React.useEffect(() => {
+    if (needsDecision && !prevNeedsDecisionRef.current) setCollapsed(false);
+    prevNeedsDecisionRef.current = needsDecision;
+  }, [needsDecision]);
 
   async function runAction(action: () => Promise<unknown>): Promise<boolean> {
     setBusy(true);
@@ -142,8 +165,18 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
   return (
     <div data-testid="chat-task-workbench-plan-control" className="mb-3 flex flex-col gap-2">
       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          data-testid={PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID}
+          aria-label={collapsed ? "展开计划面板" : "折叠计划面板"}
+          onClick={() => setCollapsed((v) => !v)}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-control text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {collapsed ? <ChevronRight aria-hidden className="h-4 w-4" /> : <ChevronDown aria-hidden className="h-4 w-4" />}
+        </button>
         <PlanPhaseIndicator phase={ledger.phase} />
-        {ledger.phase !== "failed" && ledger.steps.length > 0 && (
+        {!collapsed && ledger.phase !== "failed" && ledger.steps.length > 0 && (
           <Button
             size="xs"
             variant={editing ? "primary" : "outline"}
@@ -157,7 +190,7 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
         )}
       </div>
 
-      {actionErrorCode !== null && (
+      {!collapsed && actionErrorCode !== null && (
         <p role="status" className="text-11 text-destructive" data-testid="chat-task-workbench-plan-action-error">
           {actionErrorCode === "PLAN_REVISION_CHANGED"
             ? "计划刚被更新，已刷新到最新版本——请基于当前状态重试这次修改。"
@@ -165,7 +198,7 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
         </p>
       )}
 
-      {ledger.phase === "failed" && currentStep && (
+      {!collapsed && ledger.phase === "failed" && currentStep && (
         <PlanFailureRecovery
           failedStepIndex={currentStepIndex}
           failedStepLabel={currentStep.content}
@@ -175,7 +208,7 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
         />
       )}
 
-      {ledger.phase === "executing" && currentStep && (
+      {!collapsed && ledger.phase === "executing" && currentStep && (
         <PlanRunProgress
           currentStepLabel={currentStep.content}
           stepIndex={currentStepIndex}
@@ -187,9 +220,9 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
         />
       )}
 
-      {ledger.pendingApplyAtNextRun && <PlanPendingApplyBanner onPauseNow={handlePause} />}
+      {!collapsed && ledger.pendingApplyAtNextRun && <PlanPendingApplyBanner onPauseNow={handlePause} />}
 
-      {editing ? (
+      {!collapsed && (editing ? (
         <PlanPanelEdit
           steps={ledger.steps}
           onReorder={handleReorder}
@@ -199,9 +232,9 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
         />
       ) : (
         <PlanPanelReadOnly steps={ledger.steps} />
-      )}
+      ))}
 
-      {ledger.orphanedConstraints.map((c) => (
+      {!collapsed && ledger.orphanedConstraints.map((c) => (
         <OrphanConstraintNotice
           key={c.constraintId}
           text={c.text}
@@ -210,11 +243,13 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
         />
       ))}
 
-      <PlanConfirmGate
-        gate={ledger.gate}
-        onConfirmRun={handleConfirm}
-        onContinueEditing={() => setEditing(true)}
-      />
+      {!collapsed && (
+        <PlanConfirmGate
+          gate={ledger.gate}
+          onConfirmRun={handleConfirm}
+          onContinueEditing={() => setEditing(true)}
+        />
+      )}
 
       {busy && <span className="sr-only" role="status">计划操作处理中…</span>}
     </div>
