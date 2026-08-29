@@ -65,6 +65,7 @@ export function ChatSkillMountPanel({
   onMountsChange,
   onMountsSnapshotChange,
   variant = "row",
+  pickerSide = "down",
 }: {
   threadId: string;
   /**
@@ -80,6 +81,17 @@ export function ChatSkillMountPanel({
    *   依赖的锚点逐字不变**——变的只是排布，不是这个组件对外暴露的契约。
    */
   variant?: "row" | "pill";
+  /**
+   * issue #2321 追加 -- 真实 devapp 实测：`variant="pill"` 挂在 composer 图标行时，
+   * 挂载浮层此前恒定往下开（`top-full`）。composer 贴着视口底部，浮层因此在真实
+   * 布局里开到视口外/被下方内容裁掉，用户完全看不见——同一行的
+   * `CapabilityPicker`（agent 选择器）早就用 `side="up"` 解决过一模一样的问题
+   * （`chat-composer-pickers.tsx`：`bottom-8` 往上开），这里只是同一个坑的第二次，
+   * 补上同一套口子。只影响 `variant="pill"`；`variant="row"` 的浮层从来不是
+   * `absolute` 定位（常驻在 composer 下方一整条内，不会被视口边缘裁切），
+   * `pickerSide` 对它没有意义，默认值刻意与此前 100% 向下的行为逐字节兼容。
+   */
+  pickerSide?: "up" | "down";
   /**
    * ⚠ **可选**：个人对话没有项目（人类 2026-08-21 裁决「个人对话必须要可以使用
    * 公共的 skills」）。#1693 起服务端已不把 `?projectId=` 当授权输入——授权从
@@ -336,12 +348,15 @@ export function ChatSkillMountPanel({
     );
   };
 
-  /** 挂载浮层——row/pill 两种排布共用同一份，`pill` 下是 `absolute` 覆盖层。 */
+  /** 挂载浮层——row/pill 两种排布共用同一份，`pill` 下是 `absolute` 覆盖层，
+   *  `pickerSide` 决定往上还是往下开（见该 prop 自己的头注）。 */
   const picker = picking ? (
     <div
       className={
         pill
-          ? "absolute left-0 top-full z-20 mt-1 flex w-64 flex-wrap items-center gap-1.5 rounded-md border border-border bg-popover p-2 shadow-md"
+          ? `absolute left-0 z-20 flex w-64 flex-wrap items-center gap-1.5 rounded-md border border-border bg-popover p-2 shadow-md ${
+            pickerSide === "up" ? "bottom-full mb-1" : "top-full mt-1"
+          }`
           : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
       }
       data-testid="chat-skill-mount-picker"
@@ -384,12 +399,15 @@ export function ChatSkillMountPanel({
     </div>
   ) : null;
 
-  /** 失败横幅——同上，`pill` 下也是 `absolute`，不撑开 composer 图标行的高度。 */
+  /** 失败横幅——同上，`pill` 下也是 `absolute`（同一个 `pickerSide`），不撑开
+   *  composer 图标行的高度。 */
   const failureBanner = failure ? (
     <div
       className={
         pill
-          ? "absolute left-0 top-full z-20 mt-1 flex w-64 items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 shadow-md"
+          ? `absolute left-0 z-20 flex w-64 items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 shadow-md ${
+            pickerSide === "up" ? "bottom-full mb-1" : "top-full mt-1"
+          }`
           : "flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
       }
       data-testid="chat-skill-mount-failure"
