@@ -4,18 +4,45 @@
     {
       "id": "F01",
       "priority": 1,
-      "area": "orchestrator",
-      "title": "示例:健康检查端点",
-      "user_visible_behavior": "GET /api/health 返回 200 且 body 为 {\"ok\": true}",
+      "area": "plan-control",
+      "title": "对话中实时看到本轮任务花了多少钱、占本月预算多少",
+      "user_visible_behavior": "在 /chat 执行 Deep Agent 任务时，plan-control 进度条紧邻处出现一条成本条：显示「本轮成本 ¥X.XX · 实时累计/已结算」，以及「本月预算已用 Y%」的进度条与「本月已用 ¥ / 预算 ¥」明细。占比按档变色（<70% 主色、70–90% 黄、≥90% 红），≥90% 出「逼近本月预算」徽标、≥100% 出「已超本月预算」徽标。加载态出 skeleton、刚发起态显示 ¥0.00、账本非法金额出 role=alert 报错行；组织未配预算分母（budget-unavailable）或无权限（denied）时仍如实显示本轮 ¥，只把占比那半降级为一句说明、不画会误导的空进度条。",
       "status": "not_started",
       "sprint": null,
       "owner": null,
       "capability": "CAP-WEB",
+      "depends_on": [],
+      "design_ref": "apps/web/components/plan-control/plan-run-cost-bar.tsx; phases/phase-14-chat-agentic-runtime-parity/ui-preview/req1-cost-bar-*.png",
+      "spec_ref": "phase1-cost-and-trace.md#需求1",
       "verification": [
-        "curl -sf http://localhost:3000/api/health | jq -e '.ok == true'"
+        "pnpm --filter web exec vitest run tests/ui/plan-run-cost-bar.test.tsx",
+        "pnpm --filter web exec vitest run tests/plan-run-cost-format.test.ts",
+        "pnpm --filter @repo/api exec vitest run tests/plan-control/run-cost-ledger.test.ts"
       ],
       "evidence": "",
-      "notes": "把示例替换成你自己的功能。粒度=一次会话能完成。"
+      "notes": "需求依据等级=[原型]（Phase 1 UI 已建成并出九态截图，真实 data-testid 已核对）。合并了需求1的 UI 展示层与后端账本接线为一个 feature。verification 三条各锚一层：(1) tests/ui/plan-run-cost-bar.test.tsx —— 组件测试，渲染七态并断言真实 testid：容器 chat-task-workbench-run-cost、占比 chat-task-workbench-run-cost-budget、超支徽标 chat-task-workbench-run-cost-warn-badge、状态锚点 loading/empty/err-cost/dep-failed/denied，并断言 denied 与 budget-unavailable 两态仍显示本轮 ¥；(2) tests/plan-run-cost-format.test.ts —— 纯函数断言 formatCny 两位小数、budgetPercent（分母非正返回 null）、toneForPercent 阈值（≥90 destructive / 70–90 warning / <70 primary）；(3) tests/plan-control/run-cost-ledger.test.ts —— API 层断言 getPlanLedger 从 agent_run_steps 派生 runCostCny/monthUsedCny，分母复用组织配额策略、未配置时降级为 budget-unavailable（不静默给假分母）。三个测试文件尚未创建，实现时随 feature 一并写入——当前 verification 命令会因文件不存在而非零退出（可失败）。⚠ 依据文档需人类确认项（见 ui-preview/README.md 待确认清单）：「Y%」分子语义（原型定为本月累计，需求正文对本轮/本月有张力）、红/黄阈值（原型自定 90/70）、依赖失败降级策略、成本明细按钮为占位——这些是原型替需求拍板处，签核第①件时需逐条核对，实现前不得由实现者擅自改动语义。本 feature 属 plan-control 能力域契约束，束级 design-signoff.md（UI/用例/API 契约三节）+ 阶段一致性复核通过前不可 new-sprint/claim。"
+    },
+    {
+      "id": "F02",
+      "priority": 2,
+      "area": "chat-agent-trace",
+      "title": "工具执行轨迹旁看到量化信息（如「41,208 行 · 8.4 MB」），缺失时优雅回退",
+      "user_visible_behavior": "在 /chat 展开 Agent 工具执行轨迹时，读取类工具（读文件/查表/检索）的结果文字正下方多出一行量化 chip，如「41,208 行」「8.4 MB」「命中 12 条」（行数/命中千分位、字节自动 B/KB/MB/GB 换算）。工具结果 payload 未携带 summary 字段、或三字段全空时，该行整体不渲染，逐字回退到现有纯文字结果描述——不报错、不留白、不出现假的「0 行」。agent-tool-chain 与 copilotkit-v2 两处 per-tool 卡片共用同一渲染，视觉一致。",
+      "status": "not_started",
+      "sprint": null,
+      "owner": null,
+      "capability": "CAP-WEB",
+      "depends_on": [],
+      "design_ref": "apps/web/components/chat/tool-result-quantities.tsx; apps/web/lib/tool-result-summary.ts; phases/phase-14-chat-agentic-runtime-parity/ui-preview/req2-tool-summary-*.png",
+      "spec_ref": "phase1-cost-and-trace.md#需求2",
+      "verification": [
+        "pnpm --filter web exec vitest run tests/tool-result-summary.test.ts",
+        "pnpm --filter web exec vitest run tests/ui/tool-result-quantities.test.tsx",
+        "pnpm --filter @repo/contracts exec vitest run tests/tool-result-summary-contract.test.ts",
+        "pnpm --filter @repo/api exec vitest run tests/chat/tool-result-summary-populate.test.ts"
+      ],
+      "evidence": "",
+      "notes": "需求依据等级=[原型]（前端展示层与格式化器已建成、出三态截图；但后端协议扩展属 [Backlog]，UI 原型明确未动 @repo/contracts，见 ui-preview/README.md 第 7 条）。verification 四条分四层：(1) tests/tool-result-summary.test.ts —— 纯函数断言 formatToolResultQuantities（千分位、部分字段、非有限数跳过、summary 缺失→[]）与 formatBytes（B/KB/MB 换算）；(2) tests/ui/tool-result-quantities.test.tsx —— 组件测试，断言真实 testid tool-result-quantity-<n> 与 agent-tool-chain-quantities-<i>，并断言 summary 缺失时组件 return null（渲染为空、不报错，即优雅回退）；(3) tests/tool-result-summary-contract.test.ts —— 契约断言工具结果 payload 携带可选 summary { rows?, bytes?, hits? }，缺失 summary 仍为合法 payload（向后兼容）；(4) tests/chat/tool-result-summary-populate.test.ts —— API 层断言读取类工具结果填充 summary、非读取类工具省略该字段且不因缺失报错。四个测试文件尚未创建，实现时一并写入（当前非零退出，可失败）。⚠ 依据不足项：后端 summary 协议字段是 [Backlog]（原型未画后端契约、需先补契约设计），contracts 与 api 两条 verification 依赖尚未存在的字段——签核束级 API 契约节（design-signoff.md ③）确认字段形状前不得开工。切分不确定性：本 feature 横跨 web+@repo/contracts+@repo/api 三包，前端已由原型完成，剩余后端契约+填充较独立，接线时若发现工作量超一会话，可拆出 F02a(契约+api 填充)/F02b(前端接线) 两个 feature。⚠ 收起态一行摘要是否也要带首个量化数字，原型未做、待人类确认（README.md 第 6 条），本 feature 只做展开态量化，不改动有回归判据的收起态摘要文案。"
     }
   ]
 }
