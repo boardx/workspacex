@@ -1,11 +1,9 @@
 "use client";
 import * as React from "react";
 import { FileText, Download } from "lucide-react";
-import { parseVfsUriString } from "@repo/contracts/agui-state-events";
 import { cn } from "@/lib/utils";
-import { apiUrl } from "@/lib/api-client";
-import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
-import { formatBytes, iconKindForMime, type AttachmentIconKind } from "@/lib/chat-attachment-format";
+import { formatBytes, type AttachmentIconKind } from "@/lib/chat-attachment-format";
+import { useProducedFileDownload } from "@/lib/use-produced-file-download";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import { AssetCodeEditor, monacoLanguageFromPath } from "@/components/asset-governance/asset-code-editor";
 import { Button } from "@/components/ui/button";
@@ -145,13 +143,7 @@ function ActiveFileContent({ file, threadId }: { file: ActiveFile; threadId: str
  *  什么都不拉（它自己的实现），所以 `threadId`/`attachmentId` 任一缺失时安全地停在
  *  「按钮禁用」态，不会拼出一个指向不存在资源的请求。 */
 function ProducedFileDownloadCard({ file, threadId }: { file: ActiveFile; threadId: string | null }): JSX.Element {
-  const parsed = parseVfsUriString(file.uri);
-  const attachmentId = parsed?.domain === "attachment" ? parsed.id : null;
-  const downloadUrl = threadId !== null && attachmentId !== null
-    ? apiUrl(`/chat/threads/${threadId}/attachments/${attachmentId}/content`)
-    : null;
-  const { src, failed } = useAuthedImageSrc(downloadUrl);
-  const iconKind: AttachmentIconKind = file.mime !== null ? iconKindForMime(file.mime) : "file";
+  const { src, failed, iconKind } = useProducedFileDownload(file, threadId);
 
   return (
     <div

@@ -76,6 +76,10 @@ export function buildFileCreatedEvents(
       // can match `resultMessageId` (an AI-authored message) was necessarily produced this
       // way, never a user upload (a human never uploads onto an assistant's own message).
       source: "agent_run_output",
+      // 2026-08-30 -- every item here already passed the `item.messageId === resultMessageId`
+      // filter above, so this is not a new lookup, just carrying the fact that decided
+      // inclusion onto the wire (see the contract field's own doc for why the frontend needs it).
+      messageId: resultMessageId,
     });
     if (parsed !== null) events.push(parsed);
   }
