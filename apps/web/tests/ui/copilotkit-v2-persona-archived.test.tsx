@@ -26,6 +26,13 @@
  *    一排假按钮）——断言从"disabled"改成"根本不在"，而不只是断言提示文案在。
  * ④ **成功之后 chip 不消失**。生成一次之后同一条建议还挂在那——用户会以为
  *    "点了但没反应"，或者误以为可以无限重复生成。
+ * ⑤ **用 client 视图代替后端事实**（2026-08-30 review 反证第三轮）。补丁二曾用
+ *    `agent.messages.length > 0` 当"线程有内容"的判据——那是 client/流式视图，
+ *    hydration 还没跑完或读回空数组时都可能与后端真相脱节，复现同一个"chip
+ *    出现但点了报错"的问题。改成 `personaThreadHasPersistedEvidence`
+ *    （`hydratedEvidence` + `resolvedThreadIdsRef` 两个事实源，见该常量的
+ *    完整论证），②b/②c 两条用例分别钉住"hydration 读回空数组"与"hydration
+ *    失败"两种"没有证据就不该渲染"的场景。
  *
  * ⚠ 组件测试不是本 issue 的唯一证据：真实浏览器 e2e
  * （`e2e/copilotkit-v2-persona-archived.spec.ts`）打真栈，是端到端证据。这里钉的是
@@ -165,16 +172,33 @@ describe("CK-P6 生成用户画像（issue #2053）", () => {
 
   /**
    * 2026-08-30 补丁二：真实复现——线程**已经建立**（`chatThreadId` 非空）但
-   * 一条消息都没有（`listMessages` 读回空数组）。第一版的判据是
+   * 一条消息都没有（`listMessages` 读回空数组）。补丁一的判据是
    * `initialChatThreadId !== null`，只看"线程存在"，这个场景下照样渲染；
    * 点了就撞见 `runPersonaSummary` 里 `persisted` 为空那条"这条对话还没有
    * 已落库的消息，无法生成画像"——不是渲染 bug，是判据没有真的按"有没有内容"
-   * 来判。改成看 `agent.messages.length` 后，这个场景必须不渲染。
+   * 来判。补丁二改成看 `hydratedEvidence`（本条断言的是它 `hasMessages: false`
+   * 那一支：hydration 真的跑完了，读回的是空数组，chip 必须不渲染）。
    */
   it("②b 线程已建立但一条消息都没有 ⇒ 同样不渲染（不能只看「线程存在」）", async () => {
     listMessages.mockImplementation(async () => ({ messages: [], nextCursor: null }));
     mount({ canGeneratePersona: true, chatThreadId: THREAD_ID });
     await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeTruthy());
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+  });
+
+  /**
+   * 2026-08-30 review 反证第三轮——补丁二用 `agent.messages.length > 0` 判定，
+   * 那是 client/流式视图，不是"后端确认落库过什么"的事实源：hydration 还没跑完
+   * 的窗口里 `agent.messages` 完全可能与后端真相脱节。改成 `hydratedEvidence`
+   * （见 `copilotkit-v2-panel-body.tsx` 的 `personaThreadHasPersistedEvidence`）
+   * 之后，"没有证据"必须默认不渲染——hydration 失败（`listMessages` 抛错）时，
+   * `hydratedEvidence` 保持 `null`，不能假装"反正线程存在就当有消息"。
+   */
+  it("②c hydration 失败（listMessages 抛错）⇒ 没有证据就不渲染，不假装有消息", async () => {
+    listMessages.mockRejectedValue(new Error("network down"));
+    mount({ canGeneratePersona: true, chatThreadId: THREAD_ID });
+    await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("copilotkit-v2-history-error")).toBeTruthy());
     expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
   });
 
