@@ -208,6 +208,17 @@ export function contentMmFor(size: PaperSizeKey): { readonly w: number; readonly
 export const GRID_GAP_MM = 6;
 /** 标题占位高度，容量公式的 22mm 来源见 `Design.pdf` §5「容量」行。 */
 export const TITLE_RESERVE_MM = 22;
+/**
+ * 贴纸边长上限，issue #2368：`noteMm` 此前只会随列数变小单调变大、没有上限，
+ * 列数选到 1 时贴纸能吃满整个区块宽度（比如 268mm），一旦超过区块可用高度就让
+ * `rows` 直接归零、整块区域画不出任何内容——`rows` 有 `Math.max(0, …)` 下限保护，
+ * `noteMm` 却没有对应的上限保护，这个不对称就是空白区块的根因。
+ *
+ * 封顶取 `classifyNoteSize` 自己定义的 "oversized" 分界线（82mm，`Design.pdf` §5
+ * 「尺寸判定」行原文档位）——这条线本来就是该函数用来判"会显空"的界，贴纸边长永远
+ * 不越过它，多出来的区块空间留白，不再继续把贴纸撑大到显示失败。
+ */
+export const MAX_NOTE_MM = 82;
 
 export interface SectionGeometryMmInput {
   readonly w: number;
@@ -222,7 +233,7 @@ export interface SectionGeometryMm {
   /** 区块实尺（mm）。`wMm = w/列数 × 821 - 6`，`hMm = h/8 × 574 - 6`。 */
   readonly wMm: number;
   readonly hMm: number;
-  /** 贴纸实尺（mm），固定 1:1 方形。`noteMm = (wMm - 6×(cols-1)) / cols`。 */
+  /** 贴纸实尺（mm），固定 1:1 方形。`noteMm = min(MAX_NOTE_MM, (wMm - 6×(cols-1)) / cols)`。 */
   readonly noteMm: number;
   /** 这块地方竖着放得下几行贴纸。`rows = floor((hMm - 22) / (noteMm + 6))`。 */
   readonly rows: number;
@@ -243,7 +254,7 @@ export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometr
   const contentMm = contentMmFor(input.size ?? "A1");
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
   const hMm = (input.h / rowSpanDenominator) * contentMm.h - GRID_GAP_MM;
-  const noteMm = (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols;
+  const noteMm = Math.min(MAX_NOTE_MM, (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols);
   const rows = Math.max(0, Math.floor((hMm - TITLE_RESERVE_MM) / (noteMm + GRID_GAP_MM)));
   return {
     wMm: Math.round(wMm),
