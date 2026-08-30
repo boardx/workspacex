@@ -160,6 +160,17 @@ export interface PinnedSkillContent {
  */
 export const DEEP_AGENT_PROVIDER_NAME = "deep-agent";
 
+/**
+ * 2026-08-30 —— `AgentRunStore.reclaimStaleRunning`（该方法自己的文档有完整取证）的
+ * "卡够久"默认阈值。两个调用点（`AgentRunExecutor.tick()` 的下一条消息触发、
+ * `readAgentRun` 的单条只读请求触发）共享同一个值，不是两处各自定义一份"20 分钟"，
+ * 同 `DEEP_AGENT_PROVIDER_NAME` 上面那条既有先例（AGENTS.md "同一事实不得声明在两处"）。
+ * `AgentRunExecutor` 允许通过 `KERNEL_AGENT_RUN_STALE_RUNNING_MS` 覆盖它自己那一路的值
+ * （运维需要调参时不必改代码）；`readAgentRun` 这一路读的是这个常量本身，不接 env——
+ * 一个只读请求的判定不应该因为部署环境不同而答案不同。
+ */
+export const DEFAULT_STALE_RUNNING_THRESHOLD_MS = 20 * 60_000;
+
 export interface AppendedRunStep {
   readonly runId: string;
   readonly seq: number;
@@ -395,6 +406,15 @@ export interface AgentRunStore {
    * 只处理 `running`：`writeback_pending`/`awaiting_approval` 已经各自有名副其实的
    * 恢复路径（前者见上、后者等的是人的裁决，本身就该长期挂起），不该被这个函数一起
    * 扫进去当"卡住"处理。
+   *
+   * ⚠ **2026-08-30 续（devapp 真栈复现，第一版留的洞）**——`tick()` 只在"下一条消息"
+   * 触发的 kick 里跑；用户提交一条任务后**只刷新页面、不再发第二条消息**（前端
+   * `useCopilotKitV2RunRestore` 轮询 `GET /agent-runs/:runId` 就是这个纯读路径）
+   * 永远等不到下一次 kick，卡住的行因此永远等不到被捞回的那一刻——"刷新应该能快速
+   * 恢复"这条判据在这种最常见的复现步骤下没有兑现。`readAgentRun`（`read-run.ts`）
+   * 现在也在读到 `status==='running'` 时调用这个方法——单条只读请求就能让它自愈，
+   * 不必等另一条消息。两处调用点共享同一份判定（`DEFAULT_STALE_RUNNING_THRESHOLD_MS`），
+   * 不是两次独立发明"多久算卡住"。
    */
   reclaimStaleRunning(orgId: OrgId, olderThanMs: number): Promise<number>;
 

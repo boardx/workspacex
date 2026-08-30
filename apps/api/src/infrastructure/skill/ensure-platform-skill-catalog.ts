@@ -135,6 +135,76 @@ export async function ensurePlatformSkillsSeeded(): Promise<PlatformSkillsBackfi
         const versionId = `${spec.skillId}-v1`;
         const now = new Date().toISOString();
 
+        // issue（后台「编辑」打开 PDF/Word/Excel/演示文稿四个官方 skill 报「找不到
+        // Skill」）—— 根因：`skill-content-editor.tsx` 把目录页展示的
+        // `capability_listings.id` 原样当 `AgSkillEditor` 的 `assetId` 传下去，
+        // 而 `PgAssetFileRepository`（#785）用它去查 `skills`/`skill_versions` 时
+        // 当成的是 `skills.id`——这条假设对 URL-import/starter-import 的 skill 成立
+        // （同一事务里两张表写同一个生成 id，见 `pg-skill-url-import-repository.ts`
+        // 头注），但这四行从一开始就没有满足它：这里曾经用 `cap-${spec.skillId}`
+        // 单独铸了一个 capability_listings id，与 `skills.id`（`spec.skillId`，不带
+        // `cap-` 前缀）不是同一个字符串，于是 `getAssetDirectory("skill",
+        // "cap-skill-platform-pdf-create")` 在 `skills` 表里什么都查不到，恒 404。
+        //
+        // ⚠ 这一段必须放在下面 `skillInsert.rows.length === 0 ⇒ continue` **之前**：
+        // 已经跑过一次 backfill 的环境（这是常态——本函数每次 API 进程启动都调一次，
+        // 见文件头注）此后 `skills` 行恒已存在，若把这段留在 `continue` 之后，
+        // 已经带着错误 id 落库的环境会永远自愈不到，"进程重启自愈"这条就只对
+        // 从未 seed 过的全新库成立。
+        //
+        // 把 capability_listings.id 改成与 skills.id 相同的字符串，让"两张表同一个
+        // id"这条各处（含本文件下方 `skill_versions`/`skill_version_files` 那几行）都
+        // 在依赖的假设变回真的——不需要给两张表之间另建一条映射；`UPDATE` 先把
+        // 已经用旧 id（`cap-${spec.skillId}`）落库的行原地改名，`INSERT ON CONFLICT
+        // DO NOTHING` 再兜底"这个库从没 seed 过"的路径。
+        await s.query(
+          `UPDATE capability_listings SET id = $1
+             WHERE org_id = $2 AND id = $3
+               AND NOT EXISTS (SELECT 1 FROM capability_listings WHERE id = $1)`,
+          [spec.skillId, PLATFORM_ORG_ID, `cap-${spec.skillId}`],
+        );
+        await s.query(
+          `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
+           VALUES ($1,$2,'skill',$3,'org-wide',NULL,true,NULL)
+           ON CONFLICT (id) DO NOTHING`,
+          [spec.skillId, PLATFORM_ORG_ID, spec.displayName],
+        );
+
+        /**
+         * 反证：如果 `spec.skillId` 这个 id 在 UPDATE 之前就已经被**别的**
+         * `capability_listings` 行占用（`NOT EXISTS` 判 false ⇒ 上面那条
+         * `UPDATE` 是空操作，旧 `cap-${spec.skillId}` 行原样留着），上面的
+         * `INSERT ... ON CONFLICT (id) DO NOTHING` 也会静默成功——`created`/
+         * `alreadyExisted` 两个报告字段都看不出任何异常，而 `cap-${spec.skillId}`
+         * 那条损坏的旧行永远留在目录里，`/admin/skill` 编辑页对它仍然 404。
+         * 这正是"种子逻辑报告成功，但目录状态其实是坏的"这类问题最难查的形态——
+         * 明确读回这一行、核对它确实是**这个官方 skill 自己的**记录
+         * （`org_id`/`kind`/`name` 三者都对得上），对不上就显式抛错、不静默吞掉。
+         * `ensurePlatformSkillCatalogSeeded()` 的外层 `catch` 已经把这类失败收敛成
+         * `{ ok: false, error }`（见该函数头注：不让一次性失败拖垮整个 API 进程），
+         * 这里只需要保证"失败"这件事本身不会在没人抛错的情况下悄悄变成"成功"。
+         */
+        const target = await s.query<{ org_id: string; kind: string; name: string }>(
+          `SELECT org_id, kind, name FROM capability_listings WHERE id = $1`,
+          [spec.skillId],
+        );
+        const targetRow = target.rows[0];
+        if (
+          targetRow === undefined
+          || targetRow.org_id !== PLATFORM_ORG_ID
+          || targetRow.kind !== "skill"
+          || targetRow.name !== spec.displayName
+        ) {
+          throw new Error(
+            `ensurePlatformSkillsSeeded: capability_listings.id=${spec.skillId} 未能安全落地——` +
+            (targetRow === undefined
+              ? "UPDATE/INSERT 之后这一行仍不存在"
+              : `已被另一行占用（org_id=${targetRow.org_id}, kind=${targetRow.kind}, name=${targetRow.name}），` +
+                `疑似历史遗留的 cap-${spec.skillId} 行未能改名、且这个新 id 又被别的记录抢先占用`) +
+            "。需要人工核对这条冲突记录，本函数不会静默留下损坏的目录状态。",
+          );
+        }
+
         const skillInsert = await s.query(
           `INSERT INTO skills (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
            VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6)
@@ -162,13 +232,6 @@ export async function ensurePlatformSkillsSeeded(): Promise<PlatformSkillsBackfi
         );
         // 与真实发布用例走同一个数据库函数——不在这里手写第二份"怎样发布一个版本"。
         await s.query("SELECT wave2_publish_skill_version($1,$2)", [PLATFORM_ORG_ID, versionId]);
-
-        await s.query(
-          `INSERT INTO capability_listings (id, org_id, kind, name, scope, owner_team_id, enabled, endpoint)
-           VALUES ($1,$2,'skill',$3,'org-wide',NULL,true,NULL)
-           ON CONFLICT (id) DO NOTHING`,
-          [`cap-${spec.skillId}`, PLATFORM_ORG_ID, spec.displayName],
-        );
 
         created.push(spec.stableName);
       }

@@ -34,8 +34,9 @@ import { toOrgId } from "../../src/domain/org-id";
 import { OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
 
 /** design-delta `platform-owned-skills`：kind=skill 恒含这四个官方 skill，见
- *  no-builtin-capability-lists.test.ts 同名常量的头注。 */
-const PLATFORM_SKILL_IDS = OFFICIAL_SKILLS.map((s) => `cap-skill-platform-${s.stableName}`).sort();
+ *  no-builtin-capability-lists.test.ts 同名常量的头注（id 不带 `cap-` 前缀，
+ *  与 `skills.id` 逐字相同——「找不到 Skill」根因修复）。 */
+const PLATFORM_SKILL_IDS = OFFICIAL_SKILLS.map((s) => `skill-platform-${s.stableName}`).sort();
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";

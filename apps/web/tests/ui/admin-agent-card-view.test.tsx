@@ -26,6 +26,15 @@ vi.mock("@/components/session/session-provider", () => ({
   }),
 }));
 
+/**
+ * 2026-08-30：「编辑」链接带 `?from=<当前 URL>`（见 `capability-catalog-screen.tsx`
+ * 的 `editHrefFor`），需要 `usePathname`/`useSearchParams` 有确定返回值。
+ */
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/agent",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { AgentScreen } from "@/components/admin/agent-screen";
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -123,6 +132,6 @@ describe("Agent 目录：默认卡片视图，可切换为列表", () => {
     // 人类反馈（2026-08-17）：「编辑」现在是一条指向独立页面的链接，不再是
     // 内联展开——断言的是 href，不是点击后本页出现表单字段。
     const link = within(row).getByTestId("admin-agent-row-agent-vt-1-edit");
-    expect(link.getAttribute("href")).toBe("/admin/agent/agent-vt-1");
+    expect(link.getAttribute("href")).toBe("/admin/agent/agent-vt-1?from=%2Fadmin%2Fagent");
   });
 });

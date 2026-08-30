@@ -32,6 +32,15 @@ vi.mock("@/components/session/session-provider", () => ({
   }),
 }));
 
+/**
+ * 2026-08-30：「编辑」链接带 `?from=<当前 URL>`（见 `capability-catalog-screen.tsx`
+ * 的 `editHrefFor`），需要 `usePathname`/`useSearchParams` 有确定返回值。
+ */
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/admin/agent",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { AgentScreen } from "@/components/admin/agent-screen";
 import { CapabilityEditPage } from "@/components/admin/capability-edit-page";
 

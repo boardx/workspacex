@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Plus, RefreshCw } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
@@ -207,8 +208,20 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
    * 已经随「编辑」改成整页跳转一起删掉了，现在直接指向那个独立页面
    * （`/admin/skill/[id]`，`CapabilityEditPage`）。
    */
+  /**
+   * 人类实测反馈（2026-08-30）：「返回」此前写死回 `/skill?screen=catalog`——从**这个**
+   * 屏（`screen=library`，「Skill 库」真实数据屏）点「编辑源码」进去，点「返回」却
+   * 跳到了另一个屏（`screen=catalog`，治理目录屏），不是刚才这个。把这个屏自己当前的
+   * URL 编码进 `?from=`，`CapabilityEditPage` 优先用它，没有时才落回旧的默认目的地
+   * ——见 `capability-edit-page.tsx` 里 `CATALOG_HREF`/`backHref` 的头注。
+   */
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const query = searchParams.toString();
+  const currentUrl = query === "" ? pathname : `${pathname}?${query}`;
+
   function editSourceHref(skillId: string): string {
-    return `/admin/skill/${skillId}`;
+    return `/admin/skill/${skillId}?from=${encodeURIComponent(currentUrl)}`;
   }
 
   const generation = React.useRef(0);

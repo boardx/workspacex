@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Ban, Building2, Pencil, RefreshCw } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +55,19 @@ export function CapabilityCatalogScreen({
   const { session, identity } = useSession();
   if (!session) throw new Error("CapabilityCatalogScreen requires an authenticated session");
   const orgId = session.currentOrgId;
+  /**
+   * 人类实测反馈（2026-08-30）：编辑页的「返回」此前写死回 `CapabilityEditPage` 自己
+   * 猜的默认目的地，与「真的是从这个屏点进去的」是两回事——见 `capability-edit-page
+   * .tsx` 里 `CATALOG_HREF` 头注的完整说法。这里把**当前这个屏自己的 URL**（含
+   * `?screen=catalog` 这类查询参数——同一个组件在 `/admin/agent` 与 `/skill?screen=
+   * catalog` 两个不同 URL 下渲染）编码进 `?from=`，「编辑」链接带着它一起跳转。
+   */
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const query = searchParams.toString();
+  const currentUrl = query === "" ? pathname : `${pathname}?${query}`;
+  const editHrefFor = (id: string): string =>
+    `/admin/${kind}/${id}?from=${encodeURIComponent(currentUrl)}`;
   const copy = COPY[kind];
   const sourceKey = `${orgId}:${kind}`;
   const prefix = `admin-${kind}`;
@@ -139,7 +153,7 @@ export function CapabilityCatalogScreen({
       <CapabilityRow
         row={row}
         prefix={prefix}
-        kind={kind}
+        editHref={editHrefFor(row.id)}
         canMutate={canMutate}
         onDisable={() => {
           setNotice(null);
@@ -325,11 +339,12 @@ export function CapabilityCatalogScreen({
 }
 
 function CapabilityRow({
-  row, prefix, kind, canMutate, onDisable,
+  row, prefix, editHref, canMutate, onDisable,
 }: {
   row: CapabilityListing;
   prefix: string;
-  kind: CatalogKind;
+  /** 已经带了 `?from=<这个屏当前的 URL>`——见 `CapabilityCatalogScreen` 里的 `editHrefFor`。 */
+  editHref: string;
   canMutate: boolean;
   onDisable(): void;
 }) {
@@ -349,7 +364,7 @@ function CapabilityRow({
         {canMutate ? (
           <div className="flex shrink-0 gap-2">
             <Button asChild size="sm" variant="outline" data-testid={`${prefix}-row-${row.id}-edit`}>
-              <Link href={`/admin/${kind}/${row.id}`}>
+              <Link href={editHref}>
                 <Pencil aria-hidden className="h-3.5 w-3.5" />
                 编辑
               </Link>
