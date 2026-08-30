@@ -1655,7 +1655,7 @@ export function CopilotKitV2PanelBody({
             </div>
           </div>
           {/*
-            2026-08-30——录音状态**内嵌**在 composer 卡片里（这一行本身就是卡片内的
+            2026-08-30——录音状态「内嵌」在 composer 卡片里（这一行本身就是卡片内的
             正常一行，随内容自然撑高卡片），不再是盖在输入区上方的浮层
             （旧实现见 `chat-composer-mic-control.tsx` 头注）。转录文字本身已经实时
             写进上面的 textarea，这一行只是"元信息"：在录/多久了/多大声/录给哪支麦克风/

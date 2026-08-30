@@ -391,7 +391,7 @@ export function ChatSkillMountPanel({
             disabled={pending}
             data-testid={`chat-skill-mount-option-${item.skillId}`}
             onClick={() => void mount(item.skillId)}
-            className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <span className="truncate text-11 font-medium text-card-foreground">{item.name}</span>
             <span className="line-clamp-1 text-10 text-muted-foreground">
