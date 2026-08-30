@@ -44,8 +44,14 @@ import { A0_FRAME, GRID_TOP, GUTTER } from "./auto-template-layout";
  * 之前只在 `template-editor-model.ts` 声明一份，给 HTML/CSS 预览网格用；现在
  * `buildExplicitTemplateSpec` 也要按 `tone` 给 fabric 贴纸取色，lib 层不能反过来
  * import 组件层，所以定义挪到这里，`template-editor-model.ts` 改成重新导出）。
+ *
+ * 2026-08-30 人类反馈「贴纸颜色模拟 3M 的颜色」：原先四色偏浅灰、不像实物便利贴
+ * （尤其粉/蓝两档接近同一种灰调，现场很难一眼分清）。改成对应 3M Post-it 经典
+ * 色系里最常见的四色——Canary 黄、Poptimistic 粉、Rio 绿、Aqua 蓝——饱和度更接近
+ * 真实贴纸，同时仍留在能让深色字保持可读的亮度区间（沿用同一批产品线里偏亮的档位，
+ * 不用霓虹饱和色，避免文字读不清）。
  */
-export const TONE_COLORS = ["#F7E96E", "#F2C6C2", "#CFE3D2", "#CBD8EE"] as const;
+export const TONE_COLORS = ["#FFE066", "#FF8FAB", "#8CE196", "#6EC6FF"] as const;
 
 /** 契约 `canvas.SectionLayout` 的结构投影（本文件只读它，不重新定义契约）。 */
 export interface ExplicitSectionLayout {
@@ -246,16 +252,23 @@ export const GRID_GAP_MM = 6;
 /** 标题占位高度，容量公式的 22mm 来源见 `Design.pdf` §5「容量」行。 */
 export const TITLE_RESERVE_MM = 22;
 /**
- * 贴纸边长上限，issue #2368：`noteMm` 此前只会随列数变小单调变大、没有上限，
- * 列数选到 1 时贴纸能吃满整个区块宽度（比如 268mm），一旦超过区块可用高度就让
- * `rows` 直接归零、整块区域画不出任何内容——`rows` 有 `Math.max(0, …)` 下限保护，
- * `noteMm` 却没有对应的上限保护，这个不对称就是空白区块的根因。
+ * 贴纸实尺——固定值，不随区块宽度或列数变化。
  *
- * 封顶取 `classifyNoteSize` 自己定义的 "oversized" 分界线（82mm，`Design.pdf` §5
- * 「尺寸判定」行原文档位）——这条线本来就是该函数用来判"会显空"的界，贴纸边长永远
- * 不越过它，多出来的区块空间留白，不再继续把贴纸撑大到显示失败。
+ * 2026-08-30 人类反馈原话：「便利贴的大小需要模拟 3M 的 sticky note 的固定大小，
+ * 不要有变化，模拟屋里的 sticky note 的体验。一列的时候，大小也是固定的。」——
+ * 现实里的 3M 标准便利贴（76×76mm）是一个物理常量：不会因为你把它们排成一列
+ * 还是五列就跟着变大变小。issue #2368 那一版的修法（`Math.min(封顶, wMm/cols)`）
+ * 仍然是"按列数反推尺寸、只是加了个上限"——列数选到 1 时贴纸依然会被撑到封顶值，
+ * 3 列和 8 列时贴纸大小又各不相同，这正是这次人类要改掉的体验。
+ *
+ * 现在反过来：`noteMm` 恒等于这个常量，`cols`（用户在「列数」里选的档位）只决定
+ * 一行摆几张、不再倒推贴纸边长——与真实便利贴"先有固定尺寸的一叠纸，再决定怎么摆"
+ * 的体验一致，而不是"先决定占多少格，再把纸压成对应大小"。
+ *
+ * 取值用 `classifyNoteSize` 判定表里 "standard" 档的中心值——`Design.pdf` §5
+ * 「尺寸判定」原文把 70–82mm 都算标准 76mm 方形贴纸，76 是这一档的代表值。
  */
-export const MAX_NOTE_MM = 82;
+export const STANDARD_NOTE_MM = 76;
 
 export interface SectionGeometryMmInput {
   readonly w: number;
@@ -270,7 +283,7 @@ export interface SectionGeometryMm {
   /** 区块实尺（mm）。`wMm = w/列数 × 821 - 6`，`hMm = h/8 × 574 - 6`。 */
   readonly wMm: number;
   readonly hMm: number;
-  /** 贴纸实尺（mm），固定 1:1 方形。`noteMm = min(MAX_NOTE_MM, (wMm - 6×(cols-1)) / cols)`。 */
+  /** 贴纸实尺（mm），固定 1:1 方形，恒等于 `STANDARD_NOTE_MM`——不随区块宽度或列数变化。 */
   readonly noteMm: number;
   /** 这块地方竖着放得下几行贴纸。`rows = floor((hMm - 22) / (noteMm + 6))`。 */
   readonly rows: number;
@@ -285,18 +298,22 @@ export interface SectionGeometryMm {
  *   但算法完全独立——这里的除数是 821/574（mm 常量），px 那边除数是 A0_FRAME
  *   算出来的 cellW/cellH（渲染画布的抽象单位）。两条链路对同一个网格坐标各自
  *   给出正确答案，不是同一个数字的两种写法。
+ *
+ * ⚠ `noteMm` 不参与 `wMm`/`cols` 的除法——它是 `STANDARD_NOTE_MM` 常量，理由见
+ *   该常量的文档（2026-08-30：贴纸大小固定，不随排版变化）。`cols` 仍然决定
+ *   一行摆几张、进而决定 `fits`，只是不再倒推贴纸边长本身。
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
   const rowSpanDenominator = 8; // 网格恒 8 行，列数才切 6/12。
   const contentMm = contentMmFor(input.size ?? "A1");
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
   const hMm = (input.h / rowSpanDenominator) * contentMm.h - GRID_GAP_MM;
-  const noteMm = Math.min(MAX_NOTE_MM, (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols);
+  const noteMm = STANDARD_NOTE_MM;
   const rows = Math.max(0, Math.floor((hMm - TITLE_RESERVE_MM) / (noteMm + GRID_GAP_MM)));
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),
-    noteMm: Math.round(noteMm),
+    noteMm,
     rows,
     fits: input.cols * rows,
   };

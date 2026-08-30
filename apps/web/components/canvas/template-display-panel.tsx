@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
-  COLS_OPTIONS, MAX_OPTIONS, OVERFLOW_OPTIONS, TONE_COLORS,
+  COLS_OPTIONS, MAX_COUNT_MIN, MAX_COUNT_MAX, OVERFLOW_OPTIONS, TONE_COLORS,
   classifyNoteSize, sectionGeometryMmOf, clamp,
   type SectionDraft, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
@@ -130,7 +130,9 @@ export function TemplateDisplayPanel({
                       ))}
                     </span>
                     <span className={`text-10 font-bold ${on ? "text-foreground" : "text-muted-foreground"}`}>{n} 列</span>
-                    {/* 每个选项标出该选择下的**贴纸实尺 mm**（§4.3 原话）。 */}
+                    {/* 每个候选都标同一个 mm 数——贴纸实尺固定（`STANDARD_NOTE_MM`），
+                        列数只决定一行摆几张，不再像 issue #2368 之前那样随列数变化
+                        （2026-08-30：「一列的时候，大小也是固定的」）。 */}
                     <span className="text-9 text-muted-foreground">{mm}mm</span>
                   </button>
                 );
@@ -150,7 +152,19 @@ export function TemplateDisplayPanel({
           </Group>
 
           <Group label="最多条数">
-            <Chips options={MAX_OPTIONS} value={layout.max} editable={editable} format={(n) => `${n} 条`} onPick={(max) => onPatch({ max })} testIdPrefix="tpladmin-editor-max" />
+            {/*
+              2026-08-30 人类反馈：「这个要改为可以支持 1 条，到更多条」——原先是
+              Chips（固定候选 [3,4,6,9]），1/2/5/7 这类常见条数都选不到。换成与
+              「在 A1 上占多大」同一种步进器：覆盖 `[MAX_COUNT_MIN, MAX_COUNT_MAX]`
+              全部整数，不再是候选子集。
+            */}
+            <div className="flex items-center gap-2">
+              <Stepper
+                value={layout.max} min={MAX_COUNT_MIN} max={MAX_COUNT_MAX} editable={editable}
+                onChange={(max) => onPatch({ max })} testIdPrefix="tpladmin-editor-max"
+              />
+              <span className="text-11 text-muted-foreground">条</span>
+            </div>
           </Group>
 
           <Group label="贴纸颜色">

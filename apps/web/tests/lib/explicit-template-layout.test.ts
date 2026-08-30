@@ -12,7 +12,7 @@ import {
   allSectionsPlaced,
   sectionGeometryMm,
   classifyNoteSize,
-  MAX_NOTE_MM,
+  STANDARD_NOTE_MM,
   TONE_COLORS,
   A1_CONTENT_MM,
   A1_PAPER_MM,
@@ -152,12 +152,10 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.hMm).toBe(A1_CONTENT_MM.h - 6);
   });
 
-  it("贴纸实尺 = (wMm - 6×(cols-1)) / cols，固定 1:1 方形——不需要额外断言宽高比，公式本身只产出一个数", () => {
+  it("贴纸实尺恒等于 STANDARD_NOTE_MM，固定 1:1 方形——不随区块宽度或列数变化（2026-08-30）", () => {
     // 5 列 × 2 行 = 10 条的经典配置（PDF 示例原话「5 列 × 2 行 = 放得下 10 条」）。
     const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
-    const expectedWMm = (6 / 12) * A1_CONTENT_MM.w - 6;
-    const expectedNoteMm = Math.round((expectedWMm - 6 * 4) / 5);
-    expect(g.noteMm).toBe(expectedNoteMm);
+    expect(g.noteMm).toBe(STANDARD_NOTE_MM);
   });
 
   it("容量 = cols × rows，rows 由 floor((hMm-22)/(noteMm+6)) 算出——不是拍脑袋乘一个数", () => {
@@ -175,22 +173,23 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.fits).toBeGreaterThanOrEqual(0);
   });
 
-  it("issue #2368 · 贴纸实尺封顶在 MAX_NOTE_MM——1 列时不再吃满整个区块宽度，不再把自己撑到 0 行", () => {
-    // 真实复现：w=4,h=4（A1，12 列网格）选 1 列——未封顶前 wMm≈268，noteMm=268/1=268，
-    // rows=floor((281-22)/(268+6))=0，整块区域画不出任何内容。
+  it("2026-08-30 · 贴纸实尺不再随列数反推——1 列时也还是 STANDARD_NOTE_MM，不会被撑到吃满整个区块宽度", () => {
+    // 真实复现：w=4,h=4（A1，12 列网格）选 1 列——旧公式（issue #2368 那版的
+    // Math.min(封顶, wMm/cols)）会先把贴纸撑到封顶值；现在贴纸大小是固定常量，
+    // 压根不看 wMm/cols，1 列与 5 列选出来的 noteMm 逐字相同。
     const g = sectionGeometryMm({ w: 4, h: 4, cols: 1, gridCols: 12 });
     expect(g.wMm).toBe(268);
-    expect(g.noteMm).toBe(MAX_NOTE_MM);
+    expect(g.noteMm).toBe(STANDARD_NOTE_MM);
     expect(g.noteMm).toBeLessThan(g.wMm);
     expect(g.rows).toBeGreaterThan(0);
     expect(g.fits).toBeGreaterThan(0);
   });
 
-  it("noteMm 未触顶时维持原公式——封顶只在超过 MAX_NOTE_MM 时才生效，不改变正常档位的数值", () => {
-    const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
-    expect(g.noteMm).toBeLessThan(MAX_NOTE_MM);
-    const expectedWMm = (6 / 12) * A1_CONTENT_MM.w - 6;
-    expect(g.noteMm).toBe(Math.round((expectedWMm - 6 * 4) / 5));
+  it("noteMm 是常量——列数、区块宽度怎么变，取到的都是同一个 STANDARD_NOTE_MM", () => {
+    const wide = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
+    const narrow = sectionGeometryMm({ w: 1, h: 3, cols: 8, gridCols: 12 });
+    expect(wide.noteMm).toBe(STANDARD_NOTE_MM);
+    expect(narrow.noteMm).toBe(STANDARD_NOTE_MM);
   });
 });
 
