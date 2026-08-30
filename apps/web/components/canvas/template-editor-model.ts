@@ -9,6 +9,7 @@
  * 纯数据 + 纯函数，没有 React/DOM 依赖 —— 与 `explicit-template-layout.ts` 同样可单测。
  */
 import type { CanvasTemplate } from "@/lib/live-canvas";
+import { getTemplate } from "@repo/fabric-markdown";
 import {
   sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS,
   type PaperSizeKey,
@@ -66,13 +67,34 @@ export const FIELD_TYPES: readonly SectionFieldType[] = ["便利贴列表", "短
  *
  * `key` 缺失时从 `sectionId` 兜底（而不是从中文名音译——那会产出不稳定的 key，
  * 同一个分区两次进编辑器可能得到两个不同的 key）。
+ *
+ * ⚠ `type` 缺失时的兜底**不能**无脑落到 `"便利贴列表"`——这是一个真实复现过的 bug
+ *   （2026-08-30，人类实测「chat 模拟」跑用户画像模板，表头姓名/性别/年龄一片空白）。
+ *   根因链：`backfill-canvas-builtin-templates.ts` 2026-08-26 之前写入的行（或从未被
+ *   幂等升级路径追上过的存量行）里，persona 的 9 个表头字段作为 section 落库时没有
+ *   `type`；一旦兜底成 `"便利贴列表"`，它们就从"表头字段"错分类成"正文分区"——
+ *   `canvas-template-guidance.ts` 按 `type === "短文本"` 切分表头/正文，于是系统提示词
+ *   里完全不再出现"表头字段〔姓名/…〕"这一句，模型无从得知要填这些字段；同时它们又被
+ *   当成正文分区让模型写成 `## 姓名` 之类的空标题——而真正渲染用的是内置几何（`persona.ts`
+ *   写死的 `headerRect`/`sections`），认不出名叫"姓名"的分区框，这段内容被悄悄丢弃。
+ *   两处症状（表头空白 + 内容被吞）看起来毫不相关，实际是同一个"`type` 缺失时兜底选错"
+ *   的根因。
+ *
+ *   所以：`type` 缺失时，先查这个 key 是不是内置模板（`@repo/fabric-markdown` 的
+ *   `getTemplate`）——是的话，这个分区名如果落在 `spec.fields` 里，就是表头字段
+ *   （`"短文本"`），不是正文分区；只有查不到内置 spec，或分区名不在 `fields` 里，
+ *   才落回原来的 `"便利贴列表"` 默认值。这是**读时**的兼容桥接，不改库里那一行历史
+ *   数据本身——存量行该走 `backfill-canvas-builtin-templates.ts` 的升级路径把
+ *   `type` 真正落到库里，这里只保证在那之前，编辑器与"chat 模拟"至少不会把表头字段
+ *   错当正文分区。
  */
 export function toDraft(row: CanvasTemplate): SectionDraft[] {
+  const builtinFields = new Set(getTemplate(row.key)?.fields ?? []);
   return row.sections.map((s, i) => ({
     sectionId: s.sectionId,
     key: s.key ?? fallbackKey(s.sectionId, i),
     name: s.name,
-    type: (s.type ?? "便利贴列表") as SectionFieldType,
+    type: (s.type ?? (builtinFields.has(s.name) ? "短文本" : "便利贴列表")) as SectionFieldType,
     aiHint: s.aiHint ?? null,
     order: s.order,
     required: s.required,
