@@ -23,14 +23,26 @@ import { AppShell } from "@/components/shell/app-shell";
 import { CapabilityEditPage } from "@/components/admin/capability-edit-page";
 import { SkillContentEditorSection } from "@/components/admin/skill-content-editor";
 import { resolvePreviewRole } from "@/lib/identity";
+import { safeRelativePath } from "@/lib/safe-relative-path";
 
 export default function SkillEditRoutePage({
   params, searchParams,
 }: {
   params: { id: string };
-  searchParams: { as?: string };
+  searchParams: { as?: string; from?: string };
 }) {
   const previewRole = resolvePreviewRole(searchParams.as);
+  /**
+   * 人类实测反馈（2026-08-30）：「返回」曾经写死回 `/skill?screen=catalog`——
+   * `/skill`（screen=library，「Skill 库」真实数据屏）的「编辑源码」按钮
+   * （`skill-catalog-live.tsx`）与 `/admin/skill`（治理目录屏，经由重定向落到
+   * `/skill?screen=catalog`）都能到达这个编辑页，「返回」必须回到**这次真实
+   * 点进来的那个界面**，不是按 kind 猜的唯一目的地。两个入口都把自己当前的
+   * URL 编码进 `?from=`，这里解析、校验成同源相对路径后透传下去；没有合法值
+   * （比如直接粘贴这个 URL 打开，没有"之前的界面"）时 `CapabilityEditPage`
+   * 落回它自己的默认目的地。
+   */
+  const backHref = safeRelativePath(searchParams.from) ?? undefined;
   return (
     <AppShell previewRole={previewRole} hideTopBar>
       <CapabilityEditPage
@@ -38,6 +50,7 @@ export default function SkillEditRoutePage({
         id={params.id}
         renderEditExtra={(row) => <SkillContentEditorSection id={`admin-skill-row-${row.id}`} row={row} />}
         compact
+        backHref={backHref}
       />
     </AppShell>
   );

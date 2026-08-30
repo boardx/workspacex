@@ -29,9 +29,20 @@ import { CapabilityEditForm, type MutateContext } from "./capability-mutate";
 type EditableKind = Extract<CapabilityKind, "agent" | "skill">;
 
 /**
- * 编辑完成后回到哪——与 `[module]/page.tsx` 的 `REDIRECTS` 保持同一个目的地：
- * skill 目录真正呈现在 `/skill?screen=catalog`（`/admin/skill` 本身是重定向壳），
- * agent 目录呈现在 `/admin/agent`。
+ * 编辑完成后回到哪——**默认**目的地，与 `[module]/page.tsx` 的 `REDIRECTS` 保持
+ * 同一个落点：skill 目录真正呈现在 `/skill?screen=catalog`（`/admin/skill` 本身是
+ * 重定向壳），agent 目录呈现在 `/admin/agent`。
+ *
+ * ⚠ 这只是**没有更具体来源信息时**的兜底（比如直接粘贴 `/admin/skill/<id>` 这个
+ *   URL 打开，或从收藏夹/分享链接进来——这种情况下压根没有「之前的浏览界面」）。
+ *   **真实来源**由 `backHref` prop 传入时优先于这个表——见下方 `backHref` 参数
+ *   与 `[id]/page.tsx` 里 `?from=` 的解析。
+ *
+ * 人类实测反馈（2026-08-30）：`/skill`（screen=library，「Skill 库」真实数据屏）的
+ * 「编辑源码」按钮也指向这个页面，此前「返回」写死回这张表，于是从 `/skill` 点进来
+ * 编辑、点「返回」却跳到了 `/skill?screen=catalog`（另一个屏，不是刚才那个）——
+ * 「返回」目的地必须是**这次真实进入编辑页所经的那个界面**，不能是按 kind 猜的
+ * 唯一目的地。
  */
 const CATALOG_HREF: Record<EditableKind, string> = {
   agent: "/admin/agent",
@@ -47,7 +58,7 @@ type LoadState =
   | { readonly status: "ready"; readonly row: CapabilityListing };
 
 export function CapabilityEditPage({
-  kind, id, renderEditExtra, compact = false,
+  kind, id, renderEditExtra, compact = false, backHref: backHrefOverride,
 }: {
   kind: EditableKind;
   id: string;
@@ -62,6 +73,14 @@ export function CapabilityEditPage({
    * ⚠ 默认 `false`——`/admin/agent/[id]` 不传，保持原有（非全屏）布局不变。
    */
   compact?: boolean;
+  /**
+   * 人类实测反馈（2026-08-30）：「返回」不能写死回 `CATALOG_HREF[kind]`——那只是
+   * kind 唯一猜出来的落点，与「这次真的是从哪个界面点进来的」是两回事（`/skill`
+   * 「Skill 库」屏与 `/admin/skill` 治理目录屏都能到达同一个编辑页）。
+   * 调用方（`[id]/page.tsx`）把 `?from=` 解析、校验成同源相对路径后传进来；
+   * 拿不到合法值时才落回 `CATALOG_HREF[kind]` 这个兜底。
+   */
+  backHref?: string;
 }) {
   const { session, identity } = useSession();
   if (!session) throw new Error("CapabilityEditPage requires an authenticated session");
@@ -70,7 +89,7 @@ export function CapabilityEditPage({
   const canMutate = identity?.orgRole === "admin";
   const [state, setState] = React.useState<LoadState>({ status: "loading" });
   const [notice, setNotice] = React.useState<string | null>(null);
-  const backHref = CATALOG_HREF[kind];
+  const backHref = backHrefOverride ?? CATALOG_HREF[kind];
 
   const load = React.useCallback(async () => {
     setState({ status: "loading" });
