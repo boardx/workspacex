@@ -41,6 +41,7 @@
 """
 from __future__ import annotations
 
+import logging
 import os
 from typing import Callable
 
@@ -176,6 +177,8 @@ def build_precompletion_middleware(model: BaseChatModel) -> list[AgentMiddleware
 # 跨服务字段而把一次"补齐确定性保证"的小改动放大成 web+api+graph 三层的接口变更。
 TASK_MODE_MARKER = "请先给出计划，经确认后再执行"
 
+_logger = logging.getLogger(__name__)
+
 
 def _human_text(message: object) -> str:
     """从一条消息里抽出人类可读文本；只认 `type == "human"`，结构化多模态 content
@@ -196,12 +199,20 @@ def _human_text(message: object) -> str:
 
 
 def _write_todos_already_called(messages: list) -> bool:
-    """本次 run 的 transcript 里 `write_todos` 是否已经被真实调用过一次。"""
+    """给定的消息片段里 `write_todos` 是否已经被真实调用过一次。"""
     for message in messages:
         for call in getattr(message, "tool_calls", None) or []:
             if call.get("name") == "write_todos":
                 return True
     return False
+
+
+def _latest_human_turn_index(messages: list) -> int | None:
+    """`messages` 里最后一条人类消息的下标；没有人类消息时返回 `None`。"""
+    for i in range(len(messages) - 1, -1, -1):
+        if getattr(messages[i], "type", None) == "human":
+            return i
+    return None
 
 
 def _tool_names(tools: list) -> set[str]:
@@ -220,24 +231,52 @@ class PlanFirstToolChoiceMiddleware(AgentMiddleware):
     provider 的 API 契约（OpenAI 等模型收到具名 tool_choice 时必须调用该工具），
     不依赖模型对提示词的服从概率。
 
-    触发条件（同时满足）：
+    触发条件（同时满足，判据全部锚定**最新一条人类消息所在的这一轮**，见下方
+    review 记录——首版实现按"本次 run 的整份 transcript"判断，在长线程/多轮
+    对话里有两个真实 bug：①同一线程里更早一次任务已经调用过 write_todos，会
+    永久关闭后续新任务模式请求的强制；②summarization 裁掉了那次历史工具调用、
+    但更早的任务模式标记还留在某条人类消息里时，一次后续的普通提问会被误判成
+    任务模式并被强制。两者的共同根因都是"看了不该看的历史"，修法是把判断窗口
+    收窄到"最新这一轮"）：
     1. `write_todos` 工具确实挂载在本次可用工具清单里（`TodoListMiddleware` 提供）；
        没挂载时不强行指向一个不存在的工具，原样放行——这是配置异常，不是本中间件
-       该兜底的场景。
-    2. 本轮 transcript 里出现过任务模式标记（`TASK_MODE_MARKER`）的人类消息。
-    3. `write_todos` 在本次 run 里还没被调用过——一旦模型已经产出过结构化计划，
-       立刻不再强制，后续步骤（确认后执行/收尾）按模型自己的判断继续，不会被
-       卡成"每一步都必须先摆一次待办"。
+       该兜底的场景（下方 `_logger.warning` 让这个分支可观测，不是真的悄无声息）。
+    2. **最新一条人类消息**（不是历史上任意一条）里出现任务模式标记
+       （`TASK_MODE_MARKER`）。
+    3. `write_todos` 在**这条最新人类消息之后**还没被调用过——一旦模型已经在
+       本轮产出过结构化计划，立刻不再强制，确认后的执行/收尾步骤按模型自己的
+       判断继续，不会被卡成"每一步都必须先摆一次待办"；更早某一轮任务已经调用
+       过 write_todos 完全不影响这一判断，新一轮任务模式请求会被独立、重新强制。
     """
 
     def wrap_model_call(
         self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
     ) -> ModelResponse:
-        if "write_todos" not in _tool_names(request.tools):
+        turn_start = _latest_human_turn_index(request.messages)
+        if turn_start is None:
             return handler(request)
 
-        marker_present = any(TASK_MODE_MARKER in _human_text(m) for m in request.messages)
-        if marker_present and not _write_todos_already_called(request.messages):
+        marker_present = TASK_MODE_MARKER in _human_text(request.messages[turn_start])
+        if not marker_present:
+            return handler(request)
+
+        if "write_todos" not in _tool_names(request.tools):
+            # 任务模式标记要求确定性强制，但 write_todos 这次没挂载——多半是
+            # build_middleware() 被改动（比如误删 TodoListMiddleware）导致的配置
+            # 漂移。不强行把 tool_choice 指向一个不存在的工具（那样每次模型调用
+            # 都会直接报错，比"退回方案 A 的提示词软约束"更糟），但记一条可观测的
+            # warning——review 意见里"不能真的悄无声息"指的就是这里：production
+            # 里 build_middleware() 无条件挂 TodoListMiddleware，这个分支目前不
+            # 可达，warning 是留给未来重构不慎踩到这里时的信号，不是假装什么都
+            # 没发生。
+            _logger.warning(
+                "任务模式标记出现但 write_todos 工具未挂载，无法确定性强制"
+                "（build_middleware() 是否误删了 TodoListMiddleware？）——"
+                "已退回不强制，行为等同于只有方案 A 的提示词软约束。"
+            )
+            return handler(request)
+
+        if not _write_todos_already_called(request.messages[turn_start + 1 :]):
             request = request.override(tool_choice="write_todos")
         return handler(request)
 

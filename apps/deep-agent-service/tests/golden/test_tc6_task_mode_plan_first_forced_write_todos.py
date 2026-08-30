@@ -32,6 +32,14 @@ LLM 对提示词的服从概率**，devapp 上多跑几轮才能知道收敛率�
 | 反证①：没有任务模式标记 → 不强制，原样复现 #2220 的真实故障（纯文字、零 write_todos） | ✅ 全自动 | 证明强制行为确实由标记触发，不是无条件生效 |
 | 反证②：write_todos 工具本身未挂载（异常配置）→ 不强行指向不存在的工具 | ✅ 全自动 | 防止中间件在配置漂移时把请求指向一个不存在的工具名 |
 | 真实模型在方案 A 提示词下的实际服从率 | ❌ 不在本文件 | 必须在 devapp 用真实模型多轮实测，见 issue #2220 |
+
+PR #2410 review 指出的两条多轮对话反证（判据必须收窄到"最新一条人类消息所在的
+这一轮"，不是"整份历史"）在 `test_harness.py` 用直接构造 `ModelRequest` 的方式
+覆盖，不在本文件重复：
+`test_new_task_mode_turn_is_forced_again_after_earlier_completed_plan_in_same_thread`
+（更早一次任务用过 write_todos 不抑制新一轮任务模式请求）、
+`test_ordinary_turn_not_falsely_forced_by_stale_marker_earlier_in_thread`
+（历史里的旧标记不会误伤后续普通提问）。
 """
 from __future__ import annotations
 
