@@ -120,3 +120,59 @@ describe("2026-08-26 回归：表头字段不得同时出现在分区与表头�
     expect(line).not.toContain("表头字段");
   });
 });
+
+/**
+ * 2026-08-30 回归：人类实测「chat 模拟」跑用户画像模板，产出的表头（姓名/性别/年龄…）
+ * 一片空白。链路追到底：**这一层（`buildCanvasTemplateGuidance`）本身的行为一直是对的**
+ * ——`type === "短文本"` 才算表头，这是唯一切分依据，本文件上面几条用例早就钉住了。
+ * 真正的根因在上游：`apps/web/components/canvas/template-editor-model.ts` 的 `toDraft`
+ * 对 DB 行里缺 `type` 的分区，曾经无脑兜底成 `"便利贴列表"`——存量的 `persona` 行如果是
+ * 2026-08-26 sections 字段映射修复之前写入、又没被幂等升级路径追上，喂给这里的
+ * `sections` 里,姓名/性别这些表头字段全部顶着 `"便利贴列表"` 进来。
+ *
+ * 这条用例把两种上游输入摆在一起对比，直接证明「喂错 type」在这一层会产出什么系统
+ * 提示词——即修复前用户会遇到的真实症状（表头字段完全不出现，姓名/性别被错当成
+ * 需要模型写要点的正文分区）。`template-editor-model.test.ts`（web 包）钉住的是
+ * `toDraft` 现在不会再喂出 `TYPE_MISSING_SECTIONS` 这种数据；这条钉住的是「万一喂出了
+ * 这种数据，后果有多具体」，两条测试合起来才是这次修复的完整证据链。
+ */
+describe("2026-08-30 回归：表头字段缺 type 时被误当正文分区，系统提示词完全不提表头", () => {
+  /** 修复前 `toDraft` 会喂出的样子——9 个表头字段全部顶着默认值混进正文分区。 */
+  const TYPE_MISSING_SECTIONS: CanvasTemplateGuidanceInfo = {
+    key: "persona",
+    displayName: "用户画像",
+    sections: [
+      { name: "姓名", type: "便利贴列表" },
+      { name: "性别", type: "便利贴列表" },
+      { name: "年龄", type: "便利贴列表" },
+      { name: "用户描述", type: "便利贴列表" },
+      { name: "目标和需求", type: "便利贴列表" },
+    ],
+  };
+
+  /** 修复后 `toDraft`（见 web 包 `toDraft` 的 `builtinFields` 兜底）会喂出的样子。 */
+  const TYPE_RECOVERED_SECTIONS: CanvasTemplateGuidanceInfo = {
+    key: "persona",
+    displayName: "用户画像",
+    sections: [
+      { name: "姓名", type: "短文本" },
+      { name: "性别", type: "短文本" },
+      { name: "年龄", type: "短文本" },
+      { name: "用户描述", type: "便利贴列表" },
+      { name: "目标和需求", type: "便利贴列表" },
+    ],
+  };
+
+  it("喂错 type（修复前的真实症状）：persona 这一行里完全没有「表头字段〔…〕」标注，姓名/性别/年龄和正文分区混在同一段里，模型分不清哪些要写成 `字段名: 值`", () => {
+    const out = buildCanvasTemplateGuidance([TYPE_MISSING_SECTIONS])!;
+    const line = out.split("\n").find((l) => l.startsWith("- persona"))!;
+    expect(line).not.toContain("表头字段");
+    expect(line).toBe("- persona〔姓名/性别/年龄/用户描述/目标和需求〕");
+  });
+
+  it("喂对 type（修复后）：persona 这一行正确产出「表头字段〔姓名/性别/年龄〕」标注，正文分区里不再混入它们", () => {
+    const out = buildCanvasTemplateGuidance([TYPE_RECOVERED_SECTIONS])!;
+    const line = out.split("\n").find((l) => l.startsWith("- persona"))!;
+    expect(line).toBe("- persona〔用户描述/目标和需求〕，表头字段〔姓名/性别/年龄〕");
+  });
+});
