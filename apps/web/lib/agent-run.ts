@@ -168,3 +168,35 @@ export async function getAgentRunContextSnapshot(
     { method: "GET", sessionToken },
   );
 }
+
+/** Minimal shape `findPendingRunId` needs from a persisted `chat_messages` row. */
+export interface PendingRunLookupMessage {
+  readonly id: string;
+  readonly authorKind: "human" | "agent";
+  readonly agentRunId: string | null;
+  readonly replyToMessageId: string | null;
+}
+
+/**
+ * session-switch task-state-loss fix —— 一条会话切走再切回（组件重挂载、内存态
+ * 全丢）之后，「上一轮 run 有没有跑完」这件事只有已落库的消息还留着痕迹：最新一条
+ * 带 `agentRunId` 的人类消息，如果还没有任何消息的 `replyToMessageId` 指回它，说明
+ * 这个 run 大概率还没写回终态（服务端权威状态仍需用返回的 runId 去
+ * `getAgentRun` 核实——这里只找 id，不猜状态）。
+ *
+ * 与旧轨道 `chat-live-message-panel.tsx`（issue #1805，约 `loadPage` 内
+ * `mode === "replace"` 分支）判定同一件事、同一条规则——那份实现更早、绑定在那个
+ * 组件的内部状态机里不易独立复用，这里为新调用方（copilotkit-v2 轨道的挂载
+ * hydration）单独抽出，逻辑不得与那份实现产生第二个版本（发现两者行为需要不一致
+ * 时先改这里的规则，不要在调用方另写一份判断）。
+ *
+ * `messages` 必须按时间顺序（旧→新）传入——与 `listMessages` 分页读回的自然顺序
+ * 一致，调用方不需要额外排序。
+ */
+export function findPendingRunId(messages: readonly PendingRunLookupMessage[]): string | null {
+  const lastHuman = [...messages].reverse()
+    .find((m) => m.authorKind === "human" && m.agentRunId !== null);
+  if (lastHuman === undefined) return null;
+  const alreadyReplied = messages.some((m) => m.replyToMessageId === lastHuman.id);
+  return alreadyReplied ? null : lastHuman.agentRunId;
+}
