@@ -181,7 +181,7 @@ export function CapabilityPicker({
                 {/*
                   issue #2340 → 2026-08-30 二次压缩（人类反馈「agent 列表太长」）——
                   此前「工具/材料/写权限」占一整行，「记忆范围」「当前状态」各占一整行，
-                  一张卡视觉上仍有 5 行。六项披露的**签核判据**只要求六个 testid 各自
+                  一张卡视觉上仍有 5 行。六项披露的「签核判据」只要求六个 testid 各自
                   `toBeVisible()`（`e2e/chat-task-workbench-capability-cards.spec.ts`
                   TW-P0-2②），没有要求各占一行——这里把「工具/材料/写权限」的免责声明
                   与「记忆范围」「当前状态」三样合并到同一条 flex-wrap 行内，用极短的
