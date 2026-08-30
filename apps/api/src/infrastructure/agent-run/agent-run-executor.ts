@@ -13,8 +13,12 @@
  * (after the claim moved it out of `queued`, so the next claim can never see it again) is the
  * one state this paragraph used to leave uncovered -- `tick` now also calls
  * `reclaimStaleRunning` first, on the same "the next message in the same tenant" trigger, so it
- * is not a second reaper mechanism, just the same one closing its one remaining gap. See
- * `AgentRunStore.reclaimStaleRunning`'s own doc (`ports.ts`) for the full account.
+ * is not a second reaper mechanism, just the same one closing its one remaining gap.
+ * ⚠ 2026-08-30 续（devapp 真栈复现）——"下一条消息"这个触发条件本身留了一个洞：用户提交
+ * 一条任务后只刷新页面、从不发第二条消息，永远等不到这里。`readAgentRun`（应用层
+ * `read-run.ts`）现在也会在单条只读请求里调用同一个方法——两个触发点，同一份判定
+ * （`DEFAULT_STALE_RUNNING_THRESHOLD_MS`）。See `AgentRunStore.reclaimStaleRunning`'s own
+ * doc (`ports.ts`) for the full account.
  *
  * ## `kick` returns void on purpose
  *
@@ -26,8 +30,9 @@
 import { randomUUID } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type { LoggerPort } from "../../application/ports/logger.port";
-import type {
-  AgentRunClock, AgentRunExecutorPort, AgentRunStore, ModelCallPort, TokenUsageMeterPort,
+import {
+  DEFAULT_STALE_RUNNING_THRESHOLD_MS,
+  type AgentRunClock, type AgentRunExecutorPort, type AgentRunStore, type ModelCallPort, type TokenUsageMeterPort,
 } from "../../application/agent-run/ports";
 import type { FileRetrievalPort } from "../../application/agent-run/file-retrieval";
 import type { AgentRunContextSnapshotPort } from "../../application/agent-run/context-snapshot";
@@ -114,13 +119,14 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
     private readonly streamingEnabled?: boolean,
     /**
      * 2026-08-30 —— `reclaimStaleRunning` 的"卡够久"阈值（见 `ports.ts` 该方法的完整
-     * 取证）。可选，默认 20 分钟：比 `DeepAgentModelProvider` 自己的
+     * 取证）。可选，默认 `DEFAULT_STALE_RUNNING_THRESHOLD_MS`（20 分钟，与 `readAgentRun`
+     * 那一路共享同一个值，唯一事实源在 `ports.ts`）：比 `DeepAgentModelProvider` 自己的
      * `KERNEL_DEEP_AGENT_TIMEOUT_MS`（默认 5 分钟）留足够余量，不会把一个健康进程里
      * 正常运行、只是恰好较慢的 run 误判成"卡住"——它自己的超时会先触发、被
      * `executeQueuedRuns` 的 catch 分支标记失败，根本轮不到这里。这个阈值只用来兜底
      * 进程本身消失、连自己的超时都没机会跑的那种情况。
      */
-    private readonly staleRunningThresholdMs: number = 20 * 60_000,
+    private readonly staleRunningThresholdMs: number = DEFAULT_STALE_RUNNING_THRESHOLD_MS,
   ) {}
 
   /**
