@@ -36,7 +36,7 @@ issue 迭代，很大一部分反馈点已经用**更严谨**的方式解决了�
 |---|---|---|---|---|---|
 | **V1** | Composer 第二行收敛：附件 / @Agent / `/技能` / 任务模式四个常驻控件收进一个「更多」入口（复用已有的 `CapabilityPicker` 六项披露卡片模式，不新造一套披露组件），默认只留输入框 + 麦克风 + 发送/停止；任务模式因为**真实影响发出的正文**（`copilotkit-v2-panel-body.tsx:1626` 注释：会话级、非纯装饰），保留为常驻 toggle 不收进「更多」——反馈里"模型模式"级别的开关本就该常驻，不是要藏起来的次要能力 | P1-3 | 纯前端，复用现有 `CapabilityPicker`/`ChatSkillMountPanel` 组件与既有 testid，不改它们内部行为 | 否 | 低（改的是容器组装，不改子组件） |
 | **V2** | Thinking 卡片里的阶段文案，从「一句细粒度 phase label」升级为「细粒度文案 + 一个小的宏观阶段指示」：宏观阶段桶（如"准备/执行/收尾"）**必须是从现有 `AgentRunStepKind`/`toolName` 映射表（`agent-run-phase.ts`）派生的纯函数分组**，不是新建一套独立状态。未知 kind 一律落已有 `FALLBACK_PHASE` 兜底，不新增编造分类 | P0-1（"看不出在做什么"的残留部分） | 纯前端派生函数 + 渲染，复用 `agent-run-phase.ts` 现有映射表 | 否（不动契约，只加一层分组函数） | 低 |
-| **V3** | 术语脚手架：composer 上「/技能」「任务模式」两个按钮加 `title`/`aria-label` 说明性文案（如"任务模式：先给计划、确认后再执行的问答方式"），右栏「运行详情」页签补一条"当前模式"（任务模式开/关，真实读取 `taskMode` state，不是新状态源） | P1-5 | 纯前端，文案 + 一个已有 state 的展示行 | 否 | 低 |
+| **V3** ✅ | 术语脚手架：composer 上「/技能」「任务模式」两个按钮加 `title`/`aria-label` 说明性文案（如"任务模式：先给计划、确认后再执行的问答方式"），右栏「运行详情」页签补一条"当前模式"（任务模式开/关，真实读取 `taskMode` state，不是新状态源） | P1-5 | 纯前端，文案 + 一个已有 state 的展示行 | 否 | 低 |
 | **V4** | 视觉打磨收尾：核对 `max-w-3xl` 阅读轴在 V1 收敛 composer 后是否仍然一致（改动 composer 布局后回归一次视觉 fidelity），补齐 `chat-main-fidelity-rubric.md` 相关截图 | P0-2 回归验证 | 纯前端 + 截图证据 | 否 | 低 |
 
 **明确不纳入本轮**（已经用更严谨的方式实现，重做是倒退或重复劳动）：
@@ -48,7 +48,16 @@ issue 迭代，很大一部分反馈点已经用**更严谨**的方式解决了�
   （`agent-run-phase.ts` 头注逐字写明这条取舍）。V2 的宏观阶段桶必须保持"从真实 step 映射
   聚合"这条边界，不能滑向"先定四个好看的阶段名、再找信息往里塞"。
 
-## 三、执行入口
+## 三、执行台账（逐条回填）
+
+| 版本 | 状态 | 说明 |
+|---|---|---|
+| V3 | ✅ 已实现（本分支） | 实现时复核发现 composer 上「/技能」「任务模式」两个控件其实**已经**有 `title`/`aria-label` 说明文案（`copilotkit-v2-panel-body.tsx:1632`、`chat-skill-mount-panel.tsx:486`，均早于本轮），本条真差距只剩「运行详情」页签补「当前模式」行——已完成：`taskMode` 状态从 `copilotkit-v2-panel-body.tsx` 经 `copilotkit-v2-panel.tsx`/`copilotkit-v2-shell.tsx` 透传给 `chat-task-inspector.tsx` 的 `RunDetailsTab`，未传时不显示（不编造默认值）。新增单测 `tests/ui/chat-task-inspector-task-mode.test.tsx`（3 例）。验证：`tsc --noEmit` 0 错误、`lint:design` 全过、`vitest run tests/ui` 204 files/1657 tests 全过、`lint-spec-gate-coverage.mjs` 全绿。 |
+| V1 | 待排 | Composer 第二行收敛——涉及重排 4 个常驻控件的可见性，触及现有 e2e 断言的控件可见位置最多，需要单独一轮逐条核对 e2e 后再动 |
+| V2 | 待排 | Thinking 卡片宏观阶段分组 |
+| V4 | 待排 | V1 落地后的阅读轴回归验证，依赖 V1 先完成 |
+
+## 四、执行入口
 
 按 AGENTS.md 硬约束，V1-V4 逐条建 issue（`harness sync --apply`）、`worker/<owner>-<phase>-<feature>`
 分支、`Closes #N` 的 PR，串行合并（composer 与 thinking 卡片都是 `copilotkit-v2-panel-body.tsx`

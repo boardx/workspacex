@@ -71,6 +71,7 @@ export function CopilotKitV2PanelBody({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
+  onTaskModeChange,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -118,6 +119,13 @@ export function CopilotKitV2PanelBody({
     readonly startedAt: number | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
+  /**
+   * PROP-CHAT-UIUX-ITER-002 V3 —— 「任务模式」是否开启，上报给外壳的右栏 Inspector
+   * 「运行详情」页签展示一条「当前模式」，与 composer 上真实的 `taskMode` state
+   * 保持同一份事实源（不新建第二份状态）。同 `onRunStateChange` 等既有回调一样，
+   * 各自一个 effect、依赖数组精确到值。
+   */
+  onTaskModeChange?: (taskMode: boolean) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -765,6 +773,11 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onPendingMaterialsChange?.(pendingMaterialsCount);
   }, [pendingMaterialsCount, onPendingMaterialsChange]);
+  // PROP-CHAT-UIUX-ITER-002 V3 —— 同上面三个既有回调同一条纪律：独立 effect，
+  // 依赖数组精确到 taskMode 本身。
+  React.useEffect(() => {
+    onTaskModeChange?.(taskMode);
+  }, [taskMode, onTaskModeChange]);
 
   /**
    * issue #2130（TW-P0-1③，回指 #2068）—— 空状态「技能 N」上下文标签的真实计数。
