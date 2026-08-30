@@ -70,6 +70,19 @@ export interface ExplicitLayoutSectionInput {
   readonly sectionId: string;
   readonly name: string;
   readonly layout: ExplicitSectionLayout;
+  /**
+   * 契约 `canvas.SectionFieldType`（本文件不 import 组件层的
+   * `template-editor-model.ts`，就地镜像同一个字面量联合，理由同该文件顶部
+   * `TONE_COLORS` 挪家的注释——lib 层不能反过来依赖组件层）。
+   *
+   * 2026-08-30 人类反馈「用户画像 chat 模拟测不出表头字段」根因：本函数此前对
+   * 每个分区一律当「便利贴列表」处理，`type === "短文本"` 的表头字段（姓名/性别/
+   * 年龄……）被塞进了跟其它分区一样的贴纸 box，模型按 guidance
+   * （`canvas-template-guidance.ts`）写出的 `字段名: 字段值` 行没有落点——引擎
+   * （`template-engine.ts`）把这些值放进 `fields` map，但 spec 没有
+   * `fields`/`headerRect`，值被静默丢弃。见 `buildExplicitTemplateSpec` 下方注释。
+   */
+  readonly type?: "便利贴列表" | "短文本" | "长文本";
 }
 
 export interface ExplicitLayoutCell {
@@ -182,10 +195,24 @@ export function allSectionsPlaced(sections: readonly { readonly layout?: unknown
  *   `TemplateSection.sticky`/`stickyColor` 传给 fabric-markdown（vendor 侧配套
  *   扩展，见其 `VENDOR.md` 2026-08-30 回流记录）——位置/尺寸从来就在 `x/y/w/h`
  *   里，唯独这两项此前连 vendor 的类型都接不住。
+ *
+ * ⚠ 2026-08-30 追加：`type === "短文本"` 的分区（表头字段，如用户画像的姓名/性别/
+ *   年龄）**不**当贴纸 box 处理——合并成引擎原生支持的单个 `headerRect` + `fields`
+ *   （`packages/fabric-markdown` 的 `TemplateSpec.fields`/`headerRect`，见
+ *   `template-engine.ts` 285-336 行的渲染分支，早已支持，只是这条链路此前从没喂给它）。
+ *   使用者在②画布里把表头字段拖成一排（`autoFillLayout` 的做法，或手工拖成同一行），
+ *   本函数按 `(row, col)` 排序后取这些格子的**外接矩形**当 `headerRect`，
+ *   `fieldsPerRow` 取表头第一行的字段个数——与编辑器「表头字段铺一条顶带」的
+ *   版式假设一致。没有任何 `短文本` 分区时（绝大多数组织自建模板）`fields`/
+ *   `headerRect` 都不设，字节级兼容改动前的输出。
  */
 export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): ExplicitTemplateResult {
   const layout = computeExplicitLayout(input.sections, input.gridCols);
-  const sections: TemplateSection[] = layout.cells.map((c) => ({
+  const typeById = new Map(input.sections.map((s) => [s.sectionId, s.type] as const));
+  const headerCells = layout.cells.filter((c) => typeById.get(c.sectionId) === "短文本");
+  const bodyCells = layout.cells.filter((c) => typeById.get(c.sectionId) !== "短文本");
+
+  const sections: TemplateSection[] = bodyCells.map((c) => ({
     name: c.name,
     x: c.x,
     y: c.y,
@@ -195,10 +222,31 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
     sticky: { perRow: c.layout.cols },
     stickyColor: TONE_COLORS[c.layout.tone] ?? TONE_COLORS[0],
   }));
+
+  let headerFields:
+    | { fields: string[]; headerRect: { x: number; y: number; w: number; h: number }; fieldsPerRow: number }
+    | undefined;
+  if (headerCells.length > 0) {
+    const ordered = [...headerCells].sort(
+      (a, b) => a.layout.row - b.layout.row || a.layout.col - b.layout.col,
+    );
+    const minRow = Math.min(...ordered.map((c) => c.layout.row));
+    const left = Math.min(...headerCells.map((c) => c.x - c.w / 2));
+    const top = Math.min(...headerCells.map((c) => c.y - c.h / 2));
+    const right = Math.max(...headerCells.map((c) => c.x + c.w / 2));
+    const bottom = Math.max(...headerCells.map((c) => c.y + c.h / 2));
+    headerFields = {
+      fields: ordered.map((c) => c.name),
+      headerRect: { x: (left + right) / 2, y: (top + bottom) / 2, w: right - left, h: bottom - top },
+      fieldsPerRow: ordered.filter((c) => c.layout.row === minRow).length,
+    };
+  }
+
   return {
     spec: {
       key: input.key,
       title: input.displayName,
+      ...(headerFields ?? {}),
       sections,
       titleBars: true,
       decorations: [],

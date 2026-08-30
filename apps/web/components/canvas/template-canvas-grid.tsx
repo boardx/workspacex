@@ -2,7 +2,7 @@
 import * as React from "react";
 import type { SectionDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
-import { PAPER_SIZE_MM, A1_MARGIN_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, STANDARD_NOTE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -70,6 +70,20 @@ export function TemplateCanvasGrid({
   const contentRef = React.useRef<HTMLDivElement>(null);
 
   const placed = sections.filter((s) => s.layout !== null);
+
+  /**
+   * 贴纸实尺，按纸宽换算成 `cqw`（容器宽度的百分比）——2026-08-30 人类反馈
+   * 「column 是 1 的时候便利贴太大，便利贴大小不应该跟着列数变，相对画布应该是
+   * 固定的」。`cqw` 相对的是最外层那个 `containerType:inline-size` 的 div
+   * （见下方 JSX 的注释），也就是整张纸自己的宽度，与贴纸具体落在哪个区块、
+   * 区块选了几列完全无关——1 列与 8 列算出来的都是同一个 `notePct`。
+   *
+   * ⚠ 不能用 `1fr`（改动前的做法）：`repeat(cols, 1fr)` 让每张贴纸的宽度 =
+   *   区块宽度 / cols，列数选到 1 时贴纸被拉成整个区块那么大的正方形——正是
+   *   这次要修的问题。真实的 3M 便利贴是固定尺寸的一叠纸，不会因为你排成一列
+   *   还是八列就跟着变大变小。
+   */
+  const notePct = (STANDARD_NOTE_MM / PAPER_SIZE_MM[paperSize].w) * 100;
 
   /** 指针 → 网格坐标。按比例换算（见文件头），不是像素常量。 */
   function cellFrom(e: React.DragEvent): { col: number; row: number } | null {
@@ -255,7 +269,14 @@ export function TemplateCanvasGrid({
               </div>
               <div
                 className="grid flex-1 content-start gap-1 overflow-hidden"
-                style={{ gridTemplateColumns: `repeat(${isList ? layout.cols : 1}, 1fr)` }}
+                style={{
+                  // 列表型：每列固定宽 `notePct`（贴纸实尺，不随 `layout.cols` 缩放）——
+                  // 列数只决定一行摆几张，多出来的就换行（`content-start` 让多余行不被
+                  // 拉伸），摆不下的部分会被外层 `overflow-hidden` 裁掉，与真实便利贴
+                  // 「摆不下就是摆不下」的体验一致，不是在这里悄悄把贴纸压小凑数。
+                  // 短文本/长文本型：仍是 1fr（占满区块宽的单个文本框，不是贴纸网格）。
+                  gridTemplateColumns: isList ? `repeat(${layout.cols}, ${notePct}cqw)` : "1fr",
+                }}
               >
                 {Array.from({ length: noteCount }, (_, i) => (
                   <div
