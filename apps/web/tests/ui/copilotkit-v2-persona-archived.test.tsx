@@ -163,6 +163,21 @@ describe("CK-P6 生成用户画像（issue #2053）", () => {
     expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
   });
 
+  /**
+   * 2026-08-30 补丁二：真实复现——线程**已经建立**（`chatThreadId` 非空）但
+   * 一条消息都没有（`listMessages` 读回空数组）。第一版的判据是
+   * `initialChatThreadId !== null`，只看"线程存在"，这个场景下照样渲染；
+   * 点了就撞见 `runPersonaSummary` 里 `persisted` 为空那条"这条对话还没有
+   * 已落库的消息，无法生成画像"——不是渲染 bug，是判据没有真的按"有没有内容"
+   * 来判。改成看 `agent.messages.length` 后，这个场景必须不渲染。
+   */
+  it("②b 线程已建立但一条消息都没有 ⇒ 同样不渲染（不能只看「线程存在」）", async () => {
+    listMessages.mockImplementation(async () => ({ messages: [], nextCursor: null }));
+    mount({ canGeneratePersona: true, chatThreadId: THREAD_ID });
+    await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeTruthy());
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+  });
+
   it("③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id（不是流式 id），成功后 chip 消失", async () => {
     summarizePersonaFromThread.mockImplementation(async () => {
       personaGenerated = true;

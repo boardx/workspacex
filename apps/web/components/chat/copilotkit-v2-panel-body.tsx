@@ -1112,15 +1112,24 @@ export function CopilotKitV2PanelBody({
   const sendDisabled = sendDisabledReason !== null;
 
   /**
-   * issue #2053（CK-P6，重设计 2026-08-30）—— 「生成用户画像」建议 chip 的出现
-   * 条件。全部读已经存在的真实状态，不新开一条判定：
+   * issue #2053（CK-P6，重设计 2026-08-30，2026-08-30 补丁二）—— 「生成用户画像」
+   * 建议 chip 的出现条件。全部读已经存在的真实状态，不新开一条判定：
    *   · `canGeneratePersona`——服务端 `artifact.land` 能力位，硬门槛：没有它
    *     点了必 403，属于本仓明令禁止的"假按钮"，任何时候都不能省。
    *   · `!archived`——归档线程只读，建议行本身在归档时整体不渲染
    *     （见下方 `{archived ? null : &lt;FollowUpSuggestions .../&gt;}`），这里
    *     单独列出只是让判据读起来完整，不是重复的第二道门。
-   *   · `initialChatThreadId !== null`——线程已经真实建立（至少发过一条消息），
-   *     与旧版按钮的禁用判据完全同一条，只是现在不满足就不渲染，不是渲染成灰色。
+   *   · `agent.messages.length > 0`——线程里真的有内容可扫。
+   *     ⚠ 补丁二：第一版这里用的是 `initialChatThreadId !== null`（"线程已经
+   *     真实建立"），直接照抄了旧版固定按钮的禁用判据——但那条判据只保证"线程
+   *     存在"，不保证"线程里有消息"。真实复现：一条刚创建、还没发过消息的
+   *     空线程（`initialChatThreadId` 非空但 `agent.messages` 是空数组）下，
+   *     chip 照样出现，点了就是 `runPersonaSummary` 里 `persisted` 为空那条
+   *     "这条对话还没有已落库的消息，无法生成画像"——不是渲染 bug，是判据本身
+   *     没有真正做到"按内容动态"，只是把"线程建立"误当成了"有内容"。改成看
+   *     `agent.messages.length`（与上面空状态模板用的同一个信号，见
+   *     `agent.messages.length === 0 && !agent.isRunning` 那个分支）才是真的
+   *     "有对话内容才建议"。
    *   · `!personaGeneratedOnce`——本次会话还没成功生成过一次；生成中时仍然渲染
    *     （`disabled: personaRunning`），只是文案换成"生成画像中…"，与旧版按钮的
    *     loading 态视觉一致，不会让用户觉得点击后什么都没发生。
@@ -1132,7 +1141,7 @@ export function CopilotKitV2PanelBody({
    *   标记可用），超出本次改动范围，留给下一轮迭代。
    */
   const showPersonaSuggestion =
-    canGeneratePersona && !archived && initialChatThreadId !== null && !personaGeneratedOnce;
+    canGeneratePersona && !archived && agent.messages.length > 0 && !personaGeneratedOnce;
   const personaSuggestions: readonly LocalSuggestionChip[] = showPersonaSuggestion
     ? [{
         // `id` 逐字就是渲染出来的 `data-testid`——沿用「生成用户画像」作为独立按钮
