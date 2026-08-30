@@ -16,13 +16,12 @@
  * 只点了 draft 与 archived 两个必须挡的，而谓词说的是「只有 published 放行」，两者今天
  * 一致、明天多一个状态就不一致，而不一致的那天没有任何东西会报警。
  *
- * ## 不带 `filter` 时归档的**不出现**
+ * ## 「全部」（`filter=all`）与不带 `filter` 时，归档的都**不出现**
  *
- * ⚠ 这是一条**解释**，不是契约的原文：`filter` 是 `["all","published","draft","archived"]`
- *   的可选枚举，契约没有写它缺省时等于哪一个。取「排除 archived」的读法有两个依据——
- *   ① 枚举里显式存在 `"all"`，若缺省本就等于 all，那个成员是多余的；
- *   ② #463 的验收逐字写着「归档 → 默认列表不可见但按归档筛选可见」。
- *   已在 #463 报出，请签核人确认；一旦确认相反，改的是这一个函数，不是四处散落的条件。
+ * #2366（人类签核确认）：「全部」tab 不是字面意义的「所有状态」，是「所有**未归档**的」——
+ *   已归档模板只应在专属的「已归档」tab（`filter=archived`）里看到。这与#463的验收
+ *   一致收口：「归档 → 默认列表不可见但按归档筛选可见」，「默认列表」与「全部」现在是
+ *   同一条规则，不再是两条可能打架的解释。
  */
 import { canCreateNewBinding, type TemplateStatus } from "../../domain/canvas/template-lifecycle";
 import { decideCapabilityVisibility } from "../../domain/identity/capability-listing";
@@ -66,12 +65,10 @@ export function statusesFor(input: {
   const byBinding = input.forBinding === true ? ALL_STATUSES.filter(canCreateNewBinding) : ALL_STATUSES;
 
   const byFilter: readonly TemplateStatus[] =
-    input.filter === undefined
-      ? // 见文件头：缺省排除 archived，这是一条待签核人确认的解释。
+    input.filter === undefined || input.filter === "all"
+      ? // 见文件头 #2366：缺省与「全部」同规则，都排除 archived。
         ALL_STATUSES.filter((s) => s !== "archived")
-      : input.filter === "all"
-        ? ALL_STATUSES
-        : ALL_STATUSES.filter((s) => s === input.filter);
+      : ALL_STATUSES.filter((s) => s === input.filter);
 
   return byBinding.filter((s) => byFilter.includes(s));
 }
