@@ -113,15 +113,46 @@ export default {
     ];
   },
   async rewrites() {
+    /**
+     * issue #2067 —— 带 `?projectId=`/`?thread=` 的 `/chat` 深链渲染旧屏
+     * （`ChatReadScreen`/`PersonalChatScreen`），逻辑与 `/chat/legacy` 逐字相同
+     * （`app/chat/legacy/page.tsx`）。这条**必须**放在 `beforeFiles`，不能像下面
+     * e2e 用的那些放在默认的 `afterFiles` 位置——`/chat` 本身是一个真实存在的
+     * 静态页面（`app/chat/(v2)/page.tsx`），Next 的路由优先级是
+     * headers → redirects → beforeFiles rewrites → **文件系统路由（静态页面命中
+     * 在这一步）** → afterFiles rewrites → 动态路由 → fallback；`afterFiles`
+     * 位置的规则只在文件系统路由**没有命中**时才有机会跑，而 `/chat` 永远会先命中
+     * 自己的 `page.tsx`，query string 不参与文件系统路由匹配，所以放
+     * `afterFiles`（乃至更靠后的位置）永远不会被触发——必须用 `beforeFiles`
+     * 抢在文件系统路由判定之前拦截。
+     *
+     * 这两条**始终生效**（不像下面的 e2e API 代理那样只在设了
+     * `FULLSTACK_E2E_API_ORIGIN`/`CHAT_READ_E2E_API_ORIGIN` 时才生效）——查询参数
+     * 分支旧屏是正式产品行为的一部分，不是测试专用设施。
+     *
+     * 为什么要挪出 `app/chat/page.tsx` 自身的分支逻辑、改用这里的 rewrite：
+     * `app/chat/(v2)/layout.tsx`（AppShell + CopilotKit providers，见该文件头注）
+     * 只能包住整个 `(v2)` 路由组——如果 `/chat` 的三路分支（v2 / 旧项目屏 /
+     * 旧个人屏）继续放在同一个 `page.tsx` 里、又要挪进 `(v2)` 组去共享 AppShell，
+     * 旧屏两支会被套进第二层 AppShell（它们自己已经各自 `<AppShell>` 包裹一次）。
+     * 用 rewrite 在路由匹配阶段就把这两支整个引到 `/chat/legacy`（已经是这两个
+     * 组件的既有正式入口），`(v2)/page.tsx` 因此只需要处理 v2 这一支，不需要
+     * 再判断 query string，也就没有双重 AppShell 的风险。
+     */
+    const chatLegacyBranchRewrites = [
+      { source: "/chat", has: [{ type: "query", key: "projectId" }], destination: "/chat/legacy" },
+      { source: "/chat", has: [{ type: "query", key: "thread" }], destination: "/chat/legacy" },
+    ];
+
     const fullstackApiOrigin = process.env.FULLSTACK_E2E_API_ORIGIN;
     const apiOrigin = fullstackApiOrigin ?? process.env.CHAT_READ_E2E_API_ORIGIN;
-    if (!apiOrigin) return [];
+    if (!apiOrigin) return { beforeFiles: chatLegacyBranchRewrites };
     const brokenFilesRoute = process.env.FULLSTACK_E2E_BREAK_CONTROLLER === "artifacts";
     const prefix = fullstackApiOrigin ? "/__fullstack_api" : "";
 
     // Browser E2E gates must traverse the real API; the test-only same-origin proxy
     // 跨端口 CORS 配置扩张成产品运行时改动。正式 `/chat` 页面本身不被改写。
-    return [
+    const afterFiles = [
       { source: `${prefix}/auth/:path*`, destination: `${apiOrigin}/auth/:path*` },
       { source: `${prefix}/identity/:path*`, destination: `${apiOrigin}/identity/:path*` },
       // F965：审计检索唯一面 `GET /provenance`（identity 与 artifact 两束共写、
@@ -376,5 +407,6 @@ export default {
       // 只有一个子路径、没有裸集合路由，只需要 `:path*`。
       { source: `${prefix}/plan-control/:path*`, destination: `${apiOrigin}/plan-control/:path*` },
     ];
+    return { beforeFiles: chatLegacyBranchRewrites, afterFiles };
   },
 };
