@@ -120,3 +120,52 @@ describe("2026-08-26 回归：表头字段不得同时出现在分区与表头�
     expect(line).not.toContain("表头字段");
   });
 });
+
+/**
+ * 2026-08-30 回归：**分区配的条数上限没传给模型**。
+ *
+ * template-admin 里把 persona 的正文分区配成「3 列 · 6 条」（`layout.cols=3` /
+ * `layout.max=6`），但 `CanvasTemplateGuidanceInfo.sections` 之前只声明了
+ * `name`/`type`——`layout` 虽然在 `listPublished` 透传的运行时数据里，类型却把它
+ * 挡在外面看不见，`buildCanvasTemplateGuidance` 因此只能给模型一句放之四海皆准的
+ * 「3~6 条」。模型写 4 条完全落在这句模糊指引的允许范围内，跟后台配置的 6 条上限
+ * 对不上——人类实测复现：devapp 上生成的用户画像每个分区只有 4 条便签，不是 6 条。
+ *
+ * 修法：`sections` 补上 `layout.max`，配了上限的分区在指引文案里标注
+ * 「(最多 N 条)」，让模型按这个精确数字写，而不是套用通用区间。
+ */
+describe("2026-08-30 回归：分区的条数上限（layout.max）要传给模型", () => {
+  it("配了 layout.max 的分区，指引文案标注「(最多 N 条)」", () => {
+    const out = buildCanvasTemplateGuidance([{
+      key: "persona",
+      displayName: "用户画像",
+      sections: [
+        { name: "用户描述", type: "便利贴列表", layout: { max: 6 } },
+        { name: "目标和需求", type: "便利贴列表", layout: { max: 6 } },
+      ],
+    }])!;
+    const line = out.split("\n").find((l) => l.startsWith("- persona"))!;
+    expect(line).toContain("用户描述(最多6条)");
+    expect(line).toContain("目标和需求(最多6条)");
+    expect(out).toContain("是这块画布实际能放下的容量，按 N 尽量写满");
+  });
+
+  it("没有 layout（老模板/未回填）的分区，行为与改动前逐字一致——不标注、不炸", () => {
+    const out = buildCanvasTemplateGuidance([{
+      key: "swot", displayName: "SWOT",
+      sections: [{ name: "优势", type: "便利贴列表" }, { name: "劣势", type: "便利贴列表" }],
+    }])!;
+    expect(out).toContain("swot〔优势/劣势〕");
+  });
+
+  it("layout 存在但没有 max（或 max 非正数）的分区，不标注", () => {
+    const out = buildCanvasTemplateGuidance([{
+      key: "swot", displayName: "SWOT",
+      sections: [
+        { name: "优势", type: "便利贴列表", layout: {} },
+        { name: "劣势", type: "便利贴列表", layout: { max: 0 } },
+      ],
+    }])!;
+    expect(out).toContain("swot〔优势/劣势〕");
+  });
+});

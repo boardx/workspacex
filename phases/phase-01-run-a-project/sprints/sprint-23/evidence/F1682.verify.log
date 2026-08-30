@@ -1,0 +1,69 @@
+$ cd apps/deep-agent-service && uv run pytest tests/golden/test_tc6_task_mode_plan_first_forced_write_todos.py -q
+[exit 0]
+...                                                                      [100%]
+=============================== warnings summary ===============================
+tests/golden/test_tc6_task_mode_plan_first_forced_write_todos.py::test_task_mode_marker_forces_write_todos_despite_uncooperative_model
+  /home/user/workspacex/apps/deep-agent-service/src/deep_agent_service/harness.py:161: LangChainBetaWarning: The middleware `RubricMiddleware` is in beta. It is actively being worked on, so the API may change.
+    return [*seed, RubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+3 passed, 1 warning in 1.94s
+
+
+$ cd apps/deep-agent-service && uv run pytest tests/test_harness.py -q
+[exit 0]
+...................................                                      [100%]
+=============================== warnings summary ===============================
+tests/test_harness.py::test_write_todos_present_with_harness_middleware
+  /home/user/workspacex/apps/deep-agent-service/src/deep_agent_service/harness.py:161: LangChainBetaWarning: The middleware `RubricMiddleware` is in beta. It is actively being worked on, so the API may change.
+    return [*seed, RubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+35 passed, 1 warning in 5.70s
+
+
+$ cd apps/deep-agent-service && uv run pytest tests/golden -q --deselect tests/golden/test_tc5_checkpoint_kill_recovery.py::test_tc5_sigkill_midrun_then_resume_and_time_travel
+[exit 0]
+...........                                                              [100%]
+=============================== warnings summary ===============================
+tests/golden/test_tc1_long_chain_research.py::test_tc1_long_chain_research
+  /home/user/workspacex/apps/deep-agent-service/src/deep_agent_service/harness.py:161: LangChainBetaWarning: The middleware `RubricMiddleware` is in beta. It is actively being worked on, so the API may change.
+    return [*seed, RubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+11 passed, 1 deselected, 1 warning in 5.65s
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /home/user/workspacex
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=20415c22bf42d4c334739e6a16b5bea672c221a8（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_c71ae4b624c031a46dd3 inner_db=wsx_c71ae4b624c031a46dd3 outer_compose=wsx-c71ae4b624c031a46dd3 inner_compose=wsx-c71ae4b624c031a46dd3 status=matched
+[stack-admission] load1=0.66 cores=4 perCore=0.17 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtg99g1e-bbbc3d7e-c71ae4b624c0 db=wsx_c71ae4b624c031a46dd3 compose=wsx-c71ae4b624c031a46dd3 pg=23470 redis=28470
+• turbo 2.10.5
+
+   • Packages in scope: //
+   • Running typecheck, lint, test in 1 packages
+   • Remote caching disabled
+
+ WARNING  No tasks were executed as part of this run.
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    127ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：1s
+
+[harness-verify v1 sha256=3ce10b834d41ee4eb90eec7dd488a64a0cb5681ef81ccdfc0a7dd152a0d4f431 commit=48f1bace4f7e2164c08825521dd384ec47840736 at=2026-08-30T20:22:13.309Z]

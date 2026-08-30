@@ -43,8 +43,13 @@ import { OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
  * 在 verify-affected 下红——第一次改这个文件时就在这两头各撞过一次。唯一站得住的
  * 写法：把这四个（如果存在）从结果里过滤掉，再核对"过滤之后"是不是这个 org 自己
  * 配置的那些——不关心 backfill 有没有跑过，两种运行方式下都成立。
+ *
+ * ⚠ id 与 `OFFICIAL_SKILLS[].skillId`（`skill-platform-<name>`）逐字相同，不带
+ *   `cap-` 前缀——见 `ensure-platform-skill-catalog.ts` 里那段「找不到 Skill」
+ *   根因修复的头注：`capability_listings.id` 曾经单独铸过一个不同的 id，
+ *   与 `skills.id` 对不上，`/admin/skill` 的编辑页因此打不开这四个官方 skill。
  */
-const PLATFORM_SKILL_IDS = new Set(OFFICIAL_SKILLS.map((s) => `cap-skill-platform-${s.stableName}`));
+const PLATFORM_SKILL_IDS = new Set(OFFICIAL_SKILLS.map((s) => `skill-platform-${s.stableName}`));
 const withoutPlatformSkills = <T extends { id: string }>(items: readonly T[]): T[] =>
   items.filter((c) => !PLATFORM_SKILL_IDS.has(c.id));
 

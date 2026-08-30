@@ -1448,6 +1448,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
           // 用的是**同一个** `readModelProviderConfig()`（本文件 1273/1300/1318/1364 行
           // 已经这么调），不在这里重新解析 `KERNEL_MODEL_STREAM_ENABLED` 造第二份读法。
           readModelProviderConfig().streamEnabled,
+          // 2026-08-30：`reclaimStaleRunning` 阈值，同上面 `KERNEL_AGENT_RUN_AUTOSTART`
+          // 一样直接在合成点读 env（不新开一条 config 读法）。未设置/非法数字/非正数
+          // 时落回 `AgentRunExecutor` 自己声明的默认值（其构造签名的默认参数），不是
+          // 在这里再定义第二份"20 分钟"——`??`/`||` 都拿不到"这个 undefined 是不是要
+          // 触发默认参数"的正确语义，所以用一个真正的三元式挑出非法值直接传 undefined。
+          (() => {
+            const raw = Number(process.env.KERNEL_AGENT_RUN_STALE_RUNNING_MS);
+            return Number.isFinite(raw) && raw > 0 ? raw : undefined;
+          })(),
         ),
       inject: [
         AGENT_RUN_STORE, MODEL_CALL_PORT, LOGGER_PORT, TOKEN_USAGE_METER, DATABASE_PORT,

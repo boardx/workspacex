@@ -324,6 +324,25 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  /**
+   * 2026-08-30 —— 见 `ports.ts` `AgentRunStore.reclaimStaleRunning` 的完整取证。一条
+   * `UPDATE ... RETURNING`：只标记这一刻仍然是 `running` 且 `started_at` 早于阈值的行，
+   * 不会误伤这期间刚好写回完成、状态已经翻走的行（`WHERE status='running'` 是原子判据，
+   * 不是先 SELECT 再 UPDATE 的两步竞态）。复用 `failRun` 同一条 SQL 形状，不新起一套。
+   */
+  async reclaimStaleRunning(orgId: OrgId, olderThanMs: number): Promise<number> {
+    return this.db.withTenant(orgId, async (s) => {
+      const reclaimed = await s.query(
+        `UPDATE agent_runs SET status='failed', error_code='MODEL_CALL_FAILED', ended_at=now()
+          WHERE org_id=$1 AND status='running'
+            AND started_at < now() - ($2 || ' milliseconds')::interval
+        RETURNING id`,
+        [orgId, olderThanMs],
+      );
+      return reclaimed.rows.length;
+    });
+  }
+
   async failRun(orgId: OrgId, runId: string, code: RunFailureCode): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       await s.query(

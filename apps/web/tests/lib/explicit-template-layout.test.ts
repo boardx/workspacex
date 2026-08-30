@@ -124,6 +124,59 @@ describe("computeExplicitLayout —— px 几何", () => {
     });
     expect(spec.sections[0]!.stickyColor).toBe(TONE_COLORS[0]);
   });
+
+  /**
+   * 2026-08-30 人类反馈根因回归钉子：用户画像在 chat 模拟里测不出表头字段
+   * （姓名/性别/年龄……），因为 `type === "短文本"` 的分区此前被当成普通贴纸 box——
+   * 见 `buildExplicitTemplateSpec` 文件头「2026-08-30 追加」的注释。
+   */
+  describe("表头字段（`type: \"短文本\"`）", () => {
+    it("短文本分区不进入 spec.sections（不当贴纸 box），而是合并成 fields/headerRect", () => {
+      const { spec } = buildExplicitTemplateSpec({
+        key: "persona-like", displayName: "用户画像",
+        sections: [
+          { ...section("name", 1, 1, 3, 1), name: "姓名", type: "短文本" },
+          { ...section("gender", 4, 1, 3, 1), name: "性别", type: "短文本" },
+          { ...section("desc", 1, 2, 6, 4), name: "用户描述", type: "便利贴列表" },
+        ],
+        gridCols: 12,
+      });
+      expect(spec.sections.map((s) => s.name)).toEqual(["用户描述"]);
+      expect(spec.fields).toEqual(["姓名", "性别"]);
+      expect(spec.headerRect).toBeDefined();
+      expect(spec.fieldsPerRow).toBe(2);
+    });
+
+    it("headerRect 是所有表头格子的外接矩形，覆盖它们各自的 x/y/w/h", () => {
+      const nameCell = section("name", 1, 1, 3, 1);
+      const genderCell = section("gender", 4, 1, 3, 1);
+      const layout = computeExplicitLayout(
+        [nameCell, genderCell],
+        12,
+      );
+      const { spec } = buildExplicitTemplateSpec({
+        key: "persona-like", displayName: "用户画像",
+        sections: [
+          { ...nameCell, name: "姓名", type: "短文本" },
+          { ...genderCell, name: "性别", type: "短文本" },
+        ],
+        gridCols: 12,
+      });
+      const left = Math.min(...layout.cells.map((c) => c.x - c.w / 2));
+      const right = Math.max(...layout.cells.map((c) => c.x + c.w / 2));
+      expect(spec.headerRect!.w).toBeCloseTo(right - left, 5);
+    });
+
+    it("没有短文本分区时（绝大多数组织自建模板），不产出 fields/headerRect——与改动前逐字一致", () => {
+      const { spec } = buildExplicitTemplateSpec({
+        key: "t1", displayName: "测试模板",
+        sections: [section("a", 1, 1, 6, 4), section("b", 7, 1, 6, 4)],
+        gridCols: 12,
+      });
+      expect(spec.fields).toBeUndefined();
+      expect(spec.headerRect).toBeUndefined();
+    });
+  });
 });
 
 describe("allSectionsPlaced（issue #2372：chat 模拟/真实 chat 要不要走显式布局）", () => {

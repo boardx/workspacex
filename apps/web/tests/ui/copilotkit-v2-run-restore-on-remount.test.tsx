@@ -56,7 +56,7 @@ vi.mock("@/components/chat/chat-skill-mount-panel", () => ({
 }));
 
 import { CopilotKit } from "@copilotkit/react-core/v2";
-import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
+import { ApiError, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 
@@ -143,5 +143,45 @@ describe("copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失"
     // 判定这条人类消息已有回复——不该触发任何轮询。
     await waitFor(() => expect(getAgentRun).not.toHaveBeenCalled());
     expect(screen.queryByTestId("copilotkit-v2-running-indicator")).not.toBeInTheDocument();
+  });
+
+  /**
+   * 2026-08-30（devapp 真实用户复现）—— 第一版 `onSettled` 是零参数回调，run 真的以
+   * `failed` 收场时唯一动作是清空 `pendingRunId`：指示消失，用户看到的是自己那句话
+   * 安静地没有任何回应，连错误提示都没有。这里钉住修复：`view.status === "failed"`
+   * 时必须把服务端错误码经既有 `describeCopilotkitV2RunError` 译文显示在错误横幅里
+   * （与 `send()` 失败路径同一个 `copilotkit-v2-error` 锚点），不是静默消失。
+   */
+  it("轮询到终态但 run 其实是 failed ⇒ 显示错误横幅，不是安静地什么都不发生", async () => {
+    getAgentRun.mockResolvedValue({
+      runId: "run-1", threadId: THREAD_ID, status: "failed",
+      error: "MODEL_CALL_FAILED", resultMessageId: null,
+    });
+
+    mount();
+
+    const banner = await screen.findByTestId("copilotkit-v2-error");
+    expect(banner.textContent).toContain("模型这次没能返回可用结果");
+    await waitFor(() => {
+      expect(screen.queryByTestId("copilotkit-v2-running-indicator")).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * 2026-08-30 —— `gave-up`（`useCopilotKitV2RunRestore` 自己撑不住放弃，不是读到了
+   * 终态）同一类此前静默消失的问题：401（bearer 过期）与 20 分钟 budget 耗尽都不该
+   * 冒充"已确认失败"，但也不能什么都不说。这里用 401 分支验证（budget 耗尽走同一个
+   * `setError` 调用，只是 `reason` 文案不同，不再重复起一条 20 分钟的计时器用例）。
+   */
+  it("轮询因 401 放弃（bearer 过期）⇒ 如实提示未能核实，不冒充成功也不冒充失败", async () => {
+    getAgentRun.mockRejectedValue(new ApiError(401, "UNAUTHENTICATED", undefined));
+
+    mount();
+
+    const banner = await screen.findByTestId("copilotkit-v2-error");
+    expect(banner.textContent).toContain("登录状态可能已过期");
+    await waitFor(() => {
+      expect(screen.queryByTestId("copilotkit-v2-running-indicator")).not.toBeInTheDocument();
+    });
   });
 });

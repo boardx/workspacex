@@ -40,6 +40,7 @@ function createEffects(): DigitalInterviewEffects {
     setSkillProposalStatus: vi.fn(async () => { throw new Error("not used by graph nodes"); }),
     generateExpertCandidates: vi.fn(async () => undefined),
     generateQuestions: vi.fn(async () => undefined),
+    executeInterviewRuns: vi.fn(async () => undefined),
   };
 }
 

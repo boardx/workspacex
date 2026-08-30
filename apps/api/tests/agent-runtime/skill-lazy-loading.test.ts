@@ -79,6 +79,7 @@ function fakeStore(
     get output() { return state.output; },
     get failedWith() { return state.failedWith; },
     claimQueued: async (): Promise<readonly ClaimOutcome[]> => [{ kind: "executable", run }],
+    reclaimStaleRunning: unused("reclaimStaleRunning"),
     readPinnedSkills: async (): Promise<readonly PinnedSkillContent[]> => skills,
     appendStep: async (_orgId, _step: AppendedRunStep) => {},
     appendModelDelta: async (_orgId, _delta: AppendedRunDelta) => {},

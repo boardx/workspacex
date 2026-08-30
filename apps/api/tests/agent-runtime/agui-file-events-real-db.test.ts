@@ -105,6 +105,7 @@ describe("DA-16 -- listThreadAttachments + buildFileCreatedEvents（真 Postgres
       mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       bytes: 30720,
       source: "agent_run_output",
+      messageId: resultMessageId,
     }]);
   });
 

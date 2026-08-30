@@ -187,7 +187,9 @@ export async function ensureCanvasFenceTemplate(input: {
         key,
         displayName: row.displayName,
         gridCols: 12,
-        sections: row.sections.map((s) => ({ sectionId: s.sectionId, name: s.name, layout: s.layout! })),
+        sections: row.sections.map((s) => (
+          { sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type }
+        )),
       })
       : buildAutoTemplateSpec({
         key,

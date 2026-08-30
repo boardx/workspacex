@@ -68,6 +68,10 @@ export interface DigitalInterviewEffects {
   }): Promise<Guarded<DigitalInterviewWorkflowView>>;
   generateExpertCandidates(input: GenerateDigitalInterviewDraftInput): Promise<void>;
   generateQuestions(input: GenerateDigitalInterviewDraftInput): Promise<void>;
+  executeInterviewRuns(input: {
+    readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
+    readonly revisionId: string;
+  }): Promise<void>;
 }
 
 export const DIGITAL_INTERVIEW_EFFECTS = Symbol("DigitalInterviewEffects");
