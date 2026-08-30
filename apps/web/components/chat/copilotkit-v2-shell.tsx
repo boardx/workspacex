@@ -399,6 +399,20 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * `navigationGeneration` 挡的是"检查窗口还没到点，用户已经点了下一条线程"
    * ——那种情况下无论哪个判据都早就不指向**这次**点击的目标，不该被上一次点击
    * 遗留的检查错误地判定为"卡住了"而强制硬导航打断新的选择。
+   *
+   * ⚠ **issue #2402 —— 上面两次修复都没堵住"退化动作本身"这个洞**：即使判据已经
+   * 尽量准了，只要软导航在真实环境下（真栈负载高、模型调用占满连接池，#2259 原始
+   * 场景）确实超过 4 秒才完成，判据到点时仍会判"没成功"——这不是判据错，是软导航
+   * 这一次真的慢。此时原逻辑退化为 `window.location.assign(path)`：**整页**硬导航，
+   * 会把 `app/chat/(v2)/layout.tsx` 挂的 `CopilotKitV2Shell`（连同它内部的会话列表
+   * `threads` state）一起重新挂载——这正是人类截图里"左栏会话列表也变成 loading
+   * 骨架"的直接原因，也是唯一一条会连累左栏的路径。
+   *
+   * 改法：兜底动作本身从"整页硬刷新"降级为"重试一次软导航"（再 `router.push`
+   * 一次）。`router.push` 只会让 App Router 重新走一次已经在跑的软导航流程，
+   * 不触碰 `window.location`，因此不会卸载 `(v2)/layout.tsx` 这层共享布局，左栏
+   * 会话列表全程不受影响；"点了必有反应"（#2259 的原始诉求）仍然成立——只是"反应"
+   * 换成了"再摧一把已经在飞的软导航"，而不是"炸掉整个页面重来"。
    */
   const navigationGeneration = React.useRef(0);
   const pushThreadRoute = React.useCallback((threadId: string) => {
@@ -409,7 +423,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       if (navigationGeneration.current !== generation) return;
       if (selectedThreadIdRef.current === threadId) return;
       if (window.location.pathname === path) return;
-      window.location.assign(path);
+      router.push(path);
     }, 4_000);
   }, [router]);
 
