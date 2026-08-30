@@ -30,6 +30,10 @@ import {
   resolveVisibility,
 } from "../../application/chat/resolve-visibility";
 import {
+  CANVAS_TEMPLATE_REPOSITORY,
+  type CanvasTemplateRepository,
+} from "../../application/canvas/template-ports";
+import {
   DECISION_ID_FACTORY,
   IDENTITY_REPOSITORY,
   type DecisionIdFactory,
@@ -284,10 +288,17 @@ export class ChatController {
     @Inject(MODEL_CALL_PORT) private readonly model: ModelCallPort,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
     @Inject(THREAD_TITLE_MODEL_CONFIG) private readonly titleModel: ThreadTitleModelConfig,
+    // `summarizePersonaFromThread` 读该组织已发布的 `persona` 模板行（字段/分区名单一
+    // 事实源，见该用例文件头本次修复的说明），与 `CanvasTemplateController` 同一个仓储。
+    @Inject(CANVAS_TEMPLATE_REPOSITORY) private readonly canvasTemplates: CanvasTemplateRepository,
   ) {}
 
   private get deps() {
     return { repo: this.repo, ids: this.ids, chat: this.chat };
+  }
+
+  private get personaSummaryDeps() {
+    return { ...this.deps, identity: this.repo, templates: this.canvasTemplates };
   }
 
   /** Server-side only, same adapter shape as `ChatFollowUpSuggestionsController`'s. */
@@ -1100,7 +1111,7 @@ export class ChatController {
     try {
       return await summarizePersonaFromThread(
         {
-          ...this.deps,
+          ...this.personaSummaryDeps,
           artifacts: this.artifacts,
           store: this.store,
           artifactIds: this.artifactIds,
