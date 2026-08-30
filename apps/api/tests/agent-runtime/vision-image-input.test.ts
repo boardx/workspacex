@@ -55,6 +55,7 @@ function fakeStore(run: ClaimedAgentRun): AgentRunStore {
   };
   return {
     claimQueued: async (): Promise<readonly ClaimOutcome[]> => [{ kind: "executable", run }],
+    reclaimStaleRunning: unused("reclaimStaleRunning"),
     readPinnedSkills: async (): Promise<readonly PinnedSkillContent[]> => [],
     appendStep: async (_o, _s: AppendedRunStep) => {},
     appendModelDelta: async (_o, _d: AppendedRunDelta) => {},

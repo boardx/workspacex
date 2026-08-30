@@ -81,6 +81,7 @@ const FILE_CREATED_FRAME: AguiFrame = {
     mime: "text/markdown",
     bytes: null,
     source: "chat_upload",
+    messageId: "msg-e2e-active-file-panel-fixture",
   },
 };
 

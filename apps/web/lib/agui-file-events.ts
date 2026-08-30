@@ -50,6 +50,11 @@ export interface ActiveFile {
    *  `active-file-panel.tsx` 的 `source === "agent_run_output"` 下载卡片显示人读文件
    *  大小；未知时为 `null`（同源字段的 nullable 语义，不是本文件新造的口径）。 */
   readonly bytes: number | null;
+  /** 2026-08-30 —— `AguiFileCreatedValue.messageId` 原样透传：这个文件属于哪一条
+   *  已落库的 `chat_messages` 行。`copilotkit-v2-panel.tsx` 的 `ProducedFilesCtx`
+   *  用它把 `source === "agent_run_output"` 的下载入口挂到产出它的那条消息下面，
+   *  不再靠"最新一条大概率是它"的顺序猜测。 */
+  readonly messageId: string;
   /** 按 `sequence` 顺序累加的内容；`file_created` 到达但还没有任何 delta 时是空字符串。 */
   readonly content: string;
   /** 下一帧期望的 `sequence`（已处理到的最大值 + 1）——用于按序丢弃乱序/重复帧。 */
@@ -95,6 +100,7 @@ export function useAguiFileEvents(): {
           mime: parsed.mime,
           source: parsed.source,
           bytes: parsed.bytes,
+          messageId: parsed.messageId,
           content: "",
           nextSequence: 0,
         });

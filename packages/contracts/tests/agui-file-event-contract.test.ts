@@ -43,6 +43,7 @@ describe("DA-15 file event contract", () => {
       mime: "application/pdf",
       bytes: 4096,
       source: "chat_upload" as const,
+      messageId: "msg_123",
     };
 
     it("accepts a valid payload", () => {
@@ -64,6 +65,7 @@ describe("DA-15 file event contract", () => {
         mime: null,
         bytes: null,
         source: "artifact_pin" as const,
+        messageId: "msg_789",
       };
       expect(AguiFileCreatedValue.safeParse(artifactCase).success).toBe(true);
     });
@@ -106,6 +108,11 @@ it("does NOT cross-check domain/uri agreement at this layer (documented gap)", (
 
     it("rejects a missing required field", () => {
       const { source: _drop, ...bad } = valid;
+      expect(AguiFileCreatedValue.safeParse(bad).success).toBe(false);
+    });
+
+    it("rejects a missing messageId (2026-08-30 -- which chat_messages row this file belongs to)", () => {
+      const { messageId: _drop, ...bad } = valid;
       expect(AguiFileCreatedValue.safeParse(bad).success).toBe(false);
     });
   });
