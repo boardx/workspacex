@@ -1623,6 +1623,9 @@ export function CopilotKitV2PanelBody({
                 stop={speech.stop}
                 disabled={archived}
                 idleLabel="语音"
+                devices={micDevices.devices}
+                selectedDeviceId={micDevices.selectedDeviceId}
+                onSelectDevice={micDevices.select}
                 onRequireSession={() => {
                   if (sessionToken === null) {
                     setError("未登录，无法使用语音输入。");
@@ -1670,9 +1673,6 @@ export function CopilotKitV2PanelBody({
               level={speech.level}
               stop={speech.stop}
               cancel={speech.cancel}
-              devices={micDevices.devices}
-              selectedDeviceId={micDevices.selectedDeviceId}
-              onSelectDevice={micDevices.select}
             />
           ) : null}
           {/* issue #2130（TW-P0-5④）—— 发送被禁用时必须**说明原因**，不能只是灰掉。 */}
