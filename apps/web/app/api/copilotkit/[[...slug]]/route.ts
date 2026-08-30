@@ -58,6 +58,7 @@ import { HttpAgent } from "@ag-ui/client";
 import { apiBaseUrl } from "@/lib/api-client";
 import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "@/lib/copilotkit-v2-agent-header";
 import { buildAguiAgentQuery } from "@/lib/copilotkit-v2-agent-query";
+import { buildAguiUrl } from "@/lib/copilotkit-v2-agui-url";
 
 const BASE_PATH = "/api/copilotkit";
 
@@ -69,13 +70,27 @@ const BASE_PATH = "/api/copilotkit";
  * Next 自己，稳定拿到 404 HTML，用户侧表现为发消息即 RUN_ERROR（真实事故，
  * wire 抓包定位）。deploy.env 里现成的 `APP_API_PORT`（provision.sh 单一声明处，
  * systemd EnvironmentFile 注入）就是内网 NestJS 端口——存在时直连 127.0.0.1
- * 回环，一跳到位，不经 Caddy。e2e / 本地 dev 不设这个变量，行为与之前逐字节
- * 相同（`apiBaseUrl()` 直连测试 API 端口）。
+ * 回环，一跳到位，不经 Caddy。
+ *
+ * ⚠ issue #2318（fullstack-smoke 2/2 稳定复现，新注册组织首条个人 chat 消息）：
+ * `APP_API_PORT` 不存在时落到 `apiBaseUrl()` 的分支，同样可能是「同源自反代」拓扑——
+ * `apps/web/playwright.fullstack-smoke.config.ts` 就把 `NEXT_PUBLIC_API_URL` 设成
+ * Next 自己的 origin，靠 `NEXT_PUBLIC_API_PATH_PREFIX`（`next.config.mjs` 的 rewrite）
+ * 转发到真实 API——这与 `apiUrl()`/`buildUrl()`（`api-client.ts`）覆盖的是**同一条**
+ * 同源代理约定。之前这里直接拼 `${apiBaseUrl()}/copilotkit/agui`，跳过了 prefix，
+ * 请求落在 Next 自己身上、没有匹配的页面/rewrite，于是拿到字面 404 HTML——与生产
+ * Caddy 场景同一根因的另一种拓扑。现在两个分支都不假设“裸 origin 就是终点”：
+ * 走 `APP_API_PORT` 直连时它本来就是 apps/api 的真实地址，不需要 prefix；落到
+ * `apiBaseUrl()` 时必须像其它任何真实 API 调用一样带上 prefix，否则同源代理这条路
+ * 就是断的。纯拼接逻辑（含单测）在 `@/lib/copilotkit-v2-agui-url`——这个文件是
+ * route handler，不允许导出额外名字。
  */
-function aguiOrigin(): string {
-  const internalPort = process.env.APP_API_PORT?.trim();
-  if (internalPort) return `http://127.0.0.1:${internalPort}`;
-  return apiBaseUrl();
+function aguiUrl(path: string): string {
+  return buildAguiUrl(path, {
+    internalPort: process.env.APP_API_PORT,
+    apiBaseUrl: apiBaseUrl(),
+    pathPrefix: process.env.NEXT_PUBLIC_API_PATH_PREFIX,
+  });
 }
 
 /**
@@ -124,7 +139,7 @@ const agents: AgentsFactory = ({ request }) => {
   const authorization = request.headers.get("authorization");
   return {
     default: new HttpAgent({
-      url: `${aguiOrigin()}/copilotkit/agui${agentQuery}`,
+      url: aguiUrl(`/copilotkit/agui${agentQuery}`),
       // 真实转发浏览器请求自带的 Authorization 头；未登录请求没有这个头，
       // 下游 `copilotkit-agui.controller.ts` 的 `assertPrincipal` 会如实 401，
       // 不在这一层伪造一个 header 掩盖过去。

@@ -10,7 +10,6 @@
  * 因此这里断言的是"注册"与"首次真实使用"之间的衔接，而不是重新验证注册机制本身。
  */
 import { expect, test, type Page } from "@playwright/test";
-import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 interface FreshUser {
   readonly orgName: string;
@@ -109,16 +108,16 @@ test("旅程①：开放注册出的新用户，验证邮箱、登录后能真�
  * `message` 字段字面包着一整页 Next.js 404 HTML——说明请求根本没到 apps/api，界面
  * 上表现为「正在思考…」之后弹出「这次执行没有成功，请重试或联系管理员」。
  *
- * 与 `AGENTS.md`「缺口要可见、有名字、会在 doctor 里出现」同一条纪律（`core-loop
- * .spec.ts`/`skill-agent-import-usecase-audit.spec.ts` 同款用法）：用 `test.fail()`
- * 而不是把这个断言塞回上面那条主链路用例——那样会让一个尚未解决的产品缺口，把
- * "注册→验证→登录→项目/组织可达"这条已经成立的链路也一起拖红，制造"注册整个坏了"
- * 的假象。这里单独开一条**预期失败**的用例：现在稳定红，`#2318` 修好后 Playwright
- * 会报 "expected to fail but passed"，逼人把它翻正成真断言（同 core-loop.spec.ts
- * 头注说的那条纪律，不重复贴一遍）。
+ * 根因：`apps/web/app/api/copilotkit/[[...slug]]/route.ts` 给 `HttpAgent` 拼出站
+ * 地址时，`APP_API_PORT` 未设置、落到 `apiBaseUrl()` 的分支没有带上
+ * `NEXT_PUBLIC_API_PATH_PREFIX`——本用例所在的 fullstack-smoke 环境恰好就是靠这个
+ * prefix 做同源代理（`playwright.fullstack-smoke.config.ts`），请求因此落在 Next
+ * 自己身上，拿到字面 404 HTML。修法在 `apps/web/lib/copilotkit-v2-agui-url.ts`
+ * （`buildAguiUrl`，单测见同目录 `tests/copilotkit-v2-agui-url.test.ts`）：两个分支
+ * 都不再假设“裸 origin 就是终点”。曾经用 `test.fail()` 把这条断言与主链路用例分开
+ * （`AGENTS.md`「缺口要可见、有名字」纪律），现在翻正成真断言。
  */
-test("旅程①附：刚注册的全新组织，个人 chat 第一条消息真的收到 agent 回复（#2318 已知缺口）", async ({ page }) => {
-  test.fail();
+test("旅程①附：刚注册的全新组织，个人 chat 第一条消息真的收到 agent 回复（#2318 已修复）", async ({ page }) => {
   const user = freshUser("reply-gap");
   await registerOpen(page, user);
 
@@ -143,10 +142,16 @@ test("旅程①附：刚注册的全新组织，个人 chat 第一条消息真�
 
   await page.goto("/chat");
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
-  await page.getByTestId("copilotkit-v2-input").fill("刚注册就能用的第一句话");
+  const draft = "刚注册就能用的第一句话";
+  await page.getByTestId("copilotkit-v2-input").fill(draft);
   const messages = page.getByTestId("copilotkit-v2-messages");
   await page.getByTestId("copilotkit-v2-send").click();
-  // 与 loopback-model-provider.ts 的 `REPLY_PREFIX` 同源——这个前缀只会出现在
-  // assistant 那一侧的气泡里，不会被用户自己发的原文字面撞上。
-  await expect(messages).toContainText(FULLSTACK_E2E.agentReplyPrefix, { timeout: 20_000 });
+  // ⚠ CI 实测纠正（本 PR 首次推送即撞见）：`FULLSTACK_E2E.agentReplyPrefix`
+  // （"[loopback]"）是 `loopback-model-provider.ts`（`dashscope`/`Configured
+  // ModelProvider` 那条链路）的前缀，本用例走的默认「通用助手」pin 的是
+  // `deep-agent` provider（#740），真正应答的是 `loopback-deep-agent-provider.ts`
+  // ——那份替身没有固定前缀，默认模板是把用户原话整体嵌入回复正文（"根据查询结果
+  // 回答你："${userText}" ——……"），与 `copilotkit-v2-skill-mount.spec.ts` 等既有
+  // 用例断言同一个模板、不是发明一个新判据。
+  await expect(messages).toContainText(`根据查询结果回答你："${draft}"`, { timeout: 20_000 });
 });
