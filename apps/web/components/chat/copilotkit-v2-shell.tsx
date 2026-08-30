@@ -103,6 +103,17 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   React.useEffect(() => {
     setSelectedThreadId(initialThreadId);
   }, [initialThreadId]);
+  /**
+   * 2026-08-30 人类实测反馈——「每点一次会话就整栏刷新一次」，且是**每次都发生**、
+   * 不是偶发。见下面 `pushThreadRoute` 的更正：旧判据用 `window.location.pathname`
+   * 判断软导航有没有生效，这里补一份指向"内容真的切换了没有"的独立事实源，供那处
+   * 判据改用（ref 而非直接读 state：`pushThreadRoute` 的 `setTimeout` 回调是一次性
+   * 闭包，读 state 会拿到创建那一刻的旧值，读 ref 才是"检查那一刻的最新值"）。
+   */
+  const selectedThreadIdRef = React.useRef(selectedThreadId);
+  React.useEffect(() => {
+    selectedThreadIdRef.current = selectedThreadId;
+  }, [selectedThreadId]);
 
   /** issue #2099 —— 右栏「产物」点击查看：非 null 时打开预览弹窗。 */
   const [openArtifact, setOpenArtifact] = React.useState<{ artifactId: string; title: string } | null>(null);
@@ -366,20 +377,37 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * `apps/web/e2e/copilotkit-v2-thread-persistence.spec.ts` 的
    * 「裸路由 /chat 落地」用例里验证）软导航本身当前工作正常——所以这里不是
    * "猜"出来的修复，是给已经确认过的失败模式补一层兜底：软导航发出后给它一个
-   * 短窗口自证成功（`location.pathname` 变成目标路径）；到点还没变就退化为
-   * 硬导航（`window.location.assign`）——牺牲一次整页刷新换回"点了必有反应"，
-   * 不是伪装成功、也不掩盖任何真实报错。
+   * 短窗口自证成功；到点还没成功就退化为硬导航（`window.location.assign`）——
+   * 牺牲一次整页刷新换回"点了必有反应"，不是伪装成功、也不掩盖任何真实报错。
+   *
+   * ⚠ **2026-08-30 人类实测反馈更正**：「每点一次会话都会整栏刷新」，且是**每次都
+   * 发生**，不是像 issue #2259 描述的那样只在真栈负载高时偶发——这个频率分布本身
+   * 就是判据，指向"自证成功"这一步的判据本身有系统性偏差，而不是软导航真的每次都
+   * 卡住。旧判据只认 `window.location.pathname === path`：这一份来自浏览器 History
+   * API 的信号会在**什么时候**真的等于目标路径，与 Next 这个版本的软导航实现细节
+   * 绑定，本仓从未验证过它与"页面内容真的切到了新线程"这件事之间没有时间差——如果
+   * 软导航先完成内容更新、`location.pathname` 却滞后同步（或反过来），这条判据就会
+   * 对**每一次**导航都判"没成功"，与实测的"每点必刷新"完全吻合，比"软导航真的每次
+   * 都卡住"这个假设更合理。
+   *
+   * 改法：判据换成"内容真的切换了没有"这个更接近本意的事实——`selectedThreadIdRef`
+   * 是 `initialThreadId` prop 同步出来的 state 的镜像（见上面该 ref 的声明），
+   * 真的变成目标 `threadId` 才代表这次导航从路由到渲染整条链路都完成了，不依赖
+   * `location.pathname` 这一层可能滞后的中间信号。两个判据**任一个**成立都算数
+   * （`||`）——只放宽误判"卡住"的条件，不收紧，不会把真正卡住的情形误判成功。
    *
    * `navigationGeneration` 挡的是"检查窗口还没到点，用户已经点了下一条线程"
-   * ——那种情况下 `location.pathname` 早就不等于**这次**点击的目标路径，
-   * 不该被上一次点击遗留的检查错误地判定为"卡住了"而强制硬导航打断新的选择。
+   * ——那种情况下无论哪个判据都早就不指向**这次**点击的目标，不该被上一次点击
+   * 遗留的检查错误地判定为"卡住了"而强制硬导航打断新的选择。
    */
   const navigationGeneration = React.useRef(0);
-  const pushThreadRoute = React.useCallback((path: string) => {
+  const pushThreadRoute = React.useCallback((threadId: string) => {
+    const path = `/chat/${threadId}`;
     const generation = ++navigationGeneration.current;
     router.push(path);
     window.setTimeout(() => {
       if (navigationGeneration.current !== generation) return;
+      if (selectedThreadIdRef.current === threadId) return;
       if (window.location.pathname === path) return;
       window.location.assign(path);
     }, 4_000);
@@ -387,7 +415,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
 
   const selectThread = React.useCallback((threadId: string) => {
     if (threadId === selectedThreadId) return;
-    pushThreadRoute(`/chat/${threadId}`);
+    pushThreadRoute(threadId);
   }, [pushThreadRoute, selectedThreadId]);
 
   /**
