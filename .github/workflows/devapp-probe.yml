@@ -1,3 +1,24 @@
+# devapp 能力探针 —— **只读**，用来回答「coord-main 在那台机器上到底能做什么」。
+#
+# 背景：devapp 同时是 self-hosted runner `devapp-x64`。人类 2026-08-05 指示
+# 「跳过我，不要等我，你自己要有能力解决，我只是给你做配置好权限」。
+# 要自己解，先得知道边界在哪 —— 而边界只能实测，不能猜。
+#
+# ⚠ 本工作流**不写任何东西**：没有 install / rm / psql 写操作 / systemctl。
+#   它只回答四个问题，每个都附带正样本以证明探针本身有效。
+name: devapp-probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: [self-hosted, linux, x64, workspacex]
+    timeout-minutes: 5
+    steps:
+      - name: 我是谁、能 sudo 什么
+        shell: bash
+        run: |
           echo "── whoami ──"; id
           echo "── sudo -l（这决定我能不能换那个部署脚本）──"
           sudo -n -l 2>&1 || echo "(sudo -l 不可用)"
