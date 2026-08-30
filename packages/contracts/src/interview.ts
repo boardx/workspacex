@@ -299,6 +299,23 @@ export const DigitalInterviewQuestion = z.object({
   purpose: z.string().trim().min(1),
 }).strict();
 
+export const DigitalInterviewRunAnswer = z.object({
+  questionId: z.string().min(1),
+  question: z.string().min(1),
+  answer: z.string().min(1),
+}).strict();
+
+export const DigitalInterviewExpertRun = z.object({
+  expertId: z.string().min(1),
+  displayName: z.string().min(1),
+  status: z.enum(["running", "completed", "failed"]),
+  completedQuestions: z.number().int().nonnegative(),
+  totalQuestions: z.number().int().nonnegative(),
+  answers: z.array(DigitalInterviewRunAnswer),
+  errorCode: z.string().min(1).nullable(),
+  updatedAt: z.string().datetime(),
+}).strict();
+
 const validateUniqueDigitalInterviewQuestions = (
   questions: readonly z.infer<typeof DigitalInterviewQuestion>[],
   context: z.RefinementCtx,
@@ -444,6 +461,7 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
   expertCandidates: z.array(DigitalExpertCatalogRow),
   questions: DigitalInterviewQuestionList,
   questionCandidates: DigitalInterviewQuestionList,
+  expertRuns: z.array(DigitalInterviewExpertRun),
   skillThreadId: z.string().min(1),
   skillMessages: z.array(DigitalInterviewSkillMessage),
   skillProposals: z.array(DigitalInterviewSkillProposal),

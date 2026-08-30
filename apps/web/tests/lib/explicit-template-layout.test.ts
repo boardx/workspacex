@@ -12,7 +12,7 @@ import {
   allSectionsPlaced,
   sectionGeometryMm,
   classifyNoteSize,
-  MAX_NOTE_MM,
+  STANDARD_NOTE_MM,
   TONE_COLORS,
   A1_CONTENT_MM,
   A1_PAPER_MM,
@@ -124,6 +124,59 @@ describe("computeExplicitLayout —— px 几何", () => {
     });
     expect(spec.sections[0]!.stickyColor).toBe(TONE_COLORS[0]);
   });
+
+  /**
+   * 2026-08-30 人类反馈根因回归钉子：用户画像在 chat 模拟里测不出表头字段
+   * （姓名/性别/年龄……），因为 `type === "短文本"` 的分区此前被当成普通贴纸 box——
+   * 见 `buildExplicitTemplateSpec` 文件头「2026-08-30 追加」的注释。
+   */
+  describe("表头字段（`type: \"短文本\"`）", () => {
+    it("短文本分区不进入 spec.sections（不当贴纸 box），而是合并成 fields/headerRect", () => {
+      const { spec } = buildExplicitTemplateSpec({
+        key: "persona-like", displayName: "用户画像",
+        sections: [
+          { ...section("name", 1, 1, 3, 1), name: "姓名", type: "短文本" },
+          { ...section("gender", 4, 1, 3, 1), name: "性别", type: "短文本" },
+          { ...section("desc", 1, 2, 6, 4), name: "用户描述", type: "便利贴列表" },
+        ],
+        gridCols: 12,
+      });
+      expect(spec.sections.map((s) => s.name)).toEqual(["用户描述"]);
+      expect(spec.fields).toEqual(["姓名", "性别"]);
+      expect(spec.headerRect).toBeDefined();
+      expect(spec.fieldsPerRow).toBe(2);
+    });
+
+    it("headerRect 是所有表头格子的外接矩形，覆盖它们各自的 x/y/w/h", () => {
+      const nameCell = section("name", 1, 1, 3, 1);
+      const genderCell = section("gender", 4, 1, 3, 1);
+      const layout = computeExplicitLayout(
+        [nameCell, genderCell],
+        12,
+      );
+      const { spec } = buildExplicitTemplateSpec({
+        key: "persona-like", displayName: "用户画像",
+        sections: [
+          { ...nameCell, name: "姓名", type: "短文本" },
+          { ...genderCell, name: "性别", type: "短文本" },
+        ],
+        gridCols: 12,
+      });
+      const left = Math.min(...layout.cells.map((c) => c.x - c.w / 2));
+      const right = Math.max(...layout.cells.map((c) => c.x + c.w / 2));
+      expect(spec.headerRect!.w).toBeCloseTo(right - left, 5);
+    });
+
+    it("没有短文本分区时（绝大多数组织自建模板），不产出 fields/headerRect——与改动前逐字一致", () => {
+      const { spec } = buildExplicitTemplateSpec({
+        key: "t1", displayName: "测试模板",
+        sections: [section("a", 1, 1, 6, 4), section("b", 7, 1, 6, 4)],
+        gridCols: 12,
+      });
+      expect(spec.fields).toBeUndefined();
+      expect(spec.headerRect).toBeUndefined();
+    });
+  });
 });
 
 describe("allSectionsPlaced（issue #2372：chat 模拟/真实 chat 要不要走显式布局）", () => {
@@ -152,12 +205,10 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.hMm).toBe(A1_CONTENT_MM.h - 6);
   });
 
-  it("贴纸实尺 = (wMm - 6×(cols-1)) / cols，固定 1:1 方形——不需要额外断言宽高比，公式本身只产出一个数", () => {
+  it("贴纸实尺恒等于 STANDARD_NOTE_MM，固定 1:1 方形——不随区块宽度或列数变化（2026-08-30）", () => {
     // 5 列 × 2 行 = 10 条的经典配置（PDF 示例原话「5 列 × 2 行 = 放得下 10 条」）。
     const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
-    const expectedWMm = (6 / 12) * A1_CONTENT_MM.w - 6;
-    const expectedNoteMm = Math.round((expectedWMm - 6 * 4) / 5);
-    expect(g.noteMm).toBe(expectedNoteMm);
+    expect(g.noteMm).toBe(STANDARD_NOTE_MM);
   });
 
   it("容量 = cols × rows，rows 由 floor((hMm-22)/(noteMm+6)) 算出——不是拍脑袋乘一个数", () => {
@@ -175,22 +226,23 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.fits).toBeGreaterThanOrEqual(0);
   });
 
-  it("issue #2368 · 贴纸实尺封顶在 MAX_NOTE_MM——1 列时不再吃满整个区块宽度，不再把自己撑到 0 行", () => {
-    // 真实复现：w=4,h=4（A1，12 列网格）选 1 列——未封顶前 wMm≈268，noteMm=268/1=268，
-    // rows=floor((281-22)/(268+6))=0，整块区域画不出任何内容。
+  it("2026-08-30 · 贴纸实尺不再随列数反推——1 列时也还是 STANDARD_NOTE_MM，不会被撑到吃满整个区块宽度", () => {
+    // 真实复现：w=4,h=4（A1，12 列网格）选 1 列——旧公式（issue #2368 那版的
+    // Math.min(封顶, wMm/cols)）会先把贴纸撑到封顶值；现在贴纸大小是固定常量，
+    // 压根不看 wMm/cols，1 列与 5 列选出来的 noteMm 逐字相同。
     const g = sectionGeometryMm({ w: 4, h: 4, cols: 1, gridCols: 12 });
     expect(g.wMm).toBe(268);
-    expect(g.noteMm).toBe(MAX_NOTE_MM);
+    expect(g.noteMm).toBe(STANDARD_NOTE_MM);
     expect(g.noteMm).toBeLessThan(g.wMm);
     expect(g.rows).toBeGreaterThan(0);
     expect(g.fits).toBeGreaterThan(0);
   });
 
-  it("noteMm 未触顶时维持原公式——封顶只在超过 MAX_NOTE_MM 时才生效，不改变正常档位的数值", () => {
-    const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
-    expect(g.noteMm).toBeLessThan(MAX_NOTE_MM);
-    const expectedWMm = (6 / 12) * A1_CONTENT_MM.w - 6;
-    expect(g.noteMm).toBe(Math.round((expectedWMm - 6 * 4) / 5));
+  it("noteMm 是常量——列数、区块宽度怎么变，取到的都是同一个 STANDARD_NOTE_MM", () => {
+    const wide = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
+    const narrow = sectionGeometryMm({ w: 1, h: 3, cols: 8, gridCols: 12 });
+    expect(wide.noteMm).toBe(STANDARD_NOTE_MM);
+    expect(narrow.noteMm).toBe(STANDARD_NOTE_MM);
   });
 });
 

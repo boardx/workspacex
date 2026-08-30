@@ -9,8 +9,9 @@
  * 纯数据 + 纯函数，没有 React/DOM 依赖 —— 与 `explicit-template-layout.ts` 同样可单测。
  */
 import type { CanvasTemplate } from "@/lib/live-canvas";
+import { getTemplate } from "@repo/fabric-markdown";
 import {
-  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS,
+  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS, STANDARD_NOTE_MM,
   type PaperSizeKey,
   type SectionGeometryMm,
 } from "@/lib/canvas/explicit-template-layout";
@@ -55,7 +56,15 @@ export interface SectionDraft {
  * 排版偏好（1 列＝竖排长列表，8 列＝密集小方格），没有理由从 3 起。
  */
 export const COLS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
-export const MAX_OPTIONS = [3, 4, 6, 9] as const;
+/**
+ * 「最多条数」步进器的边界。2026-08-26 人类反馈「宽和高要有所有选项」之后，同一栏
+ * 右边的「最多条数」还留着 `[3,4,6,9]` 四个固定档——2026-08-30 又反馈一次同一类问题：
+ * 「这个要改为可以支持 1 条，到更多条」。改法与「在 A1 上占多大」的宽/高一致：
+ * 步进器覆盖 `[MAX_COUNT_MIN, MAX_COUNT_MAX]` 全部整数，不再是四个候选值的子集。
+ * 上限给一个宽裕但不失控的数——现场便利贴很少会给单个字段堆到三位数。
+ */
+export const MAX_COUNT_MIN = 1;
+export const MAX_COUNT_MAX = 99;
 export const WIDTH_OPTIONS = [3, 4, 6, 12] as const;
 export const HEIGHT_OPTIONS = [1, 2, 3, 4] as const;
 export const OVERFLOW_OPTIONS = ["缩小字号", "叠放", "截断"] as const;
@@ -66,13 +75,34 @@ export const FIELD_TYPES: readonly SectionFieldType[] = ["便利贴列表", "短
  *
  * `key` 缺失时从 `sectionId` 兜底（而不是从中文名音译——那会产出不稳定的 key，
  * 同一个分区两次进编辑器可能得到两个不同的 key）。
+ *
+ * ⚠ `type` 缺失时的兜底**不能**无脑落到 `"便利贴列表"`——这是一个真实复现过的 bug
+ *   （2026-08-30，人类实测「chat 模拟」跑用户画像模板，表头姓名/性别/年龄一片空白）。
+ *   根因链：`backfill-canvas-builtin-templates.ts` 2026-08-26 之前写入的行（或从未被
+ *   幂等升级路径追上过的存量行）里，persona 的 9 个表头字段作为 section 落库时没有
+ *   `type`；一旦兜底成 `"便利贴列表"`，它们就从"表头字段"错分类成"正文分区"——
+ *   `canvas-template-guidance.ts` 按 `type === "短文本"` 切分表头/正文，于是系统提示词
+ *   里完全不再出现"表头字段〔姓名/…〕"这一句，模型无从得知要填这些字段；同时它们又被
+ *   当成正文分区让模型写成 `## 姓名` 之类的空标题——而真正渲染用的是内置几何（`persona.ts`
+ *   写死的 `headerRect`/`sections`），认不出名叫"姓名"的分区框，这段内容被悄悄丢弃。
+ *   两处症状（表头空白 + 内容被吞）看起来毫不相关，实际是同一个"`type` 缺失时兜底选错"
+ *   的根因。
+ *
+ *   所以：`type` 缺失时，先查这个 key 是不是内置模板（`@repo/fabric-markdown` 的
+ *   `getTemplate`）——是的话，这个分区名如果落在 `spec.fields` 里，就是表头字段
+ *   （`"短文本"`），不是正文分区；只有查不到内置 spec，或分区名不在 `fields` 里，
+ *   才落回原来的 `"便利贴列表"` 默认值。这是**读时**的兼容桥接，不改库里那一行历史
+ *   数据本身——存量行该走 `backfill-canvas-builtin-templates.ts` 的升级路径把
+ *   `type` 真正落到库里，这里只保证在那之前，编辑器与"chat 模拟"至少不会把表头字段
+ *   错当正文分区。
  */
 export function toDraft(row: CanvasTemplate): SectionDraft[] {
+  const builtinFields = new Set(getTemplate(row.key)?.fields ?? []);
   return row.sections.map((s, i) => ({
     sectionId: s.sectionId,
     key: s.key ?? fallbackKey(s.sectionId, i),
     name: s.name,
-    type: (s.type ?? "便利贴列表") as SectionFieldType,
+    type: (s.type ?? (builtinFields.has(s.name) ? "短文本" : "便利贴列表")) as SectionFieldType,
     aiHint: s.aiHint ?? null,
     order: s.order,
     required: s.required,
@@ -113,9 +143,11 @@ export function defaultLayoutAt(
   const h = Math.min(type === "便利贴列表" ? 3 : 1, 8 - row + 1);
   return {
     col, row, w, h,
-    // 默认 cols 由物理宽度推出：round(区块宽mm / 82)，夹在 3-8，
-    // 使贴纸落在 76mm 标准附近（`Design.pdf` §4.2 原话）。
-    cols: type === "便利贴列表" ? clamp(Math.round(blockWidthMm(w, gridCols, size) / 82), 3, 8) : 3,
+    // 默认 cols 由物理宽度推出：round(区块宽mm / 贴纸格距)，夹在 3-8——贴纸格距是
+    // 固定贴纸边长（`STANDARD_NOTE_MM`）加一道网格间距，不是随手写的 82（`Design.pdf`
+    // §4.2 原话「使贴纸落在 76mm 标准附近」；贴纸本身大小固定，这里只是猜一个默认
+    // 摆几列，摆多了/摆少了使用者都能在右栏用步进器改）。
+    cols: type === "便利贴列表" ? clamp(Math.round(blockWidthMm(w, gridCols, size) / (STANDARD_NOTE_MM + GRID_GAP_MM)), 3, 8) : 3,
     max: 6,
     tone: 0,
     overflow: "缩小字号",
@@ -209,7 +241,7 @@ export function autoFillLayout(
         const isList = d.type === "便利贴列表";
         placements.set(d.sectionId, {
           col, row: bodyRow, w, h,
-          cols: isList ? clamp(Math.round(blockWidthMm(w, gridCols, size) / 82), 3, 8) : 3,
+          cols: isList ? clamp(Math.round(blockWidthMm(w, gridCols, size) / (STANDARD_NOTE_MM + GRID_GAP_MM)), 3, 8) : 3,
           max: 6,
           tone: r % 4,
           overflow: "缩小字号",

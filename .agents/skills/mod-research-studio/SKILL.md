@@ -52,6 +52,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-08-30：数字访谈把 Persona、问题或回答发送给外部模型前，必须先用与写事务相同的 actor 可见性谓词取得带 version/revision 的授权快照；模型调用结束后再在锁内复查权限与版本，且不得跨模型调用持有数据库事务，否则同组织越权者可在最终落库被拒前造成资料外发与模型费用（出处：PR #2377 独立安全 review）。
 - 2026-08-30：数字访谈的 `generate_questions` 不能用“姓名插值 + 固定三问”冒充 AI 针对性生成；必须把已确认候选的完整 Persona 与主题一起传给模型，校验每位专家恰好三问且跨专家问题不重复，模型输出无效时 fail closed（出处：issue #2376）。
 - 2026-08-15：`/rec` 的 AudioWorklet render quantum 不能与浏览器 WebSocket 帧一一对应；48 kHz 输入会产生约 84–86B/2.7ms 的微帧并放大浏览器、API 与 ASR provider 的消息开销。应在保持 16 kHz PCM16LE 字节顺序不变的前提下聚合为约 80ms/2560B 的传输帧，并在停止时刷新尾帧（出处：issue #1335）。
 - 2026-08-14：引导式 `/research` 已接真实 API 时不得继续向 `AppShell` 传原型 `mockIdentity`，否则会绕过 `SessionProvider`、让失效会话渲染出假登录壳后再由业务请求暴露 401；预览身份只留给显式 `?screen=…` Studio 原型入口（出处：F174 本地回归）。

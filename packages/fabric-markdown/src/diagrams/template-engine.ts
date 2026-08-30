@@ -160,6 +160,14 @@ export function parseTemplateText(code: string): ParsedTemplateText {
   let templateKey: string | undefined;
   let current: string | null = null;
   let paragraph: string[] = [];
+  // 表头字段行（`字段名: 值`）按格式约定只出现在第一个 `## 分区` 之前——但模型偶尔会
+  // 提前手滑写出一个空标题（例如把某个字段本身也格式化成 `## 姓名`）。一旦把"见过标题"
+  // 当成一次性开关，这个手滑会让后面本该进 `fields` 的每一行都被当成当前分区的段落文字
+  // 吞掉、静默丢失（真实症状：表头一片空白，且没有任何报错）。用"是否已经出现过真正的
+  // 分区内容（bullet）"代替"是否见过标题"来做这个开关：模型只要还没真正开始写要点，
+  // 提前出现的空标题就不会锁死字段解析——一旦见过第一条要点，才认定表头部分已经结束，
+  // 之后的 `key: value` 行按原样归入当前分区（不破坏既有的分区内容解析）。
+  let sawBullet = false;
 
   const flush = (): void => {
     if (current && paragraph.length > 0) sections.get(current)!.push(paragraph.join(' '));
@@ -179,7 +187,7 @@ export function parseTemplateText(code: string): ParsedTemplateText {
       flush();
       continue;
     }
-    if (current === null) {
+    if (!sawBullet) {
       const kv = /^([^:：]+)[:：]\s*(.*)$/.exec(line);
       if (kv) {
         const key = kv[1]!.trim();
@@ -188,12 +196,15 @@ export function parseTemplateText(code: string): ParsedTemplateText {
         } else {
           fields.set(key, kv[2]!.trim());
         }
+        continue;
       }
-      continue;
+      if (current === null) continue;
     }
+    if (current === null) continue;
     const bullet = /^[-*]\s+(.*)$/.exec(line);
     if (bullet) {
       flush();
+      sawBullet = true;
       sections.get(current)!.push(bullet[1]!.trim());
     } else {
       paragraph.push(line);

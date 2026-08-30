@@ -83,14 +83,14 @@
         "F03"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "04",
       "owner": "coord-user-research",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/digital-interview-setup.test.ts",
         "pnpm --filter web exec vitest run tests/ui/interview-setup-workflow.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F04.verify.log @ 2026-08-30T11:14:59.766Z",
       "notes": "release slice。共享热点 apps/web/components/itv/**；只处理数字专家，不出现真人、用户画像或模板优先流程。"
     },
     {
@@ -105,9 +105,9 @@
         "F04"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "05",
+      "owner": "coord-user-research",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/digital-interview-runs.test.ts",
         "pnpm --filter web exec vitest run tests/ui/interview-runs.test.tsx"

@@ -50,6 +50,11 @@ export interface ActiveFile {
    *  `active-file-panel.tsx` 的 `source === "agent_run_output"` 下载卡片显示人读文件
    *  大小；未知时为 `null`（同源字段的 nullable 语义，不是本文件新造的口径）。 */
   readonly bytes: number | null;
+  /** 2026-08-30 —— `AguiFileCreatedValue.messageId` 原样透传：这个文件属于哪一条
+   *  已落库的 `chat_messages` 行。`copilotkit-v2-panel.tsx` 的 `ProducedFilesCtx`
+   *  用它把 `source === "agent_run_output"` 的下载入口挂到产出它的那条消息下面，
+   *  不再靠"最新一条大概率是它"的顺序猜测。 */
+  readonly messageId: string;
   /** 按 `sequence` 顺序累加的内容；`file_created` 到达但还没有任何 delta 时是空字符串。 */
   readonly content: string;
   /** 下一帧期望的 `sequence`（已处理到的最大值 + 1）——用于按序丢弃乱序/重复帧。 */
@@ -61,6 +66,22 @@ export function useAguiFileEvents(): {
   readonly files: readonly ActiveFile[];
   readonly onCustomEvent: (params: { event: { name?: string; value?: unknown } }) => void;
   readonly reset: () => void;
+  /**
+   * 2026-08-30 人类实测反馈：生成完的 docx/pdf/xlsx 一旦刷新页面或重新打开这条线程
+   * 就再也看不到下载卡片，只剩消息正文里那句纯文字描述——**不是**样式问题，是这个
+   * hook 本身只认"这个浏览器会话亲眼看到的 `file_created` 事件"，没有任何从历史
+   * 数据回填的路径。事件是 SSE 一次性推送，不落任何表；`chat_message_attachments`
+   * 这张表倒是真落库了，但落库的是文件本身，不是"这条 AG-UI 事件曾经发生过"这件事。
+   * 调用方（`copilotkit-v2-panel.tsx`）在回读历史消息时，用 `listThreadAttachments`
+   * 读回同一批已落库的附件，为其中挂在助手消息上的那些在本地重建等价的
+   * `ActiveFile` 记录，喂给这个函数——不是凭空造事件，是把一件已经真实发生、只是
+   * 没被这次页面加载亲眼看到的事实回填进来。
+   *
+   * ⚠ 只增不减、不覆盖已有 uri：真实 SSE 事件（正在跑的 run）与回填的历史事件
+   * 可能在同一次挂载里先后到达，谁先到都不该把后到的那份（内容更完整，例如
+   * `content` 字段）冲掉。
+   */
+  readonly hydrate: (files: readonly ActiveFile[]) => void;
 } {
   const [order, setOrder] = React.useState<readonly string[]>([]);
   const [byUri, setByUri] = React.useState<ReadonlyMap<string, ActiveFile>>(new Map());
@@ -79,6 +100,7 @@ export function useAguiFileEvents(): {
           mime: parsed.mime,
           source: parsed.source,
           bytes: parsed.bytes,
+          messageId: parsed.messageId,
           content: "",
           nextSequence: 0,
         });
@@ -113,7 +135,23 @@ export function useAguiFileEvents(): {
     setByUri(new Map());
   }, []);
 
+  const hydrate = React.useCallback((incoming: readonly ActiveFile[]) => {
+    if (incoming.length === 0) return;
+    setByUri((prev) => {
+      const additions = incoming.filter((f) => !prev.has(f.uri));
+      if (additions.length === 0) return prev;
+      const next = new Map(prev);
+      for (const file of additions) next.set(file.uri, file);
+      return next;
+    });
+    setOrder((prev) => {
+      const additions = incoming.filter((f) => !prev.includes(f.uri)).map((f) => f.uri);
+      if (additions.length === 0) return prev;
+      return [...prev, ...additions];
+    });
+  }, []);
+
   const files = React.useMemo(() => order.map((uri) => byUri.get(uri)).filter((f): f is ActiveFile => f !== undefined), [order, byUri]);
 
-  return { files, onCustomEvent, reset };
+  return { files, onCustomEvent, reset, hydrate };
 }

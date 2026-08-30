@@ -160,6 +160,17 @@ export interface PinnedSkillContent {
  */
 export const DEEP_AGENT_PROVIDER_NAME = "deep-agent";
 
+/**
+ * 2026-08-30 —— `AgentRunStore.reclaimStaleRunning`（该方法自己的文档有完整取证）的
+ * "卡够久"默认阈值。两个调用点（`AgentRunExecutor.tick()` 的下一条消息触发、
+ * `readAgentRun` 的单条只读请求触发）共享同一个值，不是两处各自定义一份"20 分钟"，
+ * 同 `DEEP_AGENT_PROVIDER_NAME` 上面那条既有先例（AGENTS.md "同一事实不得声明在两处"）。
+ * `AgentRunExecutor` 允许通过 `KERNEL_AGENT_RUN_STALE_RUNNING_MS` 覆盖它自己那一路的值
+ * （运维需要调参时不必改代码）；`readAgentRun` 这一路读的是这个常量本身，不接 env——
+ * 一个只读请求的判定不应该因为部署环境不同而答案不同。
+ */
+export const DEFAULT_STALE_RUNNING_THRESHOLD_MS = 20 * 60_000;
+
 export interface AppendedRunStep {
   readonly runId: string;
   readonly seq: number;
@@ -373,6 +384,39 @@ export interface AgentRunStore {
    * false = 输了竞态，调用方按冲突处理，不重试不覆盖。
    */
   editAndRequeue(orgId: OrgId, runId: string, editedArgsJson: string): Promise<boolean>;
+
+  /**
+   * 2026-08-30（session-switch-task-state-loss 前端修复上线后，真栈实测发现的对偶
+   * 后端缺口）—— `running` 是唯一一个没有任何"下一条消息自动捞回"机制的中间态。
+   * `queued`（本文件头注）与 `writeback_pending`（`writeBackPendingRuns` "unconditionally"
+   * 重试）都明写了"进程死在这一步，下一条消息的 kick 会捞回来"；`claimQueued` 的
+   * `UPDATE ... WHERE status='queued'` 决定了这条捞回规则唯一排除的就是已经被 claim
+   * 走、状态已经翻成 `running` 的行——处理这条 run 的进程如果在模型调用返回之前死掉
+   * （容器重启/OOM/无超时的挂起网络调用），这一行就永久卡在 `running`，没有任何路径
+   * 能再碰到它。`executeQueuedRuns` 自己的 catch 分支只挡得住"本次 tick 内、同一个
+   * await 链上抛出的异常"——挡不住进程本身消失。
+   *
+   * `AgentRunExecutor.tick()` 每次被 kick 时先跑这个函数，再跑 `claimQueued`：把
+   * "已经卡够久"的 `running` 行标记失败（复用既有 `MODEL_CALL_FAILED` 码，不新增
+   * 契约枚举——`executeQueuedRuns` 自己的"执行器缺陷"分支已经在用同一个码表达"这次
+   * 没能拿到可用结果"，语义对得上）。阈值必须**明显大于**任何健康部署下单个 run
+   * 应该花的时间（`DeepAgentModelProvider` 自己的 `KERNEL_DEEP_AGENT_TIMEOUT_MS`
+   * 默认 5 分钟）——太短会误杀正常运行中的慢 run。
+   *
+   * 只处理 `running`：`writeback_pending`/`awaiting_approval` 已经各自有名副其实的
+   * 恢复路径（前者见上、后者等的是人的裁决，本身就该长期挂起），不该被这个函数一起
+   * 扫进去当"卡住"处理。
+   *
+   * ⚠ **2026-08-30 续（devapp 真栈复现，第一版留的洞）**——`tick()` 只在"下一条消息"
+   * 触发的 kick 里跑；用户提交一条任务后**只刷新页面、不再发第二条消息**（前端
+   * `useCopilotKitV2RunRestore` 轮询 `GET /agent-runs/:runId` 就是这个纯读路径）
+   * 永远等不到下一次 kick，卡住的行因此永远等不到被捞回的那一刻——"刷新应该能快速
+   * 恢复"这条判据在这种最常见的复现步骤下没有兑现。`readAgentRun`（`read-run.ts`）
+   * 现在也在读到 `status==='running'` 时调用这个方法——单条只读请求就能让它自愈，
+   * 不必等另一条消息。两处调用点共享同一份判定（`DEFAULT_STALE_RUNNING_THRESHOLD_MS`），
+   * 不是两次独立发明"多久算卡住"。
+   */
+  reclaimStaleRunning(orgId: OrgId, olderThanMs: number): Promise<number>;
 
   /** Runs sitting in `writeback_pending`, including ones stranded by a process restart. */
   claimWritebackPending(orgId: OrgId, limit: number): Promise<readonly PendingWriteback[]>;

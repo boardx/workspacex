@@ -136,6 +136,33 @@ describe('header field parsing', () => {
     expect(text).toContain('为给: 出差的销售');
     expect(text).not.toContain('以便:');
   });
+
+  it('还没写出任何要点前手滑冒出一个空标题，后面的字段行仍然解析成表头（回归 2026-08-30）', () => {
+    // 复现真实症状：模型把某个字段也格式化成了一个空的 `## 标题`（没有任何要点跟着），
+    // 这不该锁死后续「字段名: 字段值」的解析——旧实现一旦见过第一个标题就永久切换
+    // 到"当前分区的段落文字"模式,这些字段行会被悄悄吞进一个渲染引擎根本不认识的
+    // section 里,界面上完全看不出来,也没有任何报错。
+    const code = [
+      '模板: jtbd',
+      '## 执行者',
+      '执行者: 运营专员',
+      '决策者: 运营总监',
+      '付费者: 预算部门',
+      '关键约束: 每月5000元',
+      '',
+      '## 情境触发',
+      '- 每周一汇报数据',
+    ].join('\n');
+    const parsed = parseTemplateText(code);
+    expect(parsed.fields.get('执行者')).toBe('运营专员');
+    expect(parsed.fields.get('决策者')).toBe('运营总监');
+    expect(parsed.fields.get('付费者')).toBe('预算部门');
+    expect(parsed.fields.get('关键约束')).toBe('每月5000元');
+
+    const model = templateToModel(code);
+    const fields = model.nodes.filter((n) => n.data?.role === 'field');
+    expect(fields.find((f) => f.data?.key === '决策者')?.label).toBe('运营总监');
+  });
 });
 
 describe('USER_SAMPLES', () => {

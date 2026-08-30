@@ -75,6 +75,7 @@ const topicPendingInterview: LiveInterview = {
   skillThreadId: "thread-f04",
   skillMessages: [],
   skillProposals: [],
+  expertRuns: [],
 };
 
 const persistedInterview: PersistedLiveInterview = {

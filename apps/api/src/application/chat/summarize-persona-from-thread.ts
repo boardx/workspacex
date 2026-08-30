@@ -10,10 +10,16 @@
  *
  * 「哪些内容算画像信息」「找不到时怎么办」全部委托给纯函数
  * `domain/canvas/persona-summary.ts` 的 `buildPersonaLanding`；「怎么落地成
- * Artifact、判权、算 provenance」全部委托给已有的 `landAsArtifact`。本文件唯一自己
- * 决定的事：从线程里**读哪些消息**（判权路径与 `landAsArtifact` 本身、`getThread`
- * 同一条——先 `findMessageLocation` 定位、再 `resolveVisibility`、再走
- * `findMessages` 这道守卫读路径，见 `get-thread.ts` 文件头）。
+ * Artifact、判权、算 provenance」全部委托给已有的 `landAsArtifact`。本文件自己
+ * 决定的事有两件：一是从线程里**读哪些消息**（判权路径与 `landAsArtifact` 本身、
+ * `getThread` 同一条——先 `findMessageLocation` 定位、再 `resolveVisibility`、再走
+ * `findMessages` 这道守卫读路径，见 `get-thread.ts` 文件头）；二是（本次修复新增）
+ * **查该组织当前已发布的 `persona` 模板长什么样**——字段/分区名不再是
+ * `persona-summary.ts` 里硬编码的默认值，而是 `resolvePersonaTemplateFields` 读出的
+ * DB 行，与 template-admin 展示、`canvas-template-guidance.ts`（issue #1493）注入
+ * chat system prompt 用的同一张表、同一个 `listTemplates` 用例——ChatUI「生成用户
+ * 画像」曾经与后台模板管理完全对不上（bug：chat 端硬编码 9 字段中文名，后台可自定义
+ * 成任意字段/key），根因正是这里从没查过 DB；现在改成单一事实源。
  *
  * ⚠ 这里对 `resolveVisibility` 的调用与 `landAsArtifact` 内部自己再做一次的调用
  *   **不是同一次判定的复用**——是两次独立判定，各自对应各自要读的东西（本函数的
@@ -24,8 +30,14 @@
  *   近到没有空间在中间夹带一个没判过的值）。
  */
 import type { OrgId } from "../../domain/org-id";
-import { buildPersonaLanding, buildPersonaMindmapBody } from "../../domain/canvas/persona-summary";
+import {
+  buildPersonaLanding,
+  buildPersonaMindmapBody,
+  DEFAULT_PERSONA_TEMPLATE,
+  type PersonaTemplateFields,
+} from "../../domain/canvas/persona-summary";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
+import { listTemplates, type ListTemplatesDeps } from "../canvas/list-templates";
 import type { ChatRepository } from "./ports";
 import { resolveVisibility, type ResolveVisibilityDeps } from "./resolve-visibility";
 import { ThreadNotVisibleError } from "./get-thread";
@@ -35,8 +47,44 @@ import {
   type LandAsArtifactResult,
 } from "./land-as-artifact";
 
-export interface SummarizePersonaFromThreadDeps extends ResolveVisibilityDeps, LandAsArtifactDeps {
+export interface SummarizePersonaFromThreadDeps
+  extends ResolveVisibilityDeps, LandAsArtifactDeps, ListTemplatesDeps {
   readonly chat: ChatRepository;
+}
+
+/**
+ * 当次要用哪份 `persona` 字段/分区名——查该组织**已发布**的 `persona` 模板行
+ * （与 template-admin 展示、`canvas-template-guidance.ts` 读的是同一张表 /
+ * 同一个 `listTemplates` 用例，不另开一条查询——`list-templates.ts` 文件头那条
+ * 「共用是为了避免第二处过滤声明」在这里同样成立）。
+ *
+ * 失败降级，不阻断画像汇总：读取失败或组织从未发布过 persona 模板（含内置默认版本）
+ * 时退回 `DEFAULT_PERSONA_TEMPLATE`——同 `canvas-template-guidance.ts` 的既有纪律，
+ * 模板表抖动一下不该让「生成用户画像」这个按钮报错。
+ */
+async function resolvePersonaTemplateFields(
+  deps: ListTemplatesDeps,
+  input: { readonly userId: string; readonly orgId: OrgId },
+): Promise<PersonaTemplateFields> {
+  try {
+    const { templates } = await listTemplates(deps, {
+      userId: input.userId,
+      orgId: input.orgId,
+      filter: "published",
+    });
+    const persona = templates.find((t) => t.key === "persona");
+    if (!persona) return DEFAULT_PERSONA_TEMPLATE;
+
+    const ordered = [...persona.sections].sort((a, b) => a.order - b.order);
+    // 表头 vs 正文的切分与 `canvas-template-guidance.ts` 完全一致：`type === "短文本"`
+    // 是表头字段，其余是正文分区——同一条规则不在第三处重写一遍。
+    const fields = ordered.filter((s) => s.type === "短文本").map((s) => s.name);
+    const sections = ordered.filter((s) => s.type !== "短文本").map((s) => s.name);
+    if (fields.length === 0 && sections.length === 0) return DEFAULT_PERSONA_TEMPLATE;
+    return { fields, sections };
+  } catch {
+    return DEFAULT_PERSONA_TEMPLATE;
+  }
 }
 
 export interface SummarizePersonaFromThreadInput {
@@ -89,7 +137,11 @@ export async function summarizePersonaFromThread(
   const ordered = [...disclosed.payload].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   const rawText = ordered.map((m) => m.body).join("\n\n");
 
-  const draft = buildPersonaLanding(rawText);
+  const templateFields = await resolvePersonaTemplateFields(deps, {
+    userId: input.userId,
+    orgId: input.orgId,
+  });
+  const draft = buildPersonaLanding(rawText, templateFields);
 
   const landing = await landAsArtifact(deps, {
     userId: input.userId,
@@ -114,6 +166,7 @@ export async function summarizePersonaFromThread(
       rawText,
       title: draft.title,
       sufficient: draft.sufficient,
+      sections: templateFields.sections,
     }),
     replyToMessageId: input.messageId,
   });
