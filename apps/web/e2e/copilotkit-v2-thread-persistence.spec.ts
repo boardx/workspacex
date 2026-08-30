@@ -144,3 +144,69 @@ test("裸路由 /chat 落地（未选中任何线程）时点击侧栏已有对�
   await page.waitForURL(threadUrl, { timeout: 15_000 });
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(marker, { timeout: 30_000 });
 });
+
+/**
+ * issue #2402 —— 人类实测反馈：切换会话时左侧会话列表随整页一起重新进入 loading
+ * 骨架态，不应该发生；只有右侧内容面板应该切换。#2067/#2378 之前两次都只收窄了
+ * `pushThreadRoute` 判断软导航是否成功的判据，没有堵住"判据到点后退化成
+ * `window.location.assign` 整页硬导航"这个洞本身——那才是唯一会连累左栏的路径。
+ *
+ * 这条用例直接在真实浏览器里断言"没有整页硬导航发生"，不依赖判据本身准不准：
+ *   1. 点击切换前在 `window` 上打一个探针 + 一个 MutationObserver，专门数
+ *      `[data-testid="loading"]`（左栏骨架屏，见 `copilotkit-v2-shell.tsx`）出现
+ *      过几次。`window.location.assign` 会整页重载、创建全新的 `window`，探针和
+ *      observer 都会随之消失/清零；只有 `router.push` 这类 SPA 内软导航才会让探针
+ *      原样存活到点击之后。
+ *   2. 切换完成后断言：探针还在（=== 全程没有发生过一次整页硬导航）、骨架屏
+ *      一次都没出现过（=== 左栏没有被重新挂载/重新进入 loading 态）。
+ */
+test("已选中某条线程时切换到另一条 ⇒ 不发生整页硬导航，左栏骨架屏全程不出现", async ({ page }) => {
+  await login(page);
+  await warmUpCopilotRuntimeRoute(page);
+  await page.goto("/chat");
+
+  const firstMarker = `DA-2402-左栏A-${Date.now()}`;
+  await sendAndWaitEcho(page, firstMarker);
+  await expect(page).toHaveURL(/\/chat\/[^/]+$/);
+  const firstThreadUrl = page.url();
+  const firstThreadId = firstThreadUrl.split("/").pop()!;
+
+  await page.getByTestId("chat-thread-create").click();
+  await page.waitForURL(/\/chat\/[^/]+$/);
+  const secondMarker = `DA-2402-左栏B-${Date.now()}`;
+  await sendAndWaitEcho(page, secondMarker);
+  const secondThreadUrl = page.url();
+
+  await expect(page.getByTestId(`chat-thread-${firstThreadId}`)).toBeVisible();
+
+  // 探针：只有真的没发生整页硬导航，这几个标记才会原样存活到点击之后。
+  await page.evaluate(() => {
+    (window as unknown as Record<string, unknown>).__wsxNavProbe = true;
+    (window as unknown as Record<string, unknown>).__wsxLoadingSeen = 0;
+    const observer = new MutationObserver(() => {
+      if (document.querySelector('[data-testid="loading"]')) {
+        const w = window as unknown as Record<string, number>;
+        w.__wsxLoadingSeen = (w.__wsxLoadingSeen ?? 0) + 1;
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    (window as unknown as Record<string, unknown>).__wsxObserver = observer;
+  });
+
+  await page.getByTestId(`chat-thread-${firstThreadId}`).click();
+  await page.waitForURL(firstThreadUrl, { timeout: 15_000 });
+  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(firstMarker, { timeout: 30_000 });
+
+  const probeSurvived = await page.evaluate(
+    () => (window as unknown as Record<string, unknown>).__wsxNavProbe === true,
+  );
+  expect(probeSurvived).toBe(true);
+  const loadingSeen = await page.evaluate(
+    () => (window as unknown as Record<string, number>).__wsxLoadingSeen,
+  );
+  expect(loadingSeen).toBe(0);
+
+  // 反证：不是"读到了点什么就当作对"——第二条线程的用户原话不该混进第一条。
+  await expect(page.getByTestId("copilotkit-v2-messages")).not.toContainText(secondMarker);
+  void secondThreadUrl; // 仅用于建第二条线程留下真实痕迹，不需要再断言其地址栏
+});

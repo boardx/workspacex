@@ -93,6 +93,43 @@ import { readPinnedThreadIds, togglePinnedThreadId } from "@/lib/chat-pinned-thr
  * `agent.messages`、给一个新的 CopilotKit 本地 `threadId`）正是期望行为，与
  * `copilotkit-v2-panel.tsx` 文件头「每次挂载是一次新对话语义」的既有纪律一致。
  */
+/**
+ * issue #2402 —— 模块级缓存，跨 `CopilotKitV2Shell` 的每一次挂载存活。
+ *
+ * ## 为什么需要它：#2403 只堵住了一半的洞
+ *
+ * #2403 修的是 `pushThreadRoute` 4 秒兜底退化成 `window.location.assign` 整页
+ * 硬导航那条路径——但人类实测确认合入后症状原样复现，且是**每次点击都发生**，
+ * 排查发现根因根本不在那条兜底路径：即使软导航全程正常（不到 4 秒、从未触发
+ * `window.location.assign`），Next App Router 在 `/chat/[threadId]` 的两个不同
+ * `threadId` 之间导航时，本组件（`app/chat/(v2)/[threadId]/page.tsx` 直接渲染的
+ * page 级组件）本身就会被整体卸载重装——真栈浏览器验证过（`asideSameNode` 断言：
+ * 切换前后 `<aside data-testid="copilotkit-v2-thread-sidebar">` 是两个不同的 DOM
+ * 节点），不是"判据误判"，是 Next 路由树对这两个 page 模块渲染就没有做成同一个
+ * 组件实例。`threads` state 因此每次都从 `null` 重新开始，侧栏骨架屏
+ * （`data-testid="loading"`）随之重新出现——这才是"每点一次就整栏刷新"的真正来源。
+ *
+ * ## 为什么修法是"模块级缓存"，不是"把侧栏搬进 `(v2)/layout.tsx`"
+ *
+ * 后者（侧栏渲染从 layout 里出，脱离会被路由重挂载的 page 子树）是更"正统"的
+ * 解法，但要求把本文件的侧栏 JSX、搜索/置顶/改名/删除/创建等全部交互状态拆到一个
+ * 新组件、再重新打通与右栏面板共享 `selectedThreadId`/`reloadThreads` 的通道——
+ * 对这个已经被多个在途 issue（#2072/#2094/#2075/#2068/#2052）并发触碰的热点文件
+ * 是一次影响面大得多的结构改动，不是这条 bug 本身要求的最小修复。
+ *
+ * 模块级变量在浏览器里跨"组件卸载又重新挂载"存活（只要整个 JS 模块没有被重新
+ * 加载——SPA 内路由切换不会重新加载模块，只有真整页刷新才会，那种情况下本来就该
+ * 显示一次骨架，缓存也确实会被清空，行为正确）。重新挂载时用它作为 `useState`
+ * 的**初始值**，新实例第一次渲染就直接画出已经有的列表，不经过 `null` 骨架屏这一
+ * 帧；`reloadThreads` 仍然照常在每次挂载后台重新拉一次最新数据（保鲜），拿到结果
+ * 后原地更新缓存——不是"读一次缓存就不再校验"，只是不再让用户在明知答案的情况下
+ * 白等一轮网络请求。
+ *
+ * ⚠ 按 `bearer` 分 key：换一个人登录（同一个浏览器标签页内 `logout` 再登录）不得
+ * 看见上一位用户缓存的线程列表——同 `rightKey`（`bearer+threadId`）那一套纪律。
+ */
+let threadListCache: { readonly bearer: string; readonly value: ListThreadsOut } | null = null;
+
 export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string | null }): JSX.Element {
   const router = useRouter();
   const { session } = useSession();
@@ -118,7 +155,9 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   /** issue #2099 —— 右栏「产物」点击查看：非 null 时打开预览弹窗。 */
   const [openArtifact, setOpenArtifact] = React.useState<{ artifactId: string; title: string } | null>(null);
 
-  const [threads, setThreads] = React.useState<ListThreadsOut | null>(null);
+  const [threads, setThreads] = React.useState<ListThreadsOut | null>(
+    () => (bearer && threadListCache?.bearer === bearer ? threadListCache.value : null),
+  );
   const [listError, setListError] = React.useState<string | null>(null);
   const listGeneration = React.useRef(0);
 
@@ -128,6 +167,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       const result = await listPersonalThreads({}, bearer);
       if (generation !== listGeneration.current) return;
+      threadListCache = { bearer, value: result };
       setThreads(result);
       setListError(null);
     } catch (failure) {

@@ -85,6 +85,37 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("CopilotKitV2Shell — issue #2402 重新挂载时线程列表的模块级缓存", () => {
+  /**
+   * issue #2402 —— #2403 只堵住了"软导航超过 4 秒退化成整页硬导航"这一条路径，
+   * 但真栈浏览器验证（`asideSameNode` 断言：切换前后 `<aside
+   * data-testid="copilotkit-v2-thread-sidebar">` 是两个不同的 DOM 节点）确认了
+   * 更根本的一层：Next App Router 在 `/chat/[threadId]` 的两个不同 `threadId`
+   * 之间导航时，`ChatThreadPage` 直接渲染的这个 page 级组件本身就会被整体卸载
+   * 重装——即使软导航全程正常、从未触发 `window.location.assign`。`threads`
+   * state 因此每次都从 `null` 重新开始，侧栏骨架屏随之重新出现。
+   *
+   * 这条用例反证 `copilotkit-v2-shell.tsx` 顶部的模块级 `threadListCache`：
+   * 重新挂载时用它做 `threads` 的**初始值**，不必等一次新的网络往返。用"这次挂载的
+   * `listPersonalThreads` 永远不 resolve"来确保断言的是"初始渲染就已经有数据"，
+   * 不是"最终等到了数据"——如果初始值真的用上了缓存，卡片必须在第一帧就在 DOM
+   * 里，不需要 `findBy` 那种带重试轮询的异步等待。
+   */
+  it("上一次挂载已经拿到线程列表 ⇒ 重新挂载时用缓存初始化，不经过骨架帧", async () => {
+    const { unmount } = render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
+    unmount();
+
+    listPersonalThreads.mockReset();
+    listPersonalThreads.mockImplementation(() => new Promise(() => {})); // 永远不 resolve
+
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toBeInTheDocument();
+    expect(screen.queryByTestId("loading")).not.toBeInTheDocument();
+  });
+});
+
 describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () => {
   it("裸路由（未选中任何线程）落地时点击侧栏已有对话 ⇒ 正常情形只走软导航，不触发硬导航兜底", async () => {
     render(<CopilotKitV2Shell initialThreadId={null} />);
