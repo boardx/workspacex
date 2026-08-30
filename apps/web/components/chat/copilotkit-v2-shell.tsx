@@ -127,8 +127,37 @@ import { readPinnedThreadIds, togglePinnedThreadId } from "@/lib/chat-pinned-thr
  *
  * ⚠ 按 `bearer` 分 key：换一个人登录（同一个浏览器标签页内 `logout` 再登录）不得
  * 看见上一位用户缓存的线程列表——同 `rightKey`（`bearer+threadId`）那一套纪律。
+ *
+ * ⚠ **独立 review 抓到的两处、合入前修正**：
+ *
+ * 1. **写路径必须唯一**——`handleDelete`（改名同理）此前绕开 `reloadThreads`，
+ *    自己调一次 `listPersonalThreads` 只 `setThreads`，没有回写这份模块级缓存。
+ *    删除选中线程后紧跟着的 `router.replace` 正是会触发本组件重挂载的那条路径
+ *    （见上面「为什么需要它」）——新实例用**没更新过的旧缓存**初始化，被删的卡片
+ *    会重新出现，直到下一次后台刷新才消失。修法：所有会改变线程列表的写操作
+ *    （reload / create / rename / delete）一律经过下面 `fetchThreadList` 这一个
+ *    出口，缓存与 `setThreads` 不可能再有第二条各自为政的路径。
+ * 2. **跨实例的响应顺序**——`listGeneration` 是每个组件实例自己的 `useRef`，
+ *    重新挂载会清零重数。旧实例发出请求 A、新实例（挂载时用缓存初始化后又自己
+ *    发起一次刷新）发出请求 B，两者的实例内 generation 都可能是 1——A 更晚才
+ *    resolve 时，实例内判据挡不住它覆盖新实例已经写好的共享缓存。这里另开一个
+ *    模块级单调序号 `threadListRequestSeq`/`threadListAppliedSeq`，只按「谁发出得
+ *    更晚」决定谁能真的写进缓存，与哪个组件实例、哪个 `listGeneration` 无关。
  */
 let threadListCache: { readonly bearer: string; readonly value: ListThreadsOut } | null = null;
+/** 下一次发起线程列表请求要领取的序号；发起时自增，与响应到达的先后无关。 */
+let threadListRequestSeq = 0;
+/** 目前已经真正写进 `threadListCache` 的那次请求的序号——`applyThreadListResult`
+ *  用它拒绝任何序号更小（=更早发出）的迟到响应，保证缓存单调地跟着"最新一次
+ *  发出的请求"走，不被跨组件实例的竞态覆盖回旧值。 */
+let threadListAppliedSeq = 0;
+
+/** 唯一允许写 `threadListCache` 的地方——见上面头注「写路径必须唯一」。 */
+function applyThreadListResult(bearer: string, seq: number, value: ListThreadsOut): void {
+  if (seq < threadListAppliedSeq) return; // 比已经写进去的那次还早发出，丢弃
+  threadListAppliedSeq = seq;
+  threadListCache = { bearer, value };
+}
 
 export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string | null }): JSX.Element {
   const router = useRouter();
@@ -161,20 +190,34 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const [listError, setListError] = React.useState<string | null>(null);
   const listGeneration = React.useRef(0);
 
+  /**
+   * 唯一的网络出口：拿到最新线程列表 + 把它写进模块级缓存（经
+   * `applyThreadListResult` 做跨实例的到达顺序校验，见上面模块头注）。
+   * 不touch 本实例的 `threads`/`listError` state——那部分留给调用方，因为
+   * `reloadThreads` 与 `handleDelete` 对"要不要在失败时保留旧列表"、
+   * "成功后要不要顺带导航"这些收尾动作并不相同，不该被这一个函数替它们决定。
+   */
+  const fetchThreadList = React.useCallback(async (): Promise<ListThreadsOut> => {
+    if (!bearer) throw new Error("no session");
+    const seq = ++threadListRequestSeq;
+    const result = await listPersonalThreads({}, bearer);
+    applyThreadListResult(bearer, seq, result);
+    return result;
+  }, [bearer]);
+
   const reloadThreads = React.useCallback(async () => {
     if (!bearer) return;
     const generation = ++listGeneration.current;
     try {
-      const result = await listPersonalThreads({}, bearer);
+      const result = await fetchThreadList();
       if (generation !== listGeneration.current) return;
-      threadListCache = { bearer, value: result };
       setThreads(result);
       setListError(null);
     } catch (failure) {
       if (generation !== listGeneration.current) return;
       setListError(failure instanceof Error ? failure.message : "线程列表读取失败");
     }
-  }, [bearer]);
+  }, [bearer, fetchThreadList]);
 
   React.useEffect(() => {
     if (sourceKey) void reloadThreads();
@@ -538,7 +581,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       const target = await getThread(threadId, null, bearer);
       await deleteThread(threadId, null, target.thread.version, reason);
-      const refreshed = await listPersonalThreads({}, bearer);
+      const refreshed = await fetchThreadList();
       setThreads(refreshed);
       // 删的不是当前打开的这条 ⇒ 路由不该动，用户还在看别的对话。
       if (threadId === selectedThreadId) {
@@ -551,7 +594,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     } finally {
       setMutatePending(null);
     }
-  }, [bearer, router, selectedThreadId]);
+  }, [bearer, fetchThreadList, router, selectedThreadId]);
 
   /**
    * issue #2075（TW-P2-6）—— 搜索与置顶。
