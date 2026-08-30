@@ -371,6 +371,19 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
     expect(screen.queryByTestId("admin-agent-row-agent-1-disable")).not.toBeInTheDocument();
   });
 
+  it("issue #1745 次要问题2：kind=agent 的新增面板旁边有消歧提示，skill 没有", async () => {
+    stubFetch({ pages: [[]] });
+
+    render(<AgentScreen state="default" />);
+    await screen.findByTestId("admin-agent-empty");
+    expect(screen.getByTestId("admin-agent-create-agent-caveat")).toHaveTextContent(
+      "新建 / 导入 Agent",
+    );
+    // 消歧提示不取代入口——两个入口都还在，只是加了说明，见该 JSX 注释里
+    // "本次只做界面消歧，不下线这个入口" 的范围说明。
+    expect(screen.getByTestId("admin-agent-create")).toBeInTheDocument();
+  });
+
   it("反证：契约会拒绝漂移的 mutate 请求体与 payload", () => {
     // 没有这条，上面所有 safeParse 都可能是「对什么都说 yes」。
     expect(identity.operations.mutateCapability.in.safeParse({

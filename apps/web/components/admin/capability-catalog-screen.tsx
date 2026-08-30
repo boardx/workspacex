@@ -203,6 +203,30 @@ export function CapabilityCatalogScreen({
         starter pack 坐标会原样留在新组织的界面上。这不是推演：`skill-starter-import.test.tsx`
         的换组织那条在本次改动里当场红了，就是因为第一版两处都写了 `key={sourceKey}`。
       */}
+      {/*
+        issue #1745 次要问题 2——`/admin/agent` 页面同时挂着两个都叫"新建/新增 Agent"
+        的入口：上面 `AgentScreen` 的"新建 / 导入 Agent"（写 `agents`/`agent_versions`，
+        走 `createAgent` → 双人评审/自助发布才能真正可执行）与下面这个
+        `CapabilityCreatePanel`（直接 INSERT `capability_listings`，没有任何
+        `agents`/`agent_versions` 行背书）。两者界面上此前没有任何区分，用户随机点中
+        后者建出来的"agent"能进 chat 编制选择器（`enabled=true` 就够），但一发消息就是
+        422 `AGENT_NOT_FOUND`——这正是 #1745 描述的"两条路径都能跑，但拼不出一个真正
+        可用的 agent"里的一半。
+        本次只做"界面消歧"（#1745 给出的两个选项之一），不下线这个入口——它是否还有
+        legitimate 用途（如运维手动登记一个已经在别处发布好、只是想改个展示名的
+        agent）、要不要连带收紧后端 `mutateCapability` 校验，属于 #1745 主线收敛要
+        处理的更大范围，本次不顺手扩大改动面。
+      */}
+      {canMutate && kind === "agent" ? (
+        <p
+          className="text-12 text-muted-foreground"
+          data-testid={`${prefix}-create-agent-caveat`}
+        >
+          ⚠ 这里新增的是目录条目本身，不会创建可执行的 agent——它不会自动获得
+          `agents`/`agent_versions` 记录，选中它发消息会失败。要新建一个真正能对话的
+          agent，请用上方「新建 / 导入 Agent」。
+        </p>
+      ) : null}
       {canMutate ? <CapabilityCreatePanel key={`${sourceKey}:create`} ctx={ctx} /> : null}
 
       {notice ? (
