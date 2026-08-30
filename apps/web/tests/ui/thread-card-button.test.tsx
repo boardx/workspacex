@@ -25,14 +25,21 @@ const CARD: ThreadCard = {
 };
 
 describe("ThreadCardButton", () => {
-  it("未选中的卡片不渲染「…」菜单入口——即便调用方传了 onRename/onDelete", () => {
+  it("未选中但可写的卡片也渲染「…」菜单入口——2026-08-30 起不再要求先选中", () => {
     render(
       <ThreadCardButton card={CARD} selected={false} onSelect={vi.fn()} onRename={vi.fn()} onDelete={vi.fn()} pending={null} failure={null} />,
+    );
+    expect(screen.getByTestId("chat-thread-card-menu-trigger")).toBeInTheDocument();
+  });
+
+  it("调用方不支持写操作（未传 onRename/onDelete）⇒ 不渲染「…」菜单入口，与选中态无关", () => {
+    render(
+      <ThreadCardButton card={CARD} selected onSelect={vi.fn()} pending={null} failure={null} />,
     );
     expect(screen.queryByTestId("chat-thread-card-menu-trigger")).not.toBeInTheDocument();
   });
 
-  it("选中且可写 ⇒ 渲染「…」菜单入口；点开显示改名/删除两个菜单项", () => {
+  it("可写 ⇒ 渲染「…」菜单入口；点开显示改名/删除两个菜单项", () => {
     render(
       <ThreadCardButton card={CARD} selected onSelect={vi.fn()} onRename={vi.fn()} onDelete={vi.fn()} pending={null} failure={null} />,
     );

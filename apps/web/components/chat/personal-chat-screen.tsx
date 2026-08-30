@@ -243,54 +243,73 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
   const attach = useChatAttachments({ threadId: selectedThreadId ?? "", bearer: bearer ?? undefined });
 
   /**
-   * 改名/删除（2026-08-14）——同一套「先等服务端返回，再重读服务端」纪律，
-   * 与上面 `handleCreate` 一致，不做乐观更新。`projectId` 显式传 `null`：
-   * 这是一条个人线程，`renameThread`/`deleteThread` 从 2026-08-14 起接受这个值
-   * （见两者各自的文档注释——此前误传 `null` 是 #541 的 bug，现在是本该如此的值）。
+   * 改名/删除（2026-08-14 起，2026-08-30 改为按需取版本号）——同一套「先等服务端
+   * 返回，再重读服务端」纪律，与上面 `handleCreate` 一致，不做乐观更新。`projectId`
+   * 显式传 `null`：这是一条个人线程，`renameThread`/`deleteThread` 从 2026-08-14
+   * 起接受这个值（见两者各自的文档注释——此前误传 `null` 是 #541 的 bug，现在是本该
+   * 如此的值）。
+   *
+   * ⚠ 2026-08-30 人类裁决（回应"hover 没选中的卡片看不到「…」菜单"）：改名/删除不再
+   *   要求"这条线程当前是选中的那条"——`ThreadCardButton` 现在对任意卡片都渲染菜单
+   *   入口（`thread-list-shell.tsx` 头注），版本号也就不能再从 `detail`（只读被选中
+   *   线程）里取。这里改成提交那一刻现取：调用方传入具体的 `threadId`，先
+   *   `getThread` 拿它的最新版本号，再带着这个刚读到的版本号提交——版本号仍然只有
+   *   服务端读端口一个事实源（#513 那条纪律没有变），只是取的时机从"卡片渲染时"
+   *   推迟到"提交时"，不再要求它恰好是当前选中线程。
+   *
+   * `mutatingThreadId` 记的是"当前正在改名/删除的是哪一条"，与 `selectedThreadId`
+   * 分开——否则同时 hover/操作一条未选中的卡片时，pending/失败提示会错渲到当前选中
+   * 的另一张卡片上（那张卡片什么都没做，用户会看到一条无关的"正在提交…"）。
    */
+  const [mutatingThreadId, setMutatingThreadId] = React.useState<string | null>(null);
   const [mutatePending, setMutatePending] = React.useState<"rename" | "delete" | null>(null);
   const [mutateFailure, setMutateFailure] = React.useState<string | null>(null);
-  const selectedVersion = detail?.thread.version ?? null;
 
-  const handleRename = React.useCallback(async (title: string) => {
-    if (!sourceKey || !bearer || !selectedThreadId || selectedVersion === null) return;
+  const handleRename = React.useCallback(async (threadId: string, title: string) => {
+    if (!sourceKey || !bearer) return;
+    setMutatingThreadId(threadId);
     setMutatePending("rename");
     setMutateFailure(null);
     try {
-      await renameThread(selectedThreadId, null, title, selectedVersion);
+      const target = await getThread(threadId, null, bearer);
+      await renameThread(threadId, null, title, target.thread.version);
       const refreshed = await listPersonalThreads({}, bearer);
       setThreadResult({ key: sourceKey, value: refreshed });
-      void loadSelectedThread(); // 标题进了 detail 的可读副行，重读一次保持一致
+      if (threadId === selectedThreadId) void loadSelectedThread(); // 标题进了 detail 的可读副行，重读一次保持一致
     } catch (failure) {
       setMutateFailure(describeFailure(failure));
     } finally {
       setMutatePending(null);
     }
-  }, [bearer, loadSelectedThread, selectedThreadId, selectedVersion, sourceKey]);
+  }, [bearer, loadSelectedThread, selectedThreadId, sourceKey]);
 
-  const handleDelete = React.useCallback(async (reason: string) => {
-    if (!sourceKey || !bearer || !selectedThreadId || selectedVersion === null) return;
-    const removed = selectedThreadId;
+  const handleDelete = React.useCallback(async (threadId: string, reason: string) => {
+    if (!sourceKey || !bearer) return;
+    setMutatingThreadId(threadId);
     setMutatePending("delete");
     setMutateFailure(null);
     try {
-      await deleteThread(removed, null, selectedVersion, reason);
+      const target = await getThread(threadId, null, bearer);
+      await deleteThread(threadId, null, target.thread.version, reason);
       const refreshed = await listPersonalThreads({}, bearer);
       const remaining = refreshed.groups.flatMap((group) => group.cards);
       setThreadResult({ key: sourceKey, value: refreshed });
-      // 删完的选中态：交给服务端返回的第一条兜底（同 ChatReadScreen 的既有纪律），
-      // 一条都不剩就清空选中，回退到"从左侧新建或选择"的空态。
-      const next = remaining[0]?.id ?? null;
-      setSelectedThreadId(next);
-      // 2026-08-25 默认入口翻转后裸 /chat redirect 到 v2——删掉最后一条线程后
-      // 必须留在旧屏世界（/chat/legacy），不能把用户弹进另一条轨道。
-      router.replace(next ? personalChatHref(next) : "/chat/legacy");
+      // 删的不是当前选中的那条 ⇒ 选中态、路由都不该动，用户还在看别的线程。
+      if (threadId === selectedThreadId) {
+        // 删完的选中态：交给服务端返回的第一条兜底（同 ChatReadScreen 的既有纪律），
+        // 一条都不剩就清空选中，回退到"从左侧新建或选择"的空态。
+        const next = remaining[0]?.id ?? null;
+        setSelectedThreadId(next);
+        // 2026-08-25 默认入口翻转后裸 /chat redirect 到 v2——删掉最后一条线程后
+        // 必须留在旧屏世界（/chat/legacy），不能把用户弹进另一条轨道。
+        router.replace(next ? personalChatHref(next) : "/chat/legacy");
+      }
     } catch (failure) {
       setMutateFailure(describeFailure(failure));
     } finally {
       setMutatePending(null);
     }
-  }, [bearer, router, selectedThreadId, selectedVersion, sourceKey]);
+  }, [bearer, router, selectedThreadId, sourceKey]);
 
   /**
    * 手机端真实 bug（人类实测报告，2026-08-07）：`AppShell` 的 `left` 栏在 `<md` 断点
@@ -343,10 +362,10 @@ export function PersonalChatScreen({ initialThreadId }: { initialThreadId: strin
                     setSelectedThreadId(card.id);
                     router.replace(personalChatHref(card.id));
                   }}
-                  onRename={canCreate ? (title) => void handleRename(title) : undefined}
-                  onDelete={canCreate ? (reason) => void handleDelete(reason) : undefined}
-                  pending={card.id === selectedThreadId ? mutatePending : null}
-                  failure={card.id === selectedThreadId ? mutateFailure : null}
+                  onRename={canCreate ? (title) => void handleRename(card.id, title) : undefined}
+                  onDelete={canCreate ? (reason) => void handleDelete(card.id, reason) : undefined}
+                  pending={card.id === mutatingThreadId ? mutatePending : null}
+                  failure={card.id === mutatingThreadId ? mutateFailure : null}
                 />
               ))}
             </nav>

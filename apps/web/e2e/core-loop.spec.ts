@@ -372,11 +372,12 @@ test.describe("核心闭环八步", () => {
     await page.getByTestId("chat-thread-title-input").fill(title);
     await page.getByTestId("chat-thread-title-submit").click();
 
-    // 改名/删除的 hover「…」菜单只在卡片被**选中**时才会渲染（乐观并发的版本号只有
-    // 选中项才加载了，见 `thread-list-shell.tsx` `ThreadCardButton` 头注），
-    // 所以先点中那张卡。卡片 testid 是 `chat-thread-<id>`，id 在用例里拿不到，
-    // 因此按标题在 `chat-thread-card-list` 内点 —— 那个容器**只包会话卡**，
-    // 不含写入口，正是为这种定位准备的（见该组件注释）。
+    // 2026-08-30 起「…」菜单对任意卡片都渲染（不再要求先选中，见
+    // `thread-list-shell.tsx` `ThreadCardButton` 头注）；这里仍然先点中那张卡——
+    // 这个用例的会话列表当时只有这一条，选中与否不影响下面找菜单触发按钮，
+    // 只是顺带验证「点卡片能选中并打开详情」这条本身没坏。卡片 testid 是
+    // `chat-thread-<id>`，id 在用例里拿不到，因此按标题在 `chat-thread-card-list`
+    // 内点 —— 那个容器**只包会话卡**，不含写入口，正是为这种定位准备的（见该组件注释）。
     const cardList = page.getByTestId("chat-thread-card-list");
     await cardList.getByText(title).click();
     await expect(page.getByTestId("chat-thread-detail")).toBeVisible();
