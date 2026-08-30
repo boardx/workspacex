@@ -19,6 +19,15 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+// next.config is executable ESM JavaScript and intentionally has no standalone declaration
+// file — same cast convention as `tests/research-rewrite.test.ts`.
+// @ts-expect-error exercised here as runtime configuration, not application code
+import rawNextConfig from "../../next.config.mjs";
+
+type Rewrite = { readonly source: string; readonly destination: string; readonly has?: readonly { readonly key: string }[] };
+const nextConfig = rawNextConfig as {
+  rewrites(): Promise<{ readonly beforeFiles: readonly Rewrite[] }>;
+};
 
 const ROOT = process.cwd();
 const read = (path: string) => readFileSync(resolve(ROOT, path), "utf8");
@@ -43,19 +52,13 @@ describe("#2067 AppShell 持久化：路由组结构", () => {
   });
 
   it("next.config.mjs 在 beforeFiles 位置拦截带 projectId/thread 的 /chat 深链到 /chat/legacy", async () => {
-    const config = (await import("../../next.config.mjs")).default;
-    const rewrites = await config.rewrites();
-    const beforeFiles = Array.isArray(rewrites) ? [] : (rewrites.beforeFiles ?? []);
+    const { beforeFiles } = await nextConfig.rewrites();
 
-    const chatRewrites = beforeFiles.filter(
-      (rule: { source: string }) => rule.source === "/chat",
-    );
+    const chatRewrites = beforeFiles.filter((rule) => rule.source === "/chat");
     expect(chatRewrites).toHaveLength(2);
-    expect(chatRewrites.every((rule: { destination: string }) => rule.destination === "/chat/legacy")).toBe(true);
+    expect(chatRewrites.every((rule) => rule.destination === "/chat/legacy")).toBe(true);
 
-    const keys = chatRewrites.map(
-      (rule: { has: readonly { key: string }[] }) => rule.has[0]!.key,
-    ).sort();
+    const keys = chatRewrites.map((rule) => rule.has?.[0]?.key).sort();
     expect(keys).toEqual(["projectId", "thread"]);
   });
 });
