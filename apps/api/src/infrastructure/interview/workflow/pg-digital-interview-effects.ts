@@ -50,6 +50,25 @@ interface LockedInterviewRow {
   revision_number: number;
 }
 
+const DIGITAL_INTERVIEW_ACTOR_VISIBILITY = `
+  EXISTS (
+    SELECT 1 FROM org_memberships om
+     WHERE om.org_id=$1 AND om.user_id=$3
+  )
+  AND (
+    s.created_by=$3
+    OR EXISTS (
+      SELECT 1 FROM interview_collaborators ic
+       WHERE ic.org_id=$1 AND ic.interview_id=s.id AND ic.user_id=$3
+    )
+    OR (
+      s.project_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM project_memberships pm
+         WHERE pm.org_id=$1 AND pm.project_id=s.project_id AND pm.user_id=$3
+      )
+    )
+  )`;
+
 interface GeneratedInterviewExpert {
   readonly displayName: string;
   readonly role: string;
@@ -577,14 +596,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     });
     if (replayed) return;
 
-    const context = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
-      const interview = await session.query<{ topic: string | null }>(
-        "SELECT topic FROM interview_sessions WHERE org_id=$1 AND id=$2",
-        [input.orgId, input.interviewId],
-      );
-      const selected = await this.readQuestionExpertProfiles(session, input);
-      return { topic: interview.rows[0]?.topic?.trim() ?? "", selected };
-    });
+    // Authorize and freeze the inputs before any Persona leaves the database boundary. The
+    // tenant session ends before model.complete(), so no transaction remains open during a
+    // potentially slow external call. Persistence performs the same visibility check again.
+    const context = await this.db.withTenant(toOrgId(input.orgId), async (session) =>
+      this.readAuthorizedQuestionContext(session, input));
     if (!context.topic || !context.selected.length) {
       throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
     }
@@ -622,7 +638,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       );
       if (replay) { this.assertMatchingReceipt(replay, payload); return; }
       const current = await this.lockInterview(session, toOrgId(input.orgId), input.interviewId, input.actorId);
-      if (Number(current.version) !== input.expectedVersion || current.revision_id !== input.revisionId) {
+      if (Number(current.version) !== input.expectedVersion || current.revision_id !== input.revisionId
+        || current.revision_number !== input.revisionNumber) {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
       const selected = await this.readQuestionExpertProfiles(session, input);
@@ -711,6 +728,67 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       serviceValue: expert.service_value,
       existingQuestionCount: Number(expert.existing_question_count),
     }));
+  }
+
+  private async readAuthorizedQuestionContext(
+    session: TenantSession,
+    input: GenerateDigitalInterviewDraftInput,
+  ): Promise<{ readonly topic: string; readonly selected: readonly InterviewQuestionExpertProfile[] }> {
+    const snapshot = await session.query<{
+      topic: string | null; version: string; revision_id: string; revision_number: number;
+      expert_id: string; display_name: string; role: string; domains: string[]; category: string;
+      bio: string; location: string; typical_advice: string; age: number; occupation: string;
+      goals: string[]; interests: string[]; pain_points: string[]; motivations: string[];
+      influences: string[];
+      personality_traits: { introvertExtrovert: number; analyticalCreative: number; busyTimeRich: number };
+      service_value: string; existing_question_count: string;
+    }>(
+      `SELECT s.topic,s.version,r.id AS revision_id,r.revision_number,
+              c.expert_id,c.display_name,c.role,c.domains,c.category,c.bio,c.location,c.typical_advice,
+              c.age,c.occupation,c.goals,c.interests,c.pain_points,c.motivations,c.influences,
+              c.personality_traits,c.service_value,
+              (SELECT count(*)::text FROM digital_interview_question_candidates q
+                WHERE q.org_id=c.org_id AND q.revision_id=c.revision_id
+                  AND q.expert_id=c.expert_id) AS existing_question_count
+         FROM interview_sessions s
+         JOIN digital_interview_revisions r
+           ON r.org_id=s.org_id AND r.interview_id=s.id AND r.is_current
+         JOIN digital_interview_expert_candidates c
+           ON c.org_id=s.org_id AND c.revision_id=r.id AND c.expert_id=ANY(s.selected_expert_ids)
+        WHERE s.org_id=$1 AND s.id=$2
+          AND ${DIGITAL_INTERVIEW_ACTOR_VISIBILITY}
+        ORDER BY c.ordinal`,
+      [input.orgId, input.interviewId, input.actorId],
+    );
+    const current = snapshot.rows[0];
+    if (!current) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
+    if (Number(current.version) !== input.expectedVersion || current.revision_id !== input.revisionId
+      || current.revision_number !== input.revisionNumber) {
+      throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+    }
+    return {
+      topic: current.topic?.trim() ?? "",
+      selected: snapshot.rows.map((expert) => ({
+        expertId: expert.expert_id,
+        displayName: expert.display_name,
+        role: expert.role,
+        domains: expert.domains,
+        category: expert.category,
+        bio: expert.bio,
+        location: expert.location,
+        typicalAdvice: expert.typical_advice,
+        age: expert.age,
+        occupation: expert.occupation,
+        goals: expert.goals,
+        interests: expert.interests,
+        painPoints: expert.pain_points,
+        motivations: expert.motivations,
+        influences: expert.influences,
+        personalityTraits: expert.personality_traits,
+        serviceValue: expert.service_value,
+        existingQuestionCount: Number(expert.existing_question_count),
+      })),
+    };
   }
 
   async appendSkillMessage(input: {
@@ -991,23 +1069,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
          JOIN digital_interview_revisions r
            ON r.org_id=s.org_id AND r.interview_id=s.id AND r.is_current
         WHERE s.org_id=$1 AND s.id=$2
-          AND EXISTS (
-            SELECT 1 FROM org_memberships om
-             WHERE om.org_id=$1 AND om.user_id=$3
-          )
-          AND (
-            s.created_by=$3
-            OR EXISTS (
-              SELECT 1 FROM interview_collaborators ic
-               WHERE ic.org_id=$1 AND ic.interview_id=s.id AND ic.user_id=$3
-            )
-            OR (
-              s.project_id IS NOT NULL AND EXISTS (
-                SELECT 1 FROM project_memberships pm
-                 WHERE pm.org_id=$1 AND pm.project_id=s.project_id AND pm.user_id=$3
-              )
-            )
-          )
+          AND ${DIGITAL_INTERVIEW_ACTOR_VISIBILITY}
         FOR UPDATE OF s`,
       [orgId, interviewId, actorId],
     );
