@@ -444,48 +444,60 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * `selected && onRename && onDelete`，这里两个回调都没传 ⇒ 「…」菜单一次都没渲染过，
    * 用户在 v2 上建的对话既改不了名也删不掉。这不是"视觉缺口"，是功能缺口。
    *
-   * 乐观并发所需的 `version` 来自**已经在取的** `getThread`（`threadDetail`），
-   * 不为此新发一次请求；写法与旧轨道 `personal-chat-screen.tsx` 的
-   * `handleRename`/`handleDelete` 逐字同套（先等服务端返回再重读服务端，不做乐观更新），
-   * 不另立第二套并发纪律。
+   * ⚠ 2026-08-30 人类裁决（回应"hover 没选中的卡片看不到「…」菜单"）：`ThreadCardButton`
+   *   现在对任意卡片都渲染菜单入口，不再要求 `selected`（`thread-list-shell.tsx` 头注）。
+   *   版本号因此不能再借用"已经在取的 `threadDetail`"——那只覆盖当前选中的一条。改成
+   *   提交那一刻现取：`onRename`/`onDelete` 收到具体 `threadId`，先 `getThread(threadId)`
+   *   拿它的最新版本号，再带着这个刚读到的版本号提交，与旧轨道
+   *   `personal-chat-screen.tsx`/`chat-read-screen.tsx` 同名回调同一套理由（#513 那条
+   *   "版本号只有服务端读端口一个事实源"没有变，只是取的时机从"渲染时"推迟到"提交时"）。
+   *
+   * `mutatingThreadId` 记录当前操作的是哪一条，与 `selectedThreadId` 分开——否则操作
+   * 一张未选中的卡片时，pending/失败提示会错渲到当前选中的另一张卡片上。
    */
+  const [mutatingThreadId, setMutatingThreadId] = React.useState<string | null>(null);
   const [mutatePending, setMutatePending] = React.useState<"rename" | "delete" | null>(null);
   const [mutateFailure, setMutateFailure] = React.useState<string | null>(null);
-  const selectedVersion = threadDetail?.thread.version ?? null;
 
-  const handleRename = React.useCallback(async (title: string) => {
-    if (!bearer || !selectedThreadId || selectedVersion === null) return;
+  const handleRename = React.useCallback(async (threadId: string, title: string) => {
+    if (!bearer) return;
+    setMutatingThreadId(threadId);
     setMutatePending("rename");
     setMutateFailure(null);
     try {
-      await renameThread(selectedThreadId, null, title, selectedVersion);
+      const target = await getThread(threadId, null, bearer);
+      await renameThread(threadId, null, title, target.thread.version);
       await reloadThreads();
-      await loadRightPanel(); // 标题与 version 都变了，重读详情保持一致
+      if (threadId === selectedThreadId) await loadRightPanel(); // 标题与 version 都变了，重读详情保持一致
     } catch (failure) {
       setMutateFailure(describeMutateFailure(failure));
     } finally {
       setMutatePending(null);
     }
-  }, [bearer, loadRightPanel, reloadThreads, selectedThreadId, selectedVersion]);
+  }, [bearer, loadRightPanel, reloadThreads, selectedThreadId]);
 
-  const handleDelete = React.useCallback(async (reason: string) => {
-    if (!bearer || !selectedThreadId || selectedVersion === null) return;
-    const removed = selectedThreadId;
+  const handleDelete = React.useCallback(async (threadId: string, reason: string) => {
+    if (!bearer) return;
+    setMutatingThreadId(threadId);
     setMutatePending("delete");
     setMutateFailure(null);
     try {
-      await deleteThread(removed, null, selectedVersion, reason);
+      const target = await getThread(threadId, null, bearer);
+      await deleteThread(threadId, null, target.thread.version, reason);
       const refreshed = await listPersonalThreads({}, bearer);
       setThreads(refreshed);
-      const next = refreshed.groups.flatMap((group) => group.cards)[0]?.id ?? null;
-      // 删掉的是当前这条 ⇒ 必须离开它的路由；一条都不剩就回 `/chat` 空状态。
-      router.replace(next ? `/chat/${next}` : "/chat");
+      // 删的不是当前打开的这条 ⇒ 路由不该动，用户还在看别的对话。
+      if (threadId === selectedThreadId) {
+        const next = refreshed.groups.flatMap((group) => group.cards)[0]?.id ?? null;
+        // 删掉的是当前这条 ⇒ 必须离开它的路由；一条都不剩就回 `/chat` 空状态。
+        router.replace(next ? `/chat/${next}` : "/chat");
+      }
     } catch (failure) {
       setMutateFailure(describeMutateFailure(failure));
     } finally {
       setMutatePending(null);
     }
-  }, [bearer, router, selectedThreadId, selectedVersion]);
+  }, [bearer, router, selectedThreadId]);
 
   /**
    * issue #2075（TW-P2-6）—— 搜索与置顶。
@@ -644,10 +656,10 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
                     onSelect={() => selectThread(card.id)}
                     pinned={pinnedIds.includes(card.id)}
                     onTogglePin={() => togglePin(card.id)}
-                    onRename={card.id === selectedThreadId ? (title) => void handleRename(title) : undefined}
-                    onDelete={card.id === selectedThreadId ? (reason) => void handleDelete(reason) : undefined}
-                    pending={card.id === selectedThreadId ? mutatePending : null}
-                    failure={card.id === selectedThreadId ? mutateFailure : null}
+                    onRename={canCreate ? (title) => void handleRename(card.id, title) : undefined}
+                    onDelete={canCreate ? (reason) => void handleDelete(card.id, reason) : undefined}
+                    pending={card.id === mutatingThreadId ? mutatePending : null}
+                    failure={card.id === mutatingThreadId ? mutateFailure : null}
                   />
                 ))}
               </React.Fragment>

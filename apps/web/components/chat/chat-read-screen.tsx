@@ -267,7 +267,7 @@ export function ChatReadScreen({
   const [mutateFailureOp, setMutateFailureOp] = React.useState<"create" | "rename" | "delete" | null>(null);
 
   const runMutation = React.useCallback(async (
-    op: "create" | "rename" | "delete",
+    op: "create",
     action: () => Promise<string | null>,
   ) => {
     if (!sourceKey || !projectId || !bearer) return;
@@ -276,8 +276,7 @@ export function ChatReadScreen({
     setMutateFailureOp(null);
     try {
       const preferred = await action();
-      // 重读列表，并**从服务端返回的列表里**解析选中态。删除后不能沿用路由上的
-      // thread 参数——它指向刚被删掉的那条；「删完选中态正确回退」是本 issue 的验收项。
+      // 重读列表，并**从服务端返回的列表里**解析选中态。
       const refreshed = await listThreads(projectId, {}, bearer);
       const cards = refreshed.groups.flatMap((group) => group.cards);
       const resolved = preferred && cards.some((card) => card.id === preferred)
@@ -294,7 +293,72 @@ export function ChatReadScreen({
     }
   }, [bearer, initialThreadId, projectId, router, sourceKey]);
 
-  const selectedVersion = detail?.thread.version ?? null;
+  /**
+   * 改名/删除——2026-08-30 起从 `runMutation` 里独立出来。
+   *
+   * 此前两者都借用 `runMutation` 的通用流程：写成功后重读列表，**并把选中态/路由
+   * 跳到那条被操作的线程**。删除需要这个跳转（删完选中态要回退），但那条通用逻辑
+   * 对改名/删除任何一张**未被选中**的卡片都不成立——现在「…」菜单对任意卡片都渲染
+   * （`thread-list-shell.tsx` 头注），用户可能在不切换当前对话的情况下改名/删除
+   * 旁边那一张卡，这时候选中态与路由必须原地不动，不能因为操作了别的线程就把用户
+   * 弹到那条线程上。
+   *
+   * 版本号也不再从 `detail`（只读当前选中线程）取——`getThread(threadId)` 现取
+   * 现用，跟 `personal-chat-screen.tsx`/`copilotkit-v2-shell.tsx` 同名回调同一套
+   * 理由（版本号仍然只有服务端读端口一个事实源，只是取的时机推迟到提交那一刻）。
+   *
+   * `mutatingThreadId` 记录当前操作的是哪一条，供下面 `ThreadList` 把
+   * pending/failure 只渲到那一张卡上，不跟当前选中的另一张卡混在一起。
+   */
+  const [mutatingThreadId, setMutatingThreadId] = React.useState<string | null>(null);
+
+  const handleRename = React.useCallback(async (threadId: string, title: string) => {
+    if (!sourceKey || !projectId || !bearer) return;
+    setMutatingThreadId(threadId);
+    setMutatePending("rename");
+    setMutateFailure(null);
+    setMutateFailureOp(null);
+    try {
+      const target = await getThread(threadId, projectId, bearer);
+      await renameThread(threadId, projectId, title, target.thread.version);
+      const refreshed = await listThreads(projectId, {}, bearer);
+      setThreadResult({ key: sourceKey, value: refreshed });
+      if (threadId === selectedThreadId) void loadSelectedThread(); // 标题进了 detail 的可读副行，重读一次保持一致
+    } catch (failure) {
+      setMutateFailure(describeMutateFailure(failure));
+      setMutateFailureOp("rename");
+    } finally {
+      setMutatePending(null);
+    }
+  }, [bearer, loadSelectedThread, projectId, selectedThreadId, sourceKey]);
+
+  const handleDelete = React.useCallback(async (threadId: string, reason: string) => {
+    if (!sourceKey || !projectId || !bearer) return;
+    setMutatingThreadId(threadId);
+    setMutatePending("delete");
+    setMutateFailure(null);
+    setMutateFailureOp(null);
+    try {
+      const target = await getThread(threadId, projectId, bearer);
+      await deleteThread(threadId, projectId, target.thread.version, reason);
+      const refreshed = await listThreads(projectId, {}, bearer);
+      setThreadResult({ key: sourceKey, value: refreshed });
+      // 删的不是当前选中的那条 ⇒ 选中态、路由都不该动。删的是当前选中的那条才需要
+      // 从服务端返回的列表里解析新的选中态——「删完选中态正确回退」的验收项。
+      if (threadId === selectedThreadId) {
+        const cards = refreshed.groups.flatMap((group) => group.cards);
+        const resolved = cards[0]?.id ?? null;
+        setSelection({ sourceKey, routeThreadId: initialThreadId, threadId: resolved });
+        if (resolved) router.replace(chatHref(projectId, resolved));
+      }
+    } catch (failure) {
+      setMutateFailure(describeMutateFailure(failure));
+      setMutateFailureOp("delete");
+    } finally {
+      setMutatePending(null);
+    }
+  }, [bearer, initialThreadId, projectId, router, selectedThreadId, sourceKey]);
+
   // 取自列表而不是详情：零会话时 `detail` 恒为 null，而「能不能建第一条会话」
   // 恰恰要在零会话时回答（#489）。
   const canMutate = threads?.capabilities.includes(THREAD_MUTATE_CAPABILITY) ?? false;
@@ -313,27 +377,6 @@ export function ChatReadScreen({
     });
   }, [projectId, runMutation]);
 
-  const handleRename = React.useCallback((title: string) => {
-    // ⚠ `projectId` 也进守卫：后端 `mutateExisting` 把 `projectId === null`
-    //   映射成裸 404（#541），少传它得到的不是「参数缺失」而是「线程不存在」。
-    if (!selectedThreadId || selectedVersion === null || projectId === null) return;
-    void runMutation("rename", async () => {
-      await renameThread(selectedThreadId, projectId, title, selectedVersion);
-      return selectedThreadId;
-    });
-  }, [runMutation, selectedThreadId, selectedVersion, projectId]);
-
-  const handleDelete = React.useCallback((reason: string) => {
-    /** `projectId` 同 `handleRename`（#541）。 */
-    if (!selectedThreadId || selectedVersion === null || projectId === null) return;
-    const removed = selectedThreadId;
-    void runMutation("delete", async () => {
-      await deleteThread(removed, projectId, selectedVersion, reason);
-      // 删完的选中态：交给 loadThreads 从服务端返回的第一条兜底，不在本地猜。
-      return null;
-    });
-  }, [runMutation, selectedThreadId, selectedVersion, projectId]);
-
   /* ── agent 编制的增删（#467）────────────────────────────────────────────────
    * 与上面的会话增删改同一套纪律：**先等服务端返回，再重读服务端**，不做乐观更新。
    *
@@ -349,7 +392,8 @@ export function ChatReadScreen({
    *
    * ⛔ **没有兜底**：`roster` 还没读回来（null）时**不提交**，而不是传 0 / -1 / 省略。
    *   乐观锁的意义就是拒绝盲写，兜底等于把锁摘了。与上面 `handleRename` /
-   *   `handleDelete` 在 `selectedVersion === null` 时直接 `return` 同一手法。
+   *   `handleDelete` 版本号读不回来（`getThread` 失败）时直接抛出、什么都不提交
+   *   同一手法。
    *
    * ⚠ 并发冲突（别人在你读完之后改了编制）仍会 409 `VERSION_CHANGED`——那时
    *   **如实报错**，不静默重试、不自动 +1 猜一个。#513 修的是「读不到版本号」，
@@ -486,6 +530,7 @@ export function ChatReadScreen({
             loading={listLoading}
             error={listError}
             selectedThreadId={selectedThreadId}
+            mutatingThreadId={mutatingThreadId}
             canMutate={canMutate}
             mutatePending={mutatePending}
             mutateFailure={mutateFailure}
@@ -610,7 +655,7 @@ export function ChatReadScreen({
  *   调试信息；`chat-project-id` 这个 testid 移到线程头部继续存在（有断言依赖它）。
  */
 function ThreadList({
-  groups, loading, error, selectedThreadId,
+  groups, loading, error, selectedThreadId, mutatingThreadId,
   canMutate, mutatePending, mutateFailure, mutateFailureOp, onCreate, onRename, onDelete,
   onRetry, onSelect, roster,
 }: {
@@ -618,6 +663,10 @@ function ThreadList({
   loading: boolean;
   error: string | null;
   selectedThreadId: string | null;
+  /** 2026-08-30——哪一条线程正在被改名/删除，与 `selectedThreadId` 分开（可能不是
+   * 同一条，见 `handleRename`/`handleDelete` 头注）。只有这一条卡的 pending/failure
+   * 会渲染，其余卡片（包括当前选中的另一张）不受影响。 */
+  mutatingThreadId: string | null;
   canMutate: boolean;
   mutatePending: "create" | "rename" | "delete" | null;
   mutateFailure: string | null;
@@ -625,8 +674,8 @@ function ThreadList({
    * 好让新建区与卡片自己的表单**各自**只显示属于自己的那条错误，不重复渲染同一条。 */
   mutateFailureOp: "create" | "rename" | "delete" | null;
   onCreate: (title: string) => void;
-  onRename: (title: string) => void;
-  onDelete: (reason: string) => void;
+  onRename: (threadId: string, title: string) => void;
+  onDelete: (threadId: string, reason: string) => void;
   onRetry: () => void;
   onSelect: (threadId: string) => void;
   roster: React.ReactNode;
@@ -714,10 +763,10 @@ function ThreadList({
                   card={card}
                   selected={card.id === selectedThreadId}
                   onSelect={() => onSelect(card.id)}
-                  onRename={canMutate ? onRename : undefined}
-                  onDelete={canMutate ? onDelete : undefined}
-                  pending={card.id === selectedThreadId ? cardPending : null}
-                  failure={card.id === selectedThreadId ? cardFailure : null}
+                  onRename={canMutate ? (title) => onRename(card.id, title) : undefined}
+                  onDelete={canMutate ? (reason) => onDelete(card.id, reason) : undefined}
+                  pending={card.id === mutatingThreadId ? cardPending : null}
+                  failure={card.id === mutatingThreadId ? cardFailure : null}
                 />
               ))}
             </section>
