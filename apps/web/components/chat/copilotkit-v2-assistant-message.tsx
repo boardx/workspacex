@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import {
   useConfigureSuggestions,
   useSuggestions,
   CopilotChatAssistantMessage,
+  CopilotChatToolCallsView,
 } from "@copilotkit/react-core/v2";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import {
@@ -52,6 +54,86 @@ function V2MarkdownRenderer({
   bearer?: string;
 }): JSX.Element {
   return <MarkdownMessage text={content} threadId={threadId} messageId={messageId} bearer={bearer} />;
+}
+
+/**
+ * 2026-08-30 人类实测反馈——「展示的 tools 的调用历史应该简化放在一个统一的 panel，
+ * 可以缩放，目前的 uiux 不对」。此前 `copilotkit-v2-tool-renderers.tsx` 给每个工具
+ * 调用（`list_org_skills`/`ls`/`glob`×N/`write_file`……）各注册一张独立的 Card，
+ * 通用助手一轮跑下来常常是七八次探测性调用（找字体、列目录），逐张卡片纵向堆叠，
+ * 把真正的回复挤到几屏之下——用户等的是"文件生成了没有"，不是逐条工具调用记录。
+ *
+ * `CopilotChatAssistantMessage` 恰好留了一个我们此前没用过的 slot——`toolCallsView`
+ * （框架自带 `CopilotChatToolCallsView` 的替换点，读 `message.toolCalls` 逐条分派给
+ * 已注册的 per-tool 渲染器，见框架源码 `CopilotChatToolCallsView.tsx`）。这里不重写
+ * 分派逻辑（那是 `copilotkit-v2-tool-renderers.tsx` 里 `useRenderTool`/
+ * `useDefaultRenderTool` 已经做的事，各工具卡片本身不变），只是把框架默认"直接摊平
+ * 渲染"的位置，换成一个折叠面板——收起时只显示一行"工具调用 · N 步"，展开后原样
+ * 渲染每张已有卡片，容器给 `max-h` + 内部滚动（"可以缩放"里"可滚动查看全部"这半句
+ * 落地的方式；真正的窗口缩放交给浏览器自身，这里不做拖拽 resize，那是本仓目前没有
+ * 先例的一整套新交互，本次不追加）。
+ *
+ * ⚠ 只有 1 次工具调用时不折叠——直接展开渲染：折叠一次调用没有信息密度上的收益，
+ *   只会让用户多点一次。
+ *
+ * ⚠ 默认**展开**，不是默认收起：`copilotkit-v2-tool-rendering.spec.ts` 等既有 e2e
+ *   在发消息后直接断言某张工具卡片 `toBeVisible()`，不会先去点开一个折叠面板——
+ *   默认收起会让这些断言在"这一轮恰好不止一次工具调用"时全部落空（元素根本没
+ *   渲染，不是被 CSS 藏起来）。收起是**用户自己按需要点**的动作，不是本次改动
+ *   替用户做的默认判断；真正解决的是"逐张卡片散落一地"——现在至少收进同一个
+ *   容器，视觉上是一组，不是不相关的 N 个浮动卡片。
+ */
+function V2ToolCallsView(
+  props: React.ComponentProps<typeof CopilotChatToolCallsView>,
+): JSX.Element | null {
+  const toolCalls = props.message.toolCalls ?? [];
+  const [expanded, setExpanded] = React.useState(true);
+  // `React.useId()`：同一个组件实例在其生命周期内稳定不变（`aria-controls`
+  // 引用的 id 不会在重渲染之间跳变），且天然跨组件实例互不相同（同一屏多条
+  // 消息各自的折叠面板不会撞 id）。
+  const groupId = React.useId();
+
+  if (toolCalls.length === 0) return null;
+  if (toolCalls.length === 1) return <CopilotChatToolCallsView {...props} />;
+
+  return (
+    <div
+      className="flex flex-col rounded-lg border border-border-subtle bg-muted/30"
+      data-testid="copilotkit-v2-tool-calls-group"
+      data-tool-calls-count={toolCalls.length}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls={groupId}
+        data-testid="copilotkit-v2-tool-calls-group-toggle"
+        className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-11 text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Wrench aria-hidden className="h-3 w-3 shrink-0" />
+        <span className="min-w-0 flex-1 text-left">
+          {expanded ? "收起工具调用" : `工具调用 · ${toolCalls.length} 步`}
+        </span>
+        {expanded
+          ? <ChevronUp aria-hidden className="h-3 w-3 shrink-0" />
+          : <ChevronDown aria-hidden className="h-3 w-3 shrink-0" />}
+      </button>
+      {/* `id` 恒定存在（不随 `expanded` 卸载）：`aria-controls` 引用的元素必须真的在
+          DOM 里，辅助技术才能建立"这个按钮控制那个区域"的关系；折叠态用 `hidden`
+          属性隐藏内容，而不是整段不渲染——两者对视觉的效果一样，但前者保留了
+          可引用、可查询的元素，后者会让 `aria-controls` 指向一个不存在的 id。 */}
+      <div
+        id={groupId}
+        role="region"
+        aria-label="工具调用详情"
+        hidden={!expanded}
+        className="flex max-h-64 flex-col gap-1.5 overflow-y-auto border-t border-border-subtle p-2"
+        data-testid="copilotkit-v2-tool-calls-group-body"
+      >
+        <CopilotChatToolCallsView {...props} />
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -253,6 +335,7 @@ function V2AssistantMessageImpl(
         isRunning={effectiveIsRunning}
         markdownRenderer={markdownRenderer}
         copyButton={copyButton}
+        toolCallsView={V2ToolCallsView}
         additionalToolbarItems={
           <>
             <CopilotKitV2MessageExtraActions messageId={messageId} />
