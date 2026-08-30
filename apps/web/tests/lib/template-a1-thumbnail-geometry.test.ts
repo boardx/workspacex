@@ -51,7 +51,7 @@ describe("已排版的模板 —— 12×8 网格换百分比", () => {
       section("s1", { type: "便利贴列表", layout: { col: 1, row: 1, w: 3, h: 2, cols: 5, max: 6, tone: 1, overflow: "缩小字号" } }),
       section("s2", { type: "短文本", layout: { col: 4, row: 1, w: 3, h: 1, cols: 5, max: 6, tone: 1, overflow: "缩小字号" } }),
     ]));
-    expect(boxes[0]!.color).toBe("#F2C6C2");   // tone 1 = 粉
+    expect(boxes[0]!.color).toBe("#FF8FAB");   // tone 1 = 粉（3M Post-it 配色，2026-08-30）
     expect(boxes[1]!.color).toBe("#FAF9F6");   // 文本类恒浅灰，不看 tone
   });
 });

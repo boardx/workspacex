@@ -10,7 +10,7 @@
  */
 import type { CanvasTemplate } from "@/lib/live-canvas";
 import {
-  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS,
+  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS, STANDARD_NOTE_MM,
   type PaperSizeKey,
   type SectionGeometryMm,
 } from "@/lib/canvas/explicit-template-layout";
@@ -55,7 +55,15 @@ export interface SectionDraft {
  * 排版偏好（1 列＝竖排长列表，8 列＝密集小方格），没有理由从 3 起。
  */
 export const COLS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
-export const MAX_OPTIONS = [3, 4, 6, 9] as const;
+/**
+ * 「最多条数」步进器的边界。2026-08-26 人类反馈「宽和高要有所有选项」之后，同一栏
+ * 右边的「最多条数」还留着 `[3,4,6,9]` 四个固定档——2026-08-30 又反馈一次同一类问题：
+ * 「这个要改为可以支持 1 条，到更多条」。改法与「在 A1 上占多大」的宽/高一致：
+ * 步进器覆盖 `[MAX_COUNT_MIN, MAX_COUNT_MAX]` 全部整数，不再是四个候选值的子集。
+ * 上限给一个宽裕但不失控的数——现场便利贴很少会给单个字段堆到三位数。
+ */
+export const MAX_COUNT_MIN = 1;
+export const MAX_COUNT_MAX = 99;
 export const WIDTH_OPTIONS = [3, 4, 6, 12] as const;
 export const HEIGHT_OPTIONS = [1, 2, 3, 4] as const;
 export const OVERFLOW_OPTIONS = ["缩小字号", "叠放", "截断"] as const;
@@ -113,9 +121,11 @@ export function defaultLayoutAt(
   const h = Math.min(type === "便利贴列表" ? 3 : 1, 8 - row + 1);
   return {
     col, row, w, h,
-    // 默认 cols 由物理宽度推出：round(区块宽mm / 82)，夹在 3-8，
-    // 使贴纸落在 76mm 标准附近（`Design.pdf` §4.2 原话）。
-    cols: type === "便利贴列表" ? clamp(Math.round(blockWidthMm(w, gridCols, size) / 82), 3, 8) : 3,
+    // 默认 cols 由物理宽度推出：round(区块宽mm / 贴纸格距)，夹在 3-8——贴纸格距是
+    // 固定贴纸边长（`STANDARD_NOTE_MM`）加一道网格间距，不是随手写的 82（`Design.pdf`
+    // §4.2 原话「使贴纸落在 76mm 标准附近」；贴纸本身大小固定，这里只是猜一个默认
+    // 摆几列，摆多了/摆少了使用者都能在右栏用步进器改）。
+    cols: type === "便利贴列表" ? clamp(Math.round(blockWidthMm(w, gridCols, size) / (STANDARD_NOTE_MM + GRID_GAP_MM)), 3, 8) : 3,
     max: 6,
     tone: 0,
     overflow: "缩小字号",
@@ -209,7 +219,7 @@ export function autoFillLayout(
         const isList = d.type === "便利贴列表";
         placements.set(d.sectionId, {
           col, row: bodyRow, w, h,
-          cols: isList ? clamp(Math.round(blockWidthMm(w, gridCols, size) / 82), 3, 8) : 3,
+          cols: isList ? clamp(Math.round(blockWidthMm(w, gridCols, size) / (STANDARD_NOTE_MM + GRID_GAP_MM)), 3, 8) : 3,
           max: 6,
           tone: r % 4,
           overflow: "缩小字号",
