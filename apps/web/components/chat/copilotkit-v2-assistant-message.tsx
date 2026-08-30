@@ -327,14 +327,46 @@ export const V2AssistantMessage = Object.assign(
  * 紧跟在 follow-up 循环之后那一处）——本组件的 `send()` 已经在调
  * `copilotkit.runAgent({ agent })`，建议是这次调用的副作用之一，不是额外接线。
  */
+/**
+ * 一条「本地插入」的建议 chip——不经过 CopilotKit 建议引擎，由调用方按自己的规则
+ * 决定何时出现（如「生成用户画像」，见 `copilotkit-v2-panel-body.tsx` 的
+ * `personaSuggestions`）。与 `s.message`（AI 建议，点击即发送）不同，它的
+ * `onSelect` 是一个无参回调——点击后调用方要做的往往不是「发一条消息」，而是
+ * 一次专用 API 调用（persona-summary 需要的锚点、落地流程都与普通消息发送不同）。
+ *
+ * ⚠ 与 CopilotKit 原生 `suggestions` **同一排渲染、同一套样式**——用户看到的是
+ *   一条连贯的"建议行"，分不清（也不需要分清）哪条来自 AI、哪条来自本地规则；
+ *   这正是本次重设计要的效果："生成用户画像"从一个恒定不变的独立按钮，变成
+ *   这排建议里按上下文出现/消失的一条（人类原话：「他应该是动态的建议的行为，
+ *   不能是固定的」，2026-08-30）。
+ *
+ * ⚠ `id` **直接就是** `data-testid`（不加前缀）——「生成用户画像」这条 chip 沿用
+ *   了它作为独立按钮时代就有的既有锚点 `chat-persona-summary-trigger`，
+ *   `copilotkit-v2-persona-archived.spec.ts`/`.test.tsx` 等既有测试与真栈 e2e
+ *   都认这个 testid；换成生造的前缀（如 `copilotkit-v2-suggestion-local-xxx`）
+ *   会让这些既有证据全部找不到元素而超时，本身也不是这次重设计要改的东西——
+ *   变的是"什么时候出现"，不是"叫什么名字"。
+ */
+export interface LocalSuggestionChip {
+  /** 同时也是渲染出来的 `data-testid`，逐字不加前缀。 */
+  readonly id: string;
+  readonly label: string;
+  readonly onSelect: () => void;
+  readonly disabled?: boolean;
+}
+
 export function FollowUpSuggestions({
   agentId,
   disabled,
   onSelect,
+  localSuggestions = [],
 }: {
   agentId: string;
   disabled: boolean;
   onSelect: (text: string) => void;
+  /** 见 `LocalSuggestionChip` 文件头注——调用方按自己的规则算好后传入，本组件
+   *  只负责渲染，不判断"什么时候该出现"（同一条规则不在两处各写一份）。 */
+  localSuggestions?: readonly LocalSuggestionChip[];
 }): JSX.Element | null {
   useConfigureSuggestions(
     {
@@ -350,7 +382,7 @@ export function FollowUpSuggestions({
   );
   const { suggestions, isLoading } = useSuggestions({ agentId });
 
-  if (suggestions.length === 0 && !isLoading) return null;
+  if (suggestions.length === 0 && !isLoading && localSuggestions.length === 0) return null;
 
   return (
     <div
@@ -358,6 +390,18 @@ export function FollowUpSuggestions({
       className="flex flex-wrap gap-2"
       aria-busy={isLoading}
     >
+      {localSuggestions.map((chip) => (
+        <button
+          key={chip.id}
+          type="button"
+          data-testid={chip.id}
+          disabled={disabled || chip.disabled}
+          className="rounded-full border border-border px-3 py-1 text-xs text-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
+          onClick={chip.onSelect}
+        >
+          {chip.label}
+        </button>
+      ))}
       {suggestions.map((s, i) => (
         <button
           key={`${s.title}-${i}`}

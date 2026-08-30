@@ -23,6 +23,7 @@ import {
   ArtifactLandingCtx,
   V2AssistantMessage,
   FollowUpSuggestions,
+  type LocalSuggestionChip,
 } from "@/components/chat/copilotkit-v2-assistant-message";
 import {
   CopilotKitV2MessageActionsProvider,
@@ -928,6 +929,13 @@ export function CopilotKitV2PanelBody({
    */
   const [personaRunning, setPersonaRunning] = React.useState(false);
   const [personaFailure, setPersonaFailure] = React.useState<string | null>(null);
+  /**
+   * 2026-08-30 重设计：「生成用户画像」从恒定不变的独立按钮，改成建议行里按上下文
+   * 出现/消失的一条（人类原话「他应该是动态的建议的行为，不能是固定的」）。
+   * `personaGeneratedOnce` 是「本次会话是否已经成功生成过一次」的本地信号——
+   * 见下方 `showPersonaSuggestion` 的完整判据与已知局限说明。
+   */
+  const [personaGeneratedOnce, setPersonaGeneratedOnce] = React.useState(false);
   const runPersonaSummary = React.useCallback(async () => {
     if (initialChatThreadId === null || personaRunning) return;
     setPersonaRunning(true);
@@ -951,6 +959,10 @@ export function CopilotKitV2PanelBody({
       if (!agent.messages.some((m) => m.id === result.id)) {
         agent.setMessages([...agent.messages, result]);
       }
+      // 成功之后这条建议就该从建议行里消失——不然用户会看到同一条"生成用户画像"
+      // 一直挂在已经生成过的对话下面，重新点一次除了多花一次模型调用什么也不会
+      // 变（`buildPersonaLanding` 是幂等的全量重扫，不是增量）。
+      setPersonaGeneratedOnce(true);
       // 画像同时落了一件产物（`out.artifactId`）——通知外壳刷新右栏「产物」栏，
       // 与 `send()` 里 run settle 后那次是同一个通道、同一个理由。
       onMessageSent?.();
@@ -1098,6 +1110,39 @@ export function CopilotKitV2PanelBody({
           ? "请先输入任务目标"
           : null;
   const sendDisabled = sendDisabledReason !== null;
+
+  /**
+   * issue #2053（CK-P6，重设计 2026-08-30）—— 「生成用户画像」建议 chip 的出现
+   * 条件。全部读已经存在的真实状态，不新开一条判定：
+   *   · `canGeneratePersona`——服务端 `artifact.land` 能力位，硬门槛：没有它
+   *     点了必 403，属于本仓明令禁止的"假按钮"，任何时候都不能省。
+   *   · `!archived`——归档线程只读，建议行本身在归档时整体不渲染
+   *     （见下方 `{archived ? null : &lt;FollowUpSuggestions .../&gt;}`），这里
+   *     单独列出只是让判据读起来完整，不是重复的第二道门。
+   *   · `initialChatThreadId !== null`——线程已经真实建立（至少发过一条消息），
+   *     与旧版按钮的禁用判据完全同一条，只是现在不满足就不渲染，不是渲染成灰色。
+   *   · `!personaGeneratedOnce`——本次会话还没成功生成过一次；生成中时仍然渲染
+   *     （`disabled: personaRunning`），只是文案换成"生成画像中…"，与旧版按钮的
+   *     loading 态视觉一致，不会让用户觉得点击后什么都没发生。
+   *
+   * ⚠ 已知局限（前端规则判断的选定范围内，如实记录）：`personaGeneratedOnce` 只是
+   *   会话内的本地状态，不查后台这条线程是否已经落过 persona 产物——重新打开一条
+   *   早就生成过画像的线程，这条建议还会再出现一次。要精确识别需要额外查一次
+   *   `listThreadArtifacts` 并识别哪条是 persona 产物（目前产物没有专门的 kind
+   *   标记可用），超出本次改动范围，留给下一轮迭代。
+   */
+  const showPersonaSuggestion =
+    canGeneratePersona && !archived && initialChatThreadId !== null && !personaGeneratedOnce;
+  const personaSuggestions: readonly LocalSuggestionChip[] = showPersonaSuggestion
+    ? [{
+        // `id` 逐字就是渲染出来的 `data-testid`——沿用「生成用户画像」作为独立按钮
+        // 时代就有的既有锚点，见 `LocalSuggestionChip.id` 的文件头注。
+        id: "chat-persona-summary-trigger",
+        label: personaRunning ? "生成画像中…" : "生成用户画像",
+        disabled: personaRunning,
+        onSelect: () => void runPersonaSummary(),
+      }]
+    : [];
 
   return (
     <div className="flex h-full w-full gap-3">
@@ -1335,14 +1380,23 @@ export function CopilotKitV2PanelBody({
           </div>
         ) : null}
         {/* issue #2053（CK-P8）—— 归档线程不给追问建议：每一条 chip 点下去都是一次
-            发送，摆在只读线程上就是一排假按钮。 */}
+            发送（或本地建议里的 persona 生成动作），摆在只读线程上就是一排假按钮。
+            这条门也覆盖下面 `personaSuggestions`——`showPersonaSuggestion` 已经
+            单独判过 `!archived`，这里不是重复的第二道门，只是两处共用同一次
+            渲染判断。 */}
         {archived ? null : (
           <FollowUpSuggestions
             agentId={threadId}
             disabled={agent.isRunning}
             onSelect={(text) => void send(text)}
+            localSuggestions={personaSuggestions}
           />
         )}
+        {personaFailure !== null ? (
+          <span className="text-11 text-destructive" data-testid="chat-persona-summary-error">
+            {personaFailure}
+          </span>
+        ) : null}
         {/* chat-parity-attachments (issue #2022) -- composer 附件区：就地报错横幅 + 预览条，
             复用旧轨道 `chat-composer-attachments.tsx` 展示件，不重写一份视觉。 */}
         {archived ? null : <ChatAttachmentBanner banner={attach.banner} />}
@@ -1393,34 +1447,9 @@ export function CopilotKitV2PanelBody({
             该对话已归档，只能读取，不能创建消息或运行。
           </p>
         ) : null}
-        {/* issue #2053（CK-P6，差距表 #6）—— 「生成用户画像」。渲染门是服务端下发的
-            `artifact.land` 能力（`canGeneratePersona`），不是前端自己判的；没有线程
-            （全新对话还没发第一条消息）时禁用而不是隐藏——入口存在这件事本身要看得见，
-            `title` 说清楚为什么现在点不了（同旧轨道对空线程的处理）。 */}
-        {canGeneratePersona ? (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              size="xs"
-              variant="outline"
-              data-testid="chat-persona-summary-trigger"
-              disabled={archived || personaRunning || initialChatThreadId === null}
-              title={
-                archived ? "该对话已归档，不能再生成画像"
-                  : initialChatThreadId === null ? "先发出第一条消息，这条对话建立后才能生成画像"
-                    : "扫描整个对话，生成用户画像"
-              }
-              onClick={() => void runPersonaSummary()}
-            >
-              {personaRunning ? "生成画像中…" : "生成用户画像"}
-            </Button>
-            {personaFailure !== null ? (
-              <span className="text-11 text-destructive" data-testid="chat-persona-summary-error">
-                {personaFailure}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
+        {/* issue #2053（CK-P6）——「生成用户画像」不再在这里单独画一个恒定的按钮：
+            2026-08-30 重设计后它是上面 `FollowUpSuggestions` 建议行里 `personaSuggestions`
+            算出来的一条本地 chip，出现/消失的判据见 `showPersonaSuggestion` 那段注释。 */}
         {/* 并集解（issue #2039 × #2053）：布局/字级/placeholder 用 UIUX 迭代线的版本
             （min-w-0 防移动端溢出、rounded-md、明确动作指引），归档禁用语义用
             CK-P8 的版本——两者正交。 */}

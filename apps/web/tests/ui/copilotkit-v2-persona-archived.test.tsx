@@ -2,7 +2,16 @@
  * issue #2053 —— CK-P6「生成用户画像」入口平移 + CK-P8 归档线程只读态，钉在真实的
  * `CopilotKitV2Panel` 上（不是钉一个测试里重建的替身组件）。
  *
- * ## 这个测试要防住的三个具体假绿
+ * ## 2026-08-30 重设计：从「恒定按钮」改成「建议行里的一条动态 chip」
+ *
+ * 人类原话「他应该是动态的建议的行为，不能是固定的」——`chat-persona-summary-trigger`
+ * 不再是"有能力就渲染、没线程就渲染成灰色"的恒定入口，而是 `FollowUpSuggestions`
+ * 建议行里按上下文出现/消失的一条本地 chip（见 `copilotkit-v2-panel-body.tsx` 的
+ * `showPersonaSuggestion`）。本文件跟着这次重设计改了两处断言（原②与归档态那条）：
+ * 从"渲染但 disabled + title 说明"改成"条件不满足就完全不渲染"——这本身就是
+ * 本次重设计要证明的行为，不是妥协。
+ *
+ * ## 这个测试要防住的几个具体假绿
  *
  * ① **锚点 id 拿错命名空间**。`summarizePersonaFromThread` 的 `messageId` 必须是
  *    `chat_messages.id`；`agent.messages` 里的 AG-UI 流式 id 后端不认识。测试因此
@@ -11,9 +20,12 @@
  *    也照样绿，而那正是「点了才报错的假按钮」。
  * ② **失败被糊成一句通用话**。契约 err 三档（NOT_VISIBLE / NO_WRITE_ROLE /
  *    STORAGE_UNAVAILABLE）用户处置完全不同，断言 reasonCode 原样出现在界面上。
- * ③ **归档只做了个提示、控件照样能点**。归档态逐个断言 input / 发送 / 麦克风 /
- *    📎 / 画像按钮**都** disabled，而不只是断言提示文案在——只断言提示的话，
- *    一个「显示了提示但还能发消息」的实现会绿。
+ * ③ **归档只做了个提示、控件照样能点**。归档态逐个断言 input / 发送 / 麦克风都
+ *    disabled；画像 chip 归档时整体不渲染（同 `FollowUpSuggestions` 的既有规则：
+ *    归档线程不给追问建议，每条 chip 点下去都是一次动作，摆在只读线程上就是
+ *    一排假按钮）——断言从"disabled"改成"根本不在"，而不只是断言提示文案在。
+ * ④ **成功之后 chip 不消失**。生成一次之后同一条建议还挂在那——用户会以为
+ *    "点了但没反应"，或者误以为可以无限重复生成。
  *
  * ⚠ 组件测试不是本 issue 的唯一证据：真实浏览器 e2e
  * （`e2e/copilotkit-v2-persona-archived.spec.ts`）打真栈，是端到端证据。这里钉的是
@@ -145,14 +157,13 @@ describe("CK-P6 生成用户画像（issue #2053）", () => {
     expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
   });
 
-  it("②全新对话（还没有持久化线程）⇒ 入口渲染但禁用，title 说清为什么", async () => {
+  it("②全新对话（还没有持久化线程）⇒ 入口根本不渲染（不是渲染成灰色）", async () => {
     mount({ canGeneratePersona: true, chatThreadId: null });
-    const trigger = await screen.findByTestId("chat-persona-summary-trigger");
-    expect((trigger as HTMLButtonElement).disabled).toBe(true);
-    expect(trigger.getAttribute("title")).toContain("先发出第一条消息");
+    await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeTruthy());
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
   });
 
-  it("③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id，不是流式 id", async () => {
+  it("③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id（不是流式 id），成功后 chip 消失", async () => {
     summarizePersonaFromThread.mockImplementation(async () => {
       personaGenerated = true;
       return {
@@ -182,6 +193,11 @@ describe("CK-P6 生成用户画像（issue #2053）", () => {
       const probes = screen.queryAllByTestId("chat-diagram-fabric-probe");
       expect(probes.some((p) => (p.textContent ?? "").includes("mindmap"))).toBe(true);
     });
+    // ④ 重设计的核心行为：成功之后这条建议从建议行里消失——不是继续挂在那，
+    // 不然用户分不清"点了没反应"还是"可以无限重复点"。
+    await waitFor(() => {
+      expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+    });
   });
 
   it("④失败原样回显 reasonCode，不糊成「生成失败」", async () => {
@@ -206,7 +222,9 @@ describe("CK-P8 归档线程只读态（issue #2053）", () => {
     expect((screen.getByTestId("copilotkit-v2-input") as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByTestId("copilotkit-v2-send") as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByTestId("chat-task-workbench-composer-mic") as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByTestId("chat-persona-summary-trigger") as HTMLButtonElement).disabled).toBe(true);
+    // 2026-08-30 重设计：画像 chip 现在挂在 `FollowUpSuggestions` 建议行里，
+    // 归档时整条建议行都不渲染（同追问 chip 的既有规则），不是渲染成灰色。
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
   });
 
   it("未归档 ⇒ 同样这些控件可用（反证：上一条不是因为组件根本没渲染出来才「禁用」）", async () => {

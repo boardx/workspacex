@@ -4,6 +4,10 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
 /**
  * issue #2053 —— CK-P6「生成用户画像」/ CK-P8 归档线程只读态，真栈取证。
  *
+ * ⚠ 2026-08-30 重设计：画像入口从恒定不变的独立按钮，改成建议行
+ *   （`FollowUpSuggestions`）里按上下文出现/消失的一条本地 chip——归档时整条
+ *   建议行不渲染（见场景二），未归档且线程已建立、还没生成过时才出现（见场景一）。
+ *
  * 复用 `playwright.chat-read.config.ts` 的真栈编排（真登录 + 真 Postgres +
  * deep-agent loopback 替身 + `/api/copilotkit` 适配器），理由同
  * `copilotkit-v2-thread-persistence.spec.ts` 头注：这里需要的一切已经起好，不新起
@@ -160,7 +164,10 @@ test("CK-P8：getThread 真实响应的 archived=true ⇒ composer 全部写入�
   await expect(page.getByTestId("copilotkit-v2-input")).toBeDisabled();
   await expect(page.getByTestId("copilotkit-v2-send")).toBeDisabled();
   await expect(page.getByTestId("chat-task-workbench-composer-mic")).toBeDisabled();
-  await expect(page.getByTestId("chat-persona-summary-trigger")).toBeDisabled();
+  // 2026-08-30 重设计（人类原话「他应该是动态的建议的行为，不能是固定的」）：
+  // 画像 chip 现在挂在建议行（`FollowUpSuggestions`）里，归档时整条建议行都不
+  // 渲染——同追问 chip 的既有规则，不再是"渲染成灰色"。
+  await expect(page.getByTestId("chat-persona-summary-trigger")).toHaveCount(0);
 
   // 反证：历史消息仍然读得到——归档是"只读"，不是"看不见"。
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(marker, { timeout: 30_000 });
