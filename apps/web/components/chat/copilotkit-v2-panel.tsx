@@ -21,6 +21,8 @@ import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, LONG_RUN_HINT } from "@/lib/copilotkit-v2-run-progress";
+import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL } from "@/lib/copilotkit-v2-run-restore";
+import { findPendingRunId } from "@/lib/agent-run";
 import {
   CopilotKitV2MessageActionsProvider,
   CopilotKitV2CopyButton,
@@ -1275,6 +1277,14 @@ function CopilotKitV2PanelBody({
    * false），不改变 hydration 逻辑本身一行。
    */
   const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
+  /**
+   * session-switch task-state-loss fix —— 挂载 hydration 只回读了"已经落库的东西"，
+   * 从不检查"上一轮有没有一个还没写回的 run"。这条 effect 只覆盖情形①（真实既有
+   * 线程重新挂载，见下方判断），正是用户切走再切回时会命中的路径；情形②（本轮乐观
+   * 插入后端才 resolve 线程 id）不跑这段，本来内存里就有在途 run，不存在"丢失"。
+   * 非 `null` 时交给下面 `useCopilotKitV2RunRestore` 轮询核实，核实完清空。
+   */
+  const [pendingRunId, setPendingRunId] = React.useState<string | null>(null);
   React.useEffect(() => {
     if (
       initialChatThreadId === null || !isReady || hydratedRef.current
@@ -1297,7 +1307,8 @@ function CopilotKitV2PanelBody({
         const bearer = getStoredSessionToken() ?? undefined;
         // 分页读取用 main 抽出的 `readAllPersistedMessages`（"怎么把一条线程读完"
         // 只有一份写法），不在这里复制第二遍循环。
-        const collected = await readAllPersistedMessages(initialChatThreadId, bearer);
+        const { messages: collected, pendingRunId: detectedPendingRunId } =
+          await readAllPersistedMessages(initialChatThreadId, bearer);
         // CK-P3（#2054）—— 「可评分」比「消息真实存在」多一道门：还要求它由 agent
         // 写回且带 `agentRunId`（服务端第三道归因门，见
         // `lib/copilotkit-v2-message-identity.ts`）。这两个判据由
@@ -1317,6 +1328,7 @@ function CopilotKitV2PanelBody({
           agent.setMessages([...framed.filter((m) => !liveIds.has(m.id)), ...live]);
         }
         setHistoryLoading(false);
+        setPendingRunId(detectedPendingRunId);
       } catch (e) {
         if (cancelled) return;
         setHistoryLoading(false);
@@ -1327,6 +1339,48 @@ function CopilotKitV2PanelBody({
       cancelled = true;
     };
   }, [agent, isReady, initialChatThreadId, registerHydrated]);
+
+  /**
+   * session-switch task-state-loss fix —— 上面 hydration 找到的 `pendingRunId`
+   * 在这里核实真实服务端状态（轮询 `GET /agent-runs/:runId`，与旧轨道同一个端点/
+   * 同一条只读纪律，见 `useCopilotKitV2RunRestore` 文件头）。核实到终态后重读一遍
+   * 持久化消息，把服务端已经写回的助手回复（用户切走期间真实生成完的那条）合并进
+   * `agent.messages`——合并按 id 去重、只追加，不整体覆盖，与上面 hydration 效果
+   * 同一条纪律（覆盖会杀掉这期间用户可能发出的新消息）。
+   */
+  const handleRunRestored = React.useCallback(() => {
+    let cancelled = false;
+    (async () => {
+      const bearer = getStoredSessionToken() ?? undefined;
+      const threadId = chatThreadIdRef.current;
+      if (threadId === null) return;
+      try {
+        const { messages: after } = await readAllPersistedMessages(threadId, bearer);
+        if (cancelled) return;
+        const liveIds = new Set(agent.messages.map((m) => m.id));
+        const framed = after
+          .filter((m) => !liveIds.has(m.id))
+          .map((m) => ({ id: m.id, role: m.role, content: m.content }));
+        if (framed.length > 0) agent.setMessages([...agent.messages, ...framed]);
+        setPendingRunId(null);
+        onMessageSent?.();
+      } catch {
+        // 重读失败不是新错误——run 状态本身已经在 `useCopilotKitV2RunRestore` 里
+        // 如实核实过是终态；这里只是把已经写回的内容捞回来，捞不到就保持
+        // `pendingRunId` 已清空、稍后用户可以手动刷新页面重新走一遍挂载 hydration。
+        setPendingRunId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent, onMessageSent]);
+  const runRestore = useCopilotKitV2RunRestore(
+    pendingRunId,
+    getStoredSessionToken() ?? undefined,
+    handleRunRestored,
+  );
 
   /**
    * DA-19g —— `useAsrDraft` 的 `start()` 是一个稳定回调（不随每次按键重建），基线读取
@@ -1472,8 +1526,12 @@ function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onPlanTodosChange?.(planTodos);
   }, [planTodos, onPlanTodosChange]);
-  const runIsRunning = agent.isRunning;
-  const runPhaseLabel = runProgress.phaseLabel;
+  // session-switch task-state-loss fix —— `agent.isRunning` 只在**这次挂载**的 AG-UI
+  // 连接上有一轮 run 时为真；`runRestore.isRestoring` 覆盖"挂载时发现上一轮 run 可能
+  // 还没写回，正在核实"这段窗口——两者是"这条线程当前是否该显示生成中"这同一件事的
+  // 两个真实来源，or 起来才是完整答案，不是二选一。
+  const runIsRunning = agent.isRunning || runRestore.isRestoring;
+  const runPhaseLabel = runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : null);
   const runStartedAt = runProgress.startedAt;
   React.useEffect(() => {
     onRunStateChange?.({
@@ -1657,14 +1715,14 @@ function CopilotKitV2PanelBody({
     setPersonaFailure(null);
     try {
       const bearer = getStoredSessionToken() ?? undefined;
-      const persisted = await readAllPersistedMessages(initialChatThreadId, bearer);
+      const { messages: persisted } = await readAllPersistedMessages(initialChatThreadId, bearer);
       const anchor = persisted[persisted.length - 1];
       if (anchor === undefined) {
         setPersonaFailure("这条对话还没有已落库的消息，无法生成画像。");
         return;
       }
       const out = await summarizePersonaFromThread(initialChatThreadId, anchor.id, bearer);
-      const after = await readAllPersistedMessages(initialChatThreadId, bearer);
+      const { messages: after } = await readAllPersistedMessages(initialChatThreadId, bearer);
       const result = after.find((m) => m.id === out.resultMessageId);
       if (result === undefined) {
         // 服务端说写了、读回却没有——不假装成功，也不假装失败：如实说清楚现状与出路。
@@ -1909,7 +1967,12 @@ function CopilotKitV2PanelBody({
                 `copilotkit-v2-message-actions.spec.ts` 当成"这一轮跑完了没有"的信号
                 在用。语义一个字没变（在跑=在，跑完=不在），变的只有位置与形态；
                 改名会把三处既有断言变成"元素不存在 ⇒ 立即通过"的静默假绿。 */}
-          {!historyLoading && agent.isRunning ? (
+          {/* session-switch task-state-loss fix —— `runRestore.isRestoring` 补的是
+              `agent.isRunning` 覆盖不到的那段窗口：挂载 hydration 发现上一轮 run
+              可能还没写回，正在核实真实状态。两者 or 起来才是"这条线程现在该不该显示
+              生成中"的完整判据，见 `runIsRunning` 声明处头注（`runProgress.phaseLabel`
+              取不到时已经回落到 `RUN_RESTORE_PHASE_LABEL`，这里不用再判断一次）。 */}
+          {!historyLoading && (agent.isRunning || runRestore.isRestoring) ? (
             <div
               data-testid="copilotkit-v2-running-indicator"
               role="status"
@@ -1922,7 +1985,7 @@ function CopilotKitV2PanelBody({
               >
                 <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin" />
                 <span data-testid="copilotkit-v2-thinking-phase">
-                  {runProgress.phaseLabel ?? "正在思考…"}
+                  {runProgress.phaseLabel ?? (runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL : "正在思考…")}
                 </span>
                 {runProgress.elapsedSeconds !== null ? (
                   <span data-testid="copilotkit-v2-thinking-elapsed">
@@ -2428,12 +2491,24 @@ type PersistedMessage = {
  * `listMessages` 契约（R9）要求调用方分页，单页上限 100；这里跑到 `nextCursor === null`
  * 为止。抽成模块级函数是因为它现在有两个调用方（挂载时的历史灌回、CK-P6 画像的
  * 锚点/结果消息读取），而"怎么把一条线程读完"必须只有一份写法。
+ *
+ * session-switch task-state-loss fix —— 同时把 `pendingRunId` 投影出来：最新一条
+ * 带 `agentRunId` 的人类消息若还没有回复，说明这个 run 挂载时可能仍未写回终态
+ * （见 `findPendingRunId` 文件头）。与 `rateable` 同理，只在这里算一遍，不为它
+ * 再单独读一次库——`listMessages` 分页返回的原始 `agentRunId`/`replyToMessageId`
+ * 过了这一层投影成 `PersistedMessage` 之后就不再带出去了。
  */
 async function readAllPersistedMessages(
   threadId: string,
   bearer: string | undefined,
-): Promise<PersistedMessage[]> {
+): Promise<{ messages: PersistedMessage[]; pendingRunId: string | null }> {
   const collected: PersistedMessage[] = [];
+  const rawForPendingRunLookup: {
+    id: string;
+    authorKind: "human" | "agent";
+    agentRunId: string | null;
+    replyToMessageId: string | null;
+  }[] = [];
   let cursor: string | undefined;
   for (let page = 0; page < 50; page += 1) {
     const result = await listMessages(threadId, { cursor, limit: 100 }, bearer);
@@ -2444,11 +2519,17 @@ async function readAllPersistedMessages(
         content: m.text,
         rateable: m.authorKind !== "human" && m.agentRunId !== null,
       });
+      rawForPendingRunLookup.push({
+        id: m.id,
+        authorKind: m.authorKind,
+        agentRunId: m.agentRunId,
+        replyToMessageId: m.replyToMessageId,
+      });
     }
     if (result.nextCursor === null) break;
     cursor = result.nextCursor;
   }
-  return collected;
+  return { messages: collected, pendingRunId: findPendingRunId(rawForPendingRunLookup) };
 }
 
 /**
