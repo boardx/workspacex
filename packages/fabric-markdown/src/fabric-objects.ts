@@ -644,6 +644,16 @@ const NO_MARKER_KINDS: ReadonlySet<EdgeKind> = new Set(['open']);
 const EDGE_PAD = 14;
 /** Curvature: quadratic control point offset = CURVE_K × segment length. */
 const CURVE_K = 0.18;
+/**
+ * Bow ceiling — the offset floor (14px, see `_render`) keeps short edges
+ * visibly curved, but `len × k` has no matching ceiling: a long back-edge
+ * (dominant-axis backward, ×1.8 curvature) bows out proportionally to its
+ * length with no cap, so a loop spanning most of a tall/wide flowchart gets
+ * pushed dozens of nodes sideways — reading as broken routing instead of an
+ * intentional loop. Capping keeps the "this is a deliberate loop" cue
+ * without letting the arc sweep past unrelated nodes.
+ */
+const MAX_BOW = 60;
 const ARROW_LEN = 11;
 const ARROW_WIDTH = 8;
 
@@ -869,8 +879,11 @@ export class FlowEdge extends FabricObject {
     const dominant = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
     const k = curved && dominant < -20 ? CURVE_K * 1.8 : CURVE_K;
     // A small floor on the bow keeps even short edges visibly curved, which
-    // helps disambiguate overlapping/near-parallel connectors.
-    const bow = curved ? Math.max(len * k, 14) : 0;
+    // helps disambiguate overlapping/near-parallel connectors. The ceiling
+    // (MAX_BOW) stops a long back-edge from bowing out proportionally to its
+    // own length — without it, a loop spanning most of the flowchart sweeps
+    // far past unrelated nodes instead of reading as an intentional loop.
+    const bow = curved ? Math.min(Math.max(len * k, 14), MAX_BOW) : 0;
     const nx = len > 0 ? -dy / len : 0;
     const ny = len > 0 ? dx / len : 0;
     const cpx = curved ? (ax + bx) / 2 + nx * bow : (ax + bx) / 2;
