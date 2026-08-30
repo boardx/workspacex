@@ -25,6 +25,15 @@ vi.mock("@/components/session/session-provider", () => ({
   }),
 }));
 
+/**
+ * 2026-08-30：「编辑源码」链接带 `?from=<当前 URL>`（见 `skill-catalog-live.tsx`
+ * 的 `editSourceHref`），需要 `usePathname`/`useSearchParams` 有确定返回值。
+ */
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/skill",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { SkillCatalogLive } from "@/components/skill/skill-catalog-live";
 
 function jsonResponse(body: unknown, status = 200): Response {

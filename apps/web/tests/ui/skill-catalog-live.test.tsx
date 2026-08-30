@@ -31,6 +31,16 @@ vi.mock("@/components/session/session-provider", () => ({
   }),
 }));
 
+/**
+ * 人类实测反馈（2026-08-30）：「编辑源码」现在带 `?from=<这个屏当前的 URL>`——
+ * 见 `skill-catalog-live.tsx` 里 `editSourceHref` 的头注（「返回」不能写死回
+ * `/skill?screen=catalog`，必须回到真的点进来的那个屏）。
+ */
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/skill",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { SkillCatalogLive } from "@/components/skill/skill-catalog-live";
 
 const ORG = "org-520";
@@ -365,7 +375,8 @@ describe("#520 Skill 库屏接真实 API", () => {
 
       const editLink = screen.getByTestId("skill-catalog-edit-source") as HTMLAnchorElement;
       // 人类反馈（2026-08-17）：「编辑」现在打开独立页面，不再是同页 query 参数深链。
-      expect(editLink.getAttribute("href")).toBe("/admin/skill/sk-wave2");
+      // 2026-08-30：href 带 `?from=/skill`——「返回」要回到这个屏，不是硬编码的目的地。
+      expect(editLink.getAttribute("href")).toBe("/admin/skill/sk-wave2?from=%2Fskill");
 
       // 普通行（未命中标记）仍然是原来的「查看契约」按钮，两者只能各出现一次。
       expect(screen.getAllByTestId("skill-catalog-detail")).toHaveLength(1);

@@ -170,6 +170,41 @@ export async function ensurePlatformSkillsSeeded(): Promise<PlatformSkillsBackfi
           [spec.skillId, PLATFORM_ORG_ID, spec.displayName],
         );
 
+        /**
+         * 反证：如果 `spec.skillId` 这个 id 在 UPDATE 之前就已经被**别的**
+         * `capability_listings` 行占用（`NOT EXISTS` 判 false ⇒ 上面那条
+         * `UPDATE` 是空操作，旧 `cap-${spec.skillId}` 行原样留着），上面的
+         * `INSERT ... ON CONFLICT (id) DO NOTHING` 也会静默成功——`created`/
+         * `alreadyExisted` 两个报告字段都看不出任何异常，而 `cap-${spec.skillId}`
+         * 那条损坏的旧行永远留在目录里，`/admin/skill` 编辑页对它仍然 404。
+         * 这正是"种子逻辑报告成功，但目录状态其实是坏的"这类问题最难查的形态——
+         * 明确读回这一行、核对它确实是**这个官方 skill 自己的**记录
+         * （`org_id`/`kind`/`name` 三者都对得上），对不上就显式抛错、不静默吞掉。
+         * `ensurePlatformSkillCatalogSeeded()` 的外层 `catch` 已经把这类失败收敛成
+         * `{ ok: false, error }`（见该函数头注：不让一次性失败拖垮整个 API 进程），
+         * 这里只需要保证"失败"这件事本身不会在没人抛错的情况下悄悄变成"成功"。
+         */
+        const target = await s.query<{ org_id: string; kind: string; name: string }>(
+          `SELECT org_id, kind, name FROM capability_listings WHERE id = $1`,
+          [spec.skillId],
+        );
+        const targetRow = target.rows[0];
+        if (
+          targetRow === undefined
+          || targetRow.org_id !== PLATFORM_ORG_ID
+          || targetRow.kind !== "skill"
+          || targetRow.name !== spec.displayName
+        ) {
+          throw new Error(
+            `ensurePlatformSkillsSeeded: capability_listings.id=${spec.skillId} 未能安全落地——` +
+            (targetRow === undefined
+              ? "UPDATE/INSERT 之后这一行仍不存在"
+              : `已被另一行占用（org_id=${targetRow.org_id}, kind=${targetRow.kind}, name=${targetRow.name}），` +
+                `疑似历史遗留的 cap-${spec.skillId} 行未能改名、且这个新 id 又被别的记录抢先占用`) +
+            "。需要人工核对这条冲突记录，本函数不会静默留下损坏的目录状态。",
+          );
+        }
+
         const skillInsert = await s.query(
           `INSERT INTO skills (id, org_id, stable_name, name, status, creator_id, created_at, updated_at)
            VALUES ($1,$2,$3,$4,'enabled',$5,$6,$6)

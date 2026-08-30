@@ -18,20 +18,24 @@ import { AdminNav } from "@/components/admin/admin-nav";
 import { CapabilityEditPage } from "@/components/admin/capability-edit-page";
 import { AgentCapabilityGraph } from "@/components/admin/agent-capability-graph";
 import { resolvePreviewRole } from "@/lib/identity";
+import { safeRelativePath } from "@/lib/safe-relative-path";
 
 export default function AgentEditRoutePage({
   params, searchParams,
 }: {
   params: { id: string };
-  searchParams: { as?: string };
+  searchParams: { as?: string; from?: string };
 }) {
   const previewRole = resolvePreviewRole(searchParams.as);
+  // 同 `admin/skill/[id]/page.tsx` 的 `?from=` 纪律——见那边的头注。
+  const backHref = safeRelativePath(searchParams.from) ?? undefined;
   return (
     <AppShell previewRole={previewRole} left={<AdminNav active="agent" />}>
       <CapabilityEditPage
         kind="agent"
         id={params.id}
         renderEditExtra={(row) => <AgentCapabilityGraph orgId={row.orgId} agentId={row.id} />}
+        backHref={backHref}
       />
     </AppShell>
   );

@@ -26,6 +26,18 @@ vi.mock("@/components/session/session-provider", () => ({
   }),
 }));
 
+/**
+ * 人类实测反馈（2026-08-30）：「编辑」链接现在带 `?from=<这个屏当前的 URL>`——
+ * 见 `capability-catalog-screen.tsx` 的 `editHrefFor` 与 `capability-edit-page.tsx`
+ * 里 `CATALOG_HREF`/`backHref` 的头注（「返回」不能写死回按 kind 猜的目的地）。
+ * `nav.pathname` 按各自测试实际渲染的路由设置，让 `?from=` 断言反映真实语义。
+ */
+const nav = vi.hoisted(() => ({ pathname: "/admin/skill" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => nav.pathname,
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 import { SkillScreen } from "@/components/admin/skill-screen";
 import { AgentScreen } from "@/components/admin/agent-screen";
 
@@ -52,15 +64,17 @@ describe("「编辑」按钮是指向独立页面的链接，不是内联展开"
   });
 
   it("skill 目录：编辑按钮 href 指向 /admin/skill/<id>", async () => {
+    nav.pathname = "/admin/skill";
     vi.stubGlobal("fetch", vi.fn(async () => oneListing("skill")));
     render(<SkillScreen state="default" />);
     await waitFor(() => expect(screen.getByTestId("admin-skill-list")).toBeTruthy());
     const link = await screen.findByTestId("admin-skill-row-skill-1-edit");
-    expect(link.getAttribute("href")).toBe("/admin/skill/skill-1");
+    expect(link.getAttribute("href")).toBe("/admin/skill/skill-1?from=%2Fadmin%2Fskill");
     vi.unstubAllGlobals();
   });
 
   it("agent 目录：编辑按钮 href 指向 /admin/agent/<id>", async () => {
+    nav.pathname = "/admin/agent";
     // ⚠ #1915 起 `AgentScreen` 还并行挂了 `AgentDefinitionListPanel`（独立的
     // `GET /agents`）——按路径分流，避免它吃到 capability-listing 形状的夹具。
     vi.stubGlobal(
@@ -74,11 +88,12 @@ describe("「编辑」按钮是指向独立页面的链接，不是内联展开"
     render(<AgentScreen state="default" />);
     await waitFor(() => expect(screen.getByTestId("admin-agent-list")).toBeTruthy());
     const link = await screen.findByTestId("admin-agent-row-agent-1-edit");
-    expect(link.getAttribute("href")).toBe("/admin/agent/agent-1");
+    expect(link.getAttribute("href")).toBe("/admin/agent/agent-1?from=%2Fadmin%2Fagent");
     vi.unstubAllGlobals();
   });
 
   it("点击编辑不会在列表页里内联展开表单——CapabilityEditForm 的字段不出现在这一页", async () => {
+    nav.pathname = "/admin/skill";
     vi.stubGlobal("fetch", vi.fn(async () => oneListing("skill")));
     render(<SkillScreen state="default" />);
     await waitFor(() => expect(screen.getByTestId("admin-skill-list")).toBeTruthy());
