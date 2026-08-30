@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest";
 const COVERED_ROUTES = [
   "app/page.tsx",
   "app/projects/page.tsx",
-  "app/chat/page.tsx",
+  // issue #2067: AppShell/身份相关的组合现在住在 `(v2)/layout.tsx`，`(v2)/page.tsx`
+  // 本身只渲染 `CopilotKitV2Shell`，不再直接持有 AppShell/identity。
+  "app/chat/(v2)/layout.tsx",
   "app/chat/landing/page.tsx",
   "app/chat/preset/page.tsx",
   "app/skill/page.tsx",
@@ -49,8 +51,14 @@ describe("authenticated routes", () => {
     expect(source).toContain("useSession");
   });
 
-  it("formal chat delegates to the read-only live screen without a demo project or mock fallback", () => {
-    const page = readFileSync(resolve(process.cwd(), "app/chat/page.tsx"), "utf8");
+  // issue #2067: the formal `/chat` bare route (no query params) now natively renders
+  // the CopilotKit v2 experience (#2044) — `ChatReadScreen`'s "read-only live screen"
+  // is reached today via `/chat/legacy` and the `?projectId=`/`?thread=` deep links
+  // (rewritten to `/chat/legacy` before this route ever sees them, see
+  // `next.config.mjs`'s `rewrites().beforeFiles` header comment). That route is the
+  // faithful surviving target for this assertion, not `/chat` itself anymore.
+  it("legacy chat fallback delegates to the read-only live screen without a demo project or mock fallback", () => {
+    const page = readFileSync(resolve(process.cwd(), "app/chat/legacy/page.tsx"), "utf8");
     const projectContext = readFileSync(resolve(process.cwd(), "lib/project-context.ts"), "utf8");
     expect(page).toContain("ChatReadScreen");
     expect(page).not.toContain("ChatMain");

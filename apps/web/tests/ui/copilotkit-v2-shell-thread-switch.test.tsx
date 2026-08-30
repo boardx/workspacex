@@ -16,6 +16,13 @@ import { render, screen } from "@testing-library/react";
  * 用户点了确实还是会有反应」——是否真的按预期工作。`push` 这里刻意 mock 成
  * `vi.fn()`（不触碰 `location`），逼真地模拟"发出了但没生效"这种此前无法被任何
  * 断言捕捉的失败模式。
+ *
+ * ⚠ issue #2402 —— 兜底动作本身从"整页硬导航 `window.location.assign`"改成
+ * "重试一次软导航 `router.push`"：#2259 当时的兜底会把 `app/chat/(v2)/layout.tsx`
+ * 挂的整棵树（含左栏会话列表）一起卸载重装，人类实测确认这正是"点会话就整栏
+ * 刷新"的根因（`selectedThreadIdRef`/`location.pathname` 判据再准，只要软导航真的
+ * 慢过 4 秒，兜底依然会触发）。改成重试软导航后，`assign` 断言全部替换成"`push`
+ * 被再次调用"——兜底不再触碰 `window.location`，左栏因此不会重新挂载。
  */
 const { push, listPersonalThreads, getThread, listThreadArtifacts, listThreadAttachments, listCapabilities, sessionState } = vi.hoisted(() => ({
   push: vi.fn(),
@@ -102,7 +109,7 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
     expect(assignSpy).not.toHaveBeenCalled();
   });
 
-  it("router.push 发出后 location 迟迟不变（真栈实测过的失败模式）⇒ 兜底窗口到点后退化为硬导航", async () => {
+  it("router.push 发出后 location 迟迟不变（真栈实测过的失败模式）⇒ 兜底窗口到点后重试软导航，不触碰 location", async () => {
     render(<CopilotKitV2Shell initialThreadId={null} />);
     await screen.findByTestId(`chat-thread-${THREAD_B.id}`);
 
@@ -116,13 +123,18 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
     const { fireEvent } = await import("@testing-library/react");
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
 
+    expect(push).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith(`/chat/${THREAD_B.id}`);
     // `push` 是一个什么都不做的桩——软导航"发出了但没生效"，`location.pathname`
     // 原地不动，正是 rev-e2e 网络面板抓到的那种失败模式。
     expect(assignSpy).not.toHaveBeenCalled();
 
     await vi.advanceTimersByTimeAsync(4_100);
-    expect(assignSpy).toHaveBeenCalledWith(`/chat/${THREAD_B.id}`);
+    // 兜底重试软导航（再一次 `push`），而不是 `window.location.assign` 整页硬刷新——
+    // 硬导航会把左栏会话列表一起打掉重挂载，这正是 issue #2402 要堵住的洞。
+    expect(push).toHaveBeenCalledTimes(2);
+    expect(push).toHaveBeenLastCalledWith(`/chat/${THREAD_B.id}`);
+    expect(assignSpy).not.toHaveBeenCalled();
   });
 
   it("兜底窗口到点前用户又点了另一条线程 ⇒ 不会被上一次点击的检查错误地打断", async () => {
@@ -142,13 +154,16 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
     await vi.advanceTimersByTimeAsync(1_000);
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
 
-    // 第一次点击（A）的 4s 窗口到点：不该因为 A 还没导航成功就强制硬导航去 A——
+    expect(push).toHaveBeenCalledTimes(2); // A 一次 + B 一次
+    // 第一次点击（A）的 4s 窗口到点：不该因为 A 还没导航成功就强制重试导航去 A——
     // 用户此刻真正想去的是 B，B 自己的窗口还没到点。
     await vi.advanceTimersByTimeAsync(3_100);
-    expect(assignSpy).not.toHaveBeenCalledWith(`/chat/${THREAD_A.id}`);
+    expect(push).toHaveBeenCalledTimes(2); // A 那次已过期的兜底不该再补一次调用
 
-    // B 自己的窗口到点，才轮到 B 的兜底生效。
+    // B 自己的窗口到点，才轮到 B 的兜底生效——重试一次软导航去 B。
     await vi.advanceTimersByTimeAsync(1_000);
-    expect(assignSpy).toHaveBeenCalledWith(`/chat/${THREAD_B.id}`);
+    expect(push).toHaveBeenCalledTimes(3);
+    expect(push).toHaveBeenLastCalledWith(`/chat/${THREAD_B.id}`);
+    expect(assignSpy).not.toHaveBeenCalled();
   });
 });

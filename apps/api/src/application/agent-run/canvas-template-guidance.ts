@@ -54,8 +54,22 @@ export interface CanvasTemplateGuidanceInfo {
    *   姓名/年龄/职位…），其余（便利贴列表 / 长文本）是正文。2026-08-26 之前库里
    *   没有这个事实，所以表头只能去 `@repo/fabric-markdown` 单独取；现在它在库里，
    *   见下方 `listPublished` 的注释。
+   *
+   * ⚠ `layout.max`——分区自己配置的**条数上限**（template-admin 里显示的
+   *   「N 列 · M 条」的那个 M）。之前这里的类型只声明了 `name`/`type`，
+   *   `listPublished` 却透传了完整的 `SectionDef`（`layout` 一直在运行时数据里，
+   *   只是类型把它挡在外面看不见）——于是 `buildCanvasTemplateGuidance` 只能给出
+   *   一句放之四海皆准的「3~6 条」，模型不知道这个模板具体配的上限是多少，写
+   *   4 条也完全在那句模糊指引的允许范围内，跟后台配置的容量对不上（真实 bug，
+   *   2026-08-30 人类实测复现：template-admin 配的「3 列 · 6 条」，chat 生成的
+   *   画像每个分区只有 4 条）。现在把 `layout` 也声明出来，指引按分区各自的
+   *   `max` 说清楚要求，不再统一套用一句通用文案。
    */
-  readonly sections: readonly { readonly name: string; readonly type?: string }[];
+  readonly sections: readonly {
+    readonly name: string;
+    readonly type?: string;
+    readonly layout?: { readonly max?: number } | null;
+  }[];
   /**
    * 表头字段名（如 persona 的「姓名/性别/年龄…」）。
    *
@@ -102,8 +116,9 @@ export function createCanvasTemplateGuidancePort(deps: ListTemplatesDeps): Canva
   return {
     listPublished: async (orgId, userId) => {
       const { templates } = await listTemplates(deps, { userId, orgId, filter: "published" });
-      // ⚠ 原样透传 `sections`（含 `type`）。表头/正文的切分交给 `buildCanvasTemplateGuidance`
-      //   一处做——在这里先切一遍、拼接处再切一遍，就是同一条规则的第二份副本。
+      // ⚠ 原样透传 `sections`（含 `type`/`layout`）。表头/正文的切分、`layout.max` 怎么
+      //   写进指引文案，全部交给 `buildCanvasTemplateGuidance` 一处做——在这里先切一遍、
+      //   拼接处再切一遍，就是同一条规则的第二份副本。
       return templates.map((t) => ({
         key: t.key,
         displayName: t.displayName,
@@ -154,7 +169,14 @@ export function buildCanvasTemplateGuidance(
       // 表头 vs 正文的**唯一**切分处。判据是分区自己的 `type`（库里的事实），
       // 不是另一份清单——见 `CanvasTemplateGuidanceInfo.fields` 的注释。
       const header = t.sections.filter((s) => s.type === "短文本").map((s) => s.name);
-      const body = t.sections.filter((s) => s.type !== "短文本").map((s) => s.name);
+      const bodySections = t.sections.filter((s) => s.type !== "短文本");
+      // 每个正文分区后面标出它配置的条数上限（`layout.max`，template-admin 里
+      // 「N 列 · M 条」的 M）——没配置（老模板、没走过布局回填）的分区不标注，
+      // 沿用下面那句通用的「3~6 条」区间，行为与本次改动前一致。
+      const body = bodySections.map((s) => {
+        const max = s.layout?.max;
+        return max != null && max > 0 ? `${s.name}(最多${max}条)` : s.name;
+      });
       // 兼容 2026-08-26 回填之前建的模板：它们的分区没有 `type`，全部落进 `body`，
       // 于是 `fields` 仍可由调用方显式给（老路径），拼接行为与改动前逐字一致。
       const fields = header.length > 0 ? header : (t.fields ?? []);
@@ -172,6 +194,9 @@ export function buildCanvasTemplateGuidance(
     "每个分区尽量给 3~6 条要点，别不管三七二十一每个分区只给 1 条——" +
       "画布是给团队协作用的，条目太少留白太多不像样；确实没那么多可写的内容时给少一点也可以，" +
       "但不要在内容明明够写的情况下偷懒只给一条。",
+    "⚠ 分区名后面括号里的「最多 N 条」是这个模板在后台配置的条数上限——那不是随便写的建议，"
+      + "是这块画布实际能放下的容量，按 N 尽量写满，不要明显少于 N（比如上限是 6 条，只写 3~4 条"
+      + "就是没写够）；没有标注「最多 N 条」的分区仍按上面那句「3~6 条」的通用区间来写。",
     "如果该模板列了「表头字段」，在 `模板: <key>` 之后、第一个 `## 分区` 之前，逐行写"
       + "「字段名: 字段值」（字段名必须与列出的表头字段逐字一致）——这些是模板顶部的表头信息"
       + "（如用户画像的姓名/年龄/职位），不写就会渲染成空白表头，所以内容里但凡出现能对应上的"

@@ -25,7 +25,11 @@ import { describe, expect, it } from "vitest";
 import { walkImports } from "../support/import-graph";
 
 const ROOT = process.cwd();
-const CHAT_ROUTE = "app/chat/page.tsx";
+/**
+ * issue #2067 —— 正式 v2 入口从 `app/chat/page.tsx` 挪进路由组 `app/chat/(v2)/page.tsx`
+ * （AppShell/CopilotKit provider 由同组 `layout.tsx` 提供，见该文件头注）。
+ */
+const CHAT_ROUTE = "app/chat/(v2)/page.tsx";
 
 /** `app/**` 下全部路由入口（page / layout / route），走图的起点集合。 */
 function routeEntries(dir = "app"): string[] {
@@ -70,13 +74,17 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
 
   /* ── 主张 ─────────────────────────────────────────────────────────────── */
 
-  it("从路由 app/chat/page.tsx 起走，整棵闭包里没有一条指向 lib/mock 的边", () => {
+  it("从路由 app/chat/(v2)/page.tsx 起走，整棵闭包里没有一条指向 lib/mock 的边", () => {
     const { visited, mockEdges } = walkImports(CHAT_ROUTE);
     expect(mockEdges).toEqual([]);
     // 反空转：这棵树必须真的走到取数与发消息两端，否则「没有 mock」是因为什么都没走。
-    expect(visited).toContain("components/chat/chat-read-screen.tsx");
-    expect(visited).toContain("components/chat/chat-live-message-panel.tsx");
-    expect(visited).toContain("lib/live-chat.ts");
+    // issue #2067 起，`(v2)/page.tsx` 只渲染 `CopilotKitV2Shell`（旧屏 `ChatReadScreen`/
+    // `chat-live-message-panel.tsx`/`lib/live-chat.ts` 那条闭包已经不在这条路由里，
+    // 改由 `next.config.mjs` 的 `rewrites().beforeFiles` 引到 `/chat/legacy`）——
+    // 这里断言 v2 自己真实的取数/发消息端。
+    expect(visited).toContain("components/chat/copilotkit-v2-shell.tsx");
+    expect(visited).toContain("components/chat/copilotkit-v2-panel.tsx");
+    expect(visited).toContain("lib/live-capabilities.ts");
     expect(visited).toContain("lib/api-client.ts");
   });
 
@@ -170,18 +178,26 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
    * 2026-08-25（#2044「路由要改为 chat，不要 chat/copilotkit-v2，潜入到整体框架」）
    * 新增 `/chat/[threadId]`：CopilotKit v2 线程深链的新地址（旧地址
    * `/chat/copilotkit-v2/[threadId]` 由 next.config redirects 薄跳转过来，路由文件
-   * 保留）。闭包 = `copilotkit-v2-experience.tsx`（provider 组合 + AppShell 包裹）+
-   * `copilotkit-v2-shell` 既有闭包，不碰 `lib/mock/**`，贡献 0 条 mock 边。
+   * 保留）。
    *
    * 2026-08-25（#2026 默认入口翻转）新增 `/chat/legacy`：旧屏（ChatReadScreen/
    * PersonalChatScreen）的显式回退入口——渲染的组件树与正式 `/chat` 深链分支
    * 逐字相同，只是入口路径不同，因此与 `/chat` 一样贡献 0 条 mock 边。
+   *
+   * issue #2067 起，裸 `/chat` 与 `/chat/[threadId]` 收进路由组 `app/chat/(v2)/`
+   * （`page.tsx`/`[threadId]/page.tsx`/`layout.tsx` 三个文件，AppShell/CopilotKit
+   * provider 挪进 `layout.tsx` 只挂一次，解决切换线程时 AppShell 整体重挂载的问题，
+   * 见该 layout 文件头注）。带 `?projectId=`/`?thread=` 的深链改由
+   * `next.config.mjs` 的 `rewrites().beforeFiles` 在到达这层路由前就整体改写到
+   * `/chat/legacy`——同样不碰 `lib/mock/**`，贡献 0 条 mock 边。
    */
   it("如实钉住：chat 各路由的闭包里残留的 mock 边正好是这几条", () => {
     const chatRoutes = routeEntries().filter((f) => f.startsWith("app/chat/"));
     // 反空转：所有路由都必须在场，少一条会让下面的边集合悄悄变小。
     expect(chatRoutes.sort()).toEqual([
-      "app/chat/[threadId]/page.tsx",
+      "app/chat/(v2)/[threadId]/page.tsx",
+      "app/chat/(v2)/layout.tsx",
+      "app/chat/(v2)/page.tsx",
       "app/chat/copilotkit-preview/page.tsx",
       "app/chat/copilotkit-v2/[threadId]/page.tsx",
       "app/chat/copilotkit-v2/layout.tsx",
@@ -189,7 +205,6 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
       "app/chat/landing/page.tsx",
       "app/chat/legacy/page.tsx",
       "app/chat/live/page.tsx",
-      "app/chat/page.tsx",
       "app/chat/preset/page.tsx",
     ]);
 

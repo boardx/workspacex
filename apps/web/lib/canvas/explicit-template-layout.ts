@@ -44,8 +44,14 @@ import { A0_FRAME, GRID_TOP, GUTTER } from "./auto-template-layout";
  * 之前只在 `template-editor-model.ts` 声明一份，给 HTML/CSS 预览网格用；现在
  * `buildExplicitTemplateSpec` 也要按 `tone` 给 fabric 贴纸取色，lib 层不能反过来
  * import 组件层，所以定义挪到这里，`template-editor-model.ts` 改成重新导出）。
+ *
+ * 2026-08-30 人类反馈「贴纸颜色模拟 3M 的颜色」：原先四色偏浅灰、不像实物便利贴
+ * （尤其粉/蓝两档接近同一种灰调，现场很难一眼分清）。改成对应 3M Post-it 经典
+ * 色系里最常见的四色——Canary 黄、Poptimistic 粉、Rio 绿、Aqua 蓝——饱和度更接近
+ * 真实贴纸，同时仍留在能让深色字保持可读的亮度区间（沿用同一批产品线里偏亮的档位，
+ * 不用霓虹饱和色，避免文字读不清）。
  */
-export const TONE_COLORS = ["#F7E96E", "#F2C6C2", "#CFE3D2", "#CBD8EE"] as const;
+export const TONE_COLORS = ["#FFE066", "#FF8FAB", "#8CE196", "#6EC6FF"] as const;
 
 /** 契约 `canvas.SectionLayout` 的结构投影（本文件只读它，不重新定义契约）。 */
 export interface ExplicitSectionLayout {
@@ -64,6 +70,19 @@ export interface ExplicitLayoutSectionInput {
   readonly sectionId: string;
   readonly name: string;
   readonly layout: ExplicitSectionLayout;
+  /**
+   * 契约 `canvas.SectionFieldType`（本文件不 import 组件层的
+   * `template-editor-model.ts`，就地镜像同一个字面量联合，理由同该文件顶部
+   * `TONE_COLORS` 挪家的注释——lib 层不能反过来依赖组件层）。
+   *
+   * 2026-08-30 人类反馈「用户画像 chat 模拟测不出表头字段」根因：本函数此前对
+   * 每个分区一律当「便利贴列表」处理，`type === "短文本"` 的表头字段（姓名/性别/
+   * 年龄……）被塞进了跟其它分区一样的贴纸 box，模型按 guidance
+   * （`canvas-template-guidance.ts`）写出的 `字段名: 字段值` 行没有落点——引擎
+   * （`template-engine.ts`）把这些值放进 `fields` map，但 spec 没有
+   * `fields`/`headerRect`，值被静默丢弃。见 `buildExplicitTemplateSpec` 下方注释。
+   */
+  readonly type?: "便利贴列表" | "短文本" | "长文本";
 }
 
 export interface ExplicitLayoutCell {
@@ -176,10 +195,24 @@ export function allSectionsPlaced(sections: readonly { readonly layout?: unknown
  *   `TemplateSection.sticky`/`stickyColor` 传给 fabric-markdown（vendor 侧配套
  *   扩展，见其 `VENDOR.md` 2026-08-30 回流记录）——位置/尺寸从来就在 `x/y/w/h`
  *   里，唯独这两项此前连 vendor 的类型都接不住。
+ *
+ * ⚠ 2026-08-30 追加：`type === "短文本"` 的分区（表头字段，如用户画像的姓名/性别/
+ *   年龄）**不**当贴纸 box 处理——合并成引擎原生支持的单个 `headerRect` + `fields`
+ *   （`packages/fabric-markdown` 的 `TemplateSpec.fields`/`headerRect`，见
+ *   `template-engine.ts` 285-336 行的渲染分支，早已支持，只是这条链路此前从没喂给它）。
+ *   使用者在②画布里把表头字段拖成一排（`autoFillLayout` 的做法，或手工拖成同一行），
+ *   本函数按 `(row, col)` 排序后取这些格子的**外接矩形**当 `headerRect`，
+ *   `fieldsPerRow` 取表头第一行的字段个数——与编辑器「表头字段铺一条顶带」的
+ *   版式假设一致。没有任何 `短文本` 分区时（绝大多数组织自建模板）`fields`/
+ *   `headerRect` 都不设，字节级兼容改动前的输出。
  */
 export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): ExplicitTemplateResult {
   const layout = computeExplicitLayout(input.sections, input.gridCols);
-  const sections: TemplateSection[] = layout.cells.map((c) => ({
+  const typeById = new Map(input.sections.map((s) => [s.sectionId, s.type] as const));
+  const headerCells = layout.cells.filter((c) => typeById.get(c.sectionId) === "短文本");
+  const bodyCells = layout.cells.filter((c) => typeById.get(c.sectionId) !== "短文本");
+
+  const sections: TemplateSection[] = bodyCells.map((c) => ({
     name: c.name,
     x: c.x,
     y: c.y,
@@ -189,10 +222,31 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
     sticky: { perRow: c.layout.cols },
     stickyColor: TONE_COLORS[c.layout.tone] ?? TONE_COLORS[0],
   }));
+
+  let headerFields:
+    | { fields: string[]; headerRect: { x: number; y: number; w: number; h: number }; fieldsPerRow: number }
+    | undefined;
+  if (headerCells.length > 0) {
+    const ordered = [...headerCells].sort(
+      (a, b) => a.layout.row - b.layout.row || a.layout.col - b.layout.col,
+    );
+    const minRow = Math.min(...ordered.map((c) => c.layout.row));
+    const left = Math.min(...headerCells.map((c) => c.x - c.w / 2));
+    const top = Math.min(...headerCells.map((c) => c.y - c.h / 2));
+    const right = Math.max(...headerCells.map((c) => c.x + c.w / 2));
+    const bottom = Math.max(...headerCells.map((c) => c.y + c.h / 2));
+    headerFields = {
+      fields: ordered.map((c) => c.name),
+      headerRect: { x: (left + right) / 2, y: (top + bottom) / 2, w: right - left, h: bottom - top },
+      fieldsPerRow: ordered.filter((c) => c.layout.row === minRow).length,
+    };
+  }
+
   return {
     spec: {
       key: input.key,
       title: input.displayName,
+      ...(headerFields ?? {}),
       sections,
       titleBars: true,
       decorations: [],
@@ -246,16 +300,23 @@ export const GRID_GAP_MM = 6;
 /** 标题占位高度，容量公式的 22mm 来源见 `Design.pdf` §5「容量」行。 */
 export const TITLE_RESERVE_MM = 22;
 /**
- * 贴纸边长上限，issue #2368：`noteMm` 此前只会随列数变小单调变大、没有上限，
- * 列数选到 1 时贴纸能吃满整个区块宽度（比如 268mm），一旦超过区块可用高度就让
- * `rows` 直接归零、整块区域画不出任何内容——`rows` 有 `Math.max(0, …)` 下限保护，
- * `noteMm` 却没有对应的上限保护，这个不对称就是空白区块的根因。
+ * 贴纸实尺——固定值，不随区块宽度或列数变化。
  *
- * 封顶取 `classifyNoteSize` 自己定义的 "oversized" 分界线（82mm，`Design.pdf` §5
- * 「尺寸判定」行原文档位）——这条线本来就是该函数用来判"会显空"的界，贴纸边长永远
- * 不越过它，多出来的区块空间留白，不再继续把贴纸撑大到显示失败。
+ * 2026-08-30 人类反馈原话：「便利贴的大小需要模拟 3M 的 sticky note 的固定大小，
+ * 不要有变化，模拟屋里的 sticky note 的体验。一列的时候，大小也是固定的。」——
+ * 现实里的 3M 标准便利贴（76×76mm）是一个物理常量：不会因为你把它们排成一列
+ * 还是五列就跟着变大变小。issue #2368 那一版的修法（`Math.min(封顶, wMm/cols)`）
+ * 仍然是"按列数反推尺寸、只是加了个上限"——列数选到 1 时贴纸依然会被撑到封顶值，
+ * 3 列和 8 列时贴纸大小又各不相同，这正是这次人类要改掉的体验。
+ *
+ * 现在反过来：`noteMm` 恒等于这个常量，`cols`（用户在「列数」里选的档位）只决定
+ * 一行摆几张、不再倒推贴纸边长——与真实便利贴"先有固定尺寸的一叠纸，再决定怎么摆"
+ * 的体验一致，而不是"先决定占多少格，再把纸压成对应大小"。
+ *
+ * 取值用 `classifyNoteSize` 判定表里 "standard" 档的中心值——`Design.pdf` §5
+ * 「尺寸判定」原文把 70–82mm 都算标准 76mm 方形贴纸，76 是这一档的代表值。
  */
-export const MAX_NOTE_MM = 82;
+export const STANDARD_NOTE_MM = 76;
 
 export interface SectionGeometryMmInput {
   readonly w: number;
@@ -270,7 +331,7 @@ export interface SectionGeometryMm {
   /** 区块实尺（mm）。`wMm = w/列数 × 821 - 6`，`hMm = h/8 × 574 - 6`。 */
   readonly wMm: number;
   readonly hMm: number;
-  /** 贴纸实尺（mm），固定 1:1 方形。`noteMm = min(MAX_NOTE_MM, (wMm - 6×(cols-1)) / cols)`。 */
+  /** 贴纸实尺（mm），固定 1:1 方形，恒等于 `STANDARD_NOTE_MM`——不随区块宽度或列数变化。 */
   readonly noteMm: number;
   /** 这块地方竖着放得下几行贴纸。`rows = floor((hMm - 22) / (noteMm + 6))`。 */
   readonly rows: number;
@@ -285,18 +346,22 @@ export interface SectionGeometryMm {
  *   但算法完全独立——这里的除数是 821/574（mm 常量），px 那边除数是 A0_FRAME
  *   算出来的 cellW/cellH（渲染画布的抽象单位）。两条链路对同一个网格坐标各自
  *   给出正确答案，不是同一个数字的两种写法。
+ *
+ * ⚠ `noteMm` 不参与 `wMm`/`cols` 的除法——它是 `STANDARD_NOTE_MM` 常量，理由见
+ *   该常量的文档（2026-08-30：贴纸大小固定，不随排版变化）。`cols` 仍然决定
+ *   一行摆几张、进而决定 `fits`，只是不再倒推贴纸边长本身。
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
   const rowSpanDenominator = 8; // 网格恒 8 行，列数才切 6/12。
   const contentMm = contentMmFor(input.size ?? "A1");
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
   const hMm = (input.h / rowSpanDenominator) * contentMm.h - GRID_GAP_MM;
-  const noteMm = Math.min(MAX_NOTE_MM, (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols);
+  const noteMm = STANDARD_NOTE_MM;
   const rows = Math.max(0, Math.floor((hMm - TITLE_RESERVE_MM) / (noteMm + GRID_GAP_MM)));
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),
-    noteMm: Math.round(noteMm),
+    noteMm,
     rows,
     fits: input.cols * rows,
   };

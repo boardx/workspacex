@@ -136,17 +136,21 @@ const THREAD_BADGE_TEXT: Record<ThreadCard["badges"][number], string> = {
  * 要求换成更符合直觉的形态：鼠标悬停某张卡片时右上角浮出一个「…」按钮，点开是
  * 改名/删除的小菜单；双击卡片标题直接进入行内改名。
  *
- * ## 为什么只在 `selected` 时启用（不是每张卡都能改名/删除）
- * 后端改名/删除走乐观并发（`selectedVersion`，来自线程**详情**接口），而列表卡
- * （`ThreadCard`）本身不带版本号——只有被选中、详情已加载的那一条才有可用的版本号
- * 可以安全提交写请求。给未选中的卡片也画一个"…"菜单，点开改名会因为拿不到版本号
- * 而卡死或误发一个没有并发保护的请求，两者都不诚实。「先选中再操作」不是本次限制，
- * 是继承自既有后端写路径的真实约束——只是**入口**从"下方常驻按钮"换成了"卡片本身
- * 的 hover 菜单/双击"，选中态才有意义没有变。
+ * ## 2026-08-30 人类裁决：不再要求「先选中才能操作」
+ *
+ * 此前 `canMutate` 还要求 `selected`——理由是改名/删除走乐观并发，需要线程**详情**
+ * 接口才有的版本号，而列表卡（`ThreadCard`）本身不带版本号，只有被选中、详情已加载
+ * 的那一条才安全。人类实测反馈这不直观："hover 没有选中的 item，3 点的 menu 还是
+ * 没有出来"——用户不会先猜"要改名得先点一下选中"这条隐藏规则。
+ *
+ * 裁决改成：任何一张卡 hover 都能看到「…」入口，点开菜单/提交改名删除时才**按需**
+ * 去取那条线程的最新版本号（各调用方的 `onRename`/`onDelete` 现在各自负责，见
+ * `personal-chat-screen.tsx`/`copilotkit-v2-shell.tsx`/`chat-read-screen.tsx` 里
+ * 同名回调的头注）——真正需要版本号的时刻从"卡片渲染时"推迟到"提交那一刻"，不再要求
+ * 调用方提前把它塞进某个只属于"选中线程"的 state。
  *
  * `onRename`/`onDelete`/`pending`/`failure` 全部可选：不传即渲染成纯选择按钮
- * （非 `selected` 的卡片走这条路径，`selected` 但调用方不支持写操作——例如未来只读
- * 场景——也一样安全降级）。
+ * （调用方不支持写操作——例如未来只读场景——安全降级成没有菜单入口）。
  *
  * F09：「…」菜单改走 `components/ui/menu.tsx`（Radix DropdownMenu 别名）——此前是
  * `mode === "menu"` + `document.mousedown` 手动监听外点关闭（F09 盘点发现的 5 处重复
@@ -172,7 +176,7 @@ export function ThreadCardButton({
   pinned?: boolean;
   onTogglePin?: () => void;
 }) {
-  const canMutate = selected && onRename !== undefined && onDelete !== undefined;
+  const canMutate = onRename !== undefined && onDelete !== undefined;
   const [mode, setMode] = React.useState<"view" | "menu" | "editing" | "deleting">("view");
   const [titleDraft, setTitleDraft] = React.useState(card.title);
   const [deleteReason, setDeleteReason] = React.useState("");

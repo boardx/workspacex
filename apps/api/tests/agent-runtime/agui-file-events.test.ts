@@ -27,6 +27,7 @@ describe("buildFileCreatedEvents", () => {
       mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       bytes: 20480,
       source: "agent_run_output",
+      messageId: "msg-result-1",
     }]);
   });
 

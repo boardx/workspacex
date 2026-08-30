@@ -1,6 +1,6 @@
 import * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ApiError } from "@/lib/api-client";
 
 /**
@@ -74,6 +74,17 @@ function list(...cards: ReturnType<typeof card>[]) {
 
 function listAs(capabilities: string[], ...cards: ReturnType<typeof card>[]) {
   return { groups: cards.length > 0 ? [{ label: "今天", cards }] : [], capabilities };
+}
+
+/**
+ * 2026-08-30 起，列表里可写的每一张卡都渲染「…」入口（不再要求先选中，见
+ * `thread-list-shell.tsx` 头注）——多卡列表里 `getByTestId("chat-thread-card-menu-
+ * trigger")` 会撞见多个元素，必须按具体 threadId 定位到那一张卡自己的入口。
+ */
+function cardMenuTrigger(threadId: string) {
+  const container = screen.getByTestId(`chat-thread-${threadId}`).closest('[data-testid="chat-thread-selection-actions"]');
+  if (!container) throw new Error(`未找到 ${threadId} 的「…」菜单入口容器`);
+  return within(container as HTMLElement).getByTestId("chat-thread-card-menu-trigger");
 }
 
 function detail(threadId: string, version: number, capabilities: string[]) {
@@ -184,8 +195,10 @@ describe("#460 会话增删改接入正式 /chat", () => {
     renameThread.mockResolvedValue({ threadId: "thread-a", version: 8, auditEventId: "ae-2", impactScope: null });
 
     renderScreen();
-    // 2026-08-14 重做：改名/删除现在挂在选中卡片自己的 hover「…」菜单里。
-    fireEvent.pointerDown(await screen.findByTestId("chat-thread-card-menu-trigger"), { button: 0 });
+    // 2026-08-14 重做：改名/删除现在挂在卡片自己的 hover「…」菜单里；
+    // 2026-08-30 起任意卡片都渲染菜单，按 threadId 定位到 thread-a 自己的入口。
+    await screen.findByTestId("chat-thread-thread-a");
+    fireEvent.pointerDown(cardMenuTrigger("thread-a"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-rename"));
     fireEvent.change(screen.getByTestId("chat-thread-title-input"), { target: { value: "改过的名字" } });
     fireEvent.click(screen.getByTestId("chat-thread-title-submit"));
@@ -207,7 +220,8 @@ describe("#460 会话增删改接入正式 /chat", () => {
 
     // 路由参数仍指向被删掉的 thread-a——不许据此把已删会话重新选回来。
     renderScreen("thread-a");
-    fireEvent.pointerDown(await screen.findByTestId("chat-thread-card-menu-trigger"), { button: 0 });
+    await screen.findByTestId("chat-thread-thread-a");
+    fireEvent.pointerDown(cardMenuTrigger("thread-a"), { button: 0 });
     fireEvent.click(screen.getByTestId("chat-thread-delete"));
     expect(deleteThread).not.toHaveBeenCalled();      // 只点[删除]不算确认
 

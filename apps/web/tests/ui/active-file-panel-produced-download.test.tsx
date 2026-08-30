@@ -18,6 +18,7 @@ const PRODUCED_FILE: ActiveFile = {
   mime: "application/pdf",
   source: "agent_run_output",
   bytes: 204_800,
+  messageId: "msg-fixture-1",
   content: "",
   nextSequence: 0,
 };

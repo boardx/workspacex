@@ -372,20 +372,27 @@ test.describe("核心闭环八步", () => {
     await page.getByTestId("chat-thread-title-input").fill(title);
     await page.getByTestId("chat-thread-title-submit").click();
 
-    // 改名/删除的 hover「…」菜单只在卡片被**选中**时才会渲染（乐观并发的版本号只有
-    // 选中项才加载了，见 `thread-list-shell.tsx` `ThreadCardButton` 头注），
-    // 所以先点中那张卡。卡片 testid 是 `chat-thread-<id>`，id 在用例里拿不到，
+    // 2026-08-30 起「…」菜单对**任意**可写卡片都渲染（不再要求先选中，见
+    // `thread-list-shell.tsx` `ThreadCardButton` 头注）——这个 seeded 项目在闭环
+    // 跑到这一步时列表里不止一条会话（前面 6a 已经建过一条），所以
+    // `getByTestId("chat-thread-card-menu-trigger")` 会撞见多个元素
+    // （strict mode violation），必须先定位到这一步自己建的那张卡的容器
+    // （`data-testid="chat-thread-selection-actions"`，同一张卡片才有的外层 div），
+    // 再在它内部找菜单触发按钮。仍然先点中那张卡，顺带验证「点卡片能选中并打开
+    // 详情」这条本身没坏。卡片 testid 是 `chat-thread-<id>`，id 在用例里拿不到，
     // 因此按标题在 `chat-thread-card-list` 内点 —— 那个容器**只包会话卡**，
     // 不含写入口，正是为这种定位准备的（见该组件注释）。
     const cardList = page.getByTestId("chat-thread-card-list");
+    const cardContainer = (text: string) =>
+      cardList.locator('[data-testid="chat-thread-selection-actions"]').filter({ hasText: text });
     await cardList.getByText(title).click();
     await expect(page.getByTestId("chat-thread-detail")).toBeVisible();
 
     // ⚠ 新标题**刻意不包含原标题**。写成 `${title} 改名后` 的话，
     //   下面「旧名字消失」那条会因子串匹配恒假 —— 一个会自己骗自己的断言。
     const renamed = `闭环改名 ${Date.now()}`;
-    // 2026-08-14 重做：改名/删除挂在选中卡片自己的 hover「…」菜单里，要先点开菜单。
-    await page.getByTestId("chat-thread-card-menu-trigger").click();
+    // 2026-08-14 重做：改名/删除挂在卡片自己的 hover「…」菜单里，要先点开菜单。
+    await cardContainer(title).getByTestId("chat-thread-card-menu-trigger").click();
     await page.getByTestId("chat-thread-rename").click();
     await page.getByTestId("chat-thread-title-input").fill(renamed);
     await page.getByTestId("chat-thread-title-submit").click();
@@ -398,7 +405,7 @@ test.describe("核心闭环八步", () => {
 
     // ── 删除 ──────────────────────────────────────────────────────────
     await cardList.getByText(renamed).click();
-    await page.getByTestId("chat-thread-card-menu-trigger").click();
+    await cardContainer(renamed).getByTestId("chat-thread-card-menu-trigger").click();
     await page.getByTestId("chat-thread-delete").click();
     // 删除是可追溯动作，服务端要写审计 ⇒ 原因必填。
     // 这条守的是「删除不能无理由发生」：摘掉它，一个把 reason 改成可选的回退

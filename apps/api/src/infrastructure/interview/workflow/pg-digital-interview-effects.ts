@@ -50,6 +50,25 @@ interface LockedInterviewRow {
   revision_number: number;
 }
 
+const DIGITAL_INTERVIEW_ACTOR_VISIBILITY = `
+  EXISTS (
+    SELECT 1 FROM org_memberships om
+     WHERE om.org_id=$1 AND om.user_id=$3
+  )
+  AND (
+    s.created_by=$3
+    OR EXISTS (
+      SELECT 1 FROM interview_collaborators ic
+       WHERE ic.org_id=$1 AND ic.interview_id=s.id AND ic.user_id=$3
+    )
+    OR (
+      s.project_id IS NOT NULL AND EXISTS (
+        SELECT 1 FROM project_memberships pm
+         WHERE pm.org_id=$1 AND pm.project_id=s.project_id AND pm.user_id=$3
+      )
+    )
+  )`;
+
 interface GeneratedInterviewExpert {
   readonly displayName: string;
   readonly role: string;
@@ -565,6 +584,108 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     });
   }
 
+  async executeInterviewRuns(input: {
+    readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
+    readonly revisionId: string;
+  }): Promise<void> {
+    if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    const snapshot = await this.db.withTenant(input.orgId, async (session) => {
+      const allowed = await session.query<{ allowed: boolean; topic: string }>(
+        `SELECT EXISTS(SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2) AS allowed,
+                topic FROM interview_sessions WHERE org_id=$1 AND id=$3`,
+        [input.orgId, input.actorId, input.interviewId],
+      );
+      if (!allowed.rows[0]?.allowed) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
+      const experts = await session.query<{
+        expert_id: string; display_name: string; role: string; domains: string[]; ordinal: number;
+      }>(
+        `SELECT s.expert_id,s.display_name,s.role,s.domains,s.ordinal
+           FROM digital_interview_expert_snapshots s
+           JOIN digital_interview_expert_snapshot_versions v
+             ON v.org_id=s.org_id AND v.id=s.version_id
+          WHERE s.org_id=$1 AND v.revision_id=$2 AND v.is_current ORDER BY s.ordinal`,
+        [input.orgId, input.revisionId],
+      );
+      const questions = await session.query<{
+        question_id: string; expert_id: string; body: string; purpose: string; ordinal: number;
+      }>(
+        `SELECT q.question_id,q.expert_id,q.body,q.purpose,q.ordinal
+           FROM digital_interview_questions q
+           JOIN digital_interview_question_versions v ON v.org_id=q.org_id AND v.id=q.version_id
+          WHERE q.org_id=$1 AND v.revision_id=$2 AND v.is_current ORDER BY q.ordinal`,
+        [input.orgId, input.revisionId],
+      );
+      const existing = await session.query<{ expert_id: string }>(
+        `SELECT expert_id FROM digital_interview_expert_runs
+          WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
+        [input.orgId, input.interviewId, input.revisionId],
+      );
+      return { topic: allowed.rows[0].topic, experts: experts.rows, questions: questions.rows,
+        existing: new Set(existing.rows.map((row) => row.expert_id)) };
+    });
+
+    const pendingExperts = snapshot.experts.filter((expert) => !snapshot.existing.has(expert.expert_id));
+    await Promise.all(pendingExperts.map((expert) => this.persistRun(
+      input, expert,
+      snapshot.questions.filter((question) => question.expert_id === expert.expert_id).length,
+      "running", [], null,
+    )));
+
+    // Model calls deliberately outlive the confirmation request. The durable running rows above
+    // make the runs immediately visible, while each completion independently writes its result.
+    void Promise.all(pendingExperts.map(async (expert) => {
+      const questions = snapshot.questions.filter((question) => question.expert_id === expert.expert_id);
+      try {
+        const completion = await this.model.complete({
+          modelProvider: this.modelProvider,
+          modelId: this.modelId,
+          system: `你正在模拟受访专家“${expert.display_name}”。角色：${expert.role}；领域：${expert.domains.join("、")}。请始终以该专家第一人称、结合其专业背景具体作答。只返回 JSON：{"answers":[{"questionId":"...","answer":"..."}]}。`,
+          user: JSON.stringify({ topic: snapshot.topic, questions: questions.map((question) => ({
+            questionId: question.question_id, question: question.body, purpose: question.purpose,
+          })) }),
+          history: [],
+        });
+        const parsed = JSON.parse(completion.text) as { answers?: Array<{ questionId?: string; answer?: string }> };
+        const answers = questions.map((question) => {
+          const answer = parsed.answers?.find((candidate) => candidate.questionId === question.question_id)?.answer?.trim();
+          if (!answer) throw new Error("MODEL_OUTPUT_INVALID");
+          return { questionId: question.question_id, question: question.body, answer };
+        });
+        await this.persistRun(input, expert, questions.length, "completed", answers, null);
+      } catch (error) {
+        const code = error instanceof ModelCallError ? "MODEL_CALL_FAILED" : "MODEL_OUTPUT_INVALID";
+        await this.persistRun(input, expert, questions.length, "failed", [], code);
+      }
+    })).catch(() => undefined);
+  }
+
+  private async persistRun(
+    input: { readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string; readonly revisionId: string },
+    expert: { readonly expert_id: string; readonly display_name: string; readonly ordinal: number },
+    totalQuestions: number,
+    status: "running" | "completed" | "failed",
+    answers: readonly { readonly questionId: string; readonly question: string; readonly answer: string }[],
+    errorCode: string | null,
+  ): Promise<void> {
+    await this.db.withTenant(input.orgId, async (session) => {
+      const membership = await session.query<{ allowed: boolean }>(
+        "SELECT EXISTS(SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2) AS allowed",
+        [input.orgId, input.actorId],
+      );
+      if (!membership.rows[0]?.allowed) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
+      await session.query(
+        `INSERT INTO digital_interview_expert_runs
+           (org_id,interview_id,revision_id,expert_id,display_name,ordinal,status,total_questions,answers,error_code)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ON CONFLICT (org_id,revision_id,expert_id) DO UPDATE SET
+           status=EXCLUDED.status,total_questions=EXCLUDED.total_questions,answers=EXCLUDED.answers,
+           error_code=EXCLUDED.error_code,updated_at=now()`,
+        [input.orgId,input.interviewId,input.revisionId,expert.expert_id,expert.display_name,
+          expert.ordinal,status,totalQuestions,JSON.stringify(answers),errorCode],
+      );
+    });
+  }
+
   async generateQuestions(input: GenerateDigitalInterviewDraftInput): Promise<void> {
     const payload = { expectedVersion: input.expectedVersion };
     const replayed = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
@@ -577,14 +698,11 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     });
     if (replayed) return;
 
-    const context = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
-      const interview = await session.query<{ topic: string | null }>(
-        "SELECT topic FROM interview_sessions WHERE org_id=$1 AND id=$2",
-        [input.orgId, input.interviewId],
-      );
-      const selected = await this.readQuestionExpertProfiles(session, input);
-      return { topic: interview.rows[0]?.topic?.trim() ?? "", selected };
-    });
+    // Authorize and freeze the inputs before any Persona leaves the database boundary. The
+    // tenant session ends before model.complete(), so no transaction remains open during a
+    // potentially slow external call. Persistence performs the same visibility check again.
+    const context = await this.db.withTenant(toOrgId(input.orgId), async (session) =>
+      this.readAuthorizedQuestionContext(session, input));
     if (!context.topic || !context.selected.length) {
       throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
     }
@@ -622,7 +740,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       );
       if (replay) { this.assertMatchingReceipt(replay, payload); return; }
       const current = await this.lockInterview(session, toOrgId(input.orgId), input.interviewId, input.actorId);
-      if (Number(current.version) !== input.expectedVersion || current.revision_id !== input.revisionId) {
+      if (Number(current.version) !== input.expectedVersion || current.revision_id !== input.revisionId
+        || current.revision_number !== input.revisionNumber) {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
       const selected = await this.readQuestionExpertProfiles(session, input);
@@ -711,6 +830,67 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       serviceValue: expert.service_value,
       existingQuestionCount: Number(expert.existing_question_count),
     }));
+  }
+
+  private async readAuthorizedQuestionContext(
+    session: TenantSession,
+    input: GenerateDigitalInterviewDraftInput,
+  ): Promise<{ readonly topic: string; readonly selected: readonly InterviewQuestionExpertProfile[] }> {
+    const snapshot = await session.query<{
+      topic: string | null; version: string; revision_id: string; revision_number: number;
+      expert_id: string; display_name: string; role: string; domains: string[]; category: string;
+      bio: string; location: string; typical_advice: string; age: number; occupation: string;
+      goals: string[]; interests: string[]; pain_points: string[]; motivations: string[];
+      influences: string[];
+      personality_traits: { introvertExtrovert: number; analyticalCreative: number; busyTimeRich: number };
+      service_value: string; existing_question_count: string;
+    }>(
+      `SELECT s.topic,s.version,r.id AS revision_id,r.revision_number,
+              c.expert_id,c.display_name,c.role,c.domains,c.category,c.bio,c.location,c.typical_advice,
+              c.age,c.occupation,c.goals,c.interests,c.pain_points,c.motivations,c.influences,
+              c.personality_traits,c.service_value,
+              (SELECT count(*)::text FROM digital_interview_question_candidates q
+                WHERE q.org_id=c.org_id AND q.revision_id=c.revision_id
+                  AND q.expert_id=c.expert_id) AS existing_question_count
+         FROM interview_sessions s
+         JOIN digital_interview_revisions r
+           ON r.org_id=s.org_id AND r.interview_id=s.id AND r.is_current
+         JOIN digital_interview_expert_candidates c
+           ON c.org_id=s.org_id AND c.revision_id=r.id AND c.expert_id=ANY(s.selected_expert_ids)
+        WHERE s.org_id=$1 AND s.id=$2
+          AND ${DIGITAL_INTERVIEW_ACTOR_VISIBILITY}
+        ORDER BY c.ordinal`,
+      [input.orgId, input.interviewId, input.actorId],
+    );
+    const current = snapshot.rows[0];
+    if (!current) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
+    if (Number(current.version) !== input.expectedVersion || current.revision_id !== input.revisionId
+      || current.revision_number !== input.revisionNumber) {
+      throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+    }
+    return {
+      topic: current.topic?.trim() ?? "",
+      selected: snapshot.rows.map((expert) => ({
+        expertId: expert.expert_id,
+        displayName: expert.display_name,
+        role: expert.role,
+        domains: expert.domains,
+        category: expert.category,
+        bio: expert.bio,
+        location: expert.location,
+        typicalAdvice: expert.typical_advice,
+        age: expert.age,
+        occupation: expert.occupation,
+        goals: expert.goals,
+        interests: expert.interests,
+        painPoints: expert.pain_points,
+        motivations: expert.motivations,
+        influences: expert.influences,
+        personalityTraits: expert.personality_traits,
+        serviceValue: expert.service_value,
+        existingQuestionCount: Number(expert.existing_question_count),
+      })),
+    };
   }
 
   async appendSkillMessage(input: {
@@ -991,23 +1171,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
          JOIN digital_interview_revisions r
            ON r.org_id=s.org_id AND r.interview_id=s.id AND r.is_current
         WHERE s.org_id=$1 AND s.id=$2
-          AND EXISTS (
-            SELECT 1 FROM org_memberships om
-             WHERE om.org_id=$1 AND om.user_id=$3
-          )
-          AND (
-            s.created_by=$3
-            OR EXISTS (
-              SELECT 1 FROM interview_collaborators ic
-               WHERE ic.org_id=$1 AND ic.interview_id=s.id AND ic.user_id=$3
-            )
-            OR (
-              s.project_id IS NOT NULL AND EXISTS (
-                SELECT 1 FROM project_memberships pm
-                 WHERE pm.org_id=$1 AND pm.project_id=s.project_id AND pm.user_id=$3
-              )
-            )
-          )
+          AND ${DIGITAL_INTERVIEW_ACTOR_VISIBILITY}
         FOR UPDATE OF s`,
       [orgId, interviewId, actorId],
     );

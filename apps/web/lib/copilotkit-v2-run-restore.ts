@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { ApiError } from "./api-client";
-import { getAgentRun, isTerminalRunStatus } from "./agent-run";
+import { getAgentRun, isTerminalRunStatus, type AgentRunView } from "./agent-run";
 
 /**
  * session-switch task-state-loss fix —— copilotkit-v2 轨道的 run 状态是纯内存态，
@@ -40,15 +40,32 @@ export interface RunRestoreState {
 export const RUN_RESTORE_PHASE_LABEL = "正在恢复上次未完成的任务…";
 
 /**
+ * 2026-08-30（devapp 真实用户复现修复的另一半）—— 第一版这个 hook 的 `onSettled`
+ * 是零参数回调，只表达"轮询结束了"，不表达"结果是什么"。真实后果：run 真的以
+ * `failed` 收场时，调用方唯一能做的是清空 `pendingRunId`——"生成中"指示消失，界面
+ * 上不留任何痕迹，用户看到的是自己发的消息安静地没有任何回应，连一个错误提示都没
+ * 有，比根本不做恢复更让人困惑。budget 耗尽 / 401 时同理，静默清空。
+ *
+ * 这里改成把"轮询是怎么结束的"如实带出去：`settled`（读到终态，`view.status` 可能
+ * 是 `succeeded` 也可能是 `failed`，调用方据此决定要不要显示错误）或 `gave-up`
+ * （没读到终态就先撑不住了——budget 耗尽或 bearer 过期，如实说"没能确认"，不猜测
+ * 结果是成功还是失败）。
+ */
+export type RunRestoreOutcome =
+  | { readonly kind: "settled"; readonly view: AgentRunView }
+  | { readonly kind: "gave-up"; readonly reason: "budget-exhausted" | "auth-expired" };
+
+/**
  * @param pendingRunId 待核实的 runId；`null` = 没有待恢复的 run，什么都不做。
  * @param sessionToken 与其它 run 相关调用同一个 bearer（`getStoredSessionToken()`）。
- * @param onSettled 轮询到终态时调用一次——调用方据此重读持久化消息、把写回的内容
- *   合并进当前视图。用 `useRef` 持有，不要求调用方 memoize。
+ * @param onSettled 轮询结束（读到终态，或撑不住放弃）时调用一次——调用方据此重读
+ *   持久化消息、把写回的内容合并进当前视图，或如实展示"没能确认"。用 `useRef`
+ *   持有，不要求调用方 memoize。
  */
 export function useCopilotKitV2RunRestore(
   pendingRunId: string | null,
   sessionToken: string | undefined,
-  onSettled: () => void,
+  onSettled: (outcome: RunRestoreOutcome) => void,
 ): RunRestoreState {
   const onSettledRef = React.useRef(onSettled);
   onSettledRef.current = onSettled;
@@ -71,7 +88,7 @@ export function useCopilotKitV2RunRestore(
         if (cancelled) return;
         if (isTerminalRunStatus(view.status)) {
           setIsRestoring(false);
-          onSettledRef.current();
+          onSettledRef.current({ kind: "settled", view });
           return;
         }
       } catch (failure) {
@@ -81,11 +98,13 @@ export function useCopilotKitV2RunRestore(
         // 503）不终止轮询——run 在服务端可能还在跑，预算耗尽才停。
         if (failure instanceof ApiError && failure.status === 401) {
           setIsRestoring(false);
+          onSettledRef.current({ kind: "gave-up", reason: "auth-expired" });
           return;
         }
       }
       if (Date.now() >= deadline) {
         setIsRestoring(false);
+        onSettledRef.current({ kind: "gave-up", reason: "budget-exhausted" });
         return;
       }
       timer = setTimeout(

@@ -9,7 +9,12 @@
  * A tenant is therefore named by something that already knows it: the request that just
  * accepted a message. `tick` claims every queued run for that tenant, so a run stranded by
  * a process restart is picked up by the next message in the same tenant rather than
- * needing its own reaper.
+ * needing its own reaper. 2026-08-30: a `running` run stranded by a process dying MID-EXECUTION
+ * (after the claim moved it out of `queued`, so the next claim can never see it again) is the
+ * one state this paragraph used to leave uncovered -- `tick` now also calls
+ * `reclaimStaleRunning` first, on the same "the next message in the same tenant" trigger, so it
+ * is not a second reaper mechanism, just the same one closing its one remaining gap. See
+ * `AgentRunStore.reclaimStaleRunning`'s own doc (`ports.ts`) for the full account.
  *
  * ## `kick` returns void on purpose
  *
@@ -107,6 +112,15 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 逐字节相同。见 `execute-run.ts` `ExecuteAgentRunDeps.streamingEnabled` 的完整文档。
      */
     private readonly streamingEnabled?: boolean,
+    /**
+     * 2026-08-30 —— `reclaimStaleRunning` 的"卡够久"阈值（见 `ports.ts` 该方法的完整
+     * 取证）。可选，默认 20 分钟：比 `DeepAgentModelProvider` 自己的
+     * `KERNEL_DEEP_AGENT_TIMEOUT_MS`（默认 5 分钟）留足够余量，不会把一个健康进程里
+     * 正常运行、只是恰好较慢的 run 误判成"卡住"——它自己的超时会先触发、被
+     * `executeQueuedRuns` 的 catch 分支标记失败，根本轮不到这里。这个阈值只用来兜底
+     * 进程本身消失、连自己的超时都没机会跑的那种情况。
+     */
+    private readonly staleRunningThresholdMs: number = 20 * 60_000,
   ) {}
 
   /**
@@ -129,6 +143,17 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
    * reaper. One tick spends at most one attempt from §6's bounded budget.
    */
   async tick(orgId: OrgId): Promise<number> {
+    // 2026-08-30 —— 见 `ports.ts` `AgentRunStore.reclaimStaleRunning` 的完整取证：这是
+    // `running` 那一个此前没有任何"下一条消息自动捞回"路径的中间态在补的洞。
+    // 独立 try/catch，绝不让这一步的失败拖垮它之后照旧要跑的 claim/writeback——
+    // 与 `kick()` 自己 catch 掉 claim 失败、"下次 kick 再试"是同一条既有纪律。
+    try {
+      await this.runs.reclaimStaleRunning(orgId, this.staleRunningThresholdMs);
+    } catch (e) {
+      this.log("stale running run reclaim failed", {
+        detail: e instanceof Error ? `${e.name}: ${e.message}` : "unknown", orgId,
+      });
+    }
     const executed = await executeQueuedRuns({
       runs: this.runs, model: this.model, clock: this.clock, log: this.log, usage: this.usage,
       files: this.files, contextSnapshots: this.contextSnapshots, toolTrace: this.toolTrace,

@@ -122,57 +122,50 @@ describe("2026-08-26 回归：表头字段不得同时出现在分区与表头�
 });
 
 /**
- * 2026-08-30 回归：人类实测「chat 模拟」跑用户画像模板，产出的表头（姓名/性别/年龄…）
- * 一片空白。链路追到底：**这一层（`buildCanvasTemplateGuidance`）本身的行为一直是对的**
- * ——`type === "短文本"` 才算表头，这是唯一切分依据，本文件上面几条用例早就钉住了。
- * 真正的根因在上游：`apps/web/components/canvas/template-editor-model.ts` 的 `toDraft`
- * 对 DB 行里缺 `type` 的分区，曾经无脑兜底成 `"便利贴列表"`——存量的 `persona` 行如果是
- * 2026-08-26 sections 字段映射修复之前写入、又没被幂等升级路径追上，喂给这里的
- * `sections` 里,姓名/性别这些表头字段全部顶着 `"便利贴列表"` 进来。
+ * 2026-08-30 回归：**分区配的条数上限没传给模型**。
  *
- * 这条用例把两种上游输入摆在一起对比，直接证明「喂错 type」在这一层会产出什么系统
- * 提示词——即修复前用户会遇到的真实症状（表头字段完全不出现，姓名/性别被错当成
- * 需要模型写要点的正文分区）。`template-editor-model.test.ts`（web 包）钉住的是
- * `toDraft` 现在不会再喂出 `TYPE_MISSING_SECTIONS` 这种数据；这条钉住的是「万一喂出了
- * 这种数据，后果有多具体」，两条测试合起来才是这次修复的完整证据链。
+ * template-admin 里把 persona 的正文分区配成「3 列 · 6 条」（`layout.cols=3` /
+ * `layout.max=6`），但 `CanvasTemplateGuidanceInfo.sections` 之前只声明了
+ * `name`/`type`——`layout` 虽然在 `listPublished` 透传的运行时数据里，类型却把它
+ * 挡在外面看不见，`buildCanvasTemplateGuidance` 因此只能给模型一句放之四海皆准的
+ * 「3~6 条」。模型写 4 条完全落在这句模糊指引的允许范围内，跟后台配置的 6 条上限
+ * 对不上——人类实测复现：devapp 上生成的用户画像每个分区只有 4 条便签，不是 6 条。
+ *
+ * 修法：`sections` 补上 `layout.max`，配了上限的分区在指引文案里标注
+ * 「(最多 N 条)」，让模型按这个精确数字写，而不是套用通用区间。
  */
-describe("2026-08-30 回归：表头字段缺 type 时被误当正文分区，系统提示词完全不提表头", () => {
-  /** 修复前 `toDraft` 会喂出的样子——9 个表头字段全部顶着默认值混进正文分区。 */
-  const TYPE_MISSING_SECTIONS: CanvasTemplateGuidanceInfo = {
-    key: "persona",
-    displayName: "用户画像",
-    sections: [
-      { name: "姓名", type: "便利贴列表" },
-      { name: "性别", type: "便利贴列表" },
-      { name: "年龄", type: "便利贴列表" },
-      { name: "用户描述", type: "便利贴列表" },
-      { name: "目标和需求", type: "便利贴列表" },
-    ],
-  };
-
-  /** 修复后 `toDraft`（见 web 包 `toDraft` 的 `builtinFields` 兜底）会喂出的样子。 */
-  const TYPE_RECOVERED_SECTIONS: CanvasTemplateGuidanceInfo = {
-    key: "persona",
-    displayName: "用户画像",
-    sections: [
-      { name: "姓名", type: "短文本" },
-      { name: "性别", type: "短文本" },
-      { name: "年龄", type: "短文本" },
-      { name: "用户描述", type: "便利贴列表" },
-      { name: "目标和需求", type: "便利贴列表" },
-    ],
-  };
-
-  it("喂错 type（修复前的真实症状）：persona 这一行里完全没有「表头字段〔…〕」标注，姓名/性别/年龄和正文分区混在同一段里，模型分不清哪些要写成 `字段名: 值`", () => {
-    const out = buildCanvasTemplateGuidance([TYPE_MISSING_SECTIONS])!;
+describe("2026-08-30 回归：分区的条数上限（layout.max）要传给模型", () => {
+  it("配了 layout.max 的分区，指引文案标注「(最多 N 条)」", () => {
+    const out = buildCanvasTemplateGuidance([{
+      key: "persona",
+      displayName: "用户画像",
+      sections: [
+        { name: "用户描述", type: "便利贴列表", layout: { max: 6 } },
+        { name: "目标和需求", type: "便利贴列表", layout: { max: 6 } },
+      ],
+    }])!;
     const line = out.split("\n").find((l) => l.startsWith("- persona"))!;
-    expect(line).not.toContain("表头字段");
-    expect(line).toBe("- persona〔姓名/性别/年龄/用户描述/目标和需求〕");
+    expect(line).toContain("用户描述(最多6条)");
+    expect(line).toContain("目标和需求(最多6条)");
+    expect(out).toContain("是这块画布实际能放下的容量，按 N 尽量写满");
   });
 
-  it("喂对 type（修复后）：persona 这一行正确产出「表头字段〔姓名/性别/年龄〕」标注，正文分区里不再混入它们", () => {
-    const out = buildCanvasTemplateGuidance([TYPE_RECOVERED_SECTIONS])!;
-    const line = out.split("\n").find((l) => l.startsWith("- persona"))!;
-    expect(line).toBe("- persona〔用户描述/目标和需求〕，表头字段〔姓名/性别/年龄〕");
+  it("没有 layout（老模板/未回填）的分区，行为与改动前逐字一致——不标注、不炸", () => {
+    const out = buildCanvasTemplateGuidance([{
+      key: "swot", displayName: "SWOT",
+      sections: [{ name: "优势", type: "便利贴列表" }, { name: "劣势", type: "便利贴列表" }],
+    }])!;
+    expect(out).toContain("swot〔优势/劣势〕");
+  });
+
+  it("layout 存在但没有 max（或 max 非正数）的分区，不标注", () => {
+    const out = buildCanvasTemplateGuidance([{
+      key: "swot", displayName: "SWOT",
+      sections: [
+        { name: "优势", type: "便利贴列表", layout: {} },
+        { name: "劣势", type: "便利贴列表", layout: { max: 0 } },
+      ],
+    }])!;
+    expect(out).toContain("swot〔优势/劣势〕");
   });
 });

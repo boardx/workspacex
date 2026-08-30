@@ -32,7 +32,6 @@ import {
   PRIMARY,
   PRIMARY_SOFT,
   STICKY_FILL,
-  STICKY_STROKE,
   paletteSoftAt,
   FONT_FAMILY,
   FONT,
@@ -382,8 +381,12 @@ export class FlowNode extends Group {
         rx: 3,
         ry: 3,
         fill: (data.data?.['color'] as string) ?? STICKY_FILL,
-        stroke: STICKY_STROKE,
-        strokeWidth: 1,
+        // No border — issue #2372 follow-up (人类实测反馈)：`STICKY_STROKE`
+        // was a fixed amber (#f59e0b) tuned to sit against the single
+        // default yellow fill. Now that a section can set its own
+        // `stickyColor` (blue/green/pink/…), that fixed border clashes with
+        // every non-yellow fill instead of framing it. Borderless reads
+        // cleanly against any fill, same as a real sticky note.
         left: 0,
         top: 0,
       });

@@ -223,9 +223,61 @@ describe("buildAutoTemplateSpec —— 生成物", () => {
     expect(spec.sectionColors).toBeUndefined();
   });
 
-  it("不凭空造表头字段（契约 SectionDef 里没有这个概念）", () => {
+  it("没有 `type: \"短文本\"` 分区时不产出表头字段——与改动前逐字一致", () => {
     const { spec } = buildAutoTemplateSpec({ key: "k5", displayName: "无表头", sections: defs(4) });
     expect(spec.fields).toBeUndefined();
     expect(spec.headerRect).toBeUndefined();
+  });
+
+  /**
+   * 2026-08-30 人类反馈根因回归钉子：用户画像在 chat 模拟里测不出表头字段
+   * （姓名/性别/年龄……）。此前 `buildAutoTemplateSpec` 对 `type === "短文本"`
+   * 的分区一无所知（入参类型上就没有 `type` 字段），一律当普通贴纸 box 处理，
+   * 模型按 guidance 写出的 `字段名: 字段值` 行没有 `fields`/`headerRect` 可渲染，
+   * 静默丢失。见函数文件头「2026-08-30 追加」的注释。
+   */
+  describe("表头字段（`type: \"短文本\"`）", () => {
+    it("短文本分区不进入 spec.sections（不当贴纸 box），而是合并成 fields/headerRect", () => {
+      const { spec } = buildAutoTemplateSpec({
+        key: "persona-like",
+        displayName: "用户画像",
+        sections: [
+          { sectionId: "name", name: "姓名", order: 0, required: false, capacity: null, type: "短文本" },
+          { sectionId: "gender", name: "性别", order: 1, required: false, capacity: null, type: "短文本" },
+          { sectionId: "desc", name: "用户描述", order: 2, required: false, capacity: null, type: "便利贴列表" },
+        ],
+      });
+      expect(spec.sections.map((s) => s.name)).toEqual(["用户描述"]);
+      expect(spec.fields).toEqual(["姓名", "性别"]);
+      expect(spec.headerRect).toBeDefined();
+      expect(spec.fieldsPerRow).toBe(2);
+    });
+
+    it("正文分区整体下移，给表头带腾出空间——不与表头带重叠", () => {
+      const { spec } = buildAutoTemplateSpec({
+        key: "persona-like",
+        displayName: "用户画像",
+        sections: [
+          { sectionId: "name", name: "姓名", order: 0, required: false, capacity: null, type: "短文本" },
+          ...defs(4).map((d) => ({ ...d, type: "便利贴列表" as const })),
+        ],
+      });
+      const headerBottom = spec.headerRect!.y + spec.headerRect!.h / 2;
+      for (const s of spec.sections) {
+        expect(s.y - s.h / 2).toBeGreaterThanOrEqual(headerBottom);
+      }
+    });
+
+    it("全部分区都是短文本（没有正文分区）时安全退化——不产出表头，也不炸", () => {
+      const { spec } = buildAutoTemplateSpec({
+        key: "all-header",
+        displayName: "全表头",
+        sections: [
+          { sectionId: "name", name: "姓名", order: 0, required: false, capacity: null, type: "短文本" },
+        ],
+      });
+      expect(spec.fields).toBeUndefined();
+      expect(spec.sections).toHaveLength(1);
+    });
   });
 });
