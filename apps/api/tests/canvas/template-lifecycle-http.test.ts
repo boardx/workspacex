@@ -244,11 +244,11 @@ describe("#463 · 归档语义 O-10：置位不删除，默认列表藏起来，
     expect(parsed.templates.map((t) => t.key)).toEqual(["hmw"]);
   });
 
-  it("filter=all：四个状态全出现", async () => {
+  it("filter=all（#2366）：与不带 filter 同规则，归档的仍不出现", async () => {
     const parsed = C.operations.listTemplates.out.parse(
       await (await listTemplates("filter=all")).json(),
     );
-    expect(parsed.templates.map((t) => t.key).sort()).toEqual(["hmw", "jtbd", "mvp", "swot"]);
+    expect(parsed.templates.map((t) => t.key).sort()).toEqual(["jtbd", "mvp", "swot"]);
   });
 
   it("filter=published / filter=draft 各自只出一档", async () => {
