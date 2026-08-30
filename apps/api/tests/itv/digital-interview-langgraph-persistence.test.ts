@@ -542,6 +542,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       setSkillProposalStatus: base.effects.setSkillProposalStatus.bind(base.effects),
       generateExpertCandidates: base.effects.generateExpertCandidates.bind(base.effects),
       generateQuestions: base.effects.generateQuestions.bind(base.effects),
+      executeInterviewRuns: base.effects.executeInterviewRuns.bind(base.effects),
     };
     const denied = new LangGraphDigitalInterviewRuntime({
       effects: guardedEffects, checkpointer: base.checkpointer,

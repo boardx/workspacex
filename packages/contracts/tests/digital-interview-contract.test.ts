@@ -20,7 +20,7 @@ describe("数字专家访谈契约", () => {
     selectedExpertIds: [], expertCandidates: [], questions: [], questionCandidates: [],
     reportId: null, version: 1, revisionId: "rev-1",
     topicVersionId: null, expertSnapshotVersionId: null, questionVersionId: null,
-    skillThreadId: "skill-thread-1", skillMessages: [], skillProposals: [],
+    skillThreadId: "skill-thread-1", skillMessages: [], skillProposals: [], expertRuns: [],
   };
   const workflow = (version = 4) => ({
     interviewId: "itv-digital-1",
@@ -84,6 +84,7 @@ describe("数字专家访谈契约", () => {
         createdAt: "2026-08-15T10:00:08.000Z", appliedAt: null, rejectedAt: null, committedVersionId: null,
       },
     ],
+    expertRuns: [],
   });
 
   it("只接受签核的八个工作流状态", () => {
