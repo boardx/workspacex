@@ -42,8 +42,13 @@ export interface CapabilityCardActingState {
   readonly status: CapabilityCardStatus;
 }
 
-/** 见文件头「记忆范围」一节的裁决理由，唯一事实源在这里，不在别处重复声明。 */
-const MEMORY_SCOPE_LABEL = "仅本对话（本仓当前无跨线程记忆机制）";
+/**
+ * 见文件头「记忆范围」一节的裁决理由，唯一事实源在这里，不在别处重复声明。
+ * `_SHORT` 是卡片压缩排版里实际显示的文案；完整解释放进该 span 的 `title`
+ * （鼠标悬停可见），不再常驻占一整行。
+ */
+const MEMORY_SCOPE_SHORT_LABEL = "仅本对话";
+const MEMORY_SCOPE_FULL_LABEL = "记忆范围：仅本对话（本仓当前无跨线程记忆机制）";
 
 function statusLabel(status: CapabilityCardStatus): string {
   switch (status) {
@@ -158,7 +163,7 @@ export function CapabilityPicker({
                 data-agent-id={listing.id}
                 onClick={() => { onSelect(listing.id); setOpen(false); }}
                 className={[
-                  "flex w-full flex-col gap-1 rounded-md border px-2.5 py-2 text-left transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "flex w-full flex-col gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   isSelected ? "border-primary/60 text-primary" : "border-transparent text-card-foreground",
                 ].join(" ")}
               >
@@ -166,37 +171,43 @@ export function CapabilityPicker({
                   <Avatar initials={abbrFor(listing)} tone="ai" size="xs" />
                   <span className="truncate text-12 font-medium">{listing.name}</span>
                 </span>
-                <span className="text-11 text-muted-foreground" data-testid="chat-task-workbench-capability-facet-strengths">
-                  擅长：{strengths}
+                <span
+                  className="truncate text-11 text-muted-foreground"
+                  title={strengths}
+                  data-testid="chat-task-workbench-capability-facet-strengths"
+                >
+                  {strengths}
                 </span>
                 {/*
-                  issue #2340 —— 三项「暂缺该项披露」原先各占一整行、逐字重复同一句免责文案，
-                  视觉噪音大（人类反馈「描述太长，要简化」）。这里只做视觉合并：三项仍是三个
-                  独立 `data-testid`（`e2e/chat-task-workbench-capability-cards.spec.ts`，issue #2068
-                  已签核判据要求三项分别可见），免责文案只在行尾说一次，不再逐项重复。
+                  issue #2340 → 2026-08-30 二次压缩（人类反馈「agent 列表太长」）——
+                  此前「工具/材料/写权限」占一整行，「记忆范围」「当前状态」各占一整行，
+                  一张卡视觉上仍有 5 行。六项披露的**签核判据**只要求六个 testid 各自
+                  `toBeVisible()`（`e2e/chat-task-workbench-capability-cards.spec.ts`
+                  TW-P0-2②），没有要求各占一行——这里把「工具/材料/写权限」的免责声明
+                  与「记忆范围」「当前状态」三样合并到同一条 flex-wrap 行内，用极短的
+                  标签词代替整句话，六个 `data-testid`／`data-memory-scope`／
+                  `data-status` 原样保留，只是排版从 3 行收进 1 行。
                 */}
-                <span className="flex flex-wrap items-baseline gap-x-1 text-11 text-muted-foreground">
-                  <span data-testid="chat-task-workbench-capability-facet-tools">可用工具与技能</span>
-                  <span aria-hidden>／</span>
-                  <span data-testid="chat-task-workbench-capability-facet-materials">能读哪些材料</span>
-                  <span aria-hidden>／</span>
-                  <span data-testid="chat-task-workbench-capability-facet-writes">是否写文件/调外部服务</span>
-                  <span>：均暂未披露（后端目前未提供）</span>
-                </span>
-                <span
-                  className="text-11 text-muted-foreground"
-                  data-testid="chat-task-workbench-capability-facet-memory"
-                  data-memory-scope="thread"
-                >
-                  记忆范围：{MEMORY_SCOPE_LABEL}
-                </span>
-                <span
-                  className="text-11 text-muted-foreground"
-                  data-testid="chat-task-workbench-capability-facet-status"
-                  data-status={cardStatus}
-                >
-                  当前状态：{statusLabel(cardStatus)}
-                  {!listing.enabled && listing.disabledReason ? `（${listing.disabledReason}）` : ""}
+                <span className="flex flex-wrap items-baseline gap-x-1 text-10 text-muted-foreground">
+                  <span data-testid="chat-task-workbench-capability-facet-tools">工具</span>
+                  <span aria-hidden>/</span>
+                  <span data-testid="chat-task-workbench-capability-facet-materials">材料</span>
+                  <span aria-hidden>/</span>
+                  <span data-testid="chat-task-workbench-capability-facet-writes">写权限</span>
+                  <span>未披露</span>
+                  <span aria-hidden>·</span>
+                  <span
+                    data-testid="chat-task-workbench-capability-facet-memory"
+                    data-memory-scope="thread"
+                    title={MEMORY_SCOPE_FULL_LABEL}
+                  >
+                    记忆{MEMORY_SCOPE_SHORT_LABEL}
+                  </span>
+                  <span aria-hidden>·</span>
+                  <span data-testid="chat-task-workbench-capability-facet-status" data-status={cardStatus}>
+                    {statusLabel(cardStatus)}
+                    {!listing.enabled && listing.disabledReason ? `（${listing.disabledReason}）` : ""}
+                  </span>
                 </span>
               </button>
             );

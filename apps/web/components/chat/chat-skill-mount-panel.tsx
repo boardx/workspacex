@@ -348,13 +348,22 @@ export function ChatSkillMountPanel({
     );
   };
 
-  /** 挂载浮层——row/pill 两种排布共用同一份，`pill` 下是 `absolute` 覆盖层，
-   *  `pickerSide` 决定往上还是往下开（见该 prop 自己的头注）。 */
+  /**
+   * 挂载浮层——row/pill 两种排布共用同一份，`pill` 下是 `absolute` 覆盖层，
+   * `pickerSide` 决定往上还是往下开（见该 prop 自己的头注）。
+   *
+   * 2026-08-30 人类反馈（附设计重构参照）——`pill` 这条路此前是一排小按钮铺满、
+   * 只有名字、看不出这个 skill 是干什么的，选错了才知道。改成竖排列表：
+   * 每项名字下面带一行真实的 `duty`（`SkillListItem.duty`，与「浏览 skill」
+   * 页用的同一个真实字段，不是编的摘要）；`row`（legacy，`chat-read-screen.tsx`/
+   * `personal-chat-screen.tsx` 用）维持原有横排 chip 视觉不变，避免连累两条
+   * 未参与本轮重构的旧屏。
+   */
   const picker = picking ? (
     <div
       className={
         pill
-          ? `absolute left-0 z-20 flex w-64 flex-wrap items-center gap-1.5 rounded-md border border-border bg-popover p-2 shadow-md ${
+          ? `absolute left-0 z-20 flex w-72 flex-col gap-0.5 rounded-md border border-border bg-popover p-1.5 shadow-md ${
             pickerSide === "up" ? "bottom-full mb-1" : "top-full mt-1"
           }`
           : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
@@ -362,18 +371,34 @@ export function ChatSkillMountPanel({
       data-testid="chat-skill-mount-picker"
     >
       {mentionQuery ? (
-        <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
+        <span className="px-1.5 text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
           {mentionTriggerChar} {mentionQuery}
         </span>
       ) : null}
       {pool.length === 0 ? (
-        <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
+        <span className="px-1.5 py-1 text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
           本组织没有「已启用」的 skill 可挂载。
         </span>
       ) : visiblePool.length === 0 ? (
-        <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
+        <span className="px-1.5 py-1 text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
           没有名字含「{mentionQuery}」的已启用 skill。
         </span>
+      ) : pill ? (
+        visiblePool.map((item) => (
+          <button
+            key={item.skillId}
+            type="button"
+            disabled={pending}
+            data-testid={`chat-skill-mount-option-${item.skillId}`}
+            onClick={() => void mount(item.skillId)}
+            className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="truncate text-11 font-medium text-card-foreground">{item.name}</span>
+            <span className="line-clamp-1 text-10 text-muted-foreground">
+              {item.duty.trim() || "这个 skill 还没有填写说明"}
+            </span>
+          </button>
+        ))
       ) : (
         visiblePool.map((item) => (
           <Button
@@ -388,6 +413,15 @@ export function ChatSkillMountPanel({
           </Button>
         ))
       )}
+      {pill ? (
+        <a
+          href="/skill"
+          className="mt-0.5 border-t border-border-subtle px-2 pt-1.5 text-10 text-muted-foreground transition-colors hover:text-card-foreground"
+          data-testid="chat-skill-mount-market-link"
+        >
+          去组织的 skill 库看更多 →
+        </a>
+      ) : null}
       <Button
         size="xs"
         variant="ghost"

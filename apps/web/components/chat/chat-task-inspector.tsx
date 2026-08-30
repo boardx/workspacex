@@ -139,20 +139,50 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
   const effectivePlanTodos = ledgerTodos ?? planTodos;
 
   const [activeTab, setActiveTab] = React.useState<InspectorTab>("progress");
-  /** 用户手动展开过就不再自动折叠回去——折叠是"没内容"的默认值，不是一道锁。 */
-  const [manuallyExpanded, setManuallyExpanded] = React.useState(false);
+  /**
+   * 人类实测反馈（2026-08-30）—— 右栏展开后（有任务在跑/有产物材料），点头部
+   * 「收起」按钮没有反应，要等任务结束、信号清空才会真的收起，看起来像"延迟"。
+   *
+   * 根因：这里原先只有一个 `manuallyExpanded` 布尔值，「收起」按钮只是把它
+   * 设回 `false`——但折叠态是 `!manuallyExpanded && isInspectorCollapsed(...)`，
+   * 只要 `isInspectorCollapsed` 因为还有信号（isRunning/有计划/有产物材料）
+   * 判 `false`，收起按钮怎么点结果都是"仍然展开"，这不是延迟，是这颗按钮在
+   * 有内容时**从不生效**，只在信号自然清空的那一刻顺带"看起来生效了"。
+   *
+   * 改法：把"用户手动展开过"这一个方向的标记，换成一个三态的显式覆盖——
+   * `"expanded"` / `"collapsed"` / `null`（未覆盖，跟随 `isInspectorCollapsed`
+   * 自动判定）。「收起」显式写入 `"collapsed"`，不再指望自动判据"恰好也判折叠"。
+   *
+   * ⚠ 覆盖不是一道永久锁：一旦有真正的新内容到达（`nextInspectorTab` 判定的
+   * 跃迁——产物变多/材料变多/运行从停到跑），说明用户大概率想看这条新动态，
+   * 这里清掉 `"collapsed"` 覆盖，交还给自动判据（此时新内容还在，自动判据会
+   * 展开）。这与既有"手动展开过不再自动折叠回去"是同一条纪律的对称版本，见
+   * `isInspectorCollapsed` 自己头注"折叠是没内容的默认值，不是一道锁"。
+   */
+  const [override, setOverride] = React.useState<"expanded" | "collapsed" | null>(null);
 
   const prevSignalsRef = React.useRef<InspectorSignals | null>(null);
   React.useEffect(() => {
     const prev = prevSignalsRef.current;
     prevSignalsRef.current = signals;
-    setActiveTab((current) => nextInspectorTab(prev, signals, current));
+    setActiveTab((current) => {
+      const next = nextInspectorTab(prev, signals, current);
+      if (next !== current) {
+        // 真正的新内容跃迁——收起覆盖不该继续压住它，让自动判据重新接管。
+        setOverride((prevOverride) => (prevOverride === "collapsed" ? null : prevOverride));
+      }
+      return next;
+    });
   }, [signals]);
 
   const hasPlan = effectivePlanTodos !== null && effectivePlanTodos.length > 0;
   const hasRunDetails = runPhaseLabel !== null || runElapsedSeconds !== null;
   const hasRoster = (roster?.roster?.agents.length ?? 0) > 0;
-  const collapsed = !manuallyExpanded && isInspectorCollapsed(signals, hasPlan, hasRunDetails, hasRoster);
+  const collapsed = override === "expanded"
+    ? false
+    : override === "collapsed"
+      ? true
+      : isInspectorCollapsed(signals, hasPlan, hasRunDetails, hasRoster);
 
   // roster 是可选能力：调用方没传（旧轨道两屏）就不占页签栏一个位置。
   const visibleTabs = INSPECTOR_TABS.filter((tab) => tab !== "roster" || roster !== undefined);
@@ -162,7 +192,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
 
   const selectTab = React.useCallback((tab: InspectorTab) => {
     setActiveTab(tab);
-    setManuallyExpanded(true);
+    setOverride("expanded");
   }, []);
 
   return (
@@ -220,7 +250,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             aria-expanded
             title="收起任务检查器"
             data-testid="chat-task-workbench-inspector-collapse"
-            onClick={() => setManuallyExpanded(false)}
+            onClick={() => setOverride("collapsed")}
             className="flex w-7 shrink-0 items-center justify-center text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <PanelRightClose aria-hidden className="h-3.5 w-3.5" />
@@ -236,7 +266,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             aria-expanded={false}
             title="展开任务检查器"
             data-testid="chat-task-workbench-inspector-expand"
-            onClick={() => setManuallyExpanded(true)}
+            onClick={() => setOverride("expanded")}
             className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <PanelRightOpen aria-hidden className="h-3.5 w-3.5" />
