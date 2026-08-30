@@ -5,7 +5,7 @@
 | Phase | 名称 | 状态 | not_started | in_progress | blocked | passing |
 |-------|------|------|-------------|-------------|---------|---------|
 | 00 | 共享内核 | in_progress | 0 | 1 | 0 | 22 |
-| 01 | 能跑完一场项目 | in_progress | 20 | 5 | 0 | 208 |
+| 01 | 能跑完一场项目 | in_progress | 20 | 4 | 0 | 209 |
 | 02 | 让推演与成果可见 | not_started | 46 | 0 | 0 | 0 |
 | 03 | 跨项目复用与治理 | not_started | 49 | 0 | 0 | 0 |
 | 04 | 数字专家访谈 Studio | in_progress | 3 | 1 | 0 | 3 |
@@ -19,4 +19,4 @@
 | 12 | uiux-foundation | in_progress | 5 | 0 | 0 | 17 |
 | 13 | platform-owned-skills | not_started | 1 | 0 | 0 | 0 |
 
-_最近聚合:2026-08-30T20:11:40.788Z_
+_最近聚合:2026-08-30T20:22:13.330Z_

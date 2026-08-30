@@ -587,7 +587,7 @@
         "F973"
       ],
       "points": 3,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "23",
       "owner": "dev-ai-runtime-f1682",
       "verification": [
@@ -595,7 +595,7 @@
         "cd apps/deep-agent-service && uv run pytest tests/test_harness.py -q",
         "cd apps/deep-agent-service && uv run pytest tests/golden -q --deselect tests/golden/test_tc5_checkpoint_kill_recovery.py::test_tc5_sigkill_midrun_then_resume_and_time_travel"
       ],
-      "evidence": "",
+      "evidence": "evidence/F1682.verify.log @ 2026-08-30T20:22:13.309Z",
       "notes": "issue https://github.com/boardx/workspacex/issues/2220（诊断 + coord-main 裁决评论，指派分支 claude/task-mode-testing-evaluation-824p8e）。背景：方案 A（graph.py 的 SYSTEM_PROMPT 追加\"先计划后执行时必须调用 write_todos\"规则）已经在 main 上（经 #2270 夹带合入），但其有效性依赖 LLM 对提示词的服从概率，本仓 loopback 桩/假模型测试都验证不了\"真实模型愿不愿意听话\"这件事——本 feature 是 issue 里评估的方案 B（结构侧，deep_agent_service graph 里用 tool_choice 强制），补的是确定性保证，不是替代方案 A。\n实现：apps/deep-agent-service/src/deep_agent_service/harness.py 新增 PlanFirstToolChoiceMiddleware（wrap_model_call 钩子，命中「write_todos 工具已挂载 ∧ 本轮消息含任务模式标记 ∧ write_todos 本次 run 未调用过」三个条件时 request.override(tool_choice=\"write_todos\")），接进 build_middleware() 紧跟 TodoListMiddleware 之后。任务模式标记沿用现有的固定中文前缀文案（apps/web/components/chat/copilotkit-v2-panel-body.tsx 的 send()，未新增结构化字段——见 notes 末尾的范围裁剪说明）。\n测试：tests/golden/test_tc6_task_mode_plan_first_forced_write_todos.py 用 ScriptedChatModel 构造一个「不合作」假模型（无论看到什么消息都只想吐纯文字步骤，复现 #2220 实测到的真实故障模式），证明即使如此 transcript 里仍真实出现 write_todos 调用；并配两条反证：无任务模式标记时原样复现故障（证明强制确实由标记触发，不是无条件生效）、write_todos 工具未挂载时不强行指向不存在的工具。test_harness.py 新增一条接线看守（防止\"定义了中间件但忘记塞进 build_middleware()\"）。\ncovers 追加（.harness/instructions/contract-design.md「covers 追加规则」三条件，本 feature 不经人类重签、直接追加进contracts/plan-control/design-signoff.md 的 covers；证据：①UI——零新增界面/交互，六态面板与计划面板的既有渲染逻辑不变；②契约——零新增/修改 API 操作，plan-control 的写路径（write_todos → ingestEnginePlanSnapshot）完全复用 F972/F973 已签契约，本 feature 只是让已签的路径被更可靠地触发；③设计面——零新增错误码/字段/屏幕/交互语义，纯 deep-agent-service 内部引擎改动）。\n范围裁剪：任务模式标记目前完全靠拼在用户消息正文里的固定中文前缀（无专门结构化字段跨 web→api→deep-agent-service 传递，issue #2220 诊断第 4 点已指出这个现状）。本 feature 就近读这句文案，不新开一条结构化通道——把改动限定在 deep-agent-service内部（issue 指派的改动范围：只动任务模式相关代码，不顺手改 web/api 契约面）。若未来要把任务模式标记提升为结构化字段，属于新的设计面变更，需要单独走 design-delta，不在本 feature 范围内。\n已知限制（不在本 feature 验证范围）：真实模型在方案 A 提示词下的实际服从率，必须在 devapp 用真实模型多轮实测才能确认收敛，本 feature 的假模型测试证明的是引擎侧的确定性保证，不是模型质量证据（同 tests/golden 全体测试的既定边界）。"
     }
   ]
