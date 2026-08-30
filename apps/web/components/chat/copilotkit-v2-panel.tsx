@@ -2201,7 +2201,9 @@ function CopilotKitV2PanelBody({
               // issue #2130（TW-P0-5①）—— 换成 textarea 后 Enter 语义必须分岔：
               // 纯 Enter 发送（沿用旧行为），Shift+Enter 换行（textarea 原生行为，
               // 这里只需要在纯 Enter 时拦截默认换行并改发送）。
-              if (e.key === "Enter" && !e.shiftKey) {
+              // bug：中文/日文等输入法拼字过程中按 Enter 是在确认候选词，
+              // 不是要发送消息——用 `e.nativeEvent.isComposing` 拦掉这一下。
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
                 void send();
               }
