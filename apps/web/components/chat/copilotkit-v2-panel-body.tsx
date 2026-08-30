@@ -34,6 +34,7 @@ import { CopilotKitV2PlanControl } from "@/components/chat/copilotkit-v2-plan-co
 import { ChatLiveAnnouncer, announceToChat } from "@/components/chat/chat-live-announcer";
 import { ActiveFilePanel } from "@/components/chat/active-file-panel";
 import { useAguiFileEvents } from "@/lib/agui-file-events";
+import { ProducedFilesCtx } from "@/components/chat/copilotkit-v2-assistant-message";
 import { useAguiPlanTodos, currentPlanStep } from "@/lib/agui-plan-todos";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
@@ -506,6 +507,14 @@ export function CopilotKitV2PanelBody({
                   mime: item.mime,
                   source: "agent_run_output" as const,
                   bytes: item.bytes,
+                  // 2026-08-30 —— `AguiFileCreatedValue`/`ActiveFile` 新增的
+                  // `messageId` 字段在这里同样有真实数据可填：`item.messageId`
+                  // 本来就是上面 `assistantMessageIds.has(...)` 过滤用的同一个值，
+                  // 不是凭空编的。少了它，回读历史时重建的这些文件会被
+                  // `ProducedFilesCtx` 的按消息过滤判定成"不属于任何消息"，下载卡片
+                  // 又会在刷新后消失一次——那正是 #2384 刚修过的同一个症状，只是换了
+                  // 触发路径。
+                  messageId: item.messageId,
                   content: "",
                   nextSequence: 0,
                 }));
@@ -1023,6 +1032,28 @@ export function CopilotKitV2PanelBody({
   );
 
   /**
+   * 2026-08-30 —— 见 `ProducedFilesCtx` 自己的文档：`source: "agent_run_output"`
+   * 的文件挂到产出它的消息下面（`producedActiveFiles`），其余来源（目前生产环境
+   * 没有真实生产者，但组件本身留着给将来的 `chat_upload`/`artifact_pin`）仍然走
+   * 旁边那一列（`panelActiveFiles`）。`useMemo` 而不是每次渲染新建数组/对象，理由同
+   * 上面 `artifactLandingContextValue` 那段注释——避免 context identity 抖动逼所有
+   * 消息重渲染。
+   */
+  const producedActiveFiles = React.useMemo(
+    () => activeFiles.filter((f) => f.source === "agent_run_output"),
+    [activeFiles],
+  );
+  const panelActiveFiles = React.useMemo(
+    () => activeFiles.filter((f) => f.source !== "agent_run_output"),
+    [activeFiles],
+  );
+  const producedFilesContextValue = React.useMemo(
+    () => ({ files: producedActiveFiles, threadId: chatThreadIdRef.current }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [producedActiveFiles, chatThreadIdRef.current],
+  );
+
+  /**
    * issue #2130（TW-P0-5④，回指 #2068）—— 发送被禁用时必须**说明原因**，不能只是
    * 灰掉。四条真实理由，按优先级判定；`null` = 未禁用。全部读的是已经存在的真实
    * 状态（`archived`/`isReady`/`agent.isRunning`/`attach.hasUploading`/输入是否为空），
@@ -1132,11 +1163,13 @@ export function CopilotKitV2PanelBody({
                       两个 provider 的 value identity 只在真实值变化时才变，避免每次
                       打字/滚动都强制重渲染全部消息（含画布）。 */}
                   <ArtifactLandingCtx.Provider value={artifactLandingContextValue}>
-                    <CopilotChatMessageView
-                      messages={agent.messages}
-                      isRunning={agent.isRunning}
-                      assistantMessage={V2AssistantMessage}
-                    />
+                    <ProducedFilesCtx.Provider value={producedFilesContextValue}>
+                      <CopilotChatMessageView
+                        messages={agent.messages}
+                        isRunning={agent.isRunning}
+                        assistantMessage={V2AssistantMessage}
+                      />
+                    </ProducedFilesCtx.Provider>
                   </ArtifactLandingCtx.Provider>
                 </CopilotKitV2MessageActionsProvider>
               </CopilotChatConfigurationProvider>
@@ -1634,13 +1667,15 @@ export function CopilotKitV2PanelBody({
           <p className="text-xs text-destructive" data-testid="chat-mic-error">{speech.error}</p>
         ) : null}
       </div>
-      {activeFiles.length > 0 ? (
+      {panelActiveFiles.length > 0 ? (
         <div className="min-w-0 flex-1">
-          {/* issue #2321 round 4 -- 见 `active-file-panel.tsx` 文件头「下载卡片」那节：
-              `source: "agent_run_output"` 的文件要拼下载路由，需要真实线程 id。
+          {/* 2026-08-30 -- 只剩 `source !== "agent_run_output"` 的文件走这一列
+              （`chat_upload`/`artifact_pin`，目前生产环境没有真实生产者，见
+              `ProducedFilesCtx` 头注）。`agent_run_output` 已经改挂到产出它的消息下面
+              （`ProducedFileInlineCard`，`V2AssistantMessageImpl` 消费 `ProducedFilesCtx`）。
               `chatThreadIdRef.current` 是渲染时刻的值（ref 不触发重渲染，见该 ref
               自己的头注），与上面 `artifactLandingContextValue` 同一条读法。 */}
-          <ActiveFilePanel files={activeFiles} threadId={chatThreadIdRef.current} />
+          <ActiveFilePanel files={panelActiveFiles} threadId={chatThreadIdRef.current} />
         </div>
       ) : null}
     </div>
