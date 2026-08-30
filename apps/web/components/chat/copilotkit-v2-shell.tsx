@@ -345,15 +345,30 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    *   待会儿用的。复用是可逆的（发一条消息它就变成真线程），删除不是。
    * ⚠ 判据用服务端下发的 `status`，**不在前端重算**「有没有消息」——前端手里根本
    *   没有消息数据，重算只能靠猜，而且那就是第二处判定。
+   *
+   * 🔴 人类实测反馈（2026-08-30）：点「新建对话」落到的空线程出现在"今天"分组
+   *   **中间**，不在最上面。根因不是排序 bug——服务端一直按 `last_activity_at`
+   *   降序正确返回（`list-personal-threads.ts` / `pg-chat-repository.ts` 的
+   *   `ORDER BY ... DESC`），新建线程的 `last_activity_at` 默认就是 `now()`。
+   *   问题是复用会命中**任意一条**（`.find` 命中的第一条）`not-started` 线程，
+   *   而那条线程的 `last_activity_at` 停在它**首次创建那一刻**——其它线程后续
+   *   产生活动会不断把自己顶上去，这条被复用的空线程于是逐渐下沉到分组中部。
+   *   用户点"新建"落到那条陈旧的空线程，看到的就是"新会话在中间"。
+   *
+   *   修法：只在**已经在分组最上面**的那条 `not-started` 线程上复用（它一定是
+   *   最近一次"新建"或本来就最新的空线程，复用它天然满足"新建即最上面"）；
+   *   一旦最上面那条已经不是空线程（有人用过了），就老老实实建一条新的——
+   *   服务端 `now()` 保证它落在最上面，不会再出现"复用陈旧空线程"这个中间态。
+   *   这不是放弃 #2094 的防重复初衷：同一会话里连点"新建"仍然复用同一条，
+   *   只是不再跨过其它已产生活动的线程去捡一条沉在中间的旧草稿。
    */
   const handleCreate = React.useCallback(async () => {
     if (!bearer) return;
     setCreatePending(true);
     try {
-      const reusable = (threads?.groups.flatMap((group) => group.cards) ?? [])
-        .find((card) => card.status === "not-started");
-      if (reusable) {
-        router.push(`/chat/${reusable.id}`);
+      const topCard = threads?.groups[0]?.cards[0];
+      if (topCard?.status === "not-started") {
+        router.push(`/chat/${topCard.id}`);
         return;
       }
       const result = await createPersonalThread(null);
