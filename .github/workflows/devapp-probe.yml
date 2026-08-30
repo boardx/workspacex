@@ -57,3 +57,16 @@ jobs:
           echo "── 正样本 SELECT 1 ──"; $PSQL "SELECT 1" 2>&1 | head -3
           echo "── credentials 行数 ──"; $PSQL "SELECT count(*) FROM credentials" 2>&1 | head -3
           echo "── auth_bootstrap_state 行数 ──"; $PSQL "SELECT count(*) FROM auth_bootstrap_state" 2>&1 | head -3
+
+      - name: deep-agent-service 容器现状 + 最近日志（只读，issue #2220 生产回归排查用）
+        shell: bash
+        run: |
+          set +e
+          echo "── 容器何时起来的（判断用户实测时新代码是否已在跑）──"
+          docker inspect -f 'Image={{.Config.Image}} StartedAt={{.State.StartedAt}} Status={{.State.Status}}' workspacex-deep-agent 2>&1
+          echo "── 最近 400 行日志（原样，不过滤，先看有没有起来过第二个容器）──"
+          docker logs --tail 400 --timestamps workspacex-deep-agent 2>&1
+          echo "── 上面日志里含 tool_choice / PlanFirstToolChoiceMiddleware / Traceback / RUN_ERROR 的行 ──"
+          docker logs --tail 2000 --timestamps workspacex-deep-agent 2>&1 | \
+            grep -iE "tool_choice|PlanFirstToolChoiceMiddleware|Traceback|RUN_ERROR|模型这次没能返回可用结果|exception" \
+            || echo "(400~2000 行范围内没匹配到)"
