@@ -12,7 +12,12 @@ from pathlib import Path
 
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
-from deep_agent_service.harness import PlanFirstToolChoiceMiddleware, build_checkpointer, build_middleware
+from deep_agent_service.harness import (
+    TASK_MODE_MARKER,
+    PlanFirstToolChoiceMiddleware,
+    build_checkpointer,
+    build_middleware,
+)
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -57,6 +62,29 @@ def test_plan_first_tool_choice_middleware_wired_into_build_middleware():
     mw = build_middleware(_fake_model())
     assert any(isinstance(m, PlanFirstToolChoiceMiddleware) for m in mw), (
         "PlanFirstToolChoiceMiddleware 必须出现在 build_middleware() 的返回列表里"
+    )
+
+
+def test_task_mode_marker_matches_web_panel_literal():
+    """DA-11（issue #2220 方案 B）：机械看守 TASK_MODE_MARKER 与 web 侧字面量不漂移。
+
+    graph.py 的 SYSTEM_PROMPT 已经从 harness.py 导入这个常量（同一 Python 进程，
+    单一事实源），但 apps/web/components/chat/copilotkit-v2-panel-body.tsx 的
+    send() 因跨语言边界仍是独立字面量——两边各写一份字面量正是本仓 AGENTS.md
+    点名的"同一事实不得声明在两处"反模式（五次真实漂移事故的成因）。这条测试就是
+    那道机械门控：web 侧文案一旦改动（换措辞/做 i18n）导致不再包含
+    TASK_MODE_MARKER，这里必须先红，而不是任由 PlanFirstToolChoiceMiddleware 与
+    SYSTEM_PROMPT 的匹配同时静默失效、任务模式又退回 #2220 的空账本故障。
+    """
+    web_panel = (
+        SERVICE_ROOT.parent / "web" / "components" / "chat" / "copilotkit-v2-panel-body.tsx"
+    )
+    assert web_panel.is_file(), f"任务模式发送逻辑所在文件已不存在或已改名：{web_panel}"
+    content = web_panel.read_text(encoding="utf-8")
+    assert TASK_MODE_MARKER in content, (
+        f"web 侧任务模式前缀文案已与 TASK_MODE_MARKER（{TASK_MODE_MARKER!r}）不一致——"
+        "PlanFirstToolChoiceMiddleware 与 SYSTEM_PROMPT 都靠这个常量识别任务模式，"
+        "web 侧文案改动必须同步更新 harness.py 的 TASK_MODE_MARKER"
     )
 
 
