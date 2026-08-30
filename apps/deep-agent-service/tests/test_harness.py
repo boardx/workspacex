@@ -12,7 +12,7 @@ from pathlib import Path
 
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
-from deep_agent_service.harness import build_checkpointer, build_middleware
+from deep_agent_service.harness import PlanFirstToolChoiceMiddleware, build_checkpointer, build_middleware
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,6 +45,19 @@ def test_todo_tool_absent_without_middleware():
 
     graph = create_deep_agent(model=_fake_model())
     assert "write_todos" not in _tool_names(graph)
+
+
+def test_plan_first_tool_choice_middleware_wired_into_build_middleware():
+    """DA-11（issue #2220 方案 B）：确定性 write_todos 强制必须真的接进生产 middleware
+    清单，不能只是定义了类却忘记挂——同 D1 基线那次"TodoListMiddleware 存在但没挂"
+    的教训（见本文件模块注释）。行为细节（何时强制/何时不强制）由
+    `tests/golden/test_tc6_task_mode_plan_first_forced_write_todos.py` 用假模型跑
+    完整 graph 断言，这里只看守"接线没被遗漏"。
+    """
+    mw = build_middleware(_fake_model())
+    assert any(isinstance(m, PlanFirstToolChoiceMiddleware) for m in mw), (
+        "PlanFirstToolChoiceMiddleware 必须出现在 build_middleware() 的返回列表里"
+    )
 
 
 def test_summarization_settings_pinned():

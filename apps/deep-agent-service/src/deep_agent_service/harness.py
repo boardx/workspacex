@@ -42,10 +42,13 @@
 from __future__ import annotations
 
 import os
+from typing import Callable
 
 from langchain.agents.middleware import (
     AgentMiddleware,
     ModelCallLimitMiddleware,
+    ModelRequest,
+    ModelResponse,
     SummarizationMiddleware,
     TodoListMiddleware,
     ToolCallLimitMiddleware,
@@ -158,6 +161,87 @@ def build_precompletion_middleware(model: BaseChatModel) -> list[AgentMiddleware
     return [*seed, RubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
 
 
+# DA-11（issue #2220 方案 B，rubric D1「结构化计划」的确定性保证）：任务模式的
+# 用户可见承诺是「Agent 会先给出计划，得到确认后再执行」，方案 A（graph.py 的
+# SYSTEM_PROMPT 追加一段"必须调用 write_todos"的规则）只是概率性服从——实测同一句
+# 提示词换一轮对话，真实模型可能仍然直接在回复正文里写"第一步/第二步"纯文字，
+# 从不触发 write_todos（issue #2220 实测命中率 0/1）。plan-control 六态面板的唯一
+# 数据来源是 write_todos 工具调用成功（copilotkit-agui.controller.ts），所以"模型
+# 愿不愿意听话"这件事必须从系统提示词的软约束升级为 API 层的硬约束。
+#
+# 任务模式标记：`copilotkit-v2-panel-body.tsx` 的 `send()` 在任务模式开启时会把这句
+# 固定中文前缀拼进用户消息正文（无其它结构化字段传这个信号，接线现状见 issue #2220
+# 诊断第 4 点）——本模块就近读这句文案，不在 web/API 层新开一条结构化通道：把这次
+# 修复限定在 deep-agent-service 内部（本 issue 指派的改动范围），避免因为要新增
+# 跨服务字段而把一次"补齐确定性保证"的小改动放大成 web+api+graph 三层的接口变更。
+TASK_MODE_MARKER = "请先给出计划，经确认后再执行"
+
+
+def _human_text(message: object) -> str:
+    """从一条消息里抽出人类可读文本；只认 `type == "human"`，结构化多模态 content
+    时兜底拼接文本块，不因为 content 不是纯字符串就漏判任务模式标记。"""
+    if getattr(message, "type", None) != "human":
+        return ""
+    content = getattr(message, "content", "")
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts = [
+        str(part.get("text", ""))
+        for part in content
+        if isinstance(part, dict) and part.get("type") == "text"
+    ]
+    return "".join(parts)
+
+
+def _write_todos_already_called(messages: list) -> bool:
+    """本次 run 的 transcript 里 `write_todos` 是否已经被真实调用过一次。"""
+    for message in messages:
+        for call in getattr(message, "tool_calls", None) or []:
+            if call.get("name") == "write_todos":
+                return True
+    return False
+
+
+def _tool_names(tools: list) -> set[str]:
+    return {
+        (getattr(t, "name", None) or (t.get("name") if isinstance(t, dict) else None))
+        for t in tools
+    }
+
+
+class PlanFirstToolChoiceMiddleware(AgentMiddleware):
+    """任务模式下把第一次模型调用的 `tool_choice` 钉成 `write_todos`（见上方模块注释）。
+
+    机制：`wrap_model_call` 把改过的 `request`（`tool_choice="write_todos"`）转交给
+    `handler`，`langchain.agents.factory` 最终原样把它传进
+    `model.bind_tools(final_tools, tool_choice=request.tool_choice, ...)`——这是
+    provider 的 API 契约（OpenAI 等模型收到具名 tool_choice 时必须调用该工具），
+    不依赖模型对提示词的服从概率。
+
+    触发条件（同时满足）：
+    1. `write_todos` 工具确实挂载在本次可用工具清单里（`TodoListMiddleware` 提供）；
+       没挂载时不强行指向一个不存在的工具，原样放行——这是配置异常，不是本中间件
+       该兜底的场景。
+    2. 本轮 transcript 里出现过任务模式标记（`TASK_MODE_MARKER`）的人类消息。
+    3. `write_todos` 在本次 run 里还没被调用过——一旦模型已经产出过结构化计划，
+       立刻不再强制，后续步骤（确认后执行/收尾）按模型自己的判断继续，不会被
+       卡成"每一步都必须先摆一次待办"。
+    """
+
+    def wrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
+        if "write_todos" not in _tool_names(request.tools):
+            return handler(request)
+
+        marker_present = any(TASK_MODE_MARKER in _human_text(m) for m in request.messages)
+        if marker_present and not _write_todos_already_called(request.messages):
+            request = request.override(tool_choice="write_todos")
+        return handler(request)
+
+
 def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
 
@@ -166,6 +250,9 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """
     return [
         TodoListMiddleware(),
+        # DA-11（#2220 方案 B）：紧跟在 TodoListMiddleware 之后——它依赖 write_todos
+        # 工具已经挂载，逻辑上属于"规划工具本身"这一组，不是与限流/摘要同级的关注点。
+        PlanFirstToolChoiceMiddleware(),
         SummarizationMiddleware(
             model=model,
             trigger=("tokens", 60000),
