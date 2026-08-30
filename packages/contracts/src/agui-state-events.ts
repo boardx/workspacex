@@ -168,6 +168,16 @@ export const AguiFileCreatedValue = z.object({
   mime: z.string().nullable(),
   bytes: z.number().int().nonnegative().nullable(),
   source: AguiFileSource,
+  /**
+   * 2026-08-30——这个文件属于哪一条 `chat_messages` 行（真实主键，不是流式聚合用的
+   * 临时视图 id）。产生端（`agui-file-events.ts` 的 `buildFileCreatedEvents`）本来就
+   * 是拿 `resultMessageId` 去过滤 `chat_message_attachments` 才筛出这些条目的——加这
+   * 个字段只是把产生端已经掌握的事实带到 wire 上，不是新计算。有了它，前端才能把
+   * `source: "agent_run_output"` 的下载入口挂在**产出它的那条消息**下面（人类裁决：
+   * 不再单独占一个中间列，见 `copilotkit-v2-panel.tsx` 的 `ProducedFilesCtx`），而不是
+   * 只能按到达顺序猜"最新一条大概率是它"。
+   */
+  messageId: z.string(),
 });
 export type AguiFileCreatedValue = z.infer<typeof AguiFileCreatedValue>;
 

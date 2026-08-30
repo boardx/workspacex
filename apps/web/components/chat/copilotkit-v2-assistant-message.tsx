@@ -14,6 +14,8 @@ import {
   CopilotKitV2MessageLandingTrigger,
   CopilotKitV2MessageLandingPanel,
 } from "@/components/chat/copilotkit-v2-message-actions";
+import { ProducedFileInlineCard } from "@/components/chat/produced-file-inline-card";
+import type { ActiveFile } from "@/lib/agui-file-events";
 
 /**
  * 2026-08-30（引用文件规模纪律拆分）—— 本文件从 `copilotkit-v2-panel.tsx` 拆出：
@@ -68,6 +70,32 @@ export const ArtifactLandingCtx = React.createContext<{ threadId: string | undef
   threadId: undefined,
   bearer: undefined,
 });
+
+/**
+ * 2026-08-30 人类裁决（"不要在中间加这个 column 来可视化，下载链接要在 message
+ * 上"）—— agent 沙箱产出（`source: "agent_run_output"` 的 `file_created` 事件，
+ * DA-16 真实生产者）此前跟其他来源的活动文件一起喂给 `ActiveFilePanel`
+ * （`copilotkit-v2-panel-body.tsx`），渲染成聊天主区旁边的第二列。这类文件是生产
+ * 环境里**目前唯一**真实会出现的 `activeFiles`（`chat_upload`/`artifact_pin` 两个
+ * source 至今没有真实生产者，见 `agui-file-events.ts` 头注），所以那一列在人类实测
+ * 里几乎每次生成 PDF/DOCX/XLSX/PPTX 都会弹出来——正是被反馈的那个"中间 column"。
+ *
+ * 裁决改成：这类文件的下载卡片挂到**产出它的那条助手消息**下面（本文件下方
+ * `V2AssistantMessageImpl` 消费这个 context，按 `messageId` 精确过滤——
+ * `AguiFileCreatedValue` 契约同批新增了 `messageId` 字段），不再单独占一列。
+ * `ActiveFilePanel` 组件本身不删：它是 `chat_upload`/`artifact_pin` 未来真实
+ * 生产者的既有消费端实现，只是 `agent_run_output` 不再路由给它（见
+ * `copilotkit-v2-panel-body.tsx` 对应渲染处的 `panelFiles` 过滤）。
+ *
+ * `Provider` 挂在 `copilotkit-v2-panel-body.tsx`（那一层持有 `activeFiles` state），
+ * 这里只导出 Context 对象本身，与上面 `ArtifactLandingCtx` 同一条分工理由：单独
+ * 开一个 context 而不是塞进别处，因为这是另一件事，只是恰好都要挂在
+ * `assistantMessage` slot 上。
+ */
+export const ProducedFilesCtx = React.createContext<{
+  readonly files: readonly ActiveFile[];
+  readonly threadId: string | null;
+}>({ files: [], threadId: null });
 
 /**
  * CK-P3（issue #2054）—— `assistantMessage` **整组件** slot 的替换实现。
@@ -158,6 +186,19 @@ function V2AssistantMessageImpl(
   const persistedMessageId = actionsCtx?.identity.resolvePersisted(messageId) ?? null;
   const effectiveIsRunning = props.isRunning && persistedMessageId === null;
   /**
+   * 2026-08-30 —— 见 `ProducedFilesCtx` 自己的文档。按 `persistedMessageId`（真实
+   * `chat_messages.id`）过滤，不是上面的 `realMessageId`（`resolve`，不保证已落库）
+   * ——`file_created` 事件的 `messageId` 字段本来就是产生端从 `resultMessageId`
+   * （一条已落库的 assistant 消息）填的，`resolvePersisted` 与它是同一个判据。
+   * 消息还没解析出持久化 id 时 `persistedMessageId` 是 `null`，过滤结果恒为空数组——
+   * 不会把这批文件错配给还没落库的那条消息。
+   */
+  const { files: producedFilesAll, threadId: producedFilesThreadId } = React.useContext(ProducedFilesCtx);
+  const producedFiles = React.useMemo(
+    () => (persistedMessageId === null ? [] : producedFilesAll.filter((f) => f.messageId === persistedMessageId)),
+    [producedFilesAll, persistedMessageId],
+  );
+  /**
    * issue #2132（真实 devapp 实测：打字/滚动时消息区画布内容闪烁，续 #2096）—— 这是
    * #2096 那次 memo 化之外**另一处、更严重**的同类根因，不是同一个 bug 的残留。
    *
@@ -230,6 +271,15 @@ function V2AssistantMessageImpl(
           `identity.resolvePersisted` 二次解析（见 `copilotkit-v2-message-actions.tsx`），
           两处解析口径不同（`resolve` vs `resolvePersisted`），不能共用同一个已解析结果。 */}
       <CopilotKitV2MessageLandingPanel messageId={messageId} text={text} />
+      {/* 2026-08-30 人类裁决——agent 沙箱产出的可下载文件（PDF/DOCX/XLSX/PPTX…）挂在
+          这条消息下面，不再单独占一个中间列。见 `ProducedFilesCtx` 头注。 */}
+      {producedFiles.length > 0 ? (
+        <div className="flex flex-wrap gap-2" data-testid="chat-produced-files-inline">
+          {producedFiles.map((file) => (
+            <ProducedFileInlineCard key={file.uri} file={file} threadId={producedFilesThreadId} />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
