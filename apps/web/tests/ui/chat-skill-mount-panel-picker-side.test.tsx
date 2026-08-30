@@ -36,7 +36,14 @@ vi.mock("@/components/feedback/feedback-button", () => ({
 
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 
-const SKILL_POOL = [{ skillId: "sk_aaa", name: "pptx", status: "已启用" as const }];
+/**
+ * `duty` 是 `SkillListItem` 契约里的必填字段（`packages/contracts/src/skills.ts`）——
+ * 这里此前的 fixture 漏了它，组件渲染选项行时 `item.duty.trim()` 在 `listSkills`
+ * 异步 resolve 之后的一次重渲染里抛出 未捕获异常（不在断言的同步窗口内，
+ * `expect` 照样绿，但 vitest 记一条 unhandled error 让整个测试文件退出码非零）。
+ * 与本文件测的 `pickerSide` 开合方向无关，补齐字段即可。
+ */
+const SKILL_POOL = [{ skillId: "sk_aaa", name: "pptx", duty: "生成 PPT", status: "已启用" as const }];
 
 beforeEach(() => {
   listThreadMounts.mockReset().mockResolvedValue({ temporary: [], version: "0" });
