@@ -200,12 +200,29 @@ export function allSectionsPlaced(sections: readonly { readonly layout?: unknown
  *   年龄）**不**当贴纸 box 处理——合并成引擎原生支持的单个 `headerRect` + `fields`
  *   （`packages/fabric-markdown` 的 `TemplateSpec.fields`/`headerRect`，见
  *   `template-engine.ts` 285-336 行的渲染分支，早已支持，只是这条链路此前从没喂给它）。
- *   使用者在②画布里把表头字段拖成一排（`autoFillLayout` 的做法，或手工拖成同一行），
- *   本函数按 `(row, col)` 排序后取这些格子的**外接矩形**当 `headerRect`，
- *   `fieldsPerRow` 取表头第一行的字段个数——与编辑器「表头字段铺一条顶带」的
- *   版式假设一致。没有任何 `短文本` 分区时（绝大多数组织自建模板）`fields`/
- *   `headerRect` 都不设，字节级兼容改动前的输出。
+ *   没有任何 `短文本` 分区时（绝大多数组织自建模板）`fields`/`headerRect` 都不设，
+ *   字节级兼容改动前的输出。
+ *
+ * ⚠ 2026-08-31 修正：`fieldsPerRow` **不能**直接取"表头第一行放了几个字段"——那是
+ *   编辑器网格的列数，与引擎渲染表头字段实际要用的**固定像素宽度**是两回事。人类实测
+ *   截图（用户画像 9 个字段被 `autoFillLayout` 一次性铺进一整行，`fieldsPerRow=9`）：
+ *   `template-engine.ts` 给每个字段留死的 `LABEL_W(96) + 6 + VALUE_W(150) = 252px`，
+ *   `cellW = hr.w / fieldsPerRow`——`fieldsPerRow` 一旦超过 `hr.w / 252` 能放下的个数，
+ *   相邻字段的文字框就会互相压住，画出来是文字糊在一起，不是"表头空白"那类静默丢失，
+ *   而是**看得见但读不出来**。改法：按 `headerRect` 的**实际宽度**反算这一行最多放几个
+ *   （`HEADER_FIELD_MIN_W` 镜像自引擎那两个常量），放不下时自动换行（`rows` 增多），
+ *   `headerRect.h` 跟着要放的行数一起长高（`HEADER_ROW_PITCH` 镜像 persona.ts 内置
+ *   spec 的比例：`110mm ÷ (2 行+1) ≈ 36.7`，取整数 40 留一点余量）。
+ *   ⚠ 长高的 `headerRect` 可能压到紧挨着的下一个网格行——这是"表头字段数多到引擎的
+ *   固定像素宽度放不下一行"这个物理约束下的权衡，比起所有字段文字互相重叠、完全读不出
+ *   任何一个值，压少许下一行的空白边距是可接受的代价（多数模板表头字段数 ≤6，
+ *   根本不会触发这条分支，`headerRect` 高度与此前一致）。
  */
+/** 镜像 `template-engine.ts` 的 `LABEL_W(96) + 6px 间距 + VALUE_W(150)`——见上方 2026-08-31 注释。 */
+const HEADER_FIELD_MIN_W = 96 + 6 + 150;
+/** 镜像 `persona.ts` 内置 `headerRect`（h=110，9 字段/5 每行=2 行）的行距比例，取整数留余量。 */
+const HEADER_ROW_PITCH = 40;
+
 export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): ExplicitTemplateResult {
   const layout = computeExplicitLayout(input.sections, input.gridCols);
   const typeById = new Map(input.sections.map((s) => [s.sectionId, s.type] as const));
@@ -230,15 +247,19 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
     const ordered = [...headerCells].sort(
       (a, b) => a.layout.row - b.layout.row || a.layout.col - b.layout.col,
     );
-    const minRow = Math.min(...ordered.map((c) => c.layout.row));
     const left = Math.min(...headerCells.map((c) => c.x - c.w / 2));
     const top = Math.min(...headerCells.map((c) => c.y - c.h / 2));
     const right = Math.max(...headerCells.map((c) => c.x + c.w / 2));
     const bottom = Math.max(...headerCells.map((c) => c.y + c.h / 2));
+    const rawW = right - left;
+    const fieldsPerRow = Math.max(1, Math.min(ordered.length, Math.floor(rawW / HEADER_FIELD_MIN_W)));
+    const rows = Math.ceil(ordered.length / fieldsPerRow);
+    const minH = (rows + 1) * HEADER_ROW_PITCH;
+    const h = Math.max(bottom - top, minH);
     headerFields = {
       fields: ordered.map((c) => c.name),
-      headerRect: { x: (left + right) / 2, y: (top + bottom) / 2, w: right - left, h: bottom - top },
-      fieldsPerRow: ordered.filter((c) => c.layout.row === minRow).length,
+      headerRect: { x: (left + right) / 2, y: top + h / 2, w: rawW, h },
+      fieldsPerRow,
     };
   }
 
