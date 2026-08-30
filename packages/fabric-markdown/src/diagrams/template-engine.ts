@@ -52,6 +52,23 @@ export interface TemplateSection {
   h: number;
   /** Box fill override (e.g. a shaded header row); defaults to white. */
   fill?: string;
+  /**
+   * Per-section sticky-grid override — issue #2372 (workspacex). A caller
+   * that already knows a per-section note density/columns choice (e.g. an
+   * explicit drag-based layout editor) sets whichever of `w`/`h`/`perRow` it
+   * has an opinion about; unset fields fall back to `TemplateSpec.sticky`
+   * (or the built-in default) exactly as before this field existed —
+   * templates that never set it are byte-identical to pre-#2372 output.
+   */
+  sticky?: Partial<{ w: number; h: number; perRow: number }>;
+  /**
+   * Per-section default sticky fill (any CSS color, not restricted to
+   * `STICKY_COLORS`) — issue #2372. A note's own trailing `#name` text tag
+   * still wins per-note (that mechanism is unchanged); this only supplies
+   * the fallback when a note has no tag, so a whole section can default to
+   * a caller-chosen color without hand-tagging every bullet.
+   */
+  stickyColor?: string;
 }
 
 export interface TemplateSpec {
@@ -372,23 +389,28 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
       });
     }
     const items = sections.get(sec.name) ?? [];
-    const perRow = Math.max(1, Math.min(sticky.perRow, Math.floor((sec.w - 28) / (sticky.w + STICKY_GAP.x))));
+    // #2372: a section's own `sticky` (if set) overrides the spec-wide
+    // default field-by-field — unset fields still fall back to `sticky`.
+    const sectionSticky = { ...sticky, ...sec.sticky };
+    const perRow = Math.max(1, Math.min(sectionSticky.perRow, Math.floor((sec.w - 28) / (sectionSticky.w + STICKY_GAP.x))));
     const stickyTop = sec.y - sec.h / 2 + (titleBars ? 44 : 14);
     items.forEach((rawText, j) => {
       const col = j % perRow;
       const row = Math.floor(j / perRow);
-      // Default uniform yellow (the B/W/G look); a user can override per-note
-      // via the canvas color menu, encoded as a trailing `#name` text tag.
+      // Default uniform yellow (the B/W/G look), or the section's own
+      // `stickyColor` when set (#2372); a user can still override per-note
+      // via the canvas color menu, encoded as a trailing `#name` text tag —
+      // that per-note tag wins over both defaults.
       const { text, color } = extractStickyColor(rawText);
       nodes.push({
         id: `tpl-sticky-${i}-${j}`,
         label: text,
         shape: 'sticky',
-        x: sec.x - sec.w / 2 + 14 + sticky.w / 2 + col * (sticky.w + STICKY_GAP.x),
-        y: stickyTop + sticky.h / 2 + row * (sticky.h + STICKY_GAP.y),
-        width: sticky.w,
-        height: sticky.h,
-        data: { role: 'sticky', ...(color ? { color } : {}) },
+        x: sec.x - sec.w / 2 + 14 + sectionSticky.w / 2 + col * (sectionSticky.w + STICKY_GAP.x),
+        y: stickyTop + sectionSticky.h / 2 + row * (sectionSticky.h + STICKY_GAP.y),
+        width: sectionSticky.w,
+        height: sectionSticky.h,
+        data: { role: 'sticky', ...((color ?? sec.stickyColor) ? { color: color ?? sec.stickyColor } : {}) },
       });
     });
   });

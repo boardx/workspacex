@@ -93,6 +93,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { simulateCanvasTemplateRun } from "@/lib/live-canvas";
 import { ApiError } from "@/lib/api-client";
 import { buildAutoTemplateSpec } from "@/lib/canvas/auto-template-layout";
+import { buildExplicitTemplateSpec, allSectionsPlaced } from "@/lib/canvas/explicit-template-layout";
 import { CanvasStage } from "./canvas-stage";
 import type { CanvasTool } from "./canvas-toolbar";
 import type { SectionDraft } from "./template-editor-model";
@@ -148,7 +149,7 @@ export function usesAutoLayoutSpec(
 }
 
 export function TemplateSimulateDialog({
-  templateKey, layoutSource, sectionsDirty, sections, title, promptText, onClose,
+  templateKey, layoutSource, sectionsDirty, sections, gridCols, title, promptText, onClose,
 }: {
   readonly templateKey: string;
   /**
@@ -163,6 +164,12 @@ export function TemplateSimulateDialog({
    */
   readonly sectionsDirty: boolean;
   readonly sections: readonly SectionDraft[];
+  /**
+   * 编辑器当前的网格制式（issue #2372）——`SectionDraft.layout.col/row/w/h` 是相对
+   * 这个制式的网格坐标，`buildExplicitTemplateSpec` 换算 px 时需要它。与②画布用
+   * 同一个 state，不另起一份。
+   */
+  readonly gridCols: 6 | 12;
   readonly title: string;
   /** ①栏当前的提示词正文——打开弹窗时用来预填。 */
   readonly promptText: string;
@@ -209,15 +216,28 @@ export function TemplateSimulateDialog({
         // 是不是内置 key）都用当前分区结构。
         if (usesAutoLayoutSpec(templateKey, layoutSource, sectionsDirty)) {
           // 组织自建：用**当前**（含未保存改动的）分区结构现拼一份 spec——与生产
-          // chat 对组织自建模板的渲染同一个函数（`buildAutoTemplateSpec`），只是
-          // 数据源从"库里已发布的版本"换成"这一刻编辑器里的草稿"。
-          const { spec } = buildAutoTemplateSpec({
-            key: previewKey,
-            displayName: title || templateKey,
-            sections: sections.map((s) => ({
-              sectionId: s.sectionId, name: s.name, order: s.order, required: s.required, capacity: s.capacity,
-            })),
-          });
+          // chat 对组织自建模板的渲染同一条判据（见下方 `allSectionsPlaced` 分支），
+          // 只是数据源从"库里已发布的版本"换成"这一刻编辑器里的草稿"。
+          //
+          // issue #2372：每个分区都已放置到画布上时，用 `buildExplicitTemplateSpec`
+          // 忠实还原②画布里那份位置/列数/颜色——此前这里恒用 `buildAutoTemplateSpec`，
+          // 把每个分区降维成 5 个字段，`layout`（位置/列数/颜色）在这一步就被丢了，
+          // chat 模拟看到的与②画布里配的完全对不上。只要有一个分区还没放，退回
+          // 原来的自动布局（`allSectionsPlaced` 头注解释了为什么不做部分合并）。
+          const { spec } = allSectionsPlaced(sections)
+            ? buildExplicitTemplateSpec({
+              key: previewKey,
+              displayName: title || templateKey,
+              gridCols,
+              sections: sections.map((s) => ({ sectionId: s.sectionId, name: s.name, layout: s.layout! })),
+            })
+            : buildAutoTemplateSpec({
+              key: previewKey,
+              displayName: title || templateKey,
+              sections: sections.map((s) => ({
+                sectionId: s.sectionId, name: s.name, order: s.order, required: s.required, capacity: s.capacity,
+              })),
+            });
           registerTemplate(spec);
           setMarkdown(wrapAsMermaidBlock(rewriteTemplateKeyLine(block.code, previewKey), block.lang));
         } else {
@@ -240,7 +260,7 @@ export function TemplateSimulateDialog({
     } finally {
       setRunning(false);
     }
-  }, [prompt, running, templateKey, layoutSource, sectionsDirty, sections, title, previewKey]);
+  }, [prompt, running, templateKey, layoutSource, sectionsDirty, sections, gridCols, title, previewKey]);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>

@@ -805,6 +805,7 @@ export function TemplateEditorPanel({
             layoutSource={row.layoutSource}
             sectionsDirty={sectionsDirty}
             sections={sections}
+            gridCols={gridCols}
             title={title}
             promptText={promptText}
             onClose={() => setSimulateOpen(false)}
