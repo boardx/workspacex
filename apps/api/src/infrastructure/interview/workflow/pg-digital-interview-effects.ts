@@ -69,6 +69,17 @@ interface GeneratedInterviewExpert {
   readonly serviceValue: string;
 }
 
+interface InterviewQuestionExpertProfile extends GeneratedInterviewExpert {
+  readonly expertId: string;
+  readonly displayName: string;
+  readonly existingQuestionCount: number;
+}
+
+interface GeneratedInterviewQuestion {
+  readonly text: string;
+  readonly purpose: string;
+}
+
 function parseStringList(value: unknown): readonly string[] {
   return Array.isArray(value)
     ? Array.from(new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)))
@@ -113,6 +124,42 @@ function parseGeneratedInterviewExperts(text: string): readonly GeneratedIntervi
   });
   if (experts.length < 3 || experts.length > 5) throw new SyntaxError("experts must contain 3 to 5 valid entries");
   return experts;
+}
+
+function parseGeneratedInterviewQuestions(
+  text: string,
+  expectedExpertIds: readonly string[],
+): ReadonlyMap<string, readonly GeneratedInterviewQuestion[]> {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text.trim());
+  const parsed = JSON.parse(fenced?.[1]?.trim() ?? text) as { experts?: unknown };
+  if (!Array.isArray(parsed.experts)) throw new SyntaxError("experts must be an array");
+  const expected = new Set(expectedExpertIds);
+  const questionsByExpert = new Map<string, readonly GeneratedInterviewQuestion[]>();
+  const uniqueQuestionBodies = new Set<string>();
+  for (const value of parsed.experts) {
+    if (value === null || typeof value !== "object") throw new SyntaxError("expert question group must be an object");
+    const group = value as Record<string, unknown>;
+    const expertId = typeof group.expertId === "string" ? group.expertId.trim() : "";
+    if (!expected.has(expertId) || questionsByExpert.has(expertId) || !Array.isArray(group.questions)) {
+      throw new SyntaxError("expert question group does not match selected experts");
+    }
+    const questions = group.questions.flatMap((question): GeneratedInterviewQuestion[] => {
+      if (question === null || typeof question !== "object") return [];
+      const candidate = question as Record<string, unknown>;
+      const body = typeof candidate.text === "string" ? candidate.text.trim() : "";
+      const purpose = typeof candidate.purpose === "string" ? candidate.purpose.trim() : "";
+      return body && purpose ? [{ text: body, purpose }] : [];
+    });
+    if (questions.length !== 3) throw new SyntaxError("each expert must have exactly three valid questions");
+    for (const question of questions) {
+      const normalized = question.text.replace(/\s+/g, "").toLocaleLowerCase();
+      if (uniqueQuestionBodies.has(normalized)) throw new SyntaxError("questions must be distinct across experts");
+      uniqueQuestionBodies.add(normalized);
+    }
+    questionsByExpert.set(expertId, questions);
+  }
+  if (questionsByExpert.size !== expected.size) throw new SyntaxError("questions must cover every selected expert");
+  return questionsByExpert;
 }
 
 function initialsFor(displayName: string): string {
@@ -520,6 +567,52 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
 
   async generateQuestions(input: GenerateDigitalInterviewDraftInput): Promise<void> {
     const payload = { expectedVersion: input.expectedVersion };
+    const replayed = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
+      const replay = await this.readReceipt(
+        session, toOrgId(input.orgId), input.interviewId, "generate_questions", input.requestId,
+      );
+      if (!replay) return false;
+      this.assertMatchingReceipt(replay, payload);
+      return true;
+    });
+    if (replayed) return;
+
+    const context = await this.db.withTenant(toOrgId(input.orgId), async (session) => {
+      const interview = await session.query<{ topic: string | null }>(
+        "SELECT topic FROM interview_sessions WHERE org_id=$1 AND id=$2",
+        [input.orgId, input.interviewId],
+      );
+      const selected = await this.readQuestionExpertProfiles(session, input);
+      return { topic: interview.rows[0]?.topic?.trim() ?? "", selected };
+    });
+    if (!context.topic || !context.selected.length) {
+      throw new DigitalInterviewWorkflowError("DIGITAL_INTERVIEW_INPUT_INVALID");
+    }
+    const missingProfiles = context.selected.filter((expert) => expert.existingQuestionCount === 0);
+    let generated = new Map<string, readonly GeneratedInterviewQuestion[]>();
+    if (missingProfiles.length) {
+      if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+      try {
+        const response = await this.model.complete({
+          modelProvider: this.modelProvider,
+          modelId: this.modelId,
+          system: "你是资深访谈研究员。请根据访谈主题和每位专家的完整 Persona，分别设计恰好 3 个高度针对性、开放式、非诱导的问题。问题必须体现该专家独有的专业身份、目标、兴趣、痛点、动机、影响来源、性格特征、服务价值或典型建议，不能只替换姓名，也不能让不同专家共用同一模板。只返回 JSON：{\"experts\":[{\"expertId\":\"原样返回输入 ID\",\"questions\":[{\"text\":\"问题\",\"purpose\":\"提问目的\"}]}]}。",
+          user: JSON.stringify({
+            operation: "generate_interview_questions",
+            topic: context.topic,
+            experts: missingProfiles.map(({ existingQuestionCount: _count, ...profile }) => profile),
+          }),
+        });
+        generated = new Map(parseGeneratedInterviewQuestions(
+          response.text,
+          missingProfiles.map((expert) => expert.expertId),
+        ));
+      } catch (error) {
+        if (!(error instanceof ModelCallError || error instanceof SyntaxError)) throw error;
+        throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+      }
+    }
+
     await this.db.withTenant(toOrgId(input.orgId), async (session) => {
       await this.lockRequest(
         session, toOrgId(input.orgId), input.interviewId, "generate_questions", input.requestId,
@@ -532,19 +625,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       if (Number(current.version) !== input.expectedVersion || current.revision_id !== input.revisionId) {
         throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
       }
-      const selected = await session.query<{
-        expert_id: string; display_name: string; existing_question_count: string;
-      }>(
-        `SELECT c.expert_id,c.display_name,count(q.question_id)::text AS existing_question_count
-           FROM digital_interview_expert_candidates c
-           JOIN interview_sessions s ON s.org_id=c.org_id AND s.id=$3
-           LEFT JOIN digital_interview_question_candidates q
-             ON q.org_id=c.org_id AND q.revision_id=c.revision_id AND q.expert_id=c.expert_id
-          WHERE c.org_id=$1 AND c.revision_id=$2 AND c.expert_id=ANY(s.selected_expert_ids)
-          GROUP BY c.expert_id,c.display_name,c.ordinal
-          ORDER BY c.ordinal`,
-        [input.orgId, input.revisionId, input.interviewId],
-      );
+      const selected = await this.readQuestionExpertProfiles(session, input);
       await session.query(
         `DELETE FROM digital_interview_question_candidates q
           USING interview_sessions s
@@ -558,20 +639,17 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         [input.orgId, input.revisionId],
       );
       let ordinal = Number(maximum.rows[0]?.ordinal ?? "0");
-      for (const expert of selected.rows) {
-        if (Number(expert.existing_question_count) > 0) continue;
-        const defaults = [
-          { text: `请描述${expert.display_name}参与的决策流程与关键节点。`, purpose: "梳理决策流程" },
-          { text: `从${expert.display_name}视角，哪些风险会触发否决或暂停？`, purpose: "识别否决风险" },
-          { text: `请提供${expert.display_name}支持上述判断的实际案例或依据。`, purpose: "追问案例依据" },
-        ];
-        for (const question of defaults) {
+      for (const expert of selected) {
+        if (expert.existingQuestionCount > 0) continue;
+        const questions = generated.get(expert.expertId);
+        if (!questions) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+        for (const question of questions) {
           ordinal += 1;
           await session.query(
             `INSERT INTO digital_interview_question_candidates
                (org_id,revision_id,question_id,expert_id,ordinal,body,purpose)
              VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-            [input.orgId, input.revisionId, this.ids.next("itv-question-draft"), expert.expert_id,
+            [input.orgId, input.revisionId, this.ids.next("itv-question-draft"), expert.expertId,
               ordinal, question.text, question.purpose],
           );
         }
@@ -585,6 +663,54 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         session, toOrgId(input.orgId), input.interviewId, "confirm_experts", input.requestId, workflow,
       );
     });
+  }
+
+  private async readQuestionExpertProfiles(
+    session: TenantSession,
+    input: GenerateDigitalInterviewDraftInput,
+  ): Promise<InterviewQuestionExpertProfile[]> {
+    const selected = await session.query<{
+      expert_id: string; display_name: string; role: string; domains: string[]; category: string;
+      bio: string; location: string; typical_advice: string; age: number; occupation: string;
+      goals: string[]; interests: string[]; pain_points: string[]; motivations: string[];
+      influences: string[];
+      personality_traits: { introvertExtrovert: number; analyticalCreative: number; busyTimeRich: number };
+      service_value: string; existing_question_count: string;
+    }>(
+      `SELECT c.expert_id,c.display_name,c.role,c.domains,c.category,c.bio,c.location,c.typical_advice,
+              c.age,c.occupation,c.goals,c.interests,c.pain_points,c.motivations,c.influences,
+              c.personality_traits,c.service_value,count(q.question_id)::text AS existing_question_count
+         FROM digital_interview_expert_candidates c
+         JOIN interview_sessions s ON s.org_id=c.org_id AND s.id=$3
+         LEFT JOIN digital_interview_question_candidates q
+           ON q.org_id=c.org_id AND q.revision_id=c.revision_id AND q.expert_id=c.expert_id
+        WHERE c.org_id=$1 AND c.revision_id=$2 AND c.expert_id=ANY(s.selected_expert_ids)
+        GROUP BY c.expert_id,c.display_name,c.role,c.domains,c.category,c.bio,c.location,c.typical_advice,
+                 c.age,c.occupation,c.goals,c.interests,c.pain_points,c.motivations,c.influences,
+                 c.personality_traits,c.service_value,c.ordinal
+        ORDER BY c.ordinal`,
+      [input.orgId, input.revisionId, input.interviewId],
+    );
+    return selected.rows.map((expert) => ({
+      expertId: expert.expert_id,
+      displayName: expert.display_name,
+      role: expert.role,
+      domains: expert.domains,
+      category: expert.category,
+      bio: expert.bio,
+      location: expert.location,
+      typicalAdvice: expert.typical_advice,
+      age: expert.age,
+      occupation: expert.occupation,
+      goals: expert.goals,
+      interests: expert.interests,
+      painPoints: expert.pain_points,
+      motivations: expert.motivations,
+      influences: expert.influences,
+      personalityTraits: expert.personality_traits,
+      serviceValue: expert.service_value,
+      existingQuestionCount: Number(expert.existing_question_count),
+    }));
   }
 
   async appendSkillMessage(input: {

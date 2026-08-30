@@ -21,24 +21,40 @@ const EXPERT = "expert-f04-langgraph-persistence";
 const EXPERT_VERSION = "expert-version-f04-langgraph-persistence";
 let db: PgDatabase;
 let sequence = 0;
-let testCycle = 0;
+let testCycle = Date.now();
 const ids = { next: (prefix: string) => `${prefix}-persistence-${++sequence}` };
 let modelCalls: Array<Parameters<ModelCallPort["complete"]>[0]> = [];
 const model: ModelCallPort = { complete: async (input) => {
   modelCalls.push(input);
-  const context = JSON.parse(input.user) as { currentStep?: string; operation?: string };
+  const context = JSON.parse(input.user) as {
+    currentStep?: string;
+    operation?: string;
+    experts?: Array<{
+      expertId: string; displayName: string; occupation: string; goals: string[];
+      painPoints: string[]; typicalAdvice: string;
+    }>;
+  };
   return { text: JSON.stringify(context.operation === "generate_interview_experts"
     ? { experts: [
       { displayName: "采购决策专家", role: "分析采购决策链", domains: ["采购"], category: "采购", bio: "研究采购决策与供应商选择。", location: "德国", typicalAdvice: "先定位最终否决权。", age: 48, occupation: "采购顾问", goals: ["优化采购"], interests: ["供应商管理"], painPoints: ["决策不透明"], motivations: ["提升质量"], influences: ["工业采购实践"], personalityTraits: { introvertExtrovert: 5, analyticalCreative: 7, busyTimeRich: 4 }, serviceValue: "采购决策咨询" },
       { displayName: "财务风控专家", role: "评估预算与财务风险", domains: ["财务", "风控"], category: "财务", bio: "研究预算约束与财务风险。", location: "欧洲", typicalAdvice: "先量化风险敞口。", age: 44, occupation: "财务风控顾问", goals: ["控制风险"], interests: ["风险模型"], painPoints: ["风险不可见"], motivations: ["提高稳健性"], influences: ["国际会计准则"], personalityTraits: { introvertExtrovert: 4, analyticalCreative: 8, busyTimeRich: 4 }, serviceValue: "财务风险评估" },
       { displayName: "交付运营专家", role: "评估实施与交付约束", domains: ["运营", "交付"], category: "运营", bio: "研究复杂项目实施与交付。", location: "中国", typicalAdvice: "先验证关键交付约束。", age: 41, occupation: "交付运营顾问", goals: ["保障交付"], interests: ["项目运营"], painPoints: ["资源冲突"], motivations: ["提高交付成功率"], influences: ["精益运营"], personalityTraits: { introvertExtrovert: 6, analyticalCreative: 6, busyTimeRich: 3 }, serviceValue: "交付约束诊断" },
     ] }
+    : context.operation === "generate_interview_questions"
+      ? { experts: (context.experts ?? []).map((expert) => ({
+        expertId: expert.expertId,
+        questions: [
+          { text: `作为${expert.occupation}，您会如何实现“${expert.goals[0]}”？`, purpose: "追问专业目标" },
+          { text: `针对“${expert.painPoints[0]}”，您的专业判断和解决路径是什么？`, purpose: "深挖专业痛点" },
+          { text: `您提出“${expert.typicalAdvice}”的真实案例和证据是什么？`, purpose: "验证典型建议" },
+        ],
+      })) }
     : context.currentStep === "topic" ? { topic: "更聚焦的主题" } : { expertIds: [EXPERT] }) };
 } };
 
-function createRuntime() {
+function createRuntime(modelOverride: ModelCallPort = model) {
   const repo = new PgDigitalInterviewRepository(db);
-  const effects = new PgDigitalInterviewEffects(db, ids, repo, model, "test-provider", "test-model");
+  const effects = new PgDigitalInterviewEffects(db, ids, repo, modelOverride, "test-provider", "test-model");
   const checkpointer = createDigitalInterviewCheckpointer(appConfig());
   return {
     effects,
@@ -50,7 +66,7 @@ function createRuntime() {
       scope: new PgInterviewScopeRepository(db),
       decisions: new UuidDecisionIdFactory(),
       ids,
-      model,
+      model: modelOverride,
       skillModelProvider: "test-provider",
       skillModelId: "test-model",
     }),
@@ -274,6 +290,76 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     expect(secondConfirmed.interviewId).toBe(second.interviewId);
     expect(firstConfirmed.expertCandidates).toHaveLength(3);
     expect(secondConfirmed.expertCandidates).toHaveLength(3);
+    await setup.checkpointer.end();
+  });
+
+  it("generates distinct questions from each selected expert's complete Persona", async () => {
+    const setup = createRuntime();
+    const created = await setup.runtime.createDraft({
+      orgId: ORG, actorId: USER, name: "专家针对性问题", tags: ["采购", "风控"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-targeted-questions",
+    });
+    const topic = await setup.runtime.confirmTopic({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "如何平衡采购效率与财务风险", expectedVersion: 1, requestId: "topic-targeted-questions",
+    });
+    const selected = topic.expertCandidates.slice(0, 2);
+    const experts = await setup.runtime.confirmExperts({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expertIds: selected.map((expert) => expert.expertId), addedExperts: [],
+      expectedVersion: topic.version, requestId: "experts-targeted-questions",
+    });
+
+    const questionCall = modelCalls.find((call) => JSON.parse(call.user).operation === "generate_interview_questions");
+    expect(questionCall).toBeDefined();
+    const questionContext = JSON.parse(questionCall!.user) as { topic: string; experts: typeof selected };
+    expect(questionContext.topic).toBe("如何平衡采购效率与财务风险");
+    expect(questionContext.experts).toEqual(selected.map((expert) => expect.objectContaining({
+      expertId: expert.expertId,
+      occupation: expert.occupation,
+      goals: expert.goals,
+      painPoints: expert.painPoints,
+      personalityTraits: expert.personalityTraits,
+      serviceValue: expert.serviceValue,
+    })));
+
+    const firstQuestions = experts.questionCandidates.filter((question) => question.expertId === selected[0]!.expertId);
+    const secondQuestions = experts.questionCandidates.filter((question) => question.expertId === selected[1]!.expertId);
+    expect(firstQuestions).toHaveLength(3);
+    expect(secondQuestions).toHaveLength(3);
+    expect(firstQuestions.map((question) => question.text).join(" ")).toContain(selected[0]!.occupation);
+    expect(secondQuestions.map((question) => question.text).join(" ")).toContain(selected[1]!.occupation);
+    expect(firstQuestions.map((question) => question.text)).not.toEqual(secondQuestions.map((question) => question.text));
+    await setup.checkpointer.end();
+  });
+
+  it("fails closed when the model does not return distinct Persona-specific question groups", async () => {
+    const invalidQuestionsModel: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user) as { operation?: string; experts?: Array<{ expertId: string }> };
+      if (context.operation !== "generate_interview_questions") return model.complete(input);
+      return { text: JSON.stringify({ experts: (context.experts ?? []).map((expert) => ({
+        expertId: expert.expertId,
+        questions: [
+          { text: "固定问题一", purpose: "固定目的" },
+          { text: "固定问题二", purpose: "固定目的" },
+          { text: "固定问题三", purpose: "固定目的" },
+        ],
+      })) }) };
+    } };
+    const setup = createRuntime(invalidQuestionsModel);
+    const created = await setup.runtime.createDraft({
+      orgId: ORG, actorId: USER, name: "拒绝固定问题", tags: ["质量"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-reject-fixed",
+    });
+    const topic = await setup.runtime.confirmTopic({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "拒绝跨专家固定模板", expectedVersion: 1, requestId: "topic-reject-fixed",
+    });
+    await expect(setup.runtime.confirmExperts({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expertIds: topic.expertCandidates.slice(0, 2).map((expert) => expert.expertId), addedExperts: [],
+      expectedVersion: topic.version, requestId: "experts-reject-fixed",
+    })).rejects.toMatchObject({ code: "AI_GENERATION_UNAVAILABLE" });
     await setup.checkpointer.end();
   });
 
