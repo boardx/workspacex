@@ -14,6 +14,7 @@ import {
   requestPasswordReset,
 } from "@/lib/auth";
 import { useSession } from "@/components/session/session-provider";
+import { sanitizeReturnTo } from "@/lib/return-to";
 
 /**
  * 登录表单（UC-1.1 R3/R8）——七态一律经 StateShell。
@@ -35,7 +36,7 @@ import { useSession } from "@/components/session/session-provider";
  */
 const RESET_RETRY_COPY = "重置服务暂时不可用，请稍后重试";
 
-export function LoginForm({ state }: { state: UiState }) {
+export function LoginForm({ state, next }: { state: UiState; next?: string }) {
   const session = useSession();
   const [showPwd, setShowPwd] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
@@ -195,10 +196,12 @@ export function LoginForm({ state }: { state: UiState }) {
           try {
             const out = await login(email, password);
             await session.startSession(out);
-            // 登录成功后进入「全部项目」——UC-1.1 R3 收口步骤。
+            // 登录成功后默认进入「全部项目」——UC-1.1 R3 收口步骤；若带着 `?next=`
+            // 深链过来（例如刷新画布模板后台管理页触发的会话恢复跳转），登录后
+            // 回到原页而不是一律落到 `/projects`。见 `lib/return-to.ts`。
             // Use a document navigation after the session's atomic localStorage commit.
             // It prevents a stale RSC prefetch from racing the new bearer/current-org pair.
-            window.location.assign("/projects");
+            window.location.assign(sanitizeReturnTo(next));
           } catch (e) {
             setLoginError(
               isLoginRejected(e)
