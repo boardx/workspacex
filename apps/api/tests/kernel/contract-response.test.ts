@@ -15,8 +15,9 @@ import { OFFICIAL_SKILLS } from "../../scripts/backfill-platform-skills";
 /** 同 no-builtin-capability-lists.test.ts 的 withoutPlatformSkills 头注：
  *  design-delta `platform-owned-skills` 之后，kind=skill 是否含四个平台官方 skill
  *  取决于同一个 DB 里有没有别的文件先跑过 backfillPlatformSkills()——不能假设恒有
- *  或恒无，过滤掉再断言"这个 org 自己什么都没配置"。 */
-const PLATFORM_SKILL_IDS = new Set(OFFICIAL_SKILLS.map((s) => `cap-skill-platform-${s.stableName}`));
+ *  或恒无，过滤掉再断言"这个 org 自己什么都没配置"。id 不带 `cap-` 前缀，与
+ *  `skills.id` 逐字相同——「找不到 Skill」根因修复。 */
+const PLATFORM_SKILL_IDS = new Set(OFFICIAL_SKILLS.map((s) => `skill-platform-${s.stableName}`));
 const withoutPlatformSkills = <T extends { id: string }>(items: readonly T[]): T[] =>
   items.filter((c) => !PLATFORM_SKILL_IDS.has(c.id));
 
