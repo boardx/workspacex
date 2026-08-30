@@ -9,9 +9,11 @@ import { describe, expect, it } from "vitest";
 import {
   computeExplicitLayout,
   buildExplicitTemplateSpec,
+  allSectionsPlaced,
   sectionGeometryMm,
   classifyNoteSize,
   MAX_NOTE_MM,
+  TONE_COLORS,
   A1_CONTENT_MM,
   A1_PAPER_MM,
   PAPER_SIZE_MM,
@@ -79,6 +81,66 @@ describe("computeExplicitLayout —— px 几何", () => {
     expect(spec.sections.map((s) => s.name)).toEqual(layout.cells.map((c) => c.name));
     // 没有必填强调框/便签暂存区——那是 auto-template-layout 专属的视觉补偿。
     expect(spec.decorations).toEqual([]);
+  });
+
+  /**
+   * issue #2372：此前 `buildExplicitTemplateSpec` 只产出 name/x/y/w/h/fill，`layout.cols`
+   * （列数）与 `layout.tone`（贴纸颜色）从没进过 `TemplateSpec`——不是本函数没算，是从
+   * 没写出来过。这两条断言钉住"现在确实写出来了"，对应 vendor 侧新增的
+   * `TemplateSection.sticky`/`stickyColor`（`packages/fabric-markdown` 2026-08-30 回流）。
+   */
+  it("每个分区各自的 cols → sticky.perRow，逐分区不同，不是全模板共用一个数", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        section("a", 1, 1, 6, 4, { cols: 2 }),
+        section("b", 7, 1, 6, 4, { cols: 6 }),
+      ],
+      gridCols: 12,
+    });
+    expect(spec.sections[0]!.sticky).toEqual({ perRow: 2 });
+    expect(spec.sections[1]!.sticky).toEqual({ perRow: 6 });
+  });
+
+  it("每个分区各自的 tone → stickyColor，取的是 TONE_COLORS 里对应索引的真实 hex", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [
+        section("a", 1, 1, 6, 4, { tone: 0 }),
+        section("b", 7, 1, 6, 4, { tone: 1 }),
+        section("c", 1, 5, 6, 4, { tone: 2 }),
+        section("d", 7, 5, 6, 4, { tone: 3 }),
+      ],
+      gridCols: 12,
+    });
+    expect(spec.sections.map((s) => s.stickyColor)).toEqual(TONE_COLORS);
+  });
+
+  it("tone 越界（防御性）时退回 TONE_COLORS[0]，不产出 undefined 颜色", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [section("a", 1, 1, 6, 4, { tone: 99 })],
+      gridCols: 12,
+    });
+    expect(spec.sections[0]!.stickyColor).toBe(TONE_COLORS[0]);
+  });
+});
+
+describe("allSectionsPlaced（issue #2372：chat 模拟/真实 chat 要不要走显式布局）", () => {
+  it("空列表：不算「都放置了」——没有分区就没有显式布局可言", () => {
+    expect(allSectionsPlaced([])).toBe(false);
+  });
+
+  it("全部有 layout：true", () => {
+    expect(allSectionsPlaced([{ layout: {} }, { layout: {} }])).toBe(true);
+  });
+
+  it("有一个 layout 是 null：false——不做部分合并，整体退回自动布局", () => {
+    expect(allSectionsPlaced([{ layout: {} }, { layout: null }])).toBe(false);
+  });
+
+  it("有一个 layout 是 undefined（契约 .optional() 的旧数据）：false", () => {
+    expect(allSectionsPlaced([{ layout: {} }, {}])).toBe(false);
   });
 });
 

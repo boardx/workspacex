@@ -39,6 +39,14 @@ import { PAPER } from "@repo/fabric-markdown/theme";
 import type { TemplateSpec, TemplateSection } from "@repo/fabric-markdown";
 import { A0_FRAME, GRID_TOP, GUTTER } from "./auto-template-layout";
 
+/**
+ * `Design.pdf` §2.2：贴纸四色板，索引即 `layout.tone`。单一事实源（issue #2372
+ * 之前只在 `template-editor-model.ts` 声明一份，给 HTML/CSS 预览网格用；现在
+ * `buildExplicitTemplateSpec` 也要按 `tone` 给 fabric 贴纸取色，lib 层不能反过来
+ * import 组件层，所以定义挪到这里，`template-editor-model.ts` 改成重新导出）。
+ */
+export const TONE_COLORS = ["#F7E96E", "#F2C6C2", "#CFE3D2", "#CBD8EE"] as const;
+
 /** 契约 `canvas.SectionLayout` 的结构投影（本文件只读它，不重新定义契约）。 */
 export interface ExplicitSectionLayout {
   readonly col: number;
@@ -135,12 +143,39 @@ export interface ExplicitTemplateResult {
 }
 
 /**
+ * issue #2372：调用方（chat 模拟 / 真实 chat）用这个决定要不要走
+ * `buildExplicitTemplateSpec`——目前只在**每个分区都已放置**（`layout` 非空）
+ * 时才用；只要有一个分区还没放，整体退回 `buildAutoTemplateSpec`。
+ *
+ * ⚠ 不做"部分合并"（已放置的走显式坐标、未放置的另外塞进自动布局算出的空位）：
+ *   两条几何算法各算各的，混用会互相压叠（自动布局不知道哪些坐标已经被显式占用）。
+ *   契约 `SectionDef.layout` 的文件头注释"缺失就按既有的自动布局兜底渲染"，本函数
+ *   把它读成**整体**退回，不是逐分区退回——发布前置检查本就会点名"未放置字段"
+ *   （`Design.pdf` §6 规则⑦），常态下发布过的模板不会落进这个混合态。
+ */
+export function allSectionsPlaced(sections: readonly { readonly layout?: unknown }[]): boolean {
+  return sections.length > 0 && sections.every((s) => s.layout != null);
+}
+
+/**
  * 已放置的分区 → 可渲染的 `TemplateSpec`。
  *
  * 刻意**不产出装饰**（标题分隔线之外）：必填强调框、便签暂存区都是
  * `auto-template-layout.ts` 给自动布局发明的视觉补偿，拖拽版画布由使用者
  * 自己在网格上摆放，位置本身就是可见的，不需要额外的必填框强调——
  * `Design.pdf` 的原型截图里也没有这类装饰。
+ *
+ * ⚠ issue #2372：本函数此前定义了但从未真正接进 chat 模拟/真实 chat 的渲染
+ *   路径——那两处一直把每个分区手动降维成 `{sectionId,name,order,required,
+ *   capacity}` 喂给 `buildAutoTemplateSpec`，`layout.col/row/w/h/cols/tone`
+ *   在半路就被丢了，编辑器右栏「③显示方式」（列数/颜色/占多大）配了等于白配。
+ *   接线见 `template-simulate-dialog.tsx`/`fence-template-resolver.ts`；本函数
+ *   自己只负责"给定已放置的分区，产出一份忠实的 spec"，不关心调用方怎么决定
+ *   "要不要用这条链路"（那是各调用方自己的 `layoutSource`/`sectionsDirty` 判据）。
+ *   列数（`layout.cols`）与贴纸颜色（`layout.tone` → `TONE_COLORS`）现在通过
+ *   `TemplateSection.sticky`/`stickyColor` 传给 fabric-markdown（vendor 侧配套
+ *   扩展，见其 `VENDOR.md` 2026-08-30 回流记录）——位置/尺寸从来就在 `x/y/w/h`
+ *   里，唯独这两项此前连 vendor 的类型都接不住。
  */
 export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): ExplicitTemplateResult {
   const layout = computeExplicitLayout(input.sections, input.gridCols);
@@ -151,6 +186,8 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
     w: c.w,
     h: c.h,
     fill: PAPER,
+    sticky: { perRow: c.layout.cols },
+    stickyColor: TONE_COLORS[c.layout.tone] ?? TONE_COLORS[0],
   }));
   return {
     spec: {

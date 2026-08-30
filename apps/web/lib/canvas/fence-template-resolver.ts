@@ -67,6 +67,7 @@ import { getTemplate, registerTemplate } from "@repo/fabric-markdown";
 import { canvas } from "@repo/contracts";
 import { listCanvasTemplates, type CanvasTemplate } from "@/lib/live-canvas";
 import { buildAutoTemplateSpec } from "./auto-template-layout";
+import { buildExplicitTemplateSpec, allSectionsPlaced } from "./explicit-template-layout";
 
 export type CanvasFenceTemplateSource = "builtin" | "org-generated";
 
@@ -166,11 +167,33 @@ export async function ensureCanvasFenceTemplate(input: {
 
   const owner = `${orgId}@${row.version}`;
   if (AUTO_OWNER.get(key) !== owner || !getTemplate(key)) {
-    const { spec } = buildAutoTemplateSpec({
-      key,
-      displayName: row.displayName,
-      sections: row.sections,
-    });
+    // issue #2372：每个分区都已放置到画布上时，用 `buildExplicitTemplateSpec` 忠实
+    // 还原编辑器里配的位置/列数/贴纸颜色——此前这里恒用 `buildAutoTemplateSpec`，
+    // `row.sections` 即使带了 `layout` 也会被它的入参类型悄悄无视（该函数只读
+    // sectionId/name/order/required/capacity 五个字段），真实 chat 渲染出来的东西
+    // 跟编辑器②画布里配的完全对不上。只要有一个分区还没放，退回原来的自动布局
+    // （`allSectionsPlaced` 头注解释了为什么不做部分合并）。
+    //
+    // ⚠ `gridCols` 恒传 12：编辑器里的网格制式（6/12 列）目前只是 session-local 的
+    //   React state（`template-editor-panel.tsx` 里 `useState<6|12>(12)`），从未落进
+    //   `SectionLayout` 契约或持久化到这一行——`layout.col/row/w/h` 是相对某个网格
+    //   制式的坐标，但没有任何字段记着"存的时候用的是哪个制式"。编辑器每次打开都
+    //   从 12 起步（同一个默认值），所以这里用 12 是与编辑器默认行为对齐的、有据可查
+    //   的假设，不是拍脑袋——但如果编辑者存草稿前手动切到过 6 列，这里会解释错。
+    //   完整修法是给 `SectionLayout` 契约加一个 `gridCols` 字段并持久化，属于更大的
+    //   契约改动，不在本次范围内（先解决"布局完全不生效"这个更严重的问题）。
+    const { spec } = allSectionsPlaced(row.sections)
+      ? buildExplicitTemplateSpec({
+        key,
+        displayName: row.displayName,
+        gridCols: 12,
+        sections: row.sections.map((s) => ({ sectionId: s.sectionId, name: s.name, layout: s.layout! })),
+      })
+      : buildAutoTemplateSpec({
+        key,
+        displayName: row.displayName,
+        sections: row.sections,
+      });
     registerTemplate(spec);
     AUTO_OWNER.set(key, owner);
   }

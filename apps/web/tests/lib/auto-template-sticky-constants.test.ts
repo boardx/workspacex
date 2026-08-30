@@ -56,16 +56,20 @@ describe("镜像的引擎便签常量与上游一致", () => {
     expect(ENGINE_STICKY_TOP_OFFSET).toBe(
       num(/stickyTop\s*=\s*sec\.y\s*-\s*sec\.h\s*\/\s*2\s*\+\s*\(titleBars\s*\?\s*(\d+)/, "stickyTop 偏移"),
     );
-    // 引擎：x: sec.x - sec.w / 2 + 14 + sticky.w / 2 + col * (...)
+    // 引擎（issue #2372 后）：x: sec.x - sec.w / 2 + 14 + sectionSticky.w / 2 + col * (...)
+    // ⚠ 变量名从 `sticky.w` 改成 `sectionSticky.w`（每分区可覆盖 perRow/w/h，
+    //   见 `template-engine.ts` 的 `TemplateSection.sticky`），常量本身（14）没变。
     expect(ENGINE_STICKY_INSET).toBe(
-      num(/x:\s*sec\.x\s*-\s*sec\.w\s*\/\s*2\s*\+\s*(\d+)\s*\+\s*sticky\.w/, "便签左内边距"),
+      num(/x:\s*sec\.x\s*-\s*sec\.w\s*\/\s*2\s*\+\s*(\d+)\s*\+\s*sectionSticky\.w/, "便签左内边距"),
     );
   });
 
   it("引擎按 perRow 计算每行张数的公式没变（尺寸倒推依赖它）", () => {
-    // const perRow = Math.max(1, Math.min(sticky.perRow, Math.floor((sec.w - 28) / (sticky.w + STICKY_GAP.x))));
+    // const perRow = Math.max(1, Math.min(sectionSticky.perRow, Math.floor((sec.w - 28) / (sectionSticky.w + STICKY_GAP.x))));
+    // ⚠ issue #2372：变量名从 `sticky` 改成 `sectionSticky`（spec 级默认 `sticky`
+    //   与分区自己的 `sec.sticky` 合并后的结果），公式结构本身没变。
     expect(source()).toMatch(
-      /Math\.max\(1,\s*Math\.min\(sticky\.perRow,\s*Math\.floor\(\(sec\.w\s*-\s*28\)\s*\/\s*\(sticky\.w\s*\+\s*STICKY_GAP\.x\)\)\)\)/,
+      /Math\.max\(1,\s*Math\.min\(sectionSticky\.perRow,\s*Math\.floor\(\(sec\.w\s*-\s*28\)\s*\/\s*\(sectionSticky\.w\s*\+\s*STICKY_GAP\.x\)\)\)\)/,
     );
   });
 });

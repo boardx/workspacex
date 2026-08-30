@@ -10,10 +10,17 @@
  */
 import type { CanvasTemplate } from "@/lib/live-canvas";
 import {
-  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM,
+  sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS,
   type PaperSizeKey,
   type SectionGeometryMm,
 } from "@/lib/canvas/explicit-template-layout";
+
+// 单一事实源迁到 `explicit-template-layout.ts`（issue #2372：`buildExplicitTemplateSpec`
+// 现在也要按 `tone` 取贴纸颜色，lib 层需要能直接读到这份色板，不能反过来从组件层
+// import）。这里重新导出，是因为三个既有组件（`template-display-panel.tsx`/
+// `template-canvas-grid.tsx`/`template-a1-thumbnail.tsx`）一直从本文件取——不逼着
+// 它们改 import 路径，只搬定义、不搬用法。
+export { TONE_COLORS };
 
 export type SectionFieldType = "便利贴列表" | "短文本" | "长文本";
 
@@ -40,9 +47,6 @@ export interface SectionDraft {
   /** `null` = 未放置到画布上。 */
   layout: SectionLayoutDraft | null;
 }
-
-/** `Design.pdf` §2.2：贴纸四色板，索引即 `layout.tone`。 */
-export const TONE_COLORS = ["#F7E96E", "#F2C6C2", "#CFE3D2", "#CBD8EE"] as const;
 
 /** 契约允许的档位，逐字对应 `Design.pdf` §2.2 的取值列。 */
 /**
