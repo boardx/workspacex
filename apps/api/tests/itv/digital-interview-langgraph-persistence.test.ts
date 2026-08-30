@@ -363,6 +363,88 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     await setup.checkpointer.end();
   });
 
+  it("does not disclose Persona to the model for an unauthorized same-org actor", async () => {
+    const setup = createRuntime();
+    const created = await setup.runtime.createDraft({
+      orgId: ORG, actorId: USER, name: "模型调用前鉴权", tags: ["权限"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-pre-model-auth",
+    });
+    const topic = await setup.runtime.confirmTopic({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "无权限用户不能读取 Persona", expectedVersion: 1, requestId: "topic-pre-model-auth",
+    });
+    const committed = await setup.effects.commitStep({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      revisionId: topic.revisionId, revisionNumber: 1, nodeName: "confirm_experts",
+      operationId: `${created.interviewId}:confirm_experts:1:experts-pre-model-auth`,
+      command: {
+        kind: "confirm_experts", expertIds: [topic.expertCandidates[0]!.expertId], addedExperts: [],
+        expectedVersion: topic.version, requestId: "experts-pre-model-auth",
+      },
+    });
+    modelCalls = [];
+
+    await expect(setup.effects.generateQuestions({
+      orgId: ORG, actorId: COLLABORATOR, interviewId: created.interviewId,
+      revisionId: committed.revisionId, revisionNumber: committed.revisionNumber,
+      expectedVersion: committed.aggregateVersion, requestId: "experts-pre-model-auth",
+      operationId: `${created.interviewId}:generate_questions:1:experts-pre-model-auth`,
+    })).rejects.toMatchObject({ code: "PERMISSION_REVOKED_MIDWAY" });
+    expect(modelCalls).toHaveLength(0);
+    await setup.checkpointer.end();
+  });
+
+  it("rechecks permission after model generation and persists no questions when access is revoked", async () => {
+    const setup = createRuntime();
+    const created = await setup.runtime.createDraft({
+      orgId: ORG, actorId: USER, name: "模型期间撤权", tags: ["权限"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-mid-model-revoke",
+    });
+    await asApp(ORG, (session) => session.query(
+      "INSERT INTO interview_collaborators(org_id,interview_id,user_id,added_by) VALUES($1,$2,$3,$4)",
+      [ORG, created.interviewId, COLLABORATOR, USER],
+    ));
+    const topic = await setup.runtime.confirmTopic({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "撤权后不得落库", expectedVersion: 1, requestId: "topic-mid-model-revoke",
+    });
+    const committed = await setup.effects.commitStep({
+      orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      revisionId: topic.revisionId, revisionNumber: 1, nodeName: "confirm_experts",
+      operationId: `${created.interviewId}:confirm_experts:1:experts-mid-model-revoke`,
+      command: {
+        kind: "confirm_experts", expertIds: [topic.expertCandidates[0]!.expertId], addedExperts: [],
+        expectedVersion: topic.version, requestId: "experts-mid-model-revoke",
+      },
+    });
+    const revokeDuringQuestionGeneration: ModelCallPort = { complete: async (input) => {
+      const context = JSON.parse(input.user) as { operation?: string };
+      const result = await model.complete(input);
+      if (context.operation === "generate_interview_questions") {
+        await asOwner((client) => client.query(
+          "DELETE FROM interview_collaborators WHERE org_id=$1 AND interview_id=$2 AND user_id=$3",
+          [ORG, created.interviewId, COLLABORATOR],
+        ));
+      }
+      return result;
+    } };
+    const guarded = createRuntime(revokeDuringQuestionGeneration);
+
+    await expect(guarded.effects.generateQuestions({
+      orgId: ORG, actorId: COLLABORATOR, interviewId: created.interviewId,
+      revisionId: committed.revisionId, revisionNumber: committed.revisionNumber,
+      expectedVersion: committed.aggregateVersion, requestId: "experts-mid-model-revoke",
+      operationId: `${created.interviewId}:generate_questions:1:experts-mid-model-revoke`,
+    })).rejects.toMatchObject({ code: "PERMISSION_REVOKED_MIDWAY" });
+    const persisted = await asOwner((client) => client.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM digital_interview_question_candidates WHERE org_id=$1 AND revision_id=$2",
+      [ORG, committed.revisionId],
+    ));
+    expect(persisted.rows[0]?.count).toBe("0");
+    await setup.checkpointer.end();
+    await guarded.checkpointer.end();
+  });
+
   it("generates three durable questions per confirmed visible expert and branches on upstream reconfirm", async () => {
     const setup = createRuntime();
     const created = await setup.runtime.createDraft({
