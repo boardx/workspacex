@@ -33,6 +33,5 @@ components/chat/preset-dispatch.tsx	<span className="block text-11 font-medium t
 components/chat/preset-dispatch.tsx	className="w-full rounded-md border border-border bg-card px-2.5 py-1.5 text-11 text-foreground outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring"
 components/chat/preset-dispatch.tsx	<span key={s} className="inline-flex items-center gap-1 rounded border border-border px-1.5 py-0.5 text-10 text-foreground">
 components/chat/agent-approval-panel.tsx	className="h-32 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-10 text-foreground"
-components/chat/copilotkit-v2-panel.tsx	className="h-40 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-11 text-foreground"
-components/chat/copilotkit-v2-panel.tsx	<p className="text-14 font-medium text-foreground">开始新的对话</p>
-components/chat/copilotkit-v2-panel.tsx	className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+components/chat/copilotkit-v2-approval-dialog.tsx	className="h-40 w-full resize-y rounded border border-input bg-muted px-2 py-1 font-mono text-11 text-foreground"
+components/chat/copilotkit-v2-panel-body.tsx	className="absolute bottom-3 left-1/2 z-10 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border border-border-subtle bg-card text-foreground shadow-md transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
