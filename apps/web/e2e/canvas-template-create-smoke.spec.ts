@@ -63,7 +63,7 @@ function recordCreates(page: Page): number[] {
 }
 
 async function openTemplateAdmin(page: Page) {
-  await page.goto("/canvas?screen=template-admin&view=list");
+  await page.goto("/canvas/template-admin?view=list");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 }
 

@@ -44,13 +44,13 @@ describe("LoginSessionGate", () => {
   it("sends an already authenticated browser back to a valid `next` deep link", async () => {
     status = "authenticated";
     render(
-      <LoginSessionGate next="/canvas?screen=template-admin">
+      <LoginSessionGate next="/canvas/template-admin">
         <div>login form</div>
       </LoginSessionGate>,
     );
 
     await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith("/canvas?screen=template-admin"),
+      expect(replace).toHaveBeenCalledWith("/canvas/template-admin"),
     );
   });
 

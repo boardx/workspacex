@@ -27,8 +27,8 @@ describe("SessionAppShell 匿名跳转带 next", () => {
     sessionStatus.current = "anonymous";
   });
 
-  it("刷新 /canvas?screen=template-admin 时，跳转带上原路径的 ?next=", async () => {
-    setUrl("/canvas", "?screen=template-admin");
+  it("刷新 /canvas/template-admin 时，跳转带上原路径的 ?next=", async () => {
+    setUrl("/canvas/template-admin");
     render(
       <AppShell previewRole={null}>
         <div>content</div>
@@ -37,7 +37,7 @@ describe("SessionAppShell 匿名跳转带 next", () => {
 
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith(
-        `/login?next=${encodeURIComponent("/canvas?screen=template-admin")}`,
+        `/login?next=${encodeURIComponent("/canvas/template-admin")}`,
       ),
     );
   });

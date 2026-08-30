@@ -81,7 +81,7 @@ function SessionAppShell({
   const router = useRouter();
 
   // ⚠ 画布模板后台管理刷新掉回根目录一案：这里此前是 `router.replace("/login")`，
-  // 深链（如 `/canvas?screen=template-admin`）在跳转中丢失，登录/恢复会话后
+  // 深链（如 `/canvas/template-admin`）在跳转中丢失，登录/恢复会话后
   // 一律落到 `/projects`，用户体感就是"刷新就退回根目录"。现在把当前 URL
   // （路径 + 查询串）编码进 `?next=`，`LoginSessionGate` 与 `LoginForm` 登录
   // 成功后据此跳回原页——见 `lib/return-to.ts` 头注。

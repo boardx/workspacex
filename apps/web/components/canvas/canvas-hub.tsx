@@ -17,11 +17,11 @@ import { CanvasLeftPanel } from "./canvas-left-panel";
 import { CanvasRightPanel } from "./canvas-right-panel";
 
 /**
- * canvas 能力域 · UI 先行原型的屏聚合（顶层路由 /canvas，并行安全）。
+ * canvas 能力域 · UI 先行原型的屏聚合（顶层路由 /canvas/[screen]，并行安全）。
  *
- * 一个页面切五屏（? screen=）× 四视角（? as=）× 七态（? state=），
- * 顶部预览控制条统一切换——沿用 files 屏的做法。三栏骨架、语义导航、AI 四种在场
- * 都用既有 AppShell / 既有画布组件，不另起一套。
+ * 六屏各占一个路径段（2026-08-30 路由复盘后不再靠 `?screen=`）× 四视角（?as=）×
+ * 七态（?state=），顶部预览控制条统一切换——沿用 files 屏的做法。三栏骨架、
+ * 语义导航、AI 四种在场都用既有 AppShell / 既有画布组件，不另起一套。
  *
  * ⚠ 视角切换是**预览手段，不是权限实现**：真实权限在服务端（NestJS Guard + RLS）。
  *
@@ -97,16 +97,20 @@ export function CanvasHub({
 /** 预览控制条（仅 dev；生产 NODE_ENV=production 不渲染，与其它屏一致）*/
 function PreviewControlBar({ screen, state, role }: { screen: CanvasScreen; state: UiState; role: ProjectRole | null }) {
   if (process.env.NODE_ENV === "production") return null;
+  // 「视角」「七态」是同一屏内的正交状态，留在 query（相对路径，pathname 里已经
+  // 带着屏 id）；「屏」是换页面，2026-08-30 路由复盘后走真实路径段——见
+  // `lib/canvas-screens.ts` 头注。
   const qs = (over: Record<string, string>) => {
-    const p = new URLSearchParams({ screen, state, as: role ?? "facilitator", ...over });
+    const p = new URLSearchParams({ state, as: role ?? "facilitator", ...over });
     return `?${p.toString()}`;
   };
+  const screenHref = (id: CanvasScreen) => `/canvas/${id}${qs({})}`;
   return (
     <div className="flex flex-col gap-1 border-b border-border-subtle bg-panel px-3 py-1.5" data-testid="canvas-preview-bar">
       <Row label="屏">
         {CANVAS_SCREENS.map((s) => (
           <Button key={s.id} asChild size="xs" variant={s.id === screen ? "primary" : "ghost"} data-testid={`canvas-screen-${s.id}`}>
-            <a href={qs({ screen: s.id })} title={s.uc}>{s.label}</a>
+            <a href={screenHref(s.id)} title={s.uc}>{s.label}</a>
           </Button>
         ))}
       </Row>

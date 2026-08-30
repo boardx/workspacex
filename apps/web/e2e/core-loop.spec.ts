@@ -253,7 +253,7 @@ test.describe("核心闭环八步", () => {
     const name = "闭环验收模板";
 
     await loginAsAdmin(page);
-    await page.goto("/canvas?screen=template-admin&view=list");
+    await page.goto("/canvas/template-admin?view=list");
     await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 
     // 用正则匹配 url（不锚定具体代理前缀）——同本文件其它步骤（如上面步骤 6b 的
@@ -910,7 +910,7 @@ test.describe("核心闭环八步", () => {
 
     // 引导师，不是管理员——理由见上面文件注。
     await loginAs(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
-    await page.goto("/canvas?screen=template-admin&view=list");
+    await page.goto("/canvas/template-admin?view=list");
     await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 
     // 反空转：这一格现在必须是 **0**。少了它，下面「变成 1」可能从第一天起就是真的

@@ -17,19 +17,19 @@ const CHAT_ROOT = '[data-testid="chat-preset"]';
 
 /** [file, url, interaction?] */
 const CANVAS = [
-  ["uc-7-1-template-editor-default.png", "/canvas?screen=template-editor"],
-  ["uc-7-1-template-editor-loading.png", "/canvas?screen=template-editor&state=loading"],
-  ["uc-7-1-template-editor-empty.png", "/canvas?screen=template-editor&state=empty"],
-  ["uc-7-1-template-editor-invalid.png", "/canvas?screen=template-editor&state=invalid"],
-  ["uc-7-1-template-editor-dep-failed.png", "/canvas?screen=template-editor&state=dep-failed"],
-  ["uc-7-1-template-editor-denied.png", "/canvas?screen=template-editor&state=denied"],
-  ["uc-7-1-template-editor-success.png", "/canvas?screen=template-editor&state=success"],
-  ["uc-7-1-template-editor-observer.png", "/canvas?screen=template-editor&as=observer"],
-  ["uc-7-1-template-editor-member.png", "/canvas?screen=template-editor&as=member"],
-  ["uc-7-1-template-editor-zone-influence.png", "/canvas?screen=template-editor", async (p) => {
+  ["uc-7-1-template-editor-default.png", "/canvas/template-editor"],
+  ["uc-7-1-template-editor-loading.png", "/canvas/template-editor?state=loading"],
+  ["uc-7-1-template-editor-empty.png", "/canvas/template-editor?state=empty"],
+  ["uc-7-1-template-editor-invalid.png", "/canvas/template-editor?state=invalid"],
+  ["uc-7-1-template-editor-dep-failed.png", "/canvas/template-editor?state=dep-failed"],
+  ["uc-7-1-template-editor-denied.png", "/canvas/template-editor?state=denied"],
+  ["uc-7-1-template-editor-success.png", "/canvas/template-editor?state=success"],
+  ["uc-7-1-template-editor-observer.png", "/canvas/template-editor?as=observer"],
+  ["uc-7-1-template-editor-member.png", "/canvas/template-editor?as=member"],
+  ["uc-7-1-template-editor-zone-influence.png", "/canvas/template-editor", async (p) => {
     await p.click('[data-testid="tpled-zone-04"]');
   }],
-  ["uc-7-1-template-editor-publish-confirm.png", "/canvas?screen=template-editor", async (p) => {
+  ["uc-7-1-template-editor-publish-confirm.png", "/canvas/template-editor", async (p) => {
     await p.click('[data-testid="tpled-publish"]');
     await p.waitForSelector('[data-testid="tpled-confirm"]');
   }],

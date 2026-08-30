@@ -1,5 +1,6 @@
 /**
- * #464 —— `/canvas?screen=template-admin` 只投影 `GET /canvas/templates` 的真实响应。
+ * #464 —— `/canvas/template-admin`（2026-08-30 前是 `/canvas?screen=template-admin`）
+ * 只投影 `GET /canvas/templates` 的真实响应。
  * D-43（2026-08-15）起，这也是 `/admin/canvasadmin` 重定向后的合并落点（见文件尾
  * 「D-43 …源码级回归」那组）。
  *
@@ -33,7 +34,7 @@ const routerReplace = vi.hoisted(() => vi.fn());
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: routerReplace, refresh: vi.fn(), back: vi.fn() }),
-  usePathname: () => "/canvas",
+  usePathname: () => "/canvas/template-admin",
   useSearchParams: () => new URLSearchParams(),
 }));
 
@@ -153,7 +154,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 /** mock 清单里那几个名字是「有没有偷偷回落」的探针。 */
 const MOCK_ONLY_NAMES = ["PESTEL 分析", "采购比选旅程（高琳自建）", "ESG 记分卡（试跑中）"];
 
-describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响应", () => {
+describe("#464 画布模板库（/canvas/template-admin）只画真实响应", () => {
   beforeEach(() => {
     sessionState.currentOrgId = "org-464";
     sessionState.orgRole = "admin";
@@ -304,16 +305,17 @@ describe("#464 画布模板库（/canvas?screen=template-admin）只画真实响
 /**
  * D-43（2026-08-15，人类直接裁决真合并，推翻 D-42 ⑤，见
  * `phases/requirements/DECISIONS-FINAL.md`）—— 后台「画布模板」（`/admin/canvasadmin`）
- * 与「画布模板库与编辑器」（`/canvas?screen=template-admin`）**真合并成一个屏**。
+ * 与「画布模板库与编辑器」（`/canvas/template-admin`，2026-08-30 路由复盘前是
+ * `/canvas?screen=template-admin`）**真合并成一个屏**。
  *
  * `CanvasTemplateScreen`（原后台清单+跳转链接屏）到此退役，不再被任何路由引用，
  * 上面 `#464` 那组 `TemplateAdmin` 测试**同时覆盖**了它原来投影的内容——`TemplateAdmin`
  * 现在就是 `/admin/canvasadmin` 重定向后的落点，不需要再单独测一遍同一份真实响应。
  * 本组不重复断言 UI 行为，只做**机械可检的路由事实**：源码层面确认合并没有被悄悄撤销。
  */
-describe("D-43 /admin/canvasadmin 与 /canvas?screen=template-admin 已真合并（源码级回归）", () => {
+describe("D-43 /admin/canvasadmin 与 /canvas/template-admin 已真合并（源码级回归）", () => {
   it("ADMIN_NAV 的 canvasadmin 项 href 直接指向合并落点，不再经过旧的清单+跳转页", () => {
-    expect(adminItem("canvasadmin").href).toBe("/canvas?screen=template-admin");
+    expect(adminItem("canvasadmin").href).toBe("/canvas/template-admin");
   });
 
   it("app/admin/[module]/page.tsx：canvasadmin 在 REDIRECTS 里指向合并落点，且 SCREENS 不再挂 CanvasTemplateScreen", () => {
@@ -321,7 +323,7 @@ describe("D-43 /admin/canvasadmin 与 /canvas?screen=template-admin 已真合并
       resolve(ROOT, "app/admin/[module]/page.tsx"),
       "utf8",
     );
-    expect(src).toMatch(/canvasadmin:\s*"\/canvas\?screen=template-admin"/);
+    expect(src).toMatch(/canvasadmin:\s*"\/canvas\/template-admin"/);
     // 只锁「导入语句」与「SCREENS 映射项」不再存在，允许说明性注释里提到这个历史组件名
     // （同 `skill-single-screen-nav.test.tsx` 对 `LEFT_NAV_SCREENS` 的处理方式）。
     expect(src).not.toMatch(/from "@\/components\/admin\/canvas-template-screen"/);

@@ -7,8 +7,8 @@ import { sanitizeReturnTo } from "@/lib/return-to";
 
 describe("sanitizeReturnTo", () => {
   it("保留同源相对深链（含查询串）", () => {
-    expect(sanitizeReturnTo("/canvas?screen=template-admin")).toBe(
-      "/canvas?screen=template-admin",
+    expect(sanitizeReturnTo("/canvas/template-admin")).toBe(
+      "/canvas/template-admin",
     );
   });
 

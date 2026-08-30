@@ -62,7 +62,7 @@ test("旅程④：管理员新建画布模板 → 加字段（测试）→ 发�
 
   /* ── ① 新建：只填名字（#1916 简化版流程），建完自动打开编辑面板 ── */
   await loginAsAdmin(page);
-  await page.goto("/canvas?screen=template-admin&view=list");
+  await page.goto("/canvas/template-admin?view=list");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 
   const createResponsePromise = page.waitForResponse((response) => (
@@ -139,7 +139,7 @@ test("旅程④：管理员新建画布模板 → 加字段（测试）→ 发�
         「谁能用」判工作坊引导师，不是管理员——同 core-loop.spec.ts 步骤 8c 的既有裁决
         （bind-template-to-segment.ts 文件头），换个人登录才能真的走通这一步。 */
   await loginAsFacilitator(page);
-  await page.goto("/canvas?screen=template-admin&view=list");
+  await page.goto("/canvas/template-admin?view=list");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
   const usage = page.getByTestId(`canvas-template-usage-${key}-1`);
   await expect(usage).toHaveText("0");

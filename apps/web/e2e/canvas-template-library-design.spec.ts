@@ -36,7 +36,7 @@ async function loginAsAdmin(page: Page): Promise<void> {
 }
 
 async function openLibrary(page: Page): Promise<void> {
-  await page.goto("/canvas?screen=template-admin");
+  await page.goto("/canvas/template-admin");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
   // ⚠ 这里**不手动切视图**：`Design.pdf` §3「主体为三列卡片网格」——卡片网格是
   //   模板库的默认形态，进来就该是它。手动点一下再断言会把「默认值是对的」这件事
@@ -109,7 +109,7 @@ test("Design.pdf §3：模板库**默认**就是卡片网格，不需要先切�
   //   spec 写于表格还在的时候，后来表格被撤，vitest 那份跟着改了、**这份没改**。
   //   一份陈旧的 e2e 断言不会因为它过时而变红——它会因为**产品是对的**而变红，
   //   于是看起来像是实现坏了。判红因时先看断言本身是哪一天写的。
-  await page.goto("/canvas?screen=template-admin&view=list");
+  await page.goto("/canvas/template-admin?view=list");
   await expect(page.getByTestId("tpladmin-cards")).toBeVisible();
   await expect(page.getByTestId("tpladmin-table")).toHaveCount(0);
 });
