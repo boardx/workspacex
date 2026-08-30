@@ -109,16 +109,16 @@ test("旅程①：开放注册出的新用户，验证邮箱、登录后能真�
  * `message` 字段字面包着一整页 Next.js 404 HTML——说明请求根本没到 apps/api，界面
  * 上表现为「正在思考…」之后弹出「这次执行没有成功，请重试或联系管理员」。
  *
- * 与 `AGENTS.md`「缺口要可见、有名字、会在 doctor 里出现」同一条纪律（`core-loop
- * .spec.ts`/`skill-agent-import-usecase-audit.spec.ts` 同款用法）：用 `test.fail()`
- * 而不是把这个断言塞回上面那条主链路用例——那样会让一个尚未解决的产品缺口，把
- * "注册→验证→登录→项目/组织可达"这条已经成立的链路也一起拖红，制造"注册整个坏了"
- * 的假象。这里单独开一条**预期失败**的用例：现在稳定红，`#2318` 修好后 Playwright
- * 会报 "expected to fail but passed"，逼人把它翻正成真断言（同 core-loop.spec.ts
- * 头注说的那条纪律，不重复贴一遍）。
+ * 根因：`apps/web/app/api/copilotkit/[[...slug]]/route.ts` 给 `HttpAgent` 拼出站
+ * 地址时，`APP_API_PORT` 未设置、落到 `apiBaseUrl()` 的分支没有带上
+ * `NEXT_PUBLIC_API_PATH_PREFIX`——本用例所在的 fullstack-smoke 环境恰好就是靠这个
+ * prefix 做同源代理（`playwright.fullstack-smoke.config.ts`），请求因此落在 Next
+ * 自己身上，拿到字面 404 HTML。修法在 `apps/web/lib/copilotkit-v2-agui-url.ts`
+ * （`buildAguiUrl`，单测见同目录 `tests/copilotkit-v2-agui-url.test.ts`）：两个分支
+ * 都不再假设“裸 origin 就是终点”。曾经用 `test.fail()` 把这条断言与主链路用例分开
+ * （`AGENTS.md`「缺口要可见、有名字」纪律），现在翻正成真断言。
  */
-test("旅程①附：刚注册的全新组织，个人 chat 第一条消息真的收到 agent 回复（#2318 已知缺口）", async ({ page }) => {
-  test.fail();
+test("旅程①附：刚注册的全新组织，个人 chat 第一条消息真的收到 agent 回复（#2318 已修复）", async ({ page }) => {
   const user = freshUser("reply-gap");
   await registerOpen(page, user);
 
