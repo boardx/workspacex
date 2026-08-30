@@ -17,7 +17,7 @@ import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, LONG_RUN_HINT } from "@/lib/copilotkit-v2-run-progress";
-import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL } from "@/lib/copilotkit-v2-run-restore";
+import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import {
   ArtifactLandingCtx,
@@ -543,8 +543,31 @@ export function CopilotKitV2PanelBody({
    * 持久化消息，把服务端已经写回的助手回复（用户切走期间真实生成完的那条）合并进
    * `agent.messages`——合并按 id 去重、只追加，不整体覆盖，与上面 hydration 效果
    * 同一条纪律（覆盖会杀掉这期间用户可能发出的新消息）。
+   *
+   * 2026-08-30（devapp 真实用户复现：切回会话后"正在恢复上次未完成的任务…"卡住不动，
+   * 看不出任何结果——见 `useCopilotKitV2RunRestore` 文件头对 `RunRestoreOutcome`
+   * 的完整取证）—— 第一版这里不管 `onSettled` 是因为什么结束，一律安静清空
+   * `pendingRunId`：run 真的以 `failed` 收场、或轮询自己撑不住放弃（20 分钟预算耗尽/
+   * bearer 过期）时，用户看到的是"生成中"指示消失、自己发的消息没有任何回应、
+   * 也没有任何错误提示——比根本不做恢复还让人困惑。现在按 `outcome.kind` 分流：
+   * `settled` 且 `view.status === "failed"` 时把服务端错误码经既有
+   * `describeCopilotkitV2RunError` 译成人话显示（与 `send()` 失败路径同一条错误展示
+   * 通道，不新开一条）；`gave-up` 时如实说"没能确认"，不冒充成功也不冒充失败——
+   * budget 耗尽时 run 在服务端可能还在跑，冒充失败是撒谎。
    */
-  const handleRunRestored = React.useCallback(() => {
+  const handleRunRestored = React.useCallback((outcome: RunRestoreOutcome) => {
+    if (outcome.kind === "gave-up") {
+      setError(
+        outcome.reason === "auth-expired"
+          ? "登录状态可能已过期，无法核实上一条任务的执行状态，请重新登录后刷新页面。"
+          : "长时间未能确认上一条任务是否已经完成，它可能仍在后台运行，请稍后刷新页面查看。",
+      );
+      setPendingRunId(null);
+      return;
+    }
+    if (outcome.view.status === "failed") {
+      setError(describeCopilotkitV2RunError(outcome.view.error));
+    }
     let cancelled = false;
     (async () => {
       const bearer = getStoredSessionToken() ?? undefined;

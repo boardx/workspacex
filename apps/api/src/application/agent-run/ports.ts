@@ -374,6 +374,30 @@ export interface AgentRunStore {
    */
   editAndRequeue(orgId: OrgId, runId: string, editedArgsJson: string): Promise<boolean>;
 
+  /**
+   * 2026-08-30（session-switch-task-state-loss 前端修复上线后，真栈实测发现的对偶
+   * 后端缺口）—— `running` 是唯一一个没有任何"下一条消息自动捞回"机制的中间态。
+   * `queued`（本文件头注）与 `writeback_pending`（`writeBackPendingRuns` "unconditionally"
+   * 重试）都明写了"进程死在这一步，下一条消息的 kick 会捞回来"；`claimQueued` 的
+   * `UPDATE ... WHERE status='queued'` 决定了这条捞回规则唯一排除的就是已经被 claim
+   * 走、状态已经翻成 `running` 的行——处理这条 run 的进程如果在模型调用返回之前死掉
+   * （容器重启/OOM/无超时的挂起网络调用），这一行就永久卡在 `running`，没有任何路径
+   * 能再碰到它。`executeQueuedRuns` 自己的 catch 分支只挡得住"本次 tick 内、同一个
+   * await 链上抛出的异常"——挡不住进程本身消失。
+   *
+   * `AgentRunExecutor.tick()` 每次被 kick 时先跑这个函数，再跑 `claimQueued`：把
+   * "已经卡够久"的 `running` 行标记失败（复用既有 `MODEL_CALL_FAILED` 码，不新增
+   * 契约枚举——`executeQueuedRuns` 自己的"执行器缺陷"分支已经在用同一个码表达"这次
+   * 没能拿到可用结果"，语义对得上）。阈值必须**明显大于**任何健康部署下单个 run
+   * 应该花的时间（`DeepAgentModelProvider` 自己的 `KERNEL_DEEP_AGENT_TIMEOUT_MS`
+   * 默认 5 分钟）——太短会误杀正常运行中的慢 run。
+   *
+   * 只处理 `running`：`writeback_pending`/`awaiting_approval` 已经各自有名副其实的
+   * 恢复路径（前者见上、后者等的是人的裁决，本身就该长期挂起），不该被这个函数一起
+   * 扫进去当"卡住"处理。
+   */
+  reclaimStaleRunning(orgId: OrgId, olderThanMs: number): Promise<number>;
+
   /** Runs sitting in `writeback_pending`, including ones stranded by a process restart. */
   claimWritebackPending(orgId: OrgId, limit: number): Promise<readonly PendingWriteback[]>;
 
