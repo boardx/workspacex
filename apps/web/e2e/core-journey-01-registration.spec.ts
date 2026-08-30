@@ -10,7 +10,6 @@
  * 因此这里断言的是"注册"与"首次真实使用"之间的衔接，而不是重新验证注册机制本身。
  */
 import { expect, test, type Page } from "@playwright/test";
-import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 interface FreshUser {
   readonly orgName: string;
@@ -143,10 +142,16 @@ test("旅程①附：刚注册的全新组织，个人 chat 第一条消息真�
 
   await page.goto("/chat");
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
-  await page.getByTestId("copilotkit-v2-input").fill("刚注册就能用的第一句话");
+  const draft = "刚注册就能用的第一句话";
+  await page.getByTestId("copilotkit-v2-input").fill(draft);
   const messages = page.getByTestId("copilotkit-v2-messages");
   await page.getByTestId("copilotkit-v2-send").click();
-  // 与 loopback-model-provider.ts 的 `REPLY_PREFIX` 同源——这个前缀只会出现在
-  // assistant 那一侧的气泡里，不会被用户自己发的原文字面撞上。
-  await expect(messages).toContainText(FULLSTACK_E2E.agentReplyPrefix, { timeout: 20_000 });
+  // ⚠ CI 实测纠正（本 PR 首次推送即撞见）：`FULLSTACK_E2E.agentReplyPrefix`
+  // （"[loopback]"）是 `loopback-model-provider.ts`（`dashscope`/`Configured
+  // ModelProvider` 那条链路）的前缀，本用例走的默认「通用助手」pin 的是
+  // `deep-agent` provider（#740），真正应答的是 `loopback-deep-agent-provider.ts`
+  // ——那份替身没有固定前缀，默认模板是把用户原话整体嵌入回复正文（"根据查询结果
+  // 回答你："${userText}" ——……"），与 `copilotkit-v2-skill-mount.spec.ts` 等既有
+  // 用例断言同一个模板、不是发明一个新判据。
+  await expect(messages).toContainText(`根据查询结果回答你："${draft}"`, { timeout: 20_000 });
 });
