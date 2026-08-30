@@ -91,6 +91,9 @@ beforeAll(async () => {
       const context = JSON.parse(body.messages.at(-1)?.content ?? "{}") as {
         currentStep?: string;
         operation?: string;
+        experts?: Array<{
+          expertId: string; occupation: string; goals: string[]; painPoints: string[]; typicalAdvice: string;
+        }>;
       };
       const patch = context.operation === "generate_interview_experts"
         ? { experts: [
@@ -98,6 +101,15 @@ beforeAll(async () => {
           { displayName: "职业联赛运营专家", role: "分析俱乐部经营、赛事运营与商业化", domains: ["职业联赛", "体育商业"], category: "职业足球", bio: "熟悉职业俱乐部经营与赛事商业化。", location: "中国", typicalAdvice: "竞技目标必须匹配可持续经营能力。", age: 42, occupation: "职业联赛运营顾问", goals: ["提升联赛经营质量"], interests: ["赛事商业化"], painPoints: ["收入结构单一"], motivations: ["建设可持续联赛"], influences: ["国际职业联赛"], personalityTraits: { introvertExtrovert: 7, analyticalCreative: 6, busyTimeRich: 3 }, serviceValue: "俱乐部经营与赛事运营咨询" },
           { displayName: "江西足球史研究者", role: "追踪地方足球历史、文化与政策环境", domains: ["足球史", "地方体育政策"], category: "体育研究", bio: "研究江西地方足球历史与政策演变。", location: "江西", typicalAdvice: "用历史脉络解释当前结构性问题。", age: 53, occupation: "地方足球史研究者", goals: ["整理地方足球史"], interests: ["体育文化"], painPoints: ["史料分散"], motivations: ["保存地方足球记忆"], influences: ["地方体育档案"], personalityTraits: { introvertExtrovert: 4, analyticalCreative: 7, busyTimeRich: 6 }, serviceValue: "历史脉络与政策环境研究" },
         ] }
+        : context.operation === "generate_interview_questions"
+          ? { experts: (context.experts ?? []).map((expert) => ({
+            expertId: expert.expertId,
+            questions: [
+              { text: `作为${expert.occupation}，如何实现“${expert.goals[0]}”？`, purpose: "追问专业目标" },
+              { text: `针对“${expert.painPoints[0]}”，您会如何判断和行动？`, purpose: "深挖专业痛点" },
+              { text: `“${expert.typicalAdvice}”有哪些真实案例或证据？`, purpose: "验证典型建议" },
+            ],
+          })) }
         : context.currentStep === "topic"
         ? { topic: "建议聚焦最终否决权" }
         : context.currentStep === "experts"
