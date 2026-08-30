@@ -293,6 +293,32 @@ export function ChatSkillMountPanel({
   };
 
   const pill = variant === "pill";
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  /*
+    issue #2130 补（2026-08-30，devapp 实测反馈：「面板点开以后不能关闭」）——
+    `picking` 此前只能靠点「取消」或选中一项来关，浮层是 `absolute` 覆盖层却没有
+    点击外部关闭，跟同一排的 `CapabilityPicker`（`chat-task-workbench-capability-picker.tsx`
+    第 89-103 行）行为不一致，体验上像"卡住了"。这里照抄那份已验证过的写法：
+    只在 `picking` 为真时挂监听，`mousedown` 落在 `containerRef` 之外、或按 `Escape`
+    就收起。只对 `pill` 生效——`row` 分支的浮层是内联块（不是覆盖层，见该分支
+    头注释），点击外部关闭对它没有意义，也不该动它的行为。
+  */
+  React.useEffect(() => {
+    if (!pill || !picking) return;
+    function onPointerDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setPicking(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setPicking(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [pill, picking, setPicking]);
 
   /** 挂载态一个 chip——row/pill 两种排布共用同一份渲染，只是外层容器尺寸不同。 */
   const mountedChip = (entry: ThreadSkillMount) => {
@@ -310,11 +336,11 @@ export function ChatSkillMountPanel({
     return (
       <span
         key={entry.mountId}
-        className={`inline-flex items-center gap-0.5 border border-border bg-muted/40 py-0.5 pl-2 pr-0.5 ${pill ? "rounded-pill" : "rounded-full"}`}
+        className={`inline-flex items-center gap-0.5 border border-border bg-muted/40 py-0.5 pl-2 pr-0.5 ${pill ? "max-w-[8.5rem] shrink-0 rounded-pill" : "rounded-full"}`}
         data-testid={`chat-skill-mounted-${entry.skillId}`}
         title={`skill id：${entry.skillId}`}
       >
-        <span className="text-11 text-foreground">{named}</span>
+        <span className={`text-11 text-foreground ${pill ? "truncate" : ""}`}>{named}</span>
         {/*
           FB-2 —— 对「这个 skill 本身」提反馈。挂在挂载态的 chip 上而不是选择器里：
           有意见的前提是用过它，而选择器里的那些还没被用过。
@@ -348,32 +374,84 @@ export function ChatSkillMountPanel({
     );
   };
 
-  /** 挂载浮层——row/pill 两种排布共用同一份，`pill` 下是 `absolute` 覆盖层，
-   *  `pickerSide` 决定往上还是往下开（见该 prop 自己的头注）。 */
+  /** 挂载浮层——row/pill 两种排布共用同一份数据/交互，`pill` 下是 `absolute` 覆盖层，
+   *  `pickerSide` 决定往上还是往下开（见该 prop 自己的头注）。
+   *
+   * 2026-08-30 人类反馈（devapp 实测截图）——`pill` 下此前是一个把全部候选项
+   * 铺成 `flex-wrap` 按钮墙的 `w-64` 盒子：候选一多就摊成好几行、宽窄不一，
+   * 且只能靠点某个候选项或角落的「取消」才能关，没有点外部关闭（见上面新增的
+   * `useEffect`）。这里只改 `pill` 分支的排布——纵向列表 + 顶部标题栏 + 一个
+   * 图标「关闭」按钮，对齐同一排 `CapabilityPicker` 的卡片浮层视觉语言
+   * （`chat-task-workbench-capability-picker.tsx`：`w-80 rounded-lg shadow-md
+   * max-h-96 overflow-y-auto`，这里用 `w-72`／`max-h-64`，量级匹配纯文本选项）。
+   * `row` 分支的按钮墙一个字节不变（人类原样保留：composer 下方常驻整条不受
+   * 视口边缘裁切，用 mention 输入过滤即可，不需要这套滚动列表）。
+   */
   const picker = picking ? (
     <div
       className={
         pill
-          ? `absolute left-0 z-20 flex w-64 flex-wrap items-center gap-1.5 rounded-md border border-border bg-popover p-2 shadow-md ${
+          ? `absolute left-0 z-20 flex w-72 flex-col gap-1 rounded-lg border border-border bg-popover p-1.5 shadow-lg ${
             pickerSide === "up" ? "bottom-full mb-1" : "top-full mt-1"
           }`
           : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
       }
       data-testid="chat-skill-mount-picker"
     >
+      {pill ? (
+        <div className="flex items-center justify-between gap-2 px-1 pb-0.5">
+          <span className="text-11 font-medium text-foreground">选择要挂载的技能</span>
+          <Button
+            size="xs"
+            variant="ghost"
+            className="h-5 w-5 rounded-pill p-0"
+            aria-label="关闭"
+            title="关闭"
+            data-testid="chat-skill-mount-cancel"
+            onClick={() => setPicking(false)}
+          >
+            <X aria-hidden className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : null}
       {mentionQuery ? (
-        <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
+        <span
+          className={pill ? "px-1 text-9 text-muted-foreground" : "text-9 text-muted-foreground"}
+          data-testid="chat-skill-mount-mention-hint"
+        >
           {mentionTriggerChar} {mentionQuery}
         </span>
       ) : null}
       {pool.length === 0 ? (
-        <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
+        <span
+          className={pill ? "px-1 text-11 text-muted-foreground" : "text-11 text-muted-foreground"}
+          data-testid="chat-skill-mount-pool-empty"
+        >
           本组织没有「已启用」的 skill 可挂载。
         </span>
       ) : visiblePool.length === 0 ? (
-        <span className="text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
+        <span
+          className={pill ? "px-1 text-11 text-muted-foreground" : "text-11 text-muted-foreground"}
+          data-testid="chat-skill-mount-mention-no-match"
+        >
           没有名字含「{mentionQuery}」的已启用 skill。
         </span>
+      ) : pill ? (
+        <div className="flex max-h-64 flex-col gap-0.5 overflow-y-auto">
+          {visiblePool.map((item) => (
+            <button
+              key={item.skillId}
+              type="button"
+              disabled={pending}
+              data-testid={`chat-skill-mount-option-${item.skillId}`}
+              onClick={() => void mount(item.skillId)}
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-11 text-foreground transition-colors duration-base hover:bg-muted disabled:opacity-50"
+            >
+              <Wrench aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="truncate">{item.name}</span>
+            </button>
+          ))}
+        </div>
       ) : (
         visiblePool.map((item) => (
           <Button
@@ -388,14 +466,16 @@ export function ChatSkillMountPanel({
           </Button>
         ))
       )}
-      <Button
-        size="xs"
-        variant="ghost"
-        data-testid="chat-skill-mount-cancel"
-        onClick={() => setPicking(false)}
-      >
-        取消
-      </Button>
+      {!pill ? (
+        <Button
+          size="xs"
+          variant="ghost"
+          data-testid="chat-skill-mount-cancel"
+          onClick={() => setPicking(false)}
+        >
+          取消
+        </Button>
+      ) : null}
     </div>
   ) : null;
 
@@ -436,7 +516,7 @@ export function ChatSkillMountPanel({
     // 判空态直接读这个 data 属性或 `mounts.length`）。
     const hasMounts = mounts.length > 0;
     return (
-      <div className="relative inline-flex flex-col items-start gap-1" data-testid="chat-skill-mount-panel">
+      <div ref={containerRef} className="relative inline-flex max-w-full flex-col items-start gap-1" data-testid="chat-skill-mount-panel">
         <Button
           size="xs"
           variant="outline"
@@ -461,7 +541,16 @@ export function ChatSkillMountPanel({
             正在读取…
           </span>
         ) : hasMounts ? (
-          <div className="flex flex-wrap items-center gap-1">{mounts.map(mountedChip)}</div>
+          /*
+            2026-08-30 人类反馈——`flex-wrap` 会让挂载多个 skill 时摊成好几行，
+            composer 这一排本来就挤（附件/@Agent/技能/任务模式一整行），平铺开
+            很难看。改成单行横向滚动：`flex-nowrap overflow-x-auto`，chip 自身
+            已经限宽 `max-w-[8.5rem]` 并 `truncate`（见 `mountedChip`），触发器
+            这一排的高度因此恒定，不会随挂载数量把工具栏撑高。
+          */
+          <div className="flex max-w-full flex-nowrap items-center gap-1 overflow-x-auto">
+            {mounts.map(mountedChip)}
+          </div>
         ) : null}
         {picker}
         {failureBanner}
