@@ -39,7 +39,7 @@ import { useAguiPlanTodos, currentPlanStep } from "@/lib/agui-plan-todos";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
-import { ComposerMicControl } from "@/components/chat/chat-composer-mic-control";
+import { ComposerMicControl, ComposerMicRecordingBar } from "@/components/chat/chat-composer-mic-control";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
@@ -1619,15 +1619,8 @@ export function CopilotKitV2PanelBody({
                 listening={speech.listening}
                 connecting={speech.connecting}
                 stopping={speech.stopping}
-                error={speech.error}
-                elapsedSeconds={speech.elapsedSeconds}
-                level={speech.level}
                 start={speech.start}
                 stop={speech.stop}
-                cancel={speech.cancel}
-                devices={micDevices.devices}
-                selectedDeviceId={micDevices.selectedDeviceId}
-                onSelectDevice={micDevices.select}
                 disabled={archived}
                 idleLabel="语音"
                 onRequireSession={() => {
@@ -1661,6 +1654,27 @@ export function CopilotKitV2PanelBody({
               </Button>
             </div>
           </div>
+          {/*
+            2026-08-30——录音状态**内嵌**在 composer 卡片里（这一行本身就是卡片内的
+            正常一行，随内容自然撑高卡片），不再是盖在输入区上方的浮层
+            （旧实现见 `chat-composer-mic-control.tsx` 头注）。转录文字本身已经实时
+            写进上面的 textarea，这一行只是"元信息"：在录/多久了/多大声/录给哪支麦克风/
+            要不要留下这段。
+          */}
+          {speech.connecting || speech.listening || speech.stopping ? (
+            <ComposerMicRecordingBar
+              listening={speech.listening}
+              connecting={speech.connecting}
+              stopping={speech.stopping}
+              elapsedSeconds={speech.elapsedSeconds}
+              level={speech.level}
+              stop={speech.stop}
+              cancel={speech.cancel}
+              devices={micDevices.devices}
+              selectedDeviceId={micDevices.selectedDeviceId}
+              onSelectDevice={micDevices.select}
+            />
+          ) : null}
           {/* issue #2130（TW-P0-5④）—— 发送被禁用时必须**说明原因**，不能只是灰掉。 */}
           {sendDisabledReason !== null ? (
             <p className="text-9 text-muted-foreground" data-testid="chat-task-workbench-composer-send-disabled-reason">

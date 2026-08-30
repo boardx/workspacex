@@ -21,13 +21,25 @@ import type { AsrDraftStatus } from "@/lib/use-asr-draft";
  *
  * - 顶层唯一入口：`chat-task-workbench-composer-mic`（同时保留旧 `chat-mic-button`
  *   语义——见下方"为什么复用同一个元素"）。点击 = 开始/停止录音，与此前行为一致。
- * - 录音开始后（`connecting`/`listening`/`stopping`）展开一个挂在按钮下方的小面板，
- *   内含：设备切换（二级菜单，`chat-task-workbench-composer-mic-devices`）、
+ * - 录音开始后（`connecting`/`listening`/`stopping`），调用方渲染 `ComposerMicRecordingBar`
+ *   ——内含：设备切换（二级菜单，`chat-task-workbench-composer-mic-devices`）、
  *   计时（`chat-task-workbench-composer-recording-timer`）、音量
  *   （`chat-task-workbench-composer-recording-level`，来自真实 PCM 帧的 RMS，
  *   不是伪造动画）、取消（`chat-task-workbench-composer-recording-cancel`，
  *   丢弃这段转录）、确认（`chat-task-workbench-composer-recording-confirm`，
  *   保留转录，等价于旧的"再点一次停止"）。
+ *
+ * ## 2026-08-30 重设计：录音状态从浮层改成内嵌行（参考 Codex 语音输入体验）
+ *
+ * 人类反馈：此前 `recording` 态在麦克风按钮正上方弹出一张 `absolute` 定位的悬浮卡片
+ * （`bottom-9 right-0`），盖在消息区/输入区上方——视觉上是一个"弹窗"，和 Codex
+ * 那种"转录状态就地长在输入区里、不遮挡任何东西"的体验不一样，人类明确要求不用弹窗。
+ *
+ * 现在拆成两个组件：`ComposerMicControl`（只是那颗按钮，恒定在原位，不再管理浮层）
+ * 与 `ComposerMicRecordingBar`（录音时的状态行，由调用方摆在 composer 卡片内部的
+ * **正常文档流**里——textarea 下面、工具栏行下面，随内容自然撑高卡片，不覆盖任何
+ * 已有内容）。所有 testid 逐字保留（`chat-task-workbench-composer-recording-*`/
+ * `chat-task-workbench-composer-mic-devices*`），只换了"浮在上面"为"长在下面"。
  *
  * ## 为什么复用同一个元素承载两个 testid 语义，而不是新建一个元素
  *
@@ -51,16 +63,9 @@ export interface ComposerMicControlProps {
   readonly listening: boolean;
   readonly connecting: boolean;
   readonly stopping: boolean;
-  readonly error: string | null;
-  readonly elapsedSeconds: number;
-  readonly level: number;
+  readonly disabled: boolean;
   readonly start: () => void;
   readonly stop: () => void;
-  readonly cancel: () => void;
-  readonly devices: readonly ComposerMicDevice[];
-  readonly selectedDeviceId: string | null;
-  readonly onSelectDevice: (deviceId: string | null) => void;
-  readonly disabled: boolean;
   readonly onRequireSession: () => boolean;
   /**
    * 2026-08-29 Claude Design 重设计稿——静止态是一颗带"语音"二字的胶囊，不是纯
@@ -77,11 +82,72 @@ function formatElapsed(totalSeconds: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
+/** 唯一的麦克风入口。恒定在原位——不再持有录音状态行的展示逻辑（见文件头注）。 */
 export function ComposerMicControl({
-  status, listening, connecting, stopping, elapsedSeconds, level,
-  start, stop, cancel, devices, selectedDeviceId, onSelectDevice, disabled, onRequireSession, idleLabel,
+  status, listening, connecting, stopping, start, stop, disabled, onRequireSession, idleLabel,
 }: ComposerMicControlProps): JSX.Element {
-  const recording = connecting || listening || stopping;
+  return (
+    <Button
+      type="button"
+      size={idleLabel !== undefined ? "xs" : "icon"}
+      variant={listening ? "destructive" : "outline"}
+      // issue #2130 —— 命名胶囊圆角 token，composer 胶囊类控件本轮统一迁移。
+      className={idleLabel !== undefined ? "gap-1 rounded-pill" : "rounded-pill"}
+      data-testid="chat-task-workbench-composer-mic"
+      data-mic-status={status}
+      aria-pressed={listening}
+      aria-busy={connecting || stopping}
+      aria-label={
+        connecting ? "正在连接语音识别…"
+          : stopping ? "正在停止…"
+          : listening ? "停止语音输入" : "开始语音输入"
+      }
+      title={
+        connecting ? "正在连接语音识别…"
+          : stopping ? "正在停止…"
+          : listening ? "停止语音输入" : "开始语音输入"
+      }
+      disabled={disabled || connecting || stopping}
+      onClick={() => {
+        if (!onRequireSession()) return;
+        if (listening) stop();
+        else start();
+      }}
+    >
+      {connecting || stopping ? (
+        <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Mic aria-hidden className="h-3.5 w-3.5" />
+      )}
+      {idleLabel !== undefined && !listening && !connecting && !stopping ? <span>{idleLabel}</span> : null}
+      {idleLabel !== undefined && listening ? <span>正在听…</span> : null}
+    </Button>
+  );
+}
+
+export interface ComposerMicRecordingBarProps {
+  readonly listening: boolean;
+  readonly connecting: boolean;
+  readonly stopping: boolean;
+  readonly elapsedSeconds: number;
+  readonly level: number;
+  readonly stop: () => void;
+  readonly cancel: () => void;
+  readonly devices: readonly ComposerMicDevice[];
+  readonly selectedDeviceId: string | null;
+  readonly onSelectDevice: (deviceId: string | null) => void;
+}
+
+/**
+ * 录音中的状态行——**内嵌**在 composer 卡片的正常文档流里（调用方把它摆在
+ * textarea/工具栏行下面），不是浮层。转录文字本身已经实时写进上面的 textarea
+ * （`useAsrDraft` 的 `onTranscript`），这一行只负责"元信息"：在录、多久了、
+ * 多大声、录给哪支麦克风、要不要留下这段。
+ */
+export function ComposerMicRecordingBar({
+  listening, connecting, stopping, elapsedSeconds, level, stop, cancel,
+  devices, selectedDeviceId, onSelectDevice,
+}: ComposerMicRecordingBarProps): JSX.Element {
   const [devicesOpen, setDevicesOpen] = useChatPopoverSlot("chat-composer-mic-devices");
 
   const labelFor = (deviceId: string, label: string, index: number): string =>
@@ -92,148 +158,105 @@ export function ComposerMicControl({
     : (selectedDevice ? labelFor(selectedDevice.deviceId, selectedDevice.label, devices.indexOf(selectedDevice)) : "系统默认麦克风");
 
   return (
-    <div className="relative flex items-center">
-      <Button
-        type="button"
-        size={idleLabel !== undefined ? "xs" : "icon"}
-        variant={listening ? "destructive" : "outline"}
-        // issue #2130 —— 命名胶囊圆角 token，composer 胶囊类控件本轮统一迁移。
-        className={idleLabel !== undefined ? "gap-1 rounded-pill" : "rounded-pill"}
-        data-testid="chat-task-workbench-composer-mic"
-        data-mic-status={status}
-        aria-pressed={listening}
-        aria-busy={connecting || stopping}
-        aria-label={
-          connecting ? "正在连接语音识别…"
-            : stopping ? "正在停止…"
-            : listening ? "停止语音输入" : "开始语音输入"
-        }
-        title={
-          connecting ? "正在连接语音识别…"
-            : stopping ? "正在停止…"
-            : listening ? "停止语音输入" : "开始语音输入"
-        }
-        disabled={disabled || connecting || stopping}
-        onClick={() => {
-          if (!onRequireSession()) return;
-          if (listening) stop();
-          else start();
-        }}
+    <div
+      className="flex w-full flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-muted/40 px-2.5 py-1.5"
+      data-testid="chat-task-workbench-composer-recording-panel"
+    >
+      <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${listening ? "animate-pulse bg-destructive" : "bg-muted-foreground"}`} />
+      <span className="shrink-0 text-11 text-card-foreground">
+        {connecting ? "正在连接…" : stopping ? "正在停止…" : "正在录音"}
+      </span>
+      <span
+        className="shrink-0 font-mono text-11 tabular-nums text-muted-foreground"
+        data-testid="chat-task-workbench-composer-recording-timer"
       >
-        {connecting || stopping ? (
-          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
-        ) : (
-          <Mic aria-hidden className="h-3.5 w-3.5" />
-        )}
-        {idleLabel !== undefined && !listening && !connecting && !stopping ? <span>{idleLabel}</span> : null}
-        {idleLabel !== undefined && listening ? <span>正在听…</span> : null}
-      </Button>
-      {recording ? (
+        {formatElapsed(elapsedSeconds)}
+      </span>
+      {/* 真实音量：来自 `useAsrDraft().level`（对真实 PCM 帧求 RMS），不是 CSS 假动画。 */}
+      <div
+        className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-muted"
+        data-testid="chat-task-workbench-composer-recording-level"
+        data-level={level.toFixed(3)}
+        role="meter"
+        aria-label="音量"
+        aria-valuemin={0}
+        aria-valuemax={1}
+        aria-valuenow={Number(level.toFixed(3))}
+      >
         <div
-          className="absolute bottom-9 right-0 z-10 flex w-60 flex-col gap-2 rounded-lg border border-border bg-popover p-2.5 shadow-md"
-          data-testid="chat-task-workbench-composer-recording-panel"
+          className="h-full rounded-full bg-primary transition-[width] duration-fast"
+          style={{ width: `${Math.round(level * 100)}%` }}
+        />
+      </div>
+      <div className="relative shrink-0">
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-pill border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground transition-colors duration-fast hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground"
+          data-testid="chat-task-workbench-composer-mic-devices"
+          aria-haspopup="listbox"
+          aria-expanded={devicesOpen}
+          disabled={listening || connecting || stopping}
+          title={`麦克风设备：${deviceTriggerText}（录音中不可切换）`}
+          onClick={() => setDevicesOpen((v) => !v)}
         >
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-11 text-card-foreground">
-              <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${listening ? "animate-pulse bg-destructive" : "bg-muted-foreground"}`} />
-              {connecting ? "正在连接…" : stopping ? "正在停止…" : "正在录音"}
-            </span>
-            <span
-              className="font-mono text-11 tabular-nums text-muted-foreground"
-              data-testid="chat-task-workbench-composer-recording-timer"
-            >
-              {formatElapsed(elapsedSeconds)}
-            </span>
-          </div>
-          {/* 真实音量：来自 `useAsrDraft().level`（对真实 PCM 帧求 RMS），不是 CSS 假动画。 */}
+          <Mic aria-hidden className="h-2.5 w-2.5" />
+          <span className="max-w-24 truncate">{deviceTriggerText}</span>
+        </button>
+        {devicesOpen ? (
           <div
-            className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
-            data-testid="chat-task-workbench-composer-recording-level"
-            data-level={level.toFixed(3)}
-            role="meter"
-            aria-label="音量"
-            aria-valuemin={0}
-            aria-valuemax={1}
-            aria-valuenow={Number(level.toFixed(3))}
+            role="listbox"
+            aria-label="选择麦克风"
+            data-testid="chat-task-workbench-composer-mic-devices-listbox"
+            className="absolute bottom-6 left-0 z-20 w-56 rounded-lg border border-border bg-popover p-1 shadow-md"
           >
-            <div
-              className="h-full rounded-full bg-primary transition-[width] duration-fast"
-              style={{ width: `${Math.round(level * 100)}%` }}
-            />
+            <button
+              type="button"
+              role="option"
+              aria-selected={selectedDeviceId === null}
+              onClick={() => { onSelectDevice(null); setDevicesOpen(false); }}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-11 transition-colors duration-fast hover:bg-muted"
+            >
+              <Check aria-hidden className={`h-3 w-3 shrink-0 ${selectedDeviceId === null ? "opacity-100" : "opacity-0"}`} />
+              <span className="truncate">系统默认麦克风</span>
+            </button>
+            {devices.map((device, index) => (
+              <button
+                key={device.deviceId}
+                type="button"
+                role="option"
+                aria-selected={device.deviceId === selectedDeviceId}
+                onClick={() => { onSelectDevice(device.deviceId); setDevicesOpen(false); }}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-11 transition-colors duration-fast hover:bg-muted"
+              >
+                <Check aria-hidden className={`h-3 w-3 shrink-0 ${device.deviceId === selectedDeviceId ? "opacity-100" : "opacity-0"}`} />
+                <span className="truncate">{labelFor(device.deviceId, device.label, index)}</span>
+              </button>
+            ))}
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <div className="relative">
-              <button
-                type="button"
-                className="flex items-center gap-1 rounded-pill border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground transition-colors duration-fast hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground"
-                data-testid="chat-task-workbench-composer-mic-devices"
-                aria-haspopup="listbox"
-                aria-expanded={devicesOpen}
-                disabled={listening || connecting || stopping}
-                title={`麦克风设备：${deviceTriggerText}（录音中不可切换）`}
-                onClick={() => setDevicesOpen((v) => !v)}
-              >
-                <Mic aria-hidden className="h-2.5 w-2.5" />
-                <span className="max-w-24 truncate">{deviceTriggerText}</span>
-              </button>
-              {devicesOpen ? (
-                <div
-                  role="listbox"
-                  aria-label="选择麦克风"
-                  data-testid="chat-task-workbench-composer-mic-devices-listbox"
-                  className="absolute bottom-6 left-0 z-20 w-56 rounded-lg border border-border bg-popover p-1 shadow-md"
-                >
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={selectedDeviceId === null}
-                    onClick={() => { onSelectDevice(null); setDevicesOpen(false); }}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-11 transition-colors duration-fast hover:bg-muted"
-                  >
-                    <Check aria-hidden className={`h-3 w-3 shrink-0 ${selectedDeviceId === null ? "opacity-100" : "opacity-0"}`} />
-                    <span className="truncate">系统默认麦克风</span>
-                  </button>
-                  {devices.map((device, index) => (
-                    <button
-                      key={device.deviceId}
-                      type="button"
-                      role="option"
-                      aria-selected={device.deviceId === selectedDeviceId}
-                      onClick={() => { onSelectDevice(device.deviceId); setDevicesOpen(false); }}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-11 transition-colors duration-fast hover:bg-muted"
-                    >
-                      <Check aria-hidden className={`h-3 w-3 shrink-0 ${device.deviceId === selectedDeviceId ? "opacity-100" : "opacity-0"}`} />
-                      <span className="truncate">{labelFor(device.deviceId, device.label, index)}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                className="flex items-center gap-1 rounded-pill border border-border px-2 py-0.5 text-9 text-muted-foreground transition-colors duration-fast hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground"
-                data-testid="chat-task-workbench-composer-recording-cancel"
-                disabled={stopping}
-                onClick={() => cancel()}
-              >
-                <X aria-hidden className="h-2.5 w-2.5" />
-                取消
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-1 rounded-pill bg-primary px-2 py-0.5 text-9 text-primary-foreground transition-colors duration-fast hover:bg-primary/90 disabled:bg-disabled disabled:text-disabled-foreground"
-                data-testid="chat-task-workbench-composer-recording-confirm"
-                disabled={stopping || connecting}
-                onClick={() => stop()}
-              >
-                <Check aria-hidden className="h-2.5 w-2.5" />
-                确认
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-pill border border-border px-2 py-0.5 text-9 text-muted-foreground transition-colors duration-fast hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground"
+          data-testid="chat-task-workbench-composer-recording-cancel"
+          disabled={stopping}
+          onClick={() => cancel()}
+        >
+          <X aria-hidden className="h-2.5 w-2.5" />
+          取消
+        </button>
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-pill bg-primary px-2 py-0.5 text-9 text-primary-foreground transition-colors duration-fast hover:bg-primary/90 disabled:bg-disabled disabled:text-disabled-foreground"
+          data-testid="chat-task-workbench-composer-recording-confirm"
+          disabled={stopping || connecting}
+          onClick={() => stop()}
+        >
+          <Check aria-hidden className="h-2.5 w-2.5" />
+          确认
+        </button>
+      </div>
     </div>
   );
 }
