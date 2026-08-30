@@ -86,6 +86,13 @@ export interface AutoLayoutSectionInput {
   readonly order: number;
   readonly required: boolean;
   readonly capacity: number | null;
+  /**
+   * 契约 `canvas.SectionFieldType`——只有 `buildAutoTemplateSpec` 读它（把
+   * `短文本` 分区拆成表头字段，见该函数文档），`computeAutoLayout` 本身
+   * 不关心这个字段，缺省时行为与改动前逐字一致（现有调用方/既有测试都
+   * 不传它）。
+   */
+  readonly type?: "便利贴列表" | "短文本" | "长文本";
 }
 
 export interface AutoLayoutCell {
@@ -407,15 +414,50 @@ export interface AutoTemplateResult {
 }
 
 /**
+ * 表头字段带的高度（px，与 `computeAutoLayout` 的 `A0_FRAME` 同一套抽象画布单位，
+ * 不是 mm）——2026-08-30 追加。取值参照内置 `persona` 手工 spec 的
+ * `headerRect.h=110`（`packages/fabric-markdown/src/diagrams/persona.ts`），
+ * 略窄一点是因为组织自建模板的表头通常字段更少、不需要那么高的带。
+ */
+const HEADER_BAND_H = 90;
+
+/** `computeAutoLayout` 产出的整份布局整体下移 `dy`，给上方腾出表头带。纯几何平移。 */
+function shiftLayout(layout: AutoLayout, dy: number): AutoLayout {
+  return {
+    ...layout,
+    cells: layout.cells.map((c) => ({ ...c, y: c.y + dy })),
+    parking: { ...layout.parking, y: layout.parking.y + dy },
+    bounds: { ...layout.bounds, bottom: layout.bounds.bottom + dy },
+  };
+}
+
+/**
  * 组织自建模板 → 可渲染的 `TemplateSpec`。
  *
- * 刻意**不**产出 `fields` / `headerRect`：契约的 `SectionDef` 里没有「表头字段」这个概念，
- * 凭空造几个字段栏就是在画布上发明一份后台不认识的数据。
  * 也刻意不设 `sectionColors`：那是 PALETTE 索引，黑白灰约束下不该出现
  * （引擎当前也已把标题条固定成灰色，设了也不生效 —— 更不该留一个「看着像在生效」的入参）。
+ *
+ * ⚠ 2026-08-30 追加：此前这里的文档说「刻意不产出 `fields`/`headerRect`：契约的
+ *   `SectionDef` 里没有『表头字段』这个概念」——那句话在 2026-08-26 之后已经过时：
+ *   契约早就加了 `SectionFieldType`（`短文本`/`长文本`/`便利贴列表`），`短文本`
+ *   分区就是表头字段的事实源（`canvas-template-guidance.ts` 与
+ *   `builtin-template-config.ts` 都已按这条判据拼 prompt / 落库）。本函数此前没跟上：
+ *   `type` 从入参类型上就被漏掉，`短文本` 分区被当成普通贴纸 box 处理，模型按 guidance
+ *   写出的 `字段名: 字段值` 行落进 `fields` map 却没有 `headerRect` 可渲染，静默丢失
+ *   （用户画像在 chat 模拟里测不出表头字段就是这个根因）。
+ *   现在 `type === "短文本"` 的分区会被拆出来，合并成一条表头带（`HEADER_BAND_H`），
+ *   正文分区（`便利贴列表`/`长文本`，以及所有没有 `type` 的旧数据）仍走原来的
+ *   `computeAutoLayout` 网格——没有任何 `短文本` 分区时（现有测试与既有调用方都是
+ *   这种情况）输出与改动前逐字一致。
  */
 export function buildAutoTemplateSpec(input: AutoTemplateInput): AutoTemplateResult {
-  const layout = computeAutoLayout(input.sections);
+  const header = input.sections.filter((s) => s.type === "短文本");
+  const body = input.sections.filter((s) => s.type !== "短文本");
+  const hasHeader = header.length > 0 && body.length > 0;
+
+  const rawLayout = computeAutoLayout(hasHeader ? body : input.sections);
+  const layout = hasHeader ? shiftLayout(rawLayout, HEADER_BAND_H + GUTTER) : rawLayout;
+
   const sections: TemplateSection[] = layout.cells.map((c) => ({
     name: c.name,
     x: c.x,
@@ -424,10 +466,25 @@ export function buildAutoTemplateSpec(input: AutoTemplateInput): AutoTemplateRes
     h: c.h,
     fill: PAPER,
   }));
+
+  const headerFields = hasHeader
+    ? {
+      fields: header.map((h) => h.name),
+      headerRect: {
+        x: (A0_FRAME.left + A0_FRAME.right) / 2,
+        y: GRID_TOP + HEADER_BAND_H / 2,
+        w: A0_FRAME.right - A0_FRAME.left,
+        h: HEADER_BAND_H,
+      },
+      fieldsPerRow: Math.min(5, header.length),
+    }
+    : {};
+
   return {
     spec: {
       key: input.key,
       title: input.displayName,
+      ...headerFields,
       sections,
       titleBars: true,
       decorations: buildDecorations(layout),

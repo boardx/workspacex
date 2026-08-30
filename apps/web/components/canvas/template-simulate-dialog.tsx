@@ -229,13 +229,16 @@ export function TemplateSimulateDialog({
               key: previewKey,
               displayName: title || templateKey,
               gridCols,
-              sections: sections.map((s) => ({ sectionId: s.sectionId, name: s.name, layout: s.layout! })),
+              sections: sections.map((s) => (
+                { sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type }
+              )),
             })
             : buildAutoTemplateSpec({
               key: previewKey,
               displayName: title || templateKey,
               sections: sections.map((s) => ({
                 sectionId: s.sectionId, name: s.name, order: s.order, required: s.required, capacity: s.capacity,
+                type: s.type,
               })),
             });
           registerTemplate(spec);
