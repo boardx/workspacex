@@ -1340,7 +1340,12 @@ export function CopilotKitV2PanelBody({
         {/* issue #2053（CK-P6，差距表 #6）—— 「生成用户画像」。渲染门是服务端下发的
             `artifact.land` 能力（`canGeneratePersona`），不是前端自己判的；没有线程
             （全新对话还没发第一条消息）时禁用而不是隐藏——入口存在这件事本身要看得见，
-            `title` 说清楚为什么现在点不了（同旧轨道对空线程的处理）。 */}
+            `title` 说清楚为什么现在点不了（同旧轨道对空线程的处理）。
+            ⚠ 2026-08-30 修复：新会话路由会先建一条 0 消息的空线程（`initialChatThreadId`
+            早早就不是 `null` 了），只判 `initialChatThreadId === null` 挡不住这条空线程——
+            按钮会在空对话里直接可点，点了必然拿不到锚点（见上方 `runPersonaSummary` 头注），
+            正是本仓禁止的「点了才报错的假按钮」。改判 `agent.messages.length === 0`
+            （真实的"这条对话还没有消息"），语义与注释原意对齐。 */}
         {canGeneratePersona ? (
           <div className="flex items-center gap-2">
             <Button
@@ -1348,10 +1353,10 @@ export function CopilotKitV2PanelBody({
               size="xs"
               variant="outline"
               data-testid="chat-persona-summary-trigger"
-              disabled={archived || personaRunning || initialChatThreadId === null}
+              disabled={archived || personaRunning || initialChatThreadId === null || agent.messages.length === 0}
               title={
                 archived ? "该对话已归档，不能再生成画像"
-                  : initialChatThreadId === null ? "先发出第一条消息，这条对话建立后才能生成画像"
+                  : initialChatThreadId === null || agent.messages.length === 0 ? "先发出第一条消息，这条对话建立后才能生成画像"
                     : "扫描整个对话，生成用户画像"
               }
               onClick={() => void runPersonaSummary()}

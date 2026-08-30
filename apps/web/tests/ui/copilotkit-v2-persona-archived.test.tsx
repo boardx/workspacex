@@ -152,6 +152,16 @@ describe("CK-P6 生成用户画像（issue #2053）", () => {
     expect(trigger.getAttribute("title")).toContain("先发出第一条消息");
   });
 
+  it("②b 新会话路由已预建一条 0 消息的真实线程（`chatThreadId` 非 null）⇒ 入口仍要禁用，" +
+    "不能因为线程 id 存在就当成「已经有消息」——这正是 2026-08-30 报的假按钮", async () => {
+    // 线程真实存在，但后端还没有任何持久化消息（新会话刚建线程、用户还没发第一句话）。
+    listMessages.mockImplementation(async () => ({ messages: [], nextCursor: null }));
+    mount({ canGeneratePersona: true });
+    const trigger = await screen.findByTestId("chat-persona-summary-trigger");
+    await waitFor(() => expect((trigger as HTMLButtonElement).disabled).toBe(true));
+    expect(trigger.getAttribute("title")).toContain("先发出第一条消息");
+  });
+
   it("③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id，不是流式 id", async () => {
     summarizePersonaFromThread.mockImplementation(async () => {
       personaGenerated = true;
