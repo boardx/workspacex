@@ -12,12 +12,12 @@ import { LOGIN_BRAND } from "@/lib/mock/entry";
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: { state?: string };
+  searchParams: { state?: string; next?: string };
 }) {
   const state = resolvePreviewState(searchParams.state);
 
   return (
-    <LoginSessionGate>
+    <LoginSessionGate next={searchParams.next}>
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-3 p-4">
       {/* dev 预览条：生产不渲染 */}
       <div className="flex flex-col gap-1">
@@ -41,7 +41,7 @@ export default function LoginPage({
             <h1 className="text-24 font-semibold tracking-tight">进入你的战略工作空间</h1>
             <p className="text-13 text-muted-foreground">和你的 AI 团队一起，把最难的问题拆开。</p>
           </header>
-          <LoginForm state={state} />
+          <LoginForm state={state} next={searchParams.next} />
         </div>
 
         {/* ── 右：品牌 / 活动感氛围区 ───────────────────────────── */}

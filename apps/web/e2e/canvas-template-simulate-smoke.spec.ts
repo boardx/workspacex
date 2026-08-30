@@ -46,7 +46,7 @@ test("admin types a prompt into chat 模拟, gets a real model round trip back, 
   const { canvasSimulateName: NAME } = FULLSTACK_E2E;
 
   await loginAsAdmin(page);
-  await page.goto("/canvas?screen=template-admin&view=list");
+  await page.goto("/canvas/template-admin?view=list");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 
   // ── 前置：现场建来源模板 + 加两个字段（表头短文本 + 正文便利贴列表）──────────
@@ -153,7 +153,7 @@ test("counterproof: the rendered result reflects the network response body, not 
   const { canvasSimulateCounterproofName: NAME } = FULLSTACK_E2E;
 
   await loginAsAdmin(page);
-  await page.goto("/canvas?screen=template-admin&view=list");
+  await page.goto("/canvas/template-admin?view=list");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 
   const createResponsePromise = page.waitForResponse(
@@ -217,7 +217,7 @@ test("R2：结果画布真的可以编辑——点「＋便签」工具落一张
   const { canvasSimulateEditName: NAME } = FULLSTACK_E2E;
 
   await loginAsAdmin(page);
-  await page.goto("/canvas?screen=template-admin&view=list");
+  await page.goto("/canvas/template-admin?view=list");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 
   const createResponsePromise = page.waitForResponse(
@@ -297,7 +297,7 @@ test("R2：模型调不通时，浏览器里看到的是诚实的错误提示，
   const { canvasSimulateErrorName: NAME } = FULLSTACK_E2E;
 
   await loginAsAdmin(page);
-  await page.goto("/canvas?screen=template-admin&view=list");
+  await page.goto("/canvas/template-admin?view=list");
   await expect(page.getByTestId("tpladmin-root")).toBeVisible();
 
   const createResponsePromise = page.waitForResponse(

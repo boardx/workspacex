@@ -1,44 +1,29 @@
-import { CanvasHub } from "@/components/canvas/canvas-hub";
-import { resolvePreviewRole } from "@/lib/identity";
-import { resolvePreviewState } from "@/lib/ui-state";
+import { redirect } from "next/navigation";
 import { resolveCanvasScreen } from "@/lib/canvas-screens";
 
 /**
- * canvas 能力域 hub（顶层路由 /canvas）。
+ * `/canvas` 裸路由——历史 `?screen=` 查询参数式深链的**兼容重定向层**，不是内容页。
  *
- * #464 起，身份不再由本页伪造：预览身份投影已移除，`AppShell` 在没有 `identity` prop
- * 时走真实 `SessionProvider`（同 `/admin`），未登录会被重定向到 `/login`。
- * 默认屏 `template-admin` 的数据来自 `GET /canvas/templates` 真实响应。
- *
- * ⚠ 其余四屏（模板编辑器 / 环节绑定 / AI 起草 / 回流图谱）后端**一条路由都没有**，
- *   仍是 UI 先行原型；残留的 mock 边由
- *   `tests/session/canvas-template-routes-no-mock.test.ts` 逐条钉住，缺口已报 coord。
- *
- * ⚠ 服务端组件：只解析 URL，把可序列化 props 交给客户端 CanvasHub。
- *   `?as=` / `?state=` 是**预览手段，不是权限实现**；真实权限在服务端（Guard + RLS）。
+ * ⚠ 2026-08-30 路由复盘（画布模板后台管理刷新掉回根目录一案）：屏切换是「换了一个
+ * 完全不同的页面」，理应是路径段（Next.js App Router 推荐：不同视图 = 不同路径），
+ * 而不是同一路径靠 query 切换。`/canvas/[screen]/page.tsx` 才是现在的规范落点——
+ * `lib/mock/admin.ts` 的后台「画布模板」入口、`app/admin/[module]/page.tsx` 的
+ * `canvasadmin` 重定向都已经直接指向那里。这里只做一件事：把仍可能存在的旧式
+ * `/canvas?screen=template-admin`（历史书签、外部深链、别处忘了改的硬编码）
+ * 307 到新路径，其余 query（state/as/conflict/filter/q）原样带过去，不吞任何参数。
  */
-export default function CanvasPage({
+export default function CanvasLegacyQueryRoute({
   searchParams,
 }: {
-  searchParams: {
-    state?: string; as?: string; screen?: string; conflict?: string;
-    /** #9（2026-08-22）：`template-admin` 屏筛选/视图/搜索词——只有该屏读它们。 */
-    filter?: string; view?: string; q?: string;
-  };
+  searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const uiState = resolvePreviewState(searchParams.state);
-  const previewRole = resolvePreviewRole(searchParams.as);
   const screen = resolveCanvasScreen(searchParams.screen);
-  const initialConflict = searchParams.conflict === "on" || searchParams.conflict === "1";
-
-  return (
-    <CanvasHub
-      previewRole={previewRole}
-      uiState={uiState}
-      screen={screen}
-      initialConflict={initialConflict}
-      tplFilter={searchParams.filter}
-      tplQuery={searchParams.q}
-    />
-  );
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (key === "screen") continue;
+    const v = Array.isArray(value) ? value[0] : value;
+    if (v !== undefined) qs.set(key, v);
+  }
+  const suffix = qs.toString();
+  redirect(`/canvas/${screen}${suffix ? `?${suffix}` : ""}`);
 }

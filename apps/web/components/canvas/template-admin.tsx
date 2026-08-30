@@ -37,7 +37,7 @@ import { TemplateTagInput } from "./template-tag-input";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 
 /**
- * UC-7.1 画布模板库（`/canvas?screen=template-admin`）。
+ * UC-7.1 画布模板库（`/canvas/template-admin`）。
  *
  * ⚠ 2026-08-15（人类直接裁决真合并，D-43，见 `phases/requirements/DECISIONS-FINAL.md`）：
  *   这条路由现在**也是**后台左栏「画布模板」的落点——`ADMIN_NAV` 的 `canvasadmin` 项 href
@@ -168,7 +168,7 @@ export function TemplateAdmin({
   previewRole, initialFilter, initialQuery,
 }: {
   previewRole: ProjectRole | null;
-  /** #9：`/canvas?screen=template-admin&filter=...&view=...&q=...` 的初值，见 `canvas/page.tsx`。 */
+  /** #9：`/canvas/template-admin?filter=...&view=...&q=...` 的初值，见 `canvas/[screen]/page.tsx`。 */
   initialFilter?: string;
   initialQuery?: string;
 }) {

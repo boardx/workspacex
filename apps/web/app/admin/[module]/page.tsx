@@ -26,15 +26,17 @@ import type { AdminModuleKey } from "@/lib/mock/admin";
  * ⚠ 2026-08-15（人类直接裁决，D-43，推翻 D-42 ⑤）：`canvasadmin` 同样**不再在这里落地**——
  *   人类看真实后台截图后原话「画布模板……右边的列表，应该和打开模板和编辑器的界面整合，
  *   合并成一个」。`ADMIN_NAV` 的 `canvasadmin` 项 href 已直接指向
- *   `/canvas?screen=template-admin`（真实的模板库与编辑器，`TemplateAdmin` 组件），
+ *   `/canvas/template-admin`（真实的模板库与编辑器，`TemplateAdmin` 组件），
  *   `/admin/canvasadmin` 退役为重定向，不留死链。旧的 `CanvasTemplateScreen`（清单 + 跳转链接）
  *   不再被任何路由引用，保留文件留痕（同 `blueprint-screen.tsx` 先例）。见
  *   `phases/requirements/DECISIONS-FINAL.md` D-43。
+ *   ⚠ 2026-08-30（路由复盘）：重定向目标从历史 `/canvas?screen=template-admin` 改成
+ *   路径段 `/canvas/template-admin`，见 `lib/canvas-screens.ts` 头注。
  */
 const REDIRECTS: Partial<Record<string, string>> = {
   blueprint: "/tpl/list",
   skill: "/skill?screen=catalog",
-  canvasadmin: "/canvas?screen=template-admin",
+  canvasadmin: "/canvas/template-admin",
 };
 
 const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.ReactNode>> = {

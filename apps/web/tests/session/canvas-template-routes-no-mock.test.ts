@@ -9,7 +9,8 @@
  *
  * ## 覆盖到哪里
  *
- * ① `components/canvas/template-admin.tsx` —— `/canvas?screen=template-admin` 的取数与写入屏。
+ * ① `components/canvas/template-admin.tsx` —— `/canvas/template-admin`
+ *    （2026-08-30 路由复盘前是 `/canvas?screen=template-admin`）的取数与写入屏。
  * ② `components/admin/canvas-template-screen.tsx` —— `/admin/canvasadmin` 的落点屏。
  * 两棵树都必须走到 `lib/live-canvas.ts` → `lib/api-client.ts`，否则「没有 mock 边」
  * 可能只是因为什么都没走到。
@@ -92,7 +93,7 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
     expect(mockEdges.join("\n")).toContain("lib/mock/canvas");
   });
 
-  it("模板库屏（/canvas?screen=template-admin）整棵依赖树里没有一条指向 lib/mock 的边", () => {
+  it("模板库屏（/canvas/template-admin）整棵依赖树里没有一条指向 lib/mock 的边", () => {
     const { visited, mockEdges } = walk(TEMPLATE_ADMIN);
     expect(mockEdges).toEqual([]);
     // 反空转：这棵树必须真的走到取数那一端。
@@ -107,12 +108,24 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
     expect(visited).toContain("lib/api-client.ts");
   });
 
-  it("/canvas 路由外壳自身不再引 lib/mock，也不再自造身份", () => {
-    const page = readFileSync(resolve(ROOT, "app/canvas/page.tsx"), "utf8");
+  it("/canvas/[screen] 路由外壳自身不再引 lib/mock，也不再自造身份", () => {
+    const page = readFileSync(resolve(ROOT, "app/canvas/[screen]/page.tsx"), "utf8");
     expect(page).not.toContain("@/lib/mock/");
     expect(page).not.toContain("mockIdentity");
     // 屏注册表搬到了非 mock 的单一事实源，而不是在页面里重抄一份。
     expect(page).toContain('from "@/lib/canvas-screens"');
+  });
+
+  // 2026-08-30 路由复盘：`/canvas` 裸路由退役成历史 `?screen=` 深链的兼容重定向层
+  // （见 `app/canvas/page.tsx` 头注），本身不该引 mock，也不该走到 `canvas-hub.tsx`——
+  // 它只 `redirect()`，走不到那一步才是对的。
+  it("/canvas 兼容重定向层不引 lib/mock，也走不到 canvas-hub.tsx（它只 redirect）", () => {
+    const { visited, mockEdges } = walk("app/canvas/page.tsx");
+    expect(mockEdges).toEqual([]);
+    expect(visited).not.toContain("components/canvas/canvas-hub.tsx");
+    const page = readFileSync(resolve(ROOT, "app/canvas/page.tsx"), "utf8");
+    expect(page).toContain('from "@/lib/canvas-screens"');
+    expect(page).toContain("redirect(");
   });
 
   it("屏注册表只有一份：lib/mock/canvas 里不得再留一份副本", () => {
@@ -149,7 +162,7 @@ describe("#464 画布模板两条路径的取数不依赖 lib/mock", () => {
    * 逐条钉住，而不是假装已清理：新增一条会红，清理一条也会红。
    */
   it("如实钉住：/canvas hub 上剩余的 mock 边正好是这几条（后端无对应路由）", () => {
-    const { mockEdges, visited } = walk("app/canvas/page.tsx");
+    const { mockEdges, visited } = walk("app/canvas/[screen]/page.tsx");
     expect(visited).toContain("components/canvas/canvas-hub.tsx"); // 反空转：真的走进了 hub
     expect(mockEdges).toEqual([
       // D-43 被推翻（2026-08-17）：template-admin 屏重新挂上 `AdminNav`（后台侧栏），

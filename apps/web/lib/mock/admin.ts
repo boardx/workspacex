@@ -75,14 +75,17 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
       // 2026-08-15（人类直接裁决，D-43，推翻 D-42 ⑤——见 phases/requirements/DECISIONS-FINAL.md）：
       // 人类看真实后台截图后原话：「目前的画布模板，有问题，点击后台的画布模板以后，右边的
       // 列表，应该和打开模板和编辑器的界面整合，合并成一个」。「画布模板」href 因此改指
-      // `/canvas?screen=template-admin`（真实的模板库与编辑器，同蓝本/Skill 的做法——href
-      // 直接指向合并落点），不再经过 `/admin/canvasadmin` 那个只做清单+跳转链接的空壳页
-      // （该路由已重定向到这里，见 `app/admin/[module]/page.tsx` 的 `REDIRECTS`）。
+      // 真实的模板库与编辑器（同蓝本/Skill 的做法——href 直接指向合并落点），不再经过
+      // `/admin/canvasadmin` 那个只做清单+跳转链接的空壳页（该路由已重定向到这里，见
+      // `app/admin/[module]/page.tsx` 的 `REDIRECTS`）。
+      // ⚠ 2026-08-30（路由复盘）：href 从历史 `/canvas?screen=template-admin` 改成路径段
+      // `/canvas/template-admin`——见 `lib/canvas-screens.ts` 头注；旧 query 形态仍可用
+      // （`app/canvas/page.tsx` 兼容重定向），但这里不该再手写它。
       { key: "agent", label: "Agent 目录", href: "/admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
       { key: "skill", label: "Skill 目录", href: "/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
       { key: "model", label: "模型", href: "/admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
       { key: "mcp", label: "MCP", href: "/admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
-      { key: "canvasadmin", label: "画布模板", href: "/canvas?screen=template-admin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
+      { key: "canvasadmin", label: "画布模板", href: "/canvas/template-admin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
       { key: "blueprint", label: "项目模板", href: "/tpl/list", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
     ],
   },

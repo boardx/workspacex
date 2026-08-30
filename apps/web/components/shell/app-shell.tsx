@@ -13,6 +13,7 @@ import { useOptionalSession, type SessionContextValue } from "@/components/sessi
 import { Button } from "@/components/ui/button";
 import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { SHELL_RIGHT_PANEL_TOGGLE_EVENT } from "@/lib/shell-panel-events";
+import { sanitizeReturnTo } from "@/lib/return-to";
 
 /**
  * 三栏骨架 —— 尺寸来自原型实测：
@@ -79,8 +80,16 @@ function SessionAppShell({
 }) {
   const router = useRouter();
 
+  // ⚠ 画布模板后台管理刷新掉回根目录一案：这里此前是 `router.replace("/login")`，
+  // 深链（如 `/canvas/template-admin`）在跳转中丢失，登录/恢复会话后
+  // 一律落到 `/projects`，用户体感就是"刷新就退回根目录"。现在把当前 URL
+  // （路径 + 查询串）编码进 `?next=`，`LoginSessionGate` 与 `LoginForm` 登录
+  // 成功后据此跳回原页——见 `lib/return-to.ts` 头注。
   React.useEffect(() => {
-    if (session.status === "anonymous") router.replace("/login");
+    if (session.status !== "anonymous") return;
+    const current = `${window.location.pathname}${window.location.search}`;
+    const next = sanitizeReturnTo(current);
+    router.replace(next === "/projects" ? "/login" : `/login?next=${encodeURIComponent(next)}`);
   }, [router, session.status]);
 
   if (session.status === "loading" || session.status === "anonymous") {
