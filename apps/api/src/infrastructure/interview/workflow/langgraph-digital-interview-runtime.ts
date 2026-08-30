@@ -271,8 +271,13 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     readonly questions: readonly z.infer<typeof interview.DigitalInterviewQuestion>[];
     readonly expectedVersion: number; readonly requestId: string;
   }): Promise<DigitalInterviewWorkflowView> {
-    return this.resumeConfirmation(input, { kind: "confirm_questions", questions: input.questions,
+    const confirmed = await this.resumeConfirmation(input, { kind: "confirm_questions", questions: input.questions,
       expectedVersion: input.expectedVersion, requestId: input.requestId });
+    await this.deps.effects.executeInterviewRuns({
+      orgId: input.orgId, actorId: input.actorId, interviewId: input.interviewId,
+      revisionId: confirmed.revisionId,
+    });
+    return (await this.authorize(input.orgId, input.actorId, input.interviewId)).workflow;
   }
 
   async appendSkillMessage(input: {

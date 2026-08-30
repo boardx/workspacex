@@ -170,6 +170,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
       skillThreadId: "skill-thread-server-created",
       skillMessages: [],
       skillProposals: [],
+      expertRuns: [],
     } as const;
     vi.mocked(fetch).mockImplementation(async (input, init) => {
       const url = new URL(typeof input === "string" ? input : input.toString());

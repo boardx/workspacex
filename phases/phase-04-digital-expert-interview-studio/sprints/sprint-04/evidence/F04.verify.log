@@ -1,0 +1,104 @@
+$ pnpm --filter api exec vitest run tests/itv/digital-interview-setup.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/api
+
+[db-isolation] db=wsx_6363fc09881c7bdc4c85 capacity=100 current=6 required=32
+(node:27330) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+{"level":"error","msg":"http exception","traceId":"30635c36-5fdd-41e5-8fbc-404b97768358","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:215:13)\n    at DigitalInterviewController.createDraft (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:76:19)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"d19d73db-12dd-4f02-8b83-f13a8cb0a4b2","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:215:13)\n    at DigitalInterviewController.confirmTopic (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:93:19)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"b460788c-d805-4023-a664-e8e1cfb7d0d8","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:215:13)\n    at DigitalInterviewController.confirmTopic (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:93:19)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"36e42f53-8f6e-48e7-a2b3-845d3e077f01","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:212:54)\n    at DigitalInterviewController.getWorkflow (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:272:19)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"c6cca2e0-8e6e-475e-aa8b-a7bf5afa6cce","detail":{"name":"NotFoundException","message":"Not Found","stack":"NotFoundException: Not Found\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:212:54)\n    at DigitalInterviewController.getWorkflow (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:272:19)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"223e0fa3-8b09-4920-9792-f624608356d7","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at DigitalInterviewController.translate (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:215:13)\n    at DigitalInterviewController.appendSkillMessage (/Users/shenyangjun/boardx/workspacex/apps/api/src/interface/controllers/digital-interview.controller.ts:144:19)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_wv7sonobpk6cc2m3n6ev6bfqdu/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ✓ tests/itv/digital-interview-setup.test.ts (6 tests) 11582ms
+   ✓ F04 批量数字专家访谈 — HTTP 持久化验收门 > 创建只持久化名称和标签；create replay 幂等、变更 payload 被拒绝，并在重启后恢复 scope 325ms
+   ✓ F04 批量数字专家访谈 — HTTP 持久化验收门 > 显式确认推进主题、专家和问题；Skill 消息与 proposal 使用同一 aggregate version 并可重启恢复 629ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  19:10:37
+   Duration  17.34s (transform 2.46s, setup 0ms, collect 60ms, tests 11.58s, environment 0ms, prepare 54ms)
+
+[db-isolation] db=wsx_6363fc09881c7bdc4c85 peak_connections=13
+
+
+$ pnpm --filter web exec vitest run tests/ui/interview-setup-workflow.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/interview-setup-workflow.test.tsx (15 tests) 691ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  19:10:55
+   Duration  2.87s (transform 205ms, setup 185ms, collect 412ms, tests 691ms, environment 966ms, prepare 67ms)
+
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
+
+> agentic-harness-template@ verify:quick /Users/shenyangjun/boardx/workspacex
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=e2a6eecbf1276b711e5a73dbe4e2f047020ae54f（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_6363fc09881c7bdc4c85 inner_db=wsx_6363fc09881c7bdc4c85 outer_compose=wsx-6363fc09881c7bdc4c85 inner_compose=wsx-6363fc09881c7bdc4c85 status=matched
+[stack-admission] load1=44.30 cores=10 perCore=4.43 running=0/2
+[stack-admission] 排队中：机器每核负载 4.43（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.81（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.56（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.32（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.87（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.39（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 119s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.62（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 124s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.40（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 130s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.82（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 135s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 8.30（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 140s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.88（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 145s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 7.38（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 150s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.87（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 155s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 6.36（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 160s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.89（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 165s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.53（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 170s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.54（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 175s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.25（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 180s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.85（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 185s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.51（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 190s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.25（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 195s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.97（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 200s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.74（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 205s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.47（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 210s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.25（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 215s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.06（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 220s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.84（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 225s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.66（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 230s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 235s
+[test-isolation] id=run-mtfpkfqp-48b54012-6363fc09881c db=wsx_6363fc09881c7bdc4c85 compose=wsx-6363fc09881c7bdc4c85 pg=21969 redis=26969
+• turbo 2.10.5
+
+   • Packages in scope: 
+   • Running typecheck, lint, test in 0 packages
+   • Remote caching disabled
+
+ WARNING  No tasks were executed as part of this run.
+
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    382ms 
+
+[timing] pnpm turbo run typecheck lint test --affected
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：3m55s
+  命令执行：2s
+  清理：2s
+  总计：3m58s
+
+[harness-verify v1 sha256=6467fe488c783ee9707a620bcf775100bb5734d931ed2e5eebde0066ab3dc101 commit=e2a6eecbf1276b711e5a73dbe4e2f047020ae54f at=2026-08-30T11:14:59.765Z]

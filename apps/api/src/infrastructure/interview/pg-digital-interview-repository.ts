@@ -361,7 +361,7 @@ export async function readDigitalInterviewWorkflow(
   const row = base.rows[0];
   if (!row) return null;
 
-  const [questions, expertCandidates, questionCandidates, messages, proposals] = await Promise.all([
+  const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals] = await Promise.all([
     session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
     }>(
@@ -398,6 +398,17 @@ export async function readDigitalInterviewWorkflow(
         WHERE org_id=$1 AND skill_thread_id=$2
         ORDER BY ordinal`,
       [orgId, row.skill_thread_id],
+    ),
+    session.query<{
+      expert_id: string; display_name: string; status: "running" | "completed" | "failed";
+      answers: Array<{ questionId: string; question: string; answer: string }>;
+      total_questions: number; error_code: string | null; updated_at: Date | string;
+    }>(
+      `SELECT expert_id,display_name,status,answers,total_questions,error_code,updated_at
+         FROM digital_interview_expert_runs
+        WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3
+        ORDER BY ordinal`,
+      [orgId, interviewId, row.revision_id],
     ),
     session.query<{
       id: string; source_message_id: string; target_step: DigitalInterviewWorkflowView["currentStep"];
@@ -465,6 +476,16 @@ export async function readDigitalInterviewWorkflow(
       order: question.ordinal,
       text: question.body,
       purpose: question.purpose,
+    })),
+    expertRuns: expertRuns.rows.map((run) => ({
+      expertId: run.expert_id,
+      displayName: run.display_name,
+      status: run.status,
+      completedQuestions: run.answers.length,
+      totalQuestions: run.total_questions,
+      answers: run.answers,
+      errorCode: run.error_code,
+      updatedAt: new Date(run.updated_at).toISOString(),
     })),
     skillThreadId: row.skill_thread_id,
     skillMessages: messages.rows.map((message) => ({

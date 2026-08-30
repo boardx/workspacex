@@ -436,6 +436,108 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     });
   }
 
+  async executeInterviewRuns(input: {
+    readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
+    readonly revisionId: string;
+  }): Promise<void> {
+    if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    const snapshot = await this.db.withTenant(input.orgId, async (session) => {
+      const allowed = await session.query<{ allowed: boolean; topic: string }>(
+        `SELECT EXISTS(SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2) AS allowed,
+                topic FROM interview_sessions WHERE org_id=$1 AND id=$3`,
+        [input.orgId, input.actorId, input.interviewId],
+      );
+      if (!allowed.rows[0]?.allowed) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
+      const experts = await session.query<{
+        expert_id: string; display_name: string; role: string; domains: string[]; ordinal: number;
+      }>(
+        `SELECT s.expert_id,s.display_name,s.role,s.domains,s.ordinal
+           FROM digital_interview_expert_snapshots s
+           JOIN digital_interview_expert_snapshot_versions v
+             ON v.org_id=s.org_id AND v.id=s.version_id
+          WHERE s.org_id=$1 AND v.revision_id=$2 AND v.is_current ORDER BY s.ordinal`,
+        [input.orgId, input.revisionId],
+      );
+      const questions = await session.query<{
+        question_id: string; expert_id: string; body: string; purpose: string; ordinal: number;
+      }>(
+        `SELECT q.question_id,q.expert_id,q.body,q.purpose,q.ordinal
+           FROM digital_interview_questions q
+           JOIN digital_interview_question_versions v ON v.org_id=q.org_id AND v.id=q.version_id
+          WHERE q.org_id=$1 AND v.revision_id=$2 AND v.is_current ORDER BY q.ordinal`,
+        [input.orgId, input.revisionId],
+      );
+      const existing = await session.query<{ expert_id: string }>(
+        `SELECT expert_id FROM digital_interview_expert_runs
+          WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
+        [input.orgId, input.interviewId, input.revisionId],
+      );
+      return { topic: allowed.rows[0].topic, experts: experts.rows, questions: questions.rows,
+        existing: new Set(existing.rows.map((row) => row.expert_id)) };
+    });
+
+    const pendingExperts = snapshot.experts.filter((expert) => !snapshot.existing.has(expert.expert_id));
+    await Promise.all(pendingExperts.map((expert) => this.persistRun(
+      input, expert,
+      snapshot.questions.filter((question) => question.expert_id === expert.expert_id).length,
+      "running", [], null,
+    )));
+
+    // Model calls deliberately outlive the confirmation request. The durable running rows above
+    // make the runs immediately visible, while each completion independently writes its result.
+    void Promise.all(pendingExperts.map(async (expert) => {
+      const questions = snapshot.questions.filter((question) => question.expert_id === expert.expert_id);
+      try {
+        const completion = await this.model.complete({
+          modelProvider: this.modelProvider,
+          modelId: this.modelId,
+          system: `你正在模拟受访专家“${expert.display_name}”。角色：${expert.role}；领域：${expert.domains.join("、")}。请始终以该专家第一人称、结合其专业背景具体作答。只返回 JSON：{"answers":[{"questionId":"...","answer":"..."}]}。`,
+          user: JSON.stringify({ topic: snapshot.topic, questions: questions.map((question) => ({
+            questionId: question.question_id, question: question.body, purpose: question.purpose,
+          })) }),
+          history: [],
+        });
+        const parsed = JSON.parse(completion.text) as { answers?: Array<{ questionId?: string; answer?: string }> };
+        const answers = questions.map((question) => {
+          const answer = parsed.answers?.find((candidate) => candidate.questionId === question.question_id)?.answer?.trim();
+          if (!answer) throw new Error("MODEL_OUTPUT_INVALID");
+          return { questionId: question.question_id, question: question.body, answer };
+        });
+        await this.persistRun(input, expert, questions.length, "completed", answers, null);
+      } catch (error) {
+        const code = error instanceof ModelCallError ? "MODEL_CALL_FAILED" : "MODEL_OUTPUT_INVALID";
+        await this.persistRun(input, expert, questions.length, "failed", [], code);
+      }
+    })).catch(() => undefined);
+  }
+
+  private async persistRun(
+    input: { readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string; readonly revisionId: string },
+    expert: { readonly expert_id: string; readonly display_name: string; readonly ordinal: number },
+    totalQuestions: number,
+    status: "running" | "completed" | "failed",
+    answers: readonly { readonly questionId: string; readonly question: string; readonly answer: string }[],
+    errorCode: string | null,
+  ): Promise<void> {
+    await this.db.withTenant(input.orgId, async (session) => {
+      const membership = await session.query<{ allowed: boolean }>(
+        "SELECT EXISTS(SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2) AS allowed",
+        [input.orgId, input.actorId],
+      );
+      if (!membership.rows[0]?.allowed) throw new DigitalInterviewWorkflowError("PERMISSION_REVOKED_MIDWAY");
+      await session.query(
+        `INSERT INTO digital_interview_expert_runs
+           (org_id,interview_id,revision_id,expert_id,display_name,ordinal,status,total_questions,answers,error_code)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ON CONFLICT (org_id,revision_id,expert_id) DO UPDATE SET
+           status=EXCLUDED.status,total_questions=EXCLUDED.total_questions,answers=EXCLUDED.answers,
+           error_code=EXCLUDED.error_code,updated_at=now()`,
+        [input.orgId,input.interviewId,input.revisionId,expert.expert_id,expert.display_name,
+          expert.ordinal,status,totalQuestions,JSON.stringify(answers),errorCode],
+      );
+    });
+  }
+
   async generateQuestions(input: GenerateDigitalInterviewDraftInput): Promise<void> {
     const payload = { expectedVersion: input.expectedVersion };
     await this.db.withTenant(toOrgId(input.orgId), async (session) => {

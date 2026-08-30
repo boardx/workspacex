@@ -11,6 +11,7 @@ import {
   confirmDigitalInterviewExperts,
   confirmDigitalInterviewQuestions,
   confirmDigitalInterviewTopic,
+  loadDigitalInterviewWorkflow,
   rejectDigitalInterviewSkillProposal,
   type DigitalInterviewQuestion,
   type DigitalInterviewStep,
@@ -119,6 +120,17 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
+  React.useEffect(() => {
+    if (view.currentStep !== "runs" || !view.expertRuns.some((run) => run.status === "running")) return;
+    const timer = window.setInterval(() => {
+      void loadDigitalInterviewWorkflow(view.interviewId).then((next) => {
+        setView(next);
+        setError("");
+      }, showError);
+    }, 1500);
+    return () => window.clearInterval(timer);
+  }, [view.currentStep, view.expertRuns, view.interviewId]);
 
   function requestIdFor(operation: string, payload: unknown): string {
     const fingerprint = JSON.stringify(payload);
@@ -249,7 +261,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
         {active === "topic" && <LiveTopicStep topic={buffers.topic} onChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onConfirm={() => void confirmTopic()} />}
         {active === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => void confirmExperts()} />}
         {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
-        {active === "runs" && <LiveReadOnlyStep title="执行批量访谈" text="访谈执行进度会以服务端状态恢复。" />}
+        {active === "runs" && <LiveRunStep runs={view.expertRuns} />}
         {active === "report" && <LiveReadOnlyStep title="访谈报告" text="报告和来源会在服务端生成后显示。" />}
       </section>
     </div></main>
@@ -287,6 +299,10 @@ function LiveQuestionStep({ expertIds, candidates, questions, onChange, onConfir
 }
 
 function LiveReadOnlyStep({ title, text }: { readonly title: string; readonly text: string }) { return <div><h2 className="text-xl font-semibold">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{text}</p></div>; }
+
+function LiveRunStep({ runs }: { readonly runs: DigitalInterviewWorkflowView["expertRuns"] }) {
+  return <div data-testid="itv-expert-runs"><h2 className="text-xl font-semibold">执行批量访谈</h2><p className="mt-2 text-sm text-muted-foreground">每位专家独立运行；刷新或离开页面后会从服务端恢复。</p><div className="mt-5 space-y-4">{runs.map((run) => <article key={run.expertId} data-testid="itv-expert-run" className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{run.displayName}</h3><span className="text-xs text-muted-foreground">{run.status === "completed" ? "已完成" : run.status === "failed" ? "失败" : "进行中"} · {run.completedQuestions}/{run.totalQuestions}</span></div>{run.errorCode && <p role="alert" className="mt-3 text-sm text-destructive">{run.errorCode}</p>}<div className="mt-3 space-y-3">{run.answers.map((answer) => <section key={answer.questionId} className="rounded-lg bg-muted/50 p-3"><p className="text-sm font-medium">{answer.question}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{answer.answer}</p></section>)}</div></article>)}</div>{runs.length === 0 && <p data-testid="itv-runs-empty" className="mt-5 text-sm text-muted-foreground">访谈任务正在创建，请稍后刷新。</p>}</div>;
+}
 
 function UnsavedChangesDialog({ onKeepEditing, onDiscard }: { readonly onKeepEditing: () => void; readonly onDiscard: () => void }) {
   return <div role="alert" className="fixed inset-0 z-50 flex items-center justify-center bg-background-foreground/35 p-4"><div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-lg"><h2 className="text-lg font-semibold">有未确认的更改</h2><p className="mt-2 text-sm text-muted-foreground">这些更改尚未保存。继续编辑不会写入服务端。</p><div className="mt-6 flex justify-end gap-3"><Button type="button" variant="outline" onClick={onKeepEditing}>继续编辑</Button><Button type="button" variant="destructive" onClick={onDiscard}>放弃更改</Button></div></div></div>;
