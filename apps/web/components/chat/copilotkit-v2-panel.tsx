@@ -49,7 +49,7 @@ import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { useSession } from "@/components/session/session-provider";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
 import {
-  createPersonalThread, listMessages, summarizePersonaFromThread,
+  createPersonalThread, listMessages, listThreadAttachments, summarizePersonaFromThread,
   type GetAgentPanelOut, type ListThreadAttachmentsOut,
 } from "@/lib/live-chat";
 import { detectComposerMention, type ComposerMention } from "@/lib/composer-mention-detection";
@@ -1119,7 +1119,7 @@ function CopilotKitV2PanelBody({
   // DA-13 -- subscribe to the agent instance directly (not scoped to a single
   // `runAgent()` call) so a file created in one turn keeps receiving content deltas in
   // later turns. See the file-head comment above for why `agent.subscribe` is safe here.
-  const { files: activeFiles, onCustomEvent: onActiveFileCustomEvent } = useAguiFileEvents();
+  const { files: activeFiles, onCustomEvent: onActiveFileCustomEvent, hydrate: hydrateActiveFiles } = useAguiFileEvents();
   /**
    * issue #2068（第一件）—— `write_todos` 的结构化计划**早就在 wire 上**：
    * `copilotkit-agui.controller.ts` 的 `writeToolCallStep` 在 `write_todos` 成功后
@@ -1329,6 +1329,51 @@ function CopilotKitV2PanelBody({
         }
         setHistoryLoading(false);
         setPendingRunId(detectedPendingRunId);
+        /*
+         * 2026-08-30 人类实测反馈——"生成的下载链接不能下载"：真实现象是刷新页面/
+         * 重新打开这条线程之后，之前 run 产出的 docx/pdf/xlsx 那张下载卡片
+         * （`ActiveFilePanel`）整个不见了，只剩消息正文里的纯文字描述。根因见
+         * `agui-file-events.ts` 新增的 `hydrate` 头注：那个 hook 只认这次浏览器
+         * 会话亲眼收到的 `file_created` SSE 事件，历史打开没有任何回填路径。
+         *
+         * 这里用刚回读到的 `collected`（带 `role`）圈出"哪些消息是助手写的"，
+         * 再读一次这条线程的附件列表——`chat_message_attachments.message_id` 落在
+         * 助手消息上的，就是 `run-skill-script.ts` 沙箱产出（`agui-file-events.ts`
+         * 文件头："一个人从不会把附件挂在助手自己写的消息上"，同一条推理，只是从
+         * "刚发生的这次 run" 挪到"历史里任意一次 run"）——为它们在本地重建等价的
+         * `ActiveFile`，喂给 `hydrateActiveFiles`。`content` 留空、`bytes`/`mime`
+         * 照抄：这类文件是二进制产出，从未也不该被当文本流式过，与真实 SSE 事件到达
+         * 时 `content: ""` 的初始形状完全一致，不是编出来的近似值。
+         *
+         * 失败（读不到附件列表）不影响消息本身的回读——这不是"回读历史"这件事的
+         * 必要前提，读不到就是没有可回填的下载卡片，退回此前的行为，不该让整个
+         * 历史回读因为这一步失败而报错。
+         */
+        try {
+          const assistantMessageIds = new Set(
+            collected.filter((m) => m.role === "assistant").map((m) => m.id),
+          );
+          if (assistantMessageIds.size > 0) {
+            const attachments = await listThreadAttachments(initialChatThreadId, null, bearer);
+            if (!cancelled) {
+              const rehydrated = attachments.items
+                .filter((item) => assistantMessageIds.has(item.messageId))
+                .map((item) => ({
+                  uri: `vfs://attachment/${item.id}`,
+                  name: item.filename,
+                  mime: item.mime,
+                  source: "agent_run_output" as const,
+                  bytes: item.bytes,
+                  content: "",
+                  nextSequence: 0,
+                }));
+              hydrateActiveFiles(rehydrated);
+            }
+          }
+        } catch {
+          // 如实忽略——见上面这段的最后一条理由，不让附件回填的失败冒泡成历史消息
+          // 读取失败。
+        }
       } catch (e) {
         if (cancelled) return;
         setHistoryLoading(false);
@@ -1338,7 +1383,7 @@ function CopilotKitV2PanelBody({
     return () => {
       cancelled = true;
     };
-  }, [agent, isReady, initialChatThreadId, registerHydrated]);
+  }, [agent, isReady, initialChatThreadId, registerHydrated, hydrateActiveFiles]);
 
   /**
    * session-switch task-state-loss fix —— 上面 hydration 找到的 `pendingRunId`
