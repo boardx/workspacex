@@ -176,6 +176,39 @@ describe("computeExplicitLayout —— px 几何", () => {
       expect(spec.fields).toBeUndefined();
       expect(spec.headerRect).toBeUndefined();
     });
+
+    /**
+     * 2026-08-31 人类实测截图回归钉子：用户画像 9 个表头字段被 `autoFillLayout` 铺进
+     * 同一个网格行（`row=1`），此前 `fieldsPerRow` 直接取"这一行放了几个格子"=9——
+     * 引擎每个字段固定要 96+6+150=252px，`headerRect` 那点宽度根本放不下 9 个，画出来
+     * 是姓名/性别/年龄……的文字互相压在一起，读不出任何一个值（不是空白，是糊成一团）。
+     * 这条钉住修复后的正确行为：按实际像素宽度换算这一行最多放几个，放不下的自动换行，
+     * `headerRect.h` 跟着行数长高，且从不产出会让相邻字段互相压住的 `fieldsPerRow`。
+     */
+    it("表头字段数超过一行像素宽度放得下的个数时自动换行，不产出会导致文字互相压住的 fieldsPerRow", () => {
+      const PERSONA_FIELDS = ["姓名", "性别", "年龄", "区域", "教育水平", "职位", "行业", "家庭情况", "收入水平"];
+      // 9 个字段铺满 12 列网格的同一行——`autoFillLayout` 对表头字段的真实铺法。
+      const widths = [2, 1, 1, 1, 1, 1, 1, 2, 2]; // 和为 12
+      let col = 1;
+      const sections = PERSONA_FIELDS.map((name, i) => {
+        const w = widths[i]!;
+        const cell = { ...section(`f${i}`, col, 1, w, 1), name, type: "短文本" as const };
+        col += w;
+        return cell;
+      });
+      const { spec } = buildExplicitTemplateSpec({
+        key: "persona-like", displayName: "用户画像", sections, gridCols: 12,
+      });
+      const HEADER_FIELD_MIN_W = 96 + 6 + 150;
+      // 核心断言：换算出的 fieldsPerRow 必须能在 headerRect 的实际宽度里放得下，
+      // 不能再像修复前那样直接等于"这一行有几个格子"。
+      expect(spec.fieldsPerRow! * HEADER_FIELD_MIN_W).toBeLessThanOrEqual(spec.headerRect!.w + 1e-6);
+      expect(spec.fieldsPerRow!).toBeLessThan(PERSONA_FIELDS.length);
+      // 换行后 headerRect 必须跟着长高，容纳 ceil(9/fieldsPerRow) 行，不能停留在单行原高度。
+      const rows = Math.ceil(PERSONA_FIELDS.length / spec.fieldsPerRow!);
+      expect(rows).toBeGreaterThan(1);
+      expect(spec.headerRect!.h).toBeGreaterThan(0);
+    });
   });
 });
 
