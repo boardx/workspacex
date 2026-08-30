@@ -53,8 +53,8 @@ issue 迭代，很大一部分反馈点已经用**更严谨**的方式解决了�
 | 版本 | 状态 | 说明 |
 |---|---|---|
 | V3 | ✅ 已实现（本分支） | 实现时复核发现 composer 上「/技能」「任务模式」两个控件其实**已经**有 `title`/`aria-label` 说明文案（`copilotkit-v2-panel-body.tsx:1632`、`chat-skill-mount-panel.tsx:486`，均早于本轮），本条真差距只剩「运行详情」页签补「当前模式」行——已完成：`taskMode` 状态从 `copilotkit-v2-panel-body.tsx` 经 `copilotkit-v2-panel.tsx`/`copilotkit-v2-shell.tsx` 透传给 `chat-task-inspector.tsx` 的 `RunDetailsTab`，未传时不显示（不编造默认值）。新增单测 `tests/ui/chat-task-inspector-task-mode.test.tsx`（3 例）。验证：`tsc --noEmit` 0 错误、`lint:design` 全过、`vitest run tests/ui` 204 files/1657 tests 全过、`lint-spec-gate-coverage.mjs` 全绿。 |
-| V1 | 待排 | Composer 第二行收敛——涉及重排 4 个常驻控件的可见性，触及现有 e2e 断言的控件可见位置最多，需要单独一轮逐条核对 e2e 后再动 |
-| V2 | 待排 | Thinking 卡片宏观阶段分组 |
+| V1 | 待排 | Composer 第二行收敛——涉及重排 4 个常驻控件的可见性，触及现有 e2e 断言的控件可见位置最多（`chat-task-workbench-composer-*` 系列锚点分布在 6+ 个 e2e spec、十余处单测），需要单独一轮逐条核对 e2e 后再动，不与其他改动混在一起 |
+| V2 | ✅ 已实现（本分支） | `useCopilotKitV2RunProgress`（`copilotkit-v2-run-progress.ts`）新增 `stage: "preparing"｜"acting"｜"replying"｜null` 三桶，精确对应已有的三类 AG-UI 事件（`RUN_STARTED`/`TOOL_CALL_START`/`TEXT_MESSAGE_START`），`RUN_FINISHED`/`RUN_ERROR` 清空。thinking 卡片新增一行紧凑指示（`准备 → 执行 → 回复`，当前态高亮），testid `copilotkit-v2-thinking-stage`。明确不是 TW-P0-3①那套六态工作流指示器（`plan-control` 契约束的活），两者独立、互不替代（详见组件头注）。新增单测 `tests/lib/copilotkit-v2-run-progress-stage.test.tsx`（5 例，含 `TOOL_CALL_ARGS` 不误推走 stage、终态清空两条反面用例）。验证：`tsc --noEmit` 0 错误、`lint:design` 全过、`vitest run` 全量回归、`lint-spec-gate-coverage.mjs` 全绿。 |
 | V4 | 待排 | V1 落地后的阅读轴回归验证，依赖 V1 先完成 |
 
 ## 四、执行入口

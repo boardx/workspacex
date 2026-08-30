@@ -59,6 +59,27 @@ export const LONG_RUN_HINT = "复杂任务可能需要数分钟";
 /** `TEXT_MESSAGE_START` 的阶段文案——见文件头"为什么不借用 `chat_writeback`"。 */
 export const REPLYING_PHASE_LABEL = "正在回复…";
 
+/**
+ * PROP-CHAT-UIUX-ITER-002 V2 —— 宏观阶段分组，三桶：`preparing`/`acting`/`replying`。
+ *
+ * ⚠ 这不是重开 TW-P0-3①（六态工作流指示器，`chat-task-workbench-workflow-states.spec.ts`）
+ * ——那是 `PlanPhaseIndicator`/`plan-control` 契约束的活（`preparing/planning/executing/
+ * awaiting-approval/completed/failed`，读计划账本），本组件不产出、不消费那六态，
+ * 两套指示器各自独立、互不替代。这里只是给已有的一行自由文本阶段（`phaseLabel`）
+ * 追加一个更粗粒度的分组，方便一眼看出"大致在哪一段"，不是重新做一遍状态机。
+ *
+ * ## 为什么只有三桶，不是仿反馈建议的四/五段式
+ *
+ * 三桶精确对应本 hook 已经在监听的三类事件（`onRunStartedEvent` /
+ * `onToolCallStartEvent` / `onTextMessageStartEvent`），每一桶都有真实事件支撑；
+ * 反馈建议的"理解任务/制定计划/搜索分析/生成结果"四段在 v2 的 AG-UI 事件流里没有
+ * 一一对应的信号（例如"制定计划"与"搜索分析"在事件流上都只是若干次
+ * `TOOL_CALL_START`，无法可靠区分），拆出比这更细的桶就要么合并落回同一事件、
+ * 要么开始猜——本仓纪律是宁可粗一点，不可编一个假分类（同文件头"宁可笼统，不可
+ * 编造归因"）。
+ */
+export type RunStage = "preparing" | "acting" | "replying";
+
 export interface RunProgress {
   /** 服务端 `RUN_STARTED` 到达的时刻（epoch ms）；本轮还没开始跑时为 `null`。 */
   readonly startedAt: number | null;
@@ -66,6 +87,8 @@ export interface RunProgress {
   readonly elapsedSeconds: number | null;
   /** 当前阶段文案；还没有任何可翻译的事件到达时为 `null`（调用方不显示阶段）。 */
   readonly phaseLabel: string | null;
+  /** `phaseLabel` 的宏观分组；`phaseLabel` 为 `null` 时同为 `null`。 */
+  readonly stage: RunStage | null;
   /** 已经跑够 `LONG_RUN_THRESHOLD_MS`。 */
   readonly isLongRun: boolean;
 }
@@ -73,6 +96,7 @@ export interface RunProgress {
 export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: boolean): RunProgress {
   const [startedAt, setStartedAt] = React.useState<number | null>(null);
   const [phaseLabel, setPhaseLabel] = React.useState<string | null>(null);
+  const [stage, setStage] = React.useState<RunStage | null>(null);
   const [nowTick, setNowTick] = React.useState(() => Date.now());
   // issue #2321 round 3 -- `TOOL_CALL_ARGS` carries only `toolCallId` (see
   // `ToolCallArgsEventSchema`), not the tool's name; remember it from the matching
@@ -87,10 +111,12 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
         // "accepted" 是旧轨道 run 生命周期里的第一条 step，语义与 `RUN_STARTED`
         // 对应（服务端受理了这一轮），取同一句词。
         setPhaseLabel(phaseLabelForKind("accepted"));
+        setStage("preparing");
       },
       onToolCallStartEvent: ({ event }) => {
         toolCallNameByIdRef.current.set(event.toolCallId, event.toolCallName);
         setPhaseLabel(phaseLabelForToolName(event.toolCallName ?? null));
+        setStage("acting");
       },
       // issue #2321 round 3 -- `call_skill(skill_stable_name, task)`'s real args,
       // echoed verbatim (see this file's head doc for why this refines rather than
@@ -109,16 +135,19 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
       },
       onTextMessageStartEvent: () => {
         setPhaseLabel(REPLYING_PHASE_LABEL);
+        setStage("replying");
       },
       // 终态：不留着上一轮的计时器和阶段继续显示——那会让"上一轮跑了 3 分钟"
       // 在下一轮开始前一直挂在界面上，读起来像这一轮已经在跑。
       onRunFinishedEvent: () => {
         setStartedAt(null);
         setPhaseLabel(null);
+        setStage(null);
       },
       onRunErrorEvent: () => {
         setStartedAt(null);
         setPhaseLabel(null);
+        setStage(null);
       },
     });
     return unsubscribe;
@@ -145,6 +174,7 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
     startedAt: active ? startedAt : null,
     elapsedSeconds: active ? Math.floor(elapsedMs / 1_000) : null,
     phaseLabel: active ? phaseLabel : null,
+    stage: active ? stage : null,
     isLongRun: active && elapsedMs > LONG_RUN_THRESHOLD_MS,
   };
 }
