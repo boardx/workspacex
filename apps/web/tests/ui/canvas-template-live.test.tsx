@@ -1028,6 +1028,67 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     expect(within(panel).getByTestId("tpladmin-editor-health-unplaced")).toHaveTextContent("gains");
   });
 
+  /**
+   * issue #2369：字段类型此前只在创建时赋值一次，此后没有任何入口能改，
+   * 想换类型只能删了重建（会丢掉已放置的画布位置）。
+   */
+  it("字段行的类型下拉能就地改类型——已放置的字段改类型后，标记与布局同步刷新", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+
+    // 改之前：{{says[]}} 是列表型标记，且是「已放置」。
+    expect(within(panel).getByTestId("tpladmin-editor-field-says").textContent).toContain("{{says[]}}");
+    const typeSelect = within(panel).getByTestId("tpladmin-editor-section-0-type") as HTMLSelectElement;
+    expect(typeSelect.value).toBe("便利贴列表");
+
+    fireEvent.change(typeSelect, { target: { value: "短文本" } });
+
+    // 改成短文本后：标记不再带 `[]`（isList 判定同步跟着 type 走）。
+    await waitFor(() => {
+      expect(within(panel).getByTestId("tpladmin-editor-field-says").textContent).toContain("{{says}}");
+    });
+    expect(within(panel).getByTestId("tpladmin-editor-field-says").textContent).not.toContain("{{says[]}}");
+    // 仍然是已放置——只是类型变了，不是被移走重新变成未放置。
+    expect(within(panel).getByTestId("tpladmin-editor-field-state-says")).toHaveTextContent("已放置");
+
+    // 已放置字段改类型时布局同步刷新成新类型的默认值（短文本默认 h=1，
+    // 不再保留列表型的 h=3）——右栏「在 A1 上占多大」的高只应是 1 行的量。
+    fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
+    const display = await within(panel).findByTestId("tpladmin-editor-display");
+    expect(within(display).getByTestId("tpladmin-editor-display-token").textContent).toBe("{{says}}");
+  });
+
+  it("未放置的字段也能改类型——不需要先放到画布上", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => withFields()));
+    const panel = await openEditor();
+
+    const typeSelect = within(panel).getByTestId("tpladmin-editor-section-1-type") as HTMLSelectElement;
+    expect(typeSelect.value).toBe("便利贴列表");
+    fireEvent.change(typeSelect, { target: { value: "长文本" } });
+
+    await waitFor(() => {
+      expect(within(panel).getByTestId("tpladmin-editor-field-gains").textContent).toContain("{{gains}}");
+    });
+    // 未放置字段改类型不应该变成已放置。
+    expect(within(panel).getByTestId("tpladmin-editor-field-state-gains")).toHaveTextContent("未放置");
+  });
+
+  it("已归档（不可编辑）模式下没有类型下拉，只有一段只读类型文字", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
+      templates: [template({
+        key: "swot", displayName: "SWOT", version: 1, status: "archived", builtin: false, usageCount: 0,
+        sections: [{
+          sectionId: "s1", key: "says", name: "说 Says", type: "便利贴列表", aiHint: null,
+          order: 0, required: false, capacity: null,
+          layout: { col: 1, row: 2, w: 6, h: 3, cols: 5, max: 6, tone: 0, overflow: "缩小字号" },
+        }],
+      })],
+    })));
+    const panel = await openEditor();
+    expect(within(panel).queryByTestId("tpladmin-editor-section-0-type")).not.toBeInTheDocument();
+    expect(within(panel).getByTestId("tpladmin-editor-field-says").textContent).toContain("多条 · 贴纸");
+  });
+
   it("已放置的区块渲染在画布上；点它 → 右栏出现显示设置，且 mm 实尺与容量结论同源计算", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => withFields()));
     const panel = await openEditor();

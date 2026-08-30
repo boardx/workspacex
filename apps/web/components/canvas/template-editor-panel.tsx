@@ -180,6 +180,25 @@ export function TemplateEditorPanel({
     setSections((prev) => prev.map((s) => (s.sectionId === sectionId ? { ...s, ...patch } : s)));
   }
 
+  /**
+   * 就地修改已有字段的类型（issue #2369）——此前类型只在创建时（`addField`/
+   * `addExtracted`）赋一次值，此后没有任何入口能改，想换类型只能删了重建，
+   * 会连带丢掉已放置的画布位置。
+   *
+   * 已放置的字段（`layout` 非空）改类型时，用 `defaultLayoutAt` 按新类型重新算
+   * 一份默认布局（列表型默认更高更多列，非列表型默认矮一行三列）——位置
+   * （`col`/`row`）保留，只刷新跟类型强相关的尺寸/列数，避免改成短文本后还占着
+   * 一大块列表型的高度。未放置的字段直接改 `type`，没有布局需要同步。
+   */
+  function changeFieldType(sectionId: string, type: SectionFieldType): void {
+    setSections((prev) => prev.map((s) => {
+      if (s.sectionId !== sectionId || s.type === type) return s;
+      if (!s.layout) return { ...s, type };
+      const next = defaultLayoutAt(type, s.layout.col, s.layout.row, gridCols, paperSize);
+      return { ...s, type, layout: clampLayout(next, gridCols) };
+    }));
+  }
+
   function patchLayout(sectionId: string, patch: Partial<SectionLayoutDraft>): void {
     setSections((prev) => prev.map((s) => {
       if (s.sectionId !== sectionId || !s.layout) return s;
@@ -555,9 +574,24 @@ export function TemplateEditorPanel({
                       aria-label={`分区 ${i + 1} 的中文名`}
                       data-testid={`tpladmin-editor-section-${i}`}
                     />
-                    <span className="whitespace-nowrap text-10 text-muted-foreground">
-                      {s.type === "便利贴列表" ? "多条 · 贴纸" : s.type}
-                    </span>
+                    {editable ? (
+                      <select
+                        className="whitespace-nowrap rounded-control border border-transparent bg-transparent px-1 py-0.5 text-10 text-muted-foreground outline-none transition-colors duration-fast hover:border-border focus:border-border focus:bg-background focus-visible:ring-2 focus-visible:ring-ring"
+                        value={s.type}
+                        onChange={(e) => changeFieldType(s.sectionId, e.target.value as SectionFieldType)}
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`字段 ${s.name} 的类型`}
+                        data-testid={`tpladmin-editor-section-${i}-type`}
+                      >
+                        {FIELD_TYPES.map((t) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="whitespace-nowrap text-10 text-muted-foreground">
+                        {s.type === "便利贴列表" ? "多条 · 贴纸" : s.type}
+                      </span>
+                    )}
                     {editable && (
                       <button
                         type="button"

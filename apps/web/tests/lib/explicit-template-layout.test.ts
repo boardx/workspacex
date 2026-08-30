@@ -11,6 +11,7 @@ import {
   buildExplicitTemplateSpec,
   sectionGeometryMm,
   classifyNoteSize,
+  MAX_NOTE_MM,
   A1_CONTENT_MM,
   A1_PAPER_MM,
   PAPER_SIZE_MM,
@@ -110,6 +111,24 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.rows).toBeGreaterThanOrEqual(0);
     expect(Number.isFinite(g.rows)).toBe(true);
     expect(g.fits).toBeGreaterThanOrEqual(0);
+  });
+
+  it("issue #2368 · 贴纸实尺封顶在 MAX_NOTE_MM——1 列时不再吃满整个区块宽度，不再把自己撑到 0 行", () => {
+    // 真实复现：w=4,h=4（A1，12 列网格）选 1 列——未封顶前 wMm≈268，noteMm=268/1=268，
+    // rows=floor((281-22)/(268+6))=0，整块区域画不出任何内容。
+    const g = sectionGeometryMm({ w: 4, h: 4, cols: 1, gridCols: 12 });
+    expect(g.wMm).toBe(268);
+    expect(g.noteMm).toBe(MAX_NOTE_MM);
+    expect(g.noteMm).toBeLessThan(g.wMm);
+    expect(g.rows).toBeGreaterThan(0);
+    expect(g.fits).toBeGreaterThan(0);
+  });
+
+  it("noteMm 未触顶时维持原公式——封顶只在超过 MAX_NOTE_MM 时才生效，不改变正常档位的数值", () => {
+    const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
+    expect(g.noteMm).toBeLessThan(MAX_NOTE_MM);
+    const expectedWMm = (6 / 12) * A1_CONTENT_MM.w - 6;
+    expect(g.noteMm).toBe(Math.round((expectedWMm - 6 * 4) / 5));
   });
 });
 
