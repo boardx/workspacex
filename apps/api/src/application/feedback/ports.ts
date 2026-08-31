@@ -60,6 +60,9 @@ export interface FeedbackRow {
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
   readonly createdAt: string;
+  /** "转开发"建过 issue 之后回填的两列。见迁移 `20260830120000_fb2_feedback_github_issue.sql`。 */
+  readonly githubIssueUrl: string | null;
+  readonly githubIssueNumber: number | null;
 }
 
 /** 读取口径。⚠ 同样从契约派生，不重列。 */
@@ -100,6 +103,13 @@ export interface ProductFeedbackRepository {
   setVote(feedbackId: string, voterId: string, voted: boolean): Promise<{ readonly votes: number; readonly votedByMe: boolean }>;
   updateStatus(feedbackId: string, status: FeedbackStatus, reason: string | null): Promise<void>;
   appendStatusEvent(event: StatusEvent): Promise<void>;
+  /**
+   * "转开发"建完 GitHub issue 之后的一次回填。⚠ 只在 `triageFeedback` 用例内
+   *   **确认这条反馈还没有 issue**（`githubIssueUrl === null`）时才会被调用一次——
+   *   本方法自己不做"已存在就跳过"的判断,它信任调用方只在该建的时候才调它。
+   *   把这条判断放进仓储会让"要不要建 issue"这条业务规则的一半长在基础设施层。
+   */
+  setGithubIssue(feedbackId: string, issue: { readonly url: string; readonly number: number }): Promise<void>;
   /** ⚠ 一次查询派生全部五个数。见契约 `getFeedbackCounts` 的理由。 */
   counts(): Promise<FeedbackCounts>;
 }

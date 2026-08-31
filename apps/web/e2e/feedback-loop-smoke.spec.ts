@@ -265,12 +265,20 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     expect((await voted).status()).toBe(200);
     await expect(voteButton).toContainText("1");
 
-    /* ── 分诊：转「已进入迭代」，刷新页面确认落在 PostgreSQL 而不是 React state ── */
+    /* ── 分诊：转「已进入迭代」("转开发")，刷新页面确认落在 PostgreSQL 而不是 React state ──
+     * 2026-08-30 起这条转移先展开一个预填的 GitHub issue 草稿框（见
+     * `admin-feedback-live.test.tsx` 的单测），这里额外确认那个草稿框会出现、
+     * 且确认按钮真的把请求发出去。⚠ 需要环境配了 `GITHUB_ISSUE_TOKEN`——
+     * 建 issue 是 fail closed 的(见 `triage-feedback.ts` 头注①),没配 token 这一步会
+     * 503,是已知且刻意的行为,不是本测试要掩盖的东西。 */
     const toIterating = bugCardAsAdmin.locator('[data-testid^="admin-feedback-to-已进入迭代-"]');
+    await toIterating.click();
+    const issueSubmit = bugCardAsAdmin.locator('[data-testid^="admin-feedback-issue-submit-"]');
+    await expect(issueSubmit).toBeVisible();
     const triaged = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes(`${API}/feedback`),
     );
-    await toIterating.click();
+    await issueSubmit.click();
     expect((await triaged).status()).toBe(200);
     await expect(bugCardAsAdmin).toContainText("已进入迭代");
 

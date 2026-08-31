@@ -259,6 +259,22 @@ export const operations = {
    * ⚠ 状态变更**append-only 地留痕**（`feedback_status_events`）：
    *   「谁在什么时候把它从待处理改成不做、理由是什么」是这条闭环里唯一
    *   能回答「为什么我的反馈没人管」的东西。
+   *
+   * ## 2026-08-30 新增两个副作用，均挂在这一个操作上（不是新增操作）
+   *
+   *   · **转 `已进入迭代`**（"转开发"）时，可以附一份 `issueDraft`——管理员在弹层里
+   *     编辑过的 GitHub issue 标题/正文/标签。它**只在这个目标状态下**被使用；
+   *     其余转移带这个字段没有意义，用例层会忽略。不用判别联合去强绑"状态 ⇒ 是否
+   *     允许 issueDraft"，是因为那会让"转已修复时误传了 issueDraft"变成一个类型
+   *     错误而不是一个被忽略的字段——调用方（前端）只在渲染那一个按钮时才拼得出
+   *     这个字段，类型层面强绑反而更脆。
+   *   · **任意转移**都会尽力给提交人发一封「你的反馈状态变了」的邮件——**不是**
+   *     这里新增的字段能开关的，而是用例内部恒定的行为（见 `triage-feedback.ts`
+   *     头注）。`out.notified` 只是如实回报"这次到底发没发出去"，不是入参。
+   *
+   * ⚠ `issueDraft` 是 `.nullable().optional()`——对 `.strict()` 契约新增字段的唯一
+   *   向后兼容方式（ADR-020）：旧调用方不传这个字段，契约照样过；新字段绝不能变成
+   *   必填，否则今天能发的请求明天就发不出去。
    */
   triageFeedback: {
     method: "PUT",
@@ -269,9 +285,38 @@ export const operations = {
         status: FeedbackStatus,
         /** ⚠ 转 `不做` 时必填，否则 `TRIAGE_REASON_REQUIRED`。跨字段规则在 domain 判 */
         reason: z.string().nullable(),
+        /**
+         * "转开发"弹层里管理员编辑过的 GitHub issue 草稿。**只在
+         * `status === "已进入迭代"` 且管理员确实走了那个弹层时**才会非 null——
+         * 其余转移不需要它，传了也不会被使用。
+         * ⚠ 这是**管理员编辑之后**的最终文案，不是反馈本身的 `title`/`detail`——
+         *   用例层不会用反馈原文覆盖它，否则"可编辑"就是一句空话。
+         */
+        issueDraft: z
+          .object({
+            title: z.string().min(1),
+            body: z.string(),
+            labels: z.array(z.string()),
+          })
+          .strict()
+          .nullable()
+          .optional(),
       })
       .strict(),
-    out: z.object({ feedbackId: z.string(), status: FeedbackStatus }).strict(),
+    out: z
+      .object({
+        feedbackId: z.string(),
+        status: FeedbackStatus,
+        /**
+         * 提交人状态变更邮件**这一次**是否真的发出去了（best-effort，见用例头注）。
+         * ⚠ 不是"配置了邮件功能"的布尔——一次配置齐全但供应商超时的调用，这里也是
+         *   `false`。调用方（后台屏）据此决定要不要提示"邮件没发出去，状态已经变了"。
+         */
+        notified: z.boolean(),
+        /** 本次是否真的创建了 GitHub issue（只有转 `已进入迭代` 且带 `issueDraft` 时才可能非 null）。 */
+        githubIssueUrl: z.string().nullable().optional(),
+      })
+      .strict(),
     err: [
       "FEEDBACK_NOT_FOUND",
       "PERMISSION_REVOKED",

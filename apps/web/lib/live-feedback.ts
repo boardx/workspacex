@@ -20,6 +20,14 @@ export type FeedbackItem = z.infer<typeof feedbackLoop.FeedbackItem>;
 export type SubmitFeedbackOut = z.infer<typeof feedbackLoop.operations.submitFeedback.out>;
 export type VoteFeedbackOut = z.infer<typeof feedbackLoop.operations.voteFeedback.out>;
 export type FeedbackCounts = z.infer<typeof feedbackLoop.operations.getFeedbackCounts.out>;
+export type TriageFeedbackOut = z.infer<typeof feedbackLoop.operations.triageFeedback.out>;
+/**
+ * "转开发"弹层里管理员编辑之后提交的 GitHub issue 最终文案。
+ * ⚠ 类型从契约的 `in.shape.issueDraft` 派生,不是手写——见文件头纪律。
+ */
+export type FeedbackIssueDraft = NonNullable<
+  z.infer<typeof feedbackLoop.operations.triageFeedback.in>["issueDraft"]
+>;
 
 /** 枚举的**唯一来源**——下拉框、徽标色映射、测试断言都从这里取，不各写一份数组。 */
 export const FEEDBACK_KINDS = feedbackLoop.FeedbackKind.options;
@@ -71,14 +79,20 @@ export async function voteFeedback(feedbackId: string, voted: boolean): Promise<
   });
 }
 
+/**
+ * ⚠ `issueDraft` 只在转「已进入迭代」("转开发")且管理员走了那个弹层时才非 null——
+ *   其余转移传 `null`(而不是省略这个参数):见 `live-feedback.ts` 头注,契约里
+ *   `.optional()` 只是为了兼容"根本不知道这个字段"的旧调用方,本文件永远显式传值。
+ */
 export async function triageFeedback(
   feedbackId: string,
   status: FeedbackStatus,
   reason: string | null,
-): Promise<{ feedbackId: string; status: FeedbackStatus }> {
+  issueDraft: FeedbackIssueDraft | null = null,
+): Promise<TriageFeedbackOut> {
   return apiRequest(`/feedback/${encodeURIComponent(feedbackId)}/status`, {
     method: "PUT",
-    body: { feedbackId, status, reason },
+    body: { feedbackId, status, reason, issueDraft },
   });
 }
 

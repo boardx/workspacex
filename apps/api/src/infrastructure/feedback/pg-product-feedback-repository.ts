@@ -54,6 +54,8 @@ interface FeedbackDbRow {
   readonly created_at: Date | string;
   readonly votes: string | number;
   readonly voted_by_me: boolean;
+  readonly github_issue_url: string | null;
+  readonly github_issue_number: number | null;
 }
 
 /**
@@ -91,6 +93,8 @@ function toRow(row: FeedbackDbRow): FeedbackRow {
     occurredRoute: row.occurred_route,
     appVersion: row.app_version,
     createdAt: new Date(row.created_at).toISOString(),
+    githubIssueUrl: row.github_issue_url,
+    githubIssueNumber: row.github_issue_number,
   };
 }
 
@@ -98,6 +102,7 @@ const SELECT_COLUMNS = `
   f.id, f.submitted_by, f.kind, f.target_kind, f.target_agent_id, f.target_skill_id,
   f.target_label, f.title, f.detail, f.status, f.status_reason,
   f.occurred_route, f.app_version, f.created_at,
+  f.github_issue_url, f.github_issue_number,
   v.votes,
   EXISTS (
     SELECT 1 FROM product_feedback_votes mine
@@ -235,6 +240,20 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
         `UPDATE product_feedback SET status = $3, status_reason = $4
           WHERE org_id = $2 AND id = $1`,
         [feedbackId, this.orgId, status, reason],
+      );
+    });
+  }
+
+  /**
+   * ⚠ 只 UPDATE 这两列——迁移 `20260830120000_fb2_feedback_github_issue.sql` 把
+   *   它们从"不可变列"名单里排除出去，正是为了让这次写回不撞触发器。
+   */
+  async setGithubIssue(feedbackId: string, issue: { readonly url: string; readonly number: number }): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `UPDATE product_feedback SET github_issue_url = $3, github_issue_number = $4
+          WHERE org_id = $2 AND id = $1`,
+        [feedbackId, this.orgId, issue.url, issue.number],
       );
     });
   }

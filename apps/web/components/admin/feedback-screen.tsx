@@ -13,7 +13,9 @@ import {
   triageFeedback,
   voteFeedback,
   type FeedbackCounts,
+  type FeedbackIssueDraft,
   type FeedbackItem,
+  type FeedbackKind,
   type FeedbackStatus,
 } from "@/lib/live-feedback";
 import type { UiState } from "@/lib/ui-state";
@@ -74,6 +76,32 @@ export const NEXT_STATUSES: Record<FeedbackStatus, readonly FeedbackStatus[]> = 
   已修复: ["待处理"],
   不做: ["待处理"],
 };
+
+/**
+ * "转开发" ⇒ 转到「已进入迭代」这条边**唯一**要求先弹一个可编辑框的转移
+ * （2026-08-30）：确认时会真的往 `boardx/workspacex` 建一个 GitHub issue
+ * （见 `apps/api/src/application/feedback/triage-feedback.ts` 头注①,fail closed）。
+ * 其余转移(→已修复/待处理,以及已有的→不做)维持原样,只是现在服务端会额外
+ * 尽力发一封状态变更邮件——那是纯后端副作用,前端不需要为它多做任何事。
+ */
+const ISSUE_DRAFT_STATUS: FeedbackStatus = "已进入迭代";
+
+/**
+ * GitHub issue 标签的**默认值**,不是权威映射——管理员在弹层里可以随意增删。
+ * ⚠ `user-feedback` 恒带,标记这条 issue 的来源;类型标签按 `FeedbackKind` 给一个
+ *   常见的开源仓库习惯(缺陷→bug,需求→enhancement)。这条映射只影响预填内容,
+ *   不是契约的一部分——契约只搬运管理员编辑之后的最终数组。
+ */
+const KIND_ISSUE_LABEL: Record<FeedbackKind, string> = { 缺陷: "bug", 需求: "enhancement" };
+
+function defaultIssueDraft(item: FeedbackItem): FeedbackIssueDraft {
+  const detail = item.detail ?? "(正文仅组织管理员与提交人可见,分诊时请补充必要的复现上下文。)";
+  return {
+    title: item.title,
+    body: `${detail}\n\n---\n来源:后台「反馈与迭代」· 反馈 ID ${item.id}`,
+    labels: ["user-feedback", KIND_ISSUE_LABEL[item.kind]],
+  };
+}
 
 type Load =
   | { kind: "loading" }
@@ -205,7 +233,9 @@ export function FeedbackScreen({ state }: { state: UiState }) {
                 items={software}
                 busyId={busyId}
                 onVote={(f) => void act(() => voteFeedback(f.id, !f.votedByMe), f.id)}
-                onTriage={(f, next, reason) => void act(() => triageFeedback(f.id, next, reason), f.id)}
+                onTriage={(f, next, reason, issueDraft) =>
+                  void act(() => triageFeedback(f.id, next, reason, issueDraft ?? null), f.id)
+                }
               />
               <FeedbackColumn
                 testid="admin-feedback-capability"
@@ -217,7 +247,9 @@ export function FeedbackScreen({ state }: { state: UiState }) {
                 items={capability}
                 busyId={busyId}
                 onVote={(f) => void act(() => voteFeedback(f.id, !f.votedByMe), f.id)}
-                onTriage={(f, next, reason) => void act(() => triageFeedback(f.id, next, reason), f.id)}
+                onTriage={(f, next, reason, issueDraft) =>
+                  void act(() => triageFeedback(f.id, next, reason, issueDraft ?? null), f.id)
+                }
               />
             </div>
 
@@ -255,7 +287,12 @@ function FeedbackColumn({
   items: readonly FeedbackItem[];
   busyId: string | null;
   onVote: (item: FeedbackItem) => void;
-  onTriage: (item: FeedbackItem, next: FeedbackStatus, reason: string | null) => void;
+  onTriage: (
+    item: FeedbackItem,
+    next: FeedbackStatus,
+    reason: string | null,
+    issueDraft?: FeedbackIssueDraft | null,
+  ) => void;
 }) {
   return (
     <section className="flex flex-col gap-2" data-testid={testid}>
@@ -279,7 +316,7 @@ function FeedbackColumn({
               item={item}
               busy={busyId === item.id}
               onVote={() => onVote(item)}
-              onTriage={(next, reason) => onTriage(item, next, reason)}
+              onTriage={(next, reason, issueDraft) => onTriage(item, next, reason, issueDraft)}
             />
           ))}
         </div>
@@ -302,9 +339,14 @@ function FeedbackCard({
   item: FeedbackItem;
   busy: boolean;
   onVote: () => void;
-  onTriage: (next: FeedbackStatus, reason: string | null) => void;
+  onTriage: (next: FeedbackStatus, reason: string | null, issueDraft?: FeedbackIssueDraft | null) => void;
 }) {
   const [decliningReason, setDecliningReason] = React.useState<string | null>(null);
+  // ⚠ `null` = 弹层未打开。**打开时才计算默认值**（不是在组件挂载时算一次），
+  //   因为 item.title / item.detail 可能在弹层打开之前就已经变了（例如切换视图后
+  //   重新拉取到了新的正文可见性）——打开那一刻的 item 才是管理员实际看到的那份。
+  const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(null);
+  const [labelsText, setLabelsText] = React.useState("");
   const chip = targetChip(item);
   const KindIcon = item.kind === "缺陷" ? Bug : Lightbulb;
 
@@ -363,7 +405,70 @@ function FeedbackCard({
           </p>
         )}
 
-        {decliningReason !== null ? (
+        {issueDraft !== null ? (
+          // "转开发"弹层——见 `ISSUE_DRAFT_STATUS` 头注:确认时会真的建一个 GitHub issue,
+          // 提交前必须能编辑,pre-fill 只是起点,不是终点。
+          <div
+            className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-2"
+            data-testid={`admin-feedback-issue-${item.id}`}
+          >
+            <p className="text-11 font-medium text-muted-foreground">
+              转开发会在 boardx/workspacex 建一个 GitHub issue,提交前可以编辑:
+            </p>
+            <label className="flex flex-col gap-1">
+              <span className="text-10 text-muted-foreground">标题</span>
+              <input
+                value={issueDraft.title}
+                onChange={(e) => setIssueDraft({ ...issueDraft, title: e.target.value })}
+                data-testid={`admin-feedback-issue-title-${item.id}`}
+                className="h-6 rounded border border-border-subtle bg-card px-1.5 text-11"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-10 text-muted-foreground">正文</span>
+              <textarea
+                value={issueDraft.body}
+                onChange={(e) => setIssueDraft({ ...issueDraft, body: e.target.value })}
+                rows={4}
+                data-testid={`admin-feedback-issue-body-${item.id}`}
+                className="resize-y rounded border border-border-subtle bg-card p-1.5 text-11"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-10 text-muted-foreground">标签(逗号分隔)</span>
+              <input
+                value={labelsText}
+                onChange={(e) => {
+                  setLabelsText(e.target.value);
+                  setIssueDraft({
+                    ...issueDraft,
+                    labels: e.target.value.split(",").map((l) => l.trim()).filter((l) => l !== ""),
+                  });
+                }}
+                data-testid={`admin-feedback-issue-labels-${item.id}`}
+                className="h-6 rounded border border-border-subtle bg-card px-1.5 text-11 font-mono"
+              />
+            </label>
+            <div className="flex justify-end gap-1.5">
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => { setIssueDraft(null); setLabelsText(""); }}
+              >
+                取消
+              </Button>
+              <Button
+                size="xs"
+                variant="primary"
+                disabled={busy || issueDraft.title.trim() === ""}
+                onClick={() => onTriage(ISSUE_DRAFT_STATUS, null, issueDraft)}
+                data-testid={`admin-feedback-issue-submit-${item.id}`}
+              >
+                确认转开发,创建 issue
+              </Button>
+            </div>
+          </div>
+        ) : decliningReason !== null ? (
           <div className="flex flex-wrap items-center gap-1.5" data-testid={`admin-feedback-decline-${item.id}`}>
             <input
               value={decliningReason}
@@ -394,7 +499,17 @@ function FeedbackCard({
                 disabled={busy}
                 // 「不做」先要理由——契约 `TRIAGE_REASON_REQUIRED` 在服务端也判一次，
                 // 这里展开输入框是为了不让人先撞一次 422 才知道要写理由。
-                onClick={() => (next === "不做" ? setDecliningReason("") : onTriage(next, null))}
+                // 「已进入迭代」("转开发")先展开可编辑的 issue 草稿——见 `ISSUE_DRAFT_STATUS`。
+                onClick={() => {
+                  if (next === "不做") { setDecliningReason(""); return; }
+                  if (next === ISSUE_DRAFT_STATUS) {
+                    const draft = defaultIssueDraft(item);
+                    setIssueDraft(draft);
+                    setLabelsText(draft.labels.join(", "));
+                    return;
+                  }
+                  onTriage(next, null);
+                }}
                 data-testid={`admin-feedback-to-${next}-${item.id}`}
               >
                 {busy && <Loader2 aria-hidden className="h-3 w-3 animate-spin" />}
