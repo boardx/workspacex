@@ -5,7 +5,15 @@ phase: "01"
 # 2026-08-26 requirement-author 生成 F972–F978（issue #2143，估点合计 31）后回填 covers；
 #   原 covers_pending（「feature 尚未生成」的 doctor WARN 降级理由）已随之移除，不再适用。
 #   追加规则见 .harness/instructions/contract-design.md「covers 追加规则」三条件。
-covers: [F972, F973, F974, F975, F976, F977, F978]
+# 2026-08-31 追加 F1682（issue #2417 重做；原始追加见 2026-08-30 记录，PR #2410 合入后又被
+#   PR #2423 revert 连带撤销 covers，这次是同一份论证的重新追加，不是新论证）：三条件证据——
+#   ①UI 零新增（六态面板/计划面板既有渲染逻辑不变）；②契约零新增（write_todos →
+#   ingestEnginePlanSnapshot 写路径完全复用 F972/F973 已签契约）；③设计面零新增（无新错误码/
+#   字段/屏幕/交互语义，纯 deep-agent-service 内部引擎改动——本次新增的只是
+#   PlanFirstToolChoiceMiddleware 的 awrap_model_call 这一个异步入口实现，修的是 issue #2417
+#   的真实根因：只实现同步入口在 langgraph dev 异步 runtime 下会被框架直接 NotImplementedError）。
+#   status/confirmed_by/confirmed_at 未改，不构成重签。
+covers: [F972, F973, F974, F975, F976, F977, F978, F1682]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: usamshen             # 确认人（姓名/邮箱）
 confirmed_at: "2026-08-26T07:32:57Z"             # ISO 8601，且不得晚于签核当下

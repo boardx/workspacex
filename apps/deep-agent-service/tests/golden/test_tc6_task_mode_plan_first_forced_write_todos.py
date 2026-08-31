@@ -222,31 +222,8 @@ def test_counterproof_without_write_todos_tool_mounted_never_forces_missing_tool
     assert any(UNCOOPERATIVE_ANSWER in t for t in final_texts)
 
 
-def test_provider_rejecting_forced_tool_choice_degrades_to_unforced_retry_not_run_failure(
-    evidence,  # noqa: ANN001
-):
-    """反证③（issue #2417 排查过程中被提出、后被真实日志排除为直接根因，但仍是这个
-    中间件该兜底的真实场景）：provider 拒绝这次具名 `tool_choice` 强制调用时，中间件
-    必须退回不强制重试一次，run 必须正常收尾——不能让这次强制调用的失败直接冒泡成
-    整轮 `MODEL_CALL_FAILED`。
-
-    `ScriptedChatModel(reject_forced_tool_choice=True)` 如实模拟"provider 拒绝
-    具名 tool_choice"这个契约（见 `_scripted.py` 头注）——第一次模型调用被中间件
-    钉成 `tool_choice="write_todos"`，假模型对此直接抛异常；中间件捕获后退回不
-    强制、原样重试，第二次调用 `bound_tool_choice` 必须是 `None`，且 `graph.invoke`
-    整体正常返回（不抛出、不是空 messages）。同步路径覆盖即可——这条反证要钉的是
-    `wrap_model_call`/`awrap_model_call` 共用的 `_prepare_forced_request` 判断逻辑
-    与各自的 try/except 降级路径，两个方法的降级分支逐行对称，不需要重复起一条异步
-    版本。
-    """
-    model = ScriptedChatModel(router=_uncooperative_router, reject_forced_tool_choice=True)
-    graph = _build_graph(model)
-
-    result = graph.invoke(
-        {"messages": [{"role": "user", "content": f"{TASK_MODE_MARKER}：帮我把周报拆成三步"}]},
-        {"configurable": {"thread_id": "tc6-provider-rejects-forced-tool-choice"}},
-    )
-
+def _assert_provider_reject_degrades_not_fails(model: ScriptedChatModel, result: dict) -> None:  # noqa: ANN201
+    """同步/异步两条 provider-reject 反证共用的断言体——避免两份容易漂移的验收标准。"""
     assert model.calls[0]["bound_tool_choice"] == "write_todos"
     assert len(model.calls) >= 2, "provider 拒绝具名 tool_choice 后中间件必须退回不强制重试一次"
     assert model.calls[1]["bound_tool_choice"] is None, (
@@ -257,10 +234,74 @@ def test_provider_rejecting_forced_tool_choice_degrades_to_unforced_retry_not_ru
         "降级重试后 run 必须正常收尾并产出最终回复，不能让 provider 拒绝强制这件事本身变成整轮失败"
     )
 
+
+def test_provider_rejecting_forced_tool_choice_degrades_to_unforced_retry_not_run_failure_sync(
+    evidence,  # noqa: ANN001
+):
+    """反证③（issue #2417 排查过程中被提出、后被真实日志排除为直接根因，但仍是这个
+    中间件该兜底的真实场景）——同步路径（`wrap_model_call`）：provider 拒绝这次具名
+    `tool_choice` 强制调用时，中间件必须退回不强制重试一次，run 必须正常收尾——不能
+    让这次强制调用的失败直接冒泡成整轮 `MODEL_CALL_FAILED`。
+
+    `ScriptedChatModel(reject_forced_tool_choice=True)` 如实模拟"provider 拒绝
+    具名 tool_choice"这个契约（见 `_scripted.py` 头注）——第一次模型调用被中间件
+    钉成 `tool_choice="write_todos"`，假模型对此直接抛异常；中间件捕获后退回不
+    强制、原样重试，第二次调用 `bound_tool_choice` 必须是 `None`，且 `graph.invoke`
+    整体正常返回（不抛出、不是空 messages）。
+    """
+    model = ScriptedChatModel(router=_uncooperative_router, reject_forced_tool_choice=True)
+    graph = _build_graph(model)
+
+    result = graph.invoke(
+        {"messages": [{"role": "user", "content": f"{TASK_MODE_MARKER}：帮我把周报拆成三步"}]},
+        {"configurable": {"thread_id": "tc6-provider-rejects-forced-tool-choice-sync"}},
+    )
+    _assert_provider_reject_degrades_not_fails(model, result)
+
     evidence.write(
-        "tc6-provider-rejects-forced-tool-choice-degrades-not-fails",
+        "tc6-provider-rejects-forced-tool-choice-degrades-not-fails-sync",
         {
-            "scenario": "provider 拒绝具名 tool_choice 强制调用时，退回不强制重试一次，run 正常收尾",
+            "scenario": "provider 拒绝具名 tool_choice 强制调用时（同步 wrap_model_call），退回不强制重试一次，run 正常收尾",
+            "dimensions": ["D1"],
+            "not_covered_here": [
+                "真实 DashScope/qwen-plus 端点是否真的拒绝具名 tool_choice"
+                "（issue #2417 排查已确认这不是那次生产事故的直接根因，见 harness.py 头注）"
+            ],
+            "task_mode_marker": TASK_MODE_MARKER,
+            "model_call_tool_choices": [c["bound_tool_choice"] for c in model.calls],
+            "tool_call_names_in_transcript": tool_call_names(result["messages"]),
+        },
+    )
+
+
+def test_provider_rejecting_forced_tool_choice_degrades_to_unforced_retry_not_run_failure_async(
+    evidence,  # noqa: ANN001
+):
+    """同上一条的异步版本（`awrap_model_call`）——独立审查（exact-SHA review）指出：
+    "两个方法的降级分支逐行对称"是靠读代码相似性下的结论，不是靠测试证明的，`await
+    handler(...)` 的降级重试路径应该被独立验证，不能只放行同步路径就断言异步分支
+    "应该"也对。这条测试用 `asyncio.run(graph.ainvoke(...))` 走同一套场景，实际
+    执行 `awrap_model_call` 的 `except Exception` 分支与 `return await handler(request)`
+    降级重试，不是靠读代码相似性放行。
+    """
+    model = ScriptedChatModel(router=_uncooperative_router, reject_forced_tool_choice=True)
+    graph = _build_graph(model)
+
+    result = asyncio.run(
+        graph.ainvoke(
+            {"messages": [{"role": "user", "content": f"{TASK_MODE_MARKER}：帮我把周报拆成三步"}]},
+            {"configurable": {"thread_id": "tc6-provider-rejects-forced-tool-choice-async"}},
+        )
+    )
+    _assert_provider_reject_degrades_not_fails(model, result)
+
+    evidence.write(
+        "tc6-provider-rejects-forced-tool-choice-degrades-not-fails-async",
+        {
+            "scenario": (
+                "provider 拒绝具名 tool_choice 强制调用时（异步 awrap_model_call，"
+                "asyncio.run(graph.ainvoke(...))），退回不强制重试一次，run 正常收尾"
+            ),
             "dimensions": ["D1"],
             "not_covered_here": [
                 "真实 DashScope/qwen-plus 端点是否真的拒绝具名 tool_choice"
