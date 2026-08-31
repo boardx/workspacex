@@ -20,6 +20,7 @@ from __future__ import annotations
 from deepagents import create_deep_agent
 
 from deep_agent_service.harness import (
+    TASK_MODE_MARKER,
     build_checkpointer,
     build_interrupt_on,
     build_middleware,
@@ -34,12 +35,15 @@ SYSTEM_PROMPT = (
     "已挂载的技能、调用哪一个，可以用 list_org_skills 看看有哪些技能可用，再用 call_skill"
     "把具体任务交给对应技能真正执行——不要凭技能的名字或已有印象直接编答案。"
     "\n\n"
-    # #2220（方向 A）：任务模式开关会在用户消息正文前拼上「请先给出计划，经确认后再
-    # 执行」这句固定文案（见 apps/web/components/chat/copilotkit-v2-panel.tsx）。实测
-    # 发现真实模型收到这句话后倾向于直接在回复正文里写「第一步/第二步/第三步」这类纯
-    # 文字列表，从不调用已挂载的 write_todos 工具，导致 plan-control 账本永远是空的
-    # （revision=0）。以下这条规则就是为了堵住这个缺口：
-    "当用户的请求包含「请先给出计划，经确认后再执行」，或更宽泛地表达了「先说计划、"
+    # #2220（方向 A）：任务模式开关会在用户消息正文前拼上 TASK_MODE_MARKER 这句固定
+    # 文案（见 apps/web/lib/copilotkit-v2-task-mode.ts）。实测发现真实模型收到这句话后
+    # 倾向于直接在回复正文里写「第一步/第二步/第三步」这类纯文字列表，从不调用已挂载
+    # 的 write_todos 工具，导致 plan-control 账本永远是空的（revision=0）。以下这条
+    # 规则就是为了堵住这个缺口（方案 A，提示词软约束）；`harness.py` 的
+    # `PlanFirstToolChoiceMiddleware`（方案 B）在此之上补一层不依赖模型服从概率的
+    # 确定性保证——两处都从 harness 导入 TASK_MODE_MARKER 而不是重复写死这句中文，
+    # 单一 Python 侧事实源（AGENTS.md「同一事实不得声明在两处」）。
+    f"当用户的请求包含「{TASK_MODE_MARKER}」，或更宽泛地表达了「先说计划、"
     "确认后再做」「先规划再执行」这类语义时，你必须调用 write_todos 工具，把每一步计划"
     "写成一条独立的待办项（初始状态为 pending），而不是只在回复正文里用「第一步/第二步」"
     "这种纯文字描述步骤——纯文字列表不会被系统记录为结构化计划，用户将看不到确认界面。"

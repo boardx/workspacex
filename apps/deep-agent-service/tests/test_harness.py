@@ -12,7 +12,12 @@ from pathlib import Path
 
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
-from deep_agent_service.harness import build_checkpointer, build_middleware
+from deep_agent_service.harness import (
+    TASK_MODE_MARKER,
+    PlanFirstToolChoiceMiddleware,
+    build_checkpointer,
+    build_middleware,
+)
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 
@@ -45,6 +50,115 @@ def test_todo_tool_absent_without_middleware():
 
     graph = create_deep_agent(model=_fake_model())
     assert "write_todos" not in _tool_names(graph)
+
+
+def test_plan_first_tool_choice_middleware_wired_into_build_middleware():
+    """DA-11（issue #2220 方案 B，重做见 issue #2417）：确定性 write_todos 强制必须
+    真的接进生产 middleware 清单，不能只是定义了类却忘记挂——同 D1 基线那次
+    "TodoListMiddleware 存在但没挂"的教训（见本文件模块注释）。行为细节（何时强制/
+    何时不强制/同步异步两条路径）由
+    `tests/golden/test_tc6_task_mode_plan_first_forced_write_todos.py` 用假模型跑
+    完整 graph（含异步 `ainvoke()` 路径）断言，这里只看守"接线没被遗漏"。
+    """
+    mw = build_middleware(_fake_model())
+    assert any(isinstance(m, PlanFirstToolChoiceMiddleware) for m in mw), (
+        "PlanFirstToolChoiceMiddleware 必须出现在 build_middleware() 的返回列表里"
+    )
+
+
+def test_task_mode_marker_matches_web_panel_literal():
+    """DA-11（issue #2220 方案 B）：机械看守 TASK_MODE_MARKER 与 web 侧字面量不漂移。
+
+    graph.py 的 SYSTEM_PROMPT 已经从 harness.py 导入这个常量（同一 Python 进程，
+    单一事实源）。web 侧因跨语言边界仍是独立字面量——issue #2417 的幂等拼接修复把
+    这句前缀从 `copilotkit-v2-panel-body.tsx` 收敛进 `apps/web/lib/copilotkit-v2-
+    task-mode.ts` 的 `TASK_MODE_PREFIX`（单一事实源，面板组件不再直接持有这句字面
+    量），这里改看后者——两边各写一份字面量正是本仓 AGENTS.md 点名的"同一事实不得
+    声明在两处"反模式（五次真实漂移事故的成因）。这条测试就是那道机械门控：web 侧
+    文案一旦改动（换措辞/做 i18n）导致不再包含 TASK_MODE_MARKER，这里必须先红，而
+    不是任由 PlanFirstToolChoiceMiddleware 与 SYSTEM_PROMPT 的匹配同时静默失效、
+    任务模式又退回 #2220 的空账本故障。
+    """
+    web_task_mode_lib = SERVICE_ROOT.parent / "web" / "lib" / "copilotkit-v2-task-mode.ts"
+    assert web_task_mode_lib.is_file(), f"任务模式前缀单一事实源文件已不存在或已改名：{web_task_mode_lib}"
+    content = web_task_mode_lib.read_text(encoding="utf-8")
+    assert TASK_MODE_MARKER in content, (
+        f"web 侧任务模式前缀文案已与 TASK_MODE_MARKER（{TASK_MODE_MARKER!r}）不一致——"
+        "PlanFirstToolChoiceMiddleware 与 SYSTEM_PROMPT 都靠这个常量识别任务模式，"
+        "web 侧文案改动必须同步更新 harness.py 的 TASK_MODE_MARKER"
+    )
+
+
+def _model_request(messages):  # noqa: ANN001, ANN201
+    """构造一个够用的 `ModelRequest`：只有 `messages`/`tools` 会被
+    `PlanFirstToolChoiceMiddleware.wrap_model_call` 读取，`model`/`state`/`runtime`
+    随便填一个满足类型的占位值即可——这里不走真实 handler，只捕获传给它的 request。"""
+    from langchain.agents.middleware import ModelRequest
+
+    return ModelRequest(
+        model=_fake_model(),
+        messages=messages,
+        tools=[{"name": "write_todos"}],
+        state={"messages": messages},
+    )
+
+
+def test_new_task_mode_turn_is_forced_again_after_earlier_completed_plan_in_same_thread():
+    """PR #2410 review finding①：更早一次任务已经调用过 write_todos 不应该永久
+    关闭后续新任务模式请求的强制——首版实现按"本次 run 整份 transcript 里
+    write_todos 有没有出现过"判断，长线程/多轮对话里一旦任何一次任务用过
+    write_todos，同一线程后续所有新任务模式请求都不会再被强制。判断窗口必须
+    收窄到"最新一条人类消息之后"，不是"整份历史"。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    older_turn = [
+        HumanMessage(content=f"{TASK_MODE_MARKER}：第一个任务"),
+        AIMessage(content="", tool_calls=[{"id": "1", "name": "write_todos", "args": {"todos": []}}]),
+        AIMessage(content="第一个任务的计划已完成"),
+    ]
+    newer_human = HumanMessage(content=f"{TASK_MODE_MARKER}：第二个、完全不同的任务")
+    messages = [*older_turn, newer_human]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    PlanFirstToolChoiceMiddleware().wrap_model_call(_model_request(messages), handler)
+
+    assert captured["tool_choice"] == "write_todos", (
+        "更早一轮任务已经调用过 write_todos 不应该抑制新一轮任务模式请求的强制；"
+        f"实际 tool_choice={captured.get('tool_choice')!r}"
+    )
+
+
+def test_ordinary_turn_not_falsely_forced_by_stale_marker_earlier_in_thread():
+    """PR #2410 review finding①（反向场景）：任务模式判据只应该看**最新一条人类
+    消息**——summarization 裁掉旧的 write_todos 工具调用之后，如果仍然拿"历史里
+    出现过标记"当判据，一条完全普通的后续提问会被误判成任务模式并被强制。这里
+    故意让 AIMessage 不含 write_todos 工具调用（模拟那次调用已被裁剪），验证
+    判据看的是"最新人类消息里有没有标记"而不是"历史某处有没有出现过标记"。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    messages = [
+        HumanMessage(content=f"{TASK_MODE_MARKER}：第一个任务"),
+        AIMessage(content="第一个任务的计划已完成"),  # 模拟 write_todos 那次调用已被 summarization 裁掉
+        HumanMessage(content="顺便问一下，今天星期几"),  # 完全普通的后续提问，不含标记
+    ]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    PlanFirstToolChoiceMiddleware().wrap_model_call(_model_request(messages), handler)
+
+    assert captured["tool_choice"] is None, (
+        "最新一条人类消息没有任务模式标记时绝不能被强制，即使更早的历史里出现过——"
+        f"实际 tool_choice={captured.get('tool_choice')!r}"
+    )
 
 
 def test_summarization_settings_pinned():

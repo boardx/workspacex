@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { isScrolledNearBottom } from "@/lib/copilotkit-v2-scroll";
+import { applyTaskModePrefix } from "@/lib/copilotkit-v2-task-mode";
 import {
   useAgent,
   useCopilotKit,
@@ -875,8 +876,10 @@ export function CopilotKitV2PanelBody({
       const rawText = (override ?? inputDraft).trim();
       if (rawText === "" || agent.isRunning) return;
       // issue #2130（TW-P0-5②）—— 任务模式开启时真的改变发出的正文（见 `taskMode`
-      // state 声明处的头注：默认关闭，不影响任何既有 e2e）。
-      const text = taskMode ? `请先给出计划，经确认后再执行：${rawText}` : rawText;
+      // state 声明处的头注：默认关闭，不影响任何既有 e2e）。issue #2417——拼接必须
+      // 幂等，`rawText` 已经以这句前缀开头时不能再拼一遍（`applyTaskModePrefix`
+      // 头注有真实复现场景）。
+      const text = applyTaskModePrefix(rawText, taskMode);
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
