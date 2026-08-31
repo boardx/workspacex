@@ -380,17 +380,21 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
     expect(screen.queryByTestId("admin-agent-row-agent-1-disable")).not.toBeInTheDocument();
   });
 
-  it("issue #1745 次要问题2：kind=agent 的新增面板旁边有消歧提示，skill 没有", async () => {
+  it("issue #1745 次要问题2 第二轮：kind=agent 的入口文案自解释，展开后仍有消歧说明", async () => {
     stubFetch({ pages: [[]] });
 
     render(<AgentScreen state="default" />);
     await screen.findByTestId("admin-agent-empty");
-    expect(screen.getByTestId("admin-agent-create-agent-caveat")).toHaveTextContent(
+    // 折叠态按钮本身就说清楚后果，不再是同一句「新增 Agent」——见
+    // `capability-catalog-screen.tsx` 里 2026-08-31 第二轮收敛的注释。
+    expect(screen.getByTestId("admin-agent-create")).toHaveTextContent("仅登记目录项");
+    fireEvent.click(screen.getByTestId("admin-agent-create"));
+    expect(screen.getByTestId("admin-agent-create-description")).toHaveTextContent(
       "新建 / 导入 Agent",
     );
-    // 消歧提示不取代入口——两个入口都还在，只是加了说明，见该 JSX 注释里
-    // "本次只做界面消歧，不下线这个入口" 的范围说明。
-    expect(screen.getByTestId("admin-agent-create")).toBeInTheDocument();
+    // 消歧提示不取代入口——两个入口都还在，只是把说明收进了展开态，见该 JSX 注释里
+    // "本次仍然只做界面消歧，不下线这个入口" 的范围说明。
+    expect(screen.getByTestId("admin-agent-create-submit")).toBeInTheDocument();
   });
 
   it("反证：契约会拒绝漂移的 mutate 请求体与 payload", () => {

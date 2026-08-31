@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Pagination, PaginationNext, PaginationPrevious, PaginationStatus } from "@/components/ui/pagination";
 import { ApiError } from "@/lib/api-client";
 import { currentOrganizationLabel } from "@/lib/org-display";
+import { listAgents } from "@/lib/agent-definition";
 import {
   listCapabilities,
   type CapabilityKind,
@@ -79,6 +80,14 @@ export function CapabilityCatalogScreen({
   const [disablingId, setDisablingId] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [mutateError, setMutateError] = React.useState<string | null>(null);
+  /**
+   * issue #1745 次要问题 2，第二轮收敛：目录条目与「真正可执行的 agent」是两张表
+   * （见本文件头注），单靠 ID 前缀分辨不了。这里用 `listAgents` 的结果反查一遍——
+   * 目录行的 id 命中 agents 表里的 `agentId` 就是「可执行」，否则是「仅目录」。
+   * 只对 kind=agent 取，且只是**降噪**：取不到（比如非管理员被服务端拒绝）
+   * 就不画徽章，不拿它当权限判断用。
+   */
+  const [executableIds, setExecutableIds] = React.useState<ReadonlySet<string> | null>(null);
 
   const load = React.useCallback(async () => {
     // A completion from a panel belonging to the previous organization must not become
@@ -91,6 +100,20 @@ export function CapabilityCatalogScreen({
       if (request !== generation.current || currentSourceKey.current !== sourceKey) return false;
       setPage(0);
       setState({ sourceKey, status: "ready", rows });
+      if (kind === "agent") {
+        try {
+          const agentRows = await listAgents();
+          if (request !== generation.current || currentSourceKey.current !== sourceKey) return false;
+          setExecutableIds(new Set(agentRows.map((r) => r.agentId)));
+        } catch {
+          // 降噪信息，取不到就不画徽章——不影响目录本身的读取结果。
+          if (request === generation.current && currentSourceKey.current === sourceKey) {
+            setExecutableIds(null);
+          }
+        }
+      } else {
+        setExecutableIds(null);
+      }
       return true;
     } catch (error) {
       if (request !== generation.current || currentSourceKey.current !== sourceKey) return false;
@@ -155,6 +178,7 @@ export function CapabilityCatalogScreen({
         prefix={prefix}
         editHref={editHrefFor(row.id)}
         canMutate={canMutate}
+        executable={kind === "agent" && executableIds ? executableIds.has(row.id) : null}
         onDisable={() => {
           setNotice(null);
           setMutateError(null);
@@ -193,7 +217,9 @@ export function CapabilityCatalogScreen({
       <div className="flex flex-col gap-1">
         <h1 className="text-20 font-semibold tracking-tight">{copy.title}</h1>
         <p className="text-13 text-muted-foreground">
-          这里只展示可选择的目录记录；出现在目录中不代表已经具备可执行的 AgentRun 或 Skill 运行时。
+          {kind === "agent"
+            ? "这里是能被选择的目录记录，与上方「Agent 列表」是两张表：出现在这里不代表已经具备可执行的 AgentRun——每行右侧的「可执行 / 仅目录」说明它是不是真的能对话。"
+            : "这里只展示可选择的目录记录；出现在目录中不代表已经具备可执行的 Skill 运行时。"}
         </p>
       </div>
 
@@ -226,22 +252,36 @@ export function CapabilityCatalogScreen({
         后者建出来的"agent"能进 chat 编制选择器（`enabled=true` 就够），但一发消息就是
         422 `AGENT_NOT_FOUND`——这正是 #1745 描述的"两条路径都能跑，但拼不出一个真正
         可用的 agent"里的一半。
-        本次只做"界面消歧"（#1745 给出的两个选项之一），不下线这个入口——它是否还有
-        legitimate 用途（如运维手动登记一个已经在别处发布好、只是想改个展示名的
-        agent）、要不要连带收紧后端 `mutateCapability` 校验，属于 #1745 主线收敛要
-        处理的更大范围，本次不顺手扩大改动面。
+
+        2026-08-31 第二轮收敛（UIUX 复核见 design-signoff 素材）：第一版补丁是在表单
+        上方贴一段小字警告——容易被跳过，且没有改变两个按钮同等视觉权重这件事本身。
+        这次不合并两张表（后端短期不会合并，见复核文档「待人类确认」），只收敛**入口**
+        与**视觉权重**：
+          1) 触发按钮文案直接说清楚后果（`仅登记目录项（不可执行）`），不再叫
+             `新增 Agent`——不用读警告文字就知道这不是"新建可对话的 agent"；
+          2) 按钮从 `outline` 降到 `ghost`，视觉上让位给上方真正的"新建 / 导入 Agent"；
+          3) 说明文字保留但收进展开态描述（`openDescription`），折叠态不常驻占版面；
+          4) 目录行改用「可执行 / 仅目录」徽章（见 `executableIds` 与 `CapabilityRow`），
+             不再要求用户去读 ID 前缀猜可执行性。
+        本次仍然只做"界面消歧"，不下线这个入口、不改后端校验——那属于 #1745 主线收敛。
       */}
-      {canMutate && kind === "agent" ? (
-        <p
-          className="text-12 text-muted-foreground"
-          data-testid={`${prefix}-create-agent-caveat`}
-        >
-          ⚠ 这里新增的是目录条目本身，不会创建可执行的 agent——它不会自动获得
-          `agents`/`agent_versions` 记录，选中它发消息会失败。要新建一个真正能对话的
-          agent，请用上方「新建 / 导入 Agent」。
-        </p>
+      {canMutate ? (
+        <CapabilityCreatePanel
+          key={`${sourceKey}:create`}
+          ctx={ctx}
+          triggerLabel={kind === "agent" ? "仅登记目录项（不可执行）" : undefined}
+          triggerVariant={kind === "agent" ? "ghost" : "outline"}
+          openTitle={kind === "agent" ? "仅登记目录项（不可执行）" : undefined}
+          openDescription={
+            kind === "agent"
+              ? "写入的只是目录条目本身，不会创建可执行的 agent——它不会自动获得 " +
+                "`agents`/`agent_versions` 记录，选中它发消息会失败。这是给运维场景用的" +
+                "（例如给一个已经在别处发布好的 agent 改展示名）；要新建一个真正能对话的" +
+                "agent，请用上方「新建 / 导入 Agent」。"
+              : undefined
+          }
+        />
       ) : null}
-      {canMutate ? <CapabilityCreatePanel key={`${sourceKey}:create`} ctx={ctx} /> : null}
 
       {notice ? (
         <p data-testid={`${prefix}-mutate-notice`} className="text-12 text-muted-foreground">
@@ -339,13 +379,18 @@ export function CapabilityCatalogScreen({
 }
 
 function CapabilityRow({
-  row, prefix, editHref, canMutate, onDisable,
+  row, prefix, editHref, canMutate, executable, onDisable,
 }: {
   row: CapabilityListing;
   prefix: string;
   /** 已经带了 `?from=<这个屏当前的 URL>`——见 `CapabilityCatalogScreen` 里的 `editHrefFor`。 */
   editHref: string;
   canMutate: boolean;
+  /**
+   * `kind === "agent"` 时：这行是否命中了一个真正可执行的 agent（见 `executableIds`
+   * 头注）。`null` = 不适用（kind=skill）或没能拿到答案，此时不画徽章、不下判断。
+   */
+  executable: boolean | null;
   onDisable(): void;
 }) {
   return (
@@ -355,6 +400,11 @@ function CapabilityRow({
           <span className="truncate text-13 font-medium">{row.name}</span>
           <span className="font-mono text-10 text-muted-foreground">{row.id}</span>
         </div>
+        {executable !== null ? (
+          <Badge tone={executable ? "primary" : "warning"} data-testid={`${prefix}-row-${row.id}-executable`}>
+            {executable ? "可执行" : "仅目录 · 不可执行"}
+          </Badge>
+        ) : null}
         <Badge tone="outline">{row.scope === "org-wide" ? "全组织可见" : "仅团队可见"}</Badge>
         <Badge tone={row.enabled ? "primary" : "outline"}>{row.enabled ? "已启用" : "已停用"}</Badge>
         {!row.enabled && row.disabledReason ? (

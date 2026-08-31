@@ -61,7 +61,22 @@ export interface MutateContext {
 
 /* ───────────────────────────── 新增 ───────────────────────────── */
 
-export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
+export function CapabilityCreatePanel({
+  ctx,
+  triggerLabel,
+  triggerVariant = "outline",
+  openTitle,
+  openDescription,
+}: {
+  ctx: MutateContext;
+  /** 折叠态按钮文案。默认「新增 {singular}」；kind=agent 场景改用更明确的措辞——见调用方注释。 */
+  triggerLabel?: string;
+  triggerVariant?: "outline" | "ghost";
+  /** 展开态标题。默认「新增 {singular}」。 */
+  openTitle?: string;
+  /** 展开态说明。默认是通用的目录措辞。 */
+  openDescription?: string;
+}) {
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState("");
   const [scope, setScope] = React.useState<VisibilityScope>("org-wide");
@@ -133,12 +148,12 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
       <div className="flex justify-end">
         <Button
           size="sm"
-          variant="outline"
+          variant={triggerVariant}
           onClick={() => setOpen(true)}
           data-testid={`${ctx.prefix}-create`}
         >
           <Plus aria-hidden className="h-3.5 w-3.5" />
-          新增 {ctx.singular}
+          {triggerLabel ?? `新增 ${ctx.singular}`}
         </Button>
       </div>
     );
@@ -147,9 +162,10 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>新增 {ctx.singular}</CardTitle>
-        <CardDescription>
-          写入的是当前组织的能力目录。出现在目录中只代表它可被选择，不代表已经具备运行时。
+        <CardTitle>{openTitle ?? `新增 ${ctx.singular}`}</CardTitle>
+        <CardDescription data-testid={`${ctx.prefix}-create-description`}>
+          {openDescription ??
+            "写入的是当前组织的能力目录。出现在目录中只代表它可被选择，不代表已经具备运行时。"}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
