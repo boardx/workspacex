@@ -676,6 +676,17 @@ export const operations = {
          * `agent` 这一档目前没有版本概念，恒为 `null`。
          */
         currentVersionId: z.string().nullable(),
+        /**
+         * 平台官方 skill（`org_id = org-platform`，四个官方 skill）对任何组织都只读可见——
+         * 与 `03-skill`/`platform-owned-skills` design-delta 其它读路径（`listSkills`/挂载/
+         * 执行）同一条规则，但**它们各自有 `OR org_id = PLATFORM_ORG_ID` 兜底，这个端口原来
+         * 没有**（issue：`PgAssetFileRepository` 按调用方 `orgId` 单独查，平台行永远查不到，
+         * 编辑器打开平台 skill 时端口读整体折叠成 404，界面回退 mock）。加上兜底后这里显式
+         * 告诉调用方「这份内容是平台只读来源」，好让界面据此禁用保存/删除/改名，而不是让
+         * 用户点了保存才在写端口撞见同一种 404。非 `skill` kind（`agent`，fixture-backed）
+         * 恒为 `false`——那条路径本就不区分 org，`writeFile` 从未真的按租户拒绝过。
+         */
+        readOnly: z.boolean(),
       })
       .strict(),
     err: ["ORG_SCOPE_DENIED", "AUTH_SERVICE_UNAVAILABLE"] as const,

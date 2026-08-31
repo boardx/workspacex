@@ -615,6 +615,14 @@ function Editor({
   const [fileBusy, setFileBusy] = React.useState(false);
 
   /**
+   * 平台官方 skill（`skill-platform-*`，四个）对任何组织只读可见——`getDirectory` 现在
+   * 显式带出这个信号（见 `AssetDirectoryRecord.readOnly` 的头注，这是它存在的全部理由）。
+   * ⚠ 只对 `isLive` 有意义：mock 态 `liveDir` 恒为 `null`，`?? false` 落到「可编辑」，
+   *   与 mock 态原有行为一致——`readOnly` 不是给 mock 态新加的限制。
+   */
+  const readOnly = liveDir?.readOnly ?? false;
+
+  /**
    * 试跑（`POST /skill-versions/:versionId/trial-run`，见 `lib/skill-trial-run.ts`）。
    * ⚠ 只在 `isLive && kind === "skill"` 时可点——mock 态没有真实 `versionId`，
    *   `agent` 这一档仍是 fixture（#787 未解决），两者点了都只会打到假数据或 404，
@@ -760,8 +768,12 @@ function Editor({
               confirmLabel="确认发布新版本"
               // ⚠ 只有真实数据态才接真实写入。mock 态**不接**——那样会对着一份假目录
               //   发出真实写请求，写到一个并不是你在看的那个 skill 上。
-              disabled={!isLive || !dirty}
-              onConfirm={isLive ? async () => {
+              // ⚠ 平台官方 skill（`readOnly`）同样不接：写路径本来就会被服务端拒绝
+              //   （`PgAssetFileRepository` 的写方法从不落到平台行），按钮显式禁用 +
+              //   说明原因，好过让用户点了「确认发布」才在网络请求里撞见一个 404。
+              disabled={!isLive || !dirty || readOnly}
+              title={readOnly ? "平台官方 skill，对所有组织只读——无法在此保存" : undefined}
+              onConfirm={isLive && !readOnly ? async () => {
                 await writeAssetFile(kind, liveAssetId, sel, draft);
                 // 写成功后把「服务端那一版」推进到刚保存的内容 ⇒ dirty 归位。
                 // ⚠ 不重新 GET：服务端返回的就是它写下的字节，再读一次不会更真，
@@ -868,6 +880,17 @@ function Editor({
                   {getStoredSessionToken() === null ? "预览态 mock · 未登录（/project/live 登录后自动切换真实接口）" : "预览态 mock"}
                 </Badge>
               )}
+              {/*
+                平台官方 skill（`skill-platform-*`）对任何组织只读——不是「读失败回退
+                mock」，是「真的读到了，但这份来源不接受这个组织的写」。与上面
+                `isLive` 的徽标是两件独立的事：前者说数据来自哪，这个说这份数据能不能改，
+                两个问题各自答完才是这块区域该说的全部。
+              */}
+              {isLive && readOnly && (
+                <Badge tone="outline" className="font-mono text-9" data-testid={`ag-${kind}-readonly`}>
+                  平台官方 skill · 全组织只读
+                </Badge>
+              )}
               {liveError && (
                 <span className="text-9 text-destructive" data-testid={`ag-${kind}-live-error`}>接口错误：{liveError}（已回退 mock）</span>
               )}
@@ -905,6 +928,10 @@ function Editor({
                         path={sel}
                         value={draft}
                         onChange={setDraft}
+                        // 平台官方 skill：编辑区本身也只读，不只是保存按钮禁用——
+                        // 允许在 Monaco 里改字符、只在点保存那一刻才拒绝，会让用户以为
+                        // 改动已经生效，直到保存才发现白改了。
+                        readOnly={readOnly}
                         rootFrontmatterCheck={
                           liveDir ? { assetKind: kind, isRootFile: sel === liveDir.rootFile } : undefined
                         }
