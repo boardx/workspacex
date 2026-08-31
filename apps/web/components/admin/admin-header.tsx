@@ -36,6 +36,7 @@ function daysLeftInMonth(now: Date): number {
 }
 
 type QuotaState =
+  | { kind: "no-org" }
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "unset" }
@@ -46,10 +47,18 @@ export function AdminHeader({ moduleLabel }: { moduleLabel: string }) {
   const orgId = session?.session?.currentOrgId ?? null;
   const orgName = session?.identity?.org.name ?? null;
 
-  const [quota, setQuota] = React.useState<QuotaState>({ kind: "loading" });
+  const [quota, setQuota] = React.useState<QuotaState>({ kind: "no-org" });
 
+  /**
+   * ⚠ 独立审查发现（PR #2425）：这里此前是 `if (!orgId) return;` **在**清空/重置状态之前——
+   * 切组织（或组织变 null）时，`quota` 还停在上一个组织的额度数字上，直到新请求成功才刷新；
+   * 请求失败时甚至永远不刷新。等于在新组织的身份下短暂/持续显示旧组织的用量数据。
+   *
+   * 现在：`orgId` 一变，**先同步清空**（不管新值是不是 null），再决定要不要发新请求——
+   * 界面永远不会拿一个不属于当前 `orgId` 的额度渲染出来，哪怕只有一帧。
+   */
   React.useEffect(() => {
-    if (!orgId) return;
+    if (!orgId) { setQuota({ kind: "no-org" }); return; }
     let cancelled = false;
     setQuota({ kind: "loading" });
     void (async () => {
@@ -97,6 +106,11 @@ export function AdminHeader({ moduleLabel }: { moduleLabel: string }) {
         </div>
 
         <div className="flex w-full max-w-xs flex-col gap-1 md:w-64" data-testid="admin-header-quota">
+          {quota.kind === "no-org" && (
+            <span className="text-11 text-muted-foreground" data-testid="admin-header-quota-no-org">
+              尚未选择组织
+            </span>
+          )}
           {quota.kind === "loading" && (
             <span className="text-11 text-muted-foreground">额度读取中…</span>
           )}

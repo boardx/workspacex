@@ -70,7 +70,20 @@ export function OverviewLive() {
   const [limitEvents, setLimitEvents] = React.useState<ListLimitEventsOut["events"] | null>(null);
   const [limitError, setLimitError] = React.useState<string | null>(null);
 
+  /**
+   * ⚠ 独立审查发现（PR #2425）：这里此前是 `if (!orgId) return;`，且**只在成功时**才
+   * `setData`——`data`/`error` 从不在 `orgId` 变化时清空。切组织后，上一个组织的用量、
+   * 活跃成员数、活动流（甚至具体到谁在什么时间做了什么）会一直渲染在新组织的身份下，
+   * 直到新请求成功；新请求失败时旧数据永远留着，`cancelled` 只挡得住「迟到的写入」，
+   * 挡不住「已经在状态里的读」。这是比 `AdminHeader` 那处更严重的一版同类问题（活动流
+   * 是审计级别的敏感信息，不是一个用量数字）。
+   *
+   * 现在：`orgId` 一变就**同步清空** `data`/`error`（`orgId` 变 null 时也一样），
+   * 界面永远不会把不属于当前 `orgId` 的用量/活动流渲染出来。
+   */
   React.useEffect(() => {
+    setData(null);
+    setError(null);
     if (!orgId) return;
     let cancelled = false;
     void (async () => {
@@ -97,7 +110,10 @@ export function OverviewLive() {
     return () => { cancelled = true; };
   }, [orgId]);
 
+  /** 同上一个 effect 的道理，限额事件也要在 `orgId` 变化时同步清空，不留旧组织的痕迹。 */
   React.useEffect(() => {
+    setLimitEvents(null);
+    setLimitError(null);
     if (!orgId) return;
     let cancelled = false;
     void (async () => {
