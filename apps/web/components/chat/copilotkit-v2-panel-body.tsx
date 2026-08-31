@@ -346,6 +346,17 @@ export function CopilotKitV2PanelBody({
    * 我自己这一轮刚建的、内存态本来就是最新的，不需要回读"。
    */
   const resolvedDuringThisSessionRef = React.useRef(false);
+  /**
+   * 2026-08-30 review 反证（PR #2420 的下一轮）—— 「生成用户画像」建议 chip 需要
+   * "这条线程后端已经落库过至少一条消息"这件事实，`resolvedDuringThisSessionRef`
+   * 这个布尔量不够：它只标记"本次会话曾经发生过一次 resolve"，一旦置位就不会
+   * 复位，如果同一个组件实例后续又经历第二次 resolve（目前代码路径下不会，但
+   * 语义上是"曾经"不是"这一条线程"），会把这份"已确认落库"的信任错误地带到
+   * 别的线程上。这里改用一个 Set，逐个线程 id 精确记录"后端确认这个 id 是它
+   * 刚创建、已经落库了触发消息之后才回显给我们的"——见下方
+   * `showPersonaSuggestion` 的完整论证。
+   */
+  const resolvedThreadIdsRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
@@ -364,6 +375,12 @@ export function CopilotKitV2PanelBody({
             // 变成真实 id、触发下面 hydration effect 重跑——这个 ref 得先于那次重渲染
             // 就是 true，effect 才能在第一次因依赖变化执行时就看到它。
             resolvedDuringThisSessionRef.current = true;
+            // 同一时刻精确记下**这个** id——后端只在已经落库了触发这次 resolve 的
+            // 那条消息之后才会发 `chat_thread_id` 事件（本文件其它地方已经在依赖
+            // 同一条时序不变量，见下方 hydration effect 里"若 readAllPersistedMessages
+            // 跑得比 acceptHumanMessage 落库快"那段的推理），所以这个 id 在事实上
+            // 已经有 ≥1 条落库消息，不需要再读一次库确认。
+            resolvedThreadIdsRef.current.add(event.value);
             onThreadResolved?.(event.value);
           }
         }
@@ -422,6 +439,18 @@ export function CopilotKitV2PanelBody({
    */
   const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
   /**
+   * 2026-08-30 review 反证（PR #2420 的下一轮）—— hydration effect（情形①，见下方）
+   * 对**这一个** `threadId` 跑完 `readAllPersistedMessages` 之后的确切结果，供
+   * `showPersonaSuggestion` 判断"这条线程是否已经有落库消息"。与 `resolvedThreadIdsRef`
+   * （上面，覆盖情形②）合起来才是完整的证据——见 `showPersonaSuggestion` 的完整论证。
+   * `threadId` 字段是防"残留上一次 hydration 结果"的关键：只有它与当前
+   * `initialChatThreadId` 一致时，`hasMessages` 才可信。
+   */
+  const [hydratedEvidence, setHydratedEvidence] = React.useState<{
+    readonly threadId: string;
+    readonly hasMessages: boolean;
+  } | null>(null);
+  /**
    * session-switch task-state-loss fix —— 挂载 hydration 只回读了"已经落库的东西"，
    * 从不检查"上一轮有没有一个还没写回的 run"。这条 effect 只覆盖情形①（真实既有
    * 线程重新挂载，见下方判断），正是用户切走再切回时会命中的路径；情形②（本轮乐观
@@ -461,6 +490,8 @@ export function CopilotKitV2PanelBody({
         if (cancelled) return;
         hydratedRef.current = true;
         registerHydrated(identities);
+        // 见上方 `hydratedEvidence` 的文件头注——「生成用户画像」建议 chip 的证据源。
+        setHydratedEvidence({ threadId: initialChatThreadId, hasMessages: collected.length > 0 });
         // ⚠ 只把框架认识的三个字段喂进去：`rateable` 是本仓自己的投影，
         //   不该混进 AG-UI 消息对象。
         const framed = collected.map((m) => ({ id: m.id, role: m.role, content: m.content }));
@@ -1112,18 +1143,47 @@ export function CopilotKitV2PanelBody({
   const sendDisabled = sendDisabledReason !== null;
 
   /**
-   * issue #2053（CK-P6，重设计 2026-08-30）—— 「生成用户画像」建议 chip 的出现
-   * 条件。全部读已经存在的真实状态，不新开一条判定：
+   * issue #2053（CK-P6，重设计 2026-08-30，补丁二 + review 反证第三轮）——
+   * 「生成用户画像」建议 chip 的出现条件。全部读已经存在的真实状态，不新开一条判定：
    *   · `canGeneratePersona`——服务端 `artifact.land` 能力位，硬门槛：没有它
    *     点了必 403，属于本仓明令禁止的"假按钮"，任何时候都不能省。
    *   · `!archived`——归档线程只读，建议行本身在归档时整体不渲染
    *     （见下方 `{archived ? null : &lt;FollowUpSuggestions .../&gt;}`），这里
    *     单独列出只是让判据读起来完整，不是重复的第二道门。
-   *   · `initialChatThreadId !== null`——线程已经真实建立（至少发过一条消息），
-   *     与旧版按钮的禁用判据完全同一条，只是现在不满足就不渲染，不是渲染成灰色。
+   *   · `personaThreadHasPersistedEvidence`——见下方定义，"当前线程后端已经
+   *     确认落库过至少一条消息"这件事实。
    *   · `!personaGeneratedOnce`——本次会话还没成功生成过一次；生成中时仍然渲染
    *     （`disabled: personaRunning`），只是文案换成"生成画像中…"，与旧版按钮的
    *     loading 态视觉一致，不会让用户觉得点击后什么都没发生。
+   *
+   * ## 为什么不能用 `agent.messages.length > 0`（补丁二的版本，review 反证推翻）
+   *
+   * `agent.messages` 是 client/流式视图，不是"这条线程在后端落库了什么"的事实源：
+   * 用户刚发出第一条消息时，`agent.messages` 里已经有这条**乐观插入、还没落库**
+   * 的消息——`initialChatThreadId` 从 null resolve 成真实 id 那一刻，
+   * `agent.messages.length > 0` 立刻为真，但这本身是安全的（见下面 ②），补丁二
+   * 真正的漏洞在别处：如果 hydration（情形①，见下方）还没跑完、或读到的是别的
+   * 线程的残留状态，`agent.messages` 完全有可能与"这条线程实际落库了什么"脱节，
+   * 而 `runPersonaSummary` 判断的正是后端 `readAllPersistedMessages` 这份事实,
+   * 两者不是同一个数据源，用 client 视图当代理会在两者分叉的窗口里复现同一个
+   * "chip 出现但点了报错"的问题——这正是本次要修的 bug，不能用同类判据顶替。
+   *
+   * ## 两个事实源，各自对应"线程从哪来"的两种情形
+   *
+   * ①（既有线程，`hydratedEvidence`）—— 组件挂载时对**这一个** `initialChatThreadId`
+   *   跑一次 `readAllPersistedMessages`（下面那个 hydration effect），`threadId`
+   *   字段精确匹配当前 `initialChatThreadId` 才采信——防的是"残留上一次 hydration
+   *   结果"（尽管本仓路由级重挂载已经让"同一个组件实例横跨两条不同既有线程"这个
+   *   场景在当前代码路径下不会发生，见 `copilotkit-v2-panel.tsx` "切换走 [threadId]
+   *   路由级重挂载"那条注释——`threadId` 字段仍然留着，做一次不依赖那条不变量的
+   *   独立校验，这条不变量本身如果哪天被打破，这里不会跟着一起错）。
+   * ②（本轮新建线程，`resolvedThreadIdsRef`）—— 本轮乐观插入用户消息后，后端才把
+   *   线程 id resolve 出来并经 `chat_thread_id` 自定义事件回显——这个事件只在
+   *   后端已经落库了触发它的那条消息之后才会发出（本文件 hydration effect 的
+   *   guard 注释里"若 readAllPersistedMessages 跑得比 acceptHumanMessage 落库快"
+   *   一段已经在依赖同一条时序不变量，这里是复用，不是新发明），所以只要
+   *   `initialChatThreadId` 出现在这个 Set 里，就已经有 ≥1 条落库消息，不需要
+   *   （也不该）再触发一次 hydration 去确认同一件事。
    *
    * ⚠ 已知局限（前端规则判断的选定范围内，如实记录）：`personaGeneratedOnce` 只是
    *   会话内的本地状态，不查后台这条线程是否已经落过 persona 产物——重新打开一条
@@ -1131,8 +1191,14 @@ export function CopilotKitV2PanelBody({
    *   `listThreadArtifacts` 并识别哪条是 persona 产物（目前产物没有专门的 kind
    *   标记可用），超出本次改动范围，留给下一轮迭代。
    */
+  const personaThreadHasPersistedEvidence =
+    initialChatThreadId !== null
+    && ((hydratedEvidence !== null
+      && hydratedEvidence.threadId === initialChatThreadId
+      && hydratedEvidence.hasMessages)
+      || resolvedThreadIdsRef.current.has(initialChatThreadId));
   const showPersonaSuggestion =
-    canGeneratePersona && !archived && initialChatThreadId !== null && !personaGeneratedOnce;
+    canGeneratePersona && !archived && personaThreadHasPersistedEvidence && !personaGeneratedOnce;
   const personaSuggestions: readonly LocalSuggestionChip[] = showPersonaSuggestion
     ? [{
         // `id` 逐字就是渲染出来的 `data-testid`——沿用「生成用户画像」作为独立按钮
