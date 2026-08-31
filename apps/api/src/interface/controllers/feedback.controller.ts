@@ -31,6 +31,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
@@ -42,6 +43,7 @@ import {
   Post,
   Put,
   Query,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from "@nestjs/common";
 import { feedbackLoop as C } from "@repo/contracts";
@@ -51,11 +53,19 @@ import {
   type FeedbackScope,
   type ProductFeedbackRepositoryFactory,
 } from "../../application/feedback/ports";
+import {
+  FEEDBACK_SUBMITTER_DIRECTORY,
+  GITHUB_ISSUE_CREATOR,
+  type FeedbackSubmitterDirectory,
+  type GithubIssueCreator,
+} from "../../application/feedback/notification-ports";
 import { submitFeedback } from "../../application/feedback/submit-feedback";
 import { listFeedback } from "../../application/feedback/list-feedback";
 import { voteFeedback } from "../../application/feedback/vote-feedback";
 import {
   FeedbackIllegalTransitionError,
+  FeedbackIssueCreationFailedError,
+  FeedbackIssueInProgressError,
   FeedbackNotFoundError,
   FeedbackTriageForbiddenError,
   FeedbackTriageReasonRequiredError,
@@ -67,6 +77,8 @@ import {
   type DecisionIdFactory,
   type IdentityRepository,
 } from "../../application/identity/ports";
+import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { TRANSACTIONAL_MAIL_TRANSPORT, type TransactionalMailTransport } from "../../application/notifications/transactional-mail-ports";
 import { canTriage } from "../../domain/feedback/product-feedback";
 import { toOrgId } from "../../domain/org-id";
 import type { Principal } from "../../domain/principal";
@@ -90,6 +102,10 @@ export class FeedbackController {
     private readonly feedback: ProductFeedbackRepositoryFactory,
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
+    @Inject(GITHUB_ISSUE_CREATOR) private readonly githubIssues: GithubIssueCreator,
+    @Inject(FEEDBACK_SUBMITTER_DIRECTORY) private readonly submitterDirectory: FeedbackSubmitterDirectory,
+    @Inject(TRANSACTIONAL_MAIL_TRANSPORT) private readonly mail: TransactionalMailTransport,
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
   /** 看的人在本组织的角色。null = 不是成员——`decideFeedbackDetailVisibility` 据此整条拒。 */
@@ -190,13 +206,23 @@ export class FeedbackController {
     const { orgRole } = await this.viewerRole(principal);
     try {
       return await triageFeedback(
-        { repo: this.feedback.forOrg(principal.orgId), newEventId: () => randomUUID() },
+        {
+          repo: this.feedback.forOrg(principal.orgId),
+          newEventId: () => randomUUID(),
+          githubIssues: this.githubIssues,
+          submitterDirectory: this.submitterDirectory,
+          mail: this.mail,
+          logger: this.logger,
+        },
         {
           feedbackId,
           status: body.status,
           reason: body.reason,
           actorId: principal.userId,
           actorOrgRole: orgRole,
+          // `.optional()` 在契约里是为了向后兼容旧调用方——这里把"没传"和"显式传 null"
+          // 统一成同一个 null,用例层不需要关心这两者的区别(两者的意思都是"没有草稿")。
+          issueDraft: body.issueDraft ?? null,
         },
       );
     } catch (e) {
@@ -217,6 +243,16 @@ export class FeedbackController {
           from: e.from,
           to: e.to,
         });
+      }
+      if (e instanceof FeedbackIssueCreationFailedError) {
+        // ⚠ fail closed(见 `triage-feedback.ts` 头注①):状态**没有**变,
+        //   503 而不是 500——这是一个已知的、可重试的下游依赖故障,不是服务器错误。
+        throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+      }
+      if (e instanceof FeedbackIssueInProgressError) {
+        // 409 而不是 503/500:这不是"下游依赖不可用",是"这件事正被别的请求同时
+        // 处理"——语义上是并发冲突,重试前应该先刷新看看结果,而不是无脑重试。
+        throw new ConflictException({ reasonCode: "ISSUE_CREATION_IN_PROGRESS" });
       }
       throw e;
     }

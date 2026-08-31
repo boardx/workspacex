@@ -93,9 +93,13 @@ describe("反馈与迭代 · 卡片/列表视图切换", () => {
     expect(screen.getByTestId("admin-feedback-agent-list")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-feedback-agent-cards")).toBeNull();
 
-    // 换布局不丢交互：分诊按钮与投票按钮都还在，且点了真的发请求。
+    // 换布局不丢交互：分诊按钮与投票按钮都还在。转「已进入迭代」2026-08-30 起先展开
+    // 一个可编辑的 issue 草稿框（见 `admin-feedback-live.test.tsx`），这里确认那个
+    // 展开动作本身在列表视图下依然可用，再走完剩下一步确认它确实还能发出请求。
     expect(screen.getByTestId("admin-feedback-to-已进入迭代-fb-sw")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("admin-feedback-to-已进入迭代-fb-sw"));
+    expect(screen.getByTestId("admin-feedback-issue-fb-sw")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("admin-feedback-issue-submit-fb-sw"));
     await waitFor(() =>
       expect(apiRequest.mock.calls.some((c) => (c[1] as { method?: string })?.method === "PUT")).toBe(true),
     );

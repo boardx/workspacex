@@ -60,6 +60,9 @@ export interface FeedbackRow {
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
   readonly createdAt: string;
+  /** "转开发"建过 issue 之后回填的两列。见迁移 `20260830120000_fb2_feedback_github_issue.sql`。 */
+  readonly githubIssueUrl: string | null;
+  readonly githubIssueNumber: number | null;
 }
 
 /** 读取口径。⚠ 同样从契约派生，不重列。 */
@@ -100,6 +103,37 @@ export interface ProductFeedbackRepository {
   setVote(feedbackId: string, voterId: string, voted: boolean): Promise<{ readonly votes: number; readonly votedByMe: boolean }>;
   updateStatus(feedbackId: string, status: FeedbackStatus, reason: string | null): Promise<void>;
   appendStatusEvent(event: StatusEvent): Promise<void>;
+  /**
+   * "转开发"建完 GitHub issue 之后的一次回填。⚠ 只在 `triageFeedback` 用例内
+   *   **确认这条反馈还没有 issue**（`githubIssueUrl === null`）时才会被调用一次——
+   *   本方法自己不做"已存在就跳过"的判断,它信任调用方只在该建的时候才调它。
+   *   把这条判断放进仓储会让"要不要建 issue"这条业务规则的一半长在基础设施层。
+   *   ⚠ 顺带清空 `github_issue_claimed_at`——回填成功即释放认领,虽然此后
+   *   `claimGithubIssueCreation` 的 `github_issue_url IS NULL` 条件已经会让它
+   *   不可能被再次认领,清空只是不留一个再也不会被读到、但语义上"过期"的值。
+   */
+  setGithubIssue(feedbackId: string, issue: { readonly url: string; readonly number: number }): Promise<void>;
+  /**
+   * PR #2431 二轮独立审查阻断项①——建 GitHub issue 前先原子地"认领"这条反馈,
+   * 把并发/崩溃的重复建 issue 收敛成数据库一行 UPDATE 的互斥,而不是三步分开的
+   * 读-判断-写。见迁移 `20260831010000_fb2_feedback_github_issue_claim.sql` 头注
+   * 的完整论证(含"解决了什么、没解决什么"的坦白)。
+   *
+   * 返回 `true` = 认领成功,调用方现在**独占**了"去建这条反馈的 issue"这件事,
+   * 必须在建完(`setGithubIssue`)或放弃(`releaseGithubIssueClaim`)之前不再重试。
+   * 返回 `false` = 认领失败——已经有 issue、或另一个尚未过期的认领正在进行中,
+   * 调用方**不得**再调 GitHub。
+   *
+   * ⚠ "多旧算过期"由实现自己决定阈值(见 pg 实现),不是调用方传进来的参数——
+   *   这是一条基础设施纪律(重试窗口多长),不是业务规则,业务层不该关心它。
+   */
+  claimGithubIssueCreation(feedbackId: string): Promise<boolean>;
+  /**
+   * 认领之后建 issue **失败**时释放认领,让下一次重试不必等到认领过期才能重试。
+   * ⚠ 只清 `github_issue_claimed_at`,不动 `github_issue_url`——认领失败的语义
+   *   是"这次没建成",不是"这条反馈发生了什么别的变化"。
+   */
+  releaseGithubIssueClaim(feedbackId: string): Promise<void>;
   /** ⚠ 一次查询派生全部五个数。见契约 `getFeedbackCounts` 的理由。 */
   counts(): Promise<FeedbackCounts>;
 }

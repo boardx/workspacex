@@ -400,6 +400,27 @@ import { MessageRatingController } from "./interface/controllers/message-rating.
 import { PgProductFeedbackRepository } from "./infrastructure/feedback/pg-product-feedback-repository";
 import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
 import { FeedbackController } from "./interface/controllers/feedback.controller";
+// 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
+// 见 `application/feedback/notification-ports.ts` 与
+// `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
+import {
+  FEEDBACK_SUBMITTER_DIRECTORY,
+  GITHUB_ISSUE_CREATOR,
+} from "./application/feedback/notification-ports";
+import { PgFeedbackSubmitterDirectory } from "./infrastructure/feedback/pg-feedback-submitter-directory";
+import {
+  FetchGithubIssueCreator,
+  GITHUB_ISSUE_CONFIG,
+  lazyGithubIssueConfig,
+  type GithubIssueConfig,
+} from "./infrastructure/feedback/github-issue-creator";
+import { TRANSACTIONAL_MAIL_TRANSPORT } from "./application/notifications/transactional-mail-ports";
+import {
+  CloudflareTransactionalEmailTransport,
+  TRANSACTIONAL_MAIL_CONFIG,
+  lazyTransactionalMailConfig,
+  type TransactionalMailConfig,
+} from "./infrastructure/notifications/cloudflare-transactional-email-transport";
 import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
 import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
@@ -1986,6 +2007,32 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: PRODUCT_FEEDBACK_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProductFeedbackRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // 2026-08-30："转开发"建 GitHub issue + 任意分诊转移发状态变更邮件（ADR-108）。
+    // ⚠ 两个配置都走 lazy Proxy——同 `CLOUDFLARE_EMAIL_CONFIG` 那一条：它们是可选子
+    // 系统，没有任何一次部署要求"进程启动时就必须能建 issue / 发反馈通知邮件"。
+    {
+      provide: GITHUB_ISSUE_CONFIG,
+      useFactory: () => lazyGithubIssueConfig(),
+    },
+    {
+      provide: GITHUB_ISSUE_CREATOR,
+      useFactory: (config: GithubIssueConfig) => new FetchGithubIssueCreator(config),
+      inject: [GITHUB_ISSUE_CONFIG],
+    },
+    {
+      provide: FEEDBACK_SUBMITTER_DIRECTORY,
+      useFactory: (db: DatabasePort) => new PgFeedbackSubmitterDirectory(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      provide: TRANSACTIONAL_MAIL_CONFIG,
+      useFactory: () => lazyTransactionalMailConfig(),
+    },
+    {
+      provide: TRANSACTIONAL_MAIL_TRANSPORT,
+      useFactory: (config: TransactionalMailConfig) => new CloudflareTransactionalEmailTransport(config),
+      inject: [TRANSACTIONAL_MAIL_CONFIG],
     },
     {
       provide: SKILL_SECURITY_AUDIT,
