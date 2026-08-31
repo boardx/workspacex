@@ -56,13 +56,27 @@ function toRawTaskRow(r: TaskSqlRow): RawTaskRow {
 
 export class PgTaskRepository implements TaskRepository {
   async getByIdWithin(session: TenantSession, taskId: string): Promise<TaskRow | null> {
-    const result = await session.query<{ id: string; org_id: string; project_id: string | null; status: TaskStatus }>(
-      "SELECT id, org_id, project_id, status FROM tasks WHERE id = $1",
+    const result = await session.query<{
+      id: string;
+      org_id: string;
+      project_id: string | null;
+      status: TaskStatus;
+      owner_user_id: string | null;
+      executor: string | null;
+    }>(
+      "SELECT id, org_id, project_id, status, owner_user_id, executor FROM tasks WHERE id = $1",
       [taskId],
     );
     const row = result.rows[0];
     if (!row) return null;
-    return { id: row.id, orgId: row.org_id, projectId: row.project_id, status: row.status };
+    return {
+      id: row.id,
+      orgId: row.org_id,
+      projectId: row.project_id,
+      status: row.status,
+      ownerUserId: row.owner_user_id,
+      executor: row.executor,
+    };
   }
 
   async updateStatusWithin(session: TenantSession, taskId: string, status: TaskStatus): Promise<void> {

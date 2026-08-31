@@ -22,6 +22,10 @@ export interface TaskRow {
   readonly orgId: string;
   readonly projectId: string | null;
   readonly status: TaskStatus;
+  /** R5 write-path guard needs these to decide "is this actor allowed to touch this card"
+   *  without a second round-trip -- see `board.controller.ts`'s `changeStatus`. */
+  readonly ownerUserId: string | null;
+  readonly executor: string | null;
 }
 
 export interface TaskRepository {

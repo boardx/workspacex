@@ -150,6 +150,43 @@ export class BoardController {
   ) {
     assertPrincipal(principal);
     const orgId = toOrgId(principal.orgId);
+
+    // R5 write-path guard: `changeTaskStatus`/`changeTaskStatusWithWriteback` (F01/F02's
+    // application layer) know nothing about roles -- they only judge the O-27 transition
+    // matrix. Without this check, ANY authenticated org member (including an `observer`,
+    // who R5 says must be 403'd, and a `member`/`groupLead` who R5 limits to their own
+    // cards/group) could PATCH the status of ANY task in the org merely by knowing its id
+    // -- `list`/`myToday`/`create` above all call `resolveProjectRole` first, this handler
+    // did not. Mirror the read-side rule (`listVisibleWithin`) for the write side: fetch
+    // the task first, resolve the caller's role against its project, and refuse a
+    // non-privileged caller who could never have SEEN this card on their own board.
+    const task = await this.db.withTenant(orgId, (session) => this.tasks.getByIdWithin(session, id));
+    if (task !== null) {
+      if (task.projectId === null) {
+        // No project to resolve a role against (e.g. an un-triaged inbox card) -- fall
+        // back to the narrowest rule available: only the card's own owner/executor may
+        // move it.
+        const isSelf = task.ownerUserId === principal.userId || task.executor === principal.userId;
+        if (!isSelf) throw new ForbiddenException("CANNOT_MODIFY_TASK");
+      } else {
+        const { role, groupId } = await this.resolveProjectRole(orgId, principal.userId, task.projectId);
+        if (role !== "org-wide-admin") {
+          const visible = await this.db.withTenant(orgId, (session) =>
+            this.tasks.listVisibleWithin(session, {
+              orgId,
+              userId: principal.userId,
+              projectIds: [task.projectId as string],
+              role,
+              groupId,
+            }),
+          );
+          if (!visible.some((row) => row.id === id)) throw new ForbiddenException("CANNOT_MODIFY_TASK");
+        }
+      }
+    }
+    // `task === null`: let `changeTaskStatusWithWriteback` below raise its own
+    // `TaskNotFoundError` -> 404, same as before this guard existed.
+
     try {
       return await changeTaskStatusWithWriteback(
         { db: this.db, tasks: this.tasks, audit: this.audit, writeback: manualWriteback },
