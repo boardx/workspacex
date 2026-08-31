@@ -305,7 +305,12 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
       // fail closed：503，卡片上如实显示"操作没有生效"，状态**没有**变成「已进入迭代」，
       // 之前那次投票的票数也没有被这次失败动过——一次不相关的失败不该连累别的字段。
       expect(triagedResponse.status()).toBe(503);
-      await expect(bugCardAsAdmin.locator('[data-testid="admin-feedback-action-error"]')).toBeVisible();
+      // ⚠ `admin-feedback-action-error` 是**屏级**的一条提示（`feedback-screen.tsx`
+      //   渲染在两列卡片网格**外面**，两列共用同一条），不是卡片内部元素——
+      //   scoped 到 `bugCardAsAdmin` 下找它永远找不到，`toBeVisible()` 会等满
+      //   5s 超时后诚实地报「没找到」，把这条真实生效的 fail-closed 断言变成
+      //   一次假阳性红（2026-08-31 复核 PR #2431 时用真实 CI 跑出来定位）。
+      await expect(page.getByTestId("admin-feedback-action-error")).toBeVisible();
       await expect(bugCardAsAdmin).not.toContainText("已进入迭代");
       await expect(voteButton).toContainText("1");
 
