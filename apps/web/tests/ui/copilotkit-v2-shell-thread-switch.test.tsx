@@ -469,6 +469,11 @@ describe("CopilotKitV2Shell — issue #2422 handleCreate 复用/新建判据", (
   });
 
   it("(d) 列表仍在读（threads 为 null）时连续点两次「新建」⇒ 只建一条，第二次点击被 pending 挡住", async () => {
+    // 独立 bearer：`threadListCache`（issue #2402）是模块级、按 bearer 分 key 的——
+    // 用默认 `provider-bearer` 会读到本文件前面用例留下的缓存，`threads` 不再是
+    // `null`，骨架帧断言就假阳性通过了。换一个没人用过的 bearer 才能保证这次挂载
+    // 真的从零开始、`loading` 骨架帧真实出现。
+    sessionState.sessionToken = "create-while-loading-bearer";
     let resolveList: (value: typeof TWO_THREADS) => void = () => {};
     listPersonalThreads.mockImplementationOnce(() => new Promise((resolve) => { resolveList = resolve; }));
     let resolveCreate: (value: { threadId: string; version: number; auditEventId: string; impactScope: string | null }) => void = () => {};
