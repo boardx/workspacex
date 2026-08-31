@@ -24,7 +24,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
  * 慢过 4 秒，兜底依然会触发）。改成重试软导航后，`assign` 断言全部替换成"`push`
  * 被再次调用"——兜底不再触碰 `window.location`，左栏因此不会重新挂载。
  */
-const { push, replace, listPersonalThreads, getThread, deleteThread, listThreadArtifacts, listThreadAttachments, listCapabilities, sessionState } = vi.hoisted(() => ({
+const { push, replace, listPersonalThreads, getThread, deleteThread, listThreadArtifacts, listThreadAttachments, listCapabilities, createPersonalThread, sessionState } = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   listPersonalThreads: vi.fn(),
@@ -33,6 +33,7 @@ const { push, replace, listPersonalThreads, getThread, deleteThread, listThreadA
   listThreadArtifacts: vi.fn(),
   listThreadAttachments: vi.fn(),
   listCapabilities: vi.fn(),
+  createPersonalThread: vi.fn(),
   sessionState: {
     sessionToken: "provider-bearer",
     currentOrgId: "org-current",
@@ -48,7 +49,7 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 vi.mock("@/lib/live-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-chat")>()),
-  listPersonalThreads, getThread, deleteThread, listThreadArtifacts, listThreadAttachments,
+  listPersonalThreads, getThread, deleteThread, listThreadArtifacts, listThreadAttachments, createPersonalThread,
 }));
 vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
 vi.mock("@/lib/chat-pinned-threads", () => ({ readPinnedThreadIds: () => [], togglePinnedThreadId: vi.fn() }));
@@ -64,6 +65,15 @@ import { CopilotKitV2Shell } from "@/components/chat/copilotkit-v2-shell";
 const THREAD_A = { id: "thr-a", title: "对话 A", subtitle: "", badges: [], status: "done" as const, artifactCount: 0, lastActivityAt: "2026-08-27T00:00:00.000Z", visibilityScope: "private" as const };
 const THREAD_B = { id: "thr-b", title: "对话 B", subtitle: "", badges: [], status: "done" as const, artifactCount: 0, lastActivityAt: "2026-08-27T00:00:00.000Z", visibilityScope: "private" as const };
 const TWO_THREADS = { groups: [{ label: "今天", cards: [THREAD_A, THREAD_B] }], capabilities: ["thread.mutate"] };
+
+/**
+ * 用于 `handleCreate` 复用/新建分支的空线程夹具——`EMPTY_TOP` 模拟"分组最上面
+ * 那张卡片本身就是空线程"（复用应该命中的目标），`EMPTY_OLD` 模拟"沉在分组
+ * 中部/下面的陈旧空线程"（BLOCK 审查要求反证的、不该被复用的目标）。两者
+ * `status` 都是 `not-started`，唯一区别是它们在 `cards` 数组里的位置。
+ */
+const EMPTY_TOP = { id: "thr-empty-top", title: "新对话", subtitle: "", badges: [], status: "not-started" as const, artifactCount: 0, lastActivityAt: "2026-08-30T12:00:00.000Z", visibilityScope: "private" as const };
+const EMPTY_OLD = { id: "thr-empty-old", title: "新对话", subtitle: "", badges: [], status: "not-started" as const, artifactCount: 0, lastActivityAt: "2026-08-20T00:00:00.000Z", visibilityScope: "private" as const };
 
 beforeEach(() => {
   push.mockReset();
@@ -83,6 +93,7 @@ beforeEach(() => {
   deleteThread.mockResolvedValue(undefined);
   listPersonalThreads.mockReset();
   listPersonalThreads.mockResolvedValue(TWO_THREADS);
+  createPersonalThread.mockReset();
   sessionState.sessionToken = "provider-bearer";
 });
 
@@ -381,5 +392,122 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
     expect(push).toHaveBeenCalledTimes(3);
     expect(push).toHaveBeenLastCalledWith(`/chat/${THREAD_B.id}`);
     expect(assignSpy).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * PR #2422 独立审查（BLOCK，评论 5472084365）第 2/3 点——`handleCreate` 的
+ * "只在分组最上面那张卡片是空线程时才复用"规则此前**没有任何测试实际执行过**：
+ * 旧的 `copilotkit-v2-shell-thread-switch.test.tsx` 三个用例全部只覆盖"点击已有
+ * 线程后的软导航兜底"，从未点击过 `chat-thread-create`、从未 mock/断言
+ * `createPersonalThread`、也从未断言新的 `groups[0].cards[0]` 判据——那 3/3 通过
+ * 是假阳性证据，改动前后都会通过。
+ *
+ * 下面五条补审查要求的边界/反例覆盖：
+ *   (a) 最上面的卡片是空线程 ⇒ 复用它，零次 create 调用；
+ *   (b) 最上面的卡片是活跃线程、下面才有空线程 ⇒ 老实建一条新的，再刷新，导航到新 id；
+ *   (c) "今天"为空、"本周"里有旧空线程 ⇒ 不跨组复用，建新的；
+ *   (d) 列表仍在读（`threads === null`）时连续点两次「新建」⇒ 不产生两条空线程、
+ *       不会误判命中陈旧目标（第二次点击被 `createPending` 挡在按钮 `disabled` 上）；
+ *   (e) create 失败 ⇒ 不导航、不产生假成功——顺带发现并修好了一个真实缺口：
+ *       `handleCreate` 原来没有 catch，失败会从 `void handleCreate()` 逃逸成一个
+ *       未处理的 promise rejection，界面上什么反馈都没有。现在补齐 `createFailure`
+ *       状态与 `copilotkit-v2-create-thread-error` 呈现，和 `handleRename`/
+ *       `handleDelete` 同一套"捕获失败 → 显式落一个失败态"纪律。
+ */
+describe("CopilotKitV2Shell — issue #2422 handleCreate 复用/新建判据", () => {
+  it("(a) 分组最上面那张卡片本身是 not-started 空线程 ⇒ 直接复用，零次 createPersonalThread 调用", async () => {
+    listPersonalThreads.mockResolvedValue({
+      groups: [{ label: "今天", cards: [EMPTY_TOP, THREAD_A] }],
+      capabilities: ["thread.mutate"],
+    });
+
+    render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${EMPTY_TOP.id}`);
+
+    fireEvent.click(screen.getByTestId("chat-thread-create"));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/chat/${EMPTY_TOP.id}`));
+    expect(createPersonalThread).not.toHaveBeenCalled();
+  });
+
+  it("(b) 最上面的卡片是活跃线程、下面才有 not-started 空线程 ⇒ 不跨过去复用，建一条新的、刷新列表、导航到新 id", async () => {
+    listPersonalThreads.mockResolvedValueOnce({
+      groups: [{ label: "今天", cards: [THREAD_A, EMPTY_OLD] }],
+      capabilities: ["thread.mutate"],
+    });
+    createPersonalThread.mockResolvedValue({ threadId: "thr-new-b", version: 0, auditEventId: "ae-b", impactScope: null });
+
+    render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${EMPTY_OLD.id}`);
+
+    fireEvent.click(screen.getByTestId("chat-thread-create"));
+
+    await waitFor(() => expect(createPersonalThread).toHaveBeenCalledTimes(1));
+    // 建完之后从服务端重读列表（不是本地乐观拼一条）——第 2 次调用是 `reloadThreads`。
+    await waitFor(() => expect(listPersonalThreads).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-new-b"));
+    // 绝不会导航去那条沉在下面的陈旧空线程。
+    expect(push).not.toHaveBeenCalledWith(`/chat/${EMPTY_OLD.id}`);
+  });
+
+  it("(c) “今天”分组为空、“本周”里有旧空线程 ⇒ 不跨组复用，老实建一条新的", async () => {
+    listPersonalThreads.mockResolvedValueOnce({
+      groups: [{ label: "今天", cards: [] }, { label: "本周", cards: [EMPTY_OLD] }],
+      capabilities: ["thread.mutate"],
+    });
+    createPersonalThread.mockResolvedValue({ threadId: "thr-new-c", version: 0, auditEventId: "ae-c", impactScope: null });
+
+    render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${EMPTY_OLD.id}`);
+
+    fireEvent.click(screen.getByTestId("chat-thread-create"));
+
+    await waitFor(() => expect(createPersonalThread).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-new-c"));
+    expect(push).not.toHaveBeenCalledWith(`/chat/${EMPTY_OLD.id}`);
+  });
+
+  it("(d) 列表仍在读（threads 为 null）时连续点两次「新建」⇒ 只建一条，第二次点击被 pending 挡住", async () => {
+    // 独立 bearer：`threadListCache`（issue #2402）是模块级、按 bearer 分 key 的——
+    // 用默认 `provider-bearer` 会读到本文件前面用例留下的缓存，`threads` 不再是
+    // `null`，骨架帧断言就假阳性通过了。换一个没人用过的 bearer 才能保证这次挂载
+    // 真的从零开始、`loading` 骨架帧真实出现。
+    sessionState.sessionToken = "create-while-loading-bearer";
+    let resolveList: (value: typeof TWO_THREADS) => void = () => {};
+    listPersonalThreads.mockImplementationOnce(() => new Promise((resolve) => { resolveList = resolve; }));
+    let resolveCreate: (value: { threadId: string; version: number; auditEventId: string; impactScope: string | null }) => void = () => {};
+    createPersonalThread.mockImplementation(() => new Promise((resolve) => { resolveCreate = resolve; }));
+
+    render(<CopilotKitV2Shell initialThreadId={null} />);
+    // 列表还没回来：骨架态，不是"零对话"假空态（issue #2039 第 3 轮 gap #3）。
+    await screen.findByTestId("loading");
+
+    const button = screen.getByTestId("chat-thread-create");
+    fireEvent.click(button);
+    fireEvent.click(button); // 紧接着再点一次——按钮此刻应已因 `createPending` 变 disabled
+
+    expect(createPersonalThread).toHaveBeenCalledTimes(1);
+
+    // 让首次列表读取回来，再让 create 回来，全程只应该有一次 create + 一次导航。
+    resolveList(TWO_THREADS);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
+    resolveCreate({ threadId: "thr-new-d", version: 0, auditEventId: "ae-d", impactScope: null });
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/chat/thr-new-d"));
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(createPersonalThread).toHaveBeenCalledTimes(1);
+  });
+
+  it("(e) createPersonalThread 失败 ⇒ 不导航、不产生假成功，失败落地为可见错误", async () => {
+    createPersonalThread.mockRejectedValue(new Error("网络错误"));
+
+    render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`); // TWO_THREADS 顶卡是 THREAD_A（done），走 create 分支
+
+    fireEvent.click(screen.getByTestId("chat-thread-create"));
+
+    await screen.findByTestId("copilotkit-v2-create-thread-error");
+    expect(push).not.toHaveBeenCalled();
   });
 });
