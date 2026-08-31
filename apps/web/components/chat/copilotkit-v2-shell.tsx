@@ -159,6 +159,54 @@ function applyThreadListResult(bearer: string, seq: number, value: ListThreadsOu
   threadListCache = { bearer, value };
 }
 
+/**
+ * 独立 review（exact-SHA，PR #2419）阻断项——`handleDelete`/`handleRename` 提交
+ * 成功后，此前唯一的收尾动作是再发一次 `listPersonalThreads` 拿服务端最新列表。
+ * 那次刷新失败（网络抖动/服务端一次性 5xx）不该让"已经在服务端生效的删除/改名"
+ * 在本地看起来像没发生过——尤其是刷新失败后紧跟着一次重新挂载：新实例会读到
+ * `threadListCache` 里那份**改动前**的旧数据，删掉的卡片重新出现、改过的标题
+ * 变回旧的。
+ *
+ * 修法：提交成功的那一刻**本地立刻**在已有缓存上做乐观修补（不等网络），
+ * 落进跟真实网络响应同一条 `applyThreadListResult` 写入路径、领同一个模块级
+ * 单调序号——仍在飞的旧刷新（在这次修补之前发出）不能把它覆盖回去。之后仍然
+ * 会在后台再拉一次服务端权威数据（计数/徽标这类乐观修补顾不上的字段），但那次
+ * 失败不再影响已经生效的修补。
+ *
+ * @returns 修补后的列表；缓存里原本就没有这个 bearer 的数据（从未成功拉取过
+ *   一次）时返回 `null`——这种情况没有"旧数据"可修补，调用方退回等一次真实网络
+ *   刷新。
+ */
+function patchThreadListCache(
+  bearer: string,
+  mutate: (list: ListThreadsOut) => ListThreadsOut,
+): ListThreadsOut | null {
+  if (!threadListCache || threadListCache.bearer !== bearer) return null;
+  const seq = ++threadListRequestSeq;
+  const patched = mutate(threadListCache.value);
+  applyThreadListResult(bearer, seq, patched);
+  return patched;
+}
+
+function removeCardFromThreadList(list: ListThreadsOut, threadId: string): ListThreadsOut {
+  return {
+    ...list,
+    groups: list.groups
+      .map((group) => ({ ...group, cards: group.cards.filter((card) => card.id !== threadId) }))
+      .filter((group) => group.cards.length > 0),
+  };
+}
+
+function renameCardInThreadList(list: ListThreadsOut, threadId: string, title: string): ListThreadsOut {
+  return {
+    ...list,
+    groups: list.groups.map((group) => ({
+      ...group,
+      cards: group.cards.map((card) => (card.id === threadId ? { ...card, title } : card)),
+    })),
+  };
+}
+
 export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string | null }): JSX.Element {
   const router = useRouter();
   const { session } = useSession();
@@ -181,6 +229,20 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     selectedThreadIdRef.current = selectedThreadId;
   }, [selectedThreadId]);
 
+  /**
+   * 独立 review（exact-SHA，PR #2419）阻断项——`threadListCache` 是模块级的，
+   * 但没有任何东西阻止一个**已经卸载**的实例发出的请求在 resolve 之后仍然写
+   * 那份共享缓存（模块级单调序号只保证"更晚发出的请求赢"，不保证"发出请求的
+   * 那个实例还活着"）。`fetchThreadList` 用这个 ref 在写缓存前多问一句"我还
+   * 在不在"——不在就只把数据吐给调用方（调用方自己的 `listGeneration` 早已
+   * 挡住了它去 `setThreads`），不再落进全局共享的那一份。
+   */
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   /** issue #2099 —— 右栏「产物」点击查看：非 null 时打开预览弹窗。 */
   const [openArtifact, setOpenArtifact] = React.useState<{ artifactId: string; title: string } | null>(null);
 
@@ -201,7 +263,10 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     if (!bearer) throw new Error("no session");
     const seq = ++threadListRequestSeq;
     const result = await listPersonalThreads({}, bearer);
-    applyThreadListResult(bearer, seq, result);
+    // 已经卸载的实例发出的请求：数据照常吐给调用方（万一它是 handleDelete/
+    // handleRename 那种"提交本身还没走完，只是恰好在这个 await 期间被卸载"的
+    // 边角情形），但不再写共享缓存——不该由一个不再存在的实例决定全局缓存是什么。
+    if (mountedRef.current) applyThreadListResult(bearer, seq, result);
     return result;
   }, [bearer]);
 
@@ -564,14 +629,24 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       const target = await getThread(threadId, null, bearer);
       await renameThread(threadId, null, title, target.thread.version);
-      await reloadThreads();
+
+      // 改名已经在服务端生效——本地立刻乐观修补缓存里的标题，不等一次可能失败的
+      // 后台刷新（见 `patchThreadListCache` 头注）。缓存里没有这个 bearer 的既有
+      // 数据（从未成功拉取过一次）时退回旧路径，直接等一次真实刷新。
+      const optimistic = patchThreadListCache(bearer, (list) => renameCardInThreadList(list, threadId, title));
+      if (optimistic) {
+        setThreads(optimistic);
+        void fetchThreadList().catch(() => undefined); // 后台补一次服务端权威数据，失败不影响上面已生效的修补
+      } else {
+        await reloadThreads();
+      }
       if (threadId === selectedThreadId) await loadRightPanel(); // 标题与 version 都变了，重读详情保持一致
     } catch (failure) {
       setMutateFailure(describeMutateFailure(failure));
     } finally {
       setMutatePending(null);
     }
-  }, [bearer, loadRightPanel, reloadThreads, selectedThreadId]);
+  }, [bearer, fetchThreadList, loadRightPanel, reloadThreads, selectedThreadId]);
 
   const handleDelete = React.useCallback(async (threadId: string, reason: string) => {
     if (!bearer) return;
@@ -581,11 +656,18 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       const target = await getThread(threadId, null, bearer);
       await deleteThread(threadId, null, target.thread.version, reason);
-      const refreshed = await fetchThreadList();
-      setThreads(refreshed);
+
+      // 删除已经在服务端生效——本地立刻乐观修补缓存把这条卡片摘掉，不等一次
+      // 可能失败的后台刷新（见 `patchThreadListCache` 头注：刷新失败不该让
+      // 已经删掉的卡片在本地看起来像还在）。缓存里没有这个 bearer 的既有数据时
+      // 退回旧路径，直接等一次真实刷新——这种情况没有"旧数据"可乐观修补。
+      const optimistic = patchThreadListCache(bearer, (list) => removeCardFromThreadList(list, threadId));
+      const nextList = optimistic ?? await fetchThreadList();
+      setThreads(nextList);
+      if (optimistic) void fetchThreadList().catch(() => undefined); // 后台补一次权威数据，失败不影响上面已生效的修补
       // 删的不是当前打开的这条 ⇒ 路由不该动，用户还在看别的对话。
       if (threadId === selectedThreadId) {
-        const next = refreshed.groups.flatMap((group) => group.cards)[0]?.id ?? null;
+        const next = nextList.groups.flatMap((group) => group.cards)[0]?.id ?? null;
         // 删掉的是当前这条 ⇒ 必须离开它的路由；一条都不剩就回 `/chat` 空状态。
         router.replace(next ? `/chat/${next}` : "/chat");
       }

@@ -213,6 +213,72 @@ describe("CopilotKitV2Shell — issue #2402 重新挂载时线程列表的模块
     expect(screen.queryByTestId(`chat-thread-${THREAD_A.id}`)).not.toBeInTheDocument();
     expect(screen.getByTestId("loading")).toBeInTheDocument();
   });
+
+  /**
+   * 独立 review 第二轮阻断项 ③——`handleDelete` 提交成功后此前唯一的收尾动作是
+   * 再发一次网络请求拿最新列表；那次请求失败不该让"已经在服务端生效的删除"在
+   * 本地看起来像没发生过。这条用例让删除本身成功、但删除之后的**所有**
+   * `listPersonalThreads` 调用（含后台补的那一次）都失败，断言：① UI 立刻摘掉
+   * 被删的卡片（乐观修补，不等网络）；② 不会把"后台刷新失败"误当成"删除失败"
+   * 显示出来；③ 卸载重新挂载后，缓存里已经不再有这张卡片。
+   */
+  it("删除成功但后台刷新失败 ⇒ 乐观修补仍然生效，重新挂载不会复活", async () => {
+    const { unmount } = render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
+    await screen.findByTestId(`chat-thread-${THREAD_B.id}`);
+
+    listPersonalThreads.mockReset();
+    listPersonalThreads.mockRejectedValue(new Error("网络抖动"));
+
+    const cardBWrapper = screen.getByTestId(`chat-thread-${THREAD_B.id}`).closest('[data-testid="chat-thread-selection-actions"]');
+    if (!cardBWrapper) throw new Error("thread B card wrapper not found");
+    fireEvent.pointerDown(within(cardBWrapper as HTMLElement).getByTestId("chat-thread-card-menu-trigger"), { button: 0 });
+    fireEvent.click(screen.getByTestId("chat-thread-delete"));
+    fireEvent.change(screen.getByTestId("chat-thread-delete-reason"), { target: { value: "测试删除" } });
+    fireEvent.click(screen.getByTestId("chat-thread-delete-submit"));
+
+    await waitFor(() => expect(deleteThread).toHaveBeenCalledTimes(1));
+    // 乐观修补同步生效：即使后台刷新注定失败，UI 也已经把 B 摘掉了。
+    await waitFor(() => expect(screen.queryByTestId(`chat-thread-${THREAD_B.id}`)).not.toBeInTheDocument());
+    expect(screen.queryByTestId("chat-thread-mutate-error")).not.toBeInTheDocument(); // 后台刷新失败不该冒充"删除失败"
+
+    unmount();
+    listPersonalThreads.mockImplementation(() => new Promise(() => {})); // 逼第二次挂载只能读缓存
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`chat-thread-${THREAD_B.id}`)).not.toBeInTheDocument();
+  });
+
+  /**
+   * 独立 review 第二轮阻断项 ②——`threadListCache` 是模块级的，模块级单调序号只
+   * 保证"更晚发出的请求赢"，不保证"发出请求的那个实例还活着"。一个已经卸载的
+   * 实例发出的请求，如果在卸载**之后**才 resolve，此前会照样把结果写进共享缓存
+   * （对下一次全新挂载而言，那是一份不该存在的"幽灵"数据）。这条用例直接构造
+   * 这个时序：挂载 → 请求发出（挂起）→ 卸载 → 请求才 resolve——断言这份迟到的
+   * 响应没有写进缓存：紧接着第一次全新挂载理应还是空缓存，只能停在骨架帧。
+   */
+  it("卸载后才 resolve 的请求 ⇒ 不写共享缓存", async () => {
+    // 用独立 bearer——`threadListCache` 是模块级变量，同一个 bearer 可能已经被
+    // 本文件前面的用例写过缓存；换一个没人用过的 bearer 才能保证"这是从零开始的
+    // 第一次挂载，缓存本该仍是空的"这个前提成立。
+    sessionState.sessionToken = "stale-resolve-bearer";
+    let resolveStale!: (value: typeof TWO_THREADS) => void;
+    listPersonalThreads.mockImplementationOnce(() => new Promise((resolve) => { resolveStale = resolve; }));
+    const { unmount } = render(<CopilotKitV2Shell initialThreadId={null} />);
+    await waitFor(() => expect(listPersonalThreads).toHaveBeenCalledTimes(1));
+    unmount();
+
+    resolveStale(TWO_THREADS); // 卸载之后才 resolve
+    await new Promise((resolve) => setTimeout(resolve, 0)); // 给它一个机会（错误地）写缓存
+
+    listPersonalThreads.mockReset();
+    listPersonalThreads.mockImplementation(() => new Promise(() => {})); // 逼这次挂载只能读缓存
+    render(<CopilotKitV2Shell initialThreadId={null} />);
+    // 这是从零开始的第一次挂载，缓存本该仍是空的——如果卸载后的迟到响应写进去了，
+    // 这里就会（错误地）直接看到 A/B 两张卡片，而不是骨架帧。
+    expect(screen.queryByTestId(`chat-thread-${THREAD_A.id}`)).not.toBeInTheDocument();
+    expect(screen.getByTestId("loading")).toBeInTheDocument();
+  });
 });
 
 describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () => {
