@@ -238,9 +238,22 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 挡住了它去 `setThreads`），不再落进全局共享的那一份。
    */
   const mountedRef = React.useRef(true);
+  /**
+   * 独立 review 第二轮阻断项——`mountedRef` 只挡了"卸载后的响应能不能写缓存"，
+   * 没有真的取消掉那次网络请求本身：组件卸载/bearer 换人之后，旧的
+   * `listPersonalThreads` 仍然会跑到底，白占一次网络往返、且用的是已经不该
+   * 再用的旧 bearer。`listAbortRef` 存着"当前这个实例最近一次发出、还没有
+   * 结果的那次列表请求"的 `AbortController`；`fetchThreadList` 每次发起新请求
+   * 前先中止上一次还没完事的（同一实例内的旧请求已经没有意义——覆盖它的新请求
+   * 已经在路上），卸载时中止最后一次未完成的。
+   */
+  const listAbortRef = React.useRef<AbortController | null>(null);
   React.useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      listAbortRef.current?.abort();
+    };
   }, []);
 
   /** issue #2099 —— 右栏「产物」点击查看：非 null 时打开预览弹窗。 */
@@ -261,8 +274,15 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    */
   const fetchThreadList = React.useCallback(async (): Promise<ListThreadsOut> => {
     if (!bearer) throw new Error("no session");
+    // 同一实例内还有一次没完事的旧请求 ⇒ 真的中止它（不只是忽略结果）：它已经
+    // 没有意义，这次新请求就是要覆盖它。bearer 换人时同一条路径也生效——
+    // `sourceKey` 变化触发的新 `reloadThreads` 调这个函数时，会先中止上一个
+    // bearer 那次还没完事的请求，它不会再白跑到底。
+    listAbortRef.current?.abort();
+    const controller = new AbortController();
+    listAbortRef.current = controller;
     const seq = ++threadListRequestSeq;
-    const result = await listPersonalThreads({}, bearer);
+    const result = await listPersonalThreads({}, bearer, controller.signal);
     // 已经卸载的实例发出的请求：数据照常吐给调用方（万一它是 handleDelete/
     // handleRename 那种"提交本身还没走完，只是恰好在这个 await 期间被卸载"的
     // 边角情形），但不再写共享缓存——不该由一个不再存在的实例决定全局缓存是什么。
@@ -280,6 +300,11 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       setListError(null);
     } catch (failure) {
       if (generation !== listGeneration.current) return;
+      // 卸载触发的中止：`listGeneration` 在卸载时不会变（没有"下一次调用"去
+      // 推进它），单看 generation 挡不住这种情形——`AbortError` 不是一次真实的
+      // 读取失败，是这次请求本身被主动放弃，不该冒充"线程列表读取失败"亮给
+      // 一个已经不存在的界面。
+      if (!mountedRef.current || (failure instanceof DOMException && failure.name === "AbortError")) return;
       setListError(failure instanceof Error ? failure.message : "线程列表读取失败");
     }
   }, [bearer, fetchThreadList]);
@@ -642,9 +667,11 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       }
       if (threadId === selectedThreadId) await loadRightPanel(); // 标题与 version 都变了，重读详情保持一致
     } catch (failure) {
+      // 卸载触发的中止不是一次真实的改名失败——见 `reloadThreads` catch 同一条注释。
+      if (!mountedRef.current || (failure instanceof DOMException && failure.name === "AbortError")) return;
       setMutateFailure(describeMutateFailure(failure));
     } finally {
-      setMutatePending(null);
+      if (mountedRef.current) setMutatePending(null);
     }
   }, [bearer, fetchThreadList, loadRightPanel, reloadThreads, selectedThreadId]);
 
@@ -672,9 +699,11 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         router.replace(next ? `/chat/${next}` : "/chat");
       }
     } catch (failure) {
+      // 卸载触发的中止不是一次真实的删除失败——见 `reloadThreads` catch 同一条注释。
+      if (!mountedRef.current || (failure instanceof DOMException && failure.name === "AbortError")) return;
       setMutateFailure(describeMutateFailure(failure));
     } finally {
-      setMutatePending(null);
+      if (mountedRef.current) setMutatePending(null);
     }
   }, [bearer, fetchThreadList, router, selectedThreadId]);
 

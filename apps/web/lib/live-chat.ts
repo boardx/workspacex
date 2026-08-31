@@ -106,6 +106,8 @@ export async function getThread(
 export async function listPersonalThreads(
   opts: { includeArchived?: boolean } = {},
   sessionToken?: string,
+  /** issue #2418（PR #2419）—— 可选取消信号，透传给 `apiRequest`；不传时行为不变。 */
+  signal?: AbortSignal,
 ): Promise<ListThreadsOut> {
   return apiRequest<ListThreadsOut>(chat.operations.listPersonalThreads.path, {
     method: "GET",
@@ -113,6 +115,7 @@ export async function listPersonalThreads(
       includeArchived: opts.includeArchived === undefined ? undefined : String(opts.includeArchived),
     },
     sessionToken,
+    signal,
   });
 }
 

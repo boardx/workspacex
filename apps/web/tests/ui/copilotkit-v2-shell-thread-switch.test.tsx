@@ -279,6 +279,29 @@ describe("CopilotKitV2Shell — issue #2402 重新挂载时线程列表的模块
     expect(screen.queryByTestId(`chat-thread-${THREAD_A.id}`)).not.toBeInTheDocument();
     expect(screen.getByTestId("loading")).toBeInTheDocument();
   });
+
+  /**
+   * 独立 review 第三轮阻断项——`mountedRef` 只挡了"卸载后的响应能不能写缓存"，
+   * 没有证明请求本身真的被取消了（而不是"结果被忽略，网络仍在后台跑完"）。这条
+   * 用例直接抓 `listPersonalThreads` 收到的 `AbortSignal`，断言组件卸载时它
+   * 真的被 `abort()`——不是间接推断，是读这个信号自己的 `aborted` 属性。
+   */
+  it("组件卸载 ⇒ 仍在飞的列表请求收到真实的 AbortSignal（不只是结果被忽略）", async () => {
+    sessionState.sessionToken = "abort-signal-bearer"; // 独立 bearer，避免读到别的用例留下的缓存
+    let capturedSignal: AbortSignal | undefined;
+    listPersonalThreads.mockImplementationOnce((_opts, _token, signal) => {
+      capturedSignal = signal;
+      return new Promise(() => {}); // 挂起——只有真的被 abort，这个 promise 才会有动静
+    });
+
+    const { unmount } = render(<CopilotKitV2Shell initialThreadId={null} />);
+    await waitFor(() => expect(listPersonalThreads).toHaveBeenCalledTimes(1));
+    expect(capturedSignal).toBeInstanceOf(AbortSignal);
+    expect(capturedSignal?.aborted).toBe(false);
+
+    unmount();
+    expect(capturedSignal?.aborted).toBe(true);
+  });
 });
 
 describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () => {
