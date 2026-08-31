@@ -193,7 +193,7 @@ export function OverviewLive() {
             {limitEvents && limitEvents.length > 5 && (
               <a
                 href="/admin/members"
-                className="self-start text-11 text-primary hover:underline"
+                className="self-start text-11 text-primary transition-colors duration-base hover:underline"
                 data-testid="admin-overview-anomalies-more"
               >
                 查看全部 {fmt.format(limitEvents.length)} 项 → 成员配额 · 限额策略
