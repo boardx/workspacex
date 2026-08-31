@@ -345,6 +345,9 @@ import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor"
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { PlanControlController } from "./interface/controllers/plan-control.controller";
+import { BoardController } from "./interface/controllers/board.controller";
+import { TASK_REPOSITORY, TASK_STATUS_AUDIT_WRITER } from "./application/board/ports";
+import { PgTaskRepository, PgTaskStatusAuditWriter } from "./infrastructure/board/pg-task-repository";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 import { ChatFollowUpSuggestionsController } from "./interface/controllers/chat-followup-suggestions.controller";
 import { FOLLOWUP_MODEL_CONFIG } from "./application/chat/generate-followup-suggestions";
@@ -765,6 +768,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     CopilotkitAguiController,
     // F977 (plan-control 契约束).
     PlanControlController,
+    // F02/F06 (board 契约束).
+    BoardController,
     AgentTrialRunController,
     SkillTrialRunController,
     AgentController,
@@ -829,6 +834,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgPlanLedgerRepository(db),
       inject: [DATABASE_PORT],
     },
+    // F02/F06 (board 契约束) -- F01 shipped these ports with no infra binding
+    // ("纯 API/状态机断言，不锚 UI"); this is the first controller wiring them up.
+    { provide: TASK_REPOSITORY, useClass: PgTaskRepository },
+    { provide: TASK_STATUS_AUDIT_WRITER, useClass: PgTaskStatusAuditWriter },
     {
       provide: PLAN_RUN_STATUS_READER,
       useExisting: PLAN_LEDGER_REPOSITORY,
