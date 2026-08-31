@@ -41,17 +41,22 @@
 """
 from __future__ import annotations
 
+import logging
 import os
+from typing import Awaitable, Callable
 
 from langchain.agents.middleware import (
     AgentMiddleware,
     ModelCallLimitMiddleware,
+    ModelRequest,
+    ModelResponse,
     SummarizationMiddleware,
     TodoListMiddleware,
     ToolCallLimitMiddleware,
     ToolRetryMiddleware,
 )
 from langchain_core.language_models.chat_models import BaseChatModel
+from langgraph.errors import GraphBubbleUp
 
 from deepagents import FilesystemMiddleware, RubricMiddleware
 from deepagents.middleware.rubric import RubricState
@@ -158,6 +163,202 @@ def build_precompletion_middleware(model: BaseChatModel) -> list[AgentMiddleware
     return [*seed, RubricMiddleware(model=model, max_iterations=RUBRIC_MAX_ITERATIONS)]
 
 
+# DA-11（issue #2220 方案 B，rubric D1「结构化计划」的确定性保证；issue #2417 重做——
+# 第一版通过 PR #2410 合入、又被 PR #2423 紧急回滚，见下方"2026-08-30 生产事故"一节）：
+# 任务模式的用户可见承诺是「Agent 会先给出计划，得到确认后再执行」，方案 A（graph.py
+# 的 SYSTEM_PROMPT 追加一段"必须调用 write_todos"的规则）只是概率性服从——实测同一句
+# 提示词换一轮对话，真实模型可能仍然直接在回复正文里写"第一步/第二步"纯文字，从不
+# 触发 write_todos（issue #2220 实测命中率 0/1）。plan-control 六态面板的唯一数据来源
+# 是 write_todos 工具调用成功（copilotkit-agui.controller.ts），所以"模型愿不愿意听话"
+# 这件事必须从系统提示词的软约束升级为 API 层的硬约束。
+#
+# 任务模式标记：`copilotkit-v2-panel-body.tsx` 的 `send()` 在任务模式开启时会把这句
+# 固定中文前缀拼进用户消息正文（无其它结构化字段传这个信号，接线现状见 issue #2220
+# 诊断第 4 点）——本模块就近读这句文案，不在 web/API 层新开一条结构化通道：把这次
+# 修复限定在 deep-agent-service 内部，避免因为要新增跨服务字段而把一次"补齐确定性
+# 保证"的小改动放大成 web+api+graph 三层的接口变更。
+#
+# ## 2026-08-30 生产事故（issue #2417）：只实现同步 wrap_model_call 导致 100% 请求失败
+#
+# 第一版实现（PR #2410）只重写了 `AgentMiddleware.wrap_model_call`（同步）。
+# `deep-agent-service` 是用 `langgraph dev` 跑的，走的是**异步** runtime
+# （`ainvoke()`/`astream()`）。真实容器日志（PR #2423 描述里的完整 traceback）实锤：
+# LangChain agents 框架在异步上下文里调用中间件链时，任何一个中间件只要没实现
+# `awrap_model_call`，框架自己的默认实现会在**中间件的业务逻辑跑之前**直接
+# `raise NotImplementedError`——不区分这次调用是不是任务模式、消息里有没有标记，
+# 每一次模型调用都会命中。这解释了两件事：①用户第一次任务模式实测失败、第二次连
+# "你好"都失败——根因和触发条件完全无关；②PR #2410 自己的 TC-6 测试全绿——测试用
+# `graph.invoke()`（同步路径），从未覆盖 `langgraph dev` 实际使用的异步路径。
+#
+# 教训直接写进了这次重做的验证方式：`test_tc6_...` 现在同时覆盖同步 `graph.invoke()`
+# 与异步 `asyncio.run(graph.ainvoke(...))` 两条路径（后者是 issue #2417 的直接反证——
+# 见该测试文件头注），而不是只跑同步桩测试就断言"修好了"。修法：`AgentMiddleware`
+# 的官方契约是"要么两个都不覆写（都用框架默认的同步/异步互转），要么两个都覆写"——
+# 下面的 `wrap_model_call`/`awrap_model_call` 是同一份判断逻辑（`_prepare_forced_request`）
+# 的两个入口，业务逻辑单一事实源，只是 sync/async 调用 handler 的方式不同。
+TASK_MODE_MARKER = "请先给出计划，经确认后再执行"
+
+_logger = logging.getLogger(__name__)
+
+
+def _human_text(message: object) -> str:
+    """从一条消息里抽出人类可读文本；只认 `type == "human"`，结构化多模态 content
+    时兜底拼接文本块，不因为 content 不是纯字符串就漏判任务模式标记。"""
+    if getattr(message, "type", None) != "human":
+        return ""
+    content = getattr(message, "content", "")
+    if isinstance(content, str):
+        return content
+    if not isinstance(content, list):
+        return ""
+    parts = [
+        str(part.get("text", ""))
+        for part in content
+        if isinstance(part, dict) and part.get("type") == "text"
+    ]
+    return "".join(parts)
+
+
+def _write_todos_already_called(messages: list) -> bool:
+    """给定的消息片段里 `write_todos` 是否已经被真实调用过一次。"""
+    for message in messages:
+        for call in getattr(message, "tool_calls", None) or []:
+            if call.get("name") == "write_todos":
+                return True
+    return False
+
+
+def _latest_human_turn_index(messages: list) -> int | None:
+    """`messages` 里最后一条人类消息的下标；没有人类消息时返回 `None`。"""
+    for i in range(len(messages) - 1, -1, -1):
+        if getattr(messages[i], "type", None) == "human":
+            return i
+    return None
+
+
+def _tool_names(tools: list) -> set[str]:
+    return {
+        (getattr(t, "name", None) or (t.get("name") if isinstance(t, dict) else None))
+        for t in tools
+    }
+
+
+def _prepare_forced_request(request: ModelRequest) -> ModelRequest | None:
+    """任务模式判据是否命中、要不要把这次 `request` 钉成 `tool_choice="write_todos"`。
+
+    命中时返回替换后的 `request`；不命中（没有任务模式标记 / `write_todos` 未挂载 /
+    本轮已经调用过）原样返回 `None`，调用方（`wrap_model_call`/`awrap_model_call`）
+    直接透传原始 `request`，不做任何改动——sync/async 两个入口共享同一份判断逻辑，
+    不重复写两遍容易漂移的条件判断。
+
+    触发条件（同时满足，判据全部锚定**最新一条人类消息所在的这一轮**——首版实现
+    按"本次 run 的整份 transcript"判断，在长线程/多轮对话里有两个真实 bug：①同一
+    线程里更早一次任务已经调用过 write_todos，会永久关闭后续新任务模式请求的强制；
+    ②summarization 裁掉了那次历史工具调用、但更早的任务模式标记还留在某条人类消息
+    里时，一次后续的普通提问会被误判成任务模式并被强制。两者的共同根因都是"看了
+    不该看的历史"，修法是把判断窗口收窄到"最新这一轮"）：
+    1. `write_todos` 工具确实挂载在本次可用工具清单里（`TodoListMiddleware` 提供）；
+       没挂载时不强行指向一个不存在的工具，原样放行——这是配置异常，不是本中间件
+       该兜底的场景（下方 `_logger.warning` 让这个分支可观测，不是真的悄无声息）。
+    2. **最新一条人类消息**（不是历史上任意一条）里出现任务模式标记
+       （`TASK_MODE_MARKER`）。
+    3. `write_todos` 在**这条最新人类消息之后**还没被调用过——一旦模型已经在
+       本轮产出过结构化计划，立刻不再强制，确认后的执行/收尾步骤按模型自己的
+       判断继续，不会被卡成"每一步都必须先摆一次待办"；更早某一轮任务已经调用
+       过 write_todos 完全不影响这一判断，新一轮任务模式请求会被独立、重新强制。
+    """
+    turn_start = _latest_human_turn_index(request.messages)
+    if turn_start is None:
+        return None
+
+    if TASK_MODE_MARKER not in _human_text(request.messages[turn_start]):
+        return None
+
+    if "write_todos" not in _tool_names(request.tools):
+        # 任务模式标记要求确定性强制，但 write_todos 这次没挂载——多半是
+        # build_middleware() 被改动（比如误删 TodoListMiddleware）导致的配置
+        # 漂移。不强行把 tool_choice 指向一个不存在的工具（那样每次模型调用
+        # 都会直接报错，比"退回方案 A 的提示词软约束"更糟），但记一条可观测的
+        # warning——production 里 build_middleware() 无条件挂 TodoListMiddleware，
+        # 这个分支目前不可达，warning 是留给未来重构不慎踩到这里时的信号。
+        _logger.warning(
+            "任务模式标记出现但 write_todos 工具未挂载，无法确定性强制"
+            "（build_middleware() 是否误删了 TodoListMiddleware？）——"
+            "已退回不强制，行为等同于只有方案 A 的提示词软约束。"
+        )
+        return None
+
+    if _write_todos_already_called(request.messages[turn_start + 1 :]):
+        return None
+
+    return request.override(tool_choice="write_todos")
+
+
+class PlanFirstToolChoiceMiddleware(AgentMiddleware):
+    """任务模式下把第一次模型调用的 `tool_choice` 钉成 `write_todos`（见上方模块注释）。
+
+    机制：把改过的 `request`（`tool_choice="write_todos"`）转交给 `handler`，
+    `langchain.agents.factory` 最终原样把它传进
+    `model.bind_tools(final_tools, tool_choice=request.tool_choice, ...)`——这是
+    provider 的 API 契约（OpenAI 等模型收到具名 tool_choice 时必须调用该工具），
+    不依赖模型对提示词的服从概率。
+
+    ⚠ **同步/异步两个入口都必须实现**（issue #2417 的教训，见上方模块注释）：
+    `AgentMiddleware` 的官方契约是子类只覆写 `wrap_model_call` 时，框架在**异步**
+    runtime（`ainvoke()`/`astream()`，`langgraph dev` 的实际运行方式）下调用
+    `awrap_model_call` 会直接 `raise NotImplementedError`——这个异常发生在
+    `_prepare_forced_request` 的业务判断**之前**，不区分任务模式请求还是普通对话，
+    每一次模型调用都会命中。两个方法共享 `_prepare_forced_request` 这一份判断逻辑，
+    只是调用/await `handler` 的方式不同，业务逻辑不会因为要覆写两个入口而分叉出
+    两份容易漂移的判据。
+
+    强制调用若被 provider 拒绝/报错，捕获后退回**不强制**的原始 `request` 重试一次
+    （等同于只有方案 A 的提示词软约束）；仍然失败说明失败与 tool_choice 无关，
+    异常原样往上抛，不吞真实故障。显式放行 `langgraph.errors.GraphBubbleUp`
+    （HITL interrupt 等控制流信号，不是"错误"，不能被当成 provider 拒绝吞掉再重试）。
+    """
+
+    def wrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
+        forced_request = _prepare_forced_request(request)
+        if forced_request is None:
+            return handler(request)
+        try:
+            return handler(forced_request)
+        except GraphBubbleUp:
+            raise
+        except Exception as exc:  # noqa: BLE001 — 见类头注"强制调用若被拒绝"
+            _logger.warning(
+                "任务模式强制 tool_choice=\"write_todos\" 被 provider 拒绝/报错，"
+                "退回不强制重试一次（等同于只有方案 A 的提示词软约束）：%s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return handler(request)
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        forced_request = _prepare_forced_request(request)
+        if forced_request is None:
+            return await handler(request)
+        try:
+            return await handler(forced_request)
+        except GraphBubbleUp:
+            raise
+        except Exception as exc:  # noqa: BLE001 — 见类头注"强制调用若被拒绝"
+            _logger.warning(
+                "任务模式强制 tool_choice=\"write_todos\" 被 provider 拒绝/报错，"
+                "退回不强制重试一次（等同于只有方案 A 的提示词软约束）：%s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return await handler(request)
+
+
 def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
 
@@ -166,6 +367,10 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """
     return [
         TodoListMiddleware(),
+        # DA-11（#2220 方案 B，重做见 issue #2417）：紧跟在 TodoListMiddleware 之后——
+        # 它依赖 write_todos 工具已经挂载，逻辑上属于"规划工具本身"这一组，不是与
+        # 限流/摘要同级的关注点。
+        PlanFirstToolChoiceMiddleware(),
         SummarizationMiddleware(
             model=model,
             trigger=("tokens", 60000),
