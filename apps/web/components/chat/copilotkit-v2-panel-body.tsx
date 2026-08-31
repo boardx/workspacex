@@ -17,7 +17,8 @@ import { Loader2, AlertTriangle, ArrowDown, ArrowUp, ListChecks, Sparkles } from
 import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
-import { useCopilotKitV2RunProgress, LONG_RUN_HINT } from "@/lib/copilotkit-v2-run-progress";
+import { useCopilotKitV2RunProgress, LONG_RUN_HINT, type RunStage } from "@/lib/copilotkit-v2-run-progress";
+import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import {
@@ -64,6 +65,14 @@ import {
   APPROVAL_TOOL_NAME,
   approvalToolParameters,
 } from "@/components/chat/copilotkit-v2-approval-dialog";
+
+/** PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段的显示顺序与文案，唯一事实源。 */
+const RUN_STAGE_ORDER: ReadonlyArray<{ key: RunStage; label: string }> = [
+  { key: "preparing", label: "准备" },
+  { key: "acting", label: "执行" },
+  { key: "replying", label: "回复" },
+];
+
 export function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
@@ -72,6 +81,7 @@ export function CopilotKitV2PanelBody({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
+  onTaskModeChange,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -119,6 +129,13 @@ export function CopilotKitV2PanelBody({
     readonly startedAt: number | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
+  /**
+   * PROP-CHAT-UIUX-ITER-002 V3 —— 「任务模式」是否开启，上报给外壳的右栏 Inspector
+   * 「运行详情」页签展示一条「当前模式」，与 composer 上真实的 `taskMode` state
+   * 保持同一份事实源（不新建第二份状态）。同 `onRunStateChange` 等既有回调一样，
+   * 各自一个 effect、依赖数组精确到值。
+   */
+  onTaskModeChange?: (taskMode: boolean) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -797,6 +814,11 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onPendingMaterialsChange?.(pendingMaterialsCount);
   }, [pendingMaterialsCount, onPendingMaterialsChange]);
+  // PROP-CHAT-UIUX-ITER-002 V3 —— 同上面三个既有回调同一条纪律：独立 effect，
+  // 依赖数组精确到 taskMode 本身。
+  React.useEffect(() => {
+    onTaskModeChange?.(taskMode);
+  }, [taskMode, onTaskModeChange]);
 
   /**
    * issue #2130（TW-P0-1③，回指 #2068）—— 空状态「技能 N」上下文标签的真实计数。
@@ -1336,6 +1358,31 @@ export function CopilotKitV2PanelBody({
               aria-live="polite"
               className="mt-3 flex w-fit max-w-full flex-col gap-1 rounded-lg border border-border-subtle bg-muted/60 px-3 py-2"
             >
+              {/* PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段（准备/执行/回复），
+                  从 `runProgress.stage` 派生（详见 `copilotkit-v2-run-progress.ts` 头注：
+                  不是 TW-P0-3①那套六态工作流指示器，两者独立）。`stage` 为 `null`
+                  时（未开始、或 `runRestore.isRestoring` 的核实窗口——那段没有真实
+                  事件支撑）不渲染，不编一个默认阶段。 */}
+              {runProgress.stage !== null ? (
+                <span
+                  className="flex items-center gap-1 text-9 text-muted-foreground"
+                  data-testid="copilotkit-v2-thinking-stage"
+                  data-stage={runProgress.stage}
+                >
+                  {RUN_STAGE_ORDER.map(({ key, label }, i) => (
+                    <React.Fragment key={key}>
+                      {i > 0 ? <span aria-hidden>→</span> : null}
+                      <span
+                        className={cn(
+                          key === runProgress.stage && "font-medium text-card-foreground",
+                        )}
+                      >
+                        {label}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </span>
+              ) : null}
               <span
                 className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
                 data-testid="copilotkit-v2-thinking"
