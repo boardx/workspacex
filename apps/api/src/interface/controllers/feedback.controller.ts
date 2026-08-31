@@ -31,6 +31,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
@@ -64,6 +65,7 @@ import { voteFeedback } from "../../application/feedback/vote-feedback";
 import {
   FeedbackIllegalTransitionError,
   FeedbackIssueCreationFailedError,
+  FeedbackIssueInProgressError,
   FeedbackNotFoundError,
   FeedbackTriageForbiddenError,
   FeedbackTriageReasonRequiredError,
@@ -246,6 +248,11 @@ export class FeedbackController {
         // ⚠ fail closed(见 `triage-feedback.ts` 头注①):状态**没有**变,
         //   503 而不是 500——这是一个已知的、可重试的下游依赖故障,不是服务器错误。
         throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+      }
+      if (e instanceof FeedbackIssueInProgressError) {
+        // 409 而不是 503/500:这不是"下游依赖不可用",是"这件事正被别的请求同时
+        // 处理"——语义上是并发冲突,重试前应该先刷新看看结果,而不是无脑重试。
+        throw new ConflictException({ reasonCode: "ISSUE_CREATION_IN_PROGRESS" });
       }
       throw e;
     }

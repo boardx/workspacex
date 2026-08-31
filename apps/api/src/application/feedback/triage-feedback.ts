@@ -28,6 +28,17 @@
  *   「没有弹层就没有草稿,不该在没人editability 编辑的情况下凭空建一个」与「同一条
  *   反馈来回 已进入迭代⇄待处理⇄已进入迭代 不该每次都建一张新 issue」。
  *
+ * ⚠ **2026-08-31 补(PR #2431 二轮独立审查阻断项①)**:`current.githubIssueUrl === null`
+ *   这个判断本身不是原子的——两个并发的分诊请求可能都读到 null,都去建 issue,
+ *   同一条反馈挂出两张票。所以真正下判断、真正调 GitHub 之前,先原子地
+ *   `deps.repo.claimGithubIssueCreation` 认领一次;认领失败(另一个并发请求正在办
+ *   或已经办完)就当作"这条反馈的 issue 创建已经在别处发生",抛
+ *   `FeedbackIssueInProgressError`(409),**不**再退化成"忽略、直接改状态"——
+ *   那会让状态变了但没人知道 issue 到底建没建成。认领成功后调 GitHub 失败,
+ *   显式 `releaseGithubIssueClaim` 放行下一次重试,不等 5 分钟的过期窗口。
+ *   完整的原子性论证与"解决了什么、没解决什么"见迁移
+ *   `20260831010000_fb2_feedback_github_issue_claim.sql` 头注。
+ *
  * ### ② 任意转移都尽力发一封状态变更邮件 —— **best-effort,失败不影响主流程**
  *
  * 这一条与①相反:状态变更是**已经发生的事实**(要么是这次改的,要么是幂等重放前
@@ -68,6 +79,16 @@ export class FeedbackIssueCreationFailedError extends Error {
   constructor(cause: unknown) {
     super("github issue creation failed, feedback status left unchanged");
     this.cause = cause;
+  }
+}
+/**
+ * 认领失败——另一个并发请求正在建这条反馈的 issue,或已经建完了(`findById` 读到
+ * `null` 与 `claimGithubIssueCreation` 真正执行之间,别的请求抢先完成了整个流程)。
+ * 不是这次请求的错,但也不能假装"顺便"成功——调用方(前端)据此提示"请刷新后再看"。
+ */
+export class FeedbackIssueInProgressError extends Error {
+  constructor() {
+    super("another request is already creating (or has already created) this feedback's github issue");
   }
 }
 
@@ -136,15 +157,19 @@ export async function triageFeedback(
     };
   }
 
-  // ① 转「已进入迭代」且带了 issueDraft 且这条反馈还没有 issue ⇒ 先建,建不成就整个用例失败。
-  // fail closed,不落库——理由见文件头①。
+  // ① 转「已进入迭代」且带了 issueDraft 且这条反馈还没有 issue ⇒ 先认领、再建。
+  // 认领失败 = 并发冲突,直接失败,不悄悄跳过(那会让状态变了但没人知道 issue
+  // 到底建没建成)。认领成功后建失败,fail closed 且释放认领——理由见文件头①/⚠。
   let githubIssueUrl = current.githubIssueUrl;
   if (outcome.to === "已进入迭代" && input.issueDraft !== null && current.githubIssueUrl === null) {
+    const claimed = await deps.repo.claimGithubIssueCreation(input.feedbackId);
+    if (!claimed) throw new FeedbackIssueInProgressError();
     try {
       const created = await deps.githubIssues.create(input.issueDraft);
       githubIssueUrl = created.url;
       await deps.repo.setGithubIssue(input.feedbackId, created);
     } catch (e) {
+      await deps.repo.releaseGithubIssueClaim(input.feedbackId);
       const cause = e instanceof GithubIssueCreationError ? e : new GithubIssueCreationError(null);
       throw new FeedbackIssueCreationFailedError(cause);
     }

@@ -251,9 +251,50 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
   async setGithubIssue(feedbackId: string, issue: { readonly url: string; readonly number: number }): Promise<void> {
     await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       await s.query(
-        `UPDATE product_feedback SET github_issue_url = $3, github_issue_number = $4
+        `UPDATE product_feedback
+            SET github_issue_url = $3, github_issue_number = $4, github_issue_claimed_at = NULL
           WHERE org_id = $2 AND id = $1`,
         [feedbackId, this.orgId, issue.url, issue.number],
+      );
+    });
+  }
+
+  /**
+   * 多旧算"过期"：5 分钟。这个数字要盖住一次真实 GitHub REST 调用可能的最长耗时
+   * （`FetchGithubIssueCreator` 自己的请求超时是 10s，5 分钟是给"调用方进程在
+   * 拿到认领之后、真正发起请求之前又卡了一阵"这类更慢的异常路径留够余量），
+   * 又不能长到"进程崩溃之后这条反馈要等很久才能被重试"——两者都不是精确科学，
+   * 5 分钟是这两条约束之间一个不假装精确的选择。
+   */
+  private static readonly CLAIM_STALE_AFTER_SQL = `now() - interval '5 minutes'`;
+
+  async claimGithubIssueCreation(feedbackId: string): Promise<boolean> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      // ⚠ 这一条 UPDATE 本身就是原子性的来源：Postgres 对同一行的并发 UPDATE
+      //   互斥执行，两个并发事务里只有一个能把 `github_issue_claimed_at`
+      //   从满足 WHERE 的旧值改成 `now()`，另一个的这条语句在它之后执行时
+      //   WHERE 条件已经不再成立（除非它足够旧），`RETURNING` 因此是空集——
+      //   不需要应用层加锁、不需要 `SELECT ... FOR UPDATE` 跨网络调用持锁。
+      const { rows } = await s.query<{ id: string }>(
+        `UPDATE product_feedback
+            SET github_issue_claimed_at = now()
+          WHERE org_id = $2 AND id = $1
+            AND github_issue_url IS NULL
+            AND (github_issue_claimed_at IS NULL
+                 OR github_issue_claimed_at < ${ScopedPgProductFeedbackRepository.CLAIM_STALE_AFTER_SQL})
+          RETURNING id`,
+        [feedbackId, this.orgId],
+      );
+      return rows.length > 0;
+    });
+  }
+
+  async releaseGithubIssueClaim(feedbackId: string): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `UPDATE product_feedback SET github_issue_claimed_at = NULL
+          WHERE org_id = $2 AND id = $1`,
+        [feedbackId, this.orgId],
       );
     });
   }

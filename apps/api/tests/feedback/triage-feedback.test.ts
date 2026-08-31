@@ -13,6 +13,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   FeedbackIssueCreationFailedError,
+  FeedbackIssueInProgressError,
   triageFeedback,
   type TriageFeedbackDeps,
 } from "../../src/application/feedback/triage-feedback";
@@ -44,11 +45,23 @@ function row(over: Partial<FeedbackRow> = {}): FeedbackRow {
   };
 }
 
-/** 内存版仓储 fake——只实现用例真正用到的行为,状态可变以观测落库结果。 */
-function fakeRepo(initial: FeedbackRow): ProductFeedbackRepository & { current: FeedbackRow } {
-  const state = { current: initial };
+/**
+ * 内存版仓储 fake——只实现用例真正用到的行为,状态可变以观测落库结果。
+ *
+ * `claimGithubIssueCreation` 的默认实现模拟真实 pg 实现的**同一条不变量**
+ * （见 `pg-product-feedback-repository.ts`）：只在 `githubIssueUrl === null` 且
+ * 尚未被认领时才能认领成功,认领成功会把 `claimed` 标记为 true,直到
+ * `setGithubIssue`（建成功回填）或 `releaseGithubIssueClaim`（建失败释放）
+ * 把它改回 false——不是真的原子（内存里没有并发这回事），但对"认领之后
+ * 必须被释放或转正,不能悬空"这条不变量的测试是足够的：
+ * 需要模拟"另一个并发请求正在办"时,测试直接覆写这个方法本身即可
+ * （见下方"认领失败"用例），不需要 fake 自己支持并发。
+ */
+function fakeRepo(initial: FeedbackRow): ProductFeedbackRepository & { current: FeedbackRow; claimed: boolean } {
+  const state = { current: initial, claimed: false };
   return {
     current: state.current,
+    get claimed() { return state.claimed; },
     insert: vi.fn(),
     list: vi.fn(),
     findById: vi.fn(async () => state.current),
@@ -57,12 +70,19 @@ function fakeRepo(initial: FeedbackRow): ProductFeedbackRepository & { current: 
       state.current = { ...state.current, status, statusReason: reason };
     }),
     appendStatusEvent: vi.fn(),
+    claimGithubIssueCreation: vi.fn(async () => {
+      if (state.current.githubIssueUrl !== null || state.claimed) return false;
+      state.claimed = true;
+      return true;
+    }),
+    releaseGithubIssueClaim: vi.fn(async () => { state.claimed = false; }),
     setGithubIssue: vi.fn(async (_id, issue) => {
       state.current = { ...state.current, githubIssueUrl: issue.url, githubIssueNumber: issue.number };
+      state.claimed = false;
     }),
     counts: vi.fn(),
     get [Symbol.toStringTag]() { return "fakeRepo"; },
-  } as unknown as ProductFeedbackRepository & { current: FeedbackRow };
+  } as unknown as ProductFeedbackRepository & { current: FeedbackRow; claimed: boolean };
 }
 
 function baseDeps(over: Partial<TriageFeedbackDeps> = {}): TriageFeedbackDeps {
@@ -169,6 +189,54 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
     expect(repo.updateStatus).not.toHaveBeenCalled();
     expect(repo.appendStatusEvent).not.toHaveBeenCalled();
     // best-effort 邮件也不该发——状态根本没变,没有什么值得通知的事实。
+    expect(deps.mail.send).not.toHaveBeenCalled();
+  });
+
+  it("建失败 ⇒ 释放认领,不悬空——下一次重试不必等 5 分钟的过期窗口", async () => {
+    const repo = fakeRepo(row());
+    const deps = baseDeps({
+      repo,
+      githubIssues: { create: vi.fn(async () => { throw new GithubIssueCreationError(500); }) },
+    });
+    await expect(
+      triageFeedback(deps, {
+        feedbackId: "fb-1",
+        status: "已进入迭代",
+        reason: null,
+        issueDraft: { title: "t", body: "b", labels: [] },
+        ...ADMIN,
+      }),
+    ).rejects.toBeInstanceOf(FeedbackIssueCreationFailedError);
+    expect(repo.claimGithubIssueCreation).toHaveBeenCalledWith("fb-1");
+    expect(repo.releaseGithubIssueClaim).toHaveBeenCalledWith("fb-1");
+    expect(repo.claimed).toBe(false);
+  });
+
+  /**
+   * PR #2431 二轮独立审查阻断项①——两个并发的"转开发"请求都读到
+   * `githubIssueUrl === null`，但只有一个能真的认领成功。这条用例不模拟
+   * "两个请求同时跑"（内存 fake 没有真并发），而是直接模拟"认领这一步失败"
+   * ——这正是 `claimGithubIssueCreation` 存在的意义：把"两个请求谁赢"这件事
+   * 收敛成数据库一行 UPDATE 的互斥，用例层不需要、也不应该自己再实现一遍
+   * 并发判断，只需要正确处理"认领失败"这一个结果。
+   */
+  it("认领失败(另一个并发请求正在办)⇒ 不调 GitHub,抛 FeedbackIssueInProgressError,状态不落库", async () => {
+    const repo = fakeRepo(row());
+    (repo.claimGithubIssueCreation as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+    const deps = baseDeps({ repo });
+    await expect(
+      triageFeedback(deps, {
+        feedbackId: "fb-1",
+        status: "已进入迭代",
+        reason: null,
+        issueDraft: { title: "t", body: "b", labels: [] },
+        ...ADMIN,
+      }),
+    ).rejects.toBeInstanceOf(FeedbackIssueInProgressError);
+    expect(deps.githubIssues.create).not.toHaveBeenCalled();
+    expect(repo.updateStatus).not.toHaveBeenCalled();
+    expect(repo.appendStatusEvent).not.toHaveBeenCalled();
+    expect(repo.releaseGithubIssueClaim).not.toHaveBeenCalled(); // 没认领到,没有什么好释放的
     expect(deps.mail.send).not.toHaveBeenCalled();
   });
 });

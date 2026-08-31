@@ -322,6 +322,13 @@ export const operations = {
       "PERMISSION_REVOKED",
       "TRIAGE_REASON_REQUIRED",
       "DEPENDENCY_UNAVAILABLE",
+      /**
+       * 2026-08-31（PR #2431 二轮独立审查阻断项①）：并发的两次"转开发"请求，
+       * 后到的那个在原子认领（`claimGithubIssueCreation`）这一步就会被拒绝——
+       * 不是下游依赖不可用（`DEPENDENCY_UNAVAILABLE`），是这件事正被另一个
+       * 请求同时处理。调用方据此提示"请刷新后再看"，而不是无脑重试。
+       */
+      "ISSUE_CREATION_IN_PROGRESS",
     ] as const,
   },
 
