@@ -56,3 +56,6 @@ export * as agentInterrupts from "./agent-interrupts";
 
 /* ── TW-P0-3 计划编辑与执行控制（F972）─────────────────────────────── */
 export * as planControl from "./plan-control";
+
+/* ── phase-02 看板（F01）任务对象统一五态 ─────────────────────────────── */
+export * as board from "./board";
