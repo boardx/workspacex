@@ -273,6 +273,70 @@ def test_provider_rejecting_forced_tool_choice_degrades_to_unforced_retry_not_ru
     )
 
 
+def test_provider_rejecting_forced_tool_choice_degrades_to_unforced_retry_not_run_failure_async(
+    evidence,  # noqa: ANN001
+):
+    """反证③的异步版本（独立 review, PR review comment 5472495179 指出的缺口）：
+    上面的同步版本只钉住了 `wrap_model_call` 的降级重试分支——`awrap_model_call`
+    自己的 try/except 从未被一条"provider 真的拒绝了"的用例跑过；已有的异步测试
+    （`..._async` 上面那条）用的是不拒绝的模型，只证明了 `awrap_model_call` 会被
+    调用、不会撞上 `NotImplementedError`，没有证明它自己的降级重试分支是真的。
+
+    这条测试通过 `asyncio.run(graph.ainvoke(...))`（`deep-agent-service` 生产实际
+    调用方式）驱动同一个 `ScriptedChatModel(reject_forced_tool_choice=True)` 剧本，
+    断言与同步版本逐条对称：第一次调用被强制、provider 拒绝后第二次调用退回不
+    强制、run 正常收尾——这是 `awrap_model_call` 自己的 `except Exception` 降级
+    分支，不是靠"跟同步版本逐行相似"就推定成立。
+
+    控制变量复验（与本 PR 其余反证同一套方法论）：临时把 `awrap_model_call` 的
+    `except Exception` 分支改成直接 `raise`（不降级重试），重跑本测试——确实变红
+    （`ScriptedProviderRejectsToolChoice` 原样从 `graph.ainvoke()` 冒泡出来，
+    `assert len(model.calls) >= 2` 或后续断言失败）；恢复原实现后重新转绿。
+    """
+    model = ScriptedChatModel(router=_uncooperative_router, reject_forced_tool_choice=True)
+    graph = _build_graph(model)
+
+    result = asyncio.run(
+        graph.ainvoke(
+            {"messages": [{"role": "user", "content": f"{TASK_MODE_MARKER}：帮我把周报拆成三步"}]},
+            {"configurable": {"thread_id": "tc6-provider-rejects-forced-tool-choice-async"}},
+        )
+    )
+
+    assert model.calls[0]["bound_tool_choice"] == "write_todos"
+    assert len(model.calls) >= 2, (
+        "provider 拒绝具名 tool_choice 后 awrap_model_call 必须退回不强制重试一次"
+    )
+    assert model.calls[1]["bound_tool_choice"] is None, (
+        "awrap_model_call 的降级重试必须不再强制 tool_choice，否则会撞上同一个 "
+        "provider 拒绝、无限失败"
+    )
+    final_texts = [str(getattr(m, "content", "")) for m in result["messages"]]
+    assert any(UNCOOPERATIVE_ANSWER in t for t in final_texts), (
+        "异步降级重试后 run 必须正常收尾并产出最终回复，不能让 provider 拒绝强制这件事"
+        "本身变成整轮失败"
+    )
+
+    evidence.write(
+        "tc6-provider-rejects-forced-tool-choice-degrades-not-fails-async",
+        {
+            "scenario": (
+                "provider 拒绝具名 tool_choice 强制调用时，awrap_model_call 退回不强制"
+                "重试一次，run 正常收尾（异步 asyncio.run(graph.ainvoke(...))，生产实际"
+                "调用方式；独立 review PR review comment 5472495179 指出的缺口）"
+            ),
+            "dimensions": ["D1"],
+            "not_covered_here": [
+                "真实 DashScope/qwen-plus 端点是否真的拒绝具名 tool_choice"
+                "（issue #2417 排查已确认这不是那次生产事故的直接根因，见 harness.py 头注）"
+            ],
+            "task_mode_marker": TASK_MODE_MARKER,
+            "model_call_tool_choices": [c["bound_tool_choice"] for c in model.calls],
+            "tool_call_names_in_transcript": tool_call_names(result["messages"]),
+        },
+    )
+
+
 def test_scripted_provider_rejects_tool_choice_is_importable():
     """纯粹的接线看守：确保 `ScriptedProviderRejectsToolChoice` 真的从 `_scripted`
     导出，不是本文件顶部 import 到一个不存在的符号却因为其它测试先跑过而没暴露。"""
