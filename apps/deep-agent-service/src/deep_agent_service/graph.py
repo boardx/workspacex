@@ -20,7 +20,6 @@ from __future__ import annotations
 from deepagents import create_deep_agent
 
 from deep_agent_service.harness import (
-    TASK_MODE_MARKER,
     build_checkpointer,
     build_interrupt_on,
     build_middleware,
@@ -35,20 +34,12 @@ SYSTEM_PROMPT = (
     "已挂载的技能、调用哪一个，可以用 list_org_skills 看看有哪些技能可用，再用 call_skill"
     "把具体任务交给对应技能真正执行——不要凭技能的名字或已有印象直接编答案。"
     "\n\n"
-    # #2220（方向 A）：任务模式开关会在用户消息正文前拼上 TASK_MODE_MARKER 这句固定
-    # 文案（见 apps/web/components/chat/copilotkit-v2-panel-body.tsx 的 send()）。实测
+    # #2220（方向 A）：任务模式开关会在用户消息正文前拼上「请先给出计划，经确认后再
+    # 执行」这句固定文案（见 apps/web/components/chat/copilotkit-v2-panel.tsx）。实测
     # 发现真实模型收到这句话后倾向于直接在回复正文里写「第一步/第二步/第三步」这类纯
     # 文字列表，从不调用已挂载的 write_todos 工具，导致 plan-control 账本永远是空的
     # （revision=0）。以下这条规则就是为了堵住这个缺口：
-    #
-    # DA-11（issue #2220 方案 B）：这里从 harness 导入 TASK_MODE_MARKER 而不是重复
-    # 写死这句中文——harness.py 的 PlanFirstToolChoiceMiddleware 用同一个常量判断
-    # 是否要强制 tool_choice="write_todos"，两处各写一份字面量曾是本仓五次真实漂移
-    # 事故的成因（AGENTS.md「同一事实不得声明在两处」），这里收敛成单一 Python 侧
-    # 事实源。web 侧（copilotkit-v2-panel-body.tsx）因跨语言边界仍是独立字面量，由
-    # test_harness.py::test_task_mode_marker_matches_web_panel_literal 机械看守两边
-    # 不漂移。
-    f"当用户的请求包含「{TASK_MODE_MARKER}」，或更宽泛地表达了「先说计划、"
+    "当用户的请求包含「请先给出计划，经确认后再执行」，或更宽泛地表达了「先说计划、"
     "确认后再做」「先规划再执行」这类语义时，你必须调用 write_todos 工具，把每一步计划"
     "写成一条独立的待办项（初始状态为 pending），而不是只在回复正文里用「第一步/第二步」"
     "这种纯文字描述步骤——纯文字列表不会被系统记录为结构化计划，用户将看不到确认界面。"

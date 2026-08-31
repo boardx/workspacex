@@ -5,13 +5,7 @@ phase: "01"
 # 2026-08-26 requirement-author 生成 F972–F978（issue #2143，估点合计 31）后回填 covers；
 #   原 covers_pending（「feature 尚未生成」的 doctor WARN 降级理由）已随之移除，不再适用。
 #   追加规则见 .harness/instructions/contract-design.md「covers 追加规则」三条件。
-# 2026-08-30 追加 F1682（issue #2220 方案 B）：三条件证据——①UI 零新增（六态面板/
-#   计划面板既有渲染逻辑不变）；②契约零新增（write_todos → ingestEnginePlanSnapshot
-#   写路径完全复用 F972/F973 已签契约，只是让它被更可靠地触发）；③设计面零新增
-#   （无新错误码/字段/屏幕/交互语义，纯 deep-agent-service 内部引擎改动：
-#   PlanFirstToolChoiceMiddleware 用 tool_choice 确定性强制，不改前端/API 契约）。
-#   status/confirmed_by/confirmed_at 未改，不构成重签。
-covers: [F972, F973, F974, F975, F976, F977, F978, F1682]
+covers: [F972, F973, F974, F975, F976, F977, F978]
 status: confirmed          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 confirmed_by: usamshen             # 确认人（姓名/邮箱）
 confirmed_at: "2026-08-26T07:32:57Z"             # ISO 8601，且不得晚于签核当下
