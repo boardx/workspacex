@@ -328,6 +328,15 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   }, [bearer, loadRoster, roster, selectedThreadId]);
 
   const [createPending, setCreatePending] = React.useState(false);
+  /**
+   * 🔴 2026-08-31 补：`handleCreate` 此前没有 catch——`createPersonalThread`/
+   *   `reloadThreads` 失败时异常直接从 `void handleCreate()` 里逃逸成一个未处理的
+   *   promise rejection，用户点"新建"后界面上什么反馈都没有（`finally` 确实会把
+   *   `createPending` 复位，按钮不会卡死，但失败本身无声无息）。兄弟处理器
+   *   `handleRename`/`handleDelete`/`runRosterMutation` 都是"捕获失败 → 显式落一个
+   *   失败态给用户看"的同一套纪律（`describeMutateFailure`），这里补齐，不是新造一套。
+   */
+  const [createFailure, setCreateFailure] = React.useState<string | null>(null);
 
   /**
    * 🔴 issue #2094：**已有空线程时复用它，不再建第二条**（人类裁决的配套半边）。
@@ -365,6 +374,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const handleCreate = React.useCallback(async () => {
     if (!bearer) return;
     setCreatePending(true);
+    setCreateFailure(null);
     try {
       const topCard = threads?.groups[0]?.cards[0];
       if (topCard?.status === "not-started") {
@@ -374,6 +384,8 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       const result = await createPersonalThread(null);
       await reloadThreads();
       router.push(`/chat/${result.threadId}`);
+    } catch (failure) {
+      setCreateFailure(describeMutateFailure(failure));
     } finally {
       setCreatePending(false);
     }
@@ -622,6 +634,11 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         <ThreadListHeader title="工作" />
         <div className="flex flex-col gap-1.5 px-3">
           <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="交一件事给 AI" />
+          {/* 2026-08-31 补：新建失败此前无声无息（见上面 `createFailure` 头注）——
+              现在与 `mutateFailure`（改名/删除失败）同一套呈现纪律，就地印一行红字。 */}
+          {createFailure ? (
+            <p className="text-10 text-destructive" data-testid="copilotkit-v2-create-thread-error">{createFailure}</p>
+          ) : null}
           {/* issue #2039（第 3 轮 gap #2，fidelity P2）——个人对话上下文如实说明，
               与旧轨道 `personal-chat-screen.tsx` 同一句文案，不画假项目名填空。 */}
           <p className="text-10 text-muted-foreground">不挂靠任何项目，仅自己可见</p>
