@@ -43,6 +43,20 @@ import { PROVENANCE_EVENT_LABEL } from "@/lib/provenance-labels";
  * ② `actorId` 不是显示名，要靠 `listOrgMembers` 映射。**映射不到就显示 id**，
  *    不隐藏该行：隐藏会让审计流少掉记录，那比显示一个丑 id 严重得多
  *    （已离开组织的人、系统身份，都会映射不到）。
+ *
+ * ## 为什么整个组件用 `key={orgId}` 包一层，而不是在 effect 里清空 state（PR #2425 二轮独立审查）
+ *
+ * 第一版修法是「`orgId` 一变，两个 effect 里各自同步清空自己的 state」。独立审查指出这
+ * 仍然太晚：`orgId` 变化触发的那次渲染，`useEffect` 是**提交之后**才跑的被动效果——
+ * 这中间存在一次「新组织身份 + 旧组织数据（用量/活动流/限额事件，都是审计级别的敏感
+ * 信息）」被真实提交到屏幕的渲染，只是测试里的 `act()` 会把它和后续的 effect 更新
+ * 一起 flush 掉，看不出来，不代表真实浏览器不会画出这一帧。
+ *
+ * 真正的堵法是让「这份数据属于哪个组织」变成渲染时的结构性事实，而不是靠事后清空。
+ * 做法是把真正持有 state 的部分整体挪进 `OverviewLiveInner`，由外层 `OverviewLive`
+ * 用 `key={orgId}` 挂载它——`orgId` 一变，旧实例连同它的全部 state 被 React 直接丢弃，
+ * 换一个从初始 state（全部是 `null`，即「还没有任何数据」）开始的全新实例，这个替换
+ * 发生在同一次协调里，不存在中间态可以被提交。
  */
 
 type Loaded = {
@@ -65,26 +79,22 @@ const fmt = new Intl.NumberFormat("zh-CN");
 
 export function OverviewLive() {
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
+  // `key={orgId}` 是这里的重点：见上方文件头注「为什么用 key 而不是 effect 清空」。
+  return <OverviewLiveInner key={orgId ?? "__no_org__"} orgId={orgId} />;
+}
+
+/**
+ * 只持有「这一个 orgId 的数据」——`orgId` 变化时整个实例被外层的 `key` 换掉重新挂载，
+ * 初始 state 永远是全 `null`（「还没有任何数据」），不存在跨组织残留的可能。
+ */
+function OverviewLiveInner({ orgId }: { orgId: string | null }) {
   const [data, setData] = React.useState<Loaded | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [limitEvents, setLimitEvents] = React.useState<ListLimitEventsOut["events"] | null>(null);
   const [limitError, setLimitError] = React.useState<string | null>(null);
 
-  /**
-   * ⚠ 独立审查发现（PR #2425）：这里此前是 `if (!orgId) return;`，且**只在成功时**才
-   * `setData`——`data`/`error` 从不在 `orgId` 变化时清空。切组织后，上一个组织的用量、
-   * 活跃成员数、活动流（甚至具体到谁在什么时间做了什么）会一直渲染在新组织的身份下，
-   * 直到新请求成功；新请求失败时旧数据永远留着，`cancelled` 只挡得住「迟到的写入」，
-   * 挡不住「已经在状态里的读」。这是比 `AdminHeader` 那处更严重的一版同类问题（活动流
-   * 是审计级别的敏感信息，不是一个用量数字）。
-   *
-   * 现在：`orgId` 一变就**同步清空** `data`/`error`（`orgId` 变 null 时也一样），
-   * 界面永远不会把不属于当前 `orgId` 的用量/活动流渲染出来。
-   */
   React.useEffect(() => {
-    setData(null);
-    setError(null);
-    if (!orgId) return;
+    if (!orgId) return; // 初始 state 已经是全空（见上），没有请求要发。
     let cancelled = false;
     void (async () => {
       try {
@@ -110,10 +120,7 @@ export function OverviewLive() {
     return () => { cancelled = true; };
   }, [orgId]);
 
-  /** 同上一个 effect 的道理，限额事件也要在 `orgId` 变化时同步清空，不留旧组织的痕迹。 */
   React.useEffect(() => {
-    setLimitEvents(null);
-    setLimitError(null);
     if (!orgId) return;
     let cancelled = false;
     void (async () => {

@@ -196,6 +196,11 @@ describe("限额事件（F162 真数据；PR #2425 独立审查补的正向断�
     arrange({ limitEvents: [limitEvent({ eventId: "ev-old-org" })] });
     const { rerender } = render(<OverviewLive />);
     await waitFor(() => expect(screen.getByTestId("admin-overview-anomaly-ev-old-org")).toBeTruthy());
+    // 换组织前记下这个区块的 DOM 节点引用——只有真正的 `key` 触发卸载重挂载，
+    // 才会换成一个新节点；如果修法只是"在 effect 里清空 state"，React 会原地更新
+    // 同一个节点。这条断言核对的是结构事实，不依赖任何"多快清空"的时序假设，
+    // 不会被 `act()` 把渲染与 effect 一起 flush 掉这件事掩盖过去。
+    const nodeBeforeSwitch = screen.getByTestId("admin-overview-anomalies");
 
     // 换组织：新组织的请求故意不 resolve——这个断言必须在新请求还悬着时就成立，
     // 否则测的是「最终一致」，不是「同步清空」，会让「旧组织内容多渲染一帧」这种
@@ -208,6 +213,9 @@ describe("限额事件（F162 真数据；PR #2425 独立审查补的正向断�
     expect(screen.queryByTestId("admin-overview-anomalies-empty")).toBeNull();
     expect(screen.queryByTestId("admin-overview-anomalies-load-failed")).toBeNull();
     expect(listLimitEvents).toHaveBeenCalledWith("org-2");
+    // 结构性证据：换组织后拿到的是一个不同的 DOM 节点——`key={orgId}` 真的触发了
+    // 卸载重挂载，不是同一个节点被原地改写、只是内容碰巧还没填进去。
+    expect(screen.getByTestId("admin-overview-anomalies")).not.toBe(nodeBeforeSwitch);
   });
 
   it("组织变成 null（例如登出）⇒ 同样立即清空，不留上一个组织的痕迹", async () => {

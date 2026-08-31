@@ -48,6 +48,11 @@ describe("AdminHeader：额度状态按 orgId 归属，不跨组织残留", () =
     getTokenQuotas.mockResolvedValue({ orgBudget: 1_000_000, orgUsed: 780_000 });
     const { rerender } = render(<AdminHeader moduleLabel="总览" />);
     await waitFor(() => expect(screen.getByTestId("admin-header").textContent).toContain("78%"));
+    // 换组织前记下这个 DOM 节点的引用——如果修法只是"在 effect 里清空 state"，
+    // React 会**原地更新同一个节点**；只有真正的 `key` 换挂载才会产生一个新节点。
+    // 这条断言直接核对"结构上是不是换了一个实例"，不依赖任何时序假设，
+    // 不会被 `act()` 把渲染 + effect 一起 flush 掉这件事迷惑。
+    const nodeBeforeSwitch = screen.getByTestId("admin-header-quota");
 
     // 新组织的请求故意悬着不 resolve —— 断言必须在这一刻成立，而不是等它最终一致。
     getTokenQuotas.mockReturnValue(new Promise(() => {}));
@@ -61,6 +66,9 @@ describe("AdminHeader：额度状态按 orgId 归属，不跨组织残留", () =
     expect(screen.getByTestId("admin-header").textContent).not.toContain("78%");
     expect(screen.getByTestId("admin-header").textContent).not.toContain("780,000");
     expect(getTokenQuotas).toHaveBeenLastCalledWith("org-2");
+    // 结构性证据：换组织后拿到的是一个不同的 DOM 节点——`key={orgId}` 真的触发了
+    // 卸载重挂载，不是同一个节点被原地改写。
+    expect(screen.getByTestId("admin-header-quota")).not.toBe(nodeBeforeSwitch);
   });
 
   it("组织变成 null（例如登出）⇒ 显示「尚未选择组织」，不是上一个组织的旧额度", async () => {
