@@ -1,27 +1,34 @@
 "use client";
 import * as React from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, ShieldAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
-import { getUsageReport, listOrgMembers, type GetUsageReportOut } from "@/lib/live-org-admin";
+import { getUsageReport, listOrgMembers, listLimitEvents, type GetUsageReportOut, type ListLimitEventsOut } from "@/lib/live-org-admin";
 import { queryProvenance, type ProvenanceEvent } from "@/lib/live-provenance";
 import { PROVENANCE_EVENT_LABEL } from "@/lib/provenance-labels";
 
 /**
- * #1182 —— 总览屏**三个已经有真后端的格子**接真端点。
+ * #1182 起总览屏三格接真后端；2026-08-30 起「异常待处理」也接上（F162 `listLimitEvents`
+ * 落地之后）——整屏因此**不再是混合态**，见本文件与 `overview-screen.tsx` 的改动。
  *
  * 人类 2026-08-14 对 Q-12 的裁决：归属选 A（屏内容留给 phase-03），
- * **但**已经有真后端的三格现在就接，不等 phase-03；且落地时要显式标注
+ * **但**已经有真后端的格子现在就接，不等 phase-03；且落地时要显式标注
  * 哪几格是真、哪几格还是演示——别让界面看起来「整屏已完成」。
  *
  *   本月 token 消耗  `GET /organizations/:orgId/usage`.totalTokens        （F159+F161）
  *   活跃成员        同上 `.activeMemberCount`                            （F161）
  *   活动流          `GET /provenance`                                    （F03/F08）
+ *   限额事件        `GET /organizations/:orgId/limit-events`             （F162）
  *
- * 异常三格与导出两个按钮**仍是演示数据**，留在 `overview-screen.tsx` 里并各自带标记。
+ * ## 「限额事件」不是「异常检测」
+ *
+ * phase-03 F15（越权调用识别、额度异常的模式识别）仍未落地——这里读到的是**已经存在**
+ * 的限额规则触发记录（F162），是「组织自己设的阈值被越过」，不是「系统主动判定出一条
+ * 反常行为」。两者是不同的能力，命名上不该混为一谈，所以这块的标题就叫「限额事件」，
+ * 不叫「异常待处理」——那个名字要留给 F15 真正落地的那一天。
  *
  * ## 「活跃成员」不是「成员总数」
  *
@@ -48,6 +55,11 @@ const ORG_ROLE_LABEL: Record<string, string> = {
   admin: "管理员", lead: "负责人", consultant: "顾问", compliance: "合规",
 };
 
+/** 触顶动作的中文标签 —— 与 `usage-monitor-tab.tsx` 同源于契约枚举 `LimitAction`。 */
+const ACTION_LABEL: Record<string, string> = {
+  warn: "预警", degrade: "已降级", block: "已拒绝", require_approval: "待批准",
+};
+
 /** 千分位。`Intl` 而不是自己写正则——同一个格式在别处也是这么出的。 */
 const fmt = new Intl.NumberFormat("zh-CN");
 
@@ -55,6 +67,8 @@ export function OverviewLive() {
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
   const [data, setData] = React.useState<Loaded | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [limitEvents, setLimitEvents] = React.useState<ListLimitEventsOut["events"] | null>(null);
+  const [limitError, setLimitError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!orgId) return;
@@ -83,10 +97,28 @@ export function OverviewLive() {
     return () => { cancelled = true; };
   }, [orgId]);
 
+  React.useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const out = await listLimitEvents(orgId);
+        if (!cancelled) setLimitEvents(out.events);
+      } catch (err) {
+        if (!cancelled) {
+          setLimitError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [orgId]);
+
+  const blockingCount = limitEvents?.filter((e) => e.actionTaken === "block" || e.actionTaken === "degrade").length ?? null;
+
   return (
     <>
-      {/* ── 两块真指标 ── */}
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-2" data-testid="admin-overview-live-metrics">
+      {/* ── 三块真指标 ── */}
+      <section className="grid grid-cols-1 gap-3 md:grid-cols-3" data-testid="admin-overview-live-metrics">
         <MetricCard
           testid="admin-overview-metric-tokens"
           label="本月 token 消耗"
@@ -102,6 +134,73 @@ export function OverviewLive() {
           foot="本月有过调用的人数，不是成员总数"
           error={error}
         />
+        <MetricCard
+          testid="admin-overview-metric-anomaly"
+          label="限额事件"
+          value={limitEvents ? `${fmt.format(limitEvents.length)} 项` : null}
+          foot={
+            limitEvents
+              ? blockingCount !== null && blockingCount > 0
+                ? `其中 ${blockingCount} 项已阻断/降级`
+                : "近期没有被拒绝或降级的调用"
+              : null
+          }
+          error={limitError}
+        />
+      </section>
+
+      {/* ── 限额事件（F162 真数据；不是 phase-03 F15 的异常检测） ── */}
+      <section className="flex flex-col gap-2" data-testid="admin-overview-anomalies">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-14 font-semibold">限额事件</h2>
+          <Badge tone="outline" data-testid="admin-overview-anomalies-live">真数据</Badge>
+          <span className="text-11 text-muted-foreground">
+            组织自设的限额规则被触发时留下的记录；识别越权调用等异常模式的能力尚未落地（phase-03）。
+          </span>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col gap-2 pt-4">
+            {limitError && (
+              <p className="text-12 text-muted-foreground" data-testid="admin-overview-anomalies-load-failed">
+                读不到限额事件（{limitError}）。这里不退回演示数据——假的异常记录会被当成真的处置依据。
+              </p>
+            )}
+            {limitEvents?.length === 0 && (
+              <p className="text-12 text-muted-foreground" data-testid="admin-overview-anomalies-empty">
+                近期没有任何限额规则被触发。
+              </p>
+            )}
+            {(limitEvents ?? []).slice(0, 5).map((ev, i) => (
+              <div key={ev.eventId} data-testid={`admin-overview-anomaly-${ev.eventId}`}>
+                <div className="flex items-start gap-2 py-1.5">
+                  <Badge tone={ev.actionTaken === "block" ? "danger" : ev.actionTaken === "warn" ? "warning" : "primary"}>
+                    <ShieldAlert aria-hidden className="mr-1 h-3 w-3" />
+                    {ACTION_LABEL[ev.actionTaken] ?? ev.actionTaken}
+                  </Badge>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-12 leading-relaxed">
+                      {ev.subjectRef} 触顶：观测 {fmt.format(ev.observedTokens)} / 上限 {fmt.format(ev.thresholdTokens)}
+                    </p>
+                    <p className="font-mono text-10 text-muted-foreground">
+                      {new Date(ev.occurredAt).toLocaleString("zh-CN")}
+                      {ev.ruleId === "" ? " · 规则已删除" : ` · 规则 ${ev.ruleId.slice(0, 8)}`}
+                    </p>
+                  </div>
+                </div>
+                {i < Math.min(5, limitEvents?.length ?? 0) - 1 && <Separator />}
+              </div>
+            ))}
+            {limitEvents && limitEvents.length > 5 && (
+              <a
+                href="/admin/members"
+                className="self-start text-11 text-primary hover:underline"
+                data-testid="admin-overview-anomalies-more"
+              >
+                查看全部 {fmt.format(limitEvents.length)} 项 → 成员配额 · 限额策略
+              </a>
+            )}
+          </CardContent>
+        </Card>
       </section>
 
       {/* ── 活动流 ── */}
