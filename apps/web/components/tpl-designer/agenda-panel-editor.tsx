@@ -3,6 +3,7 @@ import * as React from "react";
 import { GripVertical } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -16,19 +17,18 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * 没有"半场"嵌套，也没有分开的「引导师职责/组长职责」两列；只有一个合并的
  * `boardSkill`（"绑哪个画布/Skill"）自由文本列。
  *
- * ## 「半场」只是文案，不是数据结构——已核实，不是漏做
+ * ## 「半场」已落地为数据结构（2026-08-31）
  *
- * 原型的 `dragHint`（"抓左侧握把拖动：环节可跨半场，半场可整块换位"）与
- * `actions`（含"上移半场/下移半场"）两处文案提到"半场"，但 `AGENDA_PANEL.segments`
- * 本身是扁平数组，**没有任何 `halfDay`/分组字段**；`AgendaPanel` 组件也只是把
- * `segments` 平铺渲染成一个 `<ul>`，`actions` 里的 7 个按钮全部**没有 onClick**
- * （纯 ghost 按钮，原型本来就是静态示意，不是真交互）。全仓搜过 `mock/tpl.ts`
- * 与 `design-facet-table.ts`，"半场"作为数据结构在别处也不存在——它是原型文案
- * 里描述的一种**使用场景**（多天档蓝本可能把环节分几个半天），不是已经落地的
- * 分组概念。因此本编辑器不发明 `halfDay` 字段：拖拽实现的是"环节可以拖到列表
- * 任意位置"（单一扁平列表内的自由重排），这已经完整覆盖 dragHint 里"可跨半场"
- * 这句话字面能验证的部分——真要建模半场分组，需要先有一条新的字段提议与签核，
- * 不在本次范围内。
+ * 下面这段曾经准确描述过一段时间的状态："半场"只是原型文案，`AGENDA_PANEL.segments`
+ * 是扁平数组，没有 `day`/`session` 字段——现在不再准确，留作历史背景：原型的
+ * `dragHint`（"抓左侧握把拖动：环节可跨半场，半场可整块换位"）与 `actions`
+ * （含"上移半场/下移半场"）两处文案提到"半场"，当时确实没有配套的数据结构。
+ * 用户反馈明确要求把"上下午/多天分组"做成真实可编辑的结构，本次改动就是这条
+ * 提议本身的落地：`AgendaSegmentDraft` 新增 `day`（第几天，从 1 开始）与
+ * `session`（`"AM" | "PM"`）两个字段，环节列表按 `day → session` 分组渲染，
+ * 拖拽重排收窄为**只在同一天同一半场内**生效（跨组重排是"改环节属于哪个半场"，
+ * 是另一个操作，走环节行上的 day/session 选择控件，不是拖拽）。旧数据没有这两个
+ * 字段时，解析时回退成 `day: 1, session: "AM"`，不会因为老蓝本缺字段而崩。
  *
  * ## 拖拽实现：指针事件，不是像素级动画库
  *
@@ -63,24 +63,35 @@ const AI_RHYTHM = {
   body: "对照 12 场两天档记录：第 2 天上午的「原型搭建」平均超时 22 分钟，是全场最大缺口；而「组间互评」若少于 20m，昨天的决策会被重新争论一遍。建议 10 加到 90m，把 11 压到 30m。",
 } as const;
 
+export type AgendaSession = "AM" | "PM";
+
 export interface AgendaSegmentDraft {
   readonly no: string;
   readonly title: string;
   readonly min: number;
   readonly boardSkill: string;
   readonly optional: boolean;
+  readonly day: number;
+  readonly session: AgendaSession;
 }
 
 export interface AgendaContentValue {
   readonly segments: readonly AgendaSegmentDraft[];
 }
 
+const SESSION_LABEL: Record<AgendaSession, string> = { AM: "上午", PM: "下午" };
+const DAY_OPTIONS = Array.from({ length: 7 }, (_, d) => ({ value: String(d + 1), label: `第 ${d + 1} 天` }));
+const SESSION_OPTIONS = [
+  { value: "AM", label: "上午" },
+  { value: "PM", label: "下午" },
+] as const;
+
 function padNo(index: number): string {
   return String(index + 1).padStart(2, "0");
 }
 
 function emptySegment(index: number): AgendaSegmentDraft {
-  return { no: padNo(index), title: "", min: 30, boardSkill: "", optional: false };
+  return { no: padNo(index), title: "", min: 30, boardSkill: "", optional: false, day: 1, session: "AM" };
 }
 
 function renumber(segments: readonly AgendaSegmentDraft[]): AgendaSegmentDraft[] {
@@ -105,6 +116,10 @@ export function parseAgendaContent(content: string): AgendaContentValue {
         min: typeof s?.min === "number" && s.min > 0 ? s.min : 30,
         boardSkill: typeof s?.boardSkill === "string" ? s.boardSkill : "",
         optional: typeof s?.optional === "boolean" ? s.optional : false,
+        // 旧数据没有 day/session（引入这两个字段之前存的蓝本）——回退成第 1 天上午，
+        // 不因缺字段崩掉整个面板。
+        day: typeof s?.day === "number" && Number.isInteger(s.day) && s.day > 0 ? s.day : 1,
+        session: s?.session === "PM" ? "PM" : "AM",
       })),
     };
   } catch {
@@ -184,6 +199,13 @@ export function AgendaPanelEditor({
     void persist(next);
   }
 
+  /** 改一个环节属于哪天/哪个半场——这是"这个环节归到哪组"的操作，不是拖拽重排，立即落库。 */
+  function updateDaySession(index: number, patch: Partial<Pick<AgendaSegmentDraft, "day" | "session">>): void {
+    const next = { segments: value.segments.map((s, i) => (i === index ? { ...s, ...patch } : s)) };
+    setValue(next);
+    void persist(next);
+  }
+
   function moveSegment(index: number, delta: -1 | 1): void {
     const target = index + delta;
     if (target < 0 || target >= value.segments.length) return;
@@ -223,6 +245,13 @@ export function AgendaPanelEditor({
     const from = draggingIndexRef.current;
     if (Number.isNaN(overIndex) || overIndex === from) return;
 
+    // 只在同一天同一半场内允许拖拽交换——跨组意味着改变这个环节属于哪天哪个
+    // 半场，那是另一个操作（环节行上的 day/session 选择控件），不是拖拽重排。
+    const dragged = valueRef.current.segments[from];
+    const target = valueRef.current.segments[overIndex];
+    if (dragged === undefined || target === undefined) return;
+    if (dragged.day !== target.day || dragged.session !== target.session) return;
+
     const segments = [...valueRef.current.segments];
     const [moved] = segments.splice(from, 1);
     segments.splice(overIndex, 0, moved!);
@@ -244,6 +273,20 @@ export function AgendaPanelEditor({
 
   const totalMinutes = value.segments.reduce((sum, s) => sum + s.min, 0);
 
+  // 按 day → session 分组渲染，组内保持 `value.segments` 里的原有相对顺序；
+  // `index` 存的是环节在 `value.segments` 里的全局下标（data-testid/拖拽/
+  // 上移下移都按这个全局下标寻址，分组只影响渲染顺序，不改变存储结构）。
+  const groups: { day: number; session: AgendaSession; indices: number[] }[] = [];
+  value.segments.forEach((seg, i) => {
+    let g = groups.find((x) => x.day === seg.day && x.session === seg.session);
+    if (g === undefined) {
+      g = { day: seg.day, session: seg.session, indices: [] };
+      groups.push(g);
+    }
+    g.indices.push(i);
+  });
+  groups.sort((a, b) => (a.day !== b.day ? a.day - b.day : a.session === b.session ? 0 : a.session === "AM" ? -1 : 1));
+
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-agenda-list">
@@ -260,8 +303,17 @@ export function AgendaPanelEditor({
                 {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
               </span>
             )}
+            <button
+              type="button"
+              onClick={() => void persist(value)}
+              disabled={status === "saving"}
+              className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
+              data-testid="bp-facet-save-button"
+            >
+              保存
+            </button>
             <span className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">
-              抓左侧握把拖动：环节可跨半场，半场可整块换位
+              抓左侧握把拖动：同一天同一半场内可重排；换天/换半场用环节行上的选择器
             </span>
           </div>
         </div>
@@ -271,101 +323,127 @@ export function AgendaPanelEditor({
             还没有环节——点「＋ 环节」新增。没写产出物的环节不能保存——那是闲聊不是环节。
           </p>
         ) : (
-          <ul className="flex flex-col gap-1.5">
-            {value.segments.map((seg, i) => (
-              <li
-                key={i}
-                data-agenda-index={i}
-                className={
-                  draggingIndex === i
-                    ? "flex flex-wrap items-center gap-1.5 rounded-md border border-primary bg-accent p-2.5 opacity-80"
-                    : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2.5"
-                }
-                data-testid={`bp-agenda-segment-${i}`}
-              >
-                <span
-                  role="button"
-                  tabIndex={-1}
-                  aria-label={`拖动排序：${seg.title || "环节 " + seg.no}`}
-                  aria-hidden={false}
-                  className="flex h-3.5 w-3.5 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground active:cursor-grabbing"
-                  data-testid={`bp-agenda-segment-grip-${i}`}
-                  onPointerDown={(e) => handleGripPointerDown(e, i)}
-                  onPointerMove={handleGripPointerMove}
-                  onPointerUp={handleGripPointerUp}
-                  onPointerCancel={handleGripPointerUp}
-                >
-                  <GripVertical aria-hidden className="h-3.5 w-3.5" />
-                </span>
-                <span className="w-6 shrink-0 text-11 font-mono text-muted-foreground">{seg.no}</span>
-                <Input
-                  type="text"
-                  className="min-w-0 flex-1 text-12 font-medium"
-                  value={seg.title}
-                  onChange={(e) => updateSegment(i, { title: e.target.value })}
-                  onBlur={() => void persist(value)}
-                  placeholder="环节名称"
-                  data-testid={`bp-agenda-segment-title-${i}`}
-                />
-                <Checkbox
-                  checked={seg.optional}
-                  onChange={() => toggleOptional(i)}
-                  label="可选"
-                  data-testid={`bp-agenda-segment-optional-${i}`}
-                />
-                <Input
-                  type="number"
-                  className="w-16 text-12"
-                  value={seg.min}
-                  onChange={(e) => updateSegment(i, { min: Number(e.target.value) || 0 })}
-                  onBlur={() => void persist(value)}
-                  aria-label="时长（分钟）"
-                  data-testid={`bp-agenda-segment-min-${i}`}
-                />
-                <span className="text-11 text-muted-foreground">分钟</span>
-                <Input
-                  type="text"
-                  className="w-40 border-dashed text-11 text-muted-foreground"
-                  value={seg.boardSkill}
-                  onChange={(e) => updateSegment(i, { boardSkill: e.target.value })}
-                  onBlur={() => void persist(value)}
-                  placeholder="绑哪个画布 / Skill"
-                  data-testid={`bp-agenda-segment-boardskill-${i}`}
-                />
-                <div className="flex gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => moveSegment(i, -1)}
-                    disabled={i === 0}
-                    className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
-                    aria-label="上移环节"
-                    data-testid={`bp-agenda-segment-up-${i}`}
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveSegment(i, 1)}
-                    disabled={i === value.segments.length - 1}
-                    className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
-                    aria-label="下移环节"
-                    data-testid={`bp-agenda-segment-down-${i}`}
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => removeSegment(i)}
-                    className="rounded border border-border px-1 text-11 text-destructive"
-                    aria-label="删除环节"
-                    data-testid={`bp-agenda-segment-remove-${i}`}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </li>
+          <div className="flex flex-col gap-3">
+            {groups.map((group) => (
+              <div key={`${group.day}-${group.session}`} data-testid={`bp-agenda-group-${group.day}-${group.session}`}>
+                <h4 className="mb-1 text-11 font-semibold text-muted-foreground">
+                  第 {group.day} 天 · {SESSION_LABEL[group.session]}
+                </h4>
+                <ul className="flex flex-col gap-1.5">
+                  {group.indices.map((i) => {
+                    const seg = value.segments[i]!;
+                    return (
+                      <li
+                        key={i}
+                        data-agenda-index={i}
+                        className={
+                          draggingIndex === i
+                            ? "flex flex-wrap items-center gap-1.5 rounded-md border border-primary bg-accent p-2.5 shadow-md opacity-80 transition-all duration-fast ease-fast"
+                            : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2.5 transition-all duration-fast ease-fast"
+                        }
+                        data-testid={`bp-agenda-segment-${i}`}
+                      >
+                        <span
+                          role="button"
+                          tabIndex={-1}
+                          aria-label={`拖动排序：${seg.title || "环节 " + seg.no}`}
+                          aria-hidden={false}
+                          className="flex h-3.5 w-3.5 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground active:cursor-grabbing"
+                          data-testid={`bp-agenda-segment-grip-${i}`}
+                          onPointerDown={(e) => handleGripPointerDown(e, i)}
+                          onPointerMove={handleGripPointerMove}
+                          onPointerUp={handleGripPointerUp}
+                          onPointerCancel={handleGripPointerUp}
+                        >
+                          <GripVertical aria-hidden className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="w-6 shrink-0 text-11 font-mono text-muted-foreground">{seg.no}</span>
+                        <Input
+                          type="text"
+                          className="min-w-0 flex-1 text-12 font-medium"
+                          value={seg.title}
+                          onChange={(e) => updateSegment(i, { title: e.target.value })}
+                          onBlur={() => void persist(value)}
+                          placeholder="环节名称"
+                          data-testid={`bp-agenda-segment-title-${i}`}
+                        />
+                        <Checkbox
+                          checked={seg.optional}
+                          onChange={() => toggleOptional(i)}
+                          label="可选"
+                          data-testid={`bp-agenda-segment-optional-${i}`}
+                        />
+                        <Input
+                          type="number"
+                          className="w-16 text-12"
+                          value={seg.min}
+                          onChange={(e) => updateSegment(i, { min: Number(e.target.value) || 0 })}
+                          onBlur={() => void persist(value)}
+                          aria-label="时长（分钟）"
+                          data-testid={`bp-agenda-segment-min-${i}`}
+                        />
+                        <span className="text-11 text-muted-foreground">分钟</span>
+                        <Input
+                          type="text"
+                          className="w-40 border-dashed text-11 text-muted-foreground"
+                          value={seg.boardSkill}
+                          onChange={(e) => updateSegment(i, { boardSkill: e.target.value })}
+                          onBlur={() => void persist(value)}
+                          placeholder="绑哪个画布 / Skill"
+                          data-testid={`bp-agenda-segment-boardskill-${i}`}
+                        />
+                        <Select
+                          options={DAY_OPTIONS}
+                          value={String(seg.day)}
+                          onValueChange={(v) => updateDaySession(i, { day: Number(v) || 1 })}
+                          className="h-7 min-w-[5rem] text-11"
+                          data-testid={`bp-agenda-segment-day-${i}`}
+                        />
+                        <Select
+                          options={SESSION_OPTIONS}
+                          value={seg.session}
+                          onValueChange={(v) => updateDaySession(i, { session: v === "PM" ? "PM" : "AM" })}
+                          className="h-7 min-w-[4.5rem] text-11"
+                          data-testid={`bp-agenda-segment-session-${i}`}
+                        />
+                        <div className="flex gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => moveSegment(i, -1)}
+                            disabled={i === 0}
+                            className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
+                            aria-label="上移环节"
+                            data-testid={`bp-agenda-segment-up-${i}`}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveSegment(i, 1)}
+                            disabled={i === value.segments.length - 1}
+                            className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
+                            aria-label="下移环节"
+                            data-testid={`bp-agenda-segment-down-${i}`}
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeSegment(i)}
+                            className="rounded border border-border px-1 text-11 text-destructive"
+                            aria-label="删除环节"
+                            data-testid={`bp-agenda-segment-remove-${i}`}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
 
         <button

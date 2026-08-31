@@ -34,7 +34,7 @@ const REAL_ROW = {
   durationTier: "custom" as const,
   appliedProjectCount: 0,
   satisfaction: null,
-  completeness: { done: 2, denominator: 15 },
+  completeness: { done: 2, denominator: 13 }, // 13 = DESIGN_FACET_DEFINITIONS.length（roles-and-perms/group-capabilities 已移除，15→13）
   availableActions: [] as const,
 };
 
@@ -79,7 +79,7 @@ describe("BP-06 /tpl/designer：按 blueprintId 真实读（无编造字段）",
 
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
     expect(screen.getByText("真实设计器蓝本 · 蓝本设计")).toBeInTheDocument();
-    expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("2/15");
+    expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("2/13");
     // 已填的两项在目录里应打勾（✓），不是靠 mock CONFIG_ITEMS 编出来的
     expect(screen.getByTestId("bp-designer-facet-topic-and-background").textContent).toContain("✓");
     expect(screen.getByTestId("bp-designer-facet-flow-agenda").textContent).toContain("✓");
@@ -188,7 +188,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-2",
           completed: true,
-          completeness: { done: 3, denominator: 15 },
+          completeness: { done: 3, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -207,8 +207,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     // 乐观并发：带上读到的 itemRevision，不是 0 也不是写端口的回声。
     await waitFor(() => expect(putBody!.expectedItemRevision).toBe("ir-1"));
     expect((JSON.parse(putBody!.value) as { rows: { name: string }[] }).rows[0]?.name).toBe("新产出");
-    // 完成度是 PUT 响应里的 3/15，不是前端本地 +1 猜出来的。
-    await waitFor(() => expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("3/15"));
+    // 完成度是 PUT 响应里的 3/13，不是前端本地 +1 猜出来的。
+    await waitFor(() => expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("3/13"));
   });
 
   it("并发冲突（VERSION_CHANGED）：如实提示，不静默覆盖", async () => {
@@ -301,7 +301,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-new-1",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -368,7 +368,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-new-1",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -436,7 +436,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: `ir-${(putBody as { value: string }).value.length}`,
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -483,7 +483,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-2",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -546,7 +546,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-2",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -563,50 +563,6 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     await waitFor(() => expect(putBody).not.toBeNull());
     const parsed = JSON.parse(putBody!.value) as { segments: { title: string }[] };
     expect(parsed.segments.map((s) => s.title)).toEqual(["环节乙", "环节甲"]);
-  });
-
-  it("角色与权限：灰色格禁用点击不发请求，可勾选格点击真实保存", async () => {
-    let putCount = 0;
-    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(typeof input === "string" ? input : input.toString());
-      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
-      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
-        return jsonResponse({ revision: "rev-1", designFacets: [] });
-      }
-      if (url.pathname === `/blueprints/${BP_ID}/design-facets/roles-and-perms` && init?.method === "PUT") {
-        putCount += 1;
-        return jsonResponse({
-          itemRevision: "ir-roles-1",
-          completed: true,
-          completeness: { done: 1, denominator: 15 },
-          autosavedAt: "2026-08-17T02:00:00Z",
-        });
-      }
-      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
-    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByTestId("bp-designer-facet-roles-and-perms"));
-    await screen.findByTestId("bp-permission-matrix");
-
-    // 灰格：已裁决只读（原型 `ROLES_PANEL.permRows[].lockedFor`），点击不触发保存。
-    const lockedCell = screen.getByTestId("bp-permission-cell-改议程-组长");
-    expect(lockedCell).toBeDisabled();
-    fireEvent.click(lockedCell);
-    expect(putCount).toBe(0);
-
-    // 可勾选格：点击真实保存。
-    const openCell = screen.getByTestId("bp-permission-cell-写本组画布-组员");
-    expect(openCell).not.toBeDisabled();
-    fireEvent.click(openCell);
-    await waitFor(() => expect(putCount).toBe(1));
-
-    // 分组方式单选与邀请与进场静态参考（原型 ROLES_PANEL.groupingMode/invite）也真实渲染。
-    expect(screen.getByTestId("bp-roles-modeopt-职能混编")).toBeInTheDocument();
-    expect(screen.getByTestId("bp-roles-invite").textContent).toContain("SSO 免登直接进组");
   });
 
   /* ── 分组二（问卷 / 访谈与对象 / 会前任务）── */
@@ -629,7 +585,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-new-1",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-18T02:00:00Z",
         });
       }
@@ -861,38 +817,6 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     });
   });
 
-  it("组内能力：7 项恒定能力，「与 AI 的对话」必留不可关，其余可开关并保存", async () => {
-    let putBody: { value: string } | null = null;
-    fetchMock = stubFacet("group-capabilities", { enabled: { "用户研究": false }, uses: {} }, (b) => {
-      putBody = b as typeof putBody;
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
-    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByTestId("bp-designer-facet-group-capabilities"));
-    // 能力集恒定 7 项（产品真实能力集，不是用户可增删的自由列表）。
-    expect(await screen.findByTestId("bp-caps-toggle-与 AI 的对话")).toBeInTheDocument();
-    expect(screen.getAllByTestId(/^bp-caps-item-/)).toHaveLength(7);
-    // 必留项：禁用且恒开，与原型「开 · 必留」一致。
-    const mustKeep = screen.getByTestId("bp-caps-toggle-与 AI 的对话");
-    expect(mustKeep).toBeDisabled();
-    expect(mustKeep).toBeChecked();
-    expect(screen.getByTestId("bp-caps-state-与 AI 的对话").textContent).toContain("必留");
-    // 存的关闭态真实回显。
-    expect(screen.getByTestId("bp-caps-toggle-用户研究")).not.toBeChecked();
-    // 回流与可见性是固定说明，不是可编辑字段。
-    expect(screen.getByTestId("bp-caps-reflow").textContent).toContain("洞察库");
-    expect(screen.getByTestId("bp-caps-visibility").textContent).toContain("组员私聊");
-    expect(screen.queryByTestId("bp-facet-content-group-capabilities")).toBeNull();
-
-    fireEvent.click(screen.getByTestId("bp-caps-toggle-组内投票"));
-    await waitFor(() => {
-      const parsed = JSON.parse(putBody!.value) as { enabled: Record<string, boolean> };
-      expect(parsed.enabled["组内投票"]).toBe(false);
-    });
-  });
-
   /* ── 分组四 / 分组五（Agent 编排 / Skill 绑定 / 输出物 / 报告模板）── */
 
   it("Agent 编排：agent 行真实回显，介入阈值可改，硬约束是只读清单", async () => {
@@ -1020,18 +944,23 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
 });
 
 /*
- * 机械门控：不是靠人记得「还有几项是 textbox」——把「15 项配置全部有专属结构化
- * 编辑器」钉成一条会红的断言。人类 2026-08-18 的批评正是「11/15 项仍然是通用
- * textbox」，这条测试保证它不会再悄悄退回去。
+ * 机械门控：不是靠人记得「还有几项是 textbox」——把「配置项定义表里的每一项都有
+ * 专属结构化编辑器」钉成一条会红的断言。人类 2026-08-18 的批评正是「11/15 项
+ * 仍然是通用 textbox」（当时表里是 15 项），这条测试保证它不会再悄悄退回去；
+ * 2026-08-31 产品决策移除 `roles-and-perms`/`group-capabilities` 后表降为 13 项，
+ * 断言的分母改成从 `DESIGN_FACET_CATALOG` 派生而不是写死字面量，改表不用改这里。
  */
-describe("16 项配置面板：全部落在专属结构化编辑器上（无一落回通用自由文本框）", () => {
+describe("配置面板：全部落在专属结构化编辑器上（无一落回通用自由文本框）", () => {
   it("design-facet-table 里的每一个 designFacetKey 都在 registry 上有专属编辑器", async () => {
     const { getFacetEditor } = await import("@/components/tpl-designer/facet-editor-registry");
     const { FacetTextEditor } = await import("@/components/tpl-designer/facet-content-editor");
     const { DESIGN_FACET_CATALOG } = await import("@/lib/generated/design-facet-catalog");
 
     const allKeys = DESIGN_FACET_CATALOG.groups.flatMap((g) => g.items.map((i) => i.designFacetKey));
-    expect(allKeys.length).toBeGreaterThanOrEqual(15);
+    // 13 = DESIGN_FACET_DEFINITIONS.length（roles-and-perms/group-capabilities 已移除）；
+    // 分母从 catalog 派生，不写死字面量。
+    expect(allKeys.length).toBe(DESIGN_FACET_CATALOG.denominator);
+    expect(allKeys.length).toBe(13);
 
     const stillGeneric = allKeys.filter((k) => getFacetEditor(k) === FacetTextEditor);
     expect(stillGeneric).toEqual([]);
@@ -1045,10 +974,10 @@ describe("16 项配置面板：全部落在专属结构化编辑器上（无一�
 });
 
 /*
- * 第 16 项「基本配置」聚合页 —— 16 项里唯一不是 designFacetKey 的一项，
+ * 「基本配置」聚合页 —— 13 个 designFacetKey 之外唯一的一项，
  * 走 setDurationTier / getInitializationPreview 两个契约操作而不是 facet 读写。
  */
-describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getInitializationPreview", () => {
+describe("「基本配置」聚合页：真实 setDurationTier + getInitializationPreview", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -1204,7 +1133,7 @@ describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getIn
     expect(puts).toHaveLength(1);
   });
 
-  it("预览读失败：只有那一节如实报错，其余 15 项照常能打开（不让整个设计器打不开）", async () => {
+  it("预览读失败：只有那一节如实报错，其余 13 项照常能打开（不让整个设计器打不开）", async () => {
     fetchMock = stubBasic({ preview: { reasonCode: "DEPENDENCY_UNAVAILABLE" }, previewStatus: 503 });
     vi.stubGlobal("fetch", fetchMock);
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
