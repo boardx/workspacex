@@ -338,8 +338,8 @@ export function AgendaPanelEditor({
                         data-agenda-index={i}
                         className={
                           draggingIndex === i
-                            ? "flex flex-wrap items-center gap-1.5 rounded-md border border-primary bg-accent p-2.5 shadow-md opacity-80 transition-all duration-150 ease-out"
-                            : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2.5 transition-all duration-150 ease-out"
+                            ? "flex flex-wrap items-center gap-1.5 rounded-md border border-primary bg-accent p-2.5 shadow-md opacity-80 transition-all duration-fast ease-fast"
+                            : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2.5 transition-all duration-fast ease-fast"
                         }
                         data-testid={`bp-agenda-segment-${i}`}
                       >
