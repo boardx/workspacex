@@ -138,3 +138,19 @@ END
 $$;
 
 GRANT USAGE, SELECT ON SEQUENCE task_status_audit_id_seq TO app_rw;
+
+-- issue #342 的同一个坑：`tasks.project_id` 是指向 `projects` 的单列外键，
+-- `kernel_project_archive_candidate_tables()` 会自动把它纳入候选，但「候选」不等于
+-- 「已安装」——安装函数不会自己重跑，必须在每一张新增候选表的迁移里显式调用一次
+-- （F124/i342 的 COMMENT 原话）。不重新调用，`verify-rls.sh` 的
+-- `kernel_project_archive_coverage_gaps()` 门控会精确报出 tasks 表缺失的三条策略。
+-- `task_status_audit` 没有 `project_id` 列，不是候选表，不受影响。
+SELECT kernel_apply_project_archive_policies();
+
+-- 同一个坑的组织层版本（F22 组织停用冻结，`kernel_org_is_writable`）：`tasks` 与
+-- `task_status_audit` 都带 `org_id` 外键，是 `kernel_apply_org_freeze_policies()` 的
+-- 候选表，同样必须在建表的这份迁移里显式重新调用一次——这是本仓几乎每一份新增
+-- 迁移文件末尾都在做的事（见 20260830193000_f05_digital_interview_expert_runs.sql
+-- 等），不重新调用会让 `migrate:check` 的强制重放在 schema digest 比对上现出差异
+-- （重放路径里后续迁移的调用会把这两张表"意外"补全，首次部署路径不会）。
+SELECT kernel_apply_org_freeze_policies();
