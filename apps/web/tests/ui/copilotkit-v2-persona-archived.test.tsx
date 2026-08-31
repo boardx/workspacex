@@ -202,6 +202,41 @@ describe("CK-P6 生成用户画像（issue #2053）", () => {
     expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
   });
 
+  /**
+   * 2026-08-31 review 反证第四轮——②b/②c 都没有真的构造出"`agent.messages` 与
+   * 后端持久化事实分叉"这件事：两条用例里 `agent.messages` 从头到尾都是空的，
+   * 用旧判据 `agent.messages.length > 0` 一样判不渲染，**证明不了新判据比旧判据
+   * 多做对了什么**（本地反证：把 `personaThreadHasPersistedEvidence` 换回
+   * `agent.messages.length > 0` 重跑这两条用例，照样全绿）。
+   *
+   * 这条用例才是 review 最初第 3 点要的场景：线程已建立、hydration 已经确认
+   * 落库为空（`hasMessages: false`），**之后**用户在 composer 里发了一条消息——
+   * `agent.addMessage`（`send()` 内部）会立刻乐观插入这条消息，`agent.messages.
+   * length` 瞬间变成 1，而这条线程在后端仍然没有任何已落库的消息（`runAgent`
+   * 这次会失败，不会有 `chat_thread_id` 事件把 id 记进 `resolvedThreadIdsRef`）。
+   * 旧判据这一刻会为真 ⇒ chip 出现 ⇒ 点了照样撞见"这条对话还没有已落库的消息"；
+   * 新判据两个证据源都不成立 ⇒ chip 必须继续不渲染。
+   */
+  it("②d hydration 确认为空之后，用户乐观发送一条消息 ⇒ 仍不渲染（agent.messages 与持久化事实分叉）", async () => {
+    listMessages.mockImplementation(async () => ({ messages: [], nextCursor: null }));
+    mount({ canGeneratePersona: true, chatThreadId: THREAD_ID });
+    const input = await screen.findByTestId("copilotkit-v2-input");
+    // 先等 hydration 真的跑完并确认这条线程持久化为空——不然这条用例证明的是
+    // "hydration 还没跑完"而不是"hydration 已确认为空、随后又分叉"。
+    await waitFor(() => expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull());
+
+    fireEvent.change(input, { target: { value: "先随便问一句" } });
+    fireEvent.click(screen.getByTestId("copilotkit-v2-send"));
+
+    // `agent.addMessage` 是同步乐观插入：消息气泡应该已经出现在消息区——这是
+    // "agent.messages.length > 0 现在为真"的直接证据，不是断言实现细节。
+    await waitFor(() => expect(screen.getByText("先随便问一句")).toBeTruthy());
+    // 这条线程在后端仍然没有任何已落库消息（listMessages 一直读回空数组），
+    // 也没有发生过 `chat_thread_id` resolve——两个持久化证据源都不成立，
+    // chip 必须继续不渲染。
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+  });
+
   it("③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id（不是流式 id），成功后 chip 消失", async () => {
     summarizePersonaFromThread.mockImplementation(async () => {
       personaGenerated = true;
