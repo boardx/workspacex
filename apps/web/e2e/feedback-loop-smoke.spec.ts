@@ -265,12 +265,24 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     expect((await voted).status()).toBe(200);
     await expect(voteButton).toContainText("1");
 
-    /* ── 分诊：转「已进入迭代」("转开发")，刷新页面确认落在 PostgreSQL 而不是 React state ──
+    /* ── 分诊：转「已进入迭代」("转开发")——先展开可编辑的 GitHub issue 草稿框 ──
      * 2026-08-30 起这条转移先展开一个预填的 GitHub issue 草稿框（见
      * `admin-feedback-live.test.tsx` 的单测），这里额外确认那个草稿框会出现、
-     * 且确认按钮真的把请求发出去。⚠ 需要环境配了 `GITHUB_ISSUE_TOKEN`——
-     * 建 issue 是 fail closed 的(见 `triage-feedback.ts` 头注①),没配 token 这一步会
-     * 503,是已知且刻意的行为,不是本测试要掩盖的东西。 */
+     * 且确认按钮真的把请求发出去。
+     *
+     * ⚠ 建 issue 是 fail closed 的（见 `triage-feedback.ts` 头注①）：这个
+     * `fullstack-smoke` 环境**故意不配** `GITHUB_ISSUE_TOKEN`——真给它配一个真
+     * token，会让"跑一次 CI"变成"往 boardx/workspacex 自己的 issue 列表里真的
+     * 建一条"，每次 PR 都会留下垃圾数据，那不是这条 e2e 该做的事。
+     *
+     * 所以本环境下这一步**如实**会拿到 503（`DEPENDENCY_UNAVAILABLE`），状态原样
+     * 不动——这正是 fail closed 要证明的行为（管理员编辑完、点确认，看到的不是一个
+     * 假成功）。真正验证"配了真 token 时确实会建出一个真 issue、且状态跟着变"的
+     * 是 `apps/api/tests/feedback/triage-feedback.test.ts`（fake `GithubIssueCreator`，
+     * 断言了成功路径）。这里按**这个环境实际有没有配 token** 走对应分支，两条分支都
+     * 断言到"界面如实反映了刚刚发生的事"，不管哪条分支都不允许"看起来成功了但其实
+     * 什么都没发生"。 */
+    const hasGithubToken = Boolean(process.env.GITHUB_ISSUE_TOKEN);
     const toIterating = bugCardAsAdmin.locator('[data-testid^="admin-feedback-to-已进入迭代-"]');
     await toIterating.click();
     const issueSubmit = bugCardAsAdmin.locator('[data-testid^="admin-feedback-issue-submit-"]');
@@ -279,13 +291,29 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
       (r) => r.request().method() === "PUT" && r.url().includes(`${API}/feedback`),
     );
     await issueSubmit.click();
-    expect((await triaged).status()).toBe(200);
-    await expect(bugCardAsAdmin).toContainText("已进入迭代");
+    const triagedResponse = await triaged;
 
-    await page.reload();
-    const bugCardAfterReload = findAdminCard(page, TITLES.productBug);
-    await expect(bugCardAfterReload).toContainText("已进入迭代");
-    await expect(bugCardAfterReload).toContainText("1"); // 票数也一并确认是持久化的
+    if (hasGithubToken) {
+      expect(triagedResponse.status()).toBe(200);
+      await expect(bugCardAsAdmin).toContainText("已进入迭代");
+
+      await page.reload();
+      const bugCardAfterReload = findAdminCard(page, TITLES.productBug);
+      await expect(bugCardAfterReload).toContainText("已进入迭代");
+      await expect(bugCardAfterReload).toContainText("1"); // 票数也一并确认是持久化的
+    } else {
+      // fail closed：503，卡片上如实显示"操作没有生效"，状态**没有**变成「已进入迭代」，
+      // 之前那次投票的票数也没有被这次失败动过——一次不相关的失败不该连累别的字段。
+      expect(triagedResponse.status()).toBe(503);
+      await expect(bugCardAsAdmin.locator('[data-testid="admin-feedback-action-error"]')).toBeVisible();
+      await expect(bugCardAsAdmin).not.toContainText("已进入迭代");
+      await expect(voteButton).toContainText("1");
+
+      await page.reload();
+      const bugCardAfterReload = findAdminCard(page, TITLES.productBug);
+      await expect(bugCardAfterReload).toContainText("待处理");
+      await expect(bugCardAfterReload).toContainText("1");
+    }
 
     /* ── 分诊：转「不做」，理由必填 —— 不填不让确认（服务端与界面双重把关） ── */
     const agentCardAsAdmin = findAdminCard(page, TITLES.agentReq);
