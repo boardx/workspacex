@@ -111,20 +111,22 @@ export interface DesignFacetRow extends ContractDesignFacet {
  * **两条都不选边**：哪张表对是签核问题，不是代码问题。
  * 现状由 `lint-design-facet-single-source.mjs` 报成 DEBT 并把规模钉死，不许悄悄长大。
  */
+// 2026-08-31 产品决策：移除 `roles-and-perms`（角色与权限）与 `group-capabilities`
+// （组内能力）两项——不是待签核的开放问题，是明确的产品决策，直接从表里删除。
+// 分母因此从 15 降到 13；所有派生（分母/槽位/分组）都从这张表运行时算出，
+// 别处不需要跟着改任何字面量。
 export const DESIGN_FACET_DEFINITIONS: readonly DesignFacetRow[] = [
   // 定题是分组/议程/AI 上下文共同继承的种子（uc-2-2「定题单点继承」），不是六类之一——
   // initCategory 刻意留 null，见上方 DesignFacetRow 长注与 initialization-preview.ts 文件头。
   { designFacetKey: "topic-and-background", label: "主题与背景", group: "basic", ordinal: 1, required: false, initCategory: null },
   { designFacetKey: "flow-agenda", label: "流程 Agenda", group: "basic", ordinal: 2, required: false, initCategory: "议程环节" },
   { designFacetKey: "grouping-rule", label: "分组规则", group: "basic", ordinal: 3, required: false, initCategory: "分组" },
-  { designFacetKey: "roles-and-perms", label: "角色与权限", group: "basic", ordinal: 4, required: false, initCategory: "角色分工" },
   { designFacetKey: "survey", label: "问卷", group: "pre-input", ordinal: 1, required: false, initCategory: "会前任务" },
   { designFacetKey: "interview-and-subjects", label: "访谈与对象", group: "pre-input", ordinal: 2, required: false, initCategory: "会前任务" },
   { designFacetKey: "pre-tasks", label: "会前任务", group: "pre-input", ordinal: 3, required: false, initCategory: "会前任务" },
   { designFacetKey: "venue-and-format", label: "场地与形式", group: "onsite", ordinal: 1, required: false, initCategory: "议程环节" },
   { designFacetKey: "project-materials", label: "项目材料", group: "onsite", ordinal: 2, required: false, initCategory: "材料清单" },
   { designFacetKey: "print-materials", label: "分组打印素材", group: "onsite", ordinal: 3, required: false, initCategory: "材料清单" },
-  { designFacetKey: "group-capabilities", label: "组内能力", group: "onsite", ordinal: 4, required: false, initCategory: "分组" },
   { designFacetKey: "agent-orchestration", label: "Agent 编排", group: "ai", ordinal: 1, required: false, initCategory: "画布与产出物" },
   { designFacetKey: "skill-binding", label: "Skill 绑定", group: "ai", ordinal: 2, required: false, initCategory: "画布与产出物" },
   { designFacetKey: "outputs", label: "输出物", group: "output", ordinal: 1, required: false, initCategory: "画布与产出物" },

@@ -161,6 +161,15 @@ export function InterviewPanelEditor({
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => void persist(value)}
+          disabled={status === "saving"}
+          className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
+          data-testid="bp-facet-save-button"
+        >
+          保存
+        </button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-itv-plan">

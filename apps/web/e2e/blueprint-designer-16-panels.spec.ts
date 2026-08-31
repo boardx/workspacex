@@ -1,5 +1,11 @@
 /**
- * 端到端自检：蓝本设计器 16 项配置**全部是结构化面板**，且真读真写真落库。
+ * 端到端自检：蓝本设计器 14 项配置（13 个 designFacetKey + 基本配置聚合页）
+ * **全部是结构化面板**，且真读真写真落库。
+ *
+ * ⚠ 2026-08-31 产品决策移除 `roles-and-perms`（角色与权限）/`group-capabilities`
+ * （组内能力）两项——原 16 项（15 个 designFacetKey + 基本配置）降为 14 项
+ * （13 个 designFacetKey + 基本配置）。本文件标题与断言里的数字已同步更新；
+ * 分母仍从 `DESIGN_FACET_CATALOG` 派生，不在本文件手抄。
  *
  * ## 为什么要有这一条（不是重复 blueprint-contract-gap-audit）
  *
@@ -7,9 +13,9 @@
  * 是错误的」。组件测试（`blueprint-designer-page-live.test.tsx`）已经用假 fetch 钉住
  * 了每一项的渲染与保存，registry 覆盖门控也钉住了「无一落回 FacetTextEditor」——
  * 但那些都是**在 jsdom 里对着 mock 断言**。这条用例在**真栈**（真 Next.js + 真 Nest
- * + 真 Postgres）里把 16 项逐个点开，回答的是另一个问题：
+ * + 真 Postgres）里把 14 项逐个点开，回答的是另一个问题：
  *
- *   「一个真人打开这个页面，逐个点过去，看到的是不是 16 个结构化面板？」
+ *   「一个真人打开这个页面，逐个点过去，看到的是不是 14 个结构化面板？」
  *
  * 它专门盯三件在 mock 下测不出来的事：
  *   ① 逐项点开后 DOM 里**不存在** `bp-facet-content-*`（那是通用自由文本框的锚点）；
@@ -39,10 +45,10 @@ const { scope } = (() => {
 
 const BLUEPRINT_NAME = `BP16_${scope}`;
 
-/** 15 个 designFacetKey 来自**生成的定义表**，不是本文件手抄一份（抄一份就会漂移）。 */
+/** 13 个 designFacetKey 来自**生成的定义表**，不是本文件手抄一份（抄一份就会漂移）。 */
 const ALL_FACET_KEYS = DESIGN_FACET_CATALOG.groups.flatMap((g) => g.items.map((i) => i.designFacetKey));
 
-test.describe.serial("端到端自检：蓝本设计器 16 项全部结构化，真读真写真落库", () => {
+test.describe.serial("端到端自检：蓝本设计器 14 项全部结构化，真读真写真落库", () => {
   let blueprintId = "";
 
   test("建一个蓝本，拿到它的 id", async ({ page }) => {
@@ -69,14 +75,15 @@ test.describe.serial("端到端自检：蓝本设计器 16 项全部结构化，
     expect(blueprintId).not.toBe("");
   });
 
-  test("① 逐个点开 15 项 + 基本配置：每一项都是结构化面板，无一是通用自由文本框", async ({ page }) => {
+  test("① 逐个点开 13 项 + 基本配置：每一项都是结构化面板，无一是通用自由文本框", async ({ page }) => {
     test.skip(blueprintId === "", "上一条没建出蓝本");
     await loginAsAdmin(page);
     await page.goto(`/tpl/designer?blueprintId=${blueprintId}`);
     await expect(page.getByTestId("bp-designer-shell")).toBeVisible();
 
-    // 定义表里应当正好 15 项——数量本身也钉住，避免「少了一项也照样全绿」。
-    expect(ALL_FACET_KEYS.length).toBe(15);
+    // 定义表里应当正好 13 项（roles-and-perms/group-capabilities 已移除）——
+    // 数量本身也钉住，避免「少了一项也照样全绿」。
+    expect(ALL_FACET_KEYS.length).toBe(13);
 
     for (const key of ALL_FACET_KEYS) {
       await page.getByTestId(`bp-designer-facet-${key}`).click();
@@ -98,7 +105,7 @@ test.describe.serial("端到端自检：蓝本设计器 16 项全部结构化，
       ).toHaveText(FACET_INTRO[key]!);
     }
 
-    // 第 16 项：基本配置聚合页（它不是 designFacetKey，入口 testid 也刻意不同前缀）。
+    // 第 14 项：基本配置聚合页（它不是 designFacetKey，入口 testid 也刻意不同前缀）。
     await page.getByTestId("bp-designer-basic-overview-entry").click();
     await expect(page.getByTestId("bp-basic-overview")).toBeVisible();
     await expect(page.getByTestId("bp-basic-tier")).toBeVisible();
@@ -172,31 +179,21 @@ test.describe.serial("端到端自检：蓝本设计器 16 项全部结构化，
       sName.blur(),
     ]);
 
-    // ── 第 3 项：角色与权限（矩阵型：勾一个未锁定格） ────────────────────────
-    await page.getByTestId("bp-designer-facet-roles-and-perms").click();
-    const openCell = page.getByTestId("bp-permission-cell-写本组画布-组员");
-    await expect(openCell).toBeEnabled();
-    const wasChecked = await openCell.isChecked();
+    // ── 第 3 项：场地与形式（roles-and-perms 已按 2026-08-31 产品决策移除，
+    //   这一项改绑到「场地与形式」的空间要求文本行，覆盖面不变：仍是「填 → 真实
+    //   PUT → 刷新后回显」这条链路，只是换了一个还在的 designFacetKey） ──────
+    await page.getByTestId("bp-designer-facet-venue-and-format").click();
+    const venueText = `端到端场地要求 ${scope}`;
+    const venueField = page.getByTestId("bp-venue-space-主场地");
+    await venueField.fill(venueText);
     await Promise.all([
       page.waitForResponse(
         (r) =>
-          new URL(r.url()).pathname === `${API}/blueprints/${blueprintId}/design-facets/roles-and-perms` &&
+          new URL(r.url()).pathname === `${API}/blueprints/${blueprintId}/design-facets/venue-and-format` &&
           r.request().method() === "PUT",
       ),
-      openCell.click(),
+      venueField.blur(),
     ]);
-    // 锁定格是产品硬约束：真栈里也必须是禁用的，不能只在组件测试里成立。
-    //
-    // ⚠ 挑「改议程 × 组员」的由来（保留经过，因为它是一次真实的判断）：
-    //   第一版写的是「改议程 × 组长」，在真栈里红了——当时 F203（把占位锁定数据换成
-    //   原型真实 permRows[].lockedFor）走的是另一条分支（#1529），与本分支血统还没汇合，
-    //   在本分支的树上「组长」那格还不是锁的。红的原因是血统而不是行为，于是据实改成
-    //   **两个血统里都锁**的「组员」那格（占位版的 LOCKED_CELLS 里有这个 key；
-    //   F203 版 改议程 的 lockedFor 是 [组长,组员,观察者]），使断言不依赖谁先合。
-    //   2026-08-18 更新：#1529 已合入 main 并被本分支 merge 进来，两条血统已汇合，
-    //   现在「组长」那格也是锁的了。断言仍留在「组员」——它在合并前后都成立，
-    //   换成只有合并后才成立的那格反而更脆。
-    await expect(page.getByTestId("bp-permission-cell-改议程-组员")).toBeDisabled();
 
     // ── 刷新 = 真落库的判据 ──────────────────────────────────────────────
     await page.reload();
@@ -210,8 +207,8 @@ test.describe.serial("端到端自检：蓝本设计器 16 项全部结构化，
     await page.getByTestId("bp-designer-facet-survey").click();
     await expect(page.getByTestId("bp-survey-name-0")).toHaveValue(surveyName);
 
-    await page.getByTestId("bp-designer-facet-roles-and-perms").click();
-    await expect(page.getByTestId("bp-permission-cell-写本组画布-组员")).toBeChecked({ checked: !wasChecked });
+    await page.getByTestId("bp-designer-facet-venue-and-format").click();
+    await expect(page.getByTestId("bp-venue-space-主场地")).toHaveValue(venueText);
   });
 
   test("③ 完成度是服务端派生：已填 3 项，重新进页面时徽标仍是服务端给的数（不是前端记忆）", async ({ page }) => {
@@ -220,11 +217,12 @@ test.describe.serial("端到端自检：蓝本设计器 16 项全部结构化，
     await page.goto(`/tpl/designer?blueprintId=${blueprintId}`);
     await expect(page.getByTestId("bp-designer-shell")).toBeVisible();
 
-    // 上一条填了 topic-and-background / survey / roles-and-perms 三项。
+    // 上一条填了 topic-and-background / survey / venue-and-format 三项。
     const text = (await page.getByTestId("bp-designer-completeness").textContent()) ?? "";
     const m = text.match(/(\d+)\s*\/\s*(\d+)/);
     expect(m, `完成度徽标应形如 n/m，实际是「${text}」`).toBeTruthy();
     expect(Number(m![1])).toBeGreaterThanOrEqual(3);
-    expect(Number(m![2])).toBe(15);
+    // 13 = DESIGN_FACET_DEFINITIONS.length（roles-and-perms/group-capabilities 已移除）。
+    expect(Number(m![2])).toBe(13);
   });
 });

@@ -29,6 +29,9 @@ export interface PrintItemDraft {
   readonly qty: string;
   readonly ai: boolean;
   readonly detail: string;
+  /** 已挂的打印文件名；空串表示未上传。蓝本阶段只记录"挂了个叫什么名字的文件"这件
+   *  事，不把整份文件内容塞进 JSON content——这不是实际打印任务。 */
+  readonly fileName: string;
 }
 
 export interface PrintContentValue {
@@ -36,7 +39,7 @@ export interface PrintContentValue {
 }
 
 function emptyItem(): PrintItemDraft {
-  return { size: "A0", name: "", qty: "", ai: false, detail: "" };
+  return { size: "A0", name: "", qty: "", ai: false, detail: "", fileName: "" };
 }
 
 function emptyValue(): PrintContentValue {
@@ -57,6 +60,7 @@ export function parsePrintContent(content: string): PrintContentValue {
         qty: typeof it?.qty === "string" ? it.qty : "",
         ai: typeof it?.ai === "boolean" ? it.ai : false,
         detail: typeof it?.detail === "string" ? it.detail : "",
+        fileName: typeof it?.fileName === "string" ? it.fileName : "",
       })),
     };
   } catch {
@@ -133,6 +137,28 @@ export function PrintPanelEditor({
     void persist(next);
   }
 
+  function handleFileChange(index: number, e: React.ChangeEvent<HTMLInputElement>): void {
+    const file = e.target.files?.[0] ?? null;
+    e.target.value = ""; // 允许连续两次选同一文件名也能触发 onChange
+    if (file === null) return;
+    // 只需要文件名（"已挂了一个叫什么名字的文件」），不需要真的读文件内容——
+    // 这只是设计阶段的蓝本，不是实际打印任务。仍走 FileReader 是为了在真实浏览器里
+    // 校验一次文件确实可读；jsdom/测试环境里 FileReader 也可用，可选链只是兜底
+    // 极端环境下不支持该 API 的情况。
+    const reader = typeof FileReader !== "undefined" ? new FileReader() : null;
+    if (reader === null) {
+      commitItem(index, { fileName: file.name });
+      return;
+    }
+    reader.onload = () => commitItem(index, { fileName: file.name });
+    reader.onerror = () => commitItem(index, { fileName: file.name });
+    reader.readAsArrayBuffer(file);
+  }
+
+  function removeFile(index: number): void {
+    commitItem(index, { fileName: "" });
+  }
+
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
       <div className="mb-2 flex items-center gap-1.5">
@@ -141,6 +167,15 @@ export function PrintPanelEditor({
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => void persist(value)}
+          disabled={status === "saving"}
+          className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
+          data-testid="bp-facet-save-button"
+        >
+          保存
+        </button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-print-list">
@@ -217,6 +252,44 @@ export function PrintPanelEditor({
                     placeholder="说明（与哪个画布模板同构、含哪些分区、带组号与二维码等）"
                     data-testid={`bp-print-detail-${i}`}
                   />
+                  <div className="mt-1.5 flex items-center gap-1.5" data-testid={`bp-print-file-${i}`}>
+                    {it.fileName === "" ? (
+                      <label className="cursor-pointer rounded-md border border-dashed border-border px-2 py-1 text-11 text-muted-foreground transition-colors hover:bg-muted">
+                        上传打印文件
+                        <Input
+                          type="file"
+                          accept=".pdf,.png,.jpg,.jpeg"
+                          className="hidden"
+                          onChange={(e) => handleFileChange(i, e)}
+                          data-testid={`bp-print-file-input-${i}`}
+                        />
+                      </label>
+                    ) : (
+                      <>
+                        <span className="rounded border border-border px-1.5 py-0.5 text-11" data-testid={`bp-print-file-name-${i}`}>
+                          📎 {it.fileName}
+                        </span>
+                        <label className="cursor-pointer rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted">
+                          更换文件
+                          <Input
+                            type="file"
+                            accept=".pdf,.png,.jpg,.jpeg"
+                            className="hidden"
+                            onChange={(e) => handleFileChange(i, e)}
+                            data-testid={`bp-print-file-input-${i}`}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i)}
+                          className="rounded border border-border px-1.5 py-0.5 text-11 text-destructive"
+                          data-testid={`bp-print-file-remove-${i}`}
+                        >
+                          移除
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
