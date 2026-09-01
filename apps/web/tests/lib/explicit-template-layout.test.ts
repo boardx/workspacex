@@ -14,6 +14,7 @@ import {
   classifyNoteSize,
   MAX_NOTE_MM,
   titleReserveMm,
+  blockHorizontalChromeMm,
   GRID_GAP_MM,
   TONE_COLORS,
   A1_CONTENT_MM,
@@ -240,11 +241,15 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.hMm).toBe(A1_CONTENT_MM.h - 6);
   });
 
-  it("贴纸实尺 = (wMm - 6×(cols-1)) / cols，固定 1:1 方形——2026-09-01 推翻 2026-08-30「固定不变」的约定，重新随区块宽度/列数缩放", () => {
+  it("贴纸实尺 = (贴纸网格可用宽度 - 6×(cols-1)) / cols，固定 1:1 方形——2026-09-01 推翻 2026-08-30「固定不变」的约定，重新随区块宽度/列数缩放", () => {
     // 5 列 × 2 行 = 10 条的经典配置（PDF 示例原话「5 列 × 2 行 = 放得下 10 条」）。
     const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
     const expectedWMm = (6 / 12) * A1_CONTENT_MM.w - 6;
-    const expectedNoteMm = Math.round((expectedWMm - 6 * 4) / 5);
+    // ⚠ 2026-09-01（同日后续）：贴纸网格是区块的子元素，可用宽度要先扣掉区块自己
+    // 的左右内边距/边框（`blockHorizontalChromeMm`），不是直接拿区块外沿宽度去除——
+    // 理由见该函数文档（人类实测反馈"便利贴被遮住一半，不分列数"）。
+    const expectedNoteGridWidthMm = expectedWMm - blockHorizontalChromeMm("A1");
+    const expectedNoteMm = Math.round((expectedNoteGridWidthMm - 6 * 4) / 5);
     expect(g.noteMm).toBe(expectedNoteMm);
   });
 
@@ -311,7 +316,29 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
     expect(g.noteMm).toBeLessThan(MAX_NOTE_MM);
     const expectedWMm = (6 / 12) * A1_CONTENT_MM.w - 6;
-    expect(g.noteMm).toBe(Math.round((expectedWMm - 6 * 4) / 5));
+    const expectedNoteGridWidthMm = expectedWMm - blockHorizontalChromeMm("A1");
+    expect(g.noteMm).toBe(Math.round((expectedNoteGridWidthMm - 6 * 4) / 5));
+  });
+
+  it("贴纸网格可用宽度真的扣了区块自己的内边距/边框——同一区块宽度下，算出的 noteMm 比"
+    + "不扣内边距的旧公式更小（人类实测回归钉子：便利贴右侧被区块外壳遮住一半）", () => {
+    const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
+    const wMm = (6 / 12) * A1_CONTENT_MM.w - 6;
+    const noteMmIfIgnoringChrome = Math.min(MAX_NOTE_MM, Math.round((wMm - 6 * 4) / 5));
+    expect(g.noteMm).toBeLessThan(noteMmIfIgnoringChrome);
+    // 贴纸网格真实需要的总宽度（cols 张贴纸 + 列间距）必须落在区块扣完内边距/
+    // 边框之后的可用宽度以内，不能反过来比可用宽度还宽——这才是"不会被遮住"的
+    // 直接判据，不是间接猜 noteMm 变小了就行。`g.noteMm` 是四舍五入过的展示值
+    // （`SectionGeometryMm.noteMm` 本身就约定按 mm 取整），5 张贴纸最多累积
+    // 5×0.5mm 的取整误差，这条断言只钉"没有结构性超宽"，留够取整的容差。
+    const noteGridRequiredWidthMm = 5 * g.noteMm + 6 * 4;
+    expect(noteGridRequiredWidthMm).toBeLessThanOrEqual(wMm - blockHorizontalChromeMm("A1") + 5 * 0.5);
+  });
+
+  it("区块横向内边距/边框太厚、扣完已经不剩空间时，noteMm 夹到 0，不产出负数（同 rows 的 Math.max(0,…) 保护）", () => {
+    const g = sectionGeometryMm({ w: 1, h: 1, cols: 12, gridCols: 12 });
+    expect(g.noteMm).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(g.noteMm)).toBe(true);
   });
 
   it("列数越多，同一区块下贴纸越小——noteMm 真的随 cols 反推，不是常量", () => {

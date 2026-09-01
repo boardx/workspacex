@@ -398,6 +398,24 @@ const BLOCK_HEADER_RESERVE_CQW =
 export function titleReserveMm(size: PaperSizeKey = "A1"): number {
   return (BLOCK_HEADER_RESERVE_CQW / 100) * PAPER_SIZE_MM[size].w;
 }
+
+/**
+ * 区块左右两条边各一份内边距 + 边框，换算成 mm——横向版的 `titleReserveMm`。
+ *
+ * ⚠ 2026-09-01 人类实测反馈"便利贴还是被遮住一半"、且不分 2 列/3 列都会——
+ *   根因和 `titleReserveMm` 那次是**同一个疏漏在另一根轴上**：`sectionGeometryMm`
+ *   算 `noteMm`（贴纸边长）时直接拿整个 `wMm`（区块外沿宽度）去除以列数，却没有
+ *   先扣掉区块自己的左右内边距/边框——但贴纸网格是区块的**子元素**，它能用的宽度
+ *   是 `wMm` 减掉这两条边，不是 `wMm` 本身。公式算出来的 `noteMm` 因此比贴纸网格
+ *   真实可用宽度宽了一圈，`cols` 张贴纸 + 列间距的总宽度会超出贴纸网格容器，
+ *   超出的部分被同一个 `overflow-hidden` 裁掉——只是这次裁在**贴纸右侧**，不是
+ *   上一次那个"最后一行"。两处（`titleReserveMm` 管纵向、这个函数管横向）现在
+ *   都从 `BLOCK_HEADER_CQW.padding`/`.border` 这同一份数字反推，不是各自猜一个。
+ */
+export function blockHorizontalChromeMm(size: PaperSizeKey = "A1"): number {
+  const cqw = (BLOCK_HEADER_CQW.padding + BLOCK_HEADER_CQW.border) * 2;
+  return (cqw / 100) * PAPER_SIZE_MM[size].w;
+}
 /**
  * 贴纸实尺参考值——`Design.pdf` §5「尺寸判定」原文把 70–82mm 都算标准 76mm
  * 方形贴纸，76 是这一档的代表值，`defaultLayoutAt`/`autoFillLayout` 猜默认
@@ -445,8 +463,12 @@ export interface SectionGeometryMm {
   readonly hMm: number;
   /**
    * 贴纸实尺（mm），固定 1:1 方形。
-   * `noteMm = min(MAX_NOTE_MM, (wMm - 6×(cols-1)) / cols)`——随区块宽度与列数
-   * 缩放，但不超过 `MAX_NOTE_MM`（issue #2368：封顶防止 1 列时被撑爆）。
+   * `noteMm = clamp((贴纸网格可用宽度 - 6×(cols-1)) / cols, 0, MAX_NOTE_MM)`——
+   * 贴纸网格可用宽度 = `wMm` 扣掉区块自己的左右内边距/边框
+   * （`blockHorizontalChromeMm`，2026-09-01：贴纸网格是区块的子元素，用区块
+   * 外沿宽度 `wMm` 本身去除会算出比真实可用宽度更宽的贴纸，多出来的部分被
+   * 外层 `overflow-hidden` 裁在贴纸右侧）。随区块宽度与列数缩放，但不超过
+   * `MAX_NOTE_MM`（issue #2368：封顶防止 1 列时被撑爆），也不低于 0。
    */
   readonly noteMm: number;
   /** 这块地方竖着放得下几行贴纸。`rows = floor((hMm - 22) / (noteMm + 6))`。 */
@@ -465,14 +487,25 @@ export interface SectionGeometryMm {
  *
  * `noteMm` 由 `wMm`/`cols` 倒推、封顶在 `MAX_NOTE_MM`——2026-09-01 推翻
  * 2026-08-30「贴纸大小固定，不随排版变化」的约定，理由见 `MAX_NOTE_MM` 文档。
+ *
+ * ⚠ 2026-09-01（同日后续）：`noteMm` 倒推时要用**贴纸网格真正可用的宽度**
+ *   （`wMm` 扣掉区块自己的左右内边距/边框，`blockHorizontalChromeMm`），不是
+ *   区块外沿宽度 `wMm` 本身——理由见该函数文档（人类实测反馈"便利贴还是被遮住
+ *   一半，不分列数"，根因是这处遗漏，跟 `titleReserveMm` 那次是同一类疏漏在
+ *   横向轴上的版本）。
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
   const rowSpanDenominator = 8; // 网格恒 8 行，列数才切 6/12。
-  const contentMm = contentMmFor(input.size ?? "A1");
+  const size = input.size ?? "A1";
+  const contentMm = contentMmFor(size);
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
   const hMm = (input.h / rowSpanDenominator) * contentMm.h - GRID_GAP_MM;
-  const noteMm = Math.min(MAX_NOTE_MM, (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols);
-  const rows = Math.max(0, Math.floor((hMm - titleReserveMm(input.size ?? "A1")) / (noteMm + GRID_GAP_MM)));
+  const noteGridWidthMm = wMm - blockHorizontalChromeMm(size);
+  // 区块窄到扣完内边距/边框已经不剩空间时，`noteGridWidthMm` 会是负数——
+  // `noteMm` 夹到 0（同 `rows` 的 `Math.max(0, …)`），不产出负数贴纸边长，
+  // 那样会让 `notePct`/字号算出荒谬的负值/NaN，而不是如实地说"这里放不下"。
+  const noteMm = Math.max(0, Math.min(MAX_NOTE_MM, (noteGridWidthMm - GRID_GAP_MM * (input.cols - 1)) / input.cols));
+  const rows = Math.max(0, Math.floor((hMm - titleReserveMm(size)) / (noteMm + GRID_GAP_MM)));
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),

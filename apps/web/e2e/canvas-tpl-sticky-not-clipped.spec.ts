@@ -16,9 +16,15 @@
  * 贴纸自己——那是另一层（`noteFontSizePx`），治不了这一层。这里验的是**贴纸整体**
  * 有没有被贴纸网格外层的 `overflow-hidden` 从中间切掉一截：贴纸虽然还在 DOM 里
  * （`overflow: hidden` 不会移除元素，只是视觉上藏起来），但它的 `getBoundingClientRect()`
- * 仍然如实反映真实位置——量它的 `bottom` 有没有超出贴纸网格容器的 `bottom`，
- * 就是"这张贴纸有没有被腰斩"唯一可靠的判据（同"文字有没有被裁切"用
- * `scrollHeight` 而不是肉眼看截图的道理）。
+ * 仍然如实反映真实位置——量它的 `bottom`/`right` 有没有超出贴纸网格容器的
+ * `bottom`/`right`，就是"这张贴纸有没有被腰斩"唯一可靠的判据（同"文字有没有被
+ * 裁切"用 `scrollHeight` 而不是肉眼看截图的道理）。
+ *
+ * ⚠ 2026-09-01（同日后续）：本文件第一版只查 `bottom`，只抓得到"最后一行被裁"；
+ *   人类实测又反馈"便利贴被遮住一半，不分 2 列/3 列"——那是另一根轴：`noteMm`
+ *   倒推时没扣区块自己的左右内边距/边框，贴纸网格总宽度超出可用宽度，超出的
+ *   部分被同一个 `overflow-hidden` 裁在**贴纸右侧**。补了 `right` 检查，见
+ *   `findClippedNotes` 文档。
  *
  * 覆盖三档纸张（人类 2026-08-27 要求「A1/A3/A4 可选」；`titleReserveMm` 现在
  * 按纸宽换算，这三档各自该精确，不该只有 A1 精确、A3/A4 只是"偏保守但不翻车"）
@@ -41,21 +47,34 @@ async function loginAsAdmin(page: Page): Promise<void> {
  * 结构对应 `template-canvas-grid.tsx` 的 `block > [标题块, 贴纸网格]`——不靠
  * testid（贴纸网格本身没有单独的 testid，靠结构定位比新增一个只为测试服务的
  * testid 更不容易在无关重构里悄悄漂移）。
+ *
+ * ⚠ 2026-09-01（同日后续）：查 `bottom` 只抓得到"最后一行被裁"这一种；人类
+ *   实测又反馈"便利贴被遮住一半，不分 2 列/3 列"——根因是横向的（`noteMm` 倒推
+ *   时没扣区块自己的左右内边距/边框，贴纸网格的总宽度超出可用宽度，超出的部分
+ *   被同一个 `overflow-hidden` 裁在**右侧**）。加一份 `right` 检查，两个方向
+ *   都不留死角。
  */
-async function findClippedNotes(page: Page): Promise<{ blockId: string; noteBottom: number; gridBottom: number }[]> {
+async function findClippedNotes(
+  page: Page,
+): Promise<{ blockId: string; axis: "bottom" | "right"; noteEdge: number; gridEdge: number }[]> {
   return page.evaluate(() => {
     const blocks = [...document.querySelectorAll('[data-testid^="tpladmin-editor-block-"]')];
-    const bad: { blockId: string; noteBottom: number; gridBottom: number }[] = [];
+    const bad: { blockId: string; axis: "bottom" | "right"; noteEdge: number; gridEdge: number }[] = [];
     for (const block of blocks) {
       const notesGrid = block.children[1];
       if (!notesGrid) continue;
       const gridRect = notesGrid.getBoundingClientRect();
-      if (gridRect.height <= 0) continue;
+      if (gridRect.height <= 0 || gridRect.width <= 0) continue;
+      const blockId = block.getAttribute("data-testid") ?? "";
       for (const note of Array.from(notesGrid.children)) {
         const r = note.getBoundingClientRect();
+        if (r.height <= 0) continue;
         // +1px 容忍亚像素取整，同仓库里 scrollHeight/clientHeight 那条既有断言的容差。
-        if (r.height > 0 && r.bottom > gridRect.bottom + 1) {
-          bad.push({ blockId: block.getAttribute("data-testid") ?? "", noteBottom: r.bottom, gridBottom: gridRect.bottom });
+        if (r.bottom > gridRect.bottom + 1) {
+          bad.push({ blockId, axis: "bottom", noteEdge: r.bottom, gridEdge: gridRect.bottom });
+        }
+        if (r.right > gridRect.right + 1) {
+          bad.push({ blockId, axis: "right", noteEdge: r.right, gridEdge: gridRect.right });
         }
       }
     }
@@ -119,7 +138,7 @@ for (const paperSize of ["A1", "A3", "A4"] as const) {
       const clipped = await findClippedNotes(page);
       expect(
         clipped,
-        `${paperSize} 纸、视口 ${viewport.width}×${viewport.height} 下，这些贴纸被外层容器裁掉了一部分（getBoundingClientRect().bottom 超出贴纸网格容器）：${JSON.stringify(clipped)}`,
+        `${paperSize} 纸、视口 ${viewport.width}×${viewport.height} 下，这些贴纸被外层容器裁掉了一部分（bottom=最后一行被裁，right=右侧被裁）：${JSON.stringify(clipped)}`,
       ).toEqual([]);
     }
 
