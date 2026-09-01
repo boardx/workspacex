@@ -504,18 +504,27 @@ export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometr
   // 区块窄到扣完内边距/边框已经不剩空间时，`noteGridWidthMm` 会是负数——
   // `noteMm` 夹到 0（同 `rows` 的 `Math.max(0, …)`），不产出负数贴纸边长，
   // 那样会让 `notePct`/字号算出荒谬的负值/NaN，而不是如实地说"这里放不下"。
-  const noteMm = Math.max(0, Math.min(MAX_NOTE_MM, (noteGridWidthMm - GRID_GAP_MM * (input.cols - 1)) / input.cols));
-  // ⚠ 2026-09-01 独立审查抓到的问题：`noteMm` 夹到 0 只挡住了"负数贴纸边长"，
-  //   没挡住"贴纸边长是 0 但容量还算出正数"——`rows = floor((hMm-reserve)/(0+6))`
-  //   分母只剩间距，照样能除出正数行数，`fits = cols × rows` 跟着报出一个正的
-  //   容量，等于宣称"这里放得下 N 张宽度为 0（也就是看不见）的贴纸"。贴纸边长
-  //   一旦到 0，这块地方就是真放不下任何一张，容量必须如实归零，不能因为公式
-  //   分母还没归零就继续往下算。
+  const rawNoteMm = Math.max(0, Math.min(MAX_NOTE_MM, (noteGridWidthMm - GRID_GAP_MM * (input.cols - 1)) / input.cols));
+  // ⚠ 2026-09-01（第四轮，真实浏览器 e2e 抓到的回归）：`rows` 此前用的是这个
+  //   *未取整*的 `rawNoteMm` 去算，但实际渲染用的是下面 `Math.round` 过的
+  //   `noteMm`（`notePct`/字号都读这个四舍五入后的值）——取整可能把贴纸边长
+  //   往上调最多 0.5mm，多行累加起来，容量算的行数就可能比实际渲染能放下的
+  //   多出一行，最后一行贴纸被 `overflow-hidden` 切掉一截。A4 纸、2 列、900px
+  //   视口下实测复现：`noteEdge=688.47 > gridEdge=686`，差 2.47px。改成
+  //   `rows`/`fits` 与展示用的 `noteMm` 用**同一个**取整后的数，容量与渲染
+  //   不再各自算各自的。
+  const noteMm = Math.round(rawNoteMm);
+  // ⚠ 2026-09-01（第三轮）独立审查抓到的问题：`noteMm` 夹到 0 只挡住了"负数
+  //   贴纸边长"，没挡住"贴纸边长是 0 但容量还算出正数"——`rows =
+  //   floor((hMm-reserve)/(0+6))` 分母只剩间距，照样能除出正数行数，
+  //   `fits = cols × rows` 跟着报出一个正的容量，等于宣称"这里放得下 N 张
+  //   宽度为 0（也就是看不见）的贴纸"。贴纸边长一旦到 0，这块地方就是真放不下
+  //   任何一张，容量必须如实归零，不能因为公式分母还没归零就继续往下算。
   const rows = noteMm <= 0 ? 0 : Math.max(0, Math.floor((hMm - titleReserveMm(size)) / (noteMm + GRID_GAP_MM)));
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),
-    noteMm: Math.round(noteMm),
+    noteMm,
     rows,
     fits: input.cols * rows,
   };

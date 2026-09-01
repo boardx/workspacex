@@ -22,6 +22,7 @@ import {
   PAPER_SIZE_MM,
   contentMmFor,
   type ExplicitLayoutSectionInput,
+  type SectionGeometryMmInput,
 } from "@/lib/canvas/explicit-template-layout";
 import { A0_FRAME, GRID_TOP } from "@/lib/canvas/auto-template-layout";
 
@@ -346,6 +347,30 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     // 贴纸边长到 0 ⇒ 这块地方真放不下任何一张，容量必须如实归零。
     expect(g.rows).toBe(0);
     expect(g.fits).toBe(0);
+  });
+
+  /**
+   * 2026-09-01（第四轮，真实浏览器 e2e 抓到的回归）：`rows` 此前用*未取整*的
+   * noteMm 去算，但实际渲染（`notePct`/字号）读的是取整后的 `geom.noteMm`——
+   * 取整最多把贴纸边长往上调 0.5mm，多行累加后，容量算出的行数可能比实际
+   * 渲染能放下的多一行，最后一行贴纸被裁。A4 纸、2 列、900px 视口下的真实
+   * 复现：`noteEdge=688.47 > gridEdge=686`，差 2.47px——这条钉住"容量的 rows
+   * 必须用跟展示同一个取整后的 noteMm 算"，不能各算各的。
+   */
+  it("rows 必须用取整后的 noteMm 算，不能用未取整的内部值——否则容量与实际渲染的贴纸尺寸对不上", () => {
+    const cases: SectionGeometryMmInput[] = [
+      { w: 6, h: 3, cols: 2, gridCols: 12, size: "A4" }, // 真实复现的那一组
+      { w: 6, h: 3, cols: 3, gridCols: 12, size: "A4" },
+      { w: 4, h: 5, cols: 5, gridCols: 12, size: "A3" },
+      { w: 6, h: 3, cols: 5, gridCols: 12 }, // 默认 A1
+    ];
+    for (const c of cases) {
+      const g = sectionGeometryMm(c);
+      const expectedRows = g.noteMm <= 0
+        ? 0
+        : Math.max(0, Math.floor((g.hMm - titleReserveMm(c.size ?? "A1")) / (g.noteMm + GRID_GAP_MM)));
+      expect(g.rows, JSON.stringify(c)).toBe(expectedRows);
+    }
   });
 
   it("列数越多，同一区块下贴纸越小——noteMm 真的随 cols 反推，不是常量", () => {
