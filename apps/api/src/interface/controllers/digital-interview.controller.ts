@@ -131,6 +131,23 @@ export class DigitalInterviewController {
     }
   }
 
+  @Post("/:interviewId/report/generate")
+  async generateReport(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Body() body: unknown,
+  ) {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.generateDigitalInterviewReport.in, this.withPath(body, { interviewId }));
+    try {
+      return C.operations.generateDigitalInterviewReport.out.parse(
+        await this.workflow.generateReport({ orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input }),
+      );
+    } catch (error) {
+      return this.translate(error);
+    }
+  }
+
   @Post("/:interviewId/skill/messages")
   async appendSkillMessage(
     @CurrentPrincipal() principal: Principal,

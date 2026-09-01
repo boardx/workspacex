@@ -117,6 +117,17 @@ export function confirmDigitalInterviewQuestions(input: {
   });
 }
 
+export function generateDigitalInterviewReport(input: {
+  readonly interviewId: string;
+  readonly expectedVersion: number;
+  readonly requestId: string;
+}) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/report/generate`, {
+    method: "POST",
+    body: { expectedVersion: input.expectedVersion, requestId: input.requestId },
+  });
+}
+
 export function appendDigitalInterviewSkillMessage(input: {
   readonly interviewId: string;
   readonly currentStep: DigitalInterviewStep;

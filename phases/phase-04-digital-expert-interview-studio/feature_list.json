@@ -105,14 +105,14 @@
         "F04"
       ],
       "points": 5,
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "05",
       "owner": "coord-user-research",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/digital-interview-runs.test.ts",
         "pnpm --filter web exec vitest run tests/ui/interview-runs.test.tsx"
       ],
-      "evidence": "",
+      "evidence": "evidence/F05.verify.log @ 2026-09-01T11:17:33.454Z",
       "notes": "release slice。回答结构复用 Standalone 的观点、理由、引用、不确定性、反例层级；模型失败按 expert+operation 记录。"
     },
     {
@@ -127,9 +127,9 @@
         "F05"
       ],
       "points": 5,
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "06",
+      "owner": "coord-user-research",
       "verification": [
         "pnpm --filter api exec vitest run tests/itv/digital-interview-report.test.ts",
         "pnpm --filter web exec vitest run tests/ui/interview-detail-report.test.tsx"
