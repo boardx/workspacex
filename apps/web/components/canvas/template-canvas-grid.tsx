@@ -2,7 +2,7 @@
 import * as React from "react";
 import type { SectionDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
-import { PAPER_SIZE_MM, A1_MARGIN_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -28,6 +28,26 @@ import { PAPER_SIZE_MM, A1_MARGIN_MM, type PaperSizeKey } from "@/lib/canvas/exp
  */
 
 const GRID_ROWS = 8;
+
+/**
+ * 区块内标题行（区块名 + `{{token}} 列·条` 提示行）的比例尺寸——2026-09-01
+ * 人类反馈"便利贴还是被裁掉"、且排除了"画布缩得太小"（全屏依然会切）之后的
+ * 根治修法：这行 chrome 原先用固定像素字号/内边距（`text-11`/`text-9`/`p-2`/
+ * `gap-1.5` 这些 Tailwind 档位），而 `sectionGeometryMm` 的 `TITLE_RESERVE_MM`
+ * 假设它恒占纸面的固定比例——两边算的不是同一件事，纸面渲染得越宽，标题区
+ * 真实占用的"纸面比例"理应越小，固定像素不会跟着变小，于是在任何宽度下都会
+ * 持续少算一点，多算出来的空间最终体现为最后一行贴纸被 `overflow-hidden` 切掉。
+ *
+ * 改法：跟纸面大标题（`fontSize:"2.2cqw"`）、页脚（`"1.2cqw"`）一样，全部换成
+ * `cqw`（相对最外层纸张容器宽度的百分比）——纸面多宽，这行 chrome 占的"纸面
+ * 比例"就恒定不变，`TITLE_RESERVE_MM` 才能是一个跟渲染宽度无关的真常量，而不是
+ * 一个只在某个假想宽度下凑巧对的估算值。
+ */
+const BLOCK_PAD_CQW = 0.6; // 替代 `p-2`（区块四边内边距）
+const BLOCK_HEADER_GAP_CQW = 0.5; // 替代 `gap-1.5`（标题块 ↔ 贴纸网格之间）
+const BLOCK_TITLE_GAP_CQW = 0.15; // 替代 `gap-0.5`（区块名 ↔ {{token}} 行之间）
+const BLOCK_TITLE_FONT_CQW = 1.4; // 替代 `text-11`（区块名）
+const BLOCK_META_FONT_CQW = 1.0; // 替代 `text-9`/`text-10`（{{token}}/列·条提示）
 
 export function TemplateCanvasGrid({
   sections, gridCols, showSample, runData, selectedId, editable,
@@ -238,11 +258,14 @@ export function TemplateCanvasGrid({
               }}
               onDragEnd={() => setDragging(null)}
               onClick={() => onSelect(s.sectionId)}
-              className="flex cursor-pointer flex-col gap-1.5 overflow-hidden rounded-card bg-card p-2"
+              className="flex cursor-pointer flex-col overflow-hidden rounded-card bg-card"
               style={{
                 gridColumn: `${layout.col} / span ${layout.w}`,
                 gridRow: `${layout.row} / span ${layout.h}`,
                 border: `2px solid ${selectedId === s.sectionId ? "#1F5FD0" : "#14130F"}`,
+                // p-2 → 比例内边距，gap-1.5 → 比例间距，理由见上方常量声明处的文档。
+                padding: `${BLOCK_PAD_CQW}cqw`,
+                gap: `${BLOCK_HEADER_GAP_CQW}cqw`,
               }}
               data-testid={`tpladmin-editor-block-${s.sectionId}`}
             >
@@ -258,16 +281,25 @@ export function TemplateCanvasGrid({
                   横排本来就放不下，只会从竖排变成溢出。真正的修法是「分行」——参照设计里
                   （PESTEL / 用户画像 / AI 战略画布）标题也都是独占一行、说明文字在它下面。
               */}
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate text-11 font-bold leading-tight" title={s.name || "未命名"}>
+              <div className="flex min-w-0 flex-col" style={{ gap: `${BLOCK_TITLE_GAP_CQW}cqw` }}>
+                <span
+                  className="truncate font-bold leading-tight"
+                  style={{ fontSize: `${BLOCK_TITLE_FONT_CQW}cqw` }}
+                  title={s.name || "未命名"}
+                >
                   {s.name || "未命名"}
                 </span>
-                <div className="flex min-w-0 items-baseline gap-1.5">
-                  <span className="truncate font-mono text-9 text-primary" title={`{{${s.key}${isList ? "[]" : ""}}}`}>
+                <div className="flex min-w-0 items-baseline" style={{ gap: `${BLOCK_HEADER_GAP_CQW}cqw` }}>
+                  <span
+                    className="truncate font-mono text-primary"
+                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw` }}
+                    title={`{{${s.key}${isList ? "[]" : ""}}}`}
+                  >
                     {`{{${s.key}${isList ? "[]" : ""}}}`}
                   </span>
                   <span
-                    className={`ml-auto shrink-0 whitespace-nowrap text-9 ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
+                    className={`ml-auto shrink-0 whitespace-nowrap ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
+                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw` }}
                     data-testid={overflowed ? `tpladmin-editor-overflow-${s.sectionId}` : undefined}
                   >
                     {overflowed
@@ -279,7 +311,7 @@ export function TemplateCanvasGrid({
                 </div>
               </div>
               <div
-                className="grid flex-1 content-start gap-1 overflow-hidden"
+                className="grid flex-1 content-start overflow-hidden"
                 style={{
                   // 列表型：每列宽 `notePct`（`geom.noteMm` 换算，随区块宽度/列数缩放，
                   // 封顶 `MAX_NOTE_MM`——2026-09-01 见上方 `notePct` 声明处的文档）。
@@ -287,6 +319,14 @@ export function TemplateCanvasGrid({
                   // 拉伸），行数摆不下的部分仍会被外层 `overflow-hidden` 裁掉。
                   // 短文本/长文本型：仍是 1fr（占满区块宽的单个文本框，不是贴纸网格）。
                   gridTemplateColumns: isList ? `repeat(${layout.cols}, ${notePct}cqw)` : "1fr",
+                  // ⚠ 2026-09-01 人类反馈"还是有被截掉的贴纸"：`gap` 此前是 Tailwind
+                  //   `gap-1`（固定 4px），不随纸面缩放，而 `sectionGeometryMm` 的
+                  //   `rows` 公式假设行间距恒等于 `GRID_GAP_MM`（按纸宽换算的比例值，
+                  //   与 `noteMm`/`notePct` 同一套单位）——容器越窄，固定 4px 相对纸宽
+                  //   的比例越大，实际占用的行高比公式假设的更多，容易让最后一行卡在
+                  //   `overflow-hidden` 的边缘被切掉半张。改成同一套 cqw 比例，两边的
+                  //   "间距"就是同一个数字的两种写法，不会再各说各话。
+                  gap: `${(GRID_GAP_MM / PAPER_SIZE_MM[paperSize].w) * 100}cqw`,
                 }}
               >
                 {Array.from({ length: visibleCount }, (_, i) => {
