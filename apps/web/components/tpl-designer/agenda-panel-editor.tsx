@@ -25,10 +25,18 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * （含"上移半场/下移半场"）两处文案提到"半场"，当时确实没有配套的数据结构。
  * 用户反馈明确要求把"上下午/多天分组"做成真实可编辑的结构，本次改动就是这条
  * 提议本身的落地：`AgendaSegmentDraft` 新增 `day`（第几天，从 1 开始）与
- * `session`（`"AM" | "PM"`）两个字段，环节列表按 `day → session` 分组渲染，
- * 拖拽重排收窄为**只在同一天同一半场内**生效（跨组重排是"改环节属于哪个半场"，
- * 是另一个操作，走环节行上的 day/session 选择控件，不是拖拽）。旧数据没有这两个
- * 字段时，解析时回退成 `day: 1, session: "AM"`，不会因为老蓝本缺字段而崩。
+ * `session`（`"AM" | "PM"`）两个字段，环节列表按 `day → session` 分组渲染。
+ * 旧数据没有这两个字段时，解析时回退成 `day: 1, session: "AM"`，不会因为老蓝本
+ * 缺字段而崩。
+ *
+ * ## 拖拽可以跨组（2026-09-01）
+ *
+ * 上一版把拖拽收窄成"只在同一天同一半场内重排，换组必须走行内的 day/session
+ * 选择器"——用户反馈这是反直觉的:看着一个环节离目标半场只有一拖之遥,松手却弹不
+ * 过去,体验上像是拖拽"坏了"。现在拖到别的分组（松手悬停的目标行属于哪个
+ * day/session）时，被拖环节的 `day`/`session` 会跟着一起改成目标所在组的值——
+ * 拖过去这个动作本身就是"换组"，不再要求额外去点选择器。行内的 day/session
+ * 选择器原样保留（不想拖、或要精确跳到很远的天数时更快）。
  *
  * ## 拖拽实现：指针事件，不是像素级动画库
  *
@@ -36,8 +44,17 @@ import type { FacetSaveFn } from "./facet-content-editor";
  * HTML5 Drag and Drop：后者在触屏上行为不一致、在 jsdom/RTL 里几乎无法可靠模拟；
  * Pointer Events 统一了鼠标与触摸，且能在组件测试里用 `fireEvent.pointerDown` 等
  * 真实触发。没有引入新依赖——拖拽逻辑只是"跟踪指针位置、用 `elementFromPoint`
- * 找到当前悬停在哪一行、实时交换数组顺序、松手时落库"，30 行内能说清楚的逻辑
- * 不值得为它加一个库。
+ * 找到当前悬停在哪一行、实时交换数组顺序、松手时落库"。
+ *
+ * 排序本身的跳变感（换位时元素直接瞬移到新位置，没有过渡）用手写 FLIP
+ * （First-Last-Invert-Play）补：交换发生前先记下每一行的 `getBoundingClientRect()`，
+ * React 提交新顺序后在 `useLayoutEffect` 里量出新位置，把差值转成 `transform`
+ * 倒放回起点、下一帧再把 `transform` 过渡回 0——纯 CSS transform + transition，
+ * 不需要 framer-motion 之类的依赖。这要求 React 真的把同一个 DOM 节点挪到新位置，
+ * 而不是在原位置上换内容（用数组下标当 `key` 时 React 就是这么做的，节点从不移动，
+ * FLIP 无从谈起）——所以行的 `key` 换成了 `idsRef`：一个和 `value.segments` 等长、
+ * 按位置一一对应的稳定 id 数组，插入/删除/挪位置时手动同步维护，只存在于内存里，
+ * 不落库。
  *
  * 抓手是原型同款的 `GripVertical` 图标（之前占位用的是 Unicode `⠿`，现在换成
  * 与原型一致的 lucide 图标，见 dragHint 徽标同样保留在列表右上角）。
@@ -94,6 +111,17 @@ function emptySegment(index: number): AgendaSegmentDraft {
   return { no: padNo(index), title: "", min: 30, boardSkill: "", optional: false, day: 1, session: "AM" };
 }
 
+// 拖拽重排的 FLIP 动画需要跨渲染追踪"同一个环节现在是哪个 DOM 节点"——数组下标不行，
+// 下标在重排后指向了别的环节。用一个和 `value.segments` 等长、按位置一一对应的 id
+// 数组（`idsRef`，见组件内）代替：新增/删除/挪位置时手动同步维护，编辑字段之类不改变
+// 顺序和长度的操作则不用管它。只存在于内存里，不落库，也不出现在 `AgendaSegmentDraft`
+// 这个公开类型里——纯粹是 React key / DOM 节点身份用的。
+let keySeq = 0;
+function newKey(): string {
+  keySeq += 1;
+  return `seg-${keySeq}`;
+}
+
 function renumber(segments: readonly AgendaSegmentDraft[]): AgendaSegmentDraft[] {
   return segments.map((s, i) => ({ ...s, no: padNo(i) }));
 }
@@ -143,13 +171,31 @@ export function AgendaPanelEditor({
   readonly itemRevision: string;
   readonly onSave: FacetSaveFn;
 }) {
-  const [value, setValue] = React.useState<AgendaContentValue>(() => parseAgendaContent(content));
+  // `idsRef.current[i]` 是 `value.segments[i]` 的稳定身份 key，见上面的注释。
+  const idsRef = React.useRef<string[]>([]);
+  const [value, setValue] = React.useState<AgendaContentValue>(() => {
+    const parsed = parseAgendaContent(content);
+    idsRef.current = parsed.segments.map(() => newKey());
+    return parsed;
+  });
   const [revision, setRevision] = React.useState(itemRevision);
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = React.useState<string | null>(null);
+  const prevFacetKeyRef = React.useRef(designFacetKey);
 
   React.useEffect(() => {
-    setValue(parseAgendaContent(content));
+    const parsed = parseAgendaContent(content);
+    // 每次落库成功，父组件都会把新 content/itemRevision 传回来，这个 effect 就会重跑一次
+    // ——大多数情况下这是"回声"（`parsed` 跟当前 `value` 逻辑上是同一份东西），不是真的
+    // 换了一批环节。只在真的切到别的 designFacetKey，或者环节数量对不上（外部真的改了
+    // 结构）时才重新分配 id；否则沿用旧 id，行的身份不因为自己保存了一次就被打断——
+    // 不然每次自动保存都会让当前正在编辑的那一行重新挂载一次，清明地打断输入焦点。
+    const facetChanged = prevFacetKeyRef.current !== designFacetKey;
+    prevFacetKeyRef.current = designFacetKey;
+    if (facetChanged || parsed.segments.length !== idsRef.current.length) {
+      idsRef.current = parsed.segments.map(() => newKey());
+    }
+    setValue(parsed);
     setRevision(itemRevision);
     setStatus("idle");
     setError(null);
@@ -177,12 +223,14 @@ export function AgendaPanelEditor({
 
   function addSegment(): void {
     const next = { segments: [...value.segments, emptySegment(value.segments.length)] };
+    idsRef.current = [...idsRef.current, newKey()];
     setValue(next);
     void persist(next);
   }
 
   function removeSegment(index: number): void {
     const next = { segments: renumber(value.segments.filter((_, i) => i !== index)) };
+    idsRef.current = idsRef.current.filter((_, i) => i !== index);
     setValue(next);
     void persist(next);
   }
@@ -199,7 +247,9 @@ export function AgendaPanelEditor({
     void persist(next);
   }
 
-  /** 改一个环节属于哪天/哪个半场——这是"这个环节归到哪组"的操作，不是拖拽重排，立即落库。 */
+  /** 改一个环节属于哪天/哪个半场——这是"这个环节归到哪组"的操作，立即落库。拖拽也能
+   * 做同一件事（见 handleGripPointerMove），两条路径并存，这个选择器留给不想拖/要
+   * 精确跳到很远天数的场景。 */
   function updateDaySession(index: number, patch: Partial<Pick<AgendaSegmentDraft, "day" | "session">>): void {
     const next = { segments: value.segments.map((s, i) => (i === index ? { ...s, ...patch } : s)) };
     setValue(next);
@@ -209,11 +259,18 @@ export function AgendaPanelEditor({
   function moveSegment(index: number, delta: -1 | 1): void {
     const target = index + delta;
     if (target < 0 || target >= value.segments.length) return;
+    captureRects();
     const segments = [...value.segments];
     const a = segments[index]!;
     const b = segments[target]!;
     segments[index] = b;
     segments[target] = a;
+    const ids = [...idsRef.current];
+    const idA = ids[index]!;
+    const idB = ids[target]!;
+    ids[index] = idB;
+    ids[target] = idA;
+    idsRef.current = ids;
     const next = { segments: renumber(segments) };
     setValue(next);
     void persist(next);
@@ -228,6 +285,44 @@ export function AgendaPanelEditor({
   const valueRef = React.useRef(value);
   valueRef.current = value;
   const [draggingIndex, setDraggingIndex] = React.useState<number | null>(null);
+
+  // FLIP 动画：rowRefs 按稳定 key（不是数组下标）记住每一行的 DOM 节点；
+  // captureRects() 在"即将重排"前拍一次快照，重排提交后的 useLayoutEffect 里
+  // 跟新位置比对差值，用 transform 补一段过渡，抵消掉直接跳变的观感。
+  const rowRefs = React.useRef<Map<string, HTMLLIElement>>(new Map());
+  const prevRectsRef = React.useRef<Map<string, DOMRect> | null>(null);
+
+  function captureRects(): void {
+    const rects = new Map<string, DOMRect>();
+    rowRefs.current.forEach((el, key) => rects.set(key, el.getBoundingClientRect()));
+    prevRectsRef.current = rects;
+  }
+
+  React.useLayoutEffect(() => {
+    const prev = prevRectsRef.current;
+    if (prev === null) return;
+    prevRectsRef.current = null;
+    rowRefs.current.forEach((el, key) => {
+      const before = prev.get(key);
+      if (before === undefined) return;
+      const after = el.getBoundingClientRect();
+      const dx = before.left - after.left;
+      const dy = before.top - after.top;
+      if (dx === 0 && dy === 0) return;
+      el.style.transition = "none";
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      el.getBoundingClientRect(); // 强制重排，让上面这行先生效，再切回过渡
+      requestAnimationFrame(() => {
+        el.style.transition = "transform 180ms ease";
+        el.style.transform = "";
+        const onDone = () => {
+          el.style.transition = "";
+          el.removeEventListener("transitionend", onDone);
+        };
+        el.addEventListener("transitionend", onDone);
+      });
+    });
+  }, [value.segments]);
 
   function handleGripPointerDown(e: React.PointerEvent<HTMLSpanElement>, index: number): void {
     if (e.button !== 0 && e.pointerType === "mouse") return; // 只响应主按键/触摸
@@ -245,16 +340,27 @@ export function AgendaPanelEditor({
     const from = draggingIndexRef.current;
     if (Number.isNaN(overIndex) || overIndex === from) return;
 
-    // 只在同一天同一半场内允许拖拽交换——跨组意味着改变这个环节属于哪天哪个
-    // 半场，那是另一个操作（环节行上的 day/session 选择控件），不是拖拽重排。
     const dragged = valueRef.current.segments[from];
     const target = valueRef.current.segments[overIndex];
     if (dragged === undefined || target === undefined) return;
-    if (dragged.day !== target.day || dragged.session !== target.session) return;
+
+    captureRects();
 
     const segments = [...valueRef.current.segments];
     const [moved] = segments.splice(from, 1);
-    segments.splice(overIndex, 0, moved!);
+    let toInsert = moved!;
+    if (dragged.day !== target.day || dragged.session !== target.session) {
+      // 拖到别的天/半场的分组里：连带把这个环节的归属也改过去——拖过去这个动作
+      // 本身就是"换组"，不需要额外再去点行内的 day/session 选择器。
+      toInsert = { ...moved!, day: target.day, session: target.session };
+    }
+    segments.splice(overIndex, 0, toInsert);
+    // 身份 key 数组跟着做同样的 splice，保持和 segments 逐位对应——这样 FLIP 动画
+    // 才知道"这一行"移动前后分别在哪。
+    const ids = [...idsRef.current];
+    const [movedId] = ids.splice(from, 1);
+    ids.splice(overIndex, 0, movedId!);
+    idsRef.current = ids;
     setValue({ segments }); // 拖拽中只更新本地态做实时预览，不逐帧发请求
     draggingIndexRef.current = overIndex;
     setDraggingIndex(overIndex);
@@ -313,7 +419,7 @@ export function AgendaPanelEditor({
               保存
             </button>
             <span className="rounded border border-border px-1.5 py-0.5 text-11 text-muted-foreground">
-              抓左侧握把拖动：同一天同一半场内可重排；换天/换半场用环节行上的选择器
+              抓左侧握把拖动：同组内重排，拖到别的分组标题下即可换天/换半场；也可用环节行上的选择器
             </span>
           </div>
         </div>
@@ -332,9 +438,14 @@ export function AgendaPanelEditor({
                 <ul className="flex flex-col gap-1.5">
                   {group.indices.map((i) => {
                     const seg = value.segments[i]!;
+                    const rowKey = idsRef.current[i] ?? `i${i}`;
                     return (
                       <li
-                        key={i}
+                        key={rowKey}
+                        ref={(el) => {
+                          if (el) rowRefs.current.set(rowKey, el);
+                          else rowRefs.current.delete(rowKey);
+                        }}
                         data-agenda-index={i}
                         className={
                           draggingIndex === i
