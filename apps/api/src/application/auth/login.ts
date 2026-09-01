@@ -151,7 +151,25 @@ export async function login(
     // 在列表里显示「最后活跃：从未」是假的。
     lastActiveAt: now.getTime(),
   };
-  const sessionToken = await deps.sessions.issue(record);
+  // 真实事故（2026-09-01，traceId 28b6862c-71e1-4ce8-8e3f-3fceb9f8b607）：ioredis 在这次
+  // 调用途中报 `Error: Connection is closed.`（连接被对端关闭，命中一次瞬时 Redis 抖动），
+  // 这里此前不捕获，异常原样冒到 `AuthController`，`toHttp()` 认不出它（既不是 `AuthError`
+  // 也不是 `PasswordPolicyError`），`AllExceptionsFilter` 把它归成裸的 `internal_error`
+  // 500——用户看到「服务暂时不可用」（措辞碰巧对了），但没有走契约定义好的
+  // `AUTH_SERVICE_UNAVAILABLE` 通路，日志里也留不下一个可归类的 reasonCode。
+  //
+  // `redis-session-token-store.ts` 文件头注早就写明这里的设计意图——"Redis unavailable
+  // => refuse, never degrade"，"a thrown error becomes 503 auth_unavailable"——但那句意图
+  // 只在 `PrincipalGuard`（校验已有 session）那条路径上真正落地了，登录时**签发新
+  // session** 这条路径上从来没人接住过。补上同一条纪律：抓住这次调用可能抛出的任何
+  // 异常，翻译成契约里本来就有的 `AUTH_SERVICE_UNAVAILABLE`（`toHttp()` 会把它映射成
+  // 503，不再混进 500 internal_error 的桶）。
+  let sessionToken: string;
+  try {
+    sessionToken = await deps.sessions.issue(record);
+  } catch {
+    throw new AuthError("AUTH_SERVICE_UNAVAILABLE");
+  }
 
   return {
     sessionToken,
