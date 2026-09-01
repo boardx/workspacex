@@ -112,7 +112,7 @@
         "pnpm --filter api exec vitest run tests/itv/digital-interview-runs.test.ts",
         "pnpm --filter web exec vitest run tests/ui/interview-runs.test.tsx"
       ],
-      "evidence": "evidence/F05.verify.log @ 2026-09-01T11:00:10.443Z",
+      "evidence": "evidence/F05.verify.log @ 2026-09-01T11:17:33.454Z",
       "notes": "release slice。回答结构复用 Standalone 的观点、理由、引用、不确定性、反例层级；模型失败按 expert+operation 记录。"
     },
     {
