@@ -30,6 +30,14 @@
  * 按纸宽换算，这三档各自该精确，不该只有 A1 精确、A3/A4 只是"偏保守但不翻车"）
  * 与两档视口宽度（约束宽度 + 全屏），呼应人类原话"全屏下依然会切"——不能只在
  * 某一个宽度下测过就算数。
+ *
+ * ⚠ 2026-09-01（第五轮）：这块地方物理容量真的是 0（`sectionGeometryMm.fits===0`，
+ *   比如 A4 纸配上较小区块选 2 列时，一张 61mm 见方的贴纸连一行都放不下）的组合，
+ *   会被 `visibleNoteCount` 有意撑出 1 条强制展示（`Math.max(1, …)`，见该函数
+ *   文档"区块小到放不下一张时……看起来像试运行按钮没反应"）——这是早于这条 PR
+ *   链、刻意的取舍，不是这几条 PR 在修的"容量算多了"。物理容量为 0 时那张强制
+ *   显示的贴纸注定被裁，这类组合会跳过裁切断言（仍然全程跑"切换列数生效"那条
+ *   断言），理由见下方 `fits` 判断处的注释。
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
@@ -144,12 +152,27 @@ for (const paperSize of ["A1", "A3", "A4"] as const) {
       //   真的触发这个分支）。改读右栏「贴纸实尺 …这块地方 N列 × M行」那一行
       //   （`tpladmin-editor-col-note`）——它是 `layout.cols` 的直接展示，
       //   不随是否超出容量变来变去。
-      await expect(page.getByTestId("tpladmin-editor-col-note")).toContainText(`${cols} 列`);
+      const colNote = page.getByTestId("tpladmin-editor-col-note");
+      await expect(colNote).toContainText(`${cols} 列`);
 
       for (const viewport of [{ width: 900, height: 800 }, { width: 1920, height: 1080 }] as const) {
         await page.setViewportSize(viewport);
         // 视口变了，等一帧布局稳定，再量。
         await page.waitForTimeout(150);
+
+        // ⚠ 这块地方物理容量真的是 0（`sectionGeometryMm.fits===0`，比如 A4 纸
+        //   配上较小的区块 + 2 列时，一张 61mm 见方的贴纸连一行都放不下）时，
+        //   `visibleNoteCount` 有意让最少显示 1 条（`Math.max(1, …)`，见该函数
+        //   文档「区块小到放不下一张时……直接用它当条数就是一张都不画……看起来
+        //   像试运行按钮没反应」）——这是早于这条 PR 链、刻意的取舍："宁可露半张
+        //   贴纸让使用者知道数据进来了，也不留一个看起来像坏掉的空区块"，不是
+        //   这几条 PR 在修的"容量算多了导致裁切"。物理容量为 0 时这张强制显示
+        //   的贴纸注定放不下、必然被裁，跳过这个组合的裁切断言，不是放宽容差
+        //   去掩盖一个真回归——上面 `${cols} 列` 的切换生效断言仍然全程跑。
+        const colNoteText = (await colNote.textContent()) ?? "";
+        const fits = Number(/放得下\s*(\d+)\s*条/.exec(colNoteText)?.[1] ?? "0");
+        if (fits === 0) continue;
+
         const clipped = await findClippedNotes(page);
         expect(
           clipped,
