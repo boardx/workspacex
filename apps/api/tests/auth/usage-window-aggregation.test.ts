@@ -37,6 +37,22 @@ let repo: PgTokenQuotaRepository;
 const report = (window: UsageWindowKey) =>
   getUsageReport({ repo }, { orgId: toOrgId(ORG), window });
 
+/**
+ * 「`maxHours` 小时以前，但保证仍落在本自然月内」——用来生成「本月内、但不算最近几小时」
+ * 的固定测试数据点，不用写死的 `24 * 10`（那要求测试运行时刻与「10 天前」落在同一个
+ * 自然月，本月第 1-10 天运行必然假）。
+ *
+ * 离月初足够远时逐字等价于 `maxHours`；月初这几天自动收窄到「距月初时长的一半」，
+ * 仍然满足「在本月内」，但不保证仍然满足调用方额外要求的「超过 N 小时」——那个残余
+ * 极小窗口（月初头几小时内运行）是已知、接受的边界情况，不强行消灭。
+ */
+function hoursAgoWithinCurrentMonth(maxHours: number): number {
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const hoursSinceMonthStart = (now.getTime() - monthStart.getTime()) / 3_600_000;
+  return Math.min(maxHours, hoursSinceMonthStart / 2);
+}
+
 /** 一条计量事件，`agoHours` 小时以前。 */
 async function spend(
   userId: string, modelId: string, tokens: number, agoHours = 0,
@@ -76,7 +92,7 @@ afterAll(async () => {
 describe("F161 用量监控：每个窗口是一次真实聚合", () => {
   it("【核心】同一批事件，最近 5 小时 / 本月 给出不同的数（换窗口就是换查询）", async () => {
     await spend(LINKE, "opus-4.6", 1_000_000, 1);      // 1 小时前 → 两个窗口都算
-    await spend(LINKE, "opus-4.6", 5_000_000, 24 * 10); // 10 天前 → 只有本月算
+    await spend(LINKE, "opus-4.6", 5_000_000, hoursAgoWithinCurrentMonth(24 * 10)); // 本月内、够早 → 只有本月算
 
     const recent = await report("5h");
     const month = await report("month");
