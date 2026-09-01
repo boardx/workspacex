@@ -32,7 +32,7 @@
  */
 import { createHash, randomBytes } from "node:crypto";
 import Redis from "ioredis";
-import type { SessionTokenStore } from "../../application/auth/ports";
+import { SessionStoreUnavailableError, type SessionTokenStore } from "../../application/auth/ports";
 import type { SessionRecord } from "../../domain/auth/session-lifetime";
 import { UNKNOWN_DEVICE } from "../../domain/auth/device-fingerprint";
 
@@ -119,6 +119,41 @@ function userKey(prefix: string, userId: string): string {
   return `${prefix}user-sessions:${userId}`;
 }
 
+/**
+ * `SessionStoreUnavailableError`'s classifier -- the ONE place that decides "this failure
+ * means the dependency is unreachable" versus "something else went wrong". See that error
+ * class's doc comment (`application/auth/ports.ts`) for why the distinction matters.
+ *
+ * ## The two signatures this recognises, and why by name/message rather than `instanceof`
+ *
+ * ioredis's own source (`built/redis/event_handler.js`) rejects a pending command in exactly
+ * two ways when the connection drops: `new MaxRetriesPerRequestError(...)` (after the
+ * configured retry budget is exhausted) or a bare `new Error("Connection is closed.")` (the
+ * literal exported as `CONNECTION_CLOSED_ERROR_MSG`, thrown when the connection closes with a
+ * command already in flight -- the exact shape of the 2026-09-01 incident this was built for).
+ * Neither class is re-exported from ioredis's public `index.js` (only `ReplyError` is), so an
+ * `instanceof` check would mean reaching into `ioredis/built/errors/...`, a private path that
+ * is free to move between patch versions. Matching by `name`/message text is exactly as
+ * precise for these two known shapes and does not depend on ioredis's internal module layout.
+ *
+ * A handful of raw Node network error codes are included for the same class of failure at a
+ * lower layer (the TCP connection itself, before ioredis's own retry/close logic engages).
+ *
+ * Anything that does not match one of these falls through unclassified -- see the call site
+ * for what "unclassified" means (rethrown as-is, not wrapped).
+ */
+const CONNECTION_ERROR_CODES = new Set(["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EPIPE", "EHOSTUNREACH"]);
+
+/** Exported for direct unit testing against the literal ioredis error shapes -- see
+ *  `tests/auth/redis-session-token-store-error-classification.test.ts`. */
+export function isRecognisedConnectionFailure(e: unknown): boolean {
+  if (!(e instanceof Error)) return false;
+  if (e.name === "MaxRetriesPerRequestError") return true;
+  if (e.message === "Connection is closed.") return true;
+  const code = (e as NodeJS.ErrnoException).code;
+  return typeof code === "string" && CONNECTION_ERROR_CODES.has(code);
+}
+
 export class RedisSessionTokenStore implements SessionTokenStore {
   private readonly redis: Redis;
   private connecting: Promise<unknown> | null = null;
@@ -188,39 +223,58 @@ export class RedisSessionTokenStore implements SessionTokenStore {
     await this.connecting;
   }
 
+  /**
+   * ⚠ The whole body is one try/catch, not just the network calls: a `SessionStoreUnavailableError`
+   *   is only correct for a failure that genuinely came from talking to Redis. Scoping the
+   *   catch to just `this.ready()`/`.exec()` would still be right here (nothing else in this
+   *   method can throw), but the boundary is drawn at the method level deliberately, so the
+   *   next person adding a line to this function does not have to reason about which lines
+   *   are "covered" -- the classifier (`isRecognisedConnectionFailure`) is what actually keeps
+   *   this narrow, not the shape of the try block.
+   */
   async issue(record: SessionRecord): Promise<string> {
-    await this.ready();
-    // The token is NOT derived from the record: it is independent CSPRNG output, so holding
-    // a session id (which appears in logs and audit rows) never yields the token.
-    const token = randomToken();
-    const key = tokenKey(this.cfg.keyPrefix, token);
-    const ttlSeconds = Math.max(1, Math.ceil((record.expiresAt - Date.now()) / 1000));
+    try {
+      await this.ready();
+      // The token is NOT derived from the record: it is independent CSPRNG output, so holding
+      // a session id (which appears in logs and audit rows) never yields the token.
+      const token = randomToken();
+      const key = tokenKey(this.cfg.keyPrefix, token);
+      const ttlSeconds = Math.max(1, Math.ceil((record.expiresAt - Date.now()) / 1000));
 
-    const stored: StoredSession = {
-      id: record.id,
-      userId: record.userId,
-      currentOrgId: record.currentOrgId,
-      issuedAt: record.issuedAt,
-      expiresAt: record.expiresAt,
-      revokedAt: record.revokedAt,
-      device: record.device,
-      location: record.location,
-      lastActiveAt: record.lastActiveAt,
-    };
+      const stored: StoredSession = {
+        id: record.id,
+        userId: record.userId,
+        currentOrgId: record.currentOrgId,
+        issuedAt: record.issuedAt,
+        expiresAt: record.expiresAt,
+        revokedAt: record.revokedAt,
+        device: record.device,
+        location: record.location,
+        lastActiveAt: record.lastActiveAt,
+      };
 
-    // The index and the record are written together. If the index write were skipped on
-    // failure, `revokeAllForUser` would return a count that is quietly too low -- and that
-    // number is the contract's only evidence that I-5 held.
-    await this.redis
-      .multi()
-      .set(key, JSON.stringify(stored), "EX", ttlSeconds)
-      .sadd(userKey(this.cfg.keyPrefix, record.userId), key)
-      // The index must outlive the longest session it points at, or revocation starts
-      // missing sessions that are still valid. One extra day of slack.
-      .expire(userKey(this.cfg.keyPrefix, record.userId), ttlSeconds + 86_400)
-      .exec();
+      // The index and the record are written together. If the index write were skipped on
+      // failure, `revokeAllForUser` would return a count that is quietly too low -- and that
+      // number is the contract's only evidence that I-5 held.
+      await this.redis
+        .multi()
+        .set(key, JSON.stringify(stored), "EX", ttlSeconds)
+        .sadd(userKey(this.cfg.keyPrefix, record.userId), key)
+        // The index must outlive the longest session it points at, or revocation starts
+        // missing sessions that are still valid. One extra day of slack.
+        .expire(userKey(this.cfg.keyPrefix, record.userId), ttlSeconds + 86_400)
+        .exec();
 
-    return token;
+      return token;
+    } catch (e) {
+      // Recognised connection-class failure -> the typed error `login.ts` translates to
+      // `AUTH_SERVICE_UNAVAILABLE`. Anything else (a bug in this method, an unexpected
+      // exception shape) is rethrown UNCHANGED, so it keeps flowing to `AllExceptionsFilter`'s
+      // catch-all and becomes `internal_error` -- the honest answer when it isn't "Redis is
+      // down". See `isRecognisedConnectionFailure`'s doc comment for exactly what this matches.
+      if (isRecognisedConnectionFailure(e)) throw new SessionStoreUnavailableError(e);
+      throw e;
+    }
   }
 
   async findByToken(token: string): Promise<SessionRecord | null> {

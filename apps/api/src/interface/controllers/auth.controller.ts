@@ -16,8 +16,20 @@
  * metrics dashboard -- and I-1 is about "email not found" and "wrong password" being
  * indistinguishable, which they are here because they are the same code AND the same status
  * AND the same elapsed time.
+ *
+ * `AUTH_SERVICE_UNAVAILABLE` is deliberately NOT in that group: it carries no information
+ * about which account was queried (it fires the same way for any email, existing or not, the
+ * instant the session store is unreachable), so giving it its own 503 reopens nothing I-1
+ * closes. Every other bundle in this codebase already treats it this way (`PrincipalGuard`'s
+ * `auth_unavailable`, `project.controller.ts`'s per-operation 503 branch) -- this endpoint
+ * was the one place that hadn't caught up, and a raw Redis error used to fall through
+ * `toHttp()` untranslated into a bare `internal_error` 500 (2026-09-01, traceId
+ * 28b6862c-71e1-4ce8-8e3f-3fceb9f8b607).
  */
-import { Body, Controller, HttpCode, HttpStatus, Inject, Post, Req, UnauthorizedException } from "@nestjs/common";
+import {
+  Body, Controller, HttpCode, HttpStatus, Inject, Post, Req,
+  ServiceUnavailableException, UnauthorizedException,
+} from "@nestjs/common";
 import { auth as C } from "@repo/contracts";
 import { login } from "../../application/auth/login";
 import {
@@ -142,6 +154,12 @@ export class AuthController {
  */
 function toHttp(e: unknown): unknown {
   if (e instanceof AuthError) {
+    // `AUTH_SERVICE_UNAVAILABLE` is the one reason NOT in the "same status for all" group
+    // (see the file header) -- it says nothing about which account was queried, so a
+    // distinct 503 does not reopen the enumeration channel I-1 closes for the other three.
+    if (e.reason === "AUTH_SERVICE_UNAVAILABLE") {
+      return new ServiceUnavailableException({ reasonCode: e.reason });
+    }
     // The reason code travels in the body, the status is the same for all of them.
     return new UnauthorizedException({ reasonCode: e.reason });
   }
