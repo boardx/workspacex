@@ -51,3 +51,20 @@ REVOKE ALL ON error_logs FROM app_rw;
 GRANT INSERT, DELETE ON error_logs TO app_rw;
 -- INSERT into a BIGSERIAL PK needs the sequence's nextval(), not SELECT on the sequence.
 GRANT USAGE ON SEQUENCE error_logs_id_seq TO app_rw;
+
+-- `kernel_tenant_table_audit` (0004) classifies this table `UNTENANTED_BUT_GRANTED` without
+-- the line below: it has no `org_id` (by design, see this file's header) AND `app_rw` holds
+-- grants on it (INSERT/DELETE above) -- exactly the shape of "a table with nothing to filter
+-- on that the runtime role can reach", which is a real cross-tenant hole for any table that
+-- actually needs one. `error_logs` does not: it is infrastructure self-observation in the
+-- same class as `_kernel_migrations` (that table's own exemption comment says so, and 0004's
+-- header explains why the exemption must be a declared table COMMENT rather than an allowlist
+-- entry someone edits at the moment they are trying to make the gate green). The audit does
+-- not distinguish "has grants because it needs SELECT" from "has grants because it needs only
+-- INSERT/DELETE" -- both are, from a tenant-isolation standpoint, "the runtime role can reach
+-- an untenanted table", which is what this comment is attesting is intentional here.
+COMMENT ON TABLE error_logs IS
+  'kernel-no-tenant-data: unhandled-exception diagnostic log, deliberately has no org_id (many '
+  'of the errors it records happen before any tenant context exists, e.g. a failed login). '
+  'app_rw holds INSERT/DELETE only (no SELECT/UPDATE) -- see the GRANT block above and '
+  'pg-error-log-writer.ts''s header for the read-access boundary this does and does not widen.';
