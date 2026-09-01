@@ -131,15 +131,27 @@ for (const paperSize of ["A1", "A3", "A4"] as const) {
     await page.getByTestId("tpladmin-editor-dryrun-run").click();
     await expect(block).toContainText("条目 1");
 
-    for (const viewport of [{ width: 900, height: 800 }, { width: 1920, height: 1080 }] as const) {
-      await page.setViewportSize(viewport);
-      // 视口变了，等一帧布局稳定，再量。
-      await page.waitForTimeout(150);
-      const clipped = await findClippedNotes(page);
-      expect(
-        clipped,
-        `${paperSize} 纸、视口 ${viewport.width}×${viewport.height} 下，这些贴纸被外层容器裁掉了一部分（bottom=最后一行被裁，right=右侧被裁）：${JSON.stringify(clipped)}`,
-      ).toEqual([]);
+    // ⚠ 2026-09-01（第三轮独立审查）：人类实测原话"不管两列还是三列都会遮住"——
+    //   `defaultLayoutAt` 给列表型区块的默认列数会被夹到 ≥3，不显式切列数的话，
+    //   这条用例永远测不到 2 列这条路径，红不了也就等于没测。这里显式点两个列数
+    //   档位各测一遍，并且先读一遍区块自己的文案确认真的切换成功了，不是等着
+    //   点击"看起来生效了"就信。
+    for (const cols of [2, 3] as const) {
+      await page.getByTestId(`tpladmin-editor-cols-${cols}`).click();
+      // 区块「元信息」行会显示 `${cols} 列 · ${max} 条`——切换生效的直接证据，
+      // 不是猜按钮点了就一定生效。
+      await expect(block).toContainText(`${cols} 列`);
+
+      for (const viewport of [{ width: 900, height: 800 }, { width: 1920, height: 1080 }] as const) {
+        await page.setViewportSize(viewport);
+        // 视口变了，等一帧布局稳定，再量。
+        await page.waitForTimeout(150);
+        const clipped = await findClippedNotes(page);
+        expect(
+          clipped,
+          `${paperSize} 纸、${cols} 列、视口 ${viewport.width}×${viewport.height} 下，这些贴纸被外层容器裁掉了一部分（bottom=最后一行被裁，right=右侧被裁）：${JSON.stringify(clipped)}`,
+        ).toEqual([]);
+      }
     }
 
     expect(failures).toEqual([]);
