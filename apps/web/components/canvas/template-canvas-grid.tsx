@@ -2,7 +2,7 @@
 import * as React from "react";
 import type { SectionDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
-import { PAPER_SIZE_MM, A1_MARGIN_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -279,7 +279,7 @@ export function TemplateCanvasGrid({
                 </div>
               </div>
               <div
-                className="grid flex-1 content-start gap-1 overflow-hidden"
+                className="grid flex-1 content-start overflow-hidden"
                 style={{
                   // 列表型：每列宽 `notePct`（`geom.noteMm` 换算，随区块宽度/列数缩放，
                   // 封顶 `MAX_NOTE_MM`——2026-09-01 见上方 `notePct` 声明处的文档）。
@@ -287,6 +287,14 @@ export function TemplateCanvasGrid({
                   // 拉伸），行数摆不下的部分仍会被外层 `overflow-hidden` 裁掉。
                   // 短文本/长文本型：仍是 1fr（占满区块宽的单个文本框，不是贴纸网格）。
                   gridTemplateColumns: isList ? `repeat(${layout.cols}, ${notePct}cqw)` : "1fr",
+                  // ⚠ 2026-09-01 人类反馈"还是有被截掉的贴纸"：`gap` 此前是 Tailwind
+                  //   `gap-1`（固定 4px），不随纸面缩放，而 `sectionGeometryMm` 的
+                  //   `rows` 公式假设行间距恒等于 `GRID_GAP_MM`（按纸宽换算的比例值，
+                  //   与 `noteMm`/`notePct` 同一套单位）——容器越窄，固定 4px 相对纸宽
+                  //   的比例越大，实际占用的行高比公式假设的更多，容易让最后一行卡在
+                  //   `overflow-hidden` 的边缘被切掉半张。改成同一套 cqw 比例，两边的
+                  //   "间距"就是同一个数字的两种写法，不会再各说各话。
+                  gap: `${(GRID_GAP_MM / PAPER_SIZE_MM[paperSize].w) * 100}cqw`,
                 }}
               >
                 {Array.from({ length: visibleCount }, (_, i) => {
