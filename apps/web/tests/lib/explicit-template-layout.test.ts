@@ -13,6 +13,7 @@ import {
   sectionGeometryMm,
   classifyNoteSize,
   MAX_NOTE_MM,
+  TITLE_RESERVE_MM,
   TONE_COLORS,
   A1_CONTENT_MM,
   A1_PAPER_MM,
@@ -246,10 +247,10 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.noteMm).toBe(expectedNoteMm);
   });
 
-  it("容量 = cols × rows，rows 由 floor((hMm-22)/(noteMm+6)) 算出——不是拍脑袋乘一个数", () => {
+  it("容量 = cols × rows，rows 由 floor((hMm-TITLE_RESERVE_MM)/(noteMm+6)) 算出——不是拍脑袋乘一个数", () => {
     const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
     const expectedHMm = (3 / 8) * A1_CONTENT_MM.h - 6;
-    const expectedRows = Math.floor((expectedHMm - 22) / (g.noteMm + 6));
+    const expectedRows = Math.floor((expectedHMm - TITLE_RESERVE_MM) / (g.noteMm + 6));
     expect(g.rows).toBe(expectedRows);
     expect(g.fits).toBe(5 * expectedRows);
   });
