@@ -524,6 +524,244 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     expect(parsed.segments.map((s) => s.no)).toEqual(["01", "02", "03"]);
   });
 
+  it("流程 Agenda：拖到别的分组（上午→下午）——被拖环节的 day/session 跟着改，不需要再点选择器", async () => {
+    const saved = {
+      segments: [
+        { no: "01", title: "环节甲", min: 20, boardSkill: "", optional: false, day: 1, session: "AM" },
+        { no: "02", title: "环节乙", min: 20, boardSkill: "", optional: false, day: 1, session: "PM" },
+      ],
+    };
+    let putBody: { value: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "flow-agenda", content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/flow-agenda` && init?.method === "PUT") {
+        putBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: "ir-2",
+          completed: true,
+          completeness: { done: 1, denominator: 13 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    await screen.findByTestId("bp-agenda-segment-title-0");
+
+    // 拖之前两个环节分属不同分组（标题是 <input value>，不进 textContent，按 value 查）。
+    expect(screen.getByTestId("bp-agenda-group-1-AM")).toBeInTheDocument();
+    expect(screen.getByTestId("bp-agenda-group-1-PM")).toBeInTheDocument();
+    expect((screen.getByTestId("bp-agenda-segment-title-0") as HTMLInputElement).value).toBe("环节甲");
+    expect((screen.getByTestId("bp-agenda-segment-title-1") as HTMLInputElement).value).toBe("环节乙");
+
+    const grip0 = screen.getByTestId("bp-agenda-segment-grip-0"); // 环节甲，day1/AM
+    const row1 = screen.getByTestId("bp-agenda-segment-1"); // 环节乙，day1/PM
+    document.elementFromPoint = () => row1.querySelector("input")!;
+
+    fireEvent.pointerDown(grip0, { pointerId: 1, clientX: 0, clientY: 0, button: 0 });
+    fireEvent.pointerMove(grip0, { pointerId: 1, clientX: 0, clientY: 200 });
+    fireEvent.pointerUp(grip0, { pointerId: 1 });
+
+    // 拖过去之后，"第 1 天 · 上午"这个分组标题整个消失了（没环节了），两个环节都并到
+    // 「第 1 天 · 下午」下面——不是拖不动，也不需要再去点行内选择器。
+    await waitFor(() => {
+      expect(screen.queryByTestId("bp-agenda-group-1-AM")).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId("bp-agenda-group-1-PM")).toBeInTheDocument();
+    expect((screen.getByTestId("bp-agenda-segment-title-0") as HTMLInputElement).value).toBe("环节乙");
+    expect((screen.getByTestId("bp-agenda-segment-title-1") as HTMLInputElement).value).toBe("环节甲");
+
+    await waitFor(() => expect(putBody).not.toBeNull());
+    const parsed = JSON.parse(putBody!.value) as {
+      segments: { title: string; day: number; session: string }[];
+    };
+    expect(parsed.segments.map((s) => s.title)).toEqual(["环节乙", "环节甲"]);
+    expect(parsed.segments.every((s) => s.day === 1 && s.session === "PM")).toBe(true);
+  });
+
+  it("流程 Agenda：pointercancel（松手前指针被系统抢走）也和 pointerup 一样落库", async () => {
+    const saved = {
+      segments: [
+        { no: "01", title: "对齐目标", min: 25, boardSkill: "—", optional: false },
+        { no: "02", title: "现状共识", min: 25, boardSkill: "Scout 简报", optional: false },
+      ],
+    };
+    let putBody: { value: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "flow-agenda", content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/flow-agenda` && init?.method === "PUT") {
+        putBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: "ir-2",
+          completed: true,
+          completeness: { done: 1, denominator: 13 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    await screen.findByTestId("bp-agenda-segment-title-0");
+
+    const grip0 = screen.getByTestId("bp-agenda-segment-grip-0");
+    const row1 = screen.getByTestId("bp-agenda-segment-1");
+    document.elementFromPoint = () => row1.querySelector("input")!;
+
+    fireEvent.pointerDown(grip0, { pointerId: 1, clientX: 0, clientY: 0, button: 0 });
+    fireEvent.pointerMove(grip0, { pointerId: 1, clientX: 0, clientY: 100 });
+    fireEvent.pointerCancel(grip0, { pointerId: 1 }); // 不是 pointerup——系统手势/多指触摸会抢走指针
+
+    await waitFor(() => {
+      expect((screen.getByTestId("bp-agenda-segment-title-1") as HTMLInputElement).value).toBe("对齐目标");
+    });
+    await waitFor(() => expect(putBody).not.toBeNull());
+    const parsed = JSON.parse(putBody!.value) as { segments: { title: string }[] };
+    expect(parsed.segments.map((s) => s.title)).toEqual(["现状共识", "对齐目标"]);
+  });
+
+  it("流程 Agenda：自动保存的回声回来之后，正在编辑的那一行不会重新挂载，输入不丢", async () => {
+    let putCount = 0;
+    let lastPutBody: { value: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({ revision: "rev-1", designFacets: [] });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/flow-agenda` && init?.method === "PUT") {
+        putCount += 1;
+        lastPutBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: `ir-${putCount}`,
+          completed: true,
+          completeness: { done: 1, denominator: 13 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    await screen.findByTestId("bp-agenda-empty");
+    fireEvent.click(screen.getByTestId("bp-agenda-add-segment"));
+
+    // 新增环节触发第一次保存——显式等它的回声（父组件把新 content/itemRevision 传回来）
+    // 真的落地之后再继续操作，逼出"保存回声打断正在编辑的行"这条路径。
+    await waitFor(() => expect(putCount).toBe(1));
+    await screen.findByTestId("bp-facet-save-status"); // "已保存" 徽标出现，回声已经生效
+
+    const titleInput = screen.getByTestId("bp-agenda-segment-title-0") as HTMLInputElement;
+    titleInput.focus();
+    expect(document.activeElement).toBe(titleInput);
+
+    fireEvent.change(titleInput, { target: { value: "收敛环节" } });
+    // 回声没有让这一行重新挂载：同一个 DOM 节点还在文档里，还是焦点所在。
+    expect(document.activeElement).toBe(titleInput);
+    expect(document.body.contains(titleInput)).toBe(true);
+    fireEvent.blur(titleInput);
+
+    await waitFor(() => expect(putCount).toBe(2));
+    const parsed = JSON.parse((lastPutBody as unknown as { value: string }).value) as {
+      segments: { title: string }[];
+    };
+    expect(parsed.segments[0]?.title).toBe("收敛环节");
+  });
+
+  it("流程 Agenda：开了「减弱动态效果」时，拖拽重排不再对行设置位移动画", async () => {
+    const saved = {
+      segments: [
+        { no: "01", title: "对齐目标", min: 25, boardSkill: "—", optional: false },
+        { no: "02", title: "现状共识", min: 25, boardSkill: "Scout 简报", optional: false },
+      ],
+    };
+    fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "flow-agenda", content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      return jsonResponse({ itemRevision: "ir-2", completed: true, completeness: { done: 1, denominator: 13 } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // 假装两行的 getBoundingClientRect 不一样（真实浏览器里重排后确实不一样），
+    // 否则 dx/dy 恒为 0，测不出"到底有没有设置位移动画"这件事。
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      const idx = this.getAttribute("data-agenda-index");
+      const top = idx !== null ? Number(idx) * 40 : 0;
+      return { top, left: 0, right: 0, bottom: top, width: 100, height: 40, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+    };
+    // 用真的 rAF 打桩（同步执行 + 记调用次数）——不依赖 jsdom 到底有没有实现它。
+    const rafSpy = vi.fn((cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+    vi.stubGlobal("requestAnimationFrame", rafSpy);
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("prefers-reduced-motion"),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }));
+
+    try {
+      render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+      await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+      await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+      await screen.findByTestId("bp-agenda-segment-title-0");
+
+      const grip0 = screen.getByTestId("bp-agenda-segment-grip-0");
+      const row1 = screen.getByTestId("bp-agenda-segment-1");
+      document.elementFromPoint = () => row1.querySelector("input")!;
+
+      fireEvent.pointerDown(grip0, { pointerId: 1, clientX: 0, clientY: 0, button: 0 });
+      fireEvent.pointerMove(grip0, { pointerId: 1, clientX: 0, clientY: 200 });
+      fireEvent.pointerUp(grip0, { pointerId: 1 });
+
+      await waitFor(() => {
+        expect((screen.getByTestId("bp-agenda-segment-title-1") as HTMLInputElement).value).toBe("对齐目标");
+      });
+      // 减弱动态效果开着：FLIP 那段 requestAnimationFrame 压根没跑过，行上也没被设过
+      // transform——不是"动画很快跑完了"，是根本没有触发。
+      expect(rafSpy).not.toHaveBeenCalled();
+      expect(screen.getByTestId("bp-agenda-segment-1").style.transform).toBe("");
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
+    }
+  });
+
   it("流程 Agenda：拖拽之外，上移/下移按钮仍原样可用（键盘/屏幕阅读器兜底）", async () => {
     const saved = {
       segments: [

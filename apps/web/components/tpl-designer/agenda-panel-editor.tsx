@@ -182,17 +182,24 @@ export function AgendaPanelEditor({
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
   const [error, setError] = React.useState<string | null>(null);
   const prevFacetKeyRef = React.useRef(designFacetKey);
+  // persist() 把它正要发出去的 payload 记在这里；reset effect 用它判断收到的新
+  // `content` 是不是"自己刚保存的那一份回声"，而不是拿数组长度去猜——见下面的注释。
+  const lastSentContentRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     const parsed = parseAgendaContent(content);
     // 每次落库成功，父组件都会把新 content/itemRevision 传回来，这个 effect 就会重跑一次
     // ——大多数情况下这是"回声"（`parsed` 跟当前 `value` 逻辑上是同一份东西），不是真的
-    // 换了一批环节。只在真的切到别的 designFacetKey，或者环节数量对不上（外部真的改了
-    // 结构）时才重新分配 id；否则沿用旧 id，行的身份不因为自己保存了一次就被打断——
-    // 不然每次自动保存都会让当前正在编辑的那一行重新挂载一次，清明地打断输入焦点。
+    // 换了一批环节。之前这里只在 designFacetKey 变了或者环节数量对不上时才重新分配
+    // id——但数量对得上不代表内容没变：另一个协作者/父层用同样的环节数量重排或替换了
+    // segments，也会被误判成"自己的回声"，旧 id 继续按位置绑定到不同的环节上，FLIP
+    // 动画和 React key 追踪的其实不是"同一个环节"。现在直接比对——只有当收到的
+    // `content` 字符串和自己上一次发出去的 payload 逐字相同（真的是回声）时才沿用旧
+    // id；否则（包括切到别的 designFacetKey、外部真实改动、初次挂载）一律重新分配。
     const facetChanged = prevFacetKeyRef.current !== designFacetKey;
     prevFacetKeyRef.current = designFacetKey;
-    if (facetChanged || parsed.segments.length !== idsRef.current.length) {
+    const isOwnEcho = !facetChanged && content === lastSentContentRef.current;
+    if (!isOwnEcho) {
       idsRef.current = parsed.segments.map(() => newKey());
     }
     setValue(parsed);
@@ -202,6 +209,7 @@ export function AgendaPanelEditor({
   }, [designFacetKey, content, itemRevision]);
 
   async function persist(next: AgendaContentValue): Promise<void> {
+    lastSentContentRef.current = serializeAgendaContent(next);
     setStatus("saving");
     setError(null);
     try {
@@ -302,6 +310,13 @@ export function AgendaPanelEditor({
     const prev = prevRectsRef.current;
     if (prev === null) return;
     prevRectsRef.current = null;
+    // 无障碍：用户开了"减弱动态效果"就不放这段位移动画——直接呈现重排后的最终位置，
+    // 不读旧位置也不设 transform，跟没开这个效果时相比唯一差别是没有过渡这一帧。
+    const reducesMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducesMotion) return;
     rowRefs.current.forEach((el, key) => {
       const before = prev.get(key);
       if (before === undefined) return;
@@ -312,7 +327,11 @@ export function AgendaPanelEditor({
       el.style.transition = "none";
       el.style.transform = `translate(${dx}px, ${dy}px)`;
       el.getBoundingClientRect(); // 强制重排，让上面这行先生效，再切回过渡
-      requestAnimationFrame(() => {
+      // jsdom（组件测试环境）没有 requestAnimationFrame——真实浏览器里都有，这里退化成
+      // 同步执行，只是测试里看不到过渡效果，不影响最终落位。
+      const raf: (cb: () => void) => void =
+        typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => cb();
+      raf(() => {
         el.style.transition = "transform 180ms ease";
         el.style.transform = "";
         const onDone = () => {
@@ -393,6 +412,142 @@ export function AgendaPanelEditor({
   });
   groups.sort((a, b) => (a.day !== b.day ? a.day - b.day : a.session === b.session ? 0 : a.session === "AM" ? -1 : 1));
 
+  // 分组标题行和环节行摊平进同一个数组，渲染成同一个 `<ul>` 下的兄弟节点——不是嵌套的
+  // "每组一个独立子树"。跨组拖拽（把环节从上午拖到下午）会让它在 `groups` 里挪到另一
+  // 组；如果标题+环节各自嵌套在按 day/session 生成的独立 `<div>`/`<ul>`（哪怕只是
+  // `<React.Fragment key>` 包一层）里，React 的子节点协调是按父节点分层做的，跨了那
+  // 一层父节点身份就对不上，React 会把这一行从旧父节点下卸载、在新父节点下重新挂载
+  // ——不管 key 多稳定都没用，行内正抓着的指针捕获/拖拽状态也会跟着断在半路。摊平成
+  // 同一个 `<ul>` 下的兄弟节点重排，React 的子节点 diff 才会真的把同一个 DOM 节点
+  // 挪到新位置，而不是销毁重建。
+  const rows: React.ReactNode[] = [];
+  groups.forEach((group) => {
+    rows.push(
+      <li
+        key={`h-${group.day}-${group.session}`}
+        data-testid={`bp-agenda-group-${group.day}-${group.session}`}
+        className="-mb-1.5 text-11 font-semibold text-muted-foreground"
+      >
+        第 {group.day} 天 · {SESSION_LABEL[group.session]}
+      </li>,
+    );
+    group.indices.forEach((i) => {
+      const seg = value.segments[i]!;
+      const rowKey = idsRef.current[i] ?? `i${i}`;
+      rows.push(
+        <li
+          key={rowKey}
+          ref={(el) => {
+            if (el) rowRefs.current.set(rowKey, el);
+            else rowRefs.current.delete(rowKey);
+          }}
+          data-agenda-index={i}
+          className={
+            draggingIndex === i
+              ? "flex flex-wrap items-center gap-1.5 rounded-md border border-primary bg-accent p-2.5 shadow-md opacity-80 transition-all duration-fast ease-fast"
+              : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2.5 transition-all duration-fast ease-fast"
+          }
+          data-testid={`bp-agenda-segment-${i}`}
+        >
+          <span
+            role="button"
+            tabIndex={-1}
+            aria-label={`拖动排序：${seg.title || "环节 " + seg.no}`}
+            aria-hidden={false}
+            className="flex h-3.5 w-3.5 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground active:cursor-grabbing"
+            data-testid={`bp-agenda-segment-grip-${i}`}
+            onPointerDown={(e) => handleGripPointerDown(e, i)}
+            onPointerMove={handleGripPointerMove}
+            onPointerUp={handleGripPointerUp}
+            onPointerCancel={handleGripPointerUp}
+          >
+            <GripVertical aria-hidden className="h-3.5 w-3.5" />
+          </span>
+          <span className="w-6 shrink-0 text-11 font-mono text-muted-foreground">{seg.no}</span>
+          <Input
+            type="text"
+            className="min-w-0 flex-1 text-12 font-medium"
+            value={seg.title}
+            onChange={(e) => updateSegment(i, { title: e.target.value })}
+            onBlur={() => void persist(value)}
+            placeholder="环节名称"
+            data-testid={`bp-agenda-segment-title-${i}`}
+          />
+          <Checkbox
+            checked={seg.optional}
+            onChange={() => toggleOptional(i)}
+            label="可选"
+            data-testid={`bp-agenda-segment-optional-${i}`}
+          />
+          <Input
+            type="number"
+            className="w-16 text-12"
+            value={seg.min}
+            onChange={(e) => updateSegment(i, { min: Number(e.target.value) || 0 })}
+            onBlur={() => void persist(value)}
+            aria-label="时长（分钟）"
+            data-testid={`bp-agenda-segment-min-${i}`}
+          />
+          <span className="text-11 text-muted-foreground">分钟</span>
+          <Input
+            type="text"
+            className="w-40 border-dashed text-11 text-muted-foreground"
+            value={seg.boardSkill}
+            onChange={(e) => updateSegment(i, { boardSkill: e.target.value })}
+            onBlur={() => void persist(value)}
+            placeholder="绑哪个画布 / Skill"
+            data-testid={`bp-agenda-segment-boardskill-${i}`}
+          />
+          <Select
+            options={DAY_OPTIONS}
+            value={String(seg.day)}
+            onValueChange={(v) => updateDaySession(i, { day: Number(v) || 1 })}
+            className="h-7 min-w-[5rem] text-11"
+            data-testid={`bp-agenda-segment-day-${i}`}
+          />
+          <Select
+            options={SESSION_OPTIONS}
+            value={seg.session}
+            onValueChange={(v) => updateDaySession(i, { session: v === "PM" ? "PM" : "AM" })}
+            className="h-7 min-w-[4.5rem] text-11"
+            data-testid={`bp-agenda-segment-session-${i}`}
+          />
+          <div className="flex gap-0.5">
+            <button
+              type="button"
+              onClick={() => moveSegment(i, -1)}
+              disabled={i === 0}
+              className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
+              aria-label="上移环节"
+              data-testid={`bp-agenda-segment-up-${i}`}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => moveSegment(i, 1)}
+              disabled={i === value.segments.length - 1}
+              className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
+              aria-label="下移环节"
+              data-testid={`bp-agenda-segment-down-${i}`}
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              onClick={() => removeSegment(i)}
+              className="rounded border border-border px-1 text-11 text-destructive"
+              aria-label="删除环节"
+              data-testid={`bp-agenda-segment-remove-${i}`}
+            >
+              ✕
+            </button>
+          </div>
+        </li>,
+      );
+    });
+  });
+
   return (
     <div data-testid={`bp-facet-editor-${designFacetKey}`}>
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-agenda-list">
@@ -429,132 +584,7 @@ export function AgendaPanelEditor({
             还没有环节——点「＋ 环节」新增。没写产出物的环节不能保存——那是闲聊不是环节。
           </p>
         ) : (
-          <div className="flex flex-col gap-3">
-            {groups.map((group) => (
-              <div key={`${group.day}-${group.session}`} data-testid={`bp-agenda-group-${group.day}-${group.session}`}>
-                <h4 className="mb-1 text-11 font-semibold text-muted-foreground">
-                  第 {group.day} 天 · {SESSION_LABEL[group.session]}
-                </h4>
-                <ul className="flex flex-col gap-1.5">
-                  {group.indices.map((i) => {
-                    const seg = value.segments[i]!;
-                    const rowKey = idsRef.current[i] ?? `i${i}`;
-                    return (
-                      <li
-                        key={rowKey}
-                        ref={(el) => {
-                          if (el) rowRefs.current.set(rowKey, el);
-                          else rowRefs.current.delete(rowKey);
-                        }}
-                        data-agenda-index={i}
-                        className={
-                          draggingIndex === i
-                            ? "flex flex-wrap items-center gap-1.5 rounded-md border border-primary bg-accent p-2.5 shadow-md opacity-80 transition-all duration-fast ease-fast"
-                            : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2.5 transition-all duration-fast ease-fast"
-                        }
-                        data-testid={`bp-agenda-segment-${i}`}
-                      >
-                        <span
-                          role="button"
-                          tabIndex={-1}
-                          aria-label={`拖动排序：${seg.title || "环节 " + seg.no}`}
-                          aria-hidden={false}
-                          className="flex h-3.5 w-3.5 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground active:cursor-grabbing"
-                          data-testid={`bp-agenda-segment-grip-${i}`}
-                          onPointerDown={(e) => handleGripPointerDown(e, i)}
-                          onPointerMove={handleGripPointerMove}
-                          onPointerUp={handleGripPointerUp}
-                          onPointerCancel={handleGripPointerUp}
-                        >
-                          <GripVertical aria-hidden className="h-3.5 w-3.5" />
-                        </span>
-                        <span className="w-6 shrink-0 text-11 font-mono text-muted-foreground">{seg.no}</span>
-                        <Input
-                          type="text"
-                          className="min-w-0 flex-1 text-12 font-medium"
-                          value={seg.title}
-                          onChange={(e) => updateSegment(i, { title: e.target.value })}
-                          onBlur={() => void persist(value)}
-                          placeholder="环节名称"
-                          data-testid={`bp-agenda-segment-title-${i}`}
-                        />
-                        <Checkbox
-                          checked={seg.optional}
-                          onChange={() => toggleOptional(i)}
-                          label="可选"
-                          data-testid={`bp-agenda-segment-optional-${i}`}
-                        />
-                        <Input
-                          type="number"
-                          className="w-16 text-12"
-                          value={seg.min}
-                          onChange={(e) => updateSegment(i, { min: Number(e.target.value) || 0 })}
-                          onBlur={() => void persist(value)}
-                          aria-label="时长（分钟）"
-                          data-testid={`bp-agenda-segment-min-${i}`}
-                        />
-                        <span className="text-11 text-muted-foreground">分钟</span>
-                        <Input
-                          type="text"
-                          className="w-40 border-dashed text-11 text-muted-foreground"
-                          value={seg.boardSkill}
-                          onChange={(e) => updateSegment(i, { boardSkill: e.target.value })}
-                          onBlur={() => void persist(value)}
-                          placeholder="绑哪个画布 / Skill"
-                          data-testid={`bp-agenda-segment-boardskill-${i}`}
-                        />
-                        <Select
-                          options={DAY_OPTIONS}
-                          value={String(seg.day)}
-                          onValueChange={(v) => updateDaySession(i, { day: Number(v) || 1 })}
-                          className="h-7 min-w-[5rem] text-11"
-                          data-testid={`bp-agenda-segment-day-${i}`}
-                        />
-                        <Select
-                          options={SESSION_OPTIONS}
-                          value={seg.session}
-                          onValueChange={(v) => updateDaySession(i, { session: v === "PM" ? "PM" : "AM" })}
-                          className="h-7 min-w-[4.5rem] text-11"
-                          data-testid={`bp-agenda-segment-session-${i}`}
-                        />
-                        <div className="flex gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => moveSegment(i, -1)}
-                            disabled={i === 0}
-                            className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
-                            aria-label="上移环节"
-                            data-testid={`bp-agenda-segment-up-${i}`}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveSegment(i, 1)}
-                            disabled={i === value.segments.length - 1}
-                            className="rounded border border-border px-1 text-11 disabled:bg-disabled disabled:text-disabled-foreground"
-                            aria-label="下移环节"
-                            data-testid={`bp-agenda-segment-down-${i}`}
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeSegment(i)}
-                            className="rounded border border-border px-1 text-11 text-destructive"
-                            aria-label="删除环节"
-                            data-testid={`bp-agenda-segment-remove-${i}`}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
+          <ul className="flex flex-col gap-3">{rows}</ul>
         )}
 
         <button
