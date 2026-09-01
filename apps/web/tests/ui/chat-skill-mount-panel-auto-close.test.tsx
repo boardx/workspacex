@@ -126,3 +126,39 @@ describe("ChatSkillMountPanel 挂载点击后的浮层开关（gap #9，乐观�
     expect(screen.getByTestId("chat-skill-mount-option-sk_aaa")).toBeInTheDocument();
   });
 });
+
+/**
+ * 2026-09-01 devapp 实测反馈（"skill panel can't be closed"）——面板此前只有
+ * 触发按钮 / 候选项 / 「取消」自己的 onClick 能关它，点面板外任意位置或按 Esc
+ * 都纹丝不动，与本仓已经给 `AgentPicker` 修过的同一个空缺（issue #1803 gap #2，
+ * 见 `chat-live-message-panel-agent-picker.test.tsx`）一样，只是当时没有同步
+ * 移植到这个文件。补齐同一套 `containerRef` + outside-click/Escape 用例。
+ */
+describe("ChatSkillMountPanel 候选面板 —— outside-click / Escape 关闭（同 AgentPicker gap #2）", () => {
+  it("点击面板外部（document.body）会关闭面板", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByTestId("chat-skill-mount"));
+    expect(await screen.findByTestId("chat-skill-mount-picker")).toBeInTheDocument();
+
+    fireEvent.mouseDown(document.body);
+    await waitFor(() => expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument());
+  });
+
+  it("按 Escape 会关闭面板", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByTestId("chat-skill-mount"));
+    expect(await screen.findByTestId("chat-skill-mount-picker")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument());
+  });
+
+  it("点击面板内部（比如「取消」按钮）不会被外部点击逻辑误伤——照常按自己的逻辑关闭", async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByTestId("chat-skill-mount"));
+    expect(await screen.findByTestId("chat-skill-mount-picker")).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByTestId("chat-skill-mount-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument());
+  });
+});

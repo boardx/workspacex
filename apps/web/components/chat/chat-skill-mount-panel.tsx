@@ -154,6 +154,30 @@ export function ChatSkillMountPanel({
   const generation = React.useRef(0);
   /** 这一次打开是不是由 composer 的 `#` 触发的——决定 `mentionQuery` 归 null 时要不要自动关面板。 */
   const mentionOpenedRef = React.useRef(false);
+  /**
+   * 同类空缺（`AgentPicker`/`chat-composer-pickers.tsx` issue #1803 gap #2 已经
+   * 修过的那个）：这个候选面板此前只有触发按钮/候选项/「取消」自己的 onClick
+   * 能关它，没有 outside-click / Escape——用户点面板外任何地方、或按 Esc，
+   * 面板纹丝不动，只能精确点中小小的「取消」按钮，不符合标准下拉交互预期
+   * （2026-09-01 devapp 实测反馈："skill panel can't be closed"）。仿
+   * `AgentPicker` 同一套写法：`containerRef` + `document.addEventListener`。
+   */
+  const containerRef = React.useRef<HTMLElement>(null);
+  React.useEffect(() => {
+    if (!picking) return;
+    function onPointerDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setPicking(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setPicking(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [picking, setPicking]);
 
   const reload = React.useCallback(async () => {
     const requestGeneration = ++generation.current;
@@ -470,7 +494,11 @@ export function ChatSkillMountPanel({
     // 判空态直接读这个 data 属性或 `mounts.length`）。
     const hasMounts = mounts.length > 0;
     return (
-      <div className="relative inline-flex flex-col items-start gap-1" data-testid="chat-skill-mount-panel">
+      <div
+        ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
+        className="relative inline-flex flex-col items-start gap-1"
+        data-testid="chat-skill-mount-panel"
+      >
         <Button
           size="xs"
           variant="outline"
@@ -505,6 +533,7 @@ export function ChatSkillMountPanel({
 
   return (
     <section
+      ref={containerRef}
       className="flex flex-col gap-2 border-t border-border px-4 py-2"
       data-testid="chat-skill-mount-panel"
     >
