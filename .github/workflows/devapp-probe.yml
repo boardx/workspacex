@@ -57,3 +57,29 @@ jobs:
           echo "── 正样本 SELECT 1 ──"; $PSQL "SELECT 1" 2>&1 | head -3
           echo "── credentials 行数 ──"; $PSQL "SELECT count(*) FROM credentials" 2>&1 | head -3
           echo "── auth_bootstrap_state 行数 ──"; $PSQL "SELECT count(*) FROM auth_bootstrap_state" 2>&1 | head -3
+
+      # 2026-09-01：登录页实测撞见 AUTH_SERVICE_UNAVAILABLE（PR #2440 上线后的正确分类，
+      # 不是误报）——追查是不是 Redis 本身真的连不上。只读：docker ps / logs / 容器内
+      # redis-cli PING，不重启、不改配置。`ghrunner` 在 docker 组里，不需要 sudo。
+      - name: Redis 容器状态与可达性（只读，不重启）
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          echo "── docker ps -a（全部容器，看有没有在崩溃重启循环）──"
+          docker ps -a 2>&1
+          echo "── 找 redis 容器名 ──"
+          REDIS_CID=$(docker ps -a --filter "name=redis" --format '{{.Names}}' | head -1)
+          echo "  匹配到: ${REDIS_CID:-（没找到名字含 redis 的容器）}"
+          if [ -n "$REDIS_CID" ]; then
+            echo "── docker inspect 健康状态/重启次数 ──"
+            docker inspect "$REDIS_CID" --format 'Status={{.State.Status}} Health={{.State.Health.Status}} RestartCount={{.RestartCount}} StartedAt={{.State.StartedAt}}' 2>&1
+            echo "── redis-cli PING（容器内部，绕开网络层）──"
+            docker exec "$REDIS_CID" redis-cli PING 2>&1
+            echo "── 容器最近 40 行日志 ──"
+            docker logs --tail 40 "$REDIS_CID" 2>&1
+          fi
+          echo "── workspacex-api 容器最近 30 行日志，看是不是同一个 Connection is closed ──"
+          API_CID=$(docker ps -a --filter "name=api" --format '{{.Names}}' | head -1)
+          echo "  匹配到: ${API_CID:-（没找到名字含 api 的容器）}"
+          [ -n "$API_CID" ] && docker logs --tail 30 "$API_CID" 2>&1
