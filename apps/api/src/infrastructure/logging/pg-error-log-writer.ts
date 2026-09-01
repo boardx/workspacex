@@ -20,7 +20,7 @@
  * own header says so) is an acceptable risk for journald but not for a queryable, 30-day
  * Postgres archive without that step.
  *
- * ## Read access: no new HTTP surface, by deliberate scope decision
+ * ## Read access: no new HTTP surface, and the app role structurally cannot SELECT either
  *
  * This feature was scoped, with the human's explicit sign-off, to "a Postgres table +
  * `SELECT ... WHERE trace_id = ...` by whoever already has deploy-machine DB credentials" --
@@ -30,7 +30,17 @@
  * "whoever can already open a `psql` session against production" -- the same population that
  * could already `journalctl | grep` the un-redacted console log this table sits alongside.
  * `redactErrorDetail` narrows what is IN the table; it does not additionally restrict who can
- * query it, because no new reader was introduced for it to restrict.
+ * query it against production, because no new reader was introduced for it to restrict.
+ *
+ * That is about the human operator population; it is a separate question from what the
+ * running API *process* itself (the `app_rw` role, see `pg-config.ts`) can do with its own
+ * live credentials if something upstream of this file goes wrong (an injection bug elsewhere,
+ * a compromised dependency). 2026-09-01 review finding #1 named that gap precisely: the
+ * migration granted `app_rw` everything by omission-of-a-narrower-grant. The migration now
+ * `REVOKE`s ALL and grants back only `INSERT, DELETE` -- what `record()` and
+ * `sweepExpiredErrorLogs` actually do -- so the app role cannot `SELECT` this table even if
+ * something got it to try. See the migration's own header for the mechanics and for the
+ * production-breaking bug this same gap caused (the table had no grant at all).
  *
  * ## Retention: best-effort, NOT a guarantee (2026-09-01 review finding #2 -- corrected)
  *
