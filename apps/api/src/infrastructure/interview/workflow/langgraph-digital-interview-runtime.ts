@@ -280,6 +280,24 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     return (await this.authorize(input.orgId, input.actorId, input.interviewId)).workflow;
   }
 
+  async generateReport(input: {
+    readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
+    readonly expectedVersion: number; readonly requestId: string;
+  }): Promise<DigitalInterviewWorkflowView> {
+    const current = await this.authorize(input.orgId, input.actorId, input.interviewId);
+    const guardedReplay = await this.deps.effects.findReceipt({
+      orgId: input.orgId, interviewId: input.interviewId, operationName: "generate_report",
+      requestId: input.requestId, payload: { expectedVersion: input.expectedVersion },
+    });
+    if (guardedReplay) return this.discloseWorkflow(guardedReplay, current.decision);
+    if (!this.deps.effects.generateReport) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
+    const generated = await this.deps.effects.generateReport({
+      ...input, operationId: `${input.interviewId}:generate_report:${input.requestId}`,
+    });
+    const rechecked = await this.recheckAfterModel(input.orgId, input.actorId, input.interviewId);
+    return this.discloseWorkflow(generated, rechecked.decision);
+  }
+
   async appendSkillMessage(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly currentStep: z.infer<typeof interview.DigitalInterviewStep>; readonly text: string;

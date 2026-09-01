@@ -3,15 +3,15 @@ $ pnpm --filter api exec vitest run tests/itv/digital-interview-runs.test.ts
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/api
 
-[db-isolation] db=wsx_5b047294021d916d285c capacity=100 current=6 required=32
- ✓ tests/itv/digital-interview-runs.test.ts (1 test) 18ms
+[db-isolation] db=wsx_700ee2551f6af09b0bc1 capacity=100 current=6 required=32
+ ✓ tests/itv/digital-interview-runs.test.ts (1 test) 5ms
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  19:35:41
-   Duration  6.68s (transform 846ms, setup 0ms, collect 1.12s, tests 18ms, environment 0ms, prepare 93ms)
+   Start at  18:59:55
+   Duration  6.05s (transform 855ms, setup 0ms, collect 544ms, tests 5ms, environment 0ms, prepare 69ms)
 
-[db-isolation] db=wsx_5b047294021d916d285c peak_connections=1
+[db-isolation] db=wsx_700ee2551f6af09b0bc1 peak_connections=1
 
 
 $ pnpm --filter web exec vitest run tests/ui/interview-runs.test.tsx
@@ -20,337 +20,44 @@ $ pnpm --filter web exec vitest run tests/ui/interview-runs.test.tsx
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
 
- ✓ tests/ui/interview-runs.test.tsx (1 test) 80ms
+ ✓ tests/ui/interview-runs.test.tsx (1 test) 52ms
 
  Test Files  1 passed (1)
       Tests  1 passed (1)
-   Start at  19:35:49
-   Duration  4.74s (transform 379ms, setup 282ms, collect 813ms, tests 80ms, environment 1.59s, prepare 293ms)
+   Start at  19:00:03
+   Duration  2.73s (transform 224ms, setup 212ms, collect 435ms, tests 52ms, environment 1.26s, prepare 144ms)
 
 
 
 
-[BASE VERIFY] (risk=high_risk; matched: apps/api/migrations/20260830193000_f05_digital_interview_expert_runs.sql⟵apps/api/migrations/**, packages/contracts/src/interview.ts⟵packages/contracts/**) $ pnpm -w run verify:release
-[exit 1]
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 0]
 
-> agentic-harness-template@ verify:release /Users/shenyangjun/boardx/workspacex
-> pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:base:raw
+> agentic-harness-template@ verify:quick /Users/shenyangjun/boardx/workspacex
+> pnpm exec tsx .harness/scripts/verify-quick.ts
 
-[harness-isolation] outer_db=wsx_5b047294021d916d285c inner_db=wsx_5b047294021d916d285c outer_compose=wsx-5b047294021d916d285c inner_compose=wsx-5b047294021d916d285c status=matched
-[stack-admission] load1=10.38 cores=10 perCore=1.04 running=0/2
-[stack-admission] 排到了，等了 0s
-[test-isolation] id=run-mtfqgpa9-47b32922-5b047294021d db=wsx_5b047294021d916d285c compose=wsx-5b047294021d916d285c pg=23132 redis=28132
+[verify:quick] base=062759d777f94a318e368c4657369d139856594b（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_700ee2551f6af09b0bc1 inner_db=wsx_700ee2551f6af09b0bc1 outer_compose=wsx-700ee2551f6af09b0bc1 inner_compose=wsx-700ee2551f6af09b0bc1 status=matched
+[stack-admission] load1=6.75 cores=10 perCore=0.68 running=0/2
+[test-isolation] id=run-mtik2e1t-76e796ad-700ee2551f6a db=wsx_700ee2551f6af09b0bc1 compose=wsx-700ee2551f6af09b0bc1 pg=23637 redis=28637
+• turbo 2.10.5
 
-> agentic-harness-template@ verify:base:raw /Users/shenyangjun/boardx/workspacex
-> pnpm run verify:harness:raw && turbo run typecheck lint --continue && turbo run test --continue --concurrency=1
+   • Packages in scope:
+   • Running typecheck, lint, test in 0 packages
+   • Remote caching disabled
 
+ WARNING  No tasks were executed as part of this run.
 
-> agentic-harness-template@ verify:harness:raw /Users/shenyangjun/boardx/workspacex
-> pnpm run lint:ui-material && pnpm run lint:third-artifact && pnpm run lint:verification && pnpm run lint:nav-reachability && pnpm run lint:rewrite-coverage && pnpm run lint:body-path-param-leak && pnpm run lint:spec-gate-coverage && pnpm run lint:templates-doctor && pnpm run lint:role-freeze-doctor && pnpm run lint:graph-authority-doctor && pnpm run lint:readiness && pnpm run lint:skills-doctor && pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness
+ Tasks:    0 successful, 0 total
+Cached:    0 cached, 0 total
+  Time:    176ms
 
-
-> agentic-harness-template@ lint:ui-material /Users/shenyangjun/boardx/workspacex
-> node .harness/scripts/lint-ui-material.mjs
-
-  ✓ phase-01-run-a-project/agent-interrupts   25/25  (ui-preview/agent-interrupts)
-  ✓ phase-01-run-a-project/agent-runtime      49/49  (ui-preview/agent-runtime-v2)
-  ✓ phase-01-run-a-project/asset-governance   64/64  (ui-preview/asset-governance)
-  ✓ phase-01-run-a-project/canvas             51/51  (ui-preview/canvas-v2)
-  ✓ phase-01-run-a-project/chat               20/20  (ui-preview/chat-v2)
-  ✓ phase-01-run-a-project/chat-file-upload   12/12  (ui-preview/chat-file-upload)
-  ✓ phase-01-run-a-project/files              15/15  (ui-preview/files)
-  ✓ phase-01-run-a-project/interview          62/62  (ui-preview/itv-v2)
-  ✓ phase-01-run-a-project/org-admin          48/48  (ui-preview/org-admin)
-  ✓ phase-01-run-a-project/personal-realtime-transcription   3/3   (ui-preview/realtime-transcription)
-  ✓ phase-01-run-a-project/plan-control        8/8   (ui-preview/plan-control)
-  ✓ phase-01-run-a-project/project            92/92  (ui-preview/project-v2)
-  ✓ phase-01-run-a-project/recording          56/56  (ui-preview/rec-v2)
-  ✓ phase-01-run-a-project/research           49/49  (ui-preview/research)
-  ✓ phase-01-run-a-project/skills             67/67  (ui-preview/skill-v2)
-  ✓ phase-01-run-a-project/templates          41/41  (ui-preview/tpl-v2)
-  ✓ phase-02-visible-outcomes/survey           6/6   (ui-preview/survey-v2)
-  ✓ phase-03-reuse-and-governance/feedback-loop   9/9   (ui-preview/feedback-loop)
-  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview  10/10  (ui-preview/digital-expert-interview)
-  ✓ phase-05-studio-style-unification/studio-style   3/3   (ui-preview/studio-style)
-  ✓ phase-06-deep-research/deep-research       7/7   (ui-preview/deep-research)
-  ✓ phase-07-user-research/user-research       1/1   (ui-preview/user-research)
-  ✓ phase-08-transcription/transcription       1/1   (ui-preview/transcription)
-  ✓ phase-09-survey/survey                     1/1   (ui-preview/survey)
-  ✓ phase-10-live-collaboration-orchestration/group-checkin   3/3   (ui-preview/group-checkin)
-  ✓ phase-10-live-collaboration-orchestration/module-routing   5/5   (ui-preview/module-routing)
-  ✓ phase-10-live-collaboration-orchestration/segment-engine   4/4   (ui-preview/segment-engine)
-  ✓ phase-10-live-collaboration-orchestration/stage-aggregation   5/5   (ui-preview/stage-aggregation)
-  ✓ phase-10-live-collaboration-orchestration/viewer-role   5/5   (ui-preview/viewer-role)
-  ✓ phase-12-uiux-foundation/accessibility-guardrails   4/4   (ui-preview/accessibility-guardrails)
-  ✓ phase-12-uiux-foundation/interaction-primitives   5/5   (ui-preview/interaction-primitives)
-  ✓ phase-12-uiux-foundation/motion-microinteraction   4/4   (ui-preview/motion-microinteraction)
-  ✓ phase-12-uiux-foundation/review-governance   3/3   (ui-preview/review-governance)
-  ✓ phase-01-run-a-project/chat-context-engine  20/20  (ui-preview/chat-v2)
-  ✓ phase-01-run-a-project/curated-capability-packs  67/67  (ui-preview/skill-v2)
-✅ lint-ui-material: 35 个契约束的 ui.md 引用集合 == ui-preview 实存集合（共 825 张截图，无死链、无孤图）
-
-> agentic-harness-template@ lint:third-artifact /Users/shenyangjun/boardx/workspacex
-> node .harness/scripts/lint-third-artifact.mjs
-
-  ✓ phase-00-shared-kernel/api-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-00-shared-kernel/artifact              形态 A  R12   8 行  packages/contracts/src/artifact.ts
-  ✓ phase-00-shared-kernel/auth                  形态 A  R12  12 行  packages/contracts/src/auth.ts
-  ✓ phase-00-shared-kernel/context-pack          形态 A  R12  13 行  packages/contracts/src/context-pack.ts
-  ✓ phase-00-shared-kernel/identity              形态 A  R12  23 行  packages/contracts/src/identity.ts
-  ✓ phase-00-shared-kernel/web-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-01-run-a-project/agent-interrupts      形态 A  R12  16 行  packages/contracts/src/agent-interrupts.ts
-  ✓ phase-01-run-a-project/agent-runtime         形态 A  R12 160 行  packages/contracts/src/agent-runtime.ts
-  ✓ phase-01-run-a-project/asset-governance      形态 A  R12 108 行  packages/contracts/src/asset-governance.ts
-  ✓ phase-01-run-a-project/canvas                形态 A  R12  57 行  packages/contracts/src/canvas.ts
-  ✓ phase-01-run-a-project/chat                  形态 A  R12  67 行  packages/contracts/src/chat.ts
-  ✓ phase-01-run-a-project/chat-context-engine   形态 B  R12   7 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-01-run-a-project/chat-file-upload      形态 A  R12   7 行  packages/contracts/src/chat-file-upload.ts
-  ✓ phase-01-run-a-project/curated-capability-packs 形态 A  R12  12 行  packages/contracts/src/curated-capability-packs.ts
-  ✓ phase-01-run-a-project/files                 形态 A  R12  50 行  packages/contracts/src/files.ts
-  ✓ phase-01-run-a-project/interview             形态 A  R12 105 行  packages/contracts/src/interview.ts
-  ✓ phase-01-run-a-project/org-admin             形态 A  R12  61 行  packages/contracts/src/org-admin.ts
-  ✓ phase-01-run-a-project/personal-realtime-transcription 形态 A  R12   9 行  packages/contracts/src/personal-realtime-transcription.ts
-  ✓ phase-01-run-a-project/plan-control          形态 A  R12  10 行  packages/contracts/src/plan-control.ts
-  ✓ phase-01-run-a-project/project               形态 A  R12  38 行  packages/contracts/src/project.ts
-  ✓ phase-01-run-a-project/recording             形态 A  R12  48 行  packages/contracts/src/recording.ts
-  ✓ phase-01-run-a-project/research              形态 A  R12  41 行  packages/contracts/src/research.ts
-  ✓ phase-01-run-a-project/skills                形态 A  R12  77 行  packages/contracts/src/skills.ts
-  ✓ phase-01-run-a-project/templates             形态 A  R12  64 行  packages/contracts/src/templates.ts
-  ✓ phase-02-visible-outcomes/survey             形态 A  R12   7 行  packages/contracts/src/survey.ts
-  ✓ phase-03-reuse-and-governance/feedback-loop  形态 A  R12  12 行  packages/contracts/src/feedback-loop.ts
-  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview 形态 A  R12   9 行  packages/contracts/src/interview.ts
-  ✓ phase-05-studio-style-unification/studio-style 形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-06-deep-research/deep-research         形态 A  R12   4 行  packages/contracts/src/research.ts
-  ✓ phase-07-user-research/user-research         形态 A  R12   3 行  packages/contracts/src/research.ts
-  ✓ phase-08-transcription/transcription         形态 A  R12   4 行  packages/contracts/src/recording.ts
-  ✓ phase-09-survey/survey                       形态 A  R12   7 行  packages/contracts/src/survey.ts
-  ✓ phase-10-live-collaboration-orchestration/group-checkin 形态 A  R12   7 行  packages/contracts/src/org-admin.ts
-  ✓ phase-10-live-collaboration-orchestration/module-routing 形态 A  R12   7 行  packages/contracts/src/live-collab-module-routing.ts
-  ✓ phase-10-live-collaboration-orchestration/segment-engine 形态 A  R12   7 行  packages/contracts/src/project.ts
-  ✓ phase-10-live-collaboration-orchestration/stage-aggregation 形态 A  R12   9 行  packages/contracts/src/live-collab-stage-aggregation.ts
-  ✓ phase-10-live-collaboration-orchestration/viewer-role 形态 A  R12  11 行  packages/contracts/src/viewer-role.ts
-  ✓ phase-12-uiux-foundation/accessibility-guardrails 形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-12-uiux-foundation/interaction-primitives 形态 B  R12   5 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-12-uiux-foundation/motion-microinteraction 形态 B  R12   6 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-  ✓ phase-12-uiux-foundation/review-governance   形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
-✅ lint-third-artifact: 41 个契约束的第 ③ 件均成立（形态 A 33 束 / 形态 B 8 束）
-
-> agentic-harness-template@ lint:verification /Users/shenyangjun/boardx/workspacex
-> node .harness/scripts/lint-verification-can-fail.mjs
-
-  · 00                                   23 feature / 157 条 verification
-  · 01                                  232 feature / 793 条 verification
-  · 02                                   46 feature / 128 条 verification
-  · 03                                   49 feature / 143 条 verification
-  · 04                                    7 feature / 14 条 verification
-  · 05                                    1 feature / 5 条 verification
-  · 06                                    6 feature / 12 条 verification
-  · 07                                    5 feature / 10 条 verification
-  · 08                                    4 feature / 8 条 verification
-  · 09                                    7 feature / 20 条 verification
-  · 10                                   10 feature / 30 条 verification
-  · 11                                    5 feature / 8 条 verification
-  · 12                                   22 feature / 51 条 verification
-  · 13                                    1 feature / 1 条 verification
-  ~ 形态 pnpm-script                  无动态探针（见文件头：换脚本名恰恰 exit 0，靠 ② 静态兜住）
-  ✓ 形态 vitest-file:api              必然失败变体 exit 1
-  ✓ 形态 script-file:direct           必然失败变体 exit 127
-  ✓ 形态 script-file:node             必然失败变体 exit 1
-  ✓ 形态 vitest-file:web              必然失败变体 exit 1
-  ✓ 形态 script-file:pnpm exec tsx    必然失败变体 exit 1
-  ✓ 形态 vitest-file:@repo/contracts  必然失败变体 exit 1
-  ✓ 形态 grep                         必然失败变体 exit 1
-  ✓ 形态 turbo-task:typecheck         必然失败变体 exit 1
-  ✓ 形态 script-file:bash             必然失败变体 exit 127
-  ✓ 形态 root-pnpm-script             必然失败变体 exit 1
-  ✓ 形态 pytest-file:pytest           必然失败变体 exit 127
-  ✓ 形态 pytest-file:uv-run-pytest    必然失败变体 exit 2
-  ✓ 形态 vitest-file:@repo/skill-sandbox 必然失败变体 exit 1
-  ✓ 形态 pnpm-script-arg:web:e2e      必然失败变体 exit 1
-  ✓ 形态 playwright-grep:web:playwright.live-collab-shots.config.ts 必然失败变体 exit 1
-  ✓ 形态 playwright-grep:web:playwright.config.ts 必然失败变体 exit 1
-  ✓ 形态 playwright-grep:web:playwright.chat-shots.config.ts 必然失败变体 exit 1
-  ✓ 形态 playwright-grep:web:playwright.self-service-profile.config.ts 必然失败变体 exit 1
-  ✓ 形态 tsc-noemit:web               必然失败变体 exit 1
-  ✓ 形态 vitest-all:web               必然失败变体 exit 1
-  ✓ 形态 vitest-file:@repo/api        必然失败变体 exit 1
-✅ lint-verification-can-fail: 1380 条 verification 全部属于已登记形态，21 种形态实测「指向物不存在时会非 0 退出」
-
-> agentic-harness-template@ lint:nav-reachability /Users/shenyangjun/boardx/workspacex
-> node .harness/scripts/lint-nav-reachability.mjs
-
-  ✓ phase-01-run-a-project         束可达 18/18 · 导航项 18
-✅ lint-nav-reachability: 每个契约束的现行屏都能从 navigation.ts 直接走到，且导航里没有指向非束/旧骨架屏的入口，无死链。
-
-> agentic-harness-template@ lint:rewrite-coverage /Users/shenyangjun/boardx/workspacex
-> pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs
-
-✓ [rewrite-coverage] 242 条路由、47 条 rewrite 覆盖一致（5 条历史缺口在棘轮名单里，只能变短）
-
-> agentic-harness-template@ lint:body-path-param-leak /Users/shenyangjun/boardx/workspacex
-> pnpm exec tsx .harness/scripts/lint-body-path-param-leak.mjs
-
-✓ [body-path-param-leak] 146 个文件，body 里没有未豁免的路径参数泄漏（4 条已知合法冗余在棘轮名单里）
-
-> agentic-harness-template@ lint:spec-gate-coverage /Users/shenyangjun/boardx/workspacex
-> node .harness/scripts/lint-spec-gate-coverage.mjs
-
-被 CI 真正调用的 playwright config：
-  · apps/devportal/playwright.config.ts
-  · apps/web/playwright.chat-read.config.ts
-  · apps/web/playwright.fullstack-smoke.config.ts
-  · apps/web/playwright.self-service-profile.config.ts
-
-spec 覆盖判定：
-  ✅ apps/devportal/e2e/p30/auth-gray.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/enroll.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/join-approve.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/me-workbench.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/onboard.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/devportal/e2e/p30/workspace-authz.spec.ts  [covered] ← apps/devportal/playwright.config.ts
-  ✅ apps/web/e2e/agenda-segment-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/axe-image-alt.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/axe-keyboard-focus.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/blueprint-contract-gap-audit.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/blueprint-designer-16-panels.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/canvas-template-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/canvas-template-library-design.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/canvas-template-simulate-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  🟡 apps/web/e2e/canvas-tpl-shots.spec.ts  [exempt]
-  ✅ apps/web/e2e/capability-mutate-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/chat-agent-skill-context.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-attachment-image-vision-extraction.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-attachment-preview-download.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  🟡 apps/web/e2e/chat-behavior-shots.spec.ts  [exempt]
-  ✅ apps/web/e2e/chat-canvas-guidance-render.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-diagram-save-reopen-roundtrip.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-keyboard-navigation.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  🟡 apps/web/e2e/chat-main-shots.spec.ts  [exempt]
-  ✅ apps/web/e2e/chat-read.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-a11y.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-approval.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-capability-cards.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-composer.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-copy.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-empty-state.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-inspector.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-polish.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-tool-events.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-task-workbench-workflow-states.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/chat-vision-honest-degrade.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/composite-primitives-kitchen-sink.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/context-engine.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-agui-state-snapshot.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-active-file-panel.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-agent-context.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-agent-switch.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-attachments.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-default-agent.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-error-banner.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-hitl-dialog-dismiss.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-hitl.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-message-actions.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-persona-archived.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-right-panel.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-roster-landing.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-runtime-adapter.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-skill-mount.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-stream-frame-timing.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-suggestions.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-thread-persistence.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-tool-rendering.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-uiux-shots.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/copilotkit-v2-voice-input.spec.ts  [covered] ← apps/web/playwright.chat-read.config.ts
-  ✅ apps/web/e2e/core-journey-01-registration.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/core-journey-02-org-management.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/core-journey-03-skill-lifecycle-chat.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/core-journey-04-canvas-template-lifecycle-chat.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/core-journey-05-voice-skill-multichannel-context.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/core-loop.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/feedback-loop-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/fullstack-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/interview-subjects-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  🟡 apps/web/e2e/live-collab-orchestration-shots.spec.ts  [exempt]
-  ✅ apps/web/e2e/motion-orchestration-reduced-motion.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/org-admin-keyboard-navigation.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
-  ✅ apps/web/e2e/overlay-primitives-keyboard.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/overlay-primitives-kitchen-sink.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/profile-keyboard-navigation.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
-  ✅ apps/web/e2e/profile-org-fidelity.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
-  ✅ apps/web/e2e/project-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/project-results-shots.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  🟡 apps/web/e2e/responsive.spec.ts  [exempt]
-  ✅ apps/web/e2e/save-as-org-template-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/self-service-profile.spec.ts  [covered] ← apps/web/playwright.self-service-profile.config.ts
-  ✅ apps/web/e2e/skill-agent-import-usecase-audit.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/skill-create-smoke.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  ✅ apps/web/e2e/skill-review-gate.spec.ts  [covered] ← apps/web/playwright.fullstack-smoke.config.ts
-  🟡 apps/web/e2e/vz-fabric-shots.spec.ts  [exempt]
-
-✅ 每一条 spec 都被某条 CI 门控跑到（或有署名豁免）
-
-> agentic-harness-template@ lint:templates-doctor /Users/shenyangjun/boardx/workspacex
-> pnpm exec tsx .harness/scripts/cli.ts templates doctor
-
-[templates doctor] 扫到 1 份实例文档
-✓ [templates doctor] PASS
-✓ [templates doctor] drift gate PASS —— 2 份带元数据头的生成物，无手改/无畸形头
-
-以下 Proposal §12 检查项尚未实现（如实列出，不是遗漏）：
-   · #7 renderer 存在（需要 E2）
-   · #8 消费者存在（需要消费者自身可被发现的机制，E2+）
-   · #10 signoff hash 未漂移（需要 E5）
-   · #13 数据源失败不会渲染为零（本文件已遵守此原则，但作为「仓库级」检查需要看板集成，E6）
-   · #14 allowlist 只能相对 merge-base 缩短（本 Epic 没有 allowlist，等真正开始迁移才有意义，E9）
-
-> agentic-harness-template@ lint:role-freeze-doctor /Users/shenyangjun/boardx/workspacex
-> pnpm exec tsx .harness/scripts/cli.ts role-freeze doctor
-
-✓ [role-freeze doctor] 6 个角色文件全部在 registry.yaml 登记
-
-> agentic-harness-template@ lint:graph-authority-doctor /Users/shenyangjun/boardx/workspacex
-> pnpm exec tsx .harness/scripts/cli.ts graph-authority doctor
-
-✓ [graph-authority doctor] 4 条已知投影路径全部干净（未被 Git 追踪）
-
-> agentic-harness-template@ lint:readiness /Users/shenyangjun/boardx/workspacex
-> pnpm exec tsx .harness/scripts/cli.ts readiness --strict
-
-==> 核心闭环就绪度 CLR = 3 / 10   未达标（门槛 9，还差 6）   （实测 HEAD: e2a6eecbf127）
-   公式：min( 可达性 10 , 体验均值 3 )
-   —— 走不到的地方做得再好也等于 0，所以可达性是天花板不是加数。
-   ⚠ 4 条 track 的分数已过期：**仍计入 CLR**（方案 A：数字要有信息量），
-      但「达标」要求全部新鲜——过期的那几条需要在当前 HEAD 上重评。
-
-| track | 记录分 | 计入分 | 为什么 |
-|---|---|---|---|
-| R 真实用户可达性 | 10 | 10 | 分数已过期（评分后 watch 路径有改动） |
-| B 行为体验（对标 Claude Code） | 9 | 9 | 分数已过期（评分后 watch 路径有改动） |
-| V-D 项目对话主屏原型保真（ChatReadScreen） | 0 | 0 | 分数已过期（评分后 watch 路径有改动） |
-| V-P 个人对话屏（PersonalChatScreen） | 0 | 0 | 分数已过期（评分后 watch 路径有改动） |
-
-==> 统一队列（所有 agent 的唯一取活口，从上往下做）
-    1. #2307
-    2. #2272
-    3. #2275
-    4. #2278
-    5. #2281
-
-   排序规则：R（天花板）的阻塞项永远在最前——其余 track 修到满分也抬不动总分。
-
-✗ 统一队列里有已关闭的 issue —— 它会让 agent 去做已经做完的事（#823 真实事故）：
-✗   · #2307 已 CLOSED，请从对应 track 的 blocking_issues 移除
- ELIFECYCLE  Command failed with exit code 1.
- ELIFECYCLE  Command failed with exit code 1.
- ELIFECYCLE  Command failed with exit code 1.
-[timing] pnpm run verify:base:raw
+[timing] pnpm turbo run typecheck lint test --affected
   等待重e2e互斥锁：0s
   环境预留：0s
   等待资源：0s
-  命令执行：3m16s
-  清理：2s
-  总计：3m18s
- ELIFECYCLE  Command failed with exit code 1.
+  命令执行：1s
+  清理：1s
+  总计：1s
 
-[harness-verify v1 sha256=598886a8c06d14ad35f247265f5c9dcf9910c5bd1b8b87e20220920f3090e7f9 commit=e2a6eecbf1276b711e5a73dbe4e2f047020ae54f at=2026-08-30T11:39:16.036Z]
+[harness-verify v1 sha256=d27e223af7c8fd1d6b1c98b4058b193eee3b4a33ef8dde6c9860f60ad408450a commit=062759d777f94a318e368c4657369d139856594b at=2026-09-01T11:00:10.442Z]

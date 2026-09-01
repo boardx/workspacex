@@ -361,7 +361,7 @@ export async function readDigitalInterviewWorkflow(
   const row = base.rows[0];
   if (!row) return null;
 
-  const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals] = await Promise.all([
+  const [questions, expertCandidates, questionCandidates, messages, expertRuns, proposals, reports] = await Promise.all([
     session.query<{
       question_id: string; expert_id: string; ordinal: number; body: string; purpose: string;
     }>(
@@ -430,6 +430,18 @@ export async function readDigitalInterviewWorkflow(
         ORDER BY created_at, id`,
       [orgId, row.skill_thread_id],
     ),
+    session.query<{
+      report_id: string; title: string; executive_summary: string; markdown: string;
+      findings: Array<{
+        findingId: string; title: string; summary: string; expertId: string; questionId: string;
+        sourceAnswerId: string; exploratory: true;
+      }>;
+      generated_at: Date | string;
+    }>(
+      `SELECT report_id,title,executive_summary,markdown,findings,generated_at
+         FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
+      [orgId, interviewId, row.revision_id],
+    ),
   ]);
 
   const status = row.digital_status as DigitalInterviewStatusName;
@@ -448,6 +460,14 @@ export async function readDigitalInterviewWorkflow(
     sourceQuickInterviewId: row.source_quick_interview_id,
     selectedExpertIds: row.selected_expert_ids,
     reportId: row.report_id,
+    report: reports.rows[0] ? {
+      reportId: reports.rows[0].report_id,
+      title: reports.rows[0].title,
+      executiveSummary: reports.rows[0].executive_summary,
+      markdown: reports.rows[0].markdown,
+      findings: reports.rows[0].findings,
+      generatedAt: new Date(reports.rows[0].generated_at).toISOString(),
+    } : null,
     version: Number(row.version),
     currentStep: projectDigitalInterviewState(status).currentStep,
     revisionId: row.revision_id,
