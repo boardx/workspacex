@@ -22,7 +22,11 @@ function listSection(overflow: SectionLayoutDraft["overflow"], max: number): Sec
     order: 0,
     required: false,
     capacity: null,
-    layout: { col: 1, row: 1, w: 3, h: 3, cols: 1, max, tone: 0, overflow },
+    // h=8（网格满高）：这些测试要验证的是「叠放/截断/缩小字号」三个分支本身的
+    // 渲染差异，不是在钉某个具体的行数——给够高度让分支能触发即可，不依赖
+    // TITLE_RESERVE_MM 的具体取值（那个值会因为标题区排版改动而变，见
+    // `explicit-template-layout.ts` 的同名常量文档）。
+    layout: { col: 1, row: 1, w: 3, h: 8, cols: 1, max, tone: 0, overflow },
   };
 }
 
