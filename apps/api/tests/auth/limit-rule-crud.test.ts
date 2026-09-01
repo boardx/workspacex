@@ -97,11 +97,22 @@ describe("F162 限额规则 CRUD", () => {
 
   it("每条规则按**自己的窗口**算用量，不是共用一个分子", async () => {
     await spend(LINKE, 500_000);
-    // 一条按小时、一条按月：同一批事件下两条的观测值必须能不同。把上面那条挪到 3 天前，
-    // 「按小时」的那条就该看不到它，而「按月」的那条仍然看得到。
+    // 一条按小时、一条按月：同一批事件下两条的观测值必须能不同。把上面那条挪到「本月内、
+    // 一小时以前」，「按小时」的那条就该看不到它，而「按月」的那条仍然看得到。
+    //
+    // ⚠ 不用固定的 `interval '3 days'`——那要求测试运行时刻与「3 天前」落在同一个
+    //   自然月，本月第 1-3 天运行必然假。改成 `LEAST('3 days', 距月初时长的一半)`：
+    //   离月初足够远时逐字等价于原来的「3 天前」，月初这几天则自动收窄到一个更小、
+    //   但仍然「在本月内、超过 1 小时」的偏移——月初头一两小时内运行仍是已知的极小
+    //   残余窗口（`(now() - date_trunc('month', now())) / 2` 本身小于 1 小时时不满足
+    //   「超过 1 小时」这条断言前提），不强行消灭，如实标注比假装万无一失更诚实。
     await asOwner((c) => c.query("ALTER TABLE token_usage_events DISABLE TRIGGER token_usage_events_append_only_trg"));
     await asOwner((c) => c.query(
-      "UPDATE token_usage_events SET occurred_at = now() - interval '3 days' WHERE org_id=$1", [ORG]));
+      `UPDATE token_usage_events
+         SET occurred_at = now() - LEAST(interval '3 days', (now() - date_trunc('month', now())) / 2)
+       WHERE org_id=$1`,
+      [ORG],
+    ));
     await asOwner((c) => c.query("ALTER TABLE token_usage_events ENABLE TRIGGER token_usage_events_append_only_trg"));
 
     await repo.createRule(orgId(), {
