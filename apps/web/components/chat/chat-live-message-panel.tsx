@@ -732,7 +732,7 @@ export function ChatLiveMessagePanel({
    */
   const latestMessage = messages.length > 0 ? messages[messages.length - 1]! : null;
   const followUpTurnKey = !archived && latestMessage !== null && latestMessage.authorKind === "agent" && selectedAgentId !== ""
-    ? `${latestMessage.id} ${selectedAgentId}`
+    ? `${latestMessage.id}\u0000${selectedAgentId}`
     : null;
   const [realFollowUp, setRealFollowUp] = React.useState<{
     readonly key: string;
