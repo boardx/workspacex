@@ -37,6 +37,7 @@ function ledger(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
     pendingApplyAtNextRun: false,
     activeRunId: "run-1",
     errorCode: null,
+    failedStepId: null,
     ...overrides,
   };
 }

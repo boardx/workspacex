@@ -50,11 +50,15 @@ import { describePlanFailureReason } from "@/lib/plan-control-copy";
  *    里没有一个"插入/恢复步骤"的操作——`deletePlanStep`（UC-4）不可逆。
  *    `PlanPanelEdit` 的 `justRemoved`/`onUndoRemove` props 因此在这里**不接**：
  *    接一个点了不会真的撤销的按钮，正是 TW 卡"反伪造条款"要挡的那种假交互。
- * 3. **失败态的"哪一步"仍是猜的，"为什么失败"issue #2451 已补上**：`getPlanLedger.out`
- *    仍然没有 `failedStepId`（`PlanStep.status` 封闭三值 `pending/in_progress/
- *    completed`，不含 `failed`）——`PlanFailureRecovery` 的 `failedStepIndex`/
- *    `failedStepLabel` 仍用"第一个未完成的步骤"做尽力猜测，这半个缺口还在。但
- *    `reason` 不再是写死的占位句：`getPlanLedger.errorCode`（`agent_runs.error_code`
+ * 3. **失败态的"哪一步、为什么失败"issue #2451 已补齐**（此前登记的缺口，现已
+ *    落地，不再是遗留）：`getPlanLedger.out.failedStepId` 取最新账本快照里
+ *    `status==='in_progress'` 的那一步（run 死掉那一刻仍在跑的那一步，`PlanStep.
+ *    status` 仍是封闭三值 `pending/in_progress/completed`，不含 `failed`——不是给
+ *    这三态加第四态，而是从既有信号里挑出真实对应的那一个），只有连 `in_progress`
+ *    都取不到（run 在第一步真正开始前就死了）才退回第一个 `pending` 步骤；
+ *    `PlanFailureRecovery` 的 `failedStepIndex`/`failedStepLabel` 因此改用它，不再靠
+ *    "第一个未完成的步骤"硬猜（见下方 `failedStepIndex`/`failedStep` 的计算处）。
+ *    `reason` 同样不是写死的占位句：`getPlanLedger.errorCode`（`agent_runs.error_code`
  *    透传）经 `lib/plan-control-copy.ts` 的 `describePlanFailureReason` 翻成人话，
  *    只有 `errorCode` 为 null/不在枚举内时才退回原来那句诚实的通用兜底。
  *
@@ -203,6 +207,17 @@ export function CopilotKitV2PlanControl(
   const currentStepIndex = runningStepIndex === -1 ? ledger.steps.length : runningStepIndex + 1;
   const currentStep = ledger.steps[runningStepIndex === -1 ? ledger.steps.length - 1 : runningStepIndex];
 
+  // issue #2451 —— failed 态不再靠"第一个未完成的步骤"猜：改用服务端算出的真实
+  // `failedStepId`（`get-plan-ledger.ts` 头注：`in_progress` 步骤，run 死掉那一刻
+  // 唯一有真实信号支持"正是它"的一步）。`findIndex` 落空（理论上不会——`failedStepId`
+  // 本就是从这同一份 `ledger.steps` 里选出来的）才退回上面那个旧近似值，保底不炸，
+  // 不是又加一层猜测。
+  const failedStepIndex = ledger.failedStepId !== null
+    ? ledger.steps.findIndex((s) => s.planStepId === ledger.failedStepId)
+    : -1;
+  const failedStep = failedStepIndex !== -1 ? ledger.steps[failedStepIndex] : currentStep;
+  const failedStepDisplayIndex = failedStepIndex !== -1 ? failedStepIndex + 1 : currentStepIndex;
+
   return (
     <div data-testid="chat-task-workbench-plan-control" className="mb-3 flex flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -239,15 +254,15 @@ export function CopilotKitV2PlanControl(
         </p>
       )}
 
-      {!collapsed && ledger.phase === "failed" && currentStep && (
+      {!collapsed && ledger.phase === "failed" && failedStep && (
         <PlanFailureRecovery
-          failedStepIndex={currentStepIndex}
-          failedStepLabel={currentStep.content}
+          failedStepIndex={failedStepDisplayIndex}
+          failedStepLabel={failedStep.content}
           // issue #2451 —— 真实失败原因（`agent_runs.error_code` 经 `getPlanLedger.errorCode`
           // 透传），不再是写死的占位句。`errorCode` 为 null 或不在枚举内时，
           // `describePlanFailureReason` 自己退回同一句诚实兜底，不在这里再判一次。
           reason={describePlanFailureReason(ledger.errorCode)}
-          onRetryStep={() => handleRetryStep(currentStep.planStepId)}
+          onRetryStep={() => handleRetryStep(failedStep.planStepId)}
           onEditInput={() => setEditing(true)}
         />
       )}

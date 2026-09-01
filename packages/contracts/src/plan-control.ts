@@ -222,6 +222,12 @@ export const planControl = {
        *  终态时恒为 `null`。前端 `describeAgentRunError`（`apps/web/lib/agent-run.ts`）
        *  是文案单一事实源，本字段只带原始 code，不在这里编第二份文案映射。 */
       errorCode: z.string().nullable(),
+      /** issue #2451 —— 补齐当时留的缺口：哪一步失败。`steps` 里 `status==='in_progress'`
+       *  的那一步（run 死掉那一刻仍在跑的那一步），不是"第一个未完成的步骤"——两者通常
+       *  重合，但只有前者是真实信号，后者是纯猜。取不到 `in_progress`（run 在第一步
+       *  开始前就死了，`write_todos` 还没来得及标）时退回`null`，前端自己决定怎么兜底，
+       *  不在这里假装有答案。非失败终态时恒为 `null`（get-plan-ledger.ts 头注）。 */
+      failedStepId: z.string().nullable(),
     }).strict(),
     err: ["NOT_VISIBLE"] as const,
   },

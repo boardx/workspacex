@@ -54,6 +54,7 @@ function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerVie
     pendingApplyAtNextRun: false,
     activeRunId: null,
     errorCode: null,
+    failedStepId: null,
     ...overrides,
   };
 }
@@ -155,10 +156,11 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     await waitFor(() => expect(api.pausePlanRun).toHaveBeenCalledWith("t-6"));
   });
 
-  it("phase='failed' 渲染失败恢复，点击「重试该步」真的调用 retryPlanStep 带最先未完成步骤的 planStepId", async () => {
+  it("phase='failed' 渲染失败恢复，点击「重试该步」真的调用 retryPlanStep 带服务端算出的 failedStepId", async () => {
     api.fetchPlanLedger.mockResolvedValue(
       ledgerWithSteps({
         phase: "failed",
+        failedStepId: "s2",
         steps: [
           { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
           { planStepId: "s2", content: "起草方案初稿", status: "pending", constraints: [] },
@@ -171,6 +173,29 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     const retryBtn = await screen.findByTestId("chat-task-workbench-failure-retry-step");
     fireEvent.click(retryBtn);
     await waitFor(() => expect(api.retryPlanStep).toHaveBeenCalledWith("t-7", { planStepId: "s2" }));
+  });
+
+  // issue #2451 —— failedStepId 是服务端真实信号，不是前端"第一个未完成的步骤"猜测：
+  // 用一个两者会给出不同答案的账本形状钉住这一点（正常写路径下不会出现 s1 仍
+  // pending 而 s2 已 in_progress，但 failedStepId 就是为了不依赖这个假设而存在的）。
+  it("failedStepId 与「第一个未完成步骤」不一致时，展示以 failedStepId 为准", async () => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        phase: "failed",
+        failedStepId: "s2",
+        steps: [
+          { planStepId: "s1", content: "调研竞品定价", status: "pending", constraints: [] },
+          { planStepId: "s2", content: "起草方案初稿", status: "in_progress", constraints: [] },
+        ],
+      }),
+    );
+    render(<CopilotKitV2PlanControl threadId="t-7b" />);
+
+    // 断言精确匹配 `PlanFailureRecovery` 渲染的那句"第 N 步「标签」失败"——不是
+    // 泛泛查文案是否出现在页面任意位置（下方只读步骤列表本来就会渲染两个步骤的
+    // content，泛泛查询会两个都命中，测不出这里到底用了哪个）。
+    expect(await screen.findByText("第 2 步「起草方案初稿」失败")).toBeInTheDocument();
+    expect(screen.queryByText("第 1 步「调研竞品定价」失败")).toBeNull();
   });
 
   it("phase='done'（任务已跑完）不再渲染确认门——即使 gate.required 仍是 true，也不能让用户以为还没结束", async () => {
