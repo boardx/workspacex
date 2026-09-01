@@ -21,3 +21,12 @@ export interface LoggerPort {
 }
 
 export const LOGGER_PORT = Symbol("LoggerPort");
+
+/**
+ * The `err` -> loggable-detail derivation, factored out so `ConsoleLogger` and
+ * `PgErrorLogWriter` (via `AllExceptionsFilter`) record the identical shape instead of each
+ * re-deriving it -- the same fact stated twice is how the two sinks drift apart.
+ */
+export function errorDetailOf(err: unknown): { name: string; message: string; stack: string | undefined } | { raw: string } {
+  return err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : { raw: String(err) };
+}

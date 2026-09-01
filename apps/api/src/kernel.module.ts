@@ -23,6 +23,8 @@ import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.
 import { appConfig } from "./infrastructure/db/pg-config";
 import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
+import { ERROR_LOG_PORT } from "./application/ports/error-log.port";
+import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
 
 // F20/F21 auth. `HeaderPrincipalResolver` is no longer wired: it was the test-injection
 // PLACEHOLDER F18 shipped while the credential format was undecided (UC-0.6 A-3), and the
@@ -805,6 +807,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
+    {
+      provide: ERROR_LOG_PORT,
+      useFactory: (db: DatabasePort) => new PgErrorLogWriter(db),
+      inject: [DATABASE_PORT],
+    },
     {
       provide: PRINCIPAL_RESOLVER_PORT,
       useFactory: (sessions: SessionTokenStore, clock: Clock) =>

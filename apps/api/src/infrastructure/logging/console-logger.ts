@@ -6,7 +6,7 @@
  * `drain()` lets the gate scripts assert that what is absent from the response IS
  * present in the log, under the same traceId (I-11).
  */
-import type { LogFields, LoggerPort } from "../../application/ports/logger.port";
+import { errorDetailOf, type LogFields, type LoggerPort } from "../../application/ports/logger.port";
 
 export class ConsoleLogger implements LoggerPort {
   private readonly buffer: { msg: string; fields: LogFields }[] = [];
@@ -19,9 +19,7 @@ export class ConsoleLogger implements LoggerPort {
   }
 
   error(msg: string, fields: LogFields & { err: unknown }): void {
-    const err = fields.err;
-    const detail =
-      err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : { raw: String(err) };
+    const detail = errorDetailOf(fields.err);
     if (this.keep) this.buffer.push({ msg, fields: { ...fields, detail } as LogFields });
     process.stdout.write(JSON.stringify({ level: "error", msg, traceId: fields.traceId, detail }) + "\n");
   }
