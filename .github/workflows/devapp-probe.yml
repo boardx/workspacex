@@ -102,3 +102,23 @@ jobs:
           redis-cli -h 127.0.0.1 -p 56380 PING 2>&1 || echo "（redis-cli 未装在宿主机 PATH，或连接失败，见上）"
           echo "── 该端口当前的 TCP 连接数（看是不是连接池耗尽/大量 TIME_WAIT）──"
           ss -tan 2>&1 | grep ':56380' | awk '{print $1}' | sort | uniq -c || echo "（ss 不可用）"
+
+      # root 侧已经用 journalctl 证实：`Connection is closed.` 全早于本轮 deploy，且反复出现
+      # （09:37-12:38，间隔 10~70 分钟不等，与任何一次 deploy 无关）——指向底层 TCP 连接被
+      # 悄悄断开，不是 Redis 进程崩溃。两个候选：① Redis 自己的空闲客户端超时（`timeout`
+      # 配置项非 0）；② 宿主机↔容器端口转发这一跳上的 NAT/conntrack 空闲超时。只读查两项
+      # 配置即可分辨，不改任何值。
+      - name: Redis 空闲超时配置（只读 CONFIG GET，不 SET）
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          REDIS_CID=$(docker ps -a --filter "name=redis" --format '{{.Names}}' | grep -v kernel | head -1)
+          echo "  探测容器: ${REDIS_CID:-（未找到）}"
+          [ -z "$REDIS_CID" ] && exit 0
+          echo "── CONFIG GET timeout（非 0 = Redis 自己会关闭空闲客户端连接）──"
+          docker exec "$REDIS_CID" redis-cli CONFIG GET timeout 2>&1
+          echo "── CONFIG GET tcp-keepalive（探测死连接的周期，0 = 关闭）──"
+          docker exec "$REDIS_CID" redis-cli CONFIG GET tcp-keepalive 2>&1
+          echo "── CLIENT LIST（看当前连接的 age/idle，不含敏感数据，只是元信息）──"
+          docker exec "$REDIS_CID" redis-cli CLIENT LIST 2>&1
