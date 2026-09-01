@@ -2,7 +2,7 @@
 import * as React from "react";
 import type { SectionDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
-import { PAPER_SIZE_MM, A1_MARGIN_MM, STANDARD_NOTE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -70,20 +70,6 @@ export function TemplateCanvasGrid({
   const contentRef = React.useRef<HTMLDivElement>(null);
 
   const placed = sections.filter((s) => s.layout !== null);
-
-  /**
-   * 贴纸实尺，按纸宽换算成 `cqw`（容器宽度的百分比）——2026-08-30 人类反馈
-   * 「column 是 1 的时候便利贴太大，便利贴大小不应该跟着列数变，相对画布应该是
-   * 固定的」。`cqw` 相对的是最外层那个 `containerType:inline-size` 的 div
-   * （见下方 JSX 的注释），也就是整张纸自己的宽度，与贴纸具体落在哪个区块、
-   * 区块选了几列完全无关——1 列与 8 列算出来的都是同一个 `notePct`。
-   *
-   * ⚠ 不能用 `1fr`（改动前的做法）：`repeat(cols, 1fr)` 让每张贴纸的宽度 =
-   *   区块宽度 / cols，列数选到 1 时贴纸被拉成整个区块那么大的正方形——正是
-   *   这次要修的问题。真实的 3M 便利贴是固定尺寸的一叠纸，不会因为你排成一列
-   *   还是八列就跟着变大变小。
-   */
-  const notePct = (STANDARD_NOTE_MM / PAPER_SIZE_MM[paperSize].w) * 100;
 
   /** 指针 → 网格坐标。按比例换算（见文件头），不是像素常量。 */
   function cellFrom(e: React.DragEvent): { col: number; row: number } | null {
@@ -209,6 +195,20 @@ export function TemplateCanvasGrid({
           const layout = s.layout!;
           const geom = sectionGeometryMmOf(s, gridCols, paperSize);
           const isList = s.type === "便利贴列表";
+          /**
+           * 贴纸实尺，按纸宽换算成 `cqw`（容器宽度的百分比）——2026-09-01 推翻
+           * 2026-08-30 那条「贴纸固定，不随列数/区块变化」的约定（理由见
+           * `explicit-template-layout.ts` 的 `MAX_NOTE_MM` 文档：固定大小在窄区块
+           * 长文字场景下会让贴纸装不进框，是这次要修的问题）。
+           *
+           * 用 `geom.noteMm`（已经按 `wMm/cols` 算好、并封顶在 `MAX_NOTE_MM`）而不是
+           * 直接 `repeat(cols, 1fr)`：`1fr` 会让贴纸宽度恒等于"区块宽度/列数"，1 列
+           * 时贴纸被拉成整个区块那么大的正方形（issue #2368 那次要修的问题，2026-08-30
+           * 冻结前的真实回归）；改用 `geom.noteMm` 换算出的 `cqw`，贴纸仍随列数/区块
+           * 宽度缩放，但不会超过 `MAX_NOTE_MM`——两次教训（"完全不变"太大、"纯 1fr"
+           * 又会撑爆）都躲开。
+           */
+          const notePct = (geom.noteMm / PAPER_SIZE_MM[paperSize].w) * 100;
           // 实际渲染几条：受"最多条数"与"这块地方放得下几条"双重约束——
           // 画出来的东西不能比物理上放得下的还多，那是在骗人。
           const capacity = isList ? Math.min(layout.max, Math.max(0, geom.fits)) : 1;
@@ -281,10 +281,10 @@ export function TemplateCanvasGrid({
               <div
                 className="grid flex-1 content-start gap-1 overflow-hidden"
                 style={{
-                  // 列表型：每列固定宽 `notePct`（贴纸实尺，不随 `layout.cols` 缩放）——
-                  // 列数只决定一行摆几张，多出来的就换行（`content-start` 让多余行不被
-                  // 拉伸），摆不下的部分会被外层 `overflow-hidden` 裁掉，与真实便利贴
-                  // 「摆不下就是摆不下」的体验一致，不是在这里悄悄把贴纸压小凑数。
+                  // 列表型：每列宽 `notePct`（`geom.noteMm` 换算，随区块宽度/列数缩放，
+                  // 封顶 `MAX_NOTE_MM`——2026-09-01 见上方 `notePct` 声明处的文档）。
+                  // 一行摆 `layout.cols` 张，多出来的换行（`content-start` 让多余行不被
+                  // 拉伸），行数摆不下的部分仍会被外层 `overflow-hidden` 裁掉。
                   // 短文本/长文本型：仍是 1fr（占满区块宽的单个文本框，不是贴纸网格）。
                   gridTemplateColumns: isList ? `repeat(${layout.cols}, ${notePct}cqw)` : "1fr",
                 }}

@@ -1173,7 +1173,7 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     await waitFor(() => expect(block).not.toHaveTextContent("排队太久"));
   });
 
-  it("改列数 → 贴纸实尺 mm 保持不变，容量结论（放得下几条）跟着更新（2026-08-30：贴纸大小固定，模拟真实 3M 便利贴）", async () => {
+  it("改列数 → 贴纸实尺 mm 跟着变、容量结论（放得下几条）也跟着更新（2026-09-01 推翻 2026-08-30「固定不变」的约定）", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => withFields()));
     const panel = await openEditor();
     fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
@@ -1184,12 +1184,12 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     await waitFor(() => {
       expect(within(display).getByTestId("tpladmin-editor-col-note").textContent).not.toBe(before);
     });
-    // 贴纸实尺是固定物理量（`STANDARD_NOTE_MM`），换列数不改变它——真实便利贴不会
-    // 因为你把它们排成 3 列还是 5 列就跟着变大变小；变的是「这块地方放得下几条」。
+    // 贴纸实尺随列数反推（`noteMm = min(MAX_NOTE_MM, wMm/cols)`）——列越多单张越小，
+    // 这正是这次要恢复的行为，理由见 `explicit-template-layout.ts` 的 `MAX_NOTE_MM` 文档。
     const after = within(display).getByTestId("tpladmin-editor-col-note").textContent ?? "";
     const beforeMm = Number(/贴纸实尺 (\d+)×/.exec(before ?? "")?.[1] ?? "0");
     const afterMm = Number(/贴纸实尺 (\d+)×/.exec(after)?.[1] ?? "0");
-    expect(afterMm).toBe(beforeMm);
+    expect(afterMm).not.toBe(beforeMm);
   });
 
   it("「从画布移除」只删 block 不删 field——移除后该字段回到「未放置」，仍在左栏", async () => {
