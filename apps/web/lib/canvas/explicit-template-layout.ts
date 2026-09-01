@@ -321,23 +321,36 @@ export const GRID_GAP_MM = 6;
 /** 标题占位高度，容量公式的 22mm 来源见 `Design.pdf` §5「容量」行。 */
 export const TITLE_RESERVE_MM = 22;
 /**
- * 贴纸实尺——固定值，不随区块宽度或列数变化。
+ * 贴纸实尺参考值——`Design.pdf` §5「尺寸判定」原文把 70–82mm 都算标准 76mm
+ * 方形贴纸，76 是这一档的代表值，`defaultLayoutAt`/`autoFillLayout` 猜默认
+ * 列数时用它当目标格距。
  *
- * 2026-08-30 人类反馈原话：「便利贴的大小需要模拟 3M 的 sticky note 的固定大小，
- * 不要有变化，模拟屋里的 sticky note 的体验。一列的时候，大小也是固定的。」——
- * 现实里的 3M 标准便利贴（76×76mm）是一个物理常量：不会因为你把它们排成一列
- * 还是五列就跟着变大变小。issue #2368 那一版的修法（`Math.min(封顶, wMm/cols)`）
- * 仍然是"按列数反推尺寸、只是加了个上限"——列数选到 1 时贴纸依然会被撑到封顶值，
- * 3 列和 8 列时贴纸大小又各不相同，这正是这次人类要改掉的体验。
+ * ⚠ 2026-09-01 人类决定推翻 2026-08-30 那条「贴纸固定 76mm、不随区块宽度或
+ *   列数变化」的约定（模拟 3M 便利贴「先有固定尺寸的一叠纸」的体验）——那次
+ *   改动堵住了 issue #2368「1 列时贴纸被撑爆」这条路，但代价是窄区块（比如
+ *   BMC 画布里"关键合作伙伴"这类 1-2 格宽的框）遇上多条目/长文字时，贴纸物理
+ *   尺寸依旧钉死 76mm，宽度超过区块可用空间的部分只能被裁掉或迫使区块被撑得
+ *   很高——这正是「便利贴太大，装不进区块」的根因（`noteFontSizePx` 的
+ *   「超出时」策略只解决贴纸*内部*文字溢出，治不了贴纸本身比区块还宽这件事）。
  *
- * 现在反过来：`noteMm` 恒等于这个常量，`cols`（用户在「列数」里选的档位）只决定
- * 一行摆几张、不再倒推贴纸边长——与真实便利贴"先有固定尺寸的一叠纸，再决定怎么摆"
- * 的体验一致，而不是"先决定占多少格，再把纸压成对应大小"。
- *
- * 取值用 `classifyNoteSize` 判定表里 "standard" 档的中心值——`Design.pdf` §5
- * 「尺寸判定」原文把 70–82mm 都算标准 76mm 方形贴纸，76 是这一档的代表值。
+ *   现在改回「贴纸随区块宽度/列数缩放」——即下方 `sectionGeometryMm` 的
+ *   `noteMm = min(MAX_NOTE_MM, (wMm - 6×(cols-1)) / cols)`，与 issue #2368
+ *   修复后、2026-08-30 冻结前的公式一致：`cols` 越多、区块越窄，贴纸边长越小；
+ *   仍然保留 `MAX_NOTE_MM` 封顶——不然 issue #2368 那条"1 列被撑爆"的回归会
+ *   立刻重现。这个常量本身现在只是"猜默认列数"的参考格距，不再是渲染尺寸的
+ *   单一事实源（那是 `MAX_NOTE_MM`）。
  */
 export const STANDARD_NOTE_MM = 76;
+/**
+ * 贴纸边长上限——issue #2368 的教训：`noteMm` 若无上限，列数选到 1 时会被撑到
+ * 吃满整个区块宽度（比如 268mm），一旦超过区块可用高度就让 `rows` 直接归零、
+ * 整块区域画不出任何内容（`rows` 有 `Math.max(0, …)` 下限保护，`noteMm` 却没有
+ * 对应的上限保护，这个不对称就是空白区块的根因）。封顶取 `classifyNoteSize`
+ * 自己定义的 "oversized" 分界线（82mm，`Design.pdf` §5「尺寸判定」行原文档位）——
+ * 这条线本来就是该函数用来判"会显空"的界，贴纸边长永远不越过它，多出来的区块
+ * 空间留白，不再继续把贴纸撑大到显示失败。
+ */
+export const MAX_NOTE_MM = 82;
 
 export interface SectionGeometryMmInput {
   readonly w: number;
@@ -352,7 +365,11 @@ export interface SectionGeometryMm {
   /** 区块实尺（mm）。`wMm = w/列数 × 821 - 6`，`hMm = h/8 × 574 - 6`。 */
   readonly wMm: number;
   readonly hMm: number;
-  /** 贴纸实尺（mm），固定 1:1 方形，恒等于 `STANDARD_NOTE_MM`——不随区块宽度或列数变化。 */
+  /**
+   * 贴纸实尺（mm），固定 1:1 方形。
+   * `noteMm = min(MAX_NOTE_MM, (wMm - 6×(cols-1)) / cols)`——随区块宽度与列数
+   * 缩放，但不超过 `MAX_NOTE_MM`（issue #2368：封顶防止 1 列时被撑爆）。
+   */
   readonly noteMm: number;
   /** 这块地方竖着放得下几行贴纸。`rows = floor((hMm - 22) / (noteMm + 6))`。 */
   readonly rows: number;
@@ -368,21 +385,20 @@ export interface SectionGeometryMm {
  *   算出来的 cellW/cellH（渲染画布的抽象单位）。两条链路对同一个网格坐标各自
  *   给出正确答案，不是同一个数字的两种写法。
  *
- * ⚠ `noteMm` 不参与 `wMm`/`cols` 的除法——它是 `STANDARD_NOTE_MM` 常量，理由见
- *   该常量的文档（2026-08-30：贴纸大小固定，不随排版变化）。`cols` 仍然决定
- *   一行摆几张、进而决定 `fits`，只是不再倒推贴纸边长本身。
+ * `noteMm` 由 `wMm`/`cols` 倒推、封顶在 `MAX_NOTE_MM`——2026-09-01 推翻
+ * 2026-08-30「贴纸大小固定，不随排版变化」的约定，理由见 `MAX_NOTE_MM` 文档。
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
   const rowSpanDenominator = 8; // 网格恒 8 行，列数才切 6/12。
   const contentMm = contentMmFor(input.size ?? "A1");
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
   const hMm = (input.h / rowSpanDenominator) * contentMm.h - GRID_GAP_MM;
-  const noteMm = STANDARD_NOTE_MM;
+  const noteMm = Math.min(MAX_NOTE_MM, (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols);
   const rows = Math.max(0, Math.floor((hMm - TITLE_RESERVE_MM) / (noteMm + GRID_GAP_MM)));
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),
-    noteMm,
+    noteMm: Math.round(noteMm),
     rows,
     fits: input.cols * rows,
   };

@@ -143,10 +143,11 @@ export function defaultLayoutAt(
   const h = Math.min(type === "便利贴列表" ? 3 : 1, 8 - row + 1);
   return {
     col, row, w, h,
-    // 默认 cols 由物理宽度推出：round(区块宽mm / 贴纸格距)，夹在 3-8——贴纸格距是
-    // 固定贴纸边长（`STANDARD_NOTE_MM`）加一道网格间距，不是随手写的 82（`Design.pdf`
-    // §4.2 原话「使贴纸落在 76mm 标准附近」；贴纸本身大小固定，这里只是猜一个默认
-    // 摆几列，摆多了/摆少了使用者都能在右栏用步进器改）。
+    // 默认 cols 由物理宽度推出：round(区块宽mm / 贴纸格距)，夹在 3-8——贴纸格距用
+    // 标准贴纸边长（`STANDARD_NOTE_MM`=76）加一道网格间距做参考，不是随手写的数
+    // （`Design.pdf` §4.2 原话「使贴纸落在 76mm 标准附近」）。这只是猜一个默认摆
+    // 几列——贴纸实际渲染尺寸会按这个列数与区块宽度反推（`sectionGeometryMm`），
+    // 不是这里就把大小定死；摆多了/摆少了使用者都能在右栏用步进器改。
     cols: type === "便利贴列表" ? clamp(Math.round(blockWidthMm(w, gridCols, size) / (STANDARD_NOTE_MM + GRID_GAP_MM)), 3, 8) : 3,
     max: 6,
     tone: 0,
@@ -290,10 +291,32 @@ export function sectionGeometryMmOf(
 /**
  * 贴纸预览的字号——**由贴纸实尺推导**，不是固定值。
  * `Design.pdf` §5 末段原话：约 `clamp(6.5, noteMm × 0.115, 10.5)`，写成固定值小贴纸会裁字。
+ *
+ * ⚠ 2026-09-01 人类反馈「便利贴太大，装不进区块里」：根因链见
+ *   `explicit-template-layout.ts` 的 `MAX_NOTE_MM` 文档——`noteMm` 现在随区块宽度/
+ *   列数缩放（推翻了 2026-08-30「固定不变」的约定），但这只解决贴纸*本身*装不装得
+ *   进区块；贴纸*内部*的文字还是可能比缩放后的这张贴纸能舒服放下的字数长，那是另一层
+ *   问题——编辑器右栏本来就有、却从没被任何渲染代码读过的「超出时」三选一
+ *   （`layout.overflow`）就是管这层的：之前不管选哪个，字号算法都只看 `noteMm`，
+ *   `overflow` 只用来拼一句警告文案，配了等于白配。
+ *
+ *   现在选「缩小字号」时，字号额外按**这张贴纸实际要放的文字长度**继续收缩
+ *   （超过 `NOTE_COMFORTABLE_CHARS` 个字才开始缩，短文字不受影响、行为与改动前
+ *   逐字一致）；选「截断」/「叠放」时字号维持原样，改由调用方（`template-canvas-grid`）
+ *   用 line-clamp 硬截断或堆叠 tile 处理，不在这里悄悄缩字号——三个选项要长得不一样，
+ *   不能都退化成同一种「一律缩小」。
  */
-export function noteFontSizePx(noteMm: number, isList: boolean): number {
+const NOTE_COMFORTABLE_CHARS = 16;
+const MIN_SHRUNK_FONT_PX = 5.5;
+
+export function noteFontSizePx(noteMm: number, isList: boolean, textLength = 0): number {
   if (!isList) return 9;
-  return Number(clamp(noteMm * 0.115, 6.5, 10.5).toFixed(1));
+  const base = clamp(noteMm * 0.115, 6.5, 10.5);
+  if (textLength <= NOTE_COMFORTABLE_CHARS) return Number(base.toFixed(1));
+  // 文字比"舒适字数"长——按字数比例继续缩小，下限 5.5px（低于此不可读，交给
+  // 「截断」/「叠放」两个选项兜底，不能无限缩到看不见）。
+  const shrink = Math.sqrt(NOTE_COMFORTABLE_CHARS / textLength);
+  return Number(clamp(base * shrink, MIN_SHRUNK_FONT_PX, base).toFixed(1));
 }
 
 export { classifyNoteSize };
