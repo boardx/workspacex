@@ -83,3 +83,22 @@ jobs:
           API_CID=$(docker ps -a --filter "name=api" --format '{{.Names}}' | head -1)
           echo "  匹配到: ${API_CID:-（没找到名字含 api 的容器）}"
           [ -n "$API_CID" ] && docker logs --tail 30 "$API_CID" 2>&1
+
+      # workspacex-api 是 systemd 服务（不是 docker 容器，见上一步「没找到名字含 api 的容器」），
+      # 真实错误在 journald 里，不在任何容器日志中。同时从宿主机侧（不是容器内部）用 API
+      # 实际会用的映射端口探一次 Redis，看是网络层还是应用层的问题。只读，不改配置。
+      - name: workspacex-api systemd 日志 + 宿主机侧 Redis 连通性
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          echo "── journalctl -u workspacex-api 最近 200 行里含 redis/AUTH_SERVICE_UNAVAILABLE/Connection/ECONN 的行 ──"
+          journalctl -u workspacex-api --no-pager -n 200 2>&1 \
+            | grep -iE "redis|AUTH_SERVICE_UNAVAILABLE|Connection is closed|ECONNREFUSED|ECONNRESET|ETIMEDOUT|MaxRetriesPerRequest" \
+            || echo "（无权限读取 journald，或最近 200 行里没有匹配——见下方兜底）"
+          echo "── 兜底：journalctl 是否可读（正样本）──"
+          journalctl -u workspacex-api --no-pager -n 3 2>&1 | head -5
+          echo "── 宿主机侧（不进容器）redis-cli PING，走 API 实际会用的映射端口 56380 ──"
+          redis-cli -h 127.0.0.1 -p 56380 PING 2>&1 || echo "（redis-cli 未装在宿主机 PATH，或连接失败，见上）"
+          echo "── 该端口当前的 TCP 连接数（看是不是连接池耗尽/大量 TIME_WAIT）──"
+          ss -tan 2>&1 | grep ':56380' | awk '{print $1}' | sort | uniq -c || echo "（ss 不可用）"
