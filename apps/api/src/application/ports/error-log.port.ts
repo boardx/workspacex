@@ -45,3 +45,103 @@ export interface ErrorLogPort {
 }
 
 export const ERROR_LOG_PORT = Symbol("ErrorLogPort");
+
+/**
+ * `redactErrorDetail` -- the ONE sanitiser every write to `error_logs` goes through, applied
+ * inside `PgErrorLogWriter.record()` (not left to callers to remember).
+ *
+ * ## Why this exists (2026-09-01 review finding #1, PR #2444)
+ *
+ * `ConsoleLogger`'s own file header says it plainly: "`err.message` routinely contains SQL
+ * fragments and table names". That was an acceptable risk for stdout captured by journald,
+ * reachable only by SSH onto the specific deploy box. A queryable Postgres table with a
+ * 30-day retention window is a materially different blast radius -- easier to bulk-export,
+ * reachable by anything holding the app's DB credentials, not scoped to one machine's
+ * operator. So the exact same raw detail that is fine to journal is not automatically fine
+ * to archive, and this function is the boundary that makes the distinction real instead of
+ * asserted.
+ *
+ * ## What it does: bound, then scrub, both mechanically testable
+ *
+ * 1. **Size bounds** -- `message`/`raw` capped at `MAX_FIELD_LEN`, `stack` at
+ *    `MAX_STACK_LEN`, each truncated with a visible marker so a truncated record never reads
+ *    as a complete one. This is what answers "oversized input" in the finding: nothing this
+ *    function returns can make an INSERT unboundedly large, regardless of what the thrown
+ *    value contained.
+ * 2. **Pattern-based scrubbing** -- run over every string field, replacing the shapes credentials
+ *    most commonly take in a stack trace or error message: connection-string URLs with
+ *    embedded userinfo (`postgres://user:pass@host`, `redis://...`), `Authorization: Bearer
+ *    <token>` headers, JWT-shaped triples, and `key = value` pairs where the key looks like a
+ *    secret (`password`, `token`, `secret`, `api_key`, ...). None of these patterns claim to
+ *    be exhaustive -- no regex-based scrubber is -- but they cover the shapes this codebase's
+ *    own infrastructure actually produces (Postgres/Redis DSNs, bearer session tokens, JWTs),
+ *    which is the concrete risk the finding named, not a claim of universal coverage.
+ *
+ * ## Why bound+scrub happens on the WRITE side, not by changing what `errorDetailOf` returns
+ *
+ * `errorDetailOf` (`logger.port.ts`) stays exactly as it is: `ConsoleLogger` must keep
+ * getting the full, unredacted detail (that channel's whole job is being complete for a human
+ * with SSH access mid-incident). Redaction is specific to the second, wider-reach sink, so it
+ * belongs on that sink's write path, not upstream where it would quietly weaken the log too.
+ */
+const MAX_FIELD_LEN = 2_000;
+const MAX_STACK_LEN = 8_000;
+const TRUNCATED_SUFFIX = "…[TRUNCATED]";
+
+const SECRET_PATTERNS: readonly RegExp[] = [
+  // Connection-string URLs with embedded userinfo (postgres://, postgresql://, redis://,
+  // rediss://, mongodb://, mysql://, amqp(s)://) -- redact the WHOLE url, not just the
+  // credential portion: host/port/db-name after a real DSN is still infrastructure detail
+  // this table should not be casually holding either.
+  /\b(postgres(?:ql)?|redis|rediss|mongodb(?:\+srv)?|mysql|amqps?):\/\/[^\s'")]+/gi,
+  // `Authorization: Bearer <token>` / a bare `Bearer <token>` in a message.
+  /\bBearer\s+[A-Za-z0-9\-_.]+/g,
+  // JWT-shaped triples (header.payload.signature, base64url segments).
+  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{2,}/g,
+  // `key = value` / `key: value` / `key="value"` where the key name looks like a secret.
+  /\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key)\s*[:=]\s*["']?[^\s"',;]+["']?/gi,
+];
+
+function truncate(s: string, max: number): string {
+  return s.length <= max ? s : s.slice(0, max - TRUNCATED_SUFFIX.length) + TRUNCATED_SUFFIX;
+}
+
+function scrub(s: string): string {
+  let out = s;
+  for (const pattern of SECRET_PATTERNS) out = out.replace(pattern, "[REDACTED]");
+  return out;
+}
+
+/** Applied to every string field before it can enter `error_logs`. Order matters: scrub the
+ *  full string first (so a secret is not half-truncated into something unrecognisable but
+ *  still partially readable), then bound its length. */
+function sanitiseField(s: string, max: number): string {
+  return truncate(scrub(s), max);
+}
+
+/**
+ * `detail` is `unknown` by the port's own contract (see `ErrorLogEntry`) -- this function
+ * does not assume it is the `{name,message,stack}|{raw}` shape `errorDetailOf` produces
+ * (a non-Error/cyclic/exotic thrown value is exactly what the finding asks to be proven
+ * safe). Anything that is not a plain string field on a plain object is stringified through
+ * `String(...)` and then run through the same scrub+bound path -- never through
+ * `JSON.stringify` on an arbitrary object, which is how a cyclic reference would throw.
+ */
+export function redactErrorDetail(detail: unknown): unknown {
+  if (detail === null || typeof detail !== "object" || Array.isArray(detail)) {
+    return { raw: sanitiseField(String(detail), MAX_FIELD_LEN) };
+  }
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(detail)) {
+    if (typeof value !== "string") {
+      // Not a string field this function knows how to scrub (e.g. an unexpected nested
+      // object) -- stringify defensively rather than let it flow through unexamined. This is
+      // also what makes a cyclic value here safe: `String(...)` on an object never recurses
+      // into cycles the way `JSON.stringify` would.
+      out[key] = sanitiseField(String(value), MAX_FIELD_LEN);
+      continue;
+    }
+    out[key] = sanitiseField(value, key === "stack" ? MAX_STACK_LEN : MAX_FIELD_LEN);
+  }
+  return out;
+}

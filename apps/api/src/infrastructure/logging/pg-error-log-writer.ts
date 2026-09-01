@@ -12,21 +12,72 @@
  * tenant context exists -- a failed login never resolved an organization, so there is no
  * tenant to scope the write to even if this table had a column for one.
  *
- * ## Retention: opportunistic, not a cron job
+ * ## Every INSERT goes through `redactErrorDetail` first (2026-09-01 review finding #1)
  *
- * This table has no scheduled cleanup process (there is no existing cron/scheduler
- * infrastructure in this codebase to hang one off -- see the design discussion this shipped
- * with). Instead, each write has a small independent chance of also deleting rows older than
- * `RETENTION_DAYS`: cheap on the common path (no-op almost always), and self-correcting even
- * if this process is the only one ever writing here. A fixed modulus on an in-memory counter
- * (not `Math.random()`) makes the cadence deterministic and testable.
+ * `record()` never writes `entry.detail` as-is -- see `error-log.port.ts`'s
+ * `redactErrorDetail` for the bound+scrub it applies and why raw `err.message`/`stack`
+ * (routinely containing SQL fragments, connection strings, table names -- `ConsoleLogger`'s
+ * own header says so) is an acceptable risk for journald but not for a queryable, 30-day
+ * Postgres archive without that step.
+ *
+ * ## Read access: no new HTTP surface, by deliberate scope decision
+ *
+ * This feature was scoped, with the human's explicit sign-off, to "a Postgres table +
+ * `SELECT ... WHERE trace_id = ...` by whoever already has deploy-machine DB credentials" --
+ * NOT a new HTTP endpoint or a new "superuser" role (this codebase has no such role today;
+ * building one is a real access-control design task, out of scope for this fix, tracked as a
+ * follow-up if ever wanted). So the blast radius of a *read* of this table is bounded to
+ * "whoever can already open a `psql` session against production" -- the same population that
+ * could already `journalctl | grep` the un-redacted console log this table sits alongside.
+ * `redactErrorDetail` narrows what is IN the table; it does not additionally restrict who can
+ * query it, because no new reader was introduced for it to restrict.
+ *
+ * ## Retention: best-effort, NOT a guarantee (2026-09-01 review finding #2 -- corrected)
+ *
+ * The original version of this file's cadence (only ever triggered from inside `record()`,
+ * once every `HOUSEKEEPING_EVERY` writes) has a real gap the review named precisely: a
+ * low-volume deployment, or a process restart before the counter reaches the threshold, or a
+ * permanently-failing DELETE, all mean rows past `RETENTION_DAYS` can persist indefinitely.
+ * There is no promise here that fixes that completely -- this codebase has no cron/scheduler
+ * infrastructure to hang a truly independent sweep off (same constraint as the first version).
+ * What changed: `sweepExpiredErrorLogs` is now also called once at process boot
+ * (`main.ts`, mirroring the exact pattern `ensurePlatformSkillCatalogSeeded` already
+ * established for self-healing on every real start -- never throws, logs and moves on),
+ * so a restart is now a SECOND independent trigger, not the failure mode described above.
+ * Between the two, most real deployments (anything that restarts periodically, or writes more
+ * than `HOUSEKEEPING_EVERY` errors before 30 days pass) get cleanup within a bounded window.
+ * A deployment that does neither -- never restarts AND stays under the write threshold for
+ * 30+ days -- will accumulate rows. That is named here, not hidden: this is BEST-EFFORT
+ * retention, not an enforced TTL. A DB-native mechanism (e.g. `pg_cron`, if the extension is
+ * ever provisioned) would close the remaining gap; it is not part of this change.
  */
 import type { DatabasePort } from "../../application/ports/database.port";
-import type { ErrorLogEntry, ErrorLogPort } from "../../application/ports/error-log.port";
+import { redactErrorDetail, type ErrorLogEntry, type ErrorLogPort } from "../../application/ports/error-log.port";
 
-const RETENTION_DAYS = 30;
+export const RETENTION_DAYS = 30;
 /** Run housekeeping roughly once every this-many writes, not on every single one. */
 const HOUSEKEEPING_EVERY = 50;
+
+/**
+ * Delete rows older than `RETENTION_DAYS`. Exported so it can be triggered from two
+ * independent places (`PgErrorLogWriter`'s opportunistic per-write cadence, and `main.ts`'s
+ * boot-time self-heal) without either duplicating the SQL -- the "one fact, two callers" shape
+ * this codebase's own AGENTS.md names as the alternative to "one fact declared twice".
+ *
+ * Never throws: a failed sweep is not a reason to fail whatever triggered it. Callers that
+ * care whether it actually ran can inspect the resolved boolean; callers that do not
+ * (`record()`'s opportunistic trigger) can ignore it.
+ */
+export async function sweepExpiredErrorLogs(db: DatabasePort): Promise<{ readonly ok: boolean; readonly error?: unknown }> {
+  try {
+    await db.withoutTenant((s) =>
+      s.query(`DELETE FROM error_logs WHERE created_at < now() - interval '${RETENTION_DAYS} days'`),
+    );
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error };
+  }
+}
 
 export class PgErrorLogWriter implements ErrorLogPort {
   private writeCount = 0;
@@ -34,22 +85,17 @@ export class PgErrorLogWriter implements ErrorLogPort {
   constructor(private readonly db: DatabasePort) {}
 
   async record(entry: ErrorLogEntry): Promise<void> {
+    const detail = redactErrorDetail(entry.detail);
     await this.db.withoutTenant(async (s) => {
       await s.query(
         `INSERT INTO error_logs (trace_id, msg, detail) VALUES ($1, $2, $3::jsonb)`,
-        [entry.traceId, entry.msg, JSON.stringify(entry.detail)],
+        [entry.traceId, entry.msg, JSON.stringify(detail)],
       );
     });
 
     this.writeCount += 1;
     if (this.writeCount % HOUSEKEEPING_EVERY === 0) {
-      // Best-effort: a failed cleanup is not a reason to fail the write that triggered it,
-      // and it will simply get another chance on a later write.
-      await this.db
-        .withoutTenant((s) =>
-          s.query(`DELETE FROM error_logs WHERE created_at < now() - interval '${RETENTION_DAYS} days'`),
-        )
-        .catch(() => undefined);
+      await sweepExpiredErrorLogs(this.db);
     }
   }
 }

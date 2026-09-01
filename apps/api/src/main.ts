@@ -23,6 +23,8 @@ import {
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 import { ensurePlatformSkillCatalogSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
+import { DATABASE_PORT } from "./application/ports/database.port";
+import { sweepExpiredErrorLogs } from "./infrastructure/logging/pg-error-log-writer";
 
 export async function createApp(): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(KernelModule, {
@@ -145,5 +147,19 @@ if (isProcessEntry()) {
     );
   } else {
     console.error("platform skill catalog self-heal failed (will retry on next boot):", seed.error);
+  }
+
+  /**
+   * `error_logs` retention self-heal (2026-09-01 review finding #2, PR #2444) -- same shape
+   * and same placement rationale as the platform-skill seed just above: never throws, runs
+   * after `app.listen()` so it cannot delay accepting traffic, and only fires on a real
+   * process start (`isProcessEntry()`, not under `await import("../../src/main")` in tests).
+   * `pg-error-log-writer.ts`'s file header explains why this is a SECOND independent trigger
+   * for the same sweep, not the only one -- a low-write-volume deployment that never restarts
+   * is the one gap neither trigger closes; that is documented there, not hidden here.
+   */
+  const swept = await sweepExpiredErrorLogs(app.get(DATABASE_PORT));
+  if (!swept.ok) {
+    console.error("error_logs retention sweep failed (will retry on next boot or write cadence):", swept.error);
   }
 }
