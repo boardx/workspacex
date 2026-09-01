@@ -16,14 +16,32 @@
  * 贴纸自己——那是另一层（`noteFontSizePx`），治不了这一层。这里验的是**贴纸整体**
  * 有没有被贴纸网格外层的 `overflow-hidden` 从中间切掉一截：贴纸虽然还在 DOM 里
  * （`overflow: hidden` 不会移除元素，只是视觉上藏起来），但它的 `getBoundingClientRect()`
- * 仍然如实反映真实位置——量它的 `bottom` 有没有超出贴纸网格容器的 `bottom`，
- * 就是"这张贴纸有没有被腰斩"唯一可靠的判据（同"文字有没有被裁切"用
- * `scrollHeight` 而不是肉眼看截图的道理）。
+ * 仍然如实反映真实位置——量它的 `bottom`/`right` 有没有超出贴纸网格容器的
+ * `bottom`/`right`，就是"这张贴纸有没有被腰斩"唯一可靠的判据（同"文字有没有被
+ * 裁切"用 `scrollHeight` 而不是肉眼看截图的道理）。
+ *
+ * ⚠ 2026-09-01（同日后续）：本文件第一版只查 `bottom`，只抓得到"最后一行被裁"；
+ *   人类实测又反馈"便利贴被遮住一半，不分 2 列/3 列"——那是另一根轴：`noteMm`
+ *   倒推时没扣区块自己的左右内边距/边框，贴纸网格总宽度超出可用宽度，超出的
+ *   部分被同一个 `overflow-hidden` 裁在**贴纸右侧**。补了 `right` 检查，见
+ *   `findClippedNotes` 文档。
  *
  * 覆盖三档纸张（人类 2026-08-27 要求「A1/A3/A4 可选」；`titleReserveMm` 现在
  * 按纸宽换算，这三档各自该精确，不该只有 A1 精确、A3/A4 只是"偏保守但不翻车"）
  * 与两档视口宽度（约束宽度 + 全屏），呼应人类原话"全屏下依然会切"——不能只在
  * 某一个宽度下测过就算数。
+ *
+ * ⚠ 2026-09-01（第五轮）：A4 纸配上较小区块选 2 列时，`sectionGeometryMm` 按*宽度*
+ *   倒推出的贴纸边长比这块地方的可用高度还高，`rows` 因此 floor 成 0——
+ *   `visibleNoteCount` 在有真实数据时仍会强制展示 1 条（`Math.max(1, …)`，避免
+ *   "数据进来了、画布却像坏了一样什么都不显示"），那 1 条用宽度版尺寸画出来，
+ *   天生比这块地方高，必然被裁。第一次的修法是让这条 e2e 跳过这类组合的裁切
+ *   断言——被独立审查正确驳回："跳过测试只是把这个真回归的可见度调低，不是
+ *   修掉它"。真正的修法落回了 `sectionGeometryMm` 本身：`rows` 按宽度版尺寸
+ *   算出 0、但可用高度仍是正数时，把贴纸边长夹到"能放下一行"的高度版尺寸
+ *   （只会更小，不会撑大宽度那边）——强制展示的那条贴纸现在用的是真正塞得进
+ *   这块地方的尺寸，见该函数里 `heightConstrainedNoteMm` 的注释。这条 e2e
+ *   因此不需要、也不该跳过任何列数组合。
  */
 import { expect, test, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
@@ -41,21 +59,34 @@ async function loginAsAdmin(page: Page): Promise<void> {
  * 结构对应 `template-canvas-grid.tsx` 的 `block > [标题块, 贴纸网格]`——不靠
  * testid（贴纸网格本身没有单独的 testid，靠结构定位比新增一个只为测试服务的
  * testid 更不容易在无关重构里悄悄漂移）。
+ *
+ * ⚠ 2026-09-01（同日后续）：查 `bottom` 只抓得到"最后一行被裁"这一种；人类
+ *   实测又反馈"便利贴被遮住一半，不分 2 列/3 列"——根因是横向的（`noteMm` 倒推
+ *   时没扣区块自己的左右内边距/边框，贴纸网格的总宽度超出可用宽度，超出的部分
+ *   被同一个 `overflow-hidden` 裁在**右侧**）。加一份 `right` 检查，两个方向
+ *   都不留死角。
  */
-async function findClippedNotes(page: Page): Promise<{ blockId: string; noteBottom: number; gridBottom: number }[]> {
+async function findClippedNotes(
+  page: Page,
+): Promise<{ blockId: string; axis: "bottom" | "right"; noteEdge: number; gridEdge: number }[]> {
   return page.evaluate(() => {
     const blocks = [...document.querySelectorAll('[data-testid^="tpladmin-editor-block-"]')];
-    const bad: { blockId: string; noteBottom: number; gridBottom: number }[] = [];
+    const bad: { blockId: string; axis: "bottom" | "right"; noteEdge: number; gridEdge: number }[] = [];
     for (const block of blocks) {
       const notesGrid = block.children[1];
       if (!notesGrid) continue;
       const gridRect = notesGrid.getBoundingClientRect();
-      if (gridRect.height <= 0) continue;
+      if (gridRect.height <= 0 || gridRect.width <= 0) continue;
+      const blockId = block.getAttribute("data-testid") ?? "";
       for (const note of Array.from(notesGrid.children)) {
         const r = note.getBoundingClientRect();
+        if (r.height <= 0) continue;
         // +1px 容忍亚像素取整，同仓库里 scrollHeight/clientHeight 那条既有断言的容差。
-        if (r.height > 0 && r.bottom > gridRect.bottom + 1) {
-          bad.push({ blockId: block.getAttribute("data-testid") ?? "", noteBottom: r.bottom, gridBottom: gridRect.bottom });
+        if (r.bottom > gridRect.bottom + 1) {
+          bad.push({ blockId, axis: "bottom", noteEdge: r.bottom, gridEdge: gridRect.bottom });
+        }
+        if (r.right > gridRect.right + 1) {
+          bad.push({ blockId, axis: "right", noteEdge: r.right, gridEdge: gridRect.right });
         }
       }
     }
@@ -112,15 +143,33 @@ for (const paperSize of ["A1", "A3", "A4"] as const) {
     await page.getByTestId("tpladmin-editor-dryrun-run").click();
     await expect(block).toContainText("条目 1");
 
-    for (const viewport of [{ width: 900, height: 800 }, { width: 1920, height: 1080 }] as const) {
-      await page.setViewportSize(viewport);
-      // 视口变了，等一帧布局稳定，再量。
-      await page.waitForTimeout(150);
-      const clipped = await findClippedNotes(page);
-      expect(
-        clipped,
-        `${paperSize} 纸、视口 ${viewport.width}×${viewport.height} 下，这些贴纸被外层容器裁掉了一部分（getBoundingClientRect().bottom 超出贴纸网格容器）：${JSON.stringify(clipped)}`,
-      ).toEqual([]);
+    // ⚠ 2026-09-01（第三轮独立审查）：人类实测原话"不管两列还是三列都会遮住"——
+    //   `defaultLayoutAt` 给列表型区块的默认列数会被夹到 ≥3，不显式切列数的话，
+    //   这条用例永远测不到 2 列这条路径，红不了也就等于没测。这里显式点两个列数
+    //   档位各测一遍，并且先读一遍区块自己的文案确认真的切换成功了，不是等着
+    //   点击"看起来生效了"就信。
+    for (const cols of [2, 3] as const) {
+      await page.getByTestId(`tpladmin-editor-cols-${cols}`).click();
+      // ⚠ 确认切换生效不能读区块自己的元信息行——那行文字在"装不下"（超出容量）
+      //   时会被换成「装不下：N 条 / 位置只够 M 条」的警告文案，压根不含"N 列"
+      //   这几个字（本条用例故意塞了 12 条数据逼近容量边界，切到 2 列时很容易
+      //   真的触发这个分支）。改读右栏「贴纸实尺 …这块地方 N列 × M行」那一行
+      //   （`tpladmin-editor-col-note`）——它是 `layout.cols` 的直接展示，
+      //   不随是否超出容量变来变去。
+      const colNote = page.getByTestId("tpladmin-editor-col-note");
+      await expect(colNote).toContainText(`${cols} 列`);
+
+      for (const viewport of [{ width: 900, height: 800 }, { width: 1920, height: 1080 }] as const) {
+        await page.setViewportSize(viewport);
+        // 视口变了，等一帧布局稳定，再量。
+        await page.waitForTimeout(150);
+
+        const clipped = await findClippedNotes(page);
+        expect(
+          clipped,
+          `${paperSize} 纸、${cols} 列、视口 ${viewport.width}×${viewport.height} 下，这些贴纸被外层容器裁掉了一部分（bottom=最后一行被裁，right=右侧被裁）：${JSON.stringify(clipped)}`,
+        ).toEqual([]);
+      }
     }
 
     expect(failures).toEqual([]);

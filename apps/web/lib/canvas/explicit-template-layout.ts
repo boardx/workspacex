@@ -398,6 +398,24 @@ const BLOCK_HEADER_RESERVE_CQW =
 export function titleReserveMm(size: PaperSizeKey = "A1"): number {
   return (BLOCK_HEADER_RESERVE_CQW / 100) * PAPER_SIZE_MM[size].w;
 }
+
+/**
+ * 区块左右两条边各一份内边距 + 边框，换算成 mm——横向版的 `titleReserveMm`。
+ *
+ * ⚠ 2026-09-01 人类实测反馈"便利贴还是被遮住一半"、且不分 2 列/3 列都会——
+ *   根因和 `titleReserveMm` 那次是**同一个疏漏在另一根轴上**：`sectionGeometryMm`
+ *   算 `noteMm`（贴纸边长）时直接拿整个 `wMm`（区块外沿宽度）去除以列数，却没有
+ *   先扣掉区块自己的左右内边距/边框——但贴纸网格是区块的**子元素**，它能用的宽度
+ *   是 `wMm` 减掉这两条边，不是 `wMm` 本身。公式算出来的 `noteMm` 因此比贴纸网格
+ *   真实可用宽度宽了一圈，`cols` 张贴纸 + 列间距的总宽度会超出贴纸网格容器，
+ *   超出的部分被同一个 `overflow-hidden` 裁掉——只是这次裁在**贴纸右侧**，不是
+ *   上一次那个"最后一行"。两处（`titleReserveMm` 管纵向、这个函数管横向）现在
+ *   都从 `BLOCK_HEADER_CQW.padding`/`.border` 这同一份数字反推，不是各自猜一个。
+ */
+export function blockHorizontalChromeMm(size: PaperSizeKey = "A1"): number {
+  const cqw = (BLOCK_HEADER_CQW.padding + BLOCK_HEADER_CQW.border) * 2;
+  return (cqw / 100) * PAPER_SIZE_MM[size].w;
+}
 /**
  * 贴纸实尺参考值——`Design.pdf` §5「尺寸判定」原文把 70–82mm 都算标准 76mm
  * 方形贴纸，76 是这一档的代表值，`defaultLayoutAt`/`autoFillLayout` 猜默认
@@ -445,8 +463,12 @@ export interface SectionGeometryMm {
   readonly hMm: number;
   /**
    * 贴纸实尺（mm），固定 1:1 方形。
-   * `noteMm = min(MAX_NOTE_MM, (wMm - 6×(cols-1)) / cols)`——随区块宽度与列数
-   * 缩放，但不超过 `MAX_NOTE_MM`（issue #2368：封顶防止 1 列时被撑爆）。
+   * `noteMm = clamp((贴纸网格可用宽度 - 6×(cols-1)) / cols, 0, MAX_NOTE_MM)`——
+   * 贴纸网格可用宽度 = `wMm` 扣掉区块自己的左右内边距/边框
+   * （`blockHorizontalChromeMm`，2026-09-01：贴纸网格是区块的子元素，用区块
+   * 外沿宽度 `wMm` 本身去除会算出比真实可用宽度更宽的贴纸，多出来的部分被
+   * 外层 `overflow-hidden` 裁在贴纸右侧）。随区块宽度与列数缩放，但不超过
+   * `MAX_NOTE_MM`（issue #2368：封顶防止 1 列时被撑爆），也不低于 0。
    */
   readonly noteMm: number;
   /** 这块地方竖着放得下几行贴纸。`rows = floor((hMm - 22) / (noteMm + 6))`。 */
@@ -465,18 +487,72 @@ export interface SectionGeometryMm {
  *
  * `noteMm` 由 `wMm`/`cols` 倒推、封顶在 `MAX_NOTE_MM`——2026-09-01 推翻
  * 2026-08-30「贴纸大小固定，不随排版变化」的约定，理由见 `MAX_NOTE_MM` 文档。
+ *
+ * ⚠ 2026-09-01（同日后续）：`noteMm` 倒推时要用**贴纸网格真正可用的宽度**
+ *   （`wMm` 扣掉区块自己的左右内边距/边框，`blockHorizontalChromeMm`），不是
+ *   区块外沿宽度 `wMm` 本身——理由见该函数文档（人类实测反馈"便利贴还是被遮住
+ *   一半，不分列数"，根因是这处遗漏，跟 `titleReserveMm` 那次是同一类疏漏在
+ *   横向轴上的版本）。
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
   const rowSpanDenominator = 8; // 网格恒 8 行，列数才切 6/12。
-  const contentMm = contentMmFor(input.size ?? "A1");
+  const size = input.size ?? "A1";
+  const contentMm = contentMmFor(size);
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
   const hMm = (input.h / rowSpanDenominator) * contentMm.h - GRID_GAP_MM;
-  const noteMm = Math.min(MAX_NOTE_MM, (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols);
-  const rows = Math.max(0, Math.floor((hMm - titleReserveMm(input.size ?? "A1")) / (noteMm + GRID_GAP_MM)));
+  const noteGridWidthMm = wMm - blockHorizontalChromeMm(size);
+  // 区块窄到扣完内边距/边框已经不剩空间时，`noteGridWidthMm` 会是负数——
+  // `noteMm` 夹到 0（同 `rows` 的 `Math.max(0, …)`），不产出负数贴纸边长，
+  // 那样会让 `notePct`/字号算出荒谬的负值/NaN，而不是如实地说"这里放不下"。
+  const rawNoteMm = Math.max(0, Math.min(MAX_NOTE_MM, (noteGridWidthMm - GRID_GAP_MM * (input.cols - 1)) / input.cols));
+  // ⚠ 2026-09-01（第四轮，真实浏览器 e2e 抓到的回归）：`rows` 此前用的是这个
+  //   *未取整*的 `rawNoteMm` 去算，但实际渲染用的是下面 `Math.round` 过的
+  //   `noteMm`（`notePct`/字号都读这个四舍五入后的值）——取整可能把贴纸边长
+  //   往上调最多 0.5mm，多行累加起来，容量算的行数就可能比实际渲染能放下的
+  //   多出一行，最后一行贴纸被 `overflow-hidden` 切掉一截。A4 纸、2 列、900px
+  //   视口下实测复现：`noteEdge=688.47 > gridEdge=686`，差 2.47px。改成
+  //   `rows`/`fits` 与展示用的 `noteMm` 用**同一个**取整后的数，容量与渲染
+  //   不再各自算各自的。
+  let noteMm = Math.round(rawNoteMm);
+  const availableHeightMm = hMm - titleReserveMm(size);
+  // ⚠ 2026-09-01（第三轮）独立审查抓到的问题：`noteMm` 夹到 0 只挡住了"负数
+  //   贴纸边长"，没挡住"贴纸边长是 0 但容量还算出正数"——`rows =
+  //   floor((hMm-reserve)/(0+6))` 分母只剩间距，照样能除出正数行数，
+  //   `fits = cols × rows` 跟着报出一个正的容量，等于宣称"这里放得下 N 张
+  //   宽度为 0（也就是看不见）的贴纸"。贴纸边长一旦到 0，这块地方就是真放不下
+  //   任何一张，容量必须如实归零，不能因为公式分母还没归零就继续往下算。
+  let rows = noteMm <= 0 ? 0 : Math.max(0, Math.floor(availableHeightMm / (noteMm + GRID_GAP_MM)));
+  // ⚠ 2026-09-01（第五轮，独立审查驳回"跳过测试"那版之后）：`noteMm` 完全是
+  //   按*宽度*（区块宽度 ÷ cols）倒推的，从没被高度约束过——区块偏矮、列数偏多
+  //   时（人类实测：A4 纸配上默认区块高选 2 列），按宽度算出的贴纸边长可能比
+  //   `availableHeightMm` 还高，`rows` floor 成 0。`visibleNoteCount` 在有真实
+  //   数据时会强制至少展示 1 条（`Math.max(1, …)`，见该函数文档），于是那 1 条
+  //   按"宽度版" `noteMm` 画出来的贴纸，天生比这块地方的可用高度还高，必然被
+  //   `overflow-hidden` 腰斩——不是"渲染没跟上容量算法"，是容量算法自己从没管过
+  //   高度这件事。跳过测试断言只是把这个真回归的可见度调低，独立审查驳回是对的。
+  //
+  //   真正的修法：`rows` 按宽度版 `noteMm` 算出 0、但这块地方的可用高度仍然是
+  //   正数时，把贴纸边长**夹到可用高度能放下一行的尺寸**（比宽度版更小——不会
+  //   反过来撑大，宽度那边本来就够）。这样强制展示的那 1 条（以及同一行内最多
+  //   `cols` 条）用的是真正塞得进这块地方的尺寸，不再必然溢出。仍然放不下时
+  //   （`availableHeightMm` 本身就 ≤ 0，或扣掉间距后 ≤ 0）保持 `rows=0`——
+  //   如实拒绝，不是硬把负数/零尺寸的贴纸也算成"放得下"。
+  if (rows === 0 && noteMm > 0) {
+    // ⚠ 这里必须 `Math.floor`，不能 `Math.round`——取整前的第四轮教训刚发生过：
+    //   四舍五入可能把这个"保证塞得下"的尺寸向上调，调过头就正好撞回同一类
+    //   "算出来的尺寸比真实可用空间还大一点点"的回归（实测：round 出来的值会让
+    //   `noteMm+GRID_GAP_MM` 比 `availableHeightMm` 多出零点几 mm）。往下取整
+    //   保证这个尺寸 + 间距永远不超过可用高度，宁可贴纸小一圈，不能再让它溢出。
+    const heightConstrainedNoteMm = Math.floor(availableHeightMm - GRID_GAP_MM);
+    if (heightConstrainedNoteMm > 0 && heightConstrainedNoteMm < noteMm) {
+      noteMm = heightConstrainedNoteMm;
+      rows = 1;
+    }
+  }
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),
-    noteMm: Math.round(noteMm),
+    noteMm,
     rows,
     fits: input.cols * rows,
   };
