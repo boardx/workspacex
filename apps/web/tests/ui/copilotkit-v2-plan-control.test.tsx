@@ -53,6 +53,7 @@ function ledgerWithSteps(overrides: Partial<PlanLedgerView> = {}): PlanLedgerVie
     progress: { completed: 0, total: 2, elapsedMs: 0 },
     pendingApplyAtNextRun: false,
     activeRunId: null,
+    errorCode: null,
     ...overrides,
   };
 }
@@ -244,6 +245,91 @@ describe("CopilotKitV2PlanControl —— 真实读账本 + 真实调用写操作
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // issue #2451 —— 真实截图抓到的矛盾：phase="done" 但账本里还有步骤没被标记完成。
+  it("phase='done' 但 progress.completed < progress.total：渲染如实提示，不伪造步骤已完成", async () => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        phase: "done",
+        gate: { required: true, reason: "multi-step" },
+        steps: [
+          { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
+          { planStepId: "s2", content: "起草方案初稿", status: "pending", constraints: [] },
+        ],
+        progress: { completed: 1, total: 2, elapsedMs: 8000 },
+      }),
+    );
+    render(<CopilotKitV2PlanControl threadId="t-11" />);
+
+    const notice = await screen.findByTestId("chat-task-workbench-plan-done-incomplete-notice");
+    expect(notice.textContent).toContain("1");
+    // 步骤列表本身没被悄悄改写——第二步仍然如实显示 pending，不是伪造成 completed。
+    expect(screen.getAllByTestId(PLAN_STEP_TESTID)[1]).toHaveAttribute("data-plan-status", "pending");
+  });
+
+  it("phase='done' 且所有步骤都 completed：不渲染提示（沿用改动前的行为）", async () => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        phase: "done",
+        gate: { required: true, reason: "multi-step" },
+        steps: [
+          { planStepId: "s1", content: "调研竞品定价", status: "completed", constraints: [] },
+          { planStepId: "s2", content: "起草方案初稿", status: "completed", constraints: [] },
+        ],
+        progress: { completed: 2, total: 2, elapsedMs: 8000 },
+      }),
+    );
+    render(<CopilotKitV2PlanControl threadId="t-12" />);
+    await waitFor(() => expect(screen.getByTestId(PLAN_PHASE_INDICATOR_TESTID)).toBeTruthy());
+    expect(screen.queryByTestId("chat-task-workbench-plan-done-incomplete-notice")).toBeNull();
+  });
+
+  it("phase='failed' 且 errorCode='MODEL_CALL_FAILED'：失败原因用真实文案，不是写死占位句", async () => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        phase: "failed",
+        errorCode: "MODEL_CALL_FAILED",
+        steps: [{ planStepId: "s1", content: "调研竞品定价", status: "pending", constraints: [] }],
+      }),
+    );
+    render(<CopilotKitV2PlanControl threadId="t-13" />);
+    expect(await screen.findByText("模型这次没能返回可用结果")).toBeInTheDocument();
+  });
+
+  it("phase='failed' 且 errorCode=null：退回原有的诚实通用占位文案", async () => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        phase: "failed",
+        errorCode: null,
+        steps: [{ planStepId: "s1", content: "调研竞品定价", status: "pending", constraints: [] }],
+      }),
+    );
+    render(<CopilotKitV2PlanControl threadId="t-14" />);
+    expect(await screen.findByText(/账本读模型目前不提供更具体的失败原因/)).toBeInTheDocument();
+  });
+
+  it("refetchSignal 变化：立即重取账本（不用等 3 秒轮询），且在追上前暂停/恢复按钮禁用并提示", async () => {
+    api.fetchPlanLedger.mockResolvedValue(
+      ledgerWithSteps({
+        phase: "executing", activeRunId: "run-1",
+        steps: [
+          { planStepId: "s1", content: "调研竞品定价", status: "in_progress", constraints: [] },
+          { planStepId: "s2", content: "起草方案初稿", status: "pending", constraints: [] },
+        ],
+        progress: { completed: 0, total: 2, elapsedMs: 3000 },
+      }),
+    );
+    const { rerender } = render(<CopilotKitV2PlanControl threadId="t-15" refetchSignal={0} />);
+    await waitFor(() => expect(screen.getByTestId("chat-task-workbench-run-pause")).toBeTruthy());
+    expect(screen.getByTestId("chat-task-workbench-run-pause")).not.toBeDisabled();
+    expect(api.fetchPlanLedger.mock.calls.length).toBe(1);
+
+    rerender(<CopilotKitV2PlanControl threadId="t-15" refetchSignal={1} />);
+
+    await waitFor(() => expect(api.fetchPlanLedger.mock.calls.length).toBeGreaterThanOrEqual(2));
+    expect(screen.getByTestId("chat-task-workbench-run-pause")).toBeDisabled();
+    expect(screen.getByTestId("chat-task-workbench-run-recent-error")).toBeTruthy();
   });
 
   it("PLAN_REVISION_CHANGED：操作失败后立即重取账本，界面提示刷新而不是静默丢弃", async () => {

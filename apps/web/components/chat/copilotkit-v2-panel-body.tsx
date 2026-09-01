@@ -163,6 +163,16 @@ export function CopilotKitV2PanelBody({
   const [inputDraft, setInputDraft] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   /**
+   * issue #2451 —— 计划面板（`CopilotKitV2PlanControl`）3 秒轮询 `getPlanLedger`，
+   * 与下面 `onError` 订阅（"模型这次没能返回可用结果"横幅）是两条独立异步信号源：
+   * `RUN_ERROR` 事件几乎瞬时触发，但计划面板要等 DB 里 `agent_runs.status` 真正写成
+   * `failed` 且下一次轮询命中才会跟上，中间有个窗口两者互相矛盾（横幅已报错，
+   * 计划面板还显示"执行中 + 可暂停"）。这个计数器每次 `onError` 命中就自增一次，
+   * 传给 `CopilotKitV2PlanControl` 的 `refetchSignal`：让它立刻抢一次 refetch，
+   * 缩短这个窗口，并在追上真实 phase 之前把"最近报错"这件事显式标出来。
+   */
+  const [planLedgerRefetchTick, setPlanLedgerRefetchTick] = React.useState(0);
+  /**
    * issue #2130（TW-P0-5①），回指 #2068 —— composer 的 `<textarea>` ref，
    * `/技能`/`@Agent` 两个快捷入口用它读光标位置 + 插入后把焦点还给输入框。
    */
@@ -273,6 +283,8 @@ export function CopilotKitV2PanelBody({
             : undefined;
         const code_ = typeof runtimeCode === "string" ? runtimeCode : runError.message;
         setError(describeCopilotkitV2RunError(code_));
+        // issue #2451 —— 见上面这个 state 的头注：让计划面板立刻抢一次 refetch。
+        setPlanLedgerRefetchTick((tick) => tick + 1);
       },
     });
     return unsubscribe;
@@ -1444,8 +1456,9 @@ export function CopilotKitV2PanelBody({
             `gate.required`/`failed` 转入时自动展开）之后，"简化界面"这条反馈也在
             同一次改动里落地——细节见 `copilotkit-v2-plan-control.tsx` 文件头注。
             `threadId={null}` 时（新对话尚未发出第一条消息）组件自己返回 `null`，
-            不占位——与 `resolvedChatThreadId` state 的既有语义一致（issue #2052）。 */}
-        <CopilotKitV2PlanControl threadId={resolvedChatThreadId} />
+            不占位——与 `resolvedChatThreadId` state 的既有语义一致（issue #2052）。
+            `refetchSignal={planLedgerRefetchTick}`：issue #2451，见上面该 state 头注。 */}
+        <CopilotKitV2PlanControl threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}

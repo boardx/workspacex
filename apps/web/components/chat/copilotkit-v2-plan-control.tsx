@@ -13,6 +13,7 @@ import {
   planControlErrorCode, removePlanConstraint, reorderPlanStep, resumePlanRun, retryPlanStep,
 } from "@/lib/plan-control-api";
 import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
+import { describePlanFailureReason } from "@/lib/plan-control-copy";
 
 /**
  * F972-F978（plan-control 契约束）接入 `copilotkit-v2-panel.tsx` 真实聊天渲染树。
@@ -49,11 +50,13 @@ import { usePlanLedgerPolling } from "@/lib/use-plan-ledger-polling";
  *    里没有一个"插入/恢复步骤"的操作——`deletePlanStep`（UC-4）不可逆。
  *    `PlanPanelEdit` 的 `justRemoved`/`onUndoRemove` props 因此在这里**不接**：
  *    接一个点了不会真的撤销的按钮，正是 TW 卡"反伪造条款"要挡的那种假交互。
- * 3. **失败态的"哪一步、为什么失败"读不到**：`getPlanLedger.out` 没有
- *    `failedStepId`/失败原因字段（`PlanStep.status` 封闭三值 `pending/in_progress/
- *    completed`，不含 `failed`）。`PlanFailureRecovery` 需要 `failedStepIndex`/
- *    `failedStepLabel`/`reason` 三个 prop——这里用"第一个未完成的步骤"做尽力猜测、
- *    `reason` 给一句如实的通用文案，不编一个看似精确实则编造的原因。
+ * 3. **失败态的"哪一步"仍是猜的，"为什么失败"issue #2451 已补上**：`getPlanLedger.out`
+ *    仍然没有 `failedStepId`（`PlanStep.status` 封闭三值 `pending/in_progress/
+ *    completed`，不含 `failed`）——`PlanFailureRecovery` 的 `failedStepIndex`/
+ *    `failedStepLabel` 仍用"第一个未完成的步骤"做尽力猜测，这半个缺口还在。但
+ *    `reason` 不再是写死的占位句：`getPlanLedger.errorCode`（`agent_runs.error_code`
+ *    透传）经 `lib/plan-control-copy.ts` 的 `describePlanFailureReason` 翻成人话，
+ *    只有 `errorCode` 为 null/不在枚举内时才退回原来那句诚实的通用兜底。
  *
  * ## 人类 2026-08-29 直接反馈：挂载位置改到 composer 上方 + 加折叠
  *
@@ -77,9 +80,20 @@ export interface CopilotKitV2PlanControlProps {
    *  见该文件对 `resolvedChatThreadId` 的头注）。`null` 时（新对话尚未发出第一条消息）
    *  不渲染——线程还不存在，没有账本可读。 */
   readonly threadId: string | null;
+  /**
+   * issue #2451 —— `copilotkit-v2-panel.tsx` 的 `RUN_ERROR` 订阅（"模型这次没能
+   * 返回可用结果"横幅）每次触发都把这个数改一下（自增计数器）。本组件用它做两件事：
+   * ① 立刻抢一次 `refetch()`，不用等最多 3 秒的轮询窗口；② 在 `refetch()` 追上真实
+   * `phase`（翻到 `"failed"`）之前，把这段时间标成"最近报错"，喂给 `PlanRunProgress`
+   * 的 `hasRecentError`，别让暂停按钮继续装作一切正常。不传（`undefined`）时行为
+   * 与改动前完全一致——纯粹是轮询节奏和一个展示态，没有新起对错误状态的第二次判定。
+   */
+  readonly refetchSignal?: number;
 }
 
-export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlProps): React.JSX.Element | null {
+export function CopilotKitV2PlanControl(
+  { threadId, refetchSignal }: CopilotKitV2PlanControlProps,
+): React.JSX.Element | null {
   const { ledger, refetch } = usePlanLedgerPolling(threadId);
   const [editing, setEditing] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -99,6 +113,22 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
   React.useEffect(() => {
     if (ledger?.phase !== "executing") setPausedLocally(false);
   }, [ledger?.phase]);
+
+  // issue #2451 —— `refetchSignal` 每变一次（父组件的 `RUN_ERROR` 订阅触发），立刻
+  // 抢一次 refetch，并把这次报错标成"最近报错"；同样在离开 executing 态时清掉——
+  // 与上面 `pausedLocally` 是同一条纪律，不让上一轮的报错印记残留到下一轮。
+  const [recentErrorTick, setRecentErrorTick] = React.useState<number | null>(null);
+  const prevRefetchSignalRef = React.useRef(refetchSignal);
+  React.useEffect(() => {
+    if (refetchSignal === undefined || refetchSignal === prevRefetchSignalRef.current) return;
+    prevRefetchSignalRef.current = refetchSignal;
+    setRecentErrorTick(refetchSignal);
+    void refetch();
+  }, [refetchSignal, refetch]);
+  React.useEffect(() => {
+    if (ledger?.phase !== "executing") setRecentErrorTick(null);
+  }, [ledger?.phase]);
+  const hasRecentError = recentErrorTick !== null;
 
   // 折叠开关：默认展开。needsDecision 从 false→true 的那次转变自动展开——
   // 用户上一轮手动折叠，不该让 ta 错过下一次真正需要确认/处理失败的时刻。
@@ -213,7 +243,10 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
         <PlanFailureRecovery
           failedStepIndex={currentStepIndex}
           failedStepLabel={currentStep.content}
-          reason="执行未完成——账本读模型目前不提供更具体的失败原因，可重试该步或修改输入后重新确认。"
+          // issue #2451 —— 真实失败原因（`agent_runs.error_code` 经 `getPlanLedger.errorCode`
+          // 透传），不再是写死的占位句。`errorCode` 为 null 或不在枚举内时，
+          // `describePlanFailureReason` 自己退回同一句诚实兜底，不在这里再判一次。
+          reason={describePlanFailureReason(ledger.errorCode)}
           onRetryStep={() => handleRetryStep(currentStep.planStepId)}
           onEditInput={() => setEditing(true)}
         />
@@ -228,7 +261,28 @@ export function CopilotKitV2PlanControl({ threadId }: CopilotKitV2PlanControlPro
           isPaused={pausedLocally}
           onPause={handlePause}
           onResume={handleResume}
+          hasRecentError={hasRecentError}
         />
+      )}
+
+      {/*
+       * issue #2451 —— 真实截图抓到的矛盾：`phase==="done"`（阶段条显示"完成"）
+       * 但 `ledger.steps` 里仍有步骤是 `pending`/`in_progress`（阶段派生只看
+       * `agent_runs.status`，见 `derivePlanPhase` I-7，不检查 `PlanStep.status`——
+       * 这两者是 write_todos 快照与 run 终态两条独立写路径，最常见的成因是模型
+       * 收尾时没有再调用一次 write_todos 把所有步骤标 completed）。这里不悄悄把
+       * 步骤状态改成"已完成"（那是编造数据，不是修复展示），只如实提示这个已知的
+       * 账本滞后现象，让阶段条和下面的步骤列表不再无声互相矛盾。
+       */}
+      {!collapsed && ledger.phase === "done" && ledger.progress.completed < ledger.progress.total && (
+        <p
+          role="status"
+          data-testid="chat-task-workbench-plan-done-incomplete-notice"
+          className="text-11 text-muted-foreground"
+        >
+          本轮执行已结束，但计划账本里还有 {ledger.progress.total - ledger.progress.completed} 步没有被标记完成——
+          大概率是模型收尾时没有再同步一次进度，不代表这些步骤真的没做，可展开下方步骤自行核对。
+        </p>
       )}
 
       {!collapsed && ledger.pendingApplyAtNextRun && <PlanPendingApplyBanner onPauseNow={handlePause} />}

@@ -218,6 +218,10 @@ export const planControl = {
       }).strict(),
       pendingApplyAtNextRun: z.boolean(),
       activeRunId: z.string().nullable(),
+      /** issue #2451 —— 真实失败原因（`agent_runs.error_code` 原样透传），非失败
+       *  终态时恒为 `null`。前端 `describeAgentRunError`（`apps/web/lib/agent-run.ts`）
+       *  是文案单一事实源，本字段只带原始 code，不在这里编第二份文案映射。 */
+      errorCode: z.string().nullable(),
     }).strict(),
     err: ["NOT_VISIBLE"] as const,
   },

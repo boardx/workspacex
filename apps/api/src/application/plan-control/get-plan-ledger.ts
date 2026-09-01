@@ -30,6 +30,9 @@ export interface GetPlanLedgerOutput {
   readonly progress: { readonly completed: number; readonly total: number; readonly elapsedMs: number };
   readonly pendingApplyAtNextRun: boolean;
   readonly activeRunId: string | null;
+  /** issue #2451 —— 真实失败原因（`agent_runs.error_code` 原样透传），终态非
+   *  `failed` 时恒为 `null`。前端用它替换写死的失败占位文案（`describeAgentRunError`）。 */
+  readonly errorCode: string | null;
 }
 
 const ACTIVE_RUN_STATUSES = new Set(["running"]);
@@ -92,5 +95,6 @@ export async function getPlanLedger(
     progress: { completed, total, elapsedMs },
     pendingApplyAtNextRun,
     activeRunId,
+    errorCode: run?.errorCode ?? null,
   };
 }

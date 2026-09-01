@@ -133,6 +133,26 @@ describe("I-7：phase/gate 是派生值，由账本内容 + run 状态唯一决�
     const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
     expect(out.phase).toBe("failed");
   });
+
+  // issue #2451 —— PlanFailureRecovery 此前只能显示写死的占位失败原因，因为
+  // getPlanLedger 从不把 agent_runs.error_code 读出来。这里锁住读模型确实透传了它。
+  it("run 终态 failed：errorCode 透传 agent_runs.error_code 的真实值", async () => {
+    await ingestEnginePlanSnapshot(repo, { orgId: toOrgId(ORG), threadId: THREAD, todos: [
+      { content: "第一步", status: "pending" },
+    ] });
+    await insertRun("failed");
+    const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
+    expect(out.errorCode).toBe("MODEL_CALL_FAILED");
+  });
+
+  it("run 终态 succeeded：errorCode 为 null（非失败终态本来就没有失败原因）", async () => {
+    await ingestEnginePlanSnapshot(repo, { orgId: toOrgId(ORG), threadId: THREAD, todos: [
+      { content: "第一步", status: "completed" },
+    ] });
+    await insertRun("succeeded");
+    const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
+    expect(out.errorCode).toBeNull();
+  });
 });
 
 describe("XC-59 反证：agent-interrupts 三个新工具名不得触发 phase='approving'", () => {
