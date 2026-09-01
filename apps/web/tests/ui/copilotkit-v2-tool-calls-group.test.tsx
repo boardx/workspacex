@@ -161,4 +161,36 @@ describe("copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2
     fireEvent.click(screen.getByTestId("copilotkit-v2-tool-calls-group-toggle"));
     expect(within(screen.getByTestId("copilotkit-v2-tool-calls-group-body")).getAllByTestId("copilotkit-v2-tool-generic")).toHaveLength(3);
   });
+
+  // issue #2451 —— 真实截图抓到：模型一轮里调用了两次 write_todos（改主意/纠正
+  // 上一版计划），此前每次调用各自独立渲染成一张卡片，摞在一起看不出哪张是最新的。
+  it("一轮消息里 write_todos 被调用两次：更早那张淡化+贴「计划已更新」，最新那张正常展示", () => {
+    renderMessage([
+      toolCall("call-1", "write_todos", { todos: [{ content: "旧版第一步", status: "pending" }] }),
+      toolCall("call-2", "list_org_skills"),
+      toolCall("call-3", "write_todos", { todos: [{ content: "新版第一步", status: "in_progress" }] }),
+    ]);
+
+    const cards = screen.getAllByTestId("copilotkit-v2-tool-write-todos");
+    expect(cards).toHaveLength(2);
+
+    // 更早那张（call-1）被包在"已被取代"外壳里、视觉淡化，但仍然渲染在 DOM 里——
+    // 不是被静默删除（同一条"不悄悄清除状态痕迹"纪律）。
+    const superseded = screen.getAllByTestId("copilotkit-v2-tool-write-todos-superseded");
+    expect(superseded).toHaveLength(1);
+    expect(within(superseded[0]!).getByText("计划已更新")).toBeInTheDocument();
+    expect(within(superseded[0]!).getByText("旧版第一步")).toBeInTheDocument();
+
+    // 最新那张（call-3）不在任何"已被取代"外壳里。
+    expect(screen.getByText("新版第一步").closest('[data-testid="copilotkit-v2-tool-write-todos-superseded"]')).toBeNull();
+
+    // 中间那次非 write_todos 调用完全不受影响。
+    expect(screen.getByTestId("copilotkit-v2-tool-generic")).toBeInTheDocument();
+  });
+
+  it("一轮消息里只调用一次 write_todos：不出现「已被取代」外壳（沿用改动前的行为）", () => {
+    renderMessage([toolCall("call-1", "write_todos", { todos: [{ content: "唯一一步", status: "pending" }] })]);
+    expect(screen.getByTestId("copilotkit-v2-tool-write-todos")).toBeInTheDocument();
+    expect(screen.queryByTestId("copilotkit-v2-tool-write-todos-superseded")).not.toBeInTheDocument();
+  });
 });

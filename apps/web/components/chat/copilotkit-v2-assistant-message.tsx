@@ -7,6 +7,7 @@ import {
   useSuggestions,
   CopilotChatAssistantMessage,
   CopilotChatToolCallsView,
+  useRenderToolCall,
 } from "@copilotkit/react-core/v2";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
 import {
@@ -83,11 +84,73 @@ function V2MarkdownRenderer({
  *   替用户做的默认判断；真正解决的是"逐张卡片散落一地"——现在至少收进同一个
  *   容器，视觉上是一组，不是不相关的 N 个浮动卡片。
  */
+/**
+ * issue #2451 —— 真实截图抓到的问题：一轮回复里模型调用了不止一次 `write_todos`
+ * （改主意/纠正上一版计划），每次调用各自独立注册渲染（`useRenderTool` 按
+ * `toolCallId` 分派，`copilotkit-v2-tool-renderers.tsx`），框架默认的
+ * `CopilotChatToolCallsView` 因此把它们逐张原样摊平——用户看到好几张内容不一致的
+ * "制定执行计划"卡片，摞在一起，分不清哪张是最新的。
+ *
+ * `useRenderTool` 的 render 回调本身拿不到"同一条消息里还有哪些兄弟工具调用"这个
+ * 信息（各卡片各自独立渲染，互不知情），唯一能拿到 `message.toolCalls` 全量顺序
+ * 的地方就是这一层——所以去重逻辑放在这里，不下沉进 `WriteTodosCard` 本身。
+ *
+ * 不隐藏更早的卡片（本仓一贯的"不悄悄清除状态痕迹"纪律——`AGENTS.md` 反复强调
+ * 的"没有证据=没有完成"同一条纪律的另一面：也不能让"这条计划以前长什么样"凭空
+ * 消失），只把它们视觉上淡化 + 贴一个"计划已更新"徽标，让最新一版自然成为视觉
+ * 焦点。除 `write_todos` 外的其它工具调用渲染逻辑完全不变。
+ */
+function WriteTodosDedupedToolCallsView(
+  props: React.ComponentProps<typeof CopilotChatToolCallsView>,
+): JSX.Element | null {
+  const toolCalls = props.message.toolCalls ?? [];
+  const renderToolCall = useRenderToolCall();
+  const lastWriteTodosIndex = toolCalls.reduce(
+    (last, call, i) => (call.function.name === "write_todos" ? i : last),
+    -1,
+  );
+  return (
+    <>
+      {toolCalls.map((toolCall, i) => {
+        // `.find()`'s predicate isn't a type guard by default, so TS keeps the wider
+        // `Message` union even after the `role === "tool"` check — cast to the one
+        // variant `useRenderToolCall`'s `toolMessage` param actually accepts (matches
+        // the library's own untyped-JS equivalent in `CopilotChatToolCallsView`).
+        const toolMessage = (props.messages ?? []).find(
+          (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+        ) as Extract<NonNullable<typeof props.messages>[number], { role: "tool" }> | undefined;
+        const rendered = renderToolCall({ toolCall, toolMessage });
+        if (rendered === null) return null;
+        if (toolCall.function.name !== "write_todos" || i === lastWriteTodosIndex) {
+          return <React.Fragment key={toolCall.id}>{rendered}</React.Fragment>;
+        }
+        return (
+          <div
+            key={toolCall.id}
+            data-testid="copilotkit-v2-tool-write-todos-superseded"
+            className="relative opacity-60"
+          >
+            <span className="absolute right-2 top-2 z-10 rounded-control bg-muted px-1.5 py-0.5 text-10 text-muted-foreground">
+              计划已更新
+            </span>
+            {rendered}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function V2ToolCallsView(
   props: React.ComponentProps<typeof CopilotChatToolCallsView>,
 ): JSX.Element | null {
   const toolCalls = props.message.toolCalls ?? [];
   const [expanded, setExpanded] = React.useState(true);
+  // issue #2451 —— 这一条消息里 `write_todos` 被调用不止一次时，摊平渲染要换成
+  // 上面那个去重版本；其它情况（含只调用一次 write_todos）完全不变。
+  const hasSupersededWriteTodos =
+    toolCalls.filter((c) => c.function.name === "write_todos").length > 1;
+  const ToolCallsRenderer = hasSupersededWriteTodos ? WriteTodosDedupedToolCallsView : CopilotChatToolCallsView;
   // `React.useId()`：同一个组件实例在其生命周期内稳定不变（`aria-controls`
   // 引用的 id 不会在重渲染之间跳变），且天然跨组件实例互不相同（同一屏多条
   // 消息各自的折叠面板不会撞 id）。
@@ -130,7 +193,7 @@ function V2ToolCallsView(
         className="flex max-h-64 flex-col gap-1.5 overflow-y-auto border-t border-border-subtle p-2"
         data-testid="copilotkit-v2-tool-calls-group-body"
       >
-        <CopilotChatToolCallsView {...props} />
+        <ToolCallsRenderer {...props} />
       </div>
     </div>
   );

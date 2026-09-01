@@ -191,9 +191,9 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<{
         id: string; status: string; pending_tool_name: string | null; created_at: Date; agent_id: string;
-        remote_run_id: string | null; paused_at: Date | null;
+        remote_run_id: string | null; paused_at: Date | null; error_code: string | null;
       }>(
-        `SELECT id, status, pending_tool_name, created_at, agent_id, remote_run_id, paused_at
+        `SELECT id, status, pending_tool_name, created_at, agent_id, remote_run_id, paused_at, error_code
            FROM agent_runs
           WHERE thread_id = $1
           ORDER BY created_at DESC, id DESC
@@ -210,6 +210,10 @@ export class PgPlanLedgerRepository implements PlanLedgerRepository, PlanRunStat
         agentId: row.agent_id,
         remoteRunId: row.remote_run_id,
         pausedAt: row.paused_at ? row.paused_at.toISOString() : null,
+        // issue #2451 -- 只在真正失败时暴露：run 还没到终态、或成功终态时这一列本来就是
+        // NULL（见 get-plan-ledger-derived.test.ts 的插入约定：`status === "failed" ?
+        // "MODEL_CALL_FAILED" : null`），这里原样透传，不额外加判断——没有第二份真相。
+        errorCode: row.error_code,
       };
     });
   }
