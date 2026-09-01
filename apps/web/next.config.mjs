@@ -96,7 +96,11 @@ export default {
    * （预热 API 路由无效，是渲染层跳转机制本身）。
    *
    * 裸 `/chat` 那条 307（#2026）已删除：v2 原生住进 `/chat` 后它失去意义；带
-   * `projectId`/`thread` 的深链继续由 `app/chat/page.tsx` 分支渲染旧屏（见其头注）。
+   * `projectId` 的深链由下面 `rewrites()` 的 `chatLegacyBranchRewrites` 引到
+   * `/chat/legacy` 渲染旧屏——issue #2457 起，这是**唯一**还落在旧屏上的场景
+   * （项目内对话本轮不支持迁移，人类 2026-09-01 裁决）。带 `thread`、不带
+   * `projectId` 的纯个人线程深链已经改走 v2 的 `/chat/:threadId`，见下方
+   * `chatPersonalThreadDeepLinkRewrite`。
    */
   async redirects() {
     return [
@@ -138,15 +142,32 @@ export default {
      * 用 rewrite 在路由匹配阶段就把这两支整个引到 `/chat/legacy`（已经是这两个
      * 组件的既有正式入口），`(v2)/page.tsx` 因此只需要处理 v2 这一支，不需要
      * 再判断 query string，也就没有双重 AppShell 的风险。
+     *
+     * issue #2457（DA-19h 阶段一：旧手写轨道退役，范围收窄为「仅个人对话」）——
+     * `?thread=` 深链原本也在这两条规则里被无条件送去 `/chat/legacy`，现在拆开：
+     * 带 `projectId` 的（项目内对话）仍然去旧屏，**本轮明确不支持迁移**（人类
+     * 2026-09-01 裁决，见 issue #2457/#2459）；不带 `projectId`、只带 `thread`
+     * 的纯个人线程深链改去 v2 的 `/chat/:threadId`——issue #2459 已核实这条路径
+     * 早就建好（历史回填/线程列表选中态/URL 持久化/真栈 e2e 全部覆盖），不需要
+     * 额外开发，只是路由没接过去。`missing: projectId` 让这条规则与上面那条
+     * 互斥，不依赖数组顺序里"谁先匹配谁生效"这种隐式行为。
      */
     const chatLegacyBranchRewrites = [
       { source: "/chat", has: [{ type: "query", key: "projectId" }], destination: "/chat/legacy" },
-      { source: "/chat", has: [{ type: "query", key: "thread" }], destination: "/chat/legacy" },
     ];
+
+    const chatPersonalThreadDeepLinkRewrite = {
+      source: "/chat",
+      has: [{ type: "query", key: "thread", value: "(?<threadId>.+)" }],
+      missing: [{ type: "query", key: "projectId" }],
+      destination: "/chat/:threadId",
+    };
+
+    const chatV2BranchRewrites = [...chatLegacyBranchRewrites, chatPersonalThreadDeepLinkRewrite];
 
     const fullstackApiOrigin = process.env.FULLSTACK_E2E_API_ORIGIN;
     const apiOrigin = fullstackApiOrigin ?? process.env.CHAT_READ_E2E_API_ORIGIN;
-    if (!apiOrigin) return { beforeFiles: chatLegacyBranchRewrites };
+    if (!apiOrigin) return { beforeFiles: chatV2BranchRewrites };
     const brokenFilesRoute = process.env.FULLSTACK_E2E_BREAK_CONTROLLER === "artifacts";
     const prefix = fullstackApiOrigin ? "/__fullstack_api" : "";
 
@@ -407,6 +428,6 @@ export default {
       // 只有一个子路径、没有裸集合路由，只需要 `:path*`。
       { source: `${prefix}/plan-control/:path*`, destination: `${apiOrigin}/plan-control/:path*` },
     ];
-    return { beforeFiles: chatLegacyBranchRewrites, afterFiles };
+    return { beforeFiles: chatV2BranchRewrites, afterFiles };
   },
 };

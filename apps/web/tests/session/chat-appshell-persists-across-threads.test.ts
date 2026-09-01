@@ -9,9 +9,11 @@
  *    组合 AppShell——如果哪天有人往 page.tsx 里加回 `<AppShell>`，就会在这两个 page
  *    与 layout 之间产生双重包裹（历史根因正是"每个 page 各自重新组合整棵树"）。
  * ② `next.config.mjs` 的 `rewrites()` 真的会在 `beforeFiles` 位置拦截带
- *    `projectId`/`thread` 的 `/chat` 深链——这条 rewrite 存在的意义就是让
+ *    `projectId` 的 `/chat` 深链去 `/chat/legacy`——这条 rewrite 存在的意义就是让
  *    `(v2)/page.tsx` 不需要再判断 query string，从而不会被迫兼容旧屏、不会双重
- *    AppShell（layout 头注有完整推导）。
+ *    AppShell（layout 头注有完整推导）。issue #2457 起，只带 `thread`（不带
+ *    `projectId`）的纯个人线程深链已经改拦到 `/chat/:threadId`，继续走 v2——
+ *    项目内对话本轮不支持迁移，是唯一还落在 `/chat/legacy` 的场景。
  * ③ 两个 page.tsx 渲染的都是同一个 `CopilotKitV2Shell`——这是"AppShell 持久、只有
  *    右侧内容切换"这句话在结构上成立的前提：如果两个 page 渲染的不是同一个组件，
  *    "只刷新右侧内容区"就无从谈起。
@@ -24,7 +26,12 @@ import { describe, expect, it } from "vitest";
 // @ts-expect-error exercised here as runtime configuration, not application code
 import rawNextConfig from "../../next.config.mjs";
 
-type Rewrite = { readonly source: string; readonly destination: string; readonly has?: readonly { readonly key: string }[] };
+type Rewrite = {
+  readonly source: string;
+  readonly destination: string;
+  readonly has?: readonly { readonly key: string }[];
+  readonly missing?: readonly { readonly key: string }[];
+};
 const nextConfig = rawNextConfig as {
   rewrites(): Promise<{ readonly beforeFiles: readonly Rewrite[] }>;
 };
@@ -51,14 +58,29 @@ describe("#2067 AppShell 持久化：路由组结构", () => {
     expect(threadPage).toContain("CopilotKitV2Shell");
   });
 
-  it("next.config.mjs 在 beforeFiles 位置拦截带 projectId/thread 的 /chat 深链到 /chat/legacy", async () => {
+  it("next.config.mjs 在 beforeFiles 位置只把带 projectId 的 /chat 深链拦到 /chat/legacy", async () => {
     const { beforeFiles } = await nextConfig.rewrites();
 
     const chatRewrites = beforeFiles.filter((rule) => rule.source === "/chat");
     expect(chatRewrites).toHaveLength(2);
-    expect(chatRewrites.every((rule) => rule.destination === "/chat/legacy")).toBe(true);
 
-    const keys = chatRewrites.map((rule) => rule.has?.[0]?.key).sort();
-    expect(keys).toEqual(["projectId", "thread"]);
+    const legacyRule = chatRewrites.find((rule) => rule.destination === "/chat/legacy");
+    expect(legacyRule?.has?.[0]?.key).toBe("projectId");
+    // 项目内对话本轮不支持迁移（issue #2457，人类 2026-09-01 裁决）——这是唯一
+    // 还落在旧屏上的场景。
+    expect(legacyRule?.missing).toBeUndefined();
+  });
+
+  it("issue #2457：只带 thread（不带 projectId）的纯个人线程深链改拦到 /chat/:threadId，继续走 v2", async () => {
+    const { beforeFiles } = await nextConfig.rewrites();
+
+    const chatRewrites = beforeFiles.filter((rule) => rule.source === "/chat");
+    const threadRule = chatRewrites.find((rule) => rule.destination === "/chat/:threadId");
+
+    expect(threadRule?.has?.[0]?.key).toBe("thread");
+    // `missing: projectId` 让这条规则与上面那条互斥，不依赖数组顺序里
+    // "谁先匹配谁生效" 这种隐式行为（issue #2459 已核实 v2 侧的
+    // 历史回填/线程列表选中态/URL 持久化全部已具备，不需要额外开发）。
+    expect(threadRule?.missing?.[0]?.key).toBe("projectId");
   });
 });
