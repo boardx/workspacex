@@ -261,8 +261,9 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     const a3 = titleReserveMm("A3");
     const a4 = titleReserveMm("A4");
     // A1 纸宽是 841mm（`PAPER_SIZE_MM.A1.w`，cqw 的换算基准是整张纸，不是扣掉页边距
-    // 的内容区）——4.13% × 841 ≈ 34.7mm。
-    expect(a1).toBeCloseTo(34.7, 1);
+    // 的内容区）——5.15% × 841 ≈ 43.3mm（内边距/边框都是上下两条边都要算，见
+    // `BLOCK_HEADER_RESERVE_CQW` 的推导注释）。
+    expect(a1).toBeCloseTo(43.3, 1);
     expect(a3).toBeLessThan(a1);
     expect(a4).toBeLessThan(a3);
     // 与纸宽严格成正比——同一个 cqw 比例换算到不同纸宽。

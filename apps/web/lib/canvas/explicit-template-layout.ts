@@ -340,8 +340,10 @@ export const GRID_GAP_MM = 6;
  *   一起压垮。真正的修法是让两边算的是同一件事，而不是猜一个数字。
  */
 export const BLOCK_HEADER_CQW = {
-  /** 替代 `p-2`（区块四边内边距）。 */
+  /** 替代 `p-2`（区块四边内边距）——⚠ 这个数只是"一条边"的宽度，上下两条边都要算，见下方推导。 */
   padding: 0.6,
+  /** 替代原先的 `border: 2px solid`（区块边框）——同样上下两条边都要算。 */
+  border: 0.15,
   /** 替代 `gap-1.5`（标题块 ↔ 贴纸网格之间，以及 `{{token}}` ↔ 列·条提示之间）。 */
   gap: 0.5,
   /** 替代 `gap-0.5`（区块名 ↔ `{{token}}` 行之间）。 */
@@ -351,19 +353,32 @@ export const BLOCK_HEADER_CQW = {
   /** 替代 `text-9`/`text-10`（`{{token}}`/列·条提示）。 */
   metaFont: 1.0,
 } as const;
-/** 行高倍数（贴近 Tailwind `leading-tight` ≈ 1.2），标题/提示两行都按它估算实占高度。 */
-const BLOCK_HEADER_LINE_HEIGHT = 1.2;
 /**
- * 标题区总预留——两行文字的行高 + 内边距 + 两道间距，单位仍是 `cqw`（纸宽的
- * 百分比）。`titleReserveMm` 按*当前选中的纸张宽度*把它换算成 mm，不是只在
- * A1 上算一次就到处用——推导：
+ * 行高倍数——精确等于 Tailwind `leading-tight`（1.25，不是估个 1.2）。
+ * `template-canvas-grid.tsx` 的标题行、提示行**都**显式套这个值（`style.lineHeight`），
+ * 不靠某一行有 `leading-tight` class、另一行没有还指望它"差不多"——2026-09-01
+ * 独立审查抓到的问题：提示行此前没有任何显式行高声明，实际渲染值不受这个常量
+ * 约束，字号改动前后两行可能用着不同的行高，这个常量就成了"写在这里、没人真的
+ * 照它渲染"的自说自话。
+ */
+export const BLOCK_HEADER_LINE_HEIGHT = 1.25;
+/**
+ * 标题区总预留，单位仍是 `cqw`（纸宽的百分比）。`titleReserveMm` 按*当前选中的
+ * 纸张宽度*把它换算成 mm，不是只在 A1 上算一次就到处用——推导：
  *
- *   padding(0.6cqw) + 标题行(1.4cqw×1.2行距) + 间距(0.15cqw)
- *     + 提示行(1.0cqw×1.2行距) + 间距(0.5cqw)
- *   = 0.6 + 1.4×1.2 + 0.15 + 1.0×1.2 + 0.5 = 4.13（cqw，即纸宽的 4.13%）
+ *   内边距×2（上下两条边）+ 边框×2（上下两条边）+ 标题行(字号×行距)
+ *     + 标题↔提示间距 + 提示行(字号×行距) + 标题块↔贴纸网格间距
+ *   = 0.6×2 + 0.15×2 + 1.4×1.25 + 0.15 + 1.0×1.25 + 0.5
+ *   = 1.2 + 0.3 + 1.75 + 0.15 + 1.25 + 0.5 = 5.15（cqw，纸宽的 5.15%）
+ *
+ * ⚠ 2026-09-01 独立审查抓到的问题：`padding` 是 CSS 里"四边内边距"，区块是
+ *   flex 列容器，贴纸网格排最后一个——真正吃掉纵向空间的是**上下两条边**各一份
+ *   内边距，只算一份会把预留量算少、放行一行实际放不下的贴纸，恰恰是这次要修
+ *   的那类回归。边框同理（且原来是固定 `2px`，不随纸宽缩放，现已改成 `cqw`）。
  */
 const BLOCK_HEADER_RESERVE_CQW =
-  BLOCK_HEADER_CQW.padding
+  BLOCK_HEADER_CQW.padding * 2
+  + BLOCK_HEADER_CQW.border * 2
   + BLOCK_HEADER_CQW.titleFont * BLOCK_HEADER_LINE_HEIGHT
   + BLOCK_HEADER_CQW.titleGap
   + BLOCK_HEADER_CQW.metaFont * BLOCK_HEADER_LINE_HEIGHT
@@ -376,9 +391,9 @@ const BLOCK_HEADER_RESERVE_CQW =
  * 低估、甚至在够小的区块上把 `rows` 压到 0）。
  *
  * cqw 的换算基准是**整张纸**（`PAPER_SIZE_MM[size].w`），不是扣掉页边距的内容区
- * ——与 `notePct`/纸面大标题同一个基准。A1（841mm 宽）≈ 34.7mm（与旧固定常量
- * 34 很接近，因为旧值本来就是照着 A1 粗估的）；A3（420mm）≈ 17.3mm；A4（297mm）
- * ≈ 12.3mm——纸越小，标题区占用的绝对 mm 数跟着变小，不再是三档共用一个数。
+ * ——与 `notePct`/纸面大标题同一个基准。A1（841mm 宽）≈ 43.3mm；A3（420mm）
+ * ≈ 21.6mm；A4（297mm）≈ 15.3mm——纸越小，标题区占用的绝对 mm 数跟着变小，
+ * 不再是三档共用一个数。
  */
 export function titleReserveMm(size: PaperSizeKey = "A1"): number {
   return (BLOCK_HEADER_RESERVE_CQW / 100) * PAPER_SIZE_MM[size].w;

@@ -2,7 +2,7 @@
 import * as React from "react";
 import type { SectionDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
-import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, BLOCK_HEADER_CQW, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -31,13 +31,21 @@ const GRID_ROWS = 8;
 
 /**
  * 区块内标题行（区块名 + `{{token}} 列·条` 提示行）的比例尺寸，读自
- * `explicit-template-layout.ts` 的 `BLOCK_HEADER_CQW`——不在这里另开一份重复
- * 声明。`sectionGeometryMm` 的 `titleReserveMm` 就是从这几个数反推的，改这里
- * 任何一个值都必须去改那个单一事实源，不能只改渲染这一侧（同一件事只能有一处
- * 数字，AGENTS.md「同一事实不得声明在两处」）。2026-09-01 根治「便利贴还是被
- * 裁掉」问题的由来：见该常量文档。
+ * `explicit-template-layout.ts` 的 `BLOCK_HEADER_CQW`/`BLOCK_HEADER_LINE_HEIGHT`
+ * ——不在这里另开一份重复声明。`sectionGeometryMm` 的 `titleReserveMm` 就是从
+ * 这几个数反推的，改这里任何一个值都必须去改那个单一事实源，不能只改渲染这
+ * 一侧（同一件事只能有一处数字，AGENTS.md「同一事实不得声明在两处」）。
+ *
+ * ⚠ 2026-09-01 独立审查抓到的问题：标题行有 `leading-tight`（Tailwind 1.25），
+ *   提示行此前**没有任何显式行高**——`titleReserveMm` 的推导却假设两行用同一个
+ *   行高倍数，靠"没写等于随便读到什么值"是自欺。两行现在都显式套
+ *   `lineHeight: BLOCK_HEADER_LINE_HEIGHT`，不靠 Tailwind 的 `leading-tight`
+ *   class（那样只覆盖一行，另一行的实际行高不受这个常量约束）。
  */
-const { padding: BLOCK_PAD_CQW, gap: BLOCK_HEADER_GAP_CQW, titleGap: BLOCK_TITLE_GAP_CQW, titleFont: BLOCK_TITLE_FONT_CQW, metaFont: BLOCK_META_FONT_CQW } = BLOCK_HEADER_CQW;
+const {
+  padding: BLOCK_PAD_CQW, border: BLOCK_BORDER_CQW, gap: BLOCK_HEADER_GAP_CQW,
+  titleGap: BLOCK_TITLE_GAP_CQW, titleFont: BLOCK_TITLE_FONT_CQW, metaFont: BLOCK_META_FONT_CQW,
+} = BLOCK_HEADER_CQW;
 
 export function TemplateCanvasGrid({
   sections, gridCols, showSample, runData, selectedId, editable,
@@ -252,7 +260,9 @@ export function TemplateCanvasGrid({
               style={{
                 gridColumn: `${layout.col} / span ${layout.w}`,
                 gridRow: `${layout.row} / span ${layout.h}`,
-                border: `2px solid ${selectedId === s.sectionId ? "#1F5FD0" : "#14130F"}`,
+                // 2px solid → 比例边框：固定像素同样不随纸宽缩放，`titleReserveMm`
+                // 的推导把它算作上下两条边各一份，渲染这侧也必须真的是这个宽度。
+                border: `${BLOCK_BORDER_CQW}cqw solid ${selectedId === s.sectionId ? "#1F5FD0" : "#14130F"}`,
                 // p-2 → 比例内边距，gap-1.5 → 比例间距，理由见上方常量声明处的文档。
                 padding: `${BLOCK_PAD_CQW}cqw`,
                 gap: `${BLOCK_HEADER_GAP_CQW}cqw`,
@@ -273,8 +283,8 @@ export function TemplateCanvasGrid({
               */}
               <div className="flex min-w-0 flex-col" style={{ gap: `${BLOCK_TITLE_GAP_CQW}cqw` }}>
                 <span
-                  className="truncate font-bold leading-tight"
-                  style={{ fontSize: `${BLOCK_TITLE_FONT_CQW}cqw` }}
+                  className="truncate font-bold"
+                  style={{ fontSize: `${BLOCK_TITLE_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
                   title={s.name || "未命名"}
                 >
                   {s.name || "未命名"}
@@ -282,14 +292,14 @@ export function TemplateCanvasGrid({
                 <div className="flex min-w-0 items-baseline" style={{ gap: `${BLOCK_HEADER_GAP_CQW}cqw` }}>
                   <span
                     className="truncate font-mono text-primary"
-                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw` }}
+                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
                     title={`{{${s.key}${isList ? "[]" : ""}}}`}
                   >
                     {`{{${s.key}${isList ? "[]" : ""}}}`}
                   </span>
                   <span
                     className={`ml-auto shrink-0 whitespace-nowrap ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
-                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw` }}
+                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
                     data-testid={overflowed ? `tpladmin-editor-overflow-${s.sectionId}` : undefined}
                   >
                     {overflowed
