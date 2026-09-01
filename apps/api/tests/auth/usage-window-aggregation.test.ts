@@ -22,6 +22,7 @@ import { PgTokenQuotaRepository } from "../../src/infrastructure/auth/pg-token-q
 import { getUsageReport } from "../../src/application/auth/get-usage-report";
 import type { UsageWindowKey } from "../../src/application/auth/token-quota-ports";
 import { toOrgId } from "../../src/domain/org-id";
+import { hoursAgoWithinCurrentMonth } from "../support/relative-time-in-month";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -36,22 +37,6 @@ let repo: PgTokenQuotaRepository;
 
 const report = (window: UsageWindowKey) =>
   getUsageReport({ repo }, { orgId: toOrgId(ORG), window });
-
-/**
- * 「`maxHours` 小时以前，但保证仍落在本自然月内」——用来生成「本月内、但不算最近几小时」
- * 的固定测试数据点，不用写死的 `24 * 10`（那要求测试运行时刻与「10 天前」落在同一个
- * 自然月，本月第 1-10 天运行必然假）。
- *
- * 离月初足够远时逐字等价于 `maxHours`；月初这几天自动收窄到「距月初时长的一半」，
- * 仍然满足「在本月内」，但不保证仍然满足调用方额外要求的「超过 N 小时」——那个残余
- * 极小窗口（月初头几小时内运行）是已知、接受的边界情况，不强行消灭。
- */
-function hoursAgoWithinCurrentMonth(maxHours: number): number {
-  const now = new Date();
-  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-  const hoursSinceMonthStart = (now.getTime() - monthStart.getTime()) / 3_600_000;
-  return Math.min(maxHours, hoursSinceMonthStart / 2);
-}
 
 /** 一条计量事件，`agoHours` 小时以前。 */
 async function spend(
@@ -90,9 +75,22 @@ afterAll(async () => {
 });
 
 describe("F161 用量监控：每个窗口是一次真实聚合", () => {
-  it("【核心】同一批事件，最近 5 小时 / 本月 给出不同的数（换窗口就是换查询）", async () => {
+  // 当前运行时刻距月初不足 5 小时（例如任意一个月最开始几小时内跑 CI）时，
+  // "超过 5 小时"与"仍在本月内"两个约束互斥，构造不出满足两者的测试数据点——
+  // 见 `hoursAgoWithinCurrentMonth` 文件头注。跳过而不是断言一件此刻数学上不可能
+  // 为真的事，附上原因，不是静默隐藏。
+  const monthOnlyOffset = hoursAgoWithinCurrentMonth(24 * 10, 5);
+  const coreTest = monthOnlyOffset === null ? it.skip : it;
+  if (monthOnlyOffset === null) {
+    console.warn(
+      "F161 核心用例跳过：当前时刻距本自然月月初不足 5 小时，"
+      + "无法构造『超过 5 小时前 · 仍在本月内』的测试数据点（两个约束此刻互斥）。",
+    );
+  }
+
+  coreTest("【核心】同一批事件，最近 5 小时 / 本月 给出不同的数（换窗口就是换查询）", async () => {
     await spend(LINKE, "opus-4.6", 1_000_000, 1);      // 1 小时前 → 两个窗口都算
-    await spend(LINKE, "opus-4.6", 5_000_000, hoursAgoWithinCurrentMonth(24 * 10)); // 本月内、够早 → 只有本月算
+    await spend(LINKE, "opus-4.6", 5_000_000, monthOnlyOffset!); // 本月内、超过 5 小时 → 只有本月算
 
     const recent = await report("5h");
     const month = await report("month");
