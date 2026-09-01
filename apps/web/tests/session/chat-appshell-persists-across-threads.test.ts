@@ -8,12 +8,12 @@
  * ① AppShell 只在共享的 `(v2)/layout.tsx` 里出现一次，两个 page.tsx 都不再自己
  *    组合 AppShell——如果哪天有人往 page.tsx 里加回 `<AppShell>`，就会在这两个 page
  *    与 layout 之间产生双重包裹（历史根因正是"每个 page 各自重新组合整棵树"）。
- * ② `next.config.mjs` 的 `rewrites()` 真的会在 `beforeFiles` 位置拦截带
- *    `projectId` 的 `/chat` 深链去 `/chat/legacy`——这条 rewrite 存在的意义就是让
- *    `(v2)/page.tsx` 不需要再判断 query string，从而不会被迫兼容旧屏、不会双重
- *    AppShell（layout 头注有完整推导）。issue #2457 起，只带 `thread`（不带
- *    `projectId`）的纯个人线程深链已经改拦到 `/chat/:threadId`，继续走 v2——
- *    项目内对话本轮不支持迁移，是唯一还落在 `/chat/legacy` 的场景。
+ * ② `next.config.mjs` 的 `rewrites()` 真的会在 `beforeFiles` 位置把带 `thread`
+ *    的 `/chat` 深链拦到 `/chat/:threadId`——这条 rewrite 存在的意义就是让
+ *    `(v2)/page.tsx` 不需要再判断 query string。issue #2457（DA-19h，人类
+ *    2026-09-01 二次确认正式退役）起，`/chat/legacy` 分支与 `ChatReadScreen`/
+ *    `PersonalChatScreen`/`ChatLiveMessagePanel` 三个组件已经整体删除，
+ *    `projectId` 参数不再有任何特殊路由语义。
  * ③ 两个 page.tsx 渲染的都是同一个 `CopilotKitV2Shell`——这是"AppShell 持久、只有
  *    右侧内容切换"这句话在结构上成立的前提：如果两个 page 渲染的不是同一个组件，
  *    "只刷新右侧内容区"就无从谈起。
@@ -58,29 +58,19 @@ describe("#2067 AppShell 持久化：路由组结构", () => {
     expect(threadPage).toContain("CopilotKitV2Shell");
   });
 
-  it("next.config.mjs 在 beforeFiles 位置只把带 projectId 的 /chat 深链拦到 /chat/legacy", async () => {
+  it("issue #2457（DA-19h 正式退役）：next.config.mjs 只剩一条 /chat 深链规则，thread 深链拦到 /chat/:threadId", async () => {
     const { beforeFiles } = await nextConfig.rewrites();
 
     const chatRewrites = beforeFiles.filter((rule) => rule.source === "/chat");
-    expect(chatRewrites).toHaveLength(2);
+    // `/chat/legacy` 分支（projectId → 旧屏）已随三个旧组件一起整体删除——
+    // 项目内对话不是"暂不支持迁移"，是彻底停用（人类 2026-09-01 二次确认）。
+    expect(chatRewrites).toHaveLength(1);
 
-    const legacyRule = chatRewrites.find((rule) => rule.destination === "/chat/legacy");
-    expect(legacyRule?.has?.[0]?.key).toBe("projectId");
-    // 项目内对话本轮不支持迁移（issue #2457，人类 2026-09-01 裁决）——这是唯一
-    // 还落在旧屏上的场景。
-    expect(legacyRule?.missing).toBeUndefined();
-  });
-
-  it("issue #2457：只带 thread（不带 projectId）的纯个人线程深链改拦到 /chat/:threadId，继续走 v2", async () => {
-    const { beforeFiles } = await nextConfig.rewrites();
-
-    const chatRewrites = beforeFiles.filter((rule) => rule.source === "/chat");
-    const threadRule = chatRewrites.find((rule) => rule.destination === "/chat/:threadId");
-
+    const threadRule = chatRewrites[0];
+    expect(threadRule?.destination).toBe("/chat/:threadId");
     expect(threadRule?.has?.[0]?.key).toBe("thread");
-    // `missing: projectId` 让这条规则与上面那条互斥，不依赖数组顺序里
-    // "谁先匹配谁生效" 这种隐式行为（issue #2459 已核实 v2 侧的
-    // 历史回填/线程列表选中态/URL 持久化全部已具备，不需要额外开发）。
-    expect(threadRule?.missing?.[0]?.key).toBe("projectId");
+    // 不再需要 `missing: projectId` 互斥——`projectId` 参数已经没有任何特殊路由
+    // 语义，只有一条规则，没有第二条规则要跟它互斥。
+    expect(threadRule?.missing).toBeUndefined();
   });
 });

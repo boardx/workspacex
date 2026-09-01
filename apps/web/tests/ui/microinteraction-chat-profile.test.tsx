@@ -61,7 +61,10 @@ const NO_FEEDBACK_CASES: Case[] = [
   { file: "components/chat/chat-composer-attachments.tsx", testidToken: "chat-message-attachment-${att.id}", label: "消息附件预览行" },
   { file: "components/chat/chat-left-panel.tsx", testidToken: "chat-thread-${t.id}", label: "左栏线程链接" },
   { file: "components/profile/profile-screen.tsx", testidToken: "profile-brain-entry", label: "个人资料页 Brain 入口卡片" },
-  { file: "components/chat/chat-live-message-panel.tsx", testidToken: "chat-attachment-mention-option-${att.id}", label: "附件提及下拉项" },
+  // issue #2457（DA-19h 旧轨道退役）：`chat-live-message-panel.tsx` 已删除，同一个
+  // testid（`chat-attachment-mention-*` 语义相同不另造锚点，见 `copilotkit-v2-panel-body.tsx`
+  // 该处头注）平移到了 v2 的 `copilotkit-v2-panel-body.tsx`。
+  { file: "components/chat/copilotkit-v2-panel-body.tsx", testidToken: "chat-attachment-mention-option-${att.id}", label: "附件提及下拉项" },
 ];
 
 describe("F11 chat/profile 微交互一致性 —— 「完全没反馈」元素修复", () => {

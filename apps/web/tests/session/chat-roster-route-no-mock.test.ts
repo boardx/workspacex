@@ -7,8 +7,10 @@
  *
  * ## 覆盖到哪里
  *
- * `components/chat/chat-read-screen.tsx` 的整棵依赖树：读编制（`getAgentPanel`）、
- * 改编制（`updateAgentRoster`）、消息面板，直到 `lib/live-chat.ts` → `lib/api-client.ts`。
+ * `components/chat/copilotkit-v2-shell.tsx`（issue #2457 起，旧入口
+ * `chat-read-screen.tsx` 已删除）的整棵依赖树：读编制（`getAgentPanel`）、
+ * 改编制（`updateAgentRoster`）、消息面板（`copilotkit-v2-panel.tsx`），直到
+ * `lib/live-chat.ts` → `lib/api-client.ts`。
  *
  * ## ⚠ 范围诚实
  *
@@ -24,7 +26,11 @@ import { describe, expect, it } from "vitest";
 import { walkImports } from "../support/import-graph";
 
 const ROOT = process.cwd();
-const CHAT_ENTRY = "components/chat/chat-read-screen.tsx";
+// issue #2457（DA-19h 旧轨道退役）：`chat-read-screen.tsx` 已删除，编制读写这条
+// 能力现在唯一的活入口是 v2 的 `copilotkit-v2-shell.tsx`（issue #2052/CK-P7）——
+// 这条测试保护的是"编制读写不吃 mock、只有一个真实出口"这件事本身，跟着能力
+// 一起搬家，不能因为旧入口消失就跟着失去保护。
+const CHAT_ENTRY = "components/chat/copilotkit-v2-shell.tsx";
 
 describe("#467 正式 /chat 的编制读写路径不依赖 lib/mock", () => {
   it("会话屏的整棵依赖树里没有任何一条指向 lib/mock 的边", () => {
@@ -33,7 +39,7 @@ describe("#467 正式 /chat 的编制读写路径不依赖 lib/mock", () => {
     // 反空转：这棵树必须真的走到了取数与写入两端，否则「没有 mock」是因为什么都没走。
     expect(visited).toContain("lib/live-chat.ts");
     expect(visited).toContain("lib/api-client.ts");
-    expect(visited).toContain("components/chat/chat-live-message-panel.tsx");
+    expect(visited).toContain("components/chat/copilotkit-v2-panel.tsx");
   });
 
   it("写路径打的是契约推导出的真实端点，且不手抄第二份路径", () => {

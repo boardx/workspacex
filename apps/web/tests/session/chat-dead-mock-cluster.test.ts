@@ -108,7 +108,9 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
   it("如实钉住：chat 下路由走不到、却仍吃 mock 的文件正好是这六个", () => {
     const { visited } = walkImports(routeEntries());
     // 反空转：全路由闭包必须真的走到了活着的 chat 屏，否则「都走不到」是因为什么都没走。
-    expect(visited).toContain("components/chat/chat-read-screen.tsx");
+    // issue #2457（DA-19h 旧轨道退役）：`chat-read-screen.tsx` 已删除，换成现在
+    // 唯一的活体 chat 屏入口。
+    expect(visited).toContain("components/chat/copilotkit-v2-shell.tsx");
     expect(visited).toContain("components/chat/chat-left-panel.tsx");
 
     const orphanMockFiles = chatComponents().filter((file) =>
@@ -143,15 +145,16 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
     expect(importersOf("composer")).toEqual(["components/chat/chat-main.tsx"]);
     expect(importersOf("chat-main")).toEqual([]);
     // 正样本对照：同一台匹配器对活着的屏必须报出真实引用者，否则它对谁都返回空。
-    // ⚠ #467 起有**两个**引用者：新加的 skill 挂载面板复用了本文件导出的
-    //   `describeMessageFailure`（同一套失败文案，不另写第二份）。#594 起
-    //   有**三个**：`PersonalChatScreen`（个人对话，无项目）复用同一个消息面板，
-    //   不另起第二套发消息/看回复实现。台账双向咬合，所以这里如实列三个而不是
-    //   放宽成 `toContain`——再多一个引用者仍然要有人来改这行。
-    expect(importersOf("chat-live-message-panel")).toEqual([
-      "components/chat/chat-read-screen.tsx",
+    // issue #2457（DA-19h 旧轨道退役）：原本的正样本 `chat-live-message-panel`
+    // 随三个旧组件一起整体删除，换成另一个稳定的活体多引用者示例——
+    // `chat-popover-coordinator`（composer 内各类浮层/挂载面板共用的坐标协调器，
+    // 五个真实引用者，都是 v2 在用的活代码，不是又一条会跟着死的链）。
+    expect(importersOf("chat-popover-coordinator")).toEqual([
+      "components/chat/chat-composer-mic-control.tsx",
+      "components/chat/chat-composer-pickers.tsx",
       "components/chat/chat-skill-mount-panel.tsx",
-      "components/chat/personal-chat-screen.tsx",
+      "components/chat/chat-task-workbench-capability-picker.tsx",
+      "components/chat/copilotkit-v2-panel.tsx",
     ]);
   });
 
@@ -180,16 +183,16 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
    * `/chat/copilotkit-v2/[threadId]` 由 next.config redirects 薄跳转过来，路由文件
    * 保留）。
    *
-   * 2026-08-25（#2026 默认入口翻转）新增 `/chat/legacy`：旧屏（ChatReadScreen/
-   * PersonalChatScreen）的显式回退入口——渲染的组件树与正式 `/chat` 深链分支
-   * 逐字相同，只是入口路径不同，因此与 `/chat` 一样贡献 0 条 mock 边。
+   * issue #2457（DA-19h，人类 2026-09-01 二次确认正式退役）：`/chat/legacy` 连同
+   * `ChatReadScreen`/`PersonalChatScreen`/`ChatLiveMessagePanel` 三个组件本身
+   * 整体删除，不再是路由级的分流——项目内对话彻底停用，不是"暂不支持迁移"。
    *
    * issue #2067 起，裸 `/chat` 与 `/chat/[threadId]` 收进路由组 `app/chat/(v2)/`
    * （`page.tsx`/`[threadId]/page.tsx`/`layout.tsx` 三个文件，AppShell/CopilotKit
    * provider 挪进 `layout.tsx` 只挂一次，解决切换线程时 AppShell 整体重挂载的问题，
-   * 见该 layout 文件头注）。带 `?projectId=`/`?thread=` 的深链改由
-   * `next.config.mjs` 的 `rewrites().beforeFiles` 在到达这层路由前就整体改写到
-   * `/chat/legacy`——同样不碰 `lib/mock/**`，贡献 0 条 mock 边。
+   * 见该 layout 文件头注）。带 `?thread=` 的深链改由 `next.config.mjs` 的
+   * `rewrites().beforeFiles` 在到达这层路由前就整体改写到 `/chat/:threadId`——
+   * 同样不碰 `lib/mock/**`，贡献 0 条 mock 边。
    */
   it("如实钉住：chat 各路由的闭包里残留的 mock 边正好是这几条", () => {
     const chatRoutes = routeEntries().filter((f) => f.startsWith("app/chat/"));
@@ -203,7 +206,6 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
       "app/chat/copilotkit-v2/layout.tsx",
       "app/chat/copilotkit-v2/page.tsx",
       "app/chat/landing/page.tsx",
-      "app/chat/legacy/page.tsx",
       "app/chat/live/page.tsx",
       "app/chat/preset/page.tsx",
     ]);
@@ -228,9 +230,11 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
    * `chat-composer-input` 这个 testid **只**定义在路由走不到的 `composer.tsx` 里 ⇒
    * 它从来没有被任何路由渲染过，引用它的 e2e 断言永远走不到。
    *
-   * 发消息的真实入口是 #429 交付的 `chat-message-input` / `chat-message-submit`
-   * （`components/chat/chat-live-message-panel.tsx`），在 `/chat` 闭包里。
-   * 这条把两者的可达性差异钉死，免得下一个人再拿 `chat-composer-input` 当验收锚点。
+   * issue #2457（DA-19h 旧轨道退役）：发消息的真实入口从 `chat-message-input`/
+   * `chat-message-submit`（`chat-live-message-panel.tsx`，已删除）换成 v2 的
+   * `copilotkit-v2-input`/`copilotkit-v2-send`（`copilotkit-v2-panel-body.tsx`），
+   * 在 `/chat` 闭包里。这条把两者的可达性差异钉死，免得下一个人再拿
+   * `chat-composer-input` 当验收锚点。
    */
   it("chat-composer-input 位于路由走不到的文件里；真实发消息锚点在 /chat 闭包内", () => {
     const { visited } = walkImports(routeEntries());
@@ -240,8 +244,13 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
     expect(definedIn("chat-composer-input")).toEqual(["components/chat/composer.tsx"]);
     expect(visited).not.toContain("components/chat/composer.tsx");
 
-    expect(definedIn("chat-message-input")).toEqual(["components/chat/chat-live-message-panel.tsx"]);
-    expect(definedIn("chat-message-submit")).toEqual(["components/chat/chat-live-message-panel.tsx"]);
-    expect(visited).toContain("components/chat/chat-live-message-panel.tsx");
+    // `copilotkit-v2-approval-dialog.tsx` 也命中——不是定义，是拿同一个 testid 当
+    // `document.querySelector` 目标（滚动定位用），如实照写，不是本条要修的东西。
+    expect(definedIn("copilotkit-v2-input")).toEqual([
+      "components/chat/copilotkit-v2-approval-dialog.tsx",
+      "components/chat/copilotkit-v2-panel-body.tsx",
+    ]);
+    expect(definedIn("copilotkit-v2-send")).toEqual(["components/chat/copilotkit-v2-panel-body.tsx"]);
+    expect(visited).toContain("components/chat/copilotkit-v2-panel-body.tsx");
   });
 });

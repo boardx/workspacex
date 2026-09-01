@@ -115,15 +115,17 @@ describe("F176 消息级评价（采集侧）", () => {
     expect(screen.queryByTestId("chat-message-rating-unattributed")).toBeNull();
   });
 
-  it("④ 挂载条件是「AI 消息 ∧ 有 agentRunId」—— 由 chat-live-message-panel 源码钉住", async () => {
+  it("④ 挂载条件是「有真实落库 chatMessageId」—— 由 copilotkit-v2-message-actions 源码钉住", async () => {
     // 组件本身不知道这个条件（它只收 messageId）。条件在调用点，所以断言也在那里。
-    // 2026-08-16：动作条（复制/反馈/评分）从身份行挪到气泡下方，但这条挂载条件本身
-    // 原样保留（`isAgent && message.agentRunId ?`），断言不用改。
+    // issue #2457（DA-19h 旧轨道退役）：旧条件 `isAgent && message.agentRunId ?`
+    // （`chat-live-message-panel.tsx`，已删除）换成 v2 的等价物——`chatMessageId
+    // !== null`（`ctx.identity.resolve(messageId)` 的结果，issue #2054/CK-P3：
+    // 评分需要真实落库 id，同一条"必须有真实身份才挂载"的不变量，换了个表达方式）。
     const { readFileSync } = await import("node:fs");
     const { join } = await import("node:path");
     const src = readFileSync(
-      join(process.cwd(), "components/chat/chat-live-message-panel.tsx"), "utf8",
+      join(process.cwd(), "components/chat/copilotkit-v2-message-actions.tsx"), "utf8",
     );
-    expect(src).toMatch(/isAgent && message\.agentRunId \?[\s\S]{0,80}<MessageRating/);
+    expect(src).toMatch(/chatMessageId !== null \?[\s\S]{0,80}<MessageRating/);
   });
 });

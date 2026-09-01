@@ -12,7 +12,9 @@ import { listSkills, type SkillListItem } from "@/lib/live-skill";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
-import { describeMessageFailure } from "./chat-live-message-panel";
+// issue #2457（DA-19h 旧轨道退役）：真身一直在 `@/lib/live-chat`，`chat-live-message-panel.tsx`
+// 只是转手再导出——直接指向真身，不再借道即将删除的旧轨道文件。
+import { describeMessageFailure } from "@/lib/live-chat";
 import { useChatPopoverSlot } from "./chat-popover-coordinator";
 
 /**

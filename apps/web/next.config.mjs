@@ -95,12 +95,14 @@ export default {
    * Playwright `page.goto()` 因原导航被新导航中止而报 `net::ERR_ABORTED`
    * （预热 API 路由无效，是渲染层跳转机制本身）。
    *
-   * 裸 `/chat` 那条 307（#2026）已删除：v2 原生住进 `/chat` 后它失去意义；带
-   * `projectId` 的深链由下面 `rewrites()` 的 `chatLegacyBranchRewrites` 引到
-   * `/chat/legacy` 渲染旧屏——issue #2457 起，这是**唯一**还落在旧屏上的场景
-   * （项目内对话本轮不支持迁移，人类 2026-09-01 裁决）。带 `thread`、不带
-   * `projectId` 的纯个人线程深链已经改走 v2 的 `/chat/:threadId`，见下方
-   * `chatPersonalThreadDeepLinkRewrite`。
+   * 裸 `/chat` 那条 307（#2026）已删除：v2 原生住进 `/chat` 后它失去意义。
+   *
+   * issue #2457（DA-19h，人类 2026-09-01 二次确认正式退役）—— `/chat/legacy`
+   * 连同 `ChatReadScreen`/`PersonalChatScreen`/`ChatLiveMessagePanel` 三个组件
+   * 本身已经整体删除，不再是"暂不支持迁移所以留着"，是这条能力（项目内对话）
+   * 彻底停用。带 `thread` 的深链走 v2 的 `/chat/:threadId`，见下方
+   * `chatThreadDeepLinkRewrite`；`projectId` 参数不再有任何特殊路由语义
+   * （落到 v2 就是普通个人对话，参数被忽略，不报错也不特殊处理）。
    */
   async redirects() {
     return [
@@ -118,52 +120,33 @@ export default {
   },
   async rewrites() {
     /**
-     * issue #2067 —— 带 `?projectId=`/`?thread=` 的 `/chat` 深链渲染旧屏
-     * （`ChatReadScreen`/`PersonalChatScreen`），逻辑与 `/chat/legacy` 逐字相同
-     * （`app/chat/legacy/page.tsx`）。这条**必须**放在 `beforeFiles`，不能像下面
-     * e2e 用的那些放在默认的 `afterFiles` 位置——`/chat` 本身是一个真实存在的
-     * 静态页面（`app/chat/(v2)/page.tsx`），Next 的路由优先级是
-     * headers → redirects → beforeFiles rewrites → **文件系统路由（静态页面命中
-     * 在这一步）** → afterFiles rewrites → 动态路由 → fallback；`afterFiles`
-     * 位置的规则只在文件系统路由**没有命中**时才有机会跑，而 `/chat` 永远会先命中
-     * 自己的 `page.tsx`，query string 不参与文件系统路由匹配，所以放
+     * issue #2457（DA-19h，人类 2026-09-01 二次确认正式退役）—— `?thread=` 深链
+     * 改走 v2 的 `/chat/:threadId`（issue #2459 已核实：历史回填/线程列表选中态/
+     * URL 持久化/真栈 e2e 全部早就具备，只是路由没接过去）。这条**必须**放在
+     * `beforeFiles`，不能像下面 e2e 用的那些放在默认的 `afterFiles` 位置——
+     * `/chat` 本身是一个真实存在的静态页面（`app/chat/(v2)/page.tsx`），Next 的
+     * 路由优先级是 headers → redirects → beforeFiles rewrites → **文件系统路由
+     * （静态页面命中在这一步）** → afterFiles rewrites → 动态路由 → fallback；
+     * `afterFiles` 位置的规则只在文件系统路由**没有命中**时才有机会跑，而 `/chat`
+     * 永远会先命中自己的 `page.tsx`，query string 不参与文件系统路由匹配，所以放
      * `afterFiles`（乃至更靠后的位置）永远不会被触发——必须用 `beforeFiles`
      * 抢在文件系统路由判定之前拦截。
      *
-     * 这两条**始终生效**（不像下面的 e2e API 代理那样只在设了
-     * `FULLSTACK_E2E_API_ORIGIN`/`CHAT_READ_E2E_API_ORIGIN` 时才生效）——查询参数
-     * 分支旧屏是正式产品行为的一部分，不是测试专用设施。
+     * 这条**始终生效**（不像下面的 e2e API 代理那样只在设了
+     * `FULLSTACK_E2E_API_ORIGIN`/`CHAT_READ_E2E_API_ORIGIN` 时才生效）——线程深链
+     * 是正式产品行为的一部分，不是测试专用设施。
      *
-     * 为什么要挪出 `app/chat/page.tsx` 自身的分支逻辑、改用这里的 rewrite：
-     * `app/chat/(v2)/layout.tsx`（AppShell + CopilotKit providers，见该文件头注）
-     * 只能包住整个 `(v2)` 路由组——如果 `/chat` 的三路分支（v2 / 旧项目屏 /
-     * 旧个人屏）继续放在同一个 `page.tsx` 里、又要挪进 `(v2)` 组去共享 AppShell，
-     * 旧屏两支会被套进第二层 AppShell（它们自己已经各自 `<AppShell>` 包裹一次）。
-     * 用 rewrite 在路由匹配阶段就把这两支整个引到 `/chat/legacy`（已经是这两个
-     * 组件的既有正式入口），`(v2)/page.tsx` 因此只需要处理 v2 这一支，不需要
-     * 再判断 query string，也就没有双重 AppShell 的风险。
-     *
-     * issue #2457（DA-19h 阶段一：旧手写轨道退役，范围收窄为「仅个人对话」）——
-     * `?thread=` 深链原本也在这两条规则里被无条件送去 `/chat/legacy`，现在拆开：
-     * 带 `projectId` 的（项目内对话）仍然去旧屏，**本轮明确不支持迁移**（人类
-     * 2026-09-01 裁决，见 issue #2457/#2459）；不带 `projectId`、只带 `thread`
-     * 的纯个人线程深链改去 v2 的 `/chat/:threadId`——issue #2459 已核实这条路径
-     * 早就建好（历史回填/线程列表选中态/URL 持久化/真栈 e2e 全部覆盖），不需要
-     * 额外开发，只是路由没接过去。`missing: projectId` 让这条规则与上面那条
-     * 互斥，不依赖数组顺序里"谁先匹配谁生效"这种隐式行为。
+     * `/chat/legacy`、`?projectId=` 分支、`ChatReadScreen`/`PersonalChatScreen`/
+     * `ChatLiveMessagePanel` 三个组件本身——DA-19h 这次一并整体删除，不是只改路由
+     * 不删代码。`projectId` 参数落到这里不再有任何特殊语义，v2 侧从不读它。
      */
-    const chatLegacyBranchRewrites = [
-      { source: "/chat", has: [{ type: "query", key: "projectId" }], destination: "/chat/legacy" },
-    ];
-
-    const chatPersonalThreadDeepLinkRewrite = {
+    const chatThreadDeepLinkRewrite = {
       source: "/chat",
       has: [{ type: "query", key: "thread", value: "(?<threadId>.+)" }],
-      missing: [{ type: "query", key: "projectId" }],
       destination: "/chat/:threadId",
     };
 
-    const chatV2BranchRewrites = [...chatLegacyBranchRewrites, chatPersonalThreadDeepLinkRewrite];
+    const chatV2BranchRewrites = [chatThreadDeepLinkRewrite];
 
     const fullstackApiOrigin = process.env.FULLSTACK_E2E_API_ORIGIN;
     const apiOrigin = fullstackApiOrigin ?? process.env.CHAT_READ_E2E_API_ORIGIN;
