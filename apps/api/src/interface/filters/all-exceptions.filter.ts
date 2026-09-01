@@ -40,7 +40,8 @@ import {
   wave2Runtime,
 } from "@repo/contracts";
 import type { Response } from "express";
-import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { errorDetailOf, LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { ERROR_LOG_PORT, type ErrorLogPort } from "../../application/ports/error-log.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
 import { traceIdOf } from "../middleware/trace";
 
@@ -557,7 +558,10 @@ function teamOccupancyOf(exception: HttpException): { blocked?: unknown } {
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  constructor(@Inject(LOGGER_PORT) private readonly logger: LoggerPort) {}
+  constructor(
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    @Inject(ERROR_LOG_PORT) private readonly errorLog: ErrorLogPort,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
@@ -591,6 +595,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     this.logger.error("unhandled exception", { traceId, err: exception });
+    // ⚠ Fire-and-forget, never awaited: the response must not wait on a second I/O call, and
+    //   a Postgres hiccup here (possibly the SAME outage that caused `exception` in the first
+    //   place) must not turn one failure into two. See `error-log.port.ts` for why this branch
+    //   specifically (not the `HttpException`/`ContractValidationError` branches above) is the
+    //   one that gets persisted.
+    void this.errorLog.record({ traceId, msg: "unhandled exception", detail: errorDetailOf(exception) }).catch(() => undefined);
     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: "internal_error", traceId });
   }
 }
