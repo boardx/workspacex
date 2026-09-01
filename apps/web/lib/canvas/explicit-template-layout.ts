@@ -319,34 +319,70 @@ export function contentMmFor(size: PaperSizeKey): { readonly w: number; readonly
 /** 网格间距，`Design.pdf` 原话「间距 6mm（gap: 0.72%）」。 */
 export const GRID_GAP_MM = 6;
 /**
- * 标题占位高度——原始 22mm 来源见 `Design.pdf` §5「容量」行。
+ * 区块内标题区（区块名 + `{{token}} X列·Y条` 提示行）的比例尺寸——`cqw` 相对
+ * 最外层纸张容器的**宽度**，跟纸面大标题（`"2.2cqw"`）/页脚（`"1.2cqw"`）用
+ * 同一套单位。`template-canvas-grid.tsx` 直接读这几个值渲染，不在组件里另开
+ * 一份重复声明——同一件事只能有一处数字，见 AGENTS.md「同一事实不得声明在
+ * 两处」。
  *
- * ⚠ 2026-09-01 人类反馈"便利贴还是被裁掉"，且明确排除了"画布缩得太小"——全屏下
- *   依然会切。根因：区块内的标题行 + `{{token}} X列·Y条` 提示行原先用固定像素
- *   字号/内边距（`text-11`/`text-9`/`p-2`/`gap-1.5` 这些 Tailwind 档位），不像
- *   贴纸本身和纸面大标题那样随 `cqw`（纸宽比例）缩放；这个常量却假设标题区恒占
- *   纸面高度的固定比例——纸面渲染得越宽，标题区真实占用的"纸面比例"理应越小，
- *   固定像素不会跟着变小，于是在任何宽度下都会持续少算一点，多算出来的空间最终
- *   体现为最后一行贴纸被 `overflow-hidden` 切掉一截。
+ * ⚠ 2026-09-01 人类反馈"便利贴还是被裁掉"、且明确排除了"画布缩得太小"——全屏下
+ *   依然会切。根因：这个标题区此前用固定像素字号/内边距（`text-11`/`text-9`/
+ *   `p-2`/`gap-1.5` 这些 Tailwind 档位），不像贴纸本身和纸面大标题那样随 `cqw`
+ *   缩放，而"这块地方能放几行贴纸"的公式却假设标题区恒占纸面的固定比例——纸面
+ *   渲染得越宽，标题区真实占用的"纸面比例"理应越小，固定像素不会跟着变小，于是
+ *   在任何宽度下都会持续少算一点，多算出来的空间最终体现为最后一行贴纸被
+ *   `overflow-hidden` 切掉一截。改成这里的 `cqw` 常量后，标题区占用的"纸面比例"
+ *   变成一个不随渲染宽度变化的真常量。
  *
- *   第一次试着把这个值从 22 直接调到 36 做经验性缓解，但改完发现本仓自己一条用
- *   `h=3`（3/8 页高）区块的单测容量被压到 0——这类偏矮的常见区块本来刚好够用，
- *   凭感觉调大这个常量会连它们一起压垮。真正的修法是让两边算的是同一件事：
- *   `template-canvas-grid.tsx` 的区块标题行改成跟纸面大标题（`"2.2cqw"`）/页脚
- *   （`"1.2cqw"`）一样的 `cqw` 比例字号/内边距/间距（`BLOCK_PAD_CQW` 等常量），
- *   于是标题区占用的"纸面比例"变成一个不随渲染宽度变化的真常量，这个 mm 预留值
- *   也就能精确反推、不必再猜：
- *
- *     padding(0.6cqw) + 标题行(1.4cqw×1.2行距) + 间距(0.15cqw)
- *       + 提示行(1.0cqw×1.2行距) + 间距(0.5cqw)
- *     = (0.6 + 1.4×1.2 + 0.15 + 1.0×1.2 + 0.5)% × 821mm ≈ 33.9mm
- *
- *   取整到 34。这个推导只在纸面 = A1（821mm 宽）时精确成立——三档纸张共用同一个
- *   固定 mm 常量是既有设计（`sectionGeometryMm` 的 `TITLE_RESERVE_MM` 从来不按
- *   `size` 参数换算），A3/A4 上这个值会偏保守（略少算一点容量），不是本次改动
- *   引入的新问题。
+ * ⚠ 第一次试着把 `TITLE_RESERVE_MM`（当时是固定 mm 常量）从 22 直接调到 36 做
+ *   经验性缓解，但改完发现本仓自己一条用 `h=3`（3/8 页高）区块的单测容量被压到
+ *   0——这类偏矮的常见区块本来刚好够用，凭感觉调大一个孤立的经验常量会连它们
+ *   一起压垮。真正的修法是让两边算的是同一件事，而不是猜一个数字。
  */
-export const TITLE_RESERVE_MM = 34;
+export const BLOCK_HEADER_CQW = {
+  /** 替代 `p-2`（区块四边内边距）。 */
+  padding: 0.6,
+  /** 替代 `gap-1.5`（标题块 ↔ 贴纸网格之间，以及 `{{token}}` ↔ 列·条提示之间）。 */
+  gap: 0.5,
+  /** 替代 `gap-0.5`（区块名 ↔ `{{token}}` 行之间）。 */
+  titleGap: 0.15,
+  /** 替代 `text-11`（区块名）。 */
+  titleFont: 1.4,
+  /** 替代 `text-9`/`text-10`（`{{token}}`/列·条提示）。 */
+  metaFont: 1.0,
+} as const;
+/** 行高倍数（贴近 Tailwind `leading-tight` ≈ 1.2），标题/提示两行都按它估算实占高度。 */
+const BLOCK_HEADER_LINE_HEIGHT = 1.2;
+/**
+ * 标题区总预留——两行文字的行高 + 内边距 + 两道间距，单位仍是 `cqw`（纸宽的
+ * 百分比）。`titleReserveMm` 按*当前选中的纸张宽度*把它换算成 mm，不是只在
+ * A1 上算一次就到处用——推导：
+ *
+ *   padding(0.6cqw) + 标题行(1.4cqw×1.2行距) + 间距(0.15cqw)
+ *     + 提示行(1.0cqw×1.2行距) + 间距(0.5cqw)
+ *   = 0.6 + 1.4×1.2 + 0.15 + 1.0×1.2 + 0.5 = 4.13（cqw，即纸宽的 4.13%）
+ */
+const BLOCK_HEADER_RESERVE_CQW =
+  BLOCK_HEADER_CQW.padding
+  + BLOCK_HEADER_CQW.titleFont * BLOCK_HEADER_LINE_HEIGHT
+  + BLOCK_HEADER_CQW.titleGap
+  + BLOCK_HEADER_CQW.metaFont * BLOCK_HEADER_LINE_HEIGHT
+  + BLOCK_HEADER_CQW.gap;
+
+/**
+ * 标题占位高度（mm）——按*给定纸张的实际宽度*把 `BLOCK_HEADER_RESERVE_CQW`
+ * 换算成 mm，取代原先"不管选哪张纸都用同一个固定 mm 常量"的做法（那样在 A3/A4
+ * 上会用 A1 的 34mm 顶一个理应小得多的预留量，导致这两档纸张的容量被系统性
+ * 低估、甚至在够小的区块上把 `rows` 压到 0）。
+ *
+ * cqw 的换算基准是**整张纸**（`PAPER_SIZE_MM[size].w`），不是扣掉页边距的内容区
+ * ——与 `notePct`/纸面大标题同一个基准。A1（841mm 宽）≈ 34.7mm（与旧固定常量
+ * 34 很接近，因为旧值本来就是照着 A1 粗估的）；A3（420mm）≈ 17.3mm；A4（297mm）
+ * ≈ 12.3mm——纸越小，标题区占用的绝对 mm 数跟着变小，不再是三档共用一个数。
+ */
+export function titleReserveMm(size: PaperSizeKey = "A1"): number {
+  return (BLOCK_HEADER_RESERVE_CQW / 100) * PAPER_SIZE_MM[size].w;
+}
 /**
  * 贴纸实尺参考值——`Design.pdf` §5「尺寸判定」原文把 70–82mm 都算标准 76mm
  * 方形贴纸，76 是这一档的代表值，`defaultLayoutAt`/`autoFillLayout` 猜默认
@@ -421,7 +457,7 @@ export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometr
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
   const hMm = (input.h / rowSpanDenominator) * contentMm.h - GRID_GAP_MM;
   const noteMm = Math.min(MAX_NOTE_MM, (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols);
-  const rows = Math.max(0, Math.floor((hMm - TITLE_RESERVE_MM) / (noteMm + GRID_GAP_MM)));
+  const rows = Math.max(0, Math.floor((hMm - titleReserveMm(input.size ?? "A1")) / (noteMm + GRID_GAP_MM)));
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),

@@ -13,7 +13,8 @@ import {
   sectionGeometryMm,
   classifyNoteSize,
   MAX_NOTE_MM,
-  TITLE_RESERVE_MM,
+  titleReserveMm,
+  GRID_GAP_MM,
   TONE_COLORS,
   A1_CONTENT_MM,
   A1_PAPER_MM,
@@ -247,12 +248,42 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.noteMm).toBe(expectedNoteMm);
   });
 
-  it("容量 = cols × rows，rows 由 floor((hMm-TITLE_RESERVE_MM)/(noteMm+6)) 算出——不是拍脑袋乘一个数", () => {
+  it("容量 = cols × rows，rows 由 floor((hMm-titleReserveMm(size))/(noteMm+6)) 算出——不是拍脑袋乘一个数", () => {
     const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
     const expectedHMm = (3 / 8) * A1_CONTENT_MM.h - 6;
-    const expectedRows = Math.floor((expectedHMm - TITLE_RESERVE_MM) / (g.noteMm + 6));
+    const expectedRows = Math.floor((expectedHMm - titleReserveMm("A1")) / (g.noteMm + 6));
     expect(g.rows).toBe(expectedRows);
     expect(g.fits).toBe(5 * expectedRows);
+  });
+
+  it("titleReserveMm 按纸张宽度换算——A3/A4 比 A1 小得多，不是三档共用同一个固定 mm 数", () => {
+    const a1 = titleReserveMm("A1");
+    const a3 = titleReserveMm("A3");
+    const a4 = titleReserveMm("A4");
+    // A1 纸宽是 841mm（`PAPER_SIZE_MM.A1.w`，cqw 的换算基准是整张纸，不是扣掉页边距
+    // 的内容区）——4.13% × 841 ≈ 34.7mm。
+    expect(a1).toBeCloseTo(34.7, 1);
+    expect(a3).toBeLessThan(a1);
+    expect(a4).toBeLessThan(a3);
+    // 与纸宽严格成正比——同一个 cqw 比例换算到不同纸宽。
+    expect(a3 / a1).toBeCloseTo(PAPER_SIZE_MM.A3.w / PAPER_SIZE_MM.A1.w, 5);
+    expect(a4 / a1).toBeCloseTo(PAPER_SIZE_MM.A4.w / PAPER_SIZE_MM.A1.w, 5);
+  });
+
+  it("sectionGeometryMm 在 A4 上用 A4 自己的 titleReserveMm，不是错误地沿用 A1 的固定值", () => {
+    // h=8（满高）：h=3 时 A1/A4 两种预留值凑巧落进同一个 floor 区间，测不出差异；
+    // 拉高区块让两种预留值换算出的行数真的分道扬镳。
+    const onA4 = sectionGeometryMm({ w: 6, h: 8, cols: 5, gridCols: 12, size: "A4" });
+    const expectedRowsWithA4Reserve = Math.floor(
+      (onA4.hMm - titleReserveMm("A4")) / (onA4.noteMm + GRID_GAP_MM),
+    );
+    const expectedRowsIfWronglyUsedA1Reserve = Math.floor(
+      (onA4.hMm - titleReserveMm("A1")) / (onA4.noteMm + GRID_GAP_MM),
+    );
+    expect(onA4.rows).toBe(expectedRowsWithA4Reserve);
+    // 如果实现退化成"不管选哪张纸都用 A1 的固定预留"，这条会先假绿——用两种预留值
+    // 算出的期望 rows 本身就该不同，才能钉住"真的按纸张切换了"，不是巧合对上。
+    expect(expectedRowsWithA4Reserve).not.toBe(expectedRowsIfWronglyUsedA1Reserve);
   });
 
   it("区块窄到贴纸实尺 < 0（w/h 太小）时不产出负数容量——rows 夹到 0，不是负数或 NaN", () => {
