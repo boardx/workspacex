@@ -335,10 +335,17 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(noteGridRequiredWidthMm).toBeLessThanOrEqual(wMm - blockHorizontalChromeMm("A1") + 5 * 0.5);
   });
 
-  it("区块横向内边距/边框太厚、扣完已经不剩空间时，noteMm 夹到 0，不产出负数（同 rows 的 Math.max(0,…) 保护）", () => {
+  it("区块横向内边距/边框太厚、扣完已经不剩空间时，noteMm 夹到 0 且容量如实归零——不产出「宽度为 0 却报得出正数容量」的假阳性", () => {
+    // 2026-09-01 独立审查抓到的问题：noteMm 夹到 0 只挡住了负数，没挡住
+    // rows=floor((hMm-reserve)/(0+6)) 分母只剩间距、照样能除出正数行数，
+    // fits=cols×rows 跟着报出"这里放得下 N 张宽度为 0 的贴纸"这种假容量。
     const g = sectionGeometryMm({ w: 1, h: 1, cols: 12, gridCols: 12 });
     expect(g.noteMm).toBeGreaterThanOrEqual(0);
     expect(Number.isFinite(g.noteMm)).toBe(true);
+    expect(g.noteMm).toBe(0);
+    // 贴纸边长到 0 ⇒ 这块地方真放不下任何一张，容量必须如实归零。
+    expect(g.rows).toBe(0);
+    expect(g.fits).toBe(0);
   });
 
   it("列数越多，同一区块下贴纸越小——noteMm 真的随 cols 反推，不是常量", () => {

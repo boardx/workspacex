@@ -505,7 +505,13 @@ export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometr
   // `noteMm` 夹到 0（同 `rows` 的 `Math.max(0, …)`），不产出负数贴纸边长，
   // 那样会让 `notePct`/字号算出荒谬的负值/NaN，而不是如实地说"这里放不下"。
   const noteMm = Math.max(0, Math.min(MAX_NOTE_MM, (noteGridWidthMm - GRID_GAP_MM * (input.cols - 1)) / input.cols));
-  const rows = Math.max(0, Math.floor((hMm - titleReserveMm(size)) / (noteMm + GRID_GAP_MM)));
+  // ⚠ 2026-09-01 独立审查抓到的问题：`noteMm` 夹到 0 只挡住了"负数贴纸边长"，
+  //   没挡住"贴纸边长是 0 但容量还算出正数"——`rows = floor((hMm-reserve)/(0+6))`
+  //   分母只剩间距，照样能除出正数行数，`fits = cols × rows` 跟着报出一个正的
+  //   容量，等于宣称"这里放得下 N 张宽度为 0（也就是看不见）的贴纸"。贴纸边长
+  //   一旦到 0，这块地方就是真放不下任何一张，容量必须如实归零，不能因为公式
+  //   分母还没归零就继续往下算。
+  const rows = noteMm <= 0 ? 0 : Math.max(0, Math.floor((hMm - titleReserveMm(size)) / (noteMm + GRID_GAP_MM)));
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),
