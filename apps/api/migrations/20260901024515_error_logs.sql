@@ -38,19 +38,29 @@ CREATE INDEX IF NOT EXISTS error_logs_created_at_idx ON error_logs (created_at);
 --
 -- What `app_rw` (the identity `PgErrorLogWriter` runs as, see `pg-config.ts`) actually needs:
 -- `INSERT` (every `record()` call) and `DELETE` (`sweepExpiredErrorLogs`'s retention sweep).
--- It needs neither `SELECT` nor `UPDATE` -- nothing in this codebase ever reads this table
--- back through the app role, by the explicit scope decision in `pg-error-log-writer.ts`'s
--- header ("a Postgres table + direct SQL by whoever already has deploy-machine DB
--- credentials", not a new HTTP surface or a new role). Withholding `SELECT` here is what
--- makes that decision mechanical rather than a comment: the review's finding #1 was that "the
--- application DB role... can query this global table" -- after this line it structurally
--- cannot. Reading `error_logs` still requires connecting with credentials other than the ones
--- the running API process holds (the migration/owner role in this repo's model), which is the
--- boundary already documented and is not widened by this change.
+-- It needs neither table-wide `SELECT` nor `UPDATE` -- nothing in this codebase ever reads
+-- `trace_id`/`msg`/`detail` back through the app role, by the explicit scope decision in
+-- `pg-error-log-writer.ts`'s header ("a Postgres table + direct SQL by whoever already has
+-- deploy-machine DB credentials", not a new HTTP surface or a new role). Withholding table-wide
+-- `SELECT` here is what makes that decision mechanical rather than a comment: the review's
+-- finding #1 was that "the application DB role... can query this global table" -- after this
+-- line it structurally cannot read the diagnostic content. Reading it still requires connecting
+-- with credentials other than the ones the running API process holds (the migration/owner role
+-- in this repo's model), which is the boundary already documented and is not widened here.
 REVOKE ALL ON error_logs FROM app_rw;
 GRANT INSERT, DELETE ON error_logs TO app_rw;
 -- INSERT into a BIGSERIAL PK needs the sequence's nextval(), not SELECT on the sequence.
 GRANT USAGE ON SEQUENCE error_logs_id_seq TO app_rw;
+-- Real Postgres, not a detail this migration can skip: a DELETE with a WHERE clause needs
+-- SELECT on every column the WHERE (or RETURNING) clause reads, on top of table-level DELETE
+-- -- the privilege check is column-scoped, not just verb-scoped. `sweepExpiredErrorLogs` filters
+-- on `created_at` (`WHERE created_at < now() - interval '...'`); table-level DELETE alone made
+-- every real sweep fail with `permission denied for table error_logs`, caught by
+-- `pg-error-log-writer-real-postgres.test.ts` running against a real database (the fake-based
+-- suite has no such check to catch it with). Granting SELECT on exactly this one column -- not
+-- table-wide SELECT -- lets Postgres evaluate that filter without reopening app_rw's ability to
+-- read `trace_id`/`msg`/`detail`, which is what finding #1 asked to close.
+GRANT SELECT (created_at) ON error_logs TO app_rw;
 
 -- `kernel_tenant_table_audit` (0004) classifies this table `UNTENANTED_BUT_GRANTED` without
 -- the line below: it has no `org_id` (by design, see this file's header) AND `app_rw` holds

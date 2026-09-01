@@ -114,13 +114,20 @@ describe("PgErrorLogWriter against real Postgres -- migration, INSERT, jsonb, in
   });
 
   // Finding #1's actual ask: not "redact what's in the table" but "the app role itself must
-  // not be able to read this global table back". Mechanical, not a comment -- if a future
-  // migration ever regrants SELECT to app_rw, this is the test that goes red.
-  it("【反证】app_rw（进程自身的运行时身份）SELECT error_logs 被拒绝，不是只对新 HTTP 面收窄", async () => {
+  // not be able to read the diagnostic content back". Mechanical, not a comment -- if a future
+  // migration ever regrants table-wide SELECT to app_rw, this is the test that goes red.
+  //
+  // Reads `trace_id`/`msg`/`detail` specifically, not `SELECT 1 FROM error_logs` -- the latter
+  // references no column at all, so it is not a reliable probe of "can app_rw read the
+  // diagnostic content" now that app_rw legitimately holds a column-scoped
+  // `SELECT (created_at)` (needed for `sweepExpiredErrorLogs`'s WHERE clause, see the
+  // migration's header). The columns that actually carry the sensitive payload are the ones
+  // this test must prove are unreachable.
+  it("【反证】app_rw（进程自身的运行时身份）读不到诊断内容列，不是只对新 HTTP 面收窄", async () => {
     await writer.record({ traceId: "t-real-priv-check", msg: "x", detail: {} });
 
     await expect(
-      db.withoutTenant((s) => s.query("SELECT 1 FROM error_logs LIMIT 1")),
+      db.withoutTenant((s) => s.query("SELECT trace_id, msg, detail FROM error_logs LIMIT 1")),
     ).rejects.toThrow(/permission denied/);
   });
 
