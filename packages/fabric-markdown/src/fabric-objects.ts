@@ -700,9 +700,35 @@ export class FlowEdge extends FabricObject {
     this.setEndpoints(data.x1 ?? 0, data.y1 ?? 0, data.x2 ?? 100, data.y2 ?? 100);
   }
 
-  /** Whether this edge renders as a quadratic curve (VISUAL-SPEC S2). */
+  /**
+   * Whether this edge goes "backward" against its dominant axis — the same
+   * signal `_render()`/`setEndpoints()` already used to pick a bigger bow
+   * for loop/back edges, promoted to a real predicate instead of two
+   * separately-duplicated inline computations.
+   */
+  private isBackward(): boolean {
+    const dx = this.x2 - this.x1;
+    const dy = this.y2 - this.y1;
+    const dominant = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+    return dominant < -20;
+  }
+
+  /**
+   * Whether this edge renders as a quadratic curve (VISUAL-SPEC S2, revised
+   * 2026-09-01 devapp feedback: "connectors of workflow was not rendered
+   * correctly, should not curve").
+   *
+   * Only backward/loop edges still bow. An ordinary forward edge between two
+   * nodes reads as a straight line now -- the bow on those was never load-
+   * bearing, it was decoration; the ONE place curvature earns its keep is a
+   * back-edge (e.g. a decision diamond's "否" branch returning to an earlier
+   * step), where a straight chord would cut across unrelated nodes sitting
+   * between source and target and read as pointing at the wrong thing. That
+   * case keeps the existing (even slightly amplified) bow so the loop still
+   * reads as an intentional loop, not a rendering glitch.
+   */
   private isCurved(): boolean {
-    return this.seqY === undefined && this.data?.['straight'] !== true;
+    return this.seqY === undefined && this.data?.['straight'] !== true && this.isBackward();
   }
 
   /**
