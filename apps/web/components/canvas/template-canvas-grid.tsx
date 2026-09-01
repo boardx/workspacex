@@ -217,6 +217,17 @@ export function TemplateCanvasGrid({
           const values = runData === null ? null : valuesFor(s, runData);
           const noteCount = visibleNoteCount(capacity, values === null ? null : values.length);
           const overflowed = values !== null && values.length > capacity;
+          /**
+           * 「叠放」——2026-09-01 人类反馈「便利贴太大装不下」之前，`layout.overflow`
+           * 选哪个都不影响渲染（只拼进一句警告文案，见下方 `overflowed` 那个 span）。
+           * 选「叠放」时，装不下的那部分不再直接被外层 `overflow-hidden` 悄悄裁掉——
+           * 让出最后一个格子，换成一张「+N」堆叠角标，如实交代"这里还有 N 条没显示"，
+           * 而不是让使用者以为数据丢了。其余两个选项（缩小字号/截断）不动这个数，
+           * 装不下的行为仍是原来的"摆不下就换行、换行摆不下就被裁掉"。
+           */
+          const showStack = isList && layout.overflow === "叠放" && overflowed && noteCount > 1;
+          const stackExtra = showStack ? values!.length - (noteCount - 1) : 0;
+          const visibleCount = showStack ? noteCount - 1 : noteCount;
           return (
             <div
               key={s.sectionId}
@@ -278,23 +289,49 @@ export function TemplateCanvasGrid({
                   gridTemplateColumns: isList ? `repeat(${layout.cols}, ${notePct}cqw)` : "1fr",
                 }}
               >
-                {Array.from({ length: noteCount }, (_, i) => (
+                {Array.from({ length: visibleCount }, (_, i) => {
+                  const text = values !== null ? values[i] ?? "" : showSample ? sampleTextFor(s, i) : "";
+                  // 「截断」——字号维持不变（不像「缩小字号」那样继续按字数缩），改用
+                  // line-clamp 硬截断 + 省略号：与外层原有的 `overflow-hidden` 相比，
+                  // 后者会在任意像素处生硬切字（可能切在半个字中间），line-clamp 保证
+                  // 只在整行末尾断、且带省略号，读起来是"这里还有更多"而不是"字被砍掉了"。
+                  const clampLines = isList && layout.overflow === "截断" ? 4 : undefined;
+                  return (
+                    <div
+                      key={i}
+                      className="overflow-hidden rounded-control px-1 py-0.5 leading-tight"
+                      style={{
+                        background: (showSample || values !== null) && isList ? TONE_COLORS[layout.tone] ?? TONE_COLORS[0] : "transparent",
+                        border: (showSample || values !== null) && isList ? "none" : "1px dashed #C9C5BB",
+                        // 字号由贴纸实尺推导（`Design.pdf` §5 末段：不能写成固定值，
+                        // 否则小贴纸会裁字）。选「缩小字号」时额外按文字长度继续收缩，
+                        // 见 `noteFontSizePx` 文档。
+                        fontSize: `${noteFontSizePx(geom.noteMm, isList, layout.overflow === "缩小字号" ? text.length : 0)}px`,
+                        aspectRatio: isList ? "1" : "auto",
+                        minHeight: isList ? 0 : 18,
+                        ...(clampLines !== undefined
+                          ? { display: "-webkit-box", WebkitLineClamp: clampLines, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }
+                          : {}),
+                      }}
+                    >
+                      {text}
+                    </div>
+                  );
+                })}
+                {showStack && (
                   <div
-                    key={i}
-                    className="overflow-hidden rounded-control px-1 py-0.5 leading-tight"
+                    className="flex items-center justify-center rounded-control px-1 py-0.5 text-center font-bold leading-tight"
                     style={{
-                      background: (showSample || values !== null) && isList ? TONE_COLORS[layout.tone] ?? TONE_COLORS[0] : "transparent",
-                      border: (showSample || values !== null) && isList ? "none" : "1px dashed #C9C5BB",
-                      // 字号由贴纸实尺推导（`Design.pdf` §5 末段：不能写成固定值，
-                      // 否则小贴纸会裁字）。
+                      background: TONE_COLORS[layout.tone] ?? TONE_COLORS[0],
+                      opacity: 0.6,
                       fontSize: `${noteFontSizePx(geom.noteMm, isList)}px`,
-                      aspectRatio: isList ? "1" : "auto",
-                      minHeight: isList ? 0 : 18,
+                      aspectRatio: "1",
                     }}
+                    data-testid={`tpladmin-editor-stack-${s.sectionId}`}
                   >
-                    {values !== null ? values[i] ?? "" : showSample ? sampleTextFor(s, i) : ""}
+                    {`+${stackExtra}`}
                   </div>
-                ))}
+                )}
               </div>
             </div>
           );
