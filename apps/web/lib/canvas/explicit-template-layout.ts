@@ -513,14 +513,42 @@ export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometr
   //   视口下实测复现：`noteEdge=688.47 > gridEdge=686`，差 2.47px。改成
   //   `rows`/`fits` 与展示用的 `noteMm` 用**同一个**取整后的数，容量与渲染
   //   不再各自算各自的。
-  const noteMm = Math.round(rawNoteMm);
+  let noteMm = Math.round(rawNoteMm);
+  const availableHeightMm = hMm - titleReserveMm(size);
   // ⚠ 2026-09-01（第三轮）独立审查抓到的问题：`noteMm` 夹到 0 只挡住了"负数
   //   贴纸边长"，没挡住"贴纸边长是 0 但容量还算出正数"——`rows =
   //   floor((hMm-reserve)/(0+6))` 分母只剩间距，照样能除出正数行数，
   //   `fits = cols × rows` 跟着报出一个正的容量，等于宣称"这里放得下 N 张
   //   宽度为 0（也就是看不见）的贴纸"。贴纸边长一旦到 0，这块地方就是真放不下
   //   任何一张，容量必须如实归零，不能因为公式分母还没归零就继续往下算。
-  const rows = noteMm <= 0 ? 0 : Math.max(0, Math.floor((hMm - titleReserveMm(size)) / (noteMm + GRID_GAP_MM)));
+  let rows = noteMm <= 0 ? 0 : Math.max(0, Math.floor(availableHeightMm / (noteMm + GRID_GAP_MM)));
+  // ⚠ 2026-09-01（第五轮，独立审查驳回"跳过测试"那版之后）：`noteMm` 完全是
+  //   按*宽度*（区块宽度 ÷ cols）倒推的，从没被高度约束过——区块偏矮、列数偏多
+  //   时（人类实测：A4 纸配上默认区块高选 2 列），按宽度算出的贴纸边长可能比
+  //   `availableHeightMm` 还高，`rows` floor 成 0。`visibleNoteCount` 在有真实
+  //   数据时会强制至少展示 1 条（`Math.max(1, …)`，见该函数文档），于是那 1 条
+  //   按"宽度版" `noteMm` 画出来的贴纸，天生比这块地方的可用高度还高，必然被
+  //   `overflow-hidden` 腰斩——不是"渲染没跟上容量算法"，是容量算法自己从没管过
+  //   高度这件事。跳过测试断言只是把这个真回归的可见度调低，独立审查驳回是对的。
+  //
+  //   真正的修法：`rows` 按宽度版 `noteMm` 算出 0、但这块地方的可用高度仍然是
+  //   正数时，把贴纸边长**夹到可用高度能放下一行的尺寸**（比宽度版更小——不会
+  //   反过来撑大，宽度那边本来就够）。这样强制展示的那 1 条（以及同一行内最多
+  //   `cols` 条）用的是真正塞得进这块地方的尺寸，不再必然溢出。仍然放不下时
+  //   （`availableHeightMm` 本身就 ≤ 0，或扣掉间距后 ≤ 0）保持 `rows=0`——
+  //   如实拒绝，不是硬把负数/零尺寸的贴纸也算成"放得下"。
+  if (rows === 0 && noteMm > 0) {
+    // ⚠ 这里必须 `Math.floor`，不能 `Math.round`——取整前的第四轮教训刚发生过：
+    //   四舍五入可能把这个"保证塞得下"的尺寸向上调，调过头就正好撞回同一类
+    //   "算出来的尺寸比真实可用空间还大一点点"的回归（实测：round 出来的值会让
+    //   `noteMm+GRID_GAP_MM` 比 `availableHeightMm` 多出零点几 mm）。往下取整
+    //   保证这个尺寸 + 间距永远不超过可用高度，宁可贴纸小一圈，不能再让它溢出。
+    const heightConstrainedNoteMm = Math.floor(availableHeightMm - GRID_GAP_MM);
+    if (heightConstrainedNoteMm > 0 && heightConstrainedNoteMm < noteMm) {
+      noteMm = heightConstrainedNoteMm;
+      rows = 1;
+    }
+  }
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),

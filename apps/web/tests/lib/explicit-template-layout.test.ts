@@ -321,6 +321,52 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.noteMm).toBe(Math.round((expectedNoteGridWidthMm - 6 * 4) / 5));
   });
 
+  /**
+   * 2026-09-01（第五轮，独立审查驳回"跳过测试"那版之后）：A4 纸配上较小区块选
+   * 2 列时，按*宽度*倒推的贴纸边长比这块地方的可用高度还高，`rows` floor 成 0，
+   * `visibleNoteCount` 又会强制展示至少 1 条——那 1 条天生比可用高度还高，
+   * 必然被裁。真正的修法：`rows` 按宽度版尺寸算出 0、但可用高度仍是正数时，
+   * 把贴纸边长夹到"能放下一行"的高度版尺寸。这组钉子直接复现人类实测撞到的
+   * 那组参数（A4、cols=2、默认区块高 h=3），不是编一组凑巧触发的输入。
+   */
+  describe("rows 按宽度算出 0、但可用高度仍是正数时，贴纸边长夹到高度能放下一行的尺寸", () => {
+    it("A4 纸 + 2 列 + h=3（真实复现的那组参数）：rows/fits 不再是 0，noteMm 比宽度版更小", () => {
+      const g = sectionGeometryMm({ w: 6, h: 3, cols: 2, gridCols: 12, size: "A4" });
+      // 按宽度算出的原始值（不夹高度）应该确实超过这块地方的可用高度——
+      // 这条钉子首先确认"会触发这条分支"，不是巧合绕过了它。
+      const wMm = (6 / 12) * contentMmFor("A4").w - 6;
+      const rawWidthNoteMm = Math.round(
+        Math.min(MAX_NOTE_MM, (wMm - blockHorizontalChromeMm("A4") - 6) / 2),
+      );
+      const hMm = (3 / 8) * contentMmFor("A4").h - 6;
+      const availableHeightMm = hMm - titleReserveMm("A4");
+      expect(rawWidthNoteMm + GRID_GAP_MM).toBeGreaterThan(availableHeightMm);
+
+      // 夹完之后：真的放得下——贴纸边长 + 一道间距不超过可用高度，不是继续
+      // 硬报"放得下"却量出来还是超的。
+      expect(g.rows).toBeGreaterThanOrEqual(1);
+      expect(g.fits).toBeGreaterThanOrEqual(1);
+      expect(g.noteMm).toBeLessThan(rawWidthNoteMm);
+      expect(g.noteMm + GRID_GAP_MM).toBeLessThanOrEqual(availableHeightMm);
+    });
+
+    it("可用高度本身就 ≤ 0（区块太矮，标题预留都不够）时，不产出负数/零尺寸也算「放得下」——rows 仍如实是 0", () => {
+      const g = sectionGeometryMm({ w: 6, h: 1, cols: 2, gridCols: 12, size: "A4" });
+      expect(g.rows).toBe(0);
+      expect(g.fits).toBe(0);
+    });
+
+    it("正常情况（可用高度本来就够）不受这条新逻辑影响——noteMm 仍是宽度版原值，不会被误夹小", () => {
+      const g = sectionGeometryMm({ w: 6, h: 8, cols: 2, gridCols: 12, size: "A4" });
+      const wMm = (6 / 12) * contentMmFor("A4").w - 6;
+      const expectedNoteMm = Math.round(
+        Math.min(MAX_NOTE_MM, (wMm - blockHorizontalChromeMm("A4") - 6) / 2),
+      );
+      expect(g.noteMm).toBe(expectedNoteMm);
+      expect(g.rows).toBeGreaterThan(1);
+    });
+  });
+
   it("贴纸网格可用宽度真的扣了区块自己的内边距/边框——同一区块宽度下，算出的 noteMm 比"
     + "不扣内边距的旧公式更小（人类实测回归钉子：便利贴右侧被区块外壳遮住一半）", () => {
     const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
