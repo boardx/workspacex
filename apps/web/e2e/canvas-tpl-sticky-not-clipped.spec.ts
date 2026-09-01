@@ -138,9 +138,13 @@ for (const paperSize of ["A1", "A3", "A4"] as const) {
     //   点击"看起来生效了"就信。
     for (const cols of [2, 3] as const) {
       await page.getByTestId(`tpladmin-editor-cols-${cols}`).click();
-      // 区块「元信息」行会显示 `${cols} 列 · ${max} 条`——切换生效的直接证据，
-      // 不是猜按钮点了就一定生效。
-      await expect(block).toContainText(`${cols} 列`);
+      // ⚠ 确认切换生效不能读区块自己的元信息行——那行文字在"装不下"（超出容量）
+      //   时会被换成「装不下：N 条 / 位置只够 M 条」的警告文案，压根不含"N 列"
+      //   这几个字（本条用例故意塞了 12 条数据逼近容量边界，切到 2 列时很容易
+      //   真的触发这个分支）。改读右栏「贴纸实尺 …这块地方 N列 × M行」那一行
+      //   （`tpladmin-editor-col-note`）——它是 `layout.cols` 的直接展示，
+      //   不随是否超出容量变来变去。
+      await expect(page.getByTestId("tpladmin-editor-col-note")).toContainText(`${cols} 列`);
 
       for (const viewport of [{ width: 900, height: 800 }, { width: 1920, height: 1080 }] as const) {
         await page.setViewportSize(viewport);
