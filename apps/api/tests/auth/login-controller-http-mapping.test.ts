@@ -81,6 +81,7 @@ function makeController(sessions: SessionTokenStore): AuthController {
 async function throughFilter(exception: unknown): Promise<{ status: number; body: unknown }> {
   const filter = new AllExceptionsFilter(
     { info: () => undefined, error: () => undefined } as any,
+    { record: async () => undefined } as any,
   );
   let status = 0;
   let body: unknown;
