@@ -1,6 +1,7 @@
 /**
  * F20 -- session-store failure during login must become `AUTH_SERVICE_UNAVAILABLE`, never a
- * raw exception.
+ * raw exception -- and `login()`'s catch must stay NARROW: it translates
+ * `SessionStoreUnavailableError` specifically, and rethrows anything else unchanged.
  *
  * ## Real incident this pins down
  *
@@ -11,20 +12,37 @@
  * -- the contract has always listed `AUTH_SERVICE_UNAVAILABLE` as a `login` failure reason,
  * but nothing on this path ever produced it.
  *
+ * ## Revision, 2026-09-01 (PR #2440 independent review, finding #1)
+ *
+ * The first version of this fix (and this file) caught ANY error from `sessions.issue()` and
+ * translated it. That is too wide: a programming bug in the adapter would also get relabelled
+ * "the store is down". The fix moved the classification into the infrastructure adapter
+ * (`RedisSessionTokenStore`'s `isRecognisedConnectionFailure`, which throws the typed
+ * `SessionStoreUnavailableError` only for recognised connection-class failures); `login()`
+ * now catches only that type. This file's counter-evidence tests (below) exist because the
+ * review's finding #2 named exactly this gap: the original suite only proved "any Error gets
+ * wrapped", which would pass an implementation that is too permissive just as easily as a
+ * correct one.
+ *
  * ## Fully-faked deps, not the real Redis stack
  *
  * The other F20 login suites (`login-password-auth.test.ts`, `login-lockout-ratelimit.test.ts`)
  * boot the real Postgres + Redis stack, which is the right call when the thing under test is
- * an actual integration boundary. Here the thing under test is a single catch block around one
- * call -- pointing a real `RedisSessionTokenStore` at an unreachable host would exercise
- * ioredis's own (unbounded, retry-with-backoff) reconnection behaviour, which is not what this
- * test is about and would make it slow and address-dependent. A fake `SessionTokenStore` whose
- * `issue()` rejects gives the same "the port throws" fact deterministically and fast.
+ * an actual integration boundary. Here the thing under test is `login()`'s own catch clause --
+ * pointing a real `RedisSessionTokenStore` at an unreachable host would exercise ioredis's own
+ * (unbounded, retry-with-backoff) reconnection behaviour, which is not what this test is about
+ * and would make it slow and address-dependent. A fake `SessionTokenStore` whose `issue()`
+ * throws exactly what the real adapter would throw (`SessionStoreUnavailableError` for the
+ * recognised case, a plain `Error` for the unrecognised one) gives the same facts
+ * deterministically and fast. `RedisSessionTokenStore`'s own classifier
+ * (`isRecognisedConnectionFailure`) is exercised separately, against the literal ioredis error
+ * shapes, in `redis-session-token-store-error-classification.test.ts`.
  */
 import { describe, expect, it } from "vitest";
 import { login, type LoginDeps } from "../../src/application/auth/login";
 import { AuthError } from "../../src/application/auth/errors";
 import type { CredentialRow, SessionTokenStore } from "../../src/application/auth/ports";
+import { SessionStoreUnavailableError } from "../../src/application/auth/ports";
 
 const EMAIL = "session-store-down@f20.test";
 const PASSWORD = "correct-horse-battery-staple";
@@ -80,7 +98,9 @@ function fakeDeps(overrides: Partial<LoginDeps> = {}): LoginDeps {
       record: async () => undefined,
     },
     sessions: fakeSessions(async () => {
-      throw new Error("Connection is closed."); // the real ioredis message, reproduced verbatim
+      // What the real adapter throws for the RECOGNISED case (see the classifier's own test
+      // file for what makes a raw ioredis error recognised in the first place).
+      throw new SessionStoreUnavailableError(new Error("Connection is closed."));
     }),
     tokens: {
       sessionId: () => "sess-fake",
@@ -95,7 +115,7 @@ function fakeDeps(overrides: Partial<LoginDeps> = {}): LoginDeps {
 }
 
 describe("F20 login -- session-store failure surfaces as AUTH_SERVICE_UNAVAILABLE, not a raw exception", () => {
-  it("a rejecting SessionTokenStore.issue() becomes AuthError(AUTH_SERVICE_UNAVAILABLE)", async () => {
+  it("SessionTokenStore.issue() throwing SessionStoreUnavailableError becomes AuthError(AUTH_SERVICE_UNAVAILABLE)", async () => {
     await expect(login(fakeDeps(), { email: EMAIL, password: PASSWORD }, FIXED_DEVICE))
       .rejects.toSatisfy((e: unknown) => e instanceof AuthError && e.reason === "AUTH_SERVICE_UNAVAILABLE");
   });
@@ -108,6 +128,13 @@ describe("F20 login -- session-store failure surfaces as AUTH_SERVICE_UNAVAILABL
       expect(e).toBeInstanceOf(AuthError);
       expect((e as AuthError).reason).not.toContain("Connection");
     }
+  });
+
+  it("counter-evidence (review finding #2): an UNRECOGNISED error from issue() is NOT translated -- it passes through as-is, so it still reaches AllExceptionsFilter's internal_error bucket instead of being mislabelled 'service unavailable'", async () => {
+    const bug = new TypeError("Cannot read properties of undefined (reading 'foo')");
+    const deps = fakeDeps({ sessions: fakeSessions(async () => { throw bug; }) });
+
+    await expect(login(deps, { email: EMAIL, password: PASSWORD }, FIXED_DEVICE)).rejects.toBe(bug);
   });
 
   it("control: with a working session store the same deps produce a real session (proves the fake is otherwise a faithful stand-in)", async () => {
