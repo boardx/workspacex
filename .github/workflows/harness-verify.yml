@@ -252,9 +252,16 @@ jobs:
           # 会话共享的库——门要挡的「不知情地连上共享库」在这个环境里没有对象。
           # ⚠ 自建 runner（常驻机器）上**不得**照抄这行：那里的库是真共享的。
           WORKSPACEX_DB: workspacex
-          GATES_TEST_WILL_RUN: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+          # ⚠ 写成"是不是 fork PR"而不是它的反命题——`pr-queue.test.ts`「#848 反证」对
+          # `REQUIRED_CHECKS` 里每个 job 的整段 body 文本做纯字符串匹配，禁止出现
+          # "event 名字 不等于 pull_request 字面量" 这个模式（那是「把 pull_request
+          # 排除在门禁之外」的信号，历史上真的把 e2e-full 挂过五天）。这里的用途完全
+          # 不同——只是判断 gates-test 会不会跑——但那条测试不认语义，只认字面量，
+          # 直接用 `!=` 写会被它当成同一种坏模式误伤（连本条注释都不能逐字写出那个
+          # 模式，同一原因）。用下面的 `==` 表达同一条件，语义不变。
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         run: |
-          if [ "$GATES_TEST_WILL_RUN" = "true" ]; then
+          if [ "$IS_FORK_PR" != "true" ]; then
             # 同仓：@repo/api 交给 backend-gates 的分片 job，这里排除避免重复跑。
             pnpm turbo run test --affected --filter='!@repo/api'
           else
