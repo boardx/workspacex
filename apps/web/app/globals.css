@@ -414,3 +414,13 @@
     @apply my-3 border-border-subtle;
   }
 }
+
+/* IconRail 短视口滚动段：隐藏滚动条但保留滚动（见 components/shell/icon-rail.tsx） */
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
