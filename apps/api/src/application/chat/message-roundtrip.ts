@@ -102,7 +102,11 @@ export async function acceptHumanMessage(
     /**
      * 消息 + 排队 run **已落库**之后、自动命名**之前**的钩子——调用方在这里 `kick`
      * 执行器（见下方 `autoTitleFromFirstMessage` 头注「2026-09-02 更新」）。
-     * 只在真正新受理时调用；幂等命中（同一 clientMessageId 重发）不调。
+     * 真正新受理时调用一次；幂等命中（同一 clientMessageId 重发）也会调（见下方
+     * `if (existing)` 分支自己的注——第一次请求落库成功但 kick 丢失时，这是唯一能把
+     * 卡住的 queued run 捞回来的路径，`kick` 本身对已在跑/已完成的 run 是 no-op）。
+     * 不会调的只有「起名」那一半：起名逻辑在这个钩子之后单独跑，幂等命中直接
+     * return，走不到那一步。
      */
     onAccepted?: () => void;
   },
@@ -123,6 +127,17 @@ export async function acceptHumanMessage(
     if (!samePayload(existing, { text: input.text, selectedAgentId: input.agentId })) {
       throw new MessageIdempotencyConflictError();
     }
+    // 2026-09-02 补（独立 review 抓到的回归）：幂等命中也要 kick。上面头注「只在真正
+    // 新受理时调用」说的是"起名"那一半——起名确实只该跑一次，这里也确实没跑。但
+    // `onAccepted` 现在**唯一**承载了 kick，而 `queued` run 的记录合同就是"下一条消息
+    // 的 kick 会捞回来"（`ports.ts` `reclaimStaleRunning` 头注）：第一次请求落库成功但
+    // `kick` 本身丢失/失败（进程死在落库和 kick 之间的那一小段），旧版本靠"调用方在
+    // accept 成功后无条件 kick"兜底——这个 return 分支绕过了新版本唯一的 kick 调用点，
+    // 相同 clientMessageId 的重试因此不再有机会把卡住的 queued run 捞回来。
+    // kick 本身是幂等的重新触发一次 `AgentRunExecutor.tick()`（`claimQueued` 只认
+    // `status='queued'` 的行，run 已经在跑或已完成时这次 tick 对它是 no-op），所以在
+    // 这里也调用它不会有副作用，只会补上原本可能丢失的那一次。
+    input.onAccepted?.();
     return existing;
   }
 
