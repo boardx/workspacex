@@ -30,16 +30,16 @@ export function PlanConfirmGate(
   if (!gate.required) return null;
 
   return (
-    // issue #2476：卡片边框原来是 `border-primary/40`，跟自己那颗 `tone="warning"`
-    // 徽标语义不一致（`--primary` 现在是近黑，不是警示色）——改成 `border-warning/40`
-    // 让边框颜色和徽标说的是同一件事。
-    <Card data-testid={PLAN_CONFIRM_GATE_TESTID} className="border-warning/40">
+    // issue #2476：整块换成 `--warning-tint` 底色横幅（新增 token，与 `--accent`/
+    // `--ai-tint` 同一套"浅底+深字"模式），不再是白底+一条边框——警示级别的信息
+    // 应该整块视觉上"跳出来"，不只是边框颜色对不对得上徽标这件事。
+    <Card data-testid={PLAN_CONFIRM_GATE_TESTID} className="overflow-hidden border-warning/30 bg-warning-tint">
       <CardContent className="flex flex-col gap-2 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-13 font-semibold">确认后执行</span>
           <Badge tone="warning" className="text-10">需确认</Badge>
+          <span className="text-13 font-semibold text-warning-tint-foreground">确认后执行</span>
         </div>
-        <p className="text-12 text-muted-foreground">{gate.reason}</p>
+        <p className="text-12 text-warning-tint-foreground/80">{gate.reason}</p>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="primary" data-testid={PLAN_CONFIRM_RUN_TESTID} onClick={onConfirmRun}>
             确认并执行
