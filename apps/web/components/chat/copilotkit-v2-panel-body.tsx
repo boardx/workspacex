@@ -1653,7 +1653,7 @@ export function CopilotKitV2PanelBody({
           {/* issue #2096 —— 此前按钮曾挂在从消息区一路延伸到 composer 的最外层包装里，
               与发送区重叠；后来搬进滚动容器当 `absolute` 子节点，又变成"跟着内容一起
               滚走"（2026-09-02 人类实测：箭头压在气泡正中，见上方 `programmaticScrollRef`
-              头注 ①）。现在它与滚动容器**并列**在同一个 `relative` 包装层里：`bottom-3`
+              头注 ①）。现在它与滚动容器并列在同一个 `relative` 包装层里：`bottom-3`
               相对消息可视区自身，既不随 composer 高度漂移，也不随内容滚动。水平方向
               贴底居中（`left-1/2 -translate-x-1/2`，Slack/ChatGPT 同款"回到最新"位置）。
               只在离开底部且确实有消息可看时出现，不在历史回读骨架屏/空态上叠加一个
