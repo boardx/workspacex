@@ -289,6 +289,12 @@ function shrinkTextboxToFit(tb: Textbox, maxH: number, minSize = 7): void {
   }
 }
 
+/** `data.fitHeight` of a `text` node (header field values), when set and sane. */
+function textFitHeight(opts: Record<string, unknown>): number | undefined {
+  const v = opts['fitHeight'];
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined;
+}
+
 /**
  * Textbox for a fixed-size sticky note: starts at 13px and shrinks (down to
  * 7px) until the wrapped text fits the card height. CJK wraps per grapheme.
@@ -409,19 +415,29 @@ export class FlowNode extends Group {
     } else if (data.shape === 'text') {
       // Borderless plain text (chart titles, axis labels, header fields).
       const opts = data.data ?? {};
-      children = [
-        new Textbox(data.label, {
-          width: Math.max(20, data.width),
-          fontSize: (opts['fontSize'] as number) ?? 13,
-          fontWeight: (opts['bold'] ? 'bold' : 'normal') as string,
-          fontFamily: FONT_FAMILY,
-          fill: (opts['color'] as string) ?? INK_SOFT,
-          textAlign: ((opts['align'] as string) ?? 'center') as 'left' | 'center',
-          editable: false,
-          left: 0,
-          top: 0,
-        }),
-      ];
+      const textbox = new Textbox(data.label, {
+        width: Math.max(20, data.width),
+        fontSize: (opts['fontSize'] as number) ?? 13,
+        fontWeight: (opts['bold'] ? 'bold' : 'normal') as string,
+        fontFamily: FONT_FAMILY,
+        fill: (opts['color'] as string) ?? INK_SOFT,
+        textAlign: ((opts['align'] as string) ?? 'center') as 'left' | 'center',
+        editable: false,
+        left: 0,
+        top: 0,
+        // `wrap: 'grapheme'` (template header field VALUES): CJK text has no
+        // spaces, so fabric's default word-wrap treats a whole sentence as
+        // one unbreakable word and paints it straight through the neighbour
+        // cell. Opt-in per node so chart titles/axis labels keep their
+        // (Latin, space-separated) default wrapping untouched.
+        ...(opts['wrap'] === 'grapheme' ? { splitByGrapheme: true } : {}),
+      });
+      // `fitHeight`: shrink the font until the wrapped text fits this many px
+      // (same mechanism as sticky notes) so a long value stays within its
+      // header row instead of overlapping the row below (same 7px floor as stickies).
+      const fitHeight = textFitHeight(opts);
+      if (fitHeight !== undefined) shrinkTextboxToFit(textbox, fitHeight);
+      children = [textbox];
     } else {
       const fill = (data.data?.['color'] as string) ?? defaultFillFor(data.shape);
       const stroke = (data.data?.['stroke'] as string) ?? NODE_STROKE;
@@ -531,6 +547,14 @@ export class FlowNode extends Group {
         tb.set({ text, fontSize: baseFontSize });
         tb.initDimensions();
         shrinkTextboxToFit(tb, this.height - (isMindmapNode ? 10 : 12));
+        tb.set({ left: 0, top: 0 });
+      } else if (this.shape === 'text' && textFitHeight(this.data ?? {}) !== undefined) {
+        // Header field value edited in place: re-fit exactly like a sticky —
+        // reset to the base size, then shrink until it fits the row again.
+        const baseFontSize = (this.data?.['fontSize'] as number) ?? 13;
+        tb.set({ text, fontSize: baseFontSize });
+        tb.initDimensions();
+        shrinkTextboxToFit(tb, textFitHeight(this.data ?? {})!);
         tb.set({ left: 0, top: 0 });
       } else {
         tb.set('text', text);

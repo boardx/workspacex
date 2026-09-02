@@ -307,15 +307,31 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
       data: { role: 'headerBox', locked: true, color: '#ffffff', stroke: INK },
     });
     const perRow = spec.fieldsPerRow ?? Math.min(5, spec.fields.length);
-    const LABEL_W = 96;
-    const VALUE_W = 150;
     const rows = Math.ceil(spec.fields.length / perRow);
+    const cellW = hr.w / perRow;
+    const rowPitch = hr.h / (rows + 1);
+    // Every header cell is `cellW` wide; the label box and the value box
+    // must both fit INSIDE it. The classic proportions (label 96 + gap 6 +
+    // value 150, 24px left inset) are kept whenever the cell is wide enough
+    // (the hand-tuned built-in specs: persona 1440/5 = 288 → value 150
+    // exactly as before). Narrower cells (org templates whose header wraps
+    // into 6 fields per row, ~253px each) shrink the VALUE box so it ends
+    // before the next cell's label starts instead of running underneath it —
+    // the "姓名 value drawn over the 性别 label" symptom.
+    const CELL_INSET_L = 24;
+    const CELL_INSET_R = 12;
+    const LABEL_GAP = 6;
+    const LABEL_W = Math.min(96, Math.max(48, Math.floor(cellW * 0.4)));
+    const VALUE_W = Math.max(40, Math.min(150, cellW - CELL_INSET_L - LABEL_W - LABEL_GAP - CELL_INSET_R));
+    // A value wraps per grapheme (CJK has no spaces to break on) into its
+    // box; the renderer then shrinks the font until the wrapped lines fit
+    // the row pitch, so a long value can never spill over the row below.
+    const VALUE_FIT_H = Math.max(16, rowPitch - 6);
     spec.fields.forEach((key, i) => {
       const row = Math.floor(i / perRow);
       const col = i % perRow;
-      const cellW = hr.w / perRow;
-      const cellLeft = hr.x - hr.w / 2 + 24 + col * cellW;
-      const cy = hr.y - hr.h / 2 + (hr.h / (rows + 1)) * (row + 1);
+      const cellLeft = hr.x - hr.w / 2 + CELL_INSET_L + col * cellW;
+      const cy = hr.y - hr.h / 2 + rowPitch * (row + 1);
       if (!bg) nodes.push({
         id: `tpl-flabel-${i}`,
         label: `${key}:`,
@@ -331,16 +347,18 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
         id: `tpl-field-${i}`,
         label: value,
         shape: 'text',
-        x: cellLeft + LABEL_W + 6 + VALUE_W / 2,
+        x: cellLeft + LABEL_W + LABEL_GAP + VALUE_W / 2,
         y: cy,
         width: VALUE_W,
-        height: 20,
+        height: VALUE_FIT_H,
         data: {
           role: 'field',
           key,
           fontSize: 13,
           color: value === EMPTY_FIELD ? LINE : INK_SOFT,
           align: 'left',
+          wrap: 'grapheme',
+          fitHeight: VALUE_FIT_H,
         },
       });
     });

@@ -14,6 +14,7 @@ import {
   cellSizeForCapacity,
   A0_FRAME,
   DEFAULT_CAPACITY,
+  HEADER_ROW_PITCH,
   type AutoLayoutSectionInput,
 } from "@/lib/canvas/auto-template-layout";
 
@@ -263,6 +264,32 @@ describe("buildAutoTemplateSpec —— 生成物", () => {
         ],
       });
       const headerBottom = spec.headerRect!.y + spec.headerRect!.h / 2;
+      for (const s of spec.sections) {
+        expect(s.y - s.h / 2).toBeGreaterThanOrEqual(headerBottom);
+      }
+    });
+
+    /**
+     * 2026-09-02：表头带高度随字段行数长高。此前恒 90px——用户画像 9 个字段、5 每行
+     * = 2 行，挤在 90px 里行距只剩 30px，字段值一换行就上下两行互相压住；与显式布局
+     * 同一条规则（`HEADER_ROW_PITCH` 单一事实源），正文分区照样整体让位不重叠。
+     */
+    it("表头字段要换行时表头带按行数长高，正文分区仍整体下移到表头带之下", () => {
+      const names = ["姓名", "性别", "年龄", "区域", "教育水平", "职位", "行业", "家庭情况", "收入水平"];
+      const { spec } = buildAutoTemplateSpec({
+        key: "persona-auto",
+        displayName: "用户画像",
+        sections: [
+          ...names.map((name, i) => ({ sectionId: `f${i}`, name, order: i, required: false, capacity: null, type: "短文本" as const })),
+          ...defs(6).map((d, i) => ({ ...d, order: names.length + i })),
+        ],
+      });
+      expect(spec.fieldsPerRow).toBe(5);
+      const rows = Math.ceil(names.length / spec.fieldsPerRow!);
+      expect(rows).toBe(2);
+      expect(spec.headerRect!.h).toBeGreaterThanOrEqual((rows + 1) * HEADER_ROW_PITCH);
+      const headerBottom = spec.headerRect!.y + spec.headerRect!.h / 2;
+      expect(spec.sections).toHaveLength(6);
       for (const s of spec.sections) {
         expect(s.y - s.h / 2).toBeGreaterThanOrEqual(headerBottom);
       }
