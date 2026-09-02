@@ -442,13 +442,22 @@ const server = createServer((req, res) => {
     // F962：试跑协议要求恰好一个 ```run_script 围栏，与下面「回显原文」的通用分支
     // 互斥——见 `isTrialRunRequest` 头注。命中时其余回显前缀/开关全部让路，因为
     // `extractScript` 只认围栏内容，混进去的前缀文字只会污染脚本语法。
+    const chatEcho = `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
+    // #2514：agent 默认加载组织全部已启用 skill 之后，任何一个有已启用 skill 的组织、
+    // 任何一次接了沙箱的 chat run 都带着 `RUN_SCRIPT_PROTOCOL_PROMPT`——这条分支不再
+    // 只在"试跑"场景命中，core-loop 8b / fullstack-smoke 那种普通聊天也会走进来。
+    // 于是脚本围栏**接在通用回显之后**而不是替换它：`extractScript` 只认围栏内容
+    // （真栈测试 T3 ① 本来就用"prose + 围栏"的形状），围栏外的回显不污染脚本；而
+    // "回复出自被显式选中的 provider（`agentReplyPrefix`）/ 回显真实收到的 userText"
+    // 这两条既有纪律对带脚本的回复同样成立。试跑场景（`execute-trial-run.ts`）只看
+    // 围栏，前面多一行回显不影响它。
     const fullText = isTrialRunRequest(parsed.messages)
-      ? trialRunScriptReply(echoed)
+      ? `${chatEcho}\n\n${trialRunScriptReply(echoed)}`
       : isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)
       : canvasGuidanceReachedModel(parsed.messages, echoed)
       ? canvasGuidanceReply(echoed)
-      : `${REPLY_PREFIX} ${retrievalEcho}${skillEcho}${l2Echo}${toolTraceEcho}${echoed}`;
+      : chatEcho;
     if (parsed.stream === true) {
       await writeStreamResponse(res, fullText);
       return;
