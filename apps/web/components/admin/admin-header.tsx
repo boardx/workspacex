@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Building2 } from "lucide-react";
+import { Building2, Globe } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useOptionalSession } from "@/components/session/session-provider";
@@ -20,6 +20,18 @@ import { getTokenQuotas } from "@/lib/live-org-admin";
  * 现在：组织名/ID 取自已登录身份（`identity.org`，`resolveIdentity` 的真实字段，见
  * `session-provider.tsx`）；额度条取自 `getTokenQuotas`（F160，`GET
  * /organizations/:orgId/token-quotas`，与「成员配额」tab 同一个真实端点）。
+ *
+ * ## `hideOrgIdentity`（2026-09-02，人类看真实后台截图后原话：「这个 UI 管理的是
+ * 整个平台的数据，而不是当前的这个 boardx 组织，上面这组织是错误的」）
+ *
+ * 「反馈与迭代」这类**运营**模块（导航分组见 `lib/mock/admin.ts` 的「运营」组）不是
+ * 某个组织自己的配置——数据读取仍然按当前登录者所在组织走 RLS（这个仓库今天只有
+ * 一个组织在用，这里不是要打破多租户隔离，只是页面**呈现**不该像「组织：boardx」
+ * 那样暗示这是一项组织级配置。`hideOrgIdentity` 为真时跳过组织名/ID/额度条这一整段
+ * （连带跳过 `getTokenQuotas` 请求——一个不展示的数字没有必要去查），只保留模块徽标，
+ * 换成一个通用的「平台运营」标记。
+ *
+ * ⚠ 默认值是 `false`：不传这个 prop 的模块（总览/成员配额/我的本地……）**一个字节不变**。
  *
  * ## 未设置组织额度 ≠ 0%
  *
@@ -59,10 +71,31 @@ type QuotaState =
   | { kind: "unset" }
   | { kind: "ready"; used: number; budget: number };
 
-export function AdminHeader({ moduleLabel }: { moduleLabel: string }) {
+export function AdminHeader({
+  moduleLabel,
+  hideOrgIdentity,
+}: {
+  moduleLabel: string;
+  /** 见本文件头注「`hideOrgIdentity`」——运营类模块传 `true`，其余不传（默认 `false`）。 */
+  hideOrgIdentity?: boolean;
+}) {
   const session = useOptionalSession();
   const orgId = session?.session?.currentOrgId ?? null;
   const orgName = session?.identity?.org.name ?? null;
+
+  if (hideOrgIdentity) {
+    return (
+      <header data-testid="admin-header" className="flex flex-col gap-3 border-b border-border pb-4">
+        <div className="flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-inverse text-12 font-semibold text-inverse-foreground">
+            <Globe aria-hidden className="h-4 w-4" />
+          </span>
+          <span className="text-14 font-semibold" data-testid="admin-header-platform-label">平台运营</span>
+          <Badge tone="outline" className="ml-1">{moduleLabel}</Badge>
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header data-testid="admin-header" className="flex flex-col gap-3 border-b border-border pb-4">

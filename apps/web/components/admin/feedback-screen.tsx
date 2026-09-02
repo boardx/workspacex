@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
-import { ThumbsUp, Bug, Lightbulb, Loader2, Bot, Puzzle, AppWindow } from "lucide-react";
+import {
+  ThumbsUp, Bug, Lightbulb, Loader2, Bot, Puzzle, AppWindow, ExternalLink, GitPullRequest, RefreshCw,
+} from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,11 +10,14 @@ import { Badge } from "@/components/ui/badge";
 import { ViewModeToggle, type EntityViewMode } from "./view-mode-toggle";
 import { ApiError } from "@/lib/api-client";
 import {
+  commentOnFeedbackGithubIssue,
   getFeedbackCounts,
+  getFeedbackGithubIssue,
   listFeedback,
   triageFeedback,
   voteFeedback,
   type FeedbackCounts,
+  type FeedbackGithubIssueStatus,
   type FeedbackIssueDraft,
   type FeedbackItem,
   type FeedbackKind,
@@ -21,34 +26,39 @@ import {
 import type { UiState } from "@/lib/ui-state";
 
 /**
- * FB-3 —— 后台「反馈与迭代」的**真栈**屏。两列：左软件、右 Agent/Skill。
+ * FB-3 —— 后台「反馈与迭代」的**真栈**屏。**一块看板,按状态分列**。
  *
- * ## 这块屏之前是什么样
+ * ## 这块屏经历过的两次改法
  *
- * 178 行全 mock（`SW_FEEDBACK` / `AGENT_FEEDBACK` / `ITERATION_LOOP` 三个静态常量）
- * 外加一条 `<NoBackendNotice />`，每个按钮都在、点了什么都不会发生。
- * 本次改动把它接到 `GET /feedback` / `PUT /feedback/:id/status` / `GET /feedback/counts`。
+ * ① 178 行全 mock,三个静态常量,每个按钮点了什么都不会发生。
+ * ② FB-3 真栈化:接上 `GET /feedback`,但仍按「产品 / Agent·Skill」分两列——
+ *    这与「一条反馈的状态该往哪走」是两件不相关的事,分列方式选错了维度。
  *
- * ## 两列吃的是**同一条接口的两个 scope**，不是两套数据
+ * ## 2026-09-02(人类看真实后台截图后直接裁决)三件事一起改
  *
- * 左列 = `target.kind === "product"`（导航栏弹层提的），
- * 右列 = `target.kind === "agent" | "skill"`（chat 里对着某个 agent/skill 提的）。
- * 一次 `listFeedback({kind:"org"})` 取回来后在本地按 target 分列——**不是两次请求**：
- * 两次请求之间有写入窗口，于是「本周 12 条」与两列相加对不上，而界面会把那个
- * 不等式直接显示给人看。
+ *   · **合并成一个列表**,产品 / Agent / Skill 不再是分列依据,改成筛选条件——
+ *     「这条反馈是关于什么的」是一个可以叠加/清除的过滤器,不该决定它出现在哪一列。
+ *   · **改成按状态分列的看板**:待处理 / 已进入迭代 / 已修复 / 不做,四列。
+ *     ⚠ 人类原话给的是 backlog/todo/doing/done/archive 五态,这里**收敛成四态**
+ *       ——不是打折扣,是不新增一个游离于 `domain/feedback/product-feedback.ts`
+ *       状态机之外的"todo"。这个反馈流程里从没有"排了优先级但还没人认领"与
+ *       "还没排"的区分需求(待处理就是待处理),新增一个只装样子的状态比没有更糟
+ *       (同本文件「删掉的两个按钮」那条纪律)。四态与既有状态机、DB 约束、
+ *       GitHub issue 开关同步(`triage-feedback.ts` ③)完全对齐,不触碰契约/DB/
+ *       状态机——那些改动的代价与这次 UI 重排不成比例。
+ *     ⚠ **没有拖拽**:卡片从一列挪到另一列,仍然是点"转「X」"按钮(状态机的边),
+ *       不是拖拽改状态。看板≠拖拽——四列本身已经是"看板"最核心的表达(按状态
+ *       分泳道),拖拽只是一种交互手法,这次没有把它当成必需项。
+ *   · **不是「组织」的东西**:见 `admin-header.tsx` 的 `hideOrgIdentity`——本屏
+ *     处理的是运营动作,不该在页头挂一张「组织:boardx」的身份卡,导航入口也
+ *     挪出了「组织」分组(`lib/mock/admin.ts` 的「运营」组)。
  *
- * ## ⚠ 右列**不是**「从消息级评价聚合出来的改进建议」
+ * ## GitHub issue 状态/评论(见 `apps/api/.../triage-feedback.ts` 头注①②③)
  *
- * 那是 `skills.listSuggestions`（F68 已签核契约），它今天**没有任何实现**——
- * 没有表、没有路由（`docs/proposals/PROP-FEEDBACK-LOOP-E2E-001.md` §1.1 逐条实测）。
- * 本屏因此**不渲染那一块**，也不用 mock 顶替它；屏内有一句话说明它还没接地。
- * 用 mock 顶替会让「聚合建议已经在工作」这件不成立的事看起来成立。
- *
- * ## 删掉的两个按钮
- *
- * `[打开迭代看板]` / `[导出]` 已移除。UC-17.6 的 A1/A2 逐字写着「按钮存在，
- * 但点击后无目标屏（原型待补）」——留一个点了会出现「实现者自己设计的看板」的按钮，
- * 比没有按钮更糟：它会被当成已确认的设计继续长。
+ * 卡片上出现的 GitHub 区块只在这条反馈已经建过 issue(`githubIssueUrl !== null`)
+ * 时渲染。开关状态与关联 PR **现查、不落库**(见契约 `getFeedbackGithubIssue`
+ * 头注),因此默认折叠、管理员点「查看 GitHub 状态」才发请求——不随看板一起
+ * 批量拉,避免刷新一次页面就对 GitHub API 发 N 个请求。
  */
 
 const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutral"> = {
@@ -57,6 +67,17 @@ const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutra
   已修复: "primary",
   不做: "neutral",
 };
+
+/**
+ * 看板列的顺序与英文注脚——**纯展示**,不是第二份状态枚举。顺序/文案变了不影响
+ * 任何逻辑;真正的状态集合仍然只在契约 `FeedbackStatus` 里声明一遍。
+ */
+const BOARD_COLUMNS: readonly { readonly status: FeedbackStatus; readonly caption: string }[] = [
+  { status: "待处理", caption: "Backlog" },
+  { status: "已进入迭代", caption: "Doing" },
+  { status: "已修复", caption: "Done" },
+  { status: "不做", caption: "Archived" },
+];
 
 /**
  * 分诊按钮 = **状态机的边**（`domain/feedback/product-feedback.ts` 的 `ALLOWED_TRANSITIONS`）。
@@ -82,7 +103,8 @@ export const NEXT_STATUSES: Record<FeedbackStatus, readonly FeedbackStatus[]> = 
  * （2026-08-30）：确认时会真的往 `boardx/workspacex` 建一个 GitHub issue
  * （见 `apps/api/src/application/feedback/triage-feedback.ts` 头注①,fail closed）。
  * 其余转移(→已修复/待处理,以及已有的→不做)维持原样,只是现在服务端会额外
- * 尽力发一封状态变更邮件——那是纯后端副作用,前端不需要为它多做任何事。
+ * 尽力发一封状态变更邮件、并在这条反馈已经有 issue 时尽力同步它的开关——
+ * 那都是纯后端副作用,前端不需要为它多做任何事。
  */
 const ISSUE_DRAFT_STATUS: FeedbackStatus = "已进入迭代";
 
@@ -103,6 +125,14 @@ function defaultIssueDraft(item: FeedbackItem): FeedbackIssueDraft {
   };
 }
 
+/** 来源筛选——"这条反馈是关于什么的"，不再是分列依据，见文件头。 */
+type SourceFilter = "all" | "product" | "agent" | "skill";
+type KindFilter = "all" | FeedbackKind;
+
+function matchesSource(item: FeedbackItem, filter: SourceFilter): boolean {
+  return filter === "all" || item.target.kind === filter;
+}
+
 type Load =
   | { kind: "loading" }
   | { kind: "ready"; items: readonly FeedbackItem[]; counts: FeedbackCounts | null }
@@ -112,16 +142,14 @@ export function FeedbackScreen({ state }: { state: UiState }) {
   const [load, setLoad] = React.useState<Load>({ kind: "loading" });
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [actionError, setActionError] = React.useState<string | null>(null);
+  const [kindFilter, setKindFilter] = React.useState<KindFilter>("all");
+  const [sourceFilter, setSourceFilter] = React.useState<SourceFilter>("all");
   /**
    * 卡片 / 列表切换（人类 2026-08-15 原话：「卡片也可以切换为列表，需要有这个切换的功能」）。
    *
-   * ⚠ **一个开关管两列**，不是每列一个。两列是同一种 entity（一条反馈）的两个分组，
-   *   让它们各自有视图态，会出现「左列卡片、右列列表」这种没人想要、也没人会去对齐的状态。
-   *   testid 因此是 `admin-feedback-view-toggle-*`（模块级），不是列级。
-   *
-   * ⚠ 这段在 FB-3 真栈化时**一度被我整块丢掉**——重写屏幕时只想着换数据源，
-   *   把一条已经裁过的交互规则连带删了，`admin-feedback-view-toggle.test.tsx` 当场变红。
-   *   记在这里：接后端不是重写界面的许可证。
+   * ⚠ **一个开关管全部四列**，不是每列一个——理由与合并前"一个开关管两列"相同：
+   *   四列是同一种 entity 的四个状态分组，各自有视图态会出现某几列卡片、某几列
+   *   列表这种没人想要、也没人会去对齐的状态。
    */
   const [viewMode, setViewMode] = React.useState<EntityViewMode>("card");
 
@@ -159,8 +187,9 @@ export function FeedbackScreen({ state }: { state: UiState }) {
   };
 
   const items = load.kind === "ready" ? load.items : [];
-  const software = items.filter((f) => f.target.kind === "product");
-  const capability = items.filter((f) => f.target.kind !== "product");
+  const filtered = items.filter(
+    (f) => (kindFilter === "all" || f.kind === kindFilter) && matchesSource(f, sourceFilter),
+  );
 
   return (
     <AdminScreen
@@ -168,8 +197,9 @@ export function FeedbackScreen({ state }: { state: UiState }) {
       moduleLabel="反馈"
       title="反馈与迭代"
       liveBacked
-      intro="两列反馈：左列是对产品本身提的（导航栏「反馈」入口），右列是在对话里对着某个 Agent / Skill 提的。每条都有状态与去向；转「不做」必须写理由。"
-      emptyHint="本组织还没有收到反馈"
+      hideOrgIdentity
+      intro="一块看板，按状态分四列：待处理 / 已进入迭代 / 已修复 / 不做。左上角可按类型、来源筛选；转「不做」必须写理由。"
+      emptyHint="还没有收到反馈"
       errors={{ triage: "分诊失败：状态未变更，反馈已保留可重试" }}
       depFailure="反馈接口不可用，无法读取或分诊。"
       denialReason="分诊仅组织管理员可操作；任意成员都能提反馈、并看到标题与票数。"
@@ -191,7 +221,7 @@ export function FeedbackScreen({ state }: { state: UiState }) {
 
         {load.kind === "ready" && (
           <>
-            {/* 状态分布。⚠ 五个数来自一次查询（契约 getFeedbackCounts），不是前端 filter 出来的 */}
+            {/* 状态分布。⚠ 四个数来自一次查询（契约 getFeedbackCounts），不是前端 filter 出来的 */}
             <section className="flex flex-col gap-2" data-testid="admin-feedback-counts">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-14 font-semibold">状态分布</h2>
@@ -216,45 +246,44 @@ export function FeedbackScreen({ state }: { state: UiState }) {
               </Card>
             </section>
 
+            <FeedbackFilters
+              kindFilter={kindFilter}
+              onKindFilterChange={setKindFilter}
+              sourceFilter={sourceFilter}
+              onSourceFilterChange={setSourceFilter}
+              total={items.length}
+              visible={filtered.length}
+            />
+
             {actionError !== null && (
               <p className="text-12 text-destructive" data-testid="admin-feedback-action-error">
                 操作没有生效（{actionError}）。状态未变更。
               </p>
             )}
 
-            <div className="grid gap-5 lg:grid-cols-2">
-              <FeedbackColumn
-                testid="admin-feedback-software"
-                containerPrefix="admin-feedback-sw"
-                viewMode={viewMode}
-                heading="软件反馈"
-                subheading="对产品本身提的"
-                emptyText="还没有人对产品本身提过反馈。"
-                items={software}
-                busyId={busyId}
-                onVote={(f) => void act(() => voteFeedback(f.id, !f.votedByMe), f.id)}
-                onTriage={(f, next, reason, issueDraft) =>
-                  void act(() => triageFeedback(f.id, next, reason, issueDraft ?? null), f.id)
-                }
-              />
-              <FeedbackColumn
-                testid="admin-feedback-capability"
-                containerPrefix="admin-feedback-agent"
-                viewMode={viewMode}
-                heading="Agent / Skill 反馈"
-                subheading="在对话里对着某个 Agent / Skill 提的"
-                emptyText="还没有人在对话里对某个 Agent 或 Skill 提过反馈。"
-                items={capability}
-                busyId={busyId}
-                onVote={(f) => void act(() => voteFeedback(f.id, !f.votedByMe), f.id)}
-                onTriage={(f, next, reason, issueDraft) =>
-                  void act(() => triageFeedback(f.id, next, reason, issueDraft ?? null), f.id)
-                }
-              />
+            <div
+              className="grid gap-4 lg:grid-cols-4"
+              data-testid="admin-feedback-kanban"
+            >
+              {BOARD_COLUMNS.map(({ status, caption }) => (
+                <FeedbackColumn
+                  key={status}
+                  status={status}
+                  caption={caption}
+                  viewMode={viewMode}
+                  items={filtered.filter((f) => f.status === status)}
+                  busyId={busyId}
+                  onVote={(f) => void act(() => voteFeedback(f.id, !f.votedByMe), f.id)}
+                  onTriage={(f, next, reason, issueDraft) =>
+                    void act(() => triageFeedback(f.id, next, reason, issueDraft ?? null), f.id)
+                  }
+                />
+              ))}
             </div>
 
             {/*
-              诚实登记缺口，不用 mock 顶替。见文件头「右列不是聚合建议」。
+              诚实登记缺口，不用 mock 顶替。见文件头「右列不是聚合建议」（合并前的说法，
+              现在是"看板不是聚合建议"，缺口本身没变）。
             */}
             <p className="text-11 text-muted-foreground" data-testid="admin-feedback-aggregation-gap">
               还没有的一块：把 chat 里的 👍/👎（已落库）按结构性判据聚合成「含具体改动的改进建议」，
@@ -269,21 +298,68 @@ export function FeedbackScreen({ state }: { state: UiState }) {
   );
 }
 
-function FeedbackColumn({
-  testid, containerPrefix, viewMode, heading, subheading, emptyText, items, busyId, onVote, onTriage,
+const SOURCE_FILTER_OPTIONS: readonly { readonly value: SourceFilter; readonly label: string }[] = [
+  { value: "all", label: "全部来源" },
+  { value: "product", label: "产品" },
+  { value: "agent", label: "Agent" },
+  { value: "skill", label: "Skill" },
+];
+
+function FeedbackFilters({
+  kindFilter, onKindFilterChange, sourceFilter, onSourceFilterChange, total, visible,
 }: {
-  testid: string;
-  /**
-   * 内容容器 testid 的前缀（`admin-feedback-sw` / `admin-feedback-agent`）。
-   * ⚠ 与 `testid`（section 级）**不同名**，且这两个前缀是**既有测试锚定的旧名**——
-   *   FB-3 换数据源不是给 testid 改名的机会，改名会让一批与本次改动无关的断言变红，
-   *   而那批红看起来像是功能坏了。
-   */
-  containerPrefix: string;
+  kindFilter: KindFilter;
+  onKindFilterChange: (v: KindFilter) => void;
+  sourceFilter: SourceFilter;
+  onSourceFilterChange: (v: SourceFilter) => void;
+  total: number;
+  visible: number;
+}) {
+  return (
+    <section className="flex flex-wrap items-center gap-3" data-testid="admin-feedback-filters">
+      <div className="flex flex-wrap items-center gap-1" role="group" aria-label="按类型筛选">
+        {(["all", "缺陷", "需求"] as const).map((v) => (
+          <Button
+            key={v}
+            size="xs"
+            variant={kindFilter === v ? "primary" : "outline"}
+            aria-pressed={kindFilter === v}
+            onClick={() => onKindFilterChange(v)}
+            data-testid={`admin-feedback-filter-kind-${v}`}
+          >
+            {v === "all" ? "全部类型" : v}
+          </Button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-1" role="group" aria-label="按来源筛选">
+        {SOURCE_FILTER_OPTIONS.map(({ value, label }) => (
+          <Button
+            key={value}
+            size="xs"
+            variant={sourceFilter === value ? "primary" : "outline"}
+            aria-pressed={sourceFilter === value}
+            onClick={() => onSourceFilterChange(value)}
+            data-testid={`admin-feedback-filter-source-${value}`}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      {(kindFilter !== "all" || sourceFilter !== "all") && (
+        <span className="text-11 text-muted-foreground" data-testid="admin-feedback-filter-summary">
+          显示 {visible} / {total} 条
+        </span>
+      )}
+    </section>
+  );
+}
+
+function FeedbackColumn({
+  status, caption, viewMode, items, busyId, onVote, onTriage,
+}: {
+  status: FeedbackStatus;
+  caption: string;
   viewMode: EntityViewMode;
-  heading: string;
-  subheading: string;
-  emptyText: string;
   items: readonly FeedbackItem[];
   busyId: string | null;
   onVote: (item: FeedbackItem) => void;
@@ -294,21 +370,20 @@ function FeedbackColumn({
     issueDraft?: FeedbackIssueDraft | null,
   ) => void;
 }) {
+  const testid = `admin-feedback-column-${status}`;
   return (
     <section className="flex flex-col gap-2" data-testid={testid}>
-      <h2 className="text-14 font-semibold">
-        {heading} <span className="text-11 font-normal text-muted-foreground">· {subheading} · {items.length} 条</span>
+      <h2 className="flex items-baseline gap-1.5 text-13 font-semibold">
+        <Badge tone={STATUS_TONE[status]}>{status}</Badge>
+        <span className="text-10 font-normal uppercase tracking-wide text-muted-foreground">{caption}</span>
+        <span className="text-11 font-normal text-muted-foreground">· {items.length}</span>
       </h2>
       {items.length === 0 ? (
-        <p className="text-12 text-muted-foreground" data-testid={`${testid}-empty`}>{emptyText}</p>
+        <p className="text-12 text-muted-foreground" data-testid={`${testid}-empty`}>这一列还没有反馈。</p>
       ) : (
         <div
-          className={
-            viewMode === "card"
-              ? "grid grid-cols-1 items-start gap-3 xl:grid-cols-2"
-              : "flex flex-col gap-1.5"
-          }
-          data-testid={viewMode === "card" ? `${containerPrefix}-cards` : `${containerPrefix}-list`}
+          className={viewMode === "card" ? "flex flex-col gap-3" : "flex flex-col gap-1.5"}
+          data-testid={viewMode === "card" ? `${testid}-cards` : `${testid}-list`}
         >
           {items.map((item) => (
             <FeedbackCard
@@ -403,6 +478,10 @@ function FeedbackCard({
           <p className="text-11 text-card-foreground" data-testid={`admin-feedback-reason-${item.id}`}>
             处理说明：{item.statusReason}
           </p>
+        )}
+
+        {item.githubIssueUrl !== null && (
+          <GithubIssuePanel feedbackId={item.id} url={item.githubIssueUrl} number={item.githubIssueNumber} />
         )}
 
         {issueDraft !== null ? (
@@ -520,5 +599,155 @@ function FeedbackCard({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+type GithubPanel =
+  | { kind: "collapsed" }
+  | { kind: "loading" }
+  | { kind: "ready"; status: FeedbackGithubIssueStatus }
+  | { kind: "failed"; reason: string };
+
+/**
+ * 这条反馈挂着的 GitHub issue——链接恒展示（不用现查也能给），开关状态/关联 PR
+ * 折叠、点开才现查（见文件头「不落库」）。评论框独立于查状态，随时可提交。
+ */
+function GithubIssuePanel({
+  feedbackId, url, number,
+}: {
+  feedbackId: string;
+  url: string;
+  number: number | null;
+}) {
+  const [panel, setPanel] = React.useState<GithubPanel>({ kind: "collapsed" });
+  const [commentText, setCommentText] = React.useState("");
+  const [commentState, setCommentState] = React.useState<
+    { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind: "failed"; reason: string }
+  >({ kind: "idle" });
+
+  const load = async () => {
+    setPanel({ kind: "loading" });
+    try {
+      const status = await getFeedbackGithubIssue(feedbackId);
+      setPanel({ kind: "ready", status });
+    } catch (err) {
+      setPanel({
+        kind: "failed",
+        reason: err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err),
+      });
+    }
+  };
+
+  const submitComment = async () => {
+    if (commentText.trim() === "") return;
+    setCommentState({ kind: "sending" });
+    try {
+      await commentOnFeedbackGithubIssue(feedbackId, commentText);
+      setCommentText("");
+      setCommentState({ kind: "sent" });
+    } catch (err) {
+      setCommentState({
+        kind: "failed",
+        reason: err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err),
+      });
+    }
+  };
+
+  return (
+    <div
+      className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-2"
+      data-testid={`admin-feedback-github-${feedbackId}`}
+    >
+      <div className="flex flex-wrap items-center gap-2 text-11">
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 font-medium text-primary transition-colors duration-fast hover:underline"
+          data-testid={`admin-feedback-github-link-${feedbackId}`}
+        >
+          <ExternalLink aria-hidden className="h-3 w-3" />
+          GitHub Issue{number !== null ? ` #${number}` : ""}
+        </a>
+        {panel.kind === "ready" && (
+          <Badge tone={panel.status.state === "open" ? "primary" : "neutral"}>
+            {panel.status.state === "open" ? "open" : panel.status.stateReason ?? "closed"}
+          </Badge>
+        )}
+        <Button
+          size="xs"
+          variant="ghost"
+          onClick={() => void load()}
+          disabled={panel.kind === "loading"}
+          data-testid={`admin-feedback-github-refresh-${feedbackId}`}
+        >
+          {panel.kind === "loading" ? (
+            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+          ) : (
+            <RefreshCw aria-hidden className="h-3 w-3" />
+          )}
+          查看 GitHub 状态
+        </Button>
+      </div>
+
+      {panel.kind === "failed" && (
+        <p className="text-10 text-destructive" data-testid={`admin-feedback-github-error-${feedbackId}`}>
+          GitHub 状态取不到（{panel.reason}）。
+        </p>
+      )}
+
+      {panel.kind === "ready" && (
+        <div className="flex flex-col gap-1" data-testid={`admin-feedback-github-status-${feedbackId}`}>
+          {panel.status.linkedPullRequests.length === 0 ? (
+            <p className="text-10 text-muted-foreground">还没有 PR 引用这个 issue。</p>
+          ) : (
+            <ul className="flex flex-col gap-0.5">
+              {panel.status.linkedPullRequests.map((pr) => (
+                <li key={pr.number} className="flex items-center gap-1.5 text-10">
+                  <GitPullRequest aria-hidden className="h-3 w-3 shrink-0" />
+                  <a href={pr.url} target="_blank" rel="noreferrer" className="text-primary transition-colors duration-fast hover:underline">
+                    #{pr.number} {pr.title}
+                  </a>
+                  <Badge tone={pr.state === "merged" ? "ai" : pr.state === "open" ? "primary" : "neutral"}>
+                    {pr.state}
+                  </Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <input
+          value={commentText}
+          onChange={(e) => { setCommentText(e.target.value); setCommentState({ kind: "idle" }); }}
+          placeholder="给这个 issue 补充一条评论…"
+          aria-label="GitHub 评论正文"
+          data-testid={`admin-feedback-github-comment-input-${feedbackId}`}
+          className="h-6 min-w-0 flex-1 rounded border border-border-subtle bg-card px-1.5 text-11"
+        />
+        <Button
+          size="xs"
+          variant="outline"
+          disabled={commentState.kind === "sending" || commentText.trim() === ""}
+          onClick={() => void submitComment()}
+          data-testid={`admin-feedback-github-comment-submit-${feedbackId}`}
+        >
+          {commentState.kind === "sending" && <Loader2 aria-hidden className="h-3 w-3 animate-spin" />}
+          发评论
+        </Button>
+        {commentState.kind === "sent" && (
+          <span className="text-10 text-muted-foreground" data-testid={`admin-feedback-github-comment-sent-${feedbackId}`}>
+            已发送
+          </span>
+        )}
+        {commentState.kind === "failed" && (
+          <span className="text-10 text-destructive" data-testid={`admin-feedback-github-comment-error-${feedbackId}`}>
+            没发出去（{commentState.reason}）
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

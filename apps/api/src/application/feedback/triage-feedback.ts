@@ -12,7 +12,7 @@
  *   的纪律:404 非 403,不泄露存在性)。这里不需要额外做可见性判断的原因是
  *   仓储绑定了租户 + RLS:跨组织的 id 查出来就是 null。
  *
- * ## 2026-08-30 新增两条副作用,都挂在"状态真的变了"（`outcome.kind === "changed"`）之后
+ * ## 2026-08-30 新增两条副作用,2026-09-02 再加第三条,都挂在"状态真的变了"（`outcome.kind === "changed"`）之后
  *
  * ### ① 转 `已进入迭代` 时建 GitHub issue —— **fail closed**
  *
@@ -49,6 +49,19 @@
  * 不能因为邮件服务超时就变成没发生过)。
  *
  * ⚠ **幂等重放不发邮件**:状态没变,没有什么新鲜事值得通知别人。
+ *
+ * ### ③ 这条反馈已经挂着 issue 时,跟着状态同步它的开关 —— **best-effort,同②**
+ *
+ * 转 `已修复` 关闭并标 `completed`,转 `不做` 关闭并标 `not_planned`,转回
+ * `待处理`/`已进入迭代` 重新打开(`targetGithubIssueState`)。**跟①不是同一条纪律**:
+ * ①建 issue fail closed,是因为"状态改了但没人知道 issue 建没建成"是假象;这里
+ * GitHub issue 的开关**从属于**反馈状态这个已经落库的事实,不是反过来,所以失败只
+ * 记日志(`syncGithubIssueState`)。没有新增返回字段暴露"这次同步成不成功"——想知道
+ * GitHub 上现在到底是什么状态,调 `getFeedbackGithubIssue` 现查(不落库,理由见该
+ * 用例头注),不能靠这次响应里的某个布尔:那个布尔只能代表"这次调用有没有报错",
+ * 不能代表"GitHub 上现在是什么状态",两者一混就是又一份可能对不上的副本。
+ *
+ * ⚠ 幂等重放**也不同步**:状态没变,没有什么新状态需要同步给 GitHub。
  */
 import {
   canTriage,
@@ -63,6 +76,7 @@ import {
   type FeedbackSubmitterDirectory,
   type GithubIssueCreator,
   type GithubIssueDraft,
+  type GithubIssueStateTarget,
 } from "./notification-ports";
 import type { ProductFeedbackRepository } from "./ports";
 
@@ -161,12 +175,14 @@ export async function triageFeedback(
   // 认领失败 = 并发冲突,直接失败,不悄悄跳过(那会让状态变了但没人知道 issue
   // 到底建没建成)。认领成功后建失败,fail closed 且释放认领——理由见文件头①/⚠。
   let githubIssueUrl = current.githubIssueUrl;
+  let githubIssueNumber = current.githubIssueNumber;
   if (outcome.to === "已进入迭代" && input.issueDraft !== null && current.githubIssueUrl === null) {
     const claimed = await deps.repo.claimGithubIssueCreation(input.feedbackId);
     if (!claimed) throw new FeedbackIssueInProgressError();
     try {
       const created = await deps.githubIssues.create(input.issueDraft);
       githubIssueUrl = created.url;
+      githubIssueNumber = created.number;
       await deps.repo.setGithubIssue(input.feedbackId, created);
     } catch (e) {
       await deps.repo.releaseGithubIssueClaim(input.feedbackId);
@@ -185,6 +201,16 @@ export async function triageFeedback(
     actorId: input.actorId,
   });
 
+  // ③ best-effort 跟着状态同步 GitHub issue 的开关——见文件头注③。状态已经落库,
+  //   这里的任何失败都不影响上面那次事实,只记日志。
+  if (githubIssueNumber !== null) {
+    await syncGithubIssueState(deps, {
+      feedbackId: input.feedbackId,
+      issueNumber: githubIssueNumber,
+      status: outcome.to,
+    });
+  }
+
   // ② best-effort 通知——状态已经落库,这里的任何失败都不再影响上面那次事实。
   const notified = await notifySubmitter(deps, {
     feedbackId: input.feedbackId,
@@ -195,6 +221,32 @@ export async function triageFeedback(
   });
 
   return { feedbackId: input.feedbackId, status: outcome.to, notified, githubIssueUrl };
+}
+
+/** `outcome.to` → GitHub issue 该处在什么开关状态。纯函数,方便单测直接断言映射表。 */
+export function targetGithubIssueState(status: FeedbackStatus): GithubIssueStateTarget {
+  if (status === "已修复") return { state: "closed", stateReason: "completed" };
+  if (status === "不做") return { state: "closed", stateReason: "not_planned" };
+  return { state: "open" }; // 待处理 / 已进入迭代——都算「还开着」
+}
+
+async function syncGithubIssueState(
+  deps: TriageFeedbackDeps,
+  input: { readonly feedbackId: string; readonly issueNumber: number; readonly status: FeedbackStatus },
+): Promise<void> {
+  try {
+    await deps.githubIssues.setState(input.issueNumber, targetGithubIssueState(input.status));
+  } catch (e) {
+    // ⚠ 吞掉但不静默——同 `notifySubmitter` 的纪律:状态变更(上面已经 return 过)
+    //   不因为这里失败而回滚,也没有"回滚"这回事。值班能顺着这条日志查 GitHub 侧故障。
+    deps.logger.error("feedback triage: github issue state sync failed (best-effort, transition already committed)", {
+      traceId: "feedback-triage-github-sync",
+      feedbackId: input.feedbackId,
+      issueNumber: input.issueNumber,
+      targetStatus: input.status,
+      err: e,
+    });
+  }
 }
 
 async function notifySubmitter(

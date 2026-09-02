@@ -224,17 +224,24 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     await page.goto("/admin/feedback");
     await expect(page.getByTestId("admin-feedback-counts-unavailable")).toHaveCount(0);
 
-    const software = page.getByTestId("admin-feedback-software");
-    const capability = page.getByTestId("admin-feedback-capability");
+    // 2026-09-02 起：看板按状态分列，来源不再是分列依据，是可叠加的筛选条件
+    // （见 `feedback-screen.tsx` 头注）。四条初始都还是「待处理」，因此都落在
+    // 同一个状态列里；用来源筛选逐一缩小可见集合来断言归属，而不是按列断言。
+    const pendingColumn = page.getByTestId("admin-feedback-column-待处理");
+    await expect(pendingColumn).toContainText(TITLES.productBug);
+    await expect(pendingColumn).toContainText(TITLES.productReq);
+    await expect(pendingColumn).toContainText(TITLES.skillBug);
+    await expect(pendingColumn).toContainText(TITLES.agentReq);
 
-    // 两条产品级进左列，且互不混入。
-    await expect(software).toContainText(TITLES.productBug);
-    await expect(software).toContainText(TITLES.productReq);
-    await expect(capability).not.toContainText(TITLES.productBug);
+    // 筛「来源＝产品」⇒ 只剩两条产品级，Agent/Skill 级的标题应当消失。
+    await page.getByTestId("admin-feedback-filter-source-product").click();
+    await expect(pendingColumn).toContainText(TITLES.productBug);
+    await expect(pendingColumn).not.toContainText(TITLES.skillBug);
+    await expect(pendingColumn).not.toContainText(TITLES.agentReq);
 
-    // 两条 Agent/Skill 级进右列，target 徽标各自正确。
+    // 筛「来源＝Skill」⇒ 只剩 skill 那一条，target 徽标是裸 id。
     //
-    // ⚠ 两条都断言的是**裸 id**，不是显示名。`FeedbackController.submit` 里
+    // ⚠ 断言的是**裸 id**，不是显示名。`FeedbackController.submit` 里
     //   `targetLabel: null` 是刻意的（`feedback.controller.ts` 头注：今天没有一个
     //   端口能同时解析 agent 与 skill 的名字，宁可诚实地留空也不从 id 里编一个），
     //   `targetChip()` 因此总是落回 `item.target.agentId` / `item.target.skillId`。
@@ -243,11 +250,21 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     //   `agentLabel()`），从没有随请求体发到服务端，是本用例自己搞错了「显示什么」
     //   与「存了什么」，不是产品的 bug。真要让后台看到人类可读的名字，需要新增
     //   一条能解析两种目标名字的契约操作，记在案，不在本轮里悄悄编一个假的。
-    await expect(capability).toContainText(TITLES.skillBug);
-    await expect(capability).toContainText(`Skill ${FULLSTACK_E2E.mountableSkillId}`);
-    await expect(capability).toContainText(TITLES.agentReq);
-    await expect(capability).toContainText(`Agent ${FULLSTACK_E2E.agentId}`);
-    await expect(software).not.toContainText(TITLES.skillBug);
+    await page.getByTestId("admin-feedback-filter-source-skill").click();
+    await expect(pendingColumn).toContainText(TITLES.skillBug);
+    await expect(pendingColumn).toContainText(`Skill ${FULLSTACK_E2E.mountableSkillId}`);
+    await expect(pendingColumn).not.toContainText(TITLES.agentReq);
+
+    await page.getByTestId("admin-feedback-filter-source-agent").click();
+    await expect(pendingColumn).toContainText(TITLES.agentReq);
+    await expect(pendingColumn).toContainText(`Agent ${FULLSTACK_E2E.agentId}`);
+    await expect(pendingColumn).not.toContainText(TITLES.skillBug);
+
+    // 复位筛选，回到「四条都可见」的状态给后面的分诊步骤用。
+    await page.getByTestId("admin-feedback-filter-source-all").click();
+    await expect(pendingColumn).toContainText(TITLES.productBug);
+    await expect(pendingColumn).toContainText(TITLES.skillBug);
+    await expect(pendingColumn).toContainText(TITLES.agentReq);
 
     // 管理员对所有人的正文都可见——包括非提交人、非管理员自己提的那条。
     const bugCardAsAdmin = findAdminCard(page, TITLES.productBug);

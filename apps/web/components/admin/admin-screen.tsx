@@ -30,7 +30,7 @@ import type { UiState } from "@/lib/ui-state";
  */
 export function AdminScreen({
   state, moduleLabel, title, intro, children,
-  emptyHint, errors, depFailure, denialReason, successMessage, noticeOverride, liveBacked,
+  emptyHint, errors, depFailure, denialReason, successMessage, noticeOverride, liveBacked, hideOrgIdentity,
 }: {
   state: UiState;
   moduleLabel: string;
@@ -53,10 +53,12 @@ export function AdminScreen({
    *   比在页头挂一条覆盖全屏的话诚实。
    */
   liveBacked?: boolean;
+  /** 见 `admin-header.tsx` 头注「`hideOrgIdentity`」——运营类模块传 `true`。默认 `false`。 */
+  hideOrgIdentity?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-5 p-6">
-      <AdminHeader moduleLabel={moduleLabel} />
+      <AdminHeader moduleLabel={moduleLabel} hideOrgIdentity={hideOrgIdentity} />
 
       <div className="flex flex-col gap-1">
         <h1 className="text-20 font-semibold tracking-tight">{title}</h1>

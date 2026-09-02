@@ -5,14 +5,18 @@
  *
  *   ① **屏上的数据来自接口**，不是 `lib/mock/admin` 的三个静态常量。
  *      断言方式：接口回什么，屏上就该出现什么；接口回空，屏上是空态而不是示例数据。
- *   ② **两列按 target 分**：产品级进左列，agent/skill 进右列。
+ *   ② **看板按状态分列，来源是可叠加的筛选条件**（2026-09-02 起，见
+ *      `feedback-screen.tsx` 头注）：产品级与 agent/skill 级混在同一个列表里，
+ *      各自落进自己状态对应的那一列；筛选来源会缩小可见集合，不改变分列依据。
  *   ③ **正文无权时说的是「仅管理员与提交人可见」**，不是「暂无内容」——
  *      `detail === null` 恒等于无权（落库的正文非空）。
  *   ④ **转「不做」必须先写理由**：界面先展开输入框，而不是让人撞一次 422 才知道。
  *   ⑤ **读取失败 ≠ 没有反馈**。失败态里必须说出「数据没有丢」。
  *
  * ⚠ 另外显式钉死一条**回归**：`[打开迭代看板]` / `[导出]` 两个按钮已删除
- *   （UC-17.6 A1/A2：点了没有目标屏的按钮比没有按钮更糟）。
+ *   （UC-17.6 A1/A2：点了没有目标屏的按钮比没有按钮更糟）——这与本文件测的真实
+ *   `admin-feedback-kanban` 看板不是同一件事：旧按钮点了什么都不会发生，
+ *   这里的看板是真接了后端的分列展示。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -31,6 +35,7 @@ const base = {
   kind: "缺陷" as const, targetLabel: null, statusReason: null,
   votes: 2, votedByMe: false, submittedByMe: false,
   occurredRoute: "/chat", appVersion: "2026.08.15", createdAt: "2026-08-15T00:00:00.000Z",
+  githubIssueUrl: null, githubIssueNumber: null,
 };
 const productItem = {
   ...base, id: "fb-p", target: { kind: "product" }, title: "批准卡不记得预算",
@@ -59,24 +64,38 @@ describe("FB-3 后台反馈屏（真栈）", () => {
     expect(screen.getByTestId("admin-feedback-counts").textContent).toContain("2");
   });
 
-  it("① 接口回空 ⇒ 两列都是空态，不是示例数据", async () => {
+  it("① 接口回空 ⇒ 四列都是空态，不是示例数据", async () => {
     mockApi([], { counts: { total: 0, 待处理: 0, 已进入迭代: 0, 已修复: 0, 不做: 0 } });
     render(<FeedbackScreen state="default" />);
-    expect(await screen.findByTestId("admin-feedback-software-empty")).toBeTruthy();
-    expect(screen.getByTestId("admin-feedback-capability-empty")).toBeTruthy();
+    expect(await screen.findByTestId("admin-feedback-column-待处理-empty")).toBeTruthy();
+    expect(screen.getByTestId("admin-feedback-column-已进入迭代-empty")).toBeTruthy();
+    expect(screen.getByTestId("admin-feedback-column-已修复-empty")).toBeTruthy();
+    expect(screen.getByTestId("admin-feedback-column-不做-empty")).toBeTruthy();
     // 旧 mock 常量里的标题一个都不该出现。
     expect(screen.queryByText(/批准卡不记得预算/)).toBeNull();
   });
 
-  it("② 产品级进左列，skill 进右列", async () => {
+  it("② 按状态分列：产品级（待处理）与 skill 级（已进入迭代）各进各自状态列", async () => {
     mockApi([productItem, skillItem]);
     render(<FeedbackScreen state="default" />);
-    const software = await screen.findByTestId("admin-feedback-software");
-    const capability = screen.getByTestId("admin-feedback-capability");
-    expect(software.textContent).toContain("批准卡不记得预算");
-    expect(software.textContent).not.toContain("输出格式不稳");
-    expect(capability.textContent).toContain("输出格式不稳");
-    expect(capability.textContent).toContain("会议纪要");
+    const pending = await screen.findByTestId("admin-feedback-column-待处理");
+    const iterating = screen.getByTestId("admin-feedback-column-已进入迭代");
+    expect(pending.textContent).toContain("批准卡不记得预算");
+    expect(pending.textContent).not.toContain("输出格式不稳");
+    expect(iterating.textContent).toContain("输出格式不稳");
+    expect(iterating.textContent).toContain("会议纪要");
+  });
+
+  it("② 来源筛选缩小可见集合，不改变分列依据", async () => {
+    mockApi([productItem, skillItem]);
+    render(<FeedbackScreen state="default" />);
+    await screen.findByTestId("admin-feedback-item-fb-p");
+    expect(screen.getByTestId("admin-feedback-item-fb-s")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("admin-feedback-filter-source-skill"));
+    expect(screen.queryByTestId("admin-feedback-item-fb-p")).toBeNull();
+    expect(screen.getByTestId("admin-feedback-item-fb-s")).toBeTruthy();
+    expect(screen.getByTestId("admin-feedback-filter-summary").textContent).toContain("1 / 2");
   });
 
   it("③ detail 为 null ⇒ 说「仅组织管理员与提交人可见」，不说「暂无内容」", async () => {
@@ -211,7 +230,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
     render(<FeedbackScreen state="default" />);
     const failed = await screen.findByTestId("admin-feedback-failed");
     expect(failed.textContent).toContain("数据没有丢");
-    expect(screen.queryByTestId("admin-feedback-software-empty")).toBeNull();
+    expect(screen.queryByTestId("admin-feedback-column-待处理-empty")).toBeNull();
   });
 
   it("⑤ 计数取不到不连坐整块屏：列表照常渲染，计数那一行如实说取不到", async () => {

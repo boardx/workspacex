@@ -112,8 +112,37 @@ export const FeedbackError = z.enum([
   "TRIAGE_REASON_REQUIRED",
   /** 超时/网络/下游不可用。⚠ 已保留当前输入，可安全重试 */
   "DEPENDENCY_UNAVAILABLE",
+  /**
+   * 查状态 / 发评论时，这条反馈还没有关联的 GitHub issue（`githubIssueUrl === null`）。
+   * 不是 `FEEDBACK_NOT_FOUND`——反馈本身存在，只是这一步的前提条件不成立。
+   */
+  "NO_GITHUB_ISSUE",
+  /** 发评论时正文为空/全空白。同 `TRIAGE_REASON_REQUIRED` 的理由：一条空评论没有信息量 */
+  "COMMENT_BODY_REQUIRED",
 ]);
 export type FeedbackError = z.infer<typeof FeedbackError>;
+
+/**
+ * GitHub 那边的真实状态——**只在需要时现查，从不落库**。
+ *
+ * ⚠ 本仓的单一事实源纪律（AGENTS.md「同一事实不得声明在两处」）：issue 是不是
+ *   still open、有没有 PR 关联它，事实源只有 GitHub 一处。落一份到我们数据库，
+ *   等于开了第二个会漂移的副本——今天 GitHub 上关了，我们这边不主动同步就一直显示
+ *   "open"，而没人会想到去核对。所以这一段**只出现在 `getFeedbackGithubIssue` 的
+ *   `out` 里**，不出现在 `FeedbackItem`、不进任何一张表。
+ */
+export const GithubIssueLinkedPullRequestState = z.enum(["open", "closed", "merged"]);
+export type GithubIssueLinkedPullRequestState = z.infer<typeof GithubIssueLinkedPullRequestState>;
+
+export const GithubIssueLinkedPullRequest = z
+  .object({
+    number: z.number().int().positive(),
+    url: z.string(),
+    title: z.string(),
+    state: GithubIssueLinkedPullRequestState,
+  })
+  .strict();
+export type GithubIssueLinkedPullRequest = z.infer<typeof GithubIssueLinkedPullRequest>;
 
 /* ─────────────────────── 投影（读模型）─────────────────────── */
 
@@ -150,6 +179,15 @@ export const FeedbackItem = z
     occurredRoute: z.string().nullable(),
     appVersion: z.string().nullable(),
     createdAt: z.string(),
+    /**
+     * "转开发"时建的 GitHub issue。**null ⟺ 还没建过**（不是「建失败」——建失败时
+     * `triageFeedback` fail closed，状态压根没转成 `已进入迭代`，见该操作头注①）。
+     * 两个字段总是同生同灭：`githubIssueUrl` 非 null 时 `githubIssueNumber` 必非 null。
+     * ⚠ 只是**存下来的**创建结果（url/number 本身不变）；issue 当前是开是关、有没有
+     *   关联 PR 是 GitHub 那边的事实，**不在这里**——见 `getFeedbackGithubIssue`。
+     */
+    githubIssueUrl: z.string().nullable(),
+    githubIssueNumber: z.number().int().positive().nullable(),
   })
   .strict();
 export type FeedbackItem = z.infer<typeof FeedbackItem>;
@@ -272,6 +310,18 @@ export const operations = {
    *     这里新增的字段能开关的，而是用例内部恒定的行为（见 `triage-feedback.ts`
    *     头注）。`out.notified` 只是如实回报"这次到底发没发出去"，不是入参。
    *
+   * ## 2026-09-02 新增第三个副作用：**跟着状态同步 GitHub issue 的开关**（best-effort）
+   *
+   *   这条反馈**已经**挂着 issue（`githubIssueUrl !== null`，不论是不是这次转移建的）
+   *   时，转 `已修复` 关闭并标 `completed`，转 `不做` 关闭并标 `not_planned`，转回
+   *   `待处理`/`已进入迭代` 重新打开。**跟①（建 issue）不是同一条纪律**——建 issue
+   *   fail closed 是因为"状态改了但没人知道 issue 建没建成"是假象；而这里 GitHub
+   *   issue 的开关**从属于**反馈状态这个已经落库的事实，不是反过来，所以失败只记日志、
+   *   不影响这次转移本身（同②发邮件的理由）。没有新增字段来暴露"这次同步成不成
+   *   功"——管理员想知道 GitHub 那边真实状态，调 `getFeedbackGithubIssue` 现查，
+   *   不靠这次响应里的某个布尔（那个布尔只能代表"这次调用有没有报错"，不能代表
+   *   "GitHub 上现在到底是什么状态"，两者一混就是又一份可能对不上的副本）。
+   *
    * ⚠ `issueDraft` 是 `.nullable().optional()`——对 `.strict()` 契约新增字段的唯一
    *   向后兼容方式（ADR-020）：旧调用方不传这个字段，契约照样过；新字段绝不能变成
    *   必填，否则今天能发的请求明天就发不出去。
@@ -356,5 +406,61 @@ export const operations = {
       })
       .strict(),
     err: ["PERMISSION_REVOKED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 现查这条反馈挂着的 GitHub issue：开/关状态 + 关联它的 PR。**组织管理员**——
+   * 和分诊同一批人用它，同一条权限纪律（`canTriage`）。
+   *
+   * ⚠ **不落库、每次都真的打一次 GitHub**（人类决策，2026-09-02）：见
+   *   `GithubIssueLinkedPullRequest` 头注。前端只在管理员真的展开一条反馈的
+   *   GitHub 状态时才调这条，不随 `listFeedback` 一起批量拉——避免每次刷新列表
+   *   都对 GitHub API 发 N 个请求。
+   * ⚠ `linkedPullRequests` 是「引用过这个 issue 的 PR」，**不是**「关闭这个 issue 的
+   *   PR」——一个 issue 可以被多个 PR 提到（讨论、部分实现、最终合入），把它收窄成
+   *   只认 `Closes #N` 那一个会在关联 PR 还没写上 `Closes` 关键字的过渡期里显示"没有
+   *   关联 PR"，而人工在 GitHub 页面上明明看得到那个 PR。
+   */
+  getFeedbackGithubIssue: {
+    method: "GET",
+    path: "/feedback/:feedbackId/github-issue",
+    in: z.object({ feedbackId: z.string() }).strict(),
+    out: z
+      .object({
+        feedbackId: z.string(),
+        url: z.string(),
+        number: z.number().int().positive(),
+        state: z.enum(["open", "closed"]),
+        /** 只有 `state === "closed"` 时可能非 null——GitHub 自己的关闭理由分类 */
+        stateReason: z.enum(["completed", "not_planned"]).nullable(),
+        linkedPullRequests: z.array(GithubIssueLinkedPullRequest),
+      })
+      .strict(),
+    err: ["FEEDBACK_NOT_FOUND", "PERMISSION_REVOKED", "NO_GITHUB_ISSUE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 往这条反馈挂着的 GitHub issue 下面发一条评论。**组织管理员**，手动输入、手动
+   * 提交——不是状态转移的副作用（那条是 `triageFeedback` 内部恒定行为，见其头注，
+   * 会自动带一条系统评论；这条是管理员想额外补充说明时用的，两者不是一回事）。
+   */
+  commentOnFeedbackGithubIssue: {
+    method: "POST",
+    path: "/feedback/:feedbackId/github-issue/comments",
+    in: z
+      .object({
+        feedbackId: z.string(),
+        /** ⚠ `.min(1)` 校验的是"非空字符串"，用例层再判一次"trim 后非空白"（同一理由） */
+        body: z.string().min(1).max(4000),
+      })
+      .strict(),
+    out: z.object({ feedbackId: z.string(), commentUrl: z.string() }).strict(),
+    err: [
+      "FEEDBACK_NOT_FOUND",
+      "PERMISSION_REVOKED",
+      "NO_GITHUB_ISSUE",
+      "COMMENT_BODY_REQUIRED",
+      "DEPENDENCY_UNAVAILABLE",
+    ] as const,
   },
 } as const;

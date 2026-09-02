@@ -70,6 +70,8 @@ export async function listFeedback(
       occurredRoute: row.occurredRoute,
       appVersion: row.appVersion,
       createdAt: row.createdAt,
+      githubIssueUrl: row.githubIssueUrl,
+      githubIssueNumber: row.githubIssueNumber,
     };
   });
 }

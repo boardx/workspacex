@@ -71,6 +71,16 @@ import {
   FeedbackTriageReasonRequiredError,
   triageFeedback,
 } from "../../application/feedback/triage-feedback";
+import { FeedbackNoGithubIssueError } from "../../application/feedback/notification-ports";
+import {
+  FeedbackGithubIssueQueryFailedError,
+  getFeedbackGithubIssue,
+} from "../../application/feedback/get-feedback-github-issue";
+import {
+  FeedbackCommentBodyRequiredError,
+  FeedbackGithubCommentFailedError,
+  commentOnFeedbackGithubIssue,
+} from "../../application/feedback/comment-on-feedback-github-issue";
 import {
   DECISION_ID_FACTORY,
   IDENTITY_REPOSITORY,
@@ -90,10 +100,12 @@ export const SUBMIT_FEEDBACK_SCHEMA = C.operations.submitFeedback.in;
 export const VOTE_FEEDBACK_SCHEMA = C.operations.voteFeedback.in;
 export const TRIAGE_FEEDBACK_SCHEMA = C.operations.triageFeedback.in;
 export const LIST_FEEDBACK_SCHEMA = C.operations.listFeedback.in;
+export const COMMENT_ON_FEEDBACK_GITHUB_ISSUE_SCHEMA = C.operations.commentOnFeedbackGithubIssue.in;
 
 type SubmitBody = ReturnType<typeof C.operations.submitFeedback.in.parse>;
 type VoteBody = ReturnType<typeof C.operations.voteFeedback.in.parse>;
 type TriageBody = ReturnType<typeof C.operations.triageFeedback.in.parse>;
+type CommentOnGithubIssueBody = ReturnType<typeof C.operations.commentOnFeedbackGithubIssue.in.parse>;
 
 @Controller()
 export class FeedbackController {
@@ -257,6 +269,71 @@ export class FeedbackController {
       throw e;
     }
   }
+
+  /**
+   * 现查这条反馈挂着的 GitHub issue:开/关状态 + 关联它的 PR。**不落库**——见用例
+   * `get-feedback-github-issue.ts` 头注。前端只在管理员真的展开一条反馈的 GitHub
+   * 状态时才调这条。
+   */
+  @Get("/feedback/:feedbackId/github-issue")
+  async githubIssue(@CurrentPrincipal() principal: Principal, @Param("feedbackId") feedbackId: string) {
+    assertPrincipal(principal);
+    const { orgRole } = await this.viewerRole(principal);
+    try {
+      return await getFeedbackGithubIssue(
+        { repo: this.feedback.forOrg(principal.orgId), githubIssues: this.githubIssues },
+        { feedbackId, actorId: principal.userId, actorOrgRole: orgRole },
+      );
+    } catch (e) {
+      throw mapGithubIssueSideEffectError(e) ?? e;
+    }
+  }
+
+  /**
+   * 管理员手动往这条反馈挂着的 GitHub issue 下面发一条评论。见用例
+   * `comment-on-feedback-github-issue.ts` 头注:不是状态转移的副作用。
+   */
+  @HttpCode(HttpStatus.CREATED)
+  @Post("/feedback/:feedbackId/github-issue/comments")
+  async commentOnGithubIssue(
+    @CurrentPrincipal() principal: Principal,
+    @Param("feedbackId") feedbackId: string,
+    @Body(new ZodBodyPipe(COMMENT_ON_FEEDBACK_GITHUB_ISSUE_SCHEMA)) body: CommentOnGithubIssueBody,
+  ) {
+    assertPrincipal(principal);
+    const { orgRole } = await this.viewerRole(principal);
+    try {
+      return await commentOnFeedbackGithubIssue(
+        { repo: this.feedback.forOrg(principal.orgId), githubIssues: this.githubIssues },
+        { feedbackId, actorId: principal.userId, actorOrgRole: orgRole, body: body.body },
+      );
+    } catch (e) {
+      if (e instanceof FeedbackCommentBodyRequiredError) {
+        throw new UnprocessableEntityException({ reasonCode: "COMMENT_BODY_REQUIRED" });
+      }
+      throw mapGithubIssueSideEffectError(e) ?? e;
+    }
+  }
+}
+
+/**
+ * `githubIssue` / `commentOnGithubIssue` 共用的错误映射——两条路由除了各自专属的
+ * 错误(评论的 `COMMENT_BODY_REQUIRED`)之外,其余四种失败形状完全一样,写两遍
+ * 就是把同一张映射表拆成两份、改一处另一处不知道跟。
+ *
+ * ⚠ 认不出来的错误返回 `null`,调用方原样 `throw e`——**不**在这里拿
+ *   `String(e)` 兜底拼一个新 `Error`(`lint-error-leak.mjs` 会拦这个形状):
+ *   那等于把原始异常的细节字符串化之后塞进一个新对象,原始的 `stack`/`cause`
+ *   丢了,而且这条路径本来就该交给全局异常过滤器按未知错误处理、记日志。
+ */
+function mapGithubIssueSideEffectError(e: unknown): Error | null {
+  if (e instanceof FeedbackTriageForbiddenError) return new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
+  if (e instanceof FeedbackNotFoundError) return new NotFoundException({ reasonCode: "FEEDBACK_NOT_FOUND" });
+  if (e instanceof FeedbackNoGithubIssueError) return new NotFoundException({ reasonCode: "NO_GITHUB_ISSUE" });
+  if (e instanceof FeedbackGithubIssueQueryFailedError || e instanceof FeedbackGithubCommentFailedError) {
+    return new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+  }
+  return null;
 }
 
 /**

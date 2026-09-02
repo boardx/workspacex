@@ -133,7 +133,7 @@ export function AdminNav({
     <nav aria-label="后台模块" data-testid="admin-nav" className="flex flex-col gap-4 p-3">
       <div className="flex flex-col gap-0.5 px-1">
         <span className="text-13 font-semibold">治理后台</span>
-        <span className="text-11 text-muted-foreground">AI 能力与组织的管理面</span>
+        <span className="text-11 text-muted-foreground">AI 能力、组织与运营的管理面</span>
       </div>
       {ADMIN_NAV.map((group) => (
         <div key={group.group} className="flex flex-col gap-1">

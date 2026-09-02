@@ -18,10 +18,15 @@
  *     真正建 issue 的时候。
  */
 import {
+  GithubIssueApiError,
   GithubIssueCreationError,
   type CreatedGithubIssue,
+  type CreatedGithubIssueComment,
   type GithubIssueCreator,
   type GithubIssueDraft,
+  type GithubIssueLinkedPullRequest,
+  type GithubIssueStateTarget,
+  type GithubIssueStatus,
 } from "../../application/feedback/notification-ports";
 
 export const GITHUB_ISSUE_CONFIG = Symbol("GithubIssueConfig");
@@ -75,46 +80,86 @@ interface GithubIssueApiResponse {
   readonly number?: unknown;
 }
 
+interface GithubIssueGetResponse {
+  readonly state?: unknown;
+  readonly state_reason?: unknown;
+}
+
+/**
+ * `GET .../timeline` 一条 `cross-referenced` 事件的形状——GitHub 官方文档没有把这个
+ * 完整列出来，这里只挑我们用得到的字段。`source.issue` 之所以可能是一个 PR，是因为
+ * GitHub 内部 PR 也是 issue 的一种；带 `pull_request` 子对象就说明它是 PR，不是
+ * 另一个反过来提到本 issue 的 issue。
+ */
+interface GithubTimelineEventResponse {
+  readonly event?: unknown;
+  readonly source?: {
+    readonly issue?: {
+      readonly number?: unknown;
+      readonly html_url?: unknown;
+      readonly title?: unknown;
+      readonly state?: unknown;
+      readonly pull_request?: { readonly merged_at?: unknown } | null;
+    };
+  };
+}
+
 export class FetchGithubIssueCreator implements GithubIssueCreator {
   constructor(
     private readonly config: GithubIssueConfig,
     private readonly request: typeof fetch = fetch,
   ) {}
 
-  async create(draft: GithubIssueDraft): Promise<CreatedGithubIssue> {
-    if (!this.config.token) throw new GithubIssueCreationError(null);
+  private issuesUrl(): string {
+    return `https://api.github.com/repos/${encodeURIComponent(this.config.owner)}/${encodeURIComponent(this.config.repo)}/issues`;
+  }
 
+  private issueUrl(issueNumber: number): string {
+    return `${this.issuesUrl()}/${issueNumber}`;
+  }
+
+  private headers(): Record<string, string> {
+    return {
+      authorization: `Bearer ${this.config.token}`,
+      // GitHub REST API 强制要求一个 User-Agent，没有的话直接 403。
+      "user-agent": "workspacex-feedback-loop",
+      accept: "application/vnd.github+json",
+      "content-type": "application/json",
+    };
+  }
+
+  /**
+   * 四个方法共用的"发一个请求，超时就 abort"骨架——原本这段只在 `create` 里写过
+   * 一次，现在四个方法都要，抽出来不是为了少打字，是为了这条**超时纪律只被
+   * 实现一次**：以后要调超时时长/加重试，不会有第二处需要同步改。
+   */
+  private async withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, onTimeout: () => Error): Promise<T> {
     const abort = new AbortController();
     let timeout: ReturnType<typeof setTimeout> | null = null;
     const timedOut = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(() => {
         abort.abort();
-        reject(new GithubIssueCreationError(null));
+        reject(onTimeout());
       }, this.config.requestTimeoutMs);
     });
+    try {
+      return await Promise.race([run(abort.signal), timedOut]);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+  }
 
-    const operation = async (): Promise<CreatedGithubIssue> => {
+  async create(draft: GithubIssueDraft): Promise<CreatedGithubIssue> {
+    if (!this.config.token) throw new GithubIssueCreationError(null);
+    return this.withTimeout(async (signal) => {
       let response: Response;
       try {
-        response = await this.request(
-          `https://api.github.com/repos/${encodeURIComponent(this.config.owner)}/${encodeURIComponent(this.config.repo)}/issues`,
-          {
-            method: "POST",
-            signal: abort.signal,
-            headers: {
-              authorization: `Bearer ${this.config.token}`,
-              // GitHub REST API 强制要求一个 User-Agent，没有的话直接 403。
-              "user-agent": "workspacex-feedback-loop",
-              accept: "application/vnd.github+json",
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              title: draft.title,
-              body: draft.body,
-              labels: [...draft.labels],
-            }),
-          },
-        );
+        response = await this.request(this.issuesUrl(), {
+          method: "POST",
+          signal,
+          headers: this.headers(),
+          body: JSON.stringify({ title: draft.title, body: draft.body, labels: [...draft.labels] }),
+        });
       } catch {
         throw new GithubIssueCreationError(null);
       }
@@ -124,12 +169,103 @@ export class FetchGithubIssueCreator implements GithubIssueCreator {
         throw new GithubIssueCreationError(response.status);
       }
       return { url: body.html_url, number: body.number };
-    };
+    }, () => new GithubIssueCreationError(null));
+  }
 
-    try {
-      return await Promise.race([operation(), timedOut]);
-    } finally {
-      if (timeout) clearTimeout(timeout);
-    }
+  /** best-effort 调用方（`triageFeedback`）——PATCH 同一个 `state` 是幂等的，重复调不是错误 */
+  async setState(issueNumber: number, target: GithubIssueStateTarget): Promise<void> {
+    if (!this.config.token) throw new GithubIssueApiError("setState", null);
+    await this.withTimeout(async (signal) => {
+      let response: Response;
+      try {
+        response = await this.request(this.issueUrl(issueNumber), {
+          method: "PATCH",
+          signal,
+          headers: this.headers(),
+          body: JSON.stringify(
+            target.state === "open" ? { state: "open" } : { state: "closed", state_reason: target.stateReason },
+          ),
+        });
+      } catch {
+        throw new GithubIssueApiError("setState", null);
+      }
+      if (!response.ok) throw new GithubIssueApiError("setState", response.status);
+    }, () => new GithubIssueApiError("setState", null));
+  }
+
+  async getStatus(issueNumber: number): Promise<GithubIssueStatus> {
+    if (!this.config.token) throw new GithubIssueApiError("getStatus", null);
+    return this.withTimeout(async (signal) => {
+      let issueRes: Response;
+      let timelineRes: Response;
+      try {
+        [issueRes, timelineRes] = await Promise.all([
+          this.request(this.issueUrl(issueNumber), { method: "GET", signal, headers: this.headers() }),
+          this.request(`${this.issueUrl(issueNumber)}/timeline?per_page=100`, {
+            method: "GET",
+            signal,
+            headers: this.headers(),
+          }),
+        ]);
+      } catch {
+        throw new GithubIssueApiError("getStatus", null);
+      }
+      if (!issueRes.ok) throw new GithubIssueApiError("getStatus", issueRes.status);
+      const issueBody = (await issueRes.json().catch(() => ({}))) as GithubIssueGetResponse;
+      if (issueBody.state !== "open" && issueBody.state !== "closed") {
+        throw new GithubIssueApiError("getStatus", issueRes.status);
+      }
+      const stateReason =
+        issueBody.state_reason === "completed" || issueBody.state_reason === "not_planned"
+          ? issueBody.state_reason
+          : null;
+
+      // timeline 取不到不算致命，降级成"查不到关联 PR"而不是让整个查询失败——
+      // issue 自己的开关状态才是这个方法的主要用途，PR 关联是锦上添花。
+      const linkedPullRequests: GithubIssueLinkedPullRequest[] = [];
+      if (timelineRes.ok) {
+        const events = (await timelineRes.json().catch(() => [])) as readonly GithubTimelineEventResponse[];
+        const seen = new Set<number>();
+        for (const ev of events) {
+          if (ev.event !== "cross-referenced") continue;
+          const src = ev.source?.issue;
+          if (!src || !src.pull_request) continue; // 只要 PR，不要另一个反过来引用它的 issue
+          const { number, html_url: htmlUrl, title, state, pull_request: pr } = src;
+          if (typeof number !== "number" || typeof htmlUrl !== "string" || typeof title !== "string") continue;
+          if (seen.has(number)) continue;
+          seen.add(number);
+          const merged = typeof pr === "object" && pr !== null && typeof pr.merged_at === "string";
+          const prState: GithubIssueLinkedPullRequest["state"] = merged
+            ? "merged"
+            : state === "closed"
+              ? "closed"
+              : "open";
+          linkedPullRequests.push({ number, url: htmlUrl, title, state: prState });
+        }
+      }
+
+      return { state: issueBody.state, stateReason, linkedPullRequests };
+    }, () => new GithubIssueApiError("getStatus", null));
+  }
+
+  async addComment(issueNumber: number, body: string): Promise<CreatedGithubIssueComment> {
+    if (!this.config.token) throw new GithubIssueApiError("addComment", null);
+    return this.withTimeout(async (signal) => {
+      let response: Response;
+      try {
+        response = await this.request(`${this.issueUrl(issueNumber)}/comments`, {
+          method: "POST",
+          signal,
+          headers: this.headers(),
+          body: JSON.stringify({ body }),
+        });
+      } catch {
+        throw new GithubIssueApiError("addComment", null);
+      }
+      if (!response.ok) throw new GithubIssueApiError("addComment", response.status);
+      const parsed = (await response.json().catch(() => ({}))) as { html_url?: unknown };
+      if (typeof parsed.html_url !== "string") throw new GithubIssueApiError("addComment", response.status);
+      return { url: parsed.html_url };
+    }, () => new GithubIssueApiError("addComment", null));
   }
 }
