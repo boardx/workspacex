@@ -54,7 +54,14 @@ export interface StructureFeedbackDraftResult {
   readonly detail: string;
 }
 
-export const STRUCTURE_FEEDBACK_DRAFT_TIMEOUT_MS = 8_000;
+/**
+ * ⚠ 2026-09-02 devapp 实测：8 秒不够——真实模型把一段口述整理成带完整正文的 JSON，
+ *   常常要十几秒，此前一律撞超时、界面报 503 `STRUCTURING_FAILED`。这是用户**主动点击**
+ *   后等待的一次调用（按钮上有「AI 整理中…」），不是每条消息都触发的后台任务，
+ *   取值向 `generate-followup-suggestions.ts`（没有自己的短超时，靠 provider 的
+ *   `KERNEL_MODEL_TIMEOUT_MS`）靠拢而不是向 `generate-thread-title.ts` 的 3 秒靠拢。
+ */
+export const STRUCTURE_FEEDBACK_DRAFT_TIMEOUT_MS = 60_000;
 
 export class FeedbackStructuringUnavailableError extends Error {
   constructor(readonly detail: string) {

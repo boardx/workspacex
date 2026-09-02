@@ -174,7 +174,9 @@ export class FeedbackController {
         newFeedbackId: () => randomUUID(),
         newEventId: () => randomUUID(),
         attachments: this.attachments,
-        log: (message, detail) => this.logger.info(message, { ...detail, traceId: "feedback-submit-attachment-claim" }),
+        submitterDirectory: this.submitterDirectory,
+        mail: this.mail,
+        log: (message, detail) => this.logger.info(message, { ...detail, traceId: "feedback-submit" }),
       },
       {
         // ⚠ 提交人从 principal 取，**不从请求体**。契约的 `in` 里根本没有这个字段，
@@ -215,6 +217,7 @@ export class FeedbackController {
         newDecisionId: () => this.decisions.next(),
         attachments: this.attachments,
         orgId: toOrgId(principal.orgId),
+        submitters: this.submitterDirectory,
       },
       { scope, viewerId: principal.userId, viewerOrgRole: orgRole, viewerTeamId: teamId },
     );
