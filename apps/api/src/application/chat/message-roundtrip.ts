@@ -12,8 +12,8 @@ import { generateThreadTitle } from "./generate-thread-title";
 import type { ResolveVisibilityDeps } from "./resolve-visibility";
 import { resolveVisibility } from "./resolve-visibility";
 import type {
-  AcceptedHumanMessage, ChatMessageCommandRepository, MessagePageRow, PublishedAgentReader,
-  PublishedAgentSnapshot, ThreadMountedSkillReader,
+  AcceptedHumanMessage, ChatMessageCommandRepository, EnabledSkillVersionReader, MessagePageRow,
+  PublishedAgentReader, PublishedAgentSnapshot, ThreadMountedSkillReader,
 } from "./message-command-ports";
 import { AttachmentNotPendingError } from "./message-command-ports";
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
@@ -40,6 +40,41 @@ interface Deps extends ResolveVisibilityDeps, GenerateThreadTitleDeps {
    *   全仓没有一条测试会红）。做成必填，漏注入的合成点连编译都过不去。
    */
   readonly threadMounts: ThreadMountedSkillReader;
+  /**
+   * #2514 —— agent 默认加载的「全部已启用 skill」读口。同 `threadMounts` 一样**必填**，
+   * 同一条理由：可选意味着某个合成点忘了注入 ⇒ 默认加载静默不生效，而没有一条测试会红。
+   */
+  readonly enabledSkills: EnabledSkillVersionReader;
+}
+
+/**
+ * #2514（2026-09-02 人类裁决）—— run 要跑的 skill 版本的**唯一解析规则**：
+ *
+ *     resolved = (agent 自带非空 ? agent 自带 : 组织全部已启用) ∪ 线程挂载
+ *
+ * · **默认加载**：agent 已发布版本没钉任何 skill（`skill_version_ids = '{}'`）时，
+ *   run 加载组织（含平台组织）全部「已启用」skill 的当前生效版本——用户不再在
+ *   composer 里挑选，agent 直接拥有全部能力。
+ * · **agent 级覆盖，不是并集**：agent 钉了 skill（后台 A2 pin，`agent_versions.
+ *   skill_version_ids` 非空）时，只用它钉的那些。裁决原话是「覆盖全局列表」：选了
+ *   一个精心编排过的 agent，再把全局几十个 skill 一起塞进 system prompt，编排就
+ *   没有意义了。
+ * · **线程挂载保留为追加**（旧轨道 `/chat/legacy` 的 `ChatSkillMountPanel` 仍在用）：
+ *   语义与 #1559 逐字相同——并集、去重、agent/默认在前、挂载追加在后。默认加载已把
+ *   全部已启用 skill 带上时，挂载同一个 skill 是幂等的（去重吃掉）；对钉了 skill 的
+ *   agent，挂载是「在编排之上临时加一个」。
+ *
+ * 导出**只为单元测试**（`tests/chat/agent-default-skill-loading.test.ts`）：真栈 e2e
+ * 的夹具 agent 自带恒为空，「覆盖」那条在 e2e 上证不到，单独钉住。
+ */
+export function resolveRunSkillVersionIds(input: {
+  readonly agentPinned: readonly string[];
+  readonly orgEnabled: readonly string[];
+  readonly mounted: readonly string[];
+}): readonly string[] {
+  const base = input.agentPinned.length > 0 ? input.agentPinned : input.orgEnabled;
+  // 并集/去重/顺序三条语义只在 `withThreadMounts` 一处实现——这里只决定「底座是谁」。
+  return withThreadMounts({ skillVersionIds: base } as PublishedAgentSnapshot, input.mounted).skillVersionIds;
 }
 
 /**
@@ -129,7 +164,24 @@ export async function acceptHumanMessage(
   });
   const disclosedMounts = discloseDecided(guardedMounts, visibility.base);
   if (!isDisclosed(disclosedMounts)) throw new MessageThreadNotVisibleError();
-  const snapshot = withThreadMounts(agentSnapshot, disclosedMounts.payload);
+  // #2514：agent 没钉 skill 时才需要全局列表；钉了就是覆盖，连这条读都省掉。
+  let orgEnabled: readonly string[] = [];
+  if (agentSnapshot.skillVersionIds.length === 0) {
+    const guardedEnabled = await deps.enabledSkills.currentEnabledSkillVersionIds(input.orgId, {
+      projectId: visibility.thread.projectId, threadId: input.threadId,
+    });
+    const disclosedEnabled = discloseDecided(guardedEnabled, visibility.base);
+    if (!isDisclosed(disclosedEnabled)) throw new MessageThreadNotVisibleError();
+    orgEnabled = disclosedEnabled.payload;
+  }
+  const snapshot: PublishedAgentSnapshot = {
+    ...agentSnapshot,
+    skillVersionIds: resolveRunSkillVersionIds({
+      agentPinned: agentSnapshot.skillVersionIds,
+      orgEnabled,
+      mounted: disclosedMounts.payload,
+    }),
+  };
   // 去重后传给仓储：仓储在同一事务内 set message_id，更新数须等于去重后数量，否则回滚。
   const attachmentIds = input.attachmentIds && input.attachmentIds.length > 0
     ? [...new Set(input.attachmentIds)]

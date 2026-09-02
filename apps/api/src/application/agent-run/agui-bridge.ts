@@ -59,7 +59,7 @@ import {
   MessageThreadArchivedError, MessageIdempotencyConflictError, MessageAttachmentNotPendingError,
 } from "../chat/message-roundtrip";
 import type {
-  ChatMessageCommandRepository, PublishedAgentReader, ThreadMountedSkillReader,
+  ChatMessageCommandRepository, EnabledSkillVersionReader, PublishedAgentReader, ThreadMountedSkillReader,
 } from "../chat/message-command-ports";
 import { mutateThread, TitleInvalidError } from "../chat/mutate-thread";
 import { readAgentRun, AgentRunNotVisibleError } from "./read-run";
@@ -91,6 +91,8 @@ export interface AguiBridgeDeps extends GenerateThreadTitleDeps {
   readonly publishedAgents: PublishedAgentReader;
   /** #1559：`acceptHumanMessage` 的必填依赖——线程级临时挂载进入 run 快照的读口。 */
   readonly threadMounts: ThreadMountedSkillReader;
+  /** #2514：同上——agent 默认加载全部已启用 skill 的读口。 */
+  readonly enabledSkills: EnabledSkillVersionReader;
   readonly runs: AgentRunStore;
   readonly executor: AgentRunExecutorPort;
 }
