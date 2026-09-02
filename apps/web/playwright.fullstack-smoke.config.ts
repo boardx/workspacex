@@ -441,6 +441,10 @@ export default defineConfig({
        *
        * F10 —— `composite-primitives-kitchen-sink.spec.ts`（Table/Menu/Pagination 复合
        * 组件展示区完整性 + Pagination 页码/游标两种交互）同一前提，同样并入。
+       *
+       * #2512 —— `icon-rail-short-viewport.spec.ts`（IconRail 短视口三段布局：中段滚动、
+       * 头像固定、键盘焦点可见、紧凑模式 tooltip）落在 `/kitchen-sink` 的 `AppShell`，
+       * 同一前提，同样并入。
        */
       name: "overlay-primitives-keyboard",
       testMatch: [
@@ -448,6 +452,7 @@ export default defineConfig({
         "overlay-primitives-kitchen-sink.spec.ts",
         "motion-orchestration-reduced-motion.spec.ts",
         "composite-primitives-kitchen-sink.spec.ts",
+        "icon-rail-short-viewport.spec.ts",
       ],
     },
     {

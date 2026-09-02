@@ -7,6 +7,7 @@ import { OrgMenu } from "./org-menu";
 import { PersonalMenu } from "./personal-menu";
 import { cn } from "@/lib/utils";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 /**
  * 图标栏 —— 实测宽度 76px，底色 --rail，右侧一道 --border 分隔。
@@ -34,6 +35,7 @@ export function IconRail({
 }) {
   const pathname = usePathname();
   return (
+    <TooltipProvider delayDuration={300}>
     <nav
       data-testid="shell-rail"
       aria-label="主导航"
@@ -51,7 +53,10 @@ export function IconRail({
         flex-1 + overflow-y-auto，高度不够时在段内滚动，滚动条隐藏、上下留渐隐提示）
         ③ 底部反馈 + 个人菜单（shrink-0，永远钉在左下角，rubric 硬性锚点）。
         再配一档紧凑模式：视口高度 ≤ 640px 时隐藏分组标题与图标下方文字（`max-h` 媒体查询
-        arbitrary variant），只留图标 + title 提示，让更多项在不滚动时可见。
+        arbitrary variant），只留图标，让更多项在不滚动时可见。文字隐藏后的可见名称由
+        `components/ui/tooltip.tsx`（Radix，hover / 键盘 focus 双触发）补——不用原生
+        `title`：它不响应键盘焦点。同时每个入口带 `focus-visible` 焦点环（ring-inset，
+        避免被滚动容器裁掉）+ `aria-label`，rev-feature 2026-09-02 复核要求。
         不做"折进 more 菜单"的方案：那会让一级入口在两处出现（#593 一级/二级机械分界）。
       */}
       <div className="mb-2 shrink-0" data-testid="rail-top">
@@ -79,23 +84,31 @@ export function IconRail({
             const active = pathname === item.href || pathname.startsWith(item.href + "/");
             const Icon = item.icon;
             return (
-              <Link
-                key={item.key}
-                href={item.href}
-                data-testid={`rail-${item.key}`}
-                aria-current={active ? "page" : undefined}
-                title={item.label}
-                className={cn(
-                  "mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base",
-                  "[@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1",
-                  active
-                    ? "bg-card text-background-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-background-foreground",
-                )}
-              >
-                <Icon aria-hidden className="h-4 w-4" />
-                <span className="text-10 [@media(max-height:640px)]:hidden">{item.label}</span>
-              </Link>
+              <Tooltip key={item.key}>
+                <TooltipTrigger asChild>
+                  <Link
+                    href={item.href}
+                    data-testid={`rail-${item.key}`}
+                    aria-current={active ? "page" : undefined}
+                    aria-label={item.label}
+                    className={cn(
+                      "mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                      "[@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1",
+                      active
+                        ? "bg-card text-background-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-muted hover:text-background-foreground",
+                    )}
+                  >
+                    <Icon aria-hidden className="h-4 w-4" />
+                    <span className="text-10 [@media(max-height:640px)]:hidden">{item.label}</span>
+                  </Link>
+                </TooltipTrigger>
+                {/* 只在紧凑模式（文字已隐藏）时有信息量；高视口下文字本身可见，气泡是噪音 */}
+                <TooltipContent side="right" data-testid={`rail-tooltip-${item.key}`} className="[@media(min-height:641px)]:hidden">
+                  {item.label}
+                </TooltipContent>
+              </Tooltip>
             );
           })}
         </div>
@@ -130,5 +143,6 @@ export function IconRail({
         <PersonalMenu avatarInitial={avatarInitial} onLogout={onLogout} />
       </div>
     </nav>
+    </TooltipProvider>
   );
 }
