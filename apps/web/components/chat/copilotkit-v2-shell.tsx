@@ -253,7 +253,17 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * （点击列表项、新建/复用、删除后被迫换线程、浏览器前进/后退）必须调用这个
    * 函数，不能只改其中一个 state（否则高亮和实际渲染的线程会对不上）。
    */
+  /**
+   * `selectThread` 的"点的就是当前这条 ⇒ 不重复导航"判据读这份 ref，不读
+   * `selectedThreadId` state：同一帧里连续两次点击（真实场景是连点极快、React 还没
+   * 来得及重渲染）时，第二次点击拿到的仍是上一次渲染的闭包，state 值是旧的——
+   * 本地真浏览器复现过 C→B→A 三连点落在 B：第三次点击 A 被"等于旧值 A"误判为
+   * 重复点击而吞掉。ref 在 `applyThreadSelection` 里同步写，永远是"最后一次已经
+   * 生效的选择"。
+   */
+  const selectedThreadIdRef = React.useRef<string | null>(initialThreadId);
   const applyThreadSelection = React.useCallback((threadId: string | null) => {
+    selectedThreadIdRef.current = threadId;
     setSelectedThreadId(threadId);
     setPanelMountKey(threadId ?? "new");
   }, []);
@@ -264,15 +274,42 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * `pathname` 解析出目标 threadId 即可，不需要任何时间窗、不需要跟点击的
    * `router.push` 做值匹配。
    */
+  /**
+   * `pushThreadRoute` 的 4 秒兜底（见该函数头注）挂起期间的状态。
+   *
+   * 2026-09-02 第五轮（本地真浏览器复现）——这个兜底计时器此前**不随卸载取消、
+   * 也不随浏览器后退作废**：
+   * · 壳被 page 级挂载时每次线程切换都会卸载重建（见 `copilotkit-v2-shell-route.tsx`
+   *   头注），旧实例的计时器到点后读的是旧实例自己的 `navigationGeneration` /
+   *   `confirmedThreadIdRef`（永远不再更新），必然判"没成功"再推一次旧目标——实测
+   *   最后点 B 之后地址栏还会被推回 A/C。
+   * · 点 C 之后 4 秒内按浏览器后退两次回到 A：`popstate` 已把高亮同步成 A，但 C 的
+   *   兜底到点看到 `pathname !== /chat/C` 就再 `router.push(C)`——地址栏被推回 C，
+   *   高亮却留在 A，前进键也失效（历史栈顶被这次 push 顶掉了）。
+   * 所以：卸载、再次点击、浏览器前进/后退这三种情形都要作废挂起的兜底
+   * （`cancelPendingFallback`：清计时器 + 推进代号，双保险）。
+   */
+  const navigationGeneration = React.useRef(0);
+  const fallbackTimerRef = React.useRef<number | null>(null);
+  const cancelPendingFallback = React.useCallback(() => {
+    navigationGeneration.current += 1;
+    if (fallbackTimerRef.current !== null) {
+      window.clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+  }, []);
+  React.useEffect(() => cancelPendingFallback, [cancelPendingFallback]);
+
   React.useEffect(() => {
     const onPopState = () => {
+      cancelPendingFallback(); // 浏览器自己的导航是最新意图，点击留下的兜底作废
       const match = /^\/chat\/([^/?#]+)/.exec(window.location.pathname);
       const segment = match?.[1];
       applyThreadSelection(segment !== undefined ? decodeURIComponent(segment) : null);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [applyThreadSelection]);
+  }, [applyThreadSelection, cancelPendingFallback]);
   /**
    * 2026-08-30 人类实测反馈——「每点一次会话就整栏刷新一次」，且是**每次都发生**、
    * 不是偶发。见下面 `pushThreadRoute` 的更正：旧判据用 `window.location.pathname`
@@ -723,18 +760,19 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 会话列表全程不受影响；"点了必有反应"（#2259 的原始诉求）仍然成立——只是"反应"
    * 换成了"再摧一把已经在飞的软导航"，而不是"炸掉整个页面重来"。
    */
-  const navigationGeneration = React.useRef(0);
   const pushThreadRoute = React.useCallback((threadId: string) => {
     const path = `/chat/${threadId}`;
-    const generation = ++navigationGeneration.current;
+    cancelPendingFallback(); // 先作废上一次点击的兜底，再取本次代号（顺序反了本次代号会被自己作废）
+    const generation = navigationGeneration.current;
     router.push(path);
-    window.setTimeout(() => {
+    fallbackTimerRef.current = window.setTimeout(() => {
+      fallbackTimerRef.current = null;
       if (navigationGeneration.current !== generation) return;
       if (confirmedThreadIdRef.current === threadId) return;
       if (window.location.pathname === path) return;
       router.push(path);
     }, 4_000);
-  }, [router]);
+  }, [cancelPendingFallback, router]);
 
   /**
    * 点击列表项——见组件顶部头注：切换到哪条线程只由这次点击本身、同步决定，
@@ -747,10 +785,10 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 覆盖——没有"迟到结算"这个概念了，因为显示状态压根不读结算结果。
    */
   const selectThread = React.useCallback((threadId: string) => {
-    if (threadId === selectedThreadId) return;
+    if (threadId === selectedThreadIdRef.current) return;
     applyThreadSelection(threadId);
     pushThreadRoute(threadId);
-  }, [applyThreadSelection, pushThreadRoute, selectedThreadId]);
+  }, [applyThreadSelection, pushThreadRoute]);
 
   /**
    * `copilotkit-v2-panel.tsx` 把这次调用挂在 `onThreadResolved` —— 见该文件新增的
@@ -766,6 +804,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const handleThreadResolved = React.useCallback((resolvedThreadId: string) => {
     setSelectedThreadId((prev) => {
       if (prev === resolvedThreadId) return prev;
+      selectedThreadIdRef.current = resolvedThreadId;
       window.history.replaceState(null, "", `/chat/${resolvedThreadId}`);
       return resolvedThreadId;
     });

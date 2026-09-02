@@ -495,6 +495,71 @@ describe("CopilotKitV2Shell — round 4：显示状态不再读 initialThreadId 
  *       状态与 `copilotkit-v2-create-thread-error` 呈现，和 `handleRename`/
  *       `handleDelete` 同一套"捕获失败 → 显式落一个失败态"纪律。
  */
+describe("CopilotKitV2Shell — 第五轮（issue #2511）：兜底计时器与同帧连点", () => {
+  it("点击后 4s 内浏览器后退（popstate）⇒ 该次点击的兜底作废，不会再把地址栏推回去", async () => {
+    render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
+    await screen.findByTestId(`chat-thread-${THREAD_B.id}`);
+
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, pathname: "/chat", assign: vi.fn() },
+      writable: true,
+    });
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
+    expect(push).toHaveBeenCalledTimes(1);
+
+    // 1.5s 后用户按了后退，浏览器把 location 换成 B 并派发 popstate。
+    await vi.advanceTimersByTimeAsync(1_500);
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, pathname: `/chat/${THREAD_B.id}`, assign: vi.fn() },
+      writable: true,
+    });
+    act(() => { window.dispatchEvent(new Event("popstate")); });
+    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true");
+
+    // A 的 4s 窗口到点：location 是 B、initialThreadId 也没变成 A，旧判据会判"没成功"
+    // 再 push(A)——把用户刚退回来的地址栏又推回 A。本地真浏览器复现过：高亮停在 A、
+    // 地址栏却是 C、前进键失效。现在 popstate 作废挂起的兜底，push 次数不再增加。
+    await vi.advanceTimersByTimeAsync(3_000);
+    expect(push).toHaveBeenCalledTimes(1);
+    // 反空转：同样的窗口若没有 popstate，兜底本身仍然有效（上面 #2259 那组用例钉住）。
+  });
+
+  it("点击后 4s 内组件卸载 ⇒ 兜底作废，不会替一个已经不存在的实例推路由", async () => {
+    const view = render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, pathname: "/chat", assign: vi.fn() },
+      writable: true,
+    });
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
+    expect(push).toHaveBeenCalledTimes(1);
+    view.unmount();
+    await vi.advanceTimersByTimeAsync(4_100);
+    expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  it("同一帧内连点 B→A（React 还没重渲染）⇒ 落在最后点的 A，第二次点击不会被旧闭包里的初始值 A 误判成重复点击", async () => {
+    render(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
+    await screen.findByTestId(`chat-thread-${THREAD_B.id}`);
+
+    // 两次 click 在同一个 act 里派发：中间没有重渲染，`selectThread` 两次拿到的是同一个
+    // 闭包——旧判据读 state（仍是初始值 A），第二次点 A 会被当成"点的就是当前这条"吞掉，
+    // 本地真浏览器复现过 C→B→A 三连点落在 B。现在判据读同步更新的 ref。
+    act(() => {
+      fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
+      fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
+    });
+    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "true");
+    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "false");
+    expect(push).toHaveBeenCalledTimes(2);
+    expect(push).toHaveBeenLastCalledWith(`/chat/${THREAD_A.id}`);
+  });
+});
+
 describe("CopilotKitV2Shell — issue #2422 handleCreate 复用/新建判据", () => {
   it("(a) 分组最上面那张卡片本身是 not-started 空线程 ⇒ 直接复用，零次 createPersonalThread 调用", async () => {
     listPersonalThreads.mockResolvedValue({
