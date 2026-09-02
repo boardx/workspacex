@@ -1,4 +1,5 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Query, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Query, Res, ServiceUnavailableException } from "@nestjs/common";
+import type { Response } from "express";
 import { interview as C } from "@repo/contracts";
 import type { z } from "zod";
 import {
@@ -146,6 +147,72 @@ export class DigitalInterviewController {
     } catch (error) {
       return this.translate(error);
     }
+  }
+
+  /**
+   * Additive streaming transport for F06. Each frame is a complete recovery view that was
+   * already committed before it is written, so the client never observes an unresumable
+   * optimistic fragment.
+   */
+  @Post("/:interviewId/report/generate/stream")
+  async generateReportStream(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Body() body: unknown,
+    @Res() response: Response,
+  ): Promise<void> {
+    assertPrincipal(principal);
+    const input = this.parse(C.operations.generateDigitalInterviewReport.in, this.withPath(body, { interviewId }));
+    response.writeHead(200, {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    const write = (type: "progress" | "complete" | "error", value: unknown): void => {
+      if (!response.writableEnded && !response.destroyed) response.write(`${JSON.stringify({ type, value })}\n`);
+    };
+    try {
+      const workflow = await this.workflow.generateReport(
+        { orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input },
+        async (progress) => write("progress", C.DigitalInterviewWorkflowView.parse(progress)),
+      );
+      write("complete", C.DigitalInterviewWorkflowView.parse(workflow));
+    } catch (error) {
+      write("error", { reasonCode: error instanceof DigitalInterviewWorkflowError ? error.code : "DEPENDENCY_UNAVAILABLE" });
+    } finally {
+      if (!response.writableEnded && !response.destroyed) response.end();
+    }
+  }
+
+  /** Reconnect-only stream. It never starts a second model call. */
+  @Get("/:interviewId/report/stream")
+  async observeReportStream(
+    @CurrentPrincipal() principal: Principal,
+    @Param("interviewId") interviewId: string,
+    @Res() response: Response,
+  ): Promise<void> {
+    assertPrincipal(principal);
+    const actor = { orgId: toOrgId(principal.orgId), actorId: principal.userId, interviewId };
+    let workflow = await this.workflow.get(actor);
+    response.writeHead(200, {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    let lastUpdatedAt = "";
+    while (!response.destroyed) {
+      const updatedAt = workflow.reportGeneration?.updatedAt ?? workflow.report?.generatedAt ?? "";
+      if (updatedAt !== lastUpdatedAt) {
+        response.write(`${JSON.stringify({ type: workflow.report ? "complete" : "progress", value: C.DigitalInterviewWorkflowView.parse(workflow) })}\n`);
+        lastUpdatedAt = updatedAt;
+      }
+      if (workflow.report || workflow.reportGeneration?.status === "failed" || !workflow.reportGeneration) break;
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      workflow = await this.workflow.get(actor);
+    }
+    if (!response.writableEnded && !response.destroyed) response.end();
   }
 
   @Post("/:interviewId/skill/messages")

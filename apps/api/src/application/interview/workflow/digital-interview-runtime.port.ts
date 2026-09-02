@@ -15,7 +15,10 @@ export interface DigitalInterviewRuntime {
   confirmTopic(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewTopic.in>): Promise<DigitalInterviewWorkflowView>;
   confirmExperts(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewExperts.in>): Promise<DigitalInterviewWorkflowView>;
   confirmQuestions(input: ActorInput & z.infer<typeof interview.operations.confirmDigitalInterviewQuestions.in>): Promise<DigitalInterviewWorkflowView>;
-  generateReport(input: ActorInput & z.infer<typeof interview.operations.generateDigitalInterviewReport.in>): Promise<DigitalInterviewWorkflowView>;
+  generateReport(
+    input: ActorInput & z.infer<typeof interview.operations.generateDigitalInterviewReport.in>,
+    onProgress?: (workflow: DigitalInterviewWorkflowView) => Promise<void>,
+  ): Promise<DigitalInterviewWorkflowView>;
   appendSkillMessage(input: ActorInput & z.infer<typeof interview.operations.appendDigitalInterviewSkillMessage.in>): Promise<DigitalInterviewWorkflowView>;
   applySkillProposal(input: ActorInput & z.infer<typeof interview.operations.applyDigitalInterviewSkillProposal.in>): Promise<DigitalInterviewWorkflowView>;
   rejectSkillProposal(input: ActorInput & z.infer<typeof interview.operations.rejectDigitalInterviewSkillProposal.in>): Promise<DigitalInterviewWorkflowView>;

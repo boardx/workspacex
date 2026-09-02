@@ -75,6 +75,7 @@ export interface DigitalInterviewEffects {
   generateReport?(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly expectedVersion: number; readonly requestId: string; readonly operationId: string;
+    readonly onProgress?: (workflow: Guarded<DigitalInterviewWorkflowView>) => Promise<void>;
   }): Promise<Guarded<DigitalInterviewWorkflowView>>;
 }
 
