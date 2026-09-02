@@ -20,6 +20,7 @@ import {
   allowlistKey, staleFeatureEvidenceEntries, type AllowlistKey, type PhaseFeatures,
 } from "./lib/feature-evidence-ratchet";
 import { sh } from "./lib/sh";
+import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
@@ -39,24 +40,9 @@ interface Finding {
   msg: string;
 }
 
-/**
- * A passing feature is integrated when its evidence commit is already on main.
- * Pull-request workflows are the one pre-merge exception: actions/checkout checks
- * out GitHub's synthetic merge ref, so the evidence commit is valid when it is an
- * ancestor of that checked-out HEAD. Push/local runs retain the main-only rule.
- */
-export function isEvidenceCommitIntegrated(
-  commit: string,
-  repoRoot = REPO_ROOT,
-  eventName = process.env.GITHUB_EVENT_NAME,
-  mainRef = "origin/main",
-  checkedOutRef = "HEAD",
-): boolean {
-  if (sh(`git merge-base --is-ancestor ${JSON.stringify(commit)} ${JSON.stringify(mainRef)}`, repoRoot).code === 0)
-    return true;
-  return eventName === "pull_request"
-    && sh(`git merge-base --is-ancestor ${JSON.stringify(commit)} ${JSON.stringify(checkedOutRef)}`, repoRoot).code === 0;
-}
+// 「实现是否已在 main 上」的判据抽到 lib/evidence-integration.ts（#1557）：sync 关 issue
+// 与本文件 ③ 共用同一份，不再各判一套。re-export 保住既有调用方/测试的导入路径。
+export { isEvidenceCommitIntegrated };
 
 /** Phase runtime/E2E readiness is a separate state machine. Feature counts are
  * inputs to its transition gate, never a derived readiness result (#392). */
@@ -300,7 +286,7 @@ function checkSignoffChain(phaseId: string, findings: Finding[]): void {
  * 都没有，全部靠直接合进分支再批量 PR。规范不是缺失的，是**没有门控**——
  * 这正是本项目自己那条：「没有脚本的规范条目视为未落地」。
  *
- * 下面三条把它变成会红的东西。
+ * 下面四条把它变成会红的东西（④ 是 2026-09-02 #1557 补的反向检查）。
  * ────────────────────────────────────────────────────────────────────────── */
 
 /** issue 正文里的投影 marker，与 sync-github.ts 保持一致 */
@@ -308,7 +294,13 @@ function issueMarker(phaseId: string, featureId: string): string {
   return `<!-- harness-feature: ${phaseId}/${featureId} -->`;
 }
 
-interface GhIssue { number: number; state: string; body: string }
+export interface GhIssue {
+  number: number;
+  state: string;
+  body: string;
+  /** gh 的 `stateReason`：COMPLETED / NOT_PLANNED / REOPENED（老版本 gh 可能不带该字段） */
+  stateReason?: string | null;
+}
 
 /**
  * 一次拉全部 issue（含已关闭），避免逐 feature 查询把 API 打爆。
@@ -337,7 +329,7 @@ const ISSUE_PAGE_LIMIT = 5000;
 
 function loadIssues(): GhIssue[] | null {
   const r = sh(
-    `gh issue list --state all --limit ${ISSUE_PAGE_LIMIT} --json number,state,body`,
+    `gh issue list --state all --limit ${ISSUE_PAGE_LIMIT} --json number,state,body,stateReason`,
     REPO_ROOT,
   );
   if (r.code !== 0) return null; // 没装 gh / 没登录 / 离线：降级为 WARN，不阻断本地开发
@@ -403,6 +395,42 @@ function checkIssueClosed(
 }
 
 /**
+ * ④ 反向：issue 已关闭，feature 却还没 passing —— issue 被误关，或 verify 从未回写。
+ *
+ * ② 只抓「passing 但 issue 仍 OPEN」，方向是单向的：#1557 的两次事故
+ * （#1487–#1489 背后没有任何 PR；#1553–#1555 在 PR 开出来之前就被关）都发生在另一侧——
+ * issue 已 CLOSED，看板上它「做完了」，仓库里它还是 in_progress，而 #526 定的
+ * 「不自动重开」让这种误关永远不会自纠。误关之后审计链看起来反而更干净，
+ * 这正是 static-trace-vs-live-fact.md 说的那种静态痕迹。
+ *
+ * 判据用 feature_list 的 status（权威），不用 label（投影，且 #1676 之前会残留）。
+ * NOT_PLANNED 关闭是人类明确放弃，不算漂移。
+ *
+ * ⚠ 级别：**两种模式都是 WARN**，不是 strict-FAIL。2026-09-02 引入时实测 main 上已有
+ *   ≥5 条 in_progress feature 的 issue 处于 CLOSED（01/F34 #87、01/F50 #121、
+ *   01/F195 #1433、04/F06 #2447、11/F04 #1649），直接 FAIL 会让每一条 PR 当场红。
+ *   先把它变成看得见的东西；清完存量后再升 FAIL（与 ②③ 对齐），那一步另开 issue。
+ */
+export function judgeClosedIssueDrift(
+  f: Pick<Feature, "id" | "status">,
+  issue: Pick<GhIssue, "number" | "state" | "stateReason"> | undefined,
+): string | null {
+  if (!issue || issue.state !== "CLOSED") return null;
+  if (f.status === "passing") return null;
+  if ((issue.stateReason ?? "").toUpperCase() === "NOT_PLANNED") return null;
+  return (
+    `${f.id} 的 issue #${issue.number} 已关闭，但 feature 仍是 ${f.status} —— ` +
+    `issue 被误关（旧版 sync 按本地 passing 关闭 / PR 提前 Closes）或 verify 从未回写；` +
+    `重开 issue，或跑 pnpm harness verify 让状态真的转 passing`
+  );
+}
+
+function checkIssueClosedButNotDone(phaseId: string, f: Feature, issues: GhIssue[], findings: Finding[]): void {
+  const msg = judgeClosedIssueDrift(f, findIssue(issues, phaseId, f));
+  if (msg) findings.push({ level: "WARN", phase: phaseId, msg });
+}
+
+/**
  * ③ passing 的实现必须**已经在 main 上**。
  *
  * 这一条是「走 PR 合并到 main」的可执行形式，而且刻意用 git 本地判定而不是问 GitHub：
@@ -423,9 +451,9 @@ function checkMergedToMain(
   findings: Finding[],
   level: "FAIL" | "WARN",
 ): void {
-  if (f.status !== "passing" || !f.sprint) return;
-  const rel = `phases/${relative(REPO_ROOT, findPhaseDir(phaseId))}/sprints/sprint-${f.sprint}/evidence/${f.id}.verify.log`
-    .replace(/^phases\/phases\//, "phases/");
+  if (f.status !== "passing") return;
+  const rel = evidenceLogRelPath(phaseId, f);
+  if (rel === null) return;
   const head = sh(`git log -1 --format=%H -- ${JSON.stringify(rel)}`, REPO_ROOT);
   if (head.code !== 0 || !head.stdout.trim()) {
     findings.push({
@@ -491,6 +519,7 @@ export function doctor(args: Args): void {
       if (issues) {
         checkIssueExists(id, f, issues, findings);
         checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN");
+        checkIssueClosedButNotDone(id, f, issues, findings);
       }
     }
     checkProgressRow(id, findings);
