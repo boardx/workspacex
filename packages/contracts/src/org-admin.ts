@@ -253,6 +253,16 @@ export const OrgAdminError = z.enum([
   /* ── ④ issue #852 delta（skill-reviewer-function-assignment）─────────────── */
   /** `revokeSkillReviewerFunction`：目标人此前从未被指派过职能——与「撤销成功」可区分。 */
   "NOT_ASSIGNED",
+
+  /* ── ⑤ member-role-management delta（两级成员管理：组织级 + 平台级）──────── */
+  /**
+   * `setOrgMemberRole`：这次改动会把组织里**最后一名** `admin` 降成别的角色。
+   * ⚠ 硬拒绝，不是警告——一个没有管理员的组织没有任何人能再改角色、邀人、批复核，
+   *   它从此只能靠平台运维救；而平台运维改角色走的也是同一条判定
+   *   （`platformMembers.setPlatformMemberOrgRole`），所以这条码在两级都会出现。
+   *   先把另一个人提成 admin，再降这一个，是唯一的正确顺序。
+   */
+  "LAST_ADMIN",
 ]);
 
 type OrgAdminErrorT = z.infer<typeof OrgAdminError>;
@@ -888,6 +898,50 @@ export const operations = {
       })
       .strict(),
     err: ["PROJECT_ROLE_INSUFFICIENT", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * `setOrgMemberRole` —— 组织管理员给一名**现有成员**改组织角色（member-role-management delta）。
+   *
+   * ## 这条为什么此前不存在
+   * 成员的组织角色只在两处被写：邀请激活（`activateOrgMember`，入场即带）与建组织
+   * （创建者恒为 admin）。入场之后要换角色，此前只有「移除再重邀」一条路——那会吊销他
+   * 全部会话、作废邀请、丢掉 `joined_at`，对「顾问升项目负责人」这种日常动作是杀鸡用牛刀。
+   *
+   * ## 形状纪律
+   * ⚠ **只改 `org_role` 一列**，不碰团队归属、不碰项目角色（两层正交，见文件头）——
+   *   改团队走 `mutateTeam`/成员归队（那边今天还没有写路径），改项目角色走 `project` 束。
+   * ⚠ 路由是 `PATCH …/members/:userId/role`，动词明确；不是 `PATCH …/members/:userId`
+   *   ——那会读作「成员行的通用补丁」，下一个人会往里塞 `teamId`，两件事又混成一件。
+   * ⚠ `previousOrgRole` 回传：界面 toast 要说「顾问 → 项目负责人」，审计也要有前值。
+   *   改成同一个角色不是错误——幂等重放返回 `previousOrgRole === orgRole`。
+   * ⚠ 允许改**自己**（含自降）：唯一的硬阻断是 `LAST_ADMIN`（见该码注释）。自降不是
+   *   越权，是放权；把它禁掉会逼「唯一 admin 想退位」的人先邀一个新 admin 再让对方移除自己。
+   * ⚠ 提升为 `admin` **不走**邀请路径那套双人复核（O-28 ⑥）——这是一处记录在案的裁定
+   *   缺口，见 `KNOWN_CONTRACT_GAPS.OA13`，需要人类签核确认，而不是 agent 在这里替人选边。
+   *
+   * 失败面：非成员 `NO_ORG_MEMBERSHIP`；是成员但不是 admin `PROJECT_ROLE_INSUFFICIENT`
+   * （`removeOrgMember` 的既有码，同一条授权面）；目标不在本组织 `MEMBER_NOT_FOUND`
+   * （F160 `setMemberTokenQuota` 的既有码，同一语义）；降掉最后一名 admin `LAST_ADMIN`。
+   */
+  setOrgMemberRole: {
+    method: "PATCH",
+    path: "/organizations/:orgId/members/:userId/role",
+    in: z.object({ orgId: z.string(), userId: z.string(), orgRole: OrgRole }).strict(),
+    out: z
+      .object({
+        userId: z.string(),
+        orgRole: OrgRole,
+        previousOrgRole: OrgRole,
+      })
+      .strict(),
+    err: [
+      "NO_ORG_MEMBERSHIP",
+      "PROJECT_ROLE_INSUFFICIENT",
+      "MEMBER_NOT_FOUND",
+      "LAST_ADMIN",
+      "AUTH_SERVICE_UNAVAILABLE",
+    ] as const,
   },
 
   /* ══ 一.六、Skill 审核人职能指派（issue #852 delta，skill-reviewer-function-assignment）══
@@ -2128,5 +2182,19 @@ export const KNOWN_CONTRACT_GAPS = {
    *    不在本 delta 范围。
    */
   OA12: "shared-invite-links: (1) accounts created via a shared link get email_verified_at = activation time even though the self-typed email is unproven — an unverified account is a dead end at login while the mail channel is not connected (see the delta's contract.md for the risk boundary); (2) INVITE_ALREADY_MEMBER on activateViaOrgInviteLink covers 'this email already has an account' whether or not it is a member of this org — the link flow only creates new accounts, an existing-account join branch is out of scope",
+  /**
+   * **member-role-management delta 落地时的一处裁定，需人类签核确认。**
+   *
+   * `setOrgMemberRole` 允许组织 admin 直接把一名现有成员**提升为 admin**，而邀请路径
+   * （`inviteOrgMember` 的 `orgRole = "admin"`）要求另一名管理员批准后才签发（O-28 ⑥）。
+   * 两条路径对「多出一名管理员」这件高影响动作的门槛不一致：一个被盗的 admin 账号
+   * 可以经本操作把同伙提成 admin，绕过邀请路径的双人复核。
+   * 实现**没有**为改角色再造一套待批队列（那是 `org_invites.awaiting-review` 的第二份），
+   * 也没有把提升 admin 从本操作里砍掉（那会让「顾问转正为管理员」退回移除再重邀）。
+   * 两个方向都是产品裁决：要么给改角色补一条复用 `reviewAdminInvite` 形状的复核，
+   * 要么接受「已是 admin 的人可以直接任命 admin」。审计留痕（provenance）两个方向都要有，
+   * 已随本操作写入。
+   */
+  OA13: "member-role-management: setOrgMemberRole lets an org admin promote an existing member to admin directly, while inviteOrgMember's admin path requires a second admin's review (O-28 ⑥) — the two paths gate the same high-impact outcome differently; the implementation neither builds a second review queue nor forbids promotion, and records the provenance event either way; which way to close the gap is a human ruling",
   OA11: "org-profile-membership delta (#363): (1) contract.md's draft used a literal 'FORBIDDEN' that never existed in this bundle's error vocabulary — implemented as NO_ORG_MEMBERSHIP (non-member, listTeams precedent) / PROJECT_ROLE_INSUFFICIENT (member but insufficient role, mutateTeam precedent); (2) uploadOrgAvatar.in carries metadata only, no bytes field — zod validates JSON only, image bytes travel as the request's raw binary body, metadata arrives via query string validated against the same schema; (3) listOrgMembers.out needs joinedAt/status but org_memberships (0003) had neither — migration adds joined_at backfilled to migration-run time (true historical join time is unrecoverable, an honest gap not a precise value), status is always 'active' since this table has no 'deactivated but recorded' concept (removeOrgMember hard-deletes the row) — 'suspended' is a reserved value with no reachable path today, same treatment as TEMPLATE_SWITCH_FORBIDDEN_AFTER_START (T10); (4) listOrgInvites.out.expiresAt is required but org_invites has no expiry column — implementation reads the invite's most recent org_invite_tokens.expires_at, falling back to created_at + ORG_INVITE_LINK_VALIDITY_MS (OA3's already-ruled single source) for invites that never had a token issued",
 } as const;

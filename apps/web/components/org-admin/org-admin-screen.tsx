@@ -23,6 +23,7 @@ import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/or
 import { cn } from "@/lib/utils";
 import {
   createTeam, deleteTeam, listTeams, renameTeam, listOrgMembers, listOrgInvites,
+  setOrgMemberRole,
   updateOrganization, uploadOrgAvatar,
   inviteOrgMember, resendOrgInvite, revokeOrgInvite, reviewAdminInvite,
   assignSkillReviewerFunction, revokeSkillReviewerFunction, listSkillReviewerFunctions,
@@ -574,6 +575,82 @@ function ReviewerFunctionPicker({
   );
 }
 
+/**
+ * member-role-management delta（组织级）—— 「组织角色」下拉，只在 `isAdmin` 时渲染成可操作控件；
+ * 非 admin 看到的仍是只读徽章（角色本身对全员可见，`listOrgMembers` 就带着它——这里不是
+ * 「藏信息」，是「藏写入口」）。
+ *
+ * 控件复用 `PopoverSelect`（同 `ReviewerFunctionPicker`，F06 的理由：原生 `<select>` 的弹层
+ * 不在页面 DOM 事件系统内，自动化驱动不了）。选项集合与邀请表单的 `ORG_ROLE_OPTIONS`
+ * 同一份——四种组织角色只在契约 `identity.OrgRole` 声明一次，这里不再抄。
+ *
+ * 失败文案按契约 `setOrgMemberRole.err` 逐码翻译：`LAST_ADMIN` 是这块屏唯一需要用户
+ * 改变动作顺序的码（先提一个新 admin），必须说清楚，不能只显示码。
+ */
+function describeRoleChangeFailure(failure: unknown): string {
+  if (failure instanceof ApiError) {
+    switch (failure.reasonCode) {
+      case "LAST_ADMIN":
+        return "这是组织里最后一名管理员，不能降级：先把另一位成员设为管理员，再来改这一位。";
+      case "MEMBER_NOT_FOUND":
+        return "这个人已不是本组织成员（可能刚被移除），请刷新名单。";
+      case "PROJECT_ROLE_INSUFFICIENT":
+      case "NO_ORG_MEMBERSHIP":
+        return "只有组织管理员能调整成员角色。";
+      default:
+        return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
+    }
+  }
+  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
+}
+
+function OrgRolePicker({
+  orgId, userId, current, onChanged,
+}: {
+  orgId: string;
+  userId: string;
+  current: OrgRole;
+  onChanged: (userId: string, next: OrgRole, previous: OrgRole) => void;
+}) {
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleSelect = async (id: string) => {
+    const next = id as OrgRole;
+    if (next === current) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const out = await setOrgMemberRole(orgId, userId, next);
+      onChanged(userId, out.orgRole, out.previousOrgRole);
+    } catch (err) {
+      setError(describeRoleChangeFailure(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex basis-full items-center gap-1.5 sm:basis-auto">
+      <div className="w-full sm:w-32">
+        <PopoverSelect
+          value={current}
+          options={ORG_ROLE_OPTIONS}
+          onSelect={(id) => void handleSelect(id)}
+          disabled={busy}
+          testid={`org-admin-member-${userId}-org-role`}
+          ariaLabel="组织角色"
+        />
+      </div>
+      {error && (
+        <span role="alert" className="text-10 text-destructive" data-testid={`org-admin-member-${userId}-org-role-error`}>
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** 导出供测试直接渲染，不必连 `useSession` 一起 mock 出整个 `OrgAdminScreen`。 */
 export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean }) {
   const [state, setState] = React.useState<UiState>("loading");
@@ -609,6 +686,23 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
     void load();
   }, [load]);
 
+  const [roleBanner, setRoleBanner] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!roleBanner) return;
+    const t = setTimeout(() => setRoleBanner(null), 4000);
+    return () => clearTimeout(t);
+  }, [roleBanner]);
+
+  // 改角色成功后就地更新那一行，不整表重拉——服务端回传的 `orgRole` 就是落库后的值，
+  // 重拉只会让整块名单闪一次骨架屏。
+  const handleOrgRoleChanged = (userId: string, next: OrgRole, previous: OrgRole) => {
+    setOut((prev) =>
+      prev === null ? prev : { members: prev.members.map((m) => (m.userId === userId ? { ...m, orgRole: next } : m)) },
+    );
+    const who = out?.members.find((m) => m.userId === userId)?.displayName ?? userId;
+    setRoleBanner(`${who}：${ORG_ROLE_LABEL[previous]} → ${ORG_ROLE_LABEL[next]}`);
+  };
+
   const handleReviewerFunctionChanged = (userId: string, next: SkillReviewerFunctionValue | null) => {
     setReviewerFunctions((prev) => {
       if (next === null) {
@@ -621,7 +715,18 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
 
   return (
     <div className="flex flex-col gap-3 pt-3">
-      <p className="text-11 text-muted-foreground">组织内的成员。任何组织成员均可查看这份名单。</p>
+      <p className="text-11 text-muted-foreground">
+        组织内的成员。任何组织成员均可查看这份名单{isAdmin ? "；管理员可在此直接调整每个人的组织角色。" : "。"}
+      </p>
+      {roleBanner ? (
+        <div
+          role="status"
+          data-testid="org-admin-member-role-banner"
+          className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-11 text-success"
+        >
+          已更新组织角色：{roleBanner}
+        </div>
+      ) : null}
       <StateShell
         state={state}
         emptyHint="这个组织还没有其他成员。"
@@ -644,9 +749,14 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
                 <span className="truncate text-13 font-medium" data-testid={`org-admin-member-${m.userId}-name`}>{m.displayName}</span>
                 <span className="truncate text-10 text-muted-foreground">{m.email}</span>
               </div>
-              <Badge tone={m.orgRole === "admin" ? "danger" : "neutral"} className="ml-1">
-                {ORG_ROLE_LABEL[m.orgRole]}
-              </Badge>
+              {/* member-role-management delta：admin 看到的是可改的下拉，其他人看到只读徽章。 */}
+              {isAdmin ? (
+                <OrgRolePicker orgId={orgId} userId={m.userId} current={m.orgRole} onChanged={handleOrgRoleChanged} />
+              ) : (
+                <Badge tone={m.orgRole === "admin" ? "danger" : "neutral"} className="ml-1">
+                  {ORG_ROLE_LABEL[m.orgRole]}
+                </Badge>
+              )}
               {m.status === "suspended" && <Badge tone="outline">已停用</Badge>}
               {/* issue #852：职能指派仅 admin 可见可改——`listSkillReviewerFunctions` 契约本身
                   就是仅 admin 可读（同「谁能审我」不给提交人看的既定纪律），非 admin 这里

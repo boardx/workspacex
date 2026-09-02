@@ -7,6 +7,7 @@ import { McpScreen } from "@/components/admin/mcp-screen";
 import { MembersScreen } from "@/components/admin/members-screen";
 import { FeedbackScreen } from "@/components/admin/feedback-screen";
 import { LocalOrgScreen } from "@/components/admin/local-org-screen";
+import { PlatformMembersScreen } from "@/components/admin/platform-members-screen";
 import { resolvePreviewState, type UiState } from "@/lib/ui-state";
 import { resolvePreviewRole } from "@/lib/identity";
 import type { AdminModuleKey } from "@/lib/mock/admin";
@@ -46,6 +47,8 @@ const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.R
   members: MembersScreen,
   feedback: FeedbackScreen,
   local: LocalOrgScreen,
+  // member-role-management delta：成员管理的平台级（组织级在 /org-admin 的「成员」标签页）。
+  platform: PlatformMembersScreen,
 };
 
 export function generateStaticParams() {

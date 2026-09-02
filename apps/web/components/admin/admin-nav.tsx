@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, MessageSquareHeart, Lock } from "lucide-react";
+import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, MessageSquareHeart, Lock, Globe } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
 import { ADMIN_NAV, type AdminModuleKey } from "@/lib/mock/admin";
@@ -29,6 +29,8 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   feedback: MessageSquareHeart,
   // 锁形图标，与顶栏切到本地组织时的那把锁是同一个符号——同一件事在两处要看起来是同一件事
   local: Lock,
+  // 地球：跨组织的全平台视角，与「组织」组的 Users（一个组织里的人）刻意不同符号。
+  platform: Globe,
 };
 
 /**
