@@ -22,23 +22,47 @@ const completed: DigitalInterviewWorkflowView = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("F06 interview answers to report", () => {
-  it("shows the confirmation button and advances to a traceable report", async () => {
+  it("renders persisted report chunks before the final report arrives", async () => {
+    const streaming = { ...completed, status: "report_pending" as const, currentStep: "report" as const, version: 13,
+      reportGeneration: { reportId: "report-f06", requestId: "request-f06", status: "running" as const,
+        title: "江西足球访谈报告", executiveSummary: "基层体系需要协同。", markdown: "## 基层体系",
+        findings: [], errorCode: null, updatedAt: "2026-09-01T02:00:30.000Z" } };
+    const final = { ...streaming, status: "completed" as const, version: 14, reportGeneration: null,
+      reportId: "report-f06", report: { reportId: "report-f06", title: "江西足球访谈报告",
+        executiveSummary: "基层体系需要教练与赛事协同。", markdown: "# 江西足球访谈报告\n\n## 基层体系",
+        findings: [{ findingId: "finding-f06", title: "基层优先", summary: "先培养教练。", expertId: "expert-f06",
+          questionId: "question-f06", sourceAnswerId: "expert-f06:question-f06", exploratory: true as const }],
+        generatedAt: "2026-09-01T02:01:00.000Z" } };
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));
       expect(body).toMatchObject({ expectedVersion: 12, requestId: expect.any(String) });
-      return new Response(JSON.stringify({ ...completed, status: "completed", currentStep: "report", version: 13,
-        reportId: "report-f06", report: { reportId: "report-f06", title: "江西足球访谈报告",
-          executiveSummary: "基层体系需要教练与赛事协同。", markdown: "# 江西足球访谈报告",
-          findings: [{ findingId: "finding-f06", title: "基层优先", summary: "先培养教练。", expertId: "expert-f06",
-            questionId: "question-f06", sourceAnswerId: "expert-f06:question-f06", exploratory: true }],
-          generatedAt: "2026-09-01T02:01:00.000Z" } }), { status: 201, headers: { "content-type": "application/json" } });
+      const encoder = new TextEncoder();
+      return new Response(new ReadableStream({ start(controller) {
+        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "progress", value: streaming })}\n`));
+        window.setTimeout(() => { controller.enqueue(encoder.encode(`${JSON.stringify({ type: "complete", value: final })}\n`)); controller.close(); }, 10);
+      } }), { status: 200, headers: { "content-type": "application/x-ndjson" } });
     });
     vi.stubGlobal("fetch", fetchMock);
     render(<PersistentDigitalInterviewWorkflow initialView={completed} />);
     const button = screen.getByTestId("itv-confirm-answers-generate-report");
     expect(button).toBeEnabled();
     fireEvent.click(button);
+    expect(await screen.findByTestId("itv-report-stream-markdown")).toHaveTextContent("基层体系");
     expect(await screen.findByTestId("itv-report")).toHaveTextContent("江西足球访谈报告");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("reconnects from a persisted running generation after refresh", async () => {
+    const recovered = { ...completed, status: "report_pending" as const, currentStep: "report" as const, version: 13,
+      reportGeneration: { reportId: "report-f06", requestId: "request-f06", status: "running" as const,
+        title: "恢复中的报告", executiveSummary: null, markdown: "## 已持久化段落", findings: [], errorCode: null,
+        updatedAt: "2026-09-01T02:00:30.000Z" } };
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => new Response(`${JSON.stringify({ type: "progress", value: recovered })}\n`, {
+      status: 200, headers: { "content-type": "application/x-ndjson" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PersistentDigitalInterviewWorkflow initialView={recovered} />);
+    expect(await screen.findByTestId("itv-report-stream-markdown")).toHaveTextContent("已持久化段落");
+    await waitFor(() => expect(fetchMock.mock.calls[0]?.[0]).toEqual(expect.stringContaining("/report/stream")));
   });
 });

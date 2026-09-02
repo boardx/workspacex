@@ -336,6 +336,23 @@ export const DigitalInterviewReport = z.object({
   generatedAt: z.string().datetime(),
 }).strict();
 
+/**
+ * Durable projection of an in-flight report. It is intentionally part of the workflow
+ * recovery view: a browser may disappear while the model keeps running, then reconnect
+ * and continue from the last event that was committed before it disconnected.
+ */
+export const DigitalInterviewReportGeneration = z.object({
+  reportId: z.string().min(1),
+  requestId: z.string().min(1),
+  status: z.enum(["running", "failed"]),
+  title: z.string().trim().min(1).nullable(),
+  executiveSummary: z.string().trim().min(1).nullable(),
+  markdown: z.string(),
+  findings: z.array(DigitalInterviewReportFinding),
+  errorCode: z.string().min(1).nullable(),
+  updatedAt: z.string().datetime(),
+}).strict();
+
 const validateUniqueDigitalInterviewQuestions = (
   questions: readonly z.infer<typeof DigitalInterviewQuestion>[],
   context: z.RefinementCtx,
@@ -483,6 +500,7 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
   questionCandidates: DigitalInterviewQuestionList,
   expertRuns: z.array(DigitalInterviewExpertRun),
   report: DigitalInterviewReport.nullable().optional(),
+  reportGeneration: DigitalInterviewReportGeneration.nullable().optional(),
   skillThreadId: z.string().min(1),
   skillMessages: z.array(DigitalInterviewSkillMessage),
   skillProposals: z.array(DigitalInterviewSkillProposal),

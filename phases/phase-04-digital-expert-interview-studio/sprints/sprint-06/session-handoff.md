@@ -1,18 +1,23 @@
 # 会话交接 — Sprint 04/06
 
 ## 当前已验证
-- <哪些 feature 确认 passing,各自跑过的验证命令>
+- F06 仍为 `in_progress`，本轮增量已通过报告协议、真实数据库中途恢复、前端流式重连、迁移重放、契约 typecheck 与 lint；尚未经过 PR review/CI/harness passing 门禁。
 
 ## 本轮改动
-- <改了哪些代码 / 基础设施>
+- 报告模型输出改为 NDJSON `meta/section/finding` 事件，每条完整事件先持久化再推送。
+- 新增 Bearer 鉴权的生成流与只读观察流；浏览器断开不取消服务端生成，重新进入从 workflow 的 `reportGeneration` 恢复并继续观察。
+- 数据库保存 running/failed/completed、requestId、错误码及部分报告；最终事务失败也不会留下永久 running。
+- Web 展示已完成的摘要、Markdown 和发现，并在刷新后自动恢复。
 
 ## 仍损坏或未验证
-- <已知问题、风险区、未跑的验证>
+- `pnpm harness tick` 因环境未配置 `COORD_GATEWAY_URL` 无法执行。
+- 全仓 typecheck 有本次修改前已存在的 `@repo/dev-mode-accounts` 与 canvas/fabric-markdown 依赖错误；本次 contracts typecheck 已通过，目标 API/Web 测试均通过。
+- 尚未创建 PR、等待 CI 与独立 reviewer；不得提前把 F06 标为 passing。
 
 ## 下一步最佳动作
-- <下一轮从哪个 feature 开始;哪些东西不要动>
+- 继续 issue #2478：提交/推送当前分支并创建单 feature PR；review 按 exact SHA 验证后再进入 harness 门禁。不要手改 `active-features.json` 或把 F06 直接改成 passing。
 
 ## 命令
 - 启动:`pnpm -w run dev`
 - 验证:`pnpm harness verify --sprint 04/06`
-- 调试:<填你的调试命令>
+- 调试:`pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run tests/itv/digital-interview-langgraph-persistence.test.ts -t 'persists streamed report sections' --testTimeout=30000`

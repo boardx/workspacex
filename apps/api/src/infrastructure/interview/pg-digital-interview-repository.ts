@@ -431,14 +431,16 @@ export async function readDigitalInterviewWorkflow(
       [orgId, row.skill_thread_id],
     ),
     session.query<{
-      report_id: string; title: string; executive_summary: string; markdown: string;
+      report_id: string; title: string | null; executive_summary: string | null; markdown: string | null;
       findings: Array<{
         findingId: string; title: string; summary: string; expertId: string; questionId: string;
         sourceAnswerId: string; exploratory: true;
       }>;
-      generated_at: Date | string;
+      generated_at: Date | string; generation_status: "running" | "completed" | "failed";
+      request_id: string | null; error_code: string | null; updated_at: Date | string;
     }>(
-      `SELECT report_id,title,executive_summary,markdown,findings,generated_at
+      `SELECT report_id,title,executive_summary,markdown,findings,generated_at,
+              generation_status,request_id,error_code,updated_at
          FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3`,
       [orgId, interviewId, row.revision_id],
     ),
@@ -460,13 +462,24 @@ export async function readDigitalInterviewWorkflow(
     sourceQuickInterviewId: row.source_quick_interview_id,
     selectedExpertIds: row.selected_expert_ids,
     reportId: row.report_id,
-    report: reports.rows[0] ? {
+    report: reports.rows[0]?.generation_status === "completed" ? {
       reportId: reports.rows[0].report_id,
-      title: reports.rows[0].title,
-      executiveSummary: reports.rows[0].executive_summary,
-      markdown: reports.rows[0].markdown,
+      title: reports.rows[0].title!,
+      executiveSummary: reports.rows[0].executive_summary!,
+      markdown: reports.rows[0].markdown!,
       findings: reports.rows[0].findings,
       generatedAt: new Date(reports.rows[0].generated_at).toISOString(),
+    } : null,
+    reportGeneration: reports.rows[0] && reports.rows[0].generation_status !== "completed" ? {
+      reportId: reports.rows[0].report_id,
+      requestId: reports.rows[0].request_id!,
+      status: reports.rows[0].generation_status,
+      title: reports.rows[0].title,
+      executiveSummary: reports.rows[0].executive_summary,
+      markdown: reports.rows[0].markdown ?? "",
+      findings: reports.rows[0].findings,
+      errorCode: reports.rows[0].error_code,
+      updatedAt: new Date(reports.rows[0].updated_at).toISOString(),
     } : null,
     version: Number(row.version),
     currentStep: projectDigitalInterviewState(status).currentStep,

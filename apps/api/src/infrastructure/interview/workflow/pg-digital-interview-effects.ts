@@ -7,6 +7,10 @@ import type {
   DigitalInterviewEffects,
   GenerateDigitalInterviewDraftInput,
 } from "../../../application/interview/workflow/digital-interview-effects.port";
+import {
+  DigitalReportNdjsonDecoder,
+  type DigitalReportStreamEvent,
+} from "../../../application/interview/workflow/digital-report-stream";
 import type { DigitalInterviewRepository } from "../../../application/interview/digital-interview-ports";
 import {
   DigitalInterviewWorkflowError,
@@ -184,37 +188,6 @@ function parseGeneratedInterviewQuestions(
 function initialsFor(displayName: string): string {
   const compact = displayName.replace(/\s+/g, "");
   return Array.from(compact).slice(0, 2).join("").toUpperCase();
-}
-
-interface GeneratedReportFinding {
-  readonly title: string;
-  readonly summary: string;
-  readonly expertId: string;
-  readonly questionId: string;
-}
-
-function parseGeneratedReport(text: string): {
-  readonly title: string; readonly executiveSummary: string; readonly markdown: string;
-  readonly findings: readonly GeneratedReportFinding[];
-} {
-  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text.trim());
-  const value = JSON.parse(fenced?.[1]?.trim() ?? text) as Record<string, unknown>;
-  const title = typeof value.title === "string" ? value.title.trim() : "";
-  const executiveSummary = typeof value.executiveSummary === "string" ? value.executiveSummary.trim() : "";
-  const markdown = typeof value.markdown === "string" ? value.markdown.trim() : "";
-  const findings = Array.isArray(value.findings) ? value.findings.flatMap((item): GeneratedReportFinding[] => {
-    if (item === null || typeof item !== "object") return [];
-    const candidate = item as Record<string, unknown>;
-    const finding = {
-      title: typeof candidate.title === "string" ? candidate.title.trim() : "",
-      summary: typeof candidate.summary === "string" ? candidate.summary.trim() : "",
-      expertId: typeof candidate.expertId === "string" ? candidate.expertId.trim() : "",
-      questionId: typeof candidate.questionId === "string" ? candidate.questionId.trim() : "",
-    };
-    return Object.values(finding).every(Boolean) ? [finding] : [];
-  }) : [];
-  if (!title || !executiveSummary || !markdown || !findings.length) throw new SyntaxError("invalid report");
-  return { title, executiveSummary, markdown, findings };
 }
 
 const EXPECTED_STATUS = {
@@ -693,6 +666,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
   async generateReport(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly expectedVersion: number; readonly requestId: string; readonly operationId: string;
+    readonly onProgress?: (workflow: Guarded<DigitalInterviewWorkflowView>) => Promise<void>;
   }): Promise<Guarded<DigitalInterviewWorkflowView>> {
     const payload = { expectedVersion: input.expectedVersion };
     const replay = await this.findReceipt({ ...input, operationName: "generate_report", payload });
@@ -708,56 +682,163 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       return { workflow, completed };
     });
     if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
-    let generated: ReturnType<typeof parseGeneratedReport>;
+    const reportId = this.ids.next("itv-report");
+    const started = await this.db.withTenant(input.orgId, async (session) => {
+      await this.lockRequest(session, input.orgId, input.interviewId, "generate_report", input.requestId);
+      const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+      if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      await session.query(
+        `INSERT INTO digital_interview_reports
+           (org_id,report_id,interview_id,revision_id,title,executive_summary,markdown,findings,
+            generation_status,request_id,error_code)
+         VALUES ($1,$2,$3,$4,NULL,NULL,'','[]'::jsonb,'running',$5,NULL)`,
+        [input.orgId, reportId, input.interviewId, current.revision_id, input.requestId],
+      );
+      await session.query(
+        `UPDATE interview_sessions
+            SET report_id=$3,digital_status='report_pending',version=version+1,updated_at=now()
+          WHERE org_id=$1 AND id=$2`,
+        [input.orgId, input.interviewId, reportId],
+      );
+      return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+    });
+    await input.onProgress?.(started);
+
+    const validSources = new Set(snapshot.completed.flatMap((run) => run.answers.map((answer) => `${run.expertId}:${answer.questionId}`)));
+    const decoder = new DigitalReportNdjsonDecoder();
+    let sawDelta = false;
+    let metaCount = 0;
+    let sectionCount = 0;
+    let findingCount = 0;
+    const persistEvent = async (event: DigitalReportStreamEvent): Promise<void> => {
+      if (event.type === "finding" && !validSources.has(`${event.expertId}:${event.questionId}`)) {
+        throw new DigitalInterviewWorkflowError("DIGITAL_REPORT_SOURCE_INVALID");
+      }
+      const progress = await this.db.withTenant(input.orgId, async (session) => {
+        // Reuse the write transaction's complete actor-visibility predicate, not merely
+        // organization membership: collaborator/project access may be revoked mid-stream.
+        await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+        if (event.type === "meta") {
+          await session.query(
+            `UPDATE digital_interview_reports
+                SET title=$4,executive_summary=$5,updated_at=now()
+              WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
+            [input.orgId, input.interviewId, reportId, event.title, event.executiveSummary],
+          );
+        } else if (event.type === "section") {
+          await session.query(
+            `UPDATE digital_interview_reports
+                SET markdown=concat_ws(E'\\n\\n',nullif(markdown,''),$4::text),updated_at=now()
+              WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
+            [input.orgId, input.interviewId, reportId, event.markdown],
+          );
+        } else {
+          const finding = {
+            findingId: this.ids.next("itv-finding"), title: event.title, summary: event.summary,
+            expertId: event.expertId, questionId: event.questionId,
+            sourceAnswerId: `${event.expertId}:${event.questionId}`, exploratory: true as const,
+          };
+          await session.query(
+            `UPDATE digital_interview_reports
+                SET findings=findings || $4::jsonb,updated_at=now()
+              WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
+            [input.orgId, input.interviewId, reportId, JSON.stringify([finding])],
+          );
+        }
+        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+      });
+      if (event.type === "meta") metaCount += 1;
+      else if (event.type === "section") sectionCount += 1;
+      else findingCount += 1;
+      await input.onProgress?.(progress);
+    };
+
     try {
-      const completion = await this.model.complete({
+      const modelInput = {
         modelProvider: this.modelProvider,
         modelId: this.modelId,
-        system: "你是严谨的访谈研究员。根据已确认的专家回答生成探索性报告。不得虚构来源；每条发现必须原样引用输入中的 expertId 和 questionId。只返回 JSON：{\"title\":\"报告标题\",\"executiveSummary\":\"执行摘要\",\"markdown\":\"完整 Markdown 报告\",\"findings\":[{\"title\":\"发现标题\",\"summary\":\"发现说明\",\"expertId\":\"输入专家 ID\",\"questionId\":\"输入问题 ID\"}]}。",
+        system: "你是严谨的访谈研究员。根据已确认的专家回答生成探索性报告。不得虚构来源。只输出 NDJSON，每行一个 JSON 对象且不要代码围栏：第一行 {\"type\":\"meta\",\"title\":\"报告标题\",\"executiveSummary\":\"执行摘要\"}；随后至少两行 {\"type\":\"section\",\"markdown\":\"一个完整 Markdown 段落\"}；最后至少一行 {\"type\":\"finding\",\"title\":\"发现标题\",\"summary\":\"发现说明\",\"expertId\":\"输入专家 ID\",\"questionId\":\"输入问题 ID\"}。每条发现必须原样引用输入中的 expertId 和 questionId。",
         user: JSON.stringify({
           operation: "generate_interview_report", topic: snapshot.workflow.topic,
           experts: snapshot.completed.map((run) => ({ expertId: run.expertId, displayName: run.displayName, answers: run.answers })),
         }),
         history: [],
-      });
-      generated = parseGeneratedReport(completion.text);
-    } catch (error) {
-      if (error instanceof ModelCallError || error instanceof SyntaxError) {
-        throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+      } as const;
+      const completion = this.model.completeStream
+        ? await this.model.completeStream(modelInput, async (delta) => {
+          sawDelta = true;
+          for (const event of decoder.push(delta)) await persistEvent(event);
+        })
+        : await this.model.complete(modelInput);
+      if (!sawDelta) {
+        for (const event of decoder.push(completion.text)) await persistEvent(event);
       }
+      for (const event of decoder.finish()) await persistEvent(event);
+      if (metaCount !== 1 || sectionCount < 2 || findingCount < 1) {
+        throw new SyntaxError("incomplete streamed report");
+      }
+    } catch (error) {
+      console.error("[digital-interview-report] streaming generation failed", error);
+      const code = error instanceof DigitalInterviewWorkflowError
+        ? error.code
+        : error instanceof ModelCallError || error instanceof SyntaxError
+          ? "AI_GENERATION_UNAVAILABLE"
+          : "DEPENDENCY_UNAVAILABLE";
+      const failed = await this.db.withTenant(input.orgId, async (session) => {
+        await session.query(
+          `UPDATE digital_interview_reports
+              SET generation_status='failed',error_code=$4,updated_at=now()
+            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3`,
+          [input.orgId, input.interviewId, reportId, code],
+        );
+        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+      });
+      await input.onProgress?.(failed);
+      throw new DigitalInterviewWorkflowError(code);
+    }
+    try {
+      return await this.db.withTenant(input.orgId, async (session) => {
+        const existing = await this.readReceipt(session, input.orgId, input.interviewId, "generate_report", input.requestId);
+        if (existing) { this.assertMatchingReceipt(existing, payload); return guardWorkflow(existing.response_body); }
+        const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+        if (Number(current.version) !== input.expectedVersion + 1) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+        const shape = await session.query<{ valid: boolean }>(
+          `SELECT title IS NOT NULL AND executive_summary IS NOT NULL AND length(btrim(markdown)) > 0
+                  AND jsonb_array_length(findings) > 0 AS valid
+             FROM digital_interview_reports WHERE org_id=$1 AND report_id=$2 FOR UPDATE`,
+          [input.orgId, reportId],
+        );
+        if (!shape.rows[0]?.valid) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+        await session.query(
+          `UPDATE digital_interview_reports
+              SET generation_status='completed',error_code=NULL,generated_at=now(),updated_at=now()
+            WHERE org_id=$1 AND report_id=$2`,
+          [input.orgId, reportId],
+        );
+        await session.query(
+          `UPDATE interview_sessions SET report_id=$3,digital_status='completed',version=version+1,updated_at=now()
+            WHERE org_id=$1 AND id=$2`,
+          [input.orgId, input.interviewId, reportId],
+        );
+        const workflow = await this.requireWorkflow(session, input.orgId, input.interviewId);
+        await this.writeReceipt(session, { ...input, operationName: "generate_report", payload, workflow });
+        return guardWorkflow(workflow);
+      });
+    } catch (error) {
+      console.error("[digital-interview-report] finalization failed", error);
+      const code = error instanceof DigitalInterviewWorkflowError ? error.code : "DEPENDENCY_UNAVAILABLE";
+      const failed = await this.db.withTenant(input.orgId, async (session) => {
+        await session.query(
+          `UPDATE digital_interview_reports
+              SET generation_status='failed',error_code=$4,updated_at=now()
+            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
+          [input.orgId, input.interviewId, reportId, code],
+        );
+        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+      });
+      await input.onProgress?.(failed);
       throw error;
     }
-    const validSources = new Set(snapshot.completed.flatMap((run) => run.answers.map((answer) => `${run.expertId}:${answer.questionId}`)));
-    if (generated.findings.some((finding) => !validSources.has(`${finding.expertId}:${finding.questionId}`))) {
-      throw new DigitalInterviewWorkflowError("DIGITAL_REPORT_SOURCE_INVALID");
-    }
-    return this.db.withTenant(input.orgId, async (session) => {
-      await this.lockRequest(session, input.orgId, input.interviewId, "generate_report", input.requestId);
-      const existing = await this.readReceipt(session, input.orgId, input.interviewId, "generate_report", input.requestId);
-      if (existing) { this.assertMatchingReceipt(existing, payload); return guardWorkflow(existing.response_body); }
-      const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
-      if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
-      const reportId = this.ids.next("itv-report");
-      const findings = generated.findings.map((finding) => ({
-        findingId: this.ids.next("itv-finding"), ...finding,
-        sourceAnswerId: `${finding.expertId}:${finding.questionId}`, exploratory: true as const,
-      }));
-      await session.query(
-        `INSERT INTO digital_interview_reports
-           (org_id,report_id,interview_id,revision_id,title,executive_summary,markdown,findings)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [input.orgId, reportId, input.interviewId, current.revision_id, generated.title,
-          generated.executiveSummary, generated.markdown, JSON.stringify(findings)],
-      );
-      await session.query(
-        `UPDATE interview_sessions SET report_id=$3,digital_status='completed',version=version+1,updated_at=now()
-          WHERE org_id=$1 AND id=$2`,
-        [input.orgId, input.interviewId, reportId],
-      );
-      const workflow = await this.requireWorkflow(session, input.orgId, input.interviewId);
-      await this.writeReceipt(session, { ...input, operationName: "generate_report", payload, workflow });
-      return guardWorkflow(workflow);
-    });
   }
 
   private async persistRun(
