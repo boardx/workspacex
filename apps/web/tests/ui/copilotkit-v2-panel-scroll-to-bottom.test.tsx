@@ -48,6 +48,9 @@ vi.mock("@/lib/use-asr-draft", () => ({
 vi.mock("@/lib/use-audio-input-devices", () => ({
   useAudioInputDevices: () => ({ devices: [], selectedDeviceId: null, select: vi.fn() }),
 }));
+vi.mock("@/components/chat/chat-skill-mount-panel", () => ({
+  ChatSkillMountPanel: () => null,
+}));
 vi.mock("@/components/chat/chat-diagram-fabric", () => ({
   ChatDiagramFabric: (props: { code: string }) => <div data-testid="chat-diagram-fabric-probe">{props.code}</div>,
 }));

@@ -87,3 +87,61 @@ test("2026-09-02 裁决：不经用户挑选，agent 自行加载的 skill 正�
     ].join("\n"),
   ).toContainText(skillEcho);
 });
+
+/**
+ * 2026-09-02 裁决第二条：输入框里的 `/` 命令**保留**，但编辑器下方不显示任何技能入口。
+ * 这条证明 `/` 这条路仍然端到端通：路径斜杠不误触 → `/片段` 弹候选并过滤 → 选中即
+ * 真实 POST 落库 → `/query` 从正文删掉 → 下一轮回复带哨兵（挂载正文真的进了模型输入）。
+ * 不再断言挂载 chip（按裁决不显示），改用哨兵这条更强的信号。
+ */
+test("2026-09-02 裁决：composer 敲 / 仍能挑 skill（路径斜杠不误触），但编辑器下方不显示任何技能入口", async ({ page }) => {
+  await warmUpCopilotRuntimeRoute(page);
+  await login(page);
+  await page.goto("/chat");
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 120_000 });
+
+  /* 走「新建对话」拿一条真实线程（`[threadId]` 路由上 headless 锚点从首帧就在）。 */
+  await page.getByTestId("chat-thread-create").click();
+  await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
+  const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
+  expect(threadId).toBeTruthy();
+  const anchor = page.getByTestId("chat-skill-mount-panel");
+  await expect(anchor).toBeAttached();
+  // 编辑器下方零尺寸：没有触发按钮、没有 chip、没有占位文案。
+  await expect(page.getByTestId("chat-skill-mount")).toHaveCount(0);
+  await expect(anchor).toBeEmpty();
+
+  /* issue #2046（CK-P2）反例先行：路径里的斜杠（前一字符非空白）不触发 mention。 */
+  const input = page.getByTestId("copilotkit-v2-input");
+  await input.click();
+  await input.pressSequentially("看看 src/components 目录");
+  await expect(page.getByTestId("chat-skill-mount-picker")).toHaveCount(0);
+  await input.fill("");
+
+  /* `/` + 名字片段：候选浮层以 mention 模式打开，并按片段过滤。 */
+  await input.pressSequentially("/假设");
+  await expect(page.getByTestId("chat-skill-mount-picker")).toBeVisible();
+  await expect(page.getByTestId("chat-skill-mount-mention-hint")).toContainText("/ 假设");
+
+  const mountResponse = page.waitForResponse((response) => (
+    response.request().method() === "POST"
+    && response.url().includes(`/threads/${threadId}/skill-mounts`)
+  ));
+  await page.getByTestId(`chat-skill-mount-option-${CHAT_READ_E2E.mountableSkillId}`).click();
+  expect((await mountResponse).ok(), "mention 触发的挂载 POST 应成功").toBe(true);
+
+  /* 挂载真的发生后，`/假设` 字面量从输入框正文里删掉；候选收起；下方仍然什么都不显示。 */
+  await expect(input).toHaveValue("");
+  await expect(page.getByTestId("chat-skill-mount-picker")).toHaveCount(0);
+  await expect(anchor).toBeEmpty();
+
+  /* 落库复核走哨兵：刷新丢掉全部前端状态，再发一条，挂载 skill 的正文进模型输入。 */
+  await page.reload();
+  await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible({ timeout: 60_000 });
+  const messages = page.getByTestId("copilotkit-v2-messages");
+  const afterText = "/ 挂载后取证：这条应带哨兵";
+  await page.getByTestId("copilotkit-v2-input").fill(afterText);
+  await page.getByTestId("copilotkit-v2-send").click();
+  await expect(messages).toContainText(`根据查询结果回答你："${afterText}"`, { timeout: 60_000 });
+  await expect(messages, "经 / 挂载的 skill 正文必须真的进入下一轮 run 的模型输入").toContainText(skillEcho);
+});

@@ -183,6 +183,49 @@ describe(
   },
 );
 
+describe("ChatSkillMountPanel（variant=\"headless\"）—— v2 composer 的 `/` 命令（2026-09-02 裁决）", () => {
+  function renderHeadless(mentionQuery: string | null) {
+    return render(
+      <ChatSkillMountPanel variant="headless" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionQuery={mentionQuery} mentionTriggerChar="/" />,
+    );
+  }
+
+  it("编辑器下方不显示任何入口：没有触发按钮、没有 chip、没有占位文案；只有 mentionQuery 能打开候选", async () => {
+    const { rerender } = renderHeadless(null);
+    await waitFor(() => expect(listThreadMounts).toHaveBeenCalled());
+    expect(screen.queryByTestId("chat-skill-mount")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chat-skill-mount-empty")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument();
+    expect(screen.getByTestId("chat-skill-mount-panel")).toBeEmptyDOMElement();
+
+    rerender(
+      <ChatSkillMountPanel variant="headless" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionQuery="pp" mentionTriggerChar="/" />,
+    );
+    const picker = await screen.findByTestId("chat-skill-mount-picker");
+    // 向上开、浮层化（贴调用方的 relative 容器），不撑开第二行。
+    expect(picker.className).toContain("absolute");
+    expect(picker.className).toContain("bottom-full");
+    expect(screen.getByTestId("chat-skill-mount-mention-hint")).toHaveTextContent("/ pp");
+    expect(await screen.findByTestId("chat-skill-mount-option-sk_aaa")).toBeInTheDocument();
+  });
+
+  it("mention 归 null（用户删掉了 /）⇒ 候选自动收起；Escape 同样关闭", async () => {
+    const { rerender } = renderHeadless("pp");
+    await screen.findByTestId("chat-skill-mount-picker");
+    rerender(
+      <ChatSkillMountPanel variant="headless" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionQuery={null} mentionTriggerChar="/" />,
+    );
+    await waitFor(() => expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument());
+
+    rerender(
+      <ChatSkillMountPanel variant="headless" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionQuery="pp" mentionTriggerChar="/" />,
+    );
+    await screen.findByTestId("chat-skill-mount-picker");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument());
+  });
+});
+
 describe("ChatSkillMountPanel 候选面板 —— 卸载后不留 document 监听器", () => {
   it("unmount 之后再在 document 上触发 mousedown/keydown 不抛错、不残留监听（add/remove 配对）", async () => {
     const addSpy = vi.spyOn(document, "addEventListener");

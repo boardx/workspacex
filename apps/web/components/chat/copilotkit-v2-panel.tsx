@@ -383,8 +383,8 @@ export function CopilotKitV2Panel({
    * 原样透传给了 `CopilotKitV2PanelBody`（见下方 `orgId` 新增同一条理由），
    * 挂载入口曾随之整体搬进 Body 的 composer 图标行；2026-09-02 人类裁决
    * （skills 由 agent 直接加载、具体 agent 的编排覆盖全局，不由用户在 composer 里挑）
-   * 之后 v2 composer 不再有挂载入口，`ChatSkillMountPanel` 只剩旧轨道在用。
-   * `orgId` 仍透传给 Body（能力列表等仍需要它）。
+   * 之后 v2 composer 不再有可见的挂载入口；输入框的 `/` 命令保留，Body 内以
+   * `ChatSkillMountPanel variant="headless"` 承接，`orgId` 因此仍透传给 Body。
    */
 
   // ⚠ 刻意**不**自动选中目录第一个候选（第一版这么做过，run5 对照实验实测抓到两个

@@ -19,8 +19,8 @@ import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openComposerMenu, openFreshTh
  *
  * ## 2026-09-02 composer 三层结构（本 spec 随之改法，判据不变）
  * 第二行常驻只剩「+」/麦克风/发送三个纯图标；附件、选择能力、任务模式住进「+」菜单
- * （`openComposerMenu` 先展开再断言）；「/技能」入口不再存在——人类裁决 skills 由
- * agent 直接加载、具体 agent 的编排覆盖全局，不由用户在 composer 里挑；「系统默认麦克风」
+ * （`openComposerMenu` 先展开再断言）；技能没有可见入口——人类裁决 skills 由
+ * agent 直接加载、具体 agent 的编排覆盖全局，但输入框里的 `/` 命令保留（headless 锚点）；「系统默认麦克风」
  * 这种默认值不再常驻，设备二级菜单的触发器只在悬停/聚焦时露出；「请先输入任务目标」
  * 只在用户试图发送（空输入按 Enter）时短暂出现。
  *
@@ -77,10 +77,13 @@ test("TW-P0-5①②：Composer 是统一的两行结构，第一行为多行任�
   ] as const) {
     await expectAnchor(page, `chat-task-workbench-composer-${suffix}`, "TW-P0-5②", `Composer「+」菜单缺少${what}`, 15_000);
   }
+  // 「/技能」：入口是输入框里的 `/` 命令本身（2026-09-02 裁决保留），编辑器下方不显示
+  // 任何东西——锚点存在但零尺寸，所以判 attached 而不是 visible。
   await expect(
     page.getByTestId("chat-task-workbench-composer-mention-skill"),
-    "2026-09-02 裁决：skills 由 agent 直接加载，composer 不该再有「/技能」入口",
-  ).toHaveCount(0);
+    gapMessage("TW-P0-5②", "chat-task-workbench-composer-mention-skill", "缺少 `/` 命令的技能候选锚点"),
+  ).toBeAttached({ timeout: 15_000 });
+  await expect(page.getByTestId("chat-skill-mount")).toHaveCount(0);
 });
 
 test("TW-P0-5⑤：麦克风入口全局唯一（审计实测当前有两个）", async ({ page }) => {

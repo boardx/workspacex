@@ -51,6 +51,9 @@ vi.mock("@/lib/use-asr-draft", () => ({
 vi.mock("@/lib/use-audio-input-devices", () => ({
   useAudioInputDevices: () => ({ devices: [], selectedDeviceId: null, select: vi.fn() }),
 }));
+vi.mock("@/components/chat/chat-skill-mount-panel", () => ({
+  ChatSkillMountPanel: () => null,
+}));
 
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import { ApiError, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";

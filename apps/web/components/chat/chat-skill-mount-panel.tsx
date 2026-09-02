@@ -64,15 +64,21 @@ export function ChatSkillMountPanel({
   onMentionMounted,
   onMountsChange,
   onMountsSnapshotChange,
+  variant = "row",
 }: {
   threadId: string;
   /**
-   * 2026-09-02（人类裁决：skills 不由用户在 composer 里挑选，由 agent 直接加载、
-   * 具体 agent 的编排覆盖全局）—— 此前这里有第二种排布 `variant="pill"`（v2 composer
-   * 的胶囊入口 + 向上开的浮层）。v2 composer 已整体去掉挂载入口，本组件只剩旧轨道
-   * （`chat-read-screen.tsx`/`personal-chat-screen.tsx`）用的常驻整条排布，`variant`/
-   * `pickerSide` 两个 prop 随之删除——没有调用方的分支就是死代码。
+   * 2026-09-02 人类两连裁决：① skills 不由用户在 composer 里挑选（agent 直接加载、
+   * 具体 agent 的编排覆盖全局）；② 但输入框里的 `/` 命令**保留**，只是不在编辑器
+   * 下方显示任何入口。于是两种排布：
+   * - `"row"`（默认，旧轨道 `chat-read-screen.tsx`/`personal-chat-screen.tsx`）——
+   *   composer 下方常驻一整条：标签 + 挂载 chip + 「加 skill」按钮，逐字节不变。
+   * - `"headless"`（v2 composer）—— **没有触发器、没有 chip、没有占位文案**。唯一
+   *   入口是 `mentionQuery`（composer 敲 `/` 报进来），候选浮层 `absolute` 贴调用方的
+   *   `relative` 容器向上开，选中即挂载、失败横幅同样浮层化。此前的 `pill` 变体
+   *   （带胶囊触发器）已按裁决 ① 删除，这不是它换个名字：headless 没有任何可见常驻物。
    */
+  variant?: "row" | "headless";
   /**
    * ⚠ **可选**：个人对话没有项目（人类 2026-08-21 裁决「个人对话必须要可以使用
    * 公共的 skills」）。#1693 起服务端已不把 `?projectId=` 当授权输入——授权从
@@ -352,9 +358,15 @@ export function ChatSkillMountPanel({
   };
 
   /** 挂载候选浮层——常驻在 composer 下方整条内，不是 `absolute` 覆盖层。 */
+  const headless = variant === "headless";
+
   const picker = picking ? (
     <div
-      className="flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
+      className={
+        headless
+          ? "absolute bottom-full left-0 z-20 mb-1.5 flex w-72 flex-col gap-0.5 rounded-lg border border-border bg-popover p-1.5 shadow-md"
+          : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
+      }
       data-testid="chat-skill-mount-picker"
     >
       {mentionQuery ? (
@@ -370,6 +382,24 @@ export function ChatSkillMountPanel({
         <span className="px-1.5 py-1 text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
           没有名字含「{mentionQuery}」的已启用 skill。
         </span>
+      ) : headless ? (
+        // 竖排列表：名字 + 真实 `duty`（与「浏览 skill」页同一字段），选错了才知道是什么的
+        // 横排小按钮不适合"敲 / 快速挑"这个场景（2026-08-30 人类反馈）。
+        visiblePool.map((item) => (
+          <button
+            key={item.skillId}
+            type="button"
+            disabled={pending}
+            data-testid={`chat-skill-mount-option-${item.skillId}`}
+            onClick={() => void mount(item.skillId)}
+            className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span className="truncate text-11 font-medium text-card-foreground">{item.name}</span>
+            <span className="line-clamp-1 text-10 text-muted-foreground">
+              {item.duty.trim() || "这个 skill 还没有填写说明"}
+            </span>
+          </button>
+        ))
       ) : (
         visiblePool.map((item) => (
           <Button
@@ -398,7 +428,11 @@ export function ChatSkillMountPanel({
   /** 失败横幅。 */
   const failureBanner = failure ? (
     <div
-      className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
+      className={
+        headless
+          ? "absolute bottom-full left-0 z-20 mb-1.5 flex w-64 items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 shadow-md"
+          : "flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
+      }
       data-testid="chat-skill-mount-failure"
     >
       <p className="text-11 text-destructive">{failure}</p>
@@ -407,6 +441,21 @@ export function ChatSkillMountPanel({
       </Button>
     </div>
   ) : null;
+
+  if (headless) {
+    // 只有 `/` 打开时才有东西；平时零尺寸——"不要显示在 editor 下方"是裁决原话。
+    // e2e 判"面板已就位"用 `toBeAttached()`，不是 `toBeVisible()`。
+    return (
+      <div
+        ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
+        data-testid="chat-skill-mount-panel"
+        data-mounted-count={mounts.length}
+      >
+        {picker}
+        {failureBanner}
+      </div>
+    );
+  }
 
   return (
     <section

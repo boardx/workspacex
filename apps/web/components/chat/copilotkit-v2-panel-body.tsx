@@ -45,6 +45,7 @@ import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { ComposerMicControl, ComposerMicRecordingBar } from "@/components/chat/chat-composer-mic-control";
 import { CapabilityPopover, useCapabilityPopoverSlot } from "@/components/chat/chat-task-workbench-capability-picker";
 import { ComposerMenu, ComposerMenuItem, ComposerStateChip } from "@/components/chat/chat-task-workbench-composer-menu";
+import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import {
@@ -208,12 +209,19 @@ export function CopilotKitV2PanelBody({
   const recomputeMention = (value: string, caret: number | null): void => {
     setMention(detectComposerMention(value, caret));
   };
-  /*
-    2026-09-02 人类裁决：skills 不由用户在 composer 里挑选，由 agent 直接加载、具体
-    agent 的编排覆盖全局——v2 composer 的「/技能」快捷挂载与挂载面板整体移除，
-    `detectComposerMention` 的 `skill` 分支在这里不再消费，只剩 `@` 引用附件。
-  */
+  const skillMention = mention?.kind === "skill" ? mention : null;
   const attachmentMention = mention?.kind === "attachment" ? mention : null;
+  /**
+   * 2026-09-02 人类两连裁决：skills 不由用户在 composer 里挑选（agent 直接加载），
+   * 但输入框里的 `/` 命令保留、不在编辑器下方显示入口。所以 `ChatSkillMountPanel`
+   * 以 `variant="headless"` 留在第二行左侧那组 `relative` 容器里当浮层锚点：
+   * 平时零尺寸，敲 `/` 才向上弹候选。挂载成功后把 `/query` 从正文删掉是本地回调。
+   */
+  const onSkillMentionMounted = React.useCallback(() => {
+    if (skillMention === null) return;
+    setInputDraft((current) => current.slice(0, skillMention.start) + current.slice(skillMention.start + 1 + skillMention.query.length));
+    setMention(null);
+  }, [skillMention]);
 
   /**
    * issue #2046（CK-P2）—— `@` 候选与插入，语义平移旧 composer：候选是本线程
@@ -1707,7 +1715,9 @@ export function CopilotKitV2PanelBody({
             · 第 0 层常驻：左「+」，右麦克风 + 发送，纯图标。
             · 第 1 层状态 chip：只在偏离默认时露出——选了具体能力 / 开了任务模式 / 加了材料。
             · 第 2 层「+」菜单：添加材料 / 选择能力 / 任务模式。
-            「/技能」入口不再存在（2026-09-02 人类裁决：skills 由 agent 直接加载，不由用户挑）。
+            没有「/技能」入口（2026-09-02 人类裁决：skills 由 agent 直接加载，不由用户挑）；
+            输入框里的 `/` 命令保留——`ChatSkillMountPanel` 以 headless 形态藏在这组容器里，
+            敲 `/` 才向上弹候选，编辑器下方不显示任何技能相关的东西。
             左侧那组是 `relative`：「+」菜单与能力浮层都从这个角落向上开，视觉上只有一处会弹东西。
             既有锚点（`chat-task-workbench-composer-attach` / `-mention-agent` / `-task-mode`、
             `chat-attachment-input`、`chat-task-workbench-capability-picker` + `data-auto-match`）
@@ -1791,6 +1801,20 @@ export function CopilotKitV2PanelBody({
                   disabled={attachDisabled}
                   onClick={() => setAttachOpen(true)}
                 />
+              ) : null}
+              {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
+                <div data-testid="chat-task-workbench-composer-mention-skill">
+                  <ChatSkillMountPanel
+                    variant="headless"
+                    threadId={initialChatThreadId}
+                    orgId={orgId}
+                    bearer={sessionToken}
+                    mentionQuery={skillMention?.query ?? null}
+                    /* issue #2046（CK-P2）——v2 轨道触发符 `/`（对齐 Claude Code），旧轨道缺省仍是 `#`。 */
+                    mentionTriggerChar="/"
+                    onMentionMounted={onSkillMentionMounted}
+                  />
+                </div>
               ) : null}
               <CapabilityPopover
                 listings={agentOptions.status === "ready" ? agentOptions.listings : null}
