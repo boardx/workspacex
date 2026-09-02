@@ -209,98 +209,70 @@ function renameCardInThreadList(list: ListThreadsOut, threadId: string, title: s
 
 export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string | null }): JSX.Element {
   const router = useRouter();
-  /**
-   * `useRouter()` 在 Next 真实实现里是稳定引用，但没有任何契约保证这一点
-   * （这个文件自己的测试桩 `vi.mock("next/navigation", () => ({ useRouter: () =>
-   * ({ push, replace }) }))` 就每次渲染都返回一个新对象字面量）。下面的
-   * `initialThreadId` 同步 effect 需要在**不**把 `router` 本身列进依赖数组的前提下
-   * 调用它最新的 `push`——列进去会导致那个 effect 在"任何触发重渲染的事情"上都
-   * 重跑一次（不只是 `initialThreadId` 真的变了），2026-09-03 圆桌复审时用固定
-   * 测试桩实测过：一次点击就能在 150ms 内把 `push` 打成 5～10 次的失控循环，
-   * 而不是预期的 1～2 次。`routerRef` 只是单纯跟着每次渲染更新到最新值，不参与
-   * 触发任何 effect。
-   */
-  const routerRef = React.useRef(router);
-  routerRef.current = router;
   const { session } = useSession();
   const bearer = session?.sessionToken ?? null;
   const sourceKey = bearer ?? null;
 
+  /**
+   * 2026-09-03 人类实测反馈第三轮、第四轮——round 1（PR #2480）修的是"点击瞬间
+   * 列表被重排、点到相邻行"；round 2（150ms 防抖）、round 3（`latestIntentRef` +
+   * `popstate` 时间窗）想在"`selectedThreadId` 镜像 `initialThreadId`"这个前提下
+   * 打补丁，两轮都没能根治：只要显示状态还要等 Next Router 的软导航**结算**才更新，
+   * 就永远要面对"结算顺序不保证等于发出顺序"这件事（`router.push` 不返回
+   * Promise、不暴露任何完成/失败信号，见下面 `pushThreadRoute` 头注 #2259/#2402
+   * 那几段——这是同一个事实第四次咬人）。round 3 用"时间窗 + 值匹配"去猜"这次
+   * 结算是不是过期回声"，独立 review（PR #2501 exact-SHA BLOCK）精确指出了这个
+   * 猜法本身的漏洞：两个窗口可能重叠、`popstate` 后仍可能有更早点击的结算混进
+   * 宽限窗口。人类原话给了最终判据——"去掉任何的 timeout 等操作，点击 session
+   * 进入 session 的 route，不可以再有跳动"：不是把猜法猜得更准，是根本不猜。
+   *
+   * 真正的修法：`selectedThreadId`（侧栏高亮 + 传给面板的 `chatThreadId`）与
+   * `panelMountKey`（消息面板的 remount key，决定"什么时候要重新开始一段对话"）
+   * 不再从 `initialThreadId` 这个异步、乱序的信号镜像——只在组件**首次挂载**时
+   * 拿它当初始值（这一刻还没有任何竞态可言）。此后任何"切到哪条线程"的决定都
+   * 只能来自这个组件自己发起、同步完成的动作：点击列表项（`selectThread`）、
+   * 新建/复用对话（`handleCreate`）、删除后被迫离开当前线程（`handleDelete`）、
+   * 或浏览器前进/后退（下面 `popstate` 监听，直接读 `window.location.pathname`
+   * ——这是浏览器自己保证同步、权威、不会乱序的信号，不是我们猜出来的）。
+   * `router.push`/`router.replace` 仍然要调用（保持地址栏与浏览器历史正确、
+   * 可分享、刷新后可续），但调用之后**不再读它的结算结果**反过来决定显示什么
+   * ——这正是消掉竞态的关键：没有"我们要不要采信这次结算"这个问题了，因为
+   * 显示状态压根不等它结算，同一时刻只有"这次点击就是最新真相"这一个事实源，
+   * 不存在"更晚点击的结算被更早点击的结算覆盖"这个前提。
+   *
+   * `handleThreadResolved`（新建对话发第一条消息时，服务端异步写回真实 id）是
+   * 唯一的例外：那次只更新 `selectedThreadId`（配合 `history.replaceState` 静默
+   * 改地址栏），刻意不碰 `panelMountKey`——一次 remount 会打断仍在飞的 SSE 流，
+   * 见该函数自己的文档。
+   */
   const [selectedThreadId, setSelectedThreadId] = React.useState<string | null>(initialThreadId);
+  const [panelMountKey, setPanelMountKey] = React.useState<string>(initialThreadId ?? "new");
+
   /**
-   * 2026-09-03 人类实测反馈第三轮——round 2（PR #2494 的 150ms 防抖）上线后，
-   * 快速切换 session 仍会复现"停下来后选中的会话跳回别的会话"。独立 review 在
-   * #2494 两轮 exact-SHA 都判了 BLOCK，原话（round 1 finding #1）：
-   * 「防抖只收窄了并发窗口，没有建立`last-intent-wins`的最终一致性——防抖窗口
-   * 过后仍可能有 `router.push(A)` 后跟 `router.push(B)`，这两个真实导航依然可能
-   * 乱序结算」——这次的复现正是这条 finding 描述的场景（人类点击间隔超过 150ms
-   * 防抖窗口，两次点击各自的软导航都真的发出了）。
-   *
-   * 根因：下面这个 effect 曾经无条件地 `setSelectedThreadId(initialThreadId)`——
-   * 把 `initialThreadId`（Next Router 每次软导航结算后传回来的路由参数）当唯一
-   * 事实源镜像进 state。可这份事实源不保证"最后结算的就是最后点击的"：`router.push`
-   * 不返回 Promise、不保证多个并发发出的导航按发出顺序结算（RSC 响应可能乱序
-   * 抵达，见下面 `pushThreadRoute` 那几段 #2259/#2402 的既有注释——这是同一个
-   * 事实第三次咬人）。用户点 A（真发导航）、等一会儿点 B（真发导航，A 还没结算），
-   * 如果 A 的响应恰好晚于 B 抵达，这个 effect 会先把 `selectedThreadId` 落到 B、
-   * 又被姗姗来迟的 A 覆盖回去。
-   *
-   * 修法：引入 `latestIntentRef`——"用户最后一次真正想去的 threadId"，点击那一刻
-   * （`selectThread`）就同步写入，不等防抖、不等导航结算。这个 effect 收到一次
-   * `initialThreadId` 变化时，只有两种情况才采信：
-   *   ① 这次结算的 threadId 恰好等于 `latestIntentRef.current`——真正追上了用户
-   *      最后的意图，正常路径；
-   *   ② 这次变化不是我们自己发出的导航结算，而是浏览器前进/后退这类合法的外部
-   *      导航——用 `popstate` 监听区分（见下面 `externalNavUntilRef`），这类变化
-   *      无条件采信，并把 `latestIntentRef` 更新成新值，把路由控制权交还给它。
-   * 两者都不成立 ⇒ 这是一次"过期回声"：一次更早点击的软导航，在用户已经点了
-   * 更新的目标之后才姗姗来迟地结算。不采信这次显示更新（不覆盖已经在界面上的
-   * 正确高亮），并主动重新 `router.push` 回 `latestIntentRef.current`——不能只在
-   * 本地静默纠正高亮，消息面板（`initialThreadId` prop 直接驱动 remount，见下面
-   * 内容区注释）这时候也真的停在错的线程上，必须真的把路由拉回去。
+   * 唯一允许同时改变"高亮哪一条"和"面板要不要重新开始"的地方——真正的线程切换
+   * （点击列表项、新建/复用、删除后被迫换线程、浏览器前进/后退）必须调用这个
+   * 函数，不能只改其中一个 state（否则高亮和实际渲染的线程会对不上）。
    */
-  const latestIntentRef = React.useRef<string | null>(initialThreadId);
-  const externalNavUntilRef = React.useRef(0);
+  const applyThreadSelection = React.useCallback((threadId: string | null) => {
+    setSelectedThreadId(threadId);
+    setPanelMountKey(threadId ?? "new");
+  }, []);
+
   /**
-   * `selectDebounceRef`/`pendingSelectRef` 声明在这里（而不是紧挨着实际使用它们的
-   * `selectThread`，见下面 `pushThreadRoute` 之后那处）是因为上面的 `popstate`
-   * 监听——外部导航要能立刻废掉一次还在排队、尚未真正发出的点击防抖——需要引用
-   * 它们，JS 没有"函数作用域内 const 提升"，必须先声明才能被更早的闭包捕获。
+   * 浏览器前进/后退：`popstate` 是浏览器自己在历史条目真正切换之后同步派发的
+   * 事件，触发时 `window.location` 已经是新值——不是我们猜出来的信号，直接读
+   * `pathname` 解析出目标 threadId 即可，不需要任何时间窗、不需要跟点击的
+   * `router.push` 做值匹配。
    */
-  const selectDebounceRef = React.useRef<number | null>(null);
-  const pendingSelectRef = React.useRef<string | null>(null);
   React.useEffect(() => {
     const onPopState = () => {
-      // 给这次 `popstate` 之后到达的 `initialThreadId` 变化一个宽限窗口——
-      // 从"浏览器已经决定要去哪"到"Next Router 真的把新路由的 RSC 内容喂给这层
-      // 壳、`initialThreadId` prop 因此改变"之间有一段异步延迟，不能只信"下一次"
-      // 变化，得信"接下来这一小段时间里"的变化，见上面头注②。
-      externalNavUntilRef.current = Date.now() + 2_000;
-      // 外部导航（前进/后退）应当立刻废掉任何还在排队、尚未真正发出的点击防抖
-      // ——否则那次排队的点击会在用户已经用浏览器导航离开之后，凭空再插一脚。
-      if (selectDebounceRef.current !== null) {
-        window.clearTimeout(selectDebounceRef.current);
-        selectDebounceRef.current = null;
-        pendingSelectRef.current = null;
-      }
+      const match = /^\/chat\/([^/?#]+)/.exec(window.location.pathname);
+      const segment = match?.[1];
+      applyThreadSelection(segment !== undefined ? decodeURIComponent(segment) : null);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-  React.useEffect(() => {
-    const isExternalNav = Date.now() < externalNavUntilRef.current;
-    if (isExternalNav || initialThreadId === latestIntentRef.current) {
-      latestIntentRef.current = initialThreadId;
-      setSelectedThreadId(initialThreadId);
-      return;
-    }
-    // 过期回声——见上面头注：不采信这次显示，主动把路由拉回真正的最新意图。
-    const target = latestIntentRef.current;
-    if (target !== null) routerRef.current.push(`/chat/${target}`);
-    // ⚠ 依赖数组只放 `initialThreadId`——`router` 不参与，见上面 `routerRef` 头注：
-    // 这个 effect 只应该在 `initialThreadId` 真的变化时重跑，不该被 `router`
-    // 引用是否稳定这件事牵连。
-  }, [initialThreadId]);
+  }, [applyThreadSelection]);
   /**
    * 2026-08-30 人类实测反馈——「每点一次会话就整栏刷新一次」，且是**每次都发生**、
    * 不是偶发。见下面 `pushThreadRoute` 的更正：旧判据用 `window.location.pathname`
@@ -684,18 +656,20 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       const topCard = threads?.groups[0]?.cards[0];
       if (topCard?.status === "not-started") {
+        applyThreadSelection(topCard.id); // 同步切换，见上面头注——不等 router.push 结算
         router.push(`/chat/${topCard.id}`);
         return;
       }
       const result = await createPersonalThread(null);
       await reloadThreads();
+      applyThreadSelection(result.threadId); // 同上
       router.push(`/chat/${result.threadId}`);
     } catch (failure) {
       setCreateFailure(describeMutateFailure(failure));
     } finally {
       setCreatePending(false);
     }
-  }, [bearer, reloadThreads, router, threads]);
+  }, [applyThreadSelection, bearer, reloadThreads, router, threads]);
 
   /**
    * issue #2259 —— rev-e2e 真栈实测过一次：点击侧栏已有对话，网络面板证实
@@ -763,48 +737,20 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   }, [router]);
 
   /**
-   * 2026-09-02 人类实测反馈第二轮——「快速切换 session（连续点击不同会话），停下来
-   * 以后，当前选中的会话还是会跳」。这不是 #2480 修的那种"点击瞬间列表被后台刷新
-   * 重排、点到了相邻行"（那次的两处修复——后端排序全序化 + `listInteractingRef`
-   * 交互锁——仍然保留，堵的是"点中哪一行"这件事；这次是"点中之后，界面最终停在
-   * 哪一条"）。
-   *
-   * 根因：`pushThreadRoute` 每次调用都立刻真发一次 `router.push`（Next App Router
-   * 软导航）。连续快速点击 A→B→C 会连续发出三次并发的软导航请求；`router.push`
-   * 不返回 Promise、也不保证多个并发请求按发出顺序结算（RSC 响应可能乱序抵达，
-   * 见上面 #2259/#2402 那几段注释——这个事实这次换了一种方式咬人）。如果 B 对应
-   * 的响应恰好晚于 C 抵达，`initialThreadId`（进而 `selectedThreadId`，见上面
-   * 那个纯镜像 `useEffect`）会先落到 C、又被姗姗来迟的 B 覆盖回去——用户最后点的
-   * 明明是 C，界面却"跳"回了已经被超越的 B。
-   *
-   * 改法：不再每次点击都立刻真发导航，而是**防抖**——短时间内的连续点击只留下
-   * 最后一次目标，只有点击停下来、经过一小段静默窗口之后，才真正对着这个最终
-   * 目标发一次 `pushThreadRoute`。这样同一时刻最多只有一次导航在飞，从根上消掉
-   * "多个并发软导航乱序结算"这个前提，而不是等结算完了再去纠错（那样还要解决
-   * "怎么分辨这次结算是迟到的旧目标、还是浏览器前进/后退这类合法的外部导航"这个
-   * 更难的问题）。乐观地立刻 `setSelectedThreadId` 只是给这次点击一个即时的高亮
-   * 反馈——真正的路由切换仍然走防抖后的 `pushThreadRoute`，慢速点击（防抖窗口内
-   * 只点了一次）几乎感觉不到这次乐观值被后续 `initialThreadId` 同步覆盖。
+   * 点击列表项——见组件顶部头注：切换到哪条线程只由这次点击本身、同步决定，
+   * 不再经过防抖、不再等 `router.push` 结算之后再回读。round 2（150ms 防抖）、
+   * round 3（`latestIntentRef` + `popstate` 时间窗）都是想在"显示状态要等导航
+   * 结算"这个前提下把时序猜得更准，人类明确要求去掉这类猜测：`applyThreadSelection`
+   * 在这里就是最终结果，`pushThreadRoute` 只负责让地址栏/浏览器历史跟上，不影响
+   * 已经生效的显示状态，因此快速连续点击 A→B→C 无论各自的软导航请求最终以什么
+   * 顺序结算，界面从点击 C 的那一刻起就已经稳定停在 C，不会再被 A/B 的迟到结算
+   * 覆盖——没有"迟到结算"这个概念了，因为显示状态压根不读结算结果。
    */
-  React.useEffect(() => () => {
-    if (selectDebounceRef.current !== null) window.clearTimeout(selectDebounceRef.current);
-  }, []);
-
   const selectThread = React.useCallback((threadId: string) => {
     if (threadId === selectedThreadId) return;
-    // 点击这一刻**立刻**记下"用户最后真正想去的目标"——不等防抖、不等导航结算，
-    // 见上面 `latestIntentRef` 头注；这是 last-intent-wins 协议的锚点。
-    latestIntentRef.current = threadId;
-    setSelectedThreadId(threadId); // 乐观高亮，同一头注；权威结果仍来自防抖后的真实导航
-    pendingSelectRef.current = threadId;
-    if (selectDebounceRef.current !== null) window.clearTimeout(selectDebounceRef.current);
-    selectDebounceRef.current = window.setTimeout(() => {
-      selectDebounceRef.current = null;
-      const target = pendingSelectRef.current;
-      pendingSelectRef.current = null;
-      if (target !== null) pushThreadRoute(target);
-    }, 150);
-  }, [pushThreadRoute, selectedThreadId]);
+    applyThreadSelection(threadId);
+    pushThreadRoute(threadId);
+  }, [applyThreadSelection, pushThreadRoute, selectedThreadId]);
 
   /**
    * `copilotkit-v2-panel.tsx` 把这次调用挂在 `onThreadResolved` —— 见该文件新增的
@@ -812,6 +758,10 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 即这是"新建对话即发第一条消息"这条路径）；已经带 id 打开的线程续聊不会触发这个
    * 分支（`chatThreadIdRef` 初始值已经等于 URL 里的 id，不会"resolve 出一个不同的
    * id"）。
+   *
+   * ⚠ 刻意只调 `setSelectedThreadId`，不调组件顶部的 `applyThreadSelection`——
+   * 这是唯一不该触发面板 remount 的"切换"：`panelMountKey` 保持不变，仍在飞的
+   * SSE 流不会被打断。
    */
   const handleThreadResolved = React.useCallback((resolvedThreadId: string) => {
     setSelectedThreadId((prev) => {
@@ -897,6 +847,8 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       if (threadId === selectedThreadId) {
         const next = nextList.groups.flatMap((group) => group.cards)[0]?.id ?? null;
         // 删掉的是当前这条 ⇒ 必须离开它的路由；一条都不剩就回 `/chat` 空状态。
+        // 同步切一次显示状态（见组件顶部头注），不等 `router.replace` 结算。
+        applyThreadSelection(next);
         router.replace(next ? `/chat/${next}` : "/chat");
       }
     } catch (failure) {
@@ -906,7 +858,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     } finally {
       if (mountedRef.current) setMutatePending(null);
     }
-  }, [bearer, fetchThreadList, router, selectedThreadId]);
+  }, [applyThreadSelection, bearer, fetchThreadList, router, selectedThreadId]);
 
   /**
    * issue #2075（TW-P2-6）—— 搜索与置顶。
@@ -1102,16 +1054,18 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
       </aside>
       <div className={cn("min-w-0 flex-1", mobileListOpen ? "hidden md:block" : "block")}>
         {/*
-          ⚠ `key` 用的是 `initialThreadId`（route 参数本身），不是 `selectedThreadId`
-          （本组件内部状态）——两者绝大多数时候相等，但在
-          "新建对话即发第一条消息、`handleThreadResolved` 异步写回真实 id" 这条路径上
-          刻意不相等：那次只应该更新地址栏 + 侧栏高亮，不能触发 remount（见上面
-          `handleThreadResolved` 的文档，一次 remount 会打断仍在飞的 SSE 流）。
-          `initialThreadId` 只在真正的路由导航（切换线程 / 新建对话 / 整页刷新）时
-          变化，是这里唯一安全的 remount 触发信号。
+          ⚠ 2026-09-03 起 `key` 用的是 `panelMountKey`（组件内部状态，见顶部头注），
+          不再是 `initialThreadId`（route 参数、Next Router 软导航结算后才会变，
+          正是三轮竞态的根——依赖它当 remount 信号，remount 时机就绑死在一个异步、
+          可能乱序的事件上）。`panelMountKey` 与 `selectedThreadId` 绝大多数时候
+          相等，但在"新建对话即发第一条消息、`handleThreadResolved` 异步写回真实
+          id"这条路径上刻意不相等：那次只应该更新地址栏 + 侧栏高亮，不能触发
+          remount（见 `handleThreadResolved` 的文档，一次 remount 会打断仍在飞的
+          SSE 流）——`applyThreadSelection` 才会同时改 `panelMountKey`，
+          `handleThreadResolved` 自己不调它，正是靠这一点维持这条例外。
         */}
         <CopilotKitV2Panel
-          key={initialThreadId ?? "new"}
+          key={panelMountKey}
           chatThreadId={selectedThreadId}
           onThreadResolved={handleThreadResolved}
           /* 🔴 issue #2094 —— 除右栏外还要重读左栏线程列表。

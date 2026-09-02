@@ -1,6 +1,6 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 /**
  * issue #2259 —— rev-e2e 真栈实测过一次：点击侧栏已有对话，`router.push()` 发出的
@@ -328,10 +328,7 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
-    // 2026-09-02（PR #2494）—— `selectThread` 现在防抖 150ms 才真发 `pushThreadRoute`，
-    // 先推过这个窗口，`push` 才会被调用。
-    await vi.advanceTimersByTimeAsync(150);
-
+    // 2026-09-03（round 4）—— `selectThread` 不再防抖，点击立刻真发 `pushThreadRoute`。
     expect(push).toHaveBeenCalledWith(`/chat/${THREAD_A.id}`);
 
     // 软导航"正常"生效：兜底窗口到点前把 `location.pathname` 改成目标路径
@@ -353,9 +350,6 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
-    // 2026-09-02（PR #2494）—— 同上，先推过 150ms 防抖窗口。
-    await vi.advanceTimersByTimeAsync(150);
-
     expect(push).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith(`/chat/${THREAD_B.id}`);
     // `push` 是一个什么都不做的桩——软导航"发出了但没生效"，`location.pathname`
@@ -382,13 +376,9 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
     });
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
-    // 2026-09-02（PR #2494）—— 先推过 A 的 150ms 防抖窗口，让它真的发出导航，
-    // 再等 1s（早就超过防抖窗口，不会和 B 的点击合并成一次防抖）后点 B。
-    await vi.advanceTimersByTimeAsync(150);
-    await vi.advanceTimersByTimeAsync(1_000);
-    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
-    await vi.advanceTimersByTimeAsync(150); // 推过 B 自己的防抖窗口
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`)); // 立刻真发一次导航
+    await vi.advanceTimersByTimeAsync(1_000); // A 还没结算，用户已经又点了 B
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`)); // 同样立刻真发一次导航
 
     expect(push).toHaveBeenCalledTimes(2); // A 一次 + B 一次
     // 第一次点击（A）的 4s 窗口到点：不该因为 A 还没导航成功就强制重试导航去 A——
@@ -405,75 +395,83 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
 });
 
 /**
- * 2026-09-03 人类实测反馈第三轮——round 2（PR #2494 的 150ms 防抖）上线后，
- * 快速切换 session 仍会复现"停下来后选中的会话跳回别的会话"。独立 review 在
- * #2494 两轮 exact-SHA 都判了 BLOCK，指出防抖只收窄了并发窗口，没有建立
- * last-intent-wins 的最终一致性：防抖窗口过后仍可能有 `router.push(A)` 后跟
- * `router.push(B)`，这两个真实导航依然可能乱序结算。下面两条用例直接反证
- * `latestIntentRef` + `popstate` 边界这套协议：① 一次更早点击对应的软导航，在
- * 更晚点击已经结算之后才姗姗抵达，不能覆盖已经生效的更新目标，还要主动纠正
- * 回真正的最新意图；② 浏览器前进/后退这类合法的外部导航，要能废掉一次还在
- * 排队、尚未真正发出的点击防抖，不能被"过期回声"逻辑反过来误伤。
+ * 2026-09-03 人类实测反馈第三、四轮——round 2（150ms 防抖）、round 3
+ * （`latestIntentRef` + `popstate` 时间窗）都是在"显示状态要等 Next Router
+ * 软导航结算"这个前提下打补丁，独立 review（PR #2494、#2501 两次 exact-SHA
+ * BLOCK）持续指出这个前提本身就是漏洞的来源。人类原话给了最终判据——"去掉
+ * 任何的 timeout 等操作，点击 session 进入 session 的 route，不可以再有跳动"。
+ * round 4 把显示状态（`selectedThreadId`/`panelMountKey`）改成完全不读
+ * `initialThreadId` 的后续变化（只在挂载时当初始值），真正的切换只来自组件
+ * 自己同步发起的动作——点击、新建/复用、删除后跳转、`popstate`。下面两条用例
+ * 直接反证这一点：① 快速连续点击不再有任何防抖，每次点击立刻真发一次导航、
+ * 立刻更新高亮，且此后 `initialThreadId` prop 无论怎么变化（模拟软导航乱序
+ * 结算）都不会覆盖已经生效的选择——不是"猜得更准的纠错"，是压根不读，没有
+ * "过期回声"这个概念；② 浏览器前进/后退直接从 `popstate` 触发时刻的
+ * `window.location.pathname` 同步取值更新，不经过任何计时器。
  */
-describe("CopilotKitV2Shell — round 3：快速切换后乱序结算的 last-intent-wins 协议", () => {
-  it("更早点击对应的软导航结算，在更晚点击结算之后才姗姗抵达 ⇒ 不覆盖已经生效的更新目标，自动纠正回最新意图", async () => {
+describe("CopilotKitV2Shell — round 4：显示状态不再读 initialThreadId 的后续变化", () => {
+  it("快速连续点击 A→B ⇒ 每次点击立刻真发导航、立刻更新高亮，此后 initialThreadId 的任何变化都不会覆盖已经生效的选择", async () => {
     const { rerender } = render(<CopilotKitV2Shell initialThreadId={null} />);
     await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
     await screen.findByTestId(`chat-thread-${THREAD_B.id}`);
 
-    vi.useFakeTimers();
+    // 点 A：没有防抖窗口要等，立刻真发一次导航、立刻高亮。
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
-    await vi.advanceTimersByTimeAsync(150); // A 的防抖窗口过去，真发一次导航
     expect(push).toHaveBeenCalledTimes(1);
-    expect(push).toHaveBeenCalledWith(`/chat/${THREAD_A.id}`);
+    expect(push).toHaveBeenLastCalledWith(`/chat/${THREAD_A.id}`);
+    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "true");
 
-    await vi.advanceTimersByTimeAsync(500); // A 仍在飞，还没结算
+    // 紧接着点 B（模拟"A 的软导航还没结算，用户已经又点了别的"）：同样立刻
+    // 真发导航、立刻高亮，不必等待、不必合并。
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
-    await vi.advanceTimersByTimeAsync(150); // B 自己的防抖窗口过去，真发一次导航
     expect(push).toHaveBeenCalledTimes(2);
     expect(push).toHaveBeenLastCalledWith(`/chat/${THREAD_B.id}`);
-    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true"); // 乐观高亮
-
-    // B 的软导航先结算——Next Router 真的把新路由内容喂给这层壳。
-    rerender(<CopilotKitV2Shell initialThreadId={THREAD_B.id} />);
-    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true");
-    expect(push).toHaveBeenCalledTimes(2); // 已经追上最新意图，不需要纠正
-
-    // A 那次更早点击的软导航，姗姗来迟地在 B 已经结算之后才抵达——过期回声。
-    rerender(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
-
-    // 不该覆盖已经生效的 B：高亮必须仍然停在 B，不是 A。
     expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true");
     expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "false");
-    // 而且要主动把路由拉回真正的最新意图（B）——不能只在本地静默纠正高亮，
-    // 消息面板（`initialThreadId` 直接驱动 remount）这时候仍然停在错的线程上。
-    expect(push).toHaveBeenCalledTimes(3);
-    expect(push).toHaveBeenLastCalledWith(`/chat/${THREAD_B.id}`);
+
+    // A 那次更早点击对应的软导航，无论以什么顺序/什么时候结算（这里模拟
+    // Next Router 把 initialThreadId prop 改成 A——一次姗姗来迟的、已经被
+    // 超越的结算），都不该影响已经生效的选择：不产生任何新的 push（没有
+    // "纠正"这回事，因为压根不读这次变化）。
+    rerender(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true");
+    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "false");
+    expect(push).toHaveBeenCalledTimes(2);
+
+    // B 自己的结算随后抵达，同样不改变任何东西（已经在正确的状态上）。
+    rerender(<CopilotKitV2Shell initialThreadId={THREAD_B.id} />);
+    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true");
+    expect(push).toHaveBeenCalledTimes(2);
   });
 
-  it("点击排队等待防抖期间发生浏览器前进/后退 ⇒ 排队的点击被废弃，外部导航的目标才是最终结果", async () => {
-    const { rerender } = render(<CopilotKitV2Shell initialThreadId={null} />);
+  it("浏览器前进/后退 ⇒ popstate 触发的同一刻直接从 location.pathname 同步取值切换，不经过任何计时器", async () => {
+    render(<CopilotKitV2Shell initialThreadId={null} />);
     await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
     await screen.findByTestId(`chat-thread-${THREAD_B.id}`);
 
-    vi.useFakeTimers();
-    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`)); // 排队等待 150ms 防抖，还没真发导航
-    expect(push).not.toHaveBeenCalled();
-    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "true"); // 乐观高亮
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "true");
 
-    // 浏览器前进/后退：`popstate` 先到，随后 Next Router 把新路由内容喂给这层壳
-    // （`initialThreadId` prop 变化）——这里落到 B，一个跟"排队中的点击目标 A"、
-    // "点击前的原始状态 null"都不同的第三个值，确保确实是外部导航生效，不是
-    // 巧合碰上了原来就相等的旧值。
-    window.dispatchEvent(new Event("popstate"));
-    rerender(<CopilotKitV2Shell initialThreadId={THREAD_B.id} />);
+    // 真实浏览器的前进/后退会先把 `window.location` 换成目标路径，再派发
+    // `popstate`；这里手动模拟这个顺序——落到 B，一个跟"刚点击的 A"不同的值，
+    // 确保确实是这次外部导航在生效，不是巧合碰上了原来就相等的旧值。
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, pathname: `/chat/${THREAD_B.id}` },
+      writable: true,
+    });
+    // `window.dispatchEvent` 不像 `fireEvent` 那样被 RTL 自动包进 `act()`——
+    // 我们的 `popstate` 监听器同步调用 `setState`，不手动包一层，React 更新
+    // 可能还没在下面的断言之前刷新完。
+    act(() => { window.dispatchEvent(new Event("popstate")); });
 
-    // 排队中的点击（A）必须被外部导航废弃：继续推进过 150ms 防抖窗口，也不该
-    // 再补发一次去 A 的导航——用户已经用浏览器导航去了别处。
-    await vi.advanceTimersByTimeAsync(300);
-    expect(push).not.toHaveBeenCalled();
+    // 不等待任何 timer——`popstate` 的处理是同步的，事件一分发完，DOM 立刻
+    // 反映新的选择。
     expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true");
     expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "false");
+    // popstate 本身不该触发新的 `push`——浏览器自己已经在管这条历史记录了，
+    // 再 push 一次等于把同一条记录重复写两遍。
+    expect(push).toHaveBeenCalledTimes(1);
   });
 });
 
