@@ -1,13 +1,17 @@
 "use client";
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp } from "lucide-react";
-import { ApiError } from "@/lib/api-client";
+import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Mic, ImagePlus } from "lucide-react";
+import { ApiError, getStoredSessionToken } from "@/lib/api-client";
+import { useAsrDraft } from "@/lib/use-asr-draft";
 import {
   FEEDBACK_KINDS,
   currentAppVersion,
+  fetchFeedbackAttachmentObjectUrl,
   listFeedback,
+  structureFeedbackDraft,
   submitFeedback,
+  uploadFeedbackAttachment,
   type FeedbackItem,
   type FeedbackKind,
   type FeedbackStatus,
@@ -16,6 +20,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+/** 契约 `submitFeedback.in.attachmentIds` 的上限（`.max(4)`）——见 `feedback-loop.ts`。 */
+const MAX_ATTACHMENTS = 4;
 
 /**
  * FB-2 —— 提交反馈的弹层。**两个标签页：提交 / 我提过的。**
@@ -51,6 +58,21 @@ const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutra
 const TITLE_MAX = 120;
 const DETAIL_MAX = 4000;
 
+/**
+ * FB-5——一张待提交的图片附件。`previewUrl` 是**本地** `URL.createObjectURL(file)`，
+ * 不是后端下载地址：上传成功之前后端还没有这个字节，上传成功之后也没必要再多打
+ * 一次下载请求去显示一张浏览器已经有原始 `File` 的图——同 `fetchFeedbackAttachmentObjectUrl`
+ * 只用于「我提过的」列表里回看**别的**（已经离开这次会话的）反馈的既有附件。
+ */
+interface PendingAttachment {
+  readonly localId: string;
+  readonly file: File;
+  readonly previewUrl: string;
+  readonly status: "uploading" | "done" | "failed";
+  readonly attachmentId?: string;
+  readonly error?: string;
+}
+
 function targetHeading(target: FeedbackTarget, label: string | null): string {
   if (target.kind === "product") return "对产品提反馈";
   const noun = target.kind === "agent" ? "Agent" : "Skill";
@@ -78,8 +100,91 @@ export function FeedbackDialog({
   const [error, setError] = React.useState<string | null>(null);
   const [justSubmitted, setJustSubmitted] = React.useState<string | null>(null);
 
+  // FB-5——语音草稿。`voiceTranscript` 是转录**过程中**的原文，只用来在停止录音那一刻
+  // 喂给 `structureFeedbackDraft`；转录本身不直接写进 `detail`，因为口述常常语序不通顺，
+  // "说完自动填表单、人工再改"是人类明确要的交互（见文件头此前的设计签核记录）。
+  const [voiceTranscript, setVoiceTranscript] = React.useState("");
+  const [structuring, setStructuring] = React.useState(false);
+  const [structureError, setStructureError] = React.useState<string | null>(null);
+  const wasRecordingRef = React.useRef(false);
+
+  // FB-5——图片附件。见 `PendingAttachment` 头注：上传发生在"选择文件"那一刻，
+  // 不是"点提交"那一刻——用户可能边说边贴图，提交时只是把已经攒好的 id 列表带上。
+  const [attachments, setAttachments] = React.useState<readonly PendingAttachment[]>([]);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   const appVersion = currentAppVersion();
   const titleRef = React.useRef<HTMLInputElement>(null);
+
+  const speech = useAsrDraft({
+    getBaseText: () => voiceTranscript,
+    onTranscript: setVoiceTranscript,
+    sessionToken: getStoredSessionToken() ?? "",
+  });
+
+  // 录音真正结束（回到 idle，且此前确实录过）——这一刻才把整段转录交给
+  // `structureFeedbackDraft` 整理。不是每次 partial 更新都调，那样会打爆这条元任务接口。
+  React.useEffect(() => {
+    if (speech.listening || speech.connecting || speech.stopping) {
+      wasRecordingRef.current = true;
+      return;
+    }
+    if (!wasRecordingRef.current) return;
+    wasRecordingRef.current = false;
+    const transcript = voiceTranscript.trim();
+    if (transcript === "") return;
+    setStructuring(true);
+    setStructureError(null);
+    structureFeedbackDraft(transcript)
+      .then((draft) => {
+        setKind(draft.kind);
+        setTitle(draft.title);
+        setDetail(draft.detail);
+      })
+      .catch((err) => {
+        setStructureError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+      })
+      .finally(() => setStructuring(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在录音状态的边沿触发，voiceTranscript 只在触发那一刻读一次快照。
+  }, [speech.listening, speech.connecting, speech.stopping]);
+
+  // 弹层关闭/卸载时释放本地预览的 object URL，不留内存泄漏。
+  React.useEffect(() => {
+    return () => {
+      for (const a of attachments) URL.revokeObjectURL(a.previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在卸载时跑一次，用最新的 attachments 靠 ref 语义（数组引用变化本来就该重新挂 cleanup）。
+  }, [attachments]);
+
+  const addAttachments = React.useCallback((files: FileList | null) => {
+    if (files === null || files.length === 0) return;
+    const room = MAX_ATTACHMENTS - attachments.length;
+    if (room <= 0) return;
+    const picked = Array.from(files).slice(0, room);
+    for (const file of picked) {
+      const localId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const previewUrl = URL.createObjectURL(file);
+      setAttachments((prev) => [...prev, { localId, file, previewUrl, status: "uploading" }]);
+      uploadFeedbackAttachment(file)
+        .then((out) => {
+          setAttachments((prev) =>
+            prev.map((a) => (a.localId === localId ? { ...a, status: "done", attachmentId: out.attachmentId } : a)),
+          );
+        })
+        .catch((err) => {
+          const reason = err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err);
+          setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "failed", error: reason } : a)));
+        });
+    }
+  }, [attachments.length]);
+
+  const removeAttachment = React.useCallback((localId: string) => {
+    setAttachments((prev) => {
+      const target = prev.find((a) => a.localId === localId);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((a) => a.localId !== localId);
+    });
+  }, []);
 
   React.useEffect(() => {
     titleRef.current?.focus();
@@ -95,12 +200,19 @@ export function FeedbackDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const canSubmit = title.trim() !== "" && detail.trim() !== "" && !busy;
+  const attachmentsUploading = attachments.some((a) => a.status === "uploading");
+  const canSubmit = title.trim() !== "" && detail.trim() !== "" && !busy && !attachmentsUploading;
 
   const send = async () => {
     setBusy(true);
     setError(null);
     try {
+      const attachmentIds = attachments
+        .filter((a): a is PendingAttachment & { attachmentId: string } => a.status === "done" && a.attachmentId !== undefined)
+        .map((a) => a.attachmentId);
+      // ⚠ 没有附件时**不带这个键**（不是传 `attachmentIds: undefined`）——同文件头「请求体
+      //   恰好几个字段」的既有纪律：多一个值为 undefined 的键，`JSON.stringify` 之后看不出
+      //   区别，但 `Object.keys` 断言与任何按键名做的中间层处理都会看出区别。
       const out = await submitFeedback({
         kind,
         target,
@@ -109,10 +221,14 @@ export function FeedbackDialog({
         // I-F1：发生位置由客户端给——服务端不可能知道用户站在哪一屏。
         occurredRoute: pathname ?? null,
         appVersion,
+        ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
       });
       setJustSubmitted(out.feedbackId);
       setTitle("");
       setDetail("");
+      for (const a of attachments) URL.revokeObjectURL(a.previewUrl);
+      setAttachments([]);
+      setVoiceTranscript("");
       setTab("mine");
     } catch (err) {
       setError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
@@ -217,6 +333,112 @@ export function FeedbackDialog({
                 className="resize-y rounded-md border border-border-subtle bg-panel p-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
+
+            {/* FB-5——语音输入。说完自动整理成标题/正文，人工再改，不直接替用户点提交。 */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant={speech.listening ? "destructive" : "outline"}
+                  size="sm"
+                  className="gap-1"
+                  data-testid="feedback-voice-button"
+                  aria-pressed={speech.listening}
+                  disabled={speech.connecting || speech.stopping || structuring}
+                  onClick={() => (speech.listening ? speech.stop() : speech.start())}
+                >
+                  {speech.connecting || speech.stopping || structuring ? (
+                    <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Mic aria-hidden className="h-3.5 w-3.5" />
+                  )}
+                  {speech.connecting ? "正在连接…"
+                    : speech.stopping ? "正在停止…"
+                    : structuring ? "AI 整理中…"
+                    : speech.listening ? "停止说话" : "说一段话，AI 帮你整理"}
+                </Button>
+                {speech.listening && (
+                  <span className="text-10 text-muted-foreground" data-testid="feedback-voice-live-transcript">
+                    {voiceTranscript.trim() === "" ? "在听…" : voiceTranscript}
+                  </span>
+                )}
+              </div>
+              {speech.error !== null && (
+                <p className="text-11 text-destructive" data-testid="feedback-voice-error">{speech.error}</p>
+              )}
+              {structureError !== null && (
+                <p className="text-11 text-destructive" data-testid="feedback-structure-error">
+                  没能把这段话整理成表单（{structureError}）。你说的话还在——可以自己填标题和正文。
+                </p>
+              )}
+            </div>
+
+            {/* FB-5——图片附件。2026-09-02：这一轮**没有脱敏**（人类明确裁决先出功能），
+                见后端 `upload-feedback-attachment.ts` 头注——已知限制，不是遗漏。 */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  className="hidden"
+                  data-testid="feedback-attachment-input"
+                  onChange={(e) => {
+                    addAttachments(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  disabled={attachments.length >= MAX_ATTACHMENTS}
+                  onClick={() => fileInputRef.current?.click()}
+                  data-testid="feedback-attachment-add"
+                >
+                  <ImagePlus aria-hidden className="h-3.5 w-3.5" />
+                  加图片（{attachments.length}/{MAX_ATTACHMENTS}）
+                </Button>
+              </div>
+              {attachments.length > 0 && (
+                <ul className="flex flex-wrap gap-2" data-testid="feedback-attachment-list">
+                  {attachments.map((a) => (
+                    <li key={a.localId} className="relative h-16 w-16" data-testid={`feedback-attachment-${a.localId}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例） */}
+                      <img
+                        src={a.previewUrl}
+                        alt=""
+                        className={cn(
+                          "h-16 w-16 rounded-md border border-border-subtle object-cover",
+                          a.status === "failed" && "opacity-40",
+                        )}
+                      />
+                      {a.status === "uploading" && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-md bg-inverse/30">
+                          <Loader2 aria-hidden className="h-4 w-4 animate-spin text-white" />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        aria-label="移除这张图片"
+                        data-testid={`feedback-attachment-remove-${a.localId}`}
+                        className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-inverse text-inverse-foreground"
+                        onClick={() => removeAttachment(a.localId)}
+                      >
+                        <X aria-hidden className="h-2.5 w-2.5" />
+                      </button>
+                      {a.status === "failed" && (
+                        <p className="mt-0.5 text-9 text-destructive" data-testid={`feedback-attachment-error-${a.localId}`}>
+                          {a.error}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {/* I-F1：收集了什么，明写出来。见文件头。 */}
             <p className="text-10 text-muted-foreground" data-testid="feedback-context-notice">
@@ -363,6 +585,17 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
           {item.detail !== null && (
             <p className="whitespace-pre-wrap text-11 text-muted-foreground">{item.detail}</p>
           )}
+          {/* 附件与正文同一条 D3 门控（见后端 `list-feedback.ts` 头注）——`attachments`
+              非空必然伴随 `detail` 非空，这里不再重复判一次 detail！==null。 */}
+          {item.attachments.length > 0 && (
+            <ul className="flex flex-wrap gap-1.5" data-testid={`feedback-mine-attachments-${item.id}`}>
+              {item.attachments.map((a) => (
+                <li key={a.id}>
+                  <AttachmentThumbnail url={a.url} />
+                </li>
+              ))}
+            </ul>
+          )}
           {item.statusReason !== null && (
             <p className="text-11 text-card-foreground" data-testid={`feedback-status-reason-${item.id}`}>
               处理说明：{item.statusReason}
@@ -372,4 +605,43 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
       ))}
     </ul>
   );
+}
+
+/**
+ * 「我提过的」列表里的一张附件缩略图——同 `fetchAvatarObjectUrl` 的既有先例：下载路由
+ * 要求 `Authorization` 头，`<img src>` 带不了，所以先 `fetch` 取字节再转 `Blob URL`。
+ */
+function AttachmentThumbnail({ url }: { url: string }) {
+  const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
+  const [failed, setFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    let created: string | null = null;
+    fetchFeedbackAttachmentObjectUrl(url)
+      .then((u) => {
+        if (cancelled) {
+          URL.revokeObjectURL(u);
+          return;
+        }
+        created = u;
+        setObjectUrl(u);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+      if (created !== null) URL.revokeObjectURL(created);
+    };
+  }, [url]);
+
+  if (failed) {
+    return <div className="flex h-12 w-12 items-center justify-center rounded-md border border-border-subtle text-9 text-muted-foreground">?</div>;
+  }
+  if (objectUrl === null) {
+    return <div className="h-12 w-12 animate-pulse rounded-md bg-muted" aria-hidden />;
+  }
+  // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例）
+  return <img src={objectUrl} alt="" className="h-12 w-12 rounded-md border border-border-subtle object-cover" />;
 }

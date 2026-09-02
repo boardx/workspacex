@@ -11,7 +11,7 @@
  */
 import { feedbackLoop } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { apiRequest, apiUrl, ApiError, getStoredSessionToken } from "./api-client";
 
 export type FeedbackKind = z.infer<typeof feedbackLoop.FeedbackKind>;
 export type FeedbackStatus = z.infer<typeof feedbackLoop.FeedbackStatus>;
@@ -45,6 +45,8 @@ export async function submitFeedback(input: {
   readonly detail: string;
   readonly occurredRoute: string | null;
   readonly appVersion: string | null;
+  /** FB-5——提交前已经 `uploadFeedbackAttachment` 过的图片 id。缺省/空 = 不带附件。 */
+  readonly attachmentIds?: readonly string[];
 }): Promise<SubmitFeedbackOut> {
   return apiRequest<SubmitFeedbackOut>("/feedback", { method: "POST", body: input });
 }
@@ -137,4 +139,81 @@ export async function commentOnFeedbackGithubIssue(
  */
 export function currentAppVersion(): string | null {
   return process.env.NEXT_PUBLIC_APP_VERSION ?? null;
+}
+
+/* ─────────────────────────── FB-5：图片附件 ─────────────────────────── */
+
+export type FeedbackAttachment = z.infer<typeof feedbackLoop.FeedbackAttachment>;
+export type UploadFeedbackAttachmentOut = z.infer<typeof feedbackLoop.operations.uploadFeedbackAttachment.out>;
+
+/**
+ * 图片附件上传走 `multipart/form-data`，同 `live-identity.ts` 的 `uploadOwnAvatar`
+ * 既有先例（`apiRequest` 只封装 JSON body）：一个 `meta` 字段（JSON，须与
+ * `uploadFeedbackAttachment.in` 一致）+ 一个 `file` 字段（二进制）。这一步先于
+ * "提交反馈"发生——返回的 `attachmentId` 攒起来，随 `submitFeedback` 一起提交
+ * （见该函数与后端用例头注：认领是 best-effort，不阻塞反馈本身）。
+ */
+export async function uploadFeedbackAttachment(file: File): Promise<UploadFeedbackAttachmentOut> {
+  const meta = { sizeBytes: file.size, contentType: file.type };
+  const form = new FormData();
+  form.set("meta", JSON.stringify(meta));
+  form.set("file", file, file.name);
+
+  const token = getStoredSessionToken();
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(apiUrl(feedbackLoop.operations.uploadFeedbackAttachment.path), {
+    method: "POST",
+    headers,
+    credentials: "include",
+    body: form,
+  });
+  const text = await res.text();
+  // 同 `uploadOwnAvatar` 的既有纪律：非 JSON 的错误正文不得抛原始 SyntaxError。
+  let json: unknown;
+  try {
+    json = text.length > 0 ? JSON.parse(text) : undefined;
+  } catch {
+    throw new ApiError(res.status, null, undefined, text.slice(0, 512));
+  }
+  if (!res.ok) {
+    const reasonCode =
+      typeof json === "object" && json !== null && "reasonCode" in json
+        ? ((json as { reasonCode: unknown }).reasonCode as string | null)
+        : null;
+    throw new ApiError(res.status, reasonCode, json);
+  }
+  return json as UploadFeedbackAttachmentOut;
+}
+
+/**
+ * 附件 `<img>` 不能直接用 `attachment.url`——下载路由要求 `Authorization` 头，浏览器
+ * 的 `<img src>` 没有办法带自定义头。同 `fetchAvatarObjectUrl` 的既有先例：改用
+ * `fetch` 取字节再转 `Blob URL`。
+ */
+export async function fetchFeedbackAttachmentObjectUrl(attachmentUrl: string): Promise<string> {
+  const token = getStoredSessionToken();
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(apiUrl(attachmentUrl), { headers, credentials: "include" });
+  if (!res.ok) throw new ApiError(res.status, null, null);
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+/* ─────────────────────────── FB-5：语音转结构化草稿 ─────────────────────────── */
+
+export type StructureFeedbackDraftOut = z.infer<typeof feedbackLoop.operations.structureFeedbackDraft.out>;
+
+/**
+ * 把一段语音转录文字整理成 `{kind,title,detail}`，填进提交表单，人工再改再提交。
+ * 语音→文字本身复用既有的 chat composer 麦克风通路（`use-asr-draft.ts`），本函数接手
+ * 的起点是**转录已经完成之后**的一段文字——见后端用例 `structure-feedback-draft.ts` 头注。
+ */
+export async function structureFeedbackDraft(transcript: string): Promise<StructureFeedbackDraftOut> {
+  return apiRequest<StructureFeedbackDraftOut>(feedbackLoop.operations.structureFeedbackDraft.path, {
+    method: "POST",
+    body: { transcript },
+  });
 }

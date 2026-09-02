@@ -119,8 +119,35 @@ export const FeedbackError = z.enum([
   "NO_GITHUB_ISSUE",
   /** 发评论时正文为空/全空白。同 `TRIAGE_REASON_REQUIRED` 的理由：一条空评论没有信息量 */
   "COMMENT_BODY_REQUIRED",
+  /** FB-5：附件字节体积超过 `FEEDBACK_ATTACHMENT_SIZE_LIMIT_BYTES`（8MB） */
+  "FILE_TOO_LARGE",
+  /** FB-5：声明的类型不在白名单（png/jpeg/webp）、或与实际字节嗅探结果不符 */
+  "UNSUPPORTED_CONTENT_TYPE",
+  /** FB-5：命中恶意签名（同 `uploadArtifact` 的 `MALWARE_DETECTED`） */
+  "MALWARE_DETECTED",
+  /** FB-5：语音转结构化反馈——模型调用/解析失败，转录文字本身仍在输入框里未丢失 */
+  "STRUCTURING_FAILED",
 ]);
 export type FeedbackError = z.infer<typeof FeedbackError>;
+
+/**
+ * FB-5 —— 提交反馈时可以带的图片附件（先各自上传，再把返回的 id 塞进
+ * `submitFeedback.attachmentIds`；见 `uploadFeedbackAttachment` 头注）。
+ *
+ * ⚠ **这一版没有脱敏**（人类 2026-09-02 明确裁决：先出功能，登记为已知限制）——
+ *   见 `apps/api/src/application/feedback/upload-feedback-attachment.ts` 头注。
+ * ⚠ `attachments` 与 `detail` 走**同一条** D3 可见性门控（图片是正文的一部分，
+ *   不是标题/票数那类恒对全组织可见的展示性上下文）——见 `list-feedback.ts` 的
+ *   `ListFeedbackDeps.attachments` 头注。
+ */
+export const FeedbackAttachment = z
+  .object({
+    id: z.string(),
+    url: z.string(),
+    mime: z.enum(["image/png", "image/jpeg", "image/webp"]),
+  })
+  .strict();
+export type FeedbackAttachment = z.infer<typeof FeedbackAttachment>;
 
 /**
  * GitHub 那边的真实状态——**只在需要时现查，从不落库**。
@@ -167,6 +194,12 @@ export const FeedbackItem = z
     title: z.string(),
     /** ⚠ null ⟺ 无权查看正文（D3）。**不是**「正文为空」——见本类型头注 */
     detail: z.string().nullable(),
+    /**
+     * FB-5——同 `detail` 一条门控：`detail === null` 的行这里恒是空数组，不是
+     * "这条反馈没有图"——见 `FeedbackAttachment` 头注、`list-feedback.ts` 的
+     * `ListFeedbackDeps.attachments` 头注。
+     */
+    attachments: z.array(FeedbackAttachment),
     status: FeedbackStatus,
     /** ⚠ 只有 `不做` 必然非 null；其余三态可有可无 */
     statusReason: z.string().nullable(),
@@ -222,6 +255,11 @@ export const operations = {
    * ⚠ `occurredRoute` / `appVersion` **可空但不可伪装成必填**：
    *   有些入口（如后台里直接提的）确实没有有意义的「发生位置」。
    *   `.nullable()` 让「没有」是一个可表达的值，而不是靠一个空字符串糊过去。
+   *
+   * ⚠ FB-5：`attachmentIds` 是**已经**上传过的附件 id（先调 `uploadFeedbackAttachment`
+   *   拿到 id，再塞进这里）——这条操作本身不接字节。`.optional()` 是对 `.strict()`
+   *   契约新增字段的唯一向后兼容方式（同 `issueDraft` 的既有先例）：旧调用方不传，
+   *   契约照样过。
    */
   submitFeedback: {
     method: "POST",
@@ -235,6 +273,7 @@ export const operations = {
         detail: z.string().min(1).max(4000),
         occurredRoute: z.string().nullable(),
         appVersion: z.string().nullable(),
+        attachmentIds: z.array(z.string()).max(4).optional(),
       })
       .strict(),
     out: z
@@ -471,5 +510,56 @@ export const operations = {
       "COMMENT_BODY_REQUIRED",
       "DEPENDENCY_UNAVAILABLE",
     ] as const,
+  },
+
+  /**
+   * FB-5 —— 上传一张图片附件，拿到的 `attachmentId` 再塞进 `submitFeedback.
+   * attachmentIds` 一起提交。**任何组织成员都能用**（提反馈本身不限管理员）。
+   *
+   * ⚠ 这条 `in` 只是**元数据**——同 `identity.uploadOwnAvatar` 的既有先例：真正的
+   *   字节走同一个 HTTP 请求的 `multipart/form-data`，一个 `meta` 字段（JSON，须与
+   *   这份 zod 校验一致）+ 一个 `file` 字段（二进制），controller 用 multer 解析。
+   *   服务端**必须对实际字节重新做校验**（体积、magic-byte 与声明的 contentType
+   *   一致），声明的 `sizeBytes`/`contentType` 不是真相来源——见
+   *   `upload-feedback-attachment.ts`。
+   * ⚠ 这一版**没有脱敏**——见 `FeedbackAttachment` 头注、该用例的文件头注（已知限制，
+   *   登记在案，不是遗漏）。
+   */
+  uploadFeedbackAttachment: {
+    method: "POST",
+    path: "/feedback/attachments",
+    in: z
+      .object({
+        sizeBytes: z.number().int().positive().max(8 * 1024 * 1024),
+        contentType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+      })
+      .strict(),
+    out: z.object({ attachmentId: z.string(), url: z.string() }).strict(),
+    err: ["FILE_TOO_LARGE", "UNSUPPORTED_CONTENT_TYPE", "MALWARE_DETECTED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * FB-5 —— 把一段语音转录出来的自由文本整理成 `{kind, title, detail}`，填进
+   * "提交反馈"表单、人工再改再提交。**任何组织成员都能用**，同 `submitFeedback`。
+   *
+   * ⚠ **语音本身不是这条操作管的**——转录复用既有的 chat composer 麦克风实时转写
+   *   通路（`WS /chat/asr-draft`），这条操作接手的起点是转录**完成之后**的文字。
+   *   见 `structure-feedback-draft.ts` 头注。
+   * ⚠ 失败（模型不可用/超时/输出解析不出）**不丢用户已经说出口的话**——转录文字
+   *   本身已经在前端输入框里，这条操作失败只是「没帮你整理」，调用方据此提示
+   *   「AI 整理失败，你可以手动填」而不是清空表单。
+   */
+  structureFeedbackDraft: {
+    method: "POST",
+    path: "/feedback/structure-draft",
+    in: z.object({ transcript: z.string().min(1).max(8000) }).strict(),
+    out: z
+      .object({
+        kind: FeedbackKind,
+        title: z.string(),
+        detail: z.string(),
+      })
+      .strict(),
+    err: ["STRUCTURING_FAILED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 } as const;

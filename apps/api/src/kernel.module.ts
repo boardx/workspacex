@@ -431,6 +431,13 @@ import {
   lazyTransactionalMailConfig,
   type TransactionalMailConfig,
 } from "./infrastructure/notifications/cloudflare-transactional-email-transport";
+// FB-5（2026-09-02）：图片附件仓储 + 语音转录整理的固定模型配置。见两个用例的头注
+// （`upload-feedback-attachment.ts` / `structure-feedback-draft.ts`）与
+// `pg-feedback-attachment-repository.ts`。
+import { FEEDBACK_ATTACHMENT_REPOSITORY } from "./application/feedback/attachment-ports";
+import { PgFeedbackAttachmentRepository } from "./infrastructure/feedback/pg-feedback-attachment-repository";
+import { FEEDBACK_STRUCTURE_MODEL_CONFIG } from "./application/feedback/structure-feedback-draft";
+import { readFeedbackStructureModelConfig } from "./infrastructure/feedback/feedback-structure-model-config";
 import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
 import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
@@ -2068,6 +2075,19 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: FEEDBACK_SUBMITTER_DIRECTORY,
       useFactory: (db: DatabasePort) => new PgFeedbackSubmitterDirectory(db),
       inject: [DATABASE_PORT],
+    },
+    // FB-5：附件仓储不按组织构造（同 `MESSAGE_RATING_REPOSITORY`）——每个方法自己接收
+    // `orgId` 参数,见 `attachment-ports.ts` 与 `pg-feedback-attachment-repository.ts`。
+    {
+      provide: FEEDBACK_ATTACHMENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgFeedbackAttachmentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // FB-5：语音转录整理用例的固定模型配置——同 `THREAD_TITLE_MODEL_CONFIG` 既有先例,
+    // 用户点击触发,不需要"是否启用"这道开关(那道开关是给"每条消息都可能触发"的场景用的)。
+    {
+      provide: FEEDBACK_STRUCTURE_MODEL_CONFIG,
+      useFactory: () => readFeedbackStructureModelConfig(),
     },
     {
       provide: TRANSACTIONAL_MAIL_CONFIG,
