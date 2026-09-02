@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, RefreshCw, Wrench, X } from "lucide-react";
+import { Check, Plus, RefreshCw, Search, Wrench, X } from "lucide-react";
 import {
   listThreadMounts,
   mountSkills,
@@ -147,6 +147,9 @@ export function ChatSkillMountPanel({
     state（不炸，也不互斥），详见 `chat-popover-coordinator.tsx` 文件头注释。
   */
   const [picking, setPicking] = useChatPopoverSlot("chat-skill-mount");
+  /** 候选浮层里的搜索词（mention 活跃时以 `mentionQuery` 为准，见 picker 头注）。每次打开重置。 */
+  const [search, setSearch] = React.useState("");
+  const searchRef = React.useRef<HTMLInputElement>(null);
   const [loading, setLoading] = React.useState(true);
   const [pending, setPending] = React.useState(false);
   const [failure, setFailure] = React.useState<string | null>(null);
@@ -234,8 +237,11 @@ export function ChatSkillMountPanel({
 
   const openPicker = async (openedByMention: boolean) => {
     mentionOpenedRef.current = openedByMention;
+    setSearch("");
     setPicking(true);
     setFailure(null);
+    // 手动点开时把焦点交给搜索框（mention 触发时焦点留在 composer，让用户继续敲 `/xxx`）。
+    if (!openedByMention) requestAnimationFrame(() => searchRef.current?.focus());
     try {
       const items = await listSkills(orgId);
       setPool(items.filter((item) => item.status === "已启用"));
@@ -262,8 +268,6 @@ export function ChatSkillMountPanel({
     if (!picking) void openPicker(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentionQuery]);
-
-  const visiblePool = mentionQuery ? pool.filter((item) => item.name.includes(mentionQuery)) : pool;
 
   /** `openRequest` 变化 ⇒ 打开一次（见该 prop 头注）。 */
   const lastOpenRequestRef = React.useRef(openRequest);
@@ -382,71 +386,159 @@ export function ChatSkillMountPanel({
     );
   };
 
-  /** 挂载候选浮层——常驻在 composer 下方整条内，不是 `absolute` 覆盖层。 */
+  /**
+   * 候选浮层（2026-09-02 重设计，人类反馈「skill 多的时候要怎么显示、要能过滤和搜索、
+   * 当前选中的也要显示」）：
+   * - 顶部一个搜索框（`chat-skill-mount-search`），按名称 / `duty` 不区分大小写过滤；
+   *   `/` mention 活跃时 mention 的片段就是查询（同一条过滤，不是第二份），搜索框
+   *   显示该片段并锁定，提示条 `chat-skill-mount-mention-hint` 照旧。
+   * - 「已挂载」分组置顶：当前挂在本对话上的 skill 带勾显示，点一下即卸载；
+   *   其余为「可挂载」分组，点一下即挂载。两组共用 `chat-skill-mount-option-<id>`
+   *   锚点，`data-mounted` 区分——挂载/卸载逻辑不变，只是列表把"现在挂了什么"
+   *   放到眼前，不用再低头看第二行的 chip。
+   * - 列表区限高 + 内部滚动（`scrollbar-elegant`），skill 再多也不撑破视口。
+   * - 底部一行计数 + 「取消」。
+   */
   const headless = variant === "composer";
+  const effectiveQuery = (mentionQuery ?? search).trim().toLowerCase();
+  const matches = (item: SkillListItem) =>
+    effectiveQuery === ""
+    || item.name.toLowerCase().includes(effectiveQuery)
+    || (item.duty ?? "").toLowerCase().includes(effectiveQuery);
+  const mountedBySkill = new Map(mounts.map((entry) => [entry.skillId, entry] as const));
+  const mountedItems = pool.filter((item) => mountedBySkill.has(item.skillId) && matches(item));
+  const availableItems = pool.filter((item) => !mountedBySkill.has(item.skillId) && matches(item));
+  const visibleCount = mountedItems.length + availableItems.length;
+
+  const optionRow = (item: SkillListItem, mounted: boolean) => (
+    <button
+      key={item.skillId}
+      type="button"
+      role="option"
+      aria-selected={mounted}
+      disabled={pending}
+      data-testid={`chat-skill-mount-option-${item.skillId}`}
+      data-mounted={mounted ? "true" : "false"}
+      onClick={() => {
+        if (mounted) {
+          const entry = mountedBySkill.get(item.skillId);
+          if (entry) void unmount(entry.mountId);
+        } else {
+          void mount(item.skillId);
+        }
+      }}
+      className={
+        "group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        + (mounted ? " bg-accent/60" : "")
+      }
+    >
+      <span
+        aria-hidden
+        className={
+          "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border"
+          + (mounted ? " border-accent-foreground bg-accent-foreground text-accent" : " border-border text-transparent group-hover:border-muted-foreground")
+        }
+      >
+        <Check className="h-3 w-3" />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-11 font-medium text-card-foreground">{item.name}</span>
+        <span className="line-clamp-1 text-10 text-muted-foreground">
+          {(item.duty ?? "").trim() || "这个 skill 还没有填写说明"}
+        </span>
+      </span>
+      {mounted ? (
+        <span className="shrink-0 text-9 text-muted-foreground opacity-0 transition-opacity duration-fast group-hover:opacity-100">
+          点击卸载
+        </span>
+      ) : null}
+    </button>
+  );
+
+  const groupLabel = (text: string, count: number) => (
+    <p className="sticky top-0 z-10 bg-popover px-2 pb-0.5 pt-1.5 text-9 font-medium uppercase tracking-wide text-muted-foreground">
+      {text} · {count}
+    </p>
+  );
 
   const picker = picking ? (
     <div
       className={
         headless
-          ? "absolute bottom-full left-0 z-20 mb-1.5 flex w-72 flex-col gap-0.5 rounded-lg border border-border bg-popover p-1.5 shadow-md"
-          : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
+          ? "absolute bottom-full left-0 z-20 mb-1.5 flex w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-lg border border-border bg-popover shadow-md"
+          : "flex flex-col overflow-hidden rounded-md border border-border bg-popover"
       }
       data-testid="chat-skill-mount-picker"
+      role="listbox"
+      aria-label="挂载 skill"
     >
-      {mentionQuery ? (
-        <span className="px-1.5 text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
-          {mentionTriggerChar} {mentionQuery}
+      <div className="flex items-center gap-1.5 border-b border-border-subtle px-2 py-1.5">
+        <Search aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <input
+          ref={searchRef}
+          type="search"
+          value={mentionQuery ?? search}
+          readOnly={mentionQuery !== null && mentionQuery !== undefined}
+          onChange={(event) => setSearch(event.target.value)}
+          onKeyDown={(event) => {
+            const first = availableItems[0];
+            if (event.key === "Enter" && first !== undefined) {
+              event.preventDefault();
+              void mount(first.skillId);
+            }
+          }}
+          placeholder="搜索 skill 名称或说明"
+          aria-label="搜索 skill"
+          data-testid="chat-skill-mount-search"
+          className="h-6 min-w-0 flex-1 bg-transparent text-11 text-foreground placeholder:text-muted-foreground focus:outline-none"
+        />
+        {mentionQuery ? (
+          <span className="shrink-0 rounded bg-muted px-1 font-mono text-9 text-muted-foreground" data-testid="chat-skill-mount-mention-hint">
+            {mentionTriggerChar} {mentionQuery}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="scrollbar-elegant flex max-h-72 flex-col gap-0.5 overflow-y-auto p-1">
+        {pool.length === 0 ? (
+          <span className="px-1.5 py-2 text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
+            本组织没有「已启用」的 skill 可挂载。
+          </span>
+        ) : visibleCount === 0 ? (
+          <span className="px-1.5 py-2 text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
+            没有名字含「{mentionQuery ?? search.trim()}」的已启用 skill。
+          </span>
+        ) : (
+          <>
+            {mountedItems.length > 0 ? (
+              <div className="flex flex-col gap-0.5" data-testid="chat-skill-mount-picker-mounted">
+                {groupLabel("已挂载", mountedItems.length)}
+                {mountedItems.map((item) => optionRow(item, true))}
+              </div>
+            ) : null}
+            {availableItems.length > 0 ? (
+              <div className="flex flex-col gap-0.5" data-testid="chat-skill-mount-picker-available">
+                {mountedItems.length > 0 ? groupLabel("可挂载", availableItems.length) : null}
+                {availableItems.map((item) => optionRow(item, false))}
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-2 border-t border-border-subtle px-2 py-1">
+        <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-picker-count">
+          已挂 {mounts.length} 个 · 共 {pool.length} 个可用
         </span>
-      ) : null}
-      {pool.length === 0 ? (
-        <span className="px-1.5 py-1 text-11 text-muted-foreground" data-testid="chat-skill-mount-pool-empty">
-          本组织没有「已启用」的 skill 可挂载。
-        </span>
-      ) : visiblePool.length === 0 ? (
-        <span className="px-1.5 py-1 text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
-          没有名字含「{mentionQuery}」的已启用 skill。
-        </span>
-      ) : headless ? (
-        // 竖排列表：名字 + 真实 `duty`（与「浏览 skill」页同一字段），选错了才知道是什么的
-        // 横排小按钮不适合"敲 / 快速挑"这个场景（2026-08-30 人类反馈）。
-        visiblePool.map((item) => (
-          <button
-            key={item.skillId}
-            type="button"
-            disabled={pending}
-            data-testid={`chat-skill-mount-option-${item.skillId}`}
-            onClick={() => void mount(item.skillId)}
-            className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="truncate text-11 font-medium text-card-foreground">{item.name}</span>
-            <span className="line-clamp-1 text-10 text-muted-foreground">
-              {item.duty.trim() || "这个 skill 还没有填写说明"}
-            </span>
-          </button>
-        ))
-      ) : (
-        visiblePool.map((item) => (
-          <Button
-            key={item.skillId}
-            size="xs"
-            variant="outline"
-            disabled={pending}
-            data-testid={`chat-skill-mount-option-${item.skillId}`}
-            onClick={() => void mount(item.skillId)}
-          >
-            {item.name}
-          </Button>
-        ))
-      )}
-      <Button
-        size="xs"
-        variant="ghost"
-        data-testid="chat-skill-mount-cancel"
-        onClick={() => setPicking(false)}
-      >
-        取消
-      </Button>
+        <Button
+          size="xs"
+          variant="ghost"
+          data-testid="chat-skill-mount-cancel"
+          onClick={() => setPicking(false)}
+        >
+          取消
+        </Button>
+      </div>
     </div>
   ) : null;
 

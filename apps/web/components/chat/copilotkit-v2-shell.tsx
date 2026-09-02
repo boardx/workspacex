@@ -1038,7 +1038,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
             `copilotkit-v2-roster-landing.spec.ts`（CK-P7 e2e 验收）同步改成先点开
             「编制」页签，不再断言左栏常驻可见。 */}
         <div
-          className="flex flex-1 flex-col gap-1 overflow-y-auto px-2"
+          className="scrollbar-elegant flex flex-1 flex-col gap-1 overflow-y-auto px-2"
           data-testid="copilotkit-v2-thread-list"
           /* 见 `listInteractingRef` 头注——点击这条锁只在真的按下时才生效，不影响
              hover/滚动；`pointercancel`/`pointerleave` 兜底松开，避免手指划出列表
