@@ -86,4 +86,12 @@ describe("#458 /admin/agent 的取数与写入路径不依赖 lib/mock", () => {
     // 并且 agent 段确实落在被上面几条覆盖的那个屏上。
     expect(page).toMatch(/agent:\s*AgentScreen/);
   });
+
+  it("旧路由 /admin/agent 只剩重定向到 /platform-admin/agent，不再自己渲染 AgentScreen", () => {
+    // 2026-09-02 AI 能力归平台后台：旧外壳若还自己落地 AgentScreen，就是同一个屏两处入口。
+    const legacy = readFileSync(resolve(ROOT, "app/admin/[module]/page.tsx"), "utf8");
+    expect(legacy).toMatch(/agent:\s*["']\/platform-admin\/agent["']/);
+    expect(legacy).not.toMatch(/agent:\s*AgentScreen/);
+    expect(legacy).not.toContain("agent-screen");
+  });
 });
