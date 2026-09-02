@@ -285,7 +285,7 @@ export function sectionGeometryMmOf(
 ): SectionGeometryMm {
   const layout = s.layout;
   if (!layout) return { wMm: 0, hMm: 0, noteMm: 0, rows: 0, fits: 0 };
-  return sectionGeometryMm({ w: layout.w, h: layout.h, cols: layout.cols, gridCols, size });
+  return sectionGeometryMm({ w: layout.w, h: layout.h, cols: layout.cols, max: layout.max, gridCols, size });
 }
 
 /**

@@ -182,10 +182,15 @@ export async function ensureCanvasFenceTemplate(input: {
     //   的假设，不是拍脑袋——但如果编辑者存草稿前手动切到过 6 列，这里会解释错。
     //   完整修法是给 `SectionLayout` 契约加一个 `gridCols` 字段并持久化，属于更大的
     //   契约改动，不在本次范围内（先解决"布局完全不生效"这个更严重的问题）。
+    // issue #2527：编辑器里填的「标题」/「页脚署名」是装帧材料，此前只有编辑器
+    // 预览画，真实 chat 渲染这里从没把它们传给 spec——用户填了页脚、画布上没有。
+    // 标题与 chat 模拟（`template-simulate-dialog.tsx`：`title || templateKey`）
+    // 同一判据：填了纸面标题用标题，没填退回显示名。
+    const framing = { displayName: row.title || row.displayName, footer: row.footer };
     const { spec } = allSectionsPlaced(row.sections)
       ? buildExplicitTemplateSpec({
         key,
-        displayName: row.displayName,
+        ...framing,
         gridCols: 12,
         sections: row.sections.map((s) => (
           { sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type }
@@ -193,7 +198,7 @@ export async function ensureCanvasFenceTemplate(input: {
       })
       : buildAutoTemplateSpec({
         key,
-        displayName: row.displayName,
+        ...framing,
         sections: row.sections,
       });
     registerTemplate(spec);

@@ -109,7 +109,7 @@ export function TemplateDisplayPanel({
                 平分会窄到点不准，换行成两排更好按。 */}
             <div className="flex flex-wrap gap-1.5">
               {COLS_OPTIONS.map((n) => {
-                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, gridCols, size: paperSize }).noteMm;
+                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, max: layout.max, gridCols, size: paperSize }).noteMm;
                 const on = layout.cols === n;
                 return (
                   <button
