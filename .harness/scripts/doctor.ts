@@ -8,7 +8,7 @@
 // 退出码：有 FAIL = 1（供 pre-push hook / CI 门控用）；只有 WARN = 0。
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
-import { findPhaseDir, sprintDir, PROGRESS_PATH, REPO_ROOT, STATE_DIR } from "./lib/paths";
+import { findPhaseDir, sprintDir, HARNESS_DIR, PROGRESS_PATH, REPO_ROOT, STATE_DIR } from "./lib/paths";
 import { loadFeatureList, countByStatus } from "./lib/features";
 import { loadRoadmap } from "./lib/roadmap";
 import { resolveSpecRef } from "./lib/spec-ref";
@@ -22,6 +22,9 @@ import {
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
 import { describeIssueListFailure, listAllIssues } from "./lib/github-issues";
+import { PR_GREEN_RULE_EFFECTIVE_FROM, judgeClosingPrGreen, type ClosingPr } from "./lib/pr-green";
+import type { RequiredCheck } from "./lib/pr-queue";
+import { parse as parseYaml } from "yaml";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
@@ -287,7 +290,7 @@ function checkSignoffChain(phaseId: string, findings: Finding[]): void {
  * 都没有，全部靠直接合进分支再批量 PR。规范不是缺失的，是**没有门控**——
  * 这正是本项目自己那条：「没有脚本的规范条目视为未落地」。
  *
- * 下面四条把它变成会红的东西（④ 是 2026-09-02 #1557 补的反向检查）。
+ * 下面五条把它变成会红的东西（④ 是 2026-09-02 #1557 补的反向检查，⑤ 是同日 #2539/#2540 补的「PR 绿了才算完」）。
  * ────────────────────────────────────────────────────────────────────────── */
 
 /** issue 正文里的投影 marker，与 sync-github.ts 保持一致 */
@@ -301,6 +304,8 @@ export interface GhIssue {
   body: string;
   /** gh 的 `stateReason`：COMPLETED / NOT_PLANNED / REOPENED（老版本 gh 可能不带该字段） */
   stateReason?: string | null;
+  /** ISO 时刻；未关闭为 null。⑤ 只判生效时刻之后关闭的 issue */
+  closedAt?: string | null;
 }
 
 /**
@@ -422,6 +427,102 @@ function checkIssueClosedButNotDone(phaseId: string, f: Feature, issues: GhIssue
 }
 
 /**
+ * ⑤ 关闭 issue 的 PR 合入时必须是绿的（完成定义第 7 条，2026-09-02 人类指令，#2539 / #2540）。
+ *
+ * 规则本身写在 AGENTS.md；「绿」的语义不在这里另定义，复用 lib/pr-queue.ts 的
+ * classifyChecks（合并门的唯一事实源）——同一件事两处各写一套正是本仓漂移的来源。
+ * 判定纯函数在 lib/pr-green.ts；这里只做 IO：关掉该 issue 的 PR 清单（GraphQL
+ * closedByPullRequestsReferences）→ 各自 head 的 check runs → 喂给纯函数。
+ *
+ * 不倒查存量：生效时刻（PR_GREEN_RULE_EFFECTIVE_FROM）之前关闭的 issue 不判也不发请求——
+ * 引入门控当天把所有 PR 打红只会让门被绕过（#848 / #2485 的教训）。
+ * gh 拿不到数据 ⇒ WARN 跳过，不用残缺数据做否定性判断（同 ①②）。
+ * 级别与 ②③ 对齐：pre-push WARN，CI `--strict` FAIL。
+ */
+function syncRepo(): string | null {
+  try {
+    const cfg = parseYaml(readFileSync(join(HARNESS_DIR, "config", "github-sync.yaml"), "utf8")) as { repo?: string };
+    return cfg.repo && cfg.repo.includes("/") ? cfg.repo : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 关掉某个 issue 的 PR 及各自 head 的 check runs；任何一步失败返回 null（调用方降级 WARN）。 */
+export function fetchClosingPrs(repo: string, issueNumber: number): ClosingPr[] | null {
+  const [owner, name] = repo.split("/");
+  const query =
+    "query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){" +
+    "closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{number merged headRefOid}}}}}";
+  const r = sh(
+    `gh api graphql -f query=${JSON.stringify(query)} -F o=${JSON.stringify(owner)} -F r=${JSON.stringify(name)} -F n=${issueNumber}`,
+    REPO_ROOT,
+  );
+  if (r.code !== 0) return null;
+  let nodes: Array<{ number: number; merged: boolean; headRefOid: string }>;
+  try {
+    const doc = JSON.parse(r.stdout) as { data?: { repository?: { issue?: { closedByPullRequestsReferences?: { nodes?: typeof nodes } } } } };
+    nodes = doc.data?.repository?.issue?.closedByPullRequestsReferences?.nodes ?? [];
+  } catch {
+    return null;
+  }
+  const out: ClosingPr[] = [];
+  for (const node of nodes) {
+    if (!node.merged) {
+      out.push({ number: node.number, merged: false, headSha: node.headRefOid, checks: [] });
+      continue;
+    }
+    const c = sh(
+      `gh api repos/${repo}/commits/${node.headRefOid}/check-runs --paginate --jq '.check_runs[] | {name: .name, status: .status, conclusion: .conclusion}'`,
+      REPO_ROOT,
+    );
+    if (c.code !== 0) return null;
+    const checks: RequiredCheck[] = [];
+    for (const line of c.stdout.split("\n").map((l) => l.trim()).filter(Boolean)) {
+      try {
+        const row = JSON.parse(line) as { name: string; status: string; conclusion: string | null };
+        checks.push({ name: row.name, status: String(row.status ?? "").toUpperCase(), conclusion: row.conclusion ? String(row.conclusion).toUpperCase() : null });
+      } catch {
+        return null;
+      }
+    }
+    out.push({ number: node.number, merged: true, headSha: node.headRefOid, checks });
+  }
+  return out;
+}
+
+function checkClosingPrGreen(
+  phaseId: string,
+  f: Feature,
+  issues: GhIssue[],
+  findings: Finding[],
+  level: "FAIL" | "WARN",
+  repo: string | null,
+  fetch: (repo: string, issueNumber: number) => ClosingPr[] | null = fetchClosingPrs,
+): void {
+  if (f.status !== "passing") return;
+  const issue = findIssue(issues, phaseId, f);
+  if (!issue || issue.state !== "CLOSED") return; // OPEN 由 ② 管
+  if (!issue.closedAt || Date.parse(issue.closedAt) < Date.parse(PR_GREEN_RULE_EFFECTIVE_FROM)) return; // 不倒查存量，也不为存量发请求
+  if (!repo) {
+    findings.push({ level: "WARN", phase: phaseId, msg: `${f.id}：github-sync.yaml 缺 repo，无法判「关闭 issue 的 PR 是否绿」（完成定义第 7 条），本次跳过` });
+    return;
+  }
+  const prs = fetch(repo, issue.number);
+  if (prs === null) {
+    findings.push({ level: "WARN", phase: phaseId, msg: `${f.id}：查不到关闭 issue #${issue.number} 的 PR / check（gh 失败或离线）——本次跳过完成定义第 7 条的判定` });
+    return;
+  }
+  const v = judgeClosingPrGreen({ issueNumber: issue.number, issueClosedAt: issue.closedAt, closingPrs: prs });
+  if (v.kind !== "violation") return;
+  findings.push({
+    level,
+    phase: phaseId,
+    msg: `${f.id} 的 issue #${issue.number} 关闭时 PR 不绿（完成定义第 7 条，#2539）：${v.reasons.join("；")}`,
+  });
+}
+
+/**
  * ③ passing 的实现必须**已经在 main 上**。
  *
  * 这一条是「走 PR 合并到 main」的可执行形式，而且刻意用 git 本地判定而不是问 GitHub：
@@ -480,6 +581,7 @@ export function doctor(args: Args): void {
   const findings: Finding[] = [];
   // GitHub 侧一次拉全，离线时降级为一条 WARN 而不是阻断本地开发
   const issues = loadIssues();
+  const repo = syncRepo();
   if (issues === null) {
     findings.push({
       level: "WARN",
@@ -511,6 +613,7 @@ export function doctor(args: Args): void {
         checkIssueExists(id, f, issues, findings);
         checkIssueClosed(id, f, issues, findings, strict ? "FAIL" : "WARN");
         checkIssueClosedButNotDone(id, f, issues, findings);
+        checkClosingPrGreen(id, f, issues, findings, strict ? "FAIL" : "WARN", repo);
       }
     }
     checkProgressRow(id, findings);

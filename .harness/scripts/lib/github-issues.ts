@@ -22,6 +22,8 @@ export interface GhIssueRow {
   state: string;
   /** COMPLETED / NOT_PLANNED / REOPENED；老版本 gh 可能不带 */
   stateReason?: string | null;
+  /** ISO 时刻；未关闭为 null。完成定义第 7 条（#2540）只判生效时刻之后关闭的 issue */
+  closedAt?: string | null;
   labels?: { name: string }[];
 }
 
@@ -49,7 +51,7 @@ export function listAllIssues(opts: ListAllIssuesOptions = {}): IssueListResult 
   const limit = opts.limit ?? ISSUE_PAGE_LIMIT;
   const repoArg = opts.repo ? ` --repo ${JSON.stringify(opts.repo)}` : "";
   const r = exec(
-    `gh issue list${repoArg} --state all --limit ${limit} --json number,title,body,state,stateReason,labels`,
+    `gh issue list${repoArg} --state all --limit ${limit} --json number,title,body,state,stateReason,closedAt,labels`,
     opts.cwd,
   );
   if (r.code !== 0) {
