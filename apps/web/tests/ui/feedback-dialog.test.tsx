@@ -161,3 +161,58 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(screen.getByTestId("wired-feedback")).toBeTruthy();
   });
 });
+
+/**
+ * FB-5 补（2026-09-02 devapp 实测复盘）：部署重启窗口里传图/提交，浏览器只给一句
+ * `TypeError: Failed to fetch`——原样显示等于什么都没说，而且失败的图只能删掉重选。
+ * 这里断两件事：⑦ 网络层失败翻成人话；⑧ 失败的图能用当初那个 File 直接重试，重试成功
+ * 之后提交请求体里带上它的 id。
+ */
+describe("FB-5 网络层失败的可读性与重试", () => {
+  it("⑦ 提交遇到 TypeError: Failed to fetch —— 屏上是「无法连接服务器」，不是那行英文", async () => {
+    apiRequest.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    openDialogFor({ kind: "product" });
+    fillAndSubmit("点了没反应", "批准卡点了不动");
+    const err = await screen.findByTestId("feedback-submit-error");
+    expect(err.textContent).toContain("无法连接服务器");
+    expect(err.textContent).not.toContain("Failed to fetch");
+    expect(err.textContent).toContain("没有被保存");
+  });
+
+  it("⑧ 传图失败可重试，重试成功后提交带上 attachmentIds", async () => {
+    const createObjectURL = vi.fn(() => "blob:preview");
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({
+        ok: true, status: 201,
+        text: async () => JSON.stringify({ attachmentId: "att-1", url: "/feedback/attachments/att-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      mockSubmitThenList({ ...mineItem, attachments: [] });
+      openDialogFor({ kind: "product" });
+      const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "shot.png", { type: "image/png" });
+      fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: [file] } });
+
+      const errEl = await screen.findByTestId(/^feedback-attachment-error-/);
+      expect(errEl.textContent).toContain("无法连接服务器");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByTestId(/^feedback-attachment-retry-/));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.queryByTestId(/^feedback-attachment-error-/)).toBeNull());
+      // 重试发的是同一个 File（multipart 的 file 字段），不是要求用户重新选。
+      const sentForm = (fetchMock.mock.calls[1]?.[1] as RequestInit).body as FormData;
+      expect((sentForm.get("file") as File).name).toBe("shot.png");
+
+      fillAndSubmit("带图的反馈", "见截图");
+      await screen.findByTestId("feedback-just-submitted");
+      const submitCall = apiRequest.mock.calls.find(([, o]) => (o as { method?: string })?.method === "POST");
+      expect((submitCall![1] as { body: { attachmentIds?: string[] } }).body.attachmentIds).toEqual(["att-1"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
