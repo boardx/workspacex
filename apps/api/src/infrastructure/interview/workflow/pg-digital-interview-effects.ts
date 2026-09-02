@@ -9,7 +9,7 @@ import type {
 } from "../../../application/interview/workflow/digital-interview-effects.port";
 import {
   DigitalReportNdjsonDecoder,
-  type DigitalReportStreamEvent,
+  type ParsedDigitalReportStreamEvent,
 } from "../../../application/interview/workflow/digital-report-stream";
 import type { DigitalInterviewRepository } from "../../../application/interview/digital-interview-ports";
 import {
@@ -710,7 +710,7 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     let metaCount = 0;
     let sectionCount = 0;
     let findingCount = 0;
-    const persistEvent = async (event: DigitalReportStreamEvent): Promise<void> => {
+    const persistEvent = async (event: ParsedDigitalReportStreamEvent): Promise<void> => {
       if (event.type === "finding" && !validSources.has(`${event.expertId}:${event.questionId}`)) {
         throw new DigitalInterviewWorkflowError("DIGITAL_REPORT_SOURCE_INVALID");
       }

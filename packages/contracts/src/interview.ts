@@ -353,6 +353,33 @@ export const DigitalInterviewReportGeneration = z.object({
   updatedAt: z.string().datetime(),
 }).strict();
 
+/** One durable NDJSON frame emitted while an exploratory report is generated. */
+const DigitalReportMetaEvent = z.object({
+  type: z.literal("meta"),
+  title: z.string().trim().min(1),
+  executiveSummary: z.string().trim().min(1),
+}).strict();
+
+const DigitalReportSectionEvent = z.object({
+  type: z.literal("section"),
+  markdown: z.string().trim().min(1),
+}).strict();
+
+const DigitalReportFindingEvent = z.object({
+  type: z.literal("finding"),
+  title: z.string().trim().min(1),
+  summary: z.string().trim().min(1),
+  expertId: z.string().trim().min(1),
+  questionId: z.string().trim().min(1),
+}).strict();
+
+export const DigitalReportStreamEvent = z.discriminatedUnion("type", [
+  DigitalReportMetaEvent,
+  DigitalReportSectionEvent,
+  DigitalReportFindingEvent,
+]);
+export type DigitalReportStreamEvent = z.infer<typeof DigitalReportStreamEvent>;
+
 const validateUniqueDigitalInterviewQuestions = (
   questions: readonly z.infer<typeof DigitalInterviewQuestion>[],
   context: z.RefinementCtx,
