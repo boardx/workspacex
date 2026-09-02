@@ -328,6 +328,9 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
+    // 2026-09-02（PR #2494）—— `selectThread` 现在防抖 150ms 才真发 `pushThreadRoute`，
+    // 先推过这个窗口，`push` 才会被调用。
+    await vi.advanceTimersByTimeAsync(150);
 
     expect(push).toHaveBeenCalledWith(`/chat/${THREAD_A.id}`);
 
@@ -350,6 +353,8 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
+    // 2026-09-02（PR #2494）—— 同上，先推过 150ms 防抖窗口。
+    await vi.advanceTimersByTimeAsync(150);
 
     expect(push).toHaveBeenCalledTimes(1);
     expect(push).toHaveBeenCalledWith(`/chat/${THREAD_B.id}`);
@@ -378,8 +383,12 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
+    // 2026-09-02（PR #2494）—— 先推过 A 的 150ms 防抖窗口，让它真的发出导航，
+    // 再等 1s（早就超过防抖窗口，不会和 B 的点击合并成一次防抖）后点 B。
+    await vi.advanceTimersByTimeAsync(150);
     await vi.advanceTimersByTimeAsync(1_000);
     fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
+    await vi.advanceTimersByTimeAsync(150); // 推过 B 自己的防抖窗口
 
     expect(push).toHaveBeenCalledTimes(2); // A 一次 + B 一次
     // 第一次点击（A）的 4s 窗口到点：不该因为 A 还没导航成功就强制重试导航去 A——
