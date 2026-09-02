@@ -324,19 +324,6 @@ export interface AgentRunStore {
     versionIds: readonly string[],
   ): Promise<readonly PinnedSkillContent[]>;
 
-  /**
-   * 2026-09-02（人类裁决：「所有的 skill 目前都是平台的 skill，用户都可以访问」）——
-   * 平台库（`org_id = PLATFORM_ORG_ID`）里每个 `enabled` skill 的**最新已发布**版本的
-   * `SKILL.md`，按 `stableName` 排序。design-delta `platform-owned-skills` 只做到了
-   * 「任何 org 都能**看到、挂载**」，运行时仍只认 `run.skillVersionIds`（agent 固定 +
-   * 线程挂载）——于是不手动挂载的对话里 deep-agent 的 `list_org_skills` 恒回
-   * 「没有挂载任何技能」，用户要的 pdf/docx/xlsx/pptx 一个都不可用。
-   *
-   * 可选：只有真实 PG 实现提供；测试 fake store 不实现时行为与此前逐字相同。
-   * 消费点见 `execute-run.ts`（目前只并入 deep-agent run）。
-   */
-  readPlatformSkills?(orgId: OrgId): Promise<readonly PinnedSkillContent[]>;
-
   appendStep(orgId: OrgId, step: AppendedRunStep): Promise<void>;
 
   /**
