@@ -213,6 +213,85 @@ describe("computeExplicitLayout —— px 几何", () => {
       expect(rows).toBeGreaterThan(1);
       expect(spec.headerRect!.h).toBeGreaterThan(0);
     });
+
+    /**
+     * 2026-09-02 人类实测截图回归钉子（chat 里的用户画像「画框和上方框重叠」）：
+     * 上一条让 `headerRect` 长高（9 字段 → 2 行 → 120px），但表头格子只占 1 个网格行
+     * （≈83.5px），长出来的 36.5px 直接压在正文第一行三个分区框的标题条上。
+     * 这条钉住修复后的行为：表头带比格子高出多少，位于其下方的正文分区就整体下移多少，
+     * 正文分区之间的相对版式不变，`layout.bounds.bottom` 同步下移。
+     */
+    it("表头带长高时，正文分区整体下移让位——任何正文框都不与表头带重叠（用户画像真实几何）", () => {
+      const PERSONA_FIELDS = ["姓名", "性别", "年龄", "区域", "教育水平", "职位", "行业", "家庭情况", "收入水平"];
+      const widths = [2, 1, 1, 1, 1, 1, 1, 2, 2];
+      let col = 1;
+      const header = PERSONA_FIELDS.map((name, i) => {
+        const w = widths[i]!;
+        const cell = { ...section(`f${i}`, col, 1, w, 1), name, type: "短文本" as const };
+        col += w;
+        return cell;
+      });
+      // 正文 6 个分区：3 列 × 2 行，紧贴表头行之下（第 2-4 行、第 5-8 行）——
+      // `builtin-template-config.ts` 对 persona 的真实推演版式。
+      const bodyNames = ["用户描述", "目标和需求", "行为与偏好", "痛点和挑战", "动机", "影响因素"];
+      const body = bodyNames.map((name, i) => ({
+        ...section(`s${i}`, 1 + (i % 3) * 4, i < 3 ? 2 : 5, 4, i < 3 ? 3 : 4),
+        name,
+        type: "便利贴列表" as const,
+      }));
+      const { spec, layout } = buildExplicitTemplateSpec({
+        key: "persona-shift", displayName: "用户画像", sections: [...header, ...body], gridCols: 12,
+      });
+      const raw = computeExplicitLayout([...header, ...body], 12);
+
+      const hr = spec.headerRect!;
+      const headerBottom = hr.y + hr.h / 2;
+      const rawHeaderBottom = Math.max(...raw.cells.slice(0, header.length).map((c) => c.y + c.h / 2));
+      // 前提成立：表头带确实比它的网格格子高（否则这条测试测不到东西）。
+      expect(headerBottom).toBeGreaterThan(rawHeaderBottom);
+      const delta = headerBottom - rawHeaderBottom;
+
+      // 核心断言：每个正文框的顶边都不高于表头带底边。
+      expect(spec.sections).toHaveLength(6);
+      for (const s of spec.sections) {
+        expect(s.y - s.h / 2).toBeGreaterThanOrEqual(headerBottom - 1e-6);
+      }
+      // 正文整体平移同一个 delta：相对版式一字不改。
+      const rawBody = raw.cells.slice(header.length);
+      spec.sections.forEach((s, i) => {
+        expect(s.x).toBeCloseTo(rawBody[i]!.x, 6);
+        expect(s.y - rawBody[i]!.y).toBeCloseTo(delta, 6);
+        expect(s.w).toBeCloseTo(rawBody[i]!.w, 6);
+        expect(s.h).toBeCloseTo(rawBody[i]!.h, 6);
+      });
+      // 外接框底边跟着下移，`fitToContent` 才不会把最下面一行裁掉。
+      expect(layout.bounds.bottom).toBeCloseTo(raw.bounds.bottom + delta, 6);
+      // 表头格子本身不动（它们的 x/y 只是 headerRect 的取材，不参与平移）。
+      layout.cells.slice(0, header.length).forEach((c, i) => {
+        expect(c.y).toBeCloseTo(raw.cells[i]!.y, 6);
+      });
+    });
+
+    it("表头字段少到一行放得下时（表头带不长高）正文分区一字不动——与改动前逐字一致", () => {
+      const header = [
+        { ...section("name", 1, 1, 6, 1), name: "姓名", type: "短文本" as const },
+        { ...section("age", 7, 1, 6, 1), name: "年龄", type: "短文本" as const },
+      ];
+      const body = [
+        { ...section("a", 1, 2, 6, 7), name: "A", type: "便利贴列表" as const },
+        { ...section("b", 7, 2, 6, 7), name: "B", type: "便利贴列表" as const },
+      ];
+      const { spec, layout } = buildExplicitTemplateSpec({
+        key: "no-shift", displayName: "x", sections: [...header, ...body], gridCols: 12,
+      });
+      const raw = computeExplicitLayout([...header, ...body], 12);
+      // 2 个字段 → 1 行 → minH 80 < 格子高 83.5：表头带不长高，正文不平移。
+      expect(spec.headerRect!.h).toBeCloseTo(raw.cells[0]!.h, 6);
+      spec.sections.forEach((s, i) => {
+        expect(s.y).toBeCloseTo(raw.cells[header.length + i]!.y, 6);
+      });
+      expect(layout.bounds.bottom).toBe(raw.bounds.bottom);
+    });
   });
 });
 

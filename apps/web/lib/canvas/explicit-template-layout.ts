@@ -37,7 +37,7 @@
  */
 import { PAPER } from "@repo/fabric-markdown/theme";
 import type { TemplateSpec, TemplateSection } from "@repo/fabric-markdown";
-import { A0_FRAME, GRID_TOP, GUTTER } from "./auto-template-layout";
+import { A0_FRAME, GRID_TOP, GUTTER, HEADER_ROW_PITCH } from "./auto-template-layout";
 
 /**
  * `Design.pdf` §2.2：贴纸四色板，索引即 `layout.tone`。单一事实源（issue #2372
@@ -213,20 +213,48 @@ export function allSectionsPlaced(sections: readonly { readonly layout?: unknown
  *   （`HEADER_FIELD_MIN_W` 镜像自引擎那两个常量），放不下时自动换行（`rows` 增多），
  *   `headerRect.h` 跟着要放的行数一起长高（`HEADER_ROW_PITCH` 镜像 persona.ts 内置
  *   spec 的比例：`110mm ÷ (2 行+1) ≈ 36.7`，取整数 40 留一点余量）。
- *   ⚠ 长高的 `headerRect` 可能压到紧挨着的下一个网格行——这是"表头字段数多到引擎的
- *   固定像素宽度放不下一行"这个物理约束下的权衡，比起所有字段文字互相重叠、完全读不出
- *   任何一个值，压少许下一行的空白边距是可接受的代价（多数模板表头字段数 ≤6，
- *   根本不会触发这条分支，`headerRect` 高度与此前一致）。
+ *
+ * ⚠ 2026-09-02 修正（人类实测截图：用户画像在 chat 里"画框和上方框重叠"）：上一条
+ *   修正让 `headerRect` 按行数长高，但**正文分区没有跟着下移**——2026-08-31 的注释把
+ *   "长高的表头压到下一个网格行"当成可接受的代价，人类看到真实渲染后否掉了这个判断。
+ *   用户画像的真实几何：表头格子只占 1 个网格行（`cellH ≈ 83.5px`），9 个字段按
+ *   `hr.w / 252` 换算成每行 6 个 → 2 行 → `minH = 120px`，表头带底边比正文第一行
+ *   的顶边低 12.5px，三个分区框的标题条被表头框压住。改法：表头带比它的网格格子高出
+ *   多少（`delta`），**所有位于表头带下方**的正文格子整体下移 `delta`，`layout.bounds.bottom`
+ *   同步下移——正文之间的相对版式一字不改，只是整体让位。与表头同一行、并排的格子
+ *   （理论上可能，`短文本` 字段习惯上独占第 1 行）不动，因为表头带在水平方向上只覆盖
+ *   表头格子自己的外接矩形，压不到它们。
  */
 /** 镜像 `template-engine.ts` 的 `LABEL_W(96) + 6px 间距 + VALUE_W(150)`——见上方 2026-08-31 注释。 */
 const HEADER_FIELD_MIN_W = 96 + 6 + 150;
-/** 镜像 `persona.ts` 内置 `headerRect`（h=110，9 字段/5 每行=2 行）的行距比例，取整数留余量。 */
-const HEADER_ROW_PITCH = 40;
 
 export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): ExplicitTemplateResult {
-  const layout = computeExplicitLayout(input.sections, input.gridCols);
+  const rawLayout = computeExplicitLayout(input.sections, input.gridCols);
   const typeById = new Map(input.sections.map((s) => [s.sectionId, s.type] as const));
-  const headerCells = layout.cells.filter((c) => typeById.get(c.sectionId) === "短文本");
+  const headerCells = rawLayout.cells.filter((c) => typeById.get(c.sectionId) === "短文本");
+
+  // 表头带长高超出它自己的网格格子多少（见文件头 2026-09-02 注释）；没有表头时为 0。
+  let headerShift = 0;
+  let headerBottomRaw = -Infinity;
+  if (headerCells.length > 0) {
+    const top = Math.min(...headerCells.map((c) => c.y - c.h / 2));
+    headerBottomRaw = Math.max(...headerCells.map((c) => c.y + c.h / 2));
+    const rawW = Math.max(...headerCells.map((c) => c.x + c.w / 2)) - Math.min(...headerCells.map((c) => c.x - c.w / 2));
+    const fieldsPerRow = Math.max(1, Math.min(headerCells.length, Math.floor(rawW / HEADER_FIELD_MIN_W)));
+    const rows = Math.ceil(headerCells.length / fieldsPerRow);
+    headerShift = Math.max(0, (rows + 1) * HEADER_ROW_PITCH - (headerBottomRaw - top));
+  }
+  const layout: ExplicitLayout = headerShift > 0
+    ? {
+      ...rawLayout,
+      cells: rawLayout.cells.map((c) => (
+        typeById.get(c.sectionId) !== "短文本" && c.y - c.h / 2 >= headerBottomRaw - 1e-6
+          ? { ...c, y: c.y + headerShift }
+          : c
+      )),
+      bounds: { ...rawLayout.bounds, bottom: rawLayout.bounds.bottom + headerShift },
+    }
+    : rawLayout;
   const bodyCells = layout.cells.filter((c) => typeById.get(c.sectionId) !== "短文本");
 
   const sections: TemplateSection[] = bodyCells.map((c) => ({
