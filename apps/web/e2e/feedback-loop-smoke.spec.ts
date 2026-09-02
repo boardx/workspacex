@@ -119,16 +119,27 @@ function findAdminCard(page: Page, title: string): Locator {
  * 挂在卡片元素之外，所以打开之后要用返回的弹层 locator 去找里面的东西，
  * 不能再 `card.locator(...)`。一次只开一个——用完记得 `closeDetail`。
  */
+/**
+ * ⚠ `[data-testid^="admin-feedback-detail-"]` 也匹配得到弹层**内部**的
+ * `admin-feedback-detail-withheld-<id>`（正文无权时那句说明）——同一个前缀,
+ * 两个不同的元素,选择器不加 `[role="dialog"]` 会在正文被隐藏的那条反馈上撞出
+ * Playwright strict-mode violation（2026-09-02 CI 红过一次，见 PR #2508）。
+ * 弹层本体是 Radix `DialogContent`,恒有 `role="dialog"`,那句说明没有。
+ */
+function detailDialogLocator(page: Page): Locator {
+  return page.locator('[role="dialog"][data-testid^="admin-feedback-detail-"]');
+}
+
 async function openCardDetail(page: Page, card: Locator): Promise<Locator> {
   await card.click();
-  const dialog = page.locator('[data-testid^="admin-feedback-detail-"]');
+  const dialog = detailDialogLocator(page);
   await expect(dialog).toBeVisible();
   return dialog;
 }
 
 async function closeDetail(page: Page): Promise<void> {
   await page.keyboard.press("Escape");
-  await expect(page.locator('[data-testid^="admin-feedback-detail-"]')).toHaveCount(0);
+  await expect(detailDialogLocator(page)).toHaveCount(0);
 }
 
 test.describe("反馈端到端：不同种类从前端提交，后台真的看得见", () => {
