@@ -21,7 +21,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 vi.mock("@/components/session/session-provider", () => ({
@@ -141,56 +141,62 @@ describe("#520 Skill 库屏接真实 API", () => {
       });
     }
 
-    it("点一个来源 chip 之后，列表只剩匹配的那一行；再点一次恢复全部", async () => {
+    it("点一个来源标签之后，列表只剩匹配的那一行；再点一次恢复全部", async () => {
       install((call) => (call.method === "GET" ? twoSkills() : jsonResponse({}, 500)));
       render(<SkillCatalogLive />);
       await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
+      // 标签由现有行汇总、后跟数量——不是写死的枚举。
+      expect(screen.getByTestId("skill-catalog-tag-filter-self-built").textContent).toContain("自建 1");
 
-      fireEvent.click(screen.getByTestId("skill-tag-chip-self-built"));
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-self-built"));
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
       expect(screen.getByTestId("skill-catalog-list").textContent).not.toContain("翻译器");
 
-      fireEvent.click(screen.getByTestId("skill-tag-chip-self-built"));
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-self-built"));
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
     });
 
-    it("跨维度是「且」：同时选来源=晋升生成 与 状态=草稿，没有任何一行同时满足，显示无匹配态", async () => {
+    it("多个标签是「且」：同时选来源=晋升生成 与 状态=草稿，没有任何一行同时满足，显示无匹配态", async () => {
       install((call) => (call.method === "GET" ? twoSkills() : jsonResponse({}, 500)));
       render(<SkillCatalogLive />);
       await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
 
-      fireEvent.click(screen.getByTestId("skill-tag-chip-promoted")); // source=晋升生成 → 只剩「翻译器」
-      fireEvent.click(screen.getByTestId("skill-tag-chip-draft")); // status=草稿 → 「翻译器」是已启用，被排除
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-promoted")); // source=晋升生成 → 只剩「翻译器」
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-draft")); // status=草稿 → 「翻译器」是已启用，被排除
       expect(screen.queryByTestId("skill-catalog-list")).toBeNull();
       expect(screen.getByTestId("skill-catalog-no-match")).toBeTruthy();
       // 这不是真实空态——真实数据还在，只是被过滤条件收窄没了：两者必须分得开。
       expect(screen.queryByTestId("skill-catalog-empty")).toBeNull();
 
-      fireEvent.click(screen.getByTestId("skill-tag-filter-clear"));
+      fireEvent.click(screen.getByTestId("skill-catalog-tag-filter-all"));
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
       expect(screen.queryByTestId("skill-catalog-no-match")).toBeNull();
     });
 
-    it("同一维度内选中多个 chip 是「或」：来源同时选自建＋晋升生成＝两行都要", async () => {
+    it("搜索框按名字 / 职责本地过滤，不发第二次请求", async () => {
       install((call) => (call.method === "GET" ? twoSkills() : jsonResponse({}, 500)));
       render(<SkillCatalogLive />);
       await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+      const listCalls = calls.filter((c) => c.pathname === "/skills").length;
 
-      fireEvent.click(screen.getByTestId("skill-tag-chip-self-built"));
-      fireEvent.click(screen.getByTestId("skill-tag-chip-promoted"));
-      expect(screen.getByTestId("skill-catalog-list").textContent).toContain("排序器");
+      fireEvent.change(screen.getByTestId("skill-catalog-search"), { target: { value: "翻译" } });
       expect(screen.getByTestId("skill-catalog-list").textContent).toContain("翻译器");
+      expect(screen.getByTestId("skill-catalog-list").textContent).not.toContain("排序器");
+
+      fireEvent.change(screen.getByTestId("skill-catalog-search"), { target: { value: "没有这个" } });
+      expect(screen.getByTestId("skill-catalog-no-match")).toBeTruthy();
+      expect(calls.filter((c) => c.pathname === "/skills").length).toBe(listCalls);
     });
 
     it("真实空态（没有任何 skill）时不渲染过滤条——没有行可过滤", async () => {
       install(() => jsonResponse({ items: [], total: 0 }));
       render(<SkillCatalogLive />);
       await waitFor(() => expect(screen.getByTestId("skill-catalog-empty")).toBeTruthy());
-      expect(screen.queryByTestId("skill-tag-filter")).toBeNull();
+      expect(screen.queryByTestId("skill-catalog-tag-filters")).toBeNull();
     });
   });
 
@@ -381,6 +387,84 @@ describe("#520 Skill 库屏接真实 API", () => {
       // 普通行（未命中标记）仍然是原来的「查看契约」按钮，两者只能各出现一次。
       expect(screen.getAllByTestId("skill-catalog-detail")).toHaveLength(1);
       expect(screen.getAllByTestId("skill-catalog-edit-source")).toHaveLength(1);
+    });
+  });
+
+  /**
+   * 2026-09-02（人类原话：「通过一个侧边面板来展示当前的实体的内容」）——「查看契约」
+   * 与点卡片都打开右侧面板 `skill-detail-panel`；契约三件套与门禁在面板里，
+   * 面板按 skillId 记，只对非 wave2 行发 `GET /skills/:id`。
+   */
+  describe("侧边面板", () => {
+    const DETAIL = {
+      skill: {
+        skillId: "sk-form", name: "契约表单建的", duty: "普通职责说明", source: "自建", status: "草稿",
+        visibility: "org-wide", currentVersionId: null, satisfaction: null, tags: [],
+      },
+      currentVersionId: "sv-form-1",
+      contract: {
+        promptTemplate: "请把 {{input}} 排序", inputSchema: "{}", outputSchema: "{}",
+        dataScope: [], fallbackDeclaration: "无法排序时原样返回",
+      },
+      gateResults: { securityScan: null, methodologyReviewPassed: false },
+      latestTrialRun: null,
+    };
+
+    it("点「查看契约」打开面板：列表字段 + 契约 + 门禁区都在；只发一次详情请求", async () => {
+      install((call) => {
+        if (call.pathname === "/skills/sk-form") return jsonResponse(DETAIL);
+        return jsonResponse({ items: [DETAIL.skill], total: 1 });
+      });
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+      expect(screen.queryByTestId("skill-detail-panel")).toBeNull();
+
+      fireEvent.click(screen.getByTestId("skill-catalog-detail"));
+      const panel = screen.getByTestId("skill-detail-panel");
+      expect(panel.textContent).toContain("普通职责说明");
+      await waitFor(() => expect(within(panel).getByTestId("skill-detail-contract")).toBeTruthy());
+      expect(panel.textContent).toContain("请把 {{input}} 排序");
+      expect(within(panel).getByTestId("skill-gate-panel")).toBeTruthy();
+      expect(within(panel).getByTestId("skill-detail-trialrun-empty")).toBeTruthy();
+      expect(calls.filter((c) => c.pathname === "/skills/sk-form")).toHaveLength(1);
+
+      fireEvent.click(within(panel).getByTestId("skill-detail-panel-close"));
+      expect(screen.queryByTestId("skill-detail-panel")).toBeNull();
+    });
+
+    it("wave2 行的面板不发详情请求（必 404），只给「编辑源码」", async () => {
+      install((call) => {
+        if (call.pathname.startsWith("/skills/")) return jsonResponse({ reasonCode: "SKILL_NOT_FOUND" }, 404);
+        return jsonResponse({
+          items: [{
+            skillId: "sk-wave2", name: "URL 导入的",
+            duty: "查看/编辑源码请点卡片上的「编辑源码」。",
+            source: "自建", status: "已启用", visibility: "org-wide",
+            currentVersionId: "sv-wave2", satisfaction: null, tags: ["销售"],
+          }],
+          total: 1,
+        });
+      });
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+      fireEvent.click(screen.getByTestId("skill-catalog-row-sk-wave2"));
+      const panel = screen.getByTestId("skill-detail-panel");
+      expect(within(panel).getByTestId("skill-detail-edit-source").getAttribute("href")).toBe("/admin/skill/sk-wave2?from=%2Fskill");
+      expect(panel.textContent).toContain("销售");
+      expect(calls.filter((c) => c.pathname.startsWith("/skills/"))).toHaveLength(0);
+      expect(screen.queryByTestId("skill-detail-error")).toBeNull();
+    });
+
+    it("详情读取失败：面板仍开着，里面如实回显信封", async () => {
+      install((call) => {
+        if (call.pathname === "/skills/sk-form") return jsonResponse({ reasonCode: "SKILL_NOT_FOUND" }, 404);
+        return jsonResponse({ items: [DETAIL.skill], total: 1 });
+      });
+      render(<SkillCatalogLive />);
+      await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
+      fireEvent.click(screen.getByTestId("skill-catalog-detail"));
+      await waitFor(() => expect(screen.getByTestId("skill-detail-error").textContent).toContain("SKILL_NOT_FOUND（HTTP 404）"));
+      expect(screen.getByTestId("skill-detail-panel")).toBeTruthy();
     });
   });
 });

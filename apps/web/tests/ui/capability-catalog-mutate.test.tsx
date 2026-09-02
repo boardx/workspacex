@@ -380,11 +380,13 @@ describe("#458 Agent 目录写路径接到 POST /capabilities/mutate", () => {
     expect(screen.queryByTestId("admin-agent-row-agent-1-disable")).not.toBeInTheDocument();
   });
 
-  it("issue #1745 次要问题2：kind=agent 的新增面板旁边有消歧提示，skill 没有", async () => {
+  it("issue #1745 次要问题2：kind=agent 的新增弹窗里有消歧提示，skill 没有", async () => {
     stubFetch({ pages: [[]] });
 
     render(<AgentScreen state="default" />);
     await screen.findByTestId("admin-agent-empty");
+    // 2026-09-02：新增表单收进弹窗，消歧提示跟着进去——点开才看得到。
+    fireEvent.click(screen.getByTestId("admin-agent-create"));
     expect(screen.getByTestId("admin-agent-create-agent-caveat")).toHaveTextContent(
       "新建 / 导入 Agent",
     );

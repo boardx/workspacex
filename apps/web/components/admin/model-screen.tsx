@@ -1,11 +1,11 @@
 "use client";
 import * as React from "react";
-import Link from "next/link";
-import { Plus, Cpu, ServerCog, ShieldCheck, FlaskConical, Check, ArrowUpRight, LayoutGrid, LayoutList } from "lucide-react";
+import { Plus, ShieldCheck, FlaskConical, Check, Ban } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
-import { AdminDrawer, AdminModal, Toast, Field } from "./panel";
+import { AdminDrawer, AdminModal, Toast, Field, KV } from "./panel";
 import { DisableDialog, type DisableMode } from "./disable-dialog";
-import { Card, CardContent } from "@/components/ui/card";
+import { EntityCatalog, CardActions, tagOf, type CatalogTag } from "./entity-catalog";
+import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Toggle } from "@/components/ui/toggle";
@@ -20,26 +20,26 @@ import { cn } from "@/lib/utils";
 
 /**
  * #1381 起本屏的列表读走 `lib/live-model.ts` 的 `listModels()`（真实 `GET /models`），
- * 不再是 `lib/mock/admin.ts` 的 18 台示例模型；`lint-no-backend-badge` 按「本文件是否
- * import 了 `@/lib/live-*`」判定，本屏直接 import，不需要 `backed-by-children` 标记。
+ * 不再是示例模型清单；`lint-no-backend-badge` 按「本文件是否 import 了 `@/lib/live-*`」
+ * 判定，本屏直接 import，不需要 `backed-by-children` 标记。
  *
  * ⚠ 这屏仍是**混合态**，不是「整屏已完成」：`enableModel` / `disableModel` /
  * `recordAdmissionTest` 这三条契约操作还没有 controller 路由（`model.controller.ts`
- * 文件头逐条列了缺口），所以下面的启用开关与测试判读 modal 依旧只改本地 React state——
+ * 文件头逐条列了缺口），所以面板里的启用开关与测试判读 modal 依旧只改本地 React state——
  * 点了会有 toast，但刷新页面或另一个管理员看到的状态不会变。真实的只有：接入（`POST
  * /models`）与列表（`GET /models`，#1381）。
+ *
+ * 2026-09-02（人类原话：「简化…模型…参考画布模板的首页，简化为一个卡片的列表，通过一个
+ * 侧边面板来展示当前的实体的内容，可以增加删除修改，并通过 tag 来过滤和搜索」）：
+ * 「闭源 API / 开源自托管」两个分组、四个筛选按钮、卡片/列表切换、机密路由预览链接卡
+ * 全部撤掉，收成 `EntityCatalog` 一个网格——种类 / 状态 / 能力标签 / 可承接机密都成了
+ * 标签筛选条上的标签；启用开关、测试判读、停用都进了点卡片打开的侧边面板。
+ * `AdminScreen` 外壳保留：`verify-ui-states.sh` 的七态矩阵仍以 `/admin/model?state=` 锚定。
  */
 
-/** 三态展示标签，独立于 `lib/mock/admin.ts` 的 `MODEL_STATUS_VIEW_LABEL`——那份是 mock 专用的英文键位映射，这里直接对着契约的中文 `ModelStatus` 渲染，不经过第二套键位。 */
+/** 三态展示标签，直接对着契约的中文 `ModelStatus` 渲染，不经过第二套键位。 */
 const STATUS_LABEL = { untested: "待测试", enabled: "已启用", disabled: "未启用" } as const;
-
-type KindFilter = "all" | "untested" | "closed-api" | "self-hosted";
-const KIND_FILTERS: readonly { key: KindFilter; label: string }[] = [
-  { key: "all", label: "全部" },
-  { key: "untested", label: "待测试" },
-  { key: "closed-api", label: "闭源 API" },
-  { key: "self-hosted", label: "开源自托管" },
-];
+const KIND_LABEL: Record<ModelPoolRow["kind"], string> = { "closed-api": "闭源 API", "self-hosted": "开源自托管" };
 
 function tagsLabel(row: ModelPoolRow): string {
   return row.capabilityTags.length > 0 ? row.capabilityTags.join(" · ") : "—";
@@ -60,31 +60,29 @@ const ADMISSION_TESTS = [
   "安全与拒答：对越权/出域请求正确拒绝并说明",
 ];
 
-/**
- * 后台统一改版（人类原话：「左边保留后台菜单，右边卡片展示 entity 列表，卡片可切换列表」）——
- * 「模型」屏这一份。默认卡片视图，可切回现有的列表实现（不重写，原样复用 `ModelListRow`）。
- * 与其它后台屏（Agent 目录等，并行 agent 同批改造）保持结构一致的 testid 与切换交互形状，
- * 便于后续把这份「本地写一份」的切换按钮收敛进共享组件。
- */
-type ModelView = "card" | "list";
+type PoolState =
+  | { readonly status: "loading" }
+  | { readonly status: "error"; readonly message: string }
+  | { readonly status: "ready"; readonly rows: readonly ModelPoolRow[] };
 
 export function ModelScreen({ state }: { state: UiState }) {
-  const [filter, setFilter] = React.useState<KindFilter>("all");
-  const [view, setView] = React.useState<ModelView>("card");
-  const [pool, setPool] = React.useState<readonly ModelPoolRow[] | null>(null);
-  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [pool, setPool] = React.useState<PoolState>({ status: "loading" });
   const [enabled, setEnabled] = React.useState<Record<string, boolean>>({});
   const [tested, setTested] = React.useState<Set<string>>(new Set());
+  const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const [testOf, setTestOf] = React.useState<ModelPoolRow | null>(null);
   const [disableOf, setDisableOf] = React.useState<ModelPoolRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
+  const generation = React.useRef(0);
 
   const refresh = React.useCallback(async () => {
+    const request = ++generation.current;
+    setPool((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
     try {
       const list = await listModels();
-      setPool(list);
-      setLoadError(null);
+      if (request !== generation.current) return;
+      setPool({ status: "ready", rows: list });
       // 只给**新出现**的 modelId 播种本地开关状态——已经在本会话里被本地切过的行不重置，
       // 否则每次刷新都会把管理员刚点的「停用」悄悄弹回真实状态（真实写路径还没接，
       // 唯一的状态就是这份本地 state）。
@@ -96,22 +94,71 @@ export function ModelScreen({ state }: { state: UiState }) {
         return next;
       });
     } catch (e) {
-      setLoadError(e instanceof ApiError ? (e.reasonCode ?? `http_${e.status}`) : String(e));
+      if (request !== generation.current) return;
+      setPool({ status: "error", message: e instanceof ApiError ? (e.reasonCode ?? `http_${e.status}`) : String(e) });
     }
   }, []);
 
   React.useEffect(() => {
     void refresh();
+    return () => {
+      generation.current += 1;
+    };
   }, [refresh]);
 
-  const allRows = pool ?? [];
-  const rows = allRows.filter((m) => {
-    if (filter === "all") return true;
-    if (filter === "untested") return m.status === "待测试" && !tested.has(m.modelId);
-    return m.kind === filter;
-  });
-  const hosted = rows.filter((m) => m.kind === "closed-api");
-  const selfHosted = rows.filter((m) => m.kind === "self-hosted");
+  const rows = React.useMemo(() => (pool.status === "ready" ? pool.rows : []), [pool]);
+  const isUntested = React.useCallback(
+    (m: ModelPoolRow) => m.status === "待测试" && !tested.has(m.modelId),
+    [tested],
+  );
+  const isOn = React.useCallback((m: ModelPoolRow) => enabled[m.modelId] ?? false, [enabled]);
+  const statusOf = (m: ModelPoolRow): keyof typeof STATUS_LABEL =>
+    isUntested(m) ? "untested" : isOn(m) ? "enabled" : "disabled";
+
+  const tagsOf = React.useCallback((m: ModelPoolRow): readonly CatalogTag[] => [
+    tagOf(m.kind, KIND_LABEL[m.kind]),
+    tagOf(STATUS_LABEL[isUntested(m) ? "untested" : isOn(m) ? "enabled" : "disabled"]),
+    ...(m.kind === "self-hosted" ? [{ key: "confidential-ok", label: "可承接机密" }] : []),
+    ...m.capabilityTags.map((t) => tagOf(t)),
+  ], [isUntested, isOn]);
+  const searchTextOf = React.useCallback(
+    (m: ModelPoolRow) => [m.displayName, m.modelId, m.vendor, ...m.capabilityTags].join(" "),
+    [],
+  );
+
+  function renderStatusBadge(m: ModelPoolRow) {
+    const s = statusOf(m);
+    return (
+      <Badge tone={s === "untested" ? "warning" : s === "enabled" ? "primary" : "outline"} data-testid={`admin-model-status-${m.modelId}`}>
+        {STATUS_LABEL[s]}
+      </Badge>
+    );
+  }
+
+  function renderSwitch(m: ModelPoolRow) {
+    const on = isOn(m);
+    if (isUntested(m)) {
+      return (
+        <Button size="xs" variant="outline" onClick={() => setTestOf(m)} data-testid={`admin-model-test-${m.modelId}`}>
+          <FlaskConical aria-hidden className="h-3 w-3" />
+          录入测试判读
+        </Button>
+      );
+    }
+    return (
+      <label className="flex items-center gap-1.5">
+        <span className={cn("text-11", on ? "text-background-foreground" : "text-muted-foreground")}>
+          {on ? "已启用" : "未启用"}
+        </span>
+        <Toggle
+          checked={on}
+          onCheckedChange={(v) => (on && !v ? setDisableOf(m) : setEnabled((p) => ({ ...p, [m.modelId]: v })))}
+          label={`启用/停用 ${m.displayName}`}
+          data-testid={`admin-model-toggle-${m.modelId}`}
+        />
+      </label>
+    );
+  }
 
   return (
     <AdminScreen
@@ -126,133 +173,98 @@ export function ModelScreen({ state }: { state: UiState }) {
       denialReason="模型凭据由管理员保管、成员看不到；模型管理仅组织管理员可进入。"
       successMessage="模型『qwen3-72b』五项测试判读通过，已启用并纳入 Ledger 的可选范围"
     >
-      <div className="flex flex-col gap-4">
-        {/*
-          2026-08-11（人类直接裁决，真合并）：原「智能体运行时」的机密路由批准卡子屏
-          （`agent-runtime/routing-screen.tsx`）折入这里——后台左栏不再有独立的
-          「智能体运行时」入口，模型路由相关的运行时配置在模型屏里就能找到。
-          见 `lib/navigation.ts` `ADMIN_SECOND_LEVEL` 里 `agent-runtime` 项的注释。
-        */}
-        <Card>
-          <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
-            <p className="text-12 text-muted-foreground">
-              机密路由批准卡的运行时预览（客户机密材料强制走自托管模型，原「智能体运行时」子屏，已并入此处）。
-            </p>
-            <Link
-              href="/preview/agent-runtime?screen=routing"
-              data-testid="admin-model-open-runtime-routing"
-              className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
-            >
-              打开机密路由批准卡预览
-              <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
-            </Link>
-          </CardContent>
-        </Card>
-
-        {loadError && (
-          <p className="text-12 text-destructive" data-testid="admin-model-load-error">
-            读不到模型池（{loadError}）。这里不退回演示数据——假的模型清单会被当成真实可用模型。
-          </p>
-        )}
-
-        {/* 筛选（可选范围过滤的入口） + 接入 */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap gap-1" data-testid="admin-model-filters">
-            {KIND_FILTERS.map((f) => {
-              const count =
-                f.key === "all" ? allRows.length
-                : f.key === "untested" ? allRows.filter((m) => m.status === "待测试" && !tested.has(m.modelId)).length
-                : allRows.filter((m) => m.kind === f.key).length;
-              return (
-                <Button
-                  key={f.key}
-                  size="sm"
-                  variant={filter === f.key ? "primary" : "ghost"}
-                  onClick={() => setFilter(f.key)}
-                  data-testid={`admin-model-filter-${f.key}`}
-                >
-                  {f.label} {count}
-                </Button>
-              );
-            })}
-          </div>
-          <div className="flex items-center gap-2">
-            <div
-              className="flex items-center gap-0.5 rounded-md border border-border p-0.5"
-              data-testid="admin-model-view-toggle"
-            >
-              <Button
-                size="xs"
-                variant={view === "card" ? "primary" : "ghost"}
-                aria-pressed={view === "card"}
-                aria-label="卡片视图"
-                onClick={() => setView("card")}
-                data-testid="admin-model-view-toggle-card"
-              >
-                <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                size="xs"
-                variant={view === "list" ? "primary" : "ghost"}
-                aria-pressed={view === "list"}
-                aria-label="列表视图"
-                onClick={() => setView("list")}
-                data-testid="admin-model-view-toggle-list"
-              >
-                <LayoutList aria-hidden className="h-3.5 w-3.5" />
-              </Button>
+      <EntityCatalog<ModelPoolRow>
+        prefix="admin-model"
+        title="模型池"
+        status={
+          pool.status === "ready"
+            ? { kind: "ready" }
+            : pool.status === "error"
+              ? { kind: "error", message: `读不到模型池（${pool.message}）。这里不退回演示数据——假的模型清单会被当成真实可用模型。` }
+              : { kind: "loading" }
+        }
+        rows={rows}
+        keyOf={(m) => m.modelId}
+        searchTextOf={searchTextOf}
+        tagsOf={tagsOf}
+        cardTestId={(m) => `admin-model-card-${m.modelId}`}
+        headerActions={
+          <Button size="sm" variant="primary" onClick={() => setAddOpen(true)} data-testid="admin-model-add">
+            <Plus aria-hidden className="h-3.5 w-3.5" />
+            接入模型
+          </Button>
+        }
+        onRefresh={() => void refresh()}
+        emptyState="模型池是空的——这是本组织在服务端的真实结果。用「接入模型」接一个。"
+        searchPlaceholder="按模型名、供应商或能力标签搜索…"
+        renderCard={(m) => (
+          <CardContent className="flex h-full flex-col gap-2 pt-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="truncate font-mono text-12 font-medium">{m.displayName}</span>
+              {renderStatusBadge(m)}
+              {m.kind === "self-hosted" && (
+                <Badge tone="ai" data-testid={`admin-model-confidential-${m.modelId}`}>
+                  <ShieldCheck aria-hidden className="h-3 w-3" />
+                  可承接机密
+                </Badge>
+              )}
             </div>
-            <Button size="sm" variant="primary" onClick={() => setAddOpen(true)} data-testid="admin-model-add">
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-              接入模型
-            </Button>
+            <span className="text-11 text-muted-foreground">{KIND_LABEL[m.kind]} · {m.vendor} · {tagsLabel(m)}</span>
+            <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-11 text-muted-foreground">
+              <span>上下文 {contextLabel(m)}</span>
+              <span data-testid={`admin-model-price-${m.modelId}`}>{priceLabel(m)}</span>
+              <span className="col-span-2" data-testid={`admin-model-key-status-${m.modelId}`}>
+                凭据 <span className="text-background-foreground">{hasApiKeyConfigured(m) ? "已配置" : "未配置"}</span>
+              </span>
+            </div>
+            <CardActions className="mt-auto justify-end pt-1">{renderSwitch(m)}</CardActions>
+          </CardContent>
+        )}
+        selectedKey={selectedKey}
+        onSelect={setSelectedKey}
+        detailTitle={(m) => m.displayName}
+        detailSubtitle={(m) => `${KIND_LABEL[m.kind]} · ${m.vendor} · ${m.modelId}`}
+        renderDetail={(m) => (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {renderStatusBadge(m)}
+              {m.kind === "self-hosted" && (
+                <Badge tone="ai">
+                  <ShieldCheck aria-hidden className="h-3 w-3" />
+                  可承接机密
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-col divide-y divide-border-subtle">
+              <KV k="模型 ID" v={<span className="font-mono text-11">{m.modelId}</span>} />
+              <KV k="种类" v={KIND_LABEL[m.kind]} />
+              <KV k="供应商" v={m.vendor} />
+              <KV k="能力标签" v={tagsLabel(m)} />
+              <KV k="上下文窗口" v={contextLabel(m)} />
+              <KV k="单价" v={priceLabel(m)} />
+              <KV k="凭据" v={hasApiKeyConfigured(m) ? "已配置" : "未配置"} />
+              <KV k="合规属性" v={m.complianceAttrs.length > 0 ? m.complianceAttrs.join("、") : "无"} />
+              <KV k="机密材料" v={m.kind === "self-hosted" ? "可承接（权重跑在自己的 GPU 上）" : "不路由（闭源 API 一律不承接）"} />
+            </div>
+            <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-panel p-3">
+              <span className="text-10 uppercase tracking-wide text-muted-foreground">状态操作（本地演示，尚未回写后端）</span>
+              <div className="flex flex-wrap items-center gap-3">
+                {renderSwitch(m)}
+                {!isUntested(m) && isOn(m) && (
+                  <Button size="xs" variant="outline" onClick={() => setDisableOf(m)} data-testid={`admin-model-detail-disable-${m.modelId}`}>
+                    <Ban aria-hidden className="h-3 w-3" />
+                    停用
+                  </Button>
+                )}
+              </div>
+              <p className="text-10 text-muted-foreground">
+                契约的 `enableModel` / `disableModel` / `recordAdmissionTest` 还没有 controller 路由，
+                这里的改动刷新即丢。契约里也没有「删除模型」——停用是唯一的下线方式。
+              </p>
+            </div>
           </div>
-        </div>
-
-        <div data-testid="admin-model-view-container" data-view={view}>
-          {/* 闭源 API 组 */}
-          {hosted.length > 0 && (
-            <section className="flex flex-col gap-2" data-testid="admin-model-group-hosted">
-              <div className="flex items-center gap-1.5">
-                <Cpu aria-hidden className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-13 font-semibold">闭源 API</h2>
-                <span className="text-11 text-muted-foreground">· 凭据由管理员保管，成员看不到</span>
-              </div>
-              <ModelGroup
-                groupKey="hosted"
-                view={view}
-                rows={hosted}
-                tested={tested}
-                enabled={enabled}
-                setEnabled={setEnabled}
-                setDisableOf={setDisableOf}
-                setTestOf={setTestOf}
-              />
-            </section>
-          )}
-
-          {/* 开源自托管组 */}
-          {selfHosted.length > 0 && (
-            <section className="mt-4 flex flex-col gap-2" data-testid="admin-model-group-self">
-              <div className="flex items-center gap-1.5">
-                <ServerCog aria-hidden className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-13 font-semibold">开源自托管</h2>
-                <span className="text-11 text-muted-foreground">· 权重跑在自己的 GPU 上，客户机密材料只走这一类</span>
-              </div>
-              <ModelGroup
-                groupKey="self"
-                view={view}
-                rows={selfHosted}
-                tested={tested}
-                enabled={enabled}
-                setEnabled={setEnabled}
-                setDisableOf={setDisableOf}
-                setTestOf={setTestOf}
-              />
-            </section>
-          )}
-        </div>
-      </div>
+        )}
+      />
 
       {/* 接入模型 —— #548：唯一真实写路径，打 POST /models */}
       {addOpen && (
@@ -261,8 +273,7 @@ export function ModelScreen({ state }: { state: UiState }) {
           onRegistered={(res) => {
             setAddOpen(false);
             setToast(`已接入模型「${res.displayName}」（${res.status}）。`);
-            // #1381：列表现在读真数据了，刷新就能看到刚接入的这条——不再需要那句
-            // 「下方列表仍是示例组织配置」的道歉。
+            // #1381：列表现在读真数据了，刷新就能看到刚接入的这条。
             void refresh();
           }}
         />
@@ -289,8 +300,7 @@ export function ModelScreen({ state }: { state: UiState }) {
           verb="停用"
           capabilityName={disableOf.displayName}
           // `inFlightCalls` 来自 `listModelReferences`，那条路由还没有 controller 接线
-          // （`model.controller.ts` 文件头），本地没有真实数字可读——诚实显示 0，
-          // 不借用 mock 的假计数表。
+          // （`model.controller.ts` 文件头），本地没有真实数字可读——诚实显示 0。
           inFlight={0}
           interruptEffect="正经此模型推理的调用会被立即中断，返回「该能力已被管理员停用」；调用方需改选其它已启用模型。"
           drainEffect="已发起的推理跑完当前一轮，此刻起路由不再选用此模型。"
@@ -315,8 +325,7 @@ export function ModelScreen({ state }: { state: UiState }) {
 /**
  * #1381 起本屏的混合态说明——列表/接入是真数据，启用/停用/测试判读仍是本地演示。
  * 视觉上介于 `SampleConfigNotice`（纯真实）与 `NoBackendNotice`（纯零后端）之间，
- * 按 `admin-screen.tsx` 的注释「按 tab/按区块说实话，比笼统覆盖诚实」新写一条，
- * 不复用那两条——它们各自的整句陈述对本屏都不成立。
+ * 按 `admin-screen.tsx` 的注释「按 tab/按区块说实话，比笼统覆盖诚实」新写一条。
  */
 function ModelScreenNotice() {
   return (
@@ -554,7 +563,12 @@ function TestModal({ model, onClose, onPass }: { model: ModelPoolRow; onClose: (
           <div key={i} className="flex items-center gap-2 rounded-md border border-border-subtle bg-panel p-2.5" data-testid="admin-model-test-item">
             <Checkbox
               checked={passed[i]}
-              onChange={(e) => setPassed((p) => p.map((v, j) => (j === i ? e.currentTarget.checked : v)))}
+              // ⚠ 先把 `checked` 读出来再进 updater：React 事件对象在 updater 里跑时
+              //   `currentTarget` 已经是 null（合成事件池已回收），从前这里直接读会炸。
+              onChange={(e) => {
+                const checked = e.currentTarget.checked;
+                setPassed((p) => p.map((v, j) => (j === i ? checked : v)));
+              }}
               label={`${i + 1}. ${t}`}
               data-testid={`admin-model-test-check-${i + 1}`}
             />
@@ -563,181 +577,5 @@ function TestModal({ model, onClose, onPass }: { model: ModelPoolRow; onClose: (
         ))}
       </div>
     </AdminModal>
-  );
-}
-
-/** 分组内的行渲染，按 `view` 切换卡片/列表，两种视图共享同一份状态与回调。 */
-function ModelGroup({
-  groupKey,
-  view,
-  rows,
-  tested,
-  enabled,
-  setEnabled,
-  setDisableOf,
-  setTestOf,
-}: {
-  /** "hosted" / "self"——两个分组各出一份 card-grid / list 容器，testid 靠这个后缀避免全局重名。 */
-  groupKey: "hosted" | "self";
-  view: ModelView;
-  rows: readonly ModelPoolRow[];
-  tested: Set<string>;
-  enabled: Record<string, boolean>;
-  setEnabled: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  setDisableOf: (m: ModelPoolRow) => void;
-  setTestOf: (m: ModelPoolRow) => void;
-}) {
-  if (view === "card") {
-    return (
-      <div
-        className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
-        data-testid={`admin-model-card-grid-${groupKey}`}
-      >
-        {rows.map((m) => (
-          <ModelCard
-            key={m.modelId}
-            m={m}
-            untested={m.status === "待测试" && !tested.has(m.modelId)}
-            on={enabled[m.modelId] ?? false}
-            setOn={(v) => setEnabled((p) => ({ ...p, [m.modelId]: v }))}
-            onRequestDisable={() => setDisableOf(m)}
-            onTest={() => setTestOf(m)}
-          />
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-1.5" data-testid={`admin-model-list-${groupKey}`}>
-      {rows.map((m) => (
-        <ModelListRow
-          key={m.modelId}
-          m={m}
-          untested={m.status === "待测试" && !tested.has(m.modelId)}
-          on={enabled[m.modelId] ?? false}
-          setOn={(v) => setEnabled((p) => ({ ...p, [m.modelId]: v }))}
-          onRequestDisable={() => setDisableOf(m)}
-          onTest={() => setTestOf(m)}
-        />
-      ))}
-    </div>
-  );
-}
-
-/**
- * 卡片视图 —— 与 Skill 目录（`skill-catalog-live.tsx`）的卡片信息密度对齐：
- * 标题 + 状态徽标一行，关键字段网格排布，操作按钮落在卡片底部。列表视图的六项信息
- * （供应商 / 能力标签 / 上下文长度 / 单价 / 可选范围 / 启用开关或测试入口）一个不丢，
- * 只是从横向一行换成纵向卡片布局。
- */
-function ModelCard({ m, untested, on, setOn, onRequestDisable, onTest }: { m: ModelPoolRow; untested: boolean; on: boolean; setOn: (v: boolean) => void; onRequestDisable: () => void; onTest: () => void }) {
-  const statusTone = untested ? "warning" : on ? "primary" : "outline";
-  const confidentialOk = m.kind === "self-hosted";
-  return (
-    <Card data-testid={`admin-model-card-${m.modelId}`}>
-      <CardContent className="flex h-full flex-col gap-2 pt-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate font-mono text-12 font-medium">{m.displayName}</span>
-          <Badge tone={statusTone} data-testid={`admin-model-status-${m.modelId}`}>
-            {STATUS_LABEL[untested ? "untested" : on ? "enabled" : "disabled"]}
-          </Badge>
-          {confidentialOk && (
-            <Badge tone="ai" data-testid={`admin-model-confidential-${m.modelId}`}>
-              <ShieldCheck aria-hidden className="h-3 w-3" />
-              可承接机密
-            </Badge>
-          )}
-        </div>
-        <span className="text-11 text-muted-foreground">{m.vendor} · {tagsLabel(m)}</span>
-
-        <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-11 text-muted-foreground">
-          <span>上下文 {contextLabel(m)}</span>
-          <span className="inline-flex items-center gap-1" data-testid={`admin-model-price-${m.modelId}`}>
-            {priceLabel(m)}
-          </span>
-          <span className="col-span-2 inline-flex items-center gap-1" data-testid={`admin-model-key-status-${m.modelId}`}>
-            凭据 <span className="text-background-foreground">{hasApiKeyConfigured(m) ? "已配置" : "未配置"}</span>
-          </span>
-        </div>
-
-        <div className="mt-auto flex items-center justify-end pt-1">
-          {untested ? (
-            <Button size="xs" variant="outline" onClick={onTest} data-testid={`admin-model-test-${m.modelId}`}>
-              <FlaskConical aria-hidden className="h-3 w-3" />
-              录入测试判读
-            </Button>
-          ) : (
-            <label className="flex items-center gap-1.5">
-              <span className={cn("text-11", on ? "text-background-foreground" : "text-muted-foreground")}>
-                {on ? "已启用" : "未启用"}
-              </span>
-              <Toggle
-                checked={on}
-                onCheckedChange={(v) => (on && !v ? onRequestDisable() : setOn(v))}
-                label={`启用/停用 ${m.displayName}`}
-                data-testid={`admin-model-toggle-${m.modelId}`}
-              />
-            </label>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ModelListRow({ m, untested, on, setOn, onRequestDisable, onTest }: { m: ModelPoolRow; untested: boolean; on: boolean; setOn: (v: boolean) => void; onRequestDisable: () => void; onTest: () => void }) {
-  const statusTone = untested ? "warning" : on ? "primary" : "outline";
-  const confidentialOk = m.kind === "self-hosted";
-  return (
-    <Card data-testid={`admin-model-row-${m.modelId}`}>
-      <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-12 font-medium">{m.displayName}</span>
-            <Badge tone={statusTone} data-testid={`admin-model-status-${m.modelId}`}>
-              {STATUS_LABEL[untested ? "untested" : on ? "enabled" : "disabled"]}
-            </Badge>
-            {confidentialOk && (
-              <Badge tone="ai" data-testid={`admin-model-confidential-${m.modelId}`}>
-                <ShieldCheck aria-hidden className="h-3 w-3" />
-                可承接机密
-              </Badge>
-            )}
-          </div>
-          <span className="text-11 text-muted-foreground">{m.vendor} · {tagsLabel(m)}</span>
-        </div>
-
-        <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-11 text-muted-foreground">
-          <span>上下文 {contextLabel(m)}</span>
-          <span className="inline-flex items-center gap-1" data-testid={`admin-model-price-${m.modelId}`}>
-            {priceLabel(m)}
-          </span>
-          <span className="inline-flex items-center gap-1" data-testid={`admin-model-key-status-${m.modelId}`}>
-            凭据 <span className="text-background-foreground">{hasApiKeyConfigured(m) ? "已配置" : "未配置"}</span>
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {untested ? (
-            <Button size="xs" variant="outline" onClick={onTest} data-testid={`admin-model-test-${m.modelId}`}>
-              <FlaskConical aria-hidden className="h-3 w-3" />
-              录入测试判读
-            </Button>
-          ) : (
-            <label className="flex items-center gap-1.5">
-              <span className={cn("text-11", on ? "text-background-foreground" : "text-muted-foreground")}>
-                {on ? "已启用" : "未启用"}
-              </span>
-              <Toggle
-                checked={on}
-                onCheckedChange={(v) => (on && !v ? onRequestDisable() : setOn(v))}
-                label={`启用/停用 ${m.displayName}`}
-                data-testid={`admin-model-toggle-${m.modelId}`}
-              />
-            </label>
-          )}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
