@@ -35,7 +35,20 @@ import type {
   ProductFeedbackRepository,
   ProductFeedbackRepositoryFactory,
   StatusEvent,
+  StatusEventRow,
 } from "../../application/feedback/ports";
+
+interface StatusEventDbRow {
+  readonly id: string;
+  readonly from_status: string | null;
+  readonly to_status: string;
+  readonly reason: string | null;
+  readonly actor_id: string;
+  readonly notified: boolean;
+  readonly email_subject: string | null;
+  readonly email_text: string | null;
+  readonly created_at: Date | string;
+}
 
 interface FeedbackDbRow {
   readonly id: string;
@@ -303,10 +316,37 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
     await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       await s.query(
         `INSERT INTO product_feedback_status_events
-           (id, org_id, feedback_id, from_status, to_status, reason, actor_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [event.id, this.orgId, event.feedbackId, event.fromStatus, event.toStatus, event.reason, event.actorId],
+           (id, org_id, feedback_id, from_status, to_status, reason, actor_id, notified, email_subject, email_text)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          event.id, this.orgId, event.feedbackId, event.fromStatus, event.toStatus, event.reason, event.actorId,
+          event.notified, event.emailSubject, event.emailText,
+        ],
       );
+    });
+  }
+
+  async listStatusEvents(feedbackId: string): Promise<readonly StatusEventRow[]> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<StatusEventDbRow>(
+        `SELECT id, from_status, to_status, reason, actor_id, notified, email_subject, email_text, created_at
+           FROM product_feedback_status_events
+          WHERE org_id = $2 AND feedback_id = $1
+          ORDER BY created_at ASC`,
+        [feedbackId, this.orgId],
+      );
+      return rows.map((r) => ({
+        id: r.id,
+        feedbackId,
+        fromStatus: r.from_status as FeedbackStatus | null,
+        toStatus: r.to_status as FeedbackStatus,
+        reason: r.reason,
+        actorId: r.actor_id,
+        notified: r.notified,
+        emailSubject: r.email_subject,
+        emailText: r.email_text,
+        createdAt: new Date(r.created_at).toISOString(),
+      }));
     });
   }
 

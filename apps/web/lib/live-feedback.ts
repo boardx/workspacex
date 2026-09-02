@@ -22,6 +22,9 @@ export type VoteFeedbackOut = z.infer<typeof feedbackLoop.operations.voteFeedbac
 export type FeedbackCounts = z.infer<typeof feedbackLoop.operations.getFeedbackCounts.out>;
 export type TriageFeedbackOut = z.infer<typeof feedbackLoop.operations.triageFeedback.out>;
 export type FeedbackGithubIssueStatus = z.infer<typeof feedbackLoop.operations.getFeedbackGithubIssue.out>;
+export type FeedbackStatusEvent = z.infer<
+  typeof feedbackLoop.operations.listFeedbackStatusEvents.out
+>["events"][number];
 export type GithubIssueLinkedPullRequest = z.infer<typeof feedbackLoop.GithubIssueLinkedPullRequest>;
 export type CommentOnFeedbackGithubIssueOut = z.infer<
   typeof feedbackLoop.operations.commentOnFeedbackGithubIssue.out
@@ -112,6 +115,18 @@ export async function getFeedbackCounts(): Promise<FeedbackCounts> {
  */
 export async function getFeedbackGithubIssue(feedbackId: string): Promise<FeedbackGithubIssueStatus> {
   return apiRequest<FeedbackGithubIssueStatus>(`/feedback/${encodeURIComponent(feedbackId)}/github-issue`);
+}
+
+/**
+ * 一条反馈完整的状态流水——含每一步「有没有真的发邮件通知提交人、发的是什么」。
+ * 给后台看板的 detail 弹层用。只在管理员真的展开一条反馈的详情时调用，不要跟着
+ * `listFeedback` 批量拉。见契约 `listFeedbackStatusEvents` 头注。
+ */
+export async function listFeedbackStatusEvents(feedbackId: string): Promise<readonly FeedbackStatusEvent[]> {
+  const { events } = await apiRequest<{ events: readonly FeedbackStatusEvent[] }>(
+    `/feedback/${encodeURIComponent(feedbackId)}/events`,
+  );
+  return events;
 }
 
 /**

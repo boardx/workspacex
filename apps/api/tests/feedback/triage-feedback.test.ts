@@ -291,6 +291,37 @@ describe("triageFeedback —— 状态变更邮件（best-effort）", () => {
     }
   });
 
+  it("appendStatusEvent 收到的是这次真的发出去的通知快照,不是「本来想发的模板」", async () => {
+    const repo = fakeRepo(row({ status: "待处理" }));
+    const deps = baseDeps({ repo });
+    await triageFeedback(deps, {
+      feedbackId: "fb-1", status: "已进入迭代", reason: null, issueDraft: null, ...ADMIN,
+    });
+
+    expect(repo.appendStatusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notified: true,
+        emailSubject: expect.stringContaining("已进入迭代"),
+        emailText: expect.any(String),
+      }),
+    );
+  });
+
+  it("邮件发送失败 ⇒ appendStatusEvent 收到 notified:false 且 subject/text 为 null,不是「曾经打算发的」内容", async () => {
+    const repo = fakeRepo(row());
+    const deps = baseDeps({
+      repo,
+      mail: { send: vi.fn(async () => { throw new Error("smtp down"); }) },
+    });
+    await triageFeedback(deps, {
+      feedbackId: "fb-1", status: "已进入迭代", reason: null, issueDraft: null, ...ADMIN,
+    });
+
+    expect(repo.appendStatusEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ notified: false, emailSubject: null, emailText: null }),
+    );
+  });
+
   it("幂等重放(目标状态=当前状态)不发邮件", async () => {
     const deps = baseDeps({ repo: fakeRepo(row({ status: "已进入迭代" })) });
     const out = await triageFeedback(deps, {

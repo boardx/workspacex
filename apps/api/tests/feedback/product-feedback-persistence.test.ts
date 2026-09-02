@@ -127,6 +127,7 @@ describe("FB-2 落库", () => {
     await repo.insert(draft());
     await repo.appendStatusEvent({
       id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
+      notified: false, emailSubject: null, emailText: null,
     });
     await expect(
       asApp(ORG, (c) => c.query("UPDATE product_feedback_status_events SET reason = 'x' WHERE id = $1", ["ev-1"])),
@@ -140,6 +141,7 @@ describe("FB-2 落库", () => {
     await repo.insert(draft());
     await repo.appendStatusEvent({
       id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
+      notified: false, emailSubject: null, emailText: null,
     });
     await expect(
       asOwner((c) => c.query("UPDATE product_feedback_status_events SET reason = 'x' WHERE id = $1", ["ev-1"])),
@@ -147,6 +149,29 @@ describe("FB-2 落库", () => {
     await expect(
       asOwner((c) => c.query("DELETE FROM product_feedback_status_events WHERE id = $1", ["ev-1"])),
     ).rejects.toThrow(/append-only/);
+  });
+
+  it("④b listStatusEvents 按时间正序读回完整流水，含通知快照（notified/subject/text）", async () => {
+    await repo.insert(draft());
+    await repo.appendStatusEvent({
+      id: "ev-created", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
+      notified: false, emailSubject: null, emailText: null,
+    });
+    await repo.appendStatusEvent({
+      id: "ev-triaged", feedbackId: "fb-1", fromStatus: "待处理", toStatus: "已进入迭代", reason: null, actorId: OTHER,
+      notified: true, emailSubject: "你的反馈状态已更新为「已进入迭代」", emailText: "已经在跟了。",
+    });
+
+    const events = await repo.listStatusEvents("fb-1");
+    expect(events.map((e) => e.id)).toEqual(["ev-created", "ev-triaged"]); // 时间正序
+    expect(events[1]).toMatchObject({
+      fromStatus: "待处理",
+      toStatus: "已进入迭代",
+      notified: true,
+      emailSubject: "你的反馈状态已更新为「已进入迭代」",
+      emailText: "已经在跟了。",
+    });
+    expect(events[0]).toMatchObject({ notified: false, emailSubject: null, emailText: null });
   });
 
   it("⑤ 「不做」没有理由存不进去 —— 这是 CHECK，不是用例层的一次判断", async () => {

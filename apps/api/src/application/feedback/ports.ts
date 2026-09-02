@@ -76,6 +76,23 @@ export interface StatusEvent {
   readonly toStatus: FeedbackStatus;
   readonly reason: string | null;
   readonly actorId: string;
+  /**
+   * 这次转移是否真的把状态变更邮件发出去了（best-effort，见
+   * `triage-feedback.ts` 的 `notifySubmitter`）。`emailSubject`/`emailText` 是
+   * 发出那一刻的快照——`notified === false` 时两者恒为 `null`（没发,自然没有
+   * 发了什么可存）。迁移 `20260902110613` 补的三列，理由见该文件头注。
+   */
+  readonly notified: boolean;
+  readonly emailSubject: string | null;
+  readonly emailText: string | null;
+}
+
+/**
+ * `listStatusEvents` 读回来的一行——比写入用的 `StatusEvent` 多一个 `createdAt`
+ * （写入不需要它,DB 默认 `now()`；读历史列表必须知道"这一步是什么时候发生的"）。
+ */
+export interface StatusEventRow extends StatusEvent {
+  readonly createdAt: string;
 }
 
 export interface FeedbackCounts {
@@ -103,6 +120,13 @@ export interface ProductFeedbackRepository {
   setVote(feedbackId: string, voterId: string, voted: boolean): Promise<{ readonly votes: number; readonly votedByMe: boolean }>;
   updateStatus(feedbackId: string, status: FeedbackStatus, reason: string | null): Promise<void>;
   appendStatusEvent(event: StatusEvent): Promise<void>;
+  /**
+   * 这条反馈的完整状态流水，最旧的在前（管理员在 detail 弹层里从上往下读"发生了
+   * 什么"）。⚠ 不做租户外可见性判断——调用方（`list-feedback-events.ts`）已经
+   * 先 `findById` 确认过这条反馈在当前租户里存在,这里只是单纯按 `feedback_id`
+   * 取,与 `appendStatusEvent` 写入时的仓储天然绑租户（`forOrg`）同一份信任边界。
+   */
+  listStatusEvents(feedbackId: string): Promise<readonly StatusEventRow[]>;
   /**
    * "转开发"建完 GitHub issue 之后的一次回填。⚠ 只在 `triageFeedback` 用例内
    *   **确认这条反馈还没有 issue**（`githubIssueUrl === null`）时才会被调用一次——
