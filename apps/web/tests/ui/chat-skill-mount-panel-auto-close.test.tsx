@@ -43,7 +43,7 @@ vi.mock("@/components/feedback/feedback-button", () => ({
 
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 
-// `duty` is required by the `pill` variant's row renderer (`item.duty.trim()`).
+// `duty` 是 `SkillListItem` 契约里的必填字段（`packages/contracts/src/skills.ts`）。
 const SKILL_POOL = [{ skillId: "sk_aaa", name: "pptx", status: "已启用" as const, duty: "生成演示文稿" }];
 
 /** 手动可控的 promise：拿到 resolve/reject 之后再决定什么时候让 `mountSkills` 落定。 */
@@ -68,9 +68,9 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderPanel(variant: "row" | "pill" = "row") {
+function renderPanel() {
   return render(
-    <ChatSkillMountPanel threadId="thr-1" projectId={undefined} orgId="org-1" bearer="bearer-1" variant={variant} />,
+    <ChatSkillMountPanel threadId="thr-1" projectId={undefined} orgId="org-1" bearer="bearer-1" />,
   );
 }
 
@@ -145,11 +145,11 @@ describe("ChatSkillMountPanel 挂载点击后的浮层开关（gap #9，乐观�
  *    各自把 `containerRef` 接到不同的外层元素（`div` vs `section`），一个接对了
  *    不代表另一个也接对了。`describe.each` 覆盖两种变体，同一组反证各跑一遍。
  */
-describe.each<{ variant: "row" | "pill" }>([{ variant: "row" }, { variant: "pill" }])(
-  "ChatSkillMountPanel 候选面板（variant=$variant）—— outside-click / Escape 关闭（同 AgentPicker gap #2）",
-  ({ variant }) => {
+describe(
+  "ChatSkillMountPanel 候选面板 —— outside-click / Escape 关闭（同 AgentPicker gap #2）",
+  () => {
     it("点击面板外部（document.body）会关闭面板", async () => {
-      renderPanel(variant);
+      renderPanel();
       fireEvent.click(await screen.findByTestId("chat-skill-mount"));
       expect(await screen.findByTestId("chat-skill-mount-picker")).toBeInTheDocument();
 
@@ -158,7 +158,7 @@ describe.each<{ variant: "row" | "pill" }>([{ variant: "row" }, { variant: "pill
     });
 
     it("按 Escape 会关闭面板", async () => {
-      renderPanel(variant);
+      renderPanel();
       fireEvent.click(await screen.findByTestId("chat-skill-mount"));
       expect(await screen.findByTestId("chat-skill-mount-picker")).toBeInTheDocument();
 
@@ -167,7 +167,7 @@ describe.each<{ variant: "row" | "pill" }>([{ variant: "row" }, { variant: "pill
     });
 
     it("面板内部（比如「取消」按钮）的 mousedown 不会被 outside-click guard 误关；随后真实点击仍照常关闭", async () => {
-      renderPanel(variant);
+      renderPanel();
       fireEvent.click(await screen.findByTestId("chat-skill-mount"));
       const cancel = await screen.findByTestId("chat-skill-mount-cancel");
 
@@ -182,6 +182,56 @@ describe.each<{ variant: "row" | "pill" }>([{ variant: "row" }, { variant: "pill
     });
   },
 );
+
+describe("ChatSkillMountPanel（variant=\"composer\"）—— v2 composer：触发器在「+」菜单里，本组件只有 chip + 浮层", () => {
+  function renderComposer(props: { mentionQuery?: string | null; openRequest?: number; onTriggerStateChange?: (s: { canOpen: boolean; mountedCount: number; loading: boolean }) => void }) {
+    return render(
+      <ChatSkillMountPanel variant="composer" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionTriggerChar="/" {...props} />,
+    );
+  }
+
+  it("不渲染触发按钮/空态文案；把 canOpen/mountedCount 回报给调用方；openRequest 递增才打开候选", async () => {
+    const onTriggerStateChange = vi.fn();
+    const { rerender } = renderComposer({ openRequest: 0, onTriggerStateChange });
+    await waitFor(() => expect(onTriggerStateChange).toHaveBeenLastCalledWith({ canOpen: true, mountedCount: 0, loading: false }));
+    expect(screen.queryByTestId("chat-skill-mount")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chat-skill-mount-empty")).not.toBeInTheDocument();
+    expect(screen.getByTestId("chat-skill-mount-panel")).toBeEmptyDOMElement();
+
+    rerender(
+      <ChatSkillMountPanel variant="composer" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionTriggerChar="/" openRequest={1} onTriggerStateChange={onTriggerStateChange} />,
+    );
+    const picker = await screen.findByTestId("chat-skill-mount-picker");
+    // 向上开、浮层化（贴调用方的 relative 容器），不撑开第二行。
+    expect(picker.className).toContain("absolute");
+    expect(picker.className).toContain("bottom-full");
+    expect(await screen.findByTestId("chat-skill-mount-option-sk_aaa")).toBeInTheDocument();
+  });
+
+  it("`/` mention 照旧：mentionQuery 打开并过滤；归 null ⇒ 自动收起；Escape 同样关闭", async () => {
+    const { rerender } = renderComposer({ mentionQuery: "pp" });
+    await screen.findByTestId("chat-skill-mount-picker");
+    expect(screen.getByTestId("chat-skill-mount-mention-hint")).toHaveTextContent("/ pp");
+    rerender(<ChatSkillMountPanel variant="composer" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionTriggerChar="/" mentionQuery={null} />);
+    await waitFor(() => expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument());
+
+    rerender(<ChatSkillMountPanel variant="composer" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionTriggerChar="/" mentionQuery="pp" />);
+    await screen.findByTestId("chat-skill-mount-picker");
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument());
+  });
+
+  it("已挂载 skill 以 chip 形式留在第二行（状态 chip），可卸载", async () => {
+    listThreadMounts.mockResolvedValue({
+      temporary: [{ mountId: "m1", threadId: "thr-1", skillId: "sk_aaa", versionId: "v1", mountedAt: "2026-08-23T00:00:00.000Z" }],
+      version: "1",
+    });
+    renderComposer({});
+    expect(await screen.findByTestId("chat-skill-mounted-sk_aaa")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-skill-mount-panel")).toHaveAttribute("data-mounted-count", "1");
+    expect(screen.getByTestId("chat-skill-unmount-sk_aaa")).toBeInTheDocument();
+  });
+});
 
 describe("ChatSkillMountPanel 候选面板 —— 卸载后不留 document 监听器", () => {
   it("unmount 之后再在 document 上触发 mousedown/keydown 不抛错、不残留监听（add/remove 配对）", async () => {

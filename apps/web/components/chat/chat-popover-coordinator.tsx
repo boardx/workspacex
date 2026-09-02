@@ -26,7 +26,11 @@ import * as React from "react";
  *  - `chat-composer-mic-devices`：麦克风按钮的二级设备菜单，与上面两个下拉同属
  *    「同一时刻只开一个浮层」的既有纪律，不新开一套互斥逻辑。
  */
-export type ChatPopoverId = "chat-agent-picker" | "chat-skill-mount" | "chat-capability-picker" | "chat-composer-mic-devices";
+export type ChatPopoverId =
+  | "chat-agent-picker"
+  | "chat-skill-mount"
+  | "chat-capability-picker"
+  | "chat-composer-mic-devices";
 
 type ChatPopoverContextValue = {
   readonly activeId: ChatPopoverId | null;

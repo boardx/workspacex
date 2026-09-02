@@ -23,6 +23,13 @@ import { CHAT_READ_E2E } from "./chat-read-fixture";
  * `buildSystemPrompt` 没拼正文、`input.system` 没发给上游——哨兵都不会出现，
  * 断言如实红。
  *
+ * ## 2026-09-02 composer 三层结构（本 spec 随之改法，判据不变）
+ *
+ * 「技能」触发器 `chat-skill-mount` 是工具行的一颗圆形图标按钮；新对话（还没有线程）时
+ * 它禁用并带 `data-placeholder-reason="no-thread"`（不渲染假入口）；已挂载 chip 留在
+ * 工具行当状态 chip；`/` 命令照旧。
+ * 挂载面板 `chat-skill-mount-panel` 没挂任何 skill 时零尺寸，判 attached 不判 visible。
+ *
  * ## 范围诚实
  *
  * 上游是确定性替身，本文件不证明「skill 改变了模型回答的质量」——那需要真实
@@ -93,7 +100,8 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
   await page.goto("/chat");
 
   /* ═══════════ ① 新对话还没有线程：如实占位，不渲染假挂载面板 ═══════════ */
-  await expect(page.getByTestId("copilotkit-v2-skill-mount-placeholder")).toBeVisible();
+  await expect(page.getByTestId("chat-skill-mount")).toBeDisabled();
+  await expect(page.getByTestId("chat-skill-mount")).toHaveAttribute("data-placeholder-reason", "no-thread");
   await expect(page.getByTestId("chat-skill-mount-panel")).toHaveCount(0);
 
   /* ═══════════ ② 反向对照：还没挂任何 skill，先发一条 ═══════════ */
@@ -113,8 +121,8 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
   await page.waitForURL(/\/chat\/.+$/, { timeout: 30_000 });
   const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId, "首条消息后地址栏应带上持久化线程 id").toBeTruthy();
-  await expect(page.getByTestId("chat-skill-mount-panel")).toBeVisible();
-  await expect(page.getByTestId("copilotkit-v2-skill-mount-placeholder")).toHaveCount(0);
+  await expect(page.getByTestId("chat-skill-mount-panel")).toBeAttached();
+  await expect(page.getByTestId("chat-skill-mount")).not.toHaveAttribute("data-placeholder-reason");
   // 前提：现在一个都没挂。没有这条，「挂上了」的断言可能一开始就是真的。
   // 2026-08-28 起空态不再单独画一行文字（devapp 实测反馈：composer 这排本来就挤，
   // 常驻一行"什么都没有"的文字比不说更占地方）——改用触发器上的真实数量
@@ -149,7 +157,7 @@ test("issue #2020/#2046：composer 敲 / 触发挂载候选（路径斜杠不误
   await page.waitForURL(/\/chat\/(?!warmup-)[^/]+$/, { timeout: 60_000 });
   const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId).toBeTruthy();
-  await expect(page.getByTestId("chat-skill-mount-panel")).toBeVisible();
+  await expect(page.getByTestId("chat-skill-mount-panel")).toBeAttached();
 
   /* issue #2046（CK-P2）反例先行：路径里的斜杠（前一字符非空白）不触发 mention——
      没有这条，下面「/ 触发了」的断言证明不了误触规则真的存在。 */

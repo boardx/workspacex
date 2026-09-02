@@ -11,7 +11,7 @@ import {
   CopilotChatMessageView,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Loader2, AlertTriangle, ArrowDown, ArrowUp, ListChecks, Sparkles } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, ListChecks, Paperclip, Pause, PenLine, Sparkles, Square } from "lucide-react";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
@@ -42,8 +42,13 @@ import { useAguiPlanTodos, currentPlanStep } from "@/lib/agui-plan-todos";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
-import { ComposerMicControl, ComposerMicRecordingBar } from "@/components/chat/chat-composer-mic-control";
+import { ComposerVoiceControl, describeVoiceDevice, formatElapsed } from "@/components/chat/chat-composer-voice-control";
+import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
+import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button";
+import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
+import { appendTranscript } from "@/lib/use-asr-draft";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
+import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import {
@@ -54,10 +59,9 @@ import { useCopilotKitV2AgentOptions, type CopilotKitV2AgentOptionsState } from 
 import { detectComposerMention, type ComposerMention } from "@/lib/composer-mention-detection";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import {
-  useChatAttachments, ChatAttachmentButton, ChatAttachmentList, ChatAttachmentBanner,
+  useChatAttachments, ChatAttachmentDock, ChatAttachmentList, ChatAttachmentBanner,
   ChatFullSurfaceDropOverlay,
 } from "@/components/chat/chat-composer-attachments";
-import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { listThreadMounts } from "@/lib/live-skill-mount";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +76,10 @@ const RUN_STAGE_ORDER: ReadonlyArray<{ key: RunStage; label: string }> = [
   { key: "acting", label: "执行" },
   { key: "replying", label: "回复" },
 ];
+
+/** TW-P0-5④ 的"空输入"禁用理由；只有它是"用户试图发送时才提示"，见 `emptySendHint`。 */
+const EMPTY_INPUT_REASON = "请先输入任务目标";
+const EMPTY_SEND_HINT_MS = 2_500;
 
 export function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
@@ -106,7 +114,8 @@ export function CopilotKitV2PanelBody({
    */
   agentOptions: CopilotKitV2AgentOptionsState;
   selectedAgentId?: string | null;
-  onSelectAgent: (agentId: string) => void;
+  /** `null` = 回到自动匹配（服务端默认 agent）。 */
+  onSelectAgent: (agentId: string | null) => void;
   onThreadResolved?: (threadId: string) => void;
   /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   onMessageSent?: () => void;
@@ -206,12 +215,14 @@ export function CopilotKitV2PanelBody({
   const skillMention = mention?.kind === "skill" ? mention : null;
   const attachmentMention = mention?.kind === "attachment" ? mention : null;
   /**
-   * issue #2130（TW-4，Skills 交互重设计）—— `ChatSkillMountPanel`（`variant="pill"`）
-   * 现在直接渲染在本组件里（见下方 composer 图标行），`mentionQuery` 不再需要
-   * 经外层 Panel 转发一圈——本地就检测得到 `skillMention`，直接当 prop 传下去。
-   * 挂载成功后要做的唯一一件事（把 `/query` 从正文删掉）也改成一个本地回调，
-   * 不再靠"外层 nonce +1 → 本组件 useEffect 侦测变化"这一整套跨组件间接机制。
+   * 2026-09-02 三层结构（人类最终裁决：技能恢复原样，只把入口搬进「+」菜单）——
+   * `ChatSkillMountPanel variant="composer"` 留在第二行左侧那组 `relative` 容器里：
+   * 已挂载 chip 是第 1 层状态 chip，候选浮层从「+」那个角落向上开；触发器是菜单项
+   * `chat-skill-mount`（下方），点它就 `skillOpenRequest + 1`；`/` mention 照旧。
+   * 挂载成功后把 `/query` 从正文删掉是本地回调。
    */
+  const [skillOpenRequest, setSkillOpenRequest] = React.useState(0);
+  const [skillTrigger, setSkillTrigger] = React.useState({ canOpen: false, mountedCount: 0, loading: true });
   const onSkillMentionMounted = React.useCallback(() => {
     if (skillMention === null) return;
     setInputDraft((current) => current.slice(0, skillMention.start) + current.slice(skillMention.start + 1 + skillMention.query.length));
@@ -770,6 +781,127 @@ export function CopilotKitV2PanelBody({
     sessionToken: sessionToken ?? "",
     deviceId: micDevices.selectedDeviceId ?? undefined,
   });
+  /*
+    2026-09-02 composer 重设计——语音的 composer 级会话（暂停/继续/完成/丢弃/撤销 +
+    静音提示 + 自动暂停），见 `lib/use-composer-voice-session.ts` 头注。
+  */
+  const voiceOpts = React.useMemo(() => ({
+    setDraft: (text: string) => setInputDraft(text),
+    getDraft: () => inputDraftRef.current,
+  }), []);
+  const voice = useComposerVoiceSession(speech, voiceOpts);
+  // 按 Esc 停止录音（设计稿页脚："按 Esc 停止录音"）。
+  React.useEffect(() => {
+    if (voice.phase !== "listening" && voice.phase !== "connecting") return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (voice.phase === "listening") voice.finish();
+      else voice.discard();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [voice]);
+  // 输入框被清空（发送成功 / 手动清空）⇒ 退出"转录后编辑"。
+  React.useEffect(() => {
+    if (voice.phase === "done" && inputDraft.trim() === "") voice.dismiss();
+  }, [inputDraft, voice]);
+
+  /** 卡片底部状态栏：语音各态 > Agent 处理中 > 附件上传中 > 无。文案与操作对齐设计稿。 */
+  const composerStatusBar: React.ReactNode = (() => {
+    const chars = voice.transcribedChars;
+    if (voice.phase === "connecting") {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-mic-connecting" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title="正在连接语音识别" description="请稍候，正在申请麦克风并建立连接"
+          actions={[{ label: "取消", onClick: voice.discard, testId: "chat-task-workbench-composer-recording-cancel" }]} />
+      );
+    }
+    if (voice.phase === "listening" && voice.silenceHint) {
+      return (
+        <ComposerStatusBar tone="warning" testId="chat-mic-listening" icon={<AlertTriangle className="h-4 w-4" />}
+          title={`${voice.silentSeconds} 秒未听到声音`}
+          description={`请靠近麦克风，或换一个设备${voice.autoPause ? ` · 静音 ${SILENCE_AUTO_PAUSE_AFTER_SECONDS} 秒后自动暂停` : ""}`}
+          actions={[
+            { label: "换麦克风", onClick: voice.requestDeviceMenu, testId: "chat-task-workbench-composer-mic-switch-device" },
+            { label: "停止", onClick: voice.finish, variant: "solid-destructive", testId: "chat-task-workbench-composer-recording-confirm" },
+          ]} />
+      );
+    }
+    if (voice.phase === "listening") {
+      return (
+        <ComposerStatusBar tone="destructive" testId="chat-mic-listening"
+          icon={<span className="h-2 w-2 animate-pulse rounded-pill bg-destructive" />}
+          title={`正在听 ${formatElapsed(voice.totalSeconds)}`}
+          description={`文字实时写入输入框 · 已 ${chars} 字 · 说完点「停止」，检查后再发送`}
+          actions={[
+            { label: "暂停", onClick: voice.pause, testId: "chat-task-workbench-composer-recording-pause" },
+            { label: "停止", onClick: voice.finish, variant: "solid-destructive", testId: "chat-task-workbench-composer-recording-confirm" },
+          ]} />
+      );
+    }
+    if (voice.phase === "stopping") {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-mic-stopping" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title="正在停止" description="等待最后一段转录落定" />
+      );
+    }
+    if (voice.phase === "paused") {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-paused" icon={<Pause className="h-4 w-4" />}
+          title={`已暂停 ${formatElapsed(voice.totalSeconds)}`}
+          description={`已转录 ${chars} 字 · 继续录音会接在后面`}
+          actions={[
+            { label: "丢弃", onClick: voice.discard, testId: "chat-task-workbench-composer-recording-cancel" },
+            { label: "继续", onClick: voice.start, testId: "chat-task-workbench-composer-recording-resume" },
+            { label: "完成", onClick: voice.finish, variant: "solid", testId: "chat-task-workbench-composer-recording-confirm" },
+          ]} />
+      );
+    }
+    if (voice.phase === "error") {
+      const denied = speech.status === "denied";
+      const unsupported = speech.status === "unsupported";
+      const actions: ComposerStatusAction[] = [];
+      if (denied) {
+        actions.push({
+          label: "查看如何开启",
+          onClick: () => window.open("https://support.google.com/chrome/answer/2693767", "_blank", "noopener"),
+          testId: "chat-task-workbench-composer-mic-permission-help",
+        });
+      }
+      if (!unsupported) actions.push({ label: "重试", onClick: voice.start, variant: "solid", testId: "chat-task-workbench-composer-mic-retry" });
+      return (
+        <ComposerStatusBar tone="warning" testId="chat-mic-error" icon={<AlertTriangle className="h-4 w-4" />}
+          title={denied ? "浏览器未授权麦克风" : unsupported ? "此浏览器不支持语音输入" : "语音识别暂时不可用"}
+          description={denied ? "在地址栏左侧的站点设置中允许麦克风，然后重试" : speech.error}
+          actions={actions} />
+      );
+    }
+    if (voice.phase === "done") {
+      return (
+        <ComposerStatusBar tone="success" testId="chat-task-workbench-composer-transcribed" icon={<Check className="h-4 w-4" />}
+          title={`已转录 ${chars} 字`} description="可直接修改，确认后按 Enter 发送"
+          actions={[
+            { label: "撤销转录", onClick: voice.undo, testId: "chat-task-workbench-composer-recording-undo" },
+            { label: "继续说", onClick: voice.start, testId: "chat-task-workbench-composer-recording-resume" },
+          ]} />
+      );
+    }
+    if (agent.isRunning && !archived) {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-agent-busy" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title="Agent 正在处理上一条消息" description="语音与发送暂不可用，可以先打字"
+          actions={[{ label: "停止生成", onClick: () => agent.abortRun(), testId: "chat-task-workbench-composer-stop-run" }]} />
+      );
+    }
+    if (attach.hasUploading && !archived) {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-uploading" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title="附件正在上传" description="上传完成后才能发送" />
+      );
+    }
+    return null;
+  })();
+
 
   // DA-19d —— human-in-the-loop.md "Setup" 范例的直接应用：`render` 收到
   // `{status, args, respond}`，本组件只负责把它交给 `SendEmailApprovalDialog`。
@@ -1175,9 +1307,33 @@ export function CopilotKitV2PanelBody({
       : attach.hasUploading
         ? "附件正在上传，请等待上传完成后再发送"
         : inputDraft.trim() === ""
-          ? "请先输入任务目标"
+          ? EMPTY_INPUT_REASON
           : null;
   const sendDisabled = sendDisabledReason !== null;
+
+  /*
+    2026-09-02 composer 三层结构——三样新状态，全部只服务于第二行：
+    · `attachOpen`：「加材料」面板的受控开关（触发器是「+」菜单项，面板本体见
+      `ChatAttachmentDock`）。归档 / 运行中 / 没线程时强制关掉，同旧 `ChatAttachmentButton`
+      内部那条 effect。
+    · `capabilityOpen`：能力浮层的互斥槽（`chat-capability-picker`），菜单项点它。
+    · `emptySendHint`：「请先输入任务目标」不再常驻——空输入时 placeholder 已经说了同一句
+      话，常驻等于说两遍。改成用户「试图」发送（空输入按 Enter）时短暂出现一次；
+      其余禁用理由（归档 / 运行中 / 上传中）仍然常驻，那些是用户猜不到的。
+  */
+  const attachDisabled = archived || agent.isRunning || attachmentThreadId === null;
+  const [attachOpen, setAttachOpen] = React.useState(false);
+  React.useEffect(() => { if (attachDisabled) setAttachOpen(false); }, [attachDisabled]);
+  const [emptySendHint, setEmptySendHint] = React.useState(false);
+  const emptySendHintTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashEmptySendHint = React.useCallback(() => {
+    setEmptySendHint(true);
+    if (emptySendHintTimer.current !== null) clearTimeout(emptySendHintTimer.current);
+    emptySendHintTimer.current = setTimeout(() => setEmptySendHint(false), EMPTY_SEND_HINT_MS);
+  }, []);
+  React.useEffect(() => () => {
+    if (emptySendHintTimer.current !== null) clearTimeout(emptySendHintTimer.current);
+  }, []);
 
   /**
    * issue #2053（CK-P6，重设计 2026-08-30，补丁二 + review 反证第三轮）——
@@ -1601,266 +1757,253 @@ export function CopilotKitV2PanelBody({
           （附件/`@Agent`/`/技能`/任务模式）右（麦克风+发送）。
         */}
         {/*
-          2026-08-29 Claude Design 重设计稿——composer 在设计稿里是一整张有边框、
-          有投影的悬浮卡片（输入区与操作行视觉上属于同一个容器），不是"一个裸
-          textarea + 下面松散一行按钮"。这里只加壳（边框/圆角/投影/焦点态），
-          内部结构、每个控件的 testid 与行为一个字不动——`focus-within` 而不是
-          设计稿里那种恒定黑边：与本文件其余控件的 `focus-visible:ring-ring`
-          语言保持同一套"默认低调、聚焦才强调"的规则，不是抄错了颜色。
+          2026-09-02 composer 重设计（人类交付的状态预览稿，要求像素级）——
+          结构：卡片上方右对齐「能力」触发器（移出输入区）→ 卡片（内边距 20：多行输入 +
+          工具行）→ 卡片底部状态栏（按状态区分语气与操作）→ 卡片下方页脚
+          （左：快捷键 / 禁用理由；右：当前麦克风）。
+          工具行：左 = 三颗 32px 圆形图标按钮（材料 / 技能 / 任务模式，悬停显示名称）；
+          右 = 分段语音胶囊（一个按钮承载全部语音状态）+ 32px 圆形发送（Agent 处理中变为停止）。
+          既有锚点（`chat-attachment-input` / `chat-skill-mount` / `...-task-mode` /
+          `chat-task-workbench-capability-picker` / `...-composer-mic` / `chat-mic-*` /
+          `...-recording-*`）逐字保留，只是住进了新结构。
         */}
+        <div className="flex justify-end" data-testid="chat-task-workbench-composer-mention-agent">
+          <CapabilityPicker
+            listings={agentOptions.status === "ready" ? agentOptions.listings : null}
+            status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
+            selectedAgentId={selectedAgentId}
+            onSelect={(agentId) => onSelectAgent(agentId)}
+            disabled={agentOptions.status !== "ready" || archived}
+          />
+        </div>
         <div
           className={[
-            "flex min-w-0 flex-col gap-2 rounded-lg border p-2.5 shadow-sm transition-colors duration-fast",
-            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel focus-within:border-primary/60",
+            "flex min-w-0 flex-col rounded-xl border shadow-sm transition-colors duration-fast",
+            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel-alt focus-within:border-primary/60",
           ].join(" ")}
           data-testid="chat-task-workbench-composer"
+          data-voice-phase={voice.phase}
         >
-          {/* issue #2132（2026-08-27 续，bug #5）—— 顶部 `copilotkit-v2-agent-toolbar`
-              的错误/空态提示随 `CapabilityPicker` 一起挪到 composer 第二行左侧（见下面
-              「@Agent」按钮旁），这里只是它们紧贴输入框上方的落点，功能一行未删。 */}
-          {agentOptions.status === "error" ? (
-            <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
-              {agentOptions.message}
-              <button
-                type="button"
-                className="ml-1 underline"
-                data-testid="copilotkit-v2-agent-options-retry"
-                onClick={agentOptions.retry}
-              >
-                重试
-              </button>
-            </span>
-          ) : null}
-          {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
-            <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
-              这个组织还没有可用的 Agent，先去
-              <a href="/admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
-              才能发消息。
-            </span>
-          ) : null}
-          <textarea
-            ref={composerInputRef}
-            data-testid="copilotkit-v2-input"
-            rows={2}
-            /* 边框/圆角挪到外层卡片壳（见上面那条注释），焦点环仍然留在 textarea
-               自己身上（`lint-design.sh` U7b 门控要求原生 outline 必须配一圈
-               focus-visible:ring-*，见下面 className）：卡片壳的 focus-within
-               边框只是氛围强调，不能替代真正的可见焦点环，两者都要有。 */
-            className="min-w-0 flex-1 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
-            /* issue #2053（CK-P8）—— 归档 ⇒ 输入框本身禁用。`archived` 首帧在服务端与
-               客户端都是 `false`（外壳的 `getThread` 是客户端 effect），不存在麦克风按钮
-               那条 `sessionToken` 式的 SSR/CSR 首帧分叉，可以直接接到 `disabled`。 */
-            disabled={archived}
-            placeholder={archived ? "该对话已归档，不能再发送消息" : "输入任务目标，Shift+Enter 换行，Enter 发送"}
-            value={inputDraft}
-            onChange={(e) => {
-              setInputDraft(e.target.value);
-              // issue #2020 —— 与旧 composer 同一对挂点（onChange + onKeyUp）：
-              // 光标移动（方向键/点击）不触发 onChange，只有 onKeyUp 能覆盖。
-              recomputeMention(e.target.value, e.target.selectionStart);
-            }}
-            onKeyUp={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
-            onClick={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
-            onKeyDown={(e) => {
-              // issue #2130（TW-P0-5①）—— 换成 textarea 后 Enter 语义必须分岔：
-              // 纯 Enter 发送（沿用旧行为），Shift+Enter 换行（textarea 原生行为，
-              // 这里只需要在纯 Enter 时拦截默认换行并改发送）。
-              // bug：中文/日文等输入法拼字过程中按 Enter 是在确认候选词，
-              // 不是要发送消息——用 `e.nativeEvent.isComposing` 拦掉这一下。
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                void send();
-              }
-            }}
-          />
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            {/* 第二行左：附件/材料、@Agent、/技能、任务模式。 */}
-            <div className="flex min-w-0 items-center gap-1.5">
-              <div data-testid="chat-task-workbench-composer-attach">
-                <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} showLabel />
-              </div>
-              {/* issue #2132（2026-08-27 续，bug #5）—— 此前这里只是一个打开
-                  `chat-capability-picker` 共享槽的小按钮，真正的 `CapabilityPicker`
-                  （六项披露卡片，issue #2130 TW-P0-2）仍然渲染在页面最上面那个
-                  `copilotkit-v2-agent-toolbar` 里——点开的卡片自然出现在页面顶部，
-                  跟 composer 视觉脱节，这正是 bug #5 截图里"选择卡片飘在页面中间"
-                  的根因。现在把 `CapabilityPicker` 本体真正搬到这里（`side="up"`，
-                  向上弹向输入框方向），`chat-task-workbench-composer-mention-agent`/
-                  `copilotkit-v2-agent-toolbar` 两个 testid 都原样保留在这个容器上——
-                  前者是 TW-P0-5②判据锚点，后者是 TW-P0-2③"主界面不泄漏技术信息"
-                  判据读取 innerText 的目标，都只断言"可见 + 内容"，不断言页面位置，
-                  搬家不影响任何既有 e2e。不再需要单独的快捷按钮：`CapabilityPicker`
-                  自己就是"选 agent"的入口，两个按钮做同一件事只会读作重复。 */}
-              <div
-                className="shrink-0"
-                data-testid="copilotkit-v2-agent-toolbar"
-              >
-                <div data-testid="chat-task-workbench-composer-mention-agent">
-                  <CapabilityPicker
-                    listings={agentOptions.status === "ready" ? agentOptions.listings : null}
-                    status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
-                    selectedAgentId={selectedAgentId}
-                    disabled={agentOptions.status !== "ready" || archived}
-                    onSelect={(agentId) => onSelectAgent(agentId)}
-                    side="up"
-                  />
-                </div>
-              </div>
-              {/*
-                issue #2130（TW-P0-5②「/技能」入口 + TW-4 Skills 交互重设计）——
-                这两件是同一个真实控件：`ChatSkillMountPanel`（`variant="pill"`）
-                本身就是「/技能」的真正落点，不是先摆一个只插字符的假按钮、再摆
-                一个真正管理挂载的面板——那会是同一功能的两份实现。真实
-                e2e（`copilotkit-v2-skill-mount.spec.ts`/`chat-agent-skill-context.spec.ts`）
-                依赖的 `chat-skill-mount`/`chat-skill-mount-panel`/
-                `copilotkit-v2-skill-mount-placeholder` 等锚点原样保留在
-                `ChatSkillMountPanel` 内部，这里只加一层 workbench 锚点容器
-                （同 `chat-task-workbench-composer-attach` 的包法）。
-
-                `mentionQuery`/`onMentionMounted` 现在是本地状态直接下发
-                （见上方 `skillMention`/`onSkillMentionMounted`），不再经外层
-                Panel 转发一圈——搬进 Body 之后不再需要那一层间接。
-              */}
-              <div data-testid="chat-task-workbench-composer-mention-skill">
+          <div className="flex flex-col gap-4 px-5 pb-4 pt-5">
+            {agentOptions.status === "error" ? (
+              <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
+                {agentOptions.message}
+                <button
+                  type="button"
+                  className="ml-1 underline"
+                  data-testid="copilotkit-v2-agent-options-retry"
+                  onClick={agentOptions.retry}
+                >
+                  重试
+                </button>
+              </span>
+            ) : null}
+            {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
+              <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
+                这个组织还没有可用的 Agent，先去
+                <a href="/admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
+                才能发消息。
+              </span>
+            ) : null}
+            {/*
+              转录方式（设计稿）：文字实时流入输入框——已确认为深色，识别中为浅灰并带光标。
+              `textarea` 不能给一段文字单独上色，所以录音期间在它「底下」铺一层同字号的镜像
+              （深色 = 基线 ⊕ 已落定，浅灰 = 识别中 + 闪烁光标），textarea 自己的文字透明；
+              textarea 仍是真实值的唯一载体（e2e 读的是 `inputValue()`），镜像只是颜色。
+            */}
+            <div className="relative">
+              {speech.listening || speech.connecting ? (() => {
+                const dark = appendTranscript(speech.baseText, speech.committedText);
+                const full = appendTranscript(dark, speech.partialText);
+                return (
+                  <div
+                    aria-hidden
+                    data-testid="chat-task-workbench-composer-live-transcript"
+                    className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-0.5 py-0.5 text-16 leading-relaxed"
+                  >
+                    <span className="text-card-foreground">{dark}</span>
+                    <span className="text-muted-foreground">{full.slice(dark.length)}</span>
+                    <span aria-hidden className="ml-px inline-block h-4 w-0.5 animate-pulse bg-destructive align-middle" />
+                  </div>
+                );
+              })() : null}
+              <textarea
+                ref={composerInputRef}
+                data-testid="copilotkit-v2-input"
+                rows={3}
+                className={[
+                  "block w-full min-w-0 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground",
+                  speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
+                ].join(" ")}
+                disabled={archived}
+                placeholder={archived ? "该对话已归档，不能再发送消息" : "输入任务目标，Shift+Enter 换行，Enter 发送"}
+                value={inputDraft}
+                onChange={(e) => {
+                  setInputDraft(e.target.value);
+                  if (emptySendHint) setEmptySendHint(false);
+                  // issue #2020 —— 与旧 composer 同一对挂点（onChange + onKeyUp）：
+                  // 光标移动（方向键/点击）不触发 onChange，只有 onKeyUp 能覆盖。
+                  recomputeMention(e.target.value, e.target.selectionStart);
+                }}
+                onKeyUp={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
+                onClick={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
+                onKeyDown={(e) => {
+                  // issue #2130（TW-P0-5①）—— 纯 Enter 发送，Shift+Enter 换行；输入法拼字中的
+                  // Enter（`isComposing`）是在确认候选词，不是要发送。
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    // 空输入按 Enter = 用户在试图发送：这一刻才把禁用理由亮出来（见 `emptySendHint`）。
+                    if (sendDisabledReason === EMPTY_INPUT_REASON) { flashEmptySendHint(); return; }
+                    void send();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              {/* 左：三颗圆形图标按钮 + 已挂载 skill chip；`relative` 让技能候选浮层从这个角落向上开。 */}
+              <div className="relative flex min-w-0 flex-wrap items-center gap-2.5">
+                <span data-testid="chat-task-workbench-composer-attach">
+                  <ComposerIconButton
+                    label="材料"
+                    title={attachmentThreadId === null ? "材料（对话建立后可添加）" : "材料"}
+                    data-testid="chat-attachment-input"
+                    aria-haspopup="dialog"
+                    aria-expanded={attachOpen}
+                    disabled={attachDisabled}
+                    badge={attach.attachments.length}
+                    badgeTestId="chat-attachment-count"
+                    onClick={() => setAttachOpen(true)}
+                  >
+                    <Paperclip aria-hidden className="h-4 w-4" />
+                  </ComposerIconButton>
+                </span>
+                {/* issue #2130（TW-P0-5②「/技能」入口）—— 触发 `ChatSkillMountPanel` 的候选浮层；
+                    新对话还没有线程时如实禁用（`data-placeholder-reason`），不渲染一个
+                    "看起来能挂、提交必然 404"的假入口。输入框里敲 `/` 同样能打开。 */}
+                <span data-testid="chat-task-workbench-composer-mention-skill">
+                  <ComposerIconButton
+                    label="技能"
+                    title={
+                      initialChatThreadId === null || sessionToken === null
+                        ? `技能（${sessionToken === null ? "登录后可用" : "对话建立后可用"}）`
+                        : skillTrigger.mountedCount > 0 ? `技能（已挂 ${skillTrigger.mountedCount} 个，也可在输入框敲 /）` : "技能（也可在输入框敲 /）"
+                    }
+                    data-testid="chat-skill-mount"
+                    data-mounted-count={skillTrigger.mountedCount}
+                    data-placeholder-reason={
+                      sessionToken === null ? "login" : initialChatThreadId === null ? "no-thread" : undefined
+                    }
+                    aria-haspopup="listbox"
+                    disabled={archived || initialChatThreadId === null || sessionToken === null || !skillTrigger.canOpen}
+                    badge={skillTrigger.mountedCount}
+                    onClick={() => setSkillOpenRequest((n) => n + 1)}
+                  >
+                    <PenLine aria-hidden className="h-4 w-4" />
+                  </ComposerIconButton>
+                </span>
+                {/* issue #2130（TW-P0-5②）—— 任务模式：真实影响发出的正文（开启时正文前加一句
+                    要求先给计划再等确认的指令），不是纯装饰。开启态反色实心。 */}
+                <ComposerIconButton
+                  label="任务模式"
+                  title={taskMode ? "任务模式：Agent 会先给出计划，确认后再执行（点击关闭）" : "任务模式：先计划，确认后执行（点击开启）"}
+                  data-testid="chat-task-workbench-composer-task-mode"
+                  pressed={taskMode}
+                  disabled={archived}
+                  onClick={() => setTaskMode((v) => !v)}
+                >
+                  <Sparkles aria-hidden className="h-4 w-4" />
+                </ComposerIconButton>
                 {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
                   <ChatSkillMountPanel
-                    variant="pill"
-                    /* issue #2321 追加 —— composer 贴着视口底部，浮层往下开
-                       （默认值）会开到视口外/被裁掉，用户看不见。同一行的
-                       `CapabilityPicker` 上面就传了 `side="up"` 解决同一个问题，
-                       这里补上对称的口子。 */
-                    pickerSide="up"
+                    variant="composer"
                     threadId={initialChatThreadId}
                     orgId={orgId}
                     bearer={sessionToken}
                     mentionQuery={skillMention?.query ?? null}
-                    /* issue #2046（CK-P2）——v2 轨道触发符改 `/`（对齐 Claude Code），
-                       旧轨道 `/chat/legacy` 缺省仍是 `#`。 */
+                    /* issue #2046（CK-P2）——v2 轨道触发符 `/`（对齐 Claude Code），旧轨道缺省仍是 `#`。 */
                     mentionTriggerChar="/"
                     onMentionMounted={onSkillMentionMounted}
+                    openRequest={skillOpenRequest}
+                    onTriggerStateChange={setSkillTrigger}
                   />
+                ) : null}
+              </div>
+              {/* 右：语音分段胶囊（唯一麦克风入口，设备菜单在它右侧箭头）+ 发送 / 停止。 */}
+              <div className="flex shrink-0 items-center gap-3">
+                <ComposerVoiceControl
+                  status={speech.status}
+                  phase={voice.phase}
+                  elapsedSeconds={voice.totalSeconds}
+                  level={speech.level}
+                  disabled={archived || agent.isRunning}
+                  onStart={voice.start}
+                  onStop={voice.finish}
+                  onResume={voice.start}
+                  onRequireSession={() => {
+                    if (sessionToken === null) {
+                      setError("未登录，无法使用语音输入。");
+                      return false;
+                    }
+                    return true;
+                  }}
+                  devices={micDevices.devices}
+                  selectedDeviceId={micDevices.selectedDeviceId}
+                  onSelectDevice={micDevices.select}
+                  autoPause={voice.autoPause}
+                  onAutoPauseChange={voice.setAutoPause}
+                  deviceMenuRequest={voice.deviceMenuRequest}
+                />
+                {agent.isRunning && !archived ? (
+                  /* 设计稿：Agent 处理中，发送按钮变为「停止」（同一个位置、同一个锚点）。
+                     `data-send-state="running"` 供 e2e 判"是否仍卡在运行中"，不再读 title。 */
+                  <button
+                    type="button"
+                    data-testid="copilotkit-v2-send"
+                    data-send-state="running"
+                    aria-label="停止生成"
+                    title="停止生成"
+                    onClick={() => agent.abortRun()}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill border border-border bg-panel-alt text-card-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Square aria-hidden className="h-3 w-3 fill-current" />
+                  </button>
                 ) : (
-                  /* 新对话（还没有线程）时如实显示占位，不渲染一个「看起来能挂、
-                     提交必然 404」的假入口——逐字同此前外层的既有纪律，只是搬了地方。 */
-                  <p className="text-9 text-muted-foreground" data-testid="copilotkit-v2-skill-mount-placeholder">
-                    {sessionToken === null
-                      ? "登录后才能给对话挂载 skill。"
-                      : "发出第一条消息、对话建立后，就可以在这里给本对话挂载 skill（也可以在输入框里敲 / 快速挂载）。"}
-                  </p>
+                  <Button
+                    data-testid="copilotkit-v2-send"
+                    data-send-state={sendDisabled ? "disabled" : "ready"}
+                    type="button"
+                    size="icon"
+                    variant="primary"
+                    className="shrink-0 rounded-pill"
+                    disabled={sendDisabled}
+                    title={sendDisabledReason ?? "发送"}
+                    aria-label="发送"
+                    onClick={() => void send()}
+                  >
+                    <ArrowUp aria-hidden className="h-4 w-4" />
+                  </Button>
                 )}
               </div>
-              {/* issue #2130（TW-P0-5②）—— 任务模式：真实影响发出的正文（不是纯装饰）。
-                  开启时发出的正文前面会加一句面向 Agent 的显式指令，要求先给计划再等
-                  确认；关闭（默认，见 `taskMode` state 声明处的既有 e2e 兼容理由）时
-                  逐字节按用户原文发送——与本组件此前的既有行为完全相同。 */}
-              <button
-                type="button"
-                data-testid="chat-task-workbench-composer-task-mode"
-                aria-pressed={taskMode}
-                aria-label={taskMode ? "任务模式（先计划后执行）：已开启" : "任务模式（先计划后执行）：已关闭"}
-                title={taskMode ? "任务模式：Agent 会先给出计划，确认后再执行" : "问答模式：直接回答，不先出计划"}
-                disabled={archived}
-                onClick={() => setTaskMode((v) => !v)}
-                className={[
-                  "flex items-center gap-1 rounded-pill border px-2 py-1 text-9 transition-colors duration-fast disabled:bg-disabled disabled:text-disabled-foreground",
-                  taskMode ? "border-primary/50 bg-primary/10 text-primary" : "border-border-subtle text-muted-foreground hover:bg-muted",
-                ].join(" ")}
-              >
-                <Sparkles aria-hidden className="h-3 w-3" />
-                任务模式
-              </button>
-            </div>
-            {/* 第二行右：麦克风（唯一入口，设备选择降为二级菜单）+ 发送/停止。 */}
-            <div className="flex shrink-0 items-center gap-2">
-              <ComposerMicControl
-                status={speech.status}
-                listening={speech.listening}
-                connecting={speech.connecting}
-                stopping={speech.stopping}
-                start={speech.start}
-                stop={speech.stop}
-                disabled={archived}
-                idleLabel="语音"
-                devices={micDevices.devices}
-                selectedDeviceId={micDevices.selectedDeviceId}
-                onSelectDevice={micDevices.select}
-                onRequireSession={() => {
-                  if (sessionToken === null) {
-                    setError("未登录，无法使用语音输入。");
-                    return false;
-                  }
-                  return true;
-                }}
-              />
-              {/* 2026-08-29 Claude Design 重设计稿——发送是一个纯图标的圆角方形按钮
-                  （↑），不是文字按钮。testid/disabled/title 逐字不动，只换视觉与
-                  可访问性标签（图标按钮必须有 `aria-label`，之前的可见文字"发送"
-                  本身兼职当了这个角色，现在要显式补上）。 */}
-              <Button
-                data-testid="copilotkit-v2-send"
-                type="button"
-                size="icon"
-                variant="primary"
-                className="shrink-0 rounded-md"
-                disabled={sendDisabled}
-                title={sendDisabledReason ?? (agent.isRunning ? "正在运行…" : "发送")}
-                aria-label={agent.isRunning ? "正在运行…" : "发送"}
-                onClick={() => void send()}
-              >
-                {agent.isRunning ? (
-                  <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ArrowUp aria-hidden className="h-3.5 w-3.5" />
-                )}
-              </Button>
             </div>
           </div>
-          {/*
-            2026-08-30——录音状态「内嵌」在 composer 卡片里（这一行本身就是卡片内的
-            正常一行，随内容自然撑高卡片），不再是盖在输入区上方的浮层
-            （旧实现见 `chat-composer-mic-control.tsx` 头注）。转录文字本身已经实时
-            写进上面的 textarea，这一行只是"元信息"：在录/多久了/多大声/录给哪支麦克风/
-            要不要留下这段。
-          */}
-          {speech.connecting || speech.listening || speech.stopping ? (
-            <ComposerMicRecordingBar
-              listening={speech.listening}
-              connecting={speech.connecting}
-              stopping={speech.stopping}
-              elapsedSeconds={speech.elapsedSeconds}
-              level={speech.level}
-              stop={speech.stop}
-              cancel={speech.cancel}
-            />
-          ) : null}
-          {/* issue #2130（TW-P0-5④）—— 发送被禁用时必须**说明原因**，不能只是灰掉。 */}
-          {sendDisabledReason !== null ? (
-            <p className="text-9 text-muted-foreground" data-testid="chat-task-workbench-composer-send-disabled-reason">
-              {sendDisabledReason}
-            </p>
-          ) : null}
+          {composerStatusBar}
         </div>
-        {speech.connecting ? (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-connecting">
-            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-            正在连接语音识别……
-          </p>
-        ) : null}
-        {speech.listening ? (
-          <p className="flex items-center gap-1.5 text-xs text-destructive" data-testid="chat-mic-listening">
-            <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
-            正在听……实时转录中，说完点击麦克风按钮停止，确认无误后再手动发送。
-          </p>
-        ) : null}
-        {speech.stopping ? (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-stopping">
-            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-            正在停止……等待最后一段转录落定。
-          </p>
-        ) : null}
-        {speech.error !== null ? (
-          <p className="text-xs text-destructive" data-testid="chat-mic-error">{speech.error}</p>
-        ) : null}
+        {/* 页脚：左 = 快捷键 / 禁用理由（TW-P0-5④ 锚点），右 = 当前输入设备（默认值不进卡片）。 */}
+        <div className="mt-3 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
+          {sendDisabledReason !== null
+            && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint)
+            && !agent.isRunning && !attach.hasUploading ? (
+            <span data-testid="chat-task-workbench-composer-send-disabled-reason">{sendDisabledReason}</span>
+          ) : voice.phase === "listening" || voice.phase === "connecting" ? (
+            <span>按 Esc 停止录音</span>
+          ) : (
+            <span>Enter 发送 · Shift+Enter 换行</span>
+          )}
+          <span className="truncate" data-testid="chat-task-workbench-composer-mic-device-label">
+            麦克风：{describeVoiceDevice(micDevices.devices, micDevices.selectedDeviceId)}
+          </span>
+        </div>
+        <ChatAttachmentDock ctl={attach} open={attachOpen} disabled={attachDisabled} onClose={() => setAttachOpen(false)} />
       </div>
       {panelActiveFiles.length > 0 ? (
         <div className="min-w-0 flex-1">

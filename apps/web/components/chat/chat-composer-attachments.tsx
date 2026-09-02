@@ -341,6 +341,31 @@ export function ChatAttachmentList({
  * 由面板里的「从本机文件选择」才触发隐藏 input。拖拽落区行为不变（仍在 composer 上）。
  * 隐藏 input 留在这里渲染，供面板经 `ctl.openFileDialog` 复用。
  */
+/**
+ * 2026-09-02（composer 三层结构）—— 附件能力的"无按钮"落点：隐藏文件输入 + 「加材料」
+ * 面板。触发入口由调用方自己渲染（v2 composer 里是「+」菜单的一项，testid
+ * `chat-attachment-input` 跟着搬过去），`open`/`onClose` 受控。`ChatAttachmentButton`
+ * （旧轨道 composer 仍在用）内部也用它，隐藏 input 与 Modal 只有这一份实现。
+ */
+export function ChatAttachmentDock({
+  ctl, open, disabled, onClose,
+}: { ctl: ChatAttachmentsController; open: boolean; disabled?: boolean; onClose: () => void }) {
+  return (
+    <>
+      <input
+        ref={ctl.fileInputRef}
+        type="file"
+        multiple
+        accept={(ATTACHMENT_MIME_ALLOWLIST as readonly string[]).join(",")}
+        className="hidden"
+        data-testid="chat-attachment-file-input"
+        onChange={(e) => { ctl.pickFiles(e.target.files); e.target.value = ""; }}
+      />
+      <ChatAttachMaterialModal ctl={ctl} open={open} disabled={disabled} onClose={onClose} />
+    </>
+  );
+}
+
 export function ChatAttachmentButton({
   ctl, disabled, showLabel = false,
 }: {
@@ -376,15 +401,6 @@ export function ChatAttachmentButton({
         <Paperclip aria-hidden className="h-3.5 w-3.5" />
         {showLabel ? <span>材料</span> : null}
       </Button>
-      <input
-        ref={ctl.fileInputRef}
-        type="file"
-        multiple
-        accept={(ATTACHMENT_MIME_ALLOWLIST as readonly string[]).join(",")}
-        className="hidden"
-        data-testid="chat-attachment-file-input"
-        onChange={(e) => { ctl.pickFiles(e.target.files); e.target.value = ""; }}
-      />
       {ctl.attachments.length > 0 ? (
         <span
           className={`text-10 ${ctl.atLimit ? "text-warning" : "text-muted-foreground"}`}
@@ -393,7 +409,7 @@ export function ChatAttachmentButton({
           {ctl.attachments.length}/{MAX_ATTACHMENTS}
         </span>
       ) : null}
-      <ChatAttachMaterialModal ctl={ctl} open={open} disabled={disabled} onClose={() => setOpen(false)} />
+      <ChatAttachmentDock ctl={ctl} open={open} disabled={disabled} onClose={() => setOpen(false)} />
     </div>
   );
 }

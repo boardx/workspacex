@@ -37,12 +37,14 @@ vi.mock("@/components/session/session-provider", () => ({
   }),
 }));
 vi.mock("@/lib/use-asr-draft", () => ({
+  appendTranscript: (base: string, addition: string) => (addition === "" ? base : base === "" ? addition : `${base} ${addition}`),
   useAsrDraft: () => ({
     status: "idle", listening: false, connecting: false, stopping: false, error: null,
     start: vi.fn(), stop: vi.fn(),
     // issue #2130（TW-P0-5⑥）—— 补齐新字段，形状与真实 hook 一致；本测试场景
     // 不触发录音态，值本身不影响这里的断言。
     cancel: vi.fn(), elapsedSeconds: 0, level: 0,
+    baseText: "", committedText: "", partialText: "",
   }),
 }));
 vi.mock("@/lib/use-audio-input-devices", () => ({

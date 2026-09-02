@@ -163,6 +163,7 @@ test("不做选择时不带选择 header——服务端 env 默认路径完好�
   // 选择器在场（能选），但**不点它**——这是本用例的全部前提。
   const trigger = page.getByTestId("chat-task-workbench-capability-picker");
   await expect(trigger).toBeVisible({ timeout: 20_000 });
+  await expect(trigger).toHaveAttribute("data-auto-match", "true");
 
   let sawRunRequest = false;
   let capturedAgentHeader: string | null = null;

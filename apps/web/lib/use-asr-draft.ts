@@ -60,6 +60,17 @@ export interface UseAsrDraftResult {
   readonly elapsedSeconds: number;
   /** 0..1，来自 `pcm16Level()` 对真实采到的帧求 RMS；未在录音时为 0。 */
   readonly level: number;
+  /**
+   * 2026-09-02 composer 重设计（转录方式：已确认为深色、识别中为浅灰带光标）——
+   * 把"这一段录音"的三截文本分开暴露，渲染层才能区分颜色：
+   * `baseText` 开始录音那一刻输入框里已有的文字；`committedText` 本段已落定的转录
+   * （`asr.final` 累积）；`partialText` 当前还在识别中的临时片段。`onTranscript` 收到的
+   * 完整文本 = base ⊕ committed ⊕ partial，三者只是同一份数据的拆分，不是第二份事实。
+   * 录音结束后 `committedText` 保留到下一次 `start()`，供"撤销转录"把输入框还原到 `baseText`。
+   */
+  readonly baseText: string;
+  readonly committedText: string;
+  readonly partialText: string;
 }
 
 const ERROR_TEXT: Record<AsrDraftErrorReason, string> = {
@@ -81,7 +92,7 @@ function isCaptureSupported(): boolean {
 }
 
 /** 把已提交的转录追加到基线之后——"追加，不覆盖用户已经手打的文字"。 */
-function appendTranscript(base: string, addition: string): string {
+export function appendTranscript(base: string, addition: string): string {
   if (addition === "") return base;
   if (base === "") return addition;
   return /\s$/.test(base) ? `${base}${addition}` : `${base} ${addition}`;
@@ -92,6 +103,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
   const [error, setError] = React.useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0);
   const [level, setLevel] = React.useState(0);
+  const [segments, setSegments] = React.useState({ baseText: "", committedText: "", partialText: "" });
   const handleRef = React.useRef<{ stop: () => Promise<void> } | null>(null);
   const startingRef = React.useRef(false);
   // 防"停止过程中又点了开始"：UI 层已经在 stopping 态禁用按钮，这里是第二道防线
@@ -117,7 +129,10 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     handleRef.current = null;
     if (handle === null) return; // 还没连上（connecting）或已经停了——没有一条真实句柄可停。
     discardRef.current = discard;
-    if (discard) onTranscriptRef.current(baseTextRef.current);
+    if (discard) {
+      onTranscriptRef.current(baseTextRef.current);
+      setSegments((s) => ({ ...s, committedText: "", partialText: "" }));
+    }
     // 同步置位：`handle.stop()` 要等上游确认收尾（真实上游下不是 0 秒），界面必须
     // 立刻说"正在停止"，不能等到 promise resolve 才有反应——那正是 devapp 实测反馈的
     // "终止转录也不能正常终止"（不是真没终止，是终止过程中界面看起来像没反应）。
@@ -139,6 +154,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     baseTextRef.current = getBaseText();
     committedRef.current = "";
     discardRef.current = false;
+    setSegments({ baseText: baseTextRef.current, committedText: "", partialText: "" });
     setError(null);
     setElapsedSeconds(0);
     setLevel(0);
@@ -152,11 +168,13 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
       {
         onPartial: (text) => {
           if (discardRef.current) return;
+          setSegments((s) => ({ ...s, partialText: text }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, appendTranscript(committedRef.current, text)));
         },
         onFinal: (text) => {
           if (discardRef.current) return;
           committedRef.current = appendTranscript(committedRef.current, text);
+          setSegments((s) => ({ ...s, committedText: committedRef.current, partialText: "" }));
           onTranscriptRef.current(appendTranscript(baseTextRef.current, committedRef.current));
         },
         onError: (reason) => {
@@ -169,6 +187,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
           handleRef.current = null;
           stoppingRef.current = false;
           if (discardRef.current) onTranscriptRef.current(baseTextRef.current);
+          setSegments((s) => ({ ...s, partialText: "" }));
           setLevel(0);
           setStatus((current) => (current === "error" || current === "denied" ? current : "idle"));
         },
@@ -217,5 +236,8 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
     cancel,
     elapsedSeconds,
     level,
+    baseText: segments.baseText,
+    committedText: segments.committedText,
+    partialText: segments.partialText,
   };
 }
