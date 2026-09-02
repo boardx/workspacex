@@ -13,8 +13,15 @@ const BEFORE = "2026-09-01T00:00:00Z";
 const MERGED_AT = "2026-09-03T10:00:00Z";
 const T = (min: number) => new Date(Date.parse(MERGED_AT) + min * 60_000).toISOString(); // 相对合入时刻的分钟
 
-function run(name: string, conclusion: string | null, startedAtMin: number, status = "COMPLETED"): CheckRunObservation {
-  return { name, status, conclusion, startedAt: T(startedAtMin) };
+/** startedAtMin / completedAtMin 都相对合入时刻；completedAtMin 为 null = 观测时仍未完成 */
+function run(name: string, conclusion: string | null, startedAtMin: number, completedAtMin: number | null = startedAtMin + 1): CheckRunObservation {
+  return {
+    name,
+    status: completedAtMin === null ? "IN_PROGRESS" : "COMPLETED",
+    conclusion: completedAtMin === null ? null : conclusion,
+    startedAt: T(startedAtMin),
+    completedAt: completedAtMin === null ? null : T(completedAtMin),
+  };
 }
 function greenRuns(atMin = -30) {
   return REQUIRED_CHECKS.map((name) => run(name, "SUCCESS", atMin));
@@ -23,36 +30,56 @@ function pr(overrides: Partial<ClosingPr> = {}): ClosingPr {
   return { number: 100, merged: true, mergedAt: MERGED_AT, headSha: "a".repeat(40), runs: greenRuns(), ...overrides };
 }
 const judge = (prs: ClosingPr[], closedAt: string = AFTER) => judgeClosingPrGreen({ issueNumber: 7, issueClosedAt: closedAt, closingPrs: prs });
+const of = (checks: ReturnType<typeof reconstructMergeTimeChecks>, name: string) => checks.find((c) => c.name === name);
 
-describe("reconstructMergeTimeChecks：只看合入前、同名取最晚（独立审 #2541 意见 1/2）", () => {
-  it("合入前失败、合入前 rerun 成功 → 以 rerun 为准（不会永远违反）", () => {
-    const runs = [...greenRuns(-40), run("verify-affected", "FAILURE", -30), run("verify-affected", "SUCCESS", -10)];
-    const checks = reconstructMergeTimeChecks(runs, MERGED_AT);
-    expect(checks.find((c) => c.name === "verify-affected")?.conclusion).toBe("SUCCESS");
-    expect(checks.filter((c) => c.name === "verify-affected")).toHaveLength(1);
+describe("reconstructMergeTimeChecks：只认合入前**完成**的结论（独立审 #2541 三轮）", () => {
+  it("合入前开始、合入前完成 → 有效", () => {
+    const checks = reconstructMergeTimeChecks([run("verify-affected", "SUCCESS", -20, -10)], MERGED_AT);
+    expect(of(checks, "verify-affected")).toEqual({ name: "verify-affected", status: "COMPLETED", conclusion: "SUCCESS" });
   });
 
-  it("合入后追加的 run（rerun / main push）一律忽略——合入时绿就是绿", () => {
+  it("合入前开始、合入后才 SUCCESS 完成 → 合入时是 pending，不是绿（确定性假绿的反例）", () => {
+    const checks = reconstructMergeTimeChecks([run("verify-affected", "SUCCESS", -5, +10)], MERGED_AT);
+    expect(of(checks, "verify-affected")).toEqual({ name: "verify-affected", status: "IN_PROGRESS", conclusion: null });
+    expect(judge([pr({ runs: [...greenRuns().filter((r) => r.name !== "verify-affected"), run("verify-affected", "SUCCESS", -5, +10)] })]).kind).toBe("violation");
+  });
+
+  it("合入前失败完成、合入前 rerun 成功完成 → 以最后完成的为准", () => {
+    const runs = [run("verify-affected", "FAILURE", -30, -25), run("verify-affected", "SUCCESS", -15, -10)];
+    expect(of(reconstructMergeTimeChecks(runs, MERGED_AT), "verify-affected")?.conclusion).toBe("SUCCESS");
+    expect(reconstructMergeTimeChecks(runs, MERGED_AT).filter((c) => c.name === "verify-affected")).toHaveLength(1);
+  });
+
+  it("合入前完成的 SUCCESS + 一次合入前开始、合入后才完成的 rerun → 不覆盖合入时刻的结论", () => {
+    const runs = [run("verify-affected", "SUCCESS", -30, -25), run("verify-affected", "FAILURE", -5, +10)];
+    expect(of(reconstructMergeTimeChecks(runs, MERGED_AT), "verify-affected")?.conclusion).toBe("SUCCESS");
+  });
+
+  it("观测时仍未完成（completedAt 为 null）的 run 同样不携带结论", () => {
+    const runs = [run("verify-affected", "FAILURE", -30, -25), run("verify-affected", null, -5, null)];
+    expect(of(reconstructMergeTimeChecks(runs, MERGED_AT), "verify-affected")?.conclusion).toBe("FAILURE");
+  });
+
+  it("合入后才开始的 run（rerun / main push）一律忽略", () => {
     const runs = [...greenRuns(-30), run("verify-affected", "FAILURE", +15), run("e2e-full", "FAILURE", +20)];
     const checks = reconstructMergeTimeChecks(runs, MERGED_AT);
-    expect(checks.find((c) => c.name === "verify-affected")?.conclusion).toBe("SUCCESS");
-    expect(checks.find((c) => c.name === "e2e-full")).toBeUndefined();
+    expect(of(checks, "verify-affected")?.conclusion).toBe("SUCCESS");
+    expect(of(checks, "e2e-full")).toBeUndefined();
   });
 
-  it("合入前最后一次是 FAILURE、合入后才 rerun 成功 → 合入时仍是红", () => {
-    const runs = [...greenRuns(-40), run("verify-affected", "FAILURE", -10), run("verify-affected", "SUCCESS", +5)];
-    expect(reconstructMergeTimeChecks(runs, MERGED_AT).find((c) => c.name === "verify-affected")?.conclusion).toBe("FAILURE");
+  it("合入前最后一次完成的是 FAILURE、合入后才 rerun 成功 → 合入时仍是红", () => {
+    const runs = [run("verify-affected", "FAILURE", -10, -8), run("verify-affected", "SUCCESS", +5, +9)];
+    expect(of(reconstructMergeTimeChecks(runs, MERGED_AT), "verify-affected")?.conclusion).toBe("FAILURE");
   });
 
   it("与 pr-queue.classifyPr 对同一份合入时刻集合给出同一结论（单源反证）", () => {
-    const runs = [...greenRuns(-40), run("verify-affected", "FAILURE", -30), run("verify-affected", "SUCCESS", -10)];
+    const runs = [...greenRuns(-40), run("verify-affected", "FAILURE", -30, -25), run("verify-affected", "SUCCESS", -15, -10)];
     const checks = reconstructMergeTimeChecks(runs, MERGED_AT);
     const facts: PrFacts = {
       number: 100, author: "a", isDraft: false, headSha: "a".repeat(40), closesIssues: [7], refsIssues: [],
       mergeStateStatus: "CLEAN", checks, verdictLabels: [], formalReviews: [],
     };
-    const c = classifyPr(facts);
-    expect(c.reasons.filter((r) => r.includes("verify-affected"))).toEqual([]);
+    expect(classifyPr(facts).reasons.filter((r) => r.includes("verify-affected"))).toEqual([]);
     expect(judge([pr({ runs })]).kind).toBe("ok");
   });
 });
@@ -73,11 +100,11 @@ describe("judgeClosingPrGreen（完成定义第 7 条，#2539）", () => {
     if (v.kind === "violation") expect(v.reasons[0]).toContain("没有任何已合入的 PR");
   });
 
-  it("required 全 SUCCESS、无其他红 → ok", () => {
+  it("required 全 SUCCESS（合入前完成）、无其他红 → ok", () => {
     expect(judge([pr()])).toEqual({ kind: "ok", pr: 100 });
   });
 
-  it("required FAILURE（合入时）→ violation，理由带 PR 号、SHA、合入时刻", () => {
+  it("required FAILURE（合入前完成）→ violation，理由带 PR 号、SHA、合入时刻", () => {
     const v = judge([pr({ runs: [...greenRuns(), run("verify-control-plane", "FAILURE", -5)] })]);
     expect(v.kind).toBe("violation");
     if (v.kind === "violation") expect(v.reasons[0]).toMatch(/PR #100@aaaaaaaa（合入于 .*）：required check `verify-control-plane` 结论 FAILURE/);

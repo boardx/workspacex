@@ -435,8 +435,8 @@ function checkIssueClosedButNotDone(phaseId: string, f: Feature, issues: GhIssue
  *
  * 不倒查存量：生效时刻（PR_GREEN_RULE_EFFECTIVE_FROM）之前关闭的 issue 不判也不发请求——
  * 引入门控当天把所有 PR 打红只会让门被绕过（#848 / #2485 的教训）。
- * 「合入时」的 check 集合由 lib/pr-green.ts 从带 started_at 的全部 run 重建（合入后的 run 无关，
- * 同名取最晚），不是 head 上现在的 rollup。gh 拿不到数据 ⇒ 按级别报（strict 下 FAIL）：问不到不等于绿。
+ * 「合入时」的 check 集合由 lib/pr-green.ts 从带 started_at / completed_at 的全部 run 重建
+ * （只认合入前**完成**的结论；合入时还在跑的不携带结论；合入后开始的无关），不是 head 上现在的 rollup。gh 拿不到数据 ⇒ 按级别报（strict 下 FAIL）：问不到不等于绿。
  * 级别与 ②③ 对齐：pre-push WARN，CI `--strict` FAIL。
  */
 function syncRepo(): string | null {
@@ -449,7 +449,7 @@ function syncRepo(): string | null {
 }
 
 /** 关掉某个 issue 的 PR（含 mergedAt）及各自 head 上的**全部** check run（`filter=all`，含 rerun
- *  与合入后追加的，带 started_at）；合入时刻的重建在 lib/pr-green.ts。任何一步失败返回 null。 */
+ *  与合入后追加的，带 started_at / completed_at）；合入时刻的重建在 lib/pr-green.ts。任何一步失败返回 null。 */
 export function fetchClosingPrs(repo: string, issueNumber: number): ClosingPr[] | null {
   const [owner, name] = repo.split("/");
   const query =
@@ -477,19 +477,20 @@ export function fetchClosingPrs(repo: string, issueNumber: number): ClosingPr[] 
     // 全部拿回来再按 started_at 重建合入时刻（reconstructMergeTimeChecks）。
     const c = sh(
       `gh api "repos/${repo}/commits/${node.headRefOid}/check-runs?filter=all&per_page=100" --paginate ` +
-        `--jq '.check_runs[] | {name: .name, status: .status, conclusion: .conclusion, started_at: .started_at}'`,
+        `--jq '.check_runs[] | {name: .name, status: .status, conclusion: .conclusion, started_at: .started_at, completed_at: .completed_at}'`,
       REPO_ROOT,
     );
     if (c.code !== 0) return null;
     const runs: CheckRunObservation[] = [];
     for (const line of c.stdout.split("\n").map((l) => l.trim()).filter(Boolean)) {
       try {
-        const row = JSON.parse(line) as { name: string; status: string; conclusion: string | null; started_at: string | null };
+        const row = JSON.parse(line) as { name: string; status: string; conclusion: string | null; started_at: string | null; completed_at: string | null };
         runs.push({
           name: row.name,
           status: String(row.status ?? "").toUpperCase(),
           conclusion: row.conclusion ? String(row.conclusion).toUpperCase() : null,
           startedAt: row.started_at ?? null,
+          completedAt: row.completed_at ?? null, // null = 观测时仍未完成；合入后才完成的不携带合入时刻结论
         });
       } catch {
         return null;

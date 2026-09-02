@@ -9,12 +9,23 @@
 // ## 为什么要「重建合入时刻」而不是直接读 head 上现在的 check
 //
 // check run 是可变的历史观测：合入后有人 rerun 会在同一个 head 上追加新 run；main 的
-// push workflow 也会往同一个 commit 上加 check。直接把 head 上现在的全部 run 喂给
-// classifyChecks，会出现两种错：合入前失败、合入前 rerun 成功的 PR **永远违反**
-// （旧 FAILURE 一直在）；合入时绿、合入后被别的 run 打红的 PR **事后变违反**。
-// 修法：每条 run 带 startedAt，只取 startedAt ≤ mergedAt 的（合入后的 run 一律无关），
-// 同名取 startedAt 最晚的一条（rerun 覆盖前一次）。run 记录本身不会被删，时间戳不可变，
-// 所以这份重建是稳定的（独立审对 PR #2541 的意见 1/2）。
+// push workflow 也会往同一个 commit 上加 check；一条合入时还在跑的 run，事后看到的是它
+// 最终的 SUCCESS。直接把 head 上现在的 run 喂给 classifyChecks 会出三种错：
+//   · 合入前失败、合入前 rerun 成功的 PR **永远违反**（旧 FAILURE 一直在）；
+//   · 合入时绿、合入后被别的 run 打红的 PR **事后变违反**；
+//   · 合入时还没跑完、合入后才 SUCCESS 的 run 被当成「合入时绿」——**确定性的假绿**
+//     （独立审对 PR #2541 的第三轮意见）。
+// 修法：每条 run 带 startedAt / completedAt，按下面的规则重建。run 记录本身不会被删，
+// 时间戳不可变，所以这份重建是稳定的，不需要另存快照。
+//
+// ## 重建规则（reconstructMergeTimeChecks）
+//   · 合入之后才开始的 run 与「合入时是否绿」无关，丢弃；
+//   · 只有在 mergedAt 之前**完成**的 run 才携带合入时刻的结论；同名取 completedAt 最晚的一条
+//     （合入前的 rerun 覆盖前一次）；
+//   · 合入前开始、但到 mergedAt 还没完成（completedAt 为空或晚于 mergedAt）的 run，**不携带结论**，
+//     也**不覆盖**同名更早已完成的结论；若某个名字只有这类 run，它在合入时刻就是「未出结论」
+//     （status IN_PROGRESS、conclusion null）——required 的话 classifyChecks 会判 WAITING_CI，
+//     即「带着未跑完的必需 check 合入」不算绿。
 //
 // 不倒查存量：规则生效前关闭的 issue 一律 not-applicable（同 spec_ref 门对历史 feature
 // 的处理；引入门控当天把所有 PR 打红只会让门被绕过，#848 / #2485 的教训）。
@@ -25,8 +36,10 @@ export const PR_GREEN_RULE_EFFECTIVE_FROM = "2026-09-02T17:40:00Z";
 
 /** 一条 check run 的原始观测（REST `check-runs?filter=all` 的一行）。 */
 export interface CheckRunObservation extends RequiredCheck {
-  /** ISO；缺失视为无法定位时刻，保守当作「合入前」参与判定 */
+  /** ISO；缺失视为无法定位开始时刻，保守当作「合入前开始」 */
   startedAt: string | null;
+  /** ISO；null = 观测时仍未完成（非终态） */
+  completedAt: string | null;
 }
 
 export interface ClosingPr {
@@ -39,21 +52,39 @@ export interface ClosingPr {
   runs: CheckRunObservation[];
 }
 
+function ts(iso: string | null): number | null {
+  if (!iso) return null;
+  const n = Date.parse(iso);
+  return Number.isNaN(n) ? null : n;
+}
+
 /**
- * 重建「合入那一刻」的 check 集合：只取 startedAt ≤ mergedAt 的 run，同名保留 startedAt
- * 最晚的一条。返回的形状与 pr-queue 的 PrFacts.checks 一致，直接喂 classifyChecks。
+ * 重建「合入那一刻」的 check 集合（规则见文件头）。返回形状与 pr-queue 的 PrFacts.checks
+ * 一致，直接喂 classifyChecks。
  */
 export function reconstructMergeTimeChecks(runs: CheckRunObservation[], mergedAt: string): RequiredCheck[] {
   const merged = Date.parse(mergedAt);
-  const latest = new Map<string, CheckRunObservation>();
+  /** 每个名字在合入前最后一次**完成**的 run */
+  const concluded = new Map<string, { run: CheckRunObservation; completed: number }>();
+  /** 合入前开始、合入时尚未完成的名字（只在没有任何已完成结论时才用它表示「未出结论」） */
+  const pendingAtMerge = new Set<string>();
   for (const run of runs) {
-    const started = run.startedAt ? Date.parse(run.startedAt) : Number.NEGATIVE_INFINITY;
-    if (started > merged) continue; // 合入之后才开始的 run 与「合入时是否绿」无关
-    const prev = latest.get(run.name);
-    const prevStarted = prev?.startedAt ? Date.parse(prev.startedAt) : Number.NEGATIVE_INFINITY;
-    if (!prev || started >= prevStarted) latest.set(run.name, run);
+    const started = ts(run.startedAt) ?? Number.NEGATIVE_INFINITY;
+    if (started > merged) continue; // 合入之后才开始的 run 无关
+    const completed = ts(run.completedAt);
+    if (completed === null || completed > merged) {
+      pendingAtMerge.add(run.name); // 合入时还在跑：不携带结论，也不覆盖更早的结论
+      continue;
+    }
+    const prev = concluded.get(run.name);
+    if (!prev || completed >= prev.completed) concluded.set(run.name, { run, completed });
   }
-  return [...latest.values()].map(({ name, status, conclusion }) => ({ name, status, conclusion }));
+  const out: RequiredCheck[] = [];
+  for (const [name, { run }] of concluded) out.push({ name, status: run.status, conclusion: run.conclusion });
+  for (const name of pendingAtMerge) {
+    if (!concluded.has(name)) out.push({ name, status: "IN_PROGRESS", conclusion: null });
+  }
+  return out;
 }
 
 export type PrGreenVerdict =
