@@ -223,11 +223,23 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 判断软导航有没有生效，这里补一份指向"内容真的切换了没有"的独立事实源，供那处
    * 判据改用（ref 而非直接读 state：`pushThreadRoute` 的 `setTimeout` 回调是一次性
    * 闭包，读 state 会拿到创建那一刻的旧值，读 ref 才是"检查那一刻的最新值"）。
+   *
+   * ⚠ 2026-09-02（防抖修复自己捅出的洞，babysit PR #2494 期间由回归测试抓到）——
+   * 这份事实源本来直接镜像 `selectedThreadId` 这个 state。后来 `selectThread`
+   * 加了一条乐观赋值路径（点击瞬间就 `setSelectedThreadId(threadId)`，给即时
+   * 高亮反馈，见下面该函数头注），如果这里继续镜像同一个 state，`pushThreadRoute`
+   * 兜底要问的"软导航是不是真的卡住了，迟迟没有从服务端/路由拿到确认"就会被
+   * 乐观赋值污染成"用户刚点了哪一条"——乐观赋值发生在点击那一刻、远早于 4 秒
+   * 兜底窗口，兜底检查到点时永远已经"match"，判"已经成功"提前退出，#2259/#2402
+   * 那次真栈实测过的重试兜底对单次点击直接变成死代码（见
+   * `apps/web/tests/ui/copilotkit-v2-shell-thread-switch.test.tsx` 那两条曾经
+   * 因此翻红的用例）。改镜像 `initialThreadId` 这个 prop 本身——只有 Next Router
+   * 真的完成软导航、父级用新路由重渲染这层壳时它才会变，不会被乐观赋值提前置真。
    */
-  const selectedThreadIdRef = React.useRef(selectedThreadId);
+  const confirmedThreadIdRef = React.useRef(initialThreadId);
   React.useEffect(() => {
-    selectedThreadIdRef.current = selectedThreadId;
-  }, [selectedThreadId]);
+    confirmedThreadIdRef.current = initialThreadId;
+  }, [initialThreadId]);
 
   /**
    * 独立 review（exact-SHA，PR #2419）阻断项——`threadListCache` 是模块级的，
@@ -627,8 +639,10 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 对**每一次**导航都判"没成功"，与实测的"每点必刷新"完全吻合，比"软导航真的每次
    * 都卡住"这个假设更合理。
    *
-   * 改法：判据换成"内容真的切换了没有"这个更接近本意的事实——`selectedThreadIdRef`
-   * 是 `initialThreadId` prop 同步出来的 state 的镜像（见上面该 ref 的声明），
+   * 改法：判据换成"内容真的切换了没有"这个更接近本意的事实——`confirmedThreadIdRef`
+   * 直接镜像 `initialThreadId` prop 本身（见上面该 ref 的声明；2026-09-02 从
+   * `selectedThreadIdRef` 换成这份独立的 ref——原因见那条注释：`selectedThreadId`
+   * 后来多了一条乐观赋值路径，不能再拿它当"路由真的确认切过去了"的信号），
    * 真的变成目标 `threadId` 才代表这次导航从路由到渲染整条链路都完成了，不依赖
    * `location.pathname` 这一层可能滞后的中间信号。两个判据**任一个**成立都算数
    * （`||`）——只放宽误判"卡住"的条件，不收紧，不会把真正卡住的情形误判成功。
@@ -658,7 +672,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     router.push(path);
     window.setTimeout(() => {
       if (navigationGeneration.current !== generation) return;
-      if (selectedThreadIdRef.current === threadId) return;
+      if (confirmedThreadIdRef.current === threadId) return;
       if (window.location.pathname === path) return;
       router.push(path);
     }, 4_000);
