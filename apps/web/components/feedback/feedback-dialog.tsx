@@ -25,6 +25,21 @@ import { cn } from "@/lib/utils";
 const MAX_ATTACHMENTS = 4;
 
 /**
+ * 把一次失败翻译成人能读的一句话。
+ *
+ * ⚠ `TypeError: Failed to fetch` 是浏览器对「请求根本没拿到响应」的统一措辞——服务端正在
+ *   重启、网络断了、反代把连接切了，浏览器一律只给这一句英文。原样显示给用户等于什么都
+ *   没说。2026-09-02 devapp 实测：一次部署重启窗口里点提交/传图，屏上就是这行英文，
+ *   看起来像功能坏了，实际是那一分钟里服务端不在。这里把它翻成「无法连接服务器」并
+ *   建议稍后重试；带 `reasonCode` 的契约错误照旧原样给出（那些才是功能层面的失败）。
+ */
+function describeFailure(err: unknown): string {
+  if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
+  if (err instanceof TypeError) return "无法连接服务器（可能正在部署或网络中断），请稍后重试";
+  return String(err);
+}
+
+/**
  * FB-2 —— 提交反馈的弹层。**两个标签页：提交 / 我提过的。**
  *
  * ## 为什么「我提过的」和提交表单在同一个弹层里
@@ -142,7 +157,7 @@ export function FeedbackDialog({
         setDetail(draft.detail);
       })
       .catch((err) => {
-        setStructureError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+        setStructureError(describeFailure(err));
       })
       .finally(() => setStructuring(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在录音状态的边沿触发，voiceTranscript 只在触发那一刻读一次快照。
@@ -156,6 +171,22 @@ export function FeedbackDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在卸载时跑一次，用最新的 attachments 靠 ref 语义（数组引用变化本来就该重新挂 cleanup）。
   }, [attachments]);
 
+  // 一张图的上传（首次与「重试」共用同一条路径）。⚠ 重试用的是当初选中的那个 `File`，
+  // 不要求用户重新打开文件选择器——部署重启那种一分钟的失败窗口过后，点一下就能补上。
+  const runUpload = React.useCallback((localId: string, file: File) => {
+    setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "uploading", error: undefined } : a)));
+    uploadFeedbackAttachment(file)
+      .then((out) => {
+        setAttachments((prev) =>
+          prev.map((a) => (a.localId === localId ? { ...a, status: "done", attachmentId: out.attachmentId } : a)),
+        );
+      })
+      .catch((err) => {
+        const reason = describeFailure(err);
+        setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "failed", error: reason } : a)));
+      });
+  }, []);
+
   const addAttachments = React.useCallback((files: FileList | null) => {
     if (files === null || files.length === 0) return;
     const room = MAX_ATTACHMENTS - attachments.length;
@@ -165,18 +196,9 @@ export function FeedbackDialog({
       const localId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const previewUrl = URL.createObjectURL(file);
       setAttachments((prev) => [...prev, { localId, file, previewUrl, status: "uploading" }]);
-      uploadFeedbackAttachment(file)
-        .then((out) => {
-          setAttachments((prev) =>
-            prev.map((a) => (a.localId === localId ? { ...a, status: "done", attachmentId: out.attachmentId } : a)),
-          );
-        })
-        .catch((err) => {
-          const reason = err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err);
-          setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "failed", error: reason } : a)));
-        });
+      runUpload(localId, file);
     }
-  }, [attachments.length]);
+  }, [attachments.length, runUpload]);
 
   const removeAttachment = React.useCallback((localId: string) => {
     setAttachments((prev) => {
@@ -231,7 +253,7 @@ export function FeedbackDialog({
       setVoiceTranscript("");
       setTab("mine");
     } catch (err) {
-      setError(err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err));
+      setError(describeFailure(err));
     } finally {
       setBusy(false);
     }
@@ -405,34 +427,51 @@ export function FeedbackDialog({
               {attachments.length > 0 && (
                 <ul className="flex flex-wrap gap-2" data-testid="feedback-attachment-list">
                   {attachments.map((a) => (
-                    <li key={a.localId} className="relative h-16 w-16" data-testid={`feedback-attachment-${a.localId}`}>
-                      {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例） */}
-                      <img
-                        src={a.previewUrl}
-                        alt=""
-                        className={cn(
-                          "h-16 w-16 rounded-md border border-border-subtle object-cover",
-                          a.status === "failed" && "opacity-40",
+                    <li key={a.localId} className="flex w-16 flex-col items-center gap-0.5" data-testid={`feedback-attachment-${a.localId}`}>
+                      <div className="relative h-16 w-16">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例） */}
+                        <img
+                          src={a.previewUrl}
+                          alt=""
+                          className={cn(
+                            "h-16 w-16 rounded-md border border-border-subtle object-cover",
+                            a.status === "failed" && "opacity-40",
+                          )}
+                        />
+                        {a.status === "uploading" && (
+                          <div className="absolute inset-0 flex items-center justify-center rounded-md bg-inverse/30">
+                            <Loader2 aria-hidden className="h-4 w-4 animate-spin text-white" />
+                          </div>
                         )}
-                      />
-                      {a.status === "uploading" && (
-                        <div className="absolute inset-0 flex items-center justify-center rounded-md bg-inverse/30">
-                          <Loader2 aria-hidden className="h-4 w-4 animate-spin text-white" />
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        aria-label="移除这张图片"
-                        data-testid={`feedback-attachment-remove-${a.localId}`}
-                        className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-inverse text-inverse-foreground"
-                        onClick={() => removeAttachment(a.localId)}
-                      >
-                        <X aria-hidden className="h-2.5 w-2.5" />
-                      </button>
+                        <button
+                          type="button"
+                          aria-label="移除这张图片"
+                          data-testid={`feedback-attachment-remove-${a.localId}`}
+                          className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-inverse text-inverse-foreground"
+                          onClick={() => removeAttachment(a.localId)}
+                        >
+                          <X aria-hidden className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
                       {a.status === "failed" && (
-                        <p className="mt-0.5 text-9 text-destructive" data-testid={`feedback-attachment-error-${a.localId}`}>
-                          {a.error}
-                        </p>
+                        <>
+                          {/* 错误全文放 title；行内只留一行截断——64px 宽的缩略图下面放不下一整句。 */}
+                          <p
+                            className="w-16 truncate text-9 text-destructive"
+                            title={a.error}
+                            data-testid={`feedback-attachment-error-${a.localId}`}
+                          >
+                            {a.error}
+                          </p>
+                          <button
+                            type="button"
+                            className="text-9 text-primary underline-offset-2 transition-colors duration-fast hover:underline"
+                            data-testid={`feedback-attachment-retry-${a.localId}`}
+                            onClick={() => runUpload(a.localId, a.file)}
+                          >
+                            重试上传
+                          </button>
+                        </>
                       )}
                     </li>
                   ))}
@@ -519,10 +558,7 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
     try {
       setState({ kind: "ready", items: await listFeedback({ kind: "mine" }) });
     } catch (err) {
-      setState({
-        kind: "failed",
-        reason: err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err),
-      });
+      setState({ kind: "failed", reason: describeFailure(err) });
     }
   }, []);
 
