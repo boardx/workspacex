@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { interview } from "@repo/contracts";
-import { DigitalReportNdjsonDecoder } from "../../src/application/interview/workflow/digital-report-stream";
+import {
+  buildDigitalInterviewReportSystemPrompt,
+  DIGITAL_REPORT_REQUIRED_HEADINGS,
+  DigitalReportNdjsonDecoder,
+} from "../../src/application/interview/workflow/digital-report-stream";
 
 describe("F06 digital interview report contract", () => {
   it("requires an explicit versioned confirmation and traceable exploratory findings", () => {
@@ -38,5 +42,15 @@ describe("F06 digital interview report contract", () => {
       findings: [], errorCode: null, updatedAt: "2026-09-02T01:00:00.000Z",
     });
     expect(generation).toMatchObject({ status: "running", markdown: "## 已生成段落" });
+  });
+
+  it("requires a decision-grade user research structure instead of a generic summary", () => {
+    const prompt = buildDigitalInterviewReportSystemPrompt(3);
+    for (const heading of DIGITAL_REPORT_REQUIRED_HEADINGS) expect(prompt).toContain(heading);
+    expect(prompt).toContain("画像关联");
+    expect(prompt).toContain("受访者原意、研究者归纳和待验证推论");
+    expect(prompt).toContain("P0/P1/P2");
+    expect(prompt).toContain("至少 3 个 finding");
+    expect(prompt).toContain("数字专家模拟访谈");
   });
 });
