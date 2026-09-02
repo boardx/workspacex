@@ -161,7 +161,8 @@
    状态 chip 露出（选了具体能力 / 开了任务模式 / 加了材料）；右＝语音 + 发送/停止，
    全部纯图标。**不再有 `/技能` 入口**——2026-09-02 人类裁决：skills 由 agent 直接
    加载全部已启用项，具体 agent 的编排覆盖全局，不由用户在 composer 里挑
-   （服务端"默认加载 + agent 覆盖"待落地，`copilotkit-v2-skill-mount.spec.ts` 记红）。
+   （服务端"默认加载 + agent 覆盖"已落地，#2514：`message-roundtrip.ts` 的
+   `resolveRunSkillVersionIds`，`copilotkit-v2-skill-mount.spec.ts` 为其真栈门）。
 3. 输入后显示：附件卡片、上下文范围、权限提示。
 4. Agent 未就绪时**禁用发送并说明原因**（有可读文本，不只是灰掉）。
    "空输入"这一条例外：placeholder 已说明，理由只在用户试图发送（空输入按 Enter）
