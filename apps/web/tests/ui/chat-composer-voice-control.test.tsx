@@ -27,10 +27,10 @@ function renderCtl(over: Partial<React.ComponentProps<typeof ComposerVoiceContro
 }
 
 describe("ComposerVoiceControl", () => {
-  it("idle：「语音」，点击 → onStart；aria-label=开始语音输入", () => {
+  it("idle：纯图标（按钮旁不放文字），点击 → onStart；aria-label=开始语音输入", () => {
     const h = renderCtl({});
     const mic = screen.getByTestId("chat-task-workbench-composer-mic");
-    expect(mic).toHaveTextContent("语音");
+    expect(mic.textContent?.trim()).toBe("");
     expect(mic).toHaveAttribute("aria-label", "开始语音输入");
     expect(mic).toHaveAttribute("data-mic-status", "idle");
     fireEvent.click(mic);
@@ -40,7 +40,6 @@ describe("ComposerVoiceControl", () => {
   it("listening：「停止」+ 音量条 + 计时，点击 → onStop；aria-label=停止语音输入", () => {
     const h = renderCtl({ status: "listening", phase: "listening", elapsedSeconds: 65, level: 0.4 });
     const mic = screen.getByTestId("chat-task-workbench-composer-mic");
-    expect(mic).toHaveTextContent("停止");
     expect(mic).toHaveAttribute("aria-label", "停止语音输入");
     expect(mic).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("chat-task-workbench-composer-recording-timer")).toHaveTextContent("01:05");
@@ -53,7 +52,7 @@ describe("ComposerVoiceControl", () => {
   it("paused：「继续 mm:ss」，点击 → onResume；connecting / stopping 禁用并旋转", () => {
     const h = renderCtl({ status: "idle", phase: "paused", elapsedSeconds: 7 });
     const mic = screen.getByTestId("chat-task-workbench-composer-mic");
-    expect(mic).toHaveTextContent("继续");
+    expect(mic).toHaveAttribute("aria-label", "继续语音输入");
     expect(mic).toHaveTextContent("00:07");
     fireEvent.click(mic);
     expect(h.onResume).toHaveBeenCalledTimes(1);
@@ -64,14 +63,13 @@ describe("ComposerVoiceControl", () => {
     const mic = screen.getByTestId("chat-task-workbench-composer-mic");
     expect(mic).toBeDisabled();
     expect(mic).toHaveAttribute("aria-busy", "true");
-    expect(mic).toHaveTextContent("连接中");
     expect(mic).toHaveAttribute("aria-label", "正在连接语音识别…");
   });
 
   it("error：「重试」，aria-label 回到开始语音输入（它的动作就是重新开始）", () => {
     const h = renderCtl({ status: "error", phase: "error" });
     const mic = screen.getByTestId("chat-task-workbench-composer-mic");
-    expect(mic).toHaveTextContent("重试");
+    expect(mic.textContent?.trim()).toBe("");
     expect(mic).toHaveAttribute("aria-label", "开始语音输入");
     fireEvent.click(mic);
     expect(h.onStart).toHaveBeenCalledTimes(1);

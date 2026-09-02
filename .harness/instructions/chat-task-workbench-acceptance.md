@@ -172,7 +172,9 @@
    当前设备名只在卡片下方页脚显示）；卡片底部状态栏按状态区分语气与操作：连接中
    （取消）、正在听（暂停 / 停止，计时 + 音量条在胶囊上）、静音提示（换麦克风 / 停止）、
    暂停（丢弃 / 继续 / 完成）、服务不可用与权限被拒（重试 / 查看如何开启）、
-   Agent 处理中（停止生成）、转录完成（撤销转录 / 继续说）。
+   转录完成（撤销转录 / 继续说）。Agent 处理中不占状态栏（2026-09-02 人类裁决去掉），
+   发送按钮变为「停止生成」，过程明细在消息区的进度卡（`copilotkit-v2-thinking-details`：
+   计划条目 + 逐步执行时间线，跑够 8 秒自动展开）。
 
 **用例**：`chat-task-workbench-composer.spec.ts`
 **锚点**：`chat-task-workbench-composer`、`...-composer-input`、
@@ -180,7 +182,7 @@
 `chat-task-workbench-capability-picker`（卡片上方）、
 `...-composer-mic`（唯一）、`...-composer-mic-devices`（小箭头）/ `...-mic-devices-listbox` /
 `...-mic-silence-autopause`、状态栏 `chat-mic-{connecting|listening|stopping|error}` /
-`...-composer-{paused|transcribed|agent-busy|uploading}`、
+`...-composer-{paused|transcribed|uploading}`、
 `...-composer-recording-{timer|level|pause|cancel|resume|confirm|undo}`、`...-composer-send-disabled-reason`
 
 ### TW-P0-6 审批卡片（三态决策）

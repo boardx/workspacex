@@ -11,7 +11,7 @@ import {
   CopilotChatMessageView,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, ListChecks, Paperclip, Pause, PenLine, Sparkles, Square } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, ChevronDown, ListChecks, Paperclip, Pause, PenLine, Sparkles, Square } from "lucide-react";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
@@ -80,6 +80,8 @@ const RUN_STAGE_ORDER: ReadonlyArray<{ key: RunStage; label: string }> = [
 /** TW-P0-5④ 的"空输入"禁用理由；只有它是"用户试图发送时才提示"，见 `emptySendHint`。 */
 const EMPTY_INPUT_REASON = "请先输入任务目标";
 const EMPTY_SEND_HINT_MS = 2_500;
+/** 进度卡跑够这么久就自动展开 plan / execute 明细（人类 2026-09-02："时间较久的话需要看到过程"）。 */
+const RUN_DETAILS_AUTO_OPEN_SECONDS = 8;
 
 export function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
@@ -806,7 +808,7 @@ export function CopilotKitV2PanelBody({
     if (voice.phase === "done" && inputDraft.trim() === "") voice.dismiss();
   }, [inputDraft, voice]);
 
-  /** 卡片底部状态栏：语音各态 > Agent 处理中 > 附件上传中 > 无。文案与操作对齐设计稿。 */
+  /** 卡片底部状态栏：语音各态 > 附件上传中 > 无。文案与操作对齐设计稿。 */
   const composerStatusBar: React.ReactNode = (() => {
     const chars = voice.transcribedChars;
     if (voice.phase === "connecting") {
@@ -886,13 +888,8 @@ export function CopilotKitV2PanelBody({
           ]} />
       );
     }
-    if (agent.isRunning && !archived) {
-      return (
-        <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-agent-busy" icon={<Loader2 className="h-4 w-4 animate-spin" />}
-          title="Agent 正在处理上一条消息" description="语音与发送暂不可用，可以先打字"
-          actions={[{ label: "停止生成", onClick: () => agent.abortRun(), testId: "chat-task-workbench-composer-stop-run" }]} />
-      );
-    }
+    // Agent 处理中不占状态栏（人类 2026-09-02：那一行去掉）——进度卡在消息区说明一切，
+    // 发送按钮本身已变成「停止生成」。
     if (attach.hasUploading && !archived) {
       return (
         <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-uploading" icon={<Loader2 className="h-4 w-4 animate-spin" />}
@@ -954,6 +951,15 @@ export function CopilotKitV2PanelBody({
     });
   }, [runIsRunning, runPhaseLabel, runStartedAt, onRunStateChange]);
   const planStep = React.useMemo(() => currentPlanStep(planTodos), [planTodos]);
+  /** 进度卡明细开关：`null` = 按时长/步数自动，用户点过之后以用户为准（本轮内）。 */
+  const [runDetailsOverride, setRunDetailsOverride] = React.useState<boolean | null>(null);
+  React.useEffect(() => { if (!agent.isRunning) setRunDetailsOverride(null); }, [agent.isRunning]);
+  const runDetailsAvailable = runProgress.steps.length > 0 || (planTodos !== null && planTodos.length > 0);
+  const runDetailsOpen = runDetailsOverride ?? (
+    (runProgress.elapsedSeconds ?? 0) >= RUN_DETAILS_AUTO_OPEN_SECONDS
+    || runProgress.steps.length > 1
+    || (planTodos !== null && planTodos.length > 0)
+  );
   const pendingMaterialsCount = attach.uploadedIds.length;
   React.useEffect(() => {
     onPendingMaterialsChange?.(pendingMaterialsCount);
@@ -1580,6 +1586,76 @@ export function CopilotKitV2PanelBody({
                     第 {planStep.index}/{planStep.total} 步 · {planStep.content}
                   </span>
                 </span>
+              ) : null}
+              {/*
+                2026-09-02（人类：处理过程要明晰，时间久了要看到 plan / execute 的过程）——
+                进度卡可展开成两段真实明细：「计划」= `write_todos` 状态快照里的全部条目
+                （✓ 已完成 / ● 进行中 / ○ 待做），「执行」= 本轮逐条工具调用的时间线
+                （`runProgress.steps`，每步文案与阶段文案同源，附每步耗时）。
+                跑够 8 秒、或已经有第二步、或有计划时自动展开；用户点过开关则以用户为准。
+                两段都只投影真实事件，没有事件就不渲染那一段——不编假进度。
+              */}
+              {runDetailsAvailable ? (
+                <>
+                  <button
+                    type="button"
+                    data-testid="copilotkit-v2-thinking-details-toggle"
+                    aria-expanded={runDetailsOpen}
+                    onClick={() => setRunDetailsOverride(!runDetailsOpen)}
+                    className="flex w-fit items-center gap-1 rounded-md text-10 text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <ChevronDown aria-hidden className={`h-3 w-3 transition-transform duration-fast ${runDetailsOpen ? "" : "-rotate-90"}`} />
+                    {runDetailsOpen ? "收起过程" : `查看过程（${runProgress.steps.length} 步${planTodos && planTodos.length > 0 ? `，计划 ${planTodos.length} 项` : ""}）`}
+                  </button>
+                  {runDetailsOpen ? (
+                    <div className="flex flex-col gap-2 border-t border-border-subtle pt-2" data-testid="copilotkit-v2-thinking-details">
+                      {planTodos && planTodos.length > 0 ? (
+                        <div className="flex flex-col gap-0.5" data-testid="copilotkit-v2-thinking-plan">
+                          <span className="text-9 font-medium uppercase tracking-wide text-muted-foreground">计划</span>
+                          {planTodos.map((todo, i) => (
+                            <span
+                              key={`${i}-${todo.content}`}
+                              data-testid="copilotkit-v2-thinking-plan-item"
+                              data-status={todo.status}
+                              className={`flex min-w-0 items-center gap-1.5 text-11 ${todo.status === "completed" ? "text-muted-foreground line-through" : todo.status === "in_progress" ? "text-card-foreground" : "text-muted-foreground"}`}
+                            >
+                              <span aria-hidden className="w-3 shrink-0 text-center">
+                                {todo.status === "completed" ? "✓" : todo.status === "in_progress" ? "●" : "○"}
+                              </span>
+                              <span className="min-w-0 truncate">{todo.content}</span>
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {runProgress.steps.length > 0 ? (
+                        <div className="flex flex-col gap-0.5" data-testid="copilotkit-v2-thinking-steps">
+                          <span className="text-9 font-medium uppercase tracking-wide text-muted-foreground">执行</span>
+                          {runProgress.steps.map((step) => {
+                            const running = step.endedAt === null;
+                            const seconds = Math.max(0, Math.round(((step.endedAt ?? runProgress.now) - step.startedAt) / 100) / 10);
+                            return (
+                              <span
+                                key={step.id}
+                                data-testid="copilotkit-v2-thinking-step"
+                                data-kind={step.kind}
+                                data-running={running ? "true" : "false"}
+                                className={`flex min-w-0 items-center gap-1.5 text-11 ${running ? "text-card-foreground" : "text-muted-foreground"}`}
+                              >
+                                {running ? (
+                                  <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin" />
+                                ) : (
+                                  <Check aria-hidden className="h-3 w-3 shrink-0" />
+                                )}
+                                <span className="min-w-0 flex-1 truncate">{step.label}</span>
+                                <span className="shrink-0 font-mono tabular-nums text-10 text-muted-foreground">{seconds.toFixed(1)}s</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </div>
           ) : null}

@@ -8,8 +8,10 @@ import type { ComposerVoicePhase } from "@/lib/use-composer-voice-session";
 
 /**
  * 2026-09-02 composer 重设计——**一个按钮承载全部语音状态**的分段胶囊：
- *   语音（描边）→ 连接中（旋转）→ 停止（赭红实底：■ + 音量条 + 计时）→ 继续（赭红描边）
- *   → 出错时「重试」。右侧小箭头是设备菜单（设备列表 + 静音自动暂停开关），
+ *   语音（描边，纯图标）→ 连接中（旋转）→ 停止（赭红实底：■ + 音量条 + 计时）→ 继续
+ *   （赭红描边，麦克风 + 计时）→ 出错回到纯图标（点击即重试）。按钮旁不放文字
+ *   （人类 2026-09-02："mic 旁边的文字去掉"），语义走 `aria-label` / `title`。
+ *   右侧小箭头是设备菜单（设备列表 + 静音自动暂停开关），
  *   替代此前常驻的「系统默认麦克风」胶囊——默认值不是信息，设备名放到卡片下方页脚。
  *
  * 唯一麦克风入口（TW-P0-5⑤）仍是 `chat-task-workbench-composer-mic`；
@@ -162,7 +164,7 @@ export function ComposerVoiceControl({
           else if (paused) onResume();
           else onStart();
         }}
-        className={`flex items-center gap-2 rounded-l-pill pl-3.5 pr-3 text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover}`}
+        className={`flex items-center gap-2 rounded-l-pill px-3 text-13 font-medium transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover}`}
       >
         {busy ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
@@ -171,14 +173,6 @@ export function ComposerVoiceControl({
         ) : (
           <Mic aria-hidden className="h-4 w-4" />
         )}
-        <span>
-          {phase === "connecting" ? "连接中"
-            : phase === "stopping" ? "停止中"
-            : listening ? "停止"
-            : paused ? "继续"
-            : phase === "error" ? "重试"
-            : "语音"}
-        </span>
         {listening ? <LevelBars level={level} /> : null}
         {listening || paused ? (
           <span className="font-mono tabular-nums" data-testid="chat-task-workbench-composer-recording-timer">

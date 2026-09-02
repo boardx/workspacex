@@ -80,6 +80,24 @@ export const REPLYING_PHASE_LABEL = "正在回复…";
  */
 export type RunStage = "preparing" | "acting" | "replying";
 
+/**
+ * 2026-09-02（人类：处理过程要明晰、时间久时要看到 plan / execute 的过程）——
+ * 这一轮 run 的**逐步时间线**。每一步都是真实 AG-UI 事件的投影：
+ *   · `prepare`：`RUN_STARTED` 到第一条工具调用之间（"正在准备…"）。
+ *   · `tool`：一条 `TOOL_CALL_START`（id = toolCallId），文案与阶段文案同源
+ *     （`agent-run-phase.ts`），`call_skill` 的参数到达后加细成具体技能名；
+ *     `TOOL_CALL_RESULT` 到达、或下一步开始时结束。
+ *   · `reply`：`TEXT_MESSAGE_START`（第一个 token 出来了）。
+ * 没有事件就没有步骤——不编"第 N 步"。`endedAt === null` 表示仍在进行。
+ */
+export interface RunStep {
+  readonly id: string;
+  readonly kind: "prepare" | "tool" | "reply";
+  readonly label: string;
+  readonly startedAt: number;
+  readonly endedAt: number | null;
+}
+
 export interface RunProgress {
   /** 服务端 `RUN_STARTED` 到达的时刻（epoch ms）；本轮还没开始跑时为 `null`。 */
   readonly startedAt: number | null;
@@ -91,13 +109,26 @@ export interface RunProgress {
   readonly stage: RunStage | null;
   /** 已经跑够 `LONG_RUN_THRESHOLD_MS`。 */
   readonly isLongRun: boolean;
+  /** 本轮的逐步时间线（见 `RunStep`）；不在跑时为空数组。 */
+  readonly steps: readonly RunStep[];
+  /** 与 `elapsedSeconds` 同一个每秒推进的时钟，供调用方算每一步的进行中时长。 */
+  readonly now: number;
 }
 
 export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: boolean): RunProgress {
   const [startedAt, setStartedAt] = React.useState<number | null>(null);
   const [phaseLabel, setPhaseLabel] = React.useState<string | null>(null);
   const [stage, setStage] = React.useState<RunStage | null>(null);
+  const [steps, setSteps] = React.useState<readonly RunStep[]>([]);
   const [nowTick, setNowTick] = React.useState(() => Date.now());
+  /** 结束所有仍在进行的步骤，再（可选）追加一步。 */
+  const advance = (next: RunStep | null) => {
+    const at = Date.now();
+    setSteps((prev) => {
+      const closed = prev.map((s) => (s.endedAt === null ? { ...s, endedAt: at } : s));
+      return next === null ? closed : [...closed, next];
+    });
+  };
   // issue #2321 round 3 -- `TOOL_CALL_ARGS` carries only `toolCallId` (see
   // `ToolCallArgsEventSchema`), not the tool's name; remember it from the matching
   // `TOOL_CALL_START` so we know whether an incoming args delta is worth parsing.
@@ -112,11 +143,18 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
         // 对应（服务端受理了这一轮），取同一句词。
         setPhaseLabel(phaseLabelForKind("accepted"));
         setStage("preparing");
+        setSteps([{ id: "prepare", kind: "prepare", label: phaseLabelForKind("accepted"), startedAt: Date.now(), endedAt: null }]);
       },
       onToolCallStartEvent: ({ event }) => {
         toolCallNameByIdRef.current.set(event.toolCallId, event.toolCallName);
-        setPhaseLabel(phaseLabelForToolName(event.toolCallName ?? null));
+        const label = phaseLabelForToolName(event.toolCallName ?? null);
+        setPhaseLabel(label);
         setStage("acting");
+        advance({ id: event.toolCallId, kind: "tool", label, startedAt: Date.now(), endedAt: null });
+      },
+      onToolCallResultEvent: ({ event }) => {
+        const at = Date.now();
+        setSteps((prev) => prev.map((s) => (s.id === event.toolCallId && s.endedAt === null ? { ...s, endedAt: at } : s)));
       },
       // issue #2321 round 3 -- `call_skill(skill_stable_name, task)`'s real args,
       // echoed verbatim (see this file's head doc for why this refines rather than
@@ -127,7 +165,9 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
           const parsed: unknown = JSON.parse(event.delta);
           const skillStableName = (parsed as { skill_stable_name?: unknown } | null)?.skill_stable_name;
           if (typeof skillStableName === "string" && skillStableName.trim() !== "") {
-            setPhaseLabel(phaseLabelForCallSkillArgs(skillStableName));
+            const refined = phaseLabelForCallSkillArgs(skillStableName);
+            setPhaseLabel(refined);
+            setSteps((prev) => prev.map((s) => (s.id === event.toolCallId ? { ...s, label: refined } : s)));
           }
         } catch {
           // 非 JSON / 形状不对：保留 START 时已经设好的通用文案，不猜、不报错。
@@ -136,6 +176,10 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
       onTextMessageStartEvent: () => {
         setPhaseLabel(REPLYING_PHASE_LABEL);
         setStage("replying");
+        setSteps((prev) => (prev.some((s) => s.kind === "reply" && s.endedAt === null)
+          ? prev
+          : [...prev.map((s) => (s.endedAt === null ? { ...s, endedAt: Date.now() } : s)),
+            { id: `reply-${prev.length}`, kind: "reply" as const, label: REPLYING_PHASE_LABEL, startedAt: Date.now(), endedAt: null }]));
       },
       // 终态：不留着上一轮的计时器和阶段继续显示——那会让"上一轮跑了 3 分钟"
       // 在下一轮开始前一直挂在界面上，读起来像这一轮已经在跑。
@@ -143,11 +187,13 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
         setStartedAt(null);
         setPhaseLabel(null);
         setStage(null);
+        setSteps([]);
       },
       onRunErrorEvent: () => {
         setStartedAt(null);
         setPhaseLabel(null);
         setStage(null);
+        setSteps([]);
       },
     });
     return unsubscribe;
@@ -176,5 +222,7 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
     phaseLabel: active ? phaseLabel : null,
     stage: active ? stage : null,
     isLongRun: active && elapsedMs > LONG_RUN_THRESHOLD_MS,
+    steps: active ? steps : [],
+    now: nowTick,
   };
 }
