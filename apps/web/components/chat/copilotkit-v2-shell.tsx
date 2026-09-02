@@ -266,6 +266,37 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const listGeneration = React.useRef(0);
 
   /**
+   * 2026-09-02 人类实测反馈——「点击了『请给出计划…』这一条，选中的却变成相邻的
+   * 『生成一个FDE的流程图』」。点击本身接线是对的（`key`/`onSelect` 都绑定当前行
+   * 自己的 `card.id`，见下面 `renderGroups.map`）；根因是 `onMessageSent` 每次
+   * AI 回合结束都会 `reloadThreads()`，按 `lastActivityAt` 重新分组/排序后，
+   * 「今天」分组里的行会整体错位一格——用户瞄准某一行按下的瞬间，如果恰好撞上
+   * 这次重排落地，实际点到的就是挪过来的相邻会话（连带后端 `list-personal-
+   * threads.ts`/`list-threads.ts` 那处不满足全序契约的排序，会放大这种错位，
+   * 已在那两个文件单独修）。
+   *
+   * 这里堵的是前端这一半：用户手指/鼠标压在列表上的这段时间内（`pointerdown` 到
+   * `pointerup`/`pointercancel`/`pointerleave`），任何后台刷新拿到的新列表先存进
+   * `pendingThreadsRef`，不立刻 `setThreads` 改变可见顺序；松开（这次点击已经
+   * 完整派发给对应的 `<button onClick>`）之后再把攒下的最新结果落地，不丢失
+   * 刷新本身。`window.setTimeout(…, 0)` 是特意的：`pointerup`→`click` 是同一个
+   * 用户手势里的连续事件，在这两者之间的这一帧把 `interacting` 提前置回 false
+   * 会让这次 `click` 仍然可能读到重排后的错误行；推到下一个宏任务，确保这次
+   * `click` 已经先落到了按下瞬间那个 DOM 节点上。
+   */
+  const listInteractingRef = React.useRef(false);
+  const pendingThreadsRef = React.useRef<ListThreadsOut | null>(null);
+  const releaseListInteraction = React.useCallback(() => {
+    window.setTimeout(() => {
+      listInteractingRef.current = false;
+      if (pendingThreadsRef.current !== null) {
+        setThreads(pendingThreadsRef.current);
+        pendingThreadsRef.current = null;
+      }
+    }, 0);
+  }, []);
+
+  /**
    * 唯一的网络出口：拿到最新线程列表 + 把它写进模块级缓存（经
    * `applyThreadListResult` 做跨实例的到达顺序校验，见上面模块头注）。
    * 不touch 本实例的 `threads`/`listError` state——那部分留给调用方，因为
@@ -296,7 +327,13 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       const result = await fetchThreadList();
       if (generation !== listGeneration.current) return;
-      setThreads(result);
+      // 见上面 `listInteractingRef` 头注：用户正压着列表时，先攒住这次刷新，
+      // 不改变可见行的顺序——避免这次点击落到重排后挪过来的相邻会话上。
+      if (listInteractingRef.current) {
+        pendingThreadsRef.current = result;
+      } else {
+        setThreads(result);
+      }
       setListError(null);
     } catch (failure) {
       if (generation !== listGeneration.current) return;
@@ -872,7 +909,17 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
             彻底去掉入口——这不是本次重设计的默认选项，是就地问过之后的裁决。
             `copilotkit-v2-roster-landing.spec.ts`（CK-P7 e2e 验收）同步改成先点开
             「编制」页签，不再断言左栏常驻可见。 */}
-        <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2" data-testid="copilotkit-v2-thread-list">
+        <div
+          className="flex flex-1 flex-col gap-1 overflow-y-auto px-2"
+          data-testid="copilotkit-v2-thread-list"
+          /* 见 `listInteractingRef` 头注——点击这条锁只在真的按下时才生效，不影响
+             hover/滚动；`pointercancel`/`pointerleave` 兜底松开，避免手指划出列表
+             却没有触发 `pointerup`（比如拖拽滚动到边界）时列表永久冻结在旧顺序。 */
+          onPointerDown={() => { listInteractingRef.current = true; }}
+          onPointerUp={releaseListInteraction}
+          onPointerCancel={releaseListInteraction}
+          onPointerLeave={releaseListInteraction}
+        >
           {/* issue #2039（第 2 轮 gap #2）——此前 `flatMap` 把服务端已经分好的
               「今天/本周」时间分组（`listPersonalThreads.out.groups[].label`，契约
               封闭枚举）压平丢掉了（fidelity rubric D3 明确要求分组）。这里按组渲染
