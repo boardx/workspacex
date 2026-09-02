@@ -405,6 +405,7 @@ import { MessageRatingController } from "./interface/controllers/message-rating.
 import { PgProductFeedbackRepository } from "./infrastructure/feedback/pg-product-feedback-repository";
 import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
 import { FeedbackController } from "./interface/controllers/feedback.controller";
+import { SystemErrorLogController } from "./interface/controllers/system-error-log.controller";
 // 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
 // 见 `application/feedback/notification-ports.ts` 与
 // `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
@@ -800,6 +801,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SkillController,
     MessageRatingController,
     FeedbackController,
+    SystemErrorLogController,
     SkillReviewController,
     SkillMountController,
     ModelController,

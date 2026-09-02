@@ -18,6 +18,7 @@ import {
   type FeedbackKind,
   type FeedbackStatus,
 } from "@/lib/live-feedback";
+import { listSystemErrorLogs, type SystemErrorLogItem } from "@/lib/live-system-errors";
 import type { UiState } from "@/lib/ui-state";
 
 /**
@@ -262,10 +263,134 @@ export function FeedbackScreen({ state }: { state: UiState }) {
               <code className="mx-1 font-mono">skills.listSuggestions</code>
               的落库面，今天全仓没有实现，所以这里不展示任何聚合数字——不是数字为零，是这件事还没接地。
             </p>
+
+            <SystemExceptionsSection />
           </>
         )}
       </div>
     </AdminScreen>
+  );
+}
+
+type SystemLoad =
+  | { kind: "loading" }
+  | { kind: "ready"; items: readonly SystemErrorLogItem[]; hasMore: boolean }
+  | { kind: "forbidden" }
+  | { kind: "failed"; reason: string };
+
+/**
+ * 系统异常自动捕获的展示区——前后端未处理异常写入 `error_logs`
+ * （`apps/api/src/application/ports/error-log.port.ts`），这里读的是
+ * `GET /system/error-logs`（契约 `systemErrorLogs.listSystemErrorLogs`）。
+ *
+ * ⚠ 这条接口只对**平台超管**放行（见契约文件头：`error_logs` 没有 `org_id`，
+ *   按组织 admin 权限开放会让任意一个组织的管理员看到全平台所有组织的异常
+ *   详情，是一次跨租户数据泄露）。所以 403 `NOT_PLATFORM_SUPERUSER` **不是**
+ *   失败态——它是"你不是这个身份"的正常结果，渲染成一句说明而不是重试按钮。
+ */
+function SystemExceptionsSection() {
+  const [load, setLoad] = React.useState<SystemLoad>({ kind: "loading" });
+
+  const reload = React.useCallback(async () => {
+    setLoad({ kind: "loading" });
+    try {
+      const out = await listSystemErrorLogs({ limit: 50 });
+      setLoad({ kind: "ready", items: out.items ?? [], hasMore: out.hasMore ?? false });
+    } catch (err) {
+      if (err instanceof ApiError && err.reasonCode === "NOT_PLATFORM_SUPERUSER") {
+        setLoad({ kind: "forbidden" });
+        return;
+      }
+      setLoad({
+        kind: "failed",
+        reason: err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err),
+      });
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  return (
+    <section className="flex flex-col gap-2" data-testid="admin-feedback-system-errors">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-14 font-semibold">
+          系统异常 <span className="text-11 font-normal text-muted-foreground">· 前后端自动捕获的未处理异常</span>
+        </h2>
+        {load.kind === "ready" && (
+          <Button size="sm" variant="outline" onClick={() => void reload()}>刷新</Button>
+        )}
+      </div>
+
+      {load.kind === "loading" && (
+        <p className="text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-loading">
+          正在读取系统异常…
+        </p>
+      )}
+
+      {load.kind === "forbidden" && (
+        <p className="text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-forbidden">
+          这块区域仅平台运维（平台超管白名单）可见——你当前的账号看不到系统异常的详情，这不是数据缺失。
+        </p>
+      )}
+
+      {load.kind === "failed" && (
+        <div className="flex flex-col items-start gap-2" data-testid="admin-feedback-system-errors-failed">
+          <p className="text-12 text-muted-foreground">
+            没能读到系统异常（{load.reason}）。这不是「没有异常」——数据没有丢，只是这次没取到。
+          </p>
+          <Button size="sm" variant="outline" onClick={() => void reload()}>重试</Button>
+        </div>
+      )}
+
+      {load.kind === "ready" && (
+        load.items.length === 0 ? (
+          <p className="text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-empty">
+            还没有捕获到系统异常。
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5" data-testid="admin-feedback-system-errors-list">
+            {load.items.map((item) => (
+              <SystemErrorRow key={item.id} item={item} />
+            ))}
+            {load.hasMore && (
+              <p className="text-11 text-muted-foreground">
+                还有更早的记录（本页只显示最新 {load.items.length} 条）。
+              </p>
+            )}
+          </div>
+        )
+      )}
+    </section>
+  );
+}
+
+function SystemErrorRow({ item }: { item: SystemErrorLogItem }) {
+  const [expanded, setExpanded] = React.useState(false);
+  return (
+    <Card data-testid={`admin-feedback-system-error-${item.id}`}>
+      <CardContent className="flex flex-col gap-1.5 py-2.5">
+        <button
+          type="button"
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 text-left"
+          onClick={() => setExpanded((v) => !v)}
+          data-testid={`admin-feedback-system-error-toggle-${item.id}`}
+        >
+          <span className="min-w-0 flex-1 truncate text-12 font-medium">{item.msg}</span>
+          <code className="font-mono text-10 text-muted-foreground">{item.traceId}</code>
+          <span className="text-10 text-muted-foreground">{new Date(item.createdAt).toLocaleString("zh-CN")}</span>
+        </button>
+        {expanded && (
+          <pre
+            className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border-subtle bg-panel p-2 text-11 text-muted-foreground"
+            data-testid={`admin-feedback-system-error-detail-${item.id}`}
+          >
+            {JSON.stringify(item.detail, null, 2)}
+          </pre>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

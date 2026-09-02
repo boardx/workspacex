@@ -46,6 +46,9 @@ function mockApi(items: unknown[], overrides: Partial<Record<string, unknown>> =
   apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
     if (path === "/feedback/counts") return overrides.counts ?? counts;
     if (path === "/feedback" && (opts?.method ?? "GET") === "GET") return { items };
+    // 系统异常区块（见 `SystemExceptionsSection`）独立发起自己的一次请求——
+    // 本文件的五件断言都与它无关，缺省给一个"空、无更多"的响应，不去断言它。
+    if (path === "/system/error-logs") return { items: [], hasMore: false };
     return {};
   });
 }

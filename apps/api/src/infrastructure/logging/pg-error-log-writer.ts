@@ -62,7 +62,12 @@
  * ever provisioned) would close the remaining gap; it is not part of this change.
  */
 import type { DatabasePort } from "../../application/ports/database.port";
-import { redactErrorDetail, type ErrorLogEntry, type ErrorLogPort } from "../../application/ports/error-log.port";
+import {
+  redactErrorDetail,
+  type ErrorLogEntry,
+  type ErrorLogListItem,
+  type ErrorLogPort,
+} from "../../application/ports/error-log.port";
 
 export const RETENTION_DAYS = 30;
 /** Run housekeeping roughly once every this-many writes, not on every single one. */
@@ -107,5 +112,43 @@ export class PgErrorLogWriter implements ErrorLogPort {
     if (this.writeCount % HOUSEKEEPING_EVERY === 0) {
       await sweepExpiredErrorLogs(this.db);
     }
+  }
+
+  /**
+   * Newest-first by `id` (see the port's doc comment for why `beforeId`, not `offset`).
+   * `withoutTenant`, same reasoning as `record()` and `sweepExpiredErrorLogs`: this table has
+   * no `org_id`, there is no tenant to scope a read to.
+   *
+   * ⚠ Reads `limit + 1` rows to derive `hasMore` from one query, rather than a second
+   *   `COUNT(*)` round trip -- the extra row is trimmed off before returning.
+   */
+  async list(input: { readonly limit: number; readonly beforeId: string | null }): Promise<{
+    readonly items: readonly ErrorLogListItem[];
+    readonly hasMore: boolean;
+  }> {
+    const fetchLimit = input.limit + 1;
+    const rows = await this.db.withoutTenant((s) =>
+      input.beforeId === null
+        ? s.query<{ id: string; trace_id: string; msg: string; detail: unknown; created_at: Date }>(
+            `SELECT id, trace_id, msg, detail, created_at FROM error_logs ORDER BY id DESC LIMIT $1`,
+            [fetchLimit],
+          )
+        : s.query<{ id: string; trace_id: string; msg: string; detail: unknown; created_at: Date }>(
+            `SELECT id, trace_id, msg, detail, created_at FROM error_logs WHERE id < $1 ORDER BY id DESC LIMIT $2`,
+            [input.beforeId, fetchLimit],
+          ),
+    );
+    const hasMore = rows.rows.length > input.limit;
+    const page = hasMore ? rows.rows.slice(0, input.limit) : rows.rows;
+    return {
+      items: page.map((r) => ({
+        id: String(r.id),
+        traceId: r.trace_id,
+        msg: r.msg,
+        detail: r.detail,
+        createdAt: new Date(r.created_at).toISOString(),
+      })),
+      hasMore,
+    };
   }
 }

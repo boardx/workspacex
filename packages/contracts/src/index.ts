@@ -59,3 +59,6 @@ export * as planControl from "./plan-control";
 
 /* ── phase-02 看板（F01）任务对象统一五态 ─────────────────────────────── */
 export * as board from "./board";
+
+/* ── 系统异常自动捕获（平台超管只读 + 前端上报） ─────────────────────── */
+export * as systemErrorLogs from "./system-error-logs";
