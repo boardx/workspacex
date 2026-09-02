@@ -13,19 +13,18 @@
 // 最终的 SUCCESS。直接把 head 上现在的 run 喂给 classifyChecks 会出三种错：
 //   · 合入前失败、合入前 rerun 成功的 PR **永远违反**（旧 FAILURE 一直在）；
 //   · 合入时绿、合入后被别的 run 打红的 PR **事后变违反**；
-//   · 合入时还没跑完、合入后才 SUCCESS 的 run 被当成「合入时绿」——**确定性的假绿**
-//     （独立审对 PR #2541 的第三轮意见）。
-// 修法：每条 run 带 startedAt / completedAt，按下面的规则重建。run 记录本身不会被删，
+//   · 合入时还没跑完、合入后才 SUCCESS 的 run 被当成「合入时绿」——**确定性的假绿**。
+// 修法：每条 run 带 startedAt / completedAt（和 id），按下面的规则重建。run 记录本身不会被删，
 // 时间戳不可变，所以这份重建是稳定的，不需要另存快照。
 //
-// ## 重建规则（reconstructMergeTimeChecks）
+// ## 重建规则（reconstructMergeTimeChecks）——对齐 GitHub rollup / pr-queue 看到的「当前 attempt」
 //   · 合入之后才开始的 run 与「合入时是否绿」无关，丢弃；
-//   · 只有在 mergedAt 之前**完成**的 run 才携带合入时刻的结论；同名取 completedAt 最晚的一条
-//     （合入前的 rerun 覆盖前一次）；
-//   · 合入前开始、但到 mergedAt 还没完成（completedAt 为空或晚于 mergedAt）的 run，**不携带结论**，
-//     也**不覆盖**同名更早已完成的结论；若某个名字只有这类 run，它在合入时刻就是「未出结论」
-//     （status IN_PROGRESS、conclusion null）——required 的话 classifyChecks 会判 WAITING_CI，
-//     即「带着未跑完的必需 check 合入」不算绿。
+//   · 同名 run 里，取**合入时刻已开始的最新一次 attempt**（按 startedAt 排序，同一时刻按 id），
+//     它就是合入那一刻 GitHub 侧展示、pr-queue 会拿到的那一条——不管它当时跑完没有；
+//   · 对选中的这条：completedAt ≤ mergedAt ⇒ 用它的终态结论；否则（未完成 / 合入后才完成）⇒
+//     它在合入时刻是「未出结论」（status IN_PROGRESS、conclusion null）。**绝不**因为最新 attempt
+//     还在跑就退回去用更早一次的 SUCCESS——合入时 GitHub 显示的是 pending，pr-queue 会判
+//     WAITING_CI，「带着未跑完的必需 check 合入」不算绿（独立审对 PR #2541 第四轮意见）。
 //
 // 不倒查存量：规则生效前关闭的 issue 一律 not-applicable（同 spec_ref 门对历史 feature
 // 的处理；引入门控当天把所有 PR 打红只会让门被绕过，#848 / #2485 的教训）。
@@ -36,6 +35,8 @@ export const PR_GREEN_RULE_EFFECTIVE_FROM = "2026-09-02T17:40:00Z";
 
 /** 一条 check run 的原始观测（REST `check-runs?filter=all` 的一行）。 */
 export interface CheckRunObservation extends RequiredCheck {
+  /** check run id，单调递增；同一 startedAt 时用它定先后 */
+  id?: number;
   /** ISO；缺失视为无法定位开始时刻，保守当作「合入前开始」 */
   startedAt: string | null;
   /** ISO；null = 观测时仍未完成（非终态） */
@@ -58,31 +59,37 @@ function ts(iso: string | null): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/** attempt 的先后：startedAt 晚的新；同一时刻 id 大的新。 */
+function isNewer(a: CheckRunObservation, b: CheckRunObservation): boolean {
+  const sa = ts(a.startedAt) ?? Number.NEGATIVE_INFINITY;
+  const sb = ts(b.startedAt) ?? Number.NEGATIVE_INFINITY;
+  if (sa !== sb) return sa > sb;
+  return (a.id ?? 0) > (b.id ?? 0);
+}
+
 /**
  * 重建「合入那一刻」的 check 集合（规则见文件头）。返回形状与 pr-queue 的 PrFacts.checks
  * 一致，直接喂 classifyChecks。
  */
 export function reconstructMergeTimeChecks(runs: CheckRunObservation[], mergedAt: string): RequiredCheck[] {
   const merged = Date.parse(mergedAt);
-  /** 每个名字在合入前最后一次**完成**的 run */
-  const concluded = new Map<string, { run: CheckRunObservation; completed: number }>();
-  /** 合入前开始、合入时尚未完成的名字（只在没有任何已完成结论时才用它表示「未出结论」） */
-  const pendingAtMerge = new Set<string>();
+  /** 每个名字在合入时刻已开始的最新一次 attempt */
+  const current = new Map<string, CheckRunObservation>();
   for (const run of runs) {
     const started = ts(run.startedAt) ?? Number.NEGATIVE_INFINITY;
     if (started > merged) continue; // 合入之后才开始的 run 无关
-    const completed = ts(run.completedAt);
-    if (completed === null || completed > merged) {
-      pendingAtMerge.add(run.name); // 合入时还在跑：不携带结论，也不覆盖更早的结论
-      continue;
-    }
-    const prev = concluded.get(run.name);
-    if (!prev || completed >= prev.completed) concluded.set(run.name, { run, completed });
+    const prev = current.get(run.name);
+    if (!prev || isNewer(run, prev)) current.set(run.name, run);
   }
   const out: RequiredCheck[] = [];
-  for (const [name, { run }] of concluded) out.push({ name, status: run.status, conclusion: run.conclusion });
-  for (const name of pendingAtMerge) {
-    if (!concluded.has(name)) out.push({ name, status: "IN_PROGRESS", conclusion: null });
+  for (const [name, run] of current) {
+    const completed = ts(run.completedAt);
+    if (completed !== null && completed <= merged) {
+      out.push({ name, status: run.status, conclusion: run.conclusion });
+    } else {
+      // 合入时这条 attempt 还在跑：不携带结论。不退回更早一次的结果——那不是合入时 GitHub 显示的状态。
+      out.push({ name, status: "IN_PROGRESS", conclusion: null });
+    }
   }
   return out;
 }

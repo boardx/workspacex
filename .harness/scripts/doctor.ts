@@ -435,8 +435,9 @@ function checkIssueClosedButNotDone(phaseId: string, f: Feature, issues: GhIssue
  *
  * 不倒查存量：生效时刻（PR_GREEN_RULE_EFFECTIVE_FROM）之前关闭的 issue 不判也不发请求——
  * 引入门控当天把所有 PR 打红只会让门被绕过（#848 / #2485 的教训）。
- * 「合入时」的 check 集合由 lib/pr-green.ts 从带 started_at / completed_at 的全部 run 重建
- * （只认合入前**完成**的结论；合入时还在跑的不携带结论；合入后开始的无关），不是 head 上现在的 rollup。gh 拿不到数据 ⇒ 按级别报（strict 下 FAIL）：问不到不等于绿。
+ * 「合入时」的 check 集合由 lib/pr-green.ts 从带 id / started_at / completed_at 的全部 run 重建
+ * （同名取合入时刻已开始的最新 attempt：合入前完成用其结论，否则视为未出结论；合入后开始的无关），
+ * 与合入那一刻 GitHub rollup / pr-queue 看到的「当前 attempt」一致，不是 head 上现在的 rollup。gh 拿不到数据 ⇒ 按级别报（strict 下 FAIL）：问不到不等于绿。
  * 级别与 ②③ 对齐：pre-push WARN，CI `--strict` FAIL。
  */
 function syncRepo(): string | null {
@@ -477,15 +478,16 @@ export function fetchClosingPrs(repo: string, issueNumber: number): ClosingPr[] 
     // 全部拿回来再按 started_at 重建合入时刻（reconstructMergeTimeChecks）。
     const c = sh(
       `gh api "repos/${repo}/commits/${node.headRefOid}/check-runs?filter=all&per_page=100" --paginate ` +
-        `--jq '.check_runs[] | {name: .name, status: .status, conclusion: .conclusion, started_at: .started_at, completed_at: .completed_at}'`,
+        `--jq '.check_runs[] | {id: .id, name: .name, status: .status, conclusion: .conclusion, started_at: .started_at, completed_at: .completed_at}'`,
       REPO_ROOT,
     );
     if (c.code !== 0) return null;
     const runs: CheckRunObservation[] = [];
     for (const line of c.stdout.split("\n").map((l) => l.trim()).filter(Boolean)) {
       try {
-        const row = JSON.parse(line) as { name: string; status: string; conclusion: string | null; started_at: string | null; completed_at: string | null };
+        const row = JSON.parse(line) as { id?: number; name: string; status: string; conclusion: string | null; started_at: string | null; completed_at: string | null };
         runs.push({
+          id: typeof row.id === "number" ? row.id : undefined,
           name: row.name,
           status: String(row.status ?? "").toUpperCase(),
           conclusion: row.conclusion ? String(row.conclusion).toUpperCase() : null,
