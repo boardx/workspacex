@@ -369,9 +369,14 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
     emailText: string | null,
   ): Promise<void> {
     await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      // ⚠ 必须一并 SET `notification_settled_at = now()`——触发器
+      //   (`20260902140000_fb2_feedback_status_event_notify_settle_once`)拿它当
+      //   "这一行有没有被回填过"的哨兵,与 `notified` 最终是 true 还是 false 无关。
+      //   漏了这一列,这条 UPDATE 会被触发器原样拒绝(NEW.notification_settled_at
+      //   IS NULL),不是"悄悄没生效"。
       await s.query(
         `UPDATE product_feedback_status_events
-            SET notified = $3, email_subject = $4, email_text = $5
+            SET notified = $3, email_subject = $4, email_text = $5, notification_settled_at = now()
           WHERE org_id = $2 AND id = $1`,
         [eventId, this.orgId, notified, emailSubject, emailText],
       );

@@ -157,29 +157,77 @@ describe("FB-2 落库", () => {
   });
 
   /**
-   * ④c 迁移 `20260902130000` 开的这道口子——**只**放行"只碰 notified/
-   * email_subject/email_text 三列、且只能从 notified=false 回填一次"这一种
-   * 形状的 UPDATE。正反两面都要验，否则"开了个口子"读起来像开对了，
-   * 实际上开成了"任何 UPDATE 都能过"（那样第一层那条就会一起变绿到失真）。
+   * ④c 迁移 `20260902140000`（第三版,取代 `20260902130000` 那个只拿
+   * `OLD.notified=false` 当哨兵的漏洞版本——见该迁移头注:`notified` 是业务
+   * 布尔,`false` 是它的合法终态之一,不能兼职"这一行有没有被回填过"）:
+   * `notification_settled_at` 专职"回填动作本身发生过没有",与最终 `notified`
+   * 是 true 还是 false 无关;且**强制** `notified=false ⇒ subject/text 恒 NULL`。
+   * 正反两面都要验,否则"开了个口子"读起来像开对了,实际上开成了"任何
+   * UPDATE 都能过"或"只堵住了 true 那一条路径"。
    */
-  it("④c 通知结果只能回填一次——正确形状放行，第二次回填被触发器拒", async () => {
+  it("④c 通知结果只能回填一次(true 分支)——正确形状放行，第二次回填被触发器拒", async () => {
     await repo.insert(draft());
     await repo.appendStatusEvent({
       id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
       notified: false, emailSubject: null, emailText: null,
     });
-    // 正确形状：app_rw 能把它从 notified=false 回填成 true+文案。
+    // 正确形状：app_rw 能把它从"从未回填过"回填成 notified:true + 文案 + settled。
     await asApp(ORG, (c) => c.query(
-      "UPDATE product_feedback_status_events SET notified = true, email_subject = $2, email_text = $3 WHERE id = $1",
+      `UPDATE product_feedback_status_events
+          SET notified = true, email_subject = $2, email_text = $3, notification_settled_at = now()
+        WHERE id = $1`,
       ["ev-1", "主题", "正文"],
     ));
     const after = await repo.listStatusEvents("fb-1");
     expect(after[0]).toMatchObject({ notified: true, emailSubject: "主题", emailText: "正文" });
 
-    // 反证：同一行再回填一次（哪怕形状一样）被拒——OLD.notified 已经是 true。
+    // 反证：同一行再回填一次被拒——`notification_settled_at` 已经非 NULL,
+    // 不是靠 `notified` 恰好是 true 才挡住的。
     await expect(
       asApp(ORG, (c) => c.query(
-        "UPDATE product_feedback_status_events SET notified = false, email_subject = NULL, email_text = NULL WHERE id = $1",
+        `UPDATE product_feedback_status_events
+            SET notified = false, email_subject = NULL, email_text = NULL, notification_settled_at = now()
+          WHERE id = $1`,
+        ["ev-1"],
+      )),
+    ).rejects.toThrow(/append-only/);
+  });
+
+  it("④c 反证核心缺口①：notified 回填成 false 之后（邮件失败/无可通知邮箱），同一行仍然不能被再次回填", async () => {
+    await repo.insert(draft());
+    await repo.appendStatusEvent({
+      id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
+      notified: false, emailSubject: null, emailText: null,
+    });
+    // 第一次回填：结果就是 false（邮件失败那条路径）——`notified` 的值本身
+    // 没变,但 `notification_settled_at` 从 NULL 变成非 NULL,这次 UPDATE
+    // 依然合法（这是这条迁移要修的那条口子：光看 `notified` 分不出"刚插入"
+    // 和"回填成了 false"这两种状态）。
+    await repo.markStatusEventNotified("ev-1", false, null, null);
+
+    // 反证：再调一次（哪怕结果还是 false/null/null,形状与上次一模一样）
+    // 必须被拒——`notification_settled_at` 已经非 NULL 了。
+    await expect(
+      asApp(ORG, (c) => c.query(
+        `UPDATE product_feedback_status_events
+            SET notified = false, email_subject = NULL, email_text = NULL, notification_settled_at = now()
+          WHERE id = $1`,
+        ["ev-1"],
+      )),
+    ).rejects.toThrow(/append-only/);
+  });
+
+  it("④c 反证核心缺口②：notified=false 却带着邮件正文这种损坏数据，数据库层直接拒绝，不只是信任调用方", async () => {
+    await repo.insert(draft());
+    await repo.appendStatusEvent({
+      id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
+      notified: false, emailSubject: null, emailText: null,
+    });
+    await expect(
+      asApp(ORG, (c) => c.query(
+        `UPDATE product_feedback_status_events
+            SET notified = false, email_subject = '主题', email_text = '正文', notification_settled_at = now()
+          WHERE id = $1`,
         ["ev-1"],
       )),
     ).rejects.toThrow(/append-only/);
@@ -193,7 +241,23 @@ describe("FB-2 落库", () => {
     });
     await expect(
       asApp(ORG, (c) => c.query(
-        "UPDATE product_feedback_status_events SET notified = true, reason = 'x' WHERE id = $1",
+        `UPDATE product_feedback_status_events
+            SET notified = true, reason = 'x', notification_settled_at = now()
+          WHERE id = $1`,
+        ["ev-1"],
+      )),
+    ).rejects.toThrow(/append-only/);
+  });
+
+  it("④c 反证：漏传 notification_settled_at 的 UPDATE（即使其余形状都对）也被拒，不是悄悄没生效", async () => {
+    await repo.insert(draft());
+    await repo.appendStatusEvent({
+      id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
+      notified: false, emailSubject: null, emailText: null,
+    });
+    await expect(
+      asApp(ORG, (c) => c.query(
+        "UPDATE product_feedback_status_events SET notified = true, email_subject = '主题', email_text = '正文' WHERE id = $1",
         ["ev-1"],
       )),
     ).rejects.toThrow(/append-only/);

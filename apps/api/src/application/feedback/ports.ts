@@ -145,6 +145,12 @@ export interface ProductFeedbackRepository {
    * try/catch 里当 best-effort:这一步失败时,上面那行"转移发生过"的历史记录
    * 依然在(只是 `notified` 保守地停在插入时的 `false`),不是整条历史消失。
    * 见 issue #2510(与②③同类限制收敛成统一 outbox 的后续)。
+   *
+   * ⚠ 只能对同一行调**一次**——第二次调用会被数据库触发器拒绝(`false→false`
+   *   那条路径也算"回填过"了,不能被"notified 还是 false 所以再回填一次也无妨"
+   *   悄悄绕过,见迁移 `20260902140000_fb2_feedback_status_event_notify_settle
+   *   _once` 头注)。`notified: false` 时**必须**传 `null`/`null`——数据库同样
+   *   强制这条不变量,不只是信任调用方守规矩。
    */
   markStatusEventNotified(
     eventId: string,
