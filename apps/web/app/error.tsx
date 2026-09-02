@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { Button } from "@/components/ui/button";
 import { reportClientError } from "@/lib/report-client-error";
 
 /**
@@ -28,14 +29,15 @@ export default function ErrorBoundary({
       <p className="max-w-md text-12 text-muted-foreground">
         这个错误已经被自动记录，我们会去看。你可以重试，或者刷新页面。
       </p>
-      <button
-        type="button"
+      <Button
+        size="sm"
+        variant="outline"
         onClick={() => reset()}
-        className="mt-1 rounded-md border border-border-subtle bg-panel px-3 py-1.5 text-12 hover:bg-card"
+        className="mt-1"
         data-testid="app-error-boundary-retry"
       >
         重试
-      </button>
+      </Button>
     </div>
   );
 }
