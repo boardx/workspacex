@@ -209,13 +209,97 @@ function renameCardInThreadList(list: ListThreadsOut, threadId: string, title: s
 
 export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string | null }): JSX.Element {
   const router = useRouter();
+  /**
+   * `useRouter()` 在 Next 真实实现里是稳定引用，但没有任何契约保证这一点
+   * （这个文件自己的测试桩 `vi.mock("next/navigation", () => ({ useRouter: () =>
+   * ({ push, replace }) }))` 就每次渲染都返回一个新对象字面量）。下面的
+   * `initialThreadId` 同步 effect 需要在**不**把 `router` 本身列进依赖数组的前提下
+   * 调用它最新的 `push`——列进去会导致那个 effect 在"任何触发重渲染的事情"上都
+   * 重跑一次（不只是 `initialThreadId` 真的变了），2026-09-03 圆桌复审时用固定
+   * 测试桩实测过：一次点击就能在 150ms 内把 `push` 打成 5～10 次的失控循环，
+   * 而不是预期的 1～2 次。`routerRef` 只是单纯跟着每次渲染更新到最新值，不参与
+   * 触发任何 effect。
+   */
+  const routerRef = React.useRef(router);
+  routerRef.current = router;
   const { session } = useSession();
   const bearer = session?.sessionToken ?? null;
   const sourceKey = bearer ?? null;
 
   const [selectedThreadId, setSelectedThreadId] = React.useState<string | null>(initialThreadId);
+  /**
+   * 2026-09-03 人类实测反馈第三轮——round 2（PR #2494 的 150ms 防抖）上线后，
+   * 快速切换 session 仍会复现"停下来后选中的会话跳回别的会话"。独立 review 在
+   * #2494 两轮 exact-SHA 都判了 BLOCK，原话（round 1 finding #1）：
+   * 「防抖只收窄了并发窗口，没有建立`last-intent-wins`的最终一致性——防抖窗口
+   * 过后仍可能有 `router.push(A)` 后跟 `router.push(B)`，这两个真实导航依然可能
+   * 乱序结算」——这次的复现正是这条 finding 描述的场景（人类点击间隔超过 150ms
+   * 防抖窗口，两次点击各自的软导航都真的发出了）。
+   *
+   * 根因：下面这个 effect 曾经无条件地 `setSelectedThreadId(initialThreadId)`——
+   * 把 `initialThreadId`（Next Router 每次软导航结算后传回来的路由参数）当唯一
+   * 事实源镜像进 state。可这份事实源不保证"最后结算的就是最后点击的"：`router.push`
+   * 不返回 Promise、不保证多个并发发出的导航按发出顺序结算（RSC 响应可能乱序
+   * 抵达，见下面 `pushThreadRoute` 那几段 #2259/#2402 的既有注释——这是同一个
+   * 事实第三次咬人）。用户点 A（真发导航）、等一会儿点 B（真发导航，A 还没结算），
+   * 如果 A 的响应恰好晚于 B 抵达，这个 effect 会先把 `selectedThreadId` 落到 B、
+   * 又被姗姗来迟的 A 覆盖回去。
+   *
+   * 修法：引入 `latestIntentRef`——"用户最后一次真正想去的 threadId"，点击那一刻
+   * （`selectThread`）就同步写入，不等防抖、不等导航结算。这个 effect 收到一次
+   * `initialThreadId` 变化时，只有两种情况才采信：
+   *   ① 这次结算的 threadId 恰好等于 `latestIntentRef.current`——真正追上了用户
+   *      最后的意图，正常路径；
+   *   ② 这次变化不是我们自己发出的导航结算，而是浏览器前进/后退这类合法的外部
+   *      导航——用 `popstate` 监听区分（见下面 `externalNavUntilRef`），这类变化
+   *      无条件采信，并把 `latestIntentRef` 更新成新值，把路由控制权交还给它。
+   * 两者都不成立 ⇒ 这是一次"过期回声"：一次更早点击的软导航，在用户已经点了
+   * 更新的目标之后才姗姗来迟地结算。不采信这次显示更新（不覆盖已经在界面上的
+   * 正确高亮），并主动重新 `router.push` 回 `latestIntentRef.current`——不能只在
+   * 本地静默纠正高亮，消息面板（`initialThreadId` prop 直接驱动 remount，见下面
+   * 内容区注释）这时候也真的停在错的线程上，必须真的把路由拉回去。
+   */
+  const latestIntentRef = React.useRef<string | null>(initialThreadId);
+  const externalNavUntilRef = React.useRef(0);
+  /**
+   * `selectDebounceRef`/`pendingSelectRef` 声明在这里（而不是紧挨着实际使用它们的
+   * `selectThread`，见下面 `pushThreadRoute` 之后那处）是因为上面的 `popstate`
+   * 监听——外部导航要能立刻废掉一次还在排队、尚未真正发出的点击防抖——需要引用
+   * 它们，JS 没有"函数作用域内 const 提升"，必须先声明才能被更早的闭包捕获。
+   */
+  const selectDebounceRef = React.useRef<number | null>(null);
+  const pendingSelectRef = React.useRef<string | null>(null);
   React.useEffect(() => {
-    setSelectedThreadId(initialThreadId);
+    const onPopState = () => {
+      // 给这次 `popstate` 之后到达的 `initialThreadId` 变化一个宽限窗口——
+      // 从"浏览器已经决定要去哪"到"Next Router 真的把新路由的 RSC 内容喂给这层
+      // 壳、`initialThreadId` prop 因此改变"之间有一段异步延迟，不能只信"下一次"
+      // 变化，得信"接下来这一小段时间里"的变化，见上面头注②。
+      externalNavUntilRef.current = Date.now() + 2_000;
+      // 外部导航（前进/后退）应当立刻废掉任何还在排队、尚未真正发出的点击防抖
+      // ——否则那次排队的点击会在用户已经用浏览器导航离开之后，凭空再插一脚。
+      if (selectDebounceRef.current !== null) {
+        window.clearTimeout(selectDebounceRef.current);
+        selectDebounceRef.current = null;
+        pendingSelectRef.current = null;
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+  React.useEffect(() => {
+    const isExternalNav = Date.now() < externalNavUntilRef.current;
+    if (isExternalNav || initialThreadId === latestIntentRef.current) {
+      latestIntentRef.current = initialThreadId;
+      setSelectedThreadId(initialThreadId);
+      return;
+    }
+    // 过期回声——见上面头注：不采信这次显示，主动把路由拉回真正的最新意图。
+    const target = latestIntentRef.current;
+    if (target !== null) routerRef.current.push(`/chat/${target}`);
+    // ⚠ 依赖数组只放 `initialThreadId`——`router` 不参与，见上面 `routerRef` 头注：
+    // 这个 effect 只应该在 `initialThreadId` 真的变化时重跑，不该被 `router`
+    // 引用是否稳定这件事牵连。
   }, [initialThreadId]);
   /**
    * 2026-08-30 人类实测反馈——「每点一次会话就整栏刷新一次」，且是**每次都发生**、
@@ -702,15 +786,16 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 反馈——真正的路由切换仍然走防抖后的 `pushThreadRoute`，慢速点击（防抖窗口内
    * 只点了一次）几乎感觉不到这次乐观值被后续 `initialThreadId` 同步覆盖。
    */
-  const selectDebounceRef = React.useRef<number | null>(null);
-  const pendingSelectRef = React.useRef<string | null>(null);
   React.useEffect(() => () => {
     if (selectDebounceRef.current !== null) window.clearTimeout(selectDebounceRef.current);
   }, []);
 
   const selectThread = React.useCallback((threadId: string) => {
     if (threadId === selectedThreadId) return;
-    setSelectedThreadId(threadId); // 乐观高亮，见上面头注；权威结果仍来自防抖后的真实导航
+    // 点击这一刻**立刻**记下"用户最后真正想去的目标"——不等防抖、不等导航结算，
+    // 见上面 `latestIntentRef` 头注；这是 last-intent-wins 协议的锚点。
+    latestIntentRef.current = threadId;
+    setSelectedThreadId(threadId); // 乐观高亮，同一头注；权威结果仍来自防抖后的真实导航
     pendingSelectRef.current = threadId;
     if (selectDebounceRef.current !== null) window.clearTimeout(selectDebounceRef.current);
     selectDebounceRef.current = window.setTimeout(() => {

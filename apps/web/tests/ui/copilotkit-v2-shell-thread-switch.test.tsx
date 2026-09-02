@@ -405,6 +405,79 @@ describe("CopilotKitV2Shell — issue #2259 侧栏点击线程切换兜底", () 
 });
 
 /**
+ * 2026-09-03 人类实测反馈第三轮——round 2（PR #2494 的 150ms 防抖）上线后，
+ * 快速切换 session 仍会复现"停下来后选中的会话跳回别的会话"。独立 review 在
+ * #2494 两轮 exact-SHA 都判了 BLOCK，指出防抖只收窄了并发窗口，没有建立
+ * last-intent-wins 的最终一致性：防抖窗口过后仍可能有 `router.push(A)` 后跟
+ * `router.push(B)`，这两个真实导航依然可能乱序结算。下面两条用例直接反证
+ * `latestIntentRef` + `popstate` 边界这套协议：① 一次更早点击对应的软导航，在
+ * 更晚点击已经结算之后才姗姗抵达，不能覆盖已经生效的更新目标，还要主动纠正
+ * 回真正的最新意图；② 浏览器前进/后退这类合法的外部导航，要能废掉一次还在
+ * 排队、尚未真正发出的点击防抖，不能被"过期回声"逻辑反过来误伤。
+ */
+describe("CopilotKitV2Shell — round 3：快速切换后乱序结算的 last-intent-wins 协议", () => {
+  it("更早点击对应的软导航结算，在更晚点击结算之后才姗姗抵达 ⇒ 不覆盖已经生效的更新目标，自动纠正回最新意图", async () => {
+    const { rerender } = render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
+    await screen.findByTestId(`chat-thread-${THREAD_B.id}`);
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`));
+    await vi.advanceTimersByTimeAsync(150); // A 的防抖窗口过去，真发一次导航
+    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledWith(`/chat/${THREAD_A.id}`);
+
+    await vi.advanceTimersByTimeAsync(500); // A 仍在飞，还没结算
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_B.id}`));
+    await vi.advanceTimersByTimeAsync(150); // B 自己的防抖窗口过去，真发一次导航
+    expect(push).toHaveBeenCalledTimes(2);
+    expect(push).toHaveBeenLastCalledWith(`/chat/${THREAD_B.id}`);
+    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true"); // 乐观高亮
+
+    // B 的软导航先结算——Next Router 真的把新路由内容喂给这层壳。
+    rerender(<CopilotKitV2Shell initialThreadId={THREAD_B.id} />);
+    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true");
+    expect(push).toHaveBeenCalledTimes(2); // 已经追上最新意图，不需要纠正
+
+    // A 那次更早点击的软导航，姗姗来迟地在 B 已经结算之后才抵达——过期回声。
+    rerender(<CopilotKitV2Shell initialThreadId={THREAD_A.id} />);
+
+    // 不该覆盖已经生效的 B：高亮必须仍然停在 B，不是 A。
+    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true");
+    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "false");
+    // 而且要主动把路由拉回真正的最新意图（B）——不能只在本地静默纠正高亮，
+    // 消息面板（`initialThreadId` 直接驱动 remount）这时候仍然停在错的线程上。
+    expect(push).toHaveBeenCalledTimes(3);
+    expect(push).toHaveBeenLastCalledWith(`/chat/${THREAD_B.id}`);
+  });
+
+  it("点击排队等待防抖期间发生浏览器前进/后退 ⇒ 排队的点击被废弃，外部导航的目标才是最终结果", async () => {
+    const { rerender } = render(<CopilotKitV2Shell initialThreadId={null} />);
+    await screen.findByTestId(`chat-thread-${THREAD_A.id}`);
+    await screen.findByTestId(`chat-thread-${THREAD_B.id}`);
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByTestId(`chat-thread-${THREAD_A.id}`)); // 排队等待 150ms 防抖，还没真发导航
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "true"); // 乐观高亮
+
+    // 浏览器前进/后退：`popstate` 先到，随后 Next Router 把新路由内容喂给这层壳
+    // （`initialThreadId` prop 变化）——这里落到 B，一个跟"排队中的点击目标 A"、
+    // "点击前的原始状态 null"都不同的第三个值，确保确实是外部导航生效，不是
+    // 巧合碰上了原来就相等的旧值。
+    window.dispatchEvent(new Event("popstate"));
+    rerender(<CopilotKitV2Shell initialThreadId={THREAD_B.id} />);
+
+    // 排队中的点击（A）必须被外部导航废弃：继续推进过 150ms 防抖窗口，也不该
+    // 再补发一次去 A 的导航——用户已经用浏览器导航去了别处。
+    await vi.advanceTimersByTimeAsync(300);
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByTestId(`chat-thread-${THREAD_B.id}`)).toHaveAttribute("data-selected", "true");
+    expect(screen.getByTestId(`chat-thread-${THREAD_A.id}`)).toHaveAttribute("data-selected", "false");
+  });
+});
+
+/**
  * PR #2422 独立审查（BLOCK，评论 5472084365）第 2/3 点——`handleCreate` 的
  * "只在分组最上面那张卡片是空线程时才复用"规则此前**没有任何测试实际执行过**：
  * 旧的 `copilotkit-v2-shell-thread-switch.test.tsx` 三个用例全部只覆盖"点击已有
