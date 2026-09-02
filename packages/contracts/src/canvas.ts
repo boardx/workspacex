@@ -266,10 +266,25 @@ export const SectionLayout = z.object({
   row: z.number().int().min(1).max(8),
   w: z.number().int().min(1).max(12),
   h: z.number().int().min(1).max(8),
-  /** 贴纸横向列数，仅列表型有效。 */
-  cols: z.number().int().min(3).max(8),
-  /** 最多渲染条数，同时是提示词的条数上限。 */
-  max: z.number().int().min(3).max(9),
+  /**
+   * 贴纸横向列数，仅列表型有效。
+   *
+   * ⚠ 下界从 3 放宽到 1（issue #2535，2026-09-02）：编辑器 `COLS_OPTIONS` 早在
+   *   2026-08-26 就按人类反馈改成 1–8 全量，这里却还卡在 `min(3)`——使用者在界面上
+   *   选 1/2 列，保存时被契约入参校验打回 HTTP 400，而框架层的校验失败没有
+   *   `reasonCode`，左下角只能显示「无 reasonCode（HTTP 400）」。同一事实（列数档位）
+   *   声明在两处、且只改了一处，正是 AGENTS.md 那条「同一事实不得声明在两处」的
+   *   漂移；单一事实源以此处契约为准，前端常量必须落在这个区间内。
+   */
+  cols: z.number().int().min(1).max(8),
+  /**
+   * 最多渲染条数，同时是提示词的条数上限。
+   *
+   * ⚠ 同上（issue #2535）：编辑器「最多条数」步进器 2026-08-30 已改为 1–99 全量整数
+   *   （`MAX_COUNT_MIN`/`MAX_COUNT_MAX`），契约仍是 `[3, 9]`，条数选 1/2 或 ≥10
+   *   都会以同一种方式 400。放宽到 1–99 与编辑器对齐。
+   */
+  max: z.number().int().min(1).max(99),
   /** 贴纸色：0 黄 / 1 粉 / 2 绿 / 3 蓝。 */
   tone: z.number().int().min(0).max(3),
   overflow: z.enum(["缩小字号", "叠放", "截断"]),
