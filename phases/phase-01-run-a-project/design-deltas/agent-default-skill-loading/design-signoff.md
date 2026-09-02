@@ -1,12 +1,12 @@
 ---
-status: pending           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
+status: confirmed           # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
 bundle: agent-default-skill-loading
 base_bundle: skills   # 与 skill-lazy-loading / platform-owned-skills 同一挂靠：改的是"哪些 skill 进模型"，不是新开契约束
 scope: agent-loads-all-enabled-skills-by-default-curated-agent-overrides-thread-mounts-append
 covers: []   # 待人类/harness 回填 F 号（同 F979 / skill-lazy-loading 先例）
-confirmed_by: null
-confirmed_at: null
-confirmed_via: null
+confirmed_by: usamshen
+confirmed_at: 2026-09-02
+confirmed_via: file
 ---
 
 # design delta 签核 · agent 默认加载全部已启用 skill，具体 agent 的编排覆盖全局
