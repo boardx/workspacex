@@ -74,6 +74,18 @@ const TITLE_MAX = 120;
 const DETAIL_MAX = 4000;
 
 /**
+ * 2026-09-02 人类要求：表单去掉「一句话说清楚」，只留「详细说说」。契约的 `title` 仍然
+ * 必填（`.min(1).max(120)`，后台列表靠它），所以标题从正文**派生**：AI 整理过就用 AI 给的
+ * 标题；否则取正文第一句（到第一个句号/换行为止），截到 120 字。这里不发明第二个字段。
+ */
+export function deriveFeedbackTitle(detail: string): string {
+  const firstLine = detail.trim().split(/\r?\n/).find((l) => l.trim() !== "") ?? "";
+  const firstSentence = firstLine.split(/[。！？!?]/)[0] ?? "";
+  const picked = (firstSentence.trim() !== "" ? firstSentence : firstLine).trim();
+  return picked.slice(0, TITLE_MAX);
+}
+
+/**
  * FB-5——一张待提交的图片附件。`previewUrl` 是**本地** `URL.createObjectURL(file)`，
  * 不是后端下载地址：上传成功之前后端还没有这个字节，上传成功之后也没必要再多打
  * 一次下载请求去显示一张浏览器已经有原始 `File` 的图——同 `fetchFeedbackAttachmentObjectUrl`
@@ -109,8 +121,9 @@ export function FeedbackDialog({
   const pathname = usePathname();
   const [tab, setTab] = React.useState<"submit" | "mine">("submit");
   const [kind, setKind] = React.useState<FeedbackKind>("缺陷");
-  const [title, setTitle] = React.useState("");
   const [detail, setDetail] = React.useState("");
+  /** AI 整理给出的标题；用户随后改了正文就作废（回到从正文派生），见 `deriveFeedbackTitle`。 */
+  const [aiTitle, setAiTitle] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [justSubmitted, setJustSubmitted] = React.useState<string | null>(null);
@@ -134,7 +147,7 @@ export function FeedbackDialog({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const appVersion = currentAppVersion();
-  const titleRef = React.useRef<HTMLInputElement>(null);
+  const detailInputRef = React.useRef<HTMLTextAreaElement>(null);
 
   const speech = useAsrDraft({
     getBaseText: () => detailRef.current,
@@ -162,7 +175,7 @@ export function FeedbackDialog({
     structureFeedbackDraft(transcript)
       .then((draft) => {
         setKind(draft.kind);
-        setTitle(draft.title);
+        setAiTitle(draft.title);
         setDetail(draft.detail);
       })
       .catch((err) => {
@@ -218,7 +231,7 @@ export function FeedbackDialog({
   }, []);
 
   React.useEffect(() => {
-    titleRef.current?.focus();
+    detailInputRef.current?.focus();
   }, []);
 
   // Esc 关闭。⚠ 挂在 window 上而不是容器上：焦点可能在遮罩、也可能在某个输入框里，
@@ -232,7 +245,8 @@ export function FeedbackDialog({
   }, [onClose]);
 
   const attachmentsUploading = attachments.some((a) => a.status === "uploading");
-  const canSubmit = title.trim() !== "" && detail.trim() !== "" && !busy && !attachmentsUploading;
+  const title = aiTitle ?? deriveFeedbackTitle(detail);
+  const canSubmit = title !== "" && detail.trim() !== "" && !busy && !attachmentsUploading;
 
   const send = async () => {
     setBusy(true);
@@ -247,7 +261,7 @@ export function FeedbackDialog({
       const out = await submitFeedback({
         kind,
         target,
-        title: title.trim(),
+        title,
         detail: detail.trim(),
         // I-F1：发生位置由客户端给——服务端不可能知道用户站在哪一屏。
         occurredRoute: pathname ?? null,
@@ -255,7 +269,7 @@ export function FeedbackDialog({
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
       });
       setJustSubmitted(out.feedbackId);
-      setTitle("");
+      setAiTitle(null);
       setDetail("");
       for (const a of attachments) URL.revokeObjectURL(a.previewUrl);
       setAttachments([]);
@@ -332,32 +346,18 @@ export function FeedbackDialog({
 
             <label className="flex flex-col gap-1">
               <span className="text-11 font-medium text-muted-foreground">
-                一句话说清楚 <span className="font-normal">（{title.length}/{TITLE_MAX}）</span>
-              </span>
-              <input
-                ref={titleRef}
-                value={title}
-                maxLength={TITLE_MAX}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={kind === "缺陷" ? "点了没反应 / 显示的数字不对…" : "希望能记住上次的选择…"}
-                data-testid="feedback-title-input"
-                className="h-8 rounded-md border border-border-subtle bg-panel px-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-11 font-medium text-muted-foreground">
                 详细说说 <span className="font-normal">（{detail.length}/{DETAIL_MAX}）</span>
               </span>
               <textarea
+                ref={detailInputRef}
                 value={detail}
                 maxLength={DETAIL_MAX}
-                onChange={(e) => setDetail(e.target.value)}
-                rows={5}
+                onChange={(e) => { setDetail(e.target.value); setAiTitle(null); }}
+                rows={6}
                 placeholder={
                   kind === "缺陷"
-                    ? "你当时在做什么、期望看到什么、实际看到什么。"
-                    : "你想解决的是什么问题？现在是怎么绕过去的？"
+                    ? "你当时在做什么、期望看到什么、实际看到什么。第一句会作为标题。"
+                    : "你想解决的是什么问题？现在是怎么绕过去的？第一句会作为标题。"
                 }
                 data-testid="feedback-detail-input"
                 className="resize-y rounded-md border border-border-subtle bg-panel p-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -91,8 +91,9 @@ async function submitOpenFeedback(
 ): Promise<void> {
   await expect(page.getByTestId("feedback-form")).toBeVisible();
   await page.getByTestId(`feedback-kind-${opts.kind}`).click();
-  await page.getByTestId("feedback-title-input").fill(opts.title);
-  await page.getByTestId("feedback-detail-input").fill(opts.detail);
+  // 2026-09-02 起表单只有「详细说说」，标题取正文第一句（到第一个句号）——把标题写成
+  // 第一句、后面跟原正文，后台列表/「我提过的」里看到的标题就是 `opts.title`。
+  await page.getByTestId("feedback-detail-input").fill(`${opts.title}。${opts.detail}`);
 
   const submitted = page.waitForResponse(
     (r) => r.request().method() === "POST" && r.url().includes(`${API}/feedback`) && !r.url().includes("/vote"),
