@@ -164,6 +164,14 @@ jobs:
       - name: 跨屏可达性（导航树 ↔ 契约束现行路由）
         run: node .harness/scripts/lint-nav-reachability.mjs
 
+      # #2490：controller 路由 ↔ next.config rewrites 成对（#539 的门）。此前它只在
+      # `verify:harness:raw` 链里，而那条链只被 main 的 `e2e-full` 调用——PR 加了不接线的
+      # 路由照样全绿，合入后 `e2e-full` 第 7 步 3 分钟内红，且红在一个本来就没人看的 job 里
+      # （08-31 起连续 30 次）。门的设计初衷是「新增不接线路由当场红」，「当场」必须是 PR。
+      # 只读 controllers/ 与 next.config.mjs，不碰 DB，毫秒级；扫不全时自己降级为 WARN 退出 0。
+      - name: 路由可达性（controller 路由 ↔ next.config rewrites 成对）
+        run: pnpm run lint:rewrite-coverage
+
       # 不存在「写了但没人跑」的 e2e spec（#512）。
       # 2026-08-04 实测：`chat-read.spec.ts` 在 main 上红着且**红了很久无人发现**——
       # 有 `playwright.chat-read.config.ts`，但零个 npm script / CI job 调它。
