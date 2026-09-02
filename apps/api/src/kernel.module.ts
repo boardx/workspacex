@@ -479,6 +479,10 @@ import { LIMIT_RULE_REPOSITORY, TOKEN_QUOTA_REPOSITORY } from "./application/aut
 import { PgLimitRuleRepository } from "./infrastructure/auth/pg-limit-rule-repository";
 import { PgTokenQuotaRepository } from "./infrastructure/auth/pg-token-quota-repository";
 import { OrgAdminManagementController } from "./interface/controllers/org-admin-management.controller";
+// member-role-management delta：平台级成员名册与角色调整（组织级在 OrgAdminManagementController）。
+import { PLATFORM_MEMBER_REPOSITORY } from "./application/system/platform-member-ports";
+import { PgPlatformMemberRepository } from "./infrastructure/system/pg-platform-member-repository";
+import { PlatformMemberController } from "./interface/controllers/platform-member.controller";
 // F31 (files bundle): the project file browser's three READ routes.
 // ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
 // anything wired here. The repository provided below is the only reader of it, and the
@@ -777,6 +781,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     OrgInviteLinkController,
     CheckinBoardController,
     OrgAdminManagementController,
+    PlatformMemberController,
     FilesBrowserController,
     FilesDeliveryController,
     FilesExportController,
@@ -1739,6 +1744,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: ORG_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgMemberRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // member-role-management delta：平台级名册只读端口；改角色复用上面的 ORG_MEMBER_REPOSITORY。
+    {
+      provide: PLATFORM_MEMBER_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgPlatformMemberRepository(db),
       inject: [DATABASE_PORT],
     },
     // F160（token-quota-and-usage delta）。额度读写与计量写入分成两个仓储：
