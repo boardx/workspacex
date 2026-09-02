@@ -652,18 +652,27 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
         const context = JSON.parse(input.user) as { operation?: string };
         if (context.operation !== "generate_interview_report") return streamingModel.complete(input);
         const meta = '{"type":"meta","title":"江西足球报告","executiveSummary":"基层体系需要长期投入"}\n';
-        const section = '{"type":"section","markdown":"## 基层体系\\n先培养教练。"}\n';
-        const secondSection = '{"type":"section","markdown":"## 赛事连接\\n建立稳定赛事。"}\n';
+        const sections = [
+          "## 研究范围与方法\n说明模拟访谈的样本与证据边界。",
+          "## 核心洞察\n先培养教练，再连接稳定赛事。",
+          "## 分角色深度分析\n该专家重视长期教练梯队。",
+          "## 跨角色主题分析\n培养、赛事与跟踪需要形成闭环。",
+          "## 分歧与共识\n当前样本只有一位专家，尚不能判断跨角色共识。",
+          "## 行动建议\nP0 建立教练培养与跟踪机制。",
+          "## 研究局限与后续验证\n需要真人访谈验证优先级。",
+        ].map((markdown) => `${JSON.stringify({ type: "section", markdown })}\n`);
         const source = JSON.parse(input.user) as { experts: Array<{ expertId: string; answers: Array<{ questionId: string }> }> };
-        const finding = JSON.stringify({ type: "finding", title: "教练优先", summary: "建立长期教练梯队。",
-          expertId: source.experts[0]!.expertId, questionId: source.experts[0]!.answers[0]!.questionId });
+        const findings = source.experts[0]!.answers.slice(0, 3).map((answer, index) => JSON.stringify({
+          type: "finding", title: `可追溯发现 ${index + 1}`, summary: "回答支持建立长期教练梯队，并需真人验证。",
+          expertId: source.experts[0]!.expertId, questionId: answer.questionId,
+        }));
         await onDelta(meta);
-        await onDelta(section);
+        await onDelta(sections[0]!);
         partialPersisted();
         await release;
-        await onDelta(secondSection);
-        await onDelta(`${finding}\n`);
-        return { text: `${meta}${section}${secondSection}${finding}\n` };
+        for (const section of sections.slice(1)) await onDelta(section);
+        for (const finding of findings) await onDelta(`${finding}\n`);
+        return { text: `${meta}${sections.join("")}${findings.join("\n")}\n` };
       },
     };
     const setup = createRuntime(streamingModel);
@@ -686,11 +695,14 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     await partial;
     const recovered = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
     expect(recovered).toMatchObject({ status: "report_pending", report: null,
-      reportGeneration: { status: "running", title: "江西足球报告", markdown: "## 基层体系\n先培养教练。" } });
+      reportGeneration: { status: "running", title: "江西足球报告",
+        markdown: "## 研究范围与方法\n说明模拟访谈的样本与证据边界。" } });
     releaseReport();
     const completed = await generated;
     expect(completed).toMatchObject({ status: "completed", reportGeneration: null,
-      report: { title: "江西足球报告", findings: [expect.objectContaining({ exploratory: true })] } });
+      report: { title: "江西足球报告", findings: expect.arrayContaining([
+        expect.objectContaining({ exploratory: true }),
+      ]) } });
     const recreated = createRuntime(streamingModel);
     await expect(recreated.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId }))
       .resolves.toMatchObject({ status: "completed", report: { title: "江西足球报告" } });

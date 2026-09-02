@@ -8,6 +8,7 @@
 - 新增 Bearer 鉴权的生成流与只读观察流；浏览器断开不取消服务端生成，重新进入从 workflow 的 `reportGeneration` 恢复并继续观察。
 - 数据库保存 running/failed/completed、requestId、错误码及部分报告；最终事务失败也不会留下永久 running。
 - Web 展示已完成的摘要、Markdown 和发现，并在刷新后自动恢复。
+- 报告质量门已升级：必须按七个研究章节输出，结合完整 Persona 与逐题原回答，区分原意/归纳/推论，输出共识、分歧、优先级行动与验证计划；结构或来源覆盖不足时不允许完成。
 
 ## 仍损坏或未验证
 - `pnpm harness tick` 因环境未配置 `COORD_GATEWAY_URL` 无法执行。

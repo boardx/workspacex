@@ -8,6 +8,8 @@ import type {
   GenerateDigitalInterviewDraftInput,
 } from "../../../application/interview/workflow/digital-interview-effects.port";
 import {
+  buildDigitalInterviewReportSystemPrompt,
+  DIGITAL_REPORT_REQUIRED_HEADINGS,
   DigitalReportNdjsonDecoder,
   type ParsedDigitalReportStreamEvent,
 } from "../../../application/interview/workflow/digital-report-stream";
@@ -710,6 +712,8 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
     let metaCount = 0;
     let sectionCount = 0;
     let findingCount = 0;
+    const reportSections: string[] = [];
+    const findingSources = new Set<string>();
     const persistEvent = async (event: ParsedDigitalReportStreamEvent): Promise<void> => {
       if (event.type === "finding" && !validSources.has(`${event.expertId}:${event.questionId}`)) {
         throw new DigitalInterviewWorkflowError("DIGITAL_REPORT_SOURCE_INVALID");
@@ -748,8 +752,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
       });
       if (event.type === "meta") metaCount += 1;
-      else if (event.type === "section") sectionCount += 1;
-      else findingCount += 1;
+      else if (event.type === "section") {
+        sectionCount += 1;
+        reportSections.push(event.markdown);
+      } else {
+        findingCount += 1;
+        findingSources.add(`${event.expertId}:${event.questionId}`);
+      }
       await input.onProgress?.(progress);
     };
 
@@ -757,10 +766,16 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
       const modelInput = {
         modelProvider: this.modelProvider,
         modelId: this.modelId,
-        system: "你是严谨的访谈研究员。根据已确认的专家回答生成探索性报告。不得虚构来源。只输出 NDJSON，每行一个 JSON 对象且不要代码围栏：第一行 {\"type\":\"meta\",\"title\":\"报告标题\",\"executiveSummary\":\"执行摘要\"}；随后至少两行 {\"type\":\"section\",\"markdown\":\"一个完整 Markdown 段落\"}；最后至少一行 {\"type\":\"finding\",\"title\":\"发现标题\",\"summary\":\"发现说明\",\"expertId\":\"输入专家 ID\",\"questionId\":\"输入问题 ID\"}。每条发现必须原样引用输入中的 expertId 和 questionId。",
+        system: buildDigitalInterviewReportSystemPrompt(Math.min(3, validSources.size)),
         user: JSON.stringify({
           operation: "generate_interview_report", topic: snapshot.workflow.topic,
-          experts: snapshot.completed.map((run) => ({ expertId: run.expertId, displayName: run.displayName, answers: run.answers })),
+          evidenceBoundary: "digital_expert_simulation_requires_human_validation",
+          experts: snapshot.completed.map((run) => ({
+            ...snapshot.workflow.expertCandidates.find((candidate) => candidate.expertId === run.expertId),
+            expertId: run.expertId,
+            displayName: run.displayName,
+            answers: run.answers,
+          })),
         }),
         history: [],
       } as const;
@@ -774,7 +789,13 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         for (const event of decoder.push(completion.text)) await persistEvent(event);
       }
       for (const event of decoder.finish()) await persistEvent(event);
-      if (metaCount !== 1 || sectionCount < 2 || findingCount < 1) {
+      const hasRequiredStructure = DIGITAL_REPORT_REQUIRED_HEADINGS.every(
+        (heading, index) => reportSections[index]?.trimStart().startsWith(heading),
+      );
+      const minimumFindings = Math.min(3, validSources.size);
+      if (metaCount !== 1 || sectionCount !== DIGITAL_REPORT_REQUIRED_HEADINGS.length
+        || !hasRequiredStructure || findingCount < minimumFindings
+        || findingSources.size < minimumFindings) {
         throw new SyntaxError("incomplete streamed report");
       }
     } catch (error) {
