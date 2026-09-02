@@ -123,6 +123,42 @@ describe("CopilotKitV2Panel 消息区跳到最新（issue #2071）", () => {
     await waitFor(() => expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull());
   });
 
+  // 2026-09-02 人类实测："滚到底部的那个箭头的逻辑是错误的"——两条回归钉子。
+  it("按钮不在滚动容器内部（否则会跟着内容一起滚走，停在某条消息中间）", async () => {
+    mount();
+    const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
+    fireEvent.scroll(container);
+    const button = await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
+    expect(container.contains(button)).toBe(false);
+    // 与滚动容器并列在同一个定位包装层里：`bottom-3` 才是相对可视区、不随内容滚动。
+    expect(button.parentElement).toBe(container.parentElement);
+  });
+
+  it("程序化滚动（点按钮/自动跟随）途中的 scroll 事件不把贴底态翻回去；用户滚轮介入后才算离开底部", async () => {
+    mount();
+    const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
+    stubLayout(container, { scrollHeight: 2000, scrollTop: 0, clientHeight: 500 });
+    fireEvent.scroll(container);
+    await screen.findByTestId("copilotkit-v2-scroll-to-bottom");
+
+    fireEvent.click(screen.getByTestId("copilotkit-v2-scroll-to-bottom"));
+    await waitFor(() => expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull());
+    // 平滑滚动动画途中：位置离底部还远，但这是我们自己发起的滚动——按钮不该冒出来。
+    (container as HTMLElement & { scrollTop: number }).scrollTop = 700;
+    fireEvent.scroll(container);
+    expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull();
+    // 抵达底部：标记解除。
+    (container as HTMLElement & { scrollTop: number }).scrollTop = 1500;
+    fireEvent.scroll(container);
+    expect(screen.queryByTestId("copilotkit-v2-scroll-to-bottom")).toBeNull();
+    // 用户真的往上滚（滚轮 + 位置离开底部）⇒ 按钮出现。
+    fireEvent.wheel(container);
+    (container as HTMLElement & { scrollTop: number }).scrollTop = 0;
+    fireEvent.scroll(container);
+    expect(await screen.findByTestId("copilotkit-v2-scroll-to-bottom")).toBeInTheDocument();
+  });
+
   it("Ctrl+End 跳到最新：往上翻后按快捷键，等价于点击按钮", async () => {
     mount();
     const container = await waitFor(() => screen.getByTestId("copilotkit-v2-messages"));
