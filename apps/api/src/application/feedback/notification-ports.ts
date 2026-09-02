@@ -33,7 +33,14 @@ export type GithubIssueLinkedPullRequest = z.infer<typeof feedbackLoop.GithubIss
 export interface GithubIssueStatus {
   readonly state: "open" | "closed";
   readonly stateReason: "completed" | "not_planned" | null;
+  /**
+   * ⚠ 只在 `linkedPullRequestsAvailable === true` 时才是"这条 issue 真的没有 PR
+   * 引用它"——见契约 `getFeedbackGithubIssue` 头注最后一条：issue 详情与 timeline
+   * 是两次独立请求，timeline 单独失败时这里是空数组但 `linkedPullRequestsAvailable`
+   * 是 `false`，调用方必须先看那个布尔。
+   */
   readonly linkedPullRequests: readonly GithubIssueLinkedPullRequest[];
+  readonly linkedPullRequestsAvailable: boolean;
 }
 
 export interface CreatedGithubIssueComment {

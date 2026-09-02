@@ -420,6 +420,13 @@ export const operations = {
    *   PR」——一个 issue 可以被多个 PR 提到（讨论、部分实现、最终合入），把它收窄成
    *   只认 `Closes #N` 那一个会在关联 PR 还没写上 `Closes` 关键字的过渡期里显示"没有
    *   关联 PR"，而人工在 GitHub 页面上明明看得到那个 PR。
+   * ⚠ **`linkedPullRequestsAvailable: false` ≠ `linkedPullRequests: []`**（2026-09-02
+   *   独立审查 P1 指出的真实 bug 已修）：issue 本身的开关状态与"关联 PR 列表"是两次
+   *   独立的 GitHub 请求（issue 详情 + timeline），可用性不一样——issue 详情失败时
+   *   整个操作 `DEPENDENCY_UNAVAILABLE`，但 timeline 单独失败（限流/超时/权限）不该
+   *   连坐 issue 状态本身查不到，此时 `linkedPullRequests` 是空数组、
+   *   `linkedPullRequestsAvailable` 是 `false`——调用方必须先看后者，为 `false` 时
+   *   渲染"取不到，不是没有"，不能把它读成"真的没有 PR 引用"。
    */
   getFeedbackGithubIssue: {
     method: "GET",
@@ -434,6 +441,8 @@ export const operations = {
         /** 只有 `state === "closed"` 时可能非 null——GitHub 自己的关闭理由分类 */
         stateReason: z.enum(["completed", "not_planned"]).nullable(),
         linkedPullRequests: z.array(GithubIssueLinkedPullRequest),
+        /** 见本操作头注最后一条⚠：`false` 时 `linkedPullRequests` 不代表真实事实 */
+        linkedPullRequestsAvailable: z.boolean(),
       })
       .strict(),
     err: ["FEEDBACK_NOT_FOUND", "PERMISSION_REVOKED", "NO_GITHUB_ISSUE", "DEPENDENCY_UNAVAILABLE"] as const,

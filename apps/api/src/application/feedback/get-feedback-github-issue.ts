@@ -49,6 +49,8 @@ export interface GetFeedbackGithubIssueResult {
     readonly title: string;
     readonly state: "open" | "closed" | "merged";
   }[];
+  /** 见端口 `GithubIssueStatus.linkedPullRequestsAvailable` 头注：`false` 时上面那个数组不是事实 */
+  readonly linkedPullRequestsAvailable: boolean;
 }
 
 export async function getFeedbackGithubIssue(
@@ -72,6 +74,7 @@ export async function getFeedbackGithubIssue(
       state: status.state,
       stateReason: status.stateReason,
       linkedPullRequests: status.linkedPullRequests,
+      linkedPullRequestsAvailable: status.linkedPullRequestsAvailable,
     };
   } catch (e) {
     const cause = e instanceof GithubIssueApiError ? e : new GithubIssueApiError("getStatus", null);

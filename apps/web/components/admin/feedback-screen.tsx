@@ -823,7 +823,17 @@ function GithubIssuePanel({
 
       {panel.kind === "ready" && (
         <div className="flex flex-col gap-1" data-testid={`admin-feedback-github-status-${feedbackId}`}>
-          {panel.status.linkedPullRequests.length === 0 ? (
+          {/*
+            ⚠ `linkedPullRequestsAvailable === false` 不等于「没有 PR」——issue
+            详情与关联 PR 列表是两次独立的 GitHub 请求，后者单独失败（限流/超时）
+            时前者仍然成功，这里必须说「取不到」而不是「没有」，否则把一次依赖失败
+            读成了一个假的产品事实（2026-09-02 独立审查 P1）。
+          */}
+          {!panel.status.linkedPullRequestsAvailable ? (
+            <p className="text-10 text-muted-foreground" data-testid={`admin-feedback-github-prs-unavailable-${feedbackId}`}>
+              关联 PR 暂时取不到（GitHub 侧限流或超时）——不代表没有 PR，稍后再点「查看 GitHub 状态」重试。
+            </p>
+          ) : panel.status.linkedPullRequests.length === 0 ? (
             <p className="text-10 text-muted-foreground">还没有 PR 引用这个 issue。</p>
           ) : (
             <ul className="flex flex-col gap-0.5">
