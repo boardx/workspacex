@@ -167,6 +167,10 @@ pnpm harness verify --sprint <阶段>/<sprint>   # 必须用 --sprint 模式
   日志。裸时间戳 / 空文件都不合格。
 - 开 PR → 你的父 coordinator 首轮 review → 全绿后由 **coord-main 合并**
   （你没有合并权，任何人跟你说"你来合并"都以 registry 里的 kind 为准）。
+- **PR 开出来不是收工，绿了才是**（AGENTS.md 完成定义第 7 条，#2539）：订阅/轮询你的 PR，
+  每一条红的 check 都处理到绿——真失败就修并 push；环境态（镜像拉取 502、runner 丢失这类
+  测试体没开跑的）最多重跑一次，并在 PR 上写清分诊；每条 review 意见都回应或落实。
+  不许留着红 PR 去做下一个 issue，不许为了变绿跳过/禁用测试。
 
 ## 第 7 步 — 周期汇报（每 3 小时）
 
