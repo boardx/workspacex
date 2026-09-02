@@ -14,9 +14,11 @@
  *    AppShell（layout 头注有完整推导）。issue #2457 起，只带 `thread`（不带
  *    `projectId`）的纯个人线程深链已经改拦到 `/chat/:threadId`，继续走 v2——
  *    项目内对话本轮不支持迁移，是唯一还落在 `/chat/legacy` 的场景。
- * ③ 两个 page.tsx 渲染的都是同一个 `CopilotKitV2Shell`——这是"AppShell 持久、只有
- *    右侧内容切换"这句话在结构上成立的前提：如果两个 page 渲染的不是同一个组件，
- *    "只刷新右侧内容区"就无从谈起。
+ * ③ `CopilotKitV2Shell` 由 layout 挂载、两个 page.tsx 都**不**再渲染它——2026-09-02
+ *    第五轮实测根因：`[threadId]` 是动态段，page 级挂载的壳在每次线程切换时被整个
+ *    卸载重建，壳内为"快速切换不跳"做的全部记忆随实例丢失（`copilotkit-v2-shell-route.tsx`
+ *    头注有完整推导）。哪天有人把 `<CopilotKitV2Shell` 加回任一 page.tsx，切换线程
+ *    就会重新开始跳。
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -50,12 +52,20 @@ describe("#2067 AppShell 持久化：路由组结构", () => {
     expect(threadPage).not.toContain("<AppShell");
   });
 
-  it("两个 page.tsx 渲染的是同一个 CopilotKitV2Shell，不是各自另起一棵树", () => {
+  it("CopilotKitV2Shell 只由共享 layout 挂载一次；两个 page.tsx 都不再渲染它（否则动态段每次切换都会把壳整个重建）", () => {
+    const layout = read("app/chat/(v2)/layout.tsx");
+    const route = read("components/chat/copilotkit-v2-shell-route.tsx");
     const barePage = read("app/chat/(v2)/page.tsx");
     const threadPage = read("app/chat/(v2)/[threadId]/page.tsx");
 
-    expect(barePage).toContain("CopilotKitV2Shell");
-    expect(threadPage).toContain("CopilotKitV2Shell");
+    expect(layout).toContain("<CopilotKitV2ShellRoute");
+    expect(route).toContain("<CopilotKitV2Shell");
+    expect(route).toContain("useParams");
+    // 反证面：page 里只允许在注释中提到壳的名字，不允许再渲染它。
+    expect(barePage).not.toMatch(/<CopilotKitV2Shell/);
+    expect(threadPage).not.toMatch(/<CopilotKitV2Shell/);
+    expect(barePage).not.toMatch(/^import .*CopilotKitV2Shell/m);
+    expect(threadPage).not.toMatch(/^import .*CopilotKitV2Shell/m);
   });
 
   it("next.config.mjs 在 beforeFiles 位置只把带 projectId 的 /chat 深链拦到 /chat/legacy", async () => {

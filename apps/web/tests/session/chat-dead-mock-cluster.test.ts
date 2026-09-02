@@ -29,7 +29,10 @@ const ROOT = process.cwd();
  * issue #2067 —— 正式 v2 入口从 `app/chat/page.tsx` 挪进路由组 `app/chat/(v2)/page.tsx`
  * （AppShell/CopilotKit provider 由同组 `layout.tsx` 提供，见该文件头注）。
  */
-const CHAT_ROUTE = "app/chat/(v2)/page.tsx";
+// 2026-09-02 起 `(v2)/page.tsx` 渲染为空（壳提到了 layout，见该 layout 头注），
+// 走图入口改成 layout.tsx——从 page 起走会得到一棵什么都没走到的空闭包，"零 mock 边"
+// 就成了空转（下面"反空转"那几条 `visited` 断言正是为此存在）。
+const CHAT_ROUTE = "app/chat/(v2)/layout.tsx";
 
 /** `app/**` 下全部路由入口（page / layout / route），走图的起点集合。 */
 function routeEntries(dir = "app"): string[] {
@@ -74,7 +77,7 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
 
   /* ── 主张 ─────────────────────────────────────────────────────────────── */
 
-  it("从路由 app/chat/(v2)/page.tsx 起走，整棵闭包里没有一条指向 lib/mock 的边", () => {
+  it("从路由 app/chat/(v2)/layout.tsx 起走，整棵闭包里没有一条指向 lib/mock 的边", () => {
     const { visited, mockEdges } = walkImports(CHAT_ROUTE);
     expect(mockEdges).toEqual([]);
     // 反空转：这棵树必须真的走到取数与发消息两端，否则「没有 mock」是因为什么都没走。
