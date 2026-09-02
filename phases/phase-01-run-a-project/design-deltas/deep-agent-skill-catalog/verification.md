@@ -1,7 +1,7 @@
 # verification · deep-agent-skill-catalog
 
 ## V1 — 全仓只剩一处决定 run 用哪些 skill
-`grep -rn readPlatformSkills apps packages` 零命中。⚠ 反证：加回任何一处即红。
+`grep -rn 'readPlatformSkills(' apps packages` 零命中（定义与调用都没有；只剩两处注释回指历史）。⚠ 反证：加回任何一处即红。
 
 ## V2 — deep-agent 的 system 只目录、org_skills 全文
 `deep-agent-produces-files.test.ts` T4 ①：system 含 `- pptx:` / `- pdf-create:` / `call_skill`，不含全文独有句子、不含 `read_skill`；`org_skills[1].content` 含独有句子；`script_protocol` 照送。
