@@ -406,6 +406,7 @@ export function FeedbackDialog({
                 <ul className="flex flex-wrap gap-2" data-testid="feedback-attachment-list">
                   {attachments.map((a) => (
                     <li key={a.localId} className="relative h-16 w-16" data-testid={`feedback-attachment-${a.localId}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例） */}
                       <img
                         src={a.previewUrl}
                         alt=""
@@ -641,5 +642,6 @@ function AttachmentThumbnail({ url }: { url: string }) {
   if (objectUrl === null) {
     return <div className="h-12 w-12 animate-pulse rounded-md bg-muted" aria-hidden />;
   }
+  // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例）
   return <img src={objectUrl} alt="" className="h-12 w-12 rounded-md border border-border-subtle object-cover" />;
 }
