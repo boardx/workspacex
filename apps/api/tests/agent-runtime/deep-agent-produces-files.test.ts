@@ -167,6 +167,7 @@ interface StoredOutput {
 function fakeStore(
   run: ClaimedAgentRun,
   pinnedSkills: readonly PinnedSkillContent[],
+  platformSkills?: readonly PinnedSkillContent[],
 ): AgentRunStore & {
   readonly steps: AppendedRunStep[];
   readonly output: StoredOutput | null;
@@ -187,6 +188,10 @@ function fakeStore(
     claimQueued: async (): Promise<readonly ClaimOutcome[]> => [{ kind: "executable", run }],
     reclaimStaleRunning: unused("reclaimStaleRunning"),
     readPinnedSkills: async (): Promise<readonly PinnedSkillContent[]> => pinnedSkills,
+    // 2026-09-02：可选端口——不传时 store 上根本没有这个方法（= 此前所有用例的形态）。
+    ...(platformSkills === undefined ? {} : {
+      readPlatformSkills: async (): Promise<readonly PinnedSkillContent[]> => platformSkills,
+    }),
     appendStep: async (_orgId, step: AppendedRunStep) => { state.steps.push(step); },
     appendModelDelta: unused("appendModelDelta"),
     readModelDeltas: async () => [],
@@ -245,6 +250,8 @@ afterAll(async () => { await sandbox?.close(); });
 interface RunOnceInput {
   readonly deepAgent: DeepAgentFakeHandle;
   readonly pinnedSkills?: readonly PinnedSkillContent[];
+  /** 平台库 skill（`AgentRunStore.readPlatformSkills`）；`undefined` = store 不提供该端口。 */
+  readonly platformSkills?: readonly PinnedSkillContent[];
   /** 不注入沙箱/对象存储 ⇒ 这条路径整段不存在。 */
   readonly withSandbox?: boolean;
 }
@@ -256,7 +263,7 @@ async function runOnce(input: RunOnceInput): Promise<{
 }> {
   const pinnedSkills = input.pinnedSkills ?? [PPTX_SKILL];
   const run = baseRun({ skillVersionIds: pinnedSkills.map((s) => s.versionId) });
-  const store = fakeStore(run, pinnedSkills);
+  const store = fakeStore(run, pinnedSkills, input.platformSkills);
   const objects = memoryObjectStore();
   const model = new DeepAgentModelProvider({
     baseUrl: `http://127.0.0.1:${String(input.deepAgent.port)}`,
@@ -420,6 +427,58 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
       expect(store.output).toEqual({ text: FINAL_PROSE_REPLY, finalStepSeq: 5, files: [] });
       const body = deepAgent.createRunBodies[0] as { config: { configurable: Record<string, unknown> } };
       expect(Object.keys(body.config.configurable)).toEqual(["org_skills"]);
+    } finally {
+      await deepAgent.close();
+    }
+  });
+});
+
+describe("T4（2026-09-02）平台库 skill 自动进入 deep-agent run，不需要挂载", () => {
+  const PDF_PLATFORM_SKILL: PinnedSkillContent = {
+    versionId: "skill-version-platform-pdf",
+    content: "# pdf-create\n生成 PDF 文档。",
+    stableName: "pdf-create",
+    name: "PDF 文档生成",
+  };
+
+  it("没挂任何 skill 的对话 ⇒ org_skills 仍带上平台库全部 skill，script_protocol 一并送过去", async () => {
+    const deepAgent = await startDeepAgentFake({ toolResult: null, finalReply: "好的。" });
+    try {
+      const { store } = await runOnce({ deepAgent, pinnedSkills: [], platformSkills: [PDF_PLATFORM_SKILL] });
+      expect(store.failedWith).toBeNull();
+      const body = deepAgent.createRunBodies[0] as {
+        config: { configurable: { org_skills: { stable_name: string }[]; script_protocol?: string } };
+      };
+      // 反证：此前这里恒为 `[]`——远端 `list_org_skills` 回「本次运行没有挂载任何技能」。
+      expect(body.config.configurable.org_skills.map((s) => s.stable_name)).toEqual(["pdf-create"]);
+      expect(body.config.configurable.script_protocol).toBe(RUN_SCRIPT_PROTOCOL_PROMPT);
+    } finally {
+      await deepAgent.close();
+    }
+  });
+
+  it("挂载的 skill 排在前面；与平台库同名的不重复列出", async () => {
+    const deepAgent = await startDeepAgentFake({ toolResult: null, finalReply: "好的。" });
+    try {
+      const mountedPdf: PinnedSkillContent = { ...PDF_PLATFORM_SKILL, versionId: "skill-version-mounted-pdf" };
+      await runOnce({
+        deepAgent, pinnedSkills: [PPTX_SKILL, mountedPdf], platformSkills: [PDF_PLATFORM_SKILL],
+      });
+      const body = deepAgent.createRunBodies[0] as {
+        config: { configurable: { org_skills: { stable_name: string }[] } };
+      };
+      expect(body.config.configurable.org_skills.map((s) => s.stable_name)).toEqual(["pptx", "pdf-create"]);
+    } finally {
+      await deepAgent.close();
+    }
+  });
+
+  it("store 不提供 readPlatformSkills（fake / 旧实现）⇒ 行为与此前逐字相同", async () => {
+    const deepAgent = await startDeepAgentFake({ toolResult: null, finalReply: "好的。" });
+    try {
+      await runOnce({ deepAgent, pinnedSkills: [] });
+      const body = deepAgent.createRunBodies[0] as { config: { configurable: Record<string, unknown> } };
+      expect(body.config.configurable.org_skills).toEqual([]);
     } finally {
       await deepAgent.close();
     }

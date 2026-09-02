@@ -111,8 +111,8 @@ export class AcceptMessagePlanRunCreator implements PlanRunCreator {
     const accepted = await acceptHumanMessage(this.deps, {
       userId: input.actorId, orgId: input.orgId, threadId: input.threadId,
       clientMessageId, text: input.messageText ?? PLAN_CONFIRMATION_MESSAGE_TEXT, agentId: latestRun.agentId,
+      onAccepted: () => this.deps.executor.kick(input.orgId),
     });
-    this.deps.executor.kick(input.orgId);
     // issue #2250 -- fire-and-forget: the confirm/resume/retry HTTP response must stay fast
     // (existing, tested behaviour), only the plan-ledger feedback loop was missing. Errors
     // are logged inside `watchPlanProgress` itself and never rejected out of this promise.

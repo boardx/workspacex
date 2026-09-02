@@ -205,6 +205,20 @@ export interface ChatRepository {
   ): Promise<boolean>;
 
   /**
+   * 线程标题是否仍是默认名（= 还没被自动命名、也没被用户改过）。
+   *
+   * 给 `acceptHumanMessage` 的自动命名做**前置短路**：此前每条消息都先调一次起名模型
+   * （最多等 `THREAD_TITLE_TIMEOUT_MS`），再由上面 `autoTitleThreadIfDefault` 的
+   * `WHERE title = $默认名` 把非首条消息的结果丢掉——模型调用白等、发消息链路白慢。
+   * 先问一句「还是默认名吗」，不是就根本不调模型。这不是第二份「只有首条起名」的
+   * 规则：真正的写入判定仍只在 `autoTitleThreadIfDefault` 的 UPDATE 里，这里只是省掉
+   * 一次注定被丢弃的模型往返；两句之间并发改名的窗口由那条 UPDATE 兜底。
+   *
+   * @returns 线程不存在时也返回 `false`（没有可命名的对象）。
+   */
+  isThreadTitleDefault(orgId: OrgId, threadId: string, defaultTitle: string): Promise<boolean>;
+
+  /**
    * 改名 / 删除。乐观并发：`expectedVersion` 不匹配返回 `null`，**不静默覆盖**（V7）。
    * 匹配时返回新版本号。
    */

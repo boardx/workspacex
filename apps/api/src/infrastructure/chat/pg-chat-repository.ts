@@ -396,6 +396,16 @@ export class PgChatRepository implements ChatRepository {
     });
   }
 
+  async isThreadTitleDefault(orgId: OrgId, threadId: string, defaultTitle: string): Promise<boolean> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ id: string }>(
+        `SELECT id FROM chat_threads WHERE id = $1 AND org_id = $2 AND title = $3`,
+        [threadId, orgId, defaultTitle],
+      );
+      return r.rows.length > 0;
+    });
+  }
+
   async deleteThread(
     orgId: OrgId,
     threadId: string,

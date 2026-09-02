@@ -428,8 +428,8 @@ export class ChatController {
         userId: principal.userId, orgId: toOrgId(principal.orgId), threadId,
         clientMessageId: parsed.data.clientMessageId, text: parsed.data.text,
         agentId: parsed.data.agentId, attachmentIds: parsed.data.attachmentIds,
+        onAccepted: () => this.agentRuns.kick(toOrgId(principal.orgId)),
       });
-      this.agentRuns.kick(toOrgId(principal.orgId));
       return {
         message: {
           id: accepted.id, authorKind: "human" as const, authorId: accepted.authorId,

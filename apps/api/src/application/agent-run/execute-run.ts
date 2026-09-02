@@ -745,6 +745,25 @@ async function executeClaimed(
     // assistant's own Skill-execution behaviour lives in `DeepAgentModelProvider`'s remote
     // service now (#740), not as a second branch here.
     toolSkills = skills;
+    // 2026-09-02：deep-agent run 自动带上平台库全部已发布 skill（见
+    // `AgentRunStore.readPlatformSkills` 的头注）。固定/挂载的 skill 仍排在前面、
+    // 仍按快照 pin 的版本；平台 skill 只补进快照里没有的（同一 stableName 已经被
+    // 挂载 = 同一行，不重复列出）。读取失败只记日志：平台库不可用不该让对话失败。
+    // ⚠ 只进 `toolSkills`（→ 远端 `org_skills`，由 `list_org_skills`/`call_skill` 按需取
+    //   正文）和沙箱协议门；**不**进下面 `buildSystemPrompt` 的 `skills`——那会把四份
+    //   SKILL.md 全文每轮塞进编排模型的 system prompt，正是这轮要削的延迟。
+    if (isDeepAgentRun && deps.runs.readPlatformSkills) {
+      try {
+        const platform = await deps.runs.readPlatformSkills(orgId);
+        const seen = new Set(skills.map((s) => s.stableName));
+        toolSkills = [...skills, ...platform.filter((p) => !seen.has(p.stableName))];
+      } catch (e) {
+        deps.log("agent run platform skill catalog read failed, continuing with pinned skills only", {
+          runId: run.runId,
+          detail: e instanceof Error ? e.message : "unexpected platform skill read failure",
+        });
+      }
+    }
     // issue #1493 -- own try/catch, INSIDE the outer one but never rethrown: a canvas
     // template read failure is not "the pinned context couldn't be assembled" (that is what
     // `SKILL_VERSION_UNAVAILABLE` above means), it is the same "this layer degraded to
@@ -776,7 +795,7 @@ async function executeClaimed(
      * ⚠ 拼在**最后**：skill 自己的指令优先，这里只追加一层能力说明——与
      *   `execute-trial-run.ts` 逐字同一条纪律，不写第二套拼法。
      */
-    if (deps.sandbox && deps.objects && skills.length > 0) {
+    if (deps.sandbox && deps.objects && toolSkills.length > 0) {
       system = `${system}\n\n---\n\n${RUN_SCRIPT_PROTOCOL_PROMPT}`;
       /*
        * #1747 —— 同一道门，同一段文本，多一个出口。
