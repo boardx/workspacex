@@ -567,10 +567,21 @@ function FeedbackCard({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {/* 卡片本身就是打开 detail 弹层的触发器——票数按钮 `stopPropagation`，不冒泡到这里。 */}
+        {/*
+          卡片本身就是打开 detail 弹层的触发器——票数按钮 `stopPropagation`，不冒泡
+          到这里。⚠ 2026-09-02 独立审查：`role="button"` 的 `<div>` 不像原生
+          `<button>` 那样自带 Enter/Space 激活语义（Radix `asChild` 只透传
+          `onClick`，不会替非原生元素补键盘行为）——显式补上，否则纯键盘操作者
+          打不开这个弹层。
+        */}
         <Card
           role="button"
           tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            e.currentTarget.click();
+          }}
           className="cursor-pointer transition-colors duration-fast hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           data-testid={`admin-feedback-item-${item.id}`}
         >

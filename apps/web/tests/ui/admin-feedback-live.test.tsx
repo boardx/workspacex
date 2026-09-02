@@ -234,6 +234,21 @@ describe("FB-3 后台反馈屏（真栈）", () => {
     ).toHaveLength(0);
   });
 
+  /**
+   * 2026-09-02 独立审查：卡片是 `role="button"` 的 `<div>`（Radix `DialogTrigger
+   * asChild` 只透传 `onClick`），纯键盘操作者必须能用 Enter/Space 打开它，
+   * 不能只靠鼠标点击。
+   */
+  it("键盘：卡片聚焦后按 Enter 打开 detail 弹层（不止鼠标点击）", async () => {
+    mockApi([productItem]);
+    render(<FeedbackScreen state="default" />);
+    const card = await screen.findByTestId("admin-feedback-item-fb-p");
+    expect(screen.queryByTestId("admin-feedback-detail-fb-p")).toBeNull();
+
+    fireEvent.keyDown(card, { key: "Enter" });
+    expect(await screen.findByTestId("admin-feedback-detail-fb-p")).toBeTruthy();
+  });
+
   it("④ 只出现当前状态出得去的那几条边 —— 「已进入迭代」不该有转到自己的按钮", async () => {
     mockApi([skillItem]);
     render(<FeedbackScreen state="default" />);

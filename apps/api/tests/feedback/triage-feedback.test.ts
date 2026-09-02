@@ -322,6 +322,36 @@ describe("triageFeedback —— 状态变更邮件（best-effort）", () => {
     );
   });
 
+  /**
+   * 2026-09-02 独立审查 P0：`appendStatusEvent` 排在邮件发送**之后**（要把真实
+   * 通知结果一并存进事件行，见调用点⚠），意味着它失败时状态已经落库、邮件说不定
+   * 也已经真的发出去了——这两者都是既成事实，写历史这一步失败不该让整个用例
+   * 对调用方报错（那会让管理员以为"操作没生效"而不必要地重试）。
+   */
+  it("appendStatusEvent 失败（邮件已经发出去之后）⇒ 不抛给调用方，状态/通知结果原样返回，只记日志", async () => {
+    const repo = fakeRepo(row());
+    (repo.appendStatusEvent as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      throw new Error("db write failed");
+    });
+    const deps = baseDeps({ repo });
+
+    const out = await triageFeedback(deps, {
+      feedbackId: "fb-1", status: "已进入迭代", reason: null, issueDraft: null, ...ADMIN,
+    });
+
+    // 状态确实变了、邮件确实（尝试）发了——写历史失败没有让这两件已经发生的事
+    // "看起来没发生"，调用方拿到的仍然是一次成功的转移。
+    expect(repo.updateStatus).toHaveBeenCalledWith("fb-1", "已进入迭代", null);
+    expect(deps.mail.send).toHaveBeenCalled();
+    expect(out.status).toBe("已进入迭代");
+    expect(out.notified).toBe(true);
+    // 失败被记下来了，不是静默丢掉——见文件头③④「已知限制」段落，issue #2510。
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("appendStatusEvent"),
+      expect.objectContaining({ feedbackId: "fb-1" }),
+    );
+  });
+
   it("幂等重放(目标状态=当前状态)不发邮件", async () => {
     const deps = baseDeps({ repo: fakeRepo(row({ status: "已进入迭代" })) });
     const out = await triageFeedback(deps, {

@@ -63,6 +63,23 @@
  *
  * ⚠ 幂等重放**也不同步**:状态没变,没有什么新状态需要同步给 GitHub。
  *
+ * ### ④ 写事件行(迁移 20260902110613)—— 同②③一样是 best-effort,同一条纪律
+ *
+ * `appendStatusEvent` 排在②之后是因为它要把②真实的通知结果一并存进这一行
+ * (见调用点⚠)。这意味着它的失败窗口现在**包含**了一次外部邮件调用,比"改状态
+ * 后立刻写事件"要宽——万一这一步失败,状态变更与(可能已经发出的)通知邮件都已经
+ * 是既成事实,不因为写历史失败就整个用例失败、也不该让管理员以为"操作没生效"从而
+ * 重试造成困惑(重放会命中上面的"幂等重放不发邮件"分支,徒增疑惑)。所以失败只记日志,
+ * 与②③同一条"已落库的事实不因次要步骤失败而回滚"的纪律。
+ *
+ * ⚠ **已知限制,登记、不在这轮修**(2026-09-02 独立审查提出,issue #2510 记录,
+ *   把这条与②③的同类限制/#2500 一起收敛成统一 outbox):这一行历史因此可能
+ *   **永久**丢失(没有 outbox/重试补写),丢的时候界面能看到的证据只有值班日志里
+ *   的一条 `feedback-triage-append-event` error,管理员在这条反馈的「更新记录」
+ *   里会看到一处状态跳变缺了一行说明。与①②③是同一类"本地已落库、次要记录/
+ *   同步只是尽力"的权衡,不为了堵这个口子单独新增一张持久化的 outbox 表/后台
+ *   补写调度。
+ *
  * ⚠ **已知限制,登记、不在这轮修**(2026-09-02 独立审查提出,issue #2500 记录):
  *   同步失败之后没有持久 outbox/重试调度——反馈状态与 GitHub issue 开关短暂不一致
  *   的窗口是真实存在的,管理员在这条反馈上再次触发任何一次状态转移时会重新尝试
@@ -225,17 +242,30 @@ export async function triageFeedback(
     reason: outcome.reason,
   });
 
-  await deps.repo.appendStatusEvent({
-    id: deps.newEventId(),
-    feedbackId: input.feedbackId,
-    fromStatus: outcome.from,
-    toStatus: outcome.to,
-    reason: outcome.reason,
-    actorId: input.actorId,
-    notified: notification.notified,
-    emailSubject: notification.subject,
-    emailText: notification.text,
-  });
+  // ⚠ 2026-09-02 独立审查 P0：这一步失败**不能**让整个用例失败——状态已经落库
+  //   （上面 `updateStatus`），邮件说不定也已经真的发出去了（`notification`），
+  //   两者都是「已经发生的事实」，不因为写这一行历史失败就变成没发生过（同②③的
+  //   纪律，也是本文件从②③开始反复出现的同一条原则）。真失败了就只记日志——
+  //   审查指出的残余风险（这一行历史因此**永久**丢失，没有 outbox/重试补写）是
+  //   真实、已知、记录在案的限制，见下方段落，不在本轮补齐。
+  try {
+    await deps.repo.appendStatusEvent({
+      id: deps.newEventId(),
+      feedbackId: input.feedbackId,
+      fromStatus: outcome.from,
+      toStatus: outcome.to,
+      reason: outcome.reason,
+      actorId: input.actorId,
+      notified: notification.notified,
+      emailSubject: notification.subject,
+      emailText: notification.text,
+    });
+  } catch (e) {
+    deps.logger.error(
+      "feedback triage: appendStatusEvent failed (best-effort, status change + notification already committed)",
+      { traceId: "feedback-triage-append-event", feedbackId: input.feedbackId, err: e },
+    );
+  }
 
   return { feedbackId: input.feedbackId, status: outcome.to, notified: notification.notified, githubIssueUrl };
 }
