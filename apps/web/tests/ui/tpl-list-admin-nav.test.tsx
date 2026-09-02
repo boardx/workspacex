@@ -46,9 +46,9 @@ describe("2026-08-15 /tpl/list：后台 AdminNav 侧栏（此前压根没有）"
     expect(capturedAppShellProps).not.toBeNull();
     expect(capturedAppShellProps!.left).toBeTruthy();
     expect(screen.getByTestId("fake-left-slot")).toBeTruthy();
-    // AdminNav 真实渲染出「治理后台」标题与 admin-nav 容器（未登录态计数皆为「—」，不影响结构断言）。
+    // AdminNav 真实渲染出「组织后台」标题与 admin-nav 容器（未登录态计数皆为「—」，不影响结构断言）。
     expect(screen.getByTestId("admin-nav")).toBeTruthy();
-    expect(screen.getByText("治理后台")).toBeTruthy();
+    expect(screen.getByText("组织后台")).toBeTruthy();
     // ② 「项目模板」这一项在 AdminNav 里高亮为当前所在模块。
     expect(screen.getByTestId("admin-nav-blueprint").getAttribute("aria-current")).toBe("page");
     // 生产列表组件照常渲染在主内容区。

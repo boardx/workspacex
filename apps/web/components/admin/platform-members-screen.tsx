@@ -15,7 +15,7 @@ import {
 import type { UiState } from "@/lib/ui-state";
 
 /**
- * `/admin/platform` —— 成员管理的**平台级**（member-role-management delta）。
+ * `/platform-admin/members`（原 `/admin/platform`，2026-09-02 迁入平台后台）—— 成员管理的**平台级**（member-role-management delta）。
  *
  * 与 `/org-admin` 的「成员」标签页（组织级）是同一件事的两个视角：那边是组织 admin 看
  * **本组织**的人、改本组织里的角色；这边是平台超管看**全平台**的账号、改任一组织里的角色。
@@ -110,6 +110,7 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
       moduleLabel="平台成员"
       title="平台成员"
       liveBacked
+      hideOrgIdentity
       intro="平台上全部账号及其在各组织里的成员身份。这是成员管理的平台级：只对平台超管（部署白名单）开放；每个组织自己的成员管理在「组织管理 → 成员」。"
       emptyHint="平台上还没有任何账号"
       depFailure="名册读取依赖身份服务；不可用时不显示任何账号，不用旧数据顶替。"
