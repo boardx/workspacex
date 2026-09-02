@@ -175,6 +175,15 @@ describe("doctor ⑤：关闭 issue 的 PR 合入时不绿 → 报完成定义�
     expect(out).toContain("coord/andon");
   });
 
+  it("commit status 五个 state（REST 小写）：error 报、pending / expected / success 不报（非必需 context）、未知取值报", () => {
+    const at = (state: string) => runDoctorWithFakeGh({ closedAt: AFTER, vcp: [["success", -10]], statuses: [["coord/andon", state, -3]] });
+    expect(at("error")).toContain("`coord/andon` 结论 ERROR");
+    expect(at("pending")).not.toContain("完成定义第 7 条");
+    expect(at("expected")).not.toContain("完成定义第 7 条");
+    expect(at("success")).not.toContain("完成定义第 7 条");
+    expect(at("bogus")).toContain("不在已知取值内");
+  });
+
   it("commit status 合入前 failure、合入前又打成 success → 不报（合入前最后一次 state 说了算）", () => {
     const out = runDoctorWithFakeGh({ closedAt: AFTER, vcp: [["success", -10]], statuses: [["coord/andon", "failure", -8], ["coord/andon", "success", -2]] });
     expect(out).not.toContain("完成定义第 7 条");

@@ -111,7 +111,8 @@ describe("commit status（StatusContext）与 check run 同规则重建（独立
 
   it("映射与 pr-queue 活 rollup 同一处：state 即 conclusion，createdAt 既是开始也是完成", () => {
     expect(status("coord/andon", "FAILURE", -3, 7)).toEqual({ id: 7, name: "coord/andon", status: "COMPLETED", conclusion: "FAILURE", startedAt: T(-3), completedAt: T(-3) });
-    expect(commitStatusToObservation({ context: "x", state: null, createdAt: null })).toMatchObject({ status: "UNKNOWN", conclusion: null });
+    expect(status("coord/andon", "PENDING", -3)).toMatchObject({ status: "PENDING", conclusion: null });
+    expect(commitStatusToObservation({ context: "x", state: null, createdAt: null })).toMatchObject({ status: "UNKNOWN", conclusion: "UNKNOWN_STATE(null)" });
   });
 
   it("合入前打上的 failure status → 红就是红，violation 理由带 context 名", () => {
@@ -123,6 +124,24 @@ describe("commit status（StatusContext）与 check run 同规则重建（独立
   it("同一 context 合入前 failure → 合入前 success：最后一次说了算 → ok；合入后才 failure → 无关 → ok", () => {
     expect(judge([pr({ runs: [...greenRuns(), status("coord/andon", "FAILURE", -8), status("coord/andon", "SUCCESS", -2)] })]).kind).toBe("ok");
     expect(judge([pr({ runs: [...greenRuns(), status("coord/andon", "FAILURE", +7)] })]).kind).toBe("ok");
+  });
+
+  it("五个 GitHub state 在合入时刻的判定：SUCCESS ok；FAILURE / ERROR 违反；PENDING / EXPECTED 非必需不拦；未知 → 违反", () => {
+    const at = (state: string) => judge([pr({ runs: [...greenRuns(), status("coord/andon", state, -3)] })]).kind;
+    expect(at("SUCCESS")).toBe("ok");
+    expect(at("FAILURE")).toBe("violation");
+    expect(at("ERROR")).toBe("violation");
+    expect(at("PENDING")).toBe("ok");
+    expect(at("EXPECTED")).toBe("ok");
+    expect(at("bogus")).toBe("violation");
+  });
+
+  it("同名 required 的 context 合入时 PENDING / EXPECTED → 违反（还没有结论，不是绿）", () => {
+    for (const state of ["PENDING", "EXPECTED"]) {
+      const v = judge([pr({ runs: withVA(status("verify-affected", state, -3)) })]);
+      expect(v.kind, state).toBe("violation");
+      if (v.kind === "violation") expect(v.reasons.join("\n")).toContain("还没有结论");
+    }
   });
 
   it("合入前 success → 合入后又打 failure 覆盖不了合入时刻；合入前 success → 合入前 failure 则违反", () => {
