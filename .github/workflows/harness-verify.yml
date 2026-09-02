@@ -235,7 +235,15 @@ jobs:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
         run: pnpm turbo run typecheck lint --affected
 
-      - name: 受影响模块 test（@repo/api 除外，见上——它由 backend-gates 的分片 job 单独覆盖）
+      # 2026-09-02 续（独立 review 抓到的真实回归）：上面「排除 @repo/api」的前提是
+      # backend-gates 的 gates-test 会替它把关——但 gates-test 对 **fork PR 整体跳过**
+      # （`backend-gates.yml` 每个 gates job 都带 `head.repo.full_name == github.repository`
+      # 同仓门，本文件历来没有对应的 fork 判断）。无条件排除会让 fork PR 改 apps/api 时
+      # 两边都不跑，零覆盖，不是「转移覆盖」。因此排除只在 gates-test 确实会跑的场景
+      # （非 PR 事件，或同仓 PR）生效；fork PR 上仍然把 @repo/api 留在 --affected 集合里，
+      # 保底覆盖不丢，只是这一种场景下放弃去重收益（fork PR 本就少见，宁可偶尔重复
+      # 跑一遍，不可接受的是不跑）。
+      - name: 受影响模块 test
         env:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
           # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
@@ -244,7 +252,15 @@ jobs:
           # 会话共享的库——门要挡的「不知情地连上共享库」在这个环境里没有对象。
           # ⚠ 自建 runner（常驻机器）上**不得**照抄这行：那里的库是真共享的。
           WORKSPACEX_DB: workspacex
-        run: pnpm turbo run test --affected --filter='!@repo/api'
+          GATES_TEST_WILL_RUN: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          if [ "$GATES_TEST_WILL_RUN" = "true" ]; then
+            # 同仓：@repo/api 交给 backend-gates 的分片 job，这里排除避免重复跑。
+            pnpm turbo run test --affected --filter='!@repo/api'
+          else
+            # fork PR：backend-gates 整个跳过，@repo/api 留在这里，保底不丢覆盖。
+            pnpm turbo run test --affected
+          fi
 
   # 全仓编译门（ADR-106 S2 / #1333）——人类裁决方案 A（经 coord-main 转达）：
   # PR 上加一条**全仓** typecheck/lint/build，**不含全量 test**，因此不与
