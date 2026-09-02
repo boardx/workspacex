@@ -69,9 +69,10 @@ describe("§1 一级只留原型圈定的项，五项降为「后台」的二级
     expect(orchestration?.items.map((i) => i.key)).toEqual(["projects"]);
   });
 
-  it("一级「治理」组里只有「后台」—— 技能/智能体/成员/资产不再与它并列", () => {
+  it("一级「治理」组里只有「组织后台」「平台后台」—— 技能/智能体/成员/资产不再与它并列", () => {
+    // 2026-09-02 人类直接裁决：后台切成两面，各一个一级入口（见 lib/mock/admin.ts `AdminScope`）。
     const governance = NAV_SEGMENTS.find((s) => s.label === "治理");
-    expect(governance?.items.map((i) => i.key)).toEqual(["admin"]);
+    expect(governance?.items.map((i) => i.key)).toEqual(["admin", "platform-admin"]);
   });
 
   it("「蓝本」不属于任何一级分组（segmentLabelOf 查不到它）", () => {

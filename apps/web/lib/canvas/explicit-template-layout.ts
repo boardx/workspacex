@@ -152,6 +152,8 @@ export function computeExplicitLayout(
 export interface ExplicitTemplateInput {
   readonly key: string;
   readonly displayName: string;
+  /** 页脚署名（编辑器「页脚署名」栏）。空串/缺省 = 不画（issue #2527）。 */
+  readonly footer?: string;
   readonly sections: readonly ExplicitLayoutSectionInput[];
   readonly gridCols: 6 | 12;
 }
@@ -295,6 +297,7 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
     spec: {
       key: input.key,
       title: input.displayName,
+      ...(input.footer ? { footer: input.footer } : {}),
       ...(headerFields ?? {}),
       sections,
       titleBars: true,
@@ -475,6 +478,16 @@ export const STANDARD_NOTE_MM = 76;
  * 空间留白，不再继续把贴纸撑大到显示失败。
  */
 export const MAX_NOTE_MM = 82;
+/**
+ * 为了塞进「最多条数」而把贴纸往下收时的边长下限——issue #2527：3 列 × 最多 9 条，
+ * 按宽度倒推的贴纸吃到 `MAX_NOTE_MM` 上限后高度只塞得下 1 行，画出来 3×1 而不是
+ * 使用者期望的 3×3。修法是按 `ceil(max/cols)` 行反推贴纸边长（见 `sectionGeometryMm`），
+ * 但不能无底线地缩：区块很矮却把「最多条数」拧到 99 时，按行反推会得到几 mm 的
+ * 贴纸，字号下限（6.5px）一行都放不下，等于画一堆看不见内容的色块。这里取
+ * `classifyNoteSize` 「too-small」分界线（46mm）的一半：再小就如实报"放不下"，
+ * 走 overflow 策略，而不是假装放得下。
+ */
+export const MIN_SHRINK_NOTE_MM = 23;
 
 export interface SectionGeometryMmInput {
   readonly w: number;
@@ -483,6 +496,12 @@ export interface SectionGeometryMmInput {
   readonly gridCols: 6 | 12;
   /** 纸张尺寸——决定内容区物理 mm 数。缺省 `"A1"`，兼容既有调用方（历史数据的默认尺寸）。 */
   readonly size?: PaperSizeKey;
+  /**
+   * 「最多条数」（`layout.max`）。给了它，贴纸边长会在宽度版尺寸的基础上再按
+   * `ceil(max/cols)` 行往下收，让这块地方真的能摆出使用者要的条数（issue #2527）。
+   * 不给则保持纯宽度倒推（既有调用方/测试不受影响）。
+   */
+  readonly max?: number;
 }
 
 export interface SectionGeometryMm {
@@ -575,6 +594,27 @@ export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometr
     if (heightConstrainedNoteMm > 0 && heightConstrainedNoteMm < noteMm) {
       noteMm = heightConstrainedNoteMm;
       rows = 1;
+    }
+  }
+  // ⚠ issue #2527（2026-09-02 用户反馈）：「目标和需求」设最多 9 条、选 3 列，
+  //   按道理是 3 列 × 每列 3 条，实际画出来 3 列 × 每列 1 条。根因：`noteMm` 此前
+  //   只由*宽度*倒推（封顶 `MAX_NOTE_MM`），3 列在常规区块宽度下直接吃到 82mm 上限，
+  //   区块高度只够摆 1 行，`rows=1`、`fits=3`，剩下 6 条被容量夹掉——「最多条数」
+  //   从来没参与过贴纸尺寸的决定，列数选择等于只决定了第一行摆几张。
+  //   修法：宽度版容量不够 `max` 时，按 `ceil(max/cols)` 行反推贴纸边长（同一行
+  //   `cols` 张的宽度本来就够，只需按高度收小）；收到 `MIN_SHRINK_NOTE_MM` 以下
+  //   就停（能多摆几行摆几行，摆不下的仍如实按 overflow 策略处理）。
+  //   `Math.floor` 的理由同上一段：宁可小一圈，不能让 `n×noteMm+(n-1)×gap` 超出可用高度。
+  const max = input.max;
+  if (max !== undefined && max > 0 && noteMm > 0 && input.cols > 0 && input.cols * rows < max) {
+    const neededRows = Math.ceil(max / input.cols);
+    for (let n = neededRows; n > rows; n -= 1) {
+      const fitted = Math.floor((availableHeightMm - GRID_GAP_MM * (n - 1)) / n);
+      if (fitted >= MIN_SHRINK_NOTE_MM && fitted < noteMm) {
+        noteMm = fitted;
+        rows = n;
+        break;
+      }
     }
   }
   return {

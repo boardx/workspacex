@@ -52,6 +52,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-02：数字访谈报告按 revision 唯一存储时，失败重试不能再次 INSERT；必须锁定并原子复用 failed 行、清空所有部分产物并更新 requestId，否则唯一约束异常会在模型调用前被兜底成 `DEPENDENCY_UNAVAILABLE`（出处：issue #2525）。
 - 2026-08-30：数字访谈把 Persona、问题或回答发送给外部模型前，必须先用与写事务相同的 actor 可见性谓词取得带 version/revision 的授权快照；模型调用结束后再在锁内复查权限与版本，且不得跨模型调用持有数据库事务，否则同组织越权者可在最终落库被拒前造成资料外发与模型费用（出处：PR #2377 独立安全 review）。
 - 2026-08-30：数字访谈的 `generate_questions` 不能用“姓名插值 + 固定三问”冒充 AI 针对性生成；必须把已确认候选的完整 Persona 与主题一起传给模型，校验每位专家恰好三问且跨专家问题不重复，模型输出无效时 fail closed（出处：issue #2376）。
 - 2026-08-15：`/rec` 的 AudioWorklet render quantum 不能与浏览器 WebSocket 帧一一对应；48 kHz 输入会产生约 84–86B/2.7ms 的微帧并放大浏览器、API 与 ASR provider 的消息开销。应在保持 16 kHz PCM16LE 字节顺序不变的前提下聚合为约 80ms/2560B 的传输帧，并在停止时刷新尾帧（出处：issue #1335）。

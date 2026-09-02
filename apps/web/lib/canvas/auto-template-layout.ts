@@ -405,6 +405,8 @@ export interface AutoTemplateInput {
   readonly key: string;
   /** 模板显示名 —— 画布顶部标题带上的那行字。 */
   readonly displayName: string;
+  /** 页脚署名（编辑器「页脚署名」栏）。空串/缺省 = 不画（issue #2527）。 */
+  readonly footer?: string;
   readonly sections: readonly AutoLayoutSectionInput[];
 }
 
@@ -503,6 +505,7 @@ export function buildAutoTemplateSpec(input: AutoTemplateInput): AutoTemplateRes
     spec: {
       key: input.key,
       title: input.displayName,
+      ...(input.footer ? { footer: input.footer } : {}),
       ...headerFields,
       sections,
       titleBars: true,

@@ -21,6 +21,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
+import { AGUI_RUN_PHASE_EVENT_NAME } from "@repo/contracts/agui-state-events";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
 } from "../support/db";
@@ -198,18 +199,26 @@ describe("POST /copilotkit/agui with KERNEL_MODEL_STREAM_ENABLED=1", () => {
       const { status, events } = await postBridgeTurn("Stream this, please");
       expect(status).toBe(200);
 
+      // `run_phase` (context_building / model_thinking) is prep-stage progress plumbing --
+      // see agui-bridge-state-events.test.ts's PLUMBING_CUSTOM_EVENT_NAMES doc -- and fires
+      // an indeterminate number of times (0-2) depending on polling timing, so positional
+      // assertions below are taken against the events with it filtered out.
+      const nonPhaseEvents = events.filter(
+        (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
+      );
+
       // RUN_STARTED first, THEN DA-19a's CUSTOM chat_thread_id (every real run mints/echoes
       // one via `onThreadResolved`, which fires unconditionally before `onStarted` -- see
       // `agui-bridge.ts`), THEN the streamed content, THEN a lone TEXT_MESSAGE_END -- never
       // a second CONTENT carrying the whole answer again.
-      expect(events[0]?.type).toBe(EventType.RUN_STARTED);
-      expect(events[1]?.type).toBe(EventType.CUSTOM);
-      expect(events[2]?.type).toBe(EventType.TEXT_MESSAGE_START);
+      expect(nonPhaseEvents[0]?.type).toBe(EventType.RUN_STARTED);
+      expect(nonPhaseEvents[1]?.type).toBe(EventType.CUSTOM);
+      expect(nonPhaseEvents[2]?.type).toBe(EventType.TEXT_MESSAGE_START);
 
       const contentEvents = events.filter((e) => e.type === EventType.TEXT_MESSAGE_CONTENT);
       expect(contentEvents.map((e) => e.delta)).toEqual(["The ", "answer ", "streamed ", "in pieces."]);
 
-      const messageId = events[2]?.messageId as string;
+      const messageId = nonPhaseEvents[2]?.messageId as string;
       expect(contentEvents.every((e) => e.messageId === messageId)).toBe(true);
 
       // CK-P3（issue #2054）—— 收尾多了一个 `CUSTOM chat_message_id`（回显这条 assistant
@@ -217,7 +226,7 @@ describe("POST /copilotkit/agui with KERNEL_MODEL_STREAM_ENABLED=1", () => {
       // 客户端收到它时气泡已完整，这一轮还没结束。本条用例真正要钉的
       // 「不在末尾把整段文字再发一遍」没有变——尾巴里仍然只有一个 TEXT_MESSAGE_END，
       // 没有第二个 TEXT_MESSAGE_CONTENT。
-      const tail = events.slice(-3).map((e) => e.type);
+      const tail = nonPhaseEvents.slice(-3).map((e) => e.type);
       expect(tail).toEqual([
         EventType.TEXT_MESSAGE_END, EventType.CUSTOM, EventType.RUN_FINISHED,
       ]);

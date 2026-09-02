@@ -237,6 +237,23 @@ describe("自动命名叠加模型摘要 —— POST /chat/threads/:id/messages"
     THREAD_TITLE_TIMEOUT_MS * 10,
   );
 
+  it("④ 标题已不是默认名（非首条消息 / 用户改过名）⇒ 一次起名模型调用都不发", async () => {
+    const threadId = await newPersonalThread();
+    nextReplyText = "首条起名";
+    expect((await postMessage(threadId, "第一条：请帮我起个名")).status).toBe(202);
+    expect(await titleOf(threadId)).toBe("首条起名");
+    expect(calls).toHaveLength(1);
+
+    // 反证：此前的实现在这里会再调一次模型、然后被 `WHERE title = $默认名` 丢掉——
+    // 用户每条消息都白等一次起名往返（超时时是整整 THREAD_TITLE_TIMEOUT_MS）。
+    hangResponse = true; // 若真的再调模型，这条请求会被拖到超时；不调则秒回。
+    const startedAt = Date.now();
+    expect((await postMessage(threadId, "第二条：随便聊聊")).status).toBe(202);
+    expect(Date.now() - startedAt).toBeLessThan(THREAD_TITLE_TIMEOUT_MS);
+    expect(await titleOf(threadId)).toBe("首条起名");
+    expect(calls, "第二条消息不该产生新的模型调用").toHaveLength(1);
+  });
+
   it("模型回复为空白 ⇒ 同样落回截断，不写一个空标题", async () => {
     const threadId = await newPersonalThread();
     const text = "这条消息模型会回一个空字符串";

@@ -193,7 +193,19 @@ test("F65：会话内临时挂载一个 skill，落库且刷新后仍在", async
 
 /* ══════════════ ② 挂载 → 运行：因果链的**真反证**（#1559 修复后的方向） ══════════════ */
 
-test("F65/#1559：挂载一个 skill 后，它真的进了 run 快照，并且它的正文真的到达了模型", async ({ page }) => {
+test("F65/#1559 → #2514：不挂任何 skill，已启用 skill 已在 run 快照里且正文到达模型；再挂同一个是幂等的", async ({ page }) => {
+  /*
+   * 2026-09-02 人类裁决（#2514）：skills 不由用户挑选——agent 直接加载全部已启用 skill。
+   * 本条此前的「挂载前无哨兵 → 挂载后有哨兵」对照在新规则下**不可能成立**：夹具 agent
+   * 没钉任何 skill ⇒ 走默认加载 ⇒ 第一条消息就已经带上可挂载 skill 的正文。于是对照
+   * 改成两半：
+   *   A. 不做任何挂载，run 快照里就有那个 skill 的当前版本，且哨兵回显（默认加载真的
+   *      穿过了 acceptHumanMessage → readPinnedSkills → buildSystemPrompt → provider）。
+   *   B. 旧轨道的挂载面板仍在：挂上同一个 skill 后，run 快照**不多不少**——追加 + 去重
+   *      （契约 `SkillOrchestration` 注释：挂载是追加，默认加载已带上的 skill 再挂是幂等）。
+   * 反证仍然存在：默认加载没接上 ⇒ A 的快照为空、哨兵不出现 ⇒ 本条如实红；去重坏了 ⇒
+   * B 的快照里同一版本出现两次 ⇒ 红。
+   */
   await login(page);
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.restructureProjectId}&thread=${CHAT_READ_E2E.causalCheckThreadId}`);
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.causalCheckThreadId}`))
@@ -207,81 +219,50 @@ test("F65/#1559：挂载一个 skill 后，它真的进了 run 快照，并且�
     return page.locator(`[data-testid="chat-message-row"][data-message-id="${messageId}"]`);
   }
 
-  /* ═══════════ 反向对照先跑：还没挂任何 skill ═══════════
-   *
-   * 顺序是判据的一部分。没有这一轮，「挂载后哨兵出现了」证明不了是**挂载**带来的——
-   * 一个从来就把哨兵写进每条回复的上游也会让那条断言绿。 */
-  const beforeRunId = await sendMessage(page, CHAT_READ_E2E.causalCheckThreadId, "挂载前：第一条取证消息");
+  /* ═══════════ A. 什么都不挂，直接发 ═══════════ */
+  const beforeRunId = await sendMessage(page, CHAT_READ_E2E.causalCheckThreadId, "不挂 skill：第一条取证消息");
   const beforeRun = await pollRunToTerminal(page, headers, beforeRunId);
-  expect(beforeRun.status, "挂载前这次 run 应该正常跑到 succeeded，不是本条要测的东西红在别处").toBe("succeeded");
+  expect(beforeRun.status, "默认加载下这次 run 应该正常跑到 succeeded").toBe("succeeded");
   expect(
-    beforeRun.skillVersionIds,
-    "本夹具的 agent 版本没钉任何 skill（`skill_version_ids='{}'`），挂载前应为空——"
-    + "没有这条，下面的「多了一个」可能只是 agent 自带的那个",
-  ).toEqual([]);
-  expect(beforeRun.resultMessageId, "挂载前这次 run 应该写回了一条回复").toBeTruthy();
+    beforeRun.skillVersionIds.length,
+    "#2514：夹具 agent 没钉 skill ⇒ 走默认加载 ⇒ 快照里至少有组织那个已启用的 skill",
+  ).toBeGreaterThan(0);
+  expect(beforeRun.resultMessageId, "这次 run 应该写回了一条回复").toBeTruthy();
   const beforeReply = messageRow(beforeRun.resultMessageId!);
   await expect(beforeReply).toBeVisible();
-  // 这条回复真的出自确定性上游（带回显前缀）⇒ 闭环穿过了整条链，不是前端合成的。
   await expect(beforeReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
   await expect(
     beforeReply,
-    "还没挂 skill 时，回复里不该出现 skill 哨兵——否则下面那条断言恒绿、证明不了任何事",
-  ).not.toContainText(CHAT_READ_E2E.mountedSkillSentinel);
+    "#2514 核心验收：用户没挑任何 skill，已启用 skill 的正文也必须进入模型输入（上游在 system prompt 里看到哨兵才回显）",
+  ).toContainText(`${CHAT_READ_E2E.mountedSkillEchoPrefix}${CHAT_READ_E2E.mountedSkillSentinel}`);
 
-  /* ═══════════ 挂上那个 skill ═══════════ */
+  /* ═══════════ B. 旧轨道挂载同一个 skill：幂等 ═══════════ */
   const mountedVersionId = await mountSkill(page, CHAT_READ_E2E.causalCheckThreadId);
+  expect(
+    beforeRun.skillVersionIds,
+    "A 里默认加载的正是挂载面板挂的那个版本（`currentVersionId` 与默认加载读的是同一条「最新已发布」子查询）",
+  ).toContain(mountedVersionId);
 
-  /* ═══════════ 挂载后：同一条线程、同一个 agent，再发一条 ═══════════ */
   const afterRunId = await sendMessage(page, CHAT_READ_E2E.causalCheckThreadId, "挂载后：第二条取证消息");
   const afterRun = await pollRunToTerminal(page, headers, afterRunId);
   expect(afterRun.status, "挂载后这次 run 也应该正常跑到 succeeded").toBe("succeeded");
-
-  /* ── 断言 A（结构）：挂载进了 run 的**不可变快照** ──
-   *
-   * `agent_runs.skill_version_ids` 是 run 创建那一刻钉下的（D-30「引用必须指向不可变
-   * 快照」），不是执行时实时读挂载表。断言的是「恰好等于挂载响应里那个 versionId」，
-   * 不是「非空」——非空可以被任何一个不相干的 skill 满足。 */
   expect(
     afterRun.skillVersionIds,
-    "#1559：线程挂载的版本必须进入 run 快照（agent 自带在前、线程挂载追加在后；本夹具 agent 自带为空）",
-  ).toEqual([mountedVersionId]);
+    "挂载是追加 + 去重：默认加载已带上的 skill 再挂一次，快照逐字不变",
+  ).toEqual(beforeRun.skillVersionIds);
   expect(
-    afterRun.skillVersionIds,
-    "挂载前后必须**有**差异——这正是 #1559 之前不成立的那一条",
-  ).not.toEqual(beforeRun.skillVersionIds);
-
-  /* ── 断言 B（语义）：那个 skill 的**正文**真的到达了模型 ──
-   *
-   * 🔴 这条才是 #1559 的核心验收。只有断言 A 的话，「run 行上多了一个 id」与
-   * 「模型真的看到了这个 skill」之间仍然隔着 `readPinnedSkills` → `buildSystemPrompt`
-   * → provider 三段没有被走过的路——而那正是 #1559 之前 e2e ④ 绿着却什么都没证明的
-   * 同一种形状（只断言挂载记录出现，从不断言模型用上了）。
-   *
-   * 哨兵 `mountedSkillSentinel` 只出现在这个 skill 的 `SKILL.md` 正文里（种子写进
-   * `skill_version_files`），确定性上游只在自己收到的 **system prompt** 里真的看到它
-   * 时才回显它（`loopback-model-provider.ts` 的 `mountedSkillReachedModel`，只扫
-   * `role: "system"`，不扫会被回显污染的 history）。
-   *
-   * 这条不可能靠「假装挂载」蒙混：
-   *   · 注入没接上 ⇒ run 快照里没有这个版本 ⇒ `readPinnedSkills` 读回空 ⇒ system prompt
-   *     里没有哨兵 ⇒ 回复里没有这一段 ⇒ 本条如实红。
-   *   · 种子把 skill 种成模型 B（#1559 之前的样子）⇒ 注入不取它 ⇒ 同上。
-   *   · 上游没收到 ⇒ 回显不出来（回显出自**上游进程**，不是前端也不是断言方）。 */
-  expect(afterRun.resultMessageId, "挂载后这次 run 应该写回了一条回复").toBeTruthy();
+    afterRun.skillVersionIds.filter((id) => id === mountedVersionId),
+    "同一份 SKILL.md 不该在 system prompt 里出现两遍",
+  ).toHaveLength(1);
+  expect(afterRun.resultMessageId).toBeTruthy();
   const afterReply = messageRow(afterRun.resultMessageId!);
-  await expect(afterReply).toBeVisible();
-  await expect(afterReply).toContainText(CHAT_READ_E2E.agentReplyPrefix);
-  await expect(
-    afterReply,
-    "#1559 核心验收：挂载 skill 的正文必须真的进入模型输入（上游在 system prompt 里看到哨兵才回显）",
-  ).toContainText(`${CHAT_READ_E2E.mountedSkillEchoPrefix}${CHAT_READ_E2E.mountedSkillSentinel}`);
+  await expect(afterReply).toContainText(`${CHAT_READ_E2E.mountedSkillEchoPrefix}${CHAT_READ_E2E.mountedSkillSentinel}`);
 
   /* ── 落库复核：刷新一次，回复不是渲染在内存里的一帧 ── */
   await page.reload();
   await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.causalCheckThreadId}`))
     .toContainText("Causal check fixture thread");
-  await expect(messageRow(afterRun.resultMessageId!))
+  await expect(messageRow(beforeRun.resultMessageId!))
     .toContainText(CHAT_READ_E2E.mountedSkillSentinel);
 });
 

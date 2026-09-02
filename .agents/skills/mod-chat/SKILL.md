@@ -53,6 +53,12 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-09-02：「最简单的消息也要等很久」的根因不在模型，在发消息链路上**串行**挂了一次
+  每条消息都跑的起标题模型调用（`acceptHumanMessage` → `generateThreadTitle`，最多 3 秒，
+  且在 `executor.kick` 之前）——结果只对首条消息有用，其余全被 `WHERE title = $默认名` 丢掉。
+  教训：任何「装饰性」的模型调用（起名/追问建议/摘要）都不能挡在主回复的执行之前；先
+  kick 再做，且做之前先用一条 SELECT 判断有没有必要做。同类隐患仍在：`execute-run.ts` 的
+  L2 历史摘要在长对话里**每轮**都串行多调一次模型（出处：本次 chat 延迟修复 PR）。
 - 2026-08-25：三方渲染库「不抛错但没渲染出内容」是一类不能靠 try/catch 兜住的失败——
   `pptx-preview` 的 `preview()` resolve 后 DOM 可能仍是空的/裸黑的（wrapper 硬编码
   `background:#000`，靠幻灯片内容盖住；`background-size` 传纯数字被浏览器当非法值丢弃，

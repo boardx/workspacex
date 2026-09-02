@@ -807,6 +807,7 @@ export function TemplateEditorPanel({
             sections={sections}
             gridCols={gridCols}
             title={title}
+            footer={footer}
             promptText={promptText}
             onClose={() => setSimulateOpen(false)}
           />

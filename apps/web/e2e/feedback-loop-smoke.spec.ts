@@ -220,7 +220,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
 
   test("D3 反证：非管理员看得到标题看不到别人的正文", async ({ page }) => {
     await login(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
-    await page.goto("/admin/feedback");
+    await page.goto("/platform-admin/feedback");
 
     // 自己那条：正文可见（提交人恒可见自己写的字）。正文在右侧详情里；那条是需求，
     // 在「需求建议」页。
@@ -240,7 +240,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
 
   test("管理员：两页各两条、来源筛选、投票/分诊/带理由拒绝三连", async ({ page }) => {
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
-    await page.goto("/admin/feedback");
+    await page.goto("/platform-admin/feedback");
 
     // 2026-09-02 下午起：缺陷 / 需求各一个标签页（见 `feedback-screen.tsx` 头注）。
     // 两条缺陷在「缺陷反馈」页，两条需求在「需求建议」页，来源是可叠加的筛选条件。

@@ -46,6 +46,23 @@ export type AdminModuleKey =
  */
 export const AI_CAPABILITY_GROUP = "AI 能力";
 
+/**
+ * 后台的**两个面**（2026-09-02 人类直接裁决：「把目前的后台切割为两部分，两个菜单入口，
+ * 一个是组织的后台管理，一个是平台的后台管理……组织的管理和平台的管理是不同的」）：
+ *   · `org`      —— 组织后台（`/admin/*`）：管的是**当前组织**自己的东西（AI 能力目录、成员配额、
+ *                   本地组织），授权面是组织 admin，数据按当前组织走 RLS。
+ *   · `platform` —— 平台后台（`/platform-admin/*`）：管的是**整个平台**（全平台账号名册、
+ *                   全体用户反馈与迭代），授权面是平台运维/超管，页头不挂组织身份卡。
+ * 一级导航（`lib/navigation.ts` 的「治理」段）各有一个入口；`AdminNav` 按 scope 只画自己那一面的组。
+ * ⚠ 每个模块**只属于一个面**——同一入口不许在两面都出现（同一功能不许两个入口）。
+ */
+export type AdminScope = "org" | "platform";
+
+export const ADMIN_SCOPE_META: Record<AdminScope, { title: string; intro: string; rootHref: string }> = {
+  org: { title: "组织后台", intro: "当前组织的 AI 能力与成员管理面", rootHref: "/admin" },
+  platform: { title: "平台后台", intro: "跨组织的全平台账号与运营管理面", rootHref: "/platform-admin" },
+};
+
 export interface AdminModuleMeta {
   key: AdminModuleKey;
   label: string;
@@ -54,9 +71,17 @@ export interface AdminModuleMeta {
   ucRefs: string[];
 }
 
-export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
+export interface AdminNavGroup {
+  group: string;
+  /** 这一组属于哪个后台面（见 `AdminScope`）。 */
+  scope: AdminScope;
+  items: AdminModuleMeta[];
+}
+
+export const ADMIN_NAV: AdminNavGroup[] = [
   {
     group: AI_CAPABILITY_GROUP,
+    scope: "org",
     // ⚠ 这一组的**项集合**受 `asset-kind-nav.ts` 的双向门控约束：它必须与契约
     //   `AssetKind` 的取值集合逐个相等。删一项、多一项、或契约加了值这边没跟，都会红。
     //   顺序与分组细节待 Q-11 裁，门控**不锁顺序**。
@@ -96,6 +121,7 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
   },
   {
     group: "组织",
+    scope: "org",
     items: [
       { key: "overview", label: "总览", href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
       { key: "members", label: "成员配额", href: "/admin/members", ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-7"] },
@@ -115,18 +141,34 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
     //   当前登录者所在组织的数据、按 RLS 走，只是呈现上不该像组织配置；「平台」组
     //   （member-role-management delta 新增）授权面是平台超管（部署白名单），能看到
     //   全平台账号名册——两者的授权面不同，混进同一组会让人以为组织 admin 也能看全平台。
+    //
+    // 2026-09-02 后台切成两面（见 `AdminScope`）：本组与「平台」组一起归入**平台后台**
+    // （`/platform-admin/*`），左栏「组织后台」不再画它们；旧路由 `/admin/feedback` 重定向。
     group: "运营",
-    items: [{ key: "feedback", label: "反馈与迭代", href: "/admin/feedback", ucRefs: ["17-gov/uc-17-6"] }],
+    scope: "platform",
+    items: [{ key: "feedback", label: "反馈与迭代", href: "/platform-admin/feedback", ucRefs: ["17-gov/uc-17-6"] }],
   },
   {
     group: "平台",
+    scope: "platform",
     items: [
       // 仅平台超管可见内容；非超管点进去看到的是「仅平台运维可见」的说明，不是隐藏入口——
       // 「存在但你看不到」和「不存在」是两件事（UC-0.3 R8），同反馈屏系统异常区的处置。
-      { key: "platform", label: "平台成员", href: "/admin/platform", ucRefs: ["17-gov/uc-17-5"] },
+      // 2026-09-02：路由从 `/admin/platform` 迁到 `/platform-admin/members`（旧路由重定向）。
+      { key: "platform", label: "平台成员", href: "/platform-admin/members", ucRefs: ["17-gov/uc-17-5"] },
     ],
   },
 ];
+
+/** 某一面的左栏分组——`AdminNav` 按这个画，不在组件里再按组名硬编码过滤。 */
+export function adminNavForScope(scope: AdminScope): AdminNavGroup[] {
+  return ADMIN_NAV.filter((g) => g.scope === scope);
+}
+
+/** 模块键 → 所属后台面（从 `ADMIN_NAV` 派生，不抄第二份）。 */
+export const ADMIN_MODULE_SCOPE: Record<AdminModuleKey, AdminScope> = Object.fromEntries(
+  ADMIN_NAV.flatMap((g) => g.items.map((m) => [m.key, g.scope])),
+) as Record<AdminModuleKey, AdminScope>;
 
 export const ADMIN_MODULE_META: Record<AdminModuleKey, AdminModuleMeta> = Object.fromEntries(
   ADMIN_NAV.flatMap((g) => g.items).map((m) => [m.key, m]),

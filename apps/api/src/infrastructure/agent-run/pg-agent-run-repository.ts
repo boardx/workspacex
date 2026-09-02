@@ -256,6 +256,35 @@ export class PgAgentRunRepository implements AgentRunStore {
     });
   }
 
+  async readPlatformSkills(orgId: OrgId): Promise<readonly PinnedSkillContent[]> {
+    return this.db.withTenant(orgId, async (s) => {
+      // 在调用方租户会话里读平台行：靠 design-delta `platform-owned-skills` 加的
+      // `_platform_read` SELECT 策略放行（`skills`/`skill_versions`/`skill_version_files`
+      // 三张表各一条）。每个 skill 只取最新一个已发布版本（DISTINCT ON + created_at DESC）。
+      const result = await s.query<{
+        version_id: string; content: Buffer; stable_name: string; name: string;
+      }>(
+        `SELECT version_id, content, stable_name, name FROM (
+           SELECT DISTINCT ON (sk.id)
+                  f.version_id, f.content, sk.stable_name, sk.name
+             FROM skills sk
+             JOIN skill_versions v ON v.skill_id = sk.id AND v.org_id = sk.org_id AND v.published
+             JOIN skill_version_files f ON f.version_id = v.id AND f.org_id = v.org_id AND f.path = 'SKILL.md'
+            WHERE sk.org_id = $1 AND sk.status = 'enabled'
+            ORDER BY sk.id, v.created_at DESC, v.id DESC
+         ) latest
+         ORDER BY stable_name`,
+        [PLATFORM_ORG_ID],
+      );
+      return result.rows.map((row) => ({
+        versionId: row.version_id,
+        content: row.content.toString("utf8"),
+        stableName: row.stable_name,
+        name: row.name,
+      }));
+    });
+  }
+
   async appendStep(orgId: OrgId, step: AppendedRunStep): Promise<void> {
     await this.db.withTenant(orgId, async (s) => {
       // #742 Gap 1: still a plain INSERT, never an UPDATE -- `agent_run_steps` stays

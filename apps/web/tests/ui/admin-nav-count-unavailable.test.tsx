@@ -18,7 +18,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { ADMIN_NAV, ADMIN_NAV_COUNT_SOURCES } from "@/lib/mock/admin";
+import { adminNavForScope, ADMIN_NAV_COUNT_SOURCES } from "@/lib/mock/admin";
 import { ADMIN_NAV_TESTID } from "@/components/admin/asset-kind-nav";
 import {
   resolveAdminNavCount,
@@ -26,7 +26,8 @@ import {
   type AdminNavCountSource,
 } from "@/lib/admin-nav-counts";
 
-const ALL_KEYS = ADMIN_NAV.flatMap((g) => g.items.map((i) => i.key));
+// 2026-09-02 后台切成两面：`AdminNav` 只画 active 所属面（这里全是组织面）的项，所以只遍历组织面的键。
+const ALL_KEYS = adminNavForScope("org").flatMap((g) => g.items.map((i) => i.key));
 
 /* ══════════════════ §1 正常路径 ══════════════════ */
 

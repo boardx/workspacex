@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   MessagesSquare, FolderKanban, Search, Mic, ClipboardList, LayoutTemplate,
   Brain, ListTodo, Settings2, FileText, AudioLines, Shapes, Puzzle, Bot, Users, Boxes,
-  MessageSquareWarning, ListChecks,
+  MessageSquareWarning, ListChecks, Globe,
 } from "lucide-react";
 
 /**
@@ -127,9 +127,14 @@ export const NAV_SEGMENTS: NavSegment[] = [
   {
     label: "治理",
     items: [
+      // 2026-09-02 人类直接裁决：后台切成**两个一级入口**——「组织后台」管当前组织自己的
+      // 东西（AI 能力目录 / 成员配额 / 本地组织），「平台后台」管整个平台（全平台账号 /
+      // 全体用户反馈）。两者授权面不同（组织 admin vs 平台运维），混在一个左栏里会让人
+      // 以为组织 admin 也能看全平台。分组与归属的唯一事实源是 `lib/mock/admin.ts` 的
+      // `ADMIN_NAV[].scope`，这里只放两个一级入口。
       {
         key: "admin",
-        label: "后台",
+        label: "组织后台",
         href: "/admin",
         icon: Settings2,
         ucRefs: ["17-gov/uc-17-1"],
@@ -256,6 +261,11 @@ export const NAV_SEGMENTS: NavSegment[] = [
           { key: "canvas", label: "画布", href: "/canvas", icon: Shapes, ucRefs: ["07-canvas/uc-7-1", "07-canvas/uc-7-3"] },
         ],
       },
+      // 平台后台（见上方 2026-09-02 注）：全平台账号名册 + 反馈与迭代。地球图标与
+      // 后台左栏「平台成员」项同一符号——同一件事在两处要看起来是同一件事。
+      // 无 children：它的二级模块全部在 `lib/mock/admin.ts` 的 platform 面里，
+      // 由 `AdminNav scope="platform"` 渲染。
+      { key: "platform-admin", label: "平台后台", href: "/platform-admin", icon: Globe, ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-6"] },
     ],
   },
 ];

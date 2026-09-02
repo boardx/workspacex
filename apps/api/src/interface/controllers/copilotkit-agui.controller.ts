@@ -100,10 +100,10 @@ import { AuthzUnavailableError } from "../../application/chat/resolve-visibility
 import { PROVENANCE_WRITER, type ProvenanceWriter } from "../../application/provenance/ports";
 import { ID_FACTORY, type IdFactory } from "../../application/artifact/ports";
 import {
-  CHAT_MESSAGE_COMMAND_REPOSITORY, DEFAULT_AGENT_RESOLVER, PUBLISHED_AGENT_READER,
-  THREAD_MOUNTED_SKILL_READER,
-  type ChatMessageCommandRepository, type DefaultAgentResolver, type PublishedAgentReader,
-  type ThreadMountedSkillReader,
+  CHAT_MESSAGE_COMMAND_REPOSITORY, DEFAULT_AGENT_RESOLVER, ENABLED_SKILL_VERSION_READER,
+  PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
+  type ChatMessageCommandRepository, type DefaultAgentResolver, type EnabledSkillVersionReader,
+  type PublishedAgentReader, type ThreadMountedSkillReader,
 } from "../../application/chat/message-command-ports";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
 import {
@@ -128,6 +128,8 @@ import {
   parseWriteTodosSnapshot,
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
   AGUI_FILE_EVENT_NAME,
+  AGUI_RUN_PHASE_EVENT_NAME,
+  type AguiRunPhase,
   type JsonPatchOp,
 } from "@repo/contracts/agui-state-events";
 import { chatFileUpload } from "@repo/contracts";
@@ -503,6 +505,8 @@ export class CopilotkitAguiController {
     @Inject(PUBLISHED_AGENT_READER) private readonly publishedAgents: PublishedAgentReader,
     // #1559：`acceptHumanMessage` 的必填依赖，见该函数 Deps 上的说明。
     @Inject(THREAD_MOUNTED_SKILL_READER) private readonly threadMounts: ThreadMountedSkillReader,
+    // #2514：agent 默认加载全部已启用 skill 的读口，同为 `acceptHumanMessage` 必填依赖。
+    @Inject(ENABLED_SKILL_VERSION_READER) private readonly enabledSkills: EnabledSkillVersionReader,
     @Inject(AGENT_RUN_STORE) private readonly runs: AgentRunStore,
     @Inject(AGENT_RUN_EXECUTOR) private readonly executor: AgentRunExecutorPort,
     // #2038：默认 agent 的动态解析口 + 配置错误的可观测出口，见 `resolveEffectiveAgentId`。
@@ -528,6 +532,7 @@ export class CopilotkitAguiController {
       repo: this.repo, ids: this.ids, chat: this.chat, provenance: this.provenance,
       artifactIds: this.artifactIds, commands: this.messageCommands,
       publishedAgents: this.publishedAgents, threadMounts: this.threadMounts,
+      enabledSkills: this.enabledSkills,
       runs: this.runs, executor: this.executor,
       // DA-19g -- `decideAgentRun` (reused verbatim by `resumeAguiBridgeTurn`, see that
       // function's own doc) wants a plain `kick`, not the whole executor port -- same shape
@@ -717,6 +722,9 @@ export class CopilotkitAguiController {
         // [planning note text] → TOOL_CALL_START/ARGS/END/RESULT → STEP_FINISHED sequence
         // per step. DA-19g: an `"in_progress"` one (a pending HITL interrupt) stops short of
         // RESULT/STEP_FINISHED instead -- see `writeToolCallStep`'s own doc.
+        onPhase: (phase: AguiRunPhase) => {
+          write({ type: EventType.CUSTOM, name: AGUI_RUN_PHASE_EVENT_NAME, value: { phase } });
+        },
         onStep: (step: RunStepPublic, isPendingApproval: boolean) => writeToolCallStep(
           write, step, isPendingApproval,
           (todos) => {

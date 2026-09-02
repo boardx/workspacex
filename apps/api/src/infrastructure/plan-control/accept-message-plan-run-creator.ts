@@ -37,7 +37,7 @@
 import { randomUUID } from "node:crypto";
 import { acceptHumanMessage } from "../../application/chat/message-roundtrip";
 import type {
-  ChatMessageCommandRepository, PublishedAgentReader, ThreadMountedSkillReader,
+  ChatMessageCommandRepository, EnabledSkillVersionReader, PublishedAgentReader, ThreadMountedSkillReader,
 } from "../../application/chat/message-command-ports";
 import type { ChatRepository } from "../../application/chat/ports";
 import type { DecisionIdFactory, IdentityRepository } from "../../application/identity/ports";
@@ -67,6 +67,8 @@ export interface AcceptMessagePlanRunCreatorDeps extends GenerateThreadTitleDeps
   readonly commands: ChatMessageCommandRepository;
   readonly publishedAgents: PublishedAgentReader;
   readonly threadMounts: ThreadMountedSkillReader;
+  /** #2514：`acceptHumanMessage` 的必填依赖，同 `threadMounts`。 */
+  readonly enabledSkills: EnabledSkillVersionReader;
   readonly executor: AgentRunExecutorPort;
   /** `PgPlanLedgerRepository` implements both -- one instance behind two tokens
    * (`kernel.module.ts`'s own comment on `PLAN_RUN_STATUS_READER`'s provider), so widening
@@ -111,8 +113,8 @@ export class AcceptMessagePlanRunCreator implements PlanRunCreator {
     const accepted = await acceptHumanMessage(this.deps, {
       userId: input.actorId, orgId: input.orgId, threadId: input.threadId,
       clientMessageId, text: input.messageText ?? PLAN_CONFIRMATION_MESSAGE_TEXT, agentId: latestRun.agentId,
+      onAccepted: () => this.deps.executor.kick(input.orgId),
     });
-    this.deps.executor.kick(input.orgId);
     // issue #2250 -- fire-and-forget: the confirm/resume/retry HTTP response must stay fast
     // (existing, tested behaviour), only the plan-ledger feedback loop was missing. Errors
     // are logged inside `watchPlanProgress` itself and never rejected out of this promise.

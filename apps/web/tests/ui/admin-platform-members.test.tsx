@@ -1,5 +1,5 @@
 /**
- * member-role-management delta（平台级）—— `/admin/platform` 平台成员屏，前端接线单测（mocked fetch）。
+ * member-role-management delta（平台级）—— `/platform-admin/members` 平台成员屏，前端接线单测（mocked fetch）。
  *
  * 反证重点：
  *  · 名册来自真实 `GET /platform/members`：账号 × 组织成员身份逐条渲染，无组织账号也在；

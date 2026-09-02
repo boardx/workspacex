@@ -31,6 +31,12 @@ function listSection(overflow: SectionLayoutDraft["overflow"], max: number): Sec
 }
 
 const LONG_TEXT = "提供底层大语言模型API及算力支持的AI技术厂商，同时承担持续训练与算力调度的责任";
+/**
+ * 「装不下」用例的数据：要**多于**这块地方的物理容量才能触发溢出分支。issue #2527
+ * 之后 `sectionGeometryMm` 会按「最多条数」把贴纸往下收（下限 `MIN_SHRINK_NOTE_MM`），
+ * 1 列满高区块的容量从个位数涨到十几条——10 条已经装得下了，所以这里给 40 条。
+ */
+const MANY_ITEMS = Array.from({ length: 40 }, (_, i) => `item-${i + 1}`);
 
 function renderGrid(section: SectionDraft, runData: Record<string, unknown>) {
   return render(
@@ -54,7 +60,7 @@ describe("TemplateCanvasGrid —— overflow 策略真的驱动渲染，不再�
   it("「叠放」：数据条数超过容量时，渲染 +N 堆叠 tile，而不是让数据整段消失", () => {
     const { getByTestId } = renderGrid(
       listSection("叠放", 99),
-      { items: ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"] },
+      { items: MANY_ITEMS },
     );
     const stack = getByTestId("tpladmin-editor-stack-s1");
     expect(stack.textContent).toMatch(/^\+\d+$/);
@@ -63,7 +69,7 @@ describe("TemplateCanvasGrid —— overflow 策略真的驱动渲染，不再�
   it("非「叠放」（缩小字号）：装不下时不产出堆叠 tile，仍走原有的「装不下」警告文案", () => {
     const { queryByTestId, getByTestId } = renderGrid(
       listSection("缩小字号", 99),
-      { items: ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"] },
+      { items: MANY_ITEMS },
     );
     expect(queryByTestId("tpladmin-editor-stack-s1")).toBeNull();
     expect(getByTestId("tpladmin-editor-overflow-s1")).toBeInTheDocument();
