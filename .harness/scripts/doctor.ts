@@ -22,8 +22,7 @@ import {
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
 import { describeIssueListFailure, listAllIssues } from "./lib/github-issues";
-import { PR_GREEN_RULE_EFFECTIVE_FROM, judgeClosingPrGreen, type ClosingPr } from "./lib/pr-green";
-import type { RequiredCheck } from "./lib/pr-queue";
+import { PR_GREEN_RULE_EFFECTIVE_FROM, judgeClosingPrGreen, type CheckRunObservation, type ClosingPr } from "./lib/pr-green";
 import { parse as parseYaml } from "yaml";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -436,7 +435,8 @@ function checkIssueClosedButNotDone(phaseId: string, f: Feature, issues: GhIssue
  *
  * 不倒查存量：生效时刻（PR_GREEN_RULE_EFFECTIVE_FROM）之前关闭的 issue 不判也不发请求——
  * 引入门控当天把所有 PR 打红只会让门被绕过（#848 / #2485 的教训）。
- * gh 拿不到数据 ⇒ WARN 跳过，不用残缺数据做否定性判断（同 ①②）。
+ * 「合入时」的 check 集合由 lib/pr-green.ts 从带 started_at 的全部 run 重建（合入后的 run 无关，
+ * 同名取最晚），不是 head 上现在的 rollup。gh 拿不到数据 ⇒ 按级别报（strict 下 FAIL）：问不到不等于绿。
  * 级别与 ②③ 对齐：pre-push WARN，CI `--strict` FAIL。
  */
 function syncRepo(): string | null {
@@ -448,18 +448,19 @@ function syncRepo(): string | null {
   }
 }
 
-/** 关掉某个 issue 的 PR 及各自 head 的 check runs；任何一步失败返回 null（调用方降级 WARN）。 */
+/** 关掉某个 issue 的 PR（含 mergedAt）及各自 head 上的**全部** check run（`filter=all`，含 rerun
+ *  与合入后追加的，带 started_at）；合入时刻的重建在 lib/pr-green.ts。任何一步失败返回 null。 */
 export function fetchClosingPrs(repo: string, issueNumber: number): ClosingPr[] | null {
   const [owner, name] = repo.split("/");
   const query =
     "query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){" +
-    "closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{number merged headRefOid}}}}}";
+    "closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{number merged mergedAt headRefOid}}}}}";
   const r = sh(
     `gh api graphql -f query=${JSON.stringify(query)} -F o=${JSON.stringify(owner)} -F r=${JSON.stringify(name)} -F n=${issueNumber}`,
     REPO_ROOT,
   );
   if (r.code !== 0) return null;
-  let nodes: Array<{ number: number; merged: boolean; headRefOid: string }>;
+  let nodes: Array<{ number: number; merged: boolean; mergedAt: string | null; headRefOid: string }>;
   try {
     const doc = JSON.parse(r.stdout) as { data?: { repository?: { issue?: { closedByPullRequestsReferences?: { nodes?: typeof nodes } } } } };
     nodes = doc.data?.repository?.issue?.closedByPullRequestsReferences?.nodes ?? [];
@@ -469,24 +470,32 @@ export function fetchClosingPrs(repo: string, issueNumber: number): ClosingPr[] 
   const out: ClosingPr[] = [];
   for (const node of nodes) {
     if (!node.merged) {
-      out.push({ number: node.number, merged: false, headSha: node.headRefOid, checks: [] });
+      out.push({ number: node.number, merged: false, mergedAt: null, headSha: node.headRefOid, runs: [] });
       continue;
     }
+    // filter=all：REST 默认只回每个 check 名最新一次（含合入后的 rerun），那不是「合入时」；
+    // 全部拿回来再按 started_at 重建合入时刻（reconstructMergeTimeChecks）。
     const c = sh(
-      `gh api repos/${repo}/commits/${node.headRefOid}/check-runs --paginate --jq '.check_runs[] | {name: .name, status: .status, conclusion: .conclusion}'`,
+      `gh api "repos/${repo}/commits/${node.headRefOid}/check-runs?filter=all&per_page=100" --paginate ` +
+        `--jq '.check_runs[] | {name: .name, status: .status, conclusion: .conclusion, started_at: .started_at}'`,
       REPO_ROOT,
     );
     if (c.code !== 0) return null;
-    const checks: RequiredCheck[] = [];
+    const runs: CheckRunObservation[] = [];
     for (const line of c.stdout.split("\n").map((l) => l.trim()).filter(Boolean)) {
       try {
-        const row = JSON.parse(line) as { name: string; status: string; conclusion: string | null };
-        checks.push({ name: row.name, status: String(row.status ?? "").toUpperCase(), conclusion: row.conclusion ? String(row.conclusion).toUpperCase() : null });
+        const row = JSON.parse(line) as { name: string; status: string; conclusion: string | null; started_at: string | null };
+        runs.push({
+          name: row.name,
+          status: String(row.status ?? "").toUpperCase(),
+          conclusion: row.conclusion ? String(row.conclusion).toUpperCase() : null,
+          startedAt: row.started_at ?? null,
+        });
       } catch {
         return null;
       }
     }
-    out.push({ number: node.number, merged: true, headSha: node.headRefOid, checks });
+    out.push({ number: node.number, merged: true, mergedAt: node.mergedAt, headSha: node.headRefOid, runs });
   }
   return out;
 }
@@ -504,16 +513,22 @@ function checkClosingPrGreen(
   const issue = findIssue(issues, phaseId, f);
   if (!issue || issue.state !== "CLOSED") return; // OPEN 由 ② 管
   if (!issue.closedAt || Date.parse(issue.closedAt) < Date.parse(PR_GREEN_RULE_EFFECTIVE_FROM)) return; // 不倒查存量，也不为存量发请求
+  // 拿不到权威证据时**不当绿**：pre-push 是 WARN（本地没 gh 很常见），CI `--strict` 是 FAIL——
+  // 一道要求「合入时是绿的」的门，在问不到 GitHub 时给绿就是 fail-open（独立审 #2541 意见 3）。
   if (!repo) {
-    findings.push({ level: "WARN", phase: phaseId, msg: `${f.id}：github-sync.yaml 缺 repo，无法判「关闭 issue 的 PR 是否绿」（完成定义第 7 条），本次跳过` });
+    findings.push({ level, phase: phaseId, msg: `${f.id}：github-sync.yaml 缺 repo，无法判「关闭 issue 的 PR 是否绿」（完成定义第 7 条）——问不到不等于绿` });
     return;
   }
   const prs = fetch(repo, issue.number);
   if (prs === null) {
-    findings.push({ level: "WARN", phase: phaseId, msg: `${f.id}：查不到关闭 issue #${issue.number} 的 PR / check（gh 失败或离线）——本次跳过完成定义第 7 条的判定` });
+    findings.push({ level, phase: phaseId, msg: `${f.id}：查不到关闭 issue #${issue.number} 的 PR / check run（gh 失败或离线）——完成定义第 7 条无法判定，问不到不等于绿` });
     return;
   }
   const v = judgeClosingPrGreen({ issueNumber: issue.number, issueClosedAt: issue.closedAt, closingPrs: prs });
+  if (v.kind === "unknown") {
+    findings.push({ level, phase: phaseId, msg: `${f.id}：${v.reason}——完成定义第 7 条无法判定，不当绿` });
+    return;
+  }
   if (v.kind !== "violation") return;
   findings.push({
     level,
