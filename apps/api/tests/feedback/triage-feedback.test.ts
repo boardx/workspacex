@@ -117,7 +117,7 @@ function baseDeps(over: Partial<TriageFeedbackDeps> = {}): TriageFeedbackDeps {
     repo: fakeRepo(row()),
     newEventId: () => "ev-1",
     githubIssues: fakeGithubIssues(),
-    submitterDirectory: { emailForUserId: vi.fn(async () => "submitter@example.com") },
+    submitterDirectory: { emailForUserId: vi.fn(async () => "submitter@example.com"), displayNamesForUserIds: vi.fn(async () => new Map()) },
     mail: { send: vi.fn(async () => ({})) },
     logger: { info: vi.fn(), error: vi.fn() },
     ...over,
@@ -403,7 +403,7 @@ describe("triageFeedback —— 状态变更邮件（best-effort）", () => {
   });
 
   it("提交人查不到邮箱(账号已注销等)⇒ notified:false,记 info 而非 error", async () => {
-    const deps = baseDeps({ submitterDirectory: { emailForUserId: vi.fn(async () => null) } });
+    const deps = baseDeps({ submitterDirectory: { emailForUserId: vi.fn(async () => null), displayNamesForUserIds: vi.fn(async () => new Map()) } });
     const out = await triageFeedback(deps, {
       feedbackId: "fb-1",
       status: "已进入迭代",

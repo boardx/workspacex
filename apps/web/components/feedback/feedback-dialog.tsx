@@ -74,6 +74,18 @@ const TITLE_MAX = 120;
 const DETAIL_MAX = 4000;
 
 /**
+ * 2026-09-02 人类要求：表单去掉「一句话说清楚」，只留「详细说说」。契约的 `title` 仍然
+ * 必填（`.min(1).max(120)`，后台列表靠它），所以标题从正文**派生**：AI 整理过就用 AI 给的
+ * 标题；否则取正文第一句（到第一个句号/换行为止），截到 120 字。这里不发明第二个字段。
+ */
+export function deriveFeedbackTitle(detail: string): string {
+  const firstLine = detail.trim().split(/\r?\n/).find((l) => l.trim() !== "") ?? "";
+  const firstSentence = firstLine.split(/[。！？!?]/)[0] ?? "";
+  const picked = (firstSentence.trim() !== "" ? firstSentence : firstLine).trim();
+  return picked.slice(0, TITLE_MAX);
+}
+
+/**
  * FB-5——一张待提交的图片附件。`previewUrl` 是**本地** `URL.createObjectURL(file)`，
  * 不是后端下载地址：上传成功之前后端还没有这个字节，上传成功之后也没必要再多打
  * 一次下载请求去显示一张浏览器已经有原始 `File` 的图——同 `fetchFeedbackAttachmentObjectUrl`
@@ -109,19 +121,25 @@ export function FeedbackDialog({
   const pathname = usePathname();
   const [tab, setTab] = React.useState<"submit" | "mine">("submit");
   const [kind, setKind] = React.useState<FeedbackKind>("缺陷");
-  const [title, setTitle] = React.useState("");
   const [detail, setDetail] = React.useState("");
+  /** AI 整理给出的标题；用户随后改了正文就作废（回到从正文派生），见 `deriveFeedbackTitle`。 */
+  const [aiTitle, setAiTitle] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [justSubmitted, setJustSubmitted] = React.useState<string | null>(null);
 
-  // FB-5——语音草稿。`voiceTranscript` 是转录**过程中**的原文，只用来在停止录音那一刻
-  // 喂给 `structureFeedbackDraft`；转录本身不直接写进 `detail`，因为口述常常语序不通顺，
-  // "说完自动填表单、人工再改"是人类明确要的交互（见文件头此前的设计签核记录）。
-  const [voiceTranscript, setVoiceTranscript] = React.useState("");
+  // FB-5——语音。**与 chat composer 同一套交互**（人类 2026-09-02 实测反馈：转录文字
+  // 没有出来）：转录一边说一边**实时写进「详细说说」**（`getBaseText`/`onTranscript`
+  // 与 composer 的 textarea 完全同型），用户始终看得见自己说的话；停止之后再把这段
+  // 文字交给 `structureFeedbackDraft` 整理成标题/正文——整理失败，原话还在框里，
+  // 不会"说了半天什么都没出来"。此前的做法是把转录存在一个只在录音中才显示的
+  // 小字里、停止后才去整理，整理慢或失败时屏上就是空的。
   const [structuring, setStructuring] = React.useState(false);
   const [structureError, setStructureError] = React.useState<string | null>(null);
   const wasRecordingRef = React.useRef(false);
+  const discardedRef = React.useRef(false);
+  const detailRef = React.useRef("");
+  detailRef.current = detail;
 
   // FB-5——图片附件。见 `PendingAttachment` 头注：上传发生在"选择文件"那一刻，
   // 不是"点提交"那一刻——用户可能边说边贴图，提交时只是把已经攒好的 id 列表带上。
@@ -129,38 +147,42 @@ export function FeedbackDialog({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const appVersion = currentAppVersion();
-  const titleRef = React.useRef<HTMLInputElement>(null);
+  const detailInputRef = React.useRef<HTMLTextAreaElement>(null);
 
   const speech = useAsrDraft({
-    getBaseText: () => voiceTranscript,
-    onTranscript: setVoiceTranscript,
+    getBaseText: () => detailRef.current,
+    onTranscript: (fullText) => setDetail(fullText),
     sessionToken: getStoredSessionToken() ?? "",
   });
 
   // 录音真正结束（回到 idle，且此前确实录过）——这一刻才把整段转录交给
   // `structureFeedbackDraft` 整理。不是每次 partial 更新都调，那样会打爆这条元任务接口。
   React.useEffect(() => {
-    if (speech.listening || speech.connecting || speech.stopping) {
-      wasRecordingRef.current = true;
-      return;
-    }
+    // ⚠ 只有真的**录上了**（到过 listening）才算一段录音；连接阶段就失败（ASR 没配 /
+    //   麦克风被拒）不是"说完了"，不该拿框里已有的文字去整理——本地实测这会在语音报错
+    //   之后再多冒一条"没能整理"的错。
+    if (speech.listening) wasRecordingRef.current = true;
+    if (speech.listening || speech.connecting || speech.stopping) return;
     if (!wasRecordingRef.current) return;
     wasRecordingRef.current = false;
-    const transcript = voiceTranscript.trim();
+    if (speech.status === "error" || speech.status === "denied") return;
+    // 「取消」= 丢弃这段转录（composer 的 TW-P0-5⑥ 语义），不整理。
+    if (discardedRef.current) { discardedRef.current = false; return; }
+    const transcript = detailRef.current.trim();
     if (transcript === "") return;
     setStructuring(true);
     setStructureError(null);
     structureFeedbackDraft(transcript)
       .then((draft) => {
         setKind(draft.kind);
-        setTitle(draft.title);
+        setAiTitle(draft.title);
         setDetail(draft.detail);
       })
       .catch((err) => {
         setStructureError(describeFailure(err));
       })
       .finally(() => setStructuring(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在录音状态的边沿触发，voiceTranscript 只在触发那一刻读一次快照。
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在录音状态的边沿触发，正文只在触发那一刻读一次快照（ref）。
   }, [speech.listening, speech.connecting, speech.stopping]);
 
   // 弹层关闭/卸载时释放本地预览的 object URL，不留内存泄漏。
@@ -209,7 +231,7 @@ export function FeedbackDialog({
   }, []);
 
   React.useEffect(() => {
-    titleRef.current?.focus();
+    detailInputRef.current?.focus();
   }, []);
 
   // Esc 关闭。⚠ 挂在 window 上而不是容器上：焦点可能在遮罩、也可能在某个输入框里，
@@ -223,7 +245,8 @@ export function FeedbackDialog({
   }, [onClose]);
 
   const attachmentsUploading = attachments.some((a) => a.status === "uploading");
-  const canSubmit = title.trim() !== "" && detail.trim() !== "" && !busy && !attachmentsUploading;
+  const title = aiTitle ?? deriveFeedbackTitle(detail);
+  const canSubmit = title !== "" && detail.trim() !== "" && !busy && !attachmentsUploading;
 
   const send = async () => {
     setBusy(true);
@@ -238,7 +261,7 @@ export function FeedbackDialog({
       const out = await submitFeedback({
         kind,
         target,
-        title: title.trim(),
+        title,
         detail: detail.trim(),
         // I-F1：发生位置由客户端给——服务端不可能知道用户站在哪一屏。
         occurredRoute: pathname ?? null,
@@ -246,11 +269,10 @@ export function FeedbackDialog({
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
       });
       setJustSubmitted(out.feedbackId);
-      setTitle("");
+      setAiTitle(null);
       setDetail("");
       for (const a of attachments) URL.revokeObjectURL(a.previewUrl);
       setAttachments([]);
-      setVoiceTranscript("");
       setTab("mine");
     } catch (err) {
       setError(describeFailure(err));
@@ -324,73 +346,58 @@ export function FeedbackDialog({
 
             <label className="flex flex-col gap-1">
               <span className="text-11 font-medium text-muted-foreground">
-                一句话说清楚 <span className="font-normal">（{title.length}/{TITLE_MAX}）</span>
-              </span>
-              <input
-                ref={titleRef}
-                value={title}
-                maxLength={TITLE_MAX}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={kind === "缺陷" ? "点了没反应 / 显示的数字不对…" : "希望能记住上次的选择…"}
-                data-testid="feedback-title-input"
-                className="h-8 rounded-md border border-border-subtle bg-panel px-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            </label>
-
-            <label className="flex flex-col gap-1">
-              <span className="text-11 font-medium text-muted-foreground">
                 详细说说 <span className="font-normal">（{detail.length}/{DETAIL_MAX}）</span>
               </span>
               <textarea
+                ref={detailInputRef}
                 value={detail}
                 maxLength={DETAIL_MAX}
-                onChange={(e) => setDetail(e.target.value)}
-                rows={5}
+                onChange={(e) => { setDetail(e.target.value); setAiTitle(null); }}
+                rows={6}
                 placeholder={
                   kind === "缺陷"
-                    ? "你当时在做什么、期望看到什么、实际看到什么。"
-                    : "你想解决的是什么问题？现在是怎么绕过去的？"
+                    ? "你当时在做什么、期望看到什么、实际看到什么。第一句会作为标题。"
+                    : "你想解决的是什么问题？现在是怎么绕过去的？第一句会作为标题。"
                 }
                 data-testid="feedback-detail-input"
                 className="resize-y rounded-md border border-border-subtle bg-panel p-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
 
-            {/* FB-5——语音输入。说完自动整理成标题/正文，人工再改，不直接替用户点提交。 */}
+            {/* FB-5——语音输入：与 chat composer 同一套（按钮 + 录音状态行），见上方 useAsrDraft 头注。 */}
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant={speech.listening ? "destructive" : "outline"}
-                  size="sm"
-                  className="gap-1"
-                  data-testid="feedback-voice-button"
-                  aria-pressed={speech.listening}
-                  disabled={speech.connecting || speech.stopping || structuring}
-                  onClick={() => (speech.listening ? speech.stop() : speech.start())}
-                >
-                  {speech.connecting || speech.stopping || structuring ? (
-                    <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Mic aria-hidden className="h-3.5 w-3.5" />
-                  )}
-                  {speech.connecting ? "正在连接…"
-                    : speech.stopping ? "正在停止…"
-                    : structuring ? "AI 整理中…"
-                    : speech.listening ? "停止说话" : "说一段话，AI 帮你整理"}
-                </Button>
-                {speech.listening && (
-                  <span className="text-10 text-muted-foreground" data-testid="feedback-voice-live-transcript">
-                    {voiceTranscript.trim() === "" ? "在听…" : voiceTranscript}
-                  </span>
-                )}
-              </div>
+              {speech.connecting || speech.listening || speech.stopping ? (
+                <VoiceRecordingBar
+                  listening={speech.listening}
+                  connecting={speech.connecting}
+                  stopping={speech.stopping}
+                  elapsedSeconds={speech.elapsedSeconds}
+                  level={speech.level}
+                  onStop={speech.stop}
+                  onCancel={() => { discardedRef.current = true; speech.cancel(); }}
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    data-testid="feedback-voice-button"
+                    disabled={structuring}
+                    onClick={() => speech.start()}
+                  >
+                    {structuring ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <Mic aria-hidden className="h-3.5 w-3.5" />}
+                    {structuring ? "AI 整理中…" : "说一段话，边说边转成文字，说完 AI 帮你整理"}
+                  </Button>
+                </div>
+              )}
               {speech.error !== null && (
                 <p className="text-11 text-destructive" data-testid="feedback-voice-error">{speech.error}</p>
               )}
               {structureError !== null && (
                 <p className="text-11 text-destructive" data-testid="feedback-structure-error">
-                  没能把这段话整理成表单（{structureError}）。你说的话还在——可以自己填标题和正文。
+                  没能把这段话整理成表单（{structureError}）。你说的话已经在「详细说说」里——可以自己改标题和正文。
                 </p>
               )}
             </div>
@@ -680,4 +687,63 @@ function AttachmentThumbnail({ url }: { url: string }) {
   }
   // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例）
   return <img src={objectUrl} alt="" className="h-12 w-12 rounded-md border border-border-subtle object-cover" />;
+}
+
+function formatElapsed(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+/**
+ * 录音中的状态行——与 chat composer 的录音行同一套信息与动作（在录 / 多久了 / 多大声 /
+ * 取消 / 确认），内嵌在表单文档流里，不是浮层。转录文字本身实时写进上面的「详细说说」。
+ * `aria-live` 只挂在状态文案上：计时每秒变，挂在外层会让读屏每秒播报一次。
+ */
+function VoiceRecordingBar({
+  listening, connecting, stopping, elapsedSeconds, level, onStop, onCancel,
+}: {
+  listening: boolean;
+  connecting: boolean;
+  stopping: boolean;
+  elapsedSeconds: number;
+  level: number;
+  onStop: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="flex w-full flex-wrap items-center gap-2 rounded-md border border-border-subtle bg-muted/40 px-2.5 py-1.5"
+      data-testid="feedback-voice-recording"
+      role="status"
+    >
+      <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", listening ? "animate-pulse bg-destructive" : "bg-muted-foreground")} />
+      <span className="shrink-0 text-11 text-card-foreground" aria-live="polite">
+        {connecting ? "正在连接…" : stopping ? "正在停止…" : "正在录音，说的话会实时出现在「详细说说」里"}
+      </span>
+      <span className="shrink-0 font-mono text-11 tabular-nums text-muted-foreground" data-testid="feedback-voice-timer">
+        {formatElapsed(elapsedSeconds)}
+      </span>
+      <div
+        className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-muted"
+        role="meter"
+        aria-label="音量"
+        aria-valuemin={0}
+        aria-valuemax={1}
+        aria-valuenow={Number(level.toFixed(3))}
+      >
+        <div className="h-full rounded-full bg-primary transition-[width] duration-fast" style={{ width: `${Math.round(level * 100)}%` }} />
+      </div>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Button type="button" size="xs" variant="outline" disabled={stopping} onClick={onCancel} data-testid="feedback-voice-cancel">
+          <X aria-hidden className="h-2.5 w-2.5" />
+          取消
+        </Button>
+        <Button type="button" size="xs" variant="primary" disabled={stopping || connecting} onClick={onStop} data-testid="feedback-voice-stop">
+          <Check aria-hidden className="h-2.5 w-2.5" />
+          说完了
+        </Button>
+      </div>
+    </div>
+  );
 }

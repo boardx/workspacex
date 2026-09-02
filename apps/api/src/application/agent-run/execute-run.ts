@@ -69,7 +69,7 @@ import { maybeRunSkillScript, type ProducedFile } from "./run-skill-script";
 import { RUN_SCRIPT_PROTOCOL_PROMPT, tryExtractScript } from "../skill/run-script-with-retries";
 import {
   appendSkillFullContent, appendSkillNotMountedNotice, buildSkillCatalogBlock,
-  MAX_READ_SKILL_ROUNDS, tryExtractReadSkillRequest,
+  MAX_READ_SKILL_ROUNDS, tryExtractReadSkillRequest, buildDeepAgentSkillCatalogBlock,
 } from "./skill-catalog";
 import type { OmittedRunImage, RunImagePort, VisionDegradation } from "./run-image-input";
 import { renderVisionNotice, selectImagesWithinBounds } from "./run-image-input";
@@ -591,10 +591,15 @@ export function buildSystemPrompt(
   instructions: string,
   skills: readonly { readonly versionId: string; readonly stableName: string; readonly content: string }[],
   canvasGuidance?: string | null,
-  mode: "full" | "catalog" = "full",
+  mode: "full" | "catalog" | "deep-agent-catalog" = "full",
 ): string {
-  const skillParts = mode === "catalog" && skills.length > 0
-    ? [buildSkillCatalogBlock(skills)]
+  // #2534：`"deep-agent-catalog"` 只由 `execute-run.ts` 对 deep-agent 的 run 传入——
+  // 目录条目同 `"catalog"`，但取全文的说明指向远端真实工具 `call_skill`，不是
+  // `read_skill` 围栏（见 `buildDeepAgentSkillCatalogBlock` 头注）。0 个 skill 时三种
+  // 模式输出逐字相同。
+  const skillParts = skills.length === 0 ? []
+    : mode === "catalog" ? [buildSkillCatalogBlock(skills)]
+    : mode === "deep-agent-catalog" ? [buildDeepAgentSkillCatalogBlock(skills)]
     : skills.map((s) => s.content);
   const parts = [instructions, ...skillParts, VISUALIZATION_GUIDANCE];
   if (canvasGuidance) parts.push(canvasGuidance);
@@ -745,25 +750,10 @@ async function executeClaimed(
     // assistant's own Skill-execution behaviour lives in `DeepAgentModelProvider`'s remote
     // service now (#740), not as a second branch here.
     toolSkills = skills;
-    // 2026-09-02：deep-agent run 自动带上平台库全部已发布 skill（见
-    // `AgentRunStore.readPlatformSkills` 的头注）。固定/挂载的 skill 仍排在前面、
-    // 仍按快照 pin 的版本；平台 skill 只补进快照里没有的（同一 stableName 已经被
-    // 挂载 = 同一行，不重复列出）。读取失败只记日志：平台库不可用不该让对话失败。
-    // ⚠ 只进 `toolSkills`（→ 远端 `org_skills`，由 `list_org_skills`/`call_skill` 按需取
-    //   正文）和沙箱协议门；**不**进下面 `buildSystemPrompt` 的 `skills`——那会把四份
-    //   SKILL.md 全文每轮塞进编排模型的 system prompt，正是这轮要削的延迟。
-    if (isDeepAgentRun && deps.runs.readPlatformSkills) {
-      try {
-        const platform = await deps.runs.readPlatformSkills(orgId);
-        const seen = new Set(skills.map((s) => s.stableName));
-        toolSkills = [...skills, ...platform.filter((p) => !seen.has(p.stableName))];
-      } catch (e) {
-        deps.log("agent run platform skill catalog read failed, continuing with pinned skills only", {
-          runId: run.runId,
-          detail: e instanceof Error ? e.message : "unexpected platform skill read failure",
-        });
-      }
-    }
+    // #2534：此前这里还有一段 `readPlatformSkills`（#2515）把平台 skill 在执行期
+    // 并进 `toolSkills`——与 #2519 的快照默认加载是同一件事的第二份实现，且绕过了
+    // "agent 钉了 skill 就只用钉的"。现在"这次 run 用哪些 skill"只由快照
+    // （`message-roundtrip.ts` `resolveRunSkillVersionIds`）决定，这里不再另读任何目录。
     // issue #1493 -- own try/catch, INSIDE the outer one but never rethrown: a canvas
     // template read failure is not "the pinned context couldn't be assembled" (that is what
     // `SKILL_VERSION_UNAVAILABLE` above means), it is the same "this layer degraded to
@@ -782,7 +772,13 @@ async function executeClaimed(
         });
       }
     }
-    system = buildSystemPrompt(run.instructions, skills, canvasGuidance, useLazySkillLoading ? "catalog" : "full");
+    // #2534：deep-agent run 的 system prompt 只放目录，全文经 `toolSkills` → 远端
+    // `org_skills` 由 `call_skill` 按需取（`buildDeepAgentSkillCatalogBlock` 头注）。
+    // #2519 之后默认加载的是组织全部已启用 skill，再按 #725 的老办法把全文都贴进
+    // system prompt，每轮提示词随 skill 数线性膨胀——#2515 实测要削的正是这个延迟。
+    const systemPromptMode = isDeepAgentRun ? "deep-agent-catalog"
+      : useLazySkillLoading ? "catalog" : "full";
+    system = buildSystemPrompt(run.instructions, skills, canvasGuidance, systemPromptMode);
     /*
      * #1624 —— 告诉模型它**真的能执行代码**。
      *

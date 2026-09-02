@@ -38,6 +38,8 @@
 
 ## V5 — deep-agent provider 路径逐字节不受影响
 
+> ⚠ **2026-09-03 作废**（issue #2534，delta `deep-agent-skill-catalog`）：#2519 之后 run 默认加载全部已启用 skill，「全文进 deep-agent system prompt」不再可接受；deep-agent 改走 `"deep-agent-catalog"` 模式。下文保留为历史口径。
+
 断言：`run.modelProvider === DEEP_AGENT_PROVIDER_NAME` 时，`buildSystemPrompt` 与 `deep-agent-model-provider.ts` 传给远端的 `input.system`/`org_skills`，在本 delta 前后逐字节相同（既有 `deep-agent-model-provider.test.ts` 全绿即为证据，本 delta 不新增专属测试，因为没有新代码路径可测——判据本身就是"这个分支完全没被碰"）。
 
 ⚠ 反证：若不小心让 §2 的目录化逻辑对 deep-agent 分支也生效，`deep-agent-model-provider.test.ts` 里断言 `input.system` 含全文的既有用例必须变红——这就是天然的反证，不用新写。

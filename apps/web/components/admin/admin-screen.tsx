@@ -30,7 +30,7 @@ import type { UiState } from "@/lib/ui-state";
  */
 export function AdminScreen({
   state, moduleLabel, title, intro, children,
-  emptyHint, errors, depFailure, denialReason, successMessage, noticeOverride, liveBacked, hideOrgIdentity,
+  emptyHint, errors, depFailure, denialReason, successMessage, noticeOverride, liveBacked, hideOrgIdentity, titleAside,
 }: {
   state: UiState;
   moduleLabel: string;
@@ -55,14 +55,19 @@ export function AdminScreen({
   liveBacked?: boolean;
   /** 见 `admin-header.tsx` 头注「`hideOrgIdentity`」——运营类模块传 `true`。默认 `false`。 */
   hideOrgIdentity?: boolean;
+  /** 标题行右侧的一小块（例如「N 条异常」的状态胶囊）。不传就不占位。 */
+  titleAside?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-5 p-6">
       <AdminHeader moduleLabel={moduleLabel} hideOrgIdentity={hideOrgIdentity} />
 
-      <div className="flex flex-col gap-1">
-        <h1 className="text-20 font-semibold tracking-tight">{title}</h1>
-        <p className="text-13 text-muted-foreground">{intro}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-20 font-semibold tracking-tight">{title}</h1>
+          <p className="text-13 text-muted-foreground">{intro}</p>
+        </div>
+        {titleAside !== undefined && <div className="shrink-0">{titleAside}</div>}
       </div>
 
       {liveBacked ? null : (noticeOverride ?? <SampleConfigNotice />)}

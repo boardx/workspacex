@@ -232,8 +232,8 @@ describe("V4 — 轮数上限：超过后降级返回，不报错、不死循环
   });
 });
 
-describe("V5 — deep-agent provider 路径逐字节不受影响", () => {
-  it("modelProvider === DEEP_AGENT_PROVIDER_NAME 时，即使没有 completeWithProgress，system 仍是 full 模式（不受本 delta 影响）", async () => {
+describe("V5（#2534 修订）— deep-agent provider 走自己的目录模式，不走 read_skill 围栏", () => {
+  it("modelProvider === DEEP_AGENT_PROVIDER_NAME 时，system 是 deep-agent-catalog：有目录条目、指向 call_skill、不含全文、不含 read_skill", async () => {
     const run = baseRun({
       modelProvider: DEEP_AGENT_PROVIDER_NAME,
       skillVersionIds: [DOCX_SKILL.versionId],
@@ -241,9 +241,7 @@ describe("V5 — deep-agent provider 路径逐字节不受影响", () => {
     const store = fakeStore(run, [DOCX_SKILL]);
     const seenSystems: string[] = [];
     const model: ModelCallPort = {
-      // 故意不提供 completeWithProgress —— 断言的是 isDeepAgentRun 这一道门本身
-      // （不是 wantsProgress 那道门），deep-agent 即使退回 complete() 也不该被
-      // 本 delta 的目录模式影响。
+      // 故意不提供 completeWithProgress —— 断言的是 isDeepAgentRun 这一道门本身。
       complete: async (input: ModelCallInput) => {
         seenSystems.push(input.system);
         return { text: "ok" };
@@ -253,8 +251,13 @@ describe("V5 — deep-agent provider 路径逐字节不受影响", () => {
     await executeQueuedRuns(deps(store, model), { orgId: ORG });
 
     expect(seenSystems).toHaveLength(1);
-    expect(seenSystems[0]).toBe(buildSystemPrompt(run.instructions, [DOCX_SKILL], null, "full"));
-    expect(seenSystems[0]).toContain("DOCX_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
+    expect(seenSystems[0]).toBe(buildSystemPrompt(run.instructions, [DOCX_SKILL], null, "deep-agent-catalog"));
+    expect(seenSystems[0]).toContain(`- ${DOCX_SKILL.stableName}:`);
+    expect(seenSystems[0]).toContain("call_skill");
+    // 原 V5 断言的反面：deep-agent 不再把全文贴进 system（#2519 默认加载全部已启用
+    // skill 之后，全文进 system 就是 #2515 要削的延迟；全文只经 org_skills 到远端）。
+    expect(seenSystems[0]).not.toContain("DOCX_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
+    // 也不是纯 provider 的 read_skill 协议——deep-agent 对它不解析，写了只会误导模型。
     expect(seenSystems[0]).not.toContain("read_skill");
   });
 });
