@@ -129,6 +129,11 @@ APP_DB_USER=app_rw
 APP_DB_PASSWORD=$(gen)
 MIGRATION_DB_USER=postgres
 MIGRATION_DB_PASSWORD=$(gen)
+# system-error-logs 只读凭据（migrations/20260902012105，PgErrorLogWriter.list() 唯一
+# 使用）——与 APP_DB_PASSWORD 同一处理方式：迁移里硬编码开发默认密码 app_diag_ro_dev，
+# 这里生成真实密码，deploy.sh 在迁移跑完后 ALTER ROLE 对齐（同 app_rw 的 4b 步）。
+DIAG_DB_USER=app_diag_ro
+DIAG_DB_PASSWORD=$(gen)
 S3_ACCESS_KEY_ID=$(gen)
 S3_SECRET_ACCESS_KEY=$(gen)
 APP_API_PORT=${APP_API_PORT}

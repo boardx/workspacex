@@ -152,6 +152,23 @@ describe("PgErrorLogWriter against real Postgres -- migration, INSERT, jsonb, in
     ).rejects.toThrow(/permission denied/);
   });
 
+  // review finding (PR #2475), round 3: PostgreSQL grants EXECUTE to PUBLIC by default on a
+  // new function -- without an explicit REVOKE, app_rw could have INHERITED execute rights
+  // through PUBLIC regardless of whether it was ever granted directly. The rejected-call test
+  // above proves the end behaviour; this asserts the underlying catalog fact directly, so a
+  // regression (a future migration re-adding the function without the REVOKE) is caught even
+  // if some other change happened to make the call itself fail for an unrelated reason.
+  it("has_function_privilege(app_rw, ..., EXECUTE) is false -- not inherited via PUBLIC either", async () => {
+    const rows = await asOwner((c) =>
+      c
+        .query<{ has_priv: boolean }>(
+          `SELECT has_function_privilege('app_rw', 'kernel_read_error_logs(integer,bigint)', 'EXECUTE') AS has_priv`,
+        )
+        .then((r) => r.rows),
+    );
+    expect(rows[0]!.has_priv).toBe(false);
+  });
+
   // The positive counterpart to both negative tests above: a DIFFERENT credential
   // (app_diag_ro, via `readDb`) CAN call the function -- proving the separation is real (a
   // working reader exists) and not merely "nobody can read anything".
@@ -162,6 +179,20 @@ describe("PgErrorLogWriter against real Postgres -- migration, INSERT, jsonb, in
       s.query<{ trace_id: string }>("SELECT * FROM kernel_read_error_logs(50, NULL)"),
     );
     expect(rows.rows.map((r) => r.trace_id)).toContain("t-real-diag-ro-direct");
+  });
+
+  // review finding (PR #2475), round 3: p_limit is clamped to 0..200 INSIDE the function
+  // (defense in depth, independent of whatever limit the application layer passes) -- prove
+  // it against real Postgres, not just by reading the SQL.
+  it("kernel_read_error_logs clamps an oversized p_limit to 200, even called directly", async () => {
+    for (let i = 0; i < 205; i++) {
+      await writer.record({ traceId: `t-real-clamp-${i}`, msg: "x", detail: {} });
+    }
+
+    const rows = await readDb.withoutTenant((s) =>
+      s.query<{ id: string }>("SELECT * FROM kernel_read_error_logs(100000, NULL)"),
+    );
+    expect(rows.rows.length).toBeLessThanOrEqual(200);
   });
 
   // review finding (PR #2475): the negative tests above prove app_rw cannot read the table

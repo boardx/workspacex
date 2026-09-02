@@ -1,7 +1,7 @@
 -- 给"平台超管读系统异常"开一条读路径——用一个**与 `app_rw` 彻底分开的数据库凭据**，
 -- 不是 `app_rw` 换一种语法读到同一份内容。
 --
--- ## 这条迁移在同一个 PR 里错了两次，逐条记录，不删旧的失败尝试
+-- ## 这条迁移在同一个 PR 里错了三次，逐条记录，不删旧的失败尝试
 --
 -- **第一次**：直接 `GRANT SELECT ON error_logs TO app_rw`。被
 -- `pg-error-log-writer-real-postgres.test.ts` 的反证「app_rw（进程自身的运行时身份）
@@ -16,6 +16,13 @@
 -- `PlatformSuperuserGuard` 完全绕过——那道 guard 挡的是 HTTP 路由，从没打算、
 -- 也没有能力挡一条已经在跑原始 SQL 的连接。
 --
+-- **第三次**：改成新角色 `app_diag_ro`，`EXECUTE` 只授给它、不授给 `app_rw`——但漏了
+-- 一步：PostgreSQL 对新建函数**默认把 `EXECUTE` 授给 `PUBLIC`**，不显式
+-- `REVOKE ... FROM PUBLIC` 的话，`app_rw`（和这个数据库里的任何角色）会通过 `PUBLIC`
+-- **继承**到执行权限，跟有没有对 `app_rw` 单独 `GRANT` 无关——上一步的"只授给
+-- app_diag_ro"因此从未真正生效过。本仓其它受保护函数
+-- （`wsx_visible_artifacts`、`wave2_publish_skill_version`、
+-- `kernel_export_direction_ok`）都在 `CREATE FUNCTION` 之后立刻做这一步，这次漏掉了。
 -- ## 这次真正做对：一个新角色，只有它能读
 --
 -- `app_diag_ro`——一个新建的、专用于这一件事的角色，**不是** `app_rw` 的别名、
@@ -74,11 +81,16 @@ $$;
 
 COMMENT ON FUNCTION kernel_read_error_logs(integer, bigint) IS
   '平台超管专用的 error_logs 只读翻页面。EXECUTE 只授给 app_diag_ro——一个与 app_rw '
-  '彻底分开的凭据，见 pg-config.ts 的 diagnosticsReaderConfig()。app_rw 对这个函数、'
-  '对这张表一无所有；直接 SELECT trace_id/msg/detail 必须 permission denied，由 '
-  'pg-error-log-writer-real-postgres.test.ts 的反证守着。p_limit 在函数内部钳制到 '
-  '200，纵深防御，不依赖调用方守规矩。';
+  '彻底分开的凭据，见 pg-config.ts 的 diagnosticsReaderConfig()。PUBLIC 已显式 REVOKE，'
+  'app_rw 对这个函数、对这张表一无所有；直接 SELECT trace_id/msg/detail 必须 '
+  'permission denied，由 pg-error-log-writer-real-postgres.test.ts 的反证守着。'
+  'p_limit 在函数内部钳制到 200，纵深防御，不依赖调用方守规矩。';
 
+-- ⚠ 必须在 GRANT 给 app_diag_ro 之前——PostgreSQL 新建函数默认对 PUBLIC 开放
+--   EXECUTE，不显式收回的话，app_rw 会通过 PUBLIC 继承到执行权限，跟有没有单独
+--   GRANT 给它无关（本文件"第三次犯的错"，见文件头）。同 wsx_visible_artifacts /
+--   wave2_publish_skill_version / kernel_export_direction_ok 的既有模式。
+REVOKE ALL ON FUNCTION kernel_read_error_logs(integer, bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION kernel_read_error_logs(integer, bigint) TO app_diag_ro;
 
 -- ⚠ 明确不授给 app_rw——这是本文件第二次尝试犯的错，写在这里防止有人以为漏了一行

@@ -25,20 +25,35 @@
  *
  * Per-key bounding alone does not bound the `Map` itself: an anonymous caller population
  * using many distinct keys (many source IPs) grows the number of MAP ENTRIES without limit,
- * even though each individual entry stays small. `MAX_TRACKED_KEYS` closes that: once the
- * map would exceed it, `evictOverCapacity` runs, preferring to drop keys whose stored hits
- * are ALL already expired (a real cleanup, not a loss of active state), and only falling
- * back to dropping the oldest-inserted keys (FIFO -- `Map` preserves insertion order, and
- * `.set()` on an EXISTING key does not move it) if expired-only eviction is not enough to
- * get back under the cap. The fallback CAN evict a still-active key under a truly massive
- * distinct-key flood -- that is the accepted cost of a bound that needs no shared store; it
- * is strictly better than the prior unbounded-map behaviour, not a claim of perfect fairness.
+ * even though each individual entry stays small. `MAX_TRACKED_KEYS` closes that.
+ *
+ * ## Eviction is O(1) amortized, not a scan (review finding, round 3 -- corrected)
+ *
+ * A first version of `evictOverCapacity` scanned the ENTIRE map looking for keys whose
+ * stored hits were all expired, before falling back to FIFO. That is exactly the wrong shape
+ * for an overflow path an attacker controls: a rotating-key flood sustained after the map
+ * fills up would trigger that scan on every subsequent request -- O(`maxTrackedKeys`) work
+ * per request, an attacker-controlled CPU hotspot layered on top of the very flood this class
+ * exists to bound the cost of.
+ *
+ * The fix: pure FIFO, no scan. `Map` preserves insertion order and `.set()` on an EXISTING
+ * key does not move it, so `this.hits.keys().next().value` reads the oldest-inserted key in
+ * O(1) (a `Map` iterator does not walk the collection to produce its first element). Evicting
+ * it is one `.delete()`. Since `hit()` only ever grows the map by at most one entry before
+ * checking the cap, at most ONE eviction is needed per call -- `hit()`'s total work is O(1)
+ * regardless of how large `maxTrackedKeys` is or how sustained the flood is.
+ *
+ * The cost: no preference for expired-over-active keys. Under a sustained distinct-key
+ * flood, FIFO can evict a key that still has live hits while a different, older, already-fully
+ * -expired key would have been the "nicer" choice. That is an accepted trade -- correctness
+ * (bounded memory, bounded per-call work) over fairness (which key gets evicted first), and
+ * it is strictly better than both the original unbounded-map behaviour AND the scanning
+ * version's attacker-controlled CPU cost.
  *
  * ## Why a `Map`, not `setInterval` cleanup
  *
- * Pruning happens lazily on `hit()` -- no background timer to leak if this class is ever
- * constructed more than once (e.g. in a test). `evictOverCapacity` only runs when the map is
- * actually over `MAX_TRACKED_KEYS`, so a normal (under-cap) workload never pays its cost.
+ * Pruning within a key happens lazily on `hit()` for that key -- no background timer to leak
+ * if this class is ever constructed more than once (e.g. in a test).
  */
 import type { Clock } from "../../application/auth/ports";
 import type { RateLimiterPort } from "../../application/ports/rate-limiter.port";
@@ -78,29 +93,13 @@ export class InMemoryRateLimiter implements RateLimiterPort {
     }
     this.hits.set(key, existing);
 
+    // ⚠ O(1), not a scan -- see this file's header. `hit()` grows the map by at most one
+    //   entry per call, so at most one eviction is ever needed here.
     if (this.hits.size > this.maxTrackedKeys) {
-      this.evictOverCapacity(now);
+      const oldestKey = this.hits.keys().next().value;
+      if (oldestKey !== undefined) this.hits.delete(oldestKey);
     }
     return verdict;
-  }
-
-  /**
-   * Brings `this.hits.size` back to `maxTrackedKeys`, preferring to drop keys with no live
-   * (un-expired) entries left before falling back to FIFO eviction of the oldest-inserted
-   * keys. See this file's header for why each pass exists.
-   */
-  private evictOverCapacity(now: number): void {
-    for (const [k, timestamps] of this.hits) {
-      if (this.hits.size <= this.maxTrackedKeys) return;
-      if (timestamps.every((t) => t <= now - this.windowMs)) {
-        this.hits.delete(k);
-      }
-    }
-    if (this.hits.size <= this.maxTrackedKeys) return;
-    for (const k of this.hits.keys()) {
-      if (this.hits.size <= this.maxTrackedKeys) return;
-      this.hits.delete(k);
-    }
   }
 
   /**

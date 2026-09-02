@@ -106,25 +106,55 @@ describe("InMemoryRateLimiter", () => {
     expect(limiter.trackedKeyCount()).toBeLessThanOrEqual(maxTrackedKeys);
   });
 
-  it("eviction prefers keys whose stored hits are ALL expired over still-active keys", async () => {
+  // review finding (PR #2475, round 3): a first version of overflow eviction scanned the
+  // WHOLE map looking for expired-only keys before falling back to FIFO -- an
+  // attacker-controlled O(maxTrackedKeys) cost per request once the map is full, under a
+  // sustained rotating-key flood. The fix is pure FIFO (no scan): this test pins the actual
+  // eviction order (oldest-inserted key goes first, unconditionally) so a regression back to
+  // the scanning version -- which would evict "fresh" here instead -- goes red.
+  it("eviction is pure FIFO: the oldest-inserted key is evicted first, even if it is still active", async () => {
     const clock = fakeClock(0);
-    const maxTrackedKeys = 10;
+    const maxTrackedKeys = 3;
     const limiter = new InMemoryRateLimiter(clock, 60_000, 5, maxTrackedKeys);
 
-    // Fill to capacity, then let every one of these age out.
-    for (let i = 0; i < maxTrackedKeys; i++) {
-      await limiter.hit(`stale-${i}`);
-    }
-    clock.advance(60_001);
+    await limiter.hit("first");  // oldest -- must be the one evicted
+    await limiter.hit("second");
+    await limiter.hit("third");
+    expect(limiter.trackedKeyCount()).toBe(3);
 
-    // One fresh, still-active key.
-    await limiter.hit("fresh");
-    // Pushing the map over capacity (one more distinct key) must trigger eviction that
-    // prefers the now-fully-expired "stale-*" keys, not the still-active "fresh" one.
-    await limiter.hit("brand-new");
+    // "first" is still well within its window (not expired) -- FIFO evicts it anyway.
+    await limiter.hit("fourth");
+
+    expect(limiter.trackedKeyCount()).toBe(3);
+    expect(limiter.size("first")).toBe(0);
+    expect(limiter.size("second")).toBe(1);
+    expect(limiter.size("third")).toBe(1);
+    expect(limiter.size("fourth")).toBe(1);
+  });
+
+  // review finding (PR #2475, round 3): "bounded memory" was proven, but not "bounded WORK
+  // per call" -- a scanning eviction pass would make this same distinct-key flood, once past
+  // capacity, cost O(maxTrackedKeys) per request instead of O(1). A quadratic-vs-linear gap at
+  // this scale (a 1k cap times a 100k-call flood) is not something a flaky sub-second
+  // wall-clock threshold is needed to see: O(1) finishes in well under a second, the scanning
+  // version would not finish in any reasonable CI timeout. This is empirical evidence the
+  // per-call cost does not grow with maxTrackedKeys, not a tight performance budget.
+  it("a sustained distinct-key flood well past capacity completes in bounded time (O(1) eviction, not a per-request scan)", async () => {
+    const clock = fakeClock(0);
+    const maxTrackedKeys = 1_000;
+    const limiter = new InMemoryRateLimiter(clock, 60_000, 20, maxTrackedKeys);
+
+    const totalHits = 100_000; // 100x over capacity once the map fills up
+    const started = Date.now();
+    for (let i = 0; i < totalHits; i++) {
+      await limiter.hit(`distinct-ip-${i}`);
+    }
+    const elapsedMs = Date.now() - started;
 
     expect(limiter.trackedKeyCount()).toBeLessThanOrEqual(maxTrackedKeys);
-    // "fresh" must survive the eviction pass -- it had a live entry, the stale-* keys did not.
-    expect(limiter.size("fresh")).toBe(1);
+    // O(1) eviction: ~100k cheap map operations, comfortably under a second even on a slow
+    // CI runner. An O(maxTrackedKeys)-per-call scan at this size would be ~100k * 1k = 1e8
+    // array/map operations -- multiple seconds to tens of seconds, not comfortably under one.
+    expect(elapsedMs).toBeLessThan(5_000);
   });
 });
