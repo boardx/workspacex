@@ -326,6 +326,58 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
     });
   }
 
+  /**
+   * 一次 `withTenant` = 一次事务(见 `pg-database.ts` 的 `inTx`)——UPDATE 与
+   * INSERT 在同一个 `withTenant` 回调里,天然同一个事务,要么都提交要么都回滚。
+   * 见接口头注:这是本方法存在的唯一理由,不要为了"复用" `updateStatus`/
+   * `appendStatusEvent` 而拆成两次 `withTenant` 调用——拆开就丢了原子性。
+   */
+  async transitionStatusWithEvent(
+    feedbackId: string,
+    status: FeedbackStatus,
+    reason: string | null,
+    event: Pick<StatusEvent, "id" | "feedbackId" | "fromStatus" | "toStatus" | "reason" | "actorId">,
+  ): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `UPDATE product_feedback SET status = $3, status_reason = $4
+          WHERE org_id = $2 AND id = $1`,
+        [feedbackId, this.orgId, status, reason],
+      );
+      await s.query(
+        `INSERT INTO product_feedback_status_events
+           (id, org_id, feedback_id, from_status, to_status, reason, actor_id, notified, email_subject, email_text)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,false,NULL,NULL)`,
+        [event.id, this.orgId, event.feedbackId, event.fromStatus, event.toStatus, event.reason, event.actorId],
+      );
+    });
+  }
+
+  /**
+   * ⚠ 只 UPDATE 通知这三列——流水表本体是 append-only(触发器原样拦所有
+   *   UPDATE,见迁移 `20260815140000_fb2_product_feedback.sql`)。迁移
+   *   `20260902130000_fb2_feedback_status_event_notified_patch` 把触发器改成
+   *   只放行"只碰这三列、且只从 `notified=false` 回填一次"这一种形状的
+   *   UPDATE——本方法发出的正是这种形状,写法对不上（比如漏传 eventId 导致撞了
+   *   别的行,或对同一行调第二次）在数据库层面会被原样拒绝,不是仅凭这里的
+   *   TypeScript 类型签名自觉。
+   */
+  async markStatusEventNotified(
+    eventId: string,
+    notified: boolean,
+    emailSubject: string | null,
+    emailText: string | null,
+  ): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `UPDATE product_feedback_status_events
+            SET notified = $3, email_subject = $4, email_text = $5
+          WHERE org_id = $2 AND id = $1`,
+        [eventId, this.orgId, notified, emailSubject, emailText],
+      );
+    });
+  }
+
   async listStatusEvents(feedbackId: string): Promise<readonly StatusEventRow[]> {
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows } = await s.query<StatusEventDbRow>(

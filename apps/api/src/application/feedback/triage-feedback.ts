@@ -63,22 +63,39 @@
  *
  * ⚠ 幂等重放**也不同步**:状态没变,没有什么新状态需要同步给 GitHub。
  *
- * ### ④ 写事件行(迁移 20260902110613)—— 同②③一样是 best-effort,同一条纪律
+ * ### ④ 状态变更 + 「这次转移发生过」这一行历史 —— 与状态本身**同一个事务**
  *
- * `appendStatusEvent` 排在②之后是因为它要把②真实的通知结果一并存进这一行
- * (见调用点⚠)。这意味着它的失败窗口现在**包含**了一次外部邮件调用,比"改状态
- * 后立刻写事件"要宽——万一这一步失败,状态变更与(可能已经发出的)通知邮件都已经
- * 是既成事实,不因为写历史失败就整个用例失败、也不该让管理员以为"操作没生效"从而
- * 重试造成困惑(重放会命中上面的"幂等重放不发邮件"分支,徒增疑惑)。所以失败只记日志,
- * 与②③同一条"已落库的事实不因次要步骤失败而回滚"的纪律。
+ * 2026-09-02 独立审查 P0(两轮):第一版把 `appendStatusEvent` 排在②之后(要把
+ * ②真实的通知结果一并存进这一行,见⑤),但仍然是独立的一次 `withTenant`——
+ * 状态更新成功、写这一行历史失败,会让状态真的变了但流水里**永久**没有对应
+ * 的一行。这不是"次要记录丢了细节",是"这件事发生过"这条事实本身消失。
+ *
+ * 修法(`ProductFeedbackRepository.transitionStatusWithEvent`):UPDATE 状态
+ * 与 INSERT 这一行历史收进**同一次 `withTenant` 调用**(= 同一个数据库事务),
+ * 要么一起提交、要么一起回滚,不再有"状态变了但历史没写"的中间态。事件行
+ * 落库时 `notified` 先诚实写 `false`——这一刻还没跑②,不知道邮件发没发。
+ *
+ * ⚠ 通知邮件的发送本身(②)**不能**并进这同一个事务:它必须在状态**已经落库**
+ *   之后才能发生(不能在状态生效前就告诉用户"变了"),而"状态落库"与"这一行
+ *   历史存在"这两件事恰恰是这次要保证同时成立的那两件——所以②天然只能排在
+ *   ④之后。
+ *
+ * ### ⑤ 回填②的通知结果 —— best-effort,同②③的纪律,但丢的只是"细节"不是"事实"
+ *
+ * ④已经保证"这次转移发生过"这一行历史不会丢。②跑完之后,`markStatusEventNotified`
+ * 只回填**那一行已经存在**的 `notified`/`email_subject`/`email_text` 三列——
+ * 不是新插一行。这一步失败只记日志,不影响调用方拿到的结果(状态变更与②的结果
+ * 已经是既成事实):最坏情况是这一行历史永远停在插入时的 `notified: false`
+ * (保守地"看起来没发通知"),而不是①②③那种"这件事本身查无此事"。
  *
  * ⚠ **已知限制,登记、不在这轮修**(2026-09-02 独立审查提出,issue #2510 记录,
- *   把这条与②③的同类限制/#2500 一起收敛成统一 outbox):这一行历史因此可能
- *   **永久**丢失(没有 outbox/重试补写),丢的时候界面能看到的证据只有值班日志里
- *   的一条 `feedback-triage-append-event` error,管理员在这条反馈的「更新记录」
- *   里会看到一处状态跳变缺了一行说明。与①②③是同一类"本地已落库、次要记录/
- *   同步只是尽力"的权衡,不为了堵这个口子单独新增一张持久化的 outbox 表/后台
- *   补写调度。
+ *   把这条与②③的同类限制/#2500 一起收敛成统一 outbox):⑤失败没有重试补写,
+ *   界面上能看到的证据只有值班日志里的一条 `feedback-triage-append-event`
+ *   error;两个并发的同源转移请求仍可能各自读到旧状态、各自发一封通知邮件、
+ *   各自写一行历史(这条表的行级 append-only 语义与"同一次转移最多发生一次
+ *   通知"是两件事,后者目前没有行锁/CAS 保护)——与①②③是同一类"本地已落库、
+ *   次要记录/同步只是尽力"的权衡,不为了堵这几个口子单独新增一张持久化的
+ *   outbox 表/幂等 worker。
  *
  * ⚠ **已知限制,登记、不在这轮修**(2026-09-02 独立审查提出,issue #2500 记录):
  *   同步失败之后没有持久 outbox/重试调度——反馈状态与 GitHub issue 开关短暂不一致
@@ -216,7 +233,21 @@ export async function triageFeedback(
     }
   }
 
-  await deps.repo.updateStatus(input.feedbackId, outcome.to, outcome.reason);
+  // ④ 状态变更 + 「这次转移发生过」这一行历史,**同一个数据库事务**——见接口
+  //   `transitionStatusWithEvent` 头注(2026-09-02 独立审查 P0):分两次独立
+  //   `withTenant` 调用时,前者成功、后者失败会让状态真的变了但一行历史都没有,
+  //   这条历史事实本身永久缺失。收进同一个事务之后,这两者要么一起提交、要么
+  //   一起回滚,不再有中间态。事件行落库时 `notified` 先诚实写 `false`——这一刻
+  //   还没发邮件(下面②才发)。
+  const eventId = deps.newEventId();
+  await deps.repo.transitionStatusWithEvent(input.feedbackId, outcome.to, outcome.reason, {
+    id: eventId,
+    feedbackId: input.feedbackId,
+    fromStatus: outcome.from,
+    toStatus: outcome.to,
+    reason: outcome.reason,
+    actorId: input.actorId,
+  });
 
   // ③ best-effort 跟着状态同步 GitHub issue 的开关——见文件头注③。状态已经落库,
   //   这里的任何失败都不影响上面那次事实,只记日志。
@@ -229,11 +260,6 @@ export async function triageFeedback(
   }
 
   // ② best-effort 通知——状态已经落库,这里的任何失败都不再影响上面那次事实。
-  // ⚠ 顺序:必须在 `appendStatusEvent` **之前**——事件行要把"这次到底有没有发出去、
-  //   发的是什么"一起落进同一行历史（迁移 20260902110613），而不是只活在这次 HTTP
-  //   响应的 `notified` 字段里、下次刷新页面就再也查不到。状态**已经**落库
-  //   （上面 `updateStatus` 那一行），所以先跑通知、再写事件行,不影响"状态变更是
-  //   否成功"这件已经成立的事实,只是让事件行能把结果一并记下来。
   const notification = await notifySubmitter(deps, {
     feedbackId: input.feedbackId,
     submittedBy: current.submittedBy,
@@ -242,27 +268,15 @@ export async function triageFeedback(
     reason: outcome.reason,
   });
 
-  // ⚠ 2026-09-02 独立审查 P0：这一步失败**不能**让整个用例失败——状态已经落库
-  //   （上面 `updateStatus`），邮件说不定也已经真的发出去了（`notification`），
-  //   两者都是「已经发生的事实」，不因为写这一行历史失败就变成没发生过（同②③的
-  //   纪律，也是本文件从②③开始反复出现的同一条原则）。真失败了就只记日志——
-  //   审查指出的残余风险（这一行历史因此**永久**丢失，没有 outbox/重试补写）是
-  //   真实、已知、记录在案的限制，见下方段落，不在本轮补齐。
+  // ⚠ 只回填④那一行已经存在的历史的通知结果——不是新插一行,失败也不再
+  //   让整条历史消失(④的原子写入已经保证"转移发生过"这件事本身不会丢),
+  //   最坏情况只是 `notified` 保守地停在插入时的 `false`。真失败了记日志——
+  //   残余风险(回填失败、没有重试补写)登记在案,见 issue #2510。
   try {
-    await deps.repo.appendStatusEvent({
-      id: deps.newEventId(),
-      feedbackId: input.feedbackId,
-      fromStatus: outcome.from,
-      toStatus: outcome.to,
-      reason: outcome.reason,
-      actorId: input.actorId,
-      notified: notification.notified,
-      emailSubject: notification.subject,
-      emailText: notification.text,
-    });
+    await deps.repo.markStatusEventNotified(eventId, notification.notified, notification.subject, notification.text);
   } catch (e) {
     deps.logger.error(
-      "feedback triage: appendStatusEvent failed (best-effort, status change + notification already committed)",
+      "feedback triage: markStatusEventNotified failed (best-effort, status change + event row already committed)",
       { traceId: "feedback-triage-append-event", feedbackId: input.feedbackId, err: e },
     );
   }

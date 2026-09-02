@@ -119,11 +119,16 @@ describe("FB-2 落库", () => {
   /**
    * ④ 状态流水 append-only —— **两层**，逐层单独验。
    *
-   * ⚠ 只验应用角色（app_rw）是不够的：它撞到的是 GRANT（`permission denied`），
-   *   触发器根本没机会跑。那样的话触发器写错了也照样绿——绿的是 GRANT，不是触发器。
-   *   所以第二半以 OWNER 身份跑：OWNER 绕过 GRANT，撞到的必然是触发器本身。
+   * ⚠ 2026-09-02 迁移 `20260902130000_fb2_feedback_status_event_notified_patch`
+   *   之前，`app_rw` 对这张表**没有任何** UPDATE 授权——第一层验的是 GRANT
+   *   本身挡住了它，触发器根本没机会跑。现在 `app_rw` **有** UPDATE 授权（见
+   *   `markStatusEventNotified` 需要的那条正当写路径），所以"改核心列"这个
+   *   动作现在撞的是**触发器**，不再是 GRANT——两层验证因此都改成断言
+   *   `/append-only/`；真正验证"GRANT 边界"的是下面新增的一条：只有
+   *   notified/email_subject/email_text 这个形状的 UPDATE 才被放行，DELETE
+   *   仍然没有授权。
    */
-  it("④ 状态流水 append-only（第一层：app_rw 连 GRANT 都没有）", async () => {
+  it("④ 状态流水 append-only（第一层：app_rw 改核心列被触发器拒，DELETE 连 GRANT 都没有）", async () => {
     await repo.insert(draft());
     await repo.appendStatusEvent({
       id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
@@ -131,7 +136,7 @@ describe("FB-2 落库", () => {
     });
     await expect(
       asApp(ORG, (c) => c.query("UPDATE product_feedback_status_events SET reason = 'x' WHERE id = $1", ["ev-1"])),
-    ).rejects.toThrow(/permission denied/);
+    ).rejects.toThrow(/append-only/);
     await expect(
       asApp(ORG, (c) => c.query("DELETE FROM product_feedback_status_events WHERE id = $1", ["ev-1"])),
     ).rejects.toThrow(/permission denied/);
@@ -149,6 +154,75 @@ describe("FB-2 落库", () => {
     await expect(
       asOwner((c) => c.query("DELETE FROM product_feedback_status_events WHERE id = $1", ["ev-1"])),
     ).rejects.toThrow(/append-only/);
+  });
+
+  /**
+   * ④c 迁移 `20260902130000` 开的这道口子——**只**放行"只碰 notified/
+   * email_subject/email_text 三列、且只能从 notified=false 回填一次"这一种
+   * 形状的 UPDATE。正反两面都要验，否则"开了个口子"读起来像开对了，
+   * 实际上开成了"任何 UPDATE 都能过"（那样第一层那条就会一起变绿到失真）。
+   */
+  it("④c 通知结果只能回填一次——正确形状放行，第二次回填被触发器拒", async () => {
+    await repo.insert(draft());
+    await repo.appendStatusEvent({
+      id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
+      notified: false, emailSubject: null, emailText: null,
+    });
+    // 正确形状：app_rw 能把它从 notified=false 回填成 true+文案。
+    await asApp(ORG, (c) => c.query(
+      "UPDATE product_feedback_status_events SET notified = true, email_subject = $2, email_text = $3 WHERE id = $1",
+      ["ev-1", "主题", "正文"],
+    ));
+    const after = await repo.listStatusEvents("fb-1");
+    expect(after[0]).toMatchObject({ notified: true, emailSubject: "主题", emailText: "正文" });
+
+    // 反证：同一行再回填一次（哪怕形状一样）被拒——OLD.notified 已经是 true。
+    await expect(
+      asApp(ORG, (c) => c.query(
+        "UPDATE product_feedback_status_events SET notified = false, email_subject = NULL, email_text = NULL WHERE id = $1",
+        ["ev-1"],
+      )),
+    ).rejects.toThrow(/append-only/);
+  });
+
+  it("④c 反证：即使只改 notified，只要**同时**碰了核心列，整个 UPDATE 仍被拒", async () => {
+    await repo.insert(draft());
+    await repo.appendStatusEvent({
+      id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
+      notified: false, emailSubject: null, emailText: null,
+    });
+    await expect(
+      asApp(ORG, (c) => c.query(
+        "UPDATE product_feedback_status_events SET notified = true, reason = 'x' WHERE id = $1",
+        ["ev-1"],
+      )),
+    ).rejects.toThrow(/append-only/);
+  });
+
+  /**
+   * ④d `transitionStatusWithEvent`——状态变更与"这次转移发生过"这一行历史
+   * 是**同一次调用**（同一个数据库事务，见 `ports.ts` 头注 2026-09-02 独立
+   * 审查 P0）：落库时 `notified` 恒为 `false`（这一刻还没跑通知），
+   * `markStatusEventNotified` 之后把真实结果回填进**同一行**。
+   */
+  it("④d transitionStatusWithEvent 原子改状态+写流水；markStatusEventNotified 回填同一行", async () => {
+    await repo.insert(draft());
+    await repo.transitionStatusWithEvent("fb-1", "已进入迭代", null, {
+      id: "ev-1", feedbackId: "fb-1", fromStatus: "待处理", toStatus: "已进入迭代", reason: null, actorId: ME,
+    });
+
+    const afterTransition = await repo.findById("fb-1", ME);
+    expect(afterTransition!.status).toBe("已进入迭代");
+    const eventsAfterTransition = await repo.listStatusEvents("fb-1");
+    expect(eventsAfterTransition).toEqual([
+      expect.objectContaining({ id: "ev-1", toStatus: "已进入迭代", notified: false, emailSubject: null, emailText: null }),
+    ]);
+
+    await repo.markStatusEventNotified("ev-1", true, "主题", "正文");
+    const eventsAfterNotify = await repo.listStatusEvents("fb-1");
+    expect(eventsAfterNotify[0]).toMatchObject({ notified: true, emailSubject: "主题", emailText: "正文" });
+    // 回填不动状态本身。
+    expect((await repo.findById("fb-1", ME))!.status).toBe("已进入迭代");
   });
 
   it("④b listStatusEvents 按时间正序读回完整流水，含通知快照（notified/subject/text）", async () => {
