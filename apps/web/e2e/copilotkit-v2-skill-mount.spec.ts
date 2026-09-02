@@ -1,6 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
-import { openComposerMenu } from "./chat-task-workbench-fixture";
 
 /**
  * issue #2020（差距清单第 3 项，阻断级）—— `/chat` 的 Skill 挂载入口。
@@ -26,9 +25,9 @@ import { openComposerMenu } from "./chat-task-workbench-fixture";
  *
  * ## 2026-09-02 composer 三层结构（本 spec 随之改法，判据不变）
  *
- * 「加 skill」触发器 `chat-skill-mount` 是 composer「+」菜单里的一项（先
- * `openComposerMenu` 再点）；新对话的占位 `copilotkit-v2-skill-mount-placeholder`
- * 是该菜单项的说明文字；已挂载 chip 留在第二行当状态 chip；`/` 命令照旧。
+ * 「技能」触发器 `chat-skill-mount` 是工具行的一颗圆形图标按钮；新对话（还没有线程）时
+ * 它禁用并带 `data-placeholder-reason="no-thread"`（不渲染假入口）；已挂载 chip 留在
+ * 工具行当状态 chip；`/` 命令照旧。
  * 挂载面板 `chat-skill-mount-panel` 没挂任何 skill 时零尺寸，判 attached 不判 visible。
  *
  * ## 范围诚实
@@ -83,7 +82,6 @@ async function mountSkillViaPanel(page: Page, threadId: string): Promise<void> {
     && response.url().includes(`/threads/${threadId}/skill-mounts`)
   ));
   // 「加 skill」在乐观锁版本号读到之前是禁用的（拒绝盲写），等它可点而不是硬点。
-  await openComposerMenu(page);
   await expect(page.getByTestId("chat-skill-mount")).toBeEnabled();
   await page.getByTestId("chat-skill-mount").click();
   await expect(page.getByTestId("chat-skill-mount-picker")).toBeVisible();
@@ -102,11 +100,9 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
   await page.goto("/chat");
 
   /* ═══════════ ① 新对话还没有线程：如实占位，不渲染假挂载面板 ═══════════ */
-  await openComposerMenu(page);
-  await expect(page.getByTestId("copilotkit-v2-skill-mount-placeholder")).toBeVisible();
   await expect(page.getByTestId("chat-skill-mount")).toBeDisabled();
+  await expect(page.getByTestId("chat-skill-mount")).toHaveAttribute("data-placeholder-reason", "no-thread");
   await expect(page.getByTestId("chat-skill-mount-panel")).toHaveCount(0);
-  await page.keyboard.press("Escape");
 
   /* ═══════════ ② 反向对照：还没挂任何 skill，先发一条 ═══════════ */
   const messages = page.getByTestId("copilotkit-v2-messages");
@@ -126,15 +122,13 @@ test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一�
   const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId, "首条消息后地址栏应带上持久化线程 id").toBeTruthy();
   await expect(page.getByTestId("chat-skill-mount-panel")).toBeAttached();
-  await openComposerMenu(page);
-  await expect(page.getByTestId("copilotkit-v2-skill-mount-placeholder")).toHaveCount(0);
+  await expect(page.getByTestId("chat-skill-mount")).not.toHaveAttribute("data-placeholder-reason");
   // 前提：现在一个都没挂。没有这条，「挂上了」的断言可能一开始就是真的。
   // 2026-08-28 起空态不再单独画一行文字（devapp 实测反馈：composer 这排本来就挤，
   // 常驻一行"什么都没有"的文字比不说更占地方）——改用触发器上的真实数量
   // `data-mounted-count` 断言，语义不变，只是读的锚点从"有没有这行字"换成
   // "这个数字是不是 0"（见 `chat-skill-mount-panel.tsx` pill 分支的同轮注释）。
   await expect(page.getByTestId("chat-skill-mount")).toHaveAttribute("data-mounted-count", "0");
-  await page.keyboard.press("Escape");
 
   /* ═══════════ ④ 挂上那个 skill（真实 POST，落 thread_skill_mounts） ═══════════ */
   await mountSkillViaPanel(page, threadId!);

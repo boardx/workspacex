@@ -67,6 +67,7 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 /** 语音输入是既有能力（DA-19g），本测试只关心它在归档态被禁用，不驱动真实采音管线。 */
 vi.mock("@/lib/use-asr-draft", () => ({
+  appendTranscript: (base: string, addition: string) => (addition === "" ? base : base === "" ? addition : `${base} ${addition}`),
   useAsrDraft: () => ({
     status: "idle", listening: false, connecting: false, stopping: false, error: null,
     start: vi.fn(), stop: vi.fn(),
@@ -74,6 +75,7 @@ vi.mock("@/lib/use-asr-draft", () => ({
     // （`ComposerMicControl` 的录音态面板消费），补进 mock 保持形状与真实 hook
     // 一致；本测试的场景都不触发录音态，值本身不影响这里的断言。
     cancel: vi.fn(), elapsedSeconds: 0, level: 0,
+    baseText: "", committedText: "", partialText: "",
   }),
 }));
 vi.mock("@/lib/use-audio-input-devices", () => ({

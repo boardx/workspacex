@@ -8,15 +8,12 @@ import type { CapabilityListing } from "@/lib/live-capabilities";
 /**
  * issue #2130（TW-P0-2，回指 #2068）—— 「选择能力」的六项披露卡片列表 + 承载它的浮层。
  *
- * ## 2026-09-02 composer 三层结构重设计：本文件不再自带触发按钮
+ * ## 2026-09-02 composer 重设计：三件套
  *
- * 此前这里是"一颗带文字的胶囊触发器 + 它下面的卡片列表"。触发入口现在是 composer
- * 「+」菜单里的一项（`chat-task-workbench-composer-menu.tsx`，testid
- * `chat-task-workbench-capability-picker` 与 `data-auto-match` 都搬到那一项上），选中后
- * 以第 1 层状态 chip 露出（`chat-task-workbench-composer-capability-chip`）。本文件只剩
- * 两件事：`CapabilityCardList`（纯列表，六项披露的唯一实现）与 `CapabilityPopover`
- * （挂在互斥槽 `chat-capability-picker` 上的浮层壳：定位 + outside-click / Escape）。
- * 卡片本身的 testid / data 属性逐字不动。
+ * `CapabilityCardList`（纯列表，六项披露的唯一实现）、`CapabilityPopover`（挂在互斥槽
+ * `chat-capability-picker` 上的浮层壳：定位 + outside-click / Escape）、`CapabilityPicker`
+ * （卡片上方右对齐的低调触发器——「选择能力」已移出输入区）。卡片 testid / data 属性
+ * 逐字不动。
  *
  * ## 为什么是新组件，不是原地改 `AgentPicker`
  *
@@ -193,7 +190,9 @@ export function CapabilityPopover({
   selectedAgentId,
   onSelect,
   acting = null,
+  align = "left",
 }: {
+  readonly align?: "left" | "right";
   readonly listings: readonly CapabilityListing[] | null;
   readonly status: "loading" | "error" | "ready";
   readonly selectedAgentId: string | null;
@@ -224,7 +223,7 @@ export function CapabilityPopover({
     <div
       ref={containerRef}
       data-testid="chat-task-workbench-capability-popover"
-      className="absolute bottom-full left-0 z-20 mb-1.5 rounded-lg border border-border bg-popover shadow-md"
+      className={`absolute bottom-full z-20 mb-1.5 rounded-lg border border-border bg-popover shadow-md ${align === "right" ? "right-0" : "left-0"}`}
     >
       <CapabilityCardList
         listings={listings}
@@ -236,5 +235,47 @@ export function CapabilityPopover({
   );
 }
 
-/** 供状态 chip 使用：与卡片头像同一套缩写规则，不在 composer 里再抄一份。 */
-export { abbrFor as capabilityAbbrFor };
+/**
+ * 2026-09-02 composer 重设计——「选择能力」**移出输入区**：卡片上方右对齐的一颗低调
+ * 触发器（默认自动匹配时只显示"自动匹配"），点开向上弹六项披露卡片列表。
+ * testid `chat-task-workbench-capability-picker` + `data-auto-match` 逐字沿用（TW-P0-2①）。
+ */
+export function CapabilityPicker({
+  listings,
+  status,
+  selectedAgentId,
+  onSelect,
+  disabled,
+  acting = null,
+}: {
+  readonly listings: readonly CapabilityListing[] | null;
+  readonly status: "loading" | "error" | "ready";
+  readonly selectedAgentId: string | null;
+  readonly onSelect: (agentId: string) => void;
+  readonly disabled: boolean;
+  readonly acting?: CapabilityCardActingState | null;
+}): JSX.Element {
+  const [open, setOpen] = useCapabilityPopoverSlot();
+  const selected = listings?.find((l) => l.id === selectedAgentId) ?? null;
+  return (
+    <div className="relative flex items-center">
+      <button
+        type="button"
+        data-testid="chat-task-workbench-capability-picker"
+        data-auto-match={selectedAgentId === null ? "true" : "false"}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="选择能力"
+        title={selected ? `当前能力：${selected.name}，点击更换` : "未指定时按任务自动匹配能力，点击手选"}
+        disabled={disabled}
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-7 max-w-64 items-center gap-1.5 rounded-pill px-2.5 text-12 text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
+      >
+        {selected ? <Avatar initials={abbrFor(selected)} tone="ai" size="xs" /> : null}
+        <span className="truncate">{selected ? `能力：${selected.name}` : "能力：自动匹配"}</span>
+        <span aria-hidden className="text-9">▾</span>
+      </button>
+      <CapabilityPopover listings={listings} status={status} selectedAgentId={selectedAgentId} onSelect={onSelect} acting={acting} align="right" />
+    </div>
+  );
+}

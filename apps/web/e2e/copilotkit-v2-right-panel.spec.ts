@@ -1,6 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
-import { openComposerMenu } from "./chat-task-workbench-fixture";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 
 /**
@@ -101,8 +100,6 @@ test("issue #2046：上传附件随消息发出后右栏「材料」出现；@ �
   await expect(page.getByTestId("chat-materials-empty")).toBeVisible();
 
   /* ═══════════ ② 上传附件 → 随消息发出 → 材料列表出现该文件 ═══════════ */
-  // 2026-09-02 composer 三层结构：「添加材料」住在「+」菜单里，先展开再点。
-  await openComposerMenu(page);
   const attachButton = page.getByTestId("chat-attachment-input");
   // issue #2046 连带修复的直接断言面：`[threadId]` 页上不再另建附件线程，上传
   // 直接落本线程——按钮从首帧就可用（不再等待第二条线程异步创建）。

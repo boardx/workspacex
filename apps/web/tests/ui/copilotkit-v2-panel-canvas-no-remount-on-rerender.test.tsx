@@ -62,8 +62,10 @@ vi.mock("@/components/session/session-provider", () => ({
 vi.mock("@/lib/use-asr-draft", () => ({
   useAsrDraft: () => ({
     status: "idle", listening: false, connecting: false, stopping: false, error: null,
-    start: vi.fn(), stop: vi.fn(),
+    start: vi.fn(), stop: vi.fn(), cancel: vi.fn(), elapsedSeconds: 0, level: 0,
+    baseText: "", committedText: "", partialText: "",
   }),
+  appendTranscript: (base: string, addition: string) => (addition === "" ? base : base === "" ? addition : `${base} ${addition}`),
 }));
 vi.mock("@/lib/use-audio-input-devices", () => ({
   useAudioInputDevices: () => ({ devices: [], selectedDeviceId: null, select: vi.fn() }),

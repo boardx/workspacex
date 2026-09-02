@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
-import { openComposerMenu } from "./chat-task-workbench-fixture";
 
 /**
  * chat-parity-attachments（issue #2022，差距清单第 2 项，阻断级）—— 真实浏览器证明
@@ -62,8 +61,6 @@ test(
 
     /* ═══════════ ① 📎 入口从零到有——先前差距清单第 2 项的核心断言 ═══════════ */
 
-    // 2026-09-02 composer 三层结构：「添加材料」住在「+」菜单里，先展开再断言。
-    await openComposerMenu(page);
     const attachButton = page.getByTestId("chat-attachment-input");
     await expect(attachButton).toBeVisible();
     // 附件专用线程是挂载后异步创建的（issue #2022 文件头"上传要有一个真实的

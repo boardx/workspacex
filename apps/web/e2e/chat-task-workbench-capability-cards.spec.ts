@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openChatEmptyState, openComposerMenu } from "./chat-task-workbench-fixture";
+import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openChatEmptyState } from "./chat-task-workbench-fixture";
 
 /**
  * issue #2068 —— **TW-P0-2 Agent 身份、能力与权限说明**（判据见 `${ACCEPTANCE_DOC}`）。
@@ -34,8 +34,6 @@ const TECH_LEAK_PATTERNS: RegExp[] = [
 
 test("TW-P0-2①：入口是「选择能力」且默认自动匹配、可展开", async ({ page }) => {
   await openChatEmptyState(page);
-  // 2026-09-02 composer 三层结构：入口住在「+」菜单里，先展开（见 fixture `openComposerMenu`）。
-  await openComposerMenu(page);
 
   const picker = await expectAnchor(
     page,
@@ -61,7 +59,6 @@ test("TW-P0-2①：入口是「选择能力」且默认自动匹配、可展开"
 
 test("TW-P0-2②：每张能力卡披露六项（擅长/工具技能/可读材料/写权限/记忆范围/当前状态）", async ({ page }) => {
   await openChatEmptyState(page);
-  await openComposerMenu(page);
   await expectAnchor(page, "chat-task-workbench-capability-picker", "TW-P0-2②", "缺少「选择能力」入口", 30_000);
   await page.getByTestId("chat-task-workbench-capability-picker").click();
 
@@ -103,7 +100,7 @@ test("TW-P0-2③：模型名 / middleware / LangGraph 节点等技术信息不�
   await openChatEmptyState(page);
 
   // 主界面 = composer 所在的中央工作区（不含「运行详情」抽屉，那里本来就该放技术信息）。
-  // 2026-09-02 起读整张 composer 卡片（含状态 chip / 禁用理由），比此前只读 agent 工具栏更宽。
+  // 2026-09-02 起读整张 composer 卡片（含状态栏），比此前只读 agent 工具栏更宽。
   const mainSurface = page.getByTestId("chat-task-workbench-composer");
   await expect(mainSurface).toBeVisible({ timeout: 30_000 });
   const surfaceText = await mainSurface.innerText();
