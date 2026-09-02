@@ -130,7 +130,6 @@ components/research/claim-matrix.tsx	className="flex items-center gap-1 rounded-
 components/research/context-pack.tsx	<div className={"h-full rounded-full transition-all duration-200 " + (budgetPct >= 75 ? "bg-warning" : "bg-primary")} style={{ width: `${budgetPct}%` }} />
 components/research/context-pack.tsx	className="inline-flex items-center gap-1 text-10 text-primary transition-colors duration-200 hover:underline"
 components/research/research-runs.tsx	"flex w-full flex-col gap-1 rounded-md border p-2 text-left transition-colors duration-200 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring " +
-components/shell/icon-rail.tsx	"mt-1.5 flex w-14 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-200",
 components/shell/mobile-tabs.tsx	"flex flex-1 flex-col items-center justify-center gap-0.5 transition-all duration-200",
 components/shell/org-menu.tsx	"flex h-8 w-8 items-center justify-center overflow-hidden rounded-md transition-all duration-200",
 components/shell/org-menu.tsx	"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",

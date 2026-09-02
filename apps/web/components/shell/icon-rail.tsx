@@ -48,8 +48,8 @@ export function IconRail({
       {/*
         短视口策略（2026-09-02 人类直接反馈：窗口高度不够时菜单被挤出、左下角头像看不见）：
         rail 分三段——① 顶部组织菜单（shrink-0，永远可见）② 中段一级导航（min-h-0 +
-        flex-1 + overflow-y-auto，高度不够时**在段内滚动**，滚动条隐藏、上下留渐隐提示）
-        ③ 底部反馈 + 个人菜单（shrink-0，**永远钉在左下角**，rubric 硬性锚点）。
+        flex-1 + overflow-y-auto，高度不够时在段内滚动，滚动条隐藏、上下留渐隐提示）
+        ③ 底部反馈 + 个人菜单（shrink-0，永远钉在左下角，rubric 硬性锚点）。
         再配一档紧凑模式：视口高度 ≤ 640px 时隐藏分组标题与图标下方文字（`max-h` 媒体查询
         arbitrary variant），只留图标 + title 提示，让更多项在不滚动时可见。
         不做"折进 more 菜单"的方案：那会让一级入口在两处出现（#593 一级/二级机械分界）。
@@ -86,7 +86,7 @@ export function IconRail({
                 aria-current={active ? "page" : undefined}
                 title={item.label}
                 className={cn(
-                  "mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-200",
+                  "mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base",
                   "[@media(max-height:640px)]:mt-1 [@media(max-height:640px)]:gap-0 [@media(max-height:640px)]:py-1",
                   active
                     ? "bg-card text-background-foreground shadow-sm"
