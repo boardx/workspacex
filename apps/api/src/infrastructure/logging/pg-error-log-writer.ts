@@ -20,26 +20,35 @@
  * own header says so) is an acceptable risk for journald but not for a queryable, 30-day
  * Postgres archive without that step.
  *
- * ## Read access: `app_rw` STILL structurally cannot `SELECT` the table directly
+ * ## Read access: TWO real credentials, not one connection wearing two hats
  *
  * 2026-09-01 review finding #1 named the original gap: the migration granted `app_rw`
  * everything by omission-of-a-narrower-grant. `20260901024515` closed that (`REVOKE ALL`,
  * grant back only `INSERT, DELETE` + a single-column `SELECT (created_at)` for the retention
- * sweep's `WHERE` clause).
+ * sweep's `WHERE` clause). `record()` and `sweepExpiredErrorLogs` still run over `this.db`
+ * (`app_rw`, injected as `DATABASE_PORT`) -- nothing about the write path changed.
  *
- * `list()` below exists for the platform-superuser admin read surface
- * (`system-error-log.controller.ts`) added later, but it does NOT reopen that grant --
- * see `20260902012105_error_logs_admin_read_grant.sql`'s header for why a first attempt at
- * this (a blanket `GRANT SELECT ON error_logs TO app_rw`) was wrong and was caught by
- * `pg-error-log-writer-real-postgres.test.ts`'s negative assertion on real Postgres: it
- * would have let ANYTHING holding `app_rw` credentials (not just this one controller, not
- * just a platform superuser) read every row's `detail`. Instead, `list()` calls
- * `kernel_read_error_logs(...)`, a `SECURITY DEFINER` SQL function owned by the
- * migration/owner role -- `app_rw` only ever gets `EXECUTE` on that one parameterized
- * function, never table-wide `SELECT`. A direct `SELECT trace_id, msg, detail FROM
- * error_logs` under `app_rw` must still fail with `permission denied`; that is the exact
- * invariant the real-Postgres test pins down, and it is unchanged by this method's
- * existence.
+ * `list()` below is a DIFFERENT story, and went through two wrong shapes before this one
+ * (review, PR #2475) -- both mistakes were "let `app_rw` reach the content", just spelled
+ * differently:
+ *   1. A blanket `GRANT SELECT ON error_logs TO app_rw` -- caught immediately by
+ *      `pg-error-log-writer-real-postgres.test.ts`'s negative assertion on real Postgres.
+ *   2. A `SECURITY DEFINER` function with `EXECUTE` granted to `app_rw` -- syntactically
+ *      different, SAME blast radius: anything able to run SQL over the `app_rw` connection
+ *      (the exact threat -- a compromised process, an injection bug elsewhere -- finding #1
+ *      was written for) could call `kernel_read_error_logs(...)` directly and get every row,
+ *      completely bypassing `PlatformSuperuserGuard` (an HTTP-layer gate that a raw SQL
+ *      connection never passes through in the first place).
+ *
+ * `list()` now runs over `this.readDb` -- a SEPARATE `DatabasePort`, injected as
+ * `DIAGNOSTICS_READER_DB_PORT`, backed by a genuinely different credential
+ * (`pg-config.ts`'s `diagnosticsReaderConfig()`, role `app_diag_ro`) that `app_rw`'s
+ * connection never uses and never could use. `app_rw` keeps calling `record()`/
+ * `sweepExpiredErrorLogs` over `this.db` exactly as before; a compromised `app_rw` session
+ * still cannot reach `error_logs`' content by ANY route -- direct `SELECT`, the retired
+ * `SECURITY DEFINER` function, nothing. `kernel_read_error_logs` stays as the read entry
+ * point (bounding pagination server-side is real defense in depth), but `EXECUTE` on it is
+ * now granted to `app_diag_ro`, not `app_rw` -- see the migration's header.
  *
  * ## Retention: best-effort, NOT a guarantee (2026-09-01 review finding #2 -- corrected)
  *
@@ -96,7 +105,17 @@ export async function sweepExpiredErrorLogs(db: DatabasePort): Promise<{ readonl
 export class PgErrorLogWriter implements ErrorLogPort {
   private writeCount = 0;
 
-  constructor(private readonly db: DatabasePort) {}
+  /**
+   * @param db     app_rw -- INSERT (`record()`) / DELETE (`sweepExpiredErrorLogs`). Never
+   *               used for reading `error_logs`' content.
+   * @param readDb app_diag_ro -- the ONLY connection `list()` ever runs over. See this
+   *               file's header for why these must be two genuinely different credentials,
+   *               not the same pool reused for both purposes.
+   */
+  constructor(
+    private readonly db: DatabasePort,
+    private readonly readDb: DatabasePort,
+  ) {}
 
   async record(entry: ErrorLogEntry): Promise<void> {
     const detail = redactErrorDetail(entry.detail);
@@ -118,9 +137,12 @@ export class PgErrorLogWriter implements ErrorLogPort {
    * `withoutTenant`, same reasoning as `record()` and `sweepExpiredErrorLogs`: this table has
    * no `org_id`, there is no tenant to scope a read to.
    *
+   * ⚠ Runs over `this.readDb` (`app_diag_ro`), NEVER `this.db` (`app_rw`) -- see this file's
+   *   header. This is the one line in this class where getting that pool reference wrong
+   *   would silently reopen the exact gap the separate credential exists to close.
    * ⚠ Goes through `kernel_read_error_logs(...)`, NOT a raw `SELECT ... FROM error_logs` --
-   *   see this file's header. `app_rw` (the identity this runs as) has no table-wide
-   *   `SELECT` on `error_logs`; the `SECURITY DEFINER` function is the only reader.
+   *   the function bounds pagination server-side as defense in depth even though `readDb`'s
+   *   own grants are already scoped to this alone.
    * ⚠ Reads `limit + 1` rows to derive `hasMore` from one query, rather than a second
    *   `COUNT(*)` round trip -- the extra row is trimmed off before returning.
    */
@@ -129,7 +151,7 @@ export class PgErrorLogWriter implements ErrorLogPort {
     readonly hasMore: boolean;
   }> {
     const fetchLimit = input.limit + 1;
-    const rows = await this.db.withoutTenant((s) =>
+    const rows = await this.readDb.withoutTenant((s) =>
       s.query<{ id: string; trace_id: string; msg: string; detail: unknown; created_at: Date }>(
         `SELECT id, trace_id, msg, detail, created_at FROM kernel_read_error_logs($1, $2)`,
         [fetchLimit, input.beforeId],

@@ -25,10 +25,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { asOwner, ensureDatabase, migrateOnce } from "../support/db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
-import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { appConfig, diagnosticsReaderConfig } from "../../src/infrastructure/db/pg-config";
 import { PgErrorLogWriter, sweepExpiredErrorLogs } from "../../src/infrastructure/logging/pg-error-log-writer";
 
 let db: PgDatabase;
+/** `app_diag_ro` -- a genuinely separate credential, see `pg-config.ts`'s header. */
+let readDb: PgDatabase;
 let writer: PgErrorLogWriter;
 
 interface ErrorLogRow {
@@ -42,7 +44,8 @@ beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
   db = new PgDatabase(appConfig());
-  writer = new PgErrorLogWriter(db);
+  readDb = new PgDatabase(diagnosticsReaderConfig());
+  writer = new PgErrorLogWriter(db, readDb);
 });
 
 beforeEach(async () => {
@@ -51,6 +54,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await db?.close();
+  await readDb?.close();
 });
 
 describe("PgErrorLogWriter against real Postgres -- migration, INSERT, jsonb, index, retention", () => {
@@ -136,13 +140,33 @@ describe("PgErrorLogWriter against real Postgres -- migration, INSERT, jsonb, in
     await expect(sweepExpiredErrorLogs(db)).resolves.toEqual({ ok: true });
   });
 
-  // review finding (PR #2475): the negative test above proves app_rw cannot read the table
-  // DIRECTLY -- these two prove the one narrow path that CAN, actually works against real
-  // Postgres. `writer.list()` runs as the SAME app_rw identity as the negative test above; if
-  // `kernel_read_error_logs`'s SECURITY DEFINER / GRANT EXECUTE were missing or wrong, this
-  // would fail with the identical `permission denied` the negative test asserts FOR the
-  // direct-SELECT path -- proving the two are not the same permission by construction, not by
-  // comment.
+  // review finding (PR #2475), round 2: a SECURITY DEFINER function with EXECUTE granted to
+  // app_rw has the SAME blast radius as the table-wide GRANT the negative test above already
+  // rules out -- anything able to run SQL over the app_rw connection could call the function
+  // directly. This is the test that would have caught that: app_rw must be refused EXECUTE
+  // on kernel_read_error_logs, not just refused a raw table SELECT. If a future migration
+  // ever grants app_rw EXECUTE here (the second wrong shape this PR tried), this goes red.
+  it("【反证2】app_rw 连 kernel_read_error_logs 也调不了——SECURITY DEFINER 函数不是 app_rw 的又一条读路径", async () => {
+    await expect(
+      db.withoutTenant((s) => s.query("SELECT * FROM kernel_read_error_logs(10, NULL)")),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  // The positive counterpart to both negative tests above: a DIFFERENT credential
+  // (app_diag_ro, via `readDb`) CAN call the function -- proving the separation is real (a
+  // working reader exists) and not merely "nobody can read anything".
+  it("app_diag_ro 能调用 kernel_read_error_logs——分离是真的分离，不是把读路径也一起锁死", async () => {
+    await writer.record({ traceId: "t-real-diag-ro-direct", msg: "x", detail: {} });
+
+    const rows = await readDb.withoutTenant((s) =>
+      s.query<{ trace_id: string }>("SELECT * FROM kernel_read_error_logs(50, NULL)"),
+    );
+    expect(rows.rows.map((r) => r.trace_id)).toContain("t-real-diag-ro-direct");
+  });
+
+  // review finding (PR #2475): the negative tests above prove app_rw cannot read the table
+  // directly OR through the function -- these two prove the one narrow path that CAN
+  // (app_diag_ro, via `writer.list()`/`readDb`) actually works against real Postgres.
   it("writer.list() reads real rows back through kernel_read_error_logs even though app_rw cannot SELECT the table directly", async () => {
     await writer.record({ traceId: "t-real-list-1", msg: "first", detail: { name: "Error", message: "one" } });
     await writer.record({ traceId: "t-real-list-2", msg: "second", detail: { name: "Error", message: "two" } });

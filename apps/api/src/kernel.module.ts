@@ -16,11 +16,11 @@ import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
-import { DATABASE_PORT } from "./application/ports/database.port";
+import { DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT } from "./application/ports/database.port";
 import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 
-import { appConfig } from "./infrastructure/db/pg-config";
+import { appConfig, diagnosticsReaderConfig } from "./infrastructure/db/pg-config";
 import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 import { ERROR_LOG_PORT } from "./application/ports/error-log.port";
@@ -812,11 +812,15 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
+    // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
+    // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches
+    // this pool.
+    { provide: DIAGNOSTICS_READER_DB_PORT, useFactory: () => new PgDatabase(diagnosticsReaderConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
     {
       provide: ERROR_LOG_PORT,
-      useFactory: (db: DatabasePort) => new PgErrorLogWriter(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, readDb: DatabasePort) => new PgErrorLogWriter(db, readDb),
+      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT],
     },
     {
       provide: RATE_LIMITER_PORT,

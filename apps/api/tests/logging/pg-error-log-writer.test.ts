@@ -28,7 +28,7 @@ function fakeDb(): { db: DatabasePort; queries: { sql: string; params: readonly 
 describe("PgErrorLogWriter", () => {
   it("record() inserts trace_id/msg/detail via withoutTenant (no tenant context)", async () => {
     const { db, queries } = fakeDb();
-    const writer = new PgErrorLogWriter(db);
+    const writer = new PgErrorLogWriter(db, db);
 
     await writer.record({ traceId: "t-1", msg: "unhandled exception", detail: { name: "Error", message: "boom" } });
 
@@ -39,7 +39,7 @@ describe("PgErrorLogWriter", () => {
 
   it("record() redacts before INSERT -- a secret in detail never reaches the query params (review finding #1)", async () => {
     const { db, queries } = fakeDb();
-    const writer = new PgErrorLogWriter(db);
+    const writer = new PgErrorLogWriter(db, db);
 
     await writer.record({
       traceId: "t-secret",
@@ -54,7 +54,7 @@ describe("PgErrorLogWriter", () => {
 
   it("housekeeping DELETE runs on exactly every 50th write, not every write", async () => {
     const { db, queries } = fakeDb();
-    const writer = new PgErrorLogWriter(db);
+    const writer = new PgErrorLogWriter(db, db);
 
     for (let i = 0; i < 49; i++) {
       await writer.record({ traceId: `t-${i}`, msg: "x", detail: {} });
@@ -87,7 +87,7 @@ describe("PgErrorLogWriter", () => {
       withoutTenant: async (fn) => fn(session),
       close: async () => undefined,
     };
-    const writer = new PgErrorLogWriter(db);
+    const writer = new PgErrorLogWriter(db, db);
 
     for (let i = 0; i < 49; i++) await writer.record({ traceId: `t-${i}`, msg: "x", detail: {} });
     await expect(writer.record({ traceId: "t-50", msg: "x", detail: {} })).resolves.toBeUndefined();
@@ -95,31 +95,48 @@ describe("PgErrorLogWriter", () => {
   });
 });
 
-describe("PgErrorLogWriter.list() -- routes through kernel_read_error_logs, never a raw table SELECT", () => {
-  // review finding (PR #2475): a first version of the migration granted app_rw table-wide
-  // SELECT so a raw `SELECT ... FROM error_logs` would also have worked here -- this pins
-  // the SQL shape so a regression back to that is a red unit test, not something only the
-  // real-Postgres suite's negative assertion would catch.
-  it("calls kernel_read_error_logs(...), not a raw SELECT on error_logs", async () => {
-    const { db, queries } = fakeDb();
-    const writer = new PgErrorLogWriter(db);
+describe("PgErrorLogWriter.list() -- routes through readDb (app_diag_ro), never db (app_rw)", () => {
+  // review finding (PR #2475): a SECURITY DEFINER function callable by app_rw has the same
+  // blast radius as a table-wide GRANT SELECT to app_rw -- anything that can run SQL over
+  // that ONE connection reaches the content either way. The actual fix is a SEPARATE
+  // credential (`readDb`, wired to `app_diag_ro`) that `db` (app_rw) never touches. These
+  // tests assert that separation directly: two independent fake pools, and `list()` must
+  // never issue a single query against the `db` (write/app_rw) pool.
+  it("calls kernel_read_error_logs(...) on readDb, and NEVER touches db at all", async () => {
+    const { db, queries: writeQueries } = fakeDb();
+    const { db: readDb, queries: readQueries } = fakeDb();
+    const writer = new PgErrorLogWriter(db, readDb);
 
     await writer.list({ limit: 20, beforeId: null });
 
-    expect(queries).toHaveLength(1);
-    expect(queries[0]!.sql).toContain("kernel_read_error_logs($1, $2)");
-    expect(queries[0]!.sql).not.toMatch(/FROM\s+error_logs\b/);
+    expect(writeQueries).toHaveLength(0);
+    expect(readQueries).toHaveLength(1);
+    expect(readQueries[0]!.sql).toContain("kernel_read_error_logs($1, $2)");
+    expect(readQueries[0]!.sql).not.toMatch(/FROM\s+error_logs\b/);
     // fetches limit+1 to derive hasMore from one query
-    expect(queries[0]!.params).toEqual([21, null]);
+    expect(readQueries[0]!.params).toEqual([21, null]);
+  });
+
+  it("record() and sweepExpiredErrorLogs, symmetrically, never touch readDb", async () => {
+    const { db, queries: writeQueries } = fakeDb();
+    const { db: readDb, queries: readQueries } = fakeDb();
+    const writer = new PgErrorLogWriter(db, readDb);
+
+    await writer.record({ traceId: "t-1", msg: "x", detail: {} });
+    await sweepExpiredErrorLogs(db);
+
+    expect(writeQueries.length).toBeGreaterThan(0);
+    expect(readQueries).toHaveLength(0);
   });
 
   it("passes beforeId through as the function's second argument", async () => {
-    const { db, queries } = fakeDb();
-    const writer = new PgErrorLogWriter(db);
+    const { db } = fakeDb();
+    const { db: readDb, queries: readQueries } = fakeDb();
+    const writer = new PgErrorLogWriter(db, readDb);
 
     await writer.list({ limit: 10, beforeId: "42" });
 
-    expect(queries[0]!.params).toEqual([11, "42"]);
+    expect(readQueries[0]!.params).toEqual([11, "42"]);
   });
 
   it("hasMore is derived from the extra fetched row, which is trimmed from items", async () => {
@@ -133,12 +150,13 @@ describe("PgErrorLogWriter.list() -- routes through kernel_read_error_logs, neve
         };
       },
     };
-    const db: DatabasePort = {
+    const readDb: DatabasePort = {
       withTenant: async (_orgId, fn) => fn(session),
       withoutTenant: async (fn) => fn(session),
       close: async () => undefined,
     };
-    const writer = new PgErrorLogWriter(db);
+    const { db } = fakeDb();
+    const writer = new PgErrorLogWriter(db, readDb);
 
     const out = await writer.list({ limit: 1, beforeId: null });
 
