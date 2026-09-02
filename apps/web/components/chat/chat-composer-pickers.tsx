@@ -7,6 +7,17 @@ import { Button } from "@/components/ui/button";
 import { useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
 import type { GetAgentPanelOut } from "@/lib/live-chat";
 
+/**
+ * issue #2476 —— composer 行三个下拉触发按钮（Agent 选择/麦克风设备/能力挂载）
+ * 共用的胶囊样式，此前同一个字符串字面写了三遍（本文件两处 +
+ * `chat-task-workbench-capability-picker.tsx` 一处），改一处容易漏改另外两处——
+ * AGENTS.md「同一事实不得声明在两处」同一条纪律。`maxWidthClassName` 是唯一
+ * 真的因场景而异的部分，其余固定。
+ */
+export function composerPickerTriggerClassName(maxWidthClassName: string): string {
+  return `${maxWidthClassName} justify-start gap-1.5 rounded-pill px-2`;
+}
+
 /*
   拆自 `chat-live-message-panel.tsx`（业务源文件规模纪律：接近 2000 行硬上限时
   必须按领域职责拆分，见 AGENTS.md「不可违反的硬约束」）。这两个组件是 composer
@@ -82,7 +93,7 @@ export function AgentPicker({
         type="button"
         size="xs"
         variant="ghost"
-        className="max-w-40 justify-start gap-1.5 rounded-pill px-2"
+        className={composerPickerTriggerClassName("max-w-40")}
         data-testid="chat-agent-select"
         disabled={disabled}
         aria-haspopup="listbox"
@@ -158,7 +169,7 @@ export function MicDevicePicker({
         type="button"
         size="xs"
         variant="ghost"
-        className="max-w-40 justify-start gap-1.5 rounded-pill px-2"
+        className={composerPickerTriggerClassName("max-w-40")}
         data-testid="chat-mic-device-select"
         data-selected-device={selectedDeviceId ?? ""}
         disabled={disabled}

@@ -30,7 +30,10 @@ export function PlanConfirmGate(
   if (!gate.required) return null;
 
   return (
-    <Card data-testid={PLAN_CONFIRM_GATE_TESTID} className="border-primary/40">
+    // issue #2476：卡片边框原来是 `border-primary/40`，跟自己那颗 `tone="warning"`
+    // 徽标语义不一致（`--primary` 现在是近黑，不是警示色）——改成 `border-warning/40`
+    // 让边框颜色和徽标说的是同一件事。
+    <Card data-testid={PLAN_CONFIRM_GATE_TESTID} className="border-warning/40">
       <CardContent className="flex flex-col gap-2 py-3">
         <div className="flex items-center gap-2">
           <span className="text-13 font-semibold">确认后执行</span>
