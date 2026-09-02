@@ -223,7 +223,19 @@ jobs:
 
       # 只跑受本次改动影响的包（模块只测自己）。
       # PR：相对 base 分支；push main：相对上一个 commit。
-      - name: 受影响模块 typecheck/lint/test
+      #
+      # 2026-09-02（人类实测发现 backend-gates 与本 job 在同一次 push 上各自起一套
+      # Postgres、把 @repo/api 的 vitest 全套跑两遍——`gates-test` 4 分片跑一遍、这里
+      # `turbo run test --affected` 判定 @repo/api 受影响后又完整跑一遍，纯重复、不是
+      # 两道互补的门）：@repo/api 的 `test` 从这里的 `--affected` 集合里显式排除，
+      # 交回 `backend-gates.yml` 的 `gates-test` 分片 job 独家负责。typecheck/lint
+      # 仍然覆盖 @repo/api（这两项 backend-gates 只跑一次、不分片，没有重复问题）。
+      - name: 受影响模块 typecheck/lint
+        env:
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: pnpm turbo run typecheck lint --affected
+
+      - name: 受影响模块 test（@repo/api 除外，见上——它由 backend-gates 的分片 job 单独覆盖）
         env:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
           # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
@@ -232,7 +244,7 @@ jobs:
           # 会话共享的库——门要挡的「不知情地连上共享库」在这个环境里没有对象。
           # ⚠ 自建 runner（常驻机器）上**不得**照抄这行：那里的库是真共享的。
           WORKSPACEX_DB: workspacex
-        run: pnpm turbo run typecheck lint test --affected
+        run: pnpm turbo run test --affected --filter='!@repo/api'
 
   # 全仓编译门（ADR-106 S2 / #1333）——人类裁决方案 A（经 coord-main 转达）：
   # PR 上加一条**全仓** typecheck/lint/build，**不含全量 test**，因此不与
