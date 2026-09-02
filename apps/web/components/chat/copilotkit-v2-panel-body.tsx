@@ -1779,7 +1779,9 @@ export function CopilotKitV2PanelBody({
         <div
           className={[
             "flex min-w-0 flex-col rounded-xl border shadow-sm transition-colors duration-fast",
-            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel-alt focus-within:border-primary/60",
+            // 人类 2026-09-02：选中的编辑器不要黑框，要淡淡的框——卡片描边略深一点即可，
+            // textarea 自己的焦点环压到几乎不可见（仍保留，U7b：outline-none 必须配 ring）。
+            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel-alt focus-within:border-border",
           ].join(" ")}
           data-testid="chat-task-workbench-composer"
           data-voice-phase={voice.phase}
@@ -1832,7 +1834,7 @@ export function CopilotKitV2PanelBody({
                 data-testid="copilotkit-v2-input"
                 rows={3}
                 className={[
-                  "block w-full min-w-0 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground",
+                  "block w-full min-w-0 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/10 disabled:text-disabled-foreground",
                   speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
                 disabled={archived}

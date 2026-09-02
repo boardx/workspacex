@@ -209,6 +209,31 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     expect(handlers.finals).toEqual(["ok"]);
   });
 
+  it("finish() right after a final with no new audio since ⇒ no commit, no wait, no error（2026-09-02 devapp：点「停止」误报服务不可用）", async () => {
+    const received: string[] = [];
+    upstream = await startFakeUpstream((frame, ws) => {
+      received.push(String(frame.type));
+      if (frame.type === "session.update") ws.send(JSON.stringify({ type: "session.updated" }));
+      // server_vad 自己断句：收到音频就给 final；commit 永远不回——正是线上那种"没有新东西可结算"的上游。
+      if (frame.type === "input_audio_buffer.append") {
+        ws.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", transcript: "已落定", confidence: null }));
+      }
+    });
+    const provider = new ConfiguredRealtimeAsrProvider({
+      provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`, apiKey: "k", model: MODEL,
+    });
+    const handlers = recordingHandlers();
+    const session = await provider.open(handlers, AUDIO);
+    session.pushAudio(new Uint8Array(320));
+    await new Promise<void>((resolve) => { const t = setInterval(() => { if (handlers.finals.length > 0) { clearInterval(t); resolve(); } }, 5); });
+    const started = Date.now();
+    await session.finish();
+    expect(Date.now() - started).toBeLessThan(2_000);
+    expect(received).not.toContain("input_audio_buffer.commit");
+    expect(handlers.errors).toEqual([]);
+    expect(handlers.finals).toEqual(["已落定"]);
+  });
+
   it("an explicit `error` frame from upstream is reported once, not duplicated by the close that follows it", async () => {
     upstream = await startFakeUpstream((frame, ws) => {
       if (frame.type === "session.update") {

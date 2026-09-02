@@ -223,6 +223,15 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     // that always follows it.
     let finishRequested = false;
     let errorReported = false;
+    /**
+     * 2026-09-02 devapp 实测：用户说完最后一句 → server_vad 已经给了 final → 用户点「停止」
+     * → `finish()` 再 commit 一次**空缓冲**，上游没有新东西可结算，既不回 final 也不关连接
+     * → 等满 `FINISH_GRACE_MS` 后报 `ASR_PROVIDER_UNAVAILABLE`——一次完全成功的转录在界面上
+     * 变成"语音识别服务暂时不可用"。这两个计数把"上次 final 之后有没有推过新音频"记下来：
+     * 没有就没什么可等，直接收线；有才 commit 并等它落定。
+     */
+    let anyFinalSeen = false;
+    let audioSinceFinal = 0;
     const reportError = (reason: typeof PROVIDER_UNAVAILABLE | typeof AUDIO_FORMAT_REJECTED, detail: string): void => {
       errorReported = true;
       handlers.onError(reason, detail);
@@ -244,6 +253,8 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       }
       if (transcript?.kind === "final") {
         finalSeen = true;
+        anyFinalSeen = true;
+        audioSinceFinal = 0;
         handlers.onFinal({
           text: transcript.text,
           confidence: transcript.confidence,
@@ -276,6 +287,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     return {
       pushAudio(frame) {
         if (closed || socket.readyState !== WebSocket.OPEN) return;
+        audioSinceFinal += frame.byteLength;
         socket.send(JSON.stringify({
           type: "input_audio_buffer.append",
           audio: Buffer.from(frame).toString("base64"),
@@ -288,6 +300,11 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
       async finish() {
         finishRequested = true;
         if (closed || socket.readyState !== WebSocket.OPEN) return;
+        if (anyFinalSeen && audioSinceFinal === 0) {
+          // 上一句已经落定、之后没有新音频：没有可结算的东西，commit 只会等出一个假错误。
+          socket.close();
+          return;
+        }
         finalSeen = false;
         socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
         // 等最后一段 final 回来再关。直接关会丢掉用户说的最后一句话，
