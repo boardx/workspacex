@@ -1131,7 +1131,17 @@ describe("lint-permission-paths: counter-proof", () => {
     // （b）不调用 `withoutTenant`；（c）非特权分支的 WHERE 子句始终从
     // `owner_user_id`/`executor`/同组成员资格子查询构建，不会退化成无演员谓词的裸
     // SELECT。删那个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(84);
+    //
+    // ⚠ Raised 84 -> 85 by member-role-management delta（两级成员管理，平台级名册）：新增
+    // `infrastructure/system/pg-platform-member-repository.ts`，命名 `credentials`/
+    // `organizations`/`org_memberships`——它**没有**新开跨租户读路径：`credentials` 是无租户表，
+    // 组织发现走既有的 `kernel_user_org_ids`（0010，一人一次），组织名/成员行只在
+    // `withTenant(orgId)` 下读，与 `pg-org-profile-repository.ts` 的 `listMembers` 同形；
+    // 谁能看拼出来的名册由 `PlatformSuperuserGuard`（env 白名单）在 controller 类上判定。
+    // 被强制的前提：`tests/org-admin/platform-members-guard-wiring.test.ts` 断言守卫元数据
+    // 确实挂在 `PlatformMemberController` 上，`tests/org-admin/platform-members-real.test.ts`
+    // 断言本地组织的成员身份永远不进名册。删那两个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(85);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

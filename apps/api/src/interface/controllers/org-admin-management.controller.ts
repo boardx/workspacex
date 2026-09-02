@@ -11,6 +11,7 @@
  *   PATCH /organizations/:orgId/teams/:teamId                新：改名（`renameTeam`，撞重名真拒绝）
  *   POST /organizations/:orgId/teams/:teamId/delete          新：删除（`deleteTeam`，非空真拒绝）
  *   POST /organizations/:orgId/members/:userId/remove       移除组织成员
+ *   PATCH /organizations/:orgId/members/:userId/role         改组织角色（member-role-management delta）
  *
  * `mutateTeam` 与 `createTeam`/`renameTeam`/`deleteTeam` 为什么并存而不是二选一合并，
  * 见 `org-admin.ts` 里 `createTeam` 操作的文档注释。
@@ -65,6 +66,7 @@ import { createTeam } from "../../application/auth/create-team";
 import { renameTeam } from "../../application/auth/rename-team";
 import { deleteTeam } from "../../application/auth/delete-team";
 import { removeOrgMember } from "../../application/auth/remove-org-member";
+import { setOrgMemberRole } from "../../application/auth/set-org-member-role";
 import { resendOrgInvite } from "../../application/auth/resend-org-invite";
 import { revokeOrgInvite } from "../../application/auth/revoke-org-invite";
 import { reviewAdminInvite } from "../../application/auth/review-admin-invite";
@@ -118,6 +120,8 @@ export const CREATE_TEAM_SCHEMA = C.operations.createTeam.in;
 export const RENAME_TEAM_SCHEMA = C.operations.renameTeam.in;
 export const DELETE_TEAM_SCHEMA = C.operations.deleteTeam.in;
 export const REMOVE_ORG_MEMBER_SCHEMA = C.operations.removeOrgMember.in;
+/** member-role-management delta（组织级改角色）。同上，导出以证明与契约是同一个对象。 */
+export const SET_ORG_MEMBER_ROLE_SCHEMA = C.operations.setOrgMemberRole.in;
 /** org-profile-membership delta（#363 收拢）。同上，导出以证明是同一个对象。 */
 export const UPDATE_ORGANIZATION_SCHEMA = C.operations.updateOrganization.in;
 export const UPLOAD_ORG_AVATAR_SCHEMA = C.operations.uploadOrgAvatar.in;
@@ -158,6 +162,7 @@ type MutateTeamBody = {
   name: string | null;
 };
 type RemoveMemberBody = { orgId: string; userId: string };
+type SetMemberRoleBody = z.infer<typeof C.operations.setOrgMemberRole.in>;
 /** issue #852 delta（skill-reviewer-function-assignment）。 */
 type AssignReviewerFunctionBody = {
   orgId: string;
@@ -472,6 +477,35 @@ export class OrgAdminManagementController {
         { orgId, actorId: principal.userId, actorOrgRole: orgRole, userId: userIdParam },
       );
       return out;
+    } catch (e) {
+      throw toHttpException(e);
+    }
+  }
+
+  /**
+   * `setOrgMemberRole`（member-role-management delta）—— 组织管理员给现有成员改组织角色。
+   *
+   * 路由 `PATCH …/members/:userId/role`：与 `remove` 一样先 `requireAdminRole` 读出调用者
+   * 在本组织的角色（非成员在此 403 `NO_ORG_MEMBERSHIP`），admin 判定在用例第一行
+   * （`PROJECT_ROLE_INSUFFICIENT`）。「最后一名 admin」的判定不在这里也不在用例里——
+   * 它必须与写入同一事务（见 `org-member-ports.ts` `changeRole`），所以住在仓储里，
+   * 规则本身在 domain `decideOrgRoleChange`，与平台级路由（`platform-member.controller.ts`）
+   * 共用同一份。
+   */
+  @Patch(C.operations.setOrgMemberRole.path)
+  async setMemberRole(
+    @Param("orgId") orgIdParam: string,
+    @Param("userId") userIdParam: string,
+    @Body(new ZodBodyPipe(SET_ORG_MEMBER_ROLE_SCHEMA)) body: SetMemberRoleBody,
+    @CurrentPrincipal() principal: Principal,
+  ) {
+    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
+    try {
+      const out = await setOrgMemberRole(
+        { repo: this.members, provenance: this.provenance },
+        { orgId, actorId: principal.userId, actorOrgRole: orgRole, userId: userIdParam, orgRole: body.orgRole },
+      );
+      return C.operations.setOrgMemberRole.out.parse(out);
     } catch (e) {
       throw toHttpException(e);
     }
@@ -881,6 +915,8 @@ function toHttpException(e: unknown) {
     if (e.reasonCode === "MEMBER_NOT_FOUND" || e.reasonCode === "NOT_ASSIGNED") {
       return new NotFoundException({ reasonCode: e.reasonCode });
     }
+    // member-role-management delta：`LAST_ADMIN` 走默认的 409——它确实是「当前状态不允许
+    // 这个变更」（先提一个新 admin 再来），与 `TEAM_NOT_EMPTY` 同一性质，不另开分支。
     return new ConflictException({ reasonCode: e.reasonCode });
   }
   return e;

@@ -46,6 +46,13 @@ export interface PlanRunSnapshot {
   readonly remoteRunId: string | null;
   /** F976 UC-9/UC-13：这条 run 是否已被 `pausePlanRun` 打断过，及打断时刻。 */
   readonly pausedAt: string | null;
+  /**
+   * issue #2451 —— `agent_runs.error_code` 原样透传，终态非 `failed` 时恒为 `null`。
+   * `derivePlanPhase`（I-7）判定 `phase` 不需要它——只是把它作为原料交给
+   * `getPlanLedger`，好让读模型能把真实失败原因（而不是写死占位文案）交给前端，
+   * 单一事实源仍是 `apps/web/lib/agent-run.ts` 的 `describeAgentRunError`。
+   */
+  readonly errorCode: string | null;
 }
 
 /**

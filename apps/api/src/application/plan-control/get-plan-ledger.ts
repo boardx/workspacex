@@ -30,6 +30,13 @@ export interface GetPlanLedgerOutput {
   readonly progress: { readonly completed: number; readonly total: number; readonly elapsedMs: number };
   readonly pendingApplyAtNextRun: boolean;
   readonly activeRunId: string | null;
+  /** issue #2451 —— 真实失败原因（`agent_runs.error_code` 原样透传），终态非
+   *  `failed` 时恒为 `null`。前端用它替换写死的失败占位文案（`describeAgentRunError`）。 */
+  readonly errorCode: string | null;
+  /** issue #2451 —— 哪一步失败：`steps` 里 `status==='in_progress'` 的那一步
+   *  （run 死掉那一刻仍在跑的那一步），不是"第一个未完成的步骤"——见下方计算处注释。
+   *  终态非 `failed` 时恒为 `null`。 */
+  readonly failedStepId: string | null;
 }
 
 const ACTIVE_RUN_STATUSES = new Set(["running"]);
@@ -78,6 +85,19 @@ export async function getPlanLedger(
   // 权威来源），本字段是读模型的复算，不是另一份独立事实。
   const pendingApplyAtNextRun = ledger?.origin === "user" && activeRunId !== null;
 
+  // issue #2451 —— `failedStepId`：只在 `phase==='failed'` 时算，别处恒 `null`
+  // （与 `errorCode` 同一条纪律，见上面字段头注）。取最新账本快照里 `status===
+  // 'in_progress'` 的那一步——这是 run 死掉那一刻唯一有真实信号支持"正是它"的一步，
+  // 不是猜的。理论上正常写路径下至多一个 `in_progress`（`write_todos` 顺序推进）；
+  // 万一 run 在第一步真正开始前就死了（`write_todos` 还没来得及把它标 `in_progress`），
+  // 这里退回第一个 `pending` 步骤——即将要跑但没跑成的那一步，仍是有依据的选择，
+  // 不是向"猜"倒退（比旧版前端"第一个未完成的步骤"窄：不会跳过一个正在跑的
+  // `in_progress` 步骤去选后面的 `pending`）。两种情况都取不到时才是 `null`。
+  const failedStepId = phase === "failed"
+    ? (steps.find((s) => s.status === "in_progress") ?? steps.find((s) => s.status === "pending"))
+      ?.planStepId ?? null
+    : null;
+
   return {
     revision: ledger?.revision ?? 0,
     engineEpoch: ledger?.engineEpoch ?? 0,
@@ -92,5 +112,7 @@ export async function getPlanLedger(
     progress: { completed, total, elapsedMs },
     pendingApplyAtNextRun,
     activeRunId,
+    errorCode: run?.errorCode ?? null,
+    failedStepId,
   };
 }

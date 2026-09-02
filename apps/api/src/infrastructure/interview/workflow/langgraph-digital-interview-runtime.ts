@@ -283,7 +283,7 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
   async generateReport(input: {
     readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
     readonly expectedVersion: number; readonly requestId: string;
-  }): Promise<DigitalInterviewWorkflowView> {
+  }, onProgress?: (workflow: DigitalInterviewWorkflowView) => Promise<void>): Promise<DigitalInterviewWorkflowView> {
     const current = await this.authorize(input.orgId, input.actorId, input.interviewId);
     const guardedReplay = await this.deps.effects.findReceipt({
       orgId: input.orgId, interviewId: input.interviewId, operationName: "generate_report",
@@ -293,6 +293,9 @@ export class LangGraphDigitalInterviewRuntime implements DigitalInterviewRuntime
     if (!this.deps.effects.generateReport) throw new DigitalInterviewWorkflowError("DEPENDENCY_UNAVAILABLE");
     const generated = await this.deps.effects.generateReport({
       ...input, operationId: `${input.interviewId}:generate_report:${input.requestId}`,
+      onProgress: onProgress
+        ? async (workflow) => onProgress(this.discloseWorkflow(workflow, current.decision))
+        : undefined,
     });
     const rechecked = await this.recheckAfterModel(input.orgId, input.actorId, input.interviewId);
     return this.discloseWorkflow(generated, rechecked.decision);

@@ -80,6 +80,18 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  *   · api  —— 命令以 `docker compose up -d --wait` 打头，机器上并存几十个隔离栈时
  *     healthcheck 迟迟不转绿。实测本机同时有 38 个容器，这一格拿不到 120s 内的启动。
  *
+ * 2026-09-02（babysit PR #2464/#2477 期间独立复现）—— 180s 又被同一种模式推过界
+ * 了，这次是新依赖树带来的：`@copilotkit/runtime` 的 `agent/index.mjs`/
+ * `v2/index.mjs` 拉进 `@ai-sdk/google-vertex`，其 `@ai-sdk/provider-utils` 触发
+ * 一条 webpack "Critical dependency: the request of a dependency is an
+ * expression" 警告（动态 require，webpack 静态分析不了，打包更慢）。三次独立观测
+ * （PR #2464 一次、PR #2477 一次，且**在 main 分支自己的 commit `605619734c` 上
+ * 也直接复现过**，与任何 PR 的改动无关）都停在同一行
+ * `Error: Timed out waiting 180000ms from config.webServer`；其中一次日志显示
+ * webpack 警告在 postgres ready 后 ~130s 才打出，整个编译在 180s 预算内还没吐出
+ * 监听端口。跟 2026-08-24 那次一样的判断：不是机器忙，是依赖体积又长了一截，180s
+ * 现在离真实耗时太近，改成 240s 留回等量级的安全边际。
+ *
  * 仍然不为「单纯慢机器」放宽：那等于把一条会红的信号调成不会红，要在慢机器上跑
  * 就显式覆盖 `FULLSTACK_E2E_SERVER_TIMEOUT_MS`。这次改的是默认值本身对应的真实
  * 依赖重量，不是绕过信号。
@@ -87,7 +99,7 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  * ⚠ `database-unavailable` 那条反证**不受它影响**：那一格要的就是「快速失败」，
  *   给它一个长窗口只会让反证等满。见下方 API 那格的三元。
  */
-const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 180_000);
+const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 240_000);
 const fixtureEnv = {
   FULLSTACK_E2E_FIXTURE: "1",
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
@@ -255,12 +267,18 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
+        "rewrite-coverage-live-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",
         "canvas-template-create-smoke.spec.ts",
         // ⚠ R2（画布模板重设计）同理排在 `seeded`：它同样用种子里的组织管理员登录，
         //   验的是模板库屏对照 `Design.pdf` §3/§7 的实现完成度（卡片网格/A1 缩略图/
         //   真实标签筛选/改名换标签），与上一行那个验契约行为的 spec 分工不同。
         "canvas-template-library-design.spec.ts",
+        // ⚠ 2026-09-01（#2469）同理排在 `seeded`：它同样用种子里的组织管理员登录。
+        //   验的是「贴纸整体有没有被贴纸网格外层 overflow-hidden 腰斩」——跟上一行
+        //   验「贴纸内文字有没有被裁切」是两层不同的断言，理由见文件头注。
+        "canvas-tpl-sticky-not-clipped.spec.ts",
         // ⚠ #520 与 #496 同理，必须排在 `seeded` 里：它要用种子里的组织管理员登录。
         "skill-create-smoke.spec.ts",
         // ⚠ #552 同理排在 `seeded`：它要用种子里的三个账号（提交人 / 第二评审人 /

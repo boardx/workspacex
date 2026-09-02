@@ -223,11 +223,23 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 判断软导航有没有生效，这里补一份指向"内容真的切换了没有"的独立事实源，供那处
    * 判据改用（ref 而非直接读 state：`pushThreadRoute` 的 `setTimeout` 回调是一次性
    * 闭包，读 state 会拿到创建那一刻的旧值，读 ref 才是"检查那一刻的最新值"）。
+   *
+   * ⚠ 2026-09-02（防抖修复自己捅出的洞，babysit PR #2494 期间由回归测试抓到）——
+   * 这份事实源本来直接镜像 `selectedThreadId` 这个 state。后来 `selectThread`
+   * 加了一条乐观赋值路径（点击瞬间就 `setSelectedThreadId(threadId)`，给即时
+   * 高亮反馈，见下面该函数头注），如果这里继续镜像同一个 state，`pushThreadRoute`
+   * 兜底要问的"软导航是不是真的卡住了，迟迟没有从服务端/路由拿到确认"就会被
+   * 乐观赋值污染成"用户刚点了哪一条"——乐观赋值发生在点击那一刻、远早于 4 秒
+   * 兜底窗口，兜底检查到点时永远已经"match"，判"已经成功"提前退出，#2259/#2402
+   * 那次真栈实测过的重试兜底对单次点击直接变成死代码（见
+   * `apps/web/tests/ui/copilotkit-v2-shell-thread-switch.test.tsx` 那两条曾经
+   * 因此翻红的用例）。改镜像 `initialThreadId` 这个 prop 本身——只有 Next Router
+   * 真的完成软导航、父级用新路由重渲染这层壳时它才会变，不会被乐观赋值提前置真。
    */
-  const selectedThreadIdRef = React.useRef(selectedThreadId);
+  const confirmedThreadIdRef = React.useRef(initialThreadId);
   React.useEffect(() => {
-    selectedThreadIdRef.current = selectedThreadId;
-  }, [selectedThreadId]);
+    confirmedThreadIdRef.current = initialThreadId;
+  }, [initialThreadId]);
 
   /**
    * 独立 review（exact-SHA，PR #2419）阻断项——`threadListCache` 是模块级的，
@@ -266,6 +278,37 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
   const listGeneration = React.useRef(0);
 
   /**
+   * 2026-09-02 人类实测反馈——「点击了『请给出计划…』这一条，选中的却变成相邻的
+   * 『生成一个FDE的流程图』」。点击本身接线是对的（`key`/`onSelect` 都绑定当前行
+   * 自己的 `card.id`，见下面 `renderGroups.map`）；根因是 `onMessageSent` 每次
+   * AI 回合结束都会 `reloadThreads()`，按 `lastActivityAt` 重新分组/排序后，
+   * 「今天」分组里的行会整体错位一格——用户瞄准某一行按下的瞬间，如果恰好撞上
+   * 这次重排落地，实际点到的就是挪过来的相邻会话（连带后端 `list-personal-
+   * threads.ts`/`list-threads.ts` 那处不满足全序契约的排序，会放大这种错位，
+   * 已在那两个文件单独修）。
+   *
+   * 这里堵的是前端这一半：用户手指/鼠标压在列表上的这段时间内（`pointerdown` 到
+   * `pointerup`/`pointercancel`/`pointerleave`），任何后台刷新拿到的新列表先存进
+   * `pendingThreadsRef`，不立刻 `setThreads` 改变可见顺序；松开（这次点击已经
+   * 完整派发给对应的 `<button onClick>`）之后再把攒下的最新结果落地，不丢失
+   * 刷新本身。`window.setTimeout(…, 0)` 是特意的：`pointerup`→`click` 是同一个
+   * 用户手势里的连续事件，在这两者之间的这一帧把 `interacting` 提前置回 false
+   * 会让这次 `click` 仍然可能读到重排后的错误行；推到下一个宏任务，确保这次
+   * `click` 已经先落到了按下瞬间那个 DOM 节点上。
+   */
+  const listInteractingRef = React.useRef(false);
+  const pendingThreadsRef = React.useRef<ListThreadsOut | null>(null);
+  const releaseListInteraction = React.useCallback(() => {
+    window.setTimeout(() => {
+      listInteractingRef.current = false;
+      if (pendingThreadsRef.current !== null) {
+        setThreads(pendingThreadsRef.current);
+        pendingThreadsRef.current = null;
+      }
+    }, 0);
+  }, []);
+
+  /**
    * 唯一的网络出口：拿到最新线程列表 + 把它写进模块级缓存（经
    * `applyThreadListResult` 做跨实例的到达顺序校验，见上面模块头注）。
    * 不touch 本实例的 `threads`/`listError` state——那部分留给调用方，因为
@@ -296,7 +339,13 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     try {
       const result = await fetchThreadList();
       if (generation !== listGeneration.current) return;
-      setThreads(result);
+      // 见上面 `listInteractingRef` 头注：用户正压着列表时，先攒住这次刷新，
+      // 不改变可见行的顺序——避免这次点击落到重排后挪过来的相邻会话上。
+      if (listInteractingRef.current) {
+        pendingThreadsRef.current = result;
+      } else {
+        setThreads(result);
+      }
       setListError(null);
     } catch (failure) {
       if (generation !== listGeneration.current) return;
@@ -590,8 +639,10 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 对**每一次**导航都判"没成功"，与实测的"每点必刷新"完全吻合，比"软导航真的每次
    * 都卡住"这个假设更合理。
    *
-   * 改法：判据换成"内容真的切换了没有"这个更接近本意的事实——`selectedThreadIdRef`
-   * 是 `initialThreadId` prop 同步出来的 state 的镜像（见上面该 ref 的声明），
+   * 改法：判据换成"内容真的切换了没有"这个更接近本意的事实——`confirmedThreadIdRef`
+   * 直接镜像 `initialThreadId` prop 本身（见上面该 ref 的声明；2026-09-02 从
+   * `selectedThreadIdRef` 换成这份独立的 ref——原因见那条注释：`selectedThreadId`
+   * 后来多了一条乐观赋值路径，不能再拿它当"路由真的确认切过去了"的信号），
    * 真的变成目标 `threadId` 才代表这次导航从路由到渲染整条链路都完成了，不依赖
    * `location.pathname` 这一层可能滞后的中间信号。两个判据**任一个**成立都算数
    * （`||`）——只放宽误判"卡住"的条件，不收紧，不会把真正卡住的情形误判成功。
@@ -621,15 +672,53 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     router.push(path);
     window.setTimeout(() => {
       if (navigationGeneration.current !== generation) return;
-      if (selectedThreadIdRef.current === threadId) return;
+      if (confirmedThreadIdRef.current === threadId) return;
       if (window.location.pathname === path) return;
       router.push(path);
     }, 4_000);
   }, [router]);
 
+  /**
+   * 2026-09-02 人类实测反馈第二轮——「快速切换 session（连续点击不同会话），停下来
+   * 以后，当前选中的会话还是会跳」。这不是 #2480 修的那种"点击瞬间列表被后台刷新
+   * 重排、点到了相邻行"（那次的两处修复——后端排序全序化 + `listInteractingRef`
+   * 交互锁——仍然保留，堵的是"点中哪一行"这件事；这次是"点中之后，界面最终停在
+   * 哪一条"）。
+   *
+   * 根因：`pushThreadRoute` 每次调用都立刻真发一次 `router.push`（Next App Router
+   * 软导航）。连续快速点击 A→B→C 会连续发出三次并发的软导航请求；`router.push`
+   * 不返回 Promise、也不保证多个并发请求按发出顺序结算（RSC 响应可能乱序抵达，
+   * 见上面 #2259/#2402 那几段注释——这个事实这次换了一种方式咬人）。如果 B 对应
+   * 的响应恰好晚于 C 抵达，`initialThreadId`（进而 `selectedThreadId`，见上面
+   * 那个纯镜像 `useEffect`）会先落到 C、又被姗姗来迟的 B 覆盖回去——用户最后点的
+   * 明明是 C，界面却"跳"回了已经被超越的 B。
+   *
+   * 改法：不再每次点击都立刻真发导航，而是**防抖**——短时间内的连续点击只留下
+   * 最后一次目标，只有点击停下来、经过一小段静默窗口之后，才真正对着这个最终
+   * 目标发一次 `pushThreadRoute`。这样同一时刻最多只有一次导航在飞，从根上消掉
+   * "多个并发软导航乱序结算"这个前提，而不是等结算完了再去纠错（那样还要解决
+   * "怎么分辨这次结算是迟到的旧目标、还是浏览器前进/后退这类合法的外部导航"这个
+   * 更难的问题）。乐观地立刻 `setSelectedThreadId` 只是给这次点击一个即时的高亮
+   * 反馈——真正的路由切换仍然走防抖后的 `pushThreadRoute`，慢速点击（防抖窗口内
+   * 只点了一次）几乎感觉不到这次乐观值被后续 `initialThreadId` 同步覆盖。
+   */
+  const selectDebounceRef = React.useRef<number | null>(null);
+  const pendingSelectRef = React.useRef<string | null>(null);
+  React.useEffect(() => () => {
+    if (selectDebounceRef.current !== null) window.clearTimeout(selectDebounceRef.current);
+  }, []);
+
   const selectThread = React.useCallback((threadId: string) => {
     if (threadId === selectedThreadId) return;
-    pushThreadRoute(threadId);
+    setSelectedThreadId(threadId); // 乐观高亮，见上面头注；权威结果仍来自防抖后的真实导航
+    pendingSelectRef.current = threadId;
+    if (selectDebounceRef.current !== null) window.clearTimeout(selectDebounceRef.current);
+    selectDebounceRef.current = window.setTimeout(() => {
+      selectDebounceRef.current = null;
+      const target = pendingSelectRef.current;
+      pendingSelectRef.current = null;
+      if (target !== null) pushThreadRoute(target);
+    }, 150);
   }, [pushThreadRoute, selectedThreadId]);
 
   /**
@@ -872,7 +961,17 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
             彻底去掉入口——这不是本次重设计的默认选项，是就地问过之后的裁决。
             `copilotkit-v2-roster-landing.spec.ts`（CK-P7 e2e 验收）同步改成先点开
             「编制」页签，不再断言左栏常驻可见。 */}
-        <div className="flex flex-1 flex-col gap-1 overflow-y-auto px-2" data-testid="copilotkit-v2-thread-list">
+        <div
+          className="flex flex-1 flex-col gap-1 overflow-y-auto px-2"
+          data-testid="copilotkit-v2-thread-list"
+          /* 见 `listInteractingRef` 头注——点击这条锁只在真的按下时才生效，不影响
+             hover/滚动；`pointercancel`/`pointerleave` 兜底松开，避免手指划出列表
+             却没有触发 `pointerup`（比如拖拽滚动到边界）时列表永久冻结在旧顺序。 */
+          onPointerDown={() => { listInteractingRef.current = true; }}
+          onPointerUp={releaseListInteraction}
+          onPointerCancel={releaseListInteraction}
+          onPointerLeave={releaseListInteraction}
+        >
           {/* issue #2039（第 2 轮 gap #2）——此前 `flatMap` 把服务端已经分好的
               「今天/本周」时间分组（`listPersonalThreads.out.groups[].label`，契约
               封闭枚举）压平丢掉了（fidelity rubric D3 明确要求分组）。这里按组渲染

@@ -319,34 +319,103 @@ export function contentMmFor(size: PaperSizeKey): { readonly w: number; readonly
 /** 网格间距，`Design.pdf` 原话「间距 6mm（gap: 0.72%）」。 */
 export const GRID_GAP_MM = 6;
 /**
- * 标题占位高度——原始 22mm 来源见 `Design.pdf` §5「容量」行。
+ * 区块内标题区（区块名 + `{{token}} X列·Y条` 提示行）的比例尺寸——`cqw` 相对
+ * 最外层纸张容器的**宽度**，跟纸面大标题（`"2.2cqw"`）/页脚（`"1.2cqw"`）用
+ * 同一套单位。`template-canvas-grid.tsx` 直接读这几个值渲染，不在组件里另开
+ * 一份重复声明——同一件事只能有一处数字，见 AGENTS.md「同一事实不得声明在
+ * 两处」。
  *
- * ⚠ 2026-09-01 人类反馈"便利贴还是被裁掉"，且明确排除了"画布缩得太小"——全屏下
- *   依然会切。根因：区块内的标题行 + `{{token}} X列·Y条` 提示行原先用固定像素
- *   字号/内边距（`text-11`/`text-9`/`p-2`/`gap-1.5` 这些 Tailwind 档位），不像
- *   贴纸本身和纸面大标题那样随 `cqw`（纸宽比例）缩放；这个常量却假设标题区恒占
- *   纸面高度的固定比例——纸面渲染得越宽，标题区真实占用的"纸面比例"理应越小，
- *   固定像素不会跟着变小，于是在任何宽度下都会持续少算一点，多算出来的空间最终
- *   体现为最后一行贴纸被 `overflow-hidden` 切掉一截。
+ * ⚠ 2026-09-01 人类反馈"便利贴还是被裁掉"、且明确排除了"画布缩得太小"——全屏下
+ *   依然会切。根因：这个标题区此前用固定像素字号/内边距（`text-11`/`text-9`/
+ *   `p-2`/`gap-1.5` 这些 Tailwind 档位），不像贴纸本身和纸面大标题那样随 `cqw`
+ *   缩放，而"这块地方能放几行贴纸"的公式却假设标题区恒占纸面的固定比例——纸面
+ *   渲染得越宽，标题区真实占用的"纸面比例"理应越小，固定像素不会跟着变小，于是
+ *   在任何宽度下都会持续少算一点，多算出来的空间最终体现为最后一行贴纸被
+ *   `overflow-hidden` 切掉一截。改成这里的 `cqw` 常量后，标题区占用的"纸面比例"
+ *   变成一个不随渲染宽度变化的真常量。
  *
- *   第一次试着把这个值从 22 直接调到 36 做经验性缓解，但改完发现本仓自己一条用
- *   `h=3`（3/8 页高）区块的单测容量被压到 0——这类偏矮的常见区块本来刚好够用，
- *   凭感觉调大这个常量会连它们一起压垮。真正的修法是让两边算的是同一件事：
- *   `template-canvas-grid.tsx` 的区块标题行改成跟纸面大标题（`"2.2cqw"`）/页脚
- *   （`"1.2cqw"`）一样的 `cqw` 比例字号/内边距/间距（`BLOCK_PAD_CQW` 等常量），
- *   于是标题区占用的"纸面比例"变成一个不随渲染宽度变化的真常量，这个 mm 预留值
- *   也就能精确反推、不必再猜：
- *
- *     padding(0.6cqw) + 标题行(1.4cqw×1.2行距) + 间距(0.15cqw)
- *       + 提示行(1.0cqw×1.2行距) + 间距(0.5cqw)
- *     = (0.6 + 1.4×1.2 + 0.15 + 1.0×1.2 + 0.5)% × 821mm ≈ 33.9mm
- *
- *   取整到 34。这个推导只在纸面 = A1（821mm 宽）时精确成立——三档纸张共用同一个
- *   固定 mm 常量是既有设计（`sectionGeometryMm` 的 `TITLE_RESERVE_MM` 从来不按
- *   `size` 参数换算），A3/A4 上这个值会偏保守（略少算一点容量），不是本次改动
- *   引入的新问题。
+ * ⚠ 第一次试着把 `TITLE_RESERVE_MM`（当时是固定 mm 常量）从 22 直接调到 36 做
+ *   经验性缓解，但改完发现本仓自己一条用 `h=3`（3/8 页高）区块的单测容量被压到
+ *   0——这类偏矮的常见区块本来刚好够用，凭感觉调大一个孤立的经验常量会连它们
+ *   一起压垮。真正的修法是让两边算的是同一件事，而不是猜一个数字。
  */
-export const TITLE_RESERVE_MM = 34;
+export const BLOCK_HEADER_CQW = {
+  /** 替代 `p-2`（区块四边内边距）——⚠ 这个数只是"一条边"的宽度，上下两条边都要算，见下方推导。 */
+  padding: 0.6,
+  /** 替代原先的 `border: 2px solid`（区块边框）——同样上下两条边都要算。 */
+  border: 0.15,
+  /** 替代 `gap-1.5`（标题块 ↔ 贴纸网格之间，以及 `{{token}}` ↔ 列·条提示之间）。 */
+  gap: 0.5,
+  /** 替代 `gap-0.5`（区块名 ↔ `{{token}}` 行之间）。 */
+  titleGap: 0.15,
+  /** 替代 `text-11`（区块名）。 */
+  titleFont: 1.4,
+  /** 替代 `text-9`/`text-10`（`{{token}}`/列·条提示）。 */
+  metaFont: 1.0,
+} as const;
+/**
+ * 行高倍数——精确等于 Tailwind `leading-tight`（1.25，不是估个 1.2）。
+ * `template-canvas-grid.tsx` 的标题行、提示行**都**显式套这个值（`style.lineHeight`），
+ * 不靠某一行有 `leading-tight` class、另一行没有还指望它"差不多"——2026-09-01
+ * 独立审查抓到的问题：提示行此前没有任何显式行高声明，实际渲染值不受这个常量
+ * 约束，字号改动前后两行可能用着不同的行高，这个常量就成了"写在这里、没人真的
+ * 照它渲染"的自说自话。
+ */
+export const BLOCK_HEADER_LINE_HEIGHT = 1.25;
+/**
+ * 标题区总预留，单位仍是 `cqw`（纸宽的百分比）。`titleReserveMm` 按*当前选中的
+ * 纸张宽度*把它换算成 mm，不是只在 A1 上算一次就到处用——推导：
+ *
+ *   内边距×2（上下两条边）+ 边框×2（上下两条边）+ 标题行(字号×行距)
+ *     + 标题↔提示间距 + 提示行(字号×行距) + 标题块↔贴纸网格间距
+ *   = 0.6×2 + 0.15×2 + 1.4×1.25 + 0.15 + 1.0×1.25 + 0.5
+ *   = 1.2 + 0.3 + 1.75 + 0.15 + 1.25 + 0.5 = 5.15（cqw，纸宽的 5.15%）
+ *
+ * ⚠ 2026-09-01 独立审查抓到的问题：`padding` 是 CSS 里"四边内边距"，区块是
+ *   flex 列容器，贴纸网格排最后一个——真正吃掉纵向空间的是**上下两条边**各一份
+ *   内边距，只算一份会把预留量算少、放行一行实际放不下的贴纸，恰恰是这次要修
+ *   的那类回归。边框同理（且原来是固定 `2px`，不随纸宽缩放，现已改成 `cqw`）。
+ */
+const BLOCK_HEADER_RESERVE_CQW =
+  BLOCK_HEADER_CQW.padding * 2
+  + BLOCK_HEADER_CQW.border * 2
+  + BLOCK_HEADER_CQW.titleFont * BLOCK_HEADER_LINE_HEIGHT
+  + BLOCK_HEADER_CQW.titleGap
+  + BLOCK_HEADER_CQW.metaFont * BLOCK_HEADER_LINE_HEIGHT
+  + BLOCK_HEADER_CQW.gap;
+
+/**
+ * 标题占位高度（mm）——按*给定纸张的实际宽度*把 `BLOCK_HEADER_RESERVE_CQW`
+ * 换算成 mm，取代原先"不管选哪张纸都用同一个固定 mm 常量"的做法（那样在 A3/A4
+ * 上会用 A1 的 34mm 顶一个理应小得多的预留量，导致这两档纸张的容量被系统性
+ * 低估、甚至在够小的区块上把 `rows` 压到 0）。
+ *
+ * cqw 的换算基准是**整张纸**（`PAPER_SIZE_MM[size].w`），不是扣掉页边距的内容区
+ * ——与 `notePct`/纸面大标题同一个基准。A1（841mm 宽）≈ 43.3mm；A3（420mm）
+ * ≈ 21.6mm；A4（297mm）≈ 15.3mm——纸越小，标题区占用的绝对 mm 数跟着变小，
+ * 不再是三档共用一个数。
+ */
+export function titleReserveMm(size: PaperSizeKey = "A1"): number {
+  return (BLOCK_HEADER_RESERVE_CQW / 100) * PAPER_SIZE_MM[size].w;
+}
+
+/**
+ * 区块左右两条边各一份内边距 + 边框，换算成 mm——横向版的 `titleReserveMm`。
+ *
+ * ⚠ 2026-09-01 人类实测反馈"便利贴还是被遮住一半"、且不分 2 列/3 列都会——
+ *   根因和 `titleReserveMm` 那次是**同一个疏漏在另一根轴上**：`sectionGeometryMm`
+ *   算 `noteMm`（贴纸边长）时直接拿整个 `wMm`（区块外沿宽度）去除以列数，却没有
+ *   先扣掉区块自己的左右内边距/边框——但贴纸网格是区块的**子元素**，它能用的宽度
+ *   是 `wMm` 减掉这两条边，不是 `wMm` 本身。公式算出来的 `noteMm` 因此比贴纸网格
+ *   真实可用宽度宽了一圈，`cols` 张贴纸 + 列间距的总宽度会超出贴纸网格容器，
+ *   超出的部分被同一个 `overflow-hidden` 裁掉——只是这次裁在**贴纸右侧**，不是
+ *   上一次那个"最后一行"。两处（`titleReserveMm` 管纵向、这个函数管横向）现在
+ *   都从 `BLOCK_HEADER_CQW.padding`/`.border` 这同一份数字反推，不是各自猜一个。
+ */
+export function blockHorizontalChromeMm(size: PaperSizeKey = "A1"): number {
+  const cqw = (BLOCK_HEADER_CQW.padding + BLOCK_HEADER_CQW.border) * 2;
+  return (cqw / 100) * PAPER_SIZE_MM[size].w;
+}
 /**
  * 贴纸实尺参考值——`Design.pdf` §5「尺寸判定」原文把 70–82mm 都算标准 76mm
  * 方形贴纸，76 是这一档的代表值，`defaultLayoutAt`/`autoFillLayout` 猜默认
@@ -394,8 +463,12 @@ export interface SectionGeometryMm {
   readonly hMm: number;
   /**
    * 贴纸实尺（mm），固定 1:1 方形。
-   * `noteMm = min(MAX_NOTE_MM, (wMm - 6×(cols-1)) / cols)`——随区块宽度与列数
-   * 缩放，但不超过 `MAX_NOTE_MM`（issue #2368：封顶防止 1 列时被撑爆）。
+   * `noteMm = clamp((贴纸网格可用宽度 - 6×(cols-1)) / cols, 0, MAX_NOTE_MM)`——
+   * 贴纸网格可用宽度 = `wMm` 扣掉区块自己的左右内边距/边框
+   * （`blockHorizontalChromeMm`，2026-09-01：贴纸网格是区块的子元素，用区块
+   * 外沿宽度 `wMm` 本身去除会算出比真实可用宽度更宽的贴纸，多出来的部分被
+   * 外层 `overflow-hidden` 裁在贴纸右侧）。随区块宽度与列数缩放，但不超过
+   * `MAX_NOTE_MM`（issue #2368：封顶防止 1 列时被撑爆），也不低于 0。
    */
   readonly noteMm: number;
   /** 这块地方竖着放得下几行贴纸。`rows = floor((hMm - 22) / (noteMm + 6))`。 */
@@ -414,18 +487,72 @@ export interface SectionGeometryMm {
  *
  * `noteMm` 由 `wMm`/`cols` 倒推、封顶在 `MAX_NOTE_MM`——2026-09-01 推翻
  * 2026-08-30「贴纸大小固定，不随排版变化」的约定，理由见 `MAX_NOTE_MM` 文档。
+ *
+ * ⚠ 2026-09-01（同日后续）：`noteMm` 倒推时要用**贴纸网格真正可用的宽度**
+ *   （`wMm` 扣掉区块自己的左右内边距/边框，`blockHorizontalChromeMm`），不是
+ *   区块外沿宽度 `wMm` 本身——理由见该函数文档（人类实测反馈"便利贴还是被遮住
+ *   一半，不分列数"，根因是这处遗漏，跟 `titleReserveMm` 那次是同一类疏漏在
+ *   横向轴上的版本）。
  */
 export function sectionGeometryMm(input: SectionGeometryMmInput): SectionGeometryMm {
   const rowSpanDenominator = 8; // 网格恒 8 行，列数才切 6/12。
-  const contentMm = contentMmFor(input.size ?? "A1");
+  const size = input.size ?? "A1";
+  const contentMm = contentMmFor(size);
   const wMm = (input.w / input.gridCols) * contentMm.w - GRID_GAP_MM;
   const hMm = (input.h / rowSpanDenominator) * contentMm.h - GRID_GAP_MM;
-  const noteMm = Math.min(MAX_NOTE_MM, (wMm - GRID_GAP_MM * (input.cols - 1)) / input.cols);
-  const rows = Math.max(0, Math.floor((hMm - TITLE_RESERVE_MM) / (noteMm + GRID_GAP_MM)));
+  const noteGridWidthMm = wMm - blockHorizontalChromeMm(size);
+  // 区块窄到扣完内边距/边框已经不剩空间时，`noteGridWidthMm` 会是负数——
+  // `noteMm` 夹到 0（同 `rows` 的 `Math.max(0, …)`），不产出负数贴纸边长，
+  // 那样会让 `notePct`/字号算出荒谬的负值/NaN，而不是如实地说"这里放不下"。
+  const rawNoteMm = Math.max(0, Math.min(MAX_NOTE_MM, (noteGridWidthMm - GRID_GAP_MM * (input.cols - 1)) / input.cols));
+  // ⚠ 2026-09-01（第四轮，真实浏览器 e2e 抓到的回归）：`rows` 此前用的是这个
+  //   *未取整*的 `rawNoteMm` 去算，但实际渲染用的是下面 `Math.round` 过的
+  //   `noteMm`（`notePct`/字号都读这个四舍五入后的值）——取整可能把贴纸边长
+  //   往上调最多 0.5mm，多行累加起来，容量算的行数就可能比实际渲染能放下的
+  //   多出一行，最后一行贴纸被 `overflow-hidden` 切掉一截。A4 纸、2 列、900px
+  //   视口下实测复现：`noteEdge=688.47 > gridEdge=686`，差 2.47px。改成
+  //   `rows`/`fits` 与展示用的 `noteMm` 用**同一个**取整后的数，容量与渲染
+  //   不再各自算各自的。
+  let noteMm = Math.round(rawNoteMm);
+  const availableHeightMm = hMm - titleReserveMm(size);
+  // ⚠ 2026-09-01（第三轮）独立审查抓到的问题：`noteMm` 夹到 0 只挡住了"负数
+  //   贴纸边长"，没挡住"贴纸边长是 0 但容量还算出正数"——`rows =
+  //   floor((hMm-reserve)/(0+6))` 分母只剩间距，照样能除出正数行数，
+  //   `fits = cols × rows` 跟着报出一个正的容量，等于宣称"这里放得下 N 张
+  //   宽度为 0（也就是看不见）的贴纸"。贴纸边长一旦到 0，这块地方就是真放不下
+  //   任何一张，容量必须如实归零，不能因为公式分母还没归零就继续往下算。
+  let rows = noteMm <= 0 ? 0 : Math.max(0, Math.floor(availableHeightMm / (noteMm + GRID_GAP_MM)));
+  // ⚠ 2026-09-01（第五轮，独立审查驳回"跳过测试"那版之后）：`noteMm` 完全是
+  //   按*宽度*（区块宽度 ÷ cols）倒推的，从没被高度约束过——区块偏矮、列数偏多
+  //   时（人类实测：A4 纸配上默认区块高选 2 列），按宽度算出的贴纸边长可能比
+  //   `availableHeightMm` 还高，`rows` floor 成 0。`visibleNoteCount` 在有真实
+  //   数据时会强制至少展示 1 条（`Math.max(1, …)`，见该函数文档），于是那 1 条
+  //   按"宽度版" `noteMm` 画出来的贴纸，天生比这块地方的可用高度还高，必然被
+  //   `overflow-hidden` 腰斩——不是"渲染没跟上容量算法"，是容量算法自己从没管过
+  //   高度这件事。跳过测试断言只是把这个真回归的可见度调低，独立审查驳回是对的。
+  //
+  //   真正的修法：`rows` 按宽度版 `noteMm` 算出 0、但这块地方的可用高度仍然是
+  //   正数时，把贴纸边长**夹到可用高度能放下一行的尺寸**（比宽度版更小——不会
+  //   反过来撑大，宽度那边本来就够）。这样强制展示的那 1 条（以及同一行内最多
+  //   `cols` 条）用的是真正塞得进这块地方的尺寸，不再必然溢出。仍然放不下时
+  //   （`availableHeightMm` 本身就 ≤ 0，或扣掉间距后 ≤ 0）保持 `rows=0`——
+  //   如实拒绝，不是硬把负数/零尺寸的贴纸也算成"放得下"。
+  if (rows === 0 && noteMm > 0) {
+    // ⚠ 这里必须 `Math.floor`，不能 `Math.round`——取整前的第四轮教训刚发生过：
+    //   四舍五入可能把这个"保证塞得下"的尺寸向上调，调过头就正好撞回同一类
+    //   "算出来的尺寸比真实可用空间还大一点点"的回归（实测：round 出来的值会让
+    //   `noteMm+GRID_GAP_MM` 比 `availableHeightMm` 多出零点几 mm）。往下取整
+    //   保证这个尺寸 + 间距永远不超过可用高度，宁可贴纸小一圈，不能再让它溢出。
+    const heightConstrainedNoteMm = Math.floor(availableHeightMm - GRID_GAP_MM);
+    if (heightConstrainedNoteMm > 0 && heightConstrainedNoteMm < noteMm) {
+      noteMm = heightConstrainedNoteMm;
+      rows = 1;
+    }
+  }
   return {
     wMm: Math.round(wMm),
     hMm: Math.round(hMm),
-    noteMm: Math.round(noteMm),
+    noteMm,
     rows,
     fits: input.cols * rows,
   };

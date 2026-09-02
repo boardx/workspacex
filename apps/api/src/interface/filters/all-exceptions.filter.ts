@@ -33,6 +33,7 @@ import {
   orgAdmin,
   personalRealtimeTranscription,
   planControl,
+  platformMembers,
   project,
   research,
   recording,
@@ -484,7 +485,20 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    * 这里只是把它接进既有闭集校验，不引入新码、不放开枚举外的任意字符串。
    */
   const planControlError = planControl.PlanControlError.safeParse(raw);
-  return planControlError.success ? { reasonCode: planControlError.data } : {};
+  if (planControlError.success) return { reasonCode: planControlError.data };
+
+  /**
+   * member-role-management delta：`platformMembers.PlatformMembersError`——加它的理由与
+   * 前面每一段**逐字相同**：`MEMBER_NOT_FOUND` / `LAST_ADMIN` 在 `orgAdmin.OrgAdminError`
+   * 里已经能过（两束同码同义），但 `NOT_PLATFORM_SUPERUSER` 此前只靠
+   * `PlatformSuperuserGuard` 抛出、从未在任何闭集里登记——`GET /system/error-logs` 的
+   * 403 在响应体里其实是光秃秃的 `{"error":"forbidden"}`，前端 `feedback-screen.tsx`
+   * 按 `reasonCode === "NOT_PLATFORM_SUPERUSER"` 判「仅平台运维可见」的那个分支
+   * 一直没被真正走到过。平台成员屏要靠同一个码区分「你不是超管」与「服务挂了」，
+   * 所以这里把它接进闭集。仍然是闭集：枚举外的任意字符串照旧到不了客户端。
+   */
+  const platformMembersError = platformMembers.PlatformMembersError.safeParse(raw);
+  return platformMembersError.success ? { reasonCode: platformMembersError.data } : {};
 }
 
 function researchConflictDetailOf(exception: HttpException): { latestProjection?: unknown } {

@@ -133,6 +133,60 @@ describe("I-7：phase/gate 是派生值，由账本内容 + run 状态唯一决�
     const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
     expect(out.phase).toBe("failed");
   });
+
+  // issue #2451 —— PlanFailureRecovery 此前只能显示写死的占位失败原因，因为
+  // getPlanLedger 从不把 agent_runs.error_code 读出来。这里锁住读模型确实透传了它。
+  it("run 终态 failed：errorCode 透传 agent_runs.error_code 的真实值", async () => {
+    await ingestEnginePlanSnapshot(repo, { orgId: toOrgId(ORG), threadId: THREAD, todos: [
+      { content: "第一步", status: "pending" },
+    ] });
+    await insertRun("failed");
+    const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
+    expect(out.errorCode).toBe("MODEL_CALL_FAILED");
+  });
+
+  it("run 终态 succeeded：errorCode 为 null（非失败终态本来就没有失败原因）", async () => {
+    await ingestEnginePlanSnapshot(repo, { orgId: toOrgId(ORG), threadId: THREAD, todos: [
+      { content: "第一步", status: "completed" },
+    ] });
+    await insertRun("succeeded");
+    const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
+    expect(out.errorCode).toBeNull();
+  });
+
+  // issue #2451 —— failedStepId：补上"哪一步失败"这半个此前登记过、没做的缺口
+  // （旧版前端 `copilotkit-v2-plan-control.tsx` 靠"第一个未完成的步骤"硬猜）。
+  it("run 终态 failed、有 in_progress 步骤：failedStepId 是那一步（真实信号，不是猜的）", async () => {
+    await ingestEnginePlanSnapshot(repo, { orgId: toOrgId(ORG), threadId: THREAD, todos: [
+      { content: "第一步", status: "completed" },
+      { content: "第二步", status: "in_progress" },
+      { content: "第三步", status: "pending" },
+    ] });
+    await insertRun("failed");
+    const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
+    const inProgressStep = out.steps.find((s) => s.status === "in_progress");
+    expect(inProgressStep).toBeDefined();
+    expect(out.failedStepId).toBe(inProgressStep!.planStepId);
+  });
+
+  it("run 终态 failed、没有 in_progress（死在第一步真正开始前）：failedStepId 退回第一个 pending 步骤", async () => {
+    await ingestEnginePlanSnapshot(repo, { orgId: toOrgId(ORG), threadId: THREAD, todos: [
+      { content: "第一步", status: "pending" },
+      { content: "第二步", status: "pending" },
+    ] });
+    await insertRun("failed");
+    const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
+    expect(out.failedStepId).toBe(out.steps[0]!.planStepId);
+  });
+
+  it("run 终态 succeeded：failedStepId 为 null（非失败终态本来就没有失败步骤）", async () => {
+    await ingestEnginePlanSnapshot(repo, { orgId: toOrgId(ORG), threadId: THREAD, todos: [
+      { content: "第一步", status: "completed" },
+    ] });
+    await insertRun("succeeded");
+    const out = await getPlanLedger(repo, repo, { orgId: toOrgId(ORG), threadId: THREAD });
+    expect(out.failedStepId).toBeNull();
+  });
 });
 
 describe("XC-59 反证：agent-interrupts 三个新工具名不得触发 phase='approving'", () => {

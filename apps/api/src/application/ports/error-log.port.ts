@@ -40,8 +40,35 @@ export interface ErrorLogEntry {
   readonly detail: unknown;
 }
 
+/**
+ * A row as `list()` returns it -- already through `redactErrorDetail` (it went through that
+ * on the way IN, at `record()` time; `list()` reads back exactly what was stored, it does not
+ * redact a second time). `detail` stays `unknown` for the same reason `ErrorLogEntry.detail`
+ * is `unknown`: this port does not assume the `{name,message,stack}|{raw}` shape, only that
+ * whatever is there already passed through the one sanitiser.
+ */
+export interface ErrorLogListItem {
+  readonly id: string;
+  readonly traceId: string;
+  readonly msg: string;
+  readonly detail: unknown;
+  readonly createdAt: string;
+}
+
 export interface ErrorLogPort {
   record(entry: ErrorLogEntry): Promise<void>;
+
+  /**
+   * Newest-first page, by `id` cursor (see `system-error-logs.ts`'s `listSystemErrorLogs` for
+   * why `beforeId` rather than `offset`). `list()` has its own authorization story:
+   * `error_logs` has no `org_id`, so nothing here is tenant-scoped -- the caller
+   * (`SystemErrorLogController`) is the one and only place that decides who may call this,
+   * via the platform-superuser whitelist, BEFORE this method is ever reached.
+   */
+  list(input: { readonly limit: number; readonly beforeId: string | null }): Promise<{
+    readonly items: readonly ErrorLogListItem[];
+    readonly hasMore: boolean;
+  }>;
 }
 
 export const ERROR_LOG_PORT = Symbol("ErrorLogPort");

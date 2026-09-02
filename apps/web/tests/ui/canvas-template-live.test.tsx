@@ -1118,6 +1118,15 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
    *   撤掉修法它照样绿（实测过）。所以必须专门造一个容量为 0 的区块——落在第 8 行、
    *   高度 1 行时 `geom.fits === 0`（`defaultLayoutAt` 在 row 8 的实测值）。
    *
+   * ⚠ 2026-09-01（第五轮）：这条原本用的是 A1 纸 + h=1，但 `sectionGeometryMm`
+   *   后来补了"按宽度算出 0 行、但可用高度仍是正数时，把贴纸边长夹到能放下一行
+   *   的高度版尺寸"（同一次独立审查驳回"跳过测试"之后的真正修法，见该函数文档）
+   *   ——A1 纸上标题预留（`titleReserveMm`）与 h=1 的可用高度之间恰好总留得出一点
+   *   空间，夹一下就有了一行，容量不再是 0，这条钉子因此测不出真正"even 夹了也
+   *   放不下"的那条分支。换成 A4 纸：同样的 h=1，可用高度扣掉标题预留后已经是
+   *   负数，连"夹一下"都没有余地，`rows` 如实留在 0——这才是这条钉子原本要测的
+   *   "容量真的、彻底放不下"，不是"容量算法一时半会没顾上"。
+   *
    * ⚠ 断言"至少画出一张"**不是**在骗人说装得下：装不下由旁边那行标红的「装不下」
    *   如实交代。一张画不出来的预览没有任何信息量。
    */
@@ -1125,10 +1134,12 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
       templates: [template({
         key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+        size: "A4",
         sections: [{
           sectionId: "s1", key: "says", name: "说 Says", type: "便利贴列表", aiHint: null,
           order: 0, required: false, capacity: null,
-          // 第 8 行 + 高 1 行 ⇒ 物理上一张 76mm 贴纸都放不下。
+          // 第 8 行 + 高 1 行，A4 纸 ⇒ 扣完标题预留后可用高度已是负数，
+          // 物理上一张贴纸都放不下（连"夹到能放一行"的余地都没有）。
           layout: { col: 1, row: 8, w: 6, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
         }],
       })],

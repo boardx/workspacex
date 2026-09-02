@@ -59,3 +59,9 @@ export * as planControl from "./plan-control";
 
 /* ── phase-02 看板（F01）任务对象统一五态 ─────────────────────────────── */
 export * as board from "./board";
+
+/* ── 系统异常自动捕获（平台超管只读 + 前端上报） ─────────────────────── */
+export * as systemErrorLogs from "./system-error-logs";
+
+/* ── 两级成员管理：平台级名册与角色调整（组织级在 org-admin 束）────────── */
+export * as platformMembers from "./platform-members";

@@ -9,6 +9,7 @@ import {
   partitionTitleMatches,
   projectionMarker,
 } from "./sync-github";
+import type { ProjectedIssue } from "./sync-github";
 import { PHASES_DIR } from "./lib/paths";
 import type { Feature, FeatureList } from "./lib/types";
 
@@ -37,6 +38,12 @@ function makeFeature(overrides: Partial<Feature> = {}): Feature {
     ...overrides,
   };
 }
+
+// decideClose 的集成事实夹具（#1557）：只有 on-main 才允许关 issue。
+const ON_MAIN = { kind: "on-main", commit: "a".repeat(40), rel: "phases/x/evidence/F01.verify.log" } as const;
+const NOT_ON_MAIN = { kind: "not-on-main", commit: "b".repeat(40), rel: "phases/x/evidence/F01.verify.log" } as const;
+const UNCOMMITTED = { kind: "uncommitted", rel: "phases/x/evidence/F01.verify.log" } as const;
+const NO_SPRINT = { kind: "no-sprint" } as const;
 
 describe("buildIssueBody", () => {
   it("links p27 feature issues to parent issue 662", () => {
@@ -123,7 +130,7 @@ describe("partitionTitleMatches (marker guard)", () => {
     expect(projection).toBeNull();
     expect(collisions).toEqual([manualIssue]);
     // 净效果：edit 路径拿不到 existing → 不 edit；close 路径 decideClose(null) → 不关。
-    expect(decideClose(projection)).toBe("skip-missing");
+    expect(decideClose(projection, ON_MAIN)).toBe("skip-missing");
   });
 
   it("picks the marker-bearing projection even when a manual issue shadows it in search order", () => {
@@ -188,21 +195,42 @@ describe("diffLabels (#1676: sprint:*/area:* must reconcile, not just status:*)"
 
 describe("decideClose (idempotency)", () => {
   it("never closes when no projection issue was found", () => {
-    expect(decideClose(null)).toBe("skip-missing");
+    expect(decideClose(null, ON_MAIN)).toBe("skip-missing");
   });
 
   it("does not re-close an already closed projection issue (and never reopens)", () => {
-    expect(
-      decideClose({ number: 7, title: "[F01] x", body: "b", state: "CLOSED" }),
-    ).toBe("skip-closed");
-    expect(
-      decideClose({ number: 7, title: "[F01] x", body: "b", state: "closed" }),
-    ).toBe("skip-closed");
+    const closed: ProjectedIssue = {
+      number: 7,
+      title: "[F01] Team tenancy",
+      body: projectionMarker("p27", "F01"),
+      state: "CLOSED",
+    };
+    expect(decideClose(closed, ON_MAIN)).toBe("skip-closed");
   });
 
-  it("closes an open projection issue", () => {
-    expect(
-      decideClose({ number: 7, title: "[F01] x", body: "b", state: "OPEN" }),
-    ).toBe("close");
+  it("closes an open projection issue whose implementation is already on main", () => {
+    const open: ProjectedIssue = { number: 8, title: "[F01] Team tenancy", body: projectionMarker("p27", "F01"), state: "OPEN" };
+    expect(decideClose(open, ON_MAIN)).toBe("close");
+  });
+});
+
+describe("decideClose (#1557: passing alone is not enough — the implementation must be on main)", () => {
+  const open: ProjectedIssue = { number: 9, title: "[F01] Team tenancy", body: projectionMarker("p27", "F01"), state: "OPEN" };
+
+  it("does not close when the evidence commit is not yet an ancestor of origin/main", () => {
+    expect(decideClose(open, NOT_ON_MAIN)).toBe("skip-not-on-main");
+  });
+
+  it("does not close when the evidence log was never committed (verify ran, nothing pushed)", () => {
+    expect(decideClose(open, UNCOMMITTED)).toBe("skip-not-on-main");
+  });
+
+  it("does not close when the feature has no sprint (evidence cannot be located)", () => {
+    expect(decideClose(open, NO_SPRINT)).toBe("skip-not-on-main");
+  });
+
+  it("integration is judged before the issue lookup, so dry-run (no issue object) reaches the same verdict", () => {
+    expect(decideClose(null, NOT_ON_MAIN)).toBe("skip-not-on-main");
+    expect(decideClose(null, ON_MAIN)).toBe("skip-missing");
   });
 });

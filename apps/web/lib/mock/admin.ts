@@ -32,7 +32,12 @@ export type AdminModuleKey =
   | "canvasadmin" | "blueprint"
   // F16：本地组织。归在「组织」组里而不是「AI 能力」组——它是一个组织，
   // 只不过是只有一个人、且数据不出本机的那种。
-  | "local";
+  | "local"
+  // member-role-management delta：成员管理的**平台级**（全平台账号名册 + 任一组织里的角色）。
+  // 单独一组「平台」而不是塞进「组织」组：它的授权面是平台超管（部署白名单），不是组织角色，
+  // 与「组织」组里每一项「本组织 admin 可见」的语义不同——同一组里混两种授权面会让人以为
+  // 组织 admin 也能看全平台。
+  | "platform";
 
 /**
  * 「AI 能力」组的组名 —— 单点声明。
@@ -105,8 +110,21 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
     // 走 RLS（这个仓库今天就一个组织在用，「反馈」本质是运营动作，不是要打破多租户
     // 隔离），只是页头不该再挂一张「组织：boardx」的身份卡，径直导航到「组织管理」
     // 的路径分组更是放错了位置——见 `admin-header.tsx` 的 `hideOrgIdentity`。
+    //
+    // ⚠ 与下面的「平台」组**不是同一件事**，故意分成两组：「运营」（本组）仍然是
+    //   当前登录者所在组织的数据、按 RLS 走，只是呈现上不该像组织配置；「平台」组
+    //   （member-role-management delta 新增）授权面是平台超管（部署白名单），能看到
+    //   全平台账号名册——两者的授权面不同，混进同一组会让人以为组织 admin 也能看全平台。
     group: "运营",
     items: [{ key: "feedback", label: "反馈与迭代", href: "/admin/feedback", ucRefs: ["17-gov/uc-17-6"] }],
+  },
+  {
+    group: "平台",
+    items: [
+      // 仅平台超管可见内容；非超管点进去看到的是「仅平台运维可见」的说明，不是隐藏入口——
+      // 「存在但你看不到」和「不存在」是两件事（UC-0.3 R8），同反馈屏系统异常区的处置。
+      { key: "platform", label: "平台成员", href: "/admin/platform", ucRefs: ["17-gov/uc-17-5"] },
+    ],
   },
 ];
 
@@ -650,4 +668,8 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
    */
   feedback: () => SW_FEEDBACK_SUMMARY.pending,
   local: () => 1,
+  // member-role-management delta：平台名册没有 mock 数据源（它从来不是 mock 屏），本表只是
+  // `admin-nav-count-unavailable.test.tsx` 的 HEALTHY 夹具（见 feedback 项长注）——给一个健康值。
+  // 生产左栏的来源是 `live-admin-nav-counts.ts`，那里没接的项一律「—」。
+  platform: () => 0,
 };
