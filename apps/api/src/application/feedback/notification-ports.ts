@@ -119,6 +119,11 @@ export class FeedbackNoGithubIssueError extends Error {
  */
 export interface FeedbackSubmitterDirectory {
   emailForUserId(userId: string): Promise<string | null>;
+  /**
+   * 一批提交人的显示名（后台列表用，`listFeedback` 只对正文可见的那些行查）。查不到的
+   * id 不在返回的 Map 里——调用方据此投影成 `null`（契约 `FeedbackItem.submitterName`）。
+   */
+  displayNamesForUserIds(userIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
 }
 
 export const FEEDBACK_SUBMITTER_DIRECTORY = Symbol("FeedbackSubmitterDirectory");

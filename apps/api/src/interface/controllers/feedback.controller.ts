@@ -215,6 +215,7 @@ export class FeedbackController {
         newDecisionId: () => this.decisions.next(),
         attachments: this.attachments,
         orgId: toOrgId(principal.orgId),
+        submitters: this.submitterDirectory,
       },
       { scope, viewerId: principal.userId, viewerOrgRole: orgRole, viewerTeamId: teamId },
     );
