@@ -112,6 +112,7 @@ export function McpScreen({ state }: { state: UiState }) {
   return (
     <AdminScreen
       state={state}
+      hideOrgIdentity
       moduleLabel="MCP"
       title="MCP 服务器"
       liveBacked

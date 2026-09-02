@@ -35,8 +35,8 @@ vi.mock("@/components/session/session-provider", () => ({
 
 import { AdminNav } from "@/components/admin/admin-nav";
 
-// 2026-09-02 后台切成两面：`AdminNav` 只画 active 所属面（这里全是组织面）的项，所以只遍历组织面的键。
-const ALL_KEYS: AdminModuleKey[] = adminNavForScope("org").flatMap((g) => g.items.map((i) => i.key));
+// 2026-09-02 后台切成两面：`AdminNav` 只画 active 所属面的项；本文件 active 全是 AI 能力项（平台面），所以只遍历平台面的键。
+const ALL_KEYS: AdminModuleKey[] = adminNavForScope("platform").flatMap((g) => g.items.map((i) => i.key));
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });

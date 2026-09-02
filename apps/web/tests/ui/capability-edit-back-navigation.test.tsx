@@ -81,8 +81,8 @@ describe("CapabilityEditPage「返回」目的地——不再写死回按 kind �
   it("agent kind 同样支持 backHref 覆盖（不只是 skill 专属）", async () => {
     const AGENT_ROW = { ...SKILL_ROW, id: "agent_back_nav", kind: "agent" as const };
     listCapabilities.mockResolvedValue([]);
-    render(<CapabilityEditPage kind="agent" id={AGENT_ROW.id} backHref="/admin/agent?tab=roster" />);
+    render(<CapabilityEditPage kind="agent" id={AGENT_ROW.id} backHref="/platform-admin/agent?tab=roster" />);
     await waitFor(() => expect(screen.getByTestId("admin-agent-edit-not-found")).toBeInTheDocument());
-    expect(screen.getByTestId("admin-agent-edit-back").getAttribute("href")).toBe("/admin/agent?tab=roster");
+    expect(screen.getByTestId("admin-agent-edit-back").getAttribute("href")).toBe("/platform-admin/agent?tab=roster");
   });
 });

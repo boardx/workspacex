@@ -172,7 +172,7 @@ describe("Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板", (
     render(<AgentScreen state="default" />);
     const list = await screen.findByTestId("admin-agent-list");
     const link = within(list).getByTestId("admin-agent-row-agent-1-edit");
-    expect(link.getAttribute("href")).toBe("/admin/agent/agent-1?from=%2Fadmin%2Fagent");
+    expect(link.getAttribute("href")).toBe("/platform-admin/agent/agent-1?from=%2Fadmin%2Fagent");
   });
 
   it("可执行定义的面板：字段来自 listAgents，角色头衔真的打 PATCH", async () => {

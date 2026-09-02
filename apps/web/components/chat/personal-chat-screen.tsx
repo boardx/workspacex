@@ -585,7 +585,7 @@ function PersonalThreadDetail({
           data-testid="personal-chat-no-agents-hint"
         >
           这个组织还没有可用的 Agent，先去
-          <a href="/admin/agent" className="mx-1 text-primary underline">
+          <a href="/platform-admin/agent" className="mx-1 text-primary underline">
             后台创建一个 Agent
           </a>
           才能发消息。

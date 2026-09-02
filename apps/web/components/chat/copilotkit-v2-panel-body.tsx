@@ -1923,7 +1923,7 @@ export function CopilotKitV2PanelBody({
             {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
               <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
                 这个组织还没有可用的 Agent，先去
-                <a href="/admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
+                <a href="/platform-admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
                 才能发消息。
               </span>
             ) : null}

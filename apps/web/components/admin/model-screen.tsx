@@ -163,6 +163,7 @@ export function ModelScreen({ state }: { state: UiState }) {
   return (
     <AdminScreen
       state={state}
+      hideOrgIdentity
       moduleLabel="模型"
       title="模型管理"
       noticeOverride={<ModelScreenNotice />}

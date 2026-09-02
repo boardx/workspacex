@@ -169,7 +169,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   const currentUrl = query === "" ? pathname : `${pathname}?${query}`;
 
   function editSourceHref(skillId: string): string {
-    return `/admin/skill/${skillId}?from=${encodeURIComponent(currentUrl)}`;
+    return `/platform-admin/skill/${skillId}?from=${encodeURIComponent(currentUrl)}`;
   }
 
   const generation = React.useRef(0);

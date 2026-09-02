@@ -87,9 +87,10 @@ describe("§2 AI 能力组的入口已直接指向真实的合并落点，不再
   });
 
   it("Agent 目录 / 模型 / MCP：本轮未改 href（它们是吸收方，不是被合并方）", () => {
-    expect(adminItem("agent").href).toBe("/admin/agent");
-    expect(adminItem("model").href).toBe("/admin/model");
-    expect(adminItem("mcp").href).toBe("/admin/mcp");
+    // 2026-09-02 第二次裁决：AI 能力归平台后台，三项路由迁到 /platform-admin/*（旧路由重定向）。
+    expect(adminItem("agent").href).toBe("/platform-admin/agent");
+    expect(adminItem("model").href).toBe("/platform-admin/model");
+    expect(adminItem("mcp").href).toBe("/platform-admin/mcp");
   });
 });
 

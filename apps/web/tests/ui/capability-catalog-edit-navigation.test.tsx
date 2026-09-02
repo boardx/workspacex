@@ -63,17 +63,17 @@ describe("「编辑」按钮是指向独立页面的链接，不是内联展开"
     window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-edit-nav");
   });
 
-  it("skill 目录：编辑按钮 href 指向 /admin/skill/<id>", async () => {
+  it("skill 目录：编辑按钮 href 指向 /platform-admin/skill/<id>", async () => {
     nav.pathname = "/admin/skill";
     vi.stubGlobal("fetch", vi.fn(async () => oneListing("skill")));
     render(<SkillScreen state="default" />);
     await waitFor(() => expect(screen.getByTestId("admin-skill-list")).toBeTruthy());
     const link = await screen.findByTestId("admin-skill-row-skill-1-edit");
-    expect(link.getAttribute("href")).toBe("/admin/skill/skill-1?from=%2Fadmin%2Fskill");
+    expect(link.getAttribute("href")).toBe("/platform-admin/skill/skill-1?from=%2Fadmin%2Fskill");
     vi.unstubAllGlobals();
   });
 
-  it("agent 目录：编辑按钮 href 指向 /admin/agent/<id>", async () => {
+  it("agent 目录：编辑按钮 href 指向 /platform-admin/agent/<id>", async () => {
     nav.pathname = "/admin/agent";
     // ⚠ #1915 起 `AgentScreen` 还并行挂了 `AgentDefinitionListPanel`（独立的
     // `GET /agents`）——按路径分流，避免它吃到 capability-listing 形状的夹具。
@@ -88,7 +88,7 @@ describe("「编辑」按钮是指向独立页面的链接，不是内联展开"
     render(<AgentScreen state="default" />);
     await waitFor(() => expect(screen.getByTestId("admin-agent-list")).toBeTruthy());
     const link = await screen.findByTestId("admin-agent-row-agent-1-edit");
-    expect(link.getAttribute("href")).toBe("/admin/agent/agent-1?from=%2Fadmin%2Fagent");
+    expect(link.getAttribute("href")).toBe("/platform-admin/agent/agent-1?from=%2Fadmin%2Fagent");
     vi.unstubAllGlobals();
   });
 

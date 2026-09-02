@@ -26,8 +26,8 @@ import {
   type AdminNavCountSource,
 } from "@/lib/admin-nav-counts";
 
-// 2026-09-02 后台切成两面：`AdminNav` 只画 active 所属面（这里全是组织面）的项，所以只遍历组织面的键。
-const ALL_KEYS = adminNavForScope("org").flatMap((g) => g.items.map((i) => i.key));
+// 2026-09-02 后台切成两面：`AdminNav` 只画 active 所属面的项；本文件 active 全是 AI 能力项（平台面），所以只遍历平台面的键。
+const ALL_KEYS = adminNavForScope("platform").flatMap((g) => g.items.map((i) => i.key));
 
 /* ══════════════════ §1 正常路径 ══════════════════ */
 

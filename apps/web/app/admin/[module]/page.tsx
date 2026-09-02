@@ -1,9 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { AgentScreen } from "@/components/admin/agent-screen";
-import { ModelScreen } from "@/components/admin/model-screen";
-import { McpScreen } from "@/components/admin/mcp-screen";
 import { MembersScreen } from "@/components/admin/members-screen";
 import { LocalOrgScreen } from "@/components/admin/local-org-screen";
 import { resolvePreviewState, type UiState } from "@/lib/ui-state";
@@ -42,12 +39,13 @@ const REDIRECTS: Partial<Record<string, string>> = {
   canvasadmin: "/canvas/template-admin",
   feedback: "/platform-admin/feedback",
   platform: "/platform-admin/members",
+  // 2026-09-02 第二次裁决：AI 能力归平台后台（`lib/mock/admin.ts` AI 能力组注）。
+  agent: "/platform-admin/agent",
+  model: "/platform-admin/model",
+  mcp: "/platform-admin/mcp",
 };
 
 const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.ReactNode>> = {
-  agent: AgentScreen,
-  model: ModelScreen,
-  mcp: McpScreen,
   members: MembersScreen,
   local: LocalOrgScreen,
 };
