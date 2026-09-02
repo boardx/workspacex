@@ -93,6 +93,16 @@ export const operations = {
    *   写口如果接受任意结构化 payload，就是一个没有 schema 约束的攻击面。字段形状
    *   与后端 `errorDetailOf` 派生的 `{name,message,stack}` 对齐，重用同一条
    *   `redactErrorDetail` 脱敏与截断路径,不额外新增一套。
+   *
+   * ⚠ **每一个字段都有 `.max()`**（review finding，PR #2475）——第一版只给
+   *   `message` 定了长度，`stack`/`url`/`userAgent`/`appVersion` 是无界字符串。
+   *   写侧的 `redactErrorDetail` 最终会截断，但那发生在请求已经被解析、已经占用
+   *   一次连接与一次 INSERT 之后；契约边界的 `.max()` 让**形状不合法的请求在
+   *   进入业务逻辑之前就被拒**（400 而不是被悄悄截断后接受），是 ADR-020 说的
+   *   "契约是唯一事实源"在这里的直接体现——上限只在这一处声明一次，前端
+   *   `lib/report-client-error.ts` 的截断常量与这里逐字对应，不是两份可能漂移的数字。
+   *   数值对齐服务端 `redactErrorDetail` 的 `MAX_FIELD_LEN`/`MAX_STACK_LEN`：
+   *   `stack` 给到 8000（栈是最长的合法字段），其余给到各自量级合理的上限。
    */
   reportClientError: {
     method: "POST",
@@ -100,11 +110,11 @@ export const operations = {
     in: z
       .object({
         message: z.string().min(1).max(2000),
-        stack: z.string().nullable(),
+        stack: z.string().max(8000).nullable(),
         /** 出错时的路由,复现定位用。不是 `occurredRoute` 那份 I-F1 语义,这里没有租户上下文。 */
-        url: z.string().nullable(),
-        userAgent: z.string().nullable(),
-        appVersion: z.string().nullable(),
+        url: z.string().max(2000).nullable(),
+        userAgent: z.string().max(500).nullable(),
+        appVersion: z.string().max(100).nullable(),
       })
       .strict(),
     out: z.object({ traceId: z.string() }).strict(),

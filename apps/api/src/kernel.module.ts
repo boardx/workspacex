@@ -25,6 +25,10 @@ import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 import { ERROR_LOG_PORT } from "./application/ports/error-log.port";
 import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
+import { RATE_LIMITER_PORT } from "./application/ports/rate-limiter.port";
+import { InMemoryRateLimiter } from "./infrastructure/system/in-memory-rate-limiter";
+import { PlatformSuperuserGuard } from "./interface/guards/platform-superuser.guard";
+import { ClientErrorReportRateLimitGuard } from "./interface/guards/client-error-report-rate-limit.guard";
 
 // F20/F21 auth. `HeaderPrincipalResolver` is no longer wired: it was the test-injection
 // PLACEHOLDER F18 shipped while the credential format was undecided (UC-0.6 A-3), and the
@@ -814,6 +818,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgErrorLogWriter(db),
       inject: [DATABASE_PORT],
     },
+    {
+      provide: RATE_LIMITER_PORT,
+      useFactory: (clock: Clock) => new InMemoryRateLimiter(clock),
+      inject: [CLOCK],
+    },
+    PlatformSuperuserGuard,
+    ClientErrorReportRateLimitGuard,
     {
       provide: PRINCIPAL_RESOLVER_PORT,
       useFactory: (sessions: SessionTokenStore, clock: Clock) =>

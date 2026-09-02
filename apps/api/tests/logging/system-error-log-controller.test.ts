@@ -1,30 +1,20 @@
 /**
- * `SystemErrorLogController` -- unit-level, all ports faked (no DB). Pins down the one thing
- * that matters most about this controller: `GET /system/error-logs` is refused for anyone
- * not on the platform-superuser whitelist, REGARDLESS of org role -- see
- * `@repo/contracts`'s `system-error-logs.ts` file header for why this is not an `orgRole`
- * check (this table has no `org_id`; gating it by org admin would leak every org's incident
- * detail to every other org's admin).
+ * `SystemErrorLogController` -- unit-level, all ports faked (no DB).
+ *
+ * Authorization for `GET /system/error-logs` is no longer tested here: it moved to
+ * `PlatformSuperuserGuard` (review finding, PR #2475 -- see that file's own test,
+ * `platform-superuser-guard.test.ts`), and this controller no longer has an
+ * authorization decision to make at all. What is left to pin down here is the two
+ * things that are genuinely this controller's job: delegating to `ErrorLogPort` with the
+ * right pagination args, and the client-error-report write path's fire-and-forget
+ * discipline.
  */
 import { describe, expect, it, vi } from "vitest";
-import { ForbiddenException } from "@nestjs/common";
 import { SystemErrorLogController } from "../../src/interface/controllers/system-error-log.controller";
 import type { ErrorLogPort } from "../../src/application/ports/error-log.port";
-import type { CredentialRepository, CredentialRow } from "../../src/application/auth/ports";
 import type { LoggerPort } from "../../src/application/ports/logger.port";
 import type { Principal } from "../../src/domain/principal";
 import type { OrgId } from "../../src/domain/org-id";
-
-function fakeCredential(email: string): CredentialRow {
-  return {
-    userId: "u-1",
-    email,
-    passwordHash: "irrelevant",
-    emailVerifiedAt: null,
-    displayName: "Test User",
-    avatarUrl: null,
-  };
-}
 
 function fakeLogger(): LoggerPort {
   return { info: vi.fn(), error: vi.fn() };
@@ -33,55 +23,33 @@ function fakeLogger(): LoggerPort {
 const principal: Principal = { userId: "u-1", orgId: "org-1" as OrgId };
 
 describe("SystemErrorLogController -- GET /system/error-logs", () => {
-  it("caller's email is on the whitelist -> delegates to ErrorLogPort.list", async () => {
+  it("delegates to ErrorLogPort.list with default pagination", async () => {
     const list = vi.fn().mockResolvedValue({ items: [], hasMore: false });
     const errorLog: ErrorLogPort = { record: vi.fn(), list };
-    const credentials: CredentialRepository = {
-      findByEmail: vi.fn(),
-      findByUserId: vi.fn().mockResolvedValue(fakeCredential("ops@example.com")),
-      updatePasswordHash: vi.fn(),
-      updateDisplayName: vi.fn(),
-    } as unknown as CredentialRepository;
-    process.env.PLATFORM_SUPERUSER_EMAILS = "ops@example.com";
 
-    const controller = new SystemErrorLogController(errorLog, credentials, fakeLogger());
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
     const out = await controller.list(principal, undefined, undefined);
 
     expect(out).toEqual({ items: [], hasMore: false });
     expect(list).toHaveBeenCalledWith({ limit: 50, beforeId: null });
   });
 
-  it("caller's email is NOT on the whitelist -> 403 NOT_PLATFORM_SUPERUSER, list() never called", async () => {
-    const list = vi.fn();
+  it("an out-of-range limit query param falls back to the default rather than passing it through raw", async () => {
+    const list = vi.fn().mockResolvedValue({ items: [], hasMore: false });
     const errorLog: ErrorLogPort = { record: vi.fn(), list };
-    const credentials: CredentialRepository = {
-      findByEmail: vi.fn(),
-      findByUserId: vi.fn().mockResolvedValue(fakeCredential("member@example.com")),
-      updatePasswordHash: vi.fn(),
-      updateDisplayName: vi.fn(),
-    } as unknown as CredentialRepository;
-    process.env.PLATFORM_SUPERUSER_EMAILS = "ops@example.com";
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
 
-    const controller = new SystemErrorLogController(errorLog, credentials, fakeLogger());
-
-    await expect(controller.list(principal, undefined, undefined)).rejects.toThrow(ForbiddenException);
-    expect(list).not.toHaveBeenCalled();
+    await controller.list(principal, "9999", undefined);
+    expect(list).toHaveBeenCalledWith({ limit: 50, beforeId: null });
   });
 
-  it("no PLATFORM_SUPERUSER_EMAILS configured at all -> nobody passes, not 'allow everyone'", async () => {
-    const list = vi.fn();
+  it("a valid limit + beforeId pass through", async () => {
+    const list = vi.fn().mockResolvedValue({ items: [], hasMore: false });
     const errorLog: ErrorLogPort = { record: vi.fn(), list };
-    const credentials: CredentialRepository = {
-      findByEmail: vi.fn(),
-      findByUserId: vi.fn().mockResolvedValue(fakeCredential("ops@example.com")),
-      updatePasswordHash: vi.fn(),
-      updateDisplayName: vi.fn(),
-    } as unknown as CredentialRepository;
-    delete process.env.PLATFORM_SUPERUSER_EMAILS;
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
 
-    const controller = new SystemErrorLogController(errorLog, credentials, fakeLogger());
-
-    await expect(controller.list(principal, undefined, undefined)).rejects.toThrow(ForbiddenException);
+    await controller.list(principal, "10", "42");
+    expect(list).toHaveBeenCalledWith({ limit: 10, beforeId: "42" });
   });
 });
 
@@ -89,9 +57,8 @@ describe("SystemErrorLogController -- POST /system/client-error-reports", () => 
   it("always records and returns a traceId, even though the route is @Public()", async () => {
     const record = vi.fn().mockResolvedValue(undefined);
     const errorLog: ErrorLogPort = { record, list: vi.fn() };
-    const credentials = {} as CredentialRepository;
 
-    const controller = new SystemErrorLogController(errorLog, credentials, fakeLogger());
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
     const out = await controller.report({ traceId: "trace-client-1" }, {
       message: "boom",
       stack: null,
@@ -120,7 +87,7 @@ describe("SystemErrorLogController -- POST /system/client-error-reports", () => 
   it("a rejecting record() does not throw out of the handler", async () => {
     const record = vi.fn().mockRejectedValue(new Error("db down"));
     const errorLog: ErrorLogPort = { record, list: vi.fn() };
-    const controller = new SystemErrorLogController(errorLog, {} as CredentialRepository, fakeLogger());
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
 
     await expect(
       controller.report({ traceId: "trace-client-2" }, {
