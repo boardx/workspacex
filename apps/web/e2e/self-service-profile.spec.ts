@@ -42,7 +42,11 @@ async function loginAs(page: Page, email: string, password: string) {
 async function logout(page: Page) {
   await page.getByTestId("rail-profile-menu").click();
   await page.getByTestId("personal-menu-logout").click();
-  await expect(page).toHaveURL(/\/login$/);
+  // #2499：#2413 起登出后落点可能带 `?next=`。菜单里的登出按钮自己 `router.replace("/login")`，
+  // 但 AppShell 察觉会话转匿名时也会 `router.replace("/login?next=<当前路径>")`（保留深链跳回，
+  // 见 components/shell/app-shell.tsx），两次跳转谁后到谁说了算——从 /profile 登出实测落在
+  // `/login?next=%2Fprofile`。这里要断的是「回到登录页」，不是「没有查询串」。
+  await expect(page).toHaveURL(/\/login(\?.*)?$/);
 }
 
 test.describe.serial("用户个人资料自助服务 + 组织团队管理", () => {
