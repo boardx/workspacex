@@ -50,4 +50,42 @@ describe("InMemoryRateLimiter", () => {
     clock.advance(60_001);
     expect((await limiter.hit("ip-a")).allowed).toBe(true);
   });
+
+  // review finding (PR #2475): a first version pushed a timestamp on EVERY hit, allowed or
+  // not, so storage for one flooded key grew without bound. This is the counter-evidence the
+  // review asked for: a high-volume denied flood against ONE key must leave that key's stored
+  // entry count bounded by maxPerWindow, not by however many requests were actually sent.
+  it("a flood of denied hits does not grow stored state past maxPerWindow (bounded storage under attack)", async () => {
+    const clock = fakeClock(0);
+    const maxPerWindow = 5;
+    const limiter = new InMemoryRateLimiter(clock, 60_000, maxPerWindow);
+
+    for (let i = 0; i < 2_000; i++) {
+      await limiter.hit("flooded-ip");
+    }
+
+    expect(limiter.size("flooded-ip")).toBe(maxPerWindow);
+  });
+
+  it("a flood past the limit does not corrupt retryAfterMs -- it stays pinned to the oldest of the (bounded) stored hits", async () => {
+    const clock = fakeClock(0);
+    const limiter = new InMemoryRateLimiter(clock, 60_000, 3);
+
+    await limiter.hit("ip-a"); // t=0, the oldest of the eventual 3 stored hits
+    clock.advance(10);
+    await limiter.hit("ip-a"); // t=10
+    clock.advance(10);
+    await limiter.hit("ip-a"); // t=20, budget now full
+
+    // Every one of these is denied and must NOT push a new timestamp (verified separately by
+    // the bounded-storage test above); retryAfterMs must stay anchored to t=0, not drift.
+    let last;
+    for (let i = 0; i < 50; i++) {
+      clock.advance(1);
+      last = await limiter.hit("ip-a");
+    }
+    expect(last!.allowed).toBe(false);
+    // oldest stored hit (t=0) ages out at 0 + 60_000; clock is now at 20 + 50 = 70.
+    expect(last!.retryAfterMs).toBe(60_000 - 70);
+  });
 });
