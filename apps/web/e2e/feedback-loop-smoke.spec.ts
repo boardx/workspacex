@@ -232,7 +232,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
 
   test("D3 反证：非管理员看得到标题看不到别人的正文", async ({ page }) => {
     await login(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
-    await page.goto("/admin/feedback");
+    await page.goto("/platform-admin/feedback");
 
     // 计数是分诊面板的数字，非管理员应当 403 —— 不是崩溃、不是显示 0。
     await expect(page.getByTestId("admin-feedback-counts-unavailable")).toBeVisible();
@@ -256,7 +256,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
 
   test("管理员：四条全部可见分列正确，投票/分诊/带理由拒绝三连", async ({ page }) => {
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
-    await page.goto("/admin/feedback");
+    await page.goto("/platform-admin/feedback");
     await expect(page.getByTestId("admin-feedback-counts-unavailable")).toHaveCount(0);
 
     // 2026-09-02 起：看板按状态分列，来源不再是分列依据，是可叠加的筛选条件

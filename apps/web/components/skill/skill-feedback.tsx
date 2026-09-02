@@ -52,7 +52,7 @@ export function SkillFeedback({ state: _state, view }: { state: UiState; view: S
               左列是对产品提的，右列是在对话里对某个 Agent / Skill 提的。
             </p>
             <Button asChild size="sm" variant="outline" data-testid="skill-fb-open-admin">
-              <Link href="/admin/feedback">
+              <Link href="/platform-admin/feedback">
                 打开「反馈与迭代」
                 <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
               </Link>
