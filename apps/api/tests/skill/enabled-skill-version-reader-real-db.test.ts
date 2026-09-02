@@ -135,7 +135,7 @@ describe("#2514 agent 默认加载：组织全部已启用 skill 的当前生效
     }
   });
 
-  it("组织一个已启用 skill 都没有时返回空数组，不伪造", async () => {
+  it("组织一个已启用 skill 都没有时，结果恰好等于平台组织的已启用集合（可能为空），不伪造", async () => {
     await resetOrgs("org-i2514-empty");
     await seedOrg({ orgId: "org-i2514-empty", projectId: "project-i2514-empty" });
     const db = new PgDatabase(appConfig());
@@ -145,11 +145,23 @@ describe("#2514 agent 默认加载：组织全部已启用 skill 的当前生效
         toOrgId("org-i2514-empty"), { projectId: null, threadId: "thread-i2514-empty" },
       );
       const disclosed = discloseDecided(guarded, ALLOW_ALL);
-      // 平台组织（`org-platform`）在本测试库里可能有 backfill 过的官方 skill，也可能没有
-      // ——那是人工触发的脚本（design-delta `platform-owned-skills` ④）。这里只断言
-      // 「本组织自己的」一条都没有：任何非平台 org 的版本 id 都不该出现。
       const ids = (disclosed as { payload: readonly string[] }).payload;
-      expect(ids.filter((id) => id.startsWith("skill-i2514-"))).toEqual([]);
+      // 精确集合，不是「不含本组织的」：本组织零已启用 ⇒ 结果**恰好等于**平台组织
+      // （`org-platform`）已启用 skill 的当前版本集合——那个集合本身由人工触发的
+      // backfill 决定（design-delta `platform-owned-skills` ④），可能为空也可能是四个
+      // 官方 skill，所以在这里用一条独立 SQL（平台组织视角、不经本读口）现场算出来
+      // 当对照，而不是写死。平台之外任何组织的行混进来，这条都会红。
+      const platformExpected = await asApp("org-platform", async (c) => {
+        const r = await c.query<{ version_id: string }>(
+          `SELECT (SELECT sv.id FROM skill_versions sv
+                    WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
+                    ORDER BY sv.created_at DESC LIMIT 1) AS version_id
+             FROM skills sk WHERE sk.org_id = 'org-platform' AND sk.status = 'enabled'
+            ORDER BY sk.created_at ASC, sk.id ASC`,
+        );
+        return r.rows.map((row) => row.version_id).filter((v): v is string => v !== null);
+      });
+      expect(ids).toEqual(platformExpected);
     } finally {
       await db.close();
     }
