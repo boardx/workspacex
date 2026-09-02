@@ -68,8 +68,8 @@ test("空态 + 移动端宽度：桌面/375px 两档截图，375 不横向溢出
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/chat");
   await expect(page.getByTestId("copilotkit-v2-input")).toBeVisible();
-  // 让线程列表/agent 目录读完再抓（空态或列表都算稳态；这里等 toolbar 出现即可）。
-  await expect(page.getByTestId("copilotkit-v2-agent-toolbar")).toBeVisible();
+  // 让线程列表/agent 目录读完再抓（空态或列表都算稳态；这里等 composer 卡片出现即可）。
+  await expect(page.getByTestId("chat-task-workbench-composer")).toBeVisible();
   await page.waitForTimeout(1_000);
   await page.screenshot({ path: resolve(OUT, "empty-desktop.png"), fullPage: true });
 

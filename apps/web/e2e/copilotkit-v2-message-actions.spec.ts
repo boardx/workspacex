@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { openComposerMenu } from "./chat-task-workbench-fixture";
 
 /**
  * CK-P3 + CK-P4（issue #2054）—— v2 轨道逐条消息操作与 run 进度的真栈取证。
@@ -58,6 +59,8 @@ async function selectLoopbackAgent(page: Page): Promise<void> {
   // 「选择能力」（`chat-task-workbench-capability-picker`），同一个真实下拉；
   // 候选项现在共用一个字面量 testid（判据要求），按真实 agent id 精确点中用
   // `data-agent-id`，见 `chat-task-workbench-capability-picker.tsx` 头注。
+  // 2026-09-02 composer 三层结构：入口住在「+」菜单里，先展开再点。
+  await openComposerMenu(page);
   const trigger = page.getByTestId("chat-task-workbench-capability-picker");
   await expect(trigger).toBeVisible({ timeout: 20_000 });
   await trigger.click();

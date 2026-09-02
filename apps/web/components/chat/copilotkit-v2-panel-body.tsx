@@ -11,7 +11,7 @@ import {
   CopilotChatMessageView,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Loader2, AlertTriangle, ArrowDown, ArrowUp, ListChecks, Sparkles } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowDown, ArrowUp, ListChecks, Paperclip, Sparkles } from "lucide-react";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
@@ -43,7 +43,8 @@ import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 import { ComposerMicControl, ComposerMicRecordingBar } from "@/components/chat/chat-composer-mic-control";
-import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
+import { CapabilityPopover, useCapabilityPopoverSlot } from "@/components/chat/chat-task-workbench-capability-picker";
+import { ComposerMenu, ComposerMenuItem, ComposerStateChip } from "@/components/chat/chat-task-workbench-composer-menu";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import {
@@ -54,10 +55,9 @@ import { useCopilotKitV2AgentOptions, type CopilotKitV2AgentOptionsState } from 
 import { detectComposerMention, type ComposerMention } from "@/lib/composer-mention-detection";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import {
-  useChatAttachments, ChatAttachmentButton, ChatAttachmentList, ChatAttachmentBanner,
+  useChatAttachments, ChatAttachmentDock, ChatAttachmentList, ChatAttachmentBanner,
   ChatFullSurfaceDropOverlay,
 } from "@/components/chat/chat-composer-attachments";
-import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { listThreadMounts } from "@/lib/live-skill-mount";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,6 +72,10 @@ const RUN_STAGE_ORDER: ReadonlyArray<{ key: RunStage; label: string }> = [
   { key: "acting", label: "执行" },
   { key: "replying", label: "回复" },
 ];
+
+/** TW-P0-5④ 的"空输入"禁用理由；只有它是"用户试图发送时才提示"，见 `emptySendHint`。 */
+const EMPTY_INPUT_REASON = "请先输入任务目标";
+const EMPTY_SEND_HINT_MS = 2_500;
 
 export function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
@@ -106,7 +110,8 @@ export function CopilotKitV2PanelBody({
    */
   agentOptions: CopilotKitV2AgentOptionsState;
   selectedAgentId?: string | null;
-  onSelectAgent: (agentId: string) => void;
+  /** `null` = 回到自动匹配（服务端默认 agent）。 */
+  onSelectAgent: (agentId: string | null) => void;
   onThreadResolved?: (threadId: string) => void;
   /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   onMessageSent?: () => void;
@@ -203,20 +208,12 @@ export function CopilotKitV2PanelBody({
   const recomputeMention = (value: string, caret: number | null): void => {
     setMention(detectComposerMention(value, caret));
   };
-  const skillMention = mention?.kind === "skill" ? mention : null;
+  /*
+    2026-09-02 人类裁决：skills 不由用户在 composer 里挑选，由 agent 直接加载、具体
+    agent 的编排覆盖全局——v2 composer 的「/技能」快捷挂载与挂载面板整体移除，
+    `detectComposerMention` 的 `skill` 分支在这里不再消费，只剩 `@` 引用附件。
+  */
   const attachmentMention = mention?.kind === "attachment" ? mention : null;
-  /**
-   * issue #2130（TW-4，Skills 交互重设计）—— `ChatSkillMountPanel`（`variant="pill"`）
-   * 现在直接渲染在本组件里（见下方 composer 图标行），`mentionQuery` 不再需要
-   * 经外层 Panel 转发一圈——本地就检测得到 `skillMention`，直接当 prop 传下去。
-   * 挂载成功后要做的唯一一件事（把 `/query` 从正文删掉）也改成一个本地回调，
-   * 不再靠"外层 nonce +1 → 本组件 useEffect 侦测变化"这一整套跨组件间接机制。
-   */
-  const onSkillMentionMounted = React.useCallback(() => {
-    if (skillMention === null) return;
-    setInputDraft((current) => current.slice(0, skillMention.start) + current.slice(skillMention.start + 1 + skillMention.query.length));
-    setMention(null);
-  }, [skillMention]);
 
   /**
    * issue #2046（CK-P2）—— `@` 候选与插入，语义平移旧 composer：候选是本线程
@@ -1175,9 +1172,37 @@ export function CopilotKitV2PanelBody({
       : attach.hasUploading
         ? "附件正在上传，请等待上传完成后再发送"
         : inputDraft.trim() === ""
-          ? "请先输入任务目标"
+          ? EMPTY_INPUT_REASON
           : null;
   const sendDisabled = sendDisabledReason !== null;
+
+  /*
+    2026-09-02 composer 三层结构——三样新状态，全部只服务于第二行：
+    · `attachOpen`：「加材料」面板的受控开关（触发器是「+」菜单项，面板本体见
+      `ChatAttachmentDock`）。归档 / 运行中 / 没线程时强制关掉，同旧 `ChatAttachmentButton`
+      内部那条 effect。
+    · `capabilityOpen`：能力浮层的互斥槽（`chat-capability-picker`），菜单项点它。
+    · `emptySendHint`：「请先输入任务目标」不再常驻——空输入时 placeholder 已经说了同一句
+      话，常驻等于说两遍。改成用户「试图」发送（空输入按 Enter）时短暂出现一次；
+      其余禁用理由（归档 / 运行中 / 上传中）仍然常驻，那些是用户猜不到的。
+  */
+  const attachDisabled = archived || agent.isRunning || attachmentThreadId === null;
+  const [attachOpen, setAttachOpen] = React.useState(false);
+  React.useEffect(() => { if (attachDisabled) setAttachOpen(false); }, [attachDisabled]);
+  const [, setCapabilityOpen] = useCapabilityPopoverSlot();
+  const [emptySendHint, setEmptySendHint] = React.useState(false);
+  const emptySendHintTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashEmptySendHint = React.useCallback(() => {
+    setEmptySendHint(true);
+    if (emptySendHintTimer.current !== null) clearTimeout(emptySendHintTimer.current);
+    emptySendHintTimer.current = setTimeout(() => setEmptySendHint(false), EMPTY_SEND_HINT_MS);
+  }, []);
+  React.useEffect(() => () => {
+    if (emptySendHintTimer.current !== null) clearTimeout(emptySendHintTimer.current);
+  }, []);
+  const selectedCapability = agentOptions.status === "ready"
+    ? (agentOptions.listings.find((listing) => listing.id === selectedAgentId) ?? null)
+    : null;
 
   /**
    * issue #2053（CK-P6，重设计 2026-08-30，补丁二 + review 反证第三轮）——
@@ -1655,6 +1680,7 @@ export function CopilotKitV2PanelBody({
             value={inputDraft}
             onChange={(e) => {
               setInputDraft(e.target.value);
+              if (emptySendHint) setEmptySendHint(false);
               // issue #2020 —— 与旧 composer 同一对挂点（onChange + onKeyUp）：
               // 光标移动（方向键/点击）不触发 onChange，只有 onKeyUp 能覆盖。
               recomputeMention(e.target.value, e.target.selectionStart);
@@ -1669,109 +1695,112 @@ export function CopilotKitV2PanelBody({
               // 不是要发送消息——用 `e.nativeEvent.isComposing` 拦掉这一下。
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
+                // 空输入按 Enter = 用户在试图发送：这一刻才把禁用理由亮出来（见 `emptySendHint`）。
+                if (sendDisabledReason === EMPTY_INPUT_REASON) { flashEmptySendHint(); return; }
                 void send();
               }
             }}
           />
+          {/*
+            2026-09-02 composer 第二行：三层结构（Apple 式"隐藏细节"，人类点名）。
+            设计说明与三层定义见 `chat-task-workbench-composer-menu.tsx` 文件头注。
+            · 第 0 层常驻：左「+」，右麦克风 + 发送，纯图标。
+            · 第 1 层状态 chip：只在偏离默认时露出——选了具体能力 / 开了任务模式 / 加了材料。
+            · 第 2 层「+」菜单：添加材料 / 选择能力 / 任务模式。
+            「/技能」入口不再存在（2026-09-02 人类裁决：skills 由 agent 直接加载，不由用户挑）。
+            左侧那组是 `relative`：「+」菜单与能力浮层都从这个角落向上开，视觉上只有一处会弹东西。
+            既有锚点（`chat-task-workbench-composer-attach` / `-mention-agent` / `-task-mode`、
+            `chat-attachment-input`、`chat-task-workbench-capability-picker` + `data-auto-match`）
+            逐字保留，只是住进了菜单；对应 spec 先点「+」再断言（`openComposerMenu`）。
+          */}
           <div className="flex min-w-0 items-center justify-between gap-2">
-            {/* 第二行左：附件/材料、@Agent、/技能、任务模式。 */}
-            <div className="flex min-w-0 items-center gap-1.5">
-              <div data-testid="chat-task-workbench-composer-attach">
-                <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} showLabel />
-              </div>
-              {/* issue #2132（2026-08-27 续，bug #5）—— 此前这里只是一个打开
-                  `chat-capability-picker` 共享槽的小按钮，真正的 `CapabilityPicker`
-                  （六项披露卡片，issue #2130 TW-P0-2）仍然渲染在页面最上面那个
-                  `copilotkit-v2-agent-toolbar` 里——点开的卡片自然出现在页面顶部，
-                  跟 composer 视觉脱节，这正是 bug #5 截图里"选择卡片飘在页面中间"
-                  的根因。现在把 `CapabilityPicker` 本体真正搬到这里（`side="up"`，
-                  向上弹向输入框方向），`chat-task-workbench-composer-mention-agent`/
-                  `copilotkit-v2-agent-toolbar` 两个 testid 都原样保留在这个容器上——
-                  前者是 TW-P0-5②判据锚点，后者是 TW-P0-2③"主界面不泄漏技术信息"
-                  判据读取 innerText 的目标，都只断言"可见 + 内容"，不断言页面位置，
-                  搬家不影响任何既有 e2e。不再需要单独的快捷按钮：`CapabilityPicker`
-                  自己就是"选 agent"的入口，两个按钮做同一件事只会读作重复。 */}
-              <div
-                className="shrink-0"
-                data-testid="copilotkit-v2-agent-toolbar"
-              >
-                <div data-testid="chat-task-workbench-composer-mention-agent">
-                  <CapabilityPicker
-                    listings={agentOptions.status === "ready" ? agentOptions.listings : null}
-                    status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
-                    selectedAgentId={selectedAgentId}
-                    disabled={agentOptions.status !== "ready" || archived}
-                    onSelect={(agentId) => onSelectAgent(agentId)}
-                    side="up"
+            <div className="relative flex min-w-0 flex-wrap items-center gap-1.5">
+              <ComposerMenu disabled={archived}>
+                <div data-testid="chat-task-workbench-composer-attach">
+                  <ComposerMenuItem
+                    icon={<Paperclip className="h-4 w-4" />}
+                    label="添加材料"
+                    hint={attach.attachments.length > 0 ? `已加 ${attach.attachments.length} 个` : undefined}
+                    data-testid="chat-attachment-input"
+                    aria-haspopup="dialog"
+                    aria-expanded={attachOpen}
+                    title={attachmentThreadId === null ? "对话建立后才能添加材料" : "上传文件，随这条消息进上下文"}
+                    disabled={attachDisabled}
+                    onSelect={() => setAttachOpen(true)}
                   />
                 </div>
-              </div>
-              {/*
-                issue #2130（TW-P0-5②「/技能」入口 + TW-4 Skills 交互重设计）——
-                这两件是同一个真实控件：`ChatSkillMountPanel`（`variant="pill"`）
-                本身就是「/技能」的真正落点，不是先摆一个只插字符的假按钮、再摆
-                一个真正管理挂载的面板——那会是同一功能的两份实现。真实
-                e2e（`copilotkit-v2-skill-mount.spec.ts`/`chat-agent-skill-context.spec.ts`）
-                依赖的 `chat-skill-mount`/`chat-skill-mount-panel`/
-                `copilotkit-v2-skill-mount-placeholder` 等锚点原样保留在
-                `ChatSkillMountPanel` 内部，这里只加一层 workbench 锚点容器
-                （同 `chat-task-workbench-composer-attach` 的包法）。
-
-                `mentionQuery`/`onMentionMounted` 现在是本地状态直接下发
-                （见上方 `skillMention`/`onSkillMentionMounted`），不再经外层
-                Panel 转发一圈——搬进 Body 之后不再需要那一层间接。
-              */}
-              <div data-testid="chat-task-workbench-composer-mention-skill">
-                {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
-                  <ChatSkillMountPanel
-                    variant="pill"
-                    /* issue #2321 追加 —— composer 贴着视口底部，浮层往下开
-                       （默认值）会开到视口外/被裁掉，用户看不见。同一行的
-                       `CapabilityPicker` 上面就传了 `side="up"` 解决同一个问题，
-                       这里补上对称的口子。 */
-                    pickerSide="up"
-                    threadId={initialChatThreadId}
-                    orgId={orgId}
-                    bearer={sessionToken}
-                    mentionQuery={skillMention?.query ?? null}
-                    /* issue #2046（CK-P2）——v2 轨道触发符改 `/`（对齐 Claude Code），
-                       旧轨道 `/chat/legacy` 缺省仍是 `#`。 */
-                    mentionTriggerChar="/"
-                    onMentionMounted={onSkillMentionMounted}
+                <div data-testid="chat-task-workbench-composer-mention-agent">
+                  <ComposerMenuItem
+                    icon={<Sparkles className="h-4 w-4" />}
+                    label="选择能力"
+                    hint={selectedCapability ? selectedCapability.name : "自动匹配"}
+                    data-testid="chat-task-workbench-capability-picker"
+                    data-auto-match={selectedAgentId === null ? "true" : "false"}
+                    aria-haspopup="listbox"
+                    title={selectedCapability ? `当前能力：${selectedCapability.name}` : "未指定时按任务自动匹配"}
+                    disabled={agentOptions.status !== "ready" || archived}
+                    onSelect={() => setCapabilityOpen(true)}
                   />
-                ) : (
-                  /* 新对话（还没有线程）时如实显示占位，不渲染一个「看起来能挂、
-                     提交必然 404」的假入口——逐字同此前外层的既有纪律，只是搬了地方。 */
-                  <p className="text-9 text-muted-foreground" data-testid="copilotkit-v2-skill-mount-placeholder">
-                    {sessionToken === null
-                      ? "登录后才能给对话挂载 skill。"
-                      : "发出第一条消息、对话建立后，就可以在这里给本对话挂载 skill（也可以在输入框里敲 / 快速挂载）。"}
-                  </p>
-                )}
-              </div>
-              {/* issue #2130（TW-P0-5②）—— 任务模式：真实影响发出的正文（不是纯装饰）。
-                  开启时发出的正文前面会加一句面向 Agent 的显式指令，要求先给计划再等
-                  确认；关闭（默认，见 `taskMode` state 声明处的既有 e2e 兼容理由）时
-                  逐字节按用户原文发送——与本组件此前的既有行为完全相同。 */}
-              <button
-                type="button"
-                data-testid="chat-task-workbench-composer-task-mode"
-                aria-pressed={taskMode}
-                aria-label={taskMode ? "任务模式（先计划后执行）：已开启" : "任务模式（先计划后执行）：已关闭"}
-                title={taskMode ? "任务模式：Agent 会先给出计划，确认后再执行" : "问答模式：直接回答，不先出计划"}
-                disabled={archived}
-                onClick={() => setTaskMode((v) => !v)}
-                className={[
-                  "flex items-center gap-1 rounded-pill border px-2 py-1 text-9 transition-colors duration-fast disabled:bg-disabled disabled:text-disabled-foreground",
-                  taskMode ? "border-primary/50 bg-primary/10 text-primary" : "border-border-subtle text-muted-foreground hover:bg-muted",
-                ].join(" ")}
-              >
-                <Sparkles aria-hidden className="h-3 w-3" />
-                任务模式
-              </button>
+                </div>
+                {/* issue #2130（TW-P0-5②）—— 任务模式：真实影响发出的正文（不是纯装饰）。
+                    开启时发出的正文前面会加一句面向 Agent 的显式指令，要求先给计划再等
+                    确认；关闭（默认）时逐字节按用户原文发送。现在是菜单里的勾选项。 */}
+                <ComposerMenuItem
+                  icon={<ListChecks className="h-4 w-4" />}
+                  label="任务模式"
+                  hint="先计划，确认后执行"
+                  checked={taskMode}
+                  data-testid="chat-task-workbench-composer-task-mode"
+                  title={taskMode ? "任务模式：Agent 会先给出计划，确认后再执行" : "问答模式：直接回答，不先出计划"}
+                  disabled={archived}
+                  onSelect={() => setTaskMode((v) => !v)}
+                />
+              </ComposerMenu>
+              {selectedCapability ? (
+                <ComposerStateChip
+                  icon={<Sparkles className="h-3 w-3" />}
+                  label={selectedCapability.name}
+                  title={`当前能力：${selectedCapability.name}。点击换一个`}
+                  testId="chat-task-workbench-composer-capability-chip"
+                  clearTestId="chat-task-workbench-composer-capability-clear"
+                  clearLabel="取消指定能力，回到自动匹配"
+                  disabled={archived}
+                  onClick={() => setCapabilityOpen(true)}
+                  onClear={() => onSelectAgent(null)}
+                />
+              ) : null}
+              {taskMode ? (
+                <ComposerStateChip
+                  icon={<ListChecks className="h-3 w-3" />}
+                  label="先计划"
+                  title="任务模式已开启：Agent 先给出计划，确认后再执行"
+                  testId="chat-task-workbench-composer-task-mode-chip"
+                  clearTestId="chat-task-workbench-composer-task-mode-clear"
+                  clearLabel="关闭任务模式"
+                  disabled={archived}
+                  onClick={() => setTaskMode(false)}
+                  onClear={() => setTaskMode(false)}
+                />
+              ) : null}
+              {attach.attachments.length > 0 ? (
+                <ComposerStateChip
+                  icon={<Paperclip className="h-3 w-3" />}
+                  label={`材料 ${attach.attachments.length}`}
+                  title={`已添加 ${attach.attachments.length} 个材料，随这条消息进上下文。点击管理`}
+                  testId="chat-attachment-count"
+                  disabled={attachDisabled}
+                  onClick={() => setAttachOpen(true)}
+                />
+              ) : null}
+              <CapabilityPopover
+                listings={agentOptions.status === "ready" ? agentOptions.listings : null}
+                status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
+                selectedAgentId={selectedAgentId}
+                onSelect={(agentId) => onSelectAgent(agentId)}
+              />
             </div>
-            {/* 第二行右：麦克风（唯一入口，设备选择降为二级菜单）+ 发送/停止。 */}
-            <div className="flex shrink-0 items-center gap-2">
+            {/* 第二行右：麦克风（唯一入口，设备选择是它的二级菜单）+ 发送/停止。 */}
+            <div className="flex shrink-0 items-center gap-1">
               <ComposerMicControl
                 status={speech.status}
                 listening={speech.listening}
@@ -1780,7 +1809,6 @@ export function CopilotKitV2PanelBody({
                 start={speech.start}
                 stop={speech.stop}
                 disabled={archived}
-                idleLabel="语音"
                 devices={micDevices.devices}
                 selectedDeviceId={micDevices.selectedDeviceId}
                 onSelectDevice={micDevices.select}
@@ -1792,29 +1820,27 @@ export function CopilotKitV2PanelBody({
                   return true;
                 }}
               />
-              {/* 2026-08-29 Claude Design 重设计稿——发送是一个纯图标的圆角方形按钮
-                  （↑），不是文字按钮。testid/disabled/title 逐字不动，只换视觉与
-                  可访问性标签（图标按钮必须有 `aria-label`，之前的可见文字"发送"
-                  本身兼职当了这个角色，现在要显式补上）。 */}
+              {/* 发送是唯一带主色的控件——第二行其它东西全是灰调图标，主行动点才突出。 */}
               <Button
                 data-testid="copilotkit-v2-send"
                 type="button"
                 size="icon"
                 variant="primary"
-                className="shrink-0 rounded-md"
+                className="shrink-0 rounded-pill"
                 disabled={sendDisabled}
                 title={sendDisabledReason ?? (agent.isRunning ? "正在运行…" : "发送")}
                 aria-label={agent.isRunning ? "正在运行…" : "发送"}
                 onClick={() => void send()}
               >
                 {agent.isRunning ? (
-                  <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
                 ) : (
-                  <ArrowUp aria-hidden className="h-3.5 w-3.5" />
+                  <ArrowUp aria-hidden className="h-4 w-4" />
                 )}
               </Button>
             </div>
           </div>
+          <ChatAttachmentDock ctl={attach} open={attachOpen} disabled={attachDisabled} onClose={() => setAttachOpen(false)} />
           {/*
             2026-08-30——录音状态「内嵌」在 composer 卡片里（这一行本身就是卡片内的
             正常一行，随内容自然撑高卡片），不再是盖在输入区上方的浮层
@@ -1833,8 +1859,9 @@ export function CopilotKitV2PanelBody({
               cancel={speech.cancel}
             />
           ) : null}
-          {/* issue #2130（TW-P0-5④）—— 发送被禁用时必须**说明原因**，不能只是灰掉。 */}
-          {sendDisabledReason !== null ? (
+          {/* issue #2130（TW-P0-5④）—— 发送被禁用时必须**说明原因**，不能只是灰掉。
+              "空输入"这一条只在用户试图发送时短暂出现（见 `emptySendHint`），其余常驻。 */}
+          {sendDisabledReason !== null && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint) ? (
             <p className="text-9 text-muted-foreground" data-testid="chat-task-workbench-composer-send-disabled-reason">
               {sendDisabledReason}
             </p>

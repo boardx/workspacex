@@ -112,6 +112,21 @@ export async function openFreshThread(page: Page): Promise<string> {
   return threadId as string;
 }
 
+/**
+ * 2026-09-02 composer 三层结构（Apple 式"隐藏细节"）—— 附件/选择能力/任务模式三个入口
+ * 从常驻一行收进了左下角唯一的「+」菜单（`chat-task-workbench-composer-menu.tsx`），
+ * 它们的 testid 逐字不变，但只在菜单展开时渲染。凡要碰这三个锚点的用例先调这个。
+ * 幂等：已经开着就不再点（再点一次会把它关上）。
+ */
+export async function openComposerMenu(page: Page): Promise<Locator> {
+  const trigger = page.getByTestId("chat-task-workbench-composer-menu");
+  await expect(trigger).toBeVisible({ timeout: 30_000 });
+  const panel = page.getByTestId("chat-task-workbench-composer-menu-panel");
+  if ((await panel.count()) === 0) await trigger.click();
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
 /** 发一条消息并等到 run 落定（不断言回复内容，那是 chat-ux 卡的事）。 */
 export async function sendAndSettle(page: Page, text: string): Promise<void> {
   await page.getByTestId("copilotkit-v2-input").fill(text);

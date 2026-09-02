@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { openComposerMenu } from "./chat-task-workbench-fixture";
 import { COPILOTKIT_V2_SELECTED_AGENT_HEADER } from "../lib/copilotkit-v2-agent-header";
 
 /**
@@ -85,6 +86,8 @@ test("AgentPicker 真实切到非默认 agent——wire 上的请求 header 与�
   // 下拉，只是重命名 + 加了披露信息；候选项现在共用一个字面量 testid
   // （判据要求），按真实 agent id 精确点中用 `data-agent-id`（同一个真实按钮
   // 多一个可查询属性，见 `chat-task-workbench-capability-picker.tsx` 头注）。
+  // 2026-09-02 composer 三层结构：入口住在「+」菜单里，先展开再点。
+  await openComposerMenu(page);
   const trigger = page.getByTestId("chat-task-workbench-capability-picker");
   await expect(trigger).toBeVisible({ timeout: 20_000 });
   await trigger.click();
@@ -161,8 +164,13 @@ test("不做选择时不带选择 header——服务端 env 默认路径完好�
   await page.goto("/chat");
 
   // 选择器在场（能选），但**不点它**——这是本用例的全部前提。
+  // 2026-09-02 起它是「+」菜单里的一项：展开看一眼它在，再按 Esc 收起，什么都不选。
+  await openComposerMenu(page);
   const trigger = page.getByTestId("chat-task-workbench-capability-picker");
   await expect(trigger).toBeVisible({ timeout: 20_000 });
+  await expect(trigger).toHaveAttribute("data-auto-match", "true");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("chat-task-workbench-composer-menu-panel")).toHaveCount(0);
 
   let sawRunRequest = false;
   let capturedAgentHeader: string | null = null;

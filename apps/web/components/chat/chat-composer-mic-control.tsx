@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Loader2, Mic, X } from "lucide-react";
+import { Check, ChevronDown, Loader2, Mic, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
 import type { AsrDraftStatus } from "@/lib/use-asr-draft";
@@ -79,13 +79,6 @@ export interface ComposerMicControlProps {
   readonly devices: readonly ComposerMicDevice[];
   readonly selectedDeviceId: string | null;
   readonly onSelectDevice: (deviceId: string | null) => void;
-  /**
-   * 2026-08-29 Claude Design 重设计稿——静止态是一颗带"语音"二字的胶囊，不是纯
-   * 图标圆钮。默认 `undefined`（不显示文字，逐字节保留此前的纯图标外观）——
-   * 这是本仓唯一调用方，但仍然选可选 prop 而不是直接改死：不确定的调用方
-   * 比确定的样式更值钱，改死了下一个想要纯图标版本的人只能复制整个组件。
-   */
-  readonly idleLabel?: string;
 }
 
 function formatElapsed(totalSeconds: number): string {
@@ -105,7 +98,7 @@ function deviceLabelFor(deviceId: string, label: string, index: number): string 
  * 窗口，录音中禁用（`useAsrDraft` 只在开始录音那一刻读取一次 deviceId）。
  */
 export function ComposerMicControl({
-  status, listening, connecting, stopping, start, stop, disabled, onRequireSession, idleLabel,
+  status, listening, connecting, stopping, start, stop, disabled, onRequireSession,
   devices, selectedDeviceId, onSelectDevice,
 }: ComposerMicControlProps): JSX.Element {
   const [devicesOpen, setDevicesOpen] = useChatPopoverSlot("chat-composer-mic-devices");
@@ -117,13 +110,22 @@ export function ComposerMicControl({
     : (selectedDevice ? deviceLabelFor(selectedDevice.deviceId, selectedDevice.label, devices.indexOf(selectedDevice)) : "系统默认麦克风");
 
   return (
-    <div className="relative flex items-center gap-1.5">
+    /*
+      2026-09-02 composer 三层结构（Apple 式"隐藏细节"）——
+      · 麦克风是纯图标 ghost 按钮（此前是带"语音"二字的胶囊），常驻第 0 层。
+      · 设备二级菜单的触发器是一颗小 chevron：默认 `invisible`，只在鼠标悬停 / 键盘
+        焦点落在这组控件上、菜单已打开、或选了「非默认」设备时可见——"系统默认麦克风"
+        是默认值，默认值不是信息，不该常驻占一颗胶囊。用 `visibility` 而不是 opacity
+        表达显隐（uiux-standards U1.2 禁止用透明度表状态）。
+      · chevron 的可访问名刻意不含"麦克风/语音"字样：TW-P0-5⑤ 按可访问名数"麦克风
+        入口"，它是入口的二级菜单，不是第二个入口；当前设备名放在 `title` 里。
+    */
+    <div className="group relative flex items-center">
       <Button
         type="button"
-        size={idleLabel !== undefined ? "xs" : "icon"}
-        variant={listening ? "destructive" : "outline"}
-        // issue #2130 —— 命名胶囊圆角 token，composer 胶囊类控件本轮统一迁移。
-        className={idleLabel !== undefined ? "gap-1 rounded-pill" : "rounded-pill"}
+        size="icon"
+        variant={listening ? "destructive" : "ghost"}
+        className="rounded-pill"
         data-testid="chat-task-workbench-composer-mic"
         data-mic-status={status}
         aria-pressed={listening}
@@ -136,7 +138,7 @@ export function ComposerMicControl({
         title={
           connecting ? "正在连接语音识别…"
             : stopping ? "正在停止…"
-            : listening ? "停止语音输入" : "开始语音输入"
+            : listening ? "停止语音输入" : `开始语音输入（${deviceTriggerText}）`
         }
         disabled={disabled || connecting || stopping}
         onClick={() => {
@@ -146,32 +148,33 @@ export function ComposerMicControl({
         }}
       >
         {connecting || stopping ? (
-          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
+          <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
         ) : (
-          <Mic aria-hidden className="h-3.5 w-3.5" />
+          <Mic aria-hidden className="h-4 w-4" />
         )}
-        {idleLabel !== undefined && !listening && !connecting && !stopping ? <span>{idleLabel}</span> : null}
-        {idleLabel !== undefined && listening ? <span>正在听…</span> : null}
       </Button>
       <button
         type="button"
-        className="flex items-center gap-1 rounded-pill border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground transition-colors duration-fast hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground"
+        className={[
+          "flex h-6 w-6 items-center justify-center rounded-pill text-muted-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground",
+          devicesOpen || selectedDeviceId !== null ? "" : "invisible group-hover:visible group-focus-within:visible",
+        ].join(" ")}
         data-testid="chat-task-workbench-composer-mic-devices"
         aria-haspopup="listbox"
         aria-expanded={devicesOpen}
+        aria-label="切换输入设备"
         disabled={disabled || recording}
-        title={recording ? `麦克风设备：${deviceTriggerText}（录音中不可切换）` : `麦克风设备：${deviceTriggerText}`}
+        title={recording ? `输入设备：${deviceTriggerText}（录音中不可切换）` : `输入设备：${deviceTriggerText}`}
         onClick={() => setDevicesOpen((v) => !v)}
       >
-        <Mic aria-hidden className="h-2.5 w-2.5" />
-        <span className="max-w-24 truncate">{deviceTriggerText}</span>
+        <ChevronDown aria-hidden className="h-3 w-3" />
       </button>
       {devicesOpen ? (
         <div
           role="listbox"
           aria-label="选择麦克风"
           data-testid="chat-task-workbench-composer-mic-devices-listbox"
-          className="absolute bottom-full left-0 z-20 mb-1 w-56 rounded-lg border border-border bg-popover p-1 shadow-md"
+          className="absolute bottom-full right-0 z-20 mb-1.5 w-56 rounded-lg border border-border bg-popover p-1 shadow-md"
         >
           <button
             type="button"

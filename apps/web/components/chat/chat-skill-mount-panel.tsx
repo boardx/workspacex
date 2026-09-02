@@ -64,34 +64,15 @@ export function ChatSkillMountPanel({
   onMentionMounted,
   onMountsChange,
   onMountsSnapshotChange,
-  variant = "row",
-  pickerSide = "down",
 }: {
   threadId: string;
   /**
-   * issue #2130（TW-4，Skills 交互重设计，纯前端）—— 两种排布，**同一份状态/
-   * 端点逻辑**，只是 JSX/className 不同：
-   * - `"row"`（默认，legacy）—— composer 下方常驻一整条：标签 + 内联挂载 chip +
-   *   「加 skill」按钮。`chat-read-screen.tsx`/`personal-chat-screen.tsx` 用这个，
-   *   逐字节保持此前的视觉与结构，不因为本轮改动受影响。
-   * - `"pill"`（新增，仅 `copilotkit-v2-panel.tsx` 用）—— 单一胶囊入口（同级于
-   *   Agent/麦克风/附件），点击展开挂载浮层；已挂载 skill 收进触发器下方的小
-   *   chip 列表，不再占满一整条。**全部 testid 与两条真实 e2e
-   *   （`copilotkit-v2-skill-mount.spec.ts`/`chat-agent-skill-context.spec.ts`）
-   *   依赖的锚点逐字不变**——变的只是排布，不是这个组件对外暴露的契约。
+   * 2026-09-02（人类裁决：skills 不由用户在 composer 里挑选，由 agent 直接加载、
+   * 具体 agent 的编排覆盖全局）—— 此前这里有第二种排布 `variant="pill"`（v2 composer
+   * 的胶囊入口 + 向上开的浮层）。v2 composer 已整体去掉挂载入口，本组件只剩旧轨道
+   * （`chat-read-screen.tsx`/`personal-chat-screen.tsx`）用的常驻整条排布，`variant`/
+   * `pickerSide` 两个 prop 随之删除——没有调用方的分支就是死代码。
    */
-  variant?: "row" | "pill";
-  /**
-   * issue #2321 追加 -- 真实 devapp 实测：`variant="pill"` 挂在 composer 图标行时，
-   * 挂载浮层此前恒定往下开（`top-full`）。composer 贴着视口底部，浮层因此在真实
-   * 布局里开到视口外/被下方内容裁掉，用户完全看不见——同一行的
-   * `CapabilityPicker`（agent 选择器）早就用 `side="up"` 解决过一模一样的问题
-   * （`chat-composer-pickers.tsx`：`bottom-8` 往上开），这里只是同一个坑的第二次，
-   * 补上同一套口子。只影响 `variant="pill"`；`variant="row"` 的浮层从来不是
-   * `absolute` 定位（常驻在 composer 下方一整条内，不会被视口边缘裁切），
-   * `pickerSide` 对它没有意义，默认值刻意与此前 100% 向下的行为逐字节兼容。
-   */
-  pickerSide?: "up" | "down";
   /**
    * ⚠ **可选**：个人对话没有项目（人类 2026-08-21 裁决「个人对话必须要可以使用
    * 公共的 skills」）。#1693 起服务端已不把 `?projectId=` 当授权输入——授权从
@@ -316,9 +297,7 @@ export function ChatSkillMountPanel({
     }
   };
 
-  const pill = variant === "pill";
-
-  /** 挂载态一个 chip——row/pill 两种排布共用同一份渲染，只是外层容器尺寸不同。 */
+  /** 挂载态一个 chip。 */
   const mountedChip = (entry: ThreadSkillMount) => {
     /*
       ⚠ 显示「名称」，不是 `skillId`。名字本来就在手边——`pool` 里的
@@ -334,7 +313,7 @@ export function ChatSkillMountPanel({
     return (
       <span
         key={entry.mountId}
-        className={`inline-flex items-center gap-0.5 border border-border bg-muted/40 py-0.5 pl-2 pr-0.5 ${pill ? "rounded-pill" : "rounded-full"}`}
+        className="inline-flex items-center gap-0.5 rounded-full border border-border bg-muted/40 py-0.5 pl-2 pr-0.5"
         data-testid={`chat-skill-mounted-${entry.skillId}`}
         title={`skill id：${entry.skillId}`}
       >
@@ -359,7 +338,7 @@ export function ChatSkillMountPanel({
         <Button
           size="xs"
           variant="ghost"
-          className={`h-5 w-5 p-0 ${pill ? "rounded-pill" : "rounded-full"}`}
+          className="h-5 w-5 rounded-full p-0"
           disabled={pending}
           aria-label={`卸载 ${named}`}
           title={`卸载 ${named}`}
@@ -372,26 +351,10 @@ export function ChatSkillMountPanel({
     );
   };
 
-  /**
-   * 挂载浮层——row/pill 两种排布共用同一份，`pill` 下是 `absolute` 覆盖层，
-   * `pickerSide` 决定往上还是往下开（见该 prop 自己的头注）。
-   *
-   * 2026-08-30 人类反馈（附设计重构参照）——`pill` 这条路此前是一排小按钮铺满、
-   * 只有名字、看不出这个 skill 是干什么的，选错了才知道。改成竖排列表：
-   * 每项名字下面带一行真实的 `duty`（`SkillListItem.duty`，与「浏览 skill」
-   * 页用的同一个真实字段，不是编的摘要）；`row`（legacy，`chat-read-screen.tsx`/
-   * `personal-chat-screen.tsx` 用）维持原有横排 chip 视觉不变，避免连累两条
-   * 未参与本轮重构的旧屏。
-   */
+  /** 挂载候选浮层——常驻在 composer 下方整条内，不是 `absolute` 覆盖层。 */
   const picker = picking ? (
     <div
-      className={
-        pill
-          ? `absolute left-0 z-20 flex w-72 flex-col gap-0.5 rounded-md border border-border bg-popover p-1.5 shadow-md ${
-            pickerSide === "up" ? "bottom-full mb-1" : "top-full mt-1"
-          }`
-          : "flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
-      }
+      className="flex flex-wrap items-center gap-1.5 rounded-md border border-border p-2"
       data-testid="chat-skill-mount-picker"
     >
       {mentionQuery ? (
@@ -407,22 +370,6 @@ export function ChatSkillMountPanel({
         <span className="px-1.5 py-1 text-11 text-muted-foreground" data-testid="chat-skill-mount-mention-no-match">
           没有名字含「{mentionQuery}」的已启用 skill。
         </span>
-      ) : pill ? (
-        visiblePool.map((item) => (
-          <button
-            key={item.skillId}
-            type="button"
-            disabled={pending}
-            data-testid={`chat-skill-mount-option-${item.skillId}`}
-            onClick={() => void mount(item.skillId)}
-            className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors duration-fast hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <span className="truncate text-11 font-medium text-card-foreground">{item.name}</span>
-            <span className="line-clamp-1 text-10 text-muted-foreground">
-              {item.duty.trim() || "这个 skill 还没有填写说明"}
-            </span>
-          </button>
-        ))
       ) : (
         visiblePool.map((item) => (
           <Button
@@ -437,15 +384,6 @@ export function ChatSkillMountPanel({
           </Button>
         ))
       )}
-      {pill ? (
-        <a
-          href="/skill"
-          className="mt-0.5 border-t border-border-subtle px-2 pt-1.5 text-10 text-muted-foreground transition-colors hover:text-card-foreground"
-          data-testid="chat-skill-mount-market-link"
-        >
-          去组织的 skill 库看更多 →
-        </a>
-      ) : null}
       <Button
         size="xs"
         variant="ghost"
@@ -457,17 +395,10 @@ export function ChatSkillMountPanel({
     </div>
   ) : null;
 
-  /** 失败横幅——同上，`pill` 下也是 `absolute`（同一个 `pickerSide`），不撑开
-   *  composer 图标行的高度。 */
+  /** 失败横幅。 */
   const failureBanner = failure ? (
     <div
-      className={
-        pill
-          ? `absolute left-0 z-20 flex w-64 items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 shadow-md ${
-            pickerSide === "up" ? "bottom-full mb-1" : "top-full mt-1"
-          }`
-          : "flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
-      }
+      className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
       data-testid="chat-skill-mount-failure"
     >
       <p className="text-11 text-destructive">{failure}</p>
@@ -476,60 +407,6 @@ export function ChatSkillMountPanel({
       </Button>
     </div>
   ) : null;
-
-  if (pill) {
-    // issue #2130（TW-4）—— 单一胶囊入口：状态徽标 + 「加 skill」是同一个按钮
-    // （复用 `chat-skill-mount` 这个既有 testid/onClick，两条真实 e2e 靠它驱动挂载），
-    // 已挂载的 skill 收进触发器下方的小 chip 列表，不再占满一整条。
-    //
-    // 2026-08-28 人类反馈（devapp 实测截图）—— 之前"没挂任何 skill"时会在触发器下方
-    // 单独出一行灰字「还没有挂载任何 skill」，composer 这一排本来就挤（附件/@Agent/
-    // 技能/任务模式一整行），常驻一行说"什么都没有"的文字比不说更占地方、更显眼。
-    // 触发器按钮本身已经用 `技能{count}` 带出数量（0 时不带数字），"有没有挂"这件事
-    // 改成用**颜色**表达：有挂载 → 边框/底色/文字染成 primary 色调（同「任务模式」
-    // 开启态那条既有规则，见下方 composer 里 `chat-task-workbench-composer-task-mode`
-    // 的同款 `border-primary/50 bg-primary/10 text-primary`），没挂 → 维持 outline
-    // 默认灰调，不再额外画一行字；`data-mounted-count` 供 e2e 机械读取真实数量，
-    // 不必再靠这行文案的有无判断空态（`chat-skill-mount-empty` testid 随之移除，
-    // 判空态直接读这个 data 属性或 `mounts.length`）。
-    const hasMounts = mounts.length > 0;
-    return (
-      <div
-        ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
-        className="relative inline-flex flex-col items-start gap-1"
-        data-testid="chat-skill-mount-panel"
-      >
-        <Button
-          size="xs"
-          variant="outline"
-          className={[
-            "gap-1 rounded-pill px-2",
-            hasMounts ? "border-primary/50 bg-primary/10 text-primary" : "",
-          ].join(" ")}
-          /** ⚠ 版本号读不到就不给提交入口——不是禁用「挂载」这个能力，是拒绝盲写。 */
-          disabled={pending || version === null}
-          data-testid="chat-skill-mount"
-          data-mounted-count={mounts.length}
-          aria-label="管理本对话挂载的 skill"
-          title="管理本对话挂载的 skill"
-          onClick={() => void openPicker(false)}
-        >
-          <Wrench aria-hidden className="h-3 w-3" />
-          <span className="text-9">技能{hasMounts ? ` ${mounts.length}` : ""}</span>
-          <Plus aria-hidden className="h-2.5 w-2.5" />
-        </Button>
-        {loading ? (
-          <span className="text-9 text-muted-foreground" data-testid="chat-skill-mount-loading">
-            正在读取…
-          </span>
-        ) : hasMounts ? (
-          <div className="flex flex-wrap items-center gap-1">{mounts.map(mountedChip)}</div>
-        ) : null}
-        {picker}
-        {failureBanner}
-      </div>
-    );
-  }
 
   return (
     <section

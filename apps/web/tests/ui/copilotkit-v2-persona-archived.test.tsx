@@ -79,10 +79,6 @@ vi.mock("@/lib/use-asr-draft", () => ({
 vi.mock("@/lib/use-audio-input-devices", () => ({
   useAudioInputDevices: () => ({ devices: [], selectedDeviceId: null, select: vi.fn() }),
 }));
-/** skill 挂载栏（#2020）与本 issue 无关，且它自己会发三条真实请求。 */
-vi.mock("@/components/chat/chat-skill-mount-panel", () => ({
-  ChatSkillMountPanel: () => null,
-}));
 /** fabric 建 canvas 在 jsdom 里产不出——同 `chat-diagram-save-gate.test.tsx` 的既有限制。 */
 vi.mock("@/components/chat/chat-diagram-fabric", () => ({
   ChatDiagramFabric: (props: { code: string }) => <div data-testid="chat-diagram-fabric-probe">{props.code}</div>,

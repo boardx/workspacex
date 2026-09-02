@@ -5,6 +5,7 @@ import {
   expectAnchor,
   gapMessage,
   openFreshThread,
+  openComposerMenu,
 } from "./chat-task-workbench-fixture";
 
 /**
@@ -66,6 +67,8 @@ test("TW-P0-4②：按任务阶段自动切换（上传材料→材料；运行�
   ).toBeVisible({ timeout: 30_000 });
 
   /* ── 上传材料 → 自动开「材料」 ── */
+  // 2026-09-02 composer 三层结构：「添加材料」住在「+」菜单里，先展开再点。
+  await openComposerMenu(page);
   const attachButton = page.getByTestId("chat-attachment-input");
   await expect.poll(async () => attachButton.isDisabled(), { timeout: 20_000 }).toBe(false);
   await attachButton.click();

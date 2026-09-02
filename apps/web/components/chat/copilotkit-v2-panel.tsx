@@ -381,10 +381,10 @@ export function CopilotKitV2Panel({
    * issue #2130（TW-4，Skills 交互重设计）—— **不再挂在这一层**：此前放在外层是
    * 因为渲染依据（`initialChatThreadId`）只有外层持有；现在这个 prop 本来就
    * 原样透传给了 `CopilotKitV2PanelBody`（见下方 `orgId` 新增同一条理由），
-   * 挂载入口随之整体搬进 Body 的 composer 图标行（`variant="pill"`，同级于
-   * Agent/麦克风/附件），`mentionQuery`/`onMentionMounted` 这一整套跨组件转发
-   * 不再需要——Body 本来就检测得到 `/` mention，直接在本地消费即可。
-   * 详见 `CopilotKitV2PanelBody` 内 `ChatSkillMountPanel` 挂点的注释。
+   * 挂载入口曾随之整体搬进 Body 的 composer 图标行；2026-09-02 人类裁决
+   * （skills 由 agent 直接加载、具体 agent 的编排覆盖全局，不由用户在 composer 里挑）
+   * 之后 v2 composer 不再有挂载入口，`ChatSkillMountPanel` 只剩旧轨道在用。
+   * `orgId` 仍透传给 Body（能力列表等仍需要它）。
    */
 
   // ⚠ 刻意**不**自动选中目录第一个候选（第一版这么做过，run5 对照实验实测抓到两个

@@ -50,6 +50,32 @@ describe("ComposerMicControl", () => {
     expect(screen.queryByTestId("chat-task-workbench-composer-mic-devices-listbox")).not.toBeInTheDocument();
   });
 
+  it("设备触发器默认隐藏（visibility），选了非默认设备或菜单打开时才常显——默认值不是信息", () => {
+    const { rerender } = render(
+      <ComposerMicControl {...baseControlProps} start={vi.fn()} stop={vi.fn()} onSelectDevice={vi.fn()} />,
+    );
+    const trigger = screen.getByTestId("chat-task-workbench-composer-mic-devices");
+    // 2026-09-02 三层结构：默认 `invisible`，靠 group-hover / group-focus-within 露出；
+    // 用 visibility 而不是 opacity 表达（uiux-standards U1.2）。仍然可交互（不是 disabled）。
+    expect(trigger.className).toContain("invisible");
+    expect(trigger.className).toContain("group-hover:visible");
+    expect(trigger.className).toContain("group-focus-within:visible");
+    expect(trigger).toBeEnabled();
+    // 可访问名刻意不含"麦克风/语音"：TW-P0-5⑤ 按可访问名数入口，它是二级菜单不是第二个入口。
+    expect(trigger.getAttribute("aria-label")).not.toMatch(/麦克风|语音/);
+
+    rerender(
+      <ComposerMicControl {...baseControlProps} selectedDeviceId="dev-1" start={vi.fn()} stop={vi.fn()} onSelectDevice={vi.fn()} />,
+    );
+    expect(screen.getByTestId("chat-task-workbench-composer-mic-devices").className).not.toContain("invisible");
+
+    rerender(
+      <ComposerMicControl {...baseControlProps} start={vi.fn()} stop={vi.fn()} onSelectDevice={vi.fn()} />,
+    );
+    fireEvent.click(screen.getByTestId("chat-task-workbench-composer-mic-devices"));
+    expect(screen.getByTestId("chat-task-workbench-composer-mic-devices").className).not.toContain("invisible");
+  });
+
   it("录音中（listening）：设备菜单禁用，不可再点开", () => {
     render(
       <ComposerMicControl

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openFreshThread } from "./chat-task-workbench-fixture";
+import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openComposerMenu, openFreshThread } from "./chat-task-workbench-fixture";
 
 /**
  * issue #2068 —— **TW-P0-5 统一 Composer**（判据见 `${ACCEPTANCE_DOC}`）。
@@ -16,6 +16,13 @@ import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openFreshThread } from "./cha
  *   ＝设备选择器，**也**带 `Mic` 图标 + 文字标签，与上者同处一个 flex 行。
  * 两者并排，视觉上确实读成两个麦克风入口——审计属实。判据要求设备选择降级为
  * 语音按钮的**二级菜单**，即 composer 顶层只留一个麦克风语义入口。
+ *
+ * ## 2026-09-02 composer 三层结构（本 spec 随之改法，判据不变）
+ * 第二行常驻只剩「+」/麦克风/发送三个纯图标；附件、选择能力、任务模式住进「+」菜单
+ * （`openComposerMenu` 先展开再断言）；「/技能」入口不再存在——人类裁决 skills 由
+ * agent 直接加载、具体 agent 的编排覆盖全局，不由用户在 composer 里挑；「系统默认麦克风」
+ * 这种默认值不再常驻，设备二级菜单的触发器只在悬停/聚焦时露出；「请先输入任务目标」
+ * 只在用户试图发送（空输入按 Enter）时短暂出现。
  *
  * ## 边界（不重复声明）
  * 「语音转录必须经服务端代理」「转录是否实时可编辑」属于
@@ -61,14 +68,19 @@ test("TW-P0-5①②：Composer 是统一的两行结构，第一行为多行任�
     gapMessage("TW-P0-5①", "copilotkit-v2-input", "任务输入不是多行 textarea"),
   ).toBe("textarea");
 
+  // 三个入口住在「+」菜单里（见文件头注）；「/技能」入口按 2026-09-02 裁决已不存在。
+  await openComposerMenu(page);
   for (const [suffix, what] of [
     ["attach", "附件/材料入口"],
-    ["mention-agent", "@Agent 入口"],
-    ["mention-skill", "/技能 入口"],
+    ["mention-agent", "选择能力入口"],
     ["task-mode", "任务模式切换"],
   ] as const) {
-    await expectAnchor(page, `chat-task-workbench-composer-${suffix}`, "TW-P0-5②", `Composer 第二行缺少${what}`, 15_000);
+    await expectAnchor(page, `chat-task-workbench-composer-${suffix}`, "TW-P0-5②", `Composer「+」菜单缺少${what}`, 15_000);
   }
+  await expect(
+    page.getByTestId("chat-task-workbench-composer-mention-skill"),
+    "2026-09-02 裁决：skills 由 agent 直接加载，composer 不该再有「/技能」入口",
+  ).toHaveCount(0);
 });
 
 test("TW-P0-5⑤：麦克风入口全局唯一（审计实测当前有两个）", async ({ page }) => {
@@ -91,7 +103,8 @@ test("TW-P0-5⑤：麦克风入口全局唯一（审计实测当前有两个）"
       // 只数「入口」本身，不数录音状态提示行（connecting/listening/stopping/error）
       // 和下拉里的选项（listbox/option/empty）。
       if (!/mic/i.test(testId)) continue;
-      if (/(connecting|listening|stopping|error|listbox|option|empty)/i.test(testId)) continue;
+      // `-mic-devices` 是入口的二级菜单触发器（判据 ⑥ 要求它存在），不是第二个入口。
+      if (/(connecting|listening|stopping|error|listbox|option|empty|devices)/i.test(testId)) continue;
       record(el, "testid 含 mic");
     }
     for (const el of Array.from(root.querySelectorAll("button, [role='button'], [role='combobox']"))) {
@@ -126,7 +139,9 @@ test("TW-P0-5⑥：设备选择是语音按钮的二级菜单，录音时显示�
   );
 
   // 设备选择必须挂在语音按钮下面（二级菜单），不是 composer 顶层的并列控件。
+  // 2026-09-02 起触发器默认隐藏，悬停/聚焦在语音按钮这组上才露出（默认值不是信息）。
   await mic.click();
+  await mic.hover();
   await expectAnchor(
     page,
     "chat-task-workbench-composer-mic-devices",
@@ -171,6 +186,9 @@ test("TW-P0-5④：发送被禁用时必须说明原因（不能只是灰掉）"
   const input = page.getByTestId("copilotkit-v2-input");
   await expect(input).toBeVisible({ timeout: 30_000 });
   await input.fill("");
+  // 2026-09-02 起"空输入"这条理由不常驻（placeholder 已经说了同一句话），
+  // 用户**试图**发送——空输入按 Enter——那一刻才亮出来；其余理由（归档/运行中/上传中）仍常驻。
+  await input.press("Enter");
 
   // 空输入是天然的禁用态；若此实现下发送并未禁用，本条判据无从谈起，如实说明。
   const disabled = await send.isDisabled();

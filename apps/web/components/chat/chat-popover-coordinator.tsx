@@ -26,7 +26,19 @@ import * as React from "react";
  *  - `chat-composer-mic-devices`：麦克风按钮的二级设备菜单，与上面两个下拉同属
  *    「同一时刻只开一个浮层」的既有纪律，不新开一套互斥逻辑。
  */
-export type ChatPopoverId = "chat-agent-picker" | "chat-skill-mount" | "chat-capability-picker" | "chat-composer-mic-devices";
+/**
+ * 2026-09-02（composer 三层结构重设计）—— 再加一个槽位：
+ *  - `chat-composer-menu`：composer 左下角唯一常驻入口「+」展开的菜单。它与
+ *    `chat-capability-picker` / `chat-skill-mount` 是**接力**关系：菜单里点「选择能力」
+ *    ⇒ 能力浮层抢到 `activeId`，菜单自然读到 `open === false` 关掉——不需要菜单
+ *    自己去"关掉再打开另一个"，互斥组本来就是这么设计的。
+ */
+export type ChatPopoverId =
+  | "chat-agent-picker"
+  | "chat-skill-mount"
+  | "chat-capability-picker"
+  | "chat-composer-mic-devices"
+  | "chat-composer-menu";
 
 type ChatPopoverContextValue = {
   readonly activeId: ChatPopoverId | null;

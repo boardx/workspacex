@@ -43,7 +43,7 @@ vi.mock("@/components/feedback/feedback-button", () => ({
 
 import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 
-// `duty` is required by the `pill` variant's row renderer (`item.duty.trim()`).
+// `duty` 是 `SkillListItem` 契约里的必填字段（`packages/contracts/src/skills.ts`）。
 const SKILL_POOL = [{ skillId: "sk_aaa", name: "pptx", status: "已启用" as const, duty: "生成演示文稿" }];
 
 /** 手动可控的 promise：拿到 resolve/reject 之后再决定什么时候让 `mountSkills` 落定。 */
@@ -68,9 +68,9 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-function renderPanel(variant: "row" | "pill" = "row") {
+function renderPanel() {
   return render(
-    <ChatSkillMountPanel threadId="thr-1" projectId={undefined} orgId="org-1" bearer="bearer-1" variant={variant} />,
+    <ChatSkillMountPanel threadId="thr-1" projectId={undefined} orgId="org-1" bearer="bearer-1" />,
   );
 }
 
@@ -145,11 +145,11 @@ describe("ChatSkillMountPanel 挂载点击后的浮层开关（gap #9，乐观�
  *    各自把 `containerRef` 接到不同的外层元素（`div` vs `section`），一个接对了
  *    不代表另一个也接对了。`describe.each` 覆盖两种变体，同一组反证各跑一遍。
  */
-describe.each<{ variant: "row" | "pill" }>([{ variant: "row" }, { variant: "pill" }])(
-  "ChatSkillMountPanel 候选面板（variant=$variant）—— outside-click / Escape 关闭（同 AgentPicker gap #2）",
-  ({ variant }) => {
+describe(
+  "ChatSkillMountPanel 候选面板 —— outside-click / Escape 关闭（同 AgentPicker gap #2）",
+  () => {
     it("点击面板外部（document.body）会关闭面板", async () => {
-      renderPanel(variant);
+      renderPanel();
       fireEvent.click(await screen.findByTestId("chat-skill-mount"));
       expect(await screen.findByTestId("chat-skill-mount-picker")).toBeInTheDocument();
 
@@ -158,7 +158,7 @@ describe.each<{ variant: "row" | "pill" }>([{ variant: "row" }, { variant: "pill
     });
 
     it("按 Escape 会关闭面板", async () => {
-      renderPanel(variant);
+      renderPanel();
       fireEvent.click(await screen.findByTestId("chat-skill-mount"));
       expect(await screen.findByTestId("chat-skill-mount-picker")).toBeInTheDocument();
 
@@ -167,7 +167,7 @@ describe.each<{ variant: "row" | "pill" }>([{ variant: "row" }, { variant: "pill
     });
 
     it("面板内部（比如「取消」按钮）的 mousedown 不会被 outside-click guard 误关；随后真实点击仍照常关闭", async () => {
-      renderPanel(variant);
+      renderPanel();
       fireEvent.click(await screen.findByTestId("chat-skill-mount"));
       const cancel = await screen.findByTestId("chat-skill-mount-cancel");
 

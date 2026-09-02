@@ -2,13 +2,21 @@
 
 import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
-import { composerPickerTriggerClassName } from "@/components/chat/chat-composer-pickers";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 
 /**
- * issue #2130（TW-P0-2，回指 #2068）—— 「选择能力」入口 + 六项披露卡片。
+ * issue #2130（TW-P0-2，回指 #2068）—— 「选择能力」的六项披露卡片列表 + 承载它的浮层。
+ *
+ * ## 2026-09-02 composer 三层结构重设计：本文件不再自带触发按钮
+ *
+ * 此前这里是"一颗带文字的胶囊触发器 + 它下面的卡片列表"。触发入口现在是 composer
+ * 「+」菜单里的一项（`chat-task-workbench-composer-menu.tsx`，testid
+ * `chat-task-workbench-capability-picker` 与 `data-auto-match` 都搬到那一项上），选中后
+ * 以第 1 层状态 chip 露出（`chat-task-workbench-composer-capability-chip`）。本文件只剩
+ * 两件事：`CapabilityCardList`（纯列表，六项披露的唯一实现）与 `CapabilityPopover`
+ * （挂在互斥槽 `chat-capability-picker` 上的浮层壳：定位 + outside-click / Escape）。
+ * 卡片本身的 testid / data 属性逐字不动。
  *
  * ## 为什么是新组件，不是原地改 `AgentPicker`
  *
@@ -68,29 +76,132 @@ function abbrFor(listing: CapabilityListing): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export function CapabilityPicker({
+export interface CapabilityCardListProps {
+  readonly listings: readonly CapabilityListing[];
+  /** `null` = 未手选（默认自动匹配服务端配置的默认 agent，见判据 TW-P0-2①）。 */
+  readonly selectedAgentId: string | null;
+  readonly onSelect: (agentId: string) => void;
+  /** 当前实际在对话的那个 agent 的真实运行态；只在它等于某张卡片时用于覆盖 "ready"。 */
+  readonly acting?: CapabilityCardActingState | null;
+}
+
+/** 六项披露卡片列表（`role="listbox"`）。不管开合，谁承载它谁决定。 */
+export function CapabilityCardList({ listings, selectedAgentId, onSelect, acting = null }: CapabilityCardListProps): JSX.Element {
+  return (
+    <div
+      role="listbox"
+      aria-label="选择能力"
+      /* issue #2130 —— 保留既有 e2e（`copilotkit-v2-agent-switch.spec.ts`，
+         issue #2023）依赖的下拉容器锚点名，这里只是同一个下拉换了皮肤。 */
+      data-testid="chat-agent-select-listbox"
+      className="flex max-h-96 w-80 flex-col gap-1 overflow-y-auto p-1.5"
+    >
+      {listings.length === 0 ? (
+        <p className="px-2 py-2 text-11 text-muted-foreground">这个组织还没有可用的能力。</p>
+      ) : null}
+      {listings.map((listing) => {
+        const isSelected = listing.id === selectedAgentId;
+        const cardStatus: CapabilityCardStatus = !listing.enabled
+          ? "failed"
+          : (acting && acting.agentId === listing.id ? acting.status : "ready");
+        const strengths = (listing.duty ?? "").trim() || "该 Agent 尚未填写擅长领域说明";
+        return (
+          <button
+            key={listing.id}
+            type="button"
+            role="option"
+            aria-selected={isSelected}
+            data-testid="chat-task-workbench-capability-card"
+            /* issue #2130 —— TW-P0-2 判据要求全部卡片共用同一个字面量
+               testid（每张能力卡是"一个可重复的锚点"，不是各带一份 id）；
+               `copilotkit-v2-agent-switch.spec.ts`（issue #2023）需要按真实
+               agent id 精确点中某一张卡，`data-testid` 单值装不下两个诉求，
+               这里用一个独立的 `data-agent-id` 承载后者——不是新发明一套
+               命名规范，只是同一个真实按钮多一个可查询属性。 */
+            data-agent-id={listing.id}
+            onClick={() => onSelect(listing.id)}
+            className={[
+              "flex w-full flex-col gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isSelected ? "border-primary/60 text-primary" : "border-transparent text-card-foreground",
+            ].join(" ")}
+          >
+            <span className="flex items-center gap-1.5">
+              <Avatar initials={abbrFor(listing)} tone="ai" size="xs" />
+              <span className="truncate text-12 font-medium">{listing.name}</span>
+            </span>
+            <span
+              className="truncate text-11 text-muted-foreground"
+              title={strengths}
+              data-testid="chat-task-workbench-capability-facet-strengths"
+            >
+              {strengths}
+            </span>
+            {/*
+              issue #2340 → 2026-08-30 二次压缩（人类反馈「agent 列表太长」）——
+              此前「工具/材料/写权限」占一整行，「记忆范围」「当前状态」各占一整行，
+              一张卡视觉上仍有 5 行。六项披露的「签核判据」只要求六个 testid 各自
+              `toBeVisible()`（`e2e/chat-task-workbench-capability-cards.spec.ts`
+              TW-P0-2②），没有要求各占一行——这里把「工具/材料/写权限」的免责声明
+              与「记忆范围」「当前状态」三样合并到同一条 flex-wrap 行内，用极短的
+              标签词代替整句话，六个 `data-testid`／`data-memory-scope`／
+              `data-status` 原样保留，只是排版从 3 行收进 1 行。
+            */}
+            <span className="flex flex-wrap items-baseline gap-x-1 text-10 text-muted-foreground">
+              <span data-testid="chat-task-workbench-capability-facet-tools">工具</span>
+              <span aria-hidden>/</span>
+              <span data-testid="chat-task-workbench-capability-facet-materials">材料</span>
+              <span aria-hidden>/</span>
+              <span data-testid="chat-task-workbench-capability-facet-writes">写权限</span>
+              <span>未披露</span>
+              <span aria-hidden>·</span>
+              <span
+                data-testid="chat-task-workbench-capability-facet-memory"
+                data-memory-scope="thread"
+                title={MEMORY_SCOPE_FULL_LABEL}
+              >
+                记忆{MEMORY_SCOPE_SHORT_LABEL}
+              </span>
+              <span aria-hidden>·</span>
+              <span data-testid="chat-task-workbench-capability-facet-status" data-status={cardStatus}>
+                {statusLabel(cardStatus)}
+                {!listing.enabled && listing.disabledReason ? `（${listing.disabledReason}）` : ""}
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** 与 composer「+」菜单共用的开合口：菜单项点它，浮层就接过 `activeId`。 */
+export function useCapabilityPopoverSlot(): [boolean, React.Dispatch<React.SetStateAction<boolean>>] {
+  return useChatPopoverSlot("chat-capability-picker");
+}
+
+/**
+ * 能力列表的浮层壳。`absolute` 贴着最近的定位祖先（composer 第二行左侧那组的
+ * `relative` 容器）向上开——与「+」菜单、技能候选浮层三者从同一个角落弹出，
+ * 用户视觉上只有"一个地方会弹东西"。
+ *
+ * 没有触发器，因此 outside-click 只看浮层自己：打开它的那一下 mousedown 发生在
+ * 菜单项上、发生在监听挂上之前，不会被误判成"点外面"。
+ */
+export function CapabilityPopover({
   listings,
   status,
   selectedAgentId,
   onSelect,
-  disabled,
-  side = "up",
   acting = null,
 }: {
-  listings: readonly CapabilityListing[] | null;
-  status: "loading" | "error" | "ready";
-  /** `null` = 未手选（默认自动匹配服务端配置的默认 agent，见判据 TW-P0-2①）。 */
-  selectedAgentId: string | null;
-  onSelect: (agentId: string) => void;
-  disabled: boolean;
-  side?: "up" | "down";
-  /** 当前实际在对话的那个 agent 的真实运行态；只在它等于某张卡片时用于覆盖 "ready"。 */
-  acting?: CapabilityCardActingState | null;
-}): JSX.Element {
-  const [open, setOpen] = useChatPopoverSlot("chat-capability-picker");
+  readonly listings: readonly CapabilityListing[] | null;
+  readonly status: "loading" | "error" | "ready";
+  readonly selectedAgentId: string | null;
+  readonly onSelect: (agentId: string) => void;
+  readonly acting?: CapabilityCardActingState | null;
+}): JSX.Element | null {
+  const [open, setOpen] = useCapabilityPopoverSlot();
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const selected = listings?.find((l) => l.id === selectedAgentId) ?? null;
-  const autoMatch = selectedAgentId === null;
 
   React.useEffect(() => {
     if (!open) return;
@@ -108,113 +219,22 @@ export function CapabilityPicker({
     };
   }, [open, setOpen]);
 
+  if (!open || status !== "ready" || listings === null) return null;
   return (
-    <div ref={containerRef} className="relative flex items-center">
-      <Button
-        type="button"
-        size="xs"
-        variant="ghost"
-        className={composerPickerTriggerClassName("max-w-56")}
-        data-testid="chat-task-workbench-capability-picker"
-        data-auto-match={autoMatch ? "true" : "false"}
-        disabled={disabled}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label="选择能力"
-        title={selected ? `选择能力：${selected.name}` : "选择能力（默认自动匹配）"}
-        onClick={() => setOpen((v) => !v)}
-      >
-        {selected ? <Avatar initials={abbrFor(selected)} tone="ai" size="xs" /> : null}
-        <span className="truncate text-11">
-          {selected ? `能力：${selected.name}` : "选择能力（自动匹配）"}
-        </span>
-        <span aria-hidden className="text-9 text-muted-foreground">▾</span>
-      </Button>
-      {open && status === "ready" && listings ? (
-        <div
-          role="listbox"
-          aria-label="选择能力"
-          /* issue #2130 —— 保留既有 e2e（`copilotkit-v2-agent-switch.spec.ts`，
-             issue #2023）依赖的下拉容器锚点名，这里只是同一个下拉换了皮肤。 */
-          data-testid="chat-agent-select-listbox"
-          className={`absolute ${side === "down" ? "top-8" : "bottom-8"} left-0 z-10 flex max-h-96 w-80 flex-col gap-1 overflow-y-auto rounded-lg border border-border bg-popover p-1.5 shadow-md`}
-        >
-          {listings.length === 0 ? (
-            <p className="px-2 py-2 text-11 text-muted-foreground">这个组织还没有可用的能力。</p>
-          ) : null}
-          {listings.map((listing) => {
-            const isSelected = listing.id === selectedAgentId;
-            const cardStatus: CapabilityCardStatus = !listing.enabled
-              ? "failed"
-              : (acting && acting.agentId === listing.id ? acting.status : "ready");
-            const strengths = (listing.duty ?? "").trim() || "该 Agent 尚未填写擅长领域说明";
-            return (
-              <button
-                key={listing.id}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                data-testid="chat-task-workbench-capability-card"
-                /* issue #2130 —— TW-P0-2 判据要求全部卡片共用同一个字面量
-                   testid（每张能力卡是"一个可重复的锚点"，不是各带一份 id）；
-                   `copilotkit-v2-agent-switch.spec.ts`（issue #2023）需要按真实
-                   agent id 精确点中某一张卡，`data-testid` 单值装不下两个诉求，
-                   这里用一个独立的 `data-agent-id` 承载后者——不是新发明一套
-                   命名规范，只是同一个真实按钮多一个可查询属性。 */
-                data-agent-id={listing.id}
-                onClick={() => { onSelect(listing.id); setOpen(false); }}
-                className={[
-                  "flex w-full flex-col gap-0.5 rounded-md border px-2.5 py-1.5 text-left transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  isSelected ? "border-primary/60 text-primary" : "border-transparent text-card-foreground",
-                ].join(" ")}
-              >
-                <span className="flex items-center gap-1.5">
-                  <Avatar initials={abbrFor(listing)} tone="ai" size="xs" />
-                  <span className="truncate text-12 font-medium">{listing.name}</span>
-                </span>
-                <span
-                  className="truncate text-11 text-muted-foreground"
-                  title={strengths}
-                  data-testid="chat-task-workbench-capability-facet-strengths"
-                >
-                  {strengths}
-                </span>
-                {/*
-                  issue #2340 → 2026-08-30 二次压缩（人类反馈「agent 列表太长」）——
-                  此前「工具/材料/写权限」占一整行，「记忆范围」「当前状态」各占一整行，
-                  一张卡视觉上仍有 5 行。六项披露的「签核判据」只要求六个 testid 各自
-                  `toBeVisible()`（`e2e/chat-task-workbench-capability-cards.spec.ts`
-                  TW-P0-2②），没有要求各占一行——这里把「工具/材料/写权限」的免责声明
-                  与「记忆范围」「当前状态」三样合并到同一条 flex-wrap 行内，用极短的
-                  标签词代替整句话，六个 `data-testid`／`data-memory-scope`／
-                  `data-status` 原样保留，只是排版从 3 行收进 1 行。
-                */}
-                <span className="flex flex-wrap items-baseline gap-x-1 text-10 text-muted-foreground">
-                  <span data-testid="chat-task-workbench-capability-facet-tools">工具</span>
-                  <span aria-hidden>/</span>
-                  <span data-testid="chat-task-workbench-capability-facet-materials">材料</span>
-                  <span aria-hidden>/</span>
-                  <span data-testid="chat-task-workbench-capability-facet-writes">写权限</span>
-                  <span>未披露</span>
-                  <span aria-hidden>·</span>
-                  <span
-                    data-testid="chat-task-workbench-capability-facet-memory"
-                    data-memory-scope="thread"
-                    title={MEMORY_SCOPE_FULL_LABEL}
-                  >
-                    记忆{MEMORY_SCOPE_SHORT_LABEL}
-                  </span>
-                  <span aria-hidden>·</span>
-                  <span data-testid="chat-task-workbench-capability-facet-status" data-status={cardStatus}>
-                    {statusLabel(cardStatus)}
-                    {!listing.enabled && listing.disabledReason ? `（${listing.disabledReason}）` : ""}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+    <div
+      ref={containerRef}
+      data-testid="chat-task-workbench-capability-popover"
+      className="absolute bottom-full left-0 z-20 mb-1.5 rounded-lg border border-border bg-popover shadow-md"
+    >
+      <CapabilityCardList
+        listings={listings}
+        selectedAgentId={selectedAgentId}
+        acting={acting}
+        onSelect={(agentId) => { onSelect(agentId); setOpen(false); }}
+      />
     </div>
   );
 }
+
+/** 供状态 chip 使用：与卡片头像同一套缩写规则，不在 composer 里再抄一份。 */
+export { abbrFor as capabilityAbbrFor };
