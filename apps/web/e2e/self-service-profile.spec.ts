@@ -29,7 +29,7 @@
  * 不是为了让测试好写而伪造的场景。
  */
 import { expect, test, type Page } from "@playwright/test";
-import { judgeLogoutLanding } from "./logout-landing";
+import { expectedPostLoginLanding, judgeLogoutLanding } from "./logout-landing";
 import { SELF_SERVICE_PROFILE_E2E } from "./self-service-profile-fixture";
 
 async function loginAs(page: Page, email: string, password: string) {
@@ -95,11 +95,13 @@ test.describe.serial("用户个人资料自助服务 + 组织团队管理", () =
     await expect(page.getByTestId("login-error")).toBeVisible();
     await expect(page).toHaveURL(/\/login/);
 
-    // 新密码必须登得进去。
+    // 新密码必须登得进去。落点由提交那一刻登录页 URL 上的 `next` 决定（登出落点若是
+    // `/login?next=%2Fprofile`，登录后就回 /profile，不是 /projects）——见 `./logout-landing.ts`。
     await page.getByTestId("login-email").fill(SELF_SERVICE_PROFILE_E2E.adminEmail);
     await page.getByTestId("login-password").fill(SELF_SERVICE_PROFILE_E2E.newPassword);
+    const landing = expectedPostLoginLanding(page.url());
     await page.getByTestId("login-submit").click();
-    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page).toHaveURL((url) => url.pathname === landing && url.search === "");
 
     /* ── 3. 团队：创建 → 改名 → 删除（空团队能删） ───────────────────────── */
     await page.goto("/org-admin");

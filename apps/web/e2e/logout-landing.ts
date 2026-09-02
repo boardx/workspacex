@@ -13,6 +13,8 @@
  * 规则本身抽成纯函数，是为了让反例能在 vitest 里红给人看（`tests/e2e/logout-landing.test.ts`），
  * 而不是只写在注释里。
  */
+import { sanitizeReturnTo } from "../lib/return-to";
+
 export interface LogoutLandingVerdict {
   ok: boolean;
   reason: string;
@@ -29,4 +31,15 @@ export function judgeLogoutLanding(rawUrl: string, allowedNext: string): LogoutL
   if (nexts.length > 1) return { ok: false, reason: `next 出现了 ${nexts.length} 次：${nexts.join(" | ")}` };
   if (nexts[0] !== allowedNext) return { ok: false, reason: `next=${nexts[0]}，应为 ${allowedNext}` };
   return { ok: true, reason: `next=${allowedNext}（匿名守卫的跳转先到）` };
+}
+
+/**
+ * 从登出后落点上的登录页再登录，会落到哪：登录成功后 `login-form.tsx` 走
+ * `window.location.assign(sanitizeReturnTo(next))`——带 `?next=/profile` 就回 /profile，
+ * 不带就 /projects。第一次真栈复核（run 33662212857）正是在这里红的：登出落点判定放行了
+ * `?next=%2Fprofile`，下一行却写死 `/projects`。期望值必须由**提交那一刻的 URL** 算出来，
+ * 规则直接复用产品代码的 sanitizeReturnTo，不另抄一份（同一事实不得声明在两处）。
+ */
+export function expectedPostLoginLanding(rawLoginUrl: string): string {
+  return sanitizeReturnTo(new URL(rawLoginUrl).searchParams.get("next"));
 }

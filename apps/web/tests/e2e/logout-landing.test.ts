@@ -4,7 +4,7 @@
  * 这就是把断言从正则换成解析的全部理由。
  */
 import { describe, expect, it } from "vitest";
-import { judgeLogoutLanding } from "../../e2e/logout-landing";
+import { expectedPostLoginLanding, judgeLogoutLanding } from "../../e2e/logout-landing";
 
 const OLD_BROAD = /\/login(\?.*)?$/;
 const ORIGIN = "http://127.0.0.1:3000";
@@ -48,5 +48,18 @@ describe("judgeLogoutLanding：只接受两种有意的登出落点", () => {
       "错误的站内目标",
       "多余的查询参数",
     ]));
+  });
+});
+
+describe("expectedPostLoginLanding：登录后落点由提交时 URL 上的 next 决定（run 33662212857 的红）", () => {
+  it("登出落点带 next=/profile → 登录后回 /profile，不是 /projects", () => {
+    expect(expectedPostLoginLanding(`${ORIGIN}/login?next=%2Fprofile`)).toBe("/profile");
+  });
+  it("登出落点不带 next → /projects", () => {
+    expect(expectedPostLoginLanding(`${ORIGIN}/login`)).toBe("/projects");
+  });
+  it("与产品代码同一规则：外域 / 循环值被 sanitizeReturnTo 收敛成 /projects", () => {
+    expect(expectedPostLoginLanding(`${ORIGIN}/login?next=https://evil.example`)).toBe("/projects");
+    expect(expectedPostLoginLanding(`${ORIGIN}/login?next=%2Flogin`)).toBe("/projects");
   });
 });
