@@ -26,11 +26,11 @@ export function buildDigitalInterviewReportSystemPrompt(minimumFindings: number)
 5. 可操作性：建议使用 P0/P1/P2，写明依据、负责人类型、近期动作、成功信号和风险。
 6. 专业表达：客观、克制、具体；识别共性、差异、矛盾、边界条件和反例，禁止空泛总结与同义重复。
 
-输出协议：只输出 NDJSON，每行必须是一个完整 JSON 对象，不要代码围栏、前言或尾注。
+输出协议：只输出 NDJSON，每行必须是一个完整 JSON 对象，不要代码围栏、前言或尾注。总报告控制在 4000-8000 个中文字符，优先保证结构完整、证据准确，避免冗长复述。
 - 第一行且仅一行：{"type":"meta","title":"具体、决策导向的报告标题","executiveSummary":"包含研究目的、样本边界、3-5项关键发现、主要分歧和首要建议的完整执行摘要"}
-- 随后严格按顺序输出以下 7 个 section 事件，每个事件的 markdown 必须以对应二级标题开头，并包含充分的小节、证据和分析：
+- 紧接着输出至少 ${minimumFindings} 个 finding 事件：{"type":"finding","title":"决策型发现标题","summary":"证据、解释、影响和待验证边界","expertId":"输入专家 ID","questionId":"输入问题 ID"}。先输出 finding，确保关键发现优先送达。
+- 最后严格按顺序输出以下 7 个 section 事件，每个事件的 markdown 必须以对应二级标题开头，并包含充分但简洁的小节、证据和分析：
 ${DIGITAL_REPORT_REQUIRED_HEADINGS.map((heading, index) => `${index + 1}. ${heading}`).join("\n")}
-- 最后输出至少 ${minimumFindings} 个 finding 事件：{"type":"finding","title":"决策型发现标题","summary":"证据、解释、影响和待验证边界","expertId":"输入专家 ID","questionId":"输入问题 ID"}。
 
 章节内容要求：
 - “研究范围与方法”：主题、样本/Persona 构成、访谈覆盖、分析方法、证据边界；明确这是数字专家模拟访谈，结论需真人研究验证。
@@ -44,20 +44,70 @@ ${DIGITAL_REPORT_REQUIRED_HEADINGS.map((heading, index) => `${index + 1}. ${head
 每条 finding 必须原样使用输入中的 expertId 和 questionId，且 summary 不得只复述回答，必须包含证据解释与决策影响。`;
 }
 
-/** Incremental NDJSON decoder. Only newline-terminated, fully validated events escape. */
+/**
+ * Incremental report-event decoder.
+ *
+ * Providers occasionally pretty-print JSON or wrap otherwise valid NDJSON in a
+ * Markdown fence. Extracting balanced top-level objects keeps streaming intact
+ * while making those harmless presentation differences non-fatal.
+ */
 export class DigitalReportNdjsonDecoder {
   private pending = "";
+  private scanIndex = 0;
+  private objectStart = -1;
+  private depth = 0;
+  private inString = false;
+  private escaped = false;
 
   push(delta: string): readonly ParsedDigitalReportStreamEvent[] {
     this.pending += delta;
-    const lines = this.pending.split("\n");
-    this.pending = lines.pop() ?? "";
-    return lines.filter((line) => line.trim()).map((line) => DigitalReportStreamEvent.parse(JSON.parse(line)));
+    const events: ParsedDigitalReportStreamEvent[] = [];
+    let consumedThrough = 0;
+    for (let index = this.scanIndex; index < this.pending.length; index += 1) {
+      const character = this.pending[index];
+      if (this.inString) {
+        if (this.escaped) this.escaped = false;
+        else if (character === "\\") this.escaped = true;
+        else if (character === '"') this.inString = false;
+        continue;
+      }
+      if (character === '"' && this.depth > 0) {
+        this.inString = true;
+      } else if (character === "{") {
+        if (this.depth === 0) this.objectStart = index;
+        this.depth += 1;
+      } else if (character === "}" && this.depth > 0) {
+        this.depth -= 1;
+        if (this.depth === 0 && this.objectStart >= 0) {
+          events.push(this.parseEvent(this.pending.slice(this.objectStart, index + 1)));
+          consumedThrough = index + 1;
+          this.objectStart = -1;
+        }
+      }
+    }
+    this.scanIndex = this.pending.length;
+    if (consumedThrough > 0) {
+      this.pending = this.pending.slice(consumedThrough);
+      this.scanIndex -= consumedThrough;
+      if (this.objectStart >= 0) this.objectStart -= consumedThrough;
+    }
+    return events;
   }
 
   finish(): readonly ParsedDigitalReportStreamEvent[] {
-    const tail = this.pending.trim();
+    if (this.depth !== 0 || this.objectStart >= 0) {
+      throw new SyntaxError("incomplete report stream JSON object");
+    }
     this.pending = "";
-    return tail ? [DigitalReportStreamEvent.parse(JSON.parse(tail))] : [];
+    this.scanIndex = 0;
+    return [];
+  }
+
+  private parseEvent(json: string): ParsedDigitalReportStreamEvent {
+    try {
+      return DigitalReportStreamEvent.parse(JSON.parse(json));
+    } catch (error) {
+      throw new SyntaxError("invalid report stream event", { cause: error });
+    }
   }
 }
