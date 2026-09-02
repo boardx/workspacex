@@ -1,0 +1,557 @@
+// 生成《WorkspaceX 端到端核心流程手工测试清单》Word 文档
+const fs = require("fs");
+const {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel,
+  AlignmentType, WidthType, ShadingType, BorderStyle, LevelFormat, PageBreak,
+  TableOfContents, Header, Footer, PageNumber, VerticalAlign,
+} = require("docx");
+
+const FONT = "Microsoft YaHei";
+const OUT = process.argv[2] || "workspacex-e2e-manual-test-checklist.docx";
+
+// ---------- 基础构件 ----------
+const run = (text, opts = {}) => new TextRun({ text, font: { ascii: FONT, hAnsi: FONT, eastAsia: FONT }, size: 21, ...opts });
+const p = (text, opts = {}) => new Paragraph({ spacing: { after: 120, line: 320 }, ...opts, children: Array.isArray(text) ? text : [run(text, opts.runOpts || {})] });
+const h1 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_1, spacing: { before: 360, after: 160 }, children: [run(t, { bold: true, size: 32, color: "1F3A5F" })] });
+const h2 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 280, after: 120 }, children: [run(t, { bold: true, size: 26, color: "1F3A5F" })] });
+const h3 = (t) => new Paragraph({ heading: HeadingLevel.HEADING_3, spacing: { before: 200, after: 80 }, children: [run(t, { bold: true, size: 22, color: "2E5C8A" })] });
+const bullet = (text) => new Paragraph({ numbering: { reference: "bullets", level: 0 }, spacing: { after: 60, line: 300 }, children: Array.isArray(text) ? text : [run(text)] });
+const numbered = (text, ref) => new Paragraph({ numbering: { reference: ref, level: 0 }, spacing: { after: 60, line: 300 }, children: Array.isArray(text) ? text : [run(text)] });
+const note = (text) => new Paragraph({
+  spacing: { before: 80, after: 160, line: 300 },
+  shading: { type: ShadingType.CLEAR, fill: "FFF7E0", color: "auto" },
+  border: { left: { style: BorderStyle.SINGLE, size: 24, color: "E0A800", space: 4 } },
+  indent: { left: 200, right: 200 },
+  children: [run("提示：", { bold: true }), run(text)],
+});
+const pageBreak = () => new Paragraph({ children: [new PageBreak()] });
+
+const border = { style: BorderStyle.SINGLE, size: 4, color: "BFBFBF" };
+const borders = { top: border, bottom: border, left: border, right: border };
+
+function cell(children, width, opts = {}) {
+  const kids = Array.isArray(children) ? children : [children];
+  return new TableCell({
+    width: { size: width, type: WidthType.DXA },
+    borders,
+    verticalAlign: VerticalAlign.TOP,
+    margins: { top: 60, bottom: 60, left: 90, right: 90 },
+    shading: opts.fill ? { type: ShadingType.CLEAR, fill: opts.fill, color: "auto" } : undefined,
+    children: kids.map((k) => (typeof k === "string" ? p(k, { spacing: { after: 40, line: 280 }, runOpts: opts.runOpts }) : k)),
+  });
+}
+
+// 通用两列信息表
+function infoTable(rows, widths = [2400, 7200]) {
+  return new Table({
+    width: { size: widths[0] + widths[1], type: WidthType.DXA },
+    columnWidths: widths,
+    rows: rows.map(([k, v]) => new TableRow({ children: [cell(k, widths[0], { fill: "EAF1F8", runOpts: { bold: true } }), cell(v, widths[1])] })),
+  });
+}
+
+// 用例表：编号 / 操作步骤 / 预期看到 / 结果 / 备注
+const CW = [820, 3700, 3120, 760, 1200];
+function caseTable(cases) {
+  const header = new TableRow({
+    tableHeader: true,
+    children: ["编号", "操作步骤（照着做）", "预期看到（对照打勾）", "结果", "备注 / 问题编号"].map((t, i) =>
+      cell(t, CW[i], { fill: "1F3A5F", runOpts: { bold: true, color: "FFFFFF" } })),
+  });
+  const rows = cases.map((c) => {
+    const steps = c.steps.map((s, i) => p([run(`${i + 1}. `, { bold: true }), run(s)], { spacing: { after: 40, line: 280 } }));
+    const expect = c.expect.map((e) => p([run("□ "), run(e)], { spacing: { after: 40, line: 280 } }));
+    return new TableRow({
+      cantSplit: false,
+      children: [
+        cell([p([run(c.id, { bold: true })], { spacing: { after: 40 } }), p(c.title, { spacing: { after: 0, line: 260 }, runOpts: { size: 18, color: "555555" } })], CW[0]),
+        cell(steps, CW[1]),
+        cell(expect, CW[2]),
+        cell([p("□ 通过", { spacing: { after: 40 } }), p("□ 失败", { spacing: { after: 40 } }), p("□ 阻塞", { spacing: { after: 0 } })], CW[3]),
+        cell("", CW[4]),
+      ],
+    });
+  });
+  return new Table({ width: { size: CW.reduce((a, b) => a + b, 0), type: WidthType.DXA }, columnWidths: CW, rows: [header, ...rows] });
+}
+
+// 模块块：标题 + 入口/前置 + 用例表
+function moduleBlock(m) {
+  const out = [h2(m.title)];
+  if (m.intro) out.push(p(m.intro));
+  out.push(infoTable([
+    ["进入方式", m.entry],
+    ["使用账号", m.account],
+    ["开始前确认", m.precondition],
+  ]));
+  out.push(p(""));
+  out.push(caseTable(m.cases));
+  if (m.note) out.push(note(m.note));
+  out.push(p(""));
+  return out;
+}
+
+// ---------- 内容 ----------
+const ENV_URL = "https://devapp.boardx.us";
+
+const modules = [
+  {
+    title: "模块 A　登录、退出与个人资料",
+    intro: "这是所有流程的起点。登录页左边是表单，右边是品牌介绍面板。",
+    entry: `浏览器打开 ${ENV_URL} ，会自动跳到「登录」页（地址栏以 /login 结尾）。`,
+    account: "管理员账号（见第 2 章账号表）。",
+    precondition: "已清空浏览器缓存或使用无痕窗口；网络正常。",
+    cases: [
+      { id: "A-1", title: "正常登录", steps: ["在「工作邮箱」输入账号邮箱。", "在「密码」输入密码，点一下右侧的眼睛图标查看密码是否输入正确。", "点「登录」按钮。"],
+        expect: ["按钮短暂变成「正在进入…」。", "进入「项目」页面（地址栏以 /projects 结尾），左侧出现导航栏：对话、项目、研究、访谈、录音、问卷、大脑、任务、后台。", "左下角显示你的头像/名字。"] },
+      { id: "A-2", title: "密码错误", steps: ["退出登录后回到登录页。", "输入正确邮箱、错误密码，点「登录」。"],
+        expect: ["页面停在登录页，出现红色提示「邮箱或密码不正确」。", "不会提示“该邮箱不存在”之类泄露账号的信息。"] },
+      { id: "A-3", title: "忘记密码", steps: ["点登录按钮下方的「忘记密码？」。", "输入任意一个工作邮箱，点「发送重置链接」。", "立刻再点一次「发送重置链接」。"],
+        expect: ["出现提示「若该邮箱已注册，重置邮件已发出。」", "第二次点击被限制（60 秒内不能重复发送，按钮变灰或有倒计时）。"] },
+      { id: "A-4", title: "退出并重新登录", steps: ["登录成功后，点左下角头像，选「退出登录」。", "回到登录页后重新登录。"],
+        expect: ["退出后回到登录页；直接在地址栏输入 /projects 会被踢回登录页。", "重新登录后再次进入「项目」页。"] },
+      { id: "A-5", title: "带回跳的登录", steps: ["退出登录状态下，在地址栏直接输入 " + ENV_URL + "/chat 回车。", "在登录页完成登录。"],
+        expect: ["先被带到登录页。", "登录成功后直接落在「对话」页，而不是项目页。"] },
+      { id: "A-6", title: "修改显示名称", steps: ["点左下角头像，进入「个人资料」（地址 /profile）。", "把显示名称改成「测试-你的名字」，保存。", "刷新页面。"],
+        expect: ["保存成功有提示。", "刷新后名称仍是改过的；左下角头像旁的名字同步更新。"] },
+      { id: "A-7", title: "修改密码", steps: ["在个人资料页找到修改密码。", "输入旧密码和新密码（至少 12 位），保存。", "退出登录，用旧密码登录一次，再用新密码登录一次。", "测完后把密码改回原值。"],
+        expect: ["旧密码登录失败，提示「邮箱或密码不正确」。", "新密码登录成功。"] },
+    ],
+    note: "A-7 改完密码务必改回去，否则其他测试人员无法使用该账号。",
+  },
+  {
+    title: "模块 B　注册与组织成员管理",
+    intro: "两条进入产品的路：自己开一个新组织；或者被管理员邀请加入已有组织。",
+    entry: "登录页最下方「开一个新组织」→「创建组织」按钮（地址 /auth/register）；成员管理在左下角头像菜单「组织管理」（地址 /org-admin）。",
+    account: "B-1 用一个全新的、能收信的邮箱；B-2 起用管理员账号。",
+    precondition: "准备一个能收邮件的新邮箱（用于注册和被邀请）。",
+    cases: [
+      { id: "B-1", title: "自助注册新组织", steps: ["在登录页点「创建组织」。", "填写：你的姓名、工作邮箱（新邮箱）、密码（至少 12 位）、组织名称。", "点「创建组织」。", "去邮箱找验证邮件，点邮件里的链接。", "回到登录页用新邮箱登录。"],
+        expect: ["提交后页面显示「验证邮件已排队」，并有「重新发送验证邮件」按钮。", "邮件中的链接打开后显示邮箱验证成功（地址 /auth/verify-email）。", "登录后进入「项目」页，项目列表为空，显示「当前组织还没有项目。」"] },
+      { id: "B-2", title: "创建团队", steps: ["用管理员登录，打开「组织管理」。", "在团队区域点创建团队，输入名称「测试团队A」，确认。", "把团队改名为「测试团队B」。", "刷新页面。"],
+        expect: ["列表出现新团队。", "改名后列表显示新名字。", "刷新后仍然存在。"] },
+      { id: "B-3", title: "邀请成员并激活", steps: ["在组织管理里点「邀请成员」，填写被邀请人邮箱（准备好的新邮箱）。", "复制生成的邀请链接（注意：链接只显示这一次）。", "换一个无痕窗口打开邀请链接（地址 /auth/activate）。", "设置密码后登录。", "回到管理员窗口刷新成员列表。"],
+        expect: ["邀请后成员列表出现待激活的记录。", "被邀请人设置密码后可以登录，进入项目页。", "管理员的成员列表中该成员状态变为已激活。", "再次打开同一个邀请链接时提示链接已失效（一次性）。"] },
+      { id: "B-4", title: "删除团队的保护", steps: ["尝试删除一个已经有成员的团队。", "再删除一个空团队。"],
+        expect: ["非空团队删除被拒绝，并有明确提示。", "空团队可以删除，列表中消失。"] },
+      { id: "B-5", title: "停用成员", steps: ["在成员列表对刚邀请的成员点「停用」。", "用该成员账号尝试登录。"],
+        expect: ["列表中该成员显示已停用。", "该成员无法再登录，或登录后被提示组织/账号已停用。"] },
+    ],
+  },
+  {
+    title: "模块 C　项目（工作坊）",
+    intro: "「项目」就是一场工作坊。项目有四种角色：引导师、组长、组员、观察者。",
+    entry: "左侧导航「项目」（地址 /projects）；新建入口是「新建项目」按钮（地址 /project/new）。",
+    account: "负责人账号（lead）；C-7 需要顾问账号（consultant）。",
+    precondition: "已登录；组织未被停用。",
+    cases: [
+      { id: "C-1", title: "新建项目向导", steps: ["在项目列表点「新建项目」。", "填写项目名称「E2E 测试工作坊」。", "选一套蓝本；如果没有可选蓝本，就点「以空白骨架创建」。", "填写主题、时长档位、日期与开始时间、参与人数。", "点「创建项目」。"],
+        expect: ["按钮变为「创建中…」。", "创建后自动进入该项目的工作台，顶部显示项目名。", "回到项目列表，能看到这张新项目卡片。"] },
+      { id: "C-2", title: "项目列表的搜索、筛选与视图", steps: ["在搜索框输入项目名的一部分。", "清空搜索，用标签筛选，再点「清除筛选」。", "切换「卡片视图」和「列表视图」。", "点「刷新」。"],
+        expect: ["搜索只显示匹配的项目。", "清除筛选后恢复全部项目。", "两种视图内容一致，仅布局不同。", "刷新后数据不丢。"] },
+      { id: "C-3", title: "工作台七个标签页", steps: ["点项目卡片上的「进入项目」。", "依次点击：概览、研究洞察、项目筹备、现场协作、成果沉淀、待办、设置。"],
+        expect: ["七个标签都能切换，没有白屏或一直转圈。", "没有数据的标签显示友好的空状态文案，而不是报错。", "浏览器刷新后仍停留在当前标签，项目数据不丢。"] },
+      { id: "C-4", title: "新建议程环节", steps: ["在项目工作台找到议程环节区域（通常在「项目筹备」或「现场协作」）。", "点「新建议程环节」，填名称与时长，保存。", "刷新页面。"],
+        expect: ["列表出现新环节。", "刷新后仍在。"] },
+      { id: "C-5", title: "访谈对象与主题保存", steps: ["在「项目筹备」中找到某个小组的访谈对象表格。", "填写 2 行访谈对象，填写项目主题，保存。", "刷新页面。"],
+        expect: ["保存成功提示。", "刷新后表格与主题内容仍在。"] },
+      { id: "C-6", title: "归档与恢复项目", steps: ["回到项目列表，在测试项目卡片上点「更多操作」→「归档项目」。", "弹窗中点「确认归档」。", "进入该项目，尝试「新建议程环节」。", "回到列表，点「恢复项目」→「确认恢复」。"],
+        expect: ["卡片显示「已归档」标记。", "归档项目里新建环节被拒绝，提示「这个工作坊已归档，不能再新建议程环节」。", "恢复后「已归档」标记消失，可以再次新建环节。"] },
+      { id: "C-7", title: "非负责人不能建项目", steps: ["退出，用顾问账号（consultant）登录。", "尝试通过「新建项目」创建一个项目。"],
+        expect: ["创建被拒绝，页面显示明确的权限提示，而不是假装成功。", "项目列表中没有出现该项目。"] },
+      { id: "C-8", title: "另存为组织模板", steps: ["用负责人登录，进入测试项目。", "找到「另存为组织模板」，输入模板名称并保存。", "退出后重新登录，进入「新建项目」。"],
+        expect: ["保存成功有提示；失败时有明确错误而不是静默。", "在新建项目的蓝本选择中能看到刚保存的模板。"] },
+    ],
+  },
+  {
+    title: "模块 D　对话（AI 团队）",
+    intro: "对话是最常用的功能：给 AI 团队提问、附文件、挂载 skill、分享线程。",
+    entry: "左侧导航「对话」（地址 /chat）。",
+    account: "任意账号（建议负责人）。",
+    precondition: "环境已配置 AI 模型（问测试负责人）。若未配置，D-2 只测“有诚实的错误提示”。",
+    cases: [
+      { id: "D-1", title: "新建对话", steps: ["点「新建对话」（或「新建」）。"],
+        expect: ["左侧列表出现一条新线程，分组在「今天」。", "中间出现输入框，提示语为「向 AI 团队提问，或 @ 某个 agent 指定它回答」。"] },
+      { id: "D-2", title: "发送消息并收到回复", steps: ["输入「请用一句话介绍一下你能帮我做什么」，按回车（或点「发送」）。", "等待回复（最多 2 分钟）。", "刷新浏览器。"],
+        expect: ["你的消息立刻显示在对话区。", "AI 给出回复；若有“思考过程”可以展开。", "刷新后你的消息和 AI 回复都还在，没有闪烁或重复。"] },
+      { id: "D-3", title: "换行与发送快捷键", steps: ["输入一行文字，按 Shift+回车。", "再输入第二行，按回车。"],
+        expect: ["Shift+回车 只是换行，不发送。", "回车发送，消息里保留两行。"] },
+      { id: "D-4", title: "添加附件", steps: ["点输入框旁的「添加附件」（回形针图标）或直接把一张图片拖进输入框。", "确认预览出现后，点预览上的「移除」再重新添加。", "输入「请总结这个附件」并发送。", "再试一个大于 25MB 的文件。"],
+        expect: ["附件预览条出现，可以移除。", "发送后消息中带附件，AI 的回复提到了附件内容（或诚实说明无法读取）。", "超过 25MB 的文件被拒绝，输入框附近显示大小超限提示。"] },
+      { id: "D-5", title: "线程置顶、改名、删除", steps: ["鼠标悬停在左侧某条线程上，点「…」菜单。", "依次试：置顶、改名为「测试线程」、删除。", "每一步后刷新页面。"],
+        expect: ["置顶后线程排到最上方。", "改名后显示新名字。", "删除后线程消失；刷新后仍然消失。"] },
+      { id: "D-6", title: "搜索对话", steps: ["在左侧「搜索对话」框输入一个已存在线程的名字。"],
+        expect: ["只显示匹配的线程。", "全部删除后显示「一条对话都没有」的空状态。"] },
+      { id: "D-7", title: "挂载 skill", steps: ["打开右侧面板「本对话的 skill」。", "点「加 skill」，选择一个已启用的 skill，点「挂载 skill」。", "刷新页面。", "点「卸载 skill」。"],
+        expect: ["未挂载时显示「还没有挂载任何 skill」。", "挂载后列表出现该 skill；刷新后仍在。", "卸载后从列表消失。", "若组织没有已启用 skill，显示「本组织没有「已启用」的 skill 可挂载。」并有去 skill 库的链接。"] },
+      { id: "D-8", title: "分享线程", steps: ["在线程中点「分享线程」→「复制」。", "用另一个账号在无痕窗口打开复制的链接。"],
+        expect: ["复制后按钮显示「已复制」。", "另一个账号能以只读方式看到该线程，不能发送消息。"] },
+      { id: "D-9", title: "审批卡（需要人确认的操作）", steps: ["向 AI 提出一个需要确认的任务（例如让它执行某个已挂载的 skill）。", "如果出现审批卡，先点「再想想」或「拒绝」，再重新触发并点「批准」/「确认并执行」。"],
+        expect: ["审批卡有「批准 / 拒绝 / 确认并执行 / 修改输入 / 再想想」之类按钮。", "拒绝后 AI 不执行；批准后状态变为「已批准」并继续执行。"] },
+      { id: "D-10", title: "复制消息与回到最新", steps: ["对某条 AI 回复点「复制消息」，粘贴到记事本。", "往上滚动很多，点「回到最新消息」。"],
+        expect: ["粘贴出的内容与消息一致。", "视图跳回最底部。"] },
+    ],
+    note: "对话页右侧还有「在场团队」「产物」「材料」面板：产物为空时显示「这条线程还没有落地的产物。」，这是正常的。",
+  },
+  {
+    title: "模块 E　Skill 库与评审",
+    intro: "Skill 是 AI 的“技能包”。只能从 GitHub 导入，不能从零新建；导入后要经过评审才能启用。",
+    entry: "左侧导航「后台」→「Skill 目录」（地址 /skill）。",
+    account: "管理员账号导入；评审需要两个不同的账号（例如管理员 + 合规账号）。",
+    precondition: "测试负责人提供一个可导入的 GitHub skill 仓库地址。",
+    cases: [
+      { id: "E-1", title: "没有“完全新建”入口", steps: ["打开 Skill 库，点「导入」。"],
+        expect: ["弹窗默认是从 GitHub 导入的路径，没有“从零新建 skill”的选项。"] },
+      { id: "E-2", title: "从 GitHub 导入", steps: ["输入 GitHub 仓库地址，确认导入。", "刷新页面。"],
+        expect: ["列表出现新 skill，状态为「草稿」。", "刷新后仍在。"] },
+      { id: "E-3", title: "试跑", steps: ["打开该 skill，点「试跑」/「运行一次」，输入一个简单示例。", "点「存为回归用例」，再点「跑全部用例」。"],
+        expect: ["试跑有结果输出（成功或诚实的失败信息）。", "用例被保存，跑全部用例能看到每条的通过/失败。"] },
+      { id: "E-4", title: "评审门：两人批准才能启用", steps: ["用管理员点「提交评审」。", "同一个管理员尝试点「批准」。", "换合规账号登录，点「批准」。", "再换第三个不同账号（或按测试负责人指示）完成第二次批准。"],
+        expect: ["提交后状态为「待审核」。", "提交人自己批准被拒绝（不能自审）。", "两个不同的人批准后，状态变成「已启用」。", "对话页「加 skill」列表里能看到它。"] },
+      { id: "E-5", title: "拒绝需要理由", steps: ["对另一个待审核 skill 点「拒绝」，不填理由直接提交。", "填写理由后再提交。"],
+        expect: ["不填理由不能提交。", "填理由后状态回到草稿或显示被拒绝，并能看到理由。"] },
+      { id: "E-6", title: "平台自带的文档 skill", steps: ["在对话里「加 skill」，查找 docx / pptx / xlsx / pdf 相关的平台 skill 并挂载。", "让 AI「生成一份包含三行内容的 Word 文档」。"],
+        expect: ["平台 skill 不用导入就已经在列表里。", "对话中出现可下载的 .docx 文件，下载后能用 Word 打开。"] },
+      { id: "E-7", title: "停用 skill", steps: ["在 Skill 库对已启用的 skill 点「停用」。", "回到对话页「加 skill」。"],
+        expect: ["列表状态变为停用。", "对话中不再能挂载它。"] },
+    ],
+  },
+  {
+    title: "模块 F　Agent 目录",
+    entry: "左侧导航「后台」→「Agent 目录」（地址 /admin/agent）。",
+    account: "管理员；F-3 用顾问账号。",
+    precondition: "已登录。",
+    cases: [
+      { id: "F-1", title: "新增 Agent", steps: ["点「新增 Agent」，填写名称「测试 Agent」和描述（提示语「这个 agent 是做什么的」）。", "保存后刷新页面。", "去对话页看「在场团队」。"],
+        expect: ["列表出现新 Agent。", "刷新后仍在。", "对话中可以 @ 到这个 Agent。"] },
+      { id: "F-2", title: "编辑与停用", steps: ["打开该 Agent 详情，修改描述并保存。", "点「停用」。"],
+        expect: ["描述更新成功。", "停用后列表显示停用状态；对话中不再能 @ 它。"] },
+      { id: "F-3", title: "非管理员无权限", steps: ["用顾问账号打开 /admin/agent 并尝试新增。"],
+        expect: ["被服务端拒绝，有明确的权限提示，不会假装保存成功。"] },
+    ],
+  },
+  {
+    title: "模块 G　画布模板",
+    intro: "画布模板用于工作坊现场的推演；管理员建模板并发布，引导师把它绑到项目的议程环节。",
+    entry: "左侧导航「后台」→「画布模板」（地址 /canvas/template-admin）。",
+    account: "管理员建模板；负责人绑定。",
+    precondition: "模块 C 已创建测试项目并有议程环节。",
+    cases: [
+      { id: "G-1", title: "新建模板并发布", steps: ["点「新建模板」，输入名称「测试画布」。", "添加 2 个字段。", "点「发布」。", "刷新页面。"],
+        expect: ["模板出现在库中，状态为已发布。", "刷新后字段仍在。"] },
+      { id: "G-2", title: "新版本草稿", steps: ["在已发布模板上创建新草稿版本（v2），修改一个字段。"],
+        expect: ["出现 v2 草稿，v1 仍是已发布状态，两者并存。"] },
+      { id: "G-3", title: "绑定到议程环节", steps: ["用负责人登录，进入测试项目的议程环节。", "选择「挂到项目环节…」/绑定画布，选「测试画布」。", "进入该项目的对话或画布（地址 /projects/<项目>/canvas）。"],
+        expect: ["环节显示已绑定模板。", "项目画布中能看到该模板的字段。"] },
+      { id: "G-4", title: "AI 模拟与便签", steps: ["在画布页打开对话「模拟」，输入一句主题，发送。", "点「＋便签」新增一张便签并编辑文字。"],
+        expect: ["AI 的结果被渲染到画布格子里；若模型失败，有诚实的错误提示而不是空白。", "便签可以添加、编辑、拖动。"] },
+      { id: "G-5", title: "导出与缩放", steps: ["点「导出为 PNG」和「导出为 PDF」。", "缩放后点「适应画布（回到 100%）」。"],
+        expect: ["两个文件都能下载并打开，内容与画布一致。", "视图回到 100%。"] },
+    ],
+  },
+  {
+    title: "模块 H　录音与转写",
+    entry: "左侧导航「录音」（地址 /rec）。",
+    account: "任意账号。",
+    precondition: "电脑有麦克风，浏览器允许使用麦克风（首次会弹权限询问，选“允许”）。",
+    cases: [
+      { id: "H-1", title: "新建转录并录音", steps: ["点右上角「新建转录」，填名称「测试录音」，添加 2 个标签，提交。", "在工作台选择麦克风，点「开始」按钮。", "对着麦克风说 3-4 句话，看屏幕。", "点同一个按钮「停止」。"],
+        expect: ["提交后直接进入录音工作台。", "说话时屏幕出现实时文字，先是灰色临时文字，然后变成确定文字，不会重复出现同一句。", "停止后先显示「正在收尾」，再变成「已完成」；完成前分析按钮是灰的。"] },
+      { id: "H-2", title: "历史列表", steps: ["返回历史页。", "用标签筛选；在搜索框输入不存在的名字。", "给「测试录音」重命名，再删除一条不需要的记录（有确认弹窗）。"],
+        expect: ["新记录出现在卡片列表，带「已完成」标记。", "筛选只显示对应标签；搜索不存在时显示引导性空状态。", "重命名生效；删除前弹确认，确认后消失。"] },
+      { id: "H-3", title: "下载文件", steps: ["打开「测试录音」，下载音频和转写文本。"],
+        expect: ["音频文件能播放。", "转写文本内容与屏幕上一致。"] },
+      { id: "H-4", title: "断网恢复", steps: ["录音进行中，把电脑 Wi-Fi 关掉 10 秒再打开。"],
+        expect: ["页面显示重连提示；网络恢复后继续转写，已有文字不丢。"] },
+      { id: "H-5", title: "对话能用到转写", steps: ["到「对话」页，在挂载了相关 skill 的对话里问「刚才那段录音说了什么」。", "再开一条“无项目”的个人对话，问同样的问题。"],
+        expect: ["项目对话能引用转写内容。", "个人对话不会泄露别的渠道内容（诚实回答没有相关材料）。"] },
+    ],
+  },
+  {
+    title: "模块 I　深度研究",
+    entry: "左侧导航「研究」（地址 /research）。",
+    account: "任意账号。",
+    precondition: "环境已配置研究模型与搜索（问测试负责人）；单次研究可能需要 5-15 分钟。",
+    cases: [
+      { id: "I-1", title: "完整研究流程", steps: ["点新建，输入主题「远程办公对团队协作的影响」，启动会话。", "在「研究方向确认」中勾选/修改方向，确认。", "在「报告大纲确认」中点一次「重新生成大纲」，再确认。", "等待各章节搜索执行，观察进度。", "查看完整报告。"],
+        expect: ["每一步都有清晰的状态和下一步按钮。", "重新生成后大纲有变化。", "进度条按章节推进；某章失败时可以「重试该步」而不用重来。", "报告有章节、正文和引用来源，引用可点击。"] },
+      { id: "I-2", title: "导出报告", steps: ["点导出 PDF 和导出 Word。"],
+        expect: ["两个文件都能下载打开，内容与页面一致。"] },
+      { id: "I-3", title: "历史恢复", steps: ["中途关闭浏览器标签页。", "重新打开「研究」，在历史列表找到该会话，点「恢复」。", "对一条旧会话点「归档」。"],
+        expect: ["恢复后回到离开时的步骤，已生成内容不丢。", "归档后从默认列表消失，「查看全部」能看到。"] },
+    ],
+  },
+  {
+    title: "模块 J　访谈 Studio（数字专家）",
+    entry: "左侧导航「访谈」（地址 /itv）。",
+    account: "任意账号。",
+    precondition: "环境已配置 AI 模型。",
+    cases: [
+      { id: "J-1", title: "首屏", steps: ["打开访谈页。", "在专家列表搜索框输入一个专家姓名或角色。"],
+        expect: ["左列「历史访谈」、右列「专家列表」。", "加载时显示「正在加载历史访谈…」；无记录时显示「还没有符合条件的访谈。」", "搜索能过滤专家。"] },
+      { id: "J-2", title: "快捷访谈", steps: ["点某位专家的「快捷访谈」。", "提出两个问题。", "点「生成报告」。"],
+        expect: ["进入全页对话，专家能回答。", "报告生成后可「查看报告」，报告里的结论能追溯到对话内容。"] },
+      { id: "J-3", title: "五步批量访谈", steps: ["点「新建访谈」，填名称、标签、主题。", "依次「确认主题」→「确认专家」（选 2 位）→「确认问题」。", "等待访谈进行。", "若某位专家失败，点重试该专家。", "点「生成报告」。"],
+        expect: ["状态依次显示：待确认主题 → 待确认专家 → 待确认问题 → 进行中 → 待生成报告 → 已完成。", "每位专家有独立进度，失败只重试那一位。", "报告中每条发现能看到来自哪位专家。"] },
+      { id: "J-4", title: "中断恢复", steps: ["访谈进行中关闭标签页，重新打开访谈页。", "在历史访谈中点「继续访谈」。"],
+        expect: ["回到原来的进度，不需要从头再来。"] },
+    ],
+  },
+  {
+    title: "模块 K　问卷",
+    entry: "左侧导航「问卷」（地址 /studio/survey）。",
+    account: "任意账号；答题用无痕窗口。",
+    precondition: "已登录。",
+    cases: [
+      { id: "K-1", title: "资源库", steps: ["切换三个标签：问卷列表、问卷模块、报告模块。", "在搜索框输入不存在的名字。"],
+        expect: ["三个标签都能显示列表或空状态。", "无匹配时显示「没有匹配的问卷，调整搜索或筛选条件。」"] },
+      { id: "K-2", title: "新建问卷并走五步", steps: ["点「新建问卷」，填名称。", "第一步「设计问卷」：添加 3 道题（单选、多选、开放题）。", "第二步「报告模板」：选一个模板。", "第三步「发布回收」：先故意在一道题里写诱导性表述（例如“你是否也认为我们的产品非常好？”），尝试发布。", "改正表述后再发布。"],
+        expect: ["五步标题依次为：设计问卷 → 报告模板 → 发布回收 → 查看答题 → 分析报告。", "带诱导性表述时发布被拦截，并指出是哪道题。", "改正后发布成功，得到答题链接（或二维码）。"] },
+      { id: "K-3", title: "答题与回收", steps: ["用无痕窗口打开答题链接，完整作答提交。", "回到「查看答题」。"],
+        expect: ["答题页无需登录。", "回收数加 1，能看到这份答卷。"] },
+      { id: "K-4", title: "分析报告", steps: ["进入「分析报告」。", "导出答卷数据（responses.csv）。"],
+        expect: ["报告有图表和文字洞察。", "CSV 能用 Excel 打开，行数与答卷数一致。"] },
+      { id: "K-5", title: "现场快速投票", steps: ["发起一个 60 秒的现场投票。", "用无痕窗口投票。"],
+        expect: ["有倒计时；投票匿名；倒计时结束后不能再投。"] },
+    ],
+  },
+  {
+    title: "模块 L　任务看板与组织大脑",
+    entry: "左侧导航「任务」（地址 /tasks）、「大脑」（地址 /brain）。",
+    account: "任意账号。",
+    precondition: "已登录。",
+    cases: [
+      { id: "L-1", title: "任务看板", steps: ["打开「任务」。", "点「＋ 新建任务」，填标题。", "对任务点「推进」，再「标记阻塞」。", "把任务拖到另一列。"],
+        expect: ["页面有四个区域：等我判断 / 今天该我推进 / AI 正在替我跑 / 下一步轮到别人。", "新任务出现；推进后状态前进；阻塞后有标记。", "拖动后刷新仍在新列。"] },
+      { id: "L-2", title: "组织大脑", steps: ["打开「大脑」，切换各标签（检索、决策台账等）。", "输入一个关键词检索。"],
+        expect: ["页面正常显示，各条目有状态标记（生效 / 待复核 / 已过期 / 撤销）。", "检索有结果或友好的空状态。"] },
+    ],
+  },
+  {
+    title: "模块 M　反馈与后台",
+    entry: "左侧导航栏底部的「反馈」按钮；后台在左侧导航「后台」（地址 /admin）。",
+    account: "顾问账号提交反馈；管理员在后台处理。",
+    precondition: "已登录。",
+    cases: [
+      { id: "M-1", title: "提交反馈", steps: ["用顾问账号点导航栏「反馈」，提交一条 bug 反馈「测试反馈-1」。", "在对话页对某个 Agent 或 skill 卡片点「反馈」，再提交一条。"],
+        expect: ["两处都能提交成功，有确认提示。"] },
+      { id: "M-2", title: "后台处理反馈", steps: ["用管理员登录，打开「后台」→「反馈」。", "对「测试反馈-1」点「投票」，再「分诊」。", "对另一条不填理由点「拒绝」，再填理由拒绝。"],
+        expect: ["两条反馈都出现在列表，并显示来自哪里。", "投票数变化；分诊后进入对应列。", "不填理由不能拒绝；填后显示理由。"] },
+      { id: "M-3", title: "后台各模块可打开", steps: ["依次打开：总览、成员配额、模型、MCP、画布模板、项目模板、我的本地。"],
+        expect: ["每个页面都能打开，无白屏；无数据的显示空状态。"] },
+    ],
+  },
+  {
+    title: "模块 N　通用体验（每个页面顺手检查）",
+    entry: "任意页面。",
+    account: "任意账号。",
+    precondition: "无。",
+    cases: [
+      { id: "N-1", title: "窄屏不出现横向滚动", steps: ["把浏览器窗口拉窄到手机宽度（约 375 像素），或用浏览器的手机模拟模式。", "打开项目、对话、录音、问卷四个页面。"],
+        expect: ["页面没有左右横向滚动条，内容自动换行或收起。"] },
+      { id: "N-2", title: "键盘操作", steps: ["在登录页只用 Tab 键在输入框和按钮之间移动，回车提交。", "在对话页用 Tab 到达输入框和发送按钮。"],
+        expect: ["焦点位置有可见的高亮框。", "能完全用键盘完成登录和发送。"] },
+      { id: "N-3", title: "左右栏收起展开", steps: ["点左上角收起左栏，再展开。", "对话页收起右栏，再展开。"],
+        expect: ["收起后主内容区变宽；刷新后记住状态。"] },
+      { id: "N-4", title: "出错时可以重试", steps: ["关闭网络后刷新任意列表页。", "恢复网络后点页面上的「重试」。"],
+        expect: ["断网时显示明确的错误提示（例如「资源暂时无法加载」）和「重试」按钮，而不是一直转圈。", "重试后数据正常显示。"] },
+    ],
+  },
+];
+
+// ---------- 结果汇总表 ----------
+function summaryTable() {
+  const W = [900, 3600, 1100, 1100, 1100, 1800];
+  const header = new TableRow({ tableHeader: true, children: ["模块", "名称", "用例数", "通过", "失败/阻塞", "备注"].map((t, i) => cell(t, W[i], { fill: "1F3A5F", runOpts: { bold: true, color: "FFFFFF" } })) });
+  const rows = modules.map((m) => {
+    const [code, ...rest] = m.title.replace("模块 ", "").split("　");
+    return new TableRow({ children: [cell(code, W[0]), cell(rest.join(""), W[1]), cell(String(m.cases.length), W[2]), cell("", W[3]), cell("", W[4]), cell("", W[5])] });
+  });
+  const total = modules.reduce((a, m) => a + m.cases.length, 0);
+  rows.push(new TableRow({ children: [cell("合计", W[0], { runOpts: { bold: true } }), cell("", W[1]), cell(String(total), W[2], { runOpts: { bold: true } }), cell("", W[3]), cell("", W[4]), cell("", W[5])] }));
+  return new Table({ width: { size: W.reduce((a, b) => a + b), type: WidthType.DXA }, columnWidths: W, rows: [header, ...rows] });
+}
+
+// ---------- 问题记录表 ----------
+function issueTable() {
+  const W = [900, 1100, 2600, 2600, 1300, 1100];
+  const header = new TableRow({ tableHeader: true, children: ["问题编号", "用例编号", "实际看到什么", "重现步骤", "截图文件名", "严重程度"].map((t, i) => cell(t, W[i], { fill: "1F3A5F", runOpts: { bold: true, color: "FFFFFF" } })) });
+  const rows = Array.from({ length: 12 }, (_, i) => new TableRow({ children: [cell(`BUG-${String(i + 1).padStart(2, "0")}`, W[0]), cell("", W[1]), cell("", W[2]), cell("", W[3]), cell("", W[4]), cell("", W[5])] }));
+  return new Table({ width: { size: W.reduce((a, b) => a + b), type: WidthType.DXA }, columnWidths: W, rows: [header, ...rows] });
+}
+
+// ---------- 组装文档 ----------
+const totalCases = modules.reduce((a, m) => a + m.cases.length, 0);
+
+const cover = [
+  p("", { spacing: { before: 2400 } }),
+  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [run("WorkspaceX", { bold: true, size: 56, color: "1F3A5F" })] }),
+  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 240 }, children: [run("端到端核心流程 · 手工测试清单", { bold: true, size: 40, color: "1F3A5F" })] }),
+  new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 800 }, children: [run("面向非技术测试人员 · 照着做、对照打勾、记录问题", { size: 24, color: "666666" })] }),
+  infoTable([
+    ["适用范围", "WorkspaceX 全站：登录/注册、组织成员、项目工作坊、对话、Skill、Agent、画布、录音转写、深度研究、访谈、问卷、任务、大脑、反馈与后台"],
+    ["测试环境", `${ENV_URL}（以测试负责人给出的地址为准）`],
+    ["用例数量", `${modules.length} 个模块，共 ${totalCases} 条用例`],
+    ["预计用时", "完整走完约 1.5 个工作日；只走「必测」路径（第 3 章标 ★ 的模块）约 3 小时"],
+    ["文档版本", "v1.0 · 2026-09-02"],
+    ["测试人", "____________________"],
+    ["测试日期", "____________________"],
+  ], [2400, 7200]),
+  pageBreak(),
+];
+
+const toc = [
+  h1("目录"),
+  new TableOfContents("目录", { hyperlink: true, headingStyleRange: "1-2" }),
+  p("（打开文档后若目录为空：在目录上点右键 → 更新域 → 更新整个目录。）", { runOpts: { size: 18, color: "888888" } }),
+  pageBreak(),
+];
+
+const chapter1 = [
+  h1("1. 这份清单怎么用"),
+  p("你不需要懂技术。每条用例都由三部分组成：「操作步骤」告诉你点哪里、输入什么；「预期看到」告诉你正常情况应该出现什么；「结果」由你打勾。只要实际看到的和预期不一样，就算失败，记到最后一章的问题记录表里。"),
+  h2("1.1 三种结果的含义"),
+  infoTable([
+    ["□ 通过", "每一条「预期看到」都出现了。"],
+    ["□ 失败", "有任何一条预期没出现、出现了报错、白屏、一直转圈超过 2 分钟、或者数据刷新后消失了。"],
+    ["□ 阻塞", "因为前面的步骤失败或环境问题（比如登录不了、没有 AI 模型），这条根本做不了。写清楚被什么挡住。"],
+  ]),
+  h2("1.2 测试顺序"),
+  p("模块之间有依赖：后面的模块会用到前面创建的数据。请按 A → B → C → D → E … 的顺序做。每个模块开头的「开始前确认」表格说明了需要什么前置条件。"),
+  h2("1.3 遇到问题时怎么记录"),
+  numbered("先截图：整个浏览器窗口都截进去，包括地址栏。文件名用「用例编号-序号」，例如 D-2-1.png。", "steps1"),
+  numbered("在用例表「备注」栏写下问题编号（BUG-01、BUG-02 …）。", "steps1"),
+  numbered("到第 5 章问题记录表填写：实际看到什么、怎么重现、截图文件名、严重程度。", "steps1"),
+  numbered("不要试图自己修复或绕过，也不要反复重试同一个失败步骤超过 2 次；记录后继续下一条。", "steps1"),
+  h2("1.4 严重程度怎么判断"),
+  infoTable([
+    ["高", "无法登录、数据丢失、点了按钮什么反应都没有、白屏、报错后无法继续。"],
+    ["中", "功能能用但结果不对、提示文字错误、刷新后状态没保住。"],
+    ["低", "排版错位、错别字、颜色不一致等不影响完成任务的问题。"],
+  ]),
+  h2("1.5 通用规则"),
+  bullet("每做完一个会“保存”的操作（创建、改名、删除），都刷新一次浏览器，确认结果还在。这是本清单最重要的检查点。"),
+  bullet("所有“等待 AI”的步骤，最多等 2 分钟（深度研究最多 15 分钟）；超过就算失败。"),
+  bullet("看到「加载中…」「正在读取…」是正常的，但不应超过 10 秒。"),
+  bullet("凡是标着「预览」「原型」「Kitchen Sink」的页面，不在本清单范围内，不要测。"),
+  pageBreak(),
+];
+
+const chapter2 = [
+  h1("2. 测试前准备"),
+  h2("2.1 环境与工具"),
+  infoTable([
+    ["测试地址", `${ENV_URL}`],
+    ["浏览器", "Chrome 或 Edge 最新版；建议用无痕窗口，避免旧登录状态干扰。"],
+    ["设备", "带麦克风的电脑（模块 H 需要）；准备一张图片和一个大于 25MB 的文件（模块 D 需要）。"],
+    ["邮箱", "一个能收信的新邮箱（模块 B 注册和邀请需要）。"],
+    ["截图工具", "系统自带截图即可（Windows：Win+Shift+S；Mac：Cmd+Shift+4）。"],
+  ]),
+  h2("2.2 测试账号"),
+  p("请向测试负责人索取账号。若环境已开启“开发模式预设账号”，可直接使用下表（4 个角色共用一个组织「Dev Mode Org」）："),
+  new Table({
+    width: { size: 9600, type: WidthType.DXA }, columnWidths: [1600, 4000, 4000],
+    rows: [
+      new TableRow({ tableHeader: true, children: ["角色", "邮箱", "密码"].map((t, i) => cell(t, [1600, 4000, 4000][i], { fill: "1F3A5F", runOpts: { bold: true, color: "FFFFFF" } })) }),
+      ...[
+        ["管理员 admin", "dev-mode-admin@workspacex.test", "DevMode-Admin-Preset-2026!"],
+        ["负责人 lead", "dev-mode-lead@workspacex.test", "DevMode-Lead-Preset-2026!"],
+        ["顾问 consultant", "dev-mode-consultant@workspacex.test", "DevMode-Consultant-Preset-2026!"],
+        ["合规 compliance", "dev-mode-compliance@workspacex.test", "DevMode-Compliance-Preset-2026!"],
+      ].map((r) => new TableRow({ children: r.map((t, i) => cell(t, [1600, 4000, 4000][i])) })),
+    ],
+  }),
+  note("同一个账号同时在两个地方登录，先登录的那边会被踢下线，这是设计如此，不是 bug。多人一起测时请分配不同账号。"),
+  h2("2.3 角色说明"),
+  infoTable([
+    ["管理员", "能进「后台」，管理成员、Agent、Skill、模板、反馈。"],
+    ["负责人", "能创建项目（工作坊）、作为引导师管理议程环节、绑定画布。"],
+    ["顾问", "普通使用者：对话、研究、访谈、问卷。用来验证“没有权限的人不该能做某事”。"],
+    ["合规", "参与 Skill 评审，作为第二审核人。"],
+  ]),
+  h2("2.4 产品地图（认识左侧导航）"),
+  new Table({
+    width: { size: 9600, type: WidthType.DXA }, columnWidths: [1800, 2200, 5600],
+    rows: [
+      new TableRow({ tableHeader: true, children: ["导航项", "网址后缀", "是做什么的"].map((t, i) => cell(t, [1800, 2200, 5600][i], { fill: "1F3A5F", runOpts: { bold: true, color: "FFFFFF" } })) }),
+      ...[
+        ["对话", "/chat", "和 AI 团队聊天、附文件、挂载 skill"],
+        ["项目", "/projects", "工作坊列表与工作台（七个标签页）"],
+        ["研究", "/research", "深度研究：从主题到带引用的完整报告"],
+        ["访谈", "/itv", "数字专家访谈：快捷访谈与五步批量访谈"],
+        ["录音", "/rec", "实时录音转写与历史管理"],
+        ["问卷", "/studio/survey", "问卷资源库与五步工作台、发布回收、分析"],
+        ["大脑", "/brain", "组织知识库与决策台账"],
+        ["任务", "/tasks", "任务看板 · 我的今天"],
+        ["后台", "/admin", "Agent 目录、Skill 目录、模型、MCP、画布模板、成员配额、反馈"],
+        ["头像菜单", "/profile、/org-admin", "个人资料、组织管理、退出登录"],
+      ].map((r) => new TableRow({ children: r.map((t, i) => cell(t, [1800, 2200, 5600][i])) })),
+    ],
+  }),
+  pageBreak(),
+];
+
+const chapter3 = [
+  h1("3. 核心流程测试用例"),
+  p("带 ★ 的模块是最核心的主线，时间不够时优先做：★A 登录、★C 项目、★D 对话、★E Skill、★H 录音、★I 研究、★K 问卷。"),
+  p("每条用例的「预期看到」前面有 □，逐条核对；全部满足才在「结果」栏勾「通过」。"),
+];
+for (const m of modules) chapter3.push(...moduleBlock(m));
+chapter3.push(pageBreak());
+
+const chapter4 = [
+  h1("4. 结果汇总"),
+  p("全部做完后，把每个模块的通过/失败数填到这里，交给测试负责人。"),
+  summaryTable(),
+  p(""),
+  h2("整体结论"),
+  p("□ 全部核心流程可用，可以交付　　□ 有问题但主线可用　　□ 主线被阻断（写明阻断在哪个用例）：____________"),
+  pageBreak(),
+];
+
+const chapter5 = [
+  h1("5. 问题记录表"),
+  p("一行一个问题。「实际看到什么」请写你眼睛看到的原话，例如“点发送后按钮变灰，30 秒没有任何回复”，不要写猜测的原因。"),
+  issueTable(),
+  p(""),
+  h2("附：写清一个问题的例子"),
+  infoTable([
+    ["问题编号", "BUG-01"],
+    ["用例编号", "D-4"],
+    ["实际看到什么", "拖入一张 2MB 的 jpg 图片后，预览条没出现，输入框上方也没有任何提示。"],
+    ["重现步骤", "1. 登录负责人账号 → 2. 对话页新建对话 → 3. 把 jpg 拖进输入框。每次都能重现。"],
+    ["截图文件名", "D-4-1.png"],
+    ["严重程度", "中"],
+  ]),
+];
+
+const doc = new Document({
+  creator: "WorkspaceX QA",
+  title: "WorkspaceX 端到端核心流程手工测试清单",
+  styles: {
+    default: { document: { run: { font: { ascii: FONT, hAnsi: FONT, eastAsia: FONT }, size: 21 } } },
+    paragraphStyles: [
+      { id: "Heading1", name: "Heading 1", basedOn: "Normal", next: "Normal", quickFormat: true, run: { font: FONT, size: 32, bold: true, color: "1F3A5F" }, paragraph: { spacing: { before: 360, after: 160 }, outlineLevel: 0 } },
+      { id: "Heading2", name: "Heading 2", basedOn: "Normal", next: "Normal", quickFormat: true, run: { font: FONT, size: 26, bold: true, color: "1F3A5F" }, paragraph: { spacing: { before: 280, after: 120 }, outlineLevel: 1 } },
+      { id: "Heading3", name: "Heading 3", basedOn: "Normal", next: "Normal", quickFormat: true, run: { font: FONT, size: 22, bold: true, color: "2E5C8A" }, paragraph: { spacing: { before: 200, after: 80 }, outlineLevel: 2 } },
+    ],
+  },
+  numbering: {
+    config: [
+      { reference: "bullets", levels: [{ level: 0, format: LevelFormat.BULLET, text: "•", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 560, hanging: 280 } } } }] },
+      { reference: "steps1", levels: [{ level: 0, format: LevelFormat.DECIMAL, text: "%1.", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { left: 560, hanging: 280 } } } }] },
+    ],
+  },
+  features: { updateFields: true },
+  sections: [{
+    properties: { page: { margin: { top: 1134, bottom: 1134, left: 1134, right: 1134 } } },
+    headers: { default: new Header({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [run("WorkspaceX · 端到端核心流程手工测试清单 · v1.0", { size: 16, color: "888888" })] })] }) },
+    footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [run("第 ", { size: 16, color: "888888" }), new TextRun({ children: [PageNumber.CURRENT], size: 16, color: "888888", font: FONT }), run(" 页 / 共 ", { size: 16, color: "888888" }), new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 16, color: "888888", font: FONT }), run(" 页", { size: 16, color: "888888" })] })] }) },
+    children: [...cover, ...toc, ...chapter1, ...chapter2, ...chapter3, ...chapter4, ...chapter5],
+  }],
+});
+
+Packer.toBuffer(doc).then((buf) => {
+  fs.writeFileSync(OUT, buf);
+  console.log(`written ${OUT} (${buf.length} bytes), modules=${modules.length}, cases=${totalCases}`);
+});
