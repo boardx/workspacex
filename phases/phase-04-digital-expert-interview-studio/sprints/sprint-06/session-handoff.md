@@ -13,10 +13,10 @@
 ## 仍损坏或未验证
 - `pnpm harness tick` 因环境未配置 `COORD_GATEWAY_URL` 无法执行。
 - 全仓 typecheck 有本次修改前已存在的 `@repo/dev-mode-accounts` 与 canvas/fabric-markdown 依赖错误；本次 contracts typecheck 已通过，目标 API/Web 测试均通过。
-- PR #2479 已创建，等待 CI 与独立 reviewer；不得提前把 F06 标为 passing。
+- PR #2479（流式生成与恢复）已合入 main；PR #2489（专业报告质量升级）等待 CI 与独立 reviewer；不得提前把 F06 标为 passing。
 
 ## 下一步最佳动作
-- 继续 issue #2478 / PR #2479：review 按 exact SHA 验证后再进入 harness 门禁。不要手改 `active-features.json` 或把 F06 直接改成 passing。
+- 继续 issue #2488 / PR #2489：review 按 exact SHA 验证后再进入 harness 门禁。不要手改 `active-features.json` 或把 F06 直接改成 passing。
 
 ## 命令
 - 启动:`pnpm -w run dev`
