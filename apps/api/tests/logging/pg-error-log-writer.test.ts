@@ -95,6 +95,59 @@ describe("PgErrorLogWriter", () => {
   });
 });
 
+describe("PgErrorLogWriter.list() -- routes through kernel_read_error_logs, never a raw table SELECT", () => {
+  // review finding (PR #2475): a first version of the migration granted app_rw table-wide
+  // SELECT so a raw `SELECT ... FROM error_logs` would also have worked here -- this pins
+  // the SQL shape so a regression back to that is a red unit test, not something only the
+  // real-Postgres suite's negative assertion would catch.
+  it("calls kernel_read_error_logs(...), not a raw SELECT on error_logs", async () => {
+    const { db, queries } = fakeDb();
+    const writer = new PgErrorLogWriter(db);
+
+    await writer.list({ limit: 20, beforeId: null });
+
+    expect(queries).toHaveLength(1);
+    expect(queries[0]!.sql).toContain("kernel_read_error_logs($1, $2)");
+    expect(queries[0]!.sql).not.toMatch(/FROM\s+error_logs\b/);
+    // fetches limit+1 to derive hasMore from one query
+    expect(queries[0]!.params).toEqual([21, null]);
+  });
+
+  it("passes beforeId through as the function's second argument", async () => {
+    const { db, queries } = fakeDb();
+    const writer = new PgErrorLogWriter(db);
+
+    await writer.list({ limit: 10, beforeId: "42" });
+
+    expect(queries[0]!.params).toEqual([11, "42"]);
+  });
+
+  it("hasMore is derived from the extra fetched row, which is trimmed from items", async () => {
+    const session: TenantSession = {
+      async query<R = Record<string, unknown>>() {
+        return {
+          rows: [
+            { id: "3", trace_id: "t-3", msg: "x", detail: {}, created_at: new Date("2026-09-02T00:00:00Z") },
+            { id: "2", trace_id: "t-2", msg: "x", detail: {}, created_at: new Date("2026-09-01T00:00:00Z") },
+          ] as unknown as R[],
+        };
+      },
+    };
+    const db: DatabasePort = {
+      withTenant: async (_orgId, fn) => fn(session),
+      withoutTenant: async (fn) => fn(session),
+      close: async () => undefined,
+    };
+    const writer = new PgErrorLogWriter(db);
+
+    const out = await writer.list({ limit: 1, beforeId: null });
+
+    expect(out.items).toHaveLength(1);
+    expect(out.items[0]!.traceId).toBe("t-3");
+    expect(out.hasMore).toBe(true);
+  });
+});
+
 describe("sweepExpiredErrorLogs -- the boot-time self-heal trigger (review finding #2)", () => {
   it("issues the DELETE and reports ok:true on success", async () => {
     const { db, queries } = fakeDb();

@@ -135,4 +135,41 @@ describe("PgErrorLogWriter against real Postgres -- migration, INSERT, jsonb, in
     await expect(writer.record({ traceId: "t-real-still-insertable", msg: "x", detail: {} })).resolves.toBeUndefined();
     await expect(sweepExpiredErrorLogs(db)).resolves.toEqual({ ok: true });
   });
+
+  // review finding (PR #2475): the negative test above proves app_rw cannot read the table
+  // DIRECTLY -- these two prove the one narrow path that CAN, actually works against real
+  // Postgres. `writer.list()` runs as the SAME app_rw identity as the negative test above; if
+  // `kernel_read_error_logs`'s SECURITY DEFINER / GRANT EXECUTE were missing or wrong, this
+  // would fail with the identical `permission denied` the negative test asserts FOR the
+  // direct-SELECT path -- proving the two are not the same permission by construction, not by
+  // comment.
+  it("writer.list() reads real rows back through kernel_read_error_logs even though app_rw cannot SELECT the table directly", async () => {
+    await writer.record({ traceId: "t-real-list-1", msg: "first", detail: { name: "Error", message: "one" } });
+    await writer.record({ traceId: "t-real-list-2", msg: "second", detail: { name: "Error", message: "two" } });
+
+    const out = await writer.list({ limit: 50, beforeId: null });
+
+    const traceIds = out.items.map((i) => i.traceId);
+    expect(traceIds).toContain("t-real-list-1");
+    expect(traceIds).toContain("t-real-list-2");
+    // newest-first
+    expect(traceIds.indexOf("t-real-list-2")).toBeLessThan(traceIds.indexOf("t-real-list-1"));
+    const second = out.items.find((i) => i.traceId === "t-real-list-2");
+    expect(second?.detail).toEqual({ name: "Error", message: "two" });
+  });
+
+  it("writer.list() beforeId cursor really excludes rows at/after that id, against real Postgres", async () => {
+    await writer.record({ traceId: "t-real-cursor-1", msg: "x", detail: {} });
+    await writer.record({ traceId: "t-real-cursor-2", msg: "x", detail: {} });
+    await writer.record({ traceId: "t-real-cursor-3", msg: "x", detail: {} });
+
+    const firstPage = await writer.list({ limit: 1, beforeId: null });
+    expect(firstPage.items).toHaveLength(1);
+    expect(firstPage.items[0]!.traceId).toBe("t-real-cursor-3");
+    expect(firstPage.hasMore).toBe(true);
+
+    const secondPage = await writer.list({ limit: 1, beforeId: firstPage.items[0]!.id });
+    expect(secondPage.items).toHaveLength(1);
+    expect(secondPage.items[0]!.traceId).toBe("t-real-cursor-2");
+  });
 });

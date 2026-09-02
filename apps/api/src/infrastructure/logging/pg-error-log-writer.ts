@@ -20,27 +20,26 @@
  * own header says so) is an acceptable risk for journald but not for a queryable, 30-day
  * Postgres archive without that step.
  *
- * ## Read access: no new HTTP surface, and the app role structurally cannot SELECT either
+ * ## Read access: `app_rw` STILL structurally cannot `SELECT` the table directly
  *
- * This feature was scoped, with the human's explicit sign-off, to "a Postgres table +
- * `SELECT ... WHERE trace_id = ...` by whoever already has deploy-machine DB credentials" --
- * NOT a new HTTP endpoint or a new "superuser" role (this codebase has no such role today;
- * building one is a real access-control design task, out of scope for this fix, tracked as a
- * follow-up if ever wanted). So the blast radius of a *read* of this table is bounded to
- * "whoever can already open a `psql` session against production" -- the same population that
- * could already `journalctl | grep` the un-redacted console log this table sits alongside.
- * `redactErrorDetail` narrows what is IN the table; it does not additionally restrict who can
- * query it against production, because no new reader was introduced for it to restrict.
+ * 2026-09-01 review finding #1 named the original gap: the migration granted `app_rw`
+ * everything by omission-of-a-narrower-grant. `20260901024515` closed that (`REVOKE ALL`,
+ * grant back only `INSERT, DELETE` + a single-column `SELECT (created_at)` for the retention
+ * sweep's `WHERE` clause).
  *
- * That is about the human operator population; it is a separate question from what the
- * running API *process* itself (the `app_rw` role, see `pg-config.ts`) can do with its own
- * live credentials if something upstream of this file goes wrong (an injection bug elsewhere,
- * a compromised dependency). 2026-09-01 review finding #1 named that gap precisely: the
- * migration granted `app_rw` everything by omission-of-a-narrower-grant. The migration now
- * `REVOKE`s ALL and grants back only `INSERT, DELETE` -- what `record()` and
- * `sweepExpiredErrorLogs` actually do -- so the app role cannot `SELECT` this table even if
- * something got it to try. See the migration's own header for the mechanics and for the
- * production-breaking bug this same gap caused (the table had no grant at all).
+ * `list()` below exists for the platform-superuser admin read surface
+ * (`system-error-log.controller.ts`) added later, but it does NOT reopen that grant --
+ * see `20260902012105_error_logs_admin_read_grant.sql`'s header for why a first attempt at
+ * this (a blanket `GRANT SELECT ON error_logs TO app_rw`) was wrong and was caught by
+ * `pg-error-log-writer-real-postgres.test.ts`'s negative assertion on real Postgres: it
+ * would have let ANYTHING holding `app_rw` credentials (not just this one controller, not
+ * just a platform superuser) read every row's `detail`. Instead, `list()` calls
+ * `kernel_read_error_logs(...)`, a `SECURITY DEFINER` SQL function owned by the
+ * migration/owner role -- `app_rw` only ever gets `EXECUTE` on that one parameterized
+ * function, never table-wide `SELECT`. A direct `SELECT trace_id, msg, detail FROM
+ * error_logs` under `app_rw` must still fail with `permission denied`; that is the exact
+ * invariant the real-Postgres test pins down, and it is unchanged by this method's
+ * existence.
  *
  * ## Retention: best-effort, NOT a guarantee (2026-09-01 review finding #2 -- corrected)
  *
@@ -119,6 +118,9 @@ export class PgErrorLogWriter implements ErrorLogPort {
    * `withoutTenant`, same reasoning as `record()` and `sweepExpiredErrorLogs`: this table has
    * no `org_id`, there is no tenant to scope a read to.
    *
+   * ⚠ Goes through `kernel_read_error_logs(...)`, NOT a raw `SELECT ... FROM error_logs` --
+   *   see this file's header. `app_rw` (the identity this runs as) has no table-wide
+   *   `SELECT` on `error_logs`; the `SECURITY DEFINER` function is the only reader.
    * ⚠ Reads `limit + 1` rows to derive `hasMore` from one query, rather than a second
    *   `COUNT(*)` round trip -- the extra row is trimmed off before returning.
    */
@@ -128,15 +130,10 @@ export class PgErrorLogWriter implements ErrorLogPort {
   }> {
     const fetchLimit = input.limit + 1;
     const rows = await this.db.withoutTenant((s) =>
-      input.beforeId === null
-        ? s.query<{ id: string; trace_id: string; msg: string; detail: unknown; created_at: Date }>(
-            `SELECT id, trace_id, msg, detail, created_at FROM error_logs ORDER BY id DESC LIMIT $1`,
-            [fetchLimit],
-          )
-        : s.query<{ id: string; trace_id: string; msg: string; detail: unknown; created_at: Date }>(
-            `SELECT id, trace_id, msg, detail, created_at FROM error_logs WHERE id < $1 ORDER BY id DESC LIMIT $2`,
-            [input.beforeId, fetchLimit],
-          ),
+      s.query<{ id: string; trace_id: string; msg: string; detail: unknown; created_at: Date }>(
+        `SELECT id, trace_id, msg, detail, created_at FROM kernel_read_error_logs($1, $2)`,
+        [fetchLimit, input.beforeId],
+      ),
     );
     const hasMore = rows.rows.length > input.limit;
     const page = hasMore ? rows.rows.slice(0, input.limit) : rows.rows;
