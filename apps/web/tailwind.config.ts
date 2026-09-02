@@ -35,6 +35,7 @@ const config: Config = {
         destructive: { DEFAULT: "hsl(var(--destructive))", foreground: "hsl(var(--destructive-foreground))" },
         success: { DEFAULT: "hsl(var(--success))", foreground: "hsl(var(--success-foreground))" },
         warning: { DEFAULT: "hsl(var(--warning))", foreground: "hsl(var(--warning-foreground))" },
+        "warning-tint": { DEFAULT: "hsl(var(--warning-tint))", foreground: "hsl(var(--warning-tint-foreground))" },
         ai: { DEFAULT: "hsl(var(--ai))", foreground: "hsl(var(--ai-foreground))" },
         "ai-tint": { DEFAULT: "hsl(var(--ai-tint))", foreground: "hsl(var(--ai-tint-foreground))" },
         rail: { DEFAULT: "hsl(var(--rail))", foreground: "hsl(var(--rail-foreground))" },
