@@ -1,35 +1,33 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { ArrowUpRight, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { CapabilityCatalogScreen } from "./capability-catalog-screen";
 import { AgentDefinitionCreatePanel } from "./agent-definition-create-panel";
-import { AgentDefinitionListPanel } from "./agent-definition-list-panel";
 import { AgentUrlImportPanel } from "./agent-url-import-panel";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Modal } from "@/components/files/overlay";
 import type { UiState } from "@/lib/ui-state";
 
 /**
- * #617：在 F15 能力目录（`CapabilityCatalogScreen`，目录项，粗粒度）之上补一个独立的
- * "新建 Agent" 入口，打真实的 F55 `POST /agents`（`createAgent`）——这条路径此前在
- * 全仓没有任何 controller 挂载，`grep -rln "createAgent" apps/web` 曾经零命中。
+ * 后台「Agent 目录」（`/admin/agent`）。
  *
- * 人类反馈（2026-08-17）："新建/导入不能摆在主界面顶部"——与 Skill 侧
- * （`skill-catalog-live.tsx` 的 `Modal` + `CreateModeTabs`）统一成同一种体验：
- * 一个触发按钮 + 一个弹层，弹层内用 tab 切"新建 Agent" / "从 URL 导入"，
- * 而不是把两块表单常驻展开在目录上方、把真正想看的「Agent 目录」挤到折叠线以下。
+ * 2026-09-02（人类原话：「简化…Agent目录…参考画布模板的首页，简化为一个卡片的列表，
+ * 通过一个侧边面板来展示当前的实体的内容，可以增加删除修改，并通过 tag 来过滤和搜索」）：
+ * 本屏从「新建按钮 + Agent 列表面板 + 运行时预览链接卡 + 消歧提示 + 常驻新增表单 +
+ * 分页目录」五段式，收成**一个卡片网格**——`CapabilityCatalogScreen` 现在同时把 F15
+ * 目录条目与 F55 可执行定义画成两种卡片（标签「目录条目 / 可执行」区分），搜索、
+ * 标签筛选、侧边面板都在那里；本文件只剩「新建 / 导入 Agent」这个弹窗入口。
  *
- * 两个 tab 内容刻意保持分开渲染（不合并成一个表单）：它们写的是两张不同的表，
- * 混在一起会让用户以为"新建"和"导入"是同一次操作的两种叫法。
+ * #617：「新建 Agent」打真实的 F55 `POST /agents`（`createAgent`）。
+ * 人类反馈（2026-08-17）："新建/导入不能摆在主界面顶部"——一个触发按钮 + 一个弹层，
+ * 弹层内用 tab 切"新建 Agent" / "从 URL 导入"。两个 tab 刻意分开渲染：它们写的是
+ * 两张不同的表，混在一起会让用户以为"新建"和"导入"是同一次操作的两种叫法。
  *
- * 2026-08-11（人类直接裁决，真合并）：原「智能体运行时」的三层权限·工具白名单
- * （含越权申请）与 agent 行为审计两个子屏（`agent-runtime/permission-screen.tsx`、
- * `audit-screen.tsx`）折入本屏下方——后台左栏不再有独立的「智能体运行时」入口。
- * 见 `lib/navigation.ts` `ADMIN_SECOND_LEVEL` 里 `agent-runtime` 项的注释。
+ * 原「智能体运行时」的工具白名单 / 行为审计预览（`/preview/agent-runtime`）是签核用
+ * 原型屏，不再占目录首页一块卡片；仍可从 `lib/navigation.ts` `ADMIN_SECOND_LEVEL`
+ * 声明的路由直达。
  */
 
 type CreateMode = "definition" | "import";
@@ -71,24 +69,28 @@ export function AgentScreen({ state }: { state: UiState }) {
   const [creating, setCreating] = React.useState(false);
   const [createMode, setCreateMode] = React.useState<CreateMode>("definition");
   /**
-   * #1915 —— 建成/发布后递增，触发 `AgentDefinitionListPanel` 重新拉取 `listAgents`。
-   * 见该组件头注「刷新时机」：父级 state 变化驱动 refetch，不是组件间事件耦合。
+   * #1915 —— 建成/发布后递增，让目录重新拉取 `listAgents`（父级 state 变化驱动 refetch，
+   * 不是组件间事件耦合）。
    */
   const [agentListRefreshKey, setAgentListRefreshKey] = React.useState(0);
   return (
-    <div className="flex flex-col gap-5">
-      {canMutate ? (
-        <div className="px-6 pt-6 flex justify-end">
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => setCreating(true)}
-            data-testid="agent-create-open"
-          >
-            <Plus aria-hidden className="h-3.5 w-3.5" /> 新建 / 导入 Agent
-          </Button>
-        </div>
-      ) : null}
+    <div className="p-6">
+      <CapabilityCatalogScreen
+        kind="agent"
+        definitionsRefreshKey={agentListRefreshKey}
+        headerActions={
+          canMutate ? (
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => setCreating(true)}
+              data-testid="agent-create-open"
+            >
+              <Plus aria-hidden className="h-3.5 w-3.5" /> 新建 / 导入 Agent
+            </Button>
+          ) : null
+        }
+      />
       {creating ? (
         <Modal
           title="新建 / 导入 Agent"
@@ -109,40 +111,6 @@ export function AgentScreen({ state }: { state: UiState }) {
           </div>
         </Modal>
       ) : null}
-      {canMutate ? (
-        <div className="px-6">
-          <AgentDefinitionListPanel prefix="admin-agent-definition" refreshKey={agentListRefreshKey} />
-        </div>
-      ) : null}
-      <div className="px-6">
-        <Card>
-          <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
-            <p className="text-12 text-muted-foreground">
-              三层权限·工具白名单（含越权申请）与 agent 行为审计的运行时预览
-              （原「智能体运行时」子屏，已并入此处）。
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href="/preview/agent-runtime?screen=permission"
-                data-testid="admin-agent-open-runtime-permission"
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
-              >
-                工具白名单 · 越权申请预览
-                <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
-              </Link>
-              <Link
-                href="/preview/agent-runtime?screen=audit"
-                data-testid="admin-agent-open-runtime-audit"
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
-              >
-                行为审计预览
-                <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      <CapabilityCatalogScreen kind="agent" />
     </div>
   );
 }

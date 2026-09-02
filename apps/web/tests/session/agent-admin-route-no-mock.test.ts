@@ -50,9 +50,11 @@ describe("#458 /admin/agent 的取数与写入路径不依赖 lib/mock", () => {
   it("反证：同一个走图器对仍在吃 mock 的屏会报出 mock 边", () => {
     // 没有这条，上面那条断言可能只是因为走图器解析不出任何 import 而恒为空。
     // ⚠ #1381 之前这里用的是 `model-screen.tsx`——它现在读真实 `GET /models`
-    //  （`lib/live-model.ts`），不再有任何 `lib/mock` 边，于是这条反证换了个仍然
-    //  纯 mock 的屏（MCP 后台页，零后端，见 `lib/mock/admin.ts` 的 MCP 清单）。
-    const { mockEdges } = walk("components/admin/mcp-screen.tsx");
+    //  （`lib/live-model.ts`），不再有任何 `lib/mock` 边；2026-09-02 之后 `mcp-screen.tsx`
+    //  也只读真实 `listMcpServers`（六台示例服务器随简化一起撤了），于是这条反证再换
+    //  一个仍然引用 mock 的屏：成员配额屏的邀请/待激活区仍读 `lib/mock/org-admin.ts`
+    //  （`members-screen.tsx` 头注写明了这一点）。
+    const { mockEdges } = walk("components/admin/members-screen.tsx");
     expect(mockEdges.length).toBeGreaterThan(0);
     expect(mockEdges.join("\n")).toContain("lib/mock/");
   });
