@@ -789,11 +789,16 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         for (const event of decoder.push(completion.text)) await persistEvent(event);
       }
       for (const event of decoder.finish()) await persistEvent(event);
-      const hasRequiredStructure = DIGITAL_REPORT_REQUIRED_HEADINGS.every(
-        (heading, index) => reportSections[index]?.trimStart().startsWith(heading),
-      );
+      const reportMarkdown = reportSections.join("\n\n");
+      let headingCursor = 0;
+      const hasRequiredStructure = DIGITAL_REPORT_REQUIRED_HEADINGS.every((heading) => {
+        const index = reportMarkdown.indexOf(heading, headingCursor);
+        if (index < 0) return false;
+        headingCursor = index + heading.length;
+        return true;
+      });
       const minimumFindings = Math.min(3, validSources.size);
-      if (metaCount !== 1 || sectionCount !== DIGITAL_REPORT_REQUIRED_HEADINGS.length
+      if (metaCount !== 1 || sectionCount < 1
         || !hasRequiredStructure || findingCount < minimumFindings
         || findingSources.size < minimumFindings) {
         throw new SyntaxError("incomplete streamed report");
