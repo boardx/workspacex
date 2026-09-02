@@ -213,8 +213,10 @@ describe("2026-08-23 · POST /canvas/templates/:key/draft", () => {
         layout: layoutOf({ cols: 2, max: 99, tone: 3 }) },
     ];
     const res = await updateDraft(draftBody({ sections }));
-    expect(res.status, await res.text().catch(() => "")).toBe(200);
-    const parsed = C.operations.updateTemplateDraft.out.parse(await res.json());
+    // 响应体只能读一次——先取出来，状态断言失败时把它当消息带出去。
+    const bodyText = await res.text();
+    expect(res.status, bodyText).toBe(200);
+    const parsed = C.operations.updateTemplateDraft.out.parse(JSON.parse(bodyText));
     expect(parsed.sections).toEqual(sections);
 
     // 持久面：库里那一行就是这份 layout，没有被任何归一化改回 3 列 / 6 条。
