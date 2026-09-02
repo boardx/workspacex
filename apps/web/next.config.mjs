@@ -427,6 +427,18 @@ export default {
       // 标红：不补这条，Next 会把请求接成 404 HTML 而不是 API 的响应）。
       // 只有一个子路径、没有裸集合路由，只需要 `:path*`。
       { source: `${prefix}/plan-control/:path*`, destination: `${apiOrigin}/plan-control/:path*` },
+      // #2490：phase-02 任务看板（`board.controller.ts`，`@Controller()` 空前缀）挂的是裸的
+      // `GET/POST /tasks`、`GET /tasks/today`、`PATCH /tasks/:id/status`——**不在 `/chat/` 下面**
+      // （上面枚举表里的 `chat/tasks` 是另一个命名空间），与 `/agents`、`/projects` 同一个形状：
+      // 裸路径 + `:path*` 双条目缺一不可。`lint-rewrite-coverage` 自 08-31 起在 main 上一直
+      // 标红这两条，只是那道门当时不在 PR 门控上（见 #2490）。`apps/web/app/tasks` 页面存在，
+      // 但这里是 `afterFiles`，文件系统路由先命中，与 `/projects` 页面并存的方式相同。
+      { source: `${prefix}/tasks`, destination: `${apiOrigin}/tasks` },
+      { source: `${prefix}/tasks/:path*`, destination: `${apiOrigin}/tasks/:path*` },
+      // #2490 / #2444：系统异常入库的读写面（`system-error-log.controller.ts`，空前缀）：
+      // `GET /system/error-logs`、`POST /system/client-error-reports`。没有裸 `/system` 路由，
+      // 同 `plan-control` 先例只补 `:path*`。
+      { source: `${prefix}/system/:path*`, destination: `${apiOrigin}/system/:path*` },
     ];
     return { beforeFiles: chatV2BranchRewrites, afterFiles };
   },
