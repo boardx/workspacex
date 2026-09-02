@@ -4,6 +4,7 @@ import * as React from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useChatPopoverSlot } from "@/components/chat/chat-popover-coordinator";
+import { composerPickerTriggerClassName } from "@/components/chat/chat-composer-pickers";
 import type { CapabilityListing } from "@/lib/live-capabilities";
 
 /**
@@ -113,7 +114,7 @@ export function CapabilityPicker({
         type="button"
         size="xs"
         variant="ghost"
-        className="max-w-56 justify-start gap-1.5 rounded-pill px-2"
+        className={composerPickerTriggerClassName("max-w-56")}
         data-testid="chat-task-workbench-capability-picker"
         data-auto-match={autoMatch ? "true" : "false"}
         disabled={disabled}
