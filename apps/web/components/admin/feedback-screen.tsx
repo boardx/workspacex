@@ -172,6 +172,17 @@ export function FeedbackScreen({ state }: { state: UiState }) {
    *   列表这种没人想要、也没人会去对齐的状态。
    */
   const [viewMode, setViewMode] = React.useState<EntityViewMode>("card");
+  /**
+   * 哪条反馈的 detail 弹层开着——**提到屏级**，不是 `FeedbackCard` 内部 `useState`
+   * （2026-09-02 CI 抓到的真实 bug）：卡片按状态分四列渲染,分诊把一条反馈的状态
+   * 真的改了之后,它会从一列的 DOM 子树搬到另一列的 DOM 子树——即使 React key
+   * 相同,跨父节点的搬迁对 React reconciler 来说是卸载再重新挂载,组件内部
+   * `useState` 会被重置。原来的写法导致管理员刚点完"确认不做"，卡片一移动
+   * 到「不做」列，弹层就被无声关掉——他看不到刚发生的事，只能重新点开。
+   * 状态挪到这里之后,弹层开关只取决于 `openDetailId === item.id`，与卡片
+   * 具体挂在哪个 DOM 子树无关。
+   */
+  const [openDetailId, setOpenDetailId] = React.useState<string | null>(null);
 
   const reload = React.useCallback(async () => {
     setLoad({ kind: "loading" });
@@ -293,6 +304,8 @@ export function FeedbackScreen({ state }: { state: UiState }) {
                   viewMode={viewMode}
                   items={filtered.filter((f) => f.status === status)}
                   busyId={busyId}
+                  openDetailId={openDetailId}
+                  onOpenDetailChange={setOpenDetailId}
                   onVote={(f) => void act(() => voteFeedback(f.id, !f.votedByMe), f.id)}
                   onTriage={(f, next, reason, issueDraft) =>
                     void act(() => triageFeedback(f.id, next, reason, issueDraft ?? null), f.id)
@@ -499,13 +512,15 @@ function FeedbackFilters({
 }
 
 function FeedbackColumn({
-  status, caption, viewMode, items, busyId, onVote, onTriage,
+  status, caption, viewMode, items, busyId, openDetailId, onOpenDetailChange, onVote, onTriage,
 }: {
   status: FeedbackStatus;
   caption: string;
   viewMode: EntityViewMode;
   items: readonly FeedbackItem[];
   busyId: string | null;
+  openDetailId: string | null;
+  onOpenDetailChange: (id: string | null) => void;
   onVote: (item: FeedbackItem) => void;
   onTriage: (
     item: FeedbackItem,
@@ -534,6 +549,8 @@ function FeedbackColumn({
               key={item.id}
               item={item}
               busy={busyId === item.id}
+              open={openDetailId === item.id}
+              onOpenChange={(next) => onOpenDetailChange(next ? item.id : null)}
               onVote={() => onVote(item)}
               onTriage={(next, reason, issueDraft) => onTriage(item, next, reason, issueDraft)}
             />
@@ -553,19 +570,26 @@ function targetChip(item: FeedbackItem) {
 }
 
 function FeedbackCard({
-  item, busy, onVote, onTriage,
+  item, busy, open, onOpenChange, onVote, onTriage,
 }: {
   item: FeedbackItem;
   busy: boolean;
+  /**
+   * detail 弹层开关——**受屏级 `openDetailId` 控制**，不是本组件的内部状态
+   * （见 `FeedbackScreen` 里 `openDetailId` 那段头注：分诊会把这条反馈的卡片
+   * 搬到另一列的 DOM 子树，组件内部 `useState` 在那一刻会被重置，弹层因此
+   * 无声关掉）。
+   */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onVote: () => void;
   onTriage: (next: FeedbackStatus, reason: string | null, issueDraft?: FeedbackIssueDraft | null) => void;
 }) {
-  const [open, setOpen] = React.useState(false);
   const chip = targetChip(item);
   const KindIcon = item.kind === "缺陷" ? Bug : Lightbulb;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         {/*
           卡片本身就是打开 detail 弹层的触发器——票数按钮 `stopPropagation`，不冒泡

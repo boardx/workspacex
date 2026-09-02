@@ -140,6 +140,48 @@ describe("FB-3 后台反馈屏（真栈）", () => {
     });
   });
 
+  /**
+   * 2026-09-02 CI 抓到的真实 bug：分诊成功会把这条反馈从一列的 DOM 子树搬到
+   * 另一列（`FeedbackColumn` 按状态各自渲染）——`open` 状态原来存在
+   * `FeedbackCard` 内部 `useState`，跨父节点搬迁对 React 来说是卸载重挂载，
+   * 状态被重置，管理员刚点完"确认不做"，弹层就无声关掉了。见
+   * `feedback-screen.tsx` 里 `openDetailId` 那段头注——状态挪到屏级之后
+   * 应该不再发生。
+   */
+  it("④ 转「不做」成功后卡片换列（DOM 子树搬迁），detail 弹层仍然开着", async () => {
+    let status: "待处理" | "不做" = "待处理";
+    let statusReason: string | null = null;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { reason?: string } }) => {
+      if (path === "/feedback/counts") return counts;
+      if (path === "/feedback" && (opts?.method ?? "GET") === "GET") {
+        return { items: [{ ...productItem, status, statusReason }] };
+      }
+      if (path.endsWith("/events")) return { events: [] };
+      if ((opts?.method ?? "GET") === "PUT") {
+        status = "不做";
+        statusReason = opts?.body?.reason ?? null;
+        return { feedbackId: productItem.id, status: "不做", notified: false };
+      }
+      return {};
+    });
+
+    render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-p"));
+    fireEvent.click(await screen.findByTestId("admin-feedback-to-不做-fb-p"));
+    fireEvent.change(screen.getByTestId("admin-feedback-decline-reason-fb-p"), {
+      target: { value: "与既有能力重复" },
+    });
+    fireEvent.click(screen.getByTestId("admin-feedback-decline-submit-fb-p"));
+
+    // 卡片确实换列了(⚠ 不是测试的重点，是它触发 bug 的必要条件)……
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-feedback-column-不做").textContent).toContain(productItem.title);
+    });
+    // ……而弹层——同一个 data-testid——应该还开着，不是被无声关掉。
+    expect(screen.getByTestId("admin-feedback-detail-fb-p")).toBeTruthy();
+    expect(screen.getByTestId("admin-feedback-reason-fb-p").textContent).toContain("与既有能力重复");
+  });
+
   it("④ 转「已修复」/「待处理」直接发请求，不要理由，也不要弹层", async () => {
     mockApi([skillItem]); // skillItem 当前是「已进入迭代」，出边是 已修复/待处理/不做
     render(<FeedbackScreen state="default" />);
