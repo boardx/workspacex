@@ -127,3 +127,37 @@ describe("顶栏源码：组织管理入口 / 退出按钮已挪走，不留第�
     expect(topBar).toMatch(/data-testid="topbar-org-name"/);
   });
 });
+
+/**
+ * 2026-09-02 短视口策略：rail 分三段——顶部组织菜单 / 中段可滚动导航 / 底部反馈 + 个人菜单。
+ * 高度不够时只有中段滚动，个人菜单头像**永远**不在滚动容器里，所以永远可见。
+ */
+describe("IconRail：短视口三段布局", () => {
+  afterEach(() => cleanup());
+
+  it("一级导航全部落在可滚动中段（overflow-y-auto + min-h-0 + flex-1）", () => {
+    renderRail();
+    const scroll = screen.getByTestId("rail-scroll");
+    for (const cls of ["overflow-y-auto", "min-h-0", "flex-1"]) expect(scroll.className).toContain(cls);
+    const links = Array.from(scroll.querySelectorAll('a[data-testid^="rail-"]'));
+    expect(links.length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId(/^rail-(chat|projects|research|brain|tasks)$/).every((el) => scroll.contains(el))).toBe(true);
+  });
+
+  it("个人菜单头像在底部固定段，不在滚动容器里（反馈按钮需 FeedbackProvider，此处不挂，不断言）", () => {
+    renderRail();
+    const scroll = screen.getByTestId("rail-scroll");
+    const bottom = screen.getByTestId("rail-bottom");
+    const profile = screen.getByTestId("rail-profile-menu");
+    expect(bottom.contains(profile)).toBe(true);
+    expect(scroll.contains(profile)).toBe(false);
+    expect(bottom.className).toContain("shrink-0");
+    expect(screen.getByTestId("rail-top").className).toContain("shrink-0");
+  });
+
+  it("源码：nav 自身 h-full min-h-0 overflow-hidden，紧凑模式用 max-height 媒体查询隐藏文字标签", () => {
+    const src = readFileSync(path.join(process.cwd(), "components/shell/icon-rail.tsx"), "utf8");
+    expect(src).toMatch(/h-full min-h-0 .*overflow-hidden/);
+    expect(src).toContain("[@media(max-height:640px)]:hidden");
+  });
+});
