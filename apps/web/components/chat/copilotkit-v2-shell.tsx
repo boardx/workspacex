@@ -664,9 +664,47 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
     }, 4_000);
   }, [router]);
 
+  /**
+   * 2026-09-02 人类实测反馈第二轮——「快速切换 session（连续点击不同会话），停下来
+   * 以后，当前选中的会话还是会跳」。这不是 #2480 修的那种"点击瞬间列表被后台刷新
+   * 重排、点到了相邻行"（那次的两处修复——后端排序全序化 + `listInteractingRef`
+   * 交互锁——仍然保留，堵的是"点中哪一行"这件事；这次是"点中之后，界面最终停在
+   * 哪一条"）。
+   *
+   * 根因：`pushThreadRoute` 每次调用都立刻真发一次 `router.push`（Next App Router
+   * 软导航）。连续快速点击 A→B→C 会连续发出三次并发的软导航请求；`router.push`
+   * 不返回 Promise、也不保证多个并发请求按发出顺序结算（RSC 响应可能乱序抵达，
+   * 见上面 #2259/#2402 那几段注释——这个事实这次换了一种方式咬人）。如果 B 对应
+   * 的响应恰好晚于 C 抵达，`initialThreadId`（进而 `selectedThreadId`，见上面
+   * 那个纯镜像 `useEffect`）会先落到 C、又被姗姗来迟的 B 覆盖回去——用户最后点的
+   * 明明是 C，界面却"跳"回了已经被超越的 B。
+   *
+   * 改法：不再每次点击都立刻真发导航，而是**防抖**——短时间内的连续点击只留下
+   * 最后一次目标，只有点击停下来、经过一小段静默窗口之后，才真正对着这个最终
+   * 目标发一次 `pushThreadRoute`。这样同一时刻最多只有一次导航在飞，从根上消掉
+   * "多个并发软导航乱序结算"这个前提，而不是等结算完了再去纠错（那样还要解决
+   * "怎么分辨这次结算是迟到的旧目标、还是浏览器前进/后退这类合法的外部导航"这个
+   * 更难的问题）。乐观地立刻 `setSelectedThreadId` 只是给这次点击一个即时的高亮
+   * 反馈——真正的路由切换仍然走防抖后的 `pushThreadRoute`，慢速点击（防抖窗口内
+   * 只点了一次）几乎感觉不到这次乐观值被后续 `initialThreadId` 同步覆盖。
+   */
+  const selectDebounceRef = React.useRef<number | null>(null);
+  const pendingSelectRef = React.useRef<string | null>(null);
+  React.useEffect(() => () => {
+    if (selectDebounceRef.current !== null) window.clearTimeout(selectDebounceRef.current);
+  }, []);
+
   const selectThread = React.useCallback((threadId: string) => {
     if (threadId === selectedThreadId) return;
-    pushThreadRoute(threadId);
+    setSelectedThreadId(threadId); // 乐观高亮，见上面头注；权威结果仍来自防抖后的真实导航
+    pendingSelectRef.current = threadId;
+    if (selectDebounceRef.current !== null) window.clearTimeout(selectDebounceRef.current);
+    selectDebounceRef.current = window.setTimeout(() => {
+      selectDebounceRef.current = null;
+      const target = pendingSelectRef.current;
+      pendingSelectRef.current = null;
+      if (target !== null) pushThreadRoute(target);
+    }, 150);
   }, [pushThreadRoute, selectedThreadId]);
 
   /**
