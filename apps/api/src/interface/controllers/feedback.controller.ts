@@ -43,9 +43,14 @@ import {
   Post,
   Put,
   Query,
+  Res,
   ServiceUnavailableException,
   UnprocessableEntityException,
+  UploadedFile,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import type { Response } from "express";
 import { feedbackLoop as C } from "@repo/contracts";
 import { randomUUID } from "node:crypto";
 import {
@@ -82,6 +87,27 @@ import {
   commentOnFeedbackGithubIssue,
 } from "../../application/feedback/comment-on-feedback-github-issue";
 import {
+  FEEDBACK_ATTACHMENT_REPOSITORY,
+  type FeedbackAttachmentRepository,
+} from "../../application/feedback/attachment-ports";
+import {
+  UploadFeedbackAttachmentError,
+  uploadFeedbackAttachment,
+} from "../../application/feedback/upload-feedback-attachment";
+import {
+  FeedbackAttachmentAccessDeniedError,
+  FeedbackAttachmentNotFoundError,
+  downloadFeedbackAttachment,
+} from "../../application/feedback/download-feedback-attachment";
+import {
+  FEEDBACK_STRUCTURE_MODEL_CONFIG,
+  FeedbackStructuringUnavailableError,
+  structureFeedbackDraft,
+  type FeedbackStructureModelConfig,
+} from "../../application/feedback/structure-feedback-draft";
+import { MODEL_CALL_PORT, type ModelCallPort } from "../../application/agent-run/ports";
+import { OBJECT_STORE, ObjectStoreUnavailableError, type ObjectStore } from "../../application/artifact/ports";
+import {
   DECISION_ID_FACTORY,
   IDENTITY_REPOSITORY,
   type DecisionIdFactory,
@@ -101,11 +127,14 @@ export const VOTE_FEEDBACK_SCHEMA = C.operations.voteFeedback.in;
 export const TRIAGE_FEEDBACK_SCHEMA = C.operations.triageFeedback.in;
 export const LIST_FEEDBACK_SCHEMA = C.operations.listFeedback.in;
 export const COMMENT_ON_FEEDBACK_GITHUB_ISSUE_SCHEMA = C.operations.commentOnFeedbackGithubIssue.in;
+export const UPLOAD_FEEDBACK_ATTACHMENT_SCHEMA = C.operations.uploadFeedbackAttachment.in;
+export const STRUCTURE_FEEDBACK_DRAFT_SCHEMA = C.operations.structureFeedbackDraft.in;
 
 type SubmitBody = ReturnType<typeof C.operations.submitFeedback.in.parse>;
 type VoteBody = ReturnType<typeof C.operations.voteFeedback.in.parse>;
 type TriageBody = ReturnType<typeof C.operations.triageFeedback.in.parse>;
 type CommentOnGithubIssueBody = ReturnType<typeof C.operations.commentOnFeedbackGithubIssue.in.parse>;
+type StructureFeedbackDraftBody = ReturnType<typeof C.operations.structureFeedbackDraft.in.parse>;
 
 @Controller()
 export class FeedbackController {
@@ -118,6 +147,10 @@ export class FeedbackController {
     @Inject(FEEDBACK_SUBMITTER_DIRECTORY) private readonly submitterDirectory: FeedbackSubmitterDirectory,
     @Inject(TRANSACTIONAL_MAIL_TRANSPORT) private readonly mail: TransactionalMailTransport,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    @Inject(FEEDBACK_ATTACHMENT_REPOSITORY) private readonly attachments: FeedbackAttachmentRepository,
+    @Inject(MODEL_CALL_PORT) private readonly modelCall: ModelCallPort,
+    @Inject(FEEDBACK_STRUCTURE_MODEL_CONFIG) private readonly structureModel: FeedbackStructureModelConfig,
+    @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
   ) {}
 
   /** 看的人在本组织的角色。null = 不是成员——`decideFeedbackDetailVisibility` 据此整条拒。 */
@@ -135,11 +168,18 @@ export class FeedbackController {
     assertPrincipal(principal);
     const repo = this.feedback.forOrg(principal.orgId);
     return submitFeedback(
-      { repo, newFeedbackId: () => randomUUID(), newEventId: () => randomUUID() },
+      {
+        repo,
+        newFeedbackId: () => randomUUID(),
+        newEventId: () => randomUUID(),
+        attachments: this.attachments,
+        log: (message, detail) => this.logger.info(message, { ...detail, traceId: "feedback-submit-attachment-claim" }),
+      },
       {
         // ⚠ 提交人从 principal 取，**不从请求体**。契约的 `in` 里根本没有这个字段，
         //   所以这不是「传了会被忽略」——是传不进来。
         submittedBy: principal.userId,
+        orgId: toOrgId(principal.orgId),
         kind: body.kind,
         target: body.target,
         // 目标**当时**的名字由服务端在别处解析会更权威，但今天没有一个能同时解析
@@ -149,6 +189,7 @@ export class FeedbackController {
         detail: body.detail,
         occurredRoute: body.occurredRoute,
         appVersion: body.appVersion,
+        attachmentIds: body.attachmentIds,
       },
     );
   }
@@ -171,6 +212,8 @@ export class FeedbackController {
       {
         repo: this.feedback.forOrg(principal.orgId),
         newDecisionId: () => this.decisions.next(),
+        attachments: this.attachments,
+        orgId: toOrgId(principal.orgId),
       },
       { scope, viewerId: principal.userId, viewerOrgRole: orgRole, viewerTeamId: teamId },
     );
@@ -312,6 +355,138 @@ export class FeedbackController {
         throw new UnprocessableEntityException({ reasonCode: "COMMENT_BODY_REQUIRED" });
       }
       throw mapGithubIssueSideEffectError(e) ?? e;
+    }
+  }
+
+  /**
+   * FB-5 —— 图片附件上传。`multipart/form-data`，同 `identity.controller.ts` 的
+   * `uploadAvatar` 既有先例：`meta` 字段（JSON，须过 `UPLOAD_FEEDBACK_ATTACHMENT_SCHEMA`）
+   * + `file` 字段（二进制）。这一步**不需要 `feedbackId`**——附件先落库成
+   * `feedback_id IS NULL`，提交表单时才由 `submitFeedback` 认领（见用例头注）：
+   * 用户可能先拍照/先说完话再填标题，上传必须先于「这条反馈存在」发生。
+   */
+  @HttpCode(HttpStatus.CREATED)
+  @Post("/feedback/attachments")
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 8 * 1024 * 1024 } }))
+  async uploadAttachment(
+    @CurrentPrincipal() principal: Principal,
+    @UploadedFile() file: { buffer: Buffer; size: number } | undefined,
+    @Body("meta") metaRaw: string | undefined,
+  ) {
+    assertPrincipal(principal);
+    if (!file || !metaRaw) throw new BadRequestException({ reasonCode: "UNSUPPORTED_CONTENT_TYPE" });
+    let meta: unknown;
+    try {
+      meta = JSON.parse(metaRaw);
+    } catch {
+      throw new BadRequestException({ reasonCode: "UNSUPPORTED_CONTENT_TYPE" });
+    }
+    const parsed = UPLOAD_FEEDBACK_ATTACHMENT_SCHEMA.safeParse(meta);
+    if (!parsed.success) {
+      // 同 `uploadAvatar` 的既有分流：`meta.sizeBytes` 本身超过契约上限时 zod 在这一步
+      // 就先拒了（服务端对**实际字节**的 `FILE_TOO_LARGE` 判断走不到），按失败字段分流
+      // 而不是笼统地都报 `UNSUPPORTED_CONTENT_TYPE`。
+      const tooLarge = parsed.error.issues.some((i) => i.path.includes("sizeBytes"));
+      throw new BadRequestException({ reasonCode: tooLarge ? "FILE_TOO_LARGE" : "UNSUPPORTED_CONTENT_TYPE" });
+    }
+    try {
+      return await uploadFeedbackAttachment(
+        { store: this.objectStore, attachments: this.attachments },
+        {
+          orgId: toOrgId(principal.orgId),
+          uploadedBy: principal.userId,
+          declaredContentType: parsed.data.contentType,
+          bytes: new Uint8Array(file.buffer),
+        },
+      );
+    } catch (e) {
+      if (e instanceof UploadFeedbackAttachmentError) {
+        throw new BadRequestException({ reasonCode: e.reasonCode });
+      }
+      if (e instanceof ObjectStoreUnavailableError) {
+        throw new ServiceUnavailableException({ reasonCode: "DEPENDENCY_UNAVAILABLE" });
+      }
+      throw e;
+    }
+  }
+
+  /**
+   * 附件字节的下载路由。权限判法见用例 `download-feedback-attachment.ts` 头注：
+   * 与正文（`detail`）完全一致——D3，管理员 + 提交人。
+   */
+  @Get("/feedback/attachments/:attachmentId")
+  async downloadAttachment(
+    @CurrentPrincipal() principal: Principal,
+    @Param("attachmentId") attachmentId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    assertPrincipal(principal);
+    const { orgRole, teamId } = await this.viewerRole(principal);
+    let found: { objectKey: string; contentType: string };
+    try {
+      found = await downloadFeedbackAttachment(
+        {
+          attachments: this.attachments,
+          feedback: this.feedback.forOrg(principal.orgId),
+          newDecisionId: () => this.decisions.next(),
+        },
+        {
+          orgId: toOrgId(principal.orgId),
+          attachmentId,
+          viewerId: principal.userId,
+          viewerOrgRole: orgRole,
+          viewerTeamId: teamId,
+        },
+      );
+    } catch (e) {
+      if (e instanceof FeedbackAttachmentNotFoundError || e instanceof FeedbackNotFoundError) {
+        res.status(404).end();
+        return;
+      }
+      if (e instanceof FeedbackAttachmentAccessDeniedError) {
+        res.status(403).end();
+        return;
+      }
+      throw e;
+    }
+    const bytes = await this.objectStore.get(found.objectKey);
+    if (bytes === null) {
+      res.status(404).end();
+      return;
+    }
+    // ⚠ 不带 `{ passthrough: true }`——理由同 `identity.controller.ts` 的
+    // `downloadAvatar`：本路由自己接管响应生命周期，不让 Nest 把 Buffer 重新序列化。
+    res.set("Content-Type", found.contentType);
+    res.set("Cache-Control", "private, max-age=300");
+    res.status(200).end(Buffer.from(bytes));
+  }
+
+  /**
+   * FB-5 —— 把一段语音转录文字整理成结构化草稿（`{kind,title,detail}`），
+   * 填进提交表单，人工再改再提交。见用例头注：模型调用失败在这里映射成 503，
+   * 不静默降级——整理失败等于这次点击的唯一目的没有达成。
+   */
+  @HttpCode(HttpStatus.OK)
+  @Post("/feedback/structure-draft")
+  async structureDraft(
+    @CurrentPrincipal() principal: Principal,
+    @Body(new ZodBodyPipe(STRUCTURE_FEEDBACK_DRAFT_SCHEMA)) body: StructureFeedbackDraftBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await structureFeedbackDraft(
+        {
+          model: this.modelCall,
+          structureModel: this.structureModel,
+          log: (message, detail) => this.logger.info(message, { ...detail, traceId: "feedback-structure-draft" }),
+        },
+        { transcript: body.transcript },
+      );
+    } catch (e) {
+      if (e instanceof FeedbackStructuringUnavailableError) {
+        throw new ServiceUnavailableException({ reasonCode: "STRUCTURING_FAILED" });
+      }
+      throw e;
     }
   }
 }

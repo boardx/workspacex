@@ -54,7 +54,7 @@ function mockSubmitThenList(item: Record<string, unknown>) {
 
 const mineItem = {
   id: "fb-new", kind: "缺陷", target: { kind: "product" }, targetLabel: null,
-  title: "点了没反应", detail: "批准卡点了不动", status: "待处理", statusReason: null,
+  title: "点了没反应", detail: "批准卡点了不动", attachments: [], status: "待处理", statusReason: null,
   votes: 0, votedByMe: false, submittedByMe: true,
   occurredRoute: "/chat", appVersion: null, createdAt: "2026-08-15T00:00:00.000Z",
 };
