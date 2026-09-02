@@ -96,6 +96,38 @@ export function buildSkillCatalogBlock(
   ].join("\n");
 }
 
+/**
+ * #2534 —— deep-agent run 的目录块。与 `buildSkillCatalogBlock` 同一份条目（同一个
+ * `deriveSkillSummary`），只有"怎么拿全文"那段不同：deep-agent 远端图有真实工具
+ * （`list_org_skills` / `call_skill`，`apps/deep-agent-service/.../tools.py`），全文经
+ * `config.configurable.org_skills` 结构化送过去、由工具按需取；这里**不能**写
+ * `read_skill` 围栏——那是给没有工具面的纯 provider 的文本约定，`execute-run.ts` 对
+ * deep-agent run 根本不解析它。
+ *
+ * 为什么 deep-agent 也要目录而不是全文（此前 `skill-lazy-loading` §1 刻意不碰）：
+ * #2519 之后 run 默认加载组织全部已启用 skill，"全文进 system prompt"从"四份"变成
+ * "全部"——正是 #2515 要削的延迟。目录让编排模型知道有什么，全文只在 `call_skill`
+ * 那次独立子调用里出现（`deep-agent-model-provider.ts` 头注对 `org_skills` 的说明）。
+ */
+export function buildDeepAgentSkillCatalogBlock(
+  skills: readonly Pick<PinnedSkillContent, "stableName" | "content">[],
+): string {
+  const entries = skills
+    .map((s) => `- ${s.stableName}: ${deriveSkillSummary(s.content)}`)
+    .join("\n");
+  return [
+    "You have the following Skills available. Only their name and a one-line summary are",
+    "shown below — their full instructions are NOT in this prompt.",
+    "",
+    entries,
+    "",
+    "To use one, call the `call_skill` tool with its stable name (use `list_org_skills` to",
+    "see the list again). The skill's full instructions are given to that focused",
+    "execution — do not answer from memory of what a skill might say. Only use Skills you",
+    "actually need for the current task; if none are relevant, answer directly.",
+  ].join("\n");
+}
+
 /** 把某个 skill 的全文追加进 system prompt(目录条目保留,不删除——模型仍能看到
  *  "还有哪些没读")。 */
 export function appendSkillFullContent(
