@@ -183,46 +183,53 @@ describe(
   },
 );
 
-describe("ChatSkillMountPanel（variant=\"headless\"）—— v2 composer 的 `/` 命令（2026-09-02 裁决）", () => {
-  function renderHeadless(mentionQuery: string | null) {
+describe("ChatSkillMountPanel（variant=\"composer\"）—— v2 composer：触发器在「+」菜单里，本组件只有 chip + 浮层", () => {
+  function renderComposer(props: { mentionQuery?: string | null; openRequest?: number; onTriggerStateChange?: (s: { canOpen: boolean; mountedCount: number; loading: boolean }) => void }) {
     return render(
-      <ChatSkillMountPanel variant="headless" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionQuery={mentionQuery} mentionTriggerChar="/" />,
+      <ChatSkillMountPanel variant="composer" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionTriggerChar="/" {...props} />,
     );
   }
 
-  it("编辑器下方不显示任何入口：没有触发按钮、没有 chip、没有占位文案；只有 mentionQuery 能打开候选", async () => {
-    const { rerender } = renderHeadless(null);
-    await waitFor(() => expect(listThreadMounts).toHaveBeenCalled());
+  it("不渲染触发按钮/空态文案；把 canOpen/mountedCount 回报给调用方；openRequest 递增才打开候选", async () => {
+    const onTriggerStateChange = vi.fn();
+    const { rerender } = renderComposer({ openRequest: 0, onTriggerStateChange });
+    await waitFor(() => expect(onTriggerStateChange).toHaveBeenLastCalledWith({ canOpen: true, mountedCount: 0, loading: false }));
     expect(screen.queryByTestId("chat-skill-mount")).not.toBeInTheDocument();
     expect(screen.queryByTestId("chat-skill-mount-empty")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument();
     expect(screen.getByTestId("chat-skill-mount-panel")).toBeEmptyDOMElement();
 
     rerender(
-      <ChatSkillMountPanel variant="headless" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionQuery="pp" mentionTriggerChar="/" />,
+      <ChatSkillMountPanel variant="composer" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionTriggerChar="/" openRequest={1} onTriggerStateChange={onTriggerStateChange} />,
     );
     const picker = await screen.findByTestId("chat-skill-mount-picker");
     // 向上开、浮层化（贴调用方的 relative 容器），不撑开第二行。
     expect(picker.className).toContain("absolute");
     expect(picker.className).toContain("bottom-full");
-    expect(screen.getByTestId("chat-skill-mount-mention-hint")).toHaveTextContent("/ pp");
     expect(await screen.findByTestId("chat-skill-mount-option-sk_aaa")).toBeInTheDocument();
   });
 
-  it("mention 归 null（用户删掉了 /）⇒ 候选自动收起；Escape 同样关闭", async () => {
-    const { rerender } = renderHeadless("pp");
+  it("`/` mention 照旧：mentionQuery 打开并过滤；归 null ⇒ 自动收起；Escape 同样关闭", async () => {
+    const { rerender } = renderComposer({ mentionQuery: "pp" });
     await screen.findByTestId("chat-skill-mount-picker");
-    rerender(
-      <ChatSkillMountPanel variant="headless" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionQuery={null} mentionTriggerChar="/" />,
-    );
+    expect(screen.getByTestId("chat-skill-mount-mention-hint")).toHaveTextContent("/ pp");
+    rerender(<ChatSkillMountPanel variant="composer" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionTriggerChar="/" mentionQuery={null} />);
     await waitFor(() => expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument());
 
-    rerender(
-      <ChatSkillMountPanel variant="headless" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionQuery="pp" mentionTriggerChar="/" />,
-    );
+    rerender(<ChatSkillMountPanel variant="composer" threadId="thr-1" orgId="org-1" bearer="bearer-1" mentionTriggerChar="/" mentionQuery="pp" />);
     await screen.findByTestId("chat-skill-mount-picker");
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(screen.queryByTestId("chat-skill-mount-picker")).not.toBeInTheDocument());
+  });
+
+  it("已挂载 skill 以 chip 形式留在第二行（状态 chip），可卸载", async () => {
+    listThreadMounts.mockResolvedValue({
+      temporary: [{ mountId: "m1", threadId: "thr-1", skillId: "sk_aaa", versionId: "v1", mountedAt: "2026-08-23T00:00:00.000Z" }],
+      version: "1",
+    });
+    renderComposer({});
+    expect(await screen.findByTestId("chat-skill-mounted-sk_aaa")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-skill-mount-panel")).toHaveAttribute("data-mounted-count", "1");
+    expect(screen.getByTestId("chat-skill-unmount-sk_aaa")).toBeInTheDocument();
   });
 });
 

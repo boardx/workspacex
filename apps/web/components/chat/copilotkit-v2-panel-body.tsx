@@ -11,7 +11,7 @@ import {
   CopilotChatMessageView,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Loader2, AlertTriangle, ArrowDown, ArrowUp, ListChecks, Paperclip, Sparkles } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowDown, ArrowUp, ListChecks, Paperclip, Sparkles, Wrench } from "lucide-react";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
@@ -212,11 +212,14 @@ export function CopilotKitV2PanelBody({
   const skillMention = mention?.kind === "skill" ? mention : null;
   const attachmentMention = mention?.kind === "attachment" ? mention : null;
   /**
-   * 2026-09-02 人类两连裁决：skills 不由用户在 composer 里挑选（agent 直接加载），
-   * 但输入框里的 `/` 命令保留、不在编辑器下方显示入口。所以 `ChatSkillMountPanel`
-   * 以 `variant="headless"` 留在第二行左侧那组 `relative` 容器里当浮层锚点：
-   * 平时零尺寸，敲 `/` 才向上弹候选。挂载成功后把 `/query` 从正文删掉是本地回调。
+   * 2026-09-02 三层结构（人类最终裁决：技能恢复原样，只把入口搬进「+」菜单）——
+   * `ChatSkillMountPanel variant="composer"` 留在第二行左侧那组 `relative` 容器里：
+   * 已挂载 chip 是第 1 层状态 chip，候选浮层从「+」那个角落向上开；触发器是菜单项
+   * `chat-skill-mount`（下方），点它就 `skillOpenRequest + 1`；`/` mention 照旧。
+   * 挂载成功后把 `/query` 从正文删掉是本地回调。
    */
+  const [skillOpenRequest, setSkillOpenRequest] = React.useState(0);
+  const [skillTrigger, setSkillTrigger] = React.useState({ canOpen: false, mountedCount: 0, loading: true });
   const onSkillMentionMounted = React.useCallback(() => {
     if (skillMention === null) return;
     setInputDraft((current) => current.slice(0, skillMention.start) + current.slice(skillMention.start + 1 + skillMention.query.length));
@@ -1714,10 +1717,9 @@ export function CopilotKitV2PanelBody({
             设计说明与三层定义见 `chat-task-workbench-composer-menu.tsx` 文件头注。
             · 第 0 层常驻：左「+」，右麦克风 + 发送，纯图标。
             · 第 1 层状态 chip：只在偏离默认时露出——选了具体能力 / 开了任务模式 / 加了材料。
-            · 第 2 层「+」菜单：添加材料 / 选择能力 / 任务模式。
-            没有「/技能」入口（2026-09-02 人类裁决：skills 由 agent 直接加载，不由用户挑）；
-            输入框里的 `/` 命令保留——`ChatSkillMountPanel` 以 headless 形态藏在这组容器里，
-            敲 `/` 才向上弹候选，编辑器下方不显示任何技能相关的东西。
+            · 第 2 层「+」菜单：添加材料 / 选择能力 / 挂载技能 / 任务模式。
+            技能：菜单项「挂载技能」是触发器，已挂载 chip 留在这一行当状态 chip，
+            `/` 命令照旧从「+」的角落向上弹候选（`ChatSkillMountPanel variant="composer"`）。
             左侧那组是 `relative`：「+」菜单与能力浮层都从这个角落向上开，视觉上只有一处会弹东西。
             既有锚点（`chat-task-workbench-composer-attach` / `-mention-agent` / `-task-mode`、
             `chat-attachment-input`、`chat-task-workbench-capability-picker` + `data-auto-match`）
@@ -1750,6 +1752,32 @@ export function CopilotKitV2PanelBody({
                     title={selectedCapability ? `当前能力：${selectedCapability.name}` : "未指定时按任务自动匹配"}
                     disabled={agentOptions.status !== "ready" || archived}
                     onSelect={() => setCapabilityOpen(true)}
+                  />
+                </div>
+                {/* issue #2130（TW-P0-5②「/技能」入口）—— 触发 `ChatSkillMountPanel` 的候选浮层。
+                    新对话还没有线程时如实禁用并说明（`copilotkit-v2-skill-mount-placeholder`），
+                    不渲染一个"看起来能挂、提交必然 404"的假入口。 */}
+                <div data-testid="chat-task-workbench-composer-mention-skill">
+                  <ComposerMenuItem
+                    icon={<Wrench className="h-4 w-4" />}
+                    label="挂载技能"
+                    hint={
+                      initialChatThreadId === null || sessionToken === null ? (
+                        <span data-testid="copilotkit-v2-skill-mount-placeholder">
+                          {sessionToken === null ? "登录后可用" : "对话建立后可用"}
+                        </span>
+                      ) : skillTrigger.loading
+                        ? "正在读取…"
+                        : skillTrigger.mountedCount > 0
+                          ? `已挂 ${skillTrigger.mountedCount} 个`
+                          : "本对话未挂载"
+                    }
+                    data-testid="chat-skill-mount"
+                    data-mounted-count={skillTrigger.mountedCount}
+                    aria-haspopup="listbox"
+                    title="管理本对话挂载的 skill（也可以在输入框里敲 / 快速挂载）"
+                    disabled={archived || initialChatThreadId === null || sessionToken === null || !skillTrigger.canOpen}
+                    onSelect={() => setSkillOpenRequest((n) => n + 1)}
                   />
                 </div>
                 {/* issue #2130（TW-P0-5②）—— 任务模式：真实影响发出的正文（不是纯装饰）。
@@ -1803,18 +1831,18 @@ export function CopilotKitV2PanelBody({
                 />
               ) : null}
               {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
-                <div data-testid="chat-task-workbench-composer-mention-skill">
-                  <ChatSkillMountPanel
-                    variant="headless"
-                    threadId={initialChatThreadId}
-                    orgId={orgId}
-                    bearer={sessionToken}
-                    mentionQuery={skillMention?.query ?? null}
-                    /* issue #2046（CK-P2）——v2 轨道触发符 `/`（对齐 Claude Code），旧轨道缺省仍是 `#`。 */
-                    mentionTriggerChar="/"
-                    onMentionMounted={onSkillMentionMounted}
-                  />
-                </div>
+                <ChatSkillMountPanel
+                  variant="composer"
+                  threadId={initialChatThreadId}
+                  orgId={orgId}
+                  bearer={sessionToken}
+                  mentionQuery={skillMention?.query ?? null}
+                  /* issue #2046（CK-P2）——v2 轨道触发符 `/`（对齐 Claude Code），旧轨道缺省仍是 `#`。 */
+                  mentionTriggerChar="/"
+                  onMentionMounted={onSkillMentionMounted}
+                  openRequest={skillOpenRequest}
+                  onTriggerStateChange={setSkillTrigger}
+                />
               ) : null}
               <CapabilityPopover
                 listings={agentOptions.status === "ready" ? agentOptions.listings : null}

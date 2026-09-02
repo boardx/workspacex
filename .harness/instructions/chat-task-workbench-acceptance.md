@@ -157,13 +157,10 @@
 **判据**：
 1. 第一行：多行任务输入（`textarea`，不是单行 `input`）。
 2. 第二行（2026-09-02 三层结构，Apple 式"隐藏细节"）：左＝一颗常驻「+」
-   （`...-composer-menu`），菜单收纳 附件/材料、选择能力、任务模式；偏离默认时以
-   状态 chip 露出（选了具体能力 / 开了任务模式 / 加了材料）；右＝语音 + 发送/停止，
-   全部纯图标。**技能没有可见入口**——2026-09-02 人类裁决：skills 由 agent 直接
-   加载全部已启用项，具体 agent 的编排覆盖全局，不由用户在 composer 里挑
-   （服务端"默认加载 + agent 覆盖"待落地，`copilotkit-v2-skill-mount.spec.ts` 记红）；
-   输入框里的 `/` 命令保留（敲 `/` 向上弹候选、选中即挂载），锚点
-   `...-composer-mention-skill` 零尺寸、只判 attached。
+   （`...-composer-menu`），菜单收纳 附件/材料、选择能力、`/技能`（挂载）、任务模式；
+   偏离默认时以状态 chip 露出（选了具体能力 / 开了任务模式 / 加了材料 / 已挂载的
+   skill chip）；右＝语音 + 发送/停止，全部纯图标。输入框里的 `/` 命令照旧从「+」
+   的角落向上弹候选。
 3. 输入后显示：附件卡片、上下文范围、权限提示。
 4. Agent 未就绪时**禁用发送并说明原因**（有可读文本，不只是灰掉）。
    "空输入"这一条例外：placeholder 已说明，理由只在用户试图发送（空输入按 Enter）
@@ -176,7 +173,7 @@
 **用例**：`chat-task-workbench-composer.spec.ts`
 **锚点**：`chat-task-workbench-composer`、`...-composer-input`、
 `...-composer-menu` / `...-composer-menu-panel`（「+」及其菜单；菜单项沿用
-`chat-attachment-input` / `chat-task-workbench-capability-picker` / `...-composer-task-mode`）、
+`chat-attachment-input` / `chat-task-workbench-capability-picker` / `chat-skill-mount` / `...-composer-task-mode`）、
 `...-composer-mic`（唯一）、`...-composer-mic-devices`、
 `...-composer-recording-{timer|level|cancel|confirm}`、`...-composer-send-disabled-reason`
 

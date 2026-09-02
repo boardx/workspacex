@@ -65,20 +65,32 @@ export function ChatSkillMountPanel({
   onMountsChange,
   onMountsSnapshotChange,
   variant = "row",
+  openRequest = 0,
+  onTriggerStateChange,
 }: {
   threadId: string;
   /**
-   * 2026-09-02 人类两连裁决：① skills 不由用户在 composer 里挑选（agent 直接加载、
-   * 具体 agent 的编排覆盖全局）；② 但输入框里的 `/` 命令**保留**，只是不在编辑器
-   * 下方显示任何入口。于是两种排布：
+   * 2026-09-02 composer 三层结构（人类最终裁决：技能恢复原样，只把入口搬进「+」菜单）：
    * - `"row"`（默认，旧轨道 `chat-read-screen.tsx`/`personal-chat-screen.tsx`）——
    *   composer 下方常驻一整条：标签 + 挂载 chip + 「加 skill」按钮，逐字节不变。
-   * - `"headless"`（v2 composer）—— **没有触发器、没有 chip、没有占位文案**。唯一
-   *   入口是 `mentionQuery`（composer 敲 `/` 报进来），候选浮层 `absolute` 贴调用方的
-   *   `relative` 容器向上开，选中即挂载、失败横幅同样浮层化。此前的 `pill` 变体
-   *   （带胶囊触发器）已按裁决 ① 删除，这不是它换个名字：headless 没有任何可见常驻物。
+   * - `"composer"`（v2 composer）—— **触发器不在本组件里**：它是「+」菜单的一项，由
+   *   调用方渲染（testid `chat-skill-mount` 与 `data-mounted-count` 跟着搬过去），通过
+   *   `openRequest` 递增请求打开候选；本组件在第二行只渲染"偏离默认才露出"的东西——
+   *   已挂载 chip（第 1 层状态 chip）、候选浮层与失败横幅（`absolute` 贴调用方的
+   *   `relative` 容器向上开，与「+」菜单、能力浮层从同一个角落弹出）。`/` mention
+   *   照旧走 `mentionQuery`。挂载/卸载逻辑与 testid 逐字不变，变的只是触发器住在哪。
    */
-  variant?: "row" | "headless";
+  variant?: "row" | "composer";
+  /**
+   * 单调递增的"请打开候选浮层"信号（仅 `variant="composer"`）。调用方每次点菜单项
+   * 就 +1；用计数而不是布尔，是因为"连点两次"必须两次都开得起来。初始值 0 不触发。
+   */
+  openRequest?: number;
+  /**
+   * 把"触发器该长什么样"回报给渲染它的调用方：能不能打开（乐观锁版本号读到之前
+   * 拒绝盲写，与旧触发器自己的 `disabled` 判定同一条）、挂了几个、是否仍在读取。
+   */
+  onTriggerStateChange?: (state: { readonly canOpen: boolean; readonly mountedCount: number; readonly loading: boolean }) => void;
   /**
    * ⚠ **可选**：个人对话没有项目（人类 2026-08-21 裁决「个人对话必须要可以使用
    * 公共的 skills」）。#1693 起服务端已不把 `?projectId=` 当授权输入——授权从
@@ -253,6 +265,19 @@ export function ChatSkillMountPanel({
 
   const visiblePool = mentionQuery ? pool.filter((item) => item.name.includes(mentionQuery)) : pool;
 
+  /** `openRequest` 变化 ⇒ 打开一次（见该 prop 头注）。 */
+  const lastOpenRequestRef = React.useRef(openRequest);
+  React.useEffect(() => {
+    if (openRequest === lastOpenRequestRef.current) return;
+    lastOpenRequestRef.current = openRequest;
+    void openPicker(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRequest]);
+
+  React.useEffect(() => {
+    onTriggerStateChange?.({ canOpen: !pending && version !== null, mountedCount: mounts.length, loading });
+  }, [onTriggerStateChange, pending, version, mounts.length, loading]);
+
   /**
    * issue #1803 gap #9（人类 2026-08-22 devapp 真实浏览器实测）——此前浮层要等
    * `mountSkills` 网络往返真的返回才 `setPicking(false)`。网络稍有延迟时，
@@ -358,7 +383,7 @@ export function ChatSkillMountPanel({
   };
 
   /** 挂载候选浮层——常驻在 composer 下方整条内，不是 `absolute` 覆盖层。 */
-  const headless = variant === "headless";
+  const headless = variant === "composer";
 
   const picker = picking ? (
     <div
@@ -443,14 +468,16 @@ export function ChatSkillMountPanel({
   ) : null;
 
   if (headless) {
-    // 只有 `/` 打开时才有东西；平时零尺寸——"不要显示在 editor 下方"是裁决原话。
-    // e2e 判"面板已就位"用 `toBeAttached()`，不是 `toBeVisible()`。
+    // 触发器在「+」菜单里（见 `variant` 头注）。这里只有已挂载 chip + 浮层；没挂任何
+    // skill 且浮层没开时零尺寸——e2e 判"面板已就位"用 `toBeAttached()`。
     return (
       <div
         ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
+        className="flex min-w-0 flex-wrap items-center gap-1"
         data-testid="chat-skill-mount-panel"
         data-mounted-count={mounts.length}
       >
+        {mounts.map(mountedChip)}
         {picker}
         {failureBanner}
       </div>
