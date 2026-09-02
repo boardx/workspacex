@@ -11,6 +11,7 @@ import { loadFeatureList, featuresForSprint } from "./lib/features";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { sh } from "./lib/sh";
 import { describeNotIntegrated, evidenceIntegration, type IntegrationFacts } from "./lib/evidence-integration";
+import { describeIssueListFailure, listAllIssues } from "./lib/github-issues";
 import { req } from "./lib/args";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -241,10 +242,18 @@ let ALL_ISSUES: ProjectedIssue[] | null = null;
 function allIssues(repo: string, apply: boolean): ProjectedIssue[] {
   if (!apply) return [];
   if (ALL_ISSUES) return ALL_ISSUES;
-  const r = sh(
-    `gh issue list --repo ${JSON.stringify(repo)} --state all --limit 500 --json number,title,body,state,labels`,
-  );
-  ALL_ISSUES = r.code === 0 ? (JSON.parse(r.stdout || "[]") as ProjectedIssue[]) : [];
+  // #2483：此前是 `--limit 500`。gh 按编号从新到旧返回，仓库过 #2400 后 phase-00/01 的投影
+  // issue 全在窗口外；marker 找不到 → 退回标题搜索 → 中文长标题搜不到 → **再建一个**。
+  // 清单拿不全时唯一安全的动作是整个 sync 停下：本函数的每一个消费方（建/改/关）都是
+  // 「没找到 ⇒ 动手」的否定性判断，残缺清单上做这些判断就是在制造双胞胎。
+  const r = listAllIssues({ repo });
+  if (r.kind !== "ok") {
+    throw new Error(
+      `sync --apply 中止：${describeIssueListFailure(r)}。清单不完整时「没找到投影 issue」不可信，` +
+        `继续会重复创建/漏关 issue。修好 gh 登录或提高 ISSUE_PAGE_LIMIT 后重跑。`,
+    );
+  }
+  ALL_ISSUES = r.issues;
   return ALL_ISSUES;
 }
 
@@ -282,6 +291,9 @@ export function syncGithub(args: Args): void {
   const fl = loadFeatureList(phaseId);
 
   const plan: string[] = [];
+  // #2483：apply 模式先把全量 issue 清单拉齐再动任何东西——拉不齐就在这里停，
+  // 不要等到 milestone/label 已经建了一半才发现清单是残缺的。
+  if (apply) allIssues(cfg.repo, true);
   // issue body 临时文件目录（--body-file 用，见下方注释）
   const bodyDir = mkdtempSync(join(tmpdir(), "harness-issue-body-"));
   const run = (cmd: string, description?: string) => {
