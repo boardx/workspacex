@@ -25,10 +25,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { asOwner, ensureDatabase, migrateOnce } from "../support/db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
-import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { appConfig, diagnosticsReaderConfig } from "../../src/infrastructure/db/pg-config";
 import { PgErrorLogWriter, sweepExpiredErrorLogs } from "../../src/infrastructure/logging/pg-error-log-writer";
 
 let db: PgDatabase;
+/** `app_diag_ro` -- a genuinely separate credential, see `pg-config.ts`'s header. */
+let readDb: PgDatabase;
 let writer: PgErrorLogWriter;
 
 interface ErrorLogRow {
@@ -42,7 +44,8 @@ beforeAll(async () => {
   ensureDatabase();
   await migrateOnce();
   db = new PgDatabase(appConfig());
-  writer = new PgErrorLogWriter(db);
+  readDb = new PgDatabase(diagnosticsReaderConfig());
+  writer = new PgErrorLogWriter(db, readDb);
 });
 
 beforeEach(async () => {
@@ -51,6 +54,7 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await db?.close();
+  await readDb?.close();
 });
 
 describe("PgErrorLogWriter against real Postgres -- migration, INSERT, jsonb, index, retention", () => {
@@ -134,5 +138,93 @@ describe("PgErrorLogWriter against real Postgres -- migration, INSERT, jsonb, in
   it("app_rw 仍然能 INSERT/DELETE（最小权限不是零权限）：writer 与 sweep 在新授权下依然工作", async () => {
     await expect(writer.record({ traceId: "t-real-still-insertable", msg: "x", detail: {} })).resolves.toBeUndefined();
     await expect(sweepExpiredErrorLogs(db)).resolves.toEqual({ ok: true });
+  });
+
+  // review finding (PR #2475), round 2: a SECURITY DEFINER function with EXECUTE granted to
+  // app_rw has the SAME blast radius as the table-wide GRANT the negative test above already
+  // rules out -- anything able to run SQL over the app_rw connection could call the function
+  // directly. This is the test that would have caught that: app_rw must be refused EXECUTE
+  // on kernel_read_error_logs, not just refused a raw table SELECT. If a future migration
+  // ever grants app_rw EXECUTE here (the second wrong shape this PR tried), this goes red.
+  it("【反证2】app_rw 连 kernel_read_error_logs 也调不了——SECURITY DEFINER 函数不是 app_rw 的又一条读路径", async () => {
+    await expect(
+      db.withoutTenant((s) => s.query("SELECT * FROM kernel_read_error_logs(10, NULL)")),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  // review finding (PR #2475), round 3: PostgreSQL grants EXECUTE to PUBLIC by default on a
+  // new function -- without an explicit REVOKE, app_rw could have INHERITED execute rights
+  // through PUBLIC regardless of whether it was ever granted directly. The rejected-call test
+  // above proves the end behaviour; this asserts the underlying catalog fact directly, so a
+  // regression (a future migration re-adding the function without the REVOKE) is caught even
+  // if some other change happened to make the call itself fail for an unrelated reason.
+  it("has_function_privilege(app_rw, ..., EXECUTE) is false -- not inherited via PUBLIC either", async () => {
+    const rows = await asOwner((c) =>
+      c
+        .query<{ has_priv: boolean }>(
+          `SELECT has_function_privilege('app_rw', 'kernel_read_error_logs(integer,bigint)', 'EXECUTE') AS has_priv`,
+        )
+        .then((r) => r.rows),
+    );
+    expect(rows[0]!.has_priv).toBe(false);
+  });
+
+  // The positive counterpart to both negative tests above: a DIFFERENT credential
+  // (app_diag_ro, via `readDb`) CAN call the function -- proving the separation is real (a
+  // working reader exists) and not merely "nobody can read anything".
+  it("app_diag_ro 能调用 kernel_read_error_logs——分离是真的分离，不是把读路径也一起锁死", async () => {
+    await writer.record({ traceId: "t-real-diag-ro-direct", msg: "x", detail: {} });
+
+    const rows = await readDb.withoutTenant((s) =>
+      s.query<{ trace_id: string }>("SELECT * FROM kernel_read_error_logs(50, NULL)"),
+    );
+    expect(rows.rows.map((r) => r.trace_id)).toContain("t-real-diag-ro-direct");
+  });
+
+  // review finding (PR #2475), round 3: p_limit is clamped to 0..200 INSIDE the function
+  // (defense in depth, independent of whatever limit the application layer passes) -- prove
+  // it against real Postgres, not just by reading the SQL.
+  it("kernel_read_error_logs clamps an oversized p_limit to 200, even called directly", async () => {
+    for (let i = 0; i < 205; i++) {
+      await writer.record({ traceId: `t-real-clamp-${i}`, msg: "x", detail: {} });
+    }
+
+    const rows = await readDb.withoutTenant((s) =>
+      s.query<{ id: string }>("SELECT * FROM kernel_read_error_logs(100000, NULL)"),
+    );
+    expect(rows.rows.length).toBeLessThanOrEqual(200);
+  });
+
+  // review finding (PR #2475): the negative tests above prove app_rw cannot read the table
+  // directly OR through the function -- these two prove the one narrow path that CAN
+  // (app_diag_ro, via `writer.list()`/`readDb`) actually works against real Postgres.
+  it("writer.list() reads real rows back through kernel_read_error_logs even though app_rw cannot SELECT the table directly", async () => {
+    await writer.record({ traceId: "t-real-list-1", msg: "first", detail: { name: "Error", message: "one" } });
+    await writer.record({ traceId: "t-real-list-2", msg: "second", detail: { name: "Error", message: "two" } });
+
+    const out = await writer.list({ limit: 50, beforeId: null });
+
+    const traceIds = out.items.map((i) => i.traceId);
+    expect(traceIds).toContain("t-real-list-1");
+    expect(traceIds).toContain("t-real-list-2");
+    // newest-first
+    expect(traceIds.indexOf("t-real-list-2")).toBeLessThan(traceIds.indexOf("t-real-list-1"));
+    const second = out.items.find((i) => i.traceId === "t-real-list-2");
+    expect(second?.detail).toEqual({ name: "Error", message: "two" });
+  });
+
+  it("writer.list() beforeId cursor really excludes rows at/after that id, against real Postgres", async () => {
+    await writer.record({ traceId: "t-real-cursor-1", msg: "x", detail: {} });
+    await writer.record({ traceId: "t-real-cursor-2", msg: "x", detail: {} });
+    await writer.record({ traceId: "t-real-cursor-3", msg: "x", detail: {} });
+
+    const firstPage = await writer.list({ limit: 1, beforeId: null });
+    expect(firstPage.items).toHaveLength(1);
+    expect(firstPage.items[0]!.traceId).toBe("t-real-cursor-3");
+    expect(firstPage.hasMore).toBe(true);
+
+    const secondPage = await writer.list({ limit: 1, beforeId: firstPage.items[0]!.id });
+    expect(secondPage.items).toHaveLength(1);
+    expect(secondPage.items[0]!.traceId).toBe("t-real-cursor-2");
   });
 });

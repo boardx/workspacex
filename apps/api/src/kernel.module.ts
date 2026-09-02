@@ -16,15 +16,19 @@ import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
-import { DATABASE_PORT } from "./application/ports/database.port";
+import { DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT } from "./application/ports/database.port";
 import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 
-import { appConfig } from "./infrastructure/db/pg-config";
+import { appConfig, diagnosticsReaderConfig } from "./infrastructure/db/pg-config";
 import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 import { ERROR_LOG_PORT } from "./application/ports/error-log.port";
 import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
+import { RATE_LIMITER_PORT } from "./application/ports/rate-limiter.port";
+import { InMemoryRateLimiter } from "./infrastructure/system/in-memory-rate-limiter";
+import { PlatformSuperuserGuard } from "./interface/guards/platform-superuser.guard";
+import { ClientErrorReportRateLimitGuard } from "./interface/guards/client-error-report-rate-limit.guard";
 
 // F20/F21 auth. `HeaderPrincipalResolver` is no longer wired: it was the test-injection
 // PLACEHOLDER F18 shipped while the credential format was undecided (UC-0.6 A-3), and the
@@ -405,6 +409,7 @@ import { MessageRatingController } from "./interface/controllers/message-rating.
 import { PgProductFeedbackRepository } from "./infrastructure/feedback/pg-product-feedback-repository";
 import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
 import { FeedbackController } from "./interface/controllers/feedback.controller";
+import { SystemErrorLogController } from "./interface/controllers/system-error-log.controller";
 // 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
 // 见 `application/feedback/notification-ports.ts` 与
 // `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
@@ -800,18 +805,30 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SkillController,
     MessageRatingController,
     FeedbackController,
+    SystemErrorLogController,
     SkillReviewController,
     SkillMountController,
     ModelController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
+    // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
+    // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches
+    // this pool.
+    { provide: DIAGNOSTICS_READER_DB_PORT, useFactory: () => new PgDatabase(diagnosticsReaderConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
     {
       provide: ERROR_LOG_PORT,
-      useFactory: (db: DatabasePort) => new PgErrorLogWriter(db),
-      inject: [DATABASE_PORT],
+      useFactory: (db: DatabasePort, readDb: DatabasePort) => new PgErrorLogWriter(db, readDb),
+      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT],
     },
+    {
+      provide: RATE_LIMITER_PORT,
+      useFactory: (clock: Clock) => new InMemoryRateLimiter(clock),
+      inject: [CLOCK],
+    },
+    PlatformSuperuserGuard,
+    ClientErrorReportRateLimitGuard,
     {
       provide: PRINCIPAL_RESOLVER_PORT,
       useFactory: (sessions: SessionTokenStore, clock: Clock) =>
