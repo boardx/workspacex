@@ -63,6 +63,40 @@
  *
  * ⚠ 幂等重放**也不同步**:状态没变,没有什么新状态需要同步给 GitHub。
  *
+ * ### ④ 状态变更 + 「这次转移发生过」这一行历史 —— 与状态本身**同一个事务**
+ *
+ * 2026-09-02 独立审查 P0(两轮):第一版把 `appendStatusEvent` 排在②之后(要把
+ * ②真实的通知结果一并存进这一行,见⑤),但仍然是独立的一次 `withTenant`——
+ * 状态更新成功、写这一行历史失败,会让状态真的变了但流水里**永久**没有对应
+ * 的一行。这不是"次要记录丢了细节",是"这件事发生过"这条事实本身消失。
+ *
+ * 修法(`ProductFeedbackRepository.transitionStatusWithEvent`):UPDATE 状态
+ * 与 INSERT 这一行历史收进**同一次 `withTenant` 调用**(= 同一个数据库事务),
+ * 要么一起提交、要么一起回滚,不再有"状态变了但历史没写"的中间态。事件行
+ * 落库时 `notified` 先诚实写 `false`——这一刻还没跑②,不知道邮件发没发。
+ *
+ * ⚠ 通知邮件的发送本身(②)**不能**并进这同一个事务:它必须在状态**已经落库**
+ *   之后才能发生(不能在状态生效前就告诉用户"变了"),而"状态落库"与"这一行
+ *   历史存在"这两件事恰恰是这次要保证同时成立的那两件——所以②天然只能排在
+ *   ④之后。
+ *
+ * ### ⑤ 回填②的通知结果 —— best-effort,同②③的纪律,但丢的只是"细节"不是"事实"
+ *
+ * ④已经保证"这次转移发生过"这一行历史不会丢。②跑完之后,`markStatusEventNotified`
+ * 只回填**那一行已经存在**的 `notified`/`email_subject`/`email_text` 三列——
+ * 不是新插一行。这一步失败只记日志,不影响调用方拿到的结果(状态变更与②的结果
+ * 已经是既成事实):最坏情况是这一行历史永远停在插入时的 `notified: false`
+ * (保守地"看起来没发通知"),而不是①②③那种"这件事本身查无此事"。
+ *
+ * ⚠ **已知限制,登记、不在这轮修**(2026-09-02 独立审查提出,issue #2510 记录,
+ *   把这条与②③的同类限制/#2500 一起收敛成统一 outbox):⑤失败没有重试补写,
+ *   界面上能看到的证据只有值班日志里的一条 `feedback-triage-append-event`
+ *   error;两个并发的同源转移请求仍可能各自读到旧状态、各自发一封通知邮件、
+ *   各自写一行历史(这条表的行级 append-only 语义与"同一次转移最多发生一次
+ *   通知"是两件事,后者目前没有行锁/CAS 保护)——与①②③是同一类"本地已落库、
+ *   次要记录/同步只是尽力"的权衡,不为了堵这几个口子单独新增一张持久化的
+ *   outbox 表/幂等 worker。
+ *
  * ⚠ **已知限制,登记、不在这轮修**(2026-09-02 独立审查提出,issue #2500 记录):
  *   同步失败之后没有持久 outbox/重试调度——反馈状态与 GitHub issue 开关短暂不一致
  *   的窗口是真实存在的,管理员在这条反馈上再次触发任何一次状态转移时会重新尝试
@@ -199,9 +233,15 @@ export async function triageFeedback(
     }
   }
 
-  await deps.repo.updateStatus(input.feedbackId, outcome.to, outcome.reason);
-  await deps.repo.appendStatusEvent({
-    id: deps.newEventId(),
+  // ④ 状态变更 + 「这次转移发生过」这一行历史,**同一个数据库事务**——见接口
+  //   `transitionStatusWithEvent` 头注(2026-09-02 独立审查 P0):分两次独立
+  //   `withTenant` 调用时,前者成功、后者失败会让状态真的变了但一行历史都没有,
+  //   这条历史事实本身永久缺失。收进同一个事务之后,这两者要么一起提交、要么
+  //   一起回滚,不再有中间态。事件行落库时 `notified` 先诚实写 `false`——这一刻
+  //   还没发邮件(下面②才发)。
+  const eventId = deps.newEventId();
+  await deps.repo.transitionStatusWithEvent(input.feedbackId, outcome.to, outcome.reason, {
+    id: eventId,
     feedbackId: input.feedbackId,
     fromStatus: outcome.from,
     toStatus: outcome.to,
@@ -220,7 +260,7 @@ export async function triageFeedback(
   }
 
   // ② best-effort 通知——状态已经落库,这里的任何失败都不再影响上面那次事实。
-  const notified = await notifySubmitter(deps, {
+  const notification = await notifySubmitter(deps, {
     feedbackId: input.feedbackId,
     submittedBy: current.submittedBy,
     title: current.title,
@@ -228,7 +268,20 @@ export async function triageFeedback(
     reason: outcome.reason,
   });
 
-  return { feedbackId: input.feedbackId, status: outcome.to, notified, githubIssueUrl };
+  // ⚠ 只回填④那一行已经存在的历史的通知结果——不是新插一行,失败也不再
+  //   让整条历史消失(④的原子写入已经保证"转移发生过"这件事本身不会丢),
+  //   最坏情况只是 `notified` 保守地停在插入时的 `false`。真失败了记日志——
+  //   残余风险(回填失败、没有重试补写)登记在案,见 issue #2510。
+  try {
+    await deps.repo.markStatusEventNotified(eventId, notification.notified, notification.subject, notification.text);
+  } catch (e) {
+    deps.logger.error(
+      "feedback triage: markStatusEventNotified failed (best-effort, status change + event row already committed)",
+      { traceId: "feedback-triage-append-event", feedbackId: input.feedbackId, err: e },
+    );
+  }
+
+  return { feedbackId: input.feedbackId, status: outcome.to, notified: notification.notified, githubIssueUrl };
 }
 
 /** `outcome.to` → GitHub issue 该处在什么开关状态。纯函数,方便单测直接断言映射表。 */
@@ -257,6 +310,12 @@ async function syncGithubIssueState(
   }
 }
 
+/**
+ * ⚠ 返回值不再是裸布尔——`appendStatusEvent`（迁移 20260902110613）要把"发的是什么"
+ *   一起存进事件行，`subject`/`text` 因此是返回形状的一部分，不只是内部细节。
+ *   `notified: false` 时 `subject`/`text` 恒 `null`——没发出去,自然没有"发了什么"
+ *   可存,这是 `StatusEvent.emailSubject`/`emailText` 那条 nullable 契约的来源。
+ */
 async function notifySubmitter(
   deps: TriageFeedbackDeps,
   input: {
@@ -266,7 +325,7 @@ async function notifySubmitter(
     readonly status: FeedbackStatus;
     readonly reason: string | null;
   },
-): Promise<boolean> {
+): Promise<{ readonly notified: boolean; readonly subject: string | null; readonly text: string | null }> {
   try {
     const email = await deps.submitterDirectory.emailForUserId(input.submittedBy);
     if (email === null) {
@@ -279,11 +338,11 @@ async function notifySubmitter(
         traceId: "feedback-triage-notify",
         feedbackId: input.feedbackId,
       });
-      return false;
+      return { notified: false, subject: null, text: null };
     }
     const { subject, text } = statusChangeEmail(input);
     await deps.mail.send({ to: email, subject, text });
-    return true;
+    return { notified: true, subject, text };
   } catch (e) {
     // ⚠ 吞掉,但**不是静默吞掉**——按 AGENTS.md 的纪律「失败了但不能被静默吞掉」,
     //   这里用 error 级别记清楚是哪条反馈、发给谁失败了,值班能顺着这条日志查供应商故障,
@@ -293,6 +352,9 @@ async function notifySubmitter(
       feedbackId: input.feedbackId,
       err: e,
     });
-    return false;
+    // ⚠ subject/text 仍是 null,不是"我们本来想发这个但失败了"——`notified: false`
+    //   与两者恒为 null 是同一件事的两个投影(见本函数头注),失败与"没有可通知的人"
+    //   在这一点上不该有区别:历史记录里存的应当是"实际发出去的"，不是"曾经打算发的"。
+    return { notified: false, subject: null, text: null };
   }
 }

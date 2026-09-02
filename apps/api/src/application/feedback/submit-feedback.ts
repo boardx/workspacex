@@ -60,6 +60,11 @@ export async function submitFeedback(
     toStatus: "待处理",
     reason: null,
     actorId: input.submittedBy,
+    // 提交这一步不发通知邮件——提交人当然知道自己刚提交了什么,通知是"状态**变了**"
+    // 那一刻才有意义的事。见 `triage-feedback.ts`.notifySubmitter 的对称逻辑。
+    notified: false,
+    emailSubject: null,
+    emailText: null,
   });
 
   if (deps.attachments !== undefined && orgId !== undefined && attachmentIds !== undefined && attachmentIds.length > 0) {

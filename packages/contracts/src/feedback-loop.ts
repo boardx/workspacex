@@ -488,6 +488,42 @@ export const operations = {
   },
 
   /**
+   * 一条反馈**完整的状态流水**——含每一步「有没有真的发邮件通知提交人、发的是什么」。
+   * 给后台看板的 detail 弹层用（人类原话：邮件的 update 需要可以在 detail 的界面看到）。
+   *
+   * ⚠ **组织管理员**，与 `getFeedbackGithubIssue` 同一条权限纪律（`canTriage`）——
+   *   不是「管理员 OR 提交人」（D3 只裁决了反馈正文，从没裁决过分诊历史；这条历史里
+   *   混着谁经手过，不该暴露给提交人）。见 `list-feedback-events.ts` 头注。
+   * ⚠ `notified: false` 时 `emailSubject`/`emailText` 恒为 `null`——不是「没发」加一句
+   *   「本来想发的文案」，那样调用方分不清「真没发」和「文案生成了但发送失败」。
+   */
+  listFeedbackStatusEvents: {
+    method: "GET",
+    path: "/feedback/:feedbackId/events",
+    in: z.object({ feedbackId: z.string() }).strict(),
+    out: z
+      .object({
+        events: z.array(
+          z
+            .object({
+              id: z.string(),
+              fromStatus: FeedbackStatus.nullable(),
+              toStatus: FeedbackStatus,
+              reason: z.string().nullable(),
+              actorId: z.string(),
+              notified: z.boolean(),
+              emailSubject: z.string().nullable(),
+              emailText: z.string().nullable(),
+              createdAt: z.string(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["FEEDBACK_NOT_FOUND", "PERMISSION_REVOKED"] as const,
+  },
+
+  /**
    * 往这条反馈挂着的 GitHub issue 下面发一条评论。**组织管理员**，手动输入、手动
    * 提交——不是状态转移的副作用（那条是 `triageFeedback` 内部恒定行为，见其头注，
    * 会自动带一条系统评论；这条是管理员想额外补充说明时用的，两者不是一回事）。

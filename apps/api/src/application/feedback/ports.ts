@@ -76,6 +76,23 @@ export interface StatusEvent {
   readonly toStatus: FeedbackStatus;
   readonly reason: string | null;
   readonly actorId: string;
+  /**
+   * 这次转移是否真的把状态变更邮件发出去了（best-effort，见
+   * `triage-feedback.ts` 的 `notifySubmitter`）。`emailSubject`/`emailText` 是
+   * 发出那一刻的快照——`notified === false` 时两者恒为 `null`（没发,自然没有
+   * 发了什么可存）。迁移 `20260902110613` 补的三列，理由见该文件头注。
+   */
+  readonly notified: boolean;
+  readonly emailSubject: string | null;
+  readonly emailText: string | null;
+}
+
+/**
+ * `listStatusEvents` 读回来的一行——比写入用的 `StatusEvent` 多一个 `createdAt`
+ * （写入不需要它,DB 默认 `now()`；读历史列表必须知道"这一步是什么时候发生的"）。
+ */
+export interface StatusEventRow extends StatusEvent {
+  readonly createdAt: string;
 }
 
 export interface FeedbackCounts {
@@ -103,6 +120,51 @@ export interface ProductFeedbackRepository {
   setVote(feedbackId: string, voterId: string, voted: boolean): Promise<{ readonly votes: number; readonly votedByMe: boolean }>;
   updateStatus(feedbackId: string, status: FeedbackStatus, reason: string | null): Promise<void>;
   appendStatusEvent(event: StatusEvent): Promise<void>;
+  /**
+   * **同一个数据库事务**里做两件事:改状态 + 落一行"这次转移发生过"的流水
+   * (`notified: false`,`emailSubject`/`emailText` 为 `null`——这一步还没发邮件,
+   * 见 `triageFeedback` 调用点)。2026-09-02 独立审查 P0 指出:分开调
+   * `updateStatus` + `appendStatusEvent` 两次 `withTenant`(两个独立事务)时,
+   * 前者成功、后者失败会让状态变了但一行历史都没有——**这条历史事实本身**
+   * 永久缺失,不是"缺一部分细节"。这个方法把这两步收进同一次 `withTenant`,
+   * 该事实要么两者一起提交、要么一起回滚,不再有中间态。
+   *
+   * ⚠ 不管**是否真的发出了通知邮件**——那一步(`notifySubmitter`)必须在状态
+   *   已经落库**之后**才发生(不能在状态生效前就告诉用户"变了"),因此天然不能
+   *   进这同一个事务。见 `markStatusEventNotified` 处理那一半。
+   */
+  transitionStatusWithEvent(
+    feedbackId: string,
+    status: FeedbackStatus,
+    reason: string | null,
+    event: Pick<StatusEvent, "id" | "feedbackId" | "fromStatus" | "toStatus" | "reason" | "actorId">,
+  ): Promise<void>;
+  /**
+   * `transitionStatusWithEvent` 落库之后,尝试发邮件的结果回填进**那一行已经
+   * 存在的**流水——不是新插入一行。调用方(`triageFeedback`)把它包在
+   * try/catch 里当 best-effort:这一步失败时,上面那行"转移发生过"的历史记录
+   * 依然在(只是 `notified` 保守地停在插入时的 `false`),不是整条历史消失。
+   * 见 issue #2510(与②③同类限制收敛成统一 outbox 的后续)。
+   *
+   * ⚠ 只能对同一行调**一次**——第二次调用会被数据库触发器拒绝(`false→false`
+   *   那条路径也算"回填过"了,不能被"notified 还是 false 所以再回填一次也无妨"
+   *   悄悄绕过,见迁移 `20260902140000_fb2_feedback_status_event_notify_settle
+   *   _once` 头注)。`notified: false` 时**必须**传 `null`/`null`——数据库同样
+   *   强制这条不变量,不只是信任调用方守规矩。
+   */
+  markStatusEventNotified(
+    eventId: string,
+    notified: boolean,
+    emailSubject: string | null,
+    emailText: string | null,
+  ): Promise<void>;
+  /**
+   * 这条反馈的完整状态流水，最旧的在前（管理员在 detail 弹层里从上往下读"发生了
+   * 什么"）。⚠ 不做租户外可见性判断——调用方（`list-feedback-events.ts`）已经
+   * 先 `findById` 确认过这条反馈在当前租户里存在,这里只是单纯按 `feedback_id`
+   * 取,与 `appendStatusEvent` 写入时的仓储天然绑租户（`forOrg`）同一份信任边界。
+   */
+  listStatusEvents(feedbackId: string): Promise<readonly StatusEventRow[]>;
   /**
    * "转开发"建完 GitHub issue 之后的一次回填。⚠ 只在 `triageFeedback` 用例内
    *   **确认这条反馈还没有 issue**（`githubIssueUrl === null`）时才会被调用一次——

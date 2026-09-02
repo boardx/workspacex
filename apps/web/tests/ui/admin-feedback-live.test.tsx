@@ -17,6 +17,10 @@
  *   （UC-17.6 A1/A2：点了没有目标屏的按钮比没有按钮更糟）——这与本文件测的真实
  *   `admin-feedback-kanban` 看板不是同一件事：旧按钮点了什么都不会发生，
  *   这里的看板是真接了后端的分列展示。
+ *
+ * ⚠ 2026-09-02 卡片简化：正文/处理说明/GitHub 区块/分诊按钮全部挪进了 detail
+ *   弹层（见 `feedback-screen.tsx` 头注）。本文件涉及这些的用例，先
+ *   `fireEvent.click(admin-feedback-item-<id>)` 打开弹层，再找里面的 testid。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -54,6 +58,9 @@ function mockApi(items: unknown[], overrides: Partial<Record<string, unknown>> =
     // 系统异常区块（见 `SystemExceptionsSection`）独立发起自己的一次请求——
     // 本文件的五件断言都与它无关，缺省给一个"空、无更多"的响应，不去断言它。
     if (path === "/system/error-logs") return { items: [], hasMore: false };
+    // 更新记录（见 `FeedbackEventsPanel`）弹层打开时才拉——本文件多数断言与它无关，
+    // 缺省给一个空数组，不去断言它。
+    if (path.endsWith("/events")) return { events: [] };
     return {};
   });
 }
@@ -104,6 +111,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
   it("③ detail 为 null ⇒ 说「仅组织管理员与提交人可见」，不说「暂无内容」", async () => {
     mockApi([skillItem]);
     render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-s"));
     const withheld = await screen.findByTestId("admin-feedback-detail-withheld-fb-s");
     expect(withheld.textContent).toContain("仅组织管理员与提交人可见");
   });
@@ -111,6 +119,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
   it("④ 转「不做」先要理由；理由为空时确认按钮不可点", async () => {
     mockApi([productItem]);
     render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-p"));
     fireEvent.click(await screen.findByTestId("admin-feedback-to-不做-fb-p"));
 
     const submit = screen.getByTestId("admin-feedback-decline-submit-fb-p") as HTMLButtonElement;
@@ -131,9 +140,52 @@ describe("FB-3 后台反馈屏（真栈）", () => {
     });
   });
 
+  /**
+   * 2026-09-02 CI 抓到的真实 bug：分诊成功会把这条反馈从一列的 DOM 子树搬到
+   * 另一列（`FeedbackColumn` 按状态各自渲染）——`open` 状态原来存在
+   * `FeedbackCard` 内部 `useState`，跨父节点搬迁对 React 来说是卸载重挂载，
+   * 状态被重置，管理员刚点完"确认不做"，弹层就无声关掉了。见
+   * `feedback-screen.tsx` 里 `openDetailId` 那段头注——状态挪到屏级之后
+   * 应该不再发生。
+   */
+  it("④ 转「不做」成功后卡片换列（DOM 子树搬迁），detail 弹层仍然开着", async () => {
+    let status: "待处理" | "不做" = "待处理";
+    let statusReason: string | null = null;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { reason?: string } }) => {
+      if (path === "/feedback/counts") return counts;
+      if (path === "/feedback" && (opts?.method ?? "GET") === "GET") {
+        return { items: [{ ...productItem, status, statusReason }] };
+      }
+      if (path.endsWith("/events")) return { events: [] };
+      if ((opts?.method ?? "GET") === "PUT") {
+        status = "不做";
+        statusReason = opts?.body?.reason ?? null;
+        return { feedbackId: productItem.id, status: "不做", notified: false };
+      }
+      return {};
+    });
+
+    render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-p"));
+    fireEvent.click(await screen.findByTestId("admin-feedback-to-不做-fb-p"));
+    fireEvent.change(screen.getByTestId("admin-feedback-decline-reason-fb-p"), {
+      target: { value: "与既有能力重复" },
+    });
+    fireEvent.click(screen.getByTestId("admin-feedback-decline-submit-fb-p"));
+
+    // 卡片确实换列了(⚠ 不是测试的重点，是它触发 bug 的必要条件)……
+    await waitFor(() => {
+      expect(screen.getByTestId("admin-feedback-column-不做").textContent).toContain(productItem.title);
+    });
+    // ……而弹层——同一个 data-testid——应该还开着，不是被无声关掉。
+    expect(screen.getByTestId("admin-feedback-detail-fb-p")).toBeTruthy();
+    expect(screen.getByTestId("admin-feedback-reason-fb-p").textContent).toContain("与既有能力重复");
+  });
+
   it("④ 转「已修复」/「待处理」直接发请求，不要理由，也不要弹层", async () => {
     mockApi([skillItem]); // skillItem 当前是「已进入迭代」，出边是 已修复/待处理/不做
     render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-s"));
     fireEvent.click(await screen.findByTestId("admin-feedback-to-已修复-fb-s"));
     await waitFor(() => {
       const put = apiRequest.mock.calls.find((c) => (c[1] as { method?: string })?.method === "PUT");
@@ -152,6 +204,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
   it("④ 转「已进入迭代」先展开可编辑的 issue 草稿，不立即发请求", async () => {
     mockApi([productItem]);
     render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-p"));
     fireEvent.click(await screen.findByTestId("admin-feedback-to-已进入迭代-fb-p"));
 
     expect(await screen.findByTestId("admin-feedback-issue-fb-p")).toBeTruthy();
@@ -163,6 +216,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
   it("④ issue 草稿预填自反馈本身（标题/正文/按 kind 的默认标签）", async () => {
     mockApi([productItem]);
     render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-p"));
     fireEvent.click(await screen.findByTestId("admin-feedback-to-已进入迭代-fb-p"));
 
     const title = (await screen.findByTestId("admin-feedback-issue-title-fb-p")) as HTMLInputElement;
@@ -178,6 +232,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
   it("④ 草稿可编辑，提交时发的是编辑后的值，不是预填的默认值", async () => {
     mockApi([productItem]);
     render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-p"));
     fireEvent.click(await screen.findByTestId("admin-feedback-to-已进入迭代-fb-p"));
 
     fireEvent.change(await screen.findByTestId("admin-feedback-issue-title-fb-p"), {
@@ -209,6 +264,7 @@ describe("FB-3 后台反馈屏（真栈）", () => {
   it("④ 取消 issue 草稿不发请求，按钮重新出现", async () => {
     mockApi([productItem]);
     render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-p"));
     fireEvent.click(await screen.findByTestId("admin-feedback-to-已进入迭代-fb-p"));
     await screen.findByTestId("admin-feedback-issue-fb-p");
 
@@ -220,10 +276,25 @@ describe("FB-3 后台反馈屏（真栈）", () => {
     ).toHaveLength(0);
   });
 
+  /**
+   * 2026-09-02 独立审查：卡片是 `role="button"` 的 `<div>`（Radix `DialogTrigger
+   * asChild` 只透传 `onClick`），纯键盘操作者必须能用 Enter/Space 打开它，
+   * 不能只靠鼠标点击。
+   */
+  it("键盘：卡片聚焦后按 Enter 打开 detail 弹层（不止鼠标点击）", async () => {
+    mockApi([productItem]);
+    render(<FeedbackScreen state="default" />);
+    const card = await screen.findByTestId("admin-feedback-item-fb-p");
+    expect(screen.queryByTestId("admin-feedback-detail-fb-p")).toBeNull();
+
+    fireEvent.keyDown(card, { key: "Enter" });
+    expect(await screen.findByTestId("admin-feedback-detail-fb-p")).toBeTruthy();
+  });
+
   it("④ 只出现当前状态出得去的那几条边 —— 「已进入迭代」不该有转到自己的按钮", async () => {
     mockApi([skillItem]);
     render(<FeedbackScreen state="default" />);
-    await screen.findByTestId("admin-feedback-item-fb-s");
+    fireEvent.click(await screen.findByTestId("admin-feedback-item-fb-s"));
     expect(screen.queryByTestId("admin-feedback-to-已进入迭代-fb-s")).toBeNull();
     expect(screen.getByTestId("admin-feedback-to-已修复-fb-s")).toBeTruthy();
   });

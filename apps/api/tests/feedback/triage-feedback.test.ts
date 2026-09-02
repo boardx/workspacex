@@ -66,10 +66,15 @@ function fakeRepo(initial: FeedbackRow): ProductFeedbackRepository & { current: 
     list: vi.fn(),
     findById: vi.fn(async () => state.current),
     setVote: vi.fn(),
-    updateStatus: vi.fn(async (_id, status, reason) => {
+    // ⚠ 用不到——`triageFeedback` 走的是 `transitionStatusWithEvent`（同一事务
+    //   改状态 + 写流水，见接口头注 2026-09-02 独立审查 P0）。留着只是满足
+    //   `ProductFeedbackRepository` 的完整形状，别的用例（如仓储直连测试）会用到。
+    updateStatus: vi.fn(),
+    appendStatusEvent: vi.fn(),
+    transitionStatusWithEvent: vi.fn(async (_id, status, reason) => {
       state.current = { ...state.current, status, statusReason: reason };
     }),
-    appendStatusEvent: vi.fn(),
+    markStatusEventNotified: vi.fn(),
     claimGithubIssueCreation: vi.fn(async () => {
       if (state.current.githubIssueUrl !== null || state.claimed) return false;
       state.claimed = true;
@@ -208,8 +213,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
         ...ADMIN,
       }),
     ).rejects.toBeInstanceOf(FeedbackIssueCreationFailedError);
-    expect(repo.updateStatus).not.toHaveBeenCalled();
-    expect(repo.appendStatusEvent).not.toHaveBeenCalled();
+    expect(repo.transitionStatusWithEvent).not.toHaveBeenCalled();
     // best-effort 邮件也不该发——状态根本没变,没有什么值得通知的事实。
     expect(deps.mail.send).not.toHaveBeenCalled();
   });
@@ -256,8 +260,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
       }),
     ).rejects.toBeInstanceOf(FeedbackIssueInProgressError);
     expect(deps.githubIssues.create).not.toHaveBeenCalled();
-    expect(repo.updateStatus).not.toHaveBeenCalled();
-    expect(repo.appendStatusEvent).not.toHaveBeenCalled();
+    expect(repo.transitionStatusWithEvent).not.toHaveBeenCalled();
     expect(repo.releaseGithubIssueClaim).not.toHaveBeenCalled(); // 没认领到,没有什么好释放的
     expect(deps.mail.send).not.toHaveBeenCalled();
   });
@@ -291,6 +294,77 @@ describe("triageFeedback —— 状态变更邮件（best-effort）", () => {
     }
   });
 
+  it("状态与「转移发生过」这一行历史是同一次调用(同一个事务)——transitionStatusWithEvent 只落 notified:false 的占位", async () => {
+    const repo = fakeRepo(row({ status: "待处理" }));
+    const deps = baseDeps({ repo });
+    await triageFeedback(deps, {
+      feedbackId: "fb-1", status: "已进入迭代", reason: null, issueDraft: null, ...ADMIN,
+    });
+
+    expect(repo.transitionStatusWithEvent).toHaveBeenCalledWith(
+      "fb-1", "已进入迭代", null,
+      expect.objectContaining({ fromStatus: "待处理", toStatus: "已进入迭代", actorId: ADMIN.actorId }),
+    );
+  });
+
+  it("markStatusEventNotified 收到的是这次真的发出去的通知快照,不是「本来想发的模板」", async () => {
+    const repo = fakeRepo(row({ status: "待处理" }));
+    const deps = baseDeps({ repo });
+    await triageFeedback(deps, {
+      feedbackId: "fb-1", status: "已进入迭代", reason: null, issueDraft: null, ...ADMIN,
+    });
+
+    expect(repo.markStatusEventNotified).toHaveBeenCalledWith(
+      expect.any(String), true, expect.stringContaining("已进入迭代"), expect.any(String),
+    );
+  });
+
+  it("邮件发送失败 ⇒ markStatusEventNotified 收到 notified:false 且 subject/text 为 null,不是「曾经打算发的」内容", async () => {
+    const repo = fakeRepo(row());
+    const deps = baseDeps({
+      repo,
+      mail: { send: vi.fn(async () => { throw new Error("smtp down"); }) },
+    });
+    await triageFeedback(deps, {
+      feedbackId: "fb-1", status: "已进入迭代", reason: null, issueDraft: null, ...ADMIN,
+    });
+
+    expect(repo.markStatusEventNotified).toHaveBeenCalledWith(expect.any(String), false, null, null);
+  });
+
+  /**
+   * 2026-09-02 独立审查 P0（两轮）：`transitionStatusWithEvent` 已经保证"这次
+   * 转移发生过"这一行历史与状态变更同一个事务——不会因为②(发邮件)或这里
+   * 要测的 `markStatusEventNotified` 失败而消失。`markStatusEventNotified`
+   * 只回填那一行**已经存在**的通知结果,失败时最坏情况是这一行历史停在插入时
+   * 的 `notified: false`,不是"这件事本身查无此事"。
+   */
+  it("markStatusEventNotified 失败（邮件已经发出去之后）⇒ 不抛给调用方，状态/通知结果原样返回，只记日志", async () => {
+    const repo = fakeRepo(row());
+    (repo.markStatusEventNotified as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      throw new Error("db write failed");
+    });
+    const deps = baseDeps({ repo });
+
+    const out = await triageFeedback(deps, {
+      feedbackId: "fb-1", status: "已进入迭代", reason: null, issueDraft: null, ...ADMIN,
+    });
+
+    // 状态确实变了、邮件确实（尝试）发了——回填通知结果失败没有让这两件已经
+    // 发生的事"看起来没发生"，调用方拿到的仍然是一次成功的转移。
+    expect(repo.transitionStatusWithEvent).toHaveBeenCalledWith(
+      "fb-1", "已进入迭代", null, expect.objectContaining({ toStatus: "已进入迭代" }),
+    );
+    expect(deps.mail.send).toHaveBeenCalled();
+    expect(out.status).toBe("已进入迭代");
+    expect(out.notified).toBe(true);
+    // 失败被记下来了，不是静默丢掉——见文件头④⑤「已知限制」段落，issue #2510。
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("markStatusEventNotified"),
+      expect.objectContaining({ feedbackId: "fb-1" }),
+    );
+  });
+
   it("幂等重放(目标状态=当前状态)不发邮件", async () => {
     const deps = baseDeps({ repo: fakeRepo(row({ status: "已进入迭代" })) });
     const out = await triageFeedback(deps, {
@@ -318,8 +392,9 @@ describe("triageFeedback —— 状态变更邮件（best-effort）", () => {
       ...ADMIN,
     });
     // 状态确实变了、流水确实写了——邮件失败没有让这次转移"看起来没发生"。
-    expect(repo.updateStatus).toHaveBeenCalledWith("fb-1", "已进入迭代", null);
-    expect(repo.appendStatusEvent).toHaveBeenCalled();
+    expect(repo.transitionStatusWithEvent).toHaveBeenCalledWith(
+      "fb-1", "已进入迭代", null, expect.objectContaining({ toStatus: "已进入迭代" }),
+    );
     expect(out.status).toBe("已进入迭代");
     // 失败被如实回报,不是被静默吞掉成 notified:true。
     expect(out.notified).toBe(false);

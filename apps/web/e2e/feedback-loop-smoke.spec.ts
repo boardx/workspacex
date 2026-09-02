@@ -113,6 +113,35 @@ function findAdminCard(page: Page, title: string): Locator {
   return page.locator('[data-testid^="admin-feedback-item-"]').filter({ hasText: title });
 }
 
+/**
+ * 2026-09-02 卡片简化：正文/处理说明/GitHub 区块/分诊按钮全部搬进了 detail
+ * 弹层，点卡片才打开（见 `feedback-screen.tsx` 头注）。弹层是 Radix Portal，
+ * 挂在卡片元素之外，所以打开之后要用返回的弹层 locator 去找里面的东西，
+ * 不能再 `card.locator(...)`。一次只开一个——用完记得 `closeDetail`。
+ */
+/**
+ * ⚠ `[data-testid^="admin-feedback-detail-"]` 也匹配得到弹层**内部**的
+ * `admin-feedback-detail-withheld-<id>`（正文无权时那句说明）——同一个前缀,
+ * 两个不同的元素,选择器不加 `[role="dialog"]` 会在正文被隐藏的那条反馈上撞出
+ * Playwright strict-mode violation（2026-09-02 CI 红过一次，见 PR #2508）。
+ * 弹层本体是 Radix `DialogContent`,恒有 `role="dialog"`,那句说明没有。
+ */
+function detailDialogLocator(page: Page): Locator {
+  return page.locator('[role="dialog"][data-testid^="admin-feedback-detail-"]');
+}
+
+async function openCardDetail(page: Page, card: Locator): Promise<Locator> {
+  await card.click();
+  const dialog = detailDialogLocator(page);
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+async function closeDetail(page: Page): Promise<void> {
+  await page.keyboard.press("Escape");
+  await expect(detailDialogLocator(page)).toHaveCount(0);
+}
+
 test.describe("反馈端到端：不同种类从前端提交，后台真的看得见", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -208,15 +237,21 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     // 计数是分诊面板的数字，非管理员应当 403 —— 不是崩溃、不是显示 0。
     await expect(page.getByTestId("admin-feedback-counts-unavailable")).toBeVisible();
 
-    // 自己那条：正文可见（提交人恒可见自己写的字）。
+    // 自己那条：正文可见（提交人恒可见自己写的字）。正文在 detail 弹层里，
+    // 不在卡片面上（2026-09-02 卡片简化）。
     const ownCard = findAdminCard(page, TITLES.productReq);
-    await expect(ownCard).toContainText("现在录音列表是全组织的");
+    const ownDetail = await openCardDetail(page, ownCard);
+    await expect(ownDetail).toContainText("现在录音列表是全组织的");
+    await closeDetail(page);
 
-    // 引导师那条：标题看得到（D3 标题全组织可见），正文看不到（D3 只有管理员/提交人）。
+    // 引导师那条：标题看得到（D3 标题全组织可见，卡片面上），正文看不到
+    // （D3 只有管理员/提交人，弹层里显示的是权限说明而不是原文）。
     const strangerCard = findAdminCard(page, TITLES.productBug);
     await expect(strangerCard).toBeVisible();
-    await expect(strangerCard).toContainText("仅组织管理员与提交人可见");
-    await expect(strangerCard).not.toContainText("每次都要重填 token 预算");
+    const strangerDetail = await openCardDetail(page, strangerCard);
+    await expect(strangerDetail).toContainText("仅组织管理员与提交人可见");
+    await expect(strangerDetail).not.toContainText("每次都要重填 token 预算");
+    await closeDetail(page);
   });
 
   test("管理员：四条全部可见分列正确，投票/分诊/带理由拒绝三连", async ({ page }) => {
@@ -266,13 +301,19 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     await expect(pendingColumn).toContainText(TITLES.skillBug);
     await expect(pendingColumn).toContainText(TITLES.agentReq);
 
-    // 管理员对所有人的正文都可见——包括非提交人、非管理员自己提的那条。
+    // 管理员对所有人的正文都可见——包括非提交人、非管理员自己提的那条。正文在
+    // detail 弹层里（2026-09-02 卡片简化），点卡片打开才看得到。
     const bugCardAsAdmin = findAdminCard(page, TITLES.productBug);
-    await expect(bugCardAsAdmin).toContainText("每次都要重填 token 预算");
-    const memberCardAsAdmin = findAdminCard(page, TITLES.productReq);
-    await expect(memberCardAsAdmin).toContainText("现在录音列表是全组织的");
+    const bugDetailPreview = await openCardDetail(page, bugCardAsAdmin);
+    await expect(bugDetailPreview).toContainText("每次都要重填 token 预算");
+    await closeDetail(page);
 
-    /* ── 投票：真实 COUNT(*)，不是本地乐观值 ── */
+    const memberCardAsAdmin = findAdminCard(page, TITLES.productReq);
+    const memberDetail = await openCardDetail(page, memberCardAsAdmin);
+    await expect(memberDetail).toContainText("现在录音列表是全组织的");
+    await closeDetail(page);
+
+    /* ── 投票：真实 COUNT(*)，不是本地乐观值（票数按钮留在卡片面上，不用开弹层） ── */
     const voteButton = bugCardAsAdmin.locator('[data-testid^="admin-feedback-vote-"]');
     await expect(voteButton).toContainText("0");
     const voted = page.waitForResponse(
@@ -300,9 +341,11 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
      * 断言到"界面如实反映了刚刚发生的事"，不管哪条分支都不允许"看起来成功了但其实
      * 什么都没发生"。 */
     const hasGithubToken = Boolean(process.env.GITHUB_ISSUE_TOKEN);
-    const toIterating = bugCardAsAdmin.locator('[data-testid^="admin-feedback-to-已进入迭代-"]');
+    // 分诊按钮挪进了 detail 弹层（2026-09-02 卡片简化），先点卡片打开。
+    const bugDialog = await openCardDetail(page, bugCardAsAdmin);
+    const toIterating = bugDialog.locator('[data-testid^="admin-feedback-to-已进入迭代-"]');
     await toIterating.click();
-    const issueSubmit = bugCardAsAdmin.locator('[data-testid^="admin-feedback-issue-submit-"]');
+    const issueSubmit = bugDialog.locator('[data-testid^="admin-feedback-issue-submit-"]');
     await expect(issueSubmit).toBeVisible();
     const triaged = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes(`${API}/feedback`),
@@ -313,6 +356,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     if (hasGithubToken) {
       expect(triagedResponse.status()).toBe(200);
       await expect(bugCardAsAdmin).toContainText("已进入迭代");
+      await closeDetail(page);
 
       await page.reload();
       const bugCardAfterReload = findAdminCard(page, TITLES.productBug);
@@ -330,6 +374,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
       await expect(page.getByTestId("admin-feedback-action-error")).toBeVisible();
       await expect(bugCardAsAdmin).not.toContainText("已进入迭代");
       await expect(voteButton).toContainText("1");
+      await closeDetail(page);
 
       await page.reload();
       const bugCardAfterReload = findAdminCard(page, TITLES.productBug);
@@ -337,15 +382,17 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
       await expect(bugCardAfterReload).toContainText("1");
     }
 
-    /* ── 分诊：转「不做」，理由必填 —— 不填不让确认（服务端与界面双重把关） ── */
+    /* ── 分诊：转「不做」，理由必填 —— 不填不让确认（服务端与界面双重把关） ──
+     * 分诊按钮挪进了 detail 弹层（2026-09-02 卡片简化），先点卡片打开。 */
     const agentCardAsAdmin = findAdminCard(page, TITLES.agentReq);
-    const toDecline = agentCardAsAdmin.locator('[data-testid^="admin-feedback-to-不做-"]');
+    const agentDialog = await openCardDetail(page, agentCardAsAdmin);
+    const toDecline = agentDialog.locator('[data-testid^="admin-feedback-to-不做-"]');
     await toDecline.click();
-    const declineSubmit = agentCardAsAdmin.locator('[data-testid^="admin-feedback-decline-submit-"]');
+    const declineSubmit = agentDialog.locator('[data-testid^="admin-feedback-decline-submit-"]');
     await expect(declineSubmit).toBeDisabled();
 
     const declineReason = "已改用更聚焦的问答方式，不再计划做原文引用";
-    const declineReasonInput = agentCardAsAdmin.locator('[data-testid^="admin-feedback-decline-reason-"]');
+    const declineReasonInput = agentDialog.locator('[data-testid^="admin-feedback-decline-reason-"]');
     await declineReasonInput.fill(declineReason);
     await expect(declineSubmit).toBeEnabled();
     const declined = page.waitForResponse(
@@ -357,6 +404,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     const declinedBody = (await declinedResponse.json()) as { status?: string };
     expect(declinedBody.status).toBe("不做");
     await expect(agentCardAsAdmin).toContainText("不做");
-    await expect(agentCardAsAdmin).toContainText(declineReason);
+    // 处理说明在 detail 弹层里，不在卡片面上（2026-09-02 卡片简化）。
+    await expect(agentDialog).toContainText(declineReason);
   });
 });

@@ -35,7 +35,20 @@ import type {
   ProductFeedbackRepository,
   ProductFeedbackRepositoryFactory,
   StatusEvent,
+  StatusEventRow,
 } from "../../application/feedback/ports";
+
+interface StatusEventDbRow {
+  readonly id: string;
+  readonly from_status: string | null;
+  readonly to_status: string;
+  readonly reason: string | null;
+  readonly actor_id: string;
+  readonly notified: boolean;
+  readonly email_subject: string | null;
+  readonly email_text: string | null;
+  readonly created_at: Date | string;
+}
 
 interface FeedbackDbRow {
   readonly id: string;
@@ -303,10 +316,94 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
     await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       await s.query(
         `INSERT INTO product_feedback_status_events
-           (id, org_id, feedback_id, from_status, to_status, reason, actor_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+           (id, org_id, feedback_id, from_status, to_status, reason, actor_id, notified, email_subject, email_text)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          event.id, this.orgId, event.feedbackId, event.fromStatus, event.toStatus, event.reason, event.actorId,
+          event.notified, event.emailSubject, event.emailText,
+        ],
+      );
+    });
+  }
+
+  /**
+   * 一次 `withTenant` = 一次事务(见 `pg-database.ts` 的 `inTx`)——UPDATE 与
+   * INSERT 在同一个 `withTenant` 回调里,天然同一个事务,要么都提交要么都回滚。
+   * 见接口头注:这是本方法存在的唯一理由,不要为了"复用" `updateStatus`/
+   * `appendStatusEvent` 而拆成两次 `withTenant` 调用——拆开就丢了原子性。
+   */
+  async transitionStatusWithEvent(
+    feedbackId: string,
+    status: FeedbackStatus,
+    reason: string | null,
+    event: Pick<StatusEvent, "id" | "feedbackId" | "fromStatus" | "toStatus" | "reason" | "actorId">,
+  ): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `UPDATE product_feedback SET status = $3, status_reason = $4
+          WHERE org_id = $2 AND id = $1`,
+        [feedbackId, this.orgId, status, reason],
+      );
+      await s.query(
+        `INSERT INTO product_feedback_status_events
+           (id, org_id, feedback_id, from_status, to_status, reason, actor_id, notified, email_subject, email_text)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,false,NULL,NULL)`,
         [event.id, this.orgId, event.feedbackId, event.fromStatus, event.toStatus, event.reason, event.actorId],
       );
+    });
+  }
+
+  /**
+   * ⚠ 只 UPDATE 通知这三列——流水表本体是 append-only(触发器原样拦所有
+   *   UPDATE,见迁移 `20260815140000_fb2_product_feedback.sql`)。迁移
+   *   `20260902130000_fb2_feedback_status_event_notified_patch` 把触发器改成
+   *   只放行"只碰这三列、且只从 `notified=false` 回填一次"这一种形状的
+   *   UPDATE——本方法发出的正是这种形状,写法对不上（比如漏传 eventId 导致撞了
+   *   别的行,或对同一行调第二次）在数据库层面会被原样拒绝,不是仅凭这里的
+   *   TypeScript 类型签名自觉。
+   */
+  async markStatusEventNotified(
+    eventId: string,
+    notified: boolean,
+    emailSubject: string | null,
+    emailText: string | null,
+  ): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      // ⚠ 必须一并 SET `notification_settled_at = now()`——触发器
+      //   (`20260902140000_fb2_feedback_status_event_notify_settle_once`)拿它当
+      //   "这一行有没有被回填过"的哨兵,与 `notified` 最终是 true 还是 false 无关。
+      //   漏了这一列,这条 UPDATE 会被触发器原样拒绝(NEW.notification_settled_at
+      //   IS NULL),不是"悄悄没生效"。
+      await s.query(
+        `UPDATE product_feedback_status_events
+            SET notified = $3, email_subject = $4, email_text = $5, notification_settled_at = now()
+          WHERE org_id = $2 AND id = $1`,
+        [eventId, this.orgId, notified, emailSubject, emailText],
+      );
+    });
+  }
+
+  async listStatusEvents(feedbackId: string): Promise<readonly StatusEventRow[]> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<StatusEventDbRow>(
+        `SELECT id, from_status, to_status, reason, actor_id, notified, email_subject, email_text, created_at
+           FROM product_feedback_status_events
+          WHERE org_id = $2 AND feedback_id = $1
+          ORDER BY created_at ASC`,
+        [feedbackId, this.orgId],
+      );
+      return rows.map((r) => ({
+        id: r.id,
+        feedbackId,
+        fromStatus: r.from_status as FeedbackStatus | null,
+        toStatus: r.to_status as FeedbackStatus,
+        reason: r.reason,
+        actorId: r.actor_id,
+        notified: r.notified,
+        emailSubject: r.email_subject,
+        emailText: r.email_text,
+        createdAt: new Date(r.created_at).toISOString(),
+      }));
     });
   }
 

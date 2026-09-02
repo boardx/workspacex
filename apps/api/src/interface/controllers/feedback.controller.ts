@@ -81,6 +81,7 @@ import {
   FeedbackGithubIssueQueryFailedError,
   getFeedbackGithubIssue,
 } from "../../application/feedback/get-feedback-github-issue";
+import { listFeedbackEvents } from "../../application/feedback/list-feedback-events";
 import {
   FeedbackCommentBodyRequiredError,
   FeedbackGithubCommentFailedError,
@@ -329,6 +330,40 @@ export class FeedbackController {
       );
     } catch (e) {
       throw mapGithubIssueSideEffectError(e) ?? e;
+    }
+  }
+
+  /**
+   * 一条反馈完整的状态流水——含每一步"有没有真的发邮件通知提交人、发的是什么"。
+   * 给后台看板的 detail 弹层用。见用例 `list-feedback-events.ts` 头注:与
+   * `githubIssue` 同一条权限纪律(`canTriage`),不是"管理员 OR 提交人"。
+   */
+  @Get("/feedback/:feedbackId/events")
+  async events(@CurrentPrincipal() principal: Principal, @Param("feedbackId") feedbackId: string) {
+    assertPrincipal(principal);
+    const { orgRole } = await this.viewerRole(principal);
+    try {
+      const events = await listFeedbackEvents(
+        { repo: this.feedback.forOrg(principal.orgId) },
+        { feedbackId, actorId: principal.userId, actorOrgRole: orgRole },
+      );
+      return {
+        events: events.map((e) => ({
+          id: e.id,
+          fromStatus: e.fromStatus,
+          toStatus: e.toStatus,
+          reason: e.reason,
+          actorId: e.actorId,
+          notified: e.notified,
+          emailSubject: e.emailSubject,
+          emailText: e.emailText,
+          createdAt: e.createdAt,
+        })),
+      };
+    } catch (e) {
+      if (e instanceof FeedbackTriageForbiddenError) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
+      if (e instanceof FeedbackNotFoundError) throw new NotFoundException({ reasonCode: "FEEDBACK_NOT_FOUND" });
+      throw e;
     }
   }
 

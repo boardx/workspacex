@@ -7,6 +7,7 @@ import { AdminScreen } from "./admin-screen";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ViewModeToggle, type EntityViewMode } from "./view-mode-toggle";
 import { ApiError } from "@/lib/api-client";
 import {
@@ -14,6 +15,7 @@ import {
   getFeedbackCounts,
   getFeedbackGithubIssue,
   listFeedback,
+  listFeedbackStatusEvents,
   triageFeedback,
   voteFeedback,
   type FeedbackCounts,
@@ -22,6 +24,7 @@ import {
   type FeedbackItem,
   type FeedbackKind,
   type FeedbackStatus,
+  type FeedbackStatusEvent,
 } from "@/lib/live-feedback";
 import { listSystemErrorLogs, type SystemErrorLogItem } from "@/lib/live-system-errors";
 import type { UiState } from "@/lib/ui-state";
@@ -56,10 +59,26 @@ import type { UiState } from "@/lib/ui-state";
  *
  * ## GitHub issue 状态/评论(见 `apps/api/.../triage-feedback.ts` 头注①②③)
  *
- * 卡片上出现的 GitHub 区块只在这条反馈已经建过 issue(`githubIssueUrl !== null`)
- * 时渲染。开关状态与关联 PR **现查、不落库**(见契约 `getFeedbackGithubIssue`
+ * GitHub 区块只在这条反馈已经建过 issue(`githubIssueUrl !== null`)时渲染。
+ * 开关状态与关联 PR **现查、不落库**(见契约 `getFeedbackGithubIssue`
  * 头注),因此默认折叠、管理员点「查看 GitHub 状态」才发请求——不随看板一起
  * 批量拉,避免刷新一次页面就对 GitHub API 发 N 个请求。
+ *
+ * ## 2026-09-02 卡片简化 + detail 弹层(人类看真实后台截图后直接裁决)
+ *
+ * 卡片原先把状态/类型/票数/来源/正文/处理说明/GitHub 区块/分诊按钮全部摊开,
+ * 一列四五张卡片就把整屏塞满。人类原话:「这个界面要简化……请模拟 trello 的
+ * 看板要方便实用,隐藏细节,点击一个任务卡片可以看到更多的细节,细节可以在
+ * detail 的 popup 里面查看,不要在卡片上。」
+ *
+ *   · **卡片只留**:状态/类型徽标、标题、票数、来源图标、创建时间——一眼扫得完。
+ *   · **点卡片**(不含票数按钮,票数按钮 `stopPropagation`)打开 `Dialog`,
+ *     正文/处理说明/GitHub 区块/分诊按钮/更新记录全部搬进弹层。
+ *   · **更新记录**(邮件通知历史,FB-2 补的三列:`notified`/`email_subject`/
+ *     `email_text`,见迁移 `fb2_feedback_status_event_notification`)是这次
+ *     新增的一段——人类原话:「系统的处理需要给提交问题的用户提交邮件的
+ *     update,邮件的 update 需要可以在 detail 的界面可以看到」。弹层打开时
+ *     才拉(`GET /feedback/:id/events`),不随看板批量拉,同 GitHub 区块那条纪律。
  */
 
 const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutral"> = {
@@ -153,6 +172,17 @@ export function FeedbackScreen({ state }: { state: UiState }) {
    *   列表这种没人想要、也没人会去对齐的状态。
    */
   const [viewMode, setViewMode] = React.useState<EntityViewMode>("card");
+  /**
+   * 哪条反馈的 detail 弹层开着——**提到屏级**，不是 `FeedbackCard` 内部 `useState`
+   * （2026-09-02 CI 抓到的真实 bug）：卡片按状态分四列渲染,分诊把一条反馈的状态
+   * 真的改了之后,它会从一列的 DOM 子树搬到另一列的 DOM 子树——即使 React key
+   * 相同,跨父节点的搬迁对 React reconciler 来说是卸载再重新挂载,组件内部
+   * `useState` 会被重置。原来的写法导致管理员刚点完"确认不做"，卡片一移动
+   * 到「不做」列，弹层就被无声关掉——他看不到刚发生的事，只能重新点开。
+   * 状态挪到这里之后,弹层开关只取决于 `openDetailId === item.id`，与卡片
+   * 具体挂在哪个 DOM 子树无关。
+   */
+  const [openDetailId, setOpenDetailId] = React.useState<string | null>(null);
 
   const reload = React.useCallback(async () => {
     setLoad({ kind: "loading" });
@@ -274,6 +304,8 @@ export function FeedbackScreen({ state }: { state: UiState }) {
                   viewMode={viewMode}
                   items={filtered.filter((f) => f.status === status)}
                   busyId={busyId}
+                  openDetailId={openDetailId}
+                  onOpenDetailChange={setOpenDetailId}
                   onVote={(f) => void act(() => voteFeedback(f.id, !f.votedByMe), f.id)}
                   onTriage={(f, next, reason, issueDraft) =>
                     void act(() => triageFeedback(f.id, next, reason, issueDraft ?? null), f.id)
@@ -480,13 +512,15 @@ function FeedbackFilters({
 }
 
 function FeedbackColumn({
-  status, caption, viewMode, items, busyId, onVote, onTriage,
+  status, caption, viewMode, items, busyId, openDetailId, onOpenDetailChange, onVote, onTriage,
 }: {
   status: FeedbackStatus;
   caption: string;
   viewMode: EntityViewMode;
   items: readonly FeedbackItem[];
   busyId: string | null;
+  openDetailId: string | null;
+  onOpenDetailChange: (id: string | null) => void;
   onVote: (item: FeedbackItem) => void;
   onTriage: (
     item: FeedbackItem,
@@ -515,6 +549,8 @@ function FeedbackColumn({
               key={item.id}
               item={item}
               busy={busyId === item.id}
+              open={openDetailId === item.id}
+              onOpenChange={(next) => onOpenDetailChange(next ? item.id : null)}
               onVote={() => onVote(item)}
               onTriage={(next, reason, issueDraft) => onTriage(item, next, reason, issueDraft)}
             />
@@ -534,52 +570,113 @@ function targetChip(item: FeedbackItem) {
 }
 
 function FeedbackCard({
-  item, busy, onVote, onTriage,
+  item, busy, open, onOpenChange, onVote, onTriage,
 }: {
   item: FeedbackItem;
   busy: boolean;
+  /**
+   * detail 弹层开关——**受屏级 `openDetailId` 控制**，不是本组件的内部状态
+   * （见 `FeedbackScreen` 里 `openDetailId` 那段头注：分诊会把这条反馈的卡片
+   * 搬到另一列的 DOM 子树，组件内部 `useState` 在那一刻会被重置，弹层因此
+   * 无声关掉）。
+   */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onVote: () => void;
   onTriage: (next: FeedbackStatus, reason: string | null, issueDraft?: FeedbackIssueDraft | null) => void;
 }) {
-  const [decliningReason, setDecliningReason] = React.useState<string | null>(null);
-  // ⚠ `null` = 弹层未打开。**打开时才计算默认值**（不是在组件挂载时算一次），
-  //   因为 item.title / item.detail 可能在弹层打开之前就已经变了（例如切换视图后
-  //   重新拉取到了新的正文可见性）——打开那一刻的 item 才是管理员实际看到的那份。
-  const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(null);
-  const [labelsText, setLabelsText] = React.useState("");
   const chip = targetChip(item);
   const KindIcon = item.kind === "缺陷" ? Bug : Lightbulb;
 
   return (
-    <Card data-testid={`admin-feedback-item-${item.id}`}>
-      <CardContent className="flex flex-col gap-2 py-3">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <Badge tone={STATUS_TONE[item.status]} data-testid={`admin-feedback-status-${item.id}`}>
-            {item.status}
-          </Badge>
-          <Badge tone="outline">
-            <KindIcon aria-hidden className="mr-1 inline h-3 w-3" />
-            {item.kind}
-          </Badge>
-          <span className="min-w-0 flex-1 text-12 font-medium">{item.title}</span>
-          <Button
-            size="xs"
-            variant={item.votedByMe ? "primary" : "ghost"}
-            disabled={busy}
-            aria-pressed={item.votedByMe}
-            onClick={onVote}
-            data-testid={`admin-feedback-vote-${item.id}`}
-          >
-            <ThumbsUp aria-hidden className="h-3 w-3" />
-            {item.votes}
-          </Button>
-        </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        {/*
+          卡片本身就是打开 detail 弹层的触发器——票数按钮 `stopPropagation`，不冒泡
+          到这里。⚠ 2026-09-02 独立审查：`role="button"` 的 `<div>` 不像原生
+          `<button>` 那样自带 Enter/Space 激活语义（Radix `asChild` 只透传
+          `onClick`，不会替非原生元素补键盘行为）——显式补上，否则纯键盘操作者
+          打不开这个弹层。
+        */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" && e.key !== " ") return;
+            e.preventDefault();
+            e.currentTarget.click();
+          }}
+          className="cursor-pointer transition-colors duration-fast hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          data-testid={`admin-feedback-item-${item.id}`}
+        >
+          <CardContent className="flex flex-col gap-1.5 py-3">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              <Badge tone={STATUS_TONE[item.status]} data-testid={`admin-feedback-status-${item.id}`}>
+                {item.status}
+              </Badge>
+              <Badge tone="outline">
+                <KindIcon aria-hidden className="mr-1 inline h-3 w-3" />
+                {item.kind}
+              </Badge>
+              <span className="min-w-0 flex-1 truncate text-12 font-medium">{item.title}</span>
+              <Button
+                size="xs"
+                variant={item.votedByMe ? "primary" : "ghost"}
+                disabled={busy}
+                aria-pressed={item.votedByMe}
+                onClick={(e) => { e.stopPropagation(); onVote(); }}
+                data-testid={`admin-feedback-vote-${item.id}`}
+              >
+                <ThumbsUp aria-hidden className="h-3 w-3" />
+                {item.votes}
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-11 text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <chip.Icon aria-hidden className="h-3 w-3" />
+                {chip.text}
+              </span>
+              <span>{new Date(item.createdAt).toLocaleString("zh-CN")}</span>
+            </div>
+          </CardContent>
+        </Card>
+      </DialogTrigger>
+      <FeedbackDetailDialog item={item} open={open} busy={busy} onTriage={onTriage} />
+    </Dialog>
+  );
+}
 
+/**
+ * detail 弹层——卡片被隐藏的一切都在这里:上下文/正文/处理说明/GitHub 区块/
+ * 分诊按钮/更新记录（邮件通知历史）。见文件头「2026-09-02 卡片简化」。
+ */
+function FeedbackDetailDialog({
+  item, open, busy, onTriage,
+}: {
+  item: FeedbackItem;
+  open: boolean;
+  busy: boolean;
+  onTriage: (next: FeedbackStatus, reason: string | null, issueDraft?: FeedbackIssueDraft | null) => void;
+}) {
+  const [decliningReason, setDecliningReason] = React.useState<string | null>(null);
+  // ⚠ `null` = 弹层未打开过。**打开时才计算默认值**（不是在组件挂载时算一次），
+  //   因为 item.title / item.detail 可能在弹层打开之前就已经变了（例如切换视图后
+  //   重新拉取到了新的正文可见性）——打开那一刻的 item 才是管理员实际看到的那份。
+  const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(null);
+  const [labelsText, setLabelsText] = React.useState("");
+
+  return (
+    <DialogContent className="max-w-lg" data-testid={`admin-feedback-detail-${item.id}`}>
+      <DialogHeader>
+        <DialogTitle>{item.title}</DialogTitle>
+        <DialogDescription className="flex flex-wrap items-center gap-1.5">
+          <Badge tone={STATUS_TONE[item.status]}>{item.status}</Badge>
+          <Badge tone="outline">{item.kind}</Badge>
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="flex max-h-[65vh] flex-col gap-3 overflow-y-auto pr-1">
         <div className="flex flex-wrap items-center gap-2 text-11 text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
-            <chip.Icon aria-hidden className="h-3 w-3" />
-            {chip.text}
-          </span>
           {/* I-F1：复现上下文分列存、分列显示。取不到就不显示那一项，不写「未知」占位 */}
           {item.occurredRoute !== null && <code className="font-mono">{item.occurredRoute}</code>}
           {item.appVersion !== null && <span>版本 {item.appVersion}</span>}
@@ -722,8 +819,103 @@ function FeedbackCard({
             ))}
           </div>
         )}
-      </CardContent>
-    </Card>
+
+        <FeedbackEventsPanel feedbackId={item.id} open={open} />
+      </div>
+    </DialogContent>
+  );
+}
+
+type FeedbackEventsLoad =
+  | { kind: "loading" }
+  | { kind: "ready"; events: readonly FeedbackStatusEvent[] }
+  | { kind: "failed"; reason: string };
+
+/**
+ * 「更新记录」——一条反馈完整的状态流水,含每一步有没有真的发邮件通知提交人、
+ * 发的是什么(见契约 `listFeedbackStatusEvents` 头注)。弹层打开时才拉——同
+ * `GithubIssuePanel` 那条纪律,不随看板批量拉;与 GitHub 区块不同的是这里读的
+ * 是本仓自己的库(不是限流的外部 API),所以不需要再等管理员多点一次「查看」,
+ * 打开弹层即触发。
+ *
+ * ⚠ `notified: false` 时不渲染邮件文案区块——不是「没发」还配一句「本来想发的
+ *   文案」,契约已经把这两种情况分开(见契约头注)。
+ */
+function FeedbackEventsPanel({ feedbackId, open }: { feedbackId: string; open: boolean }) {
+  const [load, setLoad] = React.useState<FeedbackEventsLoad>({ kind: "loading" });
+
+  React.useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setLoad({ kind: "loading" });
+    listFeedbackStatusEvents(feedbackId)
+      .then((events) => { if (!cancelled) setLoad({ kind: "ready", events }); })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoad({
+          kind: "failed",
+          reason: err instanceof ApiError ? (err.reasonCode ?? `http_${err.status}`) : String(err),
+        });
+      });
+    return () => { cancelled = true; };
+  }, [open, feedbackId]);
+
+  return (
+    <section className="flex flex-col gap-1.5 border-t border-border-subtle pt-2.5" data-testid={`admin-feedback-events-${feedbackId}`}>
+      <h3 className="text-12 font-semibold">更新记录</h3>
+
+      {load.kind === "loading" && (
+        <p className="text-11 text-muted-foreground" data-testid={`admin-feedback-events-loading-${feedbackId}`}>
+          正在读取更新记录…
+        </p>
+      )}
+
+      {load.kind === "failed" && (
+        <p className="text-11 text-destructive" data-testid={`admin-feedback-events-failed-${feedbackId}`}>
+          更新记录取不到（{load.reason}）。
+        </p>
+      )}
+
+      {load.kind === "ready" && (
+        load.events.length === 0 ? (
+          <p className="text-11 text-muted-foreground" data-testid={`admin-feedback-events-empty-${feedbackId}`}>
+            还没有状态变更记录。
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1.5" data-testid={`admin-feedback-events-list-${feedbackId}`}>
+            {load.events.map((e) => (
+              <li
+                key={e.id}
+                className="flex flex-col gap-1 rounded-md border border-border-subtle bg-panel p-2"
+                data-testid={`admin-feedback-event-${e.id}`}
+              >
+                <div className="flex flex-wrap items-center gap-1.5 text-10 text-muted-foreground">
+                  <span>{new Date(e.createdAt).toLocaleString("zh-CN")}</span>
+                  <span>{e.fromStatus ?? "（提交）"} → {e.toStatus}</span>
+                </div>
+                {e.reason !== null && <p className="text-11">理由：{e.reason}</p>}
+                {e.notified ? (
+                  <div
+                    className="flex flex-col gap-0.5 rounded border border-border-subtle bg-card p-1.5"
+                    data-testid={`admin-feedback-event-email-${e.id}`}
+                  >
+                    <span className="text-10 font-medium text-muted-foreground">已通知提交人</span>
+                    {e.emailSubject !== null && <p className="text-11 font-medium">{e.emailSubject}</p>}
+                    {e.emailText !== null && (
+                      <p className="whitespace-pre-wrap text-11 text-muted-foreground">{e.emailText}</p>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-10 text-muted-foreground" data-testid={`admin-feedback-event-not-notified-${e.id}`}>
+                    未发送邮件通知
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )
+      )}
+    </section>
   );
 }
 
