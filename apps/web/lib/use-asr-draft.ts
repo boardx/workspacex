@@ -184,7 +184,7 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId 
             `ASR_PROVIDER_UNAVAILABLE`），不是"这段录音失败了"——已经落定的转录一个字都
             没丢，用户要的收尾也已经发生。把它当整段失败会在界面上变成"语音识别暂时不可用
             + 重试"，与用户刚做的事完全对不上。这里按正常收尾处理（与 `onFinished` 同一条
-            路），错误只留在控制台。停止**之前**的错误仍如实报。
+            路），错误只留在控制台。停止「之前」的错误仍如实报。
           */
           if (stoppingRef.current) {
             stoppingRef.current = false;
