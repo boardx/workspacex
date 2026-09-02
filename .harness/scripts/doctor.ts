@@ -21,6 +21,7 @@ import {
 } from "./lib/feature-evidence-ratchet";
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
+import { describeIssueListFailure, listAllIssues } from "./lib/github-issues";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
 import type { Feature } from "./lib/types";
@@ -325,30 +326,20 @@ export interface GhIssue {
  *   降级为 WARN，也不要拿一份残缺清单去判「这个 feature 没有 issue」** ——
  *   用不完整的数据做否定性判断，正是本仓一整天在抓的那种「红得不对」。
  */
-const ISSUE_PAGE_LIMIT = 5000;
-
+// 清单加载已收敛到 lib/github-issues.ts（#2483）：sync 的同款 `--limit 500` 停了一个月没跟上
+// 这里 2026-08-05 的修法，同一件事两处各写一套正是漂移的来源。这里只保留 doctor 的降级语义。
 function loadIssues(): GhIssue[] | null {
-  const r = sh(
-    `gh issue list --state all --limit ${ISSUE_PAGE_LIMIT} --json number,state,body,stateReason`,
-    REPO_ROOT,
-  );
-  if (r.code !== 0) return null; // 没装 gh / 没登录 / 离线：降级为 WARN，不阻断本地开发
-  try {
-    const rows = JSON.parse(r.stdout) as GhIssue[];
-    if (rows.length >= ISSUE_PAGE_LIMIT) {
-      // 触顶 ⇒ 可能被截断 ⇒ 这份清单不足以支撑「某个 feature 没有 issue」这种否定性判断。
-      // 走 stdout：doctor 其余的 ✗/⚠ 都在这条流上，另开一条会让它在 CI 日志里
-      // 与上下文脱节，也让「跳过了这项检查」这件事更难被看见。
-      process.stdout.write(
-        `⚠ [doctor] issue 清单可能被截断（返回 ${rows.length} 条，上限 ${ISSUE_PAGE_LIMIT}）——` +
-        `本次跳过「开发任务必须在 issue 上可见」的检查，而不是用残缺清单误判。\n`,
-      );
-      return null;
-    }
-    return rows;
-  } catch {
-    return null;
+  const r = listAllIssues({ cwd: REPO_ROOT });
+  if (r.kind === "ok") return r.issues;
+  if (r.kind === "truncated") {
+    // 触顶 ⇒ 可能被截断 ⇒ 这份清单不足以支撑「某个 feature 没有 issue」这种否定性判断。
+    // 走 stdout：doctor 其余的 ✗/⚠ 都在这条流上，另开一条会让它在 CI 日志里
+    // 与上下文脱节，也让「跳过了这项检查」这件事更难被看见。
+    process.stdout.write(
+      `⚠ [doctor] ${describeIssueListFailure(r)}——本次跳过「开发任务必须在 issue 上可见」的检查，而不是用残缺清单误判。\n`,
+    );
   }
+  return null; // 没装 gh / 没登录 / 离线：降级为 WARN，不阻断本地开发
 }
 
 function findIssue(issues: GhIssue[], phaseId: string, f: Feature): GhIssue | undefined {
