@@ -316,6 +316,52 @@ test("Design.pdf §4：三栏拖拽编辑器 —— 拖到画布、显示设置 
 });
 
 
+test("#2535：列数选 1 列、最多条数减到 1、换贴纸色 → 保存不再 400，刷新后仍是这些值", async ({ page }) => {
+  const failures: string[] = [];
+  page.on("pageerror", (e) => failures.push(`page error: ${e.message}`));
+
+  await loginAsAdmin(page);
+  await openLibrary(page);
+
+  const stamp = String(Date.now()).slice(-6);
+  const key = await createWithTags(page, `边界值 ${stamp}`, []);
+  await expectCardGrid(page);
+  await page.getByTestId(`tpladmin-card-${key}-1`).click();
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+
+  await page.getByTestId("tpladmin-editor-new-key").fill("gains");
+  await page.getByTestId("tpladmin-editor-new-name").fill("收获");
+  await page.getByTestId("tpladmin-editor-new-add").click();
+  await page.getByTestId("tpladmin-editor-field-gains").dragTo(page.getByTestId("tpladmin-editor-canvas"));
+  await expect(page.getByTestId("tpladmin-editor-display")).toBeVisible();
+
+  // 用户报告的操作：改列数（选到契约此前不收的 1 列）+ 改贴纸色；再把条数减到下限 1。
+  await page.getByTestId("tpladmin-editor-cols-1").click();
+  await expect(page.getByTestId("tpladmin-editor-col-note")).toContainText("这块地方 1 列");
+  await page.getByTestId("tpladmin-editor-tone-3").click();
+  const maxValue = page.getByTestId("tpladmin-editor-max-value");
+  const dec = page.getByTestId("tpladmin-editor-max-dec");
+  while ((await maxValue.textContent())?.trim() !== "1") await dec.click();
+  await expect(dec).toBeDisabled();
+
+  // 保存：此前这里是「无 reasonCode（HTTP 400）」。
+  await page.getByTestId("tpladmin-editor-save").click();
+  await expect(page.getByTestId("tpladmin-editor-save")).toHaveText("已保存");
+  await expect(page.getByTestId("tpladmin-editor-error")).toHaveCount(0);
+
+  // 刷新 → 重新进编辑器 → 选中区块 → 三个值都还在。
+  await page.reload();
+  await expectCardGrid(page);
+  await page.getByTestId(`tpladmin-card-${key}-1`).click();
+  await expect(page.getByTestId("tpladmin-editor-panel")).toBeVisible();
+  await page.locator('[data-testid^="tpladmin-editor-block-"]').first().click();
+  await expect(page.getByTestId("tpladmin-editor-col-note")).toContainText("这块地方 1 列");
+  await expect(page.getByTestId("tpladmin-editor-max-value")).toHaveText("1");
+  await expect(page.getByTestId("tpladmin-editor-tone-3")).toHaveCSS("border-color", "rgb(20, 19, 15)");
+
+  expect(failures).toEqual([]);
+});
+
 test("Design.pdf §7 第 6/7 条：纸面与内容区比值精确，且贴纸内文字不被裁切", async ({ page }) => {
   await loginAsAdmin(page);
   await openLibrary(page);

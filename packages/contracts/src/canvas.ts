@@ -261,32 +261,37 @@ export const SectionFieldType = z.enum(["便利贴列表", "短文本", "长文�
  * `col/row` 是网格左上角坐标（1 起），`w/h` 是列/行跨度；`cols`/`max`/`tone`/`overflow`
  * 是「显示方式」，只影响呈现，不影响字段定义本身（`Design.pdf` §2.2 Block 原话）。
  */
+/**
+ * `SectionLayout` 里三个「显示方式」数值的**唯一事实源**（issue #2535，2026-09-02）。
+ *
+ * 编辑器（`apps/web/.../template-editor-model.ts` 的 `COLS_OPTIONS`/`MAX_COUNT_MIN`/
+ * `MAX_COUNT_MAX`、`TONE_COLORS` 色板长度）与下方 Zod schema **都从这里派生**，不各写
+ * 一份数字——2026-08-26 / 08-30 两次按人类反馈放开编辑器档位（列数 1–8、条数 1–99）
+ * 时契约没跟着改，使用者选 1/2 列保存就被入参校验打回 HTTP 400，且框架层校验失败
+ * 没有 `reasonCode`，界面只剩「无 reasonCode（HTTP 400）」。同一事实声明在两处只改
+ * 一处，正是 AGENTS.md「同一事实不得声明在两处」那条漂移；现在只有这一处。
+ *
+ * - `cols`：贴纸横向列数，1 列＝竖排长列表，8 列＝密集小方格，纯排版偏好。
+ * - `max`：最多渲染条数（同时是提示词的条数上限），上限宽裕但不失控。
+ * - `tone`：贴纸色板下标（0 黄 / 1 粉 / 2 绿 / 3 蓝），色板本体在前端。
+ */
+export const SECTION_LAYOUT_BOUNDS = {
+  cols: { min: 1, max: 8 },
+  max: { min: 1, max: 99 },
+  tone: { min: 0, max: 3 },
+} as const;
+
 export const SectionLayout = z.object({
   col: z.number().int().min(1).max(12),
   row: z.number().int().min(1).max(8),
   w: z.number().int().min(1).max(12),
   h: z.number().int().min(1).max(8),
-  /**
-   * 贴纸横向列数，仅列表型有效。
-   *
-   * ⚠ 下界从 3 放宽到 1（issue #2535，2026-09-02）：编辑器 `COLS_OPTIONS` 早在
-   *   2026-08-26 就按人类反馈改成 1–8 全量，这里却还卡在 `min(3)`——使用者在界面上
-   *   选 1/2 列，保存时被契约入参校验打回 HTTP 400，而框架层的校验失败没有
-   *   `reasonCode`，左下角只能显示「无 reasonCode（HTTP 400）」。同一事实（列数档位）
-   *   声明在两处、且只改了一处，正是 AGENTS.md 那条「同一事实不得声明在两处」的
-   *   漂移；单一事实源以此处契约为准，前端常量必须落在这个区间内。
-   */
-  cols: z.number().int().min(1).max(8),
-  /**
-   * 最多渲染条数，同时是提示词的条数上限。
-   *
-   * ⚠ 同上（issue #2535）：编辑器「最多条数」步进器 2026-08-30 已改为 1–99 全量整数
-   *   （`MAX_COUNT_MIN`/`MAX_COUNT_MAX`），契约仍是 `[3, 9]`，条数选 1/2 或 ≥10
-   *   都会以同一种方式 400。放宽到 1–99 与编辑器对齐。
-   */
-  max: z.number().int().min(1).max(99),
-  /** 贴纸色：0 黄 / 1 粉 / 2 绿 / 3 蓝。 */
-  tone: z.number().int().min(0).max(3),
+  /** 贴纸横向列数，仅列表型有效。区间见 `SECTION_LAYOUT_BOUNDS.cols`。 */
+  cols: z.number().int().min(SECTION_LAYOUT_BOUNDS.cols.min).max(SECTION_LAYOUT_BOUNDS.cols.max),
+  /** 最多渲染条数，同时是提示词的条数上限。区间见 `SECTION_LAYOUT_BOUNDS.max`。 */
+  max: z.number().int().min(SECTION_LAYOUT_BOUNDS.max.min).max(SECTION_LAYOUT_BOUNDS.max.max),
+  /** 贴纸色：0 黄 / 1 粉 / 2 绿 / 3 蓝。区间见 `SECTION_LAYOUT_BOUNDS.tone`。 */
+  tone: z.number().int().min(SECTION_LAYOUT_BOUNDS.tone.min).max(SECTION_LAYOUT_BOUNDS.tone.max),
   overflow: z.enum(["缩小字号", "叠放", "截断"]),
 }).strict();
 
