@@ -1230,16 +1230,42 @@ export function CopilotKitV2PanelBody({
    */
   const messagesContentRef = React.useRef<HTMLDivElement | null>(null);
   const programmaticScrollRef = React.useRef(false);
+  const programmaticScrollTimerRef = React.useRef<number | null>(null);
+
+  /**
+   * PR #2530 review（exact-SHA reviewer 第 1 条）—— 这个标记不能只靠"抵达底部的
+   * `scroll` 事件"或"滚轮/触摸/键盘"来解除：`auto` 滚动在位置没变时根本不发
+   * `scroll` 事件，用户拖滚动条滑块（pointer）也不是 wheel/touch。标记一旦卡住，
+   * 后面用户真实往上翻的 `scroll` 会被当成"程序化途中"吞掉——按钮不出现、内容
+   * 长高还把人拉回底部。所以解除条件是四个里**任一**：抵达底部的 `scroll`、
+   * `scrollend`（支持的浏览器）、pointer/滚轮/触摸/键盘介入、以及一个有界超时
+   * （平滑滚动动画不会超过这个时长；`auto` 立即完成）。`setProgrammaticScroll`
+   * 是唯一的置位入口，置位同时起表；`clearProgrammaticScroll` 是唯一的解除入口。
+   */
+  const PROGRAMMATIC_SCROLL_MAX_MS = 1_000;
+  const clearProgrammaticScroll = React.useCallback(() => {
+    programmaticScrollRef.current = false;
+    if (programmaticScrollTimerRef.current !== null) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+      programmaticScrollTimerRef.current = null;
+    }
+  }, []);
+  const setProgrammaticScroll = React.useCallback(() => {
+    if (programmaticScrollTimerRef.current !== null) window.clearTimeout(programmaticScrollTimerRef.current);
+    programmaticScrollRef.current = true;
+    programmaticScrollTimerRef.current = window.setTimeout(clearProgrammaticScroll, PROGRAMMATIC_SCROLL_MAX_MS);
+  }, [clearProgrammaticScroll]);
+  React.useEffect(() => clearProgrammaticScroll, [clearProgrammaticScroll]);
 
   const scrollMessagesToBottom = React.useCallback((behavior: ScrollBehavior) => {
     const el = messagesContainerRef.current;
     // jsdom（组件测试环境）不实现 `Element.scrollTo`——与下面 `matchMedia` 同一类
     // "真实浏览器才有、测试环境没有"的能力守卫，不是本功能的正常路径分支。
     if (el === null || typeof el.scrollTo !== "function") return;
-    programmaticScrollRef.current = true;
+    setProgrammaticScroll();
     el.scrollTo({ top: el.scrollHeight, behavior });
     setIsAtBottom(true);
-  }, []);
+  }, [setProgrammaticScroll]);
 
   const prefersReducedMotion = React.useCallback((): boolean => {
     // 与 `use-section-navigation.ts` 同一处守卫——jsdom 测试环境不提供 `matchMedia`。
@@ -1253,17 +1279,26 @@ export function CopilotKitV2PanelBody({
     const nearBottom = isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight);
     if (programmaticScrollRef.current) {
       // 我们自己发起的滚动还在路上：中间位置不算"用户离开了底部"。抵达即解除标记。
-      if (nearBottom) programmaticScrollRef.current = false;
+      if (nearBottom) clearProgrammaticScroll();
       return;
     }
     setIsAtBottom(nearBottom);
-  }, []);
+  }, [clearProgrammaticScroll]);
 
-  // 用户主动介入（滚轮 / 触摸 / 方向键）即刻解除"程序化滚动中"标记——之后的
-  // `scroll` 事件才是用户意图的真实信号。
+  // 用户主动介入（滚轮 / 触摸 / 方向键 / 按下指针拖滚动条）即刻解除"程序化滚动中"
+  // 标记——之后的 `scroll` 事件才是用户意图的真实信号。
   const handleUserScrollIntent = React.useCallback(() => {
-    programmaticScrollRef.current = false;
-  }, []);
+    clearProgrammaticScroll();
+  }, [clearProgrammaticScroll]);
+
+  // `scrollend`（Chrome 114+/Firefox 109+；Safari 尚无）：平滑滚动真正结束的权威信号。
+  // 不支持的浏览器由上面的有界超时兜底。React 还没有 `onScrollEnd` prop，手动挂。
+  React.useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (el === null) return;
+    el.addEventListener("scrollend", clearProgrammaticScroll);
+    return () => el.removeEventListener("scrollend", clearProgrammaticScroll);
+  }, [clearProgrammaticScroll]);
 
   // 贴底时新消息/流式增量到达自动跟随；一旦用户往上翻（`isAtBottom` 变 false），
   // 这个 effect 直接不跑，不打断阅读——与 Slack/Discord 同一条纪律。
@@ -1271,9 +1306,9 @@ export function CopilotKitV2PanelBody({
     if (!isAtBottom) return;
     const el = messagesContainerRef.current;
     if (el === null || typeof el.scrollTo !== "function") return;
-    programmaticScrollRef.current = true;
+    setProgrammaticScroll();
     el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
-  }, [agent.messages, isAtBottom]);
+  }, [agent.messages, isAtBottom, setProgrammaticScroll]);
 
   // 见上方 ③：贴底态下内容长高（惰性渲染的图表、加载完的图片）也要跟住。
   React.useEffect(() => {
@@ -1283,12 +1318,12 @@ export function CopilotKitV2PanelBody({
     if (content === null || el === null || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(() => {
       if (typeof el.scrollTo !== "function") return;
-      programmaticScrollRef.current = true;
+      setProgrammaticScroll();
       el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
     });
     ro.observe(content);
     return () => ro.disconnect();
-  }, [isAtBottom]);
+  }, [isAtBottom, setProgrammaticScroll]);
 
   // `Cmd/Ctrl+End` 跳到最新——只认组合键，不拦截输入框里普通 `End`（移到行尾）。
   React.useEffect(() => {
@@ -1509,6 +1544,7 @@ export function CopilotKitV2PanelBody({
           onWheel={handleUserScrollIntent}
           onTouchMove={handleUserScrollIntent}
           onKeyDown={handleUserScrollIntent}
+          onPointerDown={handleUserScrollIntent}
           className="flex-1 overflow-y-auto bg-background p-3"
           data-testid="copilotkit-v2-messages"
         >
