@@ -64,6 +64,7 @@ import type {
 import { mutateThread, TitleInvalidError } from "../chat/mutate-thread";
 import { readAgentRun, AgentRunNotVisibleError } from "./read-run";
 import { DEFAULT_RUN_POLL_INTERVAL_MS, DEFAULT_RUN_MAX_POLLS } from "./poll-budget";
+import type { AguiRunPhase } from "@repo/contracts/agui-state-events";
 import {
   decideAgentRun, AgentRunNotAwaitingApprovalError, type DecideAgentRunDeps,
 } from "./decide-agent-run";
@@ -180,6 +181,15 @@ export interface AguiBridgeInput {
    * other step, matching the exact behaviour before this parameter existed.
    */
   readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
+  /**
+   * 2026-09-02 —— run 在第一个工具调用 / 第一个 token 之前的两个真实阶段（见
+   * `@repo/contracts/agui-state-events` 的 `AGUI_RUN_PHASE_EVENT_NAME` 头注）：
+   *   · `context_building`：本轮询第一次看到 `status === "running"`（执行器已认领）；
+   *   · `model_thinking`：账本里第一次出现 `context_built` 步骤。
+   * 每个阶段最多触发一次；与 `onStep` 读的是同一次 `readAgentRun`，没有额外查询。
+   * 省略时行为与此前逐字相同。
+   */
+  readonly onPhase?: (phase: AguiRunPhase) => void;
 }
 
 /** The subset of a `tool_call` `AppendedRunStep` an AG-UI consumer needs -- `runId`/`seq`
@@ -243,6 +253,7 @@ async function pollAguiRunToOutcome(
     readonly maxPolls?: number;
     readonly onDelta?: (delta: string) => void;
     readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
+    readonly onPhase?: (phase: AguiRunPhase) => void;
     /**
      * DA-19g -- where THIS call's cursors start from, not always "the beginning of the
      * run's own history". A fresh turn (`runAguiBridgeTurn`) has nothing to skip -- the run
@@ -269,6 +280,8 @@ async function pollAguiRunToOutcome(
   const maxPolls = input.maxPolls ?? DEFAULT_RUN_MAX_POLLS;
   let lastSeenDeltaSeq = input.initialLastSeenDeltaSeq ?? -1;
   let reportedStepCount = input.initialReportedStepCount ?? 0;
+  let reportedRunning = false;
+  let reportedContextBuilt = false;
 
   // See `runAguiBridgeTurn`'s file-head comment on the 2026-08-08 CI-only race this closes.
   const flushRemainingDeltas = async (): Promise<void> => {
@@ -289,6 +302,17 @@ async function pollAguiRunToOutcome(
       }
     }
     const projection = await readAgentRun(deps, { userId: input.userId, orgId: input.orgId, runId });
+    if (input.onPhase) {
+      if (!reportedRunning && projection.status !== "queued") {
+        reportedRunning = true;
+        if (projection.status === "running") input.onPhase("context_building");
+      }
+      if (!reportedContextBuilt
+        && projection.steps.slice(reportedStepCount).some((step) => step.kind === "context_built")) {
+        reportedContextBuilt = true;
+        if (projection.status === "running") input.onPhase("model_thinking");
+      }
+    }
     if (input.onStep) {
       // DA-19g -- `true` only when THIS iteration's run status is genuinely
       // `"awaiting_approval"` -- see `AguiBridgeInput.onStep`'s own doc for why
@@ -357,14 +381,14 @@ export async function runAguiBridgeTurn(
     userId: input.userId, orgId: input.orgId, threadId,
     clientMessageId: input.clientMessageId, text: input.text, agentId: input.agentId,
     attachmentIds: input.attachmentIds,
+    onAccepted: () => deps.executor.kick(input.orgId),
   });
-  deps.executor.kick(input.orgId);
   input.onStarted?.();
 
   return pollAguiRunToOutcome(deps, {
     userId: input.userId, orgId: input.orgId, threadId, runId: accepted.agentRunId,
     pollIntervalMs: input.pollIntervalMs, maxPolls: input.maxPolls,
-    onDelta: input.onDelta, onStep: input.onStep,
+    onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
   });
 }
 
@@ -405,6 +429,7 @@ export async function resumeAguiBridgeTurn(
     readonly onStarted?: () => void;
     readonly onDelta?: (delta: string) => void;
     readonly onStep?: (step: RunStepPublic, isPendingApproval: boolean) => void;
+    readonly onPhase?: (phase: AguiRunPhase) => void;
     readonly pollIntervalMs?: number;
     readonly maxPolls?: number;
   },
@@ -448,7 +473,7 @@ export async function resumeAguiBridgeTurn(
   return pollAguiRunToOutcome(deps, {
     userId: input.userId, orgId: input.orgId, threadId: input.threadId, runId,
     pollIntervalMs: input.pollIntervalMs, maxPolls: input.maxPolls,
-    onDelta: input.onDelta, onStep: input.onStep,
+    onDelta: input.onDelta, onStep: input.onStep, onPhase: input.onPhase,
     initialReportedStepCount, initialLastSeenDeltaSeq,
   });
 }

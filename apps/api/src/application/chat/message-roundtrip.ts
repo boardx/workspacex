@@ -134,6 +134,16 @@ export async function acceptHumanMessage(
     text: string; agentId: string;
     /** #946 · V9-a F151：挂到本消息的已上传 pending 附件 id（可选）。 */
     attachmentIds?: readonly string[];
+    /**
+     * 消息 + 排队 run **已落库**之后、自动命名**之前**的钩子——调用方在这里 `kick`
+     * 执行器（见下方 `autoTitleFromFirstMessage` 头注「2026-09-02 更新」）。
+     * 真正新受理时调用一次；幂等命中（同一 clientMessageId 重发）也会调（见下方
+     * `if (existing)` 分支自己的注——第一次请求落库成功但 kick 丢失时，这是唯一能把
+     * 卡住的 queued run 捞回来的路径，`kick` 本身对已在跑/已完成的 run 是 no-op）。
+     * 不会调的只有「起名」那一半：起名逻辑在这个钩子之后单独跑，幂等命中直接
+     * return，走不到那一步。
+     */
+    onAccepted?: () => void;
   },
 ): Promise<AcceptedHumanMessage> {
   const visibility = await authorize(deps, input);
@@ -152,6 +162,17 @@ export async function acceptHumanMessage(
     if (!samePayload(existing, { text: input.text, selectedAgentId: input.agentId })) {
       throw new MessageIdempotencyConflictError();
     }
+    // 2026-09-02 补（独立 review 抓到的回归）：幂等命中也要 kick。上面头注「只在真正
+    // 新受理时调用」说的是"起名"那一半——起名确实只该跑一次，这里也确实没跑。但
+    // `onAccepted` 现在**唯一**承载了 kick，而 `queued` run 的记录合同就是"下一条消息
+    // 的 kick 会捞回来"（`ports.ts` `reclaimStaleRunning` 头注）：第一次请求落库成功但
+    // `kick` 本身丢失/失败（进程死在落库和 kick 之间的那一小段），旧版本靠"调用方在
+    // accept 成功后无条件 kick"兜底——这个 return 分支绕过了新版本唯一的 kick 调用点，
+    // 相同 clientMessageId 的重试因此不再有机会把卡住的 queued run 捞回来。
+    // kick 本身是幂等的重新触发一次 `AgentRunExecutor.tick()`（`claimQueued` 只认
+    // `status='queued'` 的行，run 已经在跑或已完成时这次 tick 对它是 no-op），所以在
+    // 这里也调用它不会有副作用，只会补上原本可能丢失的那一次。
+    input.onAccepted?.();
     return existing;
   }
 
@@ -207,6 +228,10 @@ export async function acceptHumanMessage(
   const outcome = disclosedOutcome.payload;
   if (outcome.kind === "conflict") throw new MessageIdempotencyConflictError();
 
+  // run 已经在队列里了——先让执行器动起来，再去起名。起名最多等 THREAD_TITLE_TIMEOUT_MS，
+  // 放在 kick 之前就是让模型回复白白晚这么久（见 autoTitleFromFirstMessage 头注）。
+  input.onAccepted?.();
+
   await autoTitleFromFirstMessage(deps, {
     orgId: input.orgId,
     threadId: input.threadId,
@@ -252,11 +277,34 @@ export async function acceptHumanMessage(
  *
  * 见 `generate-thread-title.ts` 头注——`deriveThreadTitle` 一行没改，仍是失败/超时
  * 时唯一的落地点；这里只是多了一步"先问一次模型"。
+ *
+ * ## 2026-09-02 更新：起名不再挡在每条消息的回复前面
+ *
+ * 人类实测「最简单的消息也要等很久」，根因之一就在这一行：上面那步"先问一次模型"
+ * 是**每条消息**都问（不只首条），而且是在调用方 `kick` 执行器**之前**串行等它——
+ * 每条消息在模型开始回答之前先白等一次起名往返（起名模型慢/不支持时稳定吃满
+ * `THREAD_TITLE_TIMEOUT_MS` = 3 秒）。结果只在首条消息有用，其余全被
+ * `autoTitleThreadIfDefault` 的 `WHERE title = $默认名` 丢掉。两处修正：
+ *   1. **先 kick 再起名**：`acceptHumanMessage` 在 run 落库后立刻回调 `onAccepted`
+ *      （调用方在里面 kick），起名与真正的回答并行，不再串在前面。
+ *   2. **标题已不是默认名就不调模型**：先查 `isThreadTitleDefault`，非首条消息一次
+ *      模型往返都不发。只有首条起名这条规则仍只由那条 UPDATE 判定（见上「幂等」节）。
+ * 仍然 `await` 而不是扔到后台：REST 202 返回时标题已定，不出现「先显示新对话、
+ * 几秒后自己跳成模型版本」（`generate-thread-title.test.ts` ③ 的断言线）。
  */
 async function autoTitleFromFirstMessage(
   deps: Deps,
   input: { readonly orgId: OrgId; readonly threadId: string; readonly text: string },
 ): Promise<void> {
+  let stillDefault: boolean;
+  try {
+    stillDefault = await deps.chat.isThreadTitleDefault(
+      input.orgId, input.threadId, DEFAULT_PERSONAL_THREAD_TITLE,
+    );
+  } catch {
+    return; // 见下：消息已落库，起名链路上的任何失败都不该把请求打红。
+  }
+  if (!stillDefault) return;
   const modelTitle = await generateThreadTitle(deps, { firstMessageText: input.text }).catch(() => null);
   const title = modelTitle ?? deriveThreadTitle(input.text);
   // 正文全是空白 ⇒ 没有可用输入（模型也不可能凭空产出）。留着「新对话」，不编一个。

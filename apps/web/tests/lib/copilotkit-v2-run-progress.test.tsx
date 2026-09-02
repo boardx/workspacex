@@ -112,3 +112,44 @@ describe("useCopilotKitV2RunProgress -- call_skill 阶段文案细化（issue #2
     expect(result.current.phaseLabel).toBe("正在准备技能…");
   });
 });
+
+describe("useCopilotKitV2RunProgress -- 第一个工具调用之前的真实阶段（CUSTOM run_phase，2026-09-02）", () => {
+  it("RUN_STARTED 后收到 context_building / model_thinking ⇒ 准备阶段的文案随之变化，stage 仍是 preparing", () => {
+    const { agent, handlers } = fakeAgent();
+    const { result } = renderHook(() => useCopilotKitV2RunProgress(agent, true));
+
+    act(() => handlers.onRunStartedEvent?.({}));
+    expect(result.current.phaseLabel).toBe("正在准备…");
+
+    act(() => handlers.onCustomEvent?.({ event: { name: "run_phase", value: { phase: "context_building" } } }));
+    expect(result.current.phaseLabel).toBe("正在整理上下文…");
+    expect(result.current.stage).toBe("preparing");
+
+    act(() => handlers.onCustomEvent?.({ event: { name: "run_phase", value: { phase: "model_thinking" } } }));
+    expect(result.current.phaseLabel).toBe("模型正在思考…");
+    expect(result.current.stage).toBe("preparing");
+  });
+
+  it("已进入工具阶段后迟到的 run_phase 不把文案倒退回准备阶段", () => {
+    const { agent, handlers } = fakeAgent();
+    const { result } = renderHook(() => useCopilotKitV2RunProgress(agent, true));
+
+    act(() => handlers.onRunStartedEvent?.({}));
+    act(() => handlers.onToolCallStartEvent?.({
+      event: { toolCallId: "tc-9", toolCallName: "list_org_skills" },
+    }));
+    act(() => handlers.onCustomEvent?.({ event: { name: "run_phase", value: { phase: "model_thinking" } } }));
+    expect(result.current.phaseLabel).toBe("正在准备技能…");
+    expect(result.current.stage).toBe("acting");
+  });
+
+  it("别的 CUSTOM 事件 / 形状不对的 value 一律忽略", () => {
+    const { agent, handlers } = fakeAgent();
+    const { result } = renderHook(() => useCopilotKitV2RunProgress(agent, true));
+
+    act(() => handlers.onRunStartedEvent?.({}));
+    act(() => handlers.onCustomEvent?.({ event: { name: "chat_thread_id", value: "thr-1" } }));
+    act(() => handlers.onCustomEvent?.({ event: { name: "run_phase", value: { phase: "nonsense" } } }));
+    expect(result.current.phaseLabel).toBe("正在准备…");
+  });
+});

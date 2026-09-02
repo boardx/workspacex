@@ -128,6 +128,8 @@ import {
   parseWriteTodosSnapshot,
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
   AGUI_FILE_EVENT_NAME,
+  AGUI_RUN_PHASE_EVENT_NAME,
+  type AguiRunPhase,
   type JsonPatchOp,
 } from "@repo/contracts/agui-state-events";
 import { chatFileUpload } from "@repo/contracts";
@@ -720,6 +722,9 @@ export class CopilotkitAguiController {
         // [planning note text] → TOOL_CALL_START/ARGS/END/RESULT → STEP_FINISHED sequence
         // per step. DA-19g: an `"in_progress"` one (a pending HITL interrupt) stops short of
         // RESULT/STEP_FINISHED instead -- see `writeToolCallStep`'s own doc.
+        onPhase: (phase: AguiRunPhase) => {
+          write({ type: EventType.CUSTOM, name: AGUI_RUN_PHASE_EVENT_NAME, value: { phase } });
+        },
         onStep: (step: RunStepPublic, isPendingApproval: boolean) => writeToolCallStep(
           write, step, isPendingApproval,
           (todos) => {

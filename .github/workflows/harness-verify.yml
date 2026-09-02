@@ -223,7 +223,27 @@ jobs:
 
       # 只跑受本次改动影响的包（模块只测自己）。
       # PR：相对 base 分支；push main：相对上一个 commit。
-      - name: 受影响模块 typecheck/lint/test
+      #
+      # 2026-09-02（人类实测发现 backend-gates 与本 job 在同一次 push 上各自起一套
+      # Postgres、把 @repo/api 的 vitest 全套跑两遍——`gates-test` 4 分片跑一遍、这里
+      # `turbo run test --affected` 判定 @repo/api 受影响后又完整跑一遍，纯重复、不是
+      # 两道互补的门）：@repo/api 的 `test` 从这里的 `--affected` 集合里显式排除，
+      # 交回 `backend-gates.yml` 的 `gates-test` 分片 job 独家负责。typecheck/lint
+      # 仍然覆盖 @repo/api（这两项 backend-gates 只跑一次、不分片，没有重复问题）。
+      - name: 受影响模块 typecheck/lint
+        env:
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: pnpm turbo run typecheck lint --affected
+
+      # 2026-09-02 续（独立 review 抓到的真实回归）：上面「排除 @repo/api」的前提是
+      # backend-gates 的 gates-test 会替它把关——但 gates-test 对 **fork PR 整体跳过**
+      # （`backend-gates.yml` 每个 gates job 都带 `head.repo.full_name == github.repository`
+      # 同仓门，本文件历来没有对应的 fork 判断）。无条件排除会让 fork PR 改 apps/api 时
+      # 两边都不跑，零覆盖，不是「转移覆盖」。因此排除只在 gates-test 确实会跑的场景
+      # （非 PR 事件，或同仓 PR）生效；fork PR 上仍然把 @repo/api 留在 --affected 集合里，
+      # 保底覆盖不丢，只是这一种场景下放弃去重收益（fork PR 本就少见，宁可偶尔重复
+      # 跑一遍，不可接受的是不跑）。
+      - name: 受影响模块 test
         env:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
           # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
@@ -232,7 +252,22 @@ jobs:
           # 会话共享的库——门要挡的「不知情地连上共享库」在这个环境里没有对象。
           # ⚠ 自建 runner（常驻机器）上**不得**照抄这行：那里的库是真共享的。
           WORKSPACEX_DB: workspacex
-        run: pnpm turbo run typecheck lint test --affected
+          # ⚠ 写成"是不是 fork PR"而不是它的反命题——`pr-queue.test.ts`「#848 反证」对
+          # `REQUIRED_CHECKS` 里每个 job 的整段 body 文本做纯字符串匹配，禁止出现
+          # "event 名字 不等于 pull_request 字面量" 这个模式（那是「把 pull_request
+          # 排除在门禁之外」的信号，历史上真的把 e2e-full 挂过五天）。这里的用途完全
+          # 不同——只是判断 gates-test 会不会跑——但那条测试不认语义，只认字面量，
+          # 直接用 `!=` 写会被它当成同一种坏模式误伤（连本条注释都不能逐字写出那个
+          # 模式，同一原因）。用下面的 `==` 表达同一条件，语义不变。
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          if [ "$IS_FORK_PR" != "true" ]; then
+            # 同仓：@repo/api 交给 backend-gates 的分片 job，这里排除避免重复跑。
+            pnpm turbo run test --affected --filter='!@repo/api'
+          else
+            # fork PR：backend-gates 整个跳过，@repo/api 留在这里，保底不丢覆盖。
+            pnpm turbo run test --affected
+          fi
 
   # 全仓编译门（ADR-106 S2 / #1333）——人类裁决方案 A（经 coord-main 转达）：
   # PR 上加一条**全仓** typecheck/lint/build，**不含全量 test**，因此不与
