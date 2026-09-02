@@ -20,7 +20,18 @@ import { stringify } from "yaml";
 import { analyzeRewriteCoverage, staleAllowlistEntries } from "./lib/rewrite-coverage.ts";
 import { buildRewriteCoverageEvidence } from "./lib/rewrite-coverage-evidence.ts";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+// #2490：两个 CLI 旗标。
+//   --strict  扫不全（incomplete）也退出非 0。PR 门控必须带它：一道 required check 在
+//             「没做判断」时给绿，就是 fail-open——controller 目录挪走、next.config 读不到、
+//             扫描器退化，PR 照样绿，门等于没装。本地/只读审计不带它，保留 WARN 降级。
+//   --root D  以 D 为仓库根读输入（controllers/、next.config.mjs、allowlist）。只给行为测试
+//             制造「扫不全」用；CI 的命令行里没有它，不构成绕过面（它是显式参数，不是环境变量）。
+const argv = process.argv.slice(2);
+const STRICT = argv.includes("--strict");
+const rootArgIdx = argv.indexOf("--root");
+const ROOT = rootArgIdx >= 0 && argv[rootArgIdx + 1]
+  ? argv[rootArgIdx + 1]
+  : join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CONTROLLERS = join(ROOT, "apps/api/src/interface/controllers");
 const NEXT_CONFIG = join(ROOT, "apps/web/next.config.mjs");
 const ALLOWLIST = join(ROOT, ".harness/state/rewrite-coverage-allowlist.json");
@@ -78,6 +89,10 @@ try {
 if (report.incomplete) {
   console.warn(`! [rewrite-coverage] 扫不全，本次不判定：${report.incompleteReason}`);
   console.warn("  这不是「通过」，是「没做判断」——请修扫描器或路径，别让它一直静默。");
+  if (STRICT) {
+    console.error("✗ [rewrite-coverage] --strict：门控模式下「没做判断」不能当绿，退出非 0（#2490）。");
+    process.exit(1);
+  }
   process.exit(0);
 }
 

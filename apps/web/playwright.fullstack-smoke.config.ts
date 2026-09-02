@@ -267,6 +267,8 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        // #2490：controller 路由 ↔ rewrite 成对的**运行时**反证（静态 lint 之外的那一半）。
+        "rewrite-coverage-live-smoke.spec.ts",
         "capability-mutate-smoke.spec.ts",
         "canvas-template-create-smoke.spec.ts",
         // ⚠ R2（画布模板重设计）同理排在 `seeded`：它同样用种子里的组织管理员登录，
