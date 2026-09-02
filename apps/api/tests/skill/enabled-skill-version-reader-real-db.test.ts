@@ -80,6 +80,27 @@ async function seedContractSkill(): Promise<void> {
   });
 }
 
+
+/**
+ * 平台组织（`org-platform`）已启用 skill 的当前版本集合——用一条独立 SQL（平台组织视角、
+ * 不经被测读口）现场算出来当对照。这个集合由人工触发的 backfill 或同一测试库里别的
+ * 真栈测试（`platform-owned-skills-real-stack.test.ts` 会种平台 skill）决定，可能为空也
+ * 可能是四个官方 skill；写死任何一种都会在另一种库上假红（CI `verify-affected` 实测：
+ * 同一库先跑过平台 skill 测试，这里读回 6 个而不是 2 个）。
+ */
+async function platformEnabledVersionIds(): Promise<readonly string[]> {
+  return asApp("org-platform", async (c) => {
+    const r = await c.query<{ version_id: string | null }>(
+      `SELECT (SELECT sv.id FROM skill_versions sv
+                WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
+                ORDER BY sv.created_at DESC LIMIT 1) AS version_id
+         FROM skills sk WHERE sk.org_id = 'org-platform' AND sk.status = 'enabled'
+        ORDER BY sk.created_at ASC, sk.id ASC`,
+    );
+    return r.rows.map((row) => row.version_id).filter((v): v is string => v !== null);
+  });
+}
+
 describe("#2514 agent 默认加载：组织全部已启用 skill 的当前生效版本读口", () => {
   beforeAll(async () => {
     ensureDatabase();
@@ -128,8 +149,14 @@ describe("#2514 agent 默认加载：组织全部已启用 skill 的当前生效
       const disclosed = discloseDecided(guarded, ALLOW_ALL);
       expect("payload" in disclosed, "恒允许的判定下应该拿得到载荷").toBe(true);
       const ids = (disclosed as { payload: readonly string[] }).payload;
-      // 逐字相等：b 先建所以在前、且是 v2 不是 v1；disabled / draft / foreign / 模型 B 全不在。
-      expect(ids).toEqual(["skill-i2514-b-v2", "skill-i2514-a-v1"]);
+      // 本组织的行逐字相等（含顺序）：b 先建所以在前、且是 v2 不是 v1；disabled / draft /
+      // foreign / 模型 B 全不在。平台组织的行另算（见 `platformEnabledVersionIds`）。
+      const own = ids.filter((id) => id.startsWith("skill-i2514-"));
+      expect(own).toEqual(["skill-i2514-b-v2", "skill-i2514-a-v1"]);
+      const platform = await platformEnabledVersionIds();
+      expect([...ids.filter((id) => !id.startsWith("skill-i2514-"))].sort())
+        .toEqual([...platform].sort());
+      expect(ids).toHaveLength(own.length + platform.length);
     } finally {
       await db.close();
     }
@@ -151,16 +178,7 @@ describe("#2514 agent 默认加载：组织全部已启用 skill 的当前生效
       // backfill 决定（design-delta `platform-owned-skills` ④），可能为空也可能是四个
       // 官方 skill，所以在这里用一条独立 SQL（平台组织视角、不经本读口）现场算出来
       // 当对照，而不是写死。平台之外任何组织的行混进来，这条都会红。
-      const platformExpected = await asApp("org-platform", async (c) => {
-        const r = await c.query<{ version_id: string }>(
-          `SELECT (SELECT sv.id FROM skill_versions sv
-                    WHERE sv.skill_id = sk.id AND sv.org_id = sk.org_id AND sv.published
-                    ORDER BY sv.created_at DESC LIMIT 1) AS version_id
-             FROM skills sk WHERE sk.org_id = 'org-platform' AND sk.status = 'enabled'
-            ORDER BY sk.created_at ASC, sk.id ASC`,
-        );
-        return r.rows.map((row) => row.version_id).filter((v): v is string => v !== null);
-      });
+      const platformExpected = await platformEnabledVersionIds();
       expect(ids).toEqual(platformExpected);
     } finally {
       await db.close();
