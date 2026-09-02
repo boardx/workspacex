@@ -85,8 +85,18 @@ function nextLocalId(): string {
 /**
  * composer 附件状态机。`threadId` 变（切线程）会清空——一个线程的 pending 附件不该带到另一个。
  */
-export function useChatAttachments(opts: { threadId: string; bearer?: string }) {
-  const { threadId, bearer } = opts;
+export function useChatAttachments(opts: {
+  threadId: string;
+  bearer?: string;
+  /**
+   * 2026-09-02（issue #2520）—— `threadId` 为空串时的按需解析器：第一次真的有文件要
+   * 上传时才调用，拿到真实线程 id 再发上传请求。给 v2 面板的"全新对话"用：此前它在
+   * 挂载时就 `createPersonalThread` 预建一条附件专用线程，用户每打开一次裸 `/chat`
+   * 列表里就多一条空的「新对话」。不传时行为与从前完全一样（`threadId` 为空就上传失败）。
+   */
+  resolveThreadId?: () => Promise<string>;
+}) {
+  const { threadId, bearer, resolveThreadId } = opts;
   const [attachments, setAttachments] = React.useState<LiveAttachment[]>([]);
   /**
    * `pickFiles` 需要"当前有几个附件"来判数量上限，但不能靠把 `attachments` 塞进
@@ -107,8 +117,14 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
   const dragCounter = React.useRef(0);
   const [confirmingId, setConfirmingId] = React.useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const previousThreadIdRef = React.useRef(threadId);
   React.useEffect(() => {
     // 切线程：清空本地附件态（不影响服务端已落的 pending 行，那些随线程/未挂而存在）。
+    // ⚠ "还没有线程"（空串）→ 按需解析出真实 id 不是切线程，是同一段对话刚刚有了
+    //   id——正在上传/已上传的附件就挂在这条新线程上，不能清。
+    const previous = previousThreadIdRef.current;
+    previousThreadIdRef.current = threadId;
+    if (previous === "" || previous === threadId) return;
     setAttachments([]);
     setBanner(null);
     setConfirmingId(null);
@@ -120,8 +136,10 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
 
   const doUpload = React.useCallback(async (localId: string, file: File) => {
     try {
+      const targetThreadId = threadId !== "" ? threadId : await resolveThreadId?.();
+      if (!targetThreadId) throw new Error("no thread to attach to");
       const uploaded: ChatAttachment = await uploadAttachment(
-        threadId, file, bearer,
+        targetThreadId, file, bearer,
         (fraction) => patch(localId, { progress: fraction }),
       );
       patch(localId, { status: "uploaded", serverId: uploaded.id, bytes: uploaded.bytes, mime: uploaded.mime, progress: 1 });
@@ -129,7 +147,7 @@ export function useChatAttachments(opts: { threadId: string; bearer?: string }) 
       const { text, retryable } = describeUploadError(err);
       patch(localId, { status: "error", error: text, retryable });
     }
-  }, [threadId, bearer, patch]);
+  }, [threadId, bearer, patch, resolveThreadId]);
 
   /**
    * 选择/拖入文件：客户端预检（数量/大小/类型，只为快反馈，服务端仍权威）→ 逐个并发上传。

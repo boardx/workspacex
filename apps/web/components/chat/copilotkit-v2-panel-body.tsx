@@ -729,20 +729,38 @@ export function CopilotKitV2PanelBody({
    * （读 URL 线程的 `chat_message_attachments`）也永远看不到它们。
    * 只有全新对话（`initialChatThreadId === null`）才保留原来的挂载即建逻辑。
    */
+  /**
+   * 2026-09-02（issue #2520）—— 上面两段头注里的"挂载后立即真建一条附件专用线程"
+   * 已经撤掉：人类本地实测每打开一次裸 `/chat`，列表里就多一条空的「新对话」（前一次
+   * 预建的那条永远没被用上）。改成**按需**：`useChatAttachments` 的 `resolveThreadId`
+   * 只在第一次真的有文件要上传时才被调用，那一刻才 `createPersonalThread`；同一段
+   * 对话里只建一次（memo 住 in-flight 的 promise，并发拖入多个文件也只建一条），失败
+   * 则下一次上传重新尝试。📎 按钮的可用性因此只取决于"已登录"，不再等预建完成——
+   * 头注里"两段式交互"的顾虑本来就不成立：文件对话框是同步打开的，上传本来就在
+   * 选完文件之后异步发生，线程在那一刻建完全来得及。
+   */
   const [createdAttachmentThreadId, setCreatedAttachmentThreadId] = React.useState<string | null>(null);
-  const attachmentThreadRequestedRef = React.useRef(false);
-  React.useEffect(() => {
-    if (initialChatThreadId !== null) return;
-    if (sessionToken === null || attachmentThreadRequestedRef.current) return;
-    attachmentThreadRequestedRef.current = true;
-    void createPersonalThread(null)
-      .then((created) => setCreatedAttachmentThreadId(created.threadId))
-      .catch(() => {
-        attachmentThreadRequestedRef.current = false; // 允许下次 sessionToken 变化时重试
-      });
-  }, [sessionToken, initialChatThreadId]);
+  const attachmentThreadPromiseRef = React.useRef<Promise<string> | null>(null);
+  const resolveAttachmentThreadId = React.useCallback((): Promise<string> => {
+    if (attachmentThreadPromiseRef.current === null) {
+      attachmentThreadPromiseRef.current = createPersonalThread(null)
+        .then((created) => {
+          setCreatedAttachmentThreadId(created.threadId);
+          return created.threadId;
+        })
+        .catch((failure: unknown) => {
+          attachmentThreadPromiseRef.current = null; // 下一次上传重新尝试
+          throw failure;
+        });
+    }
+    return attachmentThreadPromiseRef.current;
+  }, []);
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
-  const attach = useChatAttachments({ threadId: attachmentThreadId ?? "", bearer: sessionToken ?? undefined });
+  const attach = useChatAttachments({
+    threadId: attachmentThreadId ?? "",
+    bearer: sessionToken ?? undefined,
+    resolveThreadId: initialChatThreadId === null ? resolveAttachmentThreadId : undefined,
+  });
 
   /**
    * issue #2052（CK-P7）—— 「落地为产物」状态机（与旧轨道共用 `useMessageLanding`，
@@ -1321,7 +1339,9 @@ export function CopilotKitV2PanelBody({
       话，常驻等于说两遍。改成用户「试图」发送（空输入按 Enter）时短暂出现一次；
       其余禁用理由（归档 / 运行中 / 上传中）仍然常驻，那些是用户猜不到的。
   */
-  const attachDisabled = archived || agent.isRunning || attachmentThreadId === null;
+  // issue #2520 —— 附件线程改为第一次上传时按需建（见上面 `resolveAttachmentThreadId`），
+  // 📎 不再等预建完成，只看是否登录（未登录上传本来就要鉴权）。
+  const attachDisabled = archived || agent.isRunning || sessionToken === null;
   const [attachOpen, setAttachOpen] = React.useState(false);
   React.useEffect(() => { if (attachDisabled) setAttachOpen(false); }, [attachDisabled]);
   const [emptySendHint, setEmptySendHint] = React.useState(false);
@@ -1865,7 +1885,7 @@ export function CopilotKitV2PanelBody({
                 <span data-testid="chat-task-workbench-composer-attach">
                   <ComposerIconButton
                     label="材料"
-                    title={attachmentThreadId === null ? "材料（对话建立后可添加）" : "材料"}
+                    title={sessionToken === null ? "材料（登录后可添加）" : "材料"}
                     data-testid="chat-attachment-input"
                     aria-haspopup="dialog"
                     aria-expanded={attachOpen}
