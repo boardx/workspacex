@@ -32,7 +32,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - **不许**把多个 feature 塞进一个 PR 再一起合。一个 issue 一个 PR。
 - **每次迭代都在对应 issue 上展开**：设计取舍、撞到的墙、反证结果，写成评论。
   写在本地 commit message 里的东西，别人要 clone 才看得到。
-- 由 `pnpm harness doctor` 机械检查（三条，见完成定义第 5、6 条）。
+- 由 `pnpm harness doctor` 机械检查（四条，见完成定义第 5、6 条；`sync --apply` 关 issue 同样要求实现已在 main，#1557）。
 
 ## 开工流程(每轮会话开始)
 0. **先确认角色,角色决定 loop 策略,不可跳过**:人类要你当 main coordinator →
