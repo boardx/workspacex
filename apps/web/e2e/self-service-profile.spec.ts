@@ -29,6 +29,7 @@
  * 不是为了让测试好写而伪造的场景。
  */
 import { expect, test, type Page } from "@playwright/test";
+import { judgeLogoutLanding } from "./logout-landing";
 import { SELF_SERVICE_PROFILE_E2E } from "./self-service-profile-fixture";
 
 async function loginAs(page: Page, email: string, password: string) {
@@ -42,19 +43,13 @@ async function loginAs(page: Page, email: string, password: string) {
 async function logout(page: Page) {
   await page.getByTestId("rail-profile-menu").click();
   await page.getByTestId("personal-menu-logout").click();
-  // #2499：#2413 起登出后落点可能带 `?next=`。菜单里的登出按钮自己 `router.replace("/login")`，
-  // 但 AppShell 察觉会话转匿名时也会 `router.replace("/login?next=<当前路径>")`（保留深链跳回，
-  // 见 components/shell/app-shell.tsx），两次跳转谁后到谁说了算——从 /profile 登出实测落在
-  // `/login?next=%2Fprofile`。断言只接受这两种**有意**的落点，不接受任意查询串：
-  // pathname 必须恰好是 /login；`next` 要么不存在（登出按钮先到），要么恰好是 /profile
-  // （匿名守卫先到，当前路径就是 /profile）；不允许别的参数——错误的回跳目标、外域、
-  // 指回 /login 的循环值都会在这里红，而不是被登录后 sanitizeReturnTo 静默收敛成 /projects 而漏过。
+  // #2499：#2413 起登出后落点可能带 `?next=`（登出按钮 → /login；AppShell 匿名守卫 →
+  // /login?next=<当前路径>，两次跳转谁后到谁说了算）。判定规则与反例见 `./logout-landing.ts`
+  // 与 `tests/e2e/logout-landing.test.ts`：只接受这两种有意的落点，重复 next / 外域 /
+  // 循环 / 错误目标 / 多余参数 / hash 一律红在这里，不留给登录后的 sanitizeReturnTo 掩盖。
   await expect(page).toHaveURL(/\/login(\?|$)/);
-  const landed = new URL(page.url());
-  expect(landed.pathname).toBe("/login");
-  const next = landed.searchParams.get("next");
-  expect(next === null || next === "/profile", `登出落点的 next 应为空或 /profile，实得 ${landed.search}`).toBe(true);
-  expect([...landed.searchParams.keys()].filter((k) => k !== "next")).toEqual([]);
+  const verdict = judgeLogoutLanding(page.url(), "/profile");
+  expect(verdict.ok, verdict.reason).toBe(true);
 }
 
 test.describe.serial("用户个人资料自助服务 + 组织团队管理", () => {
