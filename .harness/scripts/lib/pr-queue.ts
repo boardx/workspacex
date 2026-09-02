@@ -198,6 +198,16 @@ export function isOkVerdict(label: string): boolean {
  * 不另抄一份）。必需 check 与"顺带跑的 check"分开判：见 REQUIRED_CHECKS 的注释（本仓
  * main 没有 branch protection，GitHub 侧不存在"必需"这个概念，必须自己声明）。
  */
+/**
+ * StatusContext（commit status，REST `statuses` / GraphQL rollup 里的 `context`+`state`）→ RequiredCheck
+ * 的**唯一**映射：它没有 status/conclusion 之分，只有一个 state（SUCCESS / PENDING / FAILURE / ERROR / EXPECTED）。
+ * pr-queue.ts 读活 rollup 与 doctor ⑤ 重建合入时刻都走这里——本仓自己就会往 head 上打 commit status
+ * （coord-projection 的 `coord/andon`），rollup 不是只有 CheckRun；两处各写一套映射就是第二份事实源。
+ */
+export function statusContextToCheck(context: string, state: string | null | undefined): RequiredCheck {
+  return { name: context, status: state ? "COMPLETED" : "UNKNOWN", conclusion: state ?? null };
+}
+
 export function classifyChecks(checks: RequiredCheck[]): { blocked: string[]; changes: string[]; waitingCi: string[] } {
   const blocked: string[] = [];
   const changes: string[] = [];

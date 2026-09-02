@@ -22,6 +22,7 @@ import {
   parseRefsIssues,
   postMergeGaps,
   resolveCoordMode,
+  statusContextToCheck,
   type FormalReview,
   type PostMergeFacts,
   type PrClassification,
@@ -57,12 +58,15 @@ function ghJson<T>(cmd: string): T {
 /** statusCheckRollup 混着 CheckRun 与 StatusContext 两种形状，统一成 RequiredCheck。 */
 function toRequiredChecks(rollup: GhPr["statusCheckRollup"]): RequiredCheck[] {
   if (!rollup) return [];
-  return rollup.map((c) => ({
-    name: c.name ?? c.context ?? "(unnamed)",
-    // CheckRun 有 status/conclusion；StatusContext 只有 state（SUCCESS/PENDING/FAILURE…）
-    status: c.status ?? (c.state ? "COMPLETED" : "UNKNOWN"),
-    conclusion: c.conclusion ?? c.state ?? null,
-  }));
+  return rollup.map((c) => {
+    // StatusContext 只有 context/state，没有 name/status/conclusion——映射在 lib（doctor ⑤ 同用）
+    if (c.name === undefined && c.context !== undefined) return statusContextToCheck(c.context, c.state);
+    return {
+      name: c.name ?? c.context ?? "(unnamed)",
+      status: c.status ?? (c.state ? "COMPLETED" : "UNKNOWN"),
+      conclusion: c.conclusion ?? c.state ?? null,
+    };
+  });
 }
 
 function toFormalReviews(reviews: GhPr["reviews"]): FormalReview[] {

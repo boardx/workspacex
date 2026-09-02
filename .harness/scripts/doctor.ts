@@ -22,7 +22,7 @@ import {
 import { sh } from "./lib/sh";
 import { evidenceLogRelPath, isEvidenceCommitIntegrated } from "./lib/evidence-integration";
 import { describeIssueListFailure, listAllIssues } from "./lib/github-issues";
-import { PR_GREEN_RULE_EFFECTIVE_FROM, judgeClosingPrGreen, type CheckRunObservation, type ClosingPr } from "./lib/pr-green";
+import { PR_GREEN_RULE_EFFECTIVE_FROM, commitStatusToObservation, judgeClosingPrGreen, type CheckRunObservation, type ClosingPr } from "./lib/pr-green";
 import { parse as parseYaml } from "yaml";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -431,7 +431,7 @@ function checkIssueClosedButNotDone(phaseId: string, f: Feature, issues: GhIssue
  * 规则本身写在 AGENTS.md；「绿」的语义不在这里另定义，复用 lib/pr-queue.ts 的
  * classifyChecks（合并门的唯一事实源）——同一件事两处各写一套正是本仓漂移的来源。
  * 判定纯函数在 lib/pr-green.ts；这里只做 IO：关掉该 issue 的 PR 清单（GraphQL
- * closedByPullRequestsReferences）→ 各自 head 的 check runs → 喂给纯函数。
+ * closedByPullRequestsReferences，翻页到底）→ 各自 head 的 check run + commit status 全历史 → 喂给纯函数。
  *
  * 不倒查存量：生效时刻（PR_GREEN_RULE_EFFECTIVE_FROM）之前关闭的 issue 不判也不发请求——
  * 引入门控当天把所有 PR 打红只会让门被绕过（#848 / #2485 的教训）。
@@ -449,24 +449,73 @@ function syncRepo(): string | null {
   }
 }
 
-/** 关掉某个 issue 的 PR（含 mergedAt）及各自 head 上的**全部** check run（`filter=all`，含 rerun
- *  与合入后追加的，带 started_at / completed_at）；合入时刻的重建在 lib/pr-green.ts。任何一步失败返回 null。 */
-export function fetchClosingPrs(repo: string, issueNumber: number): ClosingPr[] | null {
+/** GraphQL closedByPullRequestsReferences 一页的形状 */
+interface ClosingRefsPage {
+  nodes: Array<{ number: number; merged: boolean; mergedAt: string | null; headRefOid: string }>;
+  pageInfo: { hasNextPage: boolean; endCursor: string | null };
+}
+/** 分页上限：超过就当问不到（null）。一个 issue 被 2000 个 PR 关闭不是现实，是数据坏了，坏数据不放行。 */
+const CLOSING_REFS_MAX_PAGES = 20;
+
+/** `--paginate --jq` 输出：每行一个 JSON 对象；任何一行不是对象即失败（null）。 */
+function parseJsonLines<T extends object>(stdout: string): T[] | null {
+  const rows: T[] = [];
+  for (const line of stdout.split("\n").map((l) => l.trim()).filter(Boolean)) {
+    try {
+      const row = JSON.parse(line) as unknown;
+      if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+      rows.push(row as T);
+    } catch {
+      return null;
+    }
+  }
+  return rows;
+}
+
+/**
+ * 关掉某个 issue 的 PR（含 mergedAt）及各自 head 上的**全部**观测：check run（`filter=all`，含 rerun
+ * 与合入后追加的，带 started_at / completed_at）**和** commit status（`statuses` 全历史，带 created_at）；
+ * 合入时刻的重建在 lib/pr-green.ts。
+ *
+ * - closedByPullRequestsReferences 翻页到底（pageInfo.hasNextPage）——只取第一页，关掉它的 PR 落在第二页
+ *   就等于「没有 PR」或漏掉红 PR（独立审 #2541 五轮意见 1）。
+ * - 两种观测都要拿：本仓自己就往 head 打 commit status（coord-projection `coord/andon`），活 rollup /
+ *   pr-queue 看得到它，只重建 check run 的历史会漏看红（独立审 #2541 五轮意见 2）。
+ * 任何一步失败（gh 非 0、输出不是 JSON、翻页超上限）一律返回 null——调用方按级别报「问不到」，不当绿。
+ * `exec` 可注入以便纯测翻页；默认走 sh。
+ */
+export function fetchClosingPrs(
+  repo: string,
+  issueNumber: number,
+  exec: (cmd: string) => { code: number; stdout: string } = (cmd) => sh(cmd, REPO_ROOT),
+): ClosingPr[] | null {
   const [owner, name] = repo.split("/");
-  const query =
-    "query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){" +
-    "closedByPullRequestsReferences(first:10,includeClosedPrs:true){nodes{number merged mergedAt headRefOid}}}}}";
-  const r = sh(
-    `gh api graphql -f query=${JSON.stringify(query)} -F o=${JSON.stringify(owner)} -F r=${JSON.stringify(name)} -F n=${issueNumber}`,
-    REPO_ROOT,
-  );
-  if (r.code !== 0) return null;
-  let nodes: Array<{ number: number; merged: boolean; mergedAt: string | null; headRefOid: string }>;
-  try {
-    const doc = JSON.parse(r.stdout) as { data?: { repository?: { issue?: { closedByPullRequestsReferences?: { nodes?: typeof nodes } } } } };
-    nodes = doc.data?.repository?.issue?.closedByPullRequestsReferences?.nodes ?? [];
-  } catch {
-    return null;
+  const nodes: ClosingRefsPage["nodes"] = [];
+  let cursor: string | null = null;
+  for (let page = 0; ; page++) {
+    if (page >= CLOSING_REFS_MAX_PAGES) return null;
+    const args = cursor === null ? "first:100,includeClosedPrs:true" : "first:100,after:$c,includeClosedPrs:true";
+    const query =
+      `query($o:String!,$r:String!,$n:Int!${cursor === null ? "" : ",$c:String!"}){repository(owner:$o,name:$r){issue(number:$n){` +
+      `closedByPullRequestsReferences(${args}){nodes{number merged mergedAt headRefOid} pageInfo{hasNextPage endCursor}}}}}`;
+    const r = exec(
+      `gh api graphql -f query=${JSON.stringify(query)} -F o=${JSON.stringify(owner)} -F r=${JSON.stringify(name)} -F n=${issueNumber}` +
+        (cursor === null ? "" : ` -f c=${JSON.stringify(cursor)}`),
+    );
+    if (r.code !== 0) return null;
+    let pageData: ClosingRefsPage | undefined;
+    try {
+      const doc = JSON.parse(r.stdout) as { data?: { repository?: { issue?: { closedByPullRequestsReferences?: Partial<ClosingRefsPage> } } } };
+      const conn = doc.data?.repository?.issue?.closedByPullRequestsReferences;
+      if (!conn || !Array.isArray(conn.nodes) || !conn.pageInfo) return null; // 没带 pageInfo 就不知道有没有下一页——不知道不放行
+      pageData = { nodes: conn.nodes, pageInfo: conn.pageInfo };
+    } catch {
+      return null;
+    }
+    nodes.push(...pageData.nodes);
+    if (!pageData.pageInfo.hasNextPage) break;
+    if (!pageData.pageInfo.endCursor) return null;
+    cursor = pageData.pageInfo.endCursor;
   }
   const out: ClosingPr[] = [];
   for (const node of nodes) {
@@ -476,27 +525,37 @@ export function fetchClosingPrs(repo: string, issueNumber: number): ClosingPr[] 
     }
     // filter=all：REST 默认只回每个 check 名最新一次（含合入后的 rerun），那不是「合入时」；
     // 全部拿回来再按 started_at 重建合入时刻（reconstructMergeTimeChecks）。
-    const c = sh(
+    const c = exec(
       `gh api "repos/${repo}/commits/${node.headRefOid}/check-runs?filter=all&per_page=100" --paginate ` +
         `--jq '.check_runs[] | {id: .id, name: .name, status: .status, conclusion: .conclusion, started_at: .started_at, completed_at: .completed_at}'`,
-      REPO_ROOT,
     );
     if (c.code !== 0) return null;
-    const runs: CheckRunObservation[] = [];
-    for (const line of c.stdout.split("\n").map((l) => l.trim()).filter(Boolean)) {
-      try {
-        const row = JSON.parse(line) as { id?: number; name: string; status: string; conclusion: string | null; started_at: string | null; completed_at: string | null };
-        runs.push({
-          id: typeof row.id === "number" ? row.id : undefined,
-          name: row.name,
-          status: String(row.status ?? "").toUpperCase(),
-          conclusion: row.conclusion ? String(row.conclusion).toUpperCase() : null,
-          startedAt: row.started_at ?? null,
-          completedAt: row.completed_at ?? null, // null = 观测时仍未完成；合入后才完成的不携带合入时刻结论
-        });
-      } catch {
-        return null;
-      }
+    const checkRows = parseJsonLines<{ id?: number; name: string; status: string; conclusion: string | null; started_at: string | null; completed_at: string | null }>(c.stdout);
+    if (!checkRows) return null;
+    const runs: CheckRunObservation[] = checkRows.map((row) => ({
+      id: typeof row.id === "number" ? row.id : undefined,
+      name: row.name,
+      status: String(row.status ?? "").toUpperCase(),
+      conclusion: row.conclusion ? String(row.conclusion).toUpperCase() : null,
+      startedAt: row.started_at ?? null,
+      completedAt: row.completed_at ?? null, // null = 观测时仍未完成；合入后才完成的不携带合入时刻结论
+    }));
+    // commit status 全历史（每次 POST 一条，新的不覆盖旧的）：同样按 created_at 重建合入时刻
+    const st = exec(
+      `gh api "repos/${repo}/commits/${node.headRefOid}/statuses?per_page=100" --paginate ` +
+        `--jq '.[] | {id: .id, context: .context, state: .state, created_at: .created_at}'`,
+    );
+    if (st.code !== 0) return null;
+    const statusRows = parseJsonLines<{ id?: number; context: string; state: string | null; created_at: string | null }>(st.stdout);
+    if (!statusRows) return null;
+    for (const row of statusRows) {
+      if (typeof row.context !== "string") return null;
+      runs.push(commitStatusToObservation({
+        id: typeof row.id === "number" ? row.id : undefined,
+        context: row.context,
+        state: row.state ? String(row.state).toUpperCase() : null,
+        createdAt: row.created_at ?? null,
+      }));
     }
     out.push({ number: node.number, merged: true, mergedAt: node.mergedAt, headSha: node.headRefOid, runs });
   }

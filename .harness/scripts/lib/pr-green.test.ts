@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PR_GREEN_RULE_EFFECTIVE_FROM,
+  commitStatusToObservation,
   judgeClosingPrGreen,
   reconstructMergeTimeChecks,
   type CheckRunObservation,
@@ -102,6 +103,31 @@ describe("reconstructMergeTimeChecks：合入时刻已开始的最新 attempt �
   it("合入前最后一次完成的是 FAILURE、合入后才 rerun 成功 → 合入时仍是红", () => {
     const runs = [run("verify-affected", "FAILURE", -10, -8), run("verify-affected", "SUCCESS", +5, +9)];
     expect(of(reconstructMergeTimeChecks(runs, MERGED_AT), "verify-affected")?.conclusion).toBe("FAILURE");
+  });
+});
+
+describe("commit status（StatusContext）与 check run 同规则重建（独立审 #2541 五轮意见 2）", () => {
+  const status = (context: string, state: string, atMin: number, id?: number) => commitStatusToObservation({ id, context, state, createdAt: T(atMin) });
+
+  it("映射与 pr-queue 活 rollup 同一处：state 即 conclusion，createdAt 既是开始也是完成", () => {
+    expect(status("coord/andon", "FAILURE", -3, 7)).toEqual({ id: 7, name: "coord/andon", status: "COMPLETED", conclusion: "FAILURE", startedAt: T(-3), completedAt: T(-3) });
+    expect(commitStatusToObservation({ context: "x", state: null, createdAt: null })).toMatchObject({ status: "UNKNOWN", conclusion: null });
+  });
+
+  it("合入前打上的 failure status → 红就是红，violation 理由带 context 名", () => {
+    const v = judge([pr({ runs: [...greenRuns(), status("coord/andon", "FAILURE", -3)] })]);
+    expect(v.kind).toBe("violation");
+    if (v.kind === "violation") expect(v.reasons.join("\n")).toContain("`coord/andon` 结论 FAILURE");
+  });
+
+  it("同一 context 合入前 failure → 合入前 success：最后一次说了算 → ok；合入后才 failure → 无关 → ok", () => {
+    expect(judge([pr({ runs: [...greenRuns(), status("coord/andon", "FAILURE", -8), status("coord/andon", "SUCCESS", -2)] })]).kind).toBe("ok");
+    expect(judge([pr({ runs: [...greenRuns(), status("coord/andon", "FAILURE", +7)] })]).kind).toBe("ok");
+  });
+
+  it("合入前 success → 合入后又打 failure 覆盖不了合入时刻；合入前 success → 合入前 failure 则违反", () => {
+    expect(judge([pr({ runs: [...greenRuns(), status("coord/andon", "SUCCESS", -5), status("coord/andon", "FAILURE", +1)] })]).kind).toBe("ok");
+    expect(judge([pr({ runs: [...greenRuns(), status("coord/andon", "SUCCESS", -5), status("coord/andon", "FAILURE", -1)] })]).kind).toBe("violation");
   });
 });
 

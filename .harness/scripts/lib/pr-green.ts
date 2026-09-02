@@ -28,7 +28,7 @@
 //
 // 不倒查存量：规则生效前关闭的 issue 一律 not-applicable（同 spec_ref 门对历史 feature
 // 的处理；引入门控当天把所有 PR 打红只会让门被绕过，#848 / #2485 的教训）。
-import { classifyChecks, type RequiredCheck } from "./pr-queue";
+import { classifyChecks, statusContextToCheck, type RequiredCheck } from "./pr-queue";
 
 /** 第 7 条生效时刻 = 规则 PR（#2541）开出的时刻。此前关闭的 issue 不判。 */
 export const PR_GREEN_RULE_EFFECTIVE_FROM = "2026-09-02T17:40:00Z";
@@ -43,13 +43,33 @@ export interface CheckRunObservation extends RequiredCheck {
   completedAt: string | null;
 }
 
+/** 一条 commit status 的原始观测（REST `commits/{sha}/statuses` 的一行）。每次 POST 都是一条新记录，不覆盖旧的。 */
+export interface CommitStatusObservation {
+  id?: number;
+  context: string;
+  state: string | null;
+  /** ISO：这条 state 被打上的时刻 */
+  createdAt: string | null;
+}
+
+/**
+ * commit status → 与 check run 同形的观测，喂同一套 reconstructMergeTimeChecks。
+ * status 没有「开始 / 完成」，它是一次**瞬时**观测：createdAt 既是开始也是完成，
+ * 合入时刻取的是「合入前最后一次打上的 state」，合入后打的与合入时无关——与 check run 同规则。
+ * state → RequiredCheck 的映射复用 pr-queue 的 statusContextToCheck（活 rollup 同一处），不另写。
+ */
+export function commitStatusToObservation(s: CommitStatusObservation): CheckRunObservation {
+  return { id: s.id, ...statusContextToCheck(s.context, s.state), startedAt: s.createdAt, completedAt: s.createdAt };
+}
+
 export interface ClosingPr {
   number: number;
   merged: boolean;
   /** ISO；merged 为 true 时必须有，否则无法重建合入时刻 */
   mergedAt: string | null;
   headSha: string;
-  /** head 上的**全部** run（含 rerun 与合入后追加的），由 reconstructMergeTimeChecks 筛 */
+  /** head 上的**全部**观测：check run（含 rerun 与合入后追加的）+ commit status（经 commitStatusToObservation），
+   *  由 reconstructMergeTimeChecks 筛。GitHub rollup 混着 CheckRun 与 StatusContext 两种，只重建其一就是漏看红。 */
   runs: CheckRunObservation[];
 }
 
