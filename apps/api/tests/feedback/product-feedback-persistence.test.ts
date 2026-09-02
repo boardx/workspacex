@@ -233,6 +233,37 @@ describe("FB-2 落库", () => {
     ).rejects.toThrow(/append-only/);
   });
 
+  /**
+   * ④c 反证核心缺口③（2026-09-02 第四轮独立审查 P1）：上一版只强制了
+   * `notified=false ⇒ 快照恒 NULL` 这一半，没强制对称的另一半——
+   * `notified=true` 却没有快照（"发了但没记下发的是什么"）同样是损坏数据，
+   * 迁移 `20260902150000` 把单向蕴含改成双向后，这里必须被拒。
+   */
+  it("④c 反证核心缺口③：notified=true 却没有快照，同样是损坏数据，被拒", async () => {
+    await repo.insert(draft());
+    await repo.appendStatusEvent({
+      id: "ev-1", feedbackId: "fb-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: ME,
+      notified: false, emailSubject: null, emailText: null,
+    });
+    await expect(
+      asApp(ORG, (c) => c.query(
+        `UPDATE product_feedback_status_events
+            SET notified = true, email_subject = NULL, email_text = NULL, notification_settled_at = now()
+          WHERE id = $1`,
+        ["ev-1"],
+      )),
+    ).rejects.toThrow(/append-only/);
+    // 反证的反证：两列只要有一个非空也不行——必须两个都有，不是"至少一个"。
+    await expect(
+      asApp(ORG, (c) => c.query(
+        `UPDATE product_feedback_status_events
+            SET notified = true, email_subject = '主题', email_text = NULL, notification_settled_at = now()
+          WHERE id = $1`,
+        ["ev-1"],
+      )),
+    ).rejects.toThrow(/append-only/);
+  });
+
   it("④c 反证：即使只改 notified，只要**同时**碰了核心列，整个 UPDATE 仍被拒", async () => {
     await repo.insert(draft());
     await repo.appendStatusEvent({
