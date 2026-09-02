@@ -21,6 +21,11 @@ export type SubmitFeedbackOut = z.infer<typeof feedbackLoop.operations.submitFee
 export type VoteFeedbackOut = z.infer<typeof feedbackLoop.operations.voteFeedback.out>;
 export type FeedbackCounts = z.infer<typeof feedbackLoop.operations.getFeedbackCounts.out>;
 export type TriageFeedbackOut = z.infer<typeof feedbackLoop.operations.triageFeedback.out>;
+export type FeedbackGithubIssueStatus = z.infer<typeof feedbackLoop.operations.getFeedbackGithubIssue.out>;
+export type GithubIssueLinkedPullRequest = z.infer<typeof feedbackLoop.GithubIssueLinkedPullRequest>;
+export type CommentOnFeedbackGithubIssueOut = z.infer<
+  typeof feedbackLoop.operations.commentOnFeedbackGithubIssue.out
+>;
 /**
  * "转开发"弹层里管理员编辑之后提交的 GitHub issue 最终文案。
  * ⚠ 类型从契约的 `in.shape.issueDraft` 派生,不是手写——见文件头纪律。
@@ -98,6 +103,29 @@ export async function triageFeedback(
 
 export async function getFeedbackCounts(): Promise<FeedbackCounts> {
   return apiRequest<FeedbackCounts>("/feedback/counts");
+}
+
+/**
+ * 现查这条反馈挂着的 GitHub issue：开/关状态 + 关联它的 PR。**不落库**——每次调用
+ * 都是一次真实的 GitHub API 往返，见契约 `getFeedbackGithubIssue` 头注。只在管理员
+ * 真的展开一条反馈的 GitHub 状态时调用，不要跟着 `listFeedback` 批量拉。
+ */
+export async function getFeedbackGithubIssue(feedbackId: string): Promise<FeedbackGithubIssueStatus> {
+  return apiRequest<FeedbackGithubIssueStatus>(`/feedback/${encodeURIComponent(feedbackId)}/github-issue`);
+}
+
+/**
+ * 管理员手动往这条反馈挂着的 GitHub issue 下面发一条评论。**不是**状态转移的副作用——
+ * 见 `triageFeedback` 头注的 best-effort 状态同步,那条是自动的,这条是手动补充说明。
+ */
+export async function commentOnFeedbackGithubIssue(
+  feedbackId: string,
+  body: string,
+): Promise<CommentOnFeedbackGithubIssueOut> {
+  return apiRequest<CommentOnFeedbackGithubIssueOut>(
+    `/feedback/${encodeURIComponent(feedbackId)}/github-issue/comments`,
+    { method: "POST", body: { feedbackId, body } },
+  );
 }
 
 /**

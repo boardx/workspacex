@@ -99,9 +99,24 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
     items: [
       { key: "overview", label: "总览", href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
       { key: "members", label: "成员配额", href: "/admin/members", ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-7"] },
-      { key: "feedback", label: "反馈", href: "/admin/feedback", ucRefs: ["17-gov/uc-17-6"] },
       { key: "local", label: "我的本地", href: "/admin/local", ucRefs: ["00-core/uc-0-5"] },
     ],
+  },
+  {
+    // 2026-09-02（人类反馈，看真实后台截图后原话：「这个 UI 管理的是整个平台的数据，
+    // 而不是当前的这个 boardx 组织，上面这组织是错误的」）：「反馈」从「组织」组挪出来——
+    // 它不是某个组织自己的配置项（不像成员配额/我的本地那样，改动只影响这一个组织），
+    // 是运营这个产品的人处理全体用户反馈的地方。⚠ 数据读取仍然按当前登录者所在组织
+    // 走 RLS（这个仓库今天就一个组织在用，「反馈」本质是运营动作，不是要打破多租户
+    // 隔离），只是页头不该再挂一张「组织：boardx」的身份卡，径直导航到「组织管理」
+    // 的路径分组更是放错了位置——见 `admin-header.tsx` 的 `hideOrgIdentity`。
+    //
+    // ⚠ 与下面的「平台」组**不是同一件事**，故意分成两组：「运营」（本组）仍然是
+    //   当前登录者所在组织的数据、按 RLS 走，只是呈现上不该像组织配置；「平台」组
+    //   （member-role-management delta 新增）授权面是平台超管（部署白名单），能看到
+    //   全平台账号名册——两者的授权面不同，混进同一组会让人以为组织 admin 也能看全平台。
+    group: "运营",
+    items: [{ key: "feedback", label: "反馈与迭代", href: "/admin/feedback", ucRefs: ["17-gov/uc-17-6"] }],
   },
   {
     group: "平台",

@@ -85,11 +85,33 @@ function fakeRepo(initial: FeedbackRow): ProductFeedbackRepository & { current: 
   } as unknown as ProductFeedbackRepository & { current: FeedbackRow; claimed: boolean };
 }
 
+/**
+ * ③（2026-09-02）加了 `setState`/`getStatus`/`addComment` 之后,`GithubIssueCreator`
+ * 不再只有 `create` 一个方法——这个 fake 只实现本文件真正用到的两个（`create` /
+ * `setState`,状态同步那条副作用会调 `setState`),其余两个给一个不会被调用的桩,
+ * 免得每条既有用例都要重新声明全部四个方法。
+ */
+function fakeGithubIssues(
+  over: Partial<TriageFeedbackDeps["githubIssues"]> = {},
+): TriageFeedbackDeps["githubIssues"] {
+  return {
+    create: vi.fn(async () => ({ url: "https://github.com/boardx/workspacex/issues/1", number: 1 })),
+    setState: vi.fn(async () => {}),
+    getStatus: vi.fn(async () => {
+      throw new Error("not used in this test");
+    }),
+    addComment: vi.fn(async () => {
+      throw new Error("not used in this test");
+    }),
+    ...over,
+  };
+}
+
 function baseDeps(over: Partial<TriageFeedbackDeps> = {}): TriageFeedbackDeps {
   return {
     repo: fakeRepo(row()),
     newEventId: () => "ev-1",
-    githubIssues: { create: vi.fn(async () => ({ url: "https://github.com/boardx/workspacex/issues/1", number: 1 })) },
+    githubIssues: fakeGithubIssues(),
     submitterDirectory: { emailForUserId: vi.fn(async () => "submitter@example.com") },
     mail: { send: vi.fn(async () => ({})) },
     logger: { info: vi.fn(), error: vi.fn() },
@@ -175,7 +197,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
     const repo = fakeRepo(row());
     const deps = baseDeps({
       repo,
-      githubIssues: { create: vi.fn(async () => { throw new GithubIssueCreationError(500); }) },
+      githubIssues: fakeGithubIssues({ create: vi.fn(async () => { throw new GithubIssueCreationError(500); }) }),
     });
     await expect(
       triageFeedback(deps, {
@@ -196,7 +218,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
     const repo = fakeRepo(row());
     const deps = baseDeps({
       repo,
-      githubIssues: { create: vi.fn(async () => { throw new GithubIssueCreationError(500); }) },
+      githubIssues: fakeGithubIssues({ create: vi.fn(async () => { throw new GithubIssueCreationError(500); }) }),
     });
     await expect(
       triageFeedback(deps, {

@@ -97,7 +97,10 @@ describe("③限额策略 tab：规则卡片 + 降级阈值 + 任务分级表", 
     expect(keys).not.toContain("usage");
     expect(keys).not.toContain("limits");
     expect(keys).not.toContain("policy");
-    // 「组织」组仍然只有 F16 既有的四项——本 feature 没有在左栏加新入口
-    expect(keys).toEqual(["overview", "members", "feedback", "local"]);
+    // 「组织」组仍然只有 F16 既有的三项——本 feature 没有在左栏加新入口。
+    // ⚠ 2026-09-02：「反馈」已从「组织」组挪到「运营」组（见 `lib/mock/admin.ts`
+    //   头注：它是运营动作，不是某个组织自己的配置），本条断言的范围本就是
+    //   「组织」组，「反馈」离开这个数组是那次改动的直接结果，不是本条测试要拦的漂移。
+    expect(keys).toEqual(["overview", "members", "local"]);
   });
 });
