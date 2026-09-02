@@ -88,4 +88,43 @@ describe("InMemoryRateLimiter", () => {
     // oldest stored hit (t=0) ages out at 0 + 60_000; clock is now at 20 + 50 = 70.
     expect(last!.retryAfterMs).toBe(60_000 - 70);
   });
+
+  // review finding (PR #2475, round 2): per-key bounding alone does not bound the Map
+  // itself -- an anonymous caller population using many distinct keys grows the number of
+  // map ENTRIES without limit even though each individual entry stays small. This is the
+  // counter-evidence: a flood of many distinct keys must leave the total tracked-key count
+  // bounded by maxTrackedKeys, not by however many distinct keys were actually sent.
+  it("a flood of many distinct keys does not grow the total tracked-key count past maxTrackedKeys", async () => {
+    const clock = fakeClock(0);
+    const maxTrackedKeys = 100;
+    const limiter = new InMemoryRateLimiter(clock, 60_000, 20, maxTrackedKeys);
+
+    for (let i = 0; i < 5_000; i++) {
+      await limiter.hit(`distinct-ip-${i}`);
+    }
+
+    expect(limiter.trackedKeyCount()).toBeLessThanOrEqual(maxTrackedKeys);
+  });
+
+  it("eviction prefers keys whose stored hits are ALL expired over still-active keys", async () => {
+    const clock = fakeClock(0);
+    const maxTrackedKeys = 10;
+    const limiter = new InMemoryRateLimiter(clock, 60_000, 5, maxTrackedKeys);
+
+    // Fill to capacity, then let every one of these age out.
+    for (let i = 0; i < maxTrackedKeys; i++) {
+      await limiter.hit(`stale-${i}`);
+    }
+    clock.advance(60_001);
+
+    // One fresh, still-active key.
+    await limiter.hit("fresh");
+    // Pushing the map over capacity (one more distinct key) must trigger eviction that
+    // prefers the now-fully-expired "stale-*" keys, not the still-active "fresh" one.
+    await limiter.hit("brand-new");
+
+    expect(limiter.trackedKeyCount()).toBeLessThanOrEqual(maxTrackedKeys);
+    // "fresh" must survive the eviction pass -- it had a live entry, the stale-* keys did not.
+    expect(limiter.size("fresh")).toBe(1);
+  });
 });

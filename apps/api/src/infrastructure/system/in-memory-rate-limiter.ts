@@ -13,26 +13,32 @@
  * follow-up, not silently promised here. What this DOES close: the previously-true "any
  * number of requests from any one source, forever" -- which was the actual finding.
  *
- * ## Storage IS bounded per key, even under a flood past the limit (review finding, PR #2475)
+ * ## Storage is bounded PER KEY (review finding, PR #2475, round 1)
  *
  * A first version of this file pushed `now` on EVERY call, allowed or not -- so a caller
- * hammering one key past its budget grew that key's array without bound: unbounded memory,
- * and every subsequent call paid an O(n) filter over an ever-growing array. That is exactly
- * backwards for a control whose entire job is to bound the cost of a flood.
+ * hammering one key past its budget grew that key's array without bound. The fix: `hit()`
+ * only appends when the verdict is `allowed`. Once a key is at its budget (`maxPerWindow`
+ * un-expired entries), every further call in the same window is refused WITHOUT growing that
+ * key's array -- bounded by `maxPerWindow` per key, until entries age out.
  *
- * The fix: `hit()` only appends when the verdict is `allowed`. Once a key is at its budget
- * (`maxPerWindow` un-expired entries), every further call in the same window is refused
- * WITHOUT growing the array -- the stored count for any key is bounded by `maxPerWindow`
- * (until entries age out, pruned lazily on the next call for that key, same as before).
- * `size()` exists for exactly this: to make "bounded, not just cheaper" assertable in a test
- * rather than inferred from reading the implementation.
+ * ## Storage is ALSO bounded across the TOTAL number of keys (review finding, round 2)
+ *
+ * Per-key bounding alone does not bound the `Map` itself: an anonymous caller population
+ * using many distinct keys (many source IPs) grows the number of MAP ENTRIES without limit,
+ * even though each individual entry stays small. `MAX_TRACKED_KEYS` closes that: once the
+ * map would exceed it, `evictOverCapacity` runs, preferring to drop keys whose stored hits
+ * are ALL already expired (a real cleanup, not a loss of active state), and only falling
+ * back to dropping the oldest-inserted keys (FIFO -- `Map` preserves insertion order, and
+ * `.set()` on an EXISTING key does not move it) if expired-only eviction is not enough to
+ * get back under the cap. The fallback CAN evict a still-active key under a truly massive
+ * distinct-key flood -- that is the accepted cost of a bound that needs no shared store; it
+ * is strictly better than the prior unbounded-map behaviour, not a claim of perfect fairness.
  *
  * ## Why a `Map`, not `setInterval` cleanup
  *
- * Pruning expired timestamps happens lazily on the next `hit()` for that same key -- no
- * background timer to leak if this class is ever constructed more than once (e.g. in a
- * test). A key that never gets hit again keeps a small (now genuinely bounded) array around
- * until process exit.
+ * Pruning happens lazily on `hit()` -- no background timer to leak if this class is ever
+ * constructed more than once (e.g. in a test). `evictOverCapacity` only runs when the map is
+ * actually over `MAX_TRACKED_KEYS`, so a normal (under-cap) workload never pays its cost.
  */
 import type { Clock } from "../../application/auth/ports";
 import type { RateLimiterPort } from "../../application/ports/rate-limiter.port";
@@ -43,6 +49,13 @@ import {
   type RateLimitVerdict,
 } from "../../domain/system/rate-limit";
 
+/**
+ * Upper bound on distinct keys tracked at once. Generous relative to this control's actual
+ * scale (one write endpoint) -- sized to make a distinct-IP flood cost memory, not to be a
+ * tight budget a legitimate traffic pattern could ever brush against.
+ */
+export const DEFAULT_MAX_TRACKED_KEYS = 50_000;
+
 export class InMemoryRateLimiter implements RateLimiterPort {
   private readonly hits = new Map<string, number[]>();
 
@@ -50,6 +63,7 @@ export class InMemoryRateLimiter implements RateLimiterPort {
     private readonly clock: Clock,
     private readonly windowMs: number = CLIENT_ERROR_REPORT_WINDOW_MS,
     private readonly maxPerWindow: number = CLIENT_ERROR_REPORT_MAX_PER_WINDOW,
+    private readonly maxTrackedKeys: number = DEFAULT_MAX_TRACKED_KEYS,
   ) {}
 
   async hit(key: string): Promise<RateLimitVerdict> {
@@ -63,7 +77,30 @@ export class InMemoryRateLimiter implements RateLimiterPort {
       existing.push(now);
     }
     this.hits.set(key, existing);
+
+    if (this.hits.size > this.maxTrackedKeys) {
+      this.evictOverCapacity(now);
+    }
     return verdict;
+  }
+
+  /**
+   * Brings `this.hits.size` back to `maxTrackedKeys`, preferring to drop keys with no live
+   * (un-expired) entries left before falling back to FIFO eviction of the oldest-inserted
+   * keys. See this file's header for why each pass exists.
+   */
+  private evictOverCapacity(now: number): void {
+    for (const [k, timestamps] of this.hits) {
+      if (this.hits.size <= this.maxTrackedKeys) return;
+      if (timestamps.every((t) => t <= now - this.windowMs)) {
+        this.hits.delete(k);
+      }
+    }
+    if (this.hits.size <= this.maxTrackedKeys) return;
+    for (const k of this.hits.keys()) {
+      if (this.hits.size <= this.maxTrackedKeys) return;
+      this.hits.delete(k);
+    }
   }
 
   /**
@@ -74,5 +111,10 @@ export class InMemoryRateLimiter implements RateLimiterPort {
    */
   size(key: string): number {
     return this.hits.get(key)?.length ?? 0;
+  }
+
+  /** Total distinct keys currently tracked. Test-only, same rationale as `size()`. */
+  trackedKeyCount(): number {
+    return this.hits.size;
   }
 }
