@@ -76,6 +76,14 @@ export interface TemplateSpec {
   key: string;
   /** Canvas title, e.g. "SWOT 分析 SWOT Analysis". */
   title: string;
+  /**
+   * Footer / attribution line drawn under the lowest section box (workspacex
+   * issue #2527: the template editor lets a human type a "页脚署名", the
+   * editor preview paints it, but the spec had no slot for it so the real
+   * canvas never showed it). Empty / unset = no footer node, byte-identical
+   * to pre-#2527 output.
+   */
+  footer?: string;
   /** Header fields (rendered inside headerRect when present). */
   fields?: string[];
   /** Header band (center + size); required when fields are present. */
@@ -129,6 +137,10 @@ const STICKY_GAP = { x: 12, y: 14 };
 const EMPTY_FIELD = '——';
 const INK = '#1f2937';
 const INK_SOFT = '#4b5563';
+/** Footer line geometry (issue #2527): width / height / gap below the lowest box. */
+const FOOTER_W = 900;
+const FOOTER_H = 20;
+const FOOTER_GAP = 16;
 
 const templates = new Map<string, TemplateSpec>();
 
@@ -443,6 +455,27 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
       });
     });
   });
+
+  // Footer / attribution line (issue #2527). Anchored under the lowest box
+  // (or the header band when there are no sections) so it never overlaps
+  // content whatever the layout; left edge lines up with the title (x=60).
+  // Skipped in bg mode like the title: the printed page carries its own.
+  const footer = (spec.footer ?? '').trim();
+  if (footer && !bg) {
+    const bottoms = spec.sections.map((s) => s.y + s.h / 2);
+    if (spec.headerRect) bottoms.push(spec.headerRect.y + spec.headerRect.h / 2);
+    const contentBottom = bottoms.length > 0 ? Math.max(...bottoms) : 60;
+    nodes.push({
+      id: 'tpl-footer',
+      label: footer,
+      shape: 'text',
+      x: 60 + FOOTER_W / 2,
+      y: contentBottom + FOOTER_GAP + FOOTER_H / 2,
+      width: FOOTER_W,
+      height: FOOTER_H,
+      data: { role: 'footer', locked: true, fontSize: 12, color: INK_SOFT, align: 'left' },
+    });
+  }
 
   return {
     kind: 'template',
