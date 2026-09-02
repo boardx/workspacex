@@ -47,8 +47,10 @@ async function logout(page: Page) {
   // /login?next=<当前路径>，两次跳转谁后到谁说了算）。判定规则与反例见 `./logout-landing.ts`
   // 与 `tests/e2e/logout-landing.test.ts`：只接受这两种有意的落点，重复 next / 外域 /
   // 循环 / 错误目标 / 多余参数 / hash 一律红在这里，不留给登录后的 sanitizeReturnTo 掩盖。
-  await expect(page).toHaveURL(/\/login(\?|$)/);
-  const verdict = judgeLogoutLanding(page.url(), "/profile");
+  // 期望 origin 取 Playwright 配置的 baseURL——不能从 page.url() 反推，否则外域落点会自证合规。
+  const expectedOrigin = String(test.info().project.use.baseURL);
+  await expect(page).toHaveURL((url) => url.origin === new URL(expectedOrigin).origin && url.pathname === "/login");
+  const verdict = judgeLogoutLanding(page.url(), "/profile", expectedOrigin);
   expect(verdict.ok, verdict.reason).toBe(true);
 }
 

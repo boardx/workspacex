@@ -6,8 +6,8 @@
  * 见 `components/shell/app-shell.tsx`）。谁后到谁说了算，所以**有意**的落点恰好两种：
  * `/login`，或 `/login?next=<登出时所在路径>`。
  *
- * 只接受这两种，不接受「任意查询串」：错误的回跳目标、外域、指回 /login 的循环值、
- * 重复的 `next`、多余参数、hash——都应在登出这一步红，而不是被登录后的
+ * 只接受这两种，不接受「任意查询串」也不接受「任意 origin」：外域落点、错误的回跳目标、
+ * 外域回跳值、指回 /login 的循环值、重复的 `next`、多余参数、hash——都应在登出这一步红，而不是被登录后的
  * `sanitizeReturnTo` 静默收敛成 `/projects` 掩盖（独立审对 PR #2536 的两轮意见）。
  *
  * 规则本身抽成纯函数，是为了让反例能在 vitest 里红给人看（`tests/e2e/logout-landing.test.ts`），
@@ -20,8 +20,12 @@ export interface LogoutLandingVerdict {
   reason: string;
 }
 
-export function judgeLogoutLanding(rawUrl: string, allowedNext: string): LogoutLandingVerdict {
+export function judgeLogoutLanding(rawUrl: string, allowedNext: string, expectedOrigin: string): LogoutLandingVerdict {
   const url = new URL(rawUrl);
+  // 先看 origin：`https://evil.example/login?next=%2Fprofile` 的 pathname / 查询串全部合规，
+  // 只有 origin 能把它拦下（独立审三轮）。expectedOrigin 来自 Playwright 的 baseURL，不从 page.url() 反推。
+  const origin = new URL(expectedOrigin).origin;
+  if (url.origin !== origin) return { ok: false, reason: `登出落点在外域 ${url.origin}，应为 ${origin}` };
   if (url.pathname !== "/login") return { ok: false, reason: `pathname 是 ${url.pathname}，不是 /login` };
   if (url.hash !== "") return { ok: false, reason: `登出落点不该带 hash：${url.hash}` };
   const extra = [...new Set(url.searchParams.keys())].filter((k) => k !== "next");
