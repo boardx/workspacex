@@ -151,7 +151,8 @@ export const switchOrganizationMock: z.infer<typeof identity.operations.switchOr
       "endpoint": null,
       "abbr": null,
       "duty": null,
-      "disabledReason": null
+      "disabledReason": null,
+      "skillOrchestration": null
     }
   ]
 };
@@ -171,7 +172,8 @@ export const listCapabilitiesMock: z.infer<typeof identity.operations.listCapabi
     "endpoint": null,
     "abbr": null,
     "duty": null,
-    "disabledReason": null
+    "disabledReason": null,
+    "skillOrchestration": null
   }
 ];
 
@@ -190,7 +192,8 @@ export const mutateCapabilityMock: z.infer<typeof identity.operations.mutateCapa
     "endpoint": null,
     "abbr": null,
     "duty": null,
-    "disabledReason": null
+    "disabledReason": null,
+    "skillOrchestration": null
   },
   "provenanceEventId": "provenanceEventId-1",
   "affectedInFlightCalls": 1

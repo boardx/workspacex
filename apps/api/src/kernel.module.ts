@@ -284,9 +284,11 @@ import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
 import {
   CHAT_MESSAGE_COMMAND_REPOSITORY,
   DEFAULT_AGENT_RESOLVER,
+  ENABLED_SKILL_VERSION_READER,
   PUBLISHED_AGENT_READER,
   THREAD_MOUNTED_SKILL_READER,
   type ChatMessageCommandRepository,
+  type EnabledSkillVersionReader,
   type PublishedAgentReader,
   type ThreadMountedSkillReader,
 } from "./application/chat/message-command-ports";
@@ -295,6 +297,7 @@ import {
   PgPublishedAgentReader,
 } from "./infrastructure/chat/pg-chat-message-command-repository";
 import { PgThreadMountedSkillReader } from "./infrastructure/chat/pg-thread-mounted-skill-reader";
+import { PgEnabledSkillVersionReader } from "./infrastructure/skill/pg-enabled-skill-version-reader";
 import { PgChatPresetRepository } from "./infrastructure/chat/pg-chat-preset-repository";
 import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-landing-repository";
 // #946 · V9-a F150：对话附件上传——独立仓储 + 独立控制器（不塞进 1130 行的 ChatController）。
@@ -913,11 +916,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (
         repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository,
         commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
-        threadMounts: ThreadMountedSkillReader, executor: AgentRunExecutorPort,
+        threadMounts: ThreadMountedSkillReader, enabledSkills: EnabledSkillVersionReader,
+        executor: AgentRunExecutorPort,
         runs: PlanLedgerRepository & PlanRunStatusReader, agentRunStore: AgentRunStore,
         model: ModelCallPort, titleModel: ThreadTitleModelConfig, logger: LoggerPort,
       ) => new AcceptMessagePlanRunCreator({
-        repo, ids, chat, commands, publishedAgents, threadMounts, executor, runs, agentRunStore, logger,
+        repo, ids, chat, commands, publishedAgents, threadMounts, enabledSkills, executor, runs, agentRunStore, logger,
         model, titleModel,
         // 同 ChatController.log 的既有先例（server-side only 适配器）。
         log: (message: string, detail: Record<string, unknown>) => {
@@ -927,6 +931,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [
         IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
         CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
+        ENABLED_SKILL_VERSION_READER,
         AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER, AGENT_RUN_STORE,
         MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT,
       ],
@@ -1304,6 +1309,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       // 却从不进入任何一次 run——那是 #1559 逐字记录的形态。
       provide: THREAD_MOUNTED_SKILL_READER,
       useFactory: (db: DatabasePort) => new PgThreadMountedSkillReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      // #2514：agent 默认加载全部已启用 skill（2026-09-02 裁决）进入 run 快照的读口。
+      provide: ENABLED_SKILL_VERSION_READER,
+      useFactory: (db: DatabasePort) => new PgEnabledSkillVersionReader(db),
       inject: [DATABASE_PORT],
     },
     {

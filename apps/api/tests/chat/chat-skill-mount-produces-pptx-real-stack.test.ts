@@ -440,15 +440,26 @@ describe("T1 端到端：`#` 挂 skill → 发一句话 → 真的产出一个�
 /* ═══════════════════════════════ T3 ═══════════════════════════════ */
 
 describe("T3 触发判据：不满足时沙箱一次都不被调用", () => {
-  it("没挂任何 skill ⇒ 沙箱调用计数为 0，正文就是模型原文", async () => {
+  it("组织没有已启用 skill、agent 也没钉 ⇒ 沙箱调用计数为 0，正文就是模型原文", async () => {
     const reply = replyWithScript({ prose: "这是给你看的示例代码：" });
     replyQueue(reply);
 
-    const { result: runId, runs } = await countedSandboxRuns(async () => {
-      const id = await postMessage("帮我写个生成 pptx 的脚本看看", AGENT_BARE);
-      await tick();
-      return id;
-    });
+    // #2514：agent 没钉 skill 时 run 默认加载组织全部**已启用** skill——本夹具种的
+    // 两个 skill 都是 enabled，`AGENT_BARE` 不再"一个 skill 都没有"。这条要证明的是
+    // 「没有任何 skill 可用 ⇒ 沙箱不被调用」，所以把组织的 skill 临时停用（走与
+    // `disable-skill.ts` 同一列 `skills.status`），跑完恢复，后面各条不受影响。
+    await asApp(ORG, (c) => c.query(`UPDATE skills SET status = 'disabled' WHERE org_id = $1`, [ORG]));
+    let outcome: { result: string; runs: number };
+    try {
+      outcome = await countedSandboxRuns(async () => {
+        const id = await postMessage("帮我写个生成 pptx 的脚本看看", AGENT_BARE);
+        await tick();
+        return id;
+      });
+    } finally {
+      await asApp(ORG, (c) => c.query(`UPDATE skills SET status = 'enabled' WHERE org_id = $1`, [ORG]));
+    }
+    const { result: runId, runs } = outcome;
 
     expect(runs).toBe(0);
     const run = await readRunRow(runId);

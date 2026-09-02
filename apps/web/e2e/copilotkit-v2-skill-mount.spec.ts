@@ -2,33 +2,29 @@ import { test, expect, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 
 /**
- * issue #2020（差距清单第 3 项，阻断级）—— `/chat` 的 Skill 挂载入口。
+ * issue #2020（差距清单第 3 项）→ #2514（2026-09-02 服务端裁决）—— `/chat` 的 Skill
+ * 加载与挂载入口。
  *
- * ## 取证链路：挂载 → run 快照 → 模型输入，前后对照
+ * ## 规则（`message-roundtrip.ts` `resolveRunSkillVersionIds`）
  *
- * 挂载生效机制完全在服务端：`agui-bridge.ts` 的 `runAguiBridgeTurn` 调用
- * `acceptHumanMessage`（与旧 REST 轨道**同一个** application 入口），后者经
- * `threadMounts.activeMountedSkillVersionIds` 把线程挂载合进 run 的不可变快照，
- * `execute-run.ts` 再经 `readPinnedSkills` → `buildSystemPrompt` 把挂载 skill 的
- * `SKILL.md` 正文拼进 system prompt。浏览器侧唯一可信的观察信号与
- * `chat-agent-skill-context.spec.ts`（#1559）同一条纪律：确定性替身
- * （这条轨道是 `loopback-deep-agent-provider.ts`）只在自己真的在 `role:"system"`
- * 消息里看到哨兵 `MOUNTPROOF-9317`（只存在于可挂载 skill 的 SKILL.md 正文里，
- * 全仓别处零命中）时才把 `[skill:]MOUNTPROOF-9317` 回显进回复。
+ *     run 的 skill = (agent 钉的非空 ? agent 钉的 : 组织全部已启用) ∪ 线程挂载
  *
- * 顺序是判据的一部分：挂载**前**先发一条对照消息、断言回复里**没有**哨兵——
- * 没有这一轮，「挂载后哨兵出现了」证明不了是挂载带来的（一个把哨兵写进每条
- * 回复的上游也能让那条断言绿）。链上任何一环断掉——挂载没写进
- * `thread_skill_mounts`、v2 的 run 没续接同一条线程、快照没带版本、
- * `buildSystemPrompt` 没拼正文、`input.system` 没发给上游——哨兵都不会出现，
- * 断言如实红。
+ * 夹具 agent 没钉任何 skill ⇒ 走默认加载：**用户什么都不挂**，可挂载 skill 的正文也
+ * 已经在第一轮 run 的模型输入里。composer 里的「技能」入口保留（#2517 裁决：技能功能
+ * 不动、入口收进工具行），但它不再是 skill 生效的前提——挂一个默认已加载的 skill
+ * 是幂等的（并集去重）。
  *
- * ## 2026-09-02 composer 三层结构（本 spec 随之改法，判据不变）
+ * ## 取证信号
  *
- * 「技能」触发器 `chat-skill-mount` 是工具行的一颗圆形图标按钮；新对话（还没有线程）时
- * 它禁用并带 `data-placeholder-reason="no-thread"`（不渲染假入口）；已挂载 chip 留在
- * 工具行当状态 chip；`/` 命令照旧。
- * 挂载面板 `chat-skill-mount-panel` 没挂任何 skill 时零尺寸，判 attached 不判 visible。
+ * 确定性替身 `loopback-deep-agent-provider.ts` 只在自己真的在 `role:"system"` 消息里
+ * 看到哨兵 `MOUNTPROOF-9317`（只存在于可挂载 skill 的 SKILL.md 正文里，全仓别处零
+ * 命中）时才把 `[skill:]MOUNTPROOF-9317` 回显进回复。哨兵出现 ⇔ skill 正文真的进了
+ * system prompt。链上任何一环断掉——默认加载读口没接进 `acceptHumanMessage`、快照没
+ * 带版本、`buildSystemPrompt` 没拼正文、`input.system` 没发给上游——哨兵都不会出现。
+ *
+ * ⚠ 此前的「挂载前无哨兵 → 挂载后有哨兵」对照在默认加载之下**不可能成立**，改成：
+ *   ① 不挂即有（默认加载真的穿过整条链）；② 再挂同一个，回复照样有哨兵、挂载 POST
+ *   照样成功（入口没坏），且挂载 chip 数从 0 变 1（挂载本身仍是真实落库的动作）。
  *
  * ## 范围诚实
  *
@@ -93,56 +89,50 @@ async function mountSkillViaPanel(page: Page, threadId: string): Promise<void> {
 
 const skillEcho = `${CHAT_READ_E2E.mountedSkillEchoPrefix}${CHAT_READ_E2E.mountedSkillSentinel}`;
 
-test("issue #2020：v2 面板挂载 skill 后，它的正文真的进了下一轮 run 的模型输入（前后对照）", async ({ page }) => {
+test("#2514：不挂任何 skill，已启用 skill 的正文已进第一轮 run 的模型输入；入口仍在，再挂同一个是幂等的", async ({ page }) => {
   await warmUpCopilotRuntimeRoute(page);
   await login(page);
   await warmUpThreadRoute(page);
   await page.goto("/chat");
 
-  /* ═══════════ ① 新对话还没有线程：如实占位，不渲染假挂载面板 ═══════════ */
+  /* ═══════════ ① 新对话还没有线程：入口如实占位，不渲染假挂载面板 ═══════════ */
   await expect(page.getByTestId("chat-skill-mount")).toBeDisabled();
   await expect(page.getByTestId("chat-skill-mount")).toHaveAttribute("data-placeholder-reason", "no-thread");
   await expect(page.getByTestId("chat-skill-mount-panel")).toHaveCount(0);
 
-  /* ═══════════ ② 反向对照：还没挂任何 skill，先发一条 ═══════════ */
+  /* ═══════════ ② 什么都不挂，直接发：哨兵必须出现（默认加载） ═══════════ */
   const messages = page.getByTestId("copilotkit-v2-messages");
-  const beforeText = "挂载前对照：第一条取证消息";
+  const beforeText = "不挂 skill 直接发：agent 应默认加载已启用 skill";
   await page.getByTestId("copilotkit-v2-input").fill(beforeText);
   await page.getByTestId("copilotkit-v2-send").click();
   // deep-agent 替身默认剧本逐字回显用户原文——回复真的来自上游，不是前端合成。
   await expect(messages).toContainText(`根据查询结果回答你："${beforeText}"`, { timeout: 60_000 });
   await expect(
     messages,
-    "还没挂 skill 时，回复里不该出现哨兵——否则下面的断言恒绿、证明不了任何事",
-  ).not.toContainText(CHAT_READ_E2E.mountedSkillSentinel);
+    "#2514 核心验收：用户没挑任何 skill，已启用 skill 的正文也必须进入模型输入"
+    + "（deep-agent 替身只在收到的 system 消息里真的看到哨兵时才回显）",
+  ).toContainText(skillEcho);
 
-  /* ═══════════ ③ 首条消息 resolve 出真实线程后，挂载面板自动出现 ═══════════ */
-  // 线程 id 经 CUSTOM {chat_thread_id} 事件回显 → 外壳 history.replaceState 写回地址栏。
+  /* ═══════════ ③ 首条消息 resolve 出真实线程后，挂载入口可用且一个都没挂 ═══════════ */
   await page.waitForURL(/\/chat\/.+$/, { timeout: 30_000 });
   const threadId = /\/chat\/([^/?#]+)/.exec(page.url())?.[1];
   expect(threadId, "首条消息后地址栏应带上持久化线程 id").toBeTruthy();
   await expect(page.getByTestId("chat-skill-mount-panel")).toBeAttached();
   await expect(page.getByTestId("chat-skill-mount")).not.toHaveAttribute("data-placeholder-reason");
-  // 前提：现在一个都没挂。没有这条，「挂上了」的断言可能一开始就是真的。
-  // 2026-08-28 起空态不再单独画一行文字（devapp 实测反馈：composer 这排本来就挤，
-  // 常驻一行"什么都没有"的文字比不说更占地方）——改用触发器上的真实数量
-  // `data-mounted-count` 断言，语义不变，只是读的锚点从"有没有这行字"换成
-  // "这个数字是不是 0"（见 `chat-skill-mount-panel.tsx` pill 分支的同轮注释）。
+  // 前提：线程里一个都没挂——哨兵在 ② 出现靠的是默认加载，不是某次遗留挂载。
   await expect(page.getByTestId("chat-skill-mount")).toHaveAttribute("data-mounted-count", "0");
 
-  /* ═══════════ ④ 挂上那个 skill（真实 POST，落 thread_skill_mounts） ═══════════ */
+  /* ═══════════ ④ 挂上同一个 skill（真实 POST，落 thread_skill_mounts） ═══════════ */
   await mountSkillViaPanel(page, threadId!);
+  await expect(page.getByTestId("chat-skill-mount")).toHaveAttribute("data-mounted-count", "1");
 
-  /* ═══════════ ⑤ 同一条线程再发一条：哨兵必须出现 ═══════════ */
+  /* ═══════════ ⑤ 再发一条：幂等——哨兵照样出现，run 没有因为重复而失败 ═══════════ */
   const afterText = "挂载后取证：第二条消息";
   await page.getByTestId("copilotkit-v2-input").fill(afterText);
   await page.getByTestId("copilotkit-v2-send").click();
   await expect(messages).toContainText(`根据查询结果回答你："${afterText}"`, { timeout: 60_000 });
-  await expect(
-    messages,
-    "issue #2020 核心验收：挂载 skill 的正文必须真的进入 v2 这轮 run 的模型输入"
-    + "（deep-agent 替身只在收到的 system 消息里真的看到哨兵时才回显）",
-  ).toContainText(skillEcho);
+  const echoes = await messages.locator(`text=${skillEcho}`).count();
+  expect(echoes, "两轮回复都应带哨兵回显（默认加载一次、挂载后一次）").toBeGreaterThanOrEqual(2);
 });
 
 test("issue #2020/#2046：composer 敲 / 触发挂载候选（路径斜杠不误触），选中即挂载并清掉正文里的 /query", async ({ page }) => {
