@@ -32,6 +32,10 @@ import { z } from "zod";
 
 /* ─────────────────────────── 读模型 ─────────────────────────── */
 
+/** 系统异常生命周期状态——见 `SystemErrorLogItem.status` 头注。 */
+export const SystemErrorStatus = z.enum(["待处理", "已转入开发", "不做"]);
+export type SystemErrorStatus = z.infer<typeof SystemErrorStatus>;
+
 /**
  * 一条系统异常记录。`detail` 是后端 `redactErrorDetail` 处理**之后**的结果——
  * 已经过脱敏（连接串/Bearer/JWT/密钥模式）与长度截断，`unknown` 是它唯一诚实的类型：
@@ -55,6 +59,19 @@ export const SystemErrorLogItem = z
      */
     aiTitle: z.string().nullable(),
     aiSummary: z.string().nullable(),
+    /**
+     * 生命周期状态（2026-09-03 人类要求：系统异常要跟缺陷反馈一样能"转下一步"）。
+     * `待处理` → [`已转入开发`, `不做`]；`已转入开发` → [`待处理`, `不做`]；
+     * `不做` → [`待处理`]。转 `不做` 时 `statusReason` 是这次转移必填的存档理由；
+     * `devNote` 是"转开发"弹层里可以填的说明字段，独立于状态可随时编辑。
+     * 见 `apps/api/.../update-system-error-lifecycle.ts` 与迁移
+     * `20260903120000_error_logs_lifecycle_tags.sql`。
+     */
+    status: SystemErrorStatus,
+    statusReason: z.string().nullable(),
+    devNote: z.string().nullable(),
+    /** 自由标签，供筛选/搜索——纯字符串数组，没有独立的标签管理表（见迁移头注）。 */
+    tags: z.array(z.string()),
   })
   .strict();
 export type SystemErrorLogItem = z.infer<typeof SystemErrorLogItem>;
@@ -70,6 +87,18 @@ export const SystemErrorLogError = z.enum([
   "MAIL_SEND_FAILED",
   /** `sendTestEmail`：没传收件人，且当前账号也查不到邮箱。 */
   "NO_RECIPIENT",
+  /** `updateSystemErrorLifecycle`：这个 id 不存在。 */
+  "NOT_FOUND",
+  /** `updateSystemErrorLifecycle`：目标状态不是当前状态允许转移到的下一个状态。 */
+  "INVALID_TRANSITION",
+  /** `updateSystemErrorLifecycle`：转「不做」时 `statusReason` 为空。 */
+  "REASON_REQUIRED",
+  /** `updateSystemErrorLifecycle`：`statusReason` 在不随 `status` 一起提交时被携带——
+   *  只能与状态变更一起改存档理由,见用例头注①。 */
+  "REASON_REQUIRES_STATUS",
+  /** `updateSystemErrorLifecycle`：并发冲突——`status` 在这次请求读到旧值之后已被别处改过,
+   *  刷新后重试,见用例头注②。 */
+  "CONCURRENT_UPDATE",
 ]);
 export type SystemErrorLogError = z.infer<typeof SystemErrorLogError>;
 
@@ -160,5 +189,35 @@ export const operations = {
       })
       .strict(),
     err: ["NOT_PLATFORM_SUPERUSER", "MAIL_NOT_CONFIGURED", "MAIL_SEND_FAILED", "NO_RECIPIENT"] as const,
+  },
+
+  /**
+   * 平台超管专用：系统异常的生命周期(状态/理由/开发备注)与标签更新——见
+   * `apps/api/.../update-system-error-lifecycle.ts` 头注（状态机、`不做` 必填理由、
+   * `devNote`/`tags` 可独立于状态转移单独编辑）。
+   *
+   * `status` 省略 = 不改状态，只改 `devNote`/`tags`。`statusReason`/`devNote`/`tags`
+   * 省略 = 保留现值；传空字符串/空数组才是"清空"（与 `triageFeedback.issueDraft`
+   * 同一条 optional≠null 的向后兼容纪律）。
+   */
+  updateSystemErrorLifecycle: {
+    method: "PUT",
+    path: "/system/error-logs/:id",
+    in: z
+      .object({
+        id: z.string(),
+        status: SystemErrorStatus.optional(),
+        statusReason: z.string().nullable().optional(),
+        devNote: z.string().nullable().optional(),
+        tags: z.array(z.string()).optional(),
+      })
+      .strict(),
+    out: SystemErrorLogItem.omit({
+      traceId: true, msg: true, detail: true, createdAt: true, aiTitle: true, aiSummary: true,
+    }),
+    err: [
+      "NOT_PLATFORM_SUPERUSER", "DEPENDENCY_UNAVAILABLE", "NOT_FOUND",
+      "INVALID_TRANSITION", "REASON_REQUIRED", "REASON_REQUIRES_STATUS", "CONCURRENT_UPDATE",
+    ] as const,
   },
 } as const;

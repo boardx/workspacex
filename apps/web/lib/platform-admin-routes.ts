@@ -18,6 +18,7 @@ export const PLATFORM_ADMIN_ROUTES: Record<string, AdminModuleKey> = {
   // 平台 / 运营
   members: "platform",
   feedback: "feedback",
+  "ops-status": "ops-status",
 };
 
 export const PLATFORM_ADMIN_ROOT = "/platform-admin";

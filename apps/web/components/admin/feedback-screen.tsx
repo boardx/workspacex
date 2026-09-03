@@ -26,7 +26,12 @@ import {
   type FeedbackStatus,
   type FeedbackStatusEvent,
 } from "@/lib/live-feedback";
-import { listSystemErrorLogs, sendTestEmail, type SendTestEmailOut, type SystemErrorLogItem } from "@/lib/live-system-errors";
+import {
+  listSystemErrorLogs,
+  updateSystemErrorLifecycle,
+  type SystemErrorLogItem,
+  type SystemErrorStatus,
+} from "@/lib/live-system-errors";
 import type { UiState } from "@/lib/ui-state";
 import { cn } from "@/lib/utils";
 
@@ -53,6 +58,18 @@ import { cn } from "@/lib/utils";
  *   · 来源名字（Agent · 客服助手）在**客户端**用 `listAgents` / `listSkills` 解析：
  *     `targetLabel` 服务端今天仍然留空（见 `feedback.controller.ts` 头注），两份目录
  *     本来就对全组织成员可见，这里只是把 id 换成人读的名字，解析不到就退回 id。
+ *
+ * ## 2026-09-03（人类反馈，三处）
+ *
+ *   · 「测试邮件」从系统异常 tab 挪到平台后台新菜单「运营状态」（`ops-status-screen.tsx`），
+ *     不再是这个文件的内容——它不是"反馈"，混在收件箱里语义不对。
+ *   · 系统异常从「纯列表」改成跟缺陷反馈/需求建议一样的**卡片**可视化
+ *     （`SystemErrorCard`），加标签管理（自由文本标签，随条目落库，见契约
+ *     `system-error-logs.ts` 的 `tags` 字段）与标签筛选/搜索。
+ *   · 系统异常加生命周期管理：待处理 → [已转入开发, 不做]，已转入开发 → [待处理, 不做]，
+ *     不做 → [待处理]（存档后仍可重新打开）。"转开发"有一个可填写的说明字段
+ *     （`devNote`），"转不做"必须填存档理由（`statusReason`）——同缺陷反馈"不做"
+ *     必填理由的既有纪律。见 `apps/api/.../update-system-error-lifecycle.ts`。
  *
  * ## 设计稿里两处**没有**照搬的东西（如实登记，不是漏了）
  *
@@ -312,7 +329,7 @@ export function FeedbackScreen({ state }: { state: UiState }) {
         </div>
 
         {tab === "system" ? (
-          <SystemExceptionsSection load={systemLoad} onReload={() => void reloadSystem()} />
+          <SystemExceptionsSection load={systemLoad} onReload={reloadSystem} />
         ) : (
           <>
             {/* 筛选条 */}
@@ -1035,24 +1052,145 @@ function FeedbackTimeline({ item }: { item: FeedbackItem }) {
   );
 }
 
+/** 稳定的空数组引用——`load.kind !== "ready"` 时的兜底，避免每次渲染都造一个新 `[]`
+ *  触发下游 `useMemo` 的 `items` 依赖被判定为"每次渲染都变"（react-hooks/exhaustive-deps）。 */
+const EMPTY_SYSTEM_ERROR_ITEMS: readonly SystemErrorLogItem[] = [];
+
+const SYSTEM_STATUS_TONE: Record<SystemErrorStatus, "warning" | "ai" | "neutral"> = {
+  待处理: "warning",
+  已转入开发: "ai",
+  不做: "neutral",
+};
+
+const SYSTEM_STATUS_ORDER: readonly SystemErrorStatus[] = ["待处理", "已转入开发", "不做"];
+
+/** 系统异常的生命周期边——与后端 `ALLOWED_SYSTEM_ERROR_TRANSITIONS` 逐条对应（见该用例头注）。 */
+const SYSTEM_NEXT_STATUSES: Record<SystemErrorStatus, readonly SystemErrorStatus[]> = {
+  待处理: ["已转入开发", "不做"],
+  已转入开发: ["待处理", "不做"],
+  不做: ["待处理"],
+};
+
+type SystemTagFilter = "all" | string;
+
 /**
  * 系统异常标签页——前后端未处理异常写入 `error_logs`，这里读 `GET /system/error-logs`。
+ * 2026-09-03 起跟缺陷反馈/需求建议一样用**卡片**可视化，加标签管理与生命周期管理
+ * （见文件头 2026-09-03 一节）。
  *
  * ⚠ 这条接口对**平台超管或平台管理员**放行（`PlatformOperatorGuard`，platform-admin-role
  *   delta；见契约文件头：`error_logs` 没有 `org_id`）。403 `NOT_PLATFORM_SUPERUSER`
  *   **不是**失败态——它是"你两个身份都不是"的正常结果，渲染成一句说明而不是重试按钮。
+ *
+ * 标签筛选、状态筛选、搜索都是**客户端**过滤（同缺陷反馈的 `sourceFilter`/`query`
+ * 既有做法）——本页一次最多读 50/200 条，不值得为筛选单独开一条服务端查询接口。
  */
-function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReload: () => void }) {
+function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReload: () => Promise<void> }) {
+  const [statusFilter, setStatusFilter] = React.useState<"all" | SystemErrorStatus>("all");
+  const [tagFilter, setTagFilter] = React.useState<SystemTagFilter>("all");
+  const [query, setQuery] = React.useState("");
+  const [actionError, setActionError] = React.useState<string | null>(null);
+  const [busyId, setBusyId] = React.useState<string | null>(null);
+
+  const items = load.kind === "ready" ? load.items : EMPTY_SYSTEM_ERROR_ITEMS;
+  const allTags = React.useMemo(() => {
+    const set = new Set<string>();
+    for (const item of items) for (const tag of item.tags) set.add(tag);
+    return [...set].sort();
+  }, [items]);
+
+  const q = query.trim().toLowerCase();
+  const visible = items.filter((item) => {
+    if (statusFilter !== "all" && item.status !== statusFilter) return false;
+    if (tagFilter !== "all" && !item.tags.includes(tagFilter)) return false;
+    if (q === "") return true;
+    const hay = [item.aiTitle ?? "", item.aiSummary ?? "", item.msg, item.traceId, ...item.tags].join(" ").toLowerCase();
+    return hay.includes(q);
+  });
+
+  const update = async (id: string, patch: Parameters<typeof updateSystemErrorLifecycle>[1]) => {
+    setBusyId(id);
+    setActionError(null);
+    try {
+      await updateSystemErrorLifecycle(id, patch);
+      await onReload();
+    } catch (err) {
+      setActionError(describeFailure(err));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
-    <section className="flex flex-col gap-2 px-6 py-4" data-testid="admin-feedback-system-errors">
-      {/* 只对拿得到异常列表的人（平台超管）出这块——发信路由也是同一道超管门。 */}
-      {load.kind !== "forbidden" && <TestMailPanel />}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-12 text-muted-foreground">前后端自动捕获的未处理异常。</p>
-        {load.kind === "ready" && (
+    <section className="flex flex-col gap-3 px-6 py-4" data-testid="admin-feedback-system-errors">
+      <p className="text-12 text-muted-foreground">前后端自动捕获的未处理异常。</p>
+
+      {load.kind === "ready" && items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3" data-testid="admin-feedback-system-errors-filters">
+          <div className="inline-flex items-center gap-0.5 rounded-md bg-muted p-0.5" role="group" aria-label="按状态筛选">
+            <StatusChip active={statusFilter === "all"} onClick={() => setStatusFilter("all")} count={items.length} testid="admin-feedback-system-errors-filter-status-all">全部</StatusChip>
+            {SYSTEM_STATUS_ORDER.map((s) => (
+              <StatusChip key={s} active={statusFilter === s} onClick={() => setStatusFilter(s)} count={items.filter((i) => i.status === s).length} testid={`admin-feedback-system-errors-filter-status-${s}`}>
+                {s}
+              </StatusChip>
+            ))}
+          </div>
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="按标签筛选">
+              <button
+                type="button"
+                aria-pressed={tagFilter === "all"}
+                onClick={() => setTagFilter("all")}
+                data-testid="admin-feedback-system-errors-filter-tag-all"
+                className={cn(
+                  "rounded-pill border px-2.5 py-1 text-11 transition-colors duration-fast",
+                  tagFilter === "all" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-card-foreground hover:bg-muted",
+                )}
+              >
+                全部标签
+              </button>
+              {allTags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  aria-pressed={tagFilter === tag}
+                  onClick={() => setTagFilter(tag)}
+                  data-testid={`admin-feedback-system-errors-filter-tag-${tag}`}
+                  className={cn(
+                    "rounded-pill border px-2.5 py-1 text-11 transition-colors duration-fast",
+                    tagFilter === tag ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-card-foreground hover:bg-muted",
+                  )}
+                >
+                  #{tag}
+                </button>
+              ))}
+            </div>
+          )}
+          <label className="ml-auto flex h-8 w-64 max-w-full items-center gap-2 rounded-md border border-border-subtle bg-panel px-2.5 text-12 text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
+            <Search aria-hidden className="h-3.5 w-3.5 shrink-0" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="搜索标题、摘要、标签…"
+              aria-label="搜索系统异常"
+              data-testid="admin-feedback-system-errors-search"
+              className="min-w-0 flex-1 bg-transparent text-12 text-card-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0"
+            />
+          </label>
+        </div>
+      )}
+
+      {load.kind === "ready" && (
+        <div className="flex justify-end">
           <Button size="sm" variant="outline" onClick={onReload}>刷新</Button>
-        )}
-      </div>
+        </div>
+      )}
+
+      {actionError !== null && (
+        <p className="text-12 text-destructive" data-testid="admin-feedback-system-errors-action-error">
+          操作没有生效（{actionError}）。状态未变更。
+        </p>
+      )}
 
       {load.kind === "loading" && (
         <p className="text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-loading">正在读取系统异常…</p>
@@ -1071,118 +1209,109 @@ function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReloa
         </div>
       )}
       {load.kind === "ready" && (
-        load.items.length === 0 ? (
+        items.length === 0 ? (
           <p className="text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-empty">还没有捕获到系统异常。</p>
+        ) : visible.length === 0 ? (
+          <p className="text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-filtered-empty">这个筛选下没有系统异常。</p>
         ) : (
-          <div className="flex flex-col divide-y divide-border-subtle rounded-lg border border-border" data-testid="admin-feedback-system-errors-list">
-            {load.items.map((item) => (
-              <SystemErrorRow key={item.id} item={item} />
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" data-testid="admin-feedback-system-errors-list">
+            {visible.map((item) => (
+              <SystemErrorCard key={item.id} item={item} busy={busyId === item.id} onUpdate={(patch) => void update(item.id, patch)} />
             ))}
-            {load.hasMore && (
-              <p className="px-4 py-2 text-11 text-muted-foreground">还有更早的记录（本页只显示最新 {load.items.length} 条）。</p>
-            )}
           </div>
         )
+      )}
+      {load.kind === "ready" && load.hasMore && (
+        <p className="text-11 text-muted-foreground">还有更早的记录（本页只显示最新 {items.length} 条）。</p>
       )}
     </section>
   );
 }
 
-type TestMailState =
-  | { kind: "idle" }
-  | { kind: "sending" }
-  | { kind: "sent"; out: SendTestEmailOut }
-  | { kind: "failed"; reasonCode: string; category: string | null };
-
 /**
- * 「测试邮件」——人类 2026-09-02 要求：后台要能验证邮件发不发得出。走的是生产同一条
- * 事务邮件通路（`POST /system/mail/test`，见契约头注），不是另一套测试通路；失败
- * 如实报契约码 + 适配器归好类的 `category`，成功报收件人与供应商回执 id。
+ * 系统异常卡片——2026-09-02 起先给人看得懂的标题+说明（AI 摘要），原始字段变成
+ * "技术细节"折叠区；2026-09-03 加状态徽标、标签编辑、生命周期转移动作，视觉上跟
+ * `FeedbackTable` 行同一套 `Badge`/`STATUS_TONE` 语言，只是排布成卡片而不是表格行
+ * （系统异常没有"来源/赞同"这类表格列，卡片比表格更适合放得下标签与转移动作）。
+ * aiTitle/aiSummary 由 `PgErrorLogWriter.record()` 落库后异步生成，两者为 null
+ * 时无法区分"还没生成完"和"这次没生成出来"——不编一句假摘要，统一用一条兜底说明。
  */
-function TestMailPanel() {
-  const [to, setTo] = React.useState("");
-  const [state, setState] = React.useState<TestMailState>({ kind: "idle" });
-
-  const send = async () => {
-    setState({ kind: "sending" });
-    try {
-      const out = await sendTestEmail(to);
-      setState({ kind: "sent", out });
-    } catch (err) {
-      const body = err instanceof ApiError ? (err.raw as { category?: unknown } | null | undefined) : null;
-      setState({
-        kind: "failed",
-        reasonCode: describeFailure(err),
-        category: typeof body?.category === "string" ? body.category : null,
-      });
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-panel p-4" data-testid="admin-feedback-test-mail">
-      <div className="flex flex-col gap-0.5">
-        <h3 className="text-13 font-semibold">测试邮件</h3>
-        <p className="text-11 text-muted-foreground">
-          用生产同一条事务邮件通路发一封测试邮件——反馈确认 / 状态变更邮件都是 best-effort、失败只记日志，这里把结果直接摆出来。
-        </p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          value={to}
-          onChange={(e) => { setTo(e.target.value); if (state.kind !== "sending") setState({ kind: "idle" }); }}
-          placeholder="收件人邮箱（留空 = 发给当前账号）"
-          aria-label="测试邮件收件人"
-          type="email"
-          data-testid="admin-feedback-test-mail-to"
-          className="h-8 w-80 max-w-full rounded-md border border-border-subtle bg-card px-2.5 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-        <Button size="sm" variant="primary" disabled={state.kind === "sending"} onClick={() => void send()} data-testid="admin-feedback-test-mail-send">
-          {state.kind === "sending" && <Loader2 aria-hidden className="h-3 w-3 animate-spin" />}
-          发送测试邮件
-        </Button>
-      </div>
-      {state.kind === "sent" && (
-        <p className="text-12 text-card-foreground" data-testid="admin-feedback-test-mail-sent">
-          已发送到 <span className="font-medium">{state.out.sentTo}</span>（{formatTime(state.out.sentAt)}）
-          {state.out.providerMessageId !== null && (
-            <span className="text-muted-foreground"> · 供应商回执 <code className="font-mono text-11">{state.out.providerMessageId}</code></span>
-          )}
-          。请到收件箱确认——主题「{state.out.subject}」。
-        </p>
-      )}
-      {state.kind === "failed" && (
-        <p className="text-12 text-destructive" data-testid="admin-feedback-test-mail-failed">
-          {state.reasonCode === "MAIL_NOT_CONFIGURED"
-            ? "这个部署没有配置事务邮件（缺 CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_TXN_EMAIL_API_TOKEN / MAIL_FROM 之一）。"
-            : state.reasonCode === "NO_RECIPIENT"
-              ? "没有收件人：当前账号查不到邮箱，请填一个收件人。"
-              : `没发出去（${state.reasonCode}${state.category !== null ? ` · ${state.category}` : ""}）。`}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// 2026-09-02（人类要求）：系统异常要跟反馈卡片一样，先给人看得懂的标题+说明，
-// 原始字段变成"技术细节"折叠区，而不是唯一的呈现方式。aiTitle/aiSummary 由
-// `PgErrorLogWriter.record()` 落库后异步生成（见 summarize-error-log.ts），两者
-// 为 null 时无法区分"还没生成完"和"这次没生成出来"——不编一句假摘要，统一用
-// 一条兜底说明代替，原始 msg 仍然可见（作为兜底标题）。
-function SystemErrorRow({ item }: { item: SystemErrorLogItem }) {
+function SystemErrorCard({
+  item, busy, onUpdate,
+}: {
+  item: SystemErrorLogItem;
+  busy: boolean;
+  onUpdate: (patch: Parameters<typeof updateSystemErrorLifecycle>[1]) => void;
+}) {
   const [expanded, setExpanded] = React.useState(false);
+  const [devNoteDraft, setDevNoteDraft] = React.useState<string | null>(null);
+  const [declineReason, setDeclineReason] = React.useState<string | null>(null);
+  const [tagDraft, setTagDraft] = React.useState("");
   const hasAiSummary = item.aiTitle !== null && item.aiSummary !== null;
+  const forwardTargets = SYSTEM_NEXT_STATUSES[item.status];
+  const canForwardToDev = forwardTargets.includes("已转入开发");
+  const canDecline = forwardTargets.includes("不做");
+  const canReopen = item.status !== "待处理" && forwardTargets.includes("待处理");
+
+  const addTag = () => {
+    const tag = tagDraft.trim();
+    if (tag === "" || item.tags.includes(tag)) { setTagDraft(""); return; }
+    onUpdate({ tags: [...item.tags, tag] });
+    setTagDraft("");
+  };
+  const removeTag = (tag: string) => onUpdate({ tags: item.tags.filter((t) => t !== tag) });
+
   return (
-    <div className="flex flex-col gap-1.5 px-4 py-2.5" data-testid={`admin-feedback-system-error-${item.id}`}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="min-w-0 flex-1 truncate text-12 font-medium">
-          {hasAiSummary ? item.aiTitle : item.msg}
-        </span>
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4" data-testid={`admin-feedback-system-error-${item.id}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge tone={SYSTEM_STATUS_TONE[item.status]} data-testid={`admin-feedback-system-error-status-${item.id}`}>{item.status}</Badge>
         <code className="font-mono text-10 text-muted-foreground">{item.traceId}</code>
-        <span className="text-11 text-muted-foreground tabular-nums">{formatTime(item.createdAt)}</span>
+        <span className="ml-auto text-11 text-muted-foreground tabular-nums">{formatTime(item.createdAt)}</span>
       </div>
-      <p className="text-11 text-muted-foreground" data-testid={`admin-feedback-system-error-summary-${item.id}`}>
+
+      <p className="text-13 font-semibold leading-snug text-card-foreground">
+        {hasAiSummary ? item.aiTitle : item.msg}
+      </p>
+      <p className="text-12 text-muted-foreground" data-testid={`admin-feedback-system-error-summary-${item.id}`}>
         {hasAiSummary ? item.aiSummary : "AI 摘要还没有生成，可能仍在处理中，也可能这次没生成出来——可以展开下面的技术细节自行判断。"}
       </p>
+
+      {item.devNote !== null && item.devNote.trim() !== "" && (
+        <p className="text-11 text-card-foreground" data-testid={`admin-feedback-system-error-devnote-${item.id}`}>开发备注：{item.devNote}</p>
+      )}
+      {item.statusReason !== null && item.statusReason.trim() !== "" && (
+        <p className="text-11 text-card-foreground" data-testid={`admin-feedback-system-error-reason-${item.id}`}>存档理由：{item.statusReason}</p>
+      )}
+
+      {/* 标签管理——自由文本，随条目落库（见契约 `tags` 字段），不是独立的标签管理表。 */}
+      <div className="flex flex-wrap items-center gap-1.5" data-testid={`admin-feedback-system-error-tags-${item.id}`}>
+        {item.tags.map((tag) => (
+          <span key={tag} className="inline-flex items-center gap-1 rounded-pill border border-border-subtle bg-panel px-2 py-0.5 text-10 text-card-foreground">
+            #{tag}
+            <button
+              type="button"
+              aria-label={`移除标签 ${tag}`}
+              onClick={() => removeTag(tag)}
+              disabled={busy}
+              data-testid={`admin-feedback-system-error-tag-remove-${item.id}-${tag}`}
+              className="text-muted-foreground transition-colors duration-fast hover:text-destructive"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          value={tagDraft}
+          onChange={(e) => setTagDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
+          placeholder="加标签，回车确认"
+          aria-label="加标签"
+          disabled={busy}
+          data-testid={`admin-feedback-system-error-tag-input-${item.id}`}
+          className="h-6 w-28 min-w-0 rounded border border-border-subtle bg-panel px-1.5 text-10"
+        />
+      </div>
+
       <button
         type="button"
         className="self-start text-11 text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
@@ -1198,6 +1327,75 @@ function SystemErrorRow({ item }: { item: SystemErrorLogItem }) {
         >
           {JSON.stringify(item.detail, null, 2)}
         </pre>
+      )}
+
+      {/* 生命周期转移动作——待处理→[已转入开发,不做]，已转入开发→[待处理,不做]，不做→[待处理]。 */}
+      {devNoteDraft !== null ? (
+        <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-2.5" data-testid={`admin-feedback-system-error-devnote-form-${item.id}`}>
+          <textarea
+            value={devNoteDraft}
+            onChange={(e) => setDevNoteDraft(e.target.value)}
+            placeholder="给开发的说明（可选）：负责人、复现线索……"
+            aria-label="转开发说明"
+            rows={2}
+            data-testid={`admin-feedback-system-error-devnote-input-${item.id}`}
+            className="resize-y rounded border border-border-subtle bg-card p-1.5 text-11"
+          />
+          <div className="flex justify-end gap-1.5">
+            <Button size="xs" variant="ghost" onClick={() => setDevNoteDraft(null)}>取消</Button>
+            <Button
+              size="xs"
+              variant="primary"
+              disabled={busy}
+              onClick={() => { onUpdate({ status: "已转入开发", devNote: devNoteDraft.trim() === "" ? null : devNoteDraft.trim() }); setDevNoteDraft(null); }}
+              data-testid={`admin-feedback-system-error-devnote-submit-${item.id}`}
+            >
+              {busy && <Loader2 aria-hidden className="h-3 w-3 animate-spin" />}
+              确认转入开发
+            </Button>
+          </div>
+        </div>
+      ) : declineReason !== null ? (
+        <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-2.5" data-testid={`admin-feedback-system-error-decline-form-${item.id}`}>
+          <input
+            value={declineReason}
+            onChange={(e) => setDeclineReason(e.target.value)}
+            placeholder="为什么不做？（必填，存档理由）"
+            aria-label="不做的理由"
+            data-testid={`admin-feedback-system-error-decline-reason-${item.id}`}
+            className="h-7 rounded border border-border-subtle bg-card px-2 text-11"
+          />
+          <div className="flex justify-end gap-1.5">
+            <Button size="xs" variant="ghost" onClick={() => setDeclineReason(null)}>取消</Button>
+            <Button
+              size="xs"
+              variant="primary"
+              disabled={busy || declineReason.trim() === ""}
+              onClick={() => { onUpdate({ status: "不做", statusReason: declineReason.trim() }); setDeclineReason(null); }}
+              data-testid={`admin-feedback-system-error-decline-submit-${item.id}`}
+            >
+              确认不做
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-1.5">
+          {canForwardToDev && (
+            <Button size="xs" variant="primary" disabled={busy} onClick={() => setDevNoteDraft(item.devNote ?? "")} data-testid={`admin-feedback-system-error-to-已转入开发-${item.id}`}>
+              转入开发…
+            </Button>
+          )}
+          {canDecline && (
+            <Button size="xs" variant="outline" disabled={busy} onClick={() => setDeclineReason("")} data-testid={`admin-feedback-system-error-to-不做-${item.id}`}>
+              不做…
+            </Button>
+          )}
+          {canReopen && (
+            <Button size="xs" variant="ghost" disabled={busy} onClick={() => onUpdate({ status: "待处理" })} data-testid={`admin-feedback-system-error-to-待处理-${item.id}`}>
+              退回待处理
+            </Button>
+          )}
+        </div>
       )}
     </div>
   );
