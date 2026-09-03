@@ -319,6 +319,26 @@
   }
 }
 
+@media print {
+  body[data-print-interview-report="true"] * {
+    visibility: hidden;
+  }
+
+  body[data-print-interview-report="true"] .print-interview-report-root,
+  body[data-print-interview-report="true"] .print-interview-report-root * {
+    visibility: visible;
+  }
+
+  body[data-print-interview-report="true"] .print-interview-report-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    padding: 24mm 20mm;
+    color: #111827;
+    background: white;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

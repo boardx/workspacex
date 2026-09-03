@@ -324,6 +324,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      docx:
+        specifier: ^9.7.1
+        version: 9.7.1
       fabric:
         specifier: 7.4.0
         version: 7.4.0
