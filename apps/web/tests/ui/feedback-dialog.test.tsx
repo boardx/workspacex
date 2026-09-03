@@ -220,3 +220,61 @@ describe("FB-5 网络层失败的可读性与重试", () => {
     }
   });
 });
+
+/**
+ * 2026-09-03 新增：⑨「套用模板」按当前 kind 填复现步骤/期望结果/实际结果（或需求版）
+ * 进「详细说说」，已有内容不覆盖只追加；⑩ 拖图片进附件区等价于点「加图片」选中，
+ * 走同一条上传路径。
+ */
+describe("FB-5 补：套用模板 / 拖拽上传", () => {
+  it("⑨ 空正文时点「套用模板」——缺陷 kind 填复现步骤/期望结果/实际结果结构", () => {
+    openDialogFor({ kind: "product" });
+    fireEvent.click(screen.getByTestId("feedback-template-button"));
+    const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
+    expect(detail.value).toContain("复现步骤");
+    expect(detail.value).toContain("期望结果");
+    expect(detail.value).toContain("实际结果");
+  });
+
+  it("⑨ 需求 kind 套用的是需求版模板，不是缺陷版", () => {
+    openDialogFor({ kind: "product" });
+    fireEvent.click(screen.getByTestId("feedback-kind-需求"));
+    fireEvent.click(screen.getByTestId("feedback-template-button"));
+    const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
+    expect(detail.value).toContain("期望的效果");
+    expect(detail.value).not.toContain("复现步骤");
+  });
+
+  it("⑨ 已经写了内容再点「套用模板」——追加在后面，不覆盖已写的话", () => {
+    openDialogFor({ kind: "product" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "已经写的话" } });
+    fireEvent.click(screen.getByTestId("feedback-template-button"));
+    const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
+    expect(detail.value.startsWith("已经写的话")).toBe(true);
+    expect(detail.value).toContain("复现步骤");
+  });
+
+  it("⑩ 把图片拖进附件区（不点「加图片」）也能触发上传，同一条 addAttachments 路径", async () => {
+    const createObjectURL = vi.fn(() => "blob:preview");
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 201,
+      text: async () => JSON.stringify({ attachmentId: "att-drop", url: "/feedback/attachments/att-drop" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      openDialogFor({ kind: "product" });
+      const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "dropped.png", { type: "image/png" });
+      const dropzone = screen.getByTestId("feedback-attachment-dropzone");
+      fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.queryByTestId(/^feedback-attachment-error-/)).toBeNull());
+      const sentForm = (fetchMock.mock.calls[0]?.[1] as RequestInit).body as FormData;
+      expect((sentForm.get("file") as File).name).toBe("dropped.png");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
