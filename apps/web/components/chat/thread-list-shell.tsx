@@ -300,13 +300,19 @@ export function ThreadCardButton({
         onClick={onSelect}
         onDoubleClick={canMutate ? startEdit : undefined}
         className={[
-          "flex w-full items-center gap-1.5 rounded-md border-l-2 px-2 py-1.5 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           // issue #2476：原来是 `border-primary bg-muted`——跟下面"改标题"表单的
           // `border-primary bg-muted` 逐字同款，选中态和"正在编辑"这个完全不同的
           // 动作在视觉上没有区分度，且 `--primary` 近黑 + `--muted` 浅灰在小字号
           // 下辨识度低，用户反馈"感觉颜色没变"。换成 `--accent`（已经在计划卡头
           // 用过的同一个浅青绿 token），选中态从此有自己的颜色，不跟其它状态共用。
-          selected ? "border-accent-foreground bg-accent" : "border-transparent",
+          //
+          // 2026-09-03 人类反馈（真栈截图）「选中的 chat session，不需要左边的 solid
+          // border，简化」—— 上一轮改的是颜色，这一轮去掉「左边框」这个形态本身：
+          // `border-l-2` 一直是这一条的选中/未选中都占位的固定几何（未选中态只是把
+          // 颜色改成 transparent），删掉整条 `border-l-*`，选中态单靠 `bg-accent`
+          // 这块底色本身就足够辨识，不需要再用一条竖线重复标一次。
+          selected ? "bg-accent text-accent-foreground" : "",
         ].join(" ")}
       >
         {/* 2026-08-29 Claude Design 重设计稿——会话卡收成**一行**（人类原话「chat

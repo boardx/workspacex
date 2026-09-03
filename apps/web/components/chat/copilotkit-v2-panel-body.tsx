@@ -1518,6 +1518,11 @@ export function CopilotKitV2PanelBody({
       }]
     : [];
 
+  // 见下面 `copilotkit-v2-messages` 滚动容器 className 处的头注：与三态分支
+  // （`historyLoading` / 空态 / 消息列表）判断的是同一件事，这里只是给 className
+  // 也需要用到的这一份判断起个名字，不是新开一套判定。
+  const isEmptyThread = !historyLoading && agent.messages.length === 0 && !agent.isRunning;
+
   return (
     <div className="flex h-full w-full gap-3">
       {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
@@ -1558,6 +1563,15 @@ export function CopilotKitV2PanelBody({
             （气泡本身已经是各自的卡片/气泡，这一层外框纯属多余的视觉噪音）。去掉
             border/圆角/卡片底色，改用页面本底色，只留 `p-3` 内边距不动。 */}
         <div className="relative flex min-h-0 flex-1 flex-col">
+        {/*
+          2026-09-03 人类反馈（真栈截图）「今天完成什么这部分的内容太上了」—— 空态 JSX
+          （`chat-task-workbench-empty-state.tsx`）本来就带 `h-full` + `justify-center`
+          想垂直居中，但 `h-full` 解析的是父容器 `messagesContentRef` 那个普通 `<div>`
+          的高度：那层是块级元素，高度=内容自身高度（auto），`h-full` 等于"我自己的
+          100%"，居中无从谈起——空态因此贴着滚动区顶部出现，下面一路空到 composer。
+          `agent.messages.length === 0 && !agent.isRunning` 这条判断本来就要在下面的
+          三态分支里算一次，这里单独存一份供 className 用同一个事实，不重复判断逻辑。
+        */}
         <div
           ref={messagesContainerRef}
           onScroll={handleMessagesScroll}
@@ -1565,7 +1579,15 @@ export function CopilotKitV2PanelBody({
           onTouchMove={handleUserScrollIntent}
           onKeyDown={handleUserScrollIntent}
           onPointerDown={handleUserScrollIntent}
-          className="flex-1 overflow-y-auto bg-background p-3"
+          className={cn(
+            "flex-1 overflow-y-auto bg-background p-3",
+            // 只在空态这一支给滚动容器本身开 flex 列——`messagesContentRef` 作为它的
+            // flex item 默认 `align-items: stretch`，从而真的拿到一个可居中的高度。
+            // 有消息时保持原来的普通块级流（`overflow-y-auto` 的滚动高度计算逻辑
+            // 一个字不动），不会牵动 `handleMessagesScroll`/`isScrolledNearBottom`
+            // 这类依赖真实 scrollHeight 的既有逻辑。
+            isEmptyThread && "flex flex-col",
+          )}
           data-testid="copilotkit-v2-messages"
         >
         <div ref={messagesContentRef}>
@@ -1906,7 +1928,7 @@ export function CopilotKitV2PanelBody({
           data-testid="chat-task-workbench-composer"
           data-voice-phase={voice.phase}
         >
-          <div className="flex flex-col gap-4 px-5 pb-4 pt-5">
+          <div className="flex flex-col gap-4 px-5 pb-3 pt-5">
             {agentOptions.status === "error" ? (
               <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
                 {agentOptions.message}
@@ -1954,7 +1976,16 @@ export function CopilotKitV2PanelBody({
                 data-testid="copilotkit-v2-input"
                 rows={3}
                 className={[
-                  "block w-full min-w-0 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground",
+                  // 2026-09-03 人类反馈（真栈截图）「输入框不要黑色的 border，浅一点」——
+                  // 外层卡片（`chat-task-workbench-composer`）已经用
+                  // `focus-within:border-primary/60` 承担聚焦提示；这个内层 `<textarea>`
+                  // 原来又叠一圈 `ring-2 ring-ring`（`--ring` 近黑，同 `--primary`，
+                  // 不透明），两圈聚焦提示叠在一起就是用户看到的"黑色边框"。
+                  // ⚠ 不能整条删掉（`lint-design.sh` U7b：`outline-none` 必须配一个
+                  // `focus-visible:ring-*` 替代，否则键盘用户看不见焦点在哪）——改成
+                  // `ring-1`（更细）+ `ring-ring/30`（30% 不透明度，浅灰而不是实心黑），
+                  // 聚焦仍然可见，只是不再是一块生硬的黑框。
+                  "block w-full min-w-0 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/30 disabled:text-disabled-foreground",
                   speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
                 ].join(" ")}
                 disabled={archived}
@@ -2110,8 +2141,11 @@ export function CopilotKitV2PanelBody({
           </div>
           {composerStatusBar}
         </div>
-        {/* 页脚：左 = 快捷键 / 禁用理由（TW-P0-5④ 锚点），右 = 当前输入设备（默认值不进卡片）。 */}
-        <div className="mt-3 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
+        {/* 页脚：左 = 快捷键 / 禁用理由（TW-P0-5④ 锚点），右 = 当前输入设备（默认值不进卡片）。
+            2026-09-03 人类反馈「最底下那行字上面留空太多了」—— 卡片内部工具行下方本来就有
+            `pb-3`（上面已从 `pb-4` 收紧），这里 `mt-3` 再叠一段几乎等大的外边距,两段加起来
+            肉眼看是双倍留白。收紧到 `mt-2`,页脚依旧与卡片有清楚的呼吸空间,不重复计一遍。 */}
+        <div className="mt-2 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
           {sendDisabledReason !== null
             && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint)
             && !agent.isRunning && !attach.hasUploading ? (
