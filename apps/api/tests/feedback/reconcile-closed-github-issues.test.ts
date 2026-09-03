@@ -1,6 +1,9 @@
 /**
- * `reconcileClosedGithubIssues` —— 定时对账用例(FB-2 补,issue #2500 的落地)。
- * 全部用 fake 端口,与 `triage-feedback.test.ts` 同一套写法。
+ * `reconcileClosedGithubIssues` —— 定时对账用例(FB-2 补,issue #2500 的落地,
+ * 经 PR #2580 独立复核三条阻断项修过之后的版本)。全部用 fake 端口,与
+ * `triage-feedback.test.ts` 同一套写法；`transitionStatusWithEventIfCurrentStatus`
+ * 在真实 Postgres 上的并发前提由 `tests/feedback/github-issue-poll-real-postgres.test.ts`
+ * 反证,这里只测用例层的分支逻辑。
  */
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -45,11 +48,17 @@ function row(over: Partial<FeedbackRow> = {}): FeedbackRow {
   };
 }
 
-/** 内存版仓储 fake——同 `triage-feedback.test.ts` 的 `fakeRepo`,只留本用例用得到的行为。 */
-function fakeRepo(initial: FeedbackRow): ProductFeedbackRepository & { current: FeedbackRow } {
-  const state = { current: initial };
+/**
+ * 内存版仓储 fake。`transitionStatusWithEventIfCurrentStatus` 模拟真实 pg 实现的
+ * 同一条不变量(见 `pg-product-feedback-repository.ts`)：只在当前状态等于
+ * `expectedStatus` 时才生效,否则返回 `false`、不改状态、不记事件——不是真的原子
+ * (内存里没有并发这回事),但对"前提不吻合就必须放弃"这条不变量的测试是足够的。
+ */
+function fakeRepo(initial: FeedbackRow): ProductFeedbackRepository & { current: FeedbackRow; events: unknown[] } {
+  const state = { current: initial, events: [] as unknown[] };
   return {
     current: state.current,
+    get events() { return state.events; },
     insert: vi.fn(),
     list: vi.fn(),
     findById: vi.fn(async () => state.current),
@@ -59,6 +68,12 @@ function fakeRepo(initial: FeedbackRow): ProductFeedbackRepository & { current: 
     transitionStatusWithEvent: vi.fn(async (_id, status, reason) => {
       state.current = { ...state.current, status, statusReason: reason };
     }),
+    transitionStatusWithEventIfCurrentStatus: vi.fn(async (_id, expectedStatus, status, reason, event) => {
+      if (state.current.status !== expectedStatus) return false;
+      state.current = { ...state.current, status, statusReason: reason };
+      state.events.push(event);
+      return true;
+    }),
     markStatusEventNotified: vi.fn(),
     claimGithubIssueCreation: vi.fn(),
     releaseGithubIssueClaim: vi.fn(),
@@ -66,7 +81,7 @@ function fakeRepo(initial: FeedbackRow): ProductFeedbackRepository & { current: 
     counts: vi.fn(),
     listStatusEvents: vi.fn(),
     get [Symbol.toStringTag]() { return "fakeRepo"; },
-  } as unknown as ProductFeedbackRepository & { current: FeedbackRow };
+  } as unknown as ProductFeedbackRepository & { current: FeedbackRow; events: unknown[] };
 }
 
 function baseDeps(over: Partial<ReconcileClosedGithubIssuesDeps> = {}): ReconcileClosedGithubIssuesDeps {
@@ -90,14 +105,15 @@ function baseDeps(over: Partial<ReconcileClosedGithubIssuesDeps> = {}): Reconcil
 }
 
 describe("reconcileClosedGithubIssues", () => {
-  it("issue 已关闭 ⇒ 转已修复、写流水、发通知邮件", async () => {
+  it("issue 已关闭(completed)⇒ 转已修复、写流水、发通知邮件", async () => {
     const deps = baseDeps();
     const result = await reconcileClosedGithubIssues(deps);
 
     expect(result).toEqual({ scanned: 1, reconciled: 1 });
     const repo = (deps.repos.forOrg as ReturnType<typeof vi.fn>).mock.results[0]!.value as ProductFeedbackRepository;
-    expect(repo.transitionStatusWithEvent).toHaveBeenCalledWith(
+    expect(repo.transitionStatusWithEventIfCurrentStatus).toHaveBeenCalledWith(
       "fb-1",
+      "已进入迭代",
       "已修复",
       expect.stringContaining("#42"),
       expect.objectContaining({ fromStatus: "已进入迭代", toStatus: "已修复", actorId: RECONCILE_ACTOR_ID }),
@@ -107,6 +123,41 @@ describe("reconcileClosedGithubIssues", () => {
     expect(call.to).toBe("submitter@example.com");
     expect(call.subject).toContain("请测试验收");
     expect(repo.markStatusEventNotified).toHaveBeenCalledWith("ev-1", true, expect.any(String), expect.any(String));
+  });
+
+  it("issue 已关闭(not_planned)⇒ 转不做,不是已修复,邮件文案也不同", async () => {
+    const deps = baseDeps({
+      githubIssues: {
+        create: vi.fn(),
+        setState: vi.fn(),
+        getStatus: vi.fn(async () => ({ state: "closed" as const, stateReason: "not_planned" as const, linkedPullRequests: [], linkedPullRequestsAvailable: true })),
+        addComment: vi.fn(),
+      },
+    });
+    const result = await reconcileClosedGithubIssues(deps);
+    expect(result).toEqual({ scanned: 1, reconciled: 1 });
+    const repo = (deps.repos.forOrg as ReturnType<typeof vi.fn>).mock.results[0]!.value as ProductFeedbackRepository;
+    expect(repo.transitionStatusWithEventIfCurrentStatus).toHaveBeenCalledWith(
+      "fb-1", "已进入迭代", "不做", expect.any(String),
+      expect.objectContaining({ toStatus: "不做" }),
+    );
+    const call = (deps.mail.send as ReturnType<typeof vi.fn>).mock.calls[0]![0] as { subject: string };
+    expect(call.subject).not.toContain("已修复");
+    expect(call.subject).toContain("不做");
+  });
+
+  it("issue 已关闭但 stateReason 缺失 ⇒ 不猜测意图,跳过", async () => {
+    const deps = baseDeps({
+      githubIssues: {
+        create: vi.fn(),
+        setState: vi.fn(),
+        getStatus: vi.fn(async () => ({ state: "closed" as const, stateReason: null, linkedPullRequests: [], linkedPullRequestsAvailable: true })),
+        addComment: vi.fn(),
+      },
+    });
+    const result = await reconcileClosedGithubIssues(deps);
+    expect(result).toEqual({ scanned: 1, reconciled: 0 });
+    expect(deps.mail.send).not.toHaveBeenCalled();
   });
 
   it("issue 还开着 ⇒ 不动状态、不发通知", async () => {
@@ -129,7 +180,7 @@ describe("reconcileClosedGithubIssues", () => {
     const deps = baseDeps({ repos });
     const result = await reconcileClosedGithubIssues(deps);
     expect(result).toEqual({ scanned: 1, reconciled: 0 });
-    expect(repo.transitionStatusWithEvent).not.toHaveBeenCalled();
+    expect(repo.transitionStatusWithEventIfCurrentStatus).not.toHaveBeenCalled();
     expect(deps.mail.send).not.toHaveBeenCalled();
   });
 
@@ -139,7 +190,18 @@ describe("reconcileClosedGithubIssues", () => {
     const deps = baseDeps({ repos });
     const result = await reconcileClosedGithubIssues(deps);
     expect(result).toEqual({ scanned: 1, reconciled: 0 });
-    expect(repo.transitionStatusWithEvent).not.toHaveBeenCalled();
+    expect(repo.transitionStatusWithEventIfCurrentStatus).not.toHaveBeenCalled();
+  });
+
+  it("写入那一刻状态被并发改变(仓储层前提不吻合)⇒ 不发通知,不当作已同步", async () => {
+    const repo = fakeRepo(row());
+    (repo.transitionStatusWithEventIfCurrentStatus as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+    const repos: ProductFeedbackRepositoryFactory = { forOrg: vi.fn(() => repo) };
+    const deps = baseDeps({ repos });
+    const result = await reconcileClosedGithubIssues(deps);
+    expect(result).toEqual({ scanned: 1, reconciled: 0 });
+    expect(deps.mail.send).not.toHaveBeenCalled();
+    expect(repo.markStatusEventNotified).not.toHaveBeenCalled();
   });
 
   it("一条候选处理失败(GitHub API 报错)不拖垮同一批里其余候选", async () => {
@@ -171,7 +233,7 @@ describe("reconcileClosedGithubIssues", () => {
       expect.stringContaining("reconcile one candidate failed"),
       expect.objectContaining({ feedbackId: "fb-fail" }),
     );
-    expect(repoOk.transitionStatusWithEvent).toHaveBeenCalled();
+    expect(repoOk.transitionStatusWithEventIfCurrentStatus).toHaveBeenCalled();
   });
 
   it("提交人查不到邮箱 ⇒ 状态照常转,notified 落 false,记 info 不记 error", async () => {

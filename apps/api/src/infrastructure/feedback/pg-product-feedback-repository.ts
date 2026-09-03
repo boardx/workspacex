@@ -383,6 +383,37 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
     });
   }
 
+  /**
+   * ⚠ 前提与写入是**同一条 `UPDATE`**——`WHERE status = $3`——不是先 `SELECT` 再判断。
+   *   `RETURNING id` 空集 ⇒ 这一刻的状态已经不是 `expectedStatus`，直接返回 `false`，
+   *   连事件行都不插（`false` 分支甚至不进第二条语句）。见接口头注（PR #2580 独立
+   *   复核阻断项②）。
+   */
+  async transitionStatusWithEventIfCurrentStatus(
+    feedbackId: string,
+    expectedStatus: FeedbackStatus,
+    status: FeedbackStatus,
+    reason: string | null,
+    event: Pick<StatusEvent, "id" | "feedbackId" | "fromStatus" | "toStatus" | "reason" | "actorId">,
+  ): Promise<boolean> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<{ id: string }>(
+        `UPDATE product_feedback SET status = $4, status_reason = $5
+          WHERE org_id = $2 AND id = $1 AND status = $3
+          RETURNING id`,
+        [feedbackId, this.orgId, expectedStatus, status, reason],
+      );
+      if (rows.length === 0) return false;
+      await s.query(
+        `INSERT INTO product_feedback_status_events
+           (id, org_id, feedback_id, from_status, to_status, reason, actor_id, notified, email_subject, email_text)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,false,NULL,NULL)`,
+        [event.id, this.orgId, event.feedbackId, event.fromStatus, event.toStatus, event.reason, event.actorId],
+      );
+      return true;
+    });
+  }
+
   async listStatusEvents(feedbackId: string): Promise<readonly StatusEventRow[]> {
     return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       const { rows } = await s.query<StatusEventDbRow>(
