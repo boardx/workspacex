@@ -65,4 +65,44 @@ describe("F06 interview answers to report", () => {
     expect(await screen.findByTestId("itv-report-stream-markdown")).toHaveTextContent("已持久化段落");
     await waitFor(() => expect(fetchMock.mock.calls[0]?.[0]).toEqual(expect.stringContaining("/report/stream")));
   });
+
+  it("recovers from a network interruption after the report POST already started", async () => {
+    const streaming = { ...completed, status: "report_pending" as const, currentStep: "report" as const, version: 13,
+      reportGeneration: { reportId: "report-reconnect", requestId: "request-reconnect", status: "running" as const,
+        title: "恢复中的报告", executiveSummary: null, markdown: "## 已持久化段落", findings: [], errorCode: null,
+        updatedAt: "2026-09-03T02:00:30.000Z" } };
+    const final = { ...streaming, status: "completed" as const, version: 14, reportGeneration: null,
+      reportId: "report-reconnect", report: { reportId: "report-reconnect", title: "自动恢复报告",
+        executiveSummary: "长连接断开后从服务端状态恢复。", markdown: "# 自动恢复报告",
+        findings: [{ findingId: "finding-reconnect", title: "断线可恢复", summary: "服务端继续生成。",
+          expertId: "expert-f06", questionId: "question-f06", sourceAnswerId: "expert-f06:question-f06",
+          exploratory: true as const }], generatedAt: "2026-09-03T02:01:00.000Z" } };
+    const encoder = new TextEncoder();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST") {
+        return new Response(new ReadableStream({ start(controller) {
+          controller.enqueue(encoder.encode(`${JSON.stringify({ type: "progress", value: streaming })}\n`));
+          window.setTimeout(() => controller.error(new TypeError("network error")), 10);
+        } }), { status: 200, headers: { "content-type": "application/x-ndjson" } });
+      }
+      if (url.endsWith(`/interviews/digital/${completed.interviewId}`)) {
+        return new Response(JSON.stringify(streaming), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (url.endsWith(`/interviews/digital/${completed.interviewId}/report/stream`)) {
+        return new Response(`${JSON.stringify({ type: "complete", value: final })}\n`, {
+          status: 200, headers: { "content-type": "application/x-ndjson" },
+        });
+      }
+      throw new Error(`unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PersistentDigitalInterviewWorkflow initialView={completed} />);
+    fireEvent.click(screen.getByTestId("itv-confirm-answers-generate-report"));
+
+    expect(await screen.findByTestId("itv-report-stream-markdown")).toHaveTextContent("已持久化段落");
+    expect(await screen.findByTestId("itv-report")).toHaveTextContent("自动恢复报告");
+    expect(screen.queryByRole("alert")).toBeNull();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+  });
 });
