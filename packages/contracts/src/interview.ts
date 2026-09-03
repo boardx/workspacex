@@ -380,6 +380,56 @@ export const DigitalReportStreamEvent = z.discriminatedUnion("type", [
 ]);
 export type DigitalReportStreamEvent = z.infer<typeof DigitalReportStreamEvent>;
 
+/**
+ * Browser-facing report transport. A connection starts with one compact durable snapshot;
+ * every later frame contains only newly appended report data. Stable interview inputs and
+ * answers belong to DigitalInterviewWorkflowView and must never be repeated on this stream.
+ */
+const DigitalReportTransportSnapshot = DigitalInterviewReportGeneration.extend({
+  type: z.literal("snapshot"),
+  seq: z.literal(0),
+}).strict();
+
+const DigitalReportTransportMeta = DigitalReportMetaEvent.extend({
+  seq: z.number().int().positive(),
+}).strict();
+
+const DigitalReportTransportSection = z.object({
+  type: z.literal("section"),
+  seq: z.number().int().positive(),
+  // Keep the leading separator: the browser appends this byte-for-byte to persisted markdown.
+  markdown: z.string().min(1),
+}).strict();
+
+const DigitalReportTransportFinding = z.object({
+  type: z.literal("finding"),
+  seq: z.number().int().positive(),
+  finding: DigitalInterviewReportFinding,
+}).strict();
+
+const DigitalReportTransportComplete = z.object({
+  type: z.literal("complete"),
+  seq: z.number().int().positive(),
+  reportId: z.string().min(1),
+  version: z.number().int().positive(),
+}).strict();
+
+const DigitalReportTransportError = z.object({
+  type: z.literal("error"),
+  seq: z.number().int().positive(),
+  reasonCode: z.string().min(1),
+}).strict();
+
+export const DigitalReportTransportEvent = z.discriminatedUnion("type", [
+  DigitalReportTransportSnapshot,
+  DigitalReportTransportMeta,
+  DigitalReportTransportSection,
+  DigitalReportTransportFinding,
+  DigitalReportTransportComplete,
+  DigitalReportTransportError,
+]);
+export type DigitalReportTransportEvent = z.infer<typeof DigitalReportTransportEvent>;
+
 const validateUniqueDigitalInterviewQuestions = (
   questions: readonly z.infer<typeof DigitalInterviewQuestion>[],
   context: z.RefinementCtx,

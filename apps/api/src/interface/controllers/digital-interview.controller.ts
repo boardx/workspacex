@@ -35,6 +35,7 @@ import {
   DigitalInterviewWorkflowError,
   type DigitalInterviewRuntime,
 } from "../../application/interview/workflow/digital-interview-runtime.port";
+import { DigitalReportTransportProjector } from "../../application/interview/workflow/digital-report-transport";
 
 @Controller("/interviews/digital")
 export class DigitalInterviewController {
@@ -149,11 +150,7 @@ export class DigitalInterviewController {
     }
   }
 
-  /**
-   * Additive streaming transport for F06. Each frame is a complete recovery view that was
-   * already committed before it is written, so the client never observes an unresumable
-   * optimistic fragment.
-   */
+  /** Browser transport emits one durable snapshot followed only by append-only report deltas. */
   @Post("/:interviewId/report/generate/stream")
   async generateReportStream(
     @CurrentPrincipal() principal: Principal,
@@ -169,17 +166,23 @@ export class DigitalInterviewController {
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     });
-    const write = (type: "progress" | "complete" | "error", value: unknown): void => {
-      if (!response.writableEnded && !response.destroyed) response.write(`${JSON.stringify({ type, value })}\n`);
+    const projector = new DigitalReportTransportProjector();
+    let terminalWritten = false;
+    const write = (event: unknown): void => {
+      const parsed = C.DigitalReportTransportEvent.parse(event);
+      if (parsed.type === "complete" || parsed.type === "error") terminalWritten = true;
+      if (!response.writableEnded && !response.destroyed) response.write(`${JSON.stringify(parsed)}\n`);
     };
     try {
       const workflow = await this.workflow.generateReport(
         { orgId: toOrgId(principal.orgId), actorId: principal.userId, ...input },
-        async (progress) => write("progress", C.DigitalInterviewWorkflowView.parse(progress)),
+        async (progress) => projector.project(C.DigitalInterviewWorkflowView.parse(progress)).forEach(write),
       );
-      write("complete", C.DigitalInterviewWorkflowView.parse(workflow));
+      projector.project(C.DigitalInterviewWorkflowView.parse(workflow)).forEach(write);
     } catch (error) {
-      write("error", { reasonCode: error instanceof DigitalInterviewWorkflowError ? error.code : "DEPENDENCY_UNAVAILABLE" });
+      if (!terminalWritten) {
+        write(projector.error(error instanceof DigitalInterviewWorkflowError ? error.code : "DEPENDENCY_UNAVAILABLE"));
+      }
     } finally {
       if (!response.writableEnded && !response.destroyed) response.end();
     }
@@ -201,11 +204,14 @@ export class DigitalInterviewController {
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     });
+    const projector = new DigitalReportTransportProjector();
     let lastUpdatedAt = "";
     while (!response.destroyed) {
       const updatedAt = workflow.reportGeneration?.updatedAt ?? workflow.report?.generatedAt ?? "";
       if (updatedAt !== lastUpdatedAt) {
-        response.write(`${JSON.stringify({ type: workflow.report ? "complete" : "progress", value: C.DigitalInterviewWorkflowView.parse(workflow) })}\n`);
+        for (const event of projector.project(C.DigitalInterviewWorkflowView.parse(workflow))) {
+          response.write(`${JSON.stringify(event)}\n`);
+        }
         lastUpdatedAt = updatedAt;
       }
       if (workflow.report || workflow.reportGeneration?.status === "failed" || !workflow.reportGeneration) break;

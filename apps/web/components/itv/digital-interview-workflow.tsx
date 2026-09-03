@@ -144,6 +144,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     setReportPending(true);
     void observeDigitalInterviewReportStream(
       view.interviewId,
+      view,
       (next) => { setView(next); setError(""); },
       controller.signal,
     ).catch((cause) => {
@@ -248,6 +249,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     try {
       const next = await generateDigitalInterviewReportStream(
         { interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) },
+        view,
         (progress) => { setView(progress); setError(""); },
       );
       replaceAfterConfirmation(next, operation);
