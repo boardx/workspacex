@@ -18,11 +18,15 @@
  * （`traceId: "feedback-triage-attachment-image"`）——症状就是"issue 建出来了，
  * 但图片从来没有出现过"，且没有任何用户可见的报错。
  *
- * 这支脚本把"去实测这个 token 到底有没有 Contents: Write"变成一条命令，
- * 复现的是 `uploadImage` 真实会走的同一串请求（`ensureAttachmentsBranch` 的
- * 三步 + 一次 `PUT contents`），不是猜测。**会产生真实副作用**：成功时会在
- * `feedbackAttachmentsBranch` 分支上写一个 1x1 PNG 探测文件并立刻打印如何删除
- * 它——这与生产环境里 `uploadImage` 真实发生的写入是同一件事，不是额外风险。
+ * 这支脚本把"去实测这个 token 到底有没有 Issues: Write 与 Contents: Write"变成
+ * 一条命令，复现的是 `create`/`uploadImage` 真实会走的同一串请求（建一个真 issue
+ * 再关掉、`ensureAttachmentsBranch` 的三步 + 一次 `PUT contents`），不是猜测——
+ * `GET /repos/{owner}/{repo}` 这种只读请求不需要任何写权限，测不出 Issues: Write
+ * 有没有,所以这里**真的建一个 issue、验证成功后立刻关闭**,不是"读一下仓库信息
+ * 就当作验证过建 issue 这条路径"。**会产生真实副作用**：成功时会建一个测试 issue
+ * （随即关闭)、在 `feedbackAttachmentsBranch` 分支上写一个 1x1 PNG 探测文件（结束时
+ * 自动删除,删除失败会明确报告,不是"打印一行手工命令、可能永远没人执行")——这与
+ * 生产环境里 `create`/`uploadImage` 真实发生的写入是同一件事,不是额外风险。
  *
  * 用法（在配置了真 token 的环境）：
  *     GITHUB_ISSUE_TOKEN=ghp_xxx node apps/api/scripts/probe-github-issue-token.mjs
@@ -40,6 +44,9 @@ const PROBE_PATH = `${BRANCH}/_probe-token-${Date.now()}.png`;
 const TINY_PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 
+function issuesUrl() {
+  return `${repoUrl()}/issues`;
+}
 function repoUrl() {
   return `https://api.github.com/repos/${encodeURIComponent(OWNER)}/${encodeURIComponent(REPO)}`;
 }
@@ -77,13 +84,36 @@ async function main() {
   }
   console.log(`仓库：${OWNER}/${REPO}，附件分支：${BRANCH}\n`);
 
-  // ① 建 issue 需要的权限面——只读检查，不产生副作用。
-  const repoRes = await step("GET 仓库信息（建 issue 这条路径依赖的最基本读权限）", () =>
-    fetch(repoUrl(), { headers: headers() }),
+  // ① Issues: Write——**真的建一个 issue** 再立刻关闭,不是 `GET` 仓库信息那种
+  //   只读请求(那测不出任何写权限,fine-grained token 完全可能只给 Contents:
+  //   Write、不给 Issues: Write,却在只读检查下看起来"什么都正常")。
+  const createIssueRes = await step("POST issues（真实建一个探测 issue）", () =>
+    fetch(issuesUrl(), {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        title: "[probe] GITHUB_ISSUE_TOKEN 权限探测（自动关闭）",
+        body: "由 `probe-github-issue-token.mjs` 创建，用于实测 Issues: Write，创建后立即关闭。",
+      }),
+    }),
   );
-  if (repoRes) {
-    const scopes = repoRes.headers.get("x-oauth-scopes");
-    if (scopes !== null) console.log(`  classic PAT scopes：${scopes || "(空)"}`);
+  let issuesWriteOk = false;
+  if (createIssueRes) {
+    const created = await createIssueRes.json().catch(() => ({}));
+    const issueNumber = created?.number;
+    if (typeof issueNumber === "number") {
+      const closeRes = await step(`PATCH issues/${issueNumber}（关闭探测 issue）`, () =>
+        fetch(`${issuesUrl()}/${issueNumber}`, {
+          method: "PATCH",
+          headers: headers(),
+          body: JSON.stringify({ state: "closed", state_reason: "not_planned" }),
+        }),
+      );
+      issuesWriteOk = closeRes !== null;
+      if (closeRes === null) {
+        console.log(`  ⚠ 探测 issue #${issueNumber} 建出来了但关闭失败，请手动关闭：${created?.html_url ?? ""}`);
+      }
+    }
   }
 
   // ② 图片上传真实会走的路径——Git Data API 三步 + Contents API 一次 PUT。
@@ -120,33 +150,53 @@ async function main() {
     }
   }
 
+  let contentsWriteOk = false;
+  let putBody = null;
   if (!branchReady) {
-    console.log("\n结论：分支建不出来，多半是 Contents: Write（fine-grained PAT）或 repo（classic PAT）权限缺失。");
+    console.log("\n✗ Contents: Write 探测失败：孤儿分支建不出来，多半是 Contents: Write（fine-grained PAT）或 repo（classic PAT）权限缺失。");
+  } else {
+    const putRes = await step(`PUT contents/${PROBE_PATH}（真实写一个探测文件）`, () =>
+      fetch(`${repoUrl()}/contents/${PROBE_PATH.split("/").map(encodeURIComponent).join("/")}`, {
+        method: "PUT",
+        headers: headers(),
+        body: JSON.stringify({ message: `probe: token permission check`, content: TINY_PNG, branch: BRANCH }),
+      }),
+    );
+    if (putRes === null) {
+      console.log("\n✗ Contents: Write 探测失败：分支建得出来，但写文件失败。");
+    } else {
+      putBody = await putRes.json().catch(() => ({}));
+      contentsWriteOk = true;
+    }
+  }
+
+  // 自动清理探测文件——不是打印一行手工命令指望有人执行，探测本身的写入
+  // 到此已经派上用场（证明了 Contents: Write），继续留着只是垃圾。删除失败
+  // 明确报告，不静默吞掉（同本仓一贯的 best-effort 纪律：吞可以，但不能哑）。
+  if (contentsWriteOk && putBody?.content?.sha) {
+    const deleteRes = await step(`DELETE contents/${PROBE_PATH}（清理探测文件）`, () =>
+      fetch(`${repoUrl()}/contents/${PROBE_PATH.split("/").map(encodeURIComponent).join("/")}`, {
+        method: "DELETE",
+        headers: headers(),
+        body: JSON.stringify({ message: "probe: cleanup", sha: putBody.content.sha, branch: BRANCH }),
+      }),
+    );
+    if (deleteRes === null) {
+      console.log(`  ⚠ 探测文件清理失败，请手动删除：${PROBE_PATH}（分支 ${BRANCH}）`);
+    }
+  }
+
+  console.log("");
+  console.log(`${issuesWriteOk ? "✓" : "✗"} Issues: Write（建 issue 这条路径）`);
+  console.log(`${contentsWriteOk ? "✓" : "✗"} Contents: Write（推图片这条路径）`);
+  if (!issuesWriteOk || !contentsWriteOk) {
     console.log(
-      "修复：去 GitHub → Settings → Developer settings → 找到这个 token → 补上对" +
-        ` ${OWNER}/${REPO} 的 Contents: Write（fine-grained）；若是 classic PAT 且仓库公开，勾 public_repo 即可覆盖。`,
+      "\n修复：去 GitHub → Settings → Developer settings → 找到这个 token → 补上缺的那项权限" +
+        `（对 ${OWNER}/${REPO}）；若是 classic PAT 且仓库公开，勾 public_repo 一次性覆盖两者。`,
     );
     process.exit(1);
   }
-
-  const putRes = await step(`PUT contents/${PROBE_PATH}（真实写一个探测文件）`, () =>
-    fetch(`${repoUrl()}/contents/${PROBE_PATH.split("/").map(encodeURIComponent).join("/")}`, {
-      method: "PUT",
-      headers: headers(),
-      body: JSON.stringify({ message: `probe: token permission check`, content: TINY_PNG, branch: BRANCH }),
-    }),
-  );
-  if (putRes === null) {
-    console.log("\n结论：分支建得出来，但写文件失败——同上，缺 Contents: Write。");
-    process.exit(1);
-  }
-  const putBody = await putRes.json().catch(() => ({}));
-  console.log(`\n✓ token 同时具备建 issue 与推图片两条路径都需要的权限。`);
-  console.log(`探测文件的 raw URL：${putBody?.content?.download_url ?? "(未知)"}`);
-  console.log(
-    `清理（可选，探测文件不影响功能，但建议删掉）：` +
-      `DELETE ${repoUrl()}/contents/${PROBE_PATH}，body 带 { message, sha: "${putBody?.content?.sha ?? "?"}", branch: "${BRANCH}" }`,
-  );
+  console.log("\n✓ token 同时具备建 issue 与推图片两条路径都需要的权限。");
 }
 
 await main();
