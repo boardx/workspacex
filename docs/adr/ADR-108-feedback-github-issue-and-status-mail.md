@@ -99,6 +99,40 @@ GitHub 上的开发流程、对提交这条反馈的人，都是不可见的—�
 真要彻底关上这个窗口需要一个能反查"这条反馈是否已经在 GitHub 建过 issue"的
 读端点（按标题/来源标记搜索），属于超出这次修复范围的另一轮工作量。
 
+## 追补（2026-09-03，反馈附件图片功能上线后发现）：`GITHUB_ISSUE_TOKEN` 最小权限指引已过期
+
+上面「`GITHUB_ISSUE_TOKEN` 的最小权限范围」那条（40-53 行，2026-08-31 写）说
+"代码里没有第二条能打到 GitHub 的路径,所以只需要 Issues: Write"——这句话在
+`infrastructure/feedback/github-issue-creator.ts` 的 `uploadImage`/
+`ensureAttachmentsBranch`（随反馈附件图片功能新增,见 `notification-ports.ts`
+`GithubIssueImageUploader` 头注的 2026-09-03 人类决策)加进来之后**已经不成立**：
+现在确实有了第二条路径——Git Data API（`git/ref` → `git/trees` → `git/commits`
+→ `git/refs`,惰性建 `feedback-attachments` 孤儿分支）+ Contents API
+（`PUT contents/<path>`),把反馈附件图片推进仓库、换一个 `raw.githubusercontent.com`
+直链拼进 issue 正文。这条路径需要 **Contents: Write**（fine-grained PAT）,
+建 issue 用的 **Issues: Write** 覆盖不到它。
+
+**实测症状**：按本 ADR 原有指引配的 token（只勾 Issues: Write）——issue 照样建得出来
+（`create` 那条路径完全不受影响),但 `uploadImage` 在 Git Data / Contents API 上
+稳定拿 403,被 `triageFeedback` 的 best-effort 逻辑吞掉,只落一条
+`traceId: "feedback-triage-attachment-image"` 的 error 日志——**没有任何用户可见的
+报错**,表现就是"反馈带了图、issue 建出来了、图片从来没出现过",很容易被误判成
+"代码没生效",实际是部署时的 token 权限没跟着功能一起升级。
+
+**修复**（部署侧,代码这一侧不需要跟着改——同原有指引"这是部署时的配置纪律"那条
+道理)：
+- 去 GitHub 给这个 token 补上对 `GITHUB_ISSUE_REPO_OWNER/GITHUB_ISSUE_REPO_NAME`
+  这一个仓库的 **Contents: Write**（fine-grained PAT,与已有的 Issues: Write 并列勾）；
+  经典 PAT 且仓库公开时,`public_repo` 这一个 scope 本身已经同时覆盖 Issues 与
+  Contents,不需要额外动作。
+- 上线前/怀疑权限不对时,用
+  `apps/api/scripts/probe-github-issue-token.mjs` 实测——它复现的是 `uploadImage`
+  真实会发的同一串请求,不是猜测；跑一次就知道当前 token 到底能不能推图片,不用
+  等一次真实反馈分诊、翻日志才发现。
+
+原有「最小权限」的精神（不多给用不上的权限)没有变,只是"用不上"这件事本身
+随图片功能的加入而变了——这条追补更新的是**范围**,不是推翻那条原则。
+
 ## 后果
 
 - "转开发"从一个纯内部状态标记变成真的在 GitHub 上留下一条可追踪的 issue，
