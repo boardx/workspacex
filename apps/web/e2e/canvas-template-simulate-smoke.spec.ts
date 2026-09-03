@@ -270,12 +270,11 @@ test("R2：结果画布真的可以编辑——点「＋便签」工具落一张
   //
   // ② 但绝对坐标本身也不能瞎给：`chat-diagram-save-reopen-roundtrip.spec.ts` 那条
   //   既有先例点 80%/80% 处是安全的，因为那个编辑器是 `fixed inset-0` 铺满整个视口
-  //   （见 `chat-canvas-modal.tsx`）——视口内任何一点都必然落在它里面。本弹窗是
-  //   Radix `Dialog`，一个有边界的卡片，不是铺满视口；`boundingBox()` 量出来的矩形
-  //   边缘可能已经超出弹窗卡片实际可见范围——点在那（尤其是右下角附近）会落在弹窗
-  //   外的遮罩层上，Radix 判定为"点了外面"直接把弹窗关掉（第零轮实测：断言超时时
-  //   截图看到的是弹窗已经整个消失）。改成左上角一个小偏移量，稳稳落在弹窗卡片
-  //   可见范围内。
+  //   （见 `chat-canvas-modal.tsx`）——视口内任何一点都必然落在它里面。⚠ 本弹窗
+  //   R3（人类原话「chat 模拟UI，默认是全屏，不是popup」）起同样改成 `fixed inset-0`
+  //   铺满视口了——第零轮实测（本弹窗当时还是一张有边界的卡片）踩过右下角落在弹窗外
+  //   遮罩层上、被 Radix 判定"点了外面"直接关掉的坑，这里仍然沿用左上角小偏移量，
+  //   不是因为那个坑还在，是没有必要为了已经不存在的风险改回去。
   const surface = page.getByTestId("canvas-fabric-surface");
   const box = (await surface.boundingBox())!;
   await page.mouse.click(box.x + 40, box.y + 40);
