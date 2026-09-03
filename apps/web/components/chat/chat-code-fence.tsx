@@ -19,6 +19,13 @@ import * as React from "react";
  * 里的单行/短代码块也默认藏起来。阈值以下仍然渲成同一套「摘要条 + 复制」外壳，只是
  * 默认态是展开，用户仍可手动收起。
  *
+ * 流式更新（review #2556 二轮反馈②）：同一条消息流式增量时，`children` 会不断换成
+ * 更长（或更短）的内容，同一个 `ChatCodeFence` 实例始终挂载着——折叠态不能只在
+ * `useState` 初始值里算一次。语义：**用户没有手动切换过时，折叠态跟着阈值实时走**
+ * （行数从 ≤8 涨到 >8 要自动收起，反过来也一样）；**用户一旦点过「显示/隐藏代码」，
+ * 之后的流式更新不再覆盖 ta 的选择**——不然用户刚展开看代码，下一个 chunk 到达就把
+ * ta 手动打开的面板重新收起，体验上等于没给用户控制权。
+ *
  * mermaid / canvas / persona 围栏在 `MarkdownMessage.segment` 里已经先于 markdown
  * 分支被抽走，永远到不了这里；这里只接普通语言的围栏。
  */
@@ -61,15 +68,34 @@ const COPY_LABEL: Record<CopyState, string> = {
 export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre">) {
   const { lang, text } = React.useMemo(() => readCodeChild(children), [children]);
   const lines = countLines(text);
-  const [open, setOpen] = React.useState(() => lines <= COLLAPSE_THRESHOLD_LINES);
+  const autoOpen = lines <= COLLAPSE_THRESHOLD_LINES;
+  // `null` = 用户还没手动切换过，折叠态跟着 `autoOpen` 走（流式增量场景）；
+  // 一旦用户点过 toggle，这里存的是 ta 的选择，往后的流式更新不再覆盖它。
+  const [userOpen, setUserOpen] = React.useState<boolean | null>(null);
+  const open = userOpen ?? autoOpen;
+
   const [copyState, setCopyState] = React.useState<CopyState>("idle");
+  // 复制状态的自动复位计时器：并发/连点复制时只保留最后一次，避免旧计时器
+  // 把新结果提前冲掉；卸载时清掉，避免给已卸载的消息挂着回调。
+  const resetTimer = React.useRef<number | null>(null);
+  React.useEffect(() => () => {
+    if (resetTimer.current != null) window.clearTimeout(resetTimer.current);
+  }, []);
+
+  const scheduleReset = React.useCallback(() => {
+    if (resetTimer.current != null) window.clearTimeout(resetTimer.current);
+    resetTimer.current = window.setTimeout(() => {
+      resetTimer.current = null;
+      setCopyState("idle");
+    }, 1500);
+  }, []);
 
   const copy = React.useCallback(async () => {
     // `navigator.clipboard` 在非安全上下文（非 https/localhost）里整体不存在；
     // `writeText` 权限被拒绝时 promise reject。两种情况都不该报「已复制」。
     if (!navigator.clipboard?.writeText) {
       setCopyState("failed");
-      window.setTimeout(() => setCopyState("idle"), 1500);
+      scheduleReset();
       return;
     }
     try {
@@ -78,9 +104,9 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
     } catch {
       setCopyState("failed");
     } finally {
-      window.setTimeout(() => setCopyState("idle"), 1500);
+      scheduleReset();
     }
-  }, [text]);
+  }, [text, scheduleReset]);
 
   return (
     <div
@@ -106,7 +132,7 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
           type="button"
           data-testid="chat-code-fence-toggle"
           aria-expanded={open}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setUserOpen(!open)}
           className="rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted hover:text-card-foreground"
         >
           {open ? "隐藏代码" : "显示代码"}

@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MarkdownMessage } from "@/components/chat/markdown-message";
+import { ChatCodeFence } from "@/components/chat/chat-code-fence";
 
 vi.mock("mermaid", () => ({
   default: { initialize: vi.fn(), parse: vi.fn().mockResolvedValue(true), render: vi.fn() },
@@ -83,5 +84,76 @@ describe("ChatCodeFence（围栏代码块超阈值才默认折叠）", () => {
     render(<MarkdownMessage text={"```bash\npnpm i\n```"} />);
     fireEvent.click(await screen.findByTestId("chat-code-fence-copy"));
     expect(await screen.findByText("复制失败")).toBeInTheDocument();
+  });
+
+  const shortCode = <code className="language-js">pnpm i</code>;
+  const longCode = <code className="language-js">{SCRIPT}</code>;
+
+  it("流式增量：短→长时折叠态跟着阈值自动收起（用户没手动切换过）", () => {
+    const { getByTestId, rerender } = render(<ChatCodeFence>{shortCode}</ChatCodeFence>);
+    expect(getByTestId("chat-code-fence").getAttribute("data-open")).toBe("true");
+
+    rerender(<ChatCodeFence>{longCode}</ChatCodeFence>);
+    expect(getByTestId("chat-code-fence").getAttribute("data-open")).toBe("false");
+  });
+
+  it("流式增量：长→短时折叠态跟着阈值自动展开（用户没手动切换过）", () => {
+    const { getByTestId, rerender } = render(<ChatCodeFence>{longCode}</ChatCodeFence>);
+    expect(getByTestId("chat-code-fence").getAttribute("data-open")).toBe("false");
+
+    rerender(<ChatCodeFence>{shortCode}</ChatCodeFence>);
+    expect(getByTestId("chat-code-fence").getAttribute("data-open")).toBe("true");
+  });
+
+  it("用户手动展开后，后续流式更新不再把面板收回去（review #2556 二轮反馈②）", () => {
+    const { getByTestId, rerender } = render(<ChatCodeFence>{longCode}</ChatCodeFence>);
+    expect(getByTestId("chat-code-fence").getAttribute("data-open")).toBe("false");
+
+    fireEvent.click(getByTestId("chat-code-fence-toggle"));
+    expect(getByTestId("chat-code-fence").getAttribute("data-open")).toBe("true");
+
+    // 流式增量继续追加内容（同样 > 阈值），用户的「展开」选择应该保留。
+    rerender(<ChatCodeFence>{<code className="language-js">{SCRIPT + "// more\n"}</code>}</ChatCodeFence>);
+    expect(getByTestId("chat-code-fence").getAttribute("data-open")).toBe("true");
+  });
+
+  it("用户手动收起后，后续流式更新（含缩短到阈值以下）不再自动展开", () => {
+    const { getByTestId, rerender } = render(<ChatCodeFence>{longCode}</ChatCodeFence>);
+    fireEvent.click(getByTestId("chat-code-fence-toggle")); // 展开
+    fireEvent.click(getByTestId("chat-code-fence-toggle")); // 再手动收起
+    expect(getByTestId("chat-code-fence").getAttribute("data-open")).toBe("false");
+
+    rerender(<ChatCodeFence>{shortCode}</ChatCodeFence>);
+    expect(getByTestId("chat-code-fence").getAttribute("data-open")).toBe("false");
+  });
+
+  it("连续快速复制只保留最后一次结果的计时器，不被更早的计时器提前冲掉", async () => {
+    vi.useFakeTimers();
+    const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("denied"));
+    Object.assign(navigator, { clipboard: { writeText } });
+    const { getByTestId } = render(<ChatCodeFence>{shortCode}</ChatCodeFence>);
+    const btn = getByTestId("chat-code-fence-copy");
+
+    await fireEvent.click(btn); // 第一次：成功
+    await vi.advanceTimersByTimeAsync(500); // 还没到第一次的 1500ms 复位
+    await fireEvent.click(btn); // 第二次：失败，应重置计时器
+    await vi.advanceTimersByTimeAsync(1000); // 到第一次计时器原本该触发的时间点
+    expect(btn.textContent).toBe("复制失败"); // 没被第一次的旧计时器提前冲回「复制」
+
+    await vi.advanceTimersByTimeAsync(500); // 补满第二次计时器的 1500ms
+    expect(btn.textContent).toBe("复制");
+    vi.useRealTimers();
+  });
+
+  it("卸载时清理未触发的复位计时器，不留悬挂回调（review #2556 二轮反馈④）", async () => {
+    vi.useFakeTimers();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const { getByTestId, unmount } = render(<ChatCodeFence>{shortCode}</ChatCodeFence>);
+    await fireEvent.click(getByTestId("chat-code-fence-copy"));
+    expect(() => unmount()).not.toThrow();
+    // 计时器本该在卸载前被清掉；推进到原定触发点，不应抛出 setState-on-unmounted 之类的错误。
+    expect(() => vi.advanceTimersByTime(2000)).not.toThrow();
+    vi.useRealTimers();
   });
 });
