@@ -36,6 +36,7 @@ import type {
   TransactionalMailResult,
   TransactionalMailTransport,
 } from "../../application/notifications/transactional-mail-ports";
+import { renderBrandEmailHtml } from "./email-branding";
 
 export const TRANSACTIONAL_MAIL_CONFIG = Symbol("TransactionalMailConfig");
 
@@ -117,6 +118,9 @@ export class CloudflareTransactionalEmailTransport implements TransactionalMailT
               to: message.to,
               subject: message.subject,
               text: message.text,
+              // ⚠ html 是这一层自动套的品牌外壳（见 email-branding.ts 头注），不是
+              //   调用方给的——message 里仍然只有任意 subject/text，端口契约没变。
+              html: renderBrandEmailHtml({ heading: message.subject, text: message.text }),
             }),
           },
         );
