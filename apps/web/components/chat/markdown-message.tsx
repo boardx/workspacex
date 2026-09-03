@@ -6,6 +6,7 @@ import rehypeSanitize from "rehype-sanitize";
 import { extractMermaidBlocks } from "@repo/fabric-markdown/markdown";
 import { ChatDiagramFabric } from "./chat-diagram-fabric";
 import { ChatCanvasFabric } from "./chat-canvas-fabric";
+import { ChatCodeFence } from "./chat-code-fence";
 import { isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
 
 /**
@@ -72,6 +73,8 @@ function segment(text: string): Segment[] {
   return out;
 }
 
+const MARKDOWN_COMPONENTS = { pre: ChatCodeFence } as const;
+
 export function MarkdownMessage({
   text, threadId, messageId, bearer, projectId,
 }: {
@@ -131,6 +134,8 @@ export function MarkdownMessage({
             key={s.key}
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeSanitize]}
+            // 普通围栏代码块默认折叠（见 chat-code-fence.tsx）；行内 code 不经过 pre。
+            components={MARKDOWN_COMPONENTS}
           >
             {s.text}
           </ReactMarkdown>

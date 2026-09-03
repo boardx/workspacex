@@ -36,6 +36,10 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
   「绿」只有一个定义：`.harness/scripts/lib/pr-queue.ts` 的 `classifyChecks` 判定——本文件不复述任何 check 规则。
   PR 上有红就修到绿、review 意见逐条回应，不许留着红 PR 收尾；分诊规则见 `coordinator-sop.md` 的 PR 状态表。
 - 由 `pnpm harness doctor` 机械检查（五条，见完成定义第 5、6、7 条；`sync --apply` 关 issue 同样要求实现已在 main，#1557）。
+- **用户直接交办、不走本节 sprint/feature 流程的改动**（bug 修复、小功能点……）：验证
+  跑绿后**自动创建 PR，不要停下来问**——这条覆盖 Claude Code 的默认行为；创建者对
+  该 PR 负责到绿，不许创建完就撒手。规则与例外见
+  `.harness/instructions/ad-hoc-fix-pr-sop.md`（2026-09-03 人类指令）。
 
 ## 开工流程(每轮会话开始)
 0. **先确认角色,角色决定 loop 策略,不可跳过**:人类要你当 main coordinator →

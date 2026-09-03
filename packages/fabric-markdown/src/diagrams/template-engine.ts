@@ -226,6 +226,39 @@ export function parseTemplateText(code: string): ParsedTemplateText {
   return { templateKey, fields, sections };
 }
 
+/**
+ * 分区名匹配容错（issue #2549：「痛点和挑战」偶发不生成任何内容）。
+ *
+ * `canvas-template-guidance.ts` 要求模型的 `## 分区名` 与模板分区名「逐字一致」，但
+ * 模型偶尔会用近义连接词（和/与/及）或带上多余空白/标点的等价写法（例如「痛点与挑战」
+ * 代替「痛点和挑战」）。此前 `sections.get(sec.name)` 是纯字符串精确匹配，一旦模型的
+ * 措辞与 canonical 名有这类细微出入，该分区的要点就会被存进一个不同的 map key 下，
+ * 精确查找 miss、静默 fallback 成空数组——症状正是「其余分区都有内容，唯独这一个
+ * 分区一片空白，且不报错」。
+ *
+ * 规范化只做保守的等价折叠（去空白、去尾部标点、统一「与/及」→「和」），只有当
+ * canonical 名在 `sections` 里完全找不到时才会走到这一步兜底；模型逐字写对时（绝大多数
+ * 情况）行为与之前完全一致，不影响现有解析结果。
+ */
+function normalizeSectionKey(name: string): string {
+  return name
+    .trim()
+    .replace(/[\s　]+/g, '')
+    .replace(/[，,。.！!？?：:；;]+$/g, '')
+    .replace(/[与及]/g, '和');
+}
+
+/** 按 canonical 分区名取要点：逐字命中优先，否则按 {@link normalizeSectionKey} 兜底匹配。 */
+export function lookupSectionItems(sections: Map<string, string[]>, name: string): string[] {
+  const exact = sections.get(name);
+  if (exact) return exact;
+  const target = normalizeSectionKey(name);
+  for (const [key, items] of sections) {
+    if (normalizeSectionKey(key) === target) return items;
+  }
+  return [];
+}
+
 // ---------------------------------------------------------------------------
 // Model building
 // ---------------------------------------------------------------------------
@@ -344,6 +377,13 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
       const col = i % perRow;
       const cellLeft = hr.x - hr.w / 2 + CELL_INSET_L + col * cellW;
       const cy = hr.y - hr.h / 2 + rowPitch * (row + 1);
+      // #2550: labels were left-aligned inside a fixed-width box, so a short
+      // label (姓名/性别/年龄/…) left a big ragged gap before the value —
+      // the box was hand-tuned for the longest label (教育水平/家庭情况/收入
+      // 水平). Right-aligning hugs every label against the same LABEL_GAP, so
+      // the label→value gap is visually constant and tight regardless of
+      // label length, and every value column still lines up (geometry is
+      // otherwise unchanged: box width/position, VALUE_W, all identical).
       if (!bg) nodes.push({
         id: `tpl-flabel-${i}`,
         label: `${key}:`,
@@ -352,7 +392,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
         y: cy,
         width: LABEL_W,
         height: 20,
-        data: { role: 'fieldLabel', locked: true, fontSize: 13, bold: true, color: INK, align: 'left' },
+        data: { role: 'fieldLabel', locked: true, fontSize: 13, bold: true, color: INK, align: 'right' },
       });
       const value = fields.get(key) || EMPTY_FIELD;
       nodes.push({
@@ -429,7 +469,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
         data: { role: 'sectionLabel', locked: true, fontSize: 14, bold: true, color: INK },
       });
     }
-    const items = sections.get(sec.name) ?? [];
+    const items = lookupSectionItems(sections, sec.name);
     // #2372: a section's own `sticky` (if set) overrides the spec-wide
     // default field-by-field — unset fields still fall back to `sticky`.
     const sectionSticky = { ...sticky, ...sec.sticky };

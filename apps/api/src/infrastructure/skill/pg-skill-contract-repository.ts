@@ -201,6 +201,25 @@ export class ScopedPgSkillContractRepository
 
     try {
       return await this.db.withTenant(toOrgId(input.orgId), async (s) => {
+        // ⚠ `skill_contracts_name_uniq`/`capability_listings_uniq` 都是 `(org_id, ...)`
+        // 维度的唯一约束，只挡得住"同组织重名"——对平台组织（`org-platform`）的四个
+        // 官方 skill 永远不会触发。而 `listAll()`（`GET /skills`，chat `#` 挂载池 +
+        // `/skill` 目录都读这条）会把平台行 `OR org_id = PLATFORM_ORG_ID` 拼进结果、
+        // 不做任何去重——组织悄悄声明一个和平台官方 skill 同名的草稿，一旦启用，
+        // 两条会同时出现在挂载列表里，且都能被独立挂载。这里在建草稿这一步就把平台
+        // 组织也纳入冲突判定，堵住这条此前漏掉的同名重复来源（大小写不敏感，同
+        // `skills_name_casefold_uniq` 的口径）。
+        const platformConflict = await s.query<{ present: boolean }>(
+          `SELECT EXISTS (
+             SELECT 1 FROM skills WHERE org_id = $1 AND lower(name) = lower($2)
+             UNION ALL
+             SELECT 1 FROM capability_listings
+              WHERE org_id = $1 AND kind = 'skill' AND lower(name) = lower($2)
+           ) AS present`,
+          [PLATFORM_ORG_ID, input.name],
+        );
+        if (platformConflict.rows[0]?.present) throw new SkillNameConflictError(input.name);
+
         // 草稿：status = 草稿，且 **current_version_id 为 null** —— 草稿版本不是「生效版本」。
         // 把它填成 v1 会让 `SkillListItem.currentVersionId` 对一个没过门禁的版本非空，
         // 而那个字段的读者（绑定面板 / 挂载面板）拿它去锁版本。

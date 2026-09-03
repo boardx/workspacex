@@ -54,6 +54,12 @@ export const SystemErrorLogError = z.enum([
   /** principal 已认证，但邮箱不在平台超管白名单里。见文件头。 */
   "NOT_PLATFORM_SUPERUSER",
   "DEPENDENCY_UNAVAILABLE",
+  /** `sendTestEmail`：部署没配事务邮件（缺 Cloudflare 账号 / token / 发件人）。 */
+  "MAIL_NOT_CONFIGURED",
+  /** `sendTestEmail`：配了但这次没发出去（网络 / 超时 / 供应商 HTTP 错误），`category` 说是哪种。 */
+  "MAIL_SEND_FAILED",
+  /** `sendTestEmail`：没传收件人，且当前账号也查不到邮箱。 */
+  "NO_RECIPIENT",
 ]);
 export type SystemErrorLogError = z.infer<typeof SystemErrorLogError>;
 
@@ -120,5 +126,29 @@ export const operations = {
     out: z.object({ traceId: z.string() }).strict(),
     /** ⚠ 刻意空:写入口 fire-and-forget,失败不应该有前端能感知的错误码可分支。 */
     err: [] as const,
+  },
+
+  /**
+   * 平台超管专用：用**生产同一条**事务邮件通路发一封测试邮件，验证"这个部署到底
+   * 发不发得出邮件"——反馈确认邮件 / 状态变更邮件都是 best-effort、失败只记日志，
+   * 没有这条路由，运维只能等一个真实用户提反馈再去翻日志。
+   *
+   * `to` 省略 = 发给当前账号自己的邮箱。失败时 `MAIL_SEND_FAILED` 的响应体带
+   * `category`（`timeout` / `network` / `provider_http_<状态码>` / `provider_invalid_response`），
+   * 是供应商适配器已经归好类的粗粒度原因，不是原始异常文本。
+   */
+  sendTestEmail: {
+    method: "POST",
+    path: "/system/mail/test",
+    in: z.object({ to: z.string().email().max(320).optional() }).strict(),
+    out: z
+      .object({
+        sentTo: z.string(),
+        subject: z.string(),
+        providerMessageId: z.string().nullable(),
+        sentAt: z.string(),
+      })
+      .strict(),
+    err: ["NOT_PLATFORM_SUPERUSER", "MAIL_NOT_CONFIGURED", "MAIL_SEND_FAILED", "NO_RECIPIENT"] as const,
   },
 } as const;
