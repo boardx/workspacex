@@ -337,7 +337,7 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
     expect(screen.queryByTestId("admin-feedback-system-errors-pill")).toBeNull();
   });
 
-  it("⑥ 超管看到异常条数：标签页计数 + 标题旁的「N 条系统异常」胶囊", async () => {
+  it("⑥ 超管看到异常条数：标签页计数 + 标题旁的「N 条系统异常」胶囊；左表格右详情", async () => {
     mockApi([productBug], {
       systemErrors: { items: [
         { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: "数据库连接超时", aiSummary: "疑似连接池耗尽，建议先查慢查询与连接数上限。", status: "待处理", statusReason: null, devNote: null, tags: [] },
@@ -348,20 +348,27 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
     expect((await screen.findByTestId("admin-feedback-system-errors-pill")).textContent).toContain("2 条系统异常");
     expect(screen.getByTestId("admin-feedback-tab-system").textContent).toContain("2");
     fireEvent.click(screen.getByTestId("admin-feedback-tab-system"));
+    // 左侧是表格行,不是卡片。
     expect(await screen.findByTestId("admin-feedback-system-error-1")).toBeTruthy();
-    // 有 AI 摘要：标题+说明用 AI 生成的文字，跟反馈卡片一样人能看懂。
+    // 有 AI 摘要：标题+说明用 AI 生成的文字，行内即可读到，不用先选中。
     expect(screen.getByTestId("admin-feedback-system-error-1").textContent).toContain("数据库连接超时");
     expect(screen.getByTestId("admin-feedback-system-error-summary-1").textContent).toContain("连接池耗尽");
     // 没有 AI 摘要（还没生成完/这次没生成出来）：兜底说明，不编一句假摘要，原始 msg 仍可见。
     expect(screen.getByTestId("admin-feedback-system-error-2").textContent).toContain("bang");
     expect(screen.getByTestId("admin-feedback-system-error-summary-2").textContent).toContain("AI 摘要还没有生成");
-    // 原始技术细节仍然可以展开查看（不是被 AI 摘要取代，是多一层）。
-    expect(screen.queryByTestId("admin-feedback-system-error-detail-1")).toBeNull();
-    fireEvent.click(screen.getByTestId("admin-feedback-system-error-toggle-1"));
+    // 默认选中第一条,右侧详情面板随之出现（同缺陷反馈/需求建议表格的既有做法）。
     expect(await screen.findByTestId("admin-feedback-system-error-detail-1")).toBeTruthy();
+    // 原始技术细节仍然可以展开查看（不是被 AI 摘要取代，是多一层）。
+    expect(screen.queryByTestId("admin-feedback-system-error-raw-1")).toBeNull();
+    fireEvent.click(screen.getByTestId("admin-feedback-system-error-toggle-1"));
+    expect(await screen.findByTestId("admin-feedback-system-error-raw-1")).toBeTruthy();
+    // 点第二行切换选中,右侧详情跟着换成第二条。
+    fireEvent.click(screen.getByTestId("admin-feedback-system-error-2"));
+    expect(await screen.findByTestId("admin-feedback-system-error-detail-2")).toBeTruthy();
+    expect(screen.queryByTestId("admin-feedback-system-error-detail-1")).toBeNull();
   });
 
-  it("⑥ 系统异常卡片能加/删标签、能转生命周期（转开发/不做/退回待处理）", async () => {
+  it("⑥ 系统异常详情面板能加/删标签、能转生命周期（转开发/不做/退回待处理）", async () => {
     mockApi([productBug], {
       systemErrors: { items: [
         { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: "数据库连接超时", aiSummary: "疑似连接池耗尽。", status: "待处理", statusReason: null, devNote: null, tags: ["db"] },
@@ -370,7 +377,7 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
     render(<FeedbackScreen state="default" />);
     await screen.findByTestId("admin-feedback-item-fb-p");
     fireEvent.click(screen.getByTestId("admin-feedback-tab-system"));
-    await screen.findByTestId("admin-feedback-system-error-1");
+    await screen.findByTestId("admin-feedback-system-error-detail-1");
 
     // 加标签
     fireEvent.change(screen.getByTestId("admin-feedback-system-error-tag-input-1"), { target: { value: "urgent" } });

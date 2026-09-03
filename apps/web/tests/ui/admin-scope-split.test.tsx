@@ -12,6 +12,7 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import { QueryClientTestWrapper } from "../render-with-query";
 import { NAV_SEGMENTS } from "@/lib/navigation";
 import {
   ADMIN_NAV, ADMIN_NAV_COUNT_SOURCES, ADMIN_MODULE_SCOPE, adminNavForScope, type AdminScope,
@@ -94,7 +95,9 @@ describe("§3 AdminNav 按面渲染：入口只在一面出现", () => {
     it(`scope=${scope}：自己面的项全部画出，另一面的项一个都不画`, async () => {
       const { AdminNav } = await import("@/components/admin/admin-nav");
       const own = adminNavForScope(scope).flatMap((g) => g.items);
-      render(<AdminNav active={own[0]!.key} scope={scope} countSources={ADMIN_NAV_COUNT_SOURCES} />);
+      render(<AdminNav active={own[0]!.key} scope={scope} countSources={ADMIN_NAV_COUNT_SOURCES} />, {
+        wrapper: QueryClientTestWrapper,
+      });
       expect(screen.getByTestId("admin-nav").getAttribute("data-admin-scope")).toBe(scope);
       for (const i of own) expect(screen.getByTestId(ADMIN_NAV_TESTID[i.key]).getAttribute("href")).toBe(i.href);
       const foreign = foreignKeys(scope);
@@ -105,14 +108,14 @@ describe("§3 AdminNav 按面渲染：入口只在一面出现", () => {
 
   it("不传 scope 时按 active 所属面推断：active=feedback ⇒ 平台面标题", async () => {
     const { AdminNav } = await import("@/components/admin/admin-nav");
-    render(<AdminNav active="feedback" countSources={ADMIN_NAV_COUNT_SOURCES} />);
+    render(<AdminNav active="feedback" countSources={ADMIN_NAV_COUNT_SOURCES} />, { wrapper: QueryClientTestWrapper });
     expect(screen.getByTestId("admin-nav-title").textContent).toBe("平台后台");
     expect(screen.queryByTestId(ADMIN_NAV_TESTID.overview)).toBeNull();
   });
 
   it("组织面标题是「组织后台」，且仍画「组织」组的总览", async () => {
     const { AdminNav } = await import("@/components/admin/admin-nav");
-    render(<AdminNav active="overview" countSources={ADMIN_NAV_COUNT_SOURCES} />);
+    render(<AdminNav active="overview" countSources={ADMIN_NAV_COUNT_SOURCES} />, { wrapper: QueryClientTestWrapper });
     expect(screen.getByTestId("admin-nav-title").textContent).toBe("组织后台");
     expect(screen.getByTestId(ADMIN_NAV_TESTID.overview)).toBeTruthy();
   });

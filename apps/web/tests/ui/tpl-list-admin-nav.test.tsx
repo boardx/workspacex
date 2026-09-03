@@ -18,6 +18,13 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { ROOT } from "../session/import-closure";
+import { QueryClientTestWrapper } from "../render-with-query";
+
+/** ADR-110：`TplListPage` 挂 `AdminNav`（内部 `useQuery`）。 */
+function renderApp(...args: Parameters<typeof render>): ReturnType<typeof render> {
+  const [ui, options] = args;
+  return render(ui, { ...options, wrapper: QueryClientTestWrapper });
+}
 
 let capturedAppShellProps: Record<string, unknown> | null = null;
 
@@ -42,7 +49,7 @@ import TplListPage from "@/app/tpl/list/page";
 describe("2026-08-15 /tpl/list：后台 AdminNav 侧栏（此前压根没有）", () => {
   it("① AppShell 收到的 left 是 AdminNav（active=\"blueprint\"），不是 undefined", () => {
     capturedAppShellProps = null;
-    render(<TplListPage searchParams={{}} />);
+    renderApp(<TplListPage searchParams={{}} />);
     expect(capturedAppShellProps).not.toBeNull();
     expect(capturedAppShellProps!.left).toBeTruthy();
     expect(screen.getByTestId("fake-left-slot")).toBeTruthy();

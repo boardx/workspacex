@@ -19,6 +19,7 @@
  */
 import { describe, it, expect, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import { QueryClientTestWrapper } from "../render-with-query";
 import { AdminNav, adminSubNavTestId } from "@/components/admin/admin-nav";
 import { ADMIN_NAV, type AdminModuleKey } from "@/lib/mock/admin";
 import { ADMIN_SECOND_LEVEL } from "@/lib/navigation";
@@ -47,14 +48,14 @@ describe("§1 「能力域 · 全生命周期」组已真合并，不再有五�
   });
 
   it("渲染 AdminNav：五个已合并项一个都不出现在 DOM 里", () => {
-    render(<AdminNav active="agent" />);
+    render(<AdminNav active="agent" />, { wrapper: QueryClientTestWrapper });
     for (const key of MERGED_KEYS) {
       expect(screen.queryByTestId(`admin-sub-${key}`)).toBeNull();
     }
   });
 
   it("渲染 AdminNav：`ADMIN_SECOND_LEVEL` 里的每一项都不再渲染，且那个数组**本身非空**", () => {
-    render(<AdminNav active="agent" />);
+    render(<AdminNav active="agent" />, { wrapper: QueryClientTestWrapper });
     for (const item of ADMIN_SECOND_LEVEL) {
       expect(screen.queryByTestId(`admin-sub-${item.key}`)).toBeNull();
     }

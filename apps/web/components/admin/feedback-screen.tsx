@@ -59,7 +59,7 @@ import { cn } from "@/lib/utils";
  *     `targetLabel` 服务端今天仍然留空（见 `feedback.controller.ts` 头注），两份目录
  *     本来就对全组织成员可见，这里只是把 id 换成人读的名字，解析不到就退回 id。
  *
- * ## 2026-09-03（人类反馈，三处）
+ * ## 2026-09-03 上午（人类反馈，三处）
  *
  *   · 「测试邮件」从系统异常 tab 挪到平台后台新菜单「运营状态」（`ops-status-screen.tsx`），
  *     不再是这个文件的内容——它不是"反馈"，混在收件箱里语义不对。
@@ -70,6 +70,20 @@ import { cn } from "@/lib/utils";
  *     不做 → [待处理]（存档后仍可重新打开）。"转开发"有一个可填写的说明字段
  *     （`devNote`），"转不做"必须填存档理由（`statusReason`）——同缺陷反馈"不做"
  *     必填理由的既有纪律。见 `apps/api/.../update-system-error-lifecycle.ts`。
+ *
+ * ## 2026-09-03 下午（人类反馈：三个 tab 的 UI 要统一）
+ *
+ *   · 上午刚把系统异常从列表改成卡片,下午人类看完三个 tab 并排的效果又要求改回来——
+ *     不是"卡片错了",是"三个 tab 应该长一个样",缺陷反馈/需求建议一直是左表格右
+ *     详情,系统异常单独用卡片网格显得像另一个产品。`SystemErrorCard` 拆成
+ *     `SystemErrorTable`（左，同 `FeedbackTable` 的行样式/选中态/键盘可达）+
+ *     `SystemErrorDetailPanel`（右，`key={item.id}` 重挂载，同 `FeedbackDetailPanel`）。
+ *   · 表格行内保留标题（AI 标题或原始 `msg`）与摘要预览一行，不用先选中就能扫一眼——
+ *     标签管理、技术细节展开、生命周期动作这些"编辑态"的东西挪进右侧详情面板，
+ *     跟另外两个 tab 一样"看一眼、点一下、下一条"不用来回切换布局。
+ *   · 技术细节折叠区的 testid 从 `admin-feedback-system-error-detail-{id}` 改名
+ *     `admin-feedback-system-error-raw-{id}`——`detail-{id}` 现在是详情面板本身
+ *     （同 `admin-feedback-detail-{id}` 的既有命名），两者不能共用一个名字。
  *
  * ## 设计稿里两处**没有**照搬的东西（如实登记，不是漏了）
  *
@@ -1075,8 +1089,8 @@ type SystemTagFilter = "all" | string;
 
 /**
  * 系统异常标签页——前后端未处理异常写入 `error_logs`，这里读 `GET /system/error-logs`。
- * 2026-09-03 起跟缺陷反馈/需求建议一样用**卡片**可视化，加标签管理与生命周期管理
- * （见文件头 2026-09-03 一节）。
+ * 跟缺陷反馈/需求建议一样用**左表格右详情**可视化，加标签管理与生命周期管理
+ * （见文件头 2026-09-03 两节）。
  *
  * ⚠ 这条接口对**平台超管或平台管理员**放行（`PlatformOperatorGuard`，platform-admin-role
  *   delta；见契约文件头：`error_logs` 没有 `org_id`）。403 `NOT_PLATFORM_SUPERUSER`
@@ -1091,6 +1105,7 @@ function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReloa
   const [query, setQuery] = React.useState("");
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
 
   const items = load.kind === "ready" ? load.items : EMPTY_SYSTEM_ERROR_ITEMS;
   const allTags = React.useMemo(() => {
@@ -1107,6 +1122,9 @@ function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReloa
     const hay = [item.aiTitle ?? "", item.aiSummary ?? "", item.msg, item.traceId, ...item.tags].join(" ").toLowerCase();
     return hay.includes(q);
   });
+  // 选中项：默认选当前页第一条（同缺陷反馈/需求建议表格的既有做法）；
+  // 筛选后若选中项不在可见集合里，就换成第一条。
+  const selected = visible.find((item) => item.id === selectedId) ?? visible[0] ?? null;
 
   const update = async (id: string, patch: Parameters<typeof updateSystemErrorLifecycle>[1]) => {
     setBusyId(id);
@@ -1214,10 +1232,24 @@ function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReloa
         ) : visible.length === 0 ? (
           <p className="text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-filtered-empty">这个筛选下没有系统异常。</p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" data-testid="admin-feedback-system-errors-list">
-            {visible.map((item) => (
-              <SystemErrorCard key={item.id} item={item} busy={busyId === item.id} onUpdate={(patch) => void update(item.id, patch)} />
-            ))}
+          <div className="-mx-6 grid min-h-[420px] grid-cols-1 border-t border-border lg:grid-cols-[minmax(0,1fr)_460px]" data-testid="admin-feedback-system-errors-pane">
+            {/* 左：列表——同缺陷反馈/需求建议一致的表格 + 选中行样式（见文件头）。 */}
+            <SystemErrorTable items={visible} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
+            {/* 右：详情 */}
+            <aside className="border-t border-border lg:border-l lg:border-t-0" data-testid="admin-feedback-system-errors-detail-pane">
+              {selected === null ? (
+                <p className="p-6 text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-detail-empty">
+                  从左侧选一条系统异常查看详情。
+                </p>
+              ) : (
+                <SystemErrorDetailPanel
+                  key={selected.id}
+                  item={selected}
+                  busy={busyId === selected.id}
+                  onUpdate={(patch) => void update(selected.id, patch)}
+                />
+              )}
+            </aside>
           </div>
         )
       )}
@@ -1229,14 +1261,113 @@ function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReloa
 }
 
 /**
- * 系统异常卡片——2026-09-02 起先给人看得懂的标题+说明（AI 摘要），原始字段变成
- * "技术细节"折叠区；2026-09-03 加状态徽标、标签编辑、生命周期转移动作，视觉上跟
- * `FeedbackTable` 行同一套 `Badge`/`STATUS_TONE` 语言，只是排布成卡片而不是表格行
- * （系统异常没有"来源/赞同"这类表格列，卡片比表格更适合放得下标签与转移动作）。
+ * 系统异常表格——左侧列表，跟缺陷反馈/需求建议的 `FeedbackTable` 同一套视觉语言
+ * （`Badge`/`STATUS_TONE`、选中行样式、键盘可达）。2026-09-03 曾经改成卡片；同日
+ * 人类要求跟另外两个 tab 统一成「左表格右详情」，卡片改回表格行 + 独立详情面板
+ * （见 `SystemErrorDetailPanel`）——系统异常没有"来源/赞同"这类列，但一样能塞进
+ * 状态/标题（含 AI 摘要预览）/标签/时间四列。
  * aiTitle/aiSummary 由 `PgErrorLogWriter.record()` 落库后异步生成，两者为 null
  * 时无法区分"还没生成完"和"这次没生成出来"——不编一句假摘要，统一用一条兜底说明。
  */
-function SystemErrorCard({
+function SystemErrorTable({
+  items, selectedId, onSelect,
+}: {
+  items: readonly SystemErrorLogItem[];
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div className="min-w-0" data-testid="admin-feedback-system-errors-list">
+      <table className="w-full table-fixed border-collapse text-12">
+        <thead>
+          <tr className="text-11 text-muted-foreground">
+            <th className="w-24 px-4 py-2.5 text-left font-normal">状态</th>
+            <th className="px-3 py-2.5 text-left font-normal">标题</th>
+            <th className="w-36 px-3 py-2.5 text-left font-normal">标签</th>
+            <th className="w-28 px-4 py-2.5 text-right font-normal">时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.length === 0 ? (
+            <tr>
+              <td colSpan={4} className="px-6 py-8 text-center text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-list-empty">
+                这个筛选下没有系统异常。
+              </td>
+            </tr>
+          ) : (
+            items.map((item) => {
+              const hasAiSummary = item.aiTitle !== null && item.aiSummary !== null;
+              const selected = item.id === selectedId;
+              return (
+                <tr
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-current={selected ? "true" : undefined}
+                  data-selected={selected}
+                  onClick={() => onSelect(item.id)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.preventDefault();
+                    onSelect(item.id);
+                  }}
+                  data-testid={`admin-feedback-system-error-${item.id}`}
+                  className={cn(
+                    "cursor-pointer border-t border-border-subtle align-top transition-colors duration-fast",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                    selected ? "bg-accent/40" : "hover:bg-muted/50",
+                  )}
+                >
+                  <td className="px-4 py-3.5">
+                    <Badge tone={SYSTEM_STATUS_TONE[item.status]} className="whitespace-nowrap" data-testid={`admin-feedback-system-error-status-${item.id}`}>
+                      {item.status}
+                    </Badge>
+                  </td>
+                  <td className="min-w-0 max-w-0 px-3 py-3">
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <code className="shrink-0 font-mono text-10 text-muted-foreground">{item.traceId}</code>
+                      <span className="min-w-0 truncate text-13 font-semibold text-card-foreground">
+                        {hasAiSummary ? item.aiTitle : item.msg}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-11 text-muted-foreground" data-testid={`admin-feedback-system-error-summary-${item.id}`}>
+                      {hasAiSummary ? item.aiSummary : "AI 摘要还没有生成，可能仍在处理中，也可能这次没生成出来——可以在右侧展开技术细节自行判断。"}
+                    </p>
+                  </td>
+                  <td className="max-w-0 px-3 py-3">
+                    {item.tags.length === 0 ? (
+                      <span className="text-11 text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {item.tags.map((tag) => (
+                          <span key={tag} className="inline-flex items-center rounded-pill border border-border-subtle bg-panel px-1.5 py-0.5 text-10 text-card-foreground">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3.5 text-right text-12 text-muted-foreground tabular-nums">
+                    {formatTime(item.createdAt)}
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * 系统异常右侧详情面板——同 `FeedbackDetailPanel` 的骨架（以 `key={item.id}` 挂载，
+ * 换一条异常就是一次干净的重挂载：展开的技术细节、正在填的转开发说明/存档理由
+ * 不会串到另一条上），装下原卡片里除标题/摘要预览（已挪到左侧表格行）之外的全部
+ * 信息与动作：完整摘要、开发备注、存档理由、标签管理、技术细节折叠区、生命周期
+ * 转移动作。
+ */
+function SystemErrorDetailPanel({
   item, busy, onUpdate,
 }: {
   item: SystemErrorLogItem;
@@ -1262,31 +1393,33 @@ function SystemErrorCard({
   const removeTag = (tag: string) => onUpdate({ tags: item.tags.filter((t) => t !== tag) });
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4" data-testid={`admin-feedback-system-error-${item.id}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={SYSTEM_STATUS_TONE[item.status]} data-testid={`admin-feedback-system-error-status-${item.id}`}>{item.status}</Badge>
-        <code className="font-mono text-10 text-muted-foreground">{item.traceId}</code>
-        <span className="ml-auto text-11 text-muted-foreground tabular-nums">{formatTime(item.createdAt)}</span>
+    <div className="flex flex-col gap-4 p-6" role="region" aria-label="系统异常详情" data-testid={`admin-feedback-system-error-detail-${item.id}`}>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone={SYSTEM_STATUS_TONE[item.status]}>{item.status}</Badge>
+          <code className="font-mono text-11 text-muted-foreground">{item.traceId}</code>
+          <span className="ml-auto text-11 text-muted-foreground tabular-nums">{formatTime(item.createdAt)}</span>
+        </div>
+        <h2 className="text-16 font-semibold leading-snug text-card-foreground">
+          {hasAiSummary ? item.aiTitle : item.msg}
+        </h2>
       </div>
 
-      <p className="text-13 font-semibold leading-snug text-card-foreground">
-        {hasAiSummary ? item.aiTitle : item.msg}
-      </p>
-      <p className="text-12 text-muted-foreground" data-testid={`admin-feedback-system-error-summary-${item.id}`}>
+      <p className="text-13 leading-relaxed text-card-foreground">
         {hasAiSummary ? item.aiSummary : "AI 摘要还没有生成，可能仍在处理中，也可能这次没生成出来——可以展开下面的技术细节自行判断。"}
       </p>
 
       {item.devNote !== null && item.devNote.trim() !== "" && (
-        <p className="text-11 text-card-foreground" data-testid={`admin-feedback-system-error-devnote-${item.id}`}>开发备注：{item.devNote}</p>
+        <p className="text-12 text-card-foreground" data-testid={`admin-feedback-system-error-devnote-${item.id}`}>开发备注：{item.devNote}</p>
       )}
       {item.statusReason !== null && item.statusReason.trim() !== "" && (
-        <p className="text-11 text-card-foreground" data-testid={`admin-feedback-system-error-reason-${item.id}`}>存档理由：{item.statusReason}</p>
+        <p className="text-12 text-card-foreground" data-testid={`admin-feedback-system-error-reason-${item.id}`}>存档理由：{item.statusReason}</p>
       )}
 
       {/* 标签管理——自由文本，随条目落库（见契约 `tags` 字段），不是独立的标签管理表。 */}
       <div className="flex flex-wrap items-center gap-1.5" data-testid={`admin-feedback-system-error-tags-${item.id}`}>
         {item.tags.map((tag) => (
-          <span key={tag} className="inline-flex items-center gap-1 rounded-pill border border-border-subtle bg-panel px-2 py-0.5 text-10 text-card-foreground">
+          <span key={tag} className="inline-flex items-center gap-1 rounded-pill border border-border-subtle bg-panel px-2 py-0.5 text-11 text-card-foreground">
             #{tag}
             <button
               type="button"
@@ -1308,13 +1441,13 @@ function SystemErrorCard({
           aria-label="加标签"
           disabled={busy}
           data-testid={`admin-feedback-system-error-tag-input-${item.id}`}
-          className="h-6 w-28 min-w-0 rounded border border-border-subtle bg-panel px-1.5 text-10"
+          className="h-7 w-32 min-w-0 rounded border border-border-subtle bg-panel px-1.5 text-11"
         />
       </div>
 
       <button
         type="button"
-        className="self-start text-11 text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+        className="self-start text-12 text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
         onClick={() => setExpanded((v) => !v)}
         data-testid={`admin-feedback-system-error-toggle-${item.id}`}
       >
@@ -1323,7 +1456,7 @@ function SystemErrorCard({
       {expanded && (
         <pre
           className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border-subtle bg-panel p-2 text-11 text-muted-foreground"
-          data-testid={`admin-feedback-system-error-detail-${item.id}`}
+          data-testid={`admin-feedback-system-error-raw-${item.id}`}
         >
           {JSON.stringify(item.detail, null, 2)}
         </pre>
@@ -1331,20 +1464,20 @@ function SystemErrorCard({
 
       {/* 生命周期转移动作——待处理→[已转入开发,不做]，已转入开发→[待处理,不做]，不做→[待处理]。 */}
       {devNoteDraft !== null ? (
-        <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-2.5" data-testid={`admin-feedback-system-error-devnote-form-${item.id}`}>
+        <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3" data-testid={`admin-feedback-system-error-devnote-form-${item.id}`}>
           <textarea
             value={devNoteDraft}
             onChange={(e) => setDevNoteDraft(e.target.value)}
             placeholder="给开发的说明（可选）：负责人、复现线索……"
             aria-label="转开发说明"
-            rows={2}
+            rows={3}
             data-testid={`admin-feedback-system-error-devnote-input-${item.id}`}
-            className="resize-y rounded border border-border-subtle bg-card p-1.5 text-11"
+            className="resize-y rounded border border-border-subtle bg-card p-2 text-12"
           />
           <div className="flex justify-end gap-1.5">
-            <Button size="xs" variant="ghost" onClick={() => setDevNoteDraft(null)}>取消</Button>
+            <Button size="sm" variant="ghost" onClick={() => setDevNoteDraft(null)}>取消</Button>
             <Button
-              size="xs"
+              size="sm"
               variant="primary"
               disabled={busy}
               onClick={() => { onUpdate({ status: "已转入开发", devNote: devNoteDraft.trim() === "" ? null : devNoteDraft.trim() }); setDevNoteDraft(null); }}
@@ -1356,19 +1489,19 @@ function SystemErrorCard({
           </div>
         </div>
       ) : declineReason !== null ? (
-        <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-2.5" data-testid={`admin-feedback-system-error-decline-form-${item.id}`}>
+        <div className="flex flex-col gap-1.5 rounded-md border border-border-subtle bg-panel p-3" data-testid={`admin-feedback-system-error-decline-form-${item.id}`}>
           <input
             value={declineReason}
             onChange={(e) => setDeclineReason(e.target.value)}
             placeholder="为什么不做？（必填，存档理由）"
             aria-label="不做的理由"
             data-testid={`admin-feedback-system-error-decline-reason-${item.id}`}
-            className="h-7 rounded border border-border-subtle bg-card px-2 text-11"
+            className="h-8 rounded border border-border-subtle bg-card px-2 text-12"
           />
           <div className="flex justify-end gap-1.5">
-            <Button size="xs" variant="ghost" onClick={() => setDeclineReason(null)}>取消</Button>
+            <Button size="sm" variant="ghost" onClick={() => setDeclineReason(null)}>取消</Button>
             <Button
-              size="xs"
+              size="sm"
               variant="primary"
               disabled={busy || declineReason.trim() === ""}
               onClick={() => { onUpdate({ status: "不做", statusReason: declineReason.trim() }); setDeclineReason(null); }}
@@ -1379,19 +1512,19 @@ function SystemErrorCard({
           </div>
         </div>
       ) : (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-2">
           {canForwardToDev && (
-            <Button size="xs" variant="primary" disabled={busy} onClick={() => setDevNoteDraft(item.devNote ?? "")} data-testid={`admin-feedback-system-error-to-已转入开发-${item.id}`}>
+            <Button variant="primary" disabled={busy} onClick={() => setDevNoteDraft(item.devNote ?? "")} data-testid={`admin-feedback-system-error-to-已转入开发-${item.id}`}>
               转入开发…
             </Button>
           )}
           {canDecline && (
-            <Button size="xs" variant="outline" disabled={busy} onClick={() => setDeclineReason("")} data-testid={`admin-feedback-system-error-to-不做-${item.id}`}>
+            <Button variant="outline" disabled={busy} onClick={() => setDeclineReason("")} data-testid={`admin-feedback-system-error-to-不做-${item.id}`}>
               不做…
             </Button>
           )}
           {canReopen && (
-            <Button size="xs" variant="ghost" disabled={busy} onClick={() => onUpdate({ status: "待处理" })} data-testid={`admin-feedback-system-error-to-待处理-${item.id}`}>
+            <Button variant="ghost" disabled={busy} onClick={() => onUpdate({ status: "待处理" })} data-testid={`admin-feedback-system-error-to-待处理-${item.id}`}>
               退回待处理
             </Button>
           )}

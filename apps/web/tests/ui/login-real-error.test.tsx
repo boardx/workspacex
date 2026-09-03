@@ -39,4 +39,20 @@ describe("real login failure mapping", () => {
     await submitWith(new ApiError(503, "AUTH_SERVICE_UNAVAILABLE", {}));
     expect(screen.getByTestId("login-error")).toHaveTextContent("登录服务暂时不可用");
   });
+
+  // Regression: both reasons used to fall through the same `isLoginRejected` binary check
+  // into the "登录服务暂时不可用" bucket, hiding an actionable cause behind a false outage
+  // message (reported live on devapp -- correct password + unverified email/lockout both
+  // rendered as "service unavailable").
+  it("maps EMAIL_NOT_VERIFIED to its own actionable message, not the outage bucket", async () => {
+    await submitWith(new ApiError(401, "EMAIL_NOT_VERIFIED", {}));
+    expect(screen.getByTestId("login-error")).toHaveTextContent("邮箱尚未验证");
+    expect(screen.getByTestId("login-error")).not.toHaveTextContent("登录服务暂时不可用");
+  });
+
+  it("maps ACCOUNT_LOCKED to its own actionable message, not the outage bucket", async () => {
+    await submitWith(new ApiError(401, "ACCOUNT_LOCKED", {}));
+    expect(screen.getByTestId("login-error")).toHaveTextContent("锁定");
+    expect(screen.getByTestId("login-error")).not.toHaveTextContent("登录服务暂时不可用");
+  });
 });

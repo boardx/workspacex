@@ -21,7 +21,7 @@ const COMPLETE_PROD = {
   NODE_ENV: "production",
   CLOUDFLARE_ACCOUNT_ID: "acc",
   CLOUDFLARE_EMAIL_API_TOKEN: "tok",
-  MAIL_FROM: "a@b.invalid",
+  MAIL_FROM: "no-reply@mail.boardx.us",
   APP_PUBLIC_URL: "https://x.invalid",
   CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
 } as NodeJS.ProcessEnv;
@@ -39,7 +39,7 @@ describe("邮件配置校验的时机", () => {
   it("③ 正样本：配置齐全时，读得到真实值（证明上面两条不是因为它恒抛）", () => {
     const cfg = lazyCloudflareEmailConfig(COMPLETE_PROD);
     expect(cfg.accountId).toBe("acc");
-    expect(cfg.mailFrom).toBe("a@b.invalid");
+    expect(cfg.mailFrom).toBe("no-reply@mail.boardx.us");
   });
 
   it("④ 原来那个**立即校验**的入口原样保留并继续抛 —— 规则本身没动", () => {

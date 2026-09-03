@@ -1,9 +1,11 @@
 "use client";
 
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { listCapabilities } from "./live-capabilities";
 import type { AdminNavCountSource } from "./admin-nav-counts";
 import type { AdminModuleKey } from "./mock/admin";
+import { queryKeys } from "./query-keys";
 
 /**
  * #881 F3 —— 后台左栏计数改取**真实组织数据**。
@@ -85,24 +87,30 @@ export function buildAdminNavCountSources(
 /**
  * 左栏用的 hook。`orgId` 为 null（未登录 / 还没拿到会话）⇒ 全部「—」。
  * ⚠ 刻意不做「加载中显示上一次的数字」：那会在换组织后短暂显示**上一个组织**的计数。
+ *
+ * ADR-110（迁移记录）：原实现是手写 `useState`+`useEffect`+`cancelled` 标志位——这是
+ * 全仓库 32 个 `lib/live-*.ts` 域里唯一做了竞态保护的一处，其余 31 个都没有。这里换成
+ * `useQuery` 后，两条行为不变量分别由 query key 与 `enabled` 保证，不再需要手写
+ * `cancelled`：
+ *   · 「换组织不能显示上一个组织的数字」——`orgId` 是 query key 的一部分，orgId 变化
+ *     即视为一个全新的 query，没有可复用的旧 `data`（没有传 `placeholderData`，不会
+ *     出现"新 key 但还展示旧 key 数据"的情况）。
+ *   · 「未登录（orgId===null）同步显示「—」，不等一次 microtask」——`enabled: orgId !==
+ *     null` 时查询根本不会被发起，`data` 从首次渲染起就是 `undefined`，与旧实现
+ *     `useEffect` 的 `if (orgId === null) return` 效果一致，且测试断言本身就是不经
+ *     `waitFor` 的同步检查，必须原样成立。
+ *   · 单类计数失败不传染 —— 与竞态保护无关，一直是 `fetchLiveAdminNavCounts` 内部
+ *     逐项 `try/catch` 的职责，本次未改动那部分。
  */
 export function useLiveAdminNavCounts(
   orgId: string | null,
   keys: readonly AdminModuleKey[],
 ): Record<AdminModuleKey, AdminNavCountSource> {
-  const [live, setLive] = React.useState<LiveCounts>({});
+  const { data } = useQuery({
+    queryKey: queryKeys.adminNavCounts.all(orgId),
+    queryFn: () => fetchLiveAdminNavCounts(orgId as string),
+    enabled: orgId !== null,
+  });
 
-  React.useEffect(() => {
-    setLive({});
-    if (orgId === null) return;
-    let cancelled = false;
-    void fetchLiveAdminNavCounts(orgId).then((counts) => {
-      if (!cancelled) setLive(counts);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [orgId]);
-
-  return React.useMemo(() => buildAdminNavCountSources(keys, live), [keys, live]);
+  return React.useMemo(() => buildAdminNavCountSources(keys, data ?? {}), [keys, data]);
 }
