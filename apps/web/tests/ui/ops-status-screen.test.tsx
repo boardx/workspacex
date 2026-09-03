@@ -62,3 +62,96 @@ describe("OPS-1 运营状态屏——测试邮件", () => {
     expect(failed.textContent).toContain("仅平台运维");
   });
 });
+
+/**
+ * 「忘记密码限流状态」（issue #2632）——一次真实支持事故的直接产物,见组件文件头注。
+ */
+describe("OPS-1 运营状态屏——忘记密码限流状态", () => {
+  it("未注册邮箱：明确说查不到账号，不是发信失败", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/auth/password-reset/inspect-throttle") {
+        return {
+          registered: false, issuedInLast24h: 0, dailyCap: 5, overDailyCap: false,
+          lastIssuedAt: null, cooldownSeconds: 60, cooling: false, cooldownEndsAt: null,
+        };
+      }
+      return {};
+    });
+
+    render(<OpsStatusScreen state="default" />);
+    fireEvent.change(screen.getByTestId("admin-ops-status-reset-throttle-email"), { target: { value: "nobody@example.com" } });
+    fireEvent.click(screen.getByTestId("admin-ops-status-reset-throttle-check"));
+    const unregistered = await screen.findByTestId("admin-ops-status-reset-throttle-unregistered");
+    expect(unregistered.textContent).toContain("查不到对应账号");
+  });
+
+  it("已超过每日上限：明确说明新请求会被无声跳过——正是这次事故的真实成因", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/auth/password-reset/inspect-throttle") {
+        return {
+          registered: true, issuedInLast24h: 5, dailyCap: 5, overDailyCap: true,
+          lastIssuedAt: "2026-09-04T11:00:00.000Z", cooldownSeconds: 60, cooling: false, cooldownEndsAt: null,
+        };
+      }
+      return {};
+    });
+
+    render(<OpsStatusScreen state="default" />);
+    fireEvent.change(screen.getByTestId("admin-ops-status-reset-throttle-email"), { target: { value: "usam@boardx.us" } });
+    fireEvent.click(screen.getByTestId("admin-ops-status-reset-throttle-check"));
+    const result = await screen.findByTestId("admin-ops-status-reset-throttle-result");
+    expect(result.textContent).toContain("5");
+    expect(result.textContent).toContain("已到每日上限");
+  });
+
+  it("正在冷却：显示还要等到几点才会再发", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/auth/password-reset/inspect-throttle") {
+        return {
+          registered: true, issuedInLast24h: 1, dailyCap: 5, overDailyCap: false,
+          lastIssuedAt: "2026-09-04T11:59:50.000Z", cooldownSeconds: 60, cooling: true,
+          cooldownEndsAt: "2026-09-04T12:00:50.000Z",
+        };
+      }
+      return {};
+    });
+
+    render(<OpsStatusScreen state="default" />);
+    fireEvent.change(screen.getByTestId("admin-ops-status-reset-throttle-email"), { target: { value: "a@b.com" } });
+    fireEvent.click(screen.getByTestId("admin-ops-status-reset-throttle-check"));
+    const result = await screen.findByTestId("admin-ops-status-reset-throttle-result");
+    expect(result.textContent).toContain("冷却内");
+  });
+
+  it("没有被限流：明确说明问题不在这里，把排查方向指回发信通路本身", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/auth/password-reset/inspect-throttle") {
+        return {
+          registered: true, issuedInLast24h: 1, dailyCap: 5, overDailyCap: false,
+          lastIssuedAt: "2026-09-04T09:00:00.000Z", cooldownSeconds: 60, cooling: false, cooldownEndsAt: null,
+        };
+      }
+      return {};
+    });
+
+    render(<OpsStatusScreen state="default" />);
+    fireEvent.change(screen.getByTestId("admin-ops-status-reset-throttle-email"), { target: { value: "a@b.com" } });
+    fireEvent.click(screen.getByTestId("admin-ops-status-reset-throttle-check"));
+    const result = await screen.findByTestId("admin-ops-status-reset-throttle-result");
+    expect(result.textContent).toContain("当前没有被限流");
+  });
+
+  it("非超管查询：403 渲染成一句身份说明", async () => {
+    const { ApiError } = await import("@/lib/api-client");
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/auth/password-reset/inspect-throttle") throw new ApiError(403, "NOT_PLATFORM_SUPERUSER", {});
+      return {};
+    });
+
+    render(<OpsStatusScreen state="default" />);
+    fireEvent.change(screen.getByTestId("admin-ops-status-reset-throttle-email"), { target: { value: "a@b.com" } });
+    fireEvent.click(screen.getByTestId("admin-ops-status-reset-throttle-check"));
+    const failed = await screen.findByTestId("admin-ops-status-reset-throttle-failed");
+    expect(failed.textContent).toContain("仅平台运维");
+  });
+});

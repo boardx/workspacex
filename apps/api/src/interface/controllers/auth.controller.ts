@@ -27,7 +27,7 @@
  * 28b6862c-71e1-4ce8-8e3f-3fceb9f8b607).
  */
 import {
-  Body, Controller, HttpCode, HttpStatus, Inject, Post, Req,
+  Body, Controller, HttpCode, HttpStatus, Inject, Post, Req, UseGuards,
   ServiceUnavailableException, UnauthorizedException,
 } from "@nestjs/common";
 import { auth as C } from "@repo/contracts";
@@ -37,6 +37,8 @@ import {
   requestPasswordReset,
   type PasswordResetDeps,
 } from "../../application/auth/password-reset";
+import { inspectPasswordResetThrottle } from "../../application/auth/inspect-password-reset-throttle";
+import { PlatformSuperuserGuard } from "../guards/platform-superuser.guard";
 import { AuthError, PasswordPolicyError } from "../../application/auth/errors";
 import {
   CLOCK, CREDENTIAL_REPOSITORY, LOGIN_ATTEMPT_REPOSITORY, MAILER, PASSWORD_HASHER,
@@ -52,10 +54,12 @@ import { deviceContextOf, type RequestLike } from "../device-context";
 export const LOGIN_SCHEMA = C.operations.login.in;
 export const RESET_REQUEST_SCHEMA = C.operations.requestPasswordReset.in;
 export const RESET_COMPLETE_SCHEMA = C.operations.completePasswordReset.in;
+export const INSPECT_THROTTLE_SCHEMA = C.operations.inspectPasswordResetThrottle.in;
 
 type LoginBody = { email: string; password: string };
 type ResetRequestBody = { email: string };
 type ResetCompleteBody = { token: string; newPassword: string };
+type InspectThrottleBody = { email: string };
 
 @Controller()
 export class AuthController {
@@ -136,6 +140,21 @@ export class AuthController {
     } catch (e) {
       throw toHttp(e);
     }
+  }
+
+  /**
+   * 平台超管专用只读诊断（issue #2632）——见用例头注：不是 `@Public()`，走全局
+   * `PrincipalGuard` 认证之后再叠 `PlatformSuperuserGuard`，与「系统异常 → 测试邮件」
+   * 同一道门。
+   */
+  @UseGuards(PlatformSuperuserGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post("/auth/password-reset/inspect-throttle")
+  async inspectThrottle(@Body(new ZodBodyPipe(INSPECT_THROTTLE_SCHEMA)) body: InspectThrottleBody) {
+    return inspectPasswordResetThrottle(
+      { credentials: this.credentials, resetTokens: this.resetTokens, clock: this.clock },
+      body,
+    );
   }
 }
 

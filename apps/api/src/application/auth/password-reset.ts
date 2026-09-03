@@ -47,8 +47,15 @@ export type CompleteResetInput = z.infer<typeof C.operations.completePasswordRes
 export type CompleteResetOutput = z.infer<typeof C.operations.completePasswordReset.out>;
 
 const RESET_TTL_MS = C.AUTH_POLICY.resetLinkHours * 60 * 60 * 1000;
-const COOLDOWN_MS = C.AUTH_POLICY.resendCooldownSeconds * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+/**
+ * Exported (not just local) so `inspect-password-reset-throttle.ts` computes the SAME
+ * cooldown/rolling-window boundaries this function enforces, rather than a second copy that
+ * could silently drift from `AUTH_POLICY` -- see that file's head comment for why it needs
+ * these at all (2026-09-04 support incident: a real account's reset requests were silently
+ * skipped by this cooldown/cap with nothing anywhere to show it, see issue #2632).
+ */
+export const COOLDOWN_MS = C.AUTH_POLICY.resendCooldownSeconds * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Step 2 of uc-1-1 A2.

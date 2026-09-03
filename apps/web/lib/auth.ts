@@ -17,6 +17,7 @@ export type RegisterNewAccountIn = z.infer<typeof auth.operations.registerNewAcc
 export type RegisterNewAccountOut = z.infer<typeof auth.operations.registerNewAccount.out>;
 export type RequestPasswordResetOut = z.infer<typeof auth.operations.requestPasswordReset.out>;
 export type CompletePasswordResetOut = z.infer<typeof auth.operations.completePasswordReset.out>;
+export type InspectPasswordResetThrottleOut = z.infer<typeof auth.operations.inspectPasswordResetThrottle.out>;
 
 export async function login(email: string, password: string): Promise<LoginOut> {
   return apiRequest<LoginOut>(auth.operations.login.path, {
@@ -77,6 +78,18 @@ export async function completePasswordReset(token: string, newPassword: string):
 
 export function isResetTokenInvalid(error: unknown): boolean {
   return error instanceof ApiError && error.reasonCode === "RESET_TOKEN_INVALID";
+}
+
+/**
+ * 平台超管专用诊断（issue #2632）——`requestPasswordReset` 对这个邮箱当前会不会因为
+ * 冷却/每日上限而跳过发信。见后端用例头注：这不是把 I-1 的防枚举撕开一个口子，
+ * 调用方本身已经是白名单超管，走的是完全独立的一道门（`PlatformSuperuserGuard`）。
+ */
+export async function inspectPasswordResetThrottle(email: string): Promise<InspectPasswordResetThrottleOut> {
+  return apiRequest<InspectPasswordResetThrottleOut>(auth.operations.inspectPasswordResetThrottle.path, {
+    method: "POST",
+    body: { email },
+  });
 }
 
 export function isBootstrapUnavailable(error: unknown): boolean {
