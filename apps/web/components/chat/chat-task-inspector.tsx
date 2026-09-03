@@ -218,8 +218,8 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
         aria-orientation={collapsed ? "vertical" : "horizontal"}
         aria-label="任务检查器页签"
         className={cn(
-          "flex shrink-0 border-b border-border-subtle",
-          collapsed ? "flex-col items-center gap-0.5 py-1.5" : "flex-row items-stretch",
+          "flex shrink-0 items-center border-b border-border-subtle",
+          collapsed ? "flex-col gap-1 py-2" : "flex-row justify-center gap-1 px-2 py-2.5",
         )}
       >
         {visibleTabs.map((tab) => {
@@ -231,13 +231,19 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               type="button"
               role="tab"
               aria-selected={selected}
-              /* 折叠态图标按钮没有可见文本，读屏必须另有名字（TW-A11Y 同源要求）。 */
+              /*
+                2026-09-03 人类反馈（真栈截图）「右边的 tabs 要简约，默认是 icon，
+                选中的时候显示文字」—— 未选中页签只画图标（`aria-label`/`title` 兜住
+                读屏与鼠标悬停），只有选中的那一个才展开出文字标签；折叠态本来就
+                一直是纯图标，不受影响。文本从"始终可见"改成"只在选中时出现"，
+                读屏必须另有名字，`aria-label` 常驻不受选中态影响。
+              */
               aria-label={label}
               title={label}
               data-testid={`chat-task-workbench-inspector-tab-${tab}`}
               onClick={() => selectTab(tab)}
               className={cn(
-                "flex items-center justify-center gap-1 text-11 transition-colors duration-fast",
+                "flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-md text-11 transition-colors duration-fast",
                 // 2026-09-03 人类反馈（真栈截图）「右边的 tab，样式不对」—— 原来是
                 // `ring-2 ring-ring`（`--ring` 近黑，同 `--primary`），页签本身已经用
                 // `bg-muted` 标出选中态，焦点环再叠一圈实心近黑矩形，在小尺寸页签上
@@ -245,14 +251,14 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
                 // 不透明度（`ring-ring/40`）：焦点提示还在（键盘可见），只是不再是一块
                 // 生硬的黑框，跟其余页签/按钮的克制视觉一致。
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40",
-                collapsed ? "h-7 w-7 rounded-md" : "min-w-0 flex-1 px-1 py-2",
+                collapsed || !selected ? "w-8 px-0" : "px-3",
                 selected
                   ? "bg-muted font-medium text-card-foreground"
                   : "text-muted-foreground hover:bg-muted hover:text-card-foreground",
               )}
             >
-              <Icon aria-hidden className="h-3.5 w-3.5 shrink-0" />
-              {collapsed ? null : <span className="truncate">{label}</span>}
+              <Icon aria-hidden className="h-4 w-4 shrink-0" />
+              {selected ? <span className="truncate">{label}</span> : null}
             </button>
           );
         })}
@@ -264,9 +270,9 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
             title="收起任务检查器"
             data-testid="chat-task-workbench-inspector-collapse"
             onClick={() => setOverride("collapsed")}
-            className="flex w-7 shrink-0 items-center justify-center text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40"
           >
-            <PanelRightClose aria-hidden className="h-3.5 w-3.5" />
+            <PanelRightClose aria-hidden className="h-4 w-4" />
           </button>
         )}
       </div>

@@ -1589,14 +1589,13 @@ export function CopilotKitV2PanelBody({
           onKeyDown={handleUserScrollIntent}
           onPointerDown={handleUserScrollIntent}
           className={cn(
-            "flex-1 overflow-y-auto bg-background p-3",
-            // 只在空态这一支给滚动容器本身开 flex 列，`messagesContentRef` 再
-            // 用 `flex-1` 参与主轴（纵向）分配，才真的拿到可居中的高度。
-            // 有消息时保持原来的普通块级流（`overflow-y-auto` 的滚动高度计算逻辑
-            // 一个字不动），不会牵动 `handleMessagesScroll`/`isScrolledNearBottom`
-            // 这类依赖真实 scrollHeight 的既有逻辑——`flex-1` 类名只在父容器真的
-            // 是 flex 容器时才生效，块级流下是死代码，不影响非空态渲染。
-            isEmptyThread && "flex flex-col",
+            "flex-1 overflow-y-auto p-3",
+            // 2026-09-03 人类反馈（真栈截图）「今天想完成什么这个 section 不需要
+            // 灰色背景」—— 空态这一支不再画 `bg-background`（应用画布色，与外层
+            // 白底的 composer 卡片并排时会显得像一块灰底方块），改为透明、直接
+            // 露出外层真实背景。有消息时不受影响，仍然保留 `bg-background`
+            // ——那是既有的消息区底色，判据/截图都没有点名要改它。
+            isEmptyThread ? "flex flex-col" : "bg-background",
           )}
           data-testid="copilotkit-v2-messages"
         >
