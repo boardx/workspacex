@@ -375,7 +375,7 @@ export function FeedbackScreen({ state }: { state: UiState }) {
             )}
 
             {load.kind === "ready" && (
-              <div className="grid min-h-[560px] grid-cols-1 border-t border-border lg:grid-cols-[minmax(0,1fr)_380px]" data-testid={`admin-feedback-pane-${tab}`}>
+              <div className="grid min-h-[560px] grid-cols-1 border-t border-border lg:grid-cols-[minmax(0,1fr)_460px]" data-testid={`admin-feedback-pane-${tab}`}>
                 {/* 左：列表 */}
                 <FeedbackTable
                   kind={tab}
@@ -494,15 +494,15 @@ function FeedbackTable({
   onVote: (item: FeedbackItem) => void;
 }) {
   return (
-    <div className="min-w-0 overflow-x-auto" data-testid={`admin-feedback-list-${kind}`}>
-      <table className="w-full border-collapse text-12">
+    <div className="min-w-0" data-testid={`admin-feedback-list-${kind}`}>
+      <table className="w-full table-fixed border-collapse text-12">
         <thead>
           <tr className="text-11 text-muted-foreground">
-            <th className="w-28 px-6 py-2.5 text-left font-normal">状态</th>
+            <th className="w-24 px-4 py-2.5 text-left font-normal">状态</th>
             <th className="px-3 py-2.5 text-left font-normal">标题</th>
-            <th className="w-56 px-3 py-2.5 text-left font-normal">来源</th>
-            <th className="w-20 px-3 py-2.5 text-right font-normal">赞同</th>
-            <th className="w-36 px-6 py-2.5 text-right font-normal">提交时间</th>
+            <th className="w-32 px-3 py-2.5 text-left font-normal">来源</th>
+            <th className="w-14 px-3 py-2.5 text-right font-normal">赞同</th>
+            <th className="w-28 px-4 py-2.5 text-right font-normal">提交时间</th>
           </tr>
         </thead>
         <tbody>
@@ -536,22 +536,22 @@ function FeedbackTable({
                     selected ? "bg-accent/40" : "hover:bg-muted/50",
                   )}
                 >
-                  <td className="whitespace-nowrap px-6 py-3.5">
+                  <td className="px-4 py-3.5">
                     <Badge tone={STATUS_TONE[item.status]} className="whitespace-nowrap" data-testid={`admin-feedback-status-${item.id}`}>
                       {STATUS_LABEL[kind][item.status]}
                     </Badge>
                   </td>
-                  <td className="min-w-0 px-3 py-3">
-                    <div className="flex items-baseline gap-2">
+                  <td className="min-w-0 max-w-0 px-3 py-3">
+                    <div className="flex min-w-0 items-baseline gap-2">
                       <span className="shrink-0 font-mono text-11 text-muted-foreground">{displayIds.get(item.id) ?? item.id}</span>
-                      <span className="truncate text-13 font-semibold text-card-foreground">{item.title}</span>
+                      <span className="min-w-0 truncate text-13 font-semibold text-card-foreground">{item.title}</span>
                     </div>
                     <p className="mt-0.5 truncate text-11 text-muted-foreground">
                       {item.submitterName ?? "匿名用户"} · {item.detail ?? item.title}
                     </p>
                   </td>
-                  <td className="px-3 py-3">
-                    <div className="text-12 text-card-foreground">
+                  <td className="max-w-0 px-3 py-3">
+                    <div className="truncate text-12 text-card-foreground">
                       {src.kindLabel}{src.name !== null ? ` · ${src.name}` : src.id !== null ? ` · ${src.id}` : ""}
                     </div>
                     {src.id !== null && src.name !== null && (
@@ -582,7 +582,7 @@ function FeedbackTable({
                       )}
                     </button>
                   </td>
-                  <td className="whitespace-nowrap px-6 py-3.5 text-right text-12 text-muted-foreground tabular-nums">
+                  <td className="whitespace-nowrap px-4 py-3.5 text-right text-12 text-muted-foreground tabular-nums">
                     {formatTime(item.createdAt)}
                   </td>
                 </tr>
