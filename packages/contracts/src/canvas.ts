@@ -936,6 +936,10 @@ export const operations = {
          * 见 `TemplateLayoutSource` 的完整语义与不可退回规则。
          */
         layoutSource: TemplateLayoutSource,
+        /** 这一行首次被造出来的时间（ISO 8601）。排序用——见后台模板库的排序选择器。 */
+        createdAt: z.string(),
+        /** 这一行最近一次被写入的时间（ISO 8601）。默认排序键。 */
+        updatedAt: z.string(),
       }).strict()),
     }).strict(),
     err: ["NO_PROJECT_ROLE", "DEPENDENCY_UNAVAILABLE"] as const,

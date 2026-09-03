@@ -331,7 +331,12 @@ export function TemplateEditorPanel({
           // ⚠ `platform: false` 是写死的字面量，不是从响应里读来的：这个面板打开的
           //   永远是本组织自己的行（`listTemplates` 用 `platform` 区分平台母版与
           //   组织自有行，平台母版对本组件不可编辑，走不到这条保存路径）。
-          { ...out, usageCount: 0, title, footer, promptText, platform: false },
+          // `createdAt: row.createdAt` —— 改草稿不是新造一行，创建时间不变（还是打开
+          //   这个面板时那份 `listTemplates` 行带来的值）；`updatedAt` 才是这次写入
+          //   真的改变的那一栏。`updateTemplateDraft.out` 契约没有这两栏（DB 有 `updated_at`
+          //   但 RETURNING 没取），同 `usageCount`/`title` 等字段一样，是本地按"刚发生了
+          //   什么"合理推出来的，不是瞎猜。
+          { ...out, usageCount: 0, title, footer, promptText, platform: false, createdAt: row.createdAt, updatedAt: new Date().toISOString() },
         );
         return;
       }
@@ -377,7 +382,9 @@ export function TemplateEditorPanel({
         await onSaved(
           `已保存并发布为 v${minted.version}——v${row.version} 已自动归档` +
           `（不可变快照，用它开过的画布不受影响）。`,
-          { ...minted, status: "published", usageCount: 0, title, footer, promptText, platform: false },
+          // 铸新版本是新造一行——`createdAt`/`updatedAt` 都是"此刻"，同上一处
+          // `updateTemplateDraft` 分支的理由对称（那边是改行，这里是新行）。
+          { ...minted, status: "published", usageCount: 0, title, footer, promptText, platform: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
         );
       } else {
         const reasons = [
@@ -387,7 +394,8 @@ export function TemplateEditorPanel({
         await onSaved(
           `已铸出 v${minted.version} 草稿并保存改动，但「未发布」——` +
           `${reasons.join("；")}。修好后再点「发布模板」，v${row.version} 保持原样。`,
-          { ...minted, usageCount: 0, title, footer, promptText, platform: false },
+          // 同上——铸新版本是新造一行。
+          { ...minted, usageCount: 0, title, footer, promptText, platform: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
         );
       }
     } catch (e) {

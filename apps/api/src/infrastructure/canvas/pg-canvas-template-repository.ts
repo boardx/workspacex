@@ -62,6 +62,8 @@ interface TemplateSqlRow {
   /** #2221——见 `template-ports.ts` 的 `layoutSource`/`builtinDerived` 完整语义。 */
   layout_source: "builtin-derived" | "user-edited";
   size: PaperSize;
+  created_at: Date;
+  updated_at: Date;
 }
 
 /**
@@ -95,6 +97,7 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
         `SELECT t.org_id, t.key, t.version, t.display_name, t.status, t.archived_from, t.builtin,
                 t.visibility, t.owner_team_id, t.underlying_type, t.sections, t.tags,
                 t.title, t.footer, t.prompt_text, t.layout_source, t.size,
+                t.created_at, t.updated_at,
                 (SELECT count(*) FROM canvas_template_bindings b
                   WHERE b.org_id = t.org_id
                     AND b.template_key = t.key
@@ -338,6 +341,8 @@ export class PgCanvasTemplateRepository implements CanvasTemplateRepository {
           promptText: row.prompt_text,
           layoutSource: row.layout_source,
           size: row.size,
+          createdAt: row.created_at.toISOString(),
+          updatedAt: row.updated_at.toISOString(),
           // ⚠ 判据是**这一行落在哪个 org**，不是 `builtin`：组织 fork 走一份之后它仍然
           //   是 builtin key，却已经是自己的行了。两者合成一个字段，「已加入我的组织的
           //   用户画像」与「还没加入的平台用户画像」在响应体上就完全同形。
