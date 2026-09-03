@@ -228,3 +228,108 @@ describe("PgErrorLogWriter against real Postgres -- migration, INSERT, jsonb, in
     expect(secondPage.items[0]!.traceId).toBe("t-real-cursor-2");
   });
 });
+
+/**
+ * AI 摘要（迁移 `20260902160000_error_logs_ai_summary.sql`）的权限边界，对真实 Postgres——
+ * 独立评审 finding #5（2026-09-03）：迁移的头注引用了这份文件，但当时只改了函数名断言，
+ * 没有加对新函数/新列的真实权限反证。这里补上，镜子照的是上面 `kernel_read_error_logs`
+ * 那组反证的同一套结构（拒绝 app_rw 直连、拒绝 app_rw 走旧函数、PUBLIC 已显式 REVOKE、
+ * app_diag_ro 能走新函数、上限被夹住），只是换成新函数/新列。
+ */
+describe("AI 摘要权限边界（app_rw 只能写两个摘要列，app_diag_ro 才能整表读，对真实 Postgres）", () => {
+  it("【反证3】app_rw 对 ai_title/ai_summary 两列也没有裸 SELECT——不是只锁了旧列", async () => {
+    await writer.record({ traceId: "t-real-ai-cols", msg: "x", detail: {} });
+
+    await expect(
+      db.withoutTenant((s) => s.query("SELECT ai_title, ai_summary FROM error_logs LIMIT 1")),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it("【反证4】app_rw 对 error_logs 没有裸 UPDATE——唯一的写回路径是 SECURITY DEFINER 函数", async () => {
+    await writer.record({ traceId: "t-real-ai-no-update", msg: "x", detail: {} });
+
+    await expect(
+      db.withoutTenant((s) => s.query("UPDATE error_logs SET ai_title = 'x' WHERE trace_id = 't-real-ai-no-update'")),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it("app_rw 能调用 kernel_write_error_log_ai_summary，且只有那两列被改——其余字段原样不动", async () => {
+    await writer.record({ traceId: "t-real-ai-write", msg: "original msg", detail: { name: "Error" } });
+    const before = await asOwner((c) =>
+      c.query<{ id: string; msg: string }>("SELECT id, msg FROM error_logs WHERE trace_id = $1", ["t-real-ai-write"])
+        .then((r) => r.rows[0]!),
+    );
+
+    await db.withoutTenant((s) =>
+      s.query("SELECT kernel_write_error_log_ai_summary($1::bigint, $2, $3)", [before.id, "标题", "说明"]),
+    );
+
+    const after = await asOwner((c) =>
+      c.query<{ msg: string; ai_title: string; ai_summary: string }>(
+        "SELECT msg, ai_title, ai_summary FROM error_logs WHERE trace_id = $1", ["t-real-ai-write"],
+      ).then((r) => r.rows[0]!),
+    );
+    expect(after.ai_title).toBe("标题");
+    expect(after.ai_summary).toBe("说明");
+    expect(after.msg).toBe(before.msg); // 函数体只 UPDATE 两个摘要列，msg 没被顺手改掉
+  });
+
+  it("【反证5】app_rw 调不了 kernel_read_error_logs_with_ai_summary——EXECUTE 只给了 app_diag_ro", async () => {
+    await expect(
+      db.withoutTenant((s) => s.query("SELECT * FROM kernel_read_error_logs_with_ai_summary(10, NULL)")),
+    ).rejects.toThrow(/permission denied/);
+  });
+
+  it("has_function_privilege(app_rw, kernel_read_error_logs_with_ai_summary, EXECUTE) 为 false——PUBLIC 也没有隐式继承", async () => {
+    const rows = await asOwner((c) =>
+      c.query<{ has_priv: boolean }>(
+        `SELECT has_function_privilege('app_rw', 'kernel_read_error_logs_with_ai_summary(integer,bigint)', 'EXECUTE') AS has_priv`,
+      ).then((r) => r.rows),
+    );
+    expect(rows[0]!.has_priv).toBe(false);
+  });
+
+  it("has_function_privilege(app_rw, kernel_write_error_log_ai_summary, EXECUTE) 为 true——这是唯一授出的写路径", async () => {
+    const rows = await asOwner((c) =>
+      c.query<{ has_priv: boolean }>(
+        `SELECT has_function_privilege('app_rw', 'kernel_write_error_log_ai_summary(bigint,text,text)', 'EXECUTE') AS has_priv`,
+      ).then((r) => r.rows),
+    );
+    expect(rows[0]!.has_priv).toBe(true);
+  });
+
+  it("app_diag_ro 能调用 kernel_read_error_logs_with_ai_summary，读到的 ai_title/ai_summary 与写回的一致", async () => {
+    await writer.record({ traceId: "t-real-ai-diag-read", msg: "x", detail: {} });
+    const row = await asOwner((c) =>
+      c.query<{ id: string }>("SELECT id FROM error_logs WHERE trace_id = $1", ["t-real-ai-diag-read"]).then((r) => r.rows[0]!),
+    );
+    await db.withoutTenant((s) =>
+      s.query("SELECT kernel_write_error_log_ai_summary($1::bigint, $2, $3)", [row.id, "诊断标题", "诊断说明"]),
+    );
+
+    const out = await writer.list({ limit: 50, beforeId: null });
+    const item = out.items.find((i) => i.traceId === "t-real-ai-diag-read");
+    expect(item?.aiTitle).toBe("诊断标题");
+    expect(item?.aiSummary).toBe("诊断说明");
+  });
+
+  it("没写回摘要的行，aiTitle/aiSummary 原样是 null——不是空字符串，不是伪造的占位符", async () => {
+    await writer.record({ traceId: "t-real-ai-still-null", msg: "x", detail: {} });
+
+    const out = await writer.list({ limit: 50, beforeId: null });
+    const item = out.items.find((i) => i.traceId === "t-real-ai-still-null");
+    expect(item?.aiTitle).toBeNull();
+    expect(item?.aiSummary).toBeNull();
+  });
+
+  it("kernel_read_error_logs_with_ai_summary 同样把超大 p_limit 夹到 200（函数内部的纵深防御，不只是应用层传参克制）", async () => {
+    for (let i = 0; i < 5; i++) {
+      await writer.record({ traceId: `t-real-ai-clamp-${i}`, msg: "x", detail: {} });
+    }
+
+    const rows = await readDb.withoutTenant((s) =>
+      s.query<{ id: string }>("SELECT * FROM kernel_read_error_logs_with_ai_summary(100000, NULL)"),
+    );
+    expect(rows.rows.length).toBeLessThanOrEqual(200);
+  });
+});

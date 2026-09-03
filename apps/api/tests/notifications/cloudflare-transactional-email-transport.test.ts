@@ -93,5 +93,20 @@ describe("CloudflareTransactionalEmailTransport", () => {
         transactionalMailConfig({ NODE_ENV: "production", CLOUDFLARE_ACCOUNT_ID: "x" } as NodeJS.ProcessEnv),
       ).toThrow(/incomplete/);
     });
+    it("2026-09-02 人类裁决：没配专属 CLOUDFLARE_TXN_EMAIL_API_TOKEN 时回退到 CLOUDFLARE_EMAIL_API_TOKEN", () => {
+      const config = transactionalMailConfig({
+        NODE_ENV: "test",
+        CLOUDFLARE_EMAIL_API_TOKEN: "verification-token",
+      } as NodeJS.ProcessEnv);
+      expect(config.apiToken).toBe("verification-token");
+    });
+    it("配了专属 token 时优先用它，不吃回退", () => {
+      const config = transactionalMailConfig({
+        NODE_ENV: "test",
+        CLOUDFLARE_TXN_EMAIL_API_TOKEN: "txn-token",
+        CLOUDFLARE_EMAIL_API_TOKEN: "verification-token",
+      } as NodeJS.ProcessEnv);
+      expect(config.apiToken).toBe("txn-token");
+    });
   });
 });

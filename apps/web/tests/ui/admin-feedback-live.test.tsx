@@ -298,8 +298,8 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
   it("⑥ 超管看到异常条数：标签页计数 + 标题旁的「N 条系统异常」胶囊", async () => {
     mockApi([productBug], {
       systemErrors: { items: [
-        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z" },
-        { id: "2", traceId: "t2", msg: "bang", detail: {}, createdAt: "2026-09-02T00:01:00.000Z" },
+        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: "数据库连接超时", aiSummary: "疑似连接池耗尽，建议先查慢查询与连接数上限。" },
+        { id: "2", traceId: "t2", msg: "bang", detail: {}, createdAt: "2026-09-02T00:01:00.000Z", aiTitle: null, aiSummary: null },
       ], hasMore: false },
     });
     render(<FeedbackScreen state="default" />);
@@ -307,6 +307,16 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
     expect(screen.getByTestId("admin-feedback-tab-system").textContent).toContain("2");
     fireEvent.click(screen.getByTestId("admin-feedback-tab-system"));
     expect(await screen.findByTestId("admin-feedback-system-error-1")).toBeTruthy();
+    // 有 AI 摘要：标题+说明用 AI 生成的文字，跟反馈卡片一样人能看懂。
+    expect(screen.getByTestId("admin-feedback-system-error-1").textContent).toContain("数据库连接超时");
+    expect(screen.getByTestId("admin-feedback-system-error-summary-1").textContent).toContain("连接池耗尽");
+    // 没有 AI 摘要（还没生成完/这次没生成出来）：兜底说明，不编一句假摘要，原始 msg 仍可见。
+    expect(screen.getByTestId("admin-feedback-system-error-2").textContent).toContain("bang");
+    expect(screen.getByTestId("admin-feedback-system-error-summary-2").textContent).toContain("AI 摘要还没有生成");
+    // 原始技术细节仍然可以展开查看（不是被 AI 摘要取代，是多一层）。
+    expect(screen.queryByTestId("admin-feedback-system-error-detail-1")).toBeNull();
+    fireEvent.click(screen.getByTestId("admin-feedback-system-error-toggle-1"));
+    expect(await screen.findByTestId("admin-feedback-system-error-detail-1")).toBeTruthy();
   });
 
   it("⑥ 测试邮件：超管在系统异常页能发一封，成功显示收件人，失败显示契约码与归类", async () => {

@@ -25,6 +25,8 @@ import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 import { ERROR_LOG_PORT } from "./application/ports/error-log.port";
 import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
+import { ERROR_LOG_SUMMARY_MODEL_CONFIG, type ErrorLogSummaryModelConfig } from "./application/system/summarize-error-log";
+import { readErrorLogSummaryModelConfig } from "./infrastructure/logging/error-log-summary-model-config";
 import { RATE_LIMITER_PORT } from "./application/ports/rate-limiter.port";
 import { InMemoryRateLimiter } from "./infrastructure/system/in-memory-rate-limiter";
 import { PlatformSuperuserGuard } from "./interface/guards/platform-superuser.guard";
@@ -838,10 +840,26 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // this pool.
     { provide: DIAGNOSTICS_READER_DB_PORT, useFactory: () => new PgDatabase(diagnosticsReaderConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
+    // 2026-09-02：`ERROR_LOG_SUMMARY_MODEL_CONFIG` 是"系统异常 AI 摘要"这个元任务的
+    // 固定模型配置，同 `FEEDBACK_STRUCTURE_MODEL_CONFIG` 既有先例。
+    {
+      provide: ERROR_LOG_SUMMARY_MODEL_CONFIG,
+      useFactory: () => readErrorLogSummaryModelConfig(),
+    },
     {
       provide: ERROR_LOG_PORT,
-      useFactory: (db: DatabasePort, readDb: DatabasePort) => new PgErrorLogWriter(db, readDb),
-      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT],
+      useFactory: (
+        db: DatabasePort,
+        readDb: DatabasePort,
+        model: ModelCallPort,
+        summaryModel: ErrorLogSummaryModelConfig,
+        logger: LoggerPort,
+      ) => new PgErrorLogWriter(db, readDb, {
+        model,
+        summaryModel,
+        log: (message, detail) => logger.info(message, { ...detail, traceId: "error-log-ai-summary" }),
+      }),
+      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT, MODEL_CALL_PORT, ERROR_LOG_SUMMARY_MODEL_CONFIG, LOGGER_PORT],
     },
     {
       provide: RATE_LIMITER_PORT,

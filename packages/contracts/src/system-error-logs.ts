@@ -45,6 +45,16 @@ export const SystemErrorLogItem = z
     msg: z.string(),
     detail: z.unknown(),
     createdAt: z.string(),
+    /**
+     * AI 生成的一句话标题/一段面向人类的说明（2026-09-02 人类要求：系统异常要跟反馈
+     * 卡片一样有段给人看的文字，供人类决定怎么处理，不是原始异常字段）。落库后异步生成，
+     * 见 `apps/api/.../summarize-error-log.ts`。`null` ⟺ 还没生成完 / 这次没生成出来
+     * （模型不可用、超时、部署没配模型）——**不是**"这条异常没有摘要"，界面必须能把
+     * "还没有"和"生成失败"都说出来，不伪造一段占位摘要。两个字段同生同灭
+     * （要么都非 null，要么都是 null）。
+     */
+    aiTitle: z.string().nullable(),
+    aiSummary: z.string().nullable(),
   })
   .strict();
 export type SystemErrorLogItem = z.infer<typeof SystemErrorLogItem>;
