@@ -280,6 +280,26 @@ export const ProvenanceEventType = z.enum([
   "team-renamed",
   "team-deleted",
 
+  /**
+   * 🔴 F109 续（chat 束，本轮新增，沿用 ADR-101 的先例，Proposed，需人类追认）。
+   *
+   * ⚠ **与本文件其余 ADR-101 追加成员不同的一点，如实登记**：其余每条都指向一份
+   *   已签核的 `usecases.md`/`domain.md` 逐字要求。这两条没有——`ThreadCard.pinned`
+   *   是 2026-09-03 rev-uiux 差距分析里的一条产品改进，人类当场直接指令「不要走
+   *   signoff，走 adhoc 的流程」把它落地，不是先有签核文档再补代码。这里不假装
+   *   有一份不存在的签核文档，只如实记录触发来源是这一次直接指令。
+   *
+   * 命名照 `thread-created`/`thread-renamed`/`thread-deleted` 的构词法，理由同形：
+   * 与 ADR-101 决策 A「线程三值不合并」一样，「查全部置顶/取消置顶事件」需要按类型
+   * 筛，不靠解析 `detail`。
+   *
+   * 若人类否决：撤销这两行 + `mutate-thread.ts` 的 `pin`/`unpin` 分支 +
+   * `packages/contracts/src/chat.ts` 的 `mutateThread.in.op`
+   * 与 `ThreadCard.pinned` 两处改动 + 对应迁移列。
+   */
+  "thread-pinned",
+  "thread-unpinned",
+
   /* ── 安全审计（两束共用）──────────────────────────── */
   "unauthorized-attempt", // 越权尝试：被拒的动作也必须留痕
 ]);

@@ -29,6 +29,13 @@ export interface TaskTemplate {
   readonly id: string;
   readonly label: string;
   readonly goal: string;
+  /**
+   * 2026-09-03（对照设计参照图补的视觉锚点）—— 卡片配一个单字符 + 底色方块，
+   * 四张卡不再长得完全一样、扫视时能靠颜色/字形先分类，再读文字。
+   * 纯装饰：`aria-hidden`，读屏文本仍然只读 `label`。
+   */
+  readonly glyph: string;
+  readonly glyphClassName: string;
 }
 
 /**
@@ -40,21 +47,29 @@ export const TASK_WORKBENCH_TEMPLATES: readonly TaskTemplate[] = [
     id: "chat-task-workbench-template-research",
     label: "调研市场并产出带来源的报告",
     goal: "帮我调研一下当前市场情况，产出一份带引用来源的调研报告。",
+    glyph: "研",
+    glyphClassName: "bg-ai/15 text-ai",
   },
   {
     id: "chat-task-workbench-template-reading",
     label: "阅读材料整理决策建议",
     goal: "帮我阅读我上传的材料，整理出可执行的决策建议。",
+    glyph: "读",
+    glyphClassName: "bg-warning/15 text-warning",
   },
   {
     id: "chat-task-workbench-template-planning",
     label: "需求拆成计划并生成项目产物",
     goal: "帮我把这个需求拆成一份可执行的计划，并生成相应的项目产物。",
+    glyph: "拆",
+    glyphClassName: "bg-success/15 text-success",
   },
   {
     id: "chat-task-workbench-template-analysis",
     label: "分析数据发现异常并制图",
     goal: "帮我分析这份数据，找出其中的异常点，并生成图表。",
+    glyph: "析",
+    glyphClassName: "bg-primary/15 text-primary",
   },
 ];
 
@@ -87,9 +102,15 @@ export function TaskWorkbenchEmptyState({
             type="button"
             data-testid={template.id}
             onClick={() => onUseTemplate(template.goal)}
-            className="rounded-lg border border-border-subtle bg-card px-3 py-2.5 text-left text-11 leading-relaxed text-card-foreground transition-colors duration-fast hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-start gap-2 rounded-lg border border-border-subtle bg-card px-3 py-2.5 text-left text-11 leading-relaxed text-card-foreground transition-colors duration-fast hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {template.label}
+            <span
+              aria-hidden
+              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-12 font-semibold ${template.glyphClassName}`}
+            >
+              {template.glyph}
+            </span>
+            <span className="pt-0.5">{template.label}</span>
           </button>
         ))}
       </div>

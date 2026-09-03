@@ -47,6 +47,15 @@ export interface ThreadListRow extends ThreadFacts {
   readonly version: number;
   /** I-14：**事实**——存在一个 `stopped_at IS NULL` 的转录会话。不是由时间推断的。 */
   readonly transcribing: boolean;
+  /**
+   * 2026-09-03（F109 续，ad-hoc，见 `packages/contracts/src/chat.ts` `ThreadCard.pinned`
+   * 头注）—— `chat_threads.pinned` 列的直接投影。项目线程与个人线程共用同一张表、
+   * 同一列；今天只有个人对话左栏渲染置顶入口（`ThreadCardButton` 的 `onTogglePin`
+   * 是可选 prop），项目线程这里如实带上这个事实字段（契约 `ThreadCard.pinned` 是
+   * 必填的，不能只给个人线程一份、项目线程编一个假 `false`），UI 要不要在项目线程
+   * 上也开置顶入口是另一个决定，不在本次范围。
+   */
+  readonly pinned: boolean;
 }
 
 /** 线程的 `messages.jsonl` 指针（I-16）。**不是第二个文件表**——见迁移 0029 头部。 */
@@ -235,6 +244,18 @@ export interface ChatRepository {
     threadId: string,
     expectedVersion: number,
   ): Promise<{ messageCount: number } | null>;
+
+  /**
+   * 置顶 / 取消置顶（2026-09-03，F109 续，ad-hoc）。乐观并发：`expectedVersion`
+   * 不匹配返回 `null`，与 `renameThread`/`deleteThread` 同一条纪律——置顶不是
+   * 「轻量所以可以静默覆盖」的第二等写操作。匹配时返回新版本号。
+   */
+  setThreadPinned(
+    orgId: OrgId,
+    threadId: string,
+    pinned: boolean,
+    expectedVersion: number,
+  ): Promise<number | null>;
 
   findThreadFile(orgId: OrgId, threadId: string): Promise<ThreadFileRecord | null>;
 

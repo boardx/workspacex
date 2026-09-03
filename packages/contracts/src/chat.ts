@@ -343,6 +343,16 @@ export const ThreadCard = z.object({
   artifactCount: z.number().int().nonnegative(),
   lastActivityAt: z.string(),
   visibilityScope: ChatVisibility,
+  /**
+   * 2026-09-03（rev-uiux 差距分析点 P1-4，人类直接指令走 ad-hoc、不经
+   * `design-signoff.md`）—— 置顶，服务端持久化，取代此前 `apps/web/lib/
+   * chat-pinned-threads.ts` 的 `localStorage` 方案（那份实现头注原话「跨设备需
+   * 签核」）。是这条字段本身把契约从「create/rename/delete 三值封闭」改成了四值，
+   * 所以老老实实当作一次契约变更记录：**先落地，后补人类追认**，不是绕开变更、
+   * 假装它不是契约变更——`mutateThread.in.op` 同轮加了 `pin`/`unpin` 两个动作，
+   * 见下方。默认 `false`：既有线程迁移时全部未置顶，不假装历史数据本就置顶过。
+   */
+  pinned: z.boolean(),
 }).strict();
 
 /**
@@ -571,15 +581,18 @@ export const operations = {
   },
 
   /**
-   * mutateThread —— 新建 / 改名 / 删除。
+   * mutateThread —— 新建 / 改名 / 删除 / 置顶 / 取消置顶。
    * ⚠ 观察者恒无写权（按钮不渲染**且**接口拒绝——两侧都要验收）。
    * ⚠ **并发**（V7）：`expectedVersion` 不匹配即 `VERSION_CHANGED`，**不静默覆盖**。
    * ⚠ **删除是可追溯动作**：返回 `impactScope`，审计必写；**越权尝试也要有安全审计记录**（V8）。
+   * ⚠ `pin`/`unpin`（2026-09-03，ad-hoc、无 `design-signoff.md`，见 `ThreadCard.pinned`
+   *   头注）—— 同样过 `expectedVersion` 乐观并发、同样写审计，与 `rename` 走同一套
+   *   纪律，不是"轻量所以不用管这些"的第二等操作。
    */
   mutateThread: {
     method: "POST", path: "/chat/threads/mutate",
     in: z.object({
-      op: z.enum(["create", "rename", "delete"]),
+      op: z.enum(["create", "rename", "delete", "pin", "unpin"]),
       projectId: z.string().nullable(),
       threadId: z.string().nullable(),
       groupId: z.string().nullable(),

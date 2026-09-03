@@ -42,11 +42,20 @@ export function IconRail({
       className="flex h-full min-h-0 w-rail min-w-rail shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border bg-rail py-3.5"
     >
       {/*
-        2026-08-27 人类直接反馈（devapp 实测截图）：F19 品牌锚点（衬线体 "W"）与组织菜单
-        头像/首字标识在视觉上重复——同一角落两个"这是什么身份"的标记，读作噪音而不是
-        信息。组织菜单本身已经承担"这是哪个组织/点开能切换"的身份识别职责，删掉这个
-        纯展示、不可点击的品牌字标，不影响任何交互（组织切换入口原样保留在下面）。
+        2026-09-03 人类直接指令：推翻 2026-08-27 的裁决（当时理由是「衬线体 W 与组织
+        菜单头像/首字标识视觉重复」），重新加回品牌字标。这段历史刻意保留而不是删掉——
+        `.harness/instructions/static-trace-vs-live-fact.md` 的道理同样适用于「上一次
+        的裁决」：删掉旧注释，下一个想恢复或再次质疑这个决定的人就得重新推导一遍。
+        与 2026-08-27 相比：字标本身仍然纯展示、不可点击，组织切换入口仍然只在下面
+        `OrgMenu` 这一处——没有把「品牌」和「组织身份」这两件事合并回一个入口。
       */}
+      <div
+        aria-hidden
+        data-testid="rail-brand-mark"
+        className="mb-1 select-none font-display text-14 font-semibold text-card-foreground [@media(max-height:640px)]:hidden"
+      >
+        W
+      </div>
       {/*
         短视口策略（2026-09-02 人类直接反馈：窗口高度不够时菜单被挤出、左下角头像看不见）：
         rail 分三段——① 顶部组织菜单（shrink-0，永远可见）② 中段一级导航（min-h-0 +

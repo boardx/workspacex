@@ -70,7 +70,14 @@ const CHAT_LIFECYCLE_AUDIT_TYPE = {
   create: "thread-created",
   rename: "thread-renamed",
   delete: "thread-deleted",
-} as const satisfies Record<"create" | "rename" | "delete", ProvenanceEventKind>;
+  /**
+   * 2026-09-03（F109 续，ad-hoc，见 `packages/contracts/src/provenance.ts`
+   * `thread-pinned`/`thread-unpinned` 头注）—— 与另外三个同一张映射表，
+   * 不是「置顶比较轻量所以另开一条路径」。
+   */
+  pin: "thread-pinned",
+  unpin: "thread-unpinned",
+} as const satisfies Record<"create" | "rename" | "delete" | "pin" | "unpin", ProvenanceEventKind>;
 
 /**
  * 越权尝试也必须留痕（V8）。
@@ -109,7 +116,7 @@ export interface MutateThreadDeps extends ResolveVisibilityDeps {
 export interface MutateThreadInput {
   readonly userId: string;
   readonly orgId: OrgId;
-  readonly op: "create" | "rename" | "delete";
+  readonly op: "create" | "rename" | "delete" | "pin" | "unpin";
   readonly projectId: string | null;
   readonly threadId: string | null;
   readonly groupId: string | null;
@@ -313,6 +320,20 @@ async function mutateExisting(
       actorId: input.userId,
       target: { kind: "thread", id: threadId },
       detail: { projectId: realProjectId, title, version },
+    });
+    return { threadId, version, auditEventId, impactScope: null };
+  }
+
+  if (input.op === "pin" || input.op === "unpin") {
+    const pinned = input.op === "pin";
+    const version = await deps.chat.setThreadPinned(input.orgId, threadId, pinned, expectedVersion);
+    if (version === null) throw new VersionChangedError();
+    const auditEventId = await deps.provenance.append({
+      orgId: input.orgId,
+      type: CHAT_LIFECYCLE_AUDIT_TYPE[input.op],
+      actorId: input.userId,
+      target: { kind: "thread", id: threadId },
+      detail: { projectId: realProjectId, pinned, version },
     });
     return { threadId, version, auditEventId, impactScope: null };
   }

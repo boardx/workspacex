@@ -364,6 +364,34 @@ DROP+ADD，这个风险就还在——建议后续追认时一并评估要不要
   `listOwnActivity` 重新读到空列表，`self-service-profile/verification.md` 的
   「已知缺口」条目需要恢复）。
 
+### 追加（2026-09-03，rev-uiux 差距分析 P1-4 · 对话置顶服务端持久化，人类直接指令 ad-hoc 落地）——**Proposed，需人类追认**
+
+⚠ 与上面几次追加不同：这次**没有**一份已签核的 `usecases.md`/`domain.md` 逐字要求作为出处。
+`ThreadCard.pinned` 是本次对话里由人类直接提出、并在被告知「这是契约变更，按流程需要
+`design-signoff.md` 签核」之后明确指令「不要走 signoff，走 adhoc 的流程」——如实记录这一点，
+不假装存在一份不存在的签核文档。
+
+`ProvenanceEventType` 补 **2** 个成员，同 `thread-created`/`thread-renamed`/`thread-deleted`
+一样的构词法与「三值不合并」理由（这里是两值）：
+
+| 枚举 | 成员 | 代谁补 | 出处 |
+|---|---|---|---|
+| `ProvenanceEventType` | `thread-pinned` | chat · `mutateThread`（`op: "pin"`） | 本次对话，`packages/contracts/src/chat.ts` `ThreadCard.pinned` 头注 |
+| `ProvenanceEventType` | `thread-unpinned` | chat · `mutateThread`（`op: "unpin"`） | 同上 |
+
+- 不复用 `human-edited`：那是人工编辑草稿正文，与「置顶/取消置顶一条线程」是完全不同的
+  动作，拿它顶包会重现 F109 第一版「三种线程动作全写成 `human-edited`」的老问题（本文件
+  开篇那段历史）。
+- `target` 复用 F109 既有形状：`{kind: "thread", id: threadId}`，`detail` 带
+  `{projectId, title, version}`——与 `thread-renamed` 同形，因为置顶本质上也是"改了这条
+  线程的一个属性"，不需要发明新的 target kind。
+- `chat_threads.pinned` 列与 `mutateThread.in.op` 的 `pin`/`unpin` 随本轮迁移一并落地，
+  `provenance_events_type_check` 随对应迁移追加这两个值；`provenance-enum-single-source
+  .test.ts` 的双向断言覆盖新成员，无需改测试文件本身。
+- 否决时的回退：撤销契约里这两行 + `mutate-thread.ts` 的 `pin`/`unpin` 分支 + 迁移里
+  `chat_threads.pinned` 列与 CHECK 追加 + `apps/web` 侧改回 `lib/chat-pinned-threads.ts`
+  的 `localStorage` 方案（那份实现原样保留在 git 历史里，回退不需要重新发明）。
+
 ### 追认后需要跟着改的地方（不在本 PR 范围，列出以免漏）
 
 | 位置 | 要做什么 | 谁 |
