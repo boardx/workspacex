@@ -41,9 +41,6 @@ import { AUTH_POLICY, EmailAddress } from "./auth";
  */
 export const OrgInviteStatus = z.enum(["pending", "awaiting-review", "revoked", "used", "send-failed"]);
 
-/** 团队的三种变更。**一个操作三个分支**，不是三条路由——删除要做占用校验（I-7） */
-export const TeamOp = z.enum(["create", "rename", "delete"]);
-
 /**
  * 组织共享邀请链接的有效期三档（shared-invite-links delta，人类 2026-08-13 拍板①②）。
  *
@@ -171,26 +168,15 @@ export const OrgAdminError = z.enum([
   "INVITE_SELF_REVIEW_FORBIDDEN",
   /** ⚠ 响应**必须**含直达 `[调整]` 的入口标识——阻断要伴随可执行的下一步 */
   "QUOTA_EXHAUSTED",
-  /** ⚠ 响应**必须列出占用项**；**不做级联删除**（I-7） */
-  "TEAM_IN_USE",
-  /** team-crud delta（#639）迭代 2：`createTeam`/`renameTeam`/`deleteTeam` 越权（非 admin）。
-   *  与旧 `mutateTeam` 的 `PROJECT_ROLE_INSUFFICIENT` 是两个码——delta §4①把这三条新入口
-   *  的授权收窄单独签核，用自己的码而不是复用旧操作的，越权信息不因为共享同一张表而混同。 */
+  /**
+   * 越权（非 admin）。⚠ issue #2615（组织去掉团队概念）之前，这个码专属团队自助
+   * CRUD（`createTeam`/`renameTeam`/`deleteTeam`，与旧 `mutateTeam` 的
+   * `PROJECT_ROLE_INSUFFICIENT` 是两个码，用自己的码不复用旧操作的，越权信息不因为
+   * 共享同一张表而混同）——团队 CRUD 已随本轮一并移除，这个码继续留着是因为它同时是
+   * `getTokenQuotas`/`setMemberTokenQuota` 等 `requireOrgAdmin` 判定失败的既有码
+   * （见 `err` 里其余出现处），不是团队 CRUD 专属，删不得。
+   */
   "FORBIDDEN",
-  /** team-crud delta（#639）迭代 2：`createTeam`/`renameTeam` 撞到组织内已存在的同名团队
-   *  （`teams_org_name_uniq`）。⚠ 与 `mutateTeam` 的"幂等重放"是刻意不同的语义，见该操作
-   *  的文档注释——这里必须**真的拒绝**，不是悄悄返回既有团队。 */
-  "TEAM_NAME_CONFLICT",
-  /** team-crud delta（#639）迭代 2：`renameTeam`/`deleteTeam` 指向的 `teamId` 不存在
-   *  （或已被并发删除）。旧 `mutateTeam` 把同一情形映射到 `VERSION_CHANGED`（该操作没有
-   *  专属码，见其仓储文档）；这三条新操作有专属码，直接给，不必再借用别的语义。 */
-  "TEAM_NOT_FOUND",
-  /** team-crud delta（#639）迭代 2：`deleteTeam` 撞到非空团队——硬拒绝，不级联清空成员归属
-   *  （delta §4②）。旧 `mutateTeam` 用 `TEAM_IN_USE` + 结构化 `blocked` 表达同一件事；这条
-   *  是这三个新操作的对应码，`out` 没有携带占用详情字段（`.strict()` 里没有），界面文案
-   *  直接说"先清空成员"即可，不需要逐项列出——两条不同的错误体形状是两次不同的签核决定，
-   *  不是同一件事写了两遍。 */
-  "TEAM_NOT_EMPTY",
   /* ── ③ F160 token 配额（design-delta `token-quota-and-usage`，等人类签）────── */
   /**
    * 逐人分配之和将超过组织额度。
@@ -761,121 +747,6 @@ export const operations = {
   },
 
   /**
-   * `MutateTeam` —— 团队增 / 删 / 改（O-29 ④）
-   *
-   * ⚠ **rename 不改 id**，已有 `acl_binding` 不受影响；**不做级联删除**。
-   * ⚠ 删除被占用的团队时，`TEAM_IN_USE` 的响应**必须列出占用项**（I-7）——
-   *   一个只说「删不掉」的错误会让管理员去猜是谁在用。
-   *   ⇒ 占用项作为 `out.blocked` 返回**同时**抛该码：错误体带结构化数据是本束的形状。
-   */
-  mutateTeam: {
-    method: "POST",
-    path: "/organizations/:orgId/teams",
-    in: z
-      .object({
-        orgId: z.string(),
-        op: TeamOp,
-        /** `create` 时为 null */
-        teamId: z.string().nullable(),
-        /** `delete` 时为 null */
-        name: z.string().nullable(),
-      })
-      .strict(),
-    out: z
-      .object({
-        team: z.object({ teamId: z.string(), name: z.string() }).strict().nullable(),
-        /** 仅 `delete` 被阻断时非空。⚠ `items` **不得为空数组**——空数组等于没说明原因 */
-        blocked: z
-          .object({
-            memberCount: z.number().int().nonnegative(),
-            aclBindingCount: z.number().int().nonnegative(),
-            items: z.array(z.object({ kind: z.string(), id: z.string(), label: z.string() }).strict()),
-          })
-          .strict()
-          .nullable(),
-      })
-      .strict(),
-    err: ["TEAM_IN_USE", "PROJECT_ROLE_INSUFFICIENT", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
-  },
-
-  /**
-   * `listTeams` —— 团队列表只读（#639 delta，迭代 1）
-   *
-   * ⚠ 本轮组织管理页"团队"标签页只需要**列表**，CRUD（`mutateTeam`）动作留空/禁用态，
-   *   迭代 2 再接前端。任何有组织成员资格的人都可以读列表——这是查看，不是管理动作，
-   *   不复用 `mutateTeam` 的 admin-only 授权收窄（见该 delta §4①，仅约束写操作）。
-   *
-   * `memberCount` **现查** `COUNT(*) FROM org_memberships WHERE team_id = $1`，
-   *   不额外维护计数列——避免引入第二份"团队人数"事实源（delta §2）。
-   */
-  listTeams: {
-    method: "GET",
-    path: "/organizations/:orgId/teams",
-    in: z.object({ orgId: z.string() }).strict(),
-    out: z.object({
-      teams: z.array(z.object({
-        teamId: z.string(), name: z.string(), memberCount: z.number().int().nonnegative(),
-      }).strict()),
-    }).strict(),
-    err: ["NO_ORG_MEMBERSHIP", "AUTH_SERVICE_UNAVAILABLE"] as const,
-  },
-
-  /**
-   * `createTeam` / `renameTeam` / `deleteTeam` —— team-crud delta（#639），迭代 2。
-   *
-   * ## 为什么这三条与既有的 `mutateTeam`（F11 / O-29 ④）共存，而不是复用它
-   *
-   * `mutateTeam` 的 `create`/`rename` 分支是**幂等重放**语义（同名提交返回既有 team，
-   * 不拒绝——`pg-team-repository.ts` 的既定行为，`usecases.md` 原文如此）；这份 delta
-   * 经人类签核要的是**真拒绝**（`TEAM_NAME_CONFLICT`，见 delta §4③、反证 C）。两种语义
-   * 都是各自签核过的，谁也不该被静默改写：`mutateTeam` 保留给它既有的调用方（占用校验
-   * 用的 `TEAM_IN_USE` 携带 `blocked` 结构化占用项，这条本身也有价值，见下方 `deleteTeam`
-   * 复用它的说明），这三条是新签核的自助入口，服务组织管理页"团队"标签页。
-   *
-   * ## `createTeam` 为什么不是字面的 `POST /organizations/:orgId/teams`
-   *
-   * delta 文档最初把这条写成与 `mutateTeam` 完全相同的路径，实测直接撞上
-   * `tests/contract-shape.test.ts` 的两条机械门禁——「path 在束内唯一」与
-   * 「path 在所有束之间也不冲突」，两条都会红：契约层面就不允许两个操作声明相同的
-   * method+path，不只是 NestJS 路由表装不下。⇒ 改用 `POST .../teams/create`，与
-   * `deleteTeam` 的 `POST .../teams/:teamId/delete` 同一种"动作后缀"处置，不冲突、
-   * 也不需要在 controller 里按请求体形状做脆弱的分流。这是一次记录在案的技术判断，
-   * delta 文档那条路径描述已经不准确，以这里为准。
-   *
-   * ## `deleteTeam` 为什么不是 `DELETE`
-   *
-   * `no-forbidden-routes.test.ts` 有一条 `^DELETE\s+\/organizations` 的门禁（UC-0.5 I-2/I-3，
-   * 挡的是"删除组织本身"），这条正则没有再往下限定路径深度，字面上会连带挡住任何
-   * `DELETE /organizations/:orgId/...` 子路由——包括这条本该属于团队的删除。与
-   * `removeOrgMember` 当初撞见同一堵墙时的处置一致（该操作头部注释「路由是 POST …/remove
-   * 不是 DELETE」），这里同样改用 `POST .../delete`，而不是去放宽那条已确认的安全门禁。
-   */
-  createTeam: {
-    method: "POST",
-    path: "/organizations/:orgId/teams/create",
-    in: z.object({ name: z.string().min(1) }).strict(),
-    out: z.object({ teamId: z.string(), name: z.string() }).strict(),
-    err: ["FORBIDDEN", "TEAM_NAME_CONFLICT"] as const,
-  },
-
-  renameTeam: {
-    method: "PATCH",
-    path: "/organizations/:orgId/teams/:teamId",
-    in: z.object({ name: z.string().min(1) }).strict(),
-    out: z.object({ teamId: z.string(), name: z.string() }).strict(),
-    err: ["FORBIDDEN", "TEAM_NOT_FOUND", "TEAM_NAME_CONFLICT"] as const,
-  },
-
-  /** ⚠ 路由是 `POST .../delete`，不是 `DELETE`——见上方本节的长注。 */
-  deleteTeam: {
-    method: "POST",
-    path: "/organizations/:orgId/teams/:teamId/delete",
-    in: z.object({}).strict(),
-    out: z.object({ deleted: z.literal(true) }).strict(),
-    err: ["FORBIDDEN", "TEAM_NOT_FOUND", "TEAM_NOT_EMPTY"] as const,
-  },
-
-  /**
    * `RemoveOrgMember` —— 移除组织成员（O-29 ②）
    *
    * ⚠ **与 UC-17.2 的授权撤回结果相反，不得共用代码路径**：
@@ -910,7 +781,9 @@ export const operations = {
    *
    * ## 形状纪律
    * ⚠ **只改 `org_role` 一列**，不碰团队归属、不碰项目角色（两层正交，见文件头）——
-   *   改团队走 `mutateTeam`/成员归队（那边今天还没有写路径），改项目角色走 `project` 束。
+   *   组织级团队 CRUD 已随 issue #2615 移除（人类裁决：团队是项目里的概念），
+   *   `org_memberships.team_id` 列本身未删（数据库不动），但本束已没有写它的契约操作；
+   *   改项目角色走 `project` 束。
    * ⚠ 路由是 `PATCH …/members/:userId/role`，动词明确；不是 `PATCH …/members/:userId`
    *   ——那会读作「成员行的通用补丁」，下一个人会往里塞 `teamId`，两件事又混成一件。
    * ⚠ `previousOrgRole` 回传：界面 toast 要说「顾问 → 项目负责人」，审计也要有前值。

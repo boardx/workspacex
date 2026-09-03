@@ -48,7 +48,7 @@ beforeAll(async () => {
   await migrateOnce();
   db = new PgDatabase(appConfig());
   controller = new OrgAdminManagementController(
-    null as never, null as never, null as never, null as never, null as never,
+    null as never, null as never, null as never, null as never,
     new PgIdentityRepository(db),
     null as never,
     new PgTokenQuotaRepository(db),

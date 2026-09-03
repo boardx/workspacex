@@ -45,7 +45,6 @@ beforeAll(async () => {
   controller = new OrgAdminManagementController(
     null as never,
     null as never,
-    null as never,
     repo,
     null as never,
     identity,

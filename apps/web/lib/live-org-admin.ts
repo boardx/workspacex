@@ -2,30 +2,9 @@
  * issue #355 —— org-admin 束的真实 API 薄封装，跟 `live-projects.ts` 同一个模式：
  * 类型全部从 `@repo/contracts` 推导，调用一律走 `apiRequest`。
  *
- * ## 只封装了后端真正有 controller 的四个操作
- *
- * 读 `apps/api/src/interface/controllers/org-admin-management.controller.ts` +
- * `org-invite.controller.ts` + `apps/api/src/application/auth/org-member-ports.ts` +
- * `org-invite-ports.ts` 确认过：后端目前**没有任何 GET 列表端点**——
- * `OrgMemberRepository` 只有 `remove()`，`OrgInviteRepository` 只有
- * `create()` / `activate()` / `reviewAdminInvite()`。没有 `list()`。
- * （历史注，已过时：`resendOrgInvite` / `revokeOrgInvite` 当时没有 controller 路由；
- * #363 已把两条接上——`org-admin-management.controller.ts` 的 resend / revoke——
- * #638 迭代 5 在本文件末尾补齐对应封装。）
- *
- * 所以这里只封装四个确实能打通的写操作：
- *   - `inviteOrgMember`   邀请成员进组织
- *   - `reviewAdminInvite` 双人复核批准/拒绝管理员邀请
- *   - `removeOrgMember`   移除组织成员
- *   - `mutateTeam`        团队增/删/改
- *
  * 成员名单 / 邀请名单本身**没有真实数据源可读**，仍然只能来自
  * `lib/mock/admin.ts` 与 `lib/mock/org-admin.ts`——这不是没做，是后端还没有对应的
  * 读端点（见 PR 描述里的 gap 记录）。
- *
- * #639 delta 迭代 1：`listTeams` 补上——`GET /organizations/:orgId/teams` 现在有真
- * controller 了（`org-admin-management.controller.ts`），是本文件第一个真实的**读**操作。
- * 团队 CRUD 动作（create/rename/delete）迭代 2 再接前端，这里只加 `listTeams`。
  *
  * #363 收拢（org-profile-membership delta）：补 `listOrgMembers` / `listOrgInvites` /
  * `updateOrganization` / `uploadOrgAvatar` 四个真实操作——`listOrgMembers`/`listOrgInvites`
@@ -34,6 +13,12 @@
  * `uploadOrgAvatar` 不走 `apiRequest`（它假设 JSON body）：契约的 `in` 只有声明的元数据
  * （见 `org-admin.ts` 里 `uploadOrgAvatar` 的文件头注释），图片字节走请求的原始二进制体，
  * 元数据经查询串传入，所以这里手写一次 `fetch`，复用 `apiUrl`/`getStoredSessionToken`。
+ *
+ * ⚠ issue #2615（人类裁决②：组织里没有团队概念）——`createTeam`/`deleteTeam`/`listTeams`/
+ *   `renameTeam`/`mutateTeam` 及 `ListTeamsOut`/`MutateTeamOut` 等类型已从本文件移除，
+ *   对应的契约操作与后端实现同一轮一并删除（团队是项目里的概念，不是组织的）。
+ *   `inviteOrgMember` 仍保留 `teamId` 入参（契约未变、`org_memberships.team_id` 列未删），
+ *   调用方现在恒传空串（不分团队）——见 `org-admin-screen.tsx` 里 `NO_TEAM` 的注释。
  */
 import { identity, orgAdmin } from "@repo/contracts";
 import type { z } from "zod";
@@ -42,7 +27,6 @@ import { apiRequest, apiUrl, ApiError, extractReasonCode, getStoredSessionToken 
 export type InviteOrgMemberOut = z.infer<typeof orgAdmin.operations.inviteOrgMember.out>;
 export type ReviewAdminInviteOut = z.infer<typeof orgAdmin.operations.reviewAdminInvite.out>;
 export type RemoveOrgMemberOut = z.infer<typeof orgAdmin.operations.removeOrgMember.out>;
-export type MutateTeamOut = z.infer<typeof orgAdmin.operations.mutateTeam.out>;
 
 function path(template: string, params: Record<string, string>): string {
   return Object.entries(params).reduce(
@@ -109,55 +93,6 @@ export async function setOrgMemberRole(
   return apiRequest<SetOrgMemberRoleOut>(
     path(orgAdmin.operations.setOrgMemberRole.path, { orgId, userId }),
     { method: "PATCH", body: { orgId, userId, orgRole } },
-  );
-}
-
-export interface MutateTeamInput {
-  readonly orgId: string;
-  readonly op: z.infer<typeof orgAdmin.TeamOp>;
-  readonly teamId: string | null;
-  readonly name: string | null;
-}
-
-export async function mutateTeam(input: MutateTeamInput): Promise<MutateTeamOut> {
-  return apiRequest<MutateTeamOut>(path(orgAdmin.operations.mutateTeam.path, { orgId: input.orgId }), {
-    method: "POST",
-    body: { orgId: input.orgId, op: input.op, teamId: input.teamId, name: input.name },
-  });
-}
-
-export type ListTeamsOut = z.infer<typeof orgAdmin.operations.listTeams.out>;
-
-export async function listTeams(orgId: string): Promise<ListTeamsOut> {
-  return apiRequest<ListTeamsOut>(path(orgAdmin.operations.listTeams.path, { orgId }), { method: "GET" });
-}
-
-/* ─────────────────────────── team-crud delta，迭代 2 ─────────────────────────── */
-
-export type CreateTeamOut = z.infer<typeof orgAdmin.operations.createTeam.out>;
-export type RenameTeamOut = z.infer<typeof orgAdmin.operations.renameTeam.out>;
-export type DeleteTeamOut = z.infer<typeof orgAdmin.operations.deleteTeam.out>;
-
-/** `POST .../teams/create`——与 `mutateTeam` 是不同的路由，见 `org-admin.ts` `createTeam` 的文档注释。 */
-export async function createTeam(orgId: string, name: string): Promise<CreateTeamOut> {
-  return apiRequest<CreateTeamOut>(path(orgAdmin.operations.createTeam.path, { orgId }), {
-    method: "POST",
-    body: { name },
-  });
-}
-
-export async function renameTeam(orgId: string, teamId: string, name: string): Promise<RenameTeamOut> {
-  return apiRequest<RenameTeamOut>(
-    path(orgAdmin.operations.renameTeam.path, { orgId, teamId }),
-    { method: "PATCH", body: { name } },
-  );
-}
-
-/** ⚠ 路由是 `POST .../delete`，不是 `DELETE`——见 `deleteTeam` 契约操作的文档注释。 */
-export async function deleteTeam(orgId: string, teamId: string): Promise<DeleteTeamOut> {
-  return apiRequest<DeleteTeamOut>(
-    path(orgAdmin.operations.deleteTeam.path, { orgId, teamId }),
-    { method: "POST", body: {} },
   );
 }
 

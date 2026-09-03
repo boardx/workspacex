@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Ban, Camera, Check, ChevronDown, Copy, Hourglass, Mail, Pencil, Plus, RotateCcw, Send, Settings, Trash2, UserCog, Users, X } from "lucide-react";
+import { AlertTriangle, Ban, Camera, Check, ChevronDown, Copy, Hourglass, Mail, RotateCcw, Send, Settings, UserCog, X } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { useSession } from "@/components/session/session-provider";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { ApiError, apiUrl } from "@/lib/api-client";
 import { useAuthedImageSrc } from "@/lib/use-authed-image-src";
@@ -23,51 +22,57 @@ import { auth as authContract } from "@repo/contracts";
 import { SharedInviteLinksSection, type SharedLinkReveal } from "@/components/org-admin/shared-invite-links";
 import { cn } from "@/lib/utils";
 import {
-  createTeam, deleteTeam, listTeams, renameTeam, listOrgMembers, listOrgInvites,
+  listOrgMembers, listOrgInvites,
   setOrgMemberRole,
   updateOrganization, uploadOrgAvatar,
   inviteOrgMember, resendOrgInvite, revokeOrgInvite, reviewAdminInvite,
   assignSkillReviewerFunction, revokeSkillReviewerFunction, listSkillReviewerFunctions,
-  type ListTeamsOut, type ListOrgMembersOut, type ListOrgInvitesOut, type UpdateOrganizationOut,
+  type ListOrgMembersOut, type ListOrgInvitesOut, type UpdateOrganizationOut,
   type SkillReviewerFunctionValue,
 } from "@/lib/live-org-admin";
 
 /**
- * `/org-admin` —— 组织管理页（#639 delta 迭代 1 起步 → 迭代 2 团队增删改 → #363 收拢补齐）。
+ * `/org-admin/*` —— 组织管理三屏（#639 delta 起步 → #363 收拢补齐 → issue #2615 拆平）。
  *
  * ## 并入组织后台左栏（2026-09-03 人类直接反馈）
  * 原话：「在组织的菜单点击组织管理，就是进入到组织后台的菜单，所以需要把他们合并」——
  * 左上角组织菜单的「组织管理」入口（`org-menu.tsx`）此前落到这里时，`AppShell` 没有
  * `left` 栏，点进来是一个和「组织后台」（`/admin`）毫无视觉/结构关联的孤立页面，
  * 与「组织管理＝组织后台的一部分」这个心智模型不符。
- * ⇒ 这里的 `AppShell` 现在接上 `AdminNav`（`active="org-profile"`，`lib/mock/admin.ts`
- * 「组织」组新增项），左栏与其余 `/admin/*` 屏一致——点「组织管理」进来就能看到
- * 「组织后台」的左栏菜单，两者是同一个信息架构下的两个入口，不是两套系统。
- * 路由本身**没有合并**（仍是独立的 `/org-admin`，不是 `/admin/org-profile`）——这四个
- * 标签页是 session 驱动的真实数据页，不经过 `app/admin/[module]/page.tsx` 的
- * `SCREENS`/`REDIRECTS` 分发，合并的是**视觉与导航结构**，不是路由本身。
+ * ⇒ 这三个屏的 `AppShell` 都接上 `AdminNav`，左栏与其余 `/admin/*` 屏一致。
  *
- * ## 团队标签页（#639 delta 迭代 2）
- * 创建 / 改名 / 删除已接线，见 `TeamsTab`/`CreateTeamForm`/`TeamRow`。成员加入/移出
- * （`org_memberships.team_id` 写路径）仍不在本轮——列表里每个团队只显示人数，没有
- * "添加成员"入口，避免暗示这个功能存在。
+ * ## 拆平为三个独立路由/屏、去掉团队概念（issue #2615，2026-09-03 人类两条原话裁决）
+ * 原来单一的 `/org-admin`（`OrgAdminScreen`，内部一套 `Tabs` 套团队/成员/邀请/组织资料
+ * 四个标签页）已经拆掉：
+ *   ①「在后台的组织后台中，将组织管理下面的成员，邀请，组织资料，编程是和总览平级的
+ *     功能」——不再有一层"组织管理"外壳把三者收在一个入口下，而是 `OrgMembersScreen`
+ *     / `OrgInvitesScreen` / `OrgProfileScreen` 三个独立导出的屏组件，各自 `AppShell`
+ *     套 `AdminNav`（`active` 分别是 `"org-members"`/`"org-invites"`/`"org-profile"`），
+ *     各自落在 `/org-admin/members`/`/org-admin/invites`/`/org-admin/profile`，与
+ *     `overview`（`/admin`）在 `lib/mock/admin.ts` 的同一个 `items` 数组里平级。
+ *     `/org-admin` 根路由重定向到 `/org-admin/members`（见 `app/org-admin/page.tsx`）。
+ *   ②「在组织中去掉团队的概念。团队的概念是在项目中的概念，在项目中分为不同的团队」
+ *     ——原来的"团队"标签页（`TeamsTab`/`CreateTeamForm`/`TeamRow`，建/改名/删除团队）
+ *     整体撤除，`InviteMemberForm` 里"团队"下拉同样撤除（邀请不再要求选团队）。
+ *     对应的契约操作（`TeamOp`/`mutateTeam`/`listTeams`/`createTeam`/`renameTeam`/
+ *     `deleteTeam`）与后端实现一并移除——`org_memberships.team_id` 这类数据库列本身
+ *     不受影响（未改任何 migration/schema，这条是人类的硬约束）。
  *
  * ## 本轮范围（#363 收拢：成员/邀请列表读 + 组织资料编辑）
- * - "成员"标签页：真实 `listOrgMembers`——任何组织成员可读（delta §2）。
- * - "邀请"标签页：真实 `listOrgInvites`——**仅组织 admin**，权限比"成员"更紧，
- *   非 admin 会看到真实 403 映射出的「无权限」态，不是隐藏标签页——隐藏会让人以为
+ * - "成员"屏：真实 `listOrgMembers`——任何组织成员可读（delta §2）。
+ * - "邀请"屏：真实 `listOrgInvites`——**仅组织 admin**，权限比"成员"更紧，
+ *   非 admin 会看到真实 403 映射出的「无权限」态，不是隐藏入口——隐藏会让人以为
  *   这个功能不存在，而「存在但你看不到」和「不存在」是两件事（UC-0.3 R8）。
- * - "组织资料"标签页：仅组织 admin 可见（编辑动作本身就是 admin-only，非 admin 看到
- *   这个标签页也读不到内容，索性不渲染标签，避免"点进去才发现自己不能干嘛"）。
+ * - "组织资料"屏：仅组织 admin 可见（编辑动作本身就是 admin-only，非 admin 打开
+ *   这个屏也读不到内容，`StateShell` 的 `denial` 态负责说清楚）。
  *
  * ⚠ 组织资料**没有独立的读端点**（contract.md 这份 delta 只定义了 `updateOrganization`
- *   一个写操作，`out` 回显新状态，但没有 `getOrganization`）——首次进入"组织资料"标签页
+ *   一个写操作，`out` 回显新状态，但没有 `getOrganization`）——首次进入"组织资料"屏
  *   时用**不带任何字段的 `updateOrganization({orgId})`调用**当读：本仓后端实现里
  *   `sets.length === 0` 分支是纯 `SELECT`，不写库（`pg-org-profile-repository.ts`）。
- *   这不是新契约操作，是复用同一个已签核操作的"空补丁即读"形状——同 `mutateTeam`
- *   没有独立 read 操作、复用同一契约面的既有处置。
+ *   这不是新契约操作，是复用同一个已签核操作的"空补丁即读"形状。
  *
- * ⚠ 成员/邀请两个标签页此前只有 mock 版本，挂在 `/org-admin/preview?screen=members`/
+ * ⚠ 成员/邀请两个屏此前只有 mock 版本，挂在 `/org-admin/preview?screen=members`/
  *   `?screen=invites`（`org-admin-app.tsx` 的原型切换器，由 admin-nav.tsx 的"成员"
  *   二级导航项进入）。**没有摘除那条导航入口**——它是 ADR-023 的签核材料现行路由
  *   （`.harness/scripts/nav-reachability.config.json` 的 `org-admin` 束），删掉会打红
@@ -75,82 +80,82 @@ import {
  *   `components/org-admin/members-screen.tsx`/`invites-screen.tsx` 从未真的挂在
  *   `/admin/[module]` 下（那里的 `members` 键指向的是另一个文件
  *   `components/admin/members-screen.tsx`，配额/用量为主，不是本 delta 的对象，
- *   其文件头逐字写着"不改它"）——本轮的真实入口只有这一处 `/org-admin`，不存在
- *   第二套"摘除"的必要，见 PR 描述里对这条指令前提的核实记录。
+ *   其文件头逐字写着"不改它"）——本轮的真实入口只有 `/org-admin/*` 这三条，不存在
+ *   第二套"摘除"的必要。
  */
-export function OrgAdminScreen() {
+
+/** 三个独立屏共用——`AppShell` + `AdminNav` + 标题区的外壳。 */
+function OrgAdminShell({
+  active, icon: Icon, title, children,
+}: {
+  active: "org-members" | "org-invites" | "org-profile";
+  icon: typeof Settings;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <AppShell previewRole={null} left={<AdminNav active={active} />}>
+      <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6" data-testid="org-admin-screen">
+        <div className="flex items-center gap-2">
+          <Icon aria-hidden className="h-5 w-5 text-muted-foreground" />
+          <h1 className="text-16 font-semibold tracking-tight">{title}</h1>
+        </div>
+        {children}
+      </div>
+    </AppShell>
+  );
+}
+
+/** `/org-admin/members` —— 成员，与 `/admin`（总览）平级。 */
+export function OrgMembersScreen() {
   const { session, identity } = useSession();
   const orgId = session?.currentOrgId ?? null;
   const isAdmin = identity?.orgRole === "admin";
-  // 一次性激活链接（invite-link-and-reads delta ①）：state 挂在屏幕层而不是 InvitesTab 里——
-  // Tabs 切走会卸载标签页内容，挂在标签页内部时「切去成员再切回来」就把仅此一次的链接
-  // 静默销毁了（独立复核 D1，数据不可恢复类）。挂在这里让它在标签页切换间存活；
-  // 真正的销毁条件只有：用户点关闭、刷新/离开页面、被下一条链接覆盖。
-  const [oneTimeLink, setOneTimeLink] = React.useState<OneTimeLink | null>(null);
-  // 共享链接的一次性明文展示（shared-invite-links delta）：同一条 D1 纪律、同一个挂载层。
-  const [sharedLinkReveal, setSharedLinkReveal] = React.useState<SharedLinkReveal | null>(null);
-
   return (
-    <AppShell previewRole={null} left={<AdminNav active="org-profile" />}>
-      <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6" data-testid="org-admin-screen">
-        <div className="flex items-center gap-2">
-          <Settings aria-hidden className="h-5 w-5 text-muted-foreground" />
-          <h1 className="text-16 font-semibold tracking-tight">组织管理</h1>
-        </div>
+    <OrgAdminShell active="org-members" icon={UserCog} title="成员">
+      {orgId ? <MembersTab orgId={orgId} isAdmin={isAdmin} /> : <LoadingSkeleton rows={3} />}
+    </OrgAdminShell>
+  );
+}
 
-        <Tabs defaultValue="teams">
-          <TabsList data-testid="org-admin-tabs">
-            <TabsTrigger value="teams" data-testid="org-admin-tab-teams">
-              <Users aria-hidden className="h-3.5 w-3.5" />
-              团队
-            </TabsTrigger>
-            <TabsTrigger value="members" data-testid="org-admin-tab-members">
-              <UserCog aria-hidden className="h-3.5 w-3.5" />
-              成员
-            </TabsTrigger>
-            <TabsTrigger value="invites" data-testid="org-admin-tab-invites">
-              <Mail aria-hidden className="h-3.5 w-3.5" />
-              邀请
-            </TabsTrigger>
-            {isAdmin && (
-              <TabsTrigger value="profile" data-testid="org-admin-tab-profile">
-                <Camera aria-hidden className="h-3.5 w-3.5" />
-                组织资料
-              </TabsTrigger>
-            )}
-          </TabsList>
+/** `/org-admin/invites` —— 邀请，与 `/admin`（总览）平级。 */
+export function OrgInvitesScreen() {
+  const { session, identity } = useSession();
+  const orgId = session?.currentOrgId ?? null;
+  const isAdmin = identity?.orgRole === "admin";
+  // 一次性激活链接（invite-link-and-reads delta ①）：这个屏现在是独立路由，路由切换
+  // 本来就会卸载整个屏——"切走这个 tab 不销毁"的旧顾虑（见文件头历史注 D1）不再适用，
+  // 但功能行为不能倒退：同一个屏内"关闭/覆盖"逻辑仍然维持，state 挂在这里（屏顶层）
+  // 而不是更深的子组件，好处只是少一层 prop 传递，不是别的语义。
+  const [oneTimeLink, setOneTimeLink] = React.useState<OneTimeLink | null>(null);
+  // 共享链接的一次性明文展示（shared-invite-links delta）：同一条 D1 纪律。
+  const [sharedLinkReveal, setSharedLinkReveal] = React.useState<SharedLinkReveal | null>(null);
+  return (
+    <OrgAdminShell active="org-invites" icon={Mail} title="邀请">
+      {orgId ? (
+        <InvitesTab
+          orgId={orgId}
+          isAdmin={isAdmin}
+          oneTimeLink={oneTimeLink}
+          onOneTimeLink={setOneTimeLink}
+          sharedLinkReveal={sharedLinkReveal}
+          onSharedLinkReveal={setSharedLinkReveal}
+        />
+      ) : (
+        <LoadingSkeleton rows={3} />
+      )}
+    </OrgAdminShell>
+  );
+}
 
-          <TabsContent value="teams">
-            {orgId ? <TeamsTab orgId={orgId} /> : <LoadingSkeleton rows={2} />}
-          </TabsContent>
-
-          <TabsContent value="members">
-            {orgId ? <MembersTab orgId={orgId} isAdmin={isAdmin} /> : <LoadingSkeleton rows={3} />}
-          </TabsContent>
-
-          <TabsContent value="invites">
-            {orgId ? (
-              <InvitesTab
-                orgId={orgId}
-                isAdmin={isAdmin}
-                oneTimeLink={oneTimeLink}
-                onOneTimeLink={setOneTimeLink}
-                sharedLinkReveal={sharedLinkReveal}
-                onSharedLinkReveal={setSharedLinkReveal}
-              />
-            ) : (
-              <LoadingSkeleton rows={3} />
-            )}
-          </TabsContent>
-
-          {isAdmin && (
-            <TabsContent value="profile">
-              {orgId ? <OrgProfileTab orgId={orgId} /> : <LoadingSkeleton rows={4} />}
-            </TabsContent>
-          )}
-        </Tabs>
-      </div>
-    </AppShell>
+/** `/org-admin/profile` —— 组织资料，与 `/admin`（总览）平级；仅组织 admin 能读到内容。 */
+export function OrgProfileScreen() {
+  const { session } = useSession();
+  const orgId = session?.currentOrgId ?? null;
+  return (
+    <OrgAdminShell active="org-profile" icon={Settings} title="组织资料">
+      {orgId ? <OrgProfileTab orgId={orgId} /> : <LoadingSkeleton rows={4} />}
+    </OrgAdminShell>
   );
 }
 
@@ -164,20 +169,9 @@ function LoadingSkeleton({ rows }: { rows: number }) {
   );
 }
 
-/** 团队标签页专用——文案是「建/改/删团队」场景下的措辞，不要挪去别的标签页用。 */
-function describeFailure(failure: unknown): string {
-  if (failure instanceof ApiError) {
-    if (failure.status === 401) return "登录已失效（HTTP 401），请重新登录。";
-    if (failure.status === 403) return "当前身份无权执行此操作（HTTP 403）——只有组织管理员能建/改/删团队。";
-    if (failure.status === 404) return "组织或团队不存在，或当前身份不可见（HTTP 404）。";
-    return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
-  }
-  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
-}
-
 /**
- * 成员/邀请/组织资料三个标签页共用——跟 `describeFailure` 的区别是这三个场景需要按
- * 数据类型（成员/邀请/组织资料）给出不同的 404/403 提示文案，不是团队那种固定措辞。
+ * 成员/邀请/组织资料三个屏共用——按数据类型（成员/邀请/组织资料）给出不同的
+ * 404/403 提示文案。
  */
 function describeFailureFor(failure: unknown, notFoundHint: string, forbiddenHint: string): string {
   if (failure instanceof ApiError) {
@@ -187,326 +181,6 @@ function describeFailureFor(failure: unknown, notFoundHint: string, forbiddenHin
     return `${failure.reasonCode ?? "加载失败"}（HTTP ${failure.status}）`;
   }
   return failure instanceof Error ? failure.message : "加载失败，请稍后重试。";
-}
-
-/* ═══════════════════ 团队（#639 delta 迭代 2：创建/改名/删除已接线） ═══════════════════ */
-
-function TeamsTab({ orgId }: { orgId: string }) {
-  const [state, setState] = React.useState<UiState>("loading");
-  const [failureMessage, setFailureMessage] = React.useState<string | null>(null);
-  const [out, setOut] = React.useState<ListTeamsOut | null>(null);
-  const [banner, setBanner] = React.useState<{ tone: "success" | "error"; text: string } | null>(null);
-
-  const load = React.useCallback(async () => {
-    setState("loading");
-    setFailureMessage(null);
-    try {
-      const result = await listTeams(orgId);
-      setOut(result);
-      setState(result.teams.length === 0 ? "empty" : "default");
-    } catch (err) {
-      setFailureMessage(describeFailure(err));
-      setState("dep-failed");
-    }
-  }, [orgId]);
-
-  React.useEffect(() => {
-    void load();
-  }, [load]);
-
-  React.useEffect(() => {
-    if (!banner) return;
-    const t = setTimeout(() => setBanner(null), 4000);
-    return () => clearTimeout(t);
-  }, [banner]);
-
-  return (
-    <div className="flex flex-col gap-3 pt-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-11 text-muted-foreground">
-          组织内的团队。成员加入/移出下一轮迭代开放——这里只做建团队、改名、删除。
-        </p>
-      </div>
-
-      <CreateTeamForm
-        orgId={orgId}
-        onCreated={() => {
-          setBanner({ tone: "success", text: "已创建" });
-          void load();
-        }}
-        onFailed={(msg) => setBanner({ tone: "error", text: msg })}
-      />
-
-      {banner ? (
-        <div
-          role={banner.tone === "error" ? "alert" : "status"}
-          data-testid="org-admin-team-banner"
-          className={
-            banner.tone === "success"
-              ? "rounded-md border border-success/30 bg-success/10 px-3 py-2 text-11 text-success"
-              : "rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-11 text-destructive"
-          }
-        >
-          {banner.text}
-        </div>
-      ) : null}
-
-      <StateShell
-        state={state}
-        emptyHint="这个组织还没有任何团队。"
-        depFailure={{ what: failureMessage ?? "团队列表服务暂时不可用", retry: load }}
-      >
-        <ul className="flex flex-col gap-1.5" data-testid="org-admin-team-list">
-          {out?.teams.map((team) => (
-            <TeamRow
-              key={team.teamId}
-              orgId={orgId}
-              team={team}
-              onChanged={() => void load()}
-              onSuccess={(text) => setBanner({ tone: "success", text })}
-              onFailed={(text) => setBanner({ tone: "error", text })}
-            />
-          ))}
-        </ul>
-      </StateShell>
-    </div>
-  );
-}
-
-function CreateTeamForm({
-  orgId, onCreated, onFailed,
-}: { orgId: string; onCreated: () => void; onFailed: (msg: string) => void }) {
-  const [name, setName] = React.useState("");
-  const [submitting, setSubmitting] = React.useState(false);
-  const [fieldError, setFieldError] = React.useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (trimmed.length === 0) {
-      setFieldError("团队名不能为空");
-      return;
-    }
-    setFieldError(null);
-    setSubmitting(true);
-    try {
-      await createTeam(orgId, trimmed);
-      setName("");
-      onCreated();
-    } catch (err) {
-      if (err instanceof ApiError && err.reasonCode === "TEAM_NAME_CONFLICT") {
-        setFieldError(`团队名"${trimmed}"已存在，换一个名字试试`);
-      } else {
-        onFailed(describeFailure(err));
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <form
-      className="flex items-start gap-2"
-      onSubmit={handleSubmit}
-      data-testid="org-admin-create-team-form"
-    >
-      <div className="flex flex-1 flex-col gap-1">
-        <Label htmlFor="new-team-name">新团队名称</Label>
-        <Input
-          id="new-team-name"
-          value={name}
-          onChange={(e) => {
-            setName(e.currentTarget.value);
-            if (fieldError) setFieldError(null);
-          }}
-          placeholder="新团队名称"
-          disabled={submitting}
-          data-testid="org-admin-create-team-input"
-          aria-invalid={fieldError !== null}
-        />
-        {fieldError ? (
-          <p role="alert" data-testid="err-team-name" className="text-10 text-destructive">{fieldError}</p>
-        ) : null}
-      </div>
-      {/* 外层 flex-col + 一行不可见占位，抵消左侧 Label 行占用的高度，让按钮与 Input 同一水平线
-          对齐（复核实测发现：加 Label 之前按钮和 Input 天然同行，加了 Label 之后 `items-start`
-          会把按钮顶到跟 Label 文字同一行，是本轮 a11y 修复顺带引入的视觉退化）。 */}
-      <div className="flex flex-col gap-1">
-        <span aria-hidden className="text-12 leading-none">&nbsp;</span>
-        <Button
-          type="submit"
-          size="xs"
-          variant="outline"
-          disabled={submitting || name.trim().length === 0}
-          data-testid="org-admin-create-team"
-        >
-          <Plus aria-hidden className="h-3 w-3" />
-          {submitting ? "创建中…" : "新建团队"}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-function TeamRow({
-  orgId, team, onChanged, onSuccess, onFailed,
-}: {
-  orgId: string;
-  team: ListTeamsOut["teams"][number];
-  onChanged: () => void;
-  onSuccess: (text: string) => void;
-  onFailed: (text: string) => void;
-}) {
-  const [mode, setMode] = React.useState<"view" | "rename" | "confirm-delete">("view");
-  const [name, setName] = React.useState(team.name);
-  const [fieldError, setFieldError] = React.useState<string | null>(null);
-  const [busy, setBusy] = React.useState(false);
-
-  async function handleRename(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (trimmed.length === 0) {
-      setFieldError("团队名不能为空");
-      return;
-    }
-    setFieldError(null);
-    setBusy(true);
-    try {
-      await renameTeam(orgId, team.teamId, trimmed);
-      setMode("view");
-      onSuccess("已改名");
-      onChanged();
-    } catch (err) {
-      if (err instanceof ApiError && err.reasonCode === "TEAM_NAME_CONFLICT") {
-        setFieldError(`团队名"${trimmed}"已存在，换一个名字试试`);
-      } else {
-        onFailed(describeFailure(err));
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleDelete() {
-    setBusy(true);
-    try {
-      await deleteTeam(orgId, team.teamId);
-      onSuccess(`已删除"${team.name}"`);
-      onChanged();
-    } catch (err) {
-      if (err instanceof ApiError && err.reasonCode === "TEAM_NOT_EMPTY") {
-        onFailed(`"${team.name}"还有 ${team.memberCount} 名成员，不能直接删除——请先把成员移到别的团队，再来删除。`);
-        setMode("view");
-      } else {
-        onFailed(describeFailure(err));
-        setMode("view");
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <li
-      data-testid={`org-admin-team-${team.teamId}`}
-      className="flex flex-col gap-2 rounded-md border border-border bg-card px-3 py-2"
-    >
-      {mode === "rename" ? (
-        <form className="flex items-start gap-2" onSubmit={handleRename} data-testid={`org-admin-team-${team.teamId}-rename-form`}>
-          <div className="flex flex-1 flex-col gap-1">
-            <Input
-              value={name}
-              onChange={(e) => {
-                setName(e.currentTarget.value);
-                if (fieldError) setFieldError(null);
-              }}
-              disabled={busy}
-              autoFocus
-              aria-label={`重命名团队 ${team.name}`}
-              data-testid={`org-admin-team-${team.teamId}-rename-input`}
-              aria-invalid={fieldError !== null}
-            />
-            {fieldError ? (
-              <p role="alert" data-testid="err-team-name" className="text-10 text-destructive">{fieldError}</p>
-            ) : null}
-          </div>
-          <Button
-            type="submit" size="xs" variant="primary" disabled={busy}
-            aria-label="确认改名"
-            data-testid={`org-admin-team-${team.teamId}-rename-confirm`}
-          >
-            <Check aria-hidden className="h-3 w-3" />
-          </Button>
-          <Button
-            type="button" size="xs" variant="ghost" disabled={busy}
-            onClick={() => { setMode("view"); setName(team.name); setFieldError(null); }}
-            aria-label="取消改名"
-            data-testid={`org-admin-team-${team.teamId}-rename-cancel`}
-          >
-            <X aria-hidden className="h-3 w-3" />
-          </Button>
-        </form>
-      ) : (
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <span className="text-13 font-medium">{team.name}</span>
-            <span className="text-10 text-muted-foreground" data-testid={`org-admin-team-${team.teamId}-member-count`}>
-              {team.memberCount} 名成员
-            </span>
-          </div>
-          <div className="flex gap-1.5">
-            <Button
-              type="button" size="xs" variant="ghost" disabled={busy}
-              onClick={() => setMode("rename")}
-              data-testid={`org-admin-team-${team.teamId}-rename`}
-            >
-              <Pencil aria-hidden className="h-3 w-3" />
-              改名
-            </Button>
-            <Button
-              type="button" size="xs" variant="ghost" disabled={busy}
-              onClick={() => setMode("confirm-delete")}
-              data-testid={`org-admin-team-${team.teamId}-delete`}
-            >
-              <Trash2 aria-hidden className="h-3 w-3" />
-              删除
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {mode === "confirm-delete" ? (
-        <div
-          className="flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-2.5 py-1.5"
-          data-testid={`org-admin-team-${team.teamId}-delete-confirm`}
-        >
-          <div className="flex items-center gap-1.5 text-11 text-destructive">
-            <AlertTriangle aria-hidden className="h-3.5 w-3.5 shrink-0" />
-            <span>
-              确认删除&quot;{team.name}&quot;？
-              {team.memberCount > 0 ? `它还有 ${team.memberCount} 名成员，需要先清空才能删除。` : "此操作不可撤销。"}
-            </span>
-          </div>
-          <div className="flex shrink-0 gap-1.5">
-            <Button
-              type="button" size="xs" variant="destructive" disabled={busy}
-              onClick={handleDelete}
-              data-testid={`org-admin-team-${team.teamId}-delete-confirm-yes`}
-            >
-              {busy ? "删除中…" : "确认删除"}
-            </Button>
-            <Button
-              type="button" size="xs" variant="ghost" disabled={busy}
-              onClick={() => setMode("view")}
-              data-testid={`org-admin-team-${team.teamId}-delete-confirm-no`}
-            >
-              取消
-            </Button>
-          </div>
-        </div>
-      ) : null}
-    </li>
-  );
 }
 
 /* ═══════════════════════════════ 成员（#363，真实数据） ═══════════════════════════════ */
@@ -1037,7 +711,12 @@ function OneTimeActivationLink({ link, onDismiss }: { link: OneTimeLink; onDismi
   );
 }
 
-/** 团队下拉里「不分团队」的哨兵值——提交时映射为契约要求的空串（controller 把空串转 null）。 */
+/**
+ * issue #2615（裁决②：组织里没有团队概念）后，`inviteOrgMember` 契约的 `teamId` 字段
+ * 仍然存在（后端 `org_memberships.team_id` 列没有被移除，这是人类的硬约束——本轮只去掉
+ * 前端"选团队"这个动作，不改契约/schema），前端恒传空串（controller 把空串转 null，
+ * 即"不分团队"）——不再让用户选，因为已经没有团队列表可选了。
+ */
 const NO_TEAM = "";
 
 const ORG_ROLE_OPTIONS: ReadonlyArray<{ id: OrgRole; label: string }> = (
@@ -1056,38 +735,8 @@ export function InviteMemberForm({
 }) {
   const [email, setEmail] = React.useState("");
   const [orgRole, setOrgRole] = React.useState<OrgRole>("consultant");
-  const [teamId, setTeamId] = React.useState<string>(NO_TEAM);
-  const [teams, setTeams] = React.useState<ListTeamsOut["teams"] | null>(null);
-  const [teamsFailed, setTeamsFailed] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [fieldError, setFieldError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const result = await listTeams(orgId);
-        if (!cancelled) setTeams(result.teams);
-      } catch {
-        // 团队列表拉不到不阻塞邀请本身——降级为只能「不分团队」，并如实说明。
-        if (!cancelled) {
-          setTeams([]);
-          setTeamsFailed(true);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [orgId]);
-
-  const teamOptions = React.useMemo(
-    () => [
-      { id: NO_TEAM, label: "不分团队" },
-      ...(teams ?? []).map((t) => ({ id: t.teamId, label: t.name })),
-    ],
-    [teams],
-  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1103,7 +752,7 @@ export function InviteMemberForm({
     setFieldError(null);
     setSubmitting(true);
     try {
-      const out = await inviteOrgMember({ orgId, email: trimmed, orgRole, teamId });
+      const out = await inviteOrgMember({ orgId, email: trimmed, orgRole, teamId: NO_TEAM });
       setEmail("");
       if (out.status === "awaiting-review") {
         onSucceeded(
@@ -1178,24 +827,8 @@ export function InviteMemberForm({
             ariaLabel="组织角色"
           />
         </div>
-        <div className="flex w-36 flex-col gap-1">
-          <Label id="org-admin-invite-team-label">团队</Label>
-          <PopoverSelect
-            value={teamId}
-            options={teamOptions}
-            onSelect={setTeamId}
-            disabled={submitting || teams === null}
-            testid="org-admin-invite-team"
-            ariaLabel="团队"
-          />
-        </div>
       </div>
 
-      {teamsFailed && (
-        <p className="text-10 text-warning" data-testid="org-admin-invite-teams-degraded">
-          团队列表暂时拉不到，本次只能按「不分团队」邀请；需要指定团队请稍后重试。
-        </p>
-      )}
       {orgRole === "admin" && (
         <p className="text-10 text-muted-foreground" data-testid="org-admin-invite-dual-review-note">
           邀请管理员需双人复核：提交后进入「待复核」，由另一位管理员批准后才签发激活链接（发起人不能自批）。

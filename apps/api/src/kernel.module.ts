@@ -483,13 +483,13 @@ import { LIVE_SESSION_REPOSITORY } from "./application/auth/live-session-ports";
 import { PgLiveSessionRepository } from "./infrastructure/auth/pg-live-session-repository";
 import { newLiveSessionId } from "./domain/auth/live-session";
 import { CheckinBoardController } from "./interface/controllers/checkin-board.controller";
-// F11（phase-01 / UC-1.6 R10）：双人复核 + 配额硬阻断 + 团队增删改 + 成员移除。
+// F11（phase-01 / UC-1.6 R10）：双人复核 + 配额硬阻断 + 成员移除。
 // ⚠ 建在 F10 的 org_invites 之上，不重开新地基：`ORG_INVITE_REPOSITORY` 复用同一个实例
 //   （`PgOrgInviteRepository` 新增了 `reviewAdminInvite` 方法，不是第二个仓储）。
-import { TEAM_REPOSITORY } from "./application/auth/team-ports";
+// ⚠ issue #2615（组织去掉团队概念）：F11 当时同一批带的团队增删改（`TeamRepository`/
+//   `PgTeamRepository`）已随本轮移除，`org_memberships.team_id` 列本身未删。
 import { AVATAR_REPOSITORY } from "./application/identity/avatar-ports";
 import { PgAvatarRepository } from "./infrastructure/auth/pg-avatar-repository";
-import { PgTeamRepository } from "./infrastructure/auth/pg-team-repository";
 import { ORG_MEMBER_REPOSITORY } from "./application/auth/org-member-ports";
 import { PgOrgMemberRepository } from "./infrastructure/auth/pg-org-member-repository";
 // org-profile-membership delta（#363 收拢）：成员/邀请列表读 + 组织资料编辑。
@@ -1788,13 +1788,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgLiveSessionRepository(db, newLiveSessionId),
       inject: [DATABASE_PORT],
     },
-    // F11：团队增删改（占用校验）+ 成员移除（停用访问，不删产出）。两个独立 provider——
-    // 它们分别锁定 `teams` 与 `org_memberships` 两张不同的表，不是同一个仓储的两个方法。
-    {
-      provide: TEAM_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgTeamRepository(db),
-      inject: [DATABASE_PORT],
-    },
+    // F11：成员移除（停用访问，不删产出）。issue #2615：同批的团队增删改 provider
+    // （`TEAM_REPOSITORY`/`PgTeamRepository`）已随组织去掉团队概念一并移除。
     {
       provide: ORG_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgOrgMemberRepository(db),

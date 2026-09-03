@@ -35,15 +35,23 @@ export type AdminModuleKey =
   | "local"
   // org-management-integration（2026-09-03 人类直接反馈：「在组织的菜单点击组织管理，
   // 就是进入到组织后台的菜单，所以需要把他们合并」）：左上角组织菜单的「组织管理」
-  // 入口（`components/shell/org-menu.tsx`，href `/org-admin`，团队/成员/邀请/组织资料
-  // 四个标签页）此前落到一个**不带组织后台左栏**的独立页面——点进去感觉不到「进了组织
-  // 后台」，与人类的心智模型（组织管理＝组织后台的一部分）不一致。
-  // ⇒ 加这一项让 `/org-admin` 在「组织」组里有名有姓的落点，`org-admin-screen.tsx`
-  // 据此把自己的 `AppShell` 接上 `AdminNav`（同其余 `/admin/*` 屏一样的左栏）。
-  // href 仍是 `/org-admin`（不是 `/admin/org-profile`）——那四个标签页是 session 驱动
-  // 的真实数据页，不经过 `app/admin/[module]/page.tsx` 那套 `SCREENS`/`REDIRECTS`
+  // 入口（`components/shell/org-menu.tsx`，href `/org-admin`）此前落到一个**不带组织
+  // 后台左栏**的独立页面——点进去感觉不到「进了组织后台」，与人类的心智模型（组织管理＝
+  // 组织后台的一部分）不一致。
+  // ⇒ 让 `/org-admin/*` 在「组织」组里有名有姓的落点，`org-admin-screen.tsx` 据此把自己
+  // 的 `AppShell` 接上 `AdminNav`（同其余 `/admin/*` 屏一样的左栏）。
+  //
+  // org-admin-restructure（issue #2615，2026-09-03 人类两条原话裁决）：
+  //   ①「在后台的组织后台中，将组织管理下面的成员、邀请、组织资料，编程是和总览平级的
+  //     功能」——原来单一的 `org-profile`（团队/成员/邀请/组织资料四个标签页塞进一个
+  //     入口）被拆平成三个与 `overview` 同层级的左栏项：`org-members`/`org-invites`/
+  //     `org-profile`（`org-profile` 键复用给"组织资料"这一项）。
+  //   ②「在组织中去掉团队的概念。团队的概念是在项目中的概念，在项目中分为不同的团队」
+  //     ——原来的"团队"标签页整体撤除，不再是这三项之一。
+  // href 仍各自是 `/org-admin/*`（不是 `/admin/org-members` 等）——这几个屏是 session
+  // 驱动的真实数据页，不经过 `app/admin/[module]/page.tsx` 那套 `SCREENS`/`REDIRECTS`
   // 分发，见该文件头注对已合并模块的既有处置（`blueprint`/`skill`/`canvasadmin` 同理）。
-  | "org-profile"
+  | "org-members" | "org-invites" | "org-profile"
   // member-role-management delta：成员管理的**平台级**（全平台账号名册 + 任一组织里的角色）。
   // 单独一组「平台」而不是塞进「组织」组：它的授权面是平台超管（部署白名单），不是组织角色，
   // 与「组织」组里每一项「本组织 admin 可见」的语义不同——同一组里混两种授权面会让人以为
@@ -141,9 +149,12 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     scope: "org",
     items: [
       { key: "overview", label: "总览", href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
-      // 见上方 `AdminModuleKey.org-profile` 长注：组织菜单「组织管理」入口的落点，
-      // 团队 / 成员 / 邀请 / 组织资料四个标签页。
-      { key: "org-profile", label: "组织管理", href: "/org-admin", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
+      // 见上方 `AdminModuleKey.org-members`/`org-invites`/`org-profile` 长注：原「组织管理」
+      // 单一入口（团队/成员/邀请/组织资料四个标签页）已拆平为三个与 `overview` 同层级的项，
+      // 紧跟在总览后面——没有"团队"这一项（issue #2615 裁决②：团队是项目里的概念）。
+      { key: "org-members", label: "成员", href: "/org-admin/members", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
+      { key: "org-invites", label: "邀请", href: "/org-admin/invites", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
+      { key: "org-profile", label: "组织资料", href: "/org-admin/profile", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
       { key: "members", label: "成员配额", href: "/admin/members", ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-7"] },
       { key: "local", label: "我的本地", href: "/admin/local", ucRefs: ["00-core/uc-0-5"] },
     ],
@@ -736,12 +747,19 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
    */
   feedback: () => SW_FEEDBACK_SUMMARY.pending,
   local: () => 1,
-  // 「组织管理」是团队/成员/邀请/组织资料四个标签页的入口，不是单一列表——没有一个
-  // 有意义的「条目数」。按 I-24 的既有语义（抛错＝取不到）表达「这一项本来就不该有
-  // 计数」，不编数字；生产左栏（`live-admin-nav-counts.ts`）同样只认 agent/skill 两项
-  // 口径明确，其余一律「—」，这里保持一致。
+  // issue #2615：原来单一的「组织管理」（团队/成员/邀请/组织资料四标签页）已拆平为
+  // 三个独立项。它们各自是一个屏而不是一份可数清单——没有一个有意义的「条目数」
+  // （"成员""邀请"背后确实是列表，但按 I-24 的既有语义，这里给的是"左栏这一项该不该
+  // 显示数字"的口径，不是"这个屏内容多不多"；生产左栏 `live-admin-nav-counts.ts` 同样
+  // 只认 agent/skill 两项口径明确，其余一律「—」，这里延续同一处置：抛错＝取不到）。
+  "org-members": () => {
+    throw new Error("org-members is a screen entry, not a countable list source in this mock table");
+  },
+  "org-invites": () => {
+    throw new Error("org-invites is a screen entry, not a countable list source in this mock table");
+  },
   "org-profile": () => {
-    throw new Error("org-profile is a multi-tab entry, not a countable list");
+    throw new Error("org-profile is a screen entry, not a countable list source in this mock table");
   },
   // member-role-management delta：平台名册没有 mock 数据源（它从来不是 mock 屏），本表只是
   // `admin-nav-count-unavailable.test.tsx` 的 HEALTHY 夹具（见 feedback 项长注）——给一个健康值。

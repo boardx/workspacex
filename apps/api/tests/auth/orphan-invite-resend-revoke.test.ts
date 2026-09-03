@@ -130,9 +130,8 @@ beforeAll(async () => {
   repo = new PgOrgInviteRepository(db);
   controller = new OrgAdminManagementController(
     repo,
-    // 本文件只调 resend / revoke 两条路由，其余四个端口不参与——给 null 而不是
-    // 一个假件：假件会让「某天有人把 teams 的判断挪进 resend」这件事悄悄通过。
-    null as never,
+    // 本文件只调 resend / revoke 两条路由，其余端口不参与——给 null 而不是
+    // 一个假件：假件会让「某天有人把判断悄悄挪进 resend」这件事悄悄通过。
     null as never,
     // #363 时不参与；2026-08-11 起参与——反证 C 的「随时可再读」半边要打真实的
     // `listInvites`（对象存储不在这些用例的路径上，仍给 null）。
