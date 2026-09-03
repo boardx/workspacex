@@ -102,7 +102,12 @@ describe("① URL 导入：与平台官方 skill 同名（大小写不敏感）�
     const result = await importSkillFromUrl(
       {
         orgId: ORG, actorId: ACTOR,
-        sourceUrl: `https://allowed.example:${port}/SKILL-ok.md`,
+        // ⚠ 单文件导入的落地路径按取回后 URL 的最后一段算（`filePathFor`，
+        // `import-skill-from-url.ts`），不是固定成 "SKILL.md"——URL 必须以
+        // `/SKILL.md` 结尾，落地文件才会恰好叫 "SKILL.md"，否则
+        // `wave2_publish_skill_version` 的"必须恰好一个根 SKILL.md"不变量会拒绝
+        // 发布（P0001）。这条是通过用例，必须真的能发布成功，路径不能随便起名。
+        sourceUrl: `https://allowed.example:${port}/SKILL.md`,
         name: "URL 导入不撞名对照组",
         idempotencyKey: `ok-${randomUUID()}`,
       },
@@ -271,7 +276,7 @@ describe("③ 声明式草稿（saveDraft）：与平台官方 skill 同名被�
       name: "声明式草稿不撞名对照组",
       duty: "d",
       contract: CONTRACT,
-      source: "self-authored",
+      source: "自建", // skill_contracts_source_check 只认 ('自建','晋升生成','CC') 三个中文字面量
       submitterId: ACTOR,
       visibility: "org-wide",
       ownerTeamId: null,
@@ -291,7 +296,7 @@ describe("③ 声明式草稿（saveDraft）：与平台官方 skill 同名被�
         name: collidingName,
         duty: "d",
         contract: CONTRACT,
-        source: "self-authored",
+        source: "自建", // skill_contracts_source_check 只认 ('自建','晋升生成','CC') 三个中文字面量
         submitterId: ACTOR,
         visibility: "org-wide",
         ownerTeamId: null,
