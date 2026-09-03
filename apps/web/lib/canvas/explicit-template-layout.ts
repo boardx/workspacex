@@ -38,7 +38,8 @@
 import { PAPER } from "@repo/fabric-markdown/theme";
 import type { TemplateSpec, TemplateSection } from "@repo/fabric-markdown";
 import {
-  A0_FRAME, ENGINE_STICKY, ENGINE_STICKY_INSET, ENGINE_STICKY_TOP_OFFSET, GRID_TOP, GUTTER, HEADER_ROW_PITCH,
+  A0_FRAME, ENGINE_STICKY, ENGINE_STICKY_GAP, ENGINE_STICKY_INSET, ENGINE_STICKY_TOP_OFFSET, GRID_TOP, GUTTER,
+  HEADER_ROW_PITCH,
 } from "./auto-template-layout";
 
 /**
@@ -270,6 +271,43 @@ function stickyHeightOverride(cellH: number): { h?: number } {
   return { h: Math.floor(available) };
 }
 
+/**
+ * issue #2611：「AI 商业模型画布」编辑器②画布里配的是 2 列，chat 模拟渲染出来却只有
+ * 1 列。
+ *
+ * ## 根因：`sticky.perRow` 是「使用者要的列数」，引擎真正画出来的列数是另一回事
+ *
+ * `template-engine.ts`（531-534 行）不会照单全收 `sticky.perRow`——它按贴纸默认宽度
+ * （`ENGINE_STICKY.w`，136px）反算这个分区框物理上一行最多摆得下几张，再取
+ * `min(配置的 perRow, 摆得下的张数)`：`floor((sec.w - 28) / (stickyW + gapX))`。
+ * `buildExplicitTemplateSpec` 此前只把 `layout.cols` 原样塞进 `sticky.perRow`，从没
+ * 检查过这个分区框（`c.w`，由 `gridCols` 与跨列数换算出的 px 宽度）是否真的容得下
+ * `cols` 张 136px 宽的贴纸——AI 商业模型画布这类多分区窄格模板（12 列网格里一个
+ * 分区常常只跨 2 列，≈230px 宽）配 2 列一行时，`floor((230-28)/(136+12))=1`，
+ * 引擎实际只画出 1 列，编辑器右栏配的「2 列」在 chat 里从未生效——与 `stickyHeightOverride`
+ * 那条 2026-08-30（issue #2585）修的是**同一类**问题在另一根轴上的版本：`sticky.h`
+ * 早就会因为格子矮而收缩，`sticky.w` 却一直没有对应的「格子窄就收缩」的逻辑。
+ *
+ * ## 修法：贴纸宽度随分区框宽度/配置列数收缩，而不是保持默认宽度硬套
+ *
+ * 与 `stickyHeightOverride` 同一个思路（也镜像 `sectionGeometryMm` 那条 mm 几何姊妹
+ * 路径 `noteMm` 随宽度/列数缩放的公式）：反解引擎的 `perRow` 公式，算出「这个分区框
+ * 配置的列数真的一行摆得下」所需的贴纸宽度上限，只在这个上限比默认宽度更窄时才
+ * 覆盖——比默认宽度更宽的分区（内置六个模板/大多数组织自建模板）不受影响，
+ * 逐字节兼容改动前的输出。
+ *
+ * 收到 ≤ 0（连一道内边距 + 一道列间距都腾不出来）时不做任何覆盖——那是真的一寸
+ * 宽度都没有，用默认宽度算出的 `renderStickyCapacity` 会如实报出更小的实际列数，
+ * 不是这个函数能解决的（同 `stickyHeightOverride` 文档「可用高度 ≤ 0 时不覆盖」
+ * 那句话在宽度轴上的版本）。
+ */
+function stickyWidthOverride(cellW: number, cols: number): { w?: number } {
+  if (cols <= 1) return {};
+  const available = Math.floor((cellW - 2 * ENGINE_STICKY_INSET) / cols - ENGINE_STICKY_GAP.x);
+  if (available <= 0 || available >= ENGINE_STICKY.w) return {};
+  return { w: available };
+}
+
 export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): ExplicitTemplateResult {
   const rawLayout = computeExplicitLayout(input.sections, input.gridCols);
   const typeById = new Map(input.sections.map((s) => [s.sectionId, s.type] as const));
@@ -306,7 +344,7 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
     w: c.w,
     h: c.h,
     fill: PAPER,
-    sticky: { perRow: c.layout.cols, ...stickyHeightOverride(c.h) },
+    sticky: { perRow: c.layout.cols, ...stickyWidthOverride(c.w, c.layout.cols), ...stickyHeightOverride(c.h) },
     stickyColor: TONE_COLORS[c.layout.tone] ?? TONE_COLORS[0],
   }));
 

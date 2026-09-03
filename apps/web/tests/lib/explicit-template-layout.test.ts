@@ -103,8 +103,46 @@ describe("computeExplicitLayout —— px 几何", () => {
       ],
       gridCols: 12,
     });
+    // a：748px 宽的分区框配 2 列，默认贴纸宽度（136px）绰绰有余，不需要收缩。
     expect(spec.sections[0]!.sticky).toEqual({ perRow: 2 });
-    expect(spec.sections[1]!.sticky).toEqual({ perRow: 6 });
+    // b：同样 748px 宽配 6 列，默认贴纸宽度这时放不下 6 张一行（见 issue #2611
+    // `stickyWidthOverride`），需要收缩 `sticky.w` 才能让引擎真的画出配置的列数。
+    expect(spec.sections[1]!.sticky).toEqual({ perRow: 6, w: 108 });
+  });
+
+  /**
+   * issue #2611 根因回归钉子：「AI 商业模型画布」这类多分区窄格模板（12 列网格里
+   * 一个分区常常只跨 2 列，≈230px 宽）配 2 列一行，`sticky.perRow` 此前原样写成 2，
+   * 但引擎按默认贴纸宽度（`ENGINE_STICKY.w`,136px）反算这个框物理上一行只摆得下 1 张
+   * （`floor((230-28)/(136+12))=1`），编辑器里配的「2 列」在 chat 模拟/真实 chat 里
+   * 从未生效，画出来的每个分区都退化成 1 列。
+   */
+  it("窄分区框（AI 商业模型画布真实几何：12 列网格里跨 2 列）配 2 列一行：sticky.w 收缩到引擎真能摆出 2 列", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "ai-bmc-like", displayName: "测试模板",
+      sections: [section("partners", 1, 1, 2, 8, { cols: 2 })],
+      gridCols: 12,
+    });
+    const sticky = spec.sections[0]!.sticky!;
+    expect(sticky.perRow).toBe(2);
+    expect(sticky.w).toBeDefined();
+    expect(sticky.w!).toBeLessThan(ENGINE_STICKY.w);
+    // 核心断言：引擎自己的 perRow 公式（`template-engine.ts` 531-534 行）用这个收缩后的
+    // 宽度反算，真的能摆出配置的 2 列，不是收缩了但仍然不够。
+    const engineActualPerRow = Math.max(
+      1,
+      Math.min(sticky.perRow!, Math.floor((spec.sections[0]!.w - 28) / (sticky.w! + 12))),
+    );
+    expect(engineActualPerRow).toBe(2);
+  });
+
+  it("宽分区框不受影响——默认贴纸宽度本来就放得下配置的列数时，sticky 不带 w（与改动前逐字一致）", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [section("a", 1, 1, 12, 8, { cols: 3 })],
+      gridCols: 12,
+    });
+    expect(spec.sections[0]!.sticky).toEqual({ perRow: 3 });
   });
 
   it("每个分区各自的 tone → stickyColor，取的是 TONE_COLORS 里对应索引的真实 hex", () => {
