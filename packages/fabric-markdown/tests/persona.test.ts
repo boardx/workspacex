@@ -128,6 +128,60 @@ describe('serializePersona', () => {
   });
 });
 
+describe('section-name matching tolerance (issue #2549)', () => {
+  it('still renders a section whose heading uses a near-synonym connector', () => {
+    // 模型把「痛点和挑战」写成「痛点与挑战」——此前 sections.get(sec.name) 精确匹配 miss，
+    // 该分区静默渲染成空。
+    const sample = `姓名: 王建国
+
+## 痛点与挑战
+- 让企业突破增长瓶颈`;
+    const model = personaToModel(sample);
+    const stickies = model.nodes.filter((n) => n.data?.role === 'sticky');
+    expect(stickies.map((s) => s.label)).toContain('让企业突破增长瓶颈');
+  });
+
+  it('still renders a section whose heading has stray whitespace/punctuation', () => {
+    const sample = `姓名: 王建国
+
+##   痛点和挑战：
+- 让企业突破增长瓶颈`;
+    const model = personaToModel(sample);
+    const stickies = model.nodes.filter((n) => n.data?.role === 'sticky');
+    expect(stickies.map((s) => s.label)).toContain('让企业突破增长瓶颈');
+  });
+
+  it('keeps an exact-name section separate from an unrelated one (no over-matching)', () => {
+    const sample = `姓名: 王建国
+
+## 动机
+- 为两个儿子留下一个可持续的企业
+
+## 痛点和挑战
+- 让企业突破增长瓶颈`;
+    const model = personaToModel(sample);
+    const boxes = model.nodes.filter((n) => n.data?.role === 'section');
+    const motivation = boxes.find((b) => b.data?.name === '动机')!;
+    const pains = boxes.find((b) => b.data?.name === '痛点和挑战')!;
+    const stickies = model.nodes.filter((n) => n.data?.role === 'sticky');
+    const inBox = (box: (typeof boxes)[number]) =>
+      stickies.filter(
+        (s) => Math.abs(s.x - box.x) <= box.width / 2 && Math.abs(s.y - box.y) <= box.height / 2,
+      );
+    expect(inBox(motivation).map((s) => s.label)).toEqual(['为两个儿子留下一个可持续的企业']);
+    expect(inBox(pains).map((s) => s.label)).toEqual(['让企业突破增长瓶颈']);
+  });
+});
+
+describe('header field label alignment (issue #2550)', () => {
+  it('right-aligns field labels so the label→value gap stays tight and constant', () => {
+    const model = personaToModel(SAMPLE);
+    const labels = model.nodes.filter((n) => n.data?.role === 'fieldLabel');
+    expect(labels.length).toBeGreaterThan(0);
+    for (const label of labels) expect(label.data?.align).toBe('right');
+  });
+});
+
 describe('markdown persona fences', () => {
   it('extracts persona blocks alongside mermaid ones', () => {
     const md = '# doc\n\n```persona\n姓名: 张三\n```\n\n```mermaid\nflowchart TD\n  A --> B\n```\n';

@@ -25,5 +25,7 @@ export {
   templateToModel,
   parseTemplateText,
   serializeTemplate,
+  /** 分区名匹配容错（issue #2549），见 template-engine.ts 里的定义与用法。 */
+  lookupSectionItems,
 } from './diagrams/template-engine';
 export type { TemplateSpec, TemplateSection, ParsedTemplateText } from './diagrams/template-engine';

@@ -40,7 +40,11 @@
  * `matchedFieldCount + matchedBulletCount === 0` 时不生成看似完整实则空洞的画像，
  * 而是给一份**明说信息不足**的占位产物（V7 空态纪律的画像版）。
  */
-import { parseTemplateText, type ParsedTemplateText } from "@repo/fabric-markdown/templates";
+import {
+  parseTemplateText,
+  lookupSectionItems,
+  type ParsedTemplateText,
+} from "@repo/fabric-markdown/templates";
 // 内置默认值的唯一来源（不是唯一事实源——见文件头）：组织没有自定义过 persona 模板时
 // 的兜底字段/分区名，与 `builtin-template-config.ts` 回填 DB 行用的同一份源码。
 import { PERSONA_FIELDS, PERSONA_SECTIONS } from "@repo/fabric-markdown/diagrams/persona";
@@ -80,7 +84,8 @@ function serializePersonaFence(parsed: ParsedTemplateText, tpl: PersonaTemplateF
     if (value) lines.push(`${field}: ${value}`);
   }
   for (const section of tpl.sections) {
-    const items = parsed.sections.get(section) ?? [];
+    // issue #2549: 逐字匹配兜底容错，见 lookupSectionItems 定义处。
+    const items = lookupSectionItems(parsed.sections, section);
     if (items.length === 0) continue;
     lines.push("");
     lines.push(`## ${section}`);
@@ -108,7 +113,7 @@ export function buildPersonaLanding(
     (field) => (parsed.fields.get(field) ?? "").trim().length > 0,
   ).length;
   const matchedBulletCount = tpl.sections.reduce(
-    (total, section) => total + (parsed.sections.get(section)?.length ?? 0),
+    (total, section) => total + lookupSectionItems(parsed.sections, section).length,
     0,
   );
   const sufficient = matchedFieldCount > 0 || matchedBulletCount > 0;
@@ -176,7 +181,7 @@ export function buildPersonaMindmapBody(input: {
   for (const section of sections) {
     lines.push(`    ${mindmapNodeText(section)}`);
     const bullets = input.sufficient
-      ? (parsed.sections.get(section) ?? [])
+      ? lookupSectionItems(parsed.sections, section) // issue #2549 兜底匹配
       : [PERSONA_MINDMAP_INSUFFICIENT_NODE];
     for (const bullet of bullets) {
       const text = mindmapNodeText(bullet);
