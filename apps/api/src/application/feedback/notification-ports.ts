@@ -72,41 +72,6 @@ export interface GithubIssueCreator {
 
 export const GITHUB_ISSUE_CREATOR = Symbol("GithubIssueCreator");
 
-/**
- * 把一张反馈附件的图片字节推给 GitHub、换回一个 GitHub 匿名可读的 URL,供
- * `triageFeedback` 拼进 issue 正文的 `![](url)`——**不是** `GithubIssueCreator.create`
- * 能顺手做到的事:反馈附件的下载路由要 `Authorization` 头(见 `attachment-ports.ts`
- * 头注),GitHub 服务端渲染 issue 正文时是**匿名**抓图,那个内部 URL 它根本抓不到。
- * 唯一的办法是把字节本身送到 GitHub 能公开托管的地方——这里用 Contents API 把图片
- * 提交进仓库,换回的 `download_url`(`raw.githubusercontent.com`)才是 GitHub 渲染器
- * 真正抓得到的地址。
- *
- * ⚠ 与 `GithubIssueCreator` 分成两个接口而不是塞成 `create` 的第五个方法:
- *   `create` 的调用方(`triageFeedback`)已有的四个方法全部围绕"一个已存在的
- *   issue"展开,这个方法**不需要 issue 已经存在**(建 issue 之前就要先把图传完、
- *   把 URL 拼进 body),混进同一个接口会让"这个方法到底需不需要 issueNumber"
- *   这件事从类型上看不出来。两个接口共用同一个 `FetchGithubIssueCreator` 实现
- *   （同一个 token、同一份 PAT/仓库配置),DI 用 `useExisting` 把两个 token 指向
- *   同一个实例,不是重复造两套配置。
- */
-export interface GithubIssueImageUpload {
-  /** 仓库内的相对路径,如 `feedback-attachments/fbattach-xxx.png`。 */
-  readonly path: string;
-  readonly content: Uint8Array;
-  readonly contentType: "image/png" | "image/jpeg" | "image/webp";
-}
-
-export interface UploadedGithubIssueImage {
-  /** `raw.githubusercontent.com` 直链——GitHub 渲染 issue 正文时能匿名抓到的地址。 */
-  readonly url: string;
-}
-
-export interface GithubIssueImageUploader {
-  uploadImage(input: GithubIssueImageUpload): Promise<UploadedGithubIssueImage>;
-}
-
-export const GITHUB_ISSUE_IMAGE_UPLOADER = Symbol("GithubIssueImageUploader");
-
 export class GithubIssueCreationError extends Error {
   constructor(readonly status: number | null) {
     super(status === null ? "github issue creation failed" : `github issue creation failed (http ${status})`);
@@ -115,16 +80,15 @@ export class GithubIssueCreationError extends Error {
 }
 
 /**
- * `setState` / `getStatus` / `addComment` / `uploadImage` 共用的失败信号。**不是**
- * `GithubIssueCreationError` 的别名——那个类名字面意思就是"建 issue 失败"，
- * `triageFeedback` 里仍然用它做 `instanceof` 判断来决定要不要 fail closed；这四个
- * 操作的调用方（best-effort 的状态同步、`get-feedback-github-issue.ts` /
- * `comment-on-feedback-github-issue.ts` 两个用例、以及建 issue 前 best-effort 上传
- * 附件图片那一步）要的是一个通用的"这次打 GitHub API 没成功"，用同一个类会让
+ * `setState` / `getStatus` / `addComment` 共用的失败信号。**不是** `GithubIssueCreationError`
+ * 的别名——那个类名字面意思就是"建 issue 失败"，`triageFeedback` 里仍然用它做
+ * `instanceof` 判断来决定要不要 fail closed；这三个新操作的调用方（best-effort 的
+ * 状态同步、以及 `get-feedback-github-issue.ts` / `comment-on-feedback-github-issue.ts`
+ * 两个用例）要的是一个通用的"这次打 GitHub API 没成功"，用同一个类会让
  * `triageFeedback` 的 `instanceof GithubIssueCreationError` 误吞不该吞的错误类型。
  */
 export class GithubIssueApiError extends Error {
-  constructor(readonly op: "setState" | "getStatus" | "addComment" | "uploadImage", readonly status: number | null) {
+  constructor(readonly op: "setState" | "getStatus" | "addComment", readonly status: number | null) {
     super(status === null ? `github issue ${op} failed` : `github issue ${op} failed (http ${status})`);
     this.name = "GithubIssueApiError";
   }

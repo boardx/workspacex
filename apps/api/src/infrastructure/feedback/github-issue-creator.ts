@@ -24,12 +24,9 @@ import {
   type CreatedGithubIssueComment,
   type GithubIssueCreator,
   type GithubIssueDraft,
-  type GithubIssueImageUpload,
-  type GithubIssueImageUploader,
   type GithubIssueLinkedPullRequest,
   type GithubIssueStateTarget,
   type GithubIssueStatus,
-  type UploadedGithubIssueImage,
 } from "../../application/feedback/notification-ports";
 
 export const GITHUB_ISSUE_CONFIG = Symbol("GithubIssueConfig");
@@ -107,7 +104,7 @@ interface GithubTimelineEventResponse {
   };
 }
 
-export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueImageUploader {
+export class FetchGithubIssueCreator implements GithubIssueCreator {
   constructor(
     private readonly config: GithubIssueConfig,
     private readonly request: typeof fetch = fetch,
@@ -119,15 +116,6 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
 
   private issueUrl(issueNumber: number): string {
     return `${this.issuesUrl()}/${issueNumber}`;
-  }
-
-  private contentsUrl(path: string): string {
-    // Contents API 的 path 段本身允许 `/`(目录分隔),只有各段内部的特殊字符需要转义——
-    // 这里的 path 永远是我们自己拼的 `feedback-attachments/<attachmentId>.<ext>`
-    // （见 `triage-feedback.ts`），不是用户可控输入，逐段 encode 足够,不需要处理 `..`
-    // 之类的路径穿越(attachmentId 是我们自己生成的 hex id)。
-    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-    return `https://api.github.com/repos/${encodeURIComponent(this.config.owner)}/${encodeURIComponent(this.config.repo)}/contents/${encodedPath}`;
   }
 
   private headers(): Record<string, string> {
@@ -304,37 +292,5 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
       if (typeof parsed.html_url !== "string") throw new GithubIssueApiError("addComment", response.status);
       return { url: parsed.html_url };
     }, () => new GithubIssueApiError("addComment", null));
-  }
-
-  /**
-   * `triageFeedback` 建 issue 之前,把反馈附件的图片字节推进仓库(Contents API 的
-   * PUT 是"建或改"同一个动词,同一个 path 重复调用是幂等的——同一个 attachmentId
-   * 对应同一个 path,不会产生重复文件)。返回的 `content.download_url` 就是
-   * `raw.githubusercontent.com` 直链,GitHub 渲染 issue 正文里的 `![](url)` 时
-   * 匿名抓的就是这个地址,不需要 `Authorization` 头。
-   */
-  async uploadImage(input: GithubIssueImageUpload): Promise<UploadedGithubIssueImage> {
-    if (!this.config.token) throw new GithubIssueApiError("uploadImage", null);
-    return this.withTimeout(async (signal) => {
-      let response: Response;
-      try {
-        response = await this.request(this.contentsUrl(input.path), {
-          method: "PUT",
-          signal,
-          headers: this.headers(),
-          body: JSON.stringify({
-            message: `feedback: attach ${input.path}`,
-            content: Buffer.from(input.content).toString("base64"),
-          }),
-        });
-      } catch {
-        throw new GithubIssueApiError("uploadImage", null);
-      }
-      if (!response.ok) throw new GithubIssueApiError("uploadImage", response.status);
-      const body = (await response.json().catch(() => ({}))) as { content?: { download_url?: unknown } };
-      const downloadUrl = body.content?.download_url;
-      if (typeof downloadUrl !== "string") throw new GithubIssueApiError("uploadImage", response.status);
-      return { url: downloadUrl };
-    }, () => new GithubIssueApiError("uploadImage", null));
   }
 }
