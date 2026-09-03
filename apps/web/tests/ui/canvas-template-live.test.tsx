@@ -126,6 +126,13 @@ interface TemplateRow {
    * 卡片上「{t.size} 横版」那行），2026-08-27 实测确认过。
    */
   size?: "A1" | "A3" | "A4";
+  /**
+   * 排序功能上线（画布模板库排序）随契约新增的两个时间戳字段——同上面两段注释的既有
+   * 纪律：夹具随契约一起扩展，不补齐会在运行时 `undefined.localeCompare` 炸掉
+   * （`template-admin.tsx` 的 `compareTemplates`）。
+   */
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
@@ -140,6 +147,7 @@ function template(overrides: Partial<TemplateRow> = {}): TemplateRow {
     sections: [{ sectionId: "s1", name: "基本信息", order: 0, required: true, capacity: null }],
     usageCount: 41,
     title: "", footer: "", promptText: "", platform: false, size: "A1",
+    createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
 }

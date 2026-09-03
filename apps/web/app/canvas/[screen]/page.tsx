@@ -37,6 +37,8 @@ export default function CanvasScreenPage({
     state?: string; as?: string; conflict?: string;
     /** #9（2026-08-22）：`template-admin` 屏筛选/视图/搜索词——只有该屏读它们。 */
     filter?: string; view?: string; q?: string;
+    /** 排序档位——同上，只有 `template-admin` 屏读它，见 `template-admin.tsx` 的 `SortBy`。 */
+    sort?: string;
   };
 }) {
   if (!isCanvasScreen(params.screen)) notFound();
@@ -53,6 +55,7 @@ export default function CanvasScreenPage({
       initialConflict={initialConflict}
       tplFilter={searchParams.filter}
       tplQuery={searchParams.q}
+      tplSort={searchParams.sort}
     />
   );
 }

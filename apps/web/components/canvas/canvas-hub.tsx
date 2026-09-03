@@ -37,7 +37,7 @@ import { CanvasRightPanel } from "./canvas-right-panel";
  */
 export function CanvasHub({
   previewRole, uiState, screen, initialConflict,
-  tplFilter, tplQuery,
+  tplFilter, tplQuery, tplSort,
 }: {
   previewRole: ProjectRole | null;
   uiState: UiState;
@@ -46,6 +46,8 @@ export function CanvasHub({
   /** #9（2026-08-22 可用性改进轮）：`template-admin` 屏筛选/视图/搜索词的 URL 初值。 */
   tplFilter?: string;
   tplQuery?: string;
+  /** 排序档位的 URL 初值——同上，见 `template-admin.tsx` 的 `SortBy`。 */
+  tplSort?: string;
 }) {
   // 编辑器屏用画布三区左右栏；模板库屏用后台通用侧栏；其余屏是全宽单栏（各自内部布局）
   const isEditor = screen === "editor";
@@ -81,7 +83,7 @@ export function CanvasHub({
         <PreviewControlBar screen={screen} state={uiState} role={previewRole} />
         <div className="min-h-0 flex-1">
           {screen === "template-admin" && (
-            <TemplateAdmin previewRole={previewRole} initialFilter={tplFilter} initialQuery={tplQuery} />
+            <TemplateAdmin previewRole={previewRole} initialFilter={tplFilter} initialQuery={tplQuery} initialSort={tplSort} />
           )}
           {screen === "template-editor" && <TemplateEditor state={uiState} previewRole={previewRole} />}
           {screen === "segment-binding" && <SegmentBinding state={uiState} previewRole={previewRole} />}

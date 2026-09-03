@@ -164,13 +164,42 @@ function parseInitialFilter(raw: string | undefined): ListTemplatesFilter {
     ? (raw as ListTemplatesFilter)
     : "all";
 }
+
+/**
+ * 排序——人类原话：「修改过的画布，应该放在最上面……可以按照名字、修改时间、创建时间来
+ * 排序，默认按照最后修改时间」。三档都是**降序看最新/最相关的在前**，唯独名字是升序
+ * （字母序 A→Z 才是"排序"的直觉，不存在"最新的名字"这种东西）。
+ */
+const SORT_OPTIONS = ["updatedAt", "createdAt", "name"] as const;
+type SortBy = (typeof SORT_OPTIONS)[number];
+const SORT_LABEL: Record<SortBy, string> = { updatedAt: "最后修改时间", createdAt: "创建时间", name: "名字" };
+const DEFAULT_SORT: SortBy = "updatedAt";
+
+function parseInitialSort(raw: string | undefined): SortBy {
+  return (SORT_OPTIONS as readonly string[]).includes(raw ?? "") ? (raw as SortBy) : DEFAULT_SORT;
+}
+
+/** 供 `sortRows` 复用，也单独导出给单测覆盖（不必起一次真栈就能锁死排序规则）。 */
+export function compareTemplates(a: CanvasTemplate, b: CanvasTemplate, sortBy: SortBy): number {
+  switch (sortBy) {
+    case "name":
+      return a.displayName.localeCompare(b.displayName, "zh-Hans-CN");
+    case "createdAt":
+      return b.createdAt.localeCompare(a.createdAt);
+    case "updatedAt":
+    default:
+      return b.updatedAt.localeCompare(a.updatedAt);
+  }
+}
 export function TemplateAdmin({
-  previewRole, initialFilter, initialQuery,
+  previewRole, initialFilter, initialQuery, initialSort,
 }: {
   previewRole: ProjectRole | null;
   /** #9：`/canvas/template-admin?filter=...&view=...&q=...` 的初值，见 `canvas/[screen]/page.tsx`。 */
   initialFilter?: string;
   initialQuery?: string;
+  /** 排序档位的 URL 初值——同上。 */
+  initialSort?: string;
 }) {
   const { session } = useSession();
   if (!session) throw new Error("TemplateAdmin requires an authenticated session");
@@ -181,26 +210,30 @@ export function TemplateAdmin({
   const [query, setQueryState] = React.useState(initialQuery ?? "");
   /** #2：默认展示每个 key 的**全部**版本（既有行为，e2e 依赖它）；开着才折叠成每 key 一行。 */
   const [latestOnly, setLatestOnly] = React.useState(false);
+  /** 排序——见 `compareTemplates` 头注。默认"最后修改时间"，与 `filter`/`query` 同样进 URL。 */
+  const [sortBy, setSortByState] = React.useState<SortBy>(() => parseInitialSort(initialSort));
 
   /**
    * #9：三个筛选态每变一次就把当前地址栏的 query string 换成新值——`router.replace`
    * 不留历史记录（`scroll:false`）。⚠ 只在浏览器里执行（`window` 存在时）：
    * 服务端渲染这一步不需要，且 `window.location.search` 本来就是浏览器专属状态。
    */
-  const syncUrl = React.useCallback((next: { filter?: ListTemplatesFilter; q?: string }) => {
+  const syncUrl = React.useCallback((next: { filter?: ListTemplatesFilter; q?: string; sort?: SortBy }) => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const nextFilter = next.filter ?? filter;
     const nextQuery = next.q ?? query;
+    const nextSort = next.sort ?? sortBy;
     if (nextFilter === "all") params.delete("filter"); else params.set("filter", nextFilter);
     if (nextQuery.trim() === "") params.delete("q"); else params.set("q", nextQuery);
+    if (nextSort === DEFAULT_SORT) params.delete("sort"); else params.set("sort", nextSort);
     // 2026-08-26：`view` 不再进 URL——模板库只有卡片网格这一种形态
     //（`Design.pdf` §3「主体为三列卡片网格」，表格视图已整个撤掉）。
     //   旧链接里残留的 `?view=list` 会被这里清掉，不会渲染出一个已经不存在的视图。
     params.delete("view");
     const qs = params.toString();
     router.replace(qs.length > 0 ? `?${qs}` : "?", { scroll: false });
-  }, [filter, query, router]);
+  }, [filter, query, sortBy, router]);
 
   const setFilter = React.useCallback((f: ListTemplatesFilter) => {
     setFilterState(f);
@@ -209,6 +242,10 @@ export function TemplateAdmin({
   const setQuery = React.useCallback((q: string) => {
     setQueryState(q);
     syncUrl({ q });
+  }, [syncUrl]);
+  const setSortBy = React.useCallback((s: SortBy) => {
+    setSortByState(s);
+    syncUrl({ sort: s });
   }, [syncUrl]);
 
   const sourceKey = `${orgId}:${filter}`;
@@ -333,6 +370,16 @@ export function TemplateAdmin({
     return queried.filter((t) => byKey.get(t.key) === t);
   })();
   const hiddenVersionCount = queried.length - rows.length;
+  // 排序——人类原话「修改过的画布，应该放在最上面」，默认档 `updatedAt` 正是这个效果。
+  // 放在 `latestOnly` 折叠**之后**：折叠只决定"这个 key 露出哪一行"，排序决定"露出的
+  // 这些行按什么顺序摆"，两者是独立的两层，顺序颠倒会让折叠前被丢弃的旧版本参与进
+  // 排序比较、白白多算。`[...rows]`——`Array.prototype.sort` 原地改数组，`rows` 上面
+  // 还有别处（`hiddenVersionCount`）用它比较过 `.length`，不能被这一步意外改变身份。
+  const sortedRows = React.useMemo(
+    () => [...rows].sort((a, b) => compareTemplates(a, b, sortBy)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, sortBy],
+  );
 
   async function openArchive(row: CanvasTemplate) {
     setActionError(null);
@@ -395,7 +442,13 @@ export function TemplateAdmin({
         // 立刻打开编辑面板——`usageCount` 恒为 0（刚造出来的行不可能已被绑定），
         // `title`/`footer`/`promptText` 恒为空串（`createTemplate` 不收装帧，新模板
         // 还没起标题/写过提示词），`platform` 恒为 false（刚造出来的必然是本组织自有行）。
-        setEditing({ ...out, usageCount: 0, title: "", footer: "", promptText: "", platform: false });
+        // `createdAt`/`updatedAt` 恒为"此刻"——`createTemplate.out` 契约没有这两栏
+        // （同 `template-editor-panel.tsx` 铸新版本那两处一样的理由），但这一行确实
+        // 就是这一刻刚 INSERT 出来的，不是猜的。
+        setEditing({
+          ...out, usageCount: 0, title: "", footer: "", promptText: "", platform: false,
+          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+        });
         return;
       } catch (error) {
         lastError = error;
@@ -614,6 +667,28 @@ export function TemplateAdmin({
               data-testid="tpladmin-search"
             />
           </label>
+          {/*
+            排序——人类原话「增加一个排序的功能，可以按照名字、修改时间、创建时间来
+            排序，默认按照最后修改时间」。原生 `<select>`：本仓没有现成的下拉选择组件
+            （见 `搜索框`/`latestOnly` 按钮都是手写样式，不是套的组件库），照抄搜索框
+            同款 `rounded-md border border-border bg-background` 外观，不新起一套视觉。
+            放在搜索框与"只看当前版本"之间——同属右侧簇「结果内怎么组织展示」，
+            不与左侧「按状态筛选」tab 混在一起（那是另一个维度："看哪一类"）。
+          */}
+          <label className="flex flex-none items-center gap-1.5 text-11 text-muted-foreground">
+            排序
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+              aria-label="排序方式"
+              data-testid="tpladmin-sort"
+              className="rounded-md border border-border bg-background py-1.5 pl-2 pr-6 text-12 text-foreground"
+            >
+              {SORT_OPTIONS.map((s) => (
+                <option key={s} value={s}>{SORT_LABEL[s]}</option>
+              ))}
+            </select>
+          </label>
           {/* #2：默认关闭——关闭时展示的行集合与本次改动之前完全一致。 */}
           <Button
             size="xs"
@@ -719,7 +794,7 @@ export function TemplateAdmin({
               `stopPropagation`，不得顺带触发打开编辑器。
             */
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" data-testid="tpladmin-cards">
-              {rows.map((t) => (
+              {sortedRows.map((t) => (
                 <Card
                   key={`${t.key}-${t.version}`}
                   className="cursor-pointer overflow-hidden transition-shadow duration-base hover:shadow-md"
