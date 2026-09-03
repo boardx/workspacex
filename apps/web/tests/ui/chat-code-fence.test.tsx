@@ -174,6 +174,29 @@ describe("ChatCodeFence（围栏代码块超阈值才默认折叠）", () => {
     expect(btn.textContent).toBe("已复制");
   });
 
+  it("点击复制后组件卸载，挂起的 writeText 之后才 settle：不在已卸载后新开复位计时器（review #2556 四轮反馈①）", async () => {
+    // 用 React 18 + createRoot 渲染时，对已卸载组件调用 setState 不再 throw、也不再
+    // console.error（这条警告在 React 18 里被移除了）——真正能验证到的症状是「settle
+    // 后是否新开了一个复位计时器」：卸载前没有调用 clearTimeout 的机会，泄漏的计时器
+    // 会一直挂到它自己触发为止。用 fake timers 数挂起的计时器数量来钉住这一点。
+    vi.useFakeTimers();
+    let resolvePending!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      resolvePending = resolve;
+    });
+    const writeText = vi.fn().mockReturnValueOnce(pending);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const { getByTestId, unmount } = render(<ChatCodeFence>{shortCode}</ChatCodeFence>);
+
+    fireEvent.click(getByTestId("chat-code-fence-copy")); // writeText 挂起，尚未 settle
+    unmount();
+    resolvePending(); // 卸载后才 settle
+    await vi.advanceTimersByTimeAsync(0); // 让 copy() 里的 await 继续跑到 applyIfLatest。
+
+    expect(vi.getTimerCount()).toBe(0); // 卸载后的 settle 不该再新开复位计时器。
+    vi.useRealTimers();
+  });
+
   it("卸载时清理未触发的复位计时器，不留悬挂回调（review #2556 二轮反馈④）", async () => {
     vi.useFakeTimers();
     const writeText = vi.fn().mockResolvedValue(undefined);

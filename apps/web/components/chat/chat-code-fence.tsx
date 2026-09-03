@@ -83,9 +83,17 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
   // 若每次调用各自无条件写 `copyState`，旧调用的结果会在新调用之后覆盖回去。每次
   // 调用领一个自增 id，settle 时只有「自己仍是最新一次」才允许落地状态与复位计时器；
   // 不是最新的一律丢弃结果（连状态都不设），旧调用发起的定时器已被新调用一并清掉。
+  //
+  // 卸载后仍未 settle 的请求（review #2556 四轮反馈①）：`latestCopyId` 只在「新调用
+  // 发起」时前进，组件卸载不算一次新调用——若卸载时还有一个 `writeText()` 挂起，它
+  // settle 时 `latestCopyId.current` 还停在它自己的 id 上，`applyIfLatest` 会误判
+  // 「我仍是最新」，在已卸载的组件上调用 `setCopyState`/开新计时器。用一个不属于任何
+  // 真实调用的哨兵值（`Number.NaN`，`!==` 对它永远为真）在卸载时占住这个 ref，让卸载
+  // 前后任何一次 settle 都不再可能命中「仍是最新」。
   const latestCopyId = React.useRef(0);
   React.useEffect(() => () => {
     if (resetTimer.current != null) window.clearTimeout(resetTimer.current);
+    latestCopyId.current = Number.NaN;
   }, []);
 
   const scheduleReset = React.useCallback(() => {
