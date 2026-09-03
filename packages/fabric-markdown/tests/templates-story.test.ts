@@ -201,6 +201,25 @@ describe('burger layout', () => {
       expect(sec.x).toBe(820);
     }
   });
+
+  it('issue #2605 — long bilingual title box is wide enough not to wrap, left edge stays at x=60', () => {
+    const model = templateToModel('模板: burger\n\n## 开场引入\n- a');
+    const title = model.nodes.find((n) => n.id === 'tpl-title')!;
+    expect(title.label).toBe('汉堡沟通模型 Burger Communication Model');
+    // The old flat 380px box was narrower than this title actually needs
+    // (reported as a two-line wrap in the issue's screenshot) — the box must
+    // now be wider than that, and the left edge (x - width/2) must still
+    // land on 60, same anchor every other frame element lines up against.
+    expect(title.width).toBeGreaterThan(380);
+    expect(title.x - title.width / 2).toBeCloseTo(60, 5);
+  });
+
+  it("a short title (e.g. golden-circle's) keeps the old 380px box unchanged", () => {
+    const model = templateToModel('模板: golden-circle\n\n## WHY\n- a');
+    const title = model.nodes.find((n) => n.id === 'tpl-title')!;
+    expect(title.width).toBe(380);
+    expect(title.x).toBe(250);
+  });
 });
 
 describe('storyboard header fields', () => {
