@@ -17,6 +17,32 @@ import { cn } from "@/lib/utils";
 import type { CanvasTool } from "./canvas-toolbar";
 import { ZOOM_MIN, ZOOM_MAX } from "./canvas-toolbar";
 
+/**
+ * 全部对象的并集包围盒——`exportPNG` 与 `fitToContent` 共用的**唯一**一处
+ * `getBoundingRect()` 循环。此前两处各写了一份、padding 也各不相同（导出 24px、
+ * 定 viewport 32px），文档却写着"共用同一套算法"——那是本仓明确要防的"同一事实
+ * 声明在两处"，不是巧合而是没做到位。现在两处都调用它算 min/max，padding 仍然
+ * 各自决定（导出留白与"看到全部"的留白本来就是两回事，不该被这次收敛强行拉齐）。
+ *
+ * 用 `getBoundingRect()` 而不是直接读每个对象的 left/top/width/height：fabric v7 起
+ * 前者恒返回绝对坐标，FlowNode/FlowEdge 内部可能是 group，裸读那四个属性对旋转/
+ * 弯曲边这类对象算出来的框会偏。
+ */
+function unionBoundingBox(
+  objects: ReturnType<FabricCanvas["getObjects"]>,
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  if (objects.length === 0) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const obj of objects) {
+    const r = obj.getBoundingRect();
+    minX = Math.min(minX, r.left);
+    minY = Math.min(minY, r.top);
+    maxX = Math.max(maxX, r.left + r.width);
+    maxY = Math.max(maxY, r.top + r.height);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
 let nodeSeq = 0;
 let edgeSeq = 0;
 
@@ -211,16 +237,9 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     const canvas = fabricRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
-    const objects = canvas.getObjects();
-    if (objects.length === 0) return;
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const obj of objects) {
-      const r = obj.getBoundingRect();
-      minX = Math.min(minX, r.left);
-      minY = Math.min(minY, r.top);
-      maxX = Math.max(maxX, r.left + r.width);
-      maxY = Math.max(maxY, r.top + r.height);
-    }
+    const box = unionBoundingBox(canvas.getObjects());
+    if (!box) return;
+    const { minX, minY, maxX, maxY } = box;
     const PADDING = 32;
     const contentW = maxX - minX + PADDING * 2;
     const contentH = maxY - minY + PADDING * 2;
@@ -818,19 +837,9 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     exportPNG: (opts) => {
       const canvas = fabricRef.current;
       if (!canvas) return null;
-      const objects = canvas.getObjects();
-      if (objects.length === 0) return null;
-      // 并集包围盒——用 `getBoundingRect()`（fabric v7 起恒返回绝对坐标）而不是
-      // 直接读每个对象的 left/top/width/height，因为 FlowNode/FlowEdge 内部
-      // 可能是 fabric Group，裸读那四个属性对旋转/弯曲边这类对象算出来的框会偏。
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const obj of objects) {
-        const r = obj.getBoundingRect();
-        minX = Math.min(minX, r.left);
-        minY = Math.min(minY, r.top);
-        maxX = Math.max(maxX, r.left + r.width);
-        maxY = Math.max(maxY, r.top + r.height);
-      }
+      const box = unionBoundingBox(canvas.getObjects());
+      if (!box) return null;
+      const { minX, minY, maxX, maxY } = box;
       const EXPORT_PADDING = 24;
       const left = minX - EXPORT_PADDING;
       const top = minY - EXPORT_PADDING;

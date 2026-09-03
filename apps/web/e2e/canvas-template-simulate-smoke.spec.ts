@@ -84,7 +84,17 @@ test("admin types a prompt into chat 模拟, gets a real model round trip back, 
 
   // ── 打开 chat 模拟，键入一份「提示词本身就是合法围栏」的文本 ─────────────────
   await page.getByTestId("tpladmin-editor-simulate-toggle").click();
-  await expect(page.getByTestId("tpladmin-editor-simulate-dialog")).toBeVisible();
+  const dialog = page.getByTestId("tpladmin-editor-simulate-dialog");
+  await expect(dialog).toBeVisible();
+
+  // 🟢 R3（人类原话「chat 模拟UI，默认是全屏，不是popup」）——弹窗必须真的铺满
+  // 视口，不是一张有边界的居中卡片。1px 容差留给滚动条/子像素取整，不是放水。
+  const viewport = page.viewportSize()!;
+  const dialogBox = (await dialog.boundingBox())!;
+  expect(dialogBox.x).toBeCloseTo(0, 0);
+  expect(dialogBox.y).toBeCloseTo(0, 0);
+  expect(dialogBox.width).toBeCloseTo(viewport.width, 0);
+  expect(dialogBox.height).toBeCloseTo(viewport.height, 0);
 
   const ECHOED_NAME_VALUE = `E2E小李_${KEY.slice(-6)}`;
   const ECHOED_POINT_VALUE = `E2E要点_${KEY.slice(-6)}`;
@@ -131,6 +141,22 @@ test("admin types a prompt into chat 模拟, gets a real model round trip back, 
   // 这样的话可以修改」）。
   await expect(page.getByTestId("tpladmin-editor-simulate-tool-select")).toBeVisible();
   await expect(page.getByTestId("tpladmin-editor-simulate-tool-sticky")).toBeVisible();
+
+  // 🟢 R3（人类原话「画布默认要可以看到整体的画布，不需要经过缩放」+「加一个：看到
+  // 所有的内容的reset按钮」）——两字段模板的内容小，在铺满视口的全屏弹窗里，
+  // `fitOnLoad` 算出来的缩放本就会被 `fitToContent` 的"只缩小、不放大过 100%"
+  // 规则夹到 100%（见该方法实现），所以不能拿"缩放读数变没变"当信号——量的是
+  // **确定性**：把缩放读数先拨到别的值（100% 是既有「适应画布」按钮的既定行为），
+  // 再点新加的「看到全部」reset 按钮，读数必须落回 `fitOnLoad` 当初算出来的
+  // 同一个值——`fitToContent` 是纯函数（同一份对象包围盒 + 同一个视口尺寸 ⇒
+  // 同一个 zoom），两次调用不应该产出两个不同的答案。
+  const zoomReadout = page.getByTestId("tpladmin-editor-simulate-zoom-readout");
+  const afterAutoFit = await zoomReadout.textContent();
+  await page.getByTestId("tpladmin-editor-simulate-zoom-fit").click(); // 先拨到「适应画布」的 100%……
+  await expect(zoomReadout).toHaveText("100%");
+  await page.getByTestId("tpladmin-editor-simulate-fit-content").click(); // ……再点新按钮触发 reset
+  await expect(zoomReadout).toHaveText(afterAutoFit!);
+
   const result = page.getByTestId("tpladmin-editor-simulate-result");
   await expect(result).toContainText(ECHOED_NAME_VALUE);
   await expect(result).toContainText(ECHOED_POINT_VALUE);

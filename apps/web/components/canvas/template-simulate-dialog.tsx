@@ -372,7 +372,10 @@ export function TemplateSimulateDialog({
                     <Scan aria-hidden className="h-3.5 w-3.5" />
                     看到全部
                   </button>
-                  <span className="w-10 text-center font-mono text-10 tabular-nums text-muted-foreground">
+                  <span
+                    className="w-10 text-center font-mono text-10 tabular-nums text-muted-foreground"
+                    data-testid="tpladmin-editor-simulate-zoom-readout"
+                  >
                     {Math.round(zoom * 100)}%
                   </span>
                   {edited && (
