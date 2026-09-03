@@ -53,7 +53,7 @@ export function RolesScreen({
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel px-3 py-2" data-testid="roles-role-bar">
           <ShieldCheck aria-hidden className="h-4 w-4 text-muted-foreground" />
           <span className="text-12" data-testid="roles-role-bar-text">
-            <strong>{ORG_ROLE_LABEL[ROLE_BAR.orgRole]} · {ROLE_BAR.team}</strong>
+            <strong>{ORG_ROLE_LABEL[ROLE_BAR.orgRole]}</strong>
             <span className="mx-1 text-muted-foreground">｜ 本项目：</span>
             <strong>{PROJECT_ROLE_LABEL[ROLE_BAR.projectRole]} · {ROLE_BAR.group}</strong>
           </span>
