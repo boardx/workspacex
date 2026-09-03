@@ -159,6 +159,35 @@ export interface ProductFeedbackRepository {
     emailText: string | null,
   ): Promise<void>;
   /**
+   * 同 `transitionStatusWithEvent`，但多一个前提：**只在这一刻的 `status` 仍然是
+   * `expectedStatus` 时才生效**，且这个前提是同一条 `UPDATE` 语句的 `WHERE` 子句，
+   * 不是"先 `SELECT` 读一次、再决定要不要 `UPDATE`"两步——两步之间永远有一个窗口，
+   * 另一个事务可能已经把状态改成了别的东西。
+   *
+   * ⚠ **2026-09-03（PR #2580 独立复核阻断项②）**：`reconcile-closed-github-issues.ts`
+   *   最初就是"先 `findById` 读一次当前状态、算出要转到哪、再调
+   *   `transitionStatusWithEvent`（无条件 `UPDATE`）"——管理员完全可能在这两步之间
+   *   手动把这条反馈改判成「不做」，poller 的这次 `UPDATE` 会**原样覆盖掉那次更晚
+   *   发生的人工判断**，还照常写一行 `from_status` 与当前值不符的历史（因为事件行
+   *   的 `fromStatus` 用的是 poller 那次读到的旧快照，不是数据库这一刻真正的
+   *   `from_status`）。这个方法把"当前状态必须是 X"钉进 `UPDATE ... WHERE
+   *   status = $expectedStatus`本身，`RETURNING id` 是空集就说明这一刻状态已经
+   *   不是调用方以为的那个，直接返回 `false`——不落库、不写事件，调用方据此放弃
+   *   这次转移（不能拿同一个 `expectedStatus` 重试，那只是把窗口往后挪）。
+   *
+   * ⚠ 只有 `triageFeedback`（人类分诊，单次 HTTP 请求内完成"读→判→写"，管理员看到
+   *   的是自己刚点的那次操作）继续用不带前提的 `transitionStatusWithEvent`——那条
+   *   路径的"读"与"写"之间没有一个需要跨请求容忍的窗口。这个方法专给后台批量对账
+   *   这种"读到的快照与真正写入之间隔着一次 GitHub API 调用"的场景。
+   */
+  transitionStatusWithEventIfCurrentStatus(
+    feedbackId: string,
+    expectedStatus: FeedbackStatus,
+    status: FeedbackStatus,
+    reason: string | null,
+    event: Pick<StatusEvent, "id" | "feedbackId" | "fromStatus" | "toStatus" | "reason" | "actorId">,
+  ): Promise<boolean>;
+  /**
    * 这条反馈的完整状态流水，最旧的在前（管理员在 detail 弹层里从上往下读"发生了
    * 什么"）。⚠ 不做租户外可见性判断——调用方（`list-feedback-events.ts`）已经
    * 先 `findById` 确认过这条反馈在当前租户里存在,这里只是单纯按 `feedback_id`

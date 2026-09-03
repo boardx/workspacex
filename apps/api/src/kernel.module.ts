@@ -439,6 +439,13 @@ import {
   lazyTransactionalMailConfig,
   type TransactionalMailConfig,
 } from "./infrastructure/notifications/cloudflare-transactional-email-transport";
+// 2026-09-03：反馈闭环的反向对账——定时把 GitHub issue 的关闭态拉回反馈状态并
+// 通知提交人测试验收（issue #2500 登记的自愈缺口的落地）。见
+// `application/feedback/github-issue-poll-ports.ts` 与
+// `infrastructure/feedback/feedback-github-issue-poll-worker.ts` 头注。
+import { FEEDBACK_GITHUB_ISSUE_SCANNER } from "./application/feedback/github-issue-poll-ports";
+import { PgFeedbackGithubIssueScanner } from "./infrastructure/feedback/pg-feedback-github-issue-scanner";
+import { FeedbackGithubIssuePollWorker } from "./infrastructure/feedback/feedback-github-issue-poll-worker";
 // FB-5（2026-09-02）：图片附件仓储 + 语音转录整理的固定模型配置。见两个用例的头注
 // （`upload-feedback-attachment.ts` / `structure-feedback-draft.ts`）与
 // `pg-feedback-attachment-repository.ts`。
@@ -2146,6 +2153,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (config: TransactionalMailConfig) => new CloudflareTransactionalEmailTransport(config),
       inject: [TRANSACTIONAL_MAIL_CONFIG],
     },
+    // 2026-09-03：反馈闭环反向对账（定时把已关闭的 GitHub issue 同步回反馈状态 +
+    // 通知提交人）。`FeedbackGithubIssuePollWorker` 复用上面已经注册的
+    // `GITHUB_ISSUE_CONFIG` / `GITHUB_ISSUE_CREATOR` / `FEEDBACK_SUBMITTER_DIRECTORY` /
+    // `TRANSACTIONAL_MAIL_TRANSPORT` / `PRODUCT_FEEDBACK_REPOSITORY`,只多绑一个
+    // 新端口 `FEEDBACK_GITHUB_ISSUE_SCANNER`。
+    {
+      provide: FEEDBACK_GITHUB_ISSUE_SCANNER,
+      useFactory: (db: DatabasePort) => new PgFeedbackGithubIssueScanner(db),
+      inject: [DATABASE_PORT],
+    },
+    FeedbackGithubIssuePollWorker,
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),
