@@ -24,6 +24,44 @@
  */
 import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+// ⚠ 从产品代码 import 那个 key，不在这里再写一份字面量——鉴权是
+//   `Authorization: Bearer <token>`（不是 cookie），token 存在 localStorage 的这个键下。
+//   见 `chat-agent-skill-context.spec.ts` 同一模式。
+import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
+
+/** `page.request` 不会自动带上身份（Bearer，不是 cookie）——直连 API 时要显式带这个头。 */
+async function authHeaders(page: Page): Promise<Record<string, string>> {
+  const token = await page.evaluate((key) => window.localStorage.getItem(key), SESSION_TOKEN_STORAGE_KEY);
+  expect(token, "登录之后 localStorage 里应有 session token").toBeTruthy();
+  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+}
+
+/**
+ * G2「生成用户画像」composer 按钮已下线（人类实测反馈：固定占一整行，误导用户）——
+ * 这条 e2e 复用的不是 UI 入口，是它背后仍然保留的 `POST .../persona-summary` 端点，
+ * 直连 API 产出确定性 mermaid 消息（理由见文件头注：本仓唯一确定性产出 mindmap 消息
+ * 的真实路径，`chat-diagram-fabric` 只对 `isAgent` 消息接 markdown 渲染）。
+ * 锚点 `messageId`（契约必传）取线程当前最新一条消息——与原按钮实现同一条取值规则
+ * （`messages[messages.length - 1]`），这里改用真实 GET 读回，不猜。
+ */
+async function triggerPersonaSummary(
+  page: Page,
+  threadId: string,
+): Promise<{ resultMessageId: string; sufficient: boolean }> {
+  const headers = await authHeaders(page);
+  const messagesRes = await page.request.get(`/chat/threads/${threadId}/messages?limit=100`, { headers });
+  expect(messagesRes.ok()).toBe(true);
+  const { messages } = await messagesRes.json() as { messages: Array<{ id: string }> };
+  const anchor = messages[messages.length - 1];
+  expect(anchor, "触发画像生成前线程需要至少一条消息作为锚点").toBeTruthy();
+
+  const res = await page.request.post(`/chat/threads/${threadId}/persona-summary`, {
+    headers,
+    data: { threadId, messageId: anchor!.id },
+  });
+  expect(res.ok()).toBe(true);
+  return res.json();
+}
 
 /**
  * 反复点「加载更早之后的消息」直到按钮消失或不再出现——真的翻到底，不是「翻出了
@@ -89,18 +127,19 @@ test("G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版
     } catch { return false; }
   }, { timeout: 120_000 });
 
-  // ── G2：触发「生成用户画像」，assistant mindmap 消息进入线程并渲染 ──────
-  const personaResponse = page.waitForResponse((r) =>
-    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.diagramRoundtripThreadId}/persona-summary`));
-  await page.getByTestId("chat-persona-summary-trigger").click();
-  const personaOut = await (await personaResponse).json() as { resultMessageId: string; sufficient: boolean };
+  // ── G2：触发「生成用户画像」——composer 按钮已下线（占一整行、人类实测判定为
+  // 误操作入口），直连背后仍保留的端点（见文件头注 `triggerPersonaSummary`）。
+  // assistant mindmap 消息落库，但直连 API 不经过面板的软重读——reload 换取「消息
+  // 面板重新从服务端整页拉取」，不假装 UI 触发过一次它没有触发的软重读。
+  const personaOut = await triggerPersonaSummary(page, CHAT_READ_E2E.diagramRoundtripThreadId);
   expect(personaOut.sufficient).toBe(true);
   expect(typeof personaOut.resultMessageId).toBe("string");
 
-  // 夹具线程有 51+ 条种子消息，首页只显示最老的 50 条。2026-08-22 起（H3 根因
-  // 修复后）软重读会自己把分页追到底，按钮到这一步往往已经不存在——用
-  // `loadAllMessagePages` 而不是裸 `.click()`：按钮不在就直接返回，不强行等一个
-  // 可能已经不会再出现的元素（见该 helper 头注）。
+  await page.reload();
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
+
+  // 这条专属线程消息数远不到分页阈值，首屏即可加载到全部消息；`loadAllMessagePages`
+  // 仍保留作为通用兜底（按钮不存在就立即返回，见该 helper 头注）。
   await loadAllMessagePages(page);
 
   // mindmap 围栏走既有 fabric 通道渲染出来（mermaid.parse 真跑在浏览器里）。
@@ -236,11 +275,13 @@ test("只读预览挂载即读回：保存后立即可见 + reload 不点最大�
   await expect(page.getByTestId("chat-message-list")).toContainText("陈静");
 
   // ── G2：再触发一次「生成用户画像」，产出一条新的 mindmap 消息（可编辑保存）──
-  const personaResponse = page.waitForResponse((r) =>
-    r.request().method() === "POST" && r.url().endsWith(`/chat/threads/${CHAT_READ_E2E.diagramRoundtripThreadId}/persona-summary`));
-  await page.getByTestId("chat-persona-summary-trigger").click();
-  const personaOut = await (await personaResponse).json() as { resultMessageId: string; sufficient: boolean };
+  // composer 按钮已下线，直连端点（见文件头注 `triggerPersonaSummary`），reload
+  // 换取消息面板重新整页拉取。
+  const personaOut = await triggerPersonaSummary(page, CHAT_READ_E2E.diagramRoundtripThreadId);
   expect(personaOut.sufficient).toBe(true);
+
+  await page.reload();
+  await expect(page.getByTestId(`chat-thread-${CHAT_READ_E2E.diagramRoundtripThreadId}`)).toBeVisible();
 
   // 这条专属线程消息数远不到 50 条分页阈值（上一条用例只发了几条消息），这里仍走
   // `loadAllMessagePages`——按钮不存在就立即返回（见该 helper 头注），不依赖具体
