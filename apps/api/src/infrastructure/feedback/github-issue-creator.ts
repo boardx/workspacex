@@ -396,6 +396,14 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
    * `PUT` 必须带上这个才能改已存在的文件)；真的不存在(`404`)返回 `null`,首次
    * 上传不带 `sha`；探测本身失败(网络异常、非 404 的非 2xx)**直接抛错**,不当成
    * "不存在"——见 `uploadImage` 头注的修正说明。
+   *
+   * ⚠ **2026-09-03 review 二轮再指出的边界**:`200` 但响应体里没有合法字符串
+   *   `sha` 是一个**无效响应**,不是"文件不存在"——文件明明存在(不然不会 200),
+   *   只是这次没能读出它的 `sha`。此前把这种情况也 `return null`,会退化成"当作
+   *   首次上传"发一个不带 `sha` 的 `PUT`,对已存在文件必然 422、被上层 best-effort
+   *   吞掉,issue 建出来但没带图——跟"探测失败当成不存在"是同一类错误,只是
+   *   触发条件从"请求失败"换成了"请求成功但响应形状不对"。两者现在同一处置:
+   *   直接抛错,不猜。
    */
   private async existingContentSha(path: string, signal: AbortSignal): Promise<string | null> {
     const url = `${this.contentsUrl(path)}?ref=${encodeURIComponent(this.config.attachmentsBranch)}`;
@@ -408,7 +416,8 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
     if (response.status === 404) return null; // 分支或文件确实还不存在,首次上传
     if (!response.ok) throw new GithubIssueApiError("uploadImage", response.status);
     const body = (await response.json().catch(() => ({}))) as { sha?: unknown };
-    return typeof body.sha === "string" ? body.sha : null;
+    if (typeof body.sha !== "string") throw new GithubIssueApiError("uploadImage", response.status);
+    return body.sha;
   }
 
   /**
@@ -492,10 +501,33 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
     } catch {
       throw new GithubIssueApiError("uploadImage", null);
     }
-    // 422 = 并发的另一个请求同时建完了这个 ref,不是错误——见方法头注。
-    if (!createRefRes.ok && createRefRes.status !== 422) {
-      throw new GithubIssueApiError("uploadImage", createRefRes.status);
+    if (createRefRes.ok) {
+      this.branchEnsured = true;
+      return;
     }
-    this.branchEnsured = true;
+    // ⚠ **2026-09-03 review 二轮再指出的边界**:`422` 不是"ref 已存在"的唯一含义——
+    //   GitHub 对 `POST git/refs` 的 422 同时覆盖"ref 已存在"(并发的另一个请求
+    //   刚建完,读作信号)与真正的 validation failure(比如 sha 指向的对象不合法)。
+    //   此前把所有 `422` 一律当成"已经建完了",分不清这两种;真出现 validation
+    //   failure 时会悄悄放行,后续的探测/上传在一个其实不存在的分支上operate,
+    //   表现成更下游、更难查的错误。现在改成:只在**重新 `GET` 确认这个 ref 真的
+    //   存在**之后才当作"已经建完",409/422 但 ref 其实不存在时仍然报错,不再猜。
+    if (createRefRes.status === 422) {
+      let recheck: Response;
+      try {
+        recheck = await this.request(this.refUrl(this.config.attachmentsBranch), {
+          method: "GET",
+          signal,
+          headers: this.headers(),
+        });
+      } catch {
+        throw new GithubIssueApiError("uploadImage", null);
+      }
+      if (recheck.ok) {
+        this.branchEnsured = true;
+        return;
+      }
+    }
+    throw new GithubIssueApiError("uploadImage", createRefRes.status);
   }
 }

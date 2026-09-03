@@ -115,6 +115,10 @@ describe("FetchGithubIssueCreator", () => {
       calls: Array<{ url: string; init?: RequestInit }>,
       over: Partial<{
         refStatus: number; refBody: unknown;
+        /** `ensureAttachmentsBranch` 撞见 422 之后重新 `GET` 那个 ref 时的响应——
+         *  与第一次探测(`refStatus`)分开配置,因为"分支起初不存在、后来建好了"
+         *  这条路径必须让同一个端点前后两次返回不同状态。默认沿用 `refStatus`。 */
+        refRecheckStatus: number;
         treeStatus: number; treeBody: unknown;
         commitStatus: number; commitBody: unknown;
         createRefStatus: number; createRefBody: unknown;
@@ -124,6 +128,7 @@ describe("FetchGithubIssueCreator", () => {
     ): typeof fetch {
       const o = {
         refStatus: 200, refBody: {},
+        refRecheckStatus: over.refStatus ?? 200,
         treeStatus: 201, treeBody: { sha: "tree-sha" },
         commitStatus: 201, commitBody: { sha: "commit-sha" },
         createRefStatus: 201, createRefBody: {},
@@ -132,10 +137,14 @@ describe("FetchGithubIssueCreator", () => {
         putBody: { content: { download_url: "https://raw.githubusercontent.com/boardx/workspacex/feedback-attachments/feedback-attachments/fbattach-1.png" } },
         ...over,
       };
+      let refCalls = 0;
       return (async (url: string, init?: RequestInit) => {
         calls.push({ url, init });
         const method = init?.method ?? "GET";
-        if (url.includes("/git/ref/heads/")) return jsonResponse(o.refBody, o.refStatus);
+        if (url.includes("/git/ref/heads/")) {
+          refCalls += 1;
+          return refCalls === 1 ? jsonResponse(o.refBody, o.refStatus) : jsonResponse({}, o.refRecheckStatus);
+        }
         if (url.includes("/git/trees")) return jsonResponse(o.treeBody, o.treeStatus);
         if (url.includes("/git/commits")) return jsonResponse(o.commitBody, o.commitStatus);
         if (url.includes("/git/refs")) return jsonResponse(o.createRefBody, o.createRefStatus);
@@ -200,11 +209,32 @@ describe("FetchGithubIssueCreator", () => {
       expect(put!.init?.method).toBe("PUT");
     });
 
-    it("建分支时并发冲突(POST git/refs 收到 422=ref 已存在)⇒ 当作已建，继续上传，不报错", async () => {
+    /**
+     * ⚠ review 二轮的修正:`422` 不是"ref 已存在"的唯一含义,也可能是真正的
+     * validation failure——所以这里不再无条件相信 `422`,而是重新 `GET` 这个 ref
+     * 确认它真的存在了才继续。这条覆盖"确实是并发冲突"的那一半:重新 `GET` 拿到
+     * `200` ⇒ 放行。另一半("422 但 ref 其实不存在")见下一条用例。
+     */
+    it("建分支时并发冲突(POST git/refs 收到 422)⇒ 重新 GET 确认 ref 真的存在才放行，继续上传", async () => {
       const calls: Array<{ url: string; init?: RequestInit }> = [];
-      const creator = new FetchGithubIssueCreator(fakeConfig(), routedFetch(calls, { refStatus: 404, createRefStatus: 422 }));
+      const creator = new FetchGithubIssueCreator(
+        fakeConfig(),
+        routedFetch(calls, { refStatus: 404, createRefStatus: 422, refRecheckStatus: 200 }),
+      );
       const result = await creator.uploadImage(input);
       expect(result.url).toBeTruthy();
+      const refGets = calls.filter((c) => c.url.includes("/git/ref/heads/"));
+      expect(refGets).toHaveLength(2); // 首次探测(404) + 422 之后的复核(200)
+    });
+
+    it("POST git/refs 收到 422 但复核 ref 其实不存在(真正的 validation failure)⇒ 报错，不放行", async () => {
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      const creator = new FetchGithubIssueCreator(
+        fakeConfig(),
+        routedFetch(calls, { refStatus: 404, createRefStatus: 422, refRecheckStatus: 404 }),
+      );
+      const error = await creator.uploadImage(input).catch((e) => e as GithubIssueApiError);
+      expect(error).toBeInstanceOf(GithubIssueApiError);
     });
 
     /**
@@ -224,6 +254,21 @@ describe("FetchGithubIssueCreator", () => {
       const put = calls[2]!;
       const body = JSON.parse(put.init?.body as string) as { sha?: string };
       expect(body.sha).toBe("existing-blob-sha");
+    });
+
+    /**
+     * ⚠ 独立 review 二轮再指出的边界:`200` 但响应体没有合法字符串 `sha` 是一个
+     * **无效响应**,不是"文件不存在"——此前会退化成 `null`(当作首次上传),对
+     * 已存在文件必然 422、被 best-effort 吞掉、丢图。现在改成直接失败。
+     */
+    it("内容探测 200 但响应体没有合法 sha ⇒ 视为无效响应,直接失败,不当成「不存在」", async () => {
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      const creator = new FetchGithubIssueCreator(
+        fakeConfig(),
+        routedFetch(calls, { contentGetStatus: 200, contentGetBody: {} }), // 200 但没有 sha 字段
+      );
+      const error = await creator.uploadImage(input).catch((e) => e as GithubIssueApiError);
+      expect(error).toBeInstanceOf(GithubIssueApiError);
     });
 
     /**
