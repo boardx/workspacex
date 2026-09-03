@@ -7,6 +7,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { agentRuntime } from "@repo/contracts";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-live-406", orgRole: "consultant" }));
@@ -68,10 +69,12 @@ describe("#406 Agent / Skill 真实组织能力目录", () => {
     vi.unstubAllGlobals();
   });
 
-  it("Agent 使用 currentOrg + kind=agent 查询，且真实数组按 10 条分页", async () => {
+  it("Agent 使用 currentOrg + kind=agent 查询；11 条全部在一个网格里，靠搜索与标签收窄而不是分页", async () => {
     const rows = Array.from({ length: 11 }, (_, i) => capability("agent", i + 1));
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
+      // 2026-09-02 起 Agent 目录同时读 F55 定义（`GET /agents`）——按路径分流，这里给空。
+      if (url.pathname === agentRuntime.operations.listAgents.path) return jsonResponse([]);
       expect(url.pathname).toBe("/capabilities");
       expect(url.searchParams.get("orgId")).toBe("org-live-406");
       expect(url.searchParams.get("kind")).toBe("agent");
@@ -85,13 +88,24 @@ describe("#406 Agent / Skill 真实组织能力目录", () => {
 
     const list = await screen.findByTestId("admin-agent-list");
     expect(within(list).getByText("Agent 真实条目 1")).toBeInTheDocument();
-    expect(within(list).queryByText("Agent 真实条目 11")).not.toBeInTheDocument();
-    expect(screen.getByTestId("admin-agent-page-status")).toHaveTextContent("第 1 / 2 页");
+    expect(within(list).getByText("Agent 真实条目 11")).toBeInTheDocument();
+    expect(screen.queryByTestId("admin-agent-page-status")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("admin-agent-next-page"));
-    expect(await screen.findByText("Agent 真实条目 11")).toBeInTheDocument();
-    expect(screen.getByTestId("admin-agent-page-status")).toHaveTextContent("第 2 / 2 页");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // 搜索是纯前端过滤：不再发第二次请求。
+    fireEvent.change(screen.getByTestId("admin-agent-search"), { target: { value: "条目 11" } });
+    expect(within(screen.getByTestId("admin-agent-list")).queryByText("Agent 真实条目 1")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("admin-agent-list")).getByText("Agent 真实条目 11")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("admin-agent-search"), { target: { value: "" } });
+
+    // 标签同样是本地过滤：「已停用」只剩第 2 条。
+    fireEvent.click(screen.getByTestId("admin-agent-tag-filter-disabled"));
+    expect(within(screen.getByTestId("admin-agent-list")).getByText("Agent 真实条目 2")).toBeInTheDocument();
+    expect(within(screen.getByTestId("admin-agent-list")).queryByText("Agent 真实条目 1")).not.toBeInTheDocument();
+
+    const capabilityCalls = fetchMock.mock.calls.filter(([input]) =>
+      new URL(typeof input === "string" ? input : input.toString()).pathname === "/capabilities",
+    );
+    expect(capabilityCalls).toHaveLength(1);
   });
 
   it("Skill 使用 kind=skill 独立读取并只展示契约事实，不宣称可运行", async () => {
@@ -116,7 +130,9 @@ describe("#406 Agent / Skill 真实组织能力目录", () => {
 
   it("读取失败显示错误而非空态，重试后才展示持久化结果", async () => {
     let attempts = 0;
-    const fetchMock = vi.fn(async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === agentRuntime.operations.listAgents.path) return jsonResponse([]);
       attempts += 1;
       return attempts === 1
         ? jsonResponse({ reasonCode: "CAPABILITY_SERVICE_UNAVAILABLE" }, 503)
@@ -131,13 +147,14 @@ describe("#406 Agent / Skill 真实组织能力目录", () => {
 
     fireEvent.click(screen.getByTestId("admin-agent-retry"));
     expect(await screen.findByText("Agent 真实条目 7")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(attempts).toBe(2);
   });
 
   it("currentOrg 改变后立即隐藏旧组织 rows，新请求未完成时 fail-closed", async () => {
     let resolveNewOrg: ((response: Response) => void) | undefined;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === agentRuntime.operations.listAgents.path) return jsonResponse([]);
       const orgId = url.searchParams.get("orgId");
       if (orgId === "org-live-406") {
         return jsonResponse([capability("agent", 1, { name: "旧组织 Agent" })]);

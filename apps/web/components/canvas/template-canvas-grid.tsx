@@ -2,7 +2,7 @@
 import * as React from "react";
 import type { SectionDraft } from "./template-editor-model";
 import { TONE_COLORS, noteFontSizePx, sectionGeometryMmOf } from "./template-editor-model";
-import { PAPER_SIZE_MM, A1_MARGIN_MM, STANDARD_NOTE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
+import { PAPER_SIZE_MM, A1_MARGIN_MM, GRID_GAP_MM, BLOCK_HEADER_CQW, BLOCK_HEADER_LINE_HEIGHT, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
 
 /**
  * 拖拽式 A1 画布（R4，2026-08-26）——`Design.pdf` §4.2「第二步 · 拖到画布」。
@@ -28,6 +28,24 @@ import { PAPER_SIZE_MM, A1_MARGIN_MM, STANDARD_NOTE_MM, type PaperSizeKey } from
  */
 
 const GRID_ROWS = 8;
+
+/**
+ * 区块内标题行（区块名 + `{{token}} 列·条` 提示行）的比例尺寸，读自
+ * `explicit-template-layout.ts` 的 `BLOCK_HEADER_CQW`/`BLOCK_HEADER_LINE_HEIGHT`
+ * ——不在这里另开一份重复声明。`sectionGeometryMm` 的 `titleReserveMm` 就是从
+ * 这几个数反推的，改这里任何一个值都必须去改那个单一事实源，不能只改渲染这
+ * 一侧（同一件事只能有一处数字，AGENTS.md「同一事实不得声明在两处」）。
+ *
+ * ⚠ 2026-09-01 独立审查抓到的问题：标题行有 `leading-tight`（Tailwind 1.25），
+ *   提示行此前**没有任何显式行高**——`titleReserveMm` 的推导却假设两行用同一个
+ *   行高倍数，靠"没写等于随便读到什么值"是自欺。两行现在都显式套
+ *   `lineHeight: BLOCK_HEADER_LINE_HEIGHT`，不靠 Tailwind 的 `leading-tight`
+ *   class（那样只覆盖一行，另一行的实际行高不受这个常量约束）。
+ */
+const {
+  padding: BLOCK_PAD_CQW, border: BLOCK_BORDER_CQW, gap: BLOCK_HEADER_GAP_CQW,
+  titleGap: BLOCK_TITLE_GAP_CQW, titleFont: BLOCK_TITLE_FONT_CQW, metaFont: BLOCK_META_FONT_CQW,
+} = BLOCK_HEADER_CQW;
 
 export function TemplateCanvasGrid({
   sections, gridCols, showSample, runData, selectedId, editable,
@@ -70,20 +88,6 @@ export function TemplateCanvasGrid({
   const contentRef = React.useRef<HTMLDivElement>(null);
 
   const placed = sections.filter((s) => s.layout !== null);
-
-  /**
-   * 贴纸实尺，按纸宽换算成 `cqw`（容器宽度的百分比）——2026-08-30 人类反馈
-   * 「column 是 1 的时候便利贴太大，便利贴大小不应该跟着列数变，相对画布应该是
-   * 固定的」。`cqw` 相对的是最外层那个 `containerType:inline-size` 的 div
-   * （见下方 JSX 的注释），也就是整张纸自己的宽度，与贴纸具体落在哪个区块、
-   * 区块选了几列完全无关——1 列与 8 列算出来的都是同一个 `notePct`。
-   *
-   * ⚠ 不能用 `1fr`（改动前的做法）：`repeat(cols, 1fr)` 让每张贴纸的宽度 =
-   *   区块宽度 / cols，列数选到 1 时贴纸被拉成整个区块那么大的正方形——正是
-   *   这次要修的问题。真实的 3M 便利贴是固定尺寸的一叠纸，不会因为你排成一列
-   *   还是八列就跟着变大变小。
-   */
-  const notePct = (STANDARD_NOTE_MM / PAPER_SIZE_MM[paperSize].w) * 100;
 
   /** 指针 → 网格坐标。按比例换算（见文件头），不是像素常量。 */
   function cellFrom(e: React.DragEvent): { col: number; row: number } | null {
@@ -209,6 +213,20 @@ export function TemplateCanvasGrid({
           const layout = s.layout!;
           const geom = sectionGeometryMmOf(s, gridCols, paperSize);
           const isList = s.type === "便利贴列表";
+          /**
+           * 贴纸实尺，按纸宽换算成 `cqw`（容器宽度的百分比）——2026-09-01 推翻
+           * 2026-08-30 那条「贴纸固定，不随列数/区块变化」的约定（理由见
+           * `explicit-template-layout.ts` 的 `MAX_NOTE_MM` 文档：固定大小在窄区块
+           * 长文字场景下会让贴纸装不进框，是这次要修的问题）。
+           *
+           * 用 `geom.noteMm`（已经按 `wMm/cols` 算好、并封顶在 `MAX_NOTE_MM`）而不是
+           * 直接 `repeat(cols, 1fr)`：`1fr` 会让贴纸宽度恒等于"区块宽度/列数"，1 列
+           * 时贴纸被拉成整个区块那么大的正方形（issue #2368 那次要修的问题，2026-08-30
+           * 冻结前的真实回归）；改用 `geom.noteMm` 换算出的 `cqw`，贴纸仍随列数/区块
+           * 宽度缩放，但不会超过 `MAX_NOTE_MM`——两次教训（"完全不变"太大、"纯 1fr"
+           * 又会撑爆）都躲开。
+           */
+          const notePct = (geom.noteMm / PAPER_SIZE_MM[paperSize].w) * 100;
           // 实际渲染几条：受"最多条数"与"这块地方放得下几条"双重约束——
           // 画出来的东西不能比物理上放得下的还多，那是在骗人。
           const capacity = isList ? Math.min(layout.max, Math.max(0, geom.fits)) : 1;
@@ -217,6 +235,17 @@ export function TemplateCanvasGrid({
           const values = runData === null ? null : valuesFor(s, runData);
           const noteCount = visibleNoteCount(capacity, values === null ? null : values.length);
           const overflowed = values !== null && values.length > capacity;
+          /**
+           * 「叠放」——2026-09-01 人类反馈「便利贴太大装不下」之前，`layout.overflow`
+           * 选哪个都不影响渲染（只拼进一句警告文案，见下方 `overflowed` 那个 span）。
+           * 选「叠放」时，装不下的那部分不再直接被外层 `overflow-hidden` 悄悄裁掉——
+           * 让出最后一个格子，换成一张「+N」堆叠角标，如实交代"这里还有 N 条没显示"，
+           * 而不是让使用者以为数据丢了。其余两个选项（缩小字号/截断）不动这个数，
+           * 装不下的行为仍是原来的"摆不下就换行、换行摆不下就被裁掉"。
+           */
+          const showStack = isList && layout.overflow === "叠放" && overflowed && noteCount > 1;
+          const stackExtra = showStack ? values!.length - (noteCount - 1) : 0;
+          const visibleCount = showStack ? noteCount - 1 : noteCount;
           return (
             <div
               key={s.sectionId}
@@ -227,11 +256,16 @@ export function TemplateCanvasGrid({
               }}
               onDragEnd={() => setDragging(null)}
               onClick={() => onSelect(s.sectionId)}
-              className="flex cursor-pointer flex-col gap-1.5 overflow-hidden rounded-card bg-card p-2"
+              className="flex cursor-pointer flex-col overflow-hidden rounded-card bg-card"
               style={{
                 gridColumn: `${layout.col} / span ${layout.w}`,
                 gridRow: `${layout.row} / span ${layout.h}`,
-                border: `2px solid ${selectedId === s.sectionId ? "#1F5FD0" : "#14130F"}`,
+                // 2px solid → 比例边框：固定像素同样不随纸宽缩放，`titleReserveMm`
+                // 的推导把它算作上下两条边各一份，渲染这侧也必须真的是这个宽度。
+                border: `${BLOCK_BORDER_CQW}cqw solid ${selectedId === s.sectionId ? "#1F5FD0" : "#14130F"}`,
+                // p-2 → 比例内边距，gap-1.5 → 比例间距，理由见上方常量声明处的文档。
+                padding: `${BLOCK_PAD_CQW}cqw`,
+                gap: `${BLOCK_HEADER_GAP_CQW}cqw`,
               }}
               data-testid={`tpladmin-editor-block-${s.sectionId}`}
             >
@@ -247,16 +281,25 @@ export function TemplateCanvasGrid({
                   横排本来就放不下，只会从竖排变成溢出。真正的修法是「分行」——参照设计里
                   （PESTEL / 用户画像 / AI 战略画布）标题也都是独占一行、说明文字在它下面。
               */}
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate text-11 font-bold leading-tight" title={s.name || "未命名"}>
+              <div className="flex min-w-0 flex-col" style={{ gap: `${BLOCK_TITLE_GAP_CQW}cqw` }}>
+                <span
+                  className="truncate font-bold"
+                  style={{ fontSize: `${BLOCK_TITLE_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
+                  title={s.name || "未命名"}
+                >
                   {s.name || "未命名"}
                 </span>
-                <div className="flex min-w-0 items-baseline gap-1.5">
-                  <span className="truncate font-mono text-9 text-primary" title={`{{${s.key}${isList ? "[]" : ""}}}`}>
+                <div className="flex min-w-0 items-baseline" style={{ gap: `${BLOCK_HEADER_GAP_CQW}cqw` }}>
+                  <span
+                    className="truncate font-mono text-primary"
+                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
+                    title={`{{${s.key}${isList ? "[]" : ""}}}`}
+                  >
                     {`{{${s.key}${isList ? "[]" : ""}}}`}
                   </span>
                   <span
-                    className={`ml-auto shrink-0 whitespace-nowrap text-9 ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
+                    className={`ml-auto shrink-0 whitespace-nowrap ${overflowed ? "font-bold text-destructive" : "text-muted-foreground"}`}
+                    style={{ fontSize: `${BLOCK_META_FONT_CQW}cqw`, lineHeight: BLOCK_HEADER_LINE_HEIGHT }}
                     data-testid={overflowed ? `tpladmin-editor-overflow-${s.sectionId}` : undefined}
                   >
                     {overflowed
@@ -268,33 +311,67 @@ export function TemplateCanvasGrid({
                 </div>
               </div>
               <div
-                className="grid flex-1 content-start gap-1 overflow-hidden"
+                className="grid flex-1 content-start overflow-hidden"
                 style={{
-                  // 列表型：每列固定宽 `notePct`（贴纸实尺，不随 `layout.cols` 缩放）——
-                  // 列数只决定一行摆几张，多出来的就换行（`content-start` 让多余行不被
-                  // 拉伸），摆不下的部分会被外层 `overflow-hidden` 裁掉，与真实便利贴
-                  // 「摆不下就是摆不下」的体验一致，不是在这里悄悄把贴纸压小凑数。
+                  // 列表型：每列宽 `notePct`（`geom.noteMm` 换算，随区块宽度/列数缩放，
+                  // 封顶 `MAX_NOTE_MM`——2026-09-01 见上方 `notePct` 声明处的文档）。
+                  // 一行摆 `layout.cols` 张，多出来的换行（`content-start` 让多余行不被
+                  // 拉伸），行数摆不下的部分仍会被外层 `overflow-hidden` 裁掉。
                   // 短文本/长文本型：仍是 1fr（占满区块宽的单个文本框，不是贴纸网格）。
                   gridTemplateColumns: isList ? `repeat(${layout.cols}, ${notePct}cqw)` : "1fr",
+                  // ⚠ 2026-09-01 人类反馈"还是有被截掉的贴纸"：`gap` 此前是 Tailwind
+                  //   `gap-1`（固定 4px），不随纸面缩放，而 `sectionGeometryMm` 的
+                  //   `rows` 公式假设行间距恒等于 `GRID_GAP_MM`（按纸宽换算的比例值，
+                  //   与 `noteMm`/`notePct` 同一套单位）——容器越窄，固定 4px 相对纸宽
+                  //   的比例越大，实际占用的行高比公式假设的更多，容易让最后一行卡在
+                  //   `overflow-hidden` 的边缘被切掉半张。改成同一套 cqw 比例，两边的
+                  //   "间距"就是同一个数字的两种写法，不会再各说各话。
+                  gap: `${(GRID_GAP_MM / PAPER_SIZE_MM[paperSize].w) * 100}cqw`,
                 }}
               >
-                {Array.from({ length: noteCount }, (_, i) => (
+                {Array.from({ length: visibleCount }, (_, i) => {
+                  const text = values !== null ? values[i] ?? "" : showSample ? sampleTextFor(s, i) : "";
+                  // 「截断」——字号维持不变（不像「缩小字号」那样继续按字数缩），改用
+                  // line-clamp 硬截断 + 省略号：与外层原有的 `overflow-hidden` 相比，
+                  // 后者会在任意像素处生硬切字（可能切在半个字中间），line-clamp 保证
+                  // 只在整行末尾断、且带省略号，读起来是"这里还有更多"而不是"字被砍掉了"。
+                  const clampLines = isList && layout.overflow === "截断" ? 4 : undefined;
+                  return (
+                    <div
+                      key={i}
+                      className="overflow-hidden rounded-control px-1 py-0.5 leading-tight"
+                      style={{
+                        background: (showSample || values !== null) && isList ? TONE_COLORS[layout.tone] ?? TONE_COLORS[0] : "transparent",
+                        border: (showSample || values !== null) && isList ? "none" : "1px dashed #C9C5BB",
+                        // 字号由贴纸实尺推导（`Design.pdf` §5 末段：不能写成固定值，
+                        // 否则小贴纸会裁字）。选「缩小字号」时额外按文字长度继续收缩，
+                        // 见 `noteFontSizePx` 文档。
+                        fontSize: `${noteFontSizePx(geom.noteMm, isList, layout.overflow === "缩小字号" ? text.length : 0)}px`,
+                        aspectRatio: isList ? "1" : "auto",
+                        minHeight: isList ? 0 : 18,
+                        ...(clampLines !== undefined
+                          ? { display: "-webkit-box", WebkitLineClamp: clampLines, WebkitBoxOrient: "vertical" as const, overflow: "hidden" }
+                          : {}),
+                      }}
+                    >
+                      {text}
+                    </div>
+                  );
+                })}
+                {showStack && (
                   <div
-                    key={i}
-                    className="overflow-hidden rounded-control px-1 py-0.5 leading-tight"
+                    className="flex items-center justify-center rounded-control px-1 py-0.5 text-center font-bold leading-tight"
                     style={{
-                      background: (showSample || values !== null) && isList ? TONE_COLORS[layout.tone] ?? TONE_COLORS[0] : "transparent",
-                      border: (showSample || values !== null) && isList ? "none" : "1px dashed #C9C5BB",
-                      // 字号由贴纸实尺推导（`Design.pdf` §5 末段：不能写成固定值，
-                      // 否则小贴纸会裁字）。
+                      background: TONE_COLORS[layout.tone] ?? TONE_COLORS[0],
+                      opacity: 0.6,
                       fontSize: `${noteFontSizePx(geom.noteMm, isList)}px`,
-                      aspectRatio: isList ? "1" : "auto",
-                      minHeight: isList ? 0 : 18,
+                      aspectRatio: "1",
                     }}
+                    data-testid={`tpladmin-editor-stack-${s.sectionId}`}
                   >
-                    {values !== null ? values[i] ?? "" : showSample ? sampleTextFor(s, i) : ""}
+                    {`+${stackExtra}`}
                   </div>
-                ))}
+                )}
               </div>
             </div>
           );

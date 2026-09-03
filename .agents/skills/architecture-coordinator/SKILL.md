@@ -143,6 +143,13 @@ ADR-009 措辞、未同步 ADR-017（约滞后四周），是这条纪律最直�
   ([MCP 概览](https://www.dremio.com/blog/the-model-context-protocol-mcp-a-beginners-guide-to-plug-and-play-agents/))
 
 ## 踩坑与经验（append-only，最新在上；同 mod-_template 的回流格式）
+- 2026-09-02：**给门控加「反向检查」之前，先量存量再定级别**——#1557 补 doctor 第 ④ 条
+  （issue 已 CLOSED 但 feature 未 passing）时，用 MCP 对照 feature_list 实测 main 上已有
+  ≥5 条 in_progress feature 的 issue 处于 CLOSED；若按惯性写成 strict-FAIL，
+  `backend-gates` 的 `doctor --strict` 会让每条 PR 当场红，门就会被绕过（#848 形态）。
+  裁决：先 WARN 让它看得见，清完存量再升 FAIL 另开 issue。另一条同场教训：同一判据
+  （「实现在不在 main」）此前在 doctor 与 sync 各写一套，抽成 `.harness/scripts/lib/evidence-integration.ts`
+  单源后两边才不再分叉（出处：#1557，PR #2484）。
 - 2026-08-13：**新模板落地第一份真实实例前，先查是否已有旧格式的示例占了同一个
   template_id**——真实事故：`TPL-EVT-001` 在 E1（HMV2-006~012）阶段就有一份示例
   实例（原路径 `.harness/templates/examples/EVT-hmv2-e1-001.yaml`，已随本条裁决迁走，此处是历史指路非现存声明 <!-- skill-doctor:ignore -->）——

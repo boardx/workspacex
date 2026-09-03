@@ -48,12 +48,14 @@ vi.mock("@/components/session/session-provider", () => ({
   }),
 }));
 vi.mock("@/lib/use-asr-draft", () => ({
+  appendTranscript: (base: string, addition: string) => (addition === "" ? base : base === "" ? addition : `${base} ${addition}`),
   useAsrDraft: () => ({
     status: "idle", listening: false, connecting: false, stopping: false, error: null,
     start: vi.fn(), stop: vi.fn(),
     // issue #2130（TW-P0-5⑥）—— 补齐新字段，形状与真实 hook 一致；本测试场景
     // 不触发录音态，值本身不影响这里的断言。
     cancel: vi.fn(), elapsedSeconds: 0, level: 0,
+    baseText: "", committedText: "", partialText: "",
   }),
 }));
 vi.mock("@/lib/use-audio-input-devices", () => ({
@@ -143,7 +145,11 @@ describe("copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageI
     });
   });
 
-  it("不可归因的历史消息（agentRunId 为 null）：messageId 如实是 undefined，不冒充一个会 404 的假可保存态", async () => {
+  // 2026-09-02 —— 反转此前"不可归因 ⇒ messageId 为 undefined"的断言：这条 id 的下游
+  // 是 `landAsArtifact`（图表保存 + G1 读回），服务端只要求消息真实存在、不看
+  // `agentRunId`（`lib/copilotkit-v2-message-identity.ts` 对 `resolvePersisted` 的取证）。
+  // 之前走评分专用的 `resolve`，这种消息里的图表「保存」被静默判成本地演示、刷新即丢。
+  it("不可归因的历史消息（agentRunId 为 null）：messageId 仍是真实 chat_messages.id——落地不要求归因", async () => {
     listMessages.mockImplementation(async () => ({
       messages: [msg("cm-old", "agent", "这条早于 agent_run_id 落库", null)],
       nextCursor: null,
@@ -154,7 +160,7 @@ describe("copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageI
       const call = markdownMessageCalls.find((c) => c.text.includes("早于"));
       expect(call).toBeDefined();
       expect(call?.threadId).toBe(THREAD_ID);
-      expect(call?.messageId).toBeUndefined();
+      expect(call?.messageId).toBe("cm-old");
     });
   });
 

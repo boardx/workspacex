@@ -23,6 +23,7 @@ import { AlertTriangle, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/files/overlay";
 import { ApiError } from "@/lib/api-client";
 import {
   addCapability,
@@ -128,31 +129,52 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
     }
   };
 
-  if (!open) {
-    return (
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => setOpen(true)}
-          data-testid={`${ctx.prefix}-create`}
-        >
-          <Plus aria-hidden className="h-3.5 w-3.5" />
-          新增 {ctx.singular}
-        </Button>
-      </div>
-    );
-  }
-
+  /**
+   * 2026-09-02：新增表单收进弹窗（同 Skill 库「新建 skill 应该弹出来一个新的 popup 界面」
+   * 与 Agent 屏「新建/导入不能摆在主界面顶部」两条既有裁决）——触发按钮常驻目录头部，
+   * 弹窗开着时它仍在（不因打开而消失、不让头部跳动）。testid 与提交逻辑一字未动。
+   */
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>新增 {ctx.singular}</CardTitle>
-        <CardDescription>
-          写入的是当前组织的能力目录。出现在目录中只代表它可被选择，不代表已经具备运行时。
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => setOpen(true)}
+        data-testid={`${ctx.prefix}-create`}
+      >
+        <Plus aria-hidden className="h-3.5 w-3.5" />
+        新增 {ctx.singular}
+      </Button>
+      {open ? <CreateModal /> : null}
+    </>
+  );
+
+  function CreateModal() {
+  return (
+    <Modal
+      title={`新增 ${ctx.singular}`}
+      subtitle="写入的是当前组织的能力目录。出现在目录中只代表它可被选择，不代表已经具备运行时。"
+      onClose={() => {
+        setOpen(false);
+        reset();
+      }}
+      testid={`${ctx.prefix}-create-modal`}
+    >
+      <div className="flex flex-col gap-3">
+        {isAgent ? (
+          /*
+            issue #1745 次要问题 2——`/admin/agent` 同时有「新建 / 导入 Agent」（写
+            `agents`/`agent_versions`，走 `createAgent`）与这个「新增目录条目」（直接
+            INSERT `capability_listings`，没有任何可执行定义背书）。两者此前界面上没有
+            任何区分，用户随机点中后者建出来的"agent"能进 chat 编制选择器，但一发消息
+            就是 422 `AGENT_NOT_FOUND`。这里做"界面消歧"，不下线这个入口。
+          */
+          <p className="text-12 text-muted-foreground" data-testid={`${ctx.prefix}-create-agent-caveat`}>
+            ⚠ 这里新增的是目录条目本身，不会创建可执行的 agent——它不会自动获得
+            `agents`/`agent_versions` 记录，选中它发消息会失败。要新建一个真正能对话的
+            agent，请用「新建 / 导入 Agent」。
+          </p>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-12">
             <span>名称</span>
@@ -247,9 +269,10 @@ export function CapabilityCreatePanel({ ctx }: { ctx: MutateContext }) {
             {busy ? "提交中…" : "确认新增"}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </Modal>
   );
+  }
 }
 
 /* ───────────────────────────── 更新 ───────────────────────────── */

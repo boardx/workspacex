@@ -50,7 +50,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
-<空着开始。格式：`- YYYY-MM-DD：一句话结论（出处：PR/issue/postmortem 链接）`>
+- 2026-09-02：成员管理分两级——组织级 `PATCH /organizations/:orgId/members/:userId/role`（组织 admin）与平台级 `GET|PATCH /platform/members…`（`PlatformSuperuserGuard`，env 白名单）改的是同一列，「最后一名 admin 不可降级」的判定只有一份（`domain/auth/org-role-change.ts`），且必须与 UPDATE 同一事务、先 `FOR UPDATE` 锁 admin 行再数——事务外先数后写会让两名 admin 并发互降剩零 admin。平台级名册**不要**新造整表 SECURITY DEFINER 函数（`app_rw` 可调 = 没有隔离，见 `20260902012105` 迁移头注三次教训），拼既有的 `credentials` + `kernel_user_org_ids` + `withTenant` 三段读即可。`NOT_PLATFORM_SUPERUSER` 此前从未登记进 `all-exceptions.filter.ts` 的闭集，guard 抛的 403 到前端其实是裸 `forbidden`——现已随 `platformMembers.PlatformMembersError` 接入。（出处：分支 `claude/member-management-two-level-v7ymax`；待裁缺口 `orgAdmin.KNOWN_CONTRACT_GAPS.OA13`：改角色提升 admin 未走邀请路径的双人复核）
 
 ## 知识回流规则（本文件怎么迭代——这是这个 skill 存在的意义）
 

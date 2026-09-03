@@ -43,9 +43,11 @@ vi.mock("@/components/session/session-provider", () => ({
   }),
 }));
 vi.mock("@/lib/use-asr-draft", () => ({
+  appendTranscript: (base: string, addition: string) => (addition === "" ? base : base === "" ? addition : `${base} ${addition}`),
   useAsrDraft: () => ({
     status: "idle", listening: false, connecting: false, stopping: false, error: null,
     start: vi.fn(), stop: vi.fn(), cancel: vi.fn(), elapsedSeconds: 0, level: 0,
+    baseText: "", committedText: "", partialText: "",
   }),
 }));
 vi.mock("@/lib/use-audio-input-devices", () => ({
@@ -53,6 +55,16 @@ vi.mock("@/lib/use-audio-input-devices", () => ({
 }));
 vi.mock("@/components/chat/chat-skill-mount-panel", () => ({
   ChatSkillMountPanel: () => null,
+}));
+// 2026-09-02 —— 拉回来的消息必须带真实 `messageId` 到 `MarkdownMessage`（图表 modal 的
+// 「保存」/G1 读回靠它判定能否持久化）。此前恢复路径没登记身份索引，`messageId`
+// 恒为 undefined ⇒ 保存静默退回本地演示、刷新即丢。
+const markdownMessageCalls: Array<{ text: string; messageId: string | undefined }> = [];
+vi.mock("@/components/chat/markdown-message", () => ({
+  MarkdownMessage: (props: { text: string; messageId?: string }) => {
+    markdownMessageCalls.push({ text: props.text, messageId: props.messageId });
+    return <div data-testid="markdown-message-probe">{props.text}</div>;
+  },
 }));
 
 import { CopilotKit } from "@copilotkit/react-core/v2";
@@ -90,6 +102,7 @@ let writtenBack = false;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  markdownMessageCalls.length = 0;
   writtenBack = false;
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "b");
   listMessages.mockImplementation(async () => ({
@@ -128,6 +141,11 @@ describe("copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失"
     }, { timeout: 5000 });
     await screen.findByText("PDF 已生成，请查收。");
     expect(getAgentRun).toHaveBeenCalledWith("run-1", "b");
+    // ③ 拉回来的这条消息身份可解析：`messageId` 是真实 `chat_messages.id`，不是 undefined。
+    await waitFor(() => {
+      const call = markdownMessageCalls.find((c) => c.text.includes("PDF 已生成"));
+      expect(call?.messageId).toBe("cm-2");
+    });
   });
 
   it("挂载时这个 run 其实早就是终态（用户切回来时后端已经写完了）⇒ 只多打一次 GET，不显示生成中", async () => {

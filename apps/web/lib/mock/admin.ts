@@ -32,7 +32,12 @@ export type AdminModuleKey =
   | "canvasadmin" | "blueprint"
   // F16：本地组织。归在「组织」组里而不是「AI 能力」组——它是一个组织，
   // 只不过是只有一个人、且数据不出本机的那种。
-  | "local";
+  | "local"
+  // member-role-management delta：成员管理的**平台级**（全平台账号名册 + 任一组织里的角色）。
+  // 单独一组「平台」而不是塞进「组织」组：它的授权面是平台超管（部署白名单），不是组织角色，
+  // 与「组织」组里每一项「本组织 admin 可见」的语义不同——同一组里混两种授权面会让人以为
+  // 组织 admin 也能看全平台。
+  | "platform";
 
 /**
  * 「AI 能力」组的组名 —— 单点声明。
@@ -40,6 +45,23 @@ export type AdminModuleKey =
  * 组名写两遍就是「同一事实两处」，改一处会让门控静默地检查一个空组（平凡为真）。
  */
 export const AI_CAPABILITY_GROUP = "AI 能力";
+
+/**
+ * 后台的**两个面**（2026-09-02 人类直接裁决：「把目前的后台切割为两部分，两个菜单入口，
+ * 一个是组织的后台管理，一个是平台的后台管理……组织的管理和平台的管理是不同的」）：
+ *   · `org`      —— 组织后台（`/admin/*`）：管的是**当前组织**自己的东西（AI 能力目录、成员配额、
+ *                   本地组织），授权面是组织 admin，数据按当前组织走 RLS。
+ *   · `platform` —— 平台后台（`/platform-admin/*`）：管的是**整个平台**（全平台账号名册、
+ *                   全体用户反馈与迭代），授权面是平台运维/超管，页头不挂组织身份卡。
+ * 一级导航（`lib/navigation.ts` 的「治理」段）各有一个入口；`AdminNav` 按 scope 只画自己那一面的组。
+ * ⚠ 每个模块**只属于一个面**——同一入口不许在两面都出现（同一功能不许两个入口）。
+ */
+export type AdminScope = "org" | "platform";
+
+export const ADMIN_SCOPE_META: Record<AdminScope, { title: string; intro: string; rootHref: string }> = {
+  org: { title: "组织后台", intro: "当前组织的总览、成员配额与本地组织", rootHref: "/admin" },
+  platform: { title: "平台后台", intro: "全平台的 AI 能力、账号与运营管理面", rootHref: "/platform-admin" },
+};
 
 export interface AdminModuleMeta {
   key: AdminModuleKey;
@@ -49,9 +71,23 @@ export interface AdminModuleMeta {
   ucRefs: string[];
 }
 
-export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
+export interface AdminNavGroup {
+  group: string;
+  /** 这一组属于哪个后台面（见 `AdminScope`）。 */
+  scope: AdminScope;
+  items: AdminModuleMeta[];
+}
+
+export const ADMIN_NAV: AdminNavGroup[] = [
   {
     group: AI_CAPABILITY_GROUP,
+    // 2026-09-02 人类第二次裁决（看组织后台截图后原话：「对于 AI 的能力都应该是在平台的
+    // 后台管理上，而不是组织上」）：AI 能力六项整体归**平台后台**。Agent / 模型 / MCP 的
+    // 路由随之迁到 `/platform-admin/*`（旧 `/admin/*` 重定向）；Skill / 画布模板 / 项目模板
+    // 的 href 本来就不在 `/admin` 下，只是左栏归属换了面。
+    // ⚠ 数据读取与写权限**没有改**：目录仍按当前登录者所在组织走 RLS、写操作仍要组织 admin
+    //   （`canMutate`）。这里改的是信息架构与呈现，不是授权面——授权面若要改是另一件事。
+    scope: "platform",
     // ⚠ 这一组的**项集合**受 `asset-kind-nav.ts` 的双向门控约束：它必须与契约
     //   `AssetKind` 的取值集合逐个相等。删一项、多一项、或契约加了值这边没跟，都会红。
     //   顺序与分组细节待 Q-11 裁，门控**不锁顺序**。
@@ -81,24 +117,64 @@ export const ADMIN_NAV: { group: string; items: AdminModuleMeta[] }[] = [
       // ⚠ 2026-08-30（路由复盘）：href 从历史 `/canvas?screen=template-admin` 改成路径段
       // `/canvas/template-admin`——见 `lib/canvas-screens.ts` 头注；旧 query 形态仍可用
       // （`app/canvas/page.tsx` 兼容重定向），但这里不该再手写它。
-      { key: "agent", label: "Agent 目录", href: "/admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
+      { key: "agent", label: "Agent 目录", href: "/platform-admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
       { key: "skill", label: "Skill 目录", href: "/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
-      { key: "model", label: "模型", href: "/admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
-      { key: "mcp", label: "MCP", href: "/admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
+      { key: "model", label: "模型", href: "/platform-admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
+      { key: "mcp", label: "MCP", href: "/platform-admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
       { key: "canvasadmin", label: "画布模板", href: "/canvas/template-admin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
       { key: "blueprint", label: "项目模板", href: "/tpl/list", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
     ],
   },
   {
     group: "组织",
+    scope: "org",
     items: [
       { key: "overview", label: "总览", href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
       { key: "members", label: "成员配额", href: "/admin/members", ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-7"] },
-      { key: "feedback", label: "反馈", href: "/admin/feedback", ucRefs: ["17-gov/uc-17-6"] },
       { key: "local", label: "我的本地", href: "/admin/local", ucRefs: ["00-core/uc-0-5"] },
     ],
   },
+  {
+    // 2026-09-02（人类反馈，看真实后台截图后原话：「这个 UI 管理的是整个平台的数据，
+    // 而不是当前的这个 boardx 组织，上面这组织是错误的」）：「反馈」从「组织」组挪出来——
+    // 它不是某个组织自己的配置项（不像成员配额/我的本地那样，改动只影响这一个组织），
+    // 是运营这个产品的人处理全体用户反馈的地方。⚠ 数据读取仍然按当前登录者所在组织
+    // 走 RLS（这个仓库今天就一个组织在用，「反馈」本质是运营动作，不是要打破多租户
+    // 隔离），只是页头不该再挂一张「组织：boardx」的身份卡，径直导航到「组织管理」
+    // 的路径分组更是放错了位置——见 `admin-header.tsx` 的 `hideOrgIdentity`。
+    //
+    // ⚠ 与下面的「平台」组**不是同一件事**，故意分成两组：「运营」（本组）仍然是
+    //   当前登录者所在组织的数据、按 RLS 走，只是呈现上不该像组织配置；「平台」组
+    //   （member-role-management delta 新增）授权面是平台超管（部署白名单），能看到
+    //   全平台账号名册——两者的授权面不同，混进同一组会让人以为组织 admin 也能看全平台。
+    //
+    // 2026-09-02 后台切成两面（见 `AdminScope`）：本组与「平台」组一起归入**平台后台**
+    // （`/platform-admin/*`），左栏「组织后台」不再画它们；旧路由 `/admin/feedback` 重定向。
+    group: "运营",
+    scope: "platform",
+    items: [{ key: "feedback", label: "反馈与迭代", href: "/platform-admin/feedback", ucRefs: ["17-gov/uc-17-6"] }],
+  },
+  {
+    group: "平台",
+    scope: "platform",
+    items: [
+      // 仅平台超管可见内容；非超管点进去看到的是「仅平台运维可见」的说明，不是隐藏入口——
+      // 「存在但你看不到」和「不存在」是两件事（UC-0.3 R8），同反馈屏系统异常区的处置。
+      // 2026-09-02：路由从 `/admin/platform` 迁到 `/platform-admin/members`（旧路由重定向）。
+      { key: "platform", label: "平台成员", href: "/platform-admin/members", ucRefs: ["17-gov/uc-17-5"] },
+    ],
+  },
 ];
+
+/** 某一面的左栏分组——`AdminNav` 按这个画，不在组件里再按组名硬编码过滤。 */
+export function adminNavForScope(scope: AdminScope): AdminNavGroup[] {
+  return ADMIN_NAV.filter((g) => g.scope === scope);
+}
+
+/** 模块键 → 所属后台面（从 `ADMIN_NAV` 派生，不抄第二份）。 */
+export const ADMIN_MODULE_SCOPE: Record<AdminModuleKey, AdminScope> = Object.fromEntries(
+  ADMIN_NAV.flatMap((g) => g.items.map((m) => [m.key, g.scope])),
+) as Record<AdminModuleKey, AdminScope>;
 
 export const ADMIN_MODULE_META: Record<AdminModuleKey, AdminModuleMeta> = Object.fromEntries(
   ADMIN_NAV.flatMap((g) => g.items).map((m) => [m.key, m]),
@@ -640,4 +716,8 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
    */
   feedback: () => SW_FEEDBACK_SUMMARY.pending,
   local: () => 1,
+  // member-role-management delta：平台名册没有 mock 数据源（它从来不是 mock 屏），本表只是
+  // `admin-nav-count-unavailable.test.tsx` 的 HEALTHY 夹具（见 feedback 项长注）——给一个健康值。
+  // 生产左栏的来源是 `live-admin-nav-counts.ts`，那里没接的项一律「—」。
+  platform: () => 0,
 };

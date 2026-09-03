@@ -23,6 +23,8 @@ export function formatElapsed(ms: number): string {
   return m > 0 ? `${m}分${s}秒` : `${s}秒`;
 }
 
+export const PLAN_RUN_RECENT_ERROR_TESTID = "chat-task-workbench-run-recent-error";
+
 export interface PlanRunProgressProps {
   readonly currentStepLabel: string;
   readonly stepIndex: number;
@@ -31,10 +33,24 @@ export interface PlanRunProgressProps {
   readonly isPaused: boolean;
   readonly onPause?: () => void;
   readonly onResume?: () => void;
+  /**
+   * issue #2451 —— `RUN_ERROR`（"模型这次没能返回可用结果"横幅）与这块账本轮询
+   * 出来的 `phase==="executing"` 是两条独立的异步信号源（`copilotkit-v2-panel.tsx`
+   * 的 onError 订阅 vs 3 秒轮询），中间有个窗口两者互相矛盾：错误横幅已经出现，
+   * 这里却还显示"执行中 + 可暂停"。为真时禁用暂停/恢复（继续暂停一个已经出错、
+   * 服务端状态还没来得及同步过来的 run 没有意义）并给一行诚实的等待提示——
+   * 不是新宣称一个"失败"态（那要等 `phase` 真的翻到 `"failed"` 才算数，见
+   * `copilotkit-v2-plan-control.tsx`），只是不再让按钮的可交互外观和已知的报错
+   * 事实自相矛盾。默认 `false`，向后兼容既有调用方。
+   */
+  readonly hasRecentError?: boolean;
 }
 
 export function PlanRunProgress(
-  { currentStepLabel, stepIndex, stepTotal, elapsedMs, isPaused, onPause, onResume }: PlanRunProgressProps,
+  {
+    currentStepLabel, stepIndex, stepTotal, elapsedMs, isPaused, onPause, onResume,
+    hasRecentError = false,
+  }: PlanRunProgressProps,
 ): React.JSX.Element {
   return (
     <Card data-testid={PLAN_RUN_PROGRESS_TESTID}>
@@ -44,15 +60,26 @@ export function PlanRunProgress(
           <span className="text-13">当前步骤：<b>{currentStepLabel}</b></span>
           <span className="text-11 text-muted-foreground">{stepIndex}/{stepTotal} · 已用 {formatElapsed(elapsedMs)}</span>
           {isPaused ? (
-            <Button size="sm" variant="primary" className="ml-auto" data-testid={PLAN_RUN_RESUME_TESTID} onClick={onResume}>
+            <Button
+              size="sm" variant="primary" className="ml-auto" disabled={hasRecentError}
+              data-testid={PLAN_RUN_RESUME_TESTID} onClick={onResume}
+            >
               <Play aria-hidden className="h-3.5 w-3.5" /> 恢复
             </Button>
           ) : (
-            <Button size="sm" variant="outline" className="ml-auto" data-testid={PLAN_RUN_PAUSE_TESTID} onClick={onPause}>
+            <Button
+              size="sm" variant="outline" className="ml-auto" disabled={hasRecentError}
+              data-testid={PLAN_RUN_PAUSE_TESTID} onClick={onPause}
+            >
               <Pause aria-hidden className="h-3.5 w-3.5" /> 暂停
             </Button>
           )}
         </div>
+        {hasRecentError && (
+          <p role="status" data-testid={PLAN_RUN_RECENT_ERROR_TESTID} className="text-11 text-destructive">
+            最近一次调用出错，正在等待执行状态更新……
+          </p>
+        )}
         <Progress value={stepIndex - 1} max={stepTotal} label={`执行进度 ${stepIndex}/${stepTotal}`} />
       </CardContent>
     </Card>

@@ -90,10 +90,17 @@ function toolLabel(name: string): string {
   return TOOL_LABEL[name] ?? name;
 }
 
-/** 进行中/已完成的小圆点图标——两条自定义卡片共用，避免各写一份。 */
+/**
+ * 进行中/已完成的小圆点图标——两条自定义卡片共用，避免各写一份。
+ *
+ * issue #2476：完成态原来是 `text-primary`（现在是近黑色，见 2026-08-27 对
+ * `--primary` 的裁决），跟"这一步已经成功"这个语义不搭边——`plan-panel-readonly.tsx`/
+ * `plan-panel-edit.tsx` 的步骤状态图标一直用 `text-success` 表达"已完成"，这里
+ * 跟着统一，不是新造一个含义。
+ */
 function ToolStatusIcon({ status }: { status: "inProgress" | "executing" | "complete" }) {
   if (status === "complete") {
-    return <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />;
+    return <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-success" />;
   }
   return <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />;
 }

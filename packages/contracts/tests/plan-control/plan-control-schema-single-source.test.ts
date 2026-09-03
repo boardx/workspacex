@@ -172,6 +172,12 @@ describe("F972 · 11 个独立操作（design-signoff.md 3.1 已裁决 A，不�
       gate: { required: false, reason: "no-plan" },
       progress: { completed: 0, total: 0, elapsedMs: 0 },
       pendingApplyAtNextRun: false, activeRunId: null,
+      // issue #2451 —— errorCode/failedStepId 都是新增的声明字段（真实失败原因/
+      // 真实失败步骤，见该 issue），不是这条反证要挡的"多余字段"；base 必须跟着
+      // schema 补全，否则这条正向断言（safeParse(base).success===true）会假红，
+      // 不代表 schema 本身漏了 .strict() 或漏了反向覆盖。
+      errorCode: null,
+      failedStepId: null,
     };
     expect(planControl.getPlanLedger.out.safeParse(base).success).toBe(true);
     expect(planControl.getPlanLedger.out.safeParse({ ...base, extra: 1 }).success).toBe(false);

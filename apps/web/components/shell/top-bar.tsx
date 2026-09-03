@@ -259,9 +259,11 @@ export function TopBar({
         本就不在任何具体项目里，这是它的常态而不是缺失，每个后台屏都重复提醒一遍
         纯属视觉噪音。同时排除 `/admin` 与 `/admin/`（用前缀匹配，覆盖
         `/admin/skill/[id]` 这类多段路由，不是只排除 `/admin` 这一段路径）。
+        2026-09-02 后台切成两面后，平台后台 `/platform-admin/*` 同理排除。
       */}
       {!project && !local && !sh.on && pathname !== "/chat"
-        && pathname !== "/admin" && !pathname.startsWith("/admin/") && (
+        && pathname !== "/admin" && !pathname.startsWith("/admin/")
+        && pathname !== "/platform-admin" && !pathname.startsWith("/platform-admin/") && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
           不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
         </p>

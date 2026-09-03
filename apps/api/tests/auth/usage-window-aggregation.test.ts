@@ -22,6 +22,7 @@ import { PgTokenQuotaRepository } from "../../src/infrastructure/auth/pg-token-q
 import { getUsageReport } from "../../src/application/auth/get-usage-report";
 import type { UsageWindowKey } from "../../src/application/auth/token-quota-ports";
 import { toOrgId } from "../../src/domain/org-id";
+import { hoursAgoWithinCurrentMonth } from "../support/relative-time-in-month";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -74,9 +75,22 @@ afterAll(async () => {
 });
 
 describe("F161 用量监控：每个窗口是一次真实聚合", () => {
-  it("【核心】同一批事件，最近 5 小时 / 本月 给出不同的数（换窗口就是换查询）", async () => {
+  // 当前运行时刻距月初不足 5 小时（例如任意一个月最开始几小时内跑 CI）时，
+  // "超过 5 小时"与"仍在本月内"两个约束互斥，构造不出满足两者的测试数据点——
+  // 见 `hoursAgoWithinCurrentMonth` 文件头注。跳过而不是断言一件此刻数学上不可能
+  // 为真的事，附上原因，不是静默隐藏。
+  const monthOnlyOffset = hoursAgoWithinCurrentMonth(24 * 10, 5);
+  const coreTest = monthOnlyOffset === null ? it.skip : it;
+  if (monthOnlyOffset === null) {
+    console.warn(
+      "F161 核心用例跳过：当前时刻距本自然月月初不足 5 小时，"
+      + "无法构造『超过 5 小时前 · 仍在本月内』的测试数据点（两个约束此刻互斥）。",
+    );
+  }
+
+  coreTest("【核心】同一批事件，最近 5 小时 / 本月 给出不同的数（换窗口就是换查询）", async () => {
     await spend(LINKE, "opus-4.6", 1_000_000, 1);      // 1 小时前 → 两个窗口都算
-    await spend(LINKE, "opus-4.6", 5_000_000, 24 * 10); // 10 天前 → 只有本月算
+    await spend(LINKE, "opus-4.6", 5_000_000, monthOnlyOffset!); // 本月内、超过 5 小时 → 只有本月算
 
     const recent = await report("5h");
     const month = await report("month");

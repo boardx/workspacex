@@ -62,14 +62,15 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
  * `copilotkit-v2-hitl.spec.ts` 里同名 helper 的头注——本轮独立复验过，换成这条后
  * 三条 HITL 测试全部通过，核心断言未被削弱）。
  */
-const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
 async function expectSendNotBlockedOnRun(
   page: import("@playwright/test").Page,
   timeoutMs = 30_000,
 ): Promise<void> {
   await expect
-    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
-    .not.toBe(RUNNING_DISABLED_REASON);
+    // 2026-09-02 composer 重设计：Agent 处理中发送按钮变为「停止生成」（title 不再是禁用理由），
+    // 改读 `data-send-state`（running / disabled / ready）——语义相同：不再卡在运行中。
+    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("data-send-state"), { timeout: timeoutMs })
+    .not.toBe("running");
 }
 
 test("DA-19g 回归：HITL 对话框 Escape 退出后遮罩真的从 DOM 移除，发送按钮真的可点击且真的发出新请求", async ({ page }) => {

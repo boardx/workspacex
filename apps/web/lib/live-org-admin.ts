@@ -94,6 +94,24 @@ export async function removeOrgMember(input: RemoveOrgMemberInput): Promise<Remo
   );
 }
 
+export type SetOrgMemberRoleOut = z.infer<typeof orgAdmin.operations.setOrgMemberRole.out>;
+
+/**
+ * member-role-management delta（组织级）：给一名现有成员改组织角色。
+ * `PATCH /organizations/:orgId/members/:userId/role`，仅组织 admin；
+ * `LAST_ADMIN`（409）= 这次会把最后一名 admin 降掉，先提一个新 admin 再来。
+ */
+export async function setOrgMemberRole(
+  orgId: string,
+  userId: string,
+  orgRole: z.infer<typeof identity.OrgRole>,
+): Promise<SetOrgMemberRoleOut> {
+  return apiRequest<SetOrgMemberRoleOut>(
+    path(orgAdmin.operations.setOrgMemberRole.path, { orgId, userId }),
+    { method: "PATCH", body: { orgId, userId, orgRole } },
+  );
+}
+
 export interface MutateTeamInput {
   readonly orgId: string;
   readonly op: z.infer<typeof orgAdmin.TeamOp>;

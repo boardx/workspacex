@@ -44,3 +44,16 @@ export interface DatabasePort {
  * while `infrastructure` only implements the interface.
  */
 export const DATABASE_PORT = Symbol("DatabasePort");
+
+/**
+ * A SECOND `DatabasePort` instance, backed by a genuinely separate, less-privileged DB
+ * credential (`pg-config.ts`'s `diagnosticsReaderConfig()`) than `DATABASE_PORT`'s `app_rw`.
+ * Same interface -- `DatabasePort` has no notion of "which role this is" baked into its
+ * shape, which is exactly why a second token, not a second interface, is what's needed here.
+ *
+ * Today's only consumer: `PgErrorLogWriter.list()`. See `pg-config.ts`'s file header for why
+ * this exists (review finding, PR #2475: a `SECURITY DEFINER` function callable by `app_rw`
+ * is not actually separated from `app_rw`'s own blast radius -- anything that can run SQL
+ * over that connection could call it).
+ */
+export const DIAGNOSTICS_READER_DB_PORT = Symbol("DiagnosticsReaderDatabasePort");

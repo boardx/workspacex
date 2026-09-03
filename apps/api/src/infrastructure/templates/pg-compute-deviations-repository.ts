@@ -5,7 +5,7 @@
  *
  * `computeDeviations` 要对比「项目当前值」与「绑定的蓝本版本快照」——但**除了
  * 议程环节**，`design-facet-table.ts` 枚举的其余设计配置项（`topic-and-background`
- * / `grouping-rule` / `roles-and-perms` / ...）在**项目侧**都还没有对应的可编辑存储
+ * / `grouping-rule` / `survey` / ...）在**项目侧**都还没有对应的可编辑存储
  * （F24-F27 尚未落地真实的项目侧配置编辑路径——`survey`/分组/角色矩阵等today全部
  * 停在原型阶段，`phases/phase-01-run-a-project/feature_list.json` 里那几个 feature
  * 虽标 passing，但本 issue #1667 已经证明"passing"不等于"有 controller"）。

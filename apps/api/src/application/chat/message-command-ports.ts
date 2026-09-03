@@ -102,6 +102,39 @@ export interface ThreadMountedSkillReader {
 
 export const THREAD_MOUNTED_SKILL_READER = Symbol("ThreadMountedSkillReader");
 
+/**
+ * #2514（2026-09-02 人类裁决）—— **agent 默认加载的 skill 全集**在 run 构建路径上的读口。
+ *
+ * 裁决原话：skills 不由用户在 composer 里挑选——agent 直接加载全部已启用 skill；选了
+ * 具体 agent 时，该 agent 自己的 skill 编排覆盖全局列表。前者就是这个读口回答的问题：
+ * **这个组织此刻「已启用」、且运行时读得到的 skill，各自当前生效的版本 id 是哪些**。
+ *
+ * ## 口径与 `listSkills` 同源，不是第二份规则
+ *
+ * 「已启用」= `pg-skill-contract-repository.ts` `listAll()` wave2 分支的那条 WHERE
+ * （`skills.status = 'enabled'`，含平台组织 `org-platform` 的行）；「当前生效版本」=
+ * 同一条 SQL 里的子查询（最新一条 `published` 版本）。没有已发布版本的 skill
+ * （草稿期 `current_version_id` 为 null）**不在结果里**——它对模型输入本来就没有正文。
+ *
+ * ## 只含模型 A（`skills` / `skill_versions`）
+ *
+ * 理由逐字同 `ThreadMountedSkillReader`：`readPinnedSkills` 只读模型 A，塞进一个读不回
+ * 正文的版本会让整次 run 以 `SKILL_VERSION_UNAVAILABLE` 失败。
+ *
+ * 顺序：`created_at ASC, id ASC`——`skillVersionIds` 的顺序是语义属性（`execute-run.ts`
+ * 的 `buildSystemPrompt` 头注），必须确定。
+ *
+ * ⚠ 返回 `Guarded`，与本文件其余读口同一条纪律：调用方必须先 `discloseDecided`。
+ */
+export interface EnabledSkillVersionReader {
+  currentEnabledSkillVersionIds(
+    orgId: OrgId,
+    input: { projectId: string | null; threadId: string },
+  ): Promise<Guarded<readonly string[]>>;
+}
+
+export const ENABLED_SKILL_VERSION_READER = Symbol("EnabledSkillVersionReader");
+
 export interface AcceptedHumanMessage {
   readonly id: string;
   readonly threadId: string;

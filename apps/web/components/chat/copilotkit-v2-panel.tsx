@@ -289,6 +289,7 @@ export function CopilotKitV2Panel({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
+  onTaskModeChange,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -341,6 +342,11 @@ export function CopilotKitV2Panel({
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
   /**
+   * PROP-CHAT-UIUX-ITER-002 V3 —— 见 `CopilotKitV2PanelBody` 同名 prop 的注释：
+   * composer「任务模式」开关的真实状态，透传给外壳供右栏「运行详情」展示。
+   */
+  onTaskModeChange?: (taskMode: boolean) => void;
+  /**
    * issue #2046（CK-P2）—— `@` 引用候选：本线程已随消息发出的附件，数据与右栏
    * 「材料」面板是**同一份**（外壳 `listThreadAttachments` 读取后同时喂两处），
    * 不在本组件里发第二次请求。`null` = 外壳还没读到/没有线程。
@@ -375,10 +381,10 @@ export function CopilotKitV2Panel({
    * issue #2130（TW-4，Skills 交互重设计）—— **不再挂在这一层**：此前放在外层是
    * 因为渲染依据（`initialChatThreadId`）只有外层持有；现在这个 prop 本来就
    * 原样透传给了 `CopilotKitV2PanelBody`（见下方 `orgId` 新增同一条理由），
-   * 挂载入口随之整体搬进 Body 的 composer 图标行（`variant="pill"`，同级于
-   * Agent/麦克风/附件），`mentionQuery`/`onMentionMounted` 这一整套跨组件转发
-   * 不再需要——Body 本来就检测得到 `/` mention，直接在本地消费即可。
-   * 详见 `CopilotKitV2PanelBody` 内 `ChatSkillMountPanel` 挂点的注释。
+   * 挂载入口曾随之整体搬进 Body 的 composer 图标行；2026-09-02 人类裁决
+   * （skills 由 agent 直接加载、具体 agent 的编排覆盖全局，不由用户在 composer 里挑）
+   * 挂载入口是 Body 内 composer「+」菜单的一项（`ChatSkillMountPanel
+   * variant="composer"`，2026-09-02 三层结构），`orgId` 因此透传给 Body。
    */
 
   // ⚠ 刻意**不**自动选中目录第一个候选（第一版这么做过，run5 对照实验实测抓到两个
@@ -429,6 +435,7 @@ export function CopilotKitV2Panel({
           onPlanTodosChange={onPlanTodosChange}
           onRunStateChange={onRunStateChange}
           onPendingMaterialsChange={onPendingMaterialsChange}
+          onTaskModeChange={onTaskModeChange}
           onArtifactLanded={onArtifactLanded}
           threadAttachments={threadAttachments}
           archived={archived}

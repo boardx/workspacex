@@ -12,13 +12,18 @@ import {
   allSectionsPlaced,
   sectionGeometryMm,
   classifyNoteSize,
-  STANDARD_NOTE_MM,
+  MAX_NOTE_MM,
+  MIN_SHRINK_NOTE_MM,
+  titleReserveMm,
+  blockHorizontalChromeMm,
+  GRID_GAP_MM,
   TONE_COLORS,
   A1_CONTENT_MM,
   A1_PAPER_MM,
   PAPER_SIZE_MM,
   contentMmFor,
   type ExplicitLayoutSectionInput,
+  type SectionGeometryMmInput,
 } from "@/lib/canvas/explicit-template-layout";
 import { A0_FRAME, GRID_TOP } from "@/lib/canvas/auto-template-layout";
 
@@ -209,6 +214,85 @@ describe("computeExplicitLayout —— px 几何", () => {
       expect(rows).toBeGreaterThan(1);
       expect(spec.headerRect!.h).toBeGreaterThan(0);
     });
+
+    /**
+     * 2026-09-02 人类实测截图回归钉子（chat 里的用户画像「画框和上方框重叠」）：
+     * 上一条让 `headerRect` 长高（9 字段 → 2 行 → 120px），但表头格子只占 1 个网格行
+     * （≈83.5px），长出来的 36.5px 直接压在正文第一行三个分区框的标题条上。
+     * 这条钉住修复后的行为：表头带比格子高出多少，位于其下方的正文分区就整体下移多少，
+     * 正文分区之间的相对版式不变，`layout.bounds.bottom` 同步下移。
+     */
+    it("表头带长高时，正文分区整体下移让位——任何正文框都不与表头带重叠（用户画像真实几何）", () => {
+      const PERSONA_FIELDS = ["姓名", "性别", "年龄", "区域", "教育水平", "职位", "行业", "家庭情况", "收入水平"];
+      const widths = [2, 1, 1, 1, 1, 1, 1, 2, 2];
+      let col = 1;
+      const header = PERSONA_FIELDS.map((name, i) => {
+        const w = widths[i]!;
+        const cell = { ...section(`f${i}`, col, 1, w, 1), name, type: "短文本" as const };
+        col += w;
+        return cell;
+      });
+      // 正文 6 个分区：3 列 × 2 行，紧贴表头行之下（第 2-4 行、第 5-8 行）——
+      // `builtin-template-config.ts` 对 persona 的真实推演版式。
+      const bodyNames = ["用户描述", "目标和需求", "行为与偏好", "痛点和挑战", "动机", "影响因素"];
+      const body = bodyNames.map((name, i) => ({
+        ...section(`s${i}`, 1 + (i % 3) * 4, i < 3 ? 2 : 5, 4, i < 3 ? 3 : 4),
+        name,
+        type: "便利贴列表" as const,
+      }));
+      const { spec, layout } = buildExplicitTemplateSpec({
+        key: "persona-shift", displayName: "用户画像", sections: [...header, ...body], gridCols: 12,
+      });
+      const raw = computeExplicitLayout([...header, ...body], 12);
+
+      const hr = spec.headerRect!;
+      const headerBottom = hr.y + hr.h / 2;
+      const rawHeaderBottom = Math.max(...raw.cells.slice(0, header.length).map((c) => c.y + c.h / 2));
+      // 前提成立：表头带确实比它的网格格子高（否则这条测试测不到东西）。
+      expect(headerBottom).toBeGreaterThan(rawHeaderBottom);
+      const delta = headerBottom - rawHeaderBottom;
+
+      // 核心断言：每个正文框的顶边都不高于表头带底边。
+      expect(spec.sections).toHaveLength(6);
+      for (const s of spec.sections) {
+        expect(s.y - s.h / 2).toBeGreaterThanOrEqual(headerBottom - 1e-6);
+      }
+      // 正文整体平移同一个 delta：相对版式一字不改。
+      const rawBody = raw.cells.slice(header.length);
+      spec.sections.forEach((s, i) => {
+        expect(s.x).toBeCloseTo(rawBody[i]!.x, 6);
+        expect(s.y - rawBody[i]!.y).toBeCloseTo(delta, 6);
+        expect(s.w).toBeCloseTo(rawBody[i]!.w, 6);
+        expect(s.h).toBeCloseTo(rawBody[i]!.h, 6);
+      });
+      // 外接框底边跟着下移，`fitToContent` 才不会把最下面一行裁掉。
+      expect(layout.bounds.bottom).toBeCloseTo(raw.bounds.bottom + delta, 6);
+      // 表头格子本身不动（它们的 x/y 只是 headerRect 的取材，不参与平移）。
+      layout.cells.slice(0, header.length).forEach((c, i) => {
+        expect(c.y).toBeCloseTo(raw.cells[i]!.y, 6);
+      });
+    });
+
+    it("表头字段少到一行放得下时（表头带不长高）正文分区一字不动——与改动前逐字一致", () => {
+      const header = [
+        { ...section("name", 1, 1, 6, 1), name: "姓名", type: "短文本" as const },
+        { ...section("age", 7, 1, 6, 1), name: "年龄", type: "短文本" as const },
+      ];
+      const body = [
+        { ...section("a", 1, 2, 6, 7), name: "A", type: "便利贴列表" as const },
+        { ...section("b", 7, 2, 6, 7), name: "B", type: "便利贴列表" as const },
+      ];
+      const { spec, layout } = buildExplicitTemplateSpec({
+        key: "no-shift", displayName: "x", sections: [...header, ...body], gridCols: 12,
+      });
+      const raw = computeExplicitLayout([...header, ...body], 12);
+      // 2 个字段 → 1 行 → minH 80 < 格子高 83.5：表头带不长高，正文不平移。
+      expect(spec.headerRect!.h).toBeCloseTo(raw.cells[0]!.h, 6);
+      spec.sections.forEach((s, i) => {
+        expect(s.y).toBeCloseTo(raw.cells[header.length + i]!.y, 6);
+      });
+      expect(layout.bounds.bottom).toBe(raw.bounds.bottom);
+    });
   });
 });
 
@@ -230,6 +314,23 @@ describe("allSectionsPlaced（issue #2372：chat 模拟/真实 chat 要不要走
   });
 });
 
+describe("buildExplicitTemplateSpec —— 页脚署名进 spec（issue #2527）", () => {
+  const section: ExplicitLayoutSectionInput = {
+    sectionId: "s1", name: "目标", type: "便利贴列表",
+    layout: { col: 1, row: 1, w: 6, h: 3, cols: 3, max: 9, tone: 0, overflow: "缩小字号" },
+  };
+  it("传了 footer：spec.footer 原样带过去，引擎才画得出页脚带", () => {
+    const { spec } = buildExplicitTemplateSpec({ key: "k", displayName: "T", footer: "本工具基于 XXX", gridCols: 12, sections: [section] });
+    expect(spec.footer).toBe("本工具基于 XXX");
+  });
+  it("footer 空串/缺省：spec 上没有 footer 字段（与 #2527 之前逐字一致）", () => {
+    const a = buildExplicitTemplateSpec({ key: "k", displayName: "T", footer: "", gridCols: 12, sections: [section] });
+    const b = buildExplicitTemplateSpec({ key: "k", displayName: "T", gridCols: 12, sections: [section] });
+    expect("footer" in a.spec).toBe(false);
+    expect(a.spec).toEqual(b.spec);
+  });
+});
+
 describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
   it("12 列网格，跨满 12 列 8 行：wMm/hMm 应逼近纸面内容区（一整块地方几乎占满内容区，只差一道 gap）", () => {
     const g = sectionGeometryMm({ w: 12, h: 8, cols: 5, gridCols: 12 });
@@ -238,18 +339,55 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.hMm).toBe(A1_CONTENT_MM.h - 6);
   });
 
-  it("贴纸实尺恒等于 STANDARD_NOTE_MM，固定 1:1 方形——不随区块宽度或列数变化（2026-08-30）", () => {
+  it("贴纸实尺 = (贴纸网格可用宽度 - 6×(cols-1)) / cols，固定 1:1 方形——2026-09-01 推翻 2026-08-30「固定不变」的约定，重新随区块宽度/列数缩放", () => {
     // 5 列 × 2 行 = 10 条的经典配置（PDF 示例原话「5 列 × 2 行 = 放得下 10 条」）。
     const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
-    expect(g.noteMm).toBe(STANDARD_NOTE_MM);
+    const expectedWMm = (6 / 12) * A1_CONTENT_MM.w - 6;
+    // ⚠ 2026-09-01（同日后续）：贴纸网格是区块的子元素，可用宽度要先扣掉区块自己
+    // 的左右内边距/边框（`blockHorizontalChromeMm`），不是直接拿区块外沿宽度去除——
+    // 理由见该函数文档（人类实测反馈"便利贴被遮住一半，不分列数"）。
+    const expectedNoteGridWidthMm = expectedWMm - blockHorizontalChromeMm("A1");
+    const expectedNoteMm = Math.round((expectedNoteGridWidthMm - 6 * 4) / 5);
+    expect(g.noteMm).toBe(expectedNoteMm);
   });
 
-  it("容量 = cols × rows，rows 由 floor((hMm-22)/(noteMm+6)) 算出——不是拍脑袋乘一个数", () => {
+  it("容量 = cols × rows，rows 由 floor((hMm-titleReserveMm(size))/(noteMm+6)) 算出——不是拍脑袋乘一个数", () => {
     const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
     const expectedHMm = (3 / 8) * A1_CONTENT_MM.h - 6;
-    const expectedRows = Math.floor((expectedHMm - 22) / (g.noteMm + 6));
+    const expectedRows = Math.floor((expectedHMm - titleReserveMm("A1")) / (g.noteMm + 6));
     expect(g.rows).toBe(expectedRows);
     expect(g.fits).toBe(5 * expectedRows);
+  });
+
+  it("titleReserveMm 按纸张宽度换算——A3/A4 比 A1 小得多，不是三档共用同一个固定 mm 数", () => {
+    const a1 = titleReserveMm("A1");
+    const a3 = titleReserveMm("A3");
+    const a4 = titleReserveMm("A4");
+    // A1 纸宽是 841mm（`PAPER_SIZE_MM.A1.w`，cqw 的换算基准是整张纸，不是扣掉页边距
+    // 的内容区）——5.15% × 841 ≈ 43.3mm（内边距/边框都是上下两条边都要算，见
+    // `BLOCK_HEADER_RESERVE_CQW` 的推导注释）。
+    expect(a1).toBeCloseTo(43.3, 1);
+    expect(a3).toBeLessThan(a1);
+    expect(a4).toBeLessThan(a3);
+    // 与纸宽严格成正比——同一个 cqw 比例换算到不同纸宽。
+    expect(a3 / a1).toBeCloseTo(PAPER_SIZE_MM.A3.w / PAPER_SIZE_MM.A1.w, 5);
+    expect(a4 / a1).toBeCloseTo(PAPER_SIZE_MM.A4.w / PAPER_SIZE_MM.A1.w, 5);
+  });
+
+  it("sectionGeometryMm 在 A4 上用 A4 自己的 titleReserveMm，不是错误地沿用 A1 的固定值", () => {
+    // h=8（满高）：h=3 时 A1/A4 两种预留值凑巧落进同一个 floor 区间，测不出差异；
+    // 拉高区块让两种预留值换算出的行数真的分道扬镳。
+    const onA4 = sectionGeometryMm({ w: 6, h: 8, cols: 5, gridCols: 12, size: "A4" });
+    const expectedRowsWithA4Reserve = Math.floor(
+      (onA4.hMm - titleReserveMm("A4")) / (onA4.noteMm + GRID_GAP_MM),
+    );
+    const expectedRowsIfWronglyUsedA1Reserve = Math.floor(
+      (onA4.hMm - titleReserveMm("A1")) / (onA4.noteMm + GRID_GAP_MM),
+    );
+    expect(onA4.rows).toBe(expectedRowsWithA4Reserve);
+    // 如果实现退化成"不管选哪张纸都用 A1 的固定预留"，这条会先假绿——用两种预留值
+    // 算出的期望 rows 本身就该不同，才能钉住"真的按纸张切换了"，不是巧合对上。
+    expect(expectedRowsWithA4Reserve).not.toBe(expectedRowsIfWronglyUsedA1Reserve);
   });
 
   it("区块窄到贴纸实尺 < 0（w/h 太小）时不产出负数容量——rows 夹到 0，不是负数或 NaN", () => {
@@ -259,23 +397,184 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
     expect(g.fits).toBeGreaterThanOrEqual(0);
   });
 
-  it("2026-08-30 · 贴纸实尺不再随列数反推——1 列时也还是 STANDARD_NOTE_MM，不会被撑到吃满整个区块宽度", () => {
-    // 真实复现：w=4,h=4（A1，12 列网格）选 1 列——旧公式（issue #2368 那版的
-    // Math.min(封顶, wMm/cols)）会先把贴纸撑到封顶值；现在贴纸大小是固定常量，
-    // 压根不看 wMm/cols，1 列与 5 列选出来的 noteMm 逐字相同。
+  it("issue #2368 · 贴纸实尺封顶在 MAX_NOTE_MM——1 列时不再吃满整个区块宽度，不再把自己撑到 0 行", () => {
+    // 真实复现：w=4,h=4（A1，12 列网格）选 1 列——未封顶前 wMm≈268，noteMm=268/1=268，
+    // rows=floor((281-22)/(268+6))=0，整块区域画不出任何内容。这条钉子在 2026-08-30
+    // 被「固定不变」的约定绕开过一次（干脆不看 wMm/cols 了），2026-09-01 推翻那条约定、
+    // 重新按宽度/列数反推 noteMm 之后，必须重新钉住不能回归到这个空白区块的老 bug。
     const g = sectionGeometryMm({ w: 4, h: 4, cols: 1, gridCols: 12 });
     expect(g.wMm).toBe(268);
-    expect(g.noteMm).toBe(STANDARD_NOTE_MM);
+    expect(g.noteMm).toBe(MAX_NOTE_MM);
     expect(g.noteMm).toBeLessThan(g.wMm);
     expect(g.rows).toBeGreaterThan(0);
     expect(g.fits).toBeGreaterThan(0);
   });
 
-  it("noteMm 是常量——列数、区块宽度怎么变，取到的都是同一个 STANDARD_NOTE_MM", () => {
+  it("noteMm 未触顶时维持原公式——封顶只在超过 MAX_NOTE_MM 时才生效，不改变正常档位的数值", () => {
+    const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
+    expect(g.noteMm).toBeLessThan(MAX_NOTE_MM);
+    const expectedWMm = (6 / 12) * A1_CONTENT_MM.w - 6;
+    const expectedNoteGridWidthMm = expectedWMm - blockHorizontalChromeMm("A1");
+    expect(g.noteMm).toBe(Math.round((expectedNoteGridWidthMm - 6 * 4) / 5));
+  });
+
+  /**
+   * 2026-09-01（第五轮，独立审查驳回"跳过测试"那版之后）：A4 纸配上较小区块选
+   * 2 列时，按*宽度*倒推的贴纸边长比这块地方的可用高度还高，`rows` floor 成 0，
+   * `visibleNoteCount` 又会强制展示至少 1 条——那 1 条天生比可用高度还高，
+   * 必然被裁。真正的修法：`rows` 按宽度版尺寸算出 0、但可用高度仍是正数时，
+   * 把贴纸边长夹到"能放下一行"的高度版尺寸。这组钉子直接复现人类实测撞到的
+   * 那组参数（A4、cols=2、默认区块高 h=3），不是编一组凑巧触发的输入。
+   */
+  describe("rows 按宽度算出 0、但可用高度仍是正数时，贴纸边长夹到高度能放下一行的尺寸", () => {
+    it("A4 纸 + 2 列 + h=3（真实复现的那组参数）：rows/fits 不再是 0，noteMm 比宽度版更小", () => {
+      const g = sectionGeometryMm({ w: 6, h: 3, cols: 2, gridCols: 12, size: "A4" });
+      // 按宽度算出的原始值（不夹高度）应该确实超过这块地方的可用高度——
+      // 这条钉子首先确认"会触发这条分支"，不是巧合绕过了它。
+      const wMm = (6 / 12) * contentMmFor("A4").w - 6;
+      const rawWidthNoteMm = Math.round(
+        Math.min(MAX_NOTE_MM, (wMm - blockHorizontalChromeMm("A4") - 6) / 2),
+      );
+      const hMm = (3 / 8) * contentMmFor("A4").h - 6;
+      const availableHeightMm = hMm - titleReserveMm("A4");
+      expect(rawWidthNoteMm + GRID_GAP_MM).toBeGreaterThan(availableHeightMm);
+
+      // 夹完之后：真的放得下——贴纸边长 + 一道间距不超过可用高度，不是继续
+      // 硬报"放得下"却量出来还是超的。
+      expect(g.rows).toBeGreaterThanOrEqual(1);
+      expect(g.fits).toBeGreaterThanOrEqual(1);
+      expect(g.noteMm).toBeLessThan(rawWidthNoteMm);
+      expect(g.noteMm + GRID_GAP_MM).toBeLessThanOrEqual(availableHeightMm);
+    });
+
+    it("可用高度本身就 ≤ 0（区块太矮，标题预留都不够）时，不产出负数/零尺寸也算「放得下」——rows 仍如实是 0", () => {
+      const g = sectionGeometryMm({ w: 6, h: 1, cols: 2, gridCols: 12, size: "A4" });
+      expect(g.rows).toBe(0);
+      expect(g.fits).toBe(0);
+    });
+
+    it("正常情况（可用高度本来就够）不受这条新逻辑影响——noteMm 仍是宽度版原值，不会被误夹小", () => {
+      const g = sectionGeometryMm({ w: 6, h: 8, cols: 2, gridCols: 12, size: "A4" });
+      const wMm = (6 / 12) * contentMmFor("A4").w - 6;
+      const expectedNoteMm = Math.round(
+        Math.min(MAX_NOTE_MM, (wMm - blockHorizontalChromeMm("A4") - 6) / 2),
+      );
+      expect(g.noteMm).toBe(expectedNoteMm);
+      expect(g.rows).toBeGreaterThan(1);
+    });
+  });
+
+  /**
+   * issue #2527（2026-09-02 用户反馈「用户画像/模版编辑/显示方式/列数」）：
+   * 「目标和需求」设最多 9 条、选 3 列，按道理 3 列 × 每列 3 条，实际 3 列 × 每列 1 条。
+   * 根因：贴纸边长只由宽度倒推（封顶 82mm），「最多条数」从没参与过尺寸决定。
+   */
+  describe("issue #2527：传入 max 时，贴纸按 ceil(max/cols) 行往下收，让 3 列 × 9 条真能摆成 3×3", () => {
+    it("A1 + 3 列 + 最多 9 条：不传 max 时只有 1 行（复现 bug），传了 max 后 rows=3、fits≥9", () => {
+      const base = { w: 6, h: 3, cols: 3, gridCols: 12 } as const;
+      const before = sectionGeometryMm(base);
+      // 先确认这组参数确实复现了反馈：宽度版贴纸吃到上限，高度只够 1 行 ⇒ 3×1。
+      expect(before.noteMm).toBe(MAX_NOTE_MM);
+      expect(before.rows).toBe(1);
+      expect(before.fits).toBe(3);
+
+      const after = sectionGeometryMm({ ...base, max: 9 });
+      expect(after.rows).toBe(3);
+      expect(after.fits).toBe(9);
+      expect(after.noteMm).toBeLessThan(before.noteMm);
+      // 收小后的 3 行 + 2 道间距真的塞得进可用高度，不是报了 3 行却还被裁掉。
+      const hMm = (3 / 8) * A1_CONTENT_MM.h - 6;
+      const availableHeightMm = hMm - titleReserveMm("A1");
+      expect(3 * after.noteMm + 2 * GRID_GAP_MM).toBeLessThanOrEqual(availableHeightMm);
+    });
+
+    it("宽度版容量本来就够 max 时不动：noteMm/rows 与不传 max 完全一致", () => {
+      const without = sectionGeometryMm({ w: 6, h: 3, cols: 3, gridCols: 12 });
+      const withMax = sectionGeometryMm({ w: 6, h: 3, cols: 3, gridCols: 12, max: 3 });
+      expect(withMax).toEqual(without);
+    });
+
+    it("max 大到按行反推会低于 MIN_SHRINK_NOTE_MM 时，退而求其次摆尽可能多的行，贴纸不低于下限", () => {
+      const g = sectionGeometryMm({ w: 6, h: 3, cols: 3, gridCols: 12, max: 99 });
+      expect(g.noteMm).toBeGreaterThanOrEqual(MIN_SHRINK_NOTE_MM);
+      expect(g.rows).toBeGreaterThanOrEqual(1);
+      expect(g.fits).toBeLessThan(99);
+      // 再多一行就会跌破下限——证明"尽可能多"不是随便停在某一行。
+      const hMm = (3 / 8) * A1_CONTENT_MM.h - 6;
+      const availableHeightMm = hMm - titleReserveMm("A1");
+      const oneMoreRow = Math.floor((availableHeightMm - GRID_GAP_MM * g.rows) / (g.rows + 1));
+      expect(oneMoreRow).toBeLessThan(MIN_SHRINK_NOTE_MM);
+    });
+
+    it("区块矮到连 1 行都放不下（可用高度 ≤ 0）时，传 max 也不会凭空造出容量", () => {
+      const g = sectionGeometryMm({ w: 6, h: 1, cols: 2, gridCols: 12, size: "A4", max: 9 });
+      expect(g.rows).toBe(0);
+      expect(g.fits).toBe(0);
+    });
+  });
+
+  it("贴纸网格可用宽度真的扣了区块自己的内边距/边框——同一区块宽度下，算出的 noteMm 比"
+    + "不扣内边距的旧公式更小（人类实测回归钉子：便利贴右侧被区块外壳遮住一半）", () => {
+    const g = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
+    const wMm = (6 / 12) * A1_CONTENT_MM.w - 6;
+    const noteMmIfIgnoringChrome = Math.min(MAX_NOTE_MM, Math.round((wMm - 6 * 4) / 5));
+    expect(g.noteMm).toBeLessThan(noteMmIfIgnoringChrome);
+    // 贴纸网格真实需要的总宽度（cols 张贴纸 + 列间距）必须落在区块扣完内边距/
+    // 边框之后的可用宽度以内，不能反过来比可用宽度还宽——这才是"不会被遮住"的
+    // 直接判据，不是间接猜 noteMm 变小了就行。`g.noteMm` 是四舍五入过的展示值
+    // （`SectionGeometryMm.noteMm` 本身就约定按 mm 取整），5 张贴纸最多累积
+    // 5×0.5mm 的取整误差，这条断言只钉"没有结构性超宽"，留够取整的容差。
+    const noteGridRequiredWidthMm = 5 * g.noteMm + 6 * 4;
+    expect(noteGridRequiredWidthMm).toBeLessThanOrEqual(wMm - blockHorizontalChromeMm("A1") + 5 * 0.5);
+  });
+
+  it("区块横向内边距/边框太厚、扣完已经不剩空间时，noteMm 夹到 0 且容量如实归零——不产出「宽度为 0 却报得出正数容量」的假阳性", () => {
+    // 2026-09-01 独立审查抓到的问题：noteMm 夹到 0 只挡住了负数，没挡住
+    // rows=floor((hMm-reserve)/(0+6)) 分母只剩间距、照样能除出正数行数，
+    // fits=cols×rows 跟着报出"这里放得下 N 张宽度为 0 的贴纸"这种假容量。
+    const g = sectionGeometryMm({ w: 1, h: 1, cols: 12, gridCols: 12 });
+    expect(g.noteMm).toBeGreaterThanOrEqual(0);
+    expect(Number.isFinite(g.noteMm)).toBe(true);
+    expect(g.noteMm).toBe(0);
+    // 贴纸边长到 0 ⇒ 这块地方真放不下任何一张，容量必须如实归零。
+    expect(g.rows).toBe(0);
+    expect(g.fits).toBe(0);
+  });
+
+  /**
+   * 2026-09-01（第四轮，真实浏览器 e2e 抓到的回归）：`rows` 此前用*未取整*的
+   * noteMm 去算，但实际渲染（`notePct`/字号）读的是取整后的 `geom.noteMm`——
+   * 取整最多把贴纸边长往上调 0.5mm，多行累加后，容量算出的行数可能比实际
+   * 渲染能放下的多一行，最后一行贴纸被裁。A4 纸、2 列、900px 视口下的真实
+   * 复现：`noteEdge=688.47 > gridEdge=686`，差 2.47px——这条钉住"容量的 rows
+   * 必须用跟展示同一个取整后的 noteMm 算"，不能各算各的。
+   */
+  it("rows 必须用取整后的 noteMm 算，不能用未取整的内部值——否则容量与实际渲染的贴纸尺寸对不上", () => {
+    const cases: SectionGeometryMmInput[] = [
+      { w: 6, h: 3, cols: 2, gridCols: 12, size: "A4" }, // 真实复现的那一组
+      { w: 6, h: 3, cols: 3, gridCols: 12, size: "A4" },
+      { w: 4, h: 5, cols: 5, gridCols: 12, size: "A3" },
+      { w: 6, h: 3, cols: 5, gridCols: 12 }, // 默认 A1
+    ];
+    for (const c of cases) {
+      const g = sectionGeometryMm(c);
+      const expectedRows = g.noteMm <= 0
+        ? 0
+        : Math.max(0, Math.floor((g.hMm - titleReserveMm(c.size ?? "A1")) / (g.noteMm + GRID_GAP_MM)));
+      expect(g.rows, JSON.stringify(c)).toBe(expectedRows);
+    }
+  });
+
+  it("列数越多，同一区块下贴纸越小——noteMm 真的随 cols 反推，不是常量", () => {
+    const fewCols = sectionGeometryMm({ w: 6, h: 3, cols: 2, gridCols: 12 });
+    const manyCols = sectionGeometryMm({ w: 6, h: 3, cols: 8, gridCols: 12 });
+    expect(manyCols.noteMm).toBeLessThan(fewCols.noteMm);
+  });
+
+  it("同一列数下，区块越窄贴纸越小——noteMm 真的随区块宽度反推，不是常量", () => {
     const wide = sectionGeometryMm({ w: 6, h: 3, cols: 5, gridCols: 12 });
-    const narrow = sectionGeometryMm({ w: 1, h: 3, cols: 8, gridCols: 12 });
-    expect(wide.noteMm).toBe(STANDARD_NOTE_MM);
-    expect(narrow.noteMm).toBe(STANDARD_NOTE_MM);
+    const narrow = sectionGeometryMm({ w: 1, h: 3, cols: 5, gridCols: 12 });
+    expect(narrow.noteMm).toBeLessThan(wide.noteMm);
   });
 });
 

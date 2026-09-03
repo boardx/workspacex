@@ -46,9 +46,28 @@ interface Row {
   /** #619 */
   abbr: string | null;
   duty: string | null;
+  /** #2514：只有 `LISTING_WITH_ORCHESTRATION` 的读路径会带上；写路径的 RETURNING 没有。 */
+  skill_orchestration?: "all-enabled" | "curated" | null;
 }
 
 const COLUMNS = "id, org_id, kind, name, scope, owner_team_id, enabled, endpoint, abbr, duty";
+/**
+ * #2514 —— 读路径把 agent 的 skill 加载规则一并投影出来（契约 `CapabilityListing.
+ * skillOrchestration`）：已发布版本钉了 skill ⇒ `curated`，没钉 ⇒ `all-enabled`，
+ * 不是 agent / 读不到已发布版本 ⇒ null。规则本身只在 `message-roundtrip.ts` 的
+ * `resolveRunSkillVersionIds` 实现，这里只是把「它会走哪条」告诉目录的读者。
+ */
+const LISTING_WITH_ORCHESTRATION = `
+  SELECT cl.id, cl.org_id, cl.kind, cl.name, cl.scope, cl.owner_team_id, cl.enabled,
+         cl.endpoint, cl.abbr, cl.duty,
+         CASE
+           WHEN cl.kind <> 'agent' OR av.id IS NULL THEN NULL
+           WHEN cardinality(av.skill_version_ids) > 0 THEN 'curated'
+           ELSE 'all-enabled'
+         END AS skill_orchestration
+    FROM capability_listings cl
+    LEFT JOIN agents a ON a.id = cl.id AND a.org_id = cl.org_id
+    LEFT JOIN agent_versions av ON av.id = a.published_version_id AND av.org_id = a.org_id`;
 
 function toGuarded(row: Row): GuardedCapability {
   const listing: CapabilityListing = {
@@ -67,6 +86,7 @@ function toGuarded(row: Row): GuardedCapability {
     // the organization's kind. Null here rather than a guessed string: a reason invented at
     // the storage layer would be a second, unreconciled answer to "why is this row grey".
     disabledReason: null,
+    skillOrchestration: row.skill_orchestration ?? null,
   };
   return {
     facts: {
@@ -94,9 +114,9 @@ export class PgCapabilityRepository implements CapabilityRepository {
   async listByKind(orgId: OrgId, kind: CapabilityKind): Promise<readonly GuardedCapability[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
-        `SELECT ${COLUMNS} FROM capability_listings
-          WHERE (org_id = $1 OR org_id = $3) AND kind = $2
-          ORDER BY name`,
+        `${LISTING_WITH_ORCHESTRATION}
+          WHERE (cl.org_id = $1 OR cl.org_id = $3) AND cl.kind = $2
+          ORDER BY cl.name`,
         [orgId, kind, PLATFORM_ORG_ID],
       );
       return r.rows.map(toGuarded);
@@ -106,9 +126,9 @@ export class PgCapabilityRepository implements CapabilityRepository {
   async listAll(orgId: OrgId): Promise<readonly GuardedCapability[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
-        `SELECT ${COLUMNS} FROM capability_listings
-          WHERE org_id = $1 OR org_id = $2
-          ORDER BY kind, name`,
+        `${LISTING_WITH_ORCHESTRATION}
+          WHERE cl.org_id = $1 OR cl.org_id = $2
+          ORDER BY cl.kind, cl.name`,
         [orgId, PLATFORM_ORG_ID],
       );
       return r.rows.map(toGuarded);
@@ -118,8 +138,8 @@ export class PgCapabilityRepository implements CapabilityRepository {
   async findById(orgId: OrgId, id: string): Promise<GuardedCapability | null> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
-        `SELECT ${COLUMNS} FROM capability_listings
-          WHERE (org_id = $1 OR org_id = $3) AND id = $2`,
+        `${LISTING_WITH_ORCHESTRATION}
+          WHERE (cl.org_id = $1 OR cl.org_id = $3) AND cl.id = $2`,
         [orgId, id, PLATFORM_ORG_ID],
       );
       const row = r.rows[0];

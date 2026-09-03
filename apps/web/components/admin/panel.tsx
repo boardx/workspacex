@@ -55,7 +55,7 @@ export function AdminModal({
 }
 
 export function AdminDrawer({
-  title, subtitle, onClose, children, footer, testid,
+  title, subtitle, onClose, children, footer, testid, width = "md",
 }: {
   title: string;
   subtitle?: string;
@@ -63,6 +63,8 @@ export function AdminDrawer({
   children: React.ReactNode;
   footer?: React.ReactNode;
   testid: string;
+  /** `lg` 给内容多的实体面板（skill 契约 + 门禁、MCP 工具清单）；缺省 `md` 与从前一致。 */
+  width?: "md" | "lg";
 }) {
   return (
     <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
@@ -70,7 +72,8 @@ export function AdminDrawer({
         data-testid={testid}
         closeTestId={`${testid}-close`}
         className={cn(
-          "inset-y-0 left-auto right-0 top-auto h-full max-h-full w-full max-w-md",
+          "inset-y-0 left-auto right-0 top-auto h-full max-h-full w-full",
+          width === "lg" ? "max-w-2xl" : "max-w-md",
           "translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-y-0 border-r-0 p-0",
         )}
       >

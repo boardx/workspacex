@@ -16,13 +16,19 @@ import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
-import { DATABASE_PORT } from "./application/ports/database.port";
+import { DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT } from "./application/ports/database.port";
 import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
 import { PRINCIPAL_RESOLVER_PORT } from "./application/ports/principal-resolver.port";
 
-import { appConfig } from "./infrastructure/db/pg-config";
+import { appConfig, diagnosticsReaderConfig } from "./infrastructure/db/pg-config";
 import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
+import { ERROR_LOG_PORT } from "./application/ports/error-log.port";
+import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
+import { RATE_LIMITER_PORT } from "./application/ports/rate-limiter.port";
+import { InMemoryRateLimiter } from "./infrastructure/system/in-memory-rate-limiter";
+import { PlatformSuperuserGuard } from "./interface/guards/platform-superuser.guard";
+import { ClientErrorReportRateLimitGuard } from "./interface/guards/client-error-report-rate-limit.guard";
 
 // F20/F21 auth. `HeaderPrincipalResolver` is no longer wired: it was the test-injection
 // PLACEHOLDER F18 shipped while the credential format was undecided (UC-0.6 A-3), and the
@@ -278,9 +284,11 @@ import { PgChatRepository } from "./infrastructure/chat/pg-chat-repository";
 import {
   CHAT_MESSAGE_COMMAND_REPOSITORY,
   DEFAULT_AGENT_RESOLVER,
+  ENABLED_SKILL_VERSION_READER,
   PUBLISHED_AGENT_READER,
   THREAD_MOUNTED_SKILL_READER,
   type ChatMessageCommandRepository,
+  type EnabledSkillVersionReader,
   type PublishedAgentReader,
   type ThreadMountedSkillReader,
 } from "./application/chat/message-command-ports";
@@ -289,6 +297,7 @@ import {
   PgPublishedAgentReader,
 } from "./infrastructure/chat/pg-chat-message-command-repository";
 import { PgThreadMountedSkillReader } from "./infrastructure/chat/pg-thread-mounted-skill-reader";
+import { PgEnabledSkillVersionReader } from "./infrastructure/skill/pg-enabled-skill-version-reader";
 import { PgChatPresetRepository } from "./infrastructure/chat/pg-chat-preset-repository";
 import { PgArtifactLandingRepository } from "./infrastructure/chat/pg-artifact-landing-repository";
 // #946 · V9-a F150：对话附件上传——独立仓储 + 独立控制器（不塞进 1130 行的 ChatController）。
@@ -345,6 +354,9 @@ import { AgentRunExecutor } from "./infrastructure/agent-run/agent-run-executor"
 import { AgentRunController } from "./interface/controllers/agent-run.controller";
 import { CopilotkitAguiController } from "./interface/controllers/copilotkit-agui.controller";
 import { PlanControlController } from "./interface/controllers/plan-control.controller";
+import { BoardController } from "./interface/controllers/board.controller";
+import { TASK_REPOSITORY, TASK_STATUS_AUDIT_WRITER } from "./application/board/ports";
+import { PgTaskRepository, PgTaskStatusAuditWriter } from "./infrastructure/board/pg-task-repository";
 import { AgentTrialRunController } from "./interface/controllers/agent-trial-run.controller";
 import { ChatFollowUpSuggestionsController } from "./interface/controllers/chat-followup-suggestions.controller";
 import { FOLLOWUP_MODEL_CONFIG } from "./application/chat/generate-followup-suggestions";
@@ -400,6 +412,36 @@ import { MessageRatingController } from "./interface/controllers/message-rating.
 import { PgProductFeedbackRepository } from "./infrastructure/feedback/pg-product-feedback-repository";
 import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
 import { FeedbackController } from "./interface/controllers/feedback.controller";
+import { SystemErrorLogController } from "./interface/controllers/system-error-log.controller";
+import { SystemMailController } from "./interface/controllers/system-mail.controller";
+// 2026-08-30：反馈"转开发"建 GitHub issue + 任意分诊转移发状态变更邮件的两个 egress seam。
+// 见 `application/feedback/notification-ports.ts` 与
+// `application/notifications/transactional-mail-ports.ts` 头注（ADR-108）。
+import {
+  FEEDBACK_SUBMITTER_DIRECTORY,
+  GITHUB_ISSUE_CREATOR,
+} from "./application/feedback/notification-ports";
+import { PgFeedbackSubmitterDirectory } from "./infrastructure/feedback/pg-feedback-submitter-directory";
+import {
+  FetchGithubIssueCreator,
+  GITHUB_ISSUE_CONFIG,
+  lazyGithubIssueConfig,
+  type GithubIssueConfig,
+} from "./infrastructure/feedback/github-issue-creator";
+import { TRANSACTIONAL_MAIL_TRANSPORT } from "./application/notifications/transactional-mail-ports";
+import {
+  CloudflareTransactionalEmailTransport,
+  TRANSACTIONAL_MAIL_CONFIG,
+  lazyTransactionalMailConfig,
+  type TransactionalMailConfig,
+} from "./infrastructure/notifications/cloudflare-transactional-email-transport";
+// FB-5（2026-09-02）：图片附件仓储 + 语音转录整理的固定模型配置。见两个用例的头注
+// （`upload-feedback-attachment.ts` / `structure-feedback-draft.ts`）与
+// `pg-feedback-attachment-repository.ts`。
+import { FEEDBACK_ATTACHMENT_REPOSITORY } from "./application/feedback/attachment-ports";
+import { PgFeedbackAttachmentRepository } from "./infrastructure/feedback/pg-feedback-attachment-repository";
+import { FEEDBACK_STRUCTURE_MODEL_CONFIG } from "./application/feedback/structure-feedback-draft";
+import { readFeedbackStructureModelConfig } from "./infrastructure/feedback/feedback-structure-model-config";
 import { PgSkillContractRepository } from "./infrastructure/skill/pg-skill-contract-repository";
 import {
   FailClosedSubmitterGrants, LoggingSkillSecurityAudit,
@@ -448,6 +490,10 @@ import { LIMIT_RULE_REPOSITORY, TOKEN_QUOTA_REPOSITORY } from "./application/aut
 import { PgLimitRuleRepository } from "./infrastructure/auth/pg-limit-rule-repository";
 import { PgTokenQuotaRepository } from "./infrastructure/auth/pg-token-quota-repository";
 import { OrgAdminManagementController } from "./interface/controllers/org-admin-management.controller";
+// member-role-management delta：平台级成员名册与角色调整（组织级在 OrgAdminManagementController）。
+import { PLATFORM_MEMBER_REPOSITORY } from "./application/system/platform-member-ports";
+import { PgPlatformMemberRepository } from "./infrastructure/system/pg-platform-member-repository";
+import { PlatformMemberController } from "./interface/controllers/platform-member.controller";
 // F31 (files bundle): the project file browser's three READ routes.
 // ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
 // anything wired here. The repository provided below is the only reader of it, and the
@@ -746,6 +792,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     OrgInviteLinkController,
     CheckinBoardController,
     OrgAdminManagementController,
+    PlatformMemberController,
     FilesBrowserController,
     FilesDeliveryController,
     FilesExportController,
@@ -765,6 +812,8 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     CopilotkitAguiController,
     // F977 (plan-control 契约束).
     PlanControlController,
+    // F02/F06 (board 契约束).
+    BoardController,
     AgentTrialRunController,
     SkillTrialRunController,
     AgentController,
@@ -772,13 +821,31 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     SkillController,
     MessageRatingController,
     FeedbackController,
+    SystemErrorLogController,
+    SystemMailController,
     SkillReviewController,
     SkillMountController,
     ModelController,
   ],
   providers: [
     { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
+    // `app_diag_ro` -- a genuinely separate credential from `app_rw` (see `pg-config.ts`'s
+    // and `pg-error-log-writer.ts`'s headers). Only `PgErrorLogWriter.list()` ever touches
+    // this pool.
+    { provide: DIAGNOSTICS_READER_DB_PORT, useFactory: () => new PgDatabase(diagnosticsReaderConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
+    {
+      provide: ERROR_LOG_PORT,
+      useFactory: (db: DatabasePort, readDb: DatabasePort) => new PgErrorLogWriter(db, readDb),
+      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT],
+    },
+    {
+      provide: RATE_LIMITER_PORT,
+      useFactory: (clock: Clock) => new InMemoryRateLimiter(clock),
+      inject: [CLOCK],
+    },
+    PlatformSuperuserGuard,
+    ClientErrorReportRateLimitGuard,
     {
       provide: PRINCIPAL_RESOLVER_PORT,
       useFactory: (sessions: SessionTokenStore, clock: Clock) =>
@@ -829,6 +896,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgPlanLedgerRepository(db),
       inject: [DATABASE_PORT],
     },
+    // F02/F06 (board 契约束) -- F01 shipped these ports with no infra binding
+    // ("纯 API/状态机断言，不锚 UI"); this is the first controller wiring them up.
+    { provide: TASK_REPOSITORY, useClass: PgTaskRepository },
+    { provide: TASK_STATUS_AUDIT_WRITER, useClass: PgTaskStatusAuditWriter },
     {
       provide: PLAN_RUN_STATUS_READER,
       useExisting: PLAN_LEDGER_REPOSITORY,
@@ -847,11 +918,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (
         repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository,
         commands: ChatMessageCommandRepository, publishedAgents: PublishedAgentReader,
-        threadMounts: ThreadMountedSkillReader, executor: AgentRunExecutorPort,
+        threadMounts: ThreadMountedSkillReader, enabledSkills: EnabledSkillVersionReader,
+        executor: AgentRunExecutorPort,
         runs: PlanLedgerRepository & PlanRunStatusReader, agentRunStore: AgentRunStore,
         model: ModelCallPort, titleModel: ThreadTitleModelConfig, logger: LoggerPort,
       ) => new AcceptMessagePlanRunCreator({
-        repo, ids, chat, commands, publishedAgents, threadMounts, executor, runs, agentRunStore, logger,
+        repo, ids, chat, commands, publishedAgents, threadMounts, enabledSkills, executor, runs, agentRunStore, logger,
         model, titleModel,
         // 同 ChatController.log 的既有先例（server-side only 适配器）。
         log: (message: string, detail: Record<string, unknown>) => {
@@ -861,6 +933,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [
         IDENTITY_REPOSITORY, DECISION_ID_FACTORY, CHAT_REPOSITORY,
         CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
+        ENABLED_SKILL_VERSION_READER,
         AGENT_RUN_EXECUTOR, PLAN_RUN_STATUS_READER, AGENT_RUN_STORE,
         MODEL_CALL_PORT, THREAD_TITLE_MODEL_CONFIG, LOGGER_PORT,
       ],
@@ -1238,6 +1311,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       // 却从不进入任何一次 run——那是 #1559 逐字记录的形态。
       provide: THREAD_MOUNTED_SKILL_READER,
       useFactory: (db: DatabasePort) => new PgThreadMountedSkillReader(db),
+      inject: [DATABASE_PORT],
+    },
+    {
+      // #2514：agent 默认加载全部已启用 skill（2026-09-02 裁决）进入 run 快照的读口。
+      provide: ENABLED_SKILL_VERSION_READER,
+      useFactory: (db: DatabasePort) => new PgEnabledSkillVersionReader(db),
       inject: [DATABASE_PORT],
     },
     {
@@ -1687,6 +1766,12 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgOrgMemberRepository(db),
       inject: [DATABASE_PORT],
     },
+    // member-role-management delta：平台级名册只读端口；改角色复用上面的 ORG_MEMBER_REPOSITORY。
+    {
+      provide: PLATFORM_MEMBER_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgPlatformMemberRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F160（token-quota-and-usage delta）。额度读写与计量写入分成两个仓储：
     // 后者（PgTokenUsageRepository）是账的唯一写入点，前者只读账、写额度。
     // F162 限额策略。与额度仓储分开：规则是配置，额度是数额，两者的读写路径没有共享逻辑。
@@ -1986,6 +2071,45 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       provide: PRODUCT_FEEDBACK_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgProductFeedbackRepository(db),
       inject: [DATABASE_PORT],
+    },
+    // 2026-08-30："转开发"建 GitHub issue + 任意分诊转移发状态变更邮件（ADR-108）。
+    // ⚠ 两个配置都走 lazy Proxy——同 `CLOUDFLARE_EMAIL_CONFIG` 那一条：它们是可选子
+    // 系统，没有任何一次部署要求"进程启动时就必须能建 issue / 发反馈通知邮件"。
+    {
+      provide: GITHUB_ISSUE_CONFIG,
+      useFactory: () => lazyGithubIssueConfig(),
+    },
+    {
+      provide: GITHUB_ISSUE_CREATOR,
+      useFactory: (config: GithubIssueConfig) => new FetchGithubIssueCreator(config),
+      inject: [GITHUB_ISSUE_CONFIG],
+    },
+    {
+      provide: FEEDBACK_SUBMITTER_DIRECTORY,
+      useFactory: (db: DatabasePort) => new PgFeedbackSubmitterDirectory(db),
+      inject: [DATABASE_PORT],
+    },
+    // FB-5：附件仓储不按组织构造（同 `MESSAGE_RATING_REPOSITORY`）——每个方法自己接收
+    // `orgId` 参数,见 `attachment-ports.ts` 与 `pg-feedback-attachment-repository.ts`。
+    {
+      provide: FEEDBACK_ATTACHMENT_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgFeedbackAttachmentRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // FB-5：语音转录整理用例的固定模型配置——同 `THREAD_TITLE_MODEL_CONFIG` 既有先例,
+    // 用户点击触发,不需要"是否启用"这道开关(那道开关是给"每条消息都可能触发"的场景用的)。
+    {
+      provide: FEEDBACK_STRUCTURE_MODEL_CONFIG,
+      useFactory: () => readFeedbackStructureModelConfig(),
+    },
+    {
+      provide: TRANSACTIONAL_MAIL_CONFIG,
+      useFactory: () => lazyTransactionalMailConfig(),
+    },
+    {
+      provide: TRANSACTIONAL_MAIL_TRANSPORT,
+      useFactory: (config: TransactionalMailConfig) => new CloudflareTransactionalEmailTransport(config),
+      inject: [TRANSACTIONAL_MAIL_CONFIG],
     },
     {
       provide: SKILL_SECURITY_AUDIT,

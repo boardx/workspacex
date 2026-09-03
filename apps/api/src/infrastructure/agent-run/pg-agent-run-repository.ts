@@ -633,6 +633,19 @@ export class PgAgentRunRepository implements AgentRunStore {
       // `tool_call_id` (every non-`tool_call` step, and any `tool_call` step whose
       // provider never supplied one) are each their own group via `COALESCE(..., id)`, so
       // this changes nothing for them -- identical to the pre-#742 one-row-per-call shape.
+      //
+      // DA-19g fix -- the outer ORDER BY must sort by the group's FIRST seq
+      // (`group_seq`/`MIN(seq)`), never by the picked (terminal) row's own `seq`. A HITL
+      // resume appends the terminal row for an already-announced call with a NEW seq
+      // (`resumeStepSeqBase`/`max_step_seq` above always continues past whatever came
+      // before), so sorting by the terminal row's own seq silently reorders that step to
+      // the TAIL of the list the moment it resolves -- past `agui-bridge.ts`
+      // `pollAguiRunToOutcome`'s position-based "already reported" cursor
+      // (`initialReportedStepCount`), which re-announces it a second time
+      // (`agui-bridge-hitl.test.ts`'s "resume 请求把 run 续跑到 succeeded" case: a
+      // duplicate `STEP_STARTED` for the approval tool call). Sorting by the group's first
+      // seq keeps the step pinned at the position it was ORIGINALLY announced at --
+      // `rn = 1`'s row-picking (terminal content once it exists) is unchanged.
       const steps = await s.query<StepRow>(
         `SELECT kind,status,started_at,ended_at,input_digest,output_digest,failure_code,
                 tool_name,tool_args_summary,tool_result_summary,planning_note,tool_call_id
@@ -641,11 +654,12 @@ export class PgAgentRunRepository implements AgentRunStore {
                ROW_NUMBER() OVER (
                  PARTITION BY COALESCE(tool_call_id, id)
                  ORDER BY (status <> 'in_progress') DESC, seq DESC
-               ) AS rn
+               ) AS rn,
+               MIN(seq) OVER (PARTITION BY COALESCE(tool_call_id, id)) AS group_seq
              FROM agent_run_steps WHERE org_id=$1 AND run_id=$2
            ) collapsed
           WHERE rn = 1
-          ORDER BY seq, started_at`,
+          ORDER BY group_seq, started_at`,
         [orgId, runId],
       );
       return { row, steps: steps.rows };

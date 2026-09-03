@@ -23,6 +23,8 @@ import {
 import { PERSONAL_TRANSCRIPTION_REPOSITORY } from "./application/recording/personal-transcription-ports";
 import { ASR_USAGE_METER, REALTIME_ASR_TICKET_STORE } from "./application/recording/personal-realtime-asr";
 import { ensurePlatformSkillCatalogSeeded } from "./infrastructure/skill/ensure-platform-skill-catalog";
+import { DATABASE_PORT } from "./application/ports/database.port";
+import { sweepExpiredErrorLogs } from "./infrastructure/logging/pg-error-log-writer";
 
 export async function createApp(): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(KernelModule, {
@@ -72,6 +74,29 @@ function isProcessEntry(): boolean {
 }
 
 /**
+ * 本地开发便利：把仓库根目录的 `.env.local` 灌进 `process.env`。
+ *
+ * ⚠ 只在**非生产**且**真是进程入口**时做——见 `isProcessEntry()` 头注同一条纪律：
+ *   生产环境的机密来自 `deploy.env`（systemd `EnvironmentFile`，见
+ *   `.harness/scripts/vm/provision.sh`），不该也不能依赖仓库里的这个文件；
+ *   测试里 `await import("../../src/main")` 拿到 `createApp` 时这段也不该跑——
+ *   一个开发者本机的 `.env.local` 不该悄悄改变测试期望看到的环境变量。
+ * ⚠ 文件不存在是**最常见的正常状态**（多数贡献者不需要 GitHub issue token 之类的
+ *   可选子系统），`process.loadEnvFile` 找不到文件会抛，这里吞掉、不打日志噪音——
+ *   同 `lazyGithubIssueConfig` 头注"可选子系统缺配置不该拖垮启动"那条理由。
+ * ⚠ `process.loadEnvFile` 不会覆盖已经存在的 `process.env[key]`——shell 里手动
+ *   `export` 过的值，或部署环境本来就设置的值，优先级仍然更高。
+ */
+function loadLocalEnvFileForDev(): void {
+  if (process.env.NODE_ENV === "production") return;
+  try {
+    process.loadEnvFile(fileURLToPath(new URL("../../../.env.local", import.meta.url)));
+  } catch {
+    // 没有这个文件 / 解析失败——都不是需要打断启动的事，见函数头注。
+  }
+}
+
+/**
  * #466 —— the WS surface, attached to the SAME http server the controllers run on.
  *
  * ## Why it is wired here and not as a Nest "gateway"
@@ -112,6 +137,7 @@ export function attachStreamingSurfaces(app: NestExpressApplication): void {
 }
 
 if (isProcessEntry()) {
+  loadLocalEnvFileForDev();
   const app = await createApp();
   const port = Number(process.env.PORT ?? 3200);
   await app.listen(port);
@@ -145,5 +171,19 @@ if (isProcessEntry()) {
     );
   } else {
     console.error("platform skill catalog self-heal failed (will retry on next boot):", seed.error);
+  }
+
+  /**
+   * `error_logs` retention self-heal (2026-09-01 review finding #2, PR #2444) -- same shape
+   * and same placement rationale as the platform-skill seed just above: never throws, runs
+   * after `app.listen()` so it cannot delay accepting traffic, and only fires on a real
+   * process start (`isProcessEntry()`, not under `await import("../../src/main")` in tests).
+   * `pg-error-log-writer.ts`'s file header explains why this is a SECOND independent trigger
+   * for the same sweep, not the only one -- a low-write-volume deployment that never restarts
+   * is the one gap neither trigger closes; that is documented there, not hidden here.
+   */
+  const swept = await sweepExpiredErrorLogs(app.get(DATABASE_PORT));
+  if (!swept.ok) {
+    console.error("error_logs retention sweep failed (will retry on next boot or write cadence):", swept.error);
   }
 }

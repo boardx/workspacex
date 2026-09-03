@@ -149,7 +149,7 @@ export function usesAutoLayoutSpec(
 }
 
 export function TemplateSimulateDialog({
-  templateKey, layoutSource, sectionsDirty, sections, gridCols, title, promptText, onClose,
+  templateKey, layoutSource, sectionsDirty, sections, gridCols, title, footer, promptText, onClose,
 }: {
   readonly templateKey: string;
   /**
@@ -171,6 +171,8 @@ export function TemplateSimulateDialog({
    */
   readonly gridCols: 6 | 12;
   readonly title: string;
+  /** 页脚署名——与保存/真实 chat 渲染同源，模拟里也要画出来（issue #2527）。 */
+  readonly footer: string;
   /** ①栏当前的提示词正文——打开弹窗时用来预填。 */
   readonly promptText: string;
   readonly onClose: () => void;
@@ -228,6 +230,7 @@ export function TemplateSimulateDialog({
             ? buildExplicitTemplateSpec({
               key: previewKey,
               displayName: title || templateKey,
+              footer,
               gridCols,
               sections: sections.map((s) => (
                 { sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type }
@@ -236,6 +239,7 @@ export function TemplateSimulateDialog({
             : buildAutoTemplateSpec({
               key: previewKey,
               displayName: title || templateKey,
+              footer,
               sections: sections.map((s) => ({
                 sectionId: s.sectionId, name: s.name, order: s.order, required: s.required, capacity: s.capacity,
                 type: s.type,
@@ -263,7 +267,7 @@ export function TemplateSimulateDialog({
     } finally {
       setRunning(false);
     }
-  }, [prompt, running, templateKey, layoutSource, sectionsDirty, sections, gridCols, title, previewKey]);
+  }, [prompt, running, templateKey, layoutSource, sectionsDirty, sections, gridCols, title, footer, previewKey]);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>

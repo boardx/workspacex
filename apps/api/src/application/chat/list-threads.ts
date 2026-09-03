@@ -133,12 +133,18 @@ export async function listThreads(
 
   // 组标题常驻（R8）：有内容时两组都在，空组也在——否则「今天没有对话」会与
   // 「今天这一组没被实现」在界面上无法区分。
+  // ⚠ 不在这里重排：`candidates` 已经是 `listProjectThreads` 按
+  // `ORDER BY last_activity_at DESC, t.id` 取回的全序结果，上面的循环把每条
+  // 卡片按到达顺序 push 进 `byLabel`，天然保序。这里曾经有一段 `.sort((a, b) =>
+  // a.lastActivityAt < b.lastActivityAt ? 1 : -1)`：相等时恒返回 `-1`，不满足
+  // `compareFn` 的全序契约（`a===b` 时必须返回 `0`），会在时间戳并列时产生不稳定
+  // 的相对顺序——同一份问题在 `list-personal-threads.ts` 里也有一份（同一事实
+  // 两处声明，见 AGENTS.md 纪律），两处需同改。删掉这段 JS 重排，直接信任 SQL
+  // 已经给出的稳定全序（`id` 兜底打破并列）。
   return {
     groups: THREAD_GROUP_ORDER.map((label) => ({
       label,
-      cards: (byLabel.get(label) ?? []).sort((a, b) =>
-        a.lastActivityAt < b.lastActivityAt ? 1 : -1,
-      ),
+      cards: byLabel.get(label) ?? [],
     })),
     capabilities,
   };

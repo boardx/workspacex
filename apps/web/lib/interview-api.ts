@@ -1,6 +1,6 @@
 import { interview } from "@repo/contracts";
 import type { z } from "zod";
-import { apiRequest } from "./api-client";
+import { ApiError, apiRequest, apiUrl, getStoredSessionToken } from "./api-client";
 import {
   appendMockQuickMessage,
   isMockExpertId,
@@ -76,8 +76,8 @@ export function loadDigitalInterview(interviewId: string) {
 }
 
 /** The workflow view is the only live recovery model; drafts never fall back to localStorage. */
-export function loadDigitalInterviewWorkflow(interviewId: string) {
-  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${interviewId}`);
+export function loadDigitalInterviewWorkflow(interviewId: string, signal?: AbortSignal) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${interviewId}`, { signal });
 }
 
 export function confirmDigitalInterviewTopic(input: {
@@ -115,6 +115,128 @@ export function confirmDigitalInterviewQuestions(input: {
     method: "POST",
     body: { questions: input.questions, expectedVersion: input.expectedVersion, requestId: input.requestId },
   });
+}
+
+export function generateDigitalInterviewReport(input: {
+  readonly interviewId: string;
+  readonly expectedVersion: number;
+  readonly requestId: string;
+}) {
+  return apiRequest<DigitalInterviewWorkflowView>(`/interviews/digital/${input.interviewId}/report/generate`, {
+    method: "POST",
+    body: { expectedVersion: input.expectedVersion, requestId: input.requestId },
+  });
+}
+
+interface DigitalInterviewReportStreamFrame {
+  readonly type: "progress" | "complete" | "error";
+  readonly value: unknown;
+}
+
+async function readReportStream(
+  response: Response,
+  onProgress: (view: DigitalInterviewWorkflowView) => void,
+): Promise<DigitalInterviewWorkflowView> {
+  if (!response.ok || !response.body) throw new ApiError(response.status, null, null);
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let pending = "";
+  let latest: DigitalInterviewWorkflowView | null = null;
+  while (true) {
+    const { value, done } = await reader.read();
+    pending += value ?? "";
+    const lines = pending.split("\n");
+    pending = lines.pop() ?? "";
+    for (const line of lines.filter((candidate) => candidate.trim())) {
+      const frame = JSON.parse(line) as DigitalInterviewReportStreamFrame;
+      if (frame.type === "error") {
+        const reasonCode = frame.value && typeof frame.value === "object" && "reasonCode" in frame.value
+          ? String((frame.value as { reasonCode: unknown }).reasonCode) : "DEPENDENCY_UNAVAILABLE";
+        throw new ApiError(503, reasonCode, frame.value);
+      }
+      latest = interview.DigitalInterviewWorkflowView.parse(frame.value);
+      onProgress(latest);
+    }
+    if (done) break;
+  }
+  if (!latest) throw new ApiError(502, "REPORT_STREAM_EMPTY", null);
+  return latest;
+}
+
+function reportGenerationFinished(view: DigitalInterviewWorkflowView): boolean {
+  return Boolean(view.report) || view.reportGeneration?.status === "failed";
+}
+
+function reportGenerationRunning(view: DigitalInterviewWorkflowView): boolean {
+  return view.reportGeneration?.status === "running";
+}
+
+function isRetryableReportStreamError(cause: unknown): boolean {
+  if (!(cause instanceof ApiError)) return cause instanceof TypeError;
+  return cause.reasonCode === "REPORT_STREAM_EMPTY" || cause.status >= 500 && !cause.reasonCode;
+}
+
+function waitForReportStreamRetry(signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.reject(signal.reason);
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(resolve, 500);
+    signal?.addEventListener("abort", () => {
+      window.clearTimeout(timer);
+      reject(signal.reason);
+    }, { once: true });
+  });
+}
+
+export async function generateDigitalInterviewReportStream(
+  input: { readonly interviewId: string; readonly expectedVersion: number; readonly requestId: string },
+  onProgress: (view: DigitalInterviewWorkflowView) => void,
+  signal?: AbortSignal,
+): Promise<DigitalInterviewWorkflowView> {
+  const token = getStoredSessionToken();
+  try {
+    const response = await fetch(apiUrl(`/interviews/digital/${input.interviewId}/report/generate/stream`), {
+      method: "POST",
+      headers: {
+        Accept: "application/x-ndjson",
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify({ expectedVersion: input.expectedVersion, requestId: input.requestId }),
+      signal,
+    });
+    const latest = await readReportStream(response, onProgress);
+    if (reportGenerationFinished(latest) || !reportGenerationRunning(latest)) return latest;
+  } catch (cause) {
+    if (signal?.aborted) throw cause;
+    const recovered = await loadDigitalInterviewWorkflow(input.interviewId, signal);
+    onProgress(recovered);
+    if (reportGenerationFinished(recovered)) return recovered;
+    if (!reportGenerationRunning(recovered)) throw cause;
+  }
+
+  return observeDigitalInterviewReportStream(input.interviewId, onProgress, signal);
+}
+
+export async function observeDigitalInterviewReportStream(
+  interviewId: string,
+  onProgress: (view: DigitalInterviewWorkflowView) => void,
+  signal?: AbortSignal,
+): Promise<DigitalInterviewWorkflowView> {
+  const token = getStoredSessionToken();
+  while (true) {
+    try {
+      const response = await fetch(apiUrl(`/interviews/digital/${interviewId}/report/stream`), {
+        headers: { Accept: "application/x-ndjson", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        credentials: "include",
+        signal,
+      });
+      const latest = await readReportStream(response, onProgress);
+      if (reportGenerationFinished(latest) || !reportGenerationRunning(latest)) return latest;
+    } catch (cause) {
+      if (signal?.aborted || !isRetryableReportStreamError(cause)) throw cause;
+    }
+    await waitForReportStreamRetry(signal);
+  }
 }
 
 export function appendDigitalInterviewSkillMessage(input: {

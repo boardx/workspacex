@@ -7,6 +7,12 @@ import type {
   DigitalInterviewEffects,
   GenerateDigitalInterviewDraftInput,
 } from "../../../application/interview/workflow/digital-interview-effects.port";
+import {
+  buildDigitalInterviewReportSystemPrompt,
+  DIGITAL_REPORT_REQUIRED_HEADINGS,
+  DigitalReportNdjsonDecoder,
+  type ParsedDigitalReportStreamEvent,
+} from "../../../application/interview/workflow/digital-report-stream";
 import type { DigitalInterviewRepository } from "../../../application/interview/digital-interview-ports";
 import {
   DigitalInterviewWorkflowError,
@@ -657,6 +663,231 @@ export class PgDigitalInterviewEffects implements DigitalInterviewEffects {
         await this.persistRun(input, expert, questions.length, "failed", [], code);
       }
     })).catch(() => undefined);
+  }
+
+  async generateReport(input: {
+    readonly orgId: OrgId; readonly actorId: string; readonly interviewId: string;
+    readonly expectedVersion: number; readonly requestId: string; readonly operationId: string;
+    readonly onProgress?: (workflow: Guarded<DigitalInterviewWorkflowView>) => Promise<void>;
+  }): Promise<Guarded<DigitalInterviewWorkflowView>> {
+    const payload = { expectedVersion: input.expectedVersion };
+    const replay = await this.findReceipt({ ...input, operationName: "generate_report", payload });
+    if (replay) return replay;
+    const snapshot = await this.db.withTenant(input.orgId, async (session) => {
+      const workflow = await this.requireWorkflow(session, input.orgId, input.interviewId);
+      if (workflow.version !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      if (!workflow.expertRuns.length || workflow.expertRuns.some((run) => run.status === "running")) {
+        throw new DigitalInterviewWorkflowError("DIGITAL_REPORT_NOT_READY");
+      }
+      const completed = workflow.expertRuns.filter((run) => run.status === "completed" && run.answers.length);
+      if (!completed.length) throw new DigitalInterviewWorkflowError("DIGITAL_REPORT_NOT_READY");
+      return { workflow, completed };
+    });
+    if (!this.modelProvider || !this.modelId) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+    const proposedReportId = this.ids.next("itv-report");
+    const started = await this.db.withTenant(input.orgId, async (session) => {
+      await this.lockRequest(session, input.orgId, input.interviewId, "generate_report", input.requestId);
+      const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+      if (Number(current.version) !== input.expectedVersion) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      const existing = await session.query<{ report_id: string; generation_status: "running" | "completed" | "failed" }>(
+        `SELECT report_id,generation_status
+           FROM digital_interview_reports
+          WHERE org_id=$1 AND interview_id=$2 AND revision_id=$3
+          FOR UPDATE`,
+        [input.orgId, input.interviewId, current.revision_id],
+      );
+      const existingReport = existing.rows[0];
+      if (existingReport && existingReport.generation_status !== "failed") {
+        throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+      }
+      const reportId = existingReport?.report_id ?? proposedReportId;
+      if (existingReport) {
+        await session.query(
+          `UPDATE digital_interview_reports
+              SET title=NULL,executive_summary=NULL,markdown='',findings='[]'::jsonb,
+                  generation_status='running',request_id=$4,error_code=NULL,updated_at=now()
+            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3`,
+          [input.orgId, input.interviewId, reportId, input.requestId],
+        );
+      } else {
+        await session.query(
+          `INSERT INTO digital_interview_reports
+             (org_id,report_id,interview_id,revision_id,title,executive_summary,markdown,findings,
+              generation_status,request_id,error_code)
+           VALUES ($1,$2,$3,$4,NULL,NULL,'','[]'::jsonb,'running',$5,NULL)`,
+          [input.orgId, reportId, input.interviewId, current.revision_id, input.requestId],
+        );
+      }
+      await session.query(
+        `UPDATE interview_sessions
+            SET report_id=$3,digital_status='report_pending',version=version+1,updated_at=now()
+          WHERE org_id=$1 AND id=$2`,
+        [input.orgId, input.interviewId, reportId],
+      );
+      return { reportId, workflow: guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId)) };
+    });
+    const reportId = started.reportId;
+    await input.onProgress?.(started.workflow);
+
+    const validSources = new Set(snapshot.completed.flatMap((run) => run.answers.map((answer) => `${run.expertId}:${answer.questionId}`)));
+    const decoder = new DigitalReportNdjsonDecoder();
+    let sawDelta = false;
+    let metaCount = 0;
+    let sectionCount = 0;
+    let findingCount = 0;
+    const reportSections: string[] = [];
+    const findingSources = new Set<string>();
+    const persistEvent = async (event: ParsedDigitalReportStreamEvent): Promise<void> => {
+      if (event.type === "finding" && !validSources.has(`${event.expertId}:${event.questionId}`)) {
+        throw new DigitalInterviewWorkflowError("DIGITAL_REPORT_SOURCE_INVALID");
+      }
+      const progress = await this.db.withTenant(input.orgId, async (session) => {
+        // Reuse the write transaction's complete actor-visibility predicate, not merely
+        // organization membership: collaborator/project access may be revoked mid-stream.
+        await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+        if (event.type === "meta") {
+          await session.query(
+            `UPDATE digital_interview_reports
+                SET title=$4,executive_summary=$5,updated_at=now()
+              WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
+            [input.orgId, input.interviewId, reportId, event.title, event.executiveSummary],
+          );
+        } else if (event.type === "section") {
+          await session.query(
+            `UPDATE digital_interview_reports
+                SET markdown=concat_ws(E'\\n\\n',nullif(markdown,''),$4::text),updated_at=now()
+              WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
+            [input.orgId, input.interviewId, reportId, event.markdown],
+          );
+        } else {
+          const finding = {
+            findingId: this.ids.next("itv-finding"), title: event.title, summary: event.summary,
+            expertId: event.expertId, questionId: event.questionId,
+            sourceAnswerId: `${event.expertId}:${event.questionId}`, exploratory: true as const,
+          };
+          await session.query(
+            `UPDATE digital_interview_reports
+                SET findings=findings || $4::jsonb,updated_at=now()
+              WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
+            [input.orgId, input.interviewId, reportId, JSON.stringify([finding])],
+          );
+        }
+        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+      });
+      if (event.type === "meta") metaCount += 1;
+      else if (event.type === "section") {
+        sectionCount += 1;
+        reportSections.push(event.markdown);
+      } else {
+        findingCount += 1;
+        findingSources.add(`${event.expertId}:${event.questionId}`);
+      }
+      await input.onProgress?.(progress);
+    };
+
+    try {
+      const modelInput = {
+        modelProvider: this.modelProvider,
+        modelId: this.modelId,
+        system: buildDigitalInterviewReportSystemPrompt(Math.min(3, validSources.size)),
+        user: JSON.stringify({
+          operation: "generate_interview_report", topic: snapshot.workflow.topic,
+          evidenceBoundary: "digital_expert_simulation_requires_human_validation",
+          experts: snapshot.completed.map((run) => ({
+            ...snapshot.workflow.expertCandidates.find((candidate) => candidate.expertId === run.expertId),
+            expertId: run.expertId,
+            displayName: run.displayName,
+            answers: run.answers,
+          })),
+        }),
+        history: [],
+      } as const;
+      const completion = this.model.completeStream
+        ? await this.model.completeStream(modelInput, async (delta) => {
+          sawDelta = true;
+          for (const event of decoder.push(delta)) await persistEvent(event);
+        })
+        : await this.model.complete(modelInput);
+      if (!sawDelta) {
+        for (const event of decoder.push(completion.text)) await persistEvent(event);
+      }
+      for (const event of decoder.finish()) await persistEvent(event);
+      const reportMarkdown = reportSections.join("\n\n");
+      let headingCursor = 0;
+      const hasRequiredStructure = DIGITAL_REPORT_REQUIRED_HEADINGS.every((heading) => {
+        const index = reportMarkdown.indexOf(heading, headingCursor);
+        if (index < 0) return false;
+        headingCursor = index + heading.length;
+        return true;
+      });
+      const minimumFindings = Math.min(3, validSources.size);
+      if (metaCount !== 1 || sectionCount < 1
+        || !hasRequiredStructure || findingCount < minimumFindings
+        || findingSources.size < minimumFindings) {
+        throw new SyntaxError("incomplete streamed report");
+      }
+    } catch (error) {
+      console.error("[digital-interview-report] streaming generation failed", error);
+      const code = error instanceof DigitalInterviewWorkflowError
+        ? error.code
+        : error instanceof ModelCallError || error instanceof SyntaxError
+          ? "AI_GENERATION_UNAVAILABLE"
+          : "DEPENDENCY_UNAVAILABLE";
+      const failed = await this.db.withTenant(input.orgId, async (session) => {
+        await session.query(
+          `UPDATE digital_interview_reports
+              SET generation_status='failed',error_code=$4,updated_at=now()
+            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3`,
+          [input.orgId, input.interviewId, reportId, code],
+        );
+        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+      });
+      await input.onProgress?.(failed);
+      throw new DigitalInterviewWorkflowError(code);
+    }
+    try {
+      return await this.db.withTenant(input.orgId, async (session) => {
+        const existing = await this.readReceipt(session, input.orgId, input.interviewId, "generate_report", input.requestId);
+        if (existing) { this.assertMatchingReceipt(existing, payload); return guardWorkflow(existing.response_body); }
+        const current = await this.lockInterview(session, input.orgId, input.interviewId, input.actorId);
+        if (Number(current.version) !== input.expectedVersion + 1) throw new DigitalInterviewWorkflowError("CONCURRENT_MODIFICATION");
+        const shape = await session.query<{ valid: boolean }>(
+          `SELECT title IS NOT NULL AND executive_summary IS NOT NULL AND length(btrim(markdown)) > 0
+                  AND jsonb_array_length(findings) > 0 AS valid
+             FROM digital_interview_reports WHERE org_id=$1 AND report_id=$2 FOR UPDATE`,
+          [input.orgId, reportId],
+        );
+        if (!shape.rows[0]?.valid) throw new DigitalInterviewWorkflowError("AI_GENERATION_UNAVAILABLE");
+        await session.query(
+          `UPDATE digital_interview_reports
+              SET generation_status='completed',error_code=NULL,generated_at=now(),updated_at=now()
+            WHERE org_id=$1 AND report_id=$2`,
+          [input.orgId, reportId],
+        );
+        await session.query(
+          `UPDATE interview_sessions SET report_id=$3,digital_status='completed',version=version+1,updated_at=now()
+            WHERE org_id=$1 AND id=$2`,
+          [input.orgId, input.interviewId, reportId],
+        );
+        const workflow = await this.requireWorkflow(session, input.orgId, input.interviewId);
+        await this.writeReceipt(session, { ...input, operationName: "generate_report", payload, workflow });
+        return guardWorkflow(workflow);
+      });
+    } catch (error) {
+      console.error("[digital-interview-report] finalization failed", error);
+      const code = error instanceof DigitalInterviewWorkflowError ? error.code : "DEPENDENCY_UNAVAILABLE";
+      const failed = await this.db.withTenant(input.orgId, async (session) => {
+        await session.query(
+          `UPDATE digital_interview_reports
+              SET generation_status='failed',error_code=$4,updated_at=now()
+            WHERE org_id=$1 AND interview_id=$2 AND report_id=$3 AND generation_status='running'`,
+          [input.orgId, input.interviewId, reportId, code],
+        );
+        return guardWorkflow(await this.requireWorkflow(session, input.orgId, input.interviewId));
+      });
+      await input.onProgress?.(failed);
+      throw error;
+    }
   }
 
   private async persistRun(

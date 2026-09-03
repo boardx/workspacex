@@ -1,11 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
-import { AgentScreen } from "@/components/admin/agent-screen";
-import { ModelScreen } from "@/components/admin/model-screen";
-import { McpScreen } from "@/components/admin/mcp-screen";
 import { MembersScreen } from "@/components/admin/members-screen";
-import { FeedbackScreen } from "@/components/admin/feedback-screen";
 import { LocalOrgScreen } from "@/components/admin/local-org-screen";
 import { resolvePreviewState, type UiState } from "@/lib/ui-state";
 import { resolvePreviewRole } from "@/lib/identity";
@@ -32,19 +28,25 @@ import type { AdminModuleKey } from "@/lib/mock/admin";
  *   `phases/requirements/DECISIONS-FINAL.md` D-43。
  *   ⚠ 2026-08-30（路由复盘）：重定向目标从历史 `/canvas?screen=template-admin` 改成
  *   路径段 `/canvas/template-admin`，见 `lib/canvas-screens.ts` 头注。
+ * ⚠ 2026-09-02（人类直接裁决，后台切成两面——见 `lib/mock/admin.ts` 的 `AdminScope`）：
+ *   `feedback` 与 `platform` **不再在这里落地**——它们管的是整个平台而不是当前组织，
+ *   已迁到平台后台 `/platform-admin/*`（见 `app/platform-admin/[module]/page.tsx`）。
+ *   旧路由同样保留重定向，不留死链。
  */
 const REDIRECTS: Partial<Record<string, string>> = {
   blueprint: "/tpl/list",
   skill: "/skill?screen=catalog",
   canvasadmin: "/canvas/template-admin",
+  feedback: "/platform-admin/feedback",
+  platform: "/platform-admin/members",
+  // 2026-09-02 第二次裁决：AI 能力归平台后台（`lib/mock/admin.ts` AI 能力组注）。
+  agent: "/platform-admin/agent",
+  model: "/platform-admin/model",
+  mcp: "/platform-admin/mcp",
 };
 
 const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.ReactNode>> = {
-  agent: AgentScreen,
-  model: ModelScreen,
-  mcp: McpScreen,
   members: MembersScreen,
-  feedback: FeedbackScreen,
   local: LocalOrgScreen,
 };
 

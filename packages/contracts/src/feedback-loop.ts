@@ -112,8 +112,64 @@ export const FeedbackError = z.enum([
   "TRIAGE_REASON_REQUIRED",
   /** 超时/网络/下游不可用。⚠ 已保留当前输入，可安全重试 */
   "DEPENDENCY_UNAVAILABLE",
+  /**
+   * 查状态 / 发评论时，这条反馈还没有关联的 GitHub issue（`githubIssueUrl === null`）。
+   * 不是 `FEEDBACK_NOT_FOUND`——反馈本身存在，只是这一步的前提条件不成立。
+   */
+  "NO_GITHUB_ISSUE",
+  /** 发评论时正文为空/全空白。同 `TRIAGE_REASON_REQUIRED` 的理由：一条空评论没有信息量 */
+  "COMMENT_BODY_REQUIRED",
+  /** FB-5：附件字节体积超过 `FEEDBACK_ATTACHMENT_SIZE_LIMIT_BYTES`（8MB） */
+  "FILE_TOO_LARGE",
+  /** FB-5：声明的类型不在白名单（png/jpeg/webp）、或与实际字节嗅探结果不符 */
+  "UNSUPPORTED_CONTENT_TYPE",
+  /** FB-5：命中恶意签名（同 `uploadArtifact` 的 `MALWARE_DETECTED`） */
+  "MALWARE_DETECTED",
+  /** FB-5：语音转结构化反馈——模型调用/解析失败，转录文字本身仍在输入框里未丢失 */
+  "STRUCTURING_FAILED",
 ]);
 export type FeedbackError = z.infer<typeof FeedbackError>;
+
+/**
+ * FB-5 —— 提交反馈时可以带的图片附件（先各自上传，再把返回的 id 塞进
+ * `submitFeedback.attachmentIds`；见 `uploadFeedbackAttachment` 头注）。
+ *
+ * ⚠ **这一版没有脱敏**（人类 2026-09-02 明确裁决：先出功能，登记为已知限制）——
+ *   见 `apps/api/src/application/feedback/upload-feedback-attachment.ts` 头注。
+ * ⚠ `attachments` 与 `detail` 走**同一条** D3 可见性门控（图片是正文的一部分，
+ *   不是标题/票数那类恒对全组织可见的展示性上下文）——见 `list-feedback.ts` 的
+ *   `ListFeedbackDeps.attachments` 头注。
+ */
+export const FeedbackAttachment = z
+  .object({
+    id: z.string(),
+    url: z.string(),
+    mime: z.enum(["image/png", "image/jpeg", "image/webp"]),
+  })
+  .strict();
+export type FeedbackAttachment = z.infer<typeof FeedbackAttachment>;
+
+/**
+ * GitHub 那边的真实状态——**只在需要时现查，从不落库**。
+ *
+ * ⚠ 本仓的单一事实源纪律（AGENTS.md「同一事实不得声明在两处」）：issue 是不是
+ *   still open、有没有 PR 关联它，事实源只有 GitHub 一处。落一份到我们数据库，
+ *   等于开了第二个会漂移的副本——今天 GitHub 上关了，我们这边不主动同步就一直显示
+ *   "open"，而没人会想到去核对。所以这一段**只出现在 `getFeedbackGithubIssue` 的
+ *   `out` 里**，不出现在 `FeedbackItem`、不进任何一张表。
+ */
+export const GithubIssueLinkedPullRequestState = z.enum(["open", "closed", "merged"]);
+export type GithubIssueLinkedPullRequestState = z.infer<typeof GithubIssueLinkedPullRequestState>;
+
+export const GithubIssueLinkedPullRequest = z
+  .object({
+    number: z.number().int().positive(),
+    url: z.string(),
+    title: z.string(),
+    state: GithubIssueLinkedPullRequestState,
+  })
+  .strict();
+export type GithubIssueLinkedPullRequest = z.infer<typeof GithubIssueLinkedPullRequest>;
 
 /* ─────────────────────── 投影（读模型）─────────────────────── */
 
@@ -138,6 +194,12 @@ export const FeedbackItem = z
     title: z.string(),
     /** ⚠ null ⟺ 无权查看正文（D3）。**不是**「正文为空」——见本类型头注 */
     detail: z.string().nullable(),
+    /**
+     * FB-5——同 `detail` 一条门控：`detail === null` 的行这里恒是空数组，不是
+     * "这条反馈没有图"——见 `FeedbackAttachment` 头注、`list-feedback.ts` 的
+     * `ListFeedbackDeps.attachments` 头注。
+     */
+    attachments: z.array(FeedbackAttachment),
     status: FeedbackStatus,
     /** ⚠ 只有 `不做` 必然非 null；其余三态可有可无 */
     statusReason: z.string().nullable(),
@@ -146,10 +208,25 @@ export const FeedbackItem = z
     /** 当前请求者投过没有——**同一个人不许把票数顶上去** */
     votedByMe: z.boolean(),
     submittedByMe: z.boolean(),
+    /**
+     * 提交人的显示名（后台列表/详情用，2026-09-02 新后台设计）。⚠ 与 `detail` 同一条
+     * D3 门控：`detail === null` 的行这里恒是 `null`——提交人身份与正文一样只对管理员与
+     * 本人给出。`null` 也可能是账号已注销查不到显示名；两者对读者都表现为「匿名用户」。
+     */
+    submitterName: z.string().nullable(),
     /** I-F1：客户端给的复现上下文，分列存 */
     occurredRoute: z.string().nullable(),
     appVersion: z.string().nullable(),
     createdAt: z.string(),
+    /**
+     * "转开发"时建的 GitHub issue。**null ⟺ 还没建过**（不是「建失败」——建失败时
+     * `triageFeedback` fail closed，状态压根没转成 `已进入迭代`，见该操作头注①）。
+     * 两个字段总是同生同灭：`githubIssueUrl` 非 null 时 `githubIssueNumber` 必非 null。
+     * ⚠ 只是**存下来的**创建结果（url/number 本身不变）；issue 当前是开是关、有没有
+     *   关联 PR 是 GitHub 那边的事实，**不在这里**——见 `getFeedbackGithubIssue`。
+     */
+    githubIssueUrl: z.string().nullable(),
+    githubIssueNumber: z.number().int().positive().nullable(),
   })
   .strict();
 export type FeedbackItem = z.infer<typeof FeedbackItem>;
@@ -184,6 +261,11 @@ export const operations = {
    * ⚠ `occurredRoute` / `appVersion` **可空但不可伪装成必填**：
    *   有些入口（如后台里直接提的）确实没有有意义的「发生位置」。
    *   `.nullable()` 让「没有」是一个可表达的值，而不是靠一个空字符串糊过去。
+   *
+   * ⚠ FB-5：`attachmentIds` 是**已经**上传过的附件 id（先调 `uploadFeedbackAttachment`
+   *   拿到 id，再塞进这里）——这条操作本身不接字节。`.optional()` 是对 `.strict()`
+   *   契约新增字段的唯一向后兼容方式（同 `issueDraft` 的既有先例）：旧调用方不传，
+   *   契约照样过。
    */
   submitFeedback: {
     method: "POST",
@@ -197,6 +279,7 @@ export const operations = {
         detail: z.string().min(1).max(4000),
         occurredRoute: z.string().nullable(),
         appVersion: z.string().nullable(),
+        attachmentIds: z.array(z.string()).max(4).optional(),
       })
       .strict(),
     out: z
@@ -259,6 +342,34 @@ export const operations = {
    * ⚠ 状态变更**append-only 地留痕**（`feedback_status_events`）：
    *   「谁在什么时候把它从待处理改成不做、理由是什么」是这条闭环里唯一
    *   能回答「为什么我的反馈没人管」的东西。
+   *
+   * ## 2026-08-30 新增两个副作用，均挂在这一个操作上（不是新增操作）
+   *
+   *   · **转 `已进入迭代`**（"转开发"）时，可以附一份 `issueDraft`——管理员在弹层里
+   *     编辑过的 GitHub issue 标题/正文/标签。它**只在这个目标状态下**被使用；
+   *     其余转移带这个字段没有意义，用例层会忽略。不用判别联合去强绑"状态 ⇒ 是否
+   *     允许 issueDraft"，是因为那会让"转已修复时误传了 issueDraft"变成一个类型
+   *     错误而不是一个被忽略的字段——调用方（前端）只在渲染那一个按钮时才拼得出
+   *     这个字段，类型层面强绑反而更脆。
+   *   · **任意转移**都会尽力给提交人发一封「你的反馈状态变了」的邮件——**不是**
+   *     这里新增的字段能开关的，而是用例内部恒定的行为（见 `triage-feedback.ts`
+   *     头注）。`out.notified` 只是如实回报"这次到底发没发出去"，不是入参。
+   *
+   * ## 2026-09-02 新增第三个副作用：**跟着状态同步 GitHub issue 的开关**（best-effort）
+   *
+   *   这条反馈**已经**挂着 issue（`githubIssueUrl !== null`，不论是不是这次转移建的）
+   *   时，转 `已修复` 关闭并标 `completed`，转 `不做` 关闭并标 `not_planned`，转回
+   *   `待处理`/`已进入迭代` 重新打开。**跟①（建 issue）不是同一条纪律**——建 issue
+   *   fail closed 是因为"状态改了但没人知道 issue 建没建成"是假象；而这里 GitHub
+   *   issue 的开关**从属于**反馈状态这个已经落库的事实，不是反过来，所以失败只记日志、
+   *   不影响这次转移本身（同②发邮件的理由）。没有新增字段来暴露"这次同步成不成
+   *   功"——管理员想知道 GitHub 那边真实状态，调 `getFeedbackGithubIssue` 现查，
+   *   不靠这次响应里的某个布尔（那个布尔只能代表"这次调用有没有报错"，不能代表
+   *   "GitHub 上现在到底是什么状态"，两者一混就是又一份可能对不上的副本）。
+   *
+   * ⚠ `issueDraft` 是 `.nullable().optional()`——对 `.strict()` 契约新增字段的唯一
+   *   向后兼容方式（ADR-020）：旧调用方不传这个字段，契约照样过；新字段绝不能变成
+   *   必填，否则今天能发的请求明天就发不出去。
    */
   triageFeedback: {
     method: "PUT",
@@ -269,14 +380,50 @@ export const operations = {
         status: FeedbackStatus,
         /** ⚠ 转 `不做` 时必填，否则 `TRIAGE_REASON_REQUIRED`。跨字段规则在 domain 判 */
         reason: z.string().nullable(),
+        /**
+         * "转开发"弹层里管理员编辑过的 GitHub issue 草稿。**只在
+         * `status === "已进入迭代"` 且管理员确实走了那个弹层时**才会非 null——
+         * 其余转移不需要它，传了也不会被使用。
+         * ⚠ 这是**管理员编辑之后**的最终文案，不是反馈本身的 `title`/`detail`——
+         *   用例层不会用反馈原文覆盖它，否则"可编辑"就是一句空话。
+         */
+        issueDraft: z
+          .object({
+            title: z.string().min(1),
+            body: z.string(),
+            labels: z.array(z.string()),
+          })
+          .strict()
+          .nullable()
+          .optional(),
       })
       .strict(),
-    out: z.object({ feedbackId: z.string(), status: FeedbackStatus }).strict(),
+    out: z
+      .object({
+        feedbackId: z.string(),
+        status: FeedbackStatus,
+        /**
+         * 提交人状态变更邮件**这一次**是否真的发出去了（best-effort，见用例头注）。
+         * ⚠ 不是"配置了邮件功能"的布尔——一次配置齐全但供应商超时的调用，这里也是
+         *   `false`。调用方（后台屏）据此决定要不要提示"邮件没发出去，状态已经变了"。
+         */
+        notified: z.boolean(),
+        /** 本次是否真的创建了 GitHub issue（只有转 `已进入迭代` 且带 `issueDraft` 时才可能非 null）。 */
+        githubIssueUrl: z.string().nullable().optional(),
+      })
+      .strict(),
     err: [
       "FEEDBACK_NOT_FOUND",
       "PERMISSION_REVOKED",
       "TRIAGE_REASON_REQUIRED",
       "DEPENDENCY_UNAVAILABLE",
+      /**
+       * 2026-08-31（PR #2431 二轮独立审查阻断项①）：并发的两次"转开发"请求，
+       * 后到的那个在原子认领（`claimGithubIssueCreation`）这一步就会被拒绝——
+       * 不是下游依赖不可用（`DEPENDENCY_UNAVAILABLE`），是这件事正被另一个
+       * 请求同时处理。调用方据此提示"请刷新后再看"，而不是无脑重试。
+       */
+      "ISSUE_CREATION_IN_PROGRESS",
     ] as const,
   },
 
@@ -304,5 +451,157 @@ export const operations = {
       })
       .strict(),
     err: ["PERMISSION_REVOKED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 现查这条反馈挂着的 GitHub issue：开/关状态 + 关联它的 PR。**组织管理员**——
+   * 和分诊同一批人用它，同一条权限纪律（`canTriage`）。
+   *
+   * ⚠ **不落库、每次都真的打一次 GitHub**（人类决策，2026-09-02）：见
+   *   `GithubIssueLinkedPullRequest` 头注。前端只在管理员真的展开一条反馈的
+   *   GitHub 状态时才调这条，不随 `listFeedback` 一起批量拉——避免每次刷新列表
+   *   都对 GitHub API 发 N 个请求。
+   * ⚠ `linkedPullRequests` 是「引用过这个 issue 的 PR」，**不是**「关闭这个 issue 的
+   *   PR」——一个 issue 可以被多个 PR 提到（讨论、部分实现、最终合入），把它收窄成
+   *   只认 `Closes #N` 那一个会在关联 PR 还没写上 `Closes` 关键字的过渡期里显示"没有
+   *   关联 PR"，而人工在 GitHub 页面上明明看得到那个 PR。
+   * ⚠ **`linkedPullRequestsAvailable: false` ≠ `linkedPullRequests: []`**（2026-09-02
+   *   独立审查 P1 指出的真实 bug 已修）：issue 本身的开关状态与"关联 PR 列表"是两次
+   *   独立的 GitHub 请求（issue 详情 + timeline），可用性不一样——issue 详情失败时
+   *   整个操作 `DEPENDENCY_UNAVAILABLE`，但 timeline 单独失败（限流/超时/权限）不该
+   *   连坐 issue 状态本身查不到，此时 `linkedPullRequests` 是空数组、
+   *   `linkedPullRequestsAvailable` 是 `false`——调用方必须先看后者，为 `false` 时
+   *   渲染"取不到，不是没有"，不能把它读成"真的没有 PR 引用"。
+   */
+  getFeedbackGithubIssue: {
+    method: "GET",
+    path: "/feedback/:feedbackId/github-issue",
+    in: z.object({ feedbackId: z.string() }).strict(),
+    out: z
+      .object({
+        feedbackId: z.string(),
+        url: z.string(),
+        number: z.number().int().positive(),
+        state: z.enum(["open", "closed"]),
+        /** 只有 `state === "closed"` 时可能非 null——GitHub 自己的关闭理由分类 */
+        stateReason: z.enum(["completed", "not_planned"]).nullable(),
+        linkedPullRequests: z.array(GithubIssueLinkedPullRequest),
+        /** 见本操作头注最后一条⚠：`false` 时 `linkedPullRequests` 不代表真实事实 */
+        linkedPullRequestsAvailable: z.boolean(),
+      })
+      .strict(),
+    err: ["FEEDBACK_NOT_FOUND", "PERMISSION_REVOKED", "NO_GITHUB_ISSUE", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * 一条反馈**完整的状态流水**——含每一步「有没有真的发邮件通知提交人、发的是什么」。
+   * 给后台看板的 detail 弹层用（人类原话：邮件的 update 需要可以在 detail 的界面看到）。
+   *
+   * ⚠ **组织管理员**，与 `getFeedbackGithubIssue` 同一条权限纪律（`canTriage`）——
+   *   不是「管理员 OR 提交人」（D3 只裁决了反馈正文，从没裁决过分诊历史；这条历史里
+   *   混着谁经手过，不该暴露给提交人）。见 `list-feedback-events.ts` 头注。
+   * ⚠ `notified: false` 时 `emailSubject`/`emailText` 恒为 `null`——不是「没发」加一句
+   *   「本来想发的文案」，那样调用方分不清「真没发」和「文案生成了但发送失败」。
+   */
+  listFeedbackStatusEvents: {
+    method: "GET",
+    path: "/feedback/:feedbackId/events",
+    in: z.object({ feedbackId: z.string() }).strict(),
+    out: z
+      .object({
+        events: z.array(
+          z
+            .object({
+              id: z.string(),
+              fromStatus: FeedbackStatus.nullable(),
+              toStatus: FeedbackStatus,
+              reason: z.string().nullable(),
+              actorId: z.string(),
+              notified: z.boolean(),
+              emailSubject: z.string().nullable(),
+              emailText: z.string().nullable(),
+              createdAt: z.string(),
+            })
+            .strict(),
+        ),
+      })
+      .strict(),
+    err: ["FEEDBACK_NOT_FOUND", "PERMISSION_REVOKED"] as const,
+  },
+
+  /**
+   * 往这条反馈挂着的 GitHub issue 下面发一条评论。**组织管理员**，手动输入、手动
+   * 提交——不是状态转移的副作用（那条是 `triageFeedback` 内部恒定行为，见其头注，
+   * 会自动带一条系统评论；这条是管理员想额外补充说明时用的，两者不是一回事）。
+   */
+  commentOnFeedbackGithubIssue: {
+    method: "POST",
+    path: "/feedback/:feedbackId/github-issue/comments",
+    in: z
+      .object({
+        feedbackId: z.string(),
+        /** ⚠ `.min(1)` 校验的是"非空字符串"，用例层再判一次"trim 后非空白"（同一理由） */
+        body: z.string().min(1).max(4000),
+      })
+      .strict(),
+    out: z.object({ feedbackId: z.string(), commentUrl: z.string() }).strict(),
+    err: [
+      "FEEDBACK_NOT_FOUND",
+      "PERMISSION_REVOKED",
+      "NO_GITHUB_ISSUE",
+      "COMMENT_BODY_REQUIRED",
+      "DEPENDENCY_UNAVAILABLE",
+    ] as const,
+  },
+
+  /**
+   * FB-5 —— 上传一张图片附件，拿到的 `attachmentId` 再塞进 `submitFeedback.
+   * attachmentIds` 一起提交。**任何组织成员都能用**（提反馈本身不限管理员）。
+   *
+   * ⚠ 这条 `in` 只是**元数据**——同 `identity.uploadOwnAvatar` 的既有先例：真正的
+   *   字节走同一个 HTTP 请求的 `multipart/form-data`，一个 `meta` 字段（JSON，须与
+   *   这份 zod 校验一致）+ 一个 `file` 字段（二进制），controller 用 multer 解析。
+   *   服务端**必须对实际字节重新做校验**（体积、magic-byte 与声明的 contentType
+   *   一致），声明的 `sizeBytes`/`contentType` 不是真相来源——见
+   *   `upload-feedback-attachment.ts`。
+   * ⚠ 这一版**没有脱敏**——见 `FeedbackAttachment` 头注、该用例的文件头注（已知限制，
+   *   登记在案，不是遗漏）。
+   */
+  uploadFeedbackAttachment: {
+    method: "POST",
+    path: "/feedback/attachments",
+    in: z
+      .object({
+        sizeBytes: z.number().int().positive().max(8 * 1024 * 1024),
+        contentType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+      })
+      .strict(),
+    out: z.object({ attachmentId: z.string(), url: z.string() }).strict(),
+    err: ["FILE_TOO_LARGE", "UNSUPPORTED_CONTENT_TYPE", "MALWARE_DETECTED", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * FB-5 —— 把一段语音转录出来的自由文本整理成 `{kind, title, detail}`，填进
+   * "提交反馈"表单、人工再改再提交。**任何组织成员都能用**，同 `submitFeedback`。
+   *
+   * ⚠ **语音本身不是这条操作管的**——转录复用既有的 chat composer 麦克风实时转写
+   *   通路（`WS /chat/asr-draft`），这条操作接手的起点是转录**完成之后**的文字。
+   *   见 `structure-feedback-draft.ts` 头注。
+   * ⚠ 失败（模型不可用/超时/输出解析不出）**不丢用户已经说出口的话**——转录文字
+   *   本身已经在前端输入框里，这条操作失败只是「没帮你整理」，调用方据此提示
+   *   「AI 整理失败，你可以手动填」而不是清空表单。
+   */
+  structureFeedbackDraft: {
+    method: "POST",
+    path: "/feedback/structure-draft",
+    in: z.object({ transcript: z.string().min(1).max(8000) }).strict(),
+    out: z
+      .object({
+        kind: FeedbackKind,
+        title: z.string(),
+        detail: z.string(),
+      })
+      .strict(),
+    err: ["STRUCTURING_FAILED", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 } as const;

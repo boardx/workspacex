@@ -23,7 +23,7 @@ import {
   LIVE_COUNT_KEYS,
 } from "@/lib/live-admin-nav-counts";
 import { resolveAdminNavCounts } from "@/lib/admin-nav-counts";
-import { ADMIN_NAV, type AdminModuleKey } from "@/lib/mock/admin";
+import { adminNavForScope, type AdminModuleKey } from "@/lib/mock/admin";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-881" as string | null }));
@@ -35,7 +35,8 @@ vi.mock("@/components/session/session-provider", () => ({
 
 import { AdminNav } from "@/components/admin/admin-nav";
 
-const ALL_KEYS: AdminModuleKey[] = ADMIN_NAV.flatMap((g) => g.items.map((i) => i.key));
+// 2026-09-02 后台切成两面：`AdminNav` 只画 active 所属面的项；本文件 active 全是 AI 能力项（平台面），所以只遍历平台面的键。
+const ALL_KEYS: AdminModuleKey[] = adminNavForScope("platform").flatMap((g) => g.items.map((i) => i.key));
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });

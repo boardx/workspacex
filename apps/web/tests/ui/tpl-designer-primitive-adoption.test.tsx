@@ -5,7 +5,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { AgentPanelEditor } from "@/components/tpl-designer/agent-panel-editor";
 import { PrintPanelEditor } from "@/components/tpl-designer/print-panel-editor";
 import { TopicPanelEditor } from "@/components/tpl-designer/topic-panel-editor";
-import { PermissionMatrixEditor, type FacetSaveFn } from "@/components/tpl-designer/facet-content-editor";
+import type { FacetSaveFn } from "@/components/tpl-designer/facet-content-editor";
 
 /**
  * F21 —— tpl-designer 原语补齐（design-delta `primitive-adoption-cleanup`，2026-08-26 已签核）。
@@ -17,10 +17,16 @@ import { PermissionMatrixEditor, type FacetSaveFn } from "@/components/tpl-desig
  * 不是抽样清了几个就收工。用源码正则扫描全目录，逐文件点名，不用行数近似。
  *
  * ② **行为**：抽 3 个有代表性的面板编辑器（agent：文本 + checkbox + number；
- * print：文本 + checkbox + textarea；topic：文本 + textarea）与权限矩阵表格
- * （checkbox 网格），确认换成 `ui/input`·`ui/textarea`·`ui/checkbox` 之后
- * 读写行为、onSave 契约不变——这是签核里"字段读写逻辑、保存时机…一律不变，
- * 只换控件实现"的机械证明，不是重新设计一遍这些面板。
+ * print：文本 + checkbox + textarea；topic：文本 + textarea），确认换成
+ * `ui/input`·`ui/textarea`·`ui/checkbox` 之后读写行为、onSave 契约不变——
+ * 这是签核里"字段读写逻辑、保存时机…一律不变，只换控件实现"的机械证明，
+ * 不是重新设计一遍这些面板。
+ *
+ * ⚠ 原第 4 个代表样本是「权限矩阵表格（checkbox 网格）」，覆盖的是
+ * `PermissionMatrixEditor`（对应 `roles-and-perms`）；2026-08-31 产品决策移除
+ * `roles-and-perms`/`group-capabilities` 后该组件随之删除，样本减到 3 个——
+ * 覆盖的读写行为种类（文本/checkbox/数字/textarea）没有减少，只是网格 checkbox
+ * 这一种交互形态目前在 tpl-designer 里已不存在真实调用方。
  */
 
 const TPL_DESIGNER_DIR = join(__dirname, "../../components/tpl-designer");
@@ -49,7 +55,8 @@ describe("F21：tpl-designer 目录不再有手写裸控件", () => {
 
 const noopSave: FacetSaveFn = async (designFacetKey, value) => ({
   itemRevision: `rev-${designFacetKey}-${value.length}`,
-  completeness: { done: 1, denominator: 15 },
+  // 13 = DESIGN_FACET_DEFINITIONS.length（roles-and-perms/group-capabilities 已移除，15→13）。
+  completeness: { done: 1, denominator: 13 },
 });
 
 describe("F21：换用共享原语后，行为不变", () => {
@@ -104,20 +111,5 @@ describe("F21：换用共享原语后，行为不变", () => {
     expect(statement.tagName).toBe("TEXTAREA");
     fireEvent.change(statement, { target: { value: "这次要解决 X" } });
     expect(statement.value).toBe("这次要解决 X");
-  });
-
-  it("PermissionMatrixEditor —— 权限矩阵单元格 checkbox 可切换", () => {
-    render(
-      <PermissionMatrixEditor designFacetKey="roles" content="" itemRevision="" onSave={noopSave} />,
-    );
-    const cells = screen.getAllByTestId(/^bp-permission-cell-/);
-    expect(cells.length).toBeGreaterThan(0);
-    const firstUnlocked = cells.find((c) => !(c as HTMLInputElement).disabled);
-    expect(firstUnlocked, "至少要有一个未锁定的权限格用于验证可切换").toBeDefined();
-    const cell = firstUnlocked as HTMLInputElement;
-    expect(cell.type).toBe("checkbox");
-    const before = cell.checked;
-    fireEvent.click(cell);
-    expect(cell.checked).toBe(!before);
   });
 });

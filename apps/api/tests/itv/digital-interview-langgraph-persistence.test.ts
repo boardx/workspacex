@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DigitalInterviewEffects } from "../../src/application/interview/workflow/digital-interview-effects.port";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
+import { DIGITAL_REPORT_REQUIRED_HEADINGS } from "../../src/application/interview/workflow/digital-report-stream";
 import { PgDigitalInterviewRepository } from "../../src/infrastructure/interview/pg-digital-interview-repository";
 import { PgDigitalInterviewEffects } from "../../src/infrastructure/interview/workflow/pg-digital-interview-effects";
 import {
@@ -630,6 +631,151 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       expect.objectContaining({ proposalId: topicProposalId, status: "committed" }),
       expect.objectContaining({ proposalId: expertProposalId, status: "stale" }),
     ]));
+    await setup.checkpointer.end();
+  });
+
+  it("persists streamed report sections and recovers them before the model finishes", async () => {
+    let releaseReport!: () => void;
+    let partialPersisted!: () => void;
+    const release = new Promise<void>((resolve) => { releaseReport = resolve; });
+    const partial = new Promise<void>((resolve) => { partialPersisted = resolve; });
+    const streamingModel: ModelCallPort = {
+      complete: async (input) => {
+        const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
+        if (context.operation === "generate_interview_experts" || context.operation === "generate_interview_questions") {
+          return model.complete(input);
+        }
+        return { text: JSON.stringify({ answers: (context.questions ?? []).map((question) => ({
+          questionId: question.questionId, answer: "先培养教练，再连接稳定赛事。",
+        })) }) };
+      },
+      completeStream: async (input, onDelta) => {
+        const context = JSON.parse(input.user) as { operation?: string };
+        if (context.operation !== "generate_interview_report") return streamingModel.complete(input);
+        const meta = '{"type":"meta","title":"江西足球报告","executiveSummary":"基层体系需要长期投入"}\n';
+        const sections = [
+          "## 研究范围与方法\n说明模拟访谈的样本与证据边界。",
+          "## 核心洞察\n先培养教练，再连接稳定赛事。",
+          "## 分角色深度分析\n该专家重视长期教练梯队。",
+          "## 跨角色主题分析\n培养、赛事与跟踪需要形成闭环。",
+          "## 分歧与共识\n当前样本只有一位专家，尚不能判断跨角色共识。",
+          "## 行动建议\nP0 建立教练培养与跟踪机制。",
+          "## 研究局限与后续验证\n需要真人访谈验证优先级。",
+        ].map((markdown) => `${JSON.stringify({ type: "section", markdown })}\n`);
+        const source = JSON.parse(input.user) as { experts: Array<{ expertId: string; answers: Array<{ questionId: string }> }> };
+        const findings = source.experts[0]!.answers.slice(0, 3).map((answer, index) => JSON.stringify({
+          type: "finding", title: `可追溯发现 ${index + 1}`, summary: "回答支持建立长期教练梯队，并需真人验证。",
+          expertId: source.experts[0]!.expertId, questionId: answer.questionId,
+        }));
+        await onDelta(meta);
+        await onDelta(sections[0]!);
+        partialPersisted();
+        await release;
+        for (const section of sections.slice(1)) await onDelta(section);
+        for (const finding of findings) await onDelta(`${finding}\n`);
+        return { text: `${meta}${sections.join("")}${findings.join("\n")}\n` };
+      },
+    };
+    const setup = createRuntime(streamingModel);
+    const created = await setup.runtime.createDraft({ orgId: ORG, actorId: USER, name: "流式恢复", tags: ["报告"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-report-stream" });
+    const topic = await setup.runtime.confirmTopic({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "江西足球基层体系", expectedVersion: 1, requestId: "topic-report-stream" });
+    const experts = await setup.runtime.confirmExperts({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expertIds: [topic.expertCandidates[0]!.expertId], addedExperts: [], expectedVersion: topic.version, requestId: "experts-report-stream" });
+    await setup.runtime.confirmQuestions({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      questions: experts.questionCandidates, expectedVersion: experts.version, requestId: "questions-report-stream" });
+    let ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    for (let attempt = 0; attempt < 30 && ready.expertRuns.some((run) => run.status === "running"); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    }
+    expect(ready.expertRuns).toEqual([expect.objectContaining({ status: "completed" })]);
+    const generated = setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: ready.version, requestId: "generate-report-stream" });
+    await partial;
+    const recovered = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(recovered).toMatchObject({ status: "report_pending", report: null,
+      reportGeneration: { status: "running", title: "江西足球报告",
+        markdown: "## 研究范围与方法\n说明模拟访谈的样本与证据边界。" } });
+    releaseReport();
+    const completed = await generated;
+    expect(completed).toMatchObject({ status: "completed", reportGeneration: null,
+      report: { title: "江西足球报告", findings: expect.arrayContaining([
+        expect.objectContaining({ exploratory: true }),
+      ]) } });
+    const recreated = createRuntime(streamingModel);
+    await expect(recreated.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId }))
+      .resolves.toMatchObject({ status: "completed", report: { title: "江西足球报告" } });
+    await setup.checkpointer.end();
+    await recreated.checkpointer.end();
+  });
+
+  it("reuses the failed report row when report generation is retried", async () => {
+    let reportAttempts = 0;
+    const retryingModel: ModelCallPort = {
+      complete: async (input) => {
+        const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
+        if (context.operation === "generate_interview_experts" || context.operation === "generate_interview_questions") {
+          return model.complete(input);
+        }
+        return { text: JSON.stringify({ answers: (context.questions ?? []).map((question) => ({
+          questionId: question.questionId, answer: "先识别供需约束，再用持续指标验证政策效果。",
+        })) }) };
+      },
+      completeStream: async (input, onDelta) => {
+        const context = JSON.parse(input.user) as {
+          operation?: string;
+          experts?: Array<{ expertId: string; answers: Array<{ questionId: string }> }>;
+        };
+        if (context.operation !== "generate_interview_report") return retryingModel.complete(input);
+        reportAttempts += 1;
+        if (reportAttempts === 1) throw new Error("provider stream disconnected");
+        const expert = context.experts![0]!;
+        const events = [
+          { type: "meta", title: "房地产访谈报告", executiveSummary: "供需约束需要持续指标验证。" },
+          ...expert.answers.slice(0, 3).map((answer, index) => ({
+            type: "finding", title: `可追溯发现 ${index + 1}`, summary: "回答揭示供需约束及验证边界。",
+            expertId: expert.expertId, questionId: answer.questionId,
+          })),
+          { type: "section", markdown: DIGITAL_REPORT_REQUIRED_HEADINGS.map((heading) => `${heading}\n证据与分析。`).join("\n\n") },
+        ];
+        const text = events.map((event) => JSON.stringify(event)).join("\n");
+        await onDelta(text);
+        return { text };
+      },
+    };
+    const setup = createRuntime(retryingModel);
+    const created = await setup.runtime.createDraft({ orgId: ORG, actorId: USER, name: "报告重试", tags: ["报告"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-report-retry" });
+    const topic = await setup.runtime.confirmTopic({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "房地产供需趋势", expectedVersion: 1, requestId: "topic-report-retry" });
+    const experts = await setup.runtime.confirmExperts({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expertIds: [topic.expertCandidates[0]!.expertId], addedExperts: [], expectedVersion: topic.version,
+      requestId: "experts-report-retry" });
+    await setup.runtime.confirmQuestions({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      questions: experts.questionCandidates, expectedVersion: experts.version, requestId: "questions-report-retry" });
+    let ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    for (let attempt = 0; attempt < 30 && ready.expertRuns.some((run) => run.status === "running"); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    }
+
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: ready.version, requestId: "generate-report-fails" }))
+      .rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" });
+    const failed = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(failed.reportGeneration).toMatchObject({ status: "failed", errorCode: "DEPENDENCY_UNAVAILABLE" });
+
+    const retried = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: failed.version, requestId: "generate-report-retry" });
+    expect(retried).toMatchObject({ status: "completed", report: { reportId: failed.reportGeneration!.reportId,
+      title: "房地产访谈报告" } });
+    const reportRows = await asApp(ORG, (session) => session.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2",
+      [ORG, created.interviewId],
+    ));
+    expect(reportRows.rows[0]?.count).toBe("1");
     await setup.checkpointer.end();
   });
 });

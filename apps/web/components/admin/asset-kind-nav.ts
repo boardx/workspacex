@@ -60,6 +60,7 @@ export const ADMIN_NAV_TESTID: Record<AdminModuleKey, string> = {
   members: "admin-nav-members",
   feedback: "admin-nav-feedback",
   local: "admin-nav-local",
+  platform: "admin-nav-platform",
 };
 
 /** 契约六值各自**期望**出现在左栏的项键。 */

@@ -90,12 +90,19 @@ export async function listPersonalThreads(
 
   if (byLabel.size === 0) return { groups: [], capabilities };
 
+  // ⚠ 不在这里重排：`candidates` 已经是 `listPersonalThreads` 按
+  // `ORDER BY last_activity_at DESC, t.id` 取回的全序结果，上面的循环把每条
+  // 卡片按到达顺序 push 进 `byLabel`，天然保序。这里曾经有一段 `.sort((a, b) =>
+  // a.lastActivityAt < b.lastActivityAt ? 1 : -1)`：相等时恒返回 `-1`，不满足
+  // `compareFn` 的全序契约（`a===b` 时必须返回 `0`），会在时间戳并列时产生不稳定
+  // 的相对顺序——这正是「点击第 N 行却选中了相邻行」这个 bug 的后端根因之一：
+  // 前端每次后台刷新列表都会重新触发这次不稳定排序，同一时间戳的相邻两条卡片
+  // 相对位置可能跳动，用户点击的像素位置和实际渲染出的卡片对不上。删掉这段
+  // JS 重排，直接信任 SQL 已经给出的稳定全序（`id` 兜底打破并列）。
   return {
     groups: THREAD_GROUP_ORDER.map((label) => ({
       label,
-      cards: (byLabel.get(label) ?? []).sort((a, b) =>
-        a.lastActivityAt < b.lastActivityAt ? 1 : -1,
-      ),
+      cards: byLabel.get(label) ?? [],
     })),
     capabilities,
   };

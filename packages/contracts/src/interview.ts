@@ -316,6 +316,70 @@ export const DigitalInterviewExpertRun = z.object({
   updatedAt: z.string().datetime(),
 }).strict();
 
+/** 报告中的每条发现都必须能回到一位专家的一道问题及其原始回答。 */
+export const DigitalInterviewReportFinding = z.object({
+  findingId: z.string().min(1),
+  title: z.string().trim().min(1),
+  summary: z.string().trim().min(1),
+  expertId: z.string().min(1),
+  questionId: z.string().min(1),
+  sourceAnswerId: z.string().min(1),
+  exploratory: z.literal(true),
+}).strict();
+
+export const DigitalInterviewReport = z.object({
+  reportId: z.string().min(1),
+  title: z.string().trim().min(1),
+  executiveSummary: z.string().trim().min(1),
+  markdown: z.string().trim().min(1),
+  findings: z.array(DigitalInterviewReportFinding).min(1),
+  generatedAt: z.string().datetime(),
+}).strict();
+
+/**
+ * Durable projection of an in-flight report. It is intentionally part of the workflow
+ * recovery view: a browser may disappear while the model keeps running, then reconnect
+ * and continue from the last event that was committed before it disconnected.
+ */
+export const DigitalInterviewReportGeneration = z.object({
+  reportId: z.string().min(1),
+  requestId: z.string().min(1),
+  status: z.enum(["running", "failed"]),
+  title: z.string().trim().min(1).nullable(),
+  executiveSummary: z.string().trim().min(1).nullable(),
+  markdown: z.string(),
+  findings: z.array(DigitalInterviewReportFinding),
+  errorCode: z.string().min(1).nullable(),
+  updatedAt: z.string().datetime(),
+}).strict();
+
+/** One durable NDJSON frame emitted while an exploratory report is generated. */
+const DigitalReportMetaEvent = z.object({
+  type: z.literal("meta"),
+  title: z.string().trim().min(1),
+  executiveSummary: z.string().trim().min(1),
+}).strict();
+
+const DigitalReportSectionEvent = z.object({
+  type: z.literal("section"),
+  markdown: z.string().trim().min(1),
+}).strict();
+
+const DigitalReportFindingEvent = z.object({
+  type: z.literal("finding"),
+  title: z.string().trim().min(1),
+  summary: z.string().trim().min(1),
+  expertId: z.string().trim().min(1),
+  questionId: z.string().trim().min(1),
+}).strict();
+
+export const DigitalReportStreamEvent = z.discriminatedUnion("type", [
+  DigitalReportMetaEvent,
+  DigitalReportSectionEvent,
+  DigitalReportFindingEvent,
+]);
+export type DigitalReportStreamEvent = z.infer<typeof DigitalReportStreamEvent>;
+
 const validateUniqueDigitalInterviewQuestions = (
   questions: readonly z.infer<typeof DigitalInterviewQuestion>[],
   context: z.RefinementCtx,
@@ -462,6 +526,8 @@ export const DigitalInterviewWorkflowView = DigitalInterview.extend({
   questions: DigitalInterviewQuestionList,
   questionCandidates: DigitalInterviewQuestionList,
   expertRuns: z.array(DigitalInterviewExpertRun),
+  report: DigitalInterviewReport.nullable().optional(),
+  reportGeneration: DigitalInterviewReportGeneration.nullable().optional(),
   skillThreadId: z.string().min(1),
   skillMessages: z.array(DigitalInterviewSkillMessage),
   skillProposals: z.array(DigitalInterviewSkillProposal),
@@ -751,6 +817,18 @@ export const operations = {
     }).strict(),
     out: DigitalInterviewWorkflowView,
     err: ["NO_INTERVIEW_ACCESS", "DIGITAL_INTERVIEW_STEP_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 所有专家运行终止后，由用户显式确认回答并生成可追溯报告。 */
+  generateDigitalInterviewReport: {
+    method: "POST", path: "/interviews/digital/:interviewId/report/generate",
+    in: z.object({
+      interviewId: z.string().min(1),
+      expectedVersion: z.number().int().positive(),
+      requestId: z.string().min(1),
+    }).strict(),
+    out: DigitalInterviewWorkflowView,
+    err: ["NO_INTERVIEW_ACCESS", "DIGITAL_REPORT_NOT_READY", "DIGITAL_REPORT_SOURCE_INVALID", "CONCURRENT_MODIFICATION", "IDEMPOTENCY_KEY_REUSED", "PERMISSION_REVOKED_MIDWAY", "AI_GENERATION_UNAVAILABLE", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 
   /** 用户消息和由它生成的 proposal 立即持久化，并推进同一访谈 aggregate version。 */

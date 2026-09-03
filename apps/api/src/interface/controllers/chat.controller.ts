@@ -155,9 +155,11 @@ import {
 import type { LandingModeName } from "../../domain/chat/artifact-landing";
 import {
   CHAT_MESSAGE_COMMAND_REPOSITORY,
+  ENABLED_SKILL_VERSION_READER,
   PUBLISHED_AGENT_READER,
   THREAD_MOUNTED_SKILL_READER,
   type ChatMessageCommandRepository,
+  type EnabledSkillVersionReader,
   type PublishedAgentReader,
   type ThreadMountedSkillReader,
 } from "../../application/chat/message-command-ports";
@@ -276,6 +278,8 @@ export class ChatController {
     @Inject(PUBLISHED_AGENT_READER) private readonly publishedAgents: PublishedAgentReader,
     // #1559：线程级临时挂载进入 run 快照的读口（F65 真正生效的那一半）。
     @Inject(THREAD_MOUNTED_SKILL_READER) private readonly threadMounts: ThreadMountedSkillReader,
+    // #2514：agent 默认加载全部已启用 skill 的读口（2026-09-02 裁决）。
+    @Inject(ENABLED_SKILL_VERSION_READER) private readonly enabledSkills: EnabledSkillVersionReader,
     // #414. 受理之后触发这个租户的执行；**不等待**——见 `agent-run-executor.ts` 文件头：
     // §2 规定本请求返回 202 + `runStatus: "queued"`，绝不内联回复，所以模型慢或挂
     // 都不许把这条写入拖慢或拖挂。
@@ -309,7 +313,7 @@ export class ChatController {
   private get messageDeps() {
     return {
       ...this.deps, commands: this.messageCommands, publishedAgents: this.publishedAgents,
-      threadMounts: this.threadMounts,
+      threadMounts: this.threadMounts, enabledSkills: this.enabledSkills,
       model: this.model, titleModel: this.titleModel, log: this.log,
     };
   }
@@ -428,8 +432,8 @@ export class ChatController {
         userId: principal.userId, orgId: toOrgId(principal.orgId), threadId,
         clientMessageId: parsed.data.clientMessageId, text: parsed.data.text,
         agentId: parsed.data.agentId, attachmentIds: parsed.data.attachmentIds,
+        onAccepted: () => this.agentRuns.kick(toOrgId(principal.orgId)),
       });
-      this.agentRuns.kick(toOrgId(principal.orgId));
       return {
         message: {
           id: accepted.id, authorKind: "human" as const, authorId: accepted.authorId,

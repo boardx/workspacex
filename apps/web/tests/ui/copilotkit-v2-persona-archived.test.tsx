@@ -26,6 +26,13 @@
  *    一排假按钮）——断言从"disabled"改成"根本不在"，而不只是断言提示文案在。
  * ④ **成功之后 chip 不消失**。生成一次之后同一条建议还挂在那——用户会以为
  *    "点了但没反应"，或者误以为可以无限重复生成。
+ * ⑤ **用 client 视图代替后端事实**（2026-08-30 review 反证第三轮）。补丁二曾用
+ *    `agent.messages.length > 0` 当"线程有内容"的判据——那是 client/流式视图，
+ *    hydration 还没跑完或读回空数组时都可能与后端真相脱节，复现同一个"chip
+ *    出现但点了报错"的问题。改成 `personaThreadHasPersistedEvidence`
+ *    （`hydratedEvidence` + `resolvedThreadIdsRef` 两个事实源，见该常量的
+ *    完整论证），②b/②c 两条用例分别钉住"hydration 读回空数组"与"hydration
+ *    失败"两种"没有证据就不该渲染"的场景。
  *
  * ⚠ 组件测试不是本 issue 的唯一证据：真实浏览器 e2e
  * （`e2e/copilotkit-v2-persona-archived.spec.ts`）打真栈，是端到端证据。这里钉的是
@@ -60,6 +67,7 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 /** 语音输入是既有能力（DA-19g），本测试只关心它在归档态被禁用，不驱动真实采音管线。 */
 vi.mock("@/lib/use-asr-draft", () => ({
+  appendTranscript: (base: string, addition: string) => (addition === "" ? base : base === "" ? addition : `${base} ${addition}`),
   useAsrDraft: () => ({
     status: "idle", listening: false, connecting: false, stopping: false, error: null,
     start: vi.fn(), stop: vi.fn(),
@@ -67,6 +75,7 @@ vi.mock("@/lib/use-asr-draft", () => ({
     // （`ComposerMicControl` 的录音态面板消费），补进 mock 保持形状与真实 hook
     // 一致；本测试的场景都不触发录音态，值本身不影响这里的断言。
     cancel: vi.fn(), elapsedSeconds: 0, level: 0,
+    baseText: "", committedText: "", partialText: "",
   }),
 }));
 vi.mock("@/lib/use-audio-input-devices", () => ({
@@ -160,6 +169,73 @@ describe("CK-P6 生成用户画像（issue #2053）", () => {
   it("②全新对话（还没有持久化线程）⇒ 入口根本不渲染（不是渲染成灰色）", async () => {
     mount({ canGeneratePersona: true, chatThreadId: null });
     await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeTruthy());
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+  });
+
+  /**
+   * 2026-08-30 补丁二：真实复现——线程**已经建立**（`chatThreadId` 非空）但
+   * 一条消息都没有（`listMessages` 读回空数组）。补丁一的判据是
+   * `initialChatThreadId !== null`，只看"线程存在"，这个场景下照样渲染；
+   * 点了就撞见 `runPersonaSummary` 里 `persisted` 为空那条"这条对话还没有
+   * 已落库的消息，无法生成画像"——不是渲染 bug，是判据没有真的按"有没有内容"
+   * 来判。补丁二改成看 `hydratedEvidence`（本条断言的是它 `hasMessages: false`
+   * 那一支：hydration 真的跑完了，读回的是空数组，chip 必须不渲染）。
+   */
+  it("②b 线程已建立但一条消息都没有 ⇒ 同样不渲染（不能只看「线程存在」）", async () => {
+    listMessages.mockImplementation(async () => ({ messages: [], nextCursor: null }));
+    mount({ canGeneratePersona: true, chatThreadId: THREAD_ID });
+    await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeTruthy());
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+  });
+
+  /**
+   * 2026-08-30 review 反证第三轮——补丁二用 `agent.messages.length > 0` 判定，
+   * 那是 client/流式视图，不是"后端确认落库过什么"的事实源：hydration 还没跑完
+   * 的窗口里 `agent.messages` 完全可能与后端真相脱节。改成 `hydratedEvidence`
+   * （见 `copilotkit-v2-panel-body.tsx` 的 `personaThreadHasPersistedEvidence`）
+   * 之后，"没有证据"必须默认不渲染——hydration 失败（`listMessages` 抛错）时，
+   * `hydratedEvidence` 保持 `null`，不能假装"反正线程存在就当有消息"。
+   */
+  it("②c hydration 失败（listMessages 抛错）⇒ 没有证据就不渲染，不假装有消息", async () => {
+    listMessages.mockRejectedValue(new Error("network down"));
+    mount({ canGeneratePersona: true, chatThreadId: THREAD_ID });
+    await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("copilotkit-v2-history-error")).toBeTruthy());
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+  });
+
+  /**
+   * 2026-08-31 review 反证第四轮——②b/②c 都没有真的构造出"`agent.messages` 与
+   * 后端持久化事实分叉"这件事：两条用例里 `agent.messages` 从头到尾都是空的，
+   * 用旧判据 `agent.messages.length > 0` 一样判不渲染，**证明不了新判据比旧判据
+   * 多做对了什么**（本地反证：把 `personaThreadHasPersistedEvidence` 换回
+   * `agent.messages.length > 0` 重跑这两条用例，照样全绿）。
+   *
+   * 这条用例才是 review 最初第 3 点要的场景：线程已建立、hydration 已经确认
+   * 落库为空（`hasMessages: false`），**之后**用户在 composer 里发了一条消息——
+   * `agent.addMessage`（`send()` 内部）会立刻乐观插入这条消息，`agent.messages.
+   * length` 瞬间变成 1，而这条线程在后端仍然没有任何已落库的消息（`runAgent`
+   * 这次会失败，不会有 `chat_thread_id` 事件把 id 记进 `resolvedThreadIdsRef`）。
+   * 旧判据这一刻会为真 ⇒ chip 出现 ⇒ 点了照样撞见"这条对话还没有已落库的消息"；
+   * 新判据两个证据源都不成立 ⇒ chip 必须继续不渲染。
+   */
+  it("②d hydration 确认为空之后，用户乐观发送一条消息 ⇒ 仍不渲染（agent.messages 与持久化事实分叉）", async () => {
+    listMessages.mockImplementation(async () => ({ messages: [], nextCursor: null }));
+    mount({ canGeneratePersona: true, chatThreadId: THREAD_ID });
+    const input = await screen.findByTestId("copilotkit-v2-input");
+    // 先等 hydration 真的跑完并确认这条线程持久化为空——不然这条用例证明的是
+    // "hydration 还没跑完"而不是"hydration 已确认为空、随后又分叉"。
+    await waitFor(() => expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull());
+
+    fireEvent.change(input, { target: { value: "先随便问一句" } });
+    fireEvent.click(screen.getByTestId("copilotkit-v2-send"));
+
+    // `agent.addMessage` 是同步乐观插入：消息气泡应该已经出现在消息区——这是
+    // "agent.messages.length > 0 现在为真"的直接证据，不是断言实现细节。
+    await waitFor(() => expect(screen.getByText("先随便问一句")).toBeTruthy());
+    // 这条线程在后端仍然没有任何已落库消息（listMessages 一直读回空数组），
+    // 也没有发生过 `chat_thread_id` resolve——两个持久化证据源都不成立，
+    // chip 必须继续不渲染。
     expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
   });
 

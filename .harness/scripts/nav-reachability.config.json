@@ -32,7 +32,8 @@
       "/studio/survey",
       "/brain",
       "/tasks",
-      "/admin"
+      "/admin",
+      "/platform-admin"
     ]
   }
 }

@@ -203,11 +203,17 @@ describe("PaginationLoadMore：游标分页", () => {
 describe("迁移证据：3 处业务目录已改用 components/ui/pagination.tsx", () => {
   const filesDir = join(__dirname, "..", "..", "components");
 
-  it("capability-catalog-screen.tsx 引用 Pagination/PaginationPrevious/PaginationNext", () => {
+  /**
+   * 2026-09-02：Agent / Skill 目录简化成「搜索 + 标签筛选的卡片网格」（人类原话，参照画布
+   * 模板库），不再分页——这个曾经的第 3 处消费方退役了。这里不再断言它引用 Pagination，
+   * 但仍断言它**没有**回到收口前那种手搓分页（`page` / `pageCount` 本地 state），
+   * 保证「要么用原语，要么不分页」，不会出现第二份分页实现。
+   */
+  it("capability-catalog-screen.tsx 已改成不分页的卡片目录，且没有手搓分页 state", () => {
     const src = readFileSync(join(filesDir, "admin", "capability-catalog-screen.tsx"), "utf8");
-    expect(src).toMatch(/from "@\/components\/ui\/pagination"/);
-    expect(src).toMatch(/<PaginationPrevious/);
-    expect(src).toMatch(/<PaginationNext/);
+    expect(src).not.toMatch(/useState[<(][^)]*\bpage\b/);
+    expect(src).not.toMatch(/\bpageCount\b/);
+    expect(src).toMatch(/from "\.\/entity-catalog"/);
   });
 
   it("profile-screen.tsx 引用 PaginationLoadMore", () => {

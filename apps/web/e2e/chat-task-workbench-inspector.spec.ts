@@ -4,7 +4,7 @@ import {
   CHAT_READ_E2E,
   expectAnchor,
   gapMessage,
-  openFreshThread,
+  openFreshThread
 } from "./chat-task-workbench-fixture";
 
 /**

@@ -1,0 +1,69 @@
+/**
+ * FB-5 —— 反馈附件（图片）的仓储端口。与 `ports.ts`（反馈本身）分开，理由同
+ * `notification-ports.ts` 头注：这是反馈之外的一张独立表、独立生命周期
+ * （上传时未挂反馈，`submitFeedback` 之后才认领——见迁移
+ * `20260902120000_fb5_feedback_attachments.sql` 头注）。
+ */
+import type { OrgId } from "../../domain/org-id";
+import type { Guarded } from "../security/permission-filter";
+
+export type FeedbackAttachmentContentType = "image/png" | "image/jpeg" | "image/webp";
+
+export interface FeedbackAttachmentRow {
+  readonly id: string;
+  readonly orgId: string;
+  readonly uploadedBy: string;
+  readonly feedbackId: string | null;
+  /**
+   * 能读出字节的钥匙——同 `pg-product-feedback-repository.ts` 把 `detail` 包成
+   * `Guarded<string>` 一样的理由：`objectKey` 才是「读到即可看到图片内容」的那个字段，
+   * 必须经 `discloseDecided`（D3）才能取出。`null` 仅当 `feedbackId` 为 `null`
+   * （尚未认领）——此时没有可供 `guard()` 挂靠的反馈对象，下载路由对未认领附件
+   * 一律先 404，不会走到需要读这个字段的那一步（见 `download-feedback-attachment.ts`）。
+   */
+  readonly objectKey: Guarded<string> | null;
+  readonly contentType: FeedbackAttachmentContentType;
+  readonly sizeBytes: number;
+  readonly sha256: string;
+  readonly createdAt: string;
+}
+
+export interface NewFeedbackAttachment {
+  readonly id: string;
+  readonly orgId: OrgId;
+  readonly uploadedBy: string;
+  readonly objectKey: string;
+  readonly contentType: FeedbackAttachmentContentType;
+  readonly sizeBytes: number;
+  readonly sha256: string;
+}
+
+export interface FeedbackAttachmentRepository {
+  /** 落 PG 元数据。字节由调用方先写进 `ObjectStore`（见 `upload-feedback-attachment.ts`）。 */
+  create(row: NewFeedbackAttachment): Promise<void>;
+
+  /**
+   * `submitFeedback` 成功后按 id 列表认领——**原子地**把匹配
+   * `(org_id, uploaded_by, id) AND feedback_id IS NULL` 的行的 `feedback_id` 置为
+   * 这条新反馈的 id。返回真正认领成功的行数：调用方据此判断有没有 id 认领失败
+   * （别人的 id / 已被别的反馈认领 / 根本不存在），best-effort、只记日志，不阻塞
+   * 反馈提交本身——见 `submit-feedback.ts` 头注。
+   */
+  claimForFeedback(
+    orgId: OrgId,
+    feedbackId: string,
+    attachmentIds: readonly string[],
+    uploadedBy: string,
+  ): Promise<number>;
+
+  /** 一条反馈已认领的全部附件，供 `listFeedback` 投影。 */
+  findByFeedbackIds(
+    orgId: OrgId,
+    feedbackIds: readonly string[],
+  ): Promise<readonly FeedbackAttachmentRow[]>;
+
+  /** 下载路由用——查具体一条，不限上传者（下载路由自己按反馈可见性判权限）。 */
+  findById(orgId: OrgId, attachmentId: string): Promise<FeedbackAttachmentRow | null>;
+}
+
+export const FEEDBACK_ATTACHMENT_REPOSITORY = Symbol("FeedbackAttachmentRepository");

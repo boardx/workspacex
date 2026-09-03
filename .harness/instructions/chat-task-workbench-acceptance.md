@@ -156,17 +156,36 @@
 
 **判据**：
 1. 第一行：多行任务输入（`textarea`，不是单行 `input`）。
-2. 第二行左：附件/材料、`@Agent`、`/技能`、任务模式；右：语音状态 + 发送/停止。
+2. 工具行（2026-09-02 人类交付的状态预览稿，像素级实施）：左＝材料 / 技能 / 任务模式
+   三颗 32px 圆形图标按钮（悬停显示名称；任务模式开启态反色实心）；「选择能力」
+   移出输入区，放在卡片上方右对齐；右＝一个分段语音胶囊承载全部语音状态
+   （语音 → 连接中 → 停止 + 音量条 + 计时 → 继续 → 出错「重试」），设备列表与
+   静音自动暂停开关收进它右侧的小箭头菜单；32px 圆形发送，Agent 处理中变为「停止生成」。
+   转录实时流入输入框：已确认深色、识别中浅灰带光标。输入框里的 `/` 命令照旧。
+   ⚠ 技能入口保留，但**挑选不再是前提**（#2514，2026-09-02 服务端裁决）：agent 没钉 skill
+   时 run 默认加载组织全部已启用 skill；钉了则只用钉的；线程里挑的在此之上追加
+   （`message-roundtrip.ts` 的 `resolveRunSkillVersionIds`，`copilotkit-v2-skill-mount.spec.ts`
+   为其真栈门）。
 3. 输入后显示：附件卡片、上下文范围、权限提示。
 4. Agent 未就绪时**禁用发送并说明原因**（有可读文本，不只是灰掉）。
+   理由出现在卡片底部状态栏（Agent 处理中 / 上传中）或页脚（归档）；"空输入"只在
+   用户试图发送（空输入按 Enter）时短暂出现在页脚。
 5. **麦克风入口全局唯一**——审计实测当前有两个重复入口。
    判定方式：composer 区域内匹配麦克风语义的可交互元素**恰好 1 个**。
-6. 设备选择降为语音按钮的二级菜单；录音时显示计时 / 音量 / 取消 / 确认。
+6. 设备选择降为语音按钮的二级菜单（胶囊右侧小箭头：设备列表 + 静音自动暂停开关；
+   当前设备名只在卡片下方页脚显示）；卡片底部状态栏按状态区分语气与操作：连接中
+   （取消）、正在听（暂停 / 停止，计时 + 音量条在胶囊上）、静音提示（换麦克风 / 停止）、
+   暂停（丢弃 / 继续 / 完成）、服务不可用与权限被拒（重试 / 查看如何开启）、
+   Agent 处理中（停止生成）、转录完成（撤销转录 / 继续说）。
 
 **用例**：`chat-task-workbench-composer.spec.ts`
 **锚点**：`chat-task-workbench-composer`、`...-composer-input`、
-`...-composer-mic`（唯一）、`...-composer-mic-devices`、
-`...-composer-recording-{timer|level|cancel|confirm}`、`...-composer-send-disabled-reason`
+`chat-attachment-input` / `chat-skill-mount` / `...-composer-task-mode`（三颗圆形按钮）、
+`chat-task-workbench-capability-picker`（卡片上方）、
+`...-composer-mic`（唯一）、`...-composer-mic-devices`（小箭头）/ `...-mic-devices-listbox` /
+`...-mic-silence-autopause`、状态栏 `chat-mic-{connecting|listening|stopping|error}` /
+`...-composer-{paused|transcribed|agent-busy|uploading}`、
+`...-composer-recording-{timer|level|pause|cancel|resume|confirm|undo}`、`...-composer-send-disabled-reason`
 
 ### TW-P0-6 审批卡片（三态决策）
 
