@@ -14,6 +14,7 @@ import {
   transactionalMailConfig,
   type TransactionalMailConfig,
 } from "../../src/infrastructure/notifications/cloudflare-transactional-email-transport";
+import { renderBrandEmailHtml } from "../../src/infrastructure/notifications/email-branding";
 
 function fakeConfig(over: Partial<TransactionalMailConfig> = {}): TransactionalMailConfig {
   return {
@@ -42,19 +43,20 @@ describe("CloudflareTransactionalEmailTransport", () => {
     }) as typeof fetch;
 
     const transport = new CloudflareTransactionalEmailTransport(fakeConfig(), fakeFetch);
-    await transport.send({
-      to: "user@example.com",
-      subject: "你的反馈状态已更新为「已进入迭代」",
-      text: "你提交的反馈《点了没反应》状态已更新为「已进入迭代」。",
-    });
+    const subject = "你的反馈状态已更新为「已进入迭代」";
+    const text = "你提交的反馈《点了没反应》状态已更新为「已进入迭代」。";
+    await transport.send({ to: "user@example.com", subject, text });
 
     expect(capturedUrl).toBe("https://api.cloudflare.com/client/v4/accounts/acc-1/email/sending/send");
     expect(capturedHeaders?.authorization).toBe("Bearer token-1");
+    // html 是这一层自动套的品牌外壳（email-branding.ts）——subject/text 仍是调用方
+    // 给的原样值，没有被硬编模板顶掉；html 由同一个渲染函数生成，两边不会各自漂移。
     expect(capturedBody).toEqual({
       from: { address: "no-reply@mail.boardx.us" },
       to: "user@example.com",
-      subject: "你的反馈状态已更新为「已进入迭代」",
-      text: "你提交的反馈《点了没反应》状态已更新为「已进入迭代」。",
+      subject,
+      text,
+      html: renderBrandEmailHtml({ heading: subject, text }),
     });
   });
 
