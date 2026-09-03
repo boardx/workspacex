@@ -2,9 +2,10 @@
 import * as React from "react";
 import { Maximize2 } from "lucide-react";
 import { Canvas as FabricCanvas } from "fabric";
-import { markdownToCanvas, fitToContent, wrapAsMermaidBlock } from "@repo/fabric-markdown";
+import { markdownToCanvas, fitToContent, wrapAsMermaidBlock, getTemplate } from "@repo/fabric-markdown";
 import { checkCanvasFence, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
 import { ensureCanvasFenceTemplate, type CanvasFenceTemplateSource } from "@/lib/canvas/fence-template-resolver";
+import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -312,9 +313,21 @@ function CanvasFabricBody({
     const width = Math.max(320, Math.floor(container.getBoundingClientRect().width) - 2);
     const canvas = new FabricCanvas(el, { width, height: 360, selection: false, skipTargetFind: true });
     let cancelled = false;
+    // issue #2564：模型实际产出的条数可能比某个分区的框实际放得下的多——vendor
+    // 引擎（`template-engine.ts`）不裁剪，超出的便签会画进相邻分区（标题条/便签
+    // 互相压住）。`status.phase === "valid"` 意味着阶段一的 `checkCanvasFence` 已经
+    // 成功解析出 `key`（这里再解析一次是同一个纯函数、同一份 `previewCode`，不会
+    // 失败）；渲染前用 `key` 对应的已注册 `spec` 算出每个分区的真实容量，截掉超出
+    // 部分——见 `cap-fence-bullets.ts` 文件头，与 `template-simulate-dialog.tsx`
+    // 「chat 模拟」共用同一份逻辑（两条路径此前就被要求「渲染引擎完全一致」）。
+    const check = checkCanvasFence(previewCode, lang);
+    const spec = check.ok ? getTemplate(check.key) : undefined;
+    const cappedPreviewCode = spec
+      ? capFenceBulletsToCapacity(previewCode, sectionRenderCapacities(spec))
+      : previewCode;
     // 复用唯一入口 `markdownToCanvas`（它按围栏 lang 分派到 templateToModel），
     // 不在这里另写一份 templateToModel + renderToCanvas 的组合。
-    markdownToCanvas(wrapAsMermaidBlock(previewCode, lang), canvas)
+    markdownToCanvas(wrapAsMermaidBlock(cappedPreviewCode, lang), canvas)
       .then(() => {
         if (cancelled) return;
         canvas.forEachObject((obj) => {
