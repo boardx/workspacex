@@ -116,6 +116,31 @@ export function useComposerVoiceSession(
     }
   }, [speech.status, speech.committedText, speech.elapsedSeconds]);
 
+  /**
+   * 2026-09-03 人类反馈（真栈截图）「录音停止以后不应该出现这条 warning，是多余的」——
+   * 根因：`useAsrDraft` 一旦中途报错（比如上游连接抖动），状态机会直接把 `status`
+   * 钉在 `"error"`（`onFinished` 也如实保留它，见该文件头注），不管这段录音**已经**
+   * 转录出了多少内容、也不管用户之后是不是已经点了「停止」。结果是转录明明成功
+   * 写进了输入框，卡片底部却永久挂着一条「语音识别暂时不可用」——内容已经到手，
+   * 这条提示对用户已经没有任何可执行的价值，纯粹是噪音。
+   *
+   * 只在**这段会话确实转出过内容**（当前草稿相对 `sessionBaseRef` 有变化）时收敛：
+   * 把它当成跟正常「完成」一样落到 `done`，警告条自然不再渲染（下方 `phase` 的
+   * 优先级）。真正"一开始就连不上、什么都没录到"的失败不受影响，仍然如实报错——
+   * 不是把所有错误都吞掉，只是不为一个已经不影响结果的错误继续报警。
+   */
+  React.useEffect(() => {
+    if (speech.status !== "error") return;
+    if (settled === "done") return;
+    const base = sessionBaseRef.current;
+    if (base === null) return; // 没有进行中的会话（比如 start() 本身就失败），如实报错。
+    const draftNow = opts.getDraft();
+    if (draftNow.trim() === base.trim()) return; // 真的什么都没转到，如实报错。
+    setCarriedSeconds((s) => s + speech.elapsedSeconds);
+    setCarriedChars((c) => c + speech.committedText.replace(/\s/g, "").length);
+    setSettled("done");
+  }, [speech.status, speech.elapsedSeconds, speech.committedText, opts, settled]);
+
   const start = React.useCallback(() => {
     if (sessionBaseRef.current === null || settled === null) {
       // 全新会话（不是从暂停/完成继续）：记住还原点、清零累计。
@@ -188,7 +213,7 @@ export function useComposerVoiceSession(
       ? "listening"
       : speech.status === "stopping"
         ? "stopping"
-        : speech.status === "error" || speech.status === "denied" || speech.status === "unsupported"
+        : (speech.status === "error" || speech.status === "denied" || speech.status === "unsupported") && settled !== "done"
           ? "error"
           : settled === "paused"
             ? "paused"
