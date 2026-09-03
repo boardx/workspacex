@@ -421,7 +421,7 @@ export class FlowNode extends Group {
         fontWeight: (opts['bold'] ? 'bold' : 'normal') as string,
         fontFamily: FONT_FAMILY,
         fill: (opts['color'] as string) ?? INK_SOFT,
-        textAlign: ((opts['align'] as string) ?? 'center') as 'left' | 'center',
+        textAlign: ((opts['align'] as string) ?? 'center') as 'left' | 'center' | 'right',
         editable: false,
         left: 0,
         top: 0,
