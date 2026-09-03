@@ -15,6 +15,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { PlatformMembersScreen } from "@/components/admin/platform-members-screen";
 
+const sessionMock = vi.hoisted(() => ({ userId: null as string | null }));
+vi.mock("@/components/session/session-provider", () => ({
+  useOptionalSession: () => (sessionMock.userId ? { session: { userId: sessionMock.userId } } : null),
+}));
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 }
@@ -23,12 +28,12 @@ const ROSTER = {
   members: [
     {
       userId: "u-ops", displayName: "运维", email: "ops@x.test", emailVerified: true, createdAt: "2026-01-01T00:00:00Z",
-      platformSuperuser: true,
+      platformSuperuser: true, platformAdmin: false,
       memberships: [],
     },
     {
       userId: "u-linke", displayName: "林可", email: "l@x.test", emailVerified: true, createdAt: "2026-02-01T00:00:00Z",
-      platformSuperuser: false,
+      platformSuperuser: false, platformAdmin: false,
       memberships: [
         { orgId: "org-a", orgName: "远洋咨询", orgRole: "consultant", teamId: null, joinedAt: "2026-02-02T00:00:00Z" },
         { orgId: "org-b", orgName: "北极星", orgRole: "admin", teamId: null, joinedAt: "2026-03-02T00:00:00Z" },
@@ -39,7 +44,12 @@ const ROSTER = {
 
 const fetchMock = vi.fn();
 
-function routed(overrides: { list?: Response; setRole?: (body: Record<string, unknown>) => Response } = {}) {
+function routed(overrides: {
+  list?: Response;
+  setRole?: (body: Record<string, unknown>) => Response;
+  grantAdmin?: (body: Record<string, unknown>) => Response;
+  revokeAdmin?: (body: Record<string, unknown>) => Response;
+} = {}) {
   return (url: string, init?: RequestInit) => {
     const u = String(url);
     const method = init?.method ?? "GET";
@@ -51,6 +61,14 @@ function routed(overrides: { list?: Response; setRole?: (body: Record<string, un
       );
     }
     if (method === "GET" && u.endsWith("/platform/members")) return Promise.resolve(overrides.list ?? jsonResponse(ROSTER));
+    if (method === "POST" && /\/platform\/members\/[^/]+\/platform-admin$/.test(u)) {
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      return Promise.resolve(overrides.grantAdmin?.(body) ?? jsonResponse({ userId: body.userId, platformAdmin: true }));
+    }
+    if (method === "DELETE" && /\/platform\/members\/[^/]+\/platform-admin$/.test(u)) {
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      return Promise.resolve(overrides.revokeAdmin?.(body) ?? jsonResponse({ userId: body.userId, platformAdmin: false }));
+    }
     return Promise.resolve(jsonResponse({}, 404));
   };
 }
@@ -58,6 +76,7 @@ function routed(overrides: { list?: Response; setRole?: (body: Record<string, un
 beforeEach(() => {
   fetchMock.mockReset();
   vi.stubGlobal("fetch", fetchMock);
+  sessionMock.userId = null;
 });
 
 afterEach(() => {
@@ -130,5 +149,66 @@ describe("PlatformMembersScreen", () => {
     const error = await screen.findByTestId("admin-platform-member-u-linke-org-org-b-role-error");
     expect(error).toHaveTextContent("最后一名管理员");
     expect(trigger).toHaveTextContent("管理员");
+  });
+});
+
+describe("PlatformMembersScreen · 平台管理员（platform-admin-role delta）", () => {
+  it("查看者不是平台超管：看得到别人的平台管理员徽章，但看不到能点的授予/撤销按钮", async () => {
+    sessionMock.userId = "u-linke"; // 林可本人不是平台超管。
+    fetchMock.mockImplementation(
+      routed({ list: jsonResponse({ members: [{ ...ROSTER.members[1], platformAdmin: true }] }) }),
+    );
+    render(<PlatformMembersScreen state="default" />);
+
+    expect(await screen.findByTestId("admin-platform-member-u-linke-admin-badge")).toHaveTextContent("平台管理员");
+    expect(screen.queryByTestId("admin-platform-member-u-linke-admin-toggle")).toBeNull();
+  });
+
+  it("查看者是平台超管：能点「设为平台管理员」，成功后徽章出现、按钮变「撤销」", async () => {
+    sessionMock.userId = "u-ops"; // u-ops 在 ROSTER 里 platformSuperuser: true。
+    fetchMock.mockImplementation(routed());
+    render(<PlatformMembersScreen state="default" />);
+
+    const toggle = await screen.findByTestId("admin-platform-member-u-linke-admin-toggle");
+    expect(toggle).toHaveTextContent("设为平台管理员");
+    expect(screen.queryByTestId("admin-platform-member-u-linke-admin-badge")).toBeNull();
+
+    fireEvent.click(toggle);
+
+    await waitFor(() => expect(toggle).toHaveTextContent("撤销平台管理员"));
+    expect(screen.getByTestId("admin-platform-member-u-linke-admin-badge")).toHaveTextContent("平台管理员");
+    expect(screen.getByTestId("admin-platform-members-banner")).toHaveTextContent("林可：已设为平台管理员");
+
+    const call = fetchMock.mock.calls.find((c) => c[1]?.method === "POST" && String(c[0]).includes("platform-admin"));
+    expect(String(call?.[0])).toContain("/platform/members/u-linke/platform-admin");
+  });
+
+  it("撤销失败（403 NOT_PLATFORM_SUPERUSER）：行内报错，状态不变", async () => {
+    sessionMock.userId = "u-ops";
+    fetchMock.mockImplementation(
+      routed({
+        list: jsonResponse({ members: [ROSTER.members[0], { ...ROSTER.members[1], platformAdmin: true }] }),
+        revokeAdmin: () => jsonResponse({ reasonCode: "NOT_PLATFORM_SUPERUSER" }, 403),
+      }),
+    );
+    render(<PlatformMembersScreen state="default" />);
+
+    const toggle = await screen.findByTestId("admin-platform-member-u-linke-admin-toggle");
+    expect(toggle).toHaveTextContent("撤销平台管理员");
+    fireEvent.click(toggle);
+
+    const error = await screen.findByTestId("admin-platform-member-u-linke-admin-error");
+    expect(error).toHaveTextContent("只有平台超管");
+    expect(toggle).toHaveTextContent("撤销平台管理员");
+  });
+
+  it("平台超管本人不叠加平台管理员徽章/按钮——权限已经在超管之上", async () => {
+    sessionMock.userId = "u-ops";
+    fetchMock.mockImplementation(routed());
+    render(<PlatformMembersScreen state="default" />);
+
+    await screen.findByTestId("admin-platform-member-u-ops-superuser");
+    expect(screen.queryByTestId("admin-platform-member-u-ops-admin-badge")).toBeNull();
+    expect(screen.queryByTestId("admin-platform-member-u-ops-admin-toggle")).toBeNull();
   });
 });

@@ -1,4 +1,6 @@
 import type { VerificationMailTransport } from "../../application/auth/email-verification-ports";
+import { assertMailFromOnSendingDomain } from "../cloudflare-email-sending-domain";
+import { renderBrandEmailHtml } from "../notifications/email-branding";
 
 export interface CloudflareEmailConfig {
   accountId: string;
@@ -29,6 +31,9 @@ export function cloudflareEmailConfig(env: NodeJS.ProcessEnv = process.env): Clo
   }
   if (production && !values.appPublicUrl.startsWith("https://")) {
     throw new Error("APP_PUBLIC_URL must use HTTPS in production");
+  }
+  if (production) {
+    assertMailFromOnSendingDomain(values.mailFrom, env);
   }
   return {
     ...values,
@@ -143,6 +148,13 @@ export class CloudflareEmailTransport implements VerificationMailTransport {
               to: input.to,
               subject: "Verify your WorkspaceX email",
               text: `Verify your email: ${input.verificationUrl}`,
+              // ⚠ 品牌外壳同 CloudflareTransactionalEmailTransport（见 email-branding.ts
+              //   头注）；text 字段原样保留，作为不支持 HTML 的客户端 fallback。
+              html: renderBrandEmailHtml({
+                heading: "验证你的 WorkspaceX 邮箱",
+                text: "点击下方按钮完成邮箱验证。如果这不是你本人的操作，忽略这封邮件即可。",
+                cta: { label: "验证邮箱", url: input.verificationUrl },
+              }),
               headers: { "X-WorkspaceX-Outbox-ID": input.outboxId },
             }),
           },

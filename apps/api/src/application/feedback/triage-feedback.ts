@@ -104,23 +104,57 @@
  *   不会自愈,只能靠管理员手动点「查看 GitHub 状态」现查发现、去 GitHub 上手动改。
  *   与②(状态变更邮件)是同一类"本地事实已经落库、外部系统只是尽力同步"的权衡,
  *   不为了堵这个口子新增一张持久化的 outbox 表/后台调度任务。
+ *
+ * ### ⑥(2026-09-03)建 issue 时把这条反馈的图片附件一起推给 GitHub —— best-effort
+ *
+ * 反馈附件的下载 URL(`/feedback/attachments/:id`)要 `Authorization` 头才读得到
+ * 字节;GitHub 渲染 issue 正文时是**匿名**抓图,那个内部 URL 它根本抓不到。所以
+ * ①认领成功、真正调 `githubIssues.create` 之前,先把这条反馈已认领的图片附件
+ * 逐张推给 GitHub(`GithubIssueImageUploader.uploadImage`,Contents API,细节见
+ * `notification-ports.ts`),把换回来的 `raw.githubusercontent.com` 直链拼成
+ * `![](url)` 追加到管理员编辑过的 `issueDraft.body` 末尾。
+ *
+ * ⚠ **这条一度被独立 review 拦下过、又由人类明确改判**(见 `notification-ports.ts`
+ *   头注同一条 2026-09-03 记录):`boardx/workspacex` 是公开仓库,反馈附件受 D3
+ *   权限判定保护,推进去等于让内容对任何人可见、且不可撤回。人类知情后仍然要求
+ *   "图片要真的显示在 issue 里,上传到 GitHub 自己的服务器,不建独立托管服务"——
+ *   这是记录在案的产品取舍,不是这个用例自己的判断,后续收紧需要另一次人类决策。
+ *
+ * ⚠ 与①**不是同一条纪律**:①是"issue 本身建没建成"fail closed,这里是"issue
+ *   正文里有没有带图"——没有任何一张图片上传成功,不该拦住 issue 本身被建出来,
+ *   所以整段(含单张图片各自的失败)都是 best-effort,只记日志(见
+ *   `withAttachmentImages`)。没有附件时**原样**返回 `draft`,不追加空行——这也是
+ *   "管理员编辑过的正文是原样传给 GitHub"那条既有断言仍然成立的原因。
  */
 import {
   canTriage,
   triage,
   type FeedbackStatus,
 } from "../../domain/feedback/product-feedback";
+import type { OrgId } from "../../domain/org-id";
 import type { OrgRole } from "../../domain/identity/roles";
 import type { LoggerPort } from "../ports/logger.port";
 import type { TransactionalMailTransport } from "../notifications/transactional-mail-ports";
+import type { ObjectStore } from "../artifact/ports";
+import { discloseDecided, isDisclosed } from "../security/permission-filter";
+import { decideFeedbackDetailVisibility } from "./feedback-detail-decision";
+import type { FeedbackAttachmentRepository } from "./attachment-ports";
 import {
   GithubIssueCreationError,
   type FeedbackSubmitterDirectory,
   type GithubIssueCreator,
   type GithubIssueDraft,
+  type GithubIssueImageUploader,
   type GithubIssueStateTarget,
 } from "./notification-ports";
 import type { ProductFeedbackRepository } from "./ports";
+
+/** `image/png` → `.png` 等——拼 GitHub 仓库里的文件名要用得到。 */
+const ATTACHMENT_EXTENSION: Record<"image/png" | "image/jpeg" | "image/webp", string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+};
 
 export class FeedbackNotFoundError extends Error {}
 export class FeedbackTriageForbiddenError extends Error {}
@@ -155,10 +189,17 @@ export interface TriageFeedbackDeps {
   readonly submitterDirectory: FeedbackSubmitterDirectory;
   readonly mail: TransactionalMailTransport;
   readonly logger: LoggerPort;
+  /** 建 issue 前把附件图片推给 GitHub、换回可匿名访问的 URL——见文件头 ⑥。 */
+  readonly imageUploader: GithubIssueImageUploader;
+  readonly attachments: FeedbackAttachmentRepository;
+  readonly objectStore: ObjectStore;
+  readonly newDecisionId: () => string;
 }
 
 export interface TriageFeedbackInput {
   readonly feedbackId: string;
+  /** 建 issue 时读这条反馈的附件字节要用——见文件头 ⑥。 */
+  readonly orgId: OrgId;
   readonly status: FeedbackStatus;
   readonly reason: string | null;
   readonly actorId: string;
@@ -222,7 +263,20 @@ export async function triageFeedback(
     const claimed = await deps.repo.claimGithubIssueCreation(input.feedbackId);
     if (!claimed) throw new FeedbackIssueInProgressError();
     try {
-      const created = await deps.githubIssues.create(input.issueDraft);
+      // ⑥ best-effort:把这条反馈的图片附件推给 GitHub、把 `![](url)` 拼进正文
+      //   末尾——见文件头 ⑥ 与 `notification-ports.ts` 里 `GithubIssueImageUploader`
+      //   头注(含 2026-09-03 人类决策记录)。**不是** fail closed:图片是"锦上添花",
+      //   没有任何一张图片上传成功也不该拦住 issue 本身被建出来(那是①已经保护的、
+      //   更重要的不变量)。
+      const draft = await withAttachmentImages(deps, {
+        orgId: input.orgId,
+        feedbackId: input.feedbackId,
+        viewerId: input.actorId,
+        viewerOrgRole: input.actorOrgRole,
+        submittedBy: current.submittedBy,
+        draft: input.issueDraft,
+      });
+      const created = await deps.githubIssues.create(draft);
       githubIssueUrl = created.url;
       githubIssueNumber = created.number;
       await deps.repo.setGithubIssue(input.feedbackId, created);
@@ -282,6 +336,78 @@ export async function triageFeedback(
   }
 
   return { feedbackId: input.feedbackId, status: outcome.to, notified: notification.notified, githubIssueUrl };
+}
+
+/**
+ * ⑥ best-effort:这条反馈已认领的图片附件,逐张推给 GitHub、把 `![](url)` 追加到
+ * `draft.body` 末尾。没有附件 ⇒ 原样返回 `draft`(不追加空行)——这正是
+ * `triage-feedback.test.ts` 那条"管理员编辑过的正文是**原样**传给 GitHub"用例
+ * 仍然成立的原因:默认 fake 的附件仓储返回空列表,body 不会被这里改动。
+ *
+ * 单张图片的任何一步失败(读不到字节、GitHub 拒绝)都只跳过那一张、记日志,
+ * 不影响其余图片,更不影响 issue 本身被建出来——理由见调用处 ⑥ 的注释。
+ */
+async function withAttachmentImages(
+  deps: TriageFeedbackDeps,
+  input: {
+    readonly orgId: OrgId;
+    readonly feedbackId: string;
+    readonly viewerId: string;
+    readonly viewerOrgRole: OrgRole | null;
+    readonly submittedBy: string;
+    readonly draft: GithubIssueDraft;
+  },
+): Promise<GithubIssueDraft> {
+  let rows;
+  try {
+    rows = await deps.attachments.findByFeedbackIds(input.orgId, [input.feedbackId]);
+  } catch (e) {
+    deps.logger.error("feedback triage: attachment lookup failed (best-effort, issue creation continues)", {
+      traceId: "feedback-triage-attachment-image",
+      feedbackId: input.feedbackId,
+      err: e,
+    });
+    return input.draft;
+  }
+  if (rows.length === 0) return input.draft;
+
+  const imageUrls: string[] = [];
+  for (const row of rows) {
+    try {
+      if (row.objectKey === null) continue; // 未认领的附件不会出现在这里,防御性判断
+      // 与正文用**同一条**判定(D3)——同 `download-feedback-attachment.ts` 的既有
+      // 纪律:两处各写一遍"谁能看附件"的规则,其中一处漏改就是这条规则事实上分岔
+      // 成两条而没人发现。调用方(triageFeedback)已经先过了 `canTriage`,这里恒
+      // 放行,但判定本身仍然走同一处代码,不绕开 `Guarded`。
+      const decision = decideFeedbackDetailVisibility({
+        decisionId: deps.newDecisionId(),
+        viewerId: input.viewerId,
+        viewerOrgRole: input.viewerOrgRole,
+        viewerTeamId: null,
+        submittedBy: input.submittedBy,
+      });
+      const disclosed = discloseDecided(row.objectKey, decision);
+      if (!isDisclosed(disclosed)) continue;
+      const bytes = await deps.objectStore.get(disclosed.payload);
+      if (bytes === null) continue;
+      const ext = ATTACHMENT_EXTENSION[row.contentType];
+      const uploaded = await deps.imageUploader.uploadImage({
+        path: `feedback-attachments/${row.id}.${ext}`,
+        content: bytes,
+        contentType: row.contentType,
+      });
+      imageUrls.push(uploaded.url);
+    } catch (e) {
+      deps.logger.error("feedback triage: attachment image upload failed (best-effort, issue creation continues)", {
+        traceId: "feedback-triage-attachment-image",
+        feedbackId: input.feedbackId,
+        attachmentId: row.id,
+        err: e,
+      });
+    }
+  }
+  if (imageUrls.length === 0) return input.draft;
+  return { ...input.draft, body: `${input.draft.body}\n\n${imageUrls.map((u) => `![](${u})`).join("\n")}` };
 }
 
 /** `outcome.to` → GitHub issue 该处在什么开关状态。纯函数,方便单测直接断言映射表。 */

@@ -163,6 +163,48 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
     }
   });
 
+  it("③ 点缩略图打开大图预览，左右切换多图，关闭后清理 object URL", async () => {
+    const withImages = {
+      ...productBug,
+      attachments: [
+        { id: "att-1", url: "/feedback/attachments/att-1", mime: "image/png" },
+        { id: "att-2", url: "/feedback/attachments/att-2", mime: "image/jpeg" },
+      ],
+    };
+    const revokeObjectURL = vi.fn();
+    let objectUrlSeq = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, blob: async () => new Blob(["x"]) })));
+    Object.assign(URL, { createObjectURL: vi.fn(() => `blob:img-${objectUrlSeq++}`), revokeObjectURL });
+    try {
+      mockApi([withImages]);
+      render(<FeedbackScreen state="default" />);
+      const list = await screen.findByTestId("admin-feedback-attachments-fb-p");
+      const thumbnails = within(list).getAllByRole("button");
+      expect(thumbnails).toHaveLength(2);
+
+      // 点第一张缩略图 ⇒ lightbox 打开，标题带「1/2」，能看到大图。
+      fireEvent.click(thumbnails[0]!);
+      expect(await screen.findByTestId("admin-feedback-attachment-lightbox")).toBeTruthy();
+      await screen.findByTestId("admin-feedback-attachment-lightbox-image");
+      expect(screen.getByTestId("admin-feedback-attachment-lightbox").textContent).toContain("1/2");
+      expect(screen.queryByTestId("admin-feedback-attachment-lightbox-prev")).toHaveProperty("disabled", true);
+
+      // 「下一张」切到第二张。
+      fireEvent.click(screen.getByTestId("admin-feedback-attachment-lightbox-next"));
+      await waitFor(() => {
+        expect(screen.getByTestId("admin-feedback-attachment-lightbox").textContent).toContain("2/2");
+      });
+      expect(screen.getByTestId("admin-feedback-attachment-lightbox-next")).toHaveProperty("disabled", true);
+
+      // 关闭 ⇒ lightbox 消失，加载过的 object URL 都被 revoke（缩略图 2 张 + lightbox 切换过的 2 张）。
+      fireEvent.click(screen.getByTestId("admin-feedback-attachment-lightbox-close"));
+      await waitFor(() => expect(screen.queryByTestId("admin-feedback-attachment-lightbox")).toBeNull());
+      expect(revokeObjectURL).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("④ 转「不做」先要理由；理由为空时确认按钮不可点；成功后行仍选中且能看到处理说明", async () => {
     let status: "待处理" | "不做" = "待处理";
     let statusReason: string | null = null;
@@ -295,63 +337,81 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
     expect(screen.queryByTestId("admin-feedback-system-errors-pill")).toBeNull();
   });
 
-  it("⑥ 超管看到异常条数：标签页计数 + 标题旁的「N 条系统异常」胶囊", async () => {
+  it("⑥ 超管看到异常条数：标签页计数 + 标题旁的「N 条系统异常」胶囊；左表格右详情", async () => {
     mockApi([productBug], {
       systemErrors: { items: [
-        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z" },
-        { id: "2", traceId: "t2", msg: "bang", detail: {}, createdAt: "2026-09-02T00:01:00.000Z" },
+        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: "数据库连接超时", aiSummary: "疑似连接池耗尽，建议先查慢查询与连接数上限。", status: "待处理", statusReason: null, devNote: null, tags: [] },
+        { id: "2", traceId: "t2", msg: "bang", detail: {}, createdAt: "2026-09-02T00:01:00.000Z", aiTitle: null, aiSummary: null, status: "待处理", statusReason: null, devNote: null, tags: [] },
       ], hasMore: false },
     });
     render(<FeedbackScreen state="default" />);
     expect((await screen.findByTestId("admin-feedback-system-errors-pill")).textContent).toContain("2 条系统异常");
     expect(screen.getByTestId("admin-feedback-tab-system").textContent).toContain("2");
     fireEvent.click(screen.getByTestId("admin-feedback-tab-system"));
+    // 左侧是表格行,不是卡片。
     expect(await screen.findByTestId("admin-feedback-system-error-1")).toBeTruthy();
+    // 有 AI 摘要：标题+说明用 AI 生成的文字，行内即可读到，不用先选中。
+    expect(screen.getByTestId("admin-feedback-system-error-1").textContent).toContain("数据库连接超时");
+    expect(screen.getByTestId("admin-feedback-system-error-summary-1").textContent).toContain("连接池耗尽");
+    // 没有 AI 摘要（还没生成完/这次没生成出来）：兜底说明，不编一句假摘要，原始 msg 仍可见。
+    expect(screen.getByTestId("admin-feedback-system-error-2").textContent).toContain("bang");
+    expect(screen.getByTestId("admin-feedback-system-error-summary-2").textContent).toContain("AI 摘要还没有生成");
+    // 默认选中第一条,右侧详情面板随之出现（同缺陷反馈/需求建议表格的既有做法）。
+    expect(await screen.findByTestId("admin-feedback-system-error-detail-1")).toBeTruthy();
+    // 原始技术细节仍然可以展开查看（不是被 AI 摘要取代，是多一层）。
+    expect(screen.queryByTestId("admin-feedback-system-error-raw-1")).toBeNull();
+    fireEvent.click(screen.getByTestId("admin-feedback-system-error-toggle-1"));
+    expect(await screen.findByTestId("admin-feedback-system-error-raw-1")).toBeTruthy();
+    // 点第二行切换选中,右侧详情跟着换成第二条。
+    fireEvent.click(screen.getByTestId("admin-feedback-system-error-2"));
+    expect(await screen.findByTestId("admin-feedback-system-error-detail-2")).toBeTruthy();
+    expect(screen.queryByTestId("admin-feedback-system-error-detail-1")).toBeNull();
   });
 
-  it("⑥ 测试邮件：超管在系统异常页能发一封，成功显示收件人，失败显示契约码与归类", async () => {
-    const { ApiError } = await import("@/lib/api-client");
-    let attempt = 0;
-    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { to?: string } }) => {
-      if (path === "/feedback") return { items: [productBug] };
-      if (path.endsWith("/events")) return { events: [] };
-      if (path === "/system/error-logs") return { items: [], hasMore: false };
-      if (path === "/system/mail/test") {
-        attempt += 1;
-        if (attempt === 1) {
-          expect(opts?.body).toEqual({}); // 留空 = 发给当前账号，不传 to
-          return { sentTo: "admin@example.com", subject: "WorkspaceX 测试邮件 2026-09-02T10:00:00.000Z", providerMessageId: "cf-1", sentAt: "2026-09-02T10:00:00.000Z" };
-        }
-        expect(opts?.body).toEqual({ to: "ops@example.com" });
-        throw new ApiError(503, "MAIL_SEND_FAILED", { reasonCode: "MAIL_SEND_FAILED", category: "provider_http_502" });
-      }
-      if (path.includes("/agents")) return [];
-      if (path.includes("/skills")) return { items: [] };
-      return {};
+  it("⑥ 系统异常详情面板能加/删标签、能转生命周期（转开发/不做/退回待处理）", async () => {
+    mockApi([productBug], {
+      systemErrors: { items: [
+        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: "数据库连接超时", aiSummary: "疑似连接池耗尽。", status: "待处理", statusReason: null, devNote: null, tags: ["db"] },
+      ], hasMore: false },
     });
     render(<FeedbackScreen state="default" />);
     await screen.findByTestId("admin-feedback-item-fb-p");
     fireEvent.click(screen.getByTestId("admin-feedback-tab-system"));
-    fireEvent.click(await screen.findByTestId("admin-feedback-test-mail-send"));
-    const sent = await screen.findByTestId("admin-feedback-test-mail-sent");
-    expect(sent.textContent).toContain("admin@example.com");
-    expect(sent.textContent).toContain("cf-1");
+    await screen.findByTestId("admin-feedback-system-error-detail-1");
 
-    fireEvent.change(screen.getByTestId("admin-feedback-test-mail-to"), { target: { value: "ops@example.com" } });
-    fireEvent.click(screen.getByTestId("admin-feedback-test-mail-send"));
-    const failed = await screen.findByTestId("admin-feedback-test-mail-failed");
-    expect(failed.textContent).toContain("MAIL_SEND_FAILED");
-    expect(failed.textContent).toContain("provider_http_502");
+    // 加标签
+    fireEvent.change(screen.getByTestId("admin-feedback-system-error-tag-input-1"), { target: { value: "urgent" } });
+    fireEvent.keyDown(screen.getByTestId("admin-feedback-system-error-tag-input-1"), { key: "Enter" });
+    await waitFor(() => {
+      const call = putCalls().find((c) => c[0] === "/system/error-logs/1");
+      expect(call).toBeTruthy();
+      expect((call![1] as { body: Record<string, unknown> }).body).toMatchObject({ tags: ["db", "urgent"] });
+    });
+
+    // 转开发——先展开可选的说明输入框，再确认
+    fireEvent.click(screen.getByTestId("admin-feedback-system-error-to-已转入开发-1"));
+    fireEvent.change(screen.getByTestId("admin-feedback-system-error-devnote-input-1"), { target: { value: "指派给 @foo" } });
+    fireEvent.click(screen.getByTestId("admin-feedback-system-error-devnote-submit-1"));
+    await waitFor(() => {
+      const call = putCalls().find((c) => (c[1] as { body: Record<string, unknown> }).body?.status === "已转入开发");
+      expect(call).toBeTruthy();
+      expect((call![1] as { body: Record<string, unknown> }).body).toMatchObject({ status: "已转入开发", devNote: "指派给 @foo" });
+    });
   });
 
-  it("⑥ 非超管（403）看不到测试邮件面板", async () => {
-    const { ApiError } = await import("@/lib/api-client");
-    mockApi([productBug], { systemErrors: new ApiError(403, "NOT_PLATFORM_SUPERUSER", {}) });
+  it("⑥ 系统异常「不做」必须先写理由——理由为空时确认按钮不可点", async () => {
+    mockApi([productBug], {
+      systemErrors: { items: [
+        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: null, aiSummary: null, status: "待处理", statusReason: null, devNote: null, tags: [] },
+      ], hasMore: false },
+    });
     render(<FeedbackScreen state="default" />);
     await screen.findByTestId("admin-feedback-item-fb-p");
     fireEvent.click(screen.getByTestId("admin-feedback-tab-system"));
-    await screen.findByTestId("admin-feedback-system-errors-forbidden");
-    expect(screen.queryByTestId("admin-feedback-test-mail")).toBeNull();
+    fireEvent.click(await screen.findByTestId("admin-feedback-system-error-to-不做-1"));
+    expect(screen.getByTestId("admin-feedback-system-error-decline-submit-1")).toBeDisabled();
+    fireEvent.change(screen.getByTestId("admin-feedback-system-error-decline-reason-1"), { target: { value: "已知问题，不再处理" } });
+    expect(screen.getByTestId("admin-feedback-system-error-decline-submit-1")).not.toBeDisabled();
   });
 
   it("回归：`打开迭代看板` / `导出` 两个按钮已删除", async () => {

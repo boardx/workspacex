@@ -86,7 +86,7 @@
 
 import * as React from "react";
 import { MousePointer2, StickyNote, Trash2, Maximize, Scan } from "lucide-react";
-import { extractMermaidBlocks, wrapAsMermaidBlock, registerTemplate } from "@repo/fabric-markdown";
+import { extractMermaidBlocks, wrapAsMermaidBlock, registerTemplate, getTemplate } from "@repo/fabric-markdown";
 import { isCanvasFenceLang } from "@/lib/canvas/canvas-fence";
 import { canvas } from "@repo/contracts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -94,6 +94,7 @@ import { simulateCanvasTemplateRun } from "@/lib/live-canvas";
 import { ApiError } from "@/lib/api-client";
 import { buildAutoTemplateSpec } from "@/lib/canvas/auto-template-layout";
 import { buildExplicitTemplateSpec, allSectionsPlaced } from "@/lib/canvas/explicit-template-layout";
+import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
 import { CanvasStage, type CanvasStageHandle } from "./canvas-stage";
 import type { CanvasTool } from "./canvas-toolbar";
 import type { SectionDraft } from "./template-editor-model";
@@ -247,9 +248,19 @@ export function TemplateSimulateDialog({
               })),
             });
           registerTemplate(spec);
-          setMarkdown(wrapAsMermaidBlock(rewriteTemplateKeyLine(block.code, previewKey), block.lang));
+          // issue #2564：模型实际产出的条数可能比这个分区的框实际放得下的多——
+          // vendor 引擎不裁剪，超出的便签会画进相邻分区。喂给 `CanvasStage` 之前
+          // 按 `spec` 的真实几何截掉超出部分，见 `cap-fence-bullets.ts` 文件头。
+          const capped = capFenceBulletsToCapacity(block.code, sectionRenderCapacities(spec));
+          setMarkdown(wrapAsMermaidBlock(rewriteTemplateKeyLine(capped, previewKey), block.lang));
         } else {
-          setMarkdown(wrapAsMermaidBlock(block.code, block.lang));
+          // 未被自定义过的内置模板：真实几何来自包里那份原生 spec（模块加载时
+          // 已用 `templateKey` 自行注册过），同样要按它的真实容量截断（issue #2564）。
+          const builtinSpec = getTemplate(templateKey);
+          const capped = builtinSpec
+            ? capFenceBulletsToCapacity(block.code, sectionRenderCapacities(builtinSpec))
+            : block.code;
+          setMarkdown(wrapAsMermaidBlock(capped, block.lang));
         }
         setEdited(false);
         setResult({ text: out.text, hasCanvas: true });

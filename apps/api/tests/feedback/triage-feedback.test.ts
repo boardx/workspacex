@@ -19,7 +19,9 @@ import {
 } from "../../src/application/feedback/triage-feedback";
 import { GithubIssueCreationError } from "../../src/application/feedback/notification-ports";
 import type { FeedbackRow, ProductFeedbackRepository } from "../../src/application/feedback/ports";
+import type { FeedbackAttachmentRow } from "../../src/application/feedback/attachment-ports";
 import { guard } from "../../src/application/security/permission-filter";
+import { toOrgId } from "../../src/domain/org-id";
 
 function row(over: Partial<FeedbackRow> = {}): FeedbackRow {
   return {
@@ -112,6 +114,41 @@ function fakeGithubIssues(
   };
 }
 
+/**
+ * ⑥ 附件仓储 fake——默认没有任何附件(`findByFeedbackIds` 返回 `[]`),这正是既有
+ * "管理员编辑过的正文是原样传给 GitHub"用例仍然成立的原因(见 `withAttachmentImages`
+ * 头注)。只在专门测"附件图片被推给 GitHub"的用例里覆写。
+ */
+function fakeAttachments(rows: readonly FeedbackAttachmentRow[] = []): TriageFeedbackDeps["attachments"] {
+  return {
+    create: vi.fn(async () => {}),
+    claimForFeedback: vi.fn(async () => 0),
+    findByFeedbackIds: vi.fn(async () => rows),
+    findById: vi.fn(async () => {
+      throw new Error("not used in this test");
+    }),
+  };
+}
+
+function fakeObjectStore(bytes: Uint8Array | null = new Uint8Array([1, 2, 3])): TriageFeedbackDeps["objectStore"] {
+  return {
+    putOnce: vi.fn(async () => {}),
+    get: vi.fn(async () => bytes),
+    head: vi.fn(async () => {
+      throw new Error("not used in this test");
+    }),
+  };
+}
+
+function fakeImageUploader(
+  over: Partial<TriageFeedbackDeps["imageUploader"]> = {},
+): TriageFeedbackDeps["imageUploader"] {
+  return {
+    uploadImage: vi.fn(async ({ path }) => ({ url: `https://raw.githubusercontent.com/boardx/workspacex/main/${path}` })),
+    ...over,
+  };
+}
+
 function baseDeps(over: Partial<TriageFeedbackDeps> = {}): TriageFeedbackDeps {
   return {
     repo: fakeRepo(row()),
@@ -120,11 +157,15 @@ function baseDeps(over: Partial<TriageFeedbackDeps> = {}): TriageFeedbackDeps {
     submitterDirectory: { emailForUserId: vi.fn(async () => "submitter@example.com"), displayNamesForUserIds: vi.fn(async () => new Map()) },
     mail: { send: vi.fn(async () => ({})) },
     logger: { info: vi.fn(), error: vi.fn() },
+    imageUploader: fakeImageUploader(),
+    attachments: fakeAttachments(),
+    objectStore: fakeObjectStore(),
+    newDecisionId: () => "dec-1",
     ...over,
   };
 }
 
-const ADMIN = { actorId: "u-admin", actorOrgRole: "admin" as const };
+const ADMIN = { actorId: "u-admin", actorOrgRole: "admin" as const, orgId: toOrgId("org-1") };
 
 describe("triageFeedback —— GitHub issue（fail closed）", () => {
   it("只在目标状态是「已进入迭代」时才尝试建 issue", async () => {
@@ -246,6 +287,67 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
    * 收敛成数据库一行 UPDATE 的互斥，用例层不需要、也不应该自己再实现一遍
    * 并发判断，只需要正确处理"认领失败"这一个结果。
    */
+  it("有附件 ⇒ 逐张推给 GitHub、把 raw URL 追加进 issue 正文末尾", async () => {
+    const attachmentRow: FeedbackAttachmentRow = {
+      id: "fbattach-1",
+      orgId: "org-1",
+      uploadedBy: "u-submitter",
+      feedbackId: "fb-1",
+      objectKey: guard({ kind: "feedback", id: "fb-1" }, "feedback-attachments/org-1/fbattach-1"),
+      contentType: "image/png",
+      sizeBytes: 3,
+      sha256: "deadbeef",
+      createdAt: "2026-09-03T00:00:00.000Z",
+    };
+    const deps = baseDeps({ attachments: fakeAttachments([attachmentRow]) });
+    await triageFeedback(deps, {
+      feedbackId: "fb-1",
+      status: "已进入迭代",
+      reason: null,
+      issueDraft: { title: "t", body: "管理员写的正文", labels: [] },
+      ...ADMIN,
+    });
+    expect(deps.imageUploader.uploadImage).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "feedback-attachments/fbattach-1.png", contentType: "image/png" }),
+    );
+    expect(deps.githubIssues.create).toHaveBeenCalledWith({
+      title: "t",
+      body: "管理员写的正文\n\n![](https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png)",
+      labels: [],
+    });
+  });
+
+  it("图片上传失败 ⇒ 不拦住 issue 本身被建出来(best-effort,不是 fail closed)", async () => {
+    const attachmentRow: FeedbackAttachmentRow = {
+      id: "fbattach-1",
+      orgId: "org-1",
+      uploadedBy: "u-submitter",
+      feedbackId: "fb-1",
+      objectKey: guard({ kind: "feedback", id: "fb-1" }, "feedback-attachments/org-1/fbattach-1"),
+      contentType: "image/png",
+      sizeBytes: 3,
+      sha256: "deadbeef",
+      createdAt: "2026-09-03T00:00:00.000Z",
+    };
+    const deps = baseDeps({
+      attachments: fakeAttachments([attachmentRow]),
+      imageUploader: fakeImageUploader({ uploadImage: vi.fn(async () => { throw new Error("github down"); }) }),
+    });
+    const out = await triageFeedback(deps, {
+      feedbackId: "fb-1",
+      status: "已进入迭代",
+      reason: null,
+      issueDraft: { title: "t", body: "管理员写的正文", labels: [] },
+      ...ADMIN,
+    });
+    expect(deps.githubIssues.create).toHaveBeenCalledWith({ title: "t", body: "管理员写的正文", labels: [] });
+    expect(out.githubIssueUrl).toBe("https://github.com/boardx/workspacex/issues/1");
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      expect.stringContaining("attachment image upload failed"),
+      expect.objectContaining({ feedbackId: "fb-1", attachmentId: "fbattach-1" }),
+    );
+  });
+
   it("认领失败(另一个并发请求正在办)⇒ 不调 GitHub,抛 FeedbackIssueInProgressError,状态不落库", async () => {
     const repo = fakeRepo(row());
     (repo.claimGithubIssueCreation as ReturnType<typeof vi.fn>).mockResolvedValue(false);

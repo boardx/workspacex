@@ -1,15 +1,16 @@
 "use client";
 import * as React from "react";
-import { Globe, RefreshCw, ShieldCheck } from "lucide-react";
+import { Globe, RefreshCw, ShieldCheck, UserCog } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { PopoverSelect } from "@/components/org-admin/org-admin-screen";
+import { useOptionalSession } from "@/components/session/session-provider";
 import { ApiError } from "@/lib/api-client";
 import { ORG_ROLE_LABEL, type OrgRole } from "@/lib/identity";
 import {
-  listPlatformMembers, setPlatformMemberOrgRole,
+  grantPlatformAdmin, listPlatformMembers, revokePlatformAdmin, setPlatformMemberOrgRole,
   type PlatformMemberRow, type PlatformMembershipRow,
 } from "@/lib/live-platform-members";
 import type { UiState } from "@/lib/ui-state";
@@ -55,9 +56,30 @@ function describeRoleChangeFailure(failure: unknown): string {
   return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
 }
 
+/** 授予/撤销平台管理员失败的说明——只有 `grantPlatformAdmin`/`revokePlatformAdmin` 会走到这里。 */
+function describePlatformAdminChangeFailure(failure: unknown): string {
+  if (failure instanceof ApiError) {
+    switch (failure.reasonCode) {
+      case "MEMBER_NOT_FOUND":
+        return "这个账号已不存在（可能刚被注销），请刷新名册。";
+      case "NOT_PLATFORM_SUPERUSER":
+        return "只有平台超管能授予/撤销平台管理员——平台管理员自己不能。";
+      default:
+        return `${failure.reasonCode ?? "操作失败"}（HTTP ${failure.status}）`;
+    }
+  }
+  return failure instanceof Error ? failure.message : "操作失败，请稍后重试。";
+}
+
 export function PlatformMembersScreen({ state }: { state: UiState }) {
   const [load, setLoad] = React.useState<Load>({ kind: "loading" });
   const [banner, setBanner] = React.useState<string | null>(null);
+  const session = useOptionalSession();
+  const viewerUserId = session?.session?.userId ?? null;
+  // 只有真正的平台超管能授予/撤销平台管理员——名册里查一下自己那一行的 `platformSuperuser`，
+  // 而不是假设"能看到这块屏"就等于"能改这个角色"（平台管理员两者都是前者、都不是后者）。
+  const viewerIsSuperuser =
+    load.kind === "ready" && load.members.some((m) => m.userId === viewerUserId && m.platformSuperuser);
 
   const reload = React.useCallback(async () => {
     setLoad({ kind: "loading" });
@@ -97,7 +119,18 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
       );
       const who = prev.members.find((m) => m.userId === userId);
       const org = who?.memberships.find((ms) => ms.orgId === orgId);
-      setBanner(`${who?.displayName ?? userId} · ${org?.orgName ?? orgId}：${ORG_ROLE_LABEL[previous]} → ${ORG_ROLE_LABEL[next]}`);
+      setBanner(`已更新组织角色：${who?.displayName ?? userId} · ${org?.orgName ?? orgId}：${ORG_ROLE_LABEL[previous]} → ${ORG_ROLE_LABEL[next]}`);
+      return { kind: "ready", members };
+    });
+  };
+
+  // 授予/撤销平台管理员成功后就地更新那一行，不整表重拉——理由同 `handleChanged`。
+  const handleAdminChanged = (userId: string, next: boolean) => {
+    setLoad((prev) => {
+      if (prev.kind !== "ready") return prev;
+      const members = prev.members.map((m) => (m.userId === userId ? { ...m, platformAdmin: next } : m));
+      const who = prev.members.find((m) => m.userId === userId);
+      setBanner(`${who?.displayName ?? userId}：${next ? "已设为平台管理员" : "已撤销平台管理员身份"}`);
       return { kind: "ready", members };
     });
   };
@@ -111,10 +144,10 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
       title="平台成员"
       liveBacked
       hideOrgIdentity
-      intro="平台上全部账号及其在各组织里的成员身份。这是成员管理的平台级：只对平台超管（部署白名单）开放；每个组织自己的成员管理在「组织管理 → 成员」。"
+      intro="平台上全部账号及其在各组织里的成员身份。这是成员管理的平台级：只对平台超管或被指定的平台管理员开放；每个组织自己的成员管理在「组织管理 → 成员」。"
       emptyHint="平台上还没有任何账号"
       depFailure="名册读取依赖身份服务；不可用时不显示任何账号，不用旧数据顶替。"
-      denialReason="平台成员仅平台超管可见；组织管理员请到「组织管理」调整本组织成员。"
+      denialReason="平台成员仅平台超管或平台管理员可见；组织管理员请到「组织管理」调整本组织成员。"
       successMessage="已更新组织角色；本次操作已记入该组织的审计"
     >
       <div className="flex flex-col gap-3" data-testid="admin-platform-members">
@@ -132,7 +165,7 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
 
         {banner ? (
           <div role="status" data-testid="admin-platform-members-banner" className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-11 text-success">
-            已更新组织角色：{banner}
+            {banner}
           </div>
         ) : null}
 
@@ -146,7 +179,7 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
 
         {load.kind === "forbidden" && (
           <p className="rounded-md border border-border bg-panel p-3 text-12 text-muted-foreground" data-testid="admin-platform-members-forbidden">
-            这块屏仅平台运维（平台超管白名单 <code className="text-11">PLATFORM_SUPERUSER_EMAILS</code>）可见——你当前的账号看不到全平台名册，这不是数据缺失。
+            这块屏仅平台运维（平台超管白名单 <code className="text-11">PLATFORM_SUPERUSER_EMAILS</code>，或被超管指定的平台管理员）可见——你当前的账号看不到全平台名册，这不是数据缺失。
             本组织的成员与角色请到「组织管理 → 成员」调整。
           </p>
         )}
@@ -167,7 +200,13 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
         {load.kind === "ready" && load.members.length > 0 && (
           <ul className="flex flex-col divide-y divide-border rounded-lg border border-border" data-testid="admin-platform-members-list">
             {load.members.map((m) => (
-              <PlatformMemberItem key={m.userId} member={m} onChanged={handleChanged} />
+              <PlatformMemberItem
+                key={m.userId}
+                member={m}
+                onChanged={handleChanged}
+                viewerIsSuperuser={viewerIsSuperuser}
+                onAdminChanged={handleAdminChanged}
+              />
             ))}
           </ul>
         )}
@@ -177,10 +216,12 @@ export function PlatformMembersScreen({ state }: { state: UiState }) {
 }
 
 function PlatformMemberItem({
-  member, onChanged,
+  member, onChanged, viewerIsSuperuser, onAdminChanged,
 }: {
   member: PlatformMemberRow;
   onChanged: (userId: string, orgId: string, next: OrgRole, previous: OrgRole) => void;
+  viewerIsSuperuser: boolean;
+  onAdminChanged: (userId: string, next: boolean) => void;
 }) {
   return (
     <li className="flex flex-col gap-2 px-3 py-2" data-testid={`admin-platform-member-${member.userId}`}>
@@ -195,6 +236,10 @@ function PlatformMemberItem({
             <ShieldCheck aria-hidden className="mr-1 h-3 w-3" />
             平台超管
           </Badge>
+        )}
+        {/* 平台超管不需要再叠一个"平台管理员"徽章——权限已经在超管之上，见 domain 头注。 */}
+        {!member.platformSuperuser && (
+          <PlatformAdminBadge member={member} viewerIsSuperuser={viewerIsSuperuser} onAdminChanged={onAdminChanged} />
         )}
         {!member.emailVerified && <Badge tone="warning">邮箱未验证</Badge>}
         <span className="text-10 text-muted-foreground">{new Date(member.createdAt).toLocaleDateString("zh-CN")} 注册</span>
@@ -211,6 +256,68 @@ function PlatformMemberItem({
         </ul>
       )}
     </li>
+  );
+}
+
+/**
+ * "平台管理员"徽章（platform-admin-role delta）——落库、权限比平台超管窄的第二个身份
+ * （见 `domain/system/platform-admin.ts` 头注）。非平台管理员时渲染一个"设为平台管理员"
+ * 按钮；已经是时渲染徽章 + 一个"撤销"按钮。两个按钮都**只在当前登录者本人是平台超管时
+ * 才出现**——一个平台管理员看得到别人的这个徽章，但看不到能点的按钮，因为后端本来就会
+ * 拒绝他调用这两条接口（`grantPlatformAdmin`/`revokePlatformAdmin` 只认平台超管白名单）：
+ * 前端不渲染一个注定 403 的按钮。
+ */
+function PlatformAdminBadge({
+  member, viewerIsSuperuser, onAdminChanged,
+}: {
+  member: PlatformMemberRow;
+  viewerIsSuperuser: boolean;
+  onAdminChanged: (userId: string, next: boolean) => void;
+}) {
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const testid = `admin-platform-member-${member.userId}-admin`;
+
+  const toggle = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const out = member.platformAdmin
+        ? await revokePlatformAdmin(member.userId)
+        : await grantPlatformAdmin(member.userId);
+      onAdminChanged(member.userId, out.platformAdmin);
+    } catch (err) {
+      setError(describePlatformAdminChangeFailure(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <span className="flex items-center gap-1">
+      {member.platformAdmin && (
+        <Badge tone="primary" data-testid={`${testid}-badge`}>
+          <UserCog aria-hidden className="mr-1 h-3 w-3" />
+          平台管理员
+        </Badge>
+      )}
+      {viewerIsSuperuser && (
+        <Button
+          size="xs"
+          variant="outline"
+          disabled={busy}
+          onClick={() => void toggle()}
+          data-testid={`${testid}-toggle`}
+        >
+          {member.platformAdmin ? "撤销平台管理员" : "设为平台管理员"}
+        </Button>
+      )}
+      {error && (
+        <span role="alert" className="text-10 text-destructive" data-testid={`${testid}-error`}>
+          {error}
+        </span>
+      )}
+    </span>
   );
 }
 

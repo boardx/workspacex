@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import { usePathname } from "next/navigation";
-import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Mic, ImagePlus } from "lucide-react";
+import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Mic, ImagePlus, FileText } from "lucide-react";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import {
@@ -72,6 +72,16 @@ const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutra
 
 const TITLE_MAX = 120;
 const DETAIL_MAX = 4000;
+
+/**
+ * 「套用模板」——常见 issue 模板的复现步骤/期望结果/实际结果结构，按 `kind` 分两套。
+ * 仓库里没有 `.github/ISSUE_TEMPLATE/`（见勘探），这里按业界通行的 bug/需求 issue
+ * 模板结构写死；用户点按钮后填进「详细说说」，自己把占位内容替换掉。
+ */
+const FEEDBACK_TEMPLATES: Record<FeedbackKind, string> = {
+  缺陷: "复现步骤：\n1. \n2. \n3. \n\n期望结果：\n\n\n实际结果：\n",
+  需求: "背景 / 想解决的问题：\n\n\n期望的效果：\n\n\n现在是怎么绕过去的：\n",
+};
 
 /**
  * 2026-09-02 人类要求：表单去掉「一句话说清楚」，只留「详细说说」。契约的 `title` 仍然
@@ -145,6 +155,8 @@ export function FeedbackDialog({
   // 不是"点提交"那一刻——用户可能边说边贴图，提交时只是把已经攒好的 id 列表带上。
   const [attachments, setAttachments] = React.useState<readonly PendingAttachment[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  /** 图片区域正被拖着东西悬停——只用来切一下描边样式，不影响能不能放（`addAttachments` 自己会截到上限）。 */
+  const [dragOver, setDragOver] = React.useState(false);
 
   const appVersion = currentAppVersion();
   const detailInputRef = React.useRef<HTMLTextAreaElement>(null);
@@ -230,6 +242,37 @@ export function FeedbackDialog({
     });
   }, []);
 
+  /** 剩余空间放不下完整模板时，说给用户听的一句话；套用成功或改了正文就清掉。 */
+  const [templateNotice, setTemplateNotice] = React.useState<string | null>(null);
+
+  /**
+   * 把模板填进「详细说说」。正文是空的（或全是空白）就直接换成模板；已经写了点东西，
+   * 追加在后面而不是覆盖——点错了不该把用户已经写的话吞掉。
+   *
+   * ⚠ 剩余空间不够放下**完整**模板时**不插入半截**——半截模板（比如「复现步骤：
+   * 1. 」在第十个字被切断）看不出结构，用户会以为自己点坏了，比不给还糟。这里改成
+   * 拒绝这次操作并如实说明，正文原样不动，不是静默截断。
+   */
+  const applyTemplate = React.useCallback(() => {
+    const template = FEEDBACK_TEMPLATES[kind];
+    if (detail.trim() === "") {
+      setDetail(template);
+      setTemplateNotice(null);
+    } else {
+      const merged = `${detail}\n\n${template}`;
+      if (merged.length > DETAIL_MAX) {
+        setTemplateNotice(
+          `正文剩下的空间放不下完整模板（还差 ${merged.length - DETAIL_MAX} 字）。先删一点，或者手动照着「复现步骤/期望结果/实际结果」写。`,
+        );
+        return; // 正文原样不动
+      }
+      setDetail(merged);
+      setTemplateNotice(null);
+    }
+    setAiTitle(null);
+    detailInputRef.current?.focus();
+  }, [kind, detail]);
+
   React.useEffect(() => {
     detailInputRef.current?.focus();
   }, []);
@@ -246,7 +289,9 @@ export function FeedbackDialog({
 
   const attachmentsUploading = attachments.some((a) => a.status === "uploading");
   const title = aiTitle ?? deriveFeedbackTitle(detail);
-  const canSubmit = title !== "" && detail.trim() !== "" && !busy && !attachmentsUploading;
+  // detail.length 上限也在这里判——不只依赖 textarea 的 maxLength（那只挡键入/粘贴，
+  // 挡不住 setDetail 之类的程序化写入，见 applyTemplate 头注），提交前有第二道闸。
+  const canSubmit = title !== "" && detail.trim() !== "" && detail.length <= DETAIL_MAX && !busy && !attachmentsUploading;
 
   const send = async () => {
     setBusy(true);
@@ -344,15 +389,30 @@ export function FeedbackDialog({
               </div>
             </fieldset>
 
-            <label className="flex flex-col gap-1">
-              <span className="text-11 font-medium text-muted-foreground">
-                详细说说 <span className="font-normal">（{detail.length}/{DETAIL_MAX}）</span>
-              </span>
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="feedback-detail-input" className="text-11 font-medium text-muted-foreground">
+                  详细说说 <span className="font-normal">（{detail.length}/{DETAIL_MAX}）</span>
+                </label>
+                {/* 按当前 kind 套用对应模板（复现步骤/期望结果/实际结果，或需求版）；已有内容不覆盖，追加在后面。 */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="gap-1 text-11 text-muted-foreground"
+                  onClick={applyTemplate}
+                  data-testid="feedback-template-button"
+                >
+                  <FileText aria-hidden className="h-3 w-3" />
+                  套用模板
+                </Button>
+              </div>
               <textarea
+                id="feedback-detail-input"
                 ref={detailInputRef}
                 value={detail}
                 maxLength={DETAIL_MAX}
-                onChange={(e) => { setDetail(e.target.value); setAiTitle(null); }}
+                onChange={(e) => { setDetail(e.target.value); setAiTitle(null); setTemplateNotice(null); }}
                 rows={6}
                 placeholder={
                   kind === "缺陷"
@@ -362,7 +422,10 @@ export function FeedbackDialog({
                 data-testid="feedback-detail-input"
                 className="resize-y rounded-md border border-border-subtle bg-panel p-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
-            </label>
+              {templateNotice !== null && (
+                <p className="text-11 text-destructive" data-testid="feedback-template-notice">{templateNotice}</p>
+              )}
+            </div>
 
             {/* FB-5——语音输入：与 chat composer 同一套（按钮 + 录音状态行），见上方 useAsrDraft 头注。 */}
             <div className="flex flex-col gap-1.5">
@@ -403,8 +466,27 @@ export function FeedbackDialog({
             </div>
 
             {/* FB-5——图片附件。2026-09-02：这一轮**没有脱敏**（人类明确裁决先出功能），
-                见后端 `upload-feedback-attachment.ts` 头注——已知限制，不是遗漏。 */}
-            <div className="flex flex-col gap-1.5">
+                见后端 `upload-feedback-attachment.ts` 头注——已知限制，不是遗漏。
+                2026-09-03：加拖拽上传——点按钮和拖拽是同一条 `addAttachments` 路径，
+                只是触发方式不同，上传时机、4 张上限、失败重试都不用另写一遍。 */}
+            <div
+              className={cn(
+                "flex flex-col gap-1.5 rounded-md border border-dashed p-2 transition-colors",
+                dragOver ? "border-primary bg-ai-tint/20" : "border-transparent",
+              )}
+              data-testid="feedback-attachment-dropzone"
+              onDragOver={(e) => {
+                if (attachments.length >= MAX_ATTACHMENTS) return;
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                addAttachments(e.dataTransfer.files);
+              }}
+            >
               <div className="flex items-center gap-2">
                 <input
                   ref={fileInputRef}
@@ -430,6 +512,7 @@ export function FeedbackDialog({
                   <ImagePlus aria-hidden className="h-3.5 w-3.5" />
                   加图片（{attachments.length}/{MAX_ATTACHMENTS}）
                 </Button>
+                <span className="text-10 text-muted-foreground">或把图片拖拽到这里</span>
               </div>
               {attachments.length > 0 && (
                 <ul className="flex flex-wrap gap-2" data-testid="feedback-attachment-list">

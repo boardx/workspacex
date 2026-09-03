@@ -1,9 +1,10 @@
 "use client";
 import * as React from "react";
 import { MousePointer2, StickyNote, Trash2, Maximize, Save, X, Check, ImageDown, FileDown } from "lucide-react";
-import { wrapAsMermaidBlock, extractMermaidBlocks } from "@repo/fabric-markdown";
+import { wrapAsMermaidBlock, extractMermaidBlocks, getTemplate } from "@repo/fabric-markdown";
 import { CanvasStage, type CanvasStageHandle } from "@/components/canvas/canvas-stage";
-import { isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
+import { checkCanvasFence, isCanvasFenceLang, type CanvasFenceLang } from "@/lib/canvas/canvas-fence";
+import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
 import { decodeMermaidEntities } from "@/lib/chat/decode-mermaid-entities";
 import { downloadDataUrl, exportPngAsPdf } from "@/lib/canvas/export-image";
 import { describeMessageFailure, landAsArtifact } from "@/lib/live-chat";
@@ -65,7 +66,17 @@ export function ChatCanvasModal({
   bearer?: string;
   savedSource?: { readonly markdown: string; readonly savedAt: string } | null;
 }) {
-  const initialMarkdown = React.useMemo(() => wrapAsMermaidBlock(code, lang), [code, lang]);
+  // issue #2564：与只读预览（`chat-canvas-fabric.tsx`）同一份根因——模型实际产出的
+  // 条数可能比某个分区的框实际放得下的多，vendor 引擎不裁剪，超出的便签会画进
+  // 相邻分区。全屏编辑器打开时也要按这次已经校验通过（`openMaximized` 的前提）的
+  // `key` 对应的已注册 spec 截一遍，不能让「最大化」看到只读预览已经修好的同一份
+  // 内容又变回溢出的原始版本。
+  const initialMarkdown = React.useMemo(() => {
+    const check = checkCanvasFence(code, lang);
+    const spec = check.ok ? getTemplate(check.key) : undefined;
+    const capped = spec ? capFenceBulletsToCapacity(code, sectionRenderCapacities(spec)) : code;
+    return wrapAsMermaidBlock(capped, lang);
+  }, [code, lang]);
   const savedMarkdown = React.useMemo(
     () => (savedSource ? wrapAsMermaidBlock(savedSource.markdown, lang) : null),
     [savedSource, lang],

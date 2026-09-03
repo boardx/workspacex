@@ -53,7 +53,30 @@ export interface ErrorLogListItem {
   readonly msg: string;
   readonly detail: unknown;
   readonly createdAt: string;
+  /**
+   * AI 生成的一句话标题/一段面向人类的说明（人类 2026-09-02 要求：系统异常要跟反馈
+   * 卡片一样有段给人看的文字，供人类决定怎么处理，不是原始异常字段）——
+   * `PgErrorLogWriter.record()` 落库后异步生成，见 `application/system/summarize-error-log.ts`。
+   * `null` ⟺ 还没生成完 / 这次没生成出来（模型不可用、超时、部署没配模型）——**不是**
+   * "这条异常没有摘要"这件事本身是错的，界面必须能把"还没有"和"生成失败"都说出来，
+   * 而不是伪造一段占位摘要。
+   */
+  readonly aiTitle: string | null;
+  readonly aiSummary: string | null;
+  /**
+   * 生命周期状态（2026-09-03 人类要求，见迁移 `20260903120000_error_logs_lifecycle_tags.sql`
+   * 头注）：`待处理` / `已转入开发` / `不做`（存档）。`statusReason` 只在转「不做」时
+   * 必填，其余转移可以留空；`devNote` 是"转开发"时人类可以填的说明字段，不绑定于
+   * 某一次特定转移，随时可编辑。`tags` 是自由文本标签，供筛选/搜索。
+   */
+  readonly status: ErrorLogStatus;
+  readonly statusReason: string | null;
+  readonly devNote: string | null;
+  readonly tags: readonly string[];
 }
+
+/** 见 `ErrorLogListItem.status` 头注；与迁移里的 CHECK 约束逐字对应。 */
+export type ErrorLogStatus = "待处理" | "已转入开发" | "不做";
 
 export interface ErrorLogPort {
   record(entry: ErrorLogEntry): Promise<void>;
@@ -69,6 +92,40 @@ export interface ErrorLogPort {
     readonly items: readonly ErrorLogListItem[];
     readonly hasMore: boolean;
   }>;
+
+  /**
+   * 校验转移合法性、合并局部更新用的窄口径读取——生命周期四列，见
+   * `kernel_read_error_log_lifecycle`。`null` ⟺ 这个 id 不存在。
+   */
+  getLifecycle(id: string): Promise<{
+    readonly status: ErrorLogStatus;
+    readonly statusReason: string | null;
+    readonly devNote: string | null;
+    readonly tags: readonly string[];
+  } | null>;
+
+  /**
+   * 生命周期（状态/理由/开发备注/标签）的唯一写入口，见 `kernel_write_error_log_lifecycle`
+   * 与该迁移头注②。**字段级部分写入**——每个字段 `undefined` ⟺ 这次请求不碰这一列
+   * （数据库侧只 `UPDATE` 明确传了值的列，不会把并发的另一次局部编辑覆盖掉）。
+   *
+   * `expectedStatus`：调用方要改 `status` 时，必须带上它据以判断这次转移合法的
+   * 旧状态——写入时用它做乐观锁（`status` 这一列此刻仍等于它才真正生效）；不改
+   * `status` 的请求传 `null`，不设防。返回 `null` ⟺ id 不存在，或乐观锁未命中
+   * （并发冲突）——调用方（`updateSystemErrorLifecycle`）据此抛 `SystemErrorConcurrentUpdateError`。
+   */
+  updateLifecycle(id: string, patch: {
+    readonly expectedStatus: ErrorLogStatus | null;
+    readonly status?: ErrorLogStatus;
+    readonly statusReason?: string | null;
+    readonly devNote?: string | null;
+    readonly tags?: readonly string[];
+  }): Promise<{
+    readonly status: ErrorLogStatus;
+    readonly statusReason: string | null;
+    readonly devNote: string | null;
+    readonly tags: readonly string[];
+  } | null>;
 }
 
 export const ERROR_LOG_PORT = Symbol("ErrorLogPort");
@@ -171,4 +228,20 @@ export function redactErrorDetail(detail: unknown): unknown {
     out[key] = sanitiseField(value, key === "stack" ? MAX_STACK_LEN : MAX_FIELD_LEN);
   }
   return out;
+}
+
+/**
+ * `redactErrorMessage` -- 同一套 scrub+bound，套在 `msg` 这个字符串字段上（2026-09-03，
+ * 独立评审 finding #2）。
+ *
+ * `msg` 本身落库时**不**经过这条函数（`error_logs.msg` 列历来存的是调用方传入的原样字符串
+ * ——`SystemErrorLogController.report()` 那条分支甚至直接来自客户端上报文本，见该文件；
+ * 这是既有事实，不在本次改动范围内，动它会改变一张已经在生产的表历史上一直存的内容形状）。
+ *
+ * 但 `summarize-error-log.ts` 把 `msg` 发给外部模型，是**新增的一条分发路径**——多一个
+ * 消费者不能拿"反正已经落库了"当理由。调用方（`PgErrorLogWriter`）在喂给模型前必须过一次
+ * 这个函数，就像 `detail` 必须先过 `redactErrorDetail` 一样，两条路径分别脱敏、互不依赖。
+ */
+export function redactErrorMessage(msg: string): string {
+  return sanitiseField(msg, MAX_FIELD_LEN);
 }

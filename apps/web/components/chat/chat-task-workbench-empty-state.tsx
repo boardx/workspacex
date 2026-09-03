@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * issue #2130（TW-P0-1，回指 #2068）—— 新对话「任务型空状态」：目标引导语 + 4 个
@@ -29,6 +30,10 @@ export interface TaskTemplate {
   readonly id: string;
   readonly label: string;
   readonly goal: string;
+  /** 卡片左侧图标徽标里的单字标签（视觉分类用，不承载任何判据文案）。 */
+  readonly badge: string;
+  /** 徽标底色 + 前景色的语义 token 对（U5a 只允许语义色，见 `lint-design.sh`）。 */
+  readonly badgeTone: "accent" | "warning-tint" | "ai-tint";
 }
 
 /**
@@ -40,23 +45,38 @@ export const TASK_WORKBENCH_TEMPLATES: readonly TaskTemplate[] = [
     id: "chat-task-workbench-template-research",
     label: "调研市场并产出带来源的报告",
     goal: "帮我调研一下当前市场情况，产出一份带引用来源的调研报告。",
+    badge: "研",
+    badgeTone: "accent",
   },
   {
     id: "chat-task-workbench-template-reading",
     label: "阅读材料整理决策建议",
     goal: "帮我阅读我上传的材料，整理出可执行的决策建议。",
+    badge: "读",
+    badgeTone: "warning-tint",
   },
   {
     id: "chat-task-workbench-template-planning",
     label: "需求拆成计划并生成项目产物",
     goal: "帮我把这个需求拆成一份可执行的计划，并生成相应的项目产物。",
+    badge: "拆",
+    badgeTone: "accent",
   },
   {
     id: "chat-task-workbench-template-analysis",
     label: "分析数据发现异常并制图",
     goal: "帮我分析这份数据，找出其中的异常点，并生成图表。",
+    badge: "析",
+    badgeTone: "ai-tint",
   },
 ];
+
+/** 徽标底色/前景色 → 类名，避免四处重复拼字符串（U5a：只用语义 token）。 */
+const BADGE_TONE_CLASSES: Record<TaskTemplate["badgeTone"], string> = {
+  accent: "bg-accent text-accent-foreground",
+  "warning-tint": "bg-warning-tint text-warning-tint-foreground",
+  "ai-tint": "bg-ai-tint text-ai-tint-foreground",
+};
 
 export function TaskWorkbenchEmptyState({
   onUseTemplate,
@@ -70,52 +90,65 @@ export function TaskWorkbenchEmptyState({
   return (
     <div
       data-testid="copilotkit-v2-empty"
-      className="flex h-full flex-col items-center justify-center gap-4 py-12 text-center"
+      className="flex h-full flex-col items-center justify-center gap-6 py-12 text-center"
     >
-      <div className="flex flex-col items-center gap-1.5">
-        <p className="max-w-md text-14 font-medium text-card-foreground" data-testid="chat-task-workbench-goal-headline">
-          今天想完成什么？描述目标，Agent 会先提出计划，得到确认后再执行。
-        </p>
+      {/*
+        两级视觉层次（大标题 + 小字说明），对齐参照图。`data-testid` 挂在外层
+        wrapper 上而不是单个 <p>——TW-P0-1① 的判据（`chat-task-workbench-empty-state.spec.ts`）
+        只断言这个锚点的 innerText 同时包含「计划」「确认」两个词，不要求它们落在
+        同一个文本节点，拆分展示不影响这条判据。文案本身一字未改。
+      */}
+      <div className="flex flex-col items-center gap-2" data-testid="chat-task-workbench-goal-headline">
+        <p className="max-w-md text-20 font-semibold tracking-tight text-card-foreground">今天，想完成什么？</p>
         <p className="max-w-sm text-12 leading-relaxed text-muted-foreground">
-          也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。
+          描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。
         </p>
       </div>
-      <div className="grid w-full max-w-md grid-cols-1 gap-2 sm:grid-cols-2">
+      <div className="grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">
         {TASK_WORKBENCH_TEMPLATES.map((template) => (
           <button
             key={template.id}
             type="button"
             data-testid={template.id}
             onClick={() => onUseTemplate(template.goal)}
-            className="rounded-lg border border-border-subtle bg-card px-3 py-2.5 text-left text-11 leading-relaxed text-card-foreground transition-colors duration-fast hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-center gap-3 rounded-card border border-border-subtle bg-card px-3.5 py-3 text-left text-12 leading-relaxed text-card-foreground transition-colors duration-fast hover:border-primary/50 hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {template.label}
+            <span
+              aria-hidden="true"
+              className={cn(
+                "flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold",
+                BADGE_TONE_CLASSES[template.badgeTone],
+              )}
+            >
+              {template.badge}
+            </span>
+            <span>{template.label}</span>
           </button>
         ))}
       </div>
       <div className="flex flex-wrap items-center justify-center gap-1.5">
         <span
-          className="rounded-full border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground"
+          className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"
           data-testid="chat-task-workbench-context-chip-project"
         >
           项目：个人对话
         </span>
         <span
-          className="rounded-full border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground"
+          className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"
           data-testid="chat-task-workbench-context-chip-materials"
           data-source="live"
         >
           材料 {materialsCount}
         </span>
         <span
-          className="rounded-full border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground"
+          className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"
           data-testid="chat-task-workbench-context-chip-skills"
           data-source="live"
         >
           技能 {skillsCount}
         </span>
         <span
-          className="rounded-full border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground"
+          className="rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"
           data-testid="chat-task-workbench-context-chip-memory"
         >
           记忆范围：仅本对话

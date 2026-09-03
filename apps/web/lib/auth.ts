@@ -16,6 +16,7 @@ export type BootstrapFirstUserOut = z.infer<typeof auth.operations.bootstrapFirs
 export type RegisterNewAccountIn = z.infer<typeof auth.operations.registerNewAccount.in>;
 export type RegisterNewAccountOut = z.infer<typeof auth.operations.registerNewAccount.out>;
 export type RequestPasswordResetOut = z.infer<typeof auth.operations.requestPasswordReset.out>;
+export type CompletePasswordResetOut = z.infer<typeof auth.operations.completePasswordReset.out>;
 
 export async function login(email: string, password: string): Promise<LoginOut> {
   return apiRequest<LoginOut>(auth.operations.login.path, {
@@ -60,6 +61,24 @@ export async function requestPasswordReset(email: string): Promise<RequestPasswo
   });
 }
 
+/**
+ * F21 找回密码第 4-5 步（issue #2602 补的落地页）——消费邮件里的一次性链接、
+ * 设置新密码。与 `requestPasswordReset` 相反，这一步**确实**区分成功/失败：
+ * 契约的 `err` 有 `RESET_TOKEN_INVALID`（伪造与过期同一个码，见后端头注）——
+ * 令牌真伪不再是需要防枚举的信道，因为持有正确令牌本身就已经证明了身份。
+ */
+export async function completePasswordReset(token: string, newPassword: string): Promise<CompletePasswordResetOut> {
+  return apiRequest<CompletePasswordResetOut>(auth.operations.completePasswordReset.path, {
+    method: "POST",
+    body: { token, newPassword },
+    sessionToken: null,
+  });
+}
+
+export function isResetTokenInvalid(error: unknown): boolean {
+  return error instanceof ApiError && error.reasonCode === "RESET_TOKEN_INVALID";
+}
+
 export function isBootstrapUnavailable(error: unknown): boolean {
   return error instanceof ApiError && error.reasonCode === "BOOTSTRAP_UNAVAILABLE";
 }
@@ -71,6 +90,26 @@ export function isRegistrationEmailTaken(error: unknown): boolean {
 /** Keeps the authentication failure policy next to the signed auth contract, not in UI code. */
 export function isLoginRejected(error: unknown): boolean {
   return error instanceof ApiError && error.reasonCode === "INVALID_CREDENTIAL";
+}
+
+/**
+ * 密码正确但邮箱未验证（`login.ts` 第 4 步，只在密码校验通过之后才可能抛出）。
+ *
+ * ⚠ 与 `isLoginRejected` 不是同一件事，也不共用文案：这条只有拿到正确密码的人
+ * 才会命中，泄露"邮箱未验证"给他不会打开 I-1 关的枚举通道——攻击者拿不到这里。
+ */
+export function isEmailNotVerified(error: unknown): boolean {
+  return error instanceof ApiError && error.reasonCode === "EMAIL_NOT_VERIFIED";
+}
+
+/**
+ * 近期失败次数触发锁定（`login.ts` 第 1 步，在查账号/验密码之前就会命中，
+ * 对不存在的邮箱同样会计数并锁定——所以暴露这个 reasonCode 本身不额外确认
+ * "这个邮箱注册过"，不是 I-1 要堵的枚举通道；`lockedUntil` 才是，
+ * 那个字段服务端本就不下发（见 `auth.controller.ts` 的 `toHttp()` 注释）。
+ */
+export function isAccountLocked(error: unknown): boolean {
+  return error instanceof ApiError && error.reasonCode === "ACCOUNT_LOCKED";
 }
 
 /**

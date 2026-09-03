@@ -12,11 +12,13 @@
  *
  * 见 `@repo/contracts` 的 `system-error-logs.ts` 文件头：`error_logs` 没有
  * `org_id`，按组织角色开放会让任意一个组织的管理员看到全平台的异常详情。
- * 判定"这个 principal 是不是平台超管"这件事本身，按
+ * 判定"这个 principal 是不是平台运营准入（平台超管或平台管理员）"这件事本身，按
  * `.agents/skills/mod-org-identity/SKILL.md` 的规定，属于
  * `apps/api/src/interface/guards`（全站鉴权的唯一权威落点），不属于业务
- * controller——见 `PlatformSuperuserGuard`（review finding，PR #2475：第一版
- * 曾把这段判定直接写在这个 controller 里，是本仓明令禁止的"另起一套"）。
+ * controller——见 `PlatformOperatorGuard`（review finding，PR #2475：第一版
+ * 曾把这段判定直接写在这个 controller 里，是本仓明令禁止的"另起一套"；
+ * platform-admin-role delta，2026-09-03，把原来的 `PlatformSuperuserGuard` 换成
+ * 组合门 `PlatformOperatorGuard`——落库的平台管理员也该能读系统异常，见该 guard 头注）。
  *
  * ## `POST /system/client-error-reports`：为什么 `@Public()` + 限流 Guard
  *
@@ -26,22 +28,32 @@
  * 但一个免鉴权的写口不能没有请求量上界（review finding，PR #2475）——见
  * `ClientErrorReportRateLimitGuard`。
  */
-import { Body, Controller, Get, Inject, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, ConflictException, Controller, Get, Inject, NotFoundException, Param, Post, Put, Query, Req, UnprocessableEntityException, UseGuards } from "@nestjs/common";
 import { systemErrorLogs as C } from "@repo/contracts";
 import { ERROR_LOG_PORT, type ErrorLogPort } from "../../application/ports/error-log.port";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import {
+  SystemErrorConcurrentUpdateError,
+  SystemErrorIllegalTransitionError,
+  SystemErrorNotFoundError,
+  SystemErrorReasonRequiredError,
+  SystemErrorReasonRequiresStatusError,
+  updateSystemErrorLifecycle,
+} from "../../application/system/update-system-error-lifecycle";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { Public } from "../public.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import { traceIdOf } from "../middleware/trace";
-import { PlatformSuperuserGuard } from "../guards/platform-superuser.guard";
+import { PlatformOperatorGuard } from "../guards/platform-operator.guard";
 import { ClientErrorReportRateLimitGuard } from "../guards/client-error-report-rate-limit.guard";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 
 export const REPORT_CLIENT_ERROR_SCHEMA = C.operations.reportClientError.in;
+export const UPDATE_SYSTEM_ERROR_LIFECYCLE_SCHEMA = C.operations.updateSystemErrorLifecycle.in;
 
 type ReportClientErrorBody = ReturnType<typeof C.operations.reportClientError.in.parse>;
+type UpdateSystemErrorLifecycleBody = ReturnType<typeof C.operations.updateSystemErrorLifecycle.in.parse>;
 
 @Controller()
 export class SystemErrorLogController {
@@ -50,7 +62,7 @@ export class SystemErrorLogController {
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
-  @UseGuards(PlatformSuperuserGuard)
+  @UseGuards(PlatformOperatorGuard)
   @Get("/system/error-logs")
   async list(
     @CurrentPrincipal() principal: Principal,
@@ -68,6 +80,42 @@ export class SystemErrorLogController {
         ? parsedLimit
         : 50;
     return this.errorLog.list({ limit, beforeId: beforeId ?? null });
+  }
+
+  @UseGuards(PlatformOperatorGuard)
+  @Put("/system/error-logs/:id")
+  async updateLifecycle(
+    @CurrentPrincipal() principal: Principal,
+    @Param("id") id: string,
+    @Body(new ZodBodyPipe(UPDATE_SYSTEM_ERROR_LIFECYCLE_SCHEMA)) body: UpdateSystemErrorLifecycleBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await updateSystemErrorLifecycle(this.errorLog, {
+        id,
+        status: body.status,
+        statusReason: body.statusReason,
+        devNote: body.devNote,
+        tags: body.tags,
+      });
+    } catch (e) {
+      if (e instanceof SystemErrorNotFoundError) throw new NotFoundException({ reasonCode: "NOT_FOUND" });
+      if (e instanceof SystemErrorReasonRequiredError) {
+        throw new UnprocessableEntityException({ reasonCode: "REASON_REQUIRED" });
+      }
+      if (e instanceof SystemErrorIllegalTransitionError) {
+        throw new UnprocessableEntityException({ reasonCode: "INVALID_TRANSITION", from: e.from, to: e.to });
+      }
+      if (e instanceof SystemErrorReasonRequiresStatusError) {
+        throw new UnprocessableEntityException({ reasonCode: "REASON_REQUIRES_STATUS" });
+      }
+      if (e instanceof SystemErrorConcurrentUpdateError) {
+        // 409：不是"下游依赖不可用"，是"这条系统异常的状态被别的请求同时改过"——
+        // 语义上是并发冲突，重试前应该先刷新看看结果，而不是无脑重试。
+        throw new ConflictException({ reasonCode: "CONCURRENT_UPDATE" });
+      }
+      throw e;
+    }
   }
 
   @Public()

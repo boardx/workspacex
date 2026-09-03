@@ -25,9 +25,12 @@ import { PgDatabase, pgHealthProbe } from "./infrastructure/db/pg-database";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 import { ERROR_LOG_PORT } from "./application/ports/error-log.port";
 import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
+import { ERROR_LOG_SUMMARY_MODEL_CONFIG, type ErrorLogSummaryModelConfig } from "./application/system/summarize-error-log";
+import { readErrorLogSummaryModelConfig } from "./infrastructure/logging/error-log-summary-model-config";
 import { RATE_LIMITER_PORT } from "./application/ports/rate-limiter.port";
 import { InMemoryRateLimiter } from "./infrastructure/system/in-memory-rate-limiter";
 import { PlatformSuperuserGuard } from "./interface/guards/platform-superuser.guard";
+import { PlatformOperatorGuard } from "./interface/guards/platform-operator.guard";
 import { ClientErrorReportRateLimitGuard } from "./interface/guards/client-error-report-rate-limit.guard";
 
 // F20/F21 auth. `HeaderPrincipalResolver` is no longer wired: it was the test-injection
@@ -47,7 +50,7 @@ import {
 import { RedisSessionTokenStore, redisConfig } from "./infrastructure/auth/redis-session-token-store";
 import { SessionTokenPrincipalResolver } from "./infrastructure/auth/session-token-principal-resolver";
 import { SystemClock, UuidTokenFactory } from "./infrastructure/auth/system-clock";
-import { OutboxMailer } from "./infrastructure/auth/outbox-mailer";
+import { DeliveringPasswordMailer } from "./infrastructure/auth/delivering-password-mailer";
 import { AuthController } from "./interface/controllers/auth.controller";
 import type { Clock } from "./application/auth/ports";
 
@@ -420,6 +423,7 @@ import { SystemMailController } from "./interface/controllers/system-mail.contro
 import {
   FEEDBACK_SUBMITTER_DIRECTORY,
   GITHUB_ISSUE_CREATOR,
+  GITHUB_ISSUE_IMAGE_UPLOADER,
 } from "./application/feedback/notification-ports";
 import { PgFeedbackSubmitterDirectory } from "./infrastructure/feedback/pg-feedback-submitter-directory";
 import {
@@ -435,6 +439,13 @@ import {
   lazyTransactionalMailConfig,
   type TransactionalMailConfig,
 } from "./infrastructure/notifications/cloudflare-transactional-email-transport";
+// 2026-09-03：反馈闭环的反向对账——定时把 GitHub issue 的关闭态拉回反馈状态并
+// 通知提交人测试验收（issue #2500 登记的自愈缺口的落地）。见
+// `application/feedback/github-issue-poll-ports.ts` 与
+// `infrastructure/feedback/feedback-github-issue-poll-worker.ts` 头注。
+import { FEEDBACK_GITHUB_ISSUE_SCANNER } from "./application/feedback/github-issue-poll-ports";
+import { PgFeedbackGithubIssueScanner } from "./infrastructure/feedback/pg-feedback-github-issue-scanner";
+import { FeedbackGithubIssuePollWorker } from "./infrastructure/feedback/feedback-github-issue-poll-worker";
 // FB-5（2026-09-02）：图片附件仓储 + 语音转录整理的固定模型配置。见两个用例的头注
 // （`upload-feedback-attachment.ts` / `structure-feedback-draft.ts`）与
 // `pg-feedback-attachment-repository.ts`。
@@ -493,6 +504,9 @@ import { OrgAdminManagementController } from "./interface/controllers/org-admin-
 // member-role-management delta：平台级成员名册与角色调整（组织级在 OrgAdminManagementController）。
 import { PLATFORM_MEMBER_REPOSITORY } from "./application/system/platform-member-ports";
 import { PgPlatformMemberRepository } from "./infrastructure/system/pg-platform-member-repository";
+// platform-admin-role delta：落库的"平台管理员"名册。
+import { PLATFORM_ADMIN_REPOSITORY } from "./application/system/platform-admin-ports";
+import { PgPlatformAdminRepository } from "./infrastructure/system/pg-platform-admin-repository";
 import { PlatformMemberController } from "./interface/controllers/platform-member.controller";
 // F31 (files bundle): the project file browser's three READ routes.
 // ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
@@ -834,10 +848,26 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     // this pool.
     { provide: DIAGNOSTICS_READER_DB_PORT, useFactory: () => new PgDatabase(diagnosticsReaderConfig()) },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
+    // 2026-09-02：`ERROR_LOG_SUMMARY_MODEL_CONFIG` 是"系统异常 AI 摘要"这个元任务的
+    // 固定模型配置，同 `FEEDBACK_STRUCTURE_MODEL_CONFIG` 既有先例。
+    {
+      provide: ERROR_LOG_SUMMARY_MODEL_CONFIG,
+      useFactory: () => readErrorLogSummaryModelConfig(),
+    },
     {
       provide: ERROR_LOG_PORT,
-      useFactory: (db: DatabasePort, readDb: DatabasePort) => new PgErrorLogWriter(db, readDb),
-      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT],
+      useFactory: (
+        db: DatabasePort,
+        readDb: DatabasePort,
+        model: ModelCallPort,
+        summaryModel: ErrorLogSummaryModelConfig,
+        logger: LoggerPort,
+      ) => new PgErrorLogWriter(db, readDb, {
+        model,
+        summaryModel,
+        log: (message, detail) => logger.info(message, { ...detail, traceId: "error-log-ai-summary" }),
+      }),
+      inject: [DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT, MODEL_CALL_PORT, ERROR_LOG_SUMMARY_MODEL_CONFIG, LOGGER_PORT],
     },
     {
       provide: RATE_LIMITER_PORT,
@@ -845,6 +875,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [CLOCK],
     },
     PlatformSuperuserGuard,
+    PlatformOperatorGuard,
     ClientErrorReportRateLimitGuard,
     {
       provide: PRINCIPAL_RESOLVER_PORT,
@@ -1229,10 +1260,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
     { provide: TOKEN_FACTORY, useClass: UuidTokenFactory },
     { provide: CLOCK, useClass: SystemClock },
-    // ⚠ Records, does not send. Mail is EGRESS (X-3) and gap A-4 -- whether a local
-    // organization may use password login at all is still an open product question, and
-    // wiring an SMTP client here would answer it by accident. See outbox-mailer.ts.
-    { provide: MAILER, useClass: OutboxMailer },
+    // Real delivery (issue #2602): `DeliveringPasswordMailer` wraps an `OutboxMailer`
+    // (recording is unchanged -- every test that reads `MAILER` back out of the
+    // container still sees `.drain()`/`.clear()`) and additionally, best-effort, sends
+    // through the SAME `TransactionalMailTransport` "系统异常 → 测试邮件" already uses.
+    // Gap A-4 (local organization / zero-egress) is unaddressed by this and remains
+    // open -- see `outbox-mailer.ts`'s head comment for the full history.
+    { provide: MAILER, useClass: DeliveringPasswordMailer },
     { provide: AUTHORIZATION_CACHE, useClass: InMemoryAuthorizationCache },
     { provide: DECISION_ID_FACTORY, useClass: UuidDecisionIdFactory },
     // F19. ⚠ No `SESSION_STORE` here: F20 owns session issuance, and the identity bundle's
@@ -1772,6 +1806,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (db: DatabasePort) => new PgPlatformMemberRepository(db),
       inject: [DATABASE_PORT],
     },
+    // platform-admin-role delta：落库的"平台管理员"名册，PlatformOperatorGuard 与
+    // grant/revokePlatformAdmin 都靠它判定/写入。
+    {
+      provide: PLATFORM_ADMIN_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgPlatformAdminRepository(db),
+      inject: [DATABASE_PORT],
+    },
     // F160（token-quota-and-usage delta）。额度读写与计量写入分成两个仓储：
     // 后者（PgTokenUsageRepository）是账的唯一写入点，前者只读账、写额度。
     // F162 限额策略。与额度仓储分开：规则是配置，额度是数额，两者的读写路径没有共享逻辑。
@@ -2084,6 +2125,10 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (config: GithubIssueConfig) => new FetchGithubIssueCreator(config),
       inject: [GITHUB_ISSUE_CONFIG],
     },
+    // ⑥ 附件图片上传(`uploadImage`)与建 issue(`create`)共用**同一个** `FetchGithubIssueCreator`
+    // 实例——同一份 PAT/仓库配置,`useExisting` 只是给它挂第二个 token,不是新建一份配置。
+    // 见 `notification-ports.ts` 里 `GithubIssueImageUploader` 头注(含 2026-09-03 人类决策记录)。
+    { provide: GITHUB_ISSUE_IMAGE_UPLOADER, useExisting: GITHUB_ISSUE_CREATOR },
     {
       provide: FEEDBACK_SUBMITTER_DIRECTORY,
       useFactory: (db: DatabasePort) => new PgFeedbackSubmitterDirectory(db),
@@ -2111,6 +2156,17 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (config: TransactionalMailConfig) => new CloudflareTransactionalEmailTransport(config),
       inject: [TRANSACTIONAL_MAIL_CONFIG],
     },
+    // 2026-09-03：反馈闭环反向对账（定时把已关闭的 GitHub issue 同步回反馈状态 +
+    // 通知提交人）。`FeedbackGithubIssuePollWorker` 复用上面已经注册的
+    // `GITHUB_ISSUE_CONFIG` / `GITHUB_ISSUE_CREATOR` / `FEEDBACK_SUBMITTER_DIRECTORY` /
+    // `TRANSACTIONAL_MAIL_TRANSPORT` / `PRODUCT_FEEDBACK_REPOSITORY`,只多绑一个
+    // 新端口 `FEEDBACK_GITHUB_ISSUE_SCANNER`。
+    {
+      provide: FEEDBACK_GITHUB_ISSUE_SCANNER,
+      useFactory: (db: DatabasePort) => new PgFeedbackGithubIssueScanner(db),
+      inject: [DATABASE_PORT],
+    },
+    FeedbackGithubIssuePollWorker,
     {
       provide: SKILL_SECURITY_AUDIT,
       useFactory: (logger: LoggerPort) => new LoggingSkillSecurityAudit(logger),
