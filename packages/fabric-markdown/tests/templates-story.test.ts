@@ -143,6 +143,54 @@ describe.each(CASES)('template $key', ({ key, sectionCount, text, stickies }) =>
   });
 });
 
+describe('three-lenses bilingual section-name drift (issue #2576)', () => {
+  it('still fills sections when the model drops the English suffix', () => {
+    const text = `模板: three-lenses
+
+## 人本期望
+- 独居老人希望一键联系子女
+
+## 技术可行
+- 毫米波雷达可无感监测跌倒
+
+## 商业可行
+- 与社区养老服务按月订阅打包`;
+
+    const model = templateToModel(text);
+    const boxes = model.nodes.filter((n) => n.data?.role === 'section');
+    expect(boxes).toHaveLength(3);
+    // Section boxes always carry the canonical bilingual name...
+    expect(boxes.map((b) => b.data?.name)).toEqual([
+      '人本期望 Desirability',
+      '技术可行 Feasibility',
+      '商业可行 Viability',
+    ]);
+    // ...but must not be left empty just because the model wrote the Chinese-only heading.
+    expect(stickiesInBox(model, '人本期望 Desirability')).toHaveLength(1);
+    expect(stickiesInBox(model, '技术可行 Feasibility')).toHaveLength(1);
+    expect(stickiesInBox(model, '商业可行 Viability')).toHaveLength(1);
+  });
+
+  it('does not cross-merge pure-English sections it should leave alone', () => {
+    // golden-circle's WHY/HOW/WHAT have no bilingual suffix to strip; a stray "WHY"-only
+    // heading in a different section context must never be treated as equivalent to it.
+    const text = `模板: golden-circle
+
+## WHY
+- 让每个孩子平等获得优质教育
+
+## HOW
+- AI拆解名师课程为个性化路径
+
+## WHAT
+- 一款自适应练习App`;
+    const model = templateToModel(text);
+    expect(stickiesInBox(model, 'WHY')).toHaveLength(1);
+    expect(stickiesInBox(model, 'HOW')).toHaveLength(1);
+    expect(stickiesInBox(model, 'WHAT')).toHaveLength(1);
+  });
+});
+
 describe('burger layout', () => {
   it('is plain full-width bands with no decoration art', () => {
     const spec = getTemplate('burger')!;
