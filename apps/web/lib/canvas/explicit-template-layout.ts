@@ -300,6 +300,17 @@ function stickyHeightOverride(cellH: number): { h?: number } {
  * 宽度都没有，用默认宽度算出的 `renderStickyCapacity` 会如实报出更小的实际列数，
  * 不是这个函数能解决的（同 `stickyHeightOverride` 文档「可用高度 ≤ 0 时不覆盖」
  * 那句话在宽度轴上的版本）。
+ *
+ * ⚠ 刻意不设「收缩到多窄就拒绝、走 overflow 策略」的下限（不同于 mm 几何那条姊妹
+ *   路径 `sectionGeometryMm` 的 `MIN_SHRINK_NOTE_MM`）——这里与 `stickyHeightOverride`
+ *   同一个判断：`available > 0` 就收，不再另设一道"读不清就不如不收"的阈值。理由是
+ *   px 是 `fabric-markdown` 的抽象渲染单位，不像 mm 那样有「46mm 以下人眼读不清」这类
+ *   有物理依据的判定档位（`classifyNoteSize` 文档），在这里另拍一个 px 下限没有同等
+ *   依据、只会是凭空的数字。真正兜底可读性的是引擎自己的字号收缩（贴纸文字走
+ *   `shrinkTextboxToFit`，下限 7px，见 vendor 侧 2026-09-02 回流记录）——贴纸边长
+ *   收得越窄，字号会先收到那个下限，而不是本函数需要再挡一层。使用者若把列数配到
+ *   窄格子塞不下的地步，这是编辑器右栏「显示方式」本该提示的配置问题（`checkTemplateHealth`
+ *   的既有职责），不是这个几何换算函数该做价值判断的地方。
  */
 function stickyWidthOverride(cellW: number, cols: number): { w?: number } {
   if (cols <= 1) return {};
