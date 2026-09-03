@@ -12,11 +12,13 @@
  *
  * 见 `@repo/contracts` 的 `system-error-logs.ts` 文件头：`error_logs` 没有
  * `org_id`，按组织角色开放会让任意一个组织的管理员看到全平台的异常详情。
- * 判定"这个 principal 是不是平台超管"这件事本身，按
+ * 判定"这个 principal 是不是平台运营准入（平台超管或平台管理员）"这件事本身，按
  * `.agents/skills/mod-org-identity/SKILL.md` 的规定，属于
  * `apps/api/src/interface/guards`（全站鉴权的唯一权威落点），不属于业务
- * controller——见 `PlatformSuperuserGuard`（review finding，PR #2475：第一版
- * 曾把这段判定直接写在这个 controller 里，是本仓明令禁止的"另起一套"）。
+ * controller——见 `PlatformOperatorGuard`（review finding，PR #2475：第一版
+ * 曾把这段判定直接写在这个 controller 里，是本仓明令禁止的"另起一套"；
+ * platform-admin-role delta，2026-09-03，把原来的 `PlatformSuperuserGuard` 换成
+ * 组合门 `PlatformOperatorGuard`——落库的平台管理员也该能读系统异常，见该 guard 头注）。
  *
  * ## `POST /system/client-error-reports`：为什么 `@Public()` + 限流 Guard
  *
@@ -34,7 +36,7 @@ import { CurrentPrincipal } from "../current-principal.decorator";
 import { Public } from "../public.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
 import { traceIdOf } from "../middleware/trace";
-import { PlatformSuperuserGuard } from "../guards/platform-superuser.guard";
+import { PlatformOperatorGuard } from "../guards/platform-operator.guard";
 import { ClientErrorReportRateLimitGuard } from "../guards/client-error-report-rate-limit.guard";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
@@ -50,7 +52,7 @@ export class SystemErrorLogController {
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
   ) {}
 
-  @UseGuards(PlatformSuperuserGuard)
+  @UseGuards(PlatformOperatorGuard)
   @Get("/system/error-logs")
   async list(
     @CurrentPrincipal() principal: Principal,

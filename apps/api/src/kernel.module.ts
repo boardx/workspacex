@@ -28,6 +28,7 @@ import { PgErrorLogWriter } from "./infrastructure/logging/pg-error-log-writer";
 import { RATE_LIMITER_PORT } from "./application/ports/rate-limiter.port";
 import { InMemoryRateLimiter } from "./infrastructure/system/in-memory-rate-limiter";
 import { PlatformSuperuserGuard } from "./interface/guards/platform-superuser.guard";
+import { PlatformOperatorGuard } from "./interface/guards/platform-operator.guard";
 import { ClientErrorReportRateLimitGuard } from "./interface/guards/client-error-report-rate-limit.guard";
 
 // F20/F21 auth. `HeaderPrincipalResolver` is no longer wired: it was the test-injection
@@ -493,6 +494,9 @@ import { OrgAdminManagementController } from "./interface/controllers/org-admin-
 // member-role-management delta：平台级成员名册与角色调整（组织级在 OrgAdminManagementController）。
 import { PLATFORM_MEMBER_REPOSITORY } from "./application/system/platform-member-ports";
 import { PgPlatformMemberRepository } from "./infrastructure/system/pg-platform-member-repository";
+// platform-admin-role delta：落库的"平台管理员"名册。
+import { PLATFORM_ADMIN_REPOSITORY } from "./application/system/platform-admin-ports";
+import { PgPlatformAdminRepository } from "./infrastructure/system/pg-platform-admin-repository";
 import { PlatformMemberController } from "./interface/controllers/platform-member.controller";
 // F31 (files bundle): the project file browser's three READ routes.
 // ⚠ Its per-row permission predicate is `wsx_visible_artifacts()` in migration 0023, not
@@ -845,6 +849,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       inject: [CLOCK],
     },
     PlatformSuperuserGuard,
+    PlatformOperatorGuard,
     ClientErrorReportRateLimitGuard,
     {
       provide: PRINCIPAL_RESOLVER_PORT,
@@ -1770,6 +1775,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     {
       provide: PLATFORM_MEMBER_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgPlatformMemberRepository(db),
+      inject: [DATABASE_PORT],
+    },
+    // platform-admin-role delta：落库的"平台管理员"名册，PlatformOperatorGuard 与
+    // grant/revokePlatformAdmin 都靠它判定/写入。
+    {
+      provide: PLATFORM_ADMIN_REPOSITORY,
+      useFactory: (db: DatabasePort) => new PgPlatformAdminRepository(db),
       inject: [DATABASE_PORT],
     },
     // F160（token-quota-and-usage delta）。额度读写与计量写入分成两个仓储：
