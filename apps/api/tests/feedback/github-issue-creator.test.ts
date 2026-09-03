@@ -18,6 +18,7 @@ function fakeConfig(over: Partial<ReturnType<typeof githubIssueConfig>> = {}) {
     owner: "boardx",
     repo: "workspacex",
     requestTimeoutMs: 5_000,
+    attachmentsBranch: "feedback-attachments",
     ...over,
   };
 }
@@ -104,111 +105,161 @@ describe("FetchGithubIssueCreator", () => {
     expect(called).toBe(false);
   });
 
-  describe("uploadImage(⑥ 反馈附件图片推给 GitHub，2026-09-03 人类决策)", () => {
-    it("首次上传：先 GET 探测(404=不存在)，PUT 不带 sha，base64 编码字节，返回 download_url", async () => {
-      const calls: Array<{ url: string; init?: RequestInit }> = [];
-      const fakeFetch = (async (url: string, init?: RequestInit) => {
+  describe("uploadImage(⑥ 反馈附件图片推给 GitHub，2026-09-03 人类两轮决策：真上传 + 不碰 main)", () => {
+    /**
+     * 统一的路由 fake——`uploadImage` 现在最多打四类端点(建孤儿分支的 `git/ref` /
+     * `git/trees` / `git/commits` / `git/refs`，加上 `contents` 的探测/上传)，每条
+     * 测试只需要覆盖跟自己相关的那部分状态码/响应体，其余用默认的"一切顺利"值。
+     */
+    function routedFetch(
+      calls: Array<{ url: string; init?: RequestInit }>,
+      over: Partial<{
+        refStatus: number; refBody: unknown;
+        treeStatus: number; treeBody: unknown;
+        commitStatus: number; commitBody: unknown;
+        createRefStatus: number; createRefBody: unknown;
+        contentGetStatus: number; contentGetBody: unknown; contentGetThrows: boolean;
+        putStatus: number; putBody: unknown;
+      }> = {},
+    ): typeof fetch {
+      const o = {
+        refStatus: 200, refBody: {},
+        treeStatus: 201, treeBody: { sha: "tree-sha" },
+        commitStatus: 201, commitBody: { sha: "commit-sha" },
+        createRefStatus: 201, createRefBody: {},
+        contentGetStatus: 404, contentGetBody: {}, contentGetThrows: false,
+        putStatus: 201,
+        putBody: { content: { download_url: "https://raw.githubusercontent.com/boardx/workspacex/feedback-attachments/feedback-attachments/fbattach-1.png" } },
+        ...over,
+      };
+      return (async (url: string, init?: RequestInit) => {
         calls.push({ url, init });
-        if ((init?.method ?? "GET") === "GET") return jsonResponse({}, 404);
-        return jsonResponse({
-          content: { download_url: "https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png" },
-        });
+        const method = init?.method ?? "GET";
+        if (url.includes("/git/ref/heads/")) return jsonResponse(o.refBody, o.refStatus);
+        if (url.includes("/git/trees")) return jsonResponse(o.treeBody, o.treeStatus);
+        if (url.includes("/git/commits")) return jsonResponse(o.commitBody, o.commitStatus);
+        if (url.includes("/git/refs")) return jsonResponse(o.createRefBody, o.createRefStatus);
+        if (url.includes("/contents/") && method === "GET") {
+          if (o.contentGetThrows) throw new Error("network down");
+          return jsonResponse(o.contentGetBody, o.contentGetStatus);
+        }
+        if (url.includes("/contents/") && method === "PUT") return jsonResponse(o.putBody, o.putStatus);
+        throw new Error(`routedFetch: unexpected request ${method} ${url}`);
       }) as typeof fetch;
-      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
+    }
 
-      const result = await creator.uploadImage({
-        path: "feedback-attachments/fbattach-1.png",
-        content: new Uint8Array([1, 2, 3]),
-        contentType: "image/png",
-      });
+    const input = { path: "feedback-attachments/fbattach-1.png", content: new Uint8Array([1, 2, 3]), contentType: "image/png" as const };
 
-      expect(calls[0]!.url).toBe("https://api.github.com/repos/boardx/workspacex/contents/feedback-attachments/fbattach-1.png");
+    it("分支已存在 + 首次上传：不带 sha，body 带 branch，base64 编码字节，返回 download_url", async () => {
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      const creator = new FetchGithubIssueCreator(fakeConfig(), routedFetch(calls));
+
+      const result = await creator.uploadImage(input);
+
+      expect(calls[0]!.url).toBe("https://api.github.com/repos/boardx/workspacex/git/ref/heads/feedback-attachments");
       expect(calls[0]!.init?.method).toBe("GET");
-      const put = calls[1]!;
+      const contentGet = calls[1]!;
+      expect(contentGet.url).toBe(
+        "https://api.github.com/repos/boardx/workspacex/contents/feedback-attachments/fbattach-1.png?ref=feedback-attachments",
+      );
+      const put = calls[2]!;
       expect(put.url).toBe("https://api.github.com/repos/boardx/workspacex/contents/feedback-attachments/fbattach-1.png");
       expect(put.init?.method).toBe("PUT");
       const headers = put.init?.headers as Record<string, string>;
       expect(headers.authorization).toBe("Bearer ghp_fake_token");
-      const body = JSON.parse(put.init?.body as string) as { message: string; content: string; sha?: string };
+      const body = JSON.parse(put.init?.body as string) as { message: string; content: string; branch?: string; sha?: string };
       expect(body.content).toBe(Buffer.from([1, 2, 3]).toString("base64"));
-      expect(body.message).toContain("feedback-attachments/fbattach-1.png");
+      expect(body.branch).toBe("feedback-attachments"); // ⚠ 不写 main
       expect(body.sha).toBeUndefined(); // 首次上传，文件不存在，不该带 sha
-      expect(result).toEqual({
-        url: "https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png",
-      });
+      expect(result.url).toContain("raw.githubusercontent.com");
     });
 
     /**
-     * ⑥ 独立 review 抓到的真实幂等 bug:同一路径重试(如"上传成功、issue 创建
+     * ⚠ 独立 review 二轮抓到的真实问题:不带 `branch` 的 `PUT` 会直接提交默认分支
+     * `main`，绕过整个 PR/CI/review、可能触发本仓监听 `push: branches: [main]` 的
+     * 部署流水线。人类决策后改成专用分支，且首次使用时惰性建一个**孤儿分支**——
+     * 这条断的正是"分支不存在时怎么建"这一步(空树 → 无父提交 → ref)。
+     */
+    it("专用分支不存在 ⇒ 惰性建孤儿分支(空树/无父提交/ref)，再继续上传", async () => {
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      const creator = new FetchGithubIssueCreator(fakeConfig(), routedFetch(calls, { refStatus: 404 }));
+
+      await creator.uploadImage(input);
+
+      const [refGet, treePost, commitPost, refPost, contentGet, put] = calls;
+      expect(refGet!.init?.method).toBe("GET");
+      expect(treePost!.url).toBe("https://api.github.com/repos/boardx/workspacex/git/trees");
+      expect(JSON.parse(treePost!.init?.body as string)).toEqual({ tree: [] }); // 空树,孤儿分支不带任何源码
+      expect(commitPost!.url).toBe("https://api.github.com/repos/boardx/workspacex/git/commits");
+      const commitBody = JSON.parse(commitPost!.init?.body as string) as { tree: string; parents: unknown[] };
+      expect(commitBody.tree).toBe("tree-sha");
+      expect(commitBody.parents).toEqual([]); // 无父提交 = 孤儿,不从 main 分叉
+      expect(refPost!.url).toBe("https://api.github.com/repos/boardx/workspacex/git/refs");
+      expect(JSON.parse(refPost!.init?.body as string)).toEqual({ ref: "refs/heads/feedback-attachments", sha: "commit-sha" });
+      expect(contentGet!.url).toContain("/contents/");
+      expect(put!.init?.method).toBe("PUT");
+    });
+
+    it("建分支时并发冲突(POST git/refs 收到 422=ref 已存在)⇒ 当作已建，继续上传，不报错", async () => {
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      const creator = new FetchGithubIssueCreator(fakeConfig(), routedFetch(calls, { refStatus: 404, createRefStatus: 422 }));
+      const result = await creator.uploadImage(input);
+      expect(result.url).toBeTruthy();
+    });
+
+    /**
+     * ⑥ 独立 review 一轮抓到的真实幂等 bug:同一路径重试(如"上传成功、issue 创建
      * 失败、释放认领、管理员重试")之前不带 `sha`，GitHub 会 422。修法是先 `GET`
      * 探测已存在文件的 `sha`，`PUT` 时带上——这条断的正是这一步。
      */
     it("路径已存在(重试场景)：GET 探测到 sha，PUT 带上这个 sha，不会 422", async () => {
       const calls: Array<{ url: string; init?: RequestInit }> = [];
-      const fakeFetch = (async (url: string, init?: RequestInit) => {
-        calls.push({ url, init });
-        if ((init?.method ?? "GET") === "GET") return jsonResponse({ sha: "existing-blob-sha" });
-        return jsonResponse({
-          content: { download_url: "https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png" },
-        });
-      }) as typeof fetch;
-      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
+      const creator = new FetchGithubIssueCreator(
+        fakeConfig(),
+        routedFetch(calls, { contentGetStatus: 200, contentGetBody: { sha: "existing-blob-sha" } }),
+      );
 
-      await creator.uploadImage({
-        path: "feedback-attachments/fbattach-1.png",
-        content: new Uint8Array([1, 2, 3]),
-        contentType: "image/png",
-      });
+      await creator.uploadImage(input);
 
-      const put = calls[1]!;
+      const put = calls[2]!;
       const body = JSON.parse(put.init?.body as string) as { sha?: string };
       expect(body.sha).toBe("existing-blob-sha");
     });
 
-    it("GET 探测本身失败(网络异常)⇒ 降级成当作首次上传，不拦住 uploadImage", async () => {
+    /**
+     * ⚠ 独立 review 二轮的修正:探测失败(网络异常/401/403/429/5xx)**不能**当成
+     * "文件不存在"悄悄发一个不带 sha 的 PUT——那对已存在文件必然 422、被上层
+     * best-effort 吞掉、issue 建出来但没带图。只有 404 才是"真的不存在"，
+     * 其余一律直接失败，交给调用方(`withAttachmentImages`)跳过这一张。
+     */
+    it("内容探测网络异常 ⇒ 直接失败,不当成「不存在」去猜", async () => {
       const calls: Array<{ url: string; init?: RequestInit }> = [];
-      const fakeFetch = (async (url: string, init?: RequestInit) => {
-        calls.push({ url, init });
-        if ((init?.method ?? "GET") === "GET") throw new Error("network down");
-        return jsonResponse({
-          content: { download_url: "https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png" },
-        });
-      }) as typeof fetch;
-      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
-
-      const result = await creator.uploadImage({
-        path: "feedback-attachments/fbattach-1.png",
-        content: new Uint8Array([1, 2, 3]),
-        contentType: "image/png",
-      });
-      expect(result.url).toBeTruthy();
-      const body = JSON.parse(calls[1]!.init?.body as string) as { sha?: string };
-      expect(body.sha).toBeUndefined();
+      const creator = new FetchGithubIssueCreator(fakeConfig(), routedFetch(calls, { contentGetThrows: true }));
+      await expect(creator.uploadImage(input)).rejects.toBeInstanceOf(GithubIssueApiError);
+      expect(calls).toHaveLength(2); // 建分支的 GET + 探测内容的 GET——没有走到 PUT
     });
 
-    it("HTTP 非 2xx ⇒ 抛 GithubIssueApiError(op: uploadImage)", async () => {
-      const fakeFetch = (async (_url: string, init?: RequestInit) => {
-        if ((init?.method ?? "GET") === "GET") return jsonResponse({}, 404);
-        return jsonResponse({ message: "Bad credentials" }, 401);
-      }) as typeof fetch;
-      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
-      const error = await creator
-        .uploadImage({ path: "feedback-attachments/x.png", content: new Uint8Array([1]), contentType: "image/png" })
-        .catch((e) => e as GithubIssueApiError);
+    it("内容探测非 404 的非 2xx(如 403)⇒ 直接失败,不当成「不存在」去猜", async () => {
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      const creator = new FetchGithubIssueCreator(fakeConfig(), routedFetch(calls, { contentGetStatus: 403 }));
+      const error = await creator.uploadImage(input).catch((e) => e as GithubIssueApiError);
+      expect(error).toBeInstanceOf(GithubIssueApiError);
+      expect((error as GithubIssueApiError).status).toBe(403);
+    });
+
+    it("HTTP 非 2xx(PUT 失败) ⇒ 抛 GithubIssueApiError(op: uploadImage)", async () => {
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      const creator = new FetchGithubIssueCreator(fakeConfig(), routedFetch(calls, { putStatus: 401, putBody: { message: "Bad credentials" } }));
+      const error = await creator.uploadImage(input).catch((e) => e as GithubIssueApiError);
       expect(error).toBeInstanceOf(GithubIssueApiError);
       expect((error as GithubIssueApiError).op).toBe("uploadImage");
       expect((error as GithubIssueApiError).status).toBe(401);
     });
 
     it("响应缺 content.download_url ⇒ 视为无效响应,抛错", async () => {
-      const fakeFetch = (async (_url: string, init?: RequestInit) => {
-        if ((init?.method ?? "GET") === "GET") return jsonResponse({}, 404);
-        return jsonResponse({});
-      }) as typeof fetch;
-      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
-      await expect(
-        creator.uploadImage({ path: "feedback-attachments/x.png", content: new Uint8Array([1]), contentType: "image/png" }),
-      ).rejects.toBeInstanceOf(GithubIssueApiError);
+      const calls: Array<{ url: string; init?: RequestInit }> = [];
+      const creator = new FetchGithubIssueCreator(fakeConfig(), routedFetch(calls, { putBody: {} }));
+      await expect(creator.uploadImage(input)).rejects.toBeInstanceOf(GithubIssueApiError);
     });
 
     it("没有 token ⇒ 直接拒绝,不发请求", async () => {
@@ -218,9 +269,7 @@ describe("FetchGithubIssueCreator", () => {
         return jsonResponse({});
       }) as typeof fetch;
       const creator = new FetchGithubIssueCreator(fakeConfig({ token: "" }), fakeFetch);
-      await expect(
-        creator.uploadImage({ path: "feedback-attachments/x.png", content: new Uint8Array([1]), contentType: "image/png" }),
-      ).rejects.toBeInstanceOf(GithubIssueApiError);
+      await expect(creator.uploadImage(input)).rejects.toBeInstanceOf(GithubIssueApiError);
       expect(called).toBe(false);
     });
   });

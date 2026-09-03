@@ -41,6 +41,17 @@ export interface GithubIssueConfig {
   /** 默认 `workspacex`。 */
   readonly repo: string;
   readonly requestTimeoutMs: number;
+  /**
+   * ⚠ **2026-09-03 人类明确决策的一部分**(见 `notification-ports.ts` 头注)：
+   * 反馈附件图片**不**提交进 `main`——那会绕过整个 PR/CI/review 生命周期,而且本仓
+   * 好几条部署流水线(如 `deploy-coord-gateway.yml`)监听 `push: branches: [main]`,
+   * 直接写 `main` 意味着运行时持有能触发生产部署的写权限,这不是"图片要不要公开"
+   * 那次决策讨论过的范围。所以图片改成写进一个**与 `main` 完全无关的专用分支**——
+   * 默认 `feedback-attachments`,不在任何 workflow 的 `push` 分支过滤器里,不触发
+   * CI/CD、不进 `main` 的提交历史。首次使用时惰性建一个**孤儿分支**(orphan,见
+   * `ensureAttachmentsBranch`),不是从 `main` 分叉,不携带源码历史。
+   */
+  readonly attachmentsBranch: string;
 }
 
 export function githubIssueConfig(env: NodeJS.ProcessEnv = process.env): GithubIssueConfig {
@@ -49,6 +60,7 @@ export function githubIssueConfig(env: NodeJS.ProcessEnv = process.env): GithubI
     token: env.GITHUB_ISSUE_TOKEN ?? "",
     owner: env.GITHUB_ISSUE_REPO_OWNER ?? "boardx",
     repo: env.GITHUB_ISSUE_REPO_NAME ?? "workspacex",
+    attachmentsBranch: env.GITHUB_ISSUE_ATTACHMENTS_BRANCH ?? "feedback-attachments",
   };
   if (production && values.token.length === 0) {
     throw new Error("GitHub issue creation configuration is incomplete (GITHUB_ISSUE_TOKEN missing)");
@@ -66,7 +78,7 @@ export function lazyGithubIssueConfig(env: NodeJS.ProcessEnv = process.env): Git
   let resolved: GithubIssueConfig | null = null;
   const get = (): GithubIssueConfig => (resolved ??= githubIssueConfig(env));
 
-  const KEYS = new Set<string | symbol>(["token", "owner", "repo", "requestTimeoutMs"]);
+  const KEYS = new Set<string | symbol>(["token", "owner", "repo", "requestTimeoutMs", "attachmentsBranch"]);
   return new Proxy({} as GithubIssueConfig, {
     get: (_t, prop) => (KEYS.has(prop) ? get()[prop as keyof GithubIssueConfig] : undefined),
     has: (_t, prop) => KEYS.has(prop),
@@ -121,13 +133,33 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
     return `${this.issuesUrl()}/${issueNumber}`;
   }
 
+  private repoUrl(): string {
+    return `https://api.github.com/repos/${encodeURIComponent(this.config.owner)}/${encodeURIComponent(this.config.repo)}`;
+  }
+
   private contentsUrl(path: string): string {
     // Contents API 的 path 段本身允许 `/`(目录分隔),只有各段内部的特殊字符需要转义——
     // 这里的 path 永远是我们自己拼的 `feedback-attachments/<attachmentId>.<ext>`
     // （见 `triage-feedback.ts`），不是用户可控输入，逐段 encode 足够,不需要处理 `..`
     // 之类的路径穿越(attachmentId 是我们自己生成的 hex id)。
     const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-    return `https://api.github.com/repos/${encodeURIComponent(this.config.owner)}/${encodeURIComponent(this.config.repo)}/contents/${encodedPath}`;
+    return `${this.repoUrl()}/contents/${encodedPath}`;
+  }
+
+  /** Git Data API 三件套——只有建孤儿分支(`ensureAttachmentsBranch`)用得到。 */
+  private refUrl(branch: string): string {
+    // `heads/` 是路径前缀,不是要编码进 branch 名字的一部分——只 encode branch 本身,
+    // 不能对整个 `heads/<branch>` 一起 `encodeURIComponent`(会把分隔的 `/` 也转义掉)。
+    return `${this.repoUrl()}/git/ref/heads/${encodeURIComponent(branch)}`;
+  }
+  private refsUrl(): string {
+    return `${this.repoUrl()}/git/refs`;
+  }
+  private treesUrl(): string {
+    return `${this.repoUrl()}/git/trees`;
+  }
+  private commitsUrl(): string {
+    return `${this.repoUrl()}/git/commits`;
   }
 
   private headers(): Record<string, string> {
@@ -311,18 +343,29 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
    * `content.download_url` 就是 `raw.githubusercontent.com` 直链,GitHub 渲染 issue
    * 正文里的 `![](url)` 时匿名抓的就是这个地址,不需要 `Authorization` 头。
    *
-   * ⚠ **幂等修复**(独立 review 抓到的真实 bug,见 `notification-ports.ts` 头注)：
-   *   GitHub Contents API 的 `PUT` 是"建或改"同一个动词,但**改一个已存在的文件时
-   *   必须带上那个文件当前的 blob `sha`**,不带就是"以为在创建新文件"，撞见已存在
-   *   的路径会 422。"上传成功、随后 issue 创建失败、释放 claim、管理员重试"这条
-   *   路径会两次调用同一个 `path`(同一个 attachmentId ⇒ 同一个文件名)，第二次若
-   *   不带 `sha` 就会 422、被 best-effort 吞掉，issue 建出来但没带图——不是"极端情况"，
-   *   是这个功能唯一的重试路径必然触发的坑。所以先 `GET` 一次探测这个 path 是否已
-   *   存在、取到它的 `sha` 再 `PUT`；不存在(404)就是首次上传，不带 `sha`。
+   * ⚠ **不写 `main`**(独立 review 二轮抓到的真实问题,见 `GithubIssueConfig.attachmentsBranch`
+   *   头注)：所有请求都带 `branch: this.config.attachmentsBranch`,先 `ensureAttachmentsBranch`
+   *   确保这个与 `main` 无关的专用分支存在。
+   *
+   * ⚠ **幂等修复**(独立 review 一轮抓到的真实 bug):GitHub Contents API 的 `PUT`
+   *   是"建或改"同一个动词,但**改一个已存在的文件时必须带上那个文件当前的
+   *   blob `sha`**,不带就是"以为在创建新文件"，撞见已存在的路径会 422。"上传成功、
+   *   随后 issue 创建失败、释放 claim、管理员重试"这条路径会两次调用同一个 `path`
+   *   (同一个 attachmentId ⇒ 同一个文件名)，第二次若不带 `sha` 就会 422、被
+   *   best-effort 吞掉，issue 建出来但没带图——不是"极端情况"，是这个功能唯一的
+   *   重试路径必然触发的坑。所以先 `GET` 一次探测这个 path 在这个分支上是否已
+   *   存在、取到它的 `sha` 再 `PUT`；`404`(真的不存在)是首次上传,不带 `sha`;
+   *   探测本身失败(401/403/429/5xx/网络异常)**不猜、直接失败**(独立 review 二轮
+   *   指出的修正:此前把"探测失败"与"确实不存在"混为一谈,会在探测失败时仍然
+   *   发一个不带 `sha` 的 `PUT`,对已存在的文件必然 422、被 best-effort 吞掉、
+   *   issue 建出来但没带图——这不是"少一次幂等保护"，是制造了一条必然复现的
+   *   丢图路径,所以改成显式失败,交给上层 `withAttachmentImages` 的 best-effort
+   *   处理跳过这一张,而不是自己在这里悄悄发一个大概率会 422 的请求)。
    */
   async uploadImage(input: GithubIssueImageUpload): Promise<UploadedGithubIssueImage> {
     if (!this.config.token) throw new GithubIssueApiError("uploadImage", null);
     return this.withTimeout(async (signal) => {
+      await this.ensureAttachmentsBranch(signal);
       const existingSha = await this.existingContentSha(input.path, signal);
       let response: Response;
       try {
@@ -333,6 +376,7 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
           body: JSON.stringify({
             message: `feedback: attach ${input.path}`,
             content: Buffer.from(input.content).toString("base64"),
+            branch: this.config.attachmentsBranch,
             ...(existingSha !== null ? { sha: existingSha } : {}),
           }),
         });
@@ -348,21 +392,110 @@ export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueI
   }
 
   /**
-   * 探测 `path` 当前是否已经存在于仓库,存在则返回它的 blob `sha`(重试时 `PUT`
-   * 必须带上这个才能改已存在的文件),不存在(404)或探测本身失败一律返回 `null`——
-   * 后者退化成"当成首次上传"，真撞见已存在文件时上面那次 `PUT` 会带着错误信息
-   * 422,不会悄悄覆盖或丢数据，只是把"探测失败"降级成"少一次幂等保护"而不是
-   * 直接让 `uploadImage` 整体失败(探测本身不是这个方法的主要目的)。
+   * 探测 `path` 在附件专用分支上是否已经存在,存在则返回它的 blob `sha`(重试时
+   * `PUT` 必须带上这个才能改已存在的文件)；真的不存在(`404`)返回 `null`,首次
+   * 上传不带 `sha`；探测本身失败(网络异常、非 404 的非 2xx)**直接抛错**,不当成
+   * "不存在"——见 `uploadImage` 头注的修正说明。
    */
   private async existingContentSha(path: string, signal: AbortSignal): Promise<string | null> {
+    const url = `${this.contentsUrl(path)}?ref=${encodeURIComponent(this.config.attachmentsBranch)}`;
     let response: Response;
     try {
-      response = await this.request(this.contentsUrl(path), { method: "GET", signal, headers: this.headers() });
+      response = await this.request(url, { method: "GET", signal, headers: this.headers() });
     } catch {
-      return null;
+      throw new GithubIssueApiError("uploadImage", null);
     }
-    if (!response.ok) return null; // 404 = 还没有这个文件,首次上传
+    if (response.status === 404) return null; // 分支或文件确实还不存在,首次上传
+    if (!response.ok) throw new GithubIssueApiError("uploadImage", response.status);
     const body = (await response.json().catch(() => ({}))) as { sha?: unknown };
     return typeof body.sha === "string" ? body.sha : null;
+  }
+
+  /**
+   * 惰性确保 `config.attachmentsBranch` 这个与 `main` 无关的专用分支存在——只在
+   * 进程内第一次真的建了这个分支之后不再重复探测(`branchEnsured`,进程重启会
+   * 重新探测一次,代价是一次多余的 `GET`,不是正确性问题)。
+   *
+   * 分支不存在时建一个**孤儿分支**(orphan——空树、无父提交):不从 `main` 分叉,
+   * 不携带任何源码历史，是"图片托管在 GitHub 自己的服务器"与"不碰 main、不碰
+   * 源码历史"两条要求唯一同时成立的做法(直接 `git branch` 分叉 `main` 会把整个
+   * 源码历史带进这个本该只装图片的分支)。
+   *
+   * ⚠ 建分支的三步(`git/trees` → `git/commits` → `git/refs`)不是原子的:两个并发
+   *   请求都探测到分支不存在、都在建,后建的那个 `POST git/refs` 会收到 GitHub 的
+   *   `422`(ref 已存在)——这里把 `422` 当成"别的请求已经建完了,我不需要再建"，
+   *   不是错误,同 `claimGithubIssueCreation` 类似并发场景的既有处置精神(虽然
+   *   这里没有真正的互斥锁,只是把 GitHub 自己的"ref 已存在"报错读成信号)。
+   */
+  private branchEnsured = false;
+
+  private async ensureAttachmentsBranch(signal: AbortSignal): Promise<void> {
+    if (this.branchEnsured) return;
+    let refRes: Response;
+    try {
+      refRes = await this.request(this.refUrl(this.config.attachmentsBranch), {
+        method: "GET",
+        signal,
+        headers: this.headers(),
+      });
+    } catch {
+      throw new GithubIssueApiError("uploadImage", null);
+    }
+    if (refRes.ok) {
+      this.branchEnsured = true;
+      return;
+    }
+    if (refRes.status !== 404) throw new GithubIssueApiError("uploadImage", refRes.status);
+
+    let treeRes: Response;
+    try {
+      treeRes = await this.request(this.treesUrl(), {
+        method: "POST",
+        signal,
+        headers: this.headers(),
+        body: JSON.stringify({ tree: [] }),
+      });
+    } catch {
+      throw new GithubIssueApiError("uploadImage", null);
+    }
+    if (!treeRes.ok) throw new GithubIssueApiError("uploadImage", treeRes.status);
+    const treeBody = (await treeRes.json().catch(() => ({}))) as { sha?: unknown };
+    if (typeof treeBody.sha !== "string") throw new GithubIssueApiError("uploadImage", treeRes.status);
+
+    let commitRes: Response;
+    try {
+      commitRes = await this.request(this.commitsUrl(), {
+        method: "POST",
+        signal,
+        headers: this.headers(),
+        body: JSON.stringify({
+          message: "feedback-attachments: orphan branch init (no source history, holds feedback images only)",
+          tree: treeBody.sha,
+          parents: [],
+        }),
+      });
+    } catch {
+      throw new GithubIssueApiError("uploadImage", null);
+    }
+    if (!commitRes.ok) throw new GithubIssueApiError("uploadImage", commitRes.status);
+    const commitBody = (await commitRes.json().catch(() => ({}))) as { sha?: unknown };
+    if (typeof commitBody.sha !== "string") throw new GithubIssueApiError("uploadImage", commitRes.status);
+
+    let createRefRes: Response;
+    try {
+      createRefRes = await this.request(this.refsUrl(), {
+        method: "POST",
+        signal,
+        headers: this.headers(),
+        body: JSON.stringify({ ref: `refs/heads/${this.config.attachmentsBranch}`, sha: commitBody.sha }),
+      });
+    } catch {
+      throw new GithubIssueApiError("uploadImage", null);
+    }
+    // 422 = 并发的另一个请求同时建完了这个 ref,不是错误——见方法头注。
+    if (!createRefRes.ok && createRefRes.status !== 422) {
+      throw new GithubIssueApiError("uploadImage", createRefRes.status);
+    }
+    this.branchEnsured = true;
   }
 }
