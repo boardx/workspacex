@@ -76,7 +76,7 @@ echo "==> 全屏七态矩阵（每屏 × 六个异常态，保留 testid 必须�
 #   redirect() 到现行实现 /canvas、/itv（见两个 studio/* page.tsx 的头注）。
 #   纯 redirect 页面结构上渲染不出任何 testid，脚本改测现行路由，覆盖不变。
 SCREENS="login join consent group chat projects projects/demo/canvas projects/demo/files \
-tasks brain admin admin/model admin/mcp admin/members canvas \
+tasks brain admin platform-admin/model platform-admin/mcp admin/members canvas \
 itv studio/survey studio/research"
 matrix_fail=0
 for scr in $SCREENS; do

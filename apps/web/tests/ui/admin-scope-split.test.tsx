@@ -71,12 +71,21 @@ describe("§2 每一组归属且只归属一个面，两面都非空", () => {
     for (const g of ADMIN_NAV) for (const i of g.items) expect(ADMIN_MODULE_SCOPE[i.key]).toBe(g.scope);
   });
 
-  it("反馈与迭代 / 平台成员在平台面；AI 能力与组织两组在组织面", () => {
+  it("AI 能力 / 运营 / 平台三组在平台面；「组织」组在组织面（2026-09-02 第二次裁决：AI 能力归平台）", () => {
     expect(ADMIN_MODULE_SCOPE.feedback).toBe("platform");
     expect(ADMIN_MODULE_SCOPE.platform).toBe("platform");
+    for (const key of ["agent", "skill", "model", "mcp", "canvasadmin", "blueprint"] as const) {
+      expect(ADMIN_MODULE_SCOPE[key]).toBe("platform");
+    }
     expect(ADMIN_MODULE_SCOPE.overview).toBe("org");
-    expect(ADMIN_MODULE_SCOPE.agent).toBe("org");
     expect(ADMIN_MODULE_SCOPE.members).toBe("org");
+    expect(ADMIN_MODULE_SCOPE.local).toBe("org");
+  });
+
+  it("AI 能力组里落在 /admin 下的项一个都没有 —— 否则一级导航会把「组织后台」点亮", () => {
+    const ai = ADMIN_NAV.find((g) => g.scope === "platform" && g.items.some((i) => i.key === "agent"));
+    expect(ai).toBeDefined();
+    for (const i of ai!.items) expect(i.href.startsWith("/admin")).toBe(false);
   });
 });
 
@@ -110,8 +119,13 @@ describe("§3 AdminNav 按面渲染：入口只在一面出现", () => {
 });
 
 describe("§4 平台面每一项都有路由落点", () => {
-  it("adminNavForScope('platform') 的 href 集合 == PLATFORM_ADMIN_ROUTES 派生的 href 集合（双向）", () => {
-    const navHrefs = adminNavForScope("platform").flatMap((g) => g.items.map((i) => i.href)).sort();
+  it("adminNavForScope('platform') 里落在 /platform-admin/ 下的 href 集合 == PLATFORM_ADMIN_ROUTES 派生的 href 集合（双向）", () => {
+    // Skill / 画布模板 / 项目模板的 href 指向各自的真实工作区（/skill、/canvas/…、/tpl/list），
+    // 不经过 [module] 路由，所以只核对 /platform-admin/ 前缀下的那些。
+    const navHrefs = adminNavForScope("platform")
+      .flatMap((g) => g.items.map((i) => i.href))
+      .filter((h) => h.startsWith("/platform-admin/"))
+      .sort();
     const routeHrefs = Object.keys(PLATFORM_ADMIN_ROUTES).map(platformAdminHref).sort();
     expect(navHrefs.length).toBeGreaterThan(0);
     expect(navHrefs).toEqual(routeHrefs);

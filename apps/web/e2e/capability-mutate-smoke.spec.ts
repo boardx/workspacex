@@ -48,7 +48,7 @@ test("admin creates and disables an Agent through the browser, and PostgreSQL ke
 
   await loginAs(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
 
-  await page.goto("/admin/agent");
+  await page.goto("/platform-admin/agent");
   await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
   /**
    * ⚠ #619 起这里**不能**再断言「整个目录是空的」。
@@ -118,7 +118,7 @@ test("a non-admin session is refused by the SERVER, not by a hidden button", asy
   // #458 自己的 consultant，不借用 #387 那位——理由见 fixture。
   await loginAs(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
 
-  await page.goto("/admin/agent");
+  await page.goto("/platform-admin/agent");
   await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
   // 界面这一侧：非管理员看不到写入口。这只是降噪，**下面那半才是权限**。
   await expect(page.getByTestId("admin-agent-create")).toHaveCount(0);

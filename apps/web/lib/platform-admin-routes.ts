@@ -11,6 +11,11 @@ import type { AdminModuleKey } from "@/lib/mock/admin";
  *   `admin-nav-platform` testid 与计数来源，不为改路由重命名一整串锚点。
  */
 export const PLATFORM_ADMIN_ROUTES: Record<string, AdminModuleKey> = {
+  // AI 能力（2026-09-02 第二次裁决：AI 能力归平台后台）
+  agent: "agent",
+  model: "model",
+  mcp: "mcp",
+  // 平台 / 运营
   members: "platform",
   feedback: "feedback",
 };

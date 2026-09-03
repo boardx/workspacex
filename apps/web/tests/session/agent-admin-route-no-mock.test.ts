@@ -14,7 +14,7 @@
  * `lib/live-capabilities.ts` → `lib/api-client.ts`），也就是 `/admin/agent` 这条路由
  * 真正用来取数与写入的全部模块。
  *
- * ⚠ **不**覆盖 `app/admin/[module]/page.tsx` 这个外壳本身。它 `import type
+ * ⚠ **不**覆盖 `app/platform-admin/[module]/page.tsx`（2026-09-02 前是 `app/admin/[module]`）这个外壳本身。它 `import type
  * { AdminModuleKey } from "@/lib/mock/admin"`——一个**类型**导入（左栏模块键的联合类型），
  * 编译后不产生任何运行时依赖，也不给 Agent 目录提供任何数据；而那个外壳同时挂着
  * mcp / blueprint 等仍在吃 mock 的屏（#1381 起 model 屏的列表读真实 `GET /models` 了，
@@ -72,7 +72,9 @@ describe("#458 /admin/agent 的取数与写入路径不依赖 lib/mock", () => {
   });
 
   it("外壳从 lib/mock 只拿类型：一旦拿到运行时的值，这条会红", () => {
-    const page = readFileSync(resolve(ROOT, "app/admin/[module]/page.tsx"), "utf8");
+    // 2026-09-02（AI 能力归平台后台）：Agent 目录的外壳从 `app/admin/[module]` 搬到
+    // `app/platform-admin/[module]`（旧路由只剩重定向），本条断言跟着搬——判定内容不变。
+    const page = readFileSync(resolve(ROOT, "app/platform-admin/[module]/page.tsx"), "utf8");
     // ⚠ 刻意用 `[^\n;]` 而不是 `[\s\S]`：后者会从更早的一条 import 起头一路跨行匹配到
     //   mock 那一行，把别人的 import 子句当成本条的子句。第一版就是这么写的，
     //   它红了——留下这条注释，免得有人「顺手改回去」。
@@ -83,5 +85,13 @@ describe("#458 /admin/agent 的取数与写入路径不依赖 lib/mock", () => {
     }
     // 并且 agent 段确实落在被上面几条覆盖的那个屏上。
     expect(page).toMatch(/agent:\s*AgentScreen/);
+  });
+
+  it("旧路由 /admin/agent 只剩重定向到 /platform-admin/agent，不再自己渲染 AgentScreen", () => {
+    // 2026-09-02 AI 能力归平台后台：旧外壳若还自己落地 AgentScreen，就是同一个屏两处入口。
+    const legacy = readFileSync(resolve(ROOT, "app/admin/[module]/page.tsx"), "utf8");
+    expect(legacy).toMatch(/agent:\s*["']\/platform-admin\/agent["']/);
+    expect(legacy).not.toMatch(/agent:\s*AgentScreen/);
+    expect(legacy).not.toContain("agent-screen");
   });
 });

@@ -358,7 +358,7 @@ describe("#520 Skill 库屏接真实 API", () => {
    * `skill-catalog-live.tsx` 文件头长注。
    */
   describe("G2/G6：wave2（skills 表来源）行不再摆一个必 404 的「查看契约」", () => {
-    it("duty 命中标记的行显示「编辑源码」链接，目标是独立编辑页 /admin/skill/<skillId>；普通行仍是「查看契约」", async () => {
+    it("duty 命中标记的行显示「编辑源码」链接，目标是独立编辑页 /platform-admin/skill/<skillId>；普通行仍是「查看契约」", async () => {
       install(() =>
         jsonResponse({
           items: [
@@ -382,7 +382,7 @@ describe("#520 Skill 库屏接真实 API", () => {
       const editLink = screen.getByTestId("skill-catalog-edit-source") as HTMLAnchorElement;
       // 人类反馈（2026-08-17）：「编辑」现在打开独立页面，不再是同页 query 参数深链。
       // 2026-08-30：href 带 `?from=/skill`——「返回」要回到这个屏，不是硬编码的目的地。
-      expect(editLink.getAttribute("href")).toBe("/admin/skill/sk-wave2?from=%2Fskill");
+      expect(editLink.getAttribute("href")).toBe("/platform-admin/skill/sk-wave2?from=%2Fskill");
 
       // 普通行（未命中标记）仍然是原来的「查看契约」按钮，两者只能各出现一次。
       expect(screen.getAllByTestId("skill-catalog-detail")).toHaveLength(1);
@@ -449,7 +449,7 @@ describe("#520 Skill 库屏接真实 API", () => {
       await waitFor(() => expect(screen.getByTestId("skill-catalog-list")).toBeTruthy());
       fireEvent.click(screen.getByTestId("skill-catalog-row-sk-wave2"));
       const panel = screen.getByTestId("skill-detail-panel");
-      expect(within(panel).getByTestId("skill-detail-edit-source").getAttribute("href")).toBe("/admin/skill/sk-wave2?from=%2Fskill");
+      expect(within(panel).getByTestId("skill-detail-edit-source").getAttribute("href")).toBe("/platform-admin/skill/sk-wave2?from=%2Fskill");
       expect(panel.textContent).toContain("销售");
       expect(calls.filter((c) => c.pathname.startsWith("/skills/"))).toHaveLength(0);
       expect(screen.queryByTestId("skill-detail-error")).toBeNull();

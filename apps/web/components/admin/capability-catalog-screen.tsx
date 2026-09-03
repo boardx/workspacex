@@ -3,14 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowUpRight, Ban, Building2, Pencil, Rocket } from "lucide-react";
+import { ArrowUpRight, Ban, Globe, Pencil, Rocket } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
-import { currentOrganizationLabel } from "@/lib/org-display";
 import {
   listCapabilities,
   type CapabilityKind,
@@ -106,7 +105,7 @@ export function CapabilityCatalogScreen({
   const query = searchParams.toString();
   const currentUrl = query === "" ? pathname : `${pathname}?${query}`;
   const editHrefFor = (id: string): string =>
-    `/admin/${kind}/${id}?from=${encodeURIComponent(currentUrl)}`;
+    `/platform-admin/${kind}/${id}?from=${encodeURIComponent(currentUrl)}`;
   const copy = COPY[kind];
   const sourceKey = `${orgId}:${kind}`;
   const prefix = `admin-${kind}`;
@@ -254,14 +253,13 @@ export function CapabilityCatalogScreen({
       description="这里只展示可选择的目录记录；出现在目录中不代表已经具备可执行的 AgentRun 或 Skill 运行时。点卡片打开右侧面板查看与修改。"
       eyebrow={
         <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
+          {/* 2026-09-02 第二次裁决：AI 能力归平台后台——页头与 `admin-header.tsx` 的
+              `hideOrgIdentity` 分支同形：平台标记 + 模块徽标，不再挂「组织：xxx / 组织 ID」
+              身份卡（数据读取仍按当前组织走 RLS，只是呈现上这不是一项组织级配置）。 */}
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-inverse text-inverse-foreground">
-            <Building2 aria-hidden className="h-4 w-4" />
+            <Globe aria-hidden className="h-4 w-4" />
           </span>
-          <div className="flex flex-col">
-            {/* #596：身份未就绪时显示加载态，**不拿 orgId 冒充组织名** —— 下一行本来就单独列了组织 ID。 */}
-            <span className="text-14 font-semibold">{currentOrganizationLabel(identity?.org.name)}</span>
-            <span className="font-mono text-10 text-muted-foreground">组织 ID {orgId}</span>
-          </div>
+          <span className="text-14 font-semibold" data-testid={`${prefix}-platform-label`}>平台运营</span>
           <Badge tone="outline">{copy.label}</Badge>
         </div>
       }

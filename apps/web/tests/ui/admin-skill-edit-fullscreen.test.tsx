@@ -4,7 +4,7 @@
  * 名称·可见范围表单/说明文字）压缩成小字一行，把空间让给文件树 + 代码编辑器。
  *
  * 两层证据：
- *  ① 结构层——`app/admin/skill/[id]/page.tsx` 真的用了 `AppShell` 的 `hideTopBar`
+ *  ① 结构层——`app/platform-admin/skill/[id]/page.tsx`（2026-09-02 自 `app/admin/skill/[id]` 搬入）真的用了 `AppShell` 的 `hideTopBar`
  *     沉浸式模式、且不再渲染 `AdminNav`（否则「全屏」只是嘴上说说，左栏和顶栏
  *     chrome 还在）。
  *  ② 行为层——`CapabilityEditPage` 在 `compact` 下渲染的是压缩头部
@@ -72,7 +72,7 @@ afterEach(() => cleanup());
 describe("F1971 · ① 结构层——/admin/skill/[id] 页面源码真的走全屏模式", () => {
   it("`hideTopBar` 存在、不渲染 `AdminNav`（没有 `left=` prop），且把 compact 传给 CapabilityEditPage", () => {
     const source = readFileSync(
-      resolve(__dirname, "../../app/admin/skill/[id]/page.tsx"),
+      resolve(__dirname, "../../app/platform-admin/skill/[id]/page.tsx"),
       "utf8",
     );
     expect(source).toMatch(/<AppShell[^>]*\bhideTopBar\b/);

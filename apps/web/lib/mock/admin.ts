@@ -59,8 +59,8 @@ export const AI_CAPABILITY_GROUP = "AI 能力";
 export type AdminScope = "org" | "platform";
 
 export const ADMIN_SCOPE_META: Record<AdminScope, { title: string; intro: string; rootHref: string }> = {
-  org: { title: "组织后台", intro: "当前组织的 AI 能力与成员管理面", rootHref: "/admin" },
-  platform: { title: "平台后台", intro: "跨组织的全平台账号与运营管理面", rootHref: "/platform-admin" },
+  org: { title: "组织后台", intro: "当前组织的总览、成员配额与本地组织", rootHref: "/admin" },
+  platform: { title: "平台后台", intro: "全平台的 AI 能力、账号与运营管理面", rootHref: "/platform-admin" },
 };
 
 export interface AdminModuleMeta {
@@ -81,7 +81,13 @@ export interface AdminNavGroup {
 export const ADMIN_NAV: AdminNavGroup[] = [
   {
     group: AI_CAPABILITY_GROUP,
-    scope: "org",
+    // 2026-09-02 人类第二次裁决（看组织后台截图后原话：「对于 AI 的能力都应该是在平台的
+    // 后台管理上，而不是组织上」）：AI 能力六项整体归**平台后台**。Agent / 模型 / MCP 的
+    // 路由随之迁到 `/platform-admin/*`（旧 `/admin/*` 重定向）；Skill / 画布模板 / 项目模板
+    // 的 href 本来就不在 `/admin` 下，只是左栏归属换了面。
+    // ⚠ 数据读取与写权限**没有改**：目录仍按当前登录者所在组织走 RLS、写操作仍要组织 admin
+    //   （`canMutate`）。这里改的是信息架构与呈现，不是授权面——授权面若要改是另一件事。
+    scope: "platform",
     // ⚠ 这一组的**项集合**受 `asset-kind-nav.ts` 的双向门控约束：它必须与契约
     //   `AssetKind` 的取值集合逐个相等。删一项、多一项、或契约加了值这边没跟，都会红。
     //   顺序与分组细节待 Q-11 裁，门控**不锁顺序**。
@@ -111,10 +117,10 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       // ⚠ 2026-08-30（路由复盘）：href 从历史 `/canvas?screen=template-admin` 改成路径段
       // `/canvas/template-admin`——见 `lib/canvas-screens.ts` 头注；旧 query 形态仍可用
       // （`app/canvas/page.tsx` 兼容重定向），但这里不该再手写它。
-      { key: "agent", label: "Agent 目录", href: "/admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
+      { key: "agent", label: "Agent 目录", href: "/platform-admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
       { key: "skill", label: "Skill 目录", href: "/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
-      { key: "model", label: "模型", href: "/admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
-      { key: "mcp", label: "MCP", href: "/admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
+      { key: "model", label: "模型", href: "/platform-admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
+      { key: "mcp", label: "MCP", href: "/platform-admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
       { key: "canvasadmin", label: "画布模板", href: "/canvas/template-admin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
       { key: "blueprint", label: "项目模板", href: "/tpl/list", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
     ],

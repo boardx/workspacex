@@ -13,6 +13,8 @@ const COVERED_ROUTES = [
   "app/skill/page.tsx",
   "app/admin/page.tsx",
   "app/admin/[module]/page.tsx",
+  // 2026-09-02：AI 能力（Agent / 模型 / MCP）与平台成员 / 反馈的外壳，原本由 app/admin/[module] 承载。
+  "app/platform-admin/[module]/page.tsx",
   // #1316: /projects/[projectId] and its two real-data sub-routes silently substituted
   // any non-built-in org with MOCK_ORGS[0] ("远洋新能源") and downgraded the caller's
   // orgRole to "consultant" — a real logged-in user of a real org saw somebody else's
