@@ -1633,3 +1633,126 @@ describe("2026-08-26 模板库默认视图 = 卡片网格（Design.pdf §3「主
     expect(screen.queryByTestId("tpladmin-table")).toBeNull();
   });
 });
+
+/**
+ * 排序功能（人类原话「修改过的画布，应该放在最上面呢，这个是排序的设计，增加一个
+ * 排序的功能，可以按照名字，修改时间，创建时间来排序，默认按照最后修改时间」）。
+ *
+ * 三条模板 `keyA`(alphabetically first, updated last, created middle) /
+ * `keyB`(updated middle, created last) / `keyC`(alphabetically last, updated
+ * first——最旧，created first——最早) 三个维度的先后顺序**故意互不一致**，
+ * 才能把"排序键选错了也能碰巧过"的可能性堵死——如果三个维度恰好同序，一个
+ * 写死按 key 排的实现也会让下面每一条断言全部通过。
+ */
+describe("画布模板库排序功能", () => {
+  const keyA = template({
+    key: "keyA", displayName: "A 名称", version: 1,
+    createdAt: "2026-01-02T00:00:00.000Z", updatedAt: "2026-01-05T00:00:00.000Z",
+  });
+  const keyB = template({
+    key: "keyB", displayName: "B 名称", version: 1,
+    createdAt: "2026-01-03T00:00:00.000Z", updatedAt: "2026-01-04T00:00:00.000Z",
+  });
+  const keyC = template({
+    key: "keyC", displayName: "C 名称", version: 1,
+    createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-06T00:00:00.000Z",
+  });
+  const UNSORTED_RESPONSE = () => jsonResponse({ templates: [keyA, keyB, keyC] });
+
+  beforeEach(() => {
+    sessionState.currentOrgId = "org-sorting";
+    sessionState.orgRole = "admin";
+    window.localStorage.clear();
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-sorting");
+    routerReplace.mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** 卡片渲染的先后顺序——DOM 序，不是响应体里的数组序。 */
+  function renderedOrder(): string[] {
+    return screen.getAllByTestId(/^tpladmin-card-/).map((el) => el.getAttribute("data-testid")!);
+  }
+
+  it("默认按最后修改时间降序——改得最新的排最前（keyC > keyA > keyB）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => UNSORTED_RESPONSE()));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
+
+    expect(renderedOrder()).toEqual([
+      "tpladmin-card-keyC-1", "tpladmin-card-keyA-1", "tpladmin-card-keyB-1",
+    ]);
+    // 排序选择器本身也要如实反映"当前是哪一档"，不能选择器显示默认值、实际排序却是别的。
+    expect(screen.getByTestId("tpladmin-sort")).toHaveValue("updatedAt");
+  });
+
+  it("切到创建时间——按创建时间降序（keyB > keyA > keyC，与修改时间序不同）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => UNSORTED_RESPONSE()));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId("tpladmin-sort"), { target: { value: "createdAt" } });
+    await waitFor(() => expect(renderedOrder()).toEqual([
+      "tpladmin-card-keyB-1", "tpladmin-card-keyA-1", "tpladmin-card-keyC-1",
+    ]));
+  });
+
+  it("切到名字——按显示名升序（A → B → C，与两个时间维度都不同）", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => UNSORTED_RESPONSE()));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId("tpladmin-sort"), { target: { value: "name" } });
+    await waitFor(() => expect(renderedOrder()).toEqual([
+      "tpladmin-card-keyA-1", "tpladmin-card-keyB-1", "tpladmin-card-keyC-1",
+    ]));
+  });
+
+  it("并列（updatedAt 相同）不崩、不丢行——两行都还在，只是谁先谁后不做强断言", async () => {
+    const tied = [
+      template({ key: "tie1", displayName: "并列一", version: 1, updatedAt: "2026-01-01T00:00:00.000Z" }),
+      template({ key: "tie2", displayName: "并列二", version: 1, updatedAt: "2026-01-01T00:00:00.000Z" }),
+    ];
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: tied })));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
+
+    expect(renderedOrder().sort()).toEqual(["tpladmin-card-tie1-1", "tpladmin-card-tie2-1"]);
+  });
+
+  it("切排序档位会把 ?sort= 写进 URL；切回默认档（最后修改时间）时从 URL 里删掉，不留一个多余的 sort=updatedAt", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => UNSORTED_RESPONSE()));
+    render(<TemplateAdmin previewRole="facilitator" />);
+    await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId("tpladmin-sort"), { target: { value: "name" } });
+    await waitFor(() => expect(routerReplace).toHaveBeenCalledWith(expect.stringContaining("sort=name"), { scroll: false }));
+
+    fireEvent.change(screen.getByTestId("tpladmin-sort"), { target: { value: "updatedAt" } });
+    await waitFor(() => expect(routerReplace).toHaveBeenLastCalledWith(
+      expect.not.stringContaining("sort="), { scroll: false },
+    ));
+  });
+
+  it("`initialSort` 从 URL 初值恢复——刷新/分享链接带 ?sort=name 时，选择器与渲染顺序都直接是名字序，不需要用户再点一次", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => UNSORTED_RESPONSE()));
+    render(<TemplateAdmin previewRole="facilitator" initialSort="name" />);
+
+    await waitFor(() => expect(screen.getByTestId("tpladmin-sort")).toHaveValue("name"));
+    expect(renderedOrder()).toEqual([
+      "tpladmin-card-keyA-1", "tpladmin-card-keyB-1", "tpladmin-card-keyC-1",
+    ]);
+  });
+
+  it("非法的 `initialSort`（不在三档枚举里）安全退回默认档，不是空白页/崩溃", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => UNSORTED_RESPONSE()));
+    render(<TemplateAdmin previewRole="facilitator" initialSort="not-a-real-sort-mode" />);
+
+    await waitFor(() => expect(screen.getByTestId("tpladmin-sort")).toHaveValue("updatedAt"));
+    expect(renderedOrder()).toEqual([
+      "tpladmin-card-keyC-1", "tpladmin-card-keyA-1", "tpladmin-card-keyB-1",
+    ]);
+  });
+});
