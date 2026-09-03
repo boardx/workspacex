@@ -677,7 +677,7 @@ describe("Cloudflare Email Service REST adapter", () => {
       NODE_ENV: "production",
       CLOUDFLARE_ACCOUNT_ID: "a",
       CLOUDFLARE_EMAIL_API_TOKEN: "t",
-      MAIL_FROM: "verify@example.test",
+      MAIL_FROM: "no-reply@mail.boardx.us",
       APP_PUBLIC_URL: "https://app.example.test",
       CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
     })).not.toThrow();
@@ -690,5 +690,43 @@ describe("Cloudflare Email Service REST adapter", () => {
       CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
       CLOUDFLARE_EMAIL_PREVIEW: "true",
     })).toThrow(/Preview.*attestation/);
+  });
+
+  it("生产环境下 MAIL_FROM 域名必须匹配 Cloudflare 已 onboard 的发信域名（2026-09-03 本地+生产同款事故）", () => {
+    // 根域 boardx.us：Cloudflare 只对"收件人也在该域"这种同域场景拒信，跨域发送
+    // 照常成功——这正是这次事故排查了很久才定位到的地方，所以校验必须在配置装配
+    // 阶段就 fail-fast，不能指望运行时撞见同域收件人才暴露。
+    expect(() => cloudflareEmailConfig({
+      NODE_ENV: "production",
+      CLOUDFLARE_ACCOUNT_ID: "a",
+      CLOUDFLARE_EMAIL_API_TOKEN: "t",
+      MAIL_FROM: "noreply@boardx.us",
+      APP_PUBLIC_URL: "https://app.example.test",
+      CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
+    })).toThrow(/MAIL_FROM domain/);
+    // 匹配已 onboard 的子域 ⇒ 放行。
+    expect(() => cloudflareEmailConfig({
+      NODE_ENV: "production",
+      CLOUDFLARE_ACCOUNT_ID: "a",
+      CLOUDFLARE_EMAIL_API_TOKEN: "t",
+      MAIL_FROM: "no-reply@mail.boardx.us",
+      APP_PUBLIC_URL: "https://app.example.test",
+      CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
+    })).not.toThrow();
+    // 非生产不校验——本文件其余 fixture 大量使用 verify@example.test 这类任意域名。
+    expect(() => cloudflareEmailConfig({
+      NODE_ENV: "test",
+      MAIL_FROM: "noreply@boardx.us",
+    } as NodeJS.ProcessEnv)).not.toThrow();
+    // CLOUDFLARE_EMAIL_SENDING_DOMAIN 覆盖口子：域名迁移时不需要改代码。
+    expect(() => cloudflareEmailConfig({
+      NODE_ENV: "production",
+      CLOUDFLARE_ACCOUNT_ID: "a",
+      CLOUDFLARE_EMAIL_API_TOKEN: "t",
+      MAIL_FROM: "noreply@boardx.us",
+      APP_PUBLIC_URL: "https://app.example.test",
+      CLOUDFLARE_EMAIL_PREVIEW_DISABLED: "true",
+      CLOUDFLARE_EMAIL_SENDING_DOMAIN: "boardx.us",
+    })).not.toThrow();
   });
 });
