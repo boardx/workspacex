@@ -60,6 +60,25 @@ on:
         type: boolean
         default: false
 
+# 2026-09-03：本 workflow 一直没有 concurrency 块（见下方 e2e-full job 里 435 行那条
+# 旧注释「与并发组无关（本 workflow 没有 concurrency: 块）」——那条注释描述的是事实，
+# 不是刻意设计）。后果：同一个 PR 分支被连续推送几次（agent 迭代时常见）时，每一次
+# push 都各自排一整套 job 到队列里，旧的那些不会被新 push 顶掉——PR 页面因此同时堆着
+# 好几轮已经过期的 run，跟 backend-gates.yml（有 concurrency，PR 上 cancel-in-progress）
+# 并排开火，就是发布过程"前后触发六次"这类拥堵的直接成因。
+#
+# 取值对齐 backend-gates.yml 的先例（同一份理由，两边应当一致）：
+#   - PR 上 cancel-in-progress: true —— 同一个 PR 连续推送时，前面还没跑完的那轮
+#     结果已经没人要了，掐掉省队列、省时延。
+#   - main / tag / schedule / workflow_dispatch 上必须 false —— 那里每次 run 对应
+#     一个已经发生的事件（已合入的 commit、一次定时全量 e2e、一次人工 dispatch），
+#     掐掉等于让它永远没被验证过。用 `github.run_id` 兜底，保证同一个 push 恰好
+#     对应一个 group，彼此不互相抢占。
+concurrency:
+  group: >-
+    harness-verify-${{ github.event_name == 'pull_request' && github.head_ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
   # （doctor/lint doctor/harness 自测，全部毫秒级、不碰 DB）与"受影响模块
@@ -432,7 +451,8 @@ jobs:
     #
     # ⇒ **光是步骤 1-7 就吃掉 26/35 = 四分之三预算**，`verify:chat-read` 还没开始就只剩
     #   9 分钟。它不是"偶尔超时"，是结构上跑不完：main push 上 10/10 被 SIGTERM（exit 143）
-    #   杀掉，与并发组无关（本 workflow 没有 `concurrency:` 块）。
+    #   杀掉，与并发组无关（2026-09-03 起本 workflow 有 `concurrency:` 块，但 main
+    #   push 的 cancel-in-progress 恒为 false，这条 job 从不会被同组的新 run 顶掉）。
     #
     # 为什么这件事藏了 39 小时：GitHub 对 job 超时的语义是 **cancel**，于是这些 run 的
     # conclusion 是 `cancelled` —— 读起来像「有人手动取消了」，没有人想到要去点开。
