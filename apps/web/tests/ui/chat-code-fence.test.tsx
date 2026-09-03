@@ -145,6 +145,35 @@ describe("ChatCodeFence（围栏代码块超阈值才默认折叠）", () => {
     vi.useRealTimers();
   });
 
+  it("乱序 settle：更早发起但更晚 resolve 的复制请求，不能覆盖更新一次的结果（review #2556 三轮反馈①）", async () => {
+    let resolveFirst!: () => void;
+    let resolveSecond!: () => void;
+    const first = new Promise<void>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const second = new Promise<void>((resolve) => {
+      resolveSecond = resolve;
+    });
+    const writeText = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const { getByTestId } = render(<ChatCodeFence>{shortCode}</ChatCodeFence>);
+    const btn = getByTestId("chat-code-fence-copy");
+
+    fireEvent.click(btn); // 第一次：writeText 挂起，尚未 settle
+    fireEvent.click(btn); // 第二次：writeText 挂起，尚未 settle
+    expect(writeText).toHaveBeenCalledTimes(2);
+
+    // 乱序 settle：第二次（更新的一次）先 resolve。
+    resolveSecond();
+    await screen.findByText("已复制");
+
+    // 第一次（更早发起、但更晚 settle 的一次）随后才 resolve——它的结果必须被丢弃，
+    // 不能把已经显示的「已复制」覆盖掉或重置计时器。
+    resolveFirst();
+    await Promise.resolve(); // 让第一次的 await 继续跑到 applyIfLatest。
+    expect(btn.textContent).toBe("已复制");
+  });
+
   it("卸载时清理未触发的复位计时器，不留悬挂回调（review #2556 二轮反馈④）", async () => {
     vi.useFakeTimers();
     const writeText = vi.fn().mockResolvedValue(undefined);

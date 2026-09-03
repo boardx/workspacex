@@ -78,6 +78,12 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
   // 复制状态的自动复位计时器：并发/连点复制时只保留最后一次，避免旧计时器
   // 把新结果提前冲掉；卸载时清掉，避免给已卸载的消息挂着回调。
   const resetTimer = React.useRef<number | null>(null);
+  // 「最新一次调用」令牌（review #2556 三轮反馈①）：`writeText()` 的 promise 不保证
+  // 按调用顺序 settle——用户快速连点时，更早发出的一次可能反而更晚 resolve/reject，
+  // 若每次调用各自无条件写 `copyState`，旧调用的结果会在新调用之后覆盖回去。每次
+  // 调用领一个自增 id，settle 时只有「自己仍是最新一次」才允许落地状态与复位计时器；
+  // 不是最新的一律丢弃结果（连状态都不设），旧调用发起的定时器已被新调用一并清掉。
+  const latestCopyId = React.useRef(0);
   React.useEffect(() => () => {
     if (resetTimer.current != null) window.clearTimeout(resetTimer.current);
   }, []);
@@ -91,20 +97,23 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
   }, []);
 
   const copy = React.useCallback(async () => {
+    const id = ++latestCopyId.current;
+    const applyIfLatest = (state: CopyState) => {
+      if (latestCopyId.current !== id) return; // 更新的一次已经发起，这次结果作废。
+      setCopyState(state);
+      scheduleReset();
+    };
     // `navigator.clipboard` 在非安全上下文（非 https/localhost）里整体不存在；
     // `writeText` 权限被拒绝时 promise reject。两种情况都不该报「已复制」。
     if (!navigator.clipboard?.writeText) {
-      setCopyState("failed");
-      scheduleReset();
+      applyIfLatest("failed");
       return;
     }
     try {
       await navigator.clipboard.writeText(text);
-      setCopyState("copied");
+      applyIfLatest("copied");
     } catch {
-      setCopyState("failed");
-    } finally {
-      scheduleReset();
+      applyIfLatest("failed");
     }
   }, [text, scheduleReset]);
 
