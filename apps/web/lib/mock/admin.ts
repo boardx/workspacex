@@ -33,6 +33,17 @@ export type AdminModuleKey =
   // F16：本地组织。归在「组织」组里而不是「AI 能力」组——它是一个组织，
   // 只不过是只有一个人、且数据不出本机的那种。
   | "local"
+  // org-management-integration（2026-09-03 人类直接反馈：「在组织的菜单点击组织管理，
+  // 就是进入到组织后台的菜单，所以需要把他们合并」）：左上角组织菜单的「组织管理」
+  // 入口（`components/shell/org-menu.tsx`，href `/org-admin`，团队/成员/邀请/组织资料
+  // 四个标签页）此前落到一个**不带组织后台左栏**的独立页面——点进去感觉不到「进了组织
+  // 后台」，与人类的心智模型（组织管理＝组织后台的一部分）不一致。
+  // ⇒ 加这一项让 `/org-admin` 在「组织」组里有名有姓的落点，`org-admin-screen.tsx`
+  // 据此把自己的 `AppShell` 接上 `AdminNav`（同其余 `/admin/*` 屏一样的左栏）。
+  // href 仍是 `/org-admin`（不是 `/admin/org-profile`）——那四个标签页是 session 驱动
+  // 的真实数据页，不经过 `app/admin/[module]/page.tsx` 那套 `SCREENS`/`REDIRECTS`
+  // 分发，见该文件头注对已合并模块的既有处置（`blueprint`/`skill`/`canvasadmin` 同理）。
+  | "org-profile"
   // member-role-management delta：成员管理的**平台级**（全平台账号名册 + 任一组织里的角色）。
   // 单独一组「平台」而不是塞进「组织」组：它的授权面是平台超管（部署白名单），不是组织角色，
   // 与「组织」组里每一项「本组织 admin 可见」的语义不同——同一组里混两种授权面会让人以为
@@ -130,6 +141,9 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     scope: "org",
     items: [
       { key: "overview", label: "总览", href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
+      // 见上方 `AdminModuleKey.org-profile` 长注：组织菜单「组织管理」入口的落点，
+      // 团队 / 成员 / 邀请 / 组织资料四个标签页。
+      { key: "org-profile", label: "组织管理", href: "/org-admin", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
       { key: "members", label: "成员配额", href: "/admin/members", ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-7"] },
       { key: "local", label: "我的本地", href: "/admin/local", ucRefs: ["00-core/uc-0-5"] },
     ],
@@ -716,6 +730,13 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
    */
   feedback: () => SW_FEEDBACK_SUMMARY.pending,
   local: () => 1,
+  // 「组织管理」是团队/成员/邀请/组织资料四个标签页的入口，不是单一列表——没有一个
+  // 有意义的「条目数」。按 I-24 的既有语义（抛错＝取不到）表达「这一项本来就不该有
+  // 计数」，不编数字；生产左栏（`live-admin-nav-counts.ts`）同样只认 agent/skill 两项
+  // 口径明确，其余一律「—」，这里保持一致。
+  "org-profile": () => {
+    throw new Error("org-profile is a multi-tab entry, not a countable list");
+  },
   // member-role-management delta：平台名册没有 mock 数据源（它从来不是 mock 屏），本表只是
   // `admin-nav-count-unavailable.test.tsx` 的 HEALTHY 夹具（见 feedback 项长注）——给一个健康值。
   // 生产左栏的来源是 `live-admin-nav-counts.ts`，那里没接的项一律「—」。

@@ -97,10 +97,15 @@ describe("③限额策略 tab：规则卡片 + 降级阈值 + 任务分级表", 
     expect(keys).not.toContain("usage");
     expect(keys).not.toContain("limits");
     expect(keys).not.toContain("policy");
-    // 「组织」组仍然只有 F16 既有的三项——本 feature 没有在左栏加新入口。
+    // 「组织」组不因本 feature 多出 `usage`/`limits`/`policy` 左栏项——本 feature 没有
+    // 在左栏加新入口，用量监控/限额策略是同一屏的 tab，不是新菜单项。
     // ⚠ 2026-09-02：「反馈」已从「组织」组挪到「运营」组（见 `lib/mock/admin.ts`
     //   头注：它是运营动作，不是某个组织自己的配置），本条断言的范围本就是
     //   「组织」组，「反馈」离开这个数组是那次改动的直接结果，不是本条测试要拦的漂移。
-    expect(keys).toEqual(["overview", "members", "local"]);
+    // ⚠ 2026-09-03：`org-profile`（「组织管理」，见 `lib/mock/admin.ts` 头注）是另一次
+    //   独立的人类直接反馈新增的左栏项——把左上角组织菜单「组织管理」入口并入组织后台
+    //   左栏，与本文件锁的「不新增 usage/limits/policy」无关，因此加入期望集合而不是
+    //   被这条断言拦下。
+    expect(keys).toEqual(["overview", "org-profile", "members", "local"]);
   });
 });
