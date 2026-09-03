@@ -37,6 +37,21 @@ export const completePasswordResetMock: z.infer<typeof auth.operations.completeP
 /** completePasswordReset 的失败模式全集——界面的异常态必须逐个覆盖 */
 export const completePasswordResetErrors = ["RESET_TOKEN_INVALID","AUTH_SERVICE_UNAVAILABLE"] as const;
 
+/** inspectPasswordResetThrottle 的成功响应样例（由契约生成） */
+export const inspectPasswordResetThrottleMock: z.infer<typeof auth.operations.inspectPasswordResetThrottle.out> = {
+  "registered": false,
+  "issuedInLast24h": 1,
+  "dailyCap": 1,
+  "overDailyCap": false,
+  "lastIssuedAt": null,
+  "cooldownSeconds": 1,
+  "cooling": false,
+  "cooldownEndsAt": null
+};
+
+/** inspectPasswordResetThrottle 的失败模式全集——界面的异常态必须逐个覆盖 */
+export const inspectPasswordResetThrottleErrors = ["NOT_PLATFORM_SUPERUSER"] as const;
+
 /** validateSession 的成功响应样例（由契约生成） */
 export const validateSessionMock: z.infer<typeof auth.operations.validateSession.out> = null;
 
