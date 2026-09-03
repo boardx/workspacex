@@ -39,3 +39,16 @@ export interface TransactionalMailTransport {
 }
 
 export const TRANSACTIONAL_MAIL_TRANSPORT = Symbol("TransactionalMailTransport");
+
+/**
+ * 发信失败的**归类**错误——`category` 是适配器归好的粗粒度原因（`configuration_missing` /
+ * `timeout` / `network` / `provider_http_<状态码>` / `provider_invalid_response`），不是
+ * 原始异常文本。声明在端口这一层而不是适配器里：调用方（`sendTestEmail` 的控制器）
+ * 要按类别映射契约错误码，它只能依赖端口，不能 import 具体实现（`lint-arch-deps`）。
+ */
+export class TransactionalMailError extends Error {
+  constructor(readonly category: string) {
+    super(category);
+    this.name = "TransactionalMailError";
+  }
+}
