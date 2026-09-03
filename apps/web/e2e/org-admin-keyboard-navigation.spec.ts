@@ -5,8 +5,23 @@
  * "只用键盘即可在 org-admin 完成『打开一个成员的权限设置弹层并调整』（在有管理权限
  * 的角色登录态下）"。
  *
+ * ## issue #2615 改写：三个独立路由取代了原来的一页四标签
+ * 本 feature 开工时 org-admin 是单一路由 `/org-admin`，内部一套 `Tabs`（团队/成员/邀请/
+ * 组织资料四个标签页共享一页，方向键在标签间切换）——那套 `Tabs` 组件已随 issue #2615
+ * （2026-09-03 人类裁决①）整体撤除："在后台的组织后台中，将组织管理下面的成员，邀请，
+ * 组织资料，编程是和总览平级的功能"，现在是 `OrgMembersScreen`/`OrgInvitesScreen`/
+ * `OrgProfileScreen` 三个独立路由（`/org-admin/members`/`/org-admin/invites`/
+ * `/org-admin/profile`），各自套同一个左栏 `AdminNav`，不再是同页切标签。
+ * ⇒ 本文件拆成两段：
+ *   ① 三个独立左栏入口之间的键盘可达性——验证它们是真实 `<a>`（`AdminNav` 用 `Link`
+ *      渲染，天然在 Tab 序列里，不需要任何自定义 roving tabindex），Tab 能顺序到达、
+ *      Enter 能真的跳转，这是"标签切换"被拆成"路由切换"后键盘可达性对应的新形状。
+ *   ② 核心任务本身（打开权限设置弹层并调整）——起点从"默认落在的团队标签"改成直接
+ *      落在 `/org-admin/members`（它现在是独立路由，不再有默认标签这回事），后续的
+ *      Tab 走查 / PopoverSelect 弹层操作与 F06 原始范围一字不改。
+ *
  * ## 「权限设置弹层」是什么
- * org-admin 这一轮范围里对既有成员唯一可调整的权限类控件是"成员"标签页每行的
+ * org-admin 这一轮范围里对既有成员唯一可调整的权限类控件是"成员"屏每行的
  * 「Skill 审核人职能」下拉（`ReviewerFunctionPicker`，`org-admin-screen.tsx`）——
  * 仅组织 admin 渲染可见，改动会真的调用 `assignSkillReviewerFunction`/
  * `revokeSkillReviewerFunction` 写库（issue #852）。这是当前产品范围内真实存在、
@@ -30,34 +45,73 @@
  *
  * 全程不调用 `page.mouse`，也不对任何按钮/标签/下拉用 `.click()`——用
  * `locator.focus()`（JS 层 `element.focus()`，不是鼠标事件）把光标带到走查起点，
- * 之后全靠 `page.keyboard.press` 推进：Tab 走查到目标标签/按钮，方向键切换标签，
- * Enter 打开弹层/确认选项。登录是测试前置条件，`.fill()`/`.click()` 沿用仓库既有
+ * 之后全靠 `page.keyboard.press` 推进：Tab 走查到目标链接/按钮，Enter 打开弹层/
+ * 确认选项/跳转路由。登录是测试前置条件，`.fill()`/`.click()` 沿用仓库既有
  * 登录样板（同 `profile-keyboard-navigation.spec.ts`）。
  */
 import { expect, test } from "@playwright/test";
 import { SELF_SERVICE_PROFILE_E2E } from "./self-service-profile-fixture";
 
 test.describe("keyboard org-admin：org-admin 核心任务全键盘可达", () => {
-  test("keyboard org-admin：只用键盘打开一个成员的权限设置并调整", async ({ page }) => {
+  test("keyboard org-admin：三个独立入口可键盘到达 + 只用键盘打开一个成员的权限设置并调整", async ({ page }) => {
     await page.goto("/login");
     await page.getByTestId("login-email").fill(SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardAdminEmail);
     await page.getByTestId("login-password").fill(SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardAdminPassword);
     await page.getByTestId("login-submit").click();
     await expect(page).toHaveURL(/\/projects$/);
 
-    await page.goto("/org-admin");
+    /* ── ① 三个独立左栏入口之间的键盘可达性 ──────────────────────────────
+       "成员"→"邀请"→"组织资料" 现在是三条独立路由，不再是同页的三个标签——
+       验证它们仍然是 Tab 序列里的真实链接（`AdminNav` 用 `Link` 渲染），且
+       Enter 能真的把路由切过去，这是原来 R6「方向键切换标签」在拆平为路由之后
+       对应的新形状：不再是"标签切换"，是"链接可达 + 可激活"。 */
+    await page.goto("/org-admin/members");
     await expect(page.getByTestId("org-admin-screen")).toBeVisible();
 
-    // 起点：默认落在"团队"标签（`Tabs defaultValue="teams"`）。走查起点放在这个
-    // 已知的、当前激活的标签触发器上——不是直接 `.focus()` 目标控件抄近路。
-    await page.getByTestId("org-admin-tab-teams").focus();
-    await expect(page.getByTestId("org-admin-tab-teams")).toBeFocused();
+    await page.getByTestId("admin-nav-org-members").focus();
+    await expect(page.getByTestId("admin-nav-org-members")).toBeFocused();
 
-    // Radix Tabs 默认 activationMode="automatic"：方向键在标签列表内移动焦点的
-    // 同时就切换激活标签，不需要额外 Enter——这正是 R6 要求的「方向键」可达。
-    await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId("org-admin-tab-members")).toBeFocused();
-    await expect(page.getByTestId("org-admin-tab-members")).toHaveAttribute("data-state", "active");
+    // 从「成员」链接开始，Tab 走查应能在有限步数内到达「邀请」链接——它是真实 <a>，
+    // 不需要任何自定义按键处理就该在 Tab 序列里。
+    let reachedInvitesLink = false;
+    for (let step = 0; step < 20; step += 1) {
+      await page.keyboard.press("Tab");
+      const activeTestId = await page.evaluate(() => document.activeElement?.getAttribute("data-testid") ?? null);
+      if (activeTestId === "admin-nav-org-invites") {
+        reachedInvitesLink = true;
+        break;
+      }
+    }
+    expect(reachedInvitesLink, "从「成员」入口开始，Tab 走查应在有限步数内到达「邀请」入口链接").toBe(true);
+    await expect(page.getByTestId("admin-nav-org-invites")).toBeFocused();
+
+    // Enter 激活这条链接，真的把路由切到 /org-admin/invites——不是停在"聚焦到了"这一步。
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/org-admin\/invites$/);
+    await expect(page.getByTestId("org-admin-screen")).toBeVisible();
+    await expect(page.getByTestId("admin-nav-org-invites")).toHaveAttribute("aria-current", "page");
+
+    // 继续从这里 Tab 走查到「组织资料」链接，同一条纪律。
+    await page.getByTestId("admin-nav-org-invites").focus();
+    let reachedProfileLink = false;
+    for (let step = 0; step < 20; step += 1) {
+      await page.keyboard.press("Tab");
+      const activeTestId = await page.evaluate(() => document.activeElement?.getAttribute("data-testid") ?? null);
+      if (activeTestId === "admin-nav-org-profile") {
+        reachedProfileLink = true;
+        break;
+      }
+    }
+    expect(reachedProfileLink, "从「邀请」入口开始，Tab 走查应在有限步数内到达「组织资料」入口链接").toBe(true);
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/org-admin\/profile$/);
+    await expect(page.getByTestId("org-admin-screen")).toBeVisible();
+
+    /* ── ② 核心任务：只用键盘打开一个成员的权限设置并调整 ──────────────────
+       起点直接落在 `/org-admin/members`——它现在是独立路由，不再有"默认标签"
+       这回事，不需要像原来那样先 Tab 到标签触发器再切换。 */
+    await page.goto("/org-admin/members");
+    await expect(page.getByTestId("org-admin-screen")).toBeVisible();
     await expect(page.getByTestId("org-admin-member-list")).toBeVisible();
 
     const targetUserId = SELF_SERVICE_PROFILE_E2E.orgAdminKeyboardMemberUserId;
@@ -66,8 +120,9 @@ test.describe("keyboard org-admin：org-admin 核心任务全键盘可达", () =
     await expect(pickerTrigger).toHaveText("无审核职能");
     await expect(pickerTrigger).toHaveAttribute("aria-expanded", "false");
 
-    // 从标签触发器开始，Tab 走查应能在有限步数内到达目标成员的权限下拉按钮——这正是
+    // 从左栏「成员」入口开始，Tab 走查应能在有限步数内到达目标成员的权限下拉按钮——这正是
     // R6「Tab 顺序符合视觉顺序」的核心断言，不是直接 `.focus()` 控件抄近路。
+    await page.getByTestId("admin-nav-org-members").focus();
     let reachedPicker = false;
     for (let step = 0; step < 40; step += 1) {
       await page.keyboard.press("Tab");
@@ -77,7 +132,7 @@ test.describe("keyboard org-admin：org-admin 核心任务全键盘可达", () =
         break;
       }
     }
-    expect(reachedPicker, `从"成员"标签开始，Tab 走查应在有限步数内到达目标成员的权限下拉按钮（${pickerTestId}）`).toBe(true);
+    expect(reachedPicker, `从左栏"成员"入口开始，Tab 走查应在有限步数内到达目标成员的权限下拉按钮（${pickerTestId}）`).toBe(true);
     await expect(pickerTrigger).toBeFocused();
 
     // 「打开」——Enter 激活按钮，弹出 `role=listbox`。
@@ -128,15 +183,10 @@ test.describe("keyboard org-admin：org-admin 核心任务全键盘可达", () =
     await expect(pickerTrigger).toHaveText("方法论审核人");
 
     // 刷新后仍在——证明真的写库，不是只改了 React state（同
-    // `profile-keyboard-navigation.spec.ts` 的纪律）。刷新后 `Tabs` 会回到
-    // `defaultValue="teams"`（未持久化在 URL 里），"成员"标签内容随之卸载——
-    // 用同一套键盘走查（Tab 到标签、方向键切换）重新进入"成员"标签再断言，
-    // 不是抄近路直接 `.focus()` 目标控件。
+    // `profile-keyboard-navigation.spec.ts` 的纪律）。`/org-admin/members` 是独立路由，
+    // 刷新后直接就在这个屏上，不需要像旧版那样重新走"标签切换"才能回到"成员"。
     await page.reload();
     await expect(page.getByTestId("org-admin-screen")).toBeVisible();
-    await page.getByTestId("org-admin-tab-teams").focus();
-    await page.keyboard.press("ArrowRight");
-    await expect(page.getByTestId("org-admin-tab-members")).toHaveAttribute("data-state", "active");
     await expect(page.getByTestId(pickerTestId)).toHaveText("方法论审核人");
   });
 });

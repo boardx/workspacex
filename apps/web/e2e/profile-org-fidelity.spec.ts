@@ -66,19 +66,22 @@ test("profile fidelity shots", async ({ page }) => {
     await page.screenshot({ path: `${OUT}/profile-${name}.png`, fullPage: true });
   }
 
-  // ---- org-admin：团队标签（默认态）+ 成员标签（含 F06 的权限下拉入口） ----
+  // ---- org-admin：成员屏 + 邀请屏（issue #2615 拆平后是两条独立路由，不再是同页标签；
+  //      "团队"标签已随该 issue 撤除，不再有对应截图） ----
   for (const { name, size } of viewports) {
     await page.setViewportSize(size);
-    await page.goto("/org-admin");
+    await page.goto("/org-admin/members");
     await expect(page.getByTestId("org-admin-screen")).toBeVisible();
-    await page.waitForTimeout(400);
-    await assertNoHorizontalOverflow(page);
-    await page.screenshot({ path: `${OUT}/org-admin-teams-${name}.png`, fullPage: true });
-
-    await page.getByTestId("org-admin-tab-members").click();
     await expect(page.getByTestId("org-admin-member-list")).toBeVisible();
     await page.waitForTimeout(400);
     await assertNoHorizontalOverflow(page);
+    // F06 的权限下拉入口就在这个成员列表里（`ReviewerFunctionPicker`），不需要额外导航。
     await page.screenshot({ path: `${OUT}/org-admin-members-${name}.png`, fullPage: true });
+
+    await page.goto("/org-admin/invites");
+    await expect(page.getByTestId("org-admin-screen")).toBeVisible();
+    await page.waitForTimeout(400);
+    await assertNoHorizontalOverflow(page);
+    await page.screenshot({ path: `${OUT}/org-admin-invites-${name}.png`, fullPage: true });
   }
 });
