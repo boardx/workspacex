@@ -26,6 +26,7 @@ import {
   type SectionGeometryMmInput,
 } from "@/lib/canvas/explicit-template-layout";
 import { A0_FRAME, ENGINE_STICKY, GRID_TOP, renderStickyCapacity } from "@/lib/canvas/auto-template-layout";
+import { registerTemplate, templateToModel } from "@repo/fabric-markdown";
 
 function section(
   key: string, col: number, row: number, w: number, h: number,
@@ -103,8 +104,92 @@ describe("computeExplicitLayout —— px 几何", () => {
       ],
       gridCols: 12,
     });
+    // a：748px 宽的分区框配 2 列，默认贴纸宽度（136px）绰绰有余，不需要收缩。
     expect(spec.sections[0]!.sticky).toEqual({ perRow: 2 });
-    expect(spec.sections[1]!.sticky).toEqual({ perRow: 6 });
+    // b：同样 748px 宽配 6 列，默认贴纸宽度这时放不下 6 张一行（见 issue #2611
+    // `stickyWidthOverride`），需要收缩 `sticky.w` 才能让引擎真的画出配置的列数。
+    expect(spec.sections[1]!.sticky).toEqual({ perRow: 6, w: 108 });
+  });
+
+  /**
+   * issue #2611 根因回归钉子：「AI 商业模型画布」这类多分区窄格模板（12 列网格里
+   * 一个分区常常只跨 2 列，≈230px 宽）配 2 列一行，`sticky.perRow` 此前原样写成 2，
+   * 但引擎按默认贴纸宽度（`ENGINE_STICKY.w`,136px）反算这个框物理上一行只摆得下 1 张
+   * （`floor((230-28)/(136+12))=1`），编辑器里配的「2 列」在 chat 模拟/真实 chat 里
+   * 从未生效，画出来的每个分区都退化成 1 列。
+   */
+  it("窄分区框（AI 商业模型画布真实几何：12 列网格里跨 2 列）配 2 列一行：sticky.w 收缩到引擎真能摆出 2 列", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "ai-bmc-like", displayName: "测试模板",
+      sections: [section("partners", 1, 1, 2, 8, { cols: 2 })],
+      gridCols: 12,
+    });
+    const sticky = spec.sections[0]!.sticky!;
+    expect(sticky.perRow).toBe(2);
+    expect(sticky.w).toBeDefined();
+    expect(sticky.w!).toBeLessThan(ENGINE_STICKY.w);
+    // 核心断言：引擎自己的 perRow 公式（`template-engine.ts` 531-534 行）用这个收缩后的
+    // 宽度反算，真的能摆出配置的 2 列，不是收缩了但仍然不够。
+    const engineActualPerRow = Math.max(
+      1,
+      Math.min(sticky.perRow!, Math.floor((spec.sections[0]!.w - 28) / (sticky.w! + 12))),
+    );
+    expect(engineActualPerRow).toBe(2);
+  });
+
+  /**
+   * ground truth：上一条钉子是按引擎公式手算 `engineActualPerRow`——只证明"这个公式
+   * 算出来是 2"，不证明"喂给真实 fabric-markdown 引擎（`registerTemplate` +
+   * `templateToModel`，chat 模拟/真实 chat 走的同一条渲染管线）真的画出了 2 张贴纸
+   * 并排"。这里换成端到端走一遍真实引擎：用 `buildExplicitTemplateSpec` 产出的 spec
+   * 注册模板，喂 4 条真实要点文本进 `templateToModel`，直接读渲染出的贴纸节点几何——
+   * 4 张贴纸必须落在两个不同的 x 坐标上（2 列 × 2 行），不能全部叠在同一列。
+   */
+  it("ground truth：真实引擎渲染出的贴纸落在两个不同的 x 坐标上，不是公式算出 2 但实际还是叠成 1 列", () => {
+    const key = "explicit-layout-ground-truth-2611";
+    const { spec } = buildExplicitTemplateSpec({
+      key, displayName: "测试模板",
+      sections: [section("partners", 1, 1, 2, 8, { cols: 2 })],
+      gridCols: 12,
+    });
+    registerTemplate(spec);
+
+    const model = templateToModel(`模板: ${key}\n## 分区-partners\n- 条目1\n- 条目2\n- 条目3\n- 条目4`);
+    const stickies = model.nodes.filter((n) => n.data?.role === "sticky");
+    expect(stickies).toHaveLength(4);
+    const xs = new Set(stickies.map((s) => Math.round(s.x)));
+    // 核心断言：真实渲染出的贴纸不止一个 x 坐标——2 列必然产出 2 种不同的 x，
+    // 修复前（sticky.w 未收缩）4 张贴纸会全部叠在同一列，这里只会有 1 个 x。
+    expect(xs.size).toBe(2);
+  });
+
+  /**
+   * 独立审查追问「列数配到极端值时，收缩后的贴纸宽度有没有下限」——`stickyWidthOverride`
+   * 刻意不设下限（理由见该函数文档），这条钉住「不设下限」不等于「会产出负数/零宽度」：
+   * 分区框窄到连内边距+列间距都腾不出来时，函数如实退回不覆盖（`available <= 0`），
+   * 不产出会让下游 `renderStickyCapacity`/渲染管线算出荒谬负宽度的值。
+   */
+  it("列数配到极端值（分区框窄到腾不出内边距+列间距）时：不覆盖，不产出负数/零宽度", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      // 12 列网格里只跨 1 格（≈105px 宽）配 20 列——物理上不可能腾出 20 道列间距。
+      sections: [section("a", 1, 1, 1, 1, { cols: 20 })],
+      gridCols: 12,
+    });
+    const sticky = spec.sections[0]!.sticky!;
+    expect(sticky.perRow).toBe(20);
+    // 没有覆盖：既不是负数，也不是 0——如实退回「这里解决不了」，交给
+    // `renderStickyCapacity` 按默认宽度算出更小的真实列数（如实拒绝，不是硬凑）。
+    expect(sticky.w === undefined || sticky.w > 0).toBe(true);
+  });
+
+  it("宽分区框不受影响——默认贴纸宽度本来就放得下配置的列数时，sticky 不带 w（与改动前逐字一致）", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [section("a", 1, 1, 12, 8, { cols: 3 })],
+      gridCols: 12,
+    });
+    expect(spec.sections[0]!.sticky).toEqual({ perRow: 3 });
   });
 
   it("每个分区各自的 tone → stickyColor，取的是 TONE_COLORS 里对应索引的真实 hex", () => {
