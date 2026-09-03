@@ -248,13 +248,42 @@ function normalizeSectionKey(name: string): string {
     .replace(/[与及]/g, '和');
 }
 
-/** 按 canonical 分区名取要点：逐字命中优先，否则按 {@link normalizeSectionKey} 兜底匹配。 */
+/**
+ * 去掉分区名末尾连续的纯 ASCII 词（issue #2576：三视角模型偶发不生成任何内容）。
+ *
+ * 部分模板的 canonical 分区名是「中文 English」双语形式（如「人本期望 Desirability」），
+ * 但指引只要求模型「逐字一致」，模型偶尔会图省事只写中文核心部分、丢掉英文后缀。此时
+ * `normalizeSectionKey` 仍会保留 canonical 名里的英文（只去空格），两侧永远对不上，
+ * 分区就会一片空白。这里剥离末尾连续的纯英文 token，只保留核心部分再比较。
+ *
+ * 只剥「末尾连续」的 ASCII token，且剥完不能是空字符串（否则原样返回）——这样纯英文
+ * 分区名（如 golden-circle 的 WHY/HOW/WHAT）不受影响，不会被错误剥空后互相碰撞。
+ */
+function stripBilingualSuffix(name: string): string {
+  const tokens = name.trim().split(/\s+/).filter(Boolean);
+  let end = tokens.length;
+  while (end > 0 && /^[A-Za-z][A-Za-z-]*$/.test(tokens[end - 1]!)) end--;
+  if (end === 0 || end === tokens.length) return name;
+  return tokens.slice(0, end).join('');
+}
+
+/**
+ * 按 canonical 分区名取要点：逐字命中优先，其次按 {@link normalizeSectionKey} 兜底匹配，
+ * 最后按去掉双语后缀的核心名再兜底一次（见 {@link stripBilingualSuffix}）。
+ */
 export function lookupSectionItems(sections: Map<string, string[]>, name: string): string[] {
   const exact = sections.get(name);
   if (exact) return exact;
   const target = normalizeSectionKey(name);
   for (const [key, items] of sections) {
     if (normalizeSectionKey(key) === target) return items;
+  }
+  const targetCore = normalizeSectionKey(stripBilingualSuffix(name));
+  if (targetCore && targetCore !== target) {
+    for (const [key, items] of sections) {
+      const keyCore = normalizeSectionKey(stripBilingualSuffix(key));
+      if (keyCore && keyCore === targetCore) return items;
+    }
   }
   return [];
 }
