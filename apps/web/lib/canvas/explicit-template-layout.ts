@@ -37,7 +37,9 @@
  */
 import { PAPER } from "@repo/fabric-markdown/theme";
 import type { TemplateSpec, TemplateSection } from "@repo/fabric-markdown";
-import { A0_FRAME, GRID_TOP, GUTTER, HEADER_ROW_PITCH } from "./auto-template-layout";
+import {
+  A0_FRAME, ENGINE_STICKY, ENGINE_STICKY_INSET, ENGINE_STICKY_TOP_OFFSET, GRID_TOP, GUTTER, HEADER_ROW_PITCH,
+} from "./auto-template-layout";
 
 /**
  * `Design.pdf` §2.2：贴纸四色板，索引即 `layout.tone`。单一事实源（issue #2372
@@ -230,6 +232,44 @@ export function allSectionsPlaced(sections: readonly { readonly layout?: unknown
 /** 镜像 `template-engine.ts` 的 `LABEL_W(96) + 6px 间距 + VALUE_W(150)`——见上方 2026-08-31 注释。 */
 const HEADER_FIELD_MIN_W = 96 + 6 + 150;
 
+/**
+ * issue #2585：「汉堡沟通模型」chat 模拟里「开场引入」「行动闭环」两个分区完全无
+ * 内容、无颜色。
+ *
+ * ## 根因：这两个分区的网格格子太矮，连一张默认尺寸的贴纸都放不下
+ *
+ * 汉堡的 5 个分区被 `deriveTemplateLayouts` 摊到 8 行网格后，首尾两带（开场引入/
+ * 行动闭环）各只分到 1 行（`layout.h = 1`），中间三带各 2 行——5 个等高带映射到
+ * 8 行网格，`fillGrid` 的压缩-摊开算法必然产出这种首尾窄、中间宽的结果。
+ *
+ * 本函数此前对每个分区一律用引擎默认贴纸尺寸（`ENGINE_STICKY`，未设 `sticky.h`
+ * 时合并自 `template-engine.ts` 的 `DEFAULT_STICKY`，92px 高），`sectionRenderCapacities`
+ * 反过来读这同一份 `sticky.h` 算容量（`renderStickyCapacity` 的逆运算，见该文件）。
+ * `h=1` 格子的实际像素高只有约 83.5px，扣掉标题条（`ENGINE_STICKY_TOP_OFFSET`,44px）
+ * 和内边距（`ENGINE_STICKY_INSET`,14px）后只剩约 25.5px 可用——比默认贴纸的 92px
+ * 矮得多，`renderStickyCapacity` 算出容量 0，`cap-fence-bullets.ts` 的
+ * `capFenceBulletsToCapacity` 就把这个分区下的全部要点整段丢弃：没有便签 = 没有
+ * 内容，也没有颜色（`stickyColor` 只画在便签上，没有便签就看不见色）。
+ *
+ * ## 修法：贴纸尺寸随格子高度收缩，而不是保持默认尺寸硬套
+ *
+ * 与 `sectionGeometryMm`（mm 几何那条姊妹路径，`heightConstrainedNoteMm`）同一个
+ * 思路：格子放不下默认尺寸的贴纸、但格子本身还有正的可用高度时，把贴纸压到「这个
+ * 格子物理放得下一行」的尺寸，而不是保持默认尺寸算出容量 0 后把内容整段丢光——
+ * 一张收缩了的贴纸，比完全没有贴纸更接近使用者的预期（`Design.pdf` 的三种溢出
+ * 策略里，「缩小字号」本就优先于「截断」）。`sectionRenderCapacities` 读的是这里
+ * 写回 `sticky.h` 的实际值，两处不会算出两个不同的答案。
+ *
+ * 格子本身矮到连收缩后的贴纸都放不下（可用高度 ≤ 0）时不做任何覆盖——那是真的
+ * 一寸空间都没有，容量为 0 是如实的，不是这个函数能解决的（会在别处被当成布局
+ * 需要修的信号，而不是在这里硬造一张看不见的贴纸）。
+ */
+function stickyHeightOverride(cellH: number): { h?: number } {
+  const available = cellH - ENGINE_STICKY_TOP_OFFSET - ENGINE_STICKY_INSET;
+  if (available <= 0 || available >= ENGINE_STICKY.h) return {};
+  return { h: Math.floor(available) };
+}
+
 export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): ExplicitTemplateResult {
   const rawLayout = computeExplicitLayout(input.sections, input.gridCols);
   const typeById = new Map(input.sections.map((s) => [s.sectionId, s.type] as const));
@@ -266,7 +306,7 @@ export function buildExplicitTemplateSpec(input: ExplicitTemplateInput): Explici
     w: c.w,
     h: c.h,
     fill: PAPER,
-    sticky: { perRow: c.layout.cols },
+    sticky: { perRow: c.layout.cols, ...stickyHeightOverride(c.h) },
     stickyColor: TONE_COLORS[c.layout.tone] ?? TONE_COLORS[0],
   }));
 
