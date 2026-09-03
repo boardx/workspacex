@@ -115,6 +115,8 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   const [reportPending, setReportPending] = React.useState(initialView.reportGeneration?.status === "running");
   const requestIds = React.useRef(new Map<string, { readonly fingerprint: string; readonly requestId: string }>());
   const localReportStream = React.useRef(false);
+  const latestView = React.useRef(view);
+  latestView.current = view;
 
   React.useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -144,6 +146,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     setReportPending(true);
     void observeDigitalInterviewReportStream(
       view.interviewId,
+      latestView.current,
       (next) => { setView(next); setError(""); },
       controller.signal,
     ).catch((cause) => {
@@ -248,6 +251,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     try {
       const next = await generateDigitalInterviewReportStream(
         { interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) },
+        view,
         (progress) => { setView(progress); setError(""); },
       );
       replaceAfterConfirmation(next, operation);

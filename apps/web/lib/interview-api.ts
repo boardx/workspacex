@@ -128,38 +128,63 @@ export function generateDigitalInterviewReport(input: {
   });
 }
 
-interface DigitalInterviewReportStreamFrame {
-  readonly type: "progress" | "complete" | "error";
-  readonly value: unknown;
+type DigitalReportTransportEvent = z.infer<typeof interview.DigitalReportTransportEvent>;
+
+function applyReportTransportEvent(
+  view: DigitalInterviewWorkflowView,
+  event: Exclude<DigitalReportTransportEvent, { type: "complete" | "error" }>,
+): DigitalInterviewWorkflowView {
+  if (event.type === "snapshot") {
+    const { type: _type, seq: _seq, ...reportGeneration } = event;
+    return { ...view, reportId: event.reportId, report: null, reportGeneration };
+  }
+  const generation = view.reportGeneration;
+  if (!generation) throw new ApiError(502, "REPORT_STREAM_MISSING_SNAPSHOT", event);
+  if (event.type === "meta") {
+    return { ...view, reportGeneration: { ...generation, title: event.title, executiveSummary: event.executiveSummary } };
+  }
+  if (event.type === "section") {
+    return { ...view, reportGeneration: { ...generation, markdown: `${generation.markdown}${event.markdown}` } };
+  }
+  return { ...view, reportGeneration: { ...generation, findings: [...generation.findings, event.finding] } };
 }
 
 async function readReportStream(
   response: Response,
+  initialView: DigitalInterviewWorkflowView,
   onProgress: (view: DigitalInterviewWorkflowView) => void,
-): Promise<DigitalInterviewWorkflowView> {
+): Promise<{ readonly latest: DigitalInterviewWorkflowView; readonly completed: boolean }> {
   if (!response.ok || !response.body) throw new ApiError(response.status, null, null);
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
   let pending = "";
-  let latest: DigitalInterviewWorkflowView | null = null;
+  let latest = initialView;
+  let sawFrame = false;
+  let completed = false;
+  let lastSeq = -1;
   while (true) {
     const { value, done } = await reader.read();
     pending += value ?? "";
     const lines = pending.split("\n");
     pending = lines.pop() ?? "";
     for (const line of lines.filter((candidate) => candidate.trim())) {
-      const frame = JSON.parse(line) as DigitalInterviewReportStreamFrame;
-      if (frame.type === "error") {
-        const reasonCode = frame.value && typeof frame.value === "object" && "reasonCode" in frame.value
-          ? String((frame.value as { reasonCode: unknown }).reasonCode) : "DEPENDENCY_UNAVAILABLE";
-        throw new ApiError(503, reasonCode, frame.value);
+      const event = interview.DigitalReportTransportEvent.parse(JSON.parse(line));
+      sawFrame = true;
+      if (event.seq <= lastSeq) throw new ApiError(502, "REPORT_STREAM_SEQUENCE_INVALID", event);
+      lastSeq = event.seq;
+      if (event.type === "error") {
+        throw new ApiError(503, event.reasonCode, event);
       }
-      latest = interview.DigitalInterviewWorkflowView.parse(frame.value);
-      onProgress(latest);
+      if (event.type === "complete") {
+        completed = true;
+      } else {
+        latest = applyReportTransportEvent(latest, event);
+        onProgress(latest);
+      }
     }
     if (done) break;
   }
-  if (!latest) throw new ApiError(502, "REPORT_STREAM_EMPTY", null);
-  return latest;
+  if (!sawFrame) throw new ApiError(502, "REPORT_STREAM_EMPTY", null);
+  return { latest, completed };
 }
 
 function reportGenerationFinished(view: DigitalInterviewWorkflowView): boolean {
@@ -188,6 +213,7 @@ function waitForReportStreamRetry(signal?: AbortSignal): Promise<void> {
 
 export async function generateDigitalInterviewReportStream(
   input: { readonly interviewId: string; readonly expectedVersion: number; readonly requestId: string },
+  initialView: DigitalInterviewWorkflowView,
   onProgress: (view: DigitalInterviewWorkflowView) => void,
   signal?: AbortSignal,
 ): Promise<DigitalInterviewWorkflowView> {
@@ -204,21 +230,29 @@ export async function generateDigitalInterviewReportStream(
       body: JSON.stringify({ expectedVersion: input.expectedVersion, requestId: input.requestId }),
       signal,
     });
-    const latest = await readReportStream(response, onProgress);
-    if (reportGenerationFinished(latest) || !reportGenerationRunning(latest)) return latest;
+    const streamed = await readReportStream(response, initialView, onProgress);
+    if (streamed.completed) {
+      const completed = await loadDigitalInterviewWorkflow(input.interviewId, signal);
+      onProgress(completed);
+      return completed;
+    }
+    if (reportGenerationFinished(streamed.latest) || !reportGenerationRunning(streamed.latest)) return streamed.latest;
+    initialView = streamed.latest;
   } catch (cause) {
     if (signal?.aborted) throw cause;
     const recovered = await loadDigitalInterviewWorkflow(input.interviewId, signal);
     onProgress(recovered);
     if (reportGenerationFinished(recovered)) return recovered;
     if (!reportGenerationRunning(recovered)) throw cause;
+    initialView = recovered;
   }
 
-  return observeDigitalInterviewReportStream(input.interviewId, onProgress, signal);
+  return observeDigitalInterviewReportStream(input.interviewId, initialView, onProgress, signal);
 }
 
 export async function observeDigitalInterviewReportStream(
   interviewId: string,
+  initialView: DigitalInterviewWorkflowView,
   onProgress: (view: DigitalInterviewWorkflowView) => void,
   signal?: AbortSignal,
 ): Promise<DigitalInterviewWorkflowView> {
@@ -230,8 +264,14 @@ export async function observeDigitalInterviewReportStream(
         credentials: "include",
         signal,
       });
-      const latest = await readReportStream(response, onProgress);
-      if (reportGenerationFinished(latest) || !reportGenerationRunning(latest)) return latest;
+      const streamed = await readReportStream(response, initialView, onProgress);
+      if (streamed.completed) {
+        const completed = await loadDigitalInterviewWorkflow(interviewId, signal);
+        onProgress(completed);
+        return completed;
+      }
+      initialView = streamed.latest;
+      if (reportGenerationFinished(streamed.latest) || !reportGenerationRunning(streamed.latest)) return streamed.latest;
     } catch (cause) {
       if (signal?.aborted || !isRetryableReportStreamError(cause)) throw cause;
     }
