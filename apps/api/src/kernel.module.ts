@@ -50,7 +50,7 @@ import {
 import { RedisSessionTokenStore, redisConfig } from "./infrastructure/auth/redis-session-token-store";
 import { SessionTokenPrincipalResolver } from "./infrastructure/auth/session-token-principal-resolver";
 import { SystemClock, UuidTokenFactory } from "./infrastructure/auth/system-clock";
-import { OutboxMailer } from "./infrastructure/auth/outbox-mailer";
+import { DeliveringPasswordMailer } from "./infrastructure/auth/delivering-password-mailer";
 import { AuthController } from "./interface/controllers/auth.controller";
 import type { Clock } from "./application/auth/ports";
 
@@ -1260,10 +1260,13 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     { provide: PASSWORD_HASHER, useClass: BcryptPasswordHasher },
     { provide: TOKEN_FACTORY, useClass: UuidTokenFactory },
     { provide: CLOCK, useClass: SystemClock },
-    // ⚠ Records, does not send. Mail is EGRESS (X-3) and gap A-4 -- whether a local
-    // organization may use password login at all is still an open product question, and
-    // wiring an SMTP client here would answer it by accident. See outbox-mailer.ts.
-    { provide: MAILER, useClass: OutboxMailer },
+    // Real delivery (issue #2602): `DeliveringPasswordMailer` wraps an `OutboxMailer`
+    // (recording is unchanged -- every test that reads `MAILER` back out of the
+    // container still sees `.drain()`/`.clear()`) and additionally, best-effort, sends
+    // through the SAME `TransactionalMailTransport` "系统异常 → 测试邮件" already uses.
+    // Gap A-4 (local organization / zero-egress) is unaddressed by this and remains
+    // open -- see `outbox-mailer.ts`'s head comment for the full history.
+    { provide: MAILER, useClass: DeliveringPasswordMailer },
     { provide: AUTHORIZATION_CACHE, useClass: InMemoryAuthorizationCache },
     { provide: DECISION_ID_FACTORY, useClass: UuidDecisionIdFactory },
     // F19. ⚠ No `SESSION_STORE` here: F20 owns session issuance, and the identity bundle's
