@@ -9,6 +9,7 @@
  * 纯数据 + 纯函数，没有 React/DOM 依赖 —— 与 `explicit-template-layout.ts` 同样可单测。
  */
 import type { CanvasTemplate } from "@/lib/live-canvas";
+import { canvas } from "@repo/contracts";
 import { getTemplate } from "@repo/fabric-markdown";
 import {
   sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS, STANDARD_NOTE_MM,
@@ -49,22 +50,23 @@ export interface SectionDraft {
   layout: SectionLayoutDraft | null;
 }
 
-/** 契约允许的档位，逐字对应 `Design.pdf` §2.2 的取值列。 */
 /**
- * 列数候选。⚠ 2026-08-26 实测反馈：「列数现在不能是 1 列、2 列，只能三列起也要改正」——
- * 原先是 `[3,4,5,6,8]`，1/2/7 都选不到。改成 1–8 全量：一条数据一张贴纸，列数纯粹是
- * 排版偏好（1 列＝竖排长列表，8 列＝密集小方格），没有理由从 3 起。
+ * 列数候选与「最多条数」区间——**从契约 `canvas.SECTION_LAYOUT_BOUNDS` 派生**，不在
+ * 这里第二次写数字（issue #2535：此前这里是 1–8 / 1–99、契约是 3–8 / 3–9，两处各
+ * 写一份、只改了一处，使用者选 1/2 列保存就 HTTP 400）。
+ *
+ * 历史：列数原先是 `[3,4,5,6,8]`（2026-08-26 人类反馈「列数现在不能是 1 列、2 列……
+ * 也要改正」→ 1–8 全量：一条数据一张贴纸，列数纯粹是排版偏好）；「最多条数」原先是
+ * `[3,4,6,9]` 四个固定档（2026-08-30 反馈「要改为可以支持 1 条，到更多条」→ 步进器
+ * 覆盖区间内全部整数）。两次放开的**取值**现在都由契约那一处决定。
  */
-export const COLS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
-/**
- * 「最多条数」步进器的边界。2026-08-26 人类反馈「宽和高要有所有选项」之后，同一栏
- * 右边的「最多条数」还留着 `[3,4,6,9]` 四个固定档——2026-08-30 又反馈一次同一类问题：
- * 「这个要改为可以支持 1 条，到更多条」。改法与「在 A1 上占多大」的宽/高一致：
- * 步进器覆盖 `[MAX_COUNT_MIN, MAX_COUNT_MAX]` 全部整数，不再是四个候选值的子集。
- * 上限给一个宽裕但不失控的数——现场便利贴很少会给单个字段堆到三位数。
- */
-export const MAX_COUNT_MIN = 1;
-export const MAX_COUNT_MAX = 99;
+const LAYOUT_BOUNDS = canvas.SECTION_LAYOUT_BOUNDS;
+export const COLS_OPTIONS: readonly number[] = Array.from(
+  { length: LAYOUT_BOUNDS.cols.max - LAYOUT_BOUNDS.cols.min + 1 },
+  (_, i) => LAYOUT_BOUNDS.cols.min + i,
+);
+export const MAX_COUNT_MIN: number = LAYOUT_BOUNDS.max.min;
+export const MAX_COUNT_MAX: number = LAYOUT_BOUNDS.max.max;
 export const WIDTH_OPTIONS = [3, 4, 6, 12] as const;
 export const HEIGHT_OPTIONS = [1, 2, 3, 4] as const;
 export const OVERFLOW_OPTIONS = ["缩小字号", "叠放", "截断"] as const;

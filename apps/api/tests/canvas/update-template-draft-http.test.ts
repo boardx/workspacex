@@ -197,6 +197,40 @@ describe("2026-08-23 · POST /canvas/templates/:key/draft", () => {
     expect(res.status).toBe(400);
   });
 
+  /**
+   * issue #2535：编辑器改成 1/2 列、条数改到 1 或 99 后保存报「无 reasonCode（HTTP 400）」。
+   * 根因是契约 `SectionLayout.cols/max` 区间落后于编辑器。这里走真实 HTTP → 控制器
+   * 入参校验 → 权限 → PG 落库 → 列表接口重读整条链，边界值一个不少地原样回来。
+   */
+  it("⑦ #2535：layout 取 cols=1/2、max=1/99、tone=3 保存 ⇒ 200，落库并可重读", async () => {
+    const layoutOf = (over: Partial<{ cols: number; max: number; tone: number }>) => ({
+      col: 1, row: 1, w: 6, h: 3, cols: 3, max: 6, tone: 0, overflow: "缩小字号" as const, ...over,
+    });
+    const sections = [
+      { sectionId: "s1", key: "one_col", name: "一列", type: "便利贴列表", aiHint: null, order: 0, required: false, capacity: null,
+        layout: layoutOf({ cols: 1, max: 1 }) },
+      { sectionId: "s2", key: "two_col", name: "两列", type: "便利贴列表", aiHint: null, order: 1, required: false, capacity: null,
+        layout: layoutOf({ cols: 2, max: 99, tone: 3 }) },
+    ];
+    const res = await updateDraft(draftBody({ sections }));
+    // 响应体只能读一次——先取出来，状态断言失败时把它当消息带出去。
+    const bodyText = await res.text();
+    expect(res.status, bodyText).toBe(200);
+    const parsed = C.operations.updateTemplateDraft.out.parse(JSON.parse(bodyText));
+    expect(parsed.sections).toEqual(sections);
+
+    // 持久面：库里那一行就是这份 layout，没有被任何归一化改回 3 列 / 6 条。
+    const row = await readRow("swot-draft", 1);
+    expect(row?.sections).toEqual(sections);
+
+    // 刷新后重读（编辑器进门读的就是这个接口）。
+    const out = await C.operations.listTemplates.out.parseAsync(
+      await fetch(`${BASE}/canvas/templates?orgId=${ORG}&filter=draft`, { headers: authFor(ADMIN) })
+        .then((r) => r.json()),
+    );
+    expect(out.templates.find((t) => t.key === "swot-draft" && t.version === 1)?.sections).toEqual(sections);
+  });
+
   it("⑥ 刷新后仍在——真的写进了库，不是一次响应体回显", async () => {
     await updateDraft(draftBody());
     const out = await C.operations.listTemplates.out.parseAsync(
