@@ -897,9 +897,9 @@ function FeedbackTimeline({ item }: { item: FeedbackItem }) {
 /**
  * 系统异常标签页——前后端未处理异常写入 `error_logs`，这里读 `GET /system/error-logs`。
  *
- * ⚠ 这条接口只对**平台超管**放行（见契约文件头：`error_logs` 没有 `org_id`）。
- *   403 `NOT_PLATFORM_SUPERUSER` **不是**失败态——它是"你不是这个身份"的正常结果，
- *   渲染成一句说明而不是重试按钮。
+ * ⚠ 这条接口对**平台超管或平台管理员**放行（`PlatformOperatorGuard`，platform-admin-role
+ *   delta；见契约文件头：`error_logs` 没有 `org_id`）。403 `NOT_PLATFORM_SUPERUSER`
+ *   **不是**失败态——它是"你两个身份都不是"的正常结果，渲染成一句说明而不是重试按钮。
  */
 function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReload: () => void }) {
   return (
@@ -916,7 +916,7 @@ function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReloa
       )}
       {load.kind === "forbidden" && (
         <p className="text-12 text-muted-foreground" data-testid="admin-feedback-system-errors-forbidden">
-          这块区域仅平台运维（平台超管白名单）可见——你当前的账号看不到系统异常的详情，这不是数据缺失。
+          这块区域仅平台运维（平台超管白名单，或被超管指定的平台管理员）可见——你当前的账号看不到系统异常的详情，这不是数据缺失。
         </p>
       )}
       {load.kind === "failed" && (
