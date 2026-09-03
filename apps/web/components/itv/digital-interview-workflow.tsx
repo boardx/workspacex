@@ -262,7 +262,7 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   }
 
   async function sendSkillMessage(text: string) {
-    const payload = { currentStep: view.currentStep, text, draftContext: skillDraftContext(view.currentStep, buffers, view.name), expectedVersion: view.version };
+    const payload = { currentStep: view.currentStep, text, draftContext: skillDraftContext(view.currentStep, buffers, view.name, view.expertCandidates), expectedVersion: view.version };
     const operation = "append-skill-message";
     try {
       const next = await appendDigitalInterviewSkillMessage({ interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) });
@@ -320,9 +320,16 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   </div>;
 }
 
-function skillDraftContext(step: DigitalInterviewStep, buffers: LiveBuffers, fallbackTopic: string): DigitalInterviewSkillDraftContext {
+function skillDraftContext(step: DigitalInterviewStep, buffers: LiveBuffers, fallbackTopic: string, generatedExperts: readonly DigitalExpertCatalogRow[]): DigitalInterviewSkillDraftContext {
   if (step === "topic") return { step, topic: buffers.topic.trim() || fallbackTopic };
-  if (step === "experts") return { step, expertIds: [...buffers.expertIds] };
+  if (step === "experts") return {
+    step,
+    expertIds: [...buffers.expertIds],
+    availableExperts: Array.from(new Map(
+      [...generatedExperts, ...MOCK_DIGITAL_EXPERTS.map(toDigitalExpertCatalogRow)]
+        .map(({ expertId, displayName, role }) => [expertId, { expertId, displayName, role }]),
+    ).values()),
+  };
   if (step === "questions") return { step, questions: [...buffers.questions] };
   if (step === "runs") return { step, instruction: "继续执行当前访谈" };
   return { step, instruction: "检查当前访谈报告" };
