@@ -19,7 +19,7 @@ import { TemplateDisplayPanel } from "./template-display-panel";
 import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-drawer";
 import {
   toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth, autoFillLayout,
-  FIELD_TYPES,
+  collidesWithOthers, FIELD_TYPES,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { PAPER_SIZE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
@@ -199,28 +199,47 @@ export function TemplateEditorPanel({
     }));
   }
 
+  /**
+   * issue #2564：`clampLayout` 只把布局夹回画布边界，从不检查是否与另一个**已放置**
+   * 分区重叠——`patchLayout`/`place`/`move` 三个入口原先对夹好的结果照单全收，允许
+   * 把一个分区的位置/宽高改到直接压住旁边的分区，两块几何区间重叠，画出来就是
+   * 标题条互相压住、便签溢出到相邻分区（根因见 `rectsOverlap` 文档）。这里统一收口：
+   * 夹完边界之后，若还与别的分区重叠，就放弃这次改动、维持改动前的布局——同 Stepper
+   * 既有的「每次只挪一格、永远合法」约定，不静默产出一个会画错的状态。
+   */
+  /**
+   * `compute` 拿到改动前那个分区本身，算出提议的新布局；夹完边界之后若与另一个
+   * 已放置分区重叠就整体放弃、维持改动前的布局。`compute` 与重叠检查都在同一次
+   * `setSections` 更新里对 `prev` 现算现比，不读组件闭包里可能过期的 `sections`。
+   * `compute` 返回 `null` 表示这个分区本来就不该被改（如未放置的分区收到 `move`）。
+   */
+  function applyLayoutIfFree(
+    sectionId: string, compute: (current: SectionDraft) => SectionLayoutDraft | null,
+  ): void {
+    setSections((prev) => {
+      const current = prev.find((s) => s.sectionId === sectionId);
+      if (!current) return prev;
+      const proposed = compute(current);
+      if (!proposed) return prev;
+      const next = clampLayout(proposed, gridCols);
+      if (collidesWithOthers(prev, sectionId, next)) return prev;
+      return prev.map((s) => (s.sectionId === sectionId ? { ...s, layout: next } : s));
+    });
+  }
+
   function patchLayout(sectionId: string, patch: Partial<SectionLayoutDraft>): void {
-    setSections((prev) => prev.map((s) => {
-      if (s.sectionId !== sectionId || !s.layout) return s;
-      return { ...s, layout: clampLayout({ ...s.layout, ...patch }, gridCols) };
-    }));
+    applyLayoutIfFree(sectionId, (current) => (current.layout ? { ...current.layout, ...patch } : null));
   }
 
   function place(sectionId: string, col: number, row_: number): void {
-    setSections((prev) => prev.map((s) => {
-      if (s.sectionId !== sectionId) return s;
-      return { ...s, layout: clampLayout(defaultLayoutAt(s.type, col, row_, gridCols, paperSize), gridCols) };
-    }));
+    applyLayoutIfFree(sectionId, (current) => defaultLayoutAt(current.type, col, row_, gridCols, paperSize));
     // 放下后自动选中该区块并跳到第三步（§4.2 原话）。
     setSelectedId(sectionId);
     setStep(3);
   }
 
   function move(sectionId: string, col: number, row_: number): void {
-    setSections((prev) => prev.map((s) => {
-      if (s.sectionId !== sectionId || !s.layout) return s;
-      return { ...s, layout: clampLayout({ ...s.layout, col, row: row_ }, gridCols) };
-    }));
+    applyLayoutIfFree(sectionId, (current) => (current.layout ? { ...current.layout, col, row: row_ } : null));
     setSelectedId(sectionId);
   }
 
@@ -831,6 +850,7 @@ export function TemplateEditorPanel({
           </div>
           <TemplateDisplayPanel
             section={selected}
+            sections={sections}
             gridCols={gridCols}
             health={health}
             editable={editable}

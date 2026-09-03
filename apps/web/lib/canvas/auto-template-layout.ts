@@ -184,6 +184,35 @@ function cellSizeForArrangement(perRow: number, rows: number): { w: number; h: n
 }
 
 /**
+ * `cellSizeForArrangement` 的反函数：给定分区框的**实际** px 尺寸与配置的列数
+ * （`layout.cols`/`sticky.perRow`），引擎真的能在这个框里画下几张便签而不越界。
+ *
+ * issue #2564 根因：`packages/fabric-markdown` 的 `template-engine.ts`
+ * （282-330 行附近，`spec.sections.forEach` 那段）把一个分区收到的便签**全部**
+ * 画出来，`col = j % perRow`、`row = floor(j / perRow)` 一路往下叠，从不检查
+ * `row` 数是否已经超出这个框的高度——vendor 引擎本身**没有任何裁剪**（fabric
+ * 画布不是 DOM，没有 `overflow: hidden` 这回事），便签超出框高之后照样继续往下
+ * 画，直接压住下一行/下一个分区的标题条与便签。vendor 不许改（`VENDOR.md`），
+ * 真正的修法是在喂给引擎**之前**知道这个框到底能装几张——这里就是那个「装得下
+ * 几张」的计算，是 `cellSizeForArrangement` 那条正向公式（列数+行数 → 需要多大）
+ * 的**逆运算**（框多大 → 装得下几列几行），不是另一套独立猜测。
+ */
+export function renderStickyCapacity(
+  cellW: number, cellH: number, configuredPerRow: number, titleBars = true,
+): number {
+  const pitchX = ENGINE_STICKY.w + ENGINE_STICKY_GAP.x;
+  // 引擎：`perRow = max(1, min(sectionSticky.perRow, floor((w - 28) / (stickyW + gapX))))`。
+  const perRow = Math.max(1, Math.min(configuredPerRow, Math.floor((cellW - 2 * ENGINE_STICKY_INSET) / pitchX)));
+  const topOffset = titleBars ? ENGINE_STICKY_TOP_OFFSET : 14;
+  // 引擎：`h = topOffset + rows·stickyH + (rows-1)·gapY + inset` ⇒ 反解 rows。
+  const rows = Math.max(
+    0,
+    Math.floor((cellH - topOffset - ENGINE_STICKY_INSET + ENGINE_STICKY_GAP.y) / (ENGINE_STICKY.h + ENGINE_STICKY_GAP.y)),
+  );
+  return perRow * rows;
+}
+
+/**
  * 一个分区要横竖排下 `capacity` 张便签，框至少要多大。
  *
  * 便签一行最多 3 张（引擎上限），所以 `capacity` 张有 1/2/3 三种排法，各自给出一个
