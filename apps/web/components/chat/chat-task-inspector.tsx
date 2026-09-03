@@ -238,7 +238,13 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               onClick={() => selectTab(tab)}
               className={cn(
                 "flex items-center justify-center gap-1 text-11 transition-colors duration-fast",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                // 2026-09-03 人类反馈（真栈截图）「右边的 tab，样式不对」—— 原来是
+                // `ring-2 ring-ring`（`--ring` 近黑，同 `--primary`），页签本身已经用
+                // `bg-muted` 标出选中态，焦点环再叠一圈实心近黑矩形，在小尺寸页签上
+                // 视觉上就是一个突兀的黑框。改成 `ring-inset` + 更细的 1px + 更低的
+                // 不透明度（`ring-ring/40`）：焦点提示还在（键盘可见），只是不再是一块
+                // 生硬的黑框，跟其余页签/按钮的克制视觉一致。
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring/40",
                 collapsed ? "h-7 w-7 rounded-md" : "min-w-0 flex-1 px-1 py-2",
                 selected
                   ? "bg-muted font-medium text-card-foreground"

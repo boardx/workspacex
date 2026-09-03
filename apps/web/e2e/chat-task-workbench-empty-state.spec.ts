@@ -96,3 +96,46 @@ test("TW-P0-1③：输入框上方显示已挂载上下文标签（项目 / 材�
     ).toHaveAttribute("data-source", "live");
   }
 });
+
+/**
+ * 2026-09-03 人类反馈（真栈截图）「今天完成什么这部分的内容太上了」+ exact-SHA
+ * 复核（PR #2616）—— 空态曾经贴着滚动区顶部出现（`h-full`/`justify-center` 挂在
+ * 一个没有真实高度的块级祖先上，从未生效），下方留一大截死白。
+ *
+ * 修法两版：① 只给 `copilotkit-v2-messages` 开 `flex flex-col` 不够——column flex
+ * 下 `align-items: stretch` 拉伸的是交叉轴（宽度），不是主轴（高度）；
+ * ② 补上 `messagesContentRef` 自己的 `flex-1`，才真的参与主轴分配。
+ *
+ * 这条测试断言的是「真实 `/chat` 页面」（真实登录 + 真实 DOM + 真实浏览器布局引擎）
+ * 里空态容器的几何中心与滚动区中心足够接近——不是复述实现细节（不断言用了哪个
+ * flex 属性），只断言最终能观察到的结果：这不是本文件其余 TW-P0-1 用例覆盖的
+ * 「锚点存在」，是专门盯着「这个锚点在哪」的回归测试，防止这个 bug 静默复发。
+ */
+test("TW-P0-1④：空状态在滚动区内垂直居中，不贴着顶部留一截死白", async ({ page }) => {
+  await openChatEmptyState(page);
+
+  const container = page.getByTestId("copilotkit-v2-messages");
+  const empty = page.getByTestId("copilotkit-v2-empty");
+  const containerBox = await container.boundingBox();
+  const emptyBox = await empty.boundingBox();
+  if (containerBox === null || emptyBox === null) {
+    throw new Error("TW-P0-1④：滚动区或空状态未能取到 bounding box，无法判定是否居中");
+  }
+
+  const containerCenterY = containerBox.y + containerBox.height / 2;
+  const emptyCenterY = emptyBox.y + emptyBox.height / 2;
+  const delta = Math.abs(containerCenterY - emptyCenterY);
+  // 容差给到滚动区高度的 20%——不要求像素级重合（内容本身有高度，两者中心不可能
+  // 严丝合缝），但足以把"贴顶"这类量级的回归（此前实测 delta 高达容器高度的一半）
+  // 挡下来。
+  const tolerance = containerBox.height * 0.2;
+  expect(
+    delta,
+    gapMessage(
+      "TW-P0-1④",
+      "copilotkit-v2-empty",
+      `空状态未在滚动区内垂直居中：容器中心 y=${containerCenterY}，空状态中心 y=${emptyCenterY}，`
+      + `偏差 ${delta}px 超过容差 ${tolerance}px（贴顶/贴底的回归）`,
+    ),
+  ).toBeLessThanOrEqual(tolerance);
+});
