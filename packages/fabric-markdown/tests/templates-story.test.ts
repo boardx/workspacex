@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { templateToModel, serializeTemplate, getTemplate } from '../src/diagrams/template-engine';
 import '../src/diagrams/templates-story';
 import type { DiagramModel, DiagramNode } from '../src/model';
+import { FlowNode } from '../src/fabric-objects';
+import type { Textbox } from 'fabric';
 
 /** Stickies whose center falls inside the given section box. */
 function stickiesInBox(model: DiagramModel, sectionName: string): DiagramNode[] {
@@ -212,6 +214,37 @@ describe('burger layout', () => {
     // land on 60, same anchor every other frame element lines up against.
     expect(title.width).toBeGreaterThan(380);
     expect(title.x - title.width / 2).toBeCloseTo(60, 5);
+  });
+
+  it('issue #2605 — the actual Fabric Textbox this box renders as stays on one line', () => {
+    // Not just the calculated node width above: instantiate the real fabric
+    // object the app renders (FlowNode wraps a fabric.Textbox for `shape:
+    // 'text'` nodes, see fabric-objects.ts) and check its own line count.
+    // ⚠ jsdom has no real font/canvas layer, so fabric falls back to a
+    // coarse character-width estimate here too — this does NOT reproduce
+    // the original browser wrap byte-for-byte (a 380px box does not wrap
+    // under this fallback the way it does with real fonts), so it can't
+    // stand in for a pixel/screenshot check against real browser text
+    // metrics. What it *does* catch: a regression that makes the box
+    // narrower than the label needs by fabric's own measurement, which a
+    // pure geometry assertion on `title.width` would miss.
+    const model = templateToModel('模板: burger\n\n## 开场引入\n- a');
+    const title = model.nodes.find((n) => n.id === 'tpl-title')!;
+    // Same DiagramNode → FlowNode conversion canvas-io.ts uses when it draws
+    // the real canvas (nodeId ← id, rest passed through as-is).
+    const flowNode = new FlowNode({
+      nodeId: title.id,
+      label: title.label,
+      shape: title.shape,
+      x: title.x,
+      y: title.y,
+      width: title.width,
+      height: title.height,
+      data: title.data,
+    });
+    const textbox = flowNode.getObjects().find((o): o is Textbox => o.type === 'textbox');
+    expect(textbox).toBeDefined();
+    expect((textbox as unknown as { _textLines: string[] })._textLines).toHaveLength(1);
   });
 
   it("a short title (e.g. golden-circle's) keeps the old 380px box unchanged", () => {
