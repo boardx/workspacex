@@ -682,7 +682,7 @@ export function TemplateAdmin({
               onChange={(e) => setSortBy(e.target.value as SortBy)}
               aria-label="排序方式"
               data-testid="tpladmin-sort"
-              className="rounded-md border border-border bg-background py-1.5 pl-2 pr-6 text-12 text-foreground"
+              className="rounded-md border border-border bg-background py-1.5 pl-2 pr-6 text-12 text-background-foreground"
             >
               {SORT_OPTIONS.map((s) => (
                 <option key={s} value={s}>{SORT_LABEL[s]}</option>
