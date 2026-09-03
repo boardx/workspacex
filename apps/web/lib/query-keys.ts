@@ -1,5 +1,5 @@
 /**
- * ADR-109 —— TanStack Query key 命名约定的单一登记点。
+ * ADR-110 —— TanStack Query key 命名约定的单一登记点。
  *
  * 背景：迁移前 32 个 `lib/live-*.ts` 域各自约定了自己的 fetch/竞态处理写法，
  * 没有一处统一登记——这正是本 ADR 要收敛的问题之一。这里不是"给每个域重新发明

@@ -20,7 +20,7 @@ import { render, screen } from "@testing-library/react";
 import { ROOT } from "../session/import-closure";
 import { QueryClientTestWrapper } from "../render-with-query";
 
-/** ADR-109：`TplListPage` 挂 `AdminNav`（内部 `useQuery`）。 */
+/** ADR-110：`TplListPage` 挂 `AdminNav`（内部 `useQuery`）。 */
 function renderApp(...args: Parameters<typeof render>): ReturnType<typeof render> {
   const [ui, options] = args;
   return render(ui, { ...options, wrapper: QueryClientTestWrapper });

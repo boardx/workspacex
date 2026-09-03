@@ -22,7 +22,7 @@ import { ROOT } from "../session/import-closure";
 import { QueryClientTestWrapper } from "../render-with-query";
 
 /**
- * ADR-109：本文件的 D-43 分组会真的挂 `AdminNav`（经 `TemplateAdmin` →
+ * ADR-110：本文件的 D-43 分组会真的挂 `AdminNav`（经 `TemplateAdmin` →
  * `CanvasHub`/`AppShell`），而 `AdminNav` 内部调用 `useLiveAdminNavCounts`
  * （已迁移到 `useQuery`）。给全文件统一套一层 `QueryClientProvider`，
  * 比逐个判断"这次 render 会不会碰到 AdminNav"更不容易漏。

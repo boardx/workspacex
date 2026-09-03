@@ -1,4 +1,4 @@
-# ADR-109: frontend-data-fetching-layer
+# ADR-110: frontend-data-fetching-layer
 
 - 状态: Proposed
 - 适用层：项目实现（专属）

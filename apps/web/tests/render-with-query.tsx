@@ -1,5 +1,5 @@
 /**
- * render-with-query.tsx — ADR-109 迁移引入。
+ * render-with-query.tsx — ADR-110 迁移引入。
  *
  * 任何组件树里只要有一个 `useQuery`/`useMutation`，就必须在 `QueryClientProvider` 之下
  * 渲染，否则 TanStack Query 直接抛错（"No QueryClient set"）——这不是本仓特有的规则，

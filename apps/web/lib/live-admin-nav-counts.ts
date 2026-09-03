@@ -88,7 +88,7 @@ export function buildAdminNavCountSources(
  * 左栏用的 hook。`orgId` 为 null（未登录 / 还没拿到会话）⇒ 全部「—」。
  * ⚠ 刻意不做「加载中显示上一次的数字」：那会在换组织后短暂显示**上一个组织**的计数。
  *
- * ADR-109（迁移记录）：原实现是手写 `useState`+`useEffect`+`cancelled` 标志位——这是
+ * ADR-110（迁移记录）：原实现是手写 `useState`+`useEffect`+`cancelled` 标志位——这是
  * 全仓库 32 个 `lib/live-*.ts` 域里唯一做了竞态保护的一处，其余 31 个都没有。这里换成
  * `useQuery` 后，两条行为不变量分别由 query key 与 `enabled` 保证，不再需要手写
  * `cancelled`：
