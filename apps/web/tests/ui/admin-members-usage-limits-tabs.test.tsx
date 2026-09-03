@@ -102,10 +102,10 @@ describe("③限额策略 tab：规则卡片 + 降级阈值 + 任务分级表", 
     // ⚠ 2026-09-02：「反馈」已从「组织」组挪到「运营」组（见 `lib/mock/admin.ts`
     //   头注：它是运营动作，不是某个组织自己的配置），本条断言的范围本就是
     //   「组织」组，「反馈」离开这个数组是那次改动的直接结果，不是本条测试要拦的漂移。
-    // ⚠ 2026-09-03：`org-profile`（「组织管理」，见 `lib/mock/admin.ts` 头注）是另一次
-    //   独立的人类直接反馈新增的左栏项——把左上角组织菜单「组织管理」入口并入组织后台
-    //   左栏，与本文件锁的「不新增 usage/limits/policy」无关，因此加入期望集合而不是
-    //   被这条断言拦下。
-    expect(keys).toEqual(["overview", "org-profile", "members", "local"]);
+    // ⚠ 2026-09-03：`org-profile`（「组织资料」）连同 `org-members`（「成员」）、
+    //   `org-invites`（「邀请」）是把左上角组织菜单「组织管理」入口并入组织后台左栏、
+    //   再按 issue #2615 拆平成与总览平级三项的结果，与本文件锁的
+    //   「不新增 usage/limits/policy」无关，因此加入期望集合而不是被这条断言拦下。
+    expect(keys).toEqual(["overview", "org-members", "org-invites", "org-profile", "members", "local"]);
   });
 });

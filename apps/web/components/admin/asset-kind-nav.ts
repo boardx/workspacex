@@ -62,6 +62,8 @@ export const ADMIN_NAV_TESTID: Record<AdminModuleKey, string> = {
   "ops-status": "admin-nav-ops-status",
   local: "admin-nav-local",
   platform: "admin-nav-platform",
+  "org-members": "admin-nav-org-members",
+  "org-invites": "admin-nav-org-invites",
   "org-profile": "admin-nav-org-profile",
 };
 

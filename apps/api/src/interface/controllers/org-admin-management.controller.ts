@@ -1,20 +1,18 @@
 /**
- * F11 的三条路由（UC-1.6 R10 / O-28 ⑥ / O-29 ②④⑤）+ #363 补接的两条孤儿契约操作
- * + team-crud delta（#639）迭代 2 的四条团队自助路由。协议适配，判断全在 `application`。
+ * F11 的三条路由（UC-1.6 R10 / O-28 ⑥ / O-29 ②④⑤）+ #363 补接的两条孤儿契约操作。
+ * 协议适配，判断全在 `application`。
  *
  *   POST /organizations/:orgId/invites/:inviteId/review     另一名管理员批准/拒绝管理员邀请
  *   POST /organizations/:orgId/invites/:inviteId/resend     重发邀请（#363，I-6）
  *   POST /organizations/:orgId/invites/:inviteId/revoke     撤销邀请（#363）
- *   GET  /organizations/:orgId/teams                        团队列表只读（#639 迭代 1）
- *   POST /organizations/:orgId/teams                        旧：团队增/删/改（`mutateTeam`，幂等重放语义）
- *   POST /organizations/:orgId/teams/create                 新：建团队（`createTeam`，撞重名真拒绝）
- *   PATCH /organizations/:orgId/teams/:teamId                新：改名（`renameTeam`，撞重名真拒绝）
- *   POST /organizations/:orgId/teams/:teamId/delete          新：删除（`deleteTeam`，非空真拒绝）
  *   POST /organizations/:orgId/members/:userId/remove       移除组织成员
  *   PATCH /organizations/:orgId/members/:userId/role         改组织角色（member-role-management delta）
  *
- * `mutateTeam` 与 `createTeam`/`renameTeam`/`deleteTeam` 为什么并存而不是二选一合并，
- * 见 `org-admin.ts` 里 `createTeam` 操作的文档注释。
+ * ⚠ issue #2615（人类裁决：组织去掉团队概念，团队是项目里的概念）——原来这里的团队
+ *   列表/增/删/改五条路由（`GET /organizations/:orgId/teams` 及 `mutateTeam`/
+ *   `createTeam`/`renameTeam`/`deleteTeam`）已整体移除，对应的契约操作、application
+ *   用例、`TeamRepository`/`PgTeamRepository` 一并删除。`org_memberships.team_id` 这类
+ *   数据库列本身未删（未改任何 migration/schema）。
  *
  * 全部路由都受 Guard 保护（无 `@Public()`），且都要求调用者在**本组织**的角色——
  * 与 `org-invite.controller.ts` 同一处置：从库里读 `actorOrgRole`，不从请求体读。
@@ -60,11 +58,6 @@ import {
 import type { Request, Response } from "express";
 import type { z } from "zod";
 import { orgAdmin as C } from "@repo/contracts";
-import { listTeams } from "../../application/auth/list-teams";
-import { mutateTeam, TeamInUseError } from "../../application/auth/mutate-team";
-import { createTeam } from "../../application/auth/create-team";
-import { renameTeam } from "../../application/auth/rename-team";
-import { deleteTeam } from "../../application/auth/delete-team";
 import { removeOrgMember } from "../../application/auth/remove-org-member";
 import { setOrgMemberRole } from "../../application/auth/set-org-member-role";
 import { resendOrgInvite } from "../../application/auth/resend-org-invite";
@@ -97,7 +90,6 @@ import {
   SKILL_CONTRACT_REPOSITORY,
   type SkillContractRepositoryFactory,
 } from "../../application/skill/ports";
-import { TEAM_REPOSITORY, type TeamRepository } from "../../application/auth/team-ports";
 import { ORG_PROFILE_REPOSITORY, type OrgProfileRepository } from "../../application/auth/org-profile-ports";
 import { SESSION_TOKEN_STORE, type SessionTokenStore } from "../../application/auth/ports";
 import { PROVENANCE_WRITER, type ProvenanceWriter } from "../../application/provenance/ports";
@@ -115,10 +107,6 @@ export const REVIEW_ADMIN_INVITE_SCHEMA = C.operations.reviewAdminInvite.in;
 /** #363。导出，供 `contract-single-source.test.ts` 断言与契约是**同一个对象**而非长得像。 */
 export const RESEND_ORG_INVITE_SCHEMA = C.operations.resendOrgInvite.in;
 export const REVOKE_ORG_INVITE_SCHEMA = C.operations.revokeOrgInvite.in;
-export const MUTATE_TEAM_SCHEMA = C.operations.mutateTeam.in;
-export const CREATE_TEAM_SCHEMA = C.operations.createTeam.in;
-export const RENAME_TEAM_SCHEMA = C.operations.renameTeam.in;
-export const DELETE_TEAM_SCHEMA = C.operations.deleteTeam.in;
 export const REMOVE_ORG_MEMBER_SCHEMA = C.operations.removeOrgMember.in;
 /** member-role-management delta（组织级改角色）。同上，导出以证明与契约是同一个对象。 */
 export const SET_ORG_MEMBER_ROLE_SCHEMA = C.operations.setOrgMemberRole.in;
@@ -155,12 +143,6 @@ function toLimitHttp(e: unknown): unknown {
 
 type ReviewBody = { orgId: string; inviteId: string; decision: "approve" | "reject"; reason: string | null };
 type InviteRefBody = { orgId: string; inviteId: string };
-type MutateTeamBody = {
-  orgId: string;
-  op: "create" | "rename" | "delete";
-  teamId: string | null;
-  name: string | null;
-};
 type RemoveMemberBody = { orgId: string; userId: string };
 type SetMemberRoleBody = z.infer<typeof C.operations.setOrgMemberRole.in>;
 /** issue #852 delta（skill-reviewer-function-assignment）。 */
@@ -263,7 +245,6 @@ function readRawBody(req: Request, maxBytes: number): Promise<Buffer> {
 export class OrgAdminManagementController {
   constructor(
     @Inject(ORG_INVITE_REPOSITORY) private readonly invites: OrgInviteRepository,
-    @Inject(TEAM_REPOSITORY) private readonly teams: TeamRepository,
     @Inject(ORG_MEMBER_REPOSITORY) private readonly members: OrgMemberRepository,
     @Inject(ORG_PROFILE_REPOSITORY) private readonly profiles: OrgProfileRepository,
     @Inject(SESSION_TOKEN_STORE) private readonly sessions: SessionTokenStore,
@@ -357,107 +338,6 @@ export class OrgAdminManagementController {
         { orgId, actorId: principal.userId, actorOrgRole: orgRole, inviteId: inviteIdParam },
       );
       return { status: out.status };
-    } catch (e) {
-      throw toHttpException(e);
-    }
-  }
-
-  /**
-   * `listTeams`（#639 delta，迭代 1）—— 只读，任何组织成员可调用。
-   *
-   * `requireAdminRole` 在这里只用来确认调用者是**本组织成员**（它不检查
-   * `orgRole === "admin"`，越权收窄只在 `mutateTeam` 的用例层做）——命名沿用既有方法，
-   * 语义与 `NO_ORG_MEMBERSHIP`-only 的契约 `err` 一致。
-   */
-  @Get("/organizations/:orgId/teams")
-  async list(@Param("orgId") orgIdParam: string, @CurrentPrincipal() principal: Principal) {
-    const { orgId } = await this.requireAdminRole(principal, orgIdParam);
-    const out = await listTeams({ repo: this.teams }, { orgId });
-    return { teams: out.teams };
-  }
-
-  @Post("/organizations/:orgId/teams")
-  async mutate(
-    @Param("orgId") orgIdParam: string,
-    @Body(new ZodBodyPipe(MUTATE_TEAM_SCHEMA)) body: MutateTeamBody,
-    @CurrentPrincipal() principal: Principal,
-  ) {
-    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
-    try {
-      const out = await mutateTeam(
-        { repo: this.teams },
-        { orgId, actorOrgRole: orgRole, op: body.op, teamId: body.teamId, name: body.name },
-      );
-      return { team: out.team, blocked: out.blocked };
-    } catch (e) {
-      if (e instanceof TeamInUseError) {
-        throw new ConflictException({ reasonCode: e.reasonCode, blocked: e.occupancy });
-      }
-      throw toHttpException(e);
-    }
-  }
-
-  /**
-   * `createTeam`（team-crud delta #639，迭代 2）—— `POST .../teams/create`, not the same
-   * literal path as `mutateTeam` above. The delta's draft originally reused
-   * `POST /organizations/:orgId/teams`; that collided with `tests/contract-shape.test.ts`'s
-   * mechanical "no two operations share a method+path" gate (both within `org-admin` and
-   * across every bundle), caught by running it for real rather than left for the next
-   * person. See `org-admin.ts`'s `createTeam` doc comment for the full account.
-   */
-  @Post("/organizations/:orgId/teams/create")
-  async create(
-    @Param("orgId") orgIdParam: string,
-    @Body(new ZodBodyPipe(CREATE_TEAM_SCHEMA)) body: { name: string },
-    @CurrentPrincipal() principal: Principal,
-  ) {
-    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
-    try {
-      return await createTeam(
-        { repo: this.teams, provenance: this.provenance },
-        { orgId, actorId: principal.userId, actorOrgRole: orgRole, name: body.name },
-      );
-    } catch (e) {
-      throw toHttpException(e);
-    }
-  }
-
-  @Patch("/organizations/:orgId/teams/:teamId")
-  async patchTeam(
-    @Param("orgId") orgIdParam: string,
-    @Param("teamId") teamIdParam: string,
-    @Body(new ZodBodyPipe(RENAME_TEAM_SCHEMA)) body: { name: string },
-    @CurrentPrincipal() principal: Principal,
-  ) {
-    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
-    try {
-      return await renameTeam(
-        { repo: this.teams, provenance: this.provenance },
-        { orgId, actorId: principal.userId, actorOrgRole: orgRole, teamId: teamIdParam, name: body.name },
-      );
-    } catch (e) {
-      throw toHttpException(e);
-    }
-  }
-
-  /**
-   * ⚠ `POST .../delete`，不是 `DELETE`——`no-forbidden-routes.test.ts` 的
-   * `^DELETE\s+\/organizations` 门禁会连带挡住这条，见 `deleteTeam` 契约操作的文档注释
-   * （与 `removeOrgMember` 当年撞到同一堵墙的处置一致）。
-   */
-  @Post("/organizations/:orgId/teams/:teamId/delete")
-  async deleteTeamRoute(
-    @Param("orgId") orgIdParam: string,
-    @Param("teamId") teamIdParam: string,
-    @Body(new ZodBodyPipe(DELETE_TEAM_SCHEMA)) _body: Record<string, never>,
-    @CurrentPrincipal() principal: Principal,
-  ) {
-    const { orgId, orgRole } = await this.requireAdminRole(principal, orgIdParam);
-    try {
-      return await deleteTeam(
-        { repo: this.teams, provenance: this.provenance },
-        { orgId, actorId: principal.userId, actorOrgRole: orgRole, teamId: teamIdParam },
-      );
     } catch (e) {
       throw toHttpException(e);
     }
@@ -904,19 +784,13 @@ function toHttpException(e: unknown) {
     if (e.reasonCode === "UNSUPPORTED_CONTENT_TYPE") {
       return new HttpException({ reasonCode: e.reasonCode }, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
-    // team-crud delta（#639）迭代 2：指向的团队不存在 —— 404，不是 409。
-    // `mutateTeam` 没有专属码时借用 `VERSION_CHANGED`（走 409）；这三条新操作有专属码，
-    // 用它本来的语义即可，不必也折进 409。
-    if (e.reasonCode === "TEAM_NOT_FOUND") {
-      return new NotFoundException({ reasonCode: e.reasonCode });
-    }
-    // issue #852 delta：目标不是本组织成员 / 撤销一个从未被指派过的人——同 `TEAM_NOT_FOUND`
-    // 的处置，「对象不存在」用 404，不折进 409（409 会误导客户端去重试或提示「状态已变」）。
+    // issue #852 delta：目标不是本组织成员 / 撤销一个从未被指派过的人——「对象不存在」
+    // 用 404，不折进 409（409 会误导客户端去重试或提示「状态已变」）。
     if (e.reasonCode === "MEMBER_NOT_FOUND" || e.reasonCode === "NOT_ASSIGNED") {
       return new NotFoundException({ reasonCode: e.reasonCode });
     }
     // member-role-management delta：`LAST_ADMIN` 走默认的 409——它确实是「当前状态不允许
-    // 这个变更」（先提一个新 admin 再来），与 `TEAM_NOT_EMPTY` 同一性质，不另开分支。
+    // 这个变更」（先提一个新 admin 再来）。
     return new ConflictException({ reasonCode: e.reasonCode });
   }
   return e;

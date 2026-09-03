@@ -50,7 +50,6 @@ beforeAll(async () => {
   db = new PgDatabase(appConfig());
   controller = new OrgAdminManagementController(
     null as never,
-    null as never,
     new PgOrgMemberRepository(db),
     null as never,
     null as never,

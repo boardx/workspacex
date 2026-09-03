@@ -1,12 +1,11 @@
-import { OrgAdminScreen } from "@/components/org-admin/org-admin-screen";
+import { redirect } from "next/navigation";
 
 /**
- * #639 delta，迭代 1 —— 组织管理页。左上角组织管理入口的落点。
- * 本轮只带"团队"标签页的只读列表；CRUD 动作留空/禁用态，迭代 2 再接。
- *
- * ⚠ 与 `/org-admin/preview`（mock 数据的既有原型）是两条独立路径——本页是
- *   session 驱动的真实数据页，不是那个原型的替换。
+ * `/org-admin` 根路由——issue #2615 拆平后不再有单一的"组织管理"落地屏，
+ * 三个独立屏各自落在 `/org-admin/members` / `/org-admin/invites` / `/org-admin/profile`。
+ * 旧书签/旧链接重定向到"成员"（与左栏三项里排在最前的那个一致），不留死链——
+ * 同 `app/admin/[module]/page.tsx` 的 `REDIRECTS` 机制同一种处置。
  */
 export default function OrgAdminPage() {
-  return <OrgAdminScreen />;
+  redirect("/org-admin/members");
 }

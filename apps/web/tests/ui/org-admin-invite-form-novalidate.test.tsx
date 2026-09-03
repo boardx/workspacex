@@ -9,25 +9,18 @@
  *
  * 断言的是**渲染出的 DOM 属性**，不是源码字符串——注释里出现 "noValidate" 骗不过它。
  */
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-
-vi.mock("@/lib/live-org-admin", async (importOriginal) => {
-  const mod = await importOriginal<typeof import("@/lib/live-org-admin")>();
-  return { ...mod, listTeams: vi.fn(async () => ({ teams: [] })) };
-});
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
 
 import { InviteMemberForm } from "@/components/org-admin/org-admin-screen";
 
 describe("邀请表单不许把校验让给浏览器原生英文气泡", () => {
-  it("form 带 noValidate，或邮箱输入不是 type=email（二者必居其一）", async () => {
+  it("form 带 noValidate，或邮箱输入不是 type=email（二者必居其一）", () => {
     render(<InviteMemberForm orgId="org-novalidate-pin" onSucceeded={() => {}} onFailed={() => {}} onLink={() => {}} />);
     const form = screen.getByTestId<HTMLFormElement>("org-admin-invite-form");
     const email = screen.getByTestId<HTMLInputElement>("org-admin-invite-email");
     // noValidate 关掉 constraint validation ⇒ 中文校验（前端预检 + err-invite-email）才是防线。
     // 若未来有人把输入改成 type="text" inputMode="email"，同样不会弹原生气泡，也放行。
     expect(form.noValidate || email.type !== "email").toBe(true);
-    // 收尾：等 listTeams 的挂载 effect 落定，避免 act 警告污染输出。
-    await waitFor(() => expect(screen.getByTestId("org-admin-invite-team")).toBeInTheDocument());
   });
 });

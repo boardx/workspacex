@@ -81,7 +81,6 @@ beforeAll(async () => {
   controller = new OrgAdminManagementController(
     repo,
     null as never,
-    null as never,
     new PgOrgProfileRepository(db, null as never),
     null as never,
     new PgIdentityRepository(db),

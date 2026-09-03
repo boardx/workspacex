@@ -35,7 +35,6 @@ function buildController(): OrgAdminManagementController {
     null as never,
     null as never,
     null as never,
-    null as never,
     identity,
     null as never,
     null as never,  // F160 token 额度仓储：本文件不调那三条路由,
