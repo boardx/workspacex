@@ -17,6 +17,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import { QueryClientTestWrapper } from "../render-with-query";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { adminNavForScope, ADMIN_NAV_COUNT_SOURCES } from "@/lib/mock/admin";
 import { ADMIN_NAV_TESTID } from "@/components/admin/asset-kind-nav";
@@ -41,7 +42,7 @@ const HEALTHY = ADMIN_NAV_COUNT_SOURCES;
 
 describe("§1 一切健康时：每一项显示真实数字", () => {
   it("渲染出的每一项计数，与其数据源当场求值的结果一致", () => {
-    render(<AdminNav active="agent" countSources={HEALTHY} />);
+    render(<AdminNav active="agent" countSources={HEALTHY} />, { wrapper: QueryClientTestWrapper });
     for (const key of ALL_KEYS) {
       const expected = ADMIN_NAV_COUNT_SOURCES[key]();
       const el = screen.getByTestId(`${ADMIN_NAV_TESTID[key]}-count`);
@@ -51,7 +52,7 @@ describe("§1 一切健康时：每一项显示真实数字", () => {
   });
 
   it("健康路径下不出现「—」——反证套件才应该看到它", () => {
-    render(<AdminNav active="agent" countSources={HEALTHY} />);
+    render(<AdminNav active="agent" countSources={HEALTHY} />, { wrapper: QueryClientTestWrapper });
     for (const key of ALL_KEYS) {
       expect(screen.getByTestId(`${ADMIN_NAV_TESTID[key]}-count`).textContent).not.toBe("—");
     }
@@ -67,7 +68,7 @@ describe("§2 反证：把一个数据源改成抛错", () => {
     broken.mcp = () => {
       throw new Error("MCP 计数查询超时（模拟故障）");
     };
-    render(<AdminNav active="mcp" countSources={broken as typeof ADMIN_NAV_COUNT_SOURCES} />);
+    render(<AdminNav active="mcp" countSources={broken as typeof ADMIN_NAV_COUNT_SOURCES} />, { wrapper: QueryClientTestWrapper });
 
     // 挂掉的那一项：「—」，不是 0、不是崩溃
     expect(screen.getByTestId(`${ADMIN_NAV_TESTID.mcp}-count`).textContent).toBe("—");
@@ -90,7 +91,7 @@ describe("§2 反证：把一个数据源改成抛错", () => {
     broken.agent = () => {
       throw new Error("Agent 计数查询挂了（模拟故障）");
     };
-    render(<AdminNav active="agent" countSources={broken as typeof ADMIN_NAV_COUNT_SOURCES} />);
+    render(<AdminNav active="agent" countSources={broken as typeof ADMIN_NAV_COUNT_SOURCES} />, { wrapper: QueryClientTestWrapper });
 
     expect(screen.getByTestId(`${ADMIN_NAV_TESTID.agent}-count`).textContent).toBe("—");
     // mcp 这次没坏，必须显示数字
@@ -106,7 +107,9 @@ describe("§2 反证：把一个数据源改成抛错", () => {
       throw new Error("Skill 计数查询挂了");
     };
     expect(() =>
-      render(<AdminNav active="skill" countSources={broken as typeof ADMIN_NAV_COUNT_SOURCES} />),
+      render(<AdminNav active="skill" countSources={broken as typeof ADMIN_NAV_COUNT_SOURCES} />, {
+        wrapper: QueryClientTestWrapper,
+      }),
     ).not.toThrow();
     expect(screen.getByTestId("admin-nav")).toBeTruthy();
     // 所有六个 + 四个入口本身仍然都渲染出来了（F132 的双向断言不能被本 feature 带崩）

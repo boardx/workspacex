@@ -25,6 +25,7 @@
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import { QueryClientTestWrapper } from "../render-with-query";
 import { NAV_SEGMENTS, ADMIN_SECOND_LEVEL, TOP_LEVEL_NAV_ITEMS, type NavSegment } from "@/lib/navigation";
 import { diffNavIa, topLevelKeys, secondLevelKeysOf, segmentLabelOf } from "@/lib/nav-ia";
 
@@ -171,7 +172,7 @@ describe("§3 渲染层：入口有且只有一处", () => {
   it("AdminNav 一个二级入口都不画 —— 且仍在集合里的项（若有）href 必须指向现行屏", async () => {
     const { AdminNav } = await import("@/components/admin/admin-nav");
     const { ADMIN_NAV_COUNT_SOURCES } = await import("@/lib/mock/admin");
-    render(<AdminNav active="overview" countSources={ADMIN_NAV_COUNT_SOURCES} />);
+    render(<AdminNav active="overview" countSources={ADMIN_NAV_COUNT_SOURCES} />, { wrapper: QueryClientTestWrapper });
     const expectedHref: Record<string, string> = Object.fromEntries(
       ADMIN_SECOND_LEVEL.map((i) => [i.key, i.href]),
     );
@@ -206,7 +207,7 @@ describe("§3 渲染层：入口有且只有一处", () => {
   it("其余五项（已真合并）不再在 AdminNav 里画出第二个入口", async () => {
     const { AdminNav } = await import("@/components/admin/admin-nav");
     const { ADMIN_NAV_COUNT_SOURCES } = await import("@/lib/mock/admin");
-    render(<AdminNav active="overview" countSources={ADMIN_NAV_COUNT_SOURCES} />);
+    render(<AdminNav active="overview" countSources={ADMIN_NAV_COUNT_SOURCES} />, { wrapper: QueryClientTestWrapper });
     for (const key of MUST_BE_UNDER_ADMIN.filter((k) => !STILL_RENDERED_UNDER_ADMIN.includes(k))) {
       expect(screen.queryByTestId(`admin-sub-${key}`)).toBeNull();
     }

@@ -19,6 +19,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import { QueryClientTestWrapper } from "../render-with-query";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import {
   SESSION_COMMIT_STORAGE_KEY,
@@ -94,6 +95,7 @@ describe("/org-admin 接上组织后台左栏（AdminNav）", () => {
       <SessionProvider>
         <OrgAdminScreen />
       </SessionProvider>,
+      { wrapper: QueryClientTestWrapper },
     );
 
     // 唯一一次异步等待：挂载完成。
