@@ -92,15 +92,16 @@ export function TaskWorkbenchEmptyState({
       data-testid="copilotkit-v2-empty"
       className="flex h-full flex-col items-center justify-center gap-6 py-12 text-center"
     >
-      <div className="flex flex-col items-center gap-2">
-        <p
-          className="max-w-md text-18 font-semibold tracking-tight text-card-foreground"
-          data-testid="chat-task-workbench-goal-headline"
-        >
-          今天想完成什么？描述目标，Agent 会先提出计划，得到确认后再执行。
-        </p>
+      {/*
+        两级视觉层次（大标题 + 小字说明），对齐参照图。`data-testid` 挂在外层
+        wrapper 上而不是单个 <p>——TW-P0-1① 的判据（`chat-task-workbench-empty-state.spec.ts`）
+        只断言这个锚点的 innerText 同时包含「计划」「确认」两个词，不要求它们落在
+        同一个文本节点，拆分展示不影响这条判据。文案本身一字未改。
+      */}
+      <div className="flex flex-col items-center gap-2" data-testid="chat-task-workbench-goal-headline">
+        <p className="max-w-md text-20 font-semibold tracking-tight text-card-foreground">今天，想完成什么？</p>
         <p className="max-w-sm text-12 leading-relaxed text-muted-foreground">
-          也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。
+          描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。
         </p>
       </div>
       <div className="grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">
