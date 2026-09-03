@@ -255,7 +255,6 @@ export const OVERVIEW_ROLE_LINES = [
 /** 顶部角色说明条的两层身份样例（R5：组织角色 × 项目角色，UC-0.3 R8） */
 export const ROLE_BAR = {
   orgRole: "consultant" as OrgRole,
-  team: "能源组",
   projectRole: "groupLead" as ProjectRole,
   group: "第 2 组",
 };
@@ -387,32 +386,21 @@ export const QUOTA_OVERVIEW = {
 export interface AdminApprovalPending {
   id: string;
   email: string;
-  team: Team;
   requestedBy: string;
   at: string;
 }
 export const ADMIN_APPROVAL_QUEUE: AdminApprovalPending[] = [
-  { id: "ap-1", email: "z•••@yuanyang.cn", team: "平台组", requestedBy: "管理员 高琳", at: "今天 11:20" },
+  { id: "ap-1", email: "z•••@yuanyang.cn", requestedBy: "管理员 高琳", at: "今天 11:20" },
 ];
 
-/** 激活落地页上下文（R3-6a）——链接携带组织+角色+团队，以服务端为准（篡改无效） */
+/** 激活落地页上下文（R3-6a）——链接携带组织+角色，以服务端为准（篡改无效） */
 export const ACTIVATION_CONTEXT = {
   orgName: "远洋新能源",
   role: "consultant" as OrgRole,
-  team: "供应链组" as Team,
   maskedEmail: "c•••@partner-scm.cn",
   linkValidDays: 7, // O-28 ④：组织成员激活链接 7 天（⚠ 该值尚未收敛进 AUTH_POLICY，见 README §2）
 };
 
-/** 团队增删改（O-29 ④）——删除前占用校验：仍有资源以它为可见性范围 / 仍有成员归属则阻断 */
-export interface TeamRow {
-  name: Team;
-  members: number;
-  /** 以本团队为「仅某团队」可见性范围的资源数（删除前占用校验用） */
-  scopedResources: number;
-}
-export const TEAM_ROWS: TeamRow[] = [
-  { name: "能源组", members: 18, scopedResources: 4 },
-  { name: "平台组", members: 15, scopedResources: 2 },
-  { name: "供应链组", members: 8, scopedResources: 1 },
-];
+// issue #2615 裁决②（组织中去掉团队的概念）之后，`TeamRow`/`TEAM_ROWS`（团队增删改
+// 列表，O-29 ④）已随 `components/org-admin/members-screen.tsx` 的团队区块一并撤除——
+// 它们只服务于那个已删除的区块，没有其它消费方，见该文件头注。

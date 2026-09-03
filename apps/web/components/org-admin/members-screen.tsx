@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 import {
-  UserPlus, ShieldAlert, RefreshCw, Ban, UserMinus, FolderPlus, Trash2, Building2,
+  UserPlus, ShieldAlert, RefreshCw, Ban, UserMinus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,8 +12,8 @@ import type { OrgRole } from "@/lib/identity";
 import { OrgAdminFrame } from "./org-admin-frame";
 import {
   ORG_MEMBERS, ORG_MEMBER_TOTAL, ORG_MEMBER_ACTIVE, MEMBER_STATUS_LABEL,
-  QUOTA_OVERVIEW, ADMIN_APPROVAL_QUEUE, TEAMS, ORG_ROLES_INVITABLE, ORG_ROLE_LABEL,
-  TEAM_ROWS, AUTH_POLICY, type OrgMemberRow, type MemberStatus, type Team, type TeamRow,
+  QUOTA_OVERVIEW, ADMIN_APPROVAL_QUEUE, ORG_ROLES_INVITABLE, ORG_ROLE_LABEL,
+  AUTH_POLICY, type OrgMemberRow, type MemberStatus,
 } from "@/lib/mock/org-admin";
 
 /**
@@ -22,16 +22,24 @@ import {
  * ⚠ 与既有 `components/admin/members-screen.tsx`（配额/用量为主）**不同职责，不改它**：
  *   这里补 R8 标注为「原型待补 / 确认缺失」的邀请激活生命周期——
  *   [邀请成员] 弹层、双人复核（O-28 ⑥）、配额用尽硬阻断（O-29 ⑤）、撤销邀请、
- *   团队增删改与删除前占用校验（O-29 ④）、成员移除（O-29 ②）。
- * 只授予**组织层身份**（角色 + 团队），不授予任何项目角色（那走 UC-1.3）。
- * 链接携带的组织 / 角色 / 团队以服务端为准，篡改无效（AC5）。
+ *   成员移除（O-29 ②）。
+ * 只授予**组织层身份**（角色），不授予任何项目角色（那走 UC-1.3）。
+ * 链接携带的组织 / 角色以服务端为准，篡改无效（AC5）。
+ *
+ * ⚠ 2026-09-03（issue #2615 裁决②「组织中去掉团队的概念」；#2620 已把真实 `/org-admin`
+ *   路径的团队 CRUD 全部撤除后，人类进一步裁决：这份 ADR-023 签核原型也要跟着撤，
+ *   不留一份"组织仍有团队"的第二套语义）：原来这里的"团队"增删改区块
+ *   （`members-team-add`/`rename`/`delete`）、成员行的团队列、邀请弹层的团队选择器
+ *   已整体移除。`ORG_MEMBERS`/`ADMIN_APPROVAL_QUEUE` 仍带 `team` 字段（`lib/mock/
+ *   org-admin.ts`）——那份共享 mock 同时被真实的 `components/admin/members-screen.tsx`
+ *   （`/admin/members`「成员配额」，F11 待收敛前仍读它）消费，删字段会连带打红那个真实
+ *   屏，所以只在这个组件里不再渲染 `.team`，不改共享类型本身。
  */
 export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: OrgRole }) {
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [quotaExhausted, setQuotaExhausted] = React.useState(false);
   const [revoking, setRevoking] = React.useState<OrgMemberRow | null>(null);
   const [removing, setRemoving] = React.useState<OrgMemberRow | null>(null);
-  const [deletingTeam, setDeletingTeam] = React.useState<TeamRow | null>(null);
   const [toast, setToast] = React.useState<string | null>(null);
 
   // 只有管理员进后台「成员与配额」（R5）；其余组织角色不进后台。
@@ -88,7 +96,7 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
                 <li key={a.id} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid="members-approval-row">
                   <span className="text-12 font-medium">{a.email}</span>
                   <Badge tone="danger">管理员</Badge>
-                  <span className="text-11 text-muted-foreground">{a.team} · 由 {a.requestedBy} 发起 · {a.at}</span>
+                  <span className="text-11 text-muted-foreground">由 {a.requestedBy} 发起 · {a.at}</span>
                   <div className="ml-auto flex gap-1.5">
                     <Button size="xs" variant="primary" onClick={() => setToast("已批准：现在才签发激活链接（发起人此前无法自批）")} data-testid="members-approve">批准</Button>
                     <Button size="xs" variant="ghost" className="text-destructive" onClick={() => setToast("已拒绝该管理员邀请，未签发链接")} data-testid="members-approval-reject">拒绝</Button>
@@ -101,7 +109,7 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
 
         {/* 成员表 */}
         <section className="flex flex-col gap-2" data-testid="members-table">
-          <h2 className="text-14 font-semibold">成员 · 角色 · 团队 · 状态</h2>
+          <h2 className="text-14 font-semibold">成员 · 角色 · 状态</h2>
           <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
             {ORG_MEMBERS.map((m) => (
               <li key={m.id} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid="members-row">
@@ -112,7 +120,6 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
                 {m.external && (
                   <Badge tone="outline" data-testid="members-external-tag">客户方 · 外部</Badge>
                 )}
-                <span className="w-16 text-11 text-muted-foreground">{m.team}</span>
                 <span className="w-20 text-11 text-muted-foreground">{m.usedM.toFixed(1)}/{m.limitM.toFixed(1)}M</span>
                 <MemberStatusBadge status={m.status} sentDays={m.sentDays} />
                 <div className="ml-auto flex gap-1.5">
@@ -136,32 +143,6 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
             ))}
           </ul>
           <p className="text-10 text-muted-foreground">待激活成员计入名册但不计入活跃成员（{ORG_MEMBER_ACTIVE}/{ORG_MEMBER_TOTAL}）。撤销 / 移除均写审计并显示影响范围。</p>
-        </section>
-
-        {/* 团队增删改（O-29 ④） */}
-        <section className="flex flex-col gap-2" data-testid="members-teams">
-          <div className="flex items-center gap-1.5">
-            <Building2 aria-hidden className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-14 font-semibold">团队</h2>
-            <Badge tone="ai">增删改 · 需补原型</Badge>
-            <Button size="xs" variant="outline" className="ml-auto" disabled={!canAdmin} onClick={() => setToast("已新建团队（改名不改 ID，已有绑定不受影响）")} data-testid="members-team-add">
-              <FolderPlus aria-hidden className="h-3 w-3" /> 新建团队
-            </Button>
-          </div>
-          <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
-            {TEAM_ROWS.map((t) => (
-              <li key={t.name} className="flex flex-wrap items-center gap-2 px-3 py-2" data-testid="members-team-row">
-                <span className="w-20 text-13 font-medium">{t.name}</span>
-                <span className="text-11 text-muted-foreground">{t.members} 名成员 · {t.scopedResources} 项「仅本团队」资源</span>
-                <div className="ml-auto flex gap-1.5">
-                  <Button size="xs" variant="outline" disabled={!canAdmin} onClick={() => setToast(`已重命名「${t.name}」（ID 不变，绑定不受影响）`)} data-testid="members-team-rename">改名</Button>
-                  <Button size="xs" variant="ghost" disabled={!canAdmin} className="text-destructive" onClick={() => setDeletingTeam(t)} data-testid="members-team-delete">
-                    <Trash2 aria-hidden className="h-3 w-3" /> 删除
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
         </section>
       </div>
 
@@ -215,43 +196,12 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
         />
       )}
 
-      {/* 删除团队：删除前占用校验（O-29 ④，有占用则阻断） */}
-      {deletingTeam && (
-        <ConfirmDialog
-          testid="members-team-delete-dialog"
-          title={`删除团队「${deletingTeam.name}」？`}
-          tone="destructive"
-          confirmLabel={deletingTeam.members > 0 || deletingTeam.scopedResources > 0 ? "无法删除" : "删除团队"}
-          impact={
-            deletingTeam.members > 0 || deletingTeam.scopedResources > 0 ? (
-              <div className="flex flex-col gap-1">
-                <p><strong>删除被阻断</strong>：该团队仍被占用（不做级联删除）。</p>
-                <p>· 仍有 <strong>{deletingTeam.members}</strong> 名成员归属本团队；</p>
-                <p>· 仍有 <strong>{deletingTeam.scopedResources}</strong> 项资源以本团队为「仅某团队」可见性范围。</p>
-                <p>请先改派成员与资源可见性，再删除。</p>
-              </div>
-            ) : (
-              <p>该团队无成员、无资源占用，可安全删除。删除写审计并显示影响范围。</p>
-            )
-          }
-          onCancel={() => setDeletingTeam(null)}
-          onConfirm={() => {
-            if (deletingTeam.members > 0 || deletingTeam.scopedResources > 0) {
-              setToast(`「${deletingTeam.name}」仍有占用，删除已阻断，请先改派`);
-            } else {
-              setToast(`已删除团队「${deletingTeam.name}」`);
-            }
-            setDeletingTeam(null);
-          }}
-        />
-      )}
-
       <Toast message={toast} testid="members-toast" onDismiss={() => setToast(null)} />
     </OrgAdminFrame>
   );
 }
 
-/* ── 邀请成员弹层：邮箱 + 角色三选 + 团队 + 双人复核 + 配额硬阻断 ─────────── */
+/* ── 邀请成员弹层：邮箱 + 角色三选 + 双人复核 + 配额硬阻断 ─────────── */
 
 function InviteMemberDialog({
   quotaExhausted, onClose, onToast,
@@ -261,14 +211,13 @@ function InviteMemberDialog({
   onToast: (m: string) => void;
 }) {
   const [role, setRole] = React.useState<OrgRole>("consultant");
-  const [team, setTeam] = React.useState<Team>("能源组");
   const isAdmin = role === "admin";
 
   return (
     <AdminModal
       testid="members-invite-dialog"
       title="邀请成员"
-      subtitle="发一条「带组织与角色的一次性链接」；入场即带好组织角色与团队。"
+      subtitle="发一条「带组织与角色的一次性链接」；入场即带好组织角色。"
       onClose={onClose}
       footer={
         <>
@@ -281,7 +230,7 @@ function InviteMemberDialog({
               onToast(
                 isAdmin
                   ? "邀请管理员需双人复核：已进入待批队列，另一名管理员批准后才签发链接（你不可自批）"
-                  : `已邀请：${ORG_ROLE_LABEL[role]} · ${team}，激活链接已发出（有效期见「激活落地页」屏）`,
+                  : `已邀请：${ORG_ROLE_LABEL[role]}，激活链接已发出（有效期见「激活落地页」屏）`,
               )
             }
             data-testid="members-invite-submit"
@@ -303,18 +252,6 @@ function InviteMemberDialog({
               </Button>
             ))}
           </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="members-invite-team">团队</Label>
-          <div className="flex flex-wrap gap-1.5" data-testid="members-invite-team">
-            {TEAMS.map((t) => (
-              <Button key={t} size="xs" variant={team === t ? "primary" : "outline"} onClick={() => setTeam(t)} data-testid="members-invite-team-option">
-                {t}
-              </Button>
-            ))}
-          </div>
-          <p className="text-10 text-muted-foreground">一人一队（组织内单一归属，O-12）。团队决定「仅某团队」资源的可见性与团队配额池。</p>
         </div>
 
         {/* 管理员高影响提示（O-28 ⑥ 双人复核） */}
@@ -340,7 +277,7 @@ function InviteMemberDialog({
         )}
 
         <p className="text-10 text-muted-foreground">
-          链接携带组织 + 角色 + 团队，<strong>以服务端为准，篡改无效</strong>（AC5）。激活链接一次性、有有效期（见「激活落地页」屏）。
+          链接携带组织 + 角色，<strong>以服务端为准，篡改无效</strong>（AC5）。激活链接一次性、有有效期（见「激活落地页」屏）。
         </p>
       </div>
     </AdminModal>

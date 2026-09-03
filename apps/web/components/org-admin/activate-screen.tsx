@@ -15,7 +15,7 @@ import { ORG_ROLE_LABEL, ACTIVATION_CONTEXT, AUTH_POLICY } from "@/lib/mock/org-
  * [原型确认缺失] 底部演示场景条 11 项无任何注册/激活场景，故此屏为原创设计，需 sign-off。
  * 两分支：6a 新用户设姓名 + 密码（≥ AUTH_POLICY.passwordMinLen 位，查弱口令库）；
  *        6b 已有账号只需登录确认加入本组织，不新建账号。
- * 链接携带的组织 / 角色 / 团队**以服务端为准，篡改无效**（AC5）；激活页不回显任何其它成员信息。
+ * 链接携带的组织 / 角色**以服务端为准，篡改无效**（AC5）；激活页不回显任何其它成员信息。
  * 链接失效统一提示（不区分无效/过期/已用/已撤销，防枚举，E1）。
  */
 export function ActivateScreen({ state }: { state: UiState }) {
@@ -63,18 +63,17 @@ export function ActivateScreen({ state }: { state: UiState }) {
         <h1 className="text-18 font-semibold tracking-tight">加入 {ctx.orgName}</h1>
       </div>
 
-      {/* 入场即带好的组织角色与团队（以服务端为准） */}
+      {/* 入场即带好的组织角色（以服务端为准） */}
       <div className="flex flex-col gap-2 rounded-md border border-border bg-panel p-3" data-testid="activate-context">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-11 text-muted-foreground">你被邀请为</span>
           <Badge tone="primary">{ORG_ROLE_LABEL[ctx.role]}</Badge>
-          <Badge tone="neutral">{ctx.team}</Badge>
         </div>
         <p className="text-11 text-muted-foreground">邮箱 {ctx.maskedEmail} · 激活链接 {ctx.linkValidDays} 天有效、一次性</p>
         <div className="flex items-start gap-1.5 rounded-sm bg-muted px-2 py-1.5">
           <ShieldCheck aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
           <p className="text-10 text-muted-foreground" data-testid="activate-tamper-note">
-            组织、角色、团队<strong>以服务端记录为准</strong>：改写链接参数不改变实际授予的身份（AC5），篡改尝试写安全审计。
+            组织、角色<strong>以服务端记录为准</strong>：改写链接参数不改变实际授予的身份（AC5），篡改尝试写安全审计。
           </p>
         </div>
       </div>
@@ -130,7 +129,7 @@ export function ActivateScreen({ state }: { state: UiState }) {
 
       {(done || state === "success") && (
         <p data-testid="saved" className="inline-flex items-center gap-1 text-12 text-success" role="status">
-          已激活：核销链接、创建成员、写入「{ORG_ROLE_LABEL[ctx.role]} · {ctx.team}」、初始化配额，均在同一事务内完成。
+          已激活：核销链接、创建成员、写入「{ORG_ROLE_LABEL[ctx.role]}」、初始化配额，均在同一事务内完成。
         </p>
       )}
     </div>
