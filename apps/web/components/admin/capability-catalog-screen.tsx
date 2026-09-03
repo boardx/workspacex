@@ -267,42 +267,12 @@ export function CapabilityCatalogScreen({
         canMutate ? (
           <>
             {headerActions}
-            {/*
-             * ⚠ 2026-09-03 补——`CapabilityCreatePanel` 对 `kind === "skill"` 是
-             * #1745 描述的同一个陷阱，且比 agent 那边更彻底：`POST /capabilities/mutate`
-             * 的 `op: "add"` 只 INSERT 一行 `capability_listings`（`mutate-capability.ts`
-             * `op === "add"` 分支），从不写 `skills`/`skill_versions`——建出来的这一行
-             * 在目录里看起来和真实导入的 skill 一模一样、能被挂载（`enabled=true` 就够），
-             * 但没有任何源码文件：打开「编辑源码」会撞上 `getAssetDirectory` 404
-             * （见 `ag-screens.tsx` 的 `liveError` 分支），挂进 chat 执行会
-             * `SKILL_VERSION_UNAVAILABLE`。
-             *
-             * agent 那边保留入口 + 弹窗内加提示（`capability-mutate.tsx` 的
-             * `create-agent-caveat`），是因为它承认了一种合法用途——运维手动登记一个
-             * 已经在别处发布好、只是想改展示名的 agent。skill 没有这种对应场景：
-             * 模型 B 的声明式创建路径已经冻结（`POST /skills` 恒
-             * `410 SKILL_DRAFT_WRITE_PATH_FROZEN`），一个 skill 要有真实可执行的内容，
-             * 今天只有下面 `notices` 里已经挂着的两条路径——
-             * `SkillStarterImportPanel`/`SkillUrlImportPanel`，二者都已经在写
-             * `capability_listings` 的同一事务里把 `skills`/`skill_versions` 也建出来。
-             * 按本仓「宁可显式禁用并说明，不放一个点了没反应/报假错的按钮」的纪律，
-             * 对 skill 直接不挂载这个入口。
-             */}
             {kind !== "skill" ? <CapabilityCreatePanel key={`${sourceKey}:create`} ctx={ctx} /> : null}
           </>
         ) : headerActions
       }
       notices={
         <>
-          {kind === "skill" && canMutate ? (
-            <p
-              className="text-12 text-muted-foreground"
-              data-testid={`${prefix}-create-skill-hidden-note`}
-            >
-              Skill 没有单独的「新增目录条目」入口——新建 skill 请用下方「从 GitHub /
-              URL 导入」或「从 starter pack 导入」，两者才会真正写入可执行的源码文件。
-            </p>
-          ) : null}
           {kind === "skill" && canMutate ? <SkillStarterImportPanel key={sourceKey} onImported={load} /> : null}
           {/*
             ⚠ key 与上面那块必须不同——两个兄弟节点用同一个 key 时 React 会把它们
@@ -310,6 +280,35 @@ export function CapabilityCatalogScreen({
             一半的输入会留在新组织的界面上（`skill-starter-import.test.tsx` 当场红过）。
           */}
           {kind === "skill" && canMutate ? <SkillUrlImportPanel key={`${sourceKey}:url-import`} onImported={load} /> : null}
+          {/*
+           * ⚠ 2026-09-03 补——`CapabilityCreatePanel` 对 `kind === "skill"` 就是 #1745
+           * 描述的同一个陷阱，且比 agent 那边更彻底：`POST /capabilities/mutate` 的
+           * `op: "add"` 只 INSERT 一行 `capability_listings`（`mutate-capability.ts`
+           * `op === "add"` 分支），从不写 `skills`/`skill_versions`——建出来的这一行
+           * 在目录里看起来和真实导入的 skill 一模一样、能被挂载（`enabled=true` 就够），
+           * 但没有任何源码文件：打开「编辑源码」会撞上 `getAssetDirectory` 404
+           * （见 `ag-screens.tsx` 的 `liveError` 分支），挂进 chat 执行会
+           * `SKILL_VERSION_UNAVAILABLE`。
+           *
+           * skill 没有像 agent 那样"运维手动登记"的合法用途：模型 B 的声明式创建路径
+           * 已经冻结（`POST /skills` 恒 `410 SKILL_DRAFT_WRITE_PATH_FROZEN`，
+           * `skill.controller.ts`），一个 skill 要有真实可执行的内容，今天只有上面
+           * 已经挂着的两条路径——`SkillStarterImportPanel`/`SkillUrlImportPanel`。
+           * 二者都已经在写 `capability_listings` 的同一事务里把 `skills`/`skill_versions`
+           * 也建出来，没有留下"先建目录条目、内容以后再补"这种中间态需要
+           * `CapabilityCreatePanel` 来补。按本仓「宁可显式禁用并说明，不放一个点了没反应/
+           * 报假错的按钮」的纪律，对 skill 直接不挂载这个入口（见上面 `headerActions`
+           * 的 `kind !== "skill"` 判据），这里只留一句说明去哪里新建。
+           */}
+          {kind === "skill" && canMutate ? (
+            <p
+              className="text-12 text-muted-foreground"
+              data-testid={`${prefix}-create-skill-hidden-note`}
+            >
+              Skill 没有单独的「新增目录条目」入口——新建 skill 请用上方「从 GitHub /
+              URL 导入」或「从 starter pack 导入」，两者才会真正写入可执行的源码文件。
+            </p>
+          ) : null}
           {definitions.status === "error" ? (
             <p data-testid={`${prefix}-definition-list-error`} className="text-12 text-destructive">
               可执行 Agent 定义读取失败：{definitions.message}（目录条目不受影响）

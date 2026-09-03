@@ -108,15 +108,18 @@ describe("停用一个 wave2 skill：capability_listings.enabled 与 skills.stat
   });
 
   it("③ 端到端确认：disable 之后 GET /skills 不再包含这个 skill", async () => {
+    // ⚠ 契约 `SkillListItem`（packages/contracts/src/skills.ts）字段是 `skillId`，
+    // 不是 `id`——写成 `.id` 时 `.map` 恒产出 `[undefined, ...]`，第一条装置自检
+    // 断言就会假红（`gates-test` 实测复现：expected [ undefined ] to include ...）。
     const before = await fetch(`${BASE}/skills?orgId=${ORG}`, { headers: auth(ADMIN) });
-    const beforeBody = (await before.json()) as { items: readonly { id: string }[] };
-    expect(beforeBody.items.map((s) => s.id)).toContain(SKILL_ID);
+    const beforeBody = (await before.json()) as { items: readonly { skillId: string }[] };
+    expect(beforeBody.items.map((s) => s.skillId)).toContain(SKILL_ID);
 
     await mutate({ orgId: ORG, kind: "skill", op: "disable", payload: { id: SKILL_ID } });
 
     const after = await fetch(`${BASE}/skills?orgId=${ORG}`, { headers: auth(ADMIN) });
-    const afterBody = (await after.json()) as { items: readonly { id: string }[] };
-    expect(afterBody.items.map((s) => s.id)).not.toContain(SKILL_ID);
+    const afterBody = (await after.json()) as { items: readonly { skillId: string }[] };
+    expect(afterBody.items.map((s) => s.skillId)).not.toContain(SKILL_ID);
   });
 });
 

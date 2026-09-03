@@ -23,7 +23,7 @@ import {
   type FeedbackStatus,
   type FeedbackStatusEvent,
 } from "@/lib/live-feedback";
-import { listSystemErrorLogs, type SystemErrorLogItem } from "@/lib/live-system-errors";
+import { listSystemErrorLogs, sendTestEmail, type SendTestEmailOut, type SystemErrorLogItem } from "@/lib/live-system-errors";
 import type { UiState } from "@/lib/ui-state";
 import { cn } from "@/lib/utils";
 
@@ -904,6 +904,8 @@ function FeedbackTimeline({ item }: { item: FeedbackItem }) {
 function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReload: () => void }) {
   return (
     <section className="flex flex-col gap-2 px-6 py-4" data-testid="admin-feedback-system-errors">
+      {/* 只对拿得到异常列表的人（平台超管）出这块——发信路由也是同一道超管门。 */}
+      {load.kind !== "forbidden" && <TestMailPanel />}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-12 text-muted-foreground">前后端自动捕获的未处理异常。</p>
         {load.kind === "ready" && (
@@ -942,6 +944,81 @@ function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReloa
         )
       )}
     </section>
+  );
+}
+
+type TestMailState =
+  | { kind: "idle" }
+  | { kind: "sending" }
+  | { kind: "sent"; out: SendTestEmailOut }
+  | { kind: "failed"; reasonCode: string; category: string | null };
+
+/**
+ * 「测试邮件」——人类 2026-09-02 要求：后台要能验证邮件发不发得出。走的是生产同一条
+ * 事务邮件通路（`POST /system/mail/test`，见契约头注），不是另一套测试通路；失败
+ * 如实报契约码 + 适配器归好类的 `category`，成功报收件人与供应商回执 id。
+ */
+function TestMailPanel() {
+  const [to, setTo] = React.useState("");
+  const [state, setState] = React.useState<TestMailState>({ kind: "idle" });
+
+  const send = async () => {
+    setState({ kind: "sending" });
+    try {
+      const out = await sendTestEmail(to);
+      setState({ kind: "sent", out });
+    } catch (err) {
+      const body = err instanceof ApiError ? (err.raw as { category?: unknown } | null | undefined) : null;
+      setState({
+        kind: "failed",
+        reasonCode: describeFailure(err),
+        category: typeof body?.category === "string" ? body.category : null,
+      });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-panel p-4" data-testid="admin-feedback-test-mail">
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-13 font-semibold">测试邮件</h3>
+        <p className="text-11 text-muted-foreground">
+          用生产同一条事务邮件通路发一封测试邮件——反馈确认 / 状态变更邮件都是 best-effort、失败只记日志，这里把结果直接摆出来。
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={to}
+          onChange={(e) => { setTo(e.target.value); if (state.kind !== "sending") setState({ kind: "idle" }); }}
+          placeholder="收件人邮箱（留空 = 发给当前账号）"
+          aria-label="测试邮件收件人"
+          type="email"
+          data-testid="admin-feedback-test-mail-to"
+          className="h-8 w-80 max-w-full rounded-md border border-border-subtle bg-card px-2.5 text-12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <Button size="sm" variant="primary" disabled={state.kind === "sending"} onClick={() => void send()} data-testid="admin-feedback-test-mail-send">
+          {state.kind === "sending" && <Loader2 aria-hidden className="h-3 w-3 animate-spin" />}
+          发送测试邮件
+        </Button>
+      </div>
+      {state.kind === "sent" && (
+        <p className="text-12 text-card-foreground" data-testid="admin-feedback-test-mail-sent">
+          已发送到 <span className="font-medium">{state.out.sentTo}</span>（{formatTime(state.out.sentAt)}）
+          {state.out.providerMessageId !== null && (
+            <span className="text-muted-foreground"> · 供应商回执 <code className="font-mono text-11">{state.out.providerMessageId}</code></span>
+          )}
+          。请到收件箱确认——主题「{state.out.subject}」。
+        </p>
+      )}
+      {state.kind === "failed" && (
+        <p className="text-12 text-destructive" data-testid="admin-feedback-test-mail-failed">
+          {state.reasonCode === "MAIL_NOT_CONFIGURED"
+            ? "这个部署没有配置事务邮件（缺 CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_TXN_EMAIL_API_TOKEN / MAIL_FROM 之一）。"
+            : state.reasonCode === "NO_RECIPIENT"
+              ? "没有收件人：当前账号查不到邮箱，请填一个收件人。"
+              : `没发出去（${state.reasonCode}${state.category !== null ? ` · ${state.category}` : ""}）。`}
+        </p>
+      )}
+    </div>
   );
 }
 
