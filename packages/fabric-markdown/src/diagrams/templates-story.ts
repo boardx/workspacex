@@ -11,7 +11,7 @@
  * All layout data only — the engine renders boxes, header fields, decorations
  * and stickies, and serializes stickies back to `## 段落` bullet lists.
  */
-import { registerTemplate } from './template-engine';
+import { registerTemplate, STICKY_COLORS } from './template-engine';
 import type { DiagramNode } from '../model';
 import { LINE } from '../theme';
 
@@ -97,17 +97,18 @@ registerTemplate({
   title: '故事板 Storyboard',
   fields: ['故事主角', '故事主题'],
   fieldsPerRow: 2,
-  headerRect: { x: 820, y: 105, w: 1520, h: 100 },
+  // issue #2575: was x:820 w:1520 — 28px wider than the section grid below
+  // (73..1565, i.e. x:819 w:1492), so the header band visibly overhung the
+  // 3-column card grid on both edges. Match the grid's outer bounds exactly.
+  headerRect: { x: 819, y: 105, w: 1492, h: 100 },
   sections: [
-    { name: '1 开场', x: 313, y: 330, w: 480, h: 320 },
-    { name: '2 冲突', x: 819, y: 330, w: 480, h: 320 },
-    { name: '3 情节演进', x: 1325, y: 330, w: 480, h: 320 },
-    { name: '4 高光点', x: 313, y: 690, w: 480, h: 320 },
-    { name: '5 结束', x: 819, y: 690, w: 480, h: 320 },
-    { name: '6 收尾', x: 1325, y: 690, w: 480, h: 320 },
+    { name: '1 开场', x: 313, y: 330, w: 480, h: 320, stickyColor: STICKY_COLORS.yellow },
+    { name: '2 冲突', x: 819, y: 330, w: 480, h: 320, stickyColor: STICKY_COLORS.pink },
+    { name: '3 情节演进', x: 1325, y: 330, w: 480, h: 320, stickyColor: STICKY_COLORS.green },
+    { name: '4 高光点', x: 313, y: 690, w: 480, h: 320, stickyColor: STICKY_COLORS.blue },
+    { name: '5 结束', x: 819, y: 690, w: 480, h: 320, stickyColor: STICKY_COLORS.yellow },
+    { name: '6 收尾', x: 1325, y: 690, w: 480, h: 320, stickyColor: STICKY_COLORS.pink },
   ],
-  // 6 格统一色（编号已在名称里区分）。
-  sectionColors: [0, 0, 0, 0, 0, 0],
 });
 
 // ---------------------------------------------------------------------------

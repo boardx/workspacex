@@ -163,6 +163,48 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
     }
   });
 
+  it("③ 点缩略图打开大图预览，左右切换多图，关闭后清理 object URL", async () => {
+    const withImages = {
+      ...productBug,
+      attachments: [
+        { id: "att-1", url: "/feedback/attachments/att-1", mime: "image/png" },
+        { id: "att-2", url: "/feedback/attachments/att-2", mime: "image/jpeg" },
+      ],
+    };
+    const revokeObjectURL = vi.fn();
+    let objectUrlSeq = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, status: 200, blob: async () => new Blob(["x"]) })));
+    Object.assign(URL, { createObjectURL: vi.fn(() => `blob:img-${objectUrlSeq++}`), revokeObjectURL });
+    try {
+      mockApi([withImages]);
+      render(<FeedbackScreen state="default" />);
+      const list = await screen.findByTestId("admin-feedback-attachments-fb-p");
+      const thumbnails = within(list).getAllByRole("button");
+      expect(thumbnails).toHaveLength(2);
+
+      // 点第一张缩略图 ⇒ lightbox 打开，标题带「1/2」，能看到大图。
+      fireEvent.click(thumbnails[0]!);
+      expect(await screen.findByTestId("admin-feedback-attachment-lightbox")).toBeTruthy();
+      await screen.findByTestId("admin-feedback-attachment-lightbox-image");
+      expect(screen.getByTestId("admin-feedback-attachment-lightbox").textContent).toContain("1/2");
+      expect(screen.queryByTestId("admin-feedback-attachment-lightbox-prev")).toHaveProperty("disabled", true);
+
+      // 「下一张」切到第二张。
+      fireEvent.click(screen.getByTestId("admin-feedback-attachment-lightbox-next"));
+      await waitFor(() => {
+        expect(screen.getByTestId("admin-feedback-attachment-lightbox").textContent).toContain("2/2");
+      });
+      expect(screen.getByTestId("admin-feedback-attachment-lightbox-next")).toHaveProperty("disabled", true);
+
+      // 关闭 ⇒ lightbox 消失，加载过的 object URL 都被 revoke（缩略图 2 张 + lightbox 切换过的 2 张）。
+      fireEvent.click(screen.getByTestId("admin-feedback-attachment-lightbox-close"));
+      await waitFor(() => expect(screen.queryByTestId("admin-feedback-attachment-lightbox")).toBeNull());
+      expect(revokeObjectURL).toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("④ 转「不做」先要理由；理由为空时确认按钮不可点；成功后行仍选中且能看到处理说明", async () => {
     let status: "待处理" | "不做" = "待处理";
     let statusReason: string | null = null;

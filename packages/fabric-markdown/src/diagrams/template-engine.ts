@@ -619,10 +619,19 @@ export function serializeTemplate(model: DiagramModel): string {
     items.sort((a, b) => (Math.abs(a.y - b.y) > 24 ? a.y - b.y : a.x - b.x));
     lines.push('');
     lines.push(`## ${name}`);
+    // A sticky with no per-note `#name` tag renders at its SECTION's default
+    // color (`sec.stickyColor ?? STICKY_FILL` — see the `color ?? sec.stickyColor`
+    // assignment above). Only tag it back out when it differs from that
+    // section's own default, not just from the global yellow — otherwise a
+    // section whose default is e.g. pink (#2575) would round-trip every
+    // untouched note with a spurious ` #pink` tag.
+    const sec = spec?.sections.find((sc) => sc.name === name);
+    const sectionDefaultHex = sec?.stickyColor ?? STICKY_FILL;
     for (const s of items) {
       const text = s.label.replace(/\s*\n\s*/g, ' ').trim();
-      const colorName = STICKY_COLOR_BY_HEX.get(String(s.data?.color ?? ''));
-      const tag = colorName && colorName !== 'yellow' ? ` #${colorName}` : '';
+      const colorHex = String(s.data?.color ?? '');
+      const colorName = STICKY_COLOR_BY_HEX.get(colorHex);
+      const tag = colorName && colorHex !== sectionDefaultHex ? ` #${colorName}` : '';
       lines.push(`- ${text}${tag}`);
     }
   }

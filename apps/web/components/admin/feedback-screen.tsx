@@ -1,9 +1,11 @@
 "use client";
 import * as React from "react";
-import { ExternalLink, GitPullRequest, Loader2, RefreshCw, Search } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight, ExternalLink, GitPullRequest, Loader2, RefreshCw, Search } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Modal } from "@/components/files/overlay";
 import { ApiError } from "@/lib/api-client";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { listAgents } from "@/lib/agent-definition";
@@ -16,6 +18,7 @@ import {
   listFeedbackStatusEvents,
   triageFeedback,
   voteFeedback,
+  type FeedbackAttachment,
   type FeedbackGithubIssueStatus,
   type FeedbackIssueDraft,
   type FeedbackItem,
@@ -612,6 +615,7 @@ function FeedbackDetailPanel({
   const [decliningReason, setDecliningReason] = React.useState<string | null>(null);
   const [issueDraft, setIssueDraft] = React.useState<FeedbackIssueDraft | null>(null);
   const [labelsText, setLabelsText] = React.useState("");
+  const [lightboxIndex, setLightboxIndex] = React.useState<number | null>(null);
   const src = sourceOf(item, names);
   const forward = FORWARD_ACTION[item.kind][item.status] ?? null;
   const canDecline = NEXT_STATUSES[item.status].includes("不做");
@@ -667,12 +671,23 @@ function FeedbackDetailPanel({
         )}
         {item.attachments.length > 0 && (
           <ul className="mt-3 flex flex-wrap gap-2" data-testid={`admin-feedback-attachments-${item.id}`}>
-            {item.attachments.map((a) => (
-              <li key={a.id}><AttachmentThumbnail url={a.url} /></li>
+            {item.attachments.map((a, i) => (
+              <li key={a.id}>
+                <AttachmentThumbnail url={a.url} onClick={() => setLightboxIndex(i)} testid={`admin-feedback-attachment-${a.id}`} />
+              </li>
             ))}
           </ul>
         )}
       </div>
+
+      {lightboxIndex !== null && (
+        <FeedbackAttachmentLightbox
+          attachments={item.attachments}
+          index={lightboxIndex}
+          onIndexChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
 
       {item.statusReason !== null && (
         <p className="text-12 text-card-foreground" data-testid={`admin-feedback-reason-${item.id}`}>
@@ -799,8 +814,11 @@ function FeedbackDetailPanel({
   );
 }
 
-/** 「我提过的」/后台详情共用的做法：下载路由要 `Authorization` 头，`<img src>` 带不了，先 fetch 再转 Blob URL。 */
-function AttachmentThumbnail({ url }: { url: string }) {
+/**
+ * 「我提过的」/后台详情共用的做法：下载路由要 `Authorization` 头，`<img src>` 带不了，先 fetch 再转 Blob URL。
+ * `onClick` 存在时渲染成按钮——点开 `FeedbackAttachmentLightbox` 大图预览，支持多图。
+ */
+function AttachmentThumbnail({ url, onClick, testid }: { url: string; onClick?: () => void; testid?: string }) {
   const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
   React.useEffect(() => {
@@ -820,8 +838,131 @@ function AttachmentThumbnail({ url }: { url: string }) {
   }, [url]);
   if (failed) return <div className="flex h-16 w-16 items-center justify-center rounded-md border border-border-subtle text-10 text-muted-foreground">?</div>;
   if (objectUrl === null) return <div className="h-16 w-16 animate-pulse rounded-md bg-muted" aria-hidden />;
-  // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图
-  return <img src={objectUrl} alt="" className="h-16 w-16 rounded-md border border-border-subtle object-cover" />;
+  if (onClick === undefined) {
+    // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图
+    return <img src={objectUrl} alt="" className="h-16 w-16 rounded-md border border-border-subtle object-cover" />;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={testid}
+      className="block h-16 w-16 overflow-hidden rounded-md border border-border-subtle transition-colors hover:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图 */}
+      <img src={objectUrl} alt="" className="h-full w-full object-cover" />
+    </button>
+  );
+}
+
+/**
+ * 点缩略图后的大图预览——支持一条反馈的多张附件左右切换（FB-5 一条反馈最多 4 张）。
+ * 与 `ChatAttachmentPreviewModal` 同一套骨架（`Modal` + portal 到 `document.body` +
+ * `fetchFeedbackAttachmentObjectUrl` 拉字节），区别只是这里要维护"当前第几张"并支持切换。
+ * 每次切换 `index` 都重新 fetch 当前这一张——同一条反馈最多 4 张，不值得为了省这几次
+ * 网络请求预先把全部缩略图的 blob 提到父组件缓存复用。
+ */
+function FeedbackAttachmentLightbox({
+  attachments, index, onIndexChange, onClose,
+}: {
+  attachments: readonly FeedbackAttachment[];
+  index: number;
+  onIndexChange: (next: number) => void;
+  onClose: () => void;
+}) {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
+  const current = attachments[index];
+  const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
+  const [failed, setFailed] = React.useState(false);
+  React.useEffect(() => {
+    if (current === undefined) return;
+    let cancelled = false;
+    let created: string | null = null;
+    setObjectUrl(null);
+    setFailed(false);
+    fetchFeedbackAttachmentObjectUrl(current.url)
+      .then((u) => {
+        if (cancelled) { URL.revokeObjectURL(u); return; }
+        created = u;
+        setObjectUrl(u);
+      })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => {
+      cancelled = true;
+      if (created !== null) URL.revokeObjectURL(created);
+    };
+  }, [current]);
+
+  const canPrev = index > 0;
+  const canNext = index < attachments.length - 1;
+
+  React.useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft" && canPrev) onIndexChange(index - 1);
+      else if (e.key === "ArrowRight" && canNext) onIndexChange(index + 1);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [index, canPrev, canNext, onIndexChange]);
+
+  if (!mounted || current === undefined) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-40" data-testid="admin-feedback-attachment-lightbox-portal">
+      <Modal
+        testid="admin-feedback-attachment-lightbox"
+        title={attachments.length > 1 ? `附件图片(${index + 1}/${attachments.length})` : "附件图片"}
+        onClose={onClose}
+        width="lg"
+      >
+        <div className="relative grid min-h-[240px] place-items-center">
+          {failed ? (
+            <p className="text-13 text-muted-foreground" data-testid="admin-feedback-attachment-lightbox-failed">
+              加载失败，请重试。
+            </p>
+          ) : objectUrl === null ? (
+            <p className="text-13 text-muted-foreground" data-testid="admin-feedback-attachment-lightbox-loading">
+              正在加载…
+            </p>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图
+            <img
+              src={objectUrl} alt=""
+              className="max-h-[70vh] max-w-full rounded-md object-contain"
+              data-testid="admin-feedback-attachment-lightbox-image"
+            />
+          )}
+          {attachments.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="上一张"
+                disabled={!canPrev}
+                onClick={() => onIndexChange(index - 1)}
+                data-testid="admin-feedback-attachment-lightbox-prev"
+                className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full border border-border-subtle bg-card p-1.5 text-card-foreground disabled:cursor-not-allowed disabled:border-transparent disabled:bg-disabled disabled:text-disabled-foreground"
+              >
+                <ChevronLeft aria-hidden className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="下一张"
+                disabled={!canNext}
+                onClick={() => onIndexChange(index + 1)}
+                data-testid="admin-feedback-attachment-lightbox-next"
+                className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full border border-border-subtle bg-card p-1.5 text-card-foreground disabled:cursor-not-allowed disabled:border-transparent disabled:bg-disabled disabled:text-disabled-foreground"
+              >
+                <ChevronRight aria-hidden className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        </div>
+      </Modal>
+    </div>,
+    document.body,
+  );
 }
 
 type FeedbackEventsLoad =
