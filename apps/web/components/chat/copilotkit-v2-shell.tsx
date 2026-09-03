@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import {
-  NewThreadButton, ThreadCardButton, ThreadListHeader,
+  NewThreadButton, SidebarBrandHeader, ThreadCardButton,
 } from "@/components/chat/thread-list-shell";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -1009,10 +1009,13 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
         )}
         data-testid="copilotkit-v2-thread-sidebar"
       >
-        {/* 2026-08-29 Claude Design 重设计稿——这个左栏在该稿里叫「工作」，不是「对话」：
-            它承载的不只是聊天记录，还是"把一件事交给 AI"的入口。`ThreadListHeader`
-            默认值（"对话"）留给旧轨道两屏，这里显式覆盖，不动共用组件的默认行为。 */}
-        <ThreadListHeader title="工作" />
+        {/* 2026-09-03 人类直接指令（对照设计参照图）——这个位置从
+            `<ThreadListHeader title="工作" />`（纯文字标题 + ⌘K）换成宽栏顶部
+            品牌行（图标 + WorkspaceX + 装饰性 ▾ + ⌘K），见 `SidebarBrandHeader`
+            头注。旧轨道两屏（`chat-read-screen.tsx`/`personal-chat-screen.tsx`）
+            仍用 `ThreadListHeader`，不跟着这里改——那是另一个决定，本次没有被
+            要求覆盖它们。 */}
+        <SidebarBrandHeader />
         <div className="flex flex-col gap-1.5 px-3">
           <NewThreadButton onClick={() => void handleCreate()} disabled={!bearer || createPending} label="交一件事给 AI" />
           {/* 2026-08-31 补：新建失败此前无声无息（见上面 `createFailure` 头注）——

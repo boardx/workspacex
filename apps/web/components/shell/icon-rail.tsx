@@ -42,20 +42,15 @@ export function IconRail({
       className="flex h-full min-h-0 w-rail min-w-rail shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border bg-rail py-3.5"
     >
       {/*
-        2026-09-03 人类直接指令：推翻 2026-08-27 的裁决（当时理由是「衬线体 W 与组织
-        菜单头像/首字标识视觉重复」），重新加回品牌字标。这段历史刻意保留而不是删掉——
-        `.harness/instructions/static-trace-vs-live-fact.md` 的道理同样适用于「上一次
-        的裁决」：删掉旧注释，下一个想恢复或再次质疑这个决定的人就得重新推导一遍。
-        与 2026-08-27 相比：字标本身仍然纯展示、不可点击，组织切换入口仍然只在下面
-        `OrgMenu` 这一处——没有把「品牌」和「组织身份」这两件事合并回一个入口。
+        2026-09-03 第二轮人类直接指令（对照新一份设计参照图，推翻同一天早些时候的
+        「衬线体 W 字标」方案）：图标栏最上方改成黑底 9 宫格图标，而不是文字字标 +
+        组织头像两件东西并存。字标方案的历史见 git blame（`OrgMenu` 的
+        `triggerVariant` 头注）——这里不再堆第二段历史注释，两轮裁决的完整推导
+        留在各自改动点的提交记录里，机械可查，不需要在这个文件里重复第三遍。
+        `OrgMenu` 加了 `triggerVariant="grid"`，视觉换成 9 宫格，点击行为不变
+        （仍是组织菜单，不是新入口）——那段 2026-08-11「组织头像放在左上角」的
+        信息架构裁决本身没有被推翻，只是触发器的视觉从「头像/首字」换成「宫格」。
       */}
-      <div
-        aria-hidden
-        data-testid="rail-brand-mark"
-        className="mb-1 select-none font-display text-14 font-semibold text-card-foreground [@media(max-height:640px)]:hidden"
-      >
-        W
-      </div>
       {/*
         短视口策略（2026-09-02 人类直接反馈：窗口高度不够时菜单被挤出、左下角头像看不见）：
         rail 分三段——① 顶部组织菜单（shrink-0，永远可见）② 中段一级导航（min-h-0 +
@@ -75,6 +70,7 @@ export function IconRail({
           onSelect={onSwitchOrganization}
           switching={switching}
           placement="right"
+          triggerVariant="grid"
         />
       </div>
 
