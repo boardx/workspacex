@@ -104,13 +104,28 @@ export interface ErrorLogPort {
     readonly tags: readonly string[];
   } | null>;
 
-  /** 生命周期（状态/理由/开发备注/标签）的唯一写入口，见 `kernel_write_error_log_lifecycle`。 */
-  updateLifecycle(id: string, next: {
+  /**
+   * 生命周期（状态/理由/开发备注/标签）的唯一写入口，见 `kernel_write_error_log_lifecycle`
+   * 与该迁移头注②。**字段级部分写入**——每个字段 `undefined` ⟺ 这次请求不碰这一列
+   * （数据库侧只 `UPDATE` 明确传了值的列，不会把并发的另一次局部编辑覆盖掉）。
+   *
+   * `expectedStatus`：调用方要改 `status` 时，必须带上它据以判断这次转移合法的
+   * 旧状态——写入时用它做乐观锁（`status` 这一列此刻仍等于它才真正生效）；不改
+   * `status` 的请求传 `null`，不设防。返回 `null` ⟺ id 不存在，或乐观锁未命中
+   * （并发冲突）——调用方（`updateSystemErrorLifecycle`）据此抛 `SystemErrorConcurrentUpdateError`。
+   */
+  updateLifecycle(id: string, patch: {
+    readonly expectedStatus: ErrorLogStatus | null;
+    readonly status?: ErrorLogStatus;
+    readonly statusReason?: string | null;
+    readonly devNote?: string | null;
+    readonly tags?: readonly string[];
+  }): Promise<{
     readonly status: ErrorLogStatus;
     readonly statusReason: string | null;
     readonly devNote: string | null;
     readonly tags: readonly string[];
-  }): Promise<void>;
+  } | null>;
 }
 
 export const ERROR_LOG_PORT = Symbol("ErrorLogPort");

@@ -198,17 +198,38 @@ export class PgErrorLogWriter implements ErrorLogPort {
     return { status: row.status, statusReason: row.status_reason, devNote: row.dev_note, tags: row.tags ?? [] };
   }
 
-  async updateLifecycle(id: string, next: {
+  async updateLifecycle(id: string, patch: {
+    readonly expectedStatus: ErrorLogStatus | null;
+    readonly status?: ErrorLogStatus;
+    readonly statusReason?: string | null;
+    readonly devNote?: string | null;
+    readonly tags?: readonly string[];
+  }): Promise<{
     readonly status: ErrorLogStatus;
     readonly statusReason: string | null;
     readonly devNote: string | null;
     readonly tags: readonly string[];
-  }): Promise<void> {
-    await this.db.withoutTenant((s) =>
-      s.query(
-        `SELECT kernel_write_error_log_lifecycle($1::bigint, $2, $3, $4, $5::text[])`,
-        [id, next.status, next.statusReason, next.devNote, next.tags],
+  } | null> {
+    const rows = await this.db.withoutTenant((s) =>
+      s.query<{ status: ErrorLogStatus; status_reason: string | null; dev_note: string | null; tags: string[] }>(
+        `SELECT * FROM kernel_write_error_log_lifecycle(
+           $1::bigint, $2,
+           $3, $4,
+           $5, $6,
+           $7, $8,
+           $9, $10::text[]
+         )`,
+        [
+          id, patch.expectedStatus,
+          patch.status !== undefined, patch.status ?? null,
+          patch.statusReason !== undefined, patch.statusReason ?? null,
+          patch.devNote !== undefined, patch.devNote ?? null,
+          patch.tags !== undefined, patch.tags ?? null,
+        ],
       ),
     );
+    const row = rows.rows[0];
+    if (row === undefined) return null;
+    return { status: row.status, statusReason: row.status_reason, devNote: row.dev_note, tags: row.tags ?? [] };
   }
 }

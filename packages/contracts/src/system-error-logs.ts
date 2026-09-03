@@ -93,6 +93,12 @@ export const SystemErrorLogError = z.enum([
   "INVALID_TRANSITION",
   /** `updateSystemErrorLifecycle`：转「不做」时 `statusReason` 为空。 */
   "REASON_REQUIRED",
+  /** `updateSystemErrorLifecycle`：`statusReason` 在不随 `status` 一起提交时被携带——
+   *  只能与状态变更一起改存档理由,见用例头注①。 */
+  "REASON_REQUIRES_STATUS",
+  /** `updateSystemErrorLifecycle`：并发冲突——`status` 在这次请求读到旧值之后已被别处改过,
+   *  刷新后重试,见用例头注②。 */
+  "CONCURRENT_UPDATE",
 ]);
 export type SystemErrorLogError = z.infer<typeof SystemErrorLogError>;
 
@@ -209,6 +215,9 @@ export const operations = {
     out: SystemErrorLogItem.omit({
       traceId: true, msg: true, detail: true, createdAt: true, aiTitle: true, aiSummary: true,
     }),
-    err: ["NOT_PLATFORM_SUPERUSER", "DEPENDENCY_UNAVAILABLE", "NOT_FOUND", "INVALID_TRANSITION", "REASON_REQUIRED"] as const,
+    err: [
+      "NOT_PLATFORM_SUPERUSER", "DEPENDENCY_UNAVAILABLE", "NOT_FOUND",
+      "INVALID_TRANSITION", "REASON_REQUIRED", "REASON_REQUIRES_STATUS", "CONCURRENT_UPDATE",
+    ] as const,
   },
 } as const;

@@ -209,15 +209,50 @@ describe("PgErrorLogWriter -- lifecycle (status/statusReason/devNote/tags)", () 
     await expect(writer.getLifecycle("missing")).resolves.toBeNull();
   });
 
-  it("updateLifecycle() writes all four columns via kernel_write_error_log_lifecycle", async () => {
+  it("updateLifecycle() sets p_set_* flags true only for fields actually provided (field-level partial write)", async () => {
+    const session: TenantSession = {
+      async query<R = Record<string, unknown>>() {
+        return { rows: [{ status: "已转入开发", status_reason: null, dev_note: "备注", tags: ["x"] }] as unknown as R[] };
+      },
+    };
+    const db: DatabasePort = { withTenant: async (_o, fn) => fn(session), withoutTenant: async (fn) => fn(session), close: async () => undefined };
+    const writer = new PgErrorLogWriter(db, db);
+
+    const out = await writer.updateLifecycle("1", {
+      expectedStatus: "待处理", status: "已转入开发", statusReason: null, devNote: "备注", tags: ["x"],
+    });
+
+    expect(out).toEqual({ status: "已转入开发", statusReason: null, devNote: "备注", tags: ["x"] });
+  });
+
+  it("updateLifecycle(): a tags-only patch sets p_set_status/p_set_status_reason/p_set_dev_note false, expectedStatus null", async () => {
     const { db, queries } = fakeDb();
     const writer = new PgErrorLogWriter(db, db);
 
-    await writer.updateLifecycle("1", { status: "已转入开发", statusReason: null, devNote: "备注", tags: ["x"] });
+    await writer.updateLifecycle("1", { expectedStatus: null, tags: ["x", "y"] });
 
     expect(queries).toHaveLength(1);
     expect(queries[0]!.sql).toContain("kernel_write_error_log_lifecycle");
-    expect(queries[0]!.params).toEqual(["1", "已转入开发", null, "备注", ["x"]]);
+    // [id, expectedStatus, setStatus, status, setReason, reason, setDevNote, devNote, setTags, tags]
+    expect(queries[0]!.params).toEqual(["1", null, false, null, false, null, false, null, true, ["x", "y"]]);
+  });
+
+  it("updateLifecycle(): a status-changing patch passes expectedStatus and sets p_set_status/p_set_status_reason true", async () => {
+    const { db, queries } = fakeDb();
+    const writer = new PgErrorLogWriter(db, db);
+
+    await writer.updateLifecycle("1", { expectedStatus: "待处理", status: "不做", statusReason: "过期", devNote: undefined, tags: undefined });
+
+    expect(queries[0]!.params).toEqual(["1", "待处理", true, "不做", true, "过期", false, null, false, null]);
+  });
+
+  it("updateLifecycle() returns null when the write function returns zero rows (CAS conflict or unknown id)", async () => {
+    const { db } = fakeDb(); // default fake returns { rows: [] } for non-INSERT queries
+    const writer = new PgErrorLogWriter(db, db);
+
+    await expect(
+      writer.updateLifecycle("1", { expectedStatus: "待处理", status: "已转入开发" }),
+    ).resolves.toBeNull();
   });
 });
 
