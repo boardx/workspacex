@@ -6,6 +6,14 @@ import type { DigitalInterviewWorkflowView } from "@/lib/interview-api";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 import { PersistentDigitalInterviewWorkflow } from "@/components/itv/digital-interview-workflow";
 
+const exportWord = vi.fn();
+const exportPdf = vi.fn();
+vi.mock("@/lib/interview-report-export", () => ({
+  exportInterviewReportWord: (...args: unknown[]) => exportWord(...args),
+  exportInterviewReportPdf: (...args: unknown[]) => exportPdf(...args),
+  reportMarkdownBody: (title: string, markdown: string) => markdown.replace(`# ${title}\n\n`, ""),
+}));
+
 const completed: DigitalInterviewWorkflowView = {
   interviewId: "itv-f06", name: "江西足球", tags: ["足球"], topic: "江西足球的崛起", status: "running",
   sourceQuickInterviewId: null, selectedExpertIds: ["expert-f06"], reportId: null, report: null, version: 12,
@@ -29,7 +37,7 @@ describe("F06 interview answers to report", () => {
         findings: [], errorCode: null, updatedAt: "2026-09-01T02:00:30.000Z" } };
     const final = { ...streaming, status: "completed" as const, version: 14, reportGeneration: null,
       reportId: "report-f06", report: { reportId: "report-f06", title: "江西足球访谈报告",
-        executiveSummary: "基层体系需要教练与赛事协同。", markdown: "# 江西足球访谈报告\n\n## 基层体系",
+        executiveSummary: "基层体系需要教练与赛事协同。", markdown: "# 江西足球访谈报告\n\n## 基层体系\n\n- 培养教练\n- 连接赛事\n\n<script>alert('xss')</script>",
         findings: [{ findingId: "finding-f06", title: "基层优先", summary: "先培养教练。", expertId: "expert-f06",
           questionId: "question-f06", sourceAnswerId: "expert-f06:question-f06", exploratory: true as const }],
         generatedAt: "2026-09-01T02:01:00.000Z" } };
@@ -54,6 +62,16 @@ describe("F06 interview answers to report", () => {
     fireEvent.click(button);
     expect(await screen.findByTestId("itv-report")).toHaveTextContent("江西足球访谈报告");
     expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("基层体系");
+    expect(screen.getByTestId("itv-report-markdown").querySelector("h1")).toBeNull();
+    expect(screen.getByTestId("itv-report-markdown").querySelector("h2")).toHaveTextContent("基层体系");
+    expect(screen.getByTestId("itv-report-markdown").querySelectorAll("li")).toHaveLength(2);
+    expect(screen.getByTestId("itv-report-markdown").querySelector("script")).toBeNull();
+    expect(screen.getByTestId("itv-report-markdown").querySelector("pre")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("itv-report-export-word"));
+    fireEvent.click(screen.getByTestId("itv-report-export-pdf"));
+    expect(exportWord).toHaveBeenCalledWith(final.report);
+    expect(exportPdf).toHaveBeenCalledWith("itv-report-print-root");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 

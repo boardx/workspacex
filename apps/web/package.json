@@ -33,6 +33,7 @@
     "@xyflow/react": "^12.3.6",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "docx": "^9.7.1",
     "fabric": "7.4.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.454.0",
