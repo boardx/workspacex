@@ -124,6 +124,31 @@ export const LOGIN_ATTEMPT_REPOSITORY = Symbol("LoginAttemptRepository");
  * caller's side, from a valid logout -- and returning "session ok" is the disguise for
  * "there is no auth layer".
  */
+
+/**
+ * The typed shape of "the underlying store is unreachable" -- thrown by an implementation,
+ * caught by the application layer.
+ *
+ * ## Why this exists (2026-09-01 review finding, PR #2440)
+ *
+ * `login.ts` initially caught ANYTHING `sessions.issue()` threw and translated it to
+ * `AUTH_SERVICE_UNAVAILABLE`. That is too wide: a programming bug in the adapter (a bad
+ * JSON.stringify call, a contract violation) would ALSO get relabelled "the store is down",
+ * which is false and would hide a real defect behind a message that tells nobody to look at
+ * the code. The fix is for the adapter -- the only place that actually knows which of its
+ * failures are "the dependency is unreachable" versus "something is wrong with this call" --
+ * to say so with a type, and for the application layer to translate only that type. Any other
+ * exception (unrecognised, or a genuine bug) is deliberately left uncaught here so it keeps
+ * flowing to `AllExceptionsFilter`'s catch-all and becomes `internal_error` -- which is the
+ * correct, honest answer for "something broke that isn't 'Redis is down'".
+ */
+export class SessionStoreUnavailableError extends Error {
+  constructor(readonly cause: unknown) {
+    super("session store unavailable");
+    this.name = "SessionStoreUnavailableError";
+  }
+}
+
 export interface SessionTokenStore {
   /** @returns the opaque bearer token. The token is NOT derivable from the record. */
   issue(record: SessionRecord): Promise<string>;

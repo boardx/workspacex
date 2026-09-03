@@ -145,6 +145,14 @@ export interface ApiRequestOptions {
   readonly body?: unknown;
   /** 缺省读 `localStorage`；测试或需要显式传 token 的调用方可以覆盖。 */
   readonly sessionToken?: string | null;
+  /**
+   * issue #2418（PR #2419 独立 review 阻断项）—— 可选的取消信号，透传给底层
+   * `fetch`。调用方不传时行为与此前逐字相同（`undefined` 是 `fetch` 的合法值，
+   * 表示不可取消）——这不是给全仓 30+ 既有调用方新增义务，只是给需要"组件卸载/
+   * 参数变了就该放弃这次请求"的调用方开一个口子（第一个用例见
+   * `copilotkit-v2-shell.tsx` 的 `fetchThreadList`）。
+   */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -199,6 +207,7 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
     headers,
     credentials: "include",
     body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+    signal: opts.signal,
   });
 
   const text = await res.text();

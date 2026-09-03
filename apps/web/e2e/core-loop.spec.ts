@@ -182,7 +182,7 @@ test.describe("核心闭环八步", () => {
 
   test("步骤 2：管理员新增 Agent，刷新后仍在（复用 #458 已交付的写路径）", async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto("/admin/agent");
+    await page.goto("/platform-admin/agent");
     // 只断言「这条路径是活的」——完整的增/停用/403 三件套由
     // `capability-mutate-smoke.spec.ts` 覆盖，这里不重复它，只证明它在闭环里可达。
     //

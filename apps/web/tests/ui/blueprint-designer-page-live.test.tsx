@@ -34,7 +34,7 @@ const REAL_ROW = {
   durationTier: "custom" as const,
   appliedProjectCount: 0,
   satisfaction: null,
-  completeness: { done: 2, denominator: 15 },
+  completeness: { done: 2, denominator: 13 }, // 13 = DESIGN_FACET_DEFINITIONS.length（roles-and-perms/group-capabilities 已移除，15→13）
   availableActions: [] as const,
 };
 
@@ -79,7 +79,7 @@ describe("BP-06 /tpl/designer：按 blueprintId 真实读（无编造字段）",
 
     await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
     expect(screen.getByText("真实设计器蓝本 · 蓝本设计")).toBeInTheDocument();
-    expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("2/15");
+    expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("2/13");
     // 已填的两项在目录里应打勾（✓），不是靠 mock CONFIG_ITEMS 编出来的
     expect(screen.getByTestId("bp-designer-facet-topic-and-background").textContent).toContain("✓");
     expect(screen.getByTestId("bp-designer-facet-flow-agenda").textContent).toContain("✓");
@@ -188,7 +188,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-2",
           completed: true,
-          completeness: { done: 3, denominator: 15 },
+          completeness: { done: 3, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -207,8 +207,8 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     // 乐观并发：带上读到的 itemRevision，不是 0 也不是写端口的回声。
     await waitFor(() => expect(putBody!.expectedItemRevision).toBe("ir-1"));
     expect((JSON.parse(putBody!.value) as { rows: { name: string }[] }).rows[0]?.name).toBe("新产出");
-    // 完成度是 PUT 响应里的 3/15，不是前端本地 +1 猜出来的。
-    await waitFor(() => expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("3/15"));
+    // 完成度是 PUT 响应里的 3/13，不是前端本地 +1 猜出来的。
+    await waitFor(() => expect(screen.getByTestId("bp-designer-completeness").textContent).toContain("3/13"));
   });
 
   it("并发冲突（VERSION_CHANGED）：如实提示，不静默覆盖", async () => {
@@ -301,7 +301,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-new-1",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -368,7 +368,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-new-1",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -436,7 +436,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: `ir-${(putBody as { value: string }).value.length}`,
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -483,7 +483,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-2",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -524,6 +524,244 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     expect(parsed.segments.map((s) => s.no)).toEqual(["01", "02", "03"]);
   });
 
+  it("流程 Agenda：拖到别的分组（上午→下午）——被拖环节的 day/session 跟着改，不需要再点选择器", async () => {
+    const saved = {
+      segments: [
+        { no: "01", title: "环节甲", min: 20, boardSkill: "", optional: false, day: 1, session: "AM" },
+        { no: "02", title: "环节乙", min: 20, boardSkill: "", optional: false, day: 1, session: "PM" },
+      ],
+    };
+    let putBody: { value: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "flow-agenda", content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/flow-agenda` && init?.method === "PUT") {
+        putBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: "ir-2",
+          completed: true,
+          completeness: { done: 1, denominator: 13 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    await screen.findByTestId("bp-agenda-segment-title-0");
+
+    // 拖之前两个环节分属不同分组（标题是 <input value>，不进 textContent，按 value 查）。
+    expect(screen.getByTestId("bp-agenda-group-1-AM")).toBeInTheDocument();
+    expect(screen.getByTestId("bp-agenda-group-1-PM")).toBeInTheDocument();
+    expect((screen.getByTestId("bp-agenda-segment-title-0") as HTMLInputElement).value).toBe("环节甲");
+    expect((screen.getByTestId("bp-agenda-segment-title-1") as HTMLInputElement).value).toBe("环节乙");
+
+    const grip0 = screen.getByTestId("bp-agenda-segment-grip-0"); // 环节甲，day1/AM
+    const row1 = screen.getByTestId("bp-agenda-segment-1"); // 环节乙，day1/PM
+    document.elementFromPoint = () => row1.querySelector("input")!;
+
+    fireEvent.pointerDown(grip0, { pointerId: 1, clientX: 0, clientY: 0, button: 0 });
+    fireEvent.pointerMove(grip0, { pointerId: 1, clientX: 0, clientY: 200 });
+    fireEvent.pointerUp(grip0, { pointerId: 1 });
+
+    // 拖过去之后，"第 1 天 · 上午"这个分组标题整个消失了（没环节了），两个环节都并到
+    // 「第 1 天 · 下午」下面——不是拖不动，也不需要再去点行内选择器。
+    await waitFor(() => {
+      expect(screen.queryByTestId("bp-agenda-group-1-AM")).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId("bp-agenda-group-1-PM")).toBeInTheDocument();
+    expect((screen.getByTestId("bp-agenda-segment-title-0") as HTMLInputElement).value).toBe("环节乙");
+    expect((screen.getByTestId("bp-agenda-segment-title-1") as HTMLInputElement).value).toBe("环节甲");
+
+    await waitFor(() => expect(putBody).not.toBeNull());
+    const parsed = JSON.parse(putBody!.value) as {
+      segments: { title: string; day: number; session: string }[];
+    };
+    expect(parsed.segments.map((s) => s.title)).toEqual(["环节乙", "环节甲"]);
+    expect(parsed.segments.every((s) => s.day === 1 && s.session === "PM")).toBe(true);
+  });
+
+  it("流程 Agenda：pointercancel（松手前指针被系统抢走）也和 pointerup 一样落库", async () => {
+    const saved = {
+      segments: [
+        { no: "01", title: "对齐目标", min: 25, boardSkill: "—", optional: false },
+        { no: "02", title: "现状共识", min: 25, boardSkill: "Scout 简报", optional: false },
+      ],
+    };
+    let putBody: { value: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "flow-agenda", content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/flow-agenda` && init?.method === "PUT") {
+        putBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: "ir-2",
+          completed: true,
+          completeness: { done: 1, denominator: 13 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    await screen.findByTestId("bp-agenda-segment-title-0");
+
+    const grip0 = screen.getByTestId("bp-agenda-segment-grip-0");
+    const row1 = screen.getByTestId("bp-agenda-segment-1");
+    document.elementFromPoint = () => row1.querySelector("input")!;
+
+    fireEvent.pointerDown(grip0, { pointerId: 1, clientX: 0, clientY: 0, button: 0 });
+    fireEvent.pointerMove(grip0, { pointerId: 1, clientX: 0, clientY: 100 });
+    fireEvent.pointerCancel(grip0, { pointerId: 1 }); // 不是 pointerup——系统手势/多指触摸会抢走指针
+
+    await waitFor(() => {
+      expect((screen.getByTestId("bp-agenda-segment-title-1") as HTMLInputElement).value).toBe("对齐目标");
+    });
+    await waitFor(() => expect(putBody).not.toBeNull());
+    const parsed = JSON.parse(putBody!.value) as { segments: { title: string }[] };
+    expect(parsed.segments.map((s) => s.title)).toEqual(["现状共识", "对齐目标"]);
+  });
+
+  it("流程 Agenda：自动保存的回声回来之后，正在编辑的那一行不会重新挂载，输入不丢", async () => {
+    let putCount = 0;
+    let lastPutBody: { value: string } | null = null;
+    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({ revision: "rev-1", designFacets: [] });
+      }
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets/flow-agenda` && init?.method === "PUT") {
+        putCount += 1;
+        lastPutBody = JSON.parse(init.body as string);
+        return jsonResponse({
+          itemRevision: `ir-${putCount}`,
+          completed: true,
+          completeness: { done: 1, denominator: 13 },
+          autosavedAt: "2026-08-17T02:00:00Z",
+        });
+      }
+      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+    await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+    await screen.findByTestId("bp-agenda-empty");
+    fireEvent.click(screen.getByTestId("bp-agenda-add-segment"));
+
+    // 新增环节触发第一次保存——显式等它的回声（父组件把新 content/itemRevision 传回来）
+    // 真的落地之后再继续操作，逼出"保存回声打断正在编辑的行"这条路径。
+    await waitFor(() => expect(putCount).toBe(1));
+    await screen.findByTestId("bp-facet-save-status"); // "已保存" 徽标出现，回声已经生效
+
+    const titleInput = screen.getByTestId("bp-agenda-segment-title-0") as HTMLInputElement;
+    titleInput.focus();
+    expect(document.activeElement).toBe(titleInput);
+
+    fireEvent.change(titleInput, { target: { value: "收敛环节" } });
+    // 回声没有让这一行重新挂载：同一个 DOM 节点还在文档里，还是焦点所在。
+    expect(document.activeElement).toBe(titleInput);
+    expect(document.body.contains(titleInput)).toBe(true);
+    fireEvent.blur(titleInput);
+
+    await waitFor(() => expect(putCount).toBe(2));
+    const parsed = JSON.parse((lastPutBody as unknown as { value: string }).value) as {
+      segments: { title: string }[];
+    };
+    expect(parsed.segments[0]?.title).toBe("收敛环节");
+  });
+
+  it("流程 Agenda：开了「减弱动态效果」时，拖拽重排不再对行设置位移动画", async () => {
+    const saved = {
+      segments: [
+        { no: "01", title: "对齐目标", min: 25, boardSkill: "—", optional: false },
+        { no: "02", title: "现状共识", min: 25, boardSkill: "Scout 简报", optional: false },
+      ],
+    };
+    fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(typeof input === "string" ? input : input.toString());
+      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
+      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
+        return jsonResponse({
+          revision: "rev-1",
+          designFacets: [{ designFacetKey: "flow-agenda", content: JSON.stringify(saved), itemRevision: "ir-1" }],
+        });
+      }
+      return jsonResponse({ itemRevision: "ir-2", completed: true, completeness: { done: 1, denominator: 13 } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // 假装两行的 getBoundingClientRect 不一样（真实浏览器里重排后确实不一样），
+    // 否则 dx/dy 恒为 0，测不出"到底有没有设置位移动画"这件事。
+    const originalRect = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function (this: HTMLElement) {
+      const idx = this.getAttribute("data-agenda-index");
+      const top = idx !== null ? Number(idx) * 40 : 0;
+      return { top, left: 0, right: 0, bottom: top, width: 100, height: 40, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+    };
+    // 用真的 rAF 打桩（同步执行 + 记调用次数）——不依赖 jsdom 到底有没有实现它。
+    const rafSpy = vi.fn((cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+    vi.stubGlobal("requestAnimationFrame", rafSpy);
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query.includes("prefers-reduced-motion"),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }));
+
+    try {
+      render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
+      await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
+      await screen.getByTestId("bp-designer-facet-flow-agenda").click();
+      await screen.findByTestId("bp-agenda-segment-title-0");
+
+      const grip0 = screen.getByTestId("bp-agenda-segment-grip-0");
+      const row1 = screen.getByTestId("bp-agenda-segment-1");
+      document.elementFromPoint = () => row1.querySelector("input")!;
+
+      fireEvent.pointerDown(grip0, { pointerId: 1, clientX: 0, clientY: 0, button: 0 });
+      fireEvent.pointerMove(grip0, { pointerId: 1, clientX: 0, clientY: 200 });
+      fireEvent.pointerUp(grip0, { pointerId: 1 });
+
+      await waitFor(() => {
+        expect((screen.getByTestId("bp-agenda-segment-title-1") as HTMLInputElement).value).toBe("对齐目标");
+      });
+      // 减弱动态效果开着：FLIP 那段 requestAnimationFrame 压根没跑过，行上也没被设过
+      // transform——不是"动画很快跑完了"，是根本没有触发。
+      expect(rafSpy).not.toHaveBeenCalled();
+      expect(screen.getByTestId("bp-agenda-segment-1").style.transform).toBe("");
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalRect;
+    }
+  });
+
   it("流程 Agenda：拖拽之外，上移/下移按钮仍原样可用（键盘/屏幕阅读器兜底）", async () => {
     const saved = {
       segments: [
@@ -546,7 +784,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-2",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-17T02:00:00Z",
         });
       }
@@ -563,50 +801,6 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     await waitFor(() => expect(putBody).not.toBeNull());
     const parsed = JSON.parse(putBody!.value) as { segments: { title: string }[] };
     expect(parsed.segments.map((s) => s.title)).toEqual(["环节乙", "环节甲"]);
-  });
-
-  it("角色与权限：灰色格禁用点击不发请求，可勾选格点击真实保存", async () => {
-    let putCount = 0;
-    fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(typeof input === "string" ? input : input.toString());
-      if (url.pathname === "/blueprints") return jsonResponse([REAL_ROW]);
-      if (url.pathname === `/blueprints/${BP_ID}/design-facets`) {
-        return jsonResponse({ revision: "rev-1", designFacets: [] });
-      }
-      if (url.pathname === `/blueprints/${BP_ID}/design-facets/roles-and-perms` && init?.method === "PUT") {
-        putCount += 1;
-        return jsonResponse({
-          itemRevision: "ir-roles-1",
-          completed: true,
-          completeness: { done: 1, denominator: 15 },
-          autosavedAt: "2026-08-17T02:00:00Z",
-        });
-      }
-      throw new Error(`unexpected fetch: ${url.pathname} ${init?.method ?? "GET"}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
-    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByTestId("bp-designer-facet-roles-and-perms"));
-    await screen.findByTestId("bp-permission-matrix");
-
-    // 灰格：已裁决只读（原型 `ROLES_PANEL.permRows[].lockedFor`），点击不触发保存。
-    const lockedCell = screen.getByTestId("bp-permission-cell-改议程-组长");
-    expect(lockedCell).toBeDisabled();
-    fireEvent.click(lockedCell);
-    expect(putCount).toBe(0);
-
-    // 可勾选格：点击真实保存。
-    const openCell = screen.getByTestId("bp-permission-cell-写本组画布-组员");
-    expect(openCell).not.toBeDisabled();
-    fireEvent.click(openCell);
-    await waitFor(() => expect(putCount).toBe(1));
-
-    // 分组方式单选与邀请与进场静态参考（原型 ROLES_PANEL.groupingMode/invite）也真实渲染。
-    expect(screen.getByTestId("bp-roles-modeopt-职能混编")).toBeInTheDocument();
-    expect(screen.getByTestId("bp-roles-invite").textContent).toContain("SSO 免登直接进组");
   });
 
   /* ── 分组二（问卷 / 访谈与对象 / 会前任务）── */
@@ -629,7 +823,7 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
         return jsonResponse({
           itemRevision: "ir-new-1",
           completed: true,
-          completeness: { done: 1, denominator: 15 },
+          completeness: { done: 1, denominator: 13 }, // 13：同上
           autosavedAt: "2026-08-18T02:00:00Z",
         });
       }
@@ -861,38 +1055,6 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
     });
   });
 
-  it("组内能力：7 项恒定能力，「与 AI 的对话」必留不可关，其余可开关并保存", async () => {
-    let putBody: { value: string } | null = null;
-    fetchMock = stubFacet("group-capabilities", { enabled: { "用户研究": false }, uses: {} }, (b) => {
-      putBody = b as typeof putBody;
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);
-    await waitFor(() => expect(screen.getByTestId("bp-designer-shell")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByTestId("bp-designer-facet-group-capabilities"));
-    // 能力集恒定 7 项（产品真实能力集，不是用户可增删的自由列表）。
-    expect(await screen.findByTestId("bp-caps-toggle-与 AI 的对话")).toBeInTheDocument();
-    expect(screen.getAllByTestId(/^bp-caps-item-/)).toHaveLength(7);
-    // 必留项：禁用且恒开，与原型「开 · 必留」一致。
-    const mustKeep = screen.getByTestId("bp-caps-toggle-与 AI 的对话");
-    expect(mustKeep).toBeDisabled();
-    expect(mustKeep).toBeChecked();
-    expect(screen.getByTestId("bp-caps-state-与 AI 的对话").textContent).toContain("必留");
-    // 存的关闭态真实回显。
-    expect(screen.getByTestId("bp-caps-toggle-用户研究")).not.toBeChecked();
-    // 回流与可见性是固定说明，不是可编辑字段。
-    expect(screen.getByTestId("bp-caps-reflow").textContent).toContain("洞察库");
-    expect(screen.getByTestId("bp-caps-visibility").textContent).toContain("组员私聊");
-    expect(screen.queryByTestId("bp-facet-content-group-capabilities")).toBeNull();
-
-    fireEvent.click(screen.getByTestId("bp-caps-toggle-组内投票"));
-    await waitFor(() => {
-      const parsed = JSON.parse(putBody!.value) as { enabled: Record<string, boolean> };
-      expect(parsed.enabled["组内投票"]).toBe(false);
-    });
-  });
-
   /* ── 分组四 / 分组五（Agent 编排 / Skill 绑定 / 输出物 / 报告模板）── */
 
   it("Agent 编排：agent 行真实回显，介入阈值可改，硬约束是只读清单", async () => {
@@ -1020,18 +1182,23 @@ describe("D-05 二级 sign-off 已签核：面板真实可编辑（design-deltas
 });
 
 /*
- * 机械门控：不是靠人记得「还有几项是 textbox」——把「15 项配置全部有专属结构化
- * 编辑器」钉成一条会红的断言。人类 2026-08-18 的批评正是「11/15 项仍然是通用
- * textbox」，这条测试保证它不会再悄悄退回去。
+ * 机械门控：不是靠人记得「还有几项是 textbox」——把「配置项定义表里的每一项都有
+ * 专属结构化编辑器」钉成一条会红的断言。人类 2026-08-18 的批评正是「11/15 项
+ * 仍然是通用 textbox」（当时表里是 15 项），这条测试保证它不会再悄悄退回去；
+ * 2026-08-31 产品决策移除 `roles-and-perms`/`group-capabilities` 后表降为 13 项，
+ * 断言的分母改成从 `DESIGN_FACET_CATALOG` 派生而不是写死字面量，改表不用改这里。
  */
-describe("16 项配置面板：全部落在专属结构化编辑器上（无一落回通用自由文本框）", () => {
+describe("配置面板：全部落在专属结构化编辑器上（无一落回通用自由文本框）", () => {
   it("design-facet-table 里的每一个 designFacetKey 都在 registry 上有专属编辑器", async () => {
     const { getFacetEditor } = await import("@/components/tpl-designer/facet-editor-registry");
     const { FacetTextEditor } = await import("@/components/tpl-designer/facet-content-editor");
     const { DESIGN_FACET_CATALOG } = await import("@/lib/generated/design-facet-catalog");
 
     const allKeys = DESIGN_FACET_CATALOG.groups.flatMap((g) => g.items.map((i) => i.designFacetKey));
-    expect(allKeys.length).toBeGreaterThanOrEqual(15);
+    // 13 = DESIGN_FACET_DEFINITIONS.length（roles-and-perms/group-capabilities 已移除）；
+    // 分母从 catalog 派生，不写死字面量。
+    expect(allKeys.length).toBe(DESIGN_FACET_CATALOG.denominator);
+    expect(allKeys.length).toBe(13);
 
     const stillGeneric = allKeys.filter((k) => getFacetEditor(k) === FacetTextEditor);
     expect(stillGeneric).toEqual([]);
@@ -1045,10 +1212,10 @@ describe("16 项配置面板：全部落在专属结构化编辑器上（无一�
 });
 
 /*
- * 第 16 项「基本配置」聚合页 —— 16 项里唯一不是 designFacetKey 的一项，
+ * 「基本配置」聚合页 —— 13 个 designFacetKey 之外唯一的一项，
  * 走 setDurationTier / getInitializationPreview 两个契约操作而不是 facet 读写。
  */
-describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getInitializationPreview", () => {
+describe("「基本配置」聚合页：真实 setDurationTier + getInitializationPreview", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
@@ -1204,7 +1371,7 @@ describe("第 16 项「基本配置」聚合页：真实 setDurationTier + getIn
     expect(puts).toHaveLength(1);
   });
 
-  it("预览读失败：只有那一节如实报错，其余 15 项照常能打开（不让整个设计器打不开）", async () => {
+  it("预览读失败：只有那一节如实报错，其余 13 项照常能打开（不让整个设计器打不开）", async () => {
     fetchMock = stubBasic({ preview: { reasonCode: "DEPENDENCY_UNAVAILABLE" }, previewStatus: 503 });
     vi.stubGlobal("fetch", fetchMock);
     render(<BlueprintDesignerPageLive blueprintId={BP_ID} />);

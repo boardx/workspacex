@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { isEvidenceCommitIntegrated } from "./doctor";
+import { isEvidenceCommitIntegrated, judgeClosedIssueDrift } from "./doctor";
 import { sh } from "./lib/sh";
 
 const tempDirs: string[] = [];
@@ -41,5 +41,25 @@ describe("isEvidenceCommitIntegrated", () => {
     const { repo, evidence } = makeRepo();
     expect(isEvidenceCommitIntegrated(evidence, repo, "push", "origin-main", "HEAD")).toBe(false);
     expect(isEvidenceCommitIntegrated(evidence, repo, "workflow_dispatch", "origin-main", "HEAD")).toBe(false);
+  });
+});
+
+describe("judgeClosedIssueDrift (#1557 反向检查：issue 已关、feature 未 passing)", () => {
+  it("flags a CLOSED issue whose feature is still in_progress", () => {
+    const msg = judgeClosedIssueDrift({ id: "F34", status: "in_progress" }, { number: 87, state: "CLOSED", stateReason: "COMPLETED" });
+    expect(msg).toContain("F34");
+    expect(msg).toContain("#87");
+    expect(msg).toContain("in_progress");
+  });
+
+  it("is silent for passing features, open issues, missing issues, and NOT_PLANNED closures", () => {
+    expect(judgeClosedIssueDrift({ id: "F1", status: "passing" }, { number: 1, state: "CLOSED", stateReason: "COMPLETED" })).toBeNull();
+    expect(judgeClosedIssueDrift({ id: "F1", status: "in_progress" }, { number: 1, state: "OPEN" })).toBeNull();
+    expect(judgeClosedIssueDrift({ id: "F1", status: "in_progress" }, undefined)).toBeNull();
+    expect(judgeClosedIssueDrift({ id: "F1", status: "not_started" }, { number: 1, state: "CLOSED", stateReason: "NOT_PLANNED" })).toBeNull();
+  });
+
+  it("treats a missing stateReason (older gh) as a completed closure, i.e. still drift", () => {
+    expect(judgeClosedIssueDrift({ id: "F1", status: "blocked" }, { number: 1, state: "CLOSED" })).not.toBeNull();
   });
 });

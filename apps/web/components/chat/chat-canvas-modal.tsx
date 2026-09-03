@@ -287,7 +287,10 @@ export function ChatCanvasModal({
           {saved && !saveError && (
             <Badge tone="primary" data-testid="chat-canvas-saved">
               <Check aria-hidden className="h-3 w-3" />
-              已保存 · {saved.at}
+              {/* 2026-09-02 人类实测："保存成功"后刷新全丢——当时其实走的是本地演示
+                  （没有稳定消息身份可挂），徽标却与真实落库长得一模一样。未落库就
+                  在徽标上直说，不让用户事后才发现。 */}
+              {saved.artifactId === null ? `已保存（仅本地演示，刷新后丢失）· ${saved.at}` : `已保存 · ${saved.at}`}
             </Badge>
           )}
           {!saved && !saveError && dirty && (

@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, MessageSquareHeart, Lock } from "lucide-react";
+import { Bot, Boxes, Cpu, Plug, Shapes, LayoutTemplate, LayoutDashboard, Users, MessageSquareHeart, Lock, Globe } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import * as React from "react";
-import { ADMIN_NAV, type AdminModuleKey } from "@/lib/mock/admin";
+import { ADMIN_NAV, ADMIN_MODULE_SCOPE, ADMIN_SCOPE_META, adminNavForScope, type AdminModuleKey, type AdminScope } from "@/lib/mock/admin";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { useLiveAdminNavCounts } from "@/lib/live-admin-nav-counts";
 import { ADMIN_NAV_TESTID } from "./asset-kind-nav";
@@ -29,6 +29,8 @@ const ICONS: Record<AdminModuleKey, LucideIcon> = {
   feedback: MessageSquareHeart,
   // 锁形图标，与顶栏切到本地组织时的那把锁是同一个符号——同一件事在两处要看起来是同一件事
   local: Lock,
+  // 地球：跨组织的全平台视角，与「组织」组的 Users（一个组织里的人）刻意不同符号。
+  platform: Globe,
 };
 
 /**
@@ -109,9 +111,15 @@ const MERGED_SECOND_LEVEL_KEYS = new Set<string>([
 
 export function AdminNav({
   active,
+  scope,
   countSources,
 }: {
   active: AdminModuleKey;
+  /**
+   * 2026-09-02 后台切成两面（`AdminScope`，见 `lib/mock/admin.ts`）：左栏**只画自己这一面**的组。
+   * 不传时按 `active` 所属的面推断——调用方通常不必写。
+   */
+  scope?: AdminScope;
   /**
    * #881：缺省**不再是** `lib/mock/admin.ts` 的静态 mock，而是当前组织的真实计数。
    *
@@ -128,14 +136,24 @@ export function AdminNav({
   const session = useOptionalSession();
   const liveSources = useLiveAdminNavCounts(session?.session?.currentOrgId ?? null, ALL_NAV_KEYS);
   const counts = resolveAdminNavCounts(countSources ?? liveSources);
-  const secondLevelVisible = ADMIN_SECOND_LEVEL.filter((item) => !MERGED_SECOND_LEVEL_KEYS.has(item.key));
+  const resolvedScope: AdminScope = scope ?? ADMIN_MODULE_SCOPE[active];
+  const scopeMeta = ADMIN_SCOPE_META[resolvedScope];
+  // 「能力域 · 全生命周期」二级组是组织后台的东西（束的现行屏全部是组织级），平台面不画。
+  const secondLevelVisible = resolvedScope === "org"
+    ? ADMIN_SECOND_LEVEL.filter((item) => !MERGED_SECOND_LEVEL_KEYS.has(item.key))
+    : [];
   return (
-    <nav aria-label="后台模块" data-testid="admin-nav" className="flex flex-col gap-4 p-3">
+    <nav
+      aria-label={`${scopeMeta.title}模块`}
+      data-testid="admin-nav"
+      data-admin-scope={resolvedScope}
+      className="flex flex-col gap-4 p-3"
+    >
       <div className="flex flex-col gap-0.5 px-1">
-        <span className="text-13 font-semibold">治理后台</span>
-        <span className="text-11 text-muted-foreground">AI 能力与组织的管理面</span>
+        <span className="text-13 font-semibold" data-testid="admin-nav-title">{scopeMeta.title}</span>
+        <span className="text-11 text-muted-foreground">{scopeMeta.intro}</span>
       </div>
-      {ADMIN_NAV.map((group) => (
+      {adminNavForScope(resolvedScope).map((group) => (
         <div key={group.group} className="flex flex-col gap-1">
           <span className="select-none px-1 text-10 font-medium uppercase tracking-wide text-muted-foreground">
             {group.group}

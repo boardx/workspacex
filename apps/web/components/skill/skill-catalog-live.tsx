@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Plus, RefreshCw } from "lucide-react";
+import { Building2, Plus } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,8 @@ import { SkillUrlImportPanel } from "@/components/admin/skill-url-import-panel";
  * 它），`components/ui/` 目前没有任何 Dialog/Modal 组件——不新造第二套弹窗机制。
  */
 import { Modal } from "@/components/files/overlay";
-import { EntityViewToggle } from "@/components/admin/entity-view-toggle";
+import { EntityCatalog, CardActions, tagOf, tagSlug, type CatalogTag } from "@/components/admin/entity-catalog";
+import { KV } from "@/components/admin/panel";
 import {
   getSkillDetail,
   listSkills,
@@ -32,65 +33,6 @@ import {
   type SkillDetail,
   type SkillListItem,
 } from "@/lib/live-skill";
-
-/**
- * 2026-08-13 —— tag 过滤 chip。
- *
- * 人类原话：「另外需要有一个 tags，用来过滤」。契约 `SkillListItem`（`packages/
- * contracts/src/skills.ts`）**没有 tag 字段**，为此另开一个契约面（后端新字段 /
- * 新接口）不在这次改动范围内（人类只要求「只改 UI/mock，不新开后端契约」）。
- *
- * 这里用已经在渲染的三个既有封闭枚举当过滤维度——它们本就是后端真实返回、
- * 界面上已经画成 `Badge` 的字段，语义上就是「标签」：
- *   · `source`（来源）：自建 / 晋升生成 / CC
- *   · `status`（状态）：草稿 / 待审核 / 被退回 / 已启用 / 已停用
- *   · `visibility`（可见范围）：组织可见 / 仅本团队
- * 纯前端本地过滤（`Array.prototype.filter`），零网络请求、零后端改动、零新签核面。
- * 同一维度内选中多个 chip 是「或」（比如同时选「草稿」「已启用」＝两者都要），
- * 跨维度是「且」；某维度一个 chip 都没选＝该维度不参与过滤（等价于全选）。
- */
-interface TagFilterChip<V extends string> {
-  readonly value: V;
-  readonly label: string;
-  /** 英文 slug，拼进 `data-testid`——中文枚举值直接拼 testid 不稳（转义/断言都麻烦）。 */
-  readonly slug: string;
-}
-
-const SOURCE_CHIPS: readonly TagFilterChip<SkillListItem["source"]>[] = [
-  { value: "自建", label: "自建", slug: "self-built" },
-  { value: "晋升生成", label: "晋升生成", slug: "promoted" },
-  { value: "CC", label: "CC", slug: "cc" },
-];
-const STATUS_CHIPS: readonly TagFilterChip<SkillListItem["status"]>[] = [
-  { value: "草稿", label: "草稿", slug: "draft" },
-  { value: "待审核", label: "待审核", slug: "pending-review" },
-  { value: "被退回", label: "被退回", slug: "rejected" },
-  { value: "已启用", label: "已启用", slug: "enabled" },
-  { value: "已停用", label: "已停用", slug: "disabled" },
-];
-const VISIBILITY_CHIPS: readonly TagFilterChip<SkillListItem["visibility"]>[] = [
-  { value: "org-wide", label: "组织可见", slug: "org-wide" },
-  { value: "team-only", label: "仅本团队", slug: "team-only" },
-];
-
-interface TagFilterState {
-  readonly source: ReadonlySet<SkillListItem["source"]>;
-  readonly status: ReadonlySet<SkillListItem["status"]>;
-  readonly visibility: ReadonlySet<SkillListItem["visibility"]>;
-}
-
-const EMPTY_TAG_FILTER: TagFilterState = {
-  source: new Set(),
-  status: new Set(),
-  visibility: new Set(),
-};
-
-function matchesTagFilter(row: SkillListItem, filter: TagFilterState): boolean {
-  if (filter.source.size > 0 && !filter.source.has(row.source)) return false;
-  if (filter.status.size > 0 && !filter.status.has(row.status)) return false;
-  if (filter.visibility.size > 0 && !filter.visibility.has(row.visibility)) return false;
-  return true;
-}
 
 /**
  * G2/G6（2026-08-14，人类实测：点开一张「从外部 URL 导入的 skill」卡片报
@@ -200,20 +142,26 @@ interface PendingRow {
   readonly row: SkillListItem;
 }
 
+/**
+ * 点开一张「查看契约」卡片后面板里要读的详情——`getSkillDetail` 的返回按 skillId 记，
+ * 与 `selectedKey` 分开：面板打开是一件事，详情读没读到是另一件事（G2/G6 那类 404
+ * 要能在面板里如实显示，而不是让面板打不开）。
+ */
+type DetailState =
+  | { readonly skillId: string; readonly status: "loading" }
+  | { readonly skillId: string; readonly status: "error"; readonly message: string }
+  | { readonly skillId: string; readonly status: "ready"; readonly detail: SkillDetail };
+
+const VISIBILITY_LABEL = { "org-wide": "组织可见", "team-only": "仅本团队" } as const;
+
 function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   /**
    * 「编辑源码」目的地——人类反馈（2026-08-17）：点击「编辑」应该打开一个新的界面，
-   * 不是在当前列表页里内联展开。此前这里拼的是 `?screen=catalog&edit=<skillId>`，
-   * 靠 `CapabilityCatalogScreen` 读这个 query 参数自动展开那一行；那条自动展开逻辑
-   * 已经随「编辑」改成整页跳转一起删掉了，现在直接指向那个独立页面
-   * （`/admin/skill/[id]`，`CapabilityEditPage`）。
-   */
-  /**
+   * 不是在当前列表页里内联展开。直接指向独立页面（`/admin/skill/[id]`，`CapabilityEditPage`）。
+   *
    * 人类实测反馈（2026-08-30）：「返回」此前写死回 `/skill?screen=catalog`——从**这个**
-   * 屏（`screen=library`，「Skill 库」真实数据屏）点「编辑源码」进去，点「返回」却
-   * 跳到了另一个屏（`screen=catalog`，治理目录屏），不是刚才这个。把这个屏自己当前的
-   * URL 编码进 `?from=`，`CapabilityEditPage` 优先用它，没有时才落回旧的默认目的地
-   * ——见 `capability-edit-page.tsx` 里 `CATALOG_HREF`/`backHref` 的头注。
+   * 屏点「编辑源码」进去，点「返回」却跳到了另一个屏。把这个屏自己当前的 URL 编码进
+   * `?from=`，`CapabilityEditPage` 优先用它——见 `capability-edit-page.tsx` 的头注。
    */
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -221,7 +169,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   const currentUrl = query === "" ? pathname : `${pathname}?${query}`;
 
   function editSourceHref(skillId: string): string {
-    return `/admin/skill/${skillId}?from=${encodeURIComponent(currentUrl)}`;
+    return `/platform-admin/skill/${skillId}?from=${encodeURIComponent(currentUrl)}`;
   }
 
   const generation = React.useRef(0);
@@ -234,9 +182,8 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   // （契约表单）」改成「从 GitHub 导入」——`form` 这条路径已经不存在了。
   const [createMode, setCreateMode] = React.useState<CreateMode>("import");
   const [notice, setNotice] = React.useState<string | null>(null);
-  const [detail, setDetail] = React.useState<SkillDetail | null>(null);
-  const [detailError, setDetailError] = React.useState<string | null>(null);
-  const [tagFilter, setTagFilter] = React.useState<TagFilterState>(EMPTY_TAG_FILTER);
+  const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
+  const [detailState, setDetailState] = React.useState<DetailState | null>(null);
 
   /** 返回是否真的刷新成功——`SkillUrlImportPanel` 的 `onImported` 契约要求这个布尔值。 */
   const load = React.useCallback(async (): Promise<boolean> => {
@@ -259,14 +206,12 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   }, [orgId]);
 
   React.useEffect(() => {
-    // 换组织 = 上一组织的提示与详情全部作废：它们说的是另一个组织发生过的事。
+    // 换组织 = 上一组织的提示与面板全部作废：它们说的是另一个组织发生过的事。
     setCreating(false);
     setCreateMode("import");
     setNotice(null);
-    setDetail(null);
-    setDetailError(null);
-    // 换组织后过滤条件也清空：上一组织选中的 tag 在新组织里未必还有对应的行。
-    setTagFilter(EMPTY_TAG_FILTER);
+    setSelectedKey(null);
+    setDetailState(null);
     // 乐观行同理作废：它说的是另一个组织里刚发生的事。
     setPending([]);
     void load();
@@ -276,53 +221,154 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
   }, [load]);
 
   // 渲染期就按组织收口：effect 在 paint 之后才跑，只靠它会让新组织短暂继承旧组织的行。
-  const visibleState: LoadState =
-    state.orgId === orgId ? state : { orgId, status: "loading" };
-  const serverRows = visibleState.status === "ready" ? visibleState.rows : [];
+  const visibleState: LoadState = React.useMemo(
+    () => (state.orgId === orgId ? state : { orgId, status: "loading" }),
+    [state, orgId],
+  );
+  const serverRows = React.useMemo(
+    () => (visibleState.status === "ready" ? visibleState.rows : []),
+    [visibleState],
+  );
   /**
    * 服务端结果 ＋ 尚未被确认的乐观行。同一个 `skillId` 以**服务端那份**为准 ——
    * 真实创建的那一行被下一次读取带回来时，这里换成服务端的版本，而不是并排两行。
    */
-  const confirmedIds = new Set(serverRows.map((r) => r.skillId));
-  const rows: readonly SkillListItem[] = [
-    ...pending.filter((p) => !confirmedIds.has(p.row.skillId)).map((p) => p.row),
-    ...serverRows,
-  ];
-  // tag 过滤在真实数据之上、纯前端本地做——不改变「本屏没有 skill」这条真实空态的判定，
-  // 只影响「有 skill 但都被过滤掉了」这条另外的、可清空的状态。
-  const filteredRows = rows.filter((row) => matchesTagFilter(row, tagFilter));
-  const tagFilterActive =
-    tagFilter.source.size > 0 || tagFilter.status.size > 0 || tagFilter.visibility.size > 0;
-
-  function toggleTag<K extends keyof TagFilterState>(dimension: K, value: TagFilterState[K] extends ReadonlySet<infer T> ? T : never) {
-    setTagFilter((prev) => {
-      const next = new Set(prev[dimension] as ReadonlySet<typeof value>);
-      if (next.has(value)) next.delete(value);
-      else next.add(value);
-      return { ...prev, [dimension]: next };
-    });
-  }
-
-  async function openDetail(skillId: string) {
-    setDetailError(null);
-    try {
-      setDetail(await getSkillDetail(skillId));
-    } catch (error) {
-      setDetail(null);
-      setDetailError(describeError(error));
-    }
-  }
+  const rows = React.useMemo<readonly SkillListItem[]>(() => {
+    const confirmedIds = new Set(serverRows.map((r) => r.skillId));
+    return [
+      ...pending.filter((p) => !confirmedIds.has(p.row.skillId)).map((p) => p.row),
+      ...serverRows,
+    ];
+  }, [pending, serverRows]);
 
   /**
-   * G7（2026-08-15，人类原话：「后台的管理功能…卡片也可以切换为列表」）——卡片 / 列表
-   * 两态渲染**同一张卡片**（`renderEntity`），差别只在外层容器是网格排列还是纵向排列。
-   * `EntityViewToggle`（`components/admin/entity-view-toggle.tsx`）本来是为「后台统一
-   * 卡片/列表标准」新建的共享组件，Skill 库是这个标准最早落地的参照（人类原话把它当
-   * 参照），所以这里也接上——此前只有卡片网格，没有切换列表的入口。
+   * 标签 = 三个既有封闭枚举（来源 / 状态 / 可见范围，后端真实返回、卡片上本来就画成
+   * Badge）＋ G5 的自由 `tags`。纯前端本地过滤，零后端改动——同从前的 chip 过滤条，
+   * 只是不再按维度分三行，而是同画布模板库一样汇总成一条、每个后跟数量。
    */
-  function renderEntity(row: SkillListItem) {
-    return (
-      <Card>
+  const tagsOf = React.useCallback((row: SkillListItem): readonly CatalogTag[] => [
+    tagOf(row.source),
+    tagOf(row.status),
+    tagOf(row.visibility, VISIBILITY_LABEL[row.visibility]),
+    ...(row.tags ?? []).map((t) => ({ key: `tag-${tagSlug(t)}`, label: t })),
+  ], []);
+  const searchTextOf = React.useCallback(
+    (row: SkillListItem): string => [row.name, row.skillId, row.duty, ...(row.tags ?? [])].join(" "),
+    [],
+  );
+
+  const selectedRow = selectedKey === null ? null : (rows.find((r) => r.skillId === selectedKey) ?? null);
+  // G2/G6：`skills` 表来源的行在 `skill_contracts` 里没有记录，`getSkillDetail` 必 404——
+  // 这类行的面板只显示列表字段 + 「编辑源码」，不发一个注定失败的详情请求。
+  const selectedNeedsDetail = selectedRow !== null && !isSourceFileBacked(selectedRow);
+
+  React.useEffect(() => {
+    if (selectedKey === null || !selectedNeedsDetail) {
+      setDetailState(null);
+      return;
+    }
+    let cancelled = false;
+    setDetailState({ skillId: selectedKey, status: "loading" });
+    getSkillDetail(selectedKey)
+      .then((detail) => {
+        if (!cancelled) setDetailState({ skillId: selectedKey, status: "ready", detail });
+      })
+      .catch((error) => {
+        if (!cancelled) setDetailState({ skillId: selectedKey, status: "error", message: describeError(error) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedKey, selectedNeedsDetail]);
+
+  function onStatusChanged(skillId: string, status: SkillListItem["status"]) {
+    /**
+     * ⚠ **乐观更新，不重读服务端** —— 与创建那条（文件头第 ③ 条）同一个理由，
+     *   而这里更要紧：#552 的反证要打在**刷新**这个接缝上。把状态落库那一步
+     *   摘掉之后，界面收到的 200 与真实成功一模一样，这一行会照常显示成
+     *   「已启用」；只有 `page.reload()` 之后才露馅。
+     *   若这里改成「审核后立刻重读列表」，反证会红在刷新**之前**——
+     *   那样它考验的是「请求有没有到服务端」，根本没考验到落库。
+     */
+    setState((prev) =>
+      prev.orgId === orgId && prev.status === "ready"
+        ? {
+            ...prev,
+            rows: prev.rows.map((r) => (r.skillId === skillId ? { ...r, status } : r)),
+          }
+        : prev,
+    );
+    // 刚建出来、还没被任何一次读取确认的那一行也在这里 —— 漏掉它，
+    // 「建完直接走门禁」这条路径上状态徽标会停在「草稿」不动。
+    setPending((prev) =>
+      prev.map((p) =>
+        p.row.skillId === skillId ? { ...p, row: { ...p.row, status } } : p,
+      ),
+    );
+  }
+
+  return (
+    <EntityCatalog<SkillListItem>
+      prefix="skill-catalog"
+      rootTestId="skill-catalog-live"
+      title="Skill 库"
+      description={
+        <>
+          skill 是一份声明式契约（提示词模板 ＋ 输入输出 schema ＋ 数据范围声明）。新建出来的是
+          <strong className="text-background-foreground">草稿</strong>：要变成「已启用」，得先过安全扫描（自动），
+          再由<strong className="text-background-foreground">另一位</strong>方法论审核人批准 —— 点开卡片，
+          在面板的门禁区走这两步。这里<strong className="text-background-foreground">没有</strong>「启用」按钮：
+          没有第二个评审人，就没有「已启用」。
+        </>
+      }
+      eyebrow={
+        <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-inverse text-inverse-foreground">
+            <Building2 aria-hidden className="h-4 w-4" />
+          </span>
+          <div className="flex flex-col">
+            <span className="text-14 font-semibold">{orgName}</span>
+            <span className="font-mono text-10 text-muted-foreground">组织 ID {orgId}</span>
+          </div>
+          <Badge tone="outline">真实数据</Badge>
+        </div>
+      }
+      headerActions={
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={() => {
+            setNotice(null);
+            setCreating((v) => !v);
+          }}
+          data-testid="skill-create-open"
+        >
+          <Plus aria-hidden className="h-3.5 w-3.5" /> 新建 skill
+        </Button>
+      }
+      notices={
+        notice ? (
+          <p data-testid="skill-catalog-notice" className="text-12 text-muted-foreground">
+            {notice}
+          </p>
+        ) : null
+      }
+      status={
+        /**
+         * ⚠ 首屏还在飞的时候刚建出来的那一行也得看得见（#861）：有乐观行就按 ready 画，
+         *   否则「提示说建好了、列表里没有」这个状态会一直挂到 GET 回来为止。
+         */
+        visibleState.status === "ready" || rows.length > 0
+          ? { kind: "ready" }
+          : visibleState.status === "error"
+            ? { kind: "error", message: visibleState.message }
+            : { kind: "loading" }
+      }
+      rows={rows}
+      keyOf={(row) => row.skillId}
+      searchTextOf={searchTextOf}
+      tagsOf={tagsOf}
+      renderCard={(row) => (
         <CardContent className="flex h-full flex-col gap-2 pt-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="truncate text-13 font-medium">{row.name}</span>
@@ -330,9 +376,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone="outline">{row.source}</Badge>
             <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>
-            <Badge tone="outline">
-              {row.visibility === "org-wide" ? "组织可见" : "仅本团队"}
-            </Badge>
+            <Badge tone="outline">{VISIBILITY_LABEL[row.visibility]}</Badge>
           </div>
           <p className="line-clamp-2 flex-1 text-11 text-muted-foreground">{row.duty}</p>
           {/*
@@ -341,8 +385,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
           */}
           {(row.tags ?? []).length > 0 ? (
             <div className="flex flex-wrap items-center gap-1" data-testid="skill-catalog-tags">
-              {/* key 带下标：tags 是自由文本输入（`skill-create-tags`），
-                  不去重（G5 契约没有要求唯一），同一个 tag 可能重复出现。 */}
+              {/* key 带下标：tags 是自由文本输入，不去重（G5 契约没有要求唯一）。 */}
               {(row.tags ?? []).map((tag, i) => (
                 <Badge key={`${tag}-${i}`} tone="neutral" className="font-normal">
                   {tag}
@@ -355,78 +398,76 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
             {/* ⚠ null ⟺ 样本不足。契约逐字：不得为了填满界面而给一个 0%。 */}
             {row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`}
           </p>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <CardActions>
             {/*
               G2/G6：`isSourceFileBacked` 为真的行在 `skill_contracts` 里没有对应
               记录，「查看契约」必 404（见上方文件头长注）——换成真实可达的
               「编辑源码」，不是两个都摆、其中一个是死路。
             */}
             {isSourceFileBacked(row) ? (
-              <Button asChild size="xs" variant="ghost" className="self-start" data-testid="skill-catalog-edit-source">
+              <Button asChild size="xs" variant="ghost" data-testid="skill-catalog-edit-source">
                 <a href={editSourceHref(row.skillId)}>编辑源码</a>
               </Button>
             ) : (
               <Button
                 size="xs"
                 variant="ghost"
-                className="self-start"
-                onClick={() => void openDetail(row.skillId)}
+                onClick={() => setSelectedKey(row.skillId)}
                 data-testid="skill-catalog-detail"
               >
                 查看契约
               </Button>
             )}
-          </div>
+          </CardActions>
         </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="relative flex flex-col gap-5" data-testid="skill-catalog-live">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-16 font-semibold tracking-tight">Skill 库</h1>
-            <Badge tone="outline">真实数据</Badge>
+      )}
+      onRefresh={() => void load()}
+      emptyState="当前组织还没有任何 skill。这里就是真实空态 —— 不会替你生成示例 skill。"
+      searchPlaceholder="按名字、ID、职责或标签搜索 skill…"
+      selectedKey={selectedKey}
+      onSelect={setSelectedKey}
+      detailTestId="skill-detail-panel"
+      detailWidth="lg"
+      detailTitle={(row) => row.name}
+      detailSubtitle={(row) => `${row.source} · ${row.status} · ${row.skillId}`}
+      renderDetail={(row) => (
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col divide-y divide-border-subtle">
+            <KV k="职责" v={row.duty} />
+            <KV k="可见范围" v={VISIBILITY_LABEL[row.visibility]} />
+            <KV k="当前版本" v={row.currentVersionId ?? "还没有生效版本"} />
+            <KV k="满意度" v={row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`} />
+            {(row.tags ?? []).length > 0 ? <KV k="标签" v={(row.tags ?? []).join("、")} /> : null}
           </div>
-          <span className="font-mono text-10 text-muted-foreground">
-            {orgName} · 组织 ID {orgId}
-          </span>
+          {isSourceFileBacked(row) ? (
+            <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-panel p-3">
+              <p className="text-11 text-muted-foreground">
+                这条 skill 的内容在源文件里（`skills` 表来源）——名称、可见范围与文件树 / 代码
+                在独立编辑页里改。
+              </p>
+              <Button asChild size="xs" variant="outline" className="self-start" data-testid="skill-detail-edit-source">
+                <a href={editSourceHref(row.skillId)}>编辑源码</a>
+              </Button>
+            </div>
+          ) : null}
+          {detailState?.skillId === row.skillId && detailState.status === "loading" ? (
+            <p data-testid="skill-detail-loading" className="text-11 text-muted-foreground">正在读取契约…</p>
+          ) : null}
+          {detailState?.skillId === row.skillId && detailState.status === "error" ? (
+            <p data-testid="skill-detail-error" className="text-12 text-destructive">
+              详情读取失败：{detailState.message}
+            </p>
+          ) : null}
+          {detailState?.skillId === row.skillId && detailState.status === "ready" ? (
+            <DetailBody detail={detailState.detail} onStatusChanged={onStatusChanged} />
+          ) : null}
+          <p className="text-10 text-muted-foreground">
+            没有「删除」：对存在任何引用的 skill 硬删永久拒绝，停用（`POST /skills/:id/disable`）本波次
+            没有引用清单生产者、必然被拒——摆一个注定失败的按钮比没有按钮更糟。
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void load()}
-            disabled={visibleState.status === "loading"}
-            data-testid="skill-catalog-refresh"
-          >
-            <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-            {visibleState.status === "loading" ? "加载中…" : "刷新"}
-          </Button>
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => {
-              setNotice(null);
-              setCreating((v) => !v);
-            }}
-            data-testid="skill-create-open"
-          >
-            <Plus aria-hidden className="h-3.5 w-3.5" /> 新建 skill
-          </Button>
-        </div>
-      </header>
-
-      <p className="text-12 text-muted-foreground">
-        skill 是一份声明式契约（提示词模板 ＋ 输入输出 schema ＋ 数据范围声明）。新建出来的是
-        <strong className="text-background-foreground">草稿</strong>：要变成「已启用」，得先过安全扫描（自动），
-        再由<strong className="text-background-foreground">另一位</strong>方法论审核人批准 —— 打开「查看契约」
-        里的门禁面板走这两步。这里<strong className="text-background-foreground">没有</strong>「启用」按钮：
-        没有第二个评审人，就没有「已启用」。
-      </p>
-
+      )}
+    >
       {creating ? (
         <Modal
           title="新建 Skill"
@@ -435,219 +476,16 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
           testid="skill-create-modal"
           width="lg"
         >
-        <div className="flex flex-col gap-3" data-testid="skill-create-launcher">
-          <CreateModeTabs mode={createMode} onChange={setCreateMode} />
-          {createMode === "import" ? (
-            <SkillUrlImportPanel key={orgId} onImported={load} />
-          ) : null}
-          {createMode === "market" ? <MarketPickUnavailable /> : null}
-        </div>
+          <div className="flex flex-col gap-3" data-testid="skill-create-launcher">
+            <CreateModeTabs mode={createMode} onChange={setCreateMode} />
+            {createMode === "import" ? (
+              <SkillUrlImportPanel key={orgId} onImported={load} />
+            ) : null}
+            {createMode === "market" ? <MarketPickUnavailable /> : null}
+          </div>
         </Modal>
       ) : null}
-
-      {notice ? (
-        <p data-testid="skill-catalog-notice" className="text-12 text-muted-foreground">
-          {notice}
-        </p>
-      ) : null}
-
-      {visibleState.status === "loading" ? (
-        <div
-          data-testid="skill-catalog-loading"
-          className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
-        >
-          正在读取当前组织的 Skill 库…
-        </div>
-      ) : null}
-
-      {visibleState.status === "error" ? (
-        <div className="flex flex-col items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-          <p data-testid="skill-catalog-error" className="text-12 text-destructive">
-            Skill 库读取失败：{visibleState.message}
-          </p>
-          <Button size="sm" variant="outline" onClick={() => void load()} data-testid="skill-catalog-retry">
-            重试
-          </Button>
-        </div>
-      ) : null}
-
-      {visibleState.status === "ready" && rows.length === 0 ? (
-        <div
-          data-testid="skill-catalog-empty"
-          className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
-        >
-          当前组织还没有任何 skill。这里就是真实空态 —— 不会替你生成示例 skill。
-        </div>
-      ) : null}
-
-      {/**
-       * tag 过滤条只在「确实有行可过滤」时露出——rows 空的时候摆一排不生效的 chip
-       * 只会让真实空态看起来像是被过滤掉了。条件同样用 `rows.length > 0`
-       * （不是 `status === "ready"`），理由与下面列表的 #861 注释相同。
-       */}
-      {rows.length > 0 ? (
-        <TagFilterBar
-          filter={tagFilter}
-          active={tagFilterActive}
-          onToggle={toggleTag}
-          onClear={() => setTagFilter(EMPTY_TAG_FILTER)}
-        />
-      ) : null}
-
-      {/**
-       * ⚠ 条件是 `rows.length > 0`，**不是** `status === "ready" && …`（#861）：
-       *   首屏还在飞的时候刚建出来的那一行也得看得见，否则「提示说建好了、列表里没有」
-       *   这个状态会一直挂到 GET 回来为止。加载态那一格照常显示 —— 两件事都是真的：
-       *   这一行确实建出来了，整份列表确实还在读。
-       *
-       * tag 过滤是在这份「真实存在的行」之上另做的一层本地筛选：`rows` 本身不变，
-       * 变的是 `filteredRows`——过滤把它们全滤空了，是「无匹配」，不是「没有 skill」，
-       * 两者在界面上分开显示（见下面 `skill-catalog-no-match`）。
-       */}
-      {rows.length > 0 && filteredRows.length === 0 ? (
-        <div
-          data-testid="skill-catalog-no-match"
-          className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
-        >
-          没有 skill 匹配当前选中的标签。
-        </div>
-      ) : null}
-
-      {filteredRows.length > 0 ? (
-        <EntityViewToggle
-          prefix="skill-catalog"
-          entities={filteredRows}
-          keyOf={(row) => row.skillId}
-          renderCard={renderEntity}
-          renderListRow={renderEntity}
-          cardContainerTestId="skill-catalog-list"
-          listContainerTestId="skill-catalog-list"
-        />
-      ) : null}
-
-      {detailError ? (
-        <p data-testid="skill-detail-error" className="text-12 text-destructive">
-          详情读取失败：{detailError}
-        </p>
-      ) : null}
-
-      {detail ? (
-        <DetailPanel
-          detail={detail}
-          onClose={() => setDetail(null)}
-          onStatusChanged={(skillId, status) => {
-            /**
-             * ⚠ **乐观更新，不重读服务端** —— 与创建那条（文件头第 ③ 条）同一个理由，
-             *   而这里更要紧：#552 的反证要打在**刷新**这个接缝上。把状态落库那一步
-             *   摘掉之后，界面收到的 200 与真实成功一模一样，这一行会照常显示成
-             *   「已启用」；只有 `page.reload()` 之后才露馅。
-             *   若这里改成「审核后立刻重读列表」，反证会红在刷新**之前**——
-             *   那样它考验的是「请求有没有到服务端」，根本没考验到落库。
-             */
-            setState((prev) =>
-              prev.orgId === orgId && prev.status === "ready"
-                ? {
-                    ...prev,
-                    rows: prev.rows.map((r) => (r.skillId === skillId ? { ...r, status } : r)),
-                  }
-                : prev,
-            );
-            // 刚建出来、还没被任何一次读取确认的那一行也在这里 —— 漏掉它，
-            // 「建完直接走门禁」这条路径上状态徽标会停在「草稿」不动。
-            setPending((prev) =>
-              prev.map((p) =>
-                p.row.skillId === skillId ? { ...p, row: { ...p.row, status } } : p,
-              ),
-            );
-          }}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-/* ── tag 过滤条：三组既有封闭枚举当过滤维度，纯前端本地过滤 ──────────── */
-
-function TagFilterBar({
-  filter,
-  active,
-  onToggle,
-  onClear,
-}: {
-  filter: TagFilterState;
-  active: boolean;
-  onToggle: <K extends keyof TagFilterState>(dimension: K, value: TagFilterState[K] extends ReadonlySet<infer T> ? T : never) => void;
-  onClear: () => void;
-}) {
-  return (
-    <div
-      className="flex flex-col gap-2 rounded-lg border border-border-subtle bg-panel p-3"
-      data-testid="skill-tag-filter"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-10 uppercase tracking-wide text-muted-foreground">按标签过滤</span>
-        <Button
-          size="xs"
-          variant="ghost"
-          disabled={!active}
-          onClick={onClear}
-          data-testid="skill-tag-filter-clear"
-        >
-          清除过滤
-        </Button>
-      </div>
-      <TagFilterGroup
-        label="来源"
-        chips={SOURCE_CHIPS}
-        selected={filter.source}
-        onToggle={(v) => onToggle("source", v)}
-      />
-      <TagFilterGroup
-        label="状态"
-        chips={STATUS_CHIPS}
-        selected={filter.status}
-        onToggle={(v) => onToggle("status", v)}
-      />
-      <TagFilterGroup
-        label="可见范围"
-        chips={VISIBILITY_CHIPS}
-        selected={filter.visibility}
-        onToggle={(v) => onToggle("visibility", v)}
-      />
-    </div>
-  );
-}
-
-function TagFilterGroup<V extends string>({
-  label,
-  chips,
-  selected,
-  onToggle,
-}: {
-  label: string;
-  chips: readonly TagFilterChip<V>[];
-  selected: ReadonlySet<V>;
-  onToggle: (value: V) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="px-1 text-9 uppercase tracking-wide text-muted-foreground">{label}</span>
-      {chips.map((chip) => {
-        const isSelected = selected.has(chip.value);
-        return (
-          <Button
-            key={chip.value}
-            size="xs"
-            variant={isSelected ? "primary" : "outline"}
-            aria-pressed={isSelected}
-            onClick={() => onToggle(chip.value)}
-            data-testid={`skill-tag-chip-${chip.slug}`}
-          >
-            {chip.label}
-          </Button>
-        );
-      })}
-    </div>
+    </EntityCatalog>
   );
 }
 
@@ -757,56 +595,46 @@ function Field({
 
 /* ── 只读详情：`GET /skills/:skillId` 的返回，一字不添 ──────────────────── */
 
-function DetailPanel({
+function DetailBody({
   detail,
-  onClose,
   onStatusChanged,
 }: {
   detail: SkillDetail;
-  onClose: () => void;
   onStatusChanged: (skillId: string, status: SkillListItem["status"]) => void;
 }) {
-  const { skill, contract, gateResults } = detail;
+  const { contract, gateResults } = detail;
   return (
-    <Card data-testid="skill-detail-panel">
-      <CardContent className="flex flex-col gap-3 pt-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-13 font-semibold">{skill.name} · 只读契约</h2>
-          <Button size="xs" variant="ghost" onClick={onClose} data-testid="skill-detail-close">
-            关闭
-          </Button>
-        </div>
-        <Block label="提示词模板" body={contract.promptTemplate} />
-        <Block label="输入 schema" body={contract.inputSchema} />
-        <Block label="输出 schema" body={contract.outputSchema} />
-        <Block
-          label="数据范围声明"
-          body={contract.dataScope.length === 0 ? "（未声明任何数据范围）" : contract.dataScope.join("、")}
-        />
-        <Block label="兜底声明" body={contract.fallbackDeclaration} />
+    <div className="flex flex-col gap-3" data-testid="skill-detail-contract">
+      <Block label="提示词模板" body={contract.promptTemplate} />
+      <Block label="输入 schema" body={contract.inputSchema} />
+      <Block label="输出 schema" body={contract.outputSchema} />
+      <Block
+        label="数据范围声明"
+        body={contract.dataScope.length === 0 ? "（未声明任何数据范围）" : contract.dataScope.join("、")}
+      />
+      <Block label="兜底声明" body={contract.fallbackDeclaration} />
 
-        <div className="flex flex-wrap items-center gap-2 text-11">
-          <span className="text-muted-foreground">双重门禁</span>
-          <Badge tone={gateResults.securityScan === null ? "outline" : "primary"}>
-            {/* null = 还没扫过，是真实空态，不是「通过」。 */}
-            安全扫描 {gateResults.securityScan ?? "未执行"}
-          </Badge>
-          <Badge tone={gateResults.methodologyReviewPassed ? "primary" : "outline"}>
-            方法论审核 {gateResults.methodologyReviewPassed ? "已通过" : "未通过"}
-          </Badge>
-        </div>
+      <div className="flex flex-wrap items-center gap-2 text-11">
+        <span className="text-muted-foreground">双重门禁</span>
+        <Badge tone={gateResults.securityScan === null ? "outline" : "primary"}>
+          {/* null = 还没扫过，是真实空态，不是「通过」。 */}
+          安全扫描 {gateResults.securityScan ?? "未执行"}
+        </Badge>
+        <Badge tone={gateResults.methodologyReviewPassed ? "primary" : "outline"}>
+          方法论审核 {gateResults.methodologyReviewPassed ? "已通过" : "未通过"}
+        </Badge>
+      </div>
 
-        {detail.latestTrialRun === null ? (
-          <p data-testid="skill-detail-trialrun-empty" className="text-11 text-muted-foreground">
-            最近一次试跑：还没有跑过。这是真实空态，不是失败 —— 试跑用例仍然没有 HTTP 边界。
-          </p>
-        ) : (
-          <Block label="最近一次试跑输出" body={detail.latestTrialRun.output} />
-        )}
+      {detail.latestTrialRun === null ? (
+        <p data-testid="skill-detail-trialrun-empty" className="text-11 text-muted-foreground">
+          最近一次试跑：还没有跑过。这是真实空态，不是失败 —— 试跑用例仍然没有 HTTP 边界。
+        </p>
+      ) : (
+        <Block label="最近一次试跑输出" body={detail.latestTrialRun.output} />
+      )}
 
-        <GatePanel detail={detail} onStatusChanged={onStatusChanged} />
-      </CardContent>
-    </Card>
+      <GatePanel detail={detail} onStatusChanged={onStatusChanged} />
+    </div>
   );
 }
 

@@ -26,7 +26,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
-import { AGUI_CHAT_MESSAGE_ID_EVENT_NAME } from "@repo/contracts/agui-state-events";
+import { AGUI_CHAT_MESSAGE_ID_EVENT_NAME, AGUI_RUN_PHASE_EVENT_NAME } from "@repo/contracts/agui-state-events";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -69,10 +69,16 @@ const STATE_EVENT_TYPES = new Set<string>([
  *
  * ⚠ 加的是**具名**例外，不是把 CUSTOM 整类放行。任何其它 name 的 CUSTOM 事件仍然
  *   会让下面三条反证红——「零业务态 STATE_x/CUSTOM」这条契约本身没有被放宽。
+ *
+ * 第三个同类具名例外：`CUSTOM run_phase`（准备阶段进度，见 `copilotkit-agui.controller.ts`
+ * `onPhase` 与 `agui-bridge.ts` `pollAguiRunToOutcome` 头注）。同样是会话进度管道事件，
+ * 不是业务态数据，且每轮出现次数不确定（`context_building`/`model_thinking` 各至多一次，
+ * 取决于轮询命中的时序），因此按 name 排除而不是按位置断言。
  */
 const PLUMBING_CUSTOM_EVENT_NAMES = new Set<string>([
   "chat_thread_id",
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+  AGUI_RUN_PHASE_EVENT_NAME,
 ]);
 
 function isBusinessStateEvent(event: ParsedSseEvent): boolean {

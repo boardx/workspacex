@@ -10,6 +10,8 @@ import { loadRoadmap } from "./lib/roadmap";
 import { loadFeatureList, featuresForSprint } from "./lib/features";
 import { resolveSpecRef } from "./lib/spec-ref";
 import { sh } from "./lib/sh";
+import { describeNotIntegrated, evidenceIntegration, type IntegrationFacts } from "./lib/evidence-integration";
+import { describeIssueListFailure, listAllIssues } from "./lib/github-issues";
 import { req } from "./lib/args";
 import { log } from "./lib/log";
 import type { Args } from "./lib/args";
@@ -85,8 +87,16 @@ export function diffLabels(
   };
 }
 
-/** close 分支的纯决策（可单测）：无投影不关、已关不重关、绝不 reopen（#526/#713）。 */
-export function decideClose(issue: ProjectedIssue | null): "skip-missing" | "skip-closed" | "close" {
+export type CloseDecision = "skip-not-on-main" | "skip-missing" | "skip-closed" | "close";
+
+/** close 分支的纯决策（可单测）：
+ *  - **实现不在 main 上不关**（#1557，完成定义第 6 条）——`passing` 是本地状态，
+ *    「在 main 上」是远端事实，中间隔着 push + PR + 合并三步；旧版只看前者，
+ *    两次把没有任何 PR 的 issue 关掉，且 #526 的「不重开」让误关永不自纠。
+ *    这条判定放在最前：dry-run 没有 issue 对象也要能给出同样的结论。
+ *  - 无投影不关、已关不重关、绝不 reopen（#526/#713）。 */
+export function decideClose(issue: ProjectedIssue | null, integration: IntegrationFacts): CloseDecision {
+  if (integration.kind !== "on-main") return "skip-not-on-main";
   if (issue === null) return "skip-missing";
   if (issue.state.toLowerCase() === "closed") return "skip-closed";
   return "close";
@@ -232,10 +242,18 @@ let ALL_ISSUES: ProjectedIssue[] | null = null;
 function allIssues(repo: string, apply: boolean): ProjectedIssue[] {
   if (!apply) return [];
   if (ALL_ISSUES) return ALL_ISSUES;
-  const r = sh(
-    `gh issue list --repo ${JSON.stringify(repo)} --state all --limit 500 --json number,title,body,state,labels`,
-  );
-  ALL_ISSUES = r.code === 0 ? (JSON.parse(r.stdout || "[]") as ProjectedIssue[]) : [];
+  // #2483：此前是 `--limit 500`。gh 按编号从新到旧返回，仓库过 #2400 后 phase-00/01 的投影
+  // issue 全在窗口外；marker 找不到 → 退回标题搜索 → 中文长标题搜不到 → **再建一个**。
+  // 清单拿不全时唯一安全的动作是整个 sync 停下：本函数的每一个消费方（建/改/关）都是
+  // 「没找到 ⇒ 动手」的否定性判断，残缺清单上做这些判断就是在制造双胞胎。
+  const r = listAllIssues({ repo });
+  if (r.kind !== "ok") {
+    throw new Error(
+      `sync --apply 中止：${describeIssueListFailure(r)}。清单不完整时「没找到投影 issue」不可信，` +
+        `继续会重复创建/漏关 issue。修好 gh 登录或提高 ISSUE_PAGE_LIMIT 后重跑。`,
+    );
+  }
+  ALL_ISSUES = r.issues;
   return ALL_ISSUES;
 }
 
@@ -273,6 +291,9 @@ export function syncGithub(args: Args): void {
   const fl = loadFeatureList(phaseId);
 
   const plan: string[] = [];
+  // #2483：apply 模式先把全量 issue 清单拉齐再动任何东西——拉不齐就在这里停，
+  // 不要等到 milestone/label 已经建了一半才发现清单是残缺的。
+  if (apply) allIssues(cfg.repo, true);
   // issue body 临时文件目录（--body-file 用，见下方注释）
   const bodyDir = mkdtempSync(join(tmpdir(), "harness-issue-body-"));
   const run = (cmd: string, description?: string) => {
@@ -457,10 +478,19 @@ export function syncGithub(args: Args): void {
 
       if (statusAction.close_issue) {
         // 只关带 marker 的投影 issue（避免误关非 sync issue，#653）；
-        // 幂等 + 不重开（#526）。
-        const issue = issueForClose ?? findProjectedIssue(cfg.repo, title, phaseId, f.id, apply);
-        const closeAction = decideClose(issue);
-        if (!apply) {
+        // 幂等 + 不重开（#526）；实现不在 origin/main 上不关（#1557）。
+        // 集成事实只读本地 git，dry-run 也算，所以 dry-run 的输出与 --apply 的决策一致。
+        const integration = evidenceIntegration(phaseId, f);
+        const issue = integration.kind === "on-main"
+          ? issueForClose ?? findProjectedIssue(cfg.repo, title, phaseId, f.id, apply)
+          : issueForClose; // 不会关，省一次 gh 查询
+        const closeAction = decideClose(issue, integration);
+        if (closeAction === "skip-not-on-main") {
+          log.warn(
+            `${phaseId}/${f.id} 已 passing 但实现还没合入 main：${describeNotIntegrated(integration as Exclude<IntegrationFacts, { kind: "on-main" }>)}` +
+              ` —— 不关闭 issue（完成定义第 6 条，#1557）。PR 带 \`Closes #N\` 合入后由 GitHub 关闭，或合入后再跑一次 sync --apply。`
+          );
+        } else if (!apply) {
           // dry-run 时打印意图（无法预知 issue number）
           run(
             `gh issue close --repo ${cfg.repo} <issue-number-for: ${JSON.stringify(title)}>`,
@@ -473,7 +503,8 @@ export function syncGithub(args: Args): void {
           log.info(`Issue #${issue.number} 已关闭，跳过重复关闭: ${title}`);
         } else {
           const closeComment = [
-            `由 \`phases/${basename(findPhaseDir(phaseId))}/feature_list.json\` 中 \`${phaseId}/${f.id}\` 已 \`passing\` 自动关闭。`,
+            `由 \`phases/${basename(findPhaseDir(phaseId))}/feature_list.json\` 中 \`${phaseId}/${f.id}\` 已 \`passing\`，` +
+              `且证据日志所在 commit \`${integration.kind === "on-main" ? integration.commit.slice(0, 8) : "?"}\` 已在 \`origin/main\` 血统里，自动关闭（完成定义第 5、6 条）。`,
             ``,
             `证据：${f.evidence || "feature verification 已由 harness 门控通过，feature.evidence 当前未填写"}`,
           ].join("\n");

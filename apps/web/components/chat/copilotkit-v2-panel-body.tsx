@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { isScrolledNearBottom } from "@/lib/copilotkit-v2-scroll";
+import { applyTaskModePrefix } from "@/lib/copilotkit-v2-task-mode";
 import {
   useAgent,
   useCopilotKit,
@@ -10,13 +11,14 @@ import {
   CopilotChatMessageView,
   CopilotChatConfigurationProvider,
 } from "@copilotkit/react-core/v2";
-import { Loader2, AlertTriangle, ArrowDown, ArrowUp, ListChecks, Sparkles } from "lucide-react";
+import { Loader2, AlertTriangle, ArrowDown, ArrowUp, Check, ListChecks, Paperclip, Pause, PenLine, Sparkles, Square } from "lucide-react";
 // issue #2052（CK-P7）—— 「落地为产物」状态机，与旧轨道共用同一份（展示件在
 // `copilotkit-v2-message-actions.tsx`，与 CK-P3 的复制/评分/反馈同一条操作条）。
 import { useMessageLanding } from "@/components/chat/message-landing";
 import { describeCopilotkitV2RunError } from "@/lib/copilotkit-v2-error-copy";
 import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
-import { useCopilotKitV2RunProgress, LONG_RUN_HINT } from "@/lib/copilotkit-v2-run-progress";
+import { useCopilotKitV2RunProgress, LONG_RUN_HINT, type RunStage } from "@/lib/copilotkit-v2-run-progress";
+import { cn } from "@/lib/utils";
 import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
 import {
@@ -40,8 +42,13 @@ import { useAguiPlanTodos, currentPlanStep } from "@/lib/agui-plan-todos";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
-import { ComposerMicControl, ComposerMicRecordingBar } from "@/components/chat/chat-composer-mic-control";
+import { ComposerVoiceControl, describeVoiceDevice, formatElapsed } from "@/components/chat/chat-composer-voice-control";
+import { ComposerStatusBar, type ComposerStatusAction } from "@/components/chat/chat-composer-status-bar";
+import { ComposerIconButton } from "@/components/chat/chat-composer-icon-button";
+import { useComposerVoiceSession, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
+import { appendTranscript } from "@/lib/use-asr-draft";
 import { CapabilityPicker } from "@/components/chat/chat-task-workbench-capability-picker";
+import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { TaskWorkbenchEmptyState } from "@/components/chat/chat-task-workbench-empty-state";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import {
@@ -52,10 +59,9 @@ import { useCopilotKitV2AgentOptions, type CopilotKitV2AgentOptionsState } from 
 import { detectComposerMention, type ComposerMention } from "@/lib/composer-mention-detection";
 import { useCopilotKitV2AgentSelection } from "@/lib/copilotkit-v2-agent-selection";
 import {
-  useChatAttachments, ChatAttachmentButton, ChatAttachmentList, ChatAttachmentBanner,
+  useChatAttachments, ChatAttachmentDock, ChatAttachmentList, ChatAttachmentBanner,
   ChatFullSurfaceDropOverlay,
 } from "@/components/chat/chat-composer-attachments";
-import { ChatSkillMountPanel } from "@/components/chat/chat-skill-mount-panel";
 import { listThreadMounts } from "@/lib/live-skill-mount";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +69,18 @@ import {
   APPROVAL_TOOL_NAME,
   approvalToolParameters,
 } from "@/components/chat/copilotkit-v2-approval-dialog";
+
+/** PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段的显示顺序与文案，唯一事实源。 */
+const RUN_STAGE_ORDER: ReadonlyArray<{ key: RunStage; label: string }> = [
+  { key: "preparing", label: "准备" },
+  { key: "acting", label: "执行" },
+  { key: "replying", label: "回复" },
+];
+
+/** TW-P0-5④ 的"空输入"禁用理由；只有它是"用户试图发送时才提示"，见 `emptySendHint`。 */
+const EMPTY_INPUT_REASON = "请先输入任务目标";
+const EMPTY_SEND_HINT_MS = 2_500;
+
 export function CopilotKitV2PanelBody({
   chatThreadId: initialChatThreadId = null,
   onThreadResolved,
@@ -71,6 +89,7 @@ export function CopilotKitV2PanelBody({
   onPlanTodosChange,
   onRunStateChange,
   onPendingMaterialsChange,
+  onTaskModeChange,
   threadAttachments = null,
   archived = false,
   canGeneratePersona = false,
@@ -95,7 +114,8 @@ export function CopilotKitV2PanelBody({
    */
   agentOptions: CopilotKitV2AgentOptionsState;
   selectedAgentId?: string | null;
-  onSelectAgent: (agentId: string) => void;
+  /** `null` = 回到自动匹配（服务端默认 agent）。 */
+  onSelectAgent: (agentId: string | null) => void;
   onThreadResolved?: (threadId: string) => void;
   /** issue #2046（CK-P1）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   onMessageSent?: () => void;
@@ -118,6 +138,13 @@ export function CopilotKitV2PanelBody({
     readonly startedAt: number | null;
   }) => void;
   onPendingMaterialsChange?: (count: number) => void;
+  /**
+   * PROP-CHAT-UIUX-ITER-002 V3 —— 「任务模式」是否开启，上报给外壳的右栏 Inspector
+   * 「运行详情」页签展示一条「当前模式」，与 composer 上真实的 `taskMode` state
+   * 保持同一份事实源（不新建第二份状态）。同 `onRunStateChange` 等既有回调一样，
+   * 各自一个 effect、依赖数组精确到值。
+   */
+  onTaskModeChange?: (taskMode: boolean) => void;
   /** issue #2046（CK-P2）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
   threadAttachments?: ListThreadAttachmentsOut["items"] | null;
   /** issue #2053（CK-P8）—— 见外层 `CopilotKitV2Panel` 同名 prop。 */
@@ -144,6 +171,16 @@ export function CopilotKitV2PanelBody({
   });
   const [inputDraft, setInputDraft] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
+  /**
+   * issue #2451 —— 计划面板（`CopilotKitV2PlanControl`）3 秒轮询 `getPlanLedger`，
+   * 与下面 `onError` 订阅（"模型这次没能返回可用结果"横幅）是两条独立异步信号源：
+   * `RUN_ERROR` 事件几乎瞬时触发，但计划面板要等 DB 里 `agent_runs.status` 真正写成
+   * `failed` 且下一次轮询命中才会跟上，中间有个窗口两者互相矛盾（横幅已报错，
+   * 计划面板还显示"执行中 + 可暂停"）。这个计数器每次 `onError` 命中就自增一次，
+   * 传给 `CopilotKitV2PlanControl` 的 `refetchSignal`：让它立刻抢一次 refetch，
+   * 缩短这个窗口，并在追上真实 phase 之前把"最近报错"这件事显式标出来。
+   */
+  const [planLedgerRefetchTick, setPlanLedgerRefetchTick] = React.useState(0);
   /**
    * issue #2130（TW-P0-5①），回指 #2068 —— composer 的 `<textarea>` ref，
    * `/技能`/`@Agent` 两个快捷入口用它读光标位置 + 插入后把焦点还给输入框。
@@ -178,12 +215,14 @@ export function CopilotKitV2PanelBody({
   const skillMention = mention?.kind === "skill" ? mention : null;
   const attachmentMention = mention?.kind === "attachment" ? mention : null;
   /**
-   * issue #2130（TW-4，Skills 交互重设计）—— `ChatSkillMountPanel`（`variant="pill"`）
-   * 现在直接渲染在本组件里（见下方 composer 图标行），`mentionQuery` 不再需要
-   * 经外层 Panel 转发一圈——本地就检测得到 `skillMention`，直接当 prop 传下去。
-   * 挂载成功后要做的唯一一件事（把 `/query` 从正文删掉）也改成一个本地回调，
-   * 不再靠"外层 nonce +1 → 本组件 useEffect 侦测变化"这一整套跨组件间接机制。
+   * 2026-09-02 三层结构（人类最终裁决：技能恢复原样，只把入口搬进「+」菜单）——
+   * `ChatSkillMountPanel variant="composer"` 留在第二行左侧那组 `relative` 容器里：
+   * 已挂载 chip 是第 1 层状态 chip，候选浮层从「+」那个角落向上开；触发器是菜单项
+   * `chat-skill-mount`（下方），点它就 `skillOpenRequest + 1`；`/` mention 照旧。
+   * 挂载成功后把 `/query` 从正文删掉是本地回调。
    */
+  const [skillOpenRequest, setSkillOpenRequest] = React.useState(0);
+  const [skillTrigger, setSkillTrigger] = React.useState({ canOpen: false, mountedCount: 0, loading: true });
   const onSkillMentionMounted = React.useCallback(() => {
     if (skillMention === null) return;
     setInputDraft((current) => current.slice(0, skillMention.start) + current.slice(skillMention.start + 1 + skillMention.query.length));
@@ -255,6 +294,8 @@ export function CopilotKitV2PanelBody({
             : undefined;
         const code_ = typeof runtimeCode === "string" ? runtimeCode : runError.message;
         setError(describeCopilotkitV2RunError(code_));
+        // issue #2451 —— 见上面这个 state 的头注：让计划面板立刻抢一次 refetch。
+        setPlanLedgerRefetchTick((tick) => tick + 1);
       },
     });
     return unsubscribe;
@@ -346,6 +387,17 @@ export function CopilotKitV2PanelBody({
    * 我自己这一轮刚建的、内存态本来就是最新的，不需要回读"。
    */
   const resolvedDuringThisSessionRef = React.useRef(false);
+  /**
+   * 2026-08-30 review 反证（PR #2420 的下一轮）—— 「生成用户画像」建议 chip 需要
+   * "这条线程后端已经落库过至少一条消息"这件事实，`resolvedDuringThisSessionRef`
+   * 这个布尔量不够：它只标记"本次会话曾经发生过一次 resolve"，一旦置位就不会
+   * 复位，如果同一个组件实例后续又经历第二次 resolve（目前代码路径下不会，但
+   * 语义上是"曾经"不是"这一条线程"），会把这份"已确认落库"的信任错误地带到
+   * 别的线程上。这里改用一个 Set，逐个线程 id 精确记录"后端确认这个 id 是它
+   * 刚创建、已经落库了触发消息之后才回显给我们的"——见下方
+   * `showPersonaSuggestion` 的完整论证。
+   */
+  const resolvedThreadIdsRef = React.useRef<Set<string>>(new Set());
 
   React.useEffect(() => {
     const { unsubscribe } = agent.subscribe({
@@ -364,6 +416,12 @@ export function CopilotKitV2PanelBody({
             // 变成真实 id、触发下面 hydration effect 重跑——这个 ref 得先于那次重渲染
             // 就是 true，effect 才能在第一次因依赖变化执行时就看到它。
             resolvedDuringThisSessionRef.current = true;
+            // 同一时刻精确记下**这个** id——后端只在已经落库了触发这次 resolve 的
+            // 那条消息之后才会发 `chat_thread_id` 事件（本文件其它地方已经在依赖
+            // 同一条时序不变量，见下方 hydration effect 里"若 readAllPersistedMessages
+            // 跑得比 acceptHumanMessage 落库快"那段的推理），所以这个 id 在事实上
+            // 已经有 ≥1 条落库消息，不需要再读一次库确认。
+            resolvedThreadIdsRef.current.add(event.value);
             onThreadResolved?.(event.value);
           }
         }
@@ -422,6 +480,18 @@ export function CopilotKitV2PanelBody({
    */
   const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
   /**
+   * 2026-08-30 review 反证（PR #2420 的下一轮）—— hydration effect（情形①，见下方）
+   * 对**这一个** `threadId` 跑完 `readAllPersistedMessages` 之后的确切结果，供
+   * `showPersonaSuggestion` 判断"这条线程是否已经有落库消息"。与 `resolvedThreadIdsRef`
+   * （上面，覆盖情形②）合起来才是完整的证据——见 `showPersonaSuggestion` 的完整论证。
+   * `threadId` 字段是防"残留上一次 hydration 结果"的关键：只有它与当前
+   * `initialChatThreadId` 一致时，`hasMessages` 才可信。
+   */
+  const [hydratedEvidence, setHydratedEvidence] = React.useState<{
+    readonly threadId: string;
+    readonly hasMessages: boolean;
+  } | null>(null);
+  /**
    * session-switch task-state-loss fix —— 挂载 hydration 只回读了"已经落库的东西"，
    * 从不检查"上一轮有没有一个还没写回的 run"。这条 effect 只覆盖情形①（真实既有
    * 线程重新挂载，见下方判断），正是用户切走再切回时会命中的路径；情形②（本轮乐观
@@ -461,6 +531,8 @@ export function CopilotKitV2PanelBody({
         if (cancelled) return;
         hydratedRef.current = true;
         registerHydrated(identities);
+        // 见上方 `hydratedEvidence` 的文件头注——「生成用户画像」建议 chip 的证据源。
+        setHydratedEvidence({ threadId: initialChatThreadId, hasMessages: collected.length > 0 });
         // ⚠ 只把框架认识的三个字段喂进去：`rateable` 是本仓自己的投影，
         //   不该混进 AG-UI 消息对象。
         const framed = collected.map((m) => ({ id: m.id, role: m.role, content: m.content }));
@@ -578,9 +650,15 @@ export function CopilotKitV2PanelBody({
         const { messages: after } = await readAllPersistedMessages(threadId, bearer);
         if (cancelled) return;
         const liveIds = new Set(agent.messages.map((m) => m.id));
-        const framed = after
-          .filter((m) => !liveIds.has(m.id))
-          .map((m) => ({ id: m.id, role: m.role, content: m.content }));
+        const restored = after.filter((m) => !liveIds.has(m.id));
+        // 2026-09-02（人类实测："放大→修改→保存成功→刷新后全丢"）—— 这条路径此前
+        // 只把消息灌进 `agent.messages`，**没有**像挂载 hydration 那样 `registerHydrated`：
+        // 这些消息的 id 已经是真实 `chat_messages.id`，但身份索引不认识它们，
+        // `identity.resolve`/`resolvePersisted` 一律回答 `null` ⇒ `MarkdownMessage`
+        // 拿到的 `messageId` 是 `undefined` ⇒ 图表 modal 的「保存」静默退回本地演示
+        // （徽标照亮、什么都没落库），刷新后自然全丢。与挂载 hydration 同一份登记。
+        registerHydrated(restored.map((m) => ({ id: m.id, rateable: m.rateable })));
+        const framed = restored.map((m) => ({ id: m.id, role: m.role, content: m.content }));
         if (framed.length > 0) agent.setMessages([...agent.messages, ...framed]);
         setPendingRunId(null);
         onMessageSent?.();
@@ -595,7 +673,7 @@ export function CopilotKitV2PanelBody({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, onMessageSent]);
+  }, [agent, onMessageSent, registerHydrated]);
   const runRestore = useCopilotKitV2RunRestore(
     pendingRunId,
     getStoredSessionToken() ?? undefined,
@@ -657,20 +735,38 @@ export function CopilotKitV2PanelBody({
    * （读 URL 线程的 `chat_message_attachments`）也永远看不到它们。
    * 只有全新对话（`initialChatThreadId === null`）才保留原来的挂载即建逻辑。
    */
+  /**
+   * 2026-09-02（issue #2520）—— 上面两段头注里的"挂载后立即真建一条附件专用线程"
+   * 已经撤掉：人类本地实测每打开一次裸 `/chat`，列表里就多一条空的「新对话」（前一次
+   * 预建的那条永远没被用上）。改成**按需**：`useChatAttachments` 的 `resolveThreadId`
+   * 只在第一次真的有文件要上传时才被调用，那一刻才 `createPersonalThread`；同一段
+   * 对话里只建一次（memo 住 in-flight 的 promise，并发拖入多个文件也只建一条），失败
+   * 则下一次上传重新尝试。📎 按钮的可用性因此只取决于"已登录"，不再等预建完成——
+   * 头注里"两段式交互"的顾虑本来就不成立：文件对话框是同步打开的，上传本来就在
+   * 选完文件之后异步发生，线程在那一刻建完全来得及。
+   */
   const [createdAttachmentThreadId, setCreatedAttachmentThreadId] = React.useState<string | null>(null);
-  const attachmentThreadRequestedRef = React.useRef(false);
-  React.useEffect(() => {
-    if (initialChatThreadId !== null) return;
-    if (sessionToken === null || attachmentThreadRequestedRef.current) return;
-    attachmentThreadRequestedRef.current = true;
-    void createPersonalThread(null)
-      .then((created) => setCreatedAttachmentThreadId(created.threadId))
-      .catch(() => {
-        attachmentThreadRequestedRef.current = false; // 允许下次 sessionToken 变化时重试
-      });
-  }, [sessionToken, initialChatThreadId]);
+  const attachmentThreadPromiseRef = React.useRef<Promise<string> | null>(null);
+  const resolveAttachmentThreadId = React.useCallback((): Promise<string> => {
+    if (attachmentThreadPromiseRef.current === null) {
+      attachmentThreadPromiseRef.current = createPersonalThread(null)
+        .then((created) => {
+          setCreatedAttachmentThreadId(created.threadId);
+          return created.threadId;
+        })
+        .catch((failure: unknown) => {
+          attachmentThreadPromiseRef.current = null; // 下一次上传重新尝试
+          throw failure;
+        });
+    }
+    return attachmentThreadPromiseRef.current;
+  }, []);
   const attachmentThreadId = initialChatThreadId ?? createdAttachmentThreadId;
-  const attach = useChatAttachments({ threadId: attachmentThreadId ?? "", bearer: sessionToken ?? undefined });
+  const attach = useChatAttachments({
+    threadId: attachmentThreadId ?? "",
+    bearer: sessionToken ?? undefined,
+    resolveThreadId: initialChatThreadId === null ? resolveAttachmentThreadId : undefined,
+  });
 
   /**
    * issue #2052（CK-P7）—— 「落地为产物」状态机（与旧轨道共用 `useMessageLanding`，
@@ -709,6 +805,127 @@ export function CopilotKitV2PanelBody({
     sessionToken: sessionToken ?? "",
     deviceId: micDevices.selectedDeviceId ?? undefined,
   });
+  /*
+    2026-09-02 composer 重设计——语音的 composer 级会话（暂停/继续/完成/丢弃/撤销 +
+    静音提示 + 自动暂停），见 `lib/use-composer-voice-session.ts` 头注。
+  */
+  const voiceOpts = React.useMemo(() => ({
+    setDraft: (text: string) => setInputDraft(text),
+    getDraft: () => inputDraftRef.current,
+  }), []);
+  const voice = useComposerVoiceSession(speech, voiceOpts);
+  // 按 Esc 停止录音（设计稿页脚："按 Esc 停止录音"）。
+  React.useEffect(() => {
+    if (voice.phase !== "listening" && voice.phase !== "connecting") return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (voice.phase === "listening") voice.finish();
+      else voice.discard();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [voice]);
+  // 输入框被清空（发送成功 / 手动清空）⇒ 退出"转录后编辑"。
+  React.useEffect(() => {
+    if (voice.phase === "done" && inputDraft.trim() === "") voice.dismiss();
+  }, [inputDraft, voice]);
+
+  /** 卡片底部状态栏：语音各态 > Agent 处理中 > 附件上传中 > 无。文案与操作对齐设计稿。 */
+  const composerStatusBar: React.ReactNode = (() => {
+    const chars = voice.transcribedChars;
+    if (voice.phase === "connecting") {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-mic-connecting" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title="正在连接语音识别" description="请稍候，正在申请麦克风并建立连接"
+          actions={[{ label: "取消", onClick: voice.discard, testId: "chat-task-workbench-composer-recording-cancel" }]} />
+      );
+    }
+    if (voice.phase === "listening" && voice.silenceHint) {
+      return (
+        <ComposerStatusBar tone="warning" testId="chat-mic-listening" icon={<AlertTriangle className="h-4 w-4" />}
+          title={`${voice.silentSeconds} 秒未听到声音`}
+          description={`请靠近麦克风，或换一个设备${voice.autoPause ? ` · 静音 ${SILENCE_AUTO_PAUSE_AFTER_SECONDS} 秒后自动暂停` : ""}`}
+          actions={[
+            { label: "换麦克风", onClick: voice.requestDeviceMenu, testId: "chat-task-workbench-composer-mic-switch-device" },
+            { label: "停止", onClick: voice.finish, variant: "solid-destructive", testId: "chat-task-workbench-composer-recording-confirm" },
+          ]} />
+      );
+    }
+    if (voice.phase === "listening") {
+      return (
+        <ComposerStatusBar tone="destructive" testId="chat-mic-listening"
+          icon={<span className="h-2 w-2 animate-pulse rounded-pill bg-destructive" />}
+          title={`正在听 ${formatElapsed(voice.totalSeconds)}`}
+          description={`文字实时写入输入框 · 已 ${chars} 字 · 说完点「停止」，检查后再发送`}
+          actions={[
+            { label: "暂停", onClick: voice.pause, testId: "chat-task-workbench-composer-recording-pause" },
+            { label: "停止", onClick: voice.finish, variant: "solid-destructive", testId: "chat-task-workbench-composer-recording-confirm" },
+          ]} />
+      );
+    }
+    if (voice.phase === "stopping") {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-mic-stopping" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title="正在停止" description="等待最后一段转录落定" />
+      );
+    }
+    if (voice.phase === "paused") {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-paused" icon={<Pause className="h-4 w-4" />}
+          title={`已暂停 ${formatElapsed(voice.totalSeconds)}`}
+          description={`已转录 ${chars} 字 · 继续录音会接在后面`}
+          actions={[
+            { label: "丢弃", onClick: voice.discard, testId: "chat-task-workbench-composer-recording-cancel" },
+            { label: "继续", onClick: voice.start, testId: "chat-task-workbench-composer-recording-resume" },
+            { label: "完成", onClick: voice.finish, variant: "solid", testId: "chat-task-workbench-composer-recording-confirm" },
+          ]} />
+      );
+    }
+    if (voice.phase === "error") {
+      const denied = speech.status === "denied";
+      const unsupported = speech.status === "unsupported";
+      const actions: ComposerStatusAction[] = [];
+      if (denied) {
+        actions.push({
+          label: "查看如何开启",
+          onClick: () => window.open("https://support.google.com/chrome/answer/2693767", "_blank", "noopener"),
+          testId: "chat-task-workbench-composer-mic-permission-help",
+        });
+      }
+      if (!unsupported) actions.push({ label: "重试", onClick: voice.start, variant: "solid", testId: "chat-task-workbench-composer-mic-retry" });
+      return (
+        <ComposerStatusBar tone="warning" testId="chat-mic-error" icon={<AlertTriangle className="h-4 w-4" />}
+          title={denied ? "浏览器未授权麦克风" : unsupported ? "此浏览器不支持语音输入" : "语音识别暂时不可用"}
+          description={denied ? "在地址栏左侧的站点设置中允许麦克风，然后重试" : speech.error}
+          actions={actions} />
+      );
+    }
+    if (voice.phase === "done") {
+      return (
+        <ComposerStatusBar tone="success" testId="chat-task-workbench-composer-transcribed" icon={<Check className="h-4 w-4" />}
+          title={`已转录 ${chars} 字`} description="可直接修改，确认后按 Enter 发送"
+          actions={[
+            { label: "撤销转录", onClick: voice.undo, testId: "chat-task-workbench-composer-recording-undo" },
+            { label: "继续说", onClick: voice.start, testId: "chat-task-workbench-composer-recording-resume" },
+          ]} />
+      );
+    }
+    if (agent.isRunning && !archived) {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-agent-busy" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title="Agent 正在处理上一条消息" description="语音与发送暂不可用，可以先打字"
+          actions={[{ label: "停止生成", onClick: () => agent.abortRun(), testId: "chat-task-workbench-composer-stop-run" }]} />
+      );
+    }
+    if (attach.hasUploading && !archived) {
+      return (
+        <ComposerStatusBar tone="neutral" testId="chat-task-workbench-composer-uploading" icon={<Loader2 className="h-4 w-4 animate-spin" />}
+          title="附件正在上传" description="上传完成后才能发送" />
+      );
+    }
+    return null;
+  })();
+
 
   // DA-19d —— human-in-the-loop.md "Setup" 范例的直接应用：`render` 收到
   // `{status, args, respond}`，本组件只负责把它交给 `SendEmailApprovalDialog`。
@@ -765,6 +982,11 @@ export function CopilotKitV2PanelBody({
   React.useEffect(() => {
     onPendingMaterialsChange?.(pendingMaterialsCount);
   }, [pendingMaterialsCount, onPendingMaterialsChange]);
+  // PROP-CHAT-UIUX-ITER-002 V3 —— 同上面三个既有回调同一条纪律：独立 effect，
+  // 依赖数组精确到 taskMode 本身。
+  React.useEffect(() => {
+    onTaskModeChange?.(taskMode);
+  }, [taskMode, onTaskModeChange]);
 
   /**
    * issue #2130（TW-P0-1③，回指 #2068）—— 空状态「技能 N」上下文标签的真实计数。
@@ -844,8 +1066,10 @@ export function CopilotKitV2PanelBody({
       const rawText = (override ?? inputDraft).trim();
       if (rawText === "" || agent.isRunning) return;
       // issue #2130（TW-P0-5②）—— 任务模式开启时真的改变发出的正文（见 `taskMode`
-      // state 声明处的头注：默认关闭，不影响任何既有 e2e）。
-      const text = taskMode ? `请先给出计划，经确认后再执行：${rawText}` : rawText;
+      // state 声明处的头注：默认关闭，不影响任何既有 e2e）。issue #2417——拼接必须
+      // 幂等，`rawText` 已经以这句前缀开头时不能再拼一遍（`applyTaskModePrefix`
+      // 头注有真实复现场景）。
+      const text = applyTaskModePrefix(rawText, taskMode);
       // chat-parity-attachments (issue #2022) -- 上传未完成时不发送，与 composer 里
       // 附件行的 spinner/进度条同一份诚实约束（旧轨道 `ChatAttachMaterialModal`
       // 「加入这一轮」按钮同一条禁用逻辑）。
@@ -999,15 +1223,67 @@ export function CopilotKitV2PanelBody({
    */
   const messagesContainerRef = React.useRef<HTMLDivElement | null>(null);
   const [isAtBottom, setIsAtBottom] = React.useState(true);
+  /**
+   * 2026-09-02 人类实测反馈："滚到底部的那个箭头的逻辑是错误的"。两处根因：
+   *
+   * ① 按钮此前是滚动容器（`overflow-y-auto`）自己的 `absolute` 子节点。绝对定位的
+   *    后代仍然属于滚动容器的**可滚动内容**——`bottom-3` 只是相对容器*初始*那一屏
+   *    的 padding box 定位，用户往上翻一屏之后，按钮跟着内容一起滚走：要么消失，
+   *    要么停在某条消息中间（截图里它正压在气泡正中）。修法：按钮搬到滚动容器
+   *    **外面**，与它并列在一个 `relative` 包装层里，才真正钉在可视区底部。
+   *
+   * ② 程序化滚动（点按钮/新消息自动跟随，`behavior:"smooth"`）会在动画途中连续
+   *    触发 `scroll` 事件，中间位置离底部还远，`handleMessagesScroll` 把 `isAtBottom`
+   *    翻回 `false`——按钮刚点掉又冒出来；流式增量时更糟：每个 delta 都起一次平滑
+   *    滚动，动画途中的 `scroll` 事件把"贴底"判成"用户往上翻了"，自动跟随就此
+   *    停止，用户明明没动过滚轮却看到箭头浮现、回复自己滚出视野。修法：
+   *    `programmaticScrollRef` 标记"这次滚动是我们发起的"，动画途中的 `scroll`
+   *    事件不把 `isAtBottom` 翻成 false，直到真的抵达底部（或用户以滚轮/触摸/键盘
+   *    介入——那才是"用户往上翻"的证据）才解除；自动跟随改用 `auto`（瞬时），
+   *    Slack/Discord 的贴底跟随本来就是瞬时的，平滑只留给用户主动点按钮那一次。
+   *
+   * ③ 内容在没有新消息的情况下长高（图表/画布进入视口后惰性渲染、图片加载），
+   *    不会触发 `scroll` 事件也不会改变 `agent.messages`：贴底态下用 `ResizeObserver`
+   *    盯住内容包装层，长高就补一次瞬时贴底，保持"贴底"这个承诺。
+   */
+  const messagesContentRef = React.useRef<HTMLDivElement | null>(null);
+  const programmaticScrollRef = React.useRef(false);
+  const programmaticScrollTimerRef = React.useRef<number | null>(null);
+
+  /**
+   * PR #2530 review（exact-SHA reviewer 第 1 条）—— 这个标记不能只靠"抵达底部的
+   * `scroll` 事件"或"滚轮/触摸/键盘"来解除：`auto` 滚动在位置没变时根本不发
+   * `scroll` 事件，用户拖滚动条滑块（pointer）也不是 wheel/touch。标记一旦卡住，
+   * 后面用户真实往上翻的 `scroll` 会被当成"程序化途中"吞掉——按钮不出现、内容
+   * 长高还把人拉回底部。所以解除条件是四个里**任一**：抵达底部的 `scroll`、
+   * `scrollend`（支持的浏览器）、pointer/滚轮/触摸/键盘介入、以及一个有界超时
+   * （平滑滚动动画不会超过这个时长；`auto` 立即完成）。`setProgrammaticScroll`
+   * 是唯一的置位入口，置位同时起表；`clearProgrammaticScroll` 是唯一的解除入口。
+   */
+  const PROGRAMMATIC_SCROLL_MAX_MS = 1_000;
+  const clearProgrammaticScroll = React.useCallback(() => {
+    programmaticScrollRef.current = false;
+    if (programmaticScrollTimerRef.current !== null) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+      programmaticScrollTimerRef.current = null;
+    }
+  }, []);
+  const setProgrammaticScroll = React.useCallback(() => {
+    if (programmaticScrollTimerRef.current !== null) window.clearTimeout(programmaticScrollTimerRef.current);
+    programmaticScrollRef.current = true;
+    programmaticScrollTimerRef.current = window.setTimeout(clearProgrammaticScroll, PROGRAMMATIC_SCROLL_MAX_MS);
+  }, [clearProgrammaticScroll]);
+  React.useEffect(() => clearProgrammaticScroll, [clearProgrammaticScroll]);
 
   const scrollMessagesToBottom = React.useCallback((behavior: ScrollBehavior) => {
     const el = messagesContainerRef.current;
     // jsdom（组件测试环境）不实现 `Element.scrollTo`——与下面 `matchMedia` 同一类
     // "真实浏览器才有、测试环境没有"的能力守卫，不是本功能的正常路径分支。
     if (el === null || typeof el.scrollTo !== "function") return;
+    setProgrammaticScroll();
     el.scrollTo({ top: el.scrollHeight, behavior });
     setIsAtBottom(true);
-  }, []);
+  }, [setProgrammaticScroll]);
 
   const prefersReducedMotion = React.useCallback((): boolean => {
     // 与 `use-section-navigation.ts` 同一处守卫——jsdom 测试环境不提供 `matchMedia`。
@@ -1018,8 +1294,29 @@ export function CopilotKitV2PanelBody({
   const handleMessagesScroll = React.useCallback(() => {
     const el = messagesContainerRef.current;
     if (el === null) return;
-    setIsAtBottom(isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight));
-  }, []);
+    const nearBottom = isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight);
+    if (programmaticScrollRef.current) {
+      // 我们自己发起的滚动还在路上：中间位置不算"用户离开了底部"。抵达即解除标记。
+      if (nearBottom) clearProgrammaticScroll();
+      return;
+    }
+    setIsAtBottom(nearBottom);
+  }, [clearProgrammaticScroll]);
+
+  // 用户主动介入（滚轮 / 触摸 / 方向键 / 按下指针拖滚动条）即刻解除"程序化滚动中"
+  // 标记——之后的 `scroll` 事件才是用户意图的真实信号。
+  const handleUserScrollIntent = React.useCallback(() => {
+    clearProgrammaticScroll();
+  }, [clearProgrammaticScroll]);
+
+  // `scrollend`（Chrome 114+/Firefox 109+；Safari 尚无）：平滑滚动真正结束的权威信号。
+  // 不支持的浏览器由上面的有界超时兜底。React 还没有 `onScrollEnd` prop，手动挂。
+  React.useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (el === null) return;
+    el.addEventListener("scrollend", clearProgrammaticScroll);
+    return () => el.removeEventListener("scrollend", clearProgrammaticScroll);
+  }, [clearProgrammaticScroll]);
 
   // 贴底时新消息/流式增量到达自动跟随；一旦用户往上翻（`isAtBottom` 变 false），
   // 这个 effect 直接不跑，不打断阅读——与 Slack/Discord 同一条纪律。
@@ -1027,8 +1324,24 @@ export function CopilotKitV2PanelBody({
     if (!isAtBottom) return;
     const el = messagesContainerRef.current;
     if (el === null || typeof el.scrollTo !== "function") return;
-    el.scrollTo({ top: el.scrollHeight, behavior: prefersReducedMotion() ? "auto" : "smooth" });
-  }, [agent.messages, isAtBottom, prefersReducedMotion]);
+    setProgrammaticScroll();
+    el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+  }, [agent.messages, isAtBottom, setProgrammaticScroll]);
+
+  // 见上方 ③：贴底态下内容长高（惰性渲染的图表、加载完的图片）也要跟住。
+  React.useEffect(() => {
+    if (!isAtBottom) return;
+    const content = messagesContentRef.current;
+    const el = messagesContainerRef.current;
+    if (content === null || el === null || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (typeof el.scrollTo !== "function") return;
+      setProgrammaticScroll();
+      el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [isAtBottom, setProgrammaticScroll]);
 
   // `Cmd/Ctrl+End` 跳到最新——只认组合键，不拦截输入框里普通 `End`（移到行尾）。
   React.useEffect(() => {
@@ -1107,23 +1420,78 @@ export function CopilotKitV2PanelBody({
       : attach.hasUploading
         ? "附件正在上传，请等待上传完成后再发送"
         : inputDraft.trim() === ""
-          ? "请先输入任务目标"
+          ? EMPTY_INPUT_REASON
           : null;
   const sendDisabled = sendDisabledReason !== null;
 
+  /*
+    2026-09-02 composer 三层结构——三样新状态，全部只服务于第二行：
+    · `attachOpen`：「加材料」面板的受控开关（触发器是「+」菜单项，面板本体见
+      `ChatAttachmentDock`）。归档 / 运行中 / 没线程时强制关掉，同旧 `ChatAttachmentButton`
+      内部那条 effect。
+    · `capabilityOpen`：能力浮层的互斥槽（`chat-capability-picker`），菜单项点它。
+    · `emptySendHint`：「请先输入任务目标」不再常驻——空输入时 placeholder 已经说了同一句
+      话，常驻等于说两遍。改成用户「试图」发送（空输入按 Enter）时短暂出现一次；
+      其余禁用理由（归档 / 运行中 / 上传中）仍然常驻，那些是用户猜不到的。
+  */
+  // issue #2520 —— 附件线程改为第一次上传时按需建（见上面 `resolveAttachmentThreadId`），
+  // 📎 不再等预建完成，只看是否登录（未登录上传本来就要鉴权）。
+  const attachDisabled = archived || agent.isRunning || sessionToken === null;
+  const [attachOpen, setAttachOpen] = React.useState(false);
+  React.useEffect(() => { if (attachDisabled) setAttachOpen(false); }, [attachDisabled]);
+  const [emptySendHint, setEmptySendHint] = React.useState(false);
+  const emptySendHintTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flashEmptySendHint = React.useCallback(() => {
+    setEmptySendHint(true);
+    if (emptySendHintTimer.current !== null) clearTimeout(emptySendHintTimer.current);
+    emptySendHintTimer.current = setTimeout(() => setEmptySendHint(false), EMPTY_SEND_HINT_MS);
+  }, []);
+  React.useEffect(() => () => {
+    if (emptySendHintTimer.current !== null) clearTimeout(emptySendHintTimer.current);
+  }, []);
+
   /**
-   * issue #2053（CK-P6，重设计 2026-08-30）—— 「生成用户画像」建议 chip 的出现
-   * 条件。全部读已经存在的真实状态，不新开一条判定：
+   * issue #2053（CK-P6，重设计 2026-08-30，补丁二 + review 反证第三轮）——
+   * 「生成用户画像」建议 chip 的出现条件。全部读已经存在的真实状态，不新开一条判定：
    *   · `canGeneratePersona`——服务端 `artifact.land` 能力位，硬门槛：没有它
    *     点了必 403，属于本仓明令禁止的"假按钮"，任何时候都不能省。
    *   · `!archived`——归档线程只读，建议行本身在归档时整体不渲染
    *     （见下方 `{archived ? null : &lt;FollowUpSuggestions .../&gt;}`），这里
    *     单独列出只是让判据读起来完整，不是重复的第二道门。
-   *   · `initialChatThreadId !== null`——线程已经真实建立（至少发过一条消息），
-   *     与旧版按钮的禁用判据完全同一条，只是现在不满足就不渲染，不是渲染成灰色。
+   *   · `personaThreadHasPersistedEvidence`——见下方定义，"当前线程后端已经
+   *     确认落库过至少一条消息"这件事实。
    *   · `!personaGeneratedOnce`——本次会话还没成功生成过一次；生成中时仍然渲染
    *     （`disabled: personaRunning`），只是文案换成"生成画像中…"，与旧版按钮的
    *     loading 态视觉一致，不会让用户觉得点击后什么都没发生。
+   *
+   * ## 为什么不能用 `agent.messages.length > 0`（补丁二的版本，review 反证推翻）
+   *
+   * `agent.messages` 是 client/流式视图，不是"这条线程在后端落库了什么"的事实源：
+   * 用户刚发出第一条消息时，`agent.messages` 里已经有这条**乐观插入、还没落库**
+   * 的消息——`initialChatThreadId` 从 null resolve 成真实 id 那一刻，
+   * `agent.messages.length > 0` 立刻为真，但这本身是安全的（见下面 ②），补丁二
+   * 真正的漏洞在别处：如果 hydration（情形①，见下方）还没跑完、或读到的是别的
+   * 线程的残留状态，`agent.messages` 完全有可能与"这条线程实际落库了什么"脱节，
+   * 而 `runPersonaSummary` 判断的正是后端 `readAllPersistedMessages` 这份事实,
+   * 两者不是同一个数据源，用 client 视图当代理会在两者分叉的窗口里复现同一个
+   * "chip 出现但点了报错"的问题——这正是本次要修的 bug，不能用同类判据顶替。
+   *
+   * ## 两个事实源，各自对应"线程从哪来"的两种情形
+   *
+   * ①（既有线程，`hydratedEvidence`）—— 组件挂载时对**这一个** `initialChatThreadId`
+   *   跑一次 `readAllPersistedMessages`（下面那个 hydration effect），`threadId`
+   *   字段精确匹配当前 `initialChatThreadId` 才采信——防的是"残留上一次 hydration
+   *   结果"（尽管本仓路由级重挂载已经让"同一个组件实例横跨两条不同既有线程"这个
+   *   场景在当前代码路径下不会发生，见 `copilotkit-v2-panel.tsx` "切换走 [threadId]
+   *   路由级重挂载"那条注释——`threadId` 字段仍然留着，做一次不依赖那条不变量的
+   *   独立校验，这条不变量本身如果哪天被打破，这里不会跟着一起错）。
+   * ②（本轮新建线程，`resolvedThreadIdsRef`）—— 本轮乐观插入用户消息后，后端才把
+   *   线程 id resolve 出来并经 `chat_thread_id` 自定义事件回显——这个事件只在
+   *   后端已经落库了触发它的那条消息之后才会发出（本文件 hydration effect 的
+   *   guard 注释里"若 readAllPersistedMessages 跑得比 acceptHumanMessage 落库快"
+   *   一段已经在依赖同一条时序不变量，这里是复用，不是新发明），所以只要
+   *   `initialChatThreadId` 出现在这个 Set 里，就已经有 ≥1 条落库消息，不需要
+   *   （也不该）再触发一次 hydration 去确认同一件事。
    *
    * ⚠ 已知局限（前端规则判断的选定范围内，如实记录）：`personaGeneratedOnce` 只是
    *   会话内的本地状态，不查后台这条线程是否已经落过 persona 产物——重新打开一条
@@ -1131,8 +1499,14 @@ export function CopilotKitV2PanelBody({
    *   `listThreadArtifacts` 并识别哪条是 persona 产物（目前产物没有专门的 kind
    *   标记可用），超出本次改动范围，留给下一轮迭代。
    */
+  const personaThreadHasPersistedEvidence =
+    initialChatThreadId !== null
+    && ((hydratedEvidence !== null
+      && hydratedEvidence.threadId === initialChatThreadId
+      && hydratedEvidence.hasMessages)
+      || resolvedThreadIdsRef.current.has(initialChatThreadId));
   const showPersonaSuggestion =
-    canGeneratePersona && !archived && initialChatThreadId !== null && !personaGeneratedOnce;
+    canGeneratePersona && !archived && personaThreadHasPersistedEvidence && !personaGeneratedOnce;
   const personaSuggestions: readonly LocalSuggestionChip[] = showPersonaSuggestion
     ? [{
         // `id` 逐字就是渲染出来的 `data-testid`——沿用「生成用户画像」作为独立按钮
@@ -1183,12 +1557,18 @@ export function CopilotKitV2PanelBody({
             上的纯滚动区，不该有第二层"卡片边框"把它和composer/工具栏再框一次
             （气泡本身已经是各自的卡片/气泡，这一层外框纯属多余的视觉噪音）。去掉
             border/圆角/卡片底色，改用页面本底色，只留 `p-3` 内边距不动。 */}
+        <div className="relative flex min-h-0 flex-1 flex-col">
         <div
           ref={messagesContainerRef}
           onScroll={handleMessagesScroll}
-          className="relative flex-1 overflow-y-auto bg-background p-3"
+          onWheel={handleUserScrollIntent}
+          onTouchMove={handleUserScrollIntent}
+          onKeyDown={handleUserScrollIntent}
+          onPointerDown={handleUserScrollIntent}
+          className="flex-1 overflow-y-auto bg-background p-3"
           data-testid="copilotkit-v2-messages"
         >
+        <div ref={messagesContentRef}>
           {/* issue #2039（第 1 轮 gap #3，uiux-standards U1/U2）——三态：
               历史回读中 = 骨架屏；无消息 = 引导空态（此前是一整片空白）；
               有消息 = 框架消息列表。空态只在真的没有任何消息时出现，不伪装历史。 */}
@@ -1267,6 +1647,31 @@ export function CopilotKitV2PanelBody({
               aria-live="polite"
               className="mt-3 flex w-fit max-w-full flex-col gap-1 rounded-lg border border-border-subtle bg-muted/60 px-3 py-2"
             >
+              {/* PROP-CHAT-UIUX-ITER-002 V2 —— 三桶宏观阶段（准备/执行/回复），
+                  从 `runProgress.stage` 派生（详见 `copilotkit-v2-run-progress.ts` 头注：
+                  不是 TW-P0-3①那套六态工作流指示器，两者独立）。`stage` 为 `null`
+                  时（未开始、或 `runRestore.isRestoring` 的核实窗口——那段没有真实
+                  事件支撑）不渲染，不编一个默认阶段。 */}
+              {runProgress.stage !== null ? (
+                <span
+                  className="flex items-center gap-1 text-9 text-muted-foreground"
+                  data-testid="copilotkit-v2-thinking-stage"
+                  data-stage={runProgress.stage}
+                >
+                  {RUN_STAGE_ORDER.map(({ key, label }, i) => (
+                    <React.Fragment key={key}>
+                      {i > 0 ? <span aria-hidden>→</span> : null}
+                      <span
+                        className={cn(
+                          key === runProgress.stage && "font-medium text-card-foreground",
+                        )}
+                      >
+                        {label}
+                      </span>
+                    </React.Fragment>
+                  ))}
+                </span>
+              ) : null}
               <span
                 className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
                 data-testid="copilotkit-v2-thinking"
@@ -1299,15 +1704,16 @@ export function CopilotKitV2PanelBody({
               ) : null}
             </div>
           ) : null}
-          {/* issue #2096（真实 devapp 实测：悬浮按钮与右侧发送区重叠）—— 此前挂在
-              最外层 `relative` 包装 div 里（那个 div 从消息区一路延伸到 composer/
-              发送按钮），`absolute bottom-3 right-3` 因此贴着整个左栏的右下角，与
-              发送区的图标重叠，不是贴着消息可视区的右下角。现在这个消息容器 div
-              自己是 `relative`，按钮是它的子节点：`bottom-3` 相对消息可视区自身，
-              不再随 composer 高度漂移；水平方向按人类实测反馈从贴右改成贴底居中
-              （`left-1/2 -translate-x-1/2`，Slack/ChatGPT 同款"回到最新"位置），
-              不会被右侧材料/产物栏或任何一侧内容遮挡。只在离开底部且确实有消息可看
-              时出现，不在历史回读骨架屏/空态上叠加一个没有意义的按钮。 */}
+        </div>
+        </div>
+          {/* issue #2096 —— 此前按钮曾挂在从消息区一路延伸到 composer 的最外层包装里，
+              与发送区重叠；后来搬进滚动容器当 `absolute` 子节点，又变成"跟着内容一起
+              滚走"（2026-09-02 人类实测：箭头压在气泡正中，见上方 `programmaticScrollRef`
+              头注 ①）。现在它与滚动容器并列在同一个 `relative` 包装层里：`bottom-3`
+              相对消息可视区自身，既不随 composer 高度漂移，也不随内容滚动。水平方向
+              贴底居中（`left-1/2 -translate-x-1/2`，Slack/ChatGPT 同款"回到最新"位置）。
+              只在离开底部且确实有消息可看时出现，不在历史回读骨架屏/空态上叠加一个
+              没有意义的按钮。 */}
           {!isAtBottom && !historyLoading && agent.messages.length > 0 ? (
             <button
               type="button"
@@ -1328,8 +1734,9 @@ export function CopilotKitV2PanelBody({
             `gate.required`/`failed` 转入时自动展开）之后，"简化界面"这条反馈也在
             同一次改动里落地——细节见 `copilotkit-v2-plan-control.tsx` 文件头注。
             `threadId={null}` 时（新对话尚未发出第一条消息）组件自己返回 `null`，
-            不占位——与 `resolvedChatThreadId` state 的既有语义一致（issue #2052）。 */}
-        <CopilotKitV2PlanControl threadId={resolvedChatThreadId} />
+            不占位——与 `resolvedChatThreadId` state 的既有语义一致（issue #2052）。
+            `refetchSignal={planLedgerRefetchTick}`：issue #2451，见上面该 state 头注。 */}
+        <CopilotKitV2PlanControl threadId={resolvedChatThreadId} refetchSignal={planLedgerRefetchTick} />
         {/* issue #2039（第 2 轮 gap #3，uiux-standards U3/6c）——错误此前是一行裸红字
             浮在 composer 上方，无背景/图标/层级。改成结构化 alert 卡；文案与状态机
             一行未动，只动展示层。 */}
@@ -1472,266 +1879,253 @@ export function CopilotKitV2PanelBody({
           （附件/`@Agent`/`/技能`/任务模式）右（麦克风+发送）。
         */}
         {/*
-          2026-08-29 Claude Design 重设计稿——composer 在设计稿里是一整张有边框、
-          有投影的悬浮卡片（输入区与操作行视觉上属于同一个容器），不是"一个裸
-          textarea + 下面松散一行按钮"。这里只加壳（边框/圆角/投影/焦点态），
-          内部结构、每个控件的 testid 与行为一个字不动——`focus-within` 而不是
-          设计稿里那种恒定黑边：与本文件其余控件的 `focus-visible:ring-ring`
-          语言保持同一套"默认低调、聚焦才强调"的规则，不是抄错了颜色。
+          2026-09-02 composer 重设计（人类交付的状态预览稿，要求像素级）——
+          结构：卡片上方右对齐「能力」触发器（移出输入区）→ 卡片（内边距 20：多行输入 +
+          工具行）→ 卡片底部状态栏（按状态区分语气与操作）→ 卡片下方页脚
+          （左：快捷键 / 禁用理由；右：当前麦克风）。
+          工具行：左 = 三颗 32px 圆形图标按钮（材料 / 技能 / 任务模式，悬停显示名称）；
+          右 = 分段语音胶囊（一个按钮承载全部语音状态）+ 32px 圆形发送（Agent 处理中变为停止）。
+          既有锚点（`chat-attachment-input` / `chat-skill-mount` / `...-task-mode` /
+          `chat-task-workbench-capability-picker` / `...-composer-mic` / `chat-mic-*` /
+          `...-recording-*`）逐字保留，只是住进了新结构。
         */}
+        <div className="flex justify-end" data-testid="chat-task-workbench-composer-mention-agent">
+          <CapabilityPicker
+            listings={agentOptions.status === "ready" ? agentOptions.listings : null}
+            status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
+            selectedAgentId={selectedAgentId}
+            onSelect={(agentId) => onSelectAgent(agentId)}
+            disabled={agentOptions.status !== "ready" || archived}
+          />
+        </div>
         <div
           className={[
-            "flex min-w-0 flex-col gap-2 rounded-lg border p-2.5 shadow-sm transition-colors duration-fast",
-            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel focus-within:border-primary/60",
+            "flex min-w-0 flex-col rounded-xl border shadow-sm transition-colors duration-fast",
+            archived ? "border-border-subtle bg-disabled" : "border-border-subtle bg-panel-alt focus-within:border-primary/60",
           ].join(" ")}
           data-testid="chat-task-workbench-composer"
+          data-voice-phase={voice.phase}
         >
-          {/* issue #2132（2026-08-27 续，bug #5）—— 顶部 `copilotkit-v2-agent-toolbar`
-              的错误/空态提示随 `CapabilityPicker` 一起挪到 composer 第二行左侧（见下面
-              「@Agent」按钮旁），这里只是它们紧贴输入框上方的落点，功能一行未删。 */}
-          {agentOptions.status === "error" ? (
-            <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
-              {agentOptions.message}
-              <button
-                type="button"
-                className="ml-1 underline"
-                data-testid="copilotkit-v2-agent-options-retry"
-                onClick={agentOptions.retry}
-              >
-                重试
-              </button>
-            </span>
-          ) : null}
-          {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
-            <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
-              这个组织还没有可用的 Agent，先去
-              <a href="/admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
-              才能发消息。
-            </span>
-          ) : null}
-          <textarea
-            ref={composerInputRef}
-            data-testid="copilotkit-v2-input"
-            rows={2}
-            /* 边框/圆角挪到外层卡片壳（见上面那条注释），焦点环仍然留在 textarea
-               自己身上（`lint-design.sh` U7b 门控要求原生 outline 必须配一圈
-               focus-visible:ring-*，见下面 className）：卡片壳的 focus-within
-               边框只是氛围强调，不能替代真正的可见焦点环，两者都要有。 */
-            className="min-w-0 flex-1 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-sm transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground"
-            /* issue #2053（CK-P8）—— 归档 ⇒ 输入框本身禁用。`archived` 首帧在服务端与
-               客户端都是 `false`（外壳的 `getThread` 是客户端 effect），不存在麦克风按钮
-               那条 `sessionToken` 式的 SSR/CSR 首帧分叉，可以直接接到 `disabled`。 */
-            disabled={archived}
-            placeholder={archived ? "该对话已归档，不能再发送消息" : "输入任务目标，Shift+Enter 换行，Enter 发送"}
-            value={inputDraft}
-            onChange={(e) => {
-              setInputDraft(e.target.value);
-              // issue #2020 —— 与旧 composer 同一对挂点（onChange + onKeyUp）：
-              // 光标移动（方向键/点击）不触发 onChange，只有 onKeyUp 能覆盖。
-              recomputeMention(e.target.value, e.target.selectionStart);
-            }}
-            onKeyUp={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
-            onClick={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
-            onKeyDown={(e) => {
-              // issue #2130（TW-P0-5①）—— 换成 textarea 后 Enter 语义必须分岔：
-              // 纯 Enter 发送（沿用旧行为），Shift+Enter 换行（textarea 原生行为，
-              // 这里只需要在纯 Enter 时拦截默认换行并改发送）。
-              // bug：中文/日文等输入法拼字过程中按 Enter 是在确认候选词，
-              // 不是要发送消息——用 `e.nativeEvent.isComposing` 拦掉这一下。
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                void send();
-              }
-            }}
-          />
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            {/* 第二行左：附件/材料、@Agent、/技能、任务模式。 */}
-            <div className="flex min-w-0 items-center gap-1.5">
-              <div data-testid="chat-task-workbench-composer-attach">
-                <ChatAttachmentButton ctl={attach} disabled={archived || agent.isRunning || attachmentThreadId === null} showLabel />
-              </div>
-              {/* issue #2132（2026-08-27 续，bug #5）—— 此前这里只是一个打开
-                  `chat-capability-picker` 共享槽的小按钮，真正的 `CapabilityPicker`
-                  （六项披露卡片，issue #2130 TW-P0-2）仍然渲染在页面最上面那个
-                  `copilotkit-v2-agent-toolbar` 里——点开的卡片自然出现在页面顶部，
-                  跟 composer 视觉脱节，这正是 bug #5 截图里"选择卡片飘在页面中间"
-                  的根因。现在把 `CapabilityPicker` 本体真正搬到这里（`side="up"`，
-                  向上弹向输入框方向），`chat-task-workbench-composer-mention-agent`/
-                  `copilotkit-v2-agent-toolbar` 两个 testid 都原样保留在这个容器上——
-                  前者是 TW-P0-5②判据锚点，后者是 TW-P0-2③"主界面不泄漏技术信息"
-                  判据读取 innerText 的目标，都只断言"可见 + 内容"，不断言页面位置，
-                  搬家不影响任何既有 e2e。不再需要单独的快捷按钮：`CapabilityPicker`
-                  自己就是"选 agent"的入口，两个按钮做同一件事只会读作重复。 */}
-              <div
-                className="shrink-0"
-                data-testid="copilotkit-v2-agent-toolbar"
-              >
-                <div data-testid="chat-task-workbench-composer-mention-agent">
-                  <CapabilityPicker
-                    listings={agentOptions.status === "ready" ? agentOptions.listings : null}
-                    status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
-                    selectedAgentId={selectedAgentId}
-                    disabled={agentOptions.status !== "ready" || archived}
-                    onSelect={(agentId) => onSelectAgent(agentId)}
-                    side="up"
-                  />
-                </div>
-              </div>
-              {/*
-                issue #2130（TW-P0-5②「/技能」入口 + TW-4 Skills 交互重设计）——
-                这两件是同一个真实控件：`ChatSkillMountPanel`（`variant="pill"`）
-                本身就是「/技能」的真正落点，不是先摆一个只插字符的假按钮、再摆
-                一个真正管理挂载的面板——那会是同一功能的两份实现。真实
-                e2e（`copilotkit-v2-skill-mount.spec.ts`/`chat-agent-skill-context.spec.ts`）
-                依赖的 `chat-skill-mount`/`chat-skill-mount-panel`/
-                `copilotkit-v2-skill-mount-placeholder` 等锚点原样保留在
-                `ChatSkillMountPanel` 内部，这里只加一层 workbench 锚点容器
-                （同 `chat-task-workbench-composer-attach` 的包法）。
-
-                `mentionQuery`/`onMentionMounted` 现在是本地状态直接下发
-                （见上方 `skillMention`/`onSkillMentionMounted`），不再经外层
-                Panel 转发一圈——搬进 Body 之后不再需要那一层间接。
-              */}
-              <div data-testid="chat-task-workbench-composer-mention-skill">
+          <div className="flex flex-col gap-4 px-5 pb-4 pt-5">
+            {agentOptions.status === "error" ? (
+              <span className="text-11 text-destructive" data-testid="copilotkit-v2-agent-options-error">
+                {agentOptions.message}
+                <button
+                  type="button"
+                  className="ml-1 underline"
+                  data-testid="copilotkit-v2-agent-options-retry"
+                  onClick={agentOptions.retry}
+                >
+                  重试
+                </button>
+              </span>
+            ) : null}
+            {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
+              <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
+                这个组织还没有可用的 Agent，先去
+                <a href="/platform-admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
+                才能发消息。
+              </span>
+            ) : null}
+            {/*
+              转录方式（设计稿）：文字实时流入输入框——已确认为深色，识别中为浅灰并带光标。
+              `textarea` 不能给一段文字单独上色，所以录音期间在它「底下」铺一层同字号的镜像
+              （深色 = 基线 ⊕ 已落定，浅灰 = 识别中 + 闪烁光标），textarea 自己的文字透明；
+              textarea 仍是真实值的唯一载体（e2e 读的是 `inputValue()`），镜像只是颜色。
+            */}
+            <div className="relative">
+              {speech.listening || speech.connecting ? (() => {
+                const dark = appendTranscript(speech.baseText, speech.committedText);
+                const full = appendTranscript(dark, speech.partialText);
+                return (
+                  <div
+                    aria-hidden
+                    data-testid="chat-task-workbench-composer-live-transcript"
+                    className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words px-0.5 py-0.5 text-16 leading-relaxed"
+                  >
+                    <span className="text-card-foreground">{dark}</span>
+                    <span className="text-muted-foreground">{full.slice(dark.length)}</span>
+                    <span aria-hidden className="ml-px inline-block h-4 w-0.5 animate-pulse bg-destructive align-middle" />
+                  </div>
+                );
+              })() : null}
+              <textarea
+                ref={composerInputRef}
+                data-testid="copilotkit-v2-input"
+                rows={3}
+                className={[
+                  "block w-full min-w-0 resize-none rounded-md bg-transparent px-0.5 py-0.5 text-16 leading-relaxed transition-colors duration-fast placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:text-disabled-foreground",
+                  speech.listening || speech.connecting ? "text-transparent caret-transparent" : "text-card-foreground",
+                ].join(" ")}
+                disabled={archived}
+                placeholder={archived ? "该对话已归档，不能再发送消息" : "输入任务目标，Shift+Enter 换行，Enter 发送"}
+                value={inputDraft}
+                onChange={(e) => {
+                  setInputDraft(e.target.value);
+                  if (emptySendHint) setEmptySendHint(false);
+                  // issue #2020 —— 与旧 composer 同一对挂点（onChange + onKeyUp）：
+                  // 光标移动（方向键/点击）不触发 onChange，只有 onKeyUp 能覆盖。
+                  recomputeMention(e.target.value, e.target.selectionStart);
+                }}
+                onKeyUp={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
+                onClick={(e) => recomputeMention(e.currentTarget.value, e.currentTarget.selectionStart)}
+                onKeyDown={(e) => {
+                  // issue #2130（TW-P0-5①）—— 纯 Enter 发送，Shift+Enter 换行；输入法拼字中的
+                  // Enter（`isComposing`）是在确认候选词，不是要发送。
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    // 空输入按 Enter = 用户在试图发送：这一刻才把禁用理由亮出来（见 `emptySendHint`）。
+                    if (sendDisabledReason === EMPTY_INPUT_REASON) { flashEmptySendHint(); return; }
+                    void send();
+                  }
+                }}
+              />
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              {/* 左：三颗圆形图标按钮 + 已挂载 skill chip；`relative` 让技能候选浮层从这个角落向上开。 */}
+              <div className="relative flex min-w-0 flex-wrap items-center gap-2.5">
+                <span data-testid="chat-task-workbench-composer-attach">
+                  <ComposerIconButton
+                    label="材料"
+                    title={sessionToken === null ? "材料（登录后可添加）" : "材料"}
+                    data-testid="chat-attachment-input"
+                    aria-haspopup="dialog"
+                    aria-expanded={attachOpen}
+                    disabled={attachDisabled}
+                    badge={attach.attachments.length}
+                    badgeTestId="chat-attachment-count"
+                    onClick={() => setAttachOpen(true)}
+                  >
+                    <Paperclip aria-hidden className="h-4 w-4" />
+                  </ComposerIconButton>
+                </span>
+                {/* issue #2130（TW-P0-5②「/技能」入口）—— 触发 `ChatSkillMountPanel` 的候选浮层；
+                    新对话还没有线程时如实禁用（`data-placeholder-reason`），不渲染一个
+                    "看起来能挂、提交必然 404"的假入口。输入框里敲 `/` 同样能打开。 */}
+                <span data-testid="chat-task-workbench-composer-mention-skill">
+                  <ComposerIconButton
+                    label="技能"
+                    title={
+                      initialChatThreadId === null || sessionToken === null
+                        ? `技能（${sessionToken === null ? "登录后可用" : "对话建立后可用"}）`
+                        : skillTrigger.mountedCount > 0 ? `技能（已挂 ${skillTrigger.mountedCount} 个，也可在输入框敲 /）` : "技能（也可在输入框敲 /）"
+                    }
+                    data-testid="chat-skill-mount"
+                    data-mounted-count={skillTrigger.mountedCount}
+                    data-placeholder-reason={
+                      sessionToken === null ? "login" : initialChatThreadId === null ? "no-thread" : undefined
+                    }
+                    aria-haspopup="listbox"
+                    disabled={archived || initialChatThreadId === null || sessionToken === null || !skillTrigger.canOpen}
+                    badge={skillTrigger.mountedCount}
+                    onClick={() => setSkillOpenRequest((n) => n + 1)}
+                  >
+                    <PenLine aria-hidden className="h-4 w-4" />
+                  </ComposerIconButton>
+                </span>
+                {/* issue #2130（TW-P0-5②）—— 任务模式：真实影响发出的正文（开启时正文前加一句
+                    要求先给计划再等确认的指令），不是纯装饰。开启态反色实心。 */}
+                <ComposerIconButton
+                  label="任务模式"
+                  title={taskMode ? "任务模式：Agent 会先给出计划，确认后再执行（点击关闭）" : "任务模式：先计划，确认后执行（点击开启）"}
+                  data-testid="chat-task-workbench-composer-task-mode"
+                  pressed={taskMode}
+                  disabled={archived}
+                  onClick={() => setTaskMode((v) => !v)}
+                >
+                  <Sparkles aria-hidden className="h-4 w-4" />
+                </ComposerIconButton>
                 {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
                   <ChatSkillMountPanel
-                    variant="pill"
-                    /* issue #2321 追加 —— composer 贴着视口底部，浮层往下开
-                       （默认值）会开到视口外/被裁掉，用户看不见。同一行的
-                       `CapabilityPicker` 上面就传了 `side="up"` 解决同一个问题，
-                       这里补上对称的口子。 */
-                    pickerSide="up"
+                    variant="composer"
                     threadId={initialChatThreadId}
                     orgId={orgId}
                     bearer={sessionToken}
                     mentionQuery={skillMention?.query ?? null}
-                    /* issue #2046（CK-P2）——v2 轨道触发符改 `/`（对齐 Claude Code），
-                       旧轨道 `/chat/legacy` 缺省仍是 `#`。 */
+                    /* issue #2046（CK-P2）——v2 轨道触发符 `/`（对齐 Claude Code），旧轨道缺省仍是 `#`。 */
                     mentionTriggerChar="/"
                     onMentionMounted={onSkillMentionMounted}
+                    openRequest={skillOpenRequest}
+                    onTriggerStateChange={setSkillTrigger}
                   />
+                ) : null}
+              </div>
+              {/* 右：语音分段胶囊（唯一麦克风入口，设备菜单在它右侧箭头）+ 发送 / 停止。 */}
+              <div className="flex shrink-0 items-center gap-3">
+                <ComposerVoiceControl
+                  status={speech.status}
+                  phase={voice.phase}
+                  elapsedSeconds={voice.totalSeconds}
+                  level={speech.level}
+                  disabled={archived || agent.isRunning}
+                  onStart={voice.start}
+                  onStop={voice.finish}
+                  onResume={voice.start}
+                  onRequireSession={() => {
+                    if (sessionToken === null) {
+                      setError("未登录，无法使用语音输入。");
+                      return false;
+                    }
+                    return true;
+                  }}
+                  devices={micDevices.devices}
+                  selectedDeviceId={micDevices.selectedDeviceId}
+                  onSelectDevice={micDevices.select}
+                  autoPause={voice.autoPause}
+                  onAutoPauseChange={voice.setAutoPause}
+                  deviceMenuRequest={voice.deviceMenuRequest}
+                />
+                {agent.isRunning && !archived ? (
+                  /* 设计稿：Agent 处理中，发送按钮变为「停止」（同一个位置、同一个锚点）。
+                     `data-send-state="running"` 供 e2e 判"是否仍卡在运行中"，不再读 title。 */
+                  <button
+                    type="button"
+                    data-testid="copilotkit-v2-send"
+                    data-send-state="running"
+                    aria-label="停止生成"
+                    title="停止生成"
+                    onClick={() => agent.abortRun()}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-pill border border-border bg-panel-alt text-card-foreground transition-colors duration-fast hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Square aria-hidden className="h-3 w-3 fill-current" />
+                  </button>
                 ) : (
-                  /* 新对话（还没有线程）时如实显示占位，不渲染一个「看起来能挂、
-                     提交必然 404」的假入口——逐字同此前外层的既有纪律，只是搬了地方。 */
-                  <p className="text-9 text-muted-foreground" data-testid="copilotkit-v2-skill-mount-placeholder">
-                    {sessionToken === null
-                      ? "登录后才能给对话挂载 skill。"
-                      : "发出第一条消息、对话建立后，就可以在这里给本对话挂载 skill（也可以在输入框里敲 / 快速挂载）。"}
-                  </p>
+                  <Button
+                    data-testid="copilotkit-v2-send"
+                    data-send-state={sendDisabled ? "disabled" : "ready"}
+                    type="button"
+                    size="icon"
+                    variant="primary"
+                    className="shrink-0 rounded-pill"
+                    disabled={sendDisabled}
+                    title={sendDisabledReason ?? "发送"}
+                    aria-label="发送"
+                    onClick={() => void send()}
+                  >
+                    <ArrowUp aria-hidden className="h-4 w-4" />
+                  </Button>
                 )}
               </div>
-              {/* issue #2130（TW-P0-5②）—— 任务模式：真实影响发出的正文（不是纯装饰）。
-                  开启时发出的正文前面会加一句面向 Agent 的显式指令，要求先给计划再等
-                  确认；关闭（默认，见 `taskMode` state 声明处的既有 e2e 兼容理由）时
-                  逐字节按用户原文发送——与本组件此前的既有行为完全相同。 */}
-              <button
-                type="button"
-                data-testid="chat-task-workbench-composer-task-mode"
-                aria-pressed={taskMode}
-                aria-label={taskMode ? "任务模式（先计划后执行）：已开启" : "任务模式（先计划后执行）：已关闭"}
-                title={taskMode ? "任务模式：Agent 会先给出计划，确认后再执行" : "问答模式：直接回答，不先出计划"}
-                disabled={archived}
-                onClick={() => setTaskMode((v) => !v)}
-                className={[
-                  "flex items-center gap-1 rounded-pill border px-2 py-1 text-9 transition-colors duration-fast disabled:bg-disabled disabled:text-disabled-foreground",
-                  taskMode ? "border-primary/50 bg-primary/10 text-primary" : "border-border-subtle text-muted-foreground hover:bg-muted",
-                ].join(" ")}
-              >
-                <Sparkles aria-hidden className="h-3 w-3" />
-                任务模式
-              </button>
-            </div>
-            {/* 第二行右：麦克风（唯一入口，设备选择降为二级菜单）+ 发送/停止。 */}
-            <div className="flex shrink-0 items-center gap-2">
-              <ComposerMicControl
-                status={speech.status}
-                listening={speech.listening}
-                connecting={speech.connecting}
-                stopping={speech.stopping}
-                start={speech.start}
-                stop={speech.stop}
-                disabled={archived}
-                idleLabel="语音"
-                devices={micDevices.devices}
-                selectedDeviceId={micDevices.selectedDeviceId}
-                onSelectDevice={micDevices.select}
-                onRequireSession={() => {
-                  if (sessionToken === null) {
-                    setError("未登录，无法使用语音输入。");
-                    return false;
-                  }
-                  return true;
-                }}
-              />
-              {/* 2026-08-29 Claude Design 重设计稿——发送是一个纯图标的圆角方形按钮
-                  （↑），不是文字按钮。testid/disabled/title 逐字不动，只换视觉与
-                  可访问性标签（图标按钮必须有 `aria-label`，之前的可见文字"发送"
-                  本身兼职当了这个角色，现在要显式补上）。 */}
-              <Button
-                data-testid="copilotkit-v2-send"
-                type="button"
-                size="icon"
-                variant="primary"
-                className="shrink-0 rounded-md"
-                disabled={sendDisabled}
-                title={sendDisabledReason ?? (agent.isRunning ? "正在运行…" : "发送")}
-                aria-label={agent.isRunning ? "正在运行…" : "发送"}
-                onClick={() => void send()}
-              >
-                {agent.isRunning ? (
-                  <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <ArrowUp aria-hidden className="h-3.5 w-3.5" />
-                )}
-              </Button>
             </div>
           </div>
-          {/*
-            2026-08-30——录音状态「内嵌」在 composer 卡片里（这一行本身就是卡片内的
-            正常一行，随内容自然撑高卡片），不再是盖在输入区上方的浮层
-            （旧实现见 `chat-composer-mic-control.tsx` 头注）。转录文字本身已经实时
-            写进上面的 textarea，这一行只是"元信息"：在录/多久了/多大声/录给哪支麦克风/
-            要不要留下这段。
-          */}
-          {speech.connecting || speech.listening || speech.stopping ? (
-            <ComposerMicRecordingBar
-              listening={speech.listening}
-              connecting={speech.connecting}
-              stopping={speech.stopping}
-              elapsedSeconds={speech.elapsedSeconds}
-              level={speech.level}
-              stop={speech.stop}
-              cancel={speech.cancel}
-            />
-          ) : null}
-          {/* issue #2130（TW-P0-5④）—— 发送被禁用时必须**说明原因**，不能只是灰掉。 */}
-          {sendDisabledReason !== null ? (
-            <p className="text-9 text-muted-foreground" data-testid="chat-task-workbench-composer-send-disabled-reason">
-              {sendDisabledReason}
-            </p>
-          ) : null}
+          {composerStatusBar}
         </div>
-        {speech.connecting ? (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-connecting">
-            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-            正在连接语音识别……
-          </p>
-        ) : null}
-        {speech.listening ? (
-          <p className="flex items-center gap-1.5 text-xs text-destructive" data-testid="chat-mic-listening">
-            <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" />
-            正在听……实时转录中，说完点击麦克风按钮停止，确认无误后再手动发送。
-          </p>
-        ) : null}
-        {speech.stopping ? (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="chat-mic-stopping">
-            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-            正在停止……等待最后一段转录落定。
-          </p>
-        ) : null}
-        {speech.error !== null ? (
-          <p className="text-xs text-destructive" data-testid="chat-mic-error">{speech.error}</p>
-        ) : null}
+        {/* 页脚：左 = 快捷键 / 禁用理由（TW-P0-5④ 锚点），右 = 当前输入设备（默认值不进卡片）。 */}
+        <div className="mt-3 flex min-w-0 items-center justify-between gap-3 text-12 text-muted-foreground">
+          {sendDisabledReason !== null
+            && (sendDisabledReason !== EMPTY_INPUT_REASON || emptySendHint)
+            && !agent.isRunning && !attach.hasUploading ? (
+            <span data-testid="chat-task-workbench-composer-send-disabled-reason">{sendDisabledReason}</span>
+          ) : voice.phase === "listening" || voice.phase === "connecting" ? (
+            <span>按 Esc 停止录音</span>
+          ) : (
+            <span>Enter 发送 · Shift+Enter 换行</span>
+          )}
+          <span className="truncate" data-testid="chat-task-workbench-composer-mic-device-label">
+            麦克风：{describeVoiceDevice(micDevices.devices, micDevices.selectedDeviceId)}
+          </span>
+        </div>
+        <ChatAttachmentDock ctl={attach} open={attachOpen} disabled={attachDisabled} onClose={() => setAttachOpen(false)} />
       </div>
       {panelActiveFiles.length > 0 ? (
         <div className="min-w-0 flex-1">

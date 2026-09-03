@@ -82,14 +82,15 @@ async function warmUpCopilotRuntimeRoute(page: import("@playwright/test").Page):
  * 三条测试全部通过，且 wire 级/最终文案断言原样保留、未被削弱——证明 resume 机制
  * 本身没有问题，问题在断言选错了信号源）。
  */
-const RUNNING_DISABLED_REASON = "Agent 正在处理上一条消息，请稍候…";
 async function expectSendNotBlockedOnRun(
   page: import("@playwright/test").Page,
   timeoutMs = 30_000,
 ): Promise<void> {
   await expect
-    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("title"), { timeout: timeoutMs })
-    .not.toBe(RUNNING_DISABLED_REASON);
+    // 2026-09-02 composer 重设计：Agent 处理中发送按钮变为「停止生成」（title 不再是禁用理由），
+    // 改读 `data-send-state`（running / disabled / ready）——语义相同：不再卡在运行中。
+    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("data-send-state"), { timeout: timeoutMs })
+    .not.toBe("running");
 }
 
 /** Every test starts identically: log in, warm the runtime route, land on the v2 panel,

@@ -11,6 +11,8 @@ export MIGRATION_DB_USER=postgres
 export MIGRATION_DB_PASSWORD=postgres_dev
 export APP_DB_USER=app_rw
 export APP_DB_PASSWORD=app_rw_dev
+export DIAG_DB_USER=app_diag_ro
+export DIAG_DB_PASSWORD=app_diag_ro_dev
 
 # The database NAME is parameterised, and that is not cosmetic.
 #

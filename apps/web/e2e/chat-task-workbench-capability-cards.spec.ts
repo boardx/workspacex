@@ -100,7 +100,8 @@ test("TW-P0-2③：模型名 / middleware / LangGraph 节点等技术信息不�
   await openChatEmptyState(page);
 
   // 主界面 = composer 所在的中央工作区（不含「运行详情」抽屉，那里本来就该放技术信息）。
-  const mainSurface = page.getByTestId("copilotkit-v2-agent-toolbar");
+  // 2026-09-02 起读整张 composer 卡片（含状态栏），比此前只读 agent 工具栏更宽。
+  const mainSurface = page.getByTestId("chat-task-workbench-composer");
   await expect(mainSurface).toBeVisible({ timeout: 30_000 });
   const surfaceText = await mainSurface.innerText();
 

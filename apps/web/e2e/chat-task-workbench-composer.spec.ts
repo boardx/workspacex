@@ -17,6 +17,12 @@ import { ACCEPTANCE_DOC, expectAnchor, gapMessage, openFreshThread } from "./cha
  * 两者并排，视觉上确实读成两个麦克风入口——审计属实。判据要求设备选择降级为
  * 语音按钮的**二级菜单**，即 composer 顶层只留一个麦克风语义入口。
  *
+ * ## 2026-09-02 composer 重设计（人类交付的状态预览稿；本 spec 随之改法，判据不变）
+ * 工具行左 = 材料 / 技能 / 任务模式三颗 32px 圆形图标按钮；「选择能力」移出输入区到卡片上方；
+ * 右 = 一个分段语音胶囊承载全部语音状态（语音 → 连接中 → 停止+音量条+计时 → 继续），
+ * 设备列表与静音自动暂停开关收进它右侧的小箭头菜单；卡片底部一条状态栏按状态区分
+ * 语气与操作；「请先输入任务目标」只在用户试图发送（空输入按 Enter）时出现在页脚。
+ *
  * ## 边界（不重复声明）
  * 「语音转录必须经服务端代理」「转录是否实时可编辑」属于
  * `chat-ux-acceptance-criteria.md` 第 5 项，本 spec 不评。本条只评**结构**：
@@ -61,13 +67,14 @@ test("TW-P0-5①②：Composer 是统一的两行结构，第一行为多行任�
     gapMessage("TW-P0-5①", "copilotkit-v2-input", "任务输入不是多行 textarea"),
   ).toBe("textarea");
 
+  // 材料 / 技能 / 任务模式是工具行的三颗圆形图标按钮；「选择能力」在卡片上方（移出输入区）。
   for (const [suffix, what] of [
     ["attach", "附件/材料入口"],
-    ["mention-agent", "@Agent 入口"],
+    ["mention-agent", "选择能力入口"],
     ["mention-skill", "/技能 入口"],
     ["task-mode", "任务模式切换"],
   ] as const) {
-    await expectAnchor(page, `chat-task-workbench-composer-${suffix}`, "TW-P0-5②", `Composer 第二行缺少${what}`, 15_000);
+    await expectAnchor(page, `chat-task-workbench-composer-${suffix}`, "TW-P0-5②", `Composer 缺少${what}`, 15_000);
   }
 });
 
@@ -91,7 +98,8 @@ test("TW-P0-5⑤：麦克风入口全局唯一（审计实测当前有两个）"
       // 只数「入口」本身，不数录音状态提示行（connecting/listening/stopping/error）
       // 和下拉里的选项（listbox/option/empty）。
       if (!/mic/i.test(testId)) continue;
-      if (/(connecting|listening|stopping|error|listbox|option|empty)/i.test(testId)) continue;
+      // `-mic-devices` 是入口的二级菜单触发器（判据 ⑥ 要求它存在），不是第二个入口。
+      if (/(connecting|listening|stopping|error|listbox|option|empty|devices)/i.test(testId)) continue;
       record(el, "testid 含 mic");
     }
     for (const el of Array.from(root.querySelectorAll("button, [role='button'], [role='combobox']"))) {
@@ -125,8 +133,7 @@ test("TW-P0-5⑥：设备选择是语音按钮的二级菜单，录音时显示�
     30_000,
   );
 
-  // 设备选择必须挂在语音按钮下面（二级菜单），不是 composer 顶层的并列控件。
-  await mic.click();
+  // 设备选择必须挂在语音按钮下面（二级菜单）：语音胶囊右侧的小箭头，不是并列控件。
   await expectAnchor(
     page,
     "chat-task-workbench-composer-mic-devices",
@@ -134,21 +141,33 @@ test("TW-P0-5⑥：设备选择是语音按钮的二级菜单，录音时显示�
     "设备选择没有降级为语音按钮的二级菜单（当前 chat-mic-device-select 与麦克风按钮并列在顶层）",
     15_000,
   );
+  await page.getByTestId("chat-task-workbench-composer-mic-devices").click();
+  await expectAnchor(page, "chat-task-workbench-composer-mic-devices-listbox", "TW-P0-5⑥", "小箭头点开后没有设备列表", 10_000);
+  await expectAnchor(page, "chat-task-workbench-composer-mic-silence-autopause", "TW-P0-5⑥", "设备菜单里没有静音自动暂停开关", 10_000);
+  await page.keyboard.press("Escape");
 
+  // 录音态四件：计时 + 音量条在语音胶囊上；正在听 → 暂停 / 停止；暂停 → 丢弃 / 继续 / 完成。
+  await mic.click();
+  await expect(mic).toHaveAttribute("data-mic-status", "listening", { timeout: 30_000 });
   for (const [suffix, what] of [
     ["timer", "录音计时"],
     ["level", "音量指示"],
-    ["cancel", "取消"],
-    ["confirm", "确认"],
+    ["pause", "暂停"],
+    ["confirm", "停止（确认保留转录）"],
   ] as const) {
-    await expectAnchor(
-      page,
-      `chat-task-workbench-composer-recording-${suffix}`,
-      "TW-P0-5⑥",
-      `录音态缺少${what}`,
-      15_000,
-    );
+    await expectAnchor(page, `chat-task-workbench-composer-recording-${suffix}`, "TW-P0-5⑥", `录音态缺少${what}`, 15_000);
   }
+  await page.getByTestId("chat-task-workbench-composer-recording-pause").click();
+  await expectAnchor(page, "chat-task-workbench-composer-paused", "TW-P0-5⑥", "点「暂停」后没有暂停态", 30_000);
+  for (const [suffix, what] of [
+    ["cancel", "丢弃"],
+    ["resume", "继续"],
+    ["confirm", "完成"],
+  ] as const) {
+    await expectAnchor(page, `chat-task-workbench-composer-recording-${suffix}`, "TW-P0-5⑥", `暂停态缺少${what}`, 15_000);
+  }
+  await page.getByTestId("chat-task-workbench-composer-recording-cancel").click();
+  await expect(page.getByTestId("chat-task-workbench-composer-paused")).toHaveCount(0);
 });
 
 /*
@@ -171,6 +190,9 @@ test("TW-P0-5④：发送被禁用时必须说明原因（不能只是灰掉）"
   const input = page.getByTestId("copilotkit-v2-input");
   await expect(input).toBeVisible({ timeout: 30_000 });
   await input.fill("");
+  // 2026-09-02 起"空输入"这条理由不常驻（placeholder 已经说了同一句话），
+  // 用户**试图**发送——空输入按 Enter——那一刻才亮出来；其余理由（归档/运行中/上传中）仍常驻。
+  await input.press("Enter");
 
   // 空输入是天然的禁用态；若此实现下发送并未禁用，本条判据无从谈起，如实说明。
   const disabled = await send.isDisabled();

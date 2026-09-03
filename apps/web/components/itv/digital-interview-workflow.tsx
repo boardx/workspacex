@@ -12,7 +12,9 @@ import {
   confirmDigitalInterviewExperts,
   confirmDigitalInterviewQuestions,
   confirmDigitalInterviewTopic,
+  generateDigitalInterviewReportStream,
   loadDigitalInterviewWorkflow,
+  observeDigitalInterviewReportStream,
   rejectDigitalInterviewSkillProposal,
   type DigitalInterviewQuestion,
   type DigitalInterviewStep,
@@ -110,7 +112,9 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
   const [dirty, setDirty] = React.useState(false);
   const [error, setError] = React.useState("");
   const [pendingNavigation, setPendingNavigation] = React.useState<PendingNavigation>(null);
+  const [reportPending, setReportPending] = React.useState(initialView.reportGeneration?.status === "running");
   const requestIds = React.useRef(new Map<string, { readonly fingerprint: string; readonly requestId: string }>());
+  const localReportStream = React.useRef(false);
 
   React.useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -132,6 +136,23 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     }, 1500);
     return () => window.clearInterval(timer);
   }, [view.currentStep, view.expertRuns, view.interviewId]);
+
+  const reportRunning = view.reportGeneration?.status === "running";
+  React.useEffect(() => {
+    if (!reportRunning || localReportStream.current) return;
+    const controller = new AbortController();
+    setReportPending(true);
+    void observeDigitalInterviewReportStream(
+      view.interviewId,
+      (next) => { setView(next); setError(""); },
+      controller.signal,
+    ).catch((cause) => {
+      if (!controller.signal.aborted) showError(cause);
+    }).finally(() => {
+      if (!controller.signal.aborted) setReportPending(false);
+    });
+    return () => controller.abort();
+  }, [reportRunning, view.interviewId]);
 
   function requestIdFor(operation: string, payload: unknown): string {
     const fingerprint = JSON.stringify(payload);
@@ -219,6 +240,21 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
     } catch (cause) { showError(cause); }
   }
 
+  async function generateReport() {
+    const payload = { expectedVersion: view.version };
+    const operation = "generate-report";
+    localReportStream.current = true;
+    setReportPending(true);
+    try {
+      const next = await generateDigitalInterviewReportStream(
+        { interviewId: view.interviewId, ...payload, requestId: requestIdFor(operation, payload) },
+        (progress) => { setView(progress); setError(""); },
+      );
+      replaceAfterConfirmation(next, operation);
+    } catch (cause) { showError(cause); }
+    finally { localReportStream.current = false; setReportPending(false); }
+  }
+
   async function sendSkillMessage(text: string) {
     const payload = { currentStep: view.currentStep, text, draftContext: skillDraftContext(view.currentStep, buffers, view.name), expectedVersion: view.version };
     const operation = "append-skill-message";
@@ -266,8 +302,12 @@ export function PersistentDigitalInterviewWorkflow({ initialView }: { readonly i
         {active === "topic" && <LiveTopicStep topic={buffers.topic} onChange={(topic) => { setBuffers((current) => ({ ...current, topic })); setDirty(true); }} onConfirm={() => void confirmTopic()} />}
         {active === "experts" && <LiveExpertStep expertIds={buffers.expertIds} candidates={view.expertCandidates} onChange={(expertIds) => { setBuffers((current) => ({ ...current, expertIds })); setDirty(true); }} onConfirm={() => void confirmExperts()} />}
         {active === "questions" && <LiveQuestionStep expertIds={buffers.expertIds} candidates={view.expertCandidates} questions={buffers.questions} onChange={(questions) => { setBuffers((current) => ({ ...current, questions })); setDirty(true); }} onConfirm={() => void confirmQuestions()} />}
-        {active === "runs" && <LiveRunStep runs={view.expertRuns} />}
-        {active === "report" && <LiveReadOnlyStep title="访谈报告" text="报告和来源会在服务端生成后显示。" />}
+        {active === "runs" && <LiveRunStep runs={view.expertRuns} reportPending={reportPending} onGenerateReport={() => void generateReport()} />}
+        {active === "report" && (view.report ? <LiveReportStep report={view.report} onViewSource={(expertId, questionId) => {
+          setView((current) => ({ ...current, currentStep: "runs" }));
+          window.setTimeout(() => document.getElementById(`answer-${expertId}-${questionId}`)?.scrollIntoView({ block: "center" }), 0);
+        }} /> : view.reportGeneration ? <LiveReportGenerationStep generation={view.reportGeneration} />
+          : <LiveReadOnlyStep title="访谈报告" text="请先确认访谈回答并生成报告。" />)}
       </section>
     </div></main>
     {pendingNavigation && <UnsavedChangesDialog onKeepEditing={() => setPendingNavigation(null)} onDiscard={discardAndNavigate} />}
@@ -315,8 +355,30 @@ function LiveQuestionStep({ expertIds, candidates, questions, onChange, onConfir
 
 function LiveReadOnlyStep({ title, text }: { readonly title: string; readonly text: string }) { return <div><h2 className="text-xl font-semibold">{title}</h2><p className="mt-2 text-sm text-muted-foreground">{text}</p></div>; }
 
-function LiveRunStep({ runs }: { readonly runs: DigitalInterviewWorkflowView["expertRuns"] }) {
-  return <div data-testid="itv-expert-runs"><h2 className="text-xl font-semibold">执行批量访谈</h2><p className="mt-2 text-sm text-muted-foreground">每位专家独立运行；刷新或离开页面后会从服务端恢复。</p><div className="mt-5 space-y-4">{runs.map((run) => <article key={run.expertId} data-testid="itv-expert-run" className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{run.displayName}</h3><span className="text-xs text-muted-foreground">{run.status === "completed" ? "已完成" : run.status === "failed" ? "失败" : "进行中"} · {run.completedQuestions}/{run.totalQuestions}</span></div>{run.errorCode && <p role="alert" className="mt-3 text-sm text-destructive">{run.errorCode}</p>}<div className="mt-3 space-y-3">{run.answers.map((answer) => <section key={answer.questionId} className="rounded-lg bg-muted/50 p-3"><p className="text-sm font-medium">{answer.question}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{answer.answer}</p></section>)}</div></article>)}</div>{runs.length === 0 && <p data-testid="itv-runs-empty" className="mt-5 text-sm text-muted-foreground">访谈任务正在创建，请稍后刷新。</p>}</div>;
+function LiveRunStep({ runs, reportPending, onGenerateReport }: { readonly runs: DigitalInterviewWorkflowView["expertRuns"]; readonly reportPending: boolean; readonly onGenerateReport: () => void }) {
+  const ready = runs.length > 0 && runs.every((run) => run.status !== "running") && runs.some((run) => run.status === "completed" && run.answers.length > 0);
+  return <div data-testid="itv-expert-runs"><h2 className="text-xl font-semibold">执行批量访谈</h2><p className="mt-2 text-sm text-muted-foreground">每位专家独立运行；刷新或离开页面后会从服务端恢复。</p><div className="mt-5 space-y-4">{runs.map((run) => <article key={run.expertId} data-testid="itv-expert-run" className="rounded-xl border border-border p-4"><div className="flex items-center justify-between gap-3"><h3 className="font-semibold">{run.displayName}</h3><span className="text-xs text-muted-foreground">{run.status === "completed" ? "已完成" : run.status === "failed" ? "失败" : "进行中"} · {run.completedQuestions}/{run.totalQuestions}</span></div>{run.errorCode && <p role="alert" className="mt-3 text-sm text-destructive">{run.errorCode}</p>}<div className="mt-3 space-y-3">{run.answers.map((answer) => <section id={`answer-${run.expertId}-${answer.questionId}`} key={answer.questionId} className="scroll-mt-6 rounded-lg bg-muted/50 p-3"><p className="text-sm font-medium">{answer.question}</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{answer.answer}</p></section>)}</div></article>)}</div>{runs.length === 0 && <p data-testid="itv-runs-empty" className="mt-5 text-sm text-muted-foreground">访谈任务正在创建，请稍后刷新。</p>}<Button data-testid="itv-confirm-answers-generate-report" className="mt-6" variant="primary" size="lg" disabled={!ready || reportPending} onClick={onGenerateReport}>{reportPending ? "正在生成报告…" : "确认访谈回答并生成报告"}</Button></div>;
+}
+
+function LiveReportStep({ report, onViewSource }: { readonly report: NonNullable<DigitalInterviewWorkflowView["report"]>; readonly onViewSource: (expertId: string, questionId: string) => void }) {
+  return <div data-testid="itv-report"><h2 className="text-xl font-semibold">{report.title}</h2><p className="mt-3 leading-7 text-muted-foreground">{report.executiveSummary}</p><pre data-testid="itv-report-markdown" className="mt-6 whitespace-pre-wrap font-sans text-sm leading-7">{report.markdown}</pre><div className="mt-8 space-y-3"><h3 className="font-semibold">来源发现</h3>{report.findings.map((finding) => <article key={finding.findingId} className="rounded-lg border border-border p-4"><strong>{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><button type="button" className="mt-3 text-xs font-medium text-primary" onClick={() => onViewSource(finding.expertId, finding.questionId)}>查看原始回答</button></article>)}</div></div>;
+}
+
+function LiveReportGenerationStep({ generation }: { readonly generation: NonNullable<DigitalInterviewWorkflowView["reportGeneration"]> }) {
+  return <div data-testid="itv-report-generation">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h2 className="text-xl font-semibold">{generation.title ?? "正在生成访谈报告"}</h2>
+      <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+        {generation.status === "running" ? "流式生成中" : "生成失败"}
+      </span>
+    </div>
+    {generation.executiveSummary && <p className="mt-3 leading-7 text-muted-foreground">{generation.executiveSummary}</p>}
+    {generation.markdown
+      ? <pre data-testid="itv-report-stream-markdown" className="mt-6 whitespace-pre-wrap font-sans text-sm leading-7">{generation.markdown}</pre>
+      : generation.status === "running" && <p className="mt-5 text-sm text-muted-foreground">模型正在整理第一段内容…</p>}
+    {generation.findings.length > 0 && <div className="mt-8 space-y-3"><h3 className="font-semibold">已生成的来源发现</h3>{generation.findings.map((finding) => <article key={finding.findingId} className="rounded-lg border border-border p-4"><strong>{finding.title}</strong><p className="mt-2 text-sm leading-6 text-muted-foreground">{finding.summary}</p><p className="mt-3 text-xs text-muted-foreground">探索性发现 · 待真人验证</p></article>)}</div>}
+    {generation.status === "failed" && <p role="alert" className="mt-5 rounded-lg border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">报告生成失败：{generation.errorCode ?? "DEPENDENCY_UNAVAILABLE"}。已生成内容和失败状态已保存，刷新后不会丢失。</p>}
+  </div>;
 }
 
 function UnsavedChangesDialog({ onKeepEditing, onDiscard }: { readonly onKeepEditing: () => void; readonly onDiscard: () => void }) {

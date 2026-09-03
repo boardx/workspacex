@@ -1118,6 +1118,15 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
    *   撤掉修法它照样绿（实测过）。所以必须专门造一个容量为 0 的区块——落在第 8 行、
    *   高度 1 行时 `geom.fits === 0`（`defaultLayoutAt` 在 row 8 的实测值）。
    *
+   * ⚠ 2026-09-01（第五轮）：这条原本用的是 A1 纸 + h=1，但 `sectionGeometryMm`
+   *   后来补了"按宽度算出 0 行、但可用高度仍是正数时，把贴纸边长夹到能放下一行
+   *   的高度版尺寸"（同一次独立审查驳回"跳过测试"之后的真正修法，见该函数文档）
+   *   ——A1 纸上标题预留（`titleReserveMm`）与 h=1 的可用高度之间恰好总留得出一点
+   *   空间，夹一下就有了一行，容量不再是 0，这条钉子因此测不出真正"even 夹了也
+   *   放不下"的那条分支。换成 A4 纸：同样的 h=1，可用高度扣掉标题预留后已经是
+   *   负数，连"夹一下"都没有余地，`rows` 如实留在 0——这才是这条钉子原本要测的
+   *   "容量真的、彻底放不下"，不是"容量算法一时半会没顾上"。
+   *
    * ⚠ 断言"至少画出一张"**不是**在骗人说装得下：装不下由旁边那行标红的「装不下」
    *   如实交代。一张画不出来的预览没有任何信息量。
    */
@@ -1125,10 +1134,12 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({
       templates: [template({
         key: "swot", displayName: "SWOT", version: 1, status: "draft", builtin: false, usageCount: 0,
+        size: "A4",
         sections: [{
           sectionId: "s1", key: "says", name: "说 Says", type: "便利贴列表", aiHint: null,
           order: 0, required: false, capacity: null,
-          // 第 8 行 + 高 1 行 ⇒ 物理上一张 76mm 贴纸都放不下。
+          // 第 8 行 + 高 1 行，A4 纸 ⇒ 扣完标题预留后可用高度已是负数，
+          // 物理上一张贴纸都放不下（连"夹到能放一行"的余地都没有）。
           layout: { col: 1, row: 8, w: 6, h: 1, cols: 3, max: 6, tone: 0, overflow: "缩小字号" },
         }],
       })],
@@ -1173,7 +1184,7 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     await waitFor(() => expect(block).not.toHaveTextContent("排队太久"));
   });
 
-  it("改列数 → 贴纸实尺 mm 保持不变，容量结论（放得下几条）跟着更新（2026-08-30：贴纸大小固定，模拟真实 3M 便利贴）", async () => {
+  it("改列数 → 贴纸实尺 mm 跟着变、容量结论（放得下几条）也跟着更新（2026-09-01 推翻 2026-08-30「固定不变」的约定）", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => withFields()));
     const panel = await openEditor();
     fireEvent.click(within(panel).getByTestId("tpladmin-editor-block-s1"));
@@ -1184,12 +1195,12 @@ describe("2026-08-26 R4/R5 三栏编辑器 —— 拖到画布 + 显示方式 + 
     await waitFor(() => {
       expect(within(display).getByTestId("tpladmin-editor-col-note").textContent).not.toBe(before);
     });
-    // 贴纸实尺是固定物理量（`STANDARD_NOTE_MM`），换列数不改变它——真实便利贴不会
-    // 因为你把它们排成 3 列还是 5 列就跟着变大变小；变的是「这块地方放得下几条」。
+    // 贴纸实尺随列数反推（`noteMm = min(MAX_NOTE_MM, wMm/cols)`）——列越多单张越小，
+    // 这正是这次要恢复的行为，理由见 `explicit-template-layout.ts` 的 `MAX_NOTE_MM` 文档。
     const after = within(display).getByTestId("tpladmin-editor-col-note").textContent ?? "";
     const beforeMm = Number(/贴纸实尺 (\d+)×/.exec(before ?? "")?.[1] ?? "0");
     const afterMm = Number(/贴纸实尺 (\d+)×/.exec(after)?.[1] ?? "0");
-    expect(afterMm).toBe(beforeMm);
+    expect(afterMm).not.toBe(beforeMm);
   });
 
   it("「从画布移除」只删 block 不删 field——移除后该字段回到「未放置」，仍在左栏", async () => {

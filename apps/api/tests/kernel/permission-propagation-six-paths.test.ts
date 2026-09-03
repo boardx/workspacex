@@ -1115,7 +1115,33 @@ describe("lint-permission-paths: counter-proof", () => {
     // catalog-guard.test.ts` 机械断言（a）只命名上述六张表；（b）没有导出函数签名里
     // 出现 orgId/tenantId 形参；（c）SQL 参数数组里没有可疑的调用方可控标识符；（d）
     // 豁免条目确实存在于本文件。删那个测试则本条目须一并删。
-    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(83);
+    //
+    // ⚠ Raised 83 -> 84 by phase-02 F02/F06（board 契约束，PR #2432）：新增
+    // `pg-task-repository.ts`（`tasks`/`task_status_audit`/`project_memberships`）。
+    // uc-11-1 R5 的可见性规则是角色形状的（facilitator/org-admin=全部、
+    // groupLead/member=本人+本组、observer=不可见），不是 `acl_bindings` 治理的
+    // `ObjectRef` 问题——把任务卡硬塞进 `authorize()` 会问错问题（"能不能看见容器"，
+    // 而不是"容器里哪些卡能看见"）。同 `pg-l3-attachment-retrieval-repository.ts`
+    // 条目已确立的组合：（a）`board.controller.ts` 的 `resolveProjectRole` 在触达
+    // `listVisibleWithin`/`getMyToday`/`listTasks` 之前就先对 `observer` 判真实 403；
+    // （b）非特权角色能查到的那两类角色，SQL 谓词本身就是可见性规则
+    // （`owner_user_id = $self OR executor = $self OR EXISTS(...同组...)`），不是查完
+    // 再过滤。被强制的前提：`tests/board/pg-task-repository-guard.test.ts` 机械断言
+    // （a）本文件只命名 `tasks`/`task_status_audit`/`project_memberships` 三张表；
+    // （b）不调用 `withoutTenant`；（c）非特权分支的 WHERE 子句始终从
+    // `owner_user_id`/`executor`/同组成员资格子查询构建，不会退化成无演员谓词的裸
+    // SELECT。删那个测试则本条目须一并删。
+    //
+    // ⚠ Raised 84 -> 85 by member-role-management delta（两级成员管理，平台级名册）：新增
+    // `infrastructure/system/pg-platform-member-repository.ts`，命名 `credentials`/
+    // `organizations`/`org_memberships`——它**没有**新开跨租户读路径：`credentials` 是无租户表，
+    // 组织发现走既有的 `kernel_user_org_ids`（0010，一人一次），组织名/成员行只在
+    // `withTenant(orgId)` 下读，与 `pg-org-profile-repository.ts` 的 `listMembers` 同形；
+    // 谁能看拼出来的名册由 `PlatformSuperuserGuard`（env 白名单）在 controller 类上判定。
+    // 被强制的前提：`tests/org-admin/platform-members-guard-wiring.test.ts` 断言守卫元数据
+    // 确实挂在 `PlatformMemberController` 上，`tests/org-admin/platform-members-real.test.ts`
+    // 断言本地组织的成员身份永远不进名册。删那两个测试则本条目须一并删。
+    expect(Number(/allowlisted=(\d+)/.exec(r.out)?.[1] ?? -1)).toBeLessThanOrEqual(85);
 
     const src = readFileSync(
       fileURLToPath(new URL("../../scripts/lint-permission-paths.mjs", import.meta.url)),

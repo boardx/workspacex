@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { CheckCircle2, CircleDot, Circle } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,11 +24,30 @@ const STEP_STATUS_LABEL_ZH: Readonly<Record<PlanStepStatus, string>> = {
   pending: "待执行", in_progress: "进行中", completed: "已完成",
 };
 
-function StepStatusIcon({ status }: { status: PlanStepStatus }): React.JSX.Element {
-  const common = "h-4 w-4 shrink-0";
-  if (status === "completed") return <CheckCircle2 aria-hidden className={cn(common, "text-success")} />;
-  if (status === "in_progress") return <CircleDot aria-hidden className={cn(common, "text-primary")} />;
-  return <Circle aria-hidden className={cn(common, "text-muted-foreground")} />;
+/**
+ * issue #2476 —— 步骤序号徽标：圆形 + 序号，替代此前"只有一个状态图标、没有序号"
+ * 的呈现。**状态信息不因此丢失**——完成态仍然是 `CheckCircle2`（对勾本身就是
+ * 状态，不需要再叠一个数字），进行中/待执行才显示序号，且序号徽标本身按状态
+ * 换色（`--accent` 进行中 / 描边 待执行），不是纯装饰。
+ */
+function StepBadge({ status, index }: { status: PlanStepStatus; index: number }): React.JSX.Element {
+  if (status === "completed") {
+    return (
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success text-success-foreground">
+        <CheckCircle2 aria-hidden className="h-4 w-4" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className={cn(
+        "flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-11 font-medium",
+        status === "in_progress" ? "bg-accent text-accent-foreground" : "border border-border text-muted-foreground",
+      )}
+    >
+      {index + 1}
+    </span>
+  );
 }
 
 export interface PlanPanelReadOnlyProps {
@@ -37,14 +56,22 @@ export interface PlanPanelReadOnlyProps {
 
 export function PlanPanelReadOnly({ steps }: PlanPanelReadOnlyProps): React.JSX.Element {
   return (
-    <Card data-testid={PLAN_PANEL_TESTID} data-plan-mode="read" className="w-full">
-      <CardContent className="flex flex-col gap-2 py-3">
-        <div className="flex items-center gap-2">
-          <span className="text-13 font-semibold">当前计划</span>
-          <Badge tone="neutral" className="text-10">{steps.length} 步</Badge>
+    <Card data-testid={PLAN_PANEL_TESTID} data-plan-mode="read" className="w-full overflow-hidden">
+      {/*
+        issue #2476 —— 卡头改成独立的、`--accent` 浅底的标题区，跟下面的步骤列表
+        分层：卡头只回答"这是什么计划"，不跟步骤内容混排。复用既有 `--accent`
+        （F19 已定义、2026-08-27 改版未触碰的浅青绿 token），不是新色。
+      */}
+      <div className="flex items-center gap-2 border-b border-border-subtle bg-accent px-3 py-2.5">
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-9 font-medium uppercase tracking-wide text-accent-foreground/70">Plan</span>
+          <span className="text-13 font-semibold text-accent-foreground">当前计划</span>
         </div>
+        <Badge tone="neutral" className="ml-auto text-10">{steps.length} 步</Badge>
+      </div>
+      <CardContent className="flex flex-col gap-2 py-3">
         <ol className="flex flex-col gap-1.5">
-          {steps.map((step) => (
+          {steps.map((step, index) => (
             <li
               key={step.planStepId}
               data-testid={PLAN_STEP_TESTID}
@@ -52,11 +79,11 @@ export function PlanPanelReadOnly({ steps }: PlanPanelReadOnlyProps): React.JSX.
               className="flex flex-col gap-1"
             >
               <div className="flex items-center gap-2 rounded-control px-1 py-0.5">
-                <StepStatusIcon status={step.status} />
+                <StepBadge status={step.status} index={index} />
                 <span className={cn("text-13", step.status === "completed" && "text-muted-foreground line-through")}>
                   {step.content}
                 </span>
-                {/* aria-label 承载状态文案：不是只靠上面那个图标的形状。 */}
+                {/* aria-label 承载状态文案：不是只靠上面那个徽标的形状/颜色。 */}
                 <span aria-label={STEP_STATUS_LABEL_ZH[step.status]} className="ml-auto text-10 text-muted-foreground">
                   {STEP_STATUS_LABEL_ZH[step.status]}
                 </span>

@@ -336,11 +336,11 @@ function globToRegExp(glob: string): RegExp {
   // 先换 `**`（跨目录），再换剩下的单 `*`（不跨目录）——顺序反了 `**` 会被
   // 拆成两个单星，`apps/**` 就匹配不到 `apps/web/lib/x.ts`。
   const pattern = escaped
-    .replace(/\*\*\//g, " SLASHSTAR ")
-    .replace(/\*\*/g, " STARSTAR ")
+    .replace(/\*\*\//g, "\u0000SLASHSTAR\u0000")
+    .replace(/\*\*/g, "\u0000STARSTAR\u0000")
     .replace(/\*/g, "[^/]*")
-    .replace(/ SLASHSTAR /g, "(?:.*/)?")
-    .replace(/ STARSTAR /g, ".*");
+    .replace(/\u0000SLASHSTAR\u0000/g, "(?:.*/)?")
+    .replace(/\u0000STARSTAR\u0000/g, ".*");
   return new RegExp(`^${pattern}$`);
 }
 

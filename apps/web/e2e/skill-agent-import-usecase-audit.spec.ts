@@ -175,7 +175,7 @@ test("② 文件浏览器 + code editor：能看到 GitHub 导入的完整目录
 test("① agent 也能从 GitHub URL 导入，导入完可编辑指令、发布、试跑", async ({ page }) => {
   test.slow();
   await loginAsAdmin(page);
-  await page.goto("/admin/agent");
+  await page.goto("/platform-admin/agent");
   await expect(page.getByTestId("admin-agent-catalog")).toBeVisible();
   await page.getByTestId("agent-create-open").click();
   await expect(page.getByTestId("agent-create-modal")).toBeVisible();

@@ -173,6 +173,16 @@
     --ai-tint: 247 79% 95.7%;            /* #E9E7FB AI/agent 浅底 */
     --ai-tint-foreground: 249 60% 47.1%; /* #3D2FBF */
 
+    /*
+     * issue #2476 —— `--warning` 只有实心档（供徽标/边框），没有 `--accent`/`--ai-tint`
+     * 那种"浅底+深字"的 tint 档，导致需要整块浅色横幅背景（确认门提示条一类场景）
+     * 时无 token 可用。同一 29° 色相延伸出 tint 档，不是新色相，做法与 `--ai-tint`
+     * 相对 `--ai` 同一套模式：浅底做背景，深字保持可读。
+     */
+    /* @contrast neutral */
+    --warning-tint: 33 68% 94%;           /* #FAF1E5 警示色浅底 */
+    --warning-tint-foreground: 29 65% 30%; /* #7E4B1B，浅底上 6.45:1 */
+
     /* @contrast state */
     --destructive: 9 75% 41.4%;          /* #B23A27 ← 实测 #C0402B，调暗 */
     --destructive-foreground: 0 0% 100%;
@@ -275,6 +285,10 @@
     /* @contrast neutral */
     --ai-tint: 246 40% 18%;
     --ai-tint-foreground: 248 100% 83.9%;
+
+    /* @contrast neutral */
+    --warning-tint: 33 45% 18%;            /* #433019 警示色深底（同上浅色主题理由） */
+    --warning-tint-foreground: 33 70% 78%; /* #EECBA0，深底上 8.18:1 */
 
     /* @contrast state */
     --destructive: 11 72% 57.6%;
@@ -398,5 +412,15 @@
   }
   .chat-markdown hr {
     @apply my-3 border-border-subtle;
+  }
+}
+
+/* IconRail 短视口滚动段：隐藏滚动条但保留滚动（见 components/shell/icon-rail.tsx） */
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

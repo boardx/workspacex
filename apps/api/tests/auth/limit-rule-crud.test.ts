@@ -25,6 +25,7 @@ import {
   DegradeTargetRequiredError, LimitRuleNotFoundError,
 } from "../../src/application/auth/token-quota-ports";
 import { toOrgId } from "../../src/domain/org-id";
+import { hoursAgoWithinCurrentMonth } from "../support/relative-time-in-month";
 
 process.env.KERNEL_ALLOW_TEST_PRINCIPAL = "1";
 process.env.KERNEL_QUIET = "1";
@@ -95,13 +96,29 @@ describe("F162 限额规则 CRUD", () => {
     });
   });
 
-  it("每条规则按**自己的窗口**算用量，不是共用一个分子", async () => {
+  // 「超过 1 小时前」与「仍在本月内」两个约束，在当前时刻距本自然月月初不足 1 小时时
+  // 互斥——2026-09-01 撞上真实 CI 才发现：`LEAST(固定偏移, 距月初时长的一半)` 这类
+  // "退化到更小值"的写法只是让区间变窄，没有从根上保证退化后的值仍然满足调用方要求的
+  // 下限，月初头几十分钟内跑测试照样会撞上同一类必假。改成显式判断：算不出满足两个
+  // 约束的偏移量时跳过，不断言一件此刻数学上不可能为真的事。
+  const monthOnlyOffsetHours = hoursAgoWithinCurrentMonth(24 * 3, 1);
+  const perWindowTest = monthOnlyOffsetHours === null ? it.skip : it;
+  if (monthOnlyOffsetHours === null) {
+    console.warn(
+      "F162「每条规则按自己的窗口算用量」跳过：当前时刻距本自然月月初不足 1 小时，"
+      + "无法构造『超过 1 小时前 · 仍在本月内』的测试数据点（两个约束此刻互斥）。",
+    );
+  }
+
+  perWindowTest("每条规则按**自己的窗口**算用量，不是共用一个分子", async () => {
     await spend(LINKE, 500_000);
-    // 一条按小时、一条按月：同一批事件下两条的观测值必须能不同。把上面那条挪到 3 天前，
-    // 「按小时」的那条就该看不到它，而「按月」的那条仍然看得到。
+    // 一条按小时、一条按月：同一批事件下两条的观测值必须能不同。把上面那条挪到「本月内、
+    // 超过 1 小时以前」，「按小时」的那条就该看不到它，而「按月」的那条仍然看得到。
     await asOwner((c) => c.query("ALTER TABLE token_usage_events DISABLE TRIGGER token_usage_events_append_only_trg"));
     await asOwner((c) => c.query(
-      "UPDATE token_usage_events SET occurred_at = now() - interval '3 days' WHERE org_id=$1", [ORG]));
+      `UPDATE token_usage_events SET occurred_at = now() - ($2 || ' hours')::interval WHERE org_id=$1`,
+      [ORG, String(monthOnlyOffsetHours)],
+    ));
     await asOwner((c) => c.query("ALTER TABLE token_usage_events ENABLE TRIGGER token_usage_events_append_only_trg"));
 
     await repo.createRule(orgId(), {

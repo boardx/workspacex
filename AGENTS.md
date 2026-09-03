@@ -32,7 +32,10 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - **不许**把多个 feature 塞进一个 PR 再一起合。一个 issue 一个 PR。
 - **每次迭代都在对应 issue 上展开**：设计取舍、撞到的墙、反证结果，写成评论。
   写在本地 commit message 里的东西，别人要 clone 才看得到。
-- 由 `pnpm harness doctor` 机械检查（三条，见完成定义第 5、6 条）。
+- **不许**没有 PR 就把 issue 关掉或标完成；**PR 绿了才算完**（2026-09-02 人类指令，#2539）。
+  「绿」只有一个定义：`.harness/scripts/lib/pr-queue.ts` 的 `classifyChecks` 判定——本文件不复述任何 check 规则。
+  PR 上有红就修到绿、review 意见逐条回应，不许留着红 PR 收尾；分诊规则见 `coordinator-sop.md` 的 PR 状态表。
+- 由 `pnpm harness doctor` 机械检查（五条，见完成定义第 5、6、7 条；`sync --apply` 关 issue 同样要求实现已在 main，#1557）。
 
 ## 开工流程(每轮会话开始)
 0. **先确认角色,角色决定 loop 策略,不可跳过**:人类要你当 main coordinator →
@@ -87,6 +90,9 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 4. 没有引入新的失败:`./init.sh` 的基础验证仍然通过。
 5. **该 feature 在 GitHub 上有对应 issue，且该 issue 已由 PR 关闭**（2026-07-29 新增）。
 6. **实现已合入 `main`** —— 标了 passing 但代码只停在分支上，它对别人不存在。
+7. **关闭该 issue 的 PR 合入时 CI 全绿**（2026-09-02 人类指令，#2539）—— 「绿」= `lib/pr-queue.ts`
+   的 `classifyChecks` 对**合入时刻**的 check 集合的判定（`lib/pr-green.ts` 重建），由 `doctor` 第 ⑤ 条判
+   （`--strict` 下 FAIL，问不到 GitHub 也 FAIL；只判生效后关闭的 issue，不倒查存量）。
 没有证据 = 没有完成。"代码写完了""看起来能跑"都不算完成。
 
 ⚠ **第 5、6 条是 2026-07-29 补的，因为规范早就有、门控一直没有。**
@@ -109,7 +115,7 @@ feature 领进 sprint → harness sync --apply 建 issue → 分支 worker/<owne
 - **契约先行的设计流程 + 签核执行书（洋葱架构 + API 契约单源 + UC 覆盖矩阵）** → `.harness/instructions/contract-design.md`（见 ADR-023 / ADR-020）；组织本体/知识图谱 → `docs/architecture/knowledge-ontology.md`
 - **人类决策打包流程（签核决策收窄成 A/B/C/D + 单 PR 交付，减少人类手工 git 操作）** → `.harness/instructions/human-decision-packaging.md`（2026-08-13 起，每次开工先跑 `pnpm harness dashboard` 看等人类那节）
 - 智能体编排/工具/记忆约定 → `.harness/instructions/agentic-patterns.md`
-- 多 agent 协调（主 agent + issue-label 状态机 + review 门禁）→ `.harness/instructions/multi-agent-coordination.md`（见 ADR-004）
+- 多 agent 协调（主 agent + issue-label 状态机 + review 门禁）→ `.harness/instructions/multi-agent-coordination.md`（见 ADR-004）；分层监控循环节奏 → `.harness/instructions/coordinator-sop.md`；**该 SOP 依赖的 `pnpm harness pr-queue` 需要本机 `gh` CLI——无 `gh` 的会话（如远程执行环境）改用** `.harness/instructions/pr-review-merge-sop.md` **的 MCP 工具速查**
 - **新 agent 接入执行书（第一次进来照它走）** → `.harness/instructions/agent-bootstrap.md`；背后的规则清单 → `agent-onboarding-checklist.md`（见 ADR-005）
 - **人类开发者带 agent 加入开发** → `.harness/instructions/human-developer-onboarding.md`（面向人类；enroll 步骤 + 启用 agent 的首条消息模板 + 三级 coordinator 层级 + 性能管理，见 ADR-010）
 - **Agent 资源释放 SOP（不遵守系统会崩，2026-08-08 真实事故）** → `.harness/instructions/agent-resource-cleanup-sop.md`

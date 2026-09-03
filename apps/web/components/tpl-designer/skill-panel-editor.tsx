@@ -1,6 +1,8 @@
 "use client";
 import * as React from "react";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { SKILLS } from "@/lib/mock/skill";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -36,6 +38,17 @@ export interface SkillContentValue {
 }
 
 export const GENERIC_NOTE = "其余 4 个为全程可用的通用 skill";
+
+/**
+ * 「从已有 Skill 选择」下拉的选项来源——`lib/mock/skill.ts` 的 `SKILLS`
+ * （Skill 库原型的真实清单，语义上最贴近"组织里已存在、可被蓝本绑定的 Skill"）。
+ * 仍保留"自定义…"选项，手填不受限制。
+ */
+const CUSTOM_SKILL_OPTION = "__custom__";
+const AVAILABLE_SKILL_OPTIONS = [
+  ...SKILLS.map((s) => ({ value: s.name, label: s.name })),
+  { value: CUSTOM_SKILL_OPTION, label: "自定义…" },
+];
 
 function emptyBinding(): SkillBindingDraft {
   return { seg: "", name: "", desc: "", degraded: false };
@@ -128,6 +141,12 @@ export function SkillPanelEditor({
     setValue((v) => ({ skills: v.skills.map((s, i) => (i === index ? { ...s, ...patch } : s)) }));
   }
 
+  function commitBinding(index: number, patch: Partial<SkillBindingDraft>): void {
+    const next = { skills: value.skills.map((s, i) => (i === index ? { ...s, ...patch } : s)) };
+    setValue(next);
+    void persist(next);
+  }
+
   const degradedList = value.skills.filter((s) => s.degraded);
 
   return (
@@ -138,6 +157,15 @@ export function SkillPanelEditor({
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => void persist(value)}
+          disabled={status === "saving"}
+          className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
+          data-testid="bp-facet-save-button"
+        >
+          保存
+        </button>
       </div>
 
       {degradedList.length > 0 && (
@@ -195,6 +223,17 @@ export function SkillPanelEditor({
                     onBlur={() => void persist(value)}
                     placeholder="Skill 名（如「语音转便签」）"
                     data-testid={`bp-skill-name-${i}`}
+                  />
+                  <Select
+                    options={AVAILABLE_SKILL_OPTIONS}
+                    value={SKILLS.some((sk) => sk.name === s.name) ? s.name : undefined}
+                    onValueChange={(v) => {
+                      if (v === CUSTOM_SKILL_OPTION) return; // 选“自定义…”：不改名字，让用户手填输入框
+                      commitBinding(i, { name: v });
+                    }}
+                    placeholder="从已有 Skill 选择"
+                    className="h-7 w-36 shrink-0 text-11"
+                    data-testid={`bp-skill-pick-${i}`}
                   />
                   {s.degraded && (
                     <span

@@ -56,12 +56,6 @@ export const DESIGN_FACET_CATALOG: DesignFacetCatalog = {
           "label": "分组规则",
           "required": false,
           "ordinal": 3
-        },
-        {
-          "designFacetKey": "roles-and-perms",
-          "label": "角色与权限",
-          "required": false,
-          "ordinal": 4
         }
       ]
     },
@@ -110,12 +104,6 @@ export const DESIGN_FACET_CATALOG: DesignFacetCatalog = {
           "label": "分组打印素材",
           "required": false,
           "ordinal": 3
-        },
-        {
-          "designFacetKey": "group-capabilities",
-          "label": "组内能力",
-          "required": false,
-          "ordinal": 4
         }
       ]
     },
@@ -156,5 +144,5 @@ export const DESIGN_FACET_CATALOG: DesignFacetCatalog = {
       ]
     }
   ],
-  "denominator": 15
+  "denominator": 13
 };

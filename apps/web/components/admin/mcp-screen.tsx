@@ -1,527 +1,361 @@
 "use client";
 import * as React from "react";
-import Link from "next/link";
-import { Plus, Plug, Wrench, ShieldCheck, Check, Ban, ArrowUpRight, LayoutGrid, LayoutList, TriangleAlert } from "lucide-react";
+import { Plus, Plug, Wrench, RefreshCw, ShieldAlert } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { McpRemoteDiscoverPanel } from "./mcp-remote-discover-panel";
-import { AuthScopeBadge, ReviewBadge } from "./scope-badges";
-import { AdminDrawer, ConfirmDialog, Toast, Field, KV } from "./panel";
-import { DisableDialog, type DisableMode } from "./disable-dialog";
-import { Card, CardContent } from "@/components/ui/card";
+import { AdminDrawer, KV, Toast } from "./panel";
+import { EntityCatalog, tagOf, type CatalogTag } from "./entity-catalog";
+import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Toggle } from "@/components/ui/toggle";
-import {
-  MCP_SERVERS, MCP_SUMMARY, MCP_CONN_LABEL, MCP_TOOLS, MCP_AUTH_LABEL, inFlightOf,
-  type McpConnStatus, type McpRow,
-} from "@/lib/mock/admin";
+import { Input } from "@/components/ui/input";
 import type { UiState } from "@/lib/ui-state";
-import { listMcpServers, type ListedMcpServer } from "@/lib/live-mcp-admin";
+import {
+  discoverRemoteMcpTools,
+  listMcpServers,
+  type DiscoveredMcpTool,
+  type ListedMcpServer,
+} from "@/lib/live-mcp-admin";
 import { ApiError } from "@/lib/api-client";
 
 /**
- * issue #1928 —— 「连接并发现工具」不再是一次性预览：发现成功后端点已经落库
- * （`discoverRemoteMcpTools` 用例），这块面板把**同一个组织**已经发现过的服务器
- * 读回来展示——与 `McpRemoteDiscoverPanel` 是"写"与"读"两个不同的面板，
- * 提交成功不会自动刷新这里（`onDiscovered` 回调由父组件接，见下方 `McpScreen`）。
+ * 后台「MCP 服务器」（`/admin/mcp`）。
  *
- * ⚠ 这里显示的字段来自真实 `listMcpServers`——`endpointHint`（不是端点原值，I-6）、
- *   授权范围/评审状态/连接状态、工具数、上次发现时间、鉴权是否已配置。
- */
-function McpDiscoveredServersPanel({ refreshKey }: { refreshKey: number }) {
-  const [state, setState] = React.useState<
-    | { status: "loading" }
-    | { status: "ready"; rows: ListedMcpServer[] }
-    | { status: "error"; message: string }
-  >({ status: "loading" });
-
-  React.useEffect(() => {
-    let cancelled = false;
-    setState({ status: "loading" });
-    listMcpServers()
-      .then((rows) => {
-        if (!cancelled) setState({ status: "ready", rows: [...rows] });
-      })
-      .catch((failure) => {
-        if (cancelled) return;
-        const message = failure instanceof ApiError ? failure.message : String(failure);
-        setState({ status: "error", message });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshKey]);
-
-  return (
-    <Card data-testid="admin-mcp-discovered-servers-panel">
-      <CardContent className="flex flex-col gap-2 pt-4">
-        <div className="flex items-center gap-2">
-          <Plug aria-hidden className="h-4 w-4 text-primary" />
-          <span className="text-13 font-medium">已发现的服务器（真实数据，来自本组织的发现记录）</span>
-        </div>
-
-        {state.status === "loading" && (
-          <p className="text-11 text-muted-foreground" data-testid="admin-mcp-discovered-servers-loading">
-            加载中…
-          </p>
-        )}
-
-        {state.status === "error" && (
-          <p className="text-11 text-destructive" data-testid="admin-mcp-discovered-servers-error">
-            读取失败：{state.message}
-          </p>
-        )}
-
-        {state.status === "ready" && state.rows.length === 0 && (
-          <p className="text-11 text-muted-foreground" data-testid="admin-mcp-discovered-servers-empty">
-            本组织还没有发现过任何服务器——在上方填端点并「连接并发现工具」，成功后会出现在这里。
-          </p>
-        )}
-
-        {state.status === "ready" && state.rows.length > 0 && (
-          <div className="flex flex-col gap-1.5" data-testid="admin-mcp-discovered-servers-list">
-            {state.rows.map((r) => (
-              <div
-                key={r.serverId}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border-subtle bg-panel p-2.5"
-                data-testid={`admin-mcp-discovered-server-${r.serverId}`}
-              >
-                <span className="font-mono text-12 font-medium">{r.serverId}</span>
-                <Badge tone="outline">{r.endpointHint}</Badge>
-                <Badge tone="outline">{r.authScope}</Badge>
-                <Badge tone="outline">{r.reviewStatus}</Badge>
-                <Badge tone="outline">{r.connectionStatus}</Badge>
-                <span className="flex items-center gap-1 text-11 text-muted-foreground">
-                  <Wrench aria-hidden className="h-3 w-3" />
-                  {r.toolCount} 工具
-                </span>
-                {/* ⚠ 有意不在这里显示"是否配置了鉴权"——`credentialConfigured` 这个
-                    字面量被 `credential-endpoint-hidden.test.ts` 的组件级扫描器判定为
-                    凭据类字段，即便它只是一个布尔位（那条扫描器按字面量文本判，不按语义），
-                    与 `model-screen.tsx` 同样不在组件源码里出现这个词是同一条纪律。*/}
-                {r.lastDiscoveredAt && (
-                  <span className="text-10 text-muted-foreground" data-testid={`admin-mcp-discovered-server-${r.serverId}-time`}>
-                    上次发现：{r.lastDiscoveredAt}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
- * issue #1852 —— 这块屏**局部**接了真库：上方「连接远程 MCP 服务器」面板
- * （`./mcp-remote-discover-panel`）走真实 `discoverRemoteMcpTools` API，服务端真的用
- * MCP SDK 连出去、发现真实工具列表。下方服务器清单/放行评审/安全策略四开关仍是
- * `lib/mock/admin` 的静态演示数据（`registerMcpServer` 等治理契约仍未接线，见
- * `apps/api/src/application/mcp/ports.ts` 头注）。
+ * 2026-09-02（人类原话：「简化…MCP…参考画布模板的首页，简化为一个卡片的列表，通过一个
+ * 侧边面板来展示当前的实体的内容，可以增加删除修改，并通过 tag 来过滤和搜索」）：
+ * 这一屏此前是「真实发现面板 + 真实已发现清单 + 一条『以下为静态演示数据』的黄条 +
+ * 六台 mock 服务器的卡片/列表 + 默认隔离开关 + 两套枚举的澄清 + 四个抽屉」七段式，
+ * 人类截图里那条黄条就是最扎眼的东西。现在只剩**一个卡片网格，全部来自真实数据**：
  *
- * ⚠ 两者混在同一页头写一句话会失真——要么说"零后端"（对发现面板不成立），
- *   要么说"已接入真实后端"（对下方清单不成立）。选择贴着还是 mock 的部分单独提示
- *   （见下方 `McpMockRegistryNotice`），页头不再挂 `NoBackendNotice`。
- * lint-no-backend-badge:backed-by-children — ./mcp-remote-discover-panel 走真实 discoverRemoteMcpTools API，其余仍是演示数据
+ * · 列表 = `listMcpServers`（issue #1928 落库的发现记录）；`lib/mock/admin` 的六台示例
+ *   服务器与放行评审 / 撤销授权 / 默认隔离开关这些**零后端**的演示操作一起撤掉——
+ *   `registerMcpServer` / `reviewMcpServer` / `reIsolateMcpServer` 仍未接线
+ *   （`apps/api/src/application/mcp/ports.ts` 头注），一个点了不落库的按钮比没有它更糟。
+ *   UC-21.2 放行评审的签核原型仍在 `/preview/agent-runtime?screen=mcp-policy`。
+ * · 「新增」= 「连接服务器」抽屉里的 `McpRemoteDiscoverPanel`（issue #1852 真实链路：
+ *   后端用官方 SDK 连出去、发现真实工具列表，成功即落库）。
+ * · 「修改」= 面板里的「重新连接 / 更新端点」：同一个 `serverId` 再跑一次
+ *   `discoverRemoteMcpTools`（用例按 serverId upsert，见 `discover-remote-mcp-tools.ts`），
+ *   端点或鉴权 token 换了就在这里改；工具清单也随之刷新。
+ * · 「删除」：契约里**没有**注销服务器的操作（`agentRuntime.operations` 里没有任何
+ *   delete/unregister MCP server），面板里如实写明，不画一个假按钮。
+ *
+ * 端点原值与鉴权 token 只在「连接」那一次进入系统，列表只回 `endpointHint`（内网 / 外网，
+ * I-6）——本屏仅组织管理员可见，不承载 maintainer 角色，因此显示它不在 I-6 的射程内
+ * （`credential-endpoint-hidden.test.ts` 逐字断言这一点）。
+ *
+ * `AdminScreen` 外壳保留：`verify-ui-states.sh` 的七态矩阵仍以 `/admin/mcp?state=` 锚定。
  */
-function McpMockRegistryNotice() {
-  return (
-    <div
-      data-testid="admin-mcp-mock-registry-notice"
-      role="alert"
-      className="flex items-start gap-2.5 rounded-md border border-warning/40 bg-warning/10 p-3"
-    >
-      <TriangleAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-      <div className="flex min-w-0 flex-col gap-1">
-        <span className="text-12 font-semibold text-warning-foreground">以下服务器清单为静态演示数据</span>
-        <p className="text-11 text-muted-foreground">
-          服务器注册、放行评审、安全策略四开关尚未接入真实后端，以下内容与操作不会真的生效。
-          上方「连接远程 MCP 服务器」面板已接入真实链路——填端点即真的会发起连接、发现真实工具。
-        </p>
-      </div>
-    </div>
-  );
-}
 
-const CONN_TONE: Record<McpConnStatus, "primary" | "warning" | "danger"> = {
-  connected: "primary",
-  throttled: "warning",
-  isolated: "danger",
+type ServersState =
+  | { readonly status: "loading" }
+  | { readonly status: "ready"; readonly rows: readonly ListedMcpServer[] }
+  | { readonly status: "error"; readonly message: string };
+
+const CONN_TONE: Record<ListedMcpServer["connectionStatus"], "primary" | "warning" | "danger" | "outline"> = {
+  已连接: "primary",
+  限流中: "warning",
+  已隔离: "danger",
+  不可达: "danger",
+  凭据失效: "danger",
+};
+const REVIEW_TONE: Record<ListedMcpServer["reviewStatus"], "neutral" | "danger" | "warning"> = {
+  已放行: "neutral",
+  待安全评审: "danger",
+  维持隔离: "danger",
+  有条件放行: "warning",
+  已到期待复核: "warning",
 };
 
-type Panel = { mode: "add" } | { mode: "config" | "tools"; server: McpRow } | null;
-
 export function McpScreen({ state }: { state: UiState }) {
-  const [defaultIsolation, setDefaultIsolation] = React.useState(true);
-  const [panel, setPanel] = React.useState<Panel>(null);
-  const [reviewOf, setReviewOf] = React.useState<McpRow | null>(null);
-  const [cleared, setCleared] = React.useState<Set<string>>(new Set());
-  const [revoked, setRevoked] = React.useState<Set<string>>(new Set());
-  const [disableOf, setDisableOf] = React.useState<McpRow | null>(null);
+  const [servers, setServers] = React.useState<ServersState>({ status: "loading" });
+  const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
+  const [connecting, setConnecting] = React.useState(false);
   const [toast, setToast] = React.useState<string | null>(null);
-  const [viewMode, setViewMode] = React.useState<"card" | "list">("card");
-  // issue #1928 —— 每次发现成功 +1，`McpDiscoveredServersPanel` 把它当依赖重新拉取真实数据。
-  const [discoveredRefreshKey, setDiscoveredRefreshKey] = React.useState(0);
+  const generation = React.useRef(0);
+
+  const refresh = React.useCallback(async () => {
+    const request = ++generation.current;
+    setServers((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
+    try {
+      const rows = await listMcpServers();
+      if (request !== generation.current) return;
+      setServers({ status: "ready", rows: [...rows] });
+    } catch (failure) {
+      if (request !== generation.current) return;
+      const message = failure instanceof ApiError ? (failure.reasonCode ?? failure.message) : String(failure);
+      setServers({ status: "error", message });
+    }
+  }, []);
+
+  React.useEffect(() => {
+    void refresh();
+    return () => {
+      generation.current += 1;
+    };
+  }, [refresh]);
+
+  const rows = React.useMemo(() => (servers.status === "ready" ? servers.rows : []), [servers]);
+  const tagsOf = React.useCallback((r: ListedMcpServer): readonly CatalogTag[] => [
+    tagOf(r.endpointHint),
+    tagOf(r.authScope),
+    tagOf(r.reviewStatus),
+    tagOf(r.connectionStatus),
+    ...(r.involvesCustomerData ? [{ key: "customer-data", label: "涉客户数据" }] : []),
+    ...(r.isEgress ? [{ key: "egress", label: "出域" }] : []),
+  ], []);
+  const searchTextOf = React.useCallback(
+    (r: ListedMcpServer) => [r.serverId, r.name, r.description].join(" "),
+    [],
+  );
 
   return (
     <AdminScreen
       state={state}
+      hideOrgIdentity
       moduleLabel="MCP"
       title="MCP 服务器"
-      /* ⚠ 空 fragment 而非省略/传 `null`——`AdminScreen` 对 `noticeOverride` 用 `??`
-         兜底成 `<SampleConfigNotice />`，那条提示的语义（"后端真实，这是组织自行配置的
-         示例"）对这块屏同样不成立。页头不挂任何一条通用提示，改成贴着仍是 mock 的
-         区块单独提示（见下方 `McpMockRegistryNotice`），与 `members-screen.tsx` 处理
-         局部 mock 区块的方式同一条原则，只是本屏 mock 与真实的比例相反。 */
-      noticeOverride={<></>}
-      intro="注册服务器、设定授权范围、默认隔离。新注册的服务器默认隔离、工具不可被调用，须经人工评审放行。工具随授权范围被 agent 白名单引用。"
-      emptyHint="还没有注册任何 MCP 服务器"
+      liveBacked
+      intro="连接远程 MCP 服务器、发现真实工具。授权范围回答「谁能通过 agent 调用这台服务器的工具」，与 Agent/Skill 页的可见性范围是两个维度；评审状态与授权范围正交。端点与鉴权 token 仅组织管理员可见。"
+      emptyHint="还没有连接任何 MCP 服务器"
       errors={{ endpoint: "工具发现失败：端点握手成功但未返回工具清单；服务器保持已隔离，不放行" }}
       depFailure="工具发现与连接状态监测依赖 MCP 网关；网关不可达，无法确认工具数与连接状态。"
-      denialReason="只有组织管理员能注册、配置授权范围；能力维护者只读服务器名与工具清单，看不到端点与凭据。"
+      denialReason="只有组织管理员能连接服务器、配置授权范围；能力维护者只读服务器名与工具清单，看不到端点与凭据。"
       successMessage="服务器『欧盟法规库』维持隔离；授权范围已设为全体成员，评审状态待安全评审"
     >
-      <div className="flex flex-col gap-4">
-        <McpRemoteDiscoverPanel onDiscovered={() => setDiscoveredRefreshKey((k) => k + 1)} />
-
-        <McpDiscoveredServersPanel refreshKey={discoveredRefreshKey} />
-
-        <McpMockRegistryNotice />
-
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-12 text-muted-foreground">
-            {MCP_SUMMARY.total} 台 · {MCP_SUMMARY.connected} 台已连接 · {MCP_SUMMARY.isolated} 台已隔离
-          </p>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-md border border-border p-0.5" role="group" aria-label="视图切换">
-              <button
-                type="button"
-                onClick={() => setViewMode("card")}
-                aria-pressed={viewMode === "card"}
-                data-testid="admin-mcp-view-toggle-card"
-                className={`inline-flex items-center gap-1 rounded-sm px-2 py-1 text-11 transition-colors duration-200 ${
-                  viewMode === "card" ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"
-                }`}
-              >
-                <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
-                卡片
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("list")}
-                aria-pressed={viewMode === "list"}
-                data-testid="admin-mcp-view-toggle-list"
-                className={`inline-flex items-center gap-1 rounded-sm px-2 py-1 text-11 transition-colors duration-200 ${
-                  viewMode === "list" ? "bg-muted font-medium" : "text-muted-foreground hover:bg-muted/50"
-                }`}
-              >
-                <LayoutList aria-hidden className="h-3.5 w-3.5" />
-                列表
-              </button>
-            </div>
-            <Button size="sm" variant="primary" onClick={() => setPanel({ mode: "add" })} data-testid="admin-mcp-add">
-              <Plus aria-hidden className="h-3.5 w-3.5" />
-              添加服务器
-            </Button>
-          </div>
-        </div>
-
-        {/*
-          2026-08-11（人类直接裁决，真合并）：原「智能体运行时」的 MCP 安全策略四开关 /
-          放行评审子屏（`agent-runtime/mcp-policy-screen.tsx`）折入这里——后台左栏不再有
-          独立的「智能体运行时」入口，MCP 相关的运行时配置在 MCP 屏里就能找到。
-          见 `lib/navigation.ts` `ADMIN_SECOND_LEVEL` 里 `agent-runtime` 项的注释。
-        */}
-        <Card>
-          <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
-            <p className="text-12 text-muted-foreground">
-              MCP 安全策略四开关与放行评审的运行时预览（原「智能体运行时」子屏，已并入此处）。
-            </p>
-            <Link
-              href="/preview/agent-runtime?screen=mcp-policy"
-              data-testid="admin-mcp-open-runtime-policy"
-              className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-12 transition-colors duration-200 hover:bg-muted"
-            >
-              打开 MCP 安全策略预览
-              <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* 默认隔离安全策略（UC-21.2） */}
-        <Card data-testid="admin-mcp-policy">
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 py-3">
+      <EntityCatalog<ListedMcpServer>
+        prefix="admin-mcp"
+        title="已连接的服务器"
+        status={
+          servers.status === "ready"
+            ? { kind: "ready" }
+            : servers.status === "error"
+              ? { kind: "error", message: servers.message }
+              : { kind: "loading" }
+        }
+        rows={rows}
+        keyOf={(r) => r.serverId}
+        searchTextOf={searchTextOf}
+        tagsOf={tagsOf}
+        cardTestId={(r) => `admin-mcp-card-${r.serverId}`}
+        headerActions={
+          <Button size="sm" variant="primary" onClick={() => setConnecting(true)} data-testid="admin-mcp-add">
+            <Plus aria-hidden className="h-3.5 w-3.5" />
+            连接服务器
+          </Button>
+        }
+        onRefresh={() => void refresh()}
+        emptyState="本组织还没有连接过任何 MCP 服务器——用「连接服务器」填端点并发现工具，成功后会出现在这里。"
+        searchPlaceholder="按服务器标识、名称或描述搜索…"
+        renderCard={(r) => (
+          <CardContent className="flex h-full flex-col gap-2 pt-4">
             <div className="flex items-start gap-2">
-              <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <div className="flex flex-col">
-                <span className="text-12 font-medium">新服务器默认隔离，需人工评审后放行</span>
-                <span className="text-11 text-muted-foreground">开启后，任何新注册服务器的工具在放行前都不可被任何 agent 调用。</span>
+              <Plug aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-13 font-medium">{r.name || r.serverId}</span>
+                <span className="font-mono text-10 text-muted-foreground">{r.serverId} · {r.endpointHint}</span>
               </div>
             </div>
-            <Toggle
-              checked={defaultIsolation}
-              onCheckedChange={setDefaultIsolation}
-              label="新服务器默认隔离"
-              data-testid="admin-mcp-policy-toggle"
-            />
+            {r.description && <p className="line-clamp-2 text-11 text-muted-foreground">{r.description}</p>}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {r.involvesCustomerData && <Badge tone="warning">涉客户数据</Badge>}
+              <Badge tone="outline" data-testid={`admin-mcp-authscope-${r.serverId}`}>授权 · {r.authScope}</Badge>
+              <Badge tone={REVIEW_TONE[r.reviewStatus]} data-testid={`admin-mcp-review-${r.serverId}`}>
+                <ShieldAlert aria-hidden className="h-3 w-3" />
+                评审 · {r.reviewStatus}
+              </Badge>
+              <Badge tone={CONN_TONE[r.connectionStatus]} data-testid={`admin-mcp-conn-${r.serverId}`}>{r.connectionStatus}</Badge>
+            </div>
+            <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-11 text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Wrench aria-hidden className="h-3 w-3" />
+                {r.toolCount} 工具
+              </span>
+              {r.lastDiscoveredAt && (
+                <span className="text-10" data-testid={`admin-mcp-discovered-server-${r.serverId}-time`}>
+                  上次发现：{r.lastDiscoveredAt}
+                </span>
+              )}
+            </div>
           </CardContent>
-        </Card>
+        )}
+        selectedKey={selectedKey}
+        onSelect={setSelectedKey}
+        detailWidth="lg"
+        detailTitle={(r) => r.name || r.serverId}
+        detailSubtitle={() => "端点与鉴权 token 仅组织管理员可见，列表只回内网 / 外网提示"}
+        renderDetail={(r) => (
+          <ServerDetail
+            server={r}
+            onRediscovered={(message) => {
+              setToast(message);
+              void refresh();
+            }}
+          />
+        )}
+      />
 
-        {/* 两套枚举的界面澄清 —— 授权范围 ≠ 可见性范围；授权范围 ⊥ 评审状态 */}
-        <div className="rounded-md border border-border-subtle bg-panel px-3 py-2.5 text-11 text-muted-foreground" data-testid="admin-mcp-scope-note">
-          <p>
-            这里的<strong className="text-background-foreground">「授权范围」</strong>（钥匙徽标）回答「谁能通过 agent 调用这台服务器的工具」，
-            取值「仅项目负责人 / 仅某团队 / 全体成员」。它与 Agent/Skill 页的
-            <strong className="text-background-foreground">「可见性范围」</strong>（眼睛徽标，全组织可用 / 仅某组）
-            是两个不同维度——一个管「工具能不能被调」，一个管「能力能不能被看到」，不要合并。
-          </p>
-          <p className="mt-1.5">
-            另外，<strong className="text-background-foreground">「评审状态」</strong>（盾牌徽标，待安全评审 / 已放行）
-            与授权范围<strong className="text-background-foreground">正交</strong>：一台服务器可以同时「授权范围＝全体成员」且「评审状态＝待安全评审」，
-            所以它们是两个并列的字段，不是一个。
-          </p>
-        </div>
-
-        {/* 服务器清单：服务器 ｜ 端点 ｜ 工具 ｜ 授权范围 ｜ 评审 ｜ 状态 */}
-        <div data-testid="admin-mcp-view-container">
-          {viewMode === "card" ? (
-            <div
-              className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
-              data-testid="admin-mcp-card-grid"
-            >
-              {MCP_SERVERS.map((s) => {
-                const isRevoked = revoked.has(s.id);
-                const isCleared = !isRevoked && (cleared.has(s.id) || s.reviewStatus === "cleared");
-                return (
-                  <Card key={s.id} data-testid={`admin-mcp-card-${s.id}`}>
-                    <CardContent className="flex h-full flex-col gap-2 pt-4">
-                      <div className="flex items-start gap-2">
-                        <Plug aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <div className="flex min-w-0 flex-col gap-0.5">
-                          <span className="truncate text-13 font-medium">{s.name}</span>
-                          <span className="font-mono text-10 text-muted-foreground">{s.endpoint}</span>
-                        </div>
-                      </div>
-                      {s.note && <p className="text-11 text-muted-foreground">{s.note}</p>}
-
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {s.touchesClientData && <Badge tone="warning">涉客户数据</Badge>}
-                        <AuthScopeBadge scope={s.authScope} team={s.authTeam} data-testid={`admin-mcp-authscope-${s.id}`} />
-                        <ReviewBadge status={isCleared ? "cleared" : "pending"} data-testid={`admin-mcp-review-${s.id}`} />
-                        <Badge tone={CONN_TONE[s.conn]} data-testid={`admin-mcp-conn-${s.id}`}>
-                          {MCP_CONN_LABEL[s.conn]}
-                        </Badge>
-                        {isRevoked && <Badge tone="danger" data-testid={`admin-mcp-revoked-${s.id}`}>已撤销授权</Badge>}
-                      </div>
-
-                      <div className="flex items-center gap-1 text-11 text-muted-foreground">
-                        <Wrench aria-hidden className="h-3 w-3" />
-                        {s.tools} 工具
-                      </div>
-
-                      <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
-                        <Button size="xs" variant="outline" onClick={() => setPanel({ mode: "config", server: s })} data-testid={`admin-mcp-config-${s.id}`}>配置</Button>
-                        {!isCleared ? (
-                          <Button size="xs" variant="primary" onClick={() => setReviewOf(s)} data-testid={`admin-mcp-review-action-${s.id}`} disabled={isRevoked}>放行评审</Button>
-                        ) : (
-                          <>
-                            <Button size="xs" variant="ghost" onClick={() => setPanel({ mode: "tools", server: s })} data-testid={`admin-mcp-tools-${s.id}`}>看工具</Button>
-                            <Button size="xs" variant="outline" onClick={() => setDisableOf(s)} data-testid={`admin-mcp-revoke-${s.id}`}>
-                              <Ban aria-hidden className="h-3 w-3" />
-                              撤销授权
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1.5" data-testid="admin-mcp-list">
-              {MCP_SERVERS.map((s) => {
-                const isRevoked = revoked.has(s.id);
-                const isCleared = !isRevoked && (cleared.has(s.id) || s.reviewStatus === "cleared");
-                return (
-                  <Card key={s.id} data-testid={`admin-mcp-row-${s.id}`}>
-                    <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <Plug aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="text-12 font-medium">{s.name}</span>
-                          <span className="text-11 text-muted-foreground">{s.note}</span>
-                          {s.touchesClientData && <Badge tone="warning">涉客户数据</Badge>}
-                        </div>
-                        <span className="font-mono text-10 text-muted-foreground">{s.endpoint}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1 text-11 text-muted-foreground">
-                        <Wrench aria-hidden className="h-3 w-3" />
-                        {s.tools} 工具
-                      </div>
-
-                      {/* 授权范围（枚举②） */}
-                      <AuthScopeBadge scope={s.authScope} team={s.authTeam} data-testid={`admin-mcp-authscope-${s.id}`} />
-
-                      {/* 评审状态（枚举③，与授权范围并列） */}
-                      <ReviewBadge status={isCleared ? "cleared" : "pending"} data-testid={`admin-mcp-review-${s.id}`} />
-
-                      {/* 连接状态 */}
-                      <Badge tone={CONN_TONE[s.conn]} data-testid={`admin-mcp-conn-${s.id}`}>
-                        {MCP_CONN_LABEL[s.conn]}
-                      </Badge>
-
-                      {isRevoked && <Badge tone="danger" data-testid={`admin-mcp-revoked-${s.id}`}>已撤销授权</Badge>}
-
-                      <div className="ml-auto flex gap-1.5">
-                        <Button size="xs" variant="outline" onClick={() => setPanel({ mode: "config", server: s })} data-testid={`admin-mcp-config-${s.id}`}>配置</Button>
-                        {!isCleared ? (
-                          <Button size="xs" variant="primary" onClick={() => setReviewOf(s)} data-testid={`admin-mcp-review-action-${s.id}`} disabled={isRevoked}>放行评审</Button>
-                        ) : (
-                          <>
-                            <Button size="xs" variant="ghost" onClick={() => setPanel({ mode: "tools", server: s })} data-testid={`admin-mcp-tools-${s.id}`}>看工具</Button>
-                            <Button size="xs" variant="outline" onClick={() => setDisableOf(s)} data-testid={`admin-mcp-revoke-${s.id}`}>
-                              <Ban aria-hidden className="h-3 w-3" />
-                              撤销授权
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 添加 / 配置 / 看工具 抽屉 */}
-      {panel?.mode === "add" && (
+      {connecting && (
         <AdminDrawer
           testid="admin-mcp-panel"
-          title="添加 MCP 服务器"
-          subtitle="注册后默认隔离，工具须评审放行"
-          onClose={() => setPanel(null)}
-          footer={
-            <>
-              <Button size="sm" variant="ghost" onClick={() => setPanel(null)} data-testid="admin-mcp-panel-cancel">取消</Button>
-              <Button size="sm" variant="primary" onClick={() => { setPanel(null); setToast("已注册服务器（默认隔离），工具发现将在放行后进行"); }} data-testid="admin-mcp-panel-save">注册（保持隔离）</Button>
-            </>
-          }
+          title="连接远程 MCP 服务器"
+          subtitle="真实链路：后端用官方 SDK 连上去、调用 tools/list。发现成功即落库并出现在列表里。"
+          onClose={() => setConnecting(false)}
+          width="lg"
         >
-          <div className="flex flex-col gap-3">
-            <Field id="admin-mcp-field-name" label="服务器名" placeholder="如 欧盟法规库" />
-            <Field id="admin-mcp-field-endpoint" label="端点" placeholder="mcp://host:port" />
-            <div className="flex flex-col gap-1">
-              <span className="text-11 font-medium text-muted-foreground">授权范围（谁能通过 agent 调它的工具）</span>
-              <div className="flex flex-wrap gap-1.5">
-                {(Object.keys(MCP_AUTH_LABEL) as (keyof typeof MCP_AUTH_LABEL)[]).map((k) => (
-                  <Badge key={k} tone="outline">{MCP_AUTH_LABEL[k]}</Badge>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-start gap-2 rounded-md border border-warning/30 bg-warning/5 p-2.5">
-              <ShieldCheck aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-              <p className="text-11">按默认隔离策略，注册后工具对任何 agent 不可用，直到安全评审放行。</p>
-            </div>
-          </div>
+          <McpRemoteDiscoverPanel
+            onDiscovered={() => {
+              setToast("已连接并发现工具，列表已刷新");
+              void refresh();
+            }}
+          />
         </AdminDrawer>
-      )}
-
-      {panel?.mode === "config" && (
-        <AdminDrawer
-          testid="admin-mcp-panel"
-          title={`配置 · ${panel.server.name}`}
-          subtitle="端点与凭据仅组织管理员可见"
-          onClose={() => setPanel(null)}
-          footer={
-            <>
-              <Button size="sm" variant="ghost" onClick={() => setPanel(null)} data-testid="admin-mcp-panel-cancel">取消</Button>
-              <Button size="sm" variant="primary" onClick={() => { setPanel(null); setToast(`已保存「${(panel as { server: McpRow }).server.name}」的配置改动，已写审计`); }} data-testid="admin-mcp-panel-save">保存</Button>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            <Field id="admin-mcp-config-endpoint" label="端点" defaultValue={panel.server.endpoint} />
-            <div className="flex flex-col divide-y divide-border-subtle">
-              <KV k="授权范围" v={MCP_AUTH_LABEL[panel.server.authScope] + (panel.server.authTeam ? ` · ${panel.server.authTeam}` : "")} />
-              <KV k="工具数" v={`${panel.server.tools} 个`} />
-              <KV k="连接状态" v={MCP_CONN_LABEL[panel.server.conn]} />
-              <KV k="涉客户数据" v={panel.server.touchesClientData ? "是（受出域红线约束）" : "否"} />
-            </div>
-          </div>
-        </AdminDrawer>
-      )}
-
-      {panel?.mode === "tools" && (
-        <AdminDrawer testid="admin-mcp-tools-drawer" title={`工具清单 · ${panel.server.name}`} subtitle="工具随授权范围被 agent 白名单引用；写操作单独标注" onClose={() => setPanel(null)}>
-          <div className="flex flex-col gap-1.5" data-testid="admin-mcp-tools-list">
-            {(MCP_TOOLS[panel.server.id] ?? []).map((t) => (
-              <div key={t.name} className="flex flex-col gap-0.5 rounded-md border border-border-subtle bg-panel p-2.5" data-testid="admin-mcp-tool-row">
-                <div className="flex items-center gap-2">
-                  <Wrench aria-hidden className="h-3 w-3 text-muted-foreground" />
-                  <span className="font-mono text-12 font-medium">{t.name}</span>
-                  {t.writes && <Badge tone="warning">写操作</Badge>}
-                </div>
-                <p className="text-11 text-muted-foreground">{t.desc}</p>
-              </div>
-            ))}
-          </div>
-        </AdminDrawer>
-      )}
-
-      {/* 放行评审（危险动作二次确认） */}
-      {reviewOf && (
-        <ConfirmDialog
-          testid="admin-mcp-review-dialog"
-          title={`放行安全评审 · ${reviewOf.name}`}
-          tone="destructive"
-          requireReason
-          reasonPlaceholder="例如：已核对端点归属与工具清单，无写操作越权，同意放行。"
-          confirmLabel="确认放行"
-          impact={
-            <div className="flex flex-col gap-1">
-              <p>放行后该服务器的 <strong className="text-background-foreground">{reviewOf.tools} 个工具</strong>将可被授权范围内（{MCP_AUTH_LABEL[reviewOf.authScope]}）的 agent 调用。</p>
-              {reviewOf.touchesClientData && <p className="text-destructive">该服务器涉客户数据，放行即打开一条出域通道，请确认必要性。</p>}
-              <p className="text-muted-foreground">放行是「默认隔离」策略的唯一出口，本次确认写入审计。</p>
-            </div>
-          }
-          onCancel={() => setReviewOf(null)}
-          onConfirm={() => {
-            setCleared((s) => new Set(s).add(reviewOf.id));
-            setToast(`已放行「${reviewOf.name}」，工具进入可被调用状态`);
-            setReviewOf(null);
-          }}
-        />
-      )}
-
-      {/* 撤销授权二选一确认（D-U5）—— 撤销后该服务器的工具回到隔离、不可被调用 */}
-      {disableOf && (
-        <DisableDialog
-          testid="admin-mcp-disable-dialog"
-          verb="撤销授权"
-          capabilityName={disableOf.name}
-          inFlight={inFlightOf(disableOf.id)}
-          interruptEffect={`正经此服务器发起、尚未返回的 ${inFlightOf(disableOf.id)} 个工具调用会被立即中断；工具回到隔离、不可被任何 agent 调用。`}
-          drainEffect={`已发起的 ${inFlightOf(disableOf.id)} 个工具调用跑完当前一轮，此刻起新调用一律被拒、工具回到隔离。`}
-          onCancel={() => setDisableOf(null)}
-          onConfirm={(mode: DisableMode) => {
-            setRevoked((prev) => new Set(prev).add(disableOf.id));
-            setCleared((prev) => { const n = new Set(prev); n.delete(disableOf.id); return n; });
-            setToast(
-              mode === "interrupt"
-                ? `已撤销「${disableOf.name}」授权并回到隔离，立即中断 ${inFlightOf(disableOf.id)} 个进行中的工具调用`
-                : `已撤销「${disableOf.name}」授权；${inFlightOf(disableOf.id)} 个进行中的工具调用将跑完当前一轮，新调用即刻被拒`,
-            );
-            setDisableOf(null);
-          }}
-        />
       )}
 
       <Toast message={toast} testid="admin-mcp-toast" onDismiss={() => setToast(null)} />
     </AdminScreen>
+  );
+}
+
+/* ───────────────────────── 面板 ───────────────────────── */
+
+type RediscoverState =
+  | { readonly status: "idle" }
+  | { readonly status: "submitting" }
+  | { readonly status: "success"; readonly tools: readonly DiscoveredMcpTool[]; readonly added: number; readonly removed: number }
+  | { readonly status: "error"; readonly reasonCode: string; readonly message: string };
+
+const SIDE_EFFECT_TONE: Record<DiscoveredMcpTool["sideEffect"], "primary" | "warning" | "danger"> = {
+  只读: "primary",
+  对外发送: "warning",
+  写入外部: "danger",
+};
+
+/**
+ * 面板：`listMcpServers` 回来的字段一字不添，加一块「重新连接 / 更新端点」——这是这条契约
+ * 上唯一真实的「修改」路径。契约不回端点原值，输入框因此是空的，改端点要整个重填。
+ */
+function ServerDetail({
+  server: row,
+  onRediscovered,
+}: {
+  server: ListedMcpServer;
+  onRediscovered: (message: string) => void;
+}) {
+  const [server, setServer] = React.useState({ endpoint: "", authToken: "" });
+  const [result, setResult] = React.useState<RediscoverState>({ status: "idle" });
+  React.useEffect(() => {
+    setServer({ endpoint: "", authToken: "" });
+    setResult({ status: "idle" });
+  }, [row.serverId]);
+  const submitting = result.status === "submitting";
+  const canSubmit = server.endpoint.trim() !== "" && !submitting;
+  const id = `admin-mcp-detail-${row.serverId}`;
+
+  const submit = async () => {
+    setResult({ status: "submitting" });
+    try {
+      const out = await discoverRemoteMcpTools({
+        serverId: row.serverId,
+        endpoint: server.endpoint.trim(),
+        authToken: server.authToken.trim() === "" ? null : server.authToken.trim(),
+      });
+      setResult({ status: "success", tools: out.tools, added: out.added.length, removed: out.removed.length });
+      onRediscovered(`已重新连接「${row.name || row.serverId}」，发现 ${out.tools.length} 个工具`);
+    } catch (failure) {
+      const reasonCode = failure instanceof ApiError ? (failure.reasonCode ?? `http_${failure.status}`) : "UNKNOWN";
+      const message = failure instanceof Error ? failure.message : String(failure);
+      setResult({ status: "error", reasonCode, message });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col divide-y divide-border-subtle">
+        <KV k="服务器标识" v={<span className="font-mono text-11">{row.serverId}</span>} />
+        <KV k="描述" v={row.description} />
+        <KV k="端点" v={`${row.endpointHint}（列表不回端点原值，见 I-6）`} />
+        <KV k="授权范围" v={row.authScope} />
+        <KV k="评审状态" v={row.reviewStatus} />
+        <KV k="连接状态" v={row.connectionStatus} />
+        <KV k="隔离期截止" v={row.quarantineUntil ?? "不在隔离期"} />
+        <KV k="涉客户数据" v={row.involvesCustomerData ? "是（受出域红线约束）" : "否"} />
+        <KV k="出域" v={row.isEgress ? "是" : "否"} />
+        <KV k="工具数" v={`${row.toolCount} 个`} />
+        <KV k="上次发现" v={row.lastDiscoveredAt ?? "从未发现过"} />
+      </div>
+
+      <div className="flex flex-col gap-2 rounded-md border border-border-subtle bg-panel p-3" data-testid={`${id}-rediscover`}>
+        <span className="text-10 uppercase tracking-wide text-muted-foreground">重新连接 / 更新端点</span>
+        <p className="text-11 text-muted-foreground">
+          用同一个服务器标识再连一次：换端点、换鉴权 token、或只是刷新工具清单，都走这里。
+          仅 HTTP/SSE 远程连接，出站地址受 SSRF 门限制，失败会如实告诉你原因。
+        </p>
+        <label className="flex flex-col gap-1 text-11" htmlFor={`${id}-endpoint`}>
+          <span className="text-muted-foreground">远程端点 URL（https）</span>
+          <Input
+            id={`${id}-endpoint`}
+            placeholder="https://mcp.example.com/sse"
+            value={server.endpoint}
+            onChange={(e) => setServer((s) => ({ ...s, endpoint: e.target.value }))}
+            disabled={submitting}
+            data-testid={`${id}-endpoint`}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-11" htmlFor={`${id}-auth-token`}>
+          <span className="text-muted-foreground">鉴权 Token（可选）</span>
+          <Input
+            id={`${id}-auth-token`}
+            type="password"
+            placeholder="Bearer token"
+            value={server.authToken}
+            onChange={(e) => setServer((s) => ({ ...s, authToken: e.target.value }))}
+            disabled={submitting}
+            data-testid={`${id}-auth-token`}
+          />
+        </label>
+        <div>
+          <Button size="sm" variant="primary" disabled={!canSubmit} onClick={() => void submit()} data-testid={`${id}-submit`}>
+            <RefreshCw aria-hidden className="h-3.5 w-3.5" />
+            {submitting ? "连接中…" : "重新连接并发现工具"}
+          </Button>
+        </div>
+        {result.status === "error" && (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-2.5" data-testid={`${id}-error`}>
+            <ShieldAlert aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+            <div className="flex flex-col gap-0.5">
+              <span className="font-mono text-11 font-medium text-destructive">{result.reasonCode}</span>
+              <span className="text-10 text-muted-foreground">{result.message}</span>
+            </div>
+          </div>
+        )}
+        {result.status === "success" && (
+          <div className="flex flex-col gap-1.5" data-testid={`${id}-tools`}>
+            <p className="text-11 text-muted-foreground">
+              发现 {result.tools.length} 个真实工具
+              {result.added > 0 ? `，新增 ${result.added} 个` : ""}
+              {result.removed > 0 ? `，${result.removed} 个已不存在` : ""}
+            </p>
+            {result.tools.map((tool) => (
+              <div key={tool.fullName} className="flex flex-col gap-0.5 rounded-md border border-border-subtle bg-card p-2.5" data-testid="admin-mcp-tool-row">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Wrench aria-hidden className="h-3 w-3 text-muted-foreground" />
+                  <span className="font-mono text-12 font-medium">{tool.fullName}</span>
+                  <Badge tone={SIDE_EFFECT_TONE[tool.sideEffect]}>{tool.sideEffect}</Badge>
+                  <Badge tone="outline">{tool.authScope}</Badge>
+                </div>
+                <p className="font-mono text-10 text-muted-foreground">{tool.signature}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <p className="text-10 text-muted-foreground">
+        契约里没有注销服务器的操作，也没有把授权范围 / 放行评审接到后端的路由
+        （`registerMcpServer` / `reviewMcpServer` / `reIsolateMcpServer` 仍未接线）——
+        这里不画会假装生效的按钮。放行评审的签核原型见「智能体运行时」预览屏。
+      </p>
+    </div>
   );
 }

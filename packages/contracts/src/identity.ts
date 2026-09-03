@@ -355,6 +355,17 @@ export const PermissionDecision = z.object({
   decisionId: z.string(),
 }).strict();
 
+/**
+ * #2514（2026-09-02 人类裁决）—— 一个 agent 的 skill 加载走哪条规则（派生值，不落库）：
+ * · `all-enabled`：agent 已发布版本没钉任何 skill ⇒ run 加载组织（含平台）**全部已启用**
+ *   skill 的当前生效版本。用户不再在 composer 里挑选。
+ * · `curated`：agent 已发布版本钉了 skill（后台 pin，`agent_versions.skill_version_ids`
+ *   非空）⇒ run **只**用它钉的那些，**覆盖**而不是并入全局列表。
+ * 线程级临时挂载（旧轨道 `/chat/legacy`）在两条规则之上**追加**（并集、去重、追加在后）。
+ * 规则的唯一实现是服务端 `message-roundtrip.ts` 的 `resolveRunSkillVersionIds`。
+ */
+export const SkillOrchestration = z.enum(["all-enabled", "curated"]);
+
 export const CapabilityListing = z.object({
   id: z.string(),
   orgId: z.string(),
@@ -411,6 +422,17 @@ export const CapabilityListing = z.object({
    *   规则推出另一个原因），且没人能保证两者一致。
    */
   disabledReason: z.string().nullable(),
+  /**
+   * #2514：见 `SkillOrchestration`。**只对 `kind === "agent"` 有意义**，其余 kind 为 null
+   * （同 `abbr`/`duty` 的 null 语义）。
+   *
+   * ⚠ `optional`，不是必填：它是从 `agents.published_version_id → agent_versions.
+   *   skill_version_ids` 派生的读侧投影，与 `disabledReason` 一样不是管理员填的字段；
+   *   目录写路径（`mutateCapability` 的 RETURNING）与既有 mock/夹具没有这个事实可填，
+   *   缺省即「未投影」，读端按 null 处理。唯一真实产出点是 `pg-capability-repository.ts`
+   *   的 LEFT JOIN。
+   */
+  skillOrchestration: SkillOrchestration.nullable().optional(),
 }).strict();
 
 /**

@@ -2,6 +2,8 @@
 import * as React from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { THREAD_AI_TEAM } from "@/lib/mock/agent-runtime";
 import type { FacetSaveFn } from "./facet-content-editor";
 
 /**
@@ -21,6 +23,18 @@ import type { FacetSaveFn } from "./facet-content-editor";
 
 export const AGENT_STATES = ["默认开", "按需召唤"] as const;
 export type AgentState = (typeof AGENT_STATES)[number];
+
+/**
+ * 「从已有 agent 选择」下拉的选项来源——组织里已存在、可被蓝本挑选加入的 agent
+ * 名字（`lib/mock/agent-runtime.ts` 的 `THREAD_AI_TEAM`，线程里真实出现过的
+ * AI 团队成员，语义上最贴近"组织里已存在的 agent"）。仍保留"自定义…"选项，
+ * 手填不受限制——这不是一份封闭枚举，只是给用户一条更快的路径。
+ */
+const CUSTOM_AGENT_OPTION = "__custom__";
+const AVAILABLE_AGENT_OPTIONS = [
+  ...THREAD_AI_TEAM.map((a) => ({ value: a.name, label: `${a.name} · ${a.role}` })),
+  { value: CUSTOM_AGENT_OPTION, label: "自定义…" },
+];
 
 const THRESHOLD_HISTORY =
   "曾因阈值过低被 9 位主持人反馈「打断太早」，已从 3 次提到 5 次";
@@ -162,6 +176,15 @@ export function AgentPanelEditor({
             {status === "saving" ? "保存中…" : status === "saved" ? "已保存" : "保存失败"}
           </span>
         )}
+        <button
+          type="button"
+          onClick={() => void persist(value)}
+          disabled={status === "saving"}
+          className="rounded-md border border-border px-2 py-1 text-11 transition-colors hover:bg-muted"
+          data-testid="bp-facet-save-button"
+        >
+          保存
+        </button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border p-4" data-testid="bp-agent-list">
@@ -185,6 +208,17 @@ export function AgentPanelEditor({
                     onBlur={() => void persist(value)}
                     placeholder="Facilitator"
                     data-testid={`bp-agent-name-${i}`}
+                  />
+                  <Select
+                    options={AVAILABLE_AGENT_OPTIONS}
+                    value={THREAD_AI_TEAM.some((t) => t.name === a.name) ? a.name : undefined}
+                    onValueChange={(v) => {
+                      if (v === CUSTOM_AGENT_OPTION) return; // 选“自定义…”：不改名字，让用户手填输入框
+                      commitAgent(i, { name: v });
+                    }}
+                    placeholder="从已有 agent 选择"
+                    className="h-7 w-36 shrink-0 text-11"
+                    data-testid={`bp-agent-pick-${i}`}
                   />
                   <Checkbox
                     className="shrink-0"

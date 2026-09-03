@@ -101,7 +101,7 @@ export function ChatTeamPanel() {
       </ul>
 
       <Button variant="ghost" size="xs" className="justify-start text-muted-foreground" asChild data-testid="chat-team-market">
-        <Link href="/admin/agent">
+        <Link href="/platform-admin/agent">
           <UserPlus aria-hidden className="h-3.5 w-3.5" />
           从 Agent 市场加入
         </Link>

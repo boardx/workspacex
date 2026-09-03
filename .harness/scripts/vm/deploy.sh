@@ -177,6 +177,16 @@ docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "$
   -c "ALTER ROLE app_rw PASSWORD '${APP_DB_PASSWORD}';" >/dev/null
 echo "  app_rw 密码已对齐"
 
+step "4b-ii. app_diag_ro 密码对齐 deploy.env（system-error-logs 只读凭据）"
+# 同 4b 逐字同理：migrations/20260902012105 首次 CREATE ROLE app_diag_ro 时写死了
+# 开发默认密码 app_diag_ro_dev，deploy.env 里的 DIAG_DB_PASSWORD 是 provision.sh
+# 生成的真实密码，两者从 CREATE ROLE 那一刻起不一致——不对齐的话
+# PgErrorLogWriter.list()（走 app_diag_ro 连接）线上会直接
+# password authentication failed，系统异常屏永远读不出数据。
+docker exec workspacex-postgres-1 psql -U "${MIGRATION_DB_USER:-postgres}" -d "${PGDATABASE:-workspacex}" \
+  -c "ALTER ROLE app_diag_ro PASSWORD '${DIAG_DB_PASSWORD}';" >/dev/null
+echo "  app_diag_ro 密码已对齐"
+
 step "4c. 默认 agent 补种（#662 —— 已有组织不会自己长出默认 agent）"
 # `ensureDefaultAgent` 只在组织**创建那一刻**触发（`/auth/bootstrap` 与 `/auth/register`
 # 各自的 controller 里）。#662 落地之前就存在的每一个组织永远不会自己补上——没有 cron，

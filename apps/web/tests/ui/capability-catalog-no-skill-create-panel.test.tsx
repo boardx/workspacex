@@ -22,7 +22,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-skill-create-hidden", orgRole: "admin" }));
@@ -74,12 +74,15 @@ describe("Skill 目录页：没有裸『新增 Skill』入口", () => {
 });
 
 describe("装置自检：Agent 目录页不受影响，入口与既有提示原样保留", () => {
-  it("admin-agent-create 仍然存在，仍然带 agent 专属的那句提示", async () => {
+  it("admin-agent-create 仍然存在；点开新增弹窗后仍然带 agent 专属的那句提示", async () => {
     sessionState.currentOrgId = "org-agent-create-unaffected";
     window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "tok-agent-create-unaffected");
     render(<CapabilityCatalogScreen kind="agent" />);
     await waitFor(() => expect(screen.getByTestId("admin-agent-create")).toBeInTheDocument());
-    expect(screen.getByTestId("admin-agent-create-agent-caveat")).toBeInTheDocument();
+    // 提示文字现在挂在弹窗里（`capability-mutate.tsx`），不是常驻在目录页头部——
+    // 需要先点开「新增 Agent」才能看到它。
+    fireEvent.click(screen.getByTestId("admin-agent-create"));
+    expect(await screen.findByTestId("admin-agent-create-agent-caveat")).toBeInTheDocument();
     expect(screen.queryByTestId("admin-agent-create-skill-hidden-note")).not.toBeInTheDocument();
   });
 });

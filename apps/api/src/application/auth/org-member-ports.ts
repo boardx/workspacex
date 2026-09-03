@@ -21,6 +21,17 @@
  * （`removeOrgMember.out` 里也没有），留给接 UI 的人做，不在这里发明一张表。
  */
 import type { OrgId } from "../../domain/org-id";
+import type { OrgRoleValue } from "../../domain/auth/org-role-change";
+
+/**
+ * `changeRole` 的结果（member-role-management delta）。
+ * `not-found`：这个 `(orgId, userId)` 没有成员行——调用方映射成 `MEMBER_NOT_FOUND`。
+ * `last-admin`：`decideOrgRoleChange` 拒绝了——调用方映射成 `LAST_ADMIN`。
+ * `ok` 且 `changed = false`：幂等重放（改成同一个角色），不是错误。
+ */
+export type ChangeOrgMemberRoleResult =
+  | { readonly ok: true; readonly previousOrgRole: OrgRoleValue; readonly changed: boolean }
+  | { readonly ok: false; readonly reason: "not-found" | "last-admin" };
 
 export interface RemoveOrgMemberResult {
   /** false = 这一行本来就不存在（幂等重放：上一次调用已经删过），不是错误。 */
@@ -38,6 +49,17 @@ export interface OrgMemberRepository {
    * 还有一条邀请链接能把他重新拉回来」的半成品状态。
    */
   remove(orgId: OrgId, userId: string): Promise<RemoveOrgMemberResult>;
+
+  /**
+   * 一次事务：锁住该组织的 admin 行与目标行 → 用 `decideOrgRoleChange`（domain）判定 →
+   * UPDATE `org_memberships.org_role`。
+   *
+   * ⚠ 判定与写入必须在同一事务、且先锁后数：两名 admin 同时互相降级，各自在事务外数到
+   *   「还有另一个 admin」，提交后组织就没有 admin 了。锁住 admin 行让第二个事务等到
+   *   第一个提交后再数，数到的就是 1。
+   * ⚠ 组织级与平台级两条路由都调这一个方法——判定只有一份。
+   */
+  changeRole(orgId: OrgId, userId: string, nextRole: OrgRoleValue): Promise<ChangeOrgMemberRoleResult>;
 }
 
 export const ORG_MEMBER_REPOSITORY = Symbol("OrgMemberRepository");

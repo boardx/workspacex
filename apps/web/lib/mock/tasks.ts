@@ -5,9 +5,11 @@
  *   真实的分区归属计算、状态机、权限判定都在服务端（见 UC-11.5 R9 / UC-11.6 R7）。
  *   本文件不含任何函数、图标或 React 元素，纯可序列化数据，服务端/客户端都可 import。
  */
+import type { z } from "zod";
+import { board as BoardC } from "@repo/contracts";
 
-/** 风险分级 —— 共享内核只有三级（R1/R2/R3），不自创第四级。Badge tone 见组件层。 */
-export type RiskLevel = "R1" | "R2" | "R3";
+/** 风险分级 —— 单一事实源在 packages/contracts/src/board.ts（F02，共享内核只有三级）。 */
+export type RiskLevel = z.infer<typeof BoardC.RiskLevel>;
 
 /** 执行模式：人工 / AI / 人机协作 —— 「人和 AI 共用同一种任务对象」的字段级体现 */
 export type ExecMode = "human" | "ai" | "collab";

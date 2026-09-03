@@ -13,6 +13,8 @@ const COVERED_ROUTES = [
   "app/skill/page.tsx",
   "app/admin/page.tsx",
   "app/admin/[module]/page.tsx",
+  // 2026-09-02：AI 能力（Agent / 模型 / MCP）与平台成员 / 反馈的外壳，原本由 app/admin/[module] 承载。
+  "app/platform-admin/[module]/page.tsx",
   // #1316: /projects/[projectId] and its two real-data sub-routes silently substituted
   // any non-built-in org with MOCK_ORGS[0] ("远洋新能源") and downgraded the caller's
   // orgRole to "consultant" — a real logged-in user of a real org saw somebody else's
@@ -53,10 +55,12 @@ describe("authenticated routes", () => {
 
   // issue #2067: the formal `/chat` bare route (no query params) now natively renders
   // the CopilotKit v2 experience (#2044) — `ChatReadScreen`'s "read-only live screen"
-  // is reached today via `/chat/legacy` and the `?projectId=`/`?thread=` deep links
-  // (rewritten to `/chat/legacy` before this route ever sees them, see
-  // `next.config.mjs`'s `rewrites().beforeFiles` header comment). That route is the
-  // faithful surviving target for this assertion, not `/chat` itself anymore.
+  // is reached today via `/chat/legacy` and the `?projectId=` deep link (rewritten to
+  // `/chat/legacy` before this route ever sees them, see `next.config.mjs`'s
+  // `rewrites().beforeFiles` header comment). issue #2457: the `?thread=` deep link no
+  // longer lands here — it's rewritten to v2's `/chat/:threadId` instead, since project
+  // context (`?projectId=`) is the only case this release still doesn't support on v2.
+  // `/chat/legacy` remains the faithful surviving target for this assertion.
   it("legacy chat fallback delegates to the read-only live screen without a demo project or mock fallback", () => {
     const page = readFileSync(resolve(process.cwd(), "app/chat/legacy/page.tsx"), "utf8");
     const projectContext = readFileSync(resolve(process.cwd(), "lib/project-context.ts"), "utf8");

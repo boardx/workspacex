@@ -54,6 +54,11 @@ describe("F1971 · 后台管理界面顶栏不再出「不在具体项目里」�
     expect(screen.queryByTestId("topbar-no-project-hint")).toBeNull();
   });
 
+  it("`/platform-admin/feedback`（2026-09-02 平台后台）：提示同样不渲染", () => {
+    renderTopBar("/platform-admin/feedback");
+    expect(screen.queryByTestId("topbar-no-project-hint")).toBeNull();
+  });
+
   it("反证：`/settings`（普通非项目、非 admin 路由）提示仍然保留", () => {
     renderTopBar("/settings");
     expect(screen.getByTestId("topbar-no-project-hint")).toBeInTheDocument();

@@ -85,7 +85,7 @@ const PASSING_CONCLUSIONS = new Set(["SUCCESS"]);
 /** 还没有结论——等就是了，不是失败。 */
 const PENDING_STATUSES = new Set(["QUEUED", "IN_PROGRESS", "PENDING", "WAITING", "REQUESTED"]);
 /** 跑完了但结论不是通过，且属于"代码要改"的那一类。 */
-const FAILING_CONCLUSIONS = new Set(["FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"]);
+const FAILING_CONCLUSIONS = new Set(["FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE", "ERROR" /* commit status 的 error 态 */]);
 /** 跑完了但**根本没产生真实结论**——门禁完整性问题，不是 worker 的代码问题。 */
 const VACUOUS_CONCLUSIONS = new Set(["SKIPPED", "NEUTRAL", "CANCELLED", "STALE"]);
 
@@ -193,6 +193,73 @@ export function isOkVerdict(label: string): boolean {
  * 严重度优先级（从上往下第一个命中的决定 state；reasons 仍收集全部命中项）：
  *   MERGE_BLOCKED → WAITING_WORKER → CHANGES_REQUIRED → WAITING_CI → WAITING_REVIEW → READY_TO_MERGE
  */
+/**
+ * check 语义的**唯一实现**（#2540：doctor 判「关闭 issue 的 PR 合入时是否全绿」复用它，
+ * 不另抄一份）。必需 check 与"顺带跑的 check"分开判：见 REQUIRED_CHECKS 的注释（本仓
+ * main 没有 branch protection，GitHub 侧不存在"必需"这个概念，必须自己声明）。
+ */
+/**
+ * StatusContext（commit status，REST `statuses` / GraphQL rollup 里的 `context`+`state`）→ RequiredCheck
+ * 的**唯一**映射。pr-queue.ts 读活 rollup 与 doctor ⑤ 重建合入时刻都走这里——本仓自己就会往 head 上打
+ * commit status（coord-projection 的 `coord/andon`），rollup 不是只有 CheckRun；两处各写一套映射就是第二份事实源。
+ *
+ * commit status 没有 status/conclusion 之分，只有一个 state，取值集合是 GitHub 定死的五个：
+ *   SUCCESS → 完成、通过；FAILURE / ERROR → 完成、红（ERROR 在 FAILING_CONCLUSIONS 里）；
+ *   PENDING / EXPECTED → 还没有结论（status 走 PENDING_STATUSES，conclusion 为空）；
+ *   其余（含 null）→ 未知取值，classifyChecks 一律不放行。
+ * 独立审 #2541 六轮：把 state 原样塞进 conclusion 会让 PENDING / ERROR / EXPECTED 在非必需 check 上
+ * 被静默当绿——单一事实源上的确定性假绿。
+ */
+export function statusContextToCheck(context: string, state: string | null | undefined): RequiredCheck {
+  const s = (state ?? "").toUpperCase();
+  if (s === "SUCCESS") return { name: context, status: "COMPLETED", conclusion: "SUCCESS" };
+  if (s === "FAILURE" || s === "ERROR") return { name: context, status: "COMPLETED", conclusion: s };
+  if (s === "PENDING" || s === "EXPECTED") return { name: context, status: "PENDING", conclusion: null };
+  return { name: context, status: "UNKNOWN", conclusion: `UNKNOWN_STATE(${state ?? "null"})` };
+}
+
+export function classifyChecks(checks: RequiredCheck[]): { blocked: string[]; changes: string[]; waitingCi: string[] } {
+  const blocked: string[] = [];
+  const changes: string[] = [];
+  const waitingCi: string[] = [];
+  const required = new Set<string>(REQUIRED_CHECKS);
+  const seen = new Set<string>();
+  for (const check of checks) {
+    const isRequired = required.has(check.name);
+    if (isRequired) seen.add(check.name);
+    const status = check.status.toUpperCase();
+    const conclusion = (check.conclusion ?? "").toUpperCase();
+    const label = isRequired ? "required check" : "check";
+    if (PASSING_CONCLUSIONS.has(conclusion)) continue;
+    if (conclusion === "" || PENDING_STATUSES.has(status)) {
+      // 非必需的 check 还没跑完不该拦着——但必需的必须等
+      if (isRequired) waitingCi.push(`required check \`${check.name}\` 还没有结论（status=${check.status}）`);
+      continue;
+    }
+    if (FAILING_CONCLUSIONS.has(conclusion)) {
+      // 红就是红：即使不在必需清单里，也不当作没看见
+      changes.push(`${label} \`${check.name}\` 结论 ${conclusion}——退回 worker 修（先按 SOP 分诊是否基础设施问题）`);
+      continue;
+    }
+    if (VACUOUS_CONCLUSIONS.has(conclusion)) {
+      // 必需的 check 空转 = 门禁完整性问题；非必需的空转 = 条件没命中，正常
+      if (isRequired)
+        blocked.push(
+          `required check \`${check.name}\` 结论 ${conclusion}——**没有产生真实通过**，` +
+            "这是门禁完整性问题（空转的门），不是 worker 的代码问题，必须由 coord-main 查 workflow 条件",
+        );
+      continue;
+    }
+    // 未知取值一律不放行——不管是不是必需的。非必需的未知结论静默放过就是 fail-open（独立审 #2541 六轮）。
+    blocked.push(`${label} \`${check.name}\` 结论 ${conclusion} 不在已知取值内——未知一律不放行`);
+  }
+  for (const name of REQUIRED_CHECKS) {
+    // 缺席 ≠ 通过。三态纪律与 module-lock 的 queryActiveClaim 一致：问不到不等于空闲。
+    if (!seen.has(name)) waitingCi.push(`required check \`${name}\` 根本没有出现在这个 PR 上——没跑不等于绿`);
+  }
+  return { blocked, changes, waitingCi };
+}
+
 export function classifyPr(facts: PrFacts): PrClassification {
   const blocked: string[] = [];
   const waitingWorker: string[] = [];
@@ -234,41 +301,12 @@ export function classifyPr(facts: PrFacts): PrClassification {
   }
 
   // ── 4. checks ────────────────────────────────────────────────────────────
-  // 必需 check 与"顺带跑的 check"分开判：见 REQUIRED_CHECKS 的注释（本仓 main 没有
-  // branch protection，GitHub 侧不存在"必需"这个概念，必须自己声明）。
-  const required = new Set<string>(REQUIRED_CHECKS);
-  const seen = new Set<string>();
-  for (const check of facts.checks) {
-    const isRequired = required.has(check.name);
-    if (isRequired) seen.add(check.name);
-    const status = check.status.toUpperCase();
-    const conclusion = (check.conclusion ?? "").toUpperCase();
-    const label = isRequired ? "required check" : "check";
-    if (PASSING_CONCLUSIONS.has(conclusion)) continue;
-    if (conclusion === "" || PENDING_STATUSES.has(status)) {
-      // 非必需的 check 还没跑完不该拦着——但必需的必须等
-      if (isRequired) waitingCi.push(`required check \`${check.name}\` 还没有结论（status=${check.status}）`);
-      continue;
-    }
-    if (FAILING_CONCLUSIONS.has(conclusion)) {
-      // 红就是红：即使不在必需清单里，也不当作没看见
-      changes.push(`${label} \`${check.name}\` 结论 ${conclusion}——退回 worker 修（先按 SOP 分诊是否基础设施问题）`);
-      continue;
-    }
-    if (VACUOUS_CONCLUSIONS.has(conclusion)) {
-      // 必需的 check 空转 = 门禁完整性问题；非必需的空转 = 条件没命中，正常
-      if (isRequired)
-        blocked.push(
-          `required check \`${check.name}\` 结论 ${conclusion}——**没有产生真实通过**，` +
-            "这是门禁完整性问题（空转的门），不是 worker 的代码问题，必须由 coord-main 查 workflow 条件",
-        );
-      continue;
-    }
-    if (isRequired) blocked.push(`required check \`${check.name}\` 结论 ${conclusion} 不在已知取值内——未知一律不放行`);
-  }
-  for (const name of REQUIRED_CHECKS) {
-    // 缺席 ≠ 通过。三态纪律与 module-lock 的 queryActiveClaim 一致：问不到不等于空闲。
-    if (!seen.has(name)) waitingCi.push(`required check \`${name}\` 根本没有出现在这个 PR 上——没跑不等于绿`);
+  // 语义在 classifyChecks（与 doctor 的完成定义第 7 条共用同一份，#2540）。
+  {
+    const gaps = classifyChecks(facts.checks);
+    blocked.push(...gaps.blocked);
+    changes.push(...gaps.changes);
+    waitingCi.push(...gaps.waitingCi);
   }
 
   // ── 5. review 锚定 SHA + 禁止自审 ────────────────────────────────────────

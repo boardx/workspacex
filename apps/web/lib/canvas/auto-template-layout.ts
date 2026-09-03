@@ -405,6 +405,8 @@ export interface AutoTemplateInput {
   readonly key: string;
   /** 模板显示名 —— 画布顶部标题带上的那行字。 */
   readonly displayName: string;
+  /** 页脚署名（编辑器「页脚署名」栏）。空串/缺省 = 不画（issue #2527）。 */
+  readonly footer?: string;
   readonly sections: readonly AutoLayoutSectionInput[];
 }
 
@@ -420,6 +422,23 @@ export interface AutoTemplateResult {
  * 略窄一点是因为组织自建模板的表头通常字段更少、不需要那么高的带。
  */
 const HEADER_BAND_H = 90;
+/**
+ * 表头字段每一行占的高度（px）。镜像 `persona.ts` 内置 `headerRect`（h=110，9 字段/
+ * 5 每行=2 行）的行距比例 `110 ÷ (2+1) ≈ 36.7`，取整数 40 留余量——字段值在引擎里
+ * 会按格宽逐字换行，两行值（13px × 2 行 ≈ 34px）要在一个行距里放得下。
+ * 显式布局（`explicit-template-layout.ts`）与这里共用同一个常量，不再各写一份。
+ */
+export const HEADER_ROW_PITCH = 40;
+
+/**
+ * 表头带实际高度：`HEADER_BAND_H` 是下限，字段多到要换行时按行数长高
+ * （2026-09-02，与显式布局同一条规则——此前恒 90px，9 个字段/5 每行=2 行挤在
+ * 90px 里行距只剩 30px，换行后的字段值上下两行互相压住）。
+ */
+function headerBandHeight(fieldCount: number, fieldsPerRow: number): number {
+  const rows = Math.max(1, Math.ceil(fieldCount / Math.max(1, fieldsPerRow)));
+  return Math.max(HEADER_BAND_H, (rows + 1) * HEADER_ROW_PITCH);
+}
 
 /** `computeAutoLayout` 产出的整份布局整体下移 `dy`，给上方腾出表头带。纯几何平移。 */
 function shiftLayout(layout: AutoLayout, dy: number): AutoLayout {
@@ -455,8 +474,10 @@ export function buildAutoTemplateSpec(input: AutoTemplateInput): AutoTemplateRes
   const body = input.sections.filter((s) => s.type !== "短文本");
   const hasHeader = header.length > 0 && body.length > 0;
 
+  const headerPerRow = Math.min(5, header.length);
+  const bandH = hasHeader ? headerBandHeight(header.length, headerPerRow) : 0;
   const rawLayout = computeAutoLayout(hasHeader ? body : input.sections);
-  const layout = hasHeader ? shiftLayout(rawLayout, HEADER_BAND_H + GUTTER) : rawLayout;
+  const layout = hasHeader ? shiftLayout(rawLayout, bandH + GUTTER) : rawLayout;
 
   const sections: TemplateSection[] = layout.cells.map((c) => ({
     name: c.name,
@@ -472,11 +493,11 @@ export function buildAutoTemplateSpec(input: AutoTemplateInput): AutoTemplateRes
       fields: header.map((h) => h.name),
       headerRect: {
         x: (A0_FRAME.left + A0_FRAME.right) / 2,
-        y: GRID_TOP + HEADER_BAND_H / 2,
+        y: GRID_TOP + bandH / 2,
         w: A0_FRAME.right - A0_FRAME.left,
-        h: HEADER_BAND_H,
+        h: bandH,
       },
-      fieldsPerRow: Math.min(5, header.length),
+      fieldsPerRow: headerPerRow,
     }
     : {};
 
@@ -484,6 +505,7 @@ export function buildAutoTemplateSpec(input: AutoTemplateInput): AutoTemplateRes
     spec: {
       key: input.key,
       title: input.displayName,
+      ...(input.footer ? { footer: input.footer } : {}),
       ...headerFields,
       sections,
       titleBars: true,

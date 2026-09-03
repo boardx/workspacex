@@ -35,10 +35,10 @@ import type { IdentityRepository, DecisionIdFactory } from "../../src/applicatio
 import { CHAT_REPOSITORY } from "../../src/application/chat/ports";
 import type { ChatRepository } from "../../src/application/chat/ports";
 import {
-  CHAT_MESSAGE_COMMAND_REPOSITORY, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
+  CHAT_MESSAGE_COMMAND_REPOSITORY, ENABLED_SKILL_VERSION_READER, PUBLISHED_AGENT_READER, THREAD_MOUNTED_SKILL_READER,
 } from "../../src/application/chat/message-command-ports";
 import type {
-  ChatMessageCommandRepository, PublishedAgentReader, ThreadMountedSkillReader,
+  ChatMessageCommandRepository, EnabledSkillVersionReader, PublishedAgentReader, ThreadMountedSkillReader,
 } from "../../src/application/chat/message-command-ports";
 import { AGENT_RUN_EXECUTOR, AGENT_RUN_STORE, MODEL_CALL_PORT } from "../../src/application/agent-run/ports";
 import type { AgentRunExecutorPort, AgentRunStore, ModelCallPort } from "../../src/application/agent-run/ports";
@@ -163,6 +163,7 @@ beforeAll(async () => {
     commands: app.get<ChatMessageCommandRepository>(CHAT_MESSAGE_COMMAND_REPOSITORY),
     publishedAgents: app.get<PublishedAgentReader>(PUBLISHED_AGENT_READER),
     threadMounts: app.get<ThreadMountedSkillReader>(THREAD_MOUNTED_SKILL_READER),
+    enabledSkills: app.get<EnabledSkillVersionReader>(ENABLED_SKILL_VERSION_READER),
     executor: app.get<AgentRunExecutorPort>(AGENT_RUN_EXECUTOR),
     runs: planLedger,
     agentRunStore: app.get<AgentRunStore>(AGENT_RUN_STORE),

@@ -33,6 +33,7 @@ import {
   orgAdmin,
   personalRealtimeTranscription,
   planControl,
+  platformMembers,
   project,
   research,
   recording,
@@ -40,7 +41,8 @@ import {
   wave2Runtime,
 } from "@repo/contracts";
 import type { Response } from "express";
-import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { errorDetailOf, LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import { ERROR_LOG_PORT, type ErrorLogPort } from "../../application/ports/error-log.port";
 import { ContractValidationError } from "../pipes/zod-body.pipe";
 import { traceIdOf } from "../middleware/trace";
 
@@ -483,7 +485,20 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string } {
    * 这里只是把它接进既有闭集校验，不引入新码、不放开枚举外的任意字符串。
    */
   const planControlError = planControl.PlanControlError.safeParse(raw);
-  return planControlError.success ? { reasonCode: planControlError.data } : {};
+  if (planControlError.success) return { reasonCode: planControlError.data };
+
+  /**
+   * member-role-management delta：`platformMembers.PlatformMembersError`——加它的理由与
+   * 前面每一段**逐字相同**：`MEMBER_NOT_FOUND` / `LAST_ADMIN` 在 `orgAdmin.OrgAdminError`
+   * 里已经能过（两束同码同义），但 `NOT_PLATFORM_SUPERUSER` 此前只靠
+   * `PlatformSuperuserGuard` 抛出、从未在任何闭集里登记——`GET /system/error-logs` 的
+   * 403 在响应体里其实是光秃秃的 `{"error":"forbidden"}`，前端 `feedback-screen.tsx`
+   * 按 `reasonCode === "NOT_PLATFORM_SUPERUSER"` 判「仅平台运维可见」的那个分支
+   * 一直没被真正走到过。平台成员屏要靠同一个码区分「你不是超管」与「服务挂了」，
+   * 所以这里把它接进闭集。仍然是闭集：枚举外的任意字符串照旧到不了客户端。
+   */
+  const platformMembersError = platformMembers.PlatformMembersError.safeParse(raw);
+  return platformMembersError.success ? { reasonCode: platformMembersError.data } : {};
 }
 
 function researchConflictDetailOf(exception: HttpException): { latestProjection?: unknown } {
@@ -557,7 +572,10 @@ function teamOccupancyOf(exception: HttpException): { blocked?: unknown } {
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  constructor(@Inject(LOGGER_PORT) private readonly logger: LoggerPort) {}
+  constructor(
+    @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
+    @Inject(ERROR_LOG_PORT) private readonly errorLog: ErrorLogPort,
+  ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
@@ -591,6 +609,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
 
     this.logger.error("unhandled exception", { traceId, err: exception });
+    // ⚠ Fire-and-forget, never awaited: the response must not wait on a second I/O call, and
+    //   a Postgres hiccup here (possibly the SAME outage that caused `exception` in the first
+    //   place) must not turn one failure into two. See `error-log.port.ts` for why this branch
+    //   specifically (not the `HttpException`/`ContractValidationError` branches above) is the
+    //   one that gets persisted.
+    void this.errorLog.record({ traceId, msg: "unhandled exception", detail: errorDetailOf(exception) }).catch(() => undefined);
     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: "internal_error", traceId });
   }
 }

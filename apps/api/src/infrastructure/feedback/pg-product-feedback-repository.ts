@@ -35,7 +35,20 @@ import type {
   ProductFeedbackRepository,
   ProductFeedbackRepositoryFactory,
   StatusEvent,
+  StatusEventRow,
 } from "../../application/feedback/ports";
+
+interface StatusEventDbRow {
+  readonly id: string;
+  readonly from_status: string | null;
+  readonly to_status: string;
+  readonly reason: string | null;
+  readonly actor_id: string;
+  readonly notified: boolean;
+  readonly email_subject: string | null;
+  readonly email_text: string | null;
+  readonly created_at: Date | string;
+}
 
 interface FeedbackDbRow {
   readonly id: string;
@@ -54,6 +67,8 @@ interface FeedbackDbRow {
   readonly created_at: Date | string;
   readonly votes: string | number;
   readonly voted_by_me: boolean;
+  readonly github_issue_url: string | null;
+  readonly github_issue_number: number | null;
 }
 
 /**
@@ -91,6 +106,8 @@ function toRow(row: FeedbackDbRow): FeedbackRow {
     occurredRoute: row.occurred_route,
     appVersion: row.app_version,
     createdAt: new Date(row.created_at).toISOString(),
+    githubIssueUrl: row.github_issue_url,
+    githubIssueNumber: row.github_issue_number,
   };
 }
 
@@ -98,6 +115,7 @@ const SELECT_COLUMNS = `
   f.id, f.submitted_by, f.kind, f.target_kind, f.target_agent_id, f.target_skill_id,
   f.target_label, f.title, f.detail, f.status, f.status_reason,
   f.occurred_route, f.app_version, f.created_at,
+  f.github_issue_url, f.github_issue_number,
   v.votes,
   EXISTS (
     SELECT 1 FROM product_feedback_votes mine
@@ -239,14 +257,153 @@ class ScopedPgProductFeedbackRepository implements ProductFeedbackRepository {
     });
   }
 
+  /**
+   * ⚠ 只 UPDATE 这两列——迁移 `20260830120000_fb2_feedback_github_issue.sql` 把
+   *   它们从"不可变列"名单里排除出去，正是为了让这次写回不撞触发器。
+   */
+  async setGithubIssue(feedbackId: string, issue: { readonly url: string; readonly number: number }): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `UPDATE product_feedback
+            SET github_issue_url = $3, github_issue_number = $4, github_issue_claimed_at = NULL
+          WHERE org_id = $2 AND id = $1`,
+        [feedbackId, this.orgId, issue.url, issue.number],
+      );
+    });
+  }
+
+  /**
+   * 多旧算"过期"：5 分钟。这个数字要盖住一次真实 GitHub REST 调用可能的最长耗时
+   * （`FetchGithubIssueCreator` 自己的请求超时是 10s，5 分钟是给"调用方进程在
+   * 拿到认领之后、真正发起请求之前又卡了一阵"这类更慢的异常路径留够余量），
+   * 又不能长到"进程崩溃之后这条反馈要等很久才能被重试"——两者都不是精确科学，
+   * 5 分钟是这两条约束之间一个不假装精确的选择。
+   */
+  private static readonly CLAIM_STALE_AFTER_SQL = `now() - interval '5 minutes'`;
+
+  async claimGithubIssueCreation(feedbackId: string): Promise<boolean> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      // ⚠ 这一条 UPDATE 本身就是原子性的来源：Postgres 对同一行的并发 UPDATE
+      //   互斥执行，两个并发事务里只有一个能把 `github_issue_claimed_at`
+      //   从满足 WHERE 的旧值改成 `now()`，另一个的这条语句在它之后执行时
+      //   WHERE 条件已经不再成立（除非它足够旧），`RETURNING` 因此是空集——
+      //   不需要应用层加锁、不需要 `SELECT ... FOR UPDATE` 跨网络调用持锁。
+      const { rows } = await s.query<{ id: string }>(
+        `UPDATE product_feedback
+            SET github_issue_claimed_at = now()
+          WHERE org_id = $2 AND id = $1
+            AND github_issue_url IS NULL
+            AND (github_issue_claimed_at IS NULL
+                 OR github_issue_claimed_at < ${ScopedPgProductFeedbackRepository.CLAIM_STALE_AFTER_SQL})
+          RETURNING id`,
+        [feedbackId, this.orgId],
+      );
+      return rows.length > 0;
+    });
+  }
+
+  async releaseGithubIssueClaim(feedbackId: string): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `UPDATE product_feedback SET github_issue_claimed_at = NULL
+          WHERE org_id = $2 AND id = $1`,
+        [feedbackId, this.orgId],
+      );
+    });
+  }
+
   async appendStatusEvent(event: StatusEvent): Promise<void> {
     await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
       await s.query(
         `INSERT INTO product_feedback_status_events
-           (id, org_id, feedback_id, from_status, to_status, reason, actor_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+           (id, org_id, feedback_id, from_status, to_status, reason, actor_id, notified, email_subject, email_text)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [
+          event.id, this.orgId, event.feedbackId, event.fromStatus, event.toStatus, event.reason, event.actorId,
+          event.notified, event.emailSubject, event.emailText,
+        ],
+      );
+    });
+  }
+
+  /**
+   * 一次 `withTenant` = 一次事务(见 `pg-database.ts` 的 `inTx`)——UPDATE 与
+   * INSERT 在同一个 `withTenant` 回调里,天然同一个事务,要么都提交要么都回滚。
+   * 见接口头注:这是本方法存在的唯一理由,不要为了"复用" `updateStatus`/
+   * `appendStatusEvent` 而拆成两次 `withTenant` 调用——拆开就丢了原子性。
+   */
+  async transitionStatusWithEvent(
+    feedbackId: string,
+    status: FeedbackStatus,
+    reason: string | null,
+    event: Pick<StatusEvent, "id" | "feedbackId" | "fromStatus" | "toStatus" | "reason" | "actorId">,
+  ): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      await s.query(
+        `UPDATE product_feedback SET status = $3, status_reason = $4
+          WHERE org_id = $2 AND id = $1`,
+        [feedbackId, this.orgId, status, reason],
+      );
+      await s.query(
+        `INSERT INTO product_feedback_status_events
+           (id, org_id, feedback_id, from_status, to_status, reason, actor_id, notified, email_subject, email_text)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,false,NULL,NULL)`,
         [event.id, this.orgId, event.feedbackId, event.fromStatus, event.toStatus, event.reason, event.actorId],
       );
+    });
+  }
+
+  /**
+   * ⚠ 只 UPDATE 通知这三列——流水表本体是 append-only(触发器原样拦所有
+   *   UPDATE,见迁移 `20260815140000_fb2_product_feedback.sql`)。迁移
+   *   `20260902130000_fb2_feedback_status_event_notified_patch` 把触发器改成
+   *   只放行"只碰这三列、且只从 `notified=false` 回填一次"这一种形状的
+   *   UPDATE——本方法发出的正是这种形状,写法对不上（比如漏传 eventId 导致撞了
+   *   别的行,或对同一行调第二次）在数据库层面会被原样拒绝,不是仅凭这里的
+   *   TypeScript 类型签名自觉。
+   */
+  async markStatusEventNotified(
+    eventId: string,
+    notified: boolean,
+    emailSubject: string | null,
+    emailText: string | null,
+  ): Promise<void> {
+    await this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      // ⚠ 必须一并 SET `notification_settled_at = now()`——触发器
+      //   (`20260902140000_fb2_feedback_status_event_notify_settle_once`)拿它当
+      //   "这一行有没有被回填过"的哨兵,与 `notified` 最终是 true 还是 false 无关。
+      //   漏了这一列,这条 UPDATE 会被触发器原样拒绝(NEW.notification_settled_at
+      //   IS NULL),不是"悄悄没生效"。
+      await s.query(
+        `UPDATE product_feedback_status_events
+            SET notified = $3, email_subject = $4, email_text = $5, notification_settled_at = now()
+          WHERE org_id = $2 AND id = $1`,
+        [eventId, this.orgId, notified, emailSubject, emailText],
+      );
+    });
+  }
+
+  async listStatusEvents(feedbackId: string): Promise<readonly StatusEventRow[]> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows } = await s.query<StatusEventDbRow>(
+        `SELECT id, from_status, to_status, reason, actor_id, notified, email_subject, email_text, created_at
+           FROM product_feedback_status_events
+          WHERE org_id = $2 AND feedback_id = $1
+          ORDER BY created_at ASC`,
+        [feedbackId, this.orgId],
+      );
+      return rows.map((r) => ({
+        id: r.id,
+        feedbackId,
+        fromStatus: r.from_status as FeedbackStatus | null,
+        toStatus: r.to_status as FeedbackStatus,
+        reason: r.reason,
+        actorId: r.actor_id,
+        notified: r.notified,
+        emailSubject: r.email_subject,
+        emailText: r.email_text,
+        createdAt: new Date(r.created_at).toISOString(),
+      }));
     });
   }
 

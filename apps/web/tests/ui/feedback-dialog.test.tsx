@@ -38,8 +38,8 @@ function openDialogFor(target: FeedbackTarget, label: string | null = null) {
   fireEvent.click(screen.getByTestId("open-feedback"));
 }
 
-function fillAndSubmit(title: string, detail: string) {
-  fireEvent.change(screen.getByTestId("feedback-title-input"), { target: { value: title } });
+/** 2026-09-02 起表单只有「详细说说」：标题从正文派生（第一句，截到 120 字）。 */
+function fillAndSubmit(detail: string) {
   fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: detail } });
   fireEvent.click(screen.getByTestId("feedback-submit"));
 }
@@ -54,7 +54,7 @@ function mockSubmitThenList(item: Record<string, unknown>) {
 
 const mineItem = {
   id: "fb-new", kind: "缺陷", target: { kind: "product" }, targetLabel: null,
-  title: "点了没反应", detail: "批准卡点了不动", status: "待处理", statusReason: null,
+  title: "点了没反应", detail: "批准卡点了不动", attachments: [], status: "待处理", statusReason: null,
   votes: 0, votedByMe: false, submittedByMe: true,
   occurredRoute: "/chat", appVersion: null, createdAt: "2026-08-15T00:00:00.000Z",
 };
@@ -63,7 +63,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("① 请求体恰好六个字段，没有 submittedBy / status —— 按实际发出的请求断言", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应", "批准卡点了不动");
+    fillAndSubmit("点了没反应。批准卡点了不动");
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     const [path, opts] = apiRequest.mock.calls[0] as [string, { method: string; body: Record<string, unknown> }];
@@ -76,6 +76,9 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(opts.body).not.toHaveProperty("status");
     // I-F1：发生位置由客户端给，且给的是真实当前路由。
     expect(opts.body.occurredRoute).toBe("/chat");
+    // 标题从正文派生：第一句（到第一个句号）。
+    expect(opts.body.title).toBe("点了没反应");
+    expect(opts.body.detail).toBe("点了没反应。批准卡点了不动");
   });
 
   it("② skill 入口发的是 {kind:'skill', skillId}，不是产品级目标", async () => {
@@ -84,7 +87,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     // 标题里要出现目标，否则用户不知道自己在对谁说话。
     expect(screen.getByTestId("feedback-dialog-title").textContent).toContain("会议纪要");
 
-    fillAndSubmit("输出格式不稳", "有时候是表格有时候是段落");
+    fillAndSubmit("输出格式不稳。有时候是表格有时候是段落");
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     const [, opts] = apiRequest.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(opts.body.target).toEqual({ kind: "skill", skillId: "skill-3" });
@@ -93,7 +96,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("② agent 入口发的是 {kind:'agent', agentId}", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "agent", agentId: "agent-7" }, "调研助手");
-    fillAndSubmit("老是漏附件", "上传了三个文件只读了一个");
+    fillAndSubmit("老是漏附件。上传了三个文件只读了一个");
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     const [, opts] = apiRequest.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(opts.body.target).toEqual({ kind: "agent", agentId: "agent-7" });
@@ -102,7 +105,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("③ 提交失败时明确说没有保存，且不切标签页", async () => {
     apiRequest.mockRejectedValue(new Error("boom"));
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应", "批准卡点了不动");
+    fillAndSubmit("点了没反应。批准卡点了不动");
 
     const err = await screen.findByTestId("feedback-submit-error");
     expect(err.textContent).toContain("没有被保存");
@@ -113,7 +116,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("④ 成功后切到「我提过的」，并把刚提交的那条标出来", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应", "批准卡点了不动");
+    fillAndSubmit("点了没反应。批准卡点了不动");
 
     expect(await screen.findByTestId("feedback-mine-list")).toBeTruthy();
     expect(screen.getByTestId("feedback-just-submitted")).toBeTruthy();
@@ -137,11 +140,12 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(notice.textContent).toContain("/chat");
   });
 
-  it("⑤ 标题或正文为空时提交按钮不可点 —— 空反馈进队列等于噪声", () => {
+  it("⑤ 正文为空时提交按钮不可点 —— 空反馈进队列等于噪声；没有单独的标题框", () => {
     openDialogFor({ kind: "product" });
+    expect(screen.queryByTestId("feedback-title-input")).toBeNull();
     const submit = screen.getByTestId("feedback-submit") as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
-    fireEvent.change(screen.getByTestId("feedback-title-input"), { target: { value: "只有标题" } });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "   " } });
     expect((screen.getByTestId("feedback-submit") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "有正文了" } });
     expect((screen.getByTestId("feedback-submit") as HTMLButtonElement).disabled).toBe(false);
@@ -159,5 +163,60 @@ describe("FB-2 反馈弹层（采集侧）", () => {
       </FeedbackProvider>,
     );
     expect(screen.getByTestId("wired-feedback")).toBeTruthy();
+  });
+});
+
+/**
+ * FB-5 补（2026-09-02 devapp 实测复盘）：部署重启窗口里传图/提交，浏览器只给一句
+ * `TypeError: Failed to fetch`——原样显示等于什么都没说，而且失败的图只能删掉重选。
+ * 这里断两件事：⑦ 网络层失败翻成人话；⑧ 失败的图能用当初那个 File 直接重试，重试成功
+ * 之后提交请求体里带上它的 id。
+ */
+describe("FB-5 网络层失败的可读性与重试", () => {
+  it("⑦ 提交遇到 TypeError: Failed to fetch —— 屏上是「无法连接服务器」，不是那行英文", async () => {
+    apiRequest.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    openDialogFor({ kind: "product" });
+    fillAndSubmit("点了没反应。批准卡点了不动");
+    const err = await screen.findByTestId("feedback-submit-error");
+    expect(err.textContent).toContain("无法连接服务器");
+    expect(err.textContent).not.toContain("Failed to fetch");
+    expect(err.textContent).toContain("没有被保存");
+  });
+
+  it("⑧ 传图失败可重试，重试成功后提交带上 attachmentIds", async () => {
+    const createObjectURL = vi.fn(() => "blob:preview");
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({
+        ok: true, status: 201,
+        text: async () => JSON.stringify({ attachmentId: "att-1", url: "/feedback/attachments/att-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      mockSubmitThenList({ ...mineItem, attachments: [] });
+      openDialogFor({ kind: "product" });
+      const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "shot.png", { type: "image/png" });
+      fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: [file] } });
+
+      const errEl = await screen.findByTestId(/^feedback-attachment-error-/);
+      expect(errEl.textContent).toContain("无法连接服务器");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByTestId(/^feedback-attachment-retry-/));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.queryByTestId(/^feedback-attachment-error-/)).toBeNull());
+      // 重试发的是同一个 File（multipart 的 file 字段），不是要求用户重新选。
+      const sentForm = (fetchMock.mock.calls[1]?.[1] as RequestInit).body as FormData;
+      expect((sentForm.get("file") as File).name).toBe("shot.png");
+
+      fillAndSubmit("带图的反馈。见截图");
+      await screen.findByTestId("feedback-just-submitted");
+      const submitCall = apiRequest.mock.calls.find(([, o]) => (o as { method?: string })?.method === "POST");
+      expect((submitCall![1] as { body: { attachmentIds?: string[] } }).body.attachmentIds).toEqual(["att-1"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

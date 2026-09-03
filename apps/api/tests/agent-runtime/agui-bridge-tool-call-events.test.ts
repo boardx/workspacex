@@ -26,6 +26,7 @@ import type { AddressInfo } from "node:net";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventType } from "@ag-ui/core";
+import { AGUI_RUN_PHASE_EVENT_NAME } from "@repo/contracts/agui-state-events";
 import { DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
 import {
   addOrgMember, addProjectMember, asApp, ensureDatabase, migrateOnce, resetOrgs, seedOrg,
@@ -229,7 +230,14 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
     // RUN_STARTED (`onThreadResolved` fires unconditionally before `onStarted`, see
     // agui-bridge.ts / copilotkit-agui.controller.ts's own doc); permanent fixture, not a
     // one-off variant.
-    expect(events.map((e) => e.type)).toEqual([
+    //
+    // `run_phase`（准备阶段进度，context_building / model_thinking）同样是管道事件
+    // （见 agui-bridge-state-events.test.ts 的 PLUMBING_CUSTOM_EVENT_NAMES 头注），出现
+    // 次数取决于轮询命中的时序（0-2 次），因此在这条精确序列断言之前先过滤掉。
+    const nonPhaseEvents = events.filter(
+      (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
+    );
+    expect(nonPhaseEvents.map((e) => e.type)).toEqual([
       EventType.RUN_STARTED,
       EventType.CUSTOM,
       EventType.STEP_STARTED,
@@ -264,7 +272,9 @@ describe("POST /copilotkit/agui -- 真实工具调用产出原生 STEP_*/TOOL_CA
 
     // The planning note is the model's OWN words, visible as real text -- not synthesized.
     // Index 4, not 3: DA-19a's CUSTOM chat_thread_id shifted every following index by one.
-    const planningContent = events[4];
+    // Taken off `nonPhaseEvents`, not `events`: `run_phase` CUSTOM events (filtered above)
+    // would otherwise shift this index unpredictably.
+    const planningContent = nonPhaseEvents[4];
     expect(planningContent?.type).toBe(EventType.TEXT_MESSAGE_CONTENT);
     expect(planningContent?.delta).toBe(PLANNING_NOTE);
 

@@ -3,14 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Ban, Building2, Pencil, RefreshCw } from "lucide-react";
+import { ArrowUpRight, Ban, Globe, Pencil, Rocket } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Pagination, PaginationNext, PaginationPrevious, PaginationStatus } from "@/components/ui/pagination";
+import { CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
-import { currentOrganizationLabel } from "@/lib/org-display";
 import {
   listCapabilities,
   type CapabilityKind,
@@ -18,15 +17,22 @@ import {
   type MutateCapabilityResult,
 } from "@/lib/live-capabilities";
 import {
+  listAgents,
+  selfPublishAgent,
+  setAgentRoleLabel,
+  type AgentListRow,
+} from "@/lib/agent-definition";
+import {
   CapabilityCreatePanel,
   CapabilityDisableDialog,
+  CapabilityEditForm,
+  describeMutateError,
   type MutateContext,
 } from "./capability-mutate";
 import { SkillStarterImportPanel } from "./skill-starter-import-panel";
 import { SkillUrlImportPanel } from "./skill-url-import-panel";
-import { EntityViewToggle } from "./entity-view-toggle";
-
-const PAGE_SIZE = 10;
+import { EntityCatalog, CardActions, tagOf, type CatalogTag } from "./entity-catalog";
+import { KV } from "./panel";
 
 type CatalogKind = Extract<CapabilityKind, "agent" | "skill">;
 type LoadState =
@@ -34,10 +40,28 @@ type LoadState =
   | { readonly sourceKey: string; readonly status: "error"; readonly message: string }
   | { readonly sourceKey: string; readonly status: "ready"; readonly rows: readonly CapabilityListing[] };
 
+/**
+ * F55「可执行 agent 定义」（`GET /agents`，#1915）与 F15「目录条目」（`GET /capabilities`）
+ * 是两张表、两条契约操作（见 `agent-definition-list-panel.tsx` 旧头注）。2026-09-02
+ * 简化后它们**在同一个卡片网格里**各是一种卡片，靠标签「目录条目 / 可执行」区分——
+ * 不再各摆一个列表。这个读取只在 `kind === "agent"` 时发起。
+ */
+type DefinitionState =
+  | { readonly status: "idle" }
+  | { readonly status: "loading" }
+  | { readonly status: "error"; readonly message: string }
+  | { readonly status: "ready"; readonly rows: readonly AgentListRow[] };
+
+type CatalogItem =
+  | { readonly kind: "listing"; readonly key: string; readonly listing: CapabilityListing }
+  | { readonly kind: "definition"; readonly key: string; readonly def: AgentListRow };
+
 const COPY: Record<CatalogKind, { label: string; title: string; singular: string }> = {
   agent: { label: "Agent", title: "Agent 目录", singular: "Agent" },
   skill: { label: "Skill", title: "Skill 目录", singular: "Skill" },
 };
+
+const SCOPE_LABEL = { "org-wide": "全组织可见", "team-only": "仅团队可见" } as const;
 
 /**
  * 正式 Agent / Skill 面：它只画 `CapabilityListing` 有出处的字段。
@@ -46,11 +70,26 @@ const COPY: Record<CatalogKind, { label: string; title: string; singular: string
  * #458 起，管理员多了新增 / 更新 / 停用三个入口，全部打到 `POST /capabilities/mutate`。
  * ⚠ 入口按缓存的 `orgRole` 挂载，那只是**降噪**；真正的拒绝在服务端，
  *   见 `capability-mutate.tsx` 头部与 `apps/api/tests/kernel/capability-mutate-authorization.test.ts`。
+ *
+ * 2026-09-02（人类原话：「简化…为一个卡片的列表，通过一个侧边面板来展示当前的实体的
+ * 内容，可以增加删除修改，并通过 tag 来过滤和搜索」）：布局收敛到 `EntityCatalog`
+ * （参照画布模板库）——分页、卡片/列表切换、常驻展开的新增表单都撤了：
+ *   · 搜索 + 标签筛选替代分页（纯前端本地过滤）；
+ *   · 点卡片打开右侧面板：看字段、就地改名称/可见范围、停用；「编辑」链接仍指向
+ *     独立编辑页（人类 2026-08-17 裁决，skill 的文件树/代码编辑器只在那里）；
+ *   · 新增表单收进弹窗（`CapabilityCreatePanel`），触发按钮挂在头部。
+ * 契约层一字未动：读仍是 `listCapabilities`，写仍只有 `mutateCapability` 一条出口。
  */
 export function CapabilityCatalogScreen({
   kind,
+  headerActions,
+  definitionsRefreshKey = 0,
 }: {
   kind: CatalogKind;
+  /** 头部额外动作（`agent-screen.tsx` 挂「新建 / 导入 Agent」）。 */
+  headerActions?: React.ReactNode;
+  /** 变化即重新拉取 F55 定义列表（新建 / 发布成功后由外层递增）。只对 `kind="agent"` 有意义。 */
+  definitionsRefreshKey?: number;
 }) {
   const { session, identity } = useSession();
   if (!session) throw new Error("CapabilityCatalogScreen requires an authenticated session");
@@ -59,23 +98,23 @@ export function CapabilityCatalogScreen({
    * 人类实测反馈（2026-08-30）：编辑页的「返回」此前写死回 `CapabilityEditPage` 自己
    * 猜的默认目的地，与「真的是从这个屏点进去的」是两回事——见 `capability-edit-page
    * .tsx` 里 `CATALOG_HREF` 头注的完整说法。这里把**当前这个屏自己的 URL**（含
-   * `?screen=catalog` 这类查询参数——同一个组件在 `/admin/agent` 与 `/skill?screen=
-   * catalog` 两个不同 URL 下渲染）编码进 `?from=`，「编辑」链接带着它一起跳转。
+   * `?screen=catalog` 这类查询参数）编码进 `?from=`，「编辑」链接带着它一起跳转。
    */
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const query = searchParams.toString();
   const currentUrl = query === "" ? pathname : `${pathname}?${query}`;
   const editHrefFor = (id: string): string =>
-    `/admin/${kind}/${id}?from=${encodeURIComponent(currentUrl)}`;
+    `/platform-admin/${kind}/${id}?from=${encodeURIComponent(currentUrl)}`;
   const copy = COPY[kind];
   const sourceKey = `${orgId}:${kind}`;
   const prefix = `admin-${kind}`;
   const generation = React.useRef(0);
   const currentSourceKey = React.useRef(sourceKey);
   currentSourceKey.current = sourceKey;
-  const [page, setPage] = React.useState(0);
   const [state, setState] = React.useState<LoadState>({ sourceKey, status: "loading" });
+  const [definitions, setDefinitions] = React.useState<DefinitionState>({ status: "idle" });
+  const [selectedKey, setSelectedKey] = React.useState<string | null>(null);
   const [disablingId, setDisablingId] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
   const [mutateError, setMutateError] = React.useState<string | null>(null);
@@ -89,7 +128,6 @@ export function CapabilityCatalogScreen({
     try {
       const rows = await listCapabilities(orgId, kind);
       if (request !== generation.current || currentSourceKey.current !== sourceKey) return false;
-      setPage(0);
       setState({ sourceKey, status: "ready", rows });
       return true;
     } catch (error) {
@@ -99,10 +137,26 @@ export function CapabilityCatalogScreen({
     }
   }, [kind, orgId, sourceKey]);
 
+  const definitionGeneration = React.useRef(0);
+  const loadDefinitions = React.useCallback(async () => {
+    if (kind !== "agent") return;
+    const request = ++definitionGeneration.current;
+    setDefinitions({ status: "loading" });
+    try {
+      const rows = await listAgents();
+      if (request !== definitionGeneration.current) return;
+      setDefinitions({ status: "ready", rows });
+    } catch (error) {
+      if (request !== definitionGeneration.current) return;
+      setDefinitions({ status: "error", message: describeError(error) });
+    }
+  }, [kind]);
+
   React.useEffect(() => {
     // 换组织 = 上一组织的写入口状态全部作废，包括那条「N 个调用被中断」的提示：
     // 它说的是另一个组织发生过的事，留在屏幕上就是一句张冠李戴的事实。
     setDisablingId(null);
+    setSelectedKey(null);
     setNotice(null);
     setMutateError(null);
     void load();
@@ -110,6 +164,13 @@ export function CapabilityCatalogScreen({
       generation.current += 1;
     };
   }, [load]);
+
+  React.useEffect(() => {
+    void loadDefinitions();
+    return () => {
+      definitionGeneration.current += 1;
+    };
+  }, [loadDefinitions, definitionsRefreshKey, orgId]);
 
   // 只有管理员挂载写入口——**降噪，不是权限**。裁决在服务端，见文件头。
   const canMutate = identity?.orgRole === "admin";
@@ -128,247 +189,218 @@ export function CapabilityCatalogScreen({
 
   // Effects run after paint. A source mismatch must therefore fail closed during render itself;
   // otherwise a newly selected organization can briefly inherit the previous organization's rows.
-  const visibleState: LoadState = state.sourceKey === sourceKey
-    ? state
-    : { sourceKey, status: "loading" };
-  const rows = visibleState.status === "ready" ? visibleState.rows : [];
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const visibleRows = rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const visibleState: LoadState = React.useMemo(
+    () => (state.sourceKey === sourceKey ? state : { sourceKey, status: "loading" }),
+    [state, sourceKey],
+  );
+  const listings = React.useMemo(
+    () => (visibleState.status === "ready" ? visibleState.rows : []),
+    [visibleState],
+  );
+  const definitionRows = React.useMemo(
+    () => (definitions.status === "ready" ? definitions.rows : []),
+    [definitions],
+  );
+  const items = React.useMemo<readonly CatalogItem[]>(
+    () => [
+      ...listings.map((listing): CatalogItem => ({ kind: "listing", key: listing.id, listing })),
+      ...definitionRows.map((def): CatalogItem => ({ kind: "definition", key: `def:${def.agentId}`, def })),
+    ],
+    [listings, definitionRows],
+  );
   // 从**当前这批 rows** 里找，而不是把点击时的那一份存进 state：
   // 后者会在刷新之后继续指着一条服务端已经改掉的记录。
-  const disablingRow = rows.find((r) => r.id === disablingId) ?? null;
+  const disablingRow = listings.find((r) => r.id === disablingId) ?? null;
 
-  /**
-   * 卡片 / 列表两态**渲染同一个 `CapabilityRow`**——它本来就已经是一张 `<Card>`，
-   * 差别只在外层是网格排列（卡片态）还是单列纵向排列（列表态，即改动前的原始布局）。
-   * 这样切换视图不改变任何一行内部的结构与 testid，编辑 / 停用逻辑原样复用。
-   */
-  /**
-   * 人类反馈（2026-08-17）：点击「编辑」应该打开一个新的界面，而不是在当前列表页里
-   * 内联展开——`CapabilityRow` 因此不再自己维护 `editing` 状态，「编辑」按钮直接是
-   * 一条指向 `/admin/[kind]/[id]` 的链接（`CapabilityEditPage`，见该文件头注）。
-   */
-  function renderCapabilityRow(row: CapabilityListing) {
-    return (
-      <CapabilityRow
-        row={row}
-        prefix={prefix}
-        editHref={editHrefFor(row.id)}
-        canMutate={canMutate}
-        onDisable={() => {
-          setNotice(null);
-          setMutateError(null);
-          setDisablingId(row.id);
-        }}
-      />
-    );
+  const tagsOf = React.useCallback((item: CatalogItem): readonly CatalogTag[] => {
+    if (item.kind === "listing") {
+      const r = item.listing;
+      return [
+        ...(kind === "agent" ? [{ key: "listing", label: "目录条目" }] : []),
+        tagOf(r.scope, SCOPE_LABEL[r.scope]),
+        r.enabled ? tagOf("已启用") : tagOf("已停用"),
+      ];
+    }
+    const d = item.def;
+    return [
+      { key: "executable", label: "可执行" },
+      tagOf(d.visibility),
+      tagOf(d.publishState),
+    ];
+  }, [kind]);
+
+  const searchTextOf = React.useCallback((item: CatalogItem): string => {
+    if (item.kind === "listing") {
+      const r = item.listing;
+      return [r.name, r.id, r.endpoint ?? "", r.disabledReason ?? ""].join(" ");
+    }
+    const d = item.def;
+    return [d.name, d.agentId, d.initials, d.role, d.roleLabel].join(" ");
+  }, []);
+
+  function openDisable(row: CapabilityListing) {
+    setNotice(null);
+    setMutateError(null);
+    setSelectedKey(row.id);
+    setDisablingId(row.id);
   }
 
   return (
-    <div className="flex flex-col gap-5 p-6" data-testid={`${prefix}-catalog`}>
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-        <div className="flex items-center gap-2">
+    <EntityCatalog<CatalogItem>
+      prefix={prefix}
+      rootTestId={`${prefix}-catalog`}
+      title={copy.title}
+      description="这里只展示可选择的目录记录；出现在目录中不代表已经具备可执行的 AgentRun 或 Skill 运行时。点卡片打开右侧面板查看与修改。"
+      eyebrow={
+        <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
+          {/* 2026-09-02 第二次裁决：AI 能力归平台后台——页头与 `admin-header.tsx` 的
+              `hideOrgIdentity` 分支同形：平台标记 + 模块徽标，不再挂「组织：xxx / 组织 ID」
+              身份卡（数据读取仍按当前组织走 RLS，只是呈现上这不是一项组织级配置）。 */}
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-inverse text-inverse-foreground">
-            <Building2 aria-hidden className="h-4 w-4" />
+            <Globe aria-hidden className="h-4 w-4" />
           </span>
-          <div className="flex flex-col">
-            {/* #596：身份未就绪时显示加载态，**不拿 orgId 冒充组织名** —— 下一行本来就单独列了组织 ID。 */}
-            <span className="text-14 font-semibold">{currentOrganizationLabel(identity?.org.name)}</span>
-            <span className="font-mono text-10 text-muted-foreground">组织 ID {orgId}</span>
-          </div>
+          <span className="text-14 font-semibold" data-testid={`${prefix}-platform-label`}>平台运营</span>
           <Badge tone="outline">{copy.label}</Badge>
         </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => void load()}
-          disabled={visibleState.status === "loading"}
-          data-testid={`${prefix}-refresh`}
-        >
-          <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-          {visibleState.status === "loading" ? "加载中…" : "刷新"}
-        </Button>
-      </header>
-
-      <div className="flex flex-col gap-1">
-        <h1 className="text-20 font-semibold tracking-tight">{copy.title}</h1>
-        <p className="text-13 text-muted-foreground">
-          这里只展示可选择的目录记录；出现在目录中不代表已经具备可执行的 AgentRun 或 Skill 运行时。
-        </p>
-      </div>
-
-      {kind === "skill" && canMutate ? (
-        <SkillStarterImportPanel key={sourceKey} onImported={load} />
-      ) : null}
-
-      {/*
-        #881 F2：从 URL 导入。后端 `POST /admin/skills/url-imports`（#595）早就接好，
-        此前 `apps/web` 零调用，用户在后台只能导 starter pack。
-        ⚠ key 与上面那块必须不同（注意：不是可选项）——理由见下面那段注释：
-          同一 key 会让换组织时不重挂载，上一组织填了一半的输入会留在新组织的界面上。
-      */}
-      {kind === "skill" && canMutate ? (
-        <SkillUrlImportPanel key={`${sourceKey}:url-import`} onImported={load} />
-      ) : null}
-
-      {/*
-        ⚠ key 必须与上面那块的 key「不同」。两个兄弟节点用同一个 key 时 React 会把它们
-        当成同一个位置的同一个东西，换组织时上面那块就不再重挂载——上一组织填了一半的
-        starter pack 坐标会原样留在新组织的界面上。这不是推演：`skill-starter-import.test.tsx`
-        的换组织那条在本次改动里当场红了，就是因为第一版两处都写了 `key={sourceKey}`。
-      */}
-      {/*
-        issue #1745 次要问题 2——`/admin/agent` 页面同时挂着两个都叫"新建/新增 Agent"
-        的入口：上面 `AgentScreen` 的"新建 / 导入 Agent"（写 `agents`/`agent_versions`，
-        走 `createAgent` → 双人评审/自助发布才能真正可执行）与下面这个
-        `CapabilityCreatePanel`（直接 INSERT `capability_listings`，没有任何
-        `agents`/`agent_versions` 行背书）。两者界面上此前没有任何区分，用户随机点中
-        后者建出来的"agent"能进 chat 编制选择器（`enabled=true` 就够），但一发消息就是
-        422 `AGENT_NOT_FOUND`——这正是 #1745 描述的"两条路径都能跑，但拼不出一个真正
-        可用的 agent"里的一半。
-        本次只做"界面消歧"（#1745 给出的两个选项之一），不下线这个入口——它是否还有
-        legitimate 用途（如运维手动登记一个已经在别处发布好、只是想改个展示名的
-        agent）、要不要连带收紧后端 `mutateCapability` 校验，属于 #1745 主线收敛要
-        处理的更大范围，本次不顺手扩大改动面。
-      */}
-      {canMutate && kind === "agent" ? (
-        <p
-          className="text-12 text-muted-foreground"
-          data-testid={`${prefix}-create-agent-caveat`}
-        >
-          ⚠ 这里新增的是目录条目本身，不会创建可执行的 agent——它不会自动获得
-          `agents`/`agent_versions` 记录，选中它发消息会失败。要新建一个真正能对话的
-          agent，请用上方「新建 / 导入 Agent」。
-        </p>
-      ) : null}
-      {/*
-       * ⚠ 2026-09-03 补——`CapabilityCreatePanel` 对 `kind === "skill"` 就是 #1745
-       * 描述的同一个陷阱，且比 agent 那边更彻底：`POST /capabilities/mutate` 的
-       * `op: "add"` 只 INSERT 一行 `capability_listings`（`mutate-capability.ts`
-       * `op === "add"` 分支），从不写 `skills`/`skill_versions`——建出来的这一行
-       * 在目录里看起来和真实导入的 skill 一模一样、能被挂载（`enabled=true` 就够），
-       * 但没有任何源码文件：打开「编辑源码」会撞上 `getAssetDirectory` 404
-       * （见 `ag-screens.tsx` 的 `liveError` 分支），挂进 chat 执行会
-       * `SKILL_VERSION_UNAVAILABLE`。
-       *
-       * agent 那边选择"留着入口 + 加提示"，是因为它承认了一种合法用途——运维手动
-       * 登记一个已经在别处发布好、只是想改展示名的 agent（见上面那段注释）。skill
-       * 没有这种对应场景：模型 B 的声明式创建路径已经冻结（`POST /skills` 恒
-       * `410 SKILL_DRAFT_WRITE_PATH_FROZEN`，`skill.controller.ts`），一个 skill
-       * 要有真实可执行的内容，今天只有这个页面上方已经挂着的两条路径——
-       * `SkillStarterImportPanel`/`SkillUrlImportPanel`。二者都已经在写
-       * `capability_listings` 的同一事务里把 `skills`/`skill_versions` 也建出来，
-       * 没有留下"先建目录条目、内容以后再补"这种中间态需要这个入口来补。按本仓
-       * 「宁可显式禁用并说明，不放一个点了没反应/报假错的按钮」的纪律，
-       * 对 skill 直接不挂载这个入口，而不是也加一句大概率被忽略的提示文字。
-       */}
-      {canMutate && kind === "skill" ? (
-        <p
-          className="text-12 text-muted-foreground"
-          data-testid={`${prefix}-create-skill-hidden-note`}
-        >
-          Skill 没有单独的「新增目录条目」入口——新建 skill 请用上方「从 GitHub /
-          URL 导入」或「从 starter pack 导入」，两者才会真正写入可执行的源码文件。
-        </p>
-      ) : null}
-      {canMutate && kind !== "skill" ? <CapabilityCreatePanel key={`${sourceKey}:create`} ctx={ctx} /> : null}
-
-      {notice ? (
-        <p data-testid={`${prefix}-mutate-notice`} className="text-12 text-muted-foreground">
-          {notice}
-        </p>
-      ) : null}
-
-      {mutateError ? (
-        <p data-testid={`${prefix}-mutate-error`} className="text-12 text-destructive">
-          操作失败：{mutateError}
-        </p>
-      ) : null}
-
-      {canMutate && disablingRow ? (
-        <CapabilityDisableDialog
-          ctx={ctx}
-          row={disablingRow}
-          onClose={() => setDisablingId(null)}
-          onFailed={(message) => {
-            setNotice(null);
-            setMutateError(message);
-          }}
-        />
-      ) : null}
-
-      {visibleState.status === "loading" ? (
-        <div
-          data-testid={`${prefix}-loading`}
-          className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
-        >
-          正在读取当前组织的 {copy.label} 目录…
-        </div>
-      ) : null}
-
-      {visibleState.status === "error" ? (
-        <div className="flex flex-col items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
-          <p data-testid={`${prefix}-error`} className="text-12 text-destructive">
-            {copy.label} 目录读取失败：{visibleState.message}
-          </p>
-          <Button size="sm" variant="outline" onClick={() => void load()} data-testid={`${prefix}-retry`}>
-            重试
-          </Button>
-        </div>
-      ) : null}
-
-      {visibleState.status === "ready" && rows.length === 0 ? (
-        <div
-          data-testid={`${prefix}-empty`}
-          className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
-        >
-          当前组织还没有 {copy.label} 目录项。
-        </div>
-      ) : null}
-
-      {visibleState.status === "ready" && rows.length > 0 ? (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-12 text-muted-foreground">
-            <span>共 {rows.length} 条组织目录记录</span>
-            <PaginationStatus data-testid={`${prefix}-page-status`}>第 {page + 1} / {pageCount} 页</PaginationStatus>
-          </div>
-          {/*
-            人类原话（2026-08-15）：「后台的管理功能…左边还是保留一个 column 显示当前的
-            后台菜单，右边列出卡片来表达当前的 entity 的列表，卡片也可以切换为列表」。
-            ⚠ 两个 testid 都指回改动前就存在的 `${prefix}-list`——不管当前选的是卡片还是
-              列表视图，容器 testid 都不变，`capability-catalog-*.test.tsx` 等既有测试
-              不需要跟着这次改动重写。
-          */}
-          <EntityViewToggle
-            prefix={prefix}
-            entities={visibleRows}
-            keyOf={(row) => row.id}
-            renderCard={renderCapabilityRow}
-            renderListRow={renderCapabilityRow}
-            cardContainerTestId={`${prefix}-list`}
-            listContainerTestId={`${prefix}-list`}
-          />
-          {pageCount > 1 ? (
-            <Pagination aria-label={`${copy.label}分页`} className="justify-end">
-              <PaginationPrevious
-                disabled={page === 0}
-                onClick={() => setPage((value) => Math.max(0, value - 1))}
-                data-testid={`${prefix}-previous-page`}
-              />
-              <PaginationNext
-                disabled={page + 1 >= pageCount}
-                onClick={() => setPage((value) => Math.min(pageCount - 1, value + 1))}
-                data-testid={`${prefix}-next-page`}
-              />
-            </Pagination>
+      }
+      headerActions={
+        canMutate ? (
+          <>
+            {headerActions}
+            {/*
+             * ⚠ 2026-09-03 补——`CapabilityCreatePanel` 对 `kind === "skill"` 是
+             * #1745 描述的同一个陷阱，且比 agent 那边更彻底：`POST /capabilities/mutate`
+             * 的 `op: "add"` 只 INSERT 一行 `capability_listings`（`mutate-capability.ts`
+             * `op === "add"` 分支），从不写 `skills`/`skill_versions`——建出来的这一行
+             * 在目录里看起来和真实导入的 skill 一模一样、能被挂载（`enabled=true` 就够），
+             * 但没有任何源码文件：打开「编辑源码」会撞上 `getAssetDirectory` 404
+             * （见 `ag-screens.tsx` 的 `liveError` 分支），挂进 chat 执行会
+             * `SKILL_VERSION_UNAVAILABLE`。
+             *
+             * agent 那边保留入口 + 弹窗内加提示（`capability-mutate.tsx` 的
+             * `create-agent-caveat`），是因为它承认了一种合法用途——运维手动登记一个
+             * 已经在别处发布好、只是想改展示名的 agent。skill 没有这种对应场景：
+             * 模型 B 的声明式创建路径已经冻结（`POST /skills` 恒
+             * `410 SKILL_DRAFT_WRITE_PATH_FROZEN`），一个 skill 要有真实可执行的内容，
+             * 今天只有下面 `notices` 里已经挂着的两条路径——
+             * `SkillStarterImportPanel`/`SkillUrlImportPanel`，二者都已经在写
+             * `capability_listings` 的同一事务里把 `skills`/`skill_versions` 也建出来。
+             * 按本仓「宁可显式禁用并说明，不放一个点了没反应/报假错的按钮」的纪律，
+             * 对 skill 直接不挂载这个入口。
+             */}
+            {kind !== "skill" ? <CapabilityCreatePanel key={`${sourceKey}:create`} ctx={ctx} /> : null}
+          </>
+        ) : headerActions
+      }
+      notices={
+        <>
+          {kind === "skill" && canMutate ? (
+            <p
+              className="text-12 text-muted-foreground"
+              data-testid={`${prefix}-create-skill-hidden-note`}
+            >
+              Skill 没有单独的「新增目录条目」入口——新建 skill 请用下方「从 GitHub /
+              URL 导入」或「从 starter pack 导入」，两者才会真正写入可执行的源码文件。
+            </p>
           ) : null}
-        </div>
-      ) : null}
-    </div>
+          {kind === "skill" && canMutate ? <SkillStarterImportPanel key={sourceKey} onImported={load} /> : null}
+          {/*
+            ⚠ key 与上面那块必须不同——两个兄弟节点用同一个 key 时 React 会把它们
+            当成同一个位置的同一个东西，换组织时上面那块就不再重挂载，上一组织填了
+            一半的输入会留在新组织的界面上（`skill-starter-import.test.tsx` 当场红过）。
+          */}
+          {kind === "skill" && canMutate ? <SkillUrlImportPanel key={`${sourceKey}:url-import`} onImported={load} /> : null}
+          {definitions.status === "error" ? (
+            <p data-testid={`${prefix}-definition-list-error`} className="text-12 text-destructive">
+              可执行 Agent 定义读取失败：{definitions.message}（目录条目不受影响）
+            </p>
+          ) : null}
+          {notice ? (
+            <p data-testid={`${prefix}-mutate-notice`} className="text-12 text-muted-foreground">
+              {notice}
+            </p>
+          ) : null}
+          {mutateError ? (
+            <p data-testid={`${prefix}-mutate-error`} className="text-12 text-destructive">
+              操作失败：{mutateError}
+            </p>
+          ) : null}
+        </>
+      }
+      status={
+        visibleState.status === "ready"
+          ? { kind: "ready" }
+          : visibleState.status === "error"
+            ? { kind: "error", message: visibleState.message }
+            : { kind: "loading" }
+      }
+      rows={items}
+      keyOf={(item) => item.key}
+      searchTextOf={searchTextOf}
+      tagsOf={tagsOf}
+      cardTestId={(item) => (item.kind === "listing" ? `${prefix}-row-${item.listing.id}` : `${prefix}-definition-${item.def.agentId}`)}
+      renderCard={(item) =>
+        item.kind === "listing" ? (
+          <ListingCard
+            row={item.listing}
+            prefix={prefix}
+            editHref={editHrefFor(item.listing.id)}
+            canMutate={canMutate}
+            onDisable={() => openDisable(item.listing)}
+          />
+        ) : (
+          <DefinitionCard row={item.def} prefix={prefix} />
+        )
+      }
+      onRefresh={() => {
+        void load();
+        void loadDefinitions();
+      }}
+      emptyState={`当前组织还没有 ${copy.label} 目录项。`}
+      searchPlaceholder={`按名字、ID 或职责搜索 ${copy.label}…`}
+      selectedKey={selectedKey}
+      onSelect={(key) => {
+        setSelectedKey(key);
+        if (key === null) setDisablingId(null);
+      }}
+      detailTitle={(item) => (item.kind === "listing" ? item.listing.name : item.def.name)}
+      detailSubtitle={(item) => (item.kind === "listing" ? `目录条目 · ${item.listing.id}` : `可执行 Agent 定义 · ${item.def.agentId}`)}
+      renderDetail={(item) =>
+        item.kind === "listing" ? (
+          <ListingDetail
+            row={item.listing}
+            ctx={ctx}
+            canMutate={canMutate}
+            editHref={editHrefFor(item.listing.id)}
+            disabling={disablingRow?.id === item.listing.id ? disablingRow : null}
+            onRequestDisable={() => openDisable(item.listing)}
+            onCancelDisable={() => setDisablingId(null)}
+            onDisableFailed={(message) => {
+              setNotice(null);
+              setMutateError(message);
+            }}
+            onClose={() => setSelectedKey(null)}
+          />
+        ) : (
+          <DefinitionDetail
+            row={item.def}
+            prefix={prefix}
+            canMutate={canMutate}
+            onChanged={(message) => {
+              setMutateError(null);
+              setNotice(message);
+              void loadDefinitions();
+            }}
+          />
+        )
+      }
+    />
   );
 }
 
-function CapabilityRow({
+/* ───────────────────────── 卡片 ───────────────────────── */
+
+function ListingCard({
   row, prefix, editHref, canMutate, onDisable,
 }: {
   row: CapabilityListing;
@@ -379,42 +411,232 @@ function CapabilityRow({
   onDisable(): void;
 }) {
   return (
-    <Card data-testid={`${prefix}-row-${row.id}`}>
-      <CardContent className="flex flex-wrap items-center gap-3 p-4">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="truncate text-13 font-medium">{row.name}</span>
-          <span className="font-mono text-10 text-muted-foreground">{row.id}</span>
-        </div>
-        <Badge tone="outline">{row.scope === "org-wide" ? "全组织可见" : "仅团队可见"}</Badge>
+    <CardContent className="flex h-full flex-col gap-2 pt-4">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-13 font-medium">{row.name}</span>
+        <span className="truncate font-mono text-10 text-muted-foreground">{row.id}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge tone="outline">{SCOPE_LABEL[row.scope]}</Badge>
         <Badge tone={row.enabled ? "primary" : "outline"}>{row.enabled ? "已启用" : "已停用"}</Badge>
-        {!row.enabled && row.disabledReason ? (
-          <span className="w-full text-11 text-muted-foreground sm:w-auto">{row.disabledReason}</span>
-        ) : null}
-        {row.endpoint ? <span className="w-full truncate font-mono text-10 text-muted-foreground">{row.endpoint}</span> : null}
-        {canMutate ? (
-          <div className="flex shrink-0 gap-2">
-            <Button asChild size="sm" variant="outline" data-testid={`${prefix}-row-${row.id}-edit`}>
-              <Link href={editHref}>
-                <Pencil aria-hidden className="h-3.5 w-3.5" />
-                编辑
-              </Link>
+      </div>
+      {!row.enabled && row.disabledReason ? (
+        <span className="text-11 text-muted-foreground">{row.disabledReason}</span>
+      ) : null}
+      {row.endpoint ? <span className="truncate font-mono text-10 text-muted-foreground">{row.endpoint}</span> : null}
+      {canMutate ? (
+        <CardActions className="mt-auto pt-1">
+          <Button asChild size="xs" variant="outline" data-testid={`${prefix}-row-${row.id}-edit`}>
+            <Link href={editHref}>
+              <Pencil aria-hidden className="h-3 w-3" />
+              编辑
+            </Link>
+          </Button>
+          {/* 已停用的记录没有「再停用一次」——那会写出一条什么都没改变的 provenance 记录。 */}
+          {row.enabled ? (
+            <Button size="xs" variant="outline" onClick={onDisable} data-testid={`${prefix}-row-${row.id}-disable`}>
+              <Ban aria-hidden className="h-3 w-3" />
+              停用
             </Button>
-            {/* 已停用的记录没有「再停用一次」——那会写出一条什么都没改变的 provenance 记录。 */}
-            {row.enabled ? (
+          ) : null}
+        </CardActions>
+      ) : null}
+    </CardContent>
+  );
+}
+
+function DefinitionCard({ row, prefix }: { row: AgentListRow; prefix: string }) {
+  return (
+    <CardContent className="flex h-full flex-col gap-2 pt-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-10 font-semibold text-muted-foreground">
+          {row.initials}
+        </span>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-13 font-medium" data-testid={`${prefix}-definition-${row.agentId}-name`}>{row.name}</span>
+          <span className="truncate text-11 text-muted-foreground">{row.roleLabel || row.role}</span>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Badge tone="ai">可执行</Badge>
+        <Badge tone="outline">{row.visibility}</Badge>
+        <Badge tone={row.publishState === "运行中" ? "primary" : "outline"} data-testid={`${prefix}-definition-${row.agentId}-state`}>
+          {row.publishState}
+        </Badge>
+      </div>
+      <span className="text-11 text-muted-foreground">{row.skillCount} 个 skill 挂载</span>
+    </CardContent>
+  );
+}
+
+/* ───────────────────────── 面板 ───────────────────────── */
+
+function ListingDetail({
+  row, ctx, canMutate, editHref, disabling, onRequestDisable, onCancelDisable, onDisableFailed, onClose,
+}: {
+  row: CapabilityListing;
+  ctx: MutateContext;
+  canMutate: boolean;
+  editHref: string;
+  disabling: CapabilityListing | null;
+  onRequestDisable(): void;
+  onCancelDisable(): void;
+  onDisableFailed(message: string): void;
+  onClose(): void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col divide-y divide-border-subtle">
+        <KV k="名称" v={row.name} />
+        <KV k="ID" v={<span className="font-mono text-11">{row.id}</span>} />
+        <KV k="可见范围" v={SCOPE_LABEL[row.scope]} />
+        <KV k="状态" v={row.enabled ? "已启用" : `已停用${row.disabledReason ? ` · ${row.disabledReason}` : ""}`} />
+        {row.endpoint ? <KV k="端点" v={<span className="font-mono text-11">{row.endpoint}</span>} /> : null}
+      </div>
+
+      {canMutate && disabling ? (
+        <CapabilityDisableDialog
+          ctx={ctx}
+          row={disabling}
+          onClose={onCancelDisable}
+          onFailed={onDisableFailed}
+        />
+      ) : null}
+
+      {canMutate ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-10 uppercase tracking-wide text-muted-foreground">修改名称 / 可见范围</span>
+          <CapabilityEditForm ctx={ctx} row={row} onClose={onClose} />
+        </div>
+      ) : (
+        <p className="text-11 text-muted-foreground">只有组织管理员可以修改 {ctx.singular} 目录项。</p>
+      )}
+
+      {canMutate ? (
+        <div className="flex flex-wrap items-center gap-2 border-t border-border-subtle pt-3">
+          <Button asChild size="xs" variant="outline" data-testid={`${ctx.prefix}-detail-open-editor`}>
+            <Link href={editHref}>
+              打开完整编辑页
+              <ArrowUpRight aria-hidden className="h-3 w-3" />
+            </Link>
+          </Button>
+          {row.enabled && !disabling ? (
+            <Button size="xs" variant="outline" onClick={onRequestDisable} data-testid={`${ctx.prefix}-detail-disable`}>
+              <Ban aria-hidden className="h-3 w-3" />
+              停用（从目录移除）
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {/*
+        契约 `mutateCapability` 只有 add / update / disable 三个 op，没有硬删除：
+        「停用」就是把它从可选目录里移走、并写一条 provenance——这里如实叫停用，
+        不画一个其实只是停用的「删除」按钮。
+      */}
+      <p className="text-10 text-muted-foreground">
+        目录没有永久删除——「停用」把它移出可选目录并写审计，是这条契约里唯一的移除方式。
+      </p>
+    </div>
+  );
+}
+
+/**
+ * F55 定义面板：字段来自 `listAgents` 的返回，一字不添。可改的只有后端本轮真接了
+ * PATCH 的 `roleLabel`（`setAgentRoleLabel`）；「发布」走 `selfPublishAgent`。
+ * 指令原文契约没暴露读路径，这里不摆一个会把它清空的编辑框。
+ */
+function DefinitionDetail({
+  row, prefix, canMutate, onChanged,
+}: {
+  row: AgentListRow;
+  prefix: string;
+  canMutate: boolean;
+  onChanged(message: string): void;
+}) {
+  const [roleLabel, setRoleLabel] = React.useState(row.roleLabel);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  React.useEffect(() => setRoleLabel(row.roleLabel), [row.agentId, row.roleLabel]);
+  const id = `${prefix}-definition-${row.agentId}`;
+  const dirty = roleLabel.trim() !== row.roleLabel;
+
+  async function act(what: string, run: () => Promise<string>) {
+    setBusy(true);
+    setError(null);
+    try {
+      onChanged(await run());
+    } catch (e) {
+      setError(`${what}失败：${describeMutateError(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col divide-y divide-border-subtle">
+        <KV k="名称" v={row.name} />
+        <KV k="Agent ID" v={<span className="font-mono text-11">{row.agentId}</span>} />
+        <KV k="缩写" v={row.initials} />
+        <KV k="角色" v={row.role} />
+        <KV k="可见范围" v={row.visibility} />
+        <KV k="发布状态" v={row.publishState} />
+        <KV k="模型" v={row.modelId ?? "未指定"} />
+        <KV k="挂载 skill" v={`${row.skillCount} 个`} />
+      </div>
+      {canMutate ? (
+        <div className="flex flex-col gap-2">
+          <label className="flex flex-col gap-1 text-12" htmlFor={`${id}-role-label`}>
+            <span className="text-10 uppercase tracking-wide text-muted-foreground">角色头衔</span>
+            <Input
+              id={`${id}-role-label`}
+              value={roleLabel}
+              onChange={(e) => setRoleLabel(e.target.value)}
+              disabled={busy}
+              data-testid={`${id}-role-label`}
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="xs"
+              disabled={busy || !dirty || roleLabel.trim() === ""}
+              onClick={() =>
+                void act("保存", async () => {
+                  await setAgentRoleLabel(row.agentId, roleLabel.trim());
+                  return `已更新「${row.name}」的角色头衔`;
+                })
+              }
+              data-testid={`${id}-save`}
+            >
+              保存头衔
+            </Button>
+            {row.publishState === "草稿" ? (
               <Button
-                size="sm"
+                size="xs"
                 variant="outline"
-                onClick={onDisable}
-                data-testid={`${prefix}-row-${row.id}-disable`}
+                disabled={busy}
+                onClick={() =>
+                  void act("发布", async () => {
+                    const out = await selfPublishAgent(row.agentId);
+                    return `已发布「${row.name}」：${out.publishState}`;
+                  })
+                }
+                data-testid={`${id}-publish`}
               >
-                <Ban aria-hidden className="h-3.5 w-3.5" />
-                停用
+                <Rocket aria-hidden className="h-3 w-3" />
+                自助发布
               </Button>
             ) : null}
           </div>
-        ) : null}
-      </CardContent>
-    </Card>
+          {error ? (
+            <p role="alert" className="text-11 text-destructive" data-testid={`${id}-error`}>{error}</p>
+          ) : null}
+          <p className="text-10 text-muted-foreground">
+            契约里没有删除 agent 定义的操作；停用走「运行中 → 已停用」的状态机，本轮前端未接线。
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

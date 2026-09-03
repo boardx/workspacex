@@ -109,7 +109,7 @@ export function TemplateDisplayPanel({
                 平分会窄到点不准，换行成两排更好按。 */}
             <div className="flex flex-wrap gap-1.5">
               {COLS_OPTIONS.map((n) => {
-                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, gridCols, size: paperSize }).noteMm;
+                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, max: layout.max, gridCols, size: paperSize }).noteMm;
                 const on = layout.cols === n;
                 return (
                   <button
@@ -130,9 +130,10 @@ export function TemplateDisplayPanel({
                       ))}
                     </span>
                     <span className={`text-10 font-bold ${on ? "text-foreground" : "text-muted-foreground"}`}>{n} 列</span>
-                    {/* 每个候选都标同一个 mm 数——贴纸实尺固定（`STANDARD_NOTE_MM`），
-                        列数只决定一行摆几张，不再像 issue #2368 之前那样随列数变化
-                        （2026-08-30：「一列的时候，大小也是固定的」）。 */}
+                    {/* 每个候选各标各的 mm 数——贴纸实尺随列数缩放（`sectionGeometryMm`
+                        的 `noteMm = min(MAX_NOTE_MM, wMm/cols)`），列数越多单张贴纸越小，
+                        2026-09-01 推翻了 2026-08-30「固定不变」的约定，理由见
+                        `explicit-template-layout.ts` 的 `MAX_NOTE_MM` 文档。 */}
                     <span className="text-9 text-muted-foreground">{mm}mm</span>
                   </button>
                 );

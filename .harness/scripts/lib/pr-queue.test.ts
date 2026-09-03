@@ -13,6 +13,7 @@ import {
   PR_QUEUE_STATES,
   REQUIRED_CHECKS,
   classifyPr,
+  statusContextToCheck,
   mergeAuthorization,
   parseClosesIssues,
   parseRefsIssues,
@@ -191,6 +192,52 @@ describe("#451 PR 队列状态机", () => {
       checks: [{ name: REQUIRED_CHECKS[0], status: "COMPLETED", conclusion: "SOMETHING_NEW" }],
     });
     expect(got.state).toBe("MERGE_BLOCKED");
+  });
+
+  it("未知的 check 结论在非必需 check 上同样不放行（fail-closed，独立审 #2541 六轮）", () => {
+    const base = greenFacts();
+    const got = classifyPr({ ...base, checks: [...base.checks, { name: "some/bot", status: "COMPLETED", conclusion: "SOMETHING_NEW" }] });
+    expect(got.state).toBe("MERGE_BLOCKED");
+    expect(got.reasons.join("\n")).toContain("`some/bot` 结论 SOMETHING_NEW 不在已知取值内");
+  });
+
+  describe("StatusContext（commit status）五个 GitHub state 的语义映射 + 活 classifyPr 对照", () => {
+    it("statusContextToCheck：SUCCESS 通过、FAILURE/ERROR 红、PENDING/EXPECTED 未出结论、其余未知", () => {
+      expect(statusContextToCheck("c", "SUCCESS")).toEqual({ name: "c", status: "COMPLETED", conclusion: "SUCCESS" });
+      expect(statusContextToCheck("c", "success")).toEqual({ name: "c", status: "COMPLETED", conclusion: "SUCCESS" });
+      expect(statusContextToCheck("c", "FAILURE")).toEqual({ name: "c", status: "COMPLETED", conclusion: "FAILURE" });
+      expect(statusContextToCheck("c", "ERROR")).toEqual({ name: "c", status: "COMPLETED", conclusion: "ERROR" });
+      expect(statusContextToCheck("c", "PENDING")).toEqual({ name: "c", status: "PENDING", conclusion: null });
+      expect(statusContextToCheck("c", "EXPECTED")).toEqual({ name: "c", status: "PENDING", conclusion: null });
+      expect(statusContextToCheck("c", null)).toEqual({ name: "c", status: "UNKNOWN", conclusion: "UNKNOWN_STATE(null)" });
+      expect(statusContextToCheck("c", "bogus")).toEqual({ name: "c", status: "UNKNOWN", conclusion: "UNKNOWN_STATE(bogus)" });
+    });
+
+    const live = (context: string, state: string | null) => {
+      const base = greenFacts();
+      return classifyPr({ ...base, checks: [...base.checks, statusContextToCheck(context, state)] });
+    };
+
+    it("非必需 context：SUCCESS 放行；FAILURE / ERROR 退回 worker；PENDING / EXPECTED 不拦非必需；未知 → 拦", () => {
+      expect(live("coord/andon", "SUCCESS").state).toBe("READY_TO_MERGE");
+      expect(live("coord/andon", "FAILURE").state).toBe("CHANGES_REQUIRED");
+      expect(live("coord/andon", "ERROR").state).toBe("CHANGES_REQUIRED");
+      expect(live("coord/andon", "PENDING").state).toBe("READY_TO_MERGE");
+      expect(live("coord/andon", "EXPECTED").state).toBe("READY_TO_MERGE");
+      expect(live("coord/andon", "bogus").state).toBe("MERGE_BLOCKED");
+      expect(live("coord/andon", null).state).toBe("MERGE_BLOCKED");
+    });
+
+    it("同名 required 的 context：PENDING / EXPECTED 是 WAITING_CI（不是绿），ERROR 是 CHANGES_REQUIRED", () => {
+      const withRequired = (state: string) => {
+        const base = greenFacts();
+        return classifyPr({ ...base, checks: [...base.checks.filter((c) => c.name !== REQUIRED_CHECKS[0]), statusContextToCheck(REQUIRED_CHECKS[0], state)] });
+      };
+      expect(withRequired("PENDING").state).toBe("WAITING_CI");
+      expect(withRequired("EXPECTED").state).toBe("WAITING_CI");
+      expect(withRequired("ERROR").state).toBe("CHANGES_REQUIRED");
+      expect(withRequired("SUCCESS").state).toBe("READY_TO_MERGE");
+    });
   });
 
   it("没有 verdict label——暂停期不再 WAITING_REVIEW，advisories 仍如实记录（2026-08-16 第三次裁决）", () => {
