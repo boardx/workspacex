@@ -25,7 +25,7 @@ import {
   type ExplicitLayoutSectionInput,
   type SectionGeometryMmInput,
 } from "@/lib/canvas/explicit-template-layout";
-import { A0_FRAME, GRID_TOP } from "@/lib/canvas/auto-template-layout";
+import { A0_FRAME, ENGINE_STICKY, GRID_TOP, renderStickyCapacity } from "@/lib/canvas/auto-template-layout";
 
 function section(
   key: string, col: number, row: number, w: number, h: number,
@@ -128,6 +128,44 @@ describe("computeExplicitLayout —— px 几何", () => {
       gridCols: 12,
     });
     expect(spec.sections[0]!.stickyColor).toBe(TONE_COLORS[0]);
+  });
+
+  /**
+   * issue #2585 根因回归钉子：「汉堡沟通模型」的「开场引入」「行动闭环」两个分区
+   * 被 `deriveTemplateLayouts` 摊到 8 行网格后各只分到 `h:1`（约 83.5px）——扣掉
+   * 标题条与内边距后可用高度（约 25.5px）远小于默认贴纸高度（`ENGINE_STICKY.h`,
+   * 92px），`renderStickyCapacity` 按默认尺寸算出容量 0，`capFenceBulletsToCapacity`
+   * 就把这两个分区下的全部要点整段丢弃——分区因此完全无内容、无颜色（`stickyColor`
+   * 画在便签上，没有便签就看不见色）。
+   *
+   * 修法：格子放不下默认尺寸的贴纸、但还有正的可用高度时，把 `sticky.h` 压到这个
+   * 格子物理放得下一行的尺寸；`sectionRenderCapacities` 读的就是这个收缩后的值，
+   * 算出的容量必须 > 0。
+   */
+  it("h=1 的窄格子（汉堡首尾两带同款几何）：sticky.h 收缩到放得下，渲染容量 > 0", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [section("opening", 1, 1, 12, 1, { cols: 4 })],
+      gridCols: 12,
+    });
+    const sticky = spec.sections[0]!.sticky!;
+    expect(sticky.perRow).toBe(4);
+    expect(sticky.h).toBeDefined();
+    expect(sticky.h!).toBeLessThan(ENGINE_STICKY.h);
+    expect(sticky.h!).toBeGreaterThan(0);
+    const capacity = renderStickyCapacity(
+      spec.sections[0]!.w, spec.sections[0]!.h, sticky.perRow!, spec.titleBars !== false, sticky.w ?? ENGINE_STICKY.w, sticky.h,
+    );
+    expect(capacity).toBeGreaterThan(0);
+  });
+
+  it("格子够高（中间三带同款几何）时不覆盖贴纸高度——保持与既有断言字节级兼容", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [section("core", 1, 1, 12, 2, { cols: 4 })],
+      gridCols: 12,
+    });
+    expect(spec.sections[0]!.sticky).toEqual({ perRow: 4 });
   });
 
   /**
