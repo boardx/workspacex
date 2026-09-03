@@ -213,7 +213,7 @@ export function TemplateDisplayPanel({
             `clamp(w, 1, gridCols - layout.col + 1)` 同一条规则，只是交互换了个形状。
 
           ⚠ issue #2564：上限不能只看画布边界——`gridCols - layout.col + 1`/
-            `8 - layout.row + 1` 只保证不越出 A1 纸，不保证不撞上旁边**已放置**的
+            `8 - layout.row + 1` 只保证不越出 A1 纸，不保证不撞上旁边「已放置」的
             分区。用 `maxFreeW`/`maxFreeH` 换成「不会与相邻分区重叠」的真实上限，
             步进器因此永远停在合法、且不会画出重叠版式的范围内（`onPatch` 那边的
             `patchLayout` 仍然会再查一次重叠兜底，两处不是同一份检查的两次声明——
