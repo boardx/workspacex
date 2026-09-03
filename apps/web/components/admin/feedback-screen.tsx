@@ -1052,6 +1052,10 @@ function FeedbackTimeline({ item }: { item: FeedbackItem }) {
   );
 }
 
+/** 稳定的空数组引用——`load.kind !== "ready"` 时的兜底，避免每次渲染都造一个新 `[]`
+ *  触发下游 `useMemo` 的 `items` 依赖被判定为"每次渲染都变"（react-hooks/exhaustive-deps）。 */
+const EMPTY_SYSTEM_ERROR_ITEMS: readonly SystemErrorLogItem[] = [];
+
 const SYSTEM_STATUS_TONE: Record<SystemErrorStatus, "warning" | "ai" | "neutral"> = {
   待处理: "warning",
   已转入开发: "ai",
@@ -1088,7 +1092,7 @@ function SystemExceptionsSection({ load, onReload }: { load: SystemLoad; onReloa
   const [actionError, setActionError] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
-  const items = load.kind === "ready" ? load.items : [];
+  const items = load.kind === "ready" ? load.items : EMPTY_SYSTEM_ERROR_ITEMS;
   const allTags = React.useMemo(() => {
     const set = new Set<string>();
     for (const item of items) for (const tag of item.tags) set.add(tag);
@@ -1290,7 +1294,7 @@ function SystemErrorCard({
               onClick={() => removeTag(tag)}
               disabled={busy}
               data-testid={`admin-feedback-system-error-tag-remove-${item.id}-${tag}`}
-              className="text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground transition-colors duration-fast hover:text-destructive"
             >
               ×
             </button>
