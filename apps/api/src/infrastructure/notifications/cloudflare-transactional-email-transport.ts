@@ -20,6 +20,7 @@
  *
  * 见 ADR-108。
  */
+import { TransactionalMailError } from "../../application/notifications/transactional-mail-ports";
 import type {
   TransactionalMailMessage,
   TransactionalMailResult,
@@ -67,12 +68,8 @@ export function lazyTransactionalMailConfig(
   });
 }
 
-export class TransactionalMailError extends Error {
-  constructor(readonly category: string) {
-    super(category);
-    this.name = "TransactionalMailError";
-  }
-}
+// 错误类挪到了端口层（调用方按类别映射契约码时只能依赖端口）；这里 re-export 保持既有 import 路径可用。
+export { TransactionalMailError };
 
 export class CloudflareTransactionalEmailTransport implements TransactionalMailTransport {
   constructor(

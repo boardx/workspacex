@@ -25,3 +25,19 @@ export async function listSystemErrorLogs(input?: {
     },
   });
 }
+
+/* ─────────────────────────── 测试邮件（平台超管） ─────────────────────────── */
+
+export type SendTestEmailOut = z.infer<typeof systemErrorLogs.operations.sendTestEmail.out>;
+
+/**
+ * 用生产同一条事务邮件通路发一封测试邮件（见契约 `sendTestEmail` 头注）。
+ * `to` 省略 = 发给当前账号自己的邮箱。失败原样抛 `ApiError`——`reasonCode` 是
+ * `MAIL_NOT_CONFIGURED` / `MAIL_SEND_FAILED`（响应体另带 `category`）/ `NO_RECIPIENT`。
+ */
+export async function sendTestEmail(to?: string): Promise<SendTestEmailOut> {
+  return apiRequest<SendTestEmailOut>(systemErrorLogs.operations.sendTestEmail.path, {
+    method: "POST",
+    body: to !== undefined && to.trim() !== "" ? { to: to.trim() } : {},
+  });
+}
