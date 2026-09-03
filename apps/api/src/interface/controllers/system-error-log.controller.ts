@@ -28,10 +28,16 @@
  * 但一个免鉴权的写口不能没有请求量上界（review finding，PR #2475）——见
  * `ClientErrorReportRateLimitGuard`。
  */
-import { Body, Controller, Get, Inject, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Inject, NotFoundException, Param, Post, Put, Query, Req, UnprocessableEntityException, UseGuards } from "@nestjs/common";
 import { systemErrorLogs as C } from "@repo/contracts";
 import { ERROR_LOG_PORT, type ErrorLogPort } from "../../application/ports/error-log.port";
 import { LOGGER_PORT, type LoggerPort } from "../../application/ports/logger.port";
+import {
+  SystemErrorIllegalTransitionError,
+  SystemErrorNotFoundError,
+  SystemErrorReasonRequiredError,
+  updateSystemErrorLifecycle,
+} from "../../application/system/update-system-error-lifecycle";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { Public } from "../public.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
@@ -42,8 +48,10 @@ import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 
 export const REPORT_CLIENT_ERROR_SCHEMA = C.operations.reportClientError.in;
+export const UPDATE_SYSTEM_ERROR_LIFECYCLE_SCHEMA = C.operations.updateSystemErrorLifecycle.in;
 
 type ReportClientErrorBody = ReturnType<typeof C.operations.reportClientError.in.parse>;
+type UpdateSystemErrorLifecycleBody = ReturnType<typeof C.operations.updateSystemErrorLifecycle.in.parse>;
 
 @Controller()
 export class SystemErrorLogController {
@@ -70,6 +78,34 @@ export class SystemErrorLogController {
         ? parsedLimit
         : 50;
     return this.errorLog.list({ limit, beforeId: beforeId ?? null });
+  }
+
+  @UseGuards(PlatformOperatorGuard)
+  @Put("/system/error-logs/:id")
+  async updateLifecycle(
+    @CurrentPrincipal() principal: Principal,
+    @Param("id") id: string,
+    @Body(new ZodBodyPipe(UPDATE_SYSTEM_ERROR_LIFECYCLE_SCHEMA)) body: UpdateSystemErrorLifecycleBody,
+  ) {
+    assertPrincipal(principal);
+    try {
+      return await updateSystemErrorLifecycle(this.errorLog, {
+        id,
+        status: body.status,
+        statusReason: body.statusReason,
+        devNote: body.devNote,
+        tags: body.tags,
+      });
+    } catch (e) {
+      if (e instanceof SystemErrorNotFoundError) throw new NotFoundException({ reasonCode: "NOT_FOUND" });
+      if (e instanceof SystemErrorReasonRequiredError) {
+        throw new UnprocessableEntityException({ reasonCode: "REASON_REQUIRED" });
+      }
+      if (e instanceof SystemErrorIllegalTransitionError) {
+        throw new UnprocessableEntityException({ reasonCode: "INVALID_TRANSITION", from: e.from, to: e.to });
+      }
+      throw e;
+    }
   }
 
   @Public()

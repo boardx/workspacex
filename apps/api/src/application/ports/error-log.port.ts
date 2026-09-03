@@ -63,7 +63,20 @@ export interface ErrorLogListItem {
    */
   readonly aiTitle: string | null;
   readonly aiSummary: string | null;
+  /**
+   * 生命周期状态（2026-09-03 人类要求，见迁移 `20260903120000_error_logs_lifecycle_tags.sql`
+   * 头注）：`待处理` / `已转入开发` / `不做`（存档）。`statusReason` 只在转「不做」时
+   * 必填，其余转移可以留空；`devNote` 是"转开发"时人类可以填的说明字段，不绑定于
+   * 某一次特定转移，随时可编辑。`tags` 是自由文本标签，供筛选/搜索。
+   */
+  readonly status: ErrorLogStatus;
+  readonly statusReason: string | null;
+  readonly devNote: string | null;
+  readonly tags: readonly string[];
 }
+
+/** 见 `ErrorLogListItem.status` 头注；与迁移里的 CHECK 约束逐字对应。 */
+export type ErrorLogStatus = "待处理" | "已转入开发" | "不做";
 
 export interface ErrorLogPort {
   record(entry: ErrorLogEntry): Promise<void>;
@@ -79,6 +92,25 @@ export interface ErrorLogPort {
     readonly items: readonly ErrorLogListItem[];
     readonly hasMore: boolean;
   }>;
+
+  /**
+   * 校验转移合法性、合并局部更新用的窄口径读取——生命周期四列，见
+   * `kernel_read_error_log_lifecycle`。`null` ⟺ 这个 id 不存在。
+   */
+  getLifecycle(id: string): Promise<{
+    readonly status: ErrorLogStatus;
+    readonly statusReason: string | null;
+    readonly devNote: string | null;
+    readonly tags: readonly string[];
+  } | null>;
+
+  /** 生命周期（状态/理由/开发备注/标签）的唯一写入口，见 `kernel_write_error_log_lifecycle`。 */
+  updateLifecycle(id: string, next: {
+    readonly status: ErrorLogStatus;
+    readonly statusReason: string | null;
+    readonly devNote: string | null;
+    readonly tags: readonly string[];
+  }): Promise<void>;
 }
 
 export const ERROR_LOG_PORT = Symbol("ErrorLogPort");

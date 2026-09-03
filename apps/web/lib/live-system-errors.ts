@@ -12,7 +12,9 @@ import type { z } from "zod";
 import { apiRequest } from "./api-client";
 
 export type SystemErrorLogItem = z.infer<typeof systemErrorLogs.SystemErrorLogItem>;
+export type SystemErrorStatus = z.infer<typeof systemErrorLogs.SystemErrorStatus>;
 export type ListSystemErrorLogsOut = z.infer<typeof systemErrorLogs.operations.listSystemErrorLogs.out>;
+export type UpdateSystemErrorLifecycleOut = z.infer<typeof systemErrorLogs.operations.updateSystemErrorLifecycle.out>;
 
 export async function listSystemErrorLogs(input?: {
   readonly limit?: number;
@@ -23,6 +25,25 @@ export async function listSystemErrorLogs(input?: {
       limit: input?.limit !== undefined ? String(input.limit) : undefined,
       beforeId: input?.beforeId,
     },
+  });
+}
+
+/**
+ * 系统异常的生命周期(状态/理由/开发备注)与标签更新——见契约 `updateSystemErrorLifecycle`
+ * 头注。`status` 省略 = 不改状态，只改 `devNote`/`tags`；其余字段省略 = 保留现值。
+ */
+export async function updateSystemErrorLifecycle(
+  id: string,
+  patch: {
+    readonly status?: SystemErrorStatus;
+    readonly statusReason?: string | null;
+    readonly devNote?: string | null;
+    readonly tags?: readonly string[];
+  },
+): Promise<UpdateSystemErrorLifecycleOut> {
+  return apiRequest<UpdateSystemErrorLifecycleOut>(`/system/error-logs/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: { id, ...patch },
   });
 }
 

@@ -340,8 +340,8 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
   it("⑥ 超管看到异常条数：标签页计数 + 标题旁的「N 条系统异常」胶囊", async () => {
     mockApi([productBug], {
       systemErrors: { items: [
-        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: "数据库连接超时", aiSummary: "疑似连接池耗尽，建议先查慢查询与连接数上限。" },
-        { id: "2", traceId: "t2", msg: "bang", detail: {}, createdAt: "2026-09-02T00:01:00.000Z", aiTitle: null, aiSummary: null },
+        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: "数据库连接超时", aiSummary: "疑似连接池耗尽，建议先查慢查询与连接数上限。", status: "待处理", statusReason: null, devNote: null, tags: [] },
+        { id: "2", traceId: "t2", msg: "bang", detail: {}, createdAt: "2026-09-02T00:01:00.000Z", aiTitle: null, aiSummary: null, status: "待处理", statusReason: null, devNote: null, tags: [] },
       ], hasMore: false },
     });
     render(<FeedbackScreen state="default" />);
@@ -361,49 +361,50 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
     expect(await screen.findByTestId("admin-feedback-system-error-detail-1")).toBeTruthy();
   });
 
-  it("⑥ 测试邮件：超管在系统异常页能发一封，成功显示收件人，失败显示契约码与归类", async () => {
-    const { ApiError } = await import("@/lib/api-client");
-    let attempt = 0;
-    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: { to?: string } }) => {
-      if (path === "/feedback") return { items: [productBug] };
-      if (path.endsWith("/events")) return { events: [] };
-      if (path === "/system/error-logs") return { items: [], hasMore: false };
-      if (path === "/system/mail/test") {
-        attempt += 1;
-        if (attempt === 1) {
-          expect(opts?.body).toEqual({}); // 留空 = 发给当前账号，不传 to
-          return { sentTo: "admin@example.com", subject: "WorkspaceX 测试邮件 2026-09-02T10:00:00.000Z", providerMessageId: "cf-1", sentAt: "2026-09-02T10:00:00.000Z" };
-        }
-        expect(opts?.body).toEqual({ to: "ops@example.com" });
-        throw new ApiError(503, "MAIL_SEND_FAILED", { reasonCode: "MAIL_SEND_FAILED", category: "provider_http_502" });
-      }
-      if (path.includes("/agents")) return [];
-      if (path.includes("/skills")) return { items: [] };
-      return {};
+  it("⑥ 系统异常卡片能加/删标签、能转生命周期（转开发/不做/退回待处理）", async () => {
+    mockApi([productBug], {
+      systemErrors: { items: [
+        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: "数据库连接超时", aiSummary: "疑似连接池耗尽。", status: "待处理", statusReason: null, devNote: null, tags: ["db"] },
+      ], hasMore: false },
     });
     render(<FeedbackScreen state="default" />);
     await screen.findByTestId("admin-feedback-item-fb-p");
     fireEvent.click(screen.getByTestId("admin-feedback-tab-system"));
-    fireEvent.click(await screen.findByTestId("admin-feedback-test-mail-send"));
-    const sent = await screen.findByTestId("admin-feedback-test-mail-sent");
-    expect(sent.textContent).toContain("admin@example.com");
-    expect(sent.textContent).toContain("cf-1");
+    await screen.findByTestId("admin-feedback-system-error-1");
 
-    fireEvent.change(screen.getByTestId("admin-feedback-test-mail-to"), { target: { value: "ops@example.com" } });
-    fireEvent.click(screen.getByTestId("admin-feedback-test-mail-send"));
-    const failed = await screen.findByTestId("admin-feedback-test-mail-failed");
-    expect(failed.textContent).toContain("MAIL_SEND_FAILED");
-    expect(failed.textContent).toContain("provider_http_502");
+    // 加标签
+    fireEvent.change(screen.getByTestId("admin-feedback-system-error-tag-input-1"), { target: { value: "urgent" } });
+    fireEvent.keyDown(screen.getByTestId("admin-feedback-system-error-tag-input-1"), { key: "Enter" });
+    await waitFor(() => {
+      const call = putCalls().find((c) => c[0] === "/system/error-logs/1");
+      expect(call).toBeTruthy();
+      expect((call![1] as { body: Record<string, unknown> }).body).toMatchObject({ tags: ["db", "urgent"] });
+    });
+
+    // 转开发——先展开可选的说明输入框，再确认
+    fireEvent.click(screen.getByTestId("admin-feedback-system-error-to-已转入开发-1"));
+    fireEvent.change(screen.getByTestId("admin-feedback-system-error-devnote-input-1"), { target: { value: "指派给 @foo" } });
+    fireEvent.click(screen.getByTestId("admin-feedback-system-error-devnote-submit-1"));
+    await waitFor(() => {
+      const call = putCalls().find((c) => (c[1] as { body: Record<string, unknown> }).body?.status === "已转入开发");
+      expect(call).toBeTruthy();
+      expect((call![1] as { body: Record<string, unknown> }).body).toMatchObject({ status: "已转入开发", devNote: "指派给 @foo" });
+    });
   });
 
-  it("⑥ 非超管（403）看不到测试邮件面板", async () => {
-    const { ApiError } = await import("@/lib/api-client");
-    mockApi([productBug], { systemErrors: new ApiError(403, "NOT_PLATFORM_SUPERUSER", {}) });
+  it("⑥ 系统异常「不做」必须先写理由——理由为空时确认按钮不可点", async () => {
+    mockApi([productBug], {
+      systemErrors: { items: [
+        { id: "1", traceId: "t1", msg: "boom", detail: {}, createdAt: "2026-09-02T00:00:00.000Z", aiTitle: null, aiSummary: null, status: "待处理", statusReason: null, devNote: null, tags: [] },
+      ], hasMore: false },
+    });
     render(<FeedbackScreen state="default" />);
     await screen.findByTestId("admin-feedback-item-fb-p");
     fireEvent.click(screen.getByTestId("admin-feedback-tab-system"));
-    await screen.findByTestId("admin-feedback-system-errors-forbidden");
-    expect(screen.queryByTestId("admin-feedback-test-mail")).toBeNull();
+    fireEvent.click(await screen.findByTestId("admin-feedback-system-error-to-不做-1"));
+    expect(screen.getByTestId("admin-feedback-system-error-decline-submit-1")).toBeDisabled();
+    fireEvent.change(screen.getByTestId("admin-feedback-system-error-decline-reason-1"), { target: { value: "已知问题，不再处理" } });
+    expect(screen.getByTestId("admin-feedback-system-error-decline-submit-1")).not.toBeDisabled();
   });
 
   it("回归：`打开迭代看板` / `导出` 两个按钮已删除", async () => {

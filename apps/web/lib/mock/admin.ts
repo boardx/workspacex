@@ -22,7 +22,7 @@ import { AG_BLUEPRINTS } from "@/lib/mock/asset-governance";
 // 模块导航（左栏两组）
 // ─────────────────────────────────────────────────────────────────────────
 export type AdminModuleKey =
-  | "overview" | "agent" | "skill" | "model" | "mcp" | "members" | "feedback"
+  | "overview" | "agent" | "skill" | "model" | "mcp" | "members" | "feedback" | "ops-status"
   // F132：画布模板与项目蓝本。它们本来就是 `AssetKind` 六值中的两个，
   // 左栏却只画了四个 —— 人类那句「为什么在管理后台看不到项目蓝本」问的正是这个。
   // ⚠ 键取原型 `AN_META` 的键（`canvasadmin`），**不是**契约码也不是视图码：
@@ -166,7 +166,13 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     // （`/platform-admin/*`），左栏「组织后台」不再画它们；旧路由 `/admin/feedback` 重定向。
     group: "运营",
     scope: "platform",
-    items: [{ key: "feedback", label: "反馈与迭代", href: "/platform-admin/feedback", ucRefs: ["17-gov/uc-17-6"] }],
+    items: [
+      { key: "feedback", label: "反馈与迭代", href: "/platform-admin/feedback", ucRefs: ["17-gov/uc-17-6"] },
+      // 2026-09-03（人类反馈：「测试邮件的功能不要放在系统异常下面，放到平台后台的一个
+      // 新的菜单叫运营状态」）：从「反馈与迭代 → 系统异常」tab 挪出来，单独一个入口——
+      // 它不是"反馈"（没有提交人、没有分诊），是运维自查这个部署本身是否健康的工具。
+      { key: "ops-status", label: "运营状态", href: "/platform-admin/ops-status", ucRefs: ["17-gov/uc-17-6"] },
+    ],
   },
   {
     group: "平台",
@@ -741,4 +747,11 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   // `admin-nav-count-unavailable.test.tsx` 的 HEALTHY 夹具（见 feedback 项长注）——给一个健康值。
   // 生产左栏的来源是 `live-admin-nav-counts.ts`，那里没接的项一律「—」。
   platform: () => 0,
+  // 「运营状态」是运维自查工具（测试邮件……），不是一份清单，没有一个有意义的
+  // 「条目数」。⚠ 这里**不能**照抄「组织管理」项的抛错语义——`admin-nav-count-unavailable
+  // .test.tsx` §1 直接对平台面（`adminNavForScope("platform")`）每一项裸调用数据源，
+  // 断言"健康路径下不出现「—」"；`org-profile` 属于「组织」面，不在那个健康断言的
+  // 遍历范围内，`ops-status` 属于「平台」面，在。同「平台成员」项的既有处置
+  // （同样没有 mock 数据源）：给一个健康占位值，不抛错。
+  "ops-status": () => 0,
 };

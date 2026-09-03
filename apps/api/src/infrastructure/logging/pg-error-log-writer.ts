@@ -27,6 +27,7 @@ import {
   type ErrorLogEntry,
   type ErrorLogListItem,
   type ErrorLogPort,
+  type ErrorLogStatus,
 } from "../../application/ports/error-log.port";
 import type { ModelCallPort } from "../../application/agent-run/ports";
 import {
@@ -152,8 +153,11 @@ export class PgErrorLogWriter implements ErrorLogPort {
       s.query<{
         id: string; trace_id: string; msg: string; detail: unknown; created_at: Date;
         ai_title: string | null; ai_summary: string | null;
+        status: ErrorLogStatus; status_reason: string | null; dev_note: string | null; tags: string[];
       }>(
-        `SELECT id, trace_id, msg, detail, created_at, ai_title, ai_summary FROM kernel_read_error_logs_with_ai_summary($1, $2)`,
+        `SELECT id, trace_id, msg, detail, created_at, ai_title, ai_summary,
+                status, status_reason, dev_note, tags
+           FROM kernel_read_error_logs_with_lifecycle($1, $2)`,
         [fetchLimit, input.beforeId],
       ),
     );
@@ -168,8 +172,43 @@ export class PgErrorLogWriter implements ErrorLogPort {
         createdAt: new Date(r.created_at).toISOString(),
         aiTitle: r.ai_title,
         aiSummary: r.ai_summary,
+        status: r.status,
+        statusReason: r.status_reason,
+        devNote: r.dev_note,
+        tags: r.tags ?? [],
       })),
       hasMore,
     };
+  }
+
+  async getLifecycle(id: string): Promise<{
+    readonly status: ErrorLogStatus;
+    readonly statusReason: string | null;
+    readonly devNote: string | null;
+    readonly tags: readonly string[];
+  } | null> {
+    const rows = await this.db.withoutTenant((s) =>
+      s.query<{ status: ErrorLogStatus; status_reason: string | null; dev_note: string | null; tags: string[] }>(
+        `SELECT status, status_reason, dev_note, tags FROM kernel_read_error_log_lifecycle($1::bigint)`,
+        [id],
+      ),
+    );
+    const row = rows.rows[0];
+    if (row === undefined) return null;
+    return { status: row.status, statusReason: row.status_reason, devNote: row.dev_note, tags: row.tags ?? [] };
+  }
+
+  async updateLifecycle(id: string, next: {
+    readonly status: ErrorLogStatus;
+    readonly statusReason: string | null;
+    readonly devNote: string | null;
+    readonly tags: readonly string[];
+  }): Promise<void> {
+    await this.db.withoutTenant((s) =>
+      s.query(
+        `SELECT kernel_write_error_log_lifecycle($1::bigint, $2, $3, $4, $5::text[])`,
+        [id, next.status, next.statusReason, next.devNote, next.tags],
+      ),
+    );
   }
 }

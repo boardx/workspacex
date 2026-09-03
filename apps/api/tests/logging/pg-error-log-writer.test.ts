@@ -122,7 +122,7 @@ describe("PgErrorLogWriter.list() -- routes through readDb (app_diag_ro), never 
   // credential (`readDb`, wired to `app_diag_ro`) that `db` (app_rw) never touches. These
   // tests assert that separation directly: two independent fake pools, and `list()` must
   // never issue a single query against the `db` (write/app_rw) pool.
-  it("calls kernel_read_error_logs(...) on readDb, and NEVER touches db at all", async () => {
+  it("calls kernel_read_error_logs_with_lifecycle(...) on readDb, and NEVER touches db at all", async () => {
     const { db, queries: writeQueries } = fakeDb();
     const { db: readDb, queries: readQueries } = fakeDb();
     const writer = new PgErrorLogWriter(db, readDb);
@@ -131,7 +131,7 @@ describe("PgErrorLogWriter.list() -- routes through readDb (app_diag_ro), never 
 
     expect(writeQueries).toHaveLength(0);
     expect(readQueries).toHaveLength(1);
-    expect(readQueries[0]!.sql).toContain("kernel_read_error_logs_with_ai_summary($1, $2)");
+    expect(readQueries[0]!.sql).toContain("kernel_read_error_logs_with_lifecycle($1, $2)");
     expect(readQueries[0]!.sql).not.toMatch(/FROM\s+error_logs\b/);
     // fetches limit+1 to derive hasMore from one query
     expect(readQueries[0]!.params).toEqual([21, null]);
@@ -183,6 +183,41 @@ describe("PgErrorLogWriter.list() -- routes through readDb (app_diag_ro), never 
     expect(out.items).toHaveLength(1);
     expect(out.items[0]!.traceId).toBe("t-3");
     expect(out.hasMore).toBe(true);
+  });
+});
+
+describe("PgErrorLogWriter -- lifecycle (status/statusReason/devNote/tags)", () => {
+  it("getLifecycle() reads via kernel_read_error_log_lifecycle on db (app_rw), not readDb", async () => {
+    const session: TenantSession = {
+      async query<R = Record<string, unknown>>() {
+        return { rows: [{ status: "待处理", status_reason: null, dev_note: null, tags: ["a", "b"] }] as unknown as R[] };
+      },
+    };
+    const db: DatabasePort = { withTenant: async (_o, fn) => fn(session), withoutTenant: async (fn) => fn(session), close: async () => undefined };
+    const { db: readDb, queries: readQueries } = fakeDb();
+    const writer = new PgErrorLogWriter(db, readDb);
+
+    const out = await writer.getLifecycle("1");
+
+    expect(out).toEqual({ status: "待处理", statusReason: null, devNote: null, tags: ["a", "b"] });
+    expect(readQueries).toHaveLength(0);
+  });
+
+  it("getLifecycle() returns null for an unknown id", async () => {
+    const { db } = fakeDb();
+    const writer = new PgErrorLogWriter(db, db);
+    await expect(writer.getLifecycle("missing")).resolves.toBeNull();
+  });
+
+  it("updateLifecycle() writes all four columns via kernel_write_error_log_lifecycle", async () => {
+    const { db, queries } = fakeDb();
+    const writer = new PgErrorLogWriter(db, db);
+
+    await writer.updateLifecycle("1", { status: "已转入开发", statusReason: null, devNote: "备注", tags: ["x"] });
+
+    expect(queries).toHaveLength(1);
+    expect(queries[0]!.sql).toContain("kernel_write_error_log_lifecycle");
+    expect(queries[0]!.params).toEqual(["1", "已转入开发", null, "备注", ["x"]]);
   });
 });
 

@@ -25,7 +25,7 @@ const principal: Principal = { userId: "u-1", orgId: "org-1" as OrgId };
 describe("SystemErrorLogController -- GET /system/error-logs", () => {
   it("delegates to ErrorLogPort.list with default pagination", async () => {
     const list = vi.fn().mockResolvedValue({ items: [], hasMore: false });
-    const errorLog: ErrorLogPort = { record: vi.fn(), list };
+    const errorLog: ErrorLogPort = { record: vi.fn(), list, getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
 
     const controller = new SystemErrorLogController(errorLog, fakeLogger());
     const out = await controller.list(principal, undefined, undefined);
@@ -36,7 +36,7 @@ describe("SystemErrorLogController -- GET /system/error-logs", () => {
 
   it("an out-of-range limit query param falls back to the default rather than passing it through raw", async () => {
     const list = vi.fn().mockResolvedValue({ items: [], hasMore: false });
-    const errorLog: ErrorLogPort = { record: vi.fn(), list };
+    const errorLog: ErrorLogPort = { record: vi.fn(), list, getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
     const controller = new SystemErrorLogController(errorLog, fakeLogger());
 
     await controller.list(principal, "9999", undefined);
@@ -45,7 +45,7 @@ describe("SystemErrorLogController -- GET /system/error-logs", () => {
 
   it("a valid limit + beforeId pass through", async () => {
     const list = vi.fn().mockResolvedValue({ items: [], hasMore: false });
-    const errorLog: ErrorLogPort = { record: vi.fn(), list };
+    const errorLog: ErrorLogPort = { record: vi.fn(), list, getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
     const controller = new SystemErrorLogController(errorLog, fakeLogger());
 
     await controller.list(principal, "10", "42");
@@ -53,10 +53,72 @@ describe("SystemErrorLogController -- GET /system/error-logs", () => {
   });
 });
 
+describe("SystemErrorLogController -- PUT /system/error-logs/:id", () => {
+  it("moves 待处理 to 已转入开发 with an optional dev note", async () => {
+    const getLifecycle = vi.fn().mockResolvedValue({ status: "待处理", statusReason: null, devNote: null, tags: [] });
+    const updateLifecycle = vi.fn().mockResolvedValue(undefined);
+    const errorLog: ErrorLogPort = { record: vi.fn(), list: vi.fn(), getLifecycle, updateLifecycle };
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
+
+    const out = await controller.updateLifecycle(principal, "1", {
+      id: "1", status: "已转入开发", statusReason: undefined, devNote: "指派给 @foo", tags: undefined,
+    });
+
+    expect(out).toEqual({ id: "1", status: "已转入开发", statusReason: null, devNote: "指派给 @foo", tags: [] });
+    expect(updateLifecycle).toHaveBeenCalledWith("1", {
+      status: "已转入开发", statusReason: null, devNote: "指派给 @foo", tags: [],
+    });
+  });
+
+  it("转不做 without a reason is rejected as 422 REASON_REQUIRED", async () => {
+    const getLifecycle = vi.fn().mockResolvedValue({ status: "待处理", statusReason: null, devNote: null, tags: [] });
+    const errorLog: ErrorLogPort = { record: vi.fn(), list: vi.fn(), getLifecycle, updateLifecycle: vi.fn() };
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
+
+    await expect(
+      controller.updateLifecycle(principal, "1", { id: "1", status: "不做", statusReason: undefined, devNote: undefined, tags: undefined }),
+    ).rejects.toMatchObject({ response: { reasonCode: "REASON_REQUIRED" } });
+  });
+
+  it("an illegal transition (已修复-shaped: 不做 -> 已转入开发 is not a valid edge) is rejected as 422 INVALID_TRANSITION", async () => {
+    const getLifecycle = vi.fn().mockResolvedValue({ status: "不做", statusReason: "存档", devNote: null, tags: [] });
+    const errorLog: ErrorLogPort = { record: vi.fn(), list: vi.fn(), getLifecycle, updateLifecycle: vi.fn() };
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
+
+    await expect(
+      controller.updateLifecycle(principal, "1", { id: "1", status: "已转入开发", statusReason: undefined, devNote: undefined, tags: undefined }),
+    ).rejects.toMatchObject({ response: { reasonCode: "INVALID_TRANSITION", from: "不做", to: "已转入开发" } });
+  });
+
+  it("an unknown id is rejected as 404 NOT_FOUND", async () => {
+    const getLifecycle = vi.fn().mockResolvedValue(null);
+    const errorLog: ErrorLogPort = { record: vi.fn(), list: vi.fn(), getLifecycle, updateLifecycle: vi.fn() };
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
+
+    await expect(
+      controller.updateLifecycle(principal, "missing", { id: "missing", status: undefined, statusReason: undefined, devNote: undefined, tags: undefined }),
+    ).rejects.toMatchObject({ response: { reasonCode: "NOT_FOUND" } });
+  });
+
+  it("tags can be edited independently of status, keeping the current status", async () => {
+    const getLifecycle = vi.fn().mockResolvedValue({ status: "已转入开发", statusReason: null, devNote: "备注", tags: ["旧标签"] });
+    const updateLifecycle = vi.fn().mockResolvedValue(undefined);
+    const errorLog: ErrorLogPort = { record: vi.fn(), list: vi.fn(), getLifecycle, updateLifecycle };
+    const controller = new SystemErrorLogController(errorLog, fakeLogger());
+
+    const out = await controller.updateLifecycle(principal, "1", {
+      id: "1", status: undefined, statusReason: undefined, devNote: undefined, tags: ["新标签"],
+    });
+
+    expect(out).toEqual({ id: "1", status: "已转入开发", statusReason: null, devNote: "备注", tags: ["新标签"] });
+    expect(updateLifecycle).toHaveBeenCalledWith("1", { status: "已转入开发", statusReason: null, devNote: "备注", tags: ["新标签"] });
+  });
+});
+
 describe("SystemErrorLogController -- POST /system/client-error-reports", () => {
   it("always records and returns a traceId, even though the route is @Public()", async () => {
     const record = vi.fn().mockResolvedValue(undefined);
-    const errorLog: ErrorLogPort = { record, list: vi.fn() };
+    const errorLog: ErrorLogPort = { record, list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
 
     const controller = new SystemErrorLogController(errorLog, fakeLogger());
     const out = await controller.report({ traceId: "trace-client-1" }, {
@@ -86,7 +148,7 @@ describe("SystemErrorLogController -- POST /system/client-error-reports", () => 
 
   it("a rejecting record() does not throw out of the handler", async () => {
     const record = vi.fn().mockRejectedValue(new Error("db down"));
-    const errorLog: ErrorLogPort = { record, list: vi.fn() };
+    const errorLog: ErrorLogPort = { record, list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
     const controller = new SystemErrorLogController(errorLog, fakeLogger());
 
     await expect(

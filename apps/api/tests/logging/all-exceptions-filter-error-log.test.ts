@@ -38,7 +38,7 @@ function fakeLogger(): LoggerPort {
 describe("AllExceptionsFilter -- ErrorLogPort is called for exactly the unhandled branch", () => {
   it("a truly unhandled exception (neither ContractValidationError nor HttpException) is persisted", async () => {
     const record = vi.fn().mockResolvedValue(undefined);
-    const errorLog: ErrorLogPort = { record, list: vi.fn() };
+    const errorLog: ErrorLogPort = { record, list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
     const filter = new AllExceptionsFilter(fakeLogger(), errorLog);
     const { host } = fakeHost("trace-unhandled");
 
@@ -57,7 +57,7 @@ describe("AllExceptionsFilter -- ErrorLogPort is called for exactly the unhandle
 
   it("an HttpException (routine 401/403/404/...) is NOT persisted -- only console-logged", async () => {
     const record = vi.fn().mockResolvedValue(undefined);
-    const errorLog: ErrorLogPort = { record, list: vi.fn() };
+    const errorLog: ErrorLogPort = { record, list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
     const filter = new AllExceptionsFilter(fakeLogger(), errorLog);
     const { host } = fakeHost("trace-http");
 
@@ -69,7 +69,7 @@ describe("AllExceptionsFilter -- ErrorLogPort is called for exactly the unhandle
 
   it("a ContractValidationError (400, a caller mistake) is NOT persisted", async () => {
     const record = vi.fn().mockResolvedValue(undefined);
-    const errorLog: ErrorLogPort = { record, list: vi.fn() };
+    const errorLog: ErrorLogPort = { record, list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
     const filter = new AllExceptionsFilter(fakeLogger(), errorLog);
     const { host } = fakeHost("trace-validation");
 
@@ -81,7 +81,7 @@ describe("AllExceptionsFilter -- ErrorLogPort is called for exactly the unhandle
 
   it("a rejecting errorLog.record() does not crash the filter or change the response", async () => {
     const record = vi.fn().mockRejectedValue(new Error("Postgres is also down"));
-    const errorLog: ErrorLogPort = { record, list: vi.fn() };
+    const errorLog: ErrorLogPort = { record, list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() };
     const filter = new AllExceptionsFilter(fakeLogger(), errorLog);
     const { host, res } = fakeHost("trace-double-outage");
 
