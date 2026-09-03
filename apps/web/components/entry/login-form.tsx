@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { AUTH_PROVIDERS_LATER, AUTH_POLICY, LOGIN_BRAND } from "@/lib/mock/entry";
 import {
+  isAccountLocked,
+  isEmailNotVerified,
   isLoginRejected,
   login,
   requestPasswordReset,
@@ -20,7 +22,9 @@ import { sanitizeReturnTo } from "@/lib/return-to";
  * 登录表单（UC-1.1 R3/R8）——七态一律经 StateShell。
  *
  * - D-02：三个第三方按钮**保留视觉位但 disabled 并标 later**，旁注「phase-1 暂不开放」。
- * - 防枚举：校验失败只给一条「邮箱或密码不正确」，不区分邮箱不存在 / 密码错误。
+ * - 防枚举：`INVALID_CREDENTIAL` 只给一条「邮箱或密码不正确」，不区分邮箱不存在 / 密码错误。
+ *   `EMAIL_NOT_VERIFIED` / `ACCOUNT_LOCKED` 不受此约束（`lib/auth.ts` 对应 helper 的注释解释了
+ *   为什么），会展开成各自的具体文案；真正未识别的失败才落进「服务暂时不可用」兜底。
  * - `[忘记密码？]`（R8「原型待补」：按钮在、点了没屏）在此补出接线与后续屏。
  * - `[创建组织]` 进入真实 `/auth/register-open`（开放自助注册，issue #1929 起不再需要
  *   邀请码）注册与邮箱验证排队流程。
@@ -203,11 +207,21 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             // It prevents a stale RSC prefetch from racing the new bearer/current-org pair.
             window.location.assign(sanitizeReturnTo(next));
           } catch (e) {
-            setLoginError(
-              isLoginRejected(e)
-                ? "邮箱或密码不正确"
-                : "登录服务暂时不可用，请稍后重试",
-            );
+            // ⚠ 401 不等于同一句话：`INVALID_CREDENTIAL` 之外的三个 reasonCode
+            // 都是可以安全展开的具体原因（`lib/auth.ts` 每条 helper 的注释
+            // 解释了为什么展开它们不重开 I-1 堵的枚举通道）。只有真正的传输层/
+            // 依赖故障（`AUTH_SERVICE_UNAVAILABLE`、非 JSON 响应等）才落进兜底文案。
+            if (isLoginRejected(e)) {
+              setLoginError("邮箱或密码不正确");
+            } else if (isEmailNotVerified(e)) {
+              setLoginError("邮箱尚未验证，请查收验证邮件后再登录");
+            } else if (isAccountLocked(e)) {
+              setLoginError(
+                `尝试次数过多，账号已临时锁定，请 ${AUTH_POLICY.lockDurationMinutes} 分钟后再试`,
+              );
+            } else {
+              setLoginError("登录服务暂时不可用，请稍后重试");
+            }
             setSubmitting(false);
           }
         }}

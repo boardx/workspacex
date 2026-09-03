@@ -74,6 +74,26 @@ export function isLoginRejected(error: unknown): boolean {
 }
 
 /**
+ * 密码正确但邮箱未验证（`login.ts` 第 4 步，只在密码校验通过之后才可能抛出）。
+ *
+ * ⚠ 与 `isLoginRejected` 不是同一件事，也不共用文案：这条只有拿到正确密码的人
+ * 才会命中，泄露"邮箱未验证"给他不会打开 I-1 关的枚举通道——攻击者拿不到这里。
+ */
+export function isEmailNotVerified(error: unknown): boolean {
+  return error instanceof ApiError && error.reasonCode === "EMAIL_NOT_VERIFIED";
+}
+
+/**
+ * 近期失败次数触发锁定（`login.ts` 第 1 步，在查账号/验密码之前就会命中，
+ * 对不存在的邮箱同样会计数并锁定——所以暴露这个 reasonCode 本身不额外确认
+ * "这个邮箱注册过"，不是 I-1 要堵的枚举通道；`lockedUntil` 才是，
+ * 那个字段服务端本就不下发（见 `auth.controller.ts` 的 `toHttp()` 注释）。
+ */
+export function isAccountLocked(error: unknown): boolean {
+  return error instanceof ApiError && error.reasonCode === "ACCOUNT_LOCKED";
+}
+
+/**
  * 字段级校验失败（HTTP 400 `validation_failed`）与"服务不可用"是**两回事**，
  * 而它们此前在 UI 上长得一模一样——这条 helper 就是把它们分开。
  *
