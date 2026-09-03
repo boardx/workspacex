@@ -25,7 +25,6 @@ import {
   lastUsedAgentId,
   listMessages,
   pickDefaultAgentId,
-  summarizePersonaFromThread,
   type CreateMessageInput,
   type DurableMessage,
   type GetAgentPanelOut,
@@ -1023,37 +1022,6 @@ export function ChatLiveMessagePanel({
   };
 
   /**
-   * G2「生成用户画像」（design-delta chat-persona-roundtrip，签核选 A：composer 状态条）。
-   * 锚点消息 = 当前线程最新一条（契约 `in.messageId` 是出处回链的锚，画像扫的是全线程）。
-   * 成功后软刷新消息流——新 assistant 消息里的 mindmap 围栏走既有
-   * `MarkdownMessage → ChatDiagramFabric` 通道自动渲染。失败原样回显 reasonCode，
-   * 不糊一句「生成失败」。
-   */
-  const [personaRunning, setPersonaRunning] = React.useState(false);
-  const [personaFailure, setPersonaFailure] = React.useState<string | null>(null);
-  const runPersonaSummary = async () => {
-    const anchor = messages[messages.length - 1];
-    if (!anchor || personaRunning) return;
-    setPersonaRunning(true);
-    setPersonaFailure(null);
-    try {
-      await summarizePersonaFromThread(threadId, anchor.id, bearer);
-      await loadPage(catchUpCursorRef.current, "soft"); // H3 根因修复见上（`catchUpCursorRef` 注释）
-      atBottomRef.current = true;
-      setShowJumpToLatest(false);
-      pinToBottom(); // 立即尽力 + `messageListRef` 的 ResizeObserver 兜底，见其头注
-    } catch (failure) {
-      setPersonaFailure(
-        failure instanceof ApiError
-          ? `生成用户画像失败：${failure.reasonCode ?? `HTTP ${failure.status}`}`
-          : describeMessageFailure(failure, "生成用户画像"),
-      );
-    } finally {
-      setPersonaRunning(false);
-    }
-  };
-
-  /**
    * 发送后等待动画（人类 devapp 实测：发完消息像卡死，要对标 Claude Code 的 thinking 动画）。
    * `awaitingReply` = 有一个在途 run 且还没有任何逐 token 文本可显示时——此时消息区什么都
    * 不动，正是"卡死感"的来源。deep-agent 走轮询+整段写回，`streamingText` 全程为空，所以
@@ -1775,11 +1743,11 @@ export function ChatLiveMessagePanel({
             留给项目对话那一轮再接进来，不在两边都不存在的东西上造一个空位。
           */}
           {/* issue #2248（P0，实测 SHA 014a47d9）—— 375/768 两档视口下这一行此前是纯
-              `flex justify-between`（不换行、子项也不收缩）：左侧「Agent 选择器 + 📎 +
-              生成用户画像」与右侧「麦克风设备下拉 + 麦克风 + 发送」合计宽度在窄屏下
-              超过可用宽度，flex 子项默认不收缩到内容宽度以下，于是整行内容宽度超出
-              容器——右侧发送按钮被真实挤出视口（375 档完全在屏外，768 档发送按钮圆形
-              被切一半），不是视觉裁切，是主操作不可达。
+              `flex justify-between`（不换行、子项也不收缩）：左侧「Agent 选择器 + 📎」
+              与右侧「麦克风设备下拉 + 麦克风 + 发送」合计宽度在窄屏下超过可用宽度，
+              flex 子项默认不收缩到内容宽度以下，于是整行内容宽度超出容器——右侧发送
+              按钮被真实挤出视口（375 档完全在屏外，768 档发送按钮圆形被切一半），
+              不是视觉裁切，是主操作不可达。
               加 `flex-wrap` 让这一行在放不下时真实换行（左侧分组整体掉到第二行），
               发送按钮所在的右侧分组作为一个整体要么完整留在第一行、要么完整掉到
               下一行，不会被沿途裁断；右侧分组另加 `shrink-0` 兜底，即使换行后同一行
@@ -1794,32 +1762,6 @@ export function ChatLiveMessagePanel({
               />
               {/* #946 · V9-a F152：📎 附件按钮 + 计数（接真实上传端点）。 */}
               <ChatAttachmentButton ctl={attach} disabled={archived || submitting} />
-              {/*
-                G2「生成用户画像」（design-delta chat-persona-roundtrip，签核选 A：
-                composer 状态条动作）。渲染门与「落地为产物」同一个能力事实
-                （canLandArtifacts）：persona-summary 内部走同一条 landAsArtifact
-                写权门，观察者/个人线程摆这个按钮就是一枚必 403 的假按钮。
-                空线程没有锚点消息可传（契约 in.messageId 必传），禁用而不是隐藏——
-                用户能看见入口存在，也能看懂为什么现在点不了（title 说明）。
-              */}
-              {canLandArtifacts ? (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  data-testid="chat-persona-summary-trigger"
-                  disabled={archived || personaRunning || messages.length === 0}
-                  title={messages.length === 0 ? "线程里还没有消息，无法生成画像" : "扫描整个线程，生成用户画像"}
-                  onClick={() => void runPersonaSummary()}
-                >
-                  {personaRunning ? "生成画像中…" : "生成用户画像"}
-                </Button>
-              ) : null}
-              {personaFailure ? (
-                <span className="text-11 text-destructive" data-testid="chat-persona-summary-error">
-                  {personaFailure}
-                </span>
-              ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {/*

@@ -83,3 +83,15 @@ frontmatter 的 `status/confirmed_by/confirmed_at` 由人类亲手改定）；�
 - [x] ③ `getThreadArtifactSource` err **加 `STORAGE_UNAVAILABLE`**
 - [x] ③ `summarizePersonaFromThread` 按现状补签 + `out.resultMessageId` + mode 恒 draft，通过
 - [x] 全部通过，`status` 已由人类改为 `confirmed`
+
+## 追加：2026-09-03 人类直接撤回「① 触发入口落点：A」
+
+人类（usamshen）在直接会话中原话「composer上方的左边的生成用户画像，一直固定在那个
+位置，是错误的，请移除这个功能，占据了完整的一行」——撤回上面「人类决定」第一条选定
+的候选 A（composer 状态条恒定按钮）。`chat-live-message-panel.tsx` 的
+`chat-persona-summary-trigger` 按钮已移除，详见 `verification.md` 对应小节的撤回说明。
+
+⚠ 只撤回入口落点这一件；①/②/③ 其余各条裁决（读回提示交互、信息不足占位、mermaid
+mindmap 产出形态、契约字段）未受影响，`summarizePersonaFromThread` 端点保留——本条
+是 agent 誊写这次直接撤回指示，不代人类重签整份 delta，`status`/`confirmed_by`/
+`confirmed_at` 三个 frontmatter 字段维持原值不动。

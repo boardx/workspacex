@@ -37,6 +37,12 @@ Status: proposed; human signoff required。
 
 ### 1.1 G2 触发入口——候选落点（列出供人类选）
 
+> ⚠ **2026-09-03 追补**：候选 A 落地后实测被人类判定为错误体验（composer 左上方
+> 恒定占一整行），已直接撤回，入口按钮已从 `chat-live-message-panel.tsx` 移除——
+> 见 `design-signoff.md` 追加节与 `verification.md` 对应小节。以下三个候选仍照原样
+> 登记，作为「A 为什么曾被选中、以及被撤回后不是自动落到 B/C」的历史记录；`summarizePersonaFromThread`
+> 端点本身不受影响。
+
 实测 `apps/web/components/chat/` 现状：消息输入区是 `composer.tsx`
 （`chat-composer` / `chat-composer-status` 状态条 / `chat-composer-settings` 设置入口 /
 `chat-composer-send`）；**每条消息已有一个「落地为产物」动作**
