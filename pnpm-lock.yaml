@@ -47,9 +47,12 @@ importers:
       '@langchain/langgraph':
         specifier: 0.4.9
         version: 0.4.9(@langchain/core@0.3.80(@opentelemetry/api@1.9.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(zod-to-json-schema@3.24.6(zod@3.25.76))
+      '@langchain/langgraph-checkpoint':
+        specifier: 0.1.1
+        version: 0.1.1(@langchain/core@0.3.80(@opentelemetry/api@1.9.1))
       '@langchain/langgraph-checkpoint-postgres':
         specifier: 0.1.2
-        version: 0.1.2(@langchain/core@0.3.80(@opentelemetry/api@1.9.1))(@langchain/langgraph-checkpoint@1.1.5(@langchain/core@0.3.80(@opentelemetry/api@1.9.1)))
+        version: 0.1.2(@langchain/core@0.3.80(@opentelemetry/api@1.9.1))(@langchain/langgraph-checkpoint@0.1.1(@langchain/core@0.3.80(@opentelemetry/api@1.9.1)))
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
         version: 1.30.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
@@ -10317,10 +10320,10 @@ snapshots:
       - openai
       - ws
 
-  '@langchain/langgraph-checkpoint-postgres@0.1.2(@langchain/core@0.3.80(@opentelemetry/api@1.9.1))(@langchain/langgraph-checkpoint@1.1.5(@langchain/core@0.3.80(@opentelemetry/api@1.9.1)))':
+  '@langchain/langgraph-checkpoint-postgres@0.1.2(@langchain/core@0.3.80(@opentelemetry/api@1.9.1))(@langchain/langgraph-checkpoint@0.1.1(@langchain/core@0.3.80(@opentelemetry/api@1.9.1)))':
     dependencies:
       '@langchain/core': 0.3.80(@opentelemetry/api@1.9.1)
-      '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@0.3.80(@opentelemetry/api@1.9.1))
+      '@langchain/langgraph-checkpoint': 0.1.1(@langchain/core@0.3.80(@opentelemetry/api@1.9.1))
       pg: 8.22.0
     transitivePeerDependencies:
       - pg-native
@@ -10329,10 +10332,6 @@ snapshots:
     dependencies:
       '@langchain/core': 0.3.80(@opentelemetry/api@1.9.1)
       uuid: 10.0.0
-
-  '@langchain/langgraph-checkpoint@1.1.5(@langchain/core@0.3.80(@opentelemetry/api@1.9.1))':
-    dependencies:
-      '@langchain/core': 0.3.80(@opentelemetry/api@1.9.1)
 
   '@langchain/langgraph-checkpoint@1.1.5(@langchain/core@1.2.9(@opentelemetry/api@1.9.1)(ws@8.21.1))':
     dependencies:
@@ -11937,14 +11936,6 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 5.4.21(@types/node@22.20.1)(terser@5.50.0)
-
-  '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))':
-    dependencies:
-      '@vitest/spy': 2.1.9
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 5.4.21(@types/node@25.9.5)(terser@5.50.0)
 
   '@vitest/pretty-format@2.1.9':
     dependencies:
@@ -17999,7 +17990,7 @@ snapshots:
   vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@25.9.5)(jsdom@26.1.0(canvas@3.2.3))(terser@5.50.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.50.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
@@ -18036,7 +18027,7 @@ snapshots:
   vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@25.9.5)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.50.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
