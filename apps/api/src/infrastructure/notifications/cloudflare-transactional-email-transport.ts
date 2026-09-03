@@ -25,6 +25,7 @@ import type {
   TransactionalMailResult,
   TransactionalMailTransport,
 } from "../../application/notifications/transactional-mail-ports";
+import { assertMailFromOnSendingDomain } from "../cloudflare-email-sending-domain";
 
 export const TRANSACTIONAL_MAIL_CONFIG = Symbol("TransactionalMailConfig");
 
@@ -44,6 +45,9 @@ export function transactionalMailConfig(env: NodeJS.ProcessEnv = process.env): T
   };
   if (production && Object.values(values).some((value) => value.length === 0)) {
     throw new Error("Transactional email delivery configuration is incomplete");
+  }
+  if (production) {
+    assertMailFromOnSendingDomain(values.mailFrom, env);
   }
   return { ...values, requestTimeoutMs: 10_000 };
 }

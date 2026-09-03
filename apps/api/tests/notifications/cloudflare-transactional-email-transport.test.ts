@@ -93,5 +93,20 @@ describe("CloudflareTransactionalEmailTransport", () => {
         transactionalMailConfig({ NODE_ENV: "production", CLOUDFLARE_ACCOUNT_ID: "x" } as NodeJS.ProcessEnv),
       ).toThrow(/incomplete/);
     });
+
+    it("生产环境 MAIL_FROM 域名必须匹配已 onboard 的发信域名（同 cloudflareEmailConfig 那条,2026-09-03 事故）", () => {
+      expect(() => transactionalMailConfig({
+        NODE_ENV: "production",
+        CLOUDFLARE_ACCOUNT_ID: "a",
+        CLOUDFLARE_TXN_EMAIL_API_TOKEN: "t",
+        MAIL_FROM: "noreply@boardx.us",
+      } as NodeJS.ProcessEnv)).toThrow(/MAIL_FROM domain/);
+      expect(() => transactionalMailConfig({
+        NODE_ENV: "production",
+        CLOUDFLARE_ACCOUNT_ID: "a",
+        CLOUDFLARE_TXN_EMAIL_API_TOKEN: "t",
+        MAIL_FROM: "no-reply@mail.boardx.us",
+      } as NodeJS.ProcessEnv)).not.toThrow();
+    });
   });
 });

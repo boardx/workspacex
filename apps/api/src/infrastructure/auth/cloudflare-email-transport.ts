@@ -1,4 +1,5 @@
 import type { VerificationMailTransport } from "../../application/auth/email-verification-ports";
+import { assertMailFromOnSendingDomain } from "../cloudflare-email-sending-domain";
 
 export interface CloudflareEmailConfig {
   accountId: string;
@@ -29,6 +30,9 @@ export function cloudflareEmailConfig(env: NodeJS.ProcessEnv = process.env): Clo
   }
   if (production && !values.appPublicUrl.startsWith("https://")) {
     throw new Error("APP_PUBLIC_URL must use HTTPS in production");
+  }
+  if (production) {
+    assertMailFromOnSendingDomain(values.mailFrom, env);
   }
   return {
     ...values,
