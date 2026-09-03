@@ -12,7 +12,7 @@
 | 并入日期 | 2026-07-30 |
 | 并入内容 | `src/**`、`tests/**`（**逐字**，未改一行） |
 | 未并入 | `demo/`、`dist/`、`vite.config.ts`、`package-lock.json`、`BACKLOG.md`、`node_modules/` |
-| `src` + `tests` 树摘要 | `sha256:accef751e0515cda896c49262069d5782e492b30af708ca4da753c05e2e33be3`（2026-08-30 第三次回流后，见下方「上游回流记录」；同日第二次回流的值 `sha256:7a5ae1ad8c6b7371c79cfe252c0fa120504eb0622b72d56a703e03e78cf1c2af`、第一次回流的值 `sha256:0e2350d6996acb0b842d81f3d491619765cf4eadbdc8ba788838ad9be22f5f06`、2026-08-22 回流后的值 `sha256:3d54b8c9057e93a3386b0417228263654c0c90d2bf9af4d51bd9bac1aaf3a2c4`、并入当时的原始值 `sha256:55199e79f433bdbc0ee50c479631589edfd28fb1516b58e354fac6a29fa67f99` 留痕） |
+| `src` + `tests` 树摘要 | `sha256:425b3417963c8cc59c73a79e9c06ff364a089c5ea9619fa05466ec85331cdf03`（2026-09-03 issue #2576 改动后，见下方「上游回流记录」；此前的值依次留痕——2026-09-02 改动后未曾更新过本行（本次一并补上，属既有缺口，非本次改动引入）、2026-08-30 第三次回流后 `sha256:accef751e0515cda896c49262069d5782e492b30af708ca4da753c05e2e33be3`、同日第二次回流的值 `sha256:7a5ae1ad8c6b7371c79cfe252c0fa120504eb0622b72d56a703e03e78cf1c2af`、第一次回流的值 `sha256:0e2350d6996acb0b842d81f3d491619765cf4eadbdc8ba788838ad9be22f5f06`、2026-08-22 回流后的值 `sha256:3d54b8c9057e93a3386b0417228263654c0c90d2bf9af4d51bd9bac1aaf3a2c4`、并入当时的原始值 `sha256:55199e79f433bdbc0ee50c479631589edfd28fb1516b58e354fac6a29fa67f99`） |
 
 树摘要的复算方式（在上游目录里跑，结果应与上表一致）：
 
