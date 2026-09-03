@@ -26,26 +26,29 @@ import { render, screen, waitFor } from "@testing-library/react";
 import type { Canvas as FabricCanvasType } from "fabric";
 import type { DiagramModel } from "@repo/fabric-markdown";
 
-function farApartModel(): DiagramModel {
+function farApartModel(x: number, y: number): DiagramModel {
   return {
     kind: "flowchart",
     direction: "TD",
     nodes: [
       { id: "X", label: "节点X", shape: "rect", x: 0, y: 0, width: 120, height: 48 },
-      { id: "Y", label: "节点Y", shape: "rect", x: 700, y: 500, width: 120, height: 48 },
+      { id: "Y", label: "节点Y", shape: "rect", x, y, width: 120, height: 48 },
     ],
     edges: [],
   };
 }
 
 const FAR_APART_MARKDOWN = "```mermaid\nflowchart TD\n  X --> Y\n```";
+// 内容大到"按内容算出来的比例"本身就比 `ZOOM_MIN`（0.5）还小——用来验证
+// `fitToContent` 不该把这个下限套在自己头上（见该函数实现改动的头注）。
+const HUGE_MARKDOWN = "```mermaid\nflowchart TD\n  X ==huge==> Y\n```";
 
 vi.mock("@repo/fabric-markdown", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@repo/fabric-markdown")>();
   return {
     ...actual,
     markdownToCanvas: async (markdown: string, canvas: FabricCanvasType) => {
-      const model = farApartModel();
+      const model = markdown === HUGE_MARKDOWN ? farApartModel(5000, 3000) : farApartModel(700, 500);
       actual.renderToCanvas(model, canvas);
       return { model, block: { code: markdown, lang: "mermaid", start: 0, end: markdown.length, fence: "```" } };
     },
@@ -131,6 +134,39 @@ describe("CanvasStage.fitToContent / fitOnLoad", () => {
     await waitFor(() => expect(onZoomChange).toHaveBeenCalled());
     const resetZoom = onZoomChange.mock.calls.at(-1)![0] as number;
     expect(resetZoom).toBeCloseTo(autoFitZoom, 5);
+  });
+
+  /**
+   * PR review 指出：`fitToContent` 原实现把结果夹到 `Math.max(ZOOM_MIN, ...)`，
+   * 内容大到"按比例算出来该缩多少"本身就小于 `ZOOM_MIN`（0.5）时，夹到下限会让
+   * 内容被裁掉一截——违反"看到所有内容"这个操作存在的唯一理由。`ZOOM_MIN` 是给
+   * 用户手动缩小定的下限（那条路径缩太小确实没意义），不该被"看到全部"这个
+   * 不同语义的操作借用同一个常数。
+   */
+  it("内容大到按比例算出来的缩放本该小于 ZOOM_MIN 时，真的会小于 ZOOM_MIN，不被夹到下限裁掉内容", async () => {
+    const stageRef = { current: null as CanvasStageHandle | null };
+    const onZoomChange = vi.fn();
+    render(
+      <CanvasStage
+        ref={(r) => { stageRef.current = r; }}
+        readOnly={false}
+        tool="select"
+        zoom={1}
+        onZoomChange={onZoomChange}
+        markdown={HUGE_MARKDOWN}
+        onMarkdownChange={vi.fn()}
+        fitOnLoad
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId("canvas-fabric-surface")).toBeInTheDocument());
+    await waitFor(() => expect(onZoomChange).toHaveBeenCalled());
+    const autoFitZoom = onZoomChange.mock.calls.at(-1)![0] as number;
+
+    // 600×400 的画布，节点隔开 5000/3000px + 自身尺寸 + 64px 留白——按比例算出来的
+    // 缩放明显小于 0.5（真按内容算大约 0.1 左右），如果实现还在夹 `ZOOM_MIN`，
+    // 这里会稳定拿到 0.5 而不是一个更小的数，断言会红。
+    expect(autoFitZoom).toBeLessThan(ZOOM_MIN);
+    expect(autoFitZoom).toBeGreaterThan(0);
   });
 
   it("没有 `fitOnLoad` 时（既有调用点，如正式编辑画布）——渲染完不会被自动缩放，行为不因为加了这个能力而被动改变", async () => {

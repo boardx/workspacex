@@ -248,7 +248,15 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     const viewH = canvas.getHeight();
     // 只缩小、不放大超过 100%——一张只有一两个便签的小模板"看到全部"不该被硬拉到
     // 铺满整屏放大好几倍，那看起来像出了故障而不是"刚好看到全部"。
-    const nextZoom = Math.max(ZOOM_MIN, Math.min(1, viewW / contentW, viewH / contentH));
+    //
+    // ⚠ 下限**不**夹到 `ZOOM_MIN`（PR review 指出）：`ZOOM_MIN` 是给"用户手动
+    //   滚轮/工具条缩小"定的下限（那条路径缩太小确实没意义，是使用者主动选择停在
+    //   一个还能看清的比例）。但"看到全部"这个操作存在的**唯一理由**就是「不管
+    //   内容多大，都要让它整个出现在视口里」（人类原话「画布默认要可以看到整体的
+    //   画布，不需要经过缩放」）——如果算出来的比例比 `ZOOM_MIN` 还小却被强行夹到
+    //   `ZOOM_MIN`，内容会被裁掉一截，这个按钮就没做到它说要做的事。两条路径的
+    //   "缩小到多少算合理"是两个不同的问题，不该共用同一个下限常数。
+    const nextZoom = Math.min(1, viewW / contentW, viewH / contentH);
     const panX = (viewW - contentW * nextZoom) / 2 - (minX - PADDING) * nextZoom;
     const panY = (viewH - contentH * nextZoom) / 2 - (minY - PADDING) * nextZoom;
     canvas.setViewportTransform([nextZoom, 0, 0, nextZoom, panX, panY]);
