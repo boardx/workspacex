@@ -181,15 +181,30 @@ function parseInitialSort(raw: string | undefined): SortBy {
 
 /** 供 `sortRows` 复用，也单独导出给单测覆盖（不必起一次真栈就能锁死排序规则）。 */
 export function compareTemplates(a: CanvasTemplate, b: CanvasTemplate, sortBy: SortBy): number {
-  switch (sortBy) {
-    case "name":
-      return a.displayName.localeCompare(b.displayName, "zh-Hans-CN");
-    case "createdAt":
-      return b.createdAt.localeCompare(a.createdAt);
-    case "updatedAt":
-    default:
-      return b.updatedAt.localeCompare(a.updatedAt);
+  const primary = (() => {
+    switch (sortBy) {
+      case "name":
+        return a.displayName.localeCompare(b.displayName, "zh-Hans-CN");
+      case "createdAt":
+        return b.createdAt.localeCompare(a.createdAt);
+      case "updatedAt":
+      default:
+        return b.updatedAt.localeCompare(a.updatedAt);
+    }
+  })();
+  if (primary !== 0) return primary;
+  // 并列时的确定性次级键——PR review 指出：`Array.prototype.sort` 是稳定排序，
+  // "稳定"只保证"并列的两行相对输入顺序不变"，不保证"并列的两行谁先谁后"这件事
+  // 本身有意义；输入顺序来自 API 响应，两次请求（甚至同一次请求的两页）都可能
+  // 给出不同顺序，"稳不稳定"因此不等于"确定不确定"。名字 → key → version 这条链
+  // 三档统一使用；`"name"` 档本身已经把名字当一级键，链从 key 起，不重复比一遍。
+  if (sortBy !== "name") {
+    const byName = a.displayName.localeCompare(b.displayName, "zh-Hans-CN");
+    if (byName !== 0) return byName;
   }
+  const byKey = a.key.localeCompare(b.key);
+  if (byKey !== 0) return byKey;
+  return a.version - b.version;
 }
 export function TemplateAdmin({
   previewRole, initialFilter, initialQuery, initialSort,

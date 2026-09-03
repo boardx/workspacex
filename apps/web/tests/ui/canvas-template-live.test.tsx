@@ -1710,16 +1710,49 @@ describe("画布模板库排序功能", () => {
     ]));
   });
 
-  it("并列（updatedAt 相同）不崩、不丢行——两行都还在，只是谁先谁后不做强断言", async () => {
-    const tied = [
-      template({ key: "tie1", displayName: "并列一", version: 1, updatedAt: "2026-01-01T00:00:00.000Z" }),
-      template({ key: "tie2", displayName: "并列二", version: 1, updatedAt: "2026-01-01T00:00:00.000Z" }),
-    ];
-    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: tied })));
-    render(<TemplateAdmin previewRole="facilitator" />);
-    await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
+  /**
+   * 并列时的确定性——PR review 指出：`Array.prototype.sort` 是稳定排序，"稳定"只保证
+   * "并列的两行相对**输入顺序**不变"，不保证"并列的两行谁先谁后"这件事本身有意义；
+   * 输入顺序来自 API 响应，同一份数据换一次请求顺序，界面上的顺序不该跟着变。
+   * 两条测试都拿**同一份数据的两种相反输入顺序**喂给组件，断言渲染结果完全一样——
+   * 这是比"排序后再比较"更强的证据：能查出"次级键其实没接上、退化成抄输入顺序"
+   * 这类此前的空隙（旧版本这里只断言"两行都还在、谁先谁后不管"，见 git 历史）。
+   */
+  it("最后修改时间/创建时间并列时，用名字做确定性次级键——两种输入顺序渲染结果相同", async () => {
+    const tieA = template({ key: "tieA", displayName: "A并列", version: 1, createdAt: "2026-02-01T00:00:00.000Z", updatedAt: "2026-02-01T00:00:00.000Z" });
+    const tieB = template({ key: "tieB", displayName: "B并列", version: 1, createdAt: "2026-02-01T00:00:00.000Z", updatedAt: "2026-02-01T00:00:00.000Z" });
+    const EXPECTED = ["tpladmin-card-tieA-1", "tpladmin-card-tieB-1"];
 
-    expect(renderedOrder().sort()).toEqual(["tpladmin-card-tie1-1", "tpladmin-card-tie2-1"]);
+    for (const inputOrder of [[tieA, tieB], [tieB, tieA]]) {
+      vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: inputOrder })));
+      const { unmount } = render(<TemplateAdmin previewRole="facilitator" />);
+      await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
+      expect(renderedOrder()).toEqual(EXPECTED); // 默认档：updatedAt
+
+      fireEvent.change(screen.getByTestId("tpladmin-sort"), { target: { value: "createdAt" } });
+      await waitFor(() => expect(renderedOrder()).toEqual(EXPECTED));
+
+      unmount();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("名字并列时，用 key 做确定性次级键——两种输入顺序渲染结果相同", async () => {
+    const tieX = template({ key: "tieX", displayName: "同名并列", version: 1 });
+    const tieY = template({ key: "tieY", displayName: "同名并列", version: 1 });
+    const EXPECTED = ["tpladmin-card-tieX-1", "tpladmin-card-tieY-1"]; // "tieX" < "tieY"
+
+    for (const inputOrder of [[tieX, tieY], [tieY, tieX]]) {
+      vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ templates: inputOrder })));
+      const { unmount } = render(<TemplateAdmin previewRole="facilitator" />);
+      await waitFor(() => expect(screen.getByTestId("tpladmin-cards")).toBeInTheDocument());
+
+      fireEvent.change(screen.getByTestId("tpladmin-sort"), { target: { value: "name" } });
+      await waitFor(() => expect(renderedOrder()).toEqual(EXPECTED));
+
+      unmount();
+      vi.unstubAllGlobals();
+    }
   });
 
   it("切排序档位会把 ?sort= 写进 URL；切回默认档（最后修改时间）时从 URL 里删掉，不留一个多余的 sort=updatedAt", async () => {
