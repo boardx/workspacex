@@ -193,6 +193,28 @@ export class PgCapabilityRepository implements CapabilityRepository {
     });
   }
 
+  /**
+   * ⚠ 2026-09-03 补——「停用」对模型 A（wave2：`skills`/`skill_versions`）的 skill
+   * 此前只是好看的假动作。目录页「停用」调的就是这个方法，它此前只翻
+   * `capability_listings.enabled`；但挂载判定（`loadMountableRow`）与目录合并读
+   * （`listAll`，`GET /skills` 的一半）走的是完全不同的一张表、认的是
+   * `skills.status = 'enabled'`，从 URL/starter-pack 导入落库那一刻起就再也没人
+   * 改过它。结果是：管理员点了「停用」，目录页上这一行确实变灰了，但这个 skill
+   * 在 chat 的 `#` 挂载里原样能挂、能执行——「停用」这个词对模型 A 的行是假的。
+   *
+   * 修法：`capability_listings.id` 对 `kind === 'skill'` 的 wave2 行，就是同一个
+   * `skills.id`（URL 导入 `pg-skill-url-import-repository.ts`/starter-pack 导入
+   * `pg-skill-starter-import-repository.ts` 落库时用的同一个 id，不是巧合）——
+   * 在同一次调用里把两张表一起写。对模型 B（`skill_contracts`，没有对应的
+   * `skills` 行）或其它 kind（agent/model/…），下面这条 `UPDATE skills` 天然匹配
+   * 不到任何行（各自的 id 命名空间不重叠），是安全的空操作，不需要按 kind 分支。
+   *
+   * `enabled` 目前只会被传 `false`（`mutate-capability.ts` 的 `op: "disable"` 是
+   * 唯一调用点，契约上没有 `enable` 这条路——`CapabilityUpdatePayload` 的头注写
+   * 明这是刻意的，「停用」是带确认弹窗/中断模式/留痕的一次性动作，不是开关）；
+   * 这里仍按 `enabled` 的真实值写 `skills.status`，不是硬编码 `'disabled'`，如果
+   * 未来契约真的加了 `enable`，这里不需要跟着改。
+   */
   async setEnabled(orgId: OrgId, id: string, enabled: boolean): Promise<GuardedCapability | null> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<Row>(
@@ -202,7 +224,14 @@ export class PgCapabilityRepository implements CapabilityRepository {
         [orgId, id, enabled],
       );
       const row = r.rows[0];
-      return row ? toGuarded(row) : null;
+      if (row === undefined) return null;
+      if (row.kind === "skill") {
+        await s.query(
+          `UPDATE skills SET status = $3, updated_at = now() WHERE org_id = $1 AND id = $2`,
+          [orgId, id, enabled ? "enabled" : "disabled"],
+        );
+      }
+      return toGuarded(row);
     });
   }
 }

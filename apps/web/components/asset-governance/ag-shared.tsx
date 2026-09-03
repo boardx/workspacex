@@ -231,7 +231,7 @@ export function CodeView({ body, testid }: { body: string; testid?: string }) {
  *   再点确认才生效。此处是原型，确认只切本地态。
  */
 export function DangerConfirm({
-  trigger, impact, confirmLabel, danger = true, testid, onConfirm, disabled = false,
+  trigger, impact, confirmLabel, danger = true, testid, onConfirm, disabled = false, title,
 }: {
   trigger: string;
   impact: React.ReactNode;
@@ -248,6 +248,8 @@ export function DangerConfirm({
    */
   onConfirm?: () => Promise<void>;
   disabled?: boolean;
+  /** 触发按钮被禁用时的悬浮说明（如「平台官方 skill，只读」）——不传则没有 title。 */
+  title?: string;
 }) {
   const [open, setOpen] = React.useState(false);
   const [done, setDone] = React.useState(false);
@@ -262,6 +264,7 @@ export function DangerConfirm({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         data-testid={`${testid}-trigger`}
+        title={title}
       >
         {trigger}
       </Button>

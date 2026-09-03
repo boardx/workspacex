@@ -7,6 +7,7 @@ import type {
   SkillStarterImportResult,
 } from "../../application/skill-import/ports";
 import { skillContentDigest } from "../../domain/skill/starter-pack";
+import { PLATFORM_ORG_ID } from "../../domain/org-id";
 
 interface ImportRow {
   status: "pending" | "succeeded" | "failed";
@@ -82,15 +83,24 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
 
       const stableNames = input.pack.skills.map((skill) => skill.stableName);
       const names = input.pack.skills.map((skill) => skill.name.toLocaleLowerCase());
+      // ⚠ 同时对着 `PLATFORM_ORG_ID` 查——四个官方 skill（`skill-platform-*`）在
+      // `listAll()`/`GET /skills` 里对每个组织都可见（design-delta `platform-owned-skills`
+      // 的 `OR org_id = PLATFORM_ORG_ID` 兜底），但这条冲突检查此前只查了 `org_id = $1`
+      // 自己。两条唯一约束（`skills_name_casefold_uniq`/`capability_listings_uniq`）也都是
+      // `(org_id, ...)` 维度，永远不会因为撞了平台行而失败——组织能悄悄导入一个和平台
+      // 官方 skill 同名的 skill，`GET /skills` 把两条拼在一起返回、互不去重，chat 的
+      // `#` 挂载列表与 `/skill` 目录里就会看到同一个名字出现两次，且都能被独立挂载。
+      // 这里把平台组织也纳入冲突判定，从源头挡住这种新的同名重复。
       const conflicts = await session.query<{ present: boolean }>(
         `SELECT EXISTS (
            SELECT 1 FROM skills
-            WHERE org_id = $1 AND (stable_name = ANY($2::text[]) OR lower(name) = ANY($3::text[]))
+            WHERE (org_id = $1 OR org_id = $4)
+              AND (stable_name = ANY($2::text[]) OR lower(name) = ANY($3::text[]))
            UNION ALL
            SELECT 1 FROM capability_listings
-            WHERE org_id = $1 AND kind = 'skill' AND lower(name) = ANY($3::text[])
+            WHERE (org_id = $1 OR org_id = $4) AND kind = 'skill' AND lower(name) = ANY($3::text[])
          ) AS present`,
-        [input.orgId, stableNames, names],
+        [input.orgId, stableNames, names, PLATFORM_ORG_ID],
       );
       if (conflicts.rows[0]?.present) {
         await session.query(
