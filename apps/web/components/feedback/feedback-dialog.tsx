@@ -242,19 +242,36 @@ export function FeedbackDialog({
     });
   }, []);
 
+  /** 剩余空间放不下完整模板时，说给用户听的一句话；套用成功或改了正文就清掉。 */
+  const [templateNotice, setTemplateNotice] = React.useState<string | null>(null);
+
   /**
    * 把模板填进「详细说说」。正文是空的（或全是空白）就直接换成模板；已经写了点东西，
    * 追加在后面而不是覆盖——点错了不该把用户已经写的话吞掉。
+   *
+   * ⚠ 剩余空间不够放下**完整**模板时**不插入半截**——半截模板（比如「复现步骤：
+   * 1. 」在第十个字被切断）看不出结构，用户会以为自己点坏了，比不给还糟。这里改成
+   * 拒绝这次操作并如实说明，正文原样不动，不是静默截断。
    */
   const applyTemplate = React.useCallback(() => {
     const template = FEEDBACK_TEMPLATES[kind];
-    // ⚠ 这里是程序化写 state，不是用户在 textarea 里敲字——`maxLength` 只挡得住键入/粘贴，
-    //   挡不住 setDetail 直接写超过 DETAIL_MAX 的字符串。正文已经写到接近上限时再点模板，
-    //   必须截断，否则 canSubmit 判"非空"就放行，提交时撞契约的 detail.max(4000) 报错。
-    setDetail((prev) => (prev.trim() === "" ? template : `${prev}\n\n${template}`).slice(0, DETAIL_MAX));
+    if (detail.trim() === "") {
+      setDetail(template);
+      setTemplateNotice(null);
+    } else {
+      const merged = `${detail}\n\n${template}`;
+      if (merged.length > DETAIL_MAX) {
+        setTemplateNotice(
+          `正文剩下的空间放不下完整模板（还差 ${merged.length - DETAIL_MAX} 字）。先删一点，或者手动照着「复现步骤/期望结果/实际结果」写。`,
+        );
+        return; // 正文原样不动
+      }
+      setDetail(merged);
+      setTemplateNotice(null);
+    }
     setAiTitle(null);
     detailInputRef.current?.focus();
-  }, [kind]);
+  }, [kind, detail]);
 
   React.useEffect(() => {
     detailInputRef.current?.focus();
@@ -395,7 +412,7 @@ export function FeedbackDialog({
                 ref={detailInputRef}
                 value={detail}
                 maxLength={DETAIL_MAX}
-                onChange={(e) => { setDetail(e.target.value); setAiTitle(null); }}
+                onChange={(e) => { setDetail(e.target.value); setAiTitle(null); setTemplateNotice(null); }}
                 rows={6}
                 placeholder={
                   kind === "缺陷"
@@ -405,6 +422,9 @@ export function FeedbackDialog({
                 data-testid="feedback-detail-input"
                 className="resize-y rounded-md border border-border-subtle bg-panel p-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
+              {templateNotice !== null && (
+                <p className="text-11 text-destructive" data-testid="feedback-template-notice">{templateNotice}</p>
+              )}
             </div>
 
             {/* FB-5——语音输入：与 chat composer 同一套（按钮 + 录音状态行），见上方 useAsrDraft 头注。 */}
