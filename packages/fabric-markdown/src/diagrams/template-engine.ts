@@ -33,6 +33,21 @@ export const STICKY_COLORS: Record<string, string> = {
 
 const STICKY_COLOR_BY_HEX = new Map(Object.entries(STICKY_COLORS).map(([name, hex]) => [hex, name]));
 
+/**
+ * Rough pixel width of `text` at `fontSize`, no canvas/DOM required (this
+ * runs at spec-build time, server-side included). CJK ideographs render
+ * roughly square (~1em); Latin/digits/punctuation average narrower, a bit
+ * more so in bold. Good enough to size a locked, non-editable title box —
+ * not a substitute for real text metrics on user-editable text.
+ */
+function estimateTextWidth(text: string, fontSize: number, bold = false): number {
+  const cjk = /[　-〿぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯]/;
+  const latinFactor = bold ? 0.62 : 0.55;
+  let width = 0;
+  for (const ch of text) width += cjk.test(ch) ? fontSize : fontSize * latinFactor;
+  return width;
+}
+
 /** Strip a trailing ` #colorname` tag from sticky text, if present. */
 function extractStickyColor(text: string): { text: string; color?: string } {
   const m = /^(.*?)\s+#(\w+)$/.exec(text);
@@ -339,16 +354,30 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
 
   // Title (+ optional editable name seeded from titleNameFields). The
   // printed background already carries the title, so skip it in bg mode.
-  if (!bg) nodes.push({
-    id: 'tpl-title',
-    label: spec.titleNameFields ? `${spec.title} —` : spec.title,
-    shape: 'text',
-    x: 60 + 190,
-    y: 24,
-    width: 380,
-    height: 26,
-    data: { role: 'title', locked: true, fontSize: 20, bold: true, color: INK, align: 'left' },
-  });
+  //
+  // Width used to be a flat 380px, sized for short titles like "SWOT 分析
+  // SWOT Analysis". A longer bilingual title — e.g. burger's "汉堡沟通模型
+  // Burger Communication Model" — overflows that box, and since this is a
+  // Textbox it wraps onto a second line instead of overflowing (issue #2605,
+  // reported with a screenshot of exactly that two-line wrap). Grow the box
+  // to fit the actual title instead, keeping the left edge pinned at x=60
+  // (same anchor every other frame element lines up against, see the
+  // "left edge lines up with the title" comment further down) and never
+  // shrinking below the old 380px so short titles render unchanged.
+  if (!bg) {
+    const titleLabel = spec.titleNameFields ? `${spec.title} —` : spec.title;
+    const titleWidth = Math.max(380, estimateTextWidth(titleLabel, 20, /* bold */ true) + 8);
+    nodes.push({
+      id: 'tpl-title',
+      label: titleLabel,
+      shape: 'text',
+      x: 60 + titleWidth / 2,
+      y: 24,
+      width: titleWidth,
+      height: 26,
+      data: { role: 'title', locked: true, fontSize: 20, bold: true, color: INK, align: 'left' },
+    });
+  }
   if (spec.titleNameFields) {
     let name = '';
     for (const f of spec.titleNameFields) {
