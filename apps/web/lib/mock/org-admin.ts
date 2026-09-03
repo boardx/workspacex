@@ -26,7 +26,7 @@ export const ORG_ADMIN_SCREENS = [
   "roles", //   UC-1.4 四视角切换器 + 角色说明条
   "grant", //   UC-1.4 临时提权授予 + 留痕
   "boundary", //UC-1.4 管理员边界 + 项目负责人侧「谁读过我的项目」
-  "members", // UC-1.6 成员邀请与激活生命周期 + 团队增删改
+  "members", // UC-1.6 成员邀请与激活生命周期（issue #2622 起不再含团队增删改，见 members-screen.tsx 头注）
   "activate", //UC-1.6 激活落地页（免登上下文）
 ] as const;
 export type OrgAdminScreen = (typeof ORG_ADMIN_SCREENS)[number];
