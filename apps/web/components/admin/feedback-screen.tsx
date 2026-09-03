@@ -375,7 +375,7 @@ export function FeedbackScreen({ state }: { state: UiState }) {
             )}
 
             {load.kind === "ready" && (
-              <div className="grid min-h-[560px] grid-cols-1 border-t border-border lg:grid-cols-[minmax(0,1fr)_380px]" data-testid={`admin-feedback-pane-${tab}`}>
+              <div className="grid min-h-[560px] grid-cols-1 border-t border-border lg:grid-cols-[minmax(0,1fr)_480px]" data-testid={`admin-feedback-pane-${tab}`}>
                 {/* 左：列表 */}
                 <FeedbackTable
                   kind={tab}
