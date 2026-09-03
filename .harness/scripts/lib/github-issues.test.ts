@@ -12,7 +12,7 @@ describe("listAllIssues (#2483：doctor 与 sync 共用的全量 issue 清单)",
     expect(seen).toContain(`--limit ${ISSUE_PAGE_LIMIT}`);
     expect(seen).toContain('--repo "acme/x"');
     expect(seen).toContain("--state all");
-    for (const field of ["number", "title", "body", "state", "stateReason", "labels"]) expect(seen).toContain(field);
+    for (const field of ["number", "title", "body", "state", "stateReason", "closedAt", "labels"]) expect(seen).toContain(field);
     expect(ISSUE_PAGE_LIMIT).toBeGreaterThan(500); // sync 停留了一个月的旧上限
   });
 
