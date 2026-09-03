@@ -73,7 +73,7 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
           type="button"
           data-testid="chat-code-fence-copy"
           onClick={copy}
-          className="rounded-sm px-1.5 py-0.5 hover:bg-muted hover:text-card-foreground"
+          className="rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted hover:text-card-foreground"
         >
           {copied ? "已复制" : "复制"}
         </button>
@@ -82,7 +82,7 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
           data-testid="chat-code-fence-toggle"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="rounded-sm px-1.5 py-0.5 hover:bg-muted hover:text-card-foreground"
+          className="rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted hover:text-card-foreground"
         >
           {open ? "隐藏代码" : "显示代码"}
         </button>
