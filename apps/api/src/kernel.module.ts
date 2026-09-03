@@ -420,6 +420,7 @@ import { SystemMailController } from "./interface/controllers/system-mail.contro
 import {
   FEEDBACK_SUBMITTER_DIRECTORY,
   GITHUB_ISSUE_CREATOR,
+  GITHUB_ISSUE_IMAGE_UPLOADER,
 } from "./application/feedback/notification-ports";
 import { PgFeedbackSubmitterDirectory } from "./infrastructure/feedback/pg-feedback-submitter-directory";
 import {
@@ -2084,6 +2085,11 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
       useFactory: (config: GithubIssueConfig) => new FetchGithubIssueCreator(config),
       inject: [GITHUB_ISSUE_CONFIG],
     },
+    // ⑥ 附件图片上传(`uploadImage`)与建 issue(`create`)共用**同一个** `FetchGithubIssueCreator`
+    // 实例——同一份 PAT/仓库配置,`useExisting` 只是给它挂第二个 token,不是新建一份配置。
+    // 见 `notification-ports.ts` 里 `GithubIssueImageUploader` 头注:两个接口分开是为了
+    // "这个方法需不需要 issue 已存在"这件事能在类型上看出来,不是两套依赖。
+    { provide: GITHUB_ISSUE_IMAGE_UPLOADER, useExisting: GITHUB_ISSUE_CREATOR },
     {
       provide: FEEDBACK_SUBMITTER_DIRECTORY,
       useFactory: (db: DatabasePort) => new PgFeedbackSubmitterDirectory(db),

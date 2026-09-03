@@ -10,7 +10,7 @@ import {
   FetchGithubIssueCreator,
   githubIssueConfig,
 } from "../../src/infrastructure/feedback/github-issue-creator";
-import { GithubIssueCreationError } from "../../src/application/feedback/notification-ports";
+import { GithubIssueApiError, GithubIssueCreationError } from "../../src/application/feedback/notification-ports";
 
 function fakeConfig(over: Partial<ReturnType<typeof githubIssueConfig>> = {}) {
   return {
@@ -102,6 +102,72 @@ describe("FetchGithubIssueCreator", () => {
       GithubIssueCreationError,
     );
     expect(called).toBe(false);
+  });
+
+  describe("uploadImage(⑥ 反馈附件图片推给 GitHub)", () => {
+    it("PUT Contents API,base64 编码字节,返回 download_url", async () => {
+      let capturedUrl: string | undefined;
+      let capturedInit: RequestInit | undefined;
+      const fakeFetch = (async (url: string, init?: RequestInit) => {
+        capturedUrl = url;
+        capturedInit = init;
+        return jsonResponse({
+          content: { download_url: "https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png" },
+        });
+      }) as typeof fetch;
+      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
+
+      const result = await creator.uploadImage({
+        path: "feedback-attachments/fbattach-1.png",
+        content: new Uint8Array([1, 2, 3]),
+        contentType: "image/png",
+      });
+
+      expect(capturedUrl).toBe(
+        "https://api.github.com/repos/boardx/workspacex/contents/feedback-attachments/fbattach-1.png",
+      );
+      expect(capturedInit?.method).toBe("PUT");
+      const headers = capturedInit?.headers as Record<string, string>;
+      expect(headers.authorization).toBe("Bearer ghp_fake_token");
+      const body = JSON.parse(capturedInit?.body as string) as { message: string; content: string };
+      expect(body.content).toBe(Buffer.from([1, 2, 3]).toString("base64"));
+      expect(body.message).toContain("feedback-attachments/fbattach-1.png");
+      expect(result).toEqual({
+        url: "https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png",
+      });
+    });
+
+    it("HTTP 非 2xx ⇒ 抛 GithubIssueApiError(op: uploadImage)", async () => {
+      const fakeFetch = (async () => jsonResponse({ message: "Bad credentials" }, 401)) as typeof fetch;
+      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
+      const error = await creator
+        .uploadImage({ path: "feedback-attachments/x.png", content: new Uint8Array([1]), contentType: "image/png" })
+        .catch((e) => e as GithubIssueApiError);
+      expect(error).toBeInstanceOf(GithubIssueApiError);
+      expect((error as GithubIssueApiError).op).toBe("uploadImage");
+      expect((error as GithubIssueApiError).status).toBe(401);
+    });
+
+    it("响应缺 content.download_url ⇒ 视为无效响应,抛错", async () => {
+      const fakeFetch = (async () => jsonResponse({})) as typeof fetch;
+      const creator = new FetchGithubIssueCreator(fakeConfig(), fakeFetch);
+      await expect(
+        creator.uploadImage({ path: "feedback-attachments/x.png", content: new Uint8Array([1]), contentType: "image/png" }),
+      ).rejects.toBeInstanceOf(GithubIssueApiError);
+    });
+
+    it("没有 token ⇒ 直接拒绝,不发请求", async () => {
+      let called = false;
+      const fakeFetch = (async () => {
+        called = true;
+        return jsonResponse({});
+      }) as typeof fetch;
+      const creator = new FetchGithubIssueCreator(fakeConfig({ token: "" }), fakeFetch);
+      await expect(
+        creator.uploadImage({ path: "feedback-attachments/x.png", content: new Uint8Array([1]), contentType: "image/png" }),
+      ).rejects.toBeInstanceOf(GithubIssueApiError);
+      expect(called).toBe(false);
+    });
   });
 
   describe("githubIssueConfig", () => {

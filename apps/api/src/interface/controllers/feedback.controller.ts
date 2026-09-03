@@ -61,8 +61,10 @@ import {
 import {
   FEEDBACK_SUBMITTER_DIRECTORY,
   GITHUB_ISSUE_CREATOR,
+  GITHUB_ISSUE_IMAGE_UPLOADER,
   type FeedbackSubmitterDirectory,
   type GithubIssueCreator,
+  type GithubIssueImageUploader,
 } from "../../application/feedback/notification-ports";
 import { submitFeedback } from "../../application/feedback/submit-feedback";
 import { listFeedback } from "../../application/feedback/list-feedback";
@@ -145,6 +147,7 @@ export class FeedbackController {
     @Inject(IDENTITY_REPOSITORY) private readonly identity: IdentityRepository,
     @Inject(DECISION_ID_FACTORY) private readonly decisions: DecisionIdFactory,
     @Inject(GITHUB_ISSUE_CREATOR) private readonly githubIssues: GithubIssueCreator,
+    @Inject(GITHUB_ISSUE_IMAGE_UPLOADER) private readonly githubImageUploader: GithubIssueImageUploader,
     @Inject(FEEDBACK_SUBMITTER_DIRECTORY) private readonly submitterDirectory: FeedbackSubmitterDirectory,
     @Inject(TRANSACTIONAL_MAIL_TRANSPORT) private readonly mail: TransactionalMailTransport,
     @Inject(LOGGER_PORT) private readonly logger: LoggerPort,
@@ -272,9 +275,14 @@ export class FeedbackController {
           submitterDirectory: this.submitterDirectory,
           mail: this.mail,
           logger: this.logger,
+          imageUploader: this.githubImageUploader,
+          attachments: this.attachments,
+          objectStore: this.objectStore,
+          newDecisionId: () => this.decisions.next(),
         },
         {
           feedbackId,
+          orgId: toOrgId(principal.orgId),
           status: body.status,
           reason: body.reason,
           actorId: principal.userId,
