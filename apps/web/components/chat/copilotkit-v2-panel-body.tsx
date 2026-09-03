@@ -1571,6 +1571,15 @@ export function CopilotKitV2PanelBody({
           100%"，居中无从谈起——空态因此贴着滚动区顶部出现，下面一路空到 composer。
           `agent.messages.length === 0 && !agent.isRunning` 这条判断本来就要在下面的
           三态分支里算一次，这里单独存一份供 className 用同一个事实，不重复判断逻辑。
+
+          ⚠ 2026-09-03 exact-SHA 复核抓到的真 bug（第一版这段注释的推理是错的，
+          一并订正）：只给 `messagesContainerRef` 开 `flex flex-col` 不够——
+          `flex-direction: column` 下主轴是纵向，`align-items: stretch`（默认值）
+          拉伸的是「交叉轴」（横向宽度），不是主轴（高度）。`messagesContentRef`
+          没有 `flex-1`，主轴尺寸仍然是 `flex-basis: auto` ⇒ 内容自身高度，跟
+          没开 flex 列之前一模一样，`h-full`/`justify-center` 依旧无容器高度可
+          居中。必须再让 `messagesContentRef` 参与主轴分配（`flex-1`）才真的
+          拿到父容器让出来的高度——下面补上。
         */}
         <div
           ref={messagesContainerRef}
@@ -1581,16 +1590,17 @@ export function CopilotKitV2PanelBody({
           onPointerDown={handleUserScrollIntent}
           className={cn(
             "flex-1 overflow-y-auto bg-background p-3",
-            // 只在空态这一支给滚动容器本身开 flex 列——`messagesContentRef` 作为它的
-            // flex item 默认 `align-items: stretch`，从而真的拿到一个可居中的高度。
+            // 只在空态这一支给滚动容器本身开 flex 列，`messagesContentRef` 再
+            // 用 `flex-1` 参与主轴（纵向）分配，才真的拿到可居中的高度。
             // 有消息时保持原来的普通块级流（`overflow-y-auto` 的滚动高度计算逻辑
             // 一个字不动），不会牵动 `handleMessagesScroll`/`isScrolledNearBottom`
-            // 这类依赖真实 scrollHeight 的既有逻辑。
+            // 这类依赖真实 scrollHeight 的既有逻辑——`flex-1` 类名只在父容器真的
+            // 是 flex 容器时才生效，块级流下是死代码，不影响非空态渲染。
             isEmptyThread && "flex flex-col",
           )}
           data-testid="copilotkit-v2-messages"
         >
-        <div ref={messagesContentRef}>
+        <div ref={messagesContentRef} className={cn(isEmptyThread && "flex flex-1 flex-col")}>
           {/* issue #2039（第 1 轮 gap #3，uiux-standards U1/U2）——三态：
               历史回读中 = 骨架屏；无消息 = 引导空态（此前是一整片空白）；
               有消息 = 框架消息列表。空态只在真的没有任何消息时出现，不伪装历史。 */}
