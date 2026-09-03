@@ -124,22 +124,31 @@ export function useComposerVoiceSession(
    * 写进了输入框，卡片底部却永久挂着一条「语音识别暂时不可用」——内容已经到手，
    * 这条提示对用户已经没有任何可执行的价值，纯粹是噪音。
    *
-   * 只在**这段会话确实转出过内容**（当前草稿相对 `sessionBaseRef` 有变化）时收敛：
-   * 把它当成跟正常「完成」一样落到 `done`，警告条自然不再渲染（下方 `phase` 的
-   * 优先级）。真正"一开始就连不上、什么都没录到"的失败不受影响，仍然如实报错——
-   * 不是把所有错误都吞掉，只是不为一个已经不影响结果的错误继续报警。
+   * 只在**这段会话确实转出过内容**时收敛：把它当成跟正常「完成」一样落到 `done`，
+   * 警告条自然不再渲染（下方 `phase` 的优先级）。真正"一开始就连不上、什么都没
+   * 录到"的失败不受影响，仍然如实报错——不是把所有错误都吞掉，只是不为一个已经
+   * 不影响结果的错误继续报警。
+   *
+   * ⚠ 2026-09-03 同作者诊断评论（PR #2626）指出的真实 bug：第一版这里用
+   * `opts.getDraft() !== sessionBaseRef.current`（整个可编辑 composer 草稿相对
+   * 会话开始前的差异）判断"是否转出过内容"——草稿是用户可编辑的整个输入框，
+   * 录音期间手动改字/插入 `@mention`/技能提及都会改变它，与"ASR 到底转出了什么"
+   * 是两件事：一次真正零转录的错误（比如连接从未建立成功）也会被误判成
+   * `done`，把"语音识别暂时不可用"这条本该出现的提示吞掉。改为只认
+   * `speech.committedText`/`speech.partialText`——这两个字段只由 `useAsrDraft`
+   * 内部的 `onFinal`/`onPartial` 回调写入（见该文件），`onError` 不会清空也不会
+   * 写入它们，所以在这里读到的就是"这段会话报错前，ASR 上游真的确认过的转录"，
+   * 与草稿被怎么编辑过无关。
    */
   React.useEffect(() => {
     if (speech.status !== "error") return;
     if (settled === "done") return;
-    const base = sessionBaseRef.current;
-    if (base === null) return; // 没有进行中的会话（比如 start() 本身就失败），如实报错。
-    const draftNow = opts.getDraft();
-    if (draftNow.trim() === base.trim()) return; // 真的什么都没转到，如实报错。
+    if (sessionBaseRef.current === null) return; // 没有进行中的会话（比如 start() 本身就失败），如实报错。
+    if (speech.committedText.trim() === "" && speech.partialText.trim() === "") return; // 真的什么都没转到，如实报错。
     setCarriedSeconds((s) => s + speech.elapsedSeconds);
     setCarriedChars((c) => c + speech.committedText.replace(/\s/g, "").length);
     setSettled("done");
-  }, [speech.status, speech.elapsedSeconds, speech.committedText, opts, settled]);
+  }, [speech.status, speech.elapsedSeconds, speech.committedText, speech.partialText, settled]);
 
   const start = React.useCallback(() => {
     if (sessionBaseRef.current === null || settled === null) {

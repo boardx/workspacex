@@ -103,6 +103,47 @@ describe("useComposerVoiceSession", () => {
     expect(speech.stop).toHaveBeenCalledTimes(1);
   });
 
+  it("中途报错但已有 committedText/partialText ⇒ 收敛为 done，不再展示错误", () => {
+    let draft = "前文";
+    const opts = { setDraft: (t: string) => { draft = t; }, getDraft: () => draft };
+    let speech = makeSpeech();
+    const { result, rerender } = renderHook(() => useComposerVoiceSession(speech, opts));
+
+    act(() => result.current.start());
+    speech = withStatus(speech, "listening", { baseText: "前文", committedText: "已经转录的内容", elapsedSeconds: 4 });
+    draft = "前文 已经转录的内容";
+    rerender();
+    expect(result.current.phase).toBe("listening");
+
+    // 上游中途报错（比如连接抖动）——底层直接跳到 error，不经过 idle。
+    speech = withStatus(speech, "error", { committedText: "已经转录的内容" });
+    rerender();
+    expect(result.current.phase).toBe("done");
+    expect(result.current.transcribedChars).toBeGreaterThan(0);
+  });
+
+  it("中途报错且 committedText/partialText 均为空（哪怕草稿被手动改过）⇒ 仍如实报错", () => {
+    // 2026-09-03 同作者诊断评论（PR #2626）反证的 bug：草稿差异不能代表"ASR 真的
+    // 转出过内容"——这里模拟"录音期间用户手动编辑了输入框，但 ASR 上游从头到尾
+    // 没有确认过任何一段转录就报错"，phase 必须仍然是 error，不能被误判成 done。
+    let draft = "前文";
+    const opts = { setDraft: (t: string) => { draft = t; }, getDraft: () => draft };
+    let speech = makeSpeech();
+    const { result, rerender } = renderHook(() => useComposerVoiceSession(speech, opts));
+
+    act(() => result.current.start());
+    speech = withStatus(speech, "listening", { baseText: "前文" });
+    rerender();
+    expect(result.current.phase).toBe("listening");
+
+    // 用户在录音期间手动编辑了草稿（不是 ASR 转录写回的）。
+    draft = "前文 手动打的字";
+
+    speech = withStatus(speech, "error", { committedText: "", partialText: "" });
+    rerender();
+    expect(result.current.phase).toBe("error");
+  });
+
   it("有声音就重置静音计时；关掉自动暂停则只提示不暂停", () => {
     const opts = { setDraft: vi.fn(), getDraft: () => "" };
     let speech = makeSpeech({ level: 0 });
