@@ -122,6 +122,26 @@ describe("useComposerVoiceSession", () => {
     expect(result.current.transcribedChars).toBeGreaterThan(0);
   });
 
+  it("中途报错但只有 partialText（还没落定成 committedText）⇒ 同样收敛为 done", () => {
+    // 2026-09-03 同作者复核评论指出的小缺口：上一条用例只实例化了 committedText，
+    // 没有单独覆盖"最后一段还停在 partial、还没等到 asr.final 就报错"这个真实时序
+    // （`useAsrDraft` 的 `onPartial` 先到、`onFinal` 还没到，上游连接就断了）。
+    let draft = "前文";
+    const opts = { setDraft: (t: string) => { draft = t; }, getDraft: () => draft };
+    let speech = makeSpeech();
+    const { result, rerender } = renderHook(() => useComposerVoiceSession(speech, opts));
+
+    act(() => result.current.start());
+    speech = withStatus(speech, "listening", { baseText: "前文", elapsedSeconds: 2 });
+    rerender();
+    expect(result.current.phase).toBe("listening");
+
+    // 只有 partialText 到达过，committedText 从未落定。
+    speech = withStatus(speech, "error", { committedText: "", partialText: "还在识别中的一段" });
+    rerender();
+    expect(result.current.phase).toBe("done");
+  });
+
   it("中途报错且 committedText/partialText 均为空（哪怕草稿被手动改过）⇒ 仍如实报错", () => {
     // 2026-09-03 同作者诊断评论（PR #2626）反证的 bug：草稿差异不能代表"ASR 真的
     // 转出过内容"——这里模拟"录音期间用户手动编辑了输入框，但 ASR 上游从头到尾
