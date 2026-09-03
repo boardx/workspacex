@@ -23,6 +23,18 @@
  * ⚠ `body` may carry a reset token. It is never written to the logger for that reason --
  * a bearer credential in an application log is a bearer credential in whatever aggregates
  * that log.
+ *
+ * ## 2026-09-03 -- the separate decision, made (issue #2602)
+ *
+ * `DeliveringPasswordMailer` (`delivering-password-mailer.ts`) is that reviewable
+ * transport: it WRAPS an instance of this class (recording is unchanged, still asserted
+ * by every test that reads `MAILER` back out of the container) and additionally, best
+ * -effort, forwards to the SAME `TransactionalMailTransport` that "系统异常 → 测试邮件"
+ * already sends real mail through. `kernel.module.ts` binds `MAILER` to it. This class
+ * itself is untouched -- it still only records, on purpose, so it stays usable standalone
+ * in any future context where recording without sending is still the right answer.
+ * Gap A-4 (local organization / zero-egress) is not addressed by that decision and
+ * remains open.
  */
 import type { Mailer, MailKind } from "../../application/auth/ports";
 

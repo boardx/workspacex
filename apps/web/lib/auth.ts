@@ -16,6 +16,7 @@ export type BootstrapFirstUserOut = z.infer<typeof auth.operations.bootstrapFirs
 export type RegisterNewAccountIn = z.infer<typeof auth.operations.registerNewAccount.in>;
 export type RegisterNewAccountOut = z.infer<typeof auth.operations.registerNewAccount.out>;
 export type RequestPasswordResetOut = z.infer<typeof auth.operations.requestPasswordReset.out>;
+export type CompletePasswordResetOut = z.infer<typeof auth.operations.completePasswordReset.out>;
 
 export async function login(email: string, password: string): Promise<LoginOut> {
   return apiRequest<LoginOut>(auth.operations.login.path, {
@@ -58,6 +59,24 @@ export async function requestPasswordReset(email: string): Promise<RequestPasswo
     body: { email },
     sessionToken: null,
   });
+}
+
+/**
+ * F21 找回密码第 4-5 步（issue #2602 补的落地页）——消费邮件里的一次性链接、
+ * 设置新密码。与 `requestPasswordReset` 相反，这一步**确实**区分成功/失败：
+ * 契约的 `err` 有 `RESET_TOKEN_INVALID`（伪造与过期同一个码，见后端头注）——
+ * 令牌真伪不再是需要防枚举的信道，因为持有正确令牌本身就已经证明了身份。
+ */
+export async function completePasswordReset(token: string, newPassword: string): Promise<CompletePasswordResetOut> {
+  return apiRequest<CompletePasswordResetOut>(auth.operations.completePasswordReset.path, {
+    method: "POST",
+    body: { token, newPassword },
+    sessionToken: null,
+  });
+}
+
+export function isResetTokenInvalid(error: unknown): boolean {
+  return error instanceof ApiError && error.reasonCode === "RESET_TOKEN_INVALID";
 }
 
 export function isBootstrapUnavailable(error: unknown): boolean {
