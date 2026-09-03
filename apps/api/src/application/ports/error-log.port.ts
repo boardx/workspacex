@@ -182,3 +182,19 @@ export function redactErrorDetail(detail: unknown): unknown {
   }
   return out;
 }
+
+/**
+ * `redactErrorMessage` -- 同一套 scrub+bound，套在 `msg` 这个字符串字段上（2026-09-03，
+ * 独立评审 finding #2）。
+ *
+ * `msg` 本身落库时**不**经过这条函数（`error_logs.msg` 列历来存的是调用方传入的原样字符串
+ * ——`SystemErrorLogController.report()` 那条分支甚至直接来自客户端上报文本，见该文件；
+ * 这是既有事实，不在本次改动范围内，动它会改变一张已经在生产的表历史上一直存的内容形状）。
+ *
+ * 但 `summarize-error-log.ts` 把 `msg` 发给外部模型，是**新增的一条分发路径**——多一个
+ * 消费者不能拿"反正已经落库了"当理由。调用方（`PgErrorLogWriter`）在喂给模型前必须过一次
+ * 这个函数，就像 `detail` 必须先过 `redactErrorDetail` 一样，两条路径分别脱敏、互不依赖。
+ */
+export function redactErrorMessage(msg: string): string {
+  return sanitiseField(msg, MAX_FIELD_LEN);
+}

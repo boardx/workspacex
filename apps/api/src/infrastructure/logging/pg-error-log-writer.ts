@@ -23,6 +23,7 @@
 import type { DatabasePort } from "../../application/ports/database.port";
 import {
   redactErrorDetail,
+  redactErrorMessage,
   type ErrorLogEntry,
   type ErrorLogListItem,
   type ErrorLogPort,
@@ -53,8 +54,23 @@ export interface PgErrorLogWriterAiDeps {
   readonly log: (message: string, detail: Record<string, unknown>) => void;
 }
 
+/**
+ * 独立评审 finding #3（2026-09-03）：`generateAndWriteSummary` 是每条异常一次的
+ * fire-and-forget 调用，出事故时异常量本身会暴涨——不设上限，模型调用量/成本会跟着
+ * 异常风暴一起放大，这正是"最不该在故障期间雪上加霜"的时候。
+ *
+ * 这里给的是**丢弃式**上限，不是排队：并发已达上限时新来的直接跳过（记一条日志，
+ * `ai_title`/`ai_summary` 保持 `NULL`——界面本来就要处理"还没生成"这个态，见
+ * `error-log.port.ts` 的 `ErrorLogListItem` 头注）。**没有做的**：一个持久化的任务队列
+ * （带重试/退避/终态区分 pending 与 permanently-failed）——那是一整套独立的基础设施
+ * （持久化存储、worker、重试策略），这个功能本身的定位是"锦上添花的辅助摘要，生成不出来
+ * 人类看原始技术细节"，配一整套持久任务系统不成比例；登记为独立 issue，需要时再做。
+ */
+const MAX_CONCURRENT_AI_SUMMARIES = 5;
+
 export class PgErrorLogWriter implements ErrorLogPort {
   private writeCount = 0;
+  private inFlightAiSummaries = 0;
 
   constructor(
     private readonly db: DatabasePort,
@@ -89,26 +105,41 @@ export class PgErrorLogWriter implements ErrorLogPort {
   private async generateAndWriteSummary(id: string, msg: string, redactedDetail: unknown): Promise<void> {
     const ai = this.ai;
     if (ai === undefined) return;
-    let result: { readonly title: string; readonly summary: string } | null;
-    try {
-      result = await summarizeErrorLog(
-        { model: ai.model, summaryModel: ai.summaryModel, log: ai.log },
-        { msg, redactedDetail },
-      );
-    } catch (e) {
-      // `summarizeErrorLog` 已经把已知的失败模式(模型调用失败/解析失败)自己 catch 成
-      // `null`——这里的 catch 是给"没想到的"异常兜底，不让一次异常摘要生成的意外故障
-      // 变成一条未处理的 promise rejection。
-      ai.log("error log ai summary: unexpected failure generating summary (stays null)", { id, err: e });
+
+    // 并发上限——见类头注。丢弃而不是排队：宁可这一条异常没有摘要（界面有兜底文案），
+    // 也不要在故障风暴期间把模型调用量跟着放大。
+    if (this.inFlightAiSummaries >= MAX_CONCURRENT_AI_SUMMARIES) {
+      ai.log("error log ai summary: skipped -- max concurrent AI summary generations already in flight (bounding model traffic during an incident, not queueing)", {
+        id, inFlight: this.inFlightAiSummaries, max: MAX_CONCURRENT_AI_SUMMARIES,
+      });
       return;
     }
-    if (result === null) return;
+
+    this.inFlightAiSummaries += 1;
     try {
-      await this.db.withoutTenant((s) =>
-        s.query(`SELECT kernel_write_error_log_ai_summary($1::bigint, $2, $3)`, [id, result.title, result.summary]),
-      );
-    } catch (e) {
-      ai.log("error log ai summary: write-back failed (best-effort, ai_title/ai_summary stay null)", { id, err: e });
+      let result: { readonly title: string; readonly summary: string } | null;
+      try {
+        result = await summarizeErrorLog(
+          { model: ai.model, summaryModel: ai.summaryModel, log: ai.log },
+          { redactedMsg: redactErrorMessage(msg), redactedDetail },
+        );
+      } catch (e) {
+        // `summarizeErrorLog` 已经把已知的失败模式(模型调用失败/解析失败)自己 catch 成
+        // `null`——这里的 catch 是给"没想到的"异常兜底，不让一次异常摘要生成的意外故障
+        // 变成一条未处理的 promise rejection。
+        ai.log("error log ai summary: unexpected failure generating summary (stays null)", { id, err: e });
+        return;
+      }
+      if (result === null) return;
+      try {
+        await this.db.withoutTenant((s) =>
+          s.query(`SELECT kernel_write_error_log_ai_summary($1::bigint, $2, $3)`, [id, result.title, result.summary]),
+        );
+      } catch (e) {
+        ai.log("error log ai summary: write-back failed (best-effort, ai_title/ai_summary stay null)", { id, err: e });
+      }
+    } finally {
+      this.inFlightAiSummaries -= 1;
     }
   }
 

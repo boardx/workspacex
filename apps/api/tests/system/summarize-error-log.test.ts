@@ -7,8 +7,10 @@
  *      的后台任务，`PgErrorLogWriter` 不该因为一次模型故障而多一条未处理异常。
  *   ④ 输出不是 JSON / 缺 title 或 summary ⇒ 同样返回 null，不编一个占位摘要。
  *   ⑤ 超长的 title/summary 被截断到契约允许的长度。
+ *   ⑥ 独立评审 finding #4（2026-09-03）：无论模型赢还是超时赢，`setTimeout` 句柄都被清掉，
+ *      不悬挂到 30 秒后才触发——用 vi 的假计时器直接断言 `clearTimeout` 被调用过。
  */
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   summarizeErrorLog,
   type SummarizeErrorLogDeps,
@@ -24,7 +26,7 @@ function deps(over: Partial<SummarizeErrorLogDeps> = {}): SummarizeErrorLogDeps 
   } as SummarizeErrorLogDeps;
 }
 
-const input = { msg: "unhandled exception", redactedDetail: { name: "Error", message: "connect ETIMEDOUT" } };
+const input = { redactedMsg: "unhandled exception", redactedDetail: { name: "Error", message: "connect ETIMEDOUT" } };
 
 describe("summarizeErrorLog", () => {
   it("① 成功：严格 JSON 输出原样返回", async () => {
@@ -33,7 +35,7 @@ describe("summarizeErrorLog", () => {
     expect(out).toEqual({ title: "数据库连接超时", summary: "疑似连接池耗尽，建议先查慢查询与连接数上限。" });
     expect(d.model.complete).toHaveBeenCalledWith(expect.objectContaining({
       modelProvider: "test-provider", modelId: "test-model",
-      user: JSON.stringify({ msg: input.msg, detail: input.redactedDetail }),
+      user: JSON.stringify({ msg: input.redactedMsg, detail: input.redactedDetail }),
     }));
   });
 
@@ -82,5 +84,23 @@ describe("summarizeErrorLog", () => {
     const out = await summarizeErrorLog(d, input);
     expect(out?.title.length).toBe(200);
     expect(out?.summary.length).toBe(2000);
+  });
+
+  describe("⑥ 定时器句柄不悬挂（独立评审 finding #4）", () => {
+    afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
+
+    it("模型先赢：句柄被 clearTimeout 清掉，不留到超时", async () => {
+      const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+      const d = deps();
+      await summarizeErrorLog(d, input);
+      expect(clearSpy).toHaveBeenCalled();
+    });
+
+    it("超时先赢：句柄已触发，clearTimeout 仍然被调用一次（安全 no-op，不是分支遗漏）", async () => {
+      const clearSpy = vi.spyOn(globalThis, "clearTimeout");
+      const d = deps({ model: { complete: vi.fn(() => new Promise<never>(() => {})) } });
+      await summarizeErrorLog(d, input);
+      expect(clearSpy).toHaveBeenCalled();
+    }, 40_000);
   });
 });

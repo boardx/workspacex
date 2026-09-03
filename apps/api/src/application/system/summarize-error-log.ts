@@ -11,12 +11,14 @@
  * 控制器映射 503；这里的调用方（`PgErrorLogWriter`）是 fire-and-forget 的后台任务，
  * 失败只需要让 `aiTitle`/`aiSummary` 保持 `null`，不需要一个专门的错误类。
  *
- * ## 为什么不喂原始未脱敏的 detail
+ * ## 为什么不喂原始未脱敏的字段（`msg` 与 `detail` 都算，2026-09-03 更新）
  *
- * 调用方必须传入**已经过 `redactErrorDetail` 脱敏**的 detail（与落库到 `error_logs.detail`
- * 的那份完全一致）——异常里常见的连接串/token/JWT 不能因为多了一步"发给模型整理"就
- * 多一条泄露路径。这里不重新做一次脱敏，是因为脱敏的单一事实源在 `error-log.port.ts`，
- * 这里假定调用方已经处理，不是本函数的职责。
+ * 调用方必须传入**已经过 `error-log.port.ts` 脱敏**的 `msg`（`redactErrorMessage`）和
+ * `detail`（`redactErrorDetail`）——异常里常见的连接串/token/JWT 不能因为多了一步"发给
+ * 模型整理"就多一条泄露路径。独立评审 finding #2（2026-09-03）：初版只脱敏了 `detail`，
+ * `msg` 被原样传给模型——`SystemErrorLogController.report()` 那条分支的 `msg` 直接含
+ * 客户端上报文本的前 200 字，同样可能带敏感内容。这里不重新做一次脱敏，是因为脱敏的
+ * 单一事实源在 `error-log.port.ts`，这里假定调用方已经处理，不是本函数的职责。
  */
 import type { ModelCallPort } from "../agent-run/ports";
 import { ModelCallError } from "../agent-run/ports";
@@ -37,8 +39,9 @@ export interface SummarizeErrorLogDeps {
 }
 
 export interface SummarizeErrorLogInput {
-  readonly msg: string;
-  /** 已脱敏——见文件头"为什么不喂原始未脱敏的 detail"。 */
+  /** 已脱敏（`redactErrorMessage`）——见文件头"为什么不喂原始未脱敏的字段"。 */
+  readonly redactedMsg: string;
+  /** 已脱敏（`redactErrorDetail`）——同上。 */
   readonly redactedDetail: unknown;
 }
 
@@ -75,8 +78,17 @@ export async function summarizeErrorLog(
   deps: SummarizeErrorLogDeps,
   input: SummarizeErrorLogInput,
 ): Promise<SummarizeErrorLogResult | null> {
-  const user = JSON.stringify({ msg: input.msg, detail: input.redactedDetail });
+  const user = JSON.stringify({ msg: input.redactedMsg, detail: input.redactedDetail });
 
+  // ⚠ 独立评审 finding #4（2026-09-03）：`setTimeout` 的句柄如果不在模型先赢的那条路径上
+  // `clearTimeout`，定时器会一直挂到 30 秒后才触发+被回收——高并发下这是可观的悬挂句柄
+  // 数量。这里保留句柄，`finally` 里无条件清掉（模型赢或超时赢都清，重复 clear 是安全的
+  // no-op）。**没有做的**：真正取消/abort 掉还在跑的模型请求本身——`ModelCallPort.complete`
+  // 目前完全没有 signal/abort 形状的入参（`generate-thread-title.ts` / `structure-feedback-
+  // draft.ts` / `generate-followup-suggestions.ts` 这几个同骨架的元任务调用点都是同样的
+  // 限制，不是本文件独有），要补这个得改端口接口 + 每个 provider 实现，是比这一个用例大得多
+  // 的改动，登记为独立 issue，不在本次顺手做。
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
   let completion: { readonly text: string };
   try {
     completion = await Promise.race([
@@ -89,7 +101,7 @@ export async function summarizeErrorLog(
         user,
       }),
       new Promise<never>((_resolve, reject) => {
-        setTimeout(() => reject(new Error("error log summarization timed out")), SUMMARIZE_ERROR_LOG_TIMEOUT_MS);
+        timeoutHandle = setTimeout(() => reject(new Error("error log summarization timed out")), SUMMARIZE_ERROR_LOG_TIMEOUT_MS);
       }),
     ]);
   } catch (e) {
@@ -100,6 +112,10 @@ export async function summarizeErrorLog(
       detail: e instanceof ModelCallError ? e.detail : e instanceof Error ? e.message : "unexpected model call failure",
     });
     return null;
+  } finally {
+    // 模型赢：句柄还没触发，清掉避免悬挂到 30 秒后。超时赢：句柄已经触发过，`clearTimeout`
+    // 在一个已触发的句柄上是安全的 no-op——两条路径都过这一行，不需要分别处理。
+    if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
   }
 
   let parsed: unknown;

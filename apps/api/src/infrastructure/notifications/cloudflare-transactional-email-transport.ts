@@ -25,6 +25,9 @@
  *   ⚠ 这是运维成本与"两个 token 各自最小权限"之间的权衡，不是撤销上面那条设计——
  *   专属 token 仍然是**优先**读取的那个，配了它就完全不touch这条回退；只有在专属
  *   token 从未配置过的部署上，才会一直吃这条回退,直到运维单独发一个 txn token。
+ *   决策记录、权衡（轮换/吊销影响）、何时能撤掉这条回退，见 issue #2567——独立评审
+ *   finding #6（2026-09-03）要求这条例外要有可回指的记录，不能只是代码注释里一句
+ *   "人类同意了"。
  * 见 ADR-108。
  */
 import { TransactionalMailError } from "../../application/notifications/transactional-mail-ports";
