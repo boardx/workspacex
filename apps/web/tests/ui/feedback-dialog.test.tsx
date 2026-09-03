@@ -254,6 +254,20 @@ describe("FB-5 补：套用模板 / 拖拽上传", () => {
     expect(detail.value).toContain("复现步骤");
   });
 
+  it("⑨ 正文已经接近/超过 4000 字上限时点「套用模板」（含连点两下）——不越界，提交按钮不因此被误开", () => {
+    openDialogFor({ kind: "product" });
+    // fireEvent.change 走的是程序化写值（同 setDetail），不受 textarea maxLength 限制，
+    // 用来在测试里复现"正文已经在 4000 字上限"这个只有程序化写入才够得到的状态。
+    const nearLimit = "字".repeat(3990);
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: nearLimit } });
+    const templateButton = screen.getByTestId("feedback-template-button");
+    fireEvent.click(templateButton);
+    fireEvent.click(templateButton); // 连点两下，累加不能越界
+    const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
+    expect(detail.value.length).toBeLessThanOrEqual(4000);
+    expect((screen.getByTestId("feedback-submit") as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("⑩ 把图片拖进附件区（不点「加图片」）也能触发上传，同一条 addAttachments 路径", async () => {
     const createObjectURL = vi.fn(() => "blob:preview");
     const revokeObjectURL = vi.fn();

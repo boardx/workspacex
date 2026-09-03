@@ -248,7 +248,10 @@ export function FeedbackDialog({
    */
   const applyTemplate = React.useCallback(() => {
     const template = FEEDBACK_TEMPLATES[kind];
-    setDetail((prev) => (prev.trim() === "" ? template : `${prev}\n\n${template}`));
+    // ⚠ 这里是程序化写 state，不是用户在 textarea 里敲字——`maxLength` 只挡得住键入/粘贴，
+    //   挡不住 setDetail 直接写超过 DETAIL_MAX 的字符串。正文已经写到接近上限时再点模板，
+    //   必须截断，否则 canSubmit 判"非空"就放行，提交时撞契约的 detail.max(4000) 报错。
+    setDetail((prev) => (prev.trim() === "" ? template : `${prev}\n\n${template}`).slice(0, DETAIL_MAX));
     setAiTitle(null);
     detailInputRef.current?.focus();
   }, [kind]);
@@ -269,7 +272,9 @@ export function FeedbackDialog({
 
   const attachmentsUploading = attachments.some((a) => a.status === "uploading");
   const title = aiTitle ?? deriveFeedbackTitle(detail);
-  const canSubmit = title !== "" && detail.trim() !== "" && !busy && !attachmentsUploading;
+  // detail.length 上限也在这里判——不只依赖 textarea 的 maxLength（那只挡键入/粘贴，
+  // 挡不住 setDetail 之类的程序化写入，见 applyTemplate 头注），提交前有第二道闸。
+  const canSubmit = title !== "" && detail.trim() !== "" && detail.length <= DETAIL_MAX && !busy && !attachmentsUploading;
 
   const send = async () => {
     setBusy(true);
