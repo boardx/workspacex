@@ -66,5 +66,6 @@ export async function getAssetDirectory(
     tree: [...built.tree],
     files: [...built.files],
     currentVersionId: record.currentVersionId,
+    readOnly: record.readOnly,
   };
 }

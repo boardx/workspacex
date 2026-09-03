@@ -84,7 +84,7 @@ import type {
   AssetKind,
   AssetRenamedFileRecord,
 } from "../../application/asset/ports";
-import type { OrgId } from "../../domain/org-id";
+import { PLATFORM_ORG_ID, isPlatformOwned, type OrgId } from "../../domain/org-id";
 import { sha256 } from "../../domain/skill/starter-pack";
 
 /** uc-23-3's fixed root file name for the `skill` `AssetKind` -- never mutated by this file. */
@@ -103,6 +103,12 @@ interface VersionRow {
   readonly id: string;
 }
 
+/** Same shape as `VersionRow` plus the row's actual owning org -- see `currentVisibleVersion`. */
+interface VersionWithOrgRow {
+  readonly id: string;
+  readonly org_id: string;
+}
+
 interface CountRow {
   readonly count: string;
 }
@@ -110,6 +116,14 @@ interface CountRow {
 interface WorkingFile {
   readonly body: string;
   readonly mediaType: string;
+}
+
+/** `readCurrentSnapshot`'s result: the resolved file set plus whose org it actually lives in. */
+interface Snapshot {
+  readonly versionId: string;
+  readonly files: Map<string, WorkingFile>;
+  /** `true` when this snapshot was resolved from `org-platform`, not the caller's own org. */
+  readonly readOnly: boolean;
 }
 
 export class PgAssetFileRepository implements AssetFileRepository {
@@ -121,23 +135,22 @@ export class PgAssetFileRepository implements AssetFileRepository {
 
   async getDirectory(orgId: OrgId, assetKind: AssetKind, assetId: string): Promise<AssetDirectoryRecord | null> {
     if (assetKind !== "skill") return this.fallback.getDirectory(orgId, assetKind, assetId);
-    const files = await this.readCurrentSnapshot(orgId, assetId);
-    if (files === null) return null;
-    /**
-     * 试跑（`SkillTrialRunController`）要的是 `skill_versions.id`（`readPinnedSkills`
-     * 按它查），而不是这里的 `assetId`（`skills.id`）——两者不是同一个 id 空间。
-     * `AgSkillEditor` 只知道 `assetId`，所以目录响应得把当前发布版本的 id 带出去；
-     * 不带的话前端除了猜没有别的办法拿到它。多查一次是这条读路径本来就要做的事
-     * （`readCurrentSnapshot` 内部第一步就是它），这里只是把结果也返回给调用方。
-     */
-    const currentVersionId = await this.db.withTenant(
-      orgId,
-      (session) => this.currentPublishedVersionId(orgId, assetId, session),
-    );
+    const snapshot = await this.readCurrentSnapshot(orgId, assetId);
+    if (snapshot === null) return null;
     return {
       rootFile: SKILL_ROOT_FILE,
-      entries: [...files.entries()].map(([path, f]) => ({ path, sizeBytes: Buffer.byteLength(f.body, "utf8") })),
-      currentVersionId,
+      entries: [...snapshot.files.entries()].map(
+        ([path, f]) => ({ path, sizeBytes: Buffer.byteLength(f.body, "utf8") }),
+      ),
+      // 试跑（`SkillTrialRunController`）要的是 `skill_versions.id`（`readPinnedSkills`
+      // 按它查），而不是这里的 `assetId`（`skills.id`）——两者不是同一个 id 空间。
+      // `AgSkillEditor` 只知道 `assetId`，所以目录响应得把当前发布版本的 id 带出去；
+      // 不带的话前端除了猜没有别的办法拿到它。`readCurrentSnapshot` 已经解出了这个 id，
+      // 这里不再重复查一次（原实现在这里对同一个 skill 又单独查了一遍
+      // `currentPublishedVersionId`，是纯粹的重复往返，且它当时还没有下面这份平台
+      // 兜底——两个理由都指向同一处改动）。
+      currentVersionId: snapshot.versionId,
+      readOnly: snapshot.readOnly,
     };
   }
 
@@ -148,9 +161,9 @@ export class PgAssetFileRepository implements AssetFileRepository {
     path: string,
   ): Promise<AssetFileContentRecord | null> {
     if (assetKind !== "skill") return this.fallback.readFile(orgId, assetKind, assetId, path);
-    const files = await this.readCurrentSnapshot(orgId, assetId);
-    if (files === null) return null;
-    const file = files.get(path);
+    const snapshot = await this.readCurrentSnapshot(orgId, assetId);
+    if (snapshot === null) return null;
+    const file = snapshot.files.get(path);
     if (file === undefined) return null;
     return { sizeBytes: Buffer.byteLength(file.body, "utf8"), body: file.body };
   }
@@ -208,7 +221,12 @@ export class PgAssetFileRepository implements AssetFileRepository {
     return { path: to, sizeBytes: Buffer.byteLength(renamed.body, "utf8"), body: renamed.body };
   }
 
-  /** `null` = no `skills` row for this `(org, id)`, or it has never published a version. */
+  /**
+   * `null` = no `skills` row for THIS caller's own org and this id, or it has never published a
+   * version. Used only by the write path (`publishNewSnapshot`) -- writes must never resolve
+   * to a platform-owned version, so this deliberately does NOT fall back to `PLATFORM_ORG_ID`
+   * (see `currentVisibleVersion` below for the read-path counterpart that does).
+   */
   private async currentPublishedVersionId(
     orgId: OrgId,
     skillId: string,
@@ -223,18 +241,56 @@ export class PgAssetFileRepository implements AssetFileRepository {
     return found.rows[0]?.id ?? null;
   }
 
-  private async readCurrentSnapshot(orgId: OrgId, skillId: string): Promise<Map<string, WorkingFile> | null> {
+  /**
+   * Read-path version resolution -- unlike `currentPublishedVersionId` above, this ALSO looks
+   * at `org-platform`'s rows, same fallback every other platform-skill read path already has
+   * (`pg-skill-contract-repository.ts#listAll`/`loadMountableRow`, `pg-capability-repository.ts`,
+   * `pg-agent-run-repository.ts`, `pg-thread-mounted-skill-reader.ts` -- this file was the one
+   * left out, which is the bug this method fixes: opening a platform-owned skill's file
+   * browser/editor 404'd for every org because `currentPublishedVersionId` only ever looked at
+   * the caller's own `org_id`, and none of the four official skills live there). The caller's
+   * own org's row wins if -- implausibly -- both exist, via the `(org_id = $1) DESC` ordering
+   * term; RLS's `skill_versions_platform_read` policy is what makes the `OR org_id = $3` half
+   * of this query legible to the current tenant session at all (same session, no tenant switch
+   * needed -- see the sibling repositories linked above for the same pattern).
+   */
+  private async currentVisibleVersion(
+    orgId: OrgId,
+    skillId: string,
+    session: TenantSession,
+  ): Promise<{ id: string; readOnly: boolean } | null> {
+    const found = await session.query<VersionWithOrgRow>(
+      `SELECT id, org_id FROM skill_versions
+        WHERE (org_id = $1 OR org_id = $3) AND skill_id = $2 AND published = true
+        ORDER BY (org_id = $1) DESC, created_at DESC LIMIT 1`,
+      [orgId, skillId, PLATFORM_ORG_ID],
+    );
+    const row = found.rows[0];
+    if (row === undefined) return null;
+    return { id: row.id, readOnly: isPlatformOwned(row.org_id) };
+  }
+
+  private async readCurrentSnapshot(orgId: OrgId, skillId: string): Promise<Snapshot | null> {
     return this.db.withTenant(orgId, async (session) => {
-      const versionId = await this.currentPublishedVersionId(orgId, skillId, session);
-      if (versionId === null) return null;
+      const version = await this.currentVisibleVersion(orgId, skillId, session);
+      if (version === null) return null;
+      // `skill_version_files.org_id` mirrors its version's own `org_id` (never the caller's,
+      // when the version resolved to a platform row) -- so this second query must filter by
+      // the row this version ACTUALLY belongs to, not by `orgId` again, or a platform version's
+      // files (which live under `org_id = 'org-platform'`) would filter down to zero rows.
+      const fileOrgId = version.readOnly ? PLATFORM_ORG_ID : orgId;
       const rows = await session.query<FileRow>(
         `SELECT path, content, media_type FROM skill_version_files
           WHERE org_id = $1 AND version_id = $2 ORDER BY path`,
-        [orgId, versionId],
+        [fileOrgId, version.id],
       );
-      return new Map(
-        rows.rows.map((r) => [r.path, { body: Buffer.from(r.content).toString("utf8"), mediaType: r.media_type }]),
-      );
+      return {
+        versionId: version.id,
+        readOnly: version.readOnly,
+        files: new Map(
+          rows.rows.map((r) => [r.path, { body: Buffer.from(r.content).toString("utf8"), mediaType: r.media_type }]),
+        ),
+      };
     });
   }
 
