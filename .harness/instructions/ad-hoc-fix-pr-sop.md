@@ -31,14 +31,20 @@ Claude Code 的默认行为是"除非用户明确要求，否则不创建 PR"—
    `pr-review-merge-sop.md` 与 `coordinator-sop.md` 的 PR 状态机）。**不允许**创建完
    PR 就结束/让 session 空转，把红 PR 留给不知情的后来者。
 
-4. **不强制为此单独开 issue。**
-   Ad-hoc 任务不是 `feature_list.json` 的条目，不适用"没有 issue 不许开发"那条硬约束
-   （那条是 sprint feature 专属）。但改动仍然要能在 PR 本身里看懂来龙去脉——PR 描述
-   不是可选项。
+4. **不必走完整 sprint feature 的 issue 生命周期，但仍要有 `Refs #N`。**
+   Ad-hoc 任务不是 `feature_list.json` 的条目，不需要"先建 issue、issue 里记录每次
+   迭代"那套完整机制（那是 sprint feature 专属）。但 `.harness/scripts/lib/pr-queue.ts`
+   的 `classifyPr` 对**任何** PR 都机械检查"正文里有 `Closes #N` 或 `Refs #N`"，没有
+   区分 sprint feature 与 ad-hoc（2026-09-03 #2562 实测：本文早先版本声称"不强制开
+   issue"，但对应 PR 因此没有任何 issue 引用，被 `classifyPr` 判 `MERGE_BLOCKED`——
+   一条不被机械判据支持的"豁免"只是一句不成立的承诺）。所以：**开一个轻量 issue、
+   PR 正文写 `Refs #<issue>` 即可**——不必是 `Closes`，不必先有它才能动手改代码，成本
+   是几秒钟的一次 API 调用，不是完整 sprint 生命周期。
 
 ## 与已有规则的关系
 
 - 「PR 绿了才算完」的唯一判定仍是 `.harness/scripts/lib/pr-queue.ts` 的
-  `classifyChecks`——本文不新定义、不复述任何 check 规则。
+  `classifyPr`（内部复用 `classifyChecks` 判 CI 部分）——本文不新定义、不复述任何
+  check 或 issue 追溯性规则，本节第 4 条只是指出既有判据同样适用于 ad-hoc PR。
 - 本文只解决"要不要主动创建 PR"这一个决策点；PR 创建之后的分诊、合并、review 判定，
   全部沿用 `coordinator-sop.md` / `pr-review-merge-sop.md` 既有流程，没有新增例外。
