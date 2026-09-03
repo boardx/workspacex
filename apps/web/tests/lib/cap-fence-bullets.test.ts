@@ -10,15 +10,21 @@
 import { describe, it, expect } from "vitest";
 import { renderStickyCapacity, ENGINE_STICKY, ENGINE_STICKY_GAP } from "@/lib/canvas/auto-template-layout";
 import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
-import type { TemplateSpec } from "@repo/fabric-markdown";
+import { registerTemplate, templateToModel, type TemplateSpec } from "@repo/fabric-markdown";
 
 // 私有的 `cellSizeForArrangement`（`auto-template-layout.ts` 未导出）在这里就地重算，
 // 用于验证 `renderStickyCapacity` 是它的精确逆运算——两处算法逐字对应同一份引擎公式。
-function cellFor(perRow: number, rows: number): { w: number; h: number } {
-  const pitchX = ENGINE_STICKY.w + ENGINE_STICKY_GAP.x;
+// `stickyW`/`stickyH` 可覆盖默认的 `ENGINE_STICKY` 尺寸——独立审查抓到的问题：
+// 引擎实际用的便签尺寸是 `{...(spec.sticky ?? DEFAULT_STICKY), ...sec.sticky}` 合并
+// 后的结果，不同内置模板（bmc/strategy 120×80、burger 180×90、HMW 150×90）与
+// `ENGINE_STICKY`（136×92）并不相同，下面几个用例要覆盖非默认尺寸这条真实分支。
+function cellFor(
+  perRow: number, rows: number, stickyW: number = ENGINE_STICKY.w, stickyH: number = ENGINE_STICKY.h,
+): { w: number; h: number } {
+  const pitchX = stickyW + ENGINE_STICKY_GAP.x;
   return {
     w: 2 * 14 + perRow * pitchX,
-    h: 44 + rows * ENGINE_STICKY.h + (rows - 1) * ENGINE_STICKY_GAP.y + 14,
+    h: 44 + rows * stickyH + (rows - 1) * ENGINE_STICKY_GAP.y + 14,
   };
 }
 
@@ -39,6 +45,15 @@ describe("renderStickyCapacity —— cellSizeForArrangement 的逆运算", () =
     const narrow = cellFor(1, 3);
     expect(renderStickyCapacity(narrow.w, narrow.h, 8, true)).toBe(1 * 3);
   });
+
+  it("非默认便签尺寸（如 bmc/strategy 系的 120×80）也要按这份尺寸算，不是恒用 ENGINE_STICKY", () => {
+    const bmcSticky = { w: 120, h: 80 };
+    const cell = cellFor(2, 3, bmcSticky.w, bmcSticky.h);
+    // 用 ENGINE_STICKY（136×92，比 120×80 大）算会得出更小的容量——如果函数偷偷
+    // 忽略传入的 stickyW/stickyH、内部还在用 ENGINE_STICKY，这个断言会失败。
+    expect(renderStickyCapacity(cell.w, cell.h, 2, true, bmcSticky.w, bmcSticky.h)).toBe(6);
+    expect(renderStickyCapacity(cell.w, cell.h, 2, true, ENGINE_STICKY.w, ENGINE_STICKY.h)).not.toBe(6);
+  });
 });
 
 function draftSpec(sections: TemplateSpec["sections"]): TemplateSpec {
@@ -56,6 +71,51 @@ describe("sectionRenderCapacities", () => {
     const caps = sectionRenderCapacities(spec);
     expect(caps.get("A")).toBe(4);
     expect(caps.get("B")).toBe(6);
+  });
+
+  it("spec 级 sticky 用非默认尺寸（如 strategy 系 120×80）时，容量按这份尺寸算", () => {
+    const bmcSticky = { w: 120, h: 80, perRow: 2 };
+    const cell = cellFor(2, 3, bmcSticky.w, bmcSticky.h); // 容量 6（按 120×80）
+    const spec: TemplateSpec = {
+      key: "t", title: "t", titleBars: true, sticky: bmcSticky,
+      sections: [{ name: "A", x: 0, y: 0, w: cell.w, h: cell.h }], // 分区自己不覆盖，吃 spec 级默认
+    };
+    expect(sectionRenderCapacities(spec).get("A")).toBe(6);
+  });
+
+  it("分区级 sticky.w/h 覆盖 spec 级默认时，容量按分区自己的尺寸算", () => {
+    const specSticky = { w: 136, h: 92, perRow: 3 }; // = ENGINE_STICKY，容易被悄悄用错
+    const sectionSticky = { w: 180, h: 90, perRow: 4 }; // burger 模板同款尺寸
+    const cell = cellFor(4, 2, sectionSticky.w, sectionSticky.h); // 容量 8（按 180×90）
+    const spec: TemplateSpec = {
+      key: "t", title: "t", titleBars: true, sticky: specSticky,
+      sections: [{ name: "A", x: 0, y: 0, w: cell.w, h: cell.h, sticky: sectionSticky }],
+    };
+    expect(sectionRenderCapacities(spec).get("A")).toBe(8);
+  });
+
+  it("ground truth：容量与 templateToModel 实际渲染出的便签数量/几何对齐（非默认尺寸）", () => {
+    const sectionSticky = { w: 120, h: 80, perRow: 2 };
+    const cell = cellFor(2, 2, sectionSticky.w, sectionSticky.h); // 容量 4
+    const key = "cap-fence-bullets-ground-truth";
+    const spec: TemplateSpec = {
+      key, title: "t", titleBars: true,
+      sections: [{ name: "A", x: 400, y: 300, w: cell.w, h: cell.h, sticky: sectionSticky }],
+    };
+    registerTemplate(spec);
+    const capacity = sectionRenderCapacities(spec).get("A")!;
+    expect(capacity).toBe(4);
+
+    // 喂给引擎的条目数正好等于算出的容量——按引擎自己的合并规则，画出来的便签
+    // 应该一张不多、一张不少，且没有一张越出这个分区框的下边界。
+    const bullets = Array.from({ length: capacity }, (_, i) => `- 条目${i + 1}`).join("\n");
+    const model = templateToModel(`模板: ${key}\n## A\n${bullets}`);
+    const stickies = model.nodes.filter((n) => n.data?.role === "sticky");
+    expect(stickies).toHaveLength(capacity);
+    const sectionBottom = cell.h / 2 + 300; // sec.y + sec.h/2（中心 300，见上面 spec）
+    for (const s of stickies) {
+      expect(s.y + s.height / 2).toBeLessThanOrEqual(sectionBottom + 1e-6);
+    }
   });
 });
 

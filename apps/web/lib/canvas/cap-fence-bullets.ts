@@ -34,14 +34,24 @@ import { ENGINE_STICKY, renderStickyCapacity } from "./auto-template-layout";
 /**
  * `spec` 的每个分区在引擎里实际能画下几张便签——`## 分区名` → 容量。
  * 只覆盖 `spec.sections`（表头 `fields` 不是便签列表，不参与截断）。
+ *
+ * ⚠ 独立审查抓到的问题（修复见 `renderStickyCapacity` 文档）：便签尺寸必须按引擎
+ *   自己的合并规则算——`{ ...(spec.sticky ?? DEFAULT_STICKY), ...sec.sticky }`
+ *   （`template-engine.ts` 475 行 `sectionSticky`），逐字段合并，不是「有 spec.sticky
+ *   就整份换掉默认值」。这里精确复刻同一条合并（而不是只合并 `perRow`、`w`/`h`
+ *   仍然悄悄用 `ENGINE_STICKY` 的默认值）——bmc/strategy 系（120×80）、burger（180×90）、
+ *   HMW（150×90）等内置模板的 `spec.sticky` 与 `ENGINE_STICKY` 不同，也要按它们
+ *   自己的尺寸算容量。
  */
 export function sectionRenderCapacities(spec: TemplateSpec): ReadonlyMap<string, number> {
   const titleBars = spec.titleBars !== false;
-  const defaultSticky = spec.sticky ?? ENGINE_STICKY;
+  const specSticky = spec.sticky ?? ENGINE_STICKY;
   const out = new Map<string, number>();
   for (const sec of spec.sections) {
-    const perRow = sec.sticky?.perRow ?? defaultSticky.perRow;
-    out.set(sec.name, renderStickyCapacity(sec.w, sec.h, perRow, titleBars));
+    const w = sec.sticky?.w ?? specSticky.w;
+    const h = sec.sticky?.h ?? specSticky.h;
+    const perRow = sec.sticky?.perRow ?? specSticky.perRow;
+    out.set(sec.name, renderStickyCapacity(sec.w, sec.h, perRow, titleBars, w, h));
   }
   return out;
 }
