@@ -17,6 +17,32 @@ import { cn } from "@/lib/utils";
 import type { CanvasTool } from "./canvas-toolbar";
 import { ZOOM_MIN, ZOOM_MAX } from "./canvas-toolbar";
 
+/**
+ * 全部对象的并集包围盒——`exportPNG` 与 `fitToContent` 共用的**唯一**一处
+ * `getBoundingRect()` 循环。此前两处各写了一份、padding 也各不相同（导出 24px、
+ * 定 viewport 32px），文档却写着"共用同一套算法"——那是本仓明确要防的"同一事实
+ * 声明在两处"，不是巧合而是没做到位。现在两处都调用它算 min/max，padding 仍然
+ * 各自决定（导出留白与"看到全部"的留白本来就是两回事，不该被这次收敛强行拉齐）。
+ *
+ * 用 `getBoundingRect()` 而不是直接读每个对象的 left/top/width/height：fabric v7 起
+ * 前者恒返回绝对坐标，FlowNode/FlowEdge 内部可能是 group，裸读那四个属性对旋转/
+ * 弯曲边这类对象算出来的框会偏。
+ */
+export function unionBoundingBox(
+  objects: ReturnType<FabricCanvas["getObjects"]>,
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  if (objects.length === 0) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const obj of objects) {
+    const r = obj.getBoundingRect();
+    minX = Math.min(minX, r.left);
+    minY = Math.min(minY, r.top);
+    maxX = Math.max(maxX, r.left + r.width);
+    maxY = Math.max(maxY, r.top + r.height);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
 let nodeSeq = 0;
 let edgeSeq = 0;
 
@@ -48,6 +74,14 @@ export interface CanvasStageHandle {
    * （没有任何节点）返回 null，不产出一张空白 PNG 冒充"导出成功"。
    */
   exportPNG(opts?: { multiplier?: number }): { dataUrl: string; width: number; height: number } | null;
+  /**
+   * 「看到所有内容」——按全部对象的并集包围盒重算 zoom/pan，让整张画布一次性都出现
+   * 在当前视口里，不需要用户再手动滚轮/拖动去找内容（人类原话：「画布默认要可以看到
+   * 整体的画布，不需要经过缩放」）。与 `exportPNG` 共用同一套并集包围盒算法（那边算完
+   * 拿去截图，这边算完拿去定 viewport），不是重新发明第二份"量画布内容"的逻辑。
+   * 空画布（没有任何对象）什么都不做——没有内容可"看到全部"。
+   */
+  fitToContent(): void;
 }
 
 export const CanvasStage = React.forwardRef<CanvasStageHandle, {
@@ -84,6 +118,14 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
    * "框"是什么形状，只负责把指针在哪原样递出去。
    */
   onCanvasHover?: (point: { x: number; y: number } | null) => void;
+  /**
+   * 首次渲染出内容、以及此后每次外部 markdown 变化重渲染完成后，自动跑一次
+   * `fitToContent`——「chat 模拟」结果预览要求默认就能看到整个画布，不需要用户先手动
+   * 缩放一次（人类原话，见文件头 `CanvasStageHandle.fitToContent`）。可选，默认关闭：
+   * 既有调用点（正式编辑画布、模板编辑器②栏）默认 zoom=1/无平移是刻意的既有行为，
+   * 不因为加了这个能力而被动改变。
+   */
+  fitOnLoad?: boolean;
 }>(function CanvasStage({
   readOnly,
   tool,
@@ -93,6 +135,7 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   onMarkdownChange,
   onCanvasClick,
   onCanvasHover,
+  fitOnLoad,
 }, ref) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasElRef = React.useRef<HTMLCanvasElement>(null);
@@ -127,6 +170,8 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
   const markdownRef = React.useRef(markdown);
   const onMarkdownChangeRef = React.useRef(onMarkdownChange);
   const onZoomChangeRef = React.useRef(onZoomChange);
+  const fitOnLoadRef = React.useRef(fitOnLoad);
+  fitOnLoadRef.current = fitOnLoad;
   const inlineEditorRef = React.useRef<HTMLTextAreaElement>(null);
   const editingTargetRef = React.useRef<FlowNode | FlowEdge | null>(null);
   // 撤销/重做（人类实测反馈：此前拖歪/删错一个节点没有任何挽回手段，只能关掉
@@ -182,6 +227,42 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     const next = serializeCanvasMarkdown(canvas, markdownRef.current);
     emit(next);
   }, [emit]);
+
+  // 见 `CanvasStageHandle.fitToContent` 头注——与 `exportPNG` 共用同一套并集包围盒
+  // 算法，只是拿算出来的框去定 viewport（zoom+pan）而不是去截图。定义成一个不依赖
+  // 组件其它 state 的稳定函数（只读 fabricRef/containerRef/onZoomChangeRef 三个 ref），
+  // 好处是挂载 effect 与"markdown 变化"effect 都能直接调用它，不必把它塞进各自的
+  // 依赖数组、也不必等它们的 effect 重新跑一遍。
+  const fitToContent = React.useCallback(() => {
+    const canvas = fabricRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+    const box = unionBoundingBox(canvas.getObjects());
+    if (!box) return;
+    const { minX, minY, maxX, maxY } = box;
+    const PADDING = 32;
+    const contentW = maxX - minX + PADDING * 2;
+    const contentH = maxY - minY + PADDING * 2;
+    if (contentW <= 0 || contentH <= 0) return;
+    const viewW = canvas.getWidth();
+    const viewH = canvas.getHeight();
+    // 只缩小、不放大超过 100%——一张只有一两个便签的小模板"看到全部"不该被硬拉到
+    // 铺满整屏放大好几倍，那看起来像出了故障而不是"刚好看到全部"。
+    //
+    // ⚠ 下限**不**夹到 `ZOOM_MIN`（PR review 指出）：`ZOOM_MIN` 是给"用户手动
+    //   滚轮/工具条缩小"定的下限（那条路径缩太小确实没意义，是使用者主动选择停在
+    //   一个还能看清的比例）。但"看到全部"这个操作存在的**唯一理由**就是「不管
+    //   内容多大，都要让它整个出现在视口里」（人类原话「画布默认要可以看到整体的
+    //   画布，不需要经过缩放」）——如果算出来的比例比 `ZOOM_MIN` 还小却被强行夹到
+    //   `ZOOM_MIN`，内容会被裁掉一截，这个按钮就没做到它说要做的事。两条路径的
+    //   "缩小到多少算合理"是两个不同的问题，不该共用同一个下限常数。
+    const nextZoom = Math.min(1, viewW / contentW, viewH / contentH);
+    const panX = (viewW - contentW * nextZoom) / 2 - (minX - PADDING) * nextZoom;
+    const panY = (viewH - contentH * nextZoom) / 2 - (minY - PADDING) * nextZoom;
+    canvas.setViewportTransform([nextZoom, 0, 0, nextZoom, panX, panY]);
+    canvas.requestRenderAll();
+    onZoomChangeRef.current?.(nextZoom);
+  }, []);
 
   // 挂载：创建真实 fabric.Canvas（一次）。
   React.useEffect(() => {
@@ -699,6 +780,7 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
         const ignored = countIgnoredFences(markdown);
         setIgnoredCount(ignored);
         setLoading(false);
+        if (fitOnLoadRef.current) fitToContent();
         void model;
       })
       .catch((err: unknown) => {
@@ -723,6 +805,7 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
         if (cancelled) return;
         setIgnoredCount(countIgnoredFences(markdown));
         setLoading(false);
+        if (fitOnLoadRef.current) fitToContent();
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -762,19 +845,9 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
     exportPNG: (opts) => {
       const canvas = fabricRef.current;
       if (!canvas) return null;
-      const objects = canvas.getObjects();
-      if (objects.length === 0) return null;
-      // 并集包围盒——用 `getBoundingRect()`（fabric v7 起恒返回绝对坐标）而不是
-      // 直接读每个对象的 left/top/width/height，因为 FlowNode/FlowEdge 内部
-      // 可能是 fabric Group，裸读那四个属性对旋转/弯曲边这类对象算出来的框会偏。
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const obj of objects) {
-        const r = obj.getBoundingRect();
-        minX = Math.min(minX, r.left);
-        minY = Math.min(minY, r.top);
-        maxX = Math.max(maxX, r.left + r.width);
-        maxY = Math.max(maxY, r.top + r.height);
-      }
+      const box = unionBoundingBox(canvas.getObjects());
+      if (!box) return null;
+      const { minX, minY, maxX, maxY } = box;
       const EXPORT_PADDING = 24;
       const left = minX - EXPORT_PADDING;
       const top = minY - EXPORT_PADDING;
@@ -798,7 +871,8 @@ export const CanvasStage = React.forwardRef<CanvasStageHandle, {
       canvas.requestRenderAll();
       return { dataUrl, width, height };
     },
-  }), []);
+    fitToContent,
+  }), [fitToContent]);
 
   return (
     <div
