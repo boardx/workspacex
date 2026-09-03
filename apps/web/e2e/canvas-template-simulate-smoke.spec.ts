@@ -143,19 +143,30 @@ test("admin types a prompt into chat 模拟, gets a real model round trip back, 
   await expect(page.getByTestId("tpladmin-editor-simulate-tool-sticky")).toBeVisible();
 
   // 🟢 R3（人类原话「画布默认要可以看到整体的画布，不需要经过缩放」+「加一个：看到
-  // 所有的内容的reset按钮」）——两字段模板的内容小，在铺满视口的全屏弹窗里，
+  // 所有的内容的reset按钮」）——两字段模板的内容小，在铺满视口的全屏弹窗里
   // `fitOnLoad` 算出来的缩放本就会被 `fitToContent` 的"只缩小、不放大过 100%"
-  // 规则夹到 100%（见该方法实现），所以不能拿"缩放读数变没变"当信号——量的是
-  // **确定性**：把缩放读数先拨到别的值（100% 是既有「适应画布」按钮的既定行为），
-  // 再点新加的「看到全部」reset 按钮，读数必须落回 `fitOnLoad` 当初算出来的
-  // 同一个值——`fitToContent` 是纯函数（同一份对象包围盒 + 同一个视口尺寸 ⇒
-  // 同一个 zoom），两次调用不应该产出两个不同的答案。
+  // 规则夹到 100%（见该方法实现）。⚠ 这意味着不能拿"先点既有的「适应画布」按钮
+  // 回到 100%，再点新按钮看是不是还是 100%"当证据——那条路径无论 `fitOnLoad`/
+  // `fitToContent` 有没有真的跑都会通过（PR review 指出的"vacuous"正是这个）。
+  // 真正有区分力的做法：先用 Ctrl+滚轮**真的**把缩放拨到一个跟自动 fit 不同的值
+  // （`canvas-stage.tsx` 的 `mouse:wheel` 处理认 `ctrlKey` 当"这是缩放手势"），
+  // 断言读数确实变了，再点「看到全部」，断言它收敛回 `fitOnLoad` 当初算出来的
+  // 那个值——一个坏掉/空实现的 `fitToContent` 会让读数停在被拨乱的那个值，这条
+  // 断言到那时候会真的红。
   const zoomReadout = page.getByTestId("tpladmin-editor-simulate-zoom-readout");
-  const afterAutoFit = await zoomReadout.textContent();
-  await page.getByTestId("tpladmin-editor-simulate-zoom-fit").click(); // 先拨到「适应画布」的 100%……
-  await expect(zoomReadout).toHaveText("100%");
-  await page.getByTestId("tpladmin-editor-simulate-fit-content").click(); // ……再点新按钮触发 reset
-  await expect(zoomReadout).toHaveText(afterAutoFit!);
+  const autoFitZoom = await zoomReadout.textContent();
+
+  const surface = page.getByTestId("canvas-fabric-surface");
+  const surfaceBox = (await surface.boundingBox())!;
+  await page.mouse.move(surfaceBox.x + surfaceBox.width / 2, surfaceBox.y + surfaceBox.height / 2);
+  await page.keyboard.down("Control");
+  // 多滚几次、往同一个方向——确保跨过缩放档位的量化台阶，读数一定可观测地变化。
+  for (let i = 0; i < 6; i += 1) await page.mouse.wheel(0, -120);
+  await page.keyboard.up("Control");
+  await expect(zoomReadout).not.toHaveText(autoFitZoom!);
+
+  await page.getByTestId("tpladmin-editor-simulate-fit-content").click();
+  await expect(zoomReadout).toHaveText(autoFitZoom!);
 
   const result = page.getByTestId("tpladmin-editor-simulate-result");
   await expect(result).toContainText(ECHOED_NAME_VALUE);

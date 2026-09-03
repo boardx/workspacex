@@ -28,7 +28,7 @@ import { ZOOM_MIN, ZOOM_MAX } from "./canvas-toolbar";
  * 前者恒返回绝对坐标，FlowNode/FlowEdge 内部可能是 group，裸读那四个属性对旋转/
  * 弯曲边这类对象算出来的框会偏。
  */
-function unionBoundingBox(
+export function unionBoundingBox(
   objects: ReturnType<FabricCanvas["getObjects"]>,
 ): { minX: number; minY: number; maxX: number; maxY: number } | null {
   if (objects.length === 0) return null;
