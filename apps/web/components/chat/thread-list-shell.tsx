@@ -171,7 +171,9 @@ export function ThreadCardButton({
   /**
    * issue #2075（TW-P2-6「置顶」）—— 两者都可选：不传即完全不渲染置顶入口，
    * 旧轨道两屏（`ChatReadScreen` / `PersonalChatScreen`）行为逐字不变。
-   * 置顶的持久化范围见 `lib/chat-pinned-threads.ts` 头注（本地，跨设备需签核）。
+   * 置顶已改为服务端持久化（2026-09-03，F109 续，ad-hoc）：`pinned` 直接来自
+   * 契约 `ThreadCard.pinned`，`onTogglePin` 的调用方经 `mutateThread` 的
+   * `pin`/`unpin` 落库，取代此前 `lib/chat-pinned-threads.ts` 的 localStorage 方案。
    */
   pinned?: boolean;
   onTogglePin?: () => void;

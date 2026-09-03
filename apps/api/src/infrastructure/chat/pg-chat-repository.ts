@@ -208,10 +208,10 @@ export class PgChatRepository implements ChatRepository {
   ): Promise<readonly ThreadListRow[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<
-        ThreadDbRow & { title: string; agent_private: boolean; transcribing: boolean }
+        ThreadDbRow & { title: string; agent_private: boolean; transcribing: boolean; pinned: boolean }
       >(
         `SELECT t.id, t.project_id, t.group_id, t.visibility_scope, t.created_by, t.archived,
-                t.phase, t.title, t.agent_private, t.last_activity_at, t.version,
+                t.phase, t.title, t.agent_private, t.last_activity_at, t.version, t.pinned,
                 EXISTS (
                   SELECT 1 FROM chat_transcript_sessions ts
                    WHERE ts.thread_id = t.id AND ts.org_id = t.org_id AND ts.stopped_at IS NULL
@@ -234,6 +234,7 @@ export class PgChatRepository implements ChatRepository {
         lastActivityAt: row.last_activity_at.toISOString(),
         version: row.version,
         transcribing: row.transcribing,
+        pinned: row.pinned,
       }));
     });
   }
@@ -249,10 +250,10 @@ export class PgChatRepository implements ChatRepository {
   ): Promise<readonly ThreadListRow[]> {
     return this.db.withTenant(orgId, async (s) => {
       const r = await s.query<
-        ThreadDbRow & { title: string; agent_private: boolean; transcribing: boolean }
+        ThreadDbRow & { title: string; agent_private: boolean; transcribing: boolean; pinned: boolean }
       >(
         `SELECT t.id, t.project_id, t.group_id, t.visibility_scope, t.created_by, t.archived,
-                t.phase, t.title, t.agent_private, t.last_activity_at, t.version,
+                t.phase, t.title, t.agent_private, t.last_activity_at, t.version, t.pinned,
                 EXISTS (
                   SELECT 1 FROM chat_transcript_sessions ts
                    WHERE ts.thread_id = t.id AND ts.org_id = t.org_id AND ts.stopped_at IS NULL
@@ -275,6 +276,7 @@ export class PgChatRepository implements ChatRepository {
         lastActivityAt: row.last_activity_at.toISOString(),
         version: row.version,
         transcribing: row.transcribing,
+        pinned: row.pinned,
       }));
     });
   }
@@ -362,6 +364,30 @@ export class PgChatRepository implements ChatRepository {
           WHERE id = $2 AND org_id = $3 AND version = $4
       RETURNING version`,
         [title, threadId, orgId, expectedVersion],
+      );
+      return r.rows[0]?.version ?? null;
+    });
+  }
+
+  /**
+   * 置顶 / 取消置顶（2026-09-03，F109 续，ad-hoc）。同 `renameThread` 一样，
+   * `WHERE version = $expected` 在同一条语句里比对并自增——不是先 SELECT 再 UPDATE。
+   * ⚠ 不写 `last_activity_at`：置顶不是「这条线程有新动静」，写了会让置顶单独
+   *   把一条线程顶到列表最前，与「今天/本周」按真实活动时间分组的语义打架。
+   */
+  async setThreadPinned(
+    orgId: OrgId,
+    threadId: string,
+    pinned: boolean,
+    expectedVersion: number,
+  ): Promise<number | null> {
+    return this.db.withTenant(orgId, async (s) => {
+      const r = await s.query<{ version: number }>(
+        `UPDATE chat_threads
+            SET pinned = $1, version = version + 1
+          WHERE id = $2 AND org_id = $3 AND version = $4
+      RETURNING version`,
+        [pinned, threadId, orgId, expectedVersion],
       );
       return r.rows[0]?.version ?? null;
     });

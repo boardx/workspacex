@@ -499,6 +499,31 @@ export async function deleteThread(
   });
 }
 
+/**
+ * 置顶 / 取消置顶（2026-09-03，F109 续，ad-hoc）。`projectId` 必传、允许 `null`，
+ * 理由同 `renameThread`（见其文档注释）——个人对话左栏这条调用点恒传 `null`。
+ */
+export async function setThreadPinned(
+  threadId: string,
+  projectId: string | null,
+  pinned: boolean,
+  expectedVersion: number,
+): Promise<MutateThreadOut> {
+  return apiRequest<MutateThreadOut>(chat.operations.mutateThread.path, {
+    method: "POST",
+    body: {
+      op: pinned ? "pin" : "unpin",
+      projectId,
+      threadId,
+      groupId: null,
+      title: null,
+      visibilityScope: null,
+      expectedVersion,
+      reason: null,
+    },
+  });
+}
+
 export interface UpsertPresetInput {
   readonly projectId: string;
   readonly presetId: string | null;

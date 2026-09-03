@@ -151,5 +151,6 @@ async function buildCard(
     artifactCount: facts.artifactCount,
     lastActivityAt: row.lastActivityAt,
     visibilityScope: row.visibilityScope,
+    pinned: row.pinned,
   };
 }

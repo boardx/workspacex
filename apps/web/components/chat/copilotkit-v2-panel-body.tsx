@@ -1889,15 +1889,6 @@ export function CopilotKitV2PanelBody({
           `chat-task-workbench-capability-picker` / `...-composer-mic` / `chat-mic-*` /
           `...-recording-*`）逐字保留，只是住进了新结构。
         */}
-        <div className="flex justify-end" data-testid="chat-task-workbench-composer-mention-agent">
-          <CapabilityPicker
-            listings={agentOptions.status === "ready" ? agentOptions.listings : null}
-            status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
-            selectedAgentId={selectedAgentId}
-            onSelect={(agentId) => onSelectAgent(agentId)}
-            disabled={agentOptions.status !== "ready" || archived}
-          />
-        </div>
         <div
           className={[
             "flex min-w-0 flex-col rounded-xl border shadow-sm transition-colors duration-fast",
@@ -2035,6 +2026,21 @@ export function CopilotKitV2PanelBody({
                 >
                   <Sparkles aria-hidden className="h-4 w-4" />
                 </ComposerIconButton>
+                {/* 2026-09-03（对照设计参照图收拢）—— 「能力：自动匹配」从卡片上方
+                    独立一行并入工具行左组，与材料/技能/任务模式同一排。此前
+                    2026-09-02 的位置（卡片上方右对齐）是人类交付状态预览稿的像素级
+                    要求；本次调整是另一轮直接人类指令，覆盖那次取舍，不是随手改动。
+                    锚点与行为不变：`chat-task-workbench-composer-mention-agent` 外层
+                    testid、`CapabilityPicker` 组件本体、`data-auto-match` 逐字保留。 */}
+                <span data-testid="chat-task-workbench-composer-mention-agent">
+                  <CapabilityPicker
+                    listings={agentOptions.status === "ready" ? agentOptions.listings : null}
+                    status={agentOptions.status === "ready" ? "ready" : agentOptions.status}
+                    selectedAgentId={selectedAgentId}
+                    onSelect={(agentId) => onSelectAgent(agentId)}
+                    disabled={agentOptions.status !== "ready" || archived}
+                  />
+                </span>
                 {initialChatThreadId !== null && orgId !== null && sessionToken !== null ? (
                   <ChatSkillMountPanel
                     variant="composer"

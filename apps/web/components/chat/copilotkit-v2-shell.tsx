@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { Lock } from "lucide-react";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import {
   NewThreadButton, ThreadCardButton, ThreadListHeader,
@@ -15,13 +16,12 @@ import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { Input } from "@/components/ui/input";
 import {
   createPersonalThread, deleteThread, getAgentPanel, getThread, listPersonalThreads,
-  listThreadArtifacts, listThreadAttachments, renameThread, updateAgentRoster,
+  listThreadArtifacts, listThreadAttachments, renameThread, setThreadPinned, updateAgentRoster,
   type GetAgentPanelOut, type GetThreadOut, type ListThreadArtifactsOut,
   type ListThreadAttachmentsOut, type ListThreadsOut, type ThreadCard,
 } from "@/lib/live-chat";
 import { describeMutateFailure } from "@/lib/chat-failure-copy";
 import { listCapabilities, type CapabilityListing } from "@/lib/live-capabilities";
-import { readPinnedThreadIds, togglePinnedThreadId } from "@/lib/chat-pinned-threads";
 
 /**
  * issue #2021 —— CopilotKit v2（#2044 起原生住在 `/chat`）消息持久化 + 多线程管理外壳。
@@ -906,19 +906,32 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 该用户的全部个人对话，所以在客户端过滤这份已经在手的数据是这条链路上唯一能做、
    * 也是正确的做法——不是"先做个假的等以后接后端"。
    *
-   * 置顶的持久化范围与它做不到的事，见 `lib/chat-pinned-threads.ts` 的头注
-   * （契约 `mutateThread.op` 是封闭枚举，跨设备置顶要签核，本 issue 不擅自加）。
+   * 2026-09-03（F109 续，ad-hoc，见 `packages/contracts/src/chat.ts` `ThreadCard.pinned`
+   * 头注）—— 置顶改为服务端持久化，`card.pinned` 直接是权威事实，不再有本地
+   * `pinnedIds` 这份第二状态需要与服务端数据对齐。取代此前的 `lib/chat-pinned-threads.ts`
+   * localStorage 方案（那份实现原样留在 git 历史里，不在这里删掉引用之外的东西）。
    */
   const [query, setQuery] = React.useState("");
-  const [pinnedIds, setPinnedIds] = React.useState<readonly string[]>([]);
-  // localStorage 只在浏览器里有：首帧（SSR 与 hydration）一律空，挂载后再读，
-  // 避免 hydration mismatch（同本文件麦克风那条 SSR/CSR 首帧分叉的教训）。
-  React.useEffect(() => {
-    setPinnedIds(readPinnedThreadIds());
-  }, []);
-  const togglePin = React.useCallback((threadId: string) => {
-    setPinnedIds(togglePinnedThreadId(threadId));
-  }, []);
+  const [pinPending, setPinPending] = React.useState<string | null>(null);
+  const togglePin = React.useCallback(async (card: ThreadCard) => {
+    // 防抖：同一条卡片的置顶请求还没落地时再点一次，忽略而不是并发发第二个请求
+    // （并发的两次 `pin`/`unpin` 谁先谁后到达服务端不确定，版本号也可能已经过期）。
+    if (!bearer || pinPending === card.id) return;
+    setPinPending(card.id);
+    try {
+      // `ThreadCard`（列表投影）没有 `version` 字段——与 `handleRename`/`handleDelete`
+      // 同一条纪律（见上面两个回调的头注）：版本号只有 `getThread` 这个详情读端口
+      // 一个事实源，提交那一刻现取，不在列表卡片上顺手带一份可能过期的版本号。
+      const target = await getThread(card.id, null, bearer);
+      await setThreadPinned(card.id, null, !card.pinned, target.thread.version);
+      await reloadThreads();
+    } catch {
+      // 置顶不是关键路径操作：失败时不额外弹错误提示，让用户再点一次即可——
+      // 与「改名/删除」这类有专门失败呈现的写操作故意不同一个等级。
+    } finally {
+      if (mountedRef.current) setPinPending(null);
+    }
+  }, [bearer, pinPending, reloadThreads]);
 
   const normalizedQuery = query.trim().toLowerCase();
   const matchesQuery = React.useCallback(
@@ -931,10 +944,10 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
    * 免得同一条对话在列表里出现两次——那正是"同一事实两处"在列表层的形态）。
    */
   const renderGroups: { label: string; cards: ThreadCard[] }[] = [];
-  const pinnedCards = cards.filter((card) => pinnedIds.includes(card.id)).filter(matchesQuery);
+  const pinnedCards = cards.filter((card) => card.pinned).filter(matchesQuery);
   if (pinnedCards.length > 0) renderGroups.push({ label: "置顶", cards: pinnedCards });
   for (const group of threads?.groups ?? []) {
-    const rest = group.cards.filter((card) => !pinnedIds.includes(card.id)).filter(matchesQuery);
+    const rest = group.cards.filter((card) => !card.pinned).filter(matchesQuery);
     if (rest.length > 0) renderGroups.push({ label: group.label, cards: rest });
   }
   const visibleCardCount = renderGroups.reduce((sum, group) => sum + group.cards.length, 0);
@@ -1078,8 +1091,8 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
                     card={card}
                     selected={card.id === selectedThreadId}
                     onSelect={() => selectThread(card.id)}
-                    pinned={pinnedIds.includes(card.id)}
-                    onTogglePin={() => togglePin(card.id)}
+                    pinned={card.pinned}
+                    onTogglePin={() => void togglePin(card)}
                     onRename={canCreate ? (title) => void handleRename(card.id, title) : undefined}
                     onDelete={canCreate ? (reason) => void handleDelete(card.id, reason) : undefined}
                     pending={card.id === mutatingThreadId ? mutatePending : null}
@@ -1091,7 +1104,37 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           )}
         </div>
       </aside>
-      <div className={cn("min-w-0 flex-1", mobileListOpen ? "hidden md:block" : "block")}>
+      <div className={cn("flex min-w-0 flex-1 flex-col", mobileListOpen ? "hidden md:flex" : "flex")}>
+        {/*
+          2026-09-03（对照设计参照图补的缺口）—— 轻量顶部信息条：当前会话标题 +
+          「仅自己可见」隐私提示。此前 `/chat` v2 整条路由 `hideTopBar`，用户切换
+          会话后无法在任何常驻位置确认"我现在在哪个会话里"（rev-uiux 差距分析点名）。
+          ⚠ 这不是恢复全局 `TopBar`（那个组件带组织切换/顶栏导航，与这里语境不同，
+            见 `components/shell/top-bar.tsx`）——只是这一屏自己的一行，只读，不重复
+            左栏已有的可写操作（改名走线程卡「…」菜单，这里没有第二个改名入口，
+            避免同一个动作两处可做）。标题取自 `cards`（左栏同一份数据源），未选中
+            或还没建线程时不渲染标题、只显示隐私提示，不编一个假标题。
+        */}
+        <div
+          className="flex min-h-0 shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-2"
+          data-testid="copilotkit-v2-thread-topbar"
+        >
+          <span
+            className="min-w-0 truncate text-13 font-medium text-card-foreground"
+            data-testid="copilotkit-v2-thread-topbar-title"
+          >
+            {selectedThreadId === null
+              ? "个人对话"
+              : cards.find((card) => card.id === selectedThreadId)?.title ?? "个人对话"}
+          </span>
+          <span
+            className="flex shrink-0 items-center gap-1 rounded-full border border-border-subtle px-2 py-0.5 text-9 text-muted-foreground"
+            data-testid="copilotkit-v2-thread-topbar-visibility"
+          >
+            <Lock aria-hidden className="h-2.5 w-2.5" />
+            仅自己可见
+          </span>
+        </div>
         {/*
           ⚠ 2026-09-03 起 `key` 用的是 `panelMountKey`（组件内部状态，见顶部头注），
           不再是 `initialThreadId`（route 参数、Next Router 软导航结算后才会变，
@@ -1103,6 +1146,10 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           SSE 流）——`applyThreadSelection` 才会同时改 `panelMountKey`，
           `handleThreadResolved` 自己不调它，正是靠这一点维持这条例外。
         */}
+        {/* 外层刚从整块 `flex-1` 改成 `flex-col`（给上面新加的顶部信息条腾一行）——
+            这层补 `min-h-0 flex-1` 让面板继续占满剩余高度，不然 flex-col 默认按
+            内容撑高，消息区会失去可滚动的固定高度。 */}
+        <div className="min-h-0 flex-1">
         <CopilotKitV2Panel
           key={panelMountKey}
           chatThreadId={selectedThreadId}
@@ -1130,6 +1177,7 @@ export function CopilotKitV2Shell({ initialThreadId }: { initialThreadId: string
           archived={archived}
           canGeneratePersona={canGeneratePersona}
         />
+        </div>
       </div>
       {/* issue #2068（TW-P0-4）—— 右栏从「产物 + 材料」固定两段堆叠换成四页签动态
           Inspector（进度 / 材料 / 产物 / 运行详情），按真实信号自动切换、无内容折叠成

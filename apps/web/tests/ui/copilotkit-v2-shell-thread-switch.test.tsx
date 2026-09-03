@@ -52,7 +52,6 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
   listPersonalThreads, getThread, deleteThread, listThreadArtifacts, listThreadAttachments, createPersonalThread,
 }));
 vi.mock("@/lib/live-capabilities", () => ({ listCapabilities }));
-vi.mock("@/lib/chat-pinned-threads", () => ({ readPinnedThreadIds: () => [], togglePinnedThreadId: vi.fn() }));
 vi.mock("@/components/chat/copilotkit-v2-panel", () => ({
   CopilotKitV2Panel: () => <div data-testid="stub-copilotkit-v2-panel" />,
 }));
