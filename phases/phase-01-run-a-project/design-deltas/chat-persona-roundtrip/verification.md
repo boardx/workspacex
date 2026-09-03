@@ -54,8 +54,16 @@ pnpm --filter api exec vitest run tests/chat/summarize-persona-mindmap-message.t
 
 ## 前端：触发入口 + 渲染 + 读回提示
 
+> ⚠ **2026-09-03 人类直接指示撤回**：composer 恒定「生成用户画像」按钮（1.1 节
+> 候选 A，`chat-live-message-panel.tsx` 的 `chat-persona-summary-trigger`）已移除——
+> 人类实测反馈它固定占一整行、常态挂在 composer 左上方，是误操作入口，不是本次
+> 签核想要的体验。①/②/③ 三节其余裁决（读回提示条、信息不足占位、mermaid mindmap
+> 产出形态、契约字段）不受影响，`summarizePersonaFromThread` 端点本身保留——
+> 该测试文件（`tests/ui/chat-persona-summary-trigger.test.tsx`）已随按钮一并删除，
+> 相关覆盖（软重读 cursor 不塌回起点）改钉在 `tests/ui/chat-read-screen.test.tsx`
+> 的发送消息路径上（同一个软重读触发点，不再借道这个按钮）。**本节命令改为**：
+
 ```bash
-pnpm --filter web exec vitest run tests/ui/chat-persona-summary-trigger.test.tsx
 pnpm --filter web exec vitest run tests/ui/chat-diagram-saved-readback.test.tsx
 pnpm --filter web run typecheck
 pnpm --filter web run lint:design
@@ -63,12 +71,14 @@ pnpm --filter web run lint:design
 
 断言：
 
-- 签核选定的触发入口（1.1 节候选 A/B/C 之一）存在且可点，调用
-  `summarizePersonaFromThread`，成功后新 assistant 消息进入消息流并渲染出
-  `chat-diagram-fabric`。
 - 有保存版时打开 modal：初始内容为保存版 markdown，`chat-diagram-loaded-saved`
   提示条可见；点 `chat-diagram-revert-original` 后编辑区变回原始消息内容。
 - 无保存版时打开 modal：无提示条，初始内容为原始消息内容（回归既有行为）。
+- `summarizePersonaFromThread` 端点本身仍可用（`tests/e2e/chat-diagram-save-reopen-
+  roundtrip.spec.ts` 直连调用产出确定性 mermaid 消息，见下一节）；CopilotKit v2
+  面板另有一条独立、按上下文出现的建议 chip 入口（`copilotkit-v2-panel-body.tsx`
+  的 `showPersonaSuggestion`，CK-P6，与本节 composer 按钮是两条不同的历史实现，
+  未受本次撤回影响）。
 
 ## 那条现在缺失的「保存→关→开→看到修改」真栈 e2e（核心验收线）
 

@@ -84,7 +84,17 @@ test("admin types a prompt into chat 模拟, gets a real model round trip back, 
 
   // ── 打开 chat 模拟，键入一份「提示词本身就是合法围栏」的文本 ─────────────────
   await page.getByTestId("tpladmin-editor-simulate-toggle").click();
-  await expect(page.getByTestId("tpladmin-editor-simulate-dialog")).toBeVisible();
+  const dialog = page.getByTestId("tpladmin-editor-simulate-dialog");
+  await expect(dialog).toBeVisible();
+
+  // 🟢 R3（人类原话「chat 模拟UI，默认是全屏，不是popup」）——弹窗必须真的铺满
+  // 视口，不是一张有边界的居中卡片。1px 容差留给滚动条/子像素取整，不是放水。
+  const viewport = page.viewportSize()!;
+  const dialogBox = (await dialog.boundingBox())!;
+  expect(dialogBox.x).toBeCloseTo(0, 0);
+  expect(dialogBox.y).toBeCloseTo(0, 0);
+  expect(dialogBox.width).toBeCloseTo(viewport.width, 0);
+  expect(dialogBox.height).toBeCloseTo(viewport.height, 0);
 
   const ECHOED_NAME_VALUE = `E2E小李_${KEY.slice(-6)}`;
   const ECHOED_POINT_VALUE = `E2E要点_${KEY.slice(-6)}`;
@@ -131,6 +141,33 @@ test("admin types a prompt into chat 模拟, gets a real model round trip back, 
   // 这样的话可以修改」）。
   await expect(page.getByTestId("tpladmin-editor-simulate-tool-select")).toBeVisible();
   await expect(page.getByTestId("tpladmin-editor-simulate-tool-sticky")).toBeVisible();
+
+  // 🟢 R3（人类原话「画布默认要可以看到整体的画布，不需要经过缩放」+「加一个：看到
+  // 所有的内容的reset按钮」）——两字段模板的内容小，在铺满视口的全屏弹窗里
+  // `fitOnLoad` 算出来的缩放本就会被 `fitToContent` 的"只缩小、不放大过 100%"
+  // 规则夹到 100%（见该方法实现）。⚠ 这意味着不能拿"先点既有的「适应画布」按钮
+  // 回到 100%，再点新按钮看是不是还是 100%"当证据——那条路径无论 `fitOnLoad`/
+  // `fitToContent` 有没有真的跑都会通过（PR review 指出的"vacuous"正是这个）。
+  // 真正有区分力的做法：先用 Ctrl+滚轮**真的**把缩放拨到一个跟自动 fit 不同的值
+  // （`canvas-stage.tsx` 的 `mouse:wheel` 处理认 `ctrlKey` 当"这是缩放手势"），
+  // 断言读数确实变了，再点「看到全部」，断言它收敛回 `fitOnLoad` 当初算出来的
+  // 那个值——一个坏掉/空实现的 `fitToContent` 会让读数停在被拨乱的那个值，这条
+  // 断言到那时候会真的红。
+  const zoomReadout = page.getByTestId("tpladmin-editor-simulate-zoom-readout");
+  const autoFitZoom = await zoomReadout.textContent();
+
+  const surface = page.getByTestId("canvas-fabric-surface");
+  const surfaceBox = (await surface.boundingBox())!;
+  await page.mouse.move(surfaceBox.x + surfaceBox.width / 2, surfaceBox.y + surfaceBox.height / 2);
+  await page.keyboard.down("Control");
+  // 多滚几次、往同一个方向——确保跨过缩放档位的量化台阶，读数一定可观测地变化。
+  for (let i = 0; i < 6; i += 1) await page.mouse.wheel(0, -120);
+  await page.keyboard.up("Control");
+  await expect(zoomReadout).not.toHaveText(autoFitZoom!);
+
+  await page.getByTestId("tpladmin-editor-simulate-fit-content").click();
+  await expect(zoomReadout).toHaveText(autoFitZoom!);
+
   const result = page.getByTestId("tpladmin-editor-simulate-result");
   await expect(result).toContainText(ECHOED_NAME_VALUE);
   await expect(result).toContainText(ECHOED_POINT_VALUE);
@@ -270,12 +307,11 @@ test("R2：结果画布真的可以编辑——点「＋便签」工具落一张
   //
   // ② 但绝对坐标本身也不能瞎给：`chat-diagram-save-reopen-roundtrip.spec.ts` 那条
   //   既有先例点 80%/80% 处是安全的，因为那个编辑器是 `fixed inset-0` 铺满整个视口
-  //   （见 `chat-canvas-modal.tsx`）——视口内任何一点都必然落在它里面。本弹窗是
-  //   Radix `Dialog`，一个有边界的卡片，不是铺满视口；`boundingBox()` 量出来的矩形
-  //   边缘可能已经超出弹窗卡片实际可见范围——点在那（尤其是右下角附近）会落在弹窗
-  //   外的遮罩层上，Radix 判定为"点了外面"直接把弹窗关掉（第零轮实测：断言超时时
-  //   截图看到的是弹窗已经整个消失）。改成左上角一个小偏移量，稳稳落在弹窗卡片
-  //   可见范围内。
+  //   （见 `chat-canvas-modal.tsx`）——视口内任何一点都必然落在它里面。⚠ 本弹窗
+  //   R3（人类原话「chat 模拟UI，默认是全屏，不是popup」）起同样改成 `fixed inset-0`
+  //   铺满视口了——第零轮实测（本弹窗当时还是一张有边界的卡片）踩过右下角落在弹窗外
+  //   遮罩层上、被 Radix 判定"点了外面"直接关掉的坑，这里仍然沿用左上角小偏移量，
+  //   不是因为那个坑还在，是没有必要为了已经不存在的风险改回去。
   const surface = page.getByTestId("canvas-fabric-surface");
   const box = (await surface.boundingBox())!;
   await page.mouse.click(box.x + 40, box.y + 40);
