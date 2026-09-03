@@ -603,13 +603,26 @@ function Editor({
     };
   }, [kind, liveAssetId]);
 
+  /**
+   * ⚠ 2026-09-03 补——`liveError` 非空时**不能**回退到 `mockTree`：那是
+   * `/asset-governance` 原型路由的固定演示目录（`references/output-schema.md`/
+   * `scripts/validate.py`……），与当前正在打开的这个真实 asset 毫无关系。
+   * 此前的行为是：真实请求确实失败了（比如这是一个只有 `skill_contracts` 行、
+   * 没有 `skills` 行的模型 B skill，`getAssetDirectory` 对它 404），但界面照样
+   * 显示一份看起来完整、可点开、可"编辑"的假文件树——头部的 skill 名字/id 是真的，
+   * 树和正文却是另一个 skill 的示例内容，唯一的破绽只是右上角一行不起眼的红字
+   * 「接口错误：…（已回退 mock）」。`mockTree` 只在"从未发起过真实请求"时才是诚实的
+   * 回退（`getStoredSessionToken() === null` 那一支，本来就没打算打真实接口）。
+   */
   const tree: FileNode[] = liveDir
     ? liveDir.files.map((f) => ({
         path: f.path,
         size: formatBytes(f.sizeBytes),
         kind: BADGE_TO_KIND[f.badge] ?? "md",
       }))
-    : mockTree;
+    : liveError !== null
+      ? []
+      : mockTree;
 
   const [liveBody, setLiveBody] = React.useState<string | null>(null);
   const [fileBusy, setFileBusy] = React.useState(false);
@@ -875,6 +888,10 @@ function Editor({
             <div className="flex items-center gap-2" data-testid={`ag-${kind}-data-source`}>
               {isLive ? (
                 <Badge tone="primary" className="font-mono text-9">真实数据 · GetAssetDirectory</Badge>
+              ) : liveError !== null ? (
+                // 真的打过真实接口、真的失败了——不是"预览态"，「mock」这个词在这里
+                // 会让人以为是故意的演示态，掩盖了"这个 skill 打不开"这件事。
+                <Badge tone="outline" className="font-mono text-9">真实数据读取失败</Badge>
               ) : (
                 <Badge tone="outline" className="font-mono text-9">
                   {getStoredSessionToken() === null ? "预览态 mock · 未登录（/project/live 登录后自动切换真实接口）" : "预览态 mock"}
@@ -892,7 +909,9 @@ function Editor({
                 </Badge>
               )}
               {liveError && (
-                <span className="text-9 text-destructive" data-testid={`ag-${kind}-live-error`}>接口错误：{liveError}（已回退 mock）</span>
+                // ⚠ 不再说"已回退 mock"——下面的文件树/正文区不再回退到那份无关的
+                // 原型演示内容，见 `tree` 的头注与内容面板的 `liveError` 分支。
+                <span className="text-9 text-destructive" data-testid={`ag-${kind}-live-error`}>接口错误：{liveError}</span>
               )}
             </div>
 
@@ -942,6 +961,25 @@ function Editor({
                       <CodeView body={draft} testid={`ag-${kind}-code`} />
                     )
                   )
+                ) : liveError !== null ? (
+                  /**
+                   * ⚠ 2026-09-03 补——真实请求确实失败了（比如这是一个只有
+                   * `skill_contracts` 行、没有对应 `skills` 行的模型 B skill，
+                   * `getAssetDirectory` 对它 404），不是"预览态没登录"那种预期内的
+                   * 回退。此前这里会掉进下面的 `mockTree` 分支，显示一份看起来完整、
+                   * 可点开的假文件树/正文——头部的 skill 名字/id 是真的，内容却是
+                   * 另一个 skill 的原型演示样本，用户唯一能发现的破绽只有上面那行
+                   * 不起眼的红字。现在改成显式说明：这个 {label} 打不开，且给出真实
+                   * 原因，不再拿一份无关内容冒充它的正文。
+                   */
+                  <Panel testid={`ag-${kind}-unavailable`}>
+                    <p className="text-11 text-destructive">这个 {label} 的源码目前无法在这里编辑：{liveError}</p>
+                    <p className="mt-1 text-10 text-muted-foreground">
+                      常见原因：这是一个尚未接入源码编辑的 {label}（比如声明式契约型
+                      skill，只有契约定义、没有可编辑的文件目录），不是网络故障——下面
+                      不再显示一份与它无关的示例内容。
+                    </p>
+                  </Panel>
                 ) : sel === mockTree[0]!.path ? (
                   <CodeView body={main.body} testid={`ag-${kind}-code`} />
                 ) : (
