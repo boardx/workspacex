@@ -111,7 +111,7 @@ describe("PgErrorLogWriter.list() -- routes through readDb (app_diag_ro), never 
 
     expect(writeQueries).toHaveLength(0);
     expect(readQueries).toHaveLength(1);
-    expect(readQueries[0]!.sql).toContain("kernel_read_error_logs($1, $2)");
+    expect(readQueries[0]!.sql).toContain("kernel_read_error_logs_with_ai_summary($1, $2)");
     expect(readQueries[0]!.sql).not.toMatch(/FROM\s+error_logs\b/);
     // fetches limit+1 to derive hasMore from one query
     expect(readQueries[0]!.params).toEqual([21, null]);

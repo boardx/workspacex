@@ -53,6 +53,16 @@ export interface ErrorLogListItem {
   readonly msg: string;
   readonly detail: unknown;
   readonly createdAt: string;
+  /**
+   * AI 生成的一句话标题/一段面向人类的说明（人类 2026-09-02 要求：系统异常要跟反馈
+   * 卡片一样有段给人看的文字，供人类决定怎么处理，不是原始异常字段）——
+   * `PgErrorLogWriter.record()` 落库后异步生成，见 `application/system/summarize-error-log.ts`。
+   * `null` ⟺ 还没生成完 / 这次没生成出来（模型不可用、超时、部署没配模型）——**不是**
+   * "这条异常没有摘要"这件事本身是错的，界面必须能把"还没有"和"生成失败"都说出来，
+   * 而不是伪造一段占位摘要。
+   */
+  readonly aiTitle: string | null;
+  readonly aiSummary: string | null;
 }
 
 export interface ErrorLogPort {

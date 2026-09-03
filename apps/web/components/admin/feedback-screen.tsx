@@ -1022,19 +1022,33 @@ function TestMailPanel() {
   );
 }
 
+// 2026-09-02（人类要求）：系统异常要跟反馈卡片一样，先给人看得懂的标题+说明，
+// 原始字段变成"技术细节"折叠区，而不是唯一的呈现方式。aiTitle/aiSummary 由
+// `PgErrorLogWriter.record()` 落库后异步生成（见 summarize-error-log.ts），两者
+// 为 null 时无法区分"还没生成完"和"这次没生成出来"——不编一句假摘要，统一用
+// 一条兜底说明代替，原始 msg 仍然可见（作为兜底标题）。
 function SystemErrorRow({ item }: { item: SystemErrorLogItem }) {
   const [expanded, setExpanded] = React.useState(false);
+  const hasAiSummary = item.aiTitle !== null && item.aiSummary !== null;
   return (
     <div className="flex flex-col gap-1.5 px-4 py-2.5" data-testid={`admin-feedback-system-error-${item.id}`}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="min-w-0 flex-1 truncate text-12 font-medium">
+          {hasAiSummary ? item.aiTitle : item.msg}
+        </span>
+        <code className="font-mono text-10 text-muted-foreground">{item.traceId}</code>
+        <span className="text-11 text-muted-foreground tabular-nums">{formatTime(item.createdAt)}</span>
+      </div>
+      <p className="text-11 text-muted-foreground" data-testid={`admin-feedback-system-error-summary-${item.id}`}>
+        {hasAiSummary ? item.aiSummary : "AI 摘要还没有生成，可能仍在处理中，也可能这次没生成出来——可以展开下面的技术细节自行判断。"}
+      </p>
       <button
         type="button"
-        className="flex flex-wrap items-center gap-x-3 gap-y-1 text-left"
+        className="self-start text-11 text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
         onClick={() => setExpanded((v) => !v)}
         data-testid={`admin-feedback-system-error-toggle-${item.id}`}
       >
-        <span className="min-w-0 flex-1 truncate text-12 font-medium">{item.msg}</span>
-        <code className="font-mono text-10 text-muted-foreground">{item.traceId}</code>
-        <span className="text-11 text-muted-foreground tabular-nums">{formatTime(item.createdAt)}</span>
+        {expanded ? "收起技术细节" : "展开技术细节"}
       </button>
       {expanded && (
         <pre
