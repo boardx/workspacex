@@ -116,10 +116,8 @@ function fakeGithubIssues(
 
 /**
  * ⑥ 附件仓储 fake——默认没有任何附件(`findByFeedbackIds` 返回 `[]`),这正是既有
- * "管理员编辑过的正文是原样传给 GitHub"用例仍然成立的原因(见 `withAttachmentNote`
- * 头注)。只在专门测"附件计数提示"的用例里覆写。⚠ 这里**只数行数**,不读
- * `objectKey`/字节——`triageFeedback` 不该、也不会把图片内容推给 GitHub
- * （见该文件头注 ⑥：boardx/workspacex 是公开仓库，附件字节走 D3 权限判定）。
+ * "管理员编辑过的正文是原样传给 GitHub"用例仍然成立的原因(见 `withAttachmentImages`
+ * 头注)。只在专门测"附件图片被推给 GitHub"的用例里覆写。
  */
 function fakeAttachments(rows: readonly FeedbackAttachmentRow[] = []): TriageFeedbackDeps["attachments"] {
   return {
@@ -132,6 +130,25 @@ function fakeAttachments(rows: readonly FeedbackAttachmentRow[] = []): TriageFee
   };
 }
 
+function fakeObjectStore(bytes: Uint8Array | null = new Uint8Array([1, 2, 3])): TriageFeedbackDeps["objectStore"] {
+  return {
+    putOnce: vi.fn(async () => {}),
+    get: vi.fn(async () => bytes),
+    head: vi.fn(async () => {
+      throw new Error("not used in this test");
+    }),
+  };
+}
+
+function fakeImageUploader(
+  over: Partial<TriageFeedbackDeps["imageUploader"]> = {},
+): TriageFeedbackDeps["imageUploader"] {
+  return {
+    uploadImage: vi.fn(async ({ path }) => ({ url: `https://raw.githubusercontent.com/boardx/workspacex/main/${path}` })),
+    ...over,
+  };
+}
+
 function baseDeps(over: Partial<TriageFeedbackDeps> = {}): TriageFeedbackDeps {
   return {
     repo: fakeRepo(row()),
@@ -140,7 +157,10 @@ function baseDeps(over: Partial<TriageFeedbackDeps> = {}): TriageFeedbackDeps {
     submitterDirectory: { emailForUserId: vi.fn(async () => "submitter@example.com"), displayNamesForUserIds: vi.fn(async () => new Map()) },
     mail: { send: vi.fn(async () => ({})) },
     logger: { info: vi.fn(), error: vi.fn() },
+    imageUploader: fakeImageUploader(),
     attachments: fakeAttachments(),
+    objectStore: fakeObjectStore(),
+    newDecisionId: () => "dec-1",
     ...over,
   };
 }
@@ -267,7 +287,7 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
    * 收敛成数据库一行 UPDATE 的互斥，用例层不需要、也不应该自己再实现一遍
    * 并发判断，只需要正确处理"认领失败"这一个结果。
    */
-  it("有附件 ⇒ 在 issue 正文末尾追加一句数量提示，**不**把图片内容发给 GitHub", async () => {
+  it("有附件 ⇒ 逐张推给 GitHub、把 raw URL 追加进 issue 正文末尾", async () => {
     const attachmentRow: FeedbackAttachmentRow = {
       id: "fbattach-1",
       orgId: "org-1",
@@ -287,19 +307,31 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
       issueDraft: { title: "t", body: "管理员写的正文", labels: [] },
       ...ADMIN,
     });
-    // ⚠ 附件的 `objectKey`（读到即可看到图片字节的钥匙）从未被 disclose/读取——
-    //   boardx/workspacex 是公开仓库，`triageFeedback` 不该、也不会把受权限保护的
-    //   图片内容发布出去，见该用例文件头注 ⑥ 与 `triage-feedback.ts` 头注 ⑥。
+    expect(deps.imageUploader.uploadImage).toHaveBeenCalledWith(
+      expect.objectContaining({ path: "feedback-attachments/fbattach-1.png", contentType: "image/png" }),
+    );
     expect(deps.githubIssues.create).toHaveBeenCalledWith({
       title: "t",
-      body: "管理员写的正文\n\n📎 该反馈另有 1 张图片附件，请到后台「反馈与迭代」查看（反馈 ID fb-1）。",
+      body: "管理员写的正文\n\n![](https://raw.githubusercontent.com/boardx/workspacex/main/feedback-attachments/fbattach-1.png)",
       labels: [],
     });
   });
 
-  it("附件计数查询失败 ⇒ 不拦住 issue 本身被建出来(best-effort,不是 fail closed)", async () => {
+  it("图片上传失败 ⇒ 不拦住 issue 本身被建出来(best-effort,不是 fail closed)", async () => {
+    const attachmentRow: FeedbackAttachmentRow = {
+      id: "fbattach-1",
+      orgId: "org-1",
+      uploadedBy: "u-submitter",
+      feedbackId: "fb-1",
+      objectKey: guard({ kind: "feedback", id: "fb-1" }, "feedback-attachments/org-1/fbattach-1"),
+      contentType: "image/png",
+      sizeBytes: 3,
+      sha256: "deadbeef",
+      createdAt: "2026-09-03T00:00:00.000Z",
+    };
     const deps = baseDeps({
-      attachments: { ...fakeAttachments(), findByFeedbackIds: vi.fn(async () => { throw new Error("db down"); }) },
+      attachments: fakeAttachments([attachmentRow]),
+      imageUploader: fakeImageUploader({ uploadImage: vi.fn(async () => { throw new Error("github down"); }) }),
     });
     const out = await triageFeedback(deps, {
       feedbackId: "fb-1",
@@ -311,8 +343,8 @@ describe("triageFeedback —— GitHub issue（fail closed）", () => {
     expect(deps.githubIssues.create).toHaveBeenCalledWith({ title: "t", body: "管理员写的正文", labels: [] });
     expect(out.githubIssueUrl).toBe("https://github.com/boardx/workspacex/issues/1");
     expect(deps.logger.error).toHaveBeenCalledWith(
-      expect.stringContaining("attachment count lookup failed"),
-      expect.objectContaining({ feedbackId: "fb-1" }),
+      expect.stringContaining("attachment image upload failed"),
+      expect.objectContaining({ feedbackId: "fb-1", attachmentId: "fbattach-1" }),
     );
   });
 

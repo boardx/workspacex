@@ -24,9 +24,12 @@ import {
   type CreatedGithubIssueComment,
   type GithubIssueCreator,
   type GithubIssueDraft,
+  type GithubIssueImageUpload,
+  type GithubIssueImageUploader,
   type GithubIssueLinkedPullRequest,
   type GithubIssueStateTarget,
   type GithubIssueStatus,
+  type UploadedGithubIssueImage,
 } from "../../application/feedback/notification-ports";
 
 export const GITHUB_ISSUE_CONFIG = Symbol("GithubIssueConfig");
@@ -104,7 +107,7 @@ interface GithubTimelineEventResponse {
   };
 }
 
-export class FetchGithubIssueCreator implements GithubIssueCreator {
+export class FetchGithubIssueCreator implements GithubIssueCreator, GithubIssueImageUploader {
   constructor(
     private readonly config: GithubIssueConfig,
     private readonly request: typeof fetch = fetch,
@@ -116,6 +119,15 @@ export class FetchGithubIssueCreator implements GithubIssueCreator {
 
   private issueUrl(issueNumber: number): string {
     return `${this.issuesUrl()}/${issueNumber}`;
+  }
+
+  private contentsUrl(path: string): string {
+    // Contents API 的 path 段本身允许 `/`(目录分隔),只有各段内部的特殊字符需要转义——
+    // 这里的 path 永远是我们自己拼的 `feedback-attachments/<attachmentId>.<ext>`
+    // （见 `triage-feedback.ts`），不是用户可控输入，逐段 encode 足够,不需要处理 `..`
+    // 之类的路径穿越(attachmentId 是我们自己生成的 hex id)。
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    return `https://api.github.com/repos/${encodeURIComponent(this.config.owner)}/${encodeURIComponent(this.config.repo)}/contents/${encodedPath}`;
   }
 
   private headers(): Record<string, string> {
@@ -292,5 +304,65 @@ export class FetchGithubIssueCreator implements GithubIssueCreator {
       if (typeof parsed.html_url !== "string") throw new GithubIssueApiError("addComment", response.status);
       return { url: parsed.html_url };
     }, () => new GithubIssueApiError("addComment", null));
+  }
+
+  /**
+   * `triageFeedback` 建 issue 之前,把反馈附件的图片字节推进仓库。返回的
+   * `content.download_url` 就是 `raw.githubusercontent.com` 直链,GitHub 渲染 issue
+   * 正文里的 `![](url)` 时匿名抓的就是这个地址,不需要 `Authorization` 头。
+   *
+   * ⚠ **幂等修复**(独立 review 抓到的真实 bug,见 `notification-ports.ts` 头注)：
+   *   GitHub Contents API 的 `PUT` 是"建或改"同一个动词,但**改一个已存在的文件时
+   *   必须带上那个文件当前的 blob `sha`**,不带就是"以为在创建新文件"，撞见已存在
+   *   的路径会 422。"上传成功、随后 issue 创建失败、释放 claim、管理员重试"这条
+   *   路径会两次调用同一个 `path`(同一个 attachmentId ⇒ 同一个文件名)，第二次若
+   *   不带 `sha` 就会 422、被 best-effort 吞掉，issue 建出来但没带图——不是"极端情况"，
+   *   是这个功能唯一的重试路径必然触发的坑。所以先 `GET` 一次探测这个 path 是否已
+   *   存在、取到它的 `sha` 再 `PUT`；不存在(404)就是首次上传，不带 `sha`。
+   */
+  async uploadImage(input: GithubIssueImageUpload): Promise<UploadedGithubIssueImage> {
+    if (!this.config.token) throw new GithubIssueApiError("uploadImage", null);
+    return this.withTimeout(async (signal) => {
+      const existingSha = await this.existingContentSha(input.path, signal);
+      let response: Response;
+      try {
+        response = await this.request(this.contentsUrl(input.path), {
+          method: "PUT",
+          signal,
+          headers: this.headers(),
+          body: JSON.stringify({
+            message: `feedback: attach ${input.path}`,
+            content: Buffer.from(input.content).toString("base64"),
+            ...(existingSha !== null ? { sha: existingSha } : {}),
+          }),
+        });
+      } catch {
+        throw new GithubIssueApiError("uploadImage", null);
+      }
+      if (!response.ok) throw new GithubIssueApiError("uploadImage", response.status);
+      const body = (await response.json().catch(() => ({}))) as { content?: { download_url?: unknown } };
+      const downloadUrl = body.content?.download_url;
+      if (typeof downloadUrl !== "string") throw new GithubIssueApiError("uploadImage", response.status);
+      return { url: downloadUrl };
+    }, () => new GithubIssueApiError("uploadImage", null));
+  }
+
+  /**
+   * 探测 `path` 当前是否已经存在于仓库,存在则返回它的 blob `sha`(重试时 `PUT`
+   * 必须带上这个才能改已存在的文件),不存在(404)或探测本身失败一律返回 `null`——
+   * 后者退化成"当成首次上传"，真撞见已存在文件时上面那次 `PUT` 会带着错误信息
+   * 422,不会悄悄覆盖或丢数据，只是把"探测失败"降级成"少一次幂等保护"而不是
+   * 直接让 `uploadImage` 整体失败(探测本身不是这个方法的主要目的)。
+   */
+  private async existingContentSha(path: string, signal: AbortSignal): Promise<string | null> {
+    let response: Response;
+    try {
+      response = await this.request(this.contentsUrl(path), { method: "GET", signal, headers: this.headers() });
+    } catch {
+      return null;
+    }
+    if (!response.ok) return null; // 404 = 还没有这个文件,首次上传
+    const body = (await response.json().catch(() => ({}))) as { sha?: unknown };
+    return typeof body.sha === "string" ? body.sha : null;
   }
 }
