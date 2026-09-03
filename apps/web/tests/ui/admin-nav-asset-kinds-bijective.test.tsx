@@ -17,6 +17,7 @@
 import { describe, it, expect } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { AssetKind } from "@repo/contracts/asset-governance";
+import { QueryClientTestWrapper } from "../render-with-query";
 import { AdminNav } from "@/components/admin/admin-nav";
 import {
   ADMIN_NAV_TESTID,
@@ -40,7 +41,7 @@ describe("§1 左栏「AI 能力」组 ↔ AssetKind：双向集合相等", () =
   });
 
   it("六个入口是**渲染出来的事实**，不只是常量表里的字符串", () => {
-    render(<AdminNav active="agent" />);
+    render(<AdminNav active="agent" />, { wrapper: QueryClientTestWrapper });
     for (const kind of AssetKind.options) {
       const testid = ADMIN_NAV_TESTID[ASSET_KIND_NAV_KEY[kind]];
       // 失败时消息里带 kind，好知道是哪一种资产没画出来
@@ -51,7 +52,7 @@ describe("§1 左栏「AI 能力」组 ↔ AssetKind：双向集合相等", () =
   });
 
   it("每个左栏入口都是可点的链接（补了入口却没有 href 等于没补）", () => {
-    render(<AdminNav active="agent" />);
+    render(<AdminNav active="agent" />, { wrapper: QueryClientTestWrapper });
     for (const kind of AssetKind.options) {
       const el = screen.getByTestId(ADMIN_NAV_TESTID[ASSET_KIND_NAV_KEY[kind]]);
       expect(el.getAttribute("href"), `AssetKind「${kind}」的左栏入口没有 href`).toBeTruthy();

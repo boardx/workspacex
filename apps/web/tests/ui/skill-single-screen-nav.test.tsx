@@ -25,6 +25,13 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { ROOT } from "../session/import-closure";
+import { QueryClientTestWrapper } from "../render-with-query";
+
+/** ADR-109：`SkillApp` 的 library/catalog 屏挂 `AdminNav`（内部 `useQuery`）。 */
+function renderApp(...args: Parameters<typeof render>): ReturnType<typeof render> {
+  const [ui, options] = args;
+  return render(ui, { ...options, wrapper: QueryClientTestWrapper });
+}
 
 let capturedAppShellProps: Record<string, unknown> | null = null;
 
@@ -69,7 +76,7 @@ const BASE_PROPS = {
 describe("2026-08-13 /skill 单屏卡片网格 + 后台 AdminNav 侧栏", () => {
   it("① AppShell 收到的 left 是 AdminNav（active=\"skill\"），不是 undefined、也不是旧 LeftNav", () => {
     capturedAppShellProps = null;
-    render(<SkillApp {...BASE_PROPS} screen="library" />);
+    renderApp(<SkillApp {...BASE_PROPS} screen="library" />);
     expect(capturedAppShellProps).not.toBeNull();
     expect(capturedAppShellProps!.left).toBeTruthy();
     expect(screen.getByTestId("fake-left-slot")).toBeTruthy();
@@ -84,7 +91,7 @@ describe("2026-08-13 /skill 单屏卡片网格 + 后台 AdminNav 侧栏", () => 
 
   it("② 旧的 LeftNav（library/catalog 二级导航按钮）不再存在——第一轮的删除没被悄悄撤销", () => {
     capturedAppShellProps = null;
-    render(<SkillApp {...BASE_PROPS} screen="library" />);
+    renderApp(<SkillApp {...BASE_PROPS} screen="library" />);
     expect(screen.queryByTestId("skill-left-nav")).toBeNull();
     expect(screen.queryByTestId("skill-nav-library")).toBeNull();
     expect(screen.queryByTestId("skill-nav-catalog")).toBeNull();
@@ -93,7 +100,7 @@ describe("2026-08-13 /skill 单屏卡片网格 + 后台 AdminNav 侧栏", () => 
 
   it("③ ?screen=catalog 仍然可达：catalog 组件本身没被删，只是不再从 skill 自己的二级导航可点", () => {
     capturedAppShellProps = null;
-    render(<SkillApp {...BASE_PROPS} screen="catalog" />);
+    renderApp(<SkillApp {...BASE_PROPS} screen="catalog" />);
     expect(capturedAppShellProps!.left).toBeTruthy();
     expect(screen.getByTestId("fake-capability-catalog-screen")).toBeTruthy();
   });
@@ -115,7 +122,7 @@ describe("2026-08-13 /skill 单屏卡片网格 + 后台 AdminNav 侧栏", () => 
 describe("G7（2026-08-14，人类原话：「不需要右边的 column」）—— library/catalog 不再挂 RightRail", () => {
   it("library 屏：AppShell 收到的 right 是 undefined（RightRail 完全不渲染）", () => {
     capturedAppShellProps = null;
-    render(<SkillApp {...BASE_PROPS} screen="library" />);
+    renderApp(<SkillApp {...BASE_PROPS} screen="library" />);
     expect(capturedAppShellProps).not.toBeNull();
     expect(capturedAppShellProps!.right).toBeUndefined();
     expect(screen.queryByTestId("skill-right-rail")).toBeNull();
@@ -123,7 +130,7 @@ describe("G7（2026-08-14，人类原话：「不需要右边的 column」）—
 
   it("catalog 屏：同 library，AppShell 收到的 right 也是 undefined", () => {
     capturedAppShellProps = null;
-    render(<SkillApp {...BASE_PROPS} screen="catalog" />);
+    renderApp(<SkillApp {...BASE_PROPS} screen="catalog" />);
     expect(capturedAppShellProps!.right).toBeUndefined();
     expect(screen.queryByTestId("skill-right-rail")).toBeNull();
   });
@@ -134,7 +141,7 @@ describe("G7（2026-08-14，人类原话：「不需要右边的 column」）—
     //   `skill-right-rail`。prop truthy 已经足够证明「library/catalog 传 undefined，
     //   其余屏仍然传一个真实 element」这条区分没有被误伤成「全部屏都不传了」。
     capturedAppShellProps = null;
-    render(<SkillApp {...BASE_PROPS} screen="library-prototype" />);
+    renderApp(<SkillApp {...BASE_PROPS} screen="library-prototype" />);
     expect(capturedAppShellProps!.right).toBeTruthy();
   });
 });

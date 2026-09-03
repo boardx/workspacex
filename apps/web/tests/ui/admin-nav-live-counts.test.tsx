@@ -16,6 +16,7 @@
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, cleanup, waitFor } from "@testing-library/react";
+import { QueryClientTestWrapper } from "../render-with-query";
 import { ADMIN_NAV_TESTID } from "@/components/admin/asset-kind-nav";
 import {
   buildAdminNavCountSources,
@@ -70,7 +71,7 @@ describe("F3 · 真实计数（agent / skill）", () => {
       return jsonResponse([]);
     }));
 
-    render(<AdminNav active="skill" />);
+    render(<AdminNav active="skill" />, { wrapper: QueryClientTestWrapper });
 
     await waitFor(() => expect(countOf("agent")).toBe("2"));
     expect(countOf("skill")).toBe("3");
@@ -81,7 +82,7 @@ describe("F3 · 真实计数（agent / skill）", () => {
 
   it("口径未裁决的其余项显示「—」，不编数字", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([])));
-    render(<AdminNav active="skill" />);
+    render(<AdminNav active="skill" />, { wrapper: QueryClientTestWrapper });
 
     await waitFor(() => expect(countOf("skill")).toBe("0"));
     for (const key of ALL_KEYS) {
@@ -93,7 +94,7 @@ describe("F3 · 真实计数（agent / skill）", () => {
   /** ⚠ `0` 与「—」是两件事：查成功且确实为空 ⇒ `0`，不是「—」。 */
   it("查成功但确实为空 ⇒ 显示 0（不是「—」）", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([])));
-    render(<AdminNav active="skill" />);
+    render(<AdminNav active="skill" />, { wrapper: QueryClientTestWrapper });
     await waitFor(() => expect(countOf("skill")).toBe("0"));
     expect(countOf("agent")).toBe("0");
   });
@@ -104,7 +105,7 @@ describe("F3 · 真实计数（agent / skill）", () => {
    */
   it("显示「—」的项带一句解释：说明是没接真实数据源，且明说不是 0", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([])));
-    render(<AdminNav active="skill" />);
+    render(<AdminNav active="skill" />, { wrapper: QueryClientTestWrapper });
     await waitFor(() => expect(countOf("skill")).toBe("0"));
 
     const dashed = ALL_KEYS.filter((k) => !(LIVE_COUNT_KEYS as readonly string[]).includes(k));
@@ -121,7 +122,7 @@ describe("F3 · 真实计数（agent / skill）", () => {
   it("未登录（拿不到 orgId）⇒ 全部「—」，不回退 mock", async () => {
     sessionState.currentOrgId = null;
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse([])));
-    render(<AdminNav active="skill" />);
+    render(<AdminNav active="skill" />, { wrapper: QueryClientTestWrapper });
     for (const key of ALL_KEYS) expect(countOf(key)).toBe("—");
   });
 });
@@ -134,7 +135,7 @@ describe("F3 · 取不到时的行为（I-24）", () => {
       return jsonResponse([listing("a1", "agent")]);
     }));
 
-    render(<AdminNav active="skill" />);
+    render(<AdminNav active="skill" />, { wrapper: QueryClientTestWrapper });
     await waitFor(() => expect(countOf("agent")).toBe("1"));
     // 失败那一类是「—」，**不是 0**——0 会把故障显示成空目录。
     expect(countOf("skill")).toBe("—");
