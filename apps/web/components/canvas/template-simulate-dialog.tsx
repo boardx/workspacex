@@ -85,8 +85,8 @@
  */
 
 import * as React from "react";
-import { MousePointer2, StickyNote, Trash2, Maximize } from "lucide-react";
-import { extractMermaidBlocks, wrapAsMermaidBlock, registerTemplate } from "@repo/fabric-markdown";
+import { MousePointer2, StickyNote, Trash2, Maximize, Scan } from "lucide-react";
+import { extractMermaidBlocks, wrapAsMermaidBlock, registerTemplate, getTemplate } from "@repo/fabric-markdown";
 import { isCanvasFenceLang } from "@/lib/canvas/canvas-fence";
 import { canvas } from "@repo/contracts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -94,7 +94,8 @@ import { simulateCanvasTemplateRun } from "@/lib/live-canvas";
 import { ApiError } from "@/lib/api-client";
 import { buildAutoTemplateSpec } from "@/lib/canvas/auto-template-layout";
 import { buildExplicitTemplateSpec, allSectionsPlaced } from "@/lib/canvas/explicit-template-layout";
-import { CanvasStage } from "./canvas-stage";
+import { capFenceBulletsToCapacity, sectionRenderCapacities } from "@/lib/canvas/cap-fence-bullets";
+import { CanvasStage, type CanvasStageHandle } from "./canvas-stage";
 import type { CanvasTool } from "./canvas-toolbar";
 import type { SectionDraft } from "./template-editor-model";
 import { toContractSections } from "./template-editor-model";
@@ -149,7 +150,7 @@ export function usesAutoLayoutSpec(
 }
 
 export function TemplateSimulateDialog({
-  templateKey, layoutSource, sectionsDirty, sections, gridCols, title, promptText, onClose,
+  templateKey, layoutSource, sectionsDirty, sections, gridCols, title, footer, promptText, onClose,
 }: {
   readonly templateKey: string;
   /**
@@ -171,6 +172,8 @@ export function TemplateSimulateDialog({
    */
   readonly gridCols: 6 | 12;
   readonly title: string;
+  /** 页脚署名——与保存/真实 chat 渲染同源，模拟里也要画出来（issue #2527）。 */
+  readonly footer: string;
   /** ①栏当前的提示词正文——打开弹窗时用来预填。 */
   readonly promptText: string;
   readonly onClose: () => void;
@@ -194,6 +197,7 @@ export function TemplateSimulateDialog({
    * 同一个信号，而不是新发明一套判据。
    */
   const [edited, setEdited] = React.useState(false);
+  const stageRef = React.useRef<CanvasStageHandle>(null);
 
   const previewKey = `${templateKey}${PREVIEW_KEY_SUFFIX}`;
 
@@ -228,6 +232,7 @@ export function TemplateSimulateDialog({
             ? buildExplicitTemplateSpec({
               key: previewKey,
               displayName: title || templateKey,
+              footer,
               gridCols,
               sections: sections.map((s) => (
                 { sectionId: s.sectionId, name: s.name, layout: s.layout!, type: s.type }
@@ -236,15 +241,26 @@ export function TemplateSimulateDialog({
             : buildAutoTemplateSpec({
               key: previewKey,
               displayName: title || templateKey,
+              footer,
               sections: sections.map((s) => ({
                 sectionId: s.sectionId, name: s.name, order: s.order, required: s.required, capacity: s.capacity,
                 type: s.type,
               })),
             });
           registerTemplate(spec);
-          setMarkdown(wrapAsMermaidBlock(rewriteTemplateKeyLine(block.code, previewKey), block.lang));
+          // issue #2564：模型实际产出的条数可能比这个分区的框实际放得下的多——
+          // vendor 引擎不裁剪，超出的便签会画进相邻分区。喂给 `CanvasStage` 之前
+          // 按 `spec` 的真实几何截掉超出部分，见 `cap-fence-bullets.ts` 文件头。
+          const capped = capFenceBulletsToCapacity(block.code, sectionRenderCapacities(spec));
+          setMarkdown(wrapAsMermaidBlock(rewriteTemplateKeyLine(capped, previewKey), block.lang));
         } else {
-          setMarkdown(wrapAsMermaidBlock(block.code, block.lang));
+          // 未被自定义过的内置模板：真实几何来自包里那份原生 spec（模块加载时
+          // 已用 `templateKey` 自行注册过），同样要按它的真实容量截断（issue #2564）。
+          const builtinSpec = getTemplate(templateKey);
+          const capped = builtinSpec
+            ? capFenceBulletsToCapacity(block.code, sectionRenderCapacities(builtinSpec))
+            : block.code;
+          setMarkdown(wrapAsMermaidBlock(capped, block.lang));
         }
         setEdited(false);
         setResult({ text: out.text, hasCanvas: true });
@@ -263,12 +279,18 @@ export function TemplateSimulateDialog({
     } finally {
       setRunning(false);
     }
-  }, [prompt, running, templateKey, layoutSource, sectionsDirty, sections, gridCols, title, previewKey]);
+  }, [prompt, running, templateKey, layoutSource, sectionsDirty, sections, gridCols, title, footer, previewKey]);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent
-        className="flex max-h-[88vh] w-full max-w-4xl flex-col gap-3 overflow-y-auto"
+        // 人类原话：「chat 模拟UI，默认是全屏，不是popup」——覆盖 `DialogContent` 默认的
+        // 居中定宽弹窗（`fixed left-1/2 top-1/2 max-w-md -translate-x/y-1/2`），改成贴满
+        // 视口四边，`rounded-none` 去掉弹窗圆角（全屏态没有"窗口边缘"这回事）。twMerge
+        // 会按 class 分组去重，这里覆盖的每一组（position/inset/size/translate/radius）
+        // 在基础样式里都恰好各出现一次，不会出现两条同组类互相打架、谁生效全看书写顺序
+        // 的隐患。
+        className="fixed inset-0 left-0 top-0 h-screen w-screen max-w-none max-h-none translate-x-0 translate-y-0 flex-col gap-3 rounded-none flex overflow-y-auto"
         data-testid="tpladmin-editor-simulate-dialog"
         // ⚠ 不传就是 `DialogContent` 的默认值 "dialog-close"——真栈 E2E 实测发现的真实
         //   缺口：写测试时想当然认为这里已经有一个 `tpladmin-editor-simulate-close`，
@@ -343,7 +365,28 @@ export function TemplateSimulateDialog({
                   >
                     <Maximize aria-hidden className="h-3.5 w-3.5" />
                   </button>
-                  <span className="w-10 text-center font-mono text-10 tabular-nums text-muted-foreground">
+                  {/*
+                    人类原话：「上面的按钮加一个：看到所有的内容的reset按钮」——与
+                    `zoom-fit`（回到 100%，不管内容在不在视口里）不是同一件事：这个按钮
+                    按当前全部对象的并集包围盒重算 zoom/pan，不管内容有多大/在哪，重置
+                    完一定整张画布都在视口里。`CanvasStage.fitToContent` 见该方法头注，
+                    是 `exportPNG` 那套并集包围盒算法的另一个用途，不是重新量一遍。
+                  */}
+                  <button
+                    type="button"
+                    onClick={() => stageRef.current?.fitToContent()}
+                    aria-label="重置视图（看到全部内容）"
+                    title="重置视图（看到全部内容）"
+                    data-testid="tpladmin-editor-simulate-fit-content"
+                    className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-11 text-muted-foreground transition-colors duration-fast hover:bg-muted"
+                  >
+                    <Scan aria-hidden className="h-3.5 w-3.5" />
+                    看到全部
+                  </button>
+                  <span
+                    className="w-10 text-center font-mono text-10 tabular-nums text-muted-foreground"
+                    data-testid="tpladmin-editor-simulate-zoom-readout"
+                  >
                     {Math.round(zoom * 100)}%
                   </span>
                   {edited && (
@@ -366,15 +409,27 @@ export function TemplateSimulateDialog({
                   照抄 `chat-canvas-modal.tsx` 证明可用的既有结构：`flex min-h-0` 的
                   外层 + `flex flex-col` 的内层，两层都是真 flex 容器，`flex-1` 才吃得上。
                 */}
-                <div className="flex h-[480px] min-h-0 flex-none overflow-hidden rounded-control border border-border">
+                {/*
+                  全屏化之后（见 `DialogContent` 头注）不再用固定 `h-[480px]`——弹窗本身
+                  贴满视口，画布区域应该占满弹窗剩余可用高度，而不是像 popup 时代那样
+                  停在一个跟视口大小无关的定值。`flex-1` 在这一层生效同样要求父级
+                  （上面 `result &&` 那个容器）是真 flex 容器，见下方两层结构与
+                  `chat-canvas-modal.tsx` 同构那条既有注释。
+                */}
+                <div className="flex min-h-0 flex-1 overflow-hidden rounded-control border border-border">
                   <div className="flex min-w-0 flex-1 flex-col">
                     <CanvasStage
+                      ref={stageRef}
                       readOnly={false}
                       tool={tool}
                       zoom={zoom}
                       onZoomChange={setZoom}
                       markdown={markdown}
                       onMarkdownChange={(next) => { setMarkdown(next); setEdited(true); }}
+                      // 人类原话：「画布默认要可以看到整体的画布，不需要经过缩放」——
+                      // 每次模拟结果重新渲染（包括同一个弹窗里连续换提示词再运行）都
+                      // 自动跑一次 `fitToContent`，不需要用户先手动点一次「看到全部」。
+                      fitOnLoad
                     />
                   </div>
                 </div>

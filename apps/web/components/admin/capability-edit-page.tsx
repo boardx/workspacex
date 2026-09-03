@@ -45,7 +45,7 @@ type EditableKind = Extract<CapabilityKind, "agent" | "skill">;
  * 唯一目的地。
  */
 const CATALOG_HREF: Record<EditableKind, string> = {
-  agent: "/admin/agent",
+  agent: "/platform-admin/agent",
   skill: "/skill?screen=catalog",
 };
 

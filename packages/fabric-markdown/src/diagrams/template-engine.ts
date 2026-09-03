@@ -76,6 +76,14 @@ export interface TemplateSpec {
   key: string;
   /** Canvas title, e.g. "SWOT 分析 SWOT Analysis". */
   title: string;
+  /**
+   * Footer / attribution line drawn under the lowest section box (workspacex
+   * issue #2527: the template editor lets a human type a "页脚署名", the
+   * editor preview paints it, but the spec had no slot for it so the real
+   * canvas never showed it). Empty / unset = no footer node, byte-identical
+   * to pre-#2527 output.
+   */
+  footer?: string;
   /** Header fields (rendered inside headerRect when present). */
   fields?: string[];
   /** Header band (center + size); required when fields are present. */
@@ -129,6 +137,10 @@ const STICKY_GAP = { x: 12, y: 14 };
 const EMPTY_FIELD = '——';
 const INK = '#1f2937';
 const INK_SOFT = '#4b5563';
+/** Footer line geometry (issue #2527): width / height / gap below the lowest box. */
+const FOOTER_W = 900;
+const FOOTER_H = 20;
+const FOOTER_GAP = 16;
 
 const templates = new Map<string, TemplateSpec>();
 
@@ -212,6 +224,68 @@ export function parseTemplateText(code: string): ParsedTemplateText {
   }
   flush();
   return { templateKey, fields, sections };
+}
+
+/**
+ * 分区名匹配容错（issue #2549：「痛点和挑战」偶发不生成任何内容）。
+ *
+ * `canvas-template-guidance.ts` 要求模型的 `## 分区名` 与模板分区名「逐字一致」，但
+ * 模型偶尔会用近义连接词（和/与/及）或带上多余空白/标点的等价写法（例如「痛点与挑战」
+ * 代替「痛点和挑战」）。此前 `sections.get(sec.name)` 是纯字符串精确匹配，一旦模型的
+ * 措辞与 canonical 名有这类细微出入，该分区的要点就会被存进一个不同的 map key 下，
+ * 精确查找 miss、静默 fallback 成空数组——症状正是「其余分区都有内容，唯独这一个
+ * 分区一片空白，且不报错」。
+ *
+ * 规范化只做保守的等价折叠（去空白、去尾部标点、统一「与/及」→「和」），只有当
+ * canonical 名在 `sections` 里完全找不到时才会走到这一步兜底；模型逐字写对时（绝大多数
+ * 情况）行为与之前完全一致，不影响现有解析结果。
+ */
+function normalizeSectionKey(name: string): string {
+  return name
+    .trim()
+    .replace(/[\s　]+/g, '')
+    .replace(/[，,。.！!？?：:；;]+$/g, '')
+    .replace(/[与及]/g, '和');
+}
+
+/**
+ * 去掉分区名末尾连续的纯 ASCII 词（issue #2576：三视角模型偶发不生成任何内容）。
+ *
+ * 部分模板的 canonical 分区名是「中文 English」双语形式（如「人本期望 Desirability」），
+ * 但指引只要求模型「逐字一致」，模型偶尔会图省事只写中文核心部分、丢掉英文后缀。此时
+ * `normalizeSectionKey` 仍会保留 canonical 名里的英文（只去空格），两侧永远对不上，
+ * 分区就会一片空白。这里剥离末尾连续的纯英文 token，只保留核心部分再比较。
+ *
+ * 只剥「末尾连续」的 ASCII token，且剥完不能是空字符串（否则原样返回）——这样纯英文
+ * 分区名（如 golden-circle 的 WHY/HOW/WHAT）不受影响，不会被错误剥空后互相碰撞。
+ */
+function stripBilingualSuffix(name: string): string {
+  const tokens = name.trim().split(/\s+/).filter(Boolean);
+  let end = tokens.length;
+  while (end > 0 && /^[A-Za-z][A-Za-z-]*$/.test(tokens[end - 1]!)) end--;
+  if (end === 0 || end === tokens.length) return name;
+  return tokens.slice(0, end).join('');
+}
+
+/**
+ * 按 canonical 分区名取要点：逐字命中优先，其次按 {@link normalizeSectionKey} 兜底匹配，
+ * 最后按去掉双语后缀的核心名再兜底一次（见 {@link stripBilingualSuffix}）。
+ */
+export function lookupSectionItems(sections: Map<string, string[]>, name: string): string[] {
+  const exact = sections.get(name);
+  if (exact) return exact;
+  const target = normalizeSectionKey(name);
+  for (const [key, items] of sections) {
+    if (normalizeSectionKey(key) === target) return items;
+  }
+  const targetCore = normalizeSectionKey(stripBilingualSuffix(name));
+  if (targetCore && targetCore !== target) {
+    for (const [key, items] of sections) {
+      const keyCore = normalizeSectionKey(stripBilingualSuffix(key));
+      if (keyCore && keyCore === targetCore) return items;
+    }
+  }
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -332,6 +406,13 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
       const col = i % perRow;
       const cellLeft = hr.x - hr.w / 2 + CELL_INSET_L + col * cellW;
       const cy = hr.y - hr.h / 2 + rowPitch * (row + 1);
+      // #2550: labels were left-aligned inside a fixed-width box, so a short
+      // label (姓名/性别/年龄/…) left a big ragged gap before the value —
+      // the box was hand-tuned for the longest label (教育水平/家庭情况/收入
+      // 水平). Right-aligning hugs every label against the same LABEL_GAP, so
+      // the label→value gap is visually constant and tight regardless of
+      // label length, and every value column still lines up (geometry is
+      // otherwise unchanged: box width/position, VALUE_W, all identical).
       if (!bg) nodes.push({
         id: `tpl-flabel-${i}`,
         label: `${key}:`,
@@ -340,7 +421,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
         y: cy,
         width: LABEL_W,
         height: 20,
-        data: { role: 'fieldLabel', locked: true, fontSize: 13, bold: true, color: INK, align: 'left' },
+        data: { role: 'fieldLabel', locked: true, fontSize: 13, bold: true, color: INK, align: 'right' },
       });
       const value = fields.get(key) || EMPTY_FIELD;
       nodes.push({
@@ -417,7 +498,7 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
         data: { role: 'sectionLabel', locked: true, fontSize: 14, bold: true, color: INK },
       });
     }
-    const items = sections.get(sec.name) ?? [];
+    const items = lookupSectionItems(sections, sec.name);
     // #2372: a section's own `sticky` (if set) overrides the spec-wide
     // default field-by-field — unset fields still fall back to `sticky`.
     const sectionSticky = { ...sticky, ...sec.sticky };
@@ -443,6 +524,27 @@ function buildTemplateModel(spec: TemplateSpec, parsed: ParsedTemplateText): Dia
       });
     });
   });
+
+  // Footer / attribution line (issue #2527). Anchored under the lowest box
+  // (or the header band when there are no sections) so it never overlaps
+  // content whatever the layout; left edge lines up with the title (x=60).
+  // Skipped in bg mode like the title: the printed page carries its own.
+  const footer = (spec.footer ?? '').trim();
+  if (footer && !bg) {
+    const bottoms = spec.sections.map((s) => s.y + s.h / 2);
+    if (spec.headerRect) bottoms.push(spec.headerRect.y + spec.headerRect.h / 2);
+    const contentBottom = bottoms.length > 0 ? Math.max(...bottoms) : 60;
+    nodes.push({
+      id: 'tpl-footer',
+      label: footer,
+      shape: 'text',
+      x: 60 + FOOTER_W / 2,
+      y: contentBottom + FOOTER_GAP + FOOTER_H / 2,
+      width: FOOTER_W,
+      height: FOOTER_H,
+      data: { role: 'footer', locked: true, fontSize: 12, color: INK_SOFT, align: 'left' },
+    });
+  }
 
   return {
     kind: 'template',
@@ -517,10 +619,19 @@ export function serializeTemplate(model: DiagramModel): string {
     items.sort((a, b) => (Math.abs(a.y - b.y) > 24 ? a.y - b.y : a.x - b.x));
     lines.push('');
     lines.push(`## ${name}`);
+    // A sticky with no per-note `#name` tag renders at its SECTION's default
+    // color (`sec.stickyColor ?? STICKY_FILL` — see the `color ?? sec.stickyColor`
+    // assignment above). Only tag it back out when it differs from that
+    // section's own default, not just from the global yellow — otherwise a
+    // section whose default is e.g. pink (#2575) would round-trip every
+    // untouched note with a spurious ` #pink` tag.
+    const sec = spec?.sections.find((sc) => sc.name === name);
+    const sectionDefaultHex = sec?.stickyColor ?? STICKY_FILL;
     for (const s of items) {
       const text = s.label.replace(/\s*\n\s*/g, ' ').trim();
-      const colorName = STICKY_COLOR_BY_HEX.get(String(s.data?.color ?? ''));
-      const tag = colorName && colorName !== 'yellow' ? ` #${colorName}` : '';
+      const colorHex = String(s.data?.color ?? '');
+      const colorName = STICKY_COLOR_BY_HEX.get(colorHex);
+      const tag = colorName && colorHex !== sectionDefaultHex ? ` #${colorName}` : '';
       lines.push(`- ${text}${tag}`);
     }
   }

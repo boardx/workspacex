@@ -13,6 +13,7 @@ import {
   sectionGeometryMm,
   classifyNoteSize,
   MAX_NOTE_MM,
+  MIN_SHRINK_NOTE_MM,
   titleReserveMm,
   blockHorizontalChromeMm,
   GRID_GAP_MM,
@@ -24,7 +25,7 @@ import {
   type ExplicitLayoutSectionInput,
   type SectionGeometryMmInput,
 } from "@/lib/canvas/explicit-template-layout";
-import { A0_FRAME, GRID_TOP } from "@/lib/canvas/auto-template-layout";
+import { A0_FRAME, ENGINE_STICKY, GRID_TOP, renderStickyCapacity } from "@/lib/canvas/auto-template-layout";
 
 function section(
   key: string, col: number, row: number, w: number, h: number,
@@ -127,6 +128,44 @@ describe("computeExplicitLayout —— px 几何", () => {
       gridCols: 12,
     });
     expect(spec.sections[0]!.stickyColor).toBe(TONE_COLORS[0]);
+  });
+
+  /**
+   * issue #2585 根因回归钉子：「汉堡沟通模型」的「开场引入」「行动闭环」两个分区
+   * 被 `deriveTemplateLayouts` 摊到 8 行网格后各只分到 `h:1`（约 83.5px）——扣掉
+   * 标题条与内边距后可用高度（约 25.5px）远小于默认贴纸高度（`ENGINE_STICKY.h`,
+   * 92px），`renderStickyCapacity` 按默认尺寸算出容量 0，`capFenceBulletsToCapacity`
+   * 就把这两个分区下的全部要点整段丢弃——分区因此完全无内容、无颜色（`stickyColor`
+   * 画在便签上，没有便签就看不见色）。
+   *
+   * 修法：格子放不下默认尺寸的贴纸、但还有正的可用高度时，把 `sticky.h` 压到这个
+   * 格子物理放得下一行的尺寸；`sectionRenderCapacities` 读的就是这个收缩后的值，
+   * 算出的容量必须 > 0。
+   */
+  it("h=1 的窄格子（汉堡首尾两带同款几何）：sticky.h 收缩到放得下，渲染容量 > 0", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [section("opening", 1, 1, 12, 1, { cols: 4 })],
+      gridCols: 12,
+    });
+    const sticky = spec.sections[0]!.sticky!;
+    expect(sticky.perRow).toBe(4);
+    expect(sticky.h).toBeDefined();
+    expect(sticky.h!).toBeLessThan(ENGINE_STICKY.h);
+    expect(sticky.h!).toBeGreaterThan(0);
+    const capacity = renderStickyCapacity(
+      spec.sections[0]!.w, spec.sections[0]!.h, sticky.perRow!, spec.titleBars !== false, sticky.w ?? ENGINE_STICKY.w, sticky.h,
+    );
+    expect(capacity).toBeGreaterThan(0);
+  });
+
+  it("格子够高（中间三带同款几何）时不覆盖贴纸高度——保持与既有断言字节级兼容", () => {
+    const { spec } = buildExplicitTemplateSpec({
+      key: "t1", displayName: "测试模板",
+      sections: [section("core", 1, 1, 12, 2, { cols: 4 })],
+      gridCols: 12,
+    });
+    expect(spec.sections[0]!.sticky).toEqual({ perRow: 4 });
   });
 
   /**
@@ -313,6 +352,23 @@ describe("allSectionsPlaced（issue #2372：chat 模拟/真实 chat 要不要走
   });
 });
 
+describe("buildExplicitTemplateSpec —— 页脚署名进 spec（issue #2527）", () => {
+  const section: ExplicitLayoutSectionInput = {
+    sectionId: "s1", name: "目标", type: "便利贴列表",
+    layout: { col: 1, row: 1, w: 6, h: 3, cols: 3, max: 9, tone: 0, overflow: "缩小字号" },
+  };
+  it("传了 footer：spec.footer 原样带过去，引擎才画得出页脚带", () => {
+    const { spec } = buildExplicitTemplateSpec({ key: "k", displayName: "T", footer: "本工具基于 XXX", gridCols: 12, sections: [section] });
+    expect(spec.footer).toBe("本工具基于 XXX");
+  });
+  it("footer 空串/缺省：spec 上没有 footer 字段（与 #2527 之前逐字一致）", () => {
+    const a = buildExplicitTemplateSpec({ key: "k", displayName: "T", footer: "", gridCols: 12, sections: [section] });
+    const b = buildExplicitTemplateSpec({ key: "k", displayName: "T", gridCols: 12, sections: [section] });
+    expect("footer" in a.spec).toBe(false);
+    expect(a.spec).toEqual(b.spec);
+  });
+});
+
 describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
   it("12 列网格，跨满 12 列 8 行：wMm/hMm 应逼近纸面内容区（一整块地方几乎占满内容区，只差一道 gap）", () => {
     const g = sectionGeometryMm({ w: 12, h: 8, cols: 5, gridCols: 12 });
@@ -443,6 +499,55 @@ describe("sectionGeometryMm —— Design.pdf §5 公式", () => {
       );
       expect(g.noteMm).toBe(expectedNoteMm);
       expect(g.rows).toBeGreaterThan(1);
+    });
+  });
+
+  /**
+   * issue #2527（2026-09-02 用户反馈「用户画像/模版编辑/显示方式/列数」）：
+   * 「目标和需求」设最多 9 条、选 3 列，按道理 3 列 × 每列 3 条，实际 3 列 × 每列 1 条。
+   * 根因：贴纸边长只由宽度倒推（封顶 82mm），「最多条数」从没参与过尺寸决定。
+   */
+  describe("issue #2527：传入 max 时，贴纸按 ceil(max/cols) 行往下收，让 3 列 × 9 条真能摆成 3×3", () => {
+    it("A1 + 3 列 + 最多 9 条：不传 max 时只有 1 行（复现 bug），传了 max 后 rows=3、fits≥9", () => {
+      const base = { w: 6, h: 3, cols: 3, gridCols: 12 } as const;
+      const before = sectionGeometryMm(base);
+      // 先确认这组参数确实复现了反馈：宽度版贴纸吃到上限，高度只够 1 行 ⇒ 3×1。
+      expect(before.noteMm).toBe(MAX_NOTE_MM);
+      expect(before.rows).toBe(1);
+      expect(before.fits).toBe(3);
+
+      const after = sectionGeometryMm({ ...base, max: 9 });
+      expect(after.rows).toBe(3);
+      expect(after.fits).toBe(9);
+      expect(after.noteMm).toBeLessThan(before.noteMm);
+      // 收小后的 3 行 + 2 道间距真的塞得进可用高度，不是报了 3 行却还被裁掉。
+      const hMm = (3 / 8) * A1_CONTENT_MM.h - 6;
+      const availableHeightMm = hMm - titleReserveMm("A1");
+      expect(3 * after.noteMm + 2 * GRID_GAP_MM).toBeLessThanOrEqual(availableHeightMm);
+    });
+
+    it("宽度版容量本来就够 max 时不动：noteMm/rows 与不传 max 完全一致", () => {
+      const without = sectionGeometryMm({ w: 6, h: 3, cols: 3, gridCols: 12 });
+      const withMax = sectionGeometryMm({ w: 6, h: 3, cols: 3, gridCols: 12, max: 3 });
+      expect(withMax).toEqual(without);
+    });
+
+    it("max 大到按行反推会低于 MIN_SHRINK_NOTE_MM 时，退而求其次摆尽可能多的行，贴纸不低于下限", () => {
+      const g = sectionGeometryMm({ w: 6, h: 3, cols: 3, gridCols: 12, max: 99 });
+      expect(g.noteMm).toBeGreaterThanOrEqual(MIN_SHRINK_NOTE_MM);
+      expect(g.rows).toBeGreaterThanOrEqual(1);
+      expect(g.fits).toBeLessThan(99);
+      // 再多一行就会跌破下限——证明"尽可能多"不是随便停在某一行。
+      const hMm = (3 / 8) * A1_CONTENT_MM.h - 6;
+      const availableHeightMm = hMm - titleReserveMm("A1");
+      const oneMoreRow = Math.floor((availableHeightMm - GRID_GAP_MM * g.rows) / (g.rows + 1));
+      expect(oneMoreRow).toBeLessThan(MIN_SHRINK_NOTE_MM);
+    });
+
+    it("区块矮到连 1 行都放不下（可用高度 ≤ 0）时，传 max 也不会凭空造出容量", () => {
+      const g = sectionGeometryMm({ w: 6, h: 1, cols: 2, gridCols: 12, size: "A4", max: 9 });
+      expect(g.rows).toBe(0);
+      expect(g.fits).toBe(0);
     });
   });
 

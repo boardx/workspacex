@@ -184,6 +184,46 @@ function cellSizeForArrangement(perRow: number, rows: number): { w: number; h: n
 }
 
 /**
+ * `cellSizeForArrangement` 的反函数：给定分区框的**实际** px 尺寸与配置的列数
+ * （`layout.cols`/`sticky.perRow`），引擎真的能在这个框里画下几张便签而不越界。
+ *
+ * issue #2564 根因：`packages/fabric-markdown` 的 `template-engine.ts`
+ * （282-330 行附近，`spec.sections.forEach` 那段）把一个分区收到的便签**全部**
+ * 画出来，`col = j % perRow`、`row = floor(j / perRow)` 一路往下叠，从不检查
+ * `row` 数是否已经超出这个框的高度——vendor 引擎本身**没有任何裁剪**（fabric
+ * 画布不是 DOM，没有 `overflow: hidden` 这回事），便签超出框高之后照样继续往下
+ * 画，直接压住下一行/下一个分区的标题条与便签。vendor 不许改（`VENDOR.md`），
+ * 真正的修法是在喂给引擎**之前**知道这个框到底能装几张——这里就是那个「装得下
+ * 几张」的计算，是 `cellSizeForArrangement` 那条正向公式（列数+行数 → 需要多大）
+ * 的**逆运算**（框多大 → 装得下几列几行），不是另一套独立猜测。
+ *
+ * ⚠ `stickyW`/`stickyH` 是**入参**，不是这里悄悄取 `ENGINE_STICKY` 的默认值再往下传——
+ *   独立审查抓到的问题：引擎实际用的便签尺寸是 `{ ...(spec.sticky ?? DEFAULT_STICKY),
+ *   ...sec.sticky }` 合并后的结果（`template-engine.ts` 475 行），**不是**恒等于
+ *   `ENGINE_STICKY`（136×92）——内置模板里 bmc/strategy 系用 120×80，burger 用 180×90，
+ *   HMW 用 150×90，且允许逐分区覆盖。这里若还内部写死 `ENGINE_STICKY.w/h`，算出来的
+ *   容量对这些模板会连同它们的默认值一起算错——比如尺寸更大的便签占用的行高被低估，
+ *   容量算多了、真溢出反而没截够。调用方（`cap-fence-bullets.ts` 的
+ *   `sectionRenderCapacities`）负责做这次合并，传进来的必须是**引擎最终会用**的那份
+ *   尺寸，这个函数只管「给定这份尺寸，这个框能装几张」的几何计算。
+ */
+export function renderStickyCapacity(
+  cellW: number, cellH: number, configuredPerRow: number, titleBars = true,
+  stickyW: number = ENGINE_STICKY.w, stickyH: number = ENGINE_STICKY.h,
+): number {
+  const pitchX = stickyW + ENGINE_STICKY_GAP.x;
+  // 引擎：`perRow = max(1, min(sectionSticky.perRow, floor((w - 28) / (stickyW + gapX))))`。
+  const perRow = Math.max(1, Math.min(configuredPerRow, Math.floor((cellW - 2 * ENGINE_STICKY_INSET) / pitchX)));
+  const topOffset = titleBars ? ENGINE_STICKY_TOP_OFFSET : 14;
+  // 引擎：`h = topOffset + rows·stickyH + (rows-1)·gapY + inset` ⇒ 反解 rows。
+  const rows = Math.max(
+    0,
+    Math.floor((cellH - topOffset - ENGINE_STICKY_INSET + ENGINE_STICKY_GAP.y) / (stickyH + ENGINE_STICKY_GAP.y)),
+  );
+  return perRow * rows;
+}
+
+/**
  * 一个分区要横竖排下 `capacity` 张便签，框至少要多大。
  *
  * 便签一行最多 3 张（引擎上限），所以 `capacity` 张有 1/2/3 三种排法，各自给出一个
@@ -405,6 +445,8 @@ export interface AutoTemplateInput {
   readonly key: string;
   /** 模板显示名 —— 画布顶部标题带上的那行字。 */
   readonly displayName: string;
+  /** 页脚署名（编辑器「页脚署名」栏）。空串/缺省 = 不画（issue #2527）。 */
+  readonly footer?: string;
   readonly sections: readonly AutoLayoutSectionInput[];
 }
 
@@ -503,6 +545,7 @@ export function buildAutoTemplateSpec(input: AutoTemplateInput): AutoTemplateRes
     spec: {
       key: input.key,
       title: input.displayName,
+      ...(input.footer ? { footer: input.footer } : {}),
       ...headerFields,
       sections,
       titleBars: true,

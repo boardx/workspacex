@@ -1,8 +1,10 @@
 "use client";
 import * as React from "react";
 import type { AbstractAgent } from "@ag-ui/client";
+import { AGUI_RUN_PHASE_EVENT_NAME, parseAguiRunPhaseValue } from "@repo/contracts/agui-state-events";
 import {
-  phaseLabelForKind, phaseLabelForToolName, phaseLabelForCallSkillArgs, CALL_SKILL_TOOL_NAME,
+  phaseLabelForKind, phaseLabelForToolName, phaseLabelForCallSkillArgs, phaseLabelForRunPhase,
+  CALL_SKILL_TOOL_NAME,
 } from "./agent-run-phase";
 
 /**
@@ -132,6 +134,19 @@ export function useCopilotKitV2RunProgress(agent: AbstractAgent, isRunning: bool
         } catch {
           // 非 JSON / 形状不对：保留 START 时已经设好的通用文案，不猜、不报错。
         }
+      },
+      // 2026-09-02 —— 第一个工具调用之前的真实阶段（执行器认领 / 上下文就绪），来自
+      // 桥接层的 `CUSTOM {name:"run_phase"}`。只在还没进入工具/回复阶段时改文案：
+      // 这两个事件是"更早"的信号，绝不能把已经在显示的工具名/回复态倒退回去。
+      onCustomEvent: ({ event }) => {
+        if (event.name !== AGUI_RUN_PHASE_EVENT_NAME) return;
+        const parsed = parseAguiRunPhaseValue(event.value);
+        if (parsed === null) return;
+        setStage((current) => {
+          if (current !== null && current !== "preparing") return current;
+          setPhaseLabel(phaseLabelForRunPhase(parsed.phase));
+          return "preparing";
+        });
       },
       onTextMessageStartEvent: () => {
         setPhaseLabel(REPLYING_PHASE_LABEL);

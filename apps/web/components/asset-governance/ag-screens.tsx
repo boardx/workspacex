@@ -603,16 +603,37 @@ function Editor({
     };
   }, [kind, liveAssetId]);
 
+  /**
+   * ⚠ 2026-09-03 补——`liveError` 非空时**不能**回退到 `mockTree`：那是
+   * `/asset-governance` 原型路由的固定演示目录（`references/output-schema.md`/
+   * `scripts/validate.py`……），与当前正在打开的这个真实 asset 毫无关系。
+   * 此前的行为是：真实请求确实失败了（比如这是一个只有 `skill_contracts` 行、
+   * 没有 `skills` 行的模型 B skill，`getAssetDirectory` 对它 404），但界面照样
+   * 显示一份看起来完整、可点开、可"编辑"的假文件树——头部的 skill 名字/id 是真的，
+   * 树和正文却是另一个 skill 的示例内容，唯一的破绽只是右上角一行不起眼的红字
+   * 「接口错误：…（已回退 mock）」。`mockTree` 只在"从未发起过真实请求"时才是诚实的
+   * 回退（`getStoredSessionToken() === null` 那一支，本来就没打算打真实接口）。
+   */
   const tree: FileNode[] = liveDir
     ? liveDir.files.map((f) => ({
         path: f.path,
         size: formatBytes(f.sizeBytes),
         kind: BADGE_TO_KIND[f.badge] ?? "md",
       }))
-    : mockTree;
+    : liveError !== null
+      ? []
+      : mockTree;
 
   const [liveBody, setLiveBody] = React.useState<string | null>(null);
   const [fileBusy, setFileBusy] = React.useState(false);
+
+  /**
+   * 平台官方 skill（`skill-platform-*`，四个）对任何组织只读可见——`getDirectory` 现在
+   * 显式带出这个信号（见 `AssetDirectoryRecord.readOnly` 的头注，这是它存在的全部理由）。
+   * ⚠ 只对 `isLive` 有意义：mock 态 `liveDir` 恒为 `null`，`?? false` 落到「可编辑」，
+   *   与 mock 态原有行为一致——`readOnly` 不是给 mock 态新加的限制。
+   */
+  const readOnly = liveDir?.readOnly ?? false;
 
   /**
    * 试跑（`POST /skill-versions/:versionId/trial-run`，见 `lib/skill-trial-run.ts`）。
@@ -760,8 +781,12 @@ function Editor({
               confirmLabel="确认发布新版本"
               // ⚠ 只有真实数据态才接真实写入。mock 态**不接**——那样会对着一份假目录
               //   发出真实写请求，写到一个并不是你在看的那个 skill 上。
-              disabled={!isLive || !dirty}
-              onConfirm={isLive ? async () => {
+              // ⚠ 平台官方 skill（`readOnly`）同样不接：写路径本来就会被服务端拒绝
+              //   （`PgAssetFileRepository` 的写方法从不落到平台行），按钮显式禁用 +
+              //   说明原因，好过让用户点了「确认发布」才在网络请求里撞见一个 404。
+              disabled={!isLive || !dirty || readOnly}
+              title={readOnly ? "平台官方 skill，对所有组织只读——无法在此保存" : undefined}
+              onConfirm={isLive && !readOnly ? async () => {
                 await writeAssetFile(kind, liveAssetId, sel, draft);
                 // 写成功后把「服务端那一版」推进到刚保存的内容 ⇒ dirty 归位。
                 // ⚠ 不重新 GET：服务端返回的就是它写下的字节，再读一次不会更真，
@@ -863,13 +888,30 @@ function Editor({
             <div className="flex items-center gap-2" data-testid={`ag-${kind}-data-source`}>
               {isLive ? (
                 <Badge tone="primary" className="font-mono text-9">真实数据 · GetAssetDirectory</Badge>
+              ) : liveError !== null ? (
+                // 真的打过真实接口、真的失败了——不是"预览态"，「mock」这个词在这里
+                // 会让人以为是故意的演示态，掩盖了"这个 skill 打不开"这件事。
+                <Badge tone="outline" className="font-mono text-9">真实数据读取失败</Badge>
               ) : (
                 <Badge tone="outline" className="font-mono text-9">
                   {getStoredSessionToken() === null ? "预览态 mock · 未登录（/project/live 登录后自动切换真实接口）" : "预览态 mock"}
                 </Badge>
               )}
+              {/*
+                平台官方 skill（`skill-platform-*`）对任何组织只读——不是「读失败回退
+                mock」，是「真的读到了，但这份来源不接受这个组织的写」。与上面
+                `isLive` 的徽标是两件独立的事：前者说数据来自哪，这个说这份数据能不能改，
+                两个问题各自答完才是这块区域该说的全部。
+              */}
+              {isLive && readOnly && (
+                <Badge tone="outline" className="font-mono text-9" data-testid={`ag-${kind}-readonly`}>
+                  平台官方 skill · 全组织只读
+                </Badge>
+              )}
               {liveError && (
-                <span className="text-9 text-destructive" data-testid={`ag-${kind}-live-error`}>接口错误：{liveError}（已回退 mock）</span>
+                // ⚠ 不再说"已回退 mock"——下面的文件树/正文区不再回退到那份无关的
+                // 原型演示内容，见 `tree` 的头注与内容面板的 `liveError` 分支。
+                <span className="text-9 text-destructive" data-testid={`ag-${kind}-live-error`}>接口错误：{liveError}</span>
               )}
             </div>
 
@@ -905,6 +947,10 @@ function Editor({
                         path={sel}
                         value={draft}
                         onChange={setDraft}
+                        // 平台官方 skill：编辑区本身也只读，不只是保存按钮禁用——
+                        // 允许在 Monaco 里改字符、只在点保存那一刻才拒绝，会让用户以为
+                        // 改动已经生效，直到保存才发现白改了。
+                        readOnly={readOnly}
                         rootFrontmatterCheck={
                           liveDir ? { assetKind: kind, isRootFile: sel === liveDir.rootFile } : undefined
                         }
@@ -915,6 +961,25 @@ function Editor({
                       <CodeView body={draft} testid={`ag-${kind}-code`} />
                     )
                   )
+                ) : liveError !== null ? (
+                  /**
+                   * ⚠ 2026-09-03 补——真实请求确实失败了（比如这是一个只有
+                   * `skill_contracts` 行、没有对应 `skills` 行的模型 B skill，
+                   * `getAssetDirectory` 对它 404），不是"预览态没登录"那种预期内的
+                   * 回退。此前这里会掉进下面的 `mockTree` 分支，显示一份看起来完整、
+                   * 可点开的假文件树/正文——头部的 skill 名字/id 是真的，内容却是
+                   * 另一个 skill 的原型演示样本，用户唯一能发现的破绽只有上面那行
+                   * 不起眼的红字。现在改成显式说明：这个 {label} 打不开，且给出真实
+                   * 原因，不再拿一份无关内容冒充它的正文。
+                   */
+                  <Panel testid={`ag-${kind}-unavailable`}>
+                    <p className="text-11 text-destructive">这个 {label} 的源码目前无法在这里编辑：{liveError}</p>
+                    <p className="mt-1 text-10 text-muted-foreground">
+                      常见原因：这是一个尚未接入源码编辑的 {label}（比如声明式契约型
+                      skill，只有契约定义、没有可编辑的文件目录），不是网络故障——下面
+                      不再显示一份与它无关的示例内容。
+                    </p>
+                  </Panel>
                 ) : sel === mockTree[0]!.path ? (
                   <CodeView body={main.body} testid={`ag-${kind}-code`} />
                 ) : (

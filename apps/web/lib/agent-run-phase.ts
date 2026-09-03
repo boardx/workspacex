@@ -116,6 +116,23 @@ export function phaseLabelForKind(kind: string): string {
 }
 
 /**
+ * 2026-09-02 —— 桥接层 `CUSTOM {name:"run_phase"}` 推来的「第一个工具调用之前」的
+ * 真实阶段（`@repo/contracts/agui-state-events` 的 `AguiRunPhase`），映射到上面同一张
+ * 表的措辞，不另写第二份文案：
+ *   · `context_building`（执行器已认领、在读技能/历史）→ 与 `context_built` 步骤同一句；
+ *   · `model_thinking`（system prompt 就绪、模型调用中）→ 与 `model_called` 步骤同一句。
+ */
+const KIND_BY_RUN_PHASE: Readonly<Record<string, string>> = {
+  context_building: "context_built",
+  model_thinking: "model_called",
+};
+
+export function phaseLabelForRunPhase(phase: string): string {
+  const kind = KIND_BY_RUN_PHASE[phase];
+  return kind === undefined ? FALLBACK_PHASE : phaseLabelForKind(kind);
+}
+
+/**
  * 取 `steps` 里最新一条，翻译成阶段文案。`steps` 为空（run 刚提交，第一条
  * `accepted` 还没落库）返回 `null`——调用方保留原来纯计时器的「正在思考…」，
  * 不显示一个不存在的阶段。

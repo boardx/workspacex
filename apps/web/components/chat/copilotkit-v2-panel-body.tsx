@@ -650,9 +650,15 @@ export function CopilotKitV2PanelBody({
         const { messages: after } = await readAllPersistedMessages(threadId, bearer);
         if (cancelled) return;
         const liveIds = new Set(agent.messages.map((m) => m.id));
-        const framed = after
-          .filter((m) => !liveIds.has(m.id))
-          .map((m) => ({ id: m.id, role: m.role, content: m.content }));
+        const restored = after.filter((m) => !liveIds.has(m.id));
+        // 2026-09-02（人类实测："放大→修改→保存成功→刷新后全丢"）—— 这条路径此前
+        // 只把消息灌进 `agent.messages`，**没有**像挂载 hydration 那样 `registerHydrated`：
+        // 这些消息的 id 已经是真实 `chat_messages.id`，但身份索引不认识它们，
+        // `identity.resolve`/`resolvePersisted` 一律回答 `null` ⇒ `MarkdownMessage`
+        // 拿到的 `messageId` 是 `undefined` ⇒ 图表 modal 的「保存」静默退回本地演示
+        // （徽标照亮、什么都没落库），刷新后自然全丢。与挂载 hydration 同一份登记。
+        registerHydrated(restored.map((m) => ({ id: m.id, rateable: m.rateable })));
+        const framed = restored.map((m) => ({ id: m.id, role: m.role, content: m.content }));
         if (framed.length > 0) agent.setMessages([...agent.messages, ...framed]);
         setPendingRunId(null);
         onMessageSent?.();
@@ -667,7 +673,7 @@ export function CopilotKitV2PanelBody({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, onMessageSent]);
+  }, [agent, onMessageSent, registerHydrated]);
   const runRestore = useCopilotKitV2RunRestore(
     pendingRunId,
     getStoredSessionToken() ?? undefined,
@@ -1217,15 +1223,67 @@ export function CopilotKitV2PanelBody({
    */
   const messagesContainerRef = React.useRef<HTMLDivElement | null>(null);
   const [isAtBottom, setIsAtBottom] = React.useState(true);
+  /**
+   * 2026-09-02 人类实测反馈："滚到底部的那个箭头的逻辑是错误的"。两处根因：
+   *
+   * ① 按钮此前是滚动容器（`overflow-y-auto`）自己的 `absolute` 子节点。绝对定位的
+   *    后代仍然属于滚动容器的**可滚动内容**——`bottom-3` 只是相对容器*初始*那一屏
+   *    的 padding box 定位，用户往上翻一屏之后，按钮跟着内容一起滚走：要么消失，
+   *    要么停在某条消息中间（截图里它正压在气泡正中）。修法：按钮搬到滚动容器
+   *    **外面**，与它并列在一个 `relative` 包装层里，才真正钉在可视区底部。
+   *
+   * ② 程序化滚动（点按钮/新消息自动跟随，`behavior:"smooth"`）会在动画途中连续
+   *    触发 `scroll` 事件，中间位置离底部还远，`handleMessagesScroll` 把 `isAtBottom`
+   *    翻回 `false`——按钮刚点掉又冒出来；流式增量时更糟：每个 delta 都起一次平滑
+   *    滚动，动画途中的 `scroll` 事件把"贴底"判成"用户往上翻了"，自动跟随就此
+   *    停止，用户明明没动过滚轮却看到箭头浮现、回复自己滚出视野。修法：
+   *    `programmaticScrollRef` 标记"这次滚动是我们发起的"，动画途中的 `scroll`
+   *    事件不把 `isAtBottom` 翻成 false，直到真的抵达底部（或用户以滚轮/触摸/键盘
+   *    介入——那才是"用户往上翻"的证据）才解除；自动跟随改用 `auto`（瞬时），
+   *    Slack/Discord 的贴底跟随本来就是瞬时的，平滑只留给用户主动点按钮那一次。
+   *
+   * ③ 内容在没有新消息的情况下长高（图表/画布进入视口后惰性渲染、图片加载），
+   *    不会触发 `scroll` 事件也不会改变 `agent.messages`：贴底态下用 `ResizeObserver`
+   *    盯住内容包装层，长高就补一次瞬时贴底，保持"贴底"这个承诺。
+   */
+  const messagesContentRef = React.useRef<HTMLDivElement | null>(null);
+  const programmaticScrollRef = React.useRef(false);
+  const programmaticScrollTimerRef = React.useRef<number | null>(null);
+
+  /**
+   * PR #2530 review（exact-SHA reviewer 第 1 条）—— 这个标记不能只靠"抵达底部的
+   * `scroll` 事件"或"滚轮/触摸/键盘"来解除：`auto` 滚动在位置没变时根本不发
+   * `scroll` 事件，用户拖滚动条滑块（pointer）也不是 wheel/touch。标记一旦卡住，
+   * 后面用户真实往上翻的 `scroll` 会被当成"程序化途中"吞掉——按钮不出现、内容
+   * 长高还把人拉回底部。所以解除条件是四个里**任一**：抵达底部的 `scroll`、
+   * `scrollend`（支持的浏览器）、pointer/滚轮/触摸/键盘介入、以及一个有界超时
+   * （平滑滚动动画不会超过这个时长；`auto` 立即完成）。`setProgrammaticScroll`
+   * 是唯一的置位入口，置位同时起表；`clearProgrammaticScroll` 是唯一的解除入口。
+   */
+  const PROGRAMMATIC_SCROLL_MAX_MS = 1_000;
+  const clearProgrammaticScroll = React.useCallback(() => {
+    programmaticScrollRef.current = false;
+    if (programmaticScrollTimerRef.current !== null) {
+      window.clearTimeout(programmaticScrollTimerRef.current);
+      programmaticScrollTimerRef.current = null;
+    }
+  }, []);
+  const setProgrammaticScroll = React.useCallback(() => {
+    if (programmaticScrollTimerRef.current !== null) window.clearTimeout(programmaticScrollTimerRef.current);
+    programmaticScrollRef.current = true;
+    programmaticScrollTimerRef.current = window.setTimeout(clearProgrammaticScroll, PROGRAMMATIC_SCROLL_MAX_MS);
+  }, [clearProgrammaticScroll]);
+  React.useEffect(() => clearProgrammaticScroll, [clearProgrammaticScroll]);
 
   const scrollMessagesToBottom = React.useCallback((behavior: ScrollBehavior) => {
     const el = messagesContainerRef.current;
     // jsdom（组件测试环境）不实现 `Element.scrollTo`——与下面 `matchMedia` 同一类
     // "真实浏览器才有、测试环境没有"的能力守卫，不是本功能的正常路径分支。
     if (el === null || typeof el.scrollTo !== "function") return;
+    setProgrammaticScroll();
     el.scrollTo({ top: el.scrollHeight, behavior });
     setIsAtBottom(true);
-  }, []);
+  }, [setProgrammaticScroll]);
 
   const prefersReducedMotion = React.useCallback((): boolean => {
     // 与 `use-section-navigation.ts` 同一处守卫——jsdom 测试环境不提供 `matchMedia`。
@@ -1236,8 +1294,29 @@ export function CopilotKitV2PanelBody({
   const handleMessagesScroll = React.useCallback(() => {
     const el = messagesContainerRef.current;
     if (el === null) return;
-    setIsAtBottom(isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight));
-  }, []);
+    const nearBottom = isScrolledNearBottom(el.scrollHeight, el.scrollTop, el.clientHeight);
+    if (programmaticScrollRef.current) {
+      // 我们自己发起的滚动还在路上：中间位置不算"用户离开了底部"。抵达即解除标记。
+      if (nearBottom) clearProgrammaticScroll();
+      return;
+    }
+    setIsAtBottom(nearBottom);
+  }, [clearProgrammaticScroll]);
+
+  // 用户主动介入（滚轮 / 触摸 / 方向键 / 按下指针拖滚动条）即刻解除"程序化滚动中"
+  // 标记——之后的 `scroll` 事件才是用户意图的真实信号。
+  const handleUserScrollIntent = React.useCallback(() => {
+    clearProgrammaticScroll();
+  }, [clearProgrammaticScroll]);
+
+  // `scrollend`（Chrome 114+/Firefox 109+；Safari 尚无）：平滑滚动真正结束的权威信号。
+  // 不支持的浏览器由上面的有界超时兜底。React 还没有 `onScrollEnd` prop，手动挂。
+  React.useEffect(() => {
+    const el = messagesContainerRef.current;
+    if (el === null) return;
+    el.addEventListener("scrollend", clearProgrammaticScroll);
+    return () => el.removeEventListener("scrollend", clearProgrammaticScroll);
+  }, [clearProgrammaticScroll]);
 
   // 贴底时新消息/流式增量到达自动跟随；一旦用户往上翻（`isAtBottom` 变 false），
   // 这个 effect 直接不跑，不打断阅读——与 Slack/Discord 同一条纪律。
@@ -1245,8 +1324,24 @@ export function CopilotKitV2PanelBody({
     if (!isAtBottom) return;
     const el = messagesContainerRef.current;
     if (el === null || typeof el.scrollTo !== "function") return;
-    el.scrollTo({ top: el.scrollHeight, behavior: prefersReducedMotion() ? "auto" : "smooth" });
-  }, [agent.messages, isAtBottom, prefersReducedMotion]);
+    setProgrammaticScroll();
+    el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+  }, [agent.messages, isAtBottom, setProgrammaticScroll]);
+
+  // 见上方 ③：贴底态下内容长高（惰性渲染的图表、加载完的图片）也要跟住。
+  React.useEffect(() => {
+    if (!isAtBottom) return;
+    const content = messagesContentRef.current;
+    const el = messagesContainerRef.current;
+    if (content === null || el === null || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (typeof el.scrollTo !== "function") return;
+      setProgrammaticScroll();
+      el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+    });
+    ro.observe(content);
+    return () => ro.disconnect();
+  }, [isAtBottom, setProgrammaticScroll]);
 
   // `Cmd/Ctrl+End` 跳到最新——只认组合键，不拦截输入框里普通 `End`（移到行尾）。
   React.useEffect(() => {
@@ -1462,12 +1557,18 @@ export function CopilotKitV2PanelBody({
             上的纯滚动区，不该有第二层"卡片边框"把它和composer/工具栏再框一次
             （气泡本身已经是各自的卡片/气泡，这一层外框纯属多余的视觉噪音）。去掉
             border/圆角/卡片底色，改用页面本底色，只留 `p-3` 内边距不动。 */}
+        <div className="relative flex min-h-0 flex-1 flex-col">
         <div
           ref={messagesContainerRef}
           onScroll={handleMessagesScroll}
-          className="relative flex-1 overflow-y-auto bg-background p-3"
+          onWheel={handleUserScrollIntent}
+          onTouchMove={handleUserScrollIntent}
+          onKeyDown={handleUserScrollIntent}
+          onPointerDown={handleUserScrollIntent}
+          className="flex-1 overflow-y-auto bg-background p-3"
           data-testid="copilotkit-v2-messages"
         >
+        <div ref={messagesContentRef}>
           {/* issue #2039（第 1 轮 gap #3，uiux-standards U1/U2）——三态：
               历史回读中 = 骨架屏；无消息 = 引导空态（此前是一整片空白）；
               有消息 = 框架消息列表。空态只在真的没有任何消息时出现，不伪装历史。 */}
@@ -1603,15 +1704,16 @@ export function CopilotKitV2PanelBody({
               ) : null}
             </div>
           ) : null}
-          {/* issue #2096（真实 devapp 实测：悬浮按钮与右侧发送区重叠）—— 此前挂在
-              最外层 `relative` 包装 div 里（那个 div 从消息区一路延伸到 composer/
-              发送按钮），`absolute bottom-3 right-3` 因此贴着整个左栏的右下角，与
-              发送区的图标重叠，不是贴着消息可视区的右下角。现在这个消息容器 div
-              自己是 `relative`，按钮是它的子节点：`bottom-3` 相对消息可视区自身，
-              不再随 composer 高度漂移；水平方向按人类实测反馈从贴右改成贴底居中
-              （`left-1/2 -translate-x-1/2`，Slack/ChatGPT 同款"回到最新"位置），
-              不会被右侧材料/产物栏或任何一侧内容遮挡。只在离开底部且确实有消息可看
-              时出现，不在历史回读骨架屏/空态上叠加一个没有意义的按钮。 */}
+        </div>
+        </div>
+          {/* issue #2096 —— 此前按钮曾挂在从消息区一路延伸到 composer 的最外层包装里，
+              与发送区重叠；后来搬进滚动容器当 `absolute` 子节点，又变成"跟着内容一起
+              滚走"（2026-09-02 人类实测：箭头压在气泡正中，见上方 `programmaticScrollRef`
+              头注 ①）。现在它与滚动容器并列在同一个 `relative` 包装层里：`bottom-3`
+              相对消息可视区自身，既不随 composer 高度漂移，也不随内容滚动。水平方向
+              贴底居中（`left-1/2 -translate-x-1/2`，Slack/ChatGPT 同款"回到最新"位置）。
+              只在离开底部且确实有消息可看时出现，不在历史回读骨架屏/空态上叠加一个
+              没有意义的按钮。 */}
           {!isAtBottom && !historyLoading && agent.messages.length > 0 ? (
             <button
               type="button"
@@ -1821,7 +1923,7 @@ export function CopilotKitV2PanelBody({
             {agentOptions.status === "ready" && agentOptions.agents.length === 0 ? (
               <span className="text-11 text-muted-foreground" data-testid="copilotkit-v2-no-agents-hint">
                 这个组织还没有可用的 Agent，先去
-                <a href="/admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
+                <a href="/platform-admin/agent" className="mx-1 text-primary underline">后台创建一个 Agent</a>
                 才能发消息。
               </span>
             ) : null}

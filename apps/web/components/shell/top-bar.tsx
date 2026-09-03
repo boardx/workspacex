@@ -125,6 +125,14 @@ export function TopBar({
   const showOwnSwitcher = isDev && !!project && !hideRoleSwitcher;
   const currentOrgLabel =
     organizations.find((o) => o.id === identity.org.id)?.label ?? identity.org.name;
+  // 2026-09-03 人类反馈：后台管理页（/admin、/platform-admin）自己的 AdminHeader 已经
+  // 承担了身份展示（含 hideOrgIdentity 时的「平台运营」徽标，见该文件头注），顶栏这里
+  // 再重复一遍「组织名 · 管理员」是同一信息的第二份展示，且对 /platform-admin 这类
+  // 平台级页面而言字面上还是错的（顶栏永远显示当前登录所在的组织，与「平台」这个
+  // 更高的作用域不是一回事）。两块后台都不需要顶栏的组织身份段。
+  const isAdminRoute =
+    pathname === "/admin" || pathname.startsWith("/admin/")
+    || pathname === "/platform-admin" || pathname.startsWith("/platform-admin/");
 
   return (
     <header
@@ -165,19 +173,23 @@ export function TopBar({
             className="h-6 w-6"
           />
         </div>
-        {local
+        {!isAdminRoute && (local
           ? <Lock aria-hidden className="h-3.5 w-3.5 text-ai-tint-foreground" data-testid="topbar-local-lock" />
-          : <Building2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />}
-        <span data-testid="topbar-org-name" className="max-w-[12rem] truncate text-12 font-medium text-card-foreground">
-          {currentOrgLabel}
-        </span>
+          : <Building2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />)}
+        {!isAdminRoute && (
+          <span data-testid="topbar-org-name" className="max-w-[12rem] truncate text-12 font-medium text-card-foreground">
+            {currentOrgLabel}
+          </span>
+        )}
       </div>
 
-      <div className="h-4 w-px shrink-0 bg-border" aria-hidden />
+      {!isAdminRoute && <div className="h-4 w-px shrink-0 bg-border" aria-hidden />}
 
-      <p data-testid="role-bar-org" className="min-w-0 flex-1 truncate text-12 text-muted-foreground">
-        {describeOrgLayer(identity)}
-      </p>
+      {!isAdminRoute && (
+        <p data-testid="role-bar-org" className="min-w-0 flex-1 truncate text-12 text-muted-foreground">
+          {describeOrgLayer(identity)}
+        </p>
+      )}
 
       {/* ── 项目层：只在项目上下文里出现 ── */}
       {displayProject && (
@@ -259,9 +271,11 @@ export function TopBar({
         本就不在任何具体项目里，这是它的常态而不是缺失，每个后台屏都重复提醒一遍
         纯属视觉噪音。同时排除 `/admin` 与 `/admin/`（用前缀匹配，覆盖
         `/admin/skill/[id]` 这类多段路由，不是只排除 `/admin` 这一段路径）。
+        2026-09-02 后台切成两面后，平台后台 `/platform-admin/*` 同理排除。
       */}
       {!project && !local && !sh.on && pathname !== "/chat"
-        && pathname !== "/admin" && !pathname.startsWith("/admin/") && (
+        && pathname !== "/admin" && !pathname.startsWith("/admin/")
+        && pathname !== "/platform-admin" && !pathname.startsWith("/platform-admin/") && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
           不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
         </p>

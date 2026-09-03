@@ -3,6 +3,7 @@
 import * as React from "react";
 import { AlertTriangle, Ban, Camera, Check, ChevronDown, Copy, Hourglass, Mail, Pencil, Plus, RotateCcw, Send, Settings, Trash2, UserCog, Users, X } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
+import { AdminNav } from "@/components/admin/admin-nav";
 import { useSession } from "@/components/session/session-provider";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,18 @@ import {
 
 /**
  * `/org-admin` —— 组织管理页（#639 delta 迭代 1 起步 → 迭代 2 团队增删改 → #363 收拢补齐）。
+ *
+ * ## 并入组织后台左栏（2026-09-03 人类直接反馈）
+ * 原话：「在组织的菜单点击组织管理，就是进入到组织后台的菜单，所以需要把他们合并」——
+ * 左上角组织菜单的「组织管理」入口（`org-menu.tsx`）此前落到这里时，`AppShell` 没有
+ * `left` 栏，点进来是一个和「组织后台」（`/admin`）毫无视觉/结构关联的孤立页面，
+ * 与「组织管理＝组织后台的一部分」这个心智模型不符。
+ * ⇒ 这里的 `AppShell` 现在接上 `AdminNav`（`active="org-profile"`，`lib/mock/admin.ts`
+ * 「组织」组新增项），左栏与其余 `/admin/*` 屏一致——点「组织管理」进来就能看到
+ * 「组织后台」的左栏菜单，两者是同一个信息架构下的两个入口，不是两套系统。
+ * 路由本身**没有合并**（仍是独立的 `/org-admin`，不是 `/admin/org-profile`）——这四个
+ * 标签页是 session 驱动的真实数据页，不经过 `app/admin/[module]/page.tsx` 的
+ * `SCREENS`/`REDIRECTS` 分发，合并的是**视觉与导航结构**，不是路由本身。
  *
  * ## 团队标签页（#639 delta 迭代 2）
  * 创建 / 改名 / 删除已接线，见 `TeamsTab`/`CreateTeamForm`/`TeamRow`。成员加入/移出
@@ -78,7 +91,7 @@ export function OrgAdminScreen() {
   const [sharedLinkReveal, setSharedLinkReveal] = React.useState<SharedLinkReveal | null>(null);
 
   return (
-    <AppShell previewRole={null}>
+    <AppShell previewRole={null} left={<AdminNav active="org-profile" />}>
       <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6" data-testid="org-admin-screen">
         <div className="flex items-center gap-2">
           <Settings aria-hidden className="h-5 w-5 text-muted-foreground" />

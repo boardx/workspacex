@@ -165,12 +165,18 @@ const conversationLog = new Map<string, string[]>();
 const SKILL_SENTINEL = process.env.LOOPBACK_DEEP_AGENT_SKILL_SENTINEL || null;
 const SKILL_ECHO_PREFIX = process.env.LOOPBACK_DEEP_AGENT_SKILL_ECHO_PREFIX || null;
 
-function mountedSkillReachedUpstream(
-  messages: readonly { readonly role?: string; readonly content?: unknown }[],
-): boolean {
+/**
+ * #2534 更新：哨兵改在 `config.configurable.org_skills[].content` 里看，**不再看
+ * `role:"system"`**。deep-agent run 的 system prompt 现在只放目录（一行摘要），skill
+ * 全文只经 `org_skills` 结构化送到远端由 `call_skill` 按需取——「skill 正文真的到了
+ * 远端」的唯一可观察位置就是这里。仍只看**这一轮请求真实收到的字节**，不缓存跨轮。
+ * ⚠ 顺带成为一条反证：若有人把全文又贴回 system prompt 而 `org_skills` 漏了，这里
+ *   如实 `false`，e2e 红。
+ */
+function mountedSkillReachedUpstream(body: CreateRunBody): boolean {
   if (SKILL_SENTINEL === null || SKILL_ECHO_PREFIX === null) return false;
-  const system = messages.find((m) => m.role === "system")?.content;
-  return typeof system === "string" && system.includes(SKILL_SENTINEL);
+  const skills = body.config?.configurable?.org_skills ?? [];
+  return skills.some((s) => typeof s.content === "string" && s.content.includes(SKILL_SENTINEL));
 }
 
 /** 见 `mountedSkillReachedUpstream`——`/stream` 与 `/state` 两个端点共用同一份拼接，
@@ -219,7 +225,7 @@ interface RunRecord {
   approvalArgs?: Record<string, unknown>;
   /** resume 请求（`command.resume`）到达后记下的裁决——null = 还没被裁决过。 */
   decision: ApprovalDecision | null;
-  /** issue #2020：这一轮的 `role:"system"` 消息里真的出现了挂载 skill 哨兵——
+  /** issue #2020 / #2534：这一轮的 `org_skills` 里真的出现了 skill 哨兵——
    *  见 `mountedSkillReachedUpstream`。开关未给全时恒 `false`。 */
   skillSentinelSeen?: boolean;
 }
@@ -277,6 +283,8 @@ function computeSpecialTurnReply(threadId: string, record: RunRecord): string | 
 
 interface CreateRunBody {
   readonly input?: { readonly messages?: { readonly role?: string; readonly content?: unknown }[] };
+  /** #2534：`deep-agent-model-provider.ts` 的 `toWireSkills` 形状——skill 全文只经这里到远端。 */
+  readonly config?: { readonly configurable?: { readonly org_skills?: readonly { readonly content?: unknown }[] } };
   /** DA-07b resume 形状：`{decisions:[{type:"approve"|"edit"|"reject", edited_action?}]}`。
    *  只在裁决请求里出现——首次创建 run 不带 `command`。 */
   readonly command?: {
@@ -359,7 +367,7 @@ const server = createServer((req, res) => {
         decision: null,
         // issue #2020：在**这一轮请求真实收到的字节**上判定，不缓存跨轮——挂载前的
         // 轮次 system 里没有哨兵、挂载后的轮次才有，前后对照正是 e2e 的判据。
-        skillSentinelSeen: mountedSkillReachedUpstream(parsed.input?.messages ?? []),
+        skillSentinelSeen: mountedSkillReachedUpstream(parsed),
       });
       // 用 thread id 直接当 run id：同一线程本进程不并发跑第二个 run，够用，
       // 不需要为了"看起来更像真服务"多维护一份映射。

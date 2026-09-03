@@ -49,6 +49,7 @@ import type {
 } from "../../src/application/agent-run/ports";
 import type { Guarded } from "../../src/application/security/permission-filter";
 import type { ObjectStore } from "../../src/application/artifact/ports";
+import { buildSystemPrompt } from "../../src/application/agent-run/execute-run";
 import { RUN_SCRIPT_PROTOCOL_PROMPT } from "../../src/application/skill/run-script-with-retries";
 import { DeepAgentModelProvider, DEEP_AGENT_PROVIDER_NAME } from "../../src/infrastructure/agent-run/deep-agent-model-provider";
 import { HttpSkillSandbox } from "../../src/infrastructure/skill/http-skill-sandbox";
@@ -423,6 +424,62 @@ describe("T2 不回归：没挂 skill 的普通 deep-agent 对话逐字不变", 
     } finally {
       await deepAgent.close();
     }
+  });
+});
+
+describe("T4（#2534）deep-agent 的 system prompt 只放目录，skill 全文只经 org_skills 到远端", () => {
+  /*
+   * #2519 之后 run 默认加载组织全部已启用 skill；#2515 曾在执行期再并一份平台 skill
+   * 进 `toolSkills`（`readPlatformSkills`），两套叠加。#2534 收敛：哪些 skill 参与这次
+   * run **只由快照决定**（`fakeStore` 的 `readPinnedSkills` 就是快照），执行期不再另读
+   * 目录；system prompt 对 deep-agent 只放目录（`buildDeepAgentSkillCatalogBlock`），
+   * 全文经 `org_skills` 由远端 `call_skill` 按需取。
+   */
+  it("system 含每个 skill 的目录条目、不含任何一份全文；org_skills 含全部全文；沙箱协议照送", async () => {
+    const deepAgent = await startDeepAgentFake({ toolResult: null, finalReply: "好的。" });
+    try {
+      const pdf: PinnedSkillContent = {
+        versionId: "skill-version-pdf", stableName: "pdf-create", name: "PDF 文档生成",
+        content: "# pdf-create\n生成 PDF 文档。\n\nPDF_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT",
+      };
+      const { store } = await runOnce({ deepAgent, pinnedSkills: [PPTX_SKILL, pdf] });
+      expect(store.failedWith).toBeNull();
+      const body = deepAgent.createRunBodies[0] as {
+        input: { messages: { role: string; content: string }[] };
+        config: { configurable: { org_skills: { stable_name: string; content: string }[]; script_protocol?: string } };
+      };
+      const system = body.input.messages.find((m) => m.role === "system")?.content ?? "";
+      expect(system).toContain("- pptx:");
+      expect(system).toContain("- pdf-create:");
+      expect(system).toContain("call_skill");
+      // 反证的核心：全文独有句子**不在** system 里（此前 #725 的老办法会把它贴进去）。
+      expect(system).not.toContain("PDF_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
+      expect(system).not.toContain("read_skill");
+      expect(body.config.configurable.org_skills.map((s) => s.stable_name)).toEqual(["pptx", "pdf-create"]);
+      expect(body.config.configurable.org_skills[1]!.content).toContain("PDF_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
+      expect(body.config.configurable.script_protocol).toBe(RUN_SCRIPT_PROTOCOL_PROMPT);
+    } finally {
+      await deepAgent.close();
+    }
+  });
+
+  it("执行期不再另读任何目录：快照里只有 pptx ⇒ org_skills 也只有 pptx（curated 覆盖在 deep-agent 上同样成立）", async () => {
+    const deepAgent = await startDeepAgentFake({ toolResult: null, finalReply: "好的。" });
+    try {
+      await runOnce({ deepAgent, pinnedSkills: [PPTX_SKILL] });
+      const body = deepAgent.createRunBodies[0] as {
+        config: { configurable: { org_skills: { stable_name: string }[] } };
+      };
+      expect(body.config.configurable.org_skills.map((s) => s.stable_name)).toEqual(["pptx"]);
+    } finally {
+      await deepAgent.close();
+    }
+  });
+
+  it("T4-CP 反证：full 模式会把全文贴进 system——证明上面「不含全文」不是恒真", () => {
+    const pdf = { versionId: "v", stableName: "pdf-create", name: "n", content: "# x\n\nPDF_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT" };
+    expect(buildSystemPrompt("i", [pdf], null, "full")).toContain("PDF_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
+    expect(buildSystemPrompt("i", [pdf], null, "deep-agent-catalog")).not.toContain("PDF_UNIQUE_SENTENCE_ONLY_IN_FULL_CONTENT");
   });
 });
 

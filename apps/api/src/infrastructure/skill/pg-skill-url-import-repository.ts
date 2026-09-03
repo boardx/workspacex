@@ -53,7 +53,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { DatabasePort } from "../../application/ports/database.port";
-import { toOrgId } from "../../domain/org-id";
+import { PLATFORM_ORG_ID, toOrgId } from "../../domain/org-id";
 import type {
   SkillUrlImportRepository,
 } from "../../application/skill-import/import-skill-from-url";
@@ -141,6 +141,24 @@ export class PgSkillUrlImportRepository implements SkillUrlImportRepository {
       const skillId = `sk_${randomUUID()}`;
       const versionId = `sv_${randomUUID()}`;
       const now = new Date().toISOString();
+
+      // ⚠ `skills_name_casefold_uniq`/`capability_listings_uniq` 都是 `(org_id, ...)`
+      // 维度，只在同一个组织内互撞——对着平台组织（`org-platform`）的四个官方 skill
+      // 永远不会触发，下面 `INSERT` 撞的唯一约束例外只吃得住"同组织重名"这一种情况。
+      // 而 `listAll()`（`GET /skills`，chat `#` 挂载池 + `/skill` 目录都读这条）对每个
+      // 组织都会把平台行 `OR org_id = PLATFORM_ORG_ID` 拼进结果、不做任何去重——组织
+      // 悄悄导入一个和平台官方 skill 同名的 skill，两条会同时出现、都能被独立挂载。
+      // 这里显式把平台组织也纳入冲突判定，堵住这条此前漏掉的同名重复来源。
+      const platformConflict = await session.query<{ present: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM skills WHERE org_id = $1 AND lower(name) = lower($2)
+           UNION ALL
+           SELECT 1 FROM capability_listings
+            WHERE org_id = $1 AND kind = 'skill' AND lower(name) = lower($2)
+         ) AS present`,
+        [PLATFORM_ORG_ID, input.name],
+      );
+      if (platformConflict.rows[0]?.present) throw new SkillNameConflictError(input.name);
 
       try {
         await session.query(

@@ -22,6 +22,7 @@ import type { OrgRole } from "../../domain/identity/roles";
 import type { OrgId } from "../../domain/org-id";
 import { decideFeedbackDetailVisibility } from "./feedback-detail-decision";
 import type { FeedbackAttachmentRepository } from "./attachment-ports";
+import type { FeedbackSubmitterDirectory } from "./notification-ports";
 import type { FeedbackScope, ProductFeedbackRepository } from "./ports";
 
 export type FeedbackItemView = z.infer<typeof feedbackLoop.FeedbackItem>;
@@ -40,6 +41,8 @@ export interface ListFeedbackDeps {
    */
   readonly attachments?: FeedbackAttachmentRepository;
   readonly orgId?: OrgId;
+  /** 提交人显示名——同 `attachments`：只对正文可见的行查，未注入时恒 `null`。 */
+  readonly submitters?: FeedbackSubmitterDirectory;
 }
 
 export interface ListFeedbackInput {
@@ -83,7 +86,14 @@ export async function listFeedback(
     }
   }
 
-  return projected.map(({ row, detail }) => ({
+  // 提交人显示名与附件同一条门控：只查这批里正文可见的行。
+  const submitterNames: ReadonlyMap<string, string> = deps.submitters !== undefined && disclosedIds.length > 0
+    ? await deps.submitters.displayNamesForUserIds(
+        [...new Set(projected.filter((p) => p.disclosed).map((p) => p.row.submittedBy))],
+      )
+    : new Map();
+
+  return projected.map(({ row, disclosed, detail }) => ({
     id: row.id,
     kind: row.kind,
     target: row.target,
@@ -96,6 +106,7 @@ export async function listFeedback(
     votes: row.votes,
     votedByMe: row.votedByMe,
     submittedByMe: row.submittedBy === input.viewerId,
+    submitterName: disclosed ? (submitterNames.get(row.submittedBy) ?? null) : null,
     occurredRoute: row.occurredRoute,
     appVersion: row.appVersion,
     createdAt: row.createdAt,

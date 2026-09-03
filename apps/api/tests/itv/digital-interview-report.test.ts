@@ -35,6 +35,20 @@ describe("F06 digital interview report contract", () => {
     expect(decoder.finish()).toEqual([]);
   });
 
+  it("accepts fenced, pretty-printed JSON events split across provider chunks", () => {
+    const decoder = new DigitalReportNdjsonDecoder();
+    expect(decoder.push('```ndjson\n{\n  "type": "meta",\n  "title": "江西')).toEqual([]);
+    expect(decoder.push('足球报告",\n  "executiveSummary": "摘要"\n}\n```\n')).toEqual([
+      { type: "meta", title: "江西足球报告", executiveSummary: "摘要" },
+    ]);
+    expect(decoder.finish()).toEqual([]);
+  });
+
+  it("normalizes malformed model events to a model-output syntax error", () => {
+    const decoder = new DigitalReportNdjsonDecoder();
+    expect(() => decoder.push('{"type":"section"}\n')).toThrowError(SyntaxError);
+  });
+
   it("projects a durable in-flight report so refresh does not look empty", () => {
     const generation = interview.DigitalInterviewReportGeneration.parse({
       reportId: "report-f06", requestId: "request-f06", status: "running",
@@ -51,6 +65,8 @@ describe("F06 digital interview report contract", () => {
     expect(prompt).toContain("受访者原意、研究者归纳和待验证推论");
     expect(prompt).toContain("P0/P1/P2");
     expect(prompt).toContain("至少 3 个 finding");
+    expect(prompt).toContain("先输出 finding");
+    expect(prompt).toContain("4000-8000 个中文字符");
     expect(prompt).toContain("数字专家模拟访谈");
   });
 });

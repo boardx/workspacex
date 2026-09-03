@@ -37,7 +37,7 @@ import { CanvasRightPanel } from "./canvas-right-panel";
  */
 export function CanvasHub({
   previewRole, uiState, screen, initialConflict,
-  tplFilter, tplQuery,
+  tplFilter, tplQuery, tplSort,
 }: {
   previewRole: ProjectRole | null;
   uiState: UiState;
@@ -46,6 +46,8 @@ export function CanvasHub({
   /** #9（2026-08-22 可用性改进轮）：`template-admin` 屏筛选/视图/搜索词的 URL 初值。 */
   tplFilter?: string;
   tplQuery?: string;
+  /** 排序档位的 URL 初值——同上，见 `template-admin.tsx` 的 `SortBy`。 */
+  tplSort?: string;
 }) {
   // 编辑器屏用画布三区左右栏；模板库屏用后台通用侧栏；其余屏是全宽单栏（各自内部布局）
   const isEditor = screen === "editor";
@@ -57,9 +59,9 @@ export function CanvasHub({
       /*
         人类 2026-08-26 截图实测：「后台的 admin 的界面，去掉上面的 header，多余的」。
 
-        `template-admin` 屏挂的是 `AdminNav`——它就是治理后台，与 `/admin/*` 是同一个面，
+        `template-admin` 屏挂的是 `AdminNav`——它就是组织后台，与 `/admin/*` 是同一个面，
         只是因为历史原因路由在 `/canvas` 下。顶栏在这里逐项都是重复的：组织名与角色
-        左栏已经写着（`治理后台 · AI 能力与组织的管理面`），组织 id 页头还写了一遍，
+        左栏已经写着（`组织后台 · 当前组织的 AI 能力与成员管理面`），组织 id 页头还写了一遍，
         而「不在具体项目里」那句提示本就已经在 `/admin/*` 上被判为噪音隐藏掉了
         （`top-bar.tsx` 的 F1971）——只是那条判定看 `pathname`，而本屏的 pathname
         是 `/canvas`，于是同一个后台的同一句提示，换个路由就又冒出来了。
@@ -81,7 +83,7 @@ export function CanvasHub({
         <PreviewControlBar screen={screen} state={uiState} role={previewRole} />
         <div className="min-h-0 flex-1">
           {screen === "template-admin" && (
-            <TemplateAdmin previewRole={previewRole} initialFilter={tplFilter} initialQuery={tplQuery} />
+            <TemplateAdmin previewRole={previewRole} initialFilter={tplFilter} initialQuery={tplQuery} initialSort={tplSort} />
           )}
           {screen === "template-editor" && <TemplateEditor state={uiState} previewRole={previewRole} />}
           {screen === "segment-binding" && <SegmentBinding state={uiState} previewRole={previewRole} />}

@@ -3,14 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ArrowUpRight, Ban, Building2, Pencil, Rocket } from "lucide-react";
+import { ArrowUpRight, Ban, Globe, Pencil, Rocket } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
-import { currentOrganizationLabel } from "@/lib/org-display";
 import {
   listCapabilities,
   type CapabilityKind,
@@ -106,7 +105,7 @@ export function CapabilityCatalogScreen({
   const query = searchParams.toString();
   const currentUrl = query === "" ? pathname : `${pathname}?${query}`;
   const editHrefFor = (id: string): string =>
-    `/admin/${kind}/${id}?from=${encodeURIComponent(currentUrl)}`;
+    `/platform-admin/${kind}/${id}?from=${encodeURIComponent(currentUrl)}`;
   const copy = COPY[kind];
   const sourceKey = `${orgId}:${kind}`;
   const prefix = `admin-${kind}`;
@@ -254,14 +253,13 @@ export function CapabilityCatalogScreen({
       description="这里只展示可选择的目录记录；出现在目录中不代表已经具备可执行的 AgentRun 或 Skill 运行时。点卡片打开右侧面板查看与修改。"
       eyebrow={
         <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
+          {/* 2026-09-02 第二次裁决：AI 能力归平台后台——页头与 `admin-header.tsx` 的
+              `hideOrgIdentity` 分支同形：平台标记 + 模块徽标，不再挂「组织：xxx / 组织 ID」
+              身份卡（数据读取仍按当前组织走 RLS，只是呈现上这不是一项组织级配置）。 */}
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-inverse text-inverse-foreground">
-            <Building2 aria-hidden className="h-4 w-4" />
+            <Globe aria-hidden className="h-4 w-4" />
           </span>
-          <div className="flex flex-col">
-            {/* #596：身份未就绪时显示加载态，**不拿 orgId 冒充组织名** —— 下一行本来就单独列了组织 ID。 */}
-            <span className="text-14 font-semibold">{currentOrganizationLabel(identity?.org.name)}</span>
-            <span className="font-mono text-10 text-muted-foreground">组织 ID {orgId}</span>
-          </div>
+          <span className="text-14 font-semibold" data-testid={`${prefix}-platform-label`}>平台运营</span>
           <Badge tone="outline">{copy.label}</Badge>
         </div>
       }
@@ -269,7 +267,7 @@ export function CapabilityCatalogScreen({
         canMutate ? (
           <>
             {headerActions}
-            <CapabilityCreatePanel key={`${sourceKey}:create`} ctx={ctx} />
+            {kind !== "skill" ? <CapabilityCreatePanel key={`${sourceKey}:create`} ctx={ctx} /> : null}
           </>
         ) : headerActions
       }
@@ -282,6 +280,35 @@ export function CapabilityCatalogScreen({
             一半的输入会留在新组织的界面上（`skill-starter-import.test.tsx` 当场红过）。
           */}
           {kind === "skill" && canMutate ? <SkillUrlImportPanel key={`${sourceKey}:url-import`} onImported={load} /> : null}
+          {/*
+           * ⚠ 2026-09-03 补——`CapabilityCreatePanel` 对 `kind === "skill"` 就是 #1745
+           * 描述的同一个陷阱，且比 agent 那边更彻底：`POST /capabilities/mutate` 的
+           * `op: "add"` 只 INSERT 一行 `capability_listings`（`mutate-capability.ts`
+           * `op === "add"` 分支），从不写 `skills`/`skill_versions`——建出来的这一行
+           * 在目录里看起来和真实导入的 skill 一模一样、能被挂载（`enabled=true` 就够），
+           * 但没有任何源码文件：打开「编辑源码」会撞上 `getAssetDirectory` 404
+           * （见 `ag-screens.tsx` 的 `liveError` 分支），挂进 chat 执行会
+           * `SKILL_VERSION_UNAVAILABLE`。
+           *
+           * skill 没有像 agent 那样"运维手动登记"的合法用途：模型 B 的声明式创建路径
+           * 已经冻结（`POST /skills` 恒 `410 SKILL_DRAFT_WRITE_PATH_FROZEN`，
+           * `skill.controller.ts`），一个 skill 要有真实可执行的内容，今天只有上面
+           * 已经挂着的两条路径——`SkillStarterImportPanel`/`SkillUrlImportPanel`。
+           * 二者都已经在写 `capability_listings` 的同一事务里把 `skills`/`skill_versions`
+           * 也建出来，没有留下"先建目录条目、内容以后再补"这种中间态需要
+           * `CapabilityCreatePanel` 来补。按本仓「宁可显式禁用并说明，不放一个点了没反应/
+           * 报假错的按钮」的纪律，对 skill 直接不挂载这个入口（见上面 `headerActions`
+           * 的 `kind !== "skill"` 判据），这里只留一句说明去哪里新建。
+           */}
+          {kind === "skill" && canMutate ? (
+            <p
+              className="text-12 text-muted-foreground"
+              data-testid={`${prefix}-create-skill-hidden-note`}
+            >
+              Skill 没有单独的「新增目录条目」入口——新建 skill 请用上方「从 GitHub /
+              URL 导入」或「从 starter pack 导入」，两者才会真正写入可执行的源码文件。
+            </p>
+          ) : null}
           {definitions.status === "error" ? (
             <p data-testid={`${prefix}-definition-list-error`} className="text-12 text-destructive">
               可执行 Agent 定义读取失败：{definitions.message}（目录条目不受影响）

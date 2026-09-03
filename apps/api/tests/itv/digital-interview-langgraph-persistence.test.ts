@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DigitalInterviewEffects } from "../../src/application/interview/workflow/digital-interview-effects.port";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
+import { DIGITAL_REPORT_REQUIRED_HEADINGS } from "../../src/application/interview/workflow/digital-report-stream";
 import { PgDigitalInterviewRepository } from "../../src/infrastructure/interview/pg-digital-interview-repository";
 import { PgDigitalInterviewEffects } from "../../src/infrastructure/interview/workflow/pg-digital-interview-effects";
 import {
@@ -708,5 +709,73 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       .resolves.toMatchObject({ status: "completed", report: { title: "江西足球报告" } });
     await setup.checkpointer.end();
     await recreated.checkpointer.end();
+  });
+
+  it("reuses the failed report row when report generation is retried", async () => {
+    let reportAttempts = 0;
+    const retryingModel: ModelCallPort = {
+      complete: async (input) => {
+        const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
+        if (context.operation === "generate_interview_experts" || context.operation === "generate_interview_questions") {
+          return model.complete(input);
+        }
+        return { text: JSON.stringify({ answers: (context.questions ?? []).map((question) => ({
+          questionId: question.questionId, answer: "先识别供需约束，再用持续指标验证政策效果。",
+        })) }) };
+      },
+      completeStream: async (input, onDelta) => {
+        const context = JSON.parse(input.user) as {
+          operation?: string;
+          experts?: Array<{ expertId: string; answers: Array<{ questionId: string }> }>;
+        };
+        if (context.operation !== "generate_interview_report") return retryingModel.complete(input);
+        reportAttempts += 1;
+        if (reportAttempts === 1) throw new Error("provider stream disconnected");
+        const expert = context.experts![0]!;
+        const events = [
+          { type: "meta", title: "房地产访谈报告", executiveSummary: "供需约束需要持续指标验证。" },
+          ...expert.answers.slice(0, 3).map((answer, index) => ({
+            type: "finding", title: `可追溯发现 ${index + 1}`, summary: "回答揭示供需约束及验证边界。",
+            expertId: expert.expertId, questionId: answer.questionId,
+          })),
+          { type: "section", markdown: DIGITAL_REPORT_REQUIRED_HEADINGS.map((heading) => `${heading}\n证据与分析。`).join("\n\n") },
+        ];
+        const text = events.map((event) => JSON.stringify(event)).join("\n");
+        await onDelta(text);
+        return { text };
+      },
+    };
+    const setup = createRuntime(retryingModel);
+    const created = await setup.runtime.createDraft({ orgId: ORG, actorId: USER, name: "报告重试", tags: ["报告"],
+      scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: "create-report-retry" });
+    const topic = await setup.runtime.confirmTopic({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      topic: "房地产供需趋势", expectedVersion: 1, requestId: "topic-report-retry" });
+    const experts = await setup.runtime.confirmExperts({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expertIds: [topic.expertCandidates[0]!.expertId], addedExperts: [], expectedVersion: topic.version,
+      requestId: "experts-report-retry" });
+    await setup.runtime.confirmQuestions({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      questions: experts.questionCandidates, expectedVersion: experts.version, requestId: "questions-report-retry" });
+    let ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    for (let attempt = 0; attempt < 30 && ready.expertRuns.some((run) => run.status === "running"); attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      ready = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    }
+
+    await expect(setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: ready.version, requestId: "generate-report-fails" }))
+      .rejects.toMatchObject({ code: "DEPENDENCY_UNAVAILABLE" });
+    const failed = await setup.runtime.get({ orgId: ORG, actorId: USER, interviewId: created.interviewId });
+    expect(failed.reportGeneration).toMatchObject({ status: "failed", errorCode: "DEPENDENCY_UNAVAILABLE" });
+
+    const retried = await setup.runtime.generateReport({ orgId: ORG, actorId: USER, interviewId: created.interviewId,
+      expectedVersion: failed.version, requestId: "generate-report-retry" });
+    expect(retried).toMatchObject({ status: "completed", report: { reportId: failed.reportGeneration!.reportId,
+      title: "房地产访谈报告" } });
+    const reportRows = await asApp(ORG, (session) => session.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM digital_interview_reports WHERE org_id=$1 AND interview_id=$2",
+      [ORG, created.interviewId],
+    ));
+    expect(reportRows.rows[0]?.count).toBe("1");
+    await setup.checkpointer.end();
   });
 });

@@ -24,4 +24,22 @@ export class PgFeedbackSubmitterDirectory implements FeedbackSubmitterDirectory 
       return rows[0]?.email ?? null;
     });
   }
+
+  async displayNamesForUserIds(userIds: readonly string[]): Promise<ReadonlyMap<string, string>> {
+    if (userIds.length === 0) return new Map();
+    return this.db.withoutTenant(async (s) => {
+      const { rows } = await s.query<{ user_id: string; display_name: string | null; email: string }>(
+        `SELECT user_id, display_name, email FROM credentials WHERE user_id = ANY($1::text[])`,
+        [userIds],
+      );
+      const out = new Map<string, string>();
+      for (const r of rows) {
+        // 没设显示名时退回邮箱 @ 前那一段——同头像/成员列表处的既有习惯：一个可读的
+        // 标识胜过把整个邮箱铺在后台列表上。
+        const name = (r.display_name ?? "").trim() || r.email.split("@")[0] || r.email;
+        out.set(r.user_id, name);
+      }
+      return out;
+    });
+  }
 }

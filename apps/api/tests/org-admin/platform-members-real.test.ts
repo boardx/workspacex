@@ -20,7 +20,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { PgOrgMemberRepository } from "../../src/infrastructure/auth/pg-org-member-repository";
+import { PgCredentialRepository } from "../../src/infrastructure/auth/pg-credential-repository";
 import { PgPlatformMemberRepository } from "../../src/infrastructure/system/pg-platform-member-repository";
+import { PgPlatformAdminRepository } from "../../src/infrastructure/system/pg-platform-admin-repository";
 import { PlatformMemberController } from "../../src/interface/controllers/platform-member.controller";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
@@ -58,6 +60,8 @@ beforeAll(async () => {
     new PgPlatformMemberRepository(db),
     new PgOrgMemberRepository(db),
     provenance,
+    new PgPlatformAdminRepository(db),
+    new PgCredentialRepository(db),
   );
   process.env.PLATFORM_SUPERUSER_EMAILS = OPS_EMAIL;
 }, HOOK_TIMEOUT_MS);
@@ -152,5 +156,44 @@ describe("setPlatformMemberOrgRole", () => {
     ).rejects.toMatchObject(new ConflictException({ reasonCode: "LAST_ADMIN" }));
     expect(await roleOf(ORG, ADMIN)).toBe("admin");
     expect(provenance.append).not.toHaveBeenCalled();
+  });
+});
+
+describe("grantPlatformAdmin / revokePlatformAdmin（platform-admin-role delta）", () => {
+  it("授予落库，名册上 platformAdmin 变 true；撤销后变回 false——两次都幂等", async () => {
+    expect(await controller.list(principal).then((o) => o.members.find((m) => m.userId === MEMBER)?.platformAdmin)).toBe(
+      false,
+    );
+
+    const granted = await controller.grantPlatformAdmin(MEMBER, principal);
+    expect(granted).toEqual({ userId: MEMBER, platformAdmin: true });
+    expect(await controller.list(principal).then((o) => o.members.find((m) => m.userId === MEMBER)?.platformAdmin)).toBe(
+      true,
+    );
+    // 幂等：已经是的再授一次仍然成功。
+    await expect(controller.grantPlatformAdmin(MEMBER, principal)).resolves.toEqual({
+      userId: MEMBER,
+      platformAdmin: true,
+    });
+
+    const revoked = await controller.revokePlatformAdmin(MEMBER, principal);
+    expect(revoked).toEqual({ userId: MEMBER, platformAdmin: false });
+    expect(await controller.list(principal).then((o) => o.members.find((m) => m.userId === MEMBER)?.platformAdmin)).toBe(
+      false,
+    );
+    // 幂等：本来就不是的再撤一次仍然成功。
+    await expect(controller.revokePlatformAdmin(MEMBER, principal)).resolves.toEqual({
+      userId: MEMBER,
+      platformAdmin: false,
+    });
+  });
+
+  it("目标账号不存在 → 404 MEMBER_NOT_FOUND，两个方向都是", async () => {
+    await expect(controller.grantPlatformAdmin("u-does-not-exist", principal)).rejects.toMatchObject(
+      new NotFoundException({ reasonCode: "MEMBER_NOT_FOUND" }),
+    );
+    await expect(controller.revokePlatformAdmin("u-does-not-exist", principal)).rejects.toMatchObject(
+      new NotFoundException({ reasonCode: "MEMBER_NOT_FOUND" }),
+    );
   });
 });

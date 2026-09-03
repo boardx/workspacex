@@ -18,8 +18,19 @@
  *     `CLOUDFLARE_TXN_EMAIL_API_TOKEN`，与验证邮件的 token 各自最小权限、各自可
  *     单独轮换/吊销。
  *
+ * ⚠ **2026-09-02 人类裁决的例外**：devapp 当时只配了 `CLOUDFLARE_EMAIL_API_TOKEN`
+ *   （验证邮件那个），没有单独配 `CLOUDFLARE_TXN_EMAIL_API_TOKEN`——后台「测试邮件」
+ *   因此报 `MAIL_NOT_CONFIGURED`。人类明确同意：没有专属 token 时**退回**共用验证邮件
+ *   的那个（同一个 Cloudflare 账号下，两者都是"发邮件"权限，不是跨账号/跨权限混用）。
+ *   ⚠ 这是运维成本与"两个 token 各自最小权限"之间的权衡，不是撤销上面那条设计——
+ *   专属 token 仍然是**优先**读取的那个，配了它就完全不touch这条回退；只有在专属
+ *   token 从未配置过的部署上，才会一直吃这条回退,直到运维单独发一个 txn token。
+ *   决策记录、权衡（轮换/吊销影响）、何时能撤掉这条回退，见 issue #2567——独立评审
+ *   finding #6（2026-09-03）要求这条例外要有可回指的记录，不能只是代码注释里一句
+ *   "人类同意了"。
  * 见 ADR-108。
  */
+import { TransactionalMailError } from "../../application/notifications/transactional-mail-ports";
 import type {
   TransactionalMailMessage,
   TransactionalMailResult,
@@ -40,7 +51,8 @@ export function transactionalMailConfig(env: NodeJS.ProcessEnv = process.env): T
   const production = env.NODE_ENV === "production";
   const values = {
     accountId: env.CLOUDFLARE_ACCOUNT_ID ?? "",
-    apiToken: env.CLOUDFLARE_TXN_EMAIL_API_TOKEN ?? "",
+    // ⚠ 回退到 CLOUDFLARE_EMAIL_API_TOKEN——见上方"2026-09-02 人类裁决的例外"。
+    apiToken: env.CLOUDFLARE_TXN_EMAIL_API_TOKEN ?? env.CLOUDFLARE_EMAIL_API_TOKEN ?? "",
     mailFrom: env.MAIL_FROM ?? "",
   };
   if (production && Object.values(values).some((value) => value.length === 0)) {
@@ -71,12 +83,8 @@ export function lazyTransactionalMailConfig(
   });
 }
 
-export class TransactionalMailError extends Error {
-  constructor(readonly category: string) {
-    super(category);
-    this.name = "TransactionalMailError";
-  }
-}
+// 错误类挪到了端口层（调用方按类别映射契约码时只能依赖端口）；这里 re-export 保持既有 import 路径可用。
+export { TransactionalMailError };
 
 export class CloudflareTransactionalEmailTransport implements TransactionalMailTransport {
   constructor(

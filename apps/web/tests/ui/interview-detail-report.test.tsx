@@ -22,7 +22,7 @@ const completed: DigitalInterviewWorkflowView = {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("F06 interview answers to report", () => {
-  it("renders persisted report chunks before the final report arrives", async () => {
+  it("reconstructs the report from append-only chunks and then loads the final state once", async () => {
     const streaming = { ...completed, status: "report_pending" as const, currentStep: "report" as const, version: 13,
       reportGeneration: { reportId: "report-f06", requestId: "request-f06", status: "running" as const,
         title: "江西足球访谈报告", executiveSummary: "基层体系需要协同。", markdown: "## 基层体系",
@@ -34,12 +34,17 @@ describe("F06 interview answers to report", () => {
           questionId: "question-f06", sourceAnswerId: "expert-f06:question-f06", exploratory: true as const }],
         generatedAt: "2026-09-01T02:01:00.000Z" } };
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body));
-      expect(body).toMatchObject({ expectedVersion: 12, requestId: expect.any(String) });
+      if (init?.method !== "POST") {
+        return new Response(JSON.stringify(final), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      expect(JSON.parse(String(init.body))).toMatchObject({ expectedVersion: 12, requestId: expect.any(String) });
       const encoder = new TextEncoder();
       return new Response(new ReadableStream({ start(controller) {
-        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "progress", value: streaming })}\n`));
-        window.setTimeout(() => { controller.enqueue(encoder.encode(`${JSON.stringify({ type: "complete", value: final })}\n`)); controller.close(); }, 10);
+        const generation = streaming.reportGeneration!;
+        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "snapshot", seq: 0, ...generation, markdown: "", findings: [] })}\n`));
+        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "section", seq: 1, markdown: generation.markdown })}\n`));
+        controller.enqueue(encoder.encode(`${JSON.stringify({ type: "finding", seq: 2, finding: final.report!.findings[0] })}\n`));
+        window.setTimeout(() => { controller.enqueue(encoder.encode(`${JSON.stringify({ type: "complete", seq: 3, reportId: "report-f06", version: 14 })}\n`)); controller.close(); }, 100);
       } }), { status: 200, headers: { "content-type": "application/x-ndjson" } });
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -47,9 +52,9 @@ describe("F06 interview answers to report", () => {
     const button = screen.getByTestId("itv-confirm-answers-generate-report");
     expect(button).toBeEnabled();
     fireEvent.click(button);
-    expect(await screen.findByTestId("itv-report-stream-markdown")).toHaveTextContent("基层体系");
     expect(await screen.findByTestId("itv-report")).toHaveTextContent("江西足球访谈报告");
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("itv-report-markdown")).toHaveTextContent("基层体系");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 
   it("reconnects from a persisted running generation after refresh", async () => {
@@ -57,12 +62,65 @@ describe("F06 interview answers to report", () => {
       reportGeneration: { reportId: "report-f06", requestId: "request-f06", status: "running" as const,
         title: "恢复中的报告", executiveSummary: null, markdown: "## 已持久化段落", findings: [], errorCode: null,
         updatedAt: "2026-09-01T02:00:30.000Z" } };
-    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => new Response(`${JSON.stringify({ type: "progress", value: recovered })}\n`, {
-      status: 200, headers: { "content-type": "application/x-ndjson" },
-    }));
+    const final = { ...recovered, status: "completed" as const, reportGeneration: null, reportId: "report-f06",
+      report: { reportId: "report-f06", title: "恢复中的报告", executiveSummary: "已恢复。",
+        markdown: "## 已持久化段落\n\n## 追加段落", findings: [], generatedAt: "2026-09-01T02:01:00.000Z" } };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/report/stream")) {
+        const generation = recovered.reportGeneration!;
+        return new Response([
+          JSON.stringify({ type: "snapshot", seq: 0, ...generation }),
+          JSON.stringify({ type: "section", seq: 1, markdown: "\n\n## 追加段落" }),
+          JSON.stringify({ type: "complete", seq: 2, reportId: "report-f06", version: 14 }),
+        ].join("\n") + "\n", { status: 200, headers: { "content-type": "application/x-ndjson" } });
+      }
+      return new Response(JSON.stringify(final), { status: 200, headers: { "content-type": "application/json" } });
+    });
     vi.stubGlobal("fetch", fetchMock);
     render(<PersistentDigitalInterviewWorkflow initialView={recovered} />);
     expect(await screen.findByTestId("itv-report-stream-markdown")).toHaveTextContent("已持久化段落");
+    expect(await screen.findByTestId("itv-report")).toHaveTextContent("追加段落");
     await waitFor(() => expect(fetchMock.mock.calls[0]?.[0]).toEqual(expect.stringContaining("/report/stream")));
+  });
+
+  it("recovers from a network interruption after the report POST already started", async () => {
+    const streaming = { ...completed, status: "report_pending" as const, currentStep: "report" as const, version: 13,
+      reportGeneration: { reportId: "report-reconnect", requestId: "request-reconnect", status: "running" as const,
+        title: "恢复中的报告", executiveSummary: null, markdown: "## 已持久化段落", findings: [], errorCode: null,
+        updatedAt: "2026-09-03T02:00:30.000Z" } };
+    const final = { ...streaming, status: "completed" as const, version: 14, reportGeneration: null,
+      reportId: "report-reconnect", report: { reportId: "report-reconnect", title: "自动恢复报告",
+        executiveSummary: "长连接断开后从服务端状态恢复。", markdown: "# 自动恢复报告",
+        findings: [{ findingId: "finding-reconnect", title: "断线可恢复", summary: "服务端继续生成。",
+          expertId: "expert-f06", questionId: "question-f06", sourceAnswerId: "expert-f06:question-f06",
+          exploratory: true as const }], generatedAt: "2026-09-03T02:01:00.000Z" } };
+    const encoder = new TextEncoder();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "POST") {
+        return new Response(new ReadableStream({ start(controller) {
+          controller.enqueue(encoder.encode(`${JSON.stringify({ type: "snapshot", seq: 0, ...streaming.reportGeneration })}\n`));
+          window.setTimeout(() => controller.error(new TypeError("network error")), 10);
+        } }), { status: 200, headers: { "content-type": "application/x-ndjson" } });
+      }
+      if (url.endsWith(`/interviews/digital/${completed.interviewId}`)) {
+        const fullReads = fetchMock.mock.calls.filter(([requested]) => String(requested).endsWith(`/interviews/digital/${completed.interviewId}`)).length;
+        return new Response(JSON.stringify(fullReads === 1 ? streaming : final), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      if (url.endsWith(`/interviews/digital/${completed.interviewId}/report/stream`)) {
+        return new Response(`${JSON.stringify({ type: "snapshot", seq: 0, ...streaming.reportGeneration })}\n${JSON.stringify({ type: "complete", seq: 1, reportId: "report-reconnect", version: 14 })}\n`, {
+          status: 200, headers: { "content-type": "application/x-ndjson" },
+        });
+      }
+      throw new Error(`unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<PersistentDigitalInterviewWorkflow initialView={completed} />);
+    fireEvent.click(screen.getByTestId("itv-confirm-answers-generate-report"));
+
+    expect(await screen.findByTestId("itv-report-stream-markdown")).toHaveTextContent("已持久化段落");
+    expect(await screen.findByTestId("itv-report")).toHaveTextContent("自动恢复报告");
+    expect(screen.queryByRole("alert")).toBeNull();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
   });
 });

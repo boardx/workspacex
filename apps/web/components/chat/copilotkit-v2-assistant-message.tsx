@@ -295,7 +295,13 @@ function V2AssistantMessageImpl(
   // 组件测试直接渲染这个 slot、不包那层 provider 时 `useCopilotKitV2MessageActions()`
   // 按其自身既有约定返回 null，这里同样如实退回"落不了地"，不是另造一条兜底路径。
   const actionsCtx = useCopilotKitV2MessageActions();
-  const realMessageId = actionsCtx?.identity.resolve(messageId) ?? undefined;
+  // 2026-09-02 —— 改用 `resolvePersisted`，不再是 `resolve`：这个 id 的下游是
+  // `landAsArtifact`（图表/画布 modal 的「保存」+ G1 读回），服务端只要求消息真实
+  // 存在，**不**要求 `agentRunId` 归因（见 `lib/copilotkit-v2-message-identity.ts`
+  // 对两个出口的取证）。此前走评分专用的 `resolve`，一条没有 `agentRunId` 的历史
+  // agent 消息里的图表会被静默判成"落不了地"——「保存」退回本地演示、刷新后编辑
+  // 全丢，而它本来完全可以持久化。
+  const realMessageId = actionsCtx?.identity.resolvePersisted(messageId) ?? undefined;
   const { threadId: artifactThreadId, bearer: artifactBearer } = React.useContext(ArtifactLandingCtx);
   // issue #2052（CK-P7）—— 正文取自框架给的这条消息本身，与气泡里渲染的是同一份，
   // 不另找一处读。

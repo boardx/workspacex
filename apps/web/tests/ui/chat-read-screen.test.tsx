@@ -10,7 +10,7 @@ const encodeMessageCursor = ChatContract.encodeMessageCursor;
 const {
   replace, listThreads, getThread, getAgentPanel, listMessages, createMessage, getAgentRun,
   listThreadArtifacts, listThreadAttachments, uploadAttachment, landAsArtifact,
-  summarizePersonaFromThread, openAgentRunStream, sessionState,
+  openAgentRunStream, sessionState,
 } = vi.hoisted(() => ({
   replace: vi.fn(),
   listThreads: vi.fn(),
@@ -19,9 +19,6 @@ const {
   listMessages: vi.fn(),
   createMessage: vi.fn(),
   getAgentRun: vi.fn(),
-  // issue #728 round 2 H3 反证用例（追新起点在"翻到底后再软重读"场景不塌回起点）——
-  // G2「生成用户画像」是真实 e2e 复现路径同一个软重读触发点，见该测试头注。
-  summarizePersonaFromThread: vi.fn(),
   // 十项 UX 缺口第 4/5 项（#708）——右栏产物列表 + 消息内联落地为产物。
   listThreadArtifacts: vi.fn(),
   // issue #728 D9（人类 2026-08-21 裁决）——右栏「材料」列表，真实数据来自 chat_message_attachments。
@@ -67,7 +64,6 @@ vi.mock("@/lib/live-chat", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-chat")>()), // 保留 ATTACHMENT_* 常量
   listThreads, getThread, getAgentPanel, listMessages, createMessage,
   listThreadArtifacts, listThreadAttachments, uploadAttachment, landAsArtifact,
-  summarizePersonaFromThread,
 }));
 /**
  * #435：`getAgentRun` 被 mock，但 `isTerminalRunStatus` **走真实实现**。
@@ -841,10 +837,10 @@ describe("formal Chat read path", () => {
   /**
    * issue #728 D 组 round 2 独立评分发现的 H3 阻塞回归——直接反证本次修复的根因场景：
    * 线程被追到底（服务端 `nextCursor` 已塌成 `null`，`hasMore=false`）之后，**再**触发
-   * 一次软重读（这里用「生成用户画像」，与真实 e2e 复现路径同一个触发点），追新起点
-   * 不能塌回 `cursor: undefined`（服务端 `decodeCursor(undefined)` 会解成"从头再来"，
-   * 重新拉第一页，把已经归零的 `nextCursor` 弹回非空——修前版本的真实行为，见
-   * `chat-live-message-panel.tsx` 头注）。
+   * 一次软重读（这里用「发送消息」——composer 恒常入口，与真实 e2e 复现路径同一个软
+   * 重读触发点），追新起点不能塌回 `cursor: undefined`（服务端 `decodeCursor(undefined)`
+   * 会解成"从头再来"，重新拉第一页，把已经归零的 `nextCursor` 弹回非空——修前版本的
+   * 真实行为，见 `chat-live-message-panel.tsx` 头注）。
    *
    * 反证协议：这条测试断言追新请求的 `cursor` 字段是本地已加载列表尾部的真实游标
    * （`encodeMessageCursor`），而不是 `undefined`——`stash` 掉 `catchUpCursorRef` 那段
@@ -853,14 +849,14 @@ describe("formal Chat read path", () => {
    */
   it("线程已被追到底（nextCursor 已塌成 null）后再软重读，追新起点不塌回起点重新拉第一页（issue #728 round 2 H3 阻塞回归）", async () => {
     const page1 = Array.from({ length: 20 }, (_, index) => durableMessage(index + 1));
-    const personaMessage = durableMessage(21, "画像生成的新消息");
+    const sentMessage = durableMessage(21, "刚发的这条消息");
     listMessages
       .mockResolvedValueOnce({ messages: page1, nextCursor: null }) // 首屏即已翻到底
-      .mockResolvedValueOnce({ messages: [personaMessage], nextCursor: null }); // G2 触发的软重读
-    summarizePersonaFromThread.mockResolvedValue({
-      artifactId: "a1", versionId: null, contentHash: null, mode: "draft", hasSource: false,
-      sufficient: true, resultMessageId: "durable-message-21",
-      provenanceBacklink: { conversationId: "thread-real", messageId: "durable-message-20", citations: [] },
+      .mockResolvedValueOnce({ messages: [sentMessage], nextCursor: null }); // 发送触发的软重读
+    createMessage.mockResolvedValue({
+      message: sentMessage,
+      agentRunId: "run-new",
+      runStatus: "queued",
     });
     render(<ChatReadScreen projectId="project-real" initialThreadId="thread-real" />);
 
@@ -869,9 +865,12 @@ describe("formal Chat read path", () => {
     // 首屏已经翻到底：「加载更早之后的消息」按钮不该出现
     expect(screen.queryByTestId("chat-messages-load-more")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("chat-persona-summary-trigger"));
+    await waitFor(() => expect(screen.getByTestId("chat-agent-select")).toHaveTextContent("真实 Agent"));
+    fireEvent.change(screen.getByRole("textbox", { name: "消息内容" }), { target: { value: "跑一次" } });
+    await waitFor(() => expect(screen.getByTestId("chat-message-submit")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("chat-message-submit"));
 
-    expect(await screen.findByText("画像生成的新消息")).toBeInTheDocument();
+    expect(await screen.findByText("刚发的这条消息")).toBeInTheDocument();
     // 关键断言：追新请求的 cursor 是本地列表尾部（消息 20）的真实游标，不是
     // `undefined`（"从头再来"）——这正是修前版本会在这一步踩中的根因。
     expect(listMessages).toHaveBeenNthCalledWith(

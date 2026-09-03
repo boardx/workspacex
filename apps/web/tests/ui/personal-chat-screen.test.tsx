@@ -322,7 +322,7 @@ describe("PersonalChatScreen — agent 下拉（#594 后续：消灭手填 agent
     const hint = await screen.findByTestId("personal-chat-no-agents-hint");
     expect(hint).toHaveTextContent("后台创建一个 Agent");
     const link = hint.querySelector("a");
-    expect(link).toHaveAttribute("href", "/admin/agent");
+    expect(link).toHaveAttribute("href", "/platform-admin/agent");
   });
 
   it("listCapabilities 失败 ⇒ 展示诚实的错误态 + 重试按钮，不是假装没有 agent", async () => {

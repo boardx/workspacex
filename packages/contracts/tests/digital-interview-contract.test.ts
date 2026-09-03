@@ -3,6 +3,7 @@ import {
   DigitalInterviewDraftInput,
   DigitalInterviewStatus,
   DigitalInterviewWorkflowView,
+  DigitalReportTransportEvent,
   InterviewError,
   operations,
 } from "../src/interview";
@@ -93,6 +94,24 @@ describe("数字专家访谈契约", () => {
       "running", "report_pending", "completed", "failed",
     ]);
     expect(DigitalInterviewStatus.safeParse("scheduled").success).toBe(false);
+  });
+
+  it("报告传输事件只携带一次轻量快照和可追加增量，严格拒绝完整 workflow 字段", () => {
+    const snapshot = DigitalReportTransportEvent.parse({
+      type: "snapshot", seq: 0, reportId: "report-1", requestId: "request-1", status: "running",
+      title: null, executiveSummary: null, markdown: "", findings: [], errorCode: null,
+      updatedAt: "2026-09-03T06:00:00.000Z",
+    });
+    expect(snapshot).toMatchObject({ type: "snapshot", seq: 0, markdown: "" });
+    expect(DigitalReportTransportEvent.parse({
+      type: "section", seq: 1, markdown: "\n\n## 新增章节",
+    })).toEqual({ type: "section", seq: 1, markdown: "\n\n## 新增章节" });
+    expect(DigitalReportTransportEvent.safeParse({
+      ...snapshot, expertCandidates: workflow().expertCandidates,
+    }).success).toBe(false);
+    expect(DigitalReportTransportEvent.safeParse({
+      type: "section", seq: 2, markdown: "## 第二章", expertRuns: [{ answers: [] }],
+    }).success).toBe(false);
   });
 
   it("草稿只保存非空名称和至少一个标签，主题留待显式确认", () => {

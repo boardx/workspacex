@@ -30,6 +30,15 @@ export interface AssetDirectoryRecord {
    * `FixtureAssetFileRepository`，没有版本概念，恒为 `null`。
    */
   readonly currentVersionId: string | null;
+  /**
+   * `true` when this snapshot was resolved from the platform-owned org (`org-platform`)
+   * rather than the caller's own org -- see `AssetDirectoryRecord`'s use in
+   * `PgAssetFileRepository` for why this exists (platform skills are read-visible to every
+   * org but writable by none, same rule as every other platform-skill read path). Always
+   * `false` for fixture-backed kinds (`agent`, #787) -- that fixture never distinguished
+   * caller org in the first place.
+   */
+  readonly readOnly: boolean;
 }
 
 export interface AssetFileContentRecord {

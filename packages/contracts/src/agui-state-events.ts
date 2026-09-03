@@ -262,3 +262,40 @@ export function parseAguiChatMessageIdValue(value: unknown): AguiChatMessageIdVa
   const result = AguiChatMessageIdValue.safeParse(value);
   return result.success ? result.data : null;
 }
+
+/**
+ * `CUSTOM {name:"run_phase"}` —— run 在**第一个工具调用 / 第一个 token 之前**的真实阶段。
+ *
+ * ## 为什么需要它（2026-09-02，人类实测截图）
+ *
+ * v2 面板从 `RUN_STARTED` 到第一个 `TOOL_CALL_START` 之间只能显示「正在准备… · 已用 N 秒」
+ * ——这段窗口在 deep-agent 上常常十几秒（执行器认领、组装上下文、编排模型第一轮
+ * 思考），用户看到的是**一句不变的话 + 一个在涨的秒数**，分不清是卡死还是在干活。
+ * 后端其实一直有真实信号：run 状态 `queued → running`（执行器认领）、账本里的
+ * `context_built` 步骤（system prompt 组装完成）。桥接层把这两个信号原样推出来，前端
+ * 才有真话可讲；没有信号时前端仍不编一句"进度"。
+ *
+ * ## 为什么是 CUSTOM 而不是 `STEP_STARTED`
+ *
+ * `STEP_STARTED`/`STEP_FINISHED` 在 CopilotKit 里会被当成可见的工具步骤渲染；这两个阶段
+ * 不是工具调用，画成步骤卡片会和真实的工具卡片混在一起（同 `chat_thread_id` /
+ * `chat_message_id` 复用 `onCustomEvent` 通道的理由）。
+ */
+export const AGUI_RUN_PHASE_EVENT_NAME = "run_phase" as const;
+
+/**
+ * · `context_building`：执行器已认领这条 run（状态 `queued → running`），正在读取技能 /
+ *   模板 / 计划 / 历史，组装上下文。
+ * · `model_thinking`：账本出现 `context_built`（system prompt 已就绪），接下来是模型
+ *   调用——直到第一个工具调用或第一个 token 到来。
+ */
+export const AguiRunPhase = z.enum(["context_building", "model_thinking"]);
+export type AguiRunPhase = z.infer<typeof AguiRunPhase>;
+
+export const AguiRunPhaseValue = z.object({ phase: AguiRunPhase });
+export type AguiRunPhaseValue = z.infer<typeof AguiRunPhaseValue>;
+
+export function parseAguiRunPhaseValue(value: unknown): AguiRunPhaseValue | null {
+  const result = AguiRunPhaseValue.safeParse(value);
+  return result.success ? result.data : null;
+}

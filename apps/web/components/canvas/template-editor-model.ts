@@ -9,6 +9,7 @@
  * 纯数据 + 纯函数，没有 React/DOM 依赖 —— 与 `explicit-template-layout.ts` 同样可单测。
  */
 import type { CanvasTemplate } from "@/lib/live-canvas";
+import { canvas } from "@repo/contracts";
 import { getTemplate } from "@repo/fabric-markdown";
 import {
   sectionGeometryMm, classifyNoteSize, contentMmFor, GRID_GAP_MM, TONE_COLORS, STANDARD_NOTE_MM,
@@ -49,22 +50,23 @@ export interface SectionDraft {
   layout: SectionLayoutDraft | null;
 }
 
-/** 契约允许的档位，逐字对应 `Design.pdf` §2.2 的取值列。 */
 /**
- * 列数候选。⚠ 2026-08-26 实测反馈：「列数现在不能是 1 列、2 列，只能三列起也要改正」——
- * 原先是 `[3,4,5,6,8]`，1/2/7 都选不到。改成 1–8 全量：一条数据一张贴纸，列数纯粹是
- * 排版偏好（1 列＝竖排长列表，8 列＝密集小方格），没有理由从 3 起。
+ * 列数候选与「最多条数」区间——**从契约 `canvas.SECTION_LAYOUT_BOUNDS` 派生**，不在
+ * 这里第二次写数字（issue #2535：此前这里是 1–8 / 1–99、契约是 3–8 / 3–9，两处各
+ * 写一份、只改了一处，使用者选 1/2 列保存就 HTTP 400）。
+ *
+ * 历史：列数原先是 `[3,4,5,6,8]`（2026-08-26 人类反馈「列数现在不能是 1 列、2 列……
+ * 也要改正」→ 1–8 全量：一条数据一张贴纸，列数纯粹是排版偏好）；「最多条数」原先是
+ * `[3,4,6,9]` 四个固定档（2026-08-30 反馈「要改为可以支持 1 条，到更多条」→ 步进器
+ * 覆盖区间内全部整数）。两次放开的**取值**现在都由契约那一处决定。
  */
-export const COLS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
-/**
- * 「最多条数」步进器的边界。2026-08-26 人类反馈「宽和高要有所有选项」之后，同一栏
- * 右边的「最多条数」还留着 `[3,4,6,9]` 四个固定档——2026-08-30 又反馈一次同一类问题：
- * 「这个要改为可以支持 1 条，到更多条」。改法与「在 A1 上占多大」的宽/高一致：
- * 步进器覆盖 `[MAX_COUNT_MIN, MAX_COUNT_MAX]` 全部整数，不再是四个候选值的子集。
- * 上限给一个宽裕但不失控的数——现场便利贴很少会给单个字段堆到三位数。
- */
-export const MAX_COUNT_MIN = 1;
-export const MAX_COUNT_MAX = 99;
+const LAYOUT_BOUNDS = canvas.SECTION_LAYOUT_BOUNDS;
+export const COLS_OPTIONS: readonly number[] = Array.from(
+  { length: LAYOUT_BOUNDS.cols.max - LAYOUT_BOUNDS.cols.min + 1 },
+  (_, i) => LAYOUT_BOUNDS.cols.min + i,
+);
+export const MAX_COUNT_MIN: number = LAYOUT_BOUNDS.max.min;
+export const MAX_COUNT_MAX: number = LAYOUT_BOUNDS.max.max;
 export const WIDTH_OPTIONS = [3, 4, 6, 12] as const;
 export const HEIGHT_OPTIONS = [1, 2, 3, 4] as const;
 export const OVERFLOW_OPTIONS = ["缩小字号", "叠放", "截断"] as const;
@@ -280,12 +282,90 @@ export function clampLayout(layout: SectionLayoutDraft, gridCols: 6 | 12): Secti
   };
 }
 
+/** 网格矩形（1 起的 col/row + 跨度 w/h）——`SectionLayoutDraft` 的几何投影。 */
+export interface GridRect {
+  readonly col: number;
+  readonly row: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+/**
+ * 两个网格矩形是否有交集（半开区间比较，边挨边不算重叠）。
+ *
+ * issue #2564：「AI 商业模型画布」编辑「显示方式 · 列数」（宽/高步进器）后，chat 模拟
+ * 渲染出标题条与便签互相压住、内容溢出——根因是编辑器此前允许把一个分区的宽/高
+ * （`col`/`row`/`w`/`h`）改到与另一个**已放置**的分区在网格上重叠：`clampLayout`
+ * 只夹画布边界，`place`/`move`/「在 A1 上占多大」的步进器上限都不检查相邻分区，
+ * `buildExplicitTemplateSpec`（`explicit-template-layout.ts`）对重叠的分区也没有
+ * 任何去重/避让——两块几何区间重叠时，两个 `TemplateSection` 的 `x/y/w/h` 直接落在
+ * 同一块画布上，后放置/后渲染的标题条盖住前一个分区的便签，便签本身也会被相邻
+ * 分区的贴纸挤出边界，读出来就是「排版内容错乱、内容溢出」。
+ */
+export function rectsOverlap(a: GridRect, b: GridRect): boolean {
+  return a.col < b.col + b.w && b.col < a.col + a.w && a.row < b.row + b.h && b.row < a.row + a.h;
+}
+
+/** `rect` 是否与 `sections` 里除 `sectionId` 自己外的其它**已放置**分区重叠。 */
+export function collidesWithOthers(
+  sections: readonly SectionDraft[], sectionId: string, rect: GridRect,
+): boolean {
+  return sections.some((s) => s.sectionId !== sectionId && s.layout != null && rectsOverlap(rect, s.layout));
+}
+
+/**
+ * 已放置分区里，两两重叠的那些（体检 & 发布前置检查用，见 `checkTemplateHealth`）。
+ * 只报告实际重叠的那些区块，不报告只是紧挨着（不重叠）的正常版式。
+ */
+export function findOverlappingSections(
+  sections: readonly SectionDraft[],
+): readonly SectionDraft[] {
+  const placed = sections.filter((s) => s.layout != null);
+  const bad = new Set<string>();
+  for (let i = 0; i < placed.length; i += 1) {
+    for (let j = i + 1; j < placed.length; j += 1) {
+      if (rectsOverlap(placed[i]!.layout!, placed[j]!.layout!)) {
+        bad.add(placed[i]!.sectionId);
+        bad.add(placed[j]!.sectionId);
+      }
+    }
+  }
+  return placed.filter((s) => bad.has(s.sectionId));
+}
+
+/**
+ * 给定分区固定在 `col`/`row`，朝右/朝下最多能长到多宽/多高而不撞上另一个已放置分区
+ * （画布边界仍然是硬上限）。逐格探测——网格恒 12×8，代价可忽略。
+ *
+ * 「显示方式 · 在 A1 上占多大」的宽/高步进器用它当上限，取代此前「只夹画布边界」
+ * 的 `gridCols - col + 1` / `8 - row + 1`——步进器因此永远停在不会与相邻分区重叠的
+ * 合法范围内，同 `Stepper` 组件既有的「每次只挪一格、永远合法」的交互约定。
+ */
+export function maxFreeW(
+  sections: readonly SectionDraft[], sectionId: string, col: number, row: number, h: number, gridCols: 6 | 12,
+): number {
+  const bound = gridCols - col + 1;
+  let w = 1;
+  while (w < bound && !collidesWithOthers(sections, sectionId, { col, row, w: w + 1, h })) w += 1;
+  return w;
+}
+
+/** 同 `maxFreeW`，朝下的方向。 */
+export function maxFreeH(
+  sections: readonly SectionDraft[], sectionId: string, col: number, row: number, w: number,
+): number {
+  const bound = 8 - row + 1;
+  let h = 1;
+  while (h < bound && !collidesWithOthers(sections, sectionId, { col, row, w, h: h + 1 })) h += 1;
+  return h;
+}
+
 export function sectionGeometryMmOf(
   s: SectionDraft, gridCols: 6 | 12, size: PaperSizeKey = "A1",
 ): SectionGeometryMm {
   const layout = s.layout;
   if (!layout) return { wMm: 0, hMm: 0, noteMm: 0, rows: 0, fits: 0 };
-  return sectionGeometryMm({ w: layout.w, h: layout.h, cols: layout.cols, gridCols, size });
+  return sectionGeometryMm({ w: layout.w, h: layout.h, cols: layout.cols, max: layout.max, gridCols, size });
 }
 
 /**
@@ -351,6 +431,13 @@ export interface TemplateHealth {
    *   所以规则③ 落在这里，不落在画布上。
    */
   readonly danglingPlaceholders: readonly string[];
+  /**
+   * 网格上两两重叠的分区（issue #2564）——正常的拖拽/步进器操作现在已经不会产生
+   * 这种状态（见 `rectsOverlap` 文档），这里仍然要查一遍：存量数据（回填脚本跑
+   * 过、或本修复上线前手工拖出来的模板）可能已经带着重叠落库，体检要能如实报出来，
+   * 不能假装"新代码不再产生 = 旧数据也没有"。
+   */
+  readonly overlapping: readonly SectionDraft[];
   /** 可以发布吗（§6 规则⑦：无溢出、无未放置字段——不满足时允许强制发布但要二次确认）。 */
   readonly publishClean: boolean;
 }
@@ -390,6 +477,7 @@ export function checkTemplateHealth(
   // §6 规则③：提示词里提到、字段表里没有的占位符（见 `danglingPlaceholders` 文档）。
   const knownKeys = new Set(named.map((d) => d.key));
   const danglingPlaceholders = extractPromptPlaceholders(promptText).filter((k) => !knownKeys.has(k));
+  const overlapping = findOverlappingSections(named);
 
   return {
     fieldCount: named.length,
@@ -398,8 +486,9 @@ export function checkTemplateHealth(
     overflowing,
     duplicateKeys,
     danglingPlaceholders,
+    overlapping,
     publishClean: unplaced.length === 0 && overflowing.length === 0
-      && duplicateKeys.length === 0 && danglingPlaceholders.length === 0,
+      && duplicateKeys.length === 0 && danglingPlaceholders.length === 0 && overlapping.length === 0,
   };
 }
 

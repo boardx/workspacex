@@ -3,7 +3,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import {
   COLS_OPTIONS, MAX_COUNT_MIN, MAX_COUNT_MAX, OVERFLOW_OPTIONS, TONE_COLORS,
-  classifyNoteSize, sectionGeometryMmOf, clamp,
+  classifyNoteSize, sectionGeometryMmOf, clamp, maxFreeW, maxFreeH,
   type SectionDraft, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { sectionGeometryMm, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
@@ -16,9 +16,15 @@ import { sectionGeometryMm, type PaperSizeKey } from "@/lib/canvas/explicit-temp
  * `Design.pdf` §5 开头那句「所有 mm 换算必须与屏幕渲染同源，不能两套数」。
  */
 export function TemplateDisplayPanel({
-  section, gridCols, health, editable, onPatch, onRemove, paperSize = "A1",
+  section, sections, gridCols, health, editable, onPatch, onRemove, paperSize = "A1",
 }: {
   readonly section: SectionDraft | null;
+  /**
+   * 全部分区——issue #2564：「在 A1 上占多大」的宽/高步进器上限此前只夹画布边界，
+   * 不管相邻分区，现在要用 `maxFreeW`/`maxFreeH` 算出「不会撞上别的已放置分区」的
+   * 真实上限，因此需要看到整份分区列表，不能只看选中的这一个。
+   */
+  readonly sections: readonly SectionDraft[];
   readonly gridCols: 6 | 12;
   readonly health: TemplateHealth;
   readonly editable: boolean;
@@ -75,6 +81,14 @@ export function TemplateDisplayPanel({
               {health.overflowing.map((o) => `${o.section.key}（最多 ${o.max} 条 > 放得下 ${o.fits} 条）`).join("；")}
             </span>
           )}
+          {/* issue #2564：两个分区在网格上重叠——正常操作现在已经产生不了这种状态，
+              这里报的是存量数据（回填/本修复上线前手工拖出来的模板）。重叠会让
+              标题条/便签互相压住，必须挪开才能发布干净。 */}
+          {health.overlapping.length > 0 && (
+            <span className="text-11 text-destructive" data-testid="tpladmin-editor-health-overlap">
+              区块位置重叠：{health.overlapping.map((s) => s.key).join("、")} —— 请在画布上把它们挪开
+            </span>
+          )}
         </div>
       </div>
     );
@@ -109,7 +123,7 @@ export function TemplateDisplayPanel({
                 平分会窄到点不准，换行成两排更好按。 */}
             <div className="flex flex-wrap gap-1.5">
               {COLS_OPTIONS.map((n) => {
-                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, gridCols, size: paperSize }).noteMm;
+                const mm = sectionGeometryMm({ w: layout.w, h: layout.h, cols: n, max: layout.max, gridCols, size: paperSize }).noteMm;
                 const on = layout.cols === n;
                 return (
                   <button
@@ -197,18 +211,29 @@ export function TemplateDisplayPanel({
             12 个 chip 每个只有 ~15px 宽，数字挤成一团点不准。步进器覆盖「全部」合法值
             （不再是候选子集），上限跟着当前列/行位置与画布列数动态收窄——与原来
             `clamp(w, 1, gridCols - layout.col + 1)` 同一条规则，只是交互换了个形状。
+
+          ⚠ issue #2564：上限不能只看画布边界——`gridCols - layout.col + 1`/
+            `8 - layout.row + 1` 只保证不越出 A1 纸，不保证不撞上旁边「已放置」的
+            分区。用 `maxFreeW`/`maxFreeH` 换成「不会与相邻分区重叠」的真实上限，
+            步进器因此永远停在合法、且不会画出重叠版式的范围内（`onPatch` 那边的
+            `patchLayout` 仍然会再查一次重叠兜底，两处不是同一份检查的两次声明——
+            这里决定「能不能点」，那边决定「点了要不要生效」，各管各的层）。
         */}
         <div className="flex items-center gap-2">
           <span className="w-6 text-11 text-muted-foreground">宽</span>
           <Stepper
-            value={layout.w} min={1} max={gridCols - layout.col + 1} editable={editable}
+            value={layout.w} min={1}
+            max={maxFreeW(sections, section.sectionId, layout.col, layout.row, layout.h, gridCols)}
+            editable={editable}
             onChange={(w) => onPatch({ w })} testIdPrefix="tpladmin-editor-w"
           />
         </div>
         <div className="flex items-center gap-2">
           <span className="w-6 text-11 text-muted-foreground">高</span>
           <Stepper
-            value={layout.h} min={1} max={8 - layout.row + 1} editable={editable}
+            value={layout.h} min={1}
+            max={maxFreeH(sections, section.sectionId, layout.col, layout.row, layout.w)}
+            editable={editable}
             onChange={(h) => onPatch({ h })} testIdPrefix="tpladmin-editor-h"
           />
         </div>

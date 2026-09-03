@@ -29,6 +29,16 @@
  * （`platformSuperuser: boolean`），让运维在名册上看得见「谁是超管」；改白名单是
  * 运维改环境变量的动作，不是一个 HTTP 操作。
  *
+ * ## `platformAdmin`（platform-admin-role delta，2026-09-03）—— 落库、权限更窄的第二个身份
+ *
+ * "平台超管"上面这条规矩没有变，但纯环境变量意味着授予/撤销永远要走一次 SSH，人类
+ * 反馈这在日常运营里太重。`platformAdmin` 是新开的、**落库**的运营身份：能看/改这份
+ * 名册、能读系统异常（`systemErrorLogs`，见该束文件头），但权限比平台超管窄得多——
+ * 尤其**不能**把任何人（包括自己）设成平台管理员或平台超管，那个动作仍然钉死在
+ * `grantPlatformAdmin`/`revokePlatformAdmin` 只认平台超管白名单这一条上。两个身份因此
+ * 不冲突：`platformSuperuser` 继续是纯只读回显，`platformAdmin` 才是这份名册里唯一
+ * 可以通过 HTTP 操作改变的角色位。
+ *
  * ## 本地组织不在名册里
  *
  * `kind = "personal-local"` 的组织是「数据不出本机」的产品承诺（identity F16），
@@ -70,6 +80,8 @@ export const PlatformMemberRow = z
     createdAt: z.string(),
     /** 只读回显：这个邮箱是否在 `PLATFORM_SUPERUSER_EMAILS` 白名单里。见文件头。 */
     platformSuperuser: z.boolean(),
+    /** 落库、可由平台超管通过 `grantPlatformAdmin`/`revokePlatformAdmin` 改变。见文件头。 */
+    platformAdmin: z.boolean(),
     memberships: z.array(PlatformMembershipRow),
   })
   .strict();
@@ -77,7 +89,12 @@ export type PlatformMemberRow = z.infer<typeof PlatformMemberRow>;
 
 /** ⚠ 每一个成员都在下方某个操作的 `err` 里出现——不会被抛出的错误码读起来像覆盖。 */
 export const PlatformMembersError = z.enum([
-  /** principal 已认证，但邮箱不在平台超管白名单里。与 `systemErrorLogs` 同码同义。 */
+  /**
+   * `listPlatformMembers` / `setPlatformMemberOrgRole` 上：principal 既不在平台超管白
+   * 名单里、也不是落库的平台管理员（`platformAdmin`）。`grantPlatformAdmin` /
+   * `revokePlatformAdmin` 上：更严格的同名码——principal 不在平台超管白名单里（哪怕
+   * 是平台管理员本人也不够，见这两个操作各自的注释）。与 `systemErrorLogs` 同码同义。
+   */
   "NOT_PLATFORM_SUPERUSER",
   /** 目标 `(orgId, userId)` 不是一条可管理的成员行（不存在 / 本地组织 / 平台组织，三者同形）。 */
   "MEMBER_NOT_FOUND",
@@ -126,5 +143,26 @@ export const operations = {
       })
       .strict(),
     err: ["NOT_PLATFORM_SUPERUSER", "MEMBER_NOT_FOUND", "LAST_ADMIN", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * **只有真正的平台超管**（`PLATFORM_SUPERUSER_EMAILS` 白名单，不含被授予 `platformAdmin`
+   * 的人）能把某个已存在的账号设为平台管理员。幂等：已经是的再授一次仍是 200。
+   */
+  grantPlatformAdmin: {
+    method: "POST",
+    path: "/platform/members/:userId/platform-admin",
+    in: z.object({ userId: z.string() }).strict(),
+    out: z.object({ userId: z.string(), platformAdmin: z.literal(true) }).strict(),
+    err: ["NOT_PLATFORM_SUPERUSER", "MEMBER_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /** 同上，撤销。幂等：本来就不是的再撤一次仍是 200。 */
+  revokePlatformAdmin: {
+    method: "DELETE",
+    path: "/platform/members/:userId/platform-admin",
+    in: z.object({ userId: z.string() }).strict(),
+    out: z.object({ userId: z.string(), platformAdmin: z.literal(false) }).strict(),
+    err: ["NOT_PLATFORM_SUPERUSER", "MEMBER_NOT_FOUND", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 } as const;

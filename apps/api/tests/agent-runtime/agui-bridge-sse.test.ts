@@ -28,6 +28,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { EventType } from "@ag-ui/core";
 import {
   AGUI_CHAT_MESSAGE_ID_EVENT_NAME,
+  AGUI_RUN_PHASE_EVENT_NAME,
   AguiChatMessageIdValue,
 } from "@repo/contracts/agui-state-events";
 import {
@@ -231,7 +232,15 @@ describe("POST /copilotkit/agui", () => {
       // (the wire `messageId` is a transient aggregation id -- see the controller's own doc).
       // It sits AFTER TEXT_MESSAGE_END and BEFORE RUN_FINISHED: by the time the client sees
       // it the bubble is complete, and the turn is not over yet.
-      expect(events.map((e) => e.type)).toEqual([
+      //
+      // `run_phase` (context_building / model_thinking) is prep-stage progress plumbing --
+      // see agui-bridge-state-events.test.ts's PLUMBING_CUSTOM_EVENT_NAMES doc -- and fires
+      // an indeterminate number of times (0-2) depending on polling timing, so it is
+      // filtered out before this exact-sequence assertion.
+      const nonPhaseEvents = events.filter(
+        (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
+      );
+      expect(nonPhaseEvents.map((e) => e.type)).toEqual([
         EventType.RUN_STARTED,
         EventType.CUSTOM,
         EventType.TEXT_MESSAGE_START,
@@ -298,7 +307,11 @@ describe("POST /copilotkit/agui", () => {
     const { status, events } = await postBridgeTurn({ text: "Hello with no agent chosen", agentId: "" });
     expect(status).toBe(200);
     // CK-P3 (issue #2054) -- 第二个 CUSTOM 是 `chat_message_id` 回显，见上一条用例的注释。
-    expect(events.map((e) => e.type)).toEqual([
+    // `run_phase`（准备阶段进度）同上一条用例过滤：出现次数不确定，不占位置断言。
+    const nonPhaseEvents = events.filter(
+      (e) => !(e.type === EventType.CUSTOM && e.name === AGUI_RUN_PHASE_EVENT_NAME),
+    );
+    expect(nonPhaseEvents.map((e) => e.type)).toEqual([
       EventType.RUN_STARTED, EventType.CUSTOM, EventType.TEXT_MESSAGE_START,
       EventType.TEXT_MESSAGE_CONTENT, EventType.TEXT_MESSAGE_END, EventType.CUSTOM,
       EventType.RUN_FINISHED,

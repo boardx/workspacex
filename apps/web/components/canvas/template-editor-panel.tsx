@@ -19,7 +19,7 @@ import { TemplateDisplayPanel } from "./template-display-panel";
 import { TemplatePromptDrawer, type ExtractedField } from "./template-prompt-drawer";
 import {
   toDraft, toContractSections, defaultLayoutAt, clampLayout, checkTemplateHealth, autoFillLayout,
-  FIELD_TYPES,
+  collidesWithOthers, FIELD_TYPES,
   type SectionDraft, type SectionFieldType, type SectionLayoutDraft, type TemplateHealth,
 } from "./template-editor-model";
 import { PAPER_SIZE_MM, type PaperSizeKey } from "@/lib/canvas/explicit-template-layout";
@@ -199,28 +199,47 @@ export function TemplateEditorPanel({
     }));
   }
 
+  /**
+   * issue #2564：`clampLayout` 只把布局夹回画布边界，从不检查是否与另一个**已放置**
+   * 分区重叠——`patchLayout`/`place`/`move` 三个入口原先对夹好的结果照单全收，允许
+   * 把一个分区的位置/宽高改到直接压住旁边的分区，两块几何区间重叠，画出来就是
+   * 标题条互相压住、便签溢出到相邻分区（根因见 `rectsOverlap` 文档）。这里统一收口：
+   * 夹完边界之后，若还与别的分区重叠，就放弃这次改动、维持改动前的布局——同 Stepper
+   * 既有的「每次只挪一格、永远合法」约定，不静默产出一个会画错的状态。
+   */
+  /**
+   * `compute` 拿到改动前那个分区本身，算出提议的新布局；夹完边界之后若与另一个
+   * 已放置分区重叠就整体放弃、维持改动前的布局。`compute` 与重叠检查都在同一次
+   * `setSections` 更新里对 `prev` 现算现比，不读组件闭包里可能过期的 `sections`。
+   * `compute` 返回 `null` 表示这个分区本来就不该被改（如未放置的分区收到 `move`）。
+   */
+  function applyLayoutIfFree(
+    sectionId: string, compute: (current: SectionDraft) => SectionLayoutDraft | null,
+  ): void {
+    setSections((prev) => {
+      const current = prev.find((s) => s.sectionId === sectionId);
+      if (!current) return prev;
+      const proposed = compute(current);
+      if (!proposed) return prev;
+      const next = clampLayout(proposed, gridCols);
+      if (collidesWithOthers(prev, sectionId, next)) return prev;
+      return prev.map((s) => (s.sectionId === sectionId ? { ...s, layout: next } : s));
+    });
+  }
+
   function patchLayout(sectionId: string, patch: Partial<SectionLayoutDraft>): void {
-    setSections((prev) => prev.map((s) => {
-      if (s.sectionId !== sectionId || !s.layout) return s;
-      return { ...s, layout: clampLayout({ ...s.layout, ...patch }, gridCols) };
-    }));
+    applyLayoutIfFree(sectionId, (current) => (current.layout ? { ...current.layout, ...patch } : null));
   }
 
   function place(sectionId: string, col: number, row_: number): void {
-    setSections((prev) => prev.map((s) => {
-      if (s.sectionId !== sectionId) return s;
-      return { ...s, layout: clampLayout(defaultLayoutAt(s.type, col, row_, gridCols, paperSize), gridCols) };
-    }));
+    applyLayoutIfFree(sectionId, (current) => defaultLayoutAt(current.type, col, row_, gridCols, paperSize));
     // 放下后自动选中该区块并跳到第三步（§4.2 原话）。
     setSelectedId(sectionId);
     setStep(3);
   }
 
   function move(sectionId: string, col: number, row_: number): void {
-    setSections((prev) => prev.map((s) => {
-      if (s.sectionId !== sectionId || !s.layout) return s;
-      return { ...s, layout: clampLayout({ ...s.layout, col, row: row_ }, gridCols) };
-    }));
+    applyLayoutIfFree(sectionId, (current) => (current.layout ? { ...current.layout, col, row: row_ } : null));
     setSelectedId(sectionId);
   }
 
@@ -331,7 +350,12 @@ export function TemplateEditorPanel({
           // ⚠ `platform: false` 是写死的字面量，不是从响应里读来的：这个面板打开的
           //   永远是本组织自己的行（`listTemplates` 用 `platform` 区分平台母版与
           //   组织自有行，平台母版对本组件不可编辑，走不到这条保存路径）。
-          { ...out, usageCount: 0, title, footer, promptText, platform: false },
+          // `createdAt: row.createdAt` —— 改草稿不是新造一行，创建时间不变（还是打开
+          //   这个面板时那份 `listTemplates` 行带来的值）；`updatedAt` 才是这次写入
+          //   真的改变的那一栏。`updateTemplateDraft.out` 契约没有这两栏（DB 有 `updated_at`
+          //   但 RETURNING 没取），同 `usageCount`/`title` 等字段一样，是本地按"刚发生了
+          //   什么"合理推出来的，不是瞎猜。
+          { ...out, usageCount: 0, title, footer, promptText, platform: false, createdAt: row.createdAt, updatedAt: new Date().toISOString() },
         );
         return;
       }
@@ -377,7 +401,9 @@ export function TemplateEditorPanel({
         await onSaved(
           `已保存并发布为 v${minted.version}——v${row.version} 已自动归档` +
           `（不可变快照，用它开过的画布不受影响）。`,
-          { ...minted, status: "published", usageCount: 0, title, footer, promptText, platform: false },
+          // 铸新版本是新造一行——`createdAt`/`updatedAt` 都是"此刻"，同上一处
+          // `updateTemplateDraft` 分支的理由对称（那边是改行，这里是新行）。
+          { ...minted, status: "published", usageCount: 0, title, footer, promptText, platform: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
         );
       } else {
         const reasons = [
@@ -387,7 +413,8 @@ export function TemplateEditorPanel({
         await onSaved(
           `已铸出 v${minted.version} 草稿并保存改动，但「未发布」——` +
           `${reasons.join("；")}。修好后再点「发布模板」，v${row.version} 保持原样。`,
-          { ...minted, usageCount: 0, title, footer, promptText, platform: false },
+          // 同上——铸新版本是新造一行。
+          { ...minted, usageCount: 0, title, footer, promptText, platform: false, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
         );
       }
     } catch (e) {
@@ -807,6 +834,7 @@ export function TemplateEditorPanel({
             sections={sections}
             gridCols={gridCols}
             title={title}
+            footer={footer}
             promptText={promptText}
             onClose={() => setSimulateOpen(false)}
           />
@@ -822,6 +850,7 @@ export function TemplateEditorPanel({
           </div>
           <TemplateDisplayPanel
             section={selected}
+            sections={sections}
             gridCols={gridCols}
             health={health}
             editable={editable}

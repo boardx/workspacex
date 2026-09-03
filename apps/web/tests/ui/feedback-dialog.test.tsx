@@ -38,8 +38,8 @@ function openDialogFor(target: FeedbackTarget, label: string | null = null) {
   fireEvent.click(screen.getByTestId("open-feedback"));
 }
 
-function fillAndSubmit(title: string, detail: string) {
-  fireEvent.change(screen.getByTestId("feedback-title-input"), { target: { value: title } });
+/** 2026-09-02 起表单只有「详细说说」：标题从正文派生（第一句，截到 120 字）。 */
+function fillAndSubmit(detail: string) {
   fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: detail } });
   fireEvent.click(screen.getByTestId("feedback-submit"));
 }
@@ -63,7 +63,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("① 请求体恰好六个字段，没有 submittedBy / status —— 按实际发出的请求断言", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应", "批准卡点了不动");
+    fillAndSubmit("点了没反应。批准卡点了不动");
 
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     const [path, opts] = apiRequest.mock.calls[0] as [string, { method: string; body: Record<string, unknown> }];
@@ -76,6 +76,9 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(opts.body).not.toHaveProperty("status");
     // I-F1：发生位置由客户端给，且给的是真实当前路由。
     expect(opts.body.occurredRoute).toBe("/chat");
+    // 标题从正文派生：第一句（到第一个句号）。
+    expect(opts.body.title).toBe("点了没反应");
+    expect(opts.body.detail).toBe("点了没反应。批准卡点了不动");
   });
 
   it("② skill 入口发的是 {kind:'skill', skillId}，不是产品级目标", async () => {
@@ -84,7 +87,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     // 标题里要出现目标，否则用户不知道自己在对谁说话。
     expect(screen.getByTestId("feedback-dialog-title").textContent).toContain("会议纪要");
 
-    fillAndSubmit("输出格式不稳", "有时候是表格有时候是段落");
+    fillAndSubmit("输出格式不稳。有时候是表格有时候是段落");
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     const [, opts] = apiRequest.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(opts.body.target).toEqual({ kind: "skill", skillId: "skill-3" });
@@ -93,7 +96,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("② agent 入口发的是 {kind:'agent', agentId}", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "agent", agentId: "agent-7" }, "调研助手");
-    fillAndSubmit("老是漏附件", "上传了三个文件只读了一个");
+    fillAndSubmit("老是漏附件。上传了三个文件只读了一个");
     await waitFor(() => expect(apiRequest).toHaveBeenCalled());
     const [, opts] = apiRequest.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(opts.body.target).toEqual({ kind: "agent", agentId: "agent-7" });
@@ -102,7 +105,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("③ 提交失败时明确说没有保存，且不切标签页", async () => {
     apiRequest.mockRejectedValue(new Error("boom"));
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应", "批准卡点了不动");
+    fillAndSubmit("点了没反应。批准卡点了不动");
 
     const err = await screen.findByTestId("feedback-submit-error");
     expect(err.textContent).toContain("没有被保存");
@@ -113,7 +116,7 @@ describe("FB-2 反馈弹层（采集侧）", () => {
   it("④ 成功后切到「我提过的」，并把刚提交的那条标出来", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "product" });
-    fillAndSubmit("点了没反应", "批准卡点了不动");
+    fillAndSubmit("点了没反应。批准卡点了不动");
 
     expect(await screen.findByTestId("feedback-mine-list")).toBeTruthy();
     expect(screen.getByTestId("feedback-just-submitted")).toBeTruthy();
@@ -137,11 +140,12 @@ describe("FB-2 反馈弹层（采集侧）", () => {
     expect(notice.textContent).toContain("/chat");
   });
 
-  it("⑤ 标题或正文为空时提交按钮不可点 —— 空反馈进队列等于噪声", () => {
+  it("⑤ 正文为空时提交按钮不可点 —— 空反馈进队列等于噪声；没有单独的标题框", () => {
     openDialogFor({ kind: "product" });
+    expect(screen.queryByTestId("feedback-title-input")).toBeNull();
     const submit = screen.getByTestId("feedback-submit") as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
-    fireEvent.change(screen.getByTestId("feedback-title-input"), { target: { value: "只有标题" } });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "   " } });
     expect((screen.getByTestId("feedback-submit") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "有正文了" } });
     expect((screen.getByTestId("feedback-submit") as HTMLButtonElement).disabled).toBe(false);
@@ -159,5 +163,157 @@ describe("FB-2 反馈弹层（采集侧）", () => {
       </FeedbackProvider>,
     );
     expect(screen.getByTestId("wired-feedback")).toBeTruthy();
+  });
+});
+
+/**
+ * FB-5 补（2026-09-02 devapp 实测复盘）：部署重启窗口里传图/提交，浏览器只给一句
+ * `TypeError: Failed to fetch`——原样显示等于什么都没说，而且失败的图只能删掉重选。
+ * 这里断两件事：⑦ 网络层失败翻成人话；⑧ 失败的图能用当初那个 File 直接重试，重试成功
+ * 之后提交请求体里带上它的 id。
+ */
+describe("FB-5 网络层失败的可读性与重试", () => {
+  it("⑦ 提交遇到 TypeError: Failed to fetch —— 屏上是「无法连接服务器」，不是那行英文", async () => {
+    apiRequest.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    openDialogFor({ kind: "product" });
+    fillAndSubmit("点了没反应。批准卡点了不动");
+    const err = await screen.findByTestId("feedback-submit-error");
+    expect(err.textContent).toContain("无法连接服务器");
+    expect(err.textContent).not.toContain("Failed to fetch");
+    expect(err.textContent).toContain("没有被保存");
+  });
+
+  it("⑧ 传图失败可重试，重试成功后提交带上 attachmentIds", async () => {
+    const createObjectURL = vi.fn(() => "blob:preview");
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({
+        ok: true, status: 201,
+        text: async () => JSON.stringify({ attachmentId: "att-1", url: "/feedback/attachments/att-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      mockSubmitThenList({ ...mineItem, attachments: [] });
+      openDialogFor({ kind: "product" });
+      const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "shot.png", { type: "image/png" });
+      fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files: [file] } });
+
+      const errEl = await screen.findByTestId(/^feedback-attachment-error-/);
+      expect(errEl.textContent).toContain("无法连接服务器");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByTestId(/^feedback-attachment-retry-/));
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.queryByTestId(/^feedback-attachment-error-/)).toBeNull());
+      // 重试发的是同一个 File（multipart 的 file 字段），不是要求用户重新选。
+      const sentForm = (fetchMock.mock.calls[1]?.[1] as RequestInit).body as FormData;
+      expect((sentForm.get("file") as File).name).toBe("shot.png");
+
+      fillAndSubmit("带图的反馈。见截图");
+      await screen.findByTestId("feedback-just-submitted");
+      const submitCall = apiRequest.mock.calls.find(([, o]) => (o as { method?: string })?.method === "POST");
+      expect((submitCall![1] as { body: { attachmentIds?: string[] } }).body.attachmentIds).toEqual(["att-1"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+/**
+ * 2026-09-03 新增：⑨「套用模板」按当前 kind 填复现步骤/期望结果/实际结果（或需求版）
+ * 进「详细说说」，已有内容不覆盖只追加；⑩ 拖图片进附件区等价于点「加图片」选中，
+ * 走同一条上传路径。
+ */
+describe("FB-5 补：套用模板 / 拖拽上传", () => {
+  it("⑨ 空正文时点「套用模板」——缺陷 kind 填复现步骤/期望结果/实际结果结构", () => {
+    openDialogFor({ kind: "product" });
+    fireEvent.click(screen.getByTestId("feedback-template-button"));
+    const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
+    expect(detail.value).toContain("复现步骤");
+    expect(detail.value).toContain("期望结果");
+    expect(detail.value).toContain("实际结果");
+  });
+
+  it("⑨ 需求 kind 套用的是需求版模板，不是缺陷版", () => {
+    openDialogFor({ kind: "product" });
+    fireEvent.click(screen.getByTestId("feedback-kind-需求"));
+    fireEvent.click(screen.getByTestId("feedback-template-button"));
+    const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
+    expect(detail.value).toContain("期望的效果");
+    expect(detail.value).not.toContain("复现步骤");
+  });
+
+  it("⑨ 已经写了内容再点「套用模板」——追加在后面，不覆盖已写的话", () => {
+    openDialogFor({ kind: "product" });
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "已经写的话" } });
+    fireEvent.click(screen.getByTestId("feedback-template-button"));
+    const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
+    expect(detail.value.startsWith("已经写的话")).toBe(true);
+    expect(detail.value).toContain("复现步骤");
+  });
+
+  it("⑨ 剩余空间放不下完整模板时——拒绝套用、正文原样不动，不插入半截模板", () => {
+    openDialogFor({ kind: "product" });
+    // fireEvent.change 走的是程序化写值（同 setDetail），不受 textarea maxLength 限制，
+    // 用来在测试里复现"正文已经很接近 4000 字上限"这个只有程序化写入才够得到的状态。
+    const nearLimit = "字".repeat(3990);
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: nearLimit } });
+    const templateButton = screen.getByTestId("feedback-template-button");
+    fireEvent.click(templateButton);
+    const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
+    // 正文没被半截模板污染——还是原来那 3990 个字，一个都没多。
+    expect(detail.value).toBe(nearLimit);
+    expect(detail.value).not.toContain("复现步骤");
+    expect(screen.getByTestId("feedback-template-notice").textContent).toContain("放不下");
+    // 提交按钮的可用性不受影响（正文本身没变，仍然合法）。
+    expect((screen.getByTestId("feedback-submit") as HTMLButtonElement).disabled).toBe(false);
+
+    // 连点两下同样不越界、不报第二次错以外的副作用。
+    fireEvent.click(templateButton);
+    expect(detail.value.length).toBeLessThanOrEqual(4000);
+  });
+
+  it("⑨ 套用一次因空间不够被拒绝后，先删点字腾出空间——再点就能成功套用", () => {
+    openDialogFor({ kind: "product" });
+    const nearLimit = "字".repeat(3990);
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: nearLimit } });
+    const templateButton = screen.getByTestId("feedback-template-button");
+    fireEvent.click(templateButton);
+    expect(screen.getByTestId("feedback-template-notice")).toBeTruthy();
+
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "短一点的正文" } });
+    // 手动改过正文后，上一次的提示应该已经清掉——不是挂在屏上的死提示。
+    expect(screen.queryByTestId("feedback-template-notice")).toBeNull();
+
+    fireEvent.click(templateButton);
+    const detail = screen.getByTestId("feedback-detail-input") as HTMLTextAreaElement;
+    expect(detail.value).toContain("复现步骤");
+    expect(screen.queryByTestId("feedback-template-notice")).toBeNull();
+  });
+
+  it("⑩ 把图片拖进附件区（不点「加图片」）也能触发上传，同一条 addAttachments 路径", async () => {
+    const createObjectURL = vi.fn(() => "blob:preview");
+    const revokeObjectURL = vi.fn();
+    Object.assign(URL, { createObjectURL, revokeObjectURL });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true, status: 201,
+      text: async () => JSON.stringify({ attachmentId: "att-drop", url: "/feedback/attachments/att-drop" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      openDialogFor({ kind: "product" });
+      const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "dropped.png", { type: "image/png" });
+      const dropzone = screen.getByTestId("feedback-attachment-dropzone");
+      fireEvent.drop(dropzone, { dataTransfer: { files: [file] } });
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(screen.queryByTestId(/^feedback-attachment-error-/)).toBeNull());
+      const sentForm = (fetchMock.mock.calls[0]?.[1] as RequestInit).body as FormData;
+      expect((sentForm.get("file") as File).name).toBe("dropped.png");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

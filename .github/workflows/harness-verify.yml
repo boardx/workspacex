@@ -60,6 +60,35 @@ on:
         type: boolean
         default: false
 
+# 2026-09-03：本 workflow 一直没有 concurrency 块（见下方 e2e-full job 里那条旧注释
+# 「与并发组无关（本 workflow 没有 concurrency: 块）」——那条注释描述的是事实，不是
+# 刻意设计）。后果：同一个 PR 分支被连续推送几次（agent 迭代时常见）时，每一次
+# push 都各自排一整套 job 到队列里，旧的那些不会被新 push 顶掉——PR 页面因此同时堆着
+# 好几轮已经过期的 run，跟 backend-gates.yml（有 concurrency，PR 上 cancel-in-progress）
+# 并排开火，就是发布过程"前后触发六次"这类拥堵的直接成因。
+#
+# ⚠ 2026-09-03（同日修订，independent feature review 拦下）：group key **不能**用
+# `github.head_ref`——它只是来源分支的短名，不含 fork owner、不含 PR number。两个
+# 互不相关的 PR（尤其是不同 fork）完全可能用同一个分支短名（如 `fix-ci`）对本仓开
+# PR，二者会落进同一个 concurrency group，后开火的那个会把前一个真实无关的 PR 的
+# run 顶掉——从"同一个 PR 连续推送互相顶"变成"跨 PR 互相顶"，是另一种拥堵/拒绝服务。
+# 改用 `github.ref`：直接对齐 backend-gates.yml 现成的取法——`pull_request` 事件下
+# `github.ref` 就是该 PR 唯一的 `refs/pull/<number>/merge`，不存在同名分支碰撞；
+# main/tag push 上 `github.ref` 是该 ref 的固定值（如 `refs/heads/main`），同一 ref
+# 的多次 push 落进同一 group 排队，但 cancel-in-progress 在那条路径上恒 false，
+# 所以只是排队、不会互相顶掉——与 backend-gates.yml 的既有行为逐字一致。见
+# `lint-ci-workflow-concurrency.test.ts` 的机械断言，防止以后又退回 head_ref。
+#
+# 取值对齐 backend-gates.yml 的先例（同一份理由，两边应当一致）：
+#   - PR 上 cancel-in-progress: true —— 同一个 PR 连续推送时，前面还没跑完的那轮
+#     结果已经没人要了，掐掉省队列、省时延。
+#   - main / tag / schedule / workflow_dispatch 上必须 false —— 那里每次 run 对应
+#     一个已经发生的事件（已合入的 commit、一次定时全量 e2e、一次人工 dispatch），
+#     掐掉等于让它永远没被验证过。
+concurrency:
+  group: harness-verify-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
   # （doctor/lint doctor/harness 自测，全部毫秒级、不碰 DB）与"受影响模块
@@ -223,7 +252,27 @@ jobs:
 
       # 只跑受本次改动影响的包（模块只测自己）。
       # PR：相对 base 分支；push main：相对上一个 commit。
-      - name: 受影响模块 typecheck/lint/test
+      #
+      # 2026-09-02（人类实测发现 backend-gates 与本 job 在同一次 push 上各自起一套
+      # Postgres、把 @repo/api 的 vitest 全套跑两遍——`gates-test` 4 分片跑一遍、这里
+      # `turbo run test --affected` 判定 @repo/api 受影响后又完整跑一遍，纯重复、不是
+      # 两道互补的门）：@repo/api 的 `test` 从这里的 `--affected` 集合里显式排除，
+      # 交回 `backend-gates.yml` 的 `gates-test` 分片 job 独家负责。typecheck/lint
+      # 仍然覆盖 @repo/api（这两项 backend-gates 只跑一次、不分片，没有重复问题）。
+      - name: 受影响模块 typecheck/lint
+        env:
+          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: pnpm turbo run typecheck lint --affected
+
+      # 2026-09-02 续（独立 review 抓到的真实回归）：上面「排除 @repo/api」的前提是
+      # backend-gates 的 gates-test 会替它把关——但 gates-test 对 **fork PR 整体跳过**
+      # （`backend-gates.yml` 每个 gates job 都带 `head.repo.full_name == github.repository`
+      # 同仓门，本文件历来没有对应的 fork 判断）。无条件排除会让 fork PR 改 apps/api 时
+      # 两边都不跑，零覆盖，不是「转移覆盖」。因此排除只在 gates-test 确实会跑的场景
+      # （非 PR 事件，或同仓 PR）生效；fork PR 上仍然把 @repo/api 留在 --affected 集合里，
+      # 保底覆盖不丢，只是这一种场景下放弃去重收益（fork PR 本就少见，宁可偶尔重复
+      # 跑一遍，不可接受的是不跑）。
+      - name: 受影响模块 test
         env:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
           # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
@@ -232,7 +281,22 @@ jobs:
           # 会话共享的库——门要挡的「不知情地连上共享库」在这个环境里没有对象。
           # ⚠ 自建 runner（常驻机器）上**不得**照抄这行：那里的库是真共享的。
           WORKSPACEX_DB: workspacex
-        run: pnpm turbo run typecheck lint test --affected
+          # ⚠ 写成"是不是 fork PR"而不是它的反命题——`pr-queue.test.ts`「#848 反证」对
+          # `REQUIRED_CHECKS` 里每个 job 的整段 body 文本做纯字符串匹配，禁止出现
+          # "event 名字 不等于 pull_request 字面量" 这个模式（那是「把 pull_request
+          # 排除在门禁之外」的信号，历史上真的把 e2e-full 挂过五天）。这里的用途完全
+          # 不同——只是判断 gates-test 会不会跑——但那条测试不认语义，只认字面量，
+          # 直接用 `!=` 写会被它当成同一种坏模式误伤（连本条注释都不能逐字写出那个
+          # 模式，同一原因）。用下面的 `==` 表达同一条件，语义不变。
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          if [ "$IS_FORK_PR" != "true" ]; then
+            # 同仓：@repo/api 交给 backend-gates 的分片 job，这里排除避免重复跑。
+            pnpm turbo run test --affected --filter='!@repo/api'
+          else
+            # fork PR：backend-gates 整个跳过，@repo/api 留在这里，保底不丢覆盖。
+            pnpm turbo run test --affected
+          fi
 
   # 全仓编译门（ADR-106 S2 / #1333）——人类裁决方案 A（经 coord-main 转达）：
   # PR 上加一条**全仓** typecheck/lint/build，**不含全量 test**，因此不与
@@ -397,7 +461,8 @@ jobs:
     #
     # ⇒ **光是步骤 1-7 就吃掉 26/35 = 四分之三预算**，`verify:chat-read` 还没开始就只剩
     #   9 分钟。它不是"偶尔超时"，是结构上跑不完：main push 上 10/10 被 SIGTERM（exit 143）
-    #   杀掉，与并发组无关（本 workflow 没有 `concurrency:` 块）。
+    #   杀掉，与并发组无关（2026-09-03 起本 workflow 有 `concurrency:` 块，但 main
+    #   push 的 cancel-in-progress 恒为 false，这条 job 从不会被同组的新 run 顶掉）。
     #
     # 为什么这件事藏了 39 小时：GitHub 对 job 超时的语义是 **cancel**，于是这些 run 的
     # conclusion 是 `cancelled` —— 读起来像「有人手动取消了」，没有人想到要去点开。

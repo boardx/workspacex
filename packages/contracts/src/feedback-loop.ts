@@ -208,6 +208,12 @@ export const FeedbackItem = z
     /** 当前请求者投过没有——**同一个人不许把票数顶上去** */
     votedByMe: z.boolean(),
     submittedByMe: z.boolean(),
+    /**
+     * 提交人的显示名（后台列表/详情用，2026-09-02 新后台设计）。⚠ 与 `detail` 同一条
+     * D3 门控：`detail === null` 的行这里恒是 `null`——提交人身份与正文一样只对管理员与
+     * 本人给出。`null` 也可能是账号已注销查不到显示名；两者对读者都表现为「匿名用户」。
+     */
+    submitterName: z.string().nullable(),
     /** I-F1：客户端给的复现上下文，分列存 */
     occurredRoute: z.string().nullable(),
     appVersion: z.string().nullable(),

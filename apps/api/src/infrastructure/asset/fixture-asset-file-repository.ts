@@ -158,6 +158,9 @@ export class FixtureAssetFileRepository implements AssetFileRepository {
       // No version concept on this fixture-backed kind (`agent`, per #787) -- see
       // `AssetDirectoryRecord.currentVersionId`'s own doc comment.
       currentVersionId: null,
+      // This fixture never distinguished caller org (see the class header) -- it was always
+      // writable by anyone who could reach it, so `readOnly` is `false`, not a new restriction.
+      readOnly: false,
     };
   }
 

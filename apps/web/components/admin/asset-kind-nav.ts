@@ -59,8 +59,10 @@ export const ADMIN_NAV_TESTID: Record<AdminModuleKey, string> = {
   blueprint: "admin-nav-blueprint",
   members: "admin-nav-members",
   feedback: "admin-nav-feedback",
+  "ops-status": "admin-nav-ops-status",
   local: "admin-nav-local",
   platform: "admin-nav-platform",
+  "org-profile": "admin-nav-org-profile",
 };
 
 /** 契约六值各自**期望**出现在左栏的项键。 */
