@@ -17,7 +17,7 @@
  * head moves while existing runs keep their stored version id, and a port that could
  * resolve a head is a port through which that invariant leaks.
  */
-import { wave2Runtime as C } from "@repo/contracts";
+import { kernelGateway as KG, wave2Runtime as C } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
@@ -980,6 +980,23 @@ export interface ModelCallPort {
    * 模型有视觉输入，一次 run 绑定的是**具体模型**，能力是模型的属性不是厂商的属性。
    */
   supportsVision?(modelProvider: string, modelId: string): boolean;
+
+  /**
+   * Phase 14 F01 (`kernel-gateway` 契约束 UC-3 `checkKernelHealth`，R4 A1 / I-3) --
+   * OPTIONAL 下发前健康检查：一个 port 若把 run 转发给一个真正独立、可能不可用的远端
+   * 执行内核（今天只有 `DeepAgentModelProvider` → `apps/deep-agent-service`），实现这个
+   * 方法；单次请求/响应式的 provider（`ConfiguredModelProvider`/`DeepResearchModelProvider`/
+   * `BailianImageProvider`）没有独立于"这次调用本身会不会失败"的健康状态，不实现它。
+   *
+   * ⚠ 缺席 ⇒ execute-run.ts 不做这次检查，直接转发（与本次改动之前逐字节相同）——
+   * 与 `supportsProgress`"存在即代表能力"同一条纪律，不是 `supportsVision` 那种
+   * fail-closed：没有"内核"概念的 provider 本来就不该被这道门拦住。
+   *
+   * `modelProvider` 参数让 `RoutingModelCallPort` 能按 run 实际 pin 的 provider 转发到
+   * 正确的下游 port，同 `supportsProgress(modelProvider)`/`supportsVision(modelProvider,
+   * modelId)` 的既有形状——一个只服务单一 provider 的叶子 port 可以忽略这个参数。
+   */
+  checkKernelHealth?(modelProvider: string): Promise<KG.KernelHealthStatus>;
 }
 
 export interface AgentRunClock {
