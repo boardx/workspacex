@@ -137,12 +137,18 @@ test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
     expect(submitBody.feedbackId, "提交应返回真实的 feedbackId").toBeTruthy();
 
     /* ── 提交后自动跳到 `/platform-admin/inbox?open=<feedbackId>`（Sprint 1 既有导航，
-       本文件未改动它）——但提交人是非管理员，`canTriage` 只放行 admin，所以这里如实
-       看到的是拒绝访问提示，不是收件箱内容。见文件头注：这与 inbox-smoke.spec.ts 用例①
-       是同一个待人类裁决的产品决策，不在测试里假装成收件箱可见来迁就旧断言。 ── */
+       本文件未改动它）——但提交人是非管理员，`canTriage` 只放行 admin。CI 实测更正了
+       这里原先的断言：`inbox-screen.tsx` 的 `data-testid="denied"` 只接**预览态覆盖**
+       （`resolvePreviewState` 读 `?state=` query，生产环境恒 `default`，UC-0.4 R12
+       V8），不接真实 403——`listInbox`/`getInboxCounts` 真的 403 时落进
+       `load.kind === "failed"`，渲染的是 `data-testid="dep-failed"`（同一个组件的
+       通用"数据读不到"态，不区分权限不足与其他失败原因）。这是当前代码的真实行为，
+       不在测试里断言一个组件从未真正走到过的 testid。哪些入口该跳、拒绝访问要不要
+       单独出一个更明确的态，仍是待人类裁决的产品决策（见文件头注、backlog D8），
+       这里只如实反映现状。 ── */
     await expect(page).toHaveURL(/\/platform-admin\/inbox\?open=/);
-    await expect(page.getByTestId("denied")).toBeVisible();
-    await expect(page.getByTestId("denied")).toContainText("仅平台运营可见");
+    await expect(page.getByTestId("dep-failed")).toBeVisible();
+    await expect(page.getByTestId("dep-failed")).toContainText("收件箱数据暂时读不到");
 
     // 回到草稿列表页确认这条真的从「反馈草稿」里消失了（不是只在收件箱那一侧看得见）。
     await page.goto("/platform-admin/feedback-drafts");
