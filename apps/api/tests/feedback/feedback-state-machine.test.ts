@@ -15,7 +15,7 @@ import {
   type FeedbackStatus,
 } from "../../src/domain/feedback/product-feedback";
 
-const ALL: readonly FeedbackStatus[] = ["待处理", "已进入迭代", "已修复", "不做"];
+const ALL: readonly FeedbackStatus[] = ["待处理", "已进入迭代", "已修复", "不做", "已归档"];
 
 describe("FB-2 分诊状态机", () => {
   it("转「不做」没写理由 ⇒ 被拒，且错误码是具名的", () => {
@@ -79,6 +79,38 @@ describe("FB-2 分诊状态机", () => {
     const edges = allowedTransitionsFrom("待处理") as FeedbackStatus[];
     edges.push("已修复");
     expect(allowedTransitionsFrom("待处理")).not.toContain("已修复");
+  });
+});
+
+describe("FB-2 已归档（issue #2681）", () => {
+  it("「已修复 → 已归档」合法", () => {
+    expect(triage({ current: "已修复", next: "已归档", reason: null })).toEqual({
+      kind: "changed", from: "已修复", to: "已归档", reason: null,
+    });
+  });
+
+  it("「不做 → 已归档」合法", () => {
+    expect(triage({ current: "不做", next: "已归档", reason: null })).toEqual({
+      kind: "changed", from: "不做", to: "已归档", reason: null,
+    });
+  });
+
+  it("「已归档 → 待处理」合法 —— 归错了或问题又被提起，能拉回收件箱", () => {
+    expect(triage({ current: "已归档", next: "待处理", reason: null })).toEqual({
+      kind: "changed", from: "已归档", to: "待处理", reason: null,
+    });
+  });
+
+  it("「待处理 → 已归档」非法 —— 还没有结论，谈不上收起来", () => {
+    expect(triage({ current: "待处理", next: "已归档", reason: null })).toEqual({
+      kind: "rejected", code: "ILLEGAL_TRANSITION", from: "待处理", to: "已归档",
+    });
+  });
+
+  it("「已进入迭代 → 已归档」非法 —— 同上，必须先走到 已修复/不做 这两个终态", () => {
+    expect(triage({ current: "已进入迭代", next: "已归档", reason: null })).toEqual({
+      kind: "rejected", code: "ILLEGAL_TRANSITION", from: "已进入迭代", to: "已归档",
+    });
   });
 });
 

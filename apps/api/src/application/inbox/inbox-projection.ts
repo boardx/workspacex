@@ -88,7 +88,9 @@ export class InvalidInboxCursorError extends Error {}
  */
 function deriveGithubRef(row: FeedbackItemView): z.infer<typeof C.InboxGithubRef> | null {
   if (row.githubIssueUrl === null || row.githubIssueNumber === null) return null;
-  const closed = row.status === "已修复" || row.status === "不做";
+  // 已归档只能从「已修复」/「不做」进入（见 domain ALLOWED_TRANSITIONS），
+  // 挂着的 GitHub issue 早已在那一步关闭——这里跟着算作 closed。
+  const closed = row.status === "已修复" || row.status === "不做" || row.status === "已归档";
   return { kind: "issue", number: row.githubIssueNumber, url: row.githubIssueUrl, state: closed ? "closed" : "open" };
 }
 
