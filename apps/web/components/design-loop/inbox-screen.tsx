@@ -10,12 +10,12 @@ import { cn } from "@/lib/utils";
 import type { UiState } from "@/lib/ui-state";
 import {
   useDesignLoop, KIND_LABEL, TYPE_LABEL, STATUS_LABEL, STATUS_ORDER,
-  type InboxItem, type InboxKind, type InboxStatus,
+  type MockInboxItem, type MockInboxKind, type InboxStatus,
 } from "@/lib/design-loop-store";
 import { FeedbackStructuredView } from "@/components/feedback/feedback-structured";
 import { StatusBadge, GithubBadge, LinkBadge, SevereBadge } from "./badges";
 
-type KindFilter = "all" | InboxKind;
+type KindFilter = "all" | MockInboxKind;
 type StatusFilter = "all" | InboxStatus;
 
 const KIND_FILTERS: { value: KindFilter; label: string }[] = [
@@ -26,7 +26,7 @@ const KIND_FILTERS: { value: KindFilter; label: string }[] = [
 ];
 
 /** 反馈子分类（缺陷/需求）也进 chip，需求原文的类型筛选是「全部/缺陷/需求/系统异常/设计方案」。 */
-function matchKind(item: InboxItem, f: KindFilter): boolean {
+function matchKind(item: MockInboxItem, f: KindFilter): boolean {
   if (f === "all") return true;
   return item.kind === f;
 }
@@ -243,12 +243,12 @@ function ViewToggle({ active, onClick, testid, icon: Icon, label }: { active: bo
   );
 }
 
-function KindLabel({ item }: { item: InboxItem }) {
+function KindLabel({ item }: { item: MockInboxItem }) {
   const text = item.kind === "feedback" ? TYPE_LABEL[item.type ?? "bug"] : KIND_LABEL[item.kind];
   return <span className="rounded-control border border-border px-1.5 py-0.5 text-10 text-muted-foreground">{text}</span>;
 }
 
-function CardMeta({ item }: { item: InboxItem }) {
+function CardMeta({ item }: { item: MockInboxItem }) {
   return (
     <>
       {item.resolvedByDesign && <LinkBadge text={`已生成 ${item.resolvedByDesign}`} testid={`link-generated-${item.code}`} />}
@@ -257,7 +257,7 @@ function CardMeta({ item }: { item: InboxItem }) {
   );
 }
 
-function BoardCard({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
+function BoardCard({ item, onOpen }: { item: MockInboxItem; onOpen: () => void }) {
   return (
     <div
       draggable
@@ -291,7 +291,7 @@ function BoardCard({ item, onOpen }: { item: InboxItem; onOpen: () => void }) {
 function ListView({
   items, statusFilter, onStatusFilter, onOpen,
 }: {
-  items: InboxItem[];
+  items: MockInboxItem[];
   statusFilter: StatusFilter;
   onStatusFilter: (s: StatusFilter) => void;
   onOpen: (id: string) => void;
@@ -368,7 +368,7 @@ function ListView({
 function InboxDrawer({
   item, onClose, onStatus, onArchive, onDeepen, onOpenWorkbench,
 }: {
-  item: InboxItem;
+  item: MockInboxItem;
   onClose: () => void;
   onStatus: (s: InboxStatus) => void;
   onArchive: (reason: string) => void;

@@ -20,7 +20,7 @@ vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
 import * as React from "react";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen } from "@/components/design-loop/inbox-screen";
-import { DesignLoopProvider, useDesignLoop, type InboxItem, type Project } from "@/lib/design-loop-store";
+import { DesignLoopProvider, useDesignLoop, type MockInboxItem, type Project } from "@/lib/design-loop-store";
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -66,7 +66,7 @@ describe("② 附件到 5 个后上传入口隐藏", () => {
   });
 });
 
-const oneBacklogFeedback: InboxItem[] = [
+const oneBacklogFeedback: MockInboxItem[] = [
   {
     id: "x1", kind: "feedback", type: "bug", code: "B-1", title: "标题一", body: "正文一",
     reporter: "谁", time: "2026-09-01T00:00:00.000Z", votes: 1, status: "backlog", severe: false,
@@ -106,7 +106,7 @@ describe("④ 看板拖放触发状态迁移", () => {
 
 describe("⑤ 推送设计方案后反馈与方案互相打标", () => {
   it("pushProject 后：项目 resolvedInbox 有值、生成的收件箱条目、源反馈被标已生成", () => {
-    const feedback: InboxItem[] = [
+    const feedback: MockInboxItem[] = [
       { ...oneBacklogFeedback[0]!, code: "B-3", id: "fb3" },
     ];
     const project: Project = {

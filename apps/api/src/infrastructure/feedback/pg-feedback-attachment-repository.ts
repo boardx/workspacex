@@ -35,9 +35,15 @@ function toRow(r: AttachmentDbRow): FeedbackAttachmentRow {
     uploadedBy: r.uploaded_by,
     feedbackId: r.feedback_id,
     draftId: r.draft_id,
-    // 见 `attachment-ports.ts` 头注：只有已认领（挂着 `feedback_id`）的行才有可供
-    // `guard()` 挂靠的反馈对象——未认领的行调用方本来就不会读到这一步。
-    objectKey: r.feedback_id !== null ? guard({ kind: "feedback", id: r.feedback_id }, r.object_key) : null,
+    // 见 `attachment-ports.ts` 头注：挂着 `feedback_id` 的行挂靠反馈对象（D3）；
+    // UC-17.8 B1.7：只挂着 `draft_id` 的行挂靠草稿对象（owner 本人）；两者皆无的
+    // 未认领行没有可供 `guard()` 挂靠的对象——调用方本来就不会读到这一步。
+    objectKey:
+      r.feedback_id !== null
+        ? guard({ kind: "feedback", id: r.feedback_id }, r.object_key)
+        : r.draft_id !== null
+          ? guard({ kind: "feedback_draft", id: r.draft_id }, r.object_key)
+          : null,
     contentType: r.content_type as FeedbackAttachmentContentType,
     sizeBytes: Number(r.size_bytes),
     sha256: r.sha256,

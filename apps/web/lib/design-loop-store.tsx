@@ -22,7 +22,7 @@ import type { FeedbackStructured } from "./live-feedback";
  */
 
 export type DraftType = "bug" | "req";
-export type InboxKind = "feedback" | "exception" | "design";
+export type MockInboxKind = "feedback" | "exception" | "design";
 export type InboxStatus = "backlog" | "doing" | "done" | "archived";
 export type ProjectTemplate = "mobile" | "ui" | "wireframe";
 export type GithubState = "open" | "draft" | "merged" | "closed";
@@ -33,9 +33,9 @@ export interface ChatTurn {
   readonly text: string;
 }
 
-export interface InboxItem {
+export interface MockInboxItem {
   readonly id: string;
-  kind: InboxKind;
+  kind: MockInboxKind;
   type?: DraftType;
   code: string;
   title: string;
@@ -74,7 +74,7 @@ export interface Project {
 }
 
 export const TYPE_LABEL: Record<DraftType, string> = { bug: "缺陷", req: "需求" };
-export const KIND_LABEL: Record<InboxKind, string> = {
+export const KIND_LABEL: Record<MockInboxKind, string> = {
   feedback: "用户反馈",
   exception: "系统异常",
   design: "设计方案",
@@ -126,7 +126,7 @@ function tl(text: string, daysAgo: number): { at: string; text: string }[] {
   return [{ at: new Date(Date.now() - daysAgo * 86400000).toISOString(), text }];
 }
 
-function seedInbox(): InboxItem[] {
+function seedInbox(): MockInboxItem[] {
   return [
     // 反馈 · 缺陷
     {
@@ -248,7 +248,7 @@ function seedProjects(): Project[] {
 }
 
 interface StoreShape {
-  inbox: InboxItem[];
+  inbox: MockInboxItem[];
   projects: Project[];
 }
 
@@ -309,7 +309,7 @@ export function DesignLoopProvider({
   }, [state, persist]);
 
   const api = React.useMemo<DesignLoopApi>(() => {
-    const nextCode = (prefix: string, items: InboxItem[]) => {
+    const nextCode = (prefix: string, items: MockInboxItem[]) => {
       const nums = items
         .map((i) => i.code)
         .filter((c) => c.startsWith(`${prefix}-`))
@@ -318,7 +318,7 @@ export function DesignLoopProvider({
       return `${prefix}-${(nums.length ? Math.max(...nums) : 0) + 1}`;
     };
 
-    const inboxFromDirect = (input: { type: DraftType; title: string; body: string }, inbox: InboxItem[]): InboxItem => ({
+    const inboxFromDirect = (input: { type: DraftType; title: string; body: string }, inbox: MockInboxItem[]): MockInboxItem => ({
       id: rid("in"),
       kind: "feedback",
       type: input.type,
@@ -390,7 +390,7 @@ export function DesignLoopProvider({
           const project = s.projects.find((p) => p.id === id);
           if (!project) return s;
           code = nextCode("D", s.inbox);
-          const item: InboxItem = {
+          const item: MockInboxItem = {
             id: rid("in"), kind: "design", code, title: project.name,
             body: note && note.trim() ? note.trim() : project.problem,
             reporter: "PM · 设计工作台", time: nowIso(), votes: 0, status: "backlog",

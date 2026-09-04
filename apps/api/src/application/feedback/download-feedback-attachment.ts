@@ -1,14 +1,20 @@
 /**
- * `downloadFeedbackAttachment`（FB-5）—— 附件字节的下载路径，权限判法与正文
- * **完全一致**（D3：管理员 + 提交人）。图片不是标题/票数那类展示性上下文，
- * 是反馈正文的一部分——见契约 `FeedbackAttachment` 头注。
+ * `downloadFeedbackAttachment`（FB-5）—— 附件字节的下载路径。两条权限判法：
+ *
+ *   · 挂着 `feedbackId`：与反馈正文**完全一致**（D3：管理员 + 提交人）。图片不是
+ *     标题/票数那类展示性上下文，是反馈正文的一部分——见契约 `FeedbackAttachment` 头注。
+ *   · 挂着 `draftId`（UC-17.8 B1.7）：草稿没有 `acl_bindings` 行、不适用 D3，规则更窄
+ *     ——只有 owner 本人（连管理员也不行），判定见 `drafts/draft-attachment-decision.ts`。
+ *   · 两者都没有（未认领）：一律 404，理由不变，见下方注释。
  */
 import { discloseDecided, isDisclosed } from "../security/permission-filter";
 import type { OrgId } from "../../domain/org-id";
 import type { OrgRole } from "../../domain/identity/roles";
 import { decideFeedbackDetailVisibility } from "./feedback-detail-decision";
+import { decideFeedbackDraftAttachmentVisibility } from "./drafts/draft-attachment-decision";
 import type { FeedbackAttachmentRepository } from "./attachment-ports";
 import type { ProductFeedbackRepository } from "./ports";
+import type { FeedbackDraftRepositoryFactory } from "./draft-ports";
 import { FeedbackNotFoundError } from "./triage-feedback";
 
 export class FeedbackAttachmentNotFoundError extends Error {}
@@ -17,6 +23,7 @@ export class FeedbackAttachmentAccessDeniedError extends Error {}
 export interface DownloadFeedbackAttachmentDeps {
   readonly attachments: FeedbackAttachmentRepository;
   readonly feedback: ProductFeedbackRepository;
+  readonly drafts: FeedbackDraftRepositoryFactory;
   /** 每一次可见性判定都有自己的 id——同 `list-feedback.ts` 的既有纪律（R10 ④）。 */
   readonly newDecisionId: () => string;
 }
@@ -39,13 +46,31 @@ export async function downloadFeedbackAttachment(
   input: DownloadFeedbackAttachmentInput,
 ): Promise<DownloadFeedbackAttachmentResult> {
   const attachment = await deps.attachments.findById(input.orgId, input.attachmentId);
-  // ⚠ 未认领（`feedbackId === null`，还在提交人自己的上传窗口里）也一律 404——
-  //   这条路由服务的是"看一条已存在反馈的附件"，未认领的字节没有反馈可供判权限，
-  //   把它当"不存在"处理比额外发明一条"上传者本人可看未认领附件"的分支更少代码、
-  //   也更安全（没人需要在提交之前就能通过这条路由把字节读回来）。`objectKey === null`
-  //   与 `feedbackId === null` 恒等价（见 `attachment-ports.ts` 头注），这里两者都判
-  //   只是让类型收窄，不是多一条独立分支。
-  if (attachment === null || attachment.feedbackId === null || attachment.objectKey === null) {
+  if (attachment === null || attachment.objectKey === null) {
+    throw new FeedbackAttachmentNotFoundError();
+  }
+
+  // 挂着 `draftId`（尚未提交）：B1.7，只有 owner 本人。草稿没有 `acl_bindings` 行、
+  // 不适用 D3，判定见 `drafts/draft-attachment-decision.ts`。
+  if (attachment.feedbackId === null && attachment.draftId !== null) {
+    const draft = await deps.drafts.forOrg(input.orgId).get(attachment.draftId, input.viewerId);
+    // 不存在**或不是 viewer 的草稿** ⇒ 404（同 `DRAFT_NOT_FOUND` 纪律，不泄露存在性）。
+    if (draft === null) throw new FeedbackAttachmentNotFoundError();
+    const decision = decideFeedbackDraftAttachmentVisibility({
+      decisionId: deps.newDecisionId(),
+      viewerId: input.viewerId,
+      viewerOrgRole: input.viewerOrgRole,
+      viewerTeamId: input.viewerTeamId,
+      draftOwnerId: draft.ownerId,
+    });
+    const outcome = discloseDecided(attachment.objectKey, decision);
+    if (!isDisclosed(outcome)) throw new FeedbackAttachmentAccessDeniedError();
+    return { objectKey: outcome.payload, contentType: attachment.contentType };
+  }
+
+  // 两者都没有（还在提交人自己的上传窗口里，尚未认领到反馈或草稿）：一律 404——
+  //   没人需要在提交之前就能通过这条路由把字节读回来。
+  if (attachment.feedbackId === null) {
     throw new FeedbackAttachmentNotFoundError();
   }
 
