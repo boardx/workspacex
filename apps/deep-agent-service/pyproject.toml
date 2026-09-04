@@ -10,6 +10,10 @@ dependencies = [
   "langgraph-checkpoint-postgres>=2.0.0",
   "psycopg[binary,pool]>=3.2.0",
   "jsonschema>=4.23.0",
+  # issue #2664 -- `spawn_async_task` 直接 `import httpx` 回调 TS 侧队列端点。已经作为
+  # langgraph-api 等的传递依赖存在于 uv.lock（见下面 otel 三行同一条纪律的原话：
+  # 我们的代码直接 import 它，不能只靠别人的传递依赖碰巧把它带进来）。
+  "httpx>=0.28,<0.29",
   # D10④（deepagent-capability-rubric.md）：本地 OTel 导出，见 tracing.py 模块注释。
   # 已在 uv.lock 里作为 langgraph-api 的传递依赖存在（`langsmith[otel]` 拉的），
   # 这里把它提成直接依赖——我们的代码直接 import 这三个包，不能只靠别人的传递依赖

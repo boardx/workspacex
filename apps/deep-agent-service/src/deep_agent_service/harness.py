@@ -706,21 +706,19 @@ def build_interrupt_on() -> dict[str, bool] | None:
 
 
 def build_subagents(model: BaseChatModel) -> list[dict] | None:
-    """DA-05（#1838，rubric D5 子代理委托）：具名研究子代理，让 task 工具有真实用途。
+    """DA-05（#1838，rubric D5 子代理委托）：具名子代理清单，让 task 工具有真实用途。
 
     基线实测（2026-08-23）：SubAgentMiddleware 是 create_deep_agent 默认自带的，
     task 工具一直存在，但可用类型只有内建 general-purpose——「task 工具守着空气」，
-    D5 = 0.3。本函数注册一个具名 `org-skill-researcher`：调研组织技能库并汇总，
-    system_prompt 指示它先用 list_org_skills 探查、再汇总；tools 复用主图同一套
-    org skills 工具（build_tools(model) 里的 `list_org_skills`/`call_skill` 两个，
-    见下方按名字过滤），model 显式钉为主模型——不吃「继承主 agent 模型」的库默认，
-    升级时默认继承策略漂移不得悄悄改变子代理用哪个模型。
+    D5 = 0.3。本函数注册若干具名子代理：model 显式钉为主模型——不吃「继承主 agent
+    模型」的库默认，升级时默认继承策略漂移不得悄悄改变子代理用哪个模型。
 
     ⚠（#2252）`build_tools(model)` 现在还返回三个具名 HITL 虚拟工具
-    （`confirm_task_intent`/`fill_run_params`/`choose_execution_option`）——那三个是
-    面向主对话、需要人在环裁决的中断点语义，不是"调研组织技能库"这个子代理该有的
-    能力，所以这里按名字显式挑选，不是把 `build_tools()` 的返回值整体转发。新增/
-    改名工具名单需要跟着改这里的过滤集合，不会因为忘记而静默混进子代理。
+    （`confirm_task_intent`/`fill_run_params`/`choose_execution_option`）以及
+    `spawn_async_task`（#2664，灰度关闭时不出现，见 `build_tools` 自己的注释）——
+    那几个不是子代理该有的能力，所以每个子代理都按名字显式挑选自己要用的工具，不是
+    把 `build_tools()` 的返回值整体转发。新增/改名工具名单需要跟着改这里的过滤集合，
+    不会因为忘记而静默混进子代理。
 
     deepagents 0.7.6 实测契约（inspect，不是猜的）：
     - SubAgent 是 TypedDict：必填 name/description/system_prompt（⚠ 是
@@ -728,17 +726,29 @@ def build_subagents(model: BaseChatModel) -> list[dict] | None:
     - 主模型触发委托的 task 工具参数形状：{"description": str, "subagent_type": str}，
       subagent_type 取 SubAgent["name"]。
 
-    灰度（S1=B 纪律）：`DEEP_AGENT_SUBAGENTS_ENABLED=1` 才启用。默认未设 → 返回
-    None → create_deep_agent 收到 None 与参数默认值逐字一致，行为与之前完全相同。
+    ## #2664：从「1 个具名子代理」扩到「至少 3 个」
+
+    `task` 工具是**同步**委托——主 agent 循环阻塞等这里注册的子代理跑完才拿到结果，
+    与同一个 issue 新增的 `spawn_async_task`（**异步**派发进 TS 侧队列，不阻塞主对话，
+    见 `tools.py` 该函数的文档）是两种不同的委托方式，本函数只管前者，不与后者合并。
+    新增 `research`（通用调研，不局限于组织技能库）与 `generic`（无特定领域倾向的
+    通用任务执行）两类，与既有 `org-skill-researcher` 并列——`org-skill-researcher`
+    仍是原样保留的具名调研子代理（措辞与工具集不变），不是被这两个新类型取代。
+
+    灰度（S1=B 纪律）：`DEEP_AGENT_SUBAGENTS_ENABLED=1` 才启用，与之前逐字相同的
+    同一个开关——本次改动只扩展这个开关打开之后返回的清单内容，不新增第二个开关。
+    默认未设 → 返回 None → create_deep_agent 收到 None 与参数默认值逐字一致，行为
+    与之前完全相同。
     """
     if (os.environ.get("DEEP_AGENT_SUBAGENTS_ENABLED") or "").strip() != "1":
         return None
     # 延迟导入与 tools.py 的依赖，避免 harness 模块在无关路径上加载它。
     from deep_agent_service.tools import build_tools
 
+    all_tools = build_tools(model)
     # #2252：只挑选调研子代理该有的两个工具，显式按名字过滤——不整体转发
     # build_tools() 的返回值（见上方模块注释）。
-    org_skill_tools = [t for t in build_tools(model) if t.name in ("list_org_skills", "call_skill")]
+    org_skill_tools = [t for t in all_tools if t.name in ("list_org_skills", "call_skill")]
 
     return [
         {
@@ -756,7 +766,45 @@ def build_subagents(model: BaseChatModel) -> list[dict] | None:
             ),
             "tools": org_skill_tools,
             "model": model,
-        }
+        },
+        {
+            # #2664 -- 通用调研，不局限于组织技能库（与 org-skill-researcher 的分工
+            # 区别：这个不预设"调研对象是本组织的技能"，主 agent 判断某个子问题需要
+            # 独立、聚焦地查清楚再汇报结论时，可以委托给它，不必先假定跟技能库有关。
+            "name": "research",
+            "description": (
+                "针对一个具体问题做聚焦调研并给出结论：把要调研的问题想清楚、分解，"
+                "依据已有信息推理出站得住脚的结论，说明结论的依据与不确定之处。适合"
+                "「查清楚 X」「X 的现状/利弊是什么」这类需要独立展开、给出可直接使用"
+                "结论的子任务。"
+            ),
+            "system_prompt": (
+                "你是一名调研员。收到一个调研问题后，先把问题分解成几个需要确认的"
+                "子点，依据已有信息逐一给出有依据的判断，最后汇总成一段结构清楚的"
+                "结论：结论是什么、依据是什么、哪些地方还不确定。只汇报你能站得住脚"
+                "推理出的内容，不要编造你无法验证的具体事实。"
+            ),
+            "tools": [],
+            "model": model,
+        },
+        {
+            # #2664 -- 无特定领域倾向的通用任务执行子代理，兜底"不属于调研、也不特别
+            # 需要组织技能"的独立子任务——同一个 `task` 工具下三种类型分工不重叠：
+            # org-skill-researcher 管技能库，research 管调研结论，generic 管其余。
+            "name": "generic",
+            "description": (
+                "执行一个不需要特殊领域知识、可以独立完成的子任务：按给定的目标描述"
+                "把工作做完，给出可直接使用的结果。不确定该委托给 org-skill-researcher"
+                "还是 research 时，且任务本身不是调研类问题，用这个兜底类型。"
+            ),
+            "system_prompt": (
+                "你是一个通用任务执行者。收到任务描述后，按要求把工作做完，给出"
+                "一段可以直接使用的结果；任务描述里缺少的关键信息，在结果里明确"
+                "指出缺什么，不要替用户假设未说明的内容。"
+            ),
+            "tools": [],
+            "model": model,
+        },
     ]
 
 

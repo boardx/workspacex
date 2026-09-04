@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Mic, ImagePlus, FileText, PencilRuler } from "lucide-react";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
+import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
+import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
 import {
   FEEDBACK_ATTACHMENT_ACCEPT,
   FEEDBACK_ATTACHMENT_LIMIT,
@@ -29,6 +31,7 @@ import { FeedbackStructuredView, STRUCTURED_FIELDS } from "./feedback-structured
 import { useOptionalDesignLoop } from "@/lib/design-loop-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/files/overlay";
 import { cn } from "@/lib/utils";
 
 /** 附件上限与类型白名单都从契约来（UC-17.8 D3），本文件不写第二份。 */
@@ -165,16 +168,26 @@ export function FeedbackDialog({
   const pathname = usePathname();
   const router = useRouter();
   const [tab, setTab] = React.useState<"submit" | "mine">("submit");
+  /**
+   * issue #2679 ②——渐进式展示：一开始只有「详细说说」一个框 + 语音输入，不把
+   * 「这是什么／复现频率／期望结果／实际结果／复现步骤」等字段一次性摊开。用户写完
+   * 正文（或说完一段话）点「下一步」，AI 把这段话结构化成 kind/title/结构化字段
+   * （复用已有的 `structureFeedbackDraft`，与语音路径同一个用例），进入 `review`
+   * 阶段——这时候才展示这些字段，用户可以看着改，改完再真正提交。AI 结构化失败
+   * 也照样进 `review`（用 `deriveFeedbackTitle` 兜底当标题），不拿"整理失败"挡住
+   * "我要看到并填写这些字段"这个诉求——两件事不该互相卡住。
+   */
+  const [stage, setStage] = React.useState<"compose" | "review">("compose");
   const [kind, setKind] = React.useState<FeedbackKind>("缺陷");
   const [detail, setDetail] = React.useState("");
+  /** review 阶段可编辑的标题；compose 阶段还没有标题概念。 */
+  const [title, setTitle] = React.useState("");
   /** UC-17.8 D1 结构化补充字段，键 = 契约字段名（`STRUCTURED_FIELDS`）。 */
   const [fields, setFields] = React.useState<Record<string, string>>({});
   const designLoop = useOptionalDesignLoop();
   const [draftSaved, setDraftSaved] = React.useState(false);
   const [draftBusy, setDraftBusy] = React.useState(false);
   const [draftError, setDraftError] = React.useState<string | null>(null);
-  /** AI 整理给出的标题；用户随后改了正文就作废（回到从正文派生），见 `deriveFeedbackTitle`。 */
-  const [aiTitle, setAiTitle] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [justSubmitted, setJustSubmitted] = React.useState<string | null>(null);
@@ -198,14 +211,21 @@ export function FeedbackDialog({
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   /** 图片区域正被拖着东西悬停——只用来切一下描边样式，不影响能不能放（`addAttachments` 自己会截到上限）。 */
   const [dragOver, setDragOver] = React.useState(false);
+  /** issue #2679 ③——点开预览用：待提交附件的本地 blob URL，或「我提过的」列表里已加载出的 blob URL。 */
+  const [preview, setPreview] = React.useState<{ url: string; name: string } | null>(null);
 
   const appVersion = currentAppVersion();
   const detailInputRef = React.useRef<HTMLTextAreaElement>(null);
 
+  // issue #2679 ①——麦克风设备选择。复用 chat composer 同一套 hook（`wsx.micDeviceId`，
+  // 记的是全站唯一一份选择，不在这里另开一份），只在开始录音那一刻把 `deviceId` 交给
+  // `useAsrDraft`（同 chat composer 的既有边界：选择是纯 UI 状态，使用才触达采音层）。
+  const micDevices = useAudioInputDevices();
   const speech = useAsrDraft({
     getBaseText: () => detailRef.current,
     onTranscript: (fullText) => setDetail(fullText),
     sessionToken: getStoredSessionToken() ?? "",
+    deviceId: micDevices.selectedDeviceId ?? undefined,
   });
 
   // 录音真正结束（回到 idle，且此前确实录过）——这一刻才把整段转录交给
@@ -228,10 +248,10 @@ export function FeedbackDialog({
     structureFeedbackDraft(transcript)
       .then((draft) => {
         setKind(draft.kind);
-        setAiTitle(draft.title);
+        setTitle(draft.title);
         setDetail(draft.detail);
         // UC-17.8 B2.4：模型按 kind 拆出的结构化字段非 null 才填进对应输入框；null ⇒ 只填正文。
-        if (draft.structured !== null) {
+        if (draft.structured != null) {
           const filled: Record<string, string> = {};
           for (const [k, v] of Object.entries(draft.structured)) if (typeof v === "string") filled[k] = v;
           setFields(filled);
@@ -239,8 +259,14 @@ export function FeedbackDialog({
       })
       .catch((err) => {
         setStructureError(describeFailure(err));
+        // 整理失败也进 review：转录已经在「详细说说」里，标题退回派生规则，
+        // 用户自己能看到并填写各字段，不必被"AI 没整理成功"卡住。
+        setTitle(deriveFeedbackTitle(transcript));
       })
-      .finally(() => setStructuring(false));
+      .finally(() => {
+        setStructuring(false);
+        setStage("review");
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在录音状态的边沿触发，正文只在触发那一刻读一次快照（ref）。
   }, [speech.listening, speech.connecting, speech.stopping]);
 
@@ -328,7 +354,6 @@ export function FeedbackDialog({
       setDetail(merged);
       setTemplateNotice(null);
     }
-    setAiTitle(null);
     detailInputRef.current?.focus();
   }, [kind, detail]);
 
@@ -347,10 +372,9 @@ export function FeedbackDialog({
   }, [onClose]);
 
   const attachmentsUploading = attachments.some((a) => a.status === "uploading");
-  const title = aiTitle ?? deriveFeedbackTitle(detail);
   // detail.length 上限也在这里判——不只依赖 textarea 的 maxLength（那只挡键入/粘贴，
   // 挡不住 setDetail 之类的程序化写入，见 applyTemplate 头注），提交前有第二道闸。
-  const canSubmit = title !== "" && detail.trim() !== "" && detail.length <= DETAIL_MAX && !busy && !attachmentsUploading;
+  const canSubmit = title.trim() !== "" && detail.trim() !== "" && detail.length <= DETAIL_MAX && !busy && !attachmentsUploading;
 
   const uploadedAttachmentIds = () =>
     attachments
@@ -358,11 +382,44 @@ export function FeedbackDialog({
       .map((a) => a.attachmentId);
 
   const resetForm = () => {
-    setAiTitle(null);
+    setTitle("");
     setDetail("");
     setFields({});
+    setStage("compose");
     for (const a of attachments) if (a.previewUrl !== null) URL.revokeObjectURL(a.previewUrl);
     setAttachments([]);
+  };
+
+  /**
+   * issue #2679 ②——compose → review 的过渡。正文交给 `structureFeedbackDraft`
+   * 整理出 kind/title/结构化字段（打字路径与语音路径此前各走各的：语音有整理、
+   * 打字只在最终提交前顺手起个标题——这里让打字路径也在**进入 review 之前**整理，
+   * 用户才看得到"AI 猜的分类/字段对不对"，而不是一步submit到底看不见）。
+   * 整理失败不挡住"看到并编辑这些字段"这个诉求，退回 `deriveFeedbackTitle` 兜底、
+   * 照样进 review——同语音路径失败时的既有处置（见上方 useEffect）。
+   */
+  const proceedToReview = async () => {
+    const text = detail.trim();
+    if (text === "") return;
+    setStructuring(true);
+    setStructureError(null);
+    try {
+      const draft = await structureFeedbackDraft(text);
+      setKind(draft.kind);
+      setTitle(draft.title);
+      setDetail(draft.detail);
+      if (draft.structured != null) {
+        const filled: Record<string, string> = {};
+        for (const [k, v] of Object.entries(draft.structured)) if (typeof v === "string") filled[k] = v;
+        setFields(filled);
+      }
+    } catch (err) {
+      setStructureError(describeFailure(err));
+      setTitle(deriveFeedbackTitle(text));
+    } finally {
+      setStructuring(false);
+      setStage("review");
+    }
   };
 
   /**
@@ -403,23 +460,12 @@ export function FeedbackDialog({
     setBusy(true);
     setError(null);
     try {
-      // 打字提交时 `aiTitle` 恒为 null（只有语音路径的 `structureFeedbackDraft` 会填它，
-      // 见上方 `useEffect`）——这种情况下提交前也调一次同一个 AI 用例，让标题不再只是
-      // 正文第一句（`deriveFeedbackTitle`），而是真正总结过的一句话（issue #2638）。
-      // 只取返回的 `title`，不动 `kind`/`detail`：用户自己写的正文与选的分类不该被
-      // 这一步覆写——那是语音整理路径才做的事，打字路径只是"顺手起个标题"。
-      // AI 调用失败（超时/模型不可用）静默退回 `deriveFeedbackTitle` 的结果，不挡提交：
-      // 起标题是锦上添花，不是提交这个主动作的前提条件（同 `generate-thread-title.ts`
-      // 失败静默降级的既有纪律，而不是 `structureFeedbackDraft` 本身面向用户主动点击时
-      // 失败即报错的纪律——这里的失败不该让用户以为"提交"这个动作本身失败了）。
-      let finalTitle = title;
-      if (aiTitle === null) {
-        try {
-          finalTitle = (await structureFeedbackDraft(detail.trim())).title;
-        } catch {
-          // 保留 deriveFeedbackTitle 的结果——不设 error/structureError，见上方注释。
-        }
-      }
+      // issue #2679 ②：进 review 之前已经跑过一次 `structureFeedbackDraft`（打字走
+      // `proceedToReview`，语音走上方 `useEffect`），`title` 是那次结果（或其失败兜底
+      // `deriveFeedbackTitle`），用户在 review 阶段还可能手改过——这里直接用当下的
+      // `title` 状态，不再于提交时二次调用同一个 AI 用例（此前 issue #2638 加的那次
+      // "打字路径顺手起标题"已经被 review 阶段的整理覆盖，留着会多打一次不必要的请求）。
+      const finalTitle = title.trim();
       const attachmentIds = uploadedAttachmentIds();
       const structured = buildStructured(kind, fields);
       // ⚠ 没有附件 / 结构化字段全空时**不带这个键**（不是传 `undefined`）——同文件头「请求体
@@ -480,90 +526,130 @@ export function FeedbackDialog({
         </div>
 
         {tab === "submit" ? (
-          <div className="flex flex-col gap-3 overflow-y-auto p-4" data-testid="feedback-form">
-            <fieldset className="flex flex-col gap-1.5">
-              <legend className="text-11 font-medium text-muted-foreground">这是什么</legend>
-              <div className="flex gap-1.5">
-                {FEEDBACK_KINDS.map((k) => {
-                  const Icon = KIND_ICON[k];
-                  return (
-                    <button
-                      key={k}
-                      type="button"
-                      aria-pressed={kind === k}
-                      onClick={() => setKind(k)}
-                      data-testid={`feedback-kind-${k}`}
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-12 transition-colors",
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                        kind === k
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-card text-card-foreground hover:bg-muted",
-                      )}
-                    >
-                      <Icon aria-hidden className="h-3.5 w-3.5" />
-                      {k}
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
+          <div className="flex flex-col gap-3 overflow-y-auto p-4" data-testid="feedback-form" data-stage={stage}>
+            {/* issue #2679 ②——review 阶段才展示「这是什么」与结构化字段（复现频率/期望结果/
+                实际结果/复现步骤……）；compose 阶段只有正文框 + 语音，见文件顶部 `stage` 头注。 */}
+            {stage === "review" && (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-11 text-muted-foreground" data-testid="feedback-review-hint">
+                    AI 帮你整理好了下面这些，看看对不对，改完再提交。
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="shrink-0 text-11 text-muted-foreground"
+                    onClick={() => setStage("compose")}
+                    data-testid="feedback-back-to-compose"
+                  >
+                    ← 返回重新说
+                  </Button>
+                </div>
 
-            {/* UC-17.8 D1 结构化字段集：随类型切换，随 `structured` 单独发送；留空则不带键。 */}
-            <fieldset className="flex flex-col gap-2" data-testid={kind === "缺陷" ? "feedback-fields-bug" : "feedback-fields-req"}>
-              <legend className="text-11 font-medium text-muted-foreground">
-                {kind === "缺陷" ? "说清楚这个缺陷" : "说清楚这个需求"}
-              </legend>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {STRUCTURED_FIELDS[kind].map((f) => {
-                  const shared = {
-                    value: fields[f.key] ?? "",
-                    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-                      setFields((prev) => ({ ...prev, [f.key]: e.target.value }));
-                      setDraftSaved(false);
-                    },
-                    "data-testid": `feedback-field-${f.testid}`,
-                    className: "rounded-md border border-border-subtle bg-panel px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  };
-                  return (
-                    <label key={f.key} className={cn("flex flex-col gap-1 text-10 text-muted-foreground", f.multiline && "sm:col-span-3")}>
-                      {f.label}
-                      {f.multiline ? <textarea rows={3} {...shared} /> : <input {...shared} />}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
+                <fieldset className="flex flex-col gap-1.5">
+                  <legend className="text-11 font-medium text-muted-foreground">这是什么</legend>
+                  <div className="flex gap-1.5">
+                    {FEEDBACK_KINDS.map((k) => {
+                      const Icon = KIND_ICON[k];
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          aria-pressed={kind === k}
+                          onClick={() => setKind(k)}
+                          data-testid={`feedback-kind-${k}`}
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-12 transition-colors",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            kind === k
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border bg-card text-card-foreground hover:bg-muted",
+                          )}
+                        >
+                          <Icon aria-hidden className="h-3.5 w-3.5" />
+                          {k}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+
+                {/* issue #2679 ②——review 阶段才有的可编辑标题；契约 `title` 必填，
+                    此前一直是从正文派生、不给编辑入口，这里让用户能直接看到并改。 */}
+                <label className="flex flex-col gap-1 text-11 font-medium text-muted-foreground">
+                  标题 <span className="font-normal">（{title.length}/{TITLE_MAX}）</span>
+                  <input
+                    value={title}
+                    maxLength={TITLE_MAX}
+                    onChange={(e) => setTitle(e.target.value)}
+                    data-testid="feedback-title-input"
+                    className="rounded-md border border-border-subtle bg-panel px-2 py-1 text-13 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  />
+                </label>
+
+                {/* UC-17.8 D1 结构化字段集：随类型切换，随 `structured` 单独发送；留空则不带键。 */}
+                <fieldset className="flex flex-col gap-2" data-testid={kind === "缺陷" ? "feedback-fields-bug" : "feedback-fields-req"}>
+                  <legend className="text-11 font-medium text-muted-foreground">
+                    {kind === "缺陷" ? "说清楚这个缺陷" : "说清楚这个需求"}
+                  </legend>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {STRUCTURED_FIELDS[kind].map((f) => {
+                      const shared = {
+                        value: fields[f.key] ?? "",
+                        onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                          setFields((prev) => ({ ...prev, [f.key]: e.target.value }));
+                          setDraftSaved(false);
+                        },
+                        "data-testid": `feedback-field-${f.testid}`,
+                        className: "rounded-md border border-border-subtle bg-panel px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      };
+                      return (
+                        <label key={f.key} className={cn("flex flex-col gap-1 text-10 text-muted-foreground", f.multiline && "sm:col-span-3")}>
+                          {f.label}
+                          {f.multiline ? <textarea rows={3} {...shared} /> : <input {...shared} />}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              </>
+            )}
 
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between gap-2">
                 <label htmlFor="feedback-detail-input" className="text-11 font-medium text-muted-foreground">
                   详细说说 <span className="font-normal">（{detail.length}/{DETAIL_MAX}）</span>
                 </label>
-                {/* 按当前 kind 套用对应模板（复现步骤/期望结果/实际结果，或需求版）；已有内容不覆盖，追加在后面。 */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className="gap-1 text-11 text-muted-foreground"
-                  onClick={applyTemplate}
-                  data-testid="feedback-template-button"
-                >
-                  <FileText aria-hidden className="h-3 w-3" />
-                  套用模板
-                </Button>
+                {/* 按当前 kind 套用对应模板（复现步骤/期望结果/实际结果，或需求版）；已有内容不覆盖，追加在后面。
+                    compose 阶段还没有 kind/结构化字段的概念，模板按钮跟着挪到 review 阶段。 */}
+                {stage === "review" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    className="gap-1 text-11 text-muted-foreground"
+                    onClick={applyTemplate}
+                    data-testid="feedback-template-button"
+                  >
+                    <FileText aria-hidden className="h-3 w-3" />
+                    套用模板
+                  </Button>
+                )}
               </div>
               <textarea
                 id="feedback-detail-input"
                 ref={detailInputRef}
                 value={detail}
                 maxLength={DETAIL_MAX}
-                onChange={(e) => { setDetail(e.target.value); setAiTitle(null); setTemplateNotice(null); }}
-                rows={6}
+                onChange={(e) => { setDetail(e.target.value); setTemplateNotice(null); }}
+                rows={stage === "compose" ? 8 : 6}
                 placeholder={
-                  kind === "缺陷"
-                    ? "你当时在做什么、期望看到什么、实际看到什么。第一句会作为标题。"
-                    : "你想解决的是什么问题？现在是怎么绕过去的？第一句会作为标题。"
+                  stage === "compose"
+                    ? "说说是什么问题——什么都行，先写下来或说出来，下一步 AI 会帮你整理成标题、复现步骤这些字段。"
+                    : kind === "缺陷"
+                      ? "你当时在做什么、期望看到什么、实际看到什么。第一句会作为标题。"
+                      : "你想解决的是什么问题？现在是怎么绕过去的？第一句会作为标题。"
                 }
                 data-testid="feedback-detail-input"
                 className="resize-y rounded-md border border-border-subtle bg-panel p-2 text-13 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -573,7 +659,10 @@ export function FeedbackDialog({
               )}
             </div>
 
-            {/* FB-5——语音输入：与 chat composer 同一套（按钮 + 录音状态行），见上方 useAsrDraft 头注。 */}
+            {/* FB-5——语音输入：与 chat composer 同一套（按钮 + 录音状态行），见上方 useAsrDraft 头注。
+                issue #2679 ①——麦克风设备选择：录音未开始时，主按钮旁再放一个极简的设备选择器
+                （复用 chat composer 的 `MicDevicePicker`），不把设备选择塞进主按钮本身——
+                主按钮只做一件事（开始说话），设备是次要、偶尔才用的选项，分开放才叫「简化」。 */}
             <div className="flex flex-col gap-1.5">
               {speech.connecting || speech.listening || speech.stopping ? (
                 <VoiceRecordingBar
@@ -599,6 +688,12 @@ export function FeedbackDialog({
                     {structuring ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : <Mic aria-hidden className="h-3.5 w-3.5" />}
                     {structuring ? "AI 整理中…" : "说一段话，边说边转成文字，说完 AI 帮你整理"}
                   </Button>
+                  <MicDevicePicker
+                    devices={micDevices.devices}
+                    selectedDeviceId={micDevices.selectedDeviceId}
+                    disabled={structuring}
+                    onSelect={micDevices.select}
+                  />
                 </div>
               )}
               {speech.error !== null && (
@@ -611,6 +706,22 @@ export function FeedbackDialog({
               )}
             </div>
 
+            {stage === "compose" ? (
+              <div className="flex items-center justify-end">
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  disabled={detail.trim() === "" || structuring}
+                  onClick={() => void proceedToReview()}
+                  data-testid="feedback-proceed-review"
+                >
+                  {structuring && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
+                  下一步
+                </Button>
+              </div>
+            ) : (
+            <>
             {/* FB-5——附件。2026-09-02：这一轮**没有脱敏**（人类明确裁决先出功能），
                 见后端 `upload-feedback-attachment.ts` 头注——已知限制，不是遗漏。
                 2026-09-03：加拖拽上传——点按钮和拖拽是同一条 `addAttachments` 路径，
@@ -677,16 +788,27 @@ export function FeedbackDialog({
                     <li key={a.localId} className="flex w-16 flex-col items-center gap-0.5" data-testid={`feedback-attachment-${a.localId}`}>
                       <div className="relative h-16 w-16">
                         {a.previewUrl !== null ? (
-                          // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例）
-                          <img
-                            src={a.previewUrl}
-                            alt=""
-                            loading="lazy"
-                            className={cn(
-                              "h-16 w-16 rounded-md border border-border-subtle object-cover",
-                              a.status === "failed" && "opacity-40",
-                            )}
-                          />
+                          // issue #2679 ③——点开预览，不再是一张点不动的静态缩略图。
+                          // `type="button"` 包一层：缩略图本身也在承担「移除」按钮的定位上下文，
+                          // 点击区域与右上角的 X 分得开，不会互相抢事件。
+                          <button
+                            type="button"
+                            className="block h-16 w-16 overflow-hidden rounded-md"
+                            onClick={() => setPreview({ url: a.previewUrl!, name: a.file.name })}
+                            aria-label={`预览 ${a.file.name}`}
+                            data-testid={`feedback-attachment-open-${a.localId}`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例） */}
+                            <img
+                              src={a.previewUrl}
+                              alt=""
+                              loading="lazy"
+                              className={cn(
+                                "h-16 w-16 border border-border-subtle object-cover",
+                                a.status === "failed" && "opacity-40",
+                              )}
+                            />
+                          </button>
                         ) : (
                           // PDF / 文本没有 blob 预览：文件类型图标 + 文件名（UC-17.8 D3）。
                           <div
@@ -804,11 +926,32 @@ export function FeedbackDialog({
                 </Button>
               </div>
             </div>
+            </>
+            )}
           </div>
         ) : (
           <MyFeedbackList highlightId={justSubmitted} />
         )}
       </div>
+      {/* issue #2679 ③——点开待提交附件的预览；本地 blob URL 已经在浏览器里，不需要再发请求。 */}
+      {preview !== null && (
+        <Modal
+          testid="feedback-attachment-preview"
+          title={preview.name}
+          onClose={() => setPreview(null)}
+          width="lg"
+        >
+          <div className="grid min-h-[240px] place-items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图 */}
+            <img
+              src={preview.url}
+              alt={preview.name}
+              className="max-h-[60vh] max-w-full rounded-md object-contain"
+              data-testid="feedback-attachment-preview-image"
+            />
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -967,6 +1110,9 @@ function AttachmentThumbnail({ url }: { url: string }) {
   const [objectUrl, setObjectUrl] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [inView, setInView] = React.useState(false);
+  // issue #2679 ③——点开预览，用的是同一份已经在骨架屏加载完的 objectUrl，
+  // 点开不再多发一次请求（既有 `useAuthedImageSrc` 那套惯例：一份字节，多处复用）。
+  const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -1020,8 +1166,26 @@ function AttachmentThumbnail({ url }: { url: string }) {
       ) : objectUrl === null ? (
         <div className="h-9 w-9 animate-pulse rounded-md bg-muted" aria-hidden />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例）
-        <img src={objectUrl} alt="" loading="lazy" className="h-9 w-9 rounded-md border border-border-subtle object-cover" />
+        <>
+          <button
+            type="button"
+            className="block h-9 w-9 overflow-hidden rounded-md border border-border-subtle"
+            onClick={() => setOpen(true)}
+            aria-label="预览附件"
+            data-testid="feedback-mine-attachment-open"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例） */}
+            <img src={objectUrl} alt="" loading="lazy" className="h-9 w-9 object-cover" />
+          </button>
+          {open && (
+            <Modal testid="feedback-mine-attachment-preview" title="附件预览" onClose={() => setOpen(false)} width="lg">
+              <div className="grid min-h-[240px] place-items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图 */}
+                <img src={objectUrl} alt="" className="max-h-[60vh] max-w-full rounded-md object-contain" data-testid="feedback-mine-attachment-preview-image" />
+              </div>
+            </Modal>
+          )}
+        </>
       )}
     </div>
   );

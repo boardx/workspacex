@@ -235,7 +235,11 @@ function statusChangeEmail(input: {
   readonly status: FeedbackStatus;
   readonly reason: string | null;
 }): { readonly subject: string; readonly text: string } {
-  const subject = `你的反馈状态已更新为「${input.status}」`;
+  // ⚠ 2026-09-04 #2682:此前 subject 里只有状态、没有标题——收信人在邮件列表/通知里
+  //   只看得到「你的反馈状态已更新为『已修复』」，同时提交过多条反馈时完全分不清
+  //   说的是哪一条,要点开正文才知道。标题是用户当初自己填的、最直观的识别信息,
+  //   拼进 subject 里让收件箱一栏就能认出来,不必逐封点开对照。
+  const subject = `你的反馈《${input.title}》状态已更新为「${input.status}」`;
   const lines = [
     `你提交的反馈《${input.title}》状态已更新为「${input.status}」。`,
     input.reason !== null ? `处理说明:${input.reason}` : null,
