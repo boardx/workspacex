@@ -69,15 +69,15 @@ describe("IconRail：左上角组织菜单 + 个人菜单", () => {
     expect(onSwitch).toHaveBeenCalledTimes(1);
   });
 
-  it("组织菜单 Escape 关闭；图标栏触发器是 9 宫格图标（不是组织名首字回落）", () => {
+  it("组织菜单 Escape 关闭；图标栏触发器无头像时回落组织名首字（不是宫格图标）", () => {
     renderRail();
     const trigger = screen.getByTestId("org-switcher");
-    // 2026-09-03 人类直接指令（对照设计参照图）——`IconRail` 传
-    // `triggerVariant="grid"`，触发器渲染 9 宫格图标而不是文字回落，
-    // 首字回落（`org-menu-avatar-identity.test.tsx` 已覆盖）只在其余
-    // 未传该 prop 的调用点（如移动端顶栏实例）上仍然成立。
-    expect(trigger.textContent).toBe("");
-    expect(trigger.querySelector("svg")).toBeTruthy();
+    // issue 2636 号（2026-09-04 用户直接反馈）否掉了 2026-09-03 那版「强制宫格图标」
+    // 设计——回到组织头像/首字这一唯一视觉，宫格图标不管组织有没有头像都画同一个
+    // 符号，用户看不出「这是哪个组织」。这里的 mock identity 无头像（`org-yuanyang`），
+    // 应回落组织名首字「远」。
+    expect(trigger.textContent).toBe("远");
+    expect(trigger.querySelector("svg")).toBeNull();
     fireEvent.pointerDown(trigger, { button: 0 });
     expect(screen.getByTestId("org-menu")).toBeTruthy();
     fireEvent.keyDown(document, { key: "Escape" });

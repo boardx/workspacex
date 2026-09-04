@@ -42,14 +42,12 @@ export function IconRail({
       className="flex h-full min-h-0 w-rail min-w-rail shrink-0 flex-col items-center gap-1 overflow-hidden border-r border-border bg-rail py-3.5"
     >
       {/*
-        2026-09-03 第二轮人类直接指令（对照新一份设计参照图，推翻同一天早些时候的
-        「衬线体 W 字标」方案）：图标栏最上方改成黑底 9 宫格图标，而不是文字字标 +
-        组织头像两件东西并存。字标方案的历史见 git blame（`OrgMenu` 的
-        `triggerVariant` 头注）——这里不再堆第二段历史注释，两轮裁决的完整推导
-        留在各自改动点的提交记录里，机械可查，不需要在这个文件里重复第三遍。
-        `OrgMenu` 加了 `triggerVariant="grid"`，视觉换成 9 宫格，点击行为不变
-        （仍是组织菜单，不是新入口）——那段 2026-08-11「组织头像放在左上角」的
-        信息架构裁决本身没有被推翻，只是触发器的视觉从「头像/首字」换成「宫格」。
+        2026-09-03 一度改成黑底 9 宫格图标（推翻同一天早些时候的「衬线体 W 字标」
+        方案），2026-09-04 又被用户直接反馈（issue 2636 号：左上角组织头像显示错误）
+        否掉——宫格图标不管组织有没有真实头像都画同一个符号，用户看不出「这是哪个
+        组织」。三轮裁决的完整推导留在各自改动点的提交记录里，机械可查，这里不重复。
+        现在回到 2026-08-11 最初那版信息架构裁决：`OrgMenu` 不传 `triggerVariant`，
+        走它唯一的视觉——组织头像图 / 拿不到头像时回落组织名首字。
       */}
       {/*
         短视口策略（2026-09-02 人类直接反馈：窗口高度不够时菜单被挤出、左下角头像看不见）：
@@ -70,7 +68,6 @@ export function IconRail({
           onSelect={onSwitchOrganization}
           switching={switching}
           placement="right"
-          triggerVariant="grid"
         />
       </div>
 
