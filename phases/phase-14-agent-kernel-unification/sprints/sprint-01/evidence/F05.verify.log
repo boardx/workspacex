@@ -1,0 +1,54 @@
+$ pnpm --filter api exec vitest run tests/agent-run/message-multi-run.test.ts
+[exit 0]
+
+
+ RUN  v2.1.9 /home/user/workspacex/apps/api
+
+[db-isolation] db=workspacex capacity=100 current=7 required=32
+ ✓ tests/agent-run/message-multi-run.test.ts (8 tests) 835ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  21:54:08
+   Duration  1.94s (transform 575ms, setup 0ms, collect 764ms, tests 835ms, environment 0ms, prepare 39ms)
+
+[db-isolation] db=workspacex peak_connections=4
+
+[NOTE — 沙箱环境限制，如实记录，非验证脚本自动生成]
+本会话（remote execution 环境）Docker daemon 无法启动（`service docker start` 报
+`ulimit: error setting limit (Operation not permitted)`，非组织出网策略拦截，是
+容器运行时本身不允许起 dockerd），与 F01 session-handoff 记录的 403 出网拦截是
+两种不同的具体原因，但结果相同：`tests/support/db.ts` 的 `ensureDatabase()` 硬依赖
+`docker compose exec postgres pg_isready`，本会话没有 docker 就绕不开。
+
+替代路径（未修改任何共享测试基建 db.ts/docker-compose.dev.yml；仅在本会话本地
+环境搭了一个不进仓库、不提交的 `/usr/local/bin/docker` shim，把 db.ts 发出的两种
+docker compose 调用形状（`up -d postgres` / `exec -T postgres pg_isready|psql`）
+转发到本机 apt 装的原生 postgresql-16 + pgvector 扩展，端口/角色/密码与
+docker-compose.dev.yml 声明的完全一致）：
+  1. 上面这条 `pnpm --filter api exec vitest run tests/agent-run/message-multi-run.test.ts`
+     确实针对真实 Postgres（含 RLS、真实迁移、真实触发器/约束）跑通，8/8 通过，
+     非 mock 仓储层。
+  2. 额外跑过 `tests/agent-runtime/no-tool-run-writeback.test.ts`
+     （含 #519 的 `agent_runs` UNIQUE(org_id,input_message_id) 存在性钉子）、
+     `tests/agent-runtime/reclaim-stale-running.test.ts`、
+     `tests/kernel/agent-runs-status-transition-trigger.test.ts`、
+     `tests/skill/message-rating-attribution-server-derived.test.ts`、
+     `tests/chat/agent-run-context-snapshot-repo-guard.test.ts`：70/70 通过，
+     确认本次迁移/改动没有回归既有约束。
+  3. `pnpm exec tsx apps/api/scripts/migrate-check.ts`（对空库重放全部 192 条迁移 +
+     force 重放，schema digest 一致）：通过。
+  4. `pnpm exec tsc --noEmit -p apps/api`：无新增类型错误（过滤 baseline 既有的
+     `packages/fabric-markdown` DOM 类型噪音）。
+  5. `apps/api` 全部 7 条 `pnpm run lint` 子脚本（含新增的
+     `lint-permission-paths.mjs` allowlist 条目）：全绿。
+
+本会话**没有**跑 `pnpm harness verify --sprint 14/01 --feature F05`——它在
+feature 命令全过之后，因本次改动命中 `apps/migrations/**`（high_risk_paths）会
+自动升级到 `pnpm -w run verify:release`（全仓 typecheck+lint+test，含依赖真实
+minio/redis/浏览器 e2e 的套件），这些同样需要本会话不具备的 docker。跑一次
+`pnpm harness verify` 会因为这一层基础设施缺口而卡在与本 feature 无关的地方，
+不代表 F05 自身有问题——同 F01 session-handoff 记录的处置方式一致：留给下一个
+有完整 docker 出网的环境（本仓 CI 的 verify-affected runner，或另一个 remote
+session）重跑 `pnpm harness verify --sprint 14/01 --feature F05` 完成机械门控，
+不手改 `feature_list.json` 的 status。
