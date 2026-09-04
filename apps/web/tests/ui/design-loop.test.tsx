@@ -32,7 +32,7 @@ import { DesignLoopInboxScreen } from "@/components/design-loop/inbox-screen";
 import { DesignLoopProvider, useDesignLoop, type Project } from "@/lib/design-loop-store";
 import type { InboxItem } from "@/lib/live-inbox";
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 function wrap() {
   return ({ children }: { children: React.ReactNode }) => <DesignLoopProvider seed={{}}>{children}</DesignLoopProvider>;
@@ -43,8 +43,12 @@ const callsTo = (path: string, method = "GET") =>
   (apiRequest.mock.calls as Call[]).filter(([p, o]) => p === path && (o?.method ?? "GET") === method);
 
 describe("① 快速反馈：字段集随类型切换", () => {
-  it("缺陷显示缺陷字段集，切到需求显示需求字段集", () => {
+  it("缺陷显示缺陷字段集，切到需求显示需求字段集", async () => {
     render(<FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={() => undefined} />);
+    // issue #2679 ②——结构化字段现在只在 review 阶段展示，先写点正文进 review。
+    fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "占位" } });
+    fireEvent.click(screen.getByTestId("feedback-proceed-review"));
+    await screen.findByTestId("feedback-fields-bug");
     expect(screen.getByTestId("feedback-fields-bug")).toBeTruthy();
     expect(screen.queryByTestId("feedback-fields-req")).toBeNull();
     expect(screen.getByTestId("feedback-field-actual")).toBeTruthy();
@@ -57,7 +61,7 @@ describe("① 快速反馈：字段集随类型切换", () => {
 });
 
 describe("② 附件到 5 个后上传入口隐藏", () => {
-  it("attachments 达到上限时不再渲染「加文件」入口，而是提示已满", () => {
+  it("attachments 达到上限时不再渲染「加文件」入口，而是提示已满", async () => {
     const createObjectURL = vi.fn(() => "blob:x");
     Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
     const fetchMock = vi.fn().mockResolvedValue({
@@ -66,6 +70,10 @@ describe("② 附件到 5 个后上传入口隐藏", () => {
     vi.stubGlobal("fetch", fetchMock);
     try {
       render(<FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={() => undefined} />);
+      // issue #2679 ②——附件区在 review 阶段才存在，先进 review。
+      fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: "占位" } });
+      fireEvent.click(screen.getByTestId("feedback-proceed-review"));
+      await screen.findByTestId("feedback-attachment-input");
       const files = Array.from({ length: 5 }, (_, i) => new File([new Uint8Array([1])], `f${i}.png`, { type: "image/png" }));
       fireEvent.change(screen.getByTestId("feedback-attachment-input"), { target: { files } });
       expect(screen.queryByTestId("feedback-attachment-add")).toBeNull();
