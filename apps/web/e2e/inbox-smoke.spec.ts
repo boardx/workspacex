@@ -70,6 +70,9 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
   });
 
   test("② 看板拖拽换状态触发真实 API 迁移，刷新后仍是新状态", async ({ page }) => {
+    // 见 feedback-drafts-smoke.spec.ts 同一处注释：共享单进程 dev server 下 CI 实测的
+    // 点击超时，放宽整条用例的超时（同 feedback-loop-smoke.spec.ts ③④ 先例）。
+    test.setTimeout(90_000);
     const title = `E2E收件箱拖拽_批注同步慢_${STAMP}`;
     // 用第一条用例的账号先真实提交一条反馈作为拖拽对象（不依赖用例①的跳转是否生效——
     // 这里显式手动导航到收件箱，两条用例互不依赖对方的断言成立与否）。
@@ -122,6 +125,9 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
   });
 
   test("③ 转「不做」需要理由：不填不让确认，填了才能确认，理由随状态一起可见", async ({ page }) => {
+    // 见 feedback-drafts-smoke.spec.ts 同一处注释：共享单进程 dev server 下 CI 实测的
+    // 点击超时，放宽整条用例的超时（同 feedback-loop-smoke.spec.ts ③④ 先例）。
+    test.setTimeout(90_000);
     const title = `E2E收件箱不做_想要暗色主题切换_${STAMP}`;
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
     await page.getByTestId("rail-feedback").click();

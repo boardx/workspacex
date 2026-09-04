@@ -58,6 +58,12 @@ test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
   test.describe.configure({ mode: "serial" });
 
   test("① 非管理员：存草稿 → 草稿列表可见 → 继续完善（首次自动追加澄清问题）→ 追加对话 → 提交 → 从列表消失、导航到收件箱后如实显示「仅平台运营可见」", async ({ page }) => {
+    // 三轮 CI 实测：点 feedback-kind-* 偶发卡在 30s 默认测试超时里——不是元素不存在
+    // （等 feedback-dialog-title 落定文本之后才点），是 fullstack-smoke 共享单进程
+    // Next dev server，另一个 worker 在跑重负载用例时事件循环被挤占。放宽整条用例的
+    // 超时（同 feedback-loop-smoke.spec.ts ③④ 用例先例），不是给单次动作加超时——
+    // 后者会被测试自身的默认 30s 总超时先掐断，纯属无效。
+    test.setTimeout(90_000);
     await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
 
     /* ── 存草稿：图标栏「反馈」入口，填正文，点「存为草稿」 ── */
