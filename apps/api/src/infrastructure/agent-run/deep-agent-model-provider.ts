@@ -440,16 +440,17 @@ export class DeepAgentModelProvider implements ModelCallPort {
    * 二元判断就能决定要不要继续下发（同 `checkKernelHealth` 自己 UC-3 的契约：
    * 探测本身不失败，只报告状态，见 `kernel-gateway.ts` 的 `err: 无`）。
    *
-   * ⚠ 验证边界（同本文件其余 `⚠` 标注的假设一致）：探测路径按 LangGraph Platform
-   * 的标准健康检查约定（`GET /ok`）实现，真实 `langgraph dev`/Platform 部署上的行为
-   * 未经真实联调验证——`startRun` 本身已经是 fail-closed 的下一道门，探测判断错误
-   * 的唯一后果是多一次可避免的转发尝试，不会让一个真正健康的内核被误判为不可用
-   * 之外的更坏结果。
+   * `/healthz`, not LangGraph Platform's own `/ok`: this codebase's own convention
+   * (`health.controller.ts`'s `@Get("/healthz")`, and both loopback stand-ins for this
+   * exact service -- `loopback-deep-agent-provider.ts`/`loopback-model-provider.ts` --
+   * implement `GET /healthz`, not `/ok`). Real `apps/deep-agent-service` deployments are
+   * expected to expose the same path this project already standardized on elsewhere,
+   * not LangGraph's own convention.
    */
   async checkKernelHealth(): Promise<KG.KernelHealthStatus> {
     if (this.config.baseUrl === "") return "unavailable";
     try {
-      const response = await fetch(`${this.config.baseUrl}/ok`, { method: "GET" });
+      const response = await fetch(`${this.config.baseUrl}/healthz`, { method: "GET" });
       return response.ok ? "healthy" : "unavailable";
     } catch {
       return "unavailable";
