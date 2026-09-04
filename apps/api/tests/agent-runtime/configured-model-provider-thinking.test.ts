@@ -18,6 +18,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { ConfiguredModelProvider } from "../../src/infrastructure/agent-run/configured-model-provider";
+import { ModelCallError } from "../../src/application/agent-run/ports";
 
 const PROVIDER = "i2504-loopback";
 const API_KEY = "sk-i2504-secret-do-not-echo";
@@ -97,5 +98,27 @@ describe("#2504 ConfiguredModelProvider 对已知混合思考 modelId 关闭非�
     expect(lastBody).not.toBeNull();
     expect(lastBody?.stream).toBe(true);
     expect(lastBody).not.toHaveProperty("enable_thinking");
+  });
+
+  it("跨 provider 的调用在到达 postCompletions 之前就被拒绝——同一 modelId 字符串不能跨部署的 provider 身份泄漏 enable_thinking", async () => {
+    // 复核诊断（PR #2640 独立复审）问的是：如果另一个部署配的 provider 不是这个
+    // ConfiguredModelProvider 实例配置的那个（例如它自己的 provider 叫
+    // "some-other-openai-compatible-vendor"），但调用时恰好也传了同一个允许集合里的
+    // modelId 字符串（例如 "qwen3.7-plus" 这个名字被别的厂商复用），会不会也发出
+    // enable_thinking？答案是不会——`complete()`/`completeStream()` 在触碰网络之前就先
+    // 校验 `input.modelProvider === this.config.provider`，不匹配直接
+    // `MODEL_PROVIDER_NOT_CONFIGURED`，`postCompletions`（连同它的 thinking 门控）根本
+    // 不会被调用。`lastBody` 保持 `null` 是最强的证据：不是"发了但没带这个字段"，是
+    // "压根没有发出任何 HTTP 请求"。
+    const p = provider(false, new Set([ALLOWED_MODEL_ID]));
+
+    await expect(p.complete({
+      modelProvider: "some-other-openai-compatible-vendor",
+      modelId: ALLOWED_MODEL_ID,
+      system: "s",
+      user: "u",
+    })).rejects.toMatchObject({ code: "MODEL_PROVIDER_NOT_CONFIGURED" } satisfies Partial<ModelCallError>);
+
+    expect(lastBody).toBeNull();
   });
 });
