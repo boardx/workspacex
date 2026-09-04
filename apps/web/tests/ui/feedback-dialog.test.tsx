@@ -38,7 +38,7 @@ import { FeedbackButton } from "@/components/feedback/feedback-button";
 import type { FeedbackTarget } from "@/lib/live-feedback";
 import type { AsrDraftStreamHandlers } from "@/lib/live-asr-draft";
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 function openDialogFor(target: FeedbackTarget, label: string | null = null) {
   render(

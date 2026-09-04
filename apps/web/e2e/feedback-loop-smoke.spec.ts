@@ -90,15 +90,19 @@ async function submitOpenFeedback(
   opts: { kind: "缺陷" | "需求"; title: string; detail: string },
 ): Promise<void> {
   await expect(page.getByTestId("feedback-form")).toBeVisible();
-  await page.getByTestId(`feedback-kind-${opts.kind}`).click();
+  // issue #2679 ②——表单现在是两段式：compose（只有「详细说说」+ 语音）→ 点「下一步」
+  // 交给 AI 整理 → review（这时才有 kind/标题/结构化字段/提交按钮）。这个 e2e 环境
+  // 没有配置真实模型，AI 整理稳定 503、被前端静默吞掉、退回按正文首句派生标题，
+  // 不影响进入 review、也不影响后续提交。
   // 2026-09-02 起表单只有「详细说说」，标题取正文第一句（到第一个句号）——把标题写成
   // 第一句、后面跟原正文，后台列表/「我提过的」里看到的标题就是 `opts.title`。
   await page.getByTestId("feedback-detail-input").fill(`${opts.title}。${opts.detail}`);
+  await page.getByTestId("feedback-proceed-review").click();
+  await expect(page.getByTestId("feedback-submit")).toBeVisible();
+  await page.getByTestId(`feedback-kind-${opts.kind}`).click();
 
-  // ⚠ 2026-09-04（issue #2638）起，打字提交前会先打一次 `${API}/feedback/structure-draft`
-  //   起 AI 标题（这个 e2e 环境没有配置真实模型，该调用稳定 503，被前端静默吞掉、
-  //   退回正文首句，不影响提交本身）——`.includes(`${API}/feedback`)` 对它也会匹配，
-  //   于是 `waitForResponse` 可能先抓到这个 503 当成"提交的响应"。改成 `endsWith`
+  // ⚠ `.includes(`${API}/feedback`)` 也会匹配 `/feedback/structure-draft`，于是
+  //   `waitForResponse` 可能先抓到那个 503 当成"提交的响应"。改成 `endsWith`
   //   精确匹配真正的提交端点，`/vote`、`/structure-draft` 都不以 `/feedback` 结尾。
   const submitted = page.waitForResponse(
     (r) => r.request().method() === "POST" && r.url().endsWith(`${API}/feedback`),
