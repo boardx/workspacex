@@ -23,6 +23,15 @@ import { inflateSync } from "node:zlib";
  * 对不上，之前那种"文件名说 48x48、实际只有 16x16"的错法在自身内部也能重现）——现在直接
  * 复用同一个 PNG 解码器解开每一帧，并把 16/32 两帧的原始字节与独立的
  * favicon-16x16.png / favicon-32x32.png 做逐字节比对（两者理应是同一份数据）。
+ *
+ * 2026-09-04 三次加固（第三轮 review 抓到的假阳性）：`readIcoFrames`/`decodePngRGBA`
+ * 之前只解析"看起来对"的字段，没有校验结构本身——把某帧的 `size` 改成远超文件长度、
+ * 把 PNG 签名 8 字节里的后 4 字节改坏，测试依然 7/7 全绿：`Buffer.subarray` 越界会
+ * 静默截断而不报错，签名校验只看了前 4 字节（`0x89504e47`，PNG/JFIF 等好几种格式
+ * 前 4 字节都可能长这样）。现在两个解析器都校验完整结构（ICO reserved/type、目录项
+ * offset/size 越界、帧间不重叠；PNG 完整 8 字节签名 + IHDR 长度）,解析不出来就抛错而
+ * 不是返回一个看似合理的空/半截结果——并补了两个反例用例，证明篡改后的资产确实会
+ * 让测试失败（而不是被静默放过）。
  */
 
 const PUBLIC_DIR = join(__dirname, "..", "public");
@@ -31,38 +40,79 @@ interface IcoFrame {
   width: number;
   height: number;
   size: number;
+  offset: number;
   data: Buffer;
 }
 
-function readIcoFrames(path: string): IcoFrame[] {
-  const buf = readFileSync(path);
+/**
+ * 解析 ICO 目录 + 逐帧字节范围，校验到能拒绝越界/重叠的目录项——不满足就抛错，
+ * 不返回一个被 `Buffer.subarray` 静默截断出来的"看似合理"的帧。
+ */
+/** 供反例测试直接喂被篡改过的内存 buffer；文件路径版本 `readIcoFrames` 只是它的一层包装。 */
+function readIcoFramesFromBuffer(buf: Buffer, label: string): IcoFrame[] {
+  if (buf.length < 6) throw new Error(`${label}: 文件太短，不足 ICONDIR 头`);
+  const reserved = buf.readUInt16LE(0);
+  const type = buf.readUInt16LE(2);
+  if (reserved !== 0 || type !== 1) {
+    throw new Error(`${label}: 不是合法 ICO（reserved=${reserved} type=${type}，应为 0/1）`);
+  }
   const count = buf.readUInt16LE(4);
+  const dirEnd = 6 + count * 16;
+  if (buf.length < dirEnd) throw new Error(`${label}: 目录长度超出文件`);
   const frames: IcoFrame[] = [];
+  const ranges: Array<[number, number]> = [];
   for (let i = 0; i < count; i++) {
     const off = 6 + i * 16;
     const w = buf.readUInt8(off) || 256;
     const h = buf.readUInt8(off + 1) || 256;
     const size = buf.readUInt32LE(off + 8);
     const offset = buf.readUInt32LE(off + 12);
-    frames.push({ width: w, height: h, size, data: buf.subarray(offset, offset + size) });
+    if (size <= 0) throw new Error(`${label}: 第 ${i} 帧 size=${size}，应为正数`);
+    if (offset < dirEnd) throw new Error(`${label}: 第 ${i} 帧 offset=${offset} 落进目录区（应 >= ${dirEnd}）`);
+    if (offset + size > buf.length) {
+      throw new Error(`${label}: 第 ${i} 帧 offset+size=${offset + size} 超出文件长度 ${buf.length}`);
+    }
+    for (const [rStart, rEnd] of ranges) {
+      if (offset < rEnd && offset + size > rStart) {
+        throw new Error(`${label}: 第 ${i} 帧 [${offset},${offset + size}) 与其他帧的字节范围重叠`);
+      }
+    }
+    ranges.push([offset, offset + size]);
+    frames.push({ width: w, height: h, size, offset, data: buf.subarray(offset, offset + size) });
   }
   return frames;
 }
 
+function readIcoFrames(path: string): IcoFrame[] {
+  return readIcoFramesFromBuffer(readFileSync(path), path);
+}
+
 /** 只需支持我们自己生成的这一类 PNG：非隔行、8-bit、RGBA（colorType 6）。 */
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 function decodePngRGBA(buf: Buffer, label: string): { width: number; height: number; alpha: Uint8Array } {
-  if (buf.readUInt32BE(0) !== 0x89504e47) throw new Error(`not a PNG: ${label}`);
+  if (buf.length < 8 || !buf.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    throw new Error(`not a valid PNG signature: ${label}`);
+  }
   let width = 0;
   let height = 0;
   let bitDepth = 0;
   let colorType = 0;
+  let sawIHDR = false;
+  let sawIEND = false;
   const idatChunks: Buffer[] = [];
   let off = 8;
   while (off < buf.length) {
+    if (off + 8 > buf.length) throw new Error(`${label}: chunk 头越界，PNG 被截断`);
     const len = buf.readUInt32BE(off);
     const type = buf.toString("ascii", off + 4, off + 8);
-    const data = buf.subarray(off + 8, off + 8 + len);
+    const dataStart = off + 8;
+    const dataEnd = dataStart + len;
+    if (dataEnd + 4 > buf.length) throw new Error(`${label}: ${type} chunk 声明长度 ${len} 超出文件边界`);
+    const data = buf.subarray(dataStart, dataEnd);
     if (type === "IHDR") {
+      if (len !== 13) throw new Error(`${label}: IHDR 长度应为 13，实际 ${len}`);
+      sawIHDR = true;
       width = data.readUInt32BE(0);
       height = data.readUInt32BE(4);
       bitDepth = data.readUInt8(8);
@@ -70,16 +120,24 @@ function decodePngRGBA(buf: Buffer, label: string): { width: number; height: num
     } else if (type === "IDAT") {
       idatChunks.push(data);
     } else if (type === "IEND") {
+      sawIEND = true;
       break;
     }
-    off += 12 + len;
+    off = dataEnd + 4; // skip trailing CRC32
   }
+  if (!sawIHDR) throw new Error(`${label}: 缺少 IHDR chunk`);
+  if (!sawIEND) throw new Error(`${label}: 缺少 IEND chunk，文件可能被截断`);
+  if (width <= 0 || height <= 0) throw new Error(`${label}: IHDR 宽高非法 ${width}x${height}`);
   if (bitDepth !== 8 || colorType !== 6) {
     throw new Error(`decodePngRGBA only supports 8-bit RGBA PNGs, got depth=${bitDepth} colorType=${colorType}`);
   }
   const raw = inflateSync(Buffer.concat(idatChunks));
   const bpp = 4; // RGBA @ 8-bit
   const stride = width * bpp;
+  const expectedRawLength = (stride + 1) * height; // 每行 1 字节 filter + stride 字节像素
+  if (raw.length < expectedRawLength) {
+    throw new Error(`${label}: 解压后的像素数据只有 ${raw.length} 字节，应至少 ${expectedRawLength}（数据被截断）`);
+  }
   const alpha = new Uint8Array(width * height);
   let prevRow = new Uint8Array(stride);
   let pos = 0;
@@ -210,5 +268,34 @@ describe("品牌 favicon 资产完整性", () => {
       const filePath = join(PUBLIC_DIR, relPath);
       expect(existsSync(filePath), `metadata.icons 引用的 ${url} 应存在于 public/`).toBe(true);
     }
+  });
+
+  describe("反例：解析器应拒绝被篡改的资产，而不是静默放过（2026-09-04 第三轮 review 抓到的假阳性）", () => {
+    it("目录项 size 越界（远超文件实际长度）应报错，而不是被 Buffer.subarray 静默截断", () => {
+      const buf = Buffer.from(readFileSync(join(PUBLIC_DIR, "favicon-48x48.ico")));
+      // 复刻 review 里的反例：把第 0 个目录项的 size 从真实值改成远超文件长度。
+      buf.writeUInt32LE(1_006_173, 6 + 0 * 16 + 8);
+      expect(() => readIcoFramesFromBuffer(buf, "corrupted-in-memory")).toThrow(/超出文件长度/);
+    });
+
+    it("嵌在 ICO 里的帧，PNG 签名后 4 字节被破坏应报错，而不是被当成合法 PNG", () => {
+      const buf = Buffer.from(readFileSync(join(PUBLIC_DIR, "favicon-48x48.ico")));
+      // 先在未篡改的 buffer 上定位 48px 帧的真实 offset，再去改它的字节——
+      // 不能假设目录第 0 项就是 48px（实际写入顺序是 16/32/48）。
+      const targetFrame = readIcoFramesFromBuffer(buf, "favicon-48x48.ico (pre-corruption)").find(
+        (f) => f.width === 48,
+      );
+      expect(targetFrame, "favicon-48x48.ico 应有 48px 帧").toBeTruthy();
+      const offset = targetFrame!.offset;
+      // 复刻 review 里的反例：签名前 4 字节（0x89 'P' 'N' 'G'）不动，后 4 字节改坏。
+      buf.writeUInt8(0x42, offset + 4);
+      buf.writeUInt8(0x41, offset + 5);
+      buf.writeUInt8(0x44, offset + 6);
+      buf.writeUInt8(0x21, offset + 7);
+      const frames = readIcoFramesFromBuffer(buf, "corrupted-in-memory");
+      const frame = frames.find((f) => f.width === 48);
+      expect(frame).toBeTruthy();
+      expect(() => decodePngRGBA(Buffer.from(frame!.data), "corrupted-signature")).toThrow(/valid PNG signature/);
+    });
   });
 });
