@@ -22,9 +22,10 @@ export interface FeedbackAttachmentRow {
   /**
    * 能读出字节的钥匙——同 `pg-product-feedback-repository.ts` 把 `detail` 包成
    * `Guarded<string>` 一样的理由：`objectKey` 才是「读到即可看到图片内容」的那个字段，
-   * 必须经 `discloseDecided`（D3）才能取出。`null` 仅当 `feedbackId` 为 `null`
-   * （尚未认领）——此时没有可供 `guard()` 挂靠的反馈对象，下载路由对未认领附件
-   * 一律先 404，不会走到需要读这个字段的那一步（见 `download-feedback-attachment.ts`）。
+   * 必须经 `discloseDecided` 才能取出：挂着 `feedbackId` 时 ref 是 `feedback`（D3）；
+   * UC-17.8 B1.7：只挂着 `draftId` 时 ref 是 `feedback_draft`（owner 本人）。`null` 仅当
+   * 两者都为 `null`（尚未认领）——此时没有可供 `guard()` 挂靠的对象，下载路由对未认领
+   * 附件一律先 404，不会走到需要读这个字段的那一步（见 `download-feedback-attachment.ts`）。
    */
   readonly objectKey: Guarded<string> | null;
   readonly contentType: FeedbackAttachmentContentType;

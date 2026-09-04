@@ -97,6 +97,7 @@ export class SystemErrorLogController {
         statusReason: body.statusReason,
         devNote: body.devNote,
         tags: body.tags,
+        actorId: principal.userId,
       });
     } catch (e) {
       if (e instanceof SystemErrorNotFoundError) throw new NotFoundException({ reasonCode: "NOT_FOUND" });

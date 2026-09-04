@@ -416,6 +416,7 @@ import { PgProductFeedbackRepository } from "./infrastructure/feedback/pg-produc
 import { PRODUCT_FEEDBACK_REPOSITORY } from "./application/feedback/ports";
 import { FeedbackController } from "./interface/controllers/feedback.controller";
 import { SystemErrorLogController } from "./interface/controllers/system-error-log.controller";
+import { InboxController } from "./interface/controllers/inbox.controller";
 import { SystemMailController } from "./interface/controllers/system-mail.controller";
 // issue #2645：运营状态屏的服务中断时长/可用性可视化。
 import { SystemUptimeController } from "./interface/controllers/system-uptime.controller";
@@ -846,6 +847,7 @@ import { PgAsrUsageMeter, PgRealtimeAsrTicketStore } from "./infrastructure/reco
     MessageRatingController,
     FeedbackController,
     SystemErrorLogController,
+    InboxController,
     SystemMailController,
     SystemUptimeController,
     SkillReviewController,

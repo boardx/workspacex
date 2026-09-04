@@ -94,6 +94,13 @@ export interface ObjectRef {
    * 对反馈正文，那种放行等于 D3 被彻底作废（全组织都读到了别人的正文，
    * 而界面看起来一切正常）。
    */
+  /**
+   * ⚠ `feedback_draft` 由 UC-17.8 B1.7 加入，理由与 `feedback` **完全同型**：草稿上的附件
+   * 字节是租户内容，必须走 `permission-filter` 这道门；但草稿**没有 `acl_bindings` 行**，
+   * 也不适用 D3（草稿是 owner 私有物，连管理员也看不到）——可见性规则只有一条
+   * 「owner 本人」，落在 `application/feedback/drafts/draft-attachment-decision.ts`。
+   * 排除在 `AclObjectRef` 之外的理由不变。
+   */
   readonly kind:
     | AclObjectRef["kind"]
     | "capability"
@@ -101,7 +108,8 @@ export interface ObjectRef {
     | "interview"
     | "subject"
     | "research"
-    | "feedback";
+    | "feedback"
+    | "feedback_draft";
   readonly id: string;
 }
 

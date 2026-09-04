@@ -28,6 +28,7 @@ import {
   type ErrorLogListItem,
   type ErrorLogPort,
   type ErrorLogStatus,
+  type SystemErrorStatusEvent,
 } from "../../application/ports/error-log.port";
 import type { ModelCallPort } from "../../application/agent-run/ports";
 import {
@@ -231,5 +232,19 @@ export class PgErrorLogWriter implements ErrorLogPort {
     const row = rows.rows[0];
     if (row === undefined) return null;
     return { status: row.status, statusReason: row.status_reason, devNote: row.dev_note, tags: row.tags ?? [] };
+  }
+
+  /**
+   * B3.3 —— 见迁移 `20260904140000_error_logs_status_events.sql` 头注：这张表不含
+   * 诊断内容，直接 `INSERT`，不用像 `updateLifecycle` 那样借 SECURITY DEFINER 函数。
+   */
+  async appendStatusEvent(event: SystemErrorStatusEvent): Promise<void> {
+    await this.db.withoutTenant((s) =>
+      s.query(
+        `INSERT INTO system_error_status_events (id, error_log_id, from_status, to_status, reason, actor_id)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [event.id, event.errorLogId, event.fromStatus, event.toStatus, event.reason, event.actorId],
+      ),
+    );
   }
 }

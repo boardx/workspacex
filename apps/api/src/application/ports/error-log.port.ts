@@ -126,6 +126,30 @@ export interface ErrorLogPort {
     readonly devNote: string | null;
     readonly tags: readonly string[];
   } | null>;
+
+  /**
+   * 追加一行状态转移流水（UC-17.8 B3.3）。**可选**——现有 fake/测试不需要为它多实现
+   * 一个方法（同 `ProductFeedbackRepository` 里 best-effort 端口的处理方式）；调用方
+   * （`updateSystemErrorLifecycle`）用 `?.()` 调用,未注入时安静地不记这条流水,不影响
+   * 状态本身的写入结果。
+   */
+  appendStatusEvent?(event: SystemErrorStatusEvent): Promise<void>;
+}
+
+/**
+ * 一行系统异常的状态转移记录（UC-17.8 B3.3）——同 `product_feedback` 的
+ * `StatusEvent` 一个形状,但没有邮件/issue 那半套副作用,见迁移
+ * `20260904140000_error_logs_status_events.sql` 头注。
+ */
+export interface SystemErrorStatusEvent {
+  readonly id: string;
+  readonly errorLogId: string;
+  /** null = 这条异常第一次被记录状态(理论上不会发生——`error_logs` 插入时状态即有默认值,
+   *  这里只记录**真实转移**,不记录建表时的默认值)。 */
+  readonly fromStatus: ErrorLogStatus | null;
+  readonly toStatus: ErrorLogStatus;
+  readonly reason: string | null;
+  readonly actorId: string;
 }
 
 export const ERROR_LOG_PORT = Symbol("ErrorLogPort");

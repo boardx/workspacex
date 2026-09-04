@@ -1,0 +1,261 @@
+/**
+ * UC-17.8 B3.2 —— `listInbox` 聚合/排序/分页/过滤/`code` 编号/`github` 派生/
+ * 非超管 withheld。全部用 fake 端口（同 `tests/feedback/triage-feedback.test.ts` 的写法），
+ * 不碰真实数据库。
+ */
+import { describe, expect, it } from "vitest";
+import { listInbox, InboxPermissionRevokedError } from "../../src/application/inbox/list-inbox";
+import type { ListInboxDeps, ListInboxInput } from "../../src/application/inbox/list-inbox";
+import type { FeedbackRow, ProductFeedbackRepository } from "../../src/application/feedback/ports";
+import type { ErrorLogPort, ErrorLogListItem } from "../../src/application/ports/error-log.port";
+import { guard } from "../../src/application/security/permission-filter";
+import { toOrgId } from "../../src/domain/org-id";
+
+function feedbackRow(over: Partial<FeedbackRow> = {}): FeedbackRow {
+  return {
+    id: "fb-1",
+    submittedBy: "u-submitter",
+    kind: "缺陷",
+    target: { kind: "product" },
+    targetLabel: null,
+    title: "点了没反应",
+    detail: guard({ kind: "feedback", id: over.id ?? "fb-1" }, "正文"),
+    structured: guard({ kind: "feedback", id: over.id ?? "fb-1" }, null),
+    status: "待处理",
+    statusReason: null,
+    votes: 0,
+    votedByMe: false,
+    occurredRoute: null,
+    appVersion: null,
+    createdAt: "2026-09-01T00:00:00.000Z",
+    githubIssueUrl: null,
+    githubIssueNumber: null,
+    ...over,
+  };
+}
+
+function fakeFeedbackRepo(rows: readonly FeedbackRow[]): ProductFeedbackRepository {
+  return {
+    insert: async () => undefined,
+    list: async () => rows,
+    findById: async () => null,
+    setVote: async () => ({ votes: 0, votedByMe: false }),
+    updateStatus: async () => undefined,
+    appendStatusEvent: async () => undefined,
+    transitionStatusWithEvent: async () => undefined,
+    markStatusEventNotified: async () => undefined,
+    transitionStatusWithEventIfCurrentStatus: async () => false,
+    listStatusEvents: async () => [],
+    setGithubIssue: async () => undefined,
+    claimGithubIssueCreation: async () => false,
+    releaseGithubIssueClaim: async () => undefined,
+    counts: async () => ({ total: 0, 待处理: 0, 已进入迭代: 0, 已修复: 0, 不做: 0 }),
+  } as unknown as ProductFeedbackRepository;
+}
+
+function errorLogItem(over: Partial<ErrorLogListItem> = {}): ErrorLogListItem {
+  return {
+    id: "1",
+    traceId: "trace-1",
+    msg: "boom",
+    detail: { raw: "boom" },
+    createdAt: "2026-09-01T00:00:00.000Z",
+    aiTitle: null,
+    aiSummary: null,
+    status: "待处理",
+    statusReason: null,
+    devNote: null,
+    tags: [],
+    ...over,
+  };
+}
+
+function fakeErrorLog(items: readonly ErrorLogListItem[]): ErrorLogPort {
+  return {
+    record: async () => undefined,
+    list: async ({ beforeId }) => {
+      // 单页返回全部——测试数据量小，这里不模拟真实分页游标语义,只需满足
+      // `fetchAllExceptions` 的循环终止条件(`hasMore=false`)。
+      if (beforeId !== null) return { items: [], hasMore: false };
+      return { items, hasMore: false };
+    },
+    getLifecycle: async () => null,
+    updateLifecycle: async () => null,
+  };
+}
+
+function baseDeps(rows: readonly FeedbackRow[], exceptions: readonly ErrorLogListItem[] | undefined): ListInboxDeps {
+  return {
+    feedback: {
+      repo: fakeFeedbackRepo(rows),
+      newDecisionId: () => "decision-1",
+      orgId: toOrgId("org-1"),
+      submitters: { emailForUserId: async () => null, displayNamesForUserIds: async () => new Map() },
+    },
+    errorLog: exceptions === undefined ? undefined : fakeErrorLog(exceptions),
+  };
+}
+
+const adminInput: Omit<ListInboxInput, "limit"> = {
+  viewerId: "u-admin",
+  viewerOrgRole: "admin",
+  viewerTeamId: null,
+};
+
+describe("listInbox 权限", () => {
+  it("非分诊角色（consultant）⇒ InboxPermissionRevokedError", async () => {
+    const deps = baseDeps([feedbackRow()], []);
+    await expect(
+      listInbox(deps, { ...adminInput, viewerOrgRole: "consultant", limit: 50 }),
+    ).rejects.toBeInstanceOf(InboxPermissionRevokedError);
+  });
+
+  it("不是本组织成员（null）⇒ InboxPermissionRevokedError", async () => {
+    const deps = baseDeps([feedbackRow()], []);
+    await expect(
+      listInbox(deps, { ...adminInput, viewerOrgRole: null, limit: 50 }),
+    ).rejects.toBeInstanceOf(InboxPermissionRevokedError);
+  });
+});
+
+describe("listInbox 聚合与排序", () => {
+  it("两源按 createdAt 倒序合并，同刻按 kind 排序", async () => {
+    const fb = feedbackRow({ id: "fb-1", createdAt: "2026-09-01T10:00:00.000Z" });
+    const ex = errorLogItem({ id: "1", createdAt: "2026-09-01T10:00:00.000Z" });
+    const older = feedbackRow({ id: "fb-0", createdAt: "2026-09-01T09:00:00.000Z" });
+    const deps = baseDeps([fb, older], [ex]);
+
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+
+    expect(out.items.map((i) => i.id)).toEqual(["1", "fb-1", "fb-0"]);
+  });
+
+  it("`code`：反馈按 kind（缺陷/需求）分别计数，系统异常全平台计数", async () => {
+    const bug1 = feedbackRow({ id: "fb-bug-1", kind: "缺陷", createdAt: "2026-09-01T08:00:00.000Z" });
+    const bug2 = feedbackRow({ id: "fb-bug-2", kind: "缺陷", createdAt: "2026-09-01T09:00:00.000Z" });
+    const req1 = feedbackRow({ id: "fb-req-1", kind: "需求", createdAt: "2026-09-01T08:30:00.000Z" });
+    const ex1 = errorLogItem({ id: "1", createdAt: "2026-09-01T07:00:00.000Z" });
+    const ex2 = errorLogItem({ id: "2", createdAt: "2026-09-01T07:30:00.000Z" });
+    const deps = baseDeps([bug1, bug2, req1], [ex1, ex2]);
+
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    const byId = new Map(out.items.map((i) => [i.id, i.code]));
+
+    expect(byId.get("fb-bug-1")).toBe("B-1");
+    expect(byId.get("fb-bug-2")).toBe("B-2");
+    expect(byId.get("fb-req-1")).toBe("R-1");
+    expect(byId.get("1")).toBe("E-1");
+    expect(byId.get("2")).toBe("E-2");
+  });
+
+  it("分页 cursor：第二页从第一页最后一条之后继续，不重复不遗漏", async () => {
+    const rows = Array.from({ length: 5 }, (_, i) =>
+      feedbackRow({ id: `fb-${i}`, createdAt: `2026-09-0${i + 1}T00:00:00.000Z` }),
+    );
+    const deps = baseDeps(rows, []);
+
+    const page1 = await listInbox(deps, { ...adminInput, limit: 2 });
+    expect(page1.items.map((i) => i.id)).toEqual(["fb-4", "fb-3"]);
+    expect(page1.nextCursor).not.toBeNull();
+
+    const page2 = await listInbox(deps, { ...adminInput, limit: 2, cursor: page1.nextCursor! });
+    expect(page2.items.map((i) => i.id)).toEqual(["fb-2", "fb-1"]);
+    expect(page2.nextCursor).not.toBeNull();
+
+    const page3 = await listInbox(deps, { ...adminInput, limit: 2, cursor: page2.nextCursor! });
+    expect(page3.items.map((i) => i.id)).toEqual(["fb-0"]);
+    expect(page3.nextCursor).toBeNull();
+  });
+});
+
+describe("listInbox 过滤", () => {
+  it("`kind` 过滤单选", async () => {
+    const deps = baseDeps([feedbackRow({ id: "fb-1" })], [errorLogItem({ id: "1" })]);
+    const out = await listInbox(deps, { ...adminInput, limit: 50, kind: "exception" });
+    expect(out.items.map((i) => i.kind)).toEqual(["exception"]);
+  });
+
+  it("`stage` 过滤：`stageOf` 派生，不落库", async () => {
+    const done = feedbackRow({ id: "fb-done", status: "已修复" });
+    const backlog = feedbackRow({ id: "fb-backlog", status: "待处理" });
+    const deps = baseDeps([done, backlog], []);
+    const out = await listInbox(deps, { ...adminInput, limit: 50, stage: "done" });
+    expect(out.items.map((i) => i.id)).toEqual(["fb-done"]);
+  });
+
+  it("`q` 只匹配 title 与 code，不搜正文（D3：正文对非管理员/非提交人隐藏也不该被搜到）", async () => {
+    const row = feedbackRow({ id: "fb-1", title: "登录页崩溃", detail: guard({ kind: "feedback", id: "fb-1" }, "只有这段正文里有关键词 xyz") });
+    const deps = baseDeps([row], []);
+
+    const byTitle = await listInbox(deps, { ...adminInput, limit: 50, q: "崩溃" });
+    expect(byTitle.items.map((i) => i.id)).toEqual(["fb-1"]);
+
+    const byBody = await listInbox(deps, { ...adminInput, limit: 50, q: "xyz" });
+    expect(byBody.items).toEqual([]);
+  });
+
+  it("`q` 命中 code（如 `B-1`）", async () => {
+    const row = feedbackRow({ id: "fb-1", kind: "缺陷" });
+    const deps = baseDeps([row], []);
+    const out = await listInbox(deps, { ...adminInput, limit: 50, q: "B-1" });
+    expect(out.items.map((i) => i.id)).toEqual(["fb-1"]);
+  });
+});
+
+describe("listInbox 非超管 withheld", () => {
+  it("errorLog 未注入（非超管）⇒ 结果不含 exception，sources.exception = withheld", async () => {
+    const deps = baseDeps([feedbackRow({ id: "fb-1" })], undefined);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.sources.exception).toBe("withheld");
+    expect(out.items.every((i) => i.kind !== "exception")).toBe(true);
+  });
+
+  it("errorLog 已注入（超管）⇒ sources.exception = included", async () => {
+    const deps = baseDeps([], [errorLogItem({ id: "1" })]);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.sources.exception).toBe("included");
+    expect(out.items.map((i) => i.kind)).toEqual(["exception"]);
+  });
+});
+
+describe("listInbox severe 阈值", () => {
+  it("同一 msg 出现次数达到阈值 ⇒ severe=true，未达到 ⇒ false", async () => {
+    const many = Array.from({ length: 10 }, (_, i) => errorLogItem({ id: `${i + 1}`, msg: "重复异常" }));
+    const rare = errorLogItem({ id: "99", msg: "偶发异常" });
+    const deps = baseDeps([], [...many, rare]);
+
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    const bySevere = new Map(out.items.map((i) => [i.id, i.severe]));
+    expect(bySevere.get("1")).toBe(true);
+    expect(bySevere.get("99")).toBe(false);
+  });
+});
+
+describe("listInbox github 派生", () => {
+  it("有 githubIssueUrl 且状态未终态 ⇒ open", async () => {
+    const row = feedbackRow({ id: "fb-1", githubIssueUrl: "https://github.com/x/y/issues/1", githubIssueNumber: 1, status: "已进入迭代" });
+    const deps = baseDeps([row], []);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.items[0]!.github).toEqual({ kind: "issue", number: 1, url: "https://github.com/x/y/issues/1", state: "open" });
+  });
+
+  it("已修复/不做 ⇒ closed", async () => {
+    const row = feedbackRow({ id: "fb-1", githubIssueUrl: "https://github.com/x/y/issues/1", githubIssueNumber: 1, status: "已修复" });
+    const deps = baseDeps([row], []);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.items[0]!.github?.state).toBe("closed");
+  });
+
+  it("没有 issue ⇒ null", async () => {
+    const row = feedbackRow({ id: "fb-1" });
+    const deps = baseDeps([row], []);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.items[0]!.github).toBeNull();
+  });
+
+  it("系统异常恒 null", async () => {
+    const deps = baseDeps([], [errorLogItem({ id: "1" })]);
+    const out = await listInbox(deps, { ...adminInput, limit: 50 });
+    expect(out.items[0]!.github).toBeNull();
+  });
+});

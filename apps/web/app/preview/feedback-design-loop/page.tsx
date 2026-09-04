@@ -18,6 +18,10 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
  *   是取材工具，不是产品的一块屏（同 `/preview/feedback-loop` 的既有处置）。
  * ⚠ 草稿场景（UC-17.8 B1 真栈化后）**不再 seed**：草稿屏自己打 `/feedback/drafts*`，数据由
  *   `scripts/shot-feedback-design-loop.mjs` 的 `page.route` 拦截提供（同 `shot-feedback-loop.mjs`）。
+ * ⚠ 收件箱场景（UC-17.8 B3.4 真栈化后）**同样不再 seed**：收件箱屏自己打
+ *   `/inbox`、`/inbox/counts`，数据由 `scripts/shot-feedback-design-loop.mjs` 的
+ *   `page.route` 拦截提供——`DesignLoopProvider` 的 `seed` 现在只剩 `projects`（PM 设计
+ *   工作台，B4 前仍是原型）。
  *
  * scene 见下方 switch；state 走 `?state=`（七态）。
  */
@@ -34,13 +38,11 @@ function PreviewBody() {
   const scene = sp?.get("scene") ?? "inbox-board";
   const state = resolvePreviewState(sp?.get("state") ?? undefined);
 
-  // 固定 seed（seed 存在即不持久化），空态场景注入空集合。
+  // 固定 seed（seed 存在即不持久化），空态场景注入空集合。收件箱不再是这份 seed 的一部分
+  // （B3.4 真栈化）——`inbox-empty` 场景改由 `page.route` 拦 `/inbox` 回空 `items`。
   const emptyInbox = scene === "inbox-empty";
   const emptyProjects = scene === "workbench-empty";
-  const seed = {
-    ...(emptyInbox ? { inbox: [] } : {}),
-    ...(emptyProjects ? { projects: [] } : {}),
-  };
+  const seed = emptyProjects ? { projects: [] } : {};
 
   const shownState = emptyInbox || emptyProjects ? "empty" : state;
 

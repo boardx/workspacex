@@ -127,6 +127,17 @@ function toAclRef(ref: ObjectRef): AclObjectRef {
         `and discloseDecided().`,
     );
   }
+  /*
+   * UC-17.8 B1.7. A draft has no `acl_bindings` row either, and its rule is narrower than
+   * D3 (owner only -- not even administrators): `decideFeedbackDraftAttachmentVisibility`.
+   */
+  if (ref.kind === "feedback_draft") {
+    throw new Error(
+      `feedback_draft "${ref.id}" cannot be judged by authorize -- drafts have no acl_bindings ` +
+        `row and are owner-private. Use decideFeedbackDraftAttachmentVisibility ` +
+        `(application/feedback/drafts/draft-attachment-decision) and discloseDecided().`,
+    );
+  }
   return { kind: ref.kind, id: ref.id };
 }
 

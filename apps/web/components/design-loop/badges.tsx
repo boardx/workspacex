@@ -3,26 +3,20 @@ import * as React from "react";
 import { Github, ArrowUpRight, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  GITHUB_STATE_LABEL,
-  STATUS_LABEL,
-  type GithubKind,
-  type GithubState,
-  type InboxStatus,
-} from "@/lib/design-loop-store";
+import { INBOX_STAGE_LABEL, type InboxGithubRef, type InboxStage } from "@/lib/live-inbox";
 
 /** 四态 → 语义 tone。四态是现有 feedback-loop 状态机换显示名，颜色沿用其语义分档。 */
-const STATUS_TONE: Record<InboxStatus, React.ComponentProps<typeof Badge>["tone"]> = {
+const STAGE_TONE: Record<InboxStage, React.ComponentProps<typeof Badge>["tone"]> = {
   backlog: "warning",
   doing: "ai",
   done: "primary",
   archived: "neutral",
 };
 
-export function StatusBadge({ status }: { status: InboxStatus }) {
+export function StatusBadge({ stage }: { stage: InboxStage }) {
   return (
-    <Badge tone={STATUS_TONE[status]} data-testid={`status-badge-${status}`}>
-      {STATUS_LABEL[status]}
+    <Badge tone={STAGE_TONE[stage]} data-testid={`status-badge-${stage}`}>
+      {INBOX_STAGE_LABEL[stage]}
     </Badge>
   );
 }
@@ -32,14 +26,21 @@ export function StatusBadge({ status }: { status: InboxStatus }) {
  * 用 token 家族承载语义色，不硬编码：open→success，draft→muted，merged→ai(紫调强调)，
  * closed→destructive。文案统一 `{Issue|PR} #{num} · {State}`。
  */
-const GITHUB_TONE: Record<GithubState, string> = {
+const GITHUB_TONE: Record<InboxGithubRef["state"], string> = {
   open: "bg-success text-success-foreground",
   draft: "bg-muted text-muted-foreground",
   merged: "bg-ai text-ai-foreground",
   closed: "bg-destructive text-destructive-foreground",
 };
 
-export function GithubBadge({ num, state, kind }: { num: number; state: GithubState; kind: GithubKind }) {
+const GITHUB_STATE_LABEL: Record<InboxGithubRef["state"], string> = {
+  open: "Open",
+  draft: "Draft",
+  merged: "Merged",
+  closed: "Closed",
+};
+
+export function GithubBadge({ number, state, kind }: InboxGithubRef) {
   const label = kind === "pr" ? "PR" : "Issue";
   return (
     <span
@@ -47,7 +48,7 @@ export function GithubBadge({ num, state, kind }: { num: number; state: GithubSt
       data-testid={`github-badge-${state}`}
     >
       <Github aria-hidden className="h-3 w-3" />
-      {label} #{num} · {GITHUB_STATE_LABEL[state]}
+      {label} #{number} · {GITHUB_STATE_LABEL[state]}
     </span>
   );
 }

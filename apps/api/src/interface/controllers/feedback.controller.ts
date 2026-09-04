@@ -511,6 +511,7 @@ export class FeedbackController {
         {
           attachments: this.attachments,
           feedback: this.feedback.forOrg(principal.orgId),
+          drafts: this.drafts,
           newDecisionId: () => this.decisions.next(),
         },
         {
