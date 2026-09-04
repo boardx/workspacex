@@ -94,12 +94,13 @@ import { CopilotKit } from "@copilotkit/react-core/v2";
 import { ApiError, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
+import { chat as ChatContract } from "@repo/contracts";
 
 const THREAD_ID = "thr-2053";
 
-function msg(id: string, authorKind: "human" | "agent", text: string) {
+function msg(id: string, authorKind: "human" | "agent", text: string, authorId = "u") {
   return {
-    id, authorKind, authorId: "u", agentId: null, text, clientMessageId: null,
+    id, authorKind, authorId, agentId: null, text, clientMessageId: null,
     agentRunId: null, replyToMessageId: null, createdAt: "2026-08-25T00:00:00.000Z",
   };
 }
@@ -146,6 +147,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   personaGenerated = false;
   latePersistedMessage = true;
+  // issue #2694 新增用例要用到「关闭」持久化到 localStorage——每条用例必须从干净
+  // 状态开始，不然前一条用例的关闭会漏进下一条（`localStorage` 在 jsdom 里跨用例
+  // 不会自动清空）。
+  window.localStorage.clear();
   // 面板内部的 bearer 走 `getStoredSessionToken()`（与历史灌回同一条既有取法），
   // 不是 session context——测试里就按生产的取法把它放进 localStorage。
   window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, "b");
@@ -274,6 +279,43 @@ describe("CK-P6 生成用户画像（issue #2053）", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
     });
+  });
+
+  it("⑤重新打开一条早就生成过画像的线程（issue #2694）⇒ chip 不出现，判据是后端已落库的事实，不是本地 session state", async () => {
+    // 挂载前后端就已经有一条 persona-summary 落库的消息——模拟"上一次会话生成过、
+    // 这次是重新打开这条线程"，`personaGeneratedOnce` 这个本地 state 显然是初值
+    // `false`（组件刚挂载），必须靠 hydration 读回的 `authorId` 才能判出"已经生成过"。
+    listMessages.mockImplementation(async () => ({
+      messages: [
+        msg("cm-1", "human", "我想做一个给设计师的工具"),
+        msg("cm-persona", "agent", MINDMAP, ChatContract.PERSONA_SUMMARY_AUTHOR_ID),
+      ],
+      nextCursor: null,
+    }));
+    mount({ canGeneratePersona: true, chatThreadId: THREAD_ID });
+    await screen.findByText(/给设计师的工具/);
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+  });
+
+  it("⑥点击关闭按钮 ⇒ chip 立刻消失，且关闭状态持久化到下一次挂载（issue #2694）", async () => {
+    const first = mount({ canGeneratePersona: true });
+    const trigger = await screen.findByTestId("chat-persona-summary-trigger");
+    await waitFor(() => expect((trigger as HTMLButtonElement).disabled).toBe(false));
+
+    const dismiss = screen.getByTestId("chat-persona-summary-trigger-dismiss");
+    fireEvent.click(dismiss);
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
+    // 关闭这个动作本身不该顺带"生成"了什么——`summarizePersonaFromThread` 不该被调用。
+    expect(summarizePersonaFromThread).not.toHaveBeenCalled();
+
+    // 卸载后重新挂载（模拟刷新页面 / 重新打开同一条线程），关闭状态必须还在——
+    // 不是"只在本次组件实例内有效"的纯内存 state。`unmount()` 先卸载第一个实例，
+    // 避免两个 `CopilotKit` provider 同时挂载互相抢资源，让第二次挂载的
+    // `findByTestId` 慢到超时（与本文件其它用例的挂载方式一致）。
+    first.unmount();
+    mount({ canGeneratePersona: true });
+    await waitFor(() => expect(screen.getByTestId("copilotkit-v2-input")).toBeTruthy());
+    expect(screen.queryByTestId("chat-persona-summary-trigger")).toBeNull();
   });
 
   it("④失败原样回显 reasonCode，不糊成「生成失败」", async () => {
