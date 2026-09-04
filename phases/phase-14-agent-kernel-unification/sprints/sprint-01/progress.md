@@ -93,3 +93,57 @@
   已标注的后续工作，不在本 PR 范围。
 - 下一步最佳动作: 等 CI 跑通该 verification 命令；CI 若发现测试本身有问题需要在本
   PR 上修。
+### 2026-09-04 23:00 (owner: remote)
+- 本轮目标: 实现 Phase 14 F10（前端产出物面板：版本历史查看与基于某版本继续修改，
+  issue #2719）。
+- 已完成: 新增 `apps/web/tests/agent-kernel/artifacts-panel.test.tsx`，固化
+  `ArtifactsPanel`（`agent-kernel-units.tsx`，ui-prototyper 在 `artifacts-steering`
+  契约束签核阶段已建成的原型组件）的 user_visible_behavior：空态
+  `data-testid=artifacts-panel` 内含 `empty` 节点且不渲染版本历史；有版本时
+  `artifact-version-{n}` 逐条存在、最新版本默认 `aria-pressed=true`、点击切换正确
+  翻转并联动预览区文本；`artifact-view`/`artifact-continue` 均存在且可点击。
+  组件本身无需改动（原型已满足全部断言面），只补测试门控。
+  同时把 F10 的 `sprint` 字段由 `null` 改为 `"01"`（经 `lib/features.ts` 的
+  `loadFeatureList`/`saveFeatureList` 读写），使其纳入本 sprint 的
+  `active-features.json` 派生视图。
+- 范围说明（未做的部分，如实记录）: F09 目前只有应用层用例
+  （`application/artifacts-steering/`）与 `PgArtifactStore`，尚未暴露任何 HTTP
+  控制器；`continueArtifact` 的 `ArtifactRunLauncher` 端口在
+  `application/artifacts-steering/ports.ts` 里明确声明"只定义端口，不提供生产
+  实现"，注释原文认为接线是"很可能是 F10 或 F11 落地时"的范围。但 F10 在
+  `feature_list.json` 里的 `notes` 明确把依据等级标注为 `[原型]`，唯一
+  verification 命令是纯组件级 vitest（不依赖后端/网络），且断言面逐字列出的只是
+  UI 交互（testid、aria-pressed、按钮存在性），不包含任何"改为真实网络请求"的
+  断言——因此本轮判断"接 HTTP 控制器 + 把按钮 onClick 换成真实 fetch"超出本条
+  feature 的权威断言面，属于顺手扩大范围（AGENTS.md「范围纪律」），未做；沿用
+  同 sprint F14（`error-card.test.tsx`）已确立的先例（同样是给已建原型补回归
+  测试，不接后端）。
+- 运行过的验证:
+  - `pnpm --filter web exec vitest run tests/agent-kernel/artifacts-panel.test.tsx`：
+    7 个测试全绿。
+  - `pnpm exec tsc --noEmit -p apps/web`：0 个错误。
+  - `pnpm harness verify --sprint 14/01 --feature F10`：F10 自身 verification 命令
+    通过；后置的 `verify:quick` 基础验证里 `turbo run typecheck lint test
+    --affected` 本身 5/5 成功、2834/2834 测试全绿，但收尾阶段
+    `[test-isolation] cleanup failed: docker compose down -v exited 1` 导致整条
+    命令以 exit 1 结束，从而拒绝把 F10 升为 `passing`（见下）。
+- 当前 blocker（与 F01/F13 同一类环境限制，但故障点不同，如实分列）: 本会话沙箱
+  没有 Docker daemon（`docker info` 报
+  `connect: no such file or directory /var/run/docker.sock`），`verify:quick`
+  收尾时对测试隔离命名空间执行 `docker compose down -v` 清理，因守护进程根本不
+  存在而以 exit 1 结束，拖累整条 `verify:quick` 判失败——**不是本次改动引入的
+  逻辑缺陷**：F10 自身测试、以及 turbo 报告的全部 2834 个测试均已通过，失败点
+  在测试运行本身完成之后的清理步骤。已按 issue 指示如实记录、未修改测试基础设施
+  本身去绕开这条环境限制。
+- 已记录证据: `evidence/F10.verify.log`（真实失败日志，未手改，含
+  `Test Files 307 passed (307)` / `Tests 2834 passed (2834)` 与随后的
+  `docker compose down -v exited 1`）。
+- 提交记录: 见分支 `worker/remote-14-f10-artifacts-panel` 的 PR（关联 issue #2719）。
+- 已知风险或未解决问题: F10 尚未 `passing`——需要一个有 Docker daemon 的环境重跑
+  `pnpm harness verify --sprint 14/01 --feature F10`（F01/F13 的 Postgres 出网
+  blocker 待补跑同理）。
+- 下一步最佳动作: 在有 Docker daemon 的环境重跑本 feature 的 verify 把状态转
+  `passing`；F10 之后，若人类在 design-signoff 第③点上拍板
+  `continueArtifact`/`interject` 的接线归属，可评估是否需要新增 feature 把
+  `ArtifactRunLauncher`/HTTP 控制器接上（当前 F09～F12 四个 feature 均未显式
+  覆盖这条 HTTP 暴露面，只有应用层用例）。
