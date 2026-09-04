@@ -145,6 +145,21 @@ export interface AcceptedHumanMessage {
   readonly createdAt: string;
   readonly agentRunId: string;
   readonly runStatus: "queued";
+  /**
+   * #2693 —— `true` when this call hit `acceptHumanMessage`'s idempotency guard (same
+   * `clientMessageId` as an earlier, already-accepted call for this thread/actor) and
+   * handed back the ALREADY-RUNNING run instead of creating a new one. `false` for a
+   * genuinely fresh accept. Callers that poll a run's progress after this (`agui-bridge.ts`)
+   * need this to tell "brand-new run, nothing reported yet" apart from "an in-flight run a
+   * RETRIED request just reattached to, which may already have steps/deltas an earlier
+   * request already streamed to the client" — see `runAguiBridgeTurn`'s use of this field.
+   *
+   * Optional (not set by `ChatMessageCommandRepository`'s row mapper — the repository has
+   * no notion of "reused", only `acceptHumanMessage` does, which stamps it explicitly on
+   * both return paths before handing the value to a caller) so existing repository
+   * implementations do not need a matching change.
+   */
+  readonly reused?: boolean;
 }
 
 /**
