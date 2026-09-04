@@ -336,6 +336,7 @@ export async function triageFeedback(
       feedbackId: input.feedbackId,
       issueNumber: githubIssueNumber,
       status: outcome.to,
+      from: outcome.from,
     });
   }
 
@@ -461,19 +462,29 @@ async function withAttachmentImages(
   };
 }
 
-/** `outcome.to` → GitHub issue 该处在什么开关状态。纯函数,方便单测直接断言映射表。 */
-export function targetGithubIssueState(status: FeedbackStatus): GithubIssueStateTarget {
+/**
+ * `outcome.to`（+ 需要时的 `outcome.from`）→ GitHub issue 该处在什么开关状态。
+ * 纯函数,方便单测直接断言映射表。
+ *
+ * ⚠ `已归档` 只能从 `已修复`/`不做` 进入（见 domain `ALLOWED_TRANSITIONS`）——issue
+ *   在那一步已经关闭过一次，这里不是"第二次关闭决定"，只是延续 `from` 那次已经
+ *   定下的理由（`completed`/`not_planned`），不重新猜。`from` 缺失（理论上不会发生，
+ *   因为 `已归档` 没有别的入边）时退回 `completed`，不让整条同步链因为一个不可能
+ *   分支而失败。
+ */
+export function targetGithubIssueState(status: FeedbackStatus, from?: FeedbackStatus): GithubIssueStateTarget {
   if (status === "已修复") return { state: "closed", stateReason: "completed" };
   if (status === "不做") return { state: "closed", stateReason: "not_planned" };
+  if (status === "已归档") return { state: "closed", stateReason: from === "不做" ? "not_planned" : "completed" };
   return { state: "open" }; // 待处理 / 已进入迭代——都算「还开着」
 }
 
 async function syncGithubIssueState(
   deps: TriageFeedbackDeps,
-  input: { readonly feedbackId: string; readonly issueNumber: number; readonly status: FeedbackStatus },
+  input: { readonly feedbackId: string; readonly issueNumber: number; readonly status: FeedbackStatus; readonly from: FeedbackStatus },
 ): Promise<void> {
   try {
-    await deps.githubIssues.setState(input.issueNumber, targetGithubIssueState(input.status));
+    await deps.githubIssues.setState(input.issueNumber, targetGithubIssueState(input.status, input.from));
   } catch (e) {
     // ⚠ 吞掉但不静默——同 `notifySubmitter` 的纪律:状态变更(上面已经 return 过)
     //   不因为这里失败而回滚,也没有"回滚"这回事。值班能顺着这条日志查 GitHub 侧故障。

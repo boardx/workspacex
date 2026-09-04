@@ -31,10 +31,15 @@
  *   | `FeedbackStatus`     | 已进入迭代   | `doing`    |
  *   | `FeedbackStatus`     | 已修复       | `done`     |
  *   | `FeedbackStatus`     | 不做         | `archived` |
+ *   | `FeedbackStatus`     | 已归档       | `archived` |
  *   | `SystemErrorStatus`  | 待处理       | `backlog`  |
  *   | `SystemErrorStatus`  | 已转入开发   | `doing`    |
  *   | `SystemErrorStatus`  | 不做         | `archived` |
  *
+ *   ⚠ **`已归档` 与 `不做` 共用 `archived` 列**（issue #2681）——两者都是"已经有结论、
+ *     不再需要占用活跃视图"的反馈，`InboxStage` 只有四列，不为 `已归档` 单开一列；
+ *     两者在源状态机（`feedback-loop.ts`）里仍是不同的状态，`archived` 只是它们在
+ *     这张统一投影上共享的显示位置，不是把两者合并成一个状态。
  *   ⚠ **系统异常没有 `done`**——`SystemErrorStatus` 就是三态（见该文件 `status` 头注的状态机），
  *     收件箱不替它发明一个「已修复」。看板把一条系统异常拖进「已完成」列时，前端**没有**可调的
  *     迁移，按钮必须不存在（本束沿用 feedback-loop 的纪律：没有契约操作 ⇒ 前端不许有按钮）。
@@ -112,6 +117,8 @@ export function stageOf(kind: InboxKind, status: string): InboxStage {
         return "done";
       case "不做":
         return "archived";
+      case "已归档":
+        return "archived";
     }
   }
   if (kind === "exception") {
@@ -160,7 +167,7 @@ export type InboxError = z.infer<typeof InboxError>;
  *
  *   · **反馈**：`githubIssueUrl === null` ⇒ `null`。否则 `listInbox` **只用存下来的**
  *     `githubIssueUrl` / `githubIssueNumber` 给出 `{ kind: "issue", number, url, state }`，其中
- *     `state` 由 `sourceStatus` 推得：`已修复` / `不做` ⇒ `closed`，其余 ⇒ `open`——这正是
+ *     `state` 由 `sourceStatus` 推得：`已修复` / `不做` / `已归档` ⇒ `closed`，其余 ⇒ `open`——这正是
  *     `triageFeedback` 第三个副作用（跟着状态同步 issue 开关）**应当**让 GitHub 处于的状态。
  *     列表**不打 GitHub**（feedback-loop 的纪律：不随列表批量拉，避免 N 个请求）。
  *   · drawer 展开后前端调 `getFeedbackGithubIssue` 现查，若 `linkedPullRequestsAvailable` 且

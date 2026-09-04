@@ -70,7 +70,13 @@ export type FeedbackKind = z.infer<typeof FeedbackKind>;
  *   D3 的可见性裁决让提交人**能看见自己那条被判了 `不做`**，所以它必须带理由
  *   （`TRIAGE_REASON_REQUIRED`）：一个没有理由的「不做」比不答复更伤人。
  */
-export const FeedbackStatus = z.enum(["待处理", "已进入迭代", "已修复", "不做"]);
+/**
+ * `已归档`（2026-09-04，issue #2681）：把已经走到终态（`已修复` / `不做`）的反馈收起来，
+ * 不让收件箱越集越长。**不是**第三个终态入口——只能从 `已修复`/`不做` 进入，
+ * 不能从 `待处理`/`已进入迭代` 直接跳过去（那两者还没有"完成"，谈不上收起来）。
+ * 转移表见 `apps/api/src/domain/feedback/product-feedback.ts` 的 `ALLOWED_TRANSITIONS`。
+ */
+export const FeedbackStatus = z.enum(["待处理", "已进入迭代", "已修复", "不做", "已归档"]);
 export type FeedbackStatus = z.infer<typeof FeedbackStatus>;
 
 /**
