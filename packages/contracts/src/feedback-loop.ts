@@ -518,6 +518,14 @@ export const operations = {
         notified: z.boolean(),
         /** 本次是否真的创建了 GitHub issue（只有转 `已进入迭代` 且带 `issueDraft` 时才可能非 null）。 */
         githubIssueUrl: z.string().nullable().optional(),
+        /**
+         * 2026-09-04——建 issue 时,这条反馈的哪些图片附件没能真的推到 GitHub、
+         * 内嵌进正文（best-effort，见用例 `triageFeedback` 头注⑥）。恒是数组
+         * （可能为空），不是 `undefined`：没有走「转开发」这条分支时天然没有
+         * 图片要传，是"没有警告"而不是"没检查"。调用方（后台屏）据此提示
+         * "issue 已创建 #N，但以下图片未能内嵌"，不阻塞"转开发"本身成功这件事实。
+         */
+        imageUploadWarnings: z.array(z.string()),
       })
       .strict(),
     err: [
