@@ -69,6 +69,38 @@ export interface ConfiguredModelProviderConfig {
    * 而不是把字节丢给一个可能不认识它的端点。集合为空 = 这个部署没有任何视觉模型。
    */
   readonly visionModelIds: ReadonlySet<string>;
+  /**
+   * #2504 —— 这个部署认为**哪些 modelId 是"可以安全关闭 thinking 的 Bailian 混合思考
+   * 模型"**。见 `postCompletions` 头注：`enable_thinking` 是阿里云百炼（Model Studio）
+   * 的专有扩展字段，不是 OpenAI 标准字段——同一份代码理论上可以指向别的 OpenAI 兼容
+   * 端点（这个类本身是通用 adapter，只是**这个部署**只配了一个 provider），对不认识
+   * 这个字段的端点，多发一个陌生字段有 4xx 的风险；即使同样是百炼，`thinking-only`
+   * 模型（只能思考、不能关）收到 `enable_thinking: false` 会被拒绝，不是被忽略。
+   * 一个 modelId 不在这个集合里 ⇒ 不发这个字段，行为回落到"不管超时"的原始状态——
+   * 与 `supportsVision` 同一纪律：只对已确认支持的能力打开，不对未知的裸猜。
+   *
+   * ⚠ **只是 model 维度的能力声明，不是"这个部署配的就是百炼"的证明**——那一半由
+   * `bailianExtensionsEnabled` 单独判定，见其头注。两者都为真才发这个字段（`postCompletions`
+   * 里的门控），这是独立复审诊断（PR #2640）指出的"provider/model 双维能力"要求。
+   */
+  readonly thinkingDisableModelIds: ReadonlySet<string>;
+  /**
+   * #2504（独立复审诊断收紧）—— 这个部署的 `baseUrl` **是不是**真的指向一个认识
+   * `enable_thinking` 这个百炼专有扩展字段的端点。
+   *
+   * 只有 `thinkingDisableModelIds` 一个维度不够：那只声明了"这个 modelId 支持关闭
+   * thinking"，没有回答"这个部署配的端点是不是百炼"——一个复用本类（通用 OpenAI
+   * 兼容 adapter）但指向别的厂商/自托管端点的部署，即使调用时传的 modelId 字符串
+   * 恰好复用了 `qwen-plus`/`qwen3.7-plus` 这两个名字（例如自建的开源同名模型），也
+   * 不该被发送这个陌生字段。
+   *
+   * 默认值：`baseUrl` 命中 `dashscope.aliyuncs.com`（`bailian-image-provider.ts` /
+   * `bailian-vision-extractor.ts` 用的同一个真实百炼 host）就认为是。命不中时默认为
+   * `false`——不是"大概率也是百炼"的猜测，是诚实地不知道。运维可以用
+   * `KERNEL_MODEL_BAILIAN_EXTENSIONS=1`/`=0` 显式覆盖（例如百炼在私有网络/代理后面，
+   * `baseUrl` 不含这个域名，但确实是百炼）。
+   */
+  readonly bailianExtensionsEnabled: boolean;
 }
 
 /** Read once at composition time, so a mid-flight env change cannot swap a run's provider. */
@@ -85,14 +117,51 @@ export function readModelProviderConfig(
   // 走 undici，`headersTimeout` 默认 300s 且独立于 `AbortSignal`。现在两处出网都走显式
   // dispatcher（见 `ConfiguredModelProvider#dispatcher`），这个数字才真的说了算。
   const timeout = Number(env.KERNEL_MODEL_TIMEOUT_MS ?? "180000");
+  const baseUrl = (env.KERNEL_MODEL_BASE_URL ?? "").trim().replace(/\/+$/, "");
   return {
     provider: (env.KERNEL_MODEL_PROVIDER ?? "").trim(),
-    baseUrl: (env.KERNEL_MODEL_BASE_URL ?? "").trim().replace(/\/+$/, ""),
+    baseUrl,
     apiKey: env.KERNEL_MODEL_API_KEY ?? "",
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 180_000,
     streamEnabled: env.KERNEL_MODEL_STREAM_ENABLED === "1",
     visionModelIds: readVisionModelIds(env),
+    thinkingDisableModelIds: readThinkingDisableModelIds(env),
+    bailianExtensionsEnabled: readBailianExtensionsEnabled(env, baseUrl),
   };
+}
+
+/**
+ * #2504（独立复审诊断收紧）—— `bailianExtensionsEnabled` 的判定逻辑，从 `readModelProviderConfig`
+ * 拆出来单独可测：`KERNEL_MODEL_BAILIAN_EXTENSIONS` 显式覆盖优先（`"1"`/`"0"`），未设置时
+ * 按 `baseUrl` 是否命中真实百炼 host 自动判定。见 `bailianExtensionsEnabled` 头注。
+ */
+export function readBailianExtensionsEnabled(env: NodeJS.ProcessEnv, baseUrl: string): boolean {
+  const override = env.KERNEL_MODEL_BAILIAN_EXTENSIONS;
+  if (override === "1") return true;
+  if (override === "0") return false;
+  return isBailianBaseUrl(baseUrl);
+}
+
+/**
+ * `bailian-image-provider.ts` / `bailian-vision-extractor.ts` 用的同一个真实百炼 host——
+ * 严格按 `URL.hostname` 判定，不是子串匹配。
+ *
+ * ⚠ 第三轮独立复审诊断指出：`baseUrl.includes("dashscope.aliyuncs.com")` 是子串匹配，
+ * 对 `https://dashscope.aliyuncs.com.attacker.example/v1`（伪造子域）、
+ * `https://evil.example/dashscope.aliyuncs.com`（字符串藏在 path 里）这类 URL 会误判为
+ * 真的百炼——这正是子串匹配当 host 校验用时的经典坑，与"字符串里含某个词"和"域名真的是
+ * 那个域"是两件事同源。改成解析出 `hostname` 再判等值（含 `www.` 前缀，真实生产环境两种
+ * 写法都可能出现），解析失败（`baseUrl` 不是合法 URL）fail closed 为 false——与整个文件
+ * 「未知能力不裸猜」的纪律一致，不是"看起来像就当真的"。
+ */
+function isBailianBaseUrl(baseUrl: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(baseUrl).hostname;
+  } catch {
+    return false;
+  }
+  return hostname === "dashscope.aliyuncs.com" || hostname === "www.dashscope.aliyuncs.com";
 }
 
 /**
@@ -109,6 +178,26 @@ export function readModelProviderConfig(
  */
 function readVisionModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
   const raw = env.KERNEL_MODEL_VISION_IDS ?? "qwen-vl-max,qwen-vl-plus";
+  return new Set(raw.split(",").map((v) => v.trim()).filter((v) => v !== ""));
+}
+
+/**
+ * #2504 —— `KERNEL_MODEL_THINKING_DISABLE_IDS`（逗号分隔）→ 非流式请求里允许带
+ * `enable_thinking: false` 的 modelId 集合。
+ *
+ * ⚠ 默认值 `qwen-plus,qwen3.7-plus` 是**这个仓库自己已经在用**的两个 Bailian 混合思考
+ * 模型 id（`deep_agent_service/model.py` 的 `DEFAULT_MODEL_ID`、
+ * `simulate-template-run.ts`/`suggest-template-sections.ts`/
+ * `guided-*-generator.ts` 的 `modelId` 常量），不是凭空猜的——两者都是"混合模型"
+ * （hybrid，thinking 可开可关），不是 thinking-only 变体。**没有实测确认 pptx skill
+ * 默认 agent 实际用的是哪个 modelId**（它来自数据库配置的 per-agent 值，见
+ * `pg-default-agent-repository.ts` 头注，这个文件看不到）——如果部署的实际值不在这
+ * 两个里，运维需要把它加进 `KERNEL_MODEL_THINKING_DISABLE_IDS`，这条修复才对那个
+ * modelId 生效；在那之前，行为是**诚实地不生效**（不发这个字段，超时未缓解），不是
+ * 假装缓解了。同样的纪律见 `readVisionModelIds` 头注。
+ */
+function readThinkingDisableModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
+  const raw = env.KERNEL_MODEL_THINKING_DISABLE_IDS ?? "qwen-plus,qwen3.7-plus";
   return new Set(raw.split(",").map((v) => v.trim()).filter((v) => v !== ""));
 }
 
@@ -335,6 +424,34 @@ export class ConfiguredModelProvider implements ModelCallPort {
    *
    * 合成一处不是顺手重构：#1611 的根因就是「超时配置只覆盖了一半的层」，而两份逐字
    * 复制的 fetch 调用正是下一次只改一处的温床。两者的差别只有 `stream` 这一个字段。
+   *
+   * ## `enable_thinking: false`（非流式时）—— #2504
+   *
+   * ⚠ 这个部署配的是通义千问（阿里云百炼，`baseUrl`/`apiKey` 见本文件头注）。Qwen3 系
+   * 模型（`qwen-plus`/`qwen3.x-plus` 等，见各调用点的 `modelId` 常量）**缺省开启深度
+   * 思考**：模型在给出最终答案前先生成一段隐藏的 reasoning，而 `complete()` 恒为
+   * `stream: false`（本文件头注「The request shape」），调用方要等整段思考 + 正文都
+   * 生成完才拿到响应——2026-09-02 用户反馈：提交一个信息量较大的 pptx 任务，等了
+   * 300+ 秒后超时（#2504）。pptx skill 的 system prompt 本来就大（#1611 头注提过的
+   * 20KB），思考阶段在这种输入上被进一步拉长，叠加 #1611 已经放宽到的 180s 超时依然
+   * 不够。这里不是"超时还不够长"——继续调大超时只是把用户等待的时间挪个地方，思考
+   * 阶段本身对 pptx/大纲这类结构化生成任务没有必要，显式关闭它而不是继续加长预算。
+   *
+   * 只在 `stream` 为 false 时关：流式路径（`streamEnabled`，默认关闭，见类头注）会把
+   * 思考过程边生成边吐给调用方，不是本 issue 命中的"整段等待"场景，改它属于另一个
+   * 决策，不在这次修复范围内。
+   *
+   * ⚠ **双维门控，都为真才发**（独立复审诊断进一步收紧，见 `thinkingDisableModelIds` /
+   * `bailianExtensionsEnabled` 各自头注）：
+   *   1. `config.thinkingDisableModelIds.has(input.modelId)` —— **model** 维度："这个
+   *      modelId 是已知支持关闭 thinking 的混合模型"；
+   *   2. `config.bailianExtensionsEnabled` —— **endpoint** 维度："这个部署配的 baseUrl
+   *      真的是百炼"，不是复用本类（通用 OpenAI-compatible adapter）指向别的厂商/
+   *      自托管端点、只是恰好也用了同一个 modelId 字符串。
+   * 只判一维不够：只看 modelId，一个复用了 `qwen-plus` 这个名字的非百炼自托管端点也会
+   * 被发送这个陌生字段；只看 endpoint，百炼里的 `thinking-only` 模型（只能思考、不能关）
+   * 收到 `enable_thinking: false` 会被拒绝、不是被忽略。两维都不满足 ⇒ 完全不带这个
+   * 字段，请求体与本次修复之前逐字节相同。
    */
   private async postCompletions(input: ModelCallInput, stream: boolean): Promise<UndiciResponse> {
     const { baseUrl, apiKey, timeoutMs } = this.config;
@@ -355,6 +472,11 @@ export class ConfiguredModelProvider implements ModelCallPort {
           model: input.modelId,
           stream,
           messages: buildMessages(input),
+          ...(!stream
+            && this.config.bailianExtensionsEnabled
+            && this.config.thinkingDisableModelIds.has(input.modelId)
+            ? { enable_thinking: false }
+            : {}),
         }),
       });
     } catch (err) {
