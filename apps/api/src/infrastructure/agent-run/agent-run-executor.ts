@@ -44,6 +44,7 @@ import type { ObjectStore } from "../../application/artifact/ports";
 import type { PlanLedgerRepository, PlanRunStatusReader } from "../../application/plan-control/ports";
 import { executeQueuedRuns } from "../../application/agent-run/execute-run";
 import { writeBackPendingRuns } from "../../application/agent-run/writeback";
+import type { RunEventBusPort } from "../../application/agent-run/run-event-bus";
 
 export class AgentRunExecutor implements AgentRunExecutorPort {
   private readonly clock: AgentRunClock = {
@@ -120,6 +121,14 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
      * 进程本身消失、连自己的超时都没机会跑的那种情况。
      */
     private readonly staleRunningThresholdMs: number = DEFAULT_STALE_RUNNING_THRESHOLD_MS,
+    /**
+     * Phase 14 F03 (`streaming-transport` 契约束)。可选，与上面每一个同一条既有理由：
+     * 既有构造点（这个类现有的全部测试）不必都改，生产合成（`kernel.module.ts`）必定
+     * 注入同一个 `RUN_EVENT_BUS` 单例（同时也是 WS 网关订阅的那一个实例，见
+     * `run-event-bus.ts` 头注）。不注入 ⇒ 这次执行不会有任何事件出现在 WS 订阅者面前，
+     * 但落库行为与本次改动之前逐字节相同。
+     */
+    private readonly events?: RunEventBusPort,
   ) {}
 
   /**
@@ -160,8 +169,12 @@ export class AgentRunExecutor implements AgentRunExecutorPort {
       runImages: this.runImages,
       sandbox: this.sandbox, objects: this.objects,
       planLedger: this.planLedger,
+      events: this.events,
     }, { orgId });
-    await writeBackPendingRuns({ runs: this.runs, clock: this.clock, log: this.log }, { orgId });
+    await writeBackPendingRuns(
+      { runs: this.runs, clock: this.clock, log: this.log, events: this.events },
+      { orgId },
+    );
     return executed;
   }
 

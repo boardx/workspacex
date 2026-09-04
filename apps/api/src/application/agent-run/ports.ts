@@ -647,6 +647,23 @@ export interface ModelCallProgressEvent {
    */
   readonly phase?: "in_progress" | "complete";
   readonly toolCallId?: string | null;
+  /**
+   * Phase 14 F03 (`streaming-transport` 契约束, R6 后置条件) -- `ToolCallStartEvent.args`/
+   * `ToolCallEndEvent.result` on the new WS event bus must carry the **完整**入参/结果，
+   * 不是截断摘要 -- `toolArgsSummary`/`toolResultSummary` above are already truncated
+   * (`summarizeProgressText`'s 500-char default, or 4000 for a short allow-list) for
+   * on-ledger VISIBILITY, so they cannot serve that requirement. These two optional fields
+   * carry the untruncated values a provider already has in hand before it summarizes --
+   * `DeepAgentModelProvider` populates them from the real `tool_calls[].args` object and the
+   * raw `ToolMessage.content` (see `extractToolCallEvents`'s own doc). Optional and
+   * additive: a provider that doesn't populate them (every provider that predates this
+   * feature, and any future one that doesn't bother) simply produces a WS event whose
+   * `args`/`result` fall back to `{}`/`null` at the `execute-run.ts` call site -- never a
+   * thrown error, never a behaviour change to the LEDGER (`toolArgsSummary`/
+   * `toolResultSummary` are untouched by this addition).
+   */
+  readonly toolArgsFull?: unknown;
+  readonly toolResultFull?: unknown;
 }
 
 /**
@@ -1067,3 +1084,8 @@ export const AGENT_RUN_STORE = Symbol("AgentRunStore");
 export const MODEL_CALL_PORT = Symbol("ModelCallPort");
 export const AGENT_RUN_EXECUTOR = Symbol("AgentRunExecutor");
 export const TOKEN_USAGE_METER = Symbol("TokenUsageMeter");
+/** Phase 14 F03 -- DI token for the singleton `RunEventBusPort` (`run-event-bus.ts`). One
+ * instance shared by `AGENT_RUN_EXECUTOR` (publish side) and the WS gateway
+ * (`interface/ws/agent-run-events.gateway.ts`, subscribe side) -- see that port's own doc
+ * for why they must be the SAME in-process instance. */
+export const RUN_EVENT_BUS = Symbol("RunEventBusPort");

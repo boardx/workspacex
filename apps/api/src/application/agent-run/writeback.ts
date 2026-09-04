@@ -32,6 +32,7 @@
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type { AgentRunClock, AgentRunStore, PendingWriteback } from "./ports";
+import type { RunEventBusPort } from "./run-event-bus";
 
 /**
  * The bounded retry budget (§6).
@@ -47,8 +48,27 @@ export const MAX_WRITEBACK_ATTEMPTS = 3;
 export interface WritebackDeps {
   readonly runs: AgentRunStore;
   readonly clock: AgentRunClock;
+  /**
+   * Phase 14 F03 -- **可选**，与 `execute-run.ts`'s `ExecuteAgentRunDeps.events` 同一条
+   * 既有理由。THIS is where a run's ledger status truly becomes `succeeded` (`§6`'s
+   * `commitWriteback`, not `execute-run.ts`'s own `writeback_pending`) -- so the WS
+   * `status_change("succeeded")` event belongs here, fired the moment that transaction
+   * commits, not earlier.
+   */
+  readonly events?: RunEventBusPort;
   /** Server-side only. The database's own words go here and never into a response. */
   readonly log: (message: string, detail: Record<string, unknown>) => void;
+}
+
+function publishStatusChange(
+  deps: WritebackDeps,
+  orgId: OrgId,
+  runId: string,
+  status: "succeeded" | "failed",
+): void {
+  deps.events?.publish(orgId, runId, (seq) => ({
+    type: "status_change", runId, seq, status, pausedBy: null, emittedAt: deps.clock.now(),
+  }));
 }
 
 const sha256 = (value: string): string => createHash("sha256").update(value).digest("hex");
@@ -72,6 +92,7 @@ async function writeBackOne(
       // #1624：沙箱产出的文件与消息同事务挂上。缺省/空 ⇒ 不插附件行，写回逐字节同前。
       files: pending.files,
     });
+    publishStatusChange(deps, orgId, pending.runId, "succeeded");
     return;
   } catch (e) {
     // The database's message -- which can name a role, a constraint or a column -- stops
@@ -93,6 +114,7 @@ async function writeBackOne(
     runId: pending.runId, startedAt, endedAt: deps.clock.now(),
   });
   await deps.runs.failRun(orgId, pending.runId, "CHAT_WRITEBACK_FAILED");
+  publishStatusChange(deps, orgId, pending.runId, "failed");
 }
 
 /**

@@ -256,12 +256,13 @@ describe("D2 工具调用透明度：updates 事件驱动 onProgress（不是解
     {
       toolName: "list_org_skills", toolArgsSummary: "{}",
       toolResultSummary: null, planningNote: "先看看有哪些技能可用",
-      phase: "in_progress", toolCallId: "call-1",
+      phase: "in_progress", toolCallId: "call-1", toolArgsFull: {},
     },
     {
       toolName: "list_org_skills", toolArgsSummary: "{}",
       toolResultSummary: "- diagram-maker：画图技能", planningNote: "先看看有哪些技能可用",
       phase: "complete", toolCallId: "call-1",
+      toolArgsFull: {}, toolResultFull: "- diagram-maker：画图技能",
     },
   ];
 
