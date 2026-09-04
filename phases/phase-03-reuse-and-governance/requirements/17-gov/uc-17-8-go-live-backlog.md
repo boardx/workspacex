@@ -86,8 +86,24 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   「创建 GitHub Issue」接回真实编辑器（抄 `admin/feedback-screen.tsx` 的
   `defaultIssueDraft`），仅 `stage===backlog` 时可用——`doing→doing` 是幂等 replay
   不会真的建 issue，故未对 `doing` 开放该按钮（避免假成功）。8 条单测。
-- 待做：B3.6（旧屏退役+重签，本轮**未做**——旧 `/platform-admin/feedback` 与新
-  `/platform-admin/inbox` 目前并存）、B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
+- ✅ B3.6（旧屏退役）2026-09-04 落地（人类会话原话「同意，B3.6 直接做」授权开工，
+  由 agent 代转录）：删除 `components/admin/feedback-screen.tsx` 及其 3 张签核截图
+  （`fb-admin-two-columns-{light,dark}.png` / `fb-admin-decline-reason-light.png`）；
+  `/platform-admin/feedback`（`app/platform-admin/[module]/page.tsx` 的 `REDIRECTS`）
+  与 `/admin/feedback`（`app/admin/[module]/page.tsx`，改直接指向新落点，不经两跳）
+  均 301 到 `/platform-admin/inbox`；`AdminModuleKey`/`ADMIN_NAV`/`PLATFORM_ADMIN_ROUTES`
+  的 `feedback` 项一并移除（不留一个只会 404 或被重定向吞掉的死键）；删除
+  `tests/ui/admin-feedback-live.test.tsx`、`admin-feedback-transitions-match-domain.test.ts`
+  （两者只测旧屏，其转移交接/状态迁移的行为已由 `tests/ui/design-loop.test.tsx` 覆盖新屏）；
+  `tests/ui/admin-scope-split.test.tsx`/`ops-status-screen.test.tsx` 的 `feedback` 键引用改指
+  同组仍存在的 `ops-status`；`e2e/feedback-loop-smoke.spec.ts` 的两条后台处置用例改打
+  `/platform-admin/inbox`（`inbox-*` 系列 testid），提交侧 ①②③④四条用例不变；
+  `feedback-loop` 束 `ui.md`（引用截图 9→6 张）/`coverage.md`（V7/V10/V11 前端消费点改指
+  `inbox-*`，V8/V9 投票入口未随新屏保留，如实降级为 ⚠ 已知限制而非隐藏）已更新；
+  `scripts/shot-feedback-loop.mjs` 不再拍「后台两列屏」这三张图；`design-signoff.md`
+  新增「B3.6 重开」一节，`status` 字段本身**未改**（ADR-023：agent 不许碰，留给人类
+  确认新的 UI 材料后再决定是否需要重签）。
+  待做：B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
 
 ### 0.3 Sprint 3 落地记录
 

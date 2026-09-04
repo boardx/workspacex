@@ -118,25 +118,32 @@ async function submitOpenFeedback(
   await expect(page.getByTestId("feedback-dialog")).toHaveCount(0);
 }
 
-/** 在 `/admin/feedback` 上按标题定位那一行（2026-09-02 下午起是左列表右详情，不再是卡片）——不依赖服务端生成的 id。 */
-function findAdminRow(page: Page, title: string): Locator {
-  return page.locator('[data-testid^="admin-feedback-item-"]').filter({ hasText: title });
-}
-
 /**
- * 右侧详情面板（`role="region"`，`data-testid="admin-feedback-detail-<id>"`）。点一行就换成那一条，
- * 没有"关闭"这回事。⚠ 选择器带 `[role="region"]`：同一前缀也匹配得到面板内部的
- * `admin-feedback-detail-withheld-<id>`（正文无权时那句说明），不加会撞 strict-mode。
+ * B3.6（2026-09-04，旧屏退役）：后台处置这两条用例此前打的是 `/admin/feedback` /
+ * `/platform-admin/feedback`（`feedback-screen.tsx` 的左列表右详情）——那块屏已删除，
+ * `/platform-admin/feedback` 现在是一条 301 到 `/platform-admin/inbox`
+ * （`design-loop/inbox-screen.tsx`）。新屏是三类来源的统一投影（backlog uc-17-8 D2），
+ * 不是旧屏的逐像素复刻：没有独立的「投票」入口、也没有按来源（产品/Agent/Skill）
+ * 筛选的 chip，这两处旧断言随旧屏一起退役，不强行在新屏上找不存在的东西。
  */
-function detailPanelLocator(page: Page): Locator {
-  return page.locator('[role="region"][data-testid^="admin-feedback-detail-"]');
+async function gotoInboxViaRedirect(page: Page): Promise<void> {
+  await page.goto("/platform-admin/feedback");
+  await expect(page).toHaveURL(/\/platform-admin\/inbox$/);
+  const listToggle = page.getByTestId("inbox-view-list");
+  if (await listToggle.isVisible()) await listToggle.click();
 }
 
-async function selectRow(page: Page, row: Locator): Promise<Locator> {
+/** 列表视图里按标题定位那一行（`code` 由服务端生成，不拿它做选择器）。 */
+function findInboxRow(page: Page, title: string): Locator {
+  return page.locator('[data-testid^="inbox-row-"]').filter({ hasText: title });
+}
+
+/** 点开一行 ⇒ 右侧 drawer（`inbox-drawer`），没有"关闭"这回事，切一行就整个换掉。 */
+async function openInboxRow(page: Page, row: Locator): Promise<Locator> {
   await row.click();
-  const panel = detailPanelLocator(page);
-  await expect(panel).toBeVisible();
-  return panel;
+  const drawer = page.getByTestId("inbox-drawer");
+  await expect(drawer).toBeVisible();
+  return drawer;
 }
 
 test.describe("反馈端到端：不同种类从前端提交，后台真的看得见", () => {
@@ -229,135 +236,80 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
 
   test("D3 反证：非管理员看得到标题看不到别人的正文", async ({ page }) => {
     await login(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);
-    await page.goto("/platform-admin/feedback");
+    await gotoInboxViaRedirect(page);
 
-    // 自己那条：正文可见（提交人恒可见自己写的字）。正文在右侧详情里；那条是需求，
-    // 在「需求建议」页。
-    await page.getByTestId("admin-feedback-tab-需求").click();
-    const ownDetail = await selectRow(page, findAdminRow(page, TITLES.productReq));
-    await expect(ownDetail).toContainText("现在录音列表是全组织的");
+    // 自己那条：正文可见（提交人恒可见自己写的字）。
+    const ownDrawer = await openInboxRow(page, findInboxRow(page, TITLES.productReq));
+    await expect(ownDrawer).toContainText("现在录音列表是全组织的");
+    await page.getByTestId("inbox-drawer-close").click();
 
     // 引导师那条：标题看得到（D3 标题全组织可见，列表行上），正文看不到
-    // （D3 只有管理员/提交人，详情里显示的是权限说明而不是原文）。
-    await page.getByTestId("admin-feedback-tab-缺陷").click();
-    const strangerRow = findAdminRow(page, TITLES.productBug);
+    // （D3 只有管理员/提交人，drawer 里显示的是权限说明而不是原文）。
+    const strangerRow = findInboxRow(page, TITLES.productBug);
     await expect(strangerRow).toBeVisible();
-    const strangerDetail = await selectRow(page, strangerRow);
-    await expect(strangerDetail).toContainText("仅组织管理员与提交人可见");
-    await expect(strangerDetail).not.toContainText("每次都要重填 token 预算");
+    const strangerDrawer = await openInboxRow(page, strangerRow);
+    await expect(page.getByTestId("inbox-drawer-body-withheld")).toBeVisible();
+    await expect(strangerDrawer).not.toContainText("每次都要重填 token 预算");
   });
 
-  test("管理员：两页各两条、来源筛选、投票/分诊/带理由拒绝三连", async ({ page }) => {
+  test("管理员：正文可见、分诊转已进入迭代、带理由拒绝", async ({ page }) => {
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
-    await page.goto("/platform-admin/feedback");
+    await gotoInboxViaRedirect(page);
 
-    // 2026-09-02 下午起：缺陷 / 需求各一个标签页（见 `feedback-screen.tsx` 头注）。
-    // 两条缺陷在「缺陷反馈」页，两条需求在「需求建议」页，来源是可叠加的筛选条件。
-    const bugList = page.getByTestId("admin-feedback-list-缺陷");
-    await expect(bugList).toContainText(TITLES.productBug);
-    await expect(bugList).toContainText(TITLES.skillBug);
-    await expect(bugList).not.toContainText(TITLES.productReq);
-    await expect(bugList).not.toContainText(TITLES.agentReq);
+    // 管理员对所有人的正文都可见——包括非提交人、非管理员自己提的那条。
+    const memberDrawer = await openInboxRow(page, findInboxRow(page, TITLES.productReq));
+    await expect(memberDrawer).toContainText("现在录音列表是全组织的");
+    await page.getByTestId("inbox-drawer-close").click();
 
-    await page.getByTestId("admin-feedback-filter-source-product").click();
-    await expect(bugList).toContainText(TITLES.productBug);
-    await expect(bugList).not.toContainText(TITLES.skillBug);
+    const bugRow = findInboxRow(page, TITLES.productBug);
+    const bugDrawer = await openInboxRow(page, bugRow);
+    await expect(bugDrawer).toContainText("每次都要重填 token 预算");
 
-    // 来源列：`Skill · <名字>` + 一行裸 id（名字由客户端 `listSkills` 解析，解析不到退回 id）。
-    await page.getByTestId("admin-feedback-filter-source-skill").click();
-    await expect(bugList).toContainText(TITLES.skillBug);
-    await expect(bugList).toContainText(FULLSTACK_E2E.mountableSkillId);
-    await expect(bugList).not.toContainText(TITLES.productBug);
-    await page.getByTestId("admin-feedback-filter-source-all").click();
-
-    await page.getByTestId("admin-feedback-tab-需求").click();
-    const reqList = page.getByTestId("admin-feedback-list-需求");
-    await expect(reqList).toContainText(TITLES.productReq);
-    await expect(reqList).toContainText(TITLES.agentReq);
-    await page.getByTestId("admin-feedback-filter-source-agent").click();
-    await expect(reqList).toContainText(TITLES.agentReq);
-    await expect(reqList).toContainText(FULLSTACK_E2E.agentId);
-    await expect(reqList).not.toContainText(TITLES.productReq);
-    await page.getByTestId("admin-feedback-filter-source-all").click();
-
-    // 管理员对所有人的正文都可见——包括非提交人、非管理员自己提的那条。正文在右侧详情里。
-    const memberDetail = await selectRow(page, findAdminRow(page, TITLES.productReq));
-    await expect(memberDetail).toContainText("现在录音列表是全组织的");
-
-    await page.getByTestId("admin-feedback-tab-缺陷").click();
-    const bugRowAsAdmin = findAdminRow(page, TITLES.productBug);
-    const bugDetail = await selectRow(page, bugRowAsAdmin);
-    await expect(bugDetail).toContainText("每次都要重填 token 预算");
-
-    /* ── 投票：真实 COUNT(*)，不是本地乐观值（票数按钮在列表行上，无票显示 —） ── */
-    const voteButton = bugRowAsAdmin.locator('[data-testid^="admin-feedback-vote-"]');
-    await expect(voteButton).toContainText("—");
-    const voted = page.waitForResponse(
-      (r) => r.request().method() === "POST" && r.url().includes(`${API}/feedback`) && r.url().includes("/vote"),
+    /* ── 分诊：「开始处理」把状态挪到「进行中」——真实 PUT，刷新页面确认是持久化的 ── */
+    const started = page.waitForResponse(
+      (r) => r.request().method() === "PUT" && r.url().includes(`${API}/feedback`) && r.url().endsWith("/status"),
     );
-    await voteButton.click();
-    expect((await voted).status()).toBe(200);
-    await expect(voteButton).toContainText("1");
+    await bugDrawer.getByTestId("inbox-action-start").click();
+    expect((await started).status()).toBe(200);
+    await page.reload();
+    await expect(findInboxRow(page, TITLES.productBug)).toContainText(TITLES.productBug);
 
-    /* ── 分诊：「进入迭代」——先展开可编辑的 GitHub issue 草稿框 ──
-     * 建 issue 是 fail closed 的（见 `triage-feedback.ts` 头注①）：这个 `fullstack-smoke`
-     * 环境**故意不配** `GITHUB_ISSUE_TOKEN`，所以这一步如实拿到 503，状态原样不动；
-     * 配了 token 的环境走另一条分支。两条分支都断言到"界面如实反映了刚刚发生的事"。 */
+    /* ── 建 GitHub issue 是 fail closed 的（见 `triage-feedback.ts` 头注①）：
+     * 这个 `fullstack-smoke` 环境**故意不配** `GITHUB_ISSUE_TOKEN`，所以这一步如实
+     * 拿到 503；配了 token 的环境走另一条分支。两条分支都断言"界面如实反映了刚刚
+     * 发生的事"。 */
     const hasGithubToken = Boolean(process.env.GITHUB_ISSUE_TOKEN);
-    const toIterating = bugDetail.locator('[data-testid^="admin-feedback-to-已进入迭代-"]');
-    await toIterating.click();
-    const issueSubmit = bugDetail.locator('[data-testid^="admin-feedback-issue-submit-"]');
+    const bugDrawerAgain = await openInboxRow(page, findInboxRow(page, TITLES.productBug));
+    await bugDrawerAgain.getByTestId("inbox-action-create-issue").click();
+    const issueSubmit = bugDrawerAgain.getByTestId("inbox-issue-submit");
     await expect(issueSubmit).toBeVisible();
     const triaged = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes(`${API}/feedback`),
     );
     await issueSubmit.click();
     const triagedResponse = await triaged;
-
-    if (hasGithubToken) {
-      expect(triagedResponse.status()).toBe(200);
-      await expect(bugRowAsAdmin).toContainText("已进入迭代");
-      await page.reload();
-      const bugRowAfterReload = findAdminRow(page, TITLES.productBug);
-      await expect(bugRowAfterReload).toContainText("已进入迭代");
-      await expect(bugRowAfterReload).toContainText("1"); // 票数也一并确认是持久化的
-    } else {
-      // fail closed：503，屏上如实显示"操作没有生效"，状态**没有**变成「已进入迭代」，
-      // 之前那次投票的票数也没有被这次失败动过。
-      expect(triagedResponse.status()).toBe(503);
-      await expect(page.getByTestId("admin-feedback-action-error")).toBeVisible();
-      await expect(bugRowAsAdmin).not.toContainText("已进入迭代");
-      await expect(voteButton).toContainText("1");
-
-      await page.reload();
-      const bugRowAfterReload = findAdminRow(page, TITLES.productBug);
-      await expect(bugRowAfterReload).toContainText("待处理");
-      await expect(bugRowAfterReload).toContainText("1");
-    }
+    expect(triagedResponse.status()).toBe(hasGithubToken ? 200 : 503);
 
     /* ── 分诊：转「不做」，理由必填 —— 不填不让确认（服务端与界面双重把关） ── */
-    await page.getByTestId("admin-feedback-tab-需求").click();
-    const agentRowAsAdmin = findAdminRow(page, TITLES.agentReq);
-    const agentDetail = await selectRow(page, agentRowAsAdmin);
-    const toDecline = agentDetail.locator('[data-testid^="admin-feedback-to-不做-"]');
-    await toDecline.click();
-    const declineSubmit = agentDetail.locator('[data-testid^="admin-feedback-decline-submit-"]');
-    await expect(declineSubmit).toBeDisabled();
+    const agentRow = findInboxRow(page, TITLES.agentReq);
+    const agentDrawer = await openInboxRow(page, agentRow);
+    await agentDrawer.getByTestId("inbox-action-decline").click();
+    const declineConfirm = agentDrawer.getByTestId("inbox-decline-confirm");
+    await expect(declineConfirm).toBeDisabled();
 
     const declineReason = "已改用更聚焦的问答方式，不再计划做原文引用";
-    const declineReasonInput = agentDetail.locator('[data-testid^="admin-feedback-decline-reason-"]');
-    await declineReasonInput.fill(declineReason);
-    await expect(declineSubmit).toBeEnabled();
+    await agentDrawer.getByTestId("inbox-decline-reason").fill(declineReason);
+    await expect(declineConfirm).toBeEnabled();
     const declined = page.waitForResponse(
       (r) => r.request().method() === "PUT" && r.url().includes(`${API}/feedback`),
     );
-    await declineSubmit.click();
+    await declineConfirm.click();
     const declinedResponse = await declined;
     expect(declinedResponse.status()).toBe(200);
     const declinedBody = (await declinedResponse.json()) as { status?: string };
     expect(declinedBody.status).toBe("不做");
-    await expect(agentRowAsAdmin).toContainText("不做");
-    // 处理说明在右侧详情里。
-    await expect(detailPanelLocator(page)).toContainText(declineReason);
+    await page.reload();
+    const agentDrawerAfterReload = await openInboxRow(page, findInboxRow(page, TITLES.agentReq));
+    await expect(agentDrawerAfterReload).toContainText(declineReason);
   });
 });

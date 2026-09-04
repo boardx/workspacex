@@ -1,10 +1,9 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { AgentScreen } from "@/components/admin/agent-screen";
 import { ModelScreen } from "@/components/admin/model-screen";
 import { McpScreen } from "@/components/admin/mcp-screen";
-import { FeedbackScreen } from "@/components/admin/feedback-screen";
 import { OpsStatusScreen } from "@/components/admin/ops-status-screen";
 import { FeedbackDraftsScreen, DesignLoopInboxAdminScreen, DesignWorkbenchAdminScreen } from "@/components/admin/design-loop-screens";
 import { PlatformMembersScreen } from "@/components/admin/platform-members-screen";
@@ -23,13 +22,21 @@ import { PLATFORM_ADMIN_ROUTES } from "@/lib/platform-admin-routes";
  * 路由段 → 模块键的表在 `lib/platform-admin-routes.ts`；这里只接模块键 → 屏组件。
  * 两张表的键集合与 `adminNavForScope("platform")` 声明的 href 三方一致，由
  * `tests/ui/admin-scope-split.test.tsx` 机械核对——只补左栏不给落点 = 点进去 404。
+ *
+ * ⚠ B3.6（2026-09-04，旧屏退役）：`/platform-admin/feedback`（旧的「反馈与迭代」
+ *   后台两列屏，`feedback-screen.tsx`）已删除，改成 301 到 `/platform-admin/inbox`
+ *   （`REDIRECTS`，先于 `PLATFORM_ADMIN_ROUTES`/`SCREENS` 判定）——新屏是严格超集
+ *   （三类来源统一投影 + 同一套四态状态机 + 看板/列表 + drawer），不留死链也不留旧屏。
  */
+const REDIRECTS: Partial<Record<string, string>> = {
+  feedback: "/platform-admin/inbox",
+};
+
 const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.ReactNode>> = {
   agent: AgentScreen,
   model: ModelScreen,
   mcp: McpScreen,
   platform: PlatformMembersScreen,
-  feedback: FeedbackScreen,
   "ops-status": OpsStatusScreen,
   "feedback-drafts": FeedbackDraftsScreen,
   inbox: DesignLoopInboxAdminScreen,
@@ -37,7 +44,7 @@ const SCREENS: Partial<Record<AdminModuleKey, (p: { state: UiState }) => React.R
 };
 
 export function generateStaticParams() {
-  return Object.keys(PLATFORM_ADMIN_ROUTES).map((module) => ({ module }));
+  return [...Object.keys(PLATFORM_ADMIN_ROUTES), ...Object.keys(REDIRECTS)].map((module) => ({ module }));
 }
 
 export default function PlatformAdminModulePage({
@@ -46,6 +53,9 @@ export default function PlatformAdminModulePage({
   params: { module: string };
   searchParams: { state?: string; as?: string; org?: string };
 }) {
+  const redirectTo = REDIRECTS[params.module];
+  if (redirectTo) redirect(redirectTo);
+
   const key = PLATFORM_ADMIN_ROUTES[params.module];
   const Screen = key ? SCREENS[key] : undefined;
   if (!key || !Screen) notFound();

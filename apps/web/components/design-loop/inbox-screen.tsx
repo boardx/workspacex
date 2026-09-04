@@ -687,13 +687,13 @@ function ListView({
   );
 }
 
-/** 缺陷/需求 → issue 标签，同 `admin/feedback-screen.tsx` 的 `KIND_ISSUE_LABEL`，不重造第二份映射就手写一遍值。 */
+/** 缺陷/需求 → issue 标签，同旧 `admin/feedback-screen.tsx`（B3.6 已删除）的 `KIND_ISSUE_LABEL`，不重造第二份映射就手写一遍值。 */
 const INBOX_KIND_ISSUE_LABEL: Record<"缺陷" | "需求", string> = { 缺陷: "bug", 需求: "enhancement" };
 
 /**
- * 建 issue 编辑器的初值——照抄 `admin/feedback-screen.tsx` 的 `defaultIssueDraft`，
- * 只是从 `InboxItem` 取字段（没有 `attachments`，收件箱投影本轮没有这个字段，
- * 不编一份假的附件区块）。
+ * 建 issue 编辑器的初值——照抄旧 `admin/feedback-screen.tsx`（B3.6 已删除）的
+ * `defaultIssueDraft`，只是从 `InboxItem` 取字段（没有 `attachments`，收件箱投影
+ * 本轮没有这个字段，不编一份假的附件区块）。
  */
 function defaultInboxIssueDraft(item: InboxItem): FeedbackIssueDraft {
   const detail = item.body ?? "(正文仅组织管理员与提交人可见，分诊时请补充必要的复现上下文。)";
