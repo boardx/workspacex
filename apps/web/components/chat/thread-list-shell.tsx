@@ -50,7 +50,12 @@ export function ThreadListHeader({ title = "对话" }: { title?: string }) {
 export function SidebarBrandHeader(): JSX.Element {
   return (
     <div className="flex items-center justify-between gap-2 px-3 pt-3" data-testid="chat-sidebar-brand-header">
-      <WorkspaceXWordmark className="h-4 w-auto" />
+      {/* issue #2703——`h-4`(16px) 配上源图当时不对称的透明留白（见
+          `workspacex-logo.tsx` 头注新增记录），有效字形只剩约 13px 且视觉重心偏下，
+          人类直接反馈"logo 太小、对不齐"。源图已裁成对称留白（`workspace-logo` 相关
+          脚本记录见 git 历史），这里配合把渲染高度提到 `h-5`(20px)，让 wordmark 与
+          旁边 `⌘K` 徽标的视觉分量相称，不再是行内最不起眼的元素。 */}
+      <WorkspaceXWordmark className="h-5 w-auto" />
       <kbd className="rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground">⌘K</kbd>
     </div>
   );

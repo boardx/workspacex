@@ -388,6 +388,23 @@
   .chat-markdown h3 {
     @apply text-13 font-bold text-card-foreground;
   }
+  /*
+    issue #2703 —— h1-h3 之前是全部规则，h4 起没有 token 规则，AI 回复一旦用到
+    四级及以下标题就会掉回浏览器 UA 默认字号/字重（各浏览器不一致，且完全在
+    `lib/font-scale.ts` 唯一事实源之外）——这正是"整个界面文字不统一"的一个真实
+    缺口。续着 h1→h3 的递减节奏补齐，不新增字号档位：h4/h5 与正文同为 `text-13`/
+    `text-12`（比 h3 的 `text-13 font-bold` 弱一档字重区分度，h5 起降到 `text-12`），
+    h6 落到 `text-11`（与既有的"次要说明文字"档位一致）。
+  */
+  .chat-markdown h4 {
+    @apply text-13 font-semibold text-card-foreground;
+  }
+  .chat-markdown h5 {
+    @apply text-12 font-semibold text-card-foreground;
+  }
+  .chat-markdown h6 {
+    @apply text-11 font-semibold text-card-foreground;
+  }
   .chat-markdown p {
     @apply text-13 leading-relaxed text-card-foreground;
   }
