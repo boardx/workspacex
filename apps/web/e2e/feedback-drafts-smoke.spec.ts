@@ -63,6 +63,10 @@ test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
     /* ── 存草稿：图标栏「反馈」入口，填正文，点「存为草稿」 ── */
     await page.getByTestId("rail-feedback").click();
     await expect(page.getByTestId("feedback-form")).toBeVisible();
+    // 同 feedback-loop-smoke.spec.ts 已验证过的既有纪律：等标题落定再点 kind 按钮——
+    // 只等 feedback-form 出现会在弹层还没完全稳定（entrance 动画/首帧）时就去点，
+    // CI 资源紧张时会撞上 Playwright 的 actionability 重试直到超时（非本 PR 代码回归）。
+    await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
     await page.getByTestId("feedback-kind-需求").click();
     await page.getByTestId("feedback-detail-input").fill(DRAFT_DETAIL);
 

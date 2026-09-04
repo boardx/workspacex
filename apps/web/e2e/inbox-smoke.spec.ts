@@ -47,6 +47,10 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
     await page.getByTestId("rail-feedback").click();
     await expect(page.getByTestId("feedback-form")).toBeVisible();
+    // 同 feedback-loop-smoke.spec.ts 已验证过的既有纪律：等标题落定再点 kind 按钮——
+    // 只等 feedback-form 出现会在弹层还没完全稳定（entrance 动画/首帧）时就去点，
+    // CI 资源紧张时会撞上 Playwright 的 actionability 重试直到超时（非本 PR 代码回归）。
+    await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
     await page.getByTestId("feedback-kind-需求").click();
     await page.getByTestId("feedback-detail-input").fill(`${title}。每次导出都要重新选一遍时间范围，历史记录应该能直接复用。`);
 
@@ -72,6 +76,10 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
     await page.getByTestId("rail-feedback").click();
     await expect(page.getByTestId("feedback-form")).toBeVisible();
+    // 同 feedback-loop-smoke.spec.ts 已验证过的既有纪律：等标题落定再点 kind 按钮——
+    // 只等 feedback-form 出现会在弹层还没完全稳定（entrance 动画/首帧）时就去点，
+    // CI 资源紧张时会撞上 Playwright 的 actionability 重试直到超时（非本 PR 代码回归）。
+    await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
     await page.getByTestId("feedback-kind-缺陷").click();
     await page.getByTestId("feedback-detail-input").fill(`${title}。批注写完之后要等好几秒才在别人那边出现。`);
     const submitted = page.waitForResponse(
@@ -118,6 +126,10 @@ test.describe("统一收件箱端到端：直接提交、看板拖拽迁移、�
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
     await page.getByTestId("rail-feedback").click();
     await expect(page.getByTestId("feedback-form")).toBeVisible();
+    // 同 feedback-loop-smoke.spec.ts 已验证过的既有纪律：等标题落定再点 kind 按钮——
+    // 只等 feedback-form 出现会在弹层还没完全稳定（entrance 动画/首帧）时就去点，
+    // CI 资源紧张时会撞上 Playwright 的 actionability 重试直到超时（非本 PR 代码回归）。
+    await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
     await page.getByTestId("feedback-kind-需求").click();
     await page.getByTestId("feedback-detail-input").fill(`${title}。晚上用的时候太亮了，想要一个暗色主题。`);
     const submitted = page.waitForResponse(
