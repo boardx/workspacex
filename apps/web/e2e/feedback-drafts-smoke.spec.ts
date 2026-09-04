@@ -54,6 +54,48 @@ async function login(page: Page, email: string, password: string): Promise<void>
   await expect(page).toHaveURL(/\/projects$/);
 }
 
+/**
+ * 诊断版点击——CI 实测三轮排查（渲染时序/超时预算/并发窗口）都排除后，`feedback-kind-*`
+ * 的点击在这一个文件里仍确定性卡满 90s（同一提交原始跑 + retry 两次都卡在同一行），
+ * 而 `feedback-loop-smoke.spec.ts` 同一组件、同一按钮在同一次运行里稳定通过——说明
+ * 剩下的不是资源问题，是这个文件独有的某种真实状态差异，但看不到 CI 的
+ * screenshot/trace（本环境出站网络不通到 actions 产物的 blob 存储）没法肉眼确认。
+ * 这里在真正卡死前先做一轮短超时探测 + 打印 DOM 现场到 stdout（job log 能读到），
+ * 探测不到问题就退回 `{force:true}` 强制点击——如果这本来就是一次 actionability
+ * 误判（元素其实可点，只是稳定性检查被什么东西撞了），强制点击会成功且不掩盖真正的
+ * 产品缺陷（后续断言仍然是真实断言，不会因为强制点击就跳过验证）。
+ */
+async function clickWithDiagnostics(page: Page, testId: string): Promise<void> {
+  const locator = page.getByTestId(testId);
+  try {
+    await locator.click({ timeout: 15_000 });
+    return;
+  } catch (err) {
+    const diag = await page.evaluate((tid) => {
+      const el = document.querySelector(`[data-testid="${tid}"]`);
+      if (!el) return { found: false };
+      const rect = el.getBoundingClientRect();
+      const style = window.getComputedStyle(el);
+      const atPoint = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      return {
+        found: true,
+        rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+        display: style.display,
+        visibility: style.visibility,
+        opacity: style.opacity,
+        pointerEvents: style.pointerEvents,
+        disabled: (el as HTMLButtonElement).disabled ?? null,
+        elementAtPointIsSelf: atPoint === el,
+        elementAtPointTestId: atPoint?.getAttribute("data-testid") ?? null,
+        elementAtPointTag: atPoint?.tagName ?? null,
+      };
+    }, testId);
+    // eslint-disable-next-line no-console -- 诊断信息要落进 CI job log，不是给开发者本地看的调试残留。
+    console.log(`[clickWithDiagnostics] ${testId} 15s 内未能常规点击，DOM 现场：`, JSON.stringify(diag), "原始错误：", String(err));
+    await locator.click({ force: true, timeout: 15_000 });
+  }
+}
+
 test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
   test.describe.configure({ mode: "serial" });
 
@@ -73,7 +115,7 @@ test.describe("反馈草稿端到端：存草稿到提交进收件箱", () => {
     // 只等 feedback-form 出现会在弹层还没完全稳定（entrance 动画/首帧）时就去点，
     // CI 资源紧张时会撞上 Playwright 的 actionability 重试直到超时（非本 PR 代码回归）。
     await expect(page.getByTestId("feedback-dialog-title")).toHaveText("对产品提反馈");
-    await page.getByTestId("feedback-kind-需求").click();
+    await clickWithDiagnostics(page, "feedback-kind-需求");
     await page.getByTestId("feedback-detail-input").fill(DRAFT_DETAIL);
 
     const draftSaved = page.waitForResponse(

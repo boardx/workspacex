@@ -485,20 +485,16 @@ export default defineConfig({
   ],
   fullyParallel: false,
   /**
-   * UC-17.8 B4——CI 实测三轮独立跑（补 dialog-title 等待 → test.setTimeout(90_000) →
-   * 把可以直连 API 建种子数据的用例改掉并发窗口）后，仍剩一个孤立的、单 worker 单用例
-   * 就能复现的 `feedback-kind-*` 点击卡满 90s 整个预算的失败（`feedback-drafts-smoke.spec.ts`
-   * ①），且发生时另一个 worker 正在并发跑吃 CPU 很重的用例（AI 模型往返 + 画布渲染，
-   * 见该轮日志 17:20:35-17:22:05 窗口）。不是渲染时序问题（已等 `feedback-dialog-title`
-   * 落定），也不是产品代码问题（`feedback-loop-smoke.spec.ts` 同一组件、同一交互在
-   * 同一次运行里稳定通过）——是这台 CI runner 的 CPU 在两个 headless Chromium + 一个
-   * Next dev server 三方抢核时，某个 worker 的浏览器进程可能被完全饿死到几十秒拿不到
-   * 调度。这类资源饥饿在这几个新用例的文件头注里已经被记录为「CI 资源紧张」的既有认知
-   * ——`retries: 0` 此前对整条 75 条用例的套件是零容忍，但从未真的被这类纯资源问题
-   * 撞到过（这是第一次）。给**整个套件**一次重试预算：真实的产品回归会在重试后依然
-   * 确定性失败（一样卡在同一行），资源饥饿这类偶发则会在全新的浏览器/页面里通过——
-   * 不是放宽断言，是把"值得重跑一次"的判断交给已经验证过其他失败模式都不掉进这个口子
-   * 的 CI，而不是继续靠加超时预算赌人品。
+   * UC-17.8 B4——⚠ 这条 retries 是防御性兜底，不是这一轮排查的结论。补充证据推翻了
+   * 「CPU 饥饿」猜想：给 `feedback-drafts-smoke.spec.ts`① 加了 90s 超时后，同一次跑里
+   * 原始尝试与自动重试（都在**没有另一个 worker 并发**的情况下单独跑）在**同一行**
+   * `feedback-kind-需求` 上确定性地各卡满 90s——说明这不是偶发资源竞争，是这个文件
+   * 独有的某种真实状态问题（`feedback-loop-smoke.spec.ts` 同一组件同一按钮在同一次
+   * 运行里稳定通过），retries 本身治不了它。真正的排查手段是 `clickWithDiagnostics`
+   * （见该 spec 文件）：先短超时试点击，失败就把 DOM 现场打进 job log，退回
+   * `{force:true}` 不再无诊断地卡满全部预算。这里保留 `retries: 1` 作为其余 74 条
+   * 用例的兜底（CI 共享单进程 dev server 下确有偶发资源竞争的历史先例），但不再声称
+   * 它解释或修好了这个具体失败。
    */
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
