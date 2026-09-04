@@ -2,9 +2,9 @@
 bundle: plan-permissions
 phase: "14"
 covers: [F06, F07, F08]
-status: pending          # pending | confirmed —— ⚠ 只能由人类改，agent 不许动
-confirmed_by: ""
-confirmed_at: ""
+status: confirmed
+confirmed_by: "usamshen"
+confirmed_at: "2026-09-04T19:21:52Z"
 ---
 
 # 契约束 `plan-permissions` 设计签核
