@@ -3,6 +3,7 @@
 import * as React from "react";
 import { isScrolledNearBottom } from "@/lib/copilotkit-v2-scroll";
 import { applyTaskModePrefix } from "@/lib/copilotkit-v2-task-mode";
+import { useAlwaysPlanFirstSetting } from "@/lib/chat-always-plan-first-setting";
 import {
   useAgent,
   useCopilotKit,
@@ -195,6 +196,14 @@ export function CopilotKitV2PanelBody({
    * 是一个用户需要主动选择的能力，不是悄悄改变已验证过的默认路径。
    */
   const [taskMode, setTaskMode] = React.useState(false);
+  /**
+   * issue #2667 —— 个人设置"每次都先给我看计划"：默认关闭（默认体验是
+   * deep-agent-service 侧的自动判类，见 `chat-always-plan-first-setting.ts` 头注）。
+   * 打开时随每次发送透传 `disable_task_auto_classify: true`（下面 `send()` 的
+   * `forwardedProps`），让这一轮 run 的自动判类不生效，完全依赖上面的手动
+   * `taskMode` 开关决定要不要先出计划——与自动判类接入前的行为逐字一致。
+   */
+  const { alwaysPlanFirst, toggleAlwaysPlanFirst } = useAlwaysPlanFirstSetting();
   /* issue #2132（2026-08-27 续，bug #5）—— 此前这里持有一个 `chat-capability-picker`
      互斥槽的 setter，给 composer 里一个"只开、不渲染"的快捷按钮用（真正的
      `CapabilityPicker` 当时还渲染在页面最上面）。现在 `CapabilityPicker` 本体
@@ -1107,9 +1116,13 @@ export function CopilotKitV2PanelBody({
         // callback's own `opts` doc + `lastSentRef`'s head comment for why).
         const forwardedProps: {
           chatThreadId?: string; attachmentIds?: readonly string[]; clientMessageId: string;
+          disableTaskAutoClassify?: boolean;
         } = { clientMessageId };
         if (chatThreadId !== null) forwardedProps.chatThreadId = chatThreadId;
         if (attachmentIds.length > 0) forwardedProps.attachmentIds = attachmentIds;
+        // issue #2667 —— 缺席 = 未覆盖（与 `script_protocol` 的既有透传纪律一致，
+        // 见 `deep-agent-model-provider.ts` 头注），只在设置打开时才带上这个键。
+        if (alwaysPlanFirst) forwardedProps.disableTaskAutoClassify = true;
         await copilotkit.runAgent({ agent, forwardedProps });
         if (attachmentIds.length > 0) attach.clear();
         // issue #2046（CK-P1）—— run settle 后通知外壳刷新右栏「材料」/「产物」
@@ -1124,7 +1137,7 @@ export function CopilotKitV2PanelBody({
         setError(describeCopilotkitV2RunError(e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED"));
       }
     },
-    [agent, copilotkit, inputDraft, attach, attachmentThreadId, onMessageSent, taskMode],
+    [agent, copilotkit, inputDraft, attach, attachmentThreadId, onMessageSent, taskMode, alwaysPlanFirst],
   );
 
   /**
@@ -2068,6 +2081,23 @@ export function CopilotKitV2PanelBody({
                   onClick={() => setTaskMode((v) => !v)}
                 >
                   <Sparkles aria-hidden className="h-4 w-4" />
+                </ComposerIconButton>
+                {/* issue #2667 —— 个人设置"每次都先给我看计划"：关掉自动判类，回退到
+                    上面的手动任务模式路径。默认关闭（自动判类是默认体验），持久化在
+                    本机（`chat-always-plan-first-setting.ts`），不是本轮调用参数。 */}
+                <ComposerIconButton
+                  label="每次都先计划"
+                  title={
+                    alwaysPlanFirst
+                      ? "每次都先给我看计划：已开启，自动判类不生效，只按手动任务模式先出计划（点击关闭）"
+                      : "每次都先给我看计划：已关闭，Agent 会自动判断要不要先出计划（点击开启，回退到手动任务模式）"
+                  }
+                  data-testid="chat-task-workbench-composer-always-plan-first"
+                  pressed={alwaysPlanFirst}
+                  disabled={archived}
+                  onClick={toggleAlwaysPlanFirst}
+                >
+                  <ListChecks aria-hidden className="h-4 w-4" />
                 </ComposerIconButton>
                 {/* 2026-09-03（对照设计参照图收拢）—— 「能力：自动匹配」从卡片上方
                     独立一行并入工具行左组，与材料/技能/任务模式同一排。此前

@@ -45,6 +45,7 @@ function baseRun(overrides: Partial<ClaimedAgentRun> = {}): ClaimedAgentRun {
     requesterUserId: "user-1", inputText: "图里画了什么？", inputAttachments: [],
     agentId: "agent-1", agentVersionId: "agent-version-1", instructions: "你是通用助手",
     skillVersionIds: [], modelProvider: "test-provider", modelId: "test-model", pendingDecision: null,
+    disableTaskAutoClassify: false,
     ...overrides,
   };
 }

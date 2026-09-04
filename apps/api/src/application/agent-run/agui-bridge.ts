@@ -117,6 +117,12 @@ export interface AguiBridgeInput {
    * this file needs to know about attachment CONTENT, only ids.
    */
   readonly attachmentIds?: readonly string[];
+  /**
+   * issue #2667 -- 个人设置"每次都先给我看计划"打开时为 `true`，原样转发给
+   * `acceptHumanMessage`（见该函数 `disableTaskAutoClassify` 参数自己的文档）。
+   * 缺席/`undefined` 落库为 `false`，与接入前逐字节相同。
+   */
+  readonly disableTaskAutoClassify?: boolean;
   /** Test seam only -- production callers use the defaults. */
   readonly pollIntervalMs?: number;
   readonly maxPolls?: number;
@@ -381,6 +387,7 @@ export async function runAguiBridgeTurn(
     userId: input.userId, orgId: input.orgId, threadId,
     clientMessageId: input.clientMessageId, text: input.text, agentId: input.agentId,
     attachmentIds: input.attachmentIds,
+    disableTaskAutoClassify: input.disableTaskAutoClassify,
     onAccepted: () => deps.executor.kick(input.orgId),
   });
   input.onStarted?.();

@@ -878,6 +878,22 @@ export class DeepAgentModelProvider implements ModelCallPort {
              */
             ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
             /*
+             * issue #2667 -- 个人设置"每次都先给我看计划"打开时透传给
+             * `deep_agent_service.harness` 的 `TaskClassifierMiddleware`（读法见
+             * `harness.py` `_run_disables_auto_classify`：`get_config()` 读
+             * `configurable.disable_task_auto_classify`）——即使全局灰度
+             * `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 打开，这一次 run 也不参与自动判类，
+             * 回退到纯手动 `TASK_MODE_MARKER` 路径。
+             *
+             * ⚠ 缺席时这个键**不出现**——同 `script_protocol` 一样，远端读不到就完全
+             *   按改动前的方式跑（全局灰度怎么判就怎么判）。`input.disableTaskAutoClassify`
+             *   的唯一事实源是 `ClaimedAgentRun.disableTaskAutoClassify`（落库自
+             *   `agent_runs.disable_task_auto_classify`），本层不重复判断。
+             */
+            ...(input.disableTaskAutoClassify === true
+              ? { disable_task_auto_classify: true }
+              : {}),
+            /*
              * issue #2664 -- `spawn_async_task` 需要知道①把子任务信息 POST 去哪
              * （`subtask_callback_base_url`，本进程自己的地址）、②带哪把共享密钥
              * （`subtask_callback_key`，`subtask-run.controller.ts` 校验的同一个值）、
