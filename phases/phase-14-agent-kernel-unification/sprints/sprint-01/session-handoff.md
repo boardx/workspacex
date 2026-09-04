@@ -1,17 +1,19 @@
 # 会话交接 — Sprint 14/01
 
 ## 当前已验证
-- 无 feature 处于 harness `passing`。F01 的 PR（#2729）与 F13 的 PR 均已合入
-  `main`（见 `git log`），但 `feature_list.json` 里两者的 status 仍是
-  `in_progress`——这一行的翻转只能由 `pnpm harness verify` 门控完成，本仓至今没有
-  一个会话在 docker 完整可用的环境里把它们跑通过；不要假设"合入 main = passing"。
+- F01 的 PR（#2729）已合入 `main`（见 `git log`），但 `feature_list.json` 里 F01 的
+  status 仍是 `in_progress`——这一行的翻转只能由 `pnpm harness verify` 门控完成，
+  本仓至今没有一个会话在 docker 出网可用的环境里把它跑通过；下一个能跑 docker 的
+  会话应先补跑 `pnpm harness verify --sprint 14/01 --feature F01`，而不是假设"合入
+  main = passing"。
+- F13 的 PR（#2730）同样已合入 `main`，同一条环境 blocker（见下方"仍损坏或未验证"）
+  拦住了 verify，status 未手动改动。
 - F05 本轮实现完成，**feature 自己的 verification 命令本会话已用真实 Postgres 跑通
-  （8/8，见下方"本轮改动（F05）"）**，同样没能跑完 `pnpm harness verify` 的完整
+  （8/8，见下方"本轮改动（F05）"）**，但同样没能跑完 `pnpm harness verify` 的完整
   门控链（高风险档 `verify:release` 需要本会话没有的 docker/minio/redis，见下方
   "仍损坏或未验证"），status 仍是 `in_progress`，未手改。
-- 三轮（F01/F05/F13）撞的是同一类环境 blocker 的不同具体表现（出网策略拦截 /
-  daemon 起不来 / 高风险档需要完整 docker 栈），不是彼此独立的新问题，也不是
-  各自 feature 代码本身的问题——见各轮"仍损坏或未验证"小节。
+- 无 feature 处于 harness `passing`——F01/F13/F05 三轮都撞上同一条环境 blocker，
+  status 都未被手动改动，符合"只能由验证脚本门控转移"的硬约束。
 
 ## 本轮改动（F01：apps/api 退化为薄网关）
 - `apps/api/src/application/agent-run/execute-run.ts`：删除 `useLazySkillLoading` 伪循环
@@ -171,12 +173,14 @@ R11(b)/(c)（人性化转换层、前端卡片、transcript 存储）——那�
 
 ## 下一步最佳动作
 - 找到 docker 完整可用的环境，依次补跑 `pnpm harness verify --sprint 14/01
-  --feature <id>`（F01、F05、F13 三个都还欠着），把三个都门控转 passing；不要在
-  没跑通 verify 的情况下手改 `feature_list.json` 的 status。
+  --feature <id>`（F01、F13、F05 三个都欠），把三个都门控转 passing；不要在没跑通
+  verify 的情况下手改 `feature_list.json` 的 status。
 - F05 之后：`GET /messages/:messageId/agent-run-attempts` 的 controller 接线（本轮
   刻意未做，见上）适合并入消费它的 F03/F04。
 - F13 之后：F14（错误人性化转换层+前端错误卡片）、F15（完整可审计 transcript 存储
-  改造）可并行；F02（灰度开关默认开启+移除开关本身）依赖 F01。
+  改造）可并行。
+- 按 `01-kernel-unification.md` R11(b)，F02（灰度开关默认开启+移除开关本身）依赖
+  F01，两条线都指向同一件事。
 
 ## 命令
 - 启动：`pnpm -w run dev`
