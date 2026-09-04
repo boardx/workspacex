@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Awaitable, Callable
 
 from langchain.agents.middleware import (
@@ -55,8 +56,10 @@ from langchain.agents.middleware import (
     ToolCallLimitMiddleware,
     ToolRetryMiddleware,
 )
+from langchain.agents.middleware.types import AgentState
 from langchain_core.language_models.chat_models import BaseChatModel
 from langgraph.errors import GraphBubbleUp
+from typing_extensions import NotRequired
 
 from deepagents import FilesystemMiddleware, RubricMiddleware
 from deepagents.middleware.rubric import RubricState
@@ -359,6 +362,224 @@ class PlanFirstToolChoiceMiddleware(AgentMiddleware):
             return await handler(request)
 
 
+# DA-13（issue #2662，需求文档「会自己拿主意的助手」04-目标①，US-01/02/03）：
+# 现状是「要不要先出计划」完全靠用户手动点开任务模式开关——`TASK_MODE_MARKER` 需要
+# `apps/web/lib/copilotkit-v2-task-mode.ts` 手动把固定文案拼进用户消息正文。没有任何
+# 根据任务内容自动判断的机制：一句简单指令和一句需要多步调研的请求，只要用户没手动
+# 开开关，两者在 `PlanFirstToolChoiceMiddleware` 眼里毫无区别。
+#
+# 本节新增 `TaskClassifierMiddleware`：在模型第一次响应前，把**最新一条人类消息**
+# 判为三类之一：
+#   1. `TASK_CATEGORY_NO_PLAN`      —— 一步到位，不需要计划。
+#   2. `TASK_CATEGORY_MULTI_STEP_LOW_RISK`  —— 多步、无外部副作用，可自动执行。
+#   3. `TASK_CATEGORY_MULTI_STEP_HIGH_RISK` —— 多步、有外部副作用，理应需要确认
+#      （gate 本身怎么处理"需要确认"是另一个 issue #2663「计划确认策略」的范围——
+#      本中间件只产出分类结果，不实现确认流程）。
+#
+# 判类用途分两层，都不引入额外模型调用（避免给每次首次响应多加一次延迟/成本；
+# 启发式规则已经足够区分"一步到位"与"多步"，见下方判据函数的注释）：
+#   · 分类结果写入 `TaskClassificationState.task_classification`（`before_model`/
+#     `abefore_model` 挂载），随 checkpointer/AG-UI 状态流一起可观测——这是给
+#     #2663 的 gate 逻辑消费的落点，也是这次验收标准要求的"产出分类结果"。
+#   · 分类为**多步**（无论低/高风险）时，与 `PlanFirstToolChoiceMiddleware` 同样的
+#     手法，把这次模型调用的 `tool_choice` 钉成 `"write_todos"`——"low-risk 情况下
+#     也触发强制"是这次验收标准的明文要求：真正的确认门槛（是否需要人工确认才能
+#     继续）留给 #2663 的 gate，本中间件只负责"有没有先出计划"这一半。
+#
+# 与 `PlanFirstToolChoiceMiddleware`（手动 marker）并存，不互斥替换：手动开关是
+# "用户强制"这一种输入，本中间件是新增的"自动判类"输入，两条各自独立判断、各自
+# 可能触发强制——某一轮同时命中两者时，两个中间件都会把 `tool_choice` 钉成
+# `"write_todos"`，结果等价（钉同一个工具），不会互相冲突。
+#
+# 灰度（S1=B 纪律，同 build_subagents/build_interrupt_on 的既有模式）：
+# `DEEP_AGENT_TASK_AUTO_CLASSIFY=1` 才启用，且**整个类都不进入 `build_middleware()`
+# 返回的列表**（不是"进了列表但内部判断为 no-op"）——见 `build_middleware()` 里
+# 挂载这个类那一行上方的详细注释：这个中间件实现了 `before_model`，
+# `langchain.agents.factory` 会因此在图上新增一个每轮循环都要走的节点，属于
+# "挂上就改变图形状/预算消耗"的类别，不能像 `RubricMiddleware`（只用
+# before_agent/after_agent，只在 run 开始/结束各走一次）那样无条件挂着让内部
+# 判断走 no-op；必须让整个类的存在与否本身就是灰度开关。默认未设 → 不挂 →
+# 图结构、预算消耗与接线前逐字相同。
+TASK_CATEGORY_NO_PLAN = "no_plan"
+TASK_CATEGORY_MULTI_STEP_LOW_RISK = "multi_step_low_risk"
+TASK_CATEGORY_MULTI_STEP_HIGH_RISK = "multi_step_high_risk"
+
+_TASK_AUTO_CLASSIFY_ENV = "DEEP_AGENT_TASK_AUTO_CLASSIFY"
+
+# 类别 1 vs 2/3 的初筛：多步任务的两个廉价信号。
+# · 连接词/枚举词——"并且""然后""再""接着""同时""分别""各自"这类词，出现在句子里
+#   通常意味着不止一个动作在同一句请求里被串起来。
+# · 消息长度——真实的一步到位指令（"改个错别字""把标题改成 xxx"）通常很短；
+#   需要调研/汇总/多个产出的请求（验收标准给的例子「调研三个方向分别给出结论并写
+#   一份对比报告」）自然会更长。单独用长度阈值容易误判长句但仍是单一动作的请求
+#   （比如一句很长的需求描述），所以判据是"长 且 含连接词"，不是任一条单独命中。
+_MULTI_STEP_CONNECTORS = ("并且", "然后", "接着", "同时", "分别", "各自", "并", "再")
+_MULTI_STEP_MIN_CHARS = 20
+
+# 类别 2 vs 3：是否提到有外部副作用的动作。关键词表直接取验收标准里点名的例子
+# （"发issue""创建PR""发邮件""删除"）并补齐同义表达——命中任何一个即判为"有外部
+# 影响"（类别 3），需要人工确认；否则判为"无外部影响"（类别 2），可自动执行。
+#
+# 两层匹配：①独立动词本身就是强信号（"删除""合并""发布""部署""转账""付款""支付"，
+# 不需要搭配宾语也能判定有外部影响）；②"动词 + 宾语"组合信号（"创建...issue"、
+# "发...邮件"这类短语里动词和宾语中间常插了"一个/这个/xxx"之类的词，直接字面量
+# 枚举穷举不完，改用"动词字符 + 宾语关键词在几个字以内共现"的宽松正则，覆盖
+# "创建一个issue""发一封邮件""提交个PR"这类真实表达变体）。
+_EXTERNAL_IMPACT_STANDALONE_VERBS = ("删除", "移除", "清空", "合并", "发布", "上线", "部署", "转账", "付款", "支付")
+_EXTERNAL_IMPACT_OBJECT_VERB_CHARS = "创建发提开写"
+_EXTERNAL_IMPACT_OBJECTS = ("issue", "pr", "邮件", "工单")
+_EXTERNAL_IMPACT_OBJECT_PATTERN = re.compile(
+    rf"[{_EXTERNAL_IMPACT_OBJECT_VERB_CHARS}][^，。！？\s]{{0,6}}(?:{'|'.join(_EXTERNAL_IMPACT_OBJECTS)})",
+    re.IGNORECASE,
+)
+
+
+def _classify_task_text(text: str) -> str:
+    """纯启发式判类，零额外模型调用（见上方模块注释）——`text` 通常是最新一条
+    人类消息的纯文本。空文本（没有人类消息/纯多模态消息取不到文本）判为
+    `TASK_CATEGORY_NO_PLAN`，与"没有任务模式标记就不强制"的既有语义一致，不额外
+    制造一种"无法判断"的第四态。"""
+    stripped = text.strip()
+    if not stripped:
+        return TASK_CATEGORY_NO_PLAN
+
+    is_multi_step = len(stripped) >= _MULTI_STEP_MIN_CHARS and any(
+        connector in stripped for connector in _MULTI_STEP_CONNECTORS
+    )
+    if not is_multi_step:
+        return TASK_CATEGORY_NO_PLAN
+
+    has_external_impact = any(
+        verb in stripped for verb in _EXTERNAL_IMPACT_STANDALONE_VERBS
+    ) or _EXTERNAL_IMPACT_OBJECT_PATTERN.search(stripped) is not None
+    return TASK_CATEGORY_MULTI_STEP_HIGH_RISK if has_external_impact else TASK_CATEGORY_MULTI_STEP_LOW_RISK
+
+
+def _task_auto_classify_enabled() -> bool:
+    return (os.environ.get(_TASK_AUTO_CLASSIFY_ENV) or "").strip() == "1"
+
+
+def _latest_human_text(messages: list) -> str:
+    turn_start = _latest_human_turn_index(messages)
+    if turn_start is None:
+        return ""
+    return _human_text(messages[turn_start])
+
+
+class TaskClassificationState(AgentState):
+    """`TaskClassifierMiddleware` 的 state schema——公开 I/O 只有
+    `task_classification` 这一个字段，供 #2663 的 gate 逻辑与外部观测消费。"""
+
+    task_classification: NotRequired[dict]
+    """最近一次判类结果：`{"category": <三选一常量>, "source": "heuristic"}`。
+    未产生过判类（灰度关闭/尚未跑过 before_model）时不存在该键，不是空字典——
+    调用方用 `.get("task_classification")` 判"有没有分类结果"这件事本身。"""
+
+
+def _prepare_auto_classified_request(request: ModelRequest) -> ModelRequest | None:
+    """判类灰度关闭 / 命中"一步到位" / write_todos 未挂载 / 本轮已调用过 → 不强制，
+    返回 `None`。判类逻辑与"这一轮判断窗口收窄到最新人类消息"的纪律与
+    `_prepare_forced_request` 完全同源（同一个 issue #2417 教训：只看最新一轮，
+    不看整份历史），只是触发信号从"手动 marker"换成"启发式判类结果"。"""
+    if not _task_auto_classify_enabled():
+        return None
+
+    turn_start = _latest_human_turn_index(request.messages)
+    if turn_start is None:
+        return None
+
+    category = _classify_task_text(_human_text(request.messages[turn_start]))
+    if category == TASK_CATEGORY_NO_PLAN:
+        return None
+
+    if "write_todos" not in _tool_names(request.tools):
+        # 同 `_prepare_forced_request` 的处理：配置漂移导致 write_todos 未挂载时
+        # 不强行指向不存在的工具，退回不强制。
+        _logger.warning(
+            "任务自动判类命中多步任务（%s）但 write_todos 工具未挂载，无法确定性强制"
+            "（build_middleware() 是否误删了 TodoListMiddleware？）。",
+            category,
+        )
+        return None
+
+    if _write_todos_already_called(request.messages[turn_start + 1 :]):
+        return None
+
+    return request.override(tool_choice="write_todos")
+
+
+class TaskClassifierMiddleware(AgentMiddleware):
+    """DA-13（issue #2662）：不依赖手动 marker，根据最新一条人类消息的内容自动
+    判类，产出结果给后续 gate 消费，并在判为多步任务时（无论低/高风险）同样把
+    首次模型调用的 `tool_choice` 钉成 `write_todos`（见上方模块注释）。
+
+    与 `PlanFirstToolChoiceMiddleware` 并存、互不替代：两者共用同一个
+    `write_todos` 工具与同一条"最新一轮判断窗口"纪律，但触发信号完全独立
+    （手动 marker vs 自动判类），任何一个命中都会强制。
+
+    ⚠ 同步/异步两个入口都要实现（issue #2417 教训——见
+    `PlanFirstToolChoiceMiddleware` 类头注，本类的 `wrap_model_call`/
+    `awrap_model_call`/`before_model`/`abefore_model` 四个钩子分别有对应的
+    同步/异步版本，缺任何一个都会在异步 runtime 下于业务逻辑跑之前直接
+    `NotImplementedError`）。
+    """
+
+    state_schema = TaskClassificationState
+
+    def _classification_update(self, state: dict) -> dict | None:
+        if not _task_auto_classify_enabled():
+            return None
+        messages = state.get("messages") or []
+        category = _classify_task_text(_latest_human_text(messages))
+        return {"task_classification": {"category": category, "source": "heuristic"}}
+
+    def before_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        return self._classification_update(state)
+
+    async def abefore_model(self, state, runtime):  # noqa: ANN001, ANN201, ARG002
+        return self._classification_update(state)
+
+    def wrap_model_call(
+        self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
+    ) -> ModelResponse:
+        forced_request = _prepare_auto_classified_request(request)
+        if forced_request is None:
+            return handler(request)
+        try:
+            return handler(forced_request)
+        except GraphBubbleUp:
+            raise
+        except Exception as exc:  # noqa: BLE001 — 同 PlanFirstToolChoiceMiddleware 的纪律
+            _logger.warning(
+                "任务自动判类强制 tool_choice=\"write_todos\" 被 provider 拒绝/报错，"
+                "退回不强制重试一次：%s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return handler(request)
+
+    async def awrap_model_call(
+        self,
+        request: ModelRequest,
+        handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
+    ) -> ModelResponse:
+        forced_request = _prepare_auto_classified_request(request)
+        if forced_request is None:
+            return await handler(request)
+        try:
+            return await handler(forced_request)
+        except GraphBubbleUp:
+            raise
+        except Exception as exc:  # noqa: BLE001 — 同 PlanFirstToolChoiceMiddleware 的纪律
+            _logger.warning(
+                "任务自动判类强制 tool_choice=\"write_todos\" 被 provider 拒绝/报错，"
+                "退回不强制重试一次：%s: %s",
+                type(exc).__name__,
+                exc,
+            )
+            return await handler(request)
+
+
 def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
     """rubric 驱动的 middleware 清单。顺序即挂载顺序。
 
@@ -371,6 +592,22 @@ def build_middleware(model: BaseChatModel) -> list[AgentMiddleware]:
         # 它依赖 write_todos 工具已经挂载，逻辑上属于"规划工具本身"这一组，不是与
         # 限流/摘要同级的关注点。
         PlanFirstToolChoiceMiddleware(),
+        # DA-13（#2662）：同组的第二个"规划工具"关注点，但**有条件**挂载——不同于
+        # `PlanFirstToolChoiceMiddleware`（只有 `wrap_model_call`，组合进"model"节点
+        # 内部、不新增图节点），`TaskClassifierMiddleware` 还实现了 `before_model`/
+        # `abefore_model`（把判类结果写进可观测的图状态）；`langchain.agents.factory`
+        # 按"类是否覆写了 before_model"**静态**决定要不要在图上新增一个
+        # `TaskClassifierMiddleware.before_model` 节点并接入每一轮循环的入口边
+        # （`middleware_w_before_model`/`loop_entry_node`，非运行期条件）——挂上这个
+        # 类本身就会让每次模型调用循环多走一步，不是"未设环境变量就零行为变更"的
+        # 无条件安全挂载（同实测：接了它后 TC-3 的死循环-熔断场景以未变的
+        # `recursion_limit=200` 撞 `GraphRecursionError`，是图形状变了、不是熔断逻辑
+        # 变了）。S1=B 纪律因此落在"要不要把这个类放进返回列表"这一步，
+        # 与 `build_subagents`/`build_interrupt_on` 同一种手法：未设
+        # `DEEP_AGENT_TASK_AUTO_CLASSIFY` 时整个类都不出现在列表里，图结构与接线前
+        # 逐字相同；只有灰度打开时才接入，多出的一个循环节点是这条能力真正生效的
+        # 代价，不是可以省掉的开销（同 Summarization trigger/keep 那条注释的纪律）。
+        *([TaskClassifierMiddleware()] if _task_auto_classify_enabled() else []),
         SummarizationMiddleware(
             model=model,
             trigger=("tokens", 60000),

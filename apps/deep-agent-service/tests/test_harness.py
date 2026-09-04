@@ -13,8 +13,13 @@ from pathlib import Path
 from langchain_core.language_models.fake_chat_models import FakeListChatModel
 
 from deep_agent_service.harness import (
+    TASK_CATEGORY_MULTI_STEP_HIGH_RISK,
+    TASK_CATEGORY_MULTI_STEP_LOW_RISK,
+    TASK_CATEGORY_NO_PLAN,
     TASK_MODE_MARKER,
     PlanFirstToolChoiceMiddleware,
+    TaskClassifierMiddleware,
+    _classify_task_text,
     build_checkpointer,
     build_middleware,
 )
@@ -909,3 +914,197 @@ def test_subagent_delegation_really_happens(monkeypatch):
     assert task_results, "子代理的最终答案必须归并回主线程的 task ToolMessage"
     final_texts = " ".join(str(getattr(m, "content", "")) for m in result["messages"])
     assert "主线程收尾" in final_texts, "主模型必须在拿到子代理结论后继续走到终稿"
+
+
+# DA-13（issue #2662）：任务自动判类——不依赖手动 marker，根据最新一条人类消息
+# 自动判定「要不要出计划」。三段覆盖：①启发式判类函数本身（简单/多步低风险/多步
+# 高风险三选一）；②灰度开关关闭时零行为变更（S1=B 纪律的既有反证套路）；③灰度
+# 打开时确实会把 tool_choice 钉成 write_todos（同步 + 异步两条入口，同 #2417 的
+# 教训——只测同步会漏掉生产实际使用的异步 runtime）。
+
+
+def test_classify_task_text_no_plan_for_short_single_action_instruction():
+    """验收标准①：简单指令（如"改个错别字"）判为一步到位，不需要计划。"""
+    assert _classify_task_text("改个错别字") == TASK_CATEGORY_NO_PLAN
+    assert _classify_task_text("把标题改成《周报》") == TASK_CATEGORY_NO_PLAN
+
+
+def test_classify_task_text_multi_step_low_risk_for_research_and_report_instruction():
+    """验收标准②：复杂指令（"调研三个方向分别给出结论并写一份对比报告"）判为多步，
+    且这句话本身不含任何有外部副作用的动作 —— 低风险、可自动执行。"""
+    text = "帮我调研这三个方向分别给出结论并写一份对比报告"
+    assert _classify_task_text(text) == TASK_CATEGORY_MULTI_STEP_LOW_RISK
+
+
+def test_classify_task_text_multi_step_high_risk_when_external_impact_keyword_present():
+    """类别 2 vs 3：多步任务里出现有外部影响的动作（创建 issue/发邮件/删除等）
+    时必须升级为高风险，需要确认。"""
+    text = "先帮我调研一下这个问题，然后创建一个issue把结论发出去"
+    assert _classify_task_text(text) == TASK_CATEGORY_MULTI_STEP_HIGH_RISK
+
+
+def test_classify_task_text_empty_text_is_no_plan():
+    """空文本（取不到人类可读内容）不制造第四种"无法判断"状态，退化为不强制。"""
+    assert _classify_task_text("") == TASK_CATEGORY_NO_PLAN
+    assert _classify_task_text("   ") == TASK_CATEGORY_NO_PLAN
+
+
+def test_task_classifier_middleware_wired_into_build_middleware_when_enabled(monkeypatch):
+    """接线看守：灰度打开时 `TaskClassifierMiddleware` 必须真实出现在
+    `build_middleware()` 返回列表里，不能只是定义了类却忘记挂（同 D1 基线的教训）。
+    它实现了 `before_model`，会给图新增一个每轮循环都要走的节点（见
+    `build_middleware()` 挂载那一行上方的注释），所以是否出现在列表里本身就是
+    灰度开关——不是像 `PlanFirstToolChoiceMiddleware` 那样无条件挂着。"""
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+    mw = build_middleware(_fake_model())
+    assert any(isinstance(m, TaskClassifierMiddleware) for m in mw), (
+        "灰度打开时 TaskClassifierMiddleware 必须出现在 build_middleware() 的返回列表里"
+    )
+
+
+def test_task_classifier_middleware_absent_from_build_middleware_by_default(monkeypatch):
+    """反向对照：灰度关闭（默认状态）时 `TaskClassifierMiddleware` 完全不出现在
+    `build_middleware()` 返回列表里——不是"进了列表但内部判断为 no-op"，而是整个
+    类都不接线，图结构与接线前逐字相同（同 build_subagents 的既有反证套路）。"""
+    monkeypatch.delenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", raising=False)
+    mw = build_middleware(_fake_model())
+    assert not any(isinstance(m, TaskClassifierMiddleware) for m in mw), (
+        "灰度关闭时 TaskClassifierMiddleware 不应该出现在 build_middleware() 的返回列表里"
+    )
+
+
+def test_task_classifier_middleware_disabled_by_default_is_no_op(monkeypatch):
+    """灰度关闭（默认状态）：不强制 tool_choice，也不产出分类结果——与接线前
+    行为逐字相同（S1=B 双轨纪律，同 build_subagents/build_precompletion_middleware
+    的既有反证套路）。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    monkeypatch.delenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", raising=False)
+
+    complex_message = HumanMessage(
+        content="帮我调研这三个方向分别给出结论并写一份对比报告"
+    )
+    messages = [complex_message]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request(messages), handler)
+    assert captured["tool_choice"] is None, (
+        "灰度关闭时任务自动判类不应该强制 tool_choice"
+    )
+
+    state_update = TaskClassifierMiddleware().before_model(
+        {"messages": messages}, runtime=None
+    )
+    assert state_update is None, "灰度关闭时不应该产出分类结果写入 state"
+
+
+def test_task_classifier_middleware_forces_write_todos_for_complex_instruction_sync(monkeypatch):
+    """验收标准①（同步）：灰度打开、不带手动任务模式 marker，复杂指令自动触发
+    tool_choice="write_todos" 强制。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+
+    messages = [HumanMessage(content="帮我调研这三个方向分别给出结论并写一份对比报告")]
+    assert TASK_MODE_MARKER not in messages[0].content, "本用例必须不含手动任务模式标记"
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request(messages), handler)
+    assert captured["tool_choice"] == "write_todos", (
+        f"复杂指令应被自动判类强制 write_todos；实际 tool_choice={captured.get('tool_choice')!r}"
+    )
+
+
+def test_task_classifier_middleware_forces_write_todos_for_complex_instruction_async(monkeypatch):
+    """同一断言的异步入口（issue #2417 教训：只测同步覆盖不了 `langgraph dev`
+    实际使用的异步 runtime，`awrap_model_call` 没实现会在业务逻辑跑之前直接
+    NotImplementedError）。"""
+    import asyncio
+
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+
+    messages = [HumanMessage(content="帮我调研这三个方向分别给出结论并写一份对比报告")]
+
+    captured: dict = {}
+
+    async def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    asyncio.run(
+        TaskClassifierMiddleware().awrap_model_call(_model_request(messages), handler)
+    )
+    assert captured["tool_choice"] == "write_todos", (
+        f"异步入口也必须强制；实际 tool_choice={captured.get('tool_choice')!r}"
+    )
+
+
+def test_task_classifier_middleware_does_not_force_for_simple_instruction(monkeypatch):
+    """验收标准①：灰度打开时，简单指令仍然不触发强制——判类命中"一步到位"。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+
+    messages = [HumanMessage(content="改个错别字")]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    TaskClassifierMiddleware().wrap_model_call(_model_request(messages), handler)
+    assert captured["tool_choice"] is None, (
+        f"简单指令不应该被强制；实际 tool_choice={captured.get('tool_choice')!r}"
+    )
+
+
+def test_task_classifier_middleware_produces_observable_classification(monkeypatch):
+    """判类结果要能被后续 gate 消费：`before_model` 把结果写进
+    `state["task_classification"]`（灰度打开时）。"""
+    from langchain_core.messages import HumanMessage
+
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+
+    messages = [HumanMessage(content="帮我调研这三个方向分别给出结论并写一份对比报告")]
+    update = TaskClassifierMiddleware().before_model({"messages": messages}, runtime=None)
+    assert update == {
+        "task_classification": {
+            "category": TASK_CATEGORY_MULTI_STEP_LOW_RISK,
+            "source": "heuristic",
+        }
+    }
+
+
+def test_manual_marker_path_unaffected_by_task_classifier_middleware(monkeypatch):
+    """回归测试：手动 marker 路径（`PlanFirstToolChoiceMiddleware`）的行为不受
+    本次新增的 `TaskClassifierMiddleware` 影响——两者独立判断，各自可能触发同一个
+    强制结果，互不干扰。"""
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    monkeypatch.setenv("DEEP_AGENT_TASK_AUTO_CLASSIFY", "1")
+
+    messages = [HumanMessage(content=f"{TASK_MODE_MARKER}：改个错别字")]
+
+    captured: dict = {}
+
+    def handler(request):  # noqa: ANN001, ANN202
+        captured["tool_choice"] = request.tool_choice
+        return AIMessage(content="stub")
+
+    PlanFirstToolChoiceMiddleware().wrap_model_call(_model_request(messages), handler)
+    assert captured["tool_choice"] == "write_todos", (
+        "手动 marker 命中时必须强制，不受 TaskClassifierMiddleware 灰度开关影响"
+    )
