@@ -45,6 +45,7 @@ function makeProvider(overrides: Partial<ConfiguredModelProviderConfig>): Config
     timeoutMs: 1_500,
     streamEnabled: false,
     visionModelIds: new Set<string>(),
+    thinkingDisableModelIds: new Set<string>(),
     ...overrides,
   } as ConfiguredModelProviderConfig);
   openProviders.push(provider);

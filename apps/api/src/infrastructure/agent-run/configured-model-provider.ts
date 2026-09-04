@@ -69,6 +69,17 @@ export interface ConfiguredModelProviderConfig {
    * 而不是把字节丢给一个可能不认识它的端点。集合为空 = 这个部署没有任何视觉模型。
    */
   readonly visionModelIds: ReadonlySet<string>;
+  /**
+   * #2504 —— 这个部署认为**哪些 modelId 是"可以安全关闭 thinking 的 Bailian 混合思考
+   * 模型"**。见 `postCompletions` 头注：`enable_thinking` 是阿里云百炼（Model Studio）
+   * 的专有扩展字段，不是 OpenAI 标准字段——同一份代码理论上可以指向别的 OpenAI 兼容
+   * 端点（这个类本身是通用 adapter，只是**这个部署**只配了一个 provider），对不认识
+   * 这个字段的端点，多发一个陌生字段有 4xx 的风险；即使同样是百炼，`thinking-only`
+   * 模型（只能思考、不能关）收到 `enable_thinking: false` 会被拒绝，不是被忽略。
+   * 一个 modelId 不在这个集合里 ⇒ 不发这个字段，行为回落到"不管超时"的原始状态——
+   * 与 `supportsVision` 同一纪律：只对已确认支持的能力打开，不对未知的裸猜。
+   */
+  readonly thinkingDisableModelIds: ReadonlySet<string>;
 }
 
 /** Read once at composition time, so a mid-flight env change cannot swap a run's provider. */
@@ -92,6 +103,7 @@ export function readModelProviderConfig(
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 180_000,
     streamEnabled: env.KERNEL_MODEL_STREAM_ENABLED === "1",
     visionModelIds: readVisionModelIds(env),
+    thinkingDisableModelIds: readThinkingDisableModelIds(env),
   };
 }
 
@@ -109,6 +121,26 @@ export function readModelProviderConfig(
  */
 function readVisionModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
   const raw = env.KERNEL_MODEL_VISION_IDS ?? "qwen-vl-max,qwen-vl-plus";
+  return new Set(raw.split(",").map((v) => v.trim()).filter((v) => v !== ""));
+}
+
+/**
+ * #2504 —— `KERNEL_MODEL_THINKING_DISABLE_IDS`（逗号分隔）→ 非流式请求里允许带
+ * `enable_thinking: false` 的 modelId 集合。
+ *
+ * ⚠ 默认值 `qwen-plus,qwen3.7-plus` 是**这个仓库自己已经在用**的两个 Bailian 混合思考
+ * 模型 id（`deep_agent_service/model.py` 的 `DEFAULT_MODEL_ID`、
+ * `simulate-template-run.ts`/`suggest-template-sections.ts`/
+ * `guided-*-generator.ts` 的 `modelId` 常量），不是凭空猜的——两者都是"混合模型"
+ * （hybrid，thinking 可开可关），不是 thinking-only 变体。**没有实测确认 pptx skill
+ * 默认 agent 实际用的是哪个 modelId**（它来自数据库配置的 per-agent 值，见
+ * `pg-default-agent-repository.ts` 头注，这个文件看不到）——如果部署的实际值不在这
+ * 两个里，运维需要把它加进 `KERNEL_MODEL_THINKING_DISABLE_IDS`，这条修复才对那个
+ * modelId 生效；在那之前，行为是**诚实地不生效**（不发这个字段，超时未缓解），不是
+ * 假装缓解了。同样的纪律见 `readVisionModelIds` 头注。
+ */
+function readThinkingDisableModelIds(env: NodeJS.ProcessEnv): ReadonlySet<string> {
+  const raw = env.KERNEL_MODEL_THINKING_DISABLE_IDS ?? "qwen-plus,qwen3.7-plus";
   return new Set(raw.split(",").map((v) => v.trim()).filter((v) => v !== ""));
 }
 
@@ -351,6 +383,14 @@ export class ConfiguredModelProvider implements ModelCallPort {
    * 只在 `stream` 为 false 时关：流式路径（`streamEnabled`，默认关闭，见类头注）会把
    * 思考过程边生成边吐给调用方，不是本 issue 命中的"整段等待"场景，改它属于另一个
    * 决策，不在这次修复范围内。
+   *
+   * ⚠ **只对 `config.thinkingDisableModelIds` 里的 modelId 发这个字段**（同一评审
+   * 轮次补的收紧，见 `thinkingDisableModelIds` 头注）——`enable_thinking` 是百炼的
+   * 专有扩展，不是 OpenAI 标准字段：这个类结构上是通用 OpenAI-compatible adapter
+   * （只是这个部署恰好只配了一个 provider），对不认识这个字段的端点，无条件多发一个
+   * 陌生字段有被拒的风险；即使同样是百炼，`thinking-only` 模型收到
+   * `enable_thinking: false` 是被拒绝、不是被忽略。不在集合里的 modelId ⇒ 完全不带
+   * 这个字段，请求体与本次修复之前逐字节相同。
    */
   private async postCompletions(input: ModelCallInput, stream: boolean): Promise<UndiciResponse> {
     const { baseUrl, apiKey, timeoutMs } = this.config;
@@ -371,7 +411,9 @@ export class ConfiguredModelProvider implements ModelCallPort {
           model: input.modelId,
           stream,
           messages: buildMessages(input),
-          ...(stream ? {} : { enable_thinking: false }),
+          ...(!stream && this.config.thinkingDisableModelIds.has(input.modelId)
+            ? { enable_thinking: false }
+            : {}),
         }),
       });
     } catch (err) {

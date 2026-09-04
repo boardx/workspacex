@@ -2,13 +2,17 @@
  * #2504 —— pptx 任务提交后等待 300+ 秒超时。
  *
  * 根因见 `configured-model-provider.ts` 的 `postCompletions` 头注：这个部署配的是
- * 通义千问，Qwen3 系模型缺省开启深度思考，`complete()` 恒为 `stream: false`，调用方
- * 要等整段隐藏 reasoning + 正文都生成完才拿到响应——大 system prompt（pptx skill）
- * 下这段等待被进一步拉长，叠加 #1611 已经放宽到的 180s 超时依然不够。
+ * 通义千问，Qwen3 系混合思考模型缺省开启深度思考，`complete()` 恒为 `stream: false`，
+ * 调用方要等整段隐藏 reasoning + 正文都生成完才拿到响应——大 system prompt（pptx
+ * skill）下这段等待被进一步拉长，叠加 #1611 已经放宽到的 180s 超时依然不够。
  *
- * 修法是显式在非流式请求体里带 `enable_thinking: false`，而不是继续加长超时预算。
- * 这里直接检查上游收到的请求体，而不是只看返回值——一个"忘了带这个字段但仍能拼出
- * 正确回复"的实现会让别的测试全绿，只有读请求体才拦得住。
+ * 修法是对**已知支持关闭 thinking 的 modelId**（`config.thinkingDisableModelIds`），
+ * 在非流式请求体里显式带 `enable_thinking: false`。**不是**对所有 provider/modelId
+ * 无条件发这个字段——同作者复核诊断（PR #2640）指出：`enable_thinking` 是阿里云百炼
+ * 的专有扩展字段，不是 OpenAI 标准字段，`postCompletions` 结构上是通用 adapter；
+ * `thinking-only` 模型收到 `false` 会被拒绝而不是被忽略。这里直接检查上游收到的
+ * 请求体，同时覆盖"在集合里 ⇒ 带字段"和"不在集合里 ⇒ 完全不带"两个方向——只测前者
+ * 会让一个"无条件都发"的实现同样全绿，测不出这次收紧。
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -17,7 +21,8 @@ import { ConfiguredModelProvider } from "../../src/infrastructure/agent-run/conf
 
 const PROVIDER = "i2504-loopback";
 const API_KEY = "sk-i2504-secret-do-not-echo";
-const MODEL_ID = "qwen3.7-plus";
+const ALLOWED_MODEL_ID = "qwen3.7-plus";
+const OTHER_MODEL_ID = "some-other-model-not-in-allowlist";
 
 let server: Server;
 let base = "";
@@ -45,9 +50,15 @@ async function startServer(): Promise<void> {
   base = `http://127.0.0.1:${addr.port}`;
 }
 
-function provider(streamEnabled: boolean): ConfiguredModelProvider {
+function provider(streamEnabled: boolean, thinkingDisableModelIds: ReadonlySet<string>): ConfiguredModelProvider {
   return new ConfiguredModelProvider({
-    provider: PROVIDER, baseUrl: base, apiKey: API_KEY, timeoutMs: 5_000, streamEnabled, visionModelIds: new Set<string>(),
+    provider: PROVIDER,
+    baseUrl: base,
+    apiKey: API_KEY,
+    timeoutMs: 5_000,
+    streamEnabled,
+    visionModelIds: new Set<string>(),
+    thinkingDisableModelIds,
   });
 }
 
@@ -55,20 +66,33 @@ beforeAll(async () => { await startServer(); });
 afterEach(() => { lastBody = null; });
 afterAll(async () => { await new Promise<void>((resolve) => server.close(() => resolve())); });
 
-describe("#2504 ConfiguredModelProvider 对 Qwen3 关闭非流式 thinking", () => {
-  it("complete()（stream: false）的请求体带 enable_thinking: false", async () => {
-    await provider(false).complete({ modelProvider: PROVIDER, modelId: MODEL_ID, system: "s", user: "u" });
+describe("#2504 ConfiguredModelProvider 对已知混合思考 modelId 关闭非流式 thinking", () => {
+  it("complete()（stream: false）+ modelId 在 thinkingDisableModelIds 里 ⇒ 请求体带 enable_thinking: false", async () => {
+    const p = provider(false, new Set([ALLOWED_MODEL_ID]));
+    await p.complete({ modelProvider: PROVIDER, modelId: ALLOWED_MODEL_ID, system: "s", user: "u" });
 
     expect(lastBody).not.toBeNull();
     expect(lastBody?.stream).toBe(false);
-    // ⭐ 反证锚点：把 postCompletions 里的 `...(stream ? {} : { enable_thinking: false })`
+    // ⭐ 反证锚点：把 postCompletions 里的
+    // `...(!stream && this.config.thinkingDisableModelIds.has(input.modelId) ? {...} : {})`
     // 删掉，这条立刻红。
     expect(lastBody?.enable_thinking).toBe(false);
   });
 
+  it("complete()（stream: false）+ modelId 不在 thinkingDisableModelIds 里 ⇒ 请求体完全不带 enable_thinking", async () => {
+    const p = provider(false, new Set([ALLOWED_MODEL_ID]));
+    await p.complete({ modelProvider: PROVIDER, modelId: OTHER_MODEL_ID, system: "s", user: "u" });
+
+    expect(lastBody).not.toBeNull();
+    expect(lastBody?.stream).toBe(false);
+    // ⭐ 反证锚点：把收紧后的门控换回"只看 stream"（对所有 modelId 无条件发），这条立刻红——
+    // 这正是同作者复核诊断指出的"范围远超 #2504"风险的反证。
+    expect(lastBody).not.toHaveProperty("enable_thinking");
+  });
+
   it("completeStream()（stream: true）不带 enable_thinking——流式路径不在本次修复范围内", async () => {
-    const p = provider(true);
-    await p.completeStream?.({ modelProvider: PROVIDER, modelId: MODEL_ID, system: "s", user: "u" }, async () => {});
+    const p = provider(true, new Set([ALLOWED_MODEL_ID]));
+    await p.completeStream?.({ modelProvider: PROVIDER, modelId: ALLOWED_MODEL_ID, system: "s", user: "u" }, async () => {});
 
     expect(lastBody).not.toBeNull();
     expect(lastBody?.stream).toBe(true);
