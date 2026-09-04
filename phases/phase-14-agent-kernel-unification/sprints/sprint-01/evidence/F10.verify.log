@@ -1,0 +1,1781 @@
+$ pnpm --filter web exec vitest run tests/agent-kernel/artifacts-panel.test.tsx
+[exit 0]
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /home/user/workspacex/apps/web
+
+ ✓ tests/agent-kernel/artifacts-panel.test.tsx (7 tests) 75ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  23:00:05
+   Duration  1.53s (transform 161ms, setup 96ms, collect 290ms, tests 75ms, environment 665ms, prepare 158ms)
+
+
+
+
+[BASE VERIFY] (risk=standard; no high-risk path touched) $ pnpm -w run verify:quick
+[exit 1]
+
+> agentic-harness-template@ verify:quick /home/user/workspacex
+> pnpm exec tsx .harness/scripts/verify-quick.ts
+
+[verify:quick] base=91e9694549d9e287ef755a4beba8ba586b360717（相对 origin/main 的改动面，turbo --affected）
+[harness-isolation] outer_db=wsx_d0279c5804ac4c794711 inner_db=wsx_d0279c5804ac4c794711 outer_compose=wsx-d0279c5804ac4c794711 inner_compose=wsx-d0279c5804ac4c794711 status=matched
+[stack-admission] load1=0.43 cores=4 perCore=0.11 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mtnk44hp-c428e974-d0279c5804ac db=wsx_d0279c5804ac4c794711 compose=wsx-d0279c5804ac4c794711 pg=21856 redis=26856
+
+Attention:
+Turborepo now collects completely anonymous telemetry regarding usage.
+This information is used to shape the Turborepo roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://turborepo.dev/docs/telemetry
+
+• turbo 2.10.5
+
+   • Packages in scope: //, web
+   • Running typecheck, lint, test in 2 packages
+   • Remote caching disabled
+
+@repo/fabric-markdown:build: cache miss, executing 3dd0d604bf988d4b
+@repo/dev-mode-accounts:build: cache miss, executing 2eda3f8debb1a492
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /home/user/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /home/user/workspacex/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+web:typecheck: cache miss, executing 39046e56660940c2
+web:lint: cache miss, executing b93cd9dd452d6dc7
+web:test: cache miss, executing daf7ce298565b626
+web:test: 
+web:test: > web@0.1.0 test /home/user/workspacex/apps/web
+web:test: > vitest run
+web:test: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /home/user/workspacex/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:lint: 
+web:lint: > web@0.1.0 lint /home/user/workspacex/apps/web
+web:lint: > next lint --max-warnings 0 && ./scripts/lint-design.sh
+web:lint: 
+web:test: [33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+web:test: 
+web:test:  RUN  v2.1.9 /home/user/workspacex/apps/web
+web:test: 
+web:test:  ✓ tests/ui/blueprint-designer-page-live.test.tsx (38 tests) 3524ms
+web:test:  ✓ tests/ui/copilotkit-v2-shell-thread-switch.test.tsx (20 tests) 2181ms
+web:test:    ✓ CopilotKitV2Shell — issue #2402 重新挂载时线程列表的模块级缓存 > 删除线程后重新挂载 ⇒ 缓存已经同步，被删的卡片不会复活 750ms
+web:test:  ✓ tests/ui/canvas-template-live.test.tsx (69 tests) 7440ms
+web:test:    ✓ #464 画布模板库（/canvas/template-admin）只画真实响应 > 按当前组织 GET /canvas/templates，并只渲染响应里的行 411ms
+web:test:    ✓ D-43 已推翻：template-admin 屏重新挂上后台侧栏 AdminNav > 其它屏（如 editor）不挂 AdminNav——只有 template-admin 这一屏需要它 527ms
+web:test:    ✓ 2026-08-22 模板管理可用性改进 > ① 搜索框按名字/key 在当前筛选结果内过滤，不发新请求；清空后恢复全部 662ms
+web:test:  ✓ tests/ui/personal-chat-screen.test.tsx (23 tests) 2170ms
+web:test:    ✓ PersonalChatScreen — 改名/删除（2026-08-14 补：此前只有后端，前端一直没做入口） > 选中一条线程 ⇒ 出现改名/删除入口；点改名 → 填标题 → 提交 → projectId 显式传 null，成功后重读列表 384ms
+web:lint: Attention: Next.js now collects completely anonymous telemetry regarding usage.
+web:lint: This information is used to shape Next.js' roadmap and prioritize features.
+web:lint: You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+web:lint: https://nextjs.org/telemetry
+web:lint: 
+web:lint: ✔ No ESLint warnings or errors
+web:test:  ✓ tests/ui/design-loop.test.tsx (28 tests) 1228ms
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+web:test:  ✓ tests/ui/interview-setup-workflow.test.tsx (18 tests) 2080ms
+web:test:    ✓ F04 正式 setup 的显式确认与双层持久化验收门 > 添加专家展示静态专家列表，并把勾选快照随确认命令提交 319ms
+web:test:  ✓ tests/ui/feedback-dialog.test.tsx (23 tests) 1027ms
+web:test:  ✓ tests/ui/chat-read-screen.test.tsx (46 tests) 14944ms
+web:test:    ✓ formal Chat read path > reads list, detail, roster and the contract message page with the provider bearer 1184ms
+web:test:    ✓ formal Chat read path > 最新一条消息来自 agent 时显示两条规则驱动的追问建议，点击后填充输入框但不发送 412ms
+web:test:    ✓ formal Chat read path > 右栏「材料」为空时显示真实空态，不编造示例材料 320ms
+web:test:    ✓ formal Chat read path > 右栏「产物」「材料」堆叠同时可见，不需要 tab 切换 309ms
+web:test:    ✓ formal Chat read path > 发消息成功后立刻重读右栏「材料」列表，不需要手动刷新页面 529ms
+web:test:    ✓ formal Chat read path > run 到终态后左栏重读服务端权威线程列表，会话卡跟着刷新（issue #1609） 497ms
+web:test:    ✓ formal Chat read path > 消息内联「落地为产物」调用真实 landAsArtifact 并在成功后重读右栏产物列表 365ms
+web:test:    ✓ formal Chat read path > 落地为产物失败时如实报错，不假装成功 384ms
+web:test:    ✓ formal Chat read path > posts a client UUID to the selected Agent, then refreshes from GET without an inline reply 628ms
+web:test:    ✓ formal Chat read path > 线程已翻过一页时，发送后 / run 终态后的软重读追着本地已加载列表尾部走，新消息真的渲染出来（issue #728 D6/D7 根因回归） 721ms
+web:test:    ✓ formal Chat read path > 线程已被追到底（nextCursor 已塌成 null）后再软重读，追新起点不塌回起点重新拉第一页（issue #728 round 2 H3 阻塞回归） 674ms
+web:test:    ✓ formal Chat read path > 推进到终态前持续轮询 AgentRun，状态取自服务端而不是本地推断 1079ms
+web:test:    ✓ formal Chat read path > run 失败时如实显示 failed 与错误码，不合成回复 586ms
+web:test:    ✓ formal Chat read path > 渲染真实的 tool_call 步骤：调用前的计划、工具名、成功状态与结果摘要 702ms
+web:test:    ✓ formal Chat read path > 工具调用失败：如实显示失败状态与失败原因，不假装成功 611ms
+web:test:    ✓ formal Chat read path > 没有任何 tool_call 步骤时不渲染步骤区域——不是黑盒，是没发生 472ms
+web:test:    ✓ formal Chat read path > 流式增量实时追加进草稿气泡，持久消息落位后草稿让位——中途不消失 813ms
+web:test:    ✓ formal Chat read path > 默认（没有任何 delta 事件）从不渲染流式草稿气泡——退化到阶段2d之前的样子 542ms
+web:test:    ✓ formal Chat read path > 读不到 run 时报读取失败，而不是渲染一个猜出来的状态 385ms
+web:test:    ✓ formal Chat read path > keeps the same clientMessageId when a dependency failure is retried 362ms
+web:test:  ✓ tests/ui/skill-catalog-live.test.tsx (15 tests) 972ms
+web:test:  ✓ tests/ui/guided-research-flow.test.tsx (26 tests) 1629ms
+web:test:  ✓ tests/ui/admin-feedback-live.test.tsx (24 tests) 1681ms
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/interview-studio-home.test.tsx (15 tests) 1210ms
+web:test:  ✓ tests/ui/realtime-transcription-history.test.tsx (17 tests) 2332ms
+web:test:    ✓ 实时转录历史工作台 > 历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗 395ms
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ①没有 artifact.land 能力 ⇒ 入口根本不渲染（不是渲染后禁用）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ②全新对话（还没有持久化线程）⇒ 入口根本不渲染（不是渲染成灰色）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ②b 线程已建立但一条消息都没有 ⇒ 同样不渲染（不能只看「线程存在」）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ②c hydration 失败（listMessages 抛错）⇒ 没有证据就不渲染，不假装有消息
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ②d hydration 确认为空之后，用户乐观发送一条消息 ⇒ 仍不渲染（agent.messages 与持久化事实分叉）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ②d hydration 确认为空之后，用户乐观发送一条消息 ⇒ 仍不渲染（agent.messages 与持久化事实分叉）
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: [CopilotKit] Error (agent_run_failed_event): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:22)
+web:test:     at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:526:7) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:28)
+web:test:       at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:519:12)
+web:test:       at file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:369:36
+web:test: } {
+web:test:   source: 'onRunFailed',
+web:test:   agentId: 'copilotkit-v2-30989395-8ac1-451f-b5b3-77ac2c9d1578'
+web:test: }
+web:test: Agent execution failed: TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:22)
+web:test:     at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:526:7) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:28)
+web:test:       at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:519:12)
+web:test:       at file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:369:36
+web:test: }
+web:test: [CopilotKit] Error (agent_run_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:22)
+web:test:     at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:526:7) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at ProxiedCopilotRuntimeAgent.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:561:28)
+web:test:       at ProxiedCopilotRuntimeAgent.ensureRuntimeConfiguration (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:519:12)
+web:test:       at file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/agent.ts:369:36
+web:test: } { agentId: 'copilotkit-v2-30989395-8ac1-451f-b5b3-77ac2c9d1578' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id（不是流式 id），成功后 chip 消失
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id（不是流式 id），成功后 chip 消失
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ③点击 ⇒ 锚点是 listMessages 读回的最后一条持久化消息 id（不是流式 id），成功后 chip 消失
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ⑤重新打开一条早就生成过画像的线程（issue #2694）⇒ chip 不出现，判据是后端已落库的事实，不是本地 session state
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ⑥点击关闭按钮 ⇒ chip 立刻消失，且关闭状态持久化到下一次挂载（issue #2694）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ⑥点击关闭按钮 ⇒ chip 立刻消失，且关闭状态持久化到下一次挂载（issue #2694）
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ④失败原样回显 reasonCode，不糊成「生成失败」
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ④失败原样回显 reasonCode，不糊成「生成失败」
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P6 生成用户画像（issue #2053） > ④失败原样回显 reasonCode，不糊成「生成失败」
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P8 归档线程只读态（issue #2053） > 归档 ⇒ 只读提示 + composer 全部写入口禁用（逐个断言，不是只看提示在不在）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx > CK-P8 归档线程只读态（issue #2053） > 未归档 ⇒ 同样这些控件可用（反证：上一条不是因为组件根本没渲染出来才「禁用」）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-persona-archived.test.tsx (11 tests) 1206ms
+web:test: stderr | tests/ui/copilotkit-v2-persona-archived.test.tsx
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test:  ✓ tests/ui/feedback-drafts-live.test.tsx (16 tests) 782ms
+web:test:  ✓ tests/ui/copilotkit-v2-plan-control.test.tsx (18 tests) 410ms
+web:test: stderr | tests/ui/capability-catalog-mutate.test.tsx > #458 Agent 目录写路径接到 POST /capabilities/mutate > 更新：op=update 只带被改动的字段，改完仍以服务端读取为准
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/ui/capability-catalog-mutate.test.tsx (11 tests) 1214ms
+web:test:    ✓ #458 Agent 目录写路径接到 POST /capabilities/mutate > 新增：按契约发 op=add，并且列表来自服务端的第二次 GET 而不是本地插入 435ms
+web:test:  ✓ tests/ui/chat-roster-mutate.test.tsx (11 tests) 906ms
+web:test:  ✓ tests/ui/projects-screen-live.test.tsx (12 tests) 1091ms
+web:test:  ✓ tests/session/session-provider.test.tsx (13 tests) 179ms
+web:test:  ✓ tests/ui/chat-live-message-panel-mic.test.tsx (11 tests) 408ms
+web:test:  ✓ tests/ui/canvas-stage-mindmap-keyboard.test.tsx (6 tests) 1526ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个非根节点后 Tab 加子节点，挂在被选中节点下 549ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：选中一个非根节点后 Enter 加兄弟节点，挂在同一父节点下 377ms
+web:test:    ✓ CanvasStage 键盘交互 —— #1453 > mindmap：给同一个父节点连续 Tab 两次，第二个子节点排在第一个下方（追加，不是插到最前） 400ms
+web:test:  ✓ tests/ui/chat-skill-mount-panel-auto-close.test.tsx (9 tests) 203ms
+web:test:  ✓ tests/ui/blueprint-designer-shell.test.tsx (20 tests) 1590ms
+web:test:    ✓ 目录来自配置项定义表（而不是前端自己列的一份） > 生成的目录与后端定义表没有漂移（机械门控，不是靠人看） 1023ms
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 0 次工具调用：不渲染任何分组容器，也不崩溃
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 1 次工具调用：不加折叠外壳，直接展示这张卡片
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 多次工具调用：收进一个分组容器，默认展开，两张卡片都可见（沿用既有 e2e 的可见性断言）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 点击折叠按钮（鼠标）：内容区加 hidden，但节点仍在 DOM 里，aria-expanded 翻假
+web:test: Agent default not found
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 再次点击（键盘可达的原生 <button>）：折叠后可以再展开回去
+web:test: Agent default not found
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 流式过程中工具调用数量增加：分组容器的计数与内容跟着更新，用户手动收起的状态不会被这次更新重置
+web:test: Agent default not found
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 一轮消息里 write_todos 被调用两次：更早那张淡化+贴「计划已更新」，最新那张正常展示
+web:test: Agent default not found
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 一轮消息里只调用一次 write_todos：不出现「已被取代」外壳（沿用改动前的行为）
+web:test: Agent default not found
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > write_todos 分别出现在两条独立消息里：更早那条消息的卡片淡化+贴「计划已更新」，后一条正常展示
+web:test: Agent default not found
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-tool-calls-group.test.tsx (9 tests) 285ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/survey-workflow-shell.test.tsx (25 tests) 1727ms
+web:test:  ✓ tests/ui/overview-live.test.tsx (11 tests) 263ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 贴底时不显示悬浮按钮；往上翻离开底部后按钮出现，点击后回到底部且状态复位
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 按钮不在滚动容器内部（否则会跟着内容一起滚走，停在某条消息中间）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 程序化滚动（点按钮/自动跟随）途中的 scroll 事件不把贴底态翻回去；用户滚轮介入后才算离开底部
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 拖滚动条（pointerdown，不是 wheel）中断程序化滚动 ⇒ 之后离开底部的 scroll 被如实采纳
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 拖滚动条（pointerdown，不是 wheel）中断程序化滚动 ⇒ 之后离开底部的 scroll 被如实采纳
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 拖滚动条（pointerdown，不是 wheel）中断程序化滚动 ⇒ 之后离开底部的 scroll 被如实采纳
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 程序化滚动没有产生任何 scroll 事件（auto 且位置没变）⇒ 标记在有界超时后自动解除，不吞掉后续用户滚动
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 程序化滚动没有产生任何 scroll 事件（auto 且位置没变）⇒ 标记在有界超时后自动解除，不吞掉后续用户滚动
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > scrollend 事件解除标记（支持该事件的浏览器不必等超时）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > scrollend 事件解除标记（支持该事件的浏览器不必等超时）
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > Ctrl+End 跳到最新：往上翻后按快捷键，等价于点击按钮
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx > CopilotKitV2Panel 消息区跳到最新（issue #2071） > 普通 End（无修饰键）不触发跳转——不能吞掉输入框里「移到行尾」的原生行为
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-panel-scroll-to-bottom.test.tsx (11 tests) 957ms
+web:test:    ✓ CopilotKitV2Panel 消息区跳到最新（issue #2071） > 贴底时不显示悬浮按钮；往上翻离开底部后按钮出现，点击后回到底部且状态复位 360ms
+web:test: stderr | WebInspectorElement.fetchAnnouncement (file:/home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11626:15)
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test:  ✓ tests/ui/nav-ia-two-levels.test.tsx (15 tests) 830ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > IconRail 只画一级项 —— 五项的 rail-* 锚点一个都不存在（不是隐藏，是压根没渲染） 392ms
+web:test:    ✓ §3 渲染层：入口有且只有一处 > 「入口有且只有一处」在合并之后由**落点**承担：组织成员的唯一入口在成员配额屏里 384ms
+web:test:  ✓ tests/ui/chat-thread-crud.test.tsx (8 tests) 888ms
+web:test:  ✓ tests/ui/project-prep-interview-subjects.test.tsx (10 tests) 425ms
+web:test:  ✓ tests/ui/chat-composer-attachments.test.tsx (13 tests) 831ms
+web:test:  ✓ tests/ui/chat-live-message-panel-agent-picker.test.tsx (9 tests) 394ms
+web:test:  ✓ tests/ui/chat-fabric-preview-syncs-after-save.test.tsx (3 tests) 579ms
+web:test:    ✓ 退出全屏后，气泡只读预览要跟着最后一次保存变（不是原地不动） > mermaid 图 · ChatDiagramFabric > 最大化→改内容→保存（本地演示）→关闭 —— 只读预览重新校验时吃到的是编辑后的内容 469ms
+web:test:  ✓ tests/ui/guided-research-home-live.test.tsx (9 tests) 517ms
+web:test: stderr | tests/ui/chat-canvas-fence.test.tsx > 与 mermaid 图表分派互不干扰 > 同一条消息里 mermaid 图表走图表分支、画布围栏走画布分支
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/home/user/workspacex/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/home/user/workspacex/packages/fabric-markdown/src/index.ts:75:13)
+web:test: 
+web:test:  ✓ tests/ui/chat-canvas-fence.test.tsx (14 tests) 2608ms
+web:test:    ✓ 组织自建模板 → 自动布局 > 一条消息里多个围栏只打一次 GET（列表有缓存） 369ms
+web:test:    ✓ 诚实错误态（不崩、不静默丢、不退回 mock） > 缺 `模板:` 行 → syntax 错误态，回显原始围栏，页面不崩 467ms
+web:test:    ✓ 与 mermaid 图表分派互不干扰 > 同一条消息里 mermaid 图表走图表分支、画布围栏走画布分支 646ms
+web:test:  ✓ tests/ui/skill-url-import.test.tsx (7 tests) 284ms
+web:test:  ✓ tests/ui/chat-code-fence.test.tsx (14 tests) 169ms
+web:test:  ✓ tests/ui/admin-platform-members.test.tsx (9 tests) 330ms
+web:test:  ✓ tests/ui/project-overview-live-overview.test.tsx (15 tests) 351ms
+web:test:  ✓ tests/ui/new-project-wizard.test.tsx (7 tests) 358ms
+web:test:  ✓ tests/ui/composite-table-menu.test.tsx (18 tests) 468ms
+web:test:  ✓ tests/ui/project-prep-live.test.tsx (8 tests) 243ms
+web:test:  ✓ tests/ui/admin-agent-catalog.test.tsx (6 tests) 623ms
+web:test:  ✓ tests/ui/org-switcher-real-names.test.tsx (3 tests) 617ms
+web:test:    ✓ #596 组织切换器显示真实组织名 > 两个组织都显示注册时填的名字，界面上没有任何裸组织 ID 330ms
+web:test:  ✓ tests/ui/interview-detail-report.test.tsx (3 tests) 281ms
+web:test:  ✓ tests/ui/ops-status-screen.test.tsx (10 tests) 259ms
+web:test:  ✓ tests/ui/composite-breadcrumb-pagination.test.tsx (18 tests) 179ms
+web:test:  ✓ tests/ui/chat-diagram-fabric-postmount-readback-no-crash.test.tsx (2 tests) 495ms
+web:test:    ✓ 挂载即读回换来一份校验失败的保存版——只读预览不得崩页（devapp 实测回归） > ChatDiagramFabric：保存版 mermaid 语法有误 —— 不抛 removeChild，诚实转错误态 455ms
+web:test:  ✓ tests/ui/blueprint-duration-form.test.tsx (20 tests) 1086ms
+web:test:    ✓ 时长档位目录来自定义表（而不是前端自己列的一份 7/11/14/19） > 生成的档位目录与后端定义表没有漂移（机械门控，不是靠人看） 801ms
+web:test:  ✓ tests/ui/skill-starter-import.test.tsx (5 tests) 397ms
+web:test:  ✓ tests/ui/files-browser.test.tsx (13 tests) 197ms
+web:test:  ✓ tests/ui/microinteraction-orgadmin-canvas.test.tsx (7 tests) 34ms
+web:test:  ✓ tests/ui/canvas-stage-edge-editability.test.tsx (5 tests) 533ms
+web:test:  ✓ tests/ui/skill-repo-discovery-import.test.tsx (5 tests) 333ms
+web:test: stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/admin-members-quota-live.test.tsx (8 tests) 398ms
+web:test: stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载即显示生成中，轮询到终态后指示消失、真实写回的回复被拉回来渲染
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载即显示生成中，轮询到终态后指示消失、真实写回的回复被拉回来渲染
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载即显示生成中，轮询到终态后指示消失、真实写回的回复被拉回来渲染
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载时这个 run 其实早就是终态（用户切回来时后端已经写完了）⇒ 只多打一次 GET，不显示生成中
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 轮询到终态但 run 其实是 failed ⇒ 显示错误横幅，不是安静地什么都不发生
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 轮询到终态但 run 其实是 failed ⇒ 显示错误横幅，不是安静地什么都不发生
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 轮询因 401 放弃（bearer 过期）⇒ 如实提示未能核实，不冒充成功也不冒充失败
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx > copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 轮询因 401 放弃（bearer 过期）⇒ 如实提示未能核实，不冒充成功也不冒充失败
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-run-restore-on-remount.test.tsx (4 tests) 937ms
+web:test:    ✓ copilotkit-v2 切会话再切回 ⇒ 未写回的 run 状态不丢失 > 挂载即显示生成中，轮询到终态后指示消失、真实写回的回复被拉回来渲染 703ms
+web:test:  ✓ tests/ui/capability-catalog-live.test.tsx (5 tests) 348ms
+web:test:  ✓ tests/ui/guided-research-visual-contract.test.tsx (7 tests) 1190ms
+web:test:    ✓ F180 signed guided-research visual contract > keeps a one-third contextual Skill workspace with one main editor on guided steps 472ms
+web:test:  ✓ tests/ui/agent-tool-chain.test.tsx (16 tests) 168ms
+web:test:  ✓ tests/ui/files-preview.test.tsx (12 tests) 174ms
+web:test:  ✓ tests/ui/survey-resource-library.test.tsx (16 tests) 1274ms
+web:test:    ✓ SurveyResourceLibrary > 新建问卷先填写名称和标签再进入新的设计页 340ms
+web:test:  ✓ tests/ui/chat-composer-context-line.test.tsx (12 tests) 320ms
+web:test:  ✓ tests/ui/canvas-stage-fit-to-content.test.tsx (4 tests) 365ms
+web:test:  ✓ tests/ui/copilotkit-v2-agent-interrupts.test.tsx (8 tests) 123ms
+web:test:  ✓ tests/ui/files-ingestion-ladder.test.tsx (10 tests) 629ms
+web:test:  ✓ tests/ui/use-composer-voice-session.test.tsx (7 tests) 48ms
+web:test:  ✓ tests/ui/agent-self-publish-panel.test.tsx (5 tests) 244ms
+web:test:  ✓ tests/ui/admin-mcp-catalog.test.tsx (7 tests) 647ms
+web:test:  ✓ tests/ui/files-version-derived.test.tsx (9 tests) 441ms
+web:test:  ✓ tests/ui/research-detail-four-sections.test.tsx (15 tests) 391ms
+web:test: stderr | tests/ui/shell-personal-menu.test.tsx > IconRail：左上角组织菜单 + 个人菜单 > 头像触发器点击后展开个人菜单：个人资料 / 个人 Brain / 主题切换三项恒在
+web:test: Warning: Function components cannot be given refs. Attempts to access this ref will fail. Did you mean to use React.forwardRef()?
+web:test: 
+web:test: Check the render method of `Primitive.div.Slot`.
+web:test:     at ThemeToggle (/home/user/workspacex/apps/web/components/shell/theme-toggle.tsx:13:3)
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:42:15
+web:test:     at RovingFocusGroupItem (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-roving-focus@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types+reac_fehydb6ztw3ie4otm6o4224cw4/node_modules/@radix-ui/react-roving-focus/dist/index.mjs:129:7)
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:42:15
+web:test:     at MenuItemImpl (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:424:13)
+web:test:     at MenuItem (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:372:13)
+web:test:     at DropdownMenuItem (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:159:13)
+web:test:     at /home/user/workspacex/apps/web/components/ui/dropdown-menu.tsx:50:62
+web:test:     at div
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at div
+web:test:     at PopperContent (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-popper@1.3.7_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3._n4sfxpbxdjb4wkcvd537qaeyne/node_modules/@radix-ui/react-popper/dist/index.mjs:94:7)
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at RovingFocusGroupImpl (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-roving-focus@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types+reac_fehydb6ztw3ie4otm6o4224cw4/node_modules/@radix-ui/react-roving-focus/dist/index.mjs:36:5)
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:30:15
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at CollectionProvider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:20:13)
+web:test:     at RovingFocusGroup (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-roving-focus@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types+reac_fehydb6ztw3ie4otm6o4224cw4/node_modules/@radix-ui/react-roving-focus/dist/index.mjs:31:68)
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at DismissableLayer (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-dismissable-layer@1.1.19_@types+react-dom@18.3.7_@types+react@18.3.31__@types_vivk4t4cutqd7i6sge5vpumknm/node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs:31:7)
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at FocusScope (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-focus-scope@1.1.16_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react_7flugmadb6wvaa77mzeil6hdvi/node_modules/@radix-ui/react-focus-scope/dist/index.mjs:17:7)
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at /home/user/workspacex/node_modules/.pnpm/react-remove-scroll@2.7.2_@types+react@18.3.31_react@18.3.1/node_modules/react-remove-scroll/dist/es5/UI.js:16:21
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at MenuContentImpl (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:176:7)
+web:test:     at MenuRootContentModal (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:132:56)
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:30:15
+web:test:     at Presence (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at CollectionProvider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-collection@1.1.15_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@_x5bi4l3hdvhlkwkvl2ocsk6lau/node_modules/@radix-ui/react-collection/dist/index.mjs:20:13)
+web:test:     at MenuContent (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:122:64)
+web:test:     at DropdownMenuContent (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:102:13)
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-slot@1.3.3_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-slot/dist/index.mjs:10:11
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-primitive@2.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@1_zqgvs6pwos56is7tl6m42oifnu/node_modules/@radix-ui/react-primitive/dist/index.mjs:31:13
+web:test:     at Portal (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-portal@1.1.17_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3_pckc5wna6qd2icpxam4r5udzci/node_modules/@radix-ui/react-portal/dist/index.mjs:13:24)
+web:test:     at Presence (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-presence@1.1.10_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18_3crtfjntzvxf32uscfndiinj74/node_modules/@radix-ui/react-presence/dist/index.mjs:21:11)
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at MenuPortal (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:114:11)
+web:test:     at DropdownMenuPortal (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:94:11)
+web:test:     at /home/user/workspacex/apps/web/components/ui/dropdown-menu.tsx:21:65
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at Popper (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-popper@1.3.7_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3._n4sfxpbxdjb4wkcvd537qaeyne/node_modules/@radix-ui/react-popper/dist/index.mjs:32:11)
+web:test:     at Menu (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18.3.3_rqxvgk4c5emgjn6kv3ylamnjoi/node_modules/@radix-ui/react-menu/dist/index.mjs:52:11)
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at DropdownMenu (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-dropdown-menu@2.1.24_@types+react-dom@18.3.7_@types+react@18.3.31__@types+rea_whx2nxzdwu74iuaiaizngv76cu/node_modules/@radix-ui/react-dropdown-menu/dist/index.mjs:25:5)
+web:test:     at PersonalMenu (/home/user/workspacex/apps/web/components/shell/personal-menu.tsx:15:3)
+web:test:     at div
+web:test:     at nav
+web:test:     at Provider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-context@1.2.2_@types+react@18.3.31_react@18.3.1/node_modules/@radix-ui/react-context/dist/index.mjs:38:15)
+web:test:     at TooltipProvider (file:///home/user/workspacex/node_modules/.pnpm/@radix-ui+react-tooltip@1.2.16_@types+react-dom@18.3.7_@types+react@18.3.31__@types+react@18._3odhize56xaoc3nud3qg6qmjw4/node_modules/@radix-ui/react-tooltip/dist/index.mjs:32:5)
+web:test:     at IconRail (/home/user/workspacex/apps/web/components/shell/icon-rail.tsx:21:3)
+web:test: 
+web:test:  ✓ tests/ui/shell-personal-menu.test.tsx (12 tests) 820ms
+web:test:  ✓ tests/ui/blueprint-list-screen-live.test.tsx (8 tests) 316ms
+web:test:  ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 116ms
+web:test:  ✓ tests/ui/chat-fabric-auto-readback-on-mount.test.tsx (4 tests) 469ms
+web:test:    ✓ 挂载滚入视口即读回（不必先点最大化） > A · mermaid 图 · ChatDiagramFabric > 有保存版：挂载即自动查回，只读预览校验吃到的是保存版内容 390ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx > CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > assistant 消息经 CopilotChatMessageView 渲染：markdown 结构 + mermaid 围栏路由到 ChatDiagramFabric
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-markdown.test.tsx > CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > user 消息不经这个 slot（slot 只挂在 assistantMessage 上）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-panel-markdown.test.tsx (2 tests) 375ms
+web:test:    ✓ CopilotKitV2Panel 的 markdownRenderer slot —— 走 MarkdownMessage，不是 CopilotKit 自带 Streamdown > assistant 消息经 CopilotChatMessageView 渲染：markdown 结构 + mermaid 围栏路由到 ChatDiagramFabric 340ms
+web:test:  ✓ tests/ui/chat-live-message-panel-duplicate-progress-block.test.tsx (5 tests) 356ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/skill-single-screen-nav.test.tsx (7 tests) 248ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 可归因的 agent 消息：三者非 undefined，且 messageId 是解析出的真实 chat_messages.id
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 不可归因的历史消息（agentRunId 为 null）：messageId 仍是真实 chat_messages.id——落地不要求归因
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at processTimers (node:internal/timers:518:9)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 不可归因的历史消息（agentRunId 为 null）：messageId 仍是真实 chat_messages.id——落地不要求归因
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx > copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 新对话（chatThreadId=null，还没有真实线程）：threadId 如实是 undefined
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at runNextTicks (node:internal/process/task_queues:64:5)
+web:test:     at listOnTimeout (node:internal/timers:547:9)
+web:test:     at processTimers (node:internal/timers:521:7)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at runNextTicks (node:internal/process/task_queues:64:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-panel-artifact-landing.test.tsx (3 tests) 497ms
+web:test:    ✓ copilotkit-v2-panel 的 assistantMessage slot —— threadId/messageId/bearer 真的到达 MarkdownMessage（issue #2070） > 可归因的 agent 消息：三者非 undefined，且 messageId 是解析出的真实 chat_messages.id 307ms
+web:test:  ✓ tests/ui/admin-nav-count-unavailable.test.tsx (11 tests) 187ms
+web:test:  ✓ tests/ui/chat-live-message-panel-role-chip.test.tsx (6 tests) 300ms
+web:test:  ✓ tests/ui/admin-scope-split.test.tsx (14 tests) 517ms
+web:test:    ✓ §1 一级导航：治理段有两个入口 > IconRail 同时画出 rail-admin 与 rail-platform-admin，且 href 不同 390ms
+web:test:  ✓ tests/ui/local-org-live.test.tsx (6 tests) 170ms
+web:test:  ✓ tests/ui/asset-file-edit-save.test.tsx (5 tests) 289ms
+web:test:  ✓ tests/lib/canvas-flowedge-bow-cap.test.ts (3 tests) 252ms
+web:test:  ✓ tests/ui/join-accidents-mic.test.tsx (9 tests) 150ms
+web:test:  ✓ tests/ui/admin-limit-policy-live.test.tsx (8 tests) 464ms
+web:test:  ✓ tests/ui/admin-nav-live-counts.test.tsx (7 tests) 253ms
+web:test:  ✓ tests/ui/overlay-primitives-dialog-dropdown.test.tsx (13 tests) 426ms
+web:test:  ✓ tests/ui/research-list-target-dash.test.tsx (13 tests) 191ms
+web:test:  ✓ tests/ui/chat-live-message-panel-run-phase.test.tsx (4 tests) 307ms
+web:test:  ✓ tests/ui/admin-model-catalog.test.tsx (6 tests) 621ms
+web:test:  ✓ tests/ui/chat-attachment-preview-modal.test.tsx (5 tests) 339ms
+web:test:  ✓ tests/lib/copilotkit-v2-run-progress.test.tsx (8 tests) 31ms
+web:test:  ✓ tests/ui/agent-interrupt-confirm-intent-card.test.tsx (17 tests) 233ms
+web:test:  ✓ tests/ui/admin-members-usage-limits-tabs.test.tsx (5 tests) 394ms
+web:test:  ✓ tests/lib/skill-trial-run.test.tsx (11 tests) 80ms
+web:test:  ✓ tests/ui/chat-live-agent-run-progress-card.test.tsx (4 tests) 317ms
+web:test:  ✓ tests/ui/skill-catalog-no-create-panel.test.tsx (5 tests) 385ms
+web:test:  ✓ tests/ui/agent-approval-panel.test.tsx (11 tests) 133ms
+web:test:  ✓ tests/lib/use-asr-draft-sanitize.test.ts (9 tests) 31ms
+web:test:  ✓ tests/ui/capability-skill-content-editor.test.tsx (3 tests) 224ms
+web:test:  ✓ tests/ui/org-admin-role-scope.test.tsx (7 tests) 776ms
+web:test:  ✓ tests/ui/plan-confirm-gate-task-type-and-cards.test.tsx (10 tests) 262ms
+web:test:  ✓ tests/ui/research-new-config-defaults.test.tsx (11 tests) 180ms
+web:test:  ✓ tests/ui/chat-diagram-saved-readback.test.tsx (5 tests) 127ms
+web:test:  ✓ tests/ui/project-results-live.test.tsx (12 tests) 107ms
+web:test:  ✓ tests/ui/workflow-screen-live.test.tsx (6 tests) 172ms
+web:test:  ✓ tests/ui/files-review-drawer.test.tsx (5 tests) 392ms
+web:test:  ✓ tests/ui/chat-message-rating.test.tsx (7 tests) 123ms
+web:test:  ✓ tests/ui/chat-composer-voice-control.test.tsx (10 tests) 295ms
+web:test:  ✓ tests/ui/project-live-viewer-switcher.test.tsx (9 tests) 97ms
+web:test:  ✓ tests/ui/asset-code-editor-monaco.test.tsx (15 tests) 79ms
+web:test:  ✓ tests/ui/microinteraction-chat-profile.test.tsx (56 tests) 42ms
+web:test:  ✓ tests/ui/admin-menu-dedup.test.tsx (9 tests) 94ms
+web:test:  ✓ tests/ui/files-trash-queue.test.tsx (10 tests) 496ms
+web:test:  ✓ tests/ui/chat-fullsurface-drop-overlay.test.tsx (4 tests) 210ms
+web:test:  ✓ tests/ui/entity-catalog.test.tsx (6 tests) 284ms
+web:test:  ✓ tests/ui/admin-usage-monitor-live.test.tsx (6 tests) 214ms
+web:test:  ✓ tests/ui/org-admin-members-reviewer-function.test.tsx (4 tests) 139ms
+web:test:  ✓ tests/ui/admin-members-boundary-live.test.tsx (6 tests) 174ms
+web:test:  ✓ tests/ui/project-live-checkin-board.test.tsx (9 tests) 158ms
+web:test:  ✓ tests/ui/agent-clone-selector.test.tsx (4 tests) 184ms
+web:test:  ✓ tests/ui/admin-members-boundary.test.tsx (4 tests) 132ms
+web:test:  ✓ tests/ui/chat-live-message-panel-run-poll-401.test.tsx (3 tests) 253ms
+web:test:  ✓ tests/ui/chat-recording-panel-active-card.test.tsx (3 tests) 103ms
+web:test:  ✓ tests/lib/canvas-header-field-fit.test.ts (3 tests) 441ms
+web:test:    ✓ 表头字段值不出格（2026-09-02 chat 用户画像截图） > 长中文值逐字换行、缩字号，画出来的文字框既不比值框宽，也不比行距高 396ms
+web:test:  ✓ tests/ui/chat-live-agent-run-view-progress.test.tsx (5 tests) 312ms
+web:test: stderr | tests/ui/copilotkit-v2-lazy-attachment-thread.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/password-reset-request.test.tsx (5 tests) 194ms
+web:test: stderr | tests/ui/copilotkit-v2-lazy-attachment-thread.test.tsx > copilotkit-v2 裸 /chat 的附件专用线程按需创建（issue #2520） > 挂载 + 等待一轮 ⇒ 零次 createPersonalThread；📎 按钮已登录即可用（不等预建）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-lazy-attachment-thread.test.tsx > copilotkit-v2 裸 /chat 的附件专用线程按需创建（issue #2520） > 第一次选文件 ⇒ 建一次线程，上传带的是建出来的真实 id；再选文件不再建第二条；附件态不因 id 出现而被清空
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test:  ✓ tests/ui/chat-live-message-panel-attachment-mention.test.tsx (5 tests) 320ms
+web:test: stderr | tests/ui/copilotkit-v2-lazy-attachment-thread.test.tsx > copilotkit-v2 裸 /chat 的附件专用线程按需创建（issue #2520） > 建线程失败 ⇒ 这一批附件如实报错，下一次选文件重新尝试建线程
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-lazy-attachment-thread.test.tsx > copilotkit-v2 裸 /chat 的附件专用线程按需创建（issue #2520） > 建线程失败 ⇒ 这一批附件如实报错，下一次选文件重新尝试建线程
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-lazy-attachment-thread.test.tsx > copilotkit-v2 裸 /chat 的附件专用线程按需创建（issue #2520） > 持久化线程页（chatThreadId 非空）⇒ 直接用 URL 线程承载上传，永远不建新线程（#2046 不变量）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-lazy-attachment-thread.test.tsx (4 tests) 652ms
+web:test:    ✓ copilotkit-v2 裸 /chat 的附件专用线程按需创建（issue #2520） > 挂载 + 等待一轮 ⇒ 零次 createPersonalThread；📎 按钮已登录即可用（不等预建） 308ms
+web:test:  ✓ tests/ui/admin-skill-edit-fullscreen.test.tsx (4 tests) 156ms
+web:test:  ✓ tests/ui/canvas-stage-export.test.tsx (4 tests) 575ms
+web:test:  ✓ tests/ui/reset-password.test.tsx (6 tests) 148ms
+web:test:  ✓ tests/ui/subtask-run-panel.test.tsx (9 tests) 127ms
+web:test:  ✓ tests/ui/thread-card-button.test.tsx (8 tests) 426ms
+web:test:  ✓ tests/ui/asset-file-editor-platform-readonly.test.tsx (5 tests) 296ms
+web:test:  ✓ tests/ui/my-today.render.test.tsx (3 tests) 93ms
+web:test:  ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 302ms
+web:test:  ✓ tests/ui/rec-fidelity-gaps.test.tsx (11 tests) 39ms
+web:test:  ✓ tests/ui/project-live-page.test.tsx (2 tests) 147ms
+web:test:  ✓ tests/ui/email-verification-public.test.tsx (4 tests) 233ms
+web:test:  ✓ tests/ui/admin-members-list.test.tsx (6 tests) 505ms
+web:test:  ✓ tests/ui/blueprint-designer-prototype-fidelity.test.tsx (5 tests) 13ms
+web:test:  ✓ tests/ui/project-live-stagebar.test.tsx (8 tests) 132ms
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > toggling to bootstrap mode creates the first admin, logs in immediately, and persists the real session
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test: stderr | tests/ui/bootstrap-first-admin.test.tsx > first-user bootstrap on the real registration page > recovers login when bootstrap committed but its HTTP response was lost
+web:test: Not implemented: navigation to another Document
+web:test: 
+web:test:  ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 194ms
+web:test:  ✓ tests/ui/chat-diagram-save-gate.test.tsx (2 tests) 156ms
+web:test:  ✓ tests/ui/agent-interrupt-choose-option-card.test.tsx (15 tests) 148ms
+web:test:  ✓ tests/ui/plan-control-gate-and-recovery.test.tsx (11 tests) 107ms
+web:test:  ✓ tests/ui/tpl-designer-primitive-adoption.test.tsx (22 tests) 117ms
+web:test:  ✓ tests/ui/mcp-remote-discover-panel.test.tsx (4 tests) 135ms
+web:test:  ✓ tests/ui/plan-control-edit-mode.test.tsx (9 tests) 192ms
+web:test:  ✓ tests/ui/research-entry-observer-absent.test.tsx (7 tests) 78ms
+web:test:  ✓ tests/ui/research-live-empty-conflict-block.test.tsx (10 tests) 111ms
+web:test:  ✓ tests/ui/research-live-conflicts-no-preselect.test.tsx (8 tests) 263ms
+web:test:  ✓ tests/ui/motion-orchestration.test.tsx (4 tests) 57ms
+web:test:  ✓ tests/ui/research-preview-sentence.test.tsx (9 tests) 191ms
+web:test:  ✓ tests/ui/agent-interrupt-fill-params-card.test.tsx (14 tests) 263ms
+web:test:  ✓ tests/ui/entity-view-toggle.test.tsx (4 tests) 73ms
+web:test:  ✓ tests/ui/overlay-primitives-select-tooltip.test.tsx (12 tests) 325ms
+web:test:  ✓ tests/ui/admin-header-org-switch.test.tsx (4 tests) 99ms
+web:test:  ✓ tests/ui/agent-capability-graph.test.tsx (3 tests) 122ms
+web:test:  ✓ tests/ui/chat-canvas-fence-streaming-not-error.test.tsx (5 tests) 696ms
+web:test:    ✓ ChatCanvasFabric：围栏未闭合的流式中间态不应报终态错误（issue #2298） > closed=false 时，半截内容（连模板 key 都没写完）保持加载态，不出现 chat-canvas-error 643ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test:  ✓ tests/ui/asset-directory-browse.test.tsx (7 tests) 158ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx > copilotkit-v2-panel 打字时消息里的画布不被重新挂载（issue #2132） > 敲 5 个字符后，画布探针的真实挂载次数仍是 1（不是随按键次数增长）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: [CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:22)
+web:test:     at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:35) {
+web:test:   [cause]: TypeError: Invalid URL: /api/copilotkit/info
+web:test:       at new URLImpl (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+web:test:       at Object.exports.setup (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+web:test:       at new URL (/home/user/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+web:test:       at new Request (node:internal/deps/undici/undici:9804:25)
+web:test:       at fetch (node:internal/deps/undici/undici:10533:25)
+web:test:       at fetch (node:internal/deps/undici/undici:14974:10)
+web:test:       at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+web:test:       at AgentRegistry.fetchRuntimeInfo (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:628:28)
+web:test:       at AgentRegistry.performRuntimeConnection (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+core@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/core/src/core/agent-registry.ts:484:46)
+web:test:       at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test: } { runtimeUrl: '/api/copilotkit' }
+web:test: Agent default not found
+web:test: Agent default not found
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx > copilotkit-v2-panel 打字时消息里的画布不被重新挂载（issue #2132） > 敲 5 个字符后，画布探针的真实挂载次数仍是 1（不是随按键次数增长）
+web:test: Agent default not found
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx (1 test) 412ms
+web:test:    ✓ copilotkit-v2-panel 打字时消息里的画布不被重新挂载（issue #2132） > 敲 5 个字符后，画布探针的真实挂载次数仍是 1（不是随按键次数增长） 412ms
+web:test: stderr | tests/ui/copilotkit-v2-panel-canvas-no-remount-on-rerender.test.tsx
+web:test: [CopilotKit Inspector] Failed to load announcement TypeError: fetch failed
+web:test:     at node:internal/deps/undici/undici:14976:13
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+web:test:     at WebInspectorElement.fetchAnnouncement (file:///home/user/workspacex/node_modules/.pnpm/@copilotkit+web-inspector@1.66.4_@ag-ui+core@0.0.57_zod@3.25.76/node_modules/@copilotkit/web-inspector/src/index.ts:11579:24) {
+web:test:   [cause]: Error: self-signed certificate in certificate chain
+web:test:       at TLSSocket.onConnectSecure (node:internal/tls/wrap:1701:34)
+web:test:       at TLSSocket.emit (node:events:519:28)
+web:test:       at TLSSocket._finishInit (node:internal/tls/wrap:1099:8)
+web:test:       at TLSWrap.ssl.onhandshakedone (node:internal/tls/wrap:885:12) {
+web:test:     code: 'SELF_SIGNED_CERT_IN_CHAIN'
+web:test:   }
+web:test: }
+web:test: 
+web:test:  ✓ tests/ui/chat-canvas-fence-layout-source.test.tsx (5 tests) 1107ms
+web:test:  ✓ tests/ui/chat-live-message-panel-actions-position.test.tsx (2 tests) 177ms
+web:test:  ✓ tests/ui/template-canvas-grid-overflow.test.tsx (5 tests) 296ms
+web:test:  ✓ tests/ui/org-admin-screen-admin-nav.test.tsx (1 test) 171ms
+web:test:  ✓ tests/ui/org-admin-members-org-role.test.tsx (4 tests) 172ms
+web:test:  ✓ tests/ui/research-exit-actions-observer-absent.test.tsx (7 tests) 142ms
+web:test:  ✓ tests/ui/guided-research-checkpoints-live.test.tsx (3 tests) 229ms
+web:test:  ✓ tests/ui/capability-catalog-no-skill-create-panel.test.tsx (2 tests) 252ms
+web:test:  ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 154ms
+web:test: stderr | tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx
+web:test: Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx > copilotkit-v2 落地入口不再被框架的 isRunning 门永久卡住（issue #2307） > 仍在流式、尚未落库：入口如实不在 DOM 里（不是这条修法要改的行为）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx > copilotkit-v2 落地入口不再被框架的 isRunning 门永久卡住（issue #2307） > RUN_FINISHED 还没到，但消息已经落库（#2307 的真实竞态）：入口必须在 DOM 里
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test: stderr | tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx > copilotkit-v2 落地入口不再被框架的 isRunning 门永久卡住（issue #2307） > 完全空闲：入口在 DOM 里（既有行为不回退）
+web:test: Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+web:test: 
+web:test:  ✓ tests/ui/copilotkit-v2-message-landing-toolbar-race.test.tsx (3 tests) 129ms
+web:test:  ✓ tests/ui/org-menu-avatar-identity.test.tsx (3 tests) 72ms
+web:test:  ✓ tests/ui/capability-catalog-edit-navigation.test.tsx (3 tests) 173ms
+web:test:  ✓ tests/ui/chat-live-message-panel-agent-selector-restore.test.tsx (3 tests) 152ms
+web:test:  ✓ tests/ui/registration-field-errors.test.tsx (5 tests) 171ms
+web:test:  ✓ tests/ui/capability-edit-back-navigation.test.tsx (4 tests) 96ms
+web:test:  ✓ tests/ui/chat-task-inspector-plan-source.test.tsx (3 tests) 113ms
+web:test:  ✓ tests/agent-kernel/artifacts-panel.test.tsx (7 tests) 99ms
+web:test:  ✓ tests/ui/project-live-segment-engine-consistency.test.tsx (3 tests) 95ms
+web:test:  ✓ tests/lib/canvas-stage-bounding-box.test.ts (6 tests) 39ms
+web:test:  ✓ tests/agent-kernel/error-card.test.tsx (10 tests) 110ms
+web:test:  ✓ tests/ui/consent-form.test.tsx (4 tests) 183ms
+web:test:  ✓ tests/ui/agent-plan-panel.test.tsx (12 tests) 42ms
+web:test:  ✓ tests/ui/ag-skill-trialrun-401.test.tsx (2 tests) 155ms
+web:test:  ✓ tests/ui/asset-preflight-blocking.test.tsx (6 tests) 125ms
+web:test:  ✓ tests/ui/survey-create-dialog.test.tsx (3 tests) 622ms
+web:test:    ✓ SurveyCreateDialog > 空白问卷要求名称并提交规范化的多个标签 327ms
+web:test:  ✓ tests/ui/admin-screen-notice.test.tsx (5 tests) 295ms
+web:test:  ✓ tests/ui/survey-app-shell.test.tsx (7 tests) 394ms
+web:test:  ✓ tests/ui/tpl-list-admin-nav.test.tsx (3 tests) 103ms
+web:test:  ✓ tests/ui/active-file-panel-produced-download.test.tsx (4 tests) 112ms
+web:test:  ✓ tests/ui/chat-live-message-panel-markdown.test.tsx (2 tests) 184ms
+web:test:  ✓ tests/ui/skill-library-prototype-fidelity.test.tsx (3 tests) 224ms
+web:test:  ✓ tests/ui/agent-definition-list-panel.test.tsx (4 tests) 115ms
+web:test:  ✓ tests/ui/quick-digital-interview.test.tsx (3 tests) 328ms
+web:test:  ✓ tests/ui/tasks-today-fidelity.test.tsx (4 tests) 160ms
+web:test:  ✓ tests/ui/join-verify-form.test.tsx (5 tests) 116ms
+web:test:  ✓ tests/ui/asset-file-editor-real-404-no-mock-fallback.test.tsx (2 tests) 120ms
+web:test:  ✓ tests/ui/use-audio-input-devices.test.ts (4 tests) 236ms
+web:test:  ✓ tests/ui/app-shell-panel-collapse.test.tsx (6 tests) 408ms
+web:test:  ✓ tests/ui/plan-control-panel-readonly.test.tsx (9 tests) 105ms
+web:test:  ✓ tests/lib/copilotkit-v2-run-progress-stage.test.tsx (5 tests) 24ms
+web:test:  ✓ tests/ui/realtime-transcription-workspace.test.tsx (5 tests) 227ms
+web:test:  ✓ tests/ui/chat-artifact-preview-dialog.test.tsx (3 tests) 279ms
+web:test:  ✓ tests/ui/overview-mixed-state.test.tsx (5 tests) 115ms
+web:test:  ✓ tests/ui/chat-task-inspector-collapse.test.tsx (3 tests) 89ms
+web:test:  ✓ tests/ui/project-overview-live-info.test.tsx (5 tests) 117ms
+web:test:  ✓ tests/lib/chat-always-plan-first-setting.test.ts (6 tests) 32ms
+web:test:  ✓ tests/ui/plan-control-phase-indicator.test.tsx (15 tests) 185ms
+web:test:  ✓ tests/ui/state-shell-reserved-testid.test.tsx (4 tests) 61ms
+web:test:  ✓ tests/ui/topbar-admin-hint-hidden.test.tsx (6 tests) 67ms
+web:test:  ✓ tests/ui/login-real-error.test.tsx (4 tests) 152ms
+web:test:  ✓ tests/ui/profile-mobile-actions.test.tsx (3 tests) 112ms
+web:test:  ✓ tests/lib/agui-plan-todos.test.tsx (10 tests) 28ms
+web:test:  ✓ tests/ui/login-signup-paths.test.tsx (4 tests) 69ms
+web:test: stderr | tests/ui/markdown-message.test.tsx > MarkdownMessage > 白名单内的 mermaid 围栏 → 走 fabric 渲染路径（validating→valid，挂 fabric 容器），不落错误态
+web:test: [fabric-markdown] mermaid db unavailable, falling back to SVG parsing TypeError: Cannot read properties of undefined (reading 'getDiagramFromText')
+web:test:     at Module.mermaidToModel (/home/user/workspacex/packages/fabric-markdown/src/mermaid-parser.ts:1035:73)
+web:test:     at Module.markdownToCanvas (/home/user/workspacex/packages/fabric-markdown/src/index.ts:75:13)
+web:test: 
+web:test:  ✓ tests/ui/markdown-message.test.tsx (3 tests) 192ms
+web:test:  ✓ tests/session/login-session-gate.test.tsx (5 tests) 40ms
+web:test:  ✓ tests/lib/canvas-sticky-borderless.test.ts (1 test) 251ms
+web:test:  ✓ tests/ui/chat-task-inspector-task-mode.test.tsx (3 tests) 81ms
+web:test:  ✓ tests/lib/interview-report-export.test.ts (2 tests) 110ms
+web:test:  ✓ tests/ui/interview-runs.test.tsx (1 test) 67ms
+web:test:  ✓ tests/ui/sidebar-brand-header.test.tsx (3 tests) 154ms
+web:test:  ✓ tests/ui/survey-route-layout.test.tsx (3 tests) 519ms
+web:test:  ✓ tests/ui/subtask-run-live-panel.test.tsx (3 tests) 55ms
+web:test:  ✓ tests/ui/message-landing-button-variant.test.tsx (1 test) 34ms
+web:test:  ✓ tests/ui/app-shell-anon-redirect.test.tsx (2 tests) 32ms
+web:test:  ✓ tests/ui/org-admin-invite-form-novalidate.test.tsx (1 test) 40ms
+web:test:  ✓ tests/ui/interview-skill-assistant.test.tsx (1 test) 99ms
+web:test:  ✓ tests/ui/my-today.signed-out.test.tsx (1 test) 37ms
+web:test:  ✓ tests/ui/survey-template-editor-shell.test.tsx (2 tests) 254ms
+web:test:  ✓ tests/single-source-of-truth.test.ts (22 tests) 215ms
+web:test:  ✓ tests/brand-favicon-assets.test.ts (13 tests) 33ms
+web:test:  ✓ tests/lib/explicit-template-layout.test.ts (58 tests) 18ms
+web:test:  ✓ tests/session/canvas-template-routes-no-mock.test.ts (13 tests) 105ms
+web:test:  ✓ tests/session/chat-dead-mock-cluster.test.ts (8 tests) 402ms
+web:test:  ✓ tests/lib/auto-template-layout.test.ts (24 tests) 29ms
+web:test:  ✓ tests/capability/mcp/three-orthogonal-fields.test.ts (24 tests) 16ms
+web:test:  ✓ tests/capability/mcp/credential-endpoint-hidden.test.ts (142 tests) 33ms
+web:test:  ✓ tests/lint-no-backend-badge.test.ts (11 tests) 20ms
+web:test:  ✓ tests/session/copilotkit-agui-httpagent.test.ts (4 tests) 93ms
+web:test: stderr | tests/session/copilotkit-agui-httpagent.test.ts > @ag-ui/client HttpAgent against this repo's real AG-UI SSE wire format > DA-19a: an HTTP 401 rejected before any SSE bytes (missing/expired bearer token) makes runAgent() REJECT -- not resolve silently with no assistant reply and no error
+web:test: Agent execution failed: Error: HTTP 401: {"statusCode":401,"message":"Unauthorized"}
+web:test:     at file:///home/user/workspacex/node_modules/.pnpm/@ag-ui+client@0.0.57/node_modules/@ag-ui/client/src/run/http-request.ts:37:34
+web:test:     at doInnerSub (/home/user/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/operators/mergeInternals.ts:71:15)
+web:test:     at outerNext (/home/user/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/operators/mergeInternals.ts:53:58)
+web:test:     at OperatorSubscriber._this._next (/home/user/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/operators/OperatorSubscriber.ts:70:13)
+web:test:     at OperatorSubscriber.Subscriber.next (/home/user/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/Subscriber.ts:75:12)
+web:test:     at /home/user/workspacex/node_modules/.pnpm/rxjs@7.8.1/node_modules/rxjs/src/internal/observable/innerFrom.ts:90:24
+web:test:     at processTicksAndRejections (node:internal/process/task_queues:103:5) {
+web:test:   status: 401,
+web:test:   payload: { statusCode: 401, message: 'Unauthorized' }
+web:test: }
+web:test: 
+web:test:  ✓ tests/capability/mcp/tool-namespace.test.ts (21 tests) 13ms
+web:test:  ✓ tests/recording/live-recording-capture.test.ts (22 tests) 14ms
+web:test:  ✓ tests/ui/personal-transcription-history.test.tsx (17 tests) 2244ms
+web:test:    ✓ 实时转录历史工作台 > 历史卡片来自真实 API，并能打开包含名称与标签的创建弹窗 321ms
+web:test:  ✓ tests/lib/cap-fence-bullets.test.ts (18 tests) 8ms
+web:test:  ✓ tests/session/skill-create-route-no-mock.test.ts (5 tests) 25ms
+web:test:  ✓ tests/lib/boardx-realtime-asr-client.test.ts (7 tests) 13ms
+web:test:  ✓ tests/digital-interview-drafts.test.ts (11 tests) 16ms
+web:test:  ✓ tests/lib/template-dry-run.test.ts (19 tests) 7ms
+web:test:  ✓ tests/session/agent-admin-route-no-mock.test.ts (5 tests) 23ms
+web:test:  ✓ tests/lib/template-editor-published-editable.test.ts (9 tests) 4ms
+web:test:  ✓ tests/lib/template-simulate-dialog.test.ts (121 tests) 16ms
+web:test:  ✓ tests/lib/template-auto-layout.test.ts (8 tests) 11ms
+web:test:  ✓ tests/guided-research-skill-state.test.ts (8 tests) 6ms
+web:test:  ✓ tests/session/chat-appshell-persists-across-threads.test.ts (4 tests) 5ms
+web:test:  ✓ tests/session/chat-roster-route-no-mock.test.ts (6 tests) 53ms
+web:test:  ✓ tests/lib/template-editor-overlap.test.ts (12 tests) 6ms
+web:test:  ✓ tests/lib/pick-default-agent-id.test.ts (12 tests) 3ms
+web:test:  ✓ tests/lib/template-a1-thumbnail-geometry.test.ts (8 tests) 5ms
+web:test:  ✓ tests/ui/chat-task-inspector-tabs.test.ts (19 tests) 4ms
+web:test:  ✓ tests/survey/survey-mock-structure.test.ts (10 tests) 7ms
+web:test:  ✓ tests/e2e/self-service-profile-account-isolation.test.ts (4 tests) 5ms
+web:test:  ✓ tests/e2e/logout-landing.test.ts (18 tests) 6ms
+web:test:  ✓ tests/api-client-ws-handshake-timeout.test.ts (4 tests) 7ms
+web:test:  ✓ tests/session/covered-routes-no-mock.test.ts (15 tests) 6ms
+web:test:  ✓ tests/ui/survey-workflow-model.test.ts (10 tests) 59ms
+web:test:  ✓ tests/session/api-client-non-json-error.test.ts (4 tests) 9ms
+web:test:  ✓ tests/lib/template-dangling-placeholders.test.ts (10 tests) 4ms
+web:test:  ✓ tests/lib/auto-template-sticky-constants.test.ts (4 tests) 4ms
+web:test:  ✓ tests/session/canvas-template-body-completeness.test.ts (5 tests) 4ms
+web:test:  ✓ tests/lint-third-party-style-registry.test.ts (6 tests) 455ms
+web:test:  ✓ tests/chat-roster-api.test.ts (2 tests) 9ms
+web:test:  ✓ tests/upload-attachment-xhr.test.ts (3 tests) 7ms
+web:test:  ✓ tests/lib/agent-capability-graph-model.test.ts (5 tests) 8ms
+web:test:  ✓ tests/chat-read-api.test.ts (1 test) 6ms
+web:test:  ✓ tests/ui/admin-feedback-transitions-match-domain.test.ts (3 tests) 4ms
+web:test:  ✓ tests/lib/note-font-size.test.ts (6 tests) 3ms
+web:test:  ✓ tests/lib/template-editor-model-type-fallback.test.ts (2 tests) 4ms
+web:test:  ✓ tests/lib/agent-run-phase.test.ts (12 tests) 5ms
+web:test:  ✓ tests/lib/report-client-error.test.ts (4 tests) 9ms
+web:test:  ✓ tests/api-client-url-join.test.ts (3 tests) 9ms
+web:test:  ✓ tests/copilotkit-v2-agui-url.test.ts (5 tests) 3ms
+web:test:  ✓ tests/e2e/personal-realtime-transcription-smoke.test.ts (1 test) 7ms
+web:test:  ✓ tests/lib/pcm-audio-worklet.test.ts (4 tests) 7ms
+web:test:  ✓ tests/copilotkit-v2-agent-query.test.ts (3 tests) 6ms
+web:test:  ✓ tests/ui/composer-mention-detection.test.ts (7 tests) 4ms
+web:test:  ✓ tests/guided-research-demo-state.test.ts (4 tests) 3ms
+web:test:  ✓ tests/lib/live-personal-transcriptions.test.ts (2 tests) 12ms
+web:test:  ✓ tests/lib/copilotkit-v2-error-copy.test.ts (10 tests) 4ms
+web:test:  ✓ tests/lib/safe-relative-path.test.ts (6 tests) 3ms
+web:test:  ✓ tests/session/session-api.test.ts (1 test) 7ms
+web:test:  ✓ tests/lib/template-layout-bounds-contract.test.ts (3 tests) 5ms
+web:test:  ✓ tests/lib/live-consent.test.ts (1 test) 4ms
+web:test:  ✓ tests/lint-design-gate.test.ts (12 tests) 124ms
+web:test:  ✓ tests/research-rewrite.test.ts (1 test) 3ms
+web:test:  ✓ tests/lint-design-motion-rule.test.ts (5 tests) 107ms
+web:test:  ✓ tests/lib/copilotkit-v2-task-mode.test.ts (4 tests) 2ms
+web:test:  ✓ tests/ui/mermaid-diagram-type.test.ts (4 tests) 3ms
+web:test:  ✓ tests/lint-image-alt-nextimage.test.ts (3 tests) 1641ms
+web:test:    ✓ U7a 覆盖 next/image 的 <Image>（F08） > 全仓真实扫描（app/components/lib）U7a 全绿——已补齐 avatar/附件预览/组织头像的 alt 或 aria-hidden 1344ms
+web:test:  ✓ tests/api-client-error-envelope.test.ts (2 tests) 7ms
+web:test:  ✓ tests/ui/decode-mermaid-entities.test.ts (4 tests) 3ms
+web:test:  ✓ tests/lib/return-to.test.ts (5 tests) 3ms
+web:test:  ✓ tests/guided-research-stage.test.ts (2 tests) 4ms
+web:test:  ✓ tests/ui/survey-creation-draft.test.ts (3 tests) 3ms
+web:test:  ✓ tests/ui/provenance-labels.test.ts (2 tests) 4ms
+web:test: 
+web:test:  Test Files  307 passed (307)
+web:test:       Tests  2834 passed (2834)
+web:test:    Start at  23:00:18
+web:test:    Duration  179.96s (transform 21.35s, setup 36.90s, collect 143.03s, tests 118.30s, environment 160.52s, prepare 19.78s)
+web:test: 
+
+ Tasks:    5 successful, 5 total
+Cached:    0 cached, 5 total
+  Time:    3m9.395s 
+
+ WARNING  no output files found for task @repo/dev-mode-accounts#build. Please check your `outputs` key in `turbo.json`
+[timing] pnpm turbo run typecheck lint test --affected
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3m10s
+  清理：1s
+  总计：3m11s
+[test-isolation] cleanup failed: docker compose down -v exited 1
+ ELIFECYCLE  Command failed with exit code 1.
+
+[harness-verify v1 sha256=35fb82209fd3b83f12bca28d58bc7f761c15c88ac7c795d0f000ab7936ff92dd commit=407e2835707745495d309e42809307e0d7be5993 at=2026-09-04T23:03:20.000Z]
