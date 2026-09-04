@@ -1,9 +1,14 @@
 # 会话交接 — Sprint 14/01
 
 ## 当前已验证
-- 无 feature 处于 harness `passing`（本轮 F01 实现完成，但 `pnpm harness verify` 在本会话
-  的沙箱环境里无法真正跑通——见下方"仍损坏或未验证"，status 仍是 `in_progress`，未被
-  手动改动，符合"只能由验证脚本门控转移"的硬约束）。
+- F01 的 PR（#2729）已合入 `main`（见 `git log`），但 `feature_list.json` 里 F01 的
+  status 仍是 `in_progress`——这一行的翻转只能由 `pnpm harness verify` 门控完成，
+  本仓至今没有一个会话在 docker 出网可用的环境里把它跑通过；下一个能跑 docker 的
+  会话应先补跑 `pnpm harness verify --sprint 14/01 --feature F01`，而不是假设"合入
+  main = passing"。
+- 无 feature 处于 harness `passing`。本轮（F13）与上一轮（F01）都撞上同一条环境
+  blocker——见下方"仍损坏或未验证"，两个 feature 的 status 都未被手动改动，符合
+  "只能由验证脚本门控转移"的硬约束。
 
 ## 本轮改动（F01：apps/api 退化为薄网关）
 - `apps/api/src/application/agent-run/execute-run.ts`：删除 `useLazySkillLoading` 伪循环
@@ -66,10 +71,60 @@
   `pnpm harness verify --sprint 14/01 --feature F01`，跑通后由 verify 脚本自身完成
   status 翻转（不能手改）。
 
+## 本轮改动（F13：错误分类修复，toFailure 精确归类，issue #2718）
+
+范围严格限定在 R11(a) 切分出来的那一小片（`toFailure` 精确化），不碰
+R11(b)/(c)（人性化转换层、前端卡片、transcript 存储）——那是 F14/F15 的事。
+
+- `apps/api/src/application/agent-run/run-skill-script.ts`：`toFailure` 新增
+  `ModelCallError` 分支（归 `MODEL_CALL_FAILED`），排在原有三个具名异常分支之后、
+  真兜底之前；真兜底（认不出的异常）从原来的 `SANDBOX_UNAVAILABLE` 改成
+  `UNKNOWN_EXECUTION_ERROR`（R7：诚实的"不知道"优先于张冠李戴）。`SkillScriptOutcome`
+  的 `failureCode` 联合类型同步加了这两个字面量。
+  - 触发本 phase 故障的诱因：回喂重试的 `deps.regenerate(feedback)` 是一次真实模型
+    调用（`execute-run.ts` 接的是 `deps.model.complete(...)`），失败时抛
+    `ModelCallError`——改前这个异常类型 `toFailure` 完全没处理，直接落进兜底，
+    被记成 `SANDBOX_UNAVAILABLE`；运维会去查一个没坏的沙箱容器。
+- 新增 `apps/api/tests/agent-run/failure-classification.test.ts`（issue #2718 指定的
+  唯一 verification 命令）：
+  - E1 回归：`regenerate` 抛 `ModelCallError("MODEL_CALL_FAILED", ...)` ⇒
+    `failureCode === "MODEL_CALL_FAILED"`，且带一条 CP 反证（重放旧兜底逻辑本身，
+    证明它确实会把这个异常判成 `SANDBOX_UNAVAILABLE`）。
+  - 兜底诚实：一个非 `ModelCallError`/非沙箱类的意外异常 ⇒
+    `failureCode === "UNKNOWN_EXECUTION_ERROR"`。
+  - 不回归：`SandboxUnavailableError` 仍然归 `SANDBOX_UNAVAILABLE`（本次没有动这条）。
+  - 反证方法：把 `run-skill-script.ts` 的改动 `git stash` 掉后重跑同一份测试，
+    确认前两条断言真的会红（见下方"已做的替代验证"第 2 条），不是空转的 vacuous test。
+
+### 仍损坏或未验证（与 F01 同一条环境 blocker，本轮重新确认过一次）
+- 本会话 docker 服务本身没有起来（`/var/run/docker.sock` 不存在，`service docker
+  start` 因 `ulimit: error setting limit (Operation not permitted)` 失败）；手动
+  `dockerd --storage-driver=vfs` 能把 daemon 本身跑起来，但 `docker compose up -d
+  postgres` 拉取 `pgvector/pgvector:pg16` 时对 `production.cloudfront.docker.com`
+  返回 `403 Forbidden`——与 F01 那轮记录的是同一条组织出网策略拦截（`/root/.ccr/
+  README.md`："403/407 = 出网策略拒绝，不要绕过"），不是本轮改动引入的新问题。
+  真实失败日志已落盘 `evidence/F13.verify.log`（`pnpm harness verify --sprint 14/01
+  --feature F13` 的原始输出，未手改）。
+- **已做的替代验证**（不是 harness 认可的证据，只是本轮实现信心的补充说明）：
+  1. `pnpm exec tsc --noEmit -p apps/api`：0 个新增错误（含新测试文件本身）。
+  2. 用一份临时 vitest config（只去掉 `globalSetup`，其余设置逐字照抄
+     `vitest.config.ts`，不落进仓库）跑
+     `tests/agent-run/failure-classification.test.ts`：4 个测试全绿；同时跑既有
+     `tests/agent-runtime/chat-skill-script-execution.test.ts`（11 个测试）确认未
+     回归。把 `run-skill-script.ts` 的改动 `git stash` 后重跑，前两条断言按预期
+     变红（`SANDBOX_UNAVAILABLE` vs 期望的 `MODEL_CALL_FAILED`/
+     `UNKNOWN_EXECUTION_ERROR`），证明测试确实抓得住这条回归。
+- **下一步**：找一个 docker 出网可用的环境（本仓 CI 的 `verify-affected` runner，
+  或另一个出网策略不同的 remote session）重跑
+  `pnpm harness verify --sprint 14/01 --feature F13`，跑通后由 verify 脚本自身完成
+  status 翻转（不能手改）；同一个环境顺带把 F01 的 verify 也补跑掉（见上）。
+
 ## 下一步最佳动作
-- 找到 Docker 出网可用的环境，重跑 `pnpm harness verify --sprint 14/01 --feature F01`
-  把 F01 门控转 passing；不要在没跑通 verify 的情况下手改 `feature_list.json` 的 status。
-- F01 之后按 `01-kernel-unification.md` R11(b) 排 F02（灰度开关默认开启+移除开关本身）。
+- 找到 Docker 出网可用的环境，依次重跑 F01、F13 的
+  `pnpm harness verify --sprint 14/01 --feature <id>` 把两者门控转 passing；不要在
+  没跑通 verify 的情况下手改 `feature_list.json` 的 status。
+- F13 之后：F14（错误人性化转换层+前端错误卡片）、F15（完整可审计 transcript 存储
+  改造）可并行；F02（灰度开关默认开启+移除开关本身）依赖 F01。
 
 ## 命令
 - 启动：`pnpm -w run dev`
