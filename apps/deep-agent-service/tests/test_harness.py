@@ -827,13 +827,24 @@ def test_subagent_config_pinned(monkeypatch):
     monkeypatch.setenv("DEEP_AGENT_SUBAGENTS_ENABLED", "1")
     model = _fake_model()
     subagents = build_subagents(model)
-    assert subagents is not None and len(subagents) == 1
-    sa = subagents[0]
-    assert sa["name"] == "org-skill-researcher"
+    # #2664：从 1 个扩到 3 个具名子代理——org-skill-researcher 原样保留，
+    # 新增 research/generic 两个通用类型（见 build_subagents 自己的文档）。
+    assert subagents is not None and len(subagents) == 3
+    by_name = {sa["name"]: sa for sa in subagents}
+    assert set(by_name) == {"org-skill-researcher", "research", "generic"}
+
+    sa = by_name["org-skill-researcher"]
     assert "调研" in sa["description"] and "汇总" in sa["description"]
     assert "list_org_skills" in sa["system_prompt"]
     assert [t.name for t in sa["tools"]] == ["list_org_skills", "call_skill"]
     assert sa["model"] is model, "子代理模型显式钉为主模型，不吃「继承」的库默认"
+
+    for name in ("research", "generic"):
+        entry = by_name[name]
+        assert entry["name"] and entry["description"] and entry["system_prompt"]
+        assert entry["model"] is model, f"{name} 子代理模型也必须显式钉为主模型"
+        # spawn_async_task/HITL 虚拟工具不该混进任何子代理（本文件头注同一条纪律）。
+        assert entry["tools"] == []
 
 
 def test_task_tool_advertises_named_subagent(monkeypatch):

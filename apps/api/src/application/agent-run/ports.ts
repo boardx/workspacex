@@ -717,6 +717,18 @@ export interface ModelCallInput {
    * 不注入 ⇒ 行为逐字节不变（回调不存在，不调用）。
    */
   readonly onRemoteRunStarted?: (remoteRunId: string) => void;
+  /**
+   * issue #2664 -- 本次调用所属的 org id 与已 claim 的 `agent_runs` 行 id。OPTIONAL，
+   * 同 `threadId` 一条既有先例：只有 `DeepAgentModelProvider` 关心它，别的 provider
+   * 完全忽略。远端 `spawn_async_task` 工具用它把子任务 run 关联回父 run（写进
+   * `configurable.parent_run_id`/`configurable.org_id`，供子任务入队时随
+   * `EnqueueSubtaskRunInput.parentRunId` 一并转发给
+   * `POST /internal/subtask-runs`）。不传时该工具收不到父 run 上下文，效果与
+   * `DEEP_AGENT_SUBAGENTS_ENABLED` 未开启时的旧行为一致（工具即使被注册也没有可用的
+   * 派发目标——见 `deep_agent_service/tools.py::spawn_async_task` 自己的降级说明）。
+   */
+  readonly orgId?: string;
+  readonly runId?: string;
   readonly system: string;
   readonly user: string;
   /**

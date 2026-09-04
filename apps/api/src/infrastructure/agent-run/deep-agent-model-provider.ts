@@ -134,6 +134,26 @@ export interface DeepAgentProviderConfig {
   readonly baseUrl: string;
   readonly pollIntervalMs: number;
   readonly timeoutMs: number;
+  /**
+   * issue #2664 -- 这个 API 进程自身、从 `apps/deep-agent-service` 容器可达的地址。
+   * `spawn_async_task` 工具用它拼出 `POST <subtaskCallbackBaseUrl>/internal/subtask-runs`
+   * 把子任务信息写回来。空字符串（默认，同 `baseUrl` 自己的"没有已知真实部署"纪律）
+   * ⇒ `configurable.subtask_callback_base_url` 这个键根本不出现，Python 侧
+   * `spawn_async_task` 按其自身文档降级为"收到但无法派发"的诚实结果，不静默假装成功。
+   */
+  readonly subtaskCallbackBaseUrl?: string;
+  /**
+   * 与 `subtask-run.controller.ts` 读取的**同一个**环境变量值（`x-deep-agent-internal-key`
+   * 请求头）——单一事实源是 `DEEP_AGENT_SERVICE_INTERNAL_KEY` 这个环境变量本身，两侧
+   * 各自读一次，不在代码里互相复制字面量。空字符串 ⇒ 同上，键不出现。
+   *
+   * ⚠ 两个字段都是**可选**（不是 `readDeepAgentProviderConfig` 返回值里其余字段的形状）：
+   * 这个接口在本次改动之前已经被多个既有测试直接手写字面量构造过
+   * （`deep-agent-stream.test.ts` 等），补两个必填字段会让那些测试的字面量突然不完整而
+   * 编译失败——它们与 issue #2664 无关，不该被这次改动波及。缺省按空字符串处理
+   * （`this.config.subtaskCallbackBaseUrl ?? ""`），与"没配置"的行为逐字相同。
+   */
+  readonly subtaskCallbackKey?: string;
 }
 
 export function readDeepAgentProviderConfig(
@@ -151,6 +171,8 @@ export function readDeepAgentProviderConfig(
     timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : 300_000,
     pollIntervalMs: Number.isFinite(pollInterval) && pollInterval > 0 ? pollInterval : 2_000,
     streamEnabled: env.KERNEL_DEEP_AGENT_STREAM_ENABLED === "1",
+    subtaskCallbackBaseUrl: (env.KERNEL_SUBTASK_CALLBACK_BASE_URL ?? "").trim().replace(/\/+$/, ""),
+    subtaskCallbackKey: (env.DEEP_AGENT_SERVICE_INTERNAL_KEY ?? "").trim(),
   };
 }
 
@@ -855,6 +877,20 @@ export class DeepAgentModelProvider implements ModelCallPort {
              *   协议正文的唯一事实源在 `run-script-with-retries.ts`，Python 侧不写副本。
              */
             ...(input.scriptProtocol === undefined ? {} : { script_protocol: input.scriptProtocol }),
+            /*
+             * issue #2664 -- `spawn_async_task` 需要知道①把子任务信息 POST 去哪
+             * （`subtask_callback_base_url`，本进程自己的地址）、②带哪把共享密钥
+             * （`subtask_callback_key`，`subtask-run.controller.ts` 校验的同一个值）、
+             * ③子任务归属哪个父 run（`org_id`/`parent_run_id`，来自这次 `ModelCallInput`
+             * 本身——见该类型自己的文档）。三者任一缺席，`spawn_async_task` 都退化为诚实
+             * 报告"无法派发"，不是这里要处理的分支（见该工具自己的文档）。
+             */
+            ...((this.config.subtaskCallbackBaseUrl ?? "") === "" ? {} : {
+              subtask_callback_base_url: this.config.subtaskCallbackBaseUrl,
+              subtask_callback_key: this.config.subtaskCallbackKey ?? "",
+            }),
+            ...(input.orgId === undefined ? {} : { org_id: input.orgId }),
+            ...(input.runId === undefined ? {} : { parent_run_id: input.runId }),
           },
         },
       }),
