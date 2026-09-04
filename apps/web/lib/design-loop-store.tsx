@@ -22,7 +22,7 @@ import * as React from "react";
  * 现在是 `listInbox`。
  */
 
-export type ProjectTemplate = "mobile" | "ui" | "wireframe";
+export type MockProjectTemplate = "mobile" | "ui" | "wireframe";
 
 export interface ChatTurn {
   readonly role: "user" | "ai";
@@ -32,7 +32,7 @@ export interface ChatTurn {
 export interface Project {
   readonly id: string;
   name: string;
-  template: ProjectTemplate;
+  template: MockProjectTemplate;
   emoji: string;
   owner: string;
   updated: string;
@@ -45,12 +45,12 @@ export interface Project {
   chat: ChatTurn[];
 }
 
-export const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
+export const TEMPLATE_LABEL: Record<MockProjectTemplate, string> = {
   mobile: "移动端设计",
   ui: "UI 原型",
   wireframe: "线框图",
 };
-export const TEMPLATE_EMOJI: Record<ProjectTemplate, string> = {
+export const TEMPLATE_EMOJI: Record<MockProjectTemplate, string> = {
   mobile: "📱",
   ui: "🎨",
   wireframe: "🧩",
@@ -110,7 +110,7 @@ interface StoreShape {
 }
 
 export interface DesignLoopApi extends StoreShape {
-  createProject: (input: { name: string; template: ProjectTemplate; problem?: string; linkedFeedback?: string }) => string;
+  createProject: (input: { name: string; template: MockProjectTemplate; problem?: string; linkedFeedback?: string }) => string;
   updateProject: (id: string, patch: Partial<Pick<Project, "name" | "template" | "problem">>) => void;
   deleteProject: (id: string) => void;
   appendProjectChat: (id: string, text: string) => void;

@@ -324,6 +324,12 @@ export default defineConfig({
         //   可挂载 skill / 可运行 agent——同 `chat-vision-honest-degrade.spec.ts` 的理由，
         //   复用现成夹具，不重新发明 chat 链路。
         "feedback-loop-smoke.spec.ts",
+        // ⚠ B1.6/B3.8（草稿/收件箱 E2E）同理排在 `seeded`：复用同一套种子里的
+        // 引导师（`FULLSTACK_E2E.email`，草稿是 per-user 私有资源）与组织管理员
+        // （`FULLSTACK_E2E.adminEmail`，收件箱要求分诊角色 `canTriage`，同
+        // `feedback-loop-smoke.spec.ts` 管理员那条用例的权限来源）。
+        "feedback-drafts-smoke.spec.ts",
+        "inbox-smoke.spec.ts",
         // ⚠ 2026-08-27 chat 模拟（`TemplateSimulateDialog`）同理排在 `seeded`：它同样
         //   要用种子里的组织管理员（`FULLSTACK_E2E.adminEmail`，唯一有权改模板的角色）。
         //   来源模板现场建 + 发布（复用 #496 已门控的路径），不往种子里塞——理由同

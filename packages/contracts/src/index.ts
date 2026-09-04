@@ -66,6 +66,9 @@ export * as systemErrorLogs from "./system-error-logs";
 /* ── UC-17.8 Sprint 2 · 统一收件箱（反馈 + 系统异常 [+ B4 设计方案] 的只读投影，D2 替换旧三 tab）── */
 export * as inbox from "./inbox";
 
+/* ── UC-17.8 Sprint 3 · PM 设计工作台（Project 实体 + 推送到收件箱 + 双向关联地基）───────── */
+export * as designWorkbench from "./design-workbench";
+
 /* ── 两级成员管理：平台级名册与角色调整（组织级在 org-admin 束）────────── */
 export * as platformMembers from "./platform-members";
 
