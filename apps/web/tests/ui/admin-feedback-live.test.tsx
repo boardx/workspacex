@@ -45,6 +45,13 @@ const productReq = {
   ...base, id: "fb-r", kind: "需求" as const, target: { kind: "product" }, title: "希望能把对话导出为 Markdown",
   detail: "方便整理到笔记里", status: "待处理" as const, votes: 12,
 };
+const productBugWithAttachments = {
+  ...productBug,
+  id: "fb-pa",
+  attachments: [
+    { id: "fbattach-1", url: "/feedback/attachments/fbattach-1", mime: "image/png" as const },
+  ],
+};
 
 type Handler = (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => unknown;
 
@@ -292,6 +299,21 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
       expect(sent.status).toBe("已进入迭代");
       expect(sent.issueDraft).toEqual({ title: "管理员改过的标题", body: "管理员改过的正文", labels: ["user-feedback", "needs-triage"] });
     });
+  });
+
+  /**
+   * B-24 回归：FB-5 附件此前挂在 `item.attachments` 上，但 `defaultIssueDraft`
+   * 从没读过这个字段——图片因此从没进过预填正文。这里断言正文里真的带了下载链接
+   * （而不是假装能内嵌渲染的 `![]()`，见 `defaultIssueDraft` 头注）。
+   */
+  it("④ 反馈带附件时，issue 草稿正文里带出附件下载链接（不是内嵌图片）", async () => {
+    mockApi([productBugWithAttachments]);
+    render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-to-已进入迭代-fb-pa"));
+
+    const body = (await screen.findByTestId("admin-feedback-issue-body-fb-pa")) as HTMLTextAreaElement;
+    expect(body.value).toContain("/feedback/attachments/fbattach-1");
+    expect(body.value).toContain("附件");
   });
 
   it("键盘：行聚焦后按 Enter 选中（不止鼠标点击）", async () => {

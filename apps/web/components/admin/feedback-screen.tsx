@@ -6,7 +6,7 @@ import { AdminScreen } from "./admin-screen";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/files/overlay";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, apiUrl } from "@/lib/api-client";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { listAgents } from "@/lib/agent-definition";
 import { listSkills } from "@/lib/live-skill";
@@ -151,11 +151,31 @@ const ISSUE_DRAFT_STATUS: FeedbackStatus = "已进入迭代";
 
 const KIND_ISSUE_LABEL: Record<FeedbackKind, string> = { 缺陷: "bug", 需求: "enhancement" };
 
+/**
+ * ⚠ 2026-09-04 修复(B-24 复盘):这里之前完全没有引用 `item.attachments`——
+ *   FB-5 上传/认领的截图字节确实存进了 object store,但建 issue 弹层预填正文时
+ *   压根不知道这条反馈带过图,图片因此从没进过 GitHub issue 正文,不是"推送失败被
+ *   静默吞掉",是**从没尝试过**。
+ *
+ * ⚠ 这里只能贴**链接**,不能贴能被 GitHub 直接内嵌渲染的图片:
+ *   `/feedback/attachments/:id`(`download-feedback-attachment.ts`)与反馈正文走
+ *   同一条 D3 权限判定,需要组织管理员/提交人身份登录后台才能读到字节——GitHub
+ *   服务端渲染 issue 正文时没有这个身份,`![]()` 语法在这里天生渲染不出图,贴了也是
+ *   一个在 GitHub 页面上显示"broken image"的死链。所以显式给出一条提示,而不是假装
+ *   `![]()` 能工作——那会制造一个新的、更隐蔽的"图片好像带过去了"假象。
+ */
 function defaultIssueDraft(item: FeedbackItem): FeedbackIssueDraft {
   const detail = item.detail ?? "(正文仅组织管理员与提交人可见,分诊时请补充必要的复现上下文。)";
+  const attachments = item.attachments ?? [];
+  const attachmentsSection =
+    attachments.length > 0
+      ? `\n\n---\n附件(${attachments.length} 张,需要登录后台「反馈与迭代」以组织管理员或提交人身份才能打开,GitHub 无法直接内嵌渲染,请手动下载后贴图):\n${attachments
+          .map((a, i) => `${i + 1}. ${apiUrl(a.url)}`)
+          .join("\n")}`
+      : "";
   return {
     title: item.title,
-    body: `${detail}\n\n---\n来源:后台「反馈与迭代」· 反馈 ID ${item.id}`,
+    body: `${detail}\n\n---\n来源:后台「反馈与迭代」· 反馈 ID ${item.id}${attachmentsSection}`,
     labels: ["user-feedback", KIND_ISSUE_LABEL[item.kind]],
   };
 }
