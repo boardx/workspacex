@@ -235,7 +235,7 @@ export function ProgressStream() {
 // ══ 03 工具权限确认弹层 ═════════════════════════════════════════════
 export function ToolPermissionCard() {
   const req = MOCK_PERMISSION_REQUEST;
-  const [decision, setDecision] = React.useState<null | "once" | "run" | "deny">(null);
+  const [decision, setDecision] = React.useState<null | "once" | "run" | "always" | "deny">(null);
 
   return (
     <Card data-testid="tool-permission-card" className="max-w-lg border-warning/40 shadow-lg">
@@ -277,16 +277,20 @@ export function ToolPermissionCard() {
           >
             {decision === "once" && "已允许本次执行，agent 继续。"}
             {decision === "run" && "本次 run 内同类操作将不再打断你。"}
+            {decision === "always" && "已记为长期允许，本组织同类操作以后不再询问（可在下次弹出时改选拒绝以撤销）。"}
             {decision === "deny" && "已拒绝。agent 会据此调整后续计划，而不是直接失败。"}
           </p>
         )}
 
-        <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:justify-end">
+        <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:justify-end sm:flex-wrap">
           <Button variant="outline" data-testid="perm-once" onClick={() => setDecision("once")}>
             <Check aria-hidden className="h-4 w-4" /> 仅本次允许
           </Button>
           <Button variant="outline" data-testid="perm-run" onClick={() => setDecision("run")}>
             本 run 内都允许
+          </Button>
+          <Button variant="outline" data-testid="perm-always" onClick={() => setDecision("always")}>
+            以后都允许
           </Button>
           <Button variant="destructive" data-testid="perm-deny" onClick={() => setDecision("deny")}>
             <X aria-hidden className="h-4 w-4" /> 拒绝
