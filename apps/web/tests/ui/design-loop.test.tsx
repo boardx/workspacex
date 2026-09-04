@@ -9,11 +9,16 @@
  *   ⑤ 看板卡片拖到另一列触发真实迁移调用（反馈 → `PUT /feedback/:id/status`，
  *      系统异常 → `PUT /system/error-logs/:id`）；系统异常拖进「已完成」列**不发请求**。
  *   ⑥ `sources.exception === "withheld"` 时「系统异常」筛选 Chip 禁用并提示「仅平台运维可见」。
- *   ⑦ PM 设计工作台 `pushProject`：项目标记已推送 + `resolvedInbox` 拿到 `D-` 编号
- *      （收件箱本身真栈化后不再由这个 mock store 持有，见 `lib/design-loop-store.tsx` 文件头）。
+ *   ⑦ UC-17.8 B4.5：PM 设计工作台首页 —— loading/empty/dep-failed 三态；「新建」的
+ *      生成中过渡等待真实 `createProject` 返回才导航（不是固定超时）；删除调真实
+ *      `deleteProject` 成功才从列表移除。
+ *   ⑧ UC-17.8 B4.5：设计详情页 —— 按 `id` 在 `listMyProjects()` 里找不到时展示
+ *      「找不到这个设计项目」；发消息调真实 `appendProjectChat`，用服务端整体返回的
+ *      `chat`（用户消息 + 固定回执两条）覆盖本地；推送调真实 `pushToInbox`，成功页
+ *      两个出口读的是服务端返回的真实 `inboxCode`。
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 const apiRequest = vi.fn();
 vi.mock("@/lib/api-client", async () => {
@@ -29,8 +34,11 @@ vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
 import * as React from "react";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen } from "@/components/design-loop/inbox-screen";
-import { DesignLoopProvider, useDesignLoop, type Project } from "@/lib/design-loop-store";
+import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
+import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
+import { DesignLoopProvider } from "@/lib/design-loop-store";
 import type { InboxItem } from "@/lib/live-inbox";
+import type { DesignProject } from "@/lib/live-design-workbench";
 
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
@@ -397,22 +405,134 @@ describe("⑨ 建 GitHub Issue 编辑器", () => {
   });
 });
 
-describe("⑦ PM 设计工作台：pushProject 标记已推送并生成 D- 编号", () => {
-  it("pushProject 后：项目 pushed=true，resolvedInbox 是 D- 开头的编号", () => {
-    const project: Project = {
-      id: "p1", name: "深化 B-3", template: "wireframe", emoji: "🧩", owner: "我", updated: "2026-09-01T00:00:00.000Z",
-      pushed: false, linkedFeedback: "B-3", problem: "问题", criteria: ["a"], frames: ["草稿页 1"], chat: [],
-    };
-    const { result } = renderHook(() => useDesignLoop(), {
-      wrapper: ({ children }) => <DesignLoopProvider seed={{ projects: [project] }}>{children}</DesignLoopProvider>,
+/* ─────────────────────────── B4.5：PM 设计工作台真栈 ─────────────────────────── */
+
+function project(over: Partial<DesignProject> = {}): DesignProject {
+  return {
+    id: "p1", name: "深化 B-3", template: "wireframe", problem: "问题",
+    criteria: ["a"], frames: ["草稿页 1"], pushed: false, pushedAt: null,
+    linkedFeedbackId: null, chat: [], ownerId: "u1", ownerName: "我",
+    createdAt: "2026-09-01T00:00:00.000Z", updatedAt: "2026-09-01T00:00:00.000Z",
+    ...over,
+  };
+}
+
+describe("⑦ PM 设计工作台首页：真栈 listMyProjects / createProject / deleteProject", () => {
+  it("读取中 ⇒ loading；回空 ⇒ empty", async () => {
+    let resolve!: (v: unknown) => void;
+    apiRequest.mockImplementation((path: string) => {
+      if (path === "/pm-designs") return new Promise((r) => { resolve = r; });
+      throw new Error(`unexpected ${path}`);
     });
+    render(<DesignWorkbenchHome state="default" />);
+    expect(screen.getByTestId("loading")).toBeTruthy();
+    resolve({ items: [] });
+    expect(await screen.findByTestId("empty")).toBeTruthy();
+  });
 
-    let code = "";
-    act(() => { code = result.current.pushProject("p1"); });
+  it("读取失败 ⇒ dep-failed，可重试", async () => {
+    apiRequest.mockImplementation((path: string) => {
+      if (path === "/pm-designs") return Promise.reject(new Error("offline"));
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    expect(await screen.findByTestId("dep-failed")).toBeTruthy();
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project()] };
+      throw new Error(`unexpected ${path}`);
+    });
+    fireEvent.click(screen.getByTestId("workbench-retry"));
+    expect(await screen.findByTestId("project-card-p1")).toBeTruthy();
+  });
 
-    expect(code.startsWith("D-")).toBe(true);
-    const p = result.current.projects.find((x) => x.id === "p1")!;
-    expect(p.pushed).toBe(true);
-    expect(p.resolvedInbox).toBe(code);
+  it("新建：生成中过渡等待真实 createProject 返回才导航（不是固定超时）", async () => {
+    const onOpenProject = vi.fn();
+    let resolveCreate!: (v: unknown) => void;
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [] };
+      if (path === "/pm-designs" && opts?.method === "POST") {
+        return new Promise((r) => { resolveCreate = r; });
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" onOpenProject={onOpenProject} />);
+    await screen.findByTestId("empty");
+    fireEvent.click(screen.getByTestId("workbench-new"));
+    fireEvent.change(screen.getByTestId("project-dialog-name"), { target: { value: "新设计" } });
+    fireEvent.click(screen.getByTestId("project-dialog-submit"));
+    // 请求还没返回：仍在生成中过渡，没有导航。
+    expect(screen.getByTestId("workbench-generating")).toBeTruthy();
+    expect(onOpenProject).not.toHaveBeenCalled();
+    resolveCreate({ project: project({ id: "p-real", name: "新设计" }) });
+    await waitFor(() => expect(onOpenProject).toHaveBeenCalledWith("p-real"));
+  });
+
+  it("删除：调真实 deleteProject 成功才从列表移除", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs" && (opts?.method ?? "GET") === "GET") return { items: [project()] };
+      if (path === "/pm-designs/p1" && opts?.method === "DELETE") return { projectId: "p1" };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignWorkbenchHome state="default" />);
+    await screen.findByTestId("project-card-p1");
+    fireEvent.click(screen.getByTestId("project-delete-p1"));
+    await waitFor(() => expect(screen.queryByTestId("project-card-p1")).toBeNull());
+    expect(apiRequest).toHaveBeenCalledWith("/pm-designs/p1", expect.objectContaining({ method: "DELETE" }));
+  });
+});
+
+describe("⑧ 设计详情页：真栈 listMyProjects / appendProjectChat / pushToInbox", () => {
+  it("id 在 listMyProjects() 里找不到 ⇒ 找不到这个设计项目", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/pm-designs") return { items: [project({ id: "other" })] };
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    expect(await screen.findByTestId("design-detail-missing")).toBeTruthy();
+  });
+
+  it("发消息：调真实 appendProjectChat，用服务端返回的 chat 整体覆盖本地", async () => {
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string; body?: Record<string, unknown> }) => {
+      if (path === "/pm-designs") return { items: [project()] };
+      if (path === "/pm-designs/p1/chat" && opts?.method === "POST") {
+        expect(opts.body?.text).toBe("加个筛选");
+        return {
+          project: project({
+            chat: [
+              { role: "user", text: "加个筛选", at: "2026-09-04T00:00:00.000Z" },
+              { role: "ai", text: "好的，我记下了这个调整，稍后会更新原型画布。", at: "2026-09-04T00:00:01.000Z" },
+            ],
+          }),
+        };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" />);
+    await screen.findByTestId("design-detail");
+    fireEvent.change(screen.getByTestId("design-detail-input"), { target: { value: "加个筛选" } });
+    fireEvent.click(screen.getByTestId("design-detail-send"));
+    await waitFor(() => expect(within(screen.getByTestId("design-detail-chat")).getByText("加个筛选")).toBeTruthy());
+    expect(within(screen.getByTestId("design-detail-chat")).getByText(/更新原型画布/)).toBeTruthy();
+    // 发送成功后输入框清空。
+    expect((screen.getByTestId("design-detail-input") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("推送：调真实 pushToInbox，成功页两个出口读服务端返回的真实 inboxCode", async () => {
+    const onOpenInbox = vi.fn();
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/pm-designs") return { items: [project()] };
+      if (path === "/pm-designs/p1/push" && opts?.method === "POST") {
+        return { project: project({ pushed: true }), inboxCode: "D-7" };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignDetailScreen projectId="p1" onOpenInbox={onOpenInbox} />);
+    await screen.findByTestId("design-detail");
+    fireEvent.click(screen.getByTestId("design-detail-push"));
+    fireEvent.click(await screen.findByTestId("design-push-confirm-submit"));
+    await screen.findByTestId("design-push-success");
+    expect(screen.getByTestId("design-push-success").textContent).toContain("D-7");
+    fireEvent.click(screen.getByTestId("design-success-inbox"));
+    expect(onOpenInbox).toHaveBeenCalled();
   });
 });

@@ -11,15 +11,22 @@ import * as React from "react";
  *   （`MockInboxItem`/`InboxStatus`/`setStatus`/`archiveWithReason`/`seedInbox` 等，删除）。
  * ⚠ **草稿也不在这里**（UC-17.8 B1，2026-09-04）：草稿走 `feedback-loop` 契约的
  *   `*FeedbackDraft*` 六条操作（`lib/live-feedback.ts`）。
- * ⚠ 剩下的 PM 设计工作台（`projects`）**仍是原型 mock**（B4，下个 sprint 才真栈化）——
- *   一个 React context + localStorage，让「深化 → 工作台」「推送 → 收件箱」这两条端到端
- *   路径能点通、能截图，不是权威数据源。
- * ⚠ Provider 只挂**一处**：`components/shell/app-shell.tsx`（D5）。壳层之外的独立页
- *   （设计详情全屏页）各自挂自己的一份，那是它们不在壳里，不是第二份权威。
+ * ⚠ **PM 设计工作台的 `projects` 也已真栈化**（UC-17.8 B4.5，2026-09-04）：
+ *   `workbench-screen.tsx`/`detail-screen.tsx` 改读 `packages/contracts/src/design-workbench.ts`
+ *   的六条真实操作（`lib/live-design-workbench.ts`：`listMyProjects`/`createProject`/
+ *   `updateProject`/`deleteProject`/`appendProjectChat`/`pushToInbox`），不再消费这个 store
+ *   的 `projects`/`createProject`/`updateProject`/`deleteProject`/`appendProjectChat`/
+ *   `pushProject`。**这些方法本身没删**——只是没有生产调用方了，删除属于 B6.1（独立后续，
+ *   backlog 明确列了：删原型 store + `/preview/feedback-design-loop` 的 localStorage seed）。
+ * ⚠ Provider 只挂**一处**：`components/shell/app-shell.tsx`（D5，服务于收件箱屏的
+ *   `deepenFeedback` mock，见下）。壳层之外的独立页（设计详情全屏页）**从 B4.5 起不再挂**
+ *   ——它已经不读这个 store 了。
  *
- * `deepenFeedback` 的入参（`code`/`title`/`body`）由调用方（真栈收件箱屏）从
- * `InboxItem` 里取，本 store 不再自己保有一份反馈/异常条目去查——那份唯一事实源
- * 现在是 `listInbox`。
+ * ⚠ `deepenFeedback` **仍被真栈收件箱屏调用**（B4.4 尚未落地本分支；一旦落地，
+ *   `inbox-screen.tsx` 会改调 `lib/live-feedback.ts` 的真栈 `deepenFeedback`
+ *   `POST /feedback/:id/deepen`，这个方法就会跟其它 project 方法一样只剩没有调用方，
+ *   同归 B6.1 清理）。它的入参（`code`/`title`/`body`）由调用方从 `InboxItem` 里取，
+ *   本 store 不再自己保有一份反馈/异常条目去查——那份唯一事实源现在是 `listInbox`。
  */
 
 export type MockProjectTemplate = "mobile" | "ui" | "wireframe";

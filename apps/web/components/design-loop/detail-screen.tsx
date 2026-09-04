@@ -1,16 +1,59 @@
 "use client";
 import * as React from "react";
-import { ArrowLeft, Send, Check, CheckCircle2, Upload, Smartphone } from "lucide-react";
+import { ArrowLeft, Send, Check, CheckCircle2, Upload, Smartphone, Loader2, PlugZap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { ApiError } from "@/lib/api-client";
 import { LinkBadge } from "./badges";
-import { useDesignLoop, TEMPLATE_LABEL, type Project } from "@/lib/design-loop-store";
+import {
+  appendProjectChat as apiAppendProjectChat,
+  listMyProjects,
+  pushToInbox as apiPushToInbox,
+  DESIGN_WORKBENCH_CHAT_INTRO,
+  type DesignProject,
+  type ProjectTemplate,
+} from "@/lib/live-design-workbench";
+
+const TEMPLATE_LABEL: Record<ProjectTemplate, string> = {
+  mobile: "移动端设计",
+  ui: "UI 原型",
+  wireframe: "线框图",
+};
+
+function describeFailure(err: unknown): string {
+  if (err instanceof ApiError) return err.reasonCode ?? `http_${err.status}`;
+  if (err instanceof TypeError) return "无法连接服务器，请稍后重试";
+  return String(err);
+}
+
+type Load =
+  | { kind: "loading" }
+  | { kind: "ready"; project: DesignProject }
+  | { kind: "missing" }
+  | { kind: "failed"; reason: string };
 
 /**
  * PM 设计详情全屏页（Claude Code 风格深色 IDE）。
  * 用 `.dark` 强制深色 token 体系（app/globals.css 的 `.dark` 那份），不另立颜色。
  * 脱离后台三栏骨架：整屏铺满。
+ *
+ * UC-17.8 B4.5 —— **真栈**（契约 `designWorkbench`）。切自 `lib/design-loop-store.tsx`
+ * 的本地 mock。
+ *
+ * ## 这一屏刻意的几个设计取舍
+ *
+ *   · **没有单条 `getProject` 契约操作，用 `listMyProjects()` 后按 `id` 客户端查找**——
+ *     见 `lib/live-design-workbench.ts` 文件头。找不到这条 id（已删除/属于另一组织）时
+ *     渲染既有的「找不到这个设计项目」态，不是把它当网络失败处理。
+ *   · **对话面板发消息是真实 `appendProjectChat` 往返**：发送后用服务端返回的
+ *     `project.chat`（用户消息 + 固定回执两条一起写入，见契约 D7）整体替换本地 `chat`，
+ *     不本地拼接乐观消息——服务端在同一次调用里原子写两条，本地拼接容易和它对不上
+ *     （比如失败重试会拼出重复的用户消息）。发送中禁用输入框，失败恢复文本框内容
+ *     以便重试，不清空用户刚打的字。
+ *   · **推送成功页两个出口读真实 id**（backlog B4.5 原文）：`inboxCode` 来自
+ *     `pushToInbox` 的真实返回值，不再是本地 mock 生成的 `D-` 编号；「继续设计下一个」
+ *     不带 code，只是导航——出口本身不需要 code，是这条路径本来就没有引用它。
  */
 export function DesignDetailScreen({
   projectId,
@@ -23,20 +66,62 @@ export function DesignDetailScreen({
   onOpenInbox?: () => void;
   onNextDesign?: () => void;
 }) {
-  const store = useDesignLoop();
-  const project = store.projects.find((p) => p.id === projectId) ?? null;
+  const [load, setLoad] = React.useState<Load>({ kind: "loading" });
   const [tab, setTab] = React.useState<"canvas" | "spec">("canvas");
   const [frame, setFrame] = React.useState(0);
   const [text, setText] = React.useState("");
+  const [sending, setSending] = React.useState(false);
+  const [chatError, setChatError] = React.useState<string | null>(null);
   const [confirming, setConfirming] = React.useState(false);
-  const [pushedCode, setPushedCode] = React.useState<string | null>(null);
+  const [pushBusy, setPushBusy] = React.useState(false);
+  const [pushError, setPushError] = React.useState<string | null>(null);
+  const [pushed, setPushed] = React.useState<{ project: DesignProject; code: string } | null>(null);
   const chatRef = React.useRef<HTMLDivElement>(null);
 
+  const reload = React.useCallback(async () => {
+    setLoad({ kind: "loading" });
+    try {
+      const { items } = await listMyProjects();
+      const found = items.find((p) => p.id === projectId) ?? null;
+      setLoad(found === null ? { kind: "missing" } : { kind: "ready", project: found });
+    } catch (err) {
+      setLoad({ kind: "failed", reason: describeFailure(err) });
+    }
+  }, [projectId]);
+
   React.useEffect(() => {
-    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight });
+    void reload();
+  }, [reload]);
+
+  const project = load.kind === "ready" ? load.project : null;
+
+  React.useEffect(() => {
+    // jsdom（测试环境）没有实现 `Element.scrollTo`——同 `inbox-screen.tsx` 的既有成例，
+    // 生产浏览器里才真正滚动。
+    chatRef.current?.scrollTo?.({ top: chatRef.current.scrollHeight });
   }, [project?.chat.length]);
 
-  if (project === null) {
+  if (load.kind === "loading") {
+    return (
+      <div className="dark grid h-dvh place-items-center bg-background text-background-foreground" data-testid="loading">
+        <Loader2 aria-hidden className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (load.kind === "failed") {
+    return (
+      <div className="dark grid h-dvh place-items-center bg-background text-background-foreground" data-testid="dep-failed">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <PlugZap aria-hidden className="h-8 w-8 text-muted-foreground" />
+          <p className="text-14 font-medium">这个设计项目暂时读不到（{load.reason}）</p>
+          <Button variant="outline" size="sm" onClick={() => void reload()} data-testid="design-detail-retry">重试</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (load.kind === "missing" || project === null) {
     return (
       <div className="dark grid h-dvh place-items-center bg-background text-background-foreground" data-testid="design-detail-missing">
         <div className="flex flex-col items-center gap-2 text-center">
@@ -47,9 +132,40 @@ export function DesignDetailScreen({
     );
   }
 
-  if (pushedCode !== null) {
-    return <PushSuccess project={project} code={pushedCode} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
+  if (pushed !== null) {
+    return <PushSuccess project={pushed.project} code={pushed.code} onOpenInbox={onOpenInbox} onNextDesign={onNextDesign} />;
   }
+
+  const send = async () => {
+    const value = text.trim();
+    if (value === "") return;
+    setSending(true);
+    setChatError(null);
+    try {
+      const { project: updated } = await apiAppendProjectChat(project.id, value);
+      setLoad({ kind: "ready", project: updated });
+      setText("");
+    } catch (err) {
+      setChatError(`没能发送（${describeFailure(err)}），已保留草稿`);
+      window.setTimeout(() => setChatError(null), 3000);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const confirmPush = async (note: string) => {
+    setPushBusy(true);
+    setPushError(null);
+    try {
+      const out = await apiPushToInbox(project.id, note === "" ? undefined : note);
+      setConfirming(false);
+      setPushed({ project: out.project, code: out.inboxCode });
+    } catch (err) {
+      setPushError(`没能推送到收件箱（${describeFailure(err)}）`);
+    } finally {
+      setPushBusy(false);
+    }
+  };
 
   return (
     <div className="dark flex h-dvh flex-col bg-background text-background-foreground" data-testid="design-detail">
@@ -59,7 +175,7 @@ export function DesignDetailScreen({
           <ArrowLeft aria-hidden className="h-4 w-4" /> 工作台
         </Button>
         <span className="text-12 text-muted-foreground">工作台 / <span className="text-background-foreground">{project.name}</span></span>
-        {project.linkedFeedback && <LinkBadge text={`源自 ${project.linkedFeedback}`} testid="design-detail-linked" />}
+        {project.linkedFeedbackId !== null && <LinkBadge text="源自反馈" testid="design-detail-linked" />}
         <div className="ml-auto">
           {project.pushed ? (
             <Button variant="outline" size="sm" onClick={() => setConfirming(true)} data-testid="design-detail-push">
@@ -78,6 +194,11 @@ export function DesignDetailScreen({
         <div className="flex w-[360px] shrink-0 flex-col border-r border-border bg-panel">
           <div className="border-b border-border px-4 py-2.5 text-12 font-medium">设计协作</div>
           <div ref={chatRef} className="flex flex-1 flex-col gap-2 overflow-y-auto p-3" data-testid="design-detail-chat">
+            {project.chat.length === 0 && (
+              <div className="max-w-[90%] self-start rounded-card bg-card px-2.5 py-1.5 text-12 text-card-foreground">
+                {DESIGN_WORKBENCH_CHAT_INTRO}
+              </div>
+            )}
             {project.chat.map((turn, i) => (
               <div
                 key={i}
@@ -90,11 +211,17 @@ export function DesignDetailScreen({
               </div>
             ))}
           </div>
+          {chatError !== null && (
+            <div className="mx-3 mb-1 rounded-card bg-destructive px-2.5 py-1 text-11 text-destructive-foreground" data-testid="design-detail-chat-error" role="alert">
+              {chatError}
+            </div>
+          )}
           <div className="flex items-end gap-2 border-t border-border p-3">
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={2}
+              disabled={sending}
               placeholder="告诉我要改什么，我来更新画布"
               data-testid="design-detail-input"
               className="flex-1"
@@ -102,12 +229,12 @@ export function DesignDetailScreen({
             <Button
               variant="primary"
               size="icon"
-              disabled={text.trim() === ""}
-              onClick={() => { store.appendProjectChat(project.id, text.trim()); setText(""); }}
+              disabled={text.trim() === "" || sending}
+              onClick={() => void send()}
               aria-label="发送"
               data-testid="design-detail-send"
             >
-              <Send aria-hidden className="h-4 w-4" />
+              {sending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> : <Send aria-hidden className="h-4 w-4" />}
             </Button>
           </div>
         </div>
@@ -148,9 +275,9 @@ export function DesignDetailScreen({
                 <p className="mt-1.5 whitespace-pre-wrap text-13 text-muted-foreground">
                   {project.problem || "还没填背景。回到左边对话里说清楚要解决的问题，我会补到这里。"}
                 </p>
-                {project.linkedFeedback && (
+                {project.linkedFeedbackId !== null && (
                   <p className="mt-2 text-12">
-                    关联反馈：<span className="font-mono">{project.linkedFeedback}</span>
+                    关联反馈：<span className="font-mono">{project.linkedFeedbackId}</span>
                   </p>
                 )}
               </section>
@@ -175,18 +302,16 @@ export function DesignDetailScreen({
         <span>claude-opus-4.6</span>
         <span>设计系统 WorkspaceX UI</span>
         <span>{TEMPLATE_LABEL[project.template]}</span>
-        <span className="ml-auto">{project.owner} · 更新于 {new Date(project.updated).toLocaleDateString("zh-CN")}</span>
+        <span className="ml-auto">{project.ownerName ?? "—"} · 更新于 {new Date(project.updatedAt).toLocaleDateString("zh-CN")}</span>
       </footer>
 
       {confirming && (
         <PushConfirm
           project={project}
-          onClose={() => setConfirming(false)}
-          onConfirm={(note) => {
-            const code = store.pushProject(project.id, note);
-            setConfirming(false);
-            setPushedCode(code);
-          }}
+          busy={pushBusy}
+          error={pushError}
+          onClose={() => { if (!pushBusy) { setConfirming(false); setPushError(null); } }}
+          onConfirm={(note) => void confirmPush(note)}
         />
       )}
     </div>
@@ -230,7 +355,15 @@ function PhoneCanvas({ label }: { label: string }) {
   );
 }
 
-function PushConfirm({ project, onClose, onConfirm }: { project: Project; onClose: () => void; onConfirm: (note: string) => void }) {
+function PushConfirm({
+  project, busy, error, onClose, onConfirm,
+}: {
+  project: DesignProject;
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+  onConfirm: (note: string) => void;
+}) {
   const [note, setNote] = React.useState("");
   return (
     <div className="dark fixed inset-0 z-50 flex items-center justify-center p-4" data-testid="design-push-confirm">
@@ -239,22 +372,28 @@ function PushConfirm({ project, onClose, onConfirm }: { project: Project; onClos
         <h3 className="text-16 font-semibold">推送「{project.name}」到收件箱</h3>
         <p className="text-12 text-muted-foreground">
           推送后会在运营收件箱生成一条「设计方案」条目（待处理），供工程排期。
-          {project.linkedFeedback && ` 来源反馈 ${project.linkedFeedback} 会被标注「已生成」。`}
+          {project.linkedFeedbackId !== null && " 来源反馈会被标注「已生成」。"}
         </p>
         <div className="flex flex-col gap-1">
           <label htmlFor="push-note" className="text-11 font-medium text-muted-foreground">给工程的说明（可选）</label>
-          <Textarea id="push-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} placeholder="需要工程特别注意的边界、依赖、验收口径" data-testid="design-push-note" />
+          <Textarea id="push-note" value={note} onChange={(e) => setNote(e.target.value)} rows={3} disabled={busy} placeholder="需要工程特别注意的边界、依赖、验收口径" data-testid="design-push-note" />
         </div>
+        {error !== null && (
+          <p className="text-11 text-destructive" data-testid="design-push-error" role="alert">{error}</p>
+        )}
         <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
-          <Button variant="primary" size="sm" onClick={() => onConfirm(note)} data-testid="design-push-confirm-submit">确认推送</Button>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={busy}>取消</Button>
+          <Button variant="primary" size="sm" onClick={() => onConfirm(note)} disabled={busy} data-testid="design-push-confirm-submit">
+            {busy && <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" />}
+            确认推送
+          </Button>
         </div>
       </div>
     </div>
   );
 }
 
-function PushSuccess({ project, code, onOpenInbox, onNextDesign }: { project: Project; code: string; onOpenInbox?: () => void; onNextDesign?: () => void }) {
+function PushSuccess({ project, code, onOpenInbox, onNextDesign }: { project: DesignProject; code: string; onOpenInbox?: () => void; onNextDesign?: () => void }) {
   return (
     <div className="dark flex h-dvh flex-col items-center justify-center gap-4 bg-background p-16 text-center text-background-foreground" data-testid="design-push-success">
       <CheckCircle2 aria-hidden className="h-14 w-14 text-success" />
@@ -262,7 +401,7 @@ function PushSuccess({ project, code, onOpenInbox, onNextDesign }: { project: Pr
         <p className="text-20 font-semibold">已推送到收件箱</p>
         <p className="mt-1 text-13 text-muted-foreground">
           方案 <span className="font-mono">{code}</span> · {project.name}
-          {project.linkedFeedback && <> · 已与反馈 <span className="font-mono">{project.linkedFeedback}</span> 互相关联</>}
+          {project.linkedFeedbackId !== null && <> · 已与来源反馈互相关联</>}
         </p>
       </div>
       <p className="max-w-sm text-12 text-muted-foreground">

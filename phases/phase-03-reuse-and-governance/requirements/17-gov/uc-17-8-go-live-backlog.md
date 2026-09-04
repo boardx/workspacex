@@ -89,6 +89,29 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
 - 待做：B3.6（旧屏退役+重签，本轮**未做**——旧 `/platform-admin/feedback` 与新
   `/platform-admin/inbox` 目前并存）、B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
 
+### 0.3 Sprint 3 落地记录
+
+- ✅ B4.1–B4.3（PM 设计工作台真栈化：契约 + `design_projects`/`design_project_chat_messages`
+  迁移 + 六条 API）已落地（PR #2677）。
+- ✅ B4.5（Web：`workbench-screen`/`detail-screen` 切 API）2026-09-04 落地：新增
+  `lib/live-design-workbench.ts`（薄封装 `designWorkbench` 契约六条操作，同
+  `live-inbox.ts`/`live-feedback.ts` 成例）；两屏从 `lib/design-loop-store.tsx` 的本地
+  mock 切到真实 `listMyProjects`/`createProject`/`updateProject`/`deleteProject`/
+  `appendProjectChat`/`pushToInbox`，loading/empty/dep-failed 走 `UiState`。
+  「生成中过渡」不再是固定 1.1s 的 `setTimeout`，改成等待 `createProject` 真实返回才
+  导航，失败退回弹窗提示。设计详情页没有单条 `getProject` 契约操作（读操作对全组织
+  放开，见契约文件头【待确认点 1】），复用 `listMyProjects()` 后按 `id` 客户端查找，
+  不为此新开一条路由。对话面板发消息改成真实 `appendProjectChat` 往返，用服务端
+  一次返回的 `chat`（用户消息 + 固定回执两条）整体覆盖本地，不本地拼接乐观消息。
+  推送成功页两个出口（「查看收件箱」/「继续设计下一个」）读的是 `pushToInbox`
+  返回的真实 `inboxCode`，不再是本地 mock 生成的编号。设计详情页脱离 `AppShell`
+  独立路由，不再需要挂 `DesignLoopProvider`（`app/platform-admin/design-workbench/
+  [projectId]/page.tsx`）。`design-loop-store.tsx` 的 `projects` 相关方法仍保留在文件里
+  （没有生产调用方了），删除留给 B6.1。9 条新增/改写单测
+  （`tests/ui/design-loop.test.tsx` ⑦⑧）。
+- 待做：B4.4（「用 PM 设计工作台深化」真栈，独立 PR 并行中）、B4.6（详情页取材页与
+  截图更新）、B4.7（E2E）。
+
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 
 ```
