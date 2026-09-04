@@ -870,7 +870,7 @@ function VoiceRecordingBar({
       {/* 迷你波形：真实 `level`（RMS）驱动，不是装饰性的固定动画。connecting/stopping 时
           压平成一条静止的最低高度——那两段没有"当下有多大声"这个数据，不该假装有。 */}
       <div
-        className="flex h-4 flex-1 items-center justify-center gap-[3px]"
+        className="flex h-4 flex-1 items-center justify-center gap-1"
         role="meter"
         aria-label="音量"
         aria-valuemin={0}
