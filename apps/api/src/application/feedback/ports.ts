@@ -72,6 +72,8 @@ export interface FeedbackRow {
   /** "转开发"建过 issue 之后回填的两列。见迁移 `20260830120000_fb2_feedback_github_issue.sql`。 */
   readonly githubIssueUrl: string | null;
   readonly githubIssueNumber: number | null;
+  /** UC-17.8 B4——`product_feedback.resolved_by_design_id`，见该列的迁移头注。 */
+  readonly resolvedByDesignId: string | null;
 }
 
 /** 读取口径。⚠ 同样从契约派生，不重列。 */
