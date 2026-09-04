@@ -55,9 +55,9 @@
    禁止 `disabled:opacity-*`。我用 Button 的 `disabled:bg-disabled` token 表达禁用。**按规范单源处理。**
 7. **收件箱列表「数量/时间」列**：系统异常显示「N 次 · M 人」，其余显示日期——UC 只说列名，具体口径我定的。
 8. **详情深色 IDE**：用 `.dark` 强制现有深色 token 体系（不另立颜色），全屏脱离 AppShell。
-9. **存草稿 / 工作台链接的可见条件**：这两个入口只在快速反馈弹窗处于 `DesignLoopProvider`
-   之内时显示（预览页与三个平台后台模块内）。生产壳层（chat/顶栏）尚未包 Provider，
-   **这两处入口在真实壳层暂不显示**——待确认是否把 Provider 上提到 AppShell。
+9. **存草稿 / 工作台链接的可见条件**（2026-09-04 D5 已裁决并落地）：`DesignLoopProvider`
+   已上提到 `AppShell`；「存为草稿」走真 API（`createFeedbackDraft`），不再依赖 Provider；
+   「去 PM 设计工作台」链接仍依赖 mock store（B4 真栈化前）。
 
 ## R8 / R4 线索之间的矛盾与我的处理
 

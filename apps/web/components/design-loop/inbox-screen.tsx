@@ -12,6 +12,7 @@ import {
   useDesignLoop, KIND_LABEL, TYPE_LABEL, STATUS_LABEL, STATUS_ORDER,
   type InboxItem, type InboxKind, type InboxStatus,
 } from "@/lib/design-loop-store";
+import { FeedbackStructuredView } from "@/components/feedback/feedback-structured";
 import { StatusBadge, GithubBadge, LinkBadge, SevereBadge } from "./badges";
 
 type KindFilter = "all" | InboxKind;
@@ -34,17 +35,20 @@ export function DesignLoopInboxScreen({
   state = "default",
   onDeepen,
   onOpenWorkbench,
+  openId: initialOpenId = null,
 }: {
   state?: UiState;
   onDeepen?: (projectId: string) => void;
   onOpenWorkbench?: (inboxCode: string) => void;
+  /** 进屏就打开这一条的详情（`?open=<id>`）。收件箱本身还是 mock（B3），找不到就不开。 */
+  openId?: string | null;
 }) {
   const store = useDesignLoop();
   const [view, setView] = React.useState<"board" | "list">("board");
   const [kindFilter, setKindFilter] = React.useState<KindFilter>("all");
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all");
   const [query, setQuery] = React.useState("");
-  const [openId, setOpenId] = React.useState<string | null>(null);
+  const [openId, setOpenId] = React.useState<string | null>(initialOpenId);
   const [dragOver, setDragOver] = React.useState<InboxStatus | null>(null);
   const [saved, setSaved] = React.useState<string | null>(null);
 
@@ -403,6 +407,14 @@ function InboxDrawer({
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-4">
           <p className="whitespace-pre-wrap text-13 text-card-foreground">{item.body}</p>
+          {/* UC-17.8 D1：反馈类条目的结构化字段；mock 条目多半没有（undefined/null ⇒ 不渲染）。 */}
+          {item.kind === "feedback" && item.structured != null && (
+            <FeedbackStructuredView
+              kind={item.type === "req" ? "需求" : "缺陷"}
+              structured={item.structured}
+              testid={`inbox-drawer-structured-${item.id}`}
+            />
+          )}
 
           <dl className="grid grid-cols-2 gap-2 text-11">
             {item.kind === "exception" ? (

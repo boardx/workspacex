@@ -16,6 +16,8 @@ import { DesignDetailScreen } from "@/components/design-loop/detail-screen";
  * ⚠ 渲染的是**真组件**（`FeedbackDialog` / 收件箱 / 草稿 / 工作台 / 详情），本页只提供
  *   场景与一份**固定 seed**（不写 localStorage，保证每台机器截出同一张图）。它不在导航里，
  *   是取材工具，不是产品的一块屏（同 `/preview/feedback-loop` 的既有处置）。
+ * ⚠ 草稿场景（UC-17.8 B1 真栈化后）**不再 seed**：草稿屏自己打 `/feedback/drafts*`，数据由
+ *   `scripts/shot-feedback-design-loop.mjs` 的 `page.route` 拦截提供（同 `shot-feedback-loop.mjs`）。
  *
  * scene 见下方 switch；state 走 `?state=`（七态）。
  */
@@ -34,15 +36,13 @@ function PreviewBody() {
 
   // 固定 seed（seed 存在即不持久化），空态场景注入空集合。
   const emptyInbox = scene === "inbox-empty";
-  const emptyDrafts = scene === "drafts-empty";
   const emptyProjects = scene === "workbench-empty";
   const seed = {
     ...(emptyInbox ? { inbox: [] } : {}),
-    ...(emptyDrafts ? { drafts: [] } : {}),
     ...(emptyProjects ? { projects: [] } : {}),
   };
 
-  const shownState = emptyInbox || emptyDrafts || emptyProjects ? "empty" : state;
+  const shownState = emptyInbox || emptyProjects ? "empty" : state;
 
   return (
     <DesignLoopProvider seed={seed}>
@@ -61,12 +61,14 @@ function Scene({ scene, state }: { scene: string; state: ReturnType<typeof resol
   if (scene === "dialog") {
     return (
       <div className="min-h-dvh bg-background p-6">
-        <FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={() => undefined} />
+        {/* 取材：存草稿成功后不导航，留在弹层上把「已存草稿」回执拍下来。 */}
+        <FeedbackDialog target={{ kind: "product" }} targetLabel={null} onClose={() => undefined} onDraftSaved={() => undefined} />
       </div>
     );
   }
 
   if (scene === "drafts" || scene === "drafts-empty") {
+    // 空态由路由拦截回空 `items` 得到（数据驱动），不靠 state。
     return (
       <div className="h-dvh">
         <DesignLoopDraftsScreen state={state} onNewDraft={() => undefined} onSubmitted={() => undefined} />

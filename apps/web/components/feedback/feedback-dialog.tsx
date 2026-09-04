@@ -1,34 +1,38 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { X, Bug, Lightbulb, Check, Loader2, ThumbsUp, Mic, ImagePlus, FileText, PencilRuler } from "lucide-react";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
 import { useAsrDraft } from "@/lib/use-asr-draft";
 import {
+  FEEDBACK_ATTACHMENT_ACCEPT,
+  FEEDBACK_ATTACHMENT_LIMIT,
   FEEDBACK_KINDS,
+  createFeedbackDraft,
   currentAppVersion,
   fetchFeedbackAttachmentObjectUrl,
+  isImageAttachmentMime,
   listFeedback,
+  resolveFeedbackAttachmentMime,
   structureFeedbackDraft,
   submitFeedback,
   uploadFeedbackAttachment,
+  type FeedbackAttachmentMime,
   type FeedbackItem,
   type FeedbackKind,
   type FeedbackStatus,
+  type FeedbackStructured,
   type FeedbackTarget,
 } from "@/lib/live-feedback";
+import { FeedbackStructuredView, STRUCTURED_FIELDS } from "./feedback-structured";
 import { useOptionalDesignLoop } from "@/lib/design-loop-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/**
- * 附件上限。UC-17.8 R4.1 放宽为 **5 个任意文件**（原 4 张图片）。
- * ⚠ 现有契约 `submitFeedback.in.attachmentIds` 仍是 `.max(4)` 且上传只收图片 MIME——
- *   真栈化时需同步放宽契约与后端，本轮是 UI 先行，见 ui-preview README 的待确认清单。
- */
-const MAX_ATTACHMENTS = 5;
+/** 附件上限与类型白名单都从契约来（UC-17.8 D3），本文件不写第二份。 */
+const MAX_ATTACHMENTS = FEEDBACK_ATTACHMENT_LIMIT;
 
 /**
  * 把一次失败翻译成人能读的一句话。
@@ -70,33 +74,18 @@ function describeFailure(err: unknown): string {
 const KIND_ICON: Record<FeedbackKind, typeof Bug> = { 缺陷: Bug, 需求: Lightbulb };
 
 /**
- * UC-17.8 R4.1 结构化字段集——随「这是什么」切换。标题仍从正文首句派生（沿用
- * 2026-09-02「不发明第二个标题字段」的既有决策，见 `deriveFeedbackTitle`）；这里补的是
- * 缺陷/需求各自的结构化补充项，填了会在提交时并进正文。字段为空则正文原样不动。
- * ⚠ 缺陷的「复现步骤」= 下方「详细说说」多行域（不再单列一个多行控件）。
+ * UC-17.8 D1 —— 结构化字段随 `submitFeedback.structured` **单独**发送，不再并进正文
+ * （原型期 `composeDetail` 把字段拼进正文的做法已撤）。字段集与键名见
+ * `feedback-structured.tsx` 的 `STRUCTURED_FIELDS`（键 = 契约 `BugStructuredFields` /
+ * `ReqStructuredFields` 的键）。全空 ⇒ 不带 `structured` 键（同 `attachmentIds` 先例）。
  */
-const KIND_FIELDS: Record<FeedbackKind, { id: string; label: string }[]> = {
-  缺陷: [
-    { id: "freq-env", label: "复现频率 · 环境" },
-    { id: "expected", label: "期望结果" },
-    { id: "actual", label: "实际结果" },
-  ],
-  需求: [
-    { id: "scene", label: "使用场景" },
-    { id: "capability", label: "期望能力" },
-    { id: "priority", label: "优先级 · 影响范围" },
-  ],
-};
-
-/** 把结构化补充字段（非空的）拼进正文前面；全空则返回原正文。 */
-function composeDetail(kind: FeedbackKind, fields: Record<string, string>, freeText: string): string {
-  const parts = KIND_FIELDS[kind]
-    .map((f) => ({ f, v: (fields[f.id] ?? "").trim() }))
-    .filter((x) => x.v !== "")
-    .map((x) => `${x.f.label}：${x.v}`);
-  if (parts.length === 0) return freeText;
-  const head = parts.join("\n");
-  return freeText.trim() === "" ? head : `${head}\n\n${freeText}`;
+export function buildStructured(kind: FeedbackKind, fields: Record<string, string>): FeedbackStructured | undefined {
+  const out: Record<string, string> = {};
+  for (const f of STRUCTURED_FIELDS[kind]) {
+    const v = (fields[f.key] ?? "").trim();
+    if (v !== "") out[f.key] = v;
+  }
+  return Object.keys(out).length === 0 ? undefined : (out as FeedbackStructured);
 }
 
 const STATUS_TONE: Record<FeedbackStatus, "warning" | "ai" | "primary" | "neutral"> = {
@@ -140,7 +129,10 @@ export function deriveFeedbackTitle(detail: string): string {
 interface PendingAttachment {
   readonly localId: string;
   readonly file: File;
-  readonly previewUrl: string;
+  /** UC-17.8 D3：经 `resolveFeedbackAttachmentMime` 解出的真实类型，上传时原样带上。 */
+  readonly mime: FeedbackAttachmentMime;
+  /** 图片才有本地预览；PDF/文本没有 blob 缩略图，用文件类型图标 + 文件名。 */
+  readonly previewUrl: string | null;
   readonly status: "uploading" | "done" | "failed";
   readonly attachmentId?: string;
   readonly error?: string;
@@ -159,19 +151,28 @@ export function FeedbackDialog({
   target,
   targetLabel,
   onClose,
+  onDraftSaved,
 }: {
   target: FeedbackTarget;
   targetLabel: string | null;
   onClose: () => void;
+  /**
+   * 存草稿成功后的去向。缺省 = 关弹层并跳 `/platform-admin/feedback-drafts`；
+   * 取材页（`/preview/feedback-design-loop`）传一个不导航的回调好把「已存草稿」回执拍下来。
+   */
+  onDraftSaved?: (draftId: string) => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [tab, setTab] = React.useState<"submit" | "mine">("submit");
   const [kind, setKind] = React.useState<FeedbackKind>("缺陷");
   const [detail, setDetail] = React.useState("");
-  /** UC-17.8 R4.1 结构化补充字段（按 kind），提交时并进正文。 */
+  /** UC-17.8 D1 结构化补充字段，键 = 契约字段名（`STRUCTURED_FIELDS`）。 */
   const [fields, setFields] = React.useState<Record<string, string>>({});
   const designLoop = useOptionalDesignLoop();
   const [draftSaved, setDraftSaved] = React.useState(false);
+  const [draftBusy, setDraftBusy] = React.useState(false);
+  const [draftError, setDraftError] = React.useState<string | null>(null);
   /** AI 整理给出的标题；用户随后改了正文就作废（回到从正文派生），见 `deriveFeedbackTitle`。 */
   const [aiTitle, setAiTitle] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -229,6 +230,12 @@ export function FeedbackDialog({
         setKind(draft.kind);
         setAiTitle(draft.title);
         setDetail(draft.detail);
+        // UC-17.8 B2.4：模型按 kind 拆出的结构化字段非 null 才填进对应输入框；null ⇒ 只填正文。
+        if (draft.structured !== null) {
+          const filled: Record<string, string> = {};
+          for (const [k, v] of Object.entries(draft.structured)) if (typeof v === "string") filled[k] = v;
+          setFields(filled);
+        }
       })
       .catch((err) => {
         setStructureError(describeFailure(err));
@@ -240,16 +247,16 @@ export function FeedbackDialog({
   // 弹层关闭/卸载时释放本地预览的 object URL，不留内存泄漏。
   React.useEffect(() => {
     return () => {
-      for (const a of attachments) URL.revokeObjectURL(a.previewUrl);
+      for (const a of attachments) if (a.previewUrl !== null) URL.revokeObjectURL(a.previewUrl);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在卸载时跑一次，用最新的 attachments 靠 ref 语义（数组引用变化本来就该重新挂 cleanup）。
   }, [attachments]);
 
   // 一张图的上传（首次与「重试」共用同一条路径）。⚠ 重试用的是当初选中的那个 `File`，
   // 不要求用户重新打开文件选择器——部署重启那种一分钟的失败窗口过后，点一下就能补上。
-  const runUpload = React.useCallback((localId: string, file: File) => {
+  const runUpload = React.useCallback((localId: string, file: File, mime: FeedbackAttachmentMime) => {
     setAttachments((prev) => prev.map((a) => (a.localId === localId ? { ...a, status: "uploading", error: undefined } : a)));
-    uploadFeedbackAttachment(file)
+    uploadFeedbackAttachment(file, mime)
       .then((out) => {
         setAttachments((prev) =>
           prev.map((a) => (a.localId === localId ? { ...a, status: "done", attachmentId: out.attachmentId } : a)),
@@ -261,23 +268,35 @@ export function FeedbackDialog({
       });
   }, []);
 
+  /** 被拒收的文件名（类型不在契约白名单）；再选一次或改正文就清掉。 */
+  const [rejectedFiles, setRejectedFiles] = React.useState<readonly string[]>([]);
+
   const addAttachments = React.useCallback((files: FileList | null) => {
     if (files === null || files.length === 0) return;
     const room = MAX_ATTACHMENTS - attachments.length;
     if (room <= 0) return;
-    const picked = Array.from(files).slice(0, room);
-    for (const file of picked) {
+    // UC-17.8 D3：客户端预检——类型不在契约白名单的文件**不上传**，并逐个点名说明。
+    //   不是静默丢掉：用户拖了一个 zip 进来没反应，会以为是功能坏了。
+    const rejected: string[] = [];
+    const accepted: { file: File; mime: FeedbackAttachmentMime }[] = [];
+    for (const file of Array.from(files)) {
+      const mime = resolveFeedbackAttachmentMime(file);
+      if (mime === null) rejected.push(file.name);
+      else accepted.push({ file, mime });
+    }
+    setRejectedFiles(rejected);
+    for (const { file, mime } of accepted.slice(0, room)) {
       const localId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      const previewUrl = URL.createObjectURL(file);
-      setAttachments((prev) => [...prev, { localId, file, previewUrl, status: "uploading" }]);
-      runUpload(localId, file);
+      const previewUrl = isImageAttachmentMime(mime) ? URL.createObjectURL(file) : null;
+      setAttachments((prev) => [...prev, { localId, file, mime, previewUrl, status: "uploading" }]);
+      runUpload(localId, file, mime);
     }
   }, [attachments.length, runUpload]);
 
   const removeAttachment = React.useCallback((localId: string) => {
     setAttachments((prev) => {
       const target = prev.find((a) => a.localId === localId);
-      if (target) URL.revokeObjectURL(target.previewUrl);
+      if (target && target.previewUrl !== null) URL.revokeObjectURL(target.previewUrl);
       return prev.filter((a) => a.localId !== localId);
     });
   }, []);
@@ -333,17 +352,51 @@ export function FeedbackDialog({
   // 挡不住 setDetail 之类的程序化写入，见 applyTemplate 头注），提交前有第二道闸。
   const canSubmit = title !== "" && detail.trim() !== "" && detail.length <= DETAIL_MAX && !busy && !attachmentsUploading;
 
-  const composedDetail = () => composeDetail(kind, fields, detail);
+  const uploadedAttachmentIds = () =>
+    attachments
+      .filter((a): a is PendingAttachment & { attachmentId: string } => a.status === "done" && a.attachmentId !== undefined)
+      .map((a) => a.attachmentId);
 
-  const saveDraft = () => {
-    if (designLoop === null) return;
-    designLoop.addDraft({
-      type: kind === "缺陷" ? "bug" : "req",
-      title,
-      body: composedDetail().trim(),
-      hasScreenshot: attachments.length > 0,
-    });
-    setDraftSaved(true);
+  const resetForm = () => {
+    setAiTitle(null);
+    setDetail("");
+    setFields({});
+    for (const a of attachments) if (a.previewUrl !== null) URL.revokeObjectURL(a.previewUrl);
+    setAttachments([]);
+  };
+
+  /**
+   * UC-17.8 B1：「存为草稿」走真栈 `createFeedbackDraft`。成功 ⇒ 清空表单、去草稿列表；
+   * 失败 ⇒ 明说「草稿没有被保存」且**不清空**（同直接提交的 V3 纪律：用户以为存上了就不会再存第二次）。
+   */
+  const saveDraft = async () => {
+    setDraftBusy(true);
+    setDraftError(null);
+    try {
+      const attachmentIds = uploadedAttachmentIds();
+      const structured = buildStructured(kind, fields);
+      const out = await createFeedbackDraft({
+        kind,
+        target,
+        detail: detail.trim(),
+        occurredRoute: pathname ?? null,
+        appVersion,
+        ...(structured !== undefined ? { structured } : {}),
+        ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
+      });
+      resetForm();
+      setDraftSaved(true);
+      if (onDraftSaved) {
+        onDraftSaved(out.draftId);
+      } else {
+        onClose();
+        router.push("/platform-admin/feedback-drafts");
+      }
+    } catch (err) {
+      setDraftError(describeFailure(err));
+    } finally {
+      setDraftBusy(false);
+    }
   };
 
   const send = async () => {
@@ -367,28 +420,24 @@ export function FeedbackDialog({
           // 保留 deriveFeedbackTitle 的结果——不设 error/structureError，见上方注释。
         }
       }
-      const attachmentIds = attachments
-        .filter((a): a is PendingAttachment & { attachmentId: string } => a.status === "done" && a.attachmentId !== undefined)
-        .map((a) => a.attachmentId);
-      // ⚠ 没有附件时**不带这个键**（不是传 `attachmentIds: undefined`）——同文件头「请求体
+      const attachmentIds = uploadedAttachmentIds();
+      const structured = buildStructured(kind, fields);
+      // ⚠ 没有附件 / 结构化字段全空时**不带这个键**（不是传 `undefined`）——同文件头「请求体
       //   恰好几个字段」的既有纪律：多一个值为 undefined 的键，`JSON.stringify` 之后看不出
       //   区别，但 `Object.keys` 断言与任何按键名做的中间层处理都会看出区别。
       const out = await submitFeedback({
         kind,
         target,
         title: finalTitle,
-        detail: composedDetail().trim(),
+        detail: detail.trim(),
         // I-F1：发生位置由客户端给——服务端不可能知道用户站在哪一屏。
         occurredRoute: pathname ?? null,
         appVersion,
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
+        ...(structured !== undefined ? { structured } : {}),
       });
       setJustSubmitted(out.feedbackId);
-      setAiTitle(null);
-      setDetail("");
-      setFields({});
-      for (const a of attachments) URL.revokeObjectURL(a.previewUrl);
-      setAttachments([]);
+      resetForm();
       setTab("mine");
     } catch (err) {
       setError(describeFailure(err));
@@ -460,23 +509,29 @@ export function FeedbackDialog({
               </div>
             </fieldset>
 
-            {/* UC-17.8 R4.1 结构化字段集：随类型切换。填了会在提交时并进正文；留空则不影响。 */}
+            {/* UC-17.8 D1 结构化字段集：随类型切换，随 `structured` 单独发送；留空则不带键。 */}
             <fieldset className="flex flex-col gap-2" data-testid={kind === "缺陷" ? "feedback-fields-bug" : "feedback-fields-req"}>
               <legend className="text-11 font-medium text-muted-foreground">
                 {kind === "缺陷" ? "说清楚这个缺陷" : "说清楚这个需求"}
               </legend>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {KIND_FIELDS[kind].map((f) => (
-                  <label key={f.id} className="flex flex-col gap-1 text-10 text-muted-foreground">
-                    {f.label}
-                    <input
-                      value={fields[f.id] ?? ""}
-                      onChange={(e) => { setFields((prev) => ({ ...prev, [f.id]: e.target.value })); setDraftSaved(false); }}
-                      data-testid={`feedback-field-${f.id}`}
-                      className="rounded-md border border-border-subtle bg-panel px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  </label>
-                ))}
+                {STRUCTURED_FIELDS[kind].map((f) => {
+                  const shared = {
+                    value: fields[f.key] ?? "",
+                    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+                      setFields((prev) => ({ ...prev, [f.key]: e.target.value }));
+                      setDraftSaved(false);
+                    },
+                    "data-testid": `feedback-field-${f.testid}`,
+                    className: "rounded-md border border-border-subtle bg-panel px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  };
+                  return (
+                    <label key={f.key} className={cn("flex flex-col gap-1 text-10 text-muted-foreground", f.multiline && "sm:col-span-3")}>
+                      {f.label}
+                      {f.multiline ? <textarea rows={3} {...shared} /> : <input {...shared} />}
+                    </label>
+                  );
+                })}
               </div>
             </fieldset>
 
@@ -556,10 +611,12 @@ export function FeedbackDialog({
               )}
             </div>
 
-            {/* FB-5——图片附件。2026-09-02：这一轮**没有脱敏**（人类明确裁决先出功能），
+            {/* FB-5——附件。2026-09-02：这一轮**没有脱敏**（人类明确裁决先出功能），
                 见后端 `upload-feedback-attachment.ts` 头注——已知限制，不是遗漏。
                 2026-09-03：加拖拽上传——点按钮和拖拽是同一条 `addAttachments` 路径，
-                只是触发方式不同，上传时机、4 张上限、失败重试都不用另写一遍。 */}
+                只是触发方式不同，上传时机、上限、失败重试都不用另写一遍。
+                UC-17.8 D3：类型放宽到契约 `FeedbackAttachmentMime`（图片 + PDF + 纯文本/Markdown），
+                `accept` 与预检都从它派生。 */}
             <div
               className={cn(
                 "flex flex-col gap-1.5 rounded-md border border-dashed p-2 transition-colors",
@@ -584,7 +641,7 @@ export function FeedbackDialog({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="*/*"
+                    accept={FEEDBACK_ATTACHMENT_ACCEPT}
                     multiple
                     className="hidden"
                     data-testid="feedback-attachment-input"
@@ -607,23 +664,43 @@ export function FeedbackDialog({
                   <span className="text-10 text-muted-foreground">或把文件拖拽到这里</span>
                 </div>
               ) : (
-                <p className="text-10 text-muted-foreground" data-testid="feedback-attachment-full">已到 5 个上限，删掉一个再加。</p>
+                <p className="text-10 text-muted-foreground" data-testid="feedback-attachment-full">已到 {MAX_ATTACHMENTS} 个上限，删掉一个再加。</p>
+              )}
+              {rejectedFiles.length > 0 && (
+                <p className="text-10 text-destructive" data-testid="feedback-attachment-rejected">
+                  {rejectedFiles.join("、")}：不支持的文件类型，没有上传。只收图片、PDF、纯文本/Markdown。
+                </p>
               )}
               {attachments.length > 0 && (
                 <ul className="flex flex-wrap gap-2" data-testid="feedback-attachment-list">
                   {attachments.map((a) => (
                     <li key={a.localId} className="flex w-16 flex-col items-center gap-0.5" data-testid={`feedback-attachment-${a.localId}`}>
                       <div className="relative h-16 w-16">
-                        {/* eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例） */}
-                        <img
-                          src={a.previewUrl}
-                          alt=""
-                          loading="lazy"
-                          className={cn(
-                            "h-16 w-16 rounded-md border border-border-subtle object-cover",
-                            a.status === "failed" && "opacity-40",
-                          )}
-                        />
+                        {a.previewUrl !== null ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- blob URL，不是可优化的远程图（同 chat-attachment-preview-modal.tsx 既有先例）
+                          <img
+                            src={a.previewUrl}
+                            alt=""
+                            loading="lazy"
+                            className={cn(
+                              "h-16 w-16 rounded-md border border-border-subtle object-cover",
+                              a.status === "failed" && "opacity-40",
+                            )}
+                          />
+                        ) : (
+                          // PDF / 文本没有 blob 预览：文件类型图标 + 文件名（UC-17.8 D3）。
+                          <div
+                            className={cn(
+                              "flex h-16 w-16 flex-col items-center justify-center gap-0.5 rounded-md border border-border-subtle bg-panel p-1",
+                              a.status === "failed" && "opacity-40",
+                            )}
+                            data-testid={`feedback-attachment-file-${a.localId}`}
+                            title={a.file.name}
+                          >
+                            <FileText aria-hidden className="h-5 w-5 text-muted-foreground" />
+                            <span className="w-full truncate text-center text-9 text-muted-foreground">{a.file.name}</span>
+                          </div>
+                        )}
                         {a.status === "uploading" && (
                           <div className="absolute inset-0 flex items-center justify-center rounded-md bg-inverse/30">
                             <Loader2 aria-hidden className="h-4 w-4 animate-spin text-white" />
@@ -631,7 +708,7 @@ export function FeedbackDialog({
                         )}
                         <button
                           type="button"
-                          aria-label="移除这张图片"
+                          aria-label="移除这个附件"
                           data-testid={`feedback-attachment-remove-${a.localId}`}
                           className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-inverse text-inverse-foreground"
                           onClick={() => removeAttachment(a.localId)}
@@ -653,7 +730,7 @@ export function FeedbackDialog({
                             type="button"
                             className="text-9 text-primary underline-offset-2 transition-colors duration-fast hover:underline"
                             data-testid={`feedback-attachment-retry-${a.localId}`}
-                            onClick={() => runUpload(a.localId, a.file)}
+                            onClick={() => runUpload(a.localId, a.file, a.mime)}
                           >
                             重试上传
                           </button>
@@ -677,6 +754,16 @@ export function FeedbackDialog({
                 没能提交（{error}）。这条反馈没有被保存，可以再试一次。
               </p>
             )}
+            {draftError !== null && (
+              <p className="text-11 text-destructive" data-testid="feedback-draft-error">
+                没能存草稿（{draftError}）。草稿没有被保存，你写的还在，可以再试一次。
+              </p>
+            )}
+            {draftSaved && (
+              <p className="text-11 text-primary" data-testid="feedback-draft-saved">
+                已存为草稿。在「反馈草稿」里继续完善，想清楚了再提交到收件箱。
+              </p>
+            )}
 
             {/* 底部左：更复杂的直接去工作台；右：存草稿 / 直接提交 */}
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -692,18 +779,19 @@ export function FeedbackDialog({
               ) : <span />}
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" onClick={onClose}>取消</Button>
-                {designLoop !== null && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!canSubmit}
-                    onClick={saveDraft}
-                    data-testid="feedback-save-draft"
-                  >
-                    {draftSaved ? <Check aria-hidden className="h-3.5 w-3.5" /> : null}
-                    {draftSaved ? "已存草稿" : "存为草稿"}
-                  </Button>
-                )}
+                {/* UC-17.8 B1：存草稿是真栈（不依赖 mock Provider）。草稿允许空正文（契约
+                    `createFeedbackDraft.in.detail` 无 `.min(1)`），但一个什么都没写的草稿没有意义，
+                    这里仍要求正文非空——「先占个位」由用户写第一句来占。 */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!canSubmit || draftBusy}
+                  onClick={() => void saveDraft()}
+                  data-testid="feedback-save-draft"
+                >
+                  {draftBusy ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" /> : draftSaved ? <Check aria-hidden className="h-3.5 w-3.5" /> : null}
+                  {draftSaved ? "已存草稿" : "存为草稿"}
+                </Button>
                 <Button
                   variant="primary"
                   size="sm"
@@ -836,6 +924,8 @@ function MyFeedbackList({ highlightId }: { highlightId: string | null }) {
           {item.detail !== null && item.detail.trim() !== "" && (
             <p className="line-clamp-2 text-11 text-muted-foreground" title={item.detail}>{item.detail}</p>
           )}
+          {/* UC-17.8 D1：结构化字段与正文同一条 D3 门控，null 不渲染区块。 */}
+          <FeedbackStructuredView kind={item.kind} structured={item.structured} testid={`feedback-mine-structured-${item.id}`} compact />
           {/* 附件与正文同一条 D3 门控（见后端 `list-feedback.ts` 头注）——`attachments`
               非空必然伴随 `detail` 非空，这里不再重复判一次 detail！==null。
               issue #2637 ②——缩略图默认全加载：`AttachmentThumbnail` 内部已经改成

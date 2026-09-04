@@ -33,6 +33,7 @@ import {
   type SystemErrorStatus,
 } from "@/lib/live-system-errors";
 import type { UiState } from "@/lib/ui-state";
+import { FeedbackStructuredView } from "@/components/feedback/feedback-structured";
 import { cn } from "@/lib/utils";
 
 /**
@@ -699,6 +700,12 @@ function FeedbackDetailPanel({
           </p>
         ) : (
           <p className="whitespace-pre-wrap">{item.detail}</p>
+        )}
+        {/* UC-17.8 D1：结构化字段（缺陷 4 项 / 需求 3 项）——与正文同一条 D3 门控，null 不渲染区块。 */}
+        {item.structured != null && (
+          <div className="mt-3 border-t border-border-subtle pt-3">
+            <FeedbackStructuredView kind={item.kind} structured={item.structured} testid={`admin-feedback-structured-${item.id}`} />
+          </div>
         )}
         {item.attachments.length > 0 && (
           <ul className="mt-3 flex flex-wrap gap-2" data-testid={`admin-feedback-attachments-${item.id}`}>

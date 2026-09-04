@@ -1,13 +1,19 @@
 "use client";
 import * as React from "react";
+import type { FeedbackStructured } from "./live-feedback";
 
 /**
  * UC-17.8 研发闭环（反馈 → 设计 → 排期）—— **原型阶段的客户端共享状态**。
  *
- * ⚠ 这是 UI 先行阶段的 mock store，**不是**权威数据源：真栈化时草稿/收件箱/设计项目
+ * ⚠ 这是 UI 先行阶段的 mock store，**不是**权威数据源：真栈化时收件箱/设计项目
  *   分别接 `feedback-loop` 契约、`system-error-logs` 契约与 deep-agent-service。这里只用
- *   一个 React context + localStorage 让「存草稿→草稿列表」「直接提交→收件箱」「深化→
- *   工作台」「推送→收件箱 + 三处关联标一致」这几条端到端能点通、能截图。
+ *   一个 React context + localStorage 让「直接提交→收件箱」「深化→工作台」「推送→收件箱 +
+ *   三处关联标一致」这几条端到端能点通、能截图。
+ * ⚠ **草稿已经不在这里**（UC-17.8 B1，2026-09-04）：草稿走 `feedback-loop` 契约的
+ *   `*FeedbackDraft*` 六条操作（`lib/live-feedback.ts`），本 store 不再持有第二份草稿状态。
+ *   收件箱与设计工作台的 mock 留到 B3/B4（下个 sprint）再真栈化。
+ * ⚠ Provider 只挂**一处**：`components/shell/app-shell.tsx`（D5）。壳层之外的独立页
+ *   （设计详情全屏页、取材页）各自挂自己的一份，那是它们不在壳里，不是第二份权威。
  *
  * 命名刻意用拉丁码（`bug`/`req`、`backlog`/`doing`/`done`/`archived`）而不是中文显示名——
  * testid 与状态机的键不该携带业务数据（lint-design D-35）。中文只在渲染层出现，
@@ -26,23 +32,6 @@ export interface ChatTurn {
   readonly role: "user" | "ai";
   readonly text: string;
 }
-export interface DraftFile {
-  readonly id: string;
-  readonly name: string;
-  readonly size: number;
-}
-
-export interface Draft {
-  readonly id: string;
-  type: DraftType;
-  title: string;
-  body: string;
-  chat: ChatTurn[];
-  hasScreenshot: boolean;
-  files: DraftFile[];
-  createdAt: string;
-  refineSeeded: boolean;
-}
 
 export interface InboxItem {
   readonly id: string;
@@ -56,6 +45,8 @@ export interface InboxItem {
   votes: number;
   status: InboxStatus;
   reason?: string;
+  /** UC-17.8 D1：反馈类条目的结构化字段（类型来自契约）；mock 种子没有，真栈化（B3）后必有。 */
+  structured?: FeedbackStructured | null;
   github?: { num: number; state: GithubState; kind: GithubKind };
   linkedFeedback?: string;
   resolvedByDesign?: string;
@@ -112,9 +103,6 @@ export const GITHUB_STATE_LABEL: Record<GithubState, string> = {
   closed: "Closed",
 };
 
-const REFINE_SEED =
-  "这个需求/问题的边界在哪：只影响当前场景，还是所有相关入口都要一起改？优先级怎么排？";
-const REFINE_ACK = "已记录，还有想补充的吗？";
 export const DESIGN_CHAT_ACK = "好的，我记下了这个调整，稍后会更新原型画布。";
 export const DESIGN_CHAT_INTRO =
   "把你想解决的问题说清楚，我会顺着它更新右边的原型画布和验收标准。可以先从「谁在什么场景下会用到」讲起。";
@@ -133,49 +121,6 @@ function rid(prefix: string): string {
 
 // ── 种子数据 ────────────────────────────────────────────────────────────────
 // 数量级照真实分诊台：收件箱 ≥12 条覆盖三类 × 四态，含严重标、关联标、四种 GitHub 状态。
-
-function seedDrafts(): Draft[] {
-  return [
-    {
-      id: "draft-batch-token",
-      type: "bug",
-      title: "批准卡不记得上次的 token 预算",
-      body: "每次批准都要重填 token 预算，第三次之后就不想用了。期望能记住上一次填的值。",
-      chat: [{ role: "user", text: "批准卡不记得上次的 token 预算，每次都要重填。" }],
-      hasScreenshot: true,
-      files: [{ id: "f1", name: "批准卡截图.png", size: 184320 }],
-      createdAt: "2026-09-03T02:14:00.000Z",
-      refineSeeded: false,
-    },
-    {
-      id: "draft-rec-filter",
-      type: "req",
-      title: "希望能按项目筛选录音",
-      body: "现在录音列表是全组织的，找上周那场要翻很久。希望能按项目、按时间范围筛。",
-      chat: [{ role: "user", text: "录音列表能不能按项目筛选？" }],
-      hasScreenshot: false,
-      files: [],
-      createdAt: "2026-09-02T09:02:00.000Z",
-      refineSeeded: false,
-    },
-    {
-      id: "draft-export-table",
-      type: "req",
-      title: "会议纪要输出希望固定成表格",
-      body: "有时候给表格有时候给段落，下游没法直接用。希望能在 skill 设置里固定输出格式。",
-      chat: [
-        { role: "user", text: "会议纪要的输出格式不稳定，希望能固定成表格。" },
-        { role: "ai", text: REFINE_SEED },
-        { role: "user", text: "所有导出入口都要一致，优先级中等。" },
-        { role: "ai", text: `AI：${REFINE_ACK}` },
-      ],
-      hasScreenshot: false,
-      files: [],
-      createdAt: "2026-09-01T14:20:00.000Z",
-      refineSeeded: true,
-    },
-  ];
-}
 
 function tl(text: string, daysAgo: number): { at: string; text: string }[] {
   return [{ at: new Date(Date.now() - daysAgo * 86400000).toISOString(), text }];
@@ -303,18 +248,11 @@ function seedProjects(): Project[] {
 }
 
 interface StoreShape {
-  drafts: Draft[];
   inbox: InboxItem[];
   projects: Project[];
 }
 
 export interface DesignLoopApi extends StoreShape {
-  addDraft: (input: { type: DraftType; title: string; body: string; files?: DraftFile[]; hasScreenshot?: boolean }) => string;
-  updateDraft: (id: string, patch: Partial<Pick<Draft, "type" | "title" | "body">>) => void;
-  deleteDraft: (id: string) => void;
-  seedRefine: (id: string) => void;
-  appendDraftChat: (id: string, text: string) => void;
-  submitDraft: (id: string) => string;
   submitDirect: (input: { type: DraftType; title: string; body: string }) => string;
   setStatus: (id: string, status: InboxStatus) => void;
   archiveWithReason: (id: string, reason: string) => void;
@@ -334,7 +272,11 @@ function loadInitial(seed: StoreShape): StoreShape {
   if (typeof window === "undefined") return seed;
   try {
     const raw = window.localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw) as StoreShape;
+    if (raw) {
+      // 旧持久化里可能还带原型期的 `drafts`——草稿已真栈化，那份不再读，也不再写回。
+      const parsed = JSON.parse(raw) as Partial<StoreShape> & { drafts?: unknown };
+      return { inbox: parsed.inbox ?? seed.inbox, projects: parsed.projects ?? seed.projects };
+    }
   } catch {
     /* 破损的持久化不该让原型打不开——退回种子 */
   }
@@ -350,7 +292,7 @@ export function DesignLoopProvider({
   seed?: Partial<StoreShape>;
 }) {
   const base = React.useMemo<StoreShape>(
-    () => ({ drafts: seed?.drafts ?? seedDrafts(), inbox: seed?.inbox ?? seedInbox(), projects: seed?.projects ?? seedProjects() }),
+    () => ({ inbox: seed?.inbox ?? seedInbox(), projects: seed?.projects ?? seedProjects() }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -376,13 +318,13 @@ export function DesignLoopProvider({
       return `${prefix}-${(nums.length ? Math.max(...nums) : 0) + 1}`;
     };
 
-    const inboxFromDraft = (draft: Draft, inbox: InboxItem[]): InboxItem => ({
+    const inboxFromDirect = (input: { type: DraftType; title: string; body: string }, inbox: InboxItem[]): InboxItem => ({
       id: rid("in"),
       kind: "feedback",
-      type: draft.type,
-      code: nextCode(draft.type === "bug" ? "B" : "R", inbox),
-      title: draft.title || "（未命名反馈）",
-      body: draft.body,
+      type: input.type,
+      code: nextCode(input.type === "bug" ? "B" : "R", inbox),
+      title: input.title || "（未命名反馈）",
+      body: input.body,
       reporter: "我 · 当前用户",
       time: nowIso(),
       votes: 0,
@@ -393,54 +335,10 @@ export function DesignLoopProvider({
 
     return {
       ...state,
-      addDraft: (input) => {
-        const id = rid("draft");
-        const draft: Draft = {
-          id, type: input.type, title: input.title, body: input.body,
-          chat: [{ role: "user", text: input.body || input.title }],
-          hasScreenshot: input.hasScreenshot ?? false, files: input.files ?? [],
-          createdAt: nowIso(), refineSeeded: false,
-        };
-        setState((s) => ({ ...s, drafts: [draft, ...s.drafts] }));
-        return id;
-      },
-      updateDraft: (id, patch) =>
-        setState((s) => ({ ...s, drafts: s.drafts.map((d) => (d.id === id ? { ...d, ...patch } : d)) })),
-      deleteDraft: (id) => setState((s) => ({ ...s, drafts: s.drafts.filter((d) => d.id !== id) })),
-      seedRefine: (id) =>
-        setState((s) => ({
-          ...s,
-          drafts: s.drafts.map((d) =>
-            d.id === id && !d.refineSeeded
-              ? { ...d, refineSeeded: true, chat: [...d.chat, { role: "ai", text: REFINE_SEED }] }
-              : d,
-          ),
-        })),
-      appendDraftChat: (id, text) =>
-        setState((s) => ({
-          ...s,
-          drafts: s.drafts.map((d) =>
-            d.id === id ? { ...d, chat: [...d.chat, { role: "user", text }, { role: "ai", text: `AI：${REFINE_ACK}` }] } : d,
-          ),
-        })),
-      submitDraft: (id) => {
-        let newId = "";
-        setState((s) => {
-          const draft = s.drafts.find((d) => d.id === id);
-          if (!draft) return s;
-          const item = inboxFromDraft(draft, s.inbox);
-          newId = item.id;
-          return { ...s, drafts: s.drafts.filter((d) => d.id !== id), inbox: [item, ...s.inbox] };
-        });
-        return newId;
-      },
       submitDirect: (input) => {
         let newId = "";
         setState((s) => {
-          const item = inboxFromDraft(
-            { ...input, id: "", chat: [], hasScreenshot: false, files: [], createdAt: nowIso(), refineSeeded: false },
-            s.inbox,
-          );
+          const item = inboxFromDirect(input, s.inbox);
           newId = item.id;
           return { ...s, inbox: [item, ...s.inbox] };
         });

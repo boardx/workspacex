@@ -779,7 +779,8 @@ export const ADMIN_NAV_COUNT_SOURCES: Record<AdminModuleKey, AdminNavCountSource
   // （同样没有 mock 数据源）：给一个健康占位值，不抛错。
   "ops-status": () => 0,
   // UC-17.8：健康占位值（生产左栏走 live-admin-nav-counts，未接的项显示「—」）。
-  // 「反馈草稿」的徽标在生产里是当前用户的草稿数，这里给夹具一个健康数。
+  // 「反馈草稿」的徽标在生产里**已接真栈**：`live-admin-nav-counts.ts` 读
+  // `GET /feedback/drafts/count`（B1，2026-09-04），取不到显示「—」。这里只是 HEALTHY 夹具。
   "feedback-drafts": () => 3,
   inbox: () => 6,
   "design-workbench": () => 4,

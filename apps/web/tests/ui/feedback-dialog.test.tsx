@@ -21,7 +21,8 @@ vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
   return { ...actual, apiRequest: (...a: unknown[]) => apiRequest(...a) };
 });
-vi.mock("next/navigation", () => ({ usePathname: () => "/chat" }));
+const routerPush = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ usePathname: () => "/chat", useRouter: () => ({ push: routerPush, replace: vi.fn() }) }));
 
 // 2026-09-04 review fix —— issue #2637 ④ 的录音胶囊用例需要自己驱动 `onLevel`/
 // `onFinished` 这些 handler，不能等真实 WebSocket；同 `chat-live-message-panel-mic.test.tsx`
@@ -83,7 +84,7 @@ const mineItem = {
 };
 
 describe("FB-2 反馈弹层（采集侧）", () => {
-  it("① 请求体恰好六个字段，没有 submittedBy / status —— 按实际发出的请求断言", async () => {
+  it("① 请求体恰好六个字段（结构化字段全空 ⇒ 不带 structured 键），没有 submittedBy / status —— 按实际发出的请求断言", async () => {
     mockSubmitThenList(mineItem);
     openDialogFor({ kind: "product" });
     fillAndSubmit("点了没反应。批准卡点了不动");

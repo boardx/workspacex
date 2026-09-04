@@ -11,7 +11,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/chat" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/chat", useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-asr-draft")>()),
   openAsrDraftStream: vi.fn(),
@@ -113,7 +113,7 @@ describe("⑤ 推送设计方案后反馈与方案互相打标", () => {
       id: "p1", name: "深化 B-3", template: "wireframe", emoji: "🧩", owner: "我", updated: "2026-09-01T00:00:00.000Z",
       pushed: false, linkedFeedback: "B-3", problem: "问题", criteria: ["a"], frames: ["草稿页 1"], chat: [],
     };
-    const { result } = renderHook(() => useDesignLoop(), { wrapper: wrap({ inbox: feedback, projects: [project], drafts: [] }) });
+    const { result } = renderHook(() => useDesignLoop(), { wrapper: wrap({ inbox: feedback, projects: [project] }) });
 
     let code = "";
     act(() => { code = result.current.pushProject("p1"); });
