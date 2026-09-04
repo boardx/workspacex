@@ -67,6 +67,11 @@ function mockApi(items: unknown[], extra: Partial<Record<string, unknown>> = {})
     // 来源名字目录（best-effort，见 `feedback-screen.tsx` 头注）。
     if (path.includes("/agents")) return [];
     if (path.includes("/skills")) return { items: [] };
+    // 分诊——`extra.triageOut` 让个别用例覆盖返回值（比如带 `imageUploadWarnings`），
+    // 其余用例不关心响应体，给一个满足契约形状的默认值即可。
+    if (path.endsWith("/status") && method === "PUT") {
+      return extra.triageOut ?? { feedbackId: "fb-x", status: "已进入迭代", notified: false, githubIssueUrl: null, imageUploadWarnings: [] };
+    }
     return {};
   };
   apiRequest.mockImplementation(handler);
@@ -302,18 +307,48 @@ describe("FB-3 后台反馈屏（2026-09-02 三标签页 + 左列表右详情）
   });
 
   /**
-   * B-24 回归：FB-5 附件此前挂在 `item.attachments` 上，但 `defaultIssueDraft`
-   * 从没读过这个字段——图片因此从没进过预填正文。这里断言正文里真的带了下载链接
-   * （而不是假装能内嵌渲染的 `![]()`，见 `defaultIssueDraft` 头注）。
+   * 2026-09-04 回归：草稿正文曾经贴一段「需要登录后台…GitHub 无法直接内嵌渲染，
+   * 请手动下载后贴图」的提示——这句话已经不真实了。`triageFeedback`（见后端
+   * 头注⑥）在真正建 issue 之前会把附件推给 GitHub、换回 `raw.githubusercontent.com`
+   * 直链、自动内嵌进正文，前端不该再让管理员自己贴下载链接，也不该说图片
+   * 内嵌不了。这里断言：旧的下载链接文案已经不在了，只留一句简短提示。
    */
-  it("④ 反馈带附件时，issue 草稿正文里带出附件下载链接（不是内嵌图片）", async () => {
+  it("④ 反馈带附件时，草稿只提示「会自动内嵌」，不再生成需要手动下载的附件链接", async () => {
     mockApi([productBugWithAttachments]);
     render(<FeedbackScreen state="default" />);
     fireEvent.click(await screen.findByTestId("admin-feedback-to-已进入迭代-fb-pa"));
 
     const body = (await screen.findByTestId("admin-feedback-issue-body-fb-pa")) as HTMLTextAreaElement;
-    expect(body.value).toContain("/feedback/attachments/fbattach-1");
-    expect(body.value).toContain("附件");
+    expect(body.value).not.toContain("/feedback/attachments/fbattach-1");
+    expect(body.value).not.toContain("需要登录");
+    expect(body.value).not.toContain("无法直接内嵌渲染");
+    expect(body.value).toContain("自动内嵌");
+  });
+
+  /**
+   * 2026-09-04 新增：`triageFeedback` 建 issue 成功但某些图片没能内嵌
+   * （`imageUploadWarnings` 非空）时，前端必须用 toast 提示管理员——这不是
+   * "操作失败"（issue 确实建出来了，状态确实变了），不能走 `actionError` 那条
+   * "状态未变更"的文案，需要一条独立的、不误导的提示。
+   */
+  it("⑦ 转开发成功但图片未能全部内嵌 ⇒ toast 提示，不是静默丢弃", async () => {
+    mockApi([productBugWithAttachments], {
+      triageOut: {
+        feedbackId: "fb-pa",
+        status: "已进入迭代",
+        notified: false,
+        githubIssueUrl: "https://github.com/boardx/workspacex/issues/9",
+        imageUploadWarnings: ["附件 fbattach-1:推送到 GitHub 失败(github down)"],
+      },
+    });
+    render(<FeedbackScreen state="default" />);
+    fireEvent.click(await screen.findByTestId("admin-feedback-to-已进入迭代-fb-pa"));
+    fireEvent.click(await screen.findByTestId("admin-feedback-issue-submit-fb-pa"));
+
+    const toast = await screen.findByTestId("admin-feedback-image-warning-toast");
+    expect(toast.textContent).toContain("issue");
+    expect(toast.textContent).toContain("fbattach-1");
+    expect(toast.textContent).toContain("未能内嵌");
   });
 
   it("键盘：行聚焦后按 Enter 选中（不止鼠标点击）", async () => {
