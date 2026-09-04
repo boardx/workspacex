@@ -297,6 +297,23 @@ export function FeedbackDialog({
     setBusy(true);
     setError(null);
     try {
+      // 打字提交时 `aiTitle` 恒为 null（只有语音路径的 `structureFeedbackDraft` 会填它，
+      // 见上方 `useEffect`）——这种情况下提交前也调一次同一个 AI 用例，让标题不再只是
+      // 正文第一句（`deriveFeedbackTitle`），而是真正总结过的一句话（issue #2638）。
+      // 只取返回的 `title`，不动 `kind`/`detail`：用户自己写的正文与选的分类不该被
+      // 这一步覆写——那是语音整理路径才做的事，打字路径只是"顺手起个标题"。
+      // AI 调用失败（超时/模型不可用）静默退回 `deriveFeedbackTitle` 的结果，不挡提交：
+      // 起标题是锦上添花，不是提交这个主动作的前提条件（同 `generate-thread-title.ts`
+      // 失败静默降级的既有纪律，而不是 `structureFeedbackDraft` 本身面向用户主动点击时
+      // 失败即报错的纪律——这里的失败不该让用户以为"提交"这个动作本身失败了）。
+      let finalTitle = title;
+      if (aiTitle === null) {
+        try {
+          finalTitle = (await structureFeedbackDraft(detail.trim())).title;
+        } catch {
+          // 保留 deriveFeedbackTitle 的结果——不设 error/structureError，见上方注释。
+        }
+      }
       const attachmentIds = attachments
         .filter((a): a is PendingAttachment & { attachmentId: string } => a.status === "done" && a.attachmentId !== undefined)
         .map((a) => a.attachmentId);
@@ -306,7 +323,7 @@ export function FeedbackDialog({
       const out = await submitFeedback({
         kind,
         target,
-        title,
+        title: finalTitle,
         detail: detail.trim(),
         // I-F1：发生位置由客户端给——服务端不可能知道用户站在哪一屏。
         occurredRoute: pathname ?? null,
