@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { inflateSync } from "node:zlib";
+import { crc32, inflateSync } from "node:zlib";
 
 /**
  * 品牌 favicon 资产回归测试（2026-09-04，boardx/workspacex#2651 review 发现两个真实 bug 后补）：
@@ -32,6 +32,14 @@ import { inflateSync } from "node:zlib";
  * offset/size 越界、帧间不重叠；PNG 完整 8 字节签名 + IHDR 长度）,解析不出来就抛错而
  * 不是返回一个看似合理的空/半截结果——并补了两个反例用例，证明篡改后的资产确实会
  * 让测试失败（而不是被静默放过）。
+ *
+ * 2026-09-04 四次加固（第四轮 review）：`decodePngRGBA` 校验了 chunk 边界和签名，
+ * 但没验证每个 chunk 的 CRC32、也没检查 IHDR 里的 compression/filter/interlace
+ * 方法字节——PNG 规范这三个字节目前只有 0 是合法值，我们自己的编码器也只产出 0，
+ * 但解码器没把这当断言，于是一个 CRC 被改坏、或 interlace/compression/filter
+ * 方法被改成非法值的帧，照样能解出"看起来对"的像素、测试照样全绿。现在每个 chunk
+ * 都用 `node:zlib` 的 `crc32` 重算校验和跟文件里存的 CRC 比对，IHDR 的三个方法
+ * 字节要求必须是 0，任一不满足就抛错。
  */
 
 const PUBLIC_DIR = join(__dirname, "..", "public");
@@ -110,6 +118,13 @@ function decodePngRGBA(buf: Buffer, label: string): { width: number; height: num
     const dataEnd = dataStart + len;
     if (dataEnd + 4 > buf.length) throw new Error(`${label}: ${type} chunk 声明长度 ${len} 超出文件边界`);
     const data = buf.subarray(dataStart, dataEnd);
+    const storedCrc = buf.readUInt32BE(dataEnd);
+    const actualCrc = crc32(buf.subarray(off + 4, dataEnd)); // CRC 覆盖 chunk type + data，不含长度字段
+    if (storedCrc !== actualCrc) {
+      throw new Error(
+        `${label}: ${type} chunk CRC32 校验失败（存储值 0x${storedCrc.toString(16)}，实算 0x${actualCrc.toString(16)}）`,
+      );
+    }
     if (type === "IHDR") {
       if (len !== 13) throw new Error(`${label}: IHDR 长度应为 13，实际 ${len}`);
       sawIHDR = true;
@@ -117,6 +132,14 @@ function decodePngRGBA(buf: Buffer, label: string): { width: number; height: num
       height = data.readUInt32BE(4);
       bitDepth = data.readUInt8(8);
       colorType = data.readUInt8(9);
+      const compression = data.readUInt8(10);
+      const filterMethod = data.readUInt8(11);
+      const interlace = data.readUInt8(12);
+      // PNG 规范目前 compression/filter method 唯一合法值是 0；interlace 是 0（无隔行）或 1（Adam7）
+      // ——本仓的编码器只产出非隔行图，所以这里直接要求三者都是 0，不支持隔行版本。
+      if (compression !== 0) throw new Error(`${label}: IHDR compression method 应为 0，实际 ${compression}`);
+      if (filterMethod !== 0) throw new Error(`${label}: IHDR filter method 应为 0，实际 ${filterMethod}`);
+      if (interlace !== 0) throw new Error(`${label}: IHDR interlace method 应为 0（非隔行），实际 ${interlace}`);
     } else if (type === "IDAT") {
       idatChunks.push(data);
     } else if (type === "IEND") {
@@ -143,6 +166,9 @@ function decodePngRGBA(buf: Buffer, label: string): { width: number; height: num
   let pos = 0;
   for (let y = 0; y < height; y++) {
     const filter = raw[pos] ?? 0;
+    if (filter < 0 || filter > 4) {
+      throw new Error(`${label}: 第 ${y} 行的 filter byte=${filter} 不是合法的 PNG 逐行过滤类型（应为 0-4）`);
+    }
     pos += 1;
     const row = new Uint8Array(stride);
     for (let x = 0; x < stride; x++) {
@@ -296,6 +322,51 @@ describe("品牌 favicon 资产完整性", () => {
       const frame = frames.find((f) => f.width === 48);
       expect(frame).toBeTruthy();
       expect(() => decodePngRGBA(Buffer.from(frame!.data), "corrupted-signature")).toThrow(/valid PNG signature/);
+    });
+  });
+
+  describe("反例二：PNG 解码器应拒绝 CRC 损坏 / 不支持的 IHDR 方法字节（2026-09-04 第四轮 review 抓到的假阳性）", () => {
+    /**
+     * favicon-48x48.ico 的 48px 帧结构固定（已用脚本核实）：
+     *   signature(8) + IHDR chunk[len4+type4+data13+crc4](offset 8..33)
+     *   + 单个 IDAT chunk（offset 33，长度视压缩结果而定）+ IEND chunk[len4+type4+crc4]（0 长度数据）。
+     * IHDR data 从 offset 16 开始：width(4) height(4) bitDepth(1) colorType(1)
+     * compression(1)=offset26 filter(1)=offset27 interlace(1)=offset28；IHDR CRC 在 offset 29..33。
+     */
+    function get48pxPng(): Buffer {
+      const buf = readFileSync(join(PUBLIC_DIR, "favicon-48x48.ico"));
+      const frame = readIcoFramesFromBuffer(buf, "favicon-48x48.ico").find((f) => f.width === 48);
+      expect(frame, "favicon-48x48.ico 应有 48px 帧").toBeTruthy();
+      return Buffer.from(frame!.data);
+    }
+
+    it("IEND chunk 的 CRC32 被改坏应报错", () => {
+      const png = get48pxPng();
+      // IEND 是最后一个 chunk，且数据长度为 0，所以文件最后 4 字节就是它的 CRC。
+      png.writeUInt32BE(0x42414421, png.length - 4); // 复刻 review 的反例：改成 "BAD!" 对应字节
+      expect(() => decodePngRGBA(png, "bad-iend-crc")).toThrow(/CRC32 校验失败/);
+    });
+
+    it("IHDR 的 interlace method 被改成非法值（1）应报错", () => {
+      const png = get48pxPng();
+      png.writeUInt8(1, 28); // IHDR data 第 12 字节 = interlace method
+      // 改了数据就要重算 CRC，否则会先撞上 CRC 校验而不是我们要测的 interlace 校验。
+      png.writeUInt32BE(crc32(png.subarray(12, 29)), 29);
+      expect(() => decodePngRGBA(png, "bad-interlace")).toThrow(/interlace method/);
+    });
+
+    it("IHDR 的 compression method 被改成非法值（1）应报错", () => {
+      const png = get48pxPng();
+      png.writeUInt8(1, 26); // IHDR data 第 10 字节 = compression method
+      png.writeUInt32BE(crc32(png.subarray(12, 29)), 29);
+      expect(() => decodePngRGBA(png, "bad-compression")).toThrow(/compression method/);
+    });
+
+    it("IHDR 的 filter method 被改成非法值（1）应报错", () => {
+      const png = get48pxPng();
+      png.writeUInt8(1, 27); // IHDR data 第 11 字节 = filter method
+      png.writeUInt32BE(crc32(png.subarray(12, 29)), 29);
+      expect(() => decodePngRGBA(png, "bad-filter-method")).toThrow(/filter method/);
     });
   });
 });
