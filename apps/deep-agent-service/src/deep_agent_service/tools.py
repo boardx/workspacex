@@ -92,11 +92,16 @@ own doc comment describes ("Never throws").
 """
 from __future__ import annotations
 
+import logging
+import os
 from typing import Callable, TypedDict
 
+import httpx
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
+
+_logger = logging.getLogger(__name__)
 
 
 class OrgSkill(TypedDict):
@@ -137,6 +142,40 @@ def _find_skill(skills: list[OrgSkill], stable_name: str) -> OrgSkill | None:
         if skill["stable_name"] == stable_name:
             return skill
     return None
+
+
+class SubtaskCallback(TypedDict):
+    base_url: str
+    key: str
+    org_id: str
+    parent_run_id: str
+
+
+def _read_subtask_callback(config: RunnableConfig) -> SubtaskCallback | None:
+    """#2664 -- 从 `configurable` 里取出 `spawn_async_task` 需要的四样东西：TS 侧
+    `POST /internal/subtask-runs` 的基础地址、鉴权用的共享密钥、以及本次调用属于哪个
+    org/父 run（`deep-agent-model-provider.ts::createRun` 写进去的
+    `subtask_callback_base_url`/`subtask_callback_key`/`org_id`/`parent_run_id`，
+    见该文件同一处的注释）。四者任一缺席都返回 `None`——`spawn_async_task` 据此判断
+    "这次运行没有配好异步派发通路"，走诚实降级分支，不是这个函数该处理的场景。
+    """
+    configurable = (config or {}).get("configurable") or {}
+    base_url = configurable.get("subtask_callback_base_url")
+    org_id = configurable.get("org_id")
+    parent_run_id = configurable.get("parent_run_id")
+    if not isinstance(base_url, str) or base_url.strip() == "":
+        return None
+    if not isinstance(org_id, str) or org_id.strip() == "":
+        return None
+    if not isinstance(parent_run_id, str) or parent_run_id.strip() == "":
+        return None
+    key = configurable.get("subtask_callback_key")
+    return {
+        "base_url": base_url.rstrip("/"),
+        "key": key if isinstance(key, str) else "",
+        "org_id": org_id,
+        "parent_run_id": parent_run_id,
+    }
 
 
 def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
@@ -282,10 +321,69 @@ def build_tools(model: BaseChatModel) -> list[Callable[..., str]]:
                     break
         return f"用户选择了方案「{chosen_title}」，请据此继续执行任务，不要再考虑其它方案。"
 
-    return [
+    @tool
+    def spawn_async_task(description: str, config: RunnableConfig, context: str | None = None) -> str:
+        """把一个可以独立并行处理的子任务派发出去，**不等待它跑完**——调用后立即返回
+        「已派发」，你应该继续处理主对话的其它部分或直接回复用户，不要停下来等这个子任务
+        的结果。适合用在：一次请求里能拆出多个互不依赖、可以同时进行的子任务时，把每个
+        子任务分别派发一次。`description` 要写清楚这个子任务的目标，写得越具体，子任务
+        执行时越不会跑偏；`context` 可选，补充子任务需要知道的背景信息（例如父任务已经
+        确认的事实、用户提到的约束）。
+
+        与 `task` 工具的区别：`task` 是**同步**委托给一个具名子代理，调用方要等它跑完才
+        拿到结果，适合"这一步必须先有子代理的结论才能继续"的场景；这个工具是**异步**
+        派发进后台队列，不阻塞当前对话，适合"这几个子任务可以各自独立跑，我不需要现在
+        就知道结果"的场景——两者是两种不同的委托方式，不要混用。
+
+        没有配置好异步派发通路时（本次运行的部署未开启这项能力），会诚实告诉你派发失败，
+        而不是假装派发成功——遇到这种情况，改用 `task` 或自己继续处理这个子任务，不要
+        当作它已经在后台跑了。"""
+        callback = _read_subtask_callback(config)
+        if callback is None:
+            return (
+                "无法派发异步子任务：本次运行没有配置好异步派发通路"
+                "（缺少 subtask_callback_base_url/org_id/parent_run_id 之一）。"
+                "请改用 task 工具委托给具名子代理，或自己继续处理这个子任务。"
+            )
+        payload = {
+            "orgId": callback["org_id"],
+            "parentRunId": callback["parent_run_id"],
+            "description": description,
+            "context": context,
+        }
+        headers = {"content-type": "application/json"}
+        if callback["key"] != "":
+            headers["x-deep-agent-internal-key"] = callback["key"]
+        try:
+            response = httpx.post(
+                f"{callback['base_url']}/internal/subtask-runs",
+                json=payload,
+                headers=headers,
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            body = response.json()
+            subtask_run_id = body.get("subtaskRunId") if isinstance(body, dict) else None
+        except Exception as exc:  # noqa: BLE001 -- 同 call_skill 的纪律：错误不冒泡阻断主循环
+            _logger.warning("spawn_async_task 派发失败：%s: %s", type(exc).__name__, exc)
+            return f"派发子任务失败（{type(exc).__name__}），未能加入后台队列，请改为同步处理这个子任务。"
+        return (
+            f"子任务已派发（subtaskRunId={subtask_run_id}），正在后台异步执行，"
+            "不需要等待它完成，请继续处理对话的其它部分。"
+        )
+
+    tools: list[Callable[..., str]] = [
         list_org_skills,
         call_skill,
         confirm_task_intent,
         fill_run_params,
         choose_execution_option,
     ]
+    # #2664（灰度，S1=B 纪律）：`DEEP_AGENT_ASYNC_SUBTASKS_ENABLED=1` 才把 `spawn_async_task`
+    # 注册进主图的工具清单——`graph.py` 把 `build_tools(_model)` 的返回值**整体**、
+    # 无条件地传给 `create_deep_agent(tools=...)`（不像 `build_subagents` 那样按名字挑选
+    # 转发），所以新增一个工具函数本身就会成为模型可见、可调用的能力，必须在这里显式收口，
+    # 不能只靠"没人调用它"这种概率性的默认关闭。未设时返回值与 #2664 之前逐字节相同。
+    if (os.environ.get("DEEP_AGENT_ASYNC_SUBTASKS_ENABLED") or "").strip() == "1":
+        tools.append(spawn_async_task)
+    return tools
