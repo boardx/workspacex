@@ -616,7 +616,25 @@ export default defineConfig({
       },
     },
     {
-      command: `next build && next start -p ${webPort}`,
+      /**
+       * UC-17.8 B4——`rm -rf .next-fullstack-e2e` 加在 `next build` 之前，是这一轮排查
+       * 挖出的真根因，不是随手加的保险。CI 实测 `feedback-drafts-smoke.spec.ts`①
+       * 确定性卡在 `feedback-kind-需求` 点击上，诊断打印出的 `feedback-form` 容器
+       * 真实 outerHTML 带着 `data-stage="compose"`——这个属性在
+       * `feedback-dialog.tsx` **整个 git 历史里从未出现过**（`git log -S"data-stage"`
+       * 零命中），且仓库里没有第二处定义 `data-testid="feedback-form"` 的地方。
+       * 唯一能解释「编译产物包含源码从未写过的标记」的是：`NEXT_DIST_DIR`
+       * （`.next-fullstack-e2e`）命中 `.gitignore` 里那条 `.next-` 开头目录通配的规则，
+       * `actions/checkout` 默认不清理未跟踪/被忽略的文件——如果这个 job 落在被
+       * 复用的 runner 工作目录上，上一次跑（哪怕是别的 PR/commit）残留的
+       * `.next-fullstack-e2e/cache`（Next.js 的持久化 webpack/SWC 增量编译缓存）
+       * 会被 `next build` 直接复用，对某个文件的编译产物没有正确按内容失效，
+       * 静默 serve 一份跟当前源码对不上的旧编译结果。`next build` 没有官方
+       * `--no-cache` 开关，显式删掉整个 dist 目录（含它内部的 `cache/` 子目录）
+       * 是唯一确定性阻断这条路径的办法——每次 build 都是真正意义上的干净构建，
+       * 不依赖"这次 runner 是不是复用的"这种猜测。
+       */
+      command: `rm -rf .next-fullstack-e2e && next build && next start -p ${webPort}`,
       url: `http://127.0.0.1:${webPort}/login`,
       // 默认仍是 120s；只有显式设了 `FULLSTACK_E2E_SERVER_TIMEOUT_MS` 才不同。见上方定义。
       timeout: serverStartTimeoutMs,
