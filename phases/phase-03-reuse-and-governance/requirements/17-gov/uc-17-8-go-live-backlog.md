@@ -58,6 +58,19 @@
   只读投影，状态迁移不新建接口；系统异常对非超管 `sources.exception: "withheld"`（不报错）。
   35 条契约测试。原型 mock 的 `InboxKind`/`InboxItem` 改名 `MockInboxKind`/`MockInboxItem`
   避免与新契约同名撞上 `lint-contract-source`（B3 web 真栈化时会删掉这套 mock，不是本次改名）。
+- ✅ B3.2（聚合）+ B3.3（系统异常状态事件）2026-09-04 落地：`application/inbox/` 不跨库
+  JOIN（`product_feedback` 走 RLS+`app_rw`，`error_logs` 走 `app_diag_ro`，两套会话模型
+  不兼容）——复用既有 `listFeedback`（保留 D3）与 `ErrorLogPort.list`（保留脱敏），应用层
+  合并/排序/keyset 分页；`isRequestorPlatformOperator()` 决定 `sources.exception`，非超管
+  静默跳过查询而非 403；新增 `system_error_status_events` 表（`updateSystemErrorLifecycle`
+  best-effort 追加）。`GET /inbox`、`GET /inbox/counts`。21 条单测。
+- ✅ B3.4（web 切真 API）2026-09-04 落地：`inbox-screen.tsx` 从 mock store 切到
+  `listInbox`/`getInboxCounts`；看板拖拽走 `triageFeedback`/`updateSystemErrorLifecycle`
+  （乐观更新+回滚，不做需理由不做乐观移动，系统异常禁止拖到已完成）；withheld 时
+  Chip 禁用+提示。GitHub 徽标现查升级为 PR、建 Issue 完整编辑器留 TODO（B3.5）。
+- 待做：B3.5（GitHub 徽标现查升级 + 建 Issue 编辑器接回）、B3.6（旧屏退役+重签，
+  本轮**未做**——旧 `/platform-admin/feedback` 与新 `/platform-admin/inbox` 目前并存）、
+  B3.7（关联标可点击跳转，B4 才有数据）、B3.8（E2E）。
 
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 
