@@ -884,13 +884,19 @@ export class DeepAgentModelProvider implements ModelCallPort {
              * ③子任务归属哪个父 run（`org_id`/`parent_run_id`，来自这次 `ModelCallInput`
              * 本身——见该类型自己的文档）。三者任一缺席，`spawn_async_task` 都退化为诚实
              * 报告"无法派发"，不是这里要处理的分支（见该工具自己的文档）。
+             *
+             * ⚠ 这四个键必须**一起**出现或**一起**不出现：`org_id`/`parent_run_id` 只
+             * 在配了回调地址时才有意义，之前误写成独立条件，导致没配回调的调用（包括
+             * 每次真实执行——`executeQueuedRuns` 总会传 `orgId`/`runId`）也会带上它俩，
+             * 破坏了 T2 锁的"没挂 skill 时 configurable 逐字不变"（`deep-agent-produces-
+             * files.test.ts`，2026-09-04 CI 抓到）。
              */
             ...((this.config.subtaskCallbackBaseUrl ?? "") === "" ? {} : {
               subtask_callback_base_url: this.config.subtaskCallbackBaseUrl,
               subtask_callback_key: this.config.subtaskCallbackKey ?? "",
+              ...(input.orgId === undefined ? {} : { org_id: input.orgId }),
+              ...(input.runId === undefined ? {} : { parent_run_id: input.runId }),
             }),
-            ...(input.orgId === undefined ? {} : { org_id: input.orgId }),
-            ...(input.runId === undefined ? {} : { parent_run_id: input.runId }),
           },
         },
       }),
