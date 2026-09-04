@@ -8,6 +8,7 @@ import { inbox as C, type feedbackLoop, type systemErrorLogs } from "@repo/contr
 import type { z } from "zod";
 import type { FeedbackItemView } from "../feedback/list-feedback";
 import type { ErrorLogListItem, ErrorLogPort } from "../ports/error-log.port";
+import type { DesignProjectView } from "../design-workbench/project-shared";
 
 /** 见 `list-inbox.ts` 文件头「分页的取舍」——单次聚合最多从 `error_logs` 拉这么多行。 */
 export const INBOX_EXCEPTION_FETCH_CAP = 2000;
@@ -92,10 +93,10 @@ function deriveGithubRef(row: FeedbackItemView): z.infer<typeof C.InboxGithubRef
   return { kind: "issue", number: row.githubIssueNumber, url: row.githubIssueUrl, state: closed ? "closed" : "open" };
 }
 
-/** 展示编号：同前缀（`B`/`R`/`E`）内按创建顺序赋 1..n——见契约 `InboxItem.code` 头注。 */
+/** 展示编号：同前缀（`B`/`R`/`E`/`D`）内按创建顺序赋 1..n——见契约 `InboxItem.code` 头注。 */
 function assignCodes<T extends { createdAt: string; id: string }>(
   rows: readonly T[],
-  prefix: "B" | "R" | "E",
+  prefix: "B" | "R" | "E" | "D",
 ): ReadonlyMap<string, string> {
   const sorted = [...rows].sort(compareCreatedAsc);
   const out = new Map<string, string>();
@@ -185,5 +186,52 @@ export function buildExceptionInboxItems(rows: readonly ErrorLogListItem[]): Inb
       votedByMe: false,
     };
     return { item, key: { createdAt: row.createdAt, kind: "exception", id: row.id } };
+  });
+}
+
+/**
+ * B4.3 —— 已推送的设计项目投影成收件箱条目。**只有 `pushed === true` 的项目才会出现**
+ * （调用方必须先过滤，见 `list-inbox.ts`/`get-inbox-counts.ts`：未推送的项目不是收件箱条目，
+ * 契约 `pushToInbox` 才是唯一的"生成收件箱条目"入口）。
+ *
+ * ⚠ `stage` 恒 `backlog`——backlog.md B4.3 逐字「生成收件箱条目（`kind=design`,
+ *   `status=backlog`）」：设计方案没有自己的状态机（`pushed: boolean` 是它唯一的二态,见
+ *   契约 `pushToInbox` 头注最后一条),`stageOf` 因此对 `design` kind 永远抛错（见 `inbox.ts`
+ *   `stageOf` 头注），这里不调用它,直接给固定值——这不是绕过映射表,是"design 这个来源
+ *   压根没有源状态可映射"的诚实表达。
+ * ⚠ `sourceStatus`（drawer 状态标签的原始文案）给一个人类可读的常量 `"已推送"`——这批项目
+ *   进入这个函数前已经全部按 `pushed === true` 过滤过,不存在"未推送但出现在这里"的行。
+ * ⚠ `body`：契约 `InboxItem` 的"仅某类"字段表里 design 这一行是"—"（未定的),这里选
+ *   `pushNote ?? (problem 非空 ? problem : null)`——推送时填的说明优先,没有就退回项目背景,
+ *   都没有则老实给 `null`（不是"空字符串",同 `body===null` 在别处的语义:没有可展示的正文)。
+ */
+export function buildDesignInboxItems(rows: readonly DesignProjectView[]): InboxKeyed[] {
+  const pushed = rows.filter((r) => r.pushed);
+  const codes = assignCodes(pushed, "D");
+
+  return pushed.map((row) => {
+    const item: InboxItemView = {
+      id: row.id,
+      kind: "design",
+      code: codes.get(row.id)!,
+      title: row.name,
+      body: row.problem.trim() !== "" ? row.problem : null,
+      structured: null,
+      feedbackKind: null,
+      sourceStatus: "已推送",
+      stage: "backlog",
+      statusReason: null,
+      severe: false,
+      votes: 0,
+      reporter: row.ownerName,
+      createdAt: row.createdAt,
+      github: null,
+      linkedFeedbackId: row.linkedFeedbackId,
+      resolvedByDesignId: null,
+      exception: null,
+      submittedByMe: false,
+      votedByMe: false,
+    };
+    return { item, key: { createdAt: row.createdAt, kind: "design", id: row.id } };
   });
 }

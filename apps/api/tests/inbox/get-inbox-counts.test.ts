@@ -10,6 +10,7 @@ import type { FeedbackRow, ProductFeedbackRepository } from "../../src/applicati
 import type { ErrorLogPort, ErrorLogListItem } from "../../src/application/ports/error-log.port";
 import { guard } from "../../src/application/security/permission-filter";
 import { toOrgId } from "../../src/domain/org-id";
+import { FakeDesignProjectRepo, designProjectRow } from "../support/fake-design-project-repo";
 
 function feedbackRow(over: Partial<FeedbackRow> = {}): FeedbackRow {
   return {
@@ -64,7 +65,11 @@ function fakeErrorLog(items: readonly ErrorLogListItem[]): ErrorLogPort {
   };
 }
 
-function deps(rows: readonly FeedbackRow[], exceptions: readonly ErrorLogListItem[] | undefined): GetInboxCountsDeps {
+function deps(
+  rows: readonly FeedbackRow[],
+  exceptions: readonly ErrorLogListItem[] | undefined,
+  design: FakeDesignProjectRepo = new FakeDesignProjectRepo(),
+): GetInboxCountsDeps {
   return {
     feedback: {
       repo: fakeFeedbackRepo(rows),
@@ -73,6 +78,11 @@ function deps(rows: readonly FeedbackRow[], exceptions: readonly ErrorLogListIte
       submitters: { emailForUserId: async () => null, displayNamesForUserIds: async () => new Map() },
     },
     errorLog: exceptions === undefined ? undefined : fakeErrorLog(exceptions),
+    design: {
+      projects: design,
+      orgId: toOrgId("org-1"),
+      submitters: { emailForUserId: async () => null, displayNamesForUserIds: async () => new Map() },
+    },
   };
 }
 
@@ -102,9 +112,21 @@ describe("getInboxCounts 聚合", () => {
     expect(out.byStage).toEqual({ backlog: 2, doing: 1, done: 1, archived: 1 });
   });
 
-  it("design 恒为 0（本轮无数据）", async () => {
+  it("没有已推送的设计项目时 design 为 0", async () => {
     const out = await getInboxCounts(deps([feedbackRow()], []), admin);
     expect(out.byKind.design).toBe(0);
+  });
+
+  it("B4.3：已推送的设计项目计入 byKind.design / byStage.backlog，未推送的不计入", async () => {
+    const design = new FakeDesignProjectRepo();
+    design.seed(designProjectRow({ id: "dp-1", pushed: true }));
+    design.seed(designProjectRow({ id: "dp-2", pushed: false }));
+
+    const out = await getInboxCounts(deps([], [], design), admin);
+
+    expect(out.byKind.design).toBe(1);
+    expect(out.byStage.backlog).toBe(1);
+    expect(out.total).toBe(1);
   });
 });
 
