@@ -3,6 +3,7 @@
  * 与 `tests/inbox/**`（收件箱聚合需要接入 design 那一半）共用。
  */
 import type {
+  CreateOrGetByLinkedFeedbackResult,
   DesignProjectChatTurn,
   DesignProjectPatch,
   DesignProjectRepository,
@@ -37,6 +38,18 @@ export class FakeDesignProjectRepo implements DesignProjectRepository {
       createdAt: at,
       updatedAt: at,
     });
+  }
+
+  /** B4.4——同真实仓储的 `ON CONFLICT ... DO NOTHING` 语义：线性扫一遍找 `linkedFeedbackId`。 */
+  async createOrGetByLinkedFeedback(
+    project: NewDesignProject & { readonly linkedFeedbackId: string },
+  ): Promise<CreateOrGetByLinkedFeedbackResult> {
+    const existing = [...this.rows.values()].find((r) => r.linkedFeedbackId === project.linkedFeedbackId);
+    if (existing !== undefined) return { project: existing, created: false };
+    await this.create(project);
+    const row = this.rows.get(project.id);
+    if (row === undefined) throw new Error("fake-design-project-repo: row vanished after create");
+    return { project: row, created: true };
   }
 
   async listForOrg(): Promise<readonly DesignProjectRow[]> {

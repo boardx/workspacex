@@ -172,6 +172,26 @@ describe("pushToInbox", () => {
   });
 });
 
+describe("deepenFeedback", () => {
+  it("in：只接 feedbackId，多传别的字段拒（不接受调用方拼 name/problem/template）", () => {
+    const schema = dw.operations.deepenFeedback.in;
+    expect(schema.safeParse({ feedbackId: "fb-1" }).success).toBe(true);
+    expect(schema.safeParse({ feedbackId: "fb-1", name: "自己拼的标题" }).success).toBe(false);
+  });
+  it("out：project + created 布尔（幂等命中已存在项目时 created=false）", () => {
+    const schema = dw.operations.deepenFeedback.out;
+    expect(schema.safeParse({ project, created: true }).success).toBe(true);
+    expect(schema.safeParse({ project, created: false }).success).toBe(true);
+    expect(schema.safeParse({ project }).success).toBe(false);
+  });
+  it("错误码里没有 NOT_PROJECT_OWNER：命中已有项目时不判断请求者是不是 owner", () => {
+    expect([...dw.operations.deepenFeedback.err]).not.toContain("NOT_PROJECT_OWNER");
+  });
+  it("route 挂在 /feedback 命名空间下（B4.4 backlog 原文路径）", () => {
+    expect(dw.operations.deepenFeedback.path).toBe("/feedback/:feedbackId/deepen");
+  });
+});
+
 describe("错误码闭集：每个操作的 err 都在 DesignWorkbenchError 里", () => {
   it("逐操作校验", () => {
     for (const op of Object.values(dw.operations)) {

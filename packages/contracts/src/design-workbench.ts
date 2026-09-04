@@ -174,6 +174,17 @@ export const DesignWorkbenchError = z.enum([
   "NOT_PROJECT_OWNER",
   /** 超时/网络/下游不可用 */
   "DEPENDENCY_UNAVAILABLE",
+  /**
+   * B4.4「用 PM 设计工作台深化」——源反馈不存在或不在本组织。
+   * 同 `feedback-loop.ts` 的 `FEEDBACK_NOT_FOUND` 纪律：404 非 403，不泄露存在性。
+   */
+  "FEEDBACK_NOT_FOUND",
+  /**
+   * B4.4——请求者对这条反馈没有 D3 正文可见权（`feedback-detail-decision.ts`）。「深化」要把
+   * 正文抄进 `problem`，看不到正文就不可能有意义地深化；同 `feedback-loop.ts` 的
+   * `PERMISSION_REVOKED` 同一语义，这里不复用那个枚举（跨文件枚举会让"闭集在哪"分裂成两处）。
+   */
+  "FEEDBACK_DETAIL_NOT_VISIBLE",
 ]);
 export type DesignWorkbenchError = z.infer<typeof DesignWorkbenchError>;
 
@@ -291,5 +302,40 @@ export const operations = {
       })
       .strict(),
     err: ["PROJECT_NOT_FOUND", "NOT_PROJECT_OWNER", "DEPENDENCY_UNAVAILABLE"] as const,
+  },
+
+  /**
+   * B4.4——反馈列表/详情「更复杂？去 PM 设计工作台深化」→ 直接建一个设计项目，跳到它的详情页
+   * （PDF §9 建议；原型是跳工作台首页，这里按 PDF 收窄）。
+   *
+   * ⚠ **不接受调用方传 `name`/`problem`/`template`**——同 `createProject` 头注对
+   *   `linkedFeedbackId` 的纪律反过来：这次是反过来的方向,调用方只给 `feedbackId`,
+   *   `name`=反馈 `title`、`problem`=反馈 `detail`、`template` 恒 `"wireframe"`
+   *   （backlog B4.4 原文三个等号），服务端读反馈行自己填,不接受前端各自拼一份可能对不上的值。
+   * ⚠ **幂等，幂等键是 `feedbackId`**——同 `pushToInbox` 的 upsert 哲学，但形状不同：这里不是
+   *   "覆盖同一行"，是"同一条反馈只产生一个设计项目"（`design_projects` 对 `linkedFeedbackId`
+   *   的唯一约束保证,见迁移）。重复调用（用户手滑点两次「深化」、或网络重试）返回**已存在**的
+   *   那个项目,不建第二个——第二个项目会让"这条反馈对应哪个方案"变成一对多,而前端要跳转的
+   *   详情页只能选一个,选哪个没有依据。`out.created` 告诉调用方这次是新建还是复用（用于日志/
+   *   埋点区分，不影响跳转行为——两种情况都跳同一个 `project.id`）。
+   * ⚠ 权限：读正文要过 D3（`FEEDBACK_DETAIL_NOT_VISIBLE`）——「深化」把正文原样抄进
+   *   `problem`,对正文没有可见权的人不能把它抄出来,即使抄的目的地只是同一组织内可读的
+   *   设计项目（后者的可见性口径本身更宽,但不能绕开前者的门）。**没有** `NOT_PROJECT_OWNER`
+   *   这个错误码：新建的项目 owner 恒是发起深化的人（同 `createProject`），不存在"深化别人
+   *   已深化出的项目"这回事——命中已存在的项目时直接把它返回,不判断请求者是不是它的 owner
+   *   （读操作对全组织放开,同文件头【待确认点 1】）。
+   */
+  deepenFeedback: {
+    method: "POST",
+    path: "/feedback/:feedbackId/deepen",
+    in: z.object({ feedbackId: z.string() }).strict(),
+    out: z
+      .object({
+        project: DesignProject,
+        /** 这次调用是不是真的新建了项目（`false` = 命中了已有的深化结果，见上方幂等说明） */
+        created: z.boolean(),
+      })
+      .strict(),
+    err: ["FEEDBACK_NOT_FOUND", "FEEDBACK_DETAIL_NOT_VISIBLE", "DEPENDENCY_UNAVAILABLE"] as const,
   },
 } as const;

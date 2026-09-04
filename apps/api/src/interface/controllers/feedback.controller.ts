@@ -114,6 +114,11 @@ import {
   FEEDBACK_DRAFT_REPOSITORY,
   type FeedbackDraftRepositoryFactory,
 } from "../../application/feedback/draft-ports";
+import { FeedbackDetailNotVisibleError, deepenFeedback } from "../../application/feedback/deepen-feedback";
+import {
+  DESIGN_PROJECT_REPOSITORY,
+  type DesignProjectRepositoryFactory,
+} from "../../application/design-workbench/project-ports";
 import {
   FeedbackDraftEmptyError,
   FeedbackDraftNotFoundError,
@@ -185,6 +190,7 @@ export class FeedbackController {
     @Inject(FEEDBACK_STRUCTURE_MODEL_CONFIG) private readonly structureModel: FeedbackStructureModelConfig,
     @Inject(OBJECT_STORE) private readonly objectStore: ObjectStore,
     @Inject(FEEDBACK_DRAFT_REPOSITORY) private readonly drafts: FeedbackDraftRepositoryFactory,
+    @Inject(DESIGN_PROJECT_REPOSITORY) private readonly designProjects: DesignProjectRepositoryFactory,
   ) {}
 
   /** 看的人在本组织的角色。null = 不是成员——`decideFeedbackDetailVisibility` 据此整条拒。 */
@@ -267,6 +273,42 @@ export class FeedbackController {
     //   一个非管理员知道「本周 40 条待处理」没有任何用处，而它泄露的是团队的处理节奏。
     if (!canTriage(orgRole)) throw new ForbiddenException({ reasonCode: "PERMISSION_REVOKED" });
     return this.feedback.forOrg(principal.orgId).counts();
+  }
+
+  /**
+   * UC-17.8 B4.4——「更复杂？去 PM 设计工作台深化」。契约 `design-workbench.ts` 的
+   * `deepenFeedback`（路由挂在 `/feedback` 命名空间，用例在 `deepen-feedback.ts`，头注解释
+   * 了为什么用例文件在 `feedback/` 目录而不在 `design-workbench/`）。
+   * 201 新建了项目；200 命中了已有的深化结果（`out.created` 区分，两种情况调用方都跳同一个
+   * `project.id` 的详情页，不需要按状态码分支）——所以这里**不**用 `@HttpCode` 固定状态码，
+   * 按 `created` 现算，同 REST 对幂等创建的一般处理。
+   */
+  @Post("/feedback/:feedbackId/deepen")
+  async deepen(
+    @CurrentPrincipal() principal: Principal,
+    @Param("feedbackId") feedbackId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    assertPrincipal(principal);
+    const { orgRole, teamId } = await this.viewerRole(principal);
+    try {
+      const result = await deepenFeedback(
+        {
+          feedback: this.feedback.forOrg(principal.orgId),
+          projects: this.designProjects.forOrg(principal.orgId),
+          submitters: this.submitterDirectory,
+          newDecisionId: () => this.decisions.next(),
+          newProjectId: () => randomUUID(),
+        },
+        { feedbackId, viewerId: principal.userId, viewerOrgRole: orgRole, viewerTeamId: teamId },
+      );
+      res.status(result.created ? HttpStatus.CREATED : HttpStatus.OK);
+      return result;
+    } catch (e) {
+      if (e instanceof FeedbackNotFoundError) throw new NotFoundException({ reasonCode: "FEEDBACK_NOT_FOUND" });
+      if (e instanceof FeedbackDetailNotVisibleError) throw new ForbiddenException({ reasonCode: "FEEDBACK_DETAIL_NOT_VISIBLE" });
+      throw e;
+    }
   }
 
   @HttpCode(HttpStatus.OK)
