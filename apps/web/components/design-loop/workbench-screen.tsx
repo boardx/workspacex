@@ -12,8 +12,8 @@ import {
   useDesignLoop, TEMPLATE_LABEL, TEMPLATE_EMOJI, type Project, type ProjectTemplate,
 } from "@/lib/design-loop-store";
 
-const TEMPLATES: ProjectTemplate[] = ["mobile", "ui", "wireframe"];
-const TEMPLATE_OPTIONS = TEMPLATES.map((t) => ({ value: t, label: TEMPLATE_LABEL[t] }));
+const PROJECT_KIND_ORDER: ProjectTemplate[] = ["mobile", "ui", "wireframe"];
+const TEMPLATE_OPTIONS = PROJECT_KIND_ORDER.map((t) => ({ value: t, label: TEMPLATE_LABEL[t] }));
 const TEMPLATE_HINT: Record<ProjectTemplate, string> = {
   mobile: "手机为先的交互与布局",
   ui: "高保真界面与视觉稿",
@@ -98,7 +98,7 @@ export function DesignWorkbenchHome({
 
       {/* 三张模板入口 */}
       <div className="grid grid-cols-3 gap-3 px-6 py-4">
-        {TEMPLATES.map((t) => (
+        {PROJECT_KIND_ORDER.map((t) => (
           <button
             key={t}
             type="button"
