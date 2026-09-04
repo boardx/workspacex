@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { templateToModel, serializeTemplate, getTemplate } from '../src/diagrams/template-engine';
+import { templateToModel, serializeTemplate, getTemplate, parseTemplateText } from '../src/diagrams/template-engine';
 import '../src/diagrams/templates-strategy';
 import { STRATEGY_SAMPLES } from '../src/diagrams/templates-strategy';
 
@@ -112,5 +112,36 @@ describe('strategy templates', () => {
     for (const { key, sample } of CASES) {
       expect(fenceBody(STRATEGY_SAMPLES[sample]!)).toMatch(new RegExp(`^模板: ${key}\\n`));
     }
+  });
+
+  // issue #2653：平台后台 SWOT 画布 chat 模拟无内容产出。
+  //
+  // 根因：`- 技术创新壁垒：采用…` 这类要点本身带一个中文/英文冒号（不是 `字段: 值`
+  // 格式，冒号后面还是同一条要点的一部分）。`parseTemplateText` 原先"先判 key:value，
+  // 再判 bullet"，`kv` 正则不排除以 `-`/`*` 开头的行，只要 `## 分区` 下**第一条**要点
+  // 带冒号、且 `sawBullet` 还没被前面某条不带冒号的要点翻转过，整行就会被当成表头字段
+  // 吞掉（`fields.set('- 技术创新壁垒', ...)`），从不会真正进 `sections`——症状是这个
+  // 分区解析出 0 条要点，画布上对应象限一片空白，且没有任何报错。真实复现见 issue：
+  // SWOT「优势」象限三条要点全部是「标题：说明」格式，象限完全空白。
+  it('parses a "标题：说明" bullet as a bullet, not a header field (issue #2653)', () => {
+    const code = [
+      '模板: swot',
+      '## 优势',
+      '- 技术创新壁垒：采用分子共振技术，提升吸收率。',
+      '- 独特口感体验：处理工艺使口感更圆润柔和。',
+      '## 劣势',
+      '- 生产成本较高，规模化生产存在挑战。',
+    ].join('\n');
+    const parsed = parseTemplateText(code);
+    expect(parsed.sections.get('优势')).toEqual([
+      '技术创新壁垒：采用分子共振技术，提升吸收率。',
+      '独特口感体验：处理工艺使口感更圆润柔和。',
+    ]);
+    // 两条带冒号的要点都没有被误吞成表头字段。
+    expect(parsed.fields.size).toBe(0);
+
+    const model = templateToModel(code);
+    const stickies = model.nodes.filter((n) => n.data?.role === 'sticky');
+    expect(stickies.some((s) => s.label === '技术创新壁垒：采用分子共振技术，提升吸收率。')).toBe(true);
   });
 });

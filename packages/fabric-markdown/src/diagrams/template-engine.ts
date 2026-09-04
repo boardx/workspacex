@@ -214,6 +214,29 @@ export function parseTemplateText(code: string): ParsedTemplateText {
       flush();
       continue;
     }
+    // issue #2653：`- 技术创新壁垒：采用…` 这类要点行，正文里本就带一个中文/英文冒号
+    // （不是 `字段: 值` 格式，冒号后面还是同一条要点的一部分）。此前的顺序是"先判
+    // key:value，再判 bullet"——`kv` 那条正则不排除以 `-`/`*` 开头的行，只要要点文字
+    // 里出现任意一个冒号，整行就会被当成表头字段吞掉（`fields.set('- 技术创新壁垒', ...)`），
+    // 从不会真正进 `sections`。真实症状与本仓已有的「表头吞并分区」系列 bug（#2549 那条
+    // 注释）一样静默、不报错，唯独触发条件相反：不是"提前出现的空标题"，是"要点文字本身
+    // 带冒号"——`## 分区` 下的**第一条**要点若带冒号，会连同它开始，直到出现第一条不带
+    // 冒号的要点为止，整段被吞成字段（`sawBullet` 一直是 false，判据没有机会翻转）。
+    // 真实复现：SWOT 画布 chat 模拟，"优势"分区三条要点都是"标题：说明"格式，全部落进
+    // `fields`，"优势"这个分区解析出 0 条要点，画布上对应象限一片空白（issue #2653）。
+    //
+    // 修法：**先**判是不是要点行（`current !== null` 时优先按 bullet 处理），只有确实
+    // 不是要点行才走 key:value 判据——bullet 判据本就已经存在（下面这条正则一个字没改），
+    // 只是挪到 kv 判据之前，让"这一行是不是以 `-`/`*` 开头"这件更明确的事实先说了算。
+    if (current !== null) {
+      const bullet = /^[-*]\s+(.*)$/.exec(line);
+      if (bullet) {
+        flush();
+        sawBullet = true;
+        sections.get(current)!.push(bullet[1]!.trim());
+        continue;
+      }
+    }
     if (!sawBullet) {
       const kv = /^([^:：]+)[:：]\s*(.*)$/.exec(line);
       if (kv) {
@@ -228,14 +251,7 @@ export function parseTemplateText(code: string): ParsedTemplateText {
       if (current === null) continue;
     }
     if (current === null) continue;
-    const bullet = /^[-*]\s+(.*)$/.exec(line);
-    if (bullet) {
-      flush();
-      sawBullet = true;
-      sections.get(current)!.push(bullet[1]!.trim());
-    } else {
-      paragraph.push(line);
-    }
+    paragraph.push(line);
   }
   flush();
   return { templateKey, fields, sections };
