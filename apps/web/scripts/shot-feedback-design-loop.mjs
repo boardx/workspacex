@@ -2,6 +2,9 @@
 // 取材页 /preview/feedback-design-loop（渲染真组件 + 固定 seed，不写 localStorage）。
 // 草稿（UC-17.8 B1 真栈）：由本脚本 `page.route()` 拦 `/feedback/drafts*` 提供固定数据——
 // 同 shot-feedback-loop.mjs 的范式，不再 seed localStorage 草稿。
+// 收件箱（UC-17.8 B3.4 真栈）：同样由 `page.route()` 拦 `/inbox`、`/inbox/counts`、
+// `/feedback/:id/status`、`/feedback/:id/events`、`/system/error-logs/:id` 提供固定数据/回执——
+// `DesignLoopProvider` 不再持有收件箱 mock，屏幕自己打这几条真实契约路径。
 // 浅/深两态都拍；每屏至少默认/空/校验失败/成功，外加看板拖放悬停、drawer、生成中过渡、推送成功页。
 // 用法：BASE=http://localhost:3187 OUT=/abs/path node scripts/shot-feedback-design-loop.mjs
 import { chromium } from "@playwright/test";
@@ -79,6 +82,116 @@ async function routeDrafts(page, { empty }) {
       return json(route, { draft });
     }
     return json(route, {}, 405);
+  });
+}
+
+/** 固定的收件箱取材数据——形状对齐 `packages/contracts/src/inbox.ts` 的 `InboxItem`（`.strict()`）。 */
+const INBOX_ITEMS = [
+  {
+    id: "in-b1", kind: "feedback", code: "B-1", title: "上传三个文件只读了一个",
+    body: "在调研助手里一次拖了三个 PDF，agent 只引用了第一个，另外两个像没上传。",
+    structured: null, feedbackKind: "缺陷", sourceStatus: "待处理", stage: "backlog",
+    statusReason: null, severe: true, votes: 12, reporter: "林晚 · 增长组",
+    createdAt: "2026-09-03T01:40:00.000Z",
+    github: { kind: "issue", number: 142, url: "https://github.com/boardx/workspacex/issues/142", state: "open" },
+    linkedFeedbackId: null, resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+  },
+  {
+    id: "in-b2", kind: "feedback", code: "B-2", title: "批准卡不记得上次的 token 预算",
+    body: "每次批准都要重填 token 预算，第三次之后就不想用了。",
+    structured: null, feedbackKind: "缺陷", sourceStatus: "已进入迭代", stage: "doing",
+    statusReason: null, severe: false, votes: 7, reporter: "周珂 · 平台组",
+    createdAt: "2026-09-02T02:14:00.000Z",
+    github: { kind: "pr", number: 145, url: "https://github.com/boardx/workspacex/pull/145", state: "draft" },
+    linkedFeedbackId: null, resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+  },
+  {
+    id: "in-b4", kind: "feedback", code: "B-4", title: "导出 PDF 偶尔缺最后一页",
+    body: "长报告导出成 PDF 时，最后一页有概率丢失，重导一次又正常。",
+    structured: null, feedbackKind: "缺陷", sourceStatus: "已修复", stage: "done",
+    statusReason: null, severe: false, votes: 9, reporter: "陈屿 · 交付组",
+    createdAt: "2026-08-20T03:00:00.000Z",
+    github: { kind: "pr", number: 130, url: "https://github.com/boardx/workspacex/pull/130", state: "merged" },
+    linkedFeedbackId: null, resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+  },
+  {
+    id: "in-r3", kind: "feedback", code: "R-3", title: "批量邀请支持粘贴邮箱列表",
+    body: "一次邀请几十个人得一个个填，希望能粘贴一整列邮箱。",
+    structured: null, feedbackKind: "需求", sourceStatus: "不做", stage: "archived",
+    statusReason: "与即将上线的 SCIM 目录同步重叠，暂不单独做手工批量邀请。", severe: false, votes: 4,
+    reporter: "叶蓁 · HR", createdAt: "2026-08-10T08:30:00.000Z",
+    github: null, linkedFeedbackId: null, resolvedByDesignId: null, exception: null, submittedByMe: false, votedByMe: false,
+  },
+  {
+    id: "in-e1", kind: "exception", code: "E-1", title: "ASR 转写服务连接超时",
+    body: "语音转写在高峰期出现连接超时，影响长语音反馈与会议录音。",
+    structured: null, feedbackKind: null, sourceStatus: "待处理", stage: "backlog",
+    statusReason: null, severe: true, votes: 0, reporter: null, createdAt: "2026-09-03T05:00:00.000Z",
+    github: null, linkedFeedbackId: null, resolvedByDesignId: null,
+    exception: { location: "asr-gateway / ws", count: 47, affectedUsers: 12 }, submittedByMe: false, votedByMe: false,
+  },
+];
+
+const FEEDBACK_EVENTS = [
+  {
+    id: "evt-1", fromStatus: null, toStatus: "待处理", reason: null, actorId: "sys",
+    notified: false, emailSubject: null, emailText: null, createdAt: "2026-09-03T01:40:00.000Z",
+  },
+];
+
+/** stage → 源状态：反馈/系统异常各一套，同契约 `stageOf` 的映射表（这里只是取材夹具，不是第二份实现）。 */
+const FEEDBACK_STATUS_OF_STAGE = { backlog: "待处理", doing: "已进入迭代", done: "已修复", archived: "不做" };
+const EXCEPTION_STATUS_OF_STAGE = { backlog: "待处理", doing: "已转入开发", archived: "不做" };
+const STAGE_OF_FEEDBACK_STATUS = Object.fromEntries(Object.entries(FEEDBACK_STATUS_OF_STAGE).map(([s, v]) => [v, s]));
+const STAGE_OF_EXCEPTION_STATUS = Object.fromEntries(Object.entries(EXCEPTION_STATUS_OF_STAGE).map(([s, v]) => [v, s]));
+
+/** 拦 `/inbox*`、`/feedback/:id/status`、`/feedback/:id/events`、`/system/error-logs/:id`。 */
+async function routeInbox(page, { empty }) {
+  const json = (route, body, status = 200) =>
+    route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+  const items = empty ? [] : INBOX_ITEMS.map((i) => ({ ...i }));
+
+  await page.route((url) => new URL(url).pathname === "/inbox", (route) => {
+    const u = new URL(route.request().url());
+    const kind = u.searchParams.get("kind");
+    const q = (u.searchParams.get("q") ?? "").toLowerCase();
+    const filtered = items.filter(
+      (i) => (kind ? i.kind === kind : true) && (q ? `${i.title}${i.code}`.toLowerCase().includes(q) : true),
+    );
+    return json(route, { items: filtered, nextCursor: null, sources: { exception: "included" } });
+  });
+
+  await page.route((url) => new URL(url).pathname === "/inbox/counts", (route) => {
+    const byStage = { backlog: 0, doing: 0, done: 0, archived: 0 };
+    const byKind = { feedback: 0, exception: 0, design: 0 };
+    for (const i of items) { byStage[i.stage]++; byKind[i.kind]++; }
+    return json(route, { byStage, byKind, total: items.length, sources: { exception: "included" } });
+  });
+
+  await page.route((url) => /^\/feedback\/[^/]+\/status$/.test(new URL(url).pathname), (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[2]);
+    const item = items.find((i) => i.id === id);
+    if (!item) return json(route, { reasonCode: "FEEDBACK_NOT_FOUND" }, 404);
+    const body = route.request().postDataJSON() ?? {};
+    item.sourceStatus = body.status;
+    item.stage = STAGE_OF_FEEDBACK_STATUS[body.status] ?? item.stage;
+    item.statusReason = body.reason ?? null;
+    return json(route, { status: item.sourceStatus });
+  });
+
+  await page.route((url) => /^\/feedback\/[^/]+\/events$/.test(new URL(url).pathname), (route) => json(route, { events: FEEDBACK_EVENTS }));
+
+  await page.route((url) => /^\/system\/error-logs\/[^/]+$/.test(new URL(url).pathname), (route) => {
+    const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/").pop());
+    const item = items.find((i) => i.id === id);
+    if (!item) return json(route, { reasonCode: "NOT_FOUND" }, 404);
+    const body = route.request().postDataJSON() ?? {};
+    if (body.status) {
+      item.sourceStatus = body.status;
+      item.stage = STAGE_OF_EXCEPTION_STATUS[body.status] ?? item.stage;
+    }
+    if (body.statusReason !== undefined) item.statusReason = body.statusReason;
+    return json(route, { status: item.sourceStatus });
   });
 }
 
@@ -188,6 +301,7 @@ for (const [file, scene, state, theme, prepare] of SHOTS) {
   const context = await browser.newContext({ viewport: { width: 1360, height: 900 }, colorScheme: theme, deviceScaleFactor: 2 });
   const page = await context.newPage();
   await routeDrafts(page, { empty: scene === "drafts-empty" });
+  await routeInbox(page, { empty: scene === "inbox-empty" });
   await gotoReady(page, `/preview/feedback-design-loop?scene=${scene}&state=${state}`);
   await page.waitForTimeout(500);
   if (prepare) await prepare(page);
