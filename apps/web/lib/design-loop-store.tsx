@@ -22,11 +22,10 @@ import * as React from "react";
  *   `deepenFeedback` mock，见下）。壳层之外的独立页（设计详情全屏页）**从 B4.5 起不再挂**
  *   ——它已经不读这个 store 了。
  *
- * ⚠ `deepenFeedback` **仍被真栈收件箱屏调用**（B4.4 尚未落地本分支；一旦落地，
- *   `inbox-screen.tsx` 会改调 `lib/live-feedback.ts` 的真栈 `deepenFeedback`
- *   `POST /feedback/:id/deepen`，这个方法就会跟其它 project 方法一样只剩没有调用方，
- *   同归 B6.1 清理）。它的入参（`code`/`title`/`body`）由调用方从 `InboxItem` 里取，
- *   本 store 不再自己保有一份反馈/异常条目去查——那份唯一事实源现在是 `listInbox`。
+ * ⚠ `deepenFeedback`（这个 store 上的方法）**从 B4.4（2026-09-04）起不再被真栈收件箱屏调用**
+ *   ——`inbox-screen.tsx` 改调 `lib/live-feedback.ts` 的真栈 `deepenFeedback`
+ *   （`POST /feedback/:id/deepen`），拿真实 `project.id` 去跳转。这个方法本身**没删**——
+ *   跟其它 project 方法一样只是没有生产调用方了，同归上面 B4.5 那条、B6.1 清理范围。
  */
 
 export type MockProjectTemplate = "mobile" | "ui" | "wireframe";

@@ -9,10 +9,15 @@
  *   ⑤ 看板卡片拖到另一列触发真实迁移调用（反馈 → `PUT /feedback/:id/status`，
  *      系统异常 → `PUT /system/error-logs/:id`）；系统异常拖进「已完成」列**不发请求**。
  *   ⑥ `sources.exception === "withheld"` 时「系统异常」筛选 Chip 禁用并提示「仅平台运维可见」。
- *   ⑦ UC-17.8 B4.5：PM 设计工作台首页 —— loading/empty/dep-failed 三态；「新建」的
+ *   ⑦ PM 设计工作台 `pushProject`：项目标记已推送 + `resolvedInbox` 拿到 `D-` 编号
+ *      （收件箱本身真栈化后不再由这个 mock store 持有，见 `lib/design-loop-store.tsx` 文件头）。
+ *   ⑧ UC-17.8 B4.4「用 PM 设计工作台深化」：点击后调真栈 `POST /feedback/:id/deepen`，
+ *      跳转带的是服务端返回的**真实** `project.id`（不再是 `design-loop-store.tsx` 本地
+ *      拼出来的 mock id），失败时提示错误且 drawer 不关。
+ *   ⑨ UC-17.8 B4.5：PM 设计工作台首页 —— loading/empty/dep-failed 三态；「新建」的
  *      生成中过渡等待真实 `createProject` 返回才导航（不是固定超时）；删除调真实
  *      `deleteProject` 成功才从列表移除。
- *   ⑧ UC-17.8 B4.5：设计详情页 —— 按 `id` 在 `listMyProjects()` 里找不到时展示
+ *   ⑩ UC-17.8 B4.5：设计详情页 —— 按 `id` 在 `listMyProjects()` 里找不到时展示
  *      「找不到这个设计项目」；发消息调真实 `appendProjectChat`，用服务端整体返回的
  *      `chat`（用户消息 + 固定回执两条）覆盖本地；推送调真实 `pushToInbox`，成功页
  *      两个出口读的是服务端返回的真实 `inboxCode`。
@@ -417,7 +422,67 @@ function project(over: Partial<DesignProject> = {}): DesignProject {
   };
 }
 
-describe("⑦ PM 设计工作台首页：真栈 listMyProjects / createProject / deleteProject", () => {
+describe("UC-17.8 B4.4：收件箱「用 PM 设计工作台深化」调真栈 POST /feedback/:id/deepen", () => {
+  it("点击后调真栈接口，拿到返回的真实 project.id 并关掉 drawer", async () => {
+    const onDeepen = vi.fn();
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/inbox") return { items: [feedbackItem({ stage: "backlog" })], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (path === "/feedback/x1/deepen" && opts?.method === "POST") {
+        return { created: true, project: { id: "dp-real-1", name: "标题一", template: "wireframe", problem: "正文一" } };
+      }
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" onDeepen={onDeepen} />, { wrapper: wrap() });
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-card-B-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-deepen"));
+    await waitFor(() => expect(callsTo("/feedback/x1/deepen", "POST")).toHaveLength(1));
+    // 跳转拿到的是服务端返回的**真实** project.id，不是本地拼出来的 mock id。
+    await waitFor(() => expect(onDeepen).toHaveBeenCalledWith("dp-real-1"));
+    // 深化成功后 drawer 关闭。
+    expect(screen.queryByTestId("inbox-drawer")).toBeNull();
+  });
+
+  it("接口失败时提示错误，drawer 保持打开，不跳转", async () => {
+    const onDeepen = vi.fn();
+    apiRequest.mockImplementation(async (path: string, opts?: { method?: string }) => {
+      if (path === "/inbox") return { items: [feedbackItem({ stage: "backlog" })], nextCursor: null, sources: { exception: "included" } };
+      if (path === "/inbox/counts") return baseCounts;
+      if (path === "/feedback/x1/deepen" && opts?.method === "POST") throw new Error("dependency_unavailable");
+      throw new Error(`unexpected ${path}`);
+    });
+    render(<DesignLoopInboxScreen state="default" onDeepen={onDeepen} />, { wrapper: wrap() });
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-card-B-1"));
+    fireEvent.click(await screen.findByTestId("inbox-action-deepen"));
+    await waitFor(() => expect(callsTo("/feedback/x1/deepen", "POST")).toHaveLength(1));
+    expect(onDeepen).not.toHaveBeenCalled();
+    expect(screen.getByTestId("inbox-drawer")).toBeTruthy();
+  });
+});
+
+describe("⑧ PM 设计工作台：pushProject 标记已推送并生成 D- 编号", () => {
+  it("pushProject 后：项目 pushed=true，resolvedInbox 是 D- 开头的编号", () => {
+    const project: Project = {
+      id: "p1", name: "深化 B-3", template: "wireframe", emoji: "🧩", owner: "我", updated: "2026-09-01T00:00:00.000Z",
+      pushed: false, linkedFeedback: "B-3", problem: "问题", criteria: ["a"], frames: ["草稿页 1"], chat: [],
+    };
+    const { result } = renderHook(() => useDesignLoop(), {
+      wrapper: ({ children }) => <DesignLoopProvider seed={{ projects: [project] }}>{children}</DesignLoopProvider>,
+    });
+
+    let code = "";
+    act(() => { code = result.current.pushProject("p1"); });
+
+    expect(code.startsWith("D-")).toBe(true);
+    const p = result.current.projects.find((x) => x.id === "p1")!;
+    expect(p.pushed).toBe(true);
+    expect(p.resolvedInbox).toBe(code);
+  });
+});
+
+describe("⑨ PM 设计工作台首页：真栈 listMyProjects / createProject / deleteProject", () => {
   it("读取中 ⇒ loading；回空 ⇒ empty", async () => {
     let resolve!: (v: unknown) => void;
     apiRequest.mockImplementation((path: string) => {
@@ -481,7 +546,7 @@ describe("⑦ PM 设计工作台首页：真栈 listMyProjects / createProject /
   });
 });
 
-describe("⑧ 设计详情页：真栈 listMyProjects / appendProjectChat / pushToInbox", () => {
+describe("⑩ 设计详情页：真栈 listMyProjects / appendProjectChat / pushToInbox", () => {
   it("id 在 listMyProjects() 里找不到 ⇒ 找不到这个设计项目", async () => {
     apiRequest.mockImplementation(async (path: string) => {
       if (path === "/pm-designs") return { items: [project({ id: "other" })] };

@@ -11,6 +11,7 @@
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { toOrgId } from "../../domain/org-id";
 import type {
+  CreateOrGetByLinkedFeedbackResult,
   DesignProjectChatTurn,
   DesignProjectPatch,
   DesignProjectRepository,
@@ -114,6 +115,55 @@ class ScopedPgDesignProjectRepository implements DesignProjectRepository {
           project.linkedFeedbackId,
         ],
       );
+    });
+  }
+
+  /**
+   * B4.4 `deepenFeedback`——见 `project-ports.ts` 头注的幂等说明。`ON CONFLICT` 目标必须
+   * 精确匹配迁移里的部分唯一索引（`(org_id, linked_feedback_id) WHERE linked_feedback_id
+   * IS NOT NULL`）,否则 Postgres 不认这条索引,`DO NOTHING` 就不会生效。
+   */
+  async createOrGetByLinkedFeedback(
+    project: NewDesignProject & { readonly linkedFeedbackId: string },
+  ): Promise<CreateOrGetByLinkedFeedbackResult> {
+    return this.db.withTenant(toOrgId(this.orgId), async (s: TenantSession) => {
+      const { rows: inserted } = await s.query<{ id: string }>(
+        `INSERT INTO design_projects
+           (id, org_id, owner_id, name, template, problem, criteria, frames, linked_feedback_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9)
+         ON CONFLICT (org_id, linked_feedback_id) WHERE linked_feedback_id IS NOT NULL DO NOTHING
+         RETURNING id`,
+        [
+          project.id,
+          this.orgId,
+          project.ownerId,
+          project.name,
+          project.template,
+          project.problem,
+          JSON.stringify(project.criteria),
+          JSON.stringify(project.frames),
+          project.linkedFeedbackId,
+        ],
+      );
+
+      if (inserted.length > 0) {
+        const { rows } = await s.query<ProjectDbRow>(
+          `SELECT ${SELECT_COLUMNS} FROM design_projects WHERE org_id = $1 AND id = $2`,
+          [this.orgId, project.id],
+        );
+        const row = rows[0];
+        if (row === undefined) throw new Error("design-workbench: inserted row vanished within the same transaction");
+        return { project: toRow(row, await this.chatFor(s, row.id)), created: true };
+      }
+
+      // 冲突：已经有一行占了这条反馈——复用它,不是本次传入的字段（见 project-ports.ts 头注）。
+      const { rows } = await s.query<ProjectDbRow>(
+        `SELECT ${SELECT_COLUMNS} FROM design_projects WHERE org_id = $1 AND linked_feedback_id = $2`,
+        [this.orgId, project.linkedFeedbackId],
+      );
+      const row = rows[0];
+      if (row === undefined) throw new Error("design-workbench: conflicting linked_feedback_id row not found");
+      return { project: toRow(row, await this.chatFor(s, row.id)), created: false };
     });
   }
 

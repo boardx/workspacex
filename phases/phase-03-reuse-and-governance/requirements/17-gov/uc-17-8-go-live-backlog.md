@@ -92,7 +92,22 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
 ### 0.3 Sprint 3 落地记录
 
 - ✅ B4.1–B4.3（PM 设计工作台真栈化：契约 + `design_projects`/`design_project_chat_messages`
-  迁移 + 六条 API）已落地（PR #2677）。
+  迁移 + 六条 API）+ B1.6/B3.8 E2E，2026-09-04，PR #2677。
+- ✅ B4.4（「用 PM 设计工作台深化」真栈）2026-09-04 落地：契约 `deepenFeedback` 挂在
+  `design-workbench.ts`（路由 `POST /feedback/:feedbackId/deepen`——路由命名空间跟着
+  backlog 原文，契约文件跟着输出类型 `DesignProject` 的单一事实源，用例文件按"谁是这次
+  动作的主语"落在 `application/feedback/deepen-feedback.ts`，三处理由不同、互不矛盾，
+  各自的头注写清楚了）。`name`=反馈 `title`、`problem`=反馈 `detail`、`template` 恒
+  `wireframe`，服务端读反馈自己填，不接受调用方拼一份可能对不上的值。**幂等键是
+  `feedbackId`**：新迁移 `20260904160000_uc178_b44_deepen_feedback_uniq.sql` 给
+  `design_projects (org_id, linked_feedback_id)` 加部分唯一索引，仓储用单条
+  `INSERT ... ON CONFLICT ... DO NOTHING` 完成"没有就建、有就复用"，不是应用层先查后插
+  （那两步之间有窗口）。权限：读正文过 D3（`feedback-detail-decision.ts`），看不到正文
+  不能深化（`FEEDBACK_DETAIL_NOT_VISIBLE`）。Web 侧：`inbox-screen.tsx`「用 PM 设计工作台
+  深化」按钮从 `design-loop-store.tsx` 的本地 mock 调用改成 `lib/live-feedback.ts` 的真栈
+  `deepenFeedback`，跳转带的是服务端返回的真实 `project.id`；`workbench-screen.tsx`/
+  `detail-screen.tsx` 仍读那个 mock store（B4.5 才切，不在本次范围）——**已知的、有意的
+  过渡态**：跳转 id 是真的，落地页内容暂时还是 mock。PR：`worker/claude-uc17-8-b4-4-deepen-feedback`。
 - ✅ B4.5（Web：`workbench-screen`/`detail-screen` 切 API）2026-09-04 落地：新增
   `lib/live-design-workbench.ts`（薄封装 `designWorkbench` 契约六条操作，同
   `live-inbox.ts`/`live-feedback.ts` 成例）；两屏从 `lib/design-loop-store.tsx` 的本地
@@ -108,9 +123,8 @@ dialog.tsx` 上撤回该改动，`inbox-smoke.spec.ts` 用例①标 `test.fixme`
   独立路由，不再需要挂 `DesignLoopProvider`（`app/platform-admin/design-workbench/
   [projectId]/page.tsx`）。`design-loop-store.tsx` 的 `projects` 相关方法仍保留在文件里
   （没有生产调用方了），删除留给 B6.1。9 条新增/改写单测
-  （`tests/ui/design-loop.test.tsx` ⑦⑧）。
-- 待做：B4.4（「用 PM 设计工作台深化」真栈，独立 PR 并行中）、B4.6（详情页取材页与
-  截图更新）、B4.7（E2E）。
+  （`tests/ui/design-loop.test.tsx` ⑨⑩）。
+- 待做：B4.6（详情页取材页与截图更新）、B4.7（E2E）。
 
 ## 1. 契约束切分建议（ADR-023：每束一份 design-signoff，三件一起签）
 

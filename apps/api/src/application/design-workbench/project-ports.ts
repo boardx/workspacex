@@ -68,8 +68,26 @@ export interface PushToInboxResult {
   readonly resolvedFeedback: boolean;
 }
 
+/** `createOrGetByLinkedFeedback` 的落库结果——`created` 区分这次是不是真的插入了新行。 */
+export interface CreateOrGetByLinkedFeedbackResult {
+  readonly project: DesignProjectRow;
+  readonly created: boolean;
+}
+
 export interface DesignProjectRepository {
   create(project: NewDesignProject): Promise<void>;
+  /**
+   * B4.4 `deepenFeedback` 专用——`linkedFeedbackId` 非空，幂等键就是它（迁移
+   * `20260904160000_uc178_b44_deepen_feedback_uniq.sql` 的 `(org_id, linked_feedback_id)`
+   * 部分唯一索引）。单条 `INSERT ... ON CONFLICT ... DO NOTHING` 内完成"没有就建、有就复用"，
+   * 不是应用层先查后插的两步（那两步之间有窗口，见该迁移头注）。`created=false` 时返回的是
+   * **已存在**的那一行,不是本次传入的字段——已存在项目的 owner 可能不是这次调用的
+   * `project.ownerId`（先深化的人与后重试的人可能不是同一账号）,这正是幂等要表达的：
+   * 不因为"谁发起了这次调用"而改变已经产生的事实。
+   */
+  createOrGetByLinkedFeedback(
+    project: NewDesignProject & { readonly linkedFeedbackId: string },
+  ): Promise<CreateOrGetByLinkedFeedbackResult>;
   /** 全组织可读——listMyProjects 的 owner 过滤（`q` 也一样）在应用层做，见 `list-my-projects.ts`。 */
   listForOrg(): Promise<readonly DesignProjectRow[]>;
   /** 不存在 ⇒ `null`。全组织可读，不接 `ownerId`。 */
